@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 91918f5f3f77af349a9fbd2aeb55cafa, type: 3}
+  m_Name: Crop_Carrot
+  m_EditorClassIdentifier: 
+  itemID: 1101
+  itemName: "\u80E1\u841D\u535C"
+  description: "\u65B0\u9C9C\u7684\u80E1\u841D\u535C"
+  category: 1
+  icon: {fileID: 1388706608485843165, guid: 86fe96beb80653341a1d497f06a6216a, type: 3}
+  bagSprite: {fileID: 0}
+  worldPrefab: {fileID: 8138148565603249175, guid: 396ca73a88791ce40b60a9c94c1ff0d7, type: 3}
+  buyPrice: 0
+  sellPrice: 80
+  maxStackSize: 99
+  canBeDiscarded: 1
+  isQuestItem: 0
+  seedID: 1001
+  harvestExp: 10
+  canBeCrafted: 1
+  usedInRecipes: "\u756A\u8304\u6C64\u3001\u62AB\u8428"
+  qualityInfo: "\u6536\u83B7\u65F6\u968F\u673A\u5224\u5B9A\u54C1\u8D28\uFF08\u666E\u901A/\u94DC\u661F/\u94F6\u661F/\u91D1\u661F/\u5F69\u661F\uFF09\n\u54C1\u8D28\u8D8A\u9AD8\u552E\u4EF7\u8D8A\u9AD8\uFF0C\u4F46\u4F5C\u7269\u5916\u89C2\u4E0D\u53D8"

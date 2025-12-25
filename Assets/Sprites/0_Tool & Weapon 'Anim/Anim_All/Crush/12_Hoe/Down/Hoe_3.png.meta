@@ -1,0 +1,333 @@
+fileFormatVersion: 2
+guid: eef039538b44fc74f91aee1eb1076d21
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 7949503626501376664
+    second: Hoe_3_0
+  - first:
+      213: 8585961234930267793
+    second: Hoe_3_1
+  - first:
+      213: -7521765846120180983
+    second: Hoe_3_2
+  - first:
+      213: -5826378254792052879
+    second: Hoe_3_3
+  - first:
+      213: -939170393218032117
+    second: Hoe_3_4
+  - first:
+      213: -8101555784854738833
+    second: Hoe_3_5
+  - first:
+      213: -6081591906465327134
+    second: Hoe_3_6
+  - first:
+      213: -4358323501213076127
+    second: Hoe_3_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 16
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Crush_Down_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 27
+        width: 16
+        height: 28
+      alignment: 9
+      pivot: {x: 0.9375, y: -1.0357144}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 86594eb423920804bb6e243c97e9c1bf
+      internalID: 7949503626501376664
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Down_1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 28
+        width: 16
+        height: 28
+      alignment: 9
+      pivot: {x: 0.9375, y: -1.0714287}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: fe1bbbd84d8c28a49aac713cd1460780
+      internalID: 8585961234930267793
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Down_2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 29
+        width: 16
+        height: 29
+      alignment: 9
+      pivot: {x: 0.9375, y: -1.0689656}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 14009d8d282328f4abf0c03e19d3bc7c
+      internalID: -7521765846120180983
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Down_3
+      rect:
+        serializedVersion: 2
+        x: 202
+        y: 0
+        width: 10
+        height: 25
+      alignment: 9
+      pivot: {x: 0.5, y: -0.08}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: beec1090c9f5c8846896a1cf9a6e01e2
+      internalID: -5826378254792052879
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Down_4
+      rect:
+        serializedVersion: 2
+        x: 266
+        y: 0
+        width: 10
+        height: 23
+      alignment: 9
+      pivot: {x: 0.5, y: -0.08695652}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: d10d0c4f54190ae42a7b3909ea0e6274
+      internalID: -939170393218032117
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Down_5
+      rect:
+        serializedVersion: 2
+        x: 325
+        y: 2
+        width: 14
+        height: 25
+      alignment: 9
+      pivot: {x: 0.71428573, y: -0.16}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 68dcc207b64e6944bac7ab150e603381
+      internalID: -8101555784854738833
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Down_6
+      rect:
+        serializedVersion: 2
+        x: 376
+        y: 16
+        width: 26
+        height: 13
+      alignment: 9
+      pivot: {x: 0.88461536, y: -1.3846154}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 10d33ccc912e3ae44af119893f7560f7
+      internalID: -6081591906465327134
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Down_7
+      rect:
+        serializedVersion: 2
+        x: 448
+        y: 23
+        width: 16
+        height: 25
+      alignment: 9
+      pivot: {x: 0.9375, y: -1}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: df35bb93d1bdc7e428eb333aeae4bab4
+      internalID: -4358323501213076127
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 463027e69105ae74780ac1841efa0d46
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Crush_Down_0: 7949503626501376664
+      Crush_Down_1: 8585961234930267793
+      Crush_Down_2: -7521765846120180983
+      Crush_Down_3: -5826378254792052879
+      Crush_Down_4: -939170393218032117
+      Crush_Down_5: -8101555784854738833
+      Crush_Down_6: -6081591906465327134
+      Crush_Down_7: -4358323501213076127
+      Hoe_3_0: 7949503626501376664
+      Hoe_3_1: 8585961234930267793
+      Hoe_3_2: -7521765846120180983
+      Hoe_3_3: -5826378254792052879
+      Hoe_3_4: -939170393218032117
+      Hoe_3_5: -8101555784854738833
+      Hoe_3_6: -6081591906465327134
+      Hoe_3_7: -4358323501213076127
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

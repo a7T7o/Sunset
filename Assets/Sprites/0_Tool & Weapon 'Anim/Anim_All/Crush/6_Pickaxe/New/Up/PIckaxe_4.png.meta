@@ -1,0 +1,343 @@
+fileFormatVersion: 2
+guid: 8412991eb8f5d7e47947230417261285
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -7113342088933470093
+    second: PIckaxe_4_0
+  - first:
+      213: -8641498890933119399
+    second: PIckaxe_4_1
+  - first:
+      213: -253879678151878207
+    second: PIckaxe_4_2
+  - first:
+      213: -580107680031760596
+    second: PIckaxe_4_3
+  - first:
+      213: 1016203876809517657
+    second: PIckaxe_4_4
+  - first:
+      213: 8991822464290103343
+    second: PIckaxe_4_5
+  - first:
+      213: 2626002674682262159
+    second: PIckaxe_4_6
+  - first:
+      213: -5730323582091378896
+    second: PIckaxe_4_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 16
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Crush_Up_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 0
+        width: 15
+        height: 23
+      alignment: 9
+      pivot: {x: 0.13333334, y: -0.82608694}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 70bff63d01109d54e8c0d5ae840eddd0
+      internalID: -7113342088933470093
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Up_1
+      rect:
+        serializedVersion: 2
+        x: 64
+        y: 2
+        width: 15
+        height: 23
+      alignment: 9
+      pivot: {x: 0.13333334, y: -0.9130435}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: cc6e392040960204587a09adeaa988ff
+      internalID: -8641498890933119399
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Up_2
+      rect:
+        serializedVersion: 2
+        x: 128
+        y: 4
+        width: 15
+        height: 23
+      alignment: 9
+      pivot: {x: 0.13333334, y: -1}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 26fa17f12464d674194032bc64994bb1
+      internalID: -253879678151878207
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Up_3
+      rect:
+        serializedVersion: 2
+        x: 189
+        y: 4
+        width: 14
+        height: 26
+      alignment: 9
+      pivot: {x: 0.35714287, y: -0.88461536}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 615524f2d0459854eb37f472f52c1a09
+      internalID: -580107680031760596
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Up_4
+      rect:
+        serializedVersion: 2
+        x: 253
+        y: 4
+        width: 14
+        height: 24
+      alignment: 9
+      pivot: {x: 0.35714287, y: -0.9583333}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 080231d6363e1604eb0b3d60d3df764c
+      internalID: 1016203876809517657
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Up_5
+      rect:
+        serializedVersion: 2
+        x: 317
+        y: 4
+        width: 14
+        height: 27
+      alignment: 9
+      pivot: {x: 0.35714287, y: -0.8518519}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 2632237c24dc44647b75a1e1eff63701
+      internalID: 8991822464290103343
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Up_6
+      rect:
+        serializedVersion: 2
+        x: 381
+        y: 4
+        width: 14
+        height: 30
+      alignment: 9
+      pivot: {x: 0.35714287, y: -0.7666667}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3158a61abd0d3454397c44851360b9f3
+      internalID: 2626002674682262159
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Up_7
+      rect:
+        serializedVersion: 2
+        x: 445
+        y: 9
+        width: 14
+        height: 28
+      alignment: 9
+      pivot: {x: 0.35714287, y: -1}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 57cb020f3fd30ed4eb4590c8c5e3f72c
+      internalID: -5730323582091378896
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: c293d42fd4ce9f647adc7d93f31e3c98
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Crush_Up_0: -7113342088933470093
+      Crush_Up_1: -8641498890933119399
+      Crush_Up_10: 1068873360
+      Crush_Up_11: -323514439
+      Crush_Up_12: -443533315
+      Crush_Up_2: -253879678151878207
+      Crush_Up_3: -580107680031760596
+      Crush_Up_4: 1016203876809517657
+      Crush_Up_5: 8991822464290103343
+      Crush_Up_6: 2626002674682262159
+      Crush_Up_7: -5730323582091378896
+      Crush_Up_8: 228535308
+      Crush_Up_9: 1093651456
+      PIckaxe_4_0: -7113342088933470093
+      PIckaxe_4_1: -8641498890933119399
+      PIckaxe_4_10: 1068873360
+      PIckaxe_4_11: -323514439
+      PIckaxe_4_12: -443533315
+      PIckaxe_4_2: -253879678151878207
+      PIckaxe_4_3: -580107680031760596
+      PIckaxe_4_4: 1016203876809517657
+      PIckaxe_4_5: 8991822464290103343
+      PIckaxe_4_6: 2626002674682262159
+      PIckaxe_4_7: -5730323582091378896
+      PIckaxe_4_8: 228535308
+      PIckaxe_4_9: 1093651456
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

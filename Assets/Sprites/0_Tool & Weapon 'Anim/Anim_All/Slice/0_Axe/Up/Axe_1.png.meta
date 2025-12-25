@@ -1,0 +1,345 @@
+fileFormatVersion: 2
+guid: 941cb9a3d2589ee4890f9fbc8fa6c8d9
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -8169026817774470458
+    second: Axe_1_0
+  - first:
+      213: -5571717992372129735
+    second: Axe_1_1
+  - first:
+      213: -2107380283051722772
+    second: Axe_1_2
+  - first:
+      213: 4150074121857564819
+    second: Axe_1_3
+  - first:
+      213: -7799751987701707835
+    second: Axe_1_4
+  - first:
+      213: 8078557001906825241
+    second: Axe_1_5
+  - first:
+      213: -8314813183643576437
+    second: Axe_1_6
+  - first:
+      213: -5369225841493428276
+    second: Axe_1_7
+  - first:
+      213: -6423825341887286562
+    second: Axe_1_8
+  - first:
+      213: -3872349572367367499
+    second: Axe_1_9
+  - first:
+      213: -1224306794220646448
+    second: Axe_1_10
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 16
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Slice_Up_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 6
+        width: 17
+        height: 38
+      alignment: 9
+      pivot: {x: 0.47058824, y: -0.15789473}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 86ee8a0ece2e8a449a0a450348d382cf
+      internalID: -8169026817774470458
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Up_1
+      rect:
+        serializedVersion: 2
+        x: 65
+        y: 6
+        width: 15
+        height: 38
+      alignment: 9
+      pivot: {x: 0.4666667, y: -0.15789473}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: f24de8436c7adc34c83d800a84befc78
+      internalID: -5571717992372129735
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Up_2
+      rect:
+        serializedVersion: 2
+        x: 130
+        y: 6
+        width: 13
+        height: 38
+      alignment: 9
+      pivot: {x: 0.4615385, y: -0.15789473}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 9bb48bebcf606ab48a7e24750ee14d1c
+      internalID: -2107380283051722772
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Up_3
+      rect:
+        serializedVersion: 2
+        x: 180
+        y: 0
+        width: 37
+        height: 60
+      alignment: 9
+      pivot: {x: 0.5405406, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ce2829cdaa59ed6478337362c3933e13
+      internalID: 4150074121857564819
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Up_4
+      rect:
+        serializedVersion: 2
+        x: 252
+        y: 20
+        width: 19
+        height: 39
+      alignment: 9
+      pivot: {x: 0.6315789, y: -0.51282054}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 41aae51bd3c974643985e066eb3523e8
+      internalID: -7799751987701707835
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Up_5
+      rect:
+        serializedVersion: 2
+        x: 317
+        y: 26
+        width: 18
+        height: 28
+      alignment: 9
+      pivot: {x: 0.6111111, y: -0.9285714}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: db74221bfff1b3c4aa95a5381b6720c6
+      internalID: 8078557001906825241
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Up_6
+      rect:
+        serializedVersion: 2
+        x: 382
+        y: 26
+        width: 24
+        height: 21
+      alignment: 9
+      pivot: {x: 0.41666666, y: -1.2380953}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 3edff5e819a2e8243aa5845405400a14
+      internalID: -8314813183643576437
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Up_7
+      rect:
+        serializedVersion: 2
+        x: 447
+        y: 23
+        width: 23
+        height: 21
+      alignment: 9
+      pivot: {x: 0.39130434, y: -1.0952381}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 03f93deddbc09504493d60f1f1c8a188
+      internalID: -5369225841493428276
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 0c37f887cbf05b141a1a24a8268d62b5
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Axe_1_0: -8169026817774470458
+      Axe_1_1: -5571717992372129735
+      Axe_1_10: -1224306794220646448
+      Axe_1_2: -2107380283051722772
+      Axe_1_3: 4150074121857564819
+      Axe_1_4: -7799751987701707835
+      Axe_1_5: 8078557001906825241
+      Axe_1_6: -8314813183643576437
+      Axe_1_7: -5369225841493428276
+      Axe_1_8: -6423825341887286562
+      Axe_1_9: -3872349572367367499
+      Slice_Up_0: -8169026817774470458
+      Slice_Up_1: -5571717992372129735
+      Slice_Up_2: -2107380283051722772
+      Slice_Up_3: 4150074121857564819
+      Slice_Up_4: -7799751987701707835
+      Slice_Up_5: 8078557001906825241
+      Slice_Up_6: -8314813183643576437
+      Slice_Up_7: -5369225841493428276
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

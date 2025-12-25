@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ad9530bb935581f4097e42ac48604ef4, type: 3}
+  m_Name: Tool_1_Axe_1
+  m_EditorClassIdentifier: 
+  itemID: 1
+  itemName: Axe_1
+  description: 
+  category: 0
+  icon: {fileID: 197889727, guid: afda9ab5cab3be1468c288bf74dc14cb, type: 3}
+  bagSprite: {fileID: 0}
+  worldPrefab: {fileID: 8085227676023850154, guid: 22f83a492fa45394982ec4e49b361675, type: 3}
+  buyPrice: 0
+  sellPrice: 0
+  maxStackSize: 1
+  canBeDiscarded: 1
+  isQuestItem: 0
+  toolType: 6
+  energyCost: 2
+  effectRadius: 1
+  efficiencyMultiplier: 1
+  hasDurability: 1
+  maxDurability: 25
+  materialTier: 0
+  canDealDamage: 1
+  damageAmount: 3
+  animatorController: {fileID: 9100000, guid: 78a6a321800238c4e826290a37937a8b, type: 2}
+  animationFrameCount: 8
+  animActionType: 6
+  useSound: {fileID: 0}

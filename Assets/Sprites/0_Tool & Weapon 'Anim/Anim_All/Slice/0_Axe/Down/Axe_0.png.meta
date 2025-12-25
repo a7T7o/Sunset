@@ -1,0 +1,349 @@
+fileFormatVersion: 2
+guid: 82687e05b304d2a4593af5a4a17ca65a
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 3493229594567147604
+    second: Axe_0_0
+  - first:
+      213: 1300900109199907453
+    second: Axe_0_1
+  - first:
+      213: 1990464365785714157
+    second: Axe_0_2
+  - first:
+      213: 4482955892409555511
+    second: Axe_0_3
+  - first:
+      213: -6749301020281013279
+    second: Axe_0_4
+  - first:
+      213: -8739282114168158192
+    second: Axe_0_5
+  - first:
+      213: 8405716065085365187
+    second: Axe_0_6
+  - first:
+      213: -467951124422941316
+    second: Axe_0_7
+  - first:
+      213: -6965826013986024776
+    second: Axe_0_8
+  - first:
+      213: -4094103759162087450
+    second: Axe_0_9
+  - first:
+      213: -6676680557940886827
+    second: Axe_0_10
+  - first:
+      213: -8935712100548759373
+    second: Axe_0_11
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 16
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Slice_Down_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 21
+        width: 17
+        height: 41
+      alignment: 9
+      pivot: {x: 0.7647059, y: -0.53658533}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 01e681866bbc6c04795921a00ff19358
+      internalID: 3493229594567147604
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Down_1
+      rect:
+        serializedVersion: 2
+        x: 65
+        y: 21
+        width: 16
+        height: 42
+      alignment: 9
+      pivot: {x: 0.75, y: -0.52380955}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8ab016af1ce77234d9aebed1d20148e0
+      internalID: 1300900109199907453
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Down_2
+      rect:
+        serializedVersion: 2
+        x: 130
+        y: 21
+        width: 15
+        height: 42
+      alignment: 9
+      pivot: {x: 0.73333335, y: -0.52380955}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 97208a83e4a48db4d854557b9fcae999
+      internalID: 1990464365785714157
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Down_3
+      rect:
+        serializedVersion: 2
+        x: 180
+        y: 0
+        width: 37
+        height: 56
+      alignment: 9
+      pivot: {x: 0.6756757, y: -0.017857144}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 13637fe6b46670947a9258d543cce9f5
+      internalID: 4482955892409555511
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Down_4
+      rect:
+        serializedVersion: 2
+        x: 261
+        y: 0
+        width: 20
+        height: 40
+      alignment: 9
+      pivot: {x: 0.4, y: -0.025}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 079f0db717cedae4eb69b48fac2fe7b1
+      internalID: -6749301020281013279
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Down_5
+      rect:
+        serializedVersion: 2
+        x: 326
+        y: 6
+        width: 18
+        height: 35
+      alignment: 9
+      pivot: {x: 0.3888889, y: -0.2}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7cfaefa2761ea864898be037f3813af3
+      internalID: -8739282114168158192
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Down_6
+      rect:
+        serializedVersion: 2
+        x: 386
+        y: 13
+        width: 20
+        height: 29
+      alignment: 9
+      pivot: {x: 0.55, y: -0.4827586}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 35876c9692c745f4dbe79db3abc491c1
+      internalID: 8405716065085365187
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Slice_Down_7
+      rect:
+        serializedVersion: 2
+        x: 449
+        y: 19
+        width: 18
+        height: 35
+      alignment: 9
+      pivot: {x: 0.6666667, y: -0.5714286}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 08b1587ada2e5dd438003035f2f71506
+      internalID: -467951124422941316
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: f1162378886d4824db86ca950e97a735
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Axe_0_0: 3493229594567147604
+      Axe_0_1: 1300900109199907453
+      Axe_0_10: -6676680557940886827
+      Axe_0_11: -8935712100548759373
+      Axe_0_2: 1990464365785714157
+      Axe_0_3: 4482955892409555511
+      Axe_0_4: -6749301020281013279
+      Axe_0_5: -8739282114168158192
+      Axe_0_6: 8405716065085365187
+      Axe_0_7: -467951124422941316
+      Axe_0_8: -6965826013986024776
+      Axe_0_9: -4094103759162087450
+      Slice_Down_0: 3493229594567147604
+      Slice_Down_1: 1300900109199907453
+      Slice_Down_2: 1990464365785714157
+      Slice_Down_3: 4482955892409555511
+      Slice_Down_4: -6749301020281013279
+      Slice_Down_5: -8739282114168158192
+      Slice_Down_6: 8405716065085365187
+      Slice_Down_7: -467951124422941316
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

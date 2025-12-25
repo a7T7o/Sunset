@@ -1,0 +1,345 @@
+fileFormatVersion: 2
+guid: 7deff0167ef903f4db306d5267f251ba
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: -3548928026839867271
+    second: Sword_4_0
+  - first:
+      213: 4703878454931245421
+    second: Sword_4_1
+  - first:
+      213: -2761880673070394994
+    second: Sword_4_2
+  - first:
+      213: 3646184547400443555
+    second: Sword_4_3
+  - first:
+      213: -507108860020449285
+    second: Sword_4_4
+  - first:
+      213: -4081578100335928101
+    second: Sword_4_5
+  - first:
+      213: 5475185398254799110
+    second: Sword_4_6
+  - first:
+      213: -4607426320224669510
+    second: Sword_4_7
+  - first:
+      213: -4270116626151816331
+    second: Sword_4_8
+  - first:
+      213: -2340100315548408247
+    second: Sword_4_9
+  - first:
+      213: 7406534358589516399
+    second: Sword_4_10
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 16
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Pierce_Side_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 2
+        width: 21
+        height: 26
+      alignment: 9
+      pivot: {x: 0.6666667, y: -0.8076924}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 532945360003df24fbb148020b64a1b8
+      internalID: -3548928026839867271
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pierce_Side_1
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 2
+        width: 21
+        height: 26
+      alignment: 9
+      pivot: {x: 0.7619048, y: -0.8076924}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 064c89a6e2311bc428103c30f6af2b89
+      internalID: 4703878454931245421
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pierce_Side_2
+      rect:
+        serializedVersion: 2
+        x: 125
+        y: 2
+        width: 21
+        height: 26
+      alignment: 9
+      pivot: {x: 0.8095238, y: -0.8076924}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 102d5c42f798e0c488bc1cb5f069e93a
+      internalID: -2761880673070394994
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pierce_Side_3
+      rect:
+        serializedVersion: 2
+        x: 202
+        y: 1
+        width: 36
+        height: 22
+      alignment: 9
+      pivot: {x: 0.11111111, y: -0.90909094}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 04f0a55ee740b0443bc0081288154d68
+      internalID: 3646184547400443555
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pierce_Side_4
+      rect:
+        serializedVersion: 2
+        x: 266
+        y: 1
+        width: 32
+        height: 22
+      alignment: 9
+      pivot: {x: 0.125, y: -0.90909094}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 066d2bf50978af349846c474e6a8a1ad
+      internalID: -507108860020449285
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pierce_Side_5
+      rect:
+        serializedVersion: 2
+        x: 329
+        y: 1
+        width: 29
+        height: 23
+      alignment: 9
+      pivot: {x: 0.1724138, y: -0.8695652}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ebcb40321ab504847a88ab12259a8116
+      internalID: -4081578100335928101
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pierce_Side_6
+      rect:
+        serializedVersion: 2
+        x: 393
+        y: 0
+        width: 22
+        height: 26
+      alignment: 9
+      pivot: {x: 0.22727273, y: -0.7307693}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 0a8178444f1b93d49914de9ca549a357
+      internalID: 5475185398254799110
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Pierce_Side_7
+      rect:
+        serializedVersion: 2
+        x: 450
+        y: 0
+        width: 21
+        height: 26
+      alignment: 9
+      pivot: {x: 0.5714286, y: -0.7307693}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: be01eab1d06665a4bb576ee85e069f7f
+      internalID: -4607426320224669510
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 91a7429faa1383244a63b6dbf90da3a7
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Pierce_Side_0: -3548928026839867271
+      Pierce_Side_1: 4703878454931245421
+      Pierce_Side_2: -2761880673070394994
+      Pierce_Side_3: 3646184547400443555
+      Pierce_Side_4: -507108860020449285
+      Pierce_Side_5: -4081578100335928101
+      Pierce_Side_6: 5475185398254799110
+      Pierce_Side_7: -4607426320224669510
+      Sword_4_0: -3548928026839867271
+      Sword_4_1: 4703878454931245421
+      Sword_4_10: 7406534358589516399
+      Sword_4_2: -2761880673070394994
+      Sword_4_3: 3646184547400443555
+      Sword_4_4: -507108860020449285
+      Sword_4_5: -4081578100335928101
+      Sword_4_6: 5475185398254799110
+      Sword_4_7: -4607426320224669510
+      Sword_4_8: -4270116626151816331
+      Sword_4_9: -2340100315548408247
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

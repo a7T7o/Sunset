@@ -1,0 +1,22 @@
+# ========== Unity核心缓存（必过滤，被Unity持续占用）==========
+Library/
+Temp/
+Logs/
+UserSettings/
+.kiro/
+obj/
+bin/
+
+# ========== Unity包管理缓存 ==========
+Packages/*/Library/
+Packages/*/Temp/
+
+# ========== 编辑器/IDE缓存 ==========
+.vs/
+.vscode/
+*.sln.DotSettings.user
+*.pidb
+*.pidb.meta
+
+# ========== 只保留需要提交的核心文件（不用写，默认跟踪）==========
+# Assets/、Packages/manifest.json、ProjectSettings/ 这些核心目录/文件会被保留，Git不会碰被占用的缓存

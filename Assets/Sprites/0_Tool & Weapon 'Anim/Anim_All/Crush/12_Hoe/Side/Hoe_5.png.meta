@@ -1,0 +1,333 @@
+fileFormatVersion: 2
+guid: 893e3d7f2dd15894a94ac68343de93d3
+TextureImporter:
+  internalIDToNameTable:
+  - first:
+      213: 5500207841072529644
+    second: Hoe_5_0
+  - first:
+      213: 4919333320661855277
+    second: Hoe_5_1
+  - first:
+      213: 7142791962586852890
+    second: Hoe_5_2
+  - first:
+      213: -2265539410684943822
+    second: Hoe_5_3
+  - first:
+      213: -4709421428633847538
+    second: Hoe_5_4
+  - first:
+      213: -6849895481854151242
+    second: Hoe_5_5
+  - first:
+      213: 4739923283205696408
+    second: Hoe_5_6
+  - first:
+      213: -3510838931796859415
+    second: Hoe_5_7
+  externalObjects: {}
+  serializedVersion: 13
+  mipmaps:
+    mipMapMode: 0
+    enableMipMap: 0
+    sRGBTexture: 1
+    linearTexture: 0
+    fadeOut: 0
+    borderMipMap: 0
+    mipMapsPreserveCoverage: 0
+    alphaTestReferenceValue: 0.5
+    mipMapFadeDistanceStart: 1
+    mipMapFadeDistanceEnd: 3
+  bumpmap:
+    convertToNormalMap: 0
+    externalNormalMap: 0
+    heightScale: 0.25
+    normalMapFilter: 0
+    flipGreenChannel: 0
+  isReadable: 1
+  streamingMipmaps: 0
+  streamingMipmapsPriority: 0
+  vTOnly: 0
+  ignoreMipmapLimit: 0
+  grayScaleToAlpha: 0
+  generateCubemap: 6
+  cubemapConvolution: 0
+  seamlessCubemap: 0
+  textureFormat: 1
+  maxTextureSize: 2048
+  textureSettings:
+    serializedVersion: 2
+    filterMode: 0
+    aniso: 1
+    mipBias: 0
+    wrapU: 1
+    wrapV: 1
+    wrapW: 1
+  nPOTScale: 0
+  lightmap: 0
+  compressionQuality: 50
+  spriteMode: 2
+  spriteExtrude: 1
+  spriteMeshType: 1
+  alignment: 0
+  spritePivot: {x: 0.5, y: 0.5}
+  spritePixelsToUnits: 16
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
+  spriteGenerateFallbackPhysicsShape: 1
+  alphaUsage: 1
+  alphaIsTransparency: 1
+  spriteTessellationDetail: -1
+  textureType: 8
+  textureShape: 1
+  singleChannelComponent: 0
+  flipbookRows: 1
+  flipbookColumns: 1
+  maxTextureSizeSet: 0
+  compressionQualitySet: 0
+  textureFormatSet: 0
+  ignorePngGamma: 0
+  applyGammaDecoding: 0
+  swizzle: 50462976
+  cookieLightType: 0
+  platformSettings:
+  - serializedVersion: 4
+    buildTarget: DefaultTexturePlatform
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 0
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: Standalone
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  spriteSheet:
+    serializedVersion: 2
+    sprites:
+    - serializedVersion: 2
+      name: Crush_Side_0
+      rect:
+        serializedVersion: 2
+        x: 0
+        y: 18
+        width: 28
+        height: 15
+      alignment: 9
+      pivot: {x: 0.8148148, y: -2}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 39f095db599e1c840b75659bf503f9dd
+      internalID: 5500207841072529644
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Side_1
+      rect:
+        serializedVersion: 2
+        x: 62
+        y: 18
+        width: 28
+        height: 15
+      alignment: 9
+      pivot: {x: 0.8888889, y: -2}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 7cae31c04ebb62c46b29e08f566877ed
+      internalID: 4919333320661855277
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Side_2
+      rect:
+        serializedVersion: 2
+        x: 123
+        y: 18
+        width: 28
+        height: 15
+      alignment: 9
+      pivot: {x: 1, y: -2}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 752b2ff56a449bf48b5d7686668c3acf
+      internalID: 7142791962586852890
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Side_3
+      rect:
+        serializedVersion: 2
+        x: 215
+        y: 1
+        width: 25
+        height: 13
+      alignment: 9
+      pivot: {x: 0, y: -1}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 01641862e614a204ea2ca0910367f320
+      internalID: -2265539410684943822
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Side_4
+      rect:
+        serializedVersion: 2
+        x: 279
+        y: 0
+        width: 25
+        height: 13
+      alignment: 9
+      pivot: {x: 0, y: -0.923077}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: ec49d24d1ad15cb4bbe7e18512fd860c
+      internalID: -4709421428633847538
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Side_5
+      rect:
+        serializedVersion: 2
+        x: 342
+        y: 1
+        width: 25
+        height: 13
+      alignment: 9
+      pivot: {x: 0.04, y: -1}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 91ce05aea0f0520489e7d1393c51a23a
+      internalID: -6849895481854151242
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Side_6
+      rect:
+        serializedVersion: 2
+        x: 404
+        y: 4
+        width: 24
+        height: 12
+      alignment: 9
+      pivot: {x: 0.125, y: -1.3333334}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 75aff85851ba5254bb1832996fc6382d
+      internalID: 4739923283205696408
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Crush_Side_7
+      rect:
+        serializedVersion: 2
+        x: 468
+        y: 9
+        width: 15
+        height: 22
+      alignment: 9
+      pivot: {x: 0.20000002, y: -0.95454544}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 372d1516b4464854f805a65a9d178bf9
+      internalID: -3510838931796859415
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    outline: []
+    customData: 
+    physicsShape: []
+    bones: []
+    spriteID: 6c158f41c9983b640b186bdb3f72f81b
+    internalID: 0
+    vertices: []
+    indices: 
+    edges: []
+    weights: []
+    secondaryTextures: []
+    spriteCustomMetadata:
+      entries: []
+    nameFileIdTable:
+      Crush_Side_0: 5500207841072529644
+      Crush_Side_1: 4919333320661855277
+      Crush_Side_2: 7142791962586852890
+      Crush_Side_3: -2265539410684943822
+      Crush_Side_4: -4709421428633847538
+      Crush_Side_5: -6849895481854151242
+      Crush_Side_6: 4739923283205696408
+      Crush_Side_7: -3510838931796859415
+      Hoe_5_0: 5500207841072529644
+      Hoe_5_1: 4919333320661855277
+      Hoe_5_2: 7142791962586852890
+      Hoe_5_3: -2265539410684943822
+      Hoe_5_4: -4709421428633847538
+      Hoe_5_5: -6849895481854151242
+      Hoe_5_6: 4739923283205696408
+      Hoe_5_7: -3510838931796859415
+  mipmapLimitGroupName: 
+  pSDRemoveMatte: 0
+  userData: 
+  assetBundleName: 
+  assetBundleVariant: 

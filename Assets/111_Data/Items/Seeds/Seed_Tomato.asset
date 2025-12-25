@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3261e5c9401db3c4da0bfc4dde541ca9, type: 3}
+  m_Name: Seed_Tomato
+  m_EditorClassIdentifier: 
+  itemID: 1001
+  itemName: "\u756A\u8304\u79CD\u5B50"
+  description: "\u6625\u5B63\u4F5C\u7269\uFF0C4\u5929\u6210\u719F"
+  category: 1
+  icon: {fileID: 0}
+  worldSprite: {fileID: 0}
+  worldPrefab: {fileID: 0}
+  buyPrice: 50
+  sellPrice: 10
+  maxStackSize: 99
+  canBeDiscarded: 1
+  isQuestItem: 0
+  baseQuality: 0
+  growthDays: 4
+  season: 0
+  harvestCropID: 1101
+  harvestAmountRange: {x: 1, y: 3}
+  isReHarvestable: 0
+  reHarvestDays: 2
+  maxHarvestCount: 0
+  growthStageSprites: []
+  needsTrellis: 0
+  needsWatering: 1
+  plantingExp: 5
+  harvestingExp: 10
