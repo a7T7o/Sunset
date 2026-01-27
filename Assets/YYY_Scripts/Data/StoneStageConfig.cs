@@ -41,9 +41,11 @@ public static class StoneStageConfigFactory
     /// | 阶段 | 血量 | 石料总量 | 石料掉落 | 最终阶段 | 下一阶段 | 含量减少 |
     /// |------|------|---------|---------|---------|---------|---------|
     /// | M1   | 36   | 12      | 6       | ✗       | M2      | ✗       |
-    /// | M2   | 17   | 6       | 2       | ✗       | M3      | ✓       |
-    /// | M3   | 9    | 4       | 4       | ✓       | -       | -       |
+    /// | M2   | 17   | 6       | 4       | ✗       | M3      | ✓       |
+    /// | M3   | 9*   | 2       | 2       | ✓       | -       | -       |
     /// | M4   | 4    | 2       | 2       | ✓       | -       | -       |
+    /// 
+    /// * M3 阶段 oreIndex=0（无矿物）时血量为 4，与 M4 一致
     /// </summary>
     public static StoneStageConfig[] CreateDefaultConfigs()
     {
@@ -71,7 +73,7 @@ public static class StoneStageConfigFactory
             new StoneStageConfig
             {
                 health = 9,
-                stoneTotalCount = 4,
+                stoneTotalCount = 2,  // 与 M4 一致
                 isFinalStage = true,
                 nextStage = StoneStage.M3,  // 无效，因为是最终阶段
                 decreaseOreIndexOnTransition = false

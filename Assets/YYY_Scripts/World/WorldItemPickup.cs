@@ -10,6 +10,11 @@ public class WorldItemPickup : MonoBehaviour
     [Range(0,4)] public int quality = 0;
     [Min(1)] public int amount = 1;
     
+    /// <summary>
+    /// 物品ID（公开属性，用于对象池管理）
+    /// </summary>
+    public int ItemId => itemId;
+    
     [Header("关联数据（可选）")]
     [Tooltip("直接关联的 ItemData，用于预制体拖入场景时自动初始化")]
     [SerializeField] private ItemData linkedItemData;
@@ -26,6 +31,11 @@ public class WorldItemPickup : MonoBehaviour
     private bool _isFlying = false;
     private Coroutine _flyCoroutine;
     private bool _initialized = false;
+    
+    // 拾取冷却相关
+    private float _pickupCooldownEndTime = 0f;
+    private bool _hasLeftPickupRange = false;
+    private bool _isDropCooldown = false;  // 是否为丢弃冷却（区别于生成冷却）
     
     /// <summary>
     /// 是否正在飞向玩家
@@ -281,6 +291,9 @@ public class WorldItemPickup : MonoBehaviour
         linkedItemData = null;
         _isFlying = false;
         _initialized = false;
+        _pickupCooldownEndTime = 0f;
+        _hasLeftPickupRange = false;
+        _isDropCooldown = false;
         if (_flyCoroutine != null)
         {
             StopCoroutine(_flyCoroutine);
@@ -311,6 +324,71 @@ public class WorldItemPickup : MonoBehaviour
             collider.radius = 0.3f;
         }
     }
+    
+    #region 拾取冷却
+    
+    /// <summary>
+    /// 设置生成冷却（资源节点掉落物使用）
+    /// </summary>
+    /// <param name="duration">冷却时间（秒）</param>
+    public void SetSpawnCooldown(float duration)
+    {
+        _pickupCooldownEndTime = Time.time + duration;
+        _isDropCooldown = false;
+        _hasLeftPickupRange = false;
+    }
+    
+    /// <summary>
+    /// 设置丢弃冷却（玩家丢弃物品使用）
+    /// </summary>
+    /// <param name="duration">冷却时间（秒）</param>
+    public void SetDropCooldown(float duration)
+    {
+        _pickupCooldownEndTime = Time.time + duration;
+        _isDropCooldown = true;
+        _hasLeftPickupRange = false;
+    }
+    
+    /// <summary>
+    /// 检查是否可以被拾取
+    /// </summary>
+    public bool CanBePickedUp()
+    {
+        // 如果是丢弃冷却，满足任一条件即可拾取：
+        // 1. 冷却时间结束
+        // 2. 玩家离开过拾取范围后重新进入
+        if (_isDropCooldown)
+        {
+            if (_hasLeftPickupRange) return true;
+            if (Time.time >= _pickupCooldownEndTime) return true;
+            return false;
+        }
+        
+        // 生成冷却只检查时间
+        return Time.time >= _pickupCooldownEndTime;
+    }
+    
+    /// <summary>
+    /// 玩家离开拾取范围时调用
+    /// </summary>
+    public void OnPlayerExitRange()
+    {
+        if (_isDropCooldown && Time.time < _pickupCooldownEndTime)
+        {
+            _hasLeftPickupRange = true;
+        }
+    }
+    
+    /// <summary>
+    /// 玩家进入拾取范围时调用
+    /// </summary>
+    public void OnPlayerEnterRange()
+    {
+        // 如果已经离开过范围，现在重新进入，可以拾取
+        // 这个方法主要用于触发检测，实际判断在 CanBePickedUp 中
+    }
+    
+    #endregion
     
     /// <summary>
     /// 应用 ItemData 的显示尺寸设置

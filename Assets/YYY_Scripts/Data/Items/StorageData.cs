@@ -19,7 +19,7 @@ namespace FarmGame.Data
         public int storageRows = 4;
 
         [Tooltip("显示列数")]
-        [Range(1, 10)]
+        [Range(1, 15)]
         public int storageCols = 5;
 
         [Header("=== 存储限制 ===")]
@@ -32,9 +32,25 @@ namespace FarmGame.Data
         [Tooltip("默认是否上锁")]
         public bool defaultLocked = false;
 
+        [Header("=== 箱子专属属性 ===")]
+        [Tooltip("箱子材质类型")]
+        public ChestMaterial chestMaterial = ChestMaterial.Wood;
+
+        [Tooltip("箱子最大血量")]
+        [Range(1, 20)]
+        public int maxHealth = 2;
+
+        [Header("=== 开锁概率 ===")]
+        [Tooltip("被开锁的基础概率（野外上锁箱子用）")]
+        [Range(0f, 1f)]
+        public float baseUnlockChance = 0.6f;
+
         [Header("=== 预制体 ===")]
-        [Tooltip("存储容器预制体")]
+        [Tooltip("存储容器预制体（世界物体）")]
         public GameObject storagePrefab;
+
+        [Tooltip("箱子 UI 预制体（如 Box_12, Box_24, Box_36, Box_48）")]
+        public GameObject boxUiPrefab;
 
         #region PlaceableItemData 实现
 
@@ -99,6 +115,12 @@ namespace FarmGame.Data
                 Debug.LogWarning($"[{itemName}] 缺少存储容器预制体！");
             }
 
+            // 验证 UI 预制体
+            if (boxUiPrefab == null)
+            {
+                Debug.LogWarning($"[{itemName}] 缺少箱子 UI 预制体！请配置 Box_12/Box_24/Box_36/Box_48 等");
+            }
+
             // 验证容量与行列匹配
             int calculatedCapacity = storageRows * storageCols;
             if (storageCapacity != calculatedCapacity)
@@ -118,6 +140,7 @@ namespace FarmGame.Data
         {
             string text = base.GetTooltipText();
             text += $"\n\n<color=cyan>容量: {GetCapacityDescription()}</color>";
+            text += $"\n<color=gray>血量: {maxHealth}</color>";
             
             if (isLockable)
                 text += $"\n<color=yellow>可上锁</color>";

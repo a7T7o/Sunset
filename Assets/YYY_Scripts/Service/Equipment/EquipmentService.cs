@@ -38,6 +38,13 @@ public class EquipmentService : MonoBehaviour
         OnEquipSlotChanged?.Invoke(index);
         return true;
     }
+    
+    public void ClearEquip(int index)
+    {
+        if (!InRange(index)) return;
+        equips[index] = ItemStack.Empty;
+        OnEquipSlotChanged?.Invoke(index);
+    }
 
     public bool TryEquipFromInventory(InventoryService inv, int invIndex, int preferredEquipIndex = -1)
     {

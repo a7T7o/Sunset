@@ -1,6 +1,10 @@
 using UnityEngine;
+using UnityEngine.UI;
 using FarmGame.Data;
 
+/// <summary>
+/// 背包面板 UI - 简化版，与 ToolbarUI 保持一致的设计
+/// </summary>
 public class InventoryPanelUI : MonoBehaviour
 {
     [Header("Services & DB")]
@@ -14,14 +18,16 @@ public class InventoryPanelUI : MonoBehaviour
     [SerializeField] private Transform downParent; // 6格装备栏：0..5
 
     [Header("Limits")] 
-    [SerializeField] private int upCount = 36;
+    [SerializeField] private int upCount = 36;  // ★ 背包有 36 格（0-35）
     [SerializeField] private int downCount = 6;
 
     void Awake()
     {
         if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
         if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
-        if (database == null) database = FindFirstObjectByType<ItemDatabase>();
+        // ItemDatabase 是 ScriptableObject，不能用 FindFirstObjectByType
+        // 必须从 InventoryService 获取
+        if (database == null && inventory != null) database = inventory.Database;
         if (selection == null) selection = FindFirstObjectByType<HotbarSelectionService>();
     }
 
@@ -31,14 +37,24 @@ public class InventoryPanelUI : MonoBehaviour
         BuildDownSlots();
     }
 
-    void OnEnable()
-    {
-        // 不再在每次页面激活时重置选择，避免在主面板未关闭的情况下切页导致选择丢失
-    }
-
     public void BuildUpSlots()
     {
-        if (upParent == null || inventory == null) return;
+        if (upParent == null)
+        {
+            Debug.LogError("[InventoryPanelUI] BuildUpSlots: upParent 为 null!");
+            return;
+        }
+        if (inventory == null)
+        {
+            Debug.LogError("[InventoryPanelUI] BuildUpSlots: inventory 为 null!");
+            return;
+        }
+        if (database == null)
+        {
+            Debug.LogError("[InventoryPanelUI] BuildUpSlots: database 为 null!");
+            return;
+        }
+        
         int n = Mathf.Min(upCount, upParent.childCount);
         for (int i = 0; i < n; i++)
         {
@@ -66,6 +82,11 @@ public class InventoryPanelUI : MonoBehaviour
     // 在面板首次从未激活→激活时调用，确保所有格子已构建与绑定
     public void EnsureBuilt()
     {
+        // 确保引用已初始化
+        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
+        if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
+        if (database == null && inventory != null) database = inventory.Database;
+        
         BuildUpSlots();
         BuildDownSlots();
         RefreshAll();
@@ -73,7 +94,6 @@ public class InventoryPanelUI : MonoBehaviour
 
     public void RefreshAll()
     {
-        // 触发一次全量刷新（依赖各自的Refresh）
         if (upParent != null)
         {
             int n = Mathf.Min(upCount, upParent.childCount);
@@ -100,7 +120,7 @@ public class InventoryPanelUI : MonoBehaviour
         int idx = Mathf.Clamp(selection.selectedIndex, 0, Mathf.Min(InventoryService.HotbarWidth, upParent.childCount) - 1);
         for (int i = 0; i < Mathf.Min(upCount, upParent.childCount); i++)
         {
-            var tg = upParent.GetChild(i).GetComponent<UnityEngine.UI.Toggle>();
+            var tg = upParent.GetChild(i).GetComponent<Toggle>();
             if (tg != null) tg.isOn = (i == idx);
         }
     }
@@ -110,15 +130,40 @@ public class InventoryPanelUI : MonoBehaviour
         if (downParent == null) return;
         for (int i = 0; i < Mathf.Min(downCount, downParent.childCount); i++)
         {
-            var tg = downParent.GetChild(i).GetComponent<UnityEngine.UI.Toggle>();
+            var tg = downParent.GetChild(i).GetComponent<Toggle>();
             if (tg != null) tg.isOn = false;
         }
     }
 
-    // 由 PackagePanelTabsUI 在“主面板从关闭→打开”时调用
+    // 由 PackagePanelTabsUI 在"主面板从关闭→打开"时调用
     public void ResetSelectionsOnPanelOpen()
     {
         TryApplyHotbarSelectionToUp();
         ClearDownSelection();
+    }
+    
+    /// <summary>
+    /// 清空背包槽位（Up 区域）的所有选中状态
+    /// 供 Sort 后调用
+    /// </summary>
+    public void ClearUpSelection()
+    {
+        if (upParent == null) return;
+        
+        // 方案 1：通过 ToggleGroup 清空
+        var toggleGroup = upParent.GetComponent<ToggleGroup>();
+        if (toggleGroup != null)
+        {
+            toggleGroup.SetAllTogglesOff();
+            return;
+        }
+        
+        // 方案 2：回退到遍历槽位
+        int n = Mathf.Min(upCount, upParent.childCount);
+        for (int i = 0; i < n; i++)
+        {
+            var tg = upParent.GetChild(i).GetComponent<Toggle>();
+            if (tg != null) tg.isOn = false;
+        }
     }
 }

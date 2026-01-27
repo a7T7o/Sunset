@@ -552,7 +552,7 @@ public class TreeController : MonoBehaviour, IResourceNode
         if (spriteRenderer == null) return;
         
         Sprite targetSprite = GetCurrentSprite();
-        var vegSeason = SeasonManager.Instance != null ? SeasonManager.Instance.GetCurrentVegetationSeason() : SeasonManager.VegetationSeason.EarlySpring;
+        var vegSeason = SeasonManager.Instance != null ? SeasonManager.Instance.GetCurrentVegetationSeason() : SeasonManager.VegetationSeason.Spring;
         
         if (targetSprite != null)
         {
@@ -605,9 +605,9 @@ public class TreeController : MonoBehaviour, IResourceNode
         {
             return vegSeason switch
             {
-                SeasonManager.VegetationSeason.EarlySpring => stump_SpringSummer,
-                SeasonManager.VegetationSeason.LateSpringEarlySummer => stump_SpringSummer,
-                SeasonManager.VegetationSeason.LateSummerEarlyFall => stump_Fall,
+                SeasonManager.VegetationSeason.Spring => stump_SpringSummer,
+                SeasonManager.VegetationSeason.Summer => stump_SpringSummer,
+                SeasonManager.VegetationSeason.EarlyFall => stump_Fall,
                 SeasonManager.VegetationSeason.LateFall => stump_Fall,
                 SeasonManager.VegetationSeason.Winter => stump_Winter,
                 _ => stump_SpringSummer
@@ -677,8 +677,8 @@ public class TreeController : MonoBehaviour, IResourceNode
         // ✅ 枯萎状态跟随季节外观
         switch (vegSeason)
         {
-            case SeasonManager.VegetationSeason.EarlySpring:
-                // 早春不应有枯萎（春季复苏），降级为夏季枯萎
+            case SeasonManager.VegetationSeason.Spring:
+                // 春季不应有枯萎（春季复苏），降级为夏季枯萎
                 return currentStage switch
                 {
                     GrowthStage.Small => summer.withered_Small,
@@ -686,8 +686,8 @@ public class TreeController : MonoBehaviour, IResourceNode
                     _ => null
                 };
                 
-            case SeasonManager.VegetationSeason.LateSpringEarlySummer:
-                // 晚春早夏：夏季枯萎外观
+            case SeasonManager.VegetationSeason.Summer:
+                // 夏季：夏季枯萎外观
                 return currentStage switch
                 {
                     GrowthStage.Small => summer.withered_Small,
@@ -695,8 +695,8 @@ public class TreeController : MonoBehaviour, IResourceNode
                     _ => null
                 };
                 
-            case SeasonManager.VegetationSeason.LateSummerEarlyFall:
-                // 晚夏早秋：枯萎植物也按比例渐变（使用固定随机值）
+            case SeasonManager.VegetationSeason.EarlyFall:
+                // 早秋：枯萎植物也按比例渐变（使用固定随机值）
                 // ✅ 使用treeID生成固定随机值
                 int seed = treeID + (int)currentStage * 100;
                 Random.InitState(seed);
@@ -763,17 +763,17 @@ public class TreeController : MonoBehaviour, IResourceNode
         
         switch (vegSeason)
         {
-            case SeasonManager.VegetationSeason.EarlySpring:
+            case SeasonManager.VegetationSeason.Spring:
                 // 100%春季
                 targetSprite = GetSeasonSprite(spring);
                 break;
                 
-            case SeasonManager.VegetationSeason.LateSpringEarlySummer:
+            case SeasonManager.VegetationSeason.Summer:
                 // 渐变：春季 → 夏季（基于进度）
                 targetSprite = GetTransitionSprite(spring, summer);
                 break;
                 
-            case SeasonManager.VegetationSeason.LateSummerEarlyFall:
+            case SeasonManager.VegetationSeason.EarlyFall:
                 // 渐变：夏季 → 早秋（基于进度）
                 targetSprite = GetTransitionSprite(summer, fall_Early);
                 break;
@@ -1116,6 +1116,38 @@ public class TreeController : MonoBehaviour, IResourceNode
     public bool IsDepleted => currentState == TreeState.Stump || currentStage == GrowthStage.Sapling;
     
     /// <summary>
+    /// 获取斧头材料等级
+    /// </summary>
+    private int GetAxeTier(ToolHitContext ctx)
+    {
+        if (ctx.attacker != null)
+        {
+            var toolController = ctx.attacker.GetComponent<PlayerToolController>();
+            if (toolController != null && toolController.CurrentToolData != null)
+            {
+                var toolData = toolController.CurrentToolData as ToolData;
+                if (toolData != null)
+                {
+                    return toolData.GetMaterialTierValue();
+                }
+            }
+        }
+        return 0; // 默认木质
+    }
+    
+    /// <summary>
+    /// 获取当前树木的阶段值（用于等级判定）
+    /// GrowthStage 枚举转换为 0-5 的整数
+    /// </summary>
+    private int GetTreeStageValue()
+    {
+        // GrowthStage: Sapling=0, Small=1, Large=2
+        // 但我们需要支持 0-5 的阶段系统
+        // 这里直接使用枚举的整数值
+        return (int)currentStage;
+    }
+    
+    /// <summary>
     /// 检查是否接受此工具类型（用于判断是否扣血）
     /// </summary>
     public bool CanAccept(ToolHitContext ctx)
@@ -1128,6 +1160,14 @@ public class TreeController : MonoBehaviour, IResourceNode
         
         // 树苗不能砍
         if (currentStage == GrowthStage.Sapling) return false;
+        
+        // ★ 检查斧头等级是否足够
+        int axeTier = GetAxeTier(ctx);
+        int treeStage = GetTreeStageValue();
+        if (!FarmGame.Utils.MaterialTierHelper.CanChopTree(axeTier, treeStage))
+        {
+            return false;
+        }
         
         return true;
     }
@@ -1226,12 +1266,34 @@ public class TreeController : MonoBehaviour, IResourceNode
         }
         else
         {
-            // 其他工具：只抖动，不扣血
-            PlayHitEffect(chopDirection);
-            
-            if (showDebugInfo)
+            // 检查是否是斧头但等级不足
+            if (ctx.toolType == ToolType.Axe)
             {
-                Debug.Log($"<color=gray>[TreeController] {gameObject.name} 被非斧头工具击中，只抖动</color>");
+                int axeTier = GetAxeTier(ctx);
+                int treeStage = GetTreeStageValue();
+                int requiredTier = FarmGame.Utils.MaterialTierHelper.GetRequiredAxeTier(treeStage);
+                
+                // 斧头等级不足：播放抖动 + 提示
+                PlayHitEffect(chopDirection);
+                
+                if (showDebugInfo)
+                {
+                    string axeName = FarmGame.Utils.MaterialTierHelper.GetTierName(axeTier);
+                    string requiredName = FarmGame.Utils.MaterialTierHelper.GetTierName(requiredTier);
+                    Debug.Log($"<color=orange>[TreeController] {gameObject.name} 斧头等级不足！当前: {axeName}({axeTier}), 需要: {requiredName}({requiredTier})</color>");
+                }
+                
+                // TODO: 可以在这里播放"叮"的音效或显示 UI 提示
+            }
+            else
+            {
+                // 其他工具：只抖动，不扣血
+                PlayHitEffect(chopDirection);
+                
+                if (showDebugInfo)
+                {
+                    Debug.Log($"<color=gray>[TreeController] {gameObject.name} 被非斧头工具击中，只抖动</color>");
+                }
             }
         }
     }
@@ -1694,7 +1756,7 @@ public class TreeController : MonoBehaviour, IResourceNode
     #region 公共接口
     public GrowthStage GetCurrentStage() => currentStage;
     public SeasonManager.Season GetCurrentSeason() => currentSeason;
-    public SeasonManager.VegetationSeason GetVegetationSeason() => SeasonManager.Instance != null ? SeasonManager.Instance.GetCurrentVegetationSeason() : SeasonManager.VegetationSeason.EarlySpring;
+    public SeasonManager.VegetationSeason GetVegetationSeason() => SeasonManager.Instance != null ? SeasonManager.Instance.GetCurrentVegetationSeason() : SeasonManager.VegetationSeason.Spring;
     public TreeState GetCurrentState() => currentState;
     public bool IsFrozenSapling() => isFrozenSapling;
     #endregion

@@ -298,9 +298,9 @@ public class TreeControllerV2Editor : Editor
     {
         EditorGUILayout.LabelField(label, EditorStyles.miniLabel);
         EditorGUI.indentLevel++;
-        EditorGUILayout.PropertyField(prop.FindPropertyRelative("earlySpring"), new GUIContent("早春"));
-        EditorGUILayout.PropertyField(prop.FindPropertyRelative("lateSpringEarlySummer"), new GUIContent("晚春早夏"));
-        EditorGUILayout.PropertyField(prop.FindPropertyRelative("lateSummerEarlyFall"), new GUIContent("晚夏早秋"));
+        EditorGUILayout.PropertyField(prop.FindPropertyRelative("spring"), new GUIContent("春季"));
+        EditorGUILayout.PropertyField(prop.FindPropertyRelative("summer"), new GUIContent("夏季"));
+        EditorGUILayout.PropertyField(prop.FindPropertyRelative("earlyFall"), new GUIContent("早秋"));
         EditorGUILayout.PropertyField(prop.FindPropertyRelative("lateFall"), new GUIContent("晚秋"));
         
         // Stage 0 不需要冬季 Sprite（冬季直接死亡）

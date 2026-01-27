@@ -87,19 +87,20 @@ namespace FarmGame.Utils
         /// 检查斧头是否能砍伐指定阶段的树木
         /// 
         /// 树木砍伐限制表：
-        /// | 树木阶段 | 所需斧头等级 |
-        /// |---------|-------------|
-        /// | 0-3     | 木斧(0)     |
-        /// | 4       | 生铁斧(2)   |
-        /// | 5       | 黄铜斧(3)   |
+        /// | 斧头等级 | 可砍伐树木阶段 |
+        /// |---------|---------------|
+        /// | 0 (木斧) | 0-2           |
+        /// | 1 (石斧) | 0-3           |
+        /// | 2 (生铁斧) | 0-4         |
+        /// | 3+ (黄铜斧及以上) | 0-5 (全部) |
         /// </summary>
         /// <param name="axeTier">斧头材料等级（0-5）</param>
         /// <param name="treeStage">树木阶段（0-5）</param>
         /// <returns>是否能砍伐</returns>
         public static bool CanChopTree(int axeTier, int treeStage)
         {
-            int requiredTier = GetRequiredAxeTier(treeStage);
-            return axeTier >= requiredTier;
+            int maxChoppableStage = GetMaxChoppableTreeStage(axeTier);
+            return treeStage <= maxChoppableStage;
         }
         
         /// <summary>
@@ -111,6 +112,22 @@ namespace FarmGame.Utils
         }
         
         /// <summary>
+        /// 获取指定斧头等级能砍伐的最大树木阶段
+        /// </summary>
+        /// <param name="axeTier">斧头材料等级（0-5）</param>
+        /// <returns>能砍伐的最大树木阶段</returns>
+        public static int GetMaxChoppableTreeStage(int axeTier)
+        {
+            return axeTier switch
+            {
+                0 => 2,  // 木斧：可砍 0-2 阶段
+                1 => 3,  // 石斧：可砍 0-3 阶段
+                2 => 4,  // 生铁斧：可砍 0-4 阶段
+                _ => 5   // 黄铜斧(3)及以上：可砍所有阶段
+            };
+        }
+        
+        /// <summary>
         /// 获取砍伐指定阶段树木所需的最低斧头等级
         /// </summary>
         /// <param name="treeStage">树木阶段（0-5）</param>
@@ -119,12 +136,12 @@ namespace FarmGame.Utils
         {
             return treeStage switch
             {
-                0 => 0,  // 树苗：木斧（实际用锄头）
-                1 => 0,  // 小树苗：木斧
-                2 => 0,  // 中等树：木斧
-                3 => 0,  // 大树：木斧
-                4 => 2,  // 成熟树：生铁斧
-                5 => 3,  // 完全成熟：黄铜斧
+                0 => 0,  // 阶段0：木斧即可
+                1 => 0,  // 阶段1：木斧即可
+                2 => 0,  // 阶段2：木斧即可
+                3 => 1,  // 阶段3：需要石斧
+                4 => 2,  // 阶段4：需要生铁斧
+                5 => 3,  // 阶段5：需要黄铜斧
                 _ => 0
             };
         }

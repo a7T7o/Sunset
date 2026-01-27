@@ -76,7 +76,7 @@ SpriteRenderer:
   m_SortingLayerID: 1482742881
   m_SortingLayer: 1
   m_SortingOrder: -526
-  m_Sprite: {fileID: 1958230616, guid: ee16bbee877a539419b65a343e36ae54, type: 3}
+  m_Sprite: {fileID: 0}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -84,7 +84,7 @@ SpriteRenderer:
   m_Size: {x: 7, y: 3}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 1
+  m_WasSpriteAssigned: 0
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!1 &7637686196939725576
@@ -259,10 +259,10 @@ MonoBehaviour:
   spriteConfig:
     stage0:
       normal:
-        earlySpring: {fileID: -8049571451551452467, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateSpringEarlySummer: {fileID: 1690801691197349538, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateSummerEarlyFall: {fileID: -4386580819446344155, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateFall: {fileID: 457907773237696798, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        spring: {fileID: -8049571451551452467, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        summer: {fileID: 1690801691197349538, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        earlyFall: {fileID: 40880402, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        lateFall: {fileID: -3691463558449625154, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
         winter: {fileID: 0}
       hasWitheredState: 0
       witheredSummer: {fileID: 0}
@@ -273,37 +273,37 @@ MonoBehaviour:
       stumpWinter: {fileID: 0}
     stage1:
       normal:
-        earlySpring: {fileID: -2278315331238053400, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateSpringEarlySummer: {fileID: -9018442704594475146, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateSummerEarlyFall: {fileID: 2857715646831553502, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateFall: {fileID: -4109907551279882702, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        winter: {fileID: -8943782813765785618, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        spring: {fileID: -2278315331238053400, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        summer: {fileID: -9018442704594475146, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        earlyFall: {fileID: 1520827336, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        lateFall: {fileID: 464217861646291083, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        winter: {fileID: -1206882161, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
       hasWitheredState: 1
       witheredSummer: {fileID: -2703996516538370956, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-      witheredFall: {fileID: -5673072068115344414, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+      witheredFall: {fileID: 565344816, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
       hasStump: 0
       stumpSpringSummer: {fileID: 0}
       stumpFall: {fileID: 0}
       stumpWinter: {fileID: 0}
     stage2:
       normal:
-        earlySpring: {fileID: -259337921900976848, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateSpringEarlySummer: {fileID: -6619355576234795142, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateSummerEarlyFall: {fileID: -1179683319745712599, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        lateFall: {fileID: -6518456918565366243, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-        winter: {fileID: -2582034567475756731, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        spring: {fileID: -259337921900976848, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        summer: {fileID: -6619355576234795142, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        earlyFall: {fileID: -1957278099, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        lateFall: {fileID: 2018221862, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+        winter: {fileID: 1998002600, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
       hasWitheredState: 1
       witheredSummer: {fileID: 8870276832736917939, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
-      witheredFall: {fileID: -145070835306038143, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+      witheredFall: {fileID: 12466623, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
       hasStump: 0
       stumpSpringSummer: {fileID: 0}
       stumpFall: {fileID: 0}
       stumpWinter: {fileID: 0}
     stage3:
       normal:
-        earlySpring: {fileID: 5903473390127743887, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-        lateSpringEarlySummer: {fileID: 1318237894, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-        lateSummerEarlyFall: {fileID: 201254881, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+        spring: {fileID: 5903473390127743887, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+        summer: {fileID: 1318237894, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+        earlyFall: {fileID: 201254881, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
         lateFall: {fileID: -1570291918, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
         winter: {fileID: 1159317006, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
       hasWitheredState: 1
@@ -315,9 +315,9 @@ MonoBehaviour:
       stumpWinter: {fileID: 6910053292580695166, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
     stage4:
       normal:
-        earlySpring: {fileID: -6489005286283933747, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
-        lateSpringEarlySummer: {fileID: 4487715507037981956, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
-        lateSummerEarlyFall: {fileID: -1378059970512556902, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
+        spring: {fileID: -6489005286283933747, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
+        summer: {fileID: 4487715507037981956, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
+        earlyFall: {fileID: -1378059970512556902, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
         lateFall: {fileID: 7938849067235106849, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
         winter: {fileID: 783352787174785366, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
       hasWitheredState: 1
@@ -329,9 +329,9 @@ MonoBehaviour:
       stumpWinter: {fileID: -30606100684883132, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
     stage5:
       normal:
-        earlySpring: {fileID: -1349718751397675806, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
-        lateSpringEarlySummer: {fileID: -9177382543613911066, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
-        lateSummerEarlyFall: {fileID: 5338711548977870589, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
+        spring: {fileID: -1349718751397675806, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
+        summer: {fileID: -9177382543613911066, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
+        earlyFall: {fileID: 5338711548977870589, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
         lateFall: {fileID: 3162693681921726263, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
         winter: {fileID: -806164863197373420, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
       hasWitheredState: 1
@@ -423,7 +423,7 @@ PolygonCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 0.5625, y: 0.6875}
+    oldSize: {x: 0.4375, y: 0.5625}
     newSize: {x: 6.75, y: 10}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -431,10 +431,10 @@ PolygonCollider2D:
   m_AutoTiling: 0
   m_Points:
     m_Paths:
-    - - {x: -0.15625, y: -1}
-      - {x: 0.15625, y: -1}
-      - {x: 0.15625, y: -0.6875}
-      - {x: -0.15625, y: -0.6875}
+    - - {x: -0.21875, y: 0.28125}
+      - {x: -0.21875, y: -0.28125}
+      - {x: 0.21875, y: -0.28125}
+      - {x: 0.21875, y: 0.28125}
   m_UseDelaunayMesh: 0
 --- !u!114 &8439725320126620139
 MonoBehaviour:
@@ -463,6 +463,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2244532948124785810}
+  - component: {fileID: -7356492847670871909}
   m_Layer: 0
   m_Name: M1
   m_TagString: Tree
@@ -487,3 +488,21 @@ Transform:
   - {fileID: 3563393122257728107}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &-7356492847670871909
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8805118565538031545}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  occludedAlpha: 0.3
+  fadeSpeed: 8
+  canBeOccluded: 1
+  usePixelSampling: 1
+  alphaThreshold: 0.1
+  samplePointCount: 5

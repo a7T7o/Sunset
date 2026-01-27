@@ -4,8 +4,11 @@ using FarmGame.Data;
 namespace FarmGame.Farm
 {
     /// <summary>
-    /// 作物实例 - 运行时的单个作物对象
+    /// [已废弃] 作物实例 - 运行时的单个作物对象
+    /// 请使用 CropInstanceData 替代
+    /// 此类保留用于兼容旧代码，将在后续版本中删除
     /// </summary>
+    [System.Obsolete("使用 CropInstanceData 替代，此类将在后续版本中删除")]
     [System.Serializable]
     public class CropInstance
     {

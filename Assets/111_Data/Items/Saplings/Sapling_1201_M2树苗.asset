@@ -18,12 +18,17 @@ MonoBehaviour:
   category: 1
   icon: {fileID: -259337921900976848, guid: 45ee95d3377f2234cb267e2b73289f59, type: 3}
   bagSprite: {fileID: 0}
+  rotateBagIcon: 0
   worldPrefab: {fileID: 2984516829808425434, guid: b557a6ca26220b94ba1eb885770448d5, type: 3}
   buyPrice: 0
   sellPrice: 0
   maxStackSize: 99
+  useCustomBagDisplaySize: 1
+  bagDisplayPixelSize: 32
+  bagDisplayOffset: {x: 0, y: 0}
   useCustomDisplaySize: 0
   displayPixelSize: 32
+  worldDisplayOffset: {x: 0, y: 0}
   canBeDiscarded: 1
   isQuestItem: 0
   isPlaceable: 1

@@ -78,6 +78,12 @@ namespace FarmGame.Events
         
         /// <summary>提示消息</summary>
         public string Message;
+        
+        /// <summary>每个格子的状态（用于预览 UI）</summary>
+        public System.Collections.Generic.List<CellState> CellStates;
+        
+        /// <summary>检测到的 Layer</summary>
+        public int DetectedLayer;
 
         public static PlacementValidationResult Valid()
         {
@@ -85,7 +91,9 @@ namespace FarmGame.Events
             {
                 IsValid = true,
                 Reason = PlacementInvalidReason.None,
-                Message = string.Empty
+                Message = string.Empty,
+                CellStates = null,
+                DetectedLayer = 0
             };
         }
 
@@ -95,7 +103,21 @@ namespace FarmGame.Events
             {
                 IsValid = false,
                 Reason = reason,
-                Message = message
+                Message = message,
+                CellStates = null,
+                DetectedLayer = 0
+            };
+        }
+        
+        public static PlacementValidationResult WithCellStates(bool isValid, PlacementInvalidReason reason, string message, System.Collections.Generic.List<CellState> cellStates, int detectedLayer)
+        {
+            return new PlacementValidationResult
+            {
+                IsValid = isValid,
+                Reason = reason,
+                Message = message,
+                CellStates = cellStates,
+                DetectedLayer = detectedLayer
             };
         }
     }

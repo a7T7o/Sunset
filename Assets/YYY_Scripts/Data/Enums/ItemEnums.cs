@@ -121,5 +121,30 @@ namespace FarmGame.Data
         AlchemyTable,   // 制药台（药品制作）
         Grill           // 烧烤架（烤肉、烧烤食物）
     }
+
+    /// <summary>
+    /// 装备类型（用于快速装备功能判断目标槽位）
+    /// </summary>
+    public enum EquipmentType
+    {
+        None = 0,       // 非装备物品
+        Helmet = 1,     // 头盔 - 槽位0
+        Armor = 2,      // 盔甲 - 槽位2
+        Pants = 3,      // 裤子 - 槽位1
+        Shoes = 4,      // 鞋子 - 槽位3
+        Ring = 5,       // 戒指 - 槽位4,5（双槽位）
+        Accessory = 6   // 饰品（预留）
+    }
+
+    /// <summary>
+    /// 消耗品类型（用于右键使用判断）
+    /// </summary>
+    public enum ConsumableType
+    {
+        None = 0,       // 非消耗品
+        Food = 1,       // 食物（食用）
+        Potion = 2,     // 药水（使用）
+        Buff = 3        // Buff物品（使用）
+    }
 }
 

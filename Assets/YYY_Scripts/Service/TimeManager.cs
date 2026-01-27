@@ -81,6 +81,29 @@ public class TimeManager : MonoBehaviour
     [Header("=== 调试 ===")]
     [Tooltip("显示调试信息")]
     [SerializeField] private bool showDebugInfo = true;
+    
+    [Header("━━━━ 时间事件开关 ━━━━")]
+    [Tooltip("是否发布分钟变化事件（OnMinuteChanged）\n" +
+             "关闭后：精细时间显示不更新")]
+    [SerializeField] private bool enableMinuteEvent = true;
+    
+    [Tooltip("是否发布小时变化事件（OnHourChanged）\n" +
+             "关闭后：光照不变化、NPC日程不更新")]
+    [SerializeField] private bool enableHourEvent = true;
+    
+    [Tooltip("是否发布每日变化事件（OnDayChanged）\n" +
+             "关闭后：树木不成长、农作物不生长")]
+    [SerializeField] private bool enableDayEvent = true;
+    
+    [Tooltip("是否发布年变化事件（OnYearChanged）\n" +
+             "关闭后：年份变化不通知")]
+    [SerializeField] private bool enableYearEvent = true;
+    
+    [Header("━━━━ 季节变更开关 ━━━━")]
+    [Tooltip("是否发布季节变更事件（OnSeasonChanged）\n" +
+             "关闭后：春→夏→秋→冬 的季节切换不通知订阅者\n" +
+             "注意：这只控制事件通知，内部季节状态仍会更新")]
+    [SerializeField] private bool enableSeasonChangeEvent = true;
     #endregion
 
     #region 内部变量
@@ -115,7 +138,8 @@ public class TimeManager : MonoBehaviour
         if (instance == null)
         {
             instance = this;
-            DontDestroyOnLoad(gameObject);
+            // ✅ DontDestroyOnLoad 由 PersistentManagers 统一处理
+            // 不再在此调用，避免 "only works for root GameObjects" 警告
             Initialize();
         }
         else if (instance != this)
@@ -181,7 +205,11 @@ public class TimeManager : MonoBehaviour
             AdvanceHour();
         }
 
-        OnMinuteChanged?.Invoke(currentHour, currentMinute);
+        // ★ 受事件开关控制
+        if (enableMinuteEvent)
+        {
+            OnMinuteChanged?.Invoke(currentHour, currentMinute);
+        }
 
         if (showDebugInfo && currentMinute == 0) // 整点显示
         {
@@ -193,7 +221,11 @@ public class TimeManager : MonoBehaviour
     {
         currentHour++;
 
-        OnHourChanged?.Invoke(currentHour);
+        // ★ 受事件开关控制
+        if (enableHourEvent)
+        {
+            OnHourChanged?.Invoke(currentHour);
+        }
 
         // 到达凌晨2点，强制睡觉，进入下一天
         if (currentHour > dayEndHour)
@@ -209,7 +241,11 @@ public class TimeManager : MonoBehaviour
         currentMinute = 0;
         totalDaysPassed++;
 
-        OnDayChanged?.Invoke(currentYear, currentDay, totalDaysPassed);
+        // ★ 受事件开关控制
+        if (enableDayEvent)
+        {
+            OnDayChanged?.Invoke(currentYear, currentDay, totalDaysPassed);
+        }
 
         if (showDebugInfo)
         {
@@ -229,14 +265,18 @@ public class TimeManager : MonoBehaviour
         int nextSeasonIndex = ((int)currentSeason + 1) % 4;
         currentSeason = (SeasonManager.Season)nextSeasonIndex;
 
-        OnSeasonChanged?.Invoke(currentSeason, currentYear);
+        // ★ 受季节变更开关控制
+        if (enableSeasonChangeEvent)
+        {
+            OnSeasonChanged?.Invoke(currentSeason, currentYear);
+        }
 
         if (showDebugInfo)
         {
             Debug.Log($"<color=orange>[Time] 季节变化！现在是 {currentSeason}</color>");
         }
 
-        // 更新SeasonManager
+        // 更新SeasonManager（始终更新，不受开关影响）
         if (SeasonManager.Instance != null)
         {
             SeasonManager.Instance.SetSeason(currentSeason);
@@ -252,7 +292,12 @@ public class TimeManager : MonoBehaviour
     private void AdvanceYear()
     {
         currentYear++;
-        OnYearChanged?.Invoke(currentYear);
+        
+        // ★ 受事件开关控制
+        if (enableYearEvent)
+        {
+            OnYearChanged?.Invoke(currentYear);
+        }
 
         if (showDebugInfo)
         {
@@ -309,12 +354,16 @@ public class TimeManager : MonoBehaviour
         currentMinute = Mathf.Clamp(minute / 10 * 10, 0, 50); // 取整到10的倍数
         totalDaysPassed = CalculateTotalDays();
         
-        // ✅ 触发事件
+        // ✅ 触发事件（受开关控制）
         if (oldSeason != currentSeason)
         {
-            OnSeasonChanged?.Invoke(currentSeason, currentYear);
+            // ★ 受季节变更开关控制
+            if (enableSeasonChangeEvent)
+            {
+                OnSeasonChanged?.Invoke(currentSeason, currentYear);
+            }
             
-            // 通知SeasonManager
+            // 通知SeasonManager（始终更新，不受开关影响）
             if (SeasonManager.Instance != null)
             {
                 SeasonManager.Instance.SetSeason(currentSeason);
@@ -328,7 +377,11 @@ public class TimeManager : MonoBehaviour
         
         if (oldYear != currentYear)
         {
-            OnYearChanged?.Invoke(currentYear);
+            // ★ 受事件开关控制
+            if (enableYearEvent)
+            {
+                OnYearChanged?.Invoke(currentYear);
+            }
             
             if (showDebugInfo)
             {

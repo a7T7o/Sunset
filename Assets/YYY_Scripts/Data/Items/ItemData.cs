@@ -29,6 +29,9 @@ namespace FarmGame.Data
 
         [Tooltip("背包/工具栏显示图标（为空时使用icon）")]
         public Sprite bagSprite;
+        
+        [Tooltip("背包图标是否旋转45度显示")]
+        public bool rotateBagIcon = true;
 
         [Tooltip("世界预制体（含动画、阴影，无碰撞体）")]
         public GameObject worldPrefab;
@@ -46,12 +49,28 @@ namespace FarmGame.Data
         public int maxStackSize = 99;
 
         [Header("=== 显示尺寸配置 ===")]
-        [Tooltip("是否启用自定义显示尺寸（用于世界物品，不影响背包/工具栏显示）")]
+        
+        [Header("--- 背包显示 ---")]
+        [Tooltip("是否启用自定义背包图标尺寸")]
+        public bool useCustomBagDisplaySize = false;
+        
+        [Tooltip("背包图标像素尺寸限定（8-128），图标将等比例缩放至适配此方框边长")]
+        [Range(8, 128)]
+        public int bagDisplayPixelSize = 52;
+        
+        [Tooltip("背包图标位置偏移（像素）")]
+        public Vector2 bagDisplayOffset = Vector2.zero;
+        
+        [Header("--- 世界显示 ---")]
+        [Tooltip("是否启用自定义世界物品尺寸")]
         public bool useCustomDisplaySize = false;
 
-        [Tooltip("像素尺寸限定（8-128），物品 Sprite 将等比例缩放至适配此方框边长")]
+        [Tooltip("世界物品像素尺寸限定（8-128），物品 Sprite 将等比例缩放至适配此方框边长")]
         [Range(8, 128)]
         public int displayPixelSize = 32;
+        
+        [Tooltip("世界物品位置偏移（单位）")]
+        public Vector2 worldDisplayOffset = Vector2.zero;
 
         [Header("=== 功能标记 ===")]
         [Tooltip("是否可以丢弃")]
@@ -73,6 +92,14 @@ namespace FarmGame.Data
         [Tooltip("建筑尺寸（仅建筑类型有效，单位：格子）")]
         public Vector2Int buildingSize = Vector2Int.one;
 
+        [Header("=== 装备配置 ===")]
+        [Tooltip("装备类型（None表示非装备，用于快速装备功能）")]
+        public EquipmentType equipmentType = EquipmentType.None;
+
+        [Header("=== 消耗品配置 ===")]
+        [Tooltip("消耗品类型（None表示非消耗品，用于右键使用功能）")]
+        public ConsumableType consumableType = ConsumableType.None;
+
         /// <summary>
         /// 是否可以堆叠
         /// </summary>
@@ -82,6 +109,16 @@ namespace FarmGame.Data
         /// 获取背包/工具栏显示Sprite（优先bagSprite，回退到icon）
         /// </summary>
         public Sprite GetBagSprite() => bagSprite != null ? bagSprite : icon;
+        
+        /// <summary>
+        /// 获取背包图标的自定义显示尺寸（像素）
+        /// </summary>
+        /// <returns>自定义尺寸，未启用时返回 -1 表示使用默认</returns>
+        public int GetBagDisplayPixelSize()
+        {
+            if (!useCustomBagDisplaySize) return -1;
+            return Mathf.Clamp(bagDisplayPixelSize, 8, 128);
+        }
 
         /// <summary>
         /// 获取世界物品的缩放比例（基于 displayPixelSize）
@@ -181,6 +218,19 @@ namespace FarmGame.Data
             }
             
             // 验证显示尺寸参数
+            if (useCustomBagDisplaySize)
+            {
+                if (bagDisplayPixelSize <= 0)
+                {
+                    bagDisplayPixelSize = 52;
+                    Debug.LogWarning($"[{itemName}] bagDisplayPixelSize 无效，已重置为默认值 52");
+                }
+                else if (bagDisplayPixelSize < 8 || bagDisplayPixelSize > 128)
+                {
+                    Debug.LogWarning($"[{itemName}] bagDisplayPixelSize({bagDisplayPixelSize}) 超出推荐范围 8-128");
+                }
+            }
+            
             if (useCustomDisplaySize)
             {
                 if (displayPixelSize <= 0)

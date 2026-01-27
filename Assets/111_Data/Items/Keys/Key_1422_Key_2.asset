@@ -1,0 +1,44 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 74da9bd067ed11c49b29827c2922e946, type: 3}
+  m_Name: Key_1422_Key_2
+  m_EditorClassIdentifier: 
+  itemID: 1422
+  itemName: Key_2
+  description: 
+  category: 0
+  icon: {fileID: 5262760719296590523, guid: 435e79c2b5e36ff408efeeffd8236fd5, type: 3}
+  bagSprite: {fileID: 0}
+  rotateBagIcon: 1
+  worldPrefab: {fileID: 0}
+  buyPrice: 0
+  sellPrice: 0
+  maxStackSize: 99
+  useCustomBagDisplaySize: 0
+  bagDisplayPixelSize: 52
+  bagDisplayOffset: {x: 0, y: 0}
+  useCustomDisplaySize: 0
+  displayPixelSize: 32
+  worldDisplayOffset: {x: 0, y: 0}
+  canBeDiscarded: 1
+  isQuestItem: 0
+  isPlaceable: 0
+  placementType: 0
+  placementPrefab: {fileID: 0}
+  buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
+  keyLockType: 0
+  material: 1
+  unlockChance: 0.1
+  isSpecial: 0
+  targetChestId: -1

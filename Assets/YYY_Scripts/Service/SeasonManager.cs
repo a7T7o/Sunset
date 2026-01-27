@@ -22,14 +22,21 @@ public class SeasonManager : MonoBehaviour
     
     /// <summary>
     /// 植被季节枚举（5个，用于渐变换季）
+    /// 
+    /// ★ 字段名称与视觉样式映射：
+    /// - Spring = 春季样式（绿色茂盛）
+    /// - Summer = 夏季样式（深绿色）
+    /// - EarlyFall = 早秋样式（开始变黄）
+    /// - LateFall = 晚秋样式（黄色/橙色）
+    /// - Winter = 冬季样式（挂冰/光秃）
     /// </summary>
     public enum VegetationSeason
     {
-        EarlySpring,            // 早春 (春1-14)
-        LateSpringEarlySummer,  // 晚春早夏 (春15-夏14)
-        LateSummerEarlyFall,    // 晚夏早秋 (夏15-秋14)
-        LateFall,               // 晚秋 (秋15-28)
-        Winter                  // 冬季 (冬1-28)
+        Spring,      // 春季样式
+        Summer,      // 夏季样式
+        EarlyFall,   // 早秋样式
+        LateFall,    // 晚秋样式
+        Winter       // 冬季样式
     }
     
     [Header("━━━━ 日历季节 ━━━━")]
@@ -38,7 +45,7 @@ public class SeasonManager : MonoBehaviour
     
     [Header("━━━━ 植被季节（渐变系统）━━━━")]
     [Tooltip("当前植被季节（5个细分季节）")]
-    [SerializeField] private VegetationSeason currentVegetationSeason = VegetationSeason.EarlySpring;
+    [SerializeField] private VegetationSeason currentVegetationSeason = VegetationSeason.Spring;
     
     [Tooltip("季节过渡进度（0.0-1.0）\n0.2 = 20%植被显示新季节\n0.8 = 80%植被显示新季节")]
     [SerializeField, Range(0f, 1f)] private float seasonTransitionProgress = 0f;
@@ -70,7 +77,8 @@ public class SeasonManager : MonoBehaviour
         if (Instance == null)
         {
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+            // ✅ DontDestroyOnLoad 由 PersistentManagers 统一处理
+            // 不再在此调用，避免 "only works for root GameObjects" 警告
         }
         else
         {
@@ -139,6 +147,15 @@ public class SeasonManager : MonoBehaviour
     
     /// <summary>
     /// 更新植被季节和渐变进度
+    /// 
+    /// ★ 时间线：
+    /// - 春1-14：100%春季样式（Spring）
+    /// - 春15-28：春季样式 → 夏季样式 渐变（Spring，progress增加）
+    /// - 夏1-14：100%夏季样式（Summer）
+    /// - 夏15-28：夏季样式 → 早秋样式 渐变（Summer，progress增加）
+    /// - 秋1-14：早秋样式 → 晚秋样式 渐变（EarlyFall，progress增加）
+    /// - 秋15-28：100%晚秋样式（LateFall）
+    /// - 冬1-28：100%冬季样式（Winter）
     /// </summary>
     private void UpdateVegetationSeason()
     {
@@ -156,64 +173,59 @@ public class SeasonManager : MonoBehaviour
             case Season.Spring:
                 if (dayInSeason <= 14)
                 {
-                    // 早春（春1-14）：100%春季
-                    newVegSeason = VegetationSeason.EarlySpring;
+                    // 春1-14：100%春季样式
+                    newVegSeason = VegetationSeason.Spring;
                     newProgress = 0f;
                 }
                 else
                 {
-                    // 晚春早夏（春15-夏14，共28天）
-                    newVegSeason = VegetationSeason.LateSpringEarlySummer;
-                    // 春15-28天是前14天，进度：0.2 → ~0.489
+                    // 春15-28：春季样式 → 夏季样式 渐变
+                    newVegSeason = VegetationSeason.Spring;
                     int dayInTransition = dayInSeason - 14; // 1-14
-                    newProgress = 0.2f + (dayInTransition - 1) / 27f * 0.6f;
+                    newProgress = (float)dayInTransition / 14f;
                 }
                 break;
                 
             case Season.Summer:
                 if (dayInSeason <= 14)
                 {
-                    // 晚春早夏后半段（夏1-14）
-                    newVegSeason = VegetationSeason.LateSpringEarlySummer;
-                    // 夏1-14天是后14天，进度：~0.511 → 0.8
-                    int dayInTransition = 14 + dayInSeason; // 15-28
-                    newProgress = 0.2f + (dayInTransition - 1) / 27f * 0.6f;
+                    // 夏1-14：100%夏季样式
+                    newVegSeason = VegetationSeason.Summer;
+                    newProgress = 0f;
                 }
                 else
                 {
-                    // 晚夏早秋（夏15-秋14，共28天）
-                    newVegSeason = VegetationSeason.LateSummerEarlyFall;
-                    // 夏15-28天是前14天，进度：0.2 → ~0.489
+                    // 夏15-28：夏季样式 → 早秋样式 渐变
+                    newVegSeason = VegetationSeason.Summer;
                     int dayInTransition = dayInSeason - 14; // 1-14
-                    newProgress = 0.2f + (dayInTransition - 1) / 27f * 0.6f;
+                    newProgress = (float)dayInTransition / 14f;
                 }
                 break;
                 
             case Season.Autumn:
                 if (dayInSeason <= 14)
                 {
-                    // 晚夏早秋后半段（秋1-14）
-                    newVegSeason = VegetationSeason.LateSummerEarlyFall;
-                    // 秋1-14天是后14天，进度：~0.511 → 0.8
-                    int dayInTransition = 14 + dayInSeason; // 15-28
-                    newProgress = 0.2f + (dayInTransition - 1) / 27f * 0.6f;
+                    // 秋1-14：早秋样式 → 晚秋样式 渐变
+                    // ★ 秋季特殊：一进入秋天就开始渐变
+                    newVegSeason = VegetationSeason.EarlyFall;
+                    newProgress = (float)dayInSeason / 14f;
                 }
                 else
                 {
-                    // 晚秋（秋15-28）：100%晚秋
+                    // 秋15-28：100%晚秋样式
                     newVegSeason = VegetationSeason.LateFall;
                     newProgress = 0f;
                 }
                 break;
                 
             case Season.Winter:
-                // 冬季：100%冬季
+                // 冬1-28：100%冬季样式
                 newVegSeason = VegetationSeason.Winter;
                 newProgress = 0f;
                 break;
                 
             default:
-                newVegSeason = VegetationSeason.EarlySpring;
+                newVegSeason = VegetationSeason.Spring;
                 newProgress = 0f;
                 break;
         }

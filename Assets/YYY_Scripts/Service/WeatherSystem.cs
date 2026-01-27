@@ -56,6 +56,23 @@ public class WeatherSystem : MonoBehaviour
     [Header("━━━━ 调试 ━━━━")]
     [SerializeField] private bool showDebugInfo = true;
     
+    [Header("━━━━ 天气事件开关 ━━━━")]
+    [Tooltip("是否发布植物枯萎事件（OnPlantsWither）\n" +
+             "关闭后：极端高温不会导致植物枯萎")]
+    [SerializeField] private bool enableWitherEvent = true;
+    
+    [Tooltip("是否发布植物恢复事件（OnPlantsRecover）\n" +
+             "关闭后：雨后植物不会自动恢复")]
+    [SerializeField] private bool enableRecoverEvent = true;
+    
+    [Tooltip("是否发布冬季下雪事件（OnWinterSnow）\n" +
+             "关闭后：冬季下雪不会影响植物")]
+    [SerializeField] private bool enableWinterSnowEvent = true;
+    
+    [Tooltip("是否发布冬季融化事件（OnWinterMelt）\n" +
+             "关闭后：冬季融化不会影响植物")]
+    [SerializeField] private bool enableWinterMeltEvent = true;
+    
     // 上一次下雨的日期（总天数）
     private int lastRainyDay = -1;
     
@@ -84,7 +101,8 @@ public class WeatherSystem : MonoBehaviour
         if (instance == null)
         {
             instance = this;
-            DontDestroyOnLoad(gameObject);
+            // ✅ DontDestroyOnLoad 由 PersistentManagers 统一处理
+            // 不再在此调用，避免 "only works for root GameObjects" 警告
         }
         else if (instance != this)
         {
@@ -164,7 +182,12 @@ public class WeatherSystem : MonoBehaviour
             if (winterSnowDays.Contains(currentDay))
             {
                 newWeather = Weather.Withering; // 使用Withering表示下雪
-                OnWinterSnow?.Invoke();
+                
+                // ★ 受天气事件开关控制
+                if (enableWinterSnowEvent)
+                {
+                    OnWinterSnow?.Invoke();
+                }
                 
                 if (showDebugInfo)
                 {
@@ -174,7 +197,12 @@ public class WeatherSystem : MonoBehaviour
             else if (winterMeltDays.Contains(currentDay))
             {
                 newWeather = Weather.Sunny;
-                OnWinterMelt?.Invoke();
+                
+                // ★ 受天气事件开关控制
+                if (enableWinterMeltEvent)
+                {
+                    OnWinterMelt?.Invoke();
+                }
                 
                 if (showDebugInfo)
                 {
@@ -248,7 +276,11 @@ public class WeatherSystem : MonoBehaviour
     /// </summary>
     private void TriggerPlantsWither(string reason)
     {
-        OnPlantsWither?.Invoke();
+        // ★ 受天气事件开关控制
+        if (enableWitherEvent)
+        {
+            OnPlantsWither?.Invoke();
+        }
         
         if (showDebugInfo)
         {
@@ -261,7 +293,11 @@ public class WeatherSystem : MonoBehaviour
     /// </summary>
     private void TriggerPlantsRecover(string reason)
     {
-        OnPlantsRecover?.Invoke();
+        // ★ 受天气事件开关控制
+        if (enableRecoverEvent)
+        {
+            OnPlantsRecover?.Invoke();
+        }
         
         if (showDebugInfo)
         {

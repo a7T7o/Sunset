@@ -1,6 +1,7 @@
 using UnityEngine;
 using System.Collections.Generic;
 using FarmGame.Data;
+using FarmGame.World;
 
 /// <summary>
 /// 世界物品生成服务
@@ -48,14 +49,15 @@ public class WorldSpawnService : MonoBehaviour
     /// <summary>
     /// 通过ID生成物品
     /// </summary>
-    public WorldItemPickup SpawnById(int itemId, int quality, int amount, Vector3 worldPos, bool playAnimation = false)
+    /// <param name="setSpawnCooldown">是否设置生成冷却（丢弃物品时应为 false）</param>
+    public WorldItemPickup SpawnById(int itemId, int quality, int amount, Vector3 worldPos, bool playAnimation = false, bool setSpawnCooldown = true)
     {
         if (snapToGrid) worldPos = Snap(worldPos, gridSize);
 
         // 优先使用对象池
         if (WorldItemPool.Instance != null)
         {
-            return WorldItemPool.Instance.SpawnById(itemId, quality, amount, worldPos, playAnimation);
+            return WorldItemPool.Instance.SpawnById(itemId, quality, amount, worldPos, playAnimation, setSpawnCooldown);
         }
 
         // 回退：直接创建
@@ -193,6 +195,82 @@ public class WorldSpawnService : MonoBehaviour
         
         var data = database.GetItemByID(itemId);
         return SpawnMultiple(data, quality, totalAmount, origin, spreadRadius);
+    }
+
+    #endregion
+
+    #region 箱子特殊处理
+
+    /// <summary>
+    /// 生成物品（自动检测是否为箱子类型）
+    /// </summary>
+    /// <param name="itemId">物品ID</param>
+    /// <param name="quality">品质</param>
+    /// <param name="amount">数量</param>
+    /// <param name="worldPos">世界位置</param>
+    /// <param name="direction">掉落方向</param>
+    /// <returns>生成的物品（箱子返回null因为会自动放置）</returns>
+    public WorldItemPickup SpawnItem(int itemId, int quality, int amount, Vector3 worldPos, Vector2 direction)
+    {
+        if (database == null) return null;
+        
+        var data = database.GetItemByID(itemId);
+        if (data == null) return null;
+
+        // 检查是否为箱子类型（Storage）
+        if (data is StorageData storageData)
+        {
+            // 箱子特殊处理：掉落动画后自动放置
+            StartCoroutine(HandleStorageDropCoroutine(storageData, worldPos, direction));
+            return null;
+        }
+
+        // 普通物品：正常生成
+        return SpawnWithAnimation(data, quality, amount, worldPos, direction);
+    }
+
+    /// <summary>
+    /// 处理箱子掉落协程
+    /// </summary>
+    private System.Collections.IEnumerator HandleStorageDropCoroutine(StorageData storageData, Vector3 dropPosition, Vector2 direction)
+    {
+        // 创建临时掉落物（仅用于动画，不可拾取）
+        var tempPickup = SpawnFromItem(storageData, 0, 1, dropPosition, true);
+        if (tempPickup != null)
+        {
+            // 播放掉落动画
+            var dropAnim = tempPickup.GetComponent<WorldItemDrop>();
+            if (dropAnim != null)
+            {
+                dropAnim.StartDrop(direction, Random.Range(0.8f, 1.2f));
+            }
+
+            // 禁用拾取功能
+            var collider = tempPickup.GetComponent<Collider2D>();
+            if (collider != null)
+            {
+                collider.enabled = false;
+            }
+
+            // 等待掉落动画完成
+            yield return new WaitForSeconds(ChestDropHandler.DropAnimationDuration);
+
+            // 获取最终位置
+            Vector3 finalPos = tempPickup.transform.position;
+
+            // 销毁临时掉落物
+            if (WorldItemPool.Instance != null)
+            {
+                WorldItemPool.Instance.Despawn(tempPickup);
+            }
+            else
+            {
+                Destroy(tempPickup.gameObject);
+            }
+
+            // 在最终位置放置箱子
+            ChestDropHandler.HandleChestDrop(storageData, finalPos, ChestOwnership.Player);
+        }
     }
 
     #endregion

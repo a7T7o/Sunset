@@ -144,6 +144,10 @@ public class OcclusionManager : MonoBehaviour
     private float lastChopTime;
     private const float CHOPPING_TIMEOUT = 3f;  // 3秒超时
     
+    // ✅ 预览遮挡检测
+    private Bounds? previewBounds = null;
+    private HashSet<OcclusionTransparency> previewOccluding = new HashSet<OcclusionTransparency>();
+    
     private float lastDetectionTime = 0f;
     private string playerLayer = "";
     
@@ -243,6 +247,128 @@ public class OcclusionManager : MonoBehaviour
     /// ✅ 获取当前正在砍伐的树木
     /// </summary>
     public OcclusionTransparency CurrentChoppingTree => currentChoppingTree;
+    
+    #region 预览遮挡检测
+    
+    /// <summary>
+    /// ✅ 设置预览 Bounds（用于放置预览的遮挡检测）
+    /// 当预览显示时调用此方法，传入预览的 Bounds
+    /// 当预览隐藏时调用此方法，传入 null
+    /// </summary>
+    /// <param name="bounds">预览的 Bounds，null 表示清除预览检测</param>
+    public void SetPreviewBounds(Bounds? bounds)
+    {
+        // 如果清除预览，恢复之前被预览遮挡的物体
+        if (bounds == null && previewBounds != null)
+        {
+            ClearPreviewOcclusion();
+        }
+        
+        previewBounds = bounds;
+        
+        // 立即执行一次预览遮挡检测
+        if (bounds != null)
+        {
+            DetectPreviewOcclusion();
+        }
+    }
+    
+    /// <summary>
+    /// ✅ 检测预览遮挡
+    /// 对于预览：minOcclusionRatio = 0（任何遮挡都触发透明）
+    /// </summary>
+    private void DetectPreviewOcclusion()
+    {
+        if (previewBounds == null) return;
+        
+        Bounds bounds = previewBounds.Value;
+        Vector2 previewCenter = bounds.center;
+        
+        // 记录之前被预览遮挡的物体
+        var previousPreviewOccluding = new HashSet<OcclusionTransparency>(previewOccluding);
+        previewOccluding.Clear();
+        
+        // 遍历所有注册的可遮挡物体
+        foreach (var occluder in registeredOccluders)
+        {
+            if (occluder == null || !occluder.CanBeOccluded) continue;
+            
+            // 获取遮挡物的位置
+            Vector2 occluderPos = occluder.transform.position;
+            
+            // 距离过滤：只检测预览周围的物体
+            float distance = Vector2.Distance(previewCenter, occluderPos);
+            if (distance > detectionRadius)
+            {
+                continue;
+            }
+            
+            // 标签过滤
+            if (useTagFilter && !HasAnyTag(occluder))
+            {
+                continue;
+            }
+            
+            // 获取遮挡物的 Bounds
+            Bounds occluderBounds = occluder.GetBounds();
+            
+            // ★ 预览遮挡检测：只要 Bounds 有重叠就触发透明
+            // 对于预览，minOcclusionRatio = 0（任何遮挡都触发）
+            if (occluderBounds.Intersects(bounds))
+            {
+                previewOccluding.Add(occluder);
+                
+                // 设置遮挡状态（如果还没有被玩家遮挡）
+                if (!currentlyOccluding.Contains(occluder))
+                {
+                    occluder.SetOccluding(true);
+                }
+            }
+        }
+        
+        // 恢复不再被预览遮挡的物体（如果也没有被玩家遮挡）
+        foreach (var occluder in previousPreviewOccluding)
+        {
+            if (occluder != null && !previewOccluding.Contains(occluder) && !currentlyOccluding.Contains(occluder))
+            {
+                // 如果是树林中的树木，不恢复（由树林逻辑统一管理）
+                if (enableForestTransparency && currentForest.Contains(occluder))
+                {
+                    continue;
+                }
+                
+                occluder.SetOccluding(false);
+            }
+        }
+        
+        if (enableDetailedDebug && previewOccluding.Count > 0)
+        {
+            Debug.Log($"<color=yellow>[预览遮挡] 检测到 {previewOccluding.Count} 个遮挡物</color>");
+        }
+    }
+    
+    /// <summary>
+    /// ✅ 清除预览遮挡状态
+    /// </summary>
+    private void ClearPreviewOcclusion()
+    {
+        foreach (var occluder in previewOccluding)
+        {
+            if (occluder != null && !currentlyOccluding.Contains(occluder))
+            {
+                // 如果是树林中的树木，不恢复（由树林逻辑统一管理）
+                if (enableForestTransparency && currentForest.Contains(occluder))
+                {
+                    continue;
+                }
+                
+                occluder.SetOccluding(false);
+            }
+        }
+        previewOccluding.Clear();
+    }
+    
+    #endregion
     
     /// <summary>
     /// 注册可遮挡物体
@@ -523,6 +649,12 @@ public class OcclusionManager : MonoBehaviour
         if (shouldLog)
         {
             Debug.Log($"<color=cyan>[遮挡检测] 检查:{checkedCount} | 遮挡:{occludedCount} | 树林:{currentForest.Count} | 跳过:距离={skippedByDistance},Bounds={skippedByBounds} | 玩家中心:{playerCenterPos}</color>");
+        }
+        
+        // ✅ 同时更新预览遮挡检测
+        if (previewBounds != null)
+        {
+            DetectPreviewOcclusion();
         }
     }
     

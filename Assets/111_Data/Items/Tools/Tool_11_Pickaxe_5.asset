@@ -18,23 +18,34 @@ MonoBehaviour:
   category: 0
   icon: {fileID: -1391551021647408939, guid: 885e166a91c39004d824e48ab4a25cc6, type: 3}
   bagSprite: {fileID: 0}
+  rotateBagIcon: 1
   worldPrefab: {fileID: 2601172474906319461, guid: 2e2ee82a2887ceb449427259c09b7c06, type: 3}
   buyPrice: 0
   sellPrice: 0
   maxStackSize: 1
+  useCustomBagDisplaySize: 1
+  bagDisplayPixelSize: 60
+  bagDisplayOffset: {x: 0, y: 0}
   useCustomDisplaySize: 0
   displayPixelSize: 32
+  worldDisplayOffset: {x: 0, y: 0}
   canBeDiscarded: 1
   isQuestItem: 0
+  isPlaceable: 0
+  placementType: 0
+  placementPrefab: {fileID: 0}
+  buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
   toolType: 5
   energyCost: 2
   effectRadius: 1
   efficiencyMultiplier: 1
   hasDurability: 0
   maxDurability: 100
-  materialTier: 0
+  materialTier: 5
   canDealDamage: 1
-  damageAmount: 5
+  damageAmount: 7
   animatorController: {fileID: 9100000, guid: 31b300c7f2e4d3247bc88a9d5f71773d, type: 2}
   animationFrameCount: 8
   animActionType: 8

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Linq;
 using FarmGame.Data;
 
 /// <summary>
@@ -26,11 +27,18 @@ public class WorldItemPool : MonoBehaviour
     [Tooltip("最大池大小")]
     [SerializeField] private int maxPoolSize = 50;
     
+    [Tooltip("每种物品类型的最大池大小")]
+    [SerializeField] private int maxPoolSizePerItem = 10;
+    
     [Tooltip("场景中最大活跃物品数量")]
     [SerializeField] private int maxActiveItems = 100;
     
     [Tooltip("超出上限时每次清理的数量")]
     [SerializeField] private int cleanupBatchSize = 10;
+    
+    [Header("冷却配置")]
+    [Tooltip("资源节点掉落物的默认拾取冷却时间（秒）")]
+    [SerializeField] private float defaultSpawnCooldown = 1f;
 
     [Header("引用")]
     [Tooltip("物品数据库")]
@@ -40,7 +48,8 @@ public class WorldItemPool : MonoBehaviour
 
     #region 私有字段
 
-    private Stack<WorldItemPickup> _pool = new Stack<WorldItemPickup>();
+    private Stack<WorldItemPickup> _defaultPool = new Stack<WorldItemPickup>();
+    private Dictionary<int, Stack<WorldItemPickup>> _poolByItemId = new Dictionary<int, Stack<WorldItemPickup>>();
     private List<WorldItemPickup> _activeItems = new List<WorldItemPickup>();
     private Transform _poolContainer;
 
@@ -49,7 +58,7 @@ public class WorldItemPool : MonoBehaviour
     #region 属性
 
     public int ActiveCount => _activeItems.Count;
-    public int PoolCount => _pool.Count;
+    public int PoolCount => _defaultPool.Count + _poolByItemId.Values.Sum(stack => stack.Count);
     public ItemDatabase Database => database;
 
     #endregion
@@ -99,7 +108,8 @@ public class WorldItemPool : MonoBehaviour
     /// <summary>
     /// 从池中获取一个物品实例
     /// </summary>
-    public WorldItemPickup Spawn(ItemData data, int quality, int amount, Vector3 position, bool playAnimation = true)
+    /// <param name="setSpawnCooldown">是否设置生成冷却（资源节点掉落物使用）</param>
+    public WorldItemPickup Spawn(ItemData data, int quality, int amount, Vector3 position, bool playAnimation = true, bool setSpawnCooldown = true)
     {
         // 检查数量上限
         if (_activeItems.Count >= maxActiveItems)
@@ -107,7 +117,8 @@ public class WorldItemPool : MonoBehaviour
             CleanupOldestItems();
         }
 
-        WorldItemPickup item = GetFromPool();
+        // ★ 优先使用 ItemData.worldPrefab
+        WorldItemPickup item = GetFromPoolByItemId(data);
         if (item == null) return null;
 
         // 设置位置
@@ -116,6 +127,12 @@ public class WorldItemPool : MonoBehaviour
 
         // 初始化数据
         item.Init(data, quality, amount);
+        
+        // ★ 设置生成冷却（使用可配置参数）
+        if (setSpawnCooldown)
+        {
+            item.SetSpawnCooldown(defaultSpawnCooldown);
+        }
 
         // 播放动画
         if (playAnimation)
@@ -137,14 +154,15 @@ public class WorldItemPool : MonoBehaviour
     /// <summary>
     /// 从池中获取一个物品实例（通过ID）
     /// </summary>
-    public WorldItemPickup SpawnById(int itemId, int quality, int amount, Vector3 position, bool playAnimation = true)
+    /// <param name="setSpawnCooldown">是否设置生成冷却</param>
+    public WorldItemPickup SpawnById(int itemId, int quality, int amount, Vector3 position, bool playAnimation = true, bool setSpawnCooldown = true)
     {
         if (database == null) return null;
         
         var data = database.GetItemByID(itemId);
         if (data == null) return null;
 
-        return Spawn(data, quality, amount, position, playAnimation);
+        return Spawn(data, quality, amount, position, playAnimation, setSpawnCooldown);
     }
 
     /// <summary>
@@ -166,17 +184,41 @@ public class WorldItemPool : MonoBehaviour
         // ★ 重置物品状态
         item.Reset();
 
-        // 回收到池
-        if (_pool.Count < maxPoolSize)
+        // ★ 根据 itemId 放入对应的池
+        int itemId = item.ItemId;
+        if (itemId >= 0)
+        {
+            if (!_poolByItemId.ContainsKey(itemId))
+            {
+                _poolByItemId[itemId] = new Stack<WorldItemPickup>();
+            }
+            
+            if (_poolByItemId[itemId].Count < maxPoolSizePerItem)
+            {
+                item.gameObject.SetActive(false);
+                item.transform.SetParent(_poolContainer);
+                item.transform.localPosition = Vector3.zero;
+                _poolByItemId[itemId].Push(item);
+                Debug.Log($"<color=cyan>[WorldItemPool] 回收到 itemId={itemId} 池，当前池大小={_poolByItemId[itemId].Count}</color>");
+                return;
+            }
+            else
+            {
+                Debug.Log($"<color=yellow>[WorldItemPool] itemId={itemId} 池已满，销毁物品</color>");
+            }
+        }
+        
+        // 池已满或无效 itemId，尝试放入默认池
+        if (_defaultPool.Count < maxPoolSize)
         {
             item.gameObject.SetActive(false);
             item.transform.SetParent(_poolContainer);
             item.transform.localPosition = Vector3.zero;
-            _pool.Push(item);
+            _defaultPool.Push(item);
         }
         else
         {
-            // 池已满，直接销毁
+            // 默认池也满了，直接销毁
             Destroy(item.gameObject);
         }
     }
@@ -359,20 +401,20 @@ public class WorldItemPool : MonoBehaviour
             var pickup = obj.GetComponent<WorldItemPickup>();
             if (pickup != null)
             {
-                _pool.Push(pickup);
+                _defaultPool.Push(pickup);
             }
         }
     }
 
     private WorldItemPickup GetFromPool()
     {
-        if (_pool.Count > 0)
+        if (_defaultPool.Count > 0)
         {
-            return _pool.Pop();
+            return _defaultPool.Pop();
         }
 
         // 池为空，创建新实例
-        if (defaultWorldPrefab != null && _activeItems.Count + _pool.Count < maxPoolSize)
+        if (defaultWorldPrefab != null && _activeItems.Count + _defaultPool.Count < maxPoolSize)
         {
             var obj = Instantiate(defaultWorldPrefab);
             return obj.GetComponent<WorldItemPickup>();
@@ -380,6 +422,47 @@ public class WorldItemPool : MonoBehaviour
 
         Debug.LogWarning("[WorldItemPool] 对象池已满，无法创建新实例");
         return null;
+    }
+    
+    /// <summary>
+    /// 根据 ItemData 从池中获取物品（优先使用 worldPrefab）
+    /// </summary>
+    private WorldItemPickup GetFromPoolByItemId(ItemData data)
+    {
+        if (data == null) return GetFromPool();
+        
+        int itemId = data.itemID;
+        
+        // 1. 尝试从对应 itemId 的池中获取
+        if (_poolByItemId.TryGetValue(itemId, out var pool) && pool.Count > 0)
+        {
+            Debug.Log($"<color=cyan>[WorldItemPool] 从 itemId={itemId} 池中获取</color>");
+            return pool.Pop();
+        }
+        
+        // 2. 检查是否有 worldPrefab
+        if (data.worldPrefab != null)
+        {
+            Debug.Log($"<color=green>[WorldItemPool] 使用 worldPrefab 实例化 itemId={itemId}</color>");
+            var obj = Instantiate(data.worldPrefab);
+            var pickup = obj.GetComponent<WorldItemPickup>();
+            if (pickup != null)
+            {
+                return pickup;
+            }
+            else
+            {
+                Debug.LogWarning($"[WorldItemPool] worldPrefab 缺少 WorldItemPickup 组件，回退到默认池");
+                Destroy(obj);
+            }
+        }
+        else
+        {
+            Debug.LogWarning($"[WorldItemPool] itemId={itemId} 没有 worldPrefab，使用默认预制体");
+        }
+        
+        // 3. 回退到默认池
+        return GetFromPool();
     }
 
     private void CleanupOldestItems()
@@ -413,7 +496,13 @@ public class WorldItemPool : MonoBehaviour
     [ContextMenu("显示池状态")]
     private void DEBUG_ShowStatus()
     {
-        Debug.Log($"[WorldItemPool] 活跃: {_activeItems.Count}, 池中: {_pool.Count}");
+        int totalPooled = _defaultPool.Count + _poolByItemId.Values.Sum(stack => stack.Count);
+        Debug.Log($"[WorldItemPool] 活跃: {_activeItems.Count}, 池中总计: {totalPooled} (默认池: {_defaultPool.Count}, 分类池: {_poolByItemId.Count} 种)");
+        
+        foreach (var kvp in _poolByItemId)
+        {
+            Debug.Log($"  - itemId={kvp.Key}: {kvp.Value.Count} 个");
+        }
     }
 #endif
 

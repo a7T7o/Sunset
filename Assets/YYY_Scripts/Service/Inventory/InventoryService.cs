@@ -9,7 +9,7 @@ using FarmGame.Data;
 /// - 事件：库存整体变化、单格变化、热键行变化
 /// - AddItem 优先：先叠加第一行，再空位第一行，再其余叠加，再其余空位
 /// </summary>
-public class InventoryService : MonoBehaviour
+public class InventoryService : MonoBehaviour, IItemContainer
 {
     public const int DefaultInventorySize = 36; // 3行 * 12列
     public const int HotbarWidth = 12;          // 第一行 12 格
@@ -19,6 +19,9 @@ public class InventoryService : MonoBehaviour
 
     [Header("容量")]
     [SerializeField] private int inventorySize = DefaultInventorySize;
+    
+    [Header("Debug")]
+    [SerializeField] private bool showDebugInfo = false;
 
     [SerializeField] private ItemStack[] slots;
 
@@ -29,6 +32,9 @@ public class InventoryService : MonoBehaviour
 
     public int Size => inventorySize;
     public ItemDatabase Database => database; // 公开访问器
+
+    // IItemContainer 接口实现
+    public int Capacity => inventorySize;
 
     void Awake()
     {
@@ -242,6 +248,83 @@ public class InventoryService : MonoBehaviour
         return true;
     }
 
+    /// <summary>
+    /// 从背包中移除指定物品
+    /// 优先从第一行（Hotbar）移除，然后从其他行移除
+    /// </summary>
+    /// <param name="itemId">物品 ID</param>
+    /// <param name="quality">物品品质（-1 表示任意品质）</param>
+    /// <param name="amount">移除数量</param>
+    /// <returns>是否成功移除全部数量</returns>
+    public bool RemoveItem(int itemId, int quality, int amount)
+    {
+        if (amount <= 0) return true;
+        int remaining = amount;
+
+        // 1) 先从第一行移除
+        remaining = RemoveFromRange(itemId, quality, remaining, 0, HotbarWidth);
+        // 2) 再从其他行移除
+        remaining = RemoveFromRange(itemId, quality, remaining, HotbarWidth, inventorySize);
+
+        if (remaining != amount)
+        {
+            RaiseInventoryChanged();
+        }
+
+        return remaining <= 0;
+    }
+
+    /// <summary>
+    /// 从指定范围的槽位中移除物品
+    /// </summary>
+    int RemoveFromRange(int itemId, int quality, int remaining, int start, int end)
+    {
+        if (remaining <= 0) return 0;
+        
+        for (int i = start; i < end && remaining > 0; i++)
+        {
+            var s = slots[i];
+            if (s.IsEmpty) continue;
+            if (s.itemId != itemId) continue;
+            if (quality >= 0 && s.quality != quality) continue; // quality < 0 表示任意品质
+            
+            int canRemove = Mathf.Min(remaining, s.amount);
+            s.amount -= canRemove;
+            remaining -= canRemove;
+            
+            slots[i] = s.amount > 0 ? s : ItemStack.Empty;
+            RaiseSlotChanged(i);
+        }
+        
+        return remaining;
+    }
+
+    /// <summary>
+    /// 检查背包中是否有足够数量的指定物品
+    /// </summary>
+    /// <param name="itemId">物品 ID</param>
+    /// <param name="quality">物品品质（-1 表示任意品质）</param>
+    /// <param name="amount">需要的数量</param>
+    /// <returns>是否有足够数量</returns>
+    public bool HasItem(int itemId, int quality, int amount)
+    {
+        if (amount <= 0) return true;
+        int count = 0;
+        
+        for (int i = 0; i < inventorySize; i++)
+        {
+            var s = slots[i];
+            if (s.IsEmpty) continue;
+            if (s.itemId != itemId) continue;
+            if (quality >= 0 && s.quality != quality) continue;
+            
+            count += s.amount;
+            if (count >= amount) return true;
+        }
+        
+        return false;
+    }
+
     public int GetMaxStack(int itemId)
     {
         if (database == null) return 99;
@@ -262,5 +345,83 @@ public class InventoryService : MonoBehaviour
     void RaiseInventoryChanged()
     {
         OnInventoryChanged?.Invoke();
+    }
+
+    /// <summary>
+    /// 排序背包（不包括 Hotbar 第一行）
+    /// 规则：按 itemId 升序，同 ID 按 quality 降序，空槽位排在最后
+    /// </summary>
+    public void Sort()
+    {
+        if (slots == null || slots.Length <= HotbarWidth) return;
+
+        // 只排序第二行和第三行（索引 12-35）
+        int sortStart = HotbarWidth;
+        int sortEnd = inventorySize;
+        int sortCount = sortEnd - sortStart;
+
+        // 收集所有非空物品
+        var items = new System.Collections.Generic.List<ItemStack>();
+        for (int i = sortStart; i < sortEnd; i++)
+        {
+            if (!slots[i].IsEmpty)
+            {
+                items.Add(slots[i]);
+            }
+        }
+
+        // 排序：itemId 升序，同 ID 按 quality 降序
+        items.Sort((a, b) =>
+        {
+            if (a.itemId != b.itemId)
+                return a.itemId.CompareTo(b.itemId);
+            return b.quality.CompareTo(a.quality); // quality 降序
+        });
+
+        // 合并相同物品
+        var merged = new System.Collections.Generic.List<ItemStack>();
+        foreach (var item in items)
+        {
+            bool stacked = false;
+            int maxStack = GetMaxStack(item.itemId);
+
+            for (int i = 0; i < merged.Count; i++)
+            {
+                if (merged[i].CanStackWith(item) && merged[i].amount < maxStack)
+                {
+                    int canAdd = Mathf.Min(item.amount, maxStack - merged[i].amount);
+                    var temp = merged[i];
+                    temp.amount += canAdd;
+                    merged[i] = temp;
+
+                    if (canAdd < item.amount)
+                    {
+                        var remaining = item;
+                        remaining.amount -= canAdd;
+                        merged.Add(remaining);
+                    }
+                    stacked = true;
+                    break;
+                }
+            }
+
+            if (!stacked)
+            {
+                merged.Add(item);
+            }
+        }
+
+        // 写回槽位（从第二行开始）
+        for (int i = 0; i < sortCount; i++)
+        {
+            int slotIndex = sortStart + i;
+            slots[slotIndex] = i < merged.Count ? merged[i] : ItemStack.Empty;
+        }
+
+        // 🔥 触发全局刷新事件，通知 UI 更新
+        RaiseInventoryChanged();
+        
+        if (showDebugInfo)
+            Debug.Log($"[InventoryService] Sort 完成，触发 OnInventoryChanged 事件");
     }
 }

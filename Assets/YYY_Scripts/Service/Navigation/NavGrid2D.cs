@@ -30,6 +30,9 @@ public class NavGrid2D : MonoBehaviour
     private bool[,] walkable;
     private static NavGrid2D s_instance;
 
+    // 🔥 Unity 6 优化：预分配碰撞体缓存数组，避免 GC 分配
+    private Collider2D[] _colliderCache = new Collider2D[10];
+
     // 公共事件：外部可调用以通知网格需要刷新
     public static System.Action OnRequestGridRefresh;
 
@@ -115,6 +118,11 @@ public class NavGrid2D : MonoBehaviour
 
     public void RebuildGrid()
     {
+        // 🔥 关键修复：同步物理系统的 Transform 变化
+        // 动态障碍物（如树木成长、箱子放置）修改碰撞体后，
+        // Physics2D 内部缓存可能未更新，导致 OverlapCircle 检测到旧数据
+        Physics2D.SyncTransforms();
+        
         // 自动检测世界边界
         if (autoDetectWorldBounds)
         {
@@ -254,14 +262,15 @@ public class NavGrid2D : MonoBehaviour
 
     private bool IsPointBlocked(Vector2 worldPos, float radius)
     {
-        var allHits = Physics2D.OverlapCircleAll(worldPos, radius);
+        // 🔥 Unity 6 优化：使用 NonAlloc 版本，避免 GC 分配
+        int hitCount = Physics2D.OverlapCircleNonAlloc(worldPos, radius, _colliderCache);
         
         // 先检查标签
         if (obstacleTags != null && obstacleTags.Length > 0)
         {
-            for (int i = 0; i < allHits.Length; i++)
+            for (int i = 0; i < hitCount; i++)
             {
-                var hitTransform = allHits[i].transform;
+                var hitTransform = _colliderCache[i].transform;
                 // 跳过生成的物体
                 if (hitTransform.name.Contains("(Clone)") || hitTransform.name.Contains("Pickup"))
                     continue;

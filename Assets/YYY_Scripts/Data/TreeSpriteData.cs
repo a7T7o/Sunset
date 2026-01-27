@@ -34,23 +34,39 @@ public class ShadowConfig
 /// <summary>
 /// 季节 Sprite 集合
 /// 包含5种植被季节的 Sprite
+/// 
+/// ★ 字段名称与视觉样式映射：
+/// - spring = 春季样式（绿色茂盛）
+/// - summer = 夏季样式（深绿色）
+/// - earlyFall = 早秋样式（开始变黄）
+/// - lateFall = 晚秋样式（黄色/橙色）
+/// - winter = 冬季样式（挂冰/光秃）
+/// 
+/// ★ 显示时间线：
+/// - 春1-14：100% spring
+/// - 春15-28：spring → summer 渐变
+/// - 夏1-14：100% summer
+/// - 夏15-28：summer → earlyFall 渐变
+/// - 秋1-14：earlyFall → lateFall 渐变
+/// - 秋15-28：100% lateFall
+/// - 冬1-28：100% winter
 /// </summary>
 [System.Serializable]
 public class SeasonSpriteSet
 {
-    [Tooltip("早春 Sprite")]
-    public Sprite earlySpring;
+    [Tooltip("春季样式 Sprite")]
+    public Sprite spring;
     
-    [Tooltip("晚春早夏 Sprite")]
-    public Sprite lateSpringEarlySummer;
+    [Tooltip("夏季样式 Sprite")]
+    public Sprite summer;
     
-    [Tooltip("晚夏早秋 Sprite")]
-    public Sprite lateSummerEarlyFall;
+    [Tooltip("早秋样式 Sprite")]
+    public Sprite earlyFall;
     
-    [Tooltip("晚秋 Sprite")]
+    [Tooltip("晚秋样式 Sprite")]
     public Sprite lateFall;
     
-    [Tooltip("冬季 Sprite（挂冰状态）")]
+    [Tooltip("冬季样式 Sprite（挂冰状态）")]
     public Sprite winter;
     
     /// <summary>
@@ -60,12 +76,12 @@ public class SeasonSpriteSet
     {
         return season switch
         {
-            SeasonManager.VegetationSeason.EarlySpring => earlySpring,
-            SeasonManager.VegetationSeason.LateSpringEarlySummer => lateSpringEarlySummer,
-            SeasonManager.VegetationSeason.LateSummerEarlyFall => lateSummerEarlyFall,
+            SeasonManager.VegetationSeason.Spring => spring,
+            SeasonManager.VegetationSeason.Summer => summer,
+            SeasonManager.VegetationSeason.EarlyFall => earlyFall,
             SeasonManager.VegetationSeason.LateFall => lateFall,
             SeasonManager.VegetationSeason.Winter => winter,
-            _ => earlySpring
+            _ => spring
         };
     }
 }
@@ -113,9 +129,9 @@ public class StageSpriteData
         
         return season switch
         {
-            SeasonManager.VegetationSeason.EarlySpring => stumpSpringSummer,
-            SeasonManager.VegetationSeason.LateSpringEarlySummer => stumpSpringSummer,
-            SeasonManager.VegetationSeason.LateSummerEarlyFall => stumpFall,
+            SeasonManager.VegetationSeason.Spring => stumpSpringSummer,
+            SeasonManager.VegetationSeason.Summer => stumpSpringSummer,
+            SeasonManager.VegetationSeason.EarlyFall => stumpFall,
             SeasonManager.VegetationSeason.LateFall => stumpFall,
             SeasonManager.VegetationSeason.Winter => stumpWinter,
             _ => stumpSpringSummer
@@ -131,9 +147,9 @@ public class StageSpriteData
         
         return season switch
         {
-            SeasonManager.VegetationSeason.EarlySpring => witheredSummer, // 早春不应有枯萎，降级
-            SeasonManager.VegetationSeason.LateSpringEarlySummer => witheredSummer,
-            SeasonManager.VegetationSeason.LateSummerEarlyFall => witheredFall,
+            SeasonManager.VegetationSeason.Spring => witheredSummer, // 春季不应有枯萎，降级
+            SeasonManager.VegetationSeason.Summer => witheredSummer,
+            SeasonManager.VegetationSeason.EarlyFall => witheredFall,
             SeasonManager.VegetationSeason.LateFall => witheredFall,
             SeasonManager.VegetationSeason.Winter => witheredFall,
             _ => witheredSummer

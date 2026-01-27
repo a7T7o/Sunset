@@ -35,9 +35,10 @@ namespace FarmGame.Data
         
         /// <summary>
         /// 各阶段石料总量（索引=阶段）
-        /// M1=12, M2=6, M3=4, M4=2
+        /// M1=12, M2=6, M3=2, M4=2
+        /// 注：M3 与 M4 石料总量一致
         /// </summary>
-        public static readonly int[] StoneTotals = { 12, 6, 4, 2 };
+        public static readonly int[] StoneTotals = { 12, 6, 2, 2 };
         
         #endregion
         

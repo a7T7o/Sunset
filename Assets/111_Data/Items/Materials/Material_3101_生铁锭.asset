@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4d9aadc563043de499a1349f184e07ec, type: 3}
+  m_Name: "Material_3101_\u751F\u94C1\u952D"
+  m_EditorClassIdentifier: 
+  itemID: 3101
+  itemName: "3101_\u751F\u94C1\u952D_0"
+  description: 
+  category: 3
+  icon: {fileID: 791901622, guid: 7a7a9ac4d4266f446971239a9aa1d3e9, type: 3}
+  bagSprite: {fileID: 0}
+  rotateBagIcon: 1
+  worldPrefab: {fileID: 3963710951095603012, guid: b17de86694aa5d14ba7fb1effdc3ef5e, type: 3}
+  buyPrice: 0
+  sellPrice: 0
+  maxStackSize: 20
+  useCustomBagDisplaySize: 1
+  bagDisplayPixelSize: 38
+  bagDisplayOffset: {x: 0, y: 0}
+  useCustomDisplaySize: 1
+  displayPixelSize: 18
+  worldDisplayOffset: {x: 0, y: 0}
+  canBeDiscarded: 1
+  isQuestItem: 0
+  isPlaceable: 0
+  placementType: 0
+  placementPrefab: {fileID: 0}
+  buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
+  materialSubType: 0
+  sourceDescription: "\u5728\u6D1E\u7A74\u6316\u77FF\u83B7\u5F97"
+  canBeSmelt: 0
+  smeltResultID: 0
+  smeltTime: 5
+  craftingUse: "\u53EF\u7528\u4E8E\u5236\u4F5C\u94C1\u5251\u3001\u94C1\u9504\u5934\u7B49"

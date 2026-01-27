@@ -44,6 +44,8 @@ public class WorldPrefabGeneratorTool : EditorWindow
     private const string PREF_OVERWRITE = "WorldPrefab_Overwrite";
     private const string PREF_BATCH_MODE = "WorldPrefab_BatchMode";
     private const string PREF_BATCH_FOLDER = "WorldPrefab_BatchFolder";
+    private const string PREF_SHADOW_SPRITE = "WorldPrefab_ShadowSprite";
+    private const string PREF_SHADOW_COLOR = "WorldPrefab_ShadowColor";
 
     #endregion
 
@@ -57,7 +59,10 @@ public class WorldPrefabGeneratorTool : EditorWindow
     private void OnEnable()
     {
         LoadSettings();
-        shadowSprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/Sprites/Generated/Shadow_Ellipse.png");
+        
+        // 加载阴影 Sprite（如果没有保存的路径，使用默认路径）
+        string shadowPath = EditorPrefs.GetString(PREF_SHADOW_SPRITE, "Assets/Sprites/Generated/Shadow_Ellipse.png");
+        shadowSprite = AssetDatabase.LoadAssetAtPath<Sprite>(shadowPath);
     }
 
     private void OnDisable()
@@ -74,6 +79,13 @@ public class WorldPrefabGeneratorTool : EditorWindow
         overwriteExisting = EditorPrefs.GetBool(PREF_OVERWRITE, false);
         useBatchMode = EditorPrefs.GetBool(PREF_BATCH_MODE, false);
         batchFolderPath = EditorPrefs.GetString(PREF_BATCH_FOLDER, "Assets/111_Data/Items");
+        
+        // 加载阴影颜色（使用 ColorUtility 序列化）
+        string colorHex = EditorPrefs.GetString(PREF_SHADOW_COLOR, "#000000FF");
+        if (ColorUtility.TryParseHtmlString(colorHex, out Color loadedColor))
+        {
+            shadowColor = loadedColor;
+        }
     }
 
     private void SaveSettings()
@@ -85,6 +97,17 @@ public class WorldPrefabGeneratorTool : EditorWindow
         EditorPrefs.SetBool(PREF_OVERWRITE, overwriteExisting);
         EditorPrefs.SetBool(PREF_BATCH_MODE, useBatchMode);
         EditorPrefs.SetString(PREF_BATCH_FOLDER, batchFolderPath);
+        
+        // 保存阴影 Sprite 路径
+        if (shadowSprite != null)
+        {
+            string shadowPath = AssetDatabase.GetAssetPath(shadowSprite);
+            EditorPrefs.SetString(PREF_SHADOW_SPRITE, shadowPath);
+        }
+        
+        // 保存阴影颜色（使用 ColorUtility 序列化）
+        string colorHex = "#" + ColorUtility.ToHtmlStringRGBA(shadowColor);
+        EditorPrefs.SetString(PREF_SHADOW_COLOR, colorHex);
     }
 
     /// <summary>

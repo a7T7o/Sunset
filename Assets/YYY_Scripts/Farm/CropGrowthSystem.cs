@@ -4,8 +4,11 @@ using FarmGame.Data;
 namespace FarmGame.Farm
 {
     /// <summary>
-    /// 作物生长系统 - 每天检查所有作物并更新生长状态
+    /// [已废弃] 作物生长系统 - 每天检查所有作物并更新生长状态
+    /// 请使用 CropManager 替代
+    /// 此类保留用于兼容旧版 FarmingManager，将在后续版本中删除
     /// </summary>
+    [System.Obsolete("使用 CropManager 替代，此类将在后续版本中删除")]
     public class CropGrowthSystem : MonoBehaviour
     {
         public static CropGrowthSystem Instance { get; private set; }

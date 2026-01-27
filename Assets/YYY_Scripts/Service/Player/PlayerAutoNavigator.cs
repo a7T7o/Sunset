@@ -2,13 +2,14 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 自动导航（右键点击）- v5.2 终极优化版
+/// 自动导航（右键点击）- v5.3 ClosestPoint 统一版
 /// 
 /// 核心改进：
 /// 1. 斜向移动时固定朝向为左/右，避免摇头
 /// 2. 路径平滑处理，减少崎岖路线
 /// 3. 详细的卡顿诊断输出
 /// 4. 视线优化跳过中间路径点
+/// 5. 🔥 v4.0：使用 ClosestPoint 计算距离，与 GameInputManager 统一
 /// </summary>
 public class PlayerAutoNavigator : MonoBehaviour
 {
@@ -57,6 +58,13 @@ public class PlayerAutoNavigator : MonoBehaviour
     private const float STUCK_CHECK_INTERVAL = 0.3f;
     private const int MAX_STUCK_RETRIES = 3;
 
+    // 到达回调
+    private System.Action _onArrivedCallback;
+    
+    // 🔥 P0-1：navToken 机制 - 隔离不同导航请求
+    private int _navToken = 0;
+    private int _currentToken = 0;
+
     // 调试信息
     private List<string> debugLogs = new List<string>();
 
@@ -86,7 +94,11 @@ public class PlayerAutoNavigator : MonoBehaviour
     {
         if (!active || movement == null || player == null) return;
 
-        if (targetTransform != null) targetPoint = targetTransform.position;
+        // 🔥 修复：跟随模式下，每帧重新计算最近接近点（目标可能移动，玩家位置也在变）
+        if (targetTransform != null)
+        {
+            targetPoint = CalculateClosestApproachPoint(targetTransform);
+        }
 
         UpdateSprintState();
 
@@ -112,25 +124,137 @@ public class PlayerAutoNavigator : MonoBehaviour
 
     public void FollowTarget(Transform t, float stopRadius)
     {
+        FollowTarget(t, stopRadius, null);
+    }
+
+    /// <summary>
+    /// 跟随目标并在到达后执行回调
+    /// </summary>
+    /// <param name="t">目标 Transform</param>
+    /// <param name="stopRadius">停止距离</param>
+    /// <param name="onArrived">到达后的回调</param>
+    public void FollowTarget(Transform t, float stopRadius, System.Action onArrived)
+    {
+        // 🔥 P0-1：先强制取消旧导航（不触发回调）
+        ForceCancel();
+        
+        // 🔥 P0-1：递增 token，隔离新导航请求
+        _navToken++;
+        _currentToken = _navToken;
+        
+        // 清除缓存
+        _cachedTargetTransform = null;
+        _cachedTargetCollider = null;
+        
         targetTransform = t;
-        followStopRadius = Mathf.Max(0.1f, stopRadius);
+        
+        // 🔥 修复：计算玩家到目标的最近接近点，而不是目标中心
+        targetPoint = CalculateClosestApproachPoint(t);
+        
+        // 🔥 修复：根据目标 Collider 大小动态调整停止半径，确保足够近
+        followStopRadius = CalculateOptimalStopRadius(t, stopRadius);
+        
+        _onArrivedCallback = onArrived;
         active = true;
 
         if (SprintStateManager.Instance != null)
             runWhileNavigating = SprintStateManager.Instance.ShouldNavigationSprint();
 
+        // 🔥 v4.0：关键日志 - 使用 ClosestPoint 计算距离
+        Vector2 playerStart = GetPlayerPosition();
+        Vector2 targetClosest = GetTargetAnchorPoint(t);
+        float distToTarget = Vector2.Distance(playerStart, targetClosest);
+        
+        var collider = _cachedTargetCollider;
+        if (collider != null)
+        {
+            Bounds bounds = collider.bounds;
+            Debug.Log($"<color=green>[Nav] 开始导航: 目标={t.name}</color>\n" +
+                      $"  玩家起点: {playerStart}\n" +
+                      $"  目标最近点(ClosestPoint): {targetClosest}, Collider大小: {(Vector2)bounds.size}\n" +
+                      $"  当前距离: {distToTarget:F2}, 停止半径: {followStopRadius:F2}");
+        }
+        else
+        {
+            Debug.Log($"<color=green>[Nav] 开始导航: 目标={t.name}（无Collider）</color>\n" +
+                      $"  玩家起点: {playerStart}\n" +
+                      $"  目标位置: {(Vector2)t.position}\n" +
+                      $"  停止半径: {followStopRadius:F2}");
+        }
+
         BuildPath();
         ResetStuckDetection();
     }
 
+    /// <summary>
+    /// 取消导航（不触发回调）- 用于卡顿、路径失败等
+    /// 🔥 P0-1：Cancel 不再执行回调
+    /// </summary>
     public void Cancel()
+    {
+        ResetNavigationState();
+        // 🔥 P0-1：不执行回调
+    }
+    
+    /// <summary>
+    /// 强制取消导航（不触发回调）- 用于切换目标、玩家移动打断
+    /// 🔥 P0-1：使旧 token 失效
+    /// </summary>
+    public void ForceCancel()
+    {
+        _navToken++;  // 使旧 token 失效
+        ResetNavigationState();
+    }
+    
+    /// <summary>
+    /// 🔥 v4.0：正常到达时调用（唯一允许执行回调的入口）
+    /// </summary>
+    private void CompleteArrival()
+    {
+        // 🔥 v4.0：关键日志 - 使用 ClosestPoint 计算距离
+        Vector2 playerFinal = GetPlayerPosition();
+        string targetName = targetTransform != null ? targetTransform.name : "无目标";
+        
+        // 计算到目标最近点的距离（与 GameInputManager 一致）
+        float distToTarget = 0f;
+        if (targetTransform != null)
+        {
+            Vector2 targetClosest = GetTargetAnchorPoint(targetTransform);
+            distToTarget = Vector2.Distance(playerFinal, targetClosest);
+        }
+        
+        Debug.Log($"<color=cyan>[Nav] 导航完成: 目标={targetName}</color>\n" +
+                  $"  玩家最终位置: {playerFinal}\n" +
+                  $"  到目标最近点距离: {distToTarget:F2}\n" +
+                  $"  停止半径: {followStopRadius:F2}");
+        
+        // 只有 token 匹配才执行回调
+        if (_currentToken == _navToken && _onArrivedCallback != null)
+        {
+            var callback = _onArrivedCallback;
+            ResetNavigationState();
+            callback.Invoke();
+        }
+        else
+        {
+            ResetNavigationState();
+        }
+    }
+    
+    /// <summary>
+    /// 🔥 P0-1：重置导航状态（公共逻辑提取）
+    /// </summary>
+    private void ResetNavigationState()
     {
         active = false;
         targetTransform = null;
+        _cachedTargetTransform = null;
+        _cachedTargetCollider = null;
         path.Clear();
         pathIndex = 0;
         stuckRetryCount = 0;
         runWhileNavigating = false;
+        _onArrivedCallback = null;
         if (movement != null) movement.SetMovementInput(Vector2.zero, false);
     }
 
@@ -145,7 +269,20 @@ public class PlayerAutoNavigator : MonoBehaviour
         if (path.Count == 0)
         {
             BuildPath();
-            if (path.Count == 0) { MoveDirectly(playerPos); return; }
+            if (path.Count == 0) 
+            { 
+                // 🔥 无路径时，检查是否已经足够近可以交互
+                if (targetTransform != null && IsCloseEnoughToInteract(playerPos))
+                {
+                    CompleteArrival();
+                }
+                else
+                {
+                    // 无法到达，取消导航
+                    Cancel();
+                }
+                return; 
+            }
         }
 
         if (pathIndex >= path.Count) { Cancel(); return; }
@@ -159,13 +296,45 @@ public class PlayerAutoNavigator : MonoBehaviour
         Vector2 waypoint = path[pathIndex];
         Vector2 toWaypoint = waypoint - playerPos;
         float distance = toWaypoint.magnitude;
-        float stopDist = (pathIndex == path.Count - 1) ? GetFinalStopDistance() : waypointTolerance;
-
-        if (distance <= stopDist)
+        
+        bool isLastWaypoint = (pathIndex == path.Count - 1);
+        
+        // 🔥 核心修复：停止条件基于是否足够近可以交互
+        if (isLastWaypoint && targetTransform != null)
         {
-            if (pathIndex < path.Count - 1) pathIndex++;
-            else Cancel();
-            return;
+            // 检查是否已经足够近可以交互
+            if (IsCloseEnoughToInteract(playerPos))
+            {
+                CompleteArrival();
+                return;
+            }
+            
+            // 检查是否已经到达路径终点（可走的最近点）
+            if (distance <= waypointTolerance)
+            {
+                // 已经到达路径终点，这是 NavGrid 能到达的最近点
+                // 直接完成导航，让交互系统判断是否在交互距离内
+                CompleteArrival();
+                return;
+            }
+        }
+        else if (!isLastWaypoint)
+        {
+            // 非最后一个路径点：正常检查
+            if (distance <= waypointTolerance)
+            {
+                pathIndex++;
+                return;
+            }
+        }
+        else
+        {
+            // 最后一个路径点但没有 targetTransform（普通导航）
+            if (distance <= GetFinalStopDistance())
+            {
+                CompleteArrival();
+                return;
+            }
         }
 
         // 计算移动方向
@@ -234,6 +403,9 @@ public class PlayerAutoNavigator : MonoBehaviour
 
     /// <summary>
     /// 视线检测：检查两点之间是否有障碍物
+    /// 🔥 Unity 6 优化：使用 CircleCast 进行连续体积检测（考虑玩家半径）
+    /// 🔥 策略：宁可误杀，不可放过 - 默认所有非 Trigger 的碰撞体都是障碍物
+    /// 🔥 集成 NavGrid 检测，确保路径上所有点都是可走的
     /// </summary>
     private bool HasLineOfSight(Vector2 from, Vector2 to)
     {
@@ -241,29 +413,80 @@ public class PlayerAutoNavigator : MonoBehaviour
         float distance = direction.magnitude;
         if (distance < 0.1f) return true;
         
-        float checkRadius = playerRadius + losSafetyMargin;
-        int sampleCount = Mathf.Max(3, Mathf.CeilToInt(distance / 0.3f));
-        
-        for (int i = 0; i <= sampleCount; i++)
+        // 🔥 第一步：检查 NavGrid 可走性（关键！）
+        // 这可以检测到水域、悬崖等没有物理碰撞体但不可走的区域
+        if (navGrid != null)
         {
-            float t = i / (float)sampleCount;
-            Vector2 point = Vector2.Lerp(from, to, t);
-            
-            var hits = Physics2D.OverlapCircleAll(point, checkRadius);
-            foreach (var hit in hits)
+            int sampleCount = Mathf.Max(5, Mathf.CeilToInt(distance / 0.3f));
+            for (int i = 1; i < sampleCount; i++)
             {
-                if (IsPlayerCollider(hit)) continue;
-                if (IsObstacle(hit)) return false;
+                float t = (float)i / sampleCount;
+                Vector2 samplePoint = Vector2.Lerp(from, to, t);
+                
+                if (!navGrid.IsWalkable(samplePoint))
+                {
+                    _lastLOSBlocked = true;
+                    return false;
+                }
             }
         }
         
+        // 🔥 第二步：使用 CircleCast 进行连续体积检测（考虑玩家半径）
+        // CircleCast 会以一个"带半径的圆"扫过去，比 Linecast 更准确
+        float checkRadius = Mathf.Max(0.05f, (playerRadius + losSafetyMargin) * 0.8f);
+        
+        // 使用配置的 LayerMask，如果没配置则检测所有层
+        int layerMask = losObstacleMask.value != 0 ? losObstacleMask.value : Physics2D.DefaultRaycastLayers;
+        
+        RaycastHit2D hit = Physics2D.CircleCast(
+            from,                       // 起点
+            checkRadius,                // 检测半径（考虑玩家体积）
+            direction.normalized,       // 方向
+            distance,                   // 距离
+            layerMask                   // 层级遮罩
+        );
+        
+        // 如果没有碰撞，视线通畅
+        if (hit.collider == null)
+        {
+            _lastLOSBlocked = false;
+            return true;
+        }
+        
+        // 跳过玩家自己
+        if (IsPlayerCollider(hit.collider))
+        {
+            _lastLOSBlocked = false;
+            return true;
+        }
+        
+        // 检查是否是障碍物
+        bool isObstacle = IsObstacle(hit.collider);
+        
+        if (isObstacle)
+        {
+            if (enableDetailedDebug)
+            {
+                Debug.Log($"<color=red>[Nav] 视线被阻挡: {hit.collider.name}, Layer: {LayerMask.LayerToName(hit.collider.gameObject.layer)}, Tag: {hit.collider.tag}</color>");
+            }
+            _lastLOSHit = hit;
+            _lastLOSBlocked = true;
+            return false;
+        }
+        
+        // 没有找到障碍物，视线通畅
+        _lastLOSBlocked = false;
         return true;
     }
+    
+    // 🔥 调试可视化：记录最后一次视线检测的结果
+    private RaycastHit2D _lastLOSHit;
+    private bool _lastLOSBlocked;
 
     private void MoveDirectly(Vector2 playerPos)
     {
         Vector2 toTarget = (Vector2)targetPoint - playerPos;
-        if (toTarget.magnitude <= GetFinalStopDistance()) { Cancel(); return; }
+        if (toTarget.magnitude <= GetFinalStopDistance()) { CompleteArrival(); return; }  // 🔥 P0-1：使用 CompleteArrival
         
         Vector2 moveDir = toTarget.normalized;
         Vector2 facingDir = GetFacingDirection(moveDir);
@@ -285,7 +508,7 @@ public class PlayerAutoNavigator : MonoBehaviour
         Vector2 start = GetPlayerPosition();
         Vector2 end = targetPoint;
 
-        AddDebugLog($"开始寻路: 起点={start}, 终点={end}");
+        AddDebugLog($"开始寻路: 起点={start}, 终点={end}" + (targetTransform != null ? $", 目标={targetTransform.name}" : ""));
 
         // 检查起点是否可走
         if (!navGrid.IsWalkable(start))
@@ -533,17 +756,40 @@ public class PlayerAutoNavigator : MonoBehaviour
         return col == playerCollider || col.transform == player || col.transform.IsChildOf(player);
     }
 
+    /// <summary>
+    /// 判断碰撞体是否是障碍物
+    /// 🔥 策略：宁可误杀，不可放过
+    /// 默认所有非 Trigger 的碰撞体都是障碍物，除非明确排除
+    /// </summary>
     private bool IsObstacle(Collider2D col)
     {
+        // 🔥 Trigger 通常不阻挡视线（如拾取物、触发区域）
+        if (col.isTrigger) return false;
+        
+        // 排除掉落物和临时物体
         if (col.name.Contains("(Clone)") || col.name.Contains("Pickup")) return false;
-
-        if (losObstacleTags != null && losObstacleTags.Length > 0 && HasAnyTag(col.transform, losObstacleTags))
-            return true;
-
-        if (losObstacleMask.value != 0 && ((1 << col.gameObject.layer) & losObstacleMask.value) != 0)
-            return true;
-
-        return false;
+        
+        // 🔥 新策略：默认所有非 Trigger 的碰撞体都是障碍物
+        // 除非它在排除列表中
+        
+        // 如果配置了 LayerMask，检查是否在 Mask 中
+        if (losObstacleMask.value != 0)
+        {
+            bool inMask = ((1 << col.gameObject.layer) & losObstacleMask.value) != 0;
+            if (inMask) return true; // 在 Mask 中，是障碍物
+        }
+        
+        // 如果配置了 Tags，检查是否有匹配的 Tag
+        if (losObstacleTags != null && losObstacleTags.Length > 0)
+        {
+            bool hasTag = HasAnyTag(col.transform, losObstacleTags);
+            if (hasTag) return true; // 有匹配 Tag，是障碍物
+        }
+        
+        // 🔥 关键：如果既没有配置 Mask 也没有配置 Tags，
+        // 或者物体不在配置的 Mask/Tags 中，
+        // 默认也视为障碍物（宁可误杀，不可放过）
+        return true;
     }
 
     private static bool HasAnyTag(Transform t, string[] tags)
@@ -563,6 +809,94 @@ public class PlayerAutoNavigator : MonoBehaviour
         }
         return false;
     }
+
+    #region 🔥 智能目标点计算（v4.0 ClosestPoint 统一版）
+    
+    // 缓存目标 Collider，避免每帧 GetComponent
+    private Collider2D _cachedTargetCollider;
+    private Transform _cachedTargetTransform;
+    
+    /// <summary>
+    /// 🔥 v4.0：获取目标最近点（使用 ClosestPoint）
+    /// 
+    /// 核心思路：
+    /// 1. 使用 Collider.ClosestPoint(playerPos) 计算玩家到目标的最近点
+    /// 2. 这样从任何方向接近都是最短路径，不会绕路
+    /// 3. 与 GameInputManager 使用相同的距离计算方式
+    /// </summary>
+    private Vector2 GetTargetAnchorPoint(Transform target)
+    {
+        if (target == null) return transform.position;
+        
+        // 缓存 Collider
+        if (_cachedTargetTransform != target)
+        {
+            _cachedTargetTransform = target;
+            _cachedTargetCollider = target.GetComponent<Collider2D>();
+            if (_cachedTargetCollider == null)
+                _cachedTargetCollider = target.GetComponentInChildren<Collider2D>();
+        }
+        
+        if (_cachedTargetCollider != null)
+        {
+            // 🔥 v4.0：使用 ClosestPoint 计算玩家到 Collider 的最近点
+            Vector2 playerPos = GetPlayerPosition();
+            return _cachedTargetCollider.ClosestPoint(playerPos);
+        }
+        
+        return target.position;
+    }
+    
+    /// <summary>
+    /// 🔥 v4.0：计算玩家到目标的最近接近点
+    /// 
+    /// 核心思路：
+    /// 1. 使用 ClosestPoint 计算玩家到 Collider 的最近点
+    /// 2. 这样导航的目标与交互判断的目标一致
+    /// </summary>
+    private Vector3 CalculateClosestApproachPoint(Transform target)
+    {
+        return GetTargetAnchorPoint(target);
+    }
+    
+    /// <summary>
+    /// 根据交互距离计算最优停止半径
+    /// 
+    /// 核心思路：
+    /// 1. 停止半径应该小于交互距离，确保到达后能触发交互
+    /// 2. GameInputManager 允许 20% 容差，所以停止半径 = interactDist * 0.9
+    /// 3. 这样玩家停下后，距离 < interactDist * 1.2，一定能交互
+    /// </summary>
+    private float CalculateOptimalStopRadius(Transform target, float defaultRadius)
+    {
+        // 尝试获取 IInteractable 的交互距离
+        var interactable = target.GetComponent<IInteractable>();
+        if (interactable != null)
+        {
+            float interactDist = interactable.InteractionDistance;
+            // 停止半径 = 交互距离 * 0.9，确保在交互范围内
+            return Mathf.Max(0.3f, interactDist * 0.9f);
+        }
+        
+        // 没有 IInteractable，使用默认值
+        return Mathf.Clamp(defaultRadius, 0.3f, 1.5f);
+    }
+    
+    /// <summary>
+    /// 🔥 v4.0：检查玩家是否足够近可以与目标交互
+    /// 
+    /// 核心思路：
+    /// 1. 使用与 GameInputManager 相同的距离计算方式
+    /// 2. 玩家中心 → Collider 最近点（ClosestPoint）
+    /// </summary>
+    private bool IsCloseEnoughToInteract(Vector2 playerPos)
+    {
+        Vector2 targetAnchor = GetTargetAnchorPoint(targetTransform);
+        float distance = Vector2.Distance(playerPos, targetAnchor);
+        return distance <= followStopRadius;
+    }
+    
+    #endregion
 
     #region 调试输出
 
@@ -708,6 +1042,35 @@ public class PlayerAutoNavigator : MonoBehaviour
             // 到路径点的方向
             Gizmos.color = Color.green;
             Gizmos.DrawLine(playerPos, path[pathIndex]);
+        }
+        
+        // 🔥 可视化调试：绘制视线检测结果
+        if (enableLineOfSightOptimization && playerCollider != null && pathIndex < path.Count)
+        {
+            Vector2 playerPos = playerCollider.bounds.center;
+            
+            // 绘制从玩家到当前路径点的视线
+            if (_lastLOSBlocked && _lastLOSHit.collider != null)
+            {
+                // 被阻挡：红线 + 红球
+                Gizmos.color = Color.red;
+                Gizmos.DrawLine(playerPos, _lastLOSHit.point);
+                Gizmos.DrawWireSphere(_lastLOSHit.point, 0.15f);
+                Gizmos.DrawSphere(_lastLOSHit.point, 0.08f);
+            }
+            else
+            {
+                // 通畅：绿线
+                Gizmos.color = Color.green;
+                for (int i = pathIndex; i < path.Count; i++)
+                {
+                    Vector2 checkFrom = (i == pathIndex) ? playerPos : path[i - 1];
+                    Vector2 checkTo = path[i];
+                    
+                    // 简单检查（不调用 HasLineOfSight 避免递归）
+                    Gizmos.DrawLine(checkFrom, checkTo);
+                }
+            }
         }
     }
 }

@@ -187,6 +187,9 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     [SerializeField] private bool editorPreview = true;
     #endregion
     
+    // ★ enableSeasonEvents 已移除：调试开关已移至 TimeManager 集中管理
+    // 树木始终订阅所有事件，由 TimeManager 的事件发布开关控制是否触发
+    
     #region 私有字段
     private SpriteRenderer spriteRenderer;
     private OcclusionTransparency occlusionTransparency;
@@ -257,20 +260,12 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
         lastEditorState = currentState;
         #endif
         
-        // 订阅事件
+        // ★ 始终订阅所有事件（调试开关已移至 TimeManager 集中管理）
+        // 订阅季节事件
         SeasonManager.OnSeasonChanged += OnSeasonChanged;
         SeasonManager.OnVegetationSeasonChanged += OnVegetationSeasonChanged;
         
-        if (autoGrow)
-        {
-            TimeManager.OnDayChanged += OnDayChanged;
-            
-            if (plantedDay == 0 && TimeManager.Instance != null)
-            {
-                plantedDay = TimeManager.Instance.GetTotalDaysPassed();
-            }
-        }
-        
+        // 订阅天气事件
         WeatherSystem.OnPlantsWither += OnWeatherWither;
         WeatherSystem.OnPlantsRecover += OnWeatherRecover;
         WeatherSystem.OnWinterSnow += OnWinterSnow;
@@ -282,14 +277,28 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
             currentSeason = SeasonManager.Instance.GetCurrentSeason();
         }
         
-        // 初始化血量
-        InitializeHealth();
-        
         // 初始检查天气
         if (WeatherSystem.Instance != null && WeatherSystem.Instance.IsWithering())
         {
             OnWeatherWither();
         }
+        
+        if (showDebugInfo)
+            Debug.Log($"<color=lime>[TreeControllerV2] {gameObject.name} 季节/天气事件已订阅</color>");
+        
+        // 订阅每日成长事件
+        if (autoGrow)
+        {
+            TimeManager.OnDayChanged += OnDayChanged;
+            
+            if (plantedDay == 0 && TimeManager.Instance != null)
+            {
+                plantedDay = TimeManager.Instance.GetTotalDaysPassed();
+            }
+        }
+        
+        // 初始化血量
+        InitializeHealth();
         
         // 初始化显示
         StartCoroutine(WaitForSeasonManagerAndInitialize());
@@ -303,6 +312,7 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     
     private void OnDestroy()
     {
+        // ★ 始终取消订阅所有事件
         SeasonManager.OnSeasonChanged -= OnSeasonChanged;
         SeasonManager.OnVegetationSeasonChanged -= OnVegetationSeasonChanged;
         TimeManager.OnDayChanged -= OnDayChanged;
@@ -715,6 +725,10 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
                 UpdatePolygonColliderFromSprite(poly, spriteRenderer.sprite);
             }
         }
+        
+        // 🔥 关键修复：碰撞体形状变化后，通知 NavGrid 刷新
+        // 树木成长时碰撞体变大，需要更新导航网格的阻挡区域
+        RequestNavGridRefresh();
     }
     
     /// <summary>
@@ -1404,27 +1418,77 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
         // 检查是否需要渐变
         float progress = SeasonManager.Instance.GetTransitionProgress();
         
-        // 如果进度为0或1，直接返回当前季节的Sprite
-        if (progress <= 0f || progress >= 1f)
+        // ★ 调试输出：季节 Sprite 选择逻辑
+        if (showDebugInfo)
         {
-            return stageData.normal.GetSprite(vegSeason);
+            int dayInSeason = TimeManager.Instance != null ? TimeManager.Instance.GetDay() : -1;
+            var calendarSeason = SeasonManager.Instance.GetCurrentSeason();
+            Debug.Log($"<color=magenta>[TreeControllerV2] {gameObject.name} 季节Sprite选择：\n" +
+                      $"  - 日历季节: {calendarSeason}\n" +
+                      $"  - 季节天数: {dayInSeason}\n" +
+                      $"  - 植被季节: {vegSeason}\n" +
+                      $"  - 渐变进度: {progress:F3}\n" +
+                      $"  - spring配置: {(stageData.normal.spring != null ? stageData.normal.spring.name : "NULL")}\n" +
+                      $"  - summer配置: {(stageData.normal.summer != null ? stageData.normal.summer.name : "NULL")}</color>");
         }
         
-        // 渐变逻辑：使用treeID生成固定随机值
+        // ★ 渐变逻辑说明：
+        // - progress = 0：无渐变，100% 显示当前季节
+        // - progress = 0.5：50% 树木显示下一季节
+        // - progress = 1.0：渐变完成，100% 显示下一季节
+        // - 渐变是不可逆的：一旦 treeSeedValue < progress，该树就显示下一季节
+        
+        // 如果进度为0，直接返回当前季节的Sprite（无渐变）
+        if (progress <= 0f)
+        {
+            Sprite result = stageData.normal.GetSprite(vegSeason);
+            if (showDebugInfo)
+            {
+                Debug.Log($"<color=lime>[TreeControllerV2] {gameObject.name} 无渐变(progress=0)，显示当前季节 {vegSeason}: {(result != null ? result.name : "NULL")}</color>");
+            }
+            return result;
+        }
+        
+        // 如果进度为1，渐变完成，返回下一季节的Sprite
+        if (progress >= 1f)
+        {
+            var nextSeason = GetNextVegetationSeason(vegSeason);
+            Sprite result = stageData.normal.GetSprite(nextSeason);
+            if (showDebugInfo)
+            {
+                Debug.Log($"<color=lime>[TreeControllerV2] {gameObject.name} 渐变完成(progress=1)，显示下一季节 {nextSeason}: {(result != null ? result.name : "NULL")}</color>");
+            }
+            return result;
+        }
+        
+        // 渐变中：使用treeID生成固定随机值
+        // ★ 每棵树有固定的随机种子，保证同一棵树在同一进度下始终显示相同季节
         int seed = treeID + currentStageIndex * 100;
         Random.InitState(seed);
         float treeSeedValue = Random.value;
         
         // 根据进度判断显示哪个季节
+        // ★ 渐变不可逆：一旦 treeSeedValue < progress，该树就显示下一季节
         if (treeSeedValue < progress)
         {
             // 显示下一季节
-            return stageData.normal.GetSprite(GetNextVegetationSeason(vegSeason));
+            var nextSeason = GetNextVegetationSeason(vegSeason);
+            Sprite result = stageData.normal.GetSprite(nextSeason);
+            if (showDebugInfo)
+            {
+                Debug.Log($"<color=yellow>[TreeControllerV2] {gameObject.name} 渐变中，treeSeed={treeSeedValue:F3} < progress={progress:F3}，显示下一季节 {nextSeason}: {(result != null ? result.name : "NULL")}</color>");
+            }
+            return result;
         }
         else
         {
             // 显示当前季节
-            return stageData.normal.GetSprite(vegSeason);
+            Sprite result = stageData.normal.GetSprite(vegSeason);
+            if (showDebugInfo)
+            {
+                Debug.Log($"<color=cyan>[TreeControllerV2] {gameObject.name} 渐变中，treeSeed={treeSeedValue:F3} >= progress={progress:F3}，显示当前季节 {vegSeason}: {(result != null ? result.name : "NULL")}</color>");
+            }
+            return result;
         }
     }
     
@@ -1435,11 +1499,11 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     {
         return current switch
         {
-            SeasonManager.VegetationSeason.EarlySpring => SeasonManager.VegetationSeason.LateSpringEarlySummer,
-            SeasonManager.VegetationSeason.LateSpringEarlySummer => SeasonManager.VegetationSeason.LateSummerEarlyFall,
-            SeasonManager.VegetationSeason.LateSummerEarlyFall => SeasonManager.VegetationSeason.LateFall,
+            SeasonManager.VegetationSeason.Spring => SeasonManager.VegetationSeason.Summer,
+            SeasonManager.VegetationSeason.Summer => SeasonManager.VegetationSeason.EarlyFall,
+            SeasonManager.VegetationSeason.EarlyFall => SeasonManager.VegetationSeason.LateFall,
             SeasonManager.VegetationSeason.LateFall => SeasonManager.VegetationSeason.Winter,
-            SeasonManager.VegetationSeason.Winter => SeasonManager.VegetationSeason.EarlySpring,
+            SeasonManager.VegetationSeason.Winter => SeasonManager.VegetationSeason.Spring,
             _ => current
         };
     }
@@ -2047,10 +2111,67 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     
     #region 编辑器
     #if UNITY_EDITOR
+    // ★ 运行时调试：缓存上一帧的状态值，用于检测 Inspector 中的修改
+    private int _lastRuntimeStageIndex = -1;
+    private TreeState _lastRuntimeState = TreeState.Normal;
+    private SeasonManager.Season _lastRuntimeSeason = SeasonManager.Season.Spring;
+    
+    /// <summary>
+    /// ★ 运行时 Inspector 调试更新
+    /// 在 Update 中检测 Inspector 参数变化并立即更新显示
+    /// </summary>
+    private void UpdateRuntimeInspectorDebug()
+    {
+        // 只在编辑器运行时生效
+        if (!Application.isPlaying) return;
+        if (!editorPreview) return;
+        
+        bool needUpdate = false;
+        
+        // 检测阶段变化
+        if (currentStageIndex != _lastRuntimeStageIndex)
+        {
+            _lastRuntimeStageIndex = currentStageIndex;
+            InitializeHealth(); // 重新初始化血量
+            needUpdate = true;
+            if (showDebugInfo)
+                Debug.Log($"<color=cyan>[TreeControllerV2] {gameObject.name} Inspector调试：阶段变更为 {currentStageIndex}</color>");
+        }
+        
+        // 检测状态变化
+        if (currentState != _lastRuntimeState)
+        {
+            _lastRuntimeState = currentState;
+            needUpdate = true;
+            if (showDebugInfo)
+                Debug.Log($"<color=cyan>[TreeControllerV2] {gameObject.name} Inspector调试：状态变更为 {currentState}</color>");
+        }
+        
+        // 检测季节变化（手动修改 Inspector 中的季节）
+        if (currentSeason != _lastRuntimeSeason)
+        {
+            _lastRuntimeSeason = currentSeason;
+            needUpdate = true;
+            if (showDebugInfo)
+                Debug.Log($"<color=cyan>[TreeControllerV2] {gameObject.name} Inspector调试：季节变更为 {currentSeason}</color>");
+        }
+        
+        if (needUpdate)
+        {
+            UpdateSprite();
+            UpdatePolygonColliderShape();
+        }
+    }
+    
+    private void Update()
+    {
+        // ★ 运行时 Inspector 调试
+        UpdateRuntimeInspectorDebug();
+    }
+    
     private void OnValidate()
     {
         if (!editorPreview) return;
-        if (Application.isPlaying) return;
         
         if (spriteRenderer == null)
         {
@@ -2058,11 +2179,25 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
             if (spriteRenderer == null) return;
         }
         
-        if (currentStageIndex != lastEditorStageIndex || currentState != lastEditorState)
+        // 编辑模式下的实时预览
+        if (!Application.isPlaying)
         {
-            lastEditorStageIndex = currentStageIndex;
-            lastEditorState = currentState;
-            UpdateSprite();
+            if (currentStageIndex != lastEditorStageIndex || currentState != lastEditorState)
+            {
+                lastEditorStageIndex = currentStageIndex;
+                lastEditorState = currentState;
+                UpdateSprite();
+            }
+        }
+        else
+        {
+            // 运行时：初始化运行时缓存（首次）
+            if (_lastRuntimeStageIndex < 0)
+            {
+                _lastRuntimeStageIndex = currentStageIndex;
+                _lastRuntimeState = currentState;
+                _lastRuntimeSeason = currentSeason;
+            }
         }
     }
     

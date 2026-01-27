@@ -10,6 +10,16 @@ public class PackagePanelTabsUI : MonoBehaviour
     [SerializeField] private Transform topParent;           // 6_Top
     [SerializeField] private Transform pagesParent;         // Main 下的 0_Props,1_Recipes,...
 
+    [Header("Box UI")]
+    [Tooltip("Box UI 的父容器（位于 PackagePanel 内部）")]
+    [SerializeField] private Transform boxUIRoot;
+    
+    // 当前活跃的 Box UI 实例
+    private GameObject _activeBoxUI;
+    
+    // 🔥 C9：记录进入 Box 模式前背包是否打开
+    private bool _wasBackpackOpenBeforeBox = false;
+
     private readonly Dictionary<int, Toggle> topToggles = new Dictionary<int, Toggle>();
     private readonly Dictionary<int, GameObject> pages = new Dictionary<int, GameObject>();
     private int currentIndex = -1;
@@ -199,6 +209,10 @@ public class PackagePanelTabsUI : MonoBehaviour
     private void OpenOrToggle(int idx)
     {
         EnsureCollected();
+        
+        // 🔥 C2/C9：打开背包前先关闭 Box UI（互斥逻辑）
+        CloseBoxPanelIfOpen();
+        
         bool isOpen = panelRoot != null && panelRoot.activeSelf;
         if (!isOpen)
         {
@@ -211,6 +225,10 @@ public class PackagePanelTabsUI : MonoBehaviour
             ClosePanel();
             return;
         }
+        
+        // ★ 切换页面时取消拿取状态
+        CancelInteractionIfNeeded();
+        
         SetVisiblePage(idx);
     }
 
@@ -273,15 +291,230 @@ public class PackagePanelTabsUI : MonoBehaviour
     void OpenPanel()
     {
         if (panelRoot == null || panelRoot.activeSelf) return;
+        
+        // 🔥 互斥逻辑：打开 PackagePanel 前先关闭 BoxPanelUI
+        CloseBoxPanelIfOpen();
+        
         panelRoot.SetActive(true);
+        
+        // 🔥 C10：确保 Main/Top 可见（修复 ESC 关闭箱子后 Tab 打开背包时 Main/Top 未激活的问题）
+        ShowMainAndTop();
+        
         OnPanelJustOpened();
     }
+    
+    /// <summary>
+    /// 🔥 关闭箱子面板（互斥逻辑）
+    /// 🔥 C2/C9：打开背包时调用，关闭 Box 后打开背包
+    /// </summary>
+    private void CloseBoxPanelIfOpen()
+    {
+        if (FarmGame.UI.BoxPanelUI.ActiveInstance != null && FarmGame.UI.BoxPanelUI.ActiveInstance.IsOpen)
+        {
+            FarmGame.UI.BoxPanelUI.ActiveInstance.Close();
+        }
+        
+        // 同时清理本地引用并恢复 Main/Top
+        if (_activeBoxUI != null)
+        {
+            Destroy(_activeBoxUI);
+            _activeBoxUI = null;
+            ShowMainAndTop();
+        }
+        
+        _wasBackpackOpenBeforeBox = false;
+    }
+
+    #region Box UI 管理
+
+    /// <summary>
+    /// 🔥 修正 Ⅱ：确保 PackagePanel 为 Box 模式打开时也执行初始化
+    /// </summary>
+    private void EnsurePanelOpenForBox()
+    {
+        if (panelRoot == null) return;
+        if (!panelRoot.activeSelf)
+        {
+            panelRoot.SetActive(true);
+            OnPanelJustOpened(); // 🔥 关键：确保 InventoryPanelUI.EnsureBuilt() 被调用
+        }
+    }
+
+    /// <summary>
+    /// 打开 Box UI（在 PackagePanel 内部实例化）
+    /// </summary>
+    /// <param name="boxUIPrefab">Box UI 预制体</param>
+    /// <returns>实例化的 BoxPanelUI 组件</returns>
+    public FarmGame.UI.BoxPanelUI OpenBoxUI(GameObject boxUIPrefab)
+    {
+        if (boxUIPrefab == null)
+        {
+            Debug.LogError("[PackagePanelTabsUI] boxUIPrefab 为空！");
+            return null;
+        }
+
+        // 🔥 C9：记录进入 Box 模式前背包是否打开
+        _wasBackpackOpenBeforeBox = IsBackpackVisible();
+
+        // 关闭之前的 Box UI
+        CloseBoxUIInternal();
+
+        // 🔥 修正 Ⅱ：使用对称逻辑确保 PackagePanel 打开并初始化
+        EnsurePanelOpenForBox();
+
+        // 隐藏 Main 和 Top（背包区域）
+        HideMainAndTop();
+
+        // 确定父容器
+        Transform parent = boxUIRoot;
+        if (parent == null)
+        {
+            // 如果没有配置 boxUIRoot，尝试自动查找或使用 panelRoot
+            parent = FindChildByName(panelRoot.transform, "BoxUIRoot");
+            if (parent == null)
+            {
+                parent = panelRoot.transform;
+            }
+        }
+
+        // 实例化 Box UI
+        _activeBoxUI = Instantiate(boxUIPrefab, parent);
+        _activeBoxUI.transform.SetAsLastSibling();
+
+        var boxPanelUI = _activeBoxUI.GetComponent<FarmGame.UI.BoxPanelUI>();
+        if (boxPanelUI == null)
+        {
+            Debug.LogError($"[PackagePanelTabsUI] Box UI 预制体 {boxUIPrefab.name} 缺少 BoxPanelUI 组件！");
+            Destroy(_activeBoxUI);
+            _activeBoxUI = null;
+            return null;
+        }
+
+        Debug.Log($"[PackagePanelTabsUI] 打开 Box UI: {boxUIPrefab.name}, panelRoot.active={panelRoot.activeSelf}, wasBackpackOpen={_wasBackpackOpenBeforeBox}");
+        return boxPanelUI;
+    }
+
+    /// <summary>
+    /// 关闭 Box UI（内部方法，不处理后续状态）
+    /// </summary>
+    private void CloseBoxUIInternal()
+    {
+        if (_activeBoxUI != null)
+        {
+            var boxPanelUI = _activeBoxUI.GetComponent<FarmGame.UI.BoxPanelUI>();
+            if (boxPanelUI != null && boxPanelUI.IsOpen)
+            {
+                boxPanelUI.Close();
+            }
+            Destroy(_activeBoxUI);
+            _activeBoxUI = null;
+        }
+    }
+
+    /// <summary>
+    /// 关闭 Box UI（公共方法）
+    /// 🔥 C9：区分 Tab 触发和 ESC 触发的关闭行为
+    /// 🔥 C10：ESC 关闭时也要恢复 Main/Top 状态，避免后续打开背包时显示空白
+    /// </summary>
+    /// <param name="openBackpackAfter">是否在关闭后打开背包（Tab 触发时为 true）</param>
+    public void CloseBoxUI(bool openBackpackAfter = false)
+    {
+        if (_activeBoxUI == null) return;
+        
+        CloseBoxUIInternal();
+
+        if (openBackpackAfter)
+        {
+            // Tab 触发：关闭 Box 后打开背包
+            ShowMainAndTop();
+            if (currentIndex < 0) currentIndex = 0;
+            SetVisiblePage(currentIndex);
+            Debug.Log($"[PackagePanelTabsUI] CloseBoxUI: Tab 触发，打开背包页面 {currentIndex}");
+        }
+        else
+        {
+            // 🔥 C10：ESC 触发时，先恢复 Main/Top 状态，再关闭面板
+            // 这样后续打开背包时 Main/Top 就是正确的状态
+            ShowMainAndTop();
+            ClosePanel();
+            Debug.Log("[PackagePanelTabsUI] CloseBoxUI: ESC 触发，返回 NoPanel");
+        }
+        
+        _wasBackpackOpenBeforeBox = false;
+    }
+
+    /// <summary>
+    /// 隐藏 Main 和 Top（背包区域）
+    /// </summary>
+    private void HideMainAndTop()
+    {
+        if (topParent != null)
+        {
+            topParent.gameObject.SetActive(false);
+        }
+        if (pagesParent != null)
+        {
+            pagesParent.gameObject.SetActive(false);
+        }
+    }
+
+    /// <summary>
+    /// 显示 Main 和 Top（背包区域）
+    /// </summary>
+    private void ShowMainAndTop()
+    {
+        if (topParent != null)
+        {
+            topParent.gameObject.SetActive(true);
+        }
+        if (pagesParent != null)
+        {
+            pagesParent.gameObject.SetActive(true);
+        }
+    }
+
+    /// <summary>
+    /// 是否有 Box UI 打开
+    /// </summary>
+    public bool IsBoxUIOpen()
+    {
+        return _activeBoxUI != null && _activeBoxUI.activeSelf;
+    }
+
+    /// <summary>
+    /// 🔥 C9：背包区域（Main/Top）是否可见
+    /// </summary>
+    private bool IsBackpackVisible()
+    {
+        return panelRoot != null && panelRoot.activeSelf 
+            && topParent != null && topParent.gameObject.activeSelf
+            && pagesParent != null && pagesParent.gameObject.activeSelf;
+    }
+
+    #endregion
 
     void ClosePanel()
     {
         if (panelRoot == null || !panelRoot.activeSelf) return;
+        
+        // ★ 关闭面板时取消拿取状态
+        CancelInteractionIfNeeded();
+        
         panelRoot.SetActive(false);
         SetVisiblePageInactive();
+    }
+    
+    /// <summary>
+    /// 取消背包交互状态（如果正在拿取物品）
+    /// </summary>
+    private void CancelInteractionIfNeeded()
+    {
+        var interactionManager = InventoryInteractionManager.Instance;
+        if (interactionManager != null && interactionManager.IsHolding)
+        {
+            Debug.Log($"<color=yellow>[PackagePanelTabsUI] 取消背包交互状态</color>");
+            interactionManager.Cancel();
+        }
     }
 
     void ApplyInitialState()

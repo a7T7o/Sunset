@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using FarmGame.Data;
+using FarmGame.UI;
 
 public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
 {
@@ -36,7 +37,35 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
         if (amountText == null)
         {
             var t = transform.Find("Amount");
-            if (t) amountText = t.GetComponent<Text>();
+            if (t) 
+            {
+                amountText = t.GetComponent<Text>();
+            }
+            else
+            {
+                // ★ 自动创建 Amount（与 InventorySlotUI 保持一致）
+                var go = new GameObject("Amount");
+                go.transform.SetParent(transform, false);
+                amountText = go.AddComponent<Text>();
+                amountText.raycastTarget = false;
+                
+                // 字体设置
+                amountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                amountText.fontSize = 18;
+                amountText.fontStyle = FontStyle.BoldAndItalic;
+                amountText.color = Color.black;
+                amountText.alignment = TextAnchor.LowerRight;
+                amountText.text = "";
+                
+                var rt = (RectTransform)amountText.transform;
+                // 自定义锚点（全拉伸）
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                // ★ 用户指定参数：左21.2356，顶部41.568，右3.8808，底部0
+                rt.offsetMin = new Vector2(21.2356f, 0f);      // left, bottom
+                rt.offsetMax = new Vector2(-3.8808f, -41.568f); // -right, -top
+            }
         }
         if (selectedOverlay == null)
         {
@@ -155,15 +184,15 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
         if (s.IsEmpty)
         {
             // 使用统一的缩放适配工具清除图标
-            if (iconImage) UIItemIconScaler.SetIconWithAutoScale(iconImage, null);
+            if (iconImage) UIItemIconScaler.SetIconWithAutoScale(iconImage, null, null);
             if (amountText) amountText.text = "";
             return;
         }
         var data = database.GetItemByID(s.itemId);
-        // ✅ 使用统一的缩放适配工具设置图标（自动等比例缩放适配56x56显示区域）
+        // ✅ 使用统一的缩放适配工具设置图标（支持自定义旋转和尺寸）
         if (iconImage)
         {
-            UIItemIconScaler.SetIconWithAutoScale(iconImage, data != null ? data.GetBagSprite() : null);
+            UIItemIconScaler.SetIconWithAutoScale(iconImage, data != null ? data.GetBagSprite() : null, data);
         }
         if (amountText)
         {
@@ -193,6 +222,19 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
     {
         if (eventData.button == PointerEventData.InputButton.Left)
         {
+            // ★ 检查是否有面板打开（背包/箱子）- 被遮挡时不响应
+            var packageTabs = FindFirstObjectByType<PackagePanelTabsUI>();
+            if (packageTabs != null && packageTabs.IsPanelOpen()) 
+            {
+                ForceRestoreToggleState();
+                return;
+            }
+            if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen) 
+            {
+                ForceRestoreToggleState();
+                return;
+            }
+            
             // 检查是否处于工具动作锁定状态
             var lockManager = ToolActionLockManager.Instance;
             if (lockManager != null && lockManager.IsLocked)

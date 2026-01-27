@@ -111,7 +111,11 @@ public class Tool_001_BatchProject : EditorWindow
     private bool tex_chk_pivot = true;
     private bool tex_chk_compress = false;
     private bool tex_chk_maxsize = false;
-    private bool tex_chk_readwrite = false;  // ✅ 新增：Read/Write Enabled
+    private bool tex_chk_readwrite = false;
+    private bool tex_chk_spriteMode = false;      // Sprite 模式
+    private bool tex_chk_meshType = false;        // 网格类型
+    private bool tex_chk_extrudeEdges = false;    // 挤出边缘
+    private bool tex_chk_generatePhysics = false; // 生成物理形状
     
     // 参数
     private float tex_ppu = 16;
@@ -119,6 +123,10 @@ public class Tool_001_BatchProject : EditorWindow
     private SpriteAlignment tex_pivot = SpriteAlignment.BottomCenter;
     private TextureImporterCompression tex_compress = TextureImporterCompression.Uncompressed;
     private int tex_maxsize = 2048;
+    private SpriteImportMode tex_spriteMode = SpriteImportMode.Multiple;  // 默认多个
+    private SpriteMeshType tex_meshType = SpriteMeshType.Tight;           // 默认紧密
+    private uint tex_extrudeEdges = 1;                                     // 默认1
+    private bool tex_generatePhysics = true;                               // 默认生成
 
     private void DrawTextureMode()
     {
@@ -157,6 +165,14 @@ public class Tool_001_BatchProject : EditorWindow
         
         EditorGUILayout.LabelField("⚙️ 设置参数", EditorStyles.boldLabel);
         
+        // Sprite 模式
+        EditorGUILayout.BeginHorizontal();
+        tex_chk_spriteMode = EditorGUILayout.Toggle(tex_chk_spriteMode, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!tex_chk_spriteMode);
+        tex_spriteMode = (SpriteImportMode)EditorGUILayout.EnumPopup("Sprite模式", tex_spriteMode);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
         // PPU
         EditorGUILayout.BeginHorizontal();
         tex_chk_ppu = EditorGUILayout.Toggle(tex_chk_ppu, GUILayout.Width(20));
@@ -178,6 +194,30 @@ public class Tool_001_BatchProject : EditorWindow
         tex_chk_pivot = EditorGUILayout.Toggle(tex_chk_pivot, GUILayout.Width(20));
         EditorGUI.BeginDisabledGroup(!tex_chk_pivot);
         tex_pivot = (SpriteAlignment)EditorGUILayout.EnumPopup("Pivot对齐", tex_pivot);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        // 网格类型
+        EditorGUILayout.BeginHorizontal();
+        tex_chk_meshType = EditorGUILayout.Toggle(tex_chk_meshType, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!tex_chk_meshType);
+        tex_meshType = (SpriteMeshType)EditorGUILayout.EnumPopup("网格类型", tex_meshType);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        // 挤出边缘
+        EditorGUILayout.BeginHorizontal();
+        tex_chk_extrudeEdges = EditorGUILayout.Toggle(tex_chk_extrudeEdges, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!tex_chk_extrudeEdges);
+        tex_extrudeEdges = (uint)EditorGUILayout.IntSlider("挤出边缘", (int)tex_extrudeEdges, 0, 32);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        // 生成物理形状
+        EditorGUILayout.BeginHorizontal();
+        tex_chk_generatePhysics = EditorGUILayout.Toggle(tex_chk_generatePhysics, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!tex_chk_generatePhysics);
+        tex_generatePhysics = EditorGUILayout.Toggle("生成物理形状", tex_generatePhysics);
         EditorGUI.EndDisabledGroup();
         EditorGUILayout.EndHorizontal();
         
@@ -285,9 +325,13 @@ public class Tool_001_BatchProject : EditorWindow
         }
         
         string msg = $"将修改 {files.Count} 个文件\n\n";
+        if (tex_chk_spriteMode) msg += $"• Sprite模式 → {tex_spriteMode}\n";
         if (tex_chk_ppu) msg += $"• PPU → {tex_ppu}\n";
         if (tex_chk_filter) msg += $"• Filter → {tex_filter}\n";
         if (tex_chk_pivot) msg += $"• Pivot → {tex_pivot}\n";
+        if (tex_chk_meshType) msg += $"• 网格类型 → {tex_meshType}\n";
+        if (tex_chk_extrudeEdges) msg += $"• 挤出边缘 → {tex_extrudeEdges}\n";
+        if (tex_chk_generatePhysics) msg += $"• 生成物理形状 → {tex_generatePhysics}\n";
         if (tex_chk_compress) msg += $"• 压缩 → {tex_compress}\n";
         if (tex_chk_maxsize) msg += $"• 最大尺寸 → {tex_maxsize}\n";
         if (tex_chk_readwrite) msg += $"• Read/Write → 启用\n";
@@ -321,17 +365,22 @@ public class Tool_001_BatchProject : EditorWindow
                         if (ti.textureType != TextureImporterType.Sprite)
                             ti.textureType = TextureImporterType.Sprite;
                         
+                        if (tex_chk_spriteMode) ti.spriteImportMode = tex_spriteMode;
                         if (tex_chk_ppu) ti.spritePixelsPerUnit = tex_ppu;
                         if (tex_chk_filter) ti.filterMode = tex_filter;
                         if (tex_chk_compress) ti.textureCompression = tex_compress;
                         if (tex_chk_maxsize) ti.maxTextureSize = tex_maxsize;
-                        if (tex_chk_readwrite) ti.isReadable = true;  // ✅ 启用 Read/Write
+                        if (tex_chk_readwrite) ti.isReadable = true;
                         
-                        if (tex_chk_pivot)
+                        // 需要通过 TextureImporterSettings 设置的参数
+                        if (tex_chk_pivot || tex_chk_meshType || tex_chk_extrudeEdges || tex_chk_generatePhysics)
                         {
                             TextureImporterSettings s = new TextureImporterSettings();
                             ti.ReadTextureSettings(s);
-                            s.spriteAlignment = (int)tex_pivot;
+                            if (tex_chk_pivot) s.spriteAlignment = (int)tex_pivot;
+                            if (tex_chk_meshType) s.spriteMeshType = tex_meshType;
+                            if (tex_chk_extrudeEdges) s.spriteExtrude = tex_extrudeEdges;
+                            if (tex_chk_generatePhysics) s.spriteGenerateFallbackPhysicsShape = tex_generatePhysics;
                             ti.SetTextureSettings(s);
                         }
                         
@@ -430,13 +479,21 @@ public class Tool_001_BatchProject : EditorWindow
         tex_chk_pivot = EditorPrefs.GetBool("Batch001_Tex_ChkPivot", true);
         tex_chk_compress = EditorPrefs.GetBool("Batch001_Tex_ChkCompress", false);
         tex_chk_maxsize = EditorPrefs.GetBool("Batch001_Tex_ChkMaxSize", false);
-        tex_chk_readwrite = EditorPrefs.GetBool("Batch001_Tex_ChkReadWrite", false);  // ✅ 新增
+        tex_chk_readwrite = EditorPrefs.GetBool("Batch001_Tex_ChkReadWrite", false);
+        tex_chk_spriteMode = EditorPrefs.GetBool("Batch001_Tex_ChkSpriteMode", false);
+        tex_chk_meshType = EditorPrefs.GetBool("Batch001_Tex_ChkMeshType", false);
+        tex_chk_extrudeEdges = EditorPrefs.GetBool("Batch001_Tex_ChkExtrudeEdges", false);
+        tex_chk_generatePhysics = EditorPrefs.GetBool("Batch001_Tex_ChkGeneratePhysics", false);
         
         tex_ppu = EditorPrefs.GetFloat("Batch001_Tex_PPU", 16);
         tex_filter = (FilterMode)EditorPrefs.GetInt("Batch001_Tex_Filter", (int)FilterMode.Point);
         tex_pivot = (SpriteAlignment)EditorPrefs.GetInt("Batch001_Tex_Pivot", (int)SpriteAlignment.BottomCenter);
         tex_compress = (TextureImporterCompression)EditorPrefs.GetInt("Batch001_Tex_Compress", 0);
         tex_maxsize = EditorPrefs.GetInt("Batch001_Tex_MaxSize", 2048);
+        tex_spriteMode = (SpriteImportMode)EditorPrefs.GetInt("Batch001_Tex_SpriteMode", (int)SpriteImportMode.Multiple);
+        tex_meshType = (SpriteMeshType)EditorPrefs.GetInt("Batch001_Tex_MeshType", (int)SpriteMeshType.Tight);
+        tex_extrudeEdges = (uint)EditorPrefs.GetInt("Batch001_Tex_ExtrudeEdges", 1);
+        tex_generatePhysics = EditorPrefs.GetBool("Batch001_Tex_GeneratePhysics", true);
     }
 
     private void SaveSettings()
@@ -448,13 +505,21 @@ public class Tool_001_BatchProject : EditorWindow
         EditorPrefs.SetBool("Batch001_Tex_ChkPivot", tex_chk_pivot);
         EditorPrefs.SetBool("Batch001_Tex_ChkCompress", tex_chk_compress);
         EditorPrefs.SetBool("Batch001_Tex_ChkMaxSize", tex_chk_maxsize);
-        EditorPrefs.SetBool("Batch001_Tex_ChkReadWrite", tex_chk_readwrite);  // ✅ 新增
+        EditorPrefs.SetBool("Batch001_Tex_ChkReadWrite", tex_chk_readwrite);
+        EditorPrefs.SetBool("Batch001_Tex_ChkSpriteMode", tex_chk_spriteMode);
+        EditorPrefs.SetBool("Batch001_Tex_ChkMeshType", tex_chk_meshType);
+        EditorPrefs.SetBool("Batch001_Tex_ChkExtrudeEdges", tex_chk_extrudeEdges);
+        EditorPrefs.SetBool("Batch001_Tex_ChkGeneratePhysics", tex_chk_generatePhysics);
         
         EditorPrefs.SetFloat("Batch001_Tex_PPU", tex_ppu);
         EditorPrefs.SetInt("Batch001_Tex_Filter", (int)tex_filter);
         EditorPrefs.SetInt("Batch001_Tex_Pivot", (int)tex_pivot);
         EditorPrefs.SetInt("Batch001_Tex_Compress", (int)tex_compress);
         EditorPrefs.SetInt("Batch001_Tex_MaxSize", tex_maxsize);
+        EditorPrefs.SetInt("Batch001_Tex_SpriteMode", (int)tex_spriteMode);
+        EditorPrefs.SetInt("Batch001_Tex_MeshType", (int)tex_meshType);
+        EditorPrefs.SetInt("Batch001_Tex_ExtrudeEdges", (int)tex_extrudeEdges);
+        EditorPrefs.SetBool("Batch001_Tex_GeneratePhysics", tex_generatePhysics);
     }
 
     private void ResetCurrentMode()
@@ -466,13 +531,21 @@ public class Tool_001_BatchProject : EditorWindow
             tex_chk_pivot = true;
             tex_chk_compress = false;
             tex_chk_maxsize = false;
-            tex_chk_readwrite = false;  // ✅ 新增
+            tex_chk_readwrite = false;
+            tex_chk_spriteMode = false;
+            tex_chk_meshType = false;
+            tex_chk_extrudeEdges = false;
+            tex_chk_generatePhysics = false;
             
             tex_ppu = 16;
             tex_filter = FilterMode.Point;
             tex_pivot = SpriteAlignment.BottomCenter;
             tex_compress = TextureImporterCompression.Uncompressed;
             tex_maxsize = 2048;
+            tex_spriteMode = SpriteImportMode.Multiple;
+            tex_meshType = SpriteMeshType.Tight;
+            tex_extrudeEdges = 1;
+            tex_generatePhysics = true;
             tex_includeSub = true;
         }
         

@@ -92,8 +92,15 @@ public class OcclusionTransparency : MonoBehaviour
     
     private System.Collections.IEnumerator RegisterDelayed()
     {
-        // 等待一帧，确保所有Awake执行完毕
-        yield return null;
+        // 等待 OcclusionManager 初始化完成（最多等待 2 秒）
+        float timeout = 2f;
+        float elapsed = 0f;
+        
+        while (OcclusionManager.Instance == null && elapsed < timeout)
+        {
+            yield return null;
+            elapsed += Time.deltaTime;
+        }
         
         if (OcclusionManager.Instance != null)
         {
@@ -101,7 +108,7 @@ public class OcclusionTransparency : MonoBehaviour
         }
         else
         {
-            Debug.LogError($"[OcclusionTransparency] {gameObject.name} 注册失败！未找到OcclusionManager");
+            Debug.LogWarning($"[OcclusionTransparency] {gameObject.name} 注册失败！未找到OcclusionManager（等待超时）");
         }
     }
     

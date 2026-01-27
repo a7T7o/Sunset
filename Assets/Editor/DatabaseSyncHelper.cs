@@ -13,13 +13,40 @@ public static class DatabaseSyncHelper
     #region 常量
 
     /// <summary>
-    /// 主数据库资产路径
+    /// 默认数据库资产路径（可通过 SetDatabasePath 修改）
     /// </summary>
-    public const string DatabasePath = "Assets/Data/Database/MasterItemDatabase.asset";
+    public const string DefaultDatabasePath = "Assets/111_Data/Database/MasterItemDatabase.asset";
+    
+    /// <summary>
+    /// EditorPrefs 键名
+    /// </summary>
+    private const string DatabasePathPrefKey = "BatchItemSO_DatabasePath";
+
+    #endregion
+
+    #region 属性
+
+    /// <summary>
+    /// 当前数据库路径（从 EditorPrefs 读取，支持持久化）
+    /// </summary>
+    public static string DatabasePath
+    {
+        get => EditorPrefs.GetString(DatabasePathPrefKey, DefaultDatabasePath);
+        set => EditorPrefs.SetString(DatabasePathPrefKey, value);
+    }
 
     #endregion
 
     #region 公共方法
+
+    /// <summary>
+    /// 设置数据库路径
+    /// </summary>
+    /// <param name="path">数据库资产路径</param>
+    public static void SetDatabasePath(string path)
+    {
+        DatabasePath = path;
+    }
 
     /// <summary>
     /// 获取主数据库资产
