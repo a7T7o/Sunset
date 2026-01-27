@@ -83,12 +83,8 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     [Tooltip("是否启用成长空间检测（检测周围是否有足够空间成长）")]
     [SerializeField] private bool enableGrowthSpaceCheck = true;
     
-    [Tooltip("成长空间检测系数（相对于目标阶段 Sprite 宽度）\n0.4~0.5 允许树冠 10%~20% 重叠")]
-    [Range(0.3f, 0.7f)]
-    [SerializeField] private float growthSpaceMultiplier = 0.45f;
-    
-    [Tooltip("各阶段的固定检测半径（如果 > 0 则覆盖自动计算）\n阶段0-5，0表示使用自动计算")]
-    [SerializeField] private float[] stageGrowthRadius = new float[] { 0f, 0.15f, 0.4f, 0.75f, 1.0f, 1.25f };
+    [Tooltip("阻挡成长的物体标签（多选）")]
+    [SerializeField] private string[] growthObstacleTags = new string[] { "Tree", "Rock", "Building" };
     
     [Tooltip("成长受阻时是否显示调试信息")]
     [SerializeField] private bool showGrowthBlockedInfo = true;
@@ -534,107 +530,151 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     #region 成长系统
     /// <summary>
     /// 检查是否有足够空间成长到下一阶段
+    /// ★ v5 重构：基于 Collider 边界的四方向边距检测
     /// </summary>
     /// <returns>true 表示可以成长，false 表示空间不足</returns>
     public bool CanGrowToNextStage()
     {
+        if (!enableGrowthSpaceCheck) return true;
         if (currentStageIndex >= STAGE_MAX) return false;
         
         int nextStage = currentStageIndex + 1;
-        float checkRadius = GetGrowthCheckRadius(nextStage);
+        var nextStageConfig = GetStageConfig(nextStage);
+        if (nextStageConfig == null) return true;
         
-        if (checkRadius <= 0f) return true; // 不需要检测
+        // 使用下一阶段的边距配置进行检测
+        return CheckGrowthMargin(nextStageConfig.verticalMargin, nextStageConfig.horizontalMargin);
+    }
+    
+    /// <summary>
+    /// 检测四个方向的成长边距
+    /// </summary>
+    /// <param name="verticalMargin">上下边距</param>
+    /// <param name="horizontalMargin">左右边距</param>
+    /// <returns>true 表示所有方向都无障碍物，可以成长</returns>
+    private bool CheckGrowthMargin(float verticalMargin, float horizontalMargin)
+    {
+        Vector2 center = GetColliderCenter();
         
-        Vector3 treeRoot = GetPosition();
-        
-        // 使用 Physics2D.OverlapCircleAll 检测周围的碰撞体
-        Collider2D[] nearbyColliders = Physics2D.OverlapCircleAll(treeRoot, checkRadius);
-        
-        foreach (var collider in nearbyColliders)
+        if (showDebugInfo)
         {
-            // 跳过自己
-            if (collider.transform == transform || collider.transform == transform.parent) continue;
-            if (collider.transform.IsChildOf(transform.parent)) continue;
-            
-            // 检查是否是其他树木
-            var otherTree = collider.GetComponentInParent<TreeControllerV2>();
-            if (otherTree != null && otherTree != this)
-            {
-                // 检查对方树木的阶段
-                // 如果对方树木阶段 >= 目标阶段，则认为空间不足
-                if (otherTree.currentStageIndex >= nextStage)
-                {
-                    if (showGrowthBlockedInfo && showDebugInfo)
-                        Debug.Log($"<color=orange>[TreeControllerV2] {gameObject.name} 被 {otherTree.gameObject.name}(阶段{otherTree.currentStageIndex}) 阻挡成长</color>");
-                    return false;
-                }
-                
-                // 如果对方树木也在尝试成长到相同或更高阶段，使用 InstanceID 决定优先级
-                // InstanceID 较小的优先成长（确保确定性）
-                if (otherTree.currentStageIndex == currentStageIndex && 
-                    otherTree.daysInCurrentStage >= GetStageConfig(currentStageIndex)?.daysToNextStage)
-                {
-                    if (gameObject.GetInstanceID() > otherTree.gameObject.GetInstanceID())
-                    {
-                        if (showGrowthBlockedInfo && showDebugInfo)
-                            Debug.Log($"<color=orange>[TreeControllerV2] {gameObject.name} 让位给 {otherTree.gameObject.name} 优先成长</color>");
-                        return false;
-                    }
-                }
-            }
-            
-            // 检查是否是旧版树木控制器
-            var oldTree = collider.GetComponentInParent<TreeController>();
-            if (oldTree != null)
-            {
-                // 旧版树木存在，认为空间不足
-                if (showGrowthBlockedInfo && showDebugInfo)
-                    Debug.Log($"<color=orange>[TreeControllerV2] {gameObject.name} 被旧版树木 {oldTree.gameObject.name} 阻挡成长</color>");
-                return false;
-            }
+            Debug.Log($"<color=cyan>[TreeControllerV2] {gameObject.name} 成长边距检测 v5：\n" +
+                      $"  - 当前阶段: {currentStageIndex} → {currentStageIndex + 1}\n" +
+                      $"  - Collider 中心: {center}\n" +
+                      $"  - 上下边距: {verticalMargin}, 左右边距: {horizontalMargin}</color>");
         }
+        
+        // 检测四个方向
+        if (HasObstacleInDirection(center, Vector2.up, verticalMargin))
+        {
+            if (showGrowthBlockedInfo && showDebugInfo)
+                Debug.Log($"<color=orange>[TreeControllerV2] {gameObject.name} 上方有障碍物，无法成长</color>");
+            return false;
+        }
+        
+        if (HasObstacleInDirection(center, Vector2.down, verticalMargin))
+        {
+            if (showGrowthBlockedInfo && showDebugInfo)
+                Debug.Log($"<color=orange>[TreeControllerV2] {gameObject.name} 下方有障碍物，无法成长</color>");
+            return false;
+        }
+        
+        if (HasObstacleInDirection(center, Vector2.left, horizontalMargin))
+        {
+            if (showGrowthBlockedInfo && showDebugInfo)
+                Debug.Log($"<color=orange>[TreeControllerV2] {gameObject.name} 左方有障碍物，无法成长</color>");
+            return false;
+        }
+        
+        if (HasObstacleInDirection(center, Vector2.right, horizontalMargin))
+        {
+            if (showGrowthBlockedInfo && showDebugInfo)
+                Debug.Log($"<color=orange>[TreeControllerV2] {gameObject.name} 右方有障碍物，无法成长</color>");
+            return false;
+        }
+        
+        if (showDebugInfo)
+            Debug.Log($"<color=green>[TreeControllerV2] {gameObject.name} 四方向检测通过，可以成长</color>");
         
         return true;
     }
     
     /// <summary>
-    /// 获取指定阶段的成长检测半径
+    /// 检测指定方向上是否有障碍物
     /// </summary>
-    private float GetGrowthCheckRadius(int targetStage)
+    /// <param name="center">检测起点（Collider 中心）</param>
+    /// <param name="direction">检测方向</param>
+    /// <param name="distance">检测距离（边距）</param>
+    /// <returns>true 表示有障碍物</returns>
+    private bool HasObstacleInDirection(Vector2 center, Vector2 direction, float distance)
     {
-        // 优先使用配置的固定半径
-        if (stageGrowthRadius != null && targetStage < stageGrowthRadius.Length && stageGrowthRadius[targetStage] > 0f)
-        {
-            return stageGrowthRadius[targetStage];
-        }
+        if (growthObstacleTags == null || growthObstacleTags.Length == 0) return false;
         
-        // 自动计算：基于目标阶段 Sprite 宽度
-        if (spriteConfig != null)
+        // 计算检测点（从中心向指定方向偏移）
+        Vector2 checkPoint = center + direction * distance;
+        
+        // 使用小范围圆形检测
+        float checkRadius = 0.1f;
+        Collider2D[] hits = Physics2D.OverlapCircleAll(checkPoint, checkRadius);
+        
+        foreach (var hit in hits)
         {
-            var stageData = spriteConfig.GetStageData(targetStage);
-            if (stageData != null && stageData.normal != null)
+            // 跳过自己和子物体
+            if (hit.transform == transform) continue;
+            if (transform.parent != null && hit.transform == transform.parent) continue;
+            if (transform.parent != null && hit.transform.IsChildOf(transform.parent)) continue;
+            
+            // 检查标签（包括父级）
+            if (HasAnyTag(hit.transform, growthObstacleTags))
             {
-                // 尝试获取早春 Sprite 作为基准（最常见的状态）
-                Sprite baseSprite = stageData.normal.earlySpring;
-                if (baseSprite == null) baseSprite = stageData.normal.lateSpringEarlySummer;
-                if (baseSprite == null) baseSprite = stageData.normal.lateSummerEarlyFall;
-                
-                if (baseSprite != null)
+                if (showDebugInfo)
                 {
-                    float spriteWidth = baseSprite.bounds.size.x;
-                    return spriteWidth * growthSpaceMultiplier;
+                    Debug.Log($"<color=yellow>[TreeControllerV2] {gameObject.name} 在 {direction} 方向检测到障碍物: {hit.gameObject.name} (Tag: {hit.tag})</color>");
                 }
+                return true;
             }
         }
         
-        // 默认值：基于阶段的经验值
-        float[] defaultRadius = { 0.15f, 0.3f, 0.5f, 0.75f, 1.0f, 1.25f };
-        if (targetStage < defaultRadius.Length)
+        return false;
+    }
+    
+    /// <summary>
+    /// 检查 Transform 或其父级是否有指定标签
+    /// </summary>
+    private bool HasAnyTag(Transform t, string[] tags)
+    {
+        Transform current = t;
+        while (current != null)
         {
-            return defaultRadius[targetStage];
+            foreach (var tag in tags)
+            {
+                if (current.CompareTag(tag))
+                    return true;
+            }
+            current = current.parent;
+        }
+        return false;
+    }
+    
+    /// <summary>
+    /// 获取 Collider 中心点
+    /// </summary>
+    private Vector2 GetColliderCenter()
+    {
+        // 尝试获取 Collider2D
+        Collider2D col = GetComponent<Collider2D>();
+        if (col != null && col.enabled)
+        {
+            return col.bounds.center;
         }
         
-        return 0.5f;
+        // 如果没有 Collider，使用父物体位置（树根位置）
+        if (transform.parent != null)
+        {
+            return transform.parent.position;
+        }
+        
+        return transform.position;
     }
     
     /// <summary>
@@ -653,8 +693,28 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
         // 更新显示
         UpdateSprite();
         
+        // ★ 阶段变化时更新碰撞体形状
+        UpdatePolygonColliderShape();
+        
         if (showDebugInfo)
             Debug.Log($"<color=lime>[TreeControllerV2] {gameObject.name} 成长到阶段 {currentStageIndex}！</color>");
+    }
+    
+    /// <summary>
+    /// 更新 PolygonCollider2D 形状（仅在阶段变化时调用）
+    /// </summary>
+    private void UpdatePolygonColliderShape()
+    {
+        if (spriteRenderer == null || spriteRenderer.sprite == null) return;
+        
+        Collider2D[] colliders = GetComponents<Collider2D>();
+        foreach (Collider2D collider in colliders)
+        {
+            if (collider is PolygonCollider2D poly)
+            {
+                UpdatePolygonColliderFromSprite(poly, spriteRenderer.sprite);
+            }
+        }
     }
     
     /// <summary>
@@ -672,15 +732,23 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     #region IResourceNode 接口实现
     public string ResourceTag => "Tree";
     
-    public bool IsDepleted => currentState == TreeState.Stump;
+    /// <summary>
+    /// 资源是否已耗尽
+    /// ★ 修复：树桩状态不算耗尽，树桩可以继续被砍
+    /// 只有当树木被完全销毁时才算耗尽（但此时对象已不存在）
+    /// </summary>
+    public bool IsDepleted => false;
     
     /// <summary>
     /// 检查是否接受此工具类型
     /// </summary>
     public bool CanAccept(ToolHitContext ctx)
     {
-        // 树桩不能再砍
-        if (currentState == TreeState.Stump) return false;
+        // ★ 修复：树桩状态下，只接受斧头
+        if (currentState == TreeState.Stump)
+        {
+            return ctx.toolType == ToolType.Axe;
+        }
         
         var config = CurrentStageConfig;
         if (config == null) return false;
@@ -829,25 +897,27 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     /// </summary>
     private void HandleAxeChop(ToolHitContext ctx, Vector2 chopDirection)
     {
-        // 检查斧头材料等级
-        int axeTier = GetAxeTier(ctx);
-        if (!MaterialTierHelper.CanChopTree(axeTier, currentStageIndex))
-        {
-            // 等级不足：播放金属碰撞音效和提示
-            PlayTierInsufficientFeedback(axeTier);
-            PlayHitEffect(chopDirection);
-            if (showDebugInfo)
-                Debug.Log($"<color=red>[TreeControllerV2] {gameObject.name} 斧头等级不足！需要 {MaterialTierHelper.GetTierName(MaterialTierHelper.GetRequiredAxeTier(currentStageIndex))} 斧头，当前 {MaterialTierHelper.GetTierName(axeTier)} 斧头</color>");
-            return;
-        }
-        
-        // 尝试消耗精力
+        // ★ 先尝试消耗精力（无论等级是否足够，只要挥动斧头就消耗精力）
         float energyCost = GetEnergyCost(ctx);
-        if (!TryConsumeEnergy(energyCost))
+        bool hasEnergy = TryConsumeEnergy(energyCost);
+        
+        if (!hasEnergy)
         {
             PlayHitEffect(chopDirection);
             if (showDebugInfo)
                 Debug.Log($"<color=yellow>[TreeControllerV2] {gameObject.name} 精力不足，无法砍伐</color>");
+            return;
+        }
+        
+        // ★ 检查斧头材料等级（精力已消耗，但等级不足则不造成伤害）
+        int axeTier = GetAxeTier(ctx);
+        if (!MaterialTierHelper.CanChopTree(axeTier, currentStageIndex))
+        {
+            // 等级不足：播放金属碰撞音效和提示（精力已消耗，但不造成伤害）
+            PlayTierInsufficientFeedback(axeTier);
+            PlayHitEffect(chopDirection);
+            if (showDebugInfo)
+                Debug.Log($"<color=red>[TreeControllerV2] {gameObject.name} 斧头等级不足！需要 {MaterialTierHelper.GetTierName(MaterialTierHelper.GetRequiredAxeTier(currentStageIndex))} 斧头，当前 {MaterialTierHelper.GetTierName(axeTier)} 斧头（精力已消耗）</color>");
             return;
         }
         
@@ -864,8 +934,19 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
             }
         }
         
-        // 计算伤害
+        // ★ 计算伤害（使用 ctx.baseDamage）
         int damage = Mathf.Max(1, Mathf.RoundToInt(ctx.baseDamage));
+        
+        // ★ 调试输出
+        if (showDebugInfo)
+        {
+            Debug.Log($"<color=cyan>[TreeControllerV2] {gameObject.name} 砍伐信息：\n" +
+                      $"  - 斧头等级：{MaterialTierHelper.GetTierName(axeTier)}\n" +
+                      $"  - 基础伤害：{ctx.baseDamage}\n" +
+                      $"  - 实际伤害：{damage}\n" +
+                      $"  - 精力消耗：{energyCost}\n" +
+                      $"  - 当前血量：{currentHealth}/{CurrentStageConfig.health}</color>");
+        }
         
         // 扣血
         currentHealth -= damage;
@@ -893,10 +974,20 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
     private void HandleStumpHit(ToolHitContext ctx)
     {
         // 只有斧头能砍树桩
-        if (ctx.toolType != ToolType.Axe) return;
+        if (ctx.toolType != ToolType.Axe)
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=gray>[TreeControllerV2] {gameObject.name} 树桩只能用斧头砍</color>");
+            return;
+        }
         
         var config = CurrentStageConfig;
-        if (config == null || !config.hasStump) return;
+        if (config == null || !config.hasStump)
+        {
+            if (showDebugInfo)
+                Debug.LogWarning($"[TreeControllerV2] {gameObject.name} 当前阶段没有树桩配置");
+            return;
+        }
         
         // 尝试消耗精力
         float energyCost = GetEnergyCost(ctx);
@@ -909,6 +1000,16 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
         
         // 计算伤害
         int damage = Mathf.Max(1, Mathf.RoundToInt(ctx.baseDamage));
+        
+        // ★ 调试输出
+        if (showDebugInfo)
+        {
+            Debug.Log($"<color=cyan>[TreeControllerV2] {gameObject.name} 树桩砍伐信息：\n" +
+                      $"  - 基础伤害：{ctx.baseDamage}\n" +
+                      $"  - 实际伤害：{damage}\n" +
+                      $"  - 精力消耗：{energyCost}\n" +
+                      $"  - 当前树桩血量：{currentStumpHealth}/{config.stumpHealth}</color>");
+        }
         
         // 扣树桩血量
         currentStumpHealth -= damage;
@@ -1061,6 +1162,9 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
         }
         
         UpdateSprite();
+        
+        // ★ 树桩状态需要更新碰撞体形状（从树干变为树桩）
+        UpdatePolygonColliderShape();
     }
     
     /// <summary>
@@ -1391,11 +1495,8 @@ public class TreeControllerV2 : MonoBehaviour, IResourceNode
             collider.enabled = shouldEnableCollider;
             if (shouldEnableCollider) hasEnabledCollider = true;
             
-            // 更新 PolygonCollider2D 形状
-            if (collider is PolygonCollider2D poly && spriteRenderer != null && spriteRenderer.sprite != null)
-            {
-                UpdatePolygonColliderFromSprite(poly, spriteRenderer.sprite);
-            }
+            // ★ 优化：只在阶段变化时更新 PolygonCollider2D 形状
+            // 不再每次 UpdateSprite 都更新，避免性能问题
         }
         
         // 更新遮挡透明

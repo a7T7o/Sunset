@@ -424,11 +424,29 @@ public class PlayerToolHitEmitter : MonoBehaviour
         // ✅ 修复：从 PlayerToolController 获取实际的工具类型
         // 这样可以正确区分 Hoe 和 Pickaxe（它们都使用 Crush 动画状态）
         ToolType toolType = ToolType.None;
+        float baseDamage = 1f;
+        float energyCost = 2f;
         
         if (playerToolController != null && playerToolController.CurrentToolData != null)
         {
+            var toolData = playerToolController.CurrentToolData;
             // 优先从当前装备的工具数据获取工具类型
-            toolType = playerToolController.CurrentToolData.toolType;
+            toolType = toolData.toolType;
+            
+            // ★ 修复：从 ToolData 获取正确的伤害值
+            // 斧头的伤害基于材料等级
+            baseDamage = GetToolBaseDamage(toolData);
+            energyCost = toolData.energyCost;
+            
+            if (showDebugInfo)
+            {
+                Debug.Log($"<color=cyan>[PlayerToolHitEmitter] BuildContext:\n" +
+                          $"  - 工具：{toolData.itemName} (ID={toolData.itemID})\n" +
+                          $"  - 类型：{toolType}\n" +
+                          $"  - 材料等级：{toolData.materialTier}\n" +
+                          $"  - 基础伤害：{baseDamage}\n" +
+                          $"  - 精力消耗：{energyCost}</color>");
+            }
         }
         else
         {
@@ -440,8 +458,6 @@ public class PlayerToolHitEmitter : MonoBehaviour
                 _ => ToolType.None
             };
         }
-        
-        float baseDamage = 1f + toolQuality * 0.5f;
         
         return new ToolHitContext
         {
@@ -455,6 +471,39 @@ public class PlayerToolHitEmitter : MonoBehaviour
             baseDamage = baseDamage,
             frameIndex = GetCurrentAnimationFrame()
         };
+    }
+    
+    /// <summary>
+    /// 获取工具的基础伤害值
+    /// 斧头伤害基于材料等级：木=2, 石=3, 生铁=4, 黄铜=5, 钢=6, 金=8
+    /// </summary>
+    private float GetToolBaseDamage(ToolData toolData)
+    {
+        if (toolData == null) return 1f;
+        
+        // 如果工具配置了 canDealDamage 和 damageAmount，使用配置值
+        if (toolData.canDealDamage && toolData.damageAmount > 0)
+        {
+            return toolData.damageAmount;
+        }
+        
+        // 斧头的伤害基于材料等级
+        if (toolData.toolType == ToolType.Axe)
+        {
+            return toolData.materialTier switch
+            {
+                MaterialTier.Wood => 2f,
+                MaterialTier.Stone => 3f,
+                MaterialTier.Iron => 4f,
+                MaterialTier.Brass => 5f,
+                MaterialTier.Steel => 6f,
+                MaterialTier.Gold => 8f,
+                _ => 2f
+            };
+        }
+        
+        // 其他工具默认伤害
+        return 1f;
     }
     
     #endregion

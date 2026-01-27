@@ -10,7 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 3563393122257728107}
   - component: {fileID: 8274668991490631472}
-  m_Layer: 20
+  m_Layer: 0
   m_Name: Shadow
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -73,9 +73,9 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingLayerID: 1482742881
+  m_SortingLayer: 1
+  m_SortingOrder: -526
   m_Sprite: {fileID: 1958230616, guid: ee16bbee877a539419b65a343e36ae54, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -98,9 +98,11 @@ GameObject:
   - component: {fileID: 7782771159419810812}
   - component: {fileID: 2849285819342827282}
   - component: {fileID: 1197696712610116696}
-  m_Layer: 20
+  - component: {fileID: 2680667214350070488}
+  - component: {fileID: 8439725320126620139}
+  m_Layer: 0
   m_Name: Tree
-  m_TagString: Untagged
+  m_TagString: Tree
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -161,10 +163,10 @@ SpriteRenderer:
   m_AutoUVMaxDistance: 0.5
   m_AutoUVMaxAngle: 89
   m_LightmapParameters: {fileID: 0}
-  m_SortingLayerID: 0
-  m_SortingLayer: 0
-  m_SortingOrder: 0
-  m_Sprite: {fileID: -2278315331238053400, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
+  m_SortingLayerID: 1482742881
+  m_SortingLayer: 1
+  m_SortingOrder: -526
+  m_Sprite: {fileID: -8049571451551452467, guid: d039c13a590d4154bbeca1dd1a1b93e3, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -197,6 +199,8 @@ MonoBehaviour:
     dropTable: {fileID: 0}
     stumpDropTable: {fileID: 0}
     acceptedToolType: 1
+    verticalMargin: 0.2
+    horizontalMargin: 0.3
   - daysToNextStage: 2
     health: 4
     hasStump: 0
@@ -206,6 +210,8 @@ MonoBehaviour:
     dropTable: {fileID: 0}
     stumpDropTable: {fileID: 0}
     acceptedToolType: 6
+    verticalMargin: 0.2
+    horizontalMargin: 0.3
   - daysToNextStage: 2
     health: 9
     hasStump: 0
@@ -215,6 +221,8 @@ MonoBehaviour:
     dropTable: {fileID: 0}
     stumpDropTable: {fileID: 0}
     acceptedToolType: 6
+    verticalMargin: 0.2
+    horizontalMargin: 0.3
   - daysToNextStage: 4
     health: 17
     hasStump: 1
@@ -224,6 +232,8 @@ MonoBehaviour:
     dropTable: {fileID: 0}
     stumpDropTable: {fileID: 0}
     acceptedToolType: 6
+    verticalMargin: 0.8
+    horizontalMargin: 1
   - daysToNextStage: 5
     health: 28
     hasStump: 1
@@ -233,6 +243,8 @@ MonoBehaviour:
     dropTable: {fileID: 0}
     stumpDropTable: {fileID: 0}
     acceptedToolType: 6
+    verticalMargin: 1.5
+    horizontalMargin: 2
   - daysToNextStage: 0
     health: 40
     hasStump: 1
@@ -242,6 +254,8 @@ MonoBehaviour:
     dropTable: {fileID: 0}
     stumpDropTable: {fileID: 0}
     acceptedToolType: 6
+    verticalMargin: 2
+    horizontalMargin: 2.5
   spriteConfig:
     stage0:
       normal:
@@ -288,17 +302,17 @@ MonoBehaviour:
     stage3:
       normal:
         earlySpring: {fileID: 5903473390127743887, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-        lateSpringEarlySummer: {fileID: 3358523353687935341, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-        lateSummerEarlyFall: {fileID: -1072641817589923930, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-        lateFall: {fileID: 29793422648762467, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-        winter: {fileID: -1570291918, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+        lateSpringEarlySummer: {fileID: 1318237894, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+        lateSummerEarlyFall: {fileID: 201254881, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+        lateFall: {fileID: -1570291918, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+        winter: {fileID: 1159317006, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
       hasWitheredState: 1
-      witheredSummer: {fileID: 5188767115401433409, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-      witheredFall: {fileID: 6910053292580695166, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+      witheredSummer: {fileID: 29793422648762467, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+      witheredFall: {fileID: 1352346006, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
       hasStump: 1
-      stumpSpringSummer: {fileID: 201254881, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-      stumpFall: {fileID: 1352346006, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
-      stumpWinter: {fileID: 1159317006, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+      stumpSpringSummer: {fileID: 5188767115401433409, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+      stumpFall: {fileID: -1072641817589923930, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
+      stumpWinter: {fileID: 6910053292580695166, guid: 8f1d7561f1c31914d8d7969d9a1602bd, type: 3}
     stage4:
       normal:
         earlySpring: {fileID: -6489005286283933747, guid: d131bacf6dca6ee4f813fb8784360709, type: 3}
@@ -334,6 +348,12 @@ MonoBehaviour:
   autoGrow: 1
   plantedDay: 0
   daysInCurrentStage: 0
+  enableGrowthSpaceCheck: 1
+  growthObstacleTags:
+  - Tree
+  - Rock
+  - Building
+  showGrowthBlockedInfo: 1
   currentHealth: 0
   currentStumpHealth: 0
   shadowConfigs:
@@ -365,6 +385,75 @@ MonoBehaviour:
   dropSpreadRadius: 0.4
   showDebugInfo: 0
   editorPreview: 1
+--- !u!60 &2680667214350070488
+PolygonCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7637686196939725576}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 0.5625, y: 0.6875}
+    newSize: {x: 6.75, y: 10}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Points:
+    m_Paths:
+    - - {x: -0.15625, y: -1}
+      - {x: 0.15625, y: -1}
+      - {x: 0.15625, y: -0.6875}
+      - {x: -0.15625, y: -0.6875}
+  m_UseDelaunayMesh: 0
+--- !u!114 &8439725320126620139
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7637686196939725576}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  occludedAlpha: 0.3
+  fadeSpeed: 8
+  canBeOccluded: 1
+  usePixelSampling: 1
+  alphaThreshold: 0.1
+  samplePointCount: 5
 --- !u!1 &8805118565538031545
 GameObject:
   m_ObjectHideFlags: 0
@@ -374,9 +463,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2244532948124785810}
-  m_Layer: 20
+  m_Layer: 0
   m_Name: M1
-  m_TagString: Untagged
+  m_TagString: Tree
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

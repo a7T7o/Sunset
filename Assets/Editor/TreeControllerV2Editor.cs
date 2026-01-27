@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEditor;
+using UnityEditorInternal;
 using FarmGame.Data;
 
 /// <summary>
@@ -161,6 +162,13 @@ public class TreeControllerV2Editor : Editor
         // 成长设置
         EditorGUILayout.LabelField("成长设置", EditorStyles.boldLabel);
         EditorGUILayout.PropertyField(stageProp.FindPropertyRelative("daysToNextStage"), new GUIContent("成长天数"));
+        
+        EditorGUILayout.Space(5);
+        
+        // 成长边距设置
+        EditorGUILayout.LabelField("成长边距", EditorStyles.boldLabel);
+        EditorGUILayout.PropertyField(stageProp.FindPropertyRelative("verticalMargin"), new GUIContent("上下边距"));
+        EditorGUILayout.PropertyField(stageProp.FindPropertyRelative("horizontalMargin"), new GUIContent("左右边距"));
         
         EditorGUILayout.Space(5);
         
@@ -483,10 +491,60 @@ public class TreeControllerV2Editor : Editor
             EditorGUILayout.PropertyField(serializedObject.FindProperty("autoGrow"), new GUIContent("自动成长"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("plantedDay"), new GUIContent("种植日期"));
             EditorGUILayout.PropertyField(serializedObject.FindProperty("daysInCurrentStage"), new GUIContent("当前阶段天数"));
+            
+            EditorGUILayout.Space(5);
+            
+            // 成长空间检测设置
+            EditorGUILayout.LabelField("成长空间检测", EditorStyles.boldLabel);
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("enableGrowthSpaceCheck"), new GUIContent("启用空间检测"));
+            
+            // 使用 MaskField 绘制 growthObstacleTags
+            var tagsProp = serializedObject.FindProperty("growthObstacleTags");
+            if (tagsProp != null)
+            {
+                DrawTagMask(tagsProp, "障碍物标签");
+            }
+            
+            EditorGUILayout.PropertyField(serializedObject.FindProperty("showGrowthBlockedInfo"), new GUIContent("显示阻挡信息"));
+            
             EditorGUI.indentLevel--;
         }
         
         EditorGUILayout.EndFoldoutHeaderGroup();
+    }
+    
+    /// <summary>
+    /// 绘制 Tag 多选下拉框（MaskField 风格）
+    /// </summary>
+    private void DrawTagMask(SerializedProperty arrayProp, string label)
+    {
+        var builtin = InternalEditorUtility.tags;
+        
+        // 计算当前选中的 mask
+        int mask = 0;
+        for (int i = 0; i < arrayProp.arraySize; i++)
+        {
+            string tag = arrayProp.GetArrayElementAtIndex(i).stringValue;
+            int idx = System.Array.IndexOf(builtin, tag);
+            if (idx >= 0) mask |= (1 << idx);
+        }
+        
+        // 绘制 MaskField
+        int newMask = EditorGUILayout.MaskField(label, mask, builtin);
+        
+        // 如果 mask 变化，更新数组
+        if (newMask != mask)
+        {
+            arrayProp.ClearArray();
+            for (int i = 0; i < builtin.Length; i++)
+            {
+                if ((newMask & (1 << i)) != 0)
+                {
+                    arrayProp.InsertArrayElementAtIndex(arrayProp.arraySize);
+                    arrayProp.GetArrayElementAtIndex(arrayProp.arraySize - 1).stringValue = builtin[i];
+                }
+            }
+        }
     }
     
     /// <summary>

@@ -275,6 +275,14 @@ public class GameInputManager : MonoBehaviour
         }
         
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
+        
+        // ★ 检查是否处于放置模式
+        if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
+        {
+            PlacementManager.Instance.TryPlace();
+            return;
+        }
+        
         if (inventory == null || database == null || hotbarSelection == null) return;
         
         // 如果正在执行动作，不重复触发

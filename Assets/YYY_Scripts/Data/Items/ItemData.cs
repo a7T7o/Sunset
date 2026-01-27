@@ -60,6 +60,19 @@ namespace FarmGame.Data
         [Tooltip("是否是任务物品")]
         public bool isQuestItem = false;
 
+        [Header("=== 放置配置 ===")]
+        [Tooltip("是否可以放置到世界中")]
+        public bool isPlaceable = false;
+
+        [Tooltip("放置类型（决定放置规则）")]
+        public PlacementType placementType = PlacementType.None;
+
+        [Tooltip("放置时实例化的预制体")]
+        public GameObject placementPrefab;
+
+        [Tooltip("建筑尺寸（仅建筑类型有效，单位：格子）")]
+        public Vector2Int buildingSize = Vector2Int.one;
+
         /// <summary>
         /// 是否可以堆叠
         /// </summary>
@@ -178,6 +191,23 @@ namespace FarmGame.Data
                 else if (displayPixelSize < 8 || displayPixelSize > 128)
                 {
                     Debug.LogWarning($"[{itemName}] displayPixelSize({displayPixelSize}) 超出推荐范围 8-128");
+                }
+            }
+
+            // 验证放置配置
+            if (isPlaceable)
+            {
+                if (placementType == PlacementType.None)
+                {
+                    Debug.LogWarning($"[{itemName}] 已启用放置但未设置放置类型！");
+                }
+                if (placementPrefab == null)
+                {
+                    Debug.LogWarning($"[{itemName}] 已启用放置但未设置放置预制体！");
+                }
+                if (placementType == PlacementType.Building && (buildingSize.x <= 0 || buildingSize.y <= 0))
+                {
+                    Debug.LogWarning($"[{itemName}] 建筑类型但尺寸无效！");
                 }
             }
         }

@@ -43,6 +43,15 @@ public class StageConfig
     [Header("工具类型")]
     [Tooltip("该阶段接受的工具类型")]
     public ToolType acceptedToolType = ToolType.Axe;
+    
+    [Header("成长边距")]
+    [Tooltip("上下方向的成长边距（单位：Unity 单位）\n成长时检测该方向上是否有障碍物")]
+    [Range(0f, 5f)]
+    public float verticalMargin = 0.5f;
+    
+    [Tooltip("左右方向的成长边距（单位：Unity 单位）\n成长时检测该方向上是否有障碍物")]
+    [Range(0f, 5f)]
+    public float horizontalMargin = 0.3f;
 }
 
 /// <summary>
@@ -77,7 +86,9 @@ public static class StageConfigFactory
                 stumpHealth = 0,
                 enableCollider = false,
                 enableOcclusion = false,
-                acceptedToolType = ToolType.Hoe
+                acceptedToolType = ToolType.Hoe,
+                verticalMargin = 0.2f,
+                horizontalMargin = 0.15f
             },
             // 阶段1：小树苗（有碰撞有遮挡）
             new StageConfig
@@ -88,7 +99,9 @@ public static class StageConfigFactory
                 stumpHealth = 0,
                 enableCollider = true,
                 enableOcclusion = true,
-                acceptedToolType = ToolType.Axe
+                acceptedToolType = ToolType.Axe,
+                verticalMargin = 0.3f,
+                horizontalMargin = 0.2f
             },
             // 阶段2：中等树
             new StageConfig
@@ -99,7 +112,9 @@ public static class StageConfigFactory
                 stumpHealth = 4,
                 enableCollider = true,
                 enableOcclusion = true,
-                acceptedToolType = ToolType.Axe
+                acceptedToolType = ToolType.Axe,
+                verticalMargin = 0.5f,
+                horizontalMargin = 0.35f
             },
             // 阶段3：大树
             new StageConfig
@@ -110,7 +125,9 @@ public static class StageConfigFactory
                 stumpHealth = 9,
                 enableCollider = true,
                 enableOcclusion = true,
-                acceptedToolType = ToolType.Axe
+                acceptedToolType = ToolType.Axe,
+                verticalMargin = 0.7f,
+                horizontalMargin = 0.5f
             },
             // 阶段4：成熟树
             new StageConfig
@@ -121,7 +138,9 @@ public static class StageConfigFactory
                 stumpHealth = 12,
                 enableCollider = true,
                 enableOcclusion = true,
-                acceptedToolType = ToolType.Axe
+                acceptedToolType = ToolType.Axe,
+                verticalMargin = 0.9f,
+                horizontalMargin = 0.65f
             },
             // 阶段5：完全成熟（不再成长）
             new StageConfig
@@ -132,7 +151,9 @@ public static class StageConfigFactory
                 stumpHealth = 16,
                 enableCollider = true,
                 enableOcclusion = true,
-                acceptedToolType = ToolType.Axe
+                acceptedToolType = ToolType.Axe,
+                verticalMargin = 1.1f,
+                horizontalMargin = 0.8f
             }
         };
     }

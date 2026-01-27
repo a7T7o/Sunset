@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9bfe1c5bef2037469d5d42b2309ece2, type: 3}
+  m_Name: "Sapling_1201_M2\u6811\u82D7"
+  m_EditorClassIdentifier: 
+  itemID: 1201
+  itemName: "M2\u6811\u82D7"
+  description: "M2\u6811\u82D7"
+  category: 1
+  icon: {fileID: -259337921900976848, guid: 45ee95d3377f2234cb267e2b73289f59, type: 3}
+  bagSprite: {fileID: 0}
+  worldPrefab: {fileID: 2984516829808425434, guid: b557a6ca26220b94ba1eb885770448d5, type: 3}
+  buyPrice: 0
+  sellPrice: 0
+  maxStackSize: 99
+  useCustomDisplaySize: 0
+  displayPixelSize: 32
+  canBeDiscarded: 1
+  isQuestItem: 0
+  isPlaceable: 1
+  placementType: 1
+  placementPrefab: {fileID: 8805118565538031545, guid: 2086894ed50c42d4593c17e47ff50d19, type: 3}
+  buildingSize: {x: 1, y: 1}
+  placementOffset: {x: 0, y: 0, z: 0}
+  canRotate: 0
+  rotationStep: 90
+  treePrefab: {fileID: 8805118565538031545, guid: 2086894ed50c42d4593c17e47ff50d19, type: 3}
+  plantingExp: 5
+  heldSprite: {fileID: 0}

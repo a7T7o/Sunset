@@ -10,8 +10,8 @@ GameObject:
   m_Component:
   - component: {fileID: 4772027862295904604}
   - component: {fileID: 2484025851768306253}
-  - component: {fileID: 7210184820025538008}
   - component: {fileID: 7519003741562051140}
+  - component: {fileID: 7210184820025538008}
   - component: {fileID: 4483197043776588593}
   m_Layer: 0
   m_Name: Tree
@@ -90,61 +90,6 @@ SpriteRenderer:
   m_WasSpriteAssigned: 1
   m_MaskInteraction: 0
   m_SpriteSortPoint: 0
---- !u!60 &7210184820025538008
-PolygonCollider2D:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4342904150871371540}
-  m_Enabled: 1
-  serializedVersion: 3
-  m_Density: 1
-  m_Material: {fileID: 0}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_LayerOverridePriority: 0
-  m_ForceSendLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ForceReceiveLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_ContactCaptureLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_CallbackLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  m_IsTrigger: 0
-  m_UsedByEffector: 0
-  m_CompositeOperation: 0
-  m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0}
-  m_SpriteTilingProperty:
-    border: {x: 0, y: 0, z: 0, w: 0}
-    pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 4.6875, y: 8}
-    newSize: {x: 4.6875, y: 8}
-    adaptiveTilingThreshold: 0.5
-    drawMode: 0
-    adaptiveTiling: 0
-  m_AutoTiling: 0
-  m_Points:
-    m_Paths:
-    - - {x: -0.96875, y: -3.71875}
-      - {x: -0.71875, y: -3.71875}
-      - {x: -0.71875, y: -3.96875}
-      - {x: 0.78125, y: -3.96875}
-      - {x: 0.78125, y: -3.34375}
-      - {x: 0.53125, y: -2.96875}
-      - {x: -0.46875, y: -2.96875}
-      - {x: -0.96875, y: -3.375}
-  m_UseDelaunayMesh: 0
 --- !u!114 &7519003741562051140
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -200,8 +145,73 @@ MonoBehaviour:
   alignSpriteBottom: 1
   chopCountSmall: 3
   chopCountLarge: 7
+  currentChopCount: 0
+  enableFallAnimation: 1
+  fallDuration: 0.8
+  fallUpMaxStretch: 1.2
+  fallUpMinScale: 1
+  fallUpStretchPhase: 0.4
+  dropTable: {fileID: 0}
+  chopHitSound: {fileID: 0}
+  chopFellSound: {fileID: 0}
+  soundVolume: 0.8
   showDebugInfo: 0
   editorPreview: 1
+--- !u!60 &7210184820025538008
+PolygonCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4342904150871371540}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 0
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0.5}
+    oldSize: {x: 4.6875, y: 8}
+    newSize: {x: 4.6875, y: 8}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Points:
+    m_Paths:
+    - - {x: -0.96875, y: -3.71875}
+      - {x: -0.71875, y: -3.71875}
+      - {x: -0.71875, y: -3.96875}
+      - {x: 0.78125, y: -3.96875}
+      - {x: 0.78125, y: -3.34375}
+      - {x: 0.53125, y: -2.96875}
+      - {x: -0.46875, y: -2.96875}
+      - {x: -0.96875, y: -3.375}
+  m_UseDelaunayMesh: 0
 --- !u!114 &4483197043776588593
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -217,6 +227,9 @@ MonoBehaviour:
   occludedAlpha: 0.3
   fadeSpeed: 8
   canBeOccluded: 1
+  usePixelSampling: 1
+  alphaThreshold: 0.1
+  samplePointCount: 5
 --- !u!1 &5726076568699932242
 GameObject:
   m_ObjectHideFlags: 0

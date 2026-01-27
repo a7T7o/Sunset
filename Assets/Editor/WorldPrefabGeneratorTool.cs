@@ -22,7 +22,7 @@ public class WorldPrefabGeneratorTool : EditorWindow
     
     // 阴影配置
     private Sprite shadowSprite;
-    private Color shadowColor = new Color(0f, 0f, 0f, 0.35f);
+    private Color shadowColor = new Color(0f, 0f, 0f, 1f); // alpha=1.0，用户图片已有透明度处理
     
     // 世界物品配置
     private float worldItemScale = 0.75f;

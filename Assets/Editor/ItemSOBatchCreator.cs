@@ -289,15 +289,15 @@ public class ItemSOBatchCreator : EditorWindow
     {
         switch (t)
         {
-            case SoType.Tool: return "Assets/Data/Items/Tools";
-            case SoType.Seed: return "Assets/Data/Items/Seeds";
-            case SoType.Crop: return "Assets/Data/Items/Crops";
-            case SoType.Food: return "Assets/Data/Items/Foods";
-            case SoType.Weapon: return "Assets/Data/Items/Weapons";
-            case SoType.Material: return "Assets/Data/Items/Materials";
-            case SoType.Potion: return "Assets/Data/Items/Potions";
+            case SoType.Tool: return "Assets/111_Data/Items/Tools";
+            case SoType.Seed: return "Assets/111_Data/Items/Seeds";
+            case SoType.Crop: return "Assets/111_Data/Items/Crops";
+            case SoType.Food: return "Assets/111_Data/Items/Foods";
+            case SoType.Weapon: return "Assets/111_Data/Items/Weapons";
+            case SoType.Material: return "Assets/111_Data/Items/Materials";
+            case SoType.Potion: return "Assets/111_Data/Items/Potions";
         }
-        return "Assets/Data/Items";
+        return "Assets/111_Data/Items";
     }
 
     private void DrawCommonItemFields()

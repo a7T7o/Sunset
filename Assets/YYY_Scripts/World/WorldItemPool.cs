@@ -162,6 +162,9 @@ public class WorldItemPool : MonoBehaviour
         {
             dropAnim.StopAnimation();
         }
+        
+        // ★ 重置物品状态
+        item.Reset();
 
         // 回收到池
         if (_pool.Count < maxPoolSize)

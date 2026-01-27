@@ -17,14 +17,19 @@ MonoBehaviour:
   description: "\u6625\u5B63\u4F5C\u7269\uFF0C4\u5929\u6210\u719F"
   category: 1
   icon: {fileID: 0}
-  worldSprite: {fileID: 0}
+  bagSprite: {fileID: 0}
   worldPrefab: {fileID: 0}
   buyPrice: 50
   sellPrice: 10
   maxStackSize: 99
+  useCustomDisplaySize: 0
+  displayPixelSize: 32
   canBeDiscarded: 1
   isQuestItem: 0
-  baseQuality: 0
+  isPlaceable: 0
+  placementType: 0
+  placementPrefab: {fileID: 0}
+  buildingSize: {x: 1, y: 1}
   growthDays: 4
   season: 0
   harvestCropID: 1101

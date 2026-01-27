@@ -53,20 +53,34 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             }
             else
             {
-                // 自动创建 Amount
+                // ★ 自动创建 Amount（按用户指定参数）
                 var go = new GameObject("Amount");
                 go.transform.SetParent(transform, false);
                 amountText = go.AddComponent<Text>();
                 amountText.raycastTarget = false;
+                
+                // ★ 用户指定参数：
+                // - 字体：LegacyRuntime（默认字体）
+                // - 字体大小：18
+                // - 字体样式：加粗与倾斜
+                // - 颜色：纯黑不透明
+                // - 对齐：右对齐，靠下
+                // - 位置：左-26，顶部6，右6，底部0
+                amountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+                amountText.fontSize = 18;
+                amountText.fontStyle = FontStyle.BoldAndItalic;
+                amountText.color = Color.black;
                 amountText.alignment = TextAnchor.LowerRight;
-                amountText.fontSize = 14;
-                amountText.color = Color.white;
                 amountText.text = "";
+                
                 var rt = (RectTransform)amountText.transform;
-                rt.anchorMin = new Vector2(0.5f, 0);
-                rt.anchorMax = new Vector2(1, 0.5f);
-                rt.offsetMin = Vector2.zero;
-                rt.offsetMax = Vector2.zero;
+                // 自定义锚点（全拉伸）
+                rt.anchorMin = Vector2.zero;
+                rt.anchorMax = Vector2.one;
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                // 位置：左-26，顶部6，右6，底部0
+                rt.offsetMin = new Vector2(-26f, 0f);  // left, bottom
+                rt.offsetMax = new Vector2(6f, 6f);    // right, top (注意：offsetMax 是负值表示内缩)
             }
         }
         if (selectedOverlay == null)

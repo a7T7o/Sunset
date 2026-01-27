@@ -55,8 +55,8 @@ public class WorldItemPickup : MonoBehaviour
             var sp = data.GetBagSprite();
             if (spriteRenderer != null && sp != null) spriteRenderer.sprite = sp;
             
-            // ★ 应用显示尺寸
-            ApplyDisplaySize();
+            // ★ 应用显示尺寸（包括旋转、位置、缩放）
+            ApplyDisplaySize(data);
         }
         else
         {
@@ -289,14 +289,26 @@ public class WorldItemPickup : MonoBehaviour
         if (spriteRenderer != null)
         {
             spriteRenderer.sprite = fallbackSprite;
-            // 重置缩放
+            // 重置 Sprite 变换
+            spriteRenderer.transform.localPosition = Vector3.zero;
+            spriteRenderer.transform.localRotation = Quaternion.identity;
             spriteRenderer.transform.localScale = Vector3.one;
         }
-        // 重置阴影缩放
+        // 重置阴影变换
         var shadow = transform.Find("Shadow");
         if (shadow != null)
         {
-            shadow.localScale = Vector3.one;
+            shadow.localPosition = new Vector3(0f, -0.1f, 0f);
+            shadow.localRotation = Quaternion.identity;
+            shadow.localScale = new Vector3(0.5f, 0.3f, 1f);
+        }
+        // 重置整体缩放
+        transform.localScale = Vector3.one;
+        // 重置 Collider
+        var collider = GetComponent<CircleCollider2D>();
+        if (collider != null)
+        {
+            collider.radius = 0.3f;
         }
     }
     
@@ -306,24 +318,91 @@ public class WorldItemPickup : MonoBehaviour
     /// </summary>
     public void ApplyDisplaySize()
     {
-        if (linkedItemData == null || !linkedItemData.useCustomDisplaySize) return;
+        ApplyDisplaySize(linkedItemData);
+    }
+    
+    /// <summary>
+    /// 应用指定 ItemData 的显示尺寸设置
+    /// </summary>
+    public void ApplyDisplaySize(ItemData itemData)
+    {
+        if (itemData == null) return;
         
-        float scale = linkedItemData.GetWorldDisplayScale();
-        if (Mathf.Approximately(scale, 1f)) return;
+        // 获取 Sprite 信息
+        Sprite itemSprite = itemData.GetBagSprite();
+        if (itemSprite == null) return;
+        
+        // 获取显示尺寸缩放比例
+        float displayScale = itemData.GetWorldDisplayScale();
+        
+        // 计算 Sprite 在世界单位中的尺寸（应用显示尺寸缩放）
+        float spriteWidth = (itemSprite.rect.width / itemSprite.pixelsPerUnit) * displayScale;
+        float spriteHeight = (itemSprite.rect.height / itemSprite.pixelsPerUnit) * displayScale;
+        
+        // 世界物品旋转角度（与 WorldPrefabGeneratorTool 保持一致）
+        const float SPRITE_ROTATION_Z = 45f;
+        const float SHADOW_BOTTOM_OFFSET = 0.02f;
+        const float WORLD_ITEM_SCALE = 0.75f;
+        
+        // 计算旋转后的边界框
+        float rotRad = SPRITE_ROTATION_Z * Mathf.Deg2Rad;
+        float cos = Mathf.Abs(Mathf.Cos(rotRad));
+        float sin = Mathf.Abs(Mathf.Sin(rotRad));
+        float rotatedWidth = spriteWidth * cos + spriteHeight * sin;
+        float rotatedHeight = spriteWidth * sin + spriteHeight * cos;
+        
+        // 计算旋转后物体底部到中心的距离
+        float bottomY = -rotatedHeight * 0.5f;
         
         // 应用到 Sprite
         if (spriteRenderer != null)
         {
-            spriteRenderer.transform.localScale = Vector3.one * scale;
+            // Sprite 位置：底部略高于阴影中心
+            float spriteY = -bottomY + SHADOW_BOTTOM_OFFSET;
+            spriteRenderer.transform.localPosition = new Vector3(0f, spriteY, 0f);
+            spriteRenderer.transform.localRotation = Quaternion.Euler(0f, 0f, SPRITE_ROTATION_Z);
+            spriteRenderer.transform.localScale = Vector3.one * displayScale;
         }
         
-        // 同步阴影缩放
+        // 同步阴影缩放和位置
         var shadow = transform.Find("Shadow");
         if (shadow != null)
         {
-            // 阴影的基础缩放已经在预制体中设置，这里只需要乘以 displayScale
-            shadow.localScale *= scale;
+            shadow.localPosition = Vector3.zero;
+            shadow.localRotation = Quaternion.identity;
+            
+            // 阴影大小（已经包含了 displayScale 的影响）
+            float shadowWidth = rotatedWidth * 0.8f;
+            float shadowHeight = shadowWidth * 0.5f;
+            
+            // 获取阴影 Sprite 的原始尺寸
+            var shadowSr = shadow.GetComponent<SpriteRenderer>();
+            if (shadowSr != null && shadowSr.sprite != null)
+            {
+                float shadowSpriteWidth = shadowSr.sprite.rect.width / shadowSr.sprite.pixelsPerUnit;
+                float shadowSpriteHeight = shadowSr.sprite.rect.height / shadowSr.sprite.pixelsPerUnit;
+                
+                float scaleX = shadowWidth / shadowSpriteWidth;
+                float scaleY = shadowHeight / shadowSpriteHeight;
+                shadow.localScale = new Vector3(scaleX, scaleY, 1f);
+            }
+            else
+            {
+                shadow.localScale = new Vector3(shadowWidth, shadowHeight, 1f);
+            }
         }
+        
+        // 更新 Collider 大小
+        var collider = GetComponent<CircleCollider2D>();
+        if (collider != null)
+        {
+            collider.radius = Mathf.Max(rotatedWidth, rotatedHeight) * 0.4f;
+        }
+        
+        // 应用整体缩放
+        transform.localScale = Vector3.one * WORLD_ITEM_SCALE;
+        
+        Debug.Log($"[WorldItemPickup] 最终: 整体缩放={WORLD_ITEM_SCALE}, Collider半径={Mathf.Max(rotatedWidth, rotatedHeight) * 0.4f:F3}");
     }
 
 #if UNITY_EDITOR

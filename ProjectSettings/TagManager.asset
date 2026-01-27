@@ -10,8 +10,8 @@ TagManager:
   - Tree
   - Rock
   - Trees
-  - Buildings
   - CLoudShadow
+  - Buildings
   layers:
   - Default
   - TransparentFX

@@ -110,20 +110,47 @@ public class HotbarSelectionService : MonoBehaviour
 
         var slot = inventory.GetSlot(selectedIndex);
         
-        // 空槽位时清除当前装备
+        // 空槽位时清除当前装备并退出放置模式
         if (slot.IsEmpty)
         {
             playerToolController.UnequipCurrent();
+            ExitPlacementModeIfActive();
             return;
         }
 
         var itemData = database.GetItemByID(slot.itemId);
         if (itemData == null) return;
 
+        // ★ 检查是否是可放置物品
+        if (itemData.isPlaceable)
+        {
+            // 进入放置模式
+            playerToolController.UnequipCurrent();
+            if (PlacementManager.Instance != null)
+            {
+                PlacementManager.Instance.EnterPlacementMode(itemData, slot.quality);
+            }
+            return;
+        }
+
+        // 非放置物品，退出放置模式
+        ExitPlacementModeIfActive();
+
         // 每个品质的工具都是独立 ID，直接使用 itemID 匹配动画
         if (itemData is ToolData toolData)
             playerToolController.EquipToolData(toolData);
         else if (itemData is WeaponData weaponData)
             playerToolController.EquipWeaponData(weaponData);
+    }
+
+    /// <summary>
+    /// 如果处于放置模式则退出
+    /// </summary>
+    private void ExitPlacementModeIfActive()
+    {
+        if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
+        {
+            PlacementManager.Instance.ExitPlacementMode();
+        }
     }
 }

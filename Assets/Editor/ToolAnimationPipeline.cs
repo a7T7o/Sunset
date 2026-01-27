@@ -94,7 +94,7 @@ public class ToolAnimationPipeline : EditorWindow
     #region SO同步配置
     
     // SO同步配置
-    string toolSOFolder = "Assets/Data/Items/Tools";  // ToolData SO 文件夹路径
+    string toolSOFolder = "Assets/111_Data/Items/Tools";  // ToolData SO 文件夹路径
     
     #endregion
 

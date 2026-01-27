@@ -31,6 +31,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         ToolData,       // 工具（锄头、斧头、镐子等）
         WeaponData,     // 武器（剑、弓、法杖）
         SeedData,       // 种子
+        SaplingData,    // 树苗（可放置）
         CropData,       // 作物
         FoodData,       // 食物
         MaterialData,   // 材料（矿石、木材、怪物掉落）
@@ -47,7 +48,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
 
     // === 基础设置 ===
     private ItemSOType soType = ItemSOType.ItemData;
-    private string outputFolder = "Assets/Data/Items";
+    private string outputFolder = "Assets/111_Data/Items";
 
     // === ID 设置 ===
     private bool useSequentialID = true;
@@ -86,6 +87,11 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     private int seedGrowthDays = 4;
     private bool setSeedHarvest = false;
     private int seedHarvestCropID = 1100;
+
+    // === 树苗专属 ===
+    private GameObject saplingTreePrefab;
+    private bool setSaplingExp = false;
+    private int saplingPlantingExp = 5;
 
     // === 作物专属 ===
     private bool setCropSeedID = false;
@@ -312,6 +318,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         DrawTypeButton("工具", ItemSOType.ToolData, new Color(1f, 0.8f, 0.3f));
         DrawTypeButton("武器", ItemSOType.WeaponData, new Color(1f, 0.5f, 0.5f));
         DrawTypeButton("种子", ItemSOType.SeedData, new Color(0.5f, 0.9f, 0.5f));
+        DrawTypeButton("树苗", ItemSOType.SaplingData, new Color(0.4f, 0.8f, 0.4f));
         EditorGUILayout.EndHorizontal();
         
         // 第二行：其他类型
@@ -346,6 +353,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.ToolData => "工具 - 锄头、斧头、镐子、水壶等\nID 范围：00XX(农具) / 01XX(采集工具)",
             ItemSOType.WeaponData => "武器 - 剑、弓、法杖等战斗装备\nID 范围：02XX",
             ItemSOType.SeedData => "种子 - 可种植的种子\nID 范围：10XX",
+            ItemSOType.SaplingData => "树苗 - 可放置的树苗，种下后成为树木\nID 范围：12XX",
             ItemSOType.CropData => "作物 - 收获的农作物\nID 范围：11XX",
             ItemSOType.FoodData => "食物 - 可食用的料理\nID 范围：50XX(简单) / 51XX(高级)",
             ItemSOType.MaterialData => "材料 - 矿石、木材、怪物掉落等\nID 范围：30XX(矿石) / 31XX(锭) / 32XX(自然) / 33XX(怪物)",
@@ -362,6 +370,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.ToolData => 0,
             ItemSOType.WeaponData => 200,
             ItemSOType.SeedData => 1000,
+            ItemSOType.SaplingData => 1200,
             ItemSOType.CropData => 1100,
             ItemSOType.FoodData => 5000,
             ItemSOType.MaterialData => 3200,
@@ -443,6 +452,9 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             case ItemSOType.SeedData:
                 DrawSeedSettings();
                 break;
+            case ItemSOType.SaplingData:
+                DrawSaplingSettings();
+                break;
             case ItemSOType.CropData:
                 DrawCropSettings();
                 break;
@@ -511,6 +523,35 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         seedSeason = (Season)EditorGUILayout.EnumPopup("适合季节", seedSeason);
         DrawOptionalInt(ref setSeedGrowth, ref seedGrowthDays, "生长天数", 1, 28);
         DrawOptionalInt(ref setSeedHarvest, ref seedHarvestCropID, "收获作物 ID", 1100, 1199);
+    }
+
+    private void DrawSaplingSettings()
+    {
+        EditorGUILayout.LabelField("🌳 树苗专属设置", EditorStyles.boldLabel);
+        
+        EditorGUILayout.HelpBox("树苗只需设置关联的树木预制体，季节样式由 TreeControllerV2 自动处理\n冬季无法种植树苗", MessageType.Info);
+        
+        saplingTreePrefab = (GameObject)EditorGUILayout.ObjectField("树木预制体", saplingTreePrefab, typeof(GameObject), false);
+        
+        if (saplingTreePrefab != null)
+        {
+            // 检查预制体是否包含 TreeControllerV2
+            var treeController = saplingTreePrefab.GetComponentInChildren<TreeControllerV2>();
+            if (treeController == null)
+            {
+                EditorGUILayout.HelpBox("⚠️ 预制体缺少 TreeControllerV2 组件！", MessageType.Error);
+            }
+            else
+            {
+                EditorGUILayout.HelpBox("✓ 预制体包含 TreeControllerV2 组件", MessageType.None);
+            }
+        }
+        else
+        {
+            EditorGUILayout.HelpBox("请选择树木预制体（如 M1.prefab）", MessageType.Warning);
+        }
+        
+        DrawOptionalInt(ref setSaplingExp, ref saplingPlantingExp, "种植经验", 1, 50);
     }
 
     private void DrawCropSettings()
@@ -623,14 +664,15 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     {
         return soType switch
         {
-            ItemSOType.ToolData => "Assets/Data/Items/Tools",
-            ItemSOType.WeaponData => "Assets/Data/Items/Weapons",
-            ItemSOType.SeedData => "Assets/Data/Items/Seeds",
-            ItemSOType.CropData => "Assets/Data/Items/Crops",
-            ItemSOType.FoodData => "Assets/Data/Items/Foods",
-            ItemSOType.MaterialData => "Assets/Data/Items/Materials",
-            ItemSOType.PotionData => "Assets/Data/Items/Potions",
-            _ => "Assets/Data/Items"
+            ItemSOType.ToolData => "Assets/111_Data/Items/Tools",
+            ItemSOType.WeaponData => "Assets/111_Data/Items/Weapons",
+            ItemSOType.SeedData => "Assets/111_Data/Items/Seeds",
+            ItemSOType.SaplingData => "Assets/111_Data/Items/Saplings",
+            ItemSOType.CropData => "Assets/111_Data/Items/Crops",
+            ItemSOType.FoodData => "Assets/111_Data/Items/Foods",
+            ItemSOType.MaterialData => "Assets/111_Data/Items/Materials",
+            ItemSOType.PotionData => "Assets/111_Data/Items/Potions",
+            _ => "Assets/111_Data/Items"
         };
     }
 
@@ -663,6 +705,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.ToolData => "工具",
             ItemSOType.WeaponData => "武器",
             ItemSOType.SeedData => "种子",
+            ItemSOType.SaplingData => "树苗",
             ItemSOType.CropData => "作物",
             ItemSOType.FoodData => "食物",
             ItemSOType.MaterialData => "材料",
@@ -791,6 +834,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.ToolData => "Tool",
             ItemSOType.WeaponData => "Weapon",
             ItemSOType.SeedData => "Seed",
+            ItemSOType.SaplingData => "Sapling",
             ItemSOType.CropData => "Crop",
             ItemSOType.FoodData => "Food",
             ItemSOType.MaterialData => "Material",
@@ -806,6 +850,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.ToolData => CreateToolData(sprite, itemID, itemName),
             ItemSOType.WeaponData => CreateWeaponData(sprite, itemID, itemName),
             ItemSOType.SeedData => CreateSeedData(sprite, itemID, itemName),
+            ItemSOType.SaplingData => CreateSaplingData(sprite, itemID, itemName),
             ItemSOType.CropData => CreateCropData(sprite, itemID, itemName),
             ItemSOType.FoodData => CreateFoodData(sprite, itemID, itemName),
             ItemSOType.MaterialData => CreateMaterialData(sprite, itemID, itemName),
@@ -868,6 +913,20 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         data.season = seedSeason;
         if (setSeedGrowth) data.growthDays = seedGrowthDays;
         if (setSeedHarvest) data.harvestCropID = seedHarvestCropID;
+        
+        return data;
+    }
+
+    private SaplingData CreateSaplingData(Sprite sprite, int itemID, string itemName)
+    {
+        var data = ScriptableObject.CreateInstance<SaplingData>();
+        SetCommonProperties(data, sprite, itemID, itemName, ItemCategory.Plant);
+        if (setMaxStack) data.maxStackSize = defaultMaxStack;
+        else data.maxStackSize = 99; // 树苗默认可堆叠99
+        
+        // 树苗专属
+        data.treePrefab = saplingTreePrefab;
+        if (setSaplingExp) data.plantingExp = saplingPlantingExp;
         
         return data;
     }
@@ -970,7 +1029,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         soType = (ItemSOType)EditorPrefs.GetInt("BatchItemSO_Type", 0);
         useSequentialID = EditorPrefs.GetBool("BatchItemSO_SeqID", true);
         startID = EditorPrefs.GetInt("BatchItemSO_StartID", 0);
-        outputFolder = EditorPrefs.GetString("BatchItemSO_Output", "Assets/Data/Items");
+        outputFolder = EditorPrefs.GetString("BatchItemSO_Output", "Assets/111_Data/Items");
         
         // 通用
         setPrice = EditorPrefs.GetBool("BatchItemSO_SetPrice", false);

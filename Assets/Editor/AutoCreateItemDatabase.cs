@@ -11,7 +11,7 @@ public class AutoCreateItemDatabase : MonoBehaviour
     [MenuItem("Farm/Setup/创建主物品数据库", false, 1)]
     public static void CreateMasterDatabase()
     {
-        string path = "Assets/Data/Database/MasterItemDatabase.asset";
+        string path = "Assets/111_Data/Database/MasterItemDatabase.asset";
         
         // 检查是否已存在
         ItemDatabase existing = AssetDatabase.LoadAssetAtPath<ItemDatabase>(path);
@@ -53,35 +53,35 @@ public class AutoCreateItemDatabase : MonoBehaviour
 
         // 1. 创建铜锄头
         createdCount += CreateToolIfNotExists(
-            "Assets/Data/Items/Tools/Tool_CopperHoe.asset",
+            "Assets/111_Data/Items/Tools/Tool_CopperHoe.asset",
             1, "铜锄头", "基础的农业工具，可以翻土",
             ToolType.Hoe, 2, 50
         );
 
         // 2. 创建番茄种子
         createdCount += CreateSeedIfNotExists(
-            "Assets/Data/Items/Seeds/Seed_Tomato.asset",
+            "Assets/111_Data/Items/Seeds/Seed_Tomato.asset",
             1001, "番茄种子", "春季作物，4天成熟",
             Season.Spring, 4, 1101, 50, 10
         );
 
         // 3. 创建番茄
         createdCount += CreateCropIfNotExists(
-            "Assets/Data/Items/Crops/Crop_Tomato.asset",
+            "Assets/111_Data/Items/Crops/Crop_Tomato.asset",
             1101, "番茄", "新鲜的红番茄",
             1001, 80
         );
 
         // 4. 创建木剑
         createdCount += CreateWeaponIfNotExists(
-            "Assets/Data/Items/Weapons/Weapon_WoodenSword.asset",
+            "Assets/111_Data/Items/Weapons/Weapon_WoodenSword.asset",
             201, "木剑", "简陋的武器，总比没有强",
             WeaponType.Sword, 10, 100
         );
 
         // 5. 创建史莱姆胶
         createdCount += CreateMaterialIfNotExists(
-            "Assets/Data/Items/Materials/Material_SlimeGoo.asset",
+            "Assets/111_Data/Items/Materials/Material_SlimeGoo.asset",
             3301, "史莱姆胶", "黏糊糊的胶状物",
             MaterialSubType.Monster, 10
         );
@@ -262,7 +262,7 @@ public class AutoCreateItemDatabase : MonoBehaviour
 
         // 步骤3：自动收集到数据库
         Debug.Log("\n[步骤3/3] 收集物品到数据库...");
-        string dbPath = "Assets/Data/Database/MasterItemDatabase.asset";
+        string dbPath = "Assets/111_Data/Database/MasterItemDatabase.asset";
         ItemDatabase database = AssetDatabase.LoadAssetAtPath<ItemDatabase>(dbPath);
         if (database != null)
         {
@@ -279,7 +279,7 @@ public class AutoCreateItemDatabase : MonoBehaviour
                     AssetDatabase.SaveAssets();
                     Debug.Log("\n========================================");
                     Debug.Log("[完整初始化] ✅ 全部完成！");
-                    Debug.Log("[完整初始化] 💡 请在Project窗口查看 Assets/Data/");
+                    Debug.Log("[完整初始化] 💡 请在Project窗口查看 Assets/111_Data/");
                     Debug.Log("========================================");
                 }
             };
