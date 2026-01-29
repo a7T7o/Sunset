@@ -13,12 +13,12 @@ MonoBehaviour:
   m_Name: Tool_18_WateringCan_0
   m_EditorClassIdentifier: 
   itemID: 18
-  itemName: WateringCan_0
+  itemName: WateringCan
   description: 
   category: 0
-  icon: {fileID: 1914849043038913832, guid: 28f36eaaee1f86f4baa2436f6d41a804, type: 3}
+  icon: {fileID: 21300000, guid: 28f36eaaee1f86f4baa2436f6d41a804, type: 3}
   bagSprite: {fileID: 0}
-  rotateBagIcon: 1
+  rotateBagIcon: 0
   worldPrefab: {fileID: 4840070426779640950, guid: 736aca6d87c6b6e4eac3db4cc9259f19, type: 3}
   buyPrice: 0
   sellPrice: 0
@@ -46,7 +46,7 @@ MonoBehaviour:
   materialTier: 0
   canDealDamage: 0
   damageAmount: 5
-  animatorController: {fileID: 0}
+  animatorController: {fileID: 9100000, guid: b9958565037be9447a4b7ce57dfd2f49, type: 2}
   animationFrameCount: 8
   animActionType: 10
   useSound: {fileID: 0}

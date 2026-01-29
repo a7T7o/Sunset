@@ -35,6 +35,8 @@ MonoBehaviour:
   placementType: 0
   placementPrefab: {fileID: 0}
   buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
   toolType: 6
   energyCost: 2
   effectRadius: 1

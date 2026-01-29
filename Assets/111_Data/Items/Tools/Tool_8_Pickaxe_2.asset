@@ -41,8 +41,8 @@ MonoBehaviour:
   energyCost: 2
   effectRadius: 1
   efficiencyMultiplier: 1
-  hasDurability: 0
-  maxDurability: 100
+  hasDurability: 1
+  maxDurability: 30
   materialTier: 2
   canDealDamage: 1
   damageAmount: 4

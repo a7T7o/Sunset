@@ -41,11 +41,11 @@ MonoBehaviour:
   energyCost: 2
   effectRadius: 1
   efficiencyMultiplier: 1
-  hasDurability: 0
-  maxDurability: 100
+  hasDurability: 1
+  maxDurability: 40
   materialTier: 1
-  canDealDamage: 0
-  damageAmount: 2
+  canDealDamage: 1
+  damageAmount: 3
   animatorController: {fileID: 9100000, guid: 60a04649280cbaa4a8f04b59c86ce04f, type: 2}
   animationFrameCount: 8
   animActionType: 8

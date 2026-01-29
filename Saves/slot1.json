@@ -1,0 +1,55 @@
+{
+    "version": 1,
+    "createdTime": "2026-01-28 11:29:30",
+    "lastSaveTime": "2026-01-28 11:29:30",
+    "gameTime": {
+        "day": 1,
+        "season": 0,
+        "year": 1,
+        "hour": 6,
+        "minute": 0
+    },
+    "player": {
+        "positionX": -2.9700000286102297,
+        "positionY": 4.770000457763672,
+        "sceneName": "Primary",
+        "currentLayer": 1,
+        "selectedHotbarSlot": 0,
+        "gold": 0,
+        "stamina": 100,
+        "maxStamina": 100
+    },
+    "inventory": {
+        "capacity": 36,
+        "slots": []
+    },
+    "worldObjects": [
+        {
+            "guid": "64ef2f0d-ca76-495a-9ba4-193172f669d4",
+            "objectType": "Chest",
+            "prefabId": "",
+            "sceneName": "Primary",
+            "layer": 1,
+            "positionX": 2.0,
+            "positionY": 8.326250076293946,
+            "positionZ": 0.0,
+            "rotationZ": 0.0,
+            "isActive": true,
+            "genericData": "{\"capacity\":24,\"slots\":[{\"slotIndex\":0,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":1,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":2,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":3,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":4,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":5,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":6,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":7,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":8,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":9,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":10,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":11,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":12,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":13,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":14,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":15,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":16,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":17,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":18,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":19,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":20,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":21,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":22,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":23,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]}],\"isLocked\":false,\"customName\":\"大木箱子_0\"}"
+        },
+        {
+            "guid": "68c7507b-cd3f-4ad6-be91-f925d55b7606",
+            "objectType": "PlayerInventory",
+            "prefabId": "",
+            "sceneName": "Primary",
+            "layer": 1,
+            "positionX": 0.0,
+            "positionY": 0.0,
+            "positionZ": 0.0,
+            "rotationZ": 0.0,
+            "isActive": true,
+            "genericData": "{\"capacity\":36,\"slots\":[{\"slotIndex\":0,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":1,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":2,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":3,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":4,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":5,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":6,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":7,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":8,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":9,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":10,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":11,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":12,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":13,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":14,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":15,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":16,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":17,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":18,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":19,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":20,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":21,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":22,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":23,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":24,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":25,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":26,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":27,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":28,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":29,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":30,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":31,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":32,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":33,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":34,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]},{\"slotIndex\":35,\"itemId\":-1,\"quality\":0,\"amount\":0,\"instanceId\":\"\",\"currentDurability\":-1,\"maxDurability\":-1,\"properties\":[]}]}"
+        }
+    ],
+    "farmTiles": []
+}

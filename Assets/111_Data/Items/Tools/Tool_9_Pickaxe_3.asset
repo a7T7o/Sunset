@@ -35,12 +35,14 @@ MonoBehaviour:
   placementType: 0
   placementPrefab: {fileID: 0}
   buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
   toolType: 5
   energyCost: 2
   effectRadius: 1
   efficiencyMultiplier: 1
-  hasDurability: 0
-  maxDurability: 100
+  hasDurability: 1
+  maxDurability: 35
   materialTier: 3
   canDealDamage: 1
   damageAmount: 5
