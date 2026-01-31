@@ -2152,13 +2152,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   inventory: {fileID: 751960126}
-  runOnStart: 0
+  runOnStart: 1
   runOnBuild: 0
   clearInventoryFirst: 0
   itemLists:
   - name: "\u9ED8\u8BA4"
     enabled: 1
-    foldout: 1
+    foldout: 0
     items:
     - item: {fileID: 11400000, guid: 91ec64d3d9f687e46a32686c181e659e, type: 2}
       quality: 0
@@ -2269,6 +2269,16 @@ MonoBehaviour:
       quality: 0
       amount: 1
     - item: {fileID: 11400000, guid: bcf0c28284464424ab193aad0161b3b0, type: 2}
+      quality: 0
+      amount: 1
+  - name: "\u88C5\u5907"
+    enabled: 1
+    foldout: 1
+    items:
+    - item: {fileID: 11400000, guid: 412eab6ef99d7e7418f985df6c859690, type: 2}
+      quality: 0
+      amount: 1
+    - item: {fileID: 11400000, guid: 378fc1f32be53f1498cb97966a1b6035, type: 2}
       quality: 0
       amount: 1
   items: []
@@ -77963,24 +77973,49 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   database: {fileID: 11400000, guid: c5bf71fae652f3445bb99d4532d89ee3, type: 2}
   equips:
-  - itemId: 0
+  - instanceId: 
+    itemId: 0
     quality: 0
     amount: 0
-  - itemId: 0
+    currentDurability: 0
+    maxDurability: 0
+    serializedProperties: []
+  - instanceId: 
+    itemId: 0
     quality: 0
     amount: 0
-  - itemId: 0
+    currentDurability: 0
+    maxDurability: 0
+    serializedProperties: []
+  - instanceId: 
+    itemId: 0
     quality: 0
     amount: 0
-  - itemId: 0
+    currentDurability: 0
+    maxDurability: 0
+    serializedProperties: []
+  - instanceId: 
+    itemId: 0
     quality: 0
     amount: 0
-  - itemId: 0
+    currentDurability: 0
+    maxDurability: 0
+    serializedProperties: []
+  - instanceId: 
+    itemId: 0
     quality: 0
     amount: 0
-  - itemId: 0
+    currentDurability: 0
+    maxDurability: 0
+    serializedProperties: []
+  - instanceId: 
+    itemId: 0
     quality: 0
     amount: 0
+    currentDurability: 0
+    maxDurability: 0
+    serializedProperties: []
+  persistentId: 
 --- !u!4 &2080990067
 Transform:
   m_ObjectHideFlags: 0
