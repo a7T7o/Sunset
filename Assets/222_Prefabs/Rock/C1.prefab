@@ -101,6 +101,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 42b918399eb2449418b016f31bbd4908, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _persistentId: 3e223e50-5684-4975-bc00-c26935f4aecb
+  _preGenerateId: 1
   stageConfigs:
   - health: 36
     stoneTotalCount: 12

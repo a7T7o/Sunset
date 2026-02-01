@@ -1,8 +1,9 @@
 using UnityEngine;
 using System.Collections;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 
-public class WorldItemPickup : MonoBehaviour
+public class WorldItemPickup : MonoBehaviour, IPersistentObject
 {
     [Header("数据")]
     [Tooltip("物品ID（-1表示未初始化，会尝试从预制体名称解析）")]
@@ -14,6 +15,10 @@ public class WorldItemPickup : MonoBehaviour
     /// 物品ID（公开属性，用于对象池管理）
     /// </summary>
     public int ItemId => itemId;
+    
+    [Header("持久化配置")]
+    [Tooltip("对象唯一 ID（自动生成，勿手动修改）")]
+    [SerializeField] private string persistentId;
     
     [Header("关联数据（可选）")]
     [Tooltip("直接关联的 ItemData，用于预制体拖入场景时自动初始化")]
@@ -482,6 +487,101 @@ public class WorldItemPickup : MonoBehaviour
         
         Debug.Log($"[WorldItemPickup] 最终: 整体缩放={WORLD_ITEM_SCALE}, Collider半径={Mathf.Max(rotatedWidth, rotatedHeight) * 0.4f:F3}");
     }
+    
+    #region IPersistentObject 实现
+    
+    /// <summary>
+    /// 对象唯一标识符（GUID）
+    /// </summary>
+    public string PersistentId
+    {
+        get
+        {
+            // 延迟生成 GUID
+            if (string.IsNullOrEmpty(persistentId))
+            {
+                persistentId = System.Guid.NewGuid().ToString();
+            }
+            return persistentId;
+        }
+    }
+    
+    /// <summary>
+    /// 对象类型标识
+    /// </summary>
+    public string ObjectType => "Drop";
+    
+    /// <summary>
+    /// 是否应该被保存
+    /// </summary>
+    public bool ShouldSave => gameObject.activeInHierarchy && itemId >= 0 && amount > 0;
+    
+    /// <summary>
+    /// 保存对象状态
+    /// </summary>
+    public WorldObjectSaveData Save()
+    {
+        var data = new WorldObjectSaveData
+        {
+            guid = PersistentId,
+            objectType = ObjectType,
+            sceneName = gameObject.scene.name,
+            isActive = gameObject.activeSelf
+        };
+        
+        // 保存位置
+        data.SetPosition(transform.position);
+        
+        // 保存掉落物特有数据（使用 DropDataDTO + genericData）
+        // 🛡️ 封印一：DropDataDTO 必须有 [Serializable] 特性
+        var dropData = new DropDataDTO
+        {
+            itemId = this.itemId,
+            quality = this.quality,
+            amount = this.amount
+        };
+        data.genericData = JsonUtility.ToJson(dropData);
+        
+        return data;
+    }
+    
+    /// <summary>
+    /// 加载对象状态
+    /// </summary>
+    public void Load(WorldObjectSaveData data)
+    {
+        if (data == null || string.IsNullOrEmpty(data.genericData)) return;
+        
+        // 从 genericData 反序列化掉落物数据
+        var dropData = JsonUtility.FromJson<DropDataDTO>(data.genericData);
+        if (dropData == null) return;
+        
+        // 恢复掉落物数据
+        itemId = dropData.itemId;
+        quality = dropData.quality;
+        amount = dropData.amount;
+        
+        // 刷新视觉
+        ApplyVisual();
+        
+        Debug.Log($"[WorldItemPickup] 已从存档恢复: itemId={itemId}, quality={quality}, amount={amount}");
+    }
+    
+    /// <summary>
+    /// 为存档加载设置 PersistentId（仅供 DynamicObjectFactory 调用）
+    /// </summary>
+    public void SetPersistentIdForLoad(string guid)
+    {
+        if (string.IsNullOrEmpty(guid))
+        {
+            Debug.LogWarning("[WorldItemPickup] SetPersistentIdForLoad: guid 为空");
+            return;
+        }
+        
+        persistentId = guid;
+    }
+    
+    #endregion
 
 #if UNITY_EDITOR
     void OnValidate()

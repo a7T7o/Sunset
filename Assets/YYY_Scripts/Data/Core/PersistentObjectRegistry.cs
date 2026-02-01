@@ -143,6 +143,52 @@ namespace FarmGame.Data.Core
         }
         
         /// <summary>
+        /// 尝试注册持久化对象（ID 冲突自愈机制）
+        /// </summary>
+        /// <returns>true 表示注册成功，false 表示 ID 已被其他对象占用</returns>
+        public bool TryRegister(IPersistentObject obj)
+        {
+            if (obj == null) return false;
+            
+            string guid = obj.PersistentId;
+            if (string.IsNullOrEmpty(guid))
+            {
+                // ID 为空，需要调用者生成新 ID
+                return false;
+            }
+            
+            // 检查 ID 是否已被占用
+            if (_registry.TryGetValue(guid, out var existing))
+            {
+                if (existing == obj)
+                {
+                    // 同一对象重复注册，视为成功
+                    return true;
+                }
+                
+                // ID 被其他对象占用，返回 false
+                // 调用者应该重新生成 ID 并再次注册
+                return false;
+            }
+            
+            // ID 未被占用，执行注册
+            _registry[guid] = obj;
+            
+            // 按类型分组
+            string objType = obj.ObjectType;
+            if (!_byType.ContainsKey(objType))
+            {
+                _byType[objType] = new HashSet<IPersistentObject>();
+            }
+            _byType[objType].Add(obj);
+            
+            if (showDebugInfo)
+                Debug.Log($"[PersistentObjectRegistry] TryRegister 成功: {objType}, GUID: {guid}, 总数: {_registry.Count}");
+            
+            return true;
+        }
+        
+        /// <summary>
         /// 注销持久化对象
         /// </summary>
         public void Unregister(IPersistentObject obj)
@@ -219,6 +265,8 @@ namespace FarmGame.Data.Core
         
         /// <summary>
         /// 清空所有注册（场景切换时调用）
+        /// ⚠️ 警告：在"原地读档"模式下，绝对不要调用此方法！
+        /// 原地读档应使用 PruneStaleRecords() 代替
         /// </summary>
         public void Clear()
         {
@@ -227,6 +275,35 @@ namespace FarmGame.Data.Core
             
             if (showDebugInfo)
                 Debug.Log("[PersistentObjectRegistry] 已清空所有注册");
+        }
+        
+        /// <summary>
+        /// 清理空引用（已销毁的对象）
+        /// 🔥 锐评010 指令：只移除 Value 为 null 的键值对，不清空所有
+        /// 用于"原地读档"模式，保留活着的对象引用
+        /// </summary>
+        public void PruneStaleRecords()
+        {
+            // 收集所有 Value 为 null 的键（对象已被 Destroy）
+            var keysToRemove = _registry
+                .Where(kvp => kvp.Value == null || kvp.Value.Equals(null))
+                .Select(kvp => kvp.Key)
+                .ToList();
+            
+            // 移除空引用
+            foreach (var key in keysToRemove)
+            {
+                _registry.Remove(key);
+            }
+            
+            // 同时清理 _byType 中的空引用
+            foreach (var typeSet in _byType.Values)
+            {
+                typeSet.RemoveWhere(obj => obj == null || obj.Equals(null));
+            }
+            
+            if (showDebugInfo && keysToRemove.Count > 0)
+                Debug.Log($"[PersistentObjectRegistry] PruneStaleRecords: 清理了 {keysToRemove.Count} 个空引用");
         }
         
         /// <summary>
@@ -267,20 +344,66 @@ namespace FarmGame.Data.Core
         }
         
         /// <summary>
-        /// 恢复所有对象的状态
+        /// 恢复所有对象的状态（含反向修剪和动态重建）
+        /// 🔥 P2-1 修复：实现反向修剪逻辑，防止已删除物体"复活"
+        /// 🔥 锐评011 指令：添加 GUID 匹配率统计
+        /// 🔥 动态对象重建：找不到 GUID 时尝试重建
         /// </summary>
         public void RestoreAllFromSaveData(List<WorldObjectSaveData> dataList)
         {
             if (dataList == null) return;
             
+            // 🔥 锐评011 指令：GUID 匹配率统计
+            int matchCount = 0;
+            foreach (var data in dataList)
+            {
+                if (_registry.ContainsKey(data.guid)) matchCount++;
+            }
+            Debug.Log($"[Registry] 存档匹配率: {matchCount}/{dataList.Count}。如果为 0，说明 GUID 全错，必须重启游戏生成新档。");
+            Debug.Log($"[Registry] 当前 Registry 中有 {_registry.Count} 个对象");
+            
+            // 🔥 Step 1: 构建存档快照 - 收集存档中的所有 GUID
+            var savedGuids = new HashSet<string>(dataList.Select(d => d.guid));
+            
+            // 🔥 Step 2: 快照当前场景 - 获取 _registry.Keys 的副本（避免遍历时修改集合）
+            var currentRegistryKeys = new List<string>(_registry.Keys);
+            
+            // 🔥 Step 3: 修剪 (Pruning) - 场景中有但存档中没有 = 已删除
+            int pruned = 0;
+            foreach (var guid in currentRegistryKeys)
+            {
+                if (!savedGuids.Contains(guid))
+                {
+                    // 存档中没有这个对象 → 说明玩家把它删了（砍树/挖箱子）
+                    if (_registry.TryGetValue(guid, out var obj) && obj != null)
+                    {
+                        if (obj is MonoBehaviour mb && mb != null)
+                        {
+                            if (showDebugInfo)
+                                Debug.Log($"[PersistentObjectRegistry] 反向修剪: 禁用 {obj.ObjectType}, GUID: {obj.PersistentId}");
+                            
+                            // 🔥 使用 SetActive(false) 而不是 Destroy()
+                            // 原因：对于树木等对象，可能需要调用特定的 Hide() 方法
+                            // 使用 Disable 比 Destroy 更安全，避免影响对象池
+                            mb.gameObject.SetActive(false);
+                            pruned++;
+                        }
+                    }
+                }
+            }
+            
+            // 🔥 Step 4: 恢复 (Restoring) - 遍历存档数据进行 Load()
             int restored = 0;
             int notFound = 0;
+            int reconstructed = 0;  // 新增：重建计数
             
             foreach (var data in dataList)
             {
                 var obj = FindByGuid(data.guid);
+                
                 if (obj != null)
                 {
+                    // 找到对象，直接恢复
                     try
                     {
                         obj.Load(data);
@@ -293,14 +416,52 @@ namespace FarmGame.Data.Core
                 }
                 else
                 {
-                    notFound++;
-                    if (showDebugInfo)
-                        Debug.LogWarning($"[PersistentObjectRegistry] 找不到对象: {data.objectType}, GUID: {data.guid}");
+                    // 🔥 新增：尝试重建动态对象
+                    if (DynamicObjectFactory.IsInitialized)
+                    {
+                        var reconstructedObj = DynamicObjectFactory.TryReconstruct(data);
+                        if (reconstructedObj != null)
+                        {
+                            try
+                            {
+                                // 加载数据
+                                reconstructedObj.Load(data);
+                                reconstructed++;
+                                
+                                // 🛡️ 封印三：防闪烁 - Load 完成后再启用对象
+                                if (reconstructedObj is MonoBehaviour mb && mb != null)
+                                {
+                                    // 获取根物体（对于树木是父物体）
+                                    var rootGo = mb.transform.parent != null ? mb.transform.parent.gameObject : mb.gameObject;
+                                    rootGo.SetActive(true);
+                                }
+                                
+                                if (showDebugInfo)
+                                    Debug.Log($"[PersistentObjectRegistry] 重建对象成功: {data.objectType}, GUID: {data.guid}");
+                            }
+                            catch (Exception e)
+                            {
+                                Debug.LogError($"[PersistentObjectRegistry] 重建对象后恢复失败: {data.objectType}, GUID: {data.guid}, 错误: {e.Message}");
+                            }
+                        }
+                        else
+                        {
+                            notFound++;
+                            if (showDebugInfo)
+                                Debug.LogWarning($"[PersistentObjectRegistry] 找不到对象且无法重建: {data.objectType}, GUID: {data.guid}");
+                        }
+                    }
+                    else
+                    {
+                        notFound++;
+                        if (showDebugInfo)
+                            Debug.LogWarning($"[PersistentObjectRegistry] 找不到对象（DynamicObjectFactory 未初始化）: {data.objectType}, GUID: {data.guid}");
+                    }
                 }
             }
             
             if (showDebugInfo)
-                Debug.Log($"[PersistentObjectRegistry] 恢复完成: 成功 {restored}, 未找到 {notFound}");
+                Debug.Log($"[PersistentObjectRegistry] 恢复完成: 成功 {restored}, 重建 {reconstructed}, 未找到 {notFound}, 修剪 {pruned}");
         }
         
         #endregion

@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using FarmGame.Combat;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 using FarmGame.Utils;
 
 /// <summary>
@@ -18,8 +19,17 @@ using FarmGame.Utils;
 /// Sprite命名规范：Stone_{OreType}_{Stage}_{OreIndex}
 /// 例如：Stone_C1_M1_4（铜矿，M1阶段，含量4）
 /// </summary>
-public class StoneController : MonoBehaviour, IResourceNode
+public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
 {
+    #region 序列化字段 - 持久化配置
+    [Header("━━━━ 持久化配置 ━━━━")]
+    [Tooltip("对象唯一 ID（自动生成，勿手动修改）")]
+    [SerializeField] private string _persistentId;
+    
+    [Tooltip("是否在编辑器中预生成 ID")]
+    [SerializeField] private bool _preGenerateId = true;
+    #endregion
+    
     #region 序列化字段 - 阶段配置
     [Header("━━━━ 阶段配置 ━━━━")]
     [Tooltip("4个阶段的配置")]
@@ -178,7 +188,9 @@ public class StoneController : MonoBehaviour, IResourceNode
     
     private void Start()
     {
-        Debug.Log($"<color=magenta>[StoneController] ★★★ Start() 开始初始化: {gameObject.name} ★★★</color>");
+        // 🔥 锐评019：移除刷屏日志，改为 showDebugInfo 控制
+        if (showDebugInfo)
+            Debug.Log($"[StoneController] Start() 开始初始化: {gameObject.name}");
         
         if (spriteRenderer == null)
         {
@@ -210,18 +222,21 @@ public class StoneController : MonoBehaviour, IResourceNode
         if (ResourceNodeRegistry.Instance != null)
         {
             ResourceNodeRegistry.Instance.Register(this, gameObject.GetInstanceID());
-            Debug.Log($"<color=lime>[StoneController] ✓ 已注册到 ResourceNodeRegistry: {gameObject.name} (InstanceID={gameObject.GetInstanceID()})</color>");
+            if (showDebugInfo)
+                Debug.Log($"[StoneController] 已注册到 ResourceNodeRegistry: {gameObject.name}");
         }
         else
         {
-            Debug.LogError($"<color=red>[StoneController] ★★★ 错误：ResourceNodeRegistry.Instance 为空！无法注册 {gameObject.name} ★★★</color>");
+            Debug.LogError($"[StoneController] 错误：ResourceNodeRegistry.Instance 为空！无法注册 {gameObject.name}");
         }
         
-        Debug.Log($"<color=magenta>[StoneController] 初始化完成: {gameObject.name}</color>");
-        Debug.Log($"<color=magenta>  - 矿物类型: {oreType}</color>");
-        Debug.Log($"<color=magenta>  - 当前阶段: {currentStage}</color>");
-        Debug.Log($"<color=magenta>  - 含量指数: {oreIndex}</color>");
-        Debug.Log($"<color=magenta>  - 当前血量: {currentHealth}</color>");
+        // 🔥 注册到持久化对象注册表（带 ID 冲突自愈）
+        RegisterToPersistentRegistry();
+        
+        if (showDebugInfo)
+        {
+            Debug.Log($"[StoneController] 初始化完成: {gameObject.name}, 类型={oreType}, 阶段={currentStage}, 血量={currentHealth}");
+        }
     }
     
     private void Update()
@@ -236,6 +251,9 @@ public class StoneController : MonoBehaviour, IResourceNode
         {
             ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
         }
+        
+        // 🔥 从持久化对象注册表注销
+        UnregisterFromPersistentRegistry();
     }
     #endregion
     
@@ -1458,6 +1476,24 @@ public class StoneController : MonoBehaviour, IResourceNode
         {
             UpdateSprite();
         }
+        
+        // 🔥 编辑器模式下自动生成持久化 ID
+        if (_preGenerateId && string.IsNullOrEmpty(_persistentId))
+        {
+            _persistentId = System.Guid.NewGuid().ToString();
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+    }
+    
+    /// <summary>
+    /// 重新生成持久化 ID
+    /// </summary>
+    [ContextMenu("重新生成持久化 ID")]
+    private void RegeneratePersistentId()
+    {
+        _persistentId = System.Guid.NewGuid().ToString();
+        UnityEditor.EditorUtility.SetDirty(this);
+        Debug.Log($"[StoneController] 已重新生成 ID: {_persistentId}");
     }
     
     [ContextMenu("调试 - 设置为M1_C1_4（大铜矿）")]
@@ -1500,5 +1536,125 @@ public class StoneController : MonoBehaviour, IResourceNode
         TakeDamage(50);
     }
     #endif
+    #endregion
+    
+    #region IPersistentObject 接口实现
+    
+    /// <summary>
+    /// 对象唯一标识符
+    /// </summary>
+    public string PersistentId
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(_persistentId))
+            {
+                _persistentId = System.Guid.NewGuid().ToString();
+            }
+            return _persistentId;
+        }
+    }
+    
+    /// <summary>
+    /// 对象类型标识
+    /// </summary>
+    public string ObjectType => "Stone";
+    
+    /// <summary>
+    /// 是否应该被保存
+    /// </summary>
+    public bool ShouldSave => gameObject.activeInHierarchy && !isDepleted;
+    
+    /// <summary>
+    /// 保存对象状态
+    /// </summary>
+    public WorldObjectSaveData Save()
+    {
+        var data = new WorldObjectSaveData
+        {
+            guid = PersistentId,
+            objectType = ObjectType,
+            sceneName = gameObject.scene.name,
+            isActive = gameObject.activeSelf
+        };
+        
+        // 保存位置（使用父物体位置，即石头根位置）
+        Vector3 pos = transform.parent != null ? transform.parent.position : transform.position;
+        data.SetPosition(pos);
+        
+        // 保存石头特有数据
+        var stoneData = new StoneSaveData
+        {
+            stage = (int)currentStage,
+            oreType = (int)oreType,
+            oreIndex = oreIndex,
+            currentHealth = currentHealth
+        };
+        data.genericData = JsonUtility.ToJson(stoneData);
+        
+        if (showDebugInfo)
+            Debug.Log($"[StoneController] Save: GUID={PersistentId}, stage={currentStage}, health={currentHealth}");
+        
+        return data;
+    }
+    
+    /// <summary>
+    /// 加载对象状态
+    /// </summary>
+    public void Load(WorldObjectSaveData data)
+    {
+        if (data == null || string.IsNullOrEmpty(data.genericData)) return;
+        
+        // 从 genericData 反序列化石头数据
+        var stoneData = JsonUtility.FromJson<StoneSaveData>(data.genericData);
+        if (stoneData == null) return;
+        
+        // 恢复石头特有数据
+        currentStage = (StoneStage)stoneData.stage;
+        oreType = (OreType)stoneData.oreType;
+        oreIndex = stoneData.oreIndex;
+        currentHealth = stoneData.currentHealth;
+        
+        // 更新运行时调试状态
+        lastStage = currentStage;
+        lastOreType = oreType;
+        lastOreIndex = oreIndex;
+        
+        // 立即刷新视觉
+        UpdateSprite();
+        
+        if (showDebugInfo)
+            Debug.Log($"[StoneController] Load: GUID={PersistentId}, stage={currentStage}, health={currentHealth}");
+    }
+    
+    /// <summary>
+    /// 注册到持久化对象注册表（带 ID 冲突自愈）
+    /// </summary>
+    private void RegisterToPersistentRegistry()
+    {
+        if (PersistentObjectRegistry.Instance == null) return;
+        
+        // 尝试注册，如果 ID 冲突则重新生成
+        if (!PersistentObjectRegistry.Instance.TryRegister(this))
+        {
+            // ID 冲突（可能是 Ctrl+D 复制的克隆体）
+            if (showDebugInfo)
+                Debug.Log($"[StoneController] {gameObject.name} ID 冲突检测 (ID: {_persistentId})，正在重新生成...");
+            _persistentId = System.Guid.NewGuid().ToString();
+            PersistentObjectRegistry.Instance.Register(this);
+        }
+    }
+    
+    /// <summary>
+    /// 从持久化对象注册表注销
+    /// </summary>
+    private void UnregisterFromPersistentRegistry()
+    {
+        if (PersistentObjectRegistry.Instance != null)
+        {
+            PersistentObjectRegistry.Instance.Unregister(this);
+        }
+    }
+    
     #endregion
 }

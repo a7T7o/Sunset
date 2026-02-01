@@ -306,6 +306,60 @@ namespace FarmGame.Data.Core
         
         /// <summary>树木状态（0=正常, 1=被砍, 2=树桩）</summary>
         public int state;
+        
+        // ===== 动态对象重建系统新增字段 =====
+        
+        /// <summary>当前季节（0=春, 1=夏, 2=秋, 3=冬）</summary>
+        public int season;
+        
+        /// <summary>是否为树桩状态</summary>
+        public bool isStump;
+        
+        /// <summary>树桩血量</summary>
+        public int stumpHealth;
+        
+        /// <summary>是否已渐变到下一季节（渐变不可逆）</summary>
+        public bool hasTransitionedToNextSeason;
+        
+        /// <summary>渐变时的植被季节</summary>
+        public int transitionVegetationSeason;
+    }
+    
+    /// <summary>
+    /// 石头存档数据（存储在 WorldObjectSaveData.genericData 中）
+    /// </summary>
+    [Serializable]
+    public class StoneSaveData
+    {
+        /// <summary>当前阶段（0=M1, 1=M2, 2=M3, 3=M4）</summary>
+        public int stage;
+        
+        /// <summary>矿物类型（0=None, 1=C1铜, 2=C2铁, 3=C3金）</summary>
+        public int oreType;
+        
+        /// <summary>矿物含量指数（0-4）</summary>
+        public int oreIndex;
+        
+        /// <summary>当前血量</summary>
+        public int currentHealth;
+    }
+    
+    /// <summary>
+    /// 掉落物存档数据（存储在 WorldObjectSaveData.genericData 中）
+    /// 🛡️ 封印一：必须加上 [Serializable] 特性
+    /// 用于 JsonUtility 序列化/反序列化
+    /// </summary>
+    [Serializable]
+    public class DropDataDTO
+    {
+        /// <summary>物品 ID</summary>
+        public int itemId;
+        
+        /// <summary>品质等级</summary>
+        public int quality;
+        
+        /// <summary>数量</summary>
+        public int amount;
     }
     
     /// <summary>

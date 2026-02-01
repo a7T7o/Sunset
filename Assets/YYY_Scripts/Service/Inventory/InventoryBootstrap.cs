@@ -167,7 +167,7 @@ public class InventoryBootstrap : MonoBehaviour
         // 3. 获取所有启用的物品
         var allItems = GetAllEnabledItems();
         
-        // 4. 注入物品
+        // 4. 注入物品（🔥 锐评019：日志降噪，只输出汇总信息）
         int addedCount = 0;
         int skippedCount = 0;
         int totalItems = allItems.Count;
@@ -176,7 +176,6 @@ public class InventoryBootstrap : MonoBehaviour
         {
             if (b.item == null) 
             {
-                Debug.LogWarning("[InventoryBootstrap] 跳过空物品引用");
                 skippedCount++;
                 continue;
             }
@@ -187,21 +186,18 @@ public class InventoryBootstrap : MonoBehaviour
             if (remaining == 0)
             {
                 addedCount++;
-                Debug.Log($"[InventoryBootstrap] 添加物品: {b.item.itemName} x{b.amount} (ID={id}, Quality={b.quality})");
             }
             else if (remaining < b.amount)
             {
                 addedCount++;
-                int added = b.amount - remaining;
-                Debug.LogWarning($"[InventoryBootstrap] 部分添加: {b.item.itemName} x{added}/{b.amount} (背包空间不足)");
             }
             else
             {
                 skippedCount++;
-                Debug.LogWarning($"[InventoryBootstrap] 无法添加: {b.item.itemName} (背包已满)");
             }
         }
         
+        // 🔥 锐评019：只输出汇总信息，不逐条输出
         string resultColor = skippedCount > 0 ? "yellow" : "green";
         Debug.Log($"<color={resultColor}>[InventoryBootstrap] 完成！成功添加 {addedCount}/{totalItems} 个物品" +
                   (skippedCount > 0 ? $"，跳过 {skippedCount} 个" : "") + "</color>");

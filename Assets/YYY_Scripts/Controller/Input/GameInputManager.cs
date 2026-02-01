@@ -27,6 +27,9 @@ public class GameInputManager : MonoBehaviour
     [SerializeField, Range(0f, 1.5f)] private float navClickDeadzone = 0.3f; // 以玩家为圆心的点击死区
     [SerializeField, Range(0.05f, 0.5f)] private float navClickCooldown = 0.15f; // 导航点击间隔，防抖
     [SerializeField, Range(0.2f, 2f)] private float minNavDistance = 0.5f; // 最小导航距离，防止连续点击同一位置
+    [Header("农田工具设置")]
+    [Tooltip("农田工具（锄头、水壶）的最大使用距离")]
+    [SerializeField, Range(0.5f, 3f)] private float farmToolReach = 1.5f;
     [Header("调试开关")]
     [SerializeField, HideInInspector] private TimeManagerDebugger timeDebugger;
     [SerializeField] private bool enableTimeDebugKeys = false;
@@ -852,6 +855,15 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private bool TryTillSoil(Vector3 worldPosition)
     {
+        // ★ 距离检测：检查玩家到目标格子的距离
+        Vector2 playerCenter = GetPlayerCenter();
+        if (Vector2.Distance(playerCenter, worldPosition) > farmToolReach)
+        {
+            if (showDebugInfo)
+                Debug.Log($"[GameInputManager] 锄地失败：距离过远 ({Vector2.Distance(playerCenter, worldPosition):F2} > {farmToolReach})");
+            return false;
+        }
+        
         // 直接使用 FarmTileManager
         var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
         if (farmTileManager == null)
@@ -873,6 +885,15 @@ public class GameInputManager : MonoBehaviour
         
         // 转换为格子坐标
         Vector3Int cellPosition = tilemaps.WorldToCell(worldPosition);
+        
+        // ★ 精确距离检测：使用格子中心位置
+        Vector3 cellCenter = tilemaps.GetCellCenterWorld(cellPosition);
+        if (Vector2.Distance(playerCenter, cellCenter) > farmToolReach)
+        {
+            if (showDebugInfo)
+                Debug.Log($"[GameInputManager] 锄地失败：格子中心距离过远 ({Vector2.Distance(playerCenter, cellCenter):F2} > {farmToolReach})");
+            return false;
+        }
         
         // 检查是否可以耕作
         if (!farmTileManager.CanTillAt(layerIndex, cellPosition))
@@ -897,6 +918,15 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private bool TryWaterTile(Vector3 worldPosition)
     {
+        // ★ 距离检测：检查玩家到目标格子的距离
+        Vector2 playerCenter = GetPlayerCenter();
+        if (Vector2.Distance(playerCenter, worldPosition) > farmToolReach)
+        {
+            if (showDebugInfo)
+                Debug.Log($"[GameInputManager] 浇水失败：距离过远 ({Vector2.Distance(playerCenter, worldPosition):F2} > {farmToolReach})");
+            return false;
+        }
+        
         // 直接使用 FarmTileManager
         var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
         if (farmTileManager == null)
@@ -918,6 +948,15 @@ public class GameInputManager : MonoBehaviour
         
         // 转换为格子坐标
         Vector3Int cellPosition = tilemaps.WorldToCell(worldPosition);
+        
+        // ★ 精确距离检测：使用格子中心位置
+        Vector3 cellCenter = tilemaps.GetCellCenterWorld(cellPosition);
+        if (Vector2.Distance(playerCenter, cellCenter) > farmToolReach)
+        {
+            if (showDebugInfo)
+                Debug.Log($"[GameInputManager] 浇水失败：格子中心距离过远 ({Vector2.Distance(playerCenter, cellCenter):F2} > {farmToolReach})");
+            return false;
+        }
         
         // 获取当前游戏时间
         float currentHour = TimeManager.Instance != null ? TimeManager.Instance.GetHour() : 0f;

@@ -81,7 +81,7 @@ SpriteRenderer:
   m_FlipX: 0
   m_FlipY: 0
   m_DrawMode: 0
-  m_Size: {x: 0.16, y: 0.16}
+  m_Size: {x: 1, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
@@ -139,7 +139,7 @@ MonoBehaviour:
   quality: 0
   amount: 1
   linkedItemData: {fileID: 11400000, guid: b3fb2ba2f0d99e148ab0ce9c6cee5c8b, type: 2}
-  spriteRenderer: {fileID: 0}
+  spriteRenderer: {fileID: 4066000603509255810}
   fallbackSprite: {fileID: 0}
   flyDuration: 0.25
   flyHeight: 0.3
@@ -167,8 +167,8 @@ MonoBehaviour:
   shadowMaxAlpha: 0.4
   animationActiveDistance: 15
   distanceCheckInterval: 0.5
-  spriteTransform: {fileID: 0}
-  shadowTransform: {fileID: 0}
+  spriteTransform: {fileID: 6761026076470097288}
+  shadowTransform: {fileID: 1212575046380373874}
   shadowRenderer: {fileID: 0}
 --- !u!58 &4503314100040802184
 CircleCollider2D:

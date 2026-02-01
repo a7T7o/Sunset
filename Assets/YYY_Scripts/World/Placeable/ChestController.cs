@@ -292,6 +292,8 @@ namespace FarmGame.World
         /// <summary>
         /// 加载对象状态
         /// Rule: P0-1 箱子存档 - 加载后同步 _inventoryV2 到 _inventory
+        /// 🔥 修复：确保 _inventory 和 _inventoryV2 在加载前已初始化
+        /// 🔥 P0-2 修复：处理空箱子情况，确保 IsEmpty 返回正确值
         /// </summary>
         public void Load(WorldObjectSaveData data)
         {
@@ -309,29 +311,50 @@ namespace FarmGame.World
                 {
                     isLocked = chestData.isLocked;
                     
+                    // 🔥 修复：确保 _inventory 和 _inventoryV2 已初始化
+                    int capacity = chestData.capacity > 0 ? chestData.capacity : (storageData?.storageCapacity ?? 20);
+                    
+                    // 🔥 锐评010 指令：添加调试日志验证 capacity
+                    Debug.Log($"[Chest] Load Capacity: {capacity} (chestData.capacity={chestData.capacity}, storageData?.storageCapacity={storageData?.storageCapacity})");
+                    
+                    if (_inventory == null)
+                    {
+                        _inventory = new ChestInventory(capacity);
+                        if (showDebugInfo)
+                            Debug.Log($"[ChestController] Load: 初始化 _inventory, capacity={capacity}");
+                    }
+                    if (_inventoryV2 == null)
+                    {
+                        _inventoryV2 = new ChestInventoryV2(capacity);
+                        if (showDebugInfo)
+                            Debug.Log($"[ChestController] Load: 初始化 _inventoryV2, capacity={capacity}");
+                    }
+                    
                     // 恢复库存数据
-                    if (_inventoryV2 != null && chestData.slots != null)
+                    if (chestData.slots != null && chestData.slots.Count > 0)
                     {
                         _inventoryV2.LoadFromSaveData(chestData.slots);
                         // 🔥 P0-1 修复：同步到 _inventory，确保 UI 显示正确
                         SyncV2ToInventory();
+                        
+                        if (showDebugInfo)
+                            Debug.Log($"[ChestController] Load: 恢复了 {chestData.slots.Count} 个槽位数据");
                     }
-                    else if (_inventory != null && chestData.slots != null)
+                    else
                     {
-                        // 兼容旧库存
-                        var slots = new ItemStack[chestData.slots.Count];
-                        foreach (var slotData in chestData.slots)
+                        // 🔥 P0-2 修复：如果存档中没有槽位数据，说明箱子是空的
+                        // 必须清空两个库存系统，避免残留数据
+                        for (int i = 0; i < _inventoryV2.Capacity; i++)
                         {
-                            if (slotData.slotIndex >= 0 && slotData.slotIndex < slots.Length)
-                            {
-                                slots[slotData.slotIndex] = new ItemStack(
-                                    slotData.itemId, 
-                                    slotData.quality, 
-                                    slotData.amount
-                                );
-                            }
+                            _inventoryV2.ClearSlot(i);
                         }
-                        _inventory.LoadFromData(slots);
+                        for (int i = 0; i < _inventory.Capacity; i++)
+                        {
+                            _inventory.ClearSlot(i);
+                        }
+                        
+                        if (showDebugInfo)
+                            Debug.Log($"[ChestController] Load: 存档中无槽位数据，已清空两个库存系统");
                     }
                 }
             }
@@ -339,8 +362,12 @@ namespace FarmGame.World
             // 更新视觉状态
             UpdateSprite();
             
+            // 🔥 P0-2 修复：强制状态检查，验证 IsEmpty 属性返回正确值
             if (showDebugInfo)
-                Debug.Log($"[ChestController] Load: GUID={PersistentId}, isLocked={isLocked}");
+            {
+                Debug.Log($"[ChestController] Load 完成: GUID={PersistentId}, isLocked={isLocked}");
+                Debug.Log($"[ChestController] 状态检查: IsEmpty={IsEmpty}, _inventoryV2.IsEmpty={_inventoryV2?.IsEmpty}, _inventory.IsEmpty={_inventory?.IsEmpty}");
+            }
         }
 
         #endregion

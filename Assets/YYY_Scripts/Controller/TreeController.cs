@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using FarmGame.Combat;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 using FarmGame.Events;
 using FarmGame.Utils;
 
@@ -20,7 +21,7 @@ using FarmGame.Utils;
 /// ├─ Tree (本脚本所在，SpriteRenderer) ← sprite底部对齐父物体中心
 /// └─ Shadow (同级兄弟，SpriteRenderer) ← 中心对齐父物体中心
 /// </summary>
-public class TreeController : MonoBehaviour, IResourceNode
+public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 {
     #region 常量
     private const int STAGE_COUNT = 6;
@@ -53,6 +54,10 @@ public class TreeController : MonoBehaviour, IResourceNode
     #endregion
     
     #region 序列化字段 - 当前状态
+    [Header("━━━━ 持久化配置 ━━━━")]
+    [Tooltip("对象唯一 ID（自动生成，勿手动修改）")]
+    [SerializeField] private string persistentId;
+    
     [Header("━━━━ 当前状态 ━━━━")]
     [Tooltip("树木ID（基于InstanceID，0-9999循环）")]
     [SerializeField] private int treeID = -1;
@@ -308,6 +313,9 @@ public class TreeController : MonoBehaviour, IResourceNode
         {
             ResourceNodeRegistry.Instance.Register(this, gameObject.GetInstanceID());
         }
+        
+        // 注册到持久化对象注册表（带 ID 冲突自愈）
+        RegisterToPersistentRegistry();
     }
     
     private void OnDestroy()
@@ -325,6 +333,9 @@ public class TreeController : MonoBehaviour, IResourceNode
         {
             ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
         }
+        
+        // 从持久化对象注册表注销
+        UnregisterFromPersistentRegistry();
     }
     #endregion
     
@@ -2171,6 +2182,9 @@ public class TreeController : MonoBehaviour, IResourceNode
     
     private void OnValidate()
     {
+        // 自动生成持久化 ID
+        OnValidate_PersistentId();
+        
         if (!editorPreview) return;
         
         if (spriteRenderer == null)
@@ -2322,5 +2336,227 @@ public class TreeController : MonoBehaviour, IResourceNode
         UnityEditor.EditorUtility.SetDirty(tree);
     }
     #endif
+    #endregion
+    
+    #region IPersistentObject 接口实现
+    
+    /// <summary>
+    /// 对象唯一标识符（GUID）
+    /// </summary>
+    public string PersistentId
+    {
+        get
+        {
+            if (string.IsNullOrEmpty(persistentId))
+            {
+                persistentId = System.Guid.NewGuid().ToString();
+            }
+            return persistentId;
+        }
+    }
+    
+    /// <summary>
+    /// 对象类型标识
+    /// </summary>
+    public string ObjectType => "Tree";
+    
+    /// <summary>
+    /// 是否应该被保存
+    /// </summary>
+    public bool ShouldSave => gameObject.activeInHierarchy;
+    
+    /// <summary>
+    /// 保存对象状态
+    /// </summary>
+    public WorldObjectSaveData Save()
+    {
+        var data = new WorldObjectSaveData
+        {
+            guid = PersistentId,
+            objectType = ObjectType,
+            prefabId = GetPrefabId(),  // 新增：预制体 ID（用于动态重建）
+            sceneName = gameObject.scene.name,
+            isActive = gameObject.activeSelf
+        };
+        
+        // 保存位置（使用父物体位置，即树根位置）
+        Vector3 pos = transform.parent != null ? transform.parent.position : transform.position;
+        data.SetPosition(pos);
+        
+        // 保存树木特有数据（使用 TreeSaveData + genericData）
+        var treeData = new TreeSaveData
+        {
+            growthStageIndex = currentStageIndex,
+            currentHealth = this.currentHealth,
+            maxHealth = CurrentStageConfig?.health ?? 0,
+            daysGrown = daysInCurrentStage,
+            state = (int)currentState,
+            // ===== 动态对象重建系统新增字段 =====
+            season = (int)currentSeason,
+            isStump = currentState == TreeState.Stump,
+            stumpHealth = currentStumpHealth
+            // 注：hasTransitionedToNextSeason 和 transitionVegetationSeason 
+            // 当前实现是实时计算的，暂不存储
+        };
+        data.genericData = JsonUtility.ToJson(treeData);
+        
+        return data;
+    }
+    
+    /// <summary>
+    /// 获取预制体 ID（用于动态重建）
+    /// 从父物体名称推断，格式：Tree_M1_00 → M1
+    /// </summary>
+    private string GetPrefabId()
+    {
+        // 获取父物体名称（树根物体）
+        string parentName = transform.parent != null ? transform.parent.name : gameObject.name;
+        
+        // 移除 (Clone) 后缀
+        if (parentName.EndsWith("(Clone)"))
+        {
+            parentName = parentName.Substring(0, parentName.Length - 7).Trim();
+        }
+        
+        // 解析格式：Tree_M1_00 或 M1_00 或 M1
+        // 提取 M1/M2/M3 部分
+        string[] parts = parentName.Split('_');
+        foreach (var part in parts)
+        {
+            // 检查是否是 M1/M2/M3 格式
+            if (part.Length >= 2 && part[0] == 'M' && char.IsDigit(part[1]))
+            {
+                return part;
+            }
+        }
+        
+        // 如果无法解析，返回默认值
+        if (showDebugInfo)
+            Debug.LogWarning($"[TreeController] 无法从名称 '{parentName}' 解析 prefabId，使用默认值 M1");
+        
+        return "M1";
+    }
+    
+    /// <summary>
+    /// 加载对象状态
+    /// 🛡️ 封印三：UpdateVisuals() 必须是 Load() 的最后一行
+    /// </summary>
+    public void Load(WorldObjectSaveData data)
+    {
+        if (data == null || string.IsNullOrEmpty(data.genericData)) return;
+        
+        // 从 genericData 反序列化树木数据
+        var treeData = JsonUtility.FromJson<TreeSaveData>(data.genericData);
+        if (treeData == null) return;
+        
+        // 恢复树木特有数据
+        currentStageIndex = treeData.growthStageIndex;
+        currentHealth = treeData.currentHealth;
+        currentState = (TreeState)treeData.state;
+        daysInCurrentStage = treeData.daysGrown;
+        
+        // ===== 动态对象重建系统新增字段恢复 =====
+        // 恢复季节（如果存档中有）
+        if (treeData.season >= 0 && treeData.season <= 3)
+        {
+            currentSeason = (SeasonManager.Season)treeData.season;
+        }
+        
+        // 恢复树桩血量
+        currentStumpHealth = treeData.stumpHealth;
+        
+        // 恢复树桩状态（双重保险：从 isStump 和 state 两个字段）
+        if (treeData.isStump && currentState != TreeState.Stump)
+        {
+            currentState = TreeState.Stump;
+        }
+        
+        // 更新碰撞体
+        UpdatePolygonColliderShape();
+        
+        if (showDebugInfo)
+            Debug.Log($"<color=cyan>[TreeController] {gameObject.name} 已从存档恢复: 阶段={currentStageIndex}, 状态={currentState}, 血量={currentHealth}, 树桩血量={currentStumpHealth}</color>");
+        
+        // 🛡️ 封印三：UpdateVisuals() 必须是 Load() 的最后一行
+        UpdateSprite();
+    }
+    
+    /// <summary>
+    /// 为存档加载设置 PersistentId（仅供 DynamicObjectFactory 调用）
+    /// 用于动态重建的对象，需要复用存档中的 GUID
+    /// </summary>
+    /// <param name="guid">存档中的 GUID</param>
+    public void SetPersistentIdForLoad(string guid)
+    {
+        if (string.IsNullOrEmpty(guid))
+        {
+            Debug.LogWarning($"[TreeController] SetPersistentIdForLoad: guid 为空");
+            return;
+        }
+        
+        persistentId = guid;
+        
+        if (showDebugInfo)
+            Debug.Log($"[TreeController] {gameObject.name} 设置 PersistentId: {guid}");
+    }
+    
+    /// <summary>
+    /// 注册到持久化对象注册表（带 ID 冲突自愈）
+    /// </summary>
+    private void RegisterToPersistentRegistry()
+    {
+        if (PersistentObjectRegistry.Instance == null) return;
+        
+        // 尝试注册，如果 ID 冲突则重新生成
+        if (!PersistentObjectRegistry.Instance.TryRegister(this))
+        {
+            // ID 冲突（可能是 Ctrl+D 复制的克隆体）
+            // 🔥 修复：将警告改为调试日志，减少控制台噪音
+            if (showDebugInfo)
+                Debug.Log($"[TreeController] {gameObject.name} ID 冲突检测 (ID: {persistentId})，正在重新生成...");
+            persistentId = System.Guid.NewGuid().ToString();
+            PersistentObjectRegistry.Instance.Register(this);
+        }
+    }
+    
+    /// <summary>
+    /// 从持久化对象注册表注销
+    /// </summary>
+    private void UnregisterFromPersistentRegistry()
+    {
+        if (PersistentObjectRegistry.Instance != null)
+        {
+            PersistentObjectRegistry.Instance.Unregister(this);
+        }
+    }
+    
+#if UNITY_EDITOR
+    /// <summary>
+    /// 编辑器模式下自动生成 GUID
+    /// </summary>
+    private void OnValidate_PersistentId()
+    {
+        // 仅在编辑器模式下自动生成 GUID
+        if (string.IsNullOrEmpty(persistentId))
+        {
+            persistentId = System.Guid.NewGuid().ToString();
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+    }
+    
+    /// <summary>
+    /// 🔥 锐评019：强制重新生成 GUID（用于修复 GUID 漂移问题）
+    /// 使用方法：选中场景中的树木，右键 → Force Regenerate GUID
+    /// </summary>
+    [ContextMenu("Force Regenerate GUID")]
+    private void ForceRegenerateGUID()
+    {
+        string oldGuid = persistentId;
+        persistentId = System.Guid.NewGuid().ToString();
+        UnityEditor.EditorUtility.SetDirty(this);
+        Debug.Log($"[TreeController] {gameObject.name} GUID 已重新生成: {oldGuid} → {persistentId}");
+    }
+#endif
+    
     #endregion
 }
