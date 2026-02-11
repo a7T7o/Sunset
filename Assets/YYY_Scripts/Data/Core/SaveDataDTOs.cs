@@ -236,6 +236,26 @@ namespace FarmGame.Data.Core
         /// <summary>是否激活</summary>
         public bool isActive = true;
         
+        // ============================================================
+        // 🔴 渲染层级参数（必须保存！不是预制体默认值，是运行时动态计算的）
+        // ============================================================
+        
+        /// <summary>
+        /// 排序图层名称（Sorting Layer）
+        /// 🔴 重要：这是 SpriteRenderer 的渲染层级，不是 GameObject.layer
+        /// 例如："Layer 1", "Layer 2", "Effects" 等
+        /// </summary>
+        public string sortingLayerName;
+        
+        /// <summary>
+        /// 图层顺序（Order in Layer）
+        /// 🔴 重要：这是同一 Sorting Layer 内的渲染顺序
+        /// 通常根据 Y 坐标动态计算，如 -517
+        /// </summary>
+        public int sortingOrder;
+        
+        // ============================================================
+        
         /// <summary>通用数据（JSON 字符串，存储对象特有数据）</summary>
         public string genericData;
         
@@ -255,6 +275,30 @@ namespace FarmGame.Data.Core
         public Vector3 GetPosition()
         {
             return new Vector3(positionX, positionY, positionZ);
+        }
+        
+        /// <summary>
+        /// 🔴 设置渲染层级参数（从 SpriteRenderer 获取）
+        /// </summary>
+        public void SetSortingLayer(SpriteRenderer renderer)
+        {
+            if (renderer != null)
+            {
+                sortingLayerName = renderer.sortingLayerName;
+                sortingOrder = renderer.sortingOrder;
+            }
+        }
+        
+        /// <summary>
+        /// 🔴 恢复渲染层级参数（应用到 SpriteRenderer）
+        /// </summary>
+        public void RestoreSortingLayer(SpriteRenderer renderer)
+        {
+            if (renderer != null && !string.IsNullOrEmpty(sortingLayerName))
+            {
+                renderer.sortingLayerName = sortingLayerName;
+                renderer.sortingOrder = sortingOrder;
+            }
         }
     }
     
@@ -360,6 +404,13 @@ namespace FarmGame.Data.Core
         
         /// <summary>数量</summary>
         public int amount;
+        
+        /// <summary>
+        /// 🔥 P2 任务 6：来源资源节点的 GUID
+        /// 用于关联掉落物与其来源（石头、树木等）
+        /// 如果来源节点存在且活跃，则不恢复此掉落物
+        /// </summary>
+        public string sourceNodeGuid;
     }
     
     /// <summary>
@@ -377,26 +428,89 @@ namespace FarmGame.Data.Core
         /// <summary>所在楼层</summary>
         public int layer = 1;
         
-        /// <summary>土地状态（0=未耕作, 1=已耕作, 2=已浇水）</summary>
+        /// <summary>土地状态（0=干燥, 1=湿润深色, 2=湿润水渍）</summary>
         public int soilState;
-        
-        /// <summary>种植的作物 ID（-1 表示无作物）</summary>
-        public int cropId = -1;
-        
-        /// <summary>作物生长阶段</summary>
-        public int cropGrowthStage;
-        
-        /// <summary>作物品质</summary>
-        public int cropQuality;
-        
-        /// <summary>已生长天数</summary>
-        public int daysGrown;
         
         /// <summary>是否已浇水（当天）</summary>
         public bool isWatered;
         
+        // ===== 废弃字段（保留用于兼容旧存档）=====
+        
+        /// <summary>[已废弃] 种植的作物 ID - 作物数据已迁移到 CropController</summary>
+        [Obsolete("作物数据已迁移到 CropController，此字段仅用于兼容旧存档")]
+        public int cropId = -1;
+        
+        /// <summary>[已废弃] 作物生长阶段</summary>
+        [Obsolete("作物数据已迁移到 CropController")]
+        public int cropGrowthStage;
+        
+        /// <summary>[已废弃] 作物品质</summary>
+        [Obsolete("作物数据已迁移到 CropController")]
+        public int cropQuality;
+        
+        /// <summary>[已废弃] 已生长天数</summary>
+        [Obsolete("作物数据已迁移到 CropController")]
+        public int daysGrown;
+        
+        /// <summary>[已废弃] 连续未浇水天数</summary>
+        [Obsolete("作物数据已迁移到 CropController")]
+        public int daysWithoutWater;
+    }
+    
+    /// <summary>
+    /// 耕地列表包装器（用于 JSON 序列化）
+    /// FarmTileManager 使用此类序列化所有耕地数据
+    /// </summary>
+    [Serializable]
+    public class FarmTileListWrapper
+    {
+        public List<FarmTileSaveData> tiles = new List<FarmTileSaveData>();
+    }
+    
+    /// <summary>
+    /// 作物存档数据（存储在 WorldObjectSaveData.genericData 中）
+    /// CropController 使用此类序列化作物状态
+    /// </summary>
+    [Serializable]
+    public class CropSaveData
+    {
+        /// <summary>种子物品 ID</summary>
+        public int seedId;
+        
+        /// <summary>当前生长阶段</summary>
+        public int currentStage;
+        
+        /// <summary>已生长天数</summary>
+        public int grownDays;
+        
         /// <summary>连续未浇水天数</summary>
         public int daysWithoutWater;
+        
+        /// <summary>是否枯萎</summary>
+        public bool isWithered;
+        
+        /// <summary>作物品质</summary>
+        public int quality;
+        
+        /// <summary>已收获次数（可重复收获作物）</summary>
+        public int harvestCount;
+        
+        /// <summary>上次收获的天数</summary>
+        public int lastHarvestDay;
+        
+        /// <summary>成熟后经过的天数（用于过熟枯萎判断）</summary>
+        public int daysSinceMature;
+        
+        // ===== 位置信息（用于关联耕地）=====
+        
+        /// <summary>所在楼层索引</summary>
+        public int layerIndex;
+        
+        /// <summary>格子坐标 X</summary>
+        public int cellX;
+        
+        /// <summary>格子坐标 Y</summary>
+        public int cellY;
     }
     
     #endregion

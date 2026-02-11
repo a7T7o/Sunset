@@ -2,7 +2,7 @@
 inclusion: manual
 priority: P2
 keywords: [层级, 同步, 场景层级, Hierarchy]
-lastUpdated: 2025-01-09
+lastUpdated: 2026-01-09
 ---
 
 # 场景层级同步规则

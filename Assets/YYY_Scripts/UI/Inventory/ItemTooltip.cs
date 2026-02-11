@@ -26,7 +26,9 @@ public class ItemTooltip : MonoBehaviour
     
     [Header("显示设置")]
     [SerializeField] private Vector2 offset = new Vector2(15f, -15f);
+    #pragma warning disable 0414
     [SerializeField] private float showDelay = 0.3f;
+    #pragma warning restore 0414
     [SerializeField] private float fadeSpeed = 10f;
     
     #endregion
@@ -36,7 +38,9 @@ public class ItemTooltip : MonoBehaviour
     private Canvas _parentCanvas;
     private Camera _uiCamera;
     private bool _isShowing = false;
+    #pragma warning disable 0414
     private float _hoverTimer = 0f;
+    #pragma warning restore 0414
     private ItemStack _currentItem;
     private ItemDatabase _database;
     private int _currentAmount = 0;

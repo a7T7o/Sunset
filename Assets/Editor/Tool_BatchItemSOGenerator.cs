@@ -48,6 +48,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         // 种植类
         SeedData = 10,
         CropData = 11,
+        WitheredCropData = 12,
         
         // 可放置
         SaplingData = 20,
@@ -76,7 +77,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     private static readonly Dictionary<ItemMainCategory, ItemSOType[]> CategoryToSubTypes = new()
     {
         { ItemMainCategory.ToolEquipment, new[] { ItemSOType.ToolData, ItemSOType.WeaponData, ItemSOType.KeyData, ItemSOType.LockData, ItemSOType.EquipmentData } },
-        { ItemMainCategory.Planting, new[] { ItemSOType.SeedData, ItemSOType.CropData } },
+        { ItemMainCategory.Planting, new[] { ItemSOType.SeedData, ItemSOType.CropData, ItemSOType.WitheredCropData } },
         { ItemMainCategory.Placeable, new[] { ItemSOType.SaplingData, ItemSOType.WorkstationData, ItemSOType.StorageData, ItemSOType.InteractiveDisplayData, ItemSOType.SimpleEventData } },
         { ItemMainCategory.Consumable, new[] { ItemSOType.FoodData, ItemSOType.PotionData } },
         { ItemMainCategory.Material, new[] { ItemSOType.MaterialData } },
@@ -112,6 +113,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         { ItemSOType.EquipmentData, "装备" },
         { ItemSOType.SeedData, "种子" },
         { ItemSOType.CropData, "作物" },
+        { ItemSOType.WitheredCropData, "枯萎作物" },
         { ItemSOType.SaplingData, "树苗" },
         { ItemSOType.WorkstationData, "工作台" },
         { ItemSOType.StorageData, "存储" },
@@ -134,6 +136,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         { ItemSOType.EquipmentData, 8000 },
         { ItemSOType.SeedData, 1000 },
         { ItemSOType.CropData, 1100 },
+        { ItemSOType.WitheredCropData, 1200 },
         { ItemSOType.SaplingData, 1200 },
         { ItemSOType.WorkstationData, 1300 },
         { ItemSOType.StorageData, 1400 },
@@ -156,6 +159,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         { ItemSOType.EquipmentData, "Assets/111_Data/Items/Equipment" },
         { ItemSOType.SeedData, "Assets/111_Data/Items/Seeds" },
         { ItemSOType.CropData, "Assets/111_Data/Items/Crops" },
+        { ItemSOType.WitheredCropData, "Assets/111_Data/Items/WitheredCrops" },
         { ItemSOType.SaplingData, "Assets/111_Data/Items/Placeable/Saplings" },
         { ItemSOType.WorkstationData, "Assets/111_Data/Items/Placeable/Workstations" },
         { ItemSOType.StorageData, "Assets/111_Data/Items/Placeable/Storage" },
@@ -176,6 +180,11 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     private Vector2 scrollPos;
     private Vector2 spriteListScrollPos;
     private List<Sprite> selectedSprites = new List<Sprite>();
+
+    // === Sprite 列表拖拽排序状态 ===
+    private bool _isDraggingSprite = false;
+    private int _dragSourceIndex = -1;
+    private int _dragTargetIndex = -1;
 
     // === 数据库设置 ===
     private ItemDatabase databaseAsset;
@@ -223,6 +232,14 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     private int seedGrowthDays = 4;
     private bool setSeedHarvest = false;
     private int seedHarvestCropID = 1100;
+    private bool setSeedBagSize = false;
+    private int seedsPerBag = 5;
+    private bool setSeedShelfLife = false;
+    private int seedShelfLifeClosed = 7;
+    private int seedShelfLifeOpened = 2;
+    private bool setSeedReHarvest = false;
+    private bool seedIsReHarvestable = false;
+    private int seedReHarvestDays = 2;
 
     // === 树苗专属 ===
     private GameObject saplingTreePrefab;
@@ -234,6 +251,14 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     private int cropSeedID = 1000;
     private bool setCropExp = false;
     private int cropHarvestExp = 10;
+    private bool setCropWitheredID = false;
+    private int cropWitheredCropID = 1200;
+
+    // === 枯萎作物专属 ===
+    private bool setWitheredNormalCropID = false;
+    private int witheredNormalCropID = 1100;
+    private bool setWitheredSeedID = false;
+    private int witheredSeedID = 1000;
 
     // === 食物专属 ===
     private bool setFoodEnergy = false;
@@ -436,56 +461,280 @@ public class Tool_BatchItemSOGenerator : EditorWindow
 
     private void DrawSpriteSelection()
     {
-        EditorGUILayout.LabelField("🖼️ 选中的 Sprite", EditorStyles.boldLabel);
-        
+        EditorGUILayout.LabelField("🖼️ Sprite 选择", EditorStyles.boldLabel);
+
+        // === 两个并排按钮 ===
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.HelpBox("在 Project 窗口选择 Sprite、Texture 或文件夹", MessageType.None);
-        if (GUILayout.Button("🔍 获取选中项", GUILayout.Width(100), GUILayout.Height(38)))
+        if (GUILayout.Button("🔍 获取选中项", GUILayout.Height(28)))
         {
             GetSelectedSprites();
         }
+        if (GUILayout.Button("📂 批量选择", GUILayout.Height(28)))
+        {
+            OpenBatchSelectWindow();
+        }
         EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.HelpBox("获取选中项：从 Project 窗口选中的 Sprite/Texture/文件夹替换列表\n批量选择：弹窗浏览并勾选 Sprite 追加到列表", MessageType.None);
 
         if (selectedSprites.Count == 0)
         {
             EditorGUILayout.HelpBox("⚠️ 未选择任何 Sprite", MessageType.Warning);
+            return;
+        }
+
+        // === 已选列表标题栏 ===
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.LabelField($"✓ 已选择 {selectedSprites.Count} 个 Sprite", EditorStyles.boldLabel);
+        GUILayout.FlexibleSpace();
+        if (GUILayout.Button("清空", GUILayout.Width(45)))
+        {
+            if (selectedSprites.Count == 0 || EditorUtility.DisplayDialog("确认清空", "确定要清空已选列表吗？", "清空", "取消"))
+            {
+                selectedSprites.Clear();
+            }
+        }
+        EditorGUILayout.EndHorizontal();
+
+        // === 已选列表（完整展示，ScrollView） ===
+        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+
+        float listHeight = Mathf.Min(selectedSprites.Count * 28 + 5, 400);
+        spriteListScrollPos = EditorGUILayout.BeginScrollView(spriteListScrollPos, GUILayout.Height(listHeight));
+
+        for (int i = 0; i < selectedSprites.Count; i++)
+        {
+            DrawSpriteListItem(i);
+        }
+
+        EditorGUILayout.EndScrollView();
+        EditorGUILayout.EndVertical();
+    }
+
+    private void DrawSpriteListItem(int index)
+    {
+        var sprite = selectedSprites[index];
+        if (sprite == null) return;
+
+        Rect entryRect = EditorGUILayout.BeginHorizontal(GUILayout.Height(26));
+
+        // 拖拽目标高亮
+        bool isDragTarget = _isDraggingSprite && _dragTargetIndex == index;
+        if (isDragTarget)
+        {
+            EditorGUI.DrawRect(entryRect, new Color(0.3f, 0.6f, 0.3f, 0.4f));
+        }
+        else if (index % 2 == 0)
+        {
+            EditorGUI.DrawRect(entryRect, new Color(0, 0, 0, 0.08f));
+        }
+
+        // 拖拽手柄 ≡
+        Rect dragHandleRect = GUILayoutUtility.GetRect(18, 22, GUILayout.Width(18));
+        EditorGUIUtility.AddCursorRect(dragHandleRect, MouseCursor.Pan);
+        GUI.Label(dragHandleRect, "≡", EditorStyles.centeredGreyMiniLabel);
+        HandleSpriteDrag(dragHandleRect, index);
+
+        // 序号
+        GUILayout.Label($"{index + 1}.", GUILayout.Width(28));
+
+        // Sprite 图标
+        if (sprite.texture != null)
+        {
+            Rect iconRect = GUILayoutUtility.GetRect(22, 22, GUILayout.Width(22), GUILayout.Height(22));
+            GUI.DrawTextureWithTexCoords(iconRect, sprite.texture,
+                new Rect(sprite.rect.x / sprite.texture.width, sprite.rect.y / sprite.texture.height,
+                         sprite.rect.width / sprite.texture.width, sprite.rect.height / sprite.texture.height));
         }
         else
         {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            EditorGUILayout.LabelField($"✓ 已选择 {selectedSprites.Count} 个 Sprite", EditorStyles.boldLabel);
-            
-            spriteListScrollPos = EditorGUILayout.BeginScrollView(spriteListScrollPos, 
-                GUILayout.Height(Mathf.Min(selectedSprites.Count * 26 + 5, 140)));
-            
-            int showCount = Mathf.Min(selectedSprites.Count, 10);
-            for (int i = 0; i < showCount; i++)
-            {
-                var sprite = selectedSprites[i];
-                EditorGUILayout.BeginHorizontal();
-                
-                var rect = GUILayoutUtility.GetRect(22, 22, GUILayout.Width(22));
-                if (sprite != null && sprite.texture != null)
+            GUILayout.Space(22);
+        }
+
+        // 名称
+        EditorGUILayout.LabelField(sprite.name, GUILayout.MinWidth(120));
+
+        // 预测 ID
+        int predictedID = useSequentialID ? startID + index : startID;
+        EditorGUILayout.LabelField($"→ ID: {predictedID}", EditorStyles.miniLabel, GUILayout.Width(80));
+
+        GUILayout.FlexibleSpace();
+
+        // 删除按钮
+        if (GUILayout.Button("×", GUILayout.Width(20), GUILayout.Height(20)))
+        {
+            selectedSprites.RemoveAt(index);
+            ResetSpriteDragState();
+            GUIUtility.ExitGUI();
+        }
+
+        EditorGUILayout.EndHorizontal();
+
+        // 右键菜单检测
+        if (Event.current.type == EventType.ContextClick && entryRect.Contains(Event.current.mousePosition))
+        {
+            ShowSpriteContextMenu(index);
+            Event.current.Use();
+        }
+
+        // 拖拽目标检测
+        HandleSpriteDragTarget(entryRect, index);
+    }
+
+    #endregion
+
+    #region Sprite 拖拽排序
+
+    private void HandleSpriteDrag(Rect handleRect, int itemIndex)
+    {
+        Event evt = Event.current;
+        int controlId = GUIUtility.GetControlID(FocusType.Passive);
+
+        switch (evt.type)
+        {
+            case EventType.MouseDown:
+                if (handleRect.Contains(evt.mousePosition) && evt.button == 0)
                 {
-                    GUI.DrawTextureWithTexCoords(rect, sprite.texture, 
-                        new Rect(sprite.rect.x / sprite.texture.width, sprite.rect.y / sprite.texture.height,
-                                 sprite.rect.width / sprite.texture.width, sprite.rect.height / sprite.texture.height));
+                    GUIUtility.hotControl = controlId;
+                    _isDraggingSprite = true;
+                    _dragSourceIndex = itemIndex;
+                    _dragTargetIndex = itemIndex;
+                    evt.Use();
                 }
-                
-                int predictedID = useSequentialID ? startID + i : startID;
-                EditorGUILayout.LabelField($"{sprite.name}", GUILayout.Width(180));
-                EditorGUILayout.LabelField($"→ ID: {predictedID}", EditorStyles.miniLabel, GUILayout.Width(80));
-                
-                EditorGUILayout.EndHorizontal();
-            }
-            
-            if (selectedSprites.Count > 10)
-                EditorGUILayout.LabelField($"... 还有 {selectedSprites.Count - 10} 项", EditorStyles.miniLabel);
-            
-            EditorGUILayout.EndScrollView();
-            EditorGUILayout.EndVertical();
+                break;
+
+            case EventType.MouseUp:
+                if (GUIUtility.hotControl == controlId)
+                {
+                    GUIUtility.hotControl = 0;
+
+                    if (_isDraggingSprite && _dragSourceIndex != _dragTargetIndex
+                        && _dragTargetIndex >= 0 && _dragTargetIndex < selectedSprites.Count)
+                    {
+                        var item = selectedSprites[_dragSourceIndex];
+                        selectedSprites.RemoveAt(_dragSourceIndex);
+                        selectedSprites.Insert(_dragTargetIndex, item);
+                    }
+
+                    ResetSpriteDragState();
+                    evt.Use();
+                    Repaint();
+                }
+                break;
+
+            case EventType.MouseDrag:
+                if (GUIUtility.hotControl == controlId)
+                {
+                    evt.Use();
+                    Repaint();
+                }
+                break;
         }
     }
+
+    private void HandleSpriteDragTarget(Rect entryRect, int itemIndex)
+    {
+        if (!_isDraggingSprite) return;
+
+        Event evt = Event.current;
+        if (evt.type == EventType.Repaint || evt.type == EventType.MouseDrag)
+        {
+            if (entryRect.Contains(evt.mousePosition))
+            {
+                _dragTargetIndex = itemIndex;
+            }
+        }
+    }
+
+    private void ResetSpriteDragState()
+    {
+        _isDraggingSprite = false;
+        _dragSourceIndex = -1;
+        _dragTargetIndex = -1;
+    }
+
+    #endregion
+
+    #region Sprite 右键菜单
+
+    private void ShowSpriteContextMenu(int index)
+    {
+        GenericMenu menu = new GenericMenu();
+
+        // 上移
+        if (index > 0)
+            menu.AddItem(new GUIContent("上移"), false, () => { SwapSprites(index, index - 1); });
+        else
+            menu.AddDisabledItem(new GUIContent("上移"));
+
+        // 下移
+        if (index < selectedSprites.Count - 1)
+            menu.AddItem(new GUIContent("下移"), false, () => { SwapSprites(index, index + 1); });
+        else
+            menu.AddDisabledItem(new GUIContent("下移"));
+
+        menu.AddSeparator("");
+
+        // 移到顶部
+        menu.AddItem(new GUIContent("移到顶部"), false, () => { MoveSpriteToIndex(index, 0); });
+
+        // 移到底部
+        menu.AddItem(new GUIContent("移到底部"), false, () => { MoveSpriteToIndex(index, selectedSprites.Count - 1); });
+
+        menu.AddSeparator("");
+
+        // 删除
+        menu.AddItem(new GUIContent("删除"), false, () => {
+            selectedSprites.RemoveAt(index);
+            Repaint();
+        });
+
+        menu.ShowAsContext();
+    }
+
+    private void SwapSprites(int indexA, int indexB)
+    {
+        if (indexA < 0 || indexA >= selectedSprites.Count) return;
+        if (indexB < 0 || indexB >= selectedSprites.Count) return;
+
+        var temp = selectedSprites[indexA];
+        selectedSprites[indexA] = selectedSprites[indexB];
+        selectedSprites[indexB] = temp;
+        Repaint();
+    }
+
+    private void MoveSpriteToIndex(int fromIndex, int toIndex)
+    {
+        if (fromIndex < 0 || fromIndex >= selectedSprites.Count) return;
+        if (toIndex < 0 || toIndex >= selectedSprites.Count) return;
+        if (fromIndex == toIndex) return;
+
+        var item = selectedSprites[fromIndex];
+        selectedSprites.RemoveAt(fromIndex);
+        selectedSprites.Insert(toIndex, item);
+        Repaint();
+    }
+
+    #endregion
+
+    #region 批量选择弹窗
+
+    private void OpenBatchSelectWindow()
+    {
+        SpriteBatchSelectWindow.ShowWindow(sprites =>
+        {
+            foreach (var s in sprites)
+            {
+                if (!selectedSprites.Contains(s))
+                    selectedSprites.Add(s);
+            }
+            Repaint();
+        });
+    }
+
+    #endregion
+
+    #region UI 绘制（续）
 
     private void DrawCategorySelection()
     {
@@ -647,6 +896,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             case ItemSOType.SeedData: DrawSeedSettings(); break;
             case ItemSOType.SaplingData: DrawSaplingSettings(); break;
             case ItemSOType.CropData: DrawCropSettings(); break;
+            case ItemSOType.WitheredCropData: DrawWitheredCropSettings(); break;
             case ItemSOType.FoodData: DrawFoodSettings(); break;
             case ItemSOType.MaterialData: DrawMaterialSettings(); break;
             case ItemSOType.PotionData: DrawPotionSettings(); break;
@@ -782,6 +1032,39 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         seedSeason = (Season)EditorGUILayout.EnumPopup("适合季节", seedSeason);
         DrawOptionalInt(ref setSeedGrowth, ref seedGrowthDays, "生长天数", 1, 28);
         DrawOptionalInt(ref setSeedHarvest, ref seedHarvestCropID, "收获作物 ID", 1100, 1199);
+        
+        EditorGUILayout.Space(4);
+        EditorGUILayout.LabelField("种子袋配置", EditorStyles.miniLabel);
+        DrawOptionalInt(ref setSeedBagSize, ref seedsPerBag, "每袋种子数", 1, 20);
+        
+        EditorGUILayout.BeginHorizontal();
+        setSeedShelfLife = EditorGUILayout.Toggle(setSeedShelfLife, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!setSeedShelfLife);
+        EditorGUILayout.LabelField("保质期", GUILayout.Width(50));
+        seedShelfLifeClosed = EditorGUILayout.IntSlider("未开封", seedShelfLifeClosed, 1, 28);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        if (setSeedShelfLife)
+        {
+            EditorGUI.BeginDisabledGroup(!setSeedShelfLife);
+            seedShelfLifeOpened = EditorGUILayout.IntSlider("开封后", seedShelfLifeOpened, 1, 14);
+            EditorGUI.EndDisabledGroup();
+        }
+        
+        EditorGUILayout.Space(4);
+        EditorGUILayout.LabelField("重复收获", EditorStyles.miniLabel);
+        EditorGUILayout.BeginHorizontal();
+        setSeedReHarvest = EditorGUILayout.Toggle(setSeedReHarvest, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!setSeedReHarvest);
+        seedIsReHarvestable = EditorGUILayout.Toggle("可重复收获", seedIsReHarvestable);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        if (setSeedReHarvest && seedIsReHarvestable)
+        {
+            seedReHarvestDays = EditorGUILayout.IntSlider("再收获间隔天数", seedReHarvestDays, 1, 14);
+        }
     }
 
     private void DrawSaplingSettings()
@@ -814,6 +1097,17 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         
         DrawOptionalInt(ref setCropSeedID, ref cropSeedID, "对应种子 ID", 1000, 1099);
         DrawOptionalInt(ref setCropExp, ref cropHarvestExp, "收获经验", 1, 100);
+        DrawOptionalInt(ref setCropWitheredID, ref cropWitheredCropID, "枯萎作物 ID", 1200, 1299);
+    }
+
+    private void DrawWitheredCropSettings()
+    {
+        EditorGUILayout.LabelField("🥀 枯萎作物专属设置", EditorStyles.boldLabel);
+        
+        EditorGUILayout.HelpBox("枯萎作物继承 FoodData，可食用但有负面效果\nID 范围: 1200-1299", MessageType.Info);
+        
+        DrawOptionalInt(ref setWitheredNormalCropID, ref witheredNormalCropID, "对应正常作物 ID", 1100, 1199);
+        DrawOptionalInt(ref setWitheredSeedID, ref witheredSeedID, "对应种子 ID", 1000, 1099);
     }
 
     private void DrawFoodSettings()
@@ -1076,6 +1370,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.SeedData => "Seed",
             ItemSOType.SaplingData => "Sapling",
             ItemSOType.CropData => "Crop",
+            ItemSOType.WitheredCropData => "WCrop",
             ItemSOType.FoodData => "Food",
             ItemSOType.MaterialData => "Material",
             ItemSOType.PotionData => "Potion",
@@ -1101,6 +1396,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.SeedData => CreateSeedData(sprite, itemID, itemName),
             ItemSOType.SaplingData => CreateSaplingData(sprite, itemID, itemName),
             ItemSOType.CropData => CreateCropData(sprite, itemID, itemName),
+            ItemSOType.WitheredCropData => CreateWitheredCropData(sprite, itemID, itemName),
             ItemSOType.FoodData => CreateFoodData(sprite, itemID, itemName),
             ItemSOType.MaterialData => CreateMaterialData(sprite, itemID, itemName),
             ItemSOType.PotionData => CreatePotionData(sprite, itemID, itemName),
@@ -1205,6 +1501,17 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         data.season = seedSeason;
         if (setSeedGrowth) data.growthDays = seedGrowthDays;
         if (setSeedHarvest) data.harvestCropID = seedHarvestCropID;
+        if (setSeedBagSize) data.seedsPerBag = seedsPerBag;
+        if (setSeedShelfLife)
+        {
+            data.shelfLifeClosed = seedShelfLifeClosed;
+            data.shelfLifeOpened = seedShelfLifeOpened;
+        }
+        if (setSeedReHarvest)
+        {
+            data.isReHarvestable = seedIsReHarvestable;
+            if (seedIsReHarvestable) data.reHarvestDays = seedReHarvestDays;
+        }
         return data;
     }
 
@@ -1225,6 +1532,17 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         data.maxStackSize = setMaxStack ? defaultMaxStack : 99;
         if (setCropSeedID) data.seedID = cropSeedID;
         if (setCropExp) data.harvestExp = cropHarvestExp;
+        if (setCropWitheredID) data.witheredCropID = cropWitheredCropID;
+        return data;
+    }
+
+    private WitheredCropData CreateWitheredCropData(Sprite sprite, int itemID, string itemName)
+    {
+        var data = ScriptableObject.CreateInstance<WitheredCropData>();
+        SetCommonProperties(data, sprite, itemID, itemName, ItemCategory.Plant);
+        data.maxStackSize = setMaxStack ? defaultMaxStack : 99;
+        if (setWitheredNormalCropID) data.normalCropID = witheredNormalCropID;
+        if (setWitheredSeedID) data.seedID = witheredSeedID;
         return data;
     }
 
@@ -1379,6 +1697,14 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         seedGrowthDays = EditorPrefs.GetInt("BatchItemSO_SeedGrowth", 4);
         setSeedHarvest = EditorPrefs.GetBool("BatchItemSO_SetSeedHarvest", false);
         seedHarvestCropID = EditorPrefs.GetInt("BatchItemSO_SeedHarvestID", 1100);
+        setSeedBagSize = EditorPrefs.GetBool("BatchItemSO_SetSeedBagSize", false);
+        seedsPerBag = EditorPrefs.GetInt("BatchItemSO_SeedsPerBag", 5);
+        setSeedShelfLife = EditorPrefs.GetBool("BatchItemSO_SetSeedShelfLife", false);
+        seedShelfLifeClosed = EditorPrefs.GetInt("BatchItemSO_SeedShelfClosed", 7);
+        seedShelfLifeOpened = EditorPrefs.GetInt("BatchItemSO_SeedShelfOpened", 2);
+        setSeedReHarvest = EditorPrefs.GetBool("BatchItemSO_SetSeedReHarvest", false);
+        seedIsReHarvestable = EditorPrefs.GetBool("BatchItemSO_SeedReHarvestable", false);
+        seedReHarvestDays = EditorPrefs.GetInt("BatchItemSO_SeedReHarvestDays", 2);
         
         // 树苗
         string saplingPrefabPath = EditorPrefs.GetString("BatchItemSO_SaplingPrefab", "");
@@ -1392,6 +1718,14 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         cropSeedID = EditorPrefs.GetInt("BatchItemSO_CropSeedID", 1000);
         setCropExp = EditorPrefs.GetBool("BatchItemSO_SetCropExp", false);
         cropHarvestExp = EditorPrefs.GetInt("BatchItemSO_CropExp", 10);
+        setCropWitheredID = EditorPrefs.GetBool("BatchItemSO_SetCropWitheredID", false);
+        cropWitheredCropID = EditorPrefs.GetInt("BatchItemSO_CropWitheredID", 1200);
+        
+        // 枯萎作物
+        setWitheredNormalCropID = EditorPrefs.GetBool("BatchItemSO_SetWitheredNormalID", false);
+        witheredNormalCropID = EditorPrefs.GetInt("BatchItemSO_WitheredNormalID", 1100);
+        setWitheredSeedID = EditorPrefs.GetBool("BatchItemSO_SetWitheredSeedID", false);
+        witheredSeedID = EditorPrefs.GetInt("BatchItemSO_WitheredSeedID", 1000);
         
         // 食物
         setFoodEnergy = EditorPrefs.GetBool("BatchItemSO_SetFoodEnergy", false);
@@ -1478,6 +1812,14 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         EditorPrefs.SetInt("BatchItemSO_SeedGrowth", seedGrowthDays);
         EditorPrefs.SetBool("BatchItemSO_SetSeedHarvest", setSeedHarvest);
         EditorPrefs.SetInt("BatchItemSO_SeedHarvestID", seedHarvestCropID);
+        EditorPrefs.SetBool("BatchItemSO_SetSeedBagSize", setSeedBagSize);
+        EditorPrefs.SetInt("BatchItemSO_SeedsPerBag", seedsPerBag);
+        EditorPrefs.SetBool("BatchItemSO_SetSeedShelfLife", setSeedShelfLife);
+        EditorPrefs.SetInt("BatchItemSO_SeedShelfClosed", seedShelfLifeClosed);
+        EditorPrefs.SetInt("BatchItemSO_SeedShelfOpened", seedShelfLifeOpened);
+        EditorPrefs.SetBool("BatchItemSO_SetSeedReHarvest", setSeedReHarvest);
+        EditorPrefs.SetBool("BatchItemSO_SeedReHarvestable", seedIsReHarvestable);
+        EditorPrefs.SetInt("BatchItemSO_SeedReHarvestDays", seedReHarvestDays);
         
         // 树苗
         if (saplingTreePrefab != null)
@@ -1492,6 +1834,14 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         EditorPrefs.SetInt("BatchItemSO_CropSeedID", cropSeedID);
         EditorPrefs.SetBool("BatchItemSO_SetCropExp", setCropExp);
         EditorPrefs.SetInt("BatchItemSO_CropExp", cropHarvestExp);
+        EditorPrefs.SetBool("BatchItemSO_SetCropWitheredID", setCropWitheredID);
+        EditorPrefs.SetInt("BatchItemSO_CropWitheredID", cropWitheredCropID);
+        
+        // 枯萎作物
+        EditorPrefs.SetBool("BatchItemSO_SetWitheredNormalID", setWitheredNormalCropID);
+        EditorPrefs.SetInt("BatchItemSO_WitheredNormalID", witheredNormalCropID);
+        EditorPrefs.SetBool("BatchItemSO_SetWitheredSeedID", setWitheredSeedID);
+        EditorPrefs.SetInt("BatchItemSO_WitheredSeedID", witheredSeedID);
         
         // 食物
         EditorPrefs.SetBool("BatchItemSO_SetFoodEnergy", setFoodEnergy);

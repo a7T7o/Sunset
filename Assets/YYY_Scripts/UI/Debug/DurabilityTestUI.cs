@@ -27,6 +27,9 @@ public class DurabilityTestUI : MonoBehaviour
     [Header("UI 位置（左下角偏移）")]
     [SerializeField] private Vector2 panelOffset = new Vector2(350, 80); // 距离左下角的偏移，在 SaveLoad 右边
     
+    [Header("调试")]
+    [SerializeField] private bool showDebugInfo = false;
+    
     private Canvas _canvas;
     private Text _statusText;
     private InventoryService _inventory;
@@ -103,7 +106,6 @@ public class DurabilityTestUI : MonoBehaviour
         CreateText(panelGo.transform, $"按 {consumeKey} 消耗耐久度", new Vector2(PanelWidth/2, 15), 10, TextAnchor.MiddleCenter);
         
         _uiCreated = true;
-        Debug.Log("[DurabilityTestUI] 调试 UI 已创建");
     }
     
     private Text CreateText(Transform parent, string content, Vector2 position, int fontSize, TextAnchor alignment)
@@ -180,7 +182,8 @@ public class DurabilityTestUI : MonoBehaviour
     {
         if (_inventory == null)
         {
-            Debug.LogWarning("[DurabilityTestUI] InventoryService 未找到");
+            if (showDebugInfo)
+                Debug.LogWarning("[DurabilityTestUI] InventoryService 未找到");
             return;
         }
         
@@ -189,7 +192,8 @@ public class DurabilityTestUI : MonoBehaviour
         
         if (item == null || item.IsEmpty)
         {
-            Debug.Log("[DurabilityTestUI] 当前槽位为空，无法添加耐久度");
+            if (showDebugInfo)
+                Debug.Log("[DurabilityTestUI] 当前槽位为空，无法添加耐久度");
             return;
         }
         
@@ -199,14 +203,16 @@ public class DurabilityTestUI : MonoBehaviour
         // 触发 UI 刷新
         _inventory.RefreshSlot(slotIndex);
         
-        Debug.Log($"[DurabilityTestUI] 已为槽位 {slotIndex} 的物品添加耐久度: {defaultMaxDurability}/{defaultMaxDurability}");
+        if (showDebugInfo)
+            Debug.Log($"[DurabilityTestUI] 已为槽位 {slotIndex} 的物品添加耐久度: {defaultMaxDurability}/{defaultMaxDurability}");
     }
     
     private void ConsumeDurability()
     {
         if (_inventory == null)
         {
-            Debug.LogWarning("[DurabilityTestUI] InventoryService 未找到");
+            if (showDebugInfo)
+                Debug.LogWarning("[DurabilityTestUI] InventoryService 未找到");
             return;
         }
         
@@ -215,13 +221,15 @@ public class DurabilityTestUI : MonoBehaviour
         
         if (item == null || item.IsEmpty)
         {
-            Debug.Log("[DurabilityTestUI] 当前槽位为空");
+            if (showDebugInfo)
+                Debug.Log("[DurabilityTestUI] 当前槽位为空");
             return;
         }
         
         if (!item.HasDurability)
         {
-            Debug.Log("[DurabilityTestUI] 当前物品没有耐久度，请先点击'添加耐久度'按钮");
+            if (showDebugInfo)
+                Debug.Log("[DurabilityTestUI] 当前物品没有耐久度，请先点击'添加耐久度'按钮");
             return;
         }
         
@@ -231,13 +239,16 @@ public class DurabilityTestUI : MonoBehaviour
         // 触发 UI 刷新
         _inventory.RefreshSlot(slotIndex);
         
-        if (broken)
+        if (showDebugInfo)
         {
-            Debug.Log($"[DurabilityTestUI] 物品已损坏！");
-        }
-        else
-        {
-            Debug.Log($"[DurabilityTestUI] 消耗耐久度 {durabilityConsumeAmount}，剩余: {item.CurrentDurability}/{item.MaxDurability}");
+            if (broken)
+            {
+                Debug.Log($"[DurabilityTestUI] 物品已损坏！");
+            }
+            else
+            {
+                Debug.Log($"[DurabilityTestUI] 消耗耐久度 {durabilityConsumeAmount}，剩余: {item.CurrentDurability}/{item.MaxDurability}");
+            }
         }
     }
     

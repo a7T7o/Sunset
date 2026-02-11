@@ -17,6 +17,9 @@ namespace FarmGame.Data
 
         [Header("=== 配方数据 ===")]
         public List<RecipeData> allRecipes = new List<RecipeData>();
+        
+        [Header("=== 调试 ===")]
+        [SerializeField] private bool showDebugInfo = false;
 
         // 运行时缓存（加速查询）
         private Dictionary<int, ItemData> itemDictionary;
@@ -52,7 +55,8 @@ namespace FarmGame.Data
                 }
             }
 
-            Debug.Log($"[ItemDatabase] 已加载 {itemDictionary.Count} 个物品，{recipeDictionary.Count} 个配方");
+            if (showDebugInfo)
+                Debug.Log($"[ItemDatabase] 已加载 {itemDictionary.Count} 个物品，{recipeDictionary.Count} 个配方");
         }
 
         /// <summary>

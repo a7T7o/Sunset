@@ -3,7 +3,7 @@
 ## 模块概述
 
 农田系统，包括：
-- 耕地状态管理
+- 耕地状态管理（锄地、浇水）
 - 作物生长周期
 - 水分系统
 - 季节适应性
@@ -11,790 +11,29 @@
 
 ## 当前状态
 
-- **完成度**: 30%
-- **最后更新**: 2026-01-22
-- **状态**: 🚧 进行中（调研完成，待开发）
+- **完成度**: 60%
+- **最后更新**: 2026-02-10
+- **状态**: 🚧 进行中
+- **当前焦点**: 9.0.5 智能交互bug修复（代码完成，待验收）
 
 ---
 
-## 🔴🔴🔴 重要架构决策：种子归属农田系统 🔴🔴🔴
+## 🔴 重要架构决策 🔴
 
-**决策日期**: 2025-12-30
+### 1. 种子归属农田系统（2025-12-30）
 
-**种子（SeedData）由农田系统（FarmingSystem）管理，与树苗（SaplingData）分离。**
-
-### 系统边界
-
-```
-农田系统 (FarmingSystem)
-├── 耕地管理 - Tilemap 上的耕地状态
-├── 种子种植 - SeedData 放置到耕地
-├── 作物生长 - 每日检测浇水、更新生长天数
-├── 浇水系统 - 土壤湿度管理
-└── 收获系统 - 收获作物
-
-放置系统 (PlacementManager)
-├── 树苗放置 - SaplingData 放置到世界坐标
-├── 工作台放置 - WorkstationData
-├── 存储容器放置 - StorageData
-└── 其他可放置物品
-```
-
-### 种子 vs 树苗
+**种子（SeedData）由农田系统管理，与树苗（SaplingData）分离。**
 
 | 特性 | 种子 (SeedData) | 树苗 (SaplingData) |
 |------|----------------|-------------------|
 | **所属系统** | 农田系统 | 放置系统 |
 | **放置目标** | 耕地 Tilemap | 世界坐标 |
-| **生长管理** | FarmingSystem | TreeControllerV2 |
-| **浇水需求** | ✅ 需要 | ❌ 不需要 |
+| **生长管理** | CropController | TreeControllerV2 |
 
-详见：`.kiro/specs/物品放置系统/memory.md` 会话 7
+### 2. 彻底解耦架构（2026-01-27）
 
----
+**FarmingManagerNew 已废弃，各组件自治：**
 
-## 核心功能
-
-### 土壤状态
-```csharp
-public enum SoilMoistureState
-{
-    Dry,           // 干燥
-    WetWithPuddle, // 湿润带水洼（浇水后2小时内）
-    WetDark        // 湿润深色（浇水2小时后）
-}
-```
-
-### FarmTileData 字段
-- `isTilled` - 是否已耕作
-- `wateredToday` - 今天是否浇水
-- `wateredYesterday` - 昨天是否浇水
-- `waterTime` - 浇水时间
-- `moistureState` - 当前湿度状态
-- `crop` - 作物实例
-
-### 时间系统集成
-- 使用静态事件订阅
-- `TimeManager.OnDayChanged` / `OnHourChanged`
-
-## 待完成功能
-
-### P0 - 核心功能（必须完成）
-
-- [ ] **耕地系统**
-  - [ ] 创建耕地 Tilemap（Tilled、Watered 状态）
-  - [ ] FarmingManager 管理耕地状态
-  - [ ] 锄头工具与耕地交互
-  - [ ] 耕地状态持久化
-
-- [ ] **种植系统**
-  - [ ] SeedData 放置到耕地
-  - [ ] 种植位置验证（必须是已耕作的土地）
-  - [ ] 种植后创建作物实例
-  - [ ] 季节检查（不同季节不同种子）
-
-- [ ] **浇水系统**
-  - [ ] 水壶工具与耕地交互
-  - [ ] 土壤湿度状态管理（Dry → WetWithPuddle → WetDark）
-  - [ ] 每日湿度重置
-
-- [ ] **收获系统**
-  - [ ] 作物成熟检测
-  - [ ] 收获交互
-  - [ ] 掉落物品生成
-  - [ ] 可重复收获作物处理
-
-### P1 - 重要功能
-
-- [ ] **精力值消耗**
-  - [ ] 耕地消耗精力
-  - [ ] 浇水消耗精力
-  - [ ] 收获消耗精力
-
-- [ ] **作物生长**
-  - [ ] 每日生长检测
-  - [ ] 浇水状态影响生长
-  - [ ] 生长阶段 Sprite 切换
-  - [ ] 枯萎系统（长期不浇水）
-
-### P2 - 扩展功能
-
-- [ ] 肥料系统
-- [ ] 品质影响
-- [ ] 季节变化效果
-- [ ] 音效和粒子效果
-
-## 相关文件
-
-| 文件 | 说明 |
-|------|------|
-| `Assets/Scripts/Farm/` | 农田系统脚本 |
-| `Assets/Scripts/Data/Items/SeedData.cs` | 种子数据 |
-| `Assets/Scripts/Data/Items/CropData.cs` | 作物数据 |
-
-## 详细文档
-
-- `Docx/分类/农田/000_农田系统完整文档.md`
-
-
----
-
-### 会话 3 - 2026-01-22（全面调研）
-
-**用户需求**:
-> 遍历整个项目来寻找有关耕地的内容，并进行详细记录和摘要还有索引，我们要进行一个详细的完整的开发
-
-**完成任务**:
-1. ✅ 搜索项目中所有农田相关内容
-2. ✅ 读取现有 specs 文档（requirements.md、design.md、tasks.md、RuleTile配置指南.md）
-3. ✅ 读取 Docx 中的设计文档（4 个设计文档 + 2 个分类文档）
-4. ✅ 读取代码文件（6 个核心脚本 + 2 个编辑器工具）
-5. ✅ 读取 steering 规则（farming.md、layers.md）
-6. ✅ 创建详细的调研报告
-
-**修改文件**:
-- `.kiro/specs/农田系统/1_农田系统全面调研/memory.md` - 子工作区记忆
-- `.kiro/specs/农田系统/1_农田系统全面调研/调研报告.md` - 详细调研报告
-- `.kiro/specs/农田系统/memory.md` - 本文件（追加会话记录）
-
-**调研结果摘要**:
-
-| 模块 | 完成度 | 状态 |
-|------|--------|------|
-| 数据结构 | 90% | ✅ 基本完成 |
-| FarmingManager | 80% | ⚠️ 需完善 |
-| CropGrowthSystem | 85% | ⚠️ 需完善 |
-| Tilemap 配置 | 30% | 🚧 进行中 |
-| 工具集成 | 10% | ❌ 未开始 |
-| UI 集成 | 0% | ❌ 未开始 |
-| 背包集成 | 0% | ❌ 未开始 |
-
-**详细报告**: `.kiro/specs/农田系统/1_农田系统全面调研/调研报告.md`
-
-**遗留问题**:
-- [ ] 等待用户确认调研结果
-- [ ] 根据调研结果制定开发计划
-- [ ] 用户配置 Rule Tile 和场景结构
-
----
-
-### 会话 1 - 2025-12-30（准备开始）
-
-**用户需求**:
-> 后续我就会立马着手耕地系统
-
-**准备工作**:
-- ✅ 确认架构决策：种子归农田系统，树苗归放置系统
-- ✅ 更新 memory.md 添加详细任务列表
-- ⏳ 等待用户开始实现
-
-**推荐实现顺序**:
-
-1. **耕地 Tilemap 设置**
-   - 创建 Tilled Tile（已耕作）
-   - 创建 Watered Tile（已浇水）
-   - 设置 Tilemap 层级
-
-2. **FarmingManager 核心**
-   - 耕地状态字典 `Dictionary<Vector3Int, FarmTileData>`
-   - 时间系统集成（每日更新）
-   - 耕地/浇水/种植/收获方法
-
-3. **工具交互**
-   - 锄头 → 耕地
-   - 水壶 → 浇水
-   - 手 → 收获
-
-4. **种子种植**
-   - SeedData 检测耕地状态
-   - 创建 CropInstance
-   - 生长阶段管理
-
-5. **收获系统**
-   - 成熟检测
-   - 物品掉落
-   - 可重复收获
-
-**遗留问题**:
-- [x] 等待用户开始实现
-
----
-
-### 会话 2 - 2025-12-31（耕地系统重构规划）
-
-**用户需求**:
-> 对于农田设计我需要你结合当前的物品放置系统还有时间季节系统来做完善...我现在的资源就是原始的sprite，有上下左右中，然后中间部分有两个样式，我还有三个水渍的样式，然后我希望农田的创建就是我用锄头右键地面，就会锄开一个区域，如果是最初的第一个空那就是上下左右和中心都被创建了，如果不是则往外扩
-
-**关键澄清**:
-用户的场景是**阶梯式楼层结构**：
-- LAYER 1 = 一楼，LAYER 2 = 二楼，以此类推
-- 每个楼层内部结构完全一致（Props + Tilemaps）
-- 耕地需要在每个楼层独立管理
-
-**完成任务**:
-1. ✅ 更新 `.kiro/steering/layers.md` - 修正为阶梯式楼层结构
-2. ✅ 创建 `0_耕地系统重构/requirements.md` - 6 个需求
-3. ✅ 创建 `0_耕地系统重构/design.md` - 架构设计、Rule Tile 配置
-4. ✅ 创建 `0_耕地系统重构/RuleTile配置指南.md` - 详细配置步骤
-5. ✅ 创建 `0_耕地系统重构/tasks.md` - 分阶段实现计划
-
-**设计方案**:
-
-### Rule Tile 自动边界拼接
-- 使用 Unity Rule Tile 实现耕地边界自动拼接
-- 单独一格 → 显示完整边界
-- 相邻有耕地 → 自动切换为中心样式
-- 中心有 2 种样式变体，随机选择
-
-### 多楼层支持
-```
-─── LAYER N ───
-└── Tilemaps/
-    ├── GroundBase        # 地面基础
-    ├── Farmland          # 耕地 Tilemap（使用 Rule Tile）
-    └── WaterPuddle       # 水渍叠加层
-```
-
-### 水渍系统
-- 独立的 WaterPuddle Tilemap 叠加在 Farmland 之上
-- 浇水时随机选择 3 种水渍样式之一
-- 第二天自动清除
-
-**用户素材**:
-- 耕地边界：上、下、左、右、中心 A、中心 B
-- 水渍：3 种样式
-
-**遗留问题**:
-- [ ] 用户配置 Rule Tile
-- [ ] 用户创建场景 Tilemap 结构
-- [ ] 配置完成后继续代码实现
-
-
----
-
-### 会话 4 - 2026-01-24（全面锐评）
-
-**用户需求**:
-> 请你现在根据你对当前项目以及农田系统内容的了解，来对当前的农田系统内容进行一个客观的完整的锐评，需要针对与当前项目的适配问题以及之前思路状态下完成的代码的质量进行严格检查，逻辑漏洞和性能黑洞等内容进行检查，结构的完整和以及验收所需要的所有前置条件内容都需要写入这个锐评内容，并且你分析完之后还需要给出详细的清单
-
-**完成任务**:
-1. ✅ 读取所有农田系统代码文件（6 个核心脚本）
-2. ✅ 读取所有相关文档（specs、steering、调研报告）
-3. ✅ 读取项目审计文档了解整体架构
-4. ✅ 读取 TimeManager 了解时间系统集成
-5. ✅ 创建全面锐评报告
-
-**修改文件**:
-- `.kiro/specs/农田系统/2_农田系统锐评/锐评报告.md` - 新建锐评报告
-- `.kiro/specs/农田系统/memory.md` - 本文件（追加会话记录）
-
-**锐评结果摘要**:
-
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 代码质量 | ⭐⭐⭐ (3/5) | 基础结构合理，但存在硬编码和重复代码 |
-| 逻辑完整性 | ⭐⭐ (2/5) | 核心逻辑有漏洞，多处 TODO 未实现 |
-| 性能表现 | ⭐⭐⭐ (3/5) | 存在潜在性能问题，但规模小时可接受 |
-| 系统适配 | ⭐ (1/5) | 与现有系统几乎完全脱节 |
-| 架构设计 | ⭐⭐⭐ (3/5) | 设计文档完善，但实现与设计不符 |
-
-**关键问题**:
-- 🔴 致命 4 个：HarvestCrop 返回 null、背包未集成、精力未集成、多楼层未实现
-- 🟠 严重 6 个：重复代码、ItemDatabase 访问、季节判断、浇水时间计算等
-- 🟡 中等 8 个：性能遍历、架构职责不清等
-- 🟢 轻微 5 个：代码风格优化
-
-**预估修复工时**:
-- P0（必须）：10.5h
-- P1（建议）：4h
-- P2（可选）：3.5h
-- P3（长期）：9h
-
-**详细报告**: `.kiro/specs/农田系统/2_农田系统锐评/锐评报告.md`
-
-**遗留问题**:
-- [x] 等待用户确认锐评结果 → 用户确认走重构路线
-- [x] 根据锐评结果制定修复计划 → 会话 5 完成
-- [ ] 用户完成素材和场景配置（U-1 ~ U-6）
-- [ ] 开发完成重构任务
-
----
-
-### 会话 5 - 2026-01-24（重构规划）
-
-**用户需求**:
-> 我还需要你更加客观更加锐利更加专业的评价，我现在在想的问题就是是否直接进行重构会更满足现状
-
-**决策结论**:
-**现有代码应该直接废弃，从零重构。**
-
-**原因**:
-1. 现有农田系统是"孤岛"，与项目其他成熟系统的集成度为零
-2. 修复成本 ≈ 重写成本，但修复后会得到"缝合怪"
-3. 重构预估工时 18h，比修复（27h）更省时间
-
-**完成任务**:
-1. ✅ 创建重构工作区 `3_农田系统重构/`
-2. ✅ 创建完整需求文档 `requirements.md`（7 个需求）
-3. ✅ 创建详细设计文档 `design.md`（架构、数据结构、流程、正确性属性）
-4. ✅ 创建分阶段任务列表 `tasks.md`（42 个任务，6 个阶段）
-
-**修改文件**:
-- `.kiro/specs/农田系统/3_农田系统重构/requirements.md` - 新建需求文档
-- `.kiro/specs/农田系统/3_农田系统重构/design.md` - 新建设计文档
-- `.kiro/specs/农田系统/3_农田系统重构/tasks.md` - 新建任务列表
-- `.kiro/specs/农田系统/memory.md` - 本文件（追加会话记录）
-
-**重构架构设计**:
-
-```
-FarmingManager（协调者）
-├── FarmTileManager（耕地状态管理）
-├── CropManager（作物生命周期）
-└── FarmVisualManager（视觉更新）
-```
-
-**废弃/保留决策**:
-| 文件 | 处理方式 |
-|------|---------|
-| `FarmingManager.cs` | 重写 |
-| `CropGrowthSystem.cs` | 废弃，合并到 CropManager |
-| `CropController.cs` | 保留结构，重写逻辑 |
-| `CropInstance.cs` | 废弃，替换为 CropInstanceData |
-| `FarmTileData.cs` | 保留结构，扩展字段 |
-| `SoilMoistureState.cs` | 保留 |
-
-**预估工时**: 18h（不含用户素材配置）
-
-**遗留问题**:
-- [ ] 等待用户审核需求文档
-- [ ] 等待用户审核设计文档
-- [ ] 等待用户审核任务列表
-- [ ] 用户完成阶段 0 前置准备（素材和场景配置）
-- [ ] 开发执行阶段 1-6 任务
-
-
-
----
-
-### 会话 6 - 2026-01-24（重构实现 - 阶段 1-4）
-
-**用户需求**:
-> 执行农田系统重构任务
-
-**完成任务**:
-1. ✅ 阶段 1：数据结构重构
-   - 创建 `CropInstanceData.cs` - 纯数据类
-   - 创建 `LayerTilemaps.cs` - 楼层 Tilemap 配置
-   - 扩展 `FarmTileData.cs` - 添加 layerIndex、puddleVariant、cropData
-   - 标记 `CropInstance.cs` 为 [Obsolete]
-
-2. ✅ 阶段 2：子管理器实现
-   - 创建 `FarmTileManager.cs` - 耕地状态管理
-   - 创建 `CropManager.cs` - 作物生命周期
-   - 创建 `FarmVisualManager.cs` - 视觉更新
-
-3. ✅ 阶段 3：FarmingManager 重写
-   - 创建 `FarmingManagerNew.cs` - 协调者
-   - 实现时间事件订阅（OnDayChanged、OnHourChanged）
-   - 实现公共接口（TillSoil、PlantSeed、WaterTile、HarvestCrop）
-
-4. ✅ 阶段 4：CropController 重写
-   - 重写为支持新版数据结构
-   - 实现 Initialize(SeedData, CropInstanceData)
-   - 实现 Grow()、SetWithered()、ResetForReHarvest()
-   - 统一枯萎颜色：new Color(0.8f, 0.7f, 0.4f)
-
-**新建文件**:
-- `Assets/YYY_Scripts/Farm/Data/CropInstanceData.cs`
-- `Assets/YYY_Scripts/Farm/Data/LayerTilemaps.cs`
-- `Assets/YYY_Scripts/Farm/FarmTileManager.cs`
-- `Assets/YYY_Scripts/Farm/CropManager.cs`
-- `Assets/YYY_Scripts/Farm/FarmVisualManager.cs`
-- `Assets/YYY_Scripts/Farm/FarmingManagerNew.cs`
-- `.kiro/specs/农田系统/3_农田系统重构/验收指南.md`
-
-**修改文件**:
-- `Assets/YYY_Scripts/Farm/FarmTileData.cs` - 扩展字段
-- `Assets/YYY_Scripts/Farm/CropController.cs` - 重写
-- `Assets/YYY_Scripts/Farm/CropInstance.cs` - 标记废弃
-- `.kiro/specs/农田系统/3_农田系统重构/tasks.md` - 更新任务状态
-- `.kiro/specs/农田系统/memory.md` - 本文件
-
-**编译状态**: ✅ 成功（只有预期的废弃警告）
-
-**遗留问题**:
-- [ ] 阶段 5：系统集成（工具系统、放置系统、导航系统）
-- [ ] 阶段 6：清理和测试
-- [ ] 用户完成阶段 0 前置准备（素材和场景配置）
-
-**下一步**:
-用户需要在 Unity 编辑器中完成以下配置后才能测试：
-1. 创建耕地 Rule Tile
-2. 创建水渍 Tile（3 种）
-3. 创建场景 Tilemap 结构
-4. 创建作物 Prefab
-5. 配置管理器组件
-
-
----
-
-### 会话 7 - 2026-01-24（阶段 5 系统集成 + 阶段 6 清理）
-
-**用户需求**:
-> 请你先给出阶段0的操作让我和你同步进行，阶段0的内容我完全没有操作，请你教我如何从sprite变成你所需要的内容，然后再继续完成你未完成的检查和完善
-
-**完成任务**:
-1. ✅ 提供阶段 0 用户前置准备详细指南
-   - U0.1 创建耕地 Rule Tile 配置步骤
-   - U0.2 创建 3 种水渍 Tile 步骤
-   - U0.3 & U0.4 创建场景 Tilemap 步骤
-   - U0.5 创建作物 Prefab 步骤
-   - U0.6 & U0.7 创建测试用 SO 步骤
-   - U0.8 配置管理器组件步骤
-
-2. ✅ 阶段 6.1 废弃代码清理
-   - 标记 `CropGrowthSystem.cs` 为 [Obsolete]
-   - 更新 `FarmingSystemEditor.cs` 支持新版管理器
-   - 保留旧版文件以兼容现有场景
-
-**修改文件**:
-- `Assets/YYY_Scripts/Farm/CropGrowthSystem.cs` - 添加 [Obsolete] 标记
-- `Assets/Editor/FarmingSystemEditor.cs` - 重写，支持新旧版本切换
-- `.kiro/specs/农田系统/3_农田系统重构/tasks.md` - 更新任务状态
-- `.kiro/specs/农田系统/memory.md` - 本文件
-
-**编译状态**: ✅ 成功（1 个预期的废弃警告）
-
-**当前进度**:
-- ✅ 阶段 1-4：数据结构、子管理器、FarmingManager、CropController
-- ✅ 阶段 5：系统集成（GameInputManager、PlacementManagerV3）
-- ✅ 阶段 6.1：废弃代码清理
-- ⏳ 阶段 6.2-6.3：单元测试和集成测试（待用户完成阶段 0 后进行）
-
-**遗留问题**:
-- [ ] 用户完成阶段 0 前置准备（素材和场景配置）
-- [ ] 阶段 6.2 创建单元测试
-- [ ] 阶段 6.3 完整流程集成测试
-
-**下一步**:
-用户需要在 Unity 编辑器中完成阶段 0 的配置后，才能进行功能测试。
-
-
-
----
-
-### 会话 8 - 2026-01-24（全面审查与修复）
-
-**用户需求**:
-> 请你再客观的专业的去检查审视一遍你所完成的所有内容是否符合需求内容以及设计内容
-
-**完成任务**:
-1. ✅ 全面审查代码实现与需求/设计文档的一致性
-2. ✅ 逐条检查 7 个需求的 40+ 验收标准
-3. ✅ 检查 15 个正确性属性（P1.1-P5.3）
-4. ✅ 检查架构设计一致性
-5. ✅ 检查性能优化落实情况
-6. ✅ 发现并修复 1 个必须修复的问题
-7. ✅ 创建详细审查报告
-
-**发现的问题**:
-| 问题 | 严重程度 | 状态 |
-|------|---------|------|
-| 种植未消耗背包种子 | 🔴 必须修复 | ✅ 已修复 |
-| 楼层检测硬编码 | 🟡 建议改进 | ⏳ 待优化 |
-| OnDayChanged 全量刷新 | 🟢 可接受 | - |
-
-**修复内容**:
-1. 在 `InventoryService.cs` 中添加 `RemoveItem(int itemId, int quality, int amount)` 方法
-2. 在 `InventoryService.cs` 中添加 `HasItem(int itemId, int quality, int amount)` 方法
-3. 修复 `FarmingManagerNew.PlantSeed()` 中的 TODO，现在会正确消耗背包中的种子
-
-**新建文件**:
-- `.kiro/specs/农田系统/3_农田系统重构/审查报告.md` - 详细审查报告
-
-**修改文件**:
-- `Assets/YYY_Scripts/Service/Inventory/InventoryService.cs` - 添加 RemoveItem、HasItem 方法
-- `Assets/YYY_Scripts/Farm/FarmingManagerNew.cs` - 修复种子消耗 TODO
-- `.kiro/specs/农田系统/memory.md` - 本文件
-
-**审查结论**:
-
-| 维度 | 评分 | 说明 |
-|------|------|------|
-| 需求覆盖度 | ⭐⭐⭐⭐☆ (4/5) | 核心功能已实现，部分细节待用户配置 |
-| 设计一致性 | ⭐⭐⭐⭐⭐ (5/5) | 代码结构与设计文档高度一致 |
-| 代码质量 | ⭐⭐⭐⭐☆ (4/5) | 结构清晰，有少量可优化点 |
-| 系统集成 | ⭐⭐⭐⭐☆ (4/5) | 与现有系统集成良好 |
-
-**核心功能完成状态**:
-- ✅ 耕地系统
-- ✅ 种植系统（包括背包消耗）
-- ✅ 浇水系统
-- ✅ 作物生长系统
-- ✅ 收获系统
-- ✅ 多楼层支持
-- ✅ 系统集成
-
-**编译状态**: ✅ 成功
-
-**遗留问题**:
-- [ ] 用户完成阶段 0 前置准备（素材和场景配置）
-- [ ] 集成测试验证
-
-**详细报告**: `.kiro/specs/农田系统/3_农田系统重构/审查报告.md`
-
-
-
----
-
-### 会话 9 - 2026-01-26（深度反思与分析）
-
-**用户需求**:
-> 请你回顾历史工作区内容，去回顾 memory 中的聊天记录，我们的迭代过程，你这里所描述的原始设计确定是合理的吗...我认为你的分析还不够客观全面，不够深入当前项目的实际内容...我所需要的是你专业客观的分析，对我的核心需求进行全面理解
-
-**完成任务**:
-1. ✅ 完整阅读所有历史文档（memory.md、用户反馈与架构反思.md、design.md、requirements.md）
-2. ✅ 深入反思原始设计（会话 5）的问题
-3. ✅ 重写深度分析报告，承认过度设计的错误
-4. ✅ 明确用户的核心需求
-
-**修改文件**:
-- `.kiro/specs/农田系统/6_农田系统深度重构/深度分析报告.md` - 完全重写
-
-**核心反思**:
-
-1. **我犯的错误**：
-   - 过度设计 - 设计了 5 个单例管理器，但用户只需要 2 个
-   - 没有遵循项目风格 - 项目中 TreeController 独立管理，我却设计了 CropManager 集中管理
-   - 需求变更后没有清理旧代码 - 从 Rule Tile 切换到代码控制边界后，旧字段和旧逻辑没有删除
-   - 没有优先解决用户的核心需求 - 用户只需要锄地和浇水，我却设计了完整的作物系统
-
-2. **用户的真实需求**：
-   - 锄地 → 生成中心块 Tile
-   - 边界 → 自动计算并放置边界装饰
-   - 浇水 → 更新耕地状态（视觉效果后续再说）
-   - 作物系统后续再设计，参考 TreeController 模式
-
-3. **简化方案**：
-   - 当前阶段只保留 FarmTileManager + FarmlandBorderManager
-   - 暂不使用 FarmingManagerNew、FarmVisualManager、CropManager
-   - 修改 GameInputManager 直接调用 FarmTileManager
-
-**当前致命问题**:
-- GameInputManager 依赖 FarmingManagerNew.Instance，但场景中未配置
-- LayerTilemaps.WorldToCell() 使用旧版字段，坐标转换失败
-
-**遗留问题**:
-- [x] 等待用户审核深度分析报告 → 用户确认通过
-- [ ] 确认后执行简化方案
-
-**详细报告**: `.kiro/specs/农田系统/6_农田系统深度重构/深度分析报告.md`
-
-
----
-
-### 会话 10 - 2026-01-26（创建需求、设计和任务列表）
-
-**用户需求**:
-> 你的反思内容还可以接受，请你详细并全面的在该工作区写出需求设计和任务列表文档
-
-**完成任务**:
-1. ✅ 创建 `requirements.md` - 5 个需求，涵盖修复调用链、坐标转换、锄地、浇水、代码清理
-2. ✅ 创建 `design.md` - 简化后的架构设计、修改方案、数据流、正确性属性
-3. ✅ 创建 `tasks.md` - 4 个阶段、14 个任务，预估 2.5h
-
-**新建文件**:
-- `.kiro/specs/农田系统/6_农田系统深度重构/requirements.md`
-- `.kiro/specs/农田系统/6_农田系统深度重构/design.md`
-- `.kiro/specs/农田系统/6_农田系统深度重构/tasks.md`
-
-**简化后的架构**:
-```
-GameInputManager.TryTillSoil()
-  ↓ 直接调用
-FarmTileManager.CreateTile()
-  ↓ 通知
-FarmlandBorderManager.OnCenterBlockPlaced()
-  ↓ 更新
-Tilemap.SetTile() (Center + Border)
-```
-
-**核心修改点**:
-1. LayerTilemaps.WorldToCell() - 优先使用新版字段 farmlandCenterTilemap
-2. GameInputManager.TryTillSoil() - 直接调用 FarmTileManager，不经过 FarmingManagerNew
-3. GameInputManager.TryWaterTile() - 直接调用 FarmTileManager
-
-**遗留问题**:
-- [x] 等待用户审核需求、设计和任务列表 → 用户提出更深层问题
-- [ ] 确认后执行任务
-
-
----
-
-### 会话 11 - 2026-01-26（深度审视设计）
-
-**用户需求**:
-> 我认为还需要有的思考就是，当前的设计内，每一个产生出来的耕地中心块该如何进行管理，每一个中心块是否需要一个控制器或者是说整体的控制器，然后与农作物进行绑定，水渍的状态控制是否合适，整体的农田系统如何运作
-
-**完成任务**:
-1. ✅ 分析项目中类似系统的设计模式（TreeControllerV2、StoneController、CropController）
-2. ✅ 创建 `设计审视与重新思考.md` 文档，回答用户的 4 个核心问题
-3. ✅ 提出分层架构设计（数据层 → 管理层 → 实体层）
-
-**新建文件**:
-- `.kiro/specs/农田系统/6_农田系统深度重构/设计审视与重新思考.md`
-
-**核心结论**:
-
-1. **耕地中心块不需要独立控制器**
-   - 耕地中心块只是 Tilemap 上的 Tile，没有独立的 GameObject
-   - 耕地的状态存储在 FarmTileData 中，由 FarmTileManager 管理
-
-2. **耕地与作物通过 FarmTileData.cropController 引用绑定**
-   - 种植时设置引用，收获时清除引用
-   - 不需要 CropManager 维护额外的字典
-
-3. **水渍状态基本合适，但需要补充水渍 Tile 放置/移除逻辑**
-   - 当前设计中水渍状态存储在 FarmTileData 中
-   - 需要在 FarmTileManager.SetWatered() 中添加水渍 Tile 放置逻辑
-
-4. **分层架构**:
-   - 数据层：FarmTileData 存储每个格子的状态
-   - 管理层：FarmTileManager 管理耕地数据，FarmlandBorderManager 管理视觉
-   - 实体层：CropController 独立管理作物生命周期（参考 TreeController）
-
-**建议**:
-- 作物系统参考 TreeController 模式，CropController 独立管理生命周期
-- 不需要 CropManager 集中管理
-- 当前阶段先完成耕地生成、边界和浇水，作物系统后续再设计
-
-**遗留问题**:
-- [x] 等待用户审核 `设计审视与重新思考.md` 文档 → 用户确认可以实现
-- [x] 根据用户反馈更新 requirements.md、design.md、tasks.md → 已更新
-- [ ] 可能需要重新设计 FarmTileData 结构（添加 cropController 引用）
-- [ ] 可能需要补充水渍 Tile 放置逻辑到 FarmTileManager.SetWatered()
-
-
----
-
-### 会话 12 - 2026-01-26（代码实现）
-
-**用户需求**:
-> 我认为可以进行实现一下，请你直接根据你的设计审视与重新思考来重新客观的检查你之前创建的需求设计和任务文档，进行修改和处理
-
-**完成任务**:
-1. ✅ 更新 `requirements.md` - 根据设计审视更新需求文档
-2. ✅ 更新 `design.md` - 根据设计审视更新设计文档
-3. ✅ 更新 `tasks.md` - 简化任务列表
-4. ✅ 阶段 1：修复 LayerTilemaps
-   - 修改 WorldToCell() 优先使用新版字段 farmlandCenterTilemap
-   - 修改 GetCellCenterWorld() 优先使用新版字段
-   - 修改 IsValid() 支持新版配置
-   - 为旧版字段添加注释说明
-5. ✅ 阶段 2：修复 GameInputManager 调用链
-   - 修改 TryTillSoil() 直接调用 FarmTileManager.Instance
-   - 修改 TryWaterTile() 直接调用 FarmTileManager.Instance
-   - 添加正确的楼层检测和坐标转换逻辑
-   - 添加 TimeManager 集成获取当前游戏时间
-
-**修改文件**:
-- `Assets/YYY_Scripts/Farm/Data/LayerTilemaps.cs` - 修复坐标转换方法
-- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` - 修复锄地和浇水调用链
-- `.kiro/specs/农田系统/6_农田系统深度重构/requirements.md` - 更新需求文档
-- `.kiro/specs/农田系统/6_农田系统深度重构/design.md` - 更新设计文档
-- `.kiro/specs/农田系统/6_农田系统深度重构/tasks.md` - 更新任务列表
-- `.kiro/specs/农田系统/memory.md` - 本文件
-
-**编译状态**: ✅ 成功（只有预期的废弃警告）
-
-**核心修改**:
-
-1. **LayerTilemaps.WorldToCell()** - 优先使用 farmlandCenterTilemap，回退到 farmlandTilemap，最后使用 groundTilemap
-2. **LayerTilemaps.GetCellCenterWorld()** - 同样的优先级逻辑
-3. **LayerTilemaps.IsValid()** - 支持新版配置（只配置 farmlandCenterTilemap 也算有效）
-4. **GameInputManager.TryTillSoil()** - 直接调用 FarmTileManager.Instance，不经过 FarmingManagerNew
-5. **GameInputManager.TryWaterTile()** - 直接调用 FarmTileManager.Instance，使用 TimeManager.GetHour() 获取当前时间
-
-**遗留问题**:
-- [ ] 阶段 3：代码清理（P2 可选）
-- [ ] 用户在 Unity 中测试锄地和浇水功能
-- [ ] 用户配置 FarmTileManager 和 FarmlandBorderManager 的 Tile 资源
-
-
-
----
-
-### 会话 13 - 2026-01-27（彻底解耦 - 执行架构师指令）
-
-**用户需求**:
-> 架构师锐评指出当前系统处于"伪重构"状态，要求彻底解耦
-
-**架构师锐评要点**:
-1. **FarmingManagerNew 依然是"上帝类"** - 订阅时间事件，调度所有子系统
-2. **调用链不一致** - 锄地/浇水直接调用 FarmTileManager，但种植/收获还在调用 FarmingManagerNew
-3. **作物系统未实体化** - 作物生长还是由 CropManager 集中遍历
-
-**架构师批准的执行方案**:
-1. FarmTileManager 必须自治 - 直接订阅时间事件
-2. 种植/收获选择选项 B - 让种植直接实例化，CropController 自治
-3. 废弃 FarmingManagerNew - 删掉场景里的物体后系统依然能完美运行
-
-**完成任务**:
-1. ✅ 修改 `FarmTileManager.cs` - 添加时间事件订阅，实现逻辑闭环
-   - 添加 OnEnable() 订阅 TimeManager.OnDayChanged 和 OnHourChanged
-   - 添加 OnDisable() 取消订阅
-   - 添加 hoursUntilPuddleDry 配置字段
-   - 实现 OnDayChanged() 调用 ResetDailyWaterState()
-   - 实现 OnHourChanged() 处理水渍状态变化（WetWithPuddle → WetDark）
-
-2. ✅ 修改 `GameInputManager.cs` - 移除所有 FarmingManagerNew 引用
-   - 重写 TryPlantSeed() - 直接调用 CropManager.CreateCrop() 作为工厂
-   - 重写 TryHarvestCropAtMouse() - 直接访问 FarmTileManager 和 CropManager
-   - 添加 IsCorrectSeason() 辅助方法
-
-3. ✅ 修改 `CropController.cs` - 添加时间事件订阅实现自治
-   - 添加 OnEnable() 订阅 TimeManager.OnDayChanged
-   - 添加 OnDisable() 取消订阅
-   - 实现 OnDayChanged() - 自己检查脚下土地是否湿润，自己决定是否生长
-   - 添加 layerIndex 和 cellPosition 字段记录位置
-   - 添加 Initialize() 重载支持位置信息
-
-4. ✅ 修改 `CropManager.cs` - 移除全量遍历逻辑，只保留工厂功能
-   - 移除 daysUntilWithered 和 daysUntilStagnant 配置（移至 CropController）
-   - 标记 ProcessDailyGrowth() 和 ProcessAllCropsGrowth() 为 [Obsolete]
-   - CreateCrop() 现在传递位置信息给 CropController
-
-5. ✅ 标记 `FarmingManagerNew.cs` 为废弃
-   - 添加详细的废弃说明和替代方案
-   - 所有公共方法标记为 [Obsolete]
-   - Awake() 和 Start() 输出警告日志
-
-**修改文件**:
-- `Assets/YYY_Scripts/Farm/FarmTileManager.cs` - 添加时间事件订阅
-- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` - 移除 FarmingManagerNew 引用
-- `Assets/YYY_Scripts/Farm/CropController.cs` - 添加时间事件订阅实现自治
-- `Assets/YYY_Scripts/Farm/CropManager.cs` - 移除遍历逻辑
-- `Assets/YYY_Scripts/Farm/FarmingManagerNew.cs` - 标记废弃
-- `.kiro/specs/农田系统/memory.md` - 本文件
-
-**编译状态**: ✅ 成功（22 个预期的废弃警告）
-
-**验证标准**:
-删掉场景里的 FarmingManagerNew 物体时，整个农田系统（锄地、浇水、干涸、生长、收获）依然能完美运行。
-
-**架构变化**:
-
-**之前（伪重构）**:
-```
-FarmingManagerNew（上帝类）
-├── 订阅 TimeManager 事件
-├── 调度 FarmTileManager.ResetDailyWaterState()
-├── 调度 CropManager.ProcessAllCropsGrowth()
-└── 调度 FarmVisualManager.RefreshAllTileVisuals()
-```
-
-**现在（彻底解耦）**:
 ```
 FarmTileManager（自治）
 ├── 自己订阅 TimeManager 事件
@@ -807,83 +46,1193 @@ CropController（自治）
 └── 自己决定是否生长
 
 CropManager（纯工厂）
-└── 只负责实例化 GameObject，不维护全局列表
+└── 只负责实例化 GameObject
 ```
 
+### 3. 联邦制预览架构（2026-02-06）
+
+**FarmToolPreview 独立于 PlacementPreview，但共享 PlacementGridCalculator**
+
+- 断言模式：`Func<Vector3Int, bool> isTilledPredicate` 实现无副作用预览
+- 1+8 动态预览：显示中心块 + 8个边界变化
+
+---
+
+## 关键文件索引
+
+### 核心脚本
+| 文件 | 说明 | 涉及子工作区 |
+|------|------|-------------|
+| `FarmTileManager.cs` | 耕地状态管理，自治时间事件 | 3, 6, 13 |
+| `FarmlandBorderManager.cs` | 边界视觉管理，预览接口 | 3, 6, 9.0.2 |
+| `FarmToolPreview.cs` | 农田工具预览组件（新增） | 9.0.2 |
+| `CropController.cs` | 作物控制器，自治时间事件 | 3, 13 |
+| `CropManager.cs` | 作物工厂（移除遍历逻辑） | 3, 13 |
+| `LayerTilemaps.cs` | 楼层 Tilemap 配置 | 3, 12 |
+| `FarmTileData.cs` | 耕地数据结构 | 3 |
+| `CropInstanceData.cs` | 作物数据类 | 3 |
+
+### 相关文件
+| 文件 | 关系 |
+|------|------|
+| `GameInputManager.cs` | 锄地/浇水/种植/收获调用入口，预览分发 |
+| `PlacementGridCalculator.cs` | 坐标对齐（共享） |
+| `TimeManager.cs` | 时间事件源 |
+| `InventoryService.cs` | 种子消耗、收获物品添加 |
+
+### 废弃文件
+| 文件 | 状态 |
+|------|------|
+| `FarmingManagerNew.cs` | [Obsolete] 已废弃 |
+| `CropGrowthSystem.cs` | [Obsolete] 已废弃 |
+| `CropInstance.cs` | [Obsolete] 已废弃 |
+
+---
+
+## 子工作区索引
+
+| 编号 | 名称 | 状态 | 说明 |
+|------|------|------|------|
+| 0 | 耕地系统重构 | ✅ 完成 | 初始需求和设计 |
+| 1 | 农田系统全面调研 | ✅ 完成 | 项目调研报告 |
+| 2 | 农田系统锐评 | ✅ 完成 | 代码质量锐评 |
+| 3 | 农田系统重构 | ✅ 完成 | 核心重构实现 |
+| 4 | 耕地RuleTile配置指南 | ✅ 完成 | 配置文档 |
+| 5 | 耕地Tile系统设计 | ✅ 完成 | Tile 系统设计 |
+| 6 | 农田系统深度重构 | ✅ 完成 | 深度重构 + 解耦 |
+| 7 | 纠正 | ✅ 完成 | 架构纠正 |
+| 8 | 修复 | 🚧 进行中 | P0 bug 修复 |
+| 9.0.1 | 重生之我在种田 | ✅ 完成 | 进度整理 |
+| 9.0.2 | 放置农田 | 🚧 进行中 | 预览系统设计 |
+| 9.0.5 | 智能交互bug修复 | ✅ 代码完成 | 锁定机制+视觉数据分离+5状态机，待验收 |
+| 10.0.1 | 农作物设计与完善 | 📋 设计完成 | 种子袋保质期+作物7样式+CropController重构，design+tasks已创建 |
+
+---
+
+## 待完成功能
+
+### P0 - 当前焦点
+- [x] 9.0.2 放置农田预览系统实现（代码完成）
+- [x] 9.0.2 Sorting Layer 修复（"Ground"/"Effects" → "Layer 1"）
+- [ ] 9.0.2 集成测试验收（待用户测试）
+
+### P1 - 已知问题（8_修复）
+- [ ] 浇水坐标错误
+- [ ] 重复锄地检查
+- [ ] effectRadius 范围限制
+
+### P2 - 后续功能
+- [ ] 作物存档系统集成
+- [ ] 肥料系统
+- [ ] 品质影响
+
+---
+
+## 会话记录
+
+### 会话 9.0.2-1 - 2026-02-07（锐评002执行）
+
+**锐评来源**: 2执行锐评002.md
+
+**执行内容**:
+1. 重构 `FarmlandBorderManager.cs`：
+   - 新增 `IsCenterBlock(layerIndex, pos, predicate)` 重载
+   - 新增 `CheckNeighborCenters(layerIndex, pos, predicate)` 重载
+   - 新增 `CalculateBorderTileAt(layerIndex, pos, predicate)` 纯计算方法
+   - 新增 `ApplyBorderTile(tilemaps, pos, tile)` 副作用方法
+   - 新增 `GetPreviewTiles(layerIndex, centerPos)` 预览接口
+   - 重构 `UpdateBorderAt` 使用新方法
+
+2. 创建 `FarmToolPreview.cs`：
+   - 单例模式
+   - `FarmPreviewState` 枚举（Hidden, Valid, Invalid）
+   - 自生能力：Awake 自动创建 GhostTilemap 和 CursorRenderer
+   - `UpdateHoePreview(layerIndex, cellPos)` - 1+8 预览
+   - `UpdateWateringPreview(layerIndex, cellPos)` - 光标预览
+   - 颜色反馈：绿色=有效，红色=无效，蓝色=浇水
+
+3. 修改 `GameInputManager.cs`：
+   - 新增 `UpdatePreviews()` 方法，在 Update 中调用
+   - 根据手持物品类型路由到 FarmToolPreview 或 PlacementPreview
+   - 修改 `TryTillSoil` 使用 `FarmToolPreview.IsValid()` 防抖
+   - 修改 `TryWaterTile` 使用 `FarmToolPreview.IsValid()` 防抖
+   - 使用 `PlacementGridCalculator.GetCellCenter()` 对齐坐标
+
+**修改文件**:
+- `Assets/YYY_Scripts/Farm/FarmlandBorderManager.cs` - 重构，新增预览接口
+- `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` - 新建
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` - 集成预览分发
+
 **遗留问题**:
-- [ ] 用户在 Unity 中测试完整流程
-- [ ] 用户从场景中移除 FarmingManagerNew 物体
-- [ ] 验证系统依然正常运行
+- [x] 需要在场景中添加 FarmToolPreview 组件 → 已改为 Lazy Singleton 自动创建
+- [x] 需要配置 cursorSprite（光标 Sprite）→ 已改为程序化生成
+- [x] Sorting Layer 不存在问题 → 已修复（使用 "Layer 1"）
+- [ ] Phase 4 集成测试待验收
+
+---
+
+### 会话 9.0.2-2 - 2026-02-08（Sorting Layer 修复）
+
+**问题根因**:
+诊断日志发现 `"Ground"` 和 `"Effects"` Sorting Layer 在项目中不存在，Unity 静默回退到 `Default`，导致预览被地面遮挡。
+
+**项目实际 Sorting Layers**:
+- Default, Layer 1, Layer 2, Layer 3, Building, CloudShadow
+
+**修复内容**:
+1. `FarmToolPreview.cs` 的 `EnsureComponents()` 方法：
+   - `ghostTilemapRenderer.sortingLayerName`: `"Ground"` → `"Layer 1"`
+   - `ghostTilemapRenderer.sortingOrder`: `100` → `9999`
+   - `cursorRenderer.sortingLayerName`: `"Effects"` → `"Layer 1"`
+   - `cursorRenderer.sortingOrder`: `0` → `10000`
+
+**修改文件**:
+- `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` - 修复 Sorting Layer 设置
+
+**待验收**:
+- [ ] 用户运行游戏确认预览正常显示
+- [ ] 确认光标颜色反馈（绿/红/蓝）
+- [ ] 确认 1+8 预览 Tiles 正确显示
+
+---
+
+## 详细文档
+
+各子工作区的详细会话记录请查看对应的 `memory.md` 文件：
+- `.kiro/specs/农田系统/{子工作区}/memory.md`
+
+---
+
+### 会话 9.0.3-1 - 2026-02-08（Gemini 锐评审视）
+
+**任务**: 分析 Gemini 的设计锐评（`0设计锐评001.md`），结合放置系统进行深度分析
+
+**锐评来源**: `.kiro/specs/农田系统/9.0.3预览农田/0设计锐评001.md`
+
+**审视结论**:
+
+| 问题 | Gemini 判断 | 我的验证 |
+|------|------------|---------|
+| 问题1：种子预览缺席 | ⚠️ 正确 | ✅ 确认，SeedData 落入 else 分支被隐藏 |
+| 问题2：障碍物检测双重标准 | ⚠️ 部分正确 | ⚠️ 不能直接复用，需排除 Player |
+| 问题3：Sorting Layer 静态 | ⚠️ 正确 | ✅ 确认，硬编码 "Layer 1" |
+
+| 规则 | Gemini 建议 | 我的评估 |
+|------|------------|---------|
+| 规则一：障碍物校验互通 | 调用 HasObstacle() | ⚠️ 部分采纳，需创建 HasFarmingObstacle() |
+| 规则二：动态层级跟随 | 用 GetPlayerSortingLayer() | ✅ 完全采纳 |
+| 规则三：种子归化 | 显示作物完全体 | ⚠️ 概念采纳，简化为光标预览 |
+
+**我的补充发现**:
+1. 距离检测缺失（P1）- 远处绿色预览但锄不了
+2. NavGrid 刷新未触发（P3）
+
+**执行优先级**:
+| 优先级 | 任务 | 复杂度 |
+|--------|------|--------|
+| P0 | 动态 Sorting Layer 跟随 | 低 |
+| P1 | 障碍物检测（排除 Player） | 中 |
+| P1 | 距离检测 | 低 |
+| P2 | 种子预览支持 | 中 |
+| P3 | NavGrid 刷新集成 | 低 |
+
+**产出文档**:
+- `.kiro/specs/农田系统/9.0.3预览农田/锐评001审视报告.md`
+
+**涉及代码文件（分析，未修改）**:
+- `GameInputManager.cs` - UpdatePreviews() 路由逻辑
+- `FarmToolPreview.cs` - 预览组件实现
+- `FarmTileManager.cs` - CanTillAt() 检测逻辑
+- `PlacementValidator.cs` - HasObstacle() 参考实现
+- `PlacementLayerDetector.cs` - GetPlayerSortingLayer() 参考实现
 
 
 ---
 
-### 会话 14 - 2026-01-27（问题收集与深度分析）
+### 会话 9.0.3-2 - 2026-02-08（Gemini 锐评002 审视）
+
+**任务**: 分析 Gemini 的第二份设计锐评（`0设计锐评002.md`）
+
+**锐评来源**: `.kiro/specs/农田系统/9.0.3预览农田/0设计锐评002.md`
+
+**锐评002 核心内容**:
+- Gemini 承认之前低估了 Layer/Physics 复杂性
+- 将 `PlacementLayerDetector` 定位为"空间宪法"
+- 提出 Requirements -> Design -> Tasks 工作流
+- 补充了距离检测问题（响应我的反馈）
+- 采纳了种子预览简化建议
+
+**审视结论**:
+
+| 类型 | 编号 | 内容 | 我的评估 |
+|------|------|------|---------|
+| 审计 | 1 | 空间维度缺失 | ✅ 确认正确 |
+| 审计 | 2 | 物理规则双标 | ⚠️ 部分正确（需排除 Player） |
+| 审计 | 3 | 交互距离无限 | ✅ 确认正确 |
+| 需求 | US-1 | 动态空间感知 | ✅ 完全采纳 |
+| 需求 | US-2 | 统一避障规则 | ⚠️ 部分采纳（用 HasFarmingObstacle） |
+| 需求 | US-3 | 种子归化 | ✅ 采纳（简化版） |
+| 任务 | T1 | UpdateSortingLayer | ✅ 完全采纳 |
+| 任务 | T2 | HasObstacle 集成 | ⚠️ 需修改（排除 Player） |
+| 任务 | T3 | SeedData 路由 | ✅ 完全采纳 |
+
+**锐评002 相比锐评001 的进步**:
+1. 补充了距离检测问题
+2. 采纳了种子预览简化建议
+3. 提出了清晰的 Logic Flow
+4. "空间宪法"比喻精准
+
+**产出文档**:
+- `.kiro/specs/农田系统/9.0.3预览农田/锐评002审视报告.md`
+
+**涉及代码文件（分析，未修改）**:
+- `FarmToolPreview.cs` - 预览组件实现
+- `PlacementValidator.cs` - HasObstacle() 实现
+- `PlacementLayerDetector.cs` - GetPlayerSortingLayer() 实现
+
+**最终执行优先级**:
+| 优先级 | 任务 | 复杂度 |
+|--------|------|--------|
+| P0 | 动态 Sorting Layer 跟随 | 低 |
+| P1 | 障碍物检测（HasFarmingObstacle，排除 Player） | 中 |
+| P1 | 距离检测 | 低 |
+| P2 | 种子预览支持 | 中 |
+| P3 | NavGrid 刷新集成 | 低 |
+
+---
+
+### 会话 9.0.3-3 - 2026-02-08（执行锐评002）
+
+**任务**: 执行 Gemini 的 `1执行锐评002.md`
+
+**执行内容**:
+1. **PlacementValidator.cs** - 新增 `HasFarmingObstacle(Vector3 cellCenter)` 静态方法
+   - 新增 `FarmingObstacleTags = {"Tree", "Rock", "Building"}`（显式排除 Player）
+   - 新增静态辅助方法：`HasAnyTagStatic()`、`HasTreeAtPositionStatic()`、`HasChestAtPositionStatic()`
+
+2. **FarmToolPreview.cs** - 完整重构
+   - 新增 `isSeedMode` 状态变量和 `currentSortingLayer` 缓存
+   - 新增种子颜色配置：`seedValidColor`、`seedInvalidColor`
+   - 重构 `UpdateHoePreview()` 和 `UpdateWateringPreview()`，新增 playerTransform 和 reach 参数
+   - 新增 `UpdateSeedPreview()` - 种子预览（仅光标，隐藏 GhostTilemap）
+   - 新增 `UpdateSortingLayer()` - 动态玩家楼层同步
+   - 新增辅助方法：`GetPlayerCenter()`、`GetCellCenterWorld()`、`IsWithinReach()`、`UpdateCursorForSeed()`
+
+3. **GameInputManager.cs** - 新增 SeedData 路由
+   - 在 `UpdatePreviews()` 中新增 SeedData 路由（在 PlaceableItemData 检查之前）
+   - 重构 `UpdateFarmToolPreview()` 传递 playerTransform 和 farmToolReach
+   - 新增 `UpdateSeedPreview()` 方法
+
+**关键设计决策**:
+- `HasObstacle()` 包含 Player 标签（用于放置箱子/树苗）
+- `HasFarmingObstacle()` 排除 Player 标签（用于农田工具 - 玩家可以锄自己站的地）
+
+**修改文件**:
+- `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs` - 新增 HasFarmingObstacle
+- `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` - 完整重构
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` - 新增 SeedData 路由
+
+**编译状态**: ✅ 成功
+
+---
+
+### 会话 9.0.4-1 - 2026-02-08（智能交互升级设计）
 
 **用户需求**:
-> 对于当前的耕地还有众多问题需要处理：
-> 1. 首先对于当前的耕地你可以重复在同一个地方进行多次锄地，这是不对的交互
-> 2. 其次对于当前的耕地我希望和我们的放置系统一样，可以进行预览
-> 3. 然后对于当前的耕地一直报错，我明明站在耕地上，但是却一直不能正确的浇水，好像是坐标不一样
-> 4. 对于水壶的交互你可以直接用SO设置的EffectRadius来就好，但是EffectRadius最低就是1，我想设置到0.4都不行
-> 5. 还有之前就在SO设计系统工作区提到过的字段修复，tool类型SO还能看到放置配置、消耗品配置
+> 需要完成三件套文档，包含交互矩阵，全面覆盖所有交互情况
 
 **完成任务**:
-1. ✅ 创建 `8_修复` 子工作区
-2. ✅ 创建 `memory.md` - 记录问题和分析
-3. ✅ 创建 `问题分析报告.md` - 详细分析 5 个问题
-4. ✅ 创建 `SO字段设计分析.md` - 完整分析 SO 字段设计问题
+1. 创建 `requirements.md` - 包含 5 个用户故事、15 条交互矩阵、8 个边界情况
+2. 创建 `design.md` - 包含架构变更、组件设计、状态流转图、正确性属性
+3. 创建 `tasks.md` - 包含 16 个任务，分 4 个阶段
+4. 创建 `memory.md` - 子工作区记忆
 
-**新建文件**:
-- `.kiro/specs/农田系统/8_修复/memory.md`
-- `.kiro/specs/农田系统/8_修复/问题分析报告.md`
-- `.kiro/specs/农田系统/8_修复/SO字段设计分析.md`
+**核心设计变更**:
+- **9.0.3**: `IsValid = 逻辑合法 AND 物理合法 AND 距离够`
+- **9.0.4**: `IsValid = 逻辑合法 AND 物理合法`（距离独立为 `IsInRange`）
 
-**问题清单**:
+**新增公开属性**:
+- `IsInRange` - 是否在使用距离内
+- `CurrentCursorPos` - 当前光标位置
+- `CurrentCellPos` - 当前格子坐标
+- `CurrentLayerIndex` - 当前楼层索引
 
-| # | 问题 | 严重程度 | 类型 |
-|---|------|---------|------|
-| 1 | 重复锄地 | 🟠 严重 | 逻辑错误 |
-| 2 | 缺少耕地预览 | 🟡 中等 | 功能缺失 |
-| 3 | 浇水坐标错误 | 🔴 致命 | 坐标系统 |
-| 4 | effectRadius 范围限制 | 🟡 中等 | 配置限制 |
-| 5 | SO 字段设计问题 | 🟢 轻微 | 技术债务 |
+**交互矩阵摘要**:
+| 场景 | 光标 | 点击行为 |
+|------|------|---------|
+| 有效+近距离 | 绿/蓝 | 立即执行 |
+| 有效+远距离+可达 | 绿/蓝 | 导航→执行 |
+| 有效+远距离+不可达 | 绿/蓝 | 无动作 |
+| 无效 | 红 | 无动作 |
 
-**我的深度反思**:
+**边界情况处理**:
+- 导航过程中切换工具 → 取消导航
+- 导航过程中打开面板 → 取消导航
+- 导航过程中手动移动 → 取消导航
+- 导航到达但目标已失效 → 不执行动作
 
-1. **坐标系统混乱**：
-   - 创建耕地时使用 `groundTilemap` 检查是否有地面
-   - 浇水时使用 `farmlandCenterTilemap` 转换坐标
-   - 两个 Tilemap 可能有不同的 Grid 设置
-   - **教训**：所有耕地操作必须使用同一个 Tilemap 进行坐标转换
+**修改文件**:
+- `.kiro/specs/农田系统/9.0.4智能交互升级/requirements.md` - 新建
+- `.kiro/specs/农田系统/9.0.4智能交互升级/design.md` - 新建
+- `.kiro/specs/农田系统/9.0.4智能交互升级/tasks.md` - 新建
+- `.kiro/specs/农田系统/9.0.4智能交互升级/memory.md` - 新建
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
 
-2. **缺少预览系统**：
-   - 放置系统有完善的预览，但农田系统没有
-   - 用户无法提前知道能否耕作
-   - **教训**：任何需要精确位置的操作都应该有预览
+**待办**:
+- [ ] 等待用户确认设计方案
+- [ ] 等待 Gemini 锐评反馈
+- [ ] 执行代码修改
 
-3. **SO 字段设计债务**：
-   - 基类字段过于臃肿
-   - 子类显示不相关的配置区域
-   - **教训**：应该先完成 SO 字段优化，再开发新功能
+---
 
-**修复优先级**:
+### 会话 9.0.4-2 - 2026-02-09（完整三件套 + 交互矩阵）
 
-| 优先级 | 问题 | 预估工时 |
-|--------|------|---------|
-| P0 | 浇水坐标错误 | 1h |
-| P0 | 重复锄地 | 0.5h |
-| P1 | 耕地预览系统 | 2h |
-| P1 | effectRadius 范围 | 0.5h |
-| P2 | SO 字段设计 | 4h（跨工作区） |
+**用户需求**:
+> 完善三件套文档，交互矩阵需要全面覆盖所有情况，在设计阶段就进行全面兜底
 
-**遗留问题**:
-- [ ] 修复浇水坐标错误
-- [ ] 修复重复锄地检查
-- [ ] 实现耕地预览系统
-- [ ] 修改 effectRadius 为 float 类型
-- [ ] 完成 SO 字段优化（跨工作区）
+**完成任务**:
+1. 完善 `交互矩阵.md` - 12 章节完整交互分析
+   - 维度定义（工具类型、目标状态、距离状态、导航可达性、玩家状态）
+   - 锄头交互矩阵（11 条基础 + 5 条特殊情况）
+   - 水壶交互矩阵（15 条基础 + 4 条特殊情况）
+   - 种子交互矩阵（15 条基础 + 5 条特殊情况）
+   - 导航状态变化矩阵（中断条件、二次检查、目标状态变化）
+   - 视觉反馈矩阵（光标颜色、GhostTilemap、导航中反馈）
+   - 优先级和互斥逻辑
+   - 边界情况汇总（玩家位置、目标位置、时间、多人）
+   - 实现检查清单
+   - 测试用例矩阵（锄头 8 条、水壶 6 条、种子 8 条）
+   - 与锐评001的对应关系
 
-**详细报告**:
-- `.kiro/specs/农田系统/8_修复/问题分析报告.md`
-- `.kiro/specs/农田系统/8_修复/SO字段设计分析.md`
+2. 完善 `design.md` - 详细设计文档
+   - 架构概述（9.0.3 vs 9.0.4 对比图）
+   - FarmToolPreview 修改设计（新增属性、各工具预览方法）
+   - GameInputManager 修改设计（意图分流、导航执行）
+   - 导航中断机制设计
+   - 正确性属性（5 条核心 + 4 条边界）
+   - 与现有系统的兼容性
+
+3. 完善 `tasks.md` - 可执行任务列表
+   - 5 个阶段，14 个主任务
+   - 明确的依赖关系
+   - 风险点和缓解措施
+   - 验收标准
+
+4. 创建 `锐评001审视报告.md` - 对 Code Reaper 锐评的回应
+   - 认同的部分
+   - 疑虑/异议
+   - 执行计划
+   - 给 Gemini 的协作建议
+
+**修改文件**:
+- `.kiro/specs/农田系统/9.0.4智能交互升级/交互矩阵.md` - 完善（12 章节）
+- `.kiro/specs/农田系统/9.0.4智能交互升级/design.md` - 完善
+- `.kiro/specs/农田系统/9.0.4智能交互升级/tasks.md` - 完善
+- `.kiro/specs/农田系统/9.0.4智能交互升级/锐评001审视报告.md` - 新建
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
+
+**交互矩阵覆盖统计**:
+| 工具 | 基础场景 | 特殊情况 | 测试用例 |
+|------|---------|---------|---------|
+| 锄头 | 11 | 5 | 8 |
+| 水壶 | 15 | 4 | 6 |
+| 种子 | 15 | 5 | 8 |
+| 导航 | 7 中断 + 5 检查 + 6 变化 | - | - |
+| 边界 | 14 | - | - |
+
+### 会话 9.0.4-3 - 2026-02-09（锐评002审视与文档补充）
+
+**任务**: 审视 Code Reaper 锐评002，补充交互矩阵和三件套文档
+
+**锐评来源**: `.kiro/specs/农田系统/9.0.4智能交互升级/0锐评002.md`
+
+**审视结论**:
+
+| # | 锐评观点 | 我的评估 |
+|---|---------|---------|
+| 1 | 导航系统的"黑盒风险" | ✅ 完全认同 - PlayerAutoNavigator 回调时机是关键依赖 |
+| 2 | "二次检查"的时空悖论 | ✅ 完全认同 - 缺少操作失败反馈是体验缺陷 |
+| 3 | 交互优先级的"战争迷雾" | ✅ 完全认同 - 需要明确 Input 吞噬逻辑 |
+| 4 | 协程 vs 回调 | ⚠️ 部分认同 - 倾向保持回调方式，但增加状态机管理 |
+
+**补充内容**:
+1. 交互矩阵新增章节：
+   - 5.4 操作失败反馈
+   - 5.5 导航回调时序（T0-T3 同帧约束）
+   - 5.6 状态机定义（Idle → Navigating → Executing → Idle）
+   - 7.5 输入吞噬逻辑
+
+2. design.md 补充：
+   - 状态机设计
+   - 回调时序设计
+   - 边界属性 P6-P9
+
+3. tasks.md 补充：
+   - Phase 0 基础设施核验（2 个任务）
+   - 任务 2.1 状态机变量
+   - 任务 3.1 CancelFarmingNavigation 方法
+   - 锐评002 补充验收标准
+
+**修改文件**:
+- `.kiro/specs/农田系统/9.0.4智能交互升级/锐评002审视报告.md` - 新建
+- `.kiro/specs/农田系统/9.0.4智能交互升级/交互矩阵.md` - 补充 5.4/5.5/5.6/7.5 章节
+- `.kiro/specs/农田系统/9.0.4智能交互升级/design.md` - 补充状态机和时序设计
+- `.kiro/specs/农田系统/9.0.4智能交互升级/tasks.md` - 增加 Phase 0 和状态机任务
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
+
+**下一步**:
+- [ ] 等待用户确认文档更新
+- [ ] 执行 Phase 0 基础设施核验
+- [ ] 开始代码实现
+
+
+---
+
+### 会话 9.0.4-4 - 2026-02-09（锐评003审视）
+
+**任务**: 审视 Code Reaper 锐评003，判断是否符合项目实际情况
+
+**锐评来源**: `.kiro/specs/农田系统/9.0.4智能交互升级/0锐评003.md`
+
+**审视结论**:
+
+| # | 锐评观点 | 我的评估 | 采纳决策 |
+|---|---------|---------|---------|
+| 1 | "协程是唯一真理" | ❌ 过度绝对化 | 不采纳 |
+| 2 | "强制吸附 (Force Snap)" | ❌ 解决不存在的问题 | 不采纳 |
+| 3 | "失败反馈协议" | ✅ 有价值但优先级低 | P2 记录 |
+| 4 | "协程生命周期管理" | ❌ 与当前架构不匹配 | 不采纳 |
+
+**核心问题**:
+1. **自说自话** - 把协程上升为"唯一真理"，忽略回调 + ForceCancel 的有效性
+2. **过度设计** - "强制吸附"解决的是 0.01 漂移问题，但项目有 1.5f 距离容差
+3. **架构不匹配** - 没有理解当前 `PlayerAutoNavigator.ForceCancel()` 已实现中断功能
+
+**与锐评002对比**:
+| 维度 | 锐评002 | 锐评003 |
+|------|---------|---------|
+| 风格 | 分析问题 + 提出建议 | 强制要求 + 绝对化表述 |
+| 协程观点 | "建议用协程管理" | "协程是唯一真理" |
+| 实用性 | 指出真实问题 | 夸大问题 |
+| 与项目匹配度 | 高 | 低 |
+
+**最终决策**:
+- ❌ 不采纳锐评003的"协程状态机"方案
+- ❌ 不采纳"强制吸附"方案
+- ⚠️ 可选采纳"失败反馈协议"作为 P2 需求
+- ✅ 继续使用锐评002审视后的方案（回调 + 状态机 + ForceCancel）
+
+**产出文档**:
+- `.kiro/specs/农田系统/9.0.4智能交互升级/锐评003审视报告.md` - 新建
+
+**涉及代码文件（分析，未修改）**:
+- `GameInputManager.cs` - 验证现有 ForceCancel 机制
+- `PlayerAutoNavigator.cs` - 验证回调清理逻辑
+
+**下一步**:
+- [ ] 继续按锐评002审视后的方案执行
+- [ ] 将"失败反馈协议"记录为 P2 需求
+
+---
+
+### 会话 9.0.4-5 - 2026-02-09（锐评004-005审视）
+
+**任务**: 审视 Code Reaper 锐评004和005，验证其声明是否属实
+
+**锐评来源**: 
+- `.kiro/specs/农田系统/9.0.4智能交互升级/0锐评004.md`
+- `.kiro/specs/农田系统/9.0.4智能交互升级/0锐评005.md`
+
+**锐评004核心声明**:
+1. 承认之前"协程唯一真理"的错误
+2. 声称 `PlayerAutoNavigator` 不支持局部回调
+3. 声称没有 `ForceCancel` 方法
+4. 采纳 Kiro 的"状态机"思路
+
+**锐评005核心声明**:
+1. 引入"事务令牌/Session ID"概念
+2. 详细的 Phase 0-3 执行蓝图
+3. 代码范式示例
+
+**事实核查结果**:
+
+| 锐评声明 | 代码事实 | 结论 |
+|---------|---------|------|
+| 不支持局部回调 | `FollowTarget(t, r, Action onArrived)` 已存在 | ❌ 错误 |
+| 没有 ForceCancel | `ForceCancel()` 方法已存在（第203行） | ❌ 错误 |
+| 需要 Session ID | `_navToken` / `_currentToken` 机制已实现 | ⚠️ 已有 |
+
+**当前 PlayerAutoNavigator 能力总结**:
+| 能力 | 实现方式 | 状态 |
+|------|---------|------|
+| 局部回调 | `FollowTarget(t, r, Action onArrived)` | ✅ 已有 |
+| 强制取消 | `ForceCancel()` | ✅ 已有 |
+| Token 隔离 | `_navToken` / `_currentToken` | ✅ 已有 |
+| 到达检测 | `IsCloseEnoughToInteract()` | ✅ 已有 |
+| 安全回调 | Token 匹配才执行回调 | ✅ 已有 |
+
+**审视结论**:
+- ❌ 锐评004-005 的核心声明（Navigator 能力缺失）与代码事实不符
+- ✅ 锐评004 承认错误、认可状态机思路是正确的
+- ❌ 不需要按锐评建议修改 `PlayerAutoNavigator.cs`
+
+**锐评系列总结**:
+| 锐评 | 核心问题 | 采纳程度 |
+|------|---------|---------|
+| 002 | 指出真实问题（黑盒风险、二次检查） | ✅ 大部分采纳 |
+| 003 | "协程唯一真理"过度绝对化 | ❌ 大部分不采纳 |
+| 004 | 没有验证代码就下结论（能力缺失声明错误） | ❌ 不采纳 |
+| 005 | 提出的方案已经存在 | ❌ 不采纳 |
+
+**产出文档**:
+- `.kiro/specs/农田系统/9.0.4智能交互升级/锐评004-005审视报告.md` - 新建
+
+**涉及代码文件（分析，未修改）**:
+- `PlayerAutoNavigator.cs` - 验证回调、ForceCancel、Token 机制
+
+**下一步**:
+- [ ] 不需要修改 `PlayerAutoNavigator.cs`
+- [ ] 继续使用当前的回调 + ForceCancel + Token 机制
+- [ ] 专注于 9.0.4 核心目标：智能交互升级（距离分离、意图分流）
+
+
+---
+
+### 会话 9.0.4-6 - 2026-02-09（锐评006审视）
+
+**任务**: 审视 Code Reaper 锐评006，结合项目方向和定位进行战略性评估
+
+**锐评来源**: `.kiro/specs/农田系统/9.0.4智能交互升级/0锐评006.md`
+
+**锐评006 核心观点**:
+1. 历程复盘 — 回顾 9.0.2-9.0.4 的演进历程
+2. 范式区分 — 农田（Action）与放置（Construction）是两种不同的交互范式
+3. 不应对齐 — 农田系统不应该完全对齐放置系统的架构
+4. 数据快照 — 唯一必须对齐的是"数据安全性"
+
+**审视结论**:
+
+| # | 观点 | 我的评估 | 采纳决策 |
+|---|------|---------|---------|
+| 1 | 范式区分（Action vs Construction） | ✅ 正确 | 完全采纳 |
+| 2 | 不应完全对齐放置系统 | ✅ 正确 | 完全采纳 |
+| 3 | 数据快照必须补充 | ✅ 真实遗漏 | 完全采纳 |
+| 4 | 历程复盘 | ⚠️ 部分正确 | 部分采纳 |
+
+**战略方向判断**:
+> "我们应该围绕存档来开发还是围绕功能设计来完善存档？"
+
+**答案**：围绕功能设计来完善存档。
+- 存档是功能的"影子"，职责是"记录状态"而非"定义行为"
+- 9.0.4 是功能升级工作区，不是存档工作区
+- 数据快照是运行时安全机制，不是存档机制
+
+**锐评系列演进总结**:
+| 锐评 | 核心问题 | 价值 |
+|------|---------|------|
+| 002 | 指出真实问题 | ✅ 高 |
+| 003 | 绝对化表述 | ❌ 低 |
+| 004 | 没有验证代码 | ❌ 低 |
+| 005 | 方案已存在 | ❌ 低 |
+| **006** | **战略反思** | **✅ 高** |
+
+**需要补充的设计**:
+1. FarmingSnapshot 数据结构
+2. 拍摄快照（启动导航时）
+3. 校验快照（回调执行时）
+4. 清理快照（中断时）
+
+**产出文档**:
+- `.kiro/specs/农田系统/9.0.4智能交互升级/锐评006审视报告.md` - 新建
+
+**涉及代码文件（分析，未修改）**:
+- `GameInputManager.cs` - 需要添加 FarmingSnapshot 机制
+- `PlacementManager.cs` - 参考其 PlacementSnapshot 实现
+
+**下一步**:
+- [ ] 更新 design.md，添加 P10/P11 正确性属性
+- [ ] 更新 tasks.md，添加快照相关任务
+- [ ] 开始代码实现
+
+
+
+---
+
+### 会话 9.0.4-7 - 2026-02-09（一条龙执行锐评001）
+
+**任务**: 一条龙完成 9.0.4 智能交互升级的所有任务
+
+**执行内容**:
+
+**Phase 0: 基础设施核验** ✅
+- 验证 PlayerAutoNavigator 回调机制 - 已具备 FollowTarget 回调、ForceCancel、Token 隔离
+- 验证回调时序 - CompleteArrival 同帧执行
+
+**Phase 1: FarmToolPreview 修改** ✅
+- 新增公开属性：IsInRange, CurrentCursorPos, CurrentCellPos, CurrentLayerIndex
+- 修改 UpdateHoePreview - IsValid 不再包含距离判断
+- 修改 UpdateWateringPreview - IsValid 不再包含距离判断
+- 修改 UpdateSeedPreview - IsValid 不再包含距离判断
+
+**Phase 2: GameInputManager 重构** ✅
+- 新增 FarmNavState 枚举（Idle, Navigating, Executing）
+- 新增 FarmingSnapshot 结构体（防止"种瓜得豆"）
+- 新增 StartFarmingNavigation 方法
+- 新增 WaitForNavigationComplete 协程
+- 重构 TryTillSoil/TryWaterTile/TryPlantSeed - 使用 IsValid/IsInRange 分流
+- 新增 ExecuteTillSoil/ExecuteWaterTile/ExecutePlantSeed - 纯执行逻辑
+- 新增 ValidateSnapshot/ClearSnapshot/IsHoldingSameSeed - 快照校验
+
+**Phase 3: 边界情况处理** ✅
+- 新增 CancelFarmingNavigation 方法
+- 切换工具时取消导航（HandleHotbarSelection）
+- 打开面板时取消导航（HandlePanelHotkeys）
+- 手动移动时取消导航（HandleMovement）
+
+**Phase 4: 测试与验证** ✅
+- 编译验证通过（getDiagnostics 无错误）
+- 创建验收指南
+
+**修改文件**:
+- `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` - 新增 IsInRange 等属性，修改预览方法
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` - 农田导航状态机、快照机制、边界处理
+- `.kiro/specs/农田系统/9.0.4智能交互升级/requirements.md` - 添加 E9/E10 边界情况
+- `.kiro/specs/农田系统/9.0.4智能交互升级/design.md` - 添加 P10/P11 正确性属性
+- `.kiro/specs/农田系统/9.0.4智能交互升级/tasks.md` - 更新任务状态
+- `.kiro/specs/农田系统/9.0.4智能交互升级/验收指南.md` - 新建
+
+**关键架构决策**:
+1. PlayerAutoNavigator 已具备所需能力，不需要修改
+2. FarmToolPreview 的 IsValid 不再包含距离判断，距离状态单独记录到 IsInRange
+3. 种子远距离种植使用快照机制防止"种瓜得豆"问题
+4. 锄头和水壶不需要快照（不消耗物品）
+
+**待验收**:
+- [ ] 远距离锄地/浇水/种植功能
+- [ ] 导航中断场景
+- [ ] 快照机制（种子场景）
+
+---
+
+### 会话 9.0.4-8 - 2026-02-09（Bug 审视与反思）
+
+**用户报告的问题**:
+> 玩家手持锄头在 A 点点击远处 B 点时：
+> 1. 玩家会**先在原地触发锄地动画**
+> 2. 然后才走过去
+> 3. 走到 B 点后**没有任何后续动作**
+> 4. 红色预览（无效目标）也能触发耕地动作
+
+**问题定性**: 严重逻辑漏洞，完全违背交互矩阵设计
+
+**根因分析**:
+
+| 问题 | 代码位置 | 根因 |
+|------|---------|------|
+| 动画抢跑 | HandleUseCurrentTool 634-639行 | TryHandleFarmingTool 返回 true 后无条件播放动画 |
+| 时序错误 | Update 142-150行 | HandleUseCurrentTool 在 UpdatePreviews 之前执行 |
+| 语义模糊 | TryTillSoil 1144行 | bool 返回值无法区分"立即执行"和"导航已启动" |
+
+**Code Reaper 锐评001/002 的深度分析**:
+1. **架构罪状**：`HandleUseCurrentTool` 是"上帝对象"，既做输入路由又做表现控制
+2. **时序罪状**：Update 中存在竞态条件，先用数据后更新数据
+3. **逻辑罪状**：`Try...` 方法的布尔返回值语义欺诈
+
+**Code Reaper 修正方案**:
+1. 夺取动画控制权 - HandleUseCurrentTool 永久禁止为农田工具播放动画
+2. 修正时序 - UpdatePreviews 必须提升到 Update 第一行
+3. 语义明确化 - 近距离内部直接 RequestAction，远距离导航不播动画
+4. 双重校验 - 封死"红色触发"
+
+**审视结论**:
+- 交互矩阵设计本身没有问题
+- 问题在于代码实现没有正确遵循设计
+- 需要按 Code Reaper 指令进行彻底重构
+
+**产出文档**:
+- `.kiro/specs/农田系统/9.0.4智能交互升级/2修复锐评审视报告.md` - 新建
+
+**涉及代码文件（分析，未修改）**:
+- `GameInputManager.cs` - HandleUseCurrentTool、TryTillSoil、Update
+- `FarmToolPreview.cs` - 预览系统
+
+**下一步**:
+- [ ] 按 Code Reaper 修正方案进行彻底重构
+- [ ] 时序修正（UpdatePreviews 提前）
+- [ ] 动画控制权下放
+- [ ] 语义明确化
+
+---
+
+### 会话 9.0.4-9 - 2026-02-09（执行锐评003修复指令）
+
+**任务**: 执行 Code Reaper 锐评003 的最终修复指令
+
+**锐评来源**: `.kiro/specs/农田系统/9.0.4智能交互升级/2修复锐评003.md`
+
+**执行内容**:
+
+1. **时序重置** ✅
+   - `Update()` 的第一行改为 `UpdatePreviews()`
+   - 确保 WYSIWYG（所见即所得）原则
+
+2. **权限剥离** ✅
+   - `HandleUseCurrentTool` 对于 Hoe/WateringCan 只负责路由，不再播放动画
+   - 代码：`if (TryHandleFarmingTool(tool)) return;` — 内部已处理一切，外层闭嘴
+
+3. **智能分流** ✅
+   - `TryTillSoil` 重构：
+     - IsValid 检查（红框状态返回 false，不触发任何动画）
+     - IsInRange 分支：true → RequestAction + Execute；false → StartFarmingNavigation
+     - 新增快照机制（防止导航途中切换工具）
+   - `TryWaterTile` 重构：同上
+   - `TryPlantSeed` 强化：
+     - 快照校验是强制的，不是可选的
+     - 四重校验：快照 + 预览 + 距离 + 手持物品
+
+4. **协程逻辑** ✅
+   - 快照记录：启动导航前记录 FarmingSnapshot
+   - 到达校验：Snapshot 匹配 + IsValid + IsInRange
+   - 新增 `ValidateToolSnapshot()` 方法（工具不消耗，只检查 ID）
+
+**关键修复点**:
+- 红框状态（IsValid=false）点击 → 返回 false → 不触发任何动画 ✅
+- 远距离点击 → 只启动导航，不播放动画 ✅
+- 到达后 → 三重校验通过才播放动画并执行 ✅
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - Update() 时序修正
+  - HandleUseCurrentTool() 权限剥离
+  - TryTillSoil() 智能分流 + 快照
+  - TryWaterTile() 智能分流 + 快照
+  - TryPlantSeed() 强化快照校验
+  - 新增 ValidateToolSnapshot() 方法
+
+**编译状态**: ✅ 成功（0 警告）
+
+**待验收**:
+- [ ] 红框状态点击不触发动画
+- [ ] 远距离点击只导航不播动画
+- [ ] 到达后正确执行动作
+- [ ] 导航途中切换工具取消操作
+
+
+
+---
+
+### 会话 9.0.4-10 - 2026-02-09（全面反思与交互矩阵）
+
+**用户需求**:
+> 当前农田系统交互实现"太差劲了，一堆bug"，需要全面对照放置系统进行审视和分析，创建两个文档：全面反思 + 全面交互矩阵
+
+**完成任务**:
+
+1. **更新 coding-standards.md** - 添加"文档写入规范"
+   - 强制规则：写长文档时必须使用"少量多次写入"策略
+   - 首次写入用 fsWrite（30-40行），后续用 fsAppend 分段追加
+   - 避免一次性写入大量内容导致被系统中断
+
+2. **创建 3全面交互矩阵.md** - 完整的交互对比分析
+   - 系统对比概览（放置系统 vs 农田系统架构）
+   - 状态机对比（4状态 vs 3状态，缺少 Locked 状态）
+   - 核心交互场景矩阵（5个场景的详细对比）
+   - 事件订阅对比（农田系统未订阅 HotbarSelectionService 事件）
+   - 快照机制对比（FarmingSnapshot 缺少 lockedPosition 和 Quality）
+   - 预览系统对比（FarmToolPreview 缺少锁定机制）
+   - 导航中断处理对比
+   - 执行保护机制对比
+   - 问题汇总与修复优先级（P0/P1/P2）
+   - 修复实施计划（4个阶段）
+   - 验收标准
+
+**核心问题识别**:
+
+| 优先级 | 问题 | 影响 |
+|--------|------|------|
+| P0 | FarmToolPreview 缺少锁定机制 | 导航中预览跟随鼠标 |
+| P0 | FarmingSnapshot 缺少 lockedPosition | 无法记录锁定位置 |
+| P0 | CancelFarmingNavigation 不解锁预览 | 取消后预览消失 |
+| P0 | 未订阅 OnSelectedChanged | 切换物品时状态混乱 |
+| P1 | 缺少 Locked 状态 | 状态机不完整 |
+| P1 | 缺少执行保护标志 | 可能重复执行 |
+
+**修改文件**:
+- `.kiro/steering/coding-standards.md` - 添加文档写入规范
+- `.kiro/specs/农田系统/9.0.4智能交互升级/3全面交互矩阵.md` - 新建
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
+
+**下一步**:
+- [ ] 按交互矩阵的修复实施计划进行代码修改
+- [ ] 第一阶段：预览锁定机制
+- [ ] 第二阶段：快照机制完善
+- [ ] 第三阶段：事件订阅
+- [ ] 第四阶段：中断处理完善
+
+
+---
+
+### 会话 9.0.5-1 - 2026-02-09（新工作区创建）
+
+**用户需求**:
+> 全面对照放置系统审视农田系统交互实现，创建全面反思和全面交互矩阵两个文档，放置系统也存在同样问题需要统一修复
+
+**新建工作区**: `.kiro/specs/农田系统/9.0.5智能交互bug修复/`
+
+**完成任务**:
+1. 完善 `全面反思.md` - 13章节深度剖析
+2. 完善 `全面交互矩阵.md` - 15章节完整矩阵
+3. 创建 `memory.md` - 工作区记忆
+
+**核心问题识别**:
+- P0: FarmToolPreview 缺少锁定机制、未订阅事件
+- P1: 切换物品不取消导航、缺少执行保护
+- P2: 放置系统需要同步验证修复
+
+**修改文件**:
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/全面反思.md` - 补充完善
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/全面交互矩阵.md` - 补充完善
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/memory.md` - 新建
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
+
+**下一步**:
+- [ ] 创建 requirements.md
+- [ ] 创建 design.md
+- [ ] 创建 tasks.md
+- [ ] 执行修复任务
+
+
+---
+
+### 会话 9.0.5-2 - 2026-02-09（浇水问题分析）
+
+**用户需求**:
+> 浇水功能完全无法验收，GameInputManager 处理存在巨大问题
+
+**完成任务**:
+1. 分析浇水功能完整调用链
+   - HandleUseCurrentTool → TryHandleFarmingTool → TryWaterTile → ExecuteWaterTile
+   - FarmToolPreview.UpdateWateringPreview 的验证逻辑
+
+2. 识别浇水功能的核心问题
+   - IsValid() 返回 false 时无用户反馈
+   - tileData 为 null 时静默失败
+   - 浇水失败原因不透明
+   - 远距离浇水快照验证不完整
+
+3. 补充 `全面反思.md` - 新增第14章"浇水功能的严重问题"
+   - 调用链分析
+   - 验证逻辑分析
+   - 问题根因分析
+   - 完整问题清单（7个问题）
+   - 修复方案
+   - 验收标准
+
+4. 补充 `全面交互矩阵.md` - 新增第16章"浇水功能问题矩阵"
+   - 调用链图示
+   - 预览验证逻辑
+   - 失败场景矩阵（6个场景）
+   - 与锄地功能对比
+   - 问题优先级
+   - 修复任务（5个任务）
+   - 验收场景（6个场景）
+
+**浇水问题清单**:
+| # | 问题 | 优先级 |
+|---|------|--------|
+| W1 | FarmToolPreview.Instance 可能为 null | P0 |
+| W2 | IsValid() 返回 false 时无用户反馈 | P0 |
+| W3 | tileData 为 null 时无法浇水 | P0 |
+| W4 | layerIndex 可能不正确 | P1 |
+| W5 | SetWatered 失败时无反馈 | P1 |
+| W6 | 浇水动画与逻辑不同步 | P1 |
+| W7 | 远距离浇水的快照验证不完整 | P1 |
+
+**修改文件**:
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/全面反思.md` - 新增第14章
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/全面交互矩阵.md` - 新增第16章
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/memory.md` - 更新
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
+
+**涉及代码文件（分析，未修改）**:
+- `GameInputManager.cs` - TryWaterTile, ExecuteWaterTile 方法
+- `FarmToolPreview.cs` - UpdateWateringPreview 方法
+- `FarmTileManager.cs` - SetWatered, GetTileData 方法
+
+**下一步**:
+- [ ] 创建 requirements.md
+- [ ] 创建 design.md
+- [ ] 创建 tasks.md
+- [ ] 执行修复任务
+
+
+---
+
+### 会话 9.0.5-3 - 2026-02-09（三件套完成）
+
+**用户需求**:
+> 完成三件套创建（requirements.md、design.md、tasks.md）
+
+**完成任务**:
+1. 创建 `requirements.md` - 5个用户故事、8个边界情况、3个非功能需求
+2. 创建 `design.md` - 5状态机设计（Idle/Preview/Locked/Navigating/Executing）
+3. 创建 `tasks.md` - 7个Phase、18个任务
+4. 创建 `锐评001审视报告.md` - 事实核查 + 采纳决策
+5. 更新子工作区和主工作区 memory.md
+
+**修改文件**:
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/requirements.md` - 新建
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/design.md` - 新建
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/tasks.md` - 新建
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/锐评001审视报告.md` - 新建
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/memory.md` - 更新
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
+
+**涉及代码文件（分析，未修改）**:
+- `FarmToolPreview.cs` - 确认缺少锁定机制（LockPosition/UnlockPosition）
+- `GameInputManager.cs` - 确认 FarmNavState 只有3状态，CancelFarmingNavigation 重置为 Idle
+
+**下一步**:
+- [ ] 执行 Phase 1~7 修复任务
+- [ ] 编译验证
+- [ ] 创建验收指南
+
+
+---
+
+### 会话 9.0.5-4 - 2026-02-10（锐评002审视 + 三件套更新）
+
+**任务**: 审视锐评002（盲人导航悖论），结合用户修正更新三件套
+
+**锐评来源**: `.kiro/specs/农田系统/9.0.5智能交互bug修复/0执行锐评002.md`
+
+**锐评002核心诊断**: "盲人导航悖论" — 锁定状态下 UpdatePreviews() 直接 return，导致 FarmToolPreview 的实时数据停止更新，玩家导航中点击新位置读到旧数据
+
+**用户关键修正**:
+1. WASD/切换物品/ESC → 中断导航，解锁预览，回到跟随鼠标
+2. 打开面板 → **不中断导航**，面板冻结事件，状态保留
+3. 重新点击 → 中断当前导航，重新锁定+重新开始（非"修改目的地"优化）
+4. 核心原则："撤回权始终在玩家手中"
+
+**三件套更新内容**:
+
+1. **requirements.md** 修正:
+   - AC-2.2: ESC 行为明确化
+   - AC-2.3: 重新点击 = 中断+重启
+   - E3/E4: 面板不中断导航，关闭面板恢复状态
+
+2. **design.md** 修正:
+   - 3.3: UpdateXxxPreview 视觉与数据分离（先 UpdateRealtimeData，再 if _isLocked return 跳过视觉）
+   - 3.4: 新增 UpdateRealtimeData 轻量方法
+   - 4.1: UpdatePreviews 不再在锁定时 return，始终调用预览更新
+   - 4.3.1: 面板热键不取消导航
+   - 2.2/2.3: 状态转换图和规则表更新
+   - 新增第九章: 中断行为分类表
+
+3. **tasks.md** 修正:
+   - 1.2: 从"简单 return"改为"视觉与数据分离 + UpdateRealtimeData"
+   - 2.2: 从"状态检查 return"改为"不阻断实时数据更新"
+   - 4.4: 新增"面板热键不取消导航"任务
+   - 4.5: 新增"导航中重新点击处理"任务
+
+**修改文件**:
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/requirements.md` - 修正 AC-2.2/2.3、E3/E4
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/design.md` - 视觉数据分离、面板行为、中断分类
+- `.kiro/specs/农田系统/9.0.5智能交互bug修复/tasks.md` - 修正 1.2/2.2、新增 4.4/4.5
+- `.kiro/specs/农田系统/memory.md` - 更新（本文件）
+
+**涉及代码文件（设计，未修改）**:
+- `FarmToolPreview.cs` - 需要添加 UpdateRealtimeData 方法
+- `GameInputManager.cs` - 需要修改 UpdatePreviews、HandlePanelHotkeys
+
+**下一步**:
+- [ ] 等待用户确认三件套更新
+- [ ] 执行 Phase 1~7 修复任务
+
+
+---
+
+### 会话 9.0.5-5 - 2026-02-10（一条龙执行全部任务）
+
+**任务**: 一条龙完成 9.0.5 智能交互bug修复的全部 18 个任务
+
+**执行内容**:
+1. FarmToolPreview 锁定机制 + 视觉数据分离（UpdateRealtimeData）
+2. FarmNavState 扩展为 5 状态（Idle/Preview/Locked/Navigating/Executing）
+3. 三个 Try 方法添加锁定+距离分流
+4. 中断恢复：面板不中断导航、ESC 特殊处理、重新点击=中断+重启
+5. 执行保护标志
+6. 浇水失败原因枚举 + 日志增强
+7. 编译通过 + 验收指南创建
+
+**修改文件**:
+- `FarmToolPreview.cs` - 锁定机制、视觉数据分离、浇水失败原因
+- `GameInputManager.cs` - 5状态机、锁定分流、面板行为、执行保护
+
+**编译状态**: ✅ 成功（0 警告）
+
+**子工作区状态**: 9.0.5 全部 18 任务完成，待用户游戏内验收
+
+---
+
+### 会话 9.0.5-6 - 2026-02-10（致命 bug 修复）
+
+**用户反馈**: 测试后"什么都没变"，预览不锁定，行为与修改前完全一致
+
+**根因**: `StartFarmingNavigation()` 开头调用 `CancelFarmingNavigation()`，后者会 `UnlockPosition()` + 重置状态为 Preview，导致 `TryTillSoil` 刚锁定的预览被立即解锁
+
+**修复**: `StartFarmingNavigation` 中不再调用 `CancelFarmingNavigation()`，改为手动清理旧协程和导航器，不触碰预览锁定状态
+
+**修改文件**:
+- `GameInputManager.cs` - `StartFarmingNavigation` 修复致命 bug
+
+**编译状态**: ✅ 成功（0 警告）
+
+
+---
+
+### 会话 9.0.5-7 - 2026-02-10（5点bug报告全面审计 + Bug C 水渍修复）
+
+**用户反馈**: 致命 bug 修复后测试，报告 5 个剩余问题
+
+**全面审计**: 识别 7 个 Bug（A-G），全部修复完成
+
+**Bug C 水渍系统修复（关键）**:
+- `LayerTilemaps.cs` — 新增 `waterPuddleTilemapNew` 字段
+- `FarmVisualManager.cs` — UpdateTileVisual/ClearTileVisual 优先使用新版字段
+- `FarmTileManager.cs` — SetWatered 浇水后调用视觉更新，ClearAllTiles 使用新版字段
+
+**修改文件**:
+- `GameInputManager.cs` — Bug A/B/D/F
+- `PlacementManager.cs` — Bug D/E/G + InterruptFromExternal()
+- `LayerTilemaps.cs` — Bug C（waterPuddleTilemapNew）
+- `FarmVisualManager.cs` — Bug C（新版字段优先）
+- `FarmTileManager.cs` — Bug C（SetWatered 视觉更新 + ClearAllTiles 新版字段）
+
+**编译状态**: ✅ 成功（0 警告）
+
+**⚠️ 用户验收前注意**: 需要在 Inspector 中将 WaterPuddle Tilemap 拖入 `waterPuddleTilemapNew` 字段
+
+
+---
+
+### 会话 10.0.1-1 - 2026-02-11（农作物设计与完善 - 全面分析文档V2）
+
+**任务**: 消化 Gemini 设计协助文档，结合代码事实独立思考，输出全面分析文档V2
+
+**完成任务**:
+1. 创建 `requirements.md` — 5个用户故事、5个边界情况、3个设计约束
+2. 创建 `需求审视报告.md` — 8章节深度审视，10个关键问题
+3. 创建 `全面分析文档V2.md` — 8个核心设计决策 + 5阶段实施路线
+
+**核心设计决策**:
+- SeedData本身就是种子袋（不需要SeedBagData）
+- CropData改为继承FoodData
+- CropController实现IInteractable（右键收获集成导航）
+- InventoryService订阅OnDayChanged检查保质期
+
+**当前状态**: 等待用户审核全面分析文档V2中的5个待确认问题
+
+**涉及代码文件（分析，未修改）**:
+- `SeedData.cs`, `CropData.cs`, `FoodData.cs`, `InventoryItem.cs`
+- `CropController.cs`, `CropManager.cs`, `CropInstanceData.cs`
+- `GameInputManager.cs`, `PlayerAutoNavigator.cs`, `IInteractable.cs`
+
+**下一步**:
+- [ ] 用户审核 Q1-Q5
+- [ ] 创建 design.md
+- [ ] 创建 tasks.md
+
+
+
+---
+
+### 会话 10.0.1-2 - 2026-02-11（锐评002审视 + design.md + tasks.md）
+
+**任务**: 审视锐评002，创建 design.md 和 tasks.md
+
+**完成任务**:
+1. 锐评002审视 — 5个观点全部事实正确，全部采纳
+2. 创建 `design.md` — 8章节完整设计
+3. 创建 `tasks.md` — 5 Phase, 22个任务
+
+**关键设计决策（已锁定）**:
+- 交互检测：BoxCollider2D Trigger（严禁 ResourceNodeRegistry）
+- SO继承：CropData:FoodData, WitheredCropData:FoodData, SeedData:ItemData
+- 种子袋：SeedData 直接加字段，不新建 SeedBagData
+- 腐烂食物：properties.Count == 0 确保可堆叠
+- CropController：实现 IInteractable，不实现 IResourceNode
+- ID范围：SeedData 10XX, CropData 11XX, WitheredCropData 12XX, 腐烂食物 5999
+
+**涉及代码文件（设计，未修改）**:
+- `CropData.cs` — 待修改（继承 FoodData）
+- `SeedData.cs` — 待修改（新增字段）
+- `CropController.cs` — 待修改（CropState + IInteractable）
+- `WitheredCropData.cs` — 待新增
+- `CropInstanceData.cs` — 待修改（daysSinceMature）
+- `InventoryService.cs` — 待修改（日结保质期检查）
+
+**产出文件**:
+- `锐评002审视报告.md`、`design.md`、`tasks.md`
+
+**下一步**:
+- [ ] 用户确认 tasks.md
+- [ ] 按 Phase 顺序执行任务
+
+
+---
+
+### 会话 10.0.1-3 - 2026-02-11（一条龙执行全部任务完成）
+
+**任务**: 一条龙完成 10.0.1 农作物设计与完善的全部 25 个任务
+
+**执行结果**: ✅ 全部完成（5 Phase, 25 任务）
+
+**核心交付物**:
+1. SO层重构：CropData→FoodData, SeedData新增字段, WitheredCropData新建
+2. CropController重构：CropState 4状态枚举 + IInteractable + BoxCollider2D Trigger
+3. 种子袋保质期系统：SeedBagHelper + InventoryService日结检查
+4. 收获交互集成：右键收获 + 锄头清除枯萎 + 背包满掉落
+5. 测试：16个PBT测试全部通过
+
+**修改文件**:
+- `CropData.cs` — 继承 FoodData
+- `SeedData.cs` — 新增保质期/种子袋字段
+- `WitheredCropData.cs` — 新建
+- `CropController.cs` — CropState + IInteractable + 收获逻辑
+- `SeedBagHelper.cs` — 新建
+- `SaveDataDTOs.cs` — CropSaveData 扩展
+- `InventoryService.cs` — 日结保质期检查
+- `GameInputManager.cs` — WitheredImmature 检测
+- `FarmToolPreview.cs` — canClearWithered 检查
+- `CropSystemTests.cs` — 16个测试
+
+**子工作区状态**: 10.0.1 ✅ 代码完成，待用户游戏内验收
+
+**待验收**:
+- [ ] SO资产配置（WitheredCropData、腐烂食物）
+- [ ] 种植→生长→收获完整流程
+- [ ] 种子袋保质期流程
+- [ ] 枯萎作物清除流程
+
+
+
+---
+
+### 会话 10.0.1-4 - 2026-02-11（2bug锐评001 修复 + 批量SO工具同步）
+
+**任务**: 处理 2bug锐评001.md 的 bug 修复，同步批量SO生成工具
+
+**完成任务**:
+1. Fix #1: 保质期作弊后门修复（GameInputManager.ExecutePlantSeed）
+2. Fix #2: 枯萎清除反馈占位（CropController.ClearWitheredImmature）
+3. 批量SO工具全面同步（Tool_BatchItemSOGenerator.cs — WitheredCropData/Seed/Crop新字段）
+
+**修改文件**:
+- `GameInputManager.cs` — ExecutePlantSeed 修复保质期作弊后门
+- `CropController.cs` — ClearWitheredImmature 添加反馈占位
+- `Tool_BatchItemSOGenerator.cs` — 全面同步新SO类型和字段
+
+**编译状态**: ✅ 成功
+
+**子工作区状态**: 10.0.1 ✅ 代码+bug修复完成，待用户游戏内验收

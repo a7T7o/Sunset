@@ -2,9 +2,9 @@
 inclusion: manual
 priority: P4
 keywords: [农田, 种植, 作物, 浇水, 耕地, FarmTileData]
-lastUpdated: 2025-01-09
+lastUpdated: 2026-01-09
 archivedFrom: .kiro/steering/farming.md
-archivedDate: 2025-01-09
+archivedDate: 2026-01-09
 ---
 
 # 农田系统规范

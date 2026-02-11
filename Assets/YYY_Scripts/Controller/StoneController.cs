@@ -627,6 +627,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     #region 掉落系统
     /// <summary>
     /// 生成矿物掉落
+    /// 🔥 P2 任务 6：设置掉落物的来源 GUID
     /// </summary>
     private void SpawnOreDrops(int amount)
     {
@@ -659,13 +660,26 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         
         if (WorldSpawnService.Instance != null)
         {
-            WorldSpawnService.Instance.SpawnMultiple(
+            var pickups = WorldSpawnService.Instance.SpawnMultiple(
                 oreItem,
                 0, // 品质
                 amount,
                 dropOrigin,
                 dropSpreadRadius
             );
+            
+            // 🔥 P2 任务 6：设置掉落物的来源 GUID
+            if (pickups != null)
+            {
+                foreach (var pickup in pickups)
+                {
+                    if (pickup != null)
+                    {
+                        pickup.SetSourceNodeGuid(PersistentId);
+                    }
+                }
+            }
+            
             Debug.Log($"<color=lime>[StoneController] ✓ 矿物掉落已生成: {amount} 个 {oreItem.itemName}</color>");
         }
         else
@@ -676,6 +690,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     
     /// <summary>
     /// 生成石料掉落
+    /// 🔥 P2 任务 6：设置掉落物的来源 GUID
     /// </summary>
     private void SpawnStoneDrops(int amount)
     {
@@ -703,13 +718,26 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         
         if (WorldSpawnService.Instance != null)
         {
-            WorldSpawnService.Instance.SpawnMultiple(
+            var pickups = WorldSpawnService.Instance.SpawnMultiple(
                 stoneItem,
                 0, // 品质
                 amount,
                 dropOrigin,
                 dropSpreadRadius
             );
+            
+            // 🔥 P2 任务 6：设置掉落物的来源 GUID
+            if (pickups != null)
+            {
+                foreach (var pickup in pickups)
+                {
+                    if (pickup != null)
+                    {
+                        pickup.SetSourceNodeGuid(PersistentId);
+                    }
+                }
+            }
+            
             Debug.Log($"<color=lime>[StoneController] ✓ 石料掉落已生成: {amount} 个 {stoneItem.itemName}</color>");
         }
         else
@@ -1395,30 +1423,36 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     
     #region 销毁
     /// <summary>
-    /// 销毁石头
+    /// 销毁石头（假死机制）
+    /// 🔥 P0 修复：使用 SetActive(false) 而非 Destroy()
+    /// 这样反向修剪机制才能正确工作
     /// </summary>
     private void DestroyStone()
     {
         isDepleted = true;
         
-        // 从注册表注销
+        // 🔥 只从 ResourceNodeRegistry 注销（假死的石头不应该被攻击）
         if (ResourceNodeRegistry.Instance != null)
         {
             ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
         }
         
-        // 销毁父物体（整个石头）
+        // 🔥 不从 PersistentObjectRegistry 注销！
+        // 这样反向修剪才能正确工作（存档中有的石头会被恢复）
+        
+        // 🔥 假死：禁用而非销毁
+        // 这样对象引用保留在 _registry 中，反向修剪可以找到它
         if (transform.parent != null)
         {
-            Destroy(transform.parent.gameObject);
+            transform.parent.gameObject.SetActive(false);
         }
         else
         {
-            Destroy(gameObject);
+            gameObject.SetActive(false);
         }
         
         if (showDebugInfo)
-            Debug.Log($"<color=orange>[StoneController] {gameObject.name} 被完全挖掘！</color>");
+            Debug.Log($"<color=orange>[StoneController] {gameObject.name} 被完全挖掘（假死）</color>");
     }
     #endregion
     
@@ -1592,14 +1626,22 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         };
         data.genericData = JsonUtility.ToJson(stoneData);
         
+        // 🔴 保存渲染层级参数（Sorting Layer + Order in Layer）
+        var spriteRenderer = GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            data.SetSortingLayer(spriteRenderer);
+        }
+        
         if (showDebugInfo)
-            Debug.Log($"[StoneController] Save: GUID={PersistentId}, stage={currentStage}, health={currentHealth}");
+            Debug.Log($"[StoneController] Save: GUID={PersistentId}, stage={currentStage}, health={currentHealth}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}");
         
         return data;
     }
     
     /// <summary>
     /// 加载对象状态
+    /// 🔥 P0 修复：假死机制需要在 Load() 中恢复激活状态
     /// </summary>
     public void Load(WorldObjectSaveData data)
     {
@@ -1620,11 +1662,33 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         lastOreType = oreType;
         lastOreIndex = oreIndex;
         
+        // 🔥 新增：恢复激活状态（假死机制的关键补充）
+        isDepleted = false;
+        
+        // 激活对象（假死的石头需要被激活）
+        if (transform.parent != null)
+            transform.parent.gameObject.SetActive(true);
+        else
+            gameObject.SetActive(true);
+        
+        // 重新注册到 ResourceNodeRegistry（恢复后应该可以被攻击）
+        if (ResourceNodeRegistry.Instance != null)
+        {
+            ResourceNodeRegistry.Instance.Register(this, gameObject.GetInstanceID());
+        }
+        
         // 立即刷新视觉
         UpdateSprite();
         
+        // 🔴 恢复渲染层级参数（Sorting Layer + Order in Layer）
+        var spriteRenderer = GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            data.RestoreSortingLayer(spriteRenderer);
+        }
+        
         if (showDebugInfo)
-            Debug.Log($"[StoneController] Load: GUID={PersistentId}, stage={currentStage}, health={currentHealth}");
+            Debug.Log($"[StoneController] Load: GUID={PersistentId}, stage={currentStage}, health={currentHealth}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}, 已激活并注册");
     }
     
     /// <summary>
@@ -1654,6 +1718,20 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             PersistentObjectRegistry.Instance.Unregister(this);
         }
+    }
+    
+    /// <summary>
+    /// 🔥 P1 任务 5.2：为存档加载设置 PersistentId（仅供 DynamicObjectFactory 调用）
+    /// </summary>
+    public void SetPersistentIdForLoad(string guid)
+    {
+        if (string.IsNullOrEmpty(guid))
+        {
+            Debug.LogWarning("[StoneController] SetPersistentIdForLoad: guid 为空");
+            return;
+        }
+        
+        _persistentId = guid;
     }
     
     #endregion

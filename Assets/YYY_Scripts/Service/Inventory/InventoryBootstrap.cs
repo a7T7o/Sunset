@@ -51,6 +51,9 @@ public class InventoryBootstrap : MonoBehaviour
     [Header("物品列表")]
     [SerializeField] private List<BootItemList> itemLists = new List<BootItemList>();
     
+    [Header("调试")]
+    [SerializeField] private bool showDebugInfo = false;
+    
     // 旧版兼容字段（自动迁移后清空）
     [SerializeField, HideInInspector] private List<BootItem> items = new List<BootItem>();
     [SerializeField, HideInInspector] private bool migrated = false;
@@ -147,7 +150,8 @@ public class InventoryBootstrap : MonoBehaviour
     [ContextMenu("Apply Now")] 
     public void Apply()
     {
-        Debug.Log("<color=cyan>[InventoryBootstrap] Apply() 开始执行</color>");
+        if (showDebugInfo)
+            Debug.Log("<color=cyan>[InventoryBootstrap] Apply() 开始执行</color>");
         
         // 1. 获取 InventoryService
         if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
@@ -160,7 +164,8 @@ public class InventoryBootstrap : MonoBehaviour
         // 2. 清空背包（如果需要）
         if (clearInventoryFirst)
         {
-            Debug.Log("[InventoryBootstrap] 清空背包...");
+            if (showDebugInfo)
+                Debug.Log("[InventoryBootstrap] 清空背包...");
             for (int i = 0; i < inventory.Size; i++) inventory.ClearSlot(i);
         }
 
@@ -198,9 +203,12 @@ public class InventoryBootstrap : MonoBehaviour
         }
         
         // 🔥 锐评019：只输出汇总信息，不逐条输出
-        string resultColor = skippedCount > 0 ? "yellow" : "green";
-        Debug.Log($"<color={resultColor}>[InventoryBootstrap] 完成！成功添加 {addedCount}/{totalItems} 个物品" +
-                  (skippedCount > 0 ? $"，跳过 {skippedCount} 个" : "") + "</color>");
+        if (showDebugInfo)
+        {
+            string resultColor = skippedCount > 0 ? "yellow" : "green";
+            Debug.Log($"<color={resultColor}>[InventoryBootstrap] 完成！成功添加 {addedCount}/{totalItems} 个物品" +
+                      (skippedCount > 0 ? $"，跳过 {skippedCount} 个" : "") + "</color>");
+        }
     }
     
     /// <summary>

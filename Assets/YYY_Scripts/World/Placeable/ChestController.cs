@@ -135,9 +135,11 @@ namespace FarmGame.World
         public bool HasBeenLocked => hasBeenLocked;
 
         /// <summary>
-        /// 是否为空（委托给 ChestInventory）
+        /// 是否为空
+        /// 🔥 P0 修复：只检查 _inventory，因为它是 UI 操作的目标
+        /// _inventoryV2 只用于存档序列化，不参与运行时逻辑判断
         /// </summary>
-        public bool IsEmpty => (_inventoryV2 == null || _inventoryV2.IsEmpty) && (_inventory == null || _inventory.IsEmpty);
+        public bool IsEmpty => _inventory == null || _inventory.IsEmpty;
 
         #endregion
         
@@ -215,6 +217,17 @@ namespace FarmGame.World
                 return _persistentId;
             }
         }
+        
+        /// <summary>
+        /// 🔥 P1 任务 9.2：设置持久化 ID（仅供 DynamicObjectFactory 加载时使用）
+        /// </summary>
+        public void SetPersistentIdForLoad(string guid)
+        {
+            if (!string.IsNullOrEmpty(guid))
+            {
+                _persistentId = guid;
+            }
+        }
 
         /// <summary>
         /// 对象类型标识
@@ -229,6 +242,8 @@ namespace FarmGame.World
         /// <summary>
         /// 保存对象状态
         /// Rule: P0-1 箱子存档 - 保存前同步 _inventory 到 _inventoryV2
+        /// 🔥 P1 任务 9：保存 prefabId 用于动态重建
+        /// 🔥 3.7.5：使用世界预制体名称（storagePrefab.name）而非 StorageData 名称
         /// </summary>
         public WorldObjectSaveData Save()
         {
@@ -238,7 +253,9 @@ namespace FarmGame.World
                 objectType = ObjectType,
                 sceneName = gameObject.scene.name,
                 isActive = gameObject.activeSelf,
-                layer = 1 // TODO: 从父物体获取楼层
+                layer = 1, // TODO: 从父物体获取楼层
+                // 🔥 3.7.5：使用世界预制体名称
+                prefabId = GetWorldPrefabName()
             };
             
             // 设置位置
@@ -283,10 +300,49 @@ namespace FarmGame.World
             // 序列化为 JSON
             data.genericData = JsonUtility.ToJson(chestData);
             
+            // 🔴 保存渲染层级参数（Sorting Layer + Order in Layer）
+            if (_spriteRenderer != null)
+            {
+                data.SetSortingLayer(_spriteRenderer);
+            }
+            
             if (showDebugInfo)
-                Debug.Log($"[ChestController] Save: GUID={PersistentId}, slots={chestData.slots?.Count ?? 0}");
+                Debug.Log($"[ChestController] Save: GUID={PersistentId}, prefabId={data.prefabId}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}");
             
             return data;
+        }
+        
+        /// <summary>
+        /// 🔥 3.7.5：获取世界预制体名称
+        /// 优先使用 StorageData 中配置的世界预制体名称
+        /// </summary>
+        private string GetWorldPrefabName()
+        {
+            // 1. 优先使用 StorageData 中配置的世界预制体
+            if (storageData != null && storageData.storagePrefab != null)
+            {
+                return storageData.storagePrefab.name;
+            }
+            
+            // 2. 回退：使用当前 GameObject 名称（清洗后）
+            return CleanGameObjectName(gameObject.name);
+        }
+        
+        /// <summary>
+        /// 🔥 3.7.5：清理 GameObject 名称（去掉 Clone 等后缀）
+        /// </summary>
+        private string CleanGameObjectName(string name)
+        {
+            if (string.IsNullOrEmpty(name)) return name;
+            
+            // 去掉 "(Clone)" 后缀
+            if (name.EndsWith("(Clone)"))
+                name = name.Substring(0, name.Length - 7).Trim();
+            
+            // 去掉 " (1)", " (2)" 等后缀
+            name = System.Text.RegularExpressions.Regex.Replace(name, @"\s\(\d+\)$", "");
+            
+            return name;
         }
 
         /// <summary>
@@ -362,10 +418,16 @@ namespace FarmGame.World
             // 更新视觉状态
             UpdateSprite();
             
+            // 🔴 恢复渲染层级参数（Sorting Layer + Order in Layer）
+            if (_spriteRenderer != null)
+            {
+                data.RestoreSortingLayer(_spriteRenderer);
+            }
+            
             // 🔥 P0-2 修复：强制状态检查，验证 IsEmpty 属性返回正确值
             if (showDebugInfo)
             {
-                Debug.Log($"[ChestController] Load 完成: GUID={PersistentId}, isLocked={isLocked}");
+                Debug.Log($"[ChestController] Load 完成: GUID={PersistentId}, isLocked={isLocked}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}");
                 Debug.Log($"[ChestController] 状态检查: IsEmpty={IsEmpty}, _inventoryV2.IsEmpty={_inventoryV2?.IsEmpty}, _inventory.IsEmpty={_inventory?.IsEmpty}");
             }
         }
@@ -506,6 +568,10 @@ namespace FarmGame.World
             // 🔥 从持久化对象注册中心注销
             if (PersistentObjectRegistry.Instance != null)
                 PersistentObjectRegistry.Instance.Unregister(this);
+            
+            // 🔥 P1 任务 4：取消订阅事件，避免内存泄漏
+            if (_inventory != null)
+                _inventory.OnInventoryChanged -= OnInventoryChangedHandler;
         }
 
         #endregion
@@ -519,21 +585,63 @@ namespace FarmGame.World
                 currentHealth = storageData.maxHealth;
                 isLocked = storageData.defaultLocked;
 
-                // 🔥 使用 ChestInventory 替代 List<ItemStack>
-                _inventory = new ChestInventory(storageData.storageCapacity);
+                // 🔥 3.7.6 修复：如果 _inventory 已被 Load() 初始化并填充数据，则不重新创建
+                // 问题场景：DynamicObjectFactory 重建箱子时，Load() 先于 Start() 执行
+                // 如果这里无条件重新创建，会覆盖 Load() 中恢复的数据
+                if (_inventory == null)
+                {
+                    _inventory = new ChestInventory(storageData.storageCapacity);
+                    // 🔥 P1 任务 4：订阅库存变化事件，实时同步到 V2
+                    _inventory.OnInventoryChanged += OnInventoryChangedHandler;
+                    
+                    if (showDebugInfo)
+                        Debug.Log($"[ChestController] Initialize: 创建新的 _inventory, capacity={storageData.storageCapacity}");
+                }
+                else
+                {
+                    // 🔥 确保事件订阅（Load() 中创建的 _inventory 可能没有订阅事件）
+                    _inventory.OnInventoryChanged -= OnInventoryChangedHandler; // 先移除，避免重复订阅
+                    _inventory.OnInventoryChanged += OnInventoryChangedHandler;
+                    
+                    if (showDebugInfo)
+                        Debug.Log($"[ChestController] Initialize: _inventory 已存在（来自 Load），跳过重建");
+                }
                 
-                // 🔥 同时初始化 V2 库存（支持 InventoryItem）
-                _inventoryV2 = new ChestInventoryV2(storageData.storageCapacity);
+                // 🔥 3.7.6 修复：同样检查 _inventoryV2
+                if (_inventoryV2 == null)
+                {
+                    _inventoryV2 = new ChestInventoryV2(storageData.storageCapacity);
+                    
+                    if (showDebugInfo)
+                        Debug.Log($"[ChestController] Initialize: 创建新的 _inventoryV2, capacity={storageData.storageCapacity}");
+                }
+                else
+                {
+                    if (showDebugInfo)
+                        Debug.Log($"[ChestController] Initialize: _inventoryV2 已存在（来自 Load），跳过重建");
+                }
 
                 // 🔥 C4：添加调试日志验证每个箱子有独立的 ChestInventory 实例
                 if (showDebugInfo)
-                    Debug.Log($"[ChestController] 初始化: {storageData.itemName}, 血量={currentHealth}, 容量={storageData.storageCapacity}, instanceId={GetInstanceID()}, GUID={PersistentId}");
+                    Debug.Log($"[ChestController] 初始化完成: {storageData.itemName}, 血量={currentHealth}, 容量={storageData.storageCapacity}, instanceId={GetInstanceID()}, GUID={PersistentId}");
             }
 
             // 🔥 修正 Ⅳ：初始化时完整执行 Sprite → Collider → NavGrid 链路
             UpdateSprite();
             UpdateColliderShape();
             // NavGrid 刷新由 Start 中的延迟调用处理
+        }
+        
+        /// <summary>
+        /// 🔥 P1 任务 4：库存变化事件处理器
+        /// 当 _inventory 发生变化时，自动同步到 _inventoryV2
+        /// </summary>
+        private void OnInventoryChangedHandler()
+        {
+            SyncInventoryToV2();
+            
+            if (showDebugInfo)
+                Debug.Log($"[ChestController] OnInventoryChanged: 已同步到 V2");
         }
 
         public void Initialize(StorageData data, ChestOwnership initialOwnership = ChestOwnership.Player)
@@ -1227,7 +1335,11 @@ namespace FarmGame.World
                     storageData, 0, 1, transform.position, Vector3.up);
             }
 
-            Destroy(gameObject);
+            // 删除整个箱子物体（包括父物体）
+            // 箱子结构：Box_1(Clone) 父物体 -> Box 子物体（ChestController 在子物体上）
+            // 需要删除父物体才能完全清除箱子
+            GameObject objectToDestroy = transform.parent != null ? transform.parent.gameObject : gameObject;
+            Destroy(objectToDestroy);
         }
 
         #endregion

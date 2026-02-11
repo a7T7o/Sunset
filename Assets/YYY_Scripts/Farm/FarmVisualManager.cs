@@ -137,20 +137,31 @@ namespace FarmGame.Farm
         /// <param name="tileData">耕地数据</param>
         public void UpdateTileVisual(LayerTilemaps tilemaps, Vector3Int cellPosition, FarmTileData tileData)
         {
-            if (tilemaps == null || tilemaps.farmlandTilemap == null) return;
+            if (tilemaps == null) return;
             
-            TileBase targetTile = null;
+            // 🔥 Bug C 修复：优先使用新版字段
+            Tilemap farmTilemap = tilemaps.farmlandCenterTilemap;
+            #pragma warning disable 0618
+            if (farmTilemap == null) farmTilemap = tilemaps.farmlandTilemap;
+            #pragma warning restore 0618
+            
+            if (farmTilemap == null) return;
+            
+            // 🔥 Bug C 修复：优先使用新版水渍 Tilemap
+            Tilemap puddleTilemap = tilemaps.waterPuddleTilemapNew;
+            #pragma warning disable 0618
+            if (puddleTilemap == null) puddleTilemap = tilemaps.waterPuddleTilemap;
+            #pragma warning restore 0618
+            
             TileBase puddleTile = null;
             
             switch (tileData.moistureState)
             {
                 case SoilMoistureState.Dry:
-                    targetTile = dryFarmlandTile;
                     puddleTile = null; // 清除水渍
                     break;
                     
                 case SoilMoistureState.WetWithPuddle:
-                    targetTile = dryFarmlandTile; // 耕地本身保持干燥样式
                     // 水渍在叠加层显示
                     if (wetPuddleTiles != null && wetPuddleTiles.Length > 0)
                     {
@@ -160,25 +171,18 @@ namespace FarmGame.Farm
                     break;
                     
                 case SoilMoistureState.WetDark:
-                    targetTile = wetDarkTile ?? dryFarmlandTile;
                     puddleTile = null; // 清除水渍
                     break;
             }
             
-            // 更新耕地 Tilemap
-            if (targetTile != null)
-            {
-                tilemaps.farmlandTilemap.SetTile(cellPosition, targetTile);
-            }
-            
             // 更新水渍叠加层
-            if (tilemaps.waterPuddleTilemap != null)
+            if (puddleTilemap != null)
             {
-                tilemaps.waterPuddleTilemap.SetTile(cellPosition, puddleTile);
+                puddleTilemap.SetTile(cellPosition, puddleTile);
             }
             
             if (showDebugInfo)
-                Debug.Log($"[FarmVisualManager] 更新 Tile 视觉: Pos={cellPosition}, State={tileData.moistureState}");
+                Debug.Log($"[FarmVisualManager] 更新 Tile 视觉: Pos={cellPosition}, State={tileData.moistureState}, puddleTilemap={(puddleTilemap != null ? "有" : "null")}");
         }
         
         /// <summary>
@@ -188,14 +192,24 @@ namespace FarmGame.Farm
         {
             if (tilemaps == null) return;
             
-            if (tilemaps.farmlandTilemap != null)
+            // 🔥 Bug C 修复：优先使用新版字段，回退到旧版
+            Tilemap farmTilemap = tilemaps.farmlandCenterTilemap;
+            #pragma warning disable 0618
+            if (farmTilemap == null) farmTilemap = tilemaps.farmlandTilemap;
+            #pragma warning restore 0618
+            if (farmTilemap != null)
             {
-                tilemaps.farmlandTilemap.SetTile(cellPosition, null);
+                farmTilemap.SetTile(cellPosition, null);
             }
             
-            if (tilemaps.waterPuddleTilemap != null)
+            // 🔥 Bug C 修复：优先使用新版水渍 Tilemap
+            Tilemap puddleTilemap = tilemaps.waterPuddleTilemapNew;
+            #pragma warning disable 0618
+            if (puddleTilemap == null) puddleTilemap = tilemaps.waterPuddleTilemap;
+            #pragma warning restore 0618
+            if (puddleTilemap != null)
             {
-                tilemaps.waterPuddleTilemap.SetTile(cellPosition, null);
+                puddleTilemap.SetTile(cellPosition, null);
             }
         }
         

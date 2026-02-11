@@ -284,6 +284,10 @@ public class SeasonManager : MonoBehaviour
             // 通知所有订阅者
             OnSeasonChanged?.Invoke(currentSeason);
         }
+        
+        // 🔥 3.7.6 修复：SetSeason 后必须更新渐变进度
+        // 否则读档时渐变进度不会更新，导致树木显示错误
+        UpdateVegetationSeason();
     }
     
     /// <summary>

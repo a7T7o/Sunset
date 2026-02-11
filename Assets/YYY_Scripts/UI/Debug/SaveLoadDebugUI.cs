@@ -27,6 +27,9 @@ public class SaveLoadDebugUI : MonoBehaviour
     [Header("UI 位置（左下角偏移）")]
     [SerializeField] private Vector2 panelOffset = new Vector2(120, 80); // 距离左下角的偏移
     
+    [Header("调试")]
+    [SerializeField] private bool showDebugInfo = false;
+    
     private Canvas _canvas;
     private Text _statusText;
     private bool _uiCreated = false;
@@ -101,7 +104,6 @@ public class SaveLoadDebugUI : MonoBehaviour
         CreateText(panelGo.transform, $"快捷键: {saveKey}=保存, {loadKey}=加载", new Vector2(PanelWidth/2, 15), 10, TextAnchor.MiddleCenter);
         
         _uiCreated = true;
-        Debug.Log("[SaveLoadDebugUI] 调试 UI 已创建");
     }
     
     private Text CreateText(Transform parent, string content, Vector2 position, int fontSize, TextAnchor alignment)
@@ -201,6 +203,7 @@ public class SaveLoadDebugUI : MonoBehaviour
         {
             _statusText.text = $"状态: {message}";
         }
-        Debug.Log($"[SaveLoadDebugUI] {message}");
+        if (showDebugInfo)
+            Debug.Log($"[SaveLoadDebugUI] {message}");
     }
 }

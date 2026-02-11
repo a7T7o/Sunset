@@ -85,9 +85,8 @@ public class ItemSOBatchCreator : EditorWindow
     // CropData 专属
     private int crop_seedId = 1001;
     private int crop_harvestExp = 10;
-    private bool crop_canBeCrafted = true;
-    private string crop_usedInRecipes = "";
-    private string crop_qualityInfo = "收获时随机判定品质，外观不变，UI显示星星";
+    private int crop_witheredCropID = 0;
+    // CropData 继承 FoodData，食物属性使用 food_ 系列字段
 
     // FoodData 专属
     private int food_energyRestore = 30;
@@ -371,9 +370,16 @@ public class ItemSOBatchCreator : EditorWindow
             case SoType.Crop:
                 crop_seedId = EditorGUILayout.IntField("Seed ID", crop_seedId);
                 crop_harvestExp = EditorGUILayout.IntField("Harvest Exp", crop_harvestExp);
-                crop_canBeCrafted = EditorGUILayout.Toggle("Can Be Crafted", crop_canBeCrafted);
-                crop_usedInRecipes = EditorGUILayout.TextField("Used In Recipes", crop_usedInRecipes);
-                crop_qualityInfo = EditorGUILayout.TextField("Quality Info", crop_qualityInfo);
+                crop_witheredCropID = EditorGUILayout.IntField("Withered Crop ID", crop_witheredCropID);
+                EditorGUILayout.Space(4);
+                EditorGUILayout.LabelField("--- 食物属性（继承自FoodData）---", EditorStyles.boldLabel);
+                food_energyRestore = EditorGUILayout.IntField("Energy Restore", food_energyRestore);
+                food_healthRestore = EditorGUILayout.IntField("Health Restore", food_healthRestore);
+                food_consumeTime = EditorGUILayout.FloatField("Consume Time", food_consumeTime);
+                food_buffType = (BuffType)EditorGUILayout.EnumPopup("Buff Type", food_buffType);
+                food_buffValue = EditorGUILayout.FloatField("Buff Value", food_buffValue);
+                food_buffDuration = EditorGUILayout.FloatField("Buff Duration", food_buffDuration);
+                food_recipeId = EditorGUILayout.IntField("Recipe ID", food_recipeId);
                 break;
 
             case SoType.Food:
@@ -582,9 +588,15 @@ public class ItemSOBatchCreator : EditorWindow
                     FillCommon(so, id, itemName, icon, ItemCategory.Plant);
                     so.seedID = crop_seedId;
                     so.harvestExp = crop_harvestExp;
-                    so.canBeCrafted = crop_canBeCrafted;
-                    so.usedInRecipes = crop_usedInRecipes;
-                    so.qualityInfo = crop_qualityInfo;
+                    so.witheredCropID = crop_witheredCropID;
+                    // FoodData 继承字段
+                    so.energyRestore = food_energyRestore;
+                    so.healthRestore = food_healthRestore;
+                    so.consumeTime = food_consumeTime;
+                    so.buffType = food_buffType;
+                    so.buffValue = food_buffValue;
+                    so.buffDuration = food_buffDuration;
+                    so.recipeID = food_recipeId;
                     AssetDatabase.CreateAsset(so, assetPath);
                     break;
                 }

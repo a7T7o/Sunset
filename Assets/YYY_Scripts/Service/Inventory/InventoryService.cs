@@ -136,6 +136,9 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         {
             PersistentObjectRegistry.Instance.Register(this);
         }
+        
+        // 订阅日变化事件（用于种子袋保质期检查）
+        TimeManager.OnDayChanged += OnDayChanged;
     }
     
     void OnDestroy()
@@ -152,6 +155,8 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
             _inventoryData.OnSlotChanged -= HandleInternalSlotChanged;
             _inventoryData.OnInventoryChanged -= HandleInternalInventoryChanged;
         }
+        
+        TimeManager.OnDayChanged -= OnDayChanged;
     }
     
     /// <summary>
@@ -394,6 +399,87 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
     public void RefreshAll()
     {
         OnInventoryChanged?.Invoke();
+    }
+    
+    #endregion
+    
+    #region 种子袋保质期检查
+    
+    /// <summary>
+    /// 腐烂食物 ID
+    /// </summary>
+    private const int ROTTEN_FOOD_ID = 5999;
+    
+    /// <summary>
+    /// 每日检查背包中的种子袋保质期
+    /// </summary>
+    private void OnDayChanged(int year, int day, int totalDays)
+    {
+        if (_inventoryData == null) return;
+        
+        bool changed = false;
+        
+        for (int i = 0; i < inventorySize; i++)
+        {
+            var item = _inventoryData.GetItem(i);
+            if (item == null || item.IsEmpty) continue;
+            
+            if (!FarmGame.Farm.SeedBagHelper.IsSeedBag(item)) continue;
+            
+            if (FarmGame.Farm.SeedBagHelper.IsExpired(item, totalDays))
+            {
+                // 过期 → 替换为腐烂食物
+                // ★ 关键：不设置任何动态属性，确保 properties.Count == 0，可堆叠
+                var rottenItem = new InventoryItem(ROTTEN_FOOD_ID, 0, 1);
+                _inventoryData.SetItem(i, rottenItem);
+                changed = true;
+                
+                if (showDebugInfo)
+                    Debug.Log($"[InventoryService] 槽位 {i} 种子袋过期，替换为腐烂食物");
+            }
+        }
+        
+        if (changed)
+        {
+            // 尝试合并腐烂食物
+            TryMergeRottenFood();
+        }
+    }
+    
+    /// <summary>
+    /// 尝试合并背包中的腐烂食物
+    /// </summary>
+    private void TryMergeRottenFood()
+    {
+        if (_inventoryData == null) return;
+        
+        int maxStack = GetMaxStack(ROTTEN_FOOD_ID);
+        
+        for (int i = 0; i < inventorySize; i++)
+        {
+            var itemA = _inventoryData.GetItem(i);
+            if (itemA == null || itemA.IsEmpty || itemA.ItemId != ROTTEN_FOOD_ID) continue;
+            
+            for (int j = i + 1; j < inventorySize; j++)
+            {
+                var itemB = _inventoryData.GetItem(j);
+                if (itemB == null || itemB.IsEmpty || itemB.ItemId != ROTTEN_FOOD_ID) continue;
+                
+                if (!itemA.CanStackWith(itemB)) continue;
+                
+                int total = itemA.Amount + itemB.Amount;
+                if (total <= maxStack)
+                {
+                    itemA.SetAmount(total);
+                    _inventoryData.ClearItem(j);
+                }
+                else
+                {
+                    itemA.SetAmount(maxStack);
+                    itemB.SetAmount(total - maxStack);
+                }
+            }
+        }
     }
     
     #endregion

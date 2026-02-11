@@ -20,6 +20,12 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
     [Tooltip("对象唯一 ID（自动生成，勿手动修改）")]
     [SerializeField] private string persistentId;
     
+    /// <summary>
+    /// 🔥 P2 任务 6：来源资源节点的 GUID
+    /// 用于关联掉落物与其来源（石头、树木等）
+    /// </summary>
+    [SerializeField] private string sourceNodeGuid;
+    
     [Header("关联数据（可选）")]
     [Tooltip("直接关联的 ItemData，用于预制体拖入场景时自动初始化")]
     [SerializeField] private ItemData linkedItemData;
@@ -136,6 +142,43 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
     {
         // 确保物品已初始化
         EnsureInitialized();
+        
+        // 🔥 P0 修复：注册到持久化对象注册表
+        // 这样反向修剪才能正确处理掉落物
+        RegisterToPersistentRegistry();
+    }
+    
+    private void OnDestroy()
+    {
+        // 🔥 P0 修复：从持久化对象注册表注销
+        UnregisterFromPersistentRegistry();
+    }
+    
+    /// <summary>
+    /// 注册到持久化对象注册表
+    /// </summary>
+    private void RegisterToPersistentRegistry()
+    {
+        if (PersistentObjectRegistry.Instance == null) return;
+        
+        // 确保有 GUID
+        if (string.IsNullOrEmpty(persistentId))
+        {
+            persistentId = System.Guid.NewGuid().ToString();
+        }
+        
+        PersistentObjectRegistry.Instance.Register(this);
+    }
+    
+    /// <summary>
+    /// 从持久化对象注册表注销
+    /// </summary>
+    private void UnregisterFromPersistentRegistry()
+    {
+        if (PersistentObjectRegistry.Instance != null)
+        {
+            PersistentObjectRegistry.Instance.Unregister(this);
+        }
     }
 
     public void ApplyVisual()
@@ -538,9 +581,17 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
         {
             itemId = this.itemId,
             quality = this.quality,
-            amount = this.amount
+            amount = this.amount,
+            sourceNodeGuid = this.sourceNodeGuid  // 🔥 P2 任务 6：保存来源 GUID
         };
         data.genericData = JsonUtility.ToJson(dropData);
+        
+        // 🔴 保存渲染层级参数（Sorting Layer + Order in Layer）
+        var spriteRenderer = GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            data.SetSortingLayer(spriteRenderer);
+        }
         
         return data;
     }
@@ -560,11 +611,19 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
         itemId = dropData.itemId;
         quality = dropData.quality;
         amount = dropData.amount;
+        sourceNodeGuid = dropData.sourceNodeGuid;  // 🔥 P2 任务 6：恢复来源 GUID
         
         // 刷新视觉
         ApplyVisual();
         
-        Debug.Log($"[WorldItemPickup] 已从存档恢复: itemId={itemId}, quality={quality}, amount={amount}");
+        // 🔴 恢复渲染层级参数（Sorting Layer + Order in Layer）
+        var spriteRenderer = GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            data.RestoreSortingLayer(spriteRenderer);
+        }
+        
+        Debug.Log($"[WorldItemPickup] 已从存档恢复: itemId={itemId}, quality={quality}, amount={amount}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}");
     }
     
     /// <summary>
@@ -579,6 +638,20 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
         }
         
         persistentId = guid;
+    }
+    
+    /// <summary>
+    /// 🔥 P2 任务 6：来源资源节点的 GUID（只读属性）
+    /// </summary>
+    public string SourceNodeGuid => sourceNodeGuid;
+    
+    /// <summary>
+    /// 🔥 P2 任务 6：设置来源资源节点的 GUID
+    /// 由资源节点（石头、树木等）在生成掉落物时调用
+    /// </summary>
+    public void SetSourceNodeGuid(string guid)
+    {
+        sourceNodeGuid = guid;
     }
     
     #endregion

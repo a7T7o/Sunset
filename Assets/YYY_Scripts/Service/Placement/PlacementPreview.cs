@@ -33,7 +33,7 @@ public class PlacementPreview : MonoBehaviour
     [SerializeField] private float itemPreviewAlpha = 0.8f;
     
     [Header("━━━━ 调试 ━━━━")]
-    [SerializeField] private bool showDebugInfo = true; // 临时开启调试
+    [SerializeField] private bool showDebugInfo = false; // 默认关闭调试
     
     #endregion
     
@@ -120,7 +120,8 @@ public class PlacementPreview : MonoBehaviour
     /// </summary>
     public void Show(ItemData item, Vector2Int gridSize)
     {
-        Debug.Log($"<color=cyan>[PlacementPreviewV3] Show 被调用: {item?.itemName ?? "null"}, gridSize={gridSize}</color>");
+        if (showDebugInfo)
+            Debug.Log($"<color=cyan>[PlacementPreviewV3] Show 被调用: {item?.itemName ?? "null"}, gridSize={gridSize}</color>");
         
         if (item == null) return;
         
@@ -129,7 +130,6 @@ public class PlacementPreview : MonoBehaviour
         isLocked = false;
         
         gameObject.SetActive(true);
-        Debug.Log($"<color=cyan>[PlacementPreviewV3] gameObject.SetActive(true), activeSelf={gameObject.activeSelf}</color>");
         
         // ★ 优先使用预制体 Sprite，使预览与实际放置一致
         bool spriteSet = false;
@@ -151,7 +151,8 @@ public class PlacementPreview : MonoBehaviour
                 itemPreviewRenderer.color = previewColor;
                 
                 spriteSet = true;
-                Debug.Log($"<color=cyan>[PlacementPreviewV3] 使用预制体 Sprite: {prefabSR.sprite.name}, localPos={spriteLocalPos}</color>");
+                if (showDebugInfo)
+                    Debug.Log($"<color=cyan>[PlacementPreviewV3] 使用预制体 Sprite: {prefabSR.sprite.name}, localPos={spriteLocalPos}</color>");
             }
         }
         
@@ -163,7 +164,8 @@ public class PlacementPreview : MonoBehaviour
             Color previewColor = Color.white;
             previewColor.a = itemPreviewAlpha;
             itemPreviewRenderer.color = previewColor;
-            Debug.Log($"<color=cyan>[PlacementPreviewV3] 回退使用 icon: {item.icon.name}</color>");
+            if (showDebugInfo)
+                Debug.Log($"<color=cyan>[PlacementPreviewV3] 回退使用 icon: {item.icon.name}</color>");
         }
         else if (!spriteSet)
         {
@@ -172,7 +174,8 @@ public class PlacementPreview : MonoBehaviour
         
         // 创建格子
         CreateGridCells(gridSize);
-        Debug.Log($"<color=green>[PlacementPreviewV3] 创建了 {gridCells.Count} 个格子</color>");
+        if (showDebugInfo)
+            Debug.Log($"<color=green>[PlacementPreviewV3] 创建了 {gridCells.Count} 个格子</color>");
     }
     
     /// <summary>

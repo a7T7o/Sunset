@@ -21,11 +21,18 @@ namespace FarmGame.Data.Core
         #region 单例
         
         private static PersistentObjectRegistry _instance;
+        private static bool _isQuitting = false;  // 🔥 防止退出时创建新实例
         
         public static PersistentObjectRegistry Instance
         {
             get
             {
+                // 🔥 如果正在退出，不要创建新实例
+                if (_isQuitting)
+                {
+                    return _instance;  // 可能为 null，调用者需要处理
+                }
+                
                 if (_instance == null)
                 {
                     // 尝试查找现有实例
@@ -87,6 +94,12 @@ namespace FarmGame.Data.Core
             
             if (showDebugInfo)
                 Debug.Log("[PersistentObjectRegistry] 初始化完成");
+        }
+        
+        private void OnApplicationQuit()
+        {
+            // 🔥 标记正在退出，防止在 OnDestroy 期间创建新实例
+            _isQuitting = true;
         }
         
         private void OnDestroy()
@@ -348,10 +361,16 @@ namespace FarmGame.Data.Core
         /// 🔥 P2-1 修复：实现反向修剪逻辑，防止已删除物体"复活"
         /// 🔥 锐评011 指令：添加 GUID 匹配率统计
         /// 🔥 动态对象重建：找不到 GUID 时尝试重建
+        /// 🔥 P0 任务 1.4：清理 StoneDebris 临时碎片效果
         /// </summary>
         public void RestoreAllFromSaveData(List<WorldObjectSaveData> dataList)
         {
             if (dataList == null) return;
+            
+            // 🔥 P0 任务 1.4：清理所有 StoneDebris（临时碎片效果）
+            // StoneDebris 是石头被挖掉时产生的临时视觉效果，不是持久化对象
+            // 加载存档时需要清理，避免无限累积
+            CleanupStoneDebris();
             
             // 🔥 锐评011 指令：GUID 匹配率统计
             int matchCount = 0;
@@ -380,12 +399,23 @@ namespace FarmGame.Data.Core
                         if (obj is MonoBehaviour mb && mb != null)
                         {
                             if (showDebugInfo)
-                                Debug.Log($"[PersistentObjectRegistry] 反向修剪: 禁用 {obj.ObjectType}, GUID: {obj.PersistentId}");
+                                Debug.Log($"[PersistentObjectRegistry] 反向修剪: {obj.ObjectType}, GUID: {obj.PersistentId}");
                             
-                            // 🔥 使用 SetActive(false) 而不是 Destroy()
-                            // 原因：对于树木等对象，可能需要调用特定的 Hide() 方法
-                            // 使用 Disable 比 Destroy 更安全，避免影响对象池
-                            mb.gameObject.SetActive(false);
+                            // 🔥 P0 修复：区分动态对象和静态对象
+                            // 动态对象（掉落物）：销毁
+                            // 静态对象（石头、树木）：禁用
+                            if (obj is WorldItemPickup)
+                            {
+                                // 掉落物是动态生成的，应该销毁
+                                Destroy(mb.gameObject);
+                                if (showDebugInfo)
+                                    Debug.Log($"[PersistentObjectRegistry] 销毁掉落物: GUID: {obj.PersistentId}");
+                            }
+                            else
+                            {
+                                // 静态对象使用 SetActive(false)
+                                mb.gameObject.SetActive(false);
+                            }
                             pruned++;
                         }
                     }
@@ -462,6 +492,34 @@ namespace FarmGame.Data.Core
             
             if (showDebugInfo)
                 Debug.Log($"[PersistentObjectRegistry] 恢复完成: 成功 {restored}, 重建 {reconstructed}, 未找到 {notFound}, 修剪 {pruned}");
+        }
+        
+        #endregion
+        
+        #region 辅助方法
+        
+        /// <summary>
+        /// 🔥 P0 任务 1.4：清理所有 StoneDebris（临时碎片效果）
+        /// StoneDebris 是石头被挖掉时产生的临时视觉效果，命名格式为 "StoneDebris_X"
+        /// 这些对象不是持久化对象，加载存档时需要清理
+        /// </summary>
+        private void CleanupStoneDebris()
+        {
+            // 查找所有名称以 "StoneDebris_" 开头的对象
+            var allObjects = FindObjectsByType<GameObject>(FindObjectsSortMode.None);
+            int cleanedCount = 0;
+            
+            foreach (var obj in allObjects)
+            {
+                if (obj != null && obj.name.StartsWith("StoneDebris_"))
+                {
+                    Destroy(obj);
+                    cleanedCount++;
+                }
+            }
+            
+            if (cleanedCount > 0 && showDebugInfo)
+                Debug.Log($"[PersistentObjectRegistry] 清理了 {cleanedCount} 个 StoneDebris 临时碎片");
         }
         
         #endregion

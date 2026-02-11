@@ -2,14 +2,14 @@
 inclusion: manual
 priority: P3
 keywords: [项目结构, 文件夹, 命名规范, 场景结构]
-lastUpdated: 2025-01-09
+lastUpdated: 2026-01-09
 archivedFrom: .kiro/steering/structure.md
-archivedDate: 2025-01-09
+archivedDate: 2026-01-09
 ---
 
 ## 中文概述（面向开发者本人）
 
-- **最后更新**：2025-01-09
+- **最后更新**：2026-01-09
 - **根目录结构**：
   - `Assets/` - Unity 资源（脚本、精灵、预制体、场景）
   - `Docx/` - 设计文档和技术方案

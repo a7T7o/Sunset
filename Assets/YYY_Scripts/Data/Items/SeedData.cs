@@ -32,9 +32,29 @@ namespace FarmGame.Data
         [Tooltip("总共可收获次数（0=无限次）")]
         public int maxHarvestCount = 0;
 
+        [Header("=== 种子袋配置 ===")]
+        [Tooltip("每袋种子数量")]
+        [Range(1, 20)]
+        public int seedsPerBag = 5;
+
+        [Tooltip("未打开保质期（天）")]
+        [Range(1, 28)]
+        public int shelfLifeClosed = 7;
+
+        [Tooltip("打开后保质期（天）")]
+        [Range(1, 14)]
+        public int shelfLifeOpened = 2;
+
+        [Tooltip("已打开状态的图标")]
+        public Sprite iconOpened;
+
         [Header("=== 生长阶段Sprite ===")]
         [Tooltip("生长阶段图（按顺序：种子→小苗→成长→成熟）")]
         public Sprite[] growthStageSprites;
+
+        [Header("=== 枯萎样式 ===")]
+        [Tooltip("枯萎阶段Sprite（至少1个，可扩展为多个）")]
+        public Sprite[] witheredStageSprites;
 
         [Header("=== 种植需求 ===")]
         [Tooltip("是否需要支架/棚架")]

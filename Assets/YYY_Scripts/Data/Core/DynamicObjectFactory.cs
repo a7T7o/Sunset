@@ -1,4 +1,6 @@
 using UnityEngine;
+using System.Text.RegularExpressions;
+using FarmGame.World;
 
 namespace FarmGame.Data.Core
 {
@@ -14,12 +16,28 @@ namespace FarmGame.Data.Core
     /// 🛡️ 封印二：回退逻辑的防腐层
     /// - 在执行 Instantiate 之前，必须先校验数据有效性
     /// - health <= 0 && !isStump → 坏死数据，直接丢弃
+    /// 
+    /// 🛡️ 锐评020：工厂容错
+    /// - 如果 prefabId 查找失败，尝试清洗后再查找
+    /// 
+    /// 🔥 3.7.5 重构：使用 PrefabDatabase 替代 PrefabRegistry
+    /// - 支持自动扫描、智能回退、ID 别名映射
     /// </summary>
     public static class DynamicObjectFactory
     {
         #region 私有字段
         
+        /// <summary>
+        /// 🔥 3.7.5：使用 PrefabDatabase 替代 PrefabRegistry
+        /// </summary>
+        private static PrefabDatabase _database;
+        
+        /// <summary>
+        /// 🔥 向后兼容：保留对旧 PrefabRegistry 的支持
+        /// </summary>
+        [System.Obsolete("使用 _database 替代")]
         private static PrefabRegistry _registry;
+        
         private static bool _initialized = false;
         private static bool _showDebugInfo = true;
         
@@ -28,22 +46,93 @@ namespace FarmGame.Data.Core
         #region 初始化
         
         /// <summary>
-        /// 初始化工厂（在游戏启动时调用）
+        /// 🔥 3.7.5：使用 PrefabDatabase 初始化（推荐）
         /// </summary>
-        /// <param name="registry">预制体注册表</param>
-        public static void Initialize(PrefabRegistry registry)
+        /// <param name="database">预制体数据库</param>
+        public static void Initialize(PrefabDatabase database)
         {
-            _registry = registry;
+            _database = database;
             _initialized = true;
             
             if (_showDebugInfo)
-                Debug.Log($"[DynamicObjectFactory] 初始化完成，PrefabRegistry: {(registry != null ? "已加载" : "为空")}");
+                Debug.Log($"[DynamicObjectFactory] 初始化完成，PrefabDatabase: {(database != null ? $"已加载 ({database.EntryCount} 个预制体)" : "为空")}");
+        }
+        
+        /// <summary>
+        /// 初始化工厂（旧接口，向后兼容）
+        /// </summary>
+        /// <param name="registry">预制体注册表</param>
+        [System.Obsolete("使用 Initialize(PrefabDatabase) 替代")]
+        public static void Initialize(PrefabRegistry registry)
+        {
+            #pragma warning disable CS0618
+            _registry = registry;
+            #pragma warning restore CS0618
+            _initialized = true;
+            
+            if (_showDebugInfo)
+                Debug.Log($"[DynamicObjectFactory] 初始化完成（旧模式），PrefabRegistry: {(registry != null ? "已加载" : "为空")}");
         }
         
         /// <summary>
         /// 检查是否已初始化
         /// </summary>
-        public static bool IsInitialized => _initialized && _registry != null;
+        public static bool IsInitialized => _initialized && (_database != null || 
+            #pragma warning disable CS0618
+            _registry != null
+            #pragma warning restore CS0618
+        );
+        
+        #endregion
+        
+        #region 预制体查找
+        
+        /// <summary>
+        /// 🔥 3.7.5：统一的预制体查找方法
+        /// 优先使用 PrefabDatabase，回退到 PrefabRegistry
+        /// </summary>
+        private static GameObject GetPrefab(string prefabId)
+        {
+            if (string.IsNullOrEmpty(prefabId)) return null;
+            
+            // 优先使用 PrefabDatabase
+            if (_database != null)
+            {
+                return _database.GetPrefab(prefabId);
+            }
+            
+            // 回退到 PrefabRegistry
+            #pragma warning disable CS0618
+            if (_registry != null)
+            {
+                return _registry.GetPrefab(prefabId);
+            }
+            #pragma warning restore CS0618
+            
+            return null;
+        }
+        
+        /// <summary>
+        /// 🔥 3.7.5：检查预制体是否存在
+        /// </summary>
+        private static bool HasPrefab(string prefabId)
+        {
+            if (string.IsNullOrEmpty(prefabId)) return false;
+            
+            if (_database != null)
+            {
+                return _database.HasPrefab(prefabId);
+            }
+            
+            #pragma warning disable CS0618
+            if (_registry != null)
+            {
+                return _registry.HasPrefab(prefabId);
+            }
+            #pragma warning restore CS0618
+            
+            return false;
+        }
         
         #endregion
         
@@ -75,6 +164,18 @@ namespace FarmGame.Data.Core
                 return TryReconstructTree(data);
             }
             
+            // === 🔥 P1 任务 5：处理石头 ===
+            if (data.objectType == "Stone")
+            {
+                return TryReconstructStone(data);
+            }
+            
+            // === 🔥 P1 任务 9：处理箱子 ===
+            if (data.objectType == "Chest")
+            {
+                return TryReconstructChest(data);
+            }
+            
             // 其他类型暂不支持重建
             if (_showDebugInfo)
                 Debug.Log($"[DynamicObjectFactory] 不支持重建的对象类型: {data.objectType}");
@@ -89,6 +190,7 @@ namespace FarmGame.Data.Core
         /// <summary>
         /// 重建掉落物
         /// 使用 WorldSpawnService.SpawnById() 而非 PrefabRegistry
+        /// 🔥 P2 任务 6.3：添加来源节点关联检查
         /// </summary>
         private static IPersistentObject TryReconstructDrop(WorldObjectSaveData data)
         {
@@ -127,6 +229,27 @@ namespace FarmGame.Data.Core
             {
                 Debug.LogWarning($"[DynamicObjectFactory] 掉落物数量无效: guid={data.guid}, amount={dropData.amount}");
                 return null;
+            }
+            
+            // 🔥 P2 任务 6.3：检查来源节点是否存在且活跃
+            // 如果来源节点存在且活跃，说明资源节点被恢复了，掉落物不应该存在
+            if (!string.IsNullOrEmpty(dropData.sourceNodeGuid))
+            {
+                if (PersistentObjectRegistry.Instance != null)
+                {
+                    var sourceNode = PersistentObjectRegistry.Instance.FindByGuid(dropData.sourceNodeGuid);
+                    if (sourceNode != null)
+                    {
+                        // 检查来源节点是否活跃
+                        var mb = sourceNode as MonoBehaviour;
+                        if (mb != null && mb.gameObject.activeInHierarchy)
+                        {
+                            if (_showDebugInfo)
+                                Debug.Log($"[DynamicObjectFactory] 跳过掉落物重建：来源节点 {dropData.sourceNodeGuid} 存在且活跃");
+                            return null;
+                        }
+                    }
+                }
             }
             
             // 使用 WorldSpawnService 重建
@@ -176,6 +299,7 @@ namespace FarmGame.Data.Core
         /// <summary>
         /// 重建树木
         /// 🛡️ 封印二：在执行 Instantiate 之前，必须先校验数据有效性
+        /// 🔥 3.7.5：使用统一的 GetPrefab 方法
         /// </summary>
         private static IPersistentObject TryReconstructTree(WorldObjectSaveData data)
         {
@@ -227,15 +351,25 @@ namespace FarmGame.Data.Core
                     Debug.LogWarning($"[DynamicObjectFactory] 旧存档兼容：使用默认预制体 M1, guid={data.guid}");
             }
             
-            // 检查 PrefabRegistry
-            if (_registry == null)
+            // 🔥 3.7.5：使用统一的 GetPrefab 方法（支持 PrefabDatabase 和 PrefabRegistry）
+            var prefab = GetPrefab(prefabId);
+            
+            // 🛡️ 锐评020：工厂容错 - 如果查找失败，尝试清洗 prefabId 后再查找
+            if (prefab == null)
             {
-                Debug.LogError("[DynamicObjectFactory] PrefabRegistry 未初始化，无法重建树木");
-                return null;
+                // 尝试清洗 prefabId (去掉可能存在的 " (1)" 后缀)
+                string cleanId = Regex.Replace(prefabId, @"\s\(\d+\)$", "");
+                if (cleanId != prefabId)
+                {
+                    prefab = GetPrefab(cleanId);
+                    if (prefab != null)
+                    {
+                        if (_showDebugInfo)
+                            Debug.LogWarning($"[DynamicObjectFactory] 原始 ID '{prefabId}' 失败，清洗后 '{cleanId}' 成功匹配");
+                    }
+                }
             }
             
-            // 查找预制体
-            var prefab = _registry.GetPrefab(prefabId);
             if (prefab == null)
             {
                 Debug.LogWarning($"[DynamicObjectFactory] 找不到预制体: {prefabId}");
@@ -273,6 +407,182 @@ namespace FarmGame.Data.Core
         
         #endregion
         
+        #region 石头重建
+        
+        /// <summary>
+        /// 🔥 P1 任务 5：重建石头
+        /// 石头使用假死机制，通常不需要动态重建
+        /// 此方法用于处理极端情况（如石头被意外销毁）
+        /// 🔥 3.7.5：使用统一的 GetPrefab 方法
+        /// </summary>
+        private static IPersistentObject TryReconstructStone(WorldObjectSaveData data)
+        {
+            // 解析 StoneSaveData 进行数据验证
+            StoneSaveData stoneData = null;
+            if (!string.IsNullOrEmpty(data.genericData))
+            {
+                try
+                {
+                    stoneData = JsonUtility.FromJson<StoneSaveData>(data.genericData);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[DynamicObjectFactory] 石头数据解析失败: guid={data.guid}, error={e.Message}");
+                    return null;
+                }
+            }
+            
+            // 数据有效性检查
+            if (stoneData == null)
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 石头数据为空: guid={data.guid}");
+                return null;
+            }
+            
+            // 根据阶段和矿物类型确定预制体 ID
+            // 石头预制体命名规范：C1, C2, C3
+            string prefabId = data.prefabId;
+            if (string.IsNullOrEmpty(prefabId))
+            {
+                // 默认使用 C1
+                prefabId = "C1";
+                
+                if (_showDebugInfo)
+                    Debug.LogWarning($"[DynamicObjectFactory] 石头 prefabId 为空，使用默认: {prefabId}");
+            }
+            
+            // 🔥 3.7.5：使用统一的 GetPrefab 方法
+            var prefab = GetPrefab(prefabId);
+            
+            // 如果找不到，尝试使用通用石头预制体
+            if (prefab == null)
+            {
+                prefab = GetPrefab("C1");
+                if (prefab != null && _showDebugInfo)
+                    Debug.LogWarning($"[DynamicObjectFactory] 找不到预制体 {prefabId}，使用默认 C1");
+            }
+            
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 找不到石头预制体: {prefabId}");
+                return null;
+            }
+            
+            // 实例化（先禁用，避免闪烁）
+            Vector3 position = data.GetPosition();
+            var instance = Object.Instantiate(prefab, position, Quaternion.identity);
+            instance.SetActive(false);
+            
+            // 获取 IPersistentObject 组件
+            var persistentObj = instance.GetComponentInChildren<IPersistentObject>();
+            if (persistentObj == null)
+            {
+                Debug.LogError($"[DynamicObjectFactory] 石头预制体 {prefabId} 没有 IPersistentObject 组件");
+                Object.Destroy(instance);
+                return null;
+            }
+            
+            // 强制设置 GUID
+            SetPersistentId(persistentObj, data.guid);
+            
+            // 注册到 Registry
+            if (PersistentObjectRegistry.Instance != null)
+            {
+                PersistentObjectRegistry.Instance.Register(persistentObj);
+            }
+            
+            if (_showDebugInfo)
+                Debug.Log($"[DynamicObjectFactory] 石头重建成功: prefabId={prefabId}, guid={data.guid}, position={position}");
+            
+            return persistentObj;
+        }
+        
+        #endregion
+        
+        #region 箱子重建
+        
+        /// <summary>
+        /// 🔥 P1 任务 9：重建箱子
+        /// 箱子被挖取后从场景移除，加载存档时需要动态重建
+        /// 🔥 3.7.5：使用统一的 GetPrefab 方法，支持 ID 别名映射
+        /// </summary>
+        private static IPersistentObject TryReconstructChest(WorldObjectSaveData data)
+        {
+            // 解析 ChestSaveData 进行数据验证
+            ChestSaveData chestData = null;
+            if (!string.IsNullOrEmpty(data.genericData))
+            {
+                try
+                {
+                    chestData = JsonUtility.FromJson<ChestSaveData>(data.genericData);
+                }
+                catch (System.Exception e)
+                {
+                    Debug.LogWarning($"[DynamicObjectFactory] 箱子数据解析失败: guid={data.guid}, error={e.Message}");
+                    return null;
+                }
+            }
+            
+            // 确定预制体 ID
+            // 🔥 3.7.5：PrefabDatabase 会自动处理 ID 别名映射
+            // 例如：Storage_1400_小木箱子_0 → Box_1
+            string prefabId = data.prefabId;
+            if (string.IsNullOrEmpty(prefabId))
+            {
+                // 默认使用 Box_1
+                prefabId = "Box_1";
+                if (_showDebugInfo)
+                    Debug.LogWarning($"[DynamicObjectFactory] 箱子 prefabId 为空，使用默认: {prefabId}");
+            }
+            
+            // 🔥 3.7.5：使用统一的 GetPrefab 方法（支持 ID 别名映射）
+            var prefab = GetPrefab(prefabId);
+            
+            // 如果找不到，尝试使用默认箱子预制体
+            if (prefab == null)
+            {
+                prefab = GetPrefab("Box_1");
+                if (prefab != null && _showDebugInfo)
+                    Debug.LogWarning($"[DynamicObjectFactory] 找不到预制体 {prefabId}，使用默认 Box_1");
+            }
+            
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 找不到箱子预制体: {prefabId}");
+                return null;
+            }
+            
+            // 实例化（先禁用，避免闪烁）
+            Vector3 position = data.GetPosition();
+            var instance = Object.Instantiate(prefab, position, Quaternion.identity);
+            instance.SetActive(false);
+            
+            // 获取 IPersistentObject 组件
+            var persistentObj = instance.GetComponentInChildren<IPersistentObject>();
+            if (persistentObj == null)
+            {
+                Debug.LogError($"[DynamicObjectFactory] 箱子预制体 {prefabId} 没有 IPersistentObject 组件");
+                Object.Destroy(instance);
+                return null;
+            }
+            
+            // 强制设置 GUID
+            SetPersistentId(persistentObj, data.guid);
+            
+            // 注册到 Registry
+            if (PersistentObjectRegistry.Instance != null)
+            {
+                PersistentObjectRegistry.Instance.Register(persistentObj);
+            }
+            
+            if (_showDebugInfo)
+                Debug.Log($"[DynamicObjectFactory] 箱子重建成功: prefabId={prefabId}, guid={data.guid}, position={position}");
+            
+            return persistentObj;
+        }
+        
+        #endregion
+        
         #region 辅助方法
         
         /// <summary>
@@ -289,6 +599,14 @@ namespace FarmGame.Data.Core
             else if (obj is WorldItemPickup pickup)
             {
                 pickup.SetPersistentIdForLoad(guid);
+            }
+            else if (obj is StoneController stone)
+            {
+                stone.SetPersistentIdForLoad(guid);
+            }
+            else if (obj is FarmGame.World.ChestController chest)
+            {
+                chest.SetPersistentIdForLoad(guid);
             }
             // 其他类型可以在这里扩展
         }

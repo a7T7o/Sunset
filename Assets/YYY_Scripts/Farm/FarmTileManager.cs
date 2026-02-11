@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
+using FarmGame.Data.Core;
 
 namespace FarmGame.Farm
 {
@@ -9,8 +10,10 @@ namespace FarmGame.Farm
     /// 负责管理多楼层的耕地数据、浇水状态
     /// 直接订阅时间事件，自己处理每日重置和水渍干涸
     /// 不依赖 FarmingManagerNew
+    /// 
+    /// 实现 IPersistentObject 接口，支持存档/读档
     /// </summary>
-    public class FarmTileManager : MonoBehaviour
+    public class FarmTileManager : MonoBehaviour, IPersistentObject
     {
         #region 单例
         
@@ -91,6 +94,15 @@ namespace FarmGame.Farm
             if (visualManager == null)
             {
                 visualManager = FindFirstObjectByType<FarmVisualManager>();
+            }
+            
+            // 注册到持久化对象注册中心
+            if (PersistentObjectRegistry.Instance != null)
+            {
+                PersistentObjectRegistry.Instance.Register(this);
+                
+                if (showDebugInfo)
+                    Debug.Log("[FarmTileManager] 已注册到 PersistentObjectRegistry");
             }
         }
         
@@ -238,11 +250,24 @@ namespace FarmGame.Farm
         /// <returns>是否创建成功</returns>
         public bool CreateTile(int layerIndex, Vector3Int cellPosition)
         {
+            // ===== P0：强制配置检查（防止虚空锄地）=====
+            var tilemaps = GetLayerTilemaps(layerIndex);
+            if (tilemaps == null)
+            {
+                Debug.LogError($"[FarmTileManager] CreateTile 失败: 楼层 {layerIndex} 的 Tilemap 配置为空");
+                return false;
+            }
+            
+            if (tilemaps.groundTilemap == null)
+            {
+                Debug.LogError($"[FarmTileManager] CreateTile 失败: 楼层 {layerIndex} 的 groundTilemap 未配置");
+                return false;
+            }
+            
             // 检查楼层是否有效
             if (!farmTilesByLayer.TryGetValue(layerIndex, out var layerTiles))
             {
-                if (showDebugInfo)
-                    Debug.LogWarning($"[FarmTileManager] 无效的楼层索引: {layerIndex}");
+                Debug.LogError($"[FarmTileManager] CreateTile 失败: 无效的楼层索引 {layerIndex}");
                 return false;
             }
             
@@ -259,22 +284,19 @@ namespace FarmGame.Farm
             }
             
             // 检查是否可以耕作（有地面 Tile）
-            var tilemaps = GetLayerTilemaps(layerIndex);
-            if (tilemaps == null || !tilemaps.IsValid())
+            if (!tilemaps.IsValid())
             {
-                Debug.LogError($"[FarmTileManager] 楼层 {layerIndex} 的 Tilemap 配置无效");
+                Debug.LogError($"[FarmTileManager] CreateTile 失败: 楼层 {layerIndex} 的 Tilemap 配置无效");
                 return false;
             }
             
-            if (tilemaps.groundTilemap != null)
+            // 检查地面 Tile 是否存在
+            TileBase groundTile = tilemaps.groundTilemap.GetTile(cellPosition);
+            if (groundTile == null)
             {
-                TileBase groundTile = tilemaps.groundTilemap.GetTile(cellPosition);
-                if (groundTile == null)
-                {
-                    if (showDebugInfo)
-                        Debug.Log($"[FarmTileManager] 该位置没有地面 Tile: {cellPosition}");
-                    return false;
-                }
+                if (showDebugInfo)
+                    Debug.Log($"[FarmTileManager] 该位置没有地面 Tile: {cellPosition}");
+                return false;
             }
             
             // 创建耕地数据
@@ -301,6 +323,20 @@ namespace FarmGame.Farm
         /// </summary>
         public bool CanTillAt(int layerIndex, Vector3Int cellPosition)
         {
+            // ===== P0：强制配置检查（防止虚空锄地）=====
+            var tilemaps = GetLayerTilemaps(layerIndex);
+            if (tilemaps == null)
+            {
+                Debug.LogError($"[FarmTileManager] CanTillAt 失败: 楼层 {layerIndex} 的 Tilemap 配置为空");
+                return false;
+            }
+            
+            if (tilemaps.groundTilemap == null)
+            {
+                Debug.LogError($"[FarmTileManager] CanTillAt 失败: 楼层 {layerIndex} 的 groundTilemap 未配置");
+                return false;
+            }
+            
             // 检查楼层是否有效
             if (!farmTilesByLayer.TryGetValue(layerIndex, out var layerTiles))
             {
@@ -317,19 +353,16 @@ namespace FarmGame.Farm
             }
             
             // 检查是否有地面 Tile
-            var tilemaps = GetLayerTilemaps(layerIndex);
-            if (tilemaps == null || !tilemaps.IsValid())
+            if (!tilemaps.IsValid())
             {
                 return false;
             }
             
-            if (tilemaps.groundTilemap != null)
+            // 检查地面 Tile 是否存在
+            TileBase groundTile = tilemaps.groundTilemap.GetTile(cellPosition);
+            if (groundTile == null)
             {
-                TileBase groundTile = tilemaps.groundTilemap.GetTile(cellPosition);
-                if (groundTile == null)
-                {
-                    return false;
-                }
+                return false;
             }
             
             return true;
@@ -409,6 +442,13 @@ namespace FarmGame.Farm
             
             // 添加到今天浇水的集合
             wateredTodayTiles.Add((layerIndex, cellPosition));
+            
+            // 🔥 Bug C 修复：浇水后立即更新视觉（显示水渍 Tile）
+            var tilemaps = GetLayerTilemaps(layerIndex);
+            if (tilemaps != null && visualManager != null)
+            {
+                visualManager.UpdateTileVisual(tilemaps, cellPosition, tileData);
+            }
             
             if (showDebugInfo)
                 Debug.Log($"[FarmTileManager] 浇水: Layer={layerIndex}, Pos={cellPosition}, Time={waterTime:F1}");
@@ -507,7 +547,9 @@ namespace FarmGame.Farm
             {
                 int layerIndex = layerKvp.Key;
                 var tilemaps = GetLayerTilemaps(layerIndex);
+                #pragma warning disable 0618
                 if (tilemaps == null || tilemaps.farmlandTilemap == null) continue;
+                #pragma warning restore 0618
                 
                 foreach (var tileKvp in layerKvp.Value)
                 {
@@ -537,6 +579,214 @@ namespace FarmGame.Farm
                     Gizmos.DrawWireCube(worldPos, Vector3.one * 0.3f);
                 }
             }
+        }
+        
+        #endregion
+        
+        #region IPersistentObject 实现
+        
+        /// <summary>
+        /// 持久化 ID（FarmTileManager 是单例，使用固定 ID）
+        /// </summary>
+        public string PersistentId => "FarmTileManager";
+        
+        /// <summary>
+        /// 对象类型标识
+        /// </summary>
+        public string ObjectType => "FarmTileManager";
+        
+        /// <summary>
+        /// 是否需要保存（始终为 true）
+        /// </summary>
+        public bool ShouldSave => true;
+        
+        /// <summary>
+        /// 保存耕地数据
+        /// </summary>
+        public WorldObjectSaveData Save()
+        {
+            var saveData = new WorldObjectSaveData
+            {
+                guid = PersistentId,
+                objectType = ObjectType
+            };
+            
+            // 序列化所有耕地数据
+            var farmTiles = new List<FarmTileSaveData>();
+            
+            foreach (var layerKvp in farmTilesByLayer)
+            {
+                int layerIndex = layerKvp.Key;
+                
+                foreach (var tileKvp in layerKvp.Value)
+                {
+                    var tile = tileKvp.Value;
+                    if (!tile.isTilled) continue;
+                    
+                    farmTiles.Add(new FarmTileSaveData
+                    {
+                        tileX = tile.position.x,
+                        tileY = tile.position.y,
+                        layer = tile.layerIndex,
+                        soilState = (int)tile.moistureState,
+                        isWatered = tile.wateredToday
+                    });
+                }
+            }
+            
+            saveData.genericData = JsonUtility.ToJson(new FarmTileListWrapper { tiles = farmTiles });
+            
+            if (showDebugInfo)
+                Debug.Log($"[FarmTileManager] Save: 保存了 {farmTiles.Count} 块耕地");
+            
+            return saveData;
+        }
+        
+        /// <summary>
+        /// 加载耕地数据
+        /// </summary>
+        public void Load(WorldObjectSaveData data)
+        {
+            if (data == null || string.IsNullOrEmpty(data.genericData))
+            {
+                Debug.LogWarning("[FarmTileManager] Load: 存档数据为空");
+                return;
+            }
+            
+            // 清空现有数据
+            ClearAllTiles();
+            
+            // 反序列化耕地数据
+            var wrapper = JsonUtility.FromJson<FarmTileListWrapper>(data.genericData);
+            if (wrapper == null || wrapper.tiles == null)
+            {
+                Debug.LogWarning("[FarmTileManager] Load: 反序列化失败");
+                return;
+            }
+            
+            int loadedCount = 0;
+            
+            foreach (var tileData in wrapper.tiles)
+            {
+                var cellPos = new Vector3Int(tileData.tileX, tileData.tileY, 0);
+                
+                // 创建耕地数据
+                if (CreateTileFromSaveData(tileData.layer, cellPos, tileData))
+                {
+                    loadedCount++;
+                }
+            }
+            
+            // 刷新边界视觉
+            if (FarmlandBorderManager.Instance != null)
+            {
+                FarmlandBorderManager.Instance.RefreshAllLayersBorders();
+            }
+            
+            // 刷新所有耕地视觉
+            if (visualManager != null)
+            {
+                visualManager.RefreshAllTileVisuals();
+            }
+            
+            if (showDebugInfo)
+                Debug.Log($"[FarmTileManager] Load: 加载了 {loadedCount} 块耕地");
+        }
+        
+        /// <summary>
+        /// 清空所有耕地数据
+        /// </summary>
+        public void ClearAllTiles()
+        {
+            // 清空 Tilemap
+            foreach (var layerKvp in farmTilesByLayer)
+            {
+                int layerIndex = layerKvp.Key;
+                var tilemaps = GetLayerTilemaps(layerIndex);
+                
+                if (tilemaps != null)
+                {
+                    #pragma warning disable 0618
+                    // 清空耕地 Tilemap（新版优先）
+                    if (tilemaps.farmlandCenterTilemap != null)
+                    {
+                        tilemaps.farmlandCenterTilemap.ClearAllTiles();
+                    }
+                    else if (tilemaps.farmlandTilemap != null)
+                    {
+                        tilemaps.farmlandTilemap.ClearAllTiles();
+                    }
+                    
+                    // 清空水渍 Tilemap（新版优先）
+                    if (tilemaps.waterPuddleTilemapNew != null)
+                    {
+                        tilemaps.waterPuddleTilemapNew.ClearAllTiles();
+                    }
+                    else if (tilemaps.waterPuddleTilemap != null)
+                    {
+                        tilemaps.waterPuddleTilemap.ClearAllTiles();
+                    }
+                    #pragma warning restore 0618
+                }
+                
+                // 清空数据字典
+                layerKvp.Value.Clear();
+            }
+            
+            // 清空今天浇水的集合
+            wateredTodayTiles.Clear();
+            
+            if (showDebugInfo)
+                Debug.Log("[FarmTileManager] ClearAllTiles: 已清空所有耕地");
+        }
+        
+        /// <summary>
+        /// 从存档数据创建耕地
+        /// </summary>
+        /// <param name="layerIndex">楼层索引</param>
+        /// <param name="cellPosition">格子坐标</param>
+        /// <param name="saveData">存档数据</param>
+        /// <returns>是否创建成功</returns>
+        public bool CreateTileFromSaveData(int layerIndex, Vector3Int cellPosition, FarmTileSaveData saveData)
+        {
+            // 检查楼层是否有效
+            if (!farmTilesByLayer.TryGetValue(layerIndex, out var layerTiles))
+            {
+                // 尝试初始化楼层
+                if (layerIndex >= 0 && layerIndex < LayerCount)
+                {
+                    farmTilesByLayer[layerIndex] = new Dictionary<Vector3Int, FarmTileData>();
+                    layerTiles = farmTilesByLayer[layerIndex];
+                }
+                else
+                {
+                    Debug.LogError($"[FarmTileManager] CreateTileFromSaveData 失败: 无效的楼层索引 {layerIndex}");
+                    return false;
+                }
+            }
+            
+            // 创建耕地数据
+            FarmTileData newTile = new FarmTileData(cellPosition, layerIndex);
+            newTile.isTilled = true;
+            newTile.moistureState = (SoilMoistureState)saveData.soilState;
+            newTile.wateredToday = saveData.isWatered;
+            
+            layerTiles[cellPosition] = newTile;
+            
+            // 如果今天已浇水，添加到集合
+            if (saveData.isWatered)
+            {
+                wateredTodayTiles.Add((layerIndex, cellPosition));
+            }
+            
+            // 放置 Tilemap Tile
+            var tilemaps = GetLayerTilemaps(layerIndex);
+            if (tilemaps != null && visualManager != null)
+            {
+                visualManager.UpdateTileVisual(tilemaps, cellPosition, newTile);
+            }
+            
+            return true;
         }
         
         #endregion

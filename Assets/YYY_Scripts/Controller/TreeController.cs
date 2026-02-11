@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using FarmGame.Combat;
 using FarmGame.Data;
 using FarmGame.Data.Core;
@@ -59,8 +60,10 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     [SerializeField] private string persistentId;
     
     [Header("━━━━ 当前状态 ━━━━")]
-    [Tooltip("树木ID（基于InstanceID，0-9999循环）")]
+    #pragma warning disable 0414
+    [Tooltip("【已废弃】树木ID - 3.7.6 后不再使用，渐变种子直接基于 persistentId.GetHashCode()")]
     [SerializeField] private int treeID = -1;
+    #pragma warning restore 0414
     
     [Tooltip("当前阶段索引（0-5）")]
     [Range(0, 5)]
@@ -257,8 +260,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         // 缓存影子引用
         InitializeShadowCache();
         
-        // 生成树木ID
-        treeID = Mathf.Abs(gameObject.GetInstanceID()) % 10000;
+        // ★ 3.7.6：treeID 不再使用，渐变种子直接基于 persistentId.GetHashCode()
         
         #if UNITY_EDITOR
         lastEditorStageIndex = currentStageIndex;
@@ -1472,9 +1474,10 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             return result;
         }
         
-        // 渐变中：使用treeID生成固定随机值
-        // ★ 每棵树有固定的随机种子，保证同一棵树在同一进度下始终显示相同季节
-        int seed = treeID + currentStageIndex * 100;
+        // 渐变中：使用 persistentId 生成固定随机值
+        // ★ 3.7.6 修复：使用 persistentId.GetHashCode() 替代 GetInstanceID()
+        // 这样存档读档后种子值不变，渐变状态保持一致
+        int seed = Mathf.Abs(persistentId.GetHashCode()) + currentStageIndex * 100;
         Random.InitState(seed);
         float treeSeedValue = Random.value;
         
@@ -2342,16 +2345,40 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     
     /// <summary>
     /// 对象唯一标识符（GUID）
+    /// 🔥 锐评022：Getter 必须是纯净的，不能有副作用
     /// </summary>
     public string PersistentId
     {
         get
         {
+            // 🔥 净化 Getter：不再自动生成 ID
+            // 如果为空，说明生命周期管理出了漏洞（未初始化或未加载）
             if (string.IsNullOrEmpty(persistentId))
             {
-                persistentId = System.Guid.NewGuid().ToString();
+                Debug.LogError($"[TreeController] 致命错误：尝试访问未初始化的 PersistentId！对象：{gameObject.name}");
             }
             return persistentId;
+        }
+    }
+    
+    /// <summary>
+    /// 🔥 锐评022：显式初始化方法（供 PlacementManager 或 Spawner 调用）
+    /// 用于玩家放置或自然生成的新树木
+    /// </summary>
+    public void InitializeAsNewTree()
+    {
+        if (string.IsNullOrEmpty(persistentId))
+        {
+            persistentId = System.Guid.NewGuid().ToString();
+            
+            // 注册到持久化系统
+            if (PersistentObjectRegistry.Instance != null)
+            {
+                PersistentObjectRegistry.Instance.Register(this);
+            }
+            
+            if (showDebugInfo)
+                Debug.Log($"[TreeController] {gameObject.name} 初始化为新树木，GUID: {persistentId}");
         }
     }
     
@@ -2400,41 +2427,46 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         };
         data.genericData = JsonUtility.ToJson(treeData);
         
+        // 🔴 保存渲染层级参数（Sorting Layer + Order in Layer）
+        var spriteRenderer = GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            data.SetSortingLayer(spriteRenderer);
+        }
+        
         return data;
     }
     
     /// <summary>
     /// 获取预制体 ID（用于动态重建）
     /// 从父物体名称推断，格式：Tree_M1_00 → M1
+    /// 🔥 锐评020修正：使用正则清洗 Unity 自动添加的后缀
     /// </summary>
     private string GetPrefabId()
     {
-        // 获取父物体名称（树根物体）
-        string parentName = transform.parent != null ? transform.parent.name : gameObject.name;
+        // 1. 获取基础名称 (可能包含 (1), (Clone) 等)
+        string rawName = gameObject.name.Replace("(Clone)", "").Trim();
         
-        // 移除 (Clone) 后缀
-        if (parentName.EndsWith("(Clone)"))
+        // 2. 如果是父子结构 (Tree_M1_00)，取父物体名字
+        if (transform.parent != null)
         {
-            parentName = parentName.Substring(0, parentName.Length - 7).Trim();
+            rawName = transform.parent.name.Replace("(Clone)", "").Trim();
         }
-        
-        // 解析格式：Tree_M1_00 或 M1_00 或 M1
-        // 提取 M1/M2/M3 部分
-        string[] parts = parentName.Split('_');
-        foreach (var part in parts)
-        {
-            // 检查是否是 M1/M2/M3 格式
-            if (part.Length >= 2 && part[0] == 'M' && char.IsDigit(part[1]))
-            {
-                return part;
-            }
-        }
-        
-        // 如果无法解析，返回默认值
+
+        // 3. 🔥 关键：使用正则去除 Unity 的数字后缀 " (1)", " (2)" 等
+        // 匹配模式：空格 + 左括号 + 数字 + 右括号，替换为空
+        rawName = Regex.Replace(rawName, @"\s\(\d+\)$", "");
+
+        // 4. 解析逻辑 (提取 M1, M2, M3)
+        // 简单粗暴的包含检测 (根据 PrefabRegistry Key)
+        if (rawName.Contains("M1")) return "M1";
+        if (rawName.Contains("M2")) return "M2";
+        if (rawName.Contains("M3")) return "M3";
+
+        // 5. 兜底
         if (showDebugInfo)
-            Debug.LogWarning($"[TreeController] 无法从名称 '{parentName}' 解析 prefabId，使用默认值 M1");
-        
-        return "M1";
+            Debug.LogWarning($"[TreeController] 无法解析 prefabId，原始名称: {gameObject.name}，清洗后: {rawName}");
+        return "M1"; // 默认回退
     }
     
     /// <summary>
@@ -2479,6 +2511,14 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         
         // 🛡️ 封印三：UpdateVisuals() 必须是 Load() 的最后一行
         UpdateSprite();
+        
+        // 🔴 恢复渲染层级参数（Sorting Layer + Order in Layer）
+        // 必须在 UpdateSprite() 之后，因为 UpdateSprite 可能会重置渲染器
+        var spriteRenderer = GetComponent<SpriteRenderer>();
+        if (spriteRenderer != null)
+        {
+            data.RestoreSortingLayer(spriteRenderer);
+        }
     }
     
     /// <summary>

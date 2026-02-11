@@ -205,7 +205,7 @@ namespace FarmGame.Farm
         }
         
         /// <summary>
-        /// 更新指定位置的边界 Tile
+        /// 更新指定位置的边界 Tile（应用到真实 Tilemap）
         /// </summary>
         private void UpdateBorderAt(int layerIndex, Vector3Int position)
         {
@@ -215,15 +215,30 @@ namespace FarmGame.Farm
                 return;
             }
             
+            // 计算边界 Tile
+            TileBase tile = CalculateBorderTileAt(layerIndex, position, null);
+            
+            // 应用到 Tilemap
+            ApplyBorderTile(tilemaps, position, tile);
+        }
+        
+        /// <summary>
+        /// 纯计算：计算指定位置应该显示的边界 Tile
+        /// </summary>
+        /// <param name="layerIndex">楼层索引</param>
+        /// <param name="position">格子坐标</param>
+        /// <param name="isTilledPredicate">断言函数，用于预览计算（null = 使用真实数据）</param>
+        /// <returns>应该显示的 Tile（可能为 null）</returns>
+        public TileBase CalculateBorderTileAt(int layerIndex, Vector3Int position, System.Func<Vector3Int, bool> isTilledPredicate)
+        {
             // 如果该位置是中心块，不需要边界
-            if (IsCenterBlock(layerIndex, position))
+            if (IsCenterBlock(layerIndex, position, isTilledPredicate))
             {
-                tilemaps.farmlandBorderTilemap.SetTile(position, null);
-                return;
+                return null;
             }
             
             // 检查周围中心块分布
-            var neighbors = CheckNeighborCenters(layerIndex, position);
+            var neighbors = CheckNeighborCenters(layerIndex, position, isTilledPredicate);
             
             // 选择边界 Tile
             TileBase borderTile = SelectBorderTile(
@@ -231,18 +246,79 @@ namespace FarmGame.Farm
             
             if (borderTile != null)
             {
-                // 放置边界
-                tilemaps.farmlandBorderTilemap.SetTile(position, borderTile);
+                return borderTile;
             }
-            else
+            
+            // 检查是否需要放置阴影
+            return SelectShadowTile(
+                neighbors.hasU, neighbors.hasD, neighbors.hasL, neighbors.hasR,
+                neighbors.hasLU, neighbors.hasRU, neighbors.hasLD, neighbors.hasRD);
+        }
+        
+        /// <summary>
+        /// 副作用：将 Tile 应用到 Tilemap
+        /// </summary>
+        /// <param name="tilemaps">楼层 Tilemap 配置</param>
+        /// <param name="position">格子坐标</param>
+        /// <param name="tile">要设置的 Tile（null = 清除）</param>
+        public void ApplyBorderTile(LayerTilemaps tilemaps, Vector3Int position, TileBase tile)
+        {
+            if (tilemaps == null || tilemaps.farmlandBorderTilemap == null) return;
+            tilemaps.farmlandBorderTilemap.SetTile(position, tile);
+        }
+        
+        #endregion
+        
+        #region 预览接口
+        
+        /// <summary>
+        /// 获取预览 Tiles（用于 FarmToolPreview）
+        /// 计算如果在 centerPos 锄地，中心块和周围 8 格边界会变成什么样
+        /// </summary>
+        /// <param name="layerIndex">楼层索引</param>
+        /// <param name="centerPos">预计锄地的位置</param>
+        /// <returns>位置 → Tile 的映射（包含中心块和边界变化）</returns>
+        public System.Collections.Generic.Dictionary<Vector3Int, TileBase> GetPreviewTiles(int layerIndex, Vector3Int centerPos)
+        {
+            var result = new System.Collections.Generic.Dictionary<Vector3Int, TileBase>();
+            
+            // 构造断言：假装 centerPos 已经被耕作
+            System.Func<Vector3Int, bool> predicate = (pos) =>
             {
-                // 检查是否需要放置阴影
-                TileBase shadowTile = SelectShadowTile(
-                    neighbors.hasU, neighbors.hasD, neighbors.hasL, neighbors.hasR,
-                    neighbors.hasLU, neighbors.hasRU, neighbors.hasLD, neighbors.hasRD);
-                
-                tilemaps.farmlandBorderTilemap.SetTile(position, shadowTile);
+                // 如果是预览位置，返回 true（假装已耕作）
+                if (pos == centerPos) return true;
+                // 否则使用真实数据
+                return IsCenterBlock(layerIndex, pos);
+            };
+            
+            // 1. 中心块：使用未施肥的中心 Tile
+            result[centerPos] = centerTileUnfertilized;
+            
+            // 2. 计算周围 8 格的边界变化
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue; // 跳过中心
+                    
+                    Vector3Int neighborPos = centerPos + new Vector3Int(dx, dy, 0);
+                    TileBase tile = CalculateBorderTileAt(layerIndex, neighborPos, predicate);
+                    
+                    // 只记录有变化的位置（tile 可能为 null，表示清除）
+                    result[neighborPos] = tile;
+                }
             }
+            
+            return result;
+        }
+        
+        /// <summary>
+        /// 获取中心块 Tile（用于预览）
+        /// </summary>
+        /// <param name="isFertilized">是否已施肥</param>
+        public TileBase GetCenterTile(bool isFertilized = false)
+        {
+            return isFertilized ? centerTileFertilized : centerTileUnfertilized;
         }
         
         #endregion
@@ -250,7 +326,7 @@ namespace FarmGame.Farm
         #region 中心块检测
         
         /// <summary>
-        /// 检查指定位置是否是中心块
+        /// 检查指定位置是否是中心块（使用真实数据）
         /// </summary>
         private bool IsCenterBlock(int layerIndex, Vector3Int position)
         {
@@ -259,21 +335,49 @@ namespace FarmGame.Farm
         }
         
         /// <summary>
-        /// 检查指定位置周围 8 个方向的中心块分布
+        /// 检查指定位置是否是中心块（支持断言/预测）
+        /// </summary>
+        /// <param name="layerIndex">楼层索引</param>
+        /// <param name="position">格子坐标</param>
+        /// <param name="isTilledPredicate">断言函数，用于预览计算（假装某位置已耕作）</param>
+        private bool IsCenterBlock(int layerIndex, Vector3Int position, System.Func<Vector3Int, bool> isTilledPredicate)
+        {
+            if (isTilledPredicate != null)
+            {
+                return isTilledPredicate(position);
+            }
+            return IsCenterBlock(layerIndex, position);
+        }
+        
+        /// <summary>
+        /// 检查指定位置周围 8 个方向的中心块分布（使用真实数据）
         /// </summary>
         private (bool hasU, bool hasD, bool hasL, bool hasR, 
                  bool hasLU, bool hasRU, bool hasLD, bool hasRD) 
             CheckNeighborCenters(int layerIndex, Vector3Int position)
         {
+            return CheckNeighborCenters(layerIndex, position, null);
+        }
+        
+        /// <summary>
+        /// 检查指定位置周围 8 个方向的中心块分布（支持断言/预测）
+        /// </summary>
+        /// <param name="layerIndex">楼层索引</param>
+        /// <param name="position">格子坐标</param>
+        /// <param name="isTilledPredicate">断言函数，用于预览计算</param>
+        private (bool hasU, bool hasD, bool hasL, bool hasR, 
+                 bool hasLU, bool hasRU, bool hasLD, bool hasRD) 
+            CheckNeighborCenters(int layerIndex, Vector3Int position, System.Func<Vector3Int, bool> isTilledPredicate)
+        {
             return (
-                hasU:  IsCenterBlock(layerIndex, position + new Vector3Int(0, 1, 0)),
-                hasD:  IsCenterBlock(layerIndex, position + new Vector3Int(0, -1, 0)),
-                hasL:  IsCenterBlock(layerIndex, position + new Vector3Int(-1, 0, 0)),
-                hasR:  IsCenterBlock(layerIndex, position + new Vector3Int(1, 0, 0)),
-                hasLU: IsCenterBlock(layerIndex, position + new Vector3Int(-1, 1, 0)),
-                hasRU: IsCenterBlock(layerIndex, position + new Vector3Int(1, 1, 0)),
-                hasLD: IsCenterBlock(layerIndex, position + new Vector3Int(-1, -1, 0)),
-                hasRD: IsCenterBlock(layerIndex, position + new Vector3Int(1, -1, 0))
+                hasU:  IsCenterBlock(layerIndex, position + new Vector3Int(0, 1, 0), isTilledPredicate),
+                hasD:  IsCenterBlock(layerIndex, position + new Vector3Int(0, -1, 0), isTilledPredicate),
+                hasL:  IsCenterBlock(layerIndex, position + new Vector3Int(-1, 0, 0), isTilledPredicate),
+                hasR:  IsCenterBlock(layerIndex, position + new Vector3Int(1, 0, 0), isTilledPredicate),
+                hasLU: IsCenterBlock(layerIndex, position + new Vector3Int(-1, 1, 0), isTilledPredicate),
+                hasRU: IsCenterBlock(layerIndex, position + new Vector3Int(1, 1, 0), isTilledPredicate),
+                hasLD: IsCenterBlock(layerIndex, position + new Vector3Int(-1, -1, 0), isTilledPredicate),
+                hasRD: IsCenterBlock(layerIndex, position + new Vector3Int(1, -1, 0), isTilledPredicate)
             );
         }
         

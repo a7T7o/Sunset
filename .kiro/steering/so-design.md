@@ -2,7 +2,7 @@
 inclusion: manual
 priority: P1
 keywords: [SO, ScriptableObject, 物品ID, 品质, ItemData, ToolData]
-lastUpdated: 2025-01-09
+lastUpdated: 2026-01-09
 ---
 
 # ScriptableObject 设计规范

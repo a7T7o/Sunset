@@ -3,7 +3,7 @@ inclusion: always
 priority: P0
 isCanonical: true
 canonicalDomain: [对话模式, 语言要求, 一条龙模式, 方案讨论流程]
-lastUpdated: 2025-01-09
+lastUpdated: 2026-01-09
 ---
 
 # 沟通规范

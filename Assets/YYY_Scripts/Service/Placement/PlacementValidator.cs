@@ -15,8 +15,16 @@ public class PlacementValidator
 {
     #region 配置参数
     
-    /// <summary>障碍物检测标签（包含 Player）</summary>
+    /// <summary>障碍物检测标签（包含 Player）- 用于放置箱子/树苗等</summary>
     private string[] obstacleTags = new string[] { "Tree", "Rock", "Building", "Player" };
+    
+    /// <summary>农田障碍物检测标签（不包含 Player）- 用于锄地/浇水/种植</summary>
+    /// <remarks>
+    /// 关键设计决策：
+    /// - HasObstacle() 包含 Player 标签 → 放置箱子时不能压住玩家
+    /// - HasFarmingObstacle() 不包含 Player 标签 → 玩家可以在脚下锄地
+    /// </remarks>
+    private static readonly string[] FarmingObstacleTags = new string[] { "Tree", "Rock", "Building" };
     
     /// <summary>水域检测层</summary>
     private LayerMask waterLayer;
@@ -131,7 +139,7 @@ public class PlacementValidator
     }
     
     /// <summary>
-    /// 检查是否有障碍物
+    /// 检查是否有障碍物（用于放置箱子/树苗等）
     /// 红色情况 2：有 Tree、Rock、Building、Player 或水域
     /// 增强：同时检测无碰撞体的树苗和箱子
     /// </summary>
@@ -160,6 +168,113 @@ public class PlacementValidator
         // 3. 新增：检测无碰撞体的箱子
         if (HasChestAtPosition(cellCenter, 0.5f))
             return true;
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// 🔥 检查是否有农田障碍物（用于锄地/浇水/种植）
+    /// 关键区别：不检测 Player 标签！
+    /// 
+    /// 设计原理：
+    /// - 放置箱子时，箱子不能压住玩家 → HasObstacle() 包含 Player
+    /// - 锄地时，玩家必然站在地里 → HasFarmingObstacle() 不包含 Player
+    /// </summary>
+    /// <param name="cellCenter">格子中心世界坐标</param>
+    /// <returns>true=有障碍物，false=无障碍物</returns>
+    public static bool HasFarmingObstacle(Vector3 cellCenter)
+    {
+        // 1. 碰撞体检测（使用静态标签列表，不包含 Player）
+        Vector2 boxSize = new Vector2(0.9f, 0.9f);
+        Collider2D[] hits = Physics2D.OverlapBoxAll(cellCenter, boxSize, 0f);
+        
+        foreach (var hit in hits)
+        {
+            if (HasAnyTagStatic(hit.transform, FarmingObstacleTags))
+            {
+                return true;
+            }
+        }
+        
+        // 2. 检测无碰撞体的树苗（Stage 0）
+        if (HasTreeAtPositionStatic(cellCenter))
+            return true;
+        
+        // 3. 检测无碰撞体的箱子
+        if (HasChestAtPositionStatic(cellCenter))
+            return true;
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// 静态辅助方法：检查 Transform 或其父级是否有指定标签
+    /// </summary>
+    private static bool HasAnyTagStatic(Transform t, string[] tags)
+    {
+        Transform current = t;
+        while (current != null)
+        {
+            foreach (var tag in tags)
+            {
+                if (current.CompareTag(tag))
+                    return true;
+            }
+            current = current.parent;
+        }
+        return false;
+    }
+    
+    /// <summary>
+    /// 静态辅助方法：检查指定格子是否有树木
+    /// </summary>
+    private static bool HasTreeAtPositionStatic(Vector3 cellCenter)
+    {
+        Vector2Int checkCellIndex = PlacementGridCalculator.GetCellIndex(cellCenter);
+        
+        // 遍历场景中所有 TreeController
+        var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
+        foreach (var tree in allTrees)
+        {
+            Vector3 treeRootPos = tree.transform.parent != null 
+                ? tree.transform.parent.position 
+                : tree.transform.position;
+            
+            Vector2Int treeCellIndex = PlacementGridCalculator.GetCellIndex(treeRootPos);
+            
+            if (checkCellIndex == treeCellIndex)
+                return true;
+        }
+        
+        return false;
+    }
+    
+    /// <summary>
+    /// 静态辅助方法：检查指定格子是否有箱子
+    /// </summary>
+    private static bool HasChestAtPositionStatic(Vector3 cellCenter)
+    {
+        Vector2Int checkCellIndex = PlacementGridCalculator.GetCellIndex(cellCenter);
+        
+        // 遍历场景中所有 ChestController
+        var allChests = Object.FindObjectsByType<ChestController>(FindObjectsSortMode.None);
+        foreach (var chest in allChests)
+        {
+            // 获取箱子的 Collider 来确定占用的格子
+            var collider = chest.GetComponentInChildren<Collider2D>();
+            if (collider != null)
+            {
+                Vector2Int chestCellIndex = PlacementGridCalculator.GetCellIndex(collider.bounds.center);
+                if (checkCellIndex == chestCellIndex)
+                    return true;
+            }
+            else
+            {
+                Vector2Int chestCellIndex = PlacementGridCalculator.GetCellIndex(chest.transform.position);
+                if (checkCellIndex == chestCellIndex)
+                    return true;
+            }
+        }
         
         return false;
     }

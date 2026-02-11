@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -17,20 +18,28 @@ namespace FarmGame.Farm
         public string layerName;
         
         /// <summary>
-        /// [旧版] 耕地 Tilemap（使用 Rule Tile 自动拼接）
-        /// 注意：新版系统使用 farmlandCenterTilemap + farmlandBorderTilemap
-        /// 此字段保留用于兼容旧场景配置
+        /// [已废弃] 旧版耕地 Tilemap
+        /// 新版系统使用 farmlandCenterTilemap + farmlandBorderTilemap
         /// </summary>
-        [Tooltip("【旧版】耕地 Tilemap，新版请使用 farmlandCenterTilemap")]
+        [Obsolete("使用 farmlandCenterTilemap 替代")]
+        [HideInInspector]
         public Tilemap farmlandTilemap;
         
         /// <summary>
-        /// [旧版] 水渍叠加 Tilemap（浇水后显示）
-        /// 注意：新版系统的水渍功能待实现
-        /// 此字段保留用于兼容旧场景配置
+        /// [已废弃] 旧版水渍叠加 Tilemap
+        /// 新版使用 waterPuddleTilemapNew
         /// </summary>
-        [Tooltip("【旧版】水渍叠加 Tilemap，新版水渍功能待实现")]
+        [Obsolete("使用 waterPuddleTilemapNew 替代")]
+        [HideInInspector]
         public Tilemap waterPuddleTilemap;
+        
+        /// <summary>
+        /// 水渍叠加 Tilemap（新版，可在 Inspector 中配置）
+        /// 浇水后在此 Tilemap 上显示水渍 Tile
+        /// </summary>
+        [Header("水渍系统")]
+        [Tooltip("水渍叠加 Tilemap，浇水后显示水渍效果")]
+        public Tilemap waterPuddleTilemapNew;
         
         /// <summary>
         /// 耕地中心块 Tilemap（新版耕地系统）
@@ -70,7 +79,9 @@ namespace FarmGame.Farm
             }
             
             // 旧版配置：需要 farmlandTilemap
+            #pragma warning disable 0618
             return farmlandTilemap != null;
+            #pragma warning restore 0618
         }
         
         /// <summary>
@@ -94,10 +105,12 @@ namespace FarmGame.Farm
             }
             
             // 回退到旧版字段
+            #pragma warning disable 0618
             if (farmlandTilemap != null)
             {
                 return farmlandTilemap.WorldToCell(worldPosition);
             }
+            #pragma warning restore 0618
             
             // 最后尝试使用 groundTilemap
             if (groundTilemap != null)
@@ -121,10 +134,12 @@ namespace FarmGame.Farm
             }
             
             // 回退到旧版字段
+            #pragma warning disable 0618
             if (farmlandTilemap != null)
             {
                 return farmlandTilemap.GetCellCenterWorld(cellPosition);
             }
+            #pragma warning restore 0618
             
             // 最后尝试使用 groundTilemap
             if (groundTilemap != null)

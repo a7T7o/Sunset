@@ -215,13 +215,9 @@ public class PlacementManager : MonoBehaviour
                     Debug.Log($"<color=yellow>[PlacementManagerV3] 背包打开，隐藏预览</color>");
             }
             
-            // ★ 如果正在放置过程中（Locked 或 Navigating），中断
-            if (currentState == PlacementState.Locked || currentState == PlacementState.Navigating)
-            {
-                if (showDebugInfo)
-                    Debug.Log($"<color=yellow>[PlacementManagerV3] 背包打开时处于 {currentState} 状态，触发中断</color>");
-                HandleInterrupt();
-            }
+            // 🔥 Bug E 修复：面板打开 = 暂停，不中断
+            // 不调用 HandleInterrupt()，保持 Locked/Navigating 状态
+            // 关闭面板后自动恢复
             return;
         }
         else
@@ -518,6 +514,17 @@ public class PlacementManager : MonoBehaviour
         }
     }
     
+    /// <summary>
+    /// 🔥 Bug D 修复：外部调用的中断接口（供 GameInputManager 的 WASD 检测使用）
+    /// </summary>
+    public void InterruptFromExternal()
+    {
+        if (currentState == PlacementState.Locked || currentState == PlacementState.Navigating)
+        {
+            HandleInterrupt();
+        }
+    }
+    
     #endregion
     
     #region 状态机
@@ -643,6 +650,13 @@ public class PlacementManager : MonoBehaviour
                 
                 // 锁定新位置（会创建新快照）
                 LockPreviewPosition();
+            }
+            else
+            {
+                // 🔥 Bug G 修复：导航中点击红色位置 → 取消导航 → 恢复跟随
+                if (showDebugInfo)
+                    Debug.Log($"<color=yellow>[PlacementManagerV3] 导航中点击无效位置，取消导航恢复跟随</color>");
+                HandleInterrupt();
             }
         }
     }
@@ -949,6 +963,9 @@ public class PlacementManager : MonoBehaviour
         var treeController = treeObject.GetComponentInChildren<TreeController>();
         if (treeController != null)
         {
+            // 🔥 锐评022：显式初始化新树木，生成 GUID 并注册
+            treeController.InitializeAsNewTree();
+            
             treeController.SetStage(0);
             
             var saplingEvent = new SaplingPlantedEventData(

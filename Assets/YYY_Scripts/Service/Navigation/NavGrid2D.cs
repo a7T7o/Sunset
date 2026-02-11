@@ -262,8 +262,13 @@ public class NavGrid2D : MonoBehaviour
 
     private bool IsPointBlocked(Vector2 worldPos, float radius)
     {
-        // 🔥 Unity 6 优化：使用 NonAlloc 版本，避免 GC 分配
-        int hitCount = Physics2D.OverlapCircleNonAlloc(worldPos, radius, _colliderCache);
+        // 🔥 Unity 6：使用新版 OverlapCircle API（返回数组），旧版 NonAlloc 已弃用
+        var hits = Physics2D.OverlapCircleAll(worldPos, radius);
+        int hitCount = Mathf.Min(hits.Length, _colliderCache.Length);
+        for (int i = 0; i < hitCount; i++)
+        {
+            _colliderCache[i] = hits[i];
+        }
         
         // 先检查标签
         if (obstacleTags != null && obstacleTags.Length > 0)

@@ -64,8 +64,6 @@ public class PlacementGridCell : MonoBehaviour
         
         // 设置默认大小为 1x1
         transform.localScale = Vector3.one;
-        
-        Debug.Log($"<color=green>[PlacementGridCell] 格子创建完成, Order=31999</color>");
     }
     
     #endregion

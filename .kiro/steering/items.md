@@ -2,7 +2,7 @@
 inclusion: manual
 priority: P1
 keywords: [物品, 背包, 堆叠, ItemStack, Inventory, 品质]
-lastUpdated: 2025-01-09
+lastUpdated: 2026-01-09
 ---
 
 # 物品系统规范

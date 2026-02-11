@@ -5,15 +5,24 @@ using UnityEngine;
 namespace FarmGame.Data.Core
 {
     /// <summary>
-    /// 预制体注册表
+    /// 预制体注册表（已废弃）
     /// 用于存档系统根据 prefabId 查找预制体进行动态重建
     /// 
-    /// 使用方式：
-    /// 1. 在 Assets/111_Data/Database/ 下创建 PrefabRegistry.asset
-    /// 2. 配置 prefabId → Prefab 映射
-    /// 3. DynamicObjectFactory 通过 GetPrefab() 查找预制体
+    /// ⚠️ 已废弃：请使用 PrefabDatabase 替代
+    /// PrefabDatabase 支持：
+    /// - 自动扫描预制体文件夹
+    /// - 智能查找（精确匹配 → 清洗名称 → 别名映射 → 前缀回退）
+    /// - ID 别名映射（旧存档兼容）
+    /// 
+    /// 迁移指南：
+    /// 1. 创建 PrefabDatabase.asset（菜单：FarmGame/PrefabDatabase/创建 PrefabDatabase）
+    /// 2. 配置预制体文件夹路径
+    /// 3. 点击"扫描预制体"按钮
+    /// 4. 在 PersistentManagers 中配置 PrefabDatabase 引用
+    /// 5. 删除旧的 PrefabRegistry.asset
     /// </summary>
-    [CreateAssetMenu(fileName = "PrefabRegistry", menuName = "FarmGame/Data/PrefabRegistry")]
+    [System.Obsolete("请使用 PrefabDatabase 替代。PrefabDatabase 支持自动扫描、智能回退、ID 别名映射。")]
+    [CreateAssetMenu(fileName = "PrefabRegistry", menuName = "FarmGame/Data/PrefabRegistry (已废弃)")]
     public class PrefabRegistry : ScriptableObject
     {
         #region 内部类

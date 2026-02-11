@@ -363,16 +363,17 @@ public class TimeManager : MonoBehaviour
                 OnSeasonChanged?.Invoke(currentSeason, currentYear);
             }
             
-            // 通知SeasonManager（始终更新，不受开关影响）
-            if (SeasonManager.Instance != null)
-            {
-                SeasonManager.Instance.SetSeason(currentSeason);
-            }
-            
             if (showDebugInfo)
             {
                 Debug.Log($"<color=orange>[TimeManager] 季节变化: {oldSeason} → {currentSeason}</color>");
             }
+        }
+        
+        // 🔥 3.7.6 修复：无论季节是否变化，都要通知 SeasonManager 更新渐变进度
+        // 否则读档时如果季节相同（如都是春天），渐变进度不会更新
+        if (SeasonManager.Instance != null)
+        {
+            SeasonManager.Instance.SetSeason(currentSeason);
         }
         
         if (oldYear != currentYear)

@@ -34,7 +34,7 @@
 |------|------|---------|
 | `rules.md` | 开发规则与禁止事项 | 玩家位置、碰撞体用途、遮挡系统、全局编辑器规范 |
 | `layers.md` | 项目层级设计规范 | 楼层结构、Sorting Layers、树木层级、命中检测 |
-| `workspace-memory.md` | 工作区记忆规范 | specs 目录结构、memory.md 规范 |
+| `workspace-memory.md` | 工作区记忆规范 | specs 目录结构、memory.md 规范、代码文件追踪 |
 | `communication.md` | 沟通规范 | 一条龙模式、语言要求、方案讨论流程 |
 
 **Token 消耗**: ~4,500 tokens
@@ -186,10 +186,11 @@
 
 | 日期 | 更新内容 |
 |------|---------|
-| 2025-01-09 | 创建索引文件，实施方案 A |
-| 2025-01-09 | 删除 `context-handoff.md`、`tree-system.md` |
-| 2025-01-09 | 合并游戏数值到 `trees.md`，迁移全局规则到 `rules.md` |
+| 2026-01-09 | 创建索引文件，实施方案 A |
+| 2026-01-09 | 删除 `context-handoff.md`、`tree-system.md` |
+| 2026-01-09 | 合并游戏数值到 `trees.md`，迁移全局规则到 `rules.md` |
 | 2026-01-21 | 新增 `placeable-items.md` 可放置物品开发规范 |
 | 2026-02-01 | 新增 `context-recovery.md` 上下文恢复规范，解决长对话任务丢失问题 |
 | 2026-02-01 | 重命名为 `000-context-recovery.md` 并设为 P-1 优先级，确保最先被读取和执行 |
+| 2026-02-06 | `workspace-memory.md` 新增代码文件追踪规范、Memory 同步规则、核心讨论触发记录 |
 

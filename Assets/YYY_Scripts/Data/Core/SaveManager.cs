@@ -637,40 +637,73 @@ namespace FarmGame.Data.Core
         /// </summary>
         private void InitializeDynamicObjectFactory()
         {
-            // 尝试从 Resources 加载 PrefabRegistry
-            var registry = Resources.Load<PrefabRegistry>("Data/Database/PrefabRegistry");
+            // 尝试从 Resources 加载 PrefabDatabase（新版）
+            var database = Resources.Load<PrefabDatabase>("Data/Database/PrefabDatabase");
             
-            if (registry == null)
+            if (database == null)
             {
                 // 尝试其他路径
-                registry = Resources.Load<PrefabRegistry>("PrefabRegistry");
+                database = Resources.Load<PrefabDatabase>("PrefabDatabase");
             }
             
 #if UNITY_EDITOR
             // 编辑器模式下，尝试从 AssetDatabase 加载
-            if (registry == null)
+            if (database == null)
             {
-                var guids = UnityEditor.AssetDatabase.FindAssets("t:PrefabRegistry");
+                var guids = UnityEditor.AssetDatabase.FindAssets("t:PrefabDatabase");
                 if (guids != null && guids.Length > 0)
                 {
                     string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]);
-                    registry = UnityEditor.AssetDatabase.LoadAssetAtPath<PrefabRegistry>(path);
-                    if (showDebugInfo && registry != null)
-                        Debug.Log($"[SaveManager] 从 AssetDatabase 加载 PrefabRegistry: {path}");
+                    database = UnityEditor.AssetDatabase.LoadAssetAtPath<PrefabDatabase>(path);
+                    if (showDebugInfo && database != null)
+                        Debug.Log($"[SaveManager] 从 AssetDatabase 加载 PrefabDatabase: {path}");
                 }
             }
 #endif
             
-            if (registry != null)
+            if (database != null)
             {
-                DynamicObjectFactory.Initialize(registry);
+                DynamicObjectFactory.Initialize(database);
                 if (showDebugInfo)
-                    Debug.Log("[SaveManager] DynamicObjectFactory 初始化成功");
+                    Debug.Log("[SaveManager] DynamicObjectFactory 初始化成功（使用 PrefabDatabase）");
             }
             else
             {
-                Debug.LogWarning("[SaveManager] 未找到 PrefabRegistry，动态对象重建功能将不可用。" +
-                    "请在 Assets/111_Data/Database/ 下创建 PrefabRegistry.asset");
+                // 回退到旧版 PrefabRegistry
+                #pragma warning disable 0618
+                var registry = Resources.Load<PrefabRegistry>("Data/Database/PrefabRegistry");
+                
+                if (registry == null)
+                {
+                    registry = Resources.Load<PrefabRegistry>("PrefabRegistry");
+                }
+                
+#if UNITY_EDITOR
+                if (registry == null)
+                {
+                    var guids = UnityEditor.AssetDatabase.FindAssets("t:PrefabRegistry");
+                    if (guids != null && guids.Length > 0)
+                    {
+                        string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]);
+                        registry = UnityEditor.AssetDatabase.LoadAssetAtPath<PrefabRegistry>(path);
+                        if (showDebugInfo && registry != null)
+                            Debug.Log($"[SaveManager] 从 AssetDatabase 加载 PrefabRegistry（旧版）: {path}");
+                    }
+                }
+#endif
+                
+                if (registry != null)
+                {
+                    DynamicObjectFactory.Initialize(registry);
+                    if (showDebugInfo)
+                        Debug.Log("[SaveManager] DynamicObjectFactory 初始化成功（使用旧版 PrefabRegistry）");
+                }
+                else
+                {
+                    Debug.LogWarning("[SaveManager] 未找到 PrefabDatabase 或 PrefabRegistry，动态对象重建功能将不可用。" +
+                        "请在 Assets/111_Data/Database/ 下创建 PrefabDatabase.asset");
+                }
+                #pragma warning restore 0618
             }
         }
         
