@@ -1,4 +1,6 @@
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using UnityEngine;
 using UnityEditor;
 using FarmGame.Data;
@@ -83,6 +85,7 @@ namespace FarmGame.Editor
         
         private SerializedProperty _categoryProp;
         private ItemCategory _currentCategory;
+        private HashSet<string> _obsoleteFields;
         
         #endregion
         
@@ -91,6 +94,7 @@ namespace FarmGame.Editor
         private void OnEnable()
         {
             _categoryProp = serializedObject.FindProperty("category");
+            _obsoleteFields = null; // 切换目标时重新构建
             BuildHandledPropertiesSet();
         }
         
@@ -183,9 +187,30 @@ namespace FarmGame.Editor
         /// <summary>
         /// 绘制所有未被手动处理的属性（子类兼容性）
         /// 确保子类新增的字段不会因为父类 Editor 而在面板上消失
+        /// 自动过滤带 [System.Obsolete] 标记的字段（不在 Inspector 中显示废弃字段）
         /// </summary>
         private void DrawRemainingProperties()
         {
+            // 构建废弃字段集合（缓存到首次使用）
+            if (_obsoleteFields == null)
+            {
+                _obsoleteFields = new HashSet<string>();
+                var targetType = target.GetType();
+                while (targetType != null && targetType != typeof(UnityEngine.Object))
+                {
+                    var fields = targetType.GetFields(
+                        BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+                    foreach (var field in fields)
+                    {
+                        if (field.GetCustomAttributes(typeof(System.ObsoleteAttribute), true).Any())
+                        {
+                            _obsoleteFields.Add(field.Name);
+                        }
+                    }
+                    targetType = targetType.BaseType;
+                }
+            }
+
             SerializedProperty iterator = serializedObject.GetIterator();
             bool enterChildren = true;
             bool hasDrawnHeader = false;
@@ -199,6 +224,10 @@ namespace FarmGame.Editor
                     continue;
                     
                 if (_handledProperties.Contains(iterator.name))
+                    continue;
+
+                // 跳过带 [Obsolete] 标记的废弃字段
+                if (_obsoleteFields.Contains(iterator.name))
                     continue;
                 
                 // 第一次绘制未处理属性时，添加分隔标题

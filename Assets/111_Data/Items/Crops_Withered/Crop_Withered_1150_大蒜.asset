@@ -1,0 +1,47 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 560318680113e8d44a99507379f458e6, type: 3}
+  m_Name: "Crop_Withered_1150_\u5927\u849C"
+  m_EditorClassIdentifier: 
+  itemID: 1150
+  itemName: "\u5927\u849C"
+  description: 
+  category: 1
+  icon: {fileID: 368058244, guid: db8826474e21c7d41a23ff294c1fa060, type: 3}
+  bagSprite: {fileID: 0}
+  rotateBagIcon: 0
+  worldPrefab: {fileID: 8282166478725959203, guid: 08526d5d276d5cd4488da6fa1c15640a, type: 3}
+  buyPrice: 160
+  sellPrice: 156
+  maxStackSize: 64
+  useCustomBagDisplaySize: 0
+  bagDisplayPixelSize: 52
+  bagDisplayOffset: {x: 0, y: 0}
+  useCustomDisplaySize: 0
+  displayPixelSize: 32
+  worldDisplayOffset: {x: 0, y: 0}
+  canBeDiscarded: 1
+  isQuestItem: 0
+  isPlaceable: 0
+  placementType: 0
+  placementPrefab: {fileID: 0}
+  buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
+  energyRestore: 30
+  healthRestore: 15
+  consumeTime: 1
+  buffType: 0
+  buffValue: 0
+  buffDuration: 0
+  recipeID: 0
+  seedID: 0

@@ -1,9 +1,25 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using FarmGame.Data;
 using FarmGame.UI;
 using FarmGame.World;
 using FarmGame.Farm;
+
+// ===== 10.1.1 补丁002：FIFO 操作队列类型定义 =====
+
+/// <summary>农田操作类型</summary>
+public enum FarmActionType { Till, Water, PlantSeed, Harvest }
+
+/// <summary>操作请求（值类型，轻量）</summary>
+public struct FarmActionRequest
+{
+    public FarmActionType type;
+    public Vector3Int cellPos;        // 目标格子坐标
+    public int layerIndex;            // 目标层级索引
+    public Vector3 worldPos;          // 目标世界坐标（格子中心，用于导航和距离判断）
+    public CropController targetCrop; // 仅 Harvest 类型使用，其他类型为 null
+}
 
 public class GameInputManager : MonoBehaviour
 {
@@ -41,6 +57,8 @@ public class GameInputManager : MonoBehaviour
     private bool packageTabsInitialized = false;
 
     private static GameInputManager s_instance;
+    /// <summary>公开单例访问（供 PlayerInteraction 回调使用）</summary>
+    public static GameInputManager Instance => s_instance;
     private float lastNavClickTime = -1f;
     private Vector3 lastNavClickPos = Vector3.zero;
     
@@ -61,6 +79,15 @@ public class GameInputManager : MonoBehaviour
     
     // 🔥 9.0.5 新增：执行保护标志
     private bool _isExecutingFarming = false;
+    
+    // 🔥 10.1.0 新增：输入缓存（动画期间暂存玩家输入，动画结束后消费）
+    // ⚠️ 10.1.1补丁002 废弃：已被 FIFO 队列（_farmActionQueue）替代，保留字段避免编译错误
+    [System.Obsolete("10.1.1补丁002：被 FIFO 队列替代，不再使用")]
+    private bool _hasPendingFarmInput = false;
+    [System.Obsolete("10.1.1补丁002：被 FIFO 队列替代，不再使用")]
+    private Vector3 _pendingFarmWorldPos;
+    [System.Obsolete("10.1.1补丁002：被 FIFO 队列替代，不再使用")]
+    private int _pendingFarmItemId;
     
     // 🔥 9.0.4 新增：农田操作快照（防止"种瓜得豆"）
     private struct FarmingSnapshot
@@ -85,6 +112,15 @@ public class GameInputManager : MonoBehaviour
     }
     
     private FarmingSnapshot _farmingSnapshot = FarmingSnapshot.Invalid;
+
+    // ===== 10.1.1 补丁002：FIFO 操作队列 =====
+    private Queue<FarmActionRequest> _farmActionQueue = new();
+    private HashSet<(int layerIndex, Vector3Int cellPos)> _queuedPositions = new();
+    private bool _isProcessingQueue = false;    // 队列正在执行中（有操作在处理）
+    private bool _isQueuePaused = false;        // 队列暂停（面板打开时）
+    private CropController _currentHarvestTarget = null;   // 当前正在收获的作物
+    private FarmActionRequest _currentProcessingRequest;    // 当前正在处理的请求
+    private bool _wasUIOpen = false;                        // 面板暂停/恢复：上一帧 UI 状态
 
     void Awake()
     {
@@ -151,6 +187,25 @@ public class GameInputManager : MonoBehaviour
         HandleRunToggleWhileNav();
         HandleMovement();
         HandleHotbarSelection();
+        
+        // 🔥 10.1.1补丁002 任务5.3：面板暂停/恢复机制
+        // 在 HandleUseCurrentTool 之前检测面板状态变化
+        bool uiOpen = IsAnyPanelOpen();
+        if (uiOpen && !_wasUIOpen)
+        {
+            // 面板刚打开 → 暂停队列，取消当前导航（不清空队列）
+            _isQueuePaused = true;
+            CancelCurrentNavigation();
+        }
+        else if (!uiOpen && _wasUIOpen)
+        {
+            // 面板刚关闭 → 恢复队列
+            _isQueuePaused = false;
+            if (_farmActionQueue.Count > 0 && !_isExecutingFarming)
+                ProcessNextAction();
+        }
+        _wasUIOpen = uiOpen;
+        
         HandleUseCurrentTool();
         HandleRightClickAutoNav();
         if (timeDebugger != null) timeDebugger.enableDebugKeys = enableTimeDebugKeys;
@@ -362,6 +417,18 @@ public class GameInputManager : MonoBehaviour
         }
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
+        // 🔥 10.1.1补丁002 V4：WASD 中断队列（优先级高于 lockManager）
+        bool hasWASD = input.sqrMagnitude > 0.01f;
+        bool hasActiveQueue = _farmActionQueue.Count > 0 || _isProcessingQueue;
+        if (hasWASD && hasActiveQueue)
+        {
+            ClearActionQueue();
+            CancelFarmingNavigation();
+            FarmGame.Farm.FarmToolPreview.Instance?.UnlockPosition();
+            ToolActionLockManager.Instance?.ForceUnlock();
+            // 不 return，继续执行下面的移动逻辑
+        }
+
         // 检查是否处于工具动作锁定状态
         var lockManager = ToolActionLockManager.Instance;
         if (lockManager != null && lockManager.IsLocked)
@@ -385,6 +452,9 @@ public class GameInputManager : MonoBehaviour
                 autoNavigator.ForceCancel();  // 🔥 P0-1：使用 ForceCancel 替代 Cancel
                 // 🔥 9.0.4：手动移动时取消农田导航
                 CancelFarmingNavigation();
+                // 🔥 10.1.1补丁002：旧缓存字段已废弃，CancelFarmingNavigation 内部已处理清理
+                var farmPreviewNav = FarmGame.Farm.FarmToolPreview.Instance;
+                if (farmPreviewNav != null) farmPreviewNav.UnlockPosition();
                 if (playerMovement != null) playerMovement.SetMovementInput(input, shift);
             }
             return;
@@ -461,7 +531,8 @@ public class GameInputManager : MonoBehaviour
                     // 正常切换：重置累积值
                     _accumulatedScrollSteps = 0;
                     
-                    // 🔥 9.0.4：切换工具时取消农田导航
+                    // 🔥 10.1.1补丁002：切换工具时清空队列 + 取消导航（CP-3）
+                    ClearActionQueue();
                     CancelFarmingNavigation();
                     
                     if (scrollSteps > 0) hotbarSelection?.SelectNext();
@@ -496,7 +567,8 @@ public class GameInputManager : MonoBehaviour
             }
             else
             {
-                // 🔥 9.0.4：切换工具时取消农田导航
+                // 🔥 10.1.1补丁002：切换工具时清空队列 + 取消导航（CP-3）
+                ClearActionQueue();
                 CancelFarmingNavigation();
                 
                 // 正常切换
@@ -534,9 +606,12 @@ public class GameInputManager : MonoBehaviour
             }
             
             // 🔥 9.0.5：无面板打开时，ESC 中断导航
+            // 🔥 10.1.1补丁002：ESC 清空操作队列 + 取消导航 + 解锁预览（CP-3）
+            ClearActionQueue();
+            CancelFarmingNavigation();
+            FarmToolPreview.Instance?.UnlockPosition();
             if (_farmNavState == FarmNavState.Navigating || _farmNavState == FarmNavState.Locked)
             {
-                CancelFarmingNavigation();
                 return;
             }
             
@@ -609,8 +684,17 @@ public class GameInputManager : MonoBehaviour
         bool uiOpen = IsAnyPanelOpen();
         if (uiOpen) return;
         
-        // 🔥 9.0.5：执行保护 — 执行中不响应新点击
-        if (_isExecutingFarming) return;
+        // 🔥 10.1.1补丁002：执行保护 — 执行中/动画中的点击走 FIFO 入队（替代旧 CacheFarmInput）
+        // V1 漏洞修补：保护分支1（_isExecutingFarming）+ 保护分支2（isPerformingAction）合并
+        if (_isExecutingFarming || (playerInteraction != null && playerInteraction.IsPerformingAction()))
+        {
+            if (Input.GetMouseButtonDown(0) && (EventSystem.current == null || !EventSystem.current.IsPointerOverGameObject()))
+            {
+                // CP-11：动画期间可入队 — 先检测收获（CP-5），再检测工具/种子
+                TryEnqueueFromCurrentInput();
+            }
+            return; // 无论是否成功入队，都 return（不穿透到下面的正常流程）
+        }
         
         // 改为 GetMouseButton 支持长按连续使用
         bool isFirstPress = Input.GetMouseButtonDown(0);
@@ -622,13 +706,24 @@ public class GameInputManager : MonoBehaviour
         // 🔥 9.0.5.1：导航中重新点击
         if (_farmNavState == FarmNavState.Navigating || _farmNavState == FarmNavState.Locked)
         {
+            // 🔥 10.1.1补丁002：队列正在处理中，新点击走入队
+            if (_isProcessingQueue)
+            {
+                TryEnqueueFromCurrentInput();
+                return;
+            }
+            
             // 读取实时数据判断新位置有效性
             var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
             if (farmPreview != null && farmPreview.IsValid())
             {
+                // 🔥 10.1.0 E-10：点击同一位置 → 不中断导航，继续前往原目标
+                if (farmPreview.IsLocked && farmPreview.CurrentCellPos == farmPreview.LockedCellPos)
+                    return;
+                
                 // 新位置有效：中断当前导航，重新开始
                 CancelFarmingNavigation();
-                // 继续往下走，会重新进入 TryHandleFarmingTool / TryPlantSeed
+                // 继续往下走，会重新进入工具入队逻辑
             }
             else
             {
@@ -647,9 +742,9 @@ public class GameInputManager : MonoBehaviour
         
         if (inventory == null || database == null || hotbarSelection == null) return;
         
-        // 如果正在执行动作，不重复触发
-        bool isPerformingAction = playerInteraction != null && playerInteraction.IsPerformingAction();
-        if (isPerformingAction) return;
+        // 🔥 10.1.1补丁002 CP-5：收获检测（最高优先级）— 在所有工具分发之前
+        if (TryDetectAndEnqueueHarvest())
+            return;
 
         int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
         var slot = inventory.GetSlot(idx);
@@ -660,23 +755,22 @@ public class GameInputManager : MonoBehaviour
 
         if (itemData is ToolData tool)
         {
-            // 🔥 Bug A 修复：农田工具（锄头/水壶）由农田系统全权处理
-            // 无论 IsValid 还是 !IsValid，都不穿透到通用工具处理
-            // 红色预览 = 什么都不触发（无动画、无动作）
+            // 🔥 10.1.1补丁002：农田工具（锄头/水壶）走 FIFO 入队
+            // CP-9：预览无效时不入队（TryEnqueueFarmTool 内部检查）
             if (tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan)
             {
-                TryHandleFarmingTool(tool);
-                return; // 🔥 始终 return，绝不穿透
+                TryEnqueueFarmTool(tool);
+                return; // 始终 return，绝不穿透
             }
             
-            // 其他工具正常处理
+            // 其他工具正常处理（CP-19：镐子/斧头/武器保持原有逻辑不变）
             var toolAction = ResolveAction(tool.toolType);
             playerInteraction?.RequestAction(toolAction);
         }
         else if (itemData is SeedData seedData)
         {
-            // ★ 种子种植处理
-            TryPlantSeed(seedData);
+            // 🔥 10.1.1补丁002：种子走 FIFO 入队
+            TryEnqueueSeed(seedData);
         }
         else if (itemData is WeaponData weapon)
         {
@@ -802,6 +896,7 @@ public class GameInputManager : MonoBehaviour
                 interactable = h.GetComponentInParent<IInteractable>();
             
             if (interactable == null) continue;
+            if (interactable is CropController) continue;  // 10.1.1补丁002：作物收获已迁移到左键
             
             float dist = Vector2.Distance(playerCenter, h.transform.position);
             // 稍微放宽范围，允许导航到目标附近
@@ -1106,18 +1201,19 @@ public class GameInputManager : MonoBehaviour
     {
         if (tool == null) return false;
         
-        // 获取鼠标世界坐标
-        Vector3 worldPos = GetMouseWorldPosition();
+        // 🔥 10.1.0 修复：不再调用 GetMouseWorldPosition()
+        // 位置信息已经由 ForceUpdatePreviewToPosition 或 UpdatePreviews 更新到 FarmToolPreview
+        // 直接使用 FarmToolPreview 的 CurrentCursorPos
         
         switch (tool.toolType)
         {
             case ToolType.Hoe:
-                // 锄头 → 锄地
-                return TryTillSoil(worldPos);
+                // 锄头 → 锄地（TryTillSoil 内部从 FarmToolPreview 读取位置）
+                return TryTillSoil(Vector3.zero); // 参数已废弃，内部不使用
                 
             case ToolType.WateringCan:
-                // 水壶 → 浇水
-                return TryWaterTile(worldPos);
+                // 水壶 → 浇水（TryWaterTile 内部从 FarmToolPreview 读取位置）
+                return TryWaterTile(Vector3.zero); // 参数已废弃，内部不使用
                 
             default:
                 return false;
@@ -1224,21 +1320,20 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private bool ExecuteTillSoil(int layerIndex, Vector3Int cellPos)
     {
-        // 🔥 10.0.1：优先检查是否有枯萎未成熟作物
-        var cropManager = FarmGame.Farm.CropManager.Instance;
-        if (cropManager != null)
+        // 🔥 10.X 纠正：通过 FarmTileData.cropController 查找枯萎作物（替代 CropManager.GetCrop）
+        var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
+        if (farmTileManager != null)
         {
-            var crop = cropManager.GetCrop(layerIndex, cellPos);
-            if (crop != null && crop.GetState() == FarmGame.Farm.CropState.WitheredImmature)
+            var tileData = farmTileManager.GetTileData(layerIndex, cellPos);
+            if (tileData?.cropController != null && tileData.cropController.GetState() == FarmGame.Farm.CropState.WitheredImmature)
             {
-                crop.ClearWitheredImmature();
+                tileData.cropController.ClearWitheredImmature();
                 if (showDebugInfo)
                     Debug.Log($"[GameInputManager] 清除枯萎作物: Layer={layerIndex}, Pos={cellPos}");
                 return true;
             }
         }
         
-        var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
         if (farmTileManager == null)
         {
             Debug.LogError("[GameInputManager] 锄地失败：FarmTileManager.Instance 为空！");
@@ -1496,11 +1591,10 @@ public class GameInputManager : MonoBehaviour
             return false;
         }
         
-        var cropManager = FarmGame.Farm.CropManager.Instance;
-        if (cropManager == null)
+        // 🔥 10.X 纠正：不再依赖 CropManager，直接使用 seedData.cropPrefab
+        if (seedData.cropPrefab == null)
         {
-            if (showDebugInfo)
-                Debug.Log("[GameInputManager] CropManager 未初始化");
+            Debug.LogError($"[GameInputManager] 种子 {seedData.itemName} 的 cropPrefab 为空，无法播种");
             return false;
         }
         
@@ -1545,6 +1639,14 @@ public class GameInputManager : MonoBehaviour
             
             int currentTotalDays = timeManager?.GetTotalDaysPassed() ?? 0;
             
+            // 🔥 10.X 纠正：自动初始化未初始化的种子袋
+            if (!FarmGame.Farm.SeedBagHelper.IsSeedBag(seedItem))
+            {
+                FarmGame.Farm.SeedBagHelper.InitializeSeedBag(seedItem, seedData, currentTotalDays);
+                if (showDebugInfo)
+                    Debug.Log($"[GameInputManager] 自动初始化种子袋: {seedData.itemName}");
+            }
+            
             // 检查是否过期
             if (FarmGame.Farm.SeedBagHelper.IsExpired(seedItem, currentTotalDays))
             {
@@ -1571,34 +1673,42 @@ public class GameInputManager : MonoBehaviour
         // 获取当前天数
         int currentDay = timeManager?.GetTotalDaysPassed() ?? 0;
         
-        // 使用 CropManager 工厂创建作物
+        // 🔥 10.X 纠正：直接 Instantiate seedData.cropPrefab（学习树木模式）
         Vector3 cropWorldPos = tilemaps.GetCellCenterWorld(cellPos);
         Transform container = tilemaps.propsContainer;
         
-        var controller = cropManager.CreateCrop(layerIndex, cellPos, seedData, currentDay, cropWorldPos, container);
+        GameObject cropObj = Instantiate(seedData.cropPrefab, cropWorldPos, Quaternion.identity, container);
+        cropObj.name = $"Crop_{seedData.itemName}_{cellPos}";
+        
+        var controller = cropObj.GetComponent<FarmGame.Farm.CropController>();
         if (controller == null)
         {
-            // 创建失败，退还种子到种子袋
+            Debug.LogError($"[GameInputManager] 作物预制体缺少 CropController: {seedData.itemName}");
+            Destroy(cropObj);
+            
+            // 退还种子
             if (inventory != null && consumedSlotIndex >= 0)
             {
                 var seedItem = inventory.GetInventoryItem(consumedSlotIndex);
                 if (seedItem != null && !seedItem.IsEmpty)
                 {
-                    // 种子袋还在，增加 remaining
                     int curRemaining = FarmGame.Farm.SeedBagHelper.GetRemaining(seedItem);
                     seedItem.SetProperty(FarmGame.Farm.SeedBagHelper.KEY_REMAINING, curRemaining + 1);
                 }
                 else
                 {
-                    // 种子袋已被清除（刚好用完），用 AddItem 退还
                     inventory.AddItem(seedData.itemID, 0, 1);
                 }
             }
             return false;
         }
         
+        // 创建作物实例数据并初始化
+        var instanceData = new FarmGame.Farm.CropInstanceData(seedData.itemID, currentDay);
+        controller.Initialize(seedData, instanceData, layerIndex, cellPos);
+        
         // 更新耕地数据
-        tileData.SetCropData(new FarmGame.Farm.CropInstanceData(seedData.itemID, currentDay));
+        tileData.SetCropData(instanceData);
         
         if (showDebugInfo)
             Debug.Log($"[GameInputManager] 种植成功: {seedData.itemName}, Layer={layerIndex}, Pos={cellPos}");
@@ -1637,9 +1747,10 @@ public class GameInputManager : MonoBehaviour
     }
     
     /// <summary>
-    /// 尝试在鼠标位置收获作物
-    /// 直接访问 CropController 组件进行收获，不经过 FarmingManagerNew
+    /// [已废弃] 尝试在鼠标位置收获作物
+    /// 收获统一走 IInteractable → CropController.Harvest()
     /// </summary>
+    [System.Obsolete("10.X 纠正：收获统一走 IInteractable → CropController.Harvest()")]
     private bool TryHarvestCropAtMouse()
     {
         // 直接使用 FarmTileManager
@@ -1894,6 +2005,12 @@ public class GameInputManager : MonoBehaviour
             {
                 farmPreview.UnlockPosition();
             }
+            // 🔥 10.1.1-F2：安全网 — 确保 lockManager 也解锁（防止永久卡死）
+            var lockMgr = ToolActionLockManager.Instance;
+            if (lockMgr != null && lockMgr.IsLocked)
+            {
+                lockMgr.ForceUnlock();
+            }
             _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
             _farmNavigationAction = null;
             _farmingNavigationCoroutine = null;
@@ -1931,12 +2048,47 @@ public class GameInputManager : MonoBehaviour
         _cachedSeedData = null;
         _isExecutingFarming = false;
         ClearSnapshot();
+        
+        // 🔥 10.1.1 方案E：取消导航时清除输入缓存（防止过时缓存被消费）
+        // ⚠️ 10.1.1补丁002：旧缓存字段已废弃，保留赋值作为安全网
+#pragma warning disable CS0612 // 已知废弃，保留作为安全网
+        _hasPendingFarmInput = false;
+#pragma warning restore CS0612
+        
+        // 🔥 10.1.1-F2：安全网 — 确保 lockManager 也解锁（防止永久卡死）
+        var lockMgr = ToolActionLockManager.Instance;
+        if (lockMgr != null && lockMgr.IsLocked)
+        {
+            lockMgr.ForceUnlock();
+        }
+    }
+    
+    /// <summary>
+    /// 🔥 10.1.1补丁002 任务5.3：轻量版导航取消（面板暂停专用）
+    /// 只停止导航协程和导航器，不清空队列、不解锁预览、不重置 _farmNavState、不重置 _isExecutingFarming
+    /// </summary>
+    private void CancelCurrentNavigation()
+    {
+        // 停止导航协程
+        if (_farmingNavigationCoroutine != null)
+        {
+            StopCoroutine(_farmingNavigationCoroutine);
+            _farmingNavigationCoroutine = null;
+        }
+        
+        // 停止导航器
+        if (autoNavigator != null && autoNavigator.IsActive)
+        {
+            autoNavigator.ForceCancel();
+        }
+        
+        _farmNavigationAction = null;
     }
     
     /// <summary>
     /// 🔥 9.0.5 新增：检查当前是否手持农具或种子
     /// </summary>
-    private bool IsHoldingFarmTool()
+    public bool IsHoldingFarmTool()
     {
         if (inventory == null || database == null || hotbarSelection == null) return false;
         
@@ -2006,6 +2158,545 @@ public class GameInputManager : MonoBehaviour
         var itemData = database.GetItemByID(slot.itemId);
         return itemData is SeedData seed && seed.itemID == expectedSeed.itemID;
     }
+
+    #region 10.1.0 输入缓存系统
+    
+    /// <summary>是否有待消费的农田输入缓存</summary>
+    [System.Obsolete("10.1.1补丁002：被 FIFO 队列替代，使用 _farmActionQueue.Count > 0 代替")]
+    public bool HasPendingFarmInput => _hasPendingFarmInput;
+    
+    /// <summary>
+    /// 清除农田输入缓存并解锁预览（10.1.1 方案Q4：切换工具栏时丢弃缓存）
+    /// </summary>
+    [System.Obsolete("10.1.1补丁002：被 ClearActionQueue 替代")]
+    public void ClearPendingFarmInput()
+    {
+        _hasPendingFarmInput = false;
+        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
+        if (farmPreview != null)
+        {
+            farmPreview.UnlockPosition();
+        }
+    }
+    
+    /// <summary>
+    /// 缓存农田输入（动画/执行期间调用，后来的覆盖前面的）
+    /// </summary>
+    /// <summary>
+    /// 缓存农田输入（动画/执行期间调用，后来的覆盖前面的）
+    /// 🔥 10.1.1 修正：缓存时锁定预览 + 刷新 1+8 GhostTilemap（修复 A-1/A-2/A-3/A-4）
+    /// </summary>
+    [System.Obsolete("10.1.1补丁002：被 EnqueueAction 替代")]
+    private void CacheFarmInput(int itemId)
+    {
+        var worldPos = GetMouseWorldPosition();
+
+        // 🔥 10.1.1 A-3：获取 ItemData 用于 ForceUpdatePreviewToPosition
+        var itemData = database != null ? database.GetItemByID(itemId) : null;
+
+        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
+        var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
+
+        if (farmPreview != null && itemData != null && farmTileManager != null)
+        {
+            // 🔥 10.1.1 A-2：先解锁（让 ForceUpdate 能渲染 1+8）
+            farmPreview.UnlockPosition();
+
+            // 🔥 10.1.1 A-1：刷新完整预览（含 1+8 GhostTilemap）到缓存位置
+            ForceUpdatePreviewToPosition(worldPos, itemData);
+
+            // 🔥 10.1.1 A-4：计算 alignedPos/layerIndex/cellPos 用于 LockPosition
+            Vector3 alignedPos = PlacementGridCalculator.GetCellCenter(worldPos);
+            int layerIndex = farmTileManager.GetCurrentLayerIndex(alignedPos);
+            var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
+            if (tilemaps != null)
+            {
+                Vector3Int cellPos = tilemaps.WorldToCell(alignedPos);
+                farmPreview.LockPosition(alignedPos, cellPos, layerIndex);
+            }
+        }
+
+        _hasPendingFarmInput = true;
+        _pendingFarmWorldPos = worldPos;
+        _pendingFarmItemId = itemId;
+    }
+    
+    /// <summary>
+    /// 获取当前手持物品 ID（用于缓存消费时验证一致性）
+    /// </summary>
+    private int GetCurrentHeldItemId()
+    {
+        if (inventory == null || database == null || hotbarSelection == null)
+            return -1;
+        
+        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(idx);
+        return slot.IsEmpty ? -1 : slot.itemId;
+    }
+    
+    /// <summary>
+    /// 消费缓存的农田输入（由 PlayerInteraction.OnActionComplete 回调触发）
+    /// </summary>
+    [System.Obsolete("10.1.1补丁002：被 ProcessNextAction 替代")]
+    public void ConsumePendingFarmInput()
+    {
+        if (!_hasPendingFarmInput) return;
+
+        _hasPendingFarmInput = false;
+
+        // 验证手持物品一致性（E-2：动画期间切换物品则缓存失效）
+        int currentItemId = GetCurrentHeldItemId();
+        if (currentItemId != _pendingFarmItemId) return;
+
+        // 🔥 10.1.1 方案D：先解锁预览，让 ForceUpdatePreviewToPosition 能正常渲染 1+8
+        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
+        if (farmPreview != null)
+        {
+            farmPreview.UnlockPosition();
+        }
+
+        // 以缓存的世界坐标执行完整动作链
+        ProcessFarmInputAt(_pendingFarmWorldPos);
+    }
+    
+    /// <summary>
+    /// 以指定世界坐标执行完整农田输入处理
+    /// 长按时也通过此方法以当前鼠标位置执行
+    /// 🔥 10.1.0 修复：先更新 FarmToolPreview 到指定位置，确保后续方法使用正确的位置
+    /// </summary>
+    [System.Obsolete("10.1.1补丁002：被队列内部逻辑替代")]
+    public void ProcessFarmInputAt(Vector3 worldPos)
+    {
+        if (inventory == null || database == null || hotbarSelection == null) return;
+        
+        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(idx);
+        if (slot.IsEmpty) return;
+        
+        var itemData = database.GetItemByID(slot.itemId);
+        if (itemData == null) return;
+        
+        // 🔥 10.1.0 核心修复：先将 FarmToolPreview 更新到缓存的位置
+        // 这样后续 TryTillSoil/TryWaterTile/TryPlantSeed 从 Preview 读取时就是正确的位置
+        ForceUpdatePreviewToPosition(worldPos, itemData);
+        
+        if (itemData is ToolData tool)
+        {
+            if (tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan)
+            {
+                TryHandleFarmingTool(tool);
+                return;
+            }
+        }
+        else if (itemData is SeedData seedData)
+        {
+            // AC-1.6：种子缓存消费时重新验证数量
+            if (slot.amount <= 0) return;
+            TryPlantSeed(seedData);
+        }
+    }
+    
+    /// <summary>
+    /// 🔥 10.1.0 新增：强制将 FarmToolPreview 更新到指定位置
+    /// 用于缓存消费时，确保 Preview 状态与缓存位置一致
+    /// </summary>
+    [System.Obsolete("10.1.1补丁002：队列通过 LockPosition 处理预览")]
+    private void ForceUpdatePreviewToPosition(Vector3 worldPos, ItemData itemData)
+    {
+        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
+        var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
+        if (farmPreview == null || farmTileManager == null) return;
+        
+        // 对齐到格子中心
+        Vector3 alignedPos = PlacementGridCalculator.GetCellCenter(worldPos);
+        
+        // 获取楼层和格子坐标
+        int layerIndex = farmTileManager.GetCurrentLayerIndex(alignedPos);
+        var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
+        if (tilemaps == null) return;
+        
+        Vector3Int cellPos = tilemaps.WorldToCell(alignedPos);
+        Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
+        
+        // 根据物品类型更新对应的预览
+        if (itemData is ToolData tool)
+        {
+            if (tool.toolType == ToolType.Hoe)
+            {
+                farmPreview.UpdateHoePreview(layerIndex, cellPos, playerTransform, farmToolReach);
+            }
+            else if (tool.toolType == ToolType.WateringCan)
+            {
+                farmPreview.UpdateWateringPreview(layerIndex, cellPos, playerTransform, farmToolReach);
+            }
+        }
+        else if (itemData is SeedData seedData)
+        {
+            farmPreview.UpdateSeedPreview(alignedPos, seedData, playerTransform, farmToolReach);
+        }
+    }
+    
+    #endregion
+    
+    #region ===== 10.1.1 补丁002：FIFO 操作队列方法 =====
+    
+    /// <summary>
+    /// 将农田操作请求入队。防重复：同一 (layerIndex, cellPos) 不重复入队；
+    /// Harvest 额外检查同一 CropController 实例不重复。
+    /// 如果队列之前为空且未暂停 → 启动 ProcessNextAction。
+    /// </summary>
+    private void EnqueueAction(FarmActionRequest request)
+    {
+        // CP-2：防重复 — 同一格子不重复入队
+        var key = (request.layerIndex, request.cellPos);
+        if (_queuedPositions.Contains(key)) return;
+        
+        // Harvest 额外防重复：同一 CropController 实例不重复
+        if (request.type == FarmActionType.Harvest)
+        {
+            foreach (var existing in _farmActionQueue)
+            {
+                if (existing.type == FarmActionType.Harvest && existing.targetCrop == request.targetCrop)
+                    return;
+            }
+        }
+        
+        _queuedPositions.Add(key);
+        _farmActionQueue.Enqueue(request);
+        
+        // 队列之前为空且未暂停且没有正在执行的操作 → 启动处理
+        if (!_isProcessingQueue && !_isQueuePaused)
+        {
+            ProcessNextAction();
+        }
+    }
+    
+    /// <summary>
+    /// 从队列取出下一个操作并执行。
+    /// 暂停检查 → 队列空则结束 → 出队 → 二次验证 → 距离判断 → 近距离直接执行 / 远距离导航。
+    /// </summary>
+    private void ProcessNextAction()
+    {
+        // V5：暂停检查
+        if (_isQueuePaused) return;
+        
+        // 队列为空 → 结束处理
+        if (_farmActionQueue.Count == 0)
+        {
+            _isProcessingQueue = false;
+            _isExecutingFarming = false;
+            _queuedPositions.Clear();
+            // 解锁预览，恢复鼠标跟随
+            FarmGame.Farm.FarmToolPreview.Instance?.UnlockPosition();
+            _farmNavState = FarmNavState.Preview;
+            return;
+        }
+        
+        _isProcessingQueue = true;
+        var request = _farmActionQueue.Dequeue();
+        _currentProcessingRequest = request;
+        
+        // ===== 二次验证 =====
+        switch (request.type)
+        {
+            case FarmActionType.PlantSeed:
+                // CP-10：种子用完检测
+                if (!HasSeedRemaining())
+                {
+                    _queuedPositions.Remove((request.layerIndex, request.cellPos));
+                    ProcessNextAction(); // 跳过，继续下一个
+                    return;
+                }
+                break;
+            case FarmActionType.Harvest:
+                // CP-7：作物可收获二次验证
+                if (request.targetCrop == null || !request.targetCrop.CanInteract(null))
+                {
+                    _queuedPositions.Remove((request.layerIndex, request.cellPos));
+                    ProcessNextAction(); // 跳过
+                    return;
+                }
+                break;
+        }
+        
+        // ===== 距离判断 =====
+        // 🔴🔴🔴 玩家位置 = Collider 中心（最高优先级规则）
+        Vector2 playerCenter = GetPlayerCenter();
+        float distance = Vector2.Distance(playerCenter, request.worldPos);
+        
+        _isExecutingFarming = true;
+        
+        // 锁定预览到目标位置（P3 修复：LockPosition 内部会渲染 1+8）
+        FarmGame.Farm.FarmToolPreview.Instance?.LockPosition(
+            request.worldPos, request.cellPos, request.layerIndex);
+        
+        if (distance <= farmToolReach)
+        {
+            // 近距离：直接执行
+            _farmNavState = FarmNavState.Executing;
+            ExecuteFarmAction(request);
+        }
+        else
+        {
+            // 远距离：导航到目标后执行
+            _farmNavState = FarmNavState.Locked;
+            StartFarmingNavigation(request.worldPos, () =>
+            {
+                // 导航到达回调
+                if (_isQueuePaused) return; // V5：面板打开期间到达，不执行
+                _farmNavState = FarmNavState.Executing;
+                ExecuteFarmAction(request);
+            });
+        }
+    }
+    
+    /// <summary>
+    /// 面向目标位置（根据 worldPos 相对于玩家 Collider 中心设置朝向）。
+    /// 🔴 玩家位置 = playerCollider.bounds.center（最高优先级规则）
+    /// </summary>
+    private void FaceTarget(Vector3 worldPos)
+    {
+        if (playerMovement == null) return;
+        // 🔴🔴🔴 使用 Collider 中心计算方向
+        Vector2 playerCenter = GetPlayerCenter();
+        Vector2 direction = (Vector2)worldPos - playerCenter;
+        if (direction.sqrMagnitude > 0.001f)
+            playerMovement.SetFacingDirection(direction);
+    }
+    
+    /// <summary>
+    /// 获取当前手持的 SeedData（从 hotbar 当前槽位获取）。
+    /// </summary>
+    private SeedData GetCurrentSeedData()
+    {
+        if (inventory == null || database == null || hotbarSelection == null) return null;
+        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(idx);
+        if (slot.IsEmpty) return null;
+        var itemData = database.GetItemByID(slot.itemId);
+        return itemData as SeedData;
+    }
+    
+    /// <summary>
+    /// 执行农田操作（面向目标后按类型分发）。
+    /// Till/Water/Harvest 有动画，等待 OnActionComplete 回调。
+    /// PlantSeed 无动画，执行后立即 ProcessNextAction。
+    /// </summary>
+    private void ExecuteFarmAction(FarmActionRequest request)
+    {
+        if (showDebugInfo)
+            Debug.Log($"[FarmQueue] ExecuteFarmAction: type={request.type}, cellPos={request.cellPos}");
+        
+        switch (request.type)
+        {
+            case FarmActionType.Till:
+                FaceTarget(request.worldPos);
+                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Crush);
+                ExecuteTillSoil(request.layerIndex, request.cellPos);
+                // 动画完成后由 OnActionComplete → OnFarmActionAnimationComplete 回调
+                break;
+            
+            case FarmActionType.Water:
+                FaceTarget(request.worldPos);
+                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Watering);
+                ExecuteWaterTile(request.layerIndex, request.cellPos);
+                // 动画完成后由 OnActionComplete → OnFarmActionAnimationComplete 回调
+                break;
+            
+            case FarmActionType.PlantSeed:
+                // 种子无动画，直接执行后立即取下一个
+                var seedData = GetCurrentSeedData();
+                if (seedData != null)
+                    ExecutePlantSeed(seedData, request.layerIndex, request.cellPos);
+                _isExecutingFarming = false;
+                _queuedPositions.Remove((request.layerIndex, request.cellPos));
+                ProcessNextAction(); // 立即取下一个
+                break;
+            
+            case FarmActionType.Harvest:
+                _currentHarvestTarget = request.targetCrop;
+                FaceTarget(request.worldPos);
+                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Collect);
+                // 动画完成后由 OnActionComplete → OnCollectAnimationComplete 回调
+                break;
+        }
+    }
+    
+    /// <summary>
+    /// 农田工具动画完成回调（Crush/Watering）。
+    /// 由 PlayerInteraction.OnActionComplete 中的农田工具分支调用。
+    /// </summary>
+    public void OnFarmActionAnimationComplete()
+    {
+        _isExecutingFarming = false;
+        _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
+        ProcessNextAction();
+    }
+    
+    /// <summary>
+    /// 收获动画完成回调（Collect）。
+    /// 由 PlayerInteraction.OnActionComplete 中的 Collect 专用分支调用。
+    /// 执行收获逻辑（走 IInteractable 接口），然后取队列下一个。
+    /// </summary>
+    public void OnCollectAnimationComplete()
+    {
+        // 执行收获逻辑（走 IInteractable 接口）
+        if (_currentHarvestTarget != null && _currentHarvestTarget.CanInteract(null))
+        {
+            var context = BuildInteractionContext();
+            _currentHarvestTarget.OnInteract(context);
+        }
+        
+        _currentHarvestTarget = null;
+        _isExecutingFarming = false;
+        _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
+        ProcessNextAction();
+    }
+    
+    /// <summary>
+    /// 清空操作队列。
+    /// 用于 WASD 中断、ESC、切换快捷栏等场景。
+    /// </summary>
+    public void ClearActionQueue()
+    {
+        _farmActionQueue.Clear();
+        _queuedPositions.Clear();
+        _isProcessingQueue = false;
+        _isExecutingFarming = false;
+        _currentHarvestTarget = null;
+        _currentProcessingRequest = default;
+    }
+    
+    /// <summary>
+    /// 检查当前手持是否仍为种子且余量 > 0（CP-10）。
+    /// </summary>
+    private bool HasSeedRemaining()
+    {
+        if (inventory == null || database == null || hotbarSelection == null) return false;
+        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(idx);
+        if (slot.IsEmpty) return false;
+        var itemData = database.GetItemByID(slot.itemId);
+        if (itemData is not SeedData) return false;
+        return slot.amount > 0;
+    }
+
+    /// <summary>
+    /// 收获检测方法：检测鼠标位置是否有可收获的作物（同层级），有则入队 Harvest。
+    /// CP-5：收获最高优先级，无论手持什么物品都执行检测。
+    /// CP-6：只检测玩家当前层级的作物。
+    /// </summary>
+    private bool TryDetectAndEnqueueHarvest()
+    {
+        Vector3 mouseWorldPos = GetMouseWorldPosition();
+        var hits = Physics2D.OverlapPointAll(mouseWorldPos);
+        if (hits == null || hits.Length == 0) return false;
+
+        // 🔴 获取玩家当前层级索引
+        var farmTileManager = FarmTileManager.Instance;
+        if (farmTileManager == null) return false;
+        // 🔴🔴🔴 玩家位置 = Collider 中心（最高优先级规则）
+        Vector2 playerCenter = GetPlayerCenter();
+        int playerLayer = farmTileManager.GetCurrentLayerIndex(playerCenter);
+
+        foreach (var hit in hits)
+        {
+            // 跳过玩家自身碰撞体
+            if (playerMovement != null &&
+                (hit.transform == playerMovement.transform || hit.transform.IsChildOf(playerMovement.transform)))
+                continue;
+
+            // 走 IInteractable 接口检测
+            var interactable = hit.GetComponent<IInteractable>();
+            if (interactable == null)
+                interactable = hit.GetComponentInParent<IInteractable>();
+
+            if (interactable is CropController crop)
+            {
+                // CP-6：层级过滤 — 只检测玩家当前层级的作物
+                if (crop.LayerIndex != playerLayer) continue;
+
+                // 可收获检测（Mature 或 WitheredMature）
+                if (!crop.CanInteract(null)) continue;
+
+                // 构建请求并入队
+                EnqueueAction(new FarmActionRequest
+                {
+                    type = FarmActionType.Harvest,
+                    cellPos = crop.CellPos,
+                    layerIndex = crop.LayerIndex,
+                    worldPos = crop.transform.position,
+                    targetCrop = crop
+                });
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 农田工具入队方法：检查预览有效性后，将锄头/浇水操作入队。
+    /// CP-9：预览无效时不入队。
+    /// </summary>
+    private void TryEnqueueFarmTool(ToolData tool)
+    {
+        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
+        if (farmPreview == null || !farmPreview.IsValid()) return; // CP-9：预览无效不入队
+
+        var type = tool.toolType == ToolType.Hoe ? FarmActionType.Till : FarmActionType.Water;
+        EnqueueAction(new FarmActionRequest
+        {
+            type = type,
+            cellPos = farmPreview.CurrentCellPos,
+            layerIndex = farmPreview.CurrentLayerIndex,
+            worldPos = farmPreview.CurrentCursorPos,
+            targetCrop = null
+        });
+    }
+
+    /// <summary>
+    /// 种子入队方法：检查预览有效性后，将种植操作入队。
+    /// CP-9：预览无效时不入队。
+    /// </summary>
+    private void TryEnqueueSeed(SeedData seedData)
+    {
+        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
+        if (farmPreview == null || !farmPreview.IsValid()) return; // CP-9：预览无效不入队
+
+        EnqueueAction(new FarmActionRequest
+        {
+            type = FarmActionType.PlantSeed,
+            cellPos = farmPreview.CurrentCellPos,
+            layerIndex = farmPreview.CurrentLayerIndex,
+            worldPos = farmPreview.CurrentCursorPos,
+            targetCrop = null
+        });
+    }
+
+    /// <summary>
+    /// 保护分支统一入队方法：在 _isExecutingFarming 或 isPerformingAction 期间调用。
+    /// 替代旧的 CacheFarmInput，先尝试收获（CP-5 最高优先级），再尝试工具/种子。
+    /// </summary>
+    private void TryEnqueueFromCurrentInput()
+    {
+        // CP-5：先尝试收获（最高优先级）
+        if (TryDetectAndEnqueueHarvest()) return;
+
+        // 再尝试工具/种子
+        if (inventory == null || database == null || hotbarSelection == null) return;
+        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(idx);
+        if (slot.IsEmpty) return;
+        var itemData = database.GetItemByID(slot.itemId);
+
+        if (itemData is ToolData tool && (tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan))
+            TryEnqueueFarmTool(tool);
+        else if (itemData is SeedData seedData)
+            TryEnqueueSeed(seedData);
+    }
+    
+    #endregion
     
     #endregion
 }

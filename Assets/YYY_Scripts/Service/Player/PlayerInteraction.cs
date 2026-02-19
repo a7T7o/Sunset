@@ -179,13 +179,23 @@ public class PlayerInteraction : MonoBehaviour
     /// </summary>
     private void OnActionComplete()
     {
-        if (currentAction == PlayerAnimController.AnimState.Collect)
-            isCarrying = true;
-        else if (currentAction == PlayerAnimController.AnimState.Death)
-            isCarrying = false;
-
         if (lockManager == null)
             lockManager = ToolActionLockManager.Instance;
+
+        // ===== 🔴 Collect 专用分支（10.1.1补丁002：V3 漏洞修补）=====
+        // 必须在 shouldContinue 判断之前拦截，因为 IsToolAction(Collect) = false
+        if (currentAction == PlayerAnimController.AnimState.Collect)
+        {
+            animController?.StopAnimationTracking();
+            lockManager?.EndAction(false);
+            lockManager?.ClearAllCache();
+            isPerformingAction = false;
+            GameInputManager.Instance?.OnCollectAnimationComplete();
+            return; // 不进入后续任何分支
+        }
+
+        if (currentAction == PlayerAnimController.AnimState.Death)
+            isCarrying = false;
 
         // ★ 关键：先应用缓存的方向（只更新朝向数据，不播放动画）
         ApplyCachedDirectionToFacing();
@@ -201,19 +211,48 @@ public class PlayerInteraction : MonoBehaviour
             if (enableDebugLog)
                 Debug.Log($"<color=yellow>[PlayerInteraction] 长按继续</color>");
             
-            // 停止当前追踪
-            animController?.StopAnimationTracking();
+            // 🔥 10.1.1 方案B：区分农田工具和通用工具的长按行为
+            var gimContinue = GameInputManager.Instance;
+            bool isFarmTool = gimContinue != null && gimContinue.IsHoldingFarmTool();
             
-            // 长按继续：清空hotbar缓存（因为继续使用当前工具）
-            lockManager?.EndAction(true);
-            
-            // 用新朝向开始下一个动作
-            StartAction(actionToRepeat, true);
+            if (isFarmTool)
+            {
+                // 🔥 10.1.1补丁002：农田工具动画完成 → 通知队列取下一个（CP-18）
+                // 不再调用 ConsumePendingFarmInput / ProcessFarmInputAt（旧单缓存已废弃）
+                animController?.StopAnimationTracking();
+                lockManager?.EndAction(false);
+                lockManager?.ClearAllCache();
+                isPerformingAction = false;
+                gimContinue.OnFarmActionAnimationComplete();
+            }
+            else
+            {
+                // 🔥 通用工具（镐子/斧头等）：保持原有行为，先播动画再继续
+                animController?.StopAnimationTracking();
+                lockManager?.EndAction(true);
+                StartAction(actionToRepeat, true);
+            }
         }
         else
         {
             if (enableDebugLog)
                 Debug.Log($"<color=green>[PlayerInteraction] 动作结束</color>");
+            
+            // 🔥 10.1.1补丁002：松开分支改造
+            var gimRelease = GameInputManager.Instance;
+            if (gimRelease != null)
+            {
+                if (lockManager != null && lockManager.HasCachedHotbarInput)
+                {
+                    // 动画期间切换了工具栏 → 清空整个队列（CP-3）
+                    gimRelease.ClearActionQueue();
+                }
+                else
+                {
+                    // 松开鼠标 → 通知队列取下一个（CP-18）
+                    gimRelease.OnFarmActionAnimationComplete();
+                }
+            }
             
             // ★ 强制隐藏工具（防止切换武器时的鬼畜）
             layerAnimSync?.ForceHideTool();

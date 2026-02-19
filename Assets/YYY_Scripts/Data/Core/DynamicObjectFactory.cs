@@ -176,6 +176,12 @@ namespace FarmGame.Data.Core
                 return TryReconstructChest(data);
             }
             
+            // === 🔥 10.0.2 任务 5：处理作物 ===
+            if (data.objectType == "Crop")
+            {
+                return TryReconstructCrop(data);
+            }
+            
             // 其他类型暂不支持重建
             if (_showDebugInfo)
                 Debug.Log($"[DynamicObjectFactory] 不支持重建的对象类型: {data.objectType}");
@@ -580,6 +586,90 @@ namespace FarmGame.Data.Core
             
             return persistentObj;
         }
+
+        /// <summary>
+        /// 🔥 10.0.2 任务 5：重建作物
+        /// 从存档数据中解析 seedId，通过 ItemDatabase 找到 SeedData，
+        /// 使用 SeedData.cropPrefab 实例化作物 GameObject，再调用 CropController.Load() 恢复状态
+        /// </summary>
+        private static IPersistentObject TryReconstructCrop(WorldObjectSaveData data)
+        {
+            // 解析 CropSaveData
+            if (string.IsNullOrEmpty(data.genericData))
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 作物数据为空: guid={data.guid}");
+                return null;
+            }
+
+            CropSaveData cropData;
+            try
+            {
+                cropData = JsonUtility.FromJson<CropSaveData>(data.genericData);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 作物数据解析失败: guid={data.guid}, error={e.Message}");
+                return null;
+            }
+
+            if (cropData == null)
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 作物数据解析结果为 null: guid={data.guid}");
+                return null;
+            }
+
+            // 通过 seedId 获取 SeedData
+            var database = AssetLocator.LoadItemDatabase();
+            if (database == null)
+            {
+                Debug.LogError("[DynamicObjectFactory] 无法加载 ItemDatabase，作物重建失败");
+                return null;
+            }
+
+            var itemData = database.GetItemByID(cropData.seedId);
+            if (itemData == null || itemData is not FarmGame.Data.SeedData seedData)
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 找不到种子数据: seedId={cropData.seedId}, guid={data.guid}");
+                return null;
+            }
+
+            // 获取作物预制体
+            GameObject prefab = seedData.cropPrefab;
+            if (prefab == null)
+            {
+                Debug.LogWarning($"[DynamicObjectFactory] 种子 {seedData.itemName} 的 cropPrefab 为空, guid={data.guid}");
+                return null;
+            }
+
+            // 实例化（先禁用，避免闪烁）
+            Vector3 position = data.GetPosition();
+            var instance = Object.Instantiate(prefab, position, Quaternion.identity);
+            instance.SetActive(false);
+
+            // 获取 CropController
+            var controller = instance.GetComponent<FarmGame.Farm.CropController>();
+            if (controller == null)
+            {
+                Debug.LogError($"[DynamicObjectFactory] 作物预制体缺少 CropController: seed={seedData.itemName}");
+                Object.Destroy(instance);
+                return null;
+            }
+
+            // 设置 GUID
+            controller.SetPersistentId(data.guid);
+
+            // 注册到 Registry
+            if (PersistentObjectRegistry.Instance != null)
+            {
+                PersistentObjectRegistry.Instance.Register(controller);
+            }
+
+            if (_showDebugInfo)
+                Debug.Log($"[DynamicObjectFactory] 作物重建成功: seed={seedData.itemName}, guid={data.guid}, position={position}");
+
+            return controller;
+        }
+
         
         #endregion
         
@@ -607,6 +697,10 @@ namespace FarmGame.Data.Core
             else if (obj is FarmGame.World.ChestController chest)
             {
                 chest.SetPersistentIdForLoad(guid);
+            }
+            else if (obj is FarmGame.Farm.CropController crop)
+            {
+                crop.SetPersistentId(guid);
             }
             // 其他类型可以在这里扩展
         }

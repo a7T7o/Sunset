@@ -73,6 +73,13 @@ namespace FarmGame.Farm
         public CropInstanceData cropData;
         
         /// <summary>
+        /// 运行时作物控制器引用（不序列化，不存档）
+        /// 用于替代 CropManager.GetCrop() 的查找功能
+        /// </summary>
+        [System.NonSerialized]
+        public CropController cropController;
+        
+        /// <summary>
         /// [已废弃] 旧版作物实例，保留用于兼容
         /// </summary>
         [System.Obsolete("使用 cropData 替代")]

@@ -265,6 +265,9 @@ public class InventoryBootstrapEditor : Editor
                     "删除", "取消"))
                 {
                     itemListsProp.DeleteArrayElementAtIndex(listIndex);
+                    serializedObject.ApplyModifiedProperties();
+                    GUIUtility.ExitGUI();
+                    return;
                 }
             }
         }
@@ -363,6 +366,10 @@ public class InventoryBootstrapEditor : Editor
         if (GUILayout.Button("×", GUILayout.Width(20)))
         {
             itemsProp.DeleteArrayElementAtIndex(itemIndex);
+            EditorGUILayout.EndHorizontal();
+            serializedObject.ApplyModifiedProperties();
+            GUIUtility.ExitGUI();
+            return;
         }
         
         EditorGUILayout.EndHorizontal();

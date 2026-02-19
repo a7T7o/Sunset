@@ -9,18 +9,8 @@ namespace FarmGame.Data
     public class SeedData : ItemData
     {
         [Header("=== 种植专属属性 ===")]
-        [Tooltip("生长所需天数")]
-        [Range(1, 28)]
-        public int growthDays = 4;
-
         [Tooltip("适合种植的季节")]
         public Season season = Season.Spring;
-
-        [Tooltip("收获的作物ID")]
-        public int harvestCropID;
-
-        [Tooltip("收获数量范围")]
-        public Vector2Int harvestAmountRange = new Vector2Int(1, 1);
 
         [Tooltip("是否可以重复收获（如草莓、蓝莓）")]
         public bool isReHarvestable = false;
@@ -48,19 +38,16 @@ namespace FarmGame.Data
         [Tooltip("已打开状态的图标")]
         public Sprite iconOpened;
 
-        [Header("=== 生长阶段Sprite ===")]
-        [Tooltip("生长阶段图（按顺序：种子→小苗→成长→成熟）")]
-        public Sprite[] growthStageSprites;
-
-        [Header("=== 枯萎样式 ===")]
-        [Tooltip("枯萎阶段Sprite（至少1个，可扩展为多个）")]
-        public Sprite[] witheredStageSprites;
+        [Header("=== 作物预制体 ===")]
+        [Tooltip("作物预制体（包含 CropController + 阶段 Sprite 配置）")]
+        public GameObject cropPrefab;
 
         [Header("=== 种植需求 ===")]
         [Tooltip("是否需要支架/棚架")]
         public bool needsTrellis = false;
 
-        [Tooltip("需要保持湿润（否则生长停滞）")]
+        [System.Obsolete("needsWatering 已移至 CropController 的生长规则配置，由 Prefab Inspector 统一管控。保留仅为存档兼容。")]
+        [Tooltip("需要保持湿润（已废弃，移至 CropController）")]
         public bool needsWatering = true;
 
         [Tooltip("种植经验值（种植时获得）")]
@@ -76,36 +63,28 @@ namespace FarmGame.Data
         {
             base.OnValidate();
 
-            // 验证种子ID范围（10XX）
-            if (itemID < 1000 || itemID >= 2000)
+            // 验证种子ID范围（1000-1099）
+            if (itemID < 1000 || itemID >= 1100)
             {
-                Debug.LogWarning($"[{itemName}] 种子ID应在1000-1999范围内！当前:{itemID}");
+                Debug.LogWarning($"[{itemName}] 种子ID应在1000-1099范围内！当前:{itemID}");
             }
 
-            // 验证作物ID
-            if (harvestCropID < 1100 || harvestCropID >= 1200)
-            {
-                Debug.LogWarning($"[{itemName}] 收获作物ID应在1100-1199范围内！当前:{harvestCropID}");
-            }
+            // 🔥 10.X 纠正：harvestCropID 已废弃，移除范围验证
 
-            // 验证生长阶段Sprite
-            if (growthStageSprites == null || growthStageSprites.Length < 3)
+            // 验证作物预制体
+            if (cropPrefab == null)
             {
-                Debug.LogWarning($"[{itemName}] 至少需要3个生长阶段Sprite！");
+                Debug.LogWarning($"[{itemName}] 缺少作物预制体（cropPrefab）！");
             }
-
-            // 验证收获范围
-            if (harvestAmountRange.x > harvestAmountRange.y)
+            else if (cropPrefab.GetComponent<FarmGame.Farm.CropController>() == null)
             {
-                Debug.LogWarning($"[{itemName}] 收获数量范围错误！");
-                harvestAmountRange.y = harvestAmountRange.x;
+                Debug.LogWarning($"[{itemName}] 作物预制体上没有 CropController 组件！");
             }
         }
 
         public override string GetTooltipText()
         {
             string text = base.GetTooltipText();
-            text += $"\n\n<color=green>生长周期: {growthDays}天</color>";
             text += $"\n<color=green>季节: {GetSeasonName(season)}</color>";
             
             if (isReHarvestable)

@@ -570,4 +570,179 @@ public class CropSystemTests
     }
 
     #endregion
+
+    #region 5.6 阶段计算测试（daysToNextStage 累加模式）
+
+    /// <summary>
+    /// 模拟 CropController.UpdateGrowthStage 的累加逻辑
+    /// stages[i].daysToNextStage 表示从阶段 i 到阶段 i+1 需要的天数
+    /// </summary>
+    private static int CalculateStage(int[] daysToNextStage, int grownDays)
+    {
+        int accumulatedDays = 0;
+        int stage = 0;
+        
+        for (int i = 0; i < daysToNextStage.Length - 1; i++)
+        {
+            accumulatedDays += daysToNextStage[i];
+            if (grownDays >= accumulatedDays)
+                stage = i + 1;
+            else
+                break;
+        }
+        
+        return Mathf.Clamp(stage, 0, daysToNextStage.Length - 1);
+    }
+
+    /// <summary>
+    /// 计算到达指定阶段所需的总天数
+    /// </summary>
+    private static int CalculateDaysForStage(int[] daysToNextStage, int targetStage)
+    {
+        int accDays = 0;
+        for (int i = 0; i < targetStage && i < daysToNextStage.Length; i++)
+            accDays += daysToNextStage[i];
+        return accDays;
+    }
+
+    /// <summary>
+    /// **Validates: 迭代需求001 — 每阶段独立天数**
+    /// P6：固定 4 阶段配置（种子1天→幼苗2天→生长2天→成熟0天）
+    /// 验证 grownDays=0 → 阶段0，grownDays=1 → 阶段1，grownDays=3 → 阶段2，grownDays=5 → 阶段3
+    /// </summary>
+    [Test]
+    public void StageCalc_FixedFourStages_CorrectProgression()
+    {
+        // 种子(1天) → 幼苗(2天) → 生长(2天) → 成熟(0天)
+        var days = new int[] { 1, 2, 2, 0 };
+        
+        Assert.AreEqual(0, CalculateStage(days, 0), "grownDays=0 应为阶段0（种子）");
+        Assert.AreEqual(1, CalculateStage(days, 1), "grownDays=1 应为阶段1（幼苗）");
+        Assert.AreEqual(1, CalculateStage(days, 2), "grownDays=2 应为阶段1（幼苗）");
+        Assert.AreEqual(2, CalculateStage(days, 3), "grownDays=3 应为阶段2（生长）");
+        Assert.AreEqual(2, CalculateStage(days, 4), "grownDays=4 应为阶段2（生长）");
+        Assert.AreEqual(3, CalculateStage(days, 5), "grownDays=5 应为阶段3（成熟）");
+        Assert.AreEqual(3, CalculateStage(days, 10), "grownDays=10 应为阶段3（成熟，封顶）");
+    }
+
+    /// <summary>
+    /// **Validates: 迭代需求001 — 阶段单调递增**
+    /// PBT：随机生成 daysToNextStage 配置，验证 grownDays 增加时阶段只增不减
+    /// </summary>
+    [Test]
+    public void StageCalc_PBT_StageMonotonicallyIncreasing()
+    {
+        const int iterations = 200;
+        var random = new System.Random(42);
+
+        for (int iter = 0; iter < iterations; iter++)
+        {
+            // 随机生成 4 阶段配置
+            var days = new int[]
+            {
+                random.Next(1, 5),  // 种子→幼苗
+                random.Next(1, 5),  // 幼苗→生长
+                random.Next(1, 5),  // 生长→成熟
+                0                   // 成熟（不再生长）
+            };
+
+            int totalDays = days[0] + days[1] + days[2];
+            int prevStage = 0;
+
+            for (int d = 0; d <= totalDays + 3; d++)
+            {
+                int stage = CalculateStage(days, d);
+                Assert.GreaterOrEqual(stage, prevStage,
+                    $"迭代 {iter}: grownDays={d} 阶段 {stage} 不应小于前一天的阶段 {prevStage}");
+                prevStage = stage;
+            }
+        }
+    }
+
+    /// <summary>
+    /// **Validates: 迭代需求001 — 成熟阶段封顶**
+    /// PBT：grownDays 超过总天数后，阶段始终为最后阶段
+    /// </summary>
+    [Test]
+    public void StageCalc_PBT_MatureStageIsCapped()
+    {
+        const int iterations = 200;
+        var random = new System.Random(42);
+
+        for (int iter = 0; iter < iterations; iter++)
+        {
+            var days = new int[]
+            {
+                random.Next(1, 5),
+                random.Next(1, 5),
+                random.Next(1, 5),
+                0
+            };
+
+            int totalDays = days[0] + days[1] + days[2];
+            int maxStage = days.Length - 1; // 3
+
+            // 超过总天数后应始终为最后阶段
+            for (int extra = 0; extra < 10; extra++)
+            {
+                int stage = CalculateStage(days, totalDays + extra);
+                Assert.AreEqual(maxStage, stage,
+                    $"迭代 {iter}: grownDays={totalDays + extra} 应为最后阶段 {maxStage}");
+            }
+        }
+    }
+
+    /// <summary>
+    /// **Validates: 迭代需求001 — 重复收获阶段天数计算**
+    /// 验证 CalculateDaysForStage 正确累加
+    /// </summary>
+    [Test]
+    public void StageCalc_DaysForStage_CorrectAccumulation()
+    {
+        var days = new int[] { 1, 2, 2, 0 };
+        
+        Assert.AreEqual(0, CalculateDaysForStage(days, 0), "到阶段0需要0天");
+        Assert.AreEqual(1, CalculateDaysForStage(days, 1), "到阶段1需要1天");
+        Assert.AreEqual(3, CalculateDaysForStage(days, 2), "到阶段2需要3天");
+        Assert.AreEqual(5, CalculateDaysForStage(days, 3), "到阶段3需要5天");
+    }
+
+    /// <summary>
+    /// **Validates: 迭代需求001 — 阶段边界精确性**
+    /// PBT：恰好在阶段边界天数时应进入下一阶段
+    /// </summary>
+    [Test]
+    public void StageCalc_PBT_ExactBoundaryTransitions()
+    {
+        const int iterations = 200;
+        var random = new System.Random(42);
+
+        for (int iter = 0; iter < iterations; iter++)
+        {
+            var days = new int[]
+            {
+                random.Next(1, 8),
+                random.Next(1, 8),
+                random.Next(1, 8),
+                0
+            };
+
+            // 在每个阶段边界检查
+            int boundary = 0;
+            for (int i = 0; i < 3; i++)
+            {
+                boundary += days[i];
+                int stageAtBoundary = CalculateStage(days, boundary);
+                int stageBeforeBoundary = CalculateStage(days, boundary - 1);
+                
+                Assert.AreEqual(i + 1, stageAtBoundary,
+                    $"迭代 {iter}: grownDays={boundary}（边界）应为阶段 {i + 1}");
+                Assert.AreEqual(i, stageBeforeBoundary,
+                    $"迭代 {iter}: grownDays={boundary - 1}（边界前）应为阶段 {i}");
+            }
+        }
+    }
+
+    #endregion
+
 }

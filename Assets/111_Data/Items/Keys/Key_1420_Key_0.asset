@@ -19,7 +19,7 @@ MonoBehaviour:
   icon: {fileID: -7955837468840799689, guid: 40155dd0547ef174db4cafe83f1c9381, type: 3}
   bagSprite: {fileID: 0}
   rotateBagIcon: 1
-  worldPrefab: {fileID: 0}
+  worldPrefab: {fileID: 891919720066287229, guid: ff2ec86c4f6b57a4f8f08d2143a5d09b, type: 3}
   buyPrice: 0
   sellPrice: 0
   maxStackSize: 99

@@ -48,141 +48,219 @@ MonoBehaviour:
   - name: Box_4
     prefab: {fileID: 6933420109223503079, guid: f4f9629a4c39ef7409f3980e31f0ce63, type: 3}
     folderPath: Assets/222_Prefabs/Box/Assets\222_Prefabs\Box
-  - name: WorldItem_0_Axe_0
-    prefab: {fileID: 2866745638498015310, guid: 6a43d780e896ac24aa780f383d05dca0, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_1_Axe_1
-    prefab: {fileID: 8085227676023850154, guid: 22f83a492fa45394982ec4e49b361675, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_2_Axe_2
-    prefab: {fileID: 3167246551733185085, guid: fb426facda7d4a640bb160ee5e972c05, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_3_Axe_3
-    prefab: {fileID: 4985555706037224704, guid: ca68ad9e561c38e4280855ecaec9976d, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_4_Axe_4
-    prefab: {fileID: 9041807204654732106, guid: 92ae7cff2ce68df4e921b1abd7f36e9e, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_5_Axe_5
-    prefab: {fileID: 753772035167397933, guid: 1d47bf4b38133ce499a5a4c493645287, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_6_Pickaxe_0
-    prefab: {fileID: 5541789348160191182, guid: 65a1a5fafffb5ed45baaf8793a16b9dd, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_7_Pickaxe_1
-    prefab: {fileID: 161833074693478657, guid: 5cefedcc6438a4d4f9dce367635a3836, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_8_Pickaxe_2
-    prefab: {fileID: 3622683253882103809, guid: 2fec9a9002bff6a49933d8bce5be671b, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_9_Pickaxe_3
-    prefab: {fileID: 421776932795927029, guid: d5b992fe1cd03a344b402160ab99ac75, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_10_Pickaxe_4
-    prefab: {fileID: 8653659215878837480, guid: 936305ee63da24a4bb1b313985303f5c, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_11_Pickaxe_5
-    prefab: {fileID: 2601172474906319461, guid: 2e2ee82a2887ceb449427259c09b7c06, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_12_Hoe_0
-    prefab: {fileID: 214293249987657313, guid: 17e43e51062751748ba1ba5418e2aa5e, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_13_Hoe_1
-    prefab: {fileID: 4004108867353989568, guid: a6f3bc46f03e01d4495443f9b492f619, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_14_Hoe_2
-    prefab: {fileID: 5343361569643616460, guid: f6288c9e8c91fc74e99667faf9553a4d, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_15_Hoe_3
-    prefab: {fileID: 5151485213802880715, guid: a2cb585f1993ffb459afe3c16545fb43, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_16_Hoe_4
-    prefab: {fileID: 2676255641736676325, guid: 81c103516d8afeb4b813bf666308f91f, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_17_Hoe_5
-    prefab: {fileID: 6737487383599637878, guid: 8850d74de59218c46a285a4be87d8e31, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_18_WateringCan_0
-    prefab: {fileID: 4840070426779640950, guid: 736aca6d87c6b6e4eac3db4cc9259f19, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_200_Sword_0
-    prefab: {fileID: 483851683108207682, guid: 8b05aeebf0a5e794fb8794ca7a60d62f, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_201_Sword_1
-    prefab: {fileID: 6833261180224712260, guid: ab6f106b293f8fa40b8f4184af653be7, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_202_Sword_2
-    prefab: {fileID: 1191870613298722887, guid: 4aaf00951aff4b44789a5e3b4e92515d, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_203_Sword_3
-    prefab: {fileID: 930719783370884114, guid: 2c28bc839dfd6864d8d56a94506f7a15, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_204_Sword_4
-    prefab: {fileID: 6186288753969354621, guid: 1687821b99dcad4408bbc436c57b87f9, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_205_Sword_5
-    prefab: {fileID: 13513771750575189, guid: c168c82ffe032de459e807be9b6af15e, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_1101_Crop_Carrot
-    prefab: {fileID: 8138148565603249175, guid: 396ca73a88791ce40b60a9c94c1ff0d7, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_1200_M1\u6811\u82D7"
-    prefab: {fileID: 6434604074663479983, guid: 4d29c7d42f399c44aa7f230851b75498, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_1201_M2\u6811\u82D7"
-    prefab: {fileID: 2984516829808425434, guid: b557a6ca26220b94ba1eb885770448d5, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_1202_M3\u6811\u82D7"
-    prefab: {fileID: 1996979714736804679, guid: 4cef7b9171611f74796ef1e46b7110d5, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_1400_Small_Box_0
-    prefab: {fileID: 8128190227213682254, guid: c86ddeeb9245d024d8276b10d8189ca0, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_1400_\u5C0F\u6728\u7BB1\u5B50_0"
-    prefab: {fileID: 9038088289265505649, guid: da13455e64c1a2848b0413851309bee8, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_1401_Big_Box_0
-    prefab: {fileID: 4524302578409545075, guid: c7cbed98dc79fff41b88cefa065d1ee7, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_1401_\u5927\u6728\u7BB1\u5B50_0"
-    prefab: {fileID: 7141263493045775772, guid: 2078e2e35cd5ce143aa66e920a31f6f0, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_1402_\u5C0F\u94C1\u7BB1\u5B50_0"
-    prefab: {fileID: 1876241566634808191, guid: c05b6a8d5d251434c8580a04d3f51c57, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_1403_\u5927\u94C1\u7BB1\u5B50_0"
-    prefab: {fileID: 8115767902173211098, guid: df7f85bffdc8a954aba49b224d8cf751, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_3000_\u9EC4\u94DC\u77FF"
-    prefab: {fileID: 945328038413433395, guid: eafef683bf10c8d4582925f7a5b9c7b5, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_3001_\u751F\u94C1\u77FF"
-    prefab: {fileID: 3691121212813016453, guid: 0bf5406b32ce23c428d060b40edd19ef, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_3002_\u9EC4\u91D1\u77FF"
-    prefab: {fileID: 6567037255811295112, guid: 2432ec7d3f1c2f143b9edd447be98f3b, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_3100_\u9EC4\u94DC\u952D"
-    prefab: {fileID: 2401350086605043063, guid: b8557d5ce3aecb34db36e98b02371087, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_3101_\u751F\u94C1\u952D"
-    prefab: {fileID: 3963710951095603012, guid: b17de86694aa5d14ba7fb1effdc3ef5e, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_3102_\u9EC4\u91D1\u952D"
-    prefab: {fileID: 2935209139700215840, guid: dfee30319e355fa43a5c4ccffc48f855, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: WorldItem_3200_Wood
-    prefab: {fileID: 2036550959067373048, guid: a8a8d1aff610f034eb952f898cd442f7, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
-  - name: "WorldItem_3201_\u77F3\u6599"
-    prefab: {fileID: 6541627232443096010, guid: 8379a63a50a6ae5419099d5a5724bd3a, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
+  - name: "WorldItem_1100_\u5927\u849C"
+    prefab: {fileID: 6464350719726192044, guid: b25b4ca6e01b5894183d84cea3bee43b, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops
+  - name: "WorldItem_1101_\u751F\u83DC"
+    prefab: {fileID: 7764986905128638174, guid: 07e61cda405e8f445b833e1fa5fed86e, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops
+  - name: "WorldItem_1102_\u82B1\u6930\u83DC"
+    prefab: {fileID: 5462506611750809859, guid: 613e8391c4e3fda4da079a316bad201a, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops
+  - name: "WorldItem_1103_\u5377\u5FC3\u83DC"
+    prefab: {fileID: 928084196518756643, guid: 7bec60add9fb14540aa4233e0f8214b9, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops
+  - name: "WorldItem_1104_\u897F\u5170\u82B1"
+    prefab: {fileID: 8508135844866496515, guid: 8a4f10569119fbb4498fabe1910abde4, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops
+  - name: "WorldItem_1105_\u751C\u83DC"
+    prefab: {fileID: 2587331766448082559, guid: 7ba33dbf198673140a258dd736218798, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops
+  - name: "WorldItem_1106_\u80E1\u841D\u535C"
+    prefab: {fileID: 8947773487524512424, guid: 3d119945a0358c84190deba19088bcea, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops
+  - name: "WorldItem_1150_\u5927\u849C"
+    prefab: {fileID: 8282166478725959203, guid: 08526d5d276d5cd4488da6fa1c15640a, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops_Withered
+  - name: "WorldItem_1151_\u751F\u83DC"
+    prefab: {fileID: 2554703398903551409, guid: d905fdf981a7d4849b28214aebcf743d, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops_Withered
+  - name: "WorldItem_1152_\u82B1\u6930\u83DC"
+    prefab: {fileID: 424405936482530152, guid: 23d595b9377cfea419963042d5aaa865, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops_Withered
+  - name: "WorldItem_1153_\u5377\u5FC3\u83DC"
+    prefab: {fileID: 5444220204964518105, guid: aaeb65b4598496042b6fe1092f1e476c, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops_Withered
+  - name: "WorldItem_1154_\u897F\u5170\u82B1"
+    prefab: {fileID: 4697731696768547781, guid: f732f60459c170444837b2196d3665c5, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops_Withered
+  - name: "WorldItem_1155_\u751C\u83DC"
+    prefab: {fileID: 8934876084532186731, guid: 54d74af3b26631a4483649ebbcc42bc9, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops_Withered
+  - name: "WorldItem_1156_\u80E1\u841D\u535C"
+    prefab: {fileID: 8001743105040221814, guid: 01e74b58465688a42a68792c1003a316, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Crops_Withered
   - name: "WorldItem_8300_\u8DB3\u529B\u5065"
-    prefab: {fileID: 114502078984218147, guid: 9cf219d75428e924499ef61f41dc73cd, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
+    prefab: {fileID: 157679473323312545, guid: 915a8f7e99d6fbd428a42f97d7ab1f38, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Equipment
   - name: "WorldItem_8400_\u6076\u9B54\u6212\u6307"
-    prefab: {fileID: 3785288339582344055, guid: 1108400afe4b0fa41a399b1362f37dce, type: 3}
-    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems
+    prefab: {fileID: 2906493057084935214, guid: 599296ebcc781c44391f920057b9965b, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Equipment
+  - name: WorldItem_1420_Key_0
+    prefab: {fileID: 891919720066287229, guid: ff2ec86c4f6b57a4f8f08d2143a5d09b, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Keys
+  - name: WorldItem_1421_Key_1
+    prefab: {fileID: 3394036526107035816, guid: 946f21fa299d47a43963c46dbd47d720, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Keys
+  - name: WorldItem_1422_Key_2
+    prefab: {fileID: 2825348994024698128, guid: a86419917cbdc8c4bb3ef4391f0da6d1, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Keys
+  - name: WorldItem_1423_Key_3
+    prefab: {fileID: 1058797663628971990, guid: 9d597bf0889fdd548b81e3b3ef97ccbc, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Keys
+  - name: WorldItem_1424_Key_4
+    prefab: {fileID: 6533592332227960412, guid: 5200588be3d65634abe702c53295aa0e, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Keys
+  - name: WorldItem_1425_Key_5
+    prefab: {fileID: 4597807567090661227, guid: e34a945753d372745840fb4cfb90dd6a, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Keys
+  - name: WorldItem_1410_Lock_1_0
+    prefab: {fileID: 1441901022897039738, guid: 7f2a0598bb2736241b850a4e38ebccce, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Locks
+  - name: WorldItem_1411_Lock_5_0
+    prefab: {fileID: 1818201463815918203, guid: 7bc82905b29957c4189c590f58a6058b, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Locks
+  - name: "WorldItem_3000_\u9EC4\u94DC\u77FF"
+    prefab: {fileID: 5837882397542153566, guid: f1dbb5e3c296697409ea2126432d9cc5, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: "WorldItem_3001_\u751F\u94C1\u77FF"
+    prefab: {fileID: 9076915326669330239, guid: ac20b16fd06d51c4194ccbdf26969d24, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: "WorldItem_3002_\u9EC4\u91D1\u77FF"
+    prefab: {fileID: 2922890789564470776, guid: 0f6de81be351cad4595bcb78c041ce29, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: "WorldItem_3100_\u9EC4\u94DC\u952D"
+    prefab: {fileID: 2901303773657102392, guid: 94359f79343cebf4584c186dbfe4c289, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: "WorldItem_3101_\u751F\u94C1\u952D"
+    prefab: {fileID: 6612804219806646295, guid: 1f26d4c8fff47074496356b5288b9c70, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: "WorldItem_3102_\u9EC4\u91D1\u952D"
+    prefab: {fileID: 5440338204464236529, guid: d6aa693879170804d9f65815d76bd23e, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: WorldItem_3200_Wood
+    prefab: {fileID: 1042695743110086187, guid: 6fa228a8b9996c84fa07c9ba529506d8, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: "WorldItem_3201_\u77F3\u6599"
+    prefab: {fileID: 3069643628935086061, guid: d6e1e7244397b7c46ada98dab410c0f3, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Materials
+  - name: "WorldItem_1400_\u5C0F\u6728\u7BB1\u5B50_0"
+    prefab: {fileID: 3671475454223014675, guid: 9828da4e6d1610f47917b7fd2f7400f8, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Placeable\Storage
+  - name: "WorldItem_1401_\u5927\u6728\u7BB1\u5B50_0"
+    prefab: {fileID: 530195059065593681, guid: 76c2254f0b1a60a4aa6da3db3bfebadd, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Placeable\Storage
+  - name: "WorldItem_1402_\u5C0F\u94C1\u7BB1\u5B50_0"
+    prefab: {fileID: 1037922006293052156, guid: 9708150cfa3f5a644b5552d0f6e52e5c, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Placeable\Storage
+  - name: "WorldItem_1403_\u5927\u94C1\u7BB1\u5B50_0"
+    prefab: {fileID: 3735380484459412626, guid: 138a6e74881bbf24bb2230e0ed02c9a3, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Placeable\Storage
+  - name: "WorldItem_1200_M1\u6811\u82D7"
+    prefab: {fileID: 318890954295858262, guid: f3a350b6c1d2aac43bd7b81b3bcac71c, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Saplings
+  - name: "WorldItem_1201_M2\u6811\u82D7"
+    prefab: {fileID: 3414494592792897632, guid: 88fb08b5cf17f0840b016e2b299c874d, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Saplings
+  - name: "WorldItem_1202_M3\u6811\u82D7"
+    prefab: {fileID: 7314689301391390124, guid: e45873ddc20ce97419930e39f4e29eca, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Saplings
+  - name: "WorldItem_1000_\u5927\u849C"
+    prefab: {fileID: 5178940963226316470, guid: 0ed54a3c99411964984d590ce1b234b8, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Seeds
+  - name: "WorldItem_1001_\u751F\u83DC"
+    prefab: {fileID: 2366678482523646641, guid: 596308e2b16337146bad023a17454fd5, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Seeds
+  - name: "WorldItem_1002_\u82B1\u6930\u83DC"
+    prefab: {fileID: 3482104681663905861, guid: 3992f5124bc8fe244aa47789429aa267, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Seeds
+  - name: "WorldItem_1003_\u5377\u5FC3\u83DC"
+    prefab: {fileID: 3072407173595101138, guid: 7106373548f13e04db59cbfb7bf90bdb, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Seeds
+  - name: "WorldItem_1004_\u897F\u5170\u82B1"
+    prefab: {fileID: 186849934026283487, guid: c78ef2724fea04948bb09d022d857302, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Seeds
+  - name: "WorldItem_1005_\u751C\u83DC"
+    prefab: {fileID: 6116483645528437819, guid: d530af1a8c7f2f4418bdc1161c0ea5c6, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Seeds
+  - name: "WorldItem_1006_\u80E1\u841D\u535C"
+    prefab: {fileID: 1782878420619855251, guid: 881f8cd7c5e07654eb0e8540ca4082d4, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Seeds
+  - name: WorldItem_0_Axe_0
+    prefab: {fileID: 2232346442268188109, guid: 656486a54c89a6e4f94f242bf7c25ff0, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_1_Axe_1
+    prefab: {fileID: 3379767685366296542, guid: 8be771de372ef9245860486c50ced5eb, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_2_Axe_2
+    prefab: {fileID: 559824760546716909, guid: 3aabd2e3d9de39f4cbba556f3f4eac1c, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_3_Axe_3
+    prefab: {fileID: 1956039686051890316, guid: 5b7c8a7f5cda3ce4ea0be000f145e651, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_4_Axe_4
+    prefab: {fileID: 1479611853771156032, guid: 7600fed031a444d48af9c25041e227df, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_5_Axe_5
+    prefab: {fileID: 757300288674113489, guid: 510ef5137460aa8429ff686f95be22f3, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_6_Pickaxe_0
+    prefab: {fileID: 118734425762064300, guid: 9547a8caadd270d439e8127aea30c2b4, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_7_Pickaxe_1
+    prefab: {fileID: 7145388858115827253, guid: 98cc718d637c3104891dac73f868dbcb, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_8_Pickaxe_2
+    prefab: {fileID: 8865434753654486790, guid: 0b31aad1a25baec49add8d500ba0f564, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_9_Pickaxe_3
+    prefab: {fileID: 5908762057265895404, guid: 41c107522a5da1549b93ec54497dbede, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_10_Pickaxe_4
+    prefab: {fileID: 6724361500819731650, guid: 967dd008f5d142446b8ddf2c8442e1c9, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_11_Pickaxe_5
+    prefab: {fileID: 5800266720795371422, guid: c7849d7757be1f640a60168684774a74, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_12_Hoe_0
+    prefab: {fileID: 3890257253992511151, guid: 37425708a4cd63e418294ef44d6ee2e0, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_13_Hoe_1
+    prefab: {fileID: 8706688104295117975, guid: 69ffc1828c6826c488958c156368ee98, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_14_Hoe_2
+    prefab: {fileID: 9094388801605374685, guid: d2107451f93345f49844ac2db4d5586f, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_15_Hoe_3
+    prefab: {fileID: 2227895079121667162, guid: 5e5a5172571cef844aa6f80cdaed8253, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_16_Hoe_4
+    prefab: {fileID: 263111544328295773, guid: 958572846d82a53498f2e50eaacee70b, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_17_Hoe_5
+    prefab: {fileID: 1745835709901869707, guid: 731e72dddb8604144b0dde288cb460a0, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_18_WateringCan_0
+    prefab: {fileID: 8523362194649158852, guid: 7daa60fd0854d8a43ab0064511280d8f, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Tools
+  - name: WorldItem_200_Sword_0
+    prefab: {fileID: 2616936948729638877, guid: b04fe63e744332148aac5d2fed4b4b67, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Weapons
+  - name: WorldItem_201_Sword_1
+    prefab: {fileID: 1957272843312660710, guid: ca7bd92197a421340939331e59b24644, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Weapons
+  - name: WorldItem_202_Sword_2
+    prefab: {fileID: 2588100372099523632, guid: 4015643ef126d7743804efc159d1daa3, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Weapons
+  - name: WorldItem_203_Sword_3
+    prefab: {fileID: 7205247000894270685, guid: 2dfc6c6c3d50b7b4b81bc507cf0650cc, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Weapons
+  - name: WorldItem_204_Sword_4
+    prefab: {fileID: 6871477927897838279, guid: 2d7d953b196956a408ac3634fc0acb58, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Weapons
+  - name: WorldItem_205_Sword_5
+    prefab: {fileID: 2935243765783302091, guid: 9b9e57e837754d54ab19d93ff5baa45c, type: 3}
+    folderPath: Assets/222_Prefabs/WorldItems/Assets\222_Prefabs\WorldItems\Weapons
   aliases:
   - oldId: "Storage_1400_\u5C0F\u6728\u7BB1\u5B50_0"
     newPrefabName: Box_1

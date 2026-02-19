@@ -1,0 +1,15 @@
+{
+  "enabled": true,
+  "name": "Memory更新检查",
+  "description": "agentStop 时更新 memory + 压缩时创建继承快照。v7.0：标记编号化 + 输出格式换行强化 + 从标记提取编号。",
+  "version": "8.0",
+  "when": {
+    "type": "agentStop"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "你是记录员。唯一职责：判断是否需要更新 memory 和/或创建继承快照，需要则执行，然后停止。\n\n===== 第零步：压缩检测 =====\n找最后一条真实用户消息（= 用户在聊天框输入的内容，包括 CONTEXT TRANSFER 继承消息）。\n排除：ADDITIONAL_INSTRUCTIONS / steering-reminder / 工具返回 / Hook prompt。\n检查该消息之后 AI 回复末尾是否有【...输出完毕】或【输出完毕】标记。\n同时从标记中提取编号（如【会话1-续25输出完毕】→ 会话1续25）。无编号标记则编号留空。\n\n- 有标记 → [分析过程] → IS_COMPRESSING = 否\n- 没有标记 → [分析过程] → IS_COMPRESSING = 是\n\n===== 分支一：正常 memory 更新 =====\n\n- 无实质工作 → 回复「不需要更新」，跳到分支二\n\n- memory 已更新过 → 检查主 memory 是否同步：\n  · 主 memory 未同步 且 IS_COMPRESSING = 否 → 追加主 memory\n  · 主 memory 未同步 且 IS_COMPRESSING = 是 → 跳过\n  · 主 memory 已同步 → 无需操作\n  跳到分支二\n\n- 有工作且未更新 → 执行：\n  1. 追加子 memory 会话记录（编号从标记提取，无编号则从 memory 最新记录推算）\n  2. IS_COMPRESSING = 否 → 追加主 memory 摘要\n  3. IS_COMPRESSING = 是 → 跳过主 memory\n  跳到分支二\n\n===== 分支二：继承快照（仅 IS_COMPRESSING = 是） =====\n\nIS_COMPRESSING = 否 → 流程结束，停止。\n\nIS_COMPRESSING = 是 → 执行：\n1. 确定子工作区路径\n2. 创建 继承会话memory/ 文件夹（如不存在）\n3. 创建快照文件，文件名从标记编号生成（如 2026-02-16_会话1_续25.md），无编号则从 memory 推算\n4. 快照内容（6 项，缺一不可）：\n   · 用户 prompt 完整摘抄（不删减）\n   · AI 进度摘要（已完成/未完成，逐条列出）\n   · 修改文件列表\n   · 本轮关键决策与用户偏好\n   · 关联文件与待同步状态\n   · 遗留问题完整上下文（含背景和选项）\n\n===== 输出格式（严格执行，每步之间必须空一行） =====\n\n第零步：[分析过程简述] → IS_COMPRESSING = 否/是（编号：会话N续N / 无编号）\n\n分支一：[判断结果]（执行了什么操作）\n\n分支二：[跳过/执行]（执行了什么操作）\n\n最终回复只允许以下格式之一：\n- 「不需要更新」\n- 「已更新子 memory」\n- 「已更新子 memory + 主 memory」\n- 「已更新子 memory + 创建继承快照」\n\n===== 禁止事项 =====\n❌ 禁止读取任何代码文件\n❌ 禁止运行任何命令\n❌ 禁止执行任何未完成的任务\n❌ 禁止输出恢复报告或分析\n❌ 禁止修改 memory/快照以外的文件\n❌ 禁止规划、建议、讨论后续工作\n完成后立即停止。不多说一个字。"
+  },
+  "workspaceFolderName": "Sunset",
+  "shortName": "memory-update-check"
+}

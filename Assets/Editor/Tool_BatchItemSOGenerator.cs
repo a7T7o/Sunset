@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using FarmGame.Data;
 
 /// <summary>
@@ -136,7 +137,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         { ItemSOType.EquipmentData, 8000 },
         { ItemSOType.SeedData, 1000 },
         { ItemSOType.CropData, 1100 },
-        { ItemSOType.WitheredCropData, 1200 },
+        { ItemSOType.WitheredCropData, 1150 },
         { ItemSOType.SaplingData, 1200 },
         { ItemSOType.WorkstationData, 1300 },
         { ItemSOType.StorageData, 1400 },
@@ -159,7 +160,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         { ItemSOType.EquipmentData, "Assets/111_Data/Items/Equipment" },
         { ItemSOType.SeedData, "Assets/111_Data/Items/Seeds" },
         { ItemSOType.CropData, "Assets/111_Data/Items/Crops" },
-        { ItemSOType.WitheredCropData, "Assets/111_Data/Items/WitheredCrops" },
+        { ItemSOType.WitheredCropData, "Assets/111_Data/Items/Crops_Withered" },
         { ItemSOType.SaplingData, "Assets/111_Data/Items/Placeable/Saplings" },
         { ItemSOType.WorkstationData, "Assets/111_Data/Items/Placeable/Workstations" },
         { ItemSOType.StorageData, "Assets/111_Data/Items/Placeable/Storage" },
@@ -207,6 +208,17 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     private int defaultMaxStack = 99;
     private bool setDisplaySize = false;
     private int displayPixelSize = 32;
+    private bool setRotateBagIcon = false;
+    private bool rotateBagIcon = true;
+    private bool setBagDisplaySize = false;
+    private int bagDisplayPixelSize = 52;
+    private Vector2 bagDisplayOffset = Vector2.zero;
+    private bool setWorldDisplayOffset = false;
+    private Vector2 worldDisplayOffset = Vector2.zero;
+    private bool setCanBeDiscarded = false;
+    private bool canBeDiscarded = true;
+    private bool setIsQuestItem = false;
+    private bool isQuestItem = false;
 
     // === 工具专属 ===
     private ToolType toolType = ToolType.Axe;
@@ -228,10 +240,6 @@ public class Tool_BatchItemSOGenerator : EditorWindow
 
     // === 种子专属 ===
     private Season seedSeason = Season.Spring;
-    private bool setSeedGrowth = false;
-    private int seedGrowthDays = 4;
-    private bool setSeedHarvest = false;
-    private int seedHarvestCropID = 1100;
     private bool setSeedBagSize = false;
     private int seedsPerBag = 5;
     private bool setSeedShelfLife = false;
@@ -241,6 +249,9 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     private bool seedIsReHarvestable = false;
     private int seedReHarvestDays = 2;
 
+    // === 种子作物预制体 ===
+    private GameObject seedCropPrefab;
+
     // === 树苗专属 ===
     private GameObject saplingTreePrefab;
     private bool setSaplingExp = false;
@@ -249,14 +260,10 @@ public class Tool_BatchItemSOGenerator : EditorWindow
     // === 作物专属 ===
     private bool setCropSeedID = false;
     private int cropSeedID = 1000;
-    private bool setCropExp = false;
-    private int cropHarvestExp = 10;
     private bool setCropWitheredID = false;
     private int cropWitheredCropID = 1200;
 
     // === 枯萎作物专属 ===
-    private bool setWitheredNormalCropID = false;
-    private int witheredNormalCropID = 1100;
     private bool setWitheredSeedID = false;
     private int witheredSeedID = 1000;
 
@@ -551,12 +558,14 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             GUILayout.Space(22);
         }
 
-        // 名称
-        EditorGUILayout.LabelField(sprite.name, GUILayout.MinWidth(120));
+        // 名称（显示原始名称）
+        EditorGUILayout.LabelField(sprite.name, GUILayout.MinWidth(100));
 
-        // 预测 ID
+        // 预测 ID + 清洗后名称预览
         int predictedID = useSequentialID ? startID + index : startID;
-        EditorGUILayout.LabelField($"→ ID: {predictedID}", EditorStyles.miniLabel, GUILayout.Width(80));
+        string cleanedName = CleanSpriteName(sprite.name);
+        string prefix = GetFilePrefix();
+        EditorGUILayout.LabelField($"→ {prefix}_{predictedID}_{cleanedName}", EditorStyles.miniLabel, GUILayout.Width(200));
 
         GUILayout.FlexibleSpace();
 
@@ -871,7 +880,32 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         if (!canStack)
             EditorGUILayout.HelpBox("工具和武器不可堆叠，固定为 1", MessageType.None);
         
-        // 显示尺寸设置
+        // 背包图标旋转
+        EditorGUILayout.Space(5);
+        EditorGUILayout.BeginHorizontal();
+        setRotateBagIcon = EditorGUILayout.Toggle(setRotateBagIcon, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!setRotateBagIcon);
+        rotateBagIcon = EditorGUILayout.Toggle("背包图标旋转 45°", rotateBagIcon);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        // 背包显示尺寸
+        EditorGUILayout.BeginHorizontal();
+        setBagDisplaySize = EditorGUILayout.Toggle(setBagDisplaySize, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!setBagDisplaySize);
+        EditorGUILayout.LabelField("背包显示尺寸", GUILayout.Width(80));
+        bagDisplayPixelSize = EditorGUILayout.IntSlider(bagDisplayPixelSize, 8, 128);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        if (setBagDisplaySize)
+        {
+            EditorGUI.indentLevel++;
+            bagDisplayOffset = EditorGUILayout.Vector2Field("背包图标偏移", bagDisplayOffset);
+            EditorGUI.indentLevel--;
+        }
+        
+        // 世界显示尺寸
         EditorGUILayout.Space(5);
         EditorGUILayout.BeginHorizontal();
         setDisplaySize = EditorGUILayout.Toggle(setDisplaySize, GUILayout.Width(20));
@@ -882,6 +916,30 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         
         if (setDisplaySize)
             EditorGUILayout.HelpBox($"世界物品将等比例缩放至 {displayPixelSize}×{displayPixelSize} 像素方框内", MessageType.Info);
+        
+        // 世界显示偏移
+        EditorGUILayout.BeginHorizontal();
+        setWorldDisplayOffset = EditorGUILayout.Toggle(setWorldDisplayOffset, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!setWorldDisplayOffset);
+        worldDisplayOffset = EditorGUILayout.Vector2Field("世界显示偏移", worldDisplayOffset);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        // 丢弃与任务物品
+        EditorGUILayout.Space(5);
+        EditorGUILayout.BeginHorizontal();
+        setCanBeDiscarded = EditorGUILayout.Toggle(setCanBeDiscarded, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!setCanBeDiscarded);
+        canBeDiscarded = EditorGUILayout.Toggle("可丢弃", canBeDiscarded);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
+        
+        EditorGUILayout.BeginHorizontal();
+        setIsQuestItem = EditorGUILayout.Toggle(setIsQuestItem, GUILayout.Width(20));
+        EditorGUI.BeginDisabledGroup(!setIsQuestItem);
+        isQuestItem = EditorGUILayout.Toggle("任务物品", isQuestItem);
+        EditorGUI.EndDisabledGroup();
+        EditorGUILayout.EndHorizontal();
     }
 
     private void DrawTypeSpecificSettings()
@@ -1030,8 +1088,6 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         EditorGUILayout.LabelField("🌱 种子专属设置", EditorStyles.boldLabel);
         
         seedSeason = (Season)EditorGUILayout.EnumPopup("适合季节", seedSeason);
-        DrawOptionalInt(ref setSeedGrowth, ref seedGrowthDays, "生长天数", 1, 28);
-        DrawOptionalInt(ref setSeedHarvest, ref seedHarvestCropID, "收获作物 ID", 1100, 1199);
         
         EditorGUILayout.Space(4);
         EditorGUILayout.LabelField("种子袋配置", EditorStyles.miniLabel);
@@ -1065,6 +1121,23 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         {
             seedReHarvestDays = EditorGUILayout.IntSlider("再收获间隔天数", seedReHarvestDays, 1, 14);
         }
+        
+        EditorGUILayout.Space(4);
+        EditorGUILayout.LabelField("作物预制体", EditorStyles.miniLabel);
+        seedCropPrefab = (GameObject)EditorGUILayout.ObjectField("作物 Prefab", seedCropPrefab, typeof(GameObject), false);
+        
+        if (seedCropPrefab != null)
+        {
+            var cropController = seedCropPrefab.GetComponent<FarmGame.Farm.CropController>();
+            if (cropController == null)
+                EditorGUILayout.HelpBox("⚠️ 预制体缺少 CropController 组件！", MessageType.Error);
+            else
+                EditorGUILayout.HelpBox("✓ 预制体包含 CropController 组件", MessageType.None);
+        }
+        else
+        {
+            EditorGUILayout.HelpBox("请选择作物预制体（包含 CropController + 阶段 Sprite 配置）", MessageType.Warning);
+        }
     }
 
     private void DrawSaplingSettings()
@@ -1096,7 +1169,6 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         EditorGUILayout.LabelField("🌾 作物专属设置", EditorStyles.boldLabel);
         
         DrawOptionalInt(ref setCropSeedID, ref cropSeedID, "对应种子 ID", 1000, 1099);
-        DrawOptionalInt(ref setCropExp, ref cropHarvestExp, "收获经验", 1, 100);
         DrawOptionalInt(ref setCropWitheredID, ref cropWitheredCropID, "枯萎作物 ID", 1200, 1299);
     }
 
@@ -1106,7 +1178,6 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         
         EditorGUILayout.HelpBox("枯萎作物继承 FoodData，可食用但有负面效果\nID 范围: 1200-1299", MessageType.Info);
         
-        DrawOptionalInt(ref setWitheredNormalCropID, ref witheredNormalCropID, "对应正常作物 ID", 1100, 1199);
         DrawOptionalInt(ref setWitheredSeedID, ref witheredSeedID, "对应种子 ID", 1000, 1099);
     }
 
@@ -1285,6 +1356,22 @@ public class Tool_BatchItemSOGenerator : EditorWindow
 
     #region 生成逻辑
 
+    /// <summary>
+    /// 清洗 Sprite 名称：去除数字前缀、数字后缀和多余下划线
+    /// 例如：1_花椰菜_11 → 花椰菜，2_卷心菜_11 → 卷心菜
+    /// </summary>
+    private string CleanSpriteName(string spriteName)
+    {
+        // 去掉开头的 数字+下划线（可能多段，如 "1_" 或 "2_3_"）
+        string cleaned = Regex.Replace(spriteName, @"^(\d+_)+", "");
+        // 去掉结尾的 下划线+数字（可能多段，如 "_11" 或 "_1_2"）
+        cleaned = Regex.Replace(cleaned, @"(_\d+)+$", "");
+        // 去掉首尾残留的下划线
+        cleaned = cleaned.Trim('_');
+        // 如果清洗后为空（极端情况，全是数字），回退到原名
+        return string.IsNullOrEmpty(cleaned) ? spriteName : cleaned;
+    }
+
     private void GenerateItemSOs()
     {
         EnsureFolderExists(outputFolder);
@@ -1296,7 +1383,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         {
             var sprite = selectedSprites[i];
             int itemID = useSequentialID ? startID + i : startID;
-            string itemName = sprite.name;
+            string itemName = CleanSpriteName(sprite.name);
 
             ScriptableObject so = CreateItemSO(sprite, itemID, itemName);
             if (so != null)
@@ -1370,7 +1457,8 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             ItemSOType.SeedData => "Seed",
             ItemSOType.SaplingData => "Sapling",
             ItemSOType.CropData => "Crop",
-            ItemSOType.WitheredCropData => "WCrop",
+            ItemSOType.WitheredCropData => "Crop_Withered",
+            ItemSOType.LockData => "Lock",
             ItemSOType.FoodData => "Food",
             ItemSOType.MaterialData => "Material",
             ItemSOType.PotionData => "Potion",
@@ -1499,8 +1587,6 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         SetCommonProperties(data, sprite, itemID, itemName, ItemCategory.Plant);
         data.maxStackSize = setMaxStack ? defaultMaxStack : 99;
         data.season = seedSeason;
-        if (setSeedGrowth) data.growthDays = seedGrowthDays;
-        if (setSeedHarvest) data.harvestCropID = seedHarvestCropID;
         if (setSeedBagSize) data.seedsPerBag = seedsPerBag;
         if (setSeedShelfLife)
         {
@@ -1512,6 +1598,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             data.isReHarvestable = seedIsReHarvestable;
             if (seedIsReHarvestable) data.reHarvestDays = seedReHarvestDays;
         }
+        data.cropPrefab = seedCropPrefab;
         return data;
     }
 
@@ -1530,9 +1617,12 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         var data = ScriptableObject.CreateInstance<CropData>();
         SetCommonProperties(data, sprite, itemID, itemName, ItemCategory.Plant);
         data.maxStackSize = setMaxStack ? defaultMaxStack : 99;
+#pragma warning disable 0618 // Obsolete 字段：批量工具仍需支持旧字段赋值
         if (setCropSeedID) data.seedID = cropSeedID;
-        if (setCropExp) data.harvestExp = cropHarvestExp;
+#pragma warning restore 0618
+#pragma warning disable 0618
         if (setCropWitheredID) data.witheredCropID = cropWitheredCropID;
+#pragma warning restore 0618
         return data;
     }
 
@@ -1541,8 +1631,9 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         var data = ScriptableObject.CreateInstance<WitheredCropData>();
         SetCommonProperties(data, sprite, itemID, itemName, ItemCategory.Plant);
         data.maxStackSize = setMaxStack ? defaultMaxStack : 99;
-        if (setWitheredNormalCropID) data.normalCropID = witheredNormalCropID;
+#pragma warning disable 0618 // Obsolete 字段：批量工具仍需支持旧字段赋值
         if (setWitheredSeedID) data.seedID = witheredSeedID;
+#pragma warning restore 0618
         return data;
     }
 
@@ -1641,11 +1732,30 @@ public class Tool_BatchItemSOGenerator : EditorWindow
             data.sellPrice = defaultSellPrice;
         }
         
+        if (setRotateBagIcon)
+            data.rotateBagIcon = rotateBagIcon;
+        
+        if (setBagDisplaySize)
+        {
+            data.useCustomBagDisplaySize = true;
+            data.bagDisplayPixelSize = bagDisplayPixelSize;
+            data.bagDisplayOffset = bagDisplayOffset;
+        }
+        
         if (setDisplaySize)
         {
             data.useCustomDisplaySize = true;
             data.displayPixelSize = displayPixelSize;
         }
+        
+        if (setWorldDisplayOffset)
+            data.worldDisplayOffset = worldDisplayOffset;
+        
+        if (setCanBeDiscarded)
+            data.canBeDiscarded = canBeDiscarded;
+        
+        if (setIsQuestItem)
+            data.isQuestItem = isQuestItem;
     }
 
     #endregion
@@ -1670,8 +1780,21 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         defaultSellPrice = EditorPrefs.GetInt("BatchItemSO_SellPrice", 0);
         setMaxStack = EditorPrefs.GetBool("BatchItemSO_SetStack", false);
         defaultMaxStack = EditorPrefs.GetInt("BatchItemSO_MaxStack", 99);
+        setRotateBagIcon = EditorPrefs.GetBool("BatchItemSO_SetRotateBag", false);
+        rotateBagIcon = EditorPrefs.GetBool("BatchItemSO_RotateBag", true);
+        setBagDisplaySize = EditorPrefs.GetBool("BatchItemSO_SetBagDisplaySize", false);
+        bagDisplayPixelSize = EditorPrefs.GetInt("BatchItemSO_BagDisplaySize", 52);
+        bagDisplayOffset.x = EditorPrefs.GetFloat("BatchItemSO_BagOffsetX", 0f);
+        bagDisplayOffset.y = EditorPrefs.GetFloat("BatchItemSO_BagOffsetY", 0f);
         setDisplaySize = EditorPrefs.GetBool("BatchItemSO_SetDisplaySize", false);
         displayPixelSize = EditorPrefs.GetInt("BatchItemSO_DisplaySize", 32);
+        setWorldDisplayOffset = EditorPrefs.GetBool("BatchItemSO_SetWorldOffset", false);
+        worldDisplayOffset.x = EditorPrefs.GetFloat("BatchItemSO_WorldOffsetX", 0f);
+        worldDisplayOffset.y = EditorPrefs.GetFloat("BatchItemSO_WorldOffsetY", 0f);
+        setCanBeDiscarded = EditorPrefs.GetBool("BatchItemSO_SetDiscard", false);
+        canBeDiscarded = EditorPrefs.GetBool("BatchItemSO_Discard", true);
+        setIsQuestItem = EditorPrefs.GetBool("BatchItemSO_SetQuest", false);
+        isQuestItem = EditorPrefs.GetBool("BatchItemSO_Quest", false);
         
         // 工具
         toolType = (ToolType)EditorPrefs.GetInt("BatchItemSO_ToolType", 0);
@@ -1693,10 +1816,6 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         
         // 种子
         seedSeason = (Season)EditorPrefs.GetInt("BatchItemSO_SeedSeason", 0);
-        setSeedGrowth = EditorPrefs.GetBool("BatchItemSO_SetSeedGrowth", false);
-        seedGrowthDays = EditorPrefs.GetInt("BatchItemSO_SeedGrowth", 4);
-        setSeedHarvest = EditorPrefs.GetBool("BatchItemSO_SetSeedHarvest", false);
-        seedHarvestCropID = EditorPrefs.GetInt("BatchItemSO_SeedHarvestID", 1100);
         setSeedBagSize = EditorPrefs.GetBool("BatchItemSO_SetSeedBagSize", false);
         seedsPerBag = EditorPrefs.GetInt("BatchItemSO_SeedsPerBag", 5);
         setSeedShelfLife = EditorPrefs.GetBool("BatchItemSO_SetSeedShelfLife", false);
@@ -1716,14 +1835,10 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         // 作物
         setCropSeedID = EditorPrefs.GetBool("BatchItemSO_SetCropSeedID", false);
         cropSeedID = EditorPrefs.GetInt("BatchItemSO_CropSeedID", 1000);
-        setCropExp = EditorPrefs.GetBool("BatchItemSO_SetCropExp", false);
-        cropHarvestExp = EditorPrefs.GetInt("BatchItemSO_CropExp", 10);
         setCropWitheredID = EditorPrefs.GetBool("BatchItemSO_SetCropWitheredID", false);
         cropWitheredCropID = EditorPrefs.GetInt("BatchItemSO_CropWitheredID", 1200);
         
         // 枯萎作物
-        setWitheredNormalCropID = EditorPrefs.GetBool("BatchItemSO_SetWitheredNormalID", false);
-        witheredNormalCropID = EditorPrefs.GetInt("BatchItemSO_WitheredNormalID", 1100);
         setWitheredSeedID = EditorPrefs.GetBool("BatchItemSO_SetWitheredSeedID", false);
         witheredSeedID = EditorPrefs.GetInt("BatchItemSO_WitheredSeedID", 1000);
         
@@ -1785,8 +1900,21 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         EditorPrefs.SetInt("BatchItemSO_SellPrice", defaultSellPrice);
         EditorPrefs.SetBool("BatchItemSO_SetStack", setMaxStack);
         EditorPrefs.SetInt("BatchItemSO_MaxStack", defaultMaxStack);
+        EditorPrefs.SetBool("BatchItemSO_SetRotateBag", setRotateBagIcon);
+        EditorPrefs.SetBool("BatchItemSO_RotateBag", rotateBagIcon);
+        EditorPrefs.SetBool("BatchItemSO_SetBagDisplaySize", setBagDisplaySize);
+        EditorPrefs.SetInt("BatchItemSO_BagDisplaySize", bagDisplayPixelSize);
+        EditorPrefs.SetFloat("BatchItemSO_BagOffsetX", bagDisplayOffset.x);
+        EditorPrefs.SetFloat("BatchItemSO_BagOffsetY", bagDisplayOffset.y);
         EditorPrefs.SetBool("BatchItemSO_SetDisplaySize", setDisplaySize);
         EditorPrefs.SetInt("BatchItemSO_DisplaySize", displayPixelSize);
+        EditorPrefs.SetBool("BatchItemSO_SetWorldOffset", setWorldDisplayOffset);
+        EditorPrefs.SetFloat("BatchItemSO_WorldOffsetX", worldDisplayOffset.x);
+        EditorPrefs.SetFloat("BatchItemSO_WorldOffsetY", worldDisplayOffset.y);
+        EditorPrefs.SetBool("BatchItemSO_SetDiscard", setCanBeDiscarded);
+        EditorPrefs.SetBool("BatchItemSO_Discard", canBeDiscarded);
+        EditorPrefs.SetBool("BatchItemSO_SetQuest", setIsQuestItem);
+        EditorPrefs.SetBool("BatchItemSO_Quest", isQuestItem);
         
         // 工具
         EditorPrefs.SetInt("BatchItemSO_ToolType", (int)toolType);
@@ -1808,10 +1936,6 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         
         // 种子
         EditorPrefs.SetInt("BatchItemSO_SeedSeason", (int)seedSeason);
-        EditorPrefs.SetBool("BatchItemSO_SetSeedGrowth", setSeedGrowth);
-        EditorPrefs.SetInt("BatchItemSO_SeedGrowth", seedGrowthDays);
-        EditorPrefs.SetBool("BatchItemSO_SetSeedHarvest", setSeedHarvest);
-        EditorPrefs.SetInt("BatchItemSO_SeedHarvestID", seedHarvestCropID);
         EditorPrefs.SetBool("BatchItemSO_SetSeedBagSize", setSeedBagSize);
         EditorPrefs.SetInt("BatchItemSO_SeedsPerBag", seedsPerBag);
         EditorPrefs.SetBool("BatchItemSO_SetSeedShelfLife", setSeedShelfLife);
@@ -1832,14 +1956,10 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         // 作物
         EditorPrefs.SetBool("BatchItemSO_SetCropSeedID", setCropSeedID);
         EditorPrefs.SetInt("BatchItemSO_CropSeedID", cropSeedID);
-        EditorPrefs.SetBool("BatchItemSO_SetCropExp", setCropExp);
-        EditorPrefs.SetInt("BatchItemSO_CropExp", cropHarvestExp);
         EditorPrefs.SetBool("BatchItemSO_SetCropWitheredID", setCropWitheredID);
         EditorPrefs.SetInt("BatchItemSO_CropWitheredID", cropWitheredCropID);
         
         // 枯萎作物
-        EditorPrefs.SetBool("BatchItemSO_SetWitheredNormalID", setWitheredNormalCropID);
-        EditorPrefs.SetInt("BatchItemSO_WitheredNormalID", witheredNormalCropID);
         EditorPrefs.SetBool("BatchItemSO_SetWitheredSeedID", setWitheredSeedID);
         EditorPrefs.SetInt("BatchItemSO_WitheredSeedID", witheredSeedID);
         

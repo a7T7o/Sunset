@@ -799,3 +799,313 @@ public static void FixKeyIDs()
 
 **遗留问题**:
 - [ ] SaplingData StartID 也是 1200，与 WitheredCropData 冲突（不同 Category 下，仅影响工具默认建议值）
+
+
+---
+
+### 会话 11 - 2026-02-14（Sprite 名称清洗）
+
+**用户需求**:
+> 批量生成工具生成 SO 时，自动去除 Sprite 名称中的数字前缀和数字后缀（如 `1_花椰菜_11` → `花椰菜`），最终文件名只保留纯名称部分（如 `WCrop_1202_花椰菜`）
+
+**完成任务**:
+1. ✅ 新增 `CleanSpriteName()` 方法 — 正则去除数字前缀（`^\d+_`）和数字后缀（`_\d+$`）
+2. ✅ `GenerateItemSOs()` 中 itemName 改用清洗后名称
+3. ✅ `DrawSpriteListItem()` 预览改为显示完整生成文件名（如 `→ WCrop_1200_大蒜`）
+4. ✅ 添加 `using System.Text.RegularExpressions`
+5. ✅ Unity 编译通过，0 错误
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Tool_BatchItemSOGenerator.cs` | 修改 | 新增 CleanSpriteName，修改生成和预览逻辑 |
+
+
+---
+
+### 会话 12 - 2026-02-14（通用属性扩展）
+
+**用户需求**:
+> 批量生成物品工具的通用属性太少，希望能批量配置 rotateBagIcon、堆叠属性、背包显示尺寸等内容
+
+**完成任务**:
+1. ✅ 新增 5 组通用属性字段声明（10 个新字段）
+2. ✅ 修改 `DrawCommonSettings()` — 新增 5 组勾选制 UI
+3. ✅ 修改 `SetCommonProperties()` — 新增 5 组条件赋值逻辑
+4. ✅ 修改 `LoadSettings()` — 新增 14 条 EditorPrefs 读取
+5. ✅ 修改 `SaveSettings()` — 新增 14 条 EditorPrefs 保存
+6. ✅ Unity 编译通过，0 错误
+
+**新增通用属性**:
+
+| 勾选字段 | 配置项 | 说明 |
+|----------|--------|------|
+| `setRotateBagIcon` | `rotateBagIcon` | 背包图标是否旋转 45° |
+| `setBagDisplaySize` | `bagDisplayPixelSize` + `bagDisplayOffset` | 背包自定义显示尺寸和偏移 |
+| `setDisplaySize` | `displayPixelSize` | 世界显示尺寸（原有） |
+| `setWorldDisplayOffset` | `worldDisplayOffset` | 世界显示偏移 |
+| `setCanBeDiscarded` | `canBeDiscarded` | 是否可丢弃 |
+| `setIsQuestItem` | `isQuestItem` | 是否任务物品 |
+
+**设计原则**：所有新属性都是勾选制，不勾选则保持 ItemData 默认值，不影响现有 SO。
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Tool_BatchItemSOGenerator.cs` | 修改 | 新增 5 组通用属性（字段+UI+赋值+保存/加载） |
+| `memory.md` | 追加 | 会话 12 记录 |
+
+**编译状态**: ✅ Unity 编译通过，0 错误，2 个已知废弃字段警告（与本次无关）
+
+
+---
+
+### 会话 13/14 - 2026-02-15（ID 分配权威规范建立 + 深度审查 + 修复执行）
+
+> 详细内容已迁移至子工作区：`.kiro/specs/SO设计系统与工具/3_ID规范全面固定/memory.md`
+
+**摘要**:
+- 会话 13：全面搜查 ID 相关文档，建立唯一权威 ID 规范文档，更新 steering 引用链，新增已使用 ID 登记表
+- 会话 14：深度审查发现 7 个问题（装备/材料子分类遗漏、锁/钥匙体系未记录、3 处代码 bug）
+- 会话 14（续）：用户确认后执行全部修复
+
+**最终完成**:
+- ✅ 重写 `ID分配规范.md`（补充装备 6 子分类、材料 4 子分类、锁细分、钥匙材质体系）
+- ✅ 修复 `Tool_BatchItemSOGenerator.cs` 3 处代码（WitheredCropData StartID 1200→1150、前缀 WCrop→Crop_Withered、新增 LockData→"Lock"）
+- ✅ 更新 `so-design.md` 和 `items.md` 引用路径（文件已从子目录移至上级）
+- ✅ 创建子工作区 memory，精简主 memory
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `ID分配规范.md` | 重写 | 补充所有子分类细节 |
+| `Tool_BatchItemSOGenerator.cs` | 修改 | 修复 3 处代码 bug |
+| `so-design.md` | 修改 | 更新引用路径 |
+| `items.md` | 修改 | 更新引用路径 |
+| `3_ID规范全面固定/memory.md` | 新建 | 子工作区 memory |
+| `memory.md` | 修改 | 精简会话 13/14 |
+
+
+---
+
+### 会话 15 - 2026-02-15（输出路径修复 + 工作区 memory 全面排查 + 嵌套规范补充）
+
+**用户需求**:
+> 1. 修复工具中 WitheredCropData 输出文件夹名（WitheredCrops → Crops_Withered）
+> 2. 检查 SO 工作区子工作区是否都有 memory
+> 3. 确认主 memory 和子 memory 的规范，补充套娃（子子工作区）规则
+> 4. 全面排查所有工作区的 memory 缺失情况
+
+**完成任务**:
+1. ✅ 修复 `Tool_BatchItemSOGenerator.cs` 中 `SubTypeOutputFolders` 的 WitheredCropData 路径：`WitheredCrops` → `Crops_Withered`
+2. ✅ 修复 `ID分配规范.md` 中目录名：`WitheredCrops/` → `Crops_Withered/`
+3. ✅ Unity 编译通过，0 错误
+4. ✅ 补充 `workspace-memory.md` 新增"子工作区嵌套规则"（套娃规则）
+5. ✅ 全面排查所有工作区，发现 16 处缺失 memory.md（等待用户决定是否批量创建）
+
+**排查结果（缺失 memory 的工作区）**:
+- SO设计系统与工具：0_字段优化重构、1_ID规范和管理器修复、2_批量生成物品工具优化
+- Steering规则区优化：2026.02.14_Hook机制问题与方案
+- 999_全面重构：3.7.3消失bug/0_自动化GUID管理
+- 箱子系统：0~3、7_终极清算
+- 001_BeFore：编辑器工具/0_、摄像头死区同步/0_、砍树系统优化/0_、矿石系统/0_
+- 物品放置系统：4_放置系统Bug修复与规则完善
+- 000_Gemini
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Tool_BatchItemSOGenerator.cs` | 修改 | WitheredCropData 输出路径改为 Crops_Withered |
+| `ID分配规范.md` | 修改 | 目录名 WitheredCrops → Crops_Withered |
+| `workspace-memory.md` | 追加 | 新增子工作区嵌套规则 |
+| `memory.md` | 追加 | 会话 15 记录 |
+
+
+---
+
+### 会话 15（续） - 2026-02-15（批量创建缺失 memory.md）
+
+**用户需求**:
+> 批量创建 15 个缺失的 memory.md（排除 000_Gemini），要求全面详细、索引对齐、不错位
+
+**完成任务**:
+
+已为以下 15 个子工作区创建简化版 memory.md：
+
+**SO 设计系统与工具（3 个）**:
+1. ✅ `0_字段优化重构/memory.md` — 搁置状态，仅完成文档规划
+2. ✅ `1_ID规范和管理器修复/memory.md` — 已完成，PersistentManagers + 钥匙 ID 修复
+3. ✅ `2_批量生成物品工具优化/memory.md` — 已完成，Sprite 选择区域优化
+
+**Steering 规则区优化（1 个）**:
+4. ✅ `2026.02.14_Hook机制问题与方案/memory.md` — 分析完成，待用户确认修复方向
+
+**999_全面重构/3.7.3消失bug（1 个）**:
+5. ✅ `0_自动化GUID管理/memory.md` — 已完成，PersistentIdAutomator + PersistentIdValidator
+
+**箱子系统（5 个）**:
+6. ✅ `0_箱子系统核心功能/memory.md` — 已完成，核心逻辑
+7. ✅ `1_箱子样式与交互完善/memory.md` — 已完成，样式/动画/归属/开锁
+8. ✅ `2_箱子与放置系统综合修复/memory.md` — 进行中，综合修复
+9. ✅ `3_箱子UI系统完善/memory.md` — 已完成，UI 预制体绑定
+10. ✅ `7_终极清算/memory.md` — 待用户验收
+
+**001_BeFore_26.1.21（4 个）**:
+11. ✅ `编辑器工具/0_批量SO生成器分类优化/memory.md` — 已完成，V2 大类+小类
+12. ✅ `摄像头死区同步/0_初始需求/memory.md` — 已完成，Cinemachine 死区自动同步
+13. ✅ `砍树系统优化/0_成长边距检测重构/memory.md` — 已完成，Collider 边距检测
+14. ✅ `矿石系统/0_StoneController优化/memory.md` — 已完成，编辑器界面优化
+
+**物品放置系统（1 个）**:
+15. ✅ `4_放置系统Bug修复与规则完善/memory.md` — 空工作区，实际工作在编号 5
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| 15 个 memory.md | 新建 | 批量创建缺失的子工作区 memory |
+| `SO设计系统与工具/memory.md` | 追加 | 会话 15（续）记录 |
+
+
+---
+
+### 会话 16 - 2026-02-15（WorldPrefab 生成器路径镜像优化）
+
+**用户需求**:
+> 优化 WorldPrefab 生成器，使输出目录结构镜像 Items 文件夹结构。选择 Items 根目录后一键全量重建，WP 自动按子文件夹分类输出。
+
+**需求详解**:
+1. 输出路径镜像 Items 结构 — `Items/Crops/` 下的 SO → `WorldItems/Crops/`
+2. 自动推导路径 — 根据 ItemData SO 的资产路径计算相对子路径，不存在则自动创建
+3. 支持全量重建 — 删除所有 WP → 选择 Items 根目录 → 一键全部重新生成
+
+**完成任务**:
+1. ✅ 新增 `itemsRootPath` 字段 — Items 根路径配置（默认 `Assets/111_Data/Items`）
+2. ✅ 新增 `mirrorFolderStructure` 开关 — 是否镜像文件夹结构（默认开启）
+3. ✅ 新增 `GetMirroredOutputPath()` 方法 — 从 SO 资产路径推导 WP 输出子路径
+4. ✅ 修改 `GeneratePrefab()` — 使用镜像路径替代平铺路径
+5. ✅ 修改 `DrawOutputSettings()` — 新增 Items 根路径和镜像开关 UI
+6. ✅ 更新 `LoadSettings()` / `SaveSettings()` — 新增 EditorPrefs
+7. ✅ Unity 编译通过
+
+**路径推导逻辑**:
+```
+SO 路径: Assets/111_Data/Items/Crops/Crop_1100_大蒜.asset
+Items 根: Assets/111_Data/Items
+相对路径: Crops
+输出路径: Assets/222_Prefabs/WorldItems/Crops/WorldItem_1100_大蒜.prefab
+```
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `WorldPrefabGeneratorTool.cs` | 修改 | 新增路径镜像逻辑 |
+| `memory.md` | 追加 | 会话 16 记录 |
+
+**子工作区**: `.kiro/specs/SO设计系统与工具/4_WP生成/`
+
+
+
+---
+
+### 会话 17 - 2026-02-15（批量修改 SO 参数工具 — 全面重写规划）
+
+**用户需求**:
+> 新建批量修改 SO 参数工具，获取多选的 SO Data，显示所有属性交集，勾选框控制是否修改，底部应用按钮批量修改。要求完整显示所有属性内容，参照现有工具学习最佳交互方式。
+
+**完成任务**:
+1. ✅ 阅读所有 SO 子类代码（ItemData、ToolData、WeaponData、SeedData、CropData、WitheredCropData、FoodData、MaterialData、PotionData、KeyLockData、EquipmentData、PlaceableItemData、SaplingData、WorkstationData、StorageData、InteractiveDisplayData、SimpleEventData）
+2. ✅ 阅读现有 `Tool_BatchItemSOModifier.cs`（只覆盖少量硬编码属性）
+3. ✅ 创建 `requirements.md` — 需求文档
+4. ✅ 创建 `design.md` — 设计文档（SerializedProperty 反射方案）
+
+**设计方案**:
+- 采用 `SerializedObject` / `SerializedProperty` 反射方式，自动发现所有序列化字段
+- 自动计算选中 SO 的最近公共祖先类型，只显示交集属性
+- 按 Header 分组显示，和 Inspector 视觉一致
+- 勾选框控制修改，底部一键应用
+- 排除字段：itemID、itemName、icon、m_Script、Obsolete 标记字段
+
+**状态**: 等待用户确认设计方案后开始实现代码
+
+**工作区路径**: `.kiro/specs/SO设计系统与工具/5_批量修改SO参数/`
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `5_批量修改SO参数/requirements.md` | 新建 | 需求文档 |
+| `5_批量修改SO参数/design.md` | 新建 | 设计文档 |
+| `memory.md` | 追加 | 会话 17 记录 |
+
+
+---
+
+### 会话 17（续） - 2026-02-15（批量修改 SO 参数工具 — 代码实现）
+
+**续接自会话 17**
+
+**用户需求**:
+> 用户确认设计方案后说"开始吧"，执行代码实现
+
+**完成任务**:
+1. ✅ 完全重写 `Tool_BatchItemSOModifier.cs`（从硬编码方式改为 SerializedProperty 反射方式）
+2. ✅ Unity 编译通过，0 错误 0 警告
+
+**实现内容**:
+
+核心架构：
+- `PropertyEntry` 类 — propertyPath、displayName、headerGroup、isEnabled、propertyType
+- `HeaderGroup` 类 — name、isFolded、properties 列表
+- `ComputeLCA()` — 最近公共祖先类型计算（构建继承链，找共有最深类型）
+- `BuildPropertyList()` — 遍历模板 SO 的 SerializedProperty，过滤排除字段，按 Header 分组
+- `GetDeclaredFieldNames()` — 收集 LCA 及其父类中声明的字段名
+- `GetObsoleteFieldNames()` — 收集带 [Obsolete] 特性的字段名
+- `GetFieldHeaders()` — 收集字段的 [Header] 特性映射
+- `DrawPropertyGroups()` — 使用 EditorGUI.PropertyField 渲染，左侧 Toggle 控制启用
+- `ApplyModifications()` — 遍历选中 SO，复制启用属性值，支持 Undo
+- `CopySerializedProperty()` — 按类型分支复制（int/float/bool/string/enum/Object/Vector2/Vector3 等）
+- 自动数据库同步（DatabaseSyncHelper）
+
+排除字段：m_Script、m_Name、m_ObjectHideFlags、itemID、itemName、icon
+
+UI 功能：
+- 自动跟随 Project 选择
+- LCA 类型显示
+- 全选/全不选按钮
+- Header 分组折叠
+- 确认对话框
+- Apply 按钮显示修改数量
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Tool_BatchItemSOModifier.cs` | 重写 | SerializedProperty 反射方式，全面重写 |
+| `memory.md` | 追加 | 会话 17（续）记录 |
+
+
+---
+
+### 会话 17（续2） - 2026-02-15（AmbiguousMatchException 修复 + GUILayout 防护）
+
+**续接自会话 17（续）**
+
+**用户反馈**:
+> Unity 测试报错：
+> 1. `AmbiguousMatchException` — `GetFieldHeaders()` 中 `GetCustomAttribute<HeaderAttribute>()`（单数）对有多个 `[Header]` 的字段抛异常
+> 2. `GUI Error: Invalid GUILayout state` — 异常从 BuildPropertyList 冒泡到 OnGUI，破坏 BeginScrollView/EndScrollView 配对
+
+**问题分析**:
+- ItemData 中部分字段有多个 `[Header]` 特性（如区域标题 `[Header("=== 显示尺寸配置 ===")]` + 子标题 `[Header("--- 背包显示 ---")]`）
+- `GetCustomAttribute<T>()`（单数）遇到多个同类型特性时抛 `AmbiguousMatchException`
+- 异常导致 `BuildPropertyList()` 中断，headerGroups 为空，UI 只显示 SO 选择列表
+
+**修复内容**:
+1. ✅ `GetFieldHeaders()` — `GetCustomAttribute<HeaderAttribute>()` 改为 `GetCustomAttributes<HeaderAttribute>().ToArray()`，取最后一个（已在上一次继承中修复）
+2. ✅ `OnGUI()` — 在 BeginScrollView/EndScrollView 之间加 try-catch，异常时显示 HelpBox 错误信息，防止 GUILayout 状态不匹配
+3. ✅ `RefreshSelection()` — BuildPropertyList() 调用加 try-catch，失败时清空 headerGroups 并输出日志，防止窗口崩溃
+4. ✅ Unity 编译通过，0 错误
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Tool_BatchItemSOModifier.cs` | 修改 | OnGUI try-catch 防护 + RefreshSelection try-catch 防护 |
+| `memory.md` | 追加 | 会话 17（续2）记录 |

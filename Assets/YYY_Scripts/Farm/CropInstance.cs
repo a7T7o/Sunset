@@ -84,11 +84,9 @@ namespace FarmGame.Farm
         {
             if (isWithered) return false;
             
-            // 检查是否达到最后阶段
-            if (seedData.growthStageSprites == null || seedData.growthStageSprites.Length == 0)
-                return false;
-
-            return currentStage >= seedData.growthStageSprites.Length - 1;
+            // 旧版兼容：无法获取阶段数，默认使用 growthDays 判断
+            // 新版请使用 CropController.IsMature()
+            return false;
         }
 
         /// <summary>
@@ -110,11 +108,9 @@ namespace FarmGame.Farm
         /// </summary>
         public Sprite GetCurrentSprite()
         {
-            if (seedData.growthStageSprites == null || seedData.growthStageSprites.Length == 0)
-                return null;
-
-            int index = Mathf.Clamp(currentStage, 0, seedData.growthStageSprites.Length - 1);
-            return seedData.growthStageSprites[index];
+            // 旧版兼容：Sprite 已移至 CropController 的 CropStageConfig
+            // 新版请使用 CropController.GetCurrentSprite() 通过 UpdateVisuals()
+            return null;
         }
 
         /// <summary>

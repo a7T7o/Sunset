@@ -9,33 +9,19 @@ namespace FarmGame.Data
     public class WitheredCropData : FoodData
     {
         [Header("=== 枯萎作物属性 ===")]
-        [Tooltip("对应的正常作物ID")]
-        public int normalCropID;
-
-        [Tooltip("对应的种子ID")]
+        [System.Obsolete("反向引用字段，已废弃。数据流改为单向：SeedData → cropPrefab → CropController。保留仅为存档兼容。")]
+        [Tooltip("对应的种子ID（已废弃）")]
         public int seedID;
 
         protected override void OnValidate()
         {
-            // 跳过 FoodData 的 ID 范围验证（5XXX），枯萎作物 ID 是 12XX
+            // 跳过 FoodData 的 ID 范围验证（5XXX），枯萎作物 ID 是 1150-1199
             ValidateItemDataBase();
 
-            // 验证枯萎作物ID范围（12XX）
-            if (itemID < 1200 || itemID >= 1300)
+            // 验证枯萎作物ID范围（1150-1199，与 CropData 共享 11XX 段）
+            if (itemID < 1150 || itemID >= 1200)
             {
-                Debug.LogWarning($"[{itemName}] 枯萎作物ID应在1200-1299范围内！当前:{itemID}");
-            }
-
-            // 验证正常作物ID（11XX）
-            if (normalCropID != 0 && (normalCropID < 1100 || normalCropID >= 1200))
-            {
-                Debug.LogWarning($"[{itemName}] 对应正常作物ID应在1100-1199范围内！当前:{normalCropID}");
-            }
-
-            // 验证种子ID（10XX）
-            if (seedID != 0 && (seedID < 1000 || seedID >= 1100))
-            {
-                Debug.LogWarning($"[{itemName}] 对应种子ID应在1000-1099范围内！当前:{seedID}");
+                Debug.LogWarning($"[{itemName}] 枯萎作物ID应在1150-1199范围内！当前:{itemID}");
             }
         }
 

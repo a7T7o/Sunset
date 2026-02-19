@@ -2,30 +2,35 @@
 inclusion: manual
 priority: P1
 keywords: [SO, ScriptableObject, 物品ID, 品质, ItemData, ToolData]
-lastUpdated: 2026-01-09
+lastUpdated: 2026-02-15
 ---
 
 # ScriptableObject 设计规范
 
 ## 物品 ID 分配
 
+> **权威来源**：`.kiro/specs/SO设计系统与工具/ID分配规范.md`
+> 以下为简要摘要，完整规范和变更审计日志请查阅权威文档。
+
 ```
 0XXX: 工具和武器 (00XX农具, 01XX采集, 02XX武器)
-1XXX: 种植类
+1XXX: 种植与放置类
     10XX: 种子
-    11XX: 作物
-    12XX: 树苗（Sapling）
-        1200-1219: 树苗
-    13XX: 建筑材料
-        1300-1399: 建筑材料
-    14XX: 钥匙和锁
-        1420-1499: 钥匙/锁（KeyLockData）
-2XXX: 动物产品
+    11XX: 农作物（共享段）
+        1100-1149: 正常作物（CropData）
+        1150-1199: 枯萎作物（WitheredCropData）
+    12XX: 树苗（SaplingData）
+    13XX: 工作台（WorkstationData）
+    14XX: 存储/钥匙锁
+        1400-1409: 存储  1410-1419: 锁  1420-1499: 钥匙
+    15XX: 交互展示  16XX: 简单事件
+2XXX: 动物产品（预留）
 3XXX: 矿物和材料 (30XX矿石, 31XX锭, 32XX自然, 33XX怪物)
 4XXX: 消耗品 (40XX药水)
 5XXX: 食品 (50XX简单, 51XX高级)
 6XXX: 家具
 7XXX: 特殊物品
+8XXX: 装备（EquipmentData）
 ```
 
 ## ⚠️ 关键设计原则
@@ -149,3 +154,17 @@ public EquipmentType equipmentType = EquipmentType.None;
 ## 详细文档
 
 参见：`Docx/设计/SO参数设计.md`
+
+
+## 🔴 ItemDatabase 访问规范
+
+> **2026-02-12 从 rules.md 迁移至此（Phase 4.0 精简）**
+
+```csharp
+// ✅ 正确：从已有引用的 MonoBehaviour 获取
+if (inventory != null)
+    database = inventory.Database;
+
+// ❌ 错误：永远返回 null（ItemDatabase 是 SO，不在场景中）
+database = FindFirstObjectByType<ItemDatabase>();
+```

@@ -283,6 +283,11 @@ namespace FarmGame.Farm
         public Vector3 LockedWorldPos => _lockedWorldPosition;
         
         /// <summary>
+        /// 锁定时的格子坐标（供导航中同位置检测使用）
+        /// </summary>
+        public Vector3Int LockedCellPos => _lockedCellPos;
+        
+        /// <summary>
         /// 锁定预览位置（点击后调用）
         /// 冻结视觉显示，但实时数据继续更新
         /// </summary>
@@ -292,6 +297,42 @@ namespace FarmGame.Farm
             _lockedWorldPosition = worldPos;
             _lockedCellPos = cellPos;
             _lockedLayerIndex = layerIndex;
+            
+            // 🔥 10.1.1补丁002 P3 修复：锁定时执行一次完整的 GhostTilemap 渲染（仅锄头模式）
+            if (isHoeMode && FarmlandBorderManager.Instance != null)
+            {
+                ClearGhostTilemap();
+                
+                // 检查该位置是否可以锄地
+                bool canTill = FarmTileManager.Instance != null &&
+                               FarmTileManager.Instance.CanTillAt(layerIndex, cellPos);
+                
+                // 也检查枯萎作物清除（与 UpdateHoePreview 逻辑一致）
+                bool canClearWithered = false;
+                if (!canTill && FarmTileManager.Instance != null)
+                {
+                    var tileData = FarmTileManager.Instance.GetTileData(layerIndex, cellPos);
+                    if (tileData?.cropController != null &&
+                        tileData.cropController.GetState() == CropState.WitheredImmature)
+                        canClearWithered = true;
+                }
+                
+                if (canTill)
+                {
+                    var previewTiles = FarmlandBorderManager.Instance.GetPreviewTiles(layerIndex, cellPos);
+                    foreach (var kvp in previewTiles)
+                    {
+                        if (kvp.Value != null)
+                        {
+                            ghostTilemap.SetTile(kvp.Key, kvp.Value);
+                            currentPreviewPositions.Add(kvp.Key);
+                        }
+                    }
+                }
+            }
+            
+            // 🔥 10.1.0 AC-1.4：锁定时自动刷新视觉到锁定位置（消除同帧解锁+重锁的视觉跳变）
+            UpdateCursor(layerIndex, cellPos);
             
             if (showDebugInfo)
                 Debug.Log($"[FarmToolPreview] LockPosition: pos={worldPos}, cell={cellPos}, layer={layerIndex}");
@@ -342,12 +383,12 @@ namespace FarmGame.Farm
             bool canTill = FarmTileManager.Instance != null && 
                            FarmTileManager.Instance.CanTillAt(layerIndex, cellPos);
             
-            // 🔥 10.0.1：锄头也可以清除枯萎未成熟作物
+            // 🔥 10.X 纠正：通过 FarmTileData.cropController 查找枯萎作物（替代 CropManager.GetCrop）
             bool canClearWithered = false;
-            if (!canTill && CropManager.Instance != null)
+            if (!canTill && FarmTileManager.Instance != null)
             {
-                var crop = CropManager.Instance.GetCrop(layerIndex, cellPos);
-                if (crop != null && crop.GetState() == CropState.WitheredImmature)
+                var tileData = FarmTileManager.Instance.GetTileData(layerIndex, cellPos);
+                if (tileData?.cropController != null && tileData.cropController.GetState() == CropState.WitheredImmature)
                     canClearWithered = true;
             }
             

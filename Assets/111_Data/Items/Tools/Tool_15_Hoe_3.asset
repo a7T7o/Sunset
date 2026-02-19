@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: Tool_15_Hoe_3
   m_EditorClassIdentifier: 
   itemID: 15
-  itemName: "\u9504\u5934"
+  itemName: Hoe_3
   description: "\u8FD9\u662F\u4E00\u4E2A\u9504\u5934\u3002"
   category: 0
   icon: {fileID: -1132457687052983461, guid: 1ab99fcc46a510843908e48fdd969f63, type: 3}
   bagSprite: {fileID: 0}
   rotateBagIcon: 1
-  worldPrefab: {fileID: 5151485213802880715, guid: a2cb585f1993ffb459afe3c16545fb43, type: 3}
+  worldPrefab: {fileID: 2227895079121667162, guid: 5e5a5172571cef844aa6f80cdaed8253, type: 3}
   buyPrice: 0
   sellPrice: 0
   maxStackSize: 1

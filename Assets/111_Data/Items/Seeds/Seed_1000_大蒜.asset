@@ -1,0 +1,52 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3261e5c9401db3c4da0bfc4dde541ca9, type: 3}
+  m_Name: "Seed_1000_\u5927\u849C"
+  m_EditorClassIdentifier: 
+  itemID: 1000
+  itemName: "\u5927\u849C"
+  description: 
+  category: 1
+  icon: {fileID: -1663400839, guid: db8826474e21c7d41a23ff294c1fa060, type: 3}
+  bagSprite: {fileID: 0}
+  rotateBagIcon: 0
+  worldPrefab: {fileID: 5178940963226316470, guid: 0ed54a3c99411964984d590ce1b234b8, type: 3}
+  buyPrice: 160
+  sellPrice: 156
+  maxStackSize: 32
+  useCustomBagDisplaySize: 0
+  bagDisplayPixelSize: 52
+  bagDisplayOffset: {x: 0, y: 0}
+  useCustomDisplaySize: 0
+  displayPixelSize: 32
+  worldDisplayOffset: {x: 0, y: 0}
+  canBeDiscarded: 1
+  isQuestItem: 0
+  isPlaceable: 0
+  placementType: 0
+  placementPrefab: {fileID: 0}
+  buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
+  season: 4
+  isReHarvestable: 0
+  reHarvestDays: 2
+  maxHarvestCount: 0
+  seedsPerBag: 8
+  shelfLifeClosed: 7
+  shelfLifeOpened: 2
+  iconOpened: {fileID: -1665774403, guid: db8826474e21c7d41a23ff294c1fa060, type: 3}
+  cropPrefab: {fileID: 5081106251592281694, guid: e8a71f8825a4dab4fba0d42470176d1b, type: 3}
+  needsTrellis: 0
+  needsWatering: 0
+  plantingExp: 5
+  harvestingExp: 10

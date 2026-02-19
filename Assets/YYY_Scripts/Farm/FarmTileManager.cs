@@ -176,7 +176,8 @@ namespace FarmGame.Farm
                     var tilemaps = GetLayerTilemaps(layer);
                     if (tilemaps != null && visualManager != null)
                     {
-                        visualManager.UpdateTileVisual(tilemaps, pos, tileData);
+                        // 🔥 10.1.0：启动渐变协程（从干燥色渐变到湿润色）
+                        visualManager.StartGradualMoistureTransition(tilemaps, pos, tileData);
                     }
                     
                     if (showDebugInfo)
@@ -310,6 +311,12 @@ namespace FarmGame.Farm
             if (FarmlandBorderManager.Instance != null)
             {
                 FarmlandBorderManager.Instance.OnCenterBlockPlaced(layerIndex, cellPosition);
+            }
+            
+            // 🔥 10.1.0：创建时立即刷新视觉（确保干燥农田 Tile 正确显示）
+            if (visualManager != null)
+            {
+                visualManager.UpdateTileVisual(tilemaps, cellPosition, newTile);
             }
             
             if (showDebugInfo)
@@ -629,7 +636,11 @@ namespace FarmGame.Farm
                         tileY = tile.position.y,
                         layer = tile.layerIndex,
                         soilState = (int)tile.moistureState,
-                        isWatered = tile.wateredToday
+                        isWatered = tile.wateredToday,
+                        // 🔥 10.1.0：新增持久化字段
+                        wateredYesterday = tile.wateredYesterday,
+                        waterTime = tile.waterTime,
+                        puddleVariant = tile.puddleVariant
                     });
                 }
             }
@@ -770,6 +781,10 @@ namespace FarmGame.Farm
             newTile.isTilled = true;
             newTile.moistureState = (SoilMoistureState)saveData.soilState;
             newTile.wateredToday = saveData.isWatered;
+            // 🔥 10.1.0：恢复新增持久化字段
+            newTile.wateredYesterday = saveData.wateredYesterday;
+            newTile.waterTime = saveData.waterTime;
+            newTile.puddleVariant = saveData.puddleVariant;
             
             layerTiles[cellPosition] = newTile;
             

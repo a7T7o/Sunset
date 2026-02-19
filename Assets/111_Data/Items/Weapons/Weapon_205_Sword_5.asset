@@ -19,7 +19,7 @@ MonoBehaviour:
   icon: {fileID: -7551796252371375371, guid: c648197cb7df4bf40b53e5d0a3ef8ba1, type: 3}
   bagSprite: {fileID: 0}
   rotateBagIcon: 1
-  worldPrefab: {fileID: 13513771750575189, guid: c168c82ffe032de459e807be9b6af15e, type: 3}
+  worldPrefab: {fileID: 2935243765783302091, guid: 9b9e57e837754d54ab19d93ff5baa45c, type: 3}
   buyPrice: 0
   sellPrice: 0
   maxStackSize: 1
@@ -35,6 +35,8 @@ MonoBehaviour:
   placementType: 0
   placementPrefab: {fileID: 0}
   buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
   weaponType: 0
   attackPower: 10
   attackSpeed: 1

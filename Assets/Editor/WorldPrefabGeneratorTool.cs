@@ -20,6 +20,10 @@ public class WorldPrefabGeneratorTool : EditorWindow
     // 输出路径
     private string prefabsOutputPath = "Assets/Prefabs/WorldItems";
     
+    // 路径镜像配置
+    private bool mirrorFolderStructure = true;
+    private string itemsRootPath = "Assets/111_Data/Items";
+    
     // 阴影配置
     private Sprite shadowSprite;
     private Color shadowColor = new Color(0f, 0f, 0f, 1f); // alpha=1.0，用户图片已有透明度处理
@@ -46,6 +50,8 @@ public class WorldPrefabGeneratorTool : EditorWindow
     private const string PREF_BATCH_FOLDER = "WorldPrefab_BatchFolder";
     private const string PREF_SHADOW_SPRITE = "WorldPrefab_ShadowSprite";
     private const string PREF_SHADOW_COLOR = "WorldPrefab_ShadowColor";
+    private const string PREF_MIRROR_STRUCTURE = "WorldPrefab_MirrorStructure";
+    private const string PREF_ITEMS_ROOT = "WorldPrefab_ItemsRoot";
 
     #endregion
 
@@ -79,6 +85,8 @@ public class WorldPrefabGeneratorTool : EditorWindow
         overwriteExisting = EditorPrefs.GetBool(PREF_OVERWRITE, false);
         useBatchMode = EditorPrefs.GetBool(PREF_BATCH_MODE, false);
         batchFolderPath = EditorPrefs.GetString(PREF_BATCH_FOLDER, "Assets/111_Data/Items");
+        mirrorFolderStructure = EditorPrefs.GetBool(PREF_MIRROR_STRUCTURE, true);
+        itemsRootPath = EditorPrefs.GetString(PREF_ITEMS_ROOT, "Assets/111_Data/Items");
         
         // 加载阴影颜色（使用 ColorUtility 序列化）
         string colorHex = EditorPrefs.GetString(PREF_SHADOW_COLOR, "#000000FF");
@@ -97,6 +105,8 @@ public class WorldPrefabGeneratorTool : EditorWindow
         EditorPrefs.SetBool(PREF_OVERWRITE, overwriteExisting);
         EditorPrefs.SetBool(PREF_BATCH_MODE, useBatchMode);
         EditorPrefs.SetString(PREF_BATCH_FOLDER, batchFolderPath);
+        EditorPrefs.SetBool(PREF_MIRROR_STRUCTURE, mirrorFolderStructure);
+        EditorPrefs.SetString(PREF_ITEMS_ROOT, itemsRootPath);
         
         // 保存阴影 Sprite 路径
         if (shadowSprite != null)
@@ -342,7 +352,21 @@ public class WorldPrefabGeneratorTool : EditorWindow
             GUILayoutUtility.GetRect(20, 20, GUILayout.Width(20));
         }
         
-        EditorGUILayout.LabelField($"[{item.itemID:D4}] {item.itemName}", EditorStyles.miniLabel);
+        // 显示 ID + 名称 + 目标子文件夹
+        string label = $"[{item.itemID:D4}] {item.itemName}";
+        if (mirrorFolderStructure)
+        {
+            string soPath = AssetDatabase.GetAssetPath(item);
+            string soDir = Path.GetDirectoryName(soPath).Replace('\\', '/');
+            string normalizedRoot = itemsRootPath.Replace('\\', '/');
+            if (soDir.StartsWith(normalizedRoot))
+            {
+                string rel = soDir.Substring(normalizedRoot.Length).TrimStart('/');
+                if (!string.IsNullOrEmpty(rel))
+                    label += $"  → {rel}/";
+            }
+        }
+        EditorGUILayout.LabelField(label, EditorStyles.miniLabel);
         
         if (item.icon == null)
         {
@@ -376,10 +400,36 @@ public class WorldPrefabGeneratorTool : EditorWindow
 
     private void DrawOutputSettings()
     {
-        EditorGUILayout.LabelField("📁 输出路径", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("📁 输出配置", EditorStyles.boldLabel);
         
+        // 镜像开关
+        mirrorFolderStructure = EditorGUILayout.Toggle("📂 镜像 Items 文件夹结构", mirrorFolderStructure);
+        
+        if (mirrorFolderStructure)
+        {
+            EditorGUILayout.HelpBox(
+                "开启后，WP 输出目录将镜像 Items 文件夹结构：\n" +
+                "Items/Crops/Crop_1100.asset → WorldItems/Crops/WorldItem_1100.prefab",
+                MessageType.Info);
+            
+            // Items 根路径
+            EditorGUILayout.BeginHorizontal();
+            EditorGUILayout.LabelField("Items 根路径", GUILayout.Width(85));
+            itemsRootPath = EditorGUILayout.TextField(itemsRootPath);
+            if (GUILayout.Button("选择", GUILayout.Width(45)))
+            {
+                string path = EditorUtility.OpenFolderPanel("选择 Items 根文件夹", "Assets", "");
+                if (!string.IsNullOrEmpty(path) && path.StartsWith(Application.dataPath))
+                {
+                    itemsRootPath = "Assets" + path.Substring(Application.dataPath.Length);
+                }
+            }
+            EditorGUILayout.EndHorizontal();
+        }
+        
+        // WP 输出根路径
         EditorGUILayout.BeginHorizontal();
-        EditorGUILayout.LabelField("Prefabs", GUILayout.Width(60));
+        EditorGUILayout.LabelField("WP 输出根", GUILayout.Width(85));
         prefabsOutputPath = EditorGUILayout.TextField(prefabsOutputPath);
         if (GUILayout.Button("选择", GUILayout.Width(45)))
         {
@@ -525,7 +575,11 @@ public class WorldPrefabGeneratorTool : EditorWindow
     {
         // 从 SO 文件名提取名称（格式：Tool_12_Hoe_0 -> Hoe_0）
         string assetName = ExtractNameFromAsset(itemData);
-        string prefabPath = $"{prefabsOutputPath}/WorldItem_{itemData.itemID}_{assetName}.prefab";
+        
+        // ★ 使用镜像路径推导输出目录
+        string outputDir = GetMirroredOutputPath(itemData);
+        EnsureDirectoryExists(outputDir);
+        string prefabPath = $"{outputDir}/WorldItem_{itemData.itemID}_{assetName}.prefab";
 
         if (!overwriteExisting && File.Exists(prefabPath))
         {
@@ -708,27 +762,61 @@ public class WorldPrefabGeneratorTool : EditorWindow
     }
 
     /// <summary>
-    /// 从 SO 资产文件名中提取名称
-    /// 例如：Tool_12_Hoe_0 -> Hoe_0, Weapon_200_Sword_0 -> Sword_0
+    /// 根据 ItemData SO 的资产路径，推导镜像输出路径
+    /// 例如：Items/Crops/Crop_1100.asset → WorldItems/Crops/
+    /// 如果 SO 不在 itemsRootPath 下，回退到 prefabsOutputPath 根目录
+    /// </summary>
+    private string GetMirroredOutputPath(ItemData itemData)
+    {
+        if (!mirrorFolderStructure)
+            return prefabsOutputPath;
+        
+        string soPath = AssetDatabase.GetAssetPath(itemData);
+        string soDir = Path.GetDirectoryName(soPath).Replace('\\', '/');
+        string normalizedRoot = itemsRootPath.Replace('\\', '/');
+        
+        // 检查 SO 是否在 Items 根路径下
+        if (soDir.StartsWith(normalizedRoot))
+        {
+            // 提取相对路径：Assets/111_Data/Items/Crops → Crops
+            string relativePath = soDir.Substring(normalizedRoot.Length).TrimStart('/');
+            
+            if (!string.IsNullOrEmpty(relativePath))
+            {
+                string outputDir = $"{prefabsOutputPath}/{relativePath}";
+                EnsureDirectoryExists(outputDir);
+                return outputDir;
+            }
+        }
+        
+        // 回退：SO 不在 Items 根路径下，使用输出根目录
+        return prefabsOutputPath;
+    }
+
+    /// <summary>
+    /// 从 ItemData 提取用于 prefab 命名的名称部分
+    /// 优先使用 itemName 字段，回退到文件名解析
     /// </summary>
     private string ExtractNameFromAsset(ItemData itemData)
     {
+        // ★ 优先使用 itemName（最可靠，不受文件名格式影响）
+        if (!string.IsNullOrEmpty(itemData.itemName))
+            return itemData.itemName;
+        
+        // 回退：从文件名解析
         string assetPath = AssetDatabase.GetAssetPath(itemData);
         string fileName = Path.GetFileNameWithoutExtension(assetPath);
         
-        // 格式：{Type}_{ID}_{Name}_{Quality} 或 {Type}_{ID}_{Name}
-        // 例如：Tool_12_Hoe_0, Weapon_200_Sword_0
-        string[] parts = fileName.Split('_');
-        
-        if (parts.Length >= 3)
+        // 找到 ID 部分的位置，取 ID 之后的内容
+        // 支持：Tool_12_Hoe_0, Crop_Withered_1150_大蒜 等各种格式
+        string idStr = itemData.itemID.ToString();
+        int idIndex = fileName.IndexOf($"_{idStr}_");
+        if (idIndex >= 0)
         {
-            // 跳过前两部分（Type 和 ID），取剩余部分
-            // Tool_12_Hoe_0 -> Hoe_0
-            // Weapon_200_Sword_0 -> Sword_0
-            return string.Join("_", parts.Skip(2));
+            return fileName.Substring(idIndex + idStr.Length + 2); // 跳过 _ID_
         }
         
-        // 回退：使用文件名
+        // 最终回退：使用完整文件名
         return fileName;
     }
 

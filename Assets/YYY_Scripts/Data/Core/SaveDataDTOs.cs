@@ -434,6 +434,17 @@ namespace FarmGame.Data.Core
         /// <summary>是否已浇水（当天）</summary>
         public bool isWatered;
         
+        // ===== 10.1.0 新增字段 =====
+        
+        /// <summary>昨天是否浇过水</summary>
+        public bool wateredYesterday;
+        
+        /// <summary>浇水时间（游戏小时）</summary>
+        public float waterTime;
+        
+        /// <summary>水渍变体索引（0-2）</summary>
+        public int puddleVariant;
+        
         // ===== 废弃字段（保留用于兼容旧存档）=====
         
         /// <summary>[已废弃] 种植的作物 ID - 作物数据已迁移到 CropController</summary>

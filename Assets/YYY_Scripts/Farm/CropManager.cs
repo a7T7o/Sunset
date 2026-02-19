@@ -5,10 +5,12 @@ using FarmGame.Data;
 namespace FarmGame.Farm
 {
     /// <summary>
-    /// 作物工厂管理器（自治版）
-    /// 只负责作物的创建和销毁，不负责生长逻辑
-    /// 生长逻辑由 CropController 自己处理（订阅时间事件）
+    /// [已废弃] 作物工厂管理器
+    /// 10.X 纠正：CropManager 已废弃，播种直接 Instantiate seedData.cropPrefab，
+    /// 收获走 IInteractable → CropController.Harvest()，
+    /// 作物查找通过 FarmTileData.cropController 引用
     /// </summary>
+    [System.Obsolete("CropManager 已废弃。播种直接 Instantiate seedData.cropPrefab，收获走 IInteractable，查找用 FarmTileData.cropController")]
     public class CropManager : MonoBehaviour
     {
         #region 单例
@@ -241,10 +243,13 @@ namespace FarmGame.Farm
             }
             
             // 计算收获数量
+            // 🔥 10.X 纠正：harvestCropID/harvestAmountRange 已从 SeedData 删除
+            // CropManager 整体已废弃，收获逻辑由 CropController.Harvest() 处理
+            // 此处保留框架但不再从 SeedData 读取已删除字段
             if (seedData != null)
             {
-                cropID = seedData.harvestCropID;
-                amount = Random.Range(seedData.harvestAmountRange.x, seedData.harvestAmountRange.y + 1);
+                cropID = 0; // 已废弃：原 seedData.harvestCropID
+                amount = 1; // 已废弃：原 seedData.harvestAmountRange
             }
             else
             {
@@ -267,7 +272,7 @@ namespace FarmGame.Farm
                 else
                 {
                     // 重置到指定阶段
-                    int reGrowStage = Mathf.Max(1, seedData.growthStageSprites.Length - 3);
+                    int reGrowStage = Mathf.Max(1, controller.GetTotalStages() - 3);
                     controller.ResetForReHarvest(reGrowStage);
                     
                     cropData.harvestCount++;

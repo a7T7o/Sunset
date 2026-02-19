@@ -9,13 +9,16 @@ namespace FarmGame.Data
     public class CropData : FoodData
     {
         [Header("=== 作物专属属性 ===")]
-        [Tooltip("对应的种子ID")]
+        [System.Obsolete("反向引用字段，已废弃。数据流改为单向：SeedData → cropPrefab → CropController → dropItemData。保留仅为存档兼容。")]
+        [Tooltip("对应的种子ID（已废弃）")]
         public int seedID;
 
-        [Tooltip("收获经验值")]
+        [System.Obsolete("经验值统一归 SeedData.harvestingExp，保留仅为存档兼容")]
+        [Tooltip("收获经验值（已废弃，统一归 SeedData.harvestingExp）")]
         public int harvestExp = 10;
 
-        [Tooltip("对应的枯萎作物ID（WitheredCropData）")]
+        [System.Obsolete("反向引用字段，已废弃。枯萎作物通过 CropController.witheredDropItemData 配置。保留仅为存档兼容。")]
+        [Tooltip("对应的枯萎作物ID（已废弃）")]
         public int witheredCropID;
 
         /// <summary>
@@ -32,22 +35,10 @@ namespace FarmGame.Data
             // FoodData.OnValidate 会验证 5000-5999，但作物 ID 是 11XX
             ValidateItemDataBase();
 
-            // 验证作物ID范围（11XX）
-            if (itemID < 1100 || itemID >= 1200)
+            // 验证作物ID范围（1100-1149，与 WitheredCropData 共享 11XX 段）
+            if (itemID < 1100 || itemID >= 1150)
             {
-                Debug.LogWarning($"[{itemName}] 作物ID应在1100-1199范围内！");
-            }
-
-            // 验证种子ID
-            if (seedID < 1000 || seedID >= 1100)
-            {
-                Debug.LogWarning($"[{itemName}] 对应种子ID应在1000-1099范围内！");
-            }
-
-            // 验证枯萎作物ID（12XX）
-            if (witheredCropID != 0 && (witheredCropID < 1200 || witheredCropID >= 1300))
-            {
-                Debug.LogWarning($"[{itemName}] 枯萎作物ID应在1200-1299范围内！");
+                Debug.LogWarning($"[{itemName}] 作物ID应在1100-1149范围内！当前:{itemID}");
             }
         }
 

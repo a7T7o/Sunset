@@ -19,7 +19,7 @@ MonoBehaviour:
   icon: {fileID: -7259276956573275166, guid: e7445fc55f6f94041979ed270c474e48, type: 3}
   bagSprite: {fileID: 0}
   rotateBagIcon: 0
-  worldPrefab: {fileID: 1996979714736804679, guid: 4cef7b9171611f74796ef1e46b7110d5, type: 3}
+  worldPrefab: {fileID: 7314689301391390124, guid: e45873ddc20ce97419930e39f4e29eca, type: 3}
   buyPrice: 0
   sellPrice: 0
   maxStackSize: 99
@@ -35,6 +35,8 @@ MonoBehaviour:
   placementType: 1
   placementPrefab: {fileID: 8805118565538031545, guid: c893194c364176c40845daccb41143e2, type: 3}
   buildingSize: {x: 1, y: 1}
+  equipmentType: 0
+  consumableType: 0
   placementOffset: {x: 0, y: 0, z: 0}
   canRotate: 0
   rotationStep: 90

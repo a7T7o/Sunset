@@ -181,6 +181,26 @@ namespace FarmGame.Farm
                 puddleTilemap.SetTile(cellPosition, puddleTile);
             }
             
+            // 🔥 10.1.0：更新耕地 Tile（干燥/湿润切换）
+            if (farmTilemap != null)
+            {
+                switch (tileData.moistureState)
+                {
+                    case SoilMoistureState.Dry:
+                    case SoilMoistureState.WetWithPuddle:
+                        // 干燥和有水渍时，耕地显示干燥 Tile
+                        if (dryFarmlandTile != null)
+                            farmTilemap.SetTile(cellPosition, dryFarmlandTile);
+                        break;
+                        
+                    case SoilMoistureState.WetDark:
+                        // 湿润深色时，耕地显示湿润 Tile
+                        if (wetDarkTile != null)
+                            farmTilemap.SetTile(cellPosition, wetDarkTile);
+                        break;
+                }
+            }
+            
             if (showDebugInfo)
                 Debug.Log($"[FarmVisualManager] 更新 Tile 视觉: Pos={cellPosition}, State={tileData.moistureState}, puddleTilemap={(puddleTilemap != null ? "有" : "null")}");
         }
@@ -356,6 +376,105 @@ namespace FarmGame.Farm
             
             if (showDebugInfo)
                 Debug.Log($"[FarmVisualManager] 刷新所有 Tile 视觉: {updatedCount} 块");
+        }
+        
+        #endregion
+
+        #region 渐变过渡
+        
+        // 🔥 10.1.0：正在进行渐变的格子（防止重复启动）
+        private HashSet<string> _transitioningTiles = new HashSet<string>();
+        
+        /// <summary>
+        /// 启动渐进式湿度过渡（水渍消退后，耕地从干燥色渐变到湿润色）
+        /// </summary>
+        public void StartGradualMoistureTransition(LayerTilemaps tilemaps, Vector3Int cellPos, FarmTileData tileData)
+        {
+            string key = $"{tileData.layerIndex}_{cellPos.x}_{cellPos.y}";
+            
+            // 防止重复启动
+            if (_transitioningTiles.Contains(key))
+                return;
+            
+            _transitioningTiles.Add(key);
+            StartCoroutine(GradualMoistureTransition(tilemaps, cellPos, tileData, key));
+        }
+        
+        /// <summary>
+        /// 渐进式湿度过渡协程（AC-3.3）
+        /// 水渍消退后，通过颜色插值从干燥色渐变到湿润色，最后替换为 wetDarkTile
+        /// </summary>
+        private IEnumerator GradualMoistureTransition(
+            LayerTilemaps tilemaps, Vector3Int cellPos, FarmTileData tileData, string key)
+        {
+            Tilemap farmTilemap = tilemaps.farmlandCenterTilemap;
+            #pragma warning disable 0618
+            if (farmTilemap == null) farmTilemap = tilemaps.farmlandTilemap;
+            #pragma warning restore 0618
+            
+            if (farmTilemap == null)
+            {
+                _transitioningTiles.Remove(key);
+                yield break;
+            }
+            
+            // 先清除水渍叠加层
+            Tilemap puddleTilemap = tilemaps.waterPuddleTilemapNew;
+            #pragma warning disable 0618
+            if (puddleTilemap == null) puddleTilemap = tilemaps.waterPuddleTilemap;
+            #pragma warning restore 0618
+            if (puddleTilemap != null)
+                puddleTilemap.SetTile(cellPos, null);
+            
+            // 确保当前显示干燥 Tile
+            if (dryFarmlandTile != null)
+                farmTilemap.SetTile(cellPos, dryFarmlandTile);
+            
+            // 渐变参数
+            Color dryColor = Color.white;
+            Color wetColor = new Color(0.7f, 0.7f, 0.8f, 1f);
+            float transitionDuration = 30f; // 30 游戏分钟
+            float elapsed = 0f;
+            
+            while (elapsed < transitionDuration)
+            {
+                // 如果状态被外部改变（如日结重置），退出
+                if (tileData.moistureState != SoilMoistureState.WetDark)
+                {
+                    farmTilemap.SetColor(cellPos, Color.white);
+                    _transitioningTiles.Remove(key);
+                    yield break;
+                }
+                
+                float t = Mathf.Clamp01(elapsed / transitionDuration);
+                farmTilemap.SetColor(cellPos, Color.Lerp(dryColor, wetColor, t));
+                
+                yield return new WaitForSeconds(2f);
+                
+                // 计算经过的游戏分钟
+                var tm = TimeManager.Instance;
+                if (tm == null)
+                {
+                    farmTilemap.SetColor(cellPos, Color.white);
+                    _transitioningTiles.Remove(key);
+                    yield break;
+                }
+                
+                // 每次等待 2 秒真实时间，根据游戏时间流速计算经过的游戏分钟
+                // TimeManager.Update 中 timeStep 控制每帧推进的分钟数
+                // 简化：每 2 秒真实时间约等于 2 游戏分钟（默认速度下）
+                elapsed += 2f;
+            }
+            
+            // 渐变完成：替换为 wetDarkTile + 重置颜色
+            if (wetDarkTile != null)
+                farmTilemap.SetTile(cellPos, wetDarkTile);
+            farmTilemap.SetColor(cellPos, Color.white);
+            
+            _transitioningTiles.Remove(key);
+            
+            if (showDebugInfo)
+                Debug.Log($"[FarmVisualManager] 渐变完成: Pos={cellPos}");
         }
         
         #endregion

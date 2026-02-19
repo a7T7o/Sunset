@@ -105,7 +105,11 @@ CropManager（纯工厂）
 | 9.0.1 | 重生之我在种田 | ✅ 完成 | 进度整理 |
 | 9.0.2 | 放置农田 | 🚧 进行中 | 预览系统设计 |
 | 9.0.5 | 智能交互bug修复 | ✅ 代码完成 | 锁定机制+视觉数据分离+5状态机，待验收 |
-| 10.0.1 | 农作物设计与完善 | 📋 设计完成 | 种子袋保质期+作物7样式+CropController重构，design+tasks已创建 |
+| 10.0.1 | 农作物设计与完善 | ✅ 代码完成 | 种子袋保质期+作物7样式+CropController重构，待验收 |
+| 10.0.2.1 | 纠正（废弃CropManager） | ✅ 完成 | 全面对齐树木Prefab驱动模式，16任务全部完成 |
+| 10.1.0 | 全面持久化前夕 | 🚧 进行中 | 全面审查报告完成，用户补充3点bug/需求待处理 |
+| 10.1.1补丁001 | 农田系统交互漏洞全面修补 | ✅ 二次修复完成 | 验收bug F1+F2修复完成，0警告编译通过，待二次验收 |
+| 10.1.1补丁002 | 农田交互体验优化 | 🚧 进行中 | design V2 + tasks V2 完成（11改进点/22任务），待用户审核 |
 
 ---
 
@@ -1236,3 +1240,960 @@ CropManager（纯工厂）
 **编译状态**: ✅ 成功
 
 **子工作区状态**: 10.0.1 ✅ 代码+bug修复完成，待用户游戏内验收
+
+
+---
+
+### 会话 10.0.2-1 - 2026-02-11（重构锐评审核）
+
+**任务**: 审核 10.0.2 的两份重构锐评（0重构锐评001_0.md + 0重构锐评001_1.md）
+
+**完成任务**:
+1. 完整事实核查四大重构方向
+2. 撰写完整审核报告（0重构锐评001审核报告.md）
+3. 创建 10.0.2 子工作区 memory.md
+
+**核心发现**:
+- ❌ "继承链污染"前提错误 — ItemData 无战斗字段，继承链已干净
+- ⚠️ Tree Pattern 对农作物系统过度工程化
+- ⚠️ usedInRecipes 在代码中已不存在，仅旧 .asset 可能有残留
+- ✅ 新开 10.0.2 工作区的决策正确
+
+**路径判断**: 路径 C（重大异议），建议方案 A（务实路线）
+
+**修改文件**:
+- `0重构锐评001审核报告.md` - 新建，完整审核报告（7章节）
+- `memory.md`（10.0.2子工作区） - 新建
+
+**涉及代码文件（分析，未修改）**:
+- `ItemData.cs` — 确认无战斗字段
+- `SeedData.cs` — 确认持有 growthStageSprites
+- `CropData.cs` — 确认继承 FoodData
+- `CropController.cs` — 确认当前实现稳定
+- `TreeController.cs` — 参考对比
+- `Tool_BatchItemSOGenerator.cs` — 工具链评估
+
+**下一步**:
+- [ ] 等待用户确认执行方向（方案 A 务实路线 vs 方案 B 锐评路线）
+
+
+---
+
+### 会话 10.0.2-2 - 2026-02-12（重构锐评002审核）
+
+**任务**: 审核锐评002（0重构锐评002_0.md + 0重构锐评002_1.md）
+
+**完成任务**:
+1. 完整阅读两份锐评002（反侦察与深度探针 + 法医级证据分析）
+2. 对三个"铁证"逐一进行代码事实核查
+3. 撰写正式审视报告（锐评002审视报告.md）
+
+**核心发现**:
+- ❌ "Editor 是污染真凶" — ItemDataEditor 已按 category 条件显示，Tool_BatchItemSOGenerator 已按 SOType 严格 switch-case 分发
+- ❌ "CropController 是提线木偶" — 实际有 4 状态枚举、30+ 方法、IInteractable 接口、完整逻辑
+- ❌ "usedInRecipes 反向依赖" — 字段在代码中已不存在（重复错误）
+
+**路径判断**: 路径 C（重大异议），维持方案 A（务实路线）
+
+**修改文件**:
+- `0重构锐评002审视报告.md` - 新建，正式审视报告
+
+---
+
+### 会话 10.0.2-3 - 2026-02-12（重构锐评003审核）
+
+**任务**: 审核锐评003（0重构锐评003.md，驳回申诉/行刑官模式）
+
+**完成任务**:
+1. 完整阅读锐评003
+2. 对核心声明逐一进行代码事实核查
+3. 撰写正式审视报告（0重构锐评003审视报告.md）
+
+**核心发现**:
+- ❌ "CropData.cs 第17行有 usedInRecipes" — **伪造证据**，实际第17行是 `public int seedID`，整个文件不存在 usedInRecipes 字段
+- ✅ "用户要求树木模式" — 用户确实表达了兴趣，但提供技术评估是 Kiro 职责
+- ⚠️ "DrawRemainingProperties 是危险兜底" — 部分正确但夸大，Unity SerializedProperty 不会返回已删除字段
+
+**路径判断**: 路径 C（重大异议）— 伪造代码证据是三轮锐评中最严重的问题
+
+**修改文件**:
+- `0重构锐评003审视报告.md` - 新建，正式审视报告
+
+**三轮锐评总结**:
+| 锐评 | 核心声明 | 事实核查 | 严重程度 |
+|------|---------|---------|---------|
+| 001 | "ItemData 基类有 attackPower" | ❌ 不存在 | 高 |
+| 002 | "Editor 脚本是污染真凶" | ❌ Editor 已有类型隔离 | 高 |
+| 003 | "CropData.cs 第17行有 usedInRecipes" | ❌ 伪造证据 | 最高 |
+
+**遗留问题**:
+- [ ] 等待用户确认执行方向（方案 A 务实路线 vs 方案 B 锐评路线/树木模式）
+
+
+---
+
+### 会话 10.0.2-4 - 2026-02-12（重构锐评004全面审视）
+
+**任务**: 审核锐评004（激进版 + 温和版），荤素搭配全面审视
+
+**完成任务**:
+1. 完整阅读两份锐评004
+2. 核查 8 个代码文件
+3. 撰写 10 章节全面审视报告（含自我反思和立场更新）
+
+**核心发现**:
+- ❌ usedInRecipes 第三次错误引用（激进版认栽但温和版再次声称存在）
+- ⚠️ ItemData 基类的 equipmentType 等字段在序列化层面确实不够优雅（我的让步）
+- ✅ Prefab 驱动方向有长期价值（不再称之为"过度工程化"）
+- ❌ "CropController 是提线木偶"严重低估
+
+**立场更新**: 建议方案 B（渐进式重构），三个方案供用户选择
+
+**修改文件**:
+- `0重构锐评004审视报告.md` - 新建
+- `memory.md`（10.0.2子工作区） - 更新
+
+
+---
+
+### 会话 10.0.2-5 - 2026-02-14（迭代执行：daysToNextStage 累加模式）
+
+**任务**: 执行 10.0.2 迭代任务 — CropStageConfig 深度学习树木模式
+
+**完成任务**:
+1. CropStageConfig.cs — 新增 `daysToNextStage` 字段
+2. CropController.cs — 固定4阶段常量 + UpdateGrowthStage/HarvestMature/ResetForReHarvest 重写为累加模式
+3. CropSystemTests.cs — 新增5个阶段计算测试（#region 5.6）+ 修复编译错误
+4. 999迭代需求001.md — 追加第十章用户确认
+5. farming.md — 更新 CropStageConfig 说明（daysToNextStage + 累加模式）
+6. 新建 10.0.3 工作区（收获DropTable与动画）
+
+**修改文件**:
+- `CropStageConfig.cs` — 新增 daysToNextStage 字段
+- `CropController.cs` — 4阶段常量 + 累加模式重写
+- `CropSystemTests.cs` — 新增5个测试 + 修复编译错误
+- `999迭代需求001.md` — 追加用户确认
+- `farming.md` — 更新 CropStageConfig 说明
+- `10.0.3收获DropTable与动画/memory.md` — 新建工作区
+
+**编译状态**: ✅ Unity 重编译零错误
+
+**子工作区状态**: 10.0.2 迭代任务完成，建议用户手动运行 CropSystemTests 确认21个测试全部通过
+
+**下一步**:
+- [ ] 用户手动运行 CropSystemTests 验证
+- [ ] 10.0.3 工作区开始（收获DropTable与动画）
+
+
+---
+
+### 会话 10.0.2.1-1 - 2026-02-14（10.X 纠正一条龙执行）
+
+**任务**: 废弃 CropManager，全面对齐树木系统 Prefab 驱动模式
+
+**完成任务**:
+1. 创建 `10.X纠正设计.md` — 13 章完整设计文档
+2. 创建 `10.X纠正任务.md` — 16 个任务
+3. 一条龙执行全部 16 个任务：
+   - FarmTileData 新增 cropController 运行时引用
+   - CropController 新增 5 个掉落配置字段 + 重写收获逻辑 + DestroyCrop 扩展
+   - Initialize/Load 设置 FarmTileData.cropController 引用
+   - 播种链路重写（绕过 CropManager，直接 Instantiate seedData.cropPrefab）
+   - ExecuteTillSoil/FarmToolPreview 替换 CropManager 引用
+   - TryHarvestCropAtMouse 标记 Obsolete
+   - SeedData 3 个字段标记 Obsolete
+   - CropManager 整个类标记 Obsolete
+   - Unity 编译零错误，CropSystemTests 21/21 通过
+   - farming.md 规范更新
+4. 创建验收指南.md
+5. 更新所有任务状态为 [x]
+
+**修改文件**:
+- `FarmTileData.cs` — 新增 cropController 运行时引用
+- `CropController.cs` — 掉落字段、收获重写、DestroyCrop 扩展、Initialize/Load 设置引用
+- `GameInputManager.cs` — 播种链路重写、ExecuteTillSoil 替换、TryHarvestCropAtMouse 废弃
+- `FarmToolPreview.cs` — 替换 CropManager.GetCrop 为 tileData.cropController
+- `SeedData.cs` — 3 个字段标记 Obsolete
+- `CropManager.cs` — 整个类标记 Obsolete
+- `farming.md` — 更新播种链路、收获机制、FarmTileData、SeedData
+
+**子工作区状态**: 10.0.2.1 ✅ 全部完成，待用户游戏内验收
+
+**遗留问题**:
+- [ ] Collect 动画集成（预留后续迭代）
+- [ ] Tool_BatchItemSOGenerator 2 个 Obsolete 警告需后续清理
+- [ ] CropController Prefab 上需手动配置 dropItemData/witheredDropItemData
+
+
+
+---
+
+### 会话 10.0.2.1-2 - 2026-02-15（needsWatering 迁移至 Controller）
+
+**用户需求**:
+> CropController 的"生长规则"区域新增 `needsWatering` 参数，从 SeedData 删除（标记废弃）该字段，统一由 Controller 管控
+
+**完成任务**:
+1. CropController.cs — 生长规则区域新增 `needsWatering` 字段（默认 true），位于 `daysUntilWithered` 之前
+2. CropController.cs — `HandleGrowingDay()` 逻辑适配：`needsWatering=false` 时每天自动生长，不累计缺水天数
+3. SeedData.cs — `needsWatering` 字段标记 `[System.Obsolete]`，保留字段兼容存档
+
+**逻辑变化**:
+- `needsWatering = true`（默认）：行为与之前完全一致，检查浇水状态
+- `needsWatering = false`：每天自动 +1 生长天数，不会因缺水枯萎
+
+**修改文件**:
+- `CropController.cs` — 新增 needsWatering 字段 + HandleGrowingDay 逻辑适配
+- `SeedData.cs` — needsWatering 标记 [System.Obsolete]
+
+**编译状态**: ✅ 成功（0 错误 0 警告）
+
+**关联代办**: TD_000_农田系统.md #5（Controller 与 SO 数据流完善）— needsWatering 已完成迁移
+
+
+---
+
+### 会话 — 2026-02-15（10.1.0 全面持久化前夕：全面审查）
+
+**用户需求**:
+> 在进入 10.1.0 全面持久化前夕，对所有农田系统工作区进行彻底的基于事实的全面审查。遍历每个对话的 memory、需求文档、锐评、验收指南，再对照实际代码，确认每个功能点的真实完成情况和遗漏。
+
+**完成任务**:
+1. 读取所有工作区 memory（9.0.2/9.0.3/9.0.4/10.0.2/10.0.2.1/10.0.3）
+2. 读取所有关键代码文件并验证实现：
+   - SaveDataDTOs.cs（FarmTileSaveData/CropSaveData 完整字段）
+   - DynamicObjectFactory.cs（TryReconstructCrop 实现）
+   - LayerTilemaps.cs（waterPuddleTilemapNew 字段）
+   - InventoryService.cs（OnDayChanged 日结保质期检查）
+   - FarmTileManager.cs（Save/Load/SetWatered/OnDayChanged/ResetDailyWaterState）
+   - FarmTileData.cs（完整字段定义）
+   - FarmVisualManager.cs（UpdateTileVisual 水渍逻辑）
+   - CropController.cs（完整字段声明 + Save/Load/HandleGrowingDay）
+3. 创建全面审查报告（6 大部分）：
+   - 第一部分：工作区进程总览（10 个工作区完成度）
+   - 第二部分：按功能模块逐项审查（A 耕地/B 作物/C 预览/D 播种/E 交互/F SO 数据）
+   - 第三部分：存档系统完整性审查（字段覆盖率 + 重建链路）
+   - 第四部分：关键问题清单（P0/P1/P2 分级）
+   - 第五部分：废弃代码清单
+   - 第六部分：10.1.0 建议
+
+**关键发现**:
+- 🔴 P0：FarmTileSaveData 缺少 3 个字段（wateredYesterday/waterTime/puddleVariant），加载后浇水状态不完整
+- 🟢 CropSaveData 完整，所有运行时数据均已覆盖
+- 🟢 DynamicObjectFactory 作物重建链路完整
+- 🟡 9.0.4 智能交互设计完成但未实现
+- 🟡 Collect 动画未集成
+- 🟡 ToolData.effectRadius 仍是 int
+
+**新建文件**:
+- `10.1.0全面持久化前夕/全面审查报告.md` - 6 部分完整审查报告
+
+**修改文件**:
+- `memory.md` - 追加本次审查会话记录
+
+
+---
+
+### 会话 10.1.0-2 - 2026-02-15（补充 bug 分析 + 规则完善）
+
+**用户补充 3 点 bug/需求**:
+1. 耕地动画播放中连续点击失效 + 导航中预览不更新
+2. 浇水水渍不显示 + 交互通病
+3. 交互逻辑通病需总结并写入规则
+
+**完成任务**:
+1. 基于代码事实定位两个根因：R1（IsPerformingAction 过度保护）、R2（同帧解锁+重锁）
+2. 更新全面审查报告第七部分
+3. 更新代办 #7~#10
+4. 完善 workspace-memory.md 规则（先子后主强制顺序）
+5. 补创建 10.1.0 子 memory
+
+**修改文件**:
+- `全面审查报告.md` - 新增第七部分
+- `TD_000_农田系统.md` - 新增 #7~#10
+- `workspace-memory.md` - 先子后主规则
+- `memory.md`（10.1.0） - 补创建
+- `memory.md`（农田系统主） - 更新
+
+**待用户确认**:
+- R1 修复方案（推荐 B：跳过 IsPerformingAction，用 _isExecutingFarming 保护）
+- R2 修复方案（推荐 B：LockPosition 自动刷新视觉）
+- 水渍配置方案（Inspector 配置 vs 统一到 TileManager）
+
+
+---
+
+### 会话 10.1.0-3 - 2026-02-16（全面审查报告 V2 重写）
+
+**用户需求**:
+> V1 报告"杂乱差"，要点懒散，多但不精，废话多。要求重新深入阅读所有相关代码，生成真正全面、客观、专业、准确、高效的审查报告。
+
+**用户纠正**:
+1. 问题不是"打断动画"，而是缺少输入缓存 — 动画播放完 = 动作完成，新输入应缓存等动画结束后执行
+2. 长按左键（GetMouseButton）也没有处理，代码仍是 GetMouseButtonDown
+3. 水渍问题已解决（Inspector 配置了 Tile_Water_A/B/C），但干燥/湿润耕地 Tile 未渲染
+4. 用户希望实现：锄地→干燥 Tile → 浇水→水渍叠加 → 水渍消退→30游戏分钟渐变为湿润 Tile
+
+**完成任务**:
+1. 逐行阅读 12 个核心代码文件
+2. 重写全面审查报告 V2（9 大部分）：
+   - 一、系统架构总览
+   - 二、交互系统深度分析（含完整帧级时序分析）
+   - 三、浇水与水渍系统
+   - 四、存档系统完整性
+   - 五、作物系统
+   - 六、预览系统
+   - 七、问题清单（P0/P1/P2）
+   - 八、修复方向建议
+   - 九、废弃代码清单
+
+**关键发现（V2 新增/纠正）**:
+- `GetMouseButtonDown` 注释说"改为 GetMouseButton 支持长按"但实际代码仍是 `GetMouseButtonDown`
+- `_isExecutingFarming` 保护窗口 ≈ 0（同步 try/finally），实际无保护效果
+- `dryFarmlandTile` 和 `wetDarkTile` 字段声明了但从未被使用
+- `UpdateTileVisual` 中 Dry/WetDark 状态只清除水渍，不放置耕地 Tile
+
+**新建文件**:
+- `全面审查报告V2.md` - 重写的 9 部分审查报告
+
+**涉及代码文件（分析，未修改）**:
+| 文件 | 分析内容 |
+|------|---------|
+| GameInputManager.cs | 完整交互链路帧级时序 |
+| FarmToolPreview.cs | 预览锁定机制 |
+| FarmTileManager.cs | 耕地管理全链路 |
+| FarmTileData.cs | 数据字段完整性 |
+| FarmVisualManager.cs | 视觉渲染（dryFarmlandTile/wetDarkTile 未使用） |
+| CropController.cs | 作物系统完整性 |
+| SaveDataDTOs.cs | 存档字段覆盖率 |
+| DynamicObjectFactory.cs | 作物重建链路 |
+| LayerTilemaps.cs | Tilemap 字段 |
+| SeedBagHelper.cs | 种子袋逻辑 |
+| FarmlandBorderManager.cs | 边界管理 |
+
+
+
+---
+
+### 会话 10.1.0-3 - 2026-02-17（design.md 完成 + tasks.md 创建）
+
+**任务**: 一条龙完成 design.md 剩余部分 + 创建 tasks.md
+
+**完成任务**:
+1. design.md 追加第四部分：修改影响分析（6 文件逐一分析 + 跨模块影响矩阵）
+2. design.md 追加第五部分：正确性属性映射与测试策略（CP-1~CP-12 映射 + PBT/单元测试计划）
+3. 创建 tasks.md：13 个主任务（US-1 任务 1~4 / US-2 任务 5~6 / US-3 任务 7~8 / 测试 9~12 / Memory 13）
+
+**design.md 最终结构**: 五大部分完整
+**tasks.md 结构**: 13 个主任务，覆盖全部 US + 测试 + Memory
+
+**子工作区状态**: 10.1.0 — requirements.md ✅ / design.md ✅ / tasks.md ✅，全部待用户审核
+
+
+---
+
+### 会话 10.1.0-4 - 2026-02-17（垂直结构审核 + tasks.md 扩充）
+
+**任务**: 审核 requirements→design→tasks 垂直结构一致性，扩充 tasks.md
+
+**完成任务**:
+1. 逐条审核 17 条 AC → design → tasks 的覆盖关系
+2. 识别 tasks.md 覆盖缺口（AC-1.2/AC-1.3/AC-1.6/AC-3.4/AC-3.5/AC-3.6 + E-2/E-5/E-10/E-11）
+3. 重写 tasks.md（79行→173行）：13 个主任务扩充为 15 个主任务
+   - 新增任务 5（导航中重新输入处理）
+   - 新增任务 10（日结回退与兼容性验证）
+   - 单元测试从 5 个扩充到 12 个
+   - 所有子任务增加详细实现指引和关联 AC/CP/E 编号
+
+**子工作区状态**: 10.1.0 — requirements.md ✅ / design.md ✅ / tasks.md ✅（扩充后），全部待用户审核
+
+
+---
+
+### 10.1.0全面持久化前夕 — 会话 3 续 11（2026-02-18）
+
+**状态**：✅ 全部完成
+
+**本轮完成**：
+- 审核补全缺失的测试文件
+- 创建 `FarmInputCacheTests.cs`（输入缓存测试）
+- 创建 `FarmMoistureStateMachineTests.cs`（湿度状态机测试）
+- 标记任务 11-15 完成
+
+**测试覆盖**：
+- 存档往返属性测试（PBT）— 500 次随机迭代
+- 输入缓存测试 — 浇水状态转移验证
+- 湿度状态机测试 — 状态转换合法性验证
+
+
+---
+
+### 10.1.0全面持久化前夕 — 会话 3 续 12（2026-02-18）
+
+**状态**：✅ 编译错误修复
+
+**本轮完成**：
+- 修复 GameInputManager.cs 编译错误：`slot.Amount` → `slot.amount`（ItemStack 使用小写字段名）
+- Unity 重新编译通过（0 警告）
+
+
+---
+
+### 10.1.0全面持久化前夕 — 会话 3 续 14（2026-02-18）
+
+**状态**：✅ 继承恢复确认
+
+**本轮完成**：
+- 继承恢复后验证代码事实
+- 确认输入缓存修复已正确实现：`CacheFarmInput()` 调用 `GetMouseWorldPosition()` 缓存点击位置
+- 确认 `ConsumePendingFarmInput()` 使用缓存的 `_pendingFarmWorldPos` 而非实时鼠标位置
+- 继承摘要中的"TASK 2: in-progress"实际已完成
+
+**结论**：10.1.0 全面持久化前夕 **全部完成**，所有 15 个任务均已完成
+
+
+---
+
+### 会话 10.1.0-续16 - 2026-02-18（输入缓存位置传递 bug 修复）
+
+**用户反馈**:
+> 输入缓存机制根本没有工作。缓存的不只是缓存输入左键这个操作，而是应该还要缓存当时左键的位置。现在就变成我动画结束前左键一下，然后结束后鼠标放到哪里你就读取哪里的。
+
+**问题根因分析**:
+1. `CacheFarmInput()` 确实调用了 `GetMouseWorldPosition()` 缓存位置到 `_pendingFarmWorldPos`
+2. `ConsumePendingFarmInput()` 确实调用了 `ProcessFarmInputAt(_pendingFarmWorldPos)`
+3. **但是** `ProcessFarmInputAt(Vector3 worldPos)` 内部调用 `TryHandleFarmingTool(tool)` 时**没有传递位置**
+4. `TryHandleFarmingTool` 内部第一行就是 `Vector3 worldPos = GetMouseWorldPosition();` —— 重新读取当前鼠标位置！
+5. `TryTillSoil`/`TryWaterTile`/`TryPlantSeed` 虽然有 `worldPosition` 参数，但**完全不使用它**——它们直接从 `FarmToolPreview.Instance` 读取当前预览位置
+
+**修复方案**:
+在 `ProcessFarmInputAt` 调用农田操作前，先调用新增的 `ForceUpdatePreviewToPosition` 方法，将 `FarmToolPreview` 更新到缓存的位置。
+
+**修改内容**:
+1. `ProcessFarmInputAt` — 新增 `ForceUpdatePreviewToPosition(worldPos, itemData)` 调用
+2. 新增 `ForceUpdatePreviewToPosition` 方法 — 根据缓存的世界坐标更新 FarmToolPreview
+3. `TryHandleFarmingTool` — 移除 `GetMouseWorldPosition()` 调用，位置信息已由 Preview 提供
+
+**修改文件清单**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `GameInputManager.cs` | 修改 | ProcessFarmInputAt 新增 ForceUpdatePreviewToPosition 调用；新增 ForceUpdatePreviewToPosition 方法；TryHandleFarmingTool 移除 GetMouseWorldPosition 调用 |
+
+**编译状态**: ✅ 成功（0 警告）
+
+**状态**: 待用户测试验证
+
+
+
+---
+
+### 会话 10.1.0-续17~19 - 2026-02-18（预览/缓存/长按问题全面分析）
+
+**用户反馈**:
+> 1. 预览逻辑完全有问题，需要彻查
+> 2. 缓存期间预览优化：动画期间点击新位置 → 预览立即切换并锁定
+> 3. 长按锄头 bug：原地重复耕地不导航
+
+**完成任务**:
+1. 续17：开始代码读取，被压缩中断
+2. 续18：全面代码读取 + 输出 5 个修复方案（A-E），但继承恢复时偷懒被用户纠正
+3. 续19：重新全面读取所有代码，重新输出完整分析和 5 个修复方案
+
+**5 个修复方案（互相配合形成闭环）**:
+- A：`CacheFarmInput` 中调用 `LockPosition` 锁定预览到缓存位置
+- B：Crush 动作（锄头）不触发长按继续
+- C：浇水有缓存时走松开分支消费缓存
+- D：`ConsumePendingFarmInput` 中先 `UnlockPosition`
+- E：WASD 移动时清除缓存 + 解锁预览
+
+**状态**: 🚧 方案 A-E 待用户确认后执行代码修改
+
+**涉及代码文件（分析，未修改）**:
+- `GameInputManager.cs` — CacheFarmInput/ConsumePendingFarmInput/HandleMovement/OnActionComplete
+- `PlayerInteraction.cs` — OnActionComplete 长按分支
+- `FarmToolPreview.cs` — LockPosition/UnlockPosition/UpdateRealtimeData/UpdateHoePreview
+
+
+---
+
+### 10.1.1补丁001 - 2026-02-18（农田系统交互漏洞全面修补）
+
+**来源**: 从 10.1.0 会话续19 的方案 A-E 延续，用户将分析报告移至新工作区
+
+**工作区路径**: `.kiro/specs/农田系统/10.1.1补丁001/`
+
+**用户需求**:
+> 1. 回复 Q1-Q4 确认（锄头/浇水/种子长按行为 + 动画期间切换中断）
+> 2. 跳过 requirements，直接 design + tasks 然后一条龙执行
+
+**Q1-Q4 确认结果**:
+- Q1 锄头长按：快速连续输入，第一个位置锁定，预览跟随鼠标，动画完成瞬间锁定当前位置
+- Q2 浇水：与锄头完全一致逻辑共用
+- Q3 种子：一致逻辑，支持缓存和长按，无动画只需创建
+- Q4 切换中断：动画期间绝对禁止切换，切换必须中断
+- 补充：所有耕地创建必须播放动画
+
+**完成任务**:
+1. 创建 design.md + tasks.md
+2. 方案 A：CacheFarmInput 预览锁定 + 1+8 刷新（修复 A-1/A-2/A-3/A-4）
+3. 方案 B：OnActionComplete 长按分支区分农田工具和通用工具（修复 B/C-1/C-2）
+4. 方案 D：ConsumePendingFarmInput 先 UnlockPosition（修复 D-1）
+5. 方案 E：WASD/导航取消时清除缓存（修复 E-1）
+6. 方案 Q4：动画期间切换工具栏中断处理
+7. 编译验证通过（0 警告 0 错误）
+8. 更新分析报告追加"八、Q1-Q4 确认结果与实施记录"
+9. 创建验收指南
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `GameInputManager.cs` | 修改 | CacheFarmInput/IsHoldingFarmTool/ConsumePendingFarmInput/CancelFarmingNavigation/HandleMovement/新增ClearPendingFarmInput |
+| `PlayerInteraction.cs` | 修改 | OnActionComplete 长按分支区分农田/通用工具、松开分支检查 hotbar 缓存 |
+| `design.md` | 新建 | 10.1.1补丁001 设计文档 |
+| `tasks.md` | 新建 | 7 大任务列表 |
+| `全面交互漏洞分析报告.md` | 更新 | 追加第八章 Q1-Q4 确认结果与实施记录 |
+| `验收指南.md` | 新建 | 功能验收清单和测试步骤 |
+
+**状态**: ✅ 全部完成，待用户游戏内验收
+
+
+
+---
+
+### 10.1.1补丁001 续6 - 2026-02-19（验收 bug 根因分析）
+
+**来源**: 用户游戏内验收 10.1.1补丁001 后报告两个严重 bug
+
+**用户反馈**:
+- 🔴 Bug 1：长按/连续点击后人物完全卡死（导航报错"卡顿3次取消导航"循环）
+- 🔴 Bug 2：预览 1+8 GhostTilemap 不跟随新点击位置更新
+
+**完成任务**:
+1. 继承恢复后重新读取所有关键代码（13个方法 + ToolActionLockManager）
+2. 逐行模拟长按/连续点击完整执行流程
+3. 精确定位 Bug 1 根因：`EndAction(true)` 保持 `lockManager.IsLocked = true`，远距离导航时 HandleMovement 被锁死
+4. 精确定位 Bug 2 根因：Bug 1 卡死的连锁反应
+5. 创建完整根因分析与修复方案文档（F1 + F2 两个修复点）
+
+**新建文件**:
+- `补丁001验收bug根因分析与修复方案.md` — 8 章完整文档
+
+**状态**: 根因分析完成，修复方案待用户确认后实施
+
+### 10.1.1补丁001 续7~续8 - 2026-02-19（F1+F2 修复实施完成）
+
+**来源**: 用户确认 Q1/Q2 修复方案 + 需要额外防护，要求直接执行
+
+**完成任务**:
+1. ✅ F1：PlayerInteraction.cs — OnActionComplete 农田工具长按分支 `EndAction(true)` → `EndAction(false)` + `ClearAllCache()`
+2. ✅ F2-a：GameInputManager.cs — CancelFarmingNavigation 末尾增加 `ForceUnlock()` 安全网
+3. ✅ F2-b：GameInputManager.cs — WaitForNavigationComplete 导航失败分支增加 `ForceUnlock()` 安全网
+4. ✅ 编译验证：0 错误 0 警告
+
+**修改文件**:
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `PlayerInteraction.cs` | 修改 | OnActionComplete 农田工具长按分支：EndAction(true)→EndAction(false) + ClearAllCache() |
+| `GameInputManager.cs` | 修改 | CancelFarmingNavigation + WaitForNavigationComplete 导航失败分支增加 ForceUnlock() 安全网 |
+
+**状态**: ✅ 验收 bug 修复 F1+F2 全部完成，待用户游戏内二次验收
+
+### 10.1.1补丁002 - 2026-02-19（农田交互体验优化分析）
+
+**来源**: 用户验收补丁001二次修复后的新反馈（3个问题）
+
+**工作区路径**: `.kiro/specs/农田系统/10.1.1补丁002/`
+
+**用户需求**:
+1. 长按在无效位置时失效（锄头+浇水）
+2. 种子缺少连续输入缓存 + 收获改左键 + 收获连续操作
+3. 远距离点击切换时 1+8 预览仍不刷新
+
+**完成任务**:
+1. 全面勘察关键代码（OnActionComplete、HandleUseCurrentTool、TryTillSoil、TryPlantSeed、HandleRightClickAutoNav、LockPosition、UpdateHoePreview 等）
+2. 精确定位三个问题根因
+3. 创建完整分析文档（补丁002全面分析与修复方案.md）
+
+**新建文件**:
+- `补丁002全面分析与修复方案.md` — 用户反馈 + 3 问题根因 + 修复方案 + Q1-Q4
+- `memory.md` — 子工作区记忆
+
+**状态**: 分析完成，待用户确认 Q1-Q4 后开始实现
+
+
+### 10.1.1补丁002（续）- 2026-02-19（用户确认 + 三件套创建）
+
+**来源**: 用户回复 Q1-Q4 确认 + 补充 P5（作物对齐）P6（收获动画）新需求 → 继承恢复后完成勘察和文档创建
+
+**用户确认结果**:
+- Q1：不要长按，改为连续点击 + FIFO 队列缓存
+- Q2：移除右键收获，改左键，收获有动画，也用队列缓存
+- Q3：成熟作物无论手持什么都左键收获（最高优先级）
+- Q4：LockPosition 时只更新锁定位置的 1+8 渲染，解锁后恢复跟随
+
+**新增需求**:
+- P5：作物显示底部中心对齐农田中心（学习 TreeController.AlignSpriteBottom）
+- P6：收获动画调查 → 结论：不是配置问题，是代码未实现（10.0.3 US-3 待实现）→ 不搁置
+
+**完成任务**:
+1. 代码勘察：TreeController.AlignSpriteBottom、CropController 完整代码、ExecutePlantSeed、FarmToolPreview.LockPosition/UpdateHoePreview、AnimState 枚举、收获动画调查
+2. 更新分析文档（追加 Q1-Q4 确认 + P5/P6 + 修正问题清单）
+3. 创建 design.md（10 章节：P3/P1/P2a/P2b/P5 方案 + 操作队列设计 + 正确性属性）
+4. 创建 tasks.md（5 Phase、13 个任务）
+
+**新建/修改文件**:
+- `design.md` — 新建
+- `tasks.md` — 新建
+- `补丁002全面分析与修复方案.md` — 追加第七~九章
+
+**状态**: 三件套完成，待用户审核后开始实现
+
+
+### 10.1.1补丁002 续4 - 2026-02-19（分析文档独立审核）
+
+**来源**: 用户要求独立审核补丁002全面分析与修复方案.md
+
+**完成任务**:
+1. 重新读取所有关键代码进行独立验证（GameInputManager/FarmToolPreview/PlayerInteraction/CropController）
+2. 输出完整审核报告：根因分析全部准确，交互习惯合理
+3. 发现 6 个潜在漏洞（CacheFarmInput 替换、Collect 动画回调、队列与执行保护交互等）
+
+**状态**: 审核完成，待用户反馈后决定是否更新 design.md
+
+
+### 10.1.1补丁002 续5~续6 - 2026-02-19（design V2 + tasks V2 完成）
+
+**来源**: 续5 用户纠正审核理解偏差 + 要求全部漏洞纳入补丁；续6 继承恢复后完成剩余章节
+
+**完成任务**:
+1. 续5：更新分析文档追加第十章（6漏洞+5交互细节），重写 design.md V2 第一~五章
+2. 续6：完成 design.md V2 第六~十三章（P2a种子/P5作物对齐/V4 WASD中断/V5面板暂停/V6层级过滤/正确性属性CP-1~19/测试框架/涉及文件汇总）
+3. 续6：重写 tasks.md V2（8 Phase、22 任务，覆盖全部 11 改进点）
+
+**关键决策**: 6个漏洞全部纳入补丁，做完整交互矩阵覆盖，FIFO队列替代CacheFarmInput
+
+**状态**: design.md V2 + tasks.md V2 全部完成，待用户审核后开始实现
+
+
+### 10.1.1补丁002 续7 - 2026-02-19（design V3 + tasks V3 重写）
+
+**来源**: 用户认为 V2 是"照葫芦画瓢"缺乏专业思考，要求按"修改目标（文件×方法）"重组
+
+**完成任务**:
+1. 重新读取所有关键代码（GameInputManager/PlayerInteraction/FarmToolPreview/CropController）
+2. 建立"变更点→文件×方法"映射表（4文件、9模块 A~I）
+3. 重写 design.md V3（14章，按修改目标组织，每个版块自包含：现状→改动→伪代码→属性）
+4. 重写 tasks.md V3（7 Phase、20 任务，每个任务自包含执行细节）
+
+**V3 核心区别**:
+- V2 按"问题编号"线性排列 → V3 按"修改目标（文件×方法）"聚合
+- tasks V3 每个任务包含完整执行细节（文件、行号、具体改动、验收标准），不需要回翻 design
+
+**状态**: design V3 + tasks V3 全部完成，待用户审核后开始实现
+
+
+### 10.1.1补丁002 续8 - 2026-02-19（继承恢复 + 主 memory 同步）
+
+**来源**: 继承恢复自续7
+
+**完成任务**:
+1. 继承恢复：交叉验证无异常，确认 design V3 + tasks V3 文件完整
+2. 同步主 memory：追加续7记录
+3. 回应用户关于 tasks 是否严格参照 design 的问题
+
+**状态**: design V3 + tasks V3 确认完整，待用户审核后开始实现
+
+
+### 10.1.1补丁002 续9~续10 - 2026-02-19（一条龙执行全部 20 任务完成）
+
+**来源**: 用户确认"来吧走起"，一条龙执行 design V3 + tasks V3 全部 20 个任务
+
+**完成任务**:
+1. 续9：Phase 1~6 代码实现全部完成（16/20 任务），被压缩中断
+2. 续10：Phase 7 集成验证全部完成（4/4 任务）+ 验收指南创建
+
+**Phase 1~6 代码实现**:
+- Phase 1：FarmToolPreview.LockPosition 渲染 1+8 + CropController AlignSpriteBottom
+- Phase 2：FIFO 队列基础设施（枚举/结构体/字段/EnqueueAction/ProcessNextAction/ExecuteFarmAction/回调方法）
+- Phase 3：入队入口改造（TryDetectAndEnqueueHarvest/TryEnqueueFarmTool/Seed/FromCurrentInput/HandleUseCurrentTool 全面改造）
+- Phase 4：OnActionComplete 分支改造（Collect 专用分支 + 农田工具队列出队）
+- Phase 5：中断/过滤/暂停（WASD 中断/右键过滤 CropController/面板暂停恢复/ESC+快捷栏清空）
+- Phase 6：旧缓存方法标记 [System.Obsolete]
+
+**Phase 7 集成验证**:
+- 7.1：getDiagnostics 4 文件全部 0 错误 0 警告 ✅
+- 7.2：CP-1~CP-19 正确性属性 19/19 全部满足 ✅
+- 7.3：验收指南.md 创建（7 大类 58 项可勾选测试清单）✅
+- 7.4：memory.md 更新 ✅
+
+**修改代码文件**:
+| 文件 | 说明 |
+|------|------|
+| `GameInputManager.cs` | FIFO 队列系统全部实现 |
+| `PlayerInteraction.cs` | OnActionComplete Collect 专用分支 + 农田工具队列出队 |
+| `FarmToolPreview.cs` | LockPosition 1+8 GhostTilemap 渲染 |
+| `CropController.cs` | AlignSpriteBottom + LayerIndex/CellPos 属性 |
+
+**新建文件**:
+| 文件 | 说明 |
+|------|------|
+| `验收指南.md` | 运行时验收清单 |
+
+**状态**: ✅ 补丁002 全部 20 任务完成，待用户游戏内验收
+
+
+### 10.1.1补丁003 会话1 - 2026-02-19（002 验收反馈 + 全面分析文档）
+
+**来源**: 用户验收补丁002后报告 6 个严重问题，进入 003 补丁
+
+**用户反馈（6 个问题）**:
+1. 🔴 作物位置完全错误（种在耕地 tile 底部边界处）
+2. 🔴 耕地/浇水长按左键退化（只触发一次）
+3. 🔴 连续左键队列 bug（动画期间点击 B，A 结束瞬间 B 变耕地无动画，队列卡住）
+4. 取消导航期间预览变更，改为连续左键直接入队
+5. 🔴 种子坐标完全错误（与问题1同源）
+6. 连续点击队列需全面优化（预览与执行分离）
+
+**完成任务**:
+1. 代码彻查（CropController、GameInputManager、PlayerInteraction、LayerTilemaps、TreeController）
+2. 定位 3 个核心根因：
+   - P1/P5：AlignSpriteBottom 架构错误（CropController SpriteRenderer 在自身上，修改 localPosition 覆盖了世界坐标）
+   - P2：HandleUseCurrentTool 用 GetMouseButtonDown 而非 GetMouseButton
+   - P3：OnActionComplete 松开分支时序错误 + ExecuteFarmAction 逻辑与动画同帧触发
+3. 创建全面分析文档（8章：问题清单、根因分析、修复方案、Q1-Q3）
+
+**新建文件**:
+| 文件 | 说明 |
+|------|------|
+| `补丁003全面分析与修复方案.md` | 6 个问题根因分析 + 修复方案 + Q1-Q3 |
+| `memory.md` | 子工作区记忆 |
+
+**状态**: 分析文档完成，待用户审核 Q1-Q3 后创建三件套
+
+
+---
+
+### 会话 10.1.1补丁003-续3 - 2026-02-19（继承恢复 + Q1-Q3审视 + 三件套创建）
+
+**来源**：继承恢复（003子工作区快照：2026-02-19_会话1_续2.md）
+
+**完成任务**：
+1. 继承恢复 + 重新读取所有关键代码文件
+2. 对用户 Q1/Q2/Q3 回复进行独立审视（全部采纳）
+3. 更新分析文档（追加第九、十章）
+4. 创建 design.md（7章完整设计）
+5. 创建 tasks.md（6阶段13大任务）
+
+**用户Q1-Q3确认结果**：
+- Q1：以预览中心为作物位置 → 采纳，创建视觉子物体（与TreeController统一架构）
+- Q2：动画第四帧触发tile更新 → 采纳，引入延迟执行机制
+- Q3：预览系统全面改造 → 采纳，颜色叠加+图案预览+多位置队列预览
+
+**新建/修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `补丁003全面分析与修复方案.md` | 追加 | 第九章（Q1-Q3审视）、第十章（优先级更新） |
+| `design.md` | 新建 | 7章完整设计文档 |
+| `tasks.md` | 新建 | 6阶段13大任务 |
+| `memory.md`（子） | 追加 | 会话1续3记录 |
+
+**状态**: 三件套完成，待用户审核后开始实施
+
+
+---
+
+### 会话 10.1.1补丁003-续5 - 2026-02-19（003三件套全面审视完成）
+
+**来源**：继承恢复（003子工作区快照：2026-02-19_会话1_续4.md）
+
+**用户需求**：全面、冷静、客观审视003补丁三件套的合理性和可实施性，避免重蹈001/002覆辙
+
+**完成任务**：
+1. 继承恢复 + 重新读取所有关键代码文件
+2. 逐条审视 design.md 每个章节（P1-P6）
+3. 审视 tasks.md 每个任务的可实施性
+4. 001/002教训对照检查
+5. 创建审视报告文档（12个漏洞，5个高风险）
+
+**发现的高风险漏洞**：
+- V2：`[SerializeField] spriteRenderer` 序列化值导致迁移逻辑不触发
+- V4+V12：`_pendingTileUpdate` 在动画中断和 ClearActionQueue 时未清理
+- V9：`Tilemap.SetColor` 是乘法混合不是颜色叠加
+- V10：`ClearGhostTilemap` 会清除队列预览
+- V6：任务4和任务5逻辑冲突
+
+**新建文件**：
+| 文件 | 说明 |
+|------|------|
+| `003三件套审视报告.md` | 10章完整审视报告，12个漏洞清单 |
+
+**状态**: 审视报告完成，待用户确认漏洞修复方向后更新 design.md 和 tasks.md
+
+---
+
+### 会话 10.1.1补丁003-续7 - 2026-02-19（需求迭代报告 + 四点回应 + 审视报告修正）
+
+**来源**：继承恢复（003子工作区快照：2026-02-19_会话1_续6.md）
+
+**用户需求**：对审视报告四点反馈进行全面分析，先撰写需求迭代记录，再回应四点，最后更新审视报告
+
+**完成任务**：
+1. 继承恢复 + 重新读取所有关键代码和历史文档
+2. 撰写「需求迭代记录与分析报告」（10.1.0→003 需求演变分析）
+3. 基于代码事实回应用户四点反馈
+4. 更新审视报告（追加修正章节 + 修正后漏洞清单）
+
+**核心结论**：
+- 第1点：认可用户方案（套一层父物体），V1/V2/V3 作废
+- 第2点：用户正确，动画不可被打断，V4 修正触发场景
+- 第3点：用户正确，长按和队列是独立模式，V6/V7 作废
+- 第4点：用户正确，所有单击入队，V8 修正
+
+**修正后仍有效的高风险漏洞**：V4（修正版）、V9、V10、V12
+
+**新建/修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `需求迭代记录与分析报告.md` | 新建 | 需求演变分析 |
+| `003三件套审视报告.md` | 追加 | 第十一、十二章 |
+| `memory.md`（子） | 追加 | 续6+续7记录 |
+| `memory.md`（主） | 追加 | 续7同步 |
+
+**状态**: 四点回应完成，待用户确认后更新 design.md 和 tasks.md
+
+
+---
+
+### 会话 10.1.1补丁003-续8 - 2026-02-19（V2审视报告重写）
+
+**来源**：用户要求将续7的纠正内容融入正文，重写V2版审视报告
+
+**用户需求**：直接编写V2版本，把纠正内容融入正文，让文档更简化更容易分析和理解
+
+**完成任务**：
+1. 重新读取所有关键代码文件和历史文档
+2. 基于独立代码阅读重新评估每一条漏洞
+3. 创建V2审视报告（10章，7个漏洞，3个高风险）
+
+**V2与V1关键差异**：
+- V1有12个漏洞 → V2精简为7个（V1的V1/V2/V3/V6/V7/V8因用户方案变更而作废）
+- 纠正内容直接融入正文，不再有尾部修正章节
+- 新增发现：WASD可通过ForceUnlock在动画期间解除锁定并移动
+- 任务4（HandleUseCurrentTool改GetMouseButton）明确标记为方向错误
+- P1/P5方案完全改为手动修改Prefab
+
+**V2高风险漏洞**：V1（_pendingTileUpdate清理）、V3（颜色乘法混合）、V4（预览架构冲突）
+
+**新建文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `003三件套审视报告V2.md` | 新建 | V2完整重写版审视报告 |
+| `memory.md`（子） | 追加 | 续8记录 |
+
+**状态**: V2审视报告完成，待用户确认后更新 design.md 和 tasks.md
+
+
+---
+
+### 会话 10.1.1补丁003-续9 - 2026-02-19（继承恢复 + 主memory同步）
+
+**来源**：继承恢复，补上续8主memory同步
+
+**完成任务**：继承恢复 + 追加主memory续8同步记录
+
+**状态**: V2审视报告已完成，待用户确认后更新 design.md 和 tasks.md
+
+
+---
+
+### 会话 10.1.1补丁003-续10 - 2026-02-19（V2审视报告2.3节修正）
+
+**来源**：用户指出V2报告2.3节场景B与已确认结论自相矛盾
+
+**完成任务**：修正V2报告2.3节场景描述，准确反映"动画不可被打断，WASD触发队列中断但动画继续播放"的事实
+
+**修改文件**：
+| 文件 | 说明 |
+|------|------|
+| `003三件套审视报告V2.md` | 修正2.3节场景描述 |
+
+**状态**: V2审视报告修正完成，待用户确认后更新 design.md 和 tasks.md
+
+
+---
+
+### 会话 10.1.1补丁003-续11 - 2026-02-19（V2报告第五点预览系统审视 — 被压缩中断）
+
+**来源**：用户对V2报告第五点（预览系统改造）提出详细反馈
+
+**完成任务**：读取V2报告、FarmToolPreview、PlacementPreview代码
+
+**未完成**：分析和锐评输出被压缩中断
+
+**状态**: 被压缩中断
+
+
+---
+
+### 会话 10.1.1补丁003-续12 - 2026-02-19（V2报告第五点预览系统专业锐评完成）
+
+**来源**：继承恢复（快照：2026-02-19_会话1_续11.md）
+
+**完成任务**：
+1. 继承恢复 + 重新读取所有关键代码（FarmToolPreview、PlacementPreview、PlacementGridCell、CropController、FarmVisualManager）
+2. 搜索项目shader资源（无颜色覆盖shader）
+3. 验证水渍tile资源（wetPuddleTiles 3种变体已有）
+4. 输出完整专业锐评（5项逐条分析）
+
+**锐评结论**：
+- 种子预览复刻放置系统：✅ 认可（需CropController添加公开方法获取stage sprite）
+- 耕地颜色覆盖：⚠️ 认可方向，推荐程序化SpriteRenderer覆盖层（方案C），shader也可行（方案A）
+- 浇水随机水渍预览：✅ 认可（资源已有，需暴露访问接口）
+- 队列预览区分：✅ 认可（推荐双Tilemap分离架构）
+- 性能：✅ 无问题
+
+**待用户确认**：耕地颜色覆盖方案选择（shader方案A vs 程序化SpriteRenderer方案C）
+
+**状态**: 锐评完成，等待用户确认后更新V2报告第五点
+
+---
+
+### 会话 10.1.1补丁003-续13 - 2026-02-19（V3审视报告 — 种子预览方案纠正）
+
+**来源**：用户对续12锐评第1点的进一步纠正
+
+**用户纠正**：种子播种需要放置预览方框（直接复刻树苗放置效果），不需要方框的只是耕地和浇水。唯一需要重新设计的是队列缓存显示部分。
+
+**完成任务**：
+1. 重新读取 PlacementPreview.cs 和 PlacementGridCell.cs 代码
+2. 对"种子预览复刻放置系统"给出修正后锐评（✅ 完全认可）
+3. 创建 V3 审视报告（第五点重写 + 漏洞清单更新 + 改进建议更新）
+
+**V3 核心变更**：种子预览从"不需要底部方框"修正为"需要底部方框，直接复刻树苗放置效果"
+
+**待用户确认**：耕地/浇水颜色覆盖方案（shader 方案A vs 程序化 SpriteRenderer 方案C）
+
+**状态**: V3 审视报告完成，待用户确认颜色覆盖方案后更新 design.md 和 tasks.md
+
+
+---
+
+### 会话 10.1.1补丁003-续14 - 2026-02-19（方案C锁定 + V3报告更新 — 被压缩中断）
+
+**来源**：用户确认耕地/浇水颜色覆盖选择方案C（程序化 SpriteRenderer 覆盖层）
+
+**完成任务**：V3报告5.2节锁定方案C（strReplace完成），但 memory 更新被压缩中断
+
+**状态**: 部分完成，续15补全
+
+---
+
+### 会话 10.1.1补丁003-续15 - 2026-02-19（继承恢复 + V3报告方案C全面锁定）
+
+**来源**：继承恢复，补全续14未完成的工作
+
+**完成任务**：V3报告中所有"待用户选择/待确认/待定"文字全部更新为方案C已锁定（共6处修改）
+
+**V3 报告当前状态**：所有方案已全部锁定，无待确认项。用户已明确"先暂时不更新 design.md 和 tasks.md"。
+
+**状态**: V3 审视报告全面锁定完成 ✅

@@ -2187,15 +2187,6 @@ MonoBehaviour:
     enabled: 1
     foldout: 1
     items:
-    - item: {fileID: 11400000, guid: 91ec64d3d9f687e46a32686c181e659e, type: 2}
-      quality: 0
-      amount: 20
-    - item: {fileID: 11400000, guid: 55b5c72eac109db4d80218fa29967532, type: 2}
-      quality: 0
-      amount: 18
-    - item: {fileID: 11400000, guid: cc101b7a21389df4ca4fcc6aa84b466b, type: 2}
-      quality: 0
-      amount: 16
     - item: {fileID: 11400000, guid: f64ae429c5370374cbfab9afe106671b, type: 2}
       quality: 0
       amount: 1
@@ -2211,31 +2202,44 @@ MonoBehaviour:
     - item: {fileID: 11400000, guid: b3fb2ba2f0d99e148ab0ce9c6cee5c8b, type: 2}
       quality: 0
       amount: 1
+  - name: "\u79CD\u5B50"
+    enabled: 1
+    foldout: 1
+    items:
+    - item: {fileID: 11400000, guid: 345ef92df91269a469781740a952c8e9, type: 2}
+      quality: 0
+      amount: 1
+    - item: {fileID: 11400000, guid: 102f7a1fd25d1df41a76118b785cef95, type: 2}
+      quality: 0
+      amount: 1
+    - item: {fileID: 11400000, guid: 068a786968812c84b8bed97b924c8bc4, type: 2}
+      quality: 0
+      amount: 1
+    - item: {fileID: 11400000, guid: 2200587bb6d6f6f4ea514bda66a279e2, type: 2}
+      quality: 0
+      amount: 1
+    - item: {fileID: 11400000, guid: db5aa0a853beaf7428604f80172f3c69, type: 2}
+      quality: 0
+      amount: 1
+    - item: {fileID: 11400000, guid: c50e256c8cdcb5b40b6b6eac7ebd3b87, type: 2}
+      quality: 0
+      amount: 1
+    - item: {fileID: 11400000, guid: bed6c76662929df4faa486bbc4d0227b, type: 2}
+      quality: 0
+      amount: 1
   - name: "\u780D\u6811"
     enabled: 0
-    foldout: 0
+    foldout: 1
     items:
-    - item: {fileID: 11400000, guid: 6ff3977dd3a938f438e9777efa099da6, type: 2}
+    - item: {fileID: 11400000, guid: 91ec64d3d9f687e46a32686c181e659e, type: 2}
       quality: 0
-      amount: 1
-    - item: {fileID: 11400000, guid: 08c3d9f50dffa814eb30556d4f9bfb90, type: 2}
+      amount: 20
+    - item: {fileID: 11400000, guid: 55b5c72eac109db4d80218fa29967532, type: 2}
       quality: 0
-      amount: 1
-    - item: {fileID: 11400000, guid: 29f1a622e18f72f4b8dbec5141cc70fc, type: 2}
+      amount: 20
+    - item: {fileID: 11400000, guid: cc101b7a21389df4ca4fcc6aa84b466b, type: 2}
       quality: 0
-      amount: 1
-    - item: {fileID: 11400000, guid: f17d470dc9697704888d1222dc1f1b6d, type: 2}
-      quality: 0
-      amount: 1
-    - item: {fileID: 11400000, guid: 794934dcc83b5aa45b7b6568409c4ebe, type: 2}
-      quality: 0
-      amount: 1
-    - item: {fileID: 11400000, guid: f64ae429c5370374cbfab9afe106671b, type: 2}
-      quality: 0
-      amount: 1
-    - item: {fileID: 11400000, guid: d5a7aadf45344264fbc2b79e6143c6fe, type: 2}
-      quality: 0
-      amount: 1
+      amount: 20
   - name: "\u6316\u77FF"
     enabled: 0
     foldout: 0
@@ -2259,7 +2263,7 @@ MonoBehaviour:
       quality: 0
       amount: 1
   - name: "\u7BB1\u5B50"
-    enabled: 1
+    enabled: 0
     foldout: 0
     items:
     - item: {fileID: 11400000, guid: 71f5bed7b179b274cbbdf26c342c8dda, type: 2}
@@ -2299,7 +2303,7 @@ MonoBehaviour:
       quality: 0
       amount: 1
   - name: "\u88C5\u5907"
-    enabled: 1
+    enabled: 0
     foldout: 0
     items:
     - item: {fileID: 11400000, guid: 5dabc23d7248a73479f0ef1dcdb73f92, type: 2}
@@ -76766,7 +76770,7 @@ MonoBehaviour:
   - layerName: Layer 1
     farmlandTilemap: {fileID: 20340396}
     waterPuddleTilemap: {fileID: 814190009}
-    waterPuddleTilemapNew: {fileID: 0}
+    waterPuddleTilemapNew: {fileID: 814190009}
     farmlandCenterTilemap: {fileID: 20340396}
     farmlandBorderTilemap: {fileID: 376096643}
     groundTilemap: {fileID: 772686922}
@@ -76866,8 +76870,9 @@ Transform:
   - {fileID: 1465950675}
   - {fileID: 1756989829}
   - {fileID: 1675275289}
-  - {fileID: 1672794579}
   - {fileID: 1704871045}
+  - {fileID: 2097296730}
+  - {fileID: 1672794579}
   m_Father: {fileID: 2036600012}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!4 &1706890016 stripped
@@ -78009,6 +78014,66 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1706275046}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &2097296729
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 2097296730}
+  - component: {fileID: 2097296731}
+  m_Layer: 0
+  m_Name: FarmVisualManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &2097296730
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2097296729}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 1706275046}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2097296731
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2097296729}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f532559afd3981f418e01cebbadf7461, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  dryFarmlandTile: {fileID: 0}
+  wetDarkTile: {fileID: 0}
+  wetPuddleTiles:
+  - {fileID: 11400000, guid: e9b3829f0f10a9444b28483556a9816a, type: 2}
+  - {fileID: 11400000, guid: 0b305e0777282a84cac3ea86c528d8dc, type: 2}
+  - {fileID: 11400000, guid: 9346f431788f6fa4b85ce5ef1e24ccd2, type: 2}
+  tillingSoundClip: {fileID: 0}
+  wateringSoundClip: {fileID: 0}
+  harvestSoundClip: {fileID: 0}
+  plantingSoundClip: {fileID: 0}
+  tillingParticlePrefab: {fileID: 0}
+  wateringParticlePrefab: {fileID: 0}
+  harvestParticlePrefab: {fileID: 0}
+  particleDuration: 2
+  poolInitialSize: 5
+  showDebugInfo: 1
 --- !u!1 &2112946851
 GameObject:
   m_ObjectHideFlags: 0

@@ -13,13 +13,13 @@ MonoBehaviour:
   m_Name: "Material_3100_\u9EC4\u94DC\u952D"
   m_EditorClassIdentifier: 
   itemID: 3100
-  itemName: "3100_\u9EC4\u94DC\u952D_0"
+  itemName: "3100_\u9EC4\u94DC\u952D"
   description: 
   category: 3
   icon: {fileID: -1801639060, guid: fd79aaa7e064e504ea52c7f751b904a9, type: 3}
   bagSprite: {fileID: 0}
   rotateBagIcon: 1
-  worldPrefab: {fileID: 2401350086605043063, guid: b8557d5ce3aecb34db36e98b02371087, type: 3}
+  worldPrefab: {fileID: 2901303773657102392, guid: 94359f79343cebf4584c186dbfe4c289, type: 3}
   buyPrice: 0
   sellPrice: 0
   maxStackSize: 20
