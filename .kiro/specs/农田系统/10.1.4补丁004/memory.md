@@ -652,3 +652,51 @@
 | `补丁004V5全面审查报告.md` | 8 章节完整审查报告（P1~P3 + R1~R10 + 修复方案 + 正确性属性） |
 
 **状态**：补丁004V5 全面审查报告 ✅ 完成，待用户审核后修改代码
+
+
+---
+
+### 会话 2 续 15 - 2026-02-21（000锐评001 审视报告）
+
+**用户需求**：
+> Gemini 对 V5 全面审查报告发出锐评（000锐评001.md），指出三个"致命雷区"。用户要求全面审视项目后完成锐评审核回应报告。
+
+**完成任务**：
+1. ✅ 加载锐评处理规范（code-reaper-review.md）
+2. ✅ 完整阅读锐评（000锐评001.md）
+3. ✅ 读取 V5 全面审查报告（补丁004V5全面审查报告.md）
+4. ✅ 读取核心代码进行事实核查：
+   - FarmToolPreview.cs（EnsureComponents/UpdateHoePreview/UpdateWateringPreview 完整实现）
+   - PlacementGridCell.cs（CreateGridSprite/SetValid/UpdateColor 完整实现）
+   - FarmlandBorderManager.cs（GetPreviewTiles 两个重载完整实现）
+   - FarmPreviewOverlay.shader（完整 shader 代码，确认 lerp 混合模式）
+5. ✅ 逐条事实核查三个致命声明
+6. ✅ 路径判断：🟡 路径 B（核心正确，有细节需说明）
+7. ✅ 创建审视报告（000锐评001审视报告.md）
+
+**事实核查结果**：
+| 声明 | 核查结论 | 说明 |
+|------|---------|------|
+| P3 移除 Shader = 视觉灾难 | ✅ 正确 | `ghostTilemap.color` 是乘法混合，棕色×绿色=脏黑色。V5 第八章对 `Tilemap.color` 的理解错误 |
+| P1 + 增量过滤 = 幽灵消失悖论 | ⚠️ 部分正确 | V5 第八章已意识到需跳过增量过滤，但代码方案中未显式体现。锐评将隐含约束提升为显式规则 |
+| R1 浇水红色预览同样陷阱 | ✅ 正确 | `!isValid` 时不放置水渍 tile，shader 变红但无载体。V5 遗漏 |
+
+**采纳决策**：
+- ✅ 保留 Shader（lerp 混合不可替代）
+- ✅ canTill=false 全量铺 1+8 不做增量过滤
+- ✅ 浇水 !isValid 也放置 tile
+- ❌ 不采纳"修改 isValid 而非 canTill"（修改 canTill 更简洁，效果等价）
+- ✅ 废弃白框
+
+**V5 需修正的内容**：
+1. P3 方案从"移除 Shader"改为"保留 Shader"
+2. 第八章"ghostTilemap.color 工作原理"描述错误需删除
+3. 模块 O 代码示例需显式标注"canTill=false 时跳过增量过滤"
+4. R3 浇水修复方案需补充"!isValid 时也放置水渍 tile"
+
+**新建文件**：
+| 文件 | 说明 |
+|------|------|
+| `000锐评001审视报告.md` | 锐评事实核查 + 采纳决策 + V5.1 修正方案（7章） |
+
+**状态**：锐评审视 ✅ 完成，V5.1 修正方案已明确，待用户确认后修改代码
