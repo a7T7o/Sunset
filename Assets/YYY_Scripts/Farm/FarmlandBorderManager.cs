@@ -311,6 +311,43 @@ namespace FarmGame.Farm
             
             return result;
         }
+
+        /// <summary>
+        /// 🔴 补丁004V3：计算预览 tile，支持额外已耕位置（队列预览位置）。
+        /// predicate 扩展为：centerPos + additionalTilledPositions + 实际耕地。
+        /// </summary>
+        public System.Collections.Generic.Dictionary<Vector3Int, TileBase> GetPreviewTiles(
+            int layerIndex, Vector3Int centerPos, System.Collections.Generic.HashSet<Vector3Int> additionalTilledPositions)
+        {
+            var result = new System.Collections.Generic.Dictionary<Vector3Int, TileBase>();
+
+            // 构造断言：假装 centerPos + additionalTilledPositions 都已被耕作
+            System.Func<Vector3Int, bool> predicate = (pos) =>
+            {
+                if (pos == centerPos) return true;
+                if (additionalTilledPositions != null && additionalTilledPositions.Contains(pos)) return true;
+                return IsCenterBlock(layerIndex, pos);
+            };
+
+            // 1. 中心块
+            result[centerPos] = centerTileUnfertilized;
+
+            // 2. 计算周围 8 格的边界变化
+            for (int dx = -1; dx <= 1; dx++)
+            {
+                for (int dy = -1; dy <= 1; dy++)
+                {
+                    if (dx == 0 && dy == 0) continue;
+
+                    Vector3Int neighborPos = centerPos + new Vector3Int(dx, dy, 0);
+                    TileBase tile = CalculateBorderTileAt(layerIndex, neighborPos, predicate);
+                    result[neighborPos] = tile;
+                }
+            }
+
+            return result;
+        }
+
         
         /// <summary>
         /// 获取中心块 Tile（用于预览）
@@ -389,7 +426,8 @@ namespace FarmGame.Farm
         /// <summary>
         /// 根据周围中心块分布选择边界 Tile
         /// </summary>
-        private TileBase SelectBorderTile(bool hasU, bool hasD, bool hasL, bool hasR)
+        // 🔴 补丁004V2 模块L（CP-L2）：改为 public，增量差集计算需要从差集方向生成增量 tile
+        public TileBase SelectBorderTile(bool hasU, bool hasD, bool hasL, bool hasR)
         {
             int count = (hasU ? 1 : 0) + (hasD ? 1 : 0) + (hasL ? 1 : 0) + (hasR ? 1 : 0);
             
@@ -428,6 +466,53 @@ namespace FarmGame.Farm
             }
             
             return null;
+        }
+        
+        /// <summary>
+        /// 🔴 补丁004V2 模块L（CP-L5）：将 tile 引用解析为方向四元组
+        /// </summary>
+        public (bool hasU, bool hasD, bool hasL, bool hasR) ParseDirections(TileBase tile)
+        {
+            if (tile == null) return (false, false, false, false);
+            // 单方向
+            if (tile == borderU) return (true, false, false, false);
+            if (tile == borderD) return (false, true, false, false);
+            if (tile == borderL) return (false, false, true, false);
+            if (tile == borderR) return (false, false, false, true);
+            // 双方向对边
+            if (tile == borderUD) return (true, true, false, false);
+            if (tile == borderLR) return (false, false, true, true);
+            // 双方向相邻
+            if (tile == borderUL) return (true, false, true, false);
+            if (tile == borderUR) return (true, false, false, true);
+            if (tile == borderDL) return (false, true, true, false);
+            if (tile == borderDR) return (false, true, false, true);
+            // 三方向
+            if (tile == borderUDL) return (true, true, true, false);
+            if (tile == borderUDR) return (true, true, false, true);
+            if (tile == borderULR) return (true, false, true, true);
+            if (tile == borderDLR) return (false, true, true, true);
+            // 四方向
+            if (tile == borderUDLR) return (true, true, true, true);
+            return (false, false, false, false);
+        }
+        
+        /// <summary>
+        /// 🔴 补丁004V2 模块L（CP-L1）：判断 tile 是否为边界 tile
+        /// </summary>
+        public bool IsBorderTile(TileBase tile)
+        {
+            if (tile == null) return false;
+            var dirs = ParseDirections(tile);
+            return dirs.hasU || dirs.hasD || dirs.hasL || dirs.hasR;
+        }
+        
+        /// <summary>
+        /// 🔴 补丁004V2 模块L（CP-L3）：判断 tile 是否为阴影 tile
+        /// </summary>
+        public bool IsShadowTile(TileBase tile)
+        {
+            return tile == shadowLU || tile == shadowRU || tile == shadowLD || tile == shadowRD;
         }
         
         /// <summary>

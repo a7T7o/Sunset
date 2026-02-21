@@ -412,7 +412,7 @@ public static class DayNightConfigCreator
 
     /// <summary>
     /// 创建 Multiply 混合模式材质，用于 DayNightOverlay 全屏色调叠加
-    /// Sprites/Default shader + Multiply 混合（SrcBlend=DstColor, DstBlend=Zero）
+    /// 使用自定义 Custom/SpriteMultiply shader，确保 Blend DstColor Zero 正片叠底生效
     /// </summary>
     [MenuItem("Tools/Create DayNight Multiply Material")]
     public static void CreateMultiplyMaterial()
@@ -430,21 +430,16 @@ public static class DayNightConfigCreator
             }
         }
 
-        // 查找 Sprites/Default shader
-        Shader spriteShader = Shader.Find("Sprites/Default");
-        if (spriteShader == null)
+        // 查找自定义 SpriteMultiply shader（Blend DstColor Zero 正片叠底）
+        Shader multiplyShader = Shader.Find("Custom/SpriteMultiply");
+        if (multiplyShader == null)
         {
-            Debug.LogError("[DayNightConfigCreator] 找不到 Sprites/Default shader");
+            Debug.LogError("[DayNightConfigCreator] 找不到 Custom/SpriteMultiply shader！请确认 SpriteMultiply.shader 已导入项目（Assets/444_Shaders/SpriteMultiply.shader）");
             return;
         }
 
-        var mat = new Material(spriteShader);
+        var mat = new Material(multiplyShader);
         mat.name = "DayNightMultiply";
-
-        // 设置 Multiply 混合模式：SrcBlend=DstColor(2), DstBlend=Zero(0)
-        // 效果：最终颜色 = 源颜色 × 目标颜色，白色无变化，越暗效果越强
-        mat.SetInt("_SrcBlend", (int)UnityEngine.Rendering.BlendMode.DstColor);
-        mat.SetInt("_DstBlend", (int)UnityEngine.Rendering.BlendMode.Zero);
 
         // 设置默认颜色为白色（Multiply 下白色 = 无变化）
         mat.color = Color.white;
@@ -466,7 +461,7 @@ public static class DayNightConfigCreator
         EditorUtility.FocusProjectWindow();
         Selection.activeObject = mat;
 
-        Debug.Log($"[DayNightConfigCreator] Multiply 材质已创建：{MaterialPath}");
+        Debug.Log($"[DayNightConfigCreator] Multiply 材质已创建（Custom/SpriteMultiply shader）：{MaterialPath}");
     }
 
 }

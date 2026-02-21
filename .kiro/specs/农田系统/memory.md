@@ -2621,3 +2621,113 @@ CropManager（纯工厂）
 **新建文件**：补丁004V2全面分析报告.md
 
 **状态**：全面分析报告完成，待用户审核后迭代 designV4/tasksV4
+
+---
+
+### 10.1.1补丁004 会话2续5~续6 - 2026-02-21（designV4 + tasksV4 + 一条龙执行完成）
+
+**来源**：子 memory 会话2续5（被压缩中断）+ 续6（继承恢复后完成）
+
+**用户需求**：完成两件套（designV4 + tasksV4）更新，然后一条龙完成全部任务。
+
+**完成任务**：
+1. 创建 `designV4.md` — 9章完整设计，5模块（H/I/L/J/K），18条正确性属性
+2. 创建 `tasksV4.md` — 6 Phase，12个任务
+3. 一条龙执行 Phase 1~6 全部完成：
+   - Phase 1：ClearActionQueue 执行状态保护（模块 H）
+   - Phase 2：PromoteToExecutingPreview 时机从 ProcessNextAction 移到 ExecuteFarmAction（模块 I）
+   - Phase 3：FarmlandBorderManager 新增 ParseDirections/IsBorderTile/IsShadowTile，SelectBorderTile 改 public（模块 L）
+   - Phase 4：UpdateHoePreview 增量差集过滤改造（模块 L）
+   - Phase 5：canTill=false 红色反馈（模块 J）
+   - Phase 6：编译验证 0 错误 + Sorting Order 确认 + 18条 CP 全部通过 + 验收指南V4
+
+**修改文件**：GameInputManager.cs、FarmlandBorderManager.cs、FarmToolPreview.cs
+**新建文件**：designV4.md、tasksV4.md、验收指南V4.md
+
+**状态**：补丁004V2 全部代码修改完成，待用户游戏内验收
+
+
+---
+
+### 10.1.1补丁004 会话2续7~续8 - 2026-02-21（验收 bug — 队列预览增量差集错误 + 全面反省）
+
+**来源**：子 memory 会话2续7（被压缩中断）+ 续8（继承恢复后完成反省）
+
+**用户反馈**：验收补丁004V2后发现严重 bug——从左往右连续入队，中间的块全部退化成只有 B_R，只有最右边完整。增量差集不应应用于队列预览之间。
+
+**反省结论**：
+- 根因：`_currentGhostTileData` 缓存增量 tile，入队时传给队列预览导致队列预览也变成增量的
+- 修复方案：维护两份数据——ghost 层用增量 tile，入队时用 `GetPreviewTiles` 原始完整结果（新字段 `_currentFullPreviewTileData`）
+
+**状态**：反省分析完成，修复方案待用户确认
+
+
+---
+
+### 10.1.1补丁004 会话2续9 - 2026-02-21（三层增量规则厘清）
+
+**来源**：子 memory 会话2续9记录
+
+**用户纠正**：增量参考范围从"只看 c 层"扩大到"看 b+c"。b 层内部要像 c 层一样做 1+8，a 层对 b+c 都做增量。
+
+**评估**：改动量小——扩展 `GetPreviewTiles` 的 predicate 加入 `queuePreviewPositions`，b 层入队时独立计算完整预览。
+
+**状态**：需求厘清完成，待用户确认后执行修复
+
+
+---
+
+### 10.1.1补丁004 会话2续10 - 2026-02-21（补丁004V3 代码修复 — 三层增量 + b 层 1+8）
+
+**来源**：子 memory 会话2续10记录
+
+**完成任务**：
+1. FarmlandBorderManager 新增 `GetPreviewTiles` 重载（接受队列预览位置集合）
+2. UpdateHoePreview 调用新重载 + 增量对比 b+c 两层 tilemap
+3. AddQueuePreview Till 分支独立计算完整预览 + 对 c 层增量过滤
+4. TryEnqueueFarmTool 移除 ghost 数据传递
+5. 编译验证 0 错误 0 警告
+
+**修改文件**：FarmlandBorderManager.cs、FarmToolPreview.cs、GameInputManager.cs
+
+**状态**：补丁004V3 代码修复完成，待用户游戏内验收
+
+
+---
+
+### 10.1.1补丁004 会话2续11~续12 - 2026-02-21（补丁004V4 全面审查 + 代码修复）
+
+**来源**：子 memory 会话2续11（被压缩中断）+ 续12（继承恢复后完成）
+
+**用户需求**：验收补丁004V3后发现新 bug——耕地建立后周围队列预览中心块消失。用户提出两个方案（d 层 temp / 清理时遍历周围8格恢复），要求全面审查所有农田交互（浇水、播种、收获），给出多个报告。
+
+**完成任务**：
+1. 创建 `补丁004V4全面审查报告.md` — 7 章节完整报告（根因链 + 方案评估 + R1~R10 风险清单 + 交互矩阵 + 修复方案详细设计 + 正确性属性 + 文件汇总）
+2. 全面审查 10 个风险点：R1 🔴 严重需修复，R2/R3/R5/R6/R7/R9 🟢 无问题，R4/R8/R10 🟡 已知限制
+3. 代码修复：RemoveExecutingPreview 耕地分支增加 tillQueueTileGroups 占用检查（被占用则保留 tile，不被占用才清空）
+4. 编译验证 0 错误 0 警告
+
+**修改文件**：FarmToolPreview.cs（RemoveExecutingPreview 占用检查）
+
+**新建文件**：补丁004V4全面审查报告.md
+
+**状态**：补丁004V4 代码修复完成，待用户游戏内验收
+
+
+---
+
+### 10.1.1补丁004 会话2续14 - 2026-02-21（补丁004V5 全面审查报告创建）
+
+**来源**：子 memory 会话2续14记录
+
+**用户需求**：验收补丁004V4后提出两个新问题：(1) a 层 ghost 没有把 b 层队列预览纳入不可耕种判断；(2) 耕地不可耕种视觉反馈是红色方框而非和放置系统一致的红色染色。要求全面审查所有农田交互，先出报告再改代码。
+
+**完成任务**：
+1. 读取放置系统代码（PlacementPreview/PlacementGridCell），确认颜色处理方式
+2. 确认 P1 根因：`CanTillAt` 只检查 c 层，不知道 b 层
+3. 创建 `补丁004V5全面审查报告.md` — 8 章节完整报告（P1~P3 + R1~R10 全面审查 + 三个修复模块 N/O/P + 正确性属性）
+4. 重要发现：颜色设置应基于 `isValid` 而非 `canTill`
+
+**新建文件**：补丁004V5全面审查报告.md
+
+**状态**：补丁004V5 全面审查报告完成，待用户审核后修改代码

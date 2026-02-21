@@ -389,6 +389,16 @@ public class TimeManager : MonoBehaviour
                 Debug.Log($"<color=cyan>[TimeManager] 年份变化: {oldYear} → {currentYear}</color>");
             }
         }
+        
+        // 🔥 补发时间事件，确保光影系统等订阅者能响应 SetTime 跳转
+        if (enableHourEvent)
+        {
+            OnHourChanged?.Invoke(currentHour);
+        }
+        if (enableMinuteEvent)
+        {
+            OnMinuteChanged?.Invoke(currentHour, currentMinute);
+        }
     }
 
     /// <summary>获取当前时间（格式化字符串）</summary>

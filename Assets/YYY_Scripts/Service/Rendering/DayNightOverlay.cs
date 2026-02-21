@@ -90,8 +90,8 @@ public class DayNightOverlay : MonoBehaviour
     }
 
     /// <summary>
-    /// 控制叠加强度（通过 alpha 通道）
-    /// 0 = 完全透明（无叠加效果），1 = 完全显示色调效果
+    /// 控制叠加强度（通过 RGB 向白色靠拢）
+    /// 0 = 白色（无叠加效果），1 = 完全显示色调效果
     /// </summary>
     public void SetStrength(float strength)
     {
@@ -115,10 +115,23 @@ public class DayNightOverlay : MonoBehaviour
             spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
         }
 
-        // 应用 Multiply 材质
+        // 优先使用 Inspector 指定的材质，否则自动查找 Custom/SpriteMultiply shader 创建材质
         if (multiplyMaterial != null)
         {
             spriteRenderer.material = multiplyMaterial;
+        }
+        else
+        {
+            Shader multiplyShader = Shader.Find("Custom/SpriteMultiply");
+            if (multiplyShader != null)
+            {
+                multiplyMaterial = new Material(multiplyShader);
+                spriteRenderer.material = multiplyMaterial;
+            }
+            else
+            {
+                Debug.LogError("[DayNightOverlay] 未找到 Custom/SpriteMultiply shader！Multiply 混合将不生效。请确认 SpriteMultiply.shader 已导入项目。");
+            }
         }
     }
 
@@ -176,28 +189,19 @@ public class DayNightOverlay : MonoBehaviour
 
     /// <summary>
     /// 将当前颜色和强度合并后应用到 SpriteRenderer
-    /// 强度通过 alpha 通道控制：alpha = 0 时 Multiply 结果为原色（无效果）
+    /// Multiply 混合模式下：白色(1,1,1) = 无变化，深色 = 变暗并染色
+    /// 强度通过 Color.Lerp(白色, 目标色, strength) 控制，Alpha 固定为 1
     /// </summary>
     private void ApplyColorAndStrength()
     {
         if (spriteRenderer == null) return;
 
-        // Multiply 混合模式下：
-        // - 颜色 RGB 决定色调方向
-        // - Alpha 控制叠加强度（alpha=0 → 无效果，alpha=1 → 完全叠加）
-        // 当 strength=0 时，颜色设为白色（Multiply 白色 = 无变化）使 overlay 不可见
-        Color finalColor;
-        if (currentStrength <= 0f)
-        {
-            finalColor = new Color(1f, 1f, 1f, 0f);
-        }
-        else
-        {
-            // 在白色和目标颜色之间按强度插值
-            // 这样 strength=0 → 白色（无效果），strength=1 → 完全目标色
-            finalColor = Color.Lerp(Color.white, currentColor, currentStrength);
-            finalColor.a = currentColor.a;
-        }
+        // Multiply 混合模式（Blend DstColor Zero）下：
+        // - RGB 决定色调：白色 = 无效果，深色 = 变暗染色
+        // - Alpha 不参与混合（被 shader 忽略），固定为 1
+        // - 强度通过 RGB 向白色靠拢控制：strength=0 → 白色（无效果），strength=1 → 完全目标色
+        Color finalColor = Color.Lerp(Color.white, currentColor, currentStrength);
+        finalColor.a = 1f;
 
         spriteRenderer.color = finalColor;
     }

@@ -32,6 +32,16 @@ public class TimeManagerDebugger : MonoBehaviour
     [Tooltip("显示调试信息")]
     public bool showDebugInfo = true;
     
+    [Header("━━━━ 屏幕时钟 & 时间微调 ━━━━")]
+    [Tooltip("启用屏幕右上角时钟显示 + 键盘加减号微调时间\n" +
+             "NumPad+/= : 前进1小时\n" +
+             "NumPad-/- : 后退1小时")]
+    public bool enableScreenClock = true;
+    
+    // 时钟 GUI 缓存
+    private GUIStyle clockStyle;
+    private GUIStyle clockShadowStyle;
+    
     private void Update()
     {
         if (!enableDebugKeys || TimeManager.Instance == null) return;
@@ -64,6 +74,21 @@ public class TimeManagerDebugger : MonoBehaviour
         if (Input.GetKeyDown(pauseKey))
         {
             TimeManager.Instance.TogglePause();
+        }
+        
+        // 屏幕时钟模式：键盘 +/- 微调时间
+        if (enableScreenClock)
+        {
+            // 小键盘 + 或主键盘 =（同一个物理键）
+            if (Input.GetKeyDown(KeyCode.KeypadPlus) || Input.GetKeyDown(KeyCode.Equals))
+            {
+                AdvanceOneHour();
+            }
+            // 小键盘 - 或主键盘 -
+            if (Input.GetKeyDown(KeyCode.KeypadMinus) || Input.GetKeyDown(KeyCode.Minus))
+            {
+                RewindOneHour();
+            }
         }
     }
     
@@ -146,12 +171,58 @@ public class TimeManagerDebugger : MonoBehaviour
             Debug.Log($"<color=lime>[Debugger] ⚡ 时间倍速: {newScale}x</color>");
         }
     }
-    
+
+    /// <summary>
+    /// 前进1小时（屏幕时钟微调）
+    /// </summary>
+    private void AdvanceOneHour()
+    {
+        var tm = TimeManager.Instance;
+        int hour = tm.GetHour() + 1;
+        int day = tm.GetDay();
+        var season = tm.GetSeason();
+        int year = tm.GetYear();
+
+        // 超过 dayEndHour(26) → 进入下一天 06:00
+        if (hour > 26)
+        {
+            hour = 6;
+            day++;
+            if (day > 28)
+            {
+                day = 1;
+                int nextIdx = ((int)season + 1) % 4;
+                season = (SeasonManager.Season)nextIdx;
+                if (season == SeasonManager.Season.Spring) year++;
+            }
+        }
+
+        tm.SetTime(year, season, day, hour, tm.GetMinute());
+
+        if (showDebugInfo)
+            Debug.Log($"<color=cyan>[Debugger] ⏩ +1h → {tm.GetFormattedTime()}</color>");
+    }
+
+    /// <summary>
+    /// 后退1小时（最低不低于当天 06:00）
+    /// </summary>
+    private void RewindOneHour()
+    {
+        var tm = TimeManager.Instance;
+        int hour = tm.GetHour() - 1;
+        if (hour < 6) hour = 6;
+
+        tm.SetTime(tm.GetYear(), tm.GetSeason(), tm.GetDay(), hour, tm.GetMinute());
+
+        if (showDebugInfo)
+            Debug.Log($"<color=cyan>[Debugger] ⏪ -1h → {tm.GetFormattedTime()}</color>");
+    }
+
     private void OnGUI()
     {
         if (!enableDebugKeys) return;
         
-        // 显示快捷键提示（左上角）
+        // ── 左上角：快捷键提示 ──
         GUIStyle style = new GUIStyle(GUI.skin.label);
         style.normal.textColor = Color.yellow;
         style.fontSize = 14;
@@ -162,9 +233,52 @@ public class TimeManagerDebugger : MonoBehaviour
                          "↓  下一季节\n" +
                          "↑  上一季节\n" +
                          "T  切换倍速\n" +
-                         "P  暂停/继续";
+                         "P  暂停/继续\n" +
+                         "+  前进1小时\n" +
+                         "-  后退1小时";
         
-        GUI.Label(new Rect(10, 10, 200, 120), helpText, style);
+        GUI.Label(new Rect(10, 10, 200, 160), helpText, style);
+        
+        // ── 右上角：屏幕时钟 ──
+        if (!enableScreenClock || TimeManager.Instance == null) return;
+        
+        // 懒初始化 GUIStyle
+        if (clockStyle == null)
+        {
+            clockStyle = new GUIStyle(GUI.skin.label);
+            clockStyle.fontSize = 22;
+            clockStyle.fontStyle = FontStyle.Bold;
+            clockStyle.normal.textColor = Color.white;
+            clockStyle.alignment = TextAnchor.UpperRight;
+            
+            clockShadowStyle = new GUIStyle(clockStyle);
+            clockShadowStyle.normal.textColor = new Color(0f, 0f, 0f, 0.7f);
+        }
+        
+        var tm = TimeManager.Instance;
+        string seasonCN = tm.GetSeason() switch
+        {
+            SeasonManager.Season.Spring => "春",
+            SeasonManager.Season.Summer => "夏",
+            SeasonManager.Season.Autumn => "秋",
+            SeasonManager.Season.Winter => "冬",
+            _ => "?"
+        };
+        
+        int displayHour = tm.GetHour();
+        // 26时制转24时制显示
+        if (displayHour >= 24) displayHour -= 24;
+        
+        string clockText = $"Y{tm.GetYear()} {seasonCN} D{tm.GetDay()}  {displayHour:D2}:{tm.GetMinute():D2}";
+        
+        float w = 280f;
+        float h = 36f;
+        float margin = 12f;
+        Rect shadowRect = new Rect(Screen.width - w - margin + 1, margin + 1, w, h);
+        Rect clockRect = new Rect(Screen.width - w - margin, margin, w, h);
+        
+        GUI.Label(shadowRect, clockText, clockShadowStyle);
+        GUI.Label(clockRect, clockText, clockStyle);
     }
 }
 

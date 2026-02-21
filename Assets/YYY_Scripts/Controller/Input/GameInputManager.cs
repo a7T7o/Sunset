@@ -2364,11 +2364,8 @@ public class GameInputManager : MonoBehaviour
         Vector2 playerCenter = GetPlayerCenter();
         float distance = Vector2.Distance(playerCenter, request.worldPos);
         
-        _isExecutingFarming = true;
-        
-        // 锁定预览到目标位置
-        // 🔴 补丁004 模块G（CP-G2）：出队时将队列预览提升为执行预览（替代 LockPosition）
-        FarmGame.Farm.FarmToolPreview.Instance?.PromoteToExecutingPreview(request.cellPos);
+        // 🔴 补丁004V2 模块I（CP-I1~I4）：_isExecutingFarming 和 PromoteToExecutingPreview 移到 ExecuteFarmAction
+        // 导航途中只是前置行为，执行 = 动画开始的瞬间
         
         if (distance <= farmToolReach)
         {
@@ -2426,6 +2423,10 @@ public class GameInputManager : MonoBehaviour
     {
         if (showDebugInfo)
             Debug.Log($"[FarmQueue] ExecuteFarmAction: type={request.type}, cellPos={request.cellPos}");
+        
+        // 🔴 补丁004V2 模块I（CP-I3）：执行 = 动画开始的瞬间，在此设置执行状态
+        _isExecutingFarming = true;
+        FarmToolPreview.Instance?.PromoteToExecutingPreview(request.cellPos);
         
         switch (request.type)
         {
@@ -2533,14 +2534,20 @@ public class GameInputManager : MonoBehaviour
         _farmActionQueue.Clear();
         _queuedPositions.Clear();
         _isProcessingQueue = false;
-        _isExecutingFarming = false;
-        _currentHarvestTarget = null;
-        _currentProcessingRequest = default;
-        
-        // 🔴 补丁003 模块D：清理待执行的 tile 更新（V1 漏洞修补）
-        _pendingTileUpdate = null;
-        _tileUpdateTriggered = false;
-        
+
+        // 🔴 补丁004V2 模块H（CP-H1~H4）：动画执行中保留执行状态
+        if (!_isExecutingFarming)
+        {
+            // 没有动画在执行，全部清空
+            _isExecutingFarming = false;
+            _currentHarvestTarget = null;
+            _currentProcessingRequest = default;
+            _pendingTileUpdate = null;
+            _tileUpdateTriggered = false;
+        }
+        // else: 动画执行中，保留 _pendingTileUpdate/_currentProcessingRequest/_isExecutingFarming
+        // 动画完成后由 OnFarmActionAnimationComplete/OnCollectAnimationComplete 正常清理
+
         // 🔴 补丁003 模块D/I（CP-I3）：清理所有队列预览
         FarmToolPreview.Instance?.ClearAllQueuePreviews();
     }
@@ -2624,15 +2631,7 @@ public class GameInputManager : MonoBehaviour
 
         var type = tool.toolType == ToolType.Hoe ? FarmActionType.Till : FarmActionType.Water;
         
-        // 🔴 补丁004 模块G（CP-G4）：耕地入队时读取 ghost 数据快照
-        Dictionary<Vector3Int, TileBase> ghostData = null;
-        if (type == FarmActionType.Till)
-        {
-            ghostData = farmPreview.CurrentGhostTileData;
-            // 复制一份快照（ghost 数据每帧更新，入队后不应被后续帧覆盖）
-            if (ghostData != null)
-                ghostData = new Dictionary<Vector3Int, TileBase>(ghostData);
-        }
+        // 🔴 补丁004V3：耕地入队不再传递 ghost 数据（b 层独立计算完整预览）
         
         // 🔴 补丁004 模块G（CP-G5）：浇水入队时使用 ghost 缓存的 variant（替代当前的 Random.Range）
         int variant = -1;
@@ -2656,7 +2655,7 @@ public class GameInputManager : MonoBehaviour
             worldPos = farmPreview.CurrentCursorPos,
             targetCrop = null,
             puddleVariant = variant
-        }, ghostData);
+        });
     }
 
     /// <summary>

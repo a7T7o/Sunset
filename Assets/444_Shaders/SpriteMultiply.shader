@@ -1,0 +1,71 @@
+Shader "Custom/SpriteMultiply"
+{
+    Properties
+    {
+        [PerRendererData] _MainTex ("Sprite Texture", 2D) = "white" {}
+        _Color ("Tint", Color) = (1,1,1,1)
+    }
+    SubShader
+    {
+        Tags
+        {
+            "Queue"="Transparent"
+            "IgnoreProjector"="True"
+            "RenderType"="Transparent"
+            "PreviewType"="Plane"
+            "CanUseSpriteAtlas"="True"
+        }
+
+        Cull Off
+        Lighting Off
+        ZWrite Off
+
+        // 正片叠底混合：FinalColor = SrcColor * DstColor
+        Blend DstColor Zero
+
+        Pass
+        {
+            CGPROGRAM
+            #pragma vertex vert
+            #pragma fragment frag
+            #include "UnityCG.cginc"
+
+            struct appdata_t
+            {
+                float4 vertex   : POSITION;
+                float4 color    : COLOR;
+                float2 texcoord : TEXCOORD0;
+            };
+
+            struct v2f
+            {
+                float4 vertex   : SV_POSITION;
+                fixed4 color    : COLOR;
+                float2 texcoord : TEXCOORD0;
+            };
+
+            fixed4 _Color;
+
+            v2f vert(appdata_t IN)
+            {
+                v2f OUT;
+                OUT.vertex = UnityObjectToClipPos(IN.vertex);
+                OUT.texcoord = IN.texcoord;
+                OUT.color = IN.color * _Color;
+                return OUT;
+            }
+
+            sampler2D _MainTex;
+
+            fixed4 frag(v2f IN) : SV_Target
+            {
+                fixed4 c = tex2D(_MainTex, IN.texcoord) * IN.color;
+                // Blend DstColor Zero 会自动将输出 RGB 与屏幕像素相乘
+                // 白色(1,1,1) = 无变化，深色 = 变暗并染色
+                // Alpha 在纯 Multiply 下不参与混合，强度通过 RGB 向白色靠拢控制
+                return c;
+            }
+            ENDCG
+        }
+    }
+}
