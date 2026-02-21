@@ -217,12 +217,18 @@ public class PlayerInteraction : MonoBehaviour
             
             if (isFarmTool)
             {
-                // 🔥 10.1.1补丁002：农田工具动画完成 → 通知队列取下一个（CP-18）
-                // 不再调用 ConsumePendingFarmInput / ProcessFarmInputAt（旧单缓存已废弃）
+                // 🔴 补丁003 模块E（CP-E2/CP-E3）：农田工具长按分支改造
+                // 统一清理顺序：StopTracking → isPerformingAction=false → EndAction → ClearAllCache
                 animController?.StopAnimationTracking();
+                isPerformingAction = false;
                 lockManager?.EndAction(false);
                 lockManager?.ClearAllCache();
-                isPerformingAction = false;
+                
+                // 🔴 P2：长按分支 — 队列为空时重新入队当前鼠标位置
+                if (gimContinue.IsQueueEmpty())
+                {
+                    gimContinue.TryEnqueueFromCurrentInput();
+                }
                 gimContinue.OnFarmActionAnimationComplete();
             }
             else
@@ -238,7 +244,13 @@ public class PlayerInteraction : MonoBehaviour
             if (enableDebugLog)
                 Debug.Log($"<color=green>[PlayerInteraction] 动作结束</color>");
             
-            // 🔥 10.1.1补丁002：松开分支改造
+            // 🔴 补丁003 模块E（CP-E1/CP-E3）：松开分支时序修复
+            // 统一清理顺序：ForceHideTool → StopTracking → isPerformingAction=false → EndAction → 回调 → ApplyCachedHotbarSwitch → ClearAllCache
+            layerAnimSync?.ForceHideTool();
+            animController?.StopAnimationTracking();
+            isPerformingAction = false;  // 🔴 P3修复：必须在 OnFarmActionAnimationComplete 之前，否则 ProcessNextAction 被守卫拦截
+            lockManager?.EndAction(false);
+            
             var gimRelease = GameInputManager.Instance;
             if (gimRelease != null)
             {
@@ -254,19 +266,7 @@ public class PlayerInteraction : MonoBehaviour
                 }
             }
             
-            // ★ 强制隐藏工具（防止切换武器时的鬼畜）
-            layerAnimSync?.ForceHideTool();
-            
-            // 停止追踪
-            animController?.StopAnimationTracking();
-            
-            isPerformingAction = false;
-            lockManager?.EndAction(false);
-            
-            // 应用hotbar缓存
             ApplyCachedHotbarSwitch();
-            
-            // 清空所有缓存（松开后不保留）
             lockManager?.ClearAllCache();
         }
     }
@@ -314,4 +314,13 @@ public class PlayerInteraction : MonoBehaviour
     public bool IsCarrying() => isCarrying;
     public bool IsPerformingAction() => isPerformingAction;
     public PlayerAnimController.AnimState GetCurrentAction() => currentAction;
+    
+    /// <summary>
+    /// 获取当前动画进度 (0-1)。转发到 PlayerAnimController。
+    /// 补丁003 模块C：供 GameInputManager 延迟执行机制查询动画进度。
+    /// </summary>
+    public float GetAnimationProgress()
+    {
+        return animController != null ? animController.GetAnimationProgress() : 0f;
+    }
 }

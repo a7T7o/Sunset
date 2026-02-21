@@ -647,7 +647,7 @@ namespace FarmGame.Data.Core
             instance.SetActive(false);
 
             // 获取 CropController
-            var controller = instance.GetComponent<FarmGame.Farm.CropController>();
+            var controller = instance.GetComponentInChildren<FarmGame.Farm.CropController>();
             if (controller == null)
             {
                 Debug.LogError($"[DynamicObjectFactory] 作物预制体缺少 CropController: seed={seedData.itemName}");

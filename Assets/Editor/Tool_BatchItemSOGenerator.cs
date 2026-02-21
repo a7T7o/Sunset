@@ -1128,7 +1128,7 @@ public class Tool_BatchItemSOGenerator : EditorWindow
         
         if (seedCropPrefab != null)
         {
-            var cropController = seedCropPrefab.GetComponent<FarmGame.Farm.CropController>();
+            var cropController = seedCropPrefab.GetComponentInChildren<FarmGame.Farm.CropController>();
             if (cropController == null)
                 EditorGUILayout.HelpBox("⚠️ 预制体缺少 CropController 组件！", MessageType.Error);
             else

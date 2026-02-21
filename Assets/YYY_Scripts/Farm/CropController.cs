@@ -773,6 +773,27 @@ namespace FarmGame.Farm
             return (float)GetCurrentStage() / (totalStages - 1);
         }
         
+        /// <summary>
+        /// 获取第一阶段的普通 Sprite（种子预览用）。
+        /// 补丁003 模块B：CP-B2
+        /// </summary>
+        public Sprite GetFirstStageSprite()
+        {
+            if (stages == null || stages.Length == 0) return null;
+            return stages[0].normalSprite;
+        }
+        
+        /// <summary>
+        /// 获取作物的格子中心世界坐标（父物体位置）。
+        /// 套父物体后，CropController 在子物体上，transform.position 是偏移后的位置。
+        /// 外部代码应使用此方法获取格子中心。
+        /// 补丁003 模块B：CP-B1
+        /// </summary>
+        public Vector3 GetCellCenterPosition()
+        {
+            return transform.parent != null ? transform.parent.position : transform.position;
+        }
+        
         public SeedData GetSeedData() => seedData;
         public CropInstanceData GetInstanceData() => instanceData;
         

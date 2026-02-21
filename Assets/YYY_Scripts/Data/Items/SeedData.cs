@@ -76,7 +76,7 @@ namespace FarmGame.Data
             {
                 Debug.LogWarning($"[{itemName}] 缺少作物预制体（cropPrefab）！");
             }
-            else if (cropPrefab.GetComponent<FarmGame.Farm.CropController>() == null)
+            else if (cropPrefab.GetComponentInChildren<FarmGame.Farm.CropController>() == null)
             {
                 Debug.LogWarning($"[{itemName}] 作物预制体上没有 CropController 组件！");
             }

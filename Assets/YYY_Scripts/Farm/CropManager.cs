@@ -113,7 +113,7 @@ namespace FarmGame.Farm
             cropObj.name = $"Crop_{seedData.itemName}_{cellPosition}";
             
             // 获取或添加 CropController
-            CropController controller = cropObj.GetComponent<CropController>();
+            CropController controller = cropObj.GetComponentInChildren<CropController>();
             if (controller == null)
             {
                 controller = cropObj.AddComponent<CropController>();

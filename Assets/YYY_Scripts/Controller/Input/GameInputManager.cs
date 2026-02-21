@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.Tilemaps;
 using FarmGame.Data;
 using FarmGame.UI;
 using FarmGame.World;
@@ -19,6 +20,7 @@ public struct FarmActionRequest
     public int layerIndex;            // 目标层级索引
     public Vector3 worldPos;          // 目标世界坐标（格子中心，用于导航和距离判断）
     public CropController targetCrop; // 仅 Harvest 类型使用，其他类型为 null
+    public int puddleVariant;         // 🔴 V3 模块L（CP-L1）：浇水预分配水渍变体索引（-1=未分配）
 }
 
 public class GameInputManager : MonoBehaviour
@@ -122,6 +124,13 @@ public class GameInputManager : MonoBehaviour
     private FarmActionRequest _currentProcessingRequest;    // 当前正在处理的请求
     private bool _wasUIOpen = false;                        // 面板暂停/恢复：上一帧 UI 状态
 
+    // ===== 补丁003 模块C：延迟 tile 更新 =====
+    private FarmActionRequest? _pendingTileUpdate = null;
+    private bool _tileUpdateTriggered = false;
+    
+    [Header("动画帧触发")]
+    [SerializeField] private float tileUpdateTriggerProgress = 0.5f;  // 动画50%进度触发
+
     void Awake()
     {
         if (s_instance != null && s_instance != this)
@@ -206,6 +215,27 @@ public class GameInputManager : MonoBehaviour
         }
         _wasUIOpen = uiOpen;
         
+        // 🔴 补丁003 模块C：延迟 tile 更新 — 监听动画进度
+        if (_pendingTileUpdate != null && !_tileUpdateTriggered)
+        {
+            float progress = playerInteraction != null ? playerInteraction.GetAnimationProgress() : 1f;
+            if (progress >= tileUpdateTriggerProgress)
+            {
+                var req = _pendingTileUpdate.Value;
+                switch (req.type)
+                {
+                    case FarmActionType.Till:
+                        ExecuteTillSoil(req.layerIndex, req.cellPos);
+                        break;
+                    case FarmActionType.Water:
+                        ExecuteWaterTile(req.layerIndex, req.cellPos, req.puddleVariant);
+                        break;
+                }
+                _tileUpdateTriggered = true;
+                // 不清空 _pendingTileUpdate，等动画完成回调时清空
+            }
+        }
+        
         HandleUseCurrentTool();
         HandleRightClickAutoNav();
         if (timeDebugger != null) timeDebugger.enableDebugKeys = enableTimeDebugKeys;
@@ -260,7 +290,7 @@ public class GameInputManager : MonoBehaviour
         
         // 🔥 9.0.5：不再在此处检查 FarmNavState
         // 即使在 Locked/Navigating/Executing 状态，也要调用 UpdateFarmToolPreview
-        // 让 FarmToolPreview 内部的 _isLocked 控制视觉冻结
+        // 🔴 补丁004：LockPosition 已移除，ghost 预览始终跟随鼠标
         // 实时数据（CurrentCellPos/IsValid/IsInRange）始终更新
         
         // 根据物品类型路由预览
@@ -424,7 +454,7 @@ public class GameInputManager : MonoBehaviour
         {
             ClearActionQueue();
             CancelFarmingNavigation();
-            FarmGame.Farm.FarmToolPreview.Instance?.UnlockPosition();
+            // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
             ToolActionLockManager.Instance?.ForceUnlock();
             // 不 return，继续执行下面的移动逻辑
         }
@@ -452,9 +482,7 @@ public class GameInputManager : MonoBehaviour
                 autoNavigator.ForceCancel();  // 🔥 P0-1：使用 ForceCancel 替代 Cancel
                 // 🔥 9.0.4：手动移动时取消农田导航
                 CancelFarmingNavigation();
-                // 🔥 10.1.1补丁002：旧缓存字段已废弃，CancelFarmingNavigation 内部已处理清理
-                var farmPreviewNav = FarmGame.Farm.FarmToolPreview.Instance;
-                if (farmPreviewNav != null) farmPreviewNav.UnlockPosition();
+                // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
                 if (playerMovement != null) playerMovement.SetMovementInput(input, shift);
             }
             return;
@@ -606,10 +634,10 @@ public class GameInputManager : MonoBehaviour
             }
             
             // 🔥 9.0.5：无面板打开时，ESC 中断导航
-            // 🔥 10.1.1补丁002：ESC 清空操作队列 + 取消导航 + 解锁预览（CP-3）
+            // 🔥 10.1.1补丁002：ESC 清空操作队列 + 取消导航（CP-3）
+            // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
             ClearActionQueue();
             CancelFarmingNavigation();
-            FarmToolPreview.Instance?.UnlockPosition();
             if (_farmNavState == FarmNavState.Navigating || _farmNavState == FarmNavState.Locked)
             {
                 return;
@@ -703,34 +731,11 @@ public class GameInputManager : MonoBehaviour
         
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
         
-        // 🔥 9.0.5.1：导航中重新点击
+        // 🔴 补丁003 模块F（CP-F1）：导航中/执行中的左键点击 → 统一入队
         if (_farmNavState == FarmNavState.Navigating || _farmNavState == FarmNavState.Locked)
         {
-            // 🔥 10.1.1补丁002：队列正在处理中，新点击走入队
-            if (_isProcessingQueue)
-            {
-                TryEnqueueFromCurrentInput();
-                return;
-            }
-            
-            // 读取实时数据判断新位置有效性
-            var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-            if (farmPreview != null && farmPreview.IsValid())
-            {
-                // 🔥 10.1.0 E-10：点击同一位置 → 不中断导航，继续前往原目标
-                if (farmPreview.IsLocked && farmPreview.CurrentCellPos == farmPreview.LockedCellPos)
-                    return;
-                
-                // 新位置有效：中断当前导航，重新开始
-                CancelFarmingNavigation();
-                // 继续往下走，会重新进入工具入队逻辑
-            }
-            else
-            {
-                // 🔥 Bug B 修复：新位置无效 → 取消所有导航 → 恢复鼠标跟随预览
-                CancelFarmingNavigation();
-                return;
-            }
+            TryEnqueueFromCurrentInput();
+            return;
         }
         
         // ★ 检查是否处于放置模式
@@ -1243,14 +1248,13 @@ public class GameInputManager : MonoBehaviour
         int layerIndex = farmPreview.CurrentLayerIndex;
         Vector3Int cellPos = farmPreview.CurrentCellPos;
         
-        // 🔥 9.0.5：锁定预览
-        farmPreview.LockPosition(targetPos, cellPos, layerIndex);
+        // 🔴 补丁004 模块A/G：移除 LockPosition（ghost 永不锁定）
         _farmNavState = FarmNavState.Locked;
         
         // 🔥 Step 3: 距离分流
         if (farmPreview.IsInRange)
         {
-            // A. 近距离 → Executing → 执行 → 解锁 → Preview
+            // A. 近距离 → Executing → 执行 → Preview
             _farmNavState = FarmNavState.Executing;
             _isExecutingFarming = true;
             try
@@ -1261,7 +1265,6 @@ public class GameInputManager : MonoBehaviour
             finally
             {
                 _isExecutingFarming = false;
-                farmPreview.UnlockPosition();
                 _farmNavState = FarmNavState.Preview;
             }
             return true;
@@ -1287,20 +1290,13 @@ public class GameInputManager : MonoBehaviour
                     return;
                 }
                 
-                // 🔥 9.0.5 陷阱一修复：使用锁定点距离校验，而非 preview.IsInRange
-                var preview = FarmGame.Farm.FarmToolPreview.Instance;
-                if (preview == null)
-                {
-                    ClearSnapshot();
-                    return;
-                }
-                
+                // 🔴 补丁004：使用闭包捕获的 targetPos 做距离校验（替代已移除的 LockedWorldPos）
                 Vector2 playerPos = GetPlayerCenter();
-                float distToLocked = Vector2.Distance(playerPos, preview.LockedWorldPos);
-                if (distToLocked > farmToolReach)
+                float distToTarget = Vector2.Distance(playerPos, targetPos);
+                if (distToTarget > farmToolReach)
                 {
                     if (showDebugInfo)
-                        Debug.Log($"[GameInputManager] 锄地取消：距离锁定点过远 {distToLocked:F2} > {farmToolReach:F2}");
+                        Debug.Log($"[GameInputManager] 锄地取消：距离目标过远 {distToTarget:F2} > {farmToolReach:F2}");
                     ClearSnapshot();
                     return;
                 }
@@ -1382,14 +1378,13 @@ public class GameInputManager : MonoBehaviour
         int layerIndex = farmPreview.CurrentLayerIndex;
         Vector3Int cellPos = farmPreview.CurrentCellPos;
         
-        // 🔥 9.0.5：锁定预览
-        farmPreview.LockPosition(targetPos, cellPos, layerIndex);
+        // 🔴 补丁004 模块A/G：移除 LockPosition（ghost 永不锁定）
         _farmNavState = FarmNavState.Locked;
         
         // 🔥 Step 3: 距离分流
         if (farmPreview.IsInRange)
         {
-            // A. 近距离 → Executing → 执行 → 解锁 → Preview
+            // A. 近距离 → Executing → 执行 → Preview
             _farmNavState = FarmNavState.Executing;
             _isExecutingFarming = true;
             try
@@ -1400,7 +1395,6 @@ public class GameInputManager : MonoBehaviour
             finally
             {
                 _isExecutingFarming = false;
-                farmPreview.UnlockPosition();
                 _farmNavState = FarmNavState.Preview;
             }
             return true;
@@ -1425,20 +1419,13 @@ public class GameInputManager : MonoBehaviour
                     return;
                 }
                 
-                // 🔥 9.0.5 陷阱一修复：使用锁定点距离校验
-                var preview = FarmGame.Farm.FarmToolPreview.Instance;
-                if (preview == null)
-                {
-                    ClearSnapshot();
-                    return;
-                }
-                
+                // 🔴 补丁004：使用闭包捕获的 targetPos 做距离校验（替代已移除的 LockedWorldPos）
                 Vector2 playerPos = GetPlayerCenter();
-                float distToLocked = Vector2.Distance(playerPos, preview.LockedWorldPos);
-                if (distToLocked > farmToolReach)
+                float distToTarget = Vector2.Distance(playerPos, targetPos);
+                if (distToTarget > farmToolReach)
                 {
                     if (showDebugInfo)
-                        Debug.Log($"[GameInputManager] 浇水取消：距离锁定点过远 {distToLocked:F2} > {farmToolReach:F2}");
+                        Debug.Log($"[GameInputManager] 浇水取消：距离目标过远 {distToTarget:F2} > {farmToolReach:F2}");
                     ClearSnapshot();
                     return;
                 }
@@ -1454,7 +1441,7 @@ public class GameInputManager : MonoBehaviour
     /// <summary>
     /// 执行浇水动作（纯逻辑，不含距离检查）
     /// </summary>
-    private bool ExecuteWaterTile(int layerIndex, Vector3Int cellPos)
+    private bool ExecuteWaterTile(int layerIndex, Vector3Int cellPos, int puddleVariant = -1)
     {
         var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
         if (farmTileManager == null)
@@ -1465,10 +1452,11 @@ public class GameInputManager : MonoBehaviour
         }
         
         float currentHour = TimeManager.Instance != null ? TimeManager.Instance.GetHour() : 0f;
-        bool success = farmTileManager.SetWatered(layerIndex, cellPos, currentHour);
+        // 🔴 V3 模块L（CP-L2）：传递预分配的 puddleVariant，确保预览与实际一致
+        bool success = farmTileManager.SetWatered(layerIndex, cellPos, currentHour, puddleVariant);
         
         if (showDebugInfo)
-            Debug.Log($"[GameInputManager] 浇水{(success ? "成功" : "失败")}: Layer={layerIndex}, Pos={cellPos}");
+            Debug.Log($"[GameInputManager] 浇水{(success ? "成功" : "失败")}: Layer={layerIndex}, Pos={cellPos}, variant={puddleVariant}");
         
         return success;
     }
@@ -1495,13 +1483,12 @@ public class GameInputManager : MonoBehaviour
         int layerIndex = farmPreview.CurrentLayerIndex;
         Vector3Int cellPos = farmPreview.CurrentCellPos;
         
-        // 🔥 9.0.5：锁定预览
-        farmPreview.LockPosition(targetPos, cellPos, layerIndex);
+        // 🔴 补丁004 模块A/G：移除 LockPosition（ghost 永不锁定）
         _farmNavState = FarmNavState.Locked;
         
         if (farmPreview.IsInRange)
         {
-            // A. 近距离 → Executing → 执行 → 解锁 → Preview
+            // A. 近距离 → Executing → 执行 → Preview
             _farmNavState = FarmNavState.Executing;
             _isExecutingFarming = true;
             try
@@ -1512,7 +1499,6 @@ public class GameInputManager : MonoBehaviour
             finally
             {
                 _isExecutingFarming = false;
-                farmPreview.UnlockPosition();
                 _farmNavState = FarmNavState.Preview;
             }
         }
@@ -1538,21 +1524,13 @@ public class GameInputManager : MonoBehaviour
                     return;
                 }
                 
-                // 🔥 9.0.5 陷阱一修复：使用锁定点距离校验
-                var preview = FarmGame.Farm.FarmToolPreview.Instance;
-                if (preview == null)
-                {
-                    ClearSnapshot();
-                    _cachedSeedData = null;
-                    return;
-                }
-                
+                // 🔴 补丁004：使用闭包捕获的 targetPos 做距离校验（替代已移除的 LockedWorldPos）
                 Vector2 playerPos = GetPlayerCenter();
-                float distToLocked = Vector2.Distance(playerPos, preview.LockedWorldPos);
-                if (distToLocked > farmToolReach)
+                float distToTarget = Vector2.Distance(playerPos, targetPos);
+                if (distToTarget > farmToolReach)
                 {
                     if (showDebugInfo)
-                        Debug.Log($"[GameInputManager] 种植取消：距离锁定点过远 {distToLocked:F2} > {farmToolReach:F2}");
+                        Debug.Log($"[GameInputManager] 种植取消：距离目标过远 {distToTarget:F2} > {farmToolReach:F2}");
                     ClearSnapshot();
                     _cachedSeedData = null;
                     return;
@@ -1680,7 +1658,7 @@ public class GameInputManager : MonoBehaviour
         GameObject cropObj = Instantiate(seedData.cropPrefab, cropWorldPos, Quaternion.identity, container);
         cropObj.name = $"Crop_{seedData.itemName}_{cellPos}";
         
-        var controller = cropObj.GetComponent<FarmGame.Farm.CropController>();
+        var controller = cropObj.GetComponentInChildren<FarmGame.Farm.CropController>();
         if (controller == null)
         {
             Debug.LogError($"[GameInputManager] 作物预制体缺少 CropController: {seedData.itemName}");
@@ -1888,9 +1866,7 @@ public class GameInputManager : MonoBehaviour
         }
         
         // 🔥 9.0.5 修复：不调用 CancelFarmingNavigation()！
-        // 因为调用者（TryTillSoil/TryWaterTile/TryPlantSeed）刚刚 LockPosition，
-        // CancelFarmingNavigation 会立即 UnlockPosition 导致锁定失效。
-        // 这里只清理旧协程和导航器，不触碰预览锁定状态。
+        // 🔴 补丁004：LockPosition 已移除，此处只清理旧协程和导航器。
         if (_farmingNavigationCoroutine != null)
         {
             StopCoroutine(_farmingNavigationCoroutine);
@@ -1949,12 +1925,7 @@ public class GameInputManager : MonoBehaviour
                 finally
                 {
                     _isExecutingFarming = false;
-                    // 🔥 9.0.5：解锁预览 + 恢复 Preview 状态
-                    var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-                    if (farmPreview != null)
-                    {
-                        farmPreview.UnlockPosition();
-                    }
+                    // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
                     _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
                     _farmNavigationAction = null;
                     _farmingNavigationCoroutine = null;
@@ -1984,11 +1955,7 @@ public class GameInputManager : MonoBehaviour
             finally
             {
                 _isExecutingFarming = false;
-                var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-                if (farmPreview != null)
-                {
-                    farmPreview.UnlockPosition();
-                }
+                // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
                 _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
                 _farmNavigationAction = null;
                 _farmingNavigationCoroutine = null;
@@ -1999,12 +1966,7 @@ public class GameInputManager : MonoBehaviour
             if (showDebugInfo && _farmNavState == FarmNavState.Navigating)
                 Debug.Log($"[FarmNav] 导航结束但距离过远: distance={finalDistance:F2}");
             
-            // 🔥 9.0.5：导航失败也要解锁
-            var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-            if (farmPreview != null)
-            {
-                farmPreview.UnlockPosition();
-            }
+            // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
             // 🔥 10.1.1-F2：安全网 — 确保 lockManager 也解锁（防止永久卡死）
             var lockMgr = ToolActionLockManager.Instance;
             if (lockMgr != null && lockMgr.IsLocked)
@@ -2034,12 +1996,7 @@ public class GameInputManager : MonoBehaviour
             _farmingNavigationCoroutine = null;
         }
         
-        // 🔥 9.0.5：解锁预览（原子性保证）
-        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-        if (farmPreview != null)
-        {
-            farmPreview.UnlockPosition();
-        }
+        // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
         
         // 🔥 9.0.5：重置状态 → 回到 Preview（而非 Idle）
         // 如果仍持有农具/种子，回到 Preview；否则回到 Idle
@@ -2173,10 +2130,7 @@ public class GameInputManager : MonoBehaviour
     {
         _hasPendingFarmInput = false;
         var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-        if (farmPreview != null)
-        {
-            farmPreview.UnlockPosition();
-        }
+        // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
     }
     
     /// <summary>
@@ -2199,21 +2153,10 @@ public class GameInputManager : MonoBehaviour
 
         if (farmPreview != null && itemData != null && farmTileManager != null)
         {
-            // 🔥 10.1.1 A-2：先解锁（让 ForceUpdate 能渲染 1+8）
-            farmPreview.UnlockPosition();
+            // 🔴 补丁004 模块A/G：移除 UnlockPosition/LockPosition（ghost 永不锁定）
 
             // 🔥 10.1.1 A-1：刷新完整预览（含 1+8 GhostTilemap）到缓存位置
             ForceUpdatePreviewToPosition(worldPos, itemData);
-
-            // 🔥 10.1.1 A-4：计算 alignedPos/layerIndex/cellPos 用于 LockPosition
-            Vector3 alignedPos = PlacementGridCalculator.GetCellCenter(worldPos);
-            int layerIndex = farmTileManager.GetCurrentLayerIndex(alignedPos);
-            var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
-            if (tilemaps != null)
-            {
-                Vector3Int cellPos = tilemaps.WorldToCell(alignedPos);
-                farmPreview.LockPosition(alignedPos, cellPos, layerIndex);
-            }
         }
 
         _hasPendingFarmInput = true;
@@ -2248,12 +2191,7 @@ public class GameInputManager : MonoBehaviour
         int currentItemId = GetCurrentHeldItemId();
         if (currentItemId != _pendingFarmItemId) return;
 
-        // 🔥 10.1.1 方案D：先解锁预览，让 ForceUpdatePreviewToPosition 能正常渲染 1+8
-        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-        if (farmPreview != null)
-        {
-            farmPreview.UnlockPosition();
-        }
+        // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
 
         // 以缓存的世界坐标执行完整动作链
         ProcessFarmInputAt(_pendingFarmWorldPos);
@@ -2345,7 +2283,7 @@ public class GameInputManager : MonoBehaviour
     /// Harvest 额外检查同一 CropController 实例不重复。
     /// 如果队列之前为空且未暂停 → 启动 ProcessNextAction。
     /// </summary>
-    private void EnqueueAction(FarmActionRequest request)
+    private void EnqueueAction(FarmActionRequest request, Dictionary<Vector3Int, TileBase> ghostTileData = null)
     {
         // CP-2：防重复 — 同一格子不重复入队
         var key = (request.layerIndex, request.cellPos);
@@ -2363,6 +2301,9 @@ public class GameInputManager : MonoBehaviour
         
         _queuedPositions.Add(key);
         _farmActionQueue.Enqueue(request);
+        
+        // 🔴 补丁004 模块G（CP-G4/G5）：入队成功时添加队列预览，传递 ghostTileData
+        FarmToolPreview.Instance?.AddQueuePreview(request.cellPos, request.layerIndex, request.type, request.puddleVariant, ghostTileData);
         
         // 队列之前为空且未暂停且没有正在执行的操作 → 启动处理
         if (!_isProcessingQueue && !_isQueuePaused)
@@ -2386,8 +2327,7 @@ public class GameInputManager : MonoBehaviour
             _isProcessingQueue = false;
             _isExecutingFarming = false;
             _queuedPositions.Clear();
-            // 解锁预览，恢复鼠标跟随
-            FarmGame.Farm.FarmToolPreview.Instance?.UnlockPosition();
+            // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
             _farmNavState = FarmNavState.Preview;
             return;
         }
@@ -2426,9 +2366,9 @@ public class GameInputManager : MonoBehaviour
         
         _isExecutingFarming = true;
         
-        // 锁定预览到目标位置（P3 修复：LockPosition 内部会渲染 1+8）
-        FarmGame.Farm.FarmToolPreview.Instance?.LockPosition(
-            request.worldPos, request.cellPos, request.layerIndex);
+        // 锁定预览到目标位置
+        // 🔴 补丁004 模块G（CP-G2）：出队时将队列预览提升为执行预览（替代 LockPosition）
+        FarmGame.Farm.FarmToolPreview.Instance?.PromoteToExecutingPreview(request.cellPos);
         
         if (distance <= farmToolReach)
         {
@@ -2492,14 +2432,18 @@ public class GameInputManager : MonoBehaviour
             case FarmActionType.Till:
                 FaceTarget(request.worldPos);
                 playerInteraction?.RequestAction(PlayerAnimController.AnimState.Crush);
-                ExecuteTillSoil(request.layerIndex, request.cellPos);
+                // 🔴 补丁003 模块C：不再同帧执行，改为延迟到动画中期
+                _pendingTileUpdate = request;
+                _tileUpdateTriggered = false;
                 // 动画完成后由 OnActionComplete → OnFarmActionAnimationComplete 回调
                 break;
             
             case FarmActionType.Water:
                 FaceTarget(request.worldPos);
                 playerInteraction?.RequestAction(PlayerAnimController.AnimState.Watering);
-                ExecuteWaterTile(request.layerIndex, request.cellPos);
+                // 🔴 补丁003 模块C：不再同帧执行，改为延迟到动画中期
+                _pendingTileUpdate = request;
+                _tileUpdateTriggered = false;
                 // 动画完成后由 OnActionComplete → OnFarmActionAnimationComplete 回调
                 break;
             
@@ -2508,6 +2452,8 @@ public class GameInputManager : MonoBehaviour
                 var seedData = GetCurrentSeedData();
                 if (seedData != null)
                     ExecutePlantSeed(seedData, request.layerIndex, request.cellPos);
+                // 🔴 补丁004 模块G（CP-G3）：种子无动画，直接清除执行预览
+                FarmToolPreview.Instance?.RemoveExecutingPreview(request.cellPos);
                 _isExecutingFarming = false;
                 _queuedPositions.Remove((request.layerIndex, request.cellPos));
                 ProcessNextAction(); // 立即取下一个
@@ -2528,8 +2474,29 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     public void OnFarmActionAnimationComplete()
     {
+        // 🔴 补丁003 模块C：兜底 — 若 tile 更新还没触发（异常情况），强制执行
+        if (_pendingTileUpdate != null && !_tileUpdateTriggered)
+        {
+            var req = _pendingTileUpdate.Value;
+            switch (req.type)
+            {
+                case FarmActionType.Till:
+                    ExecuteTillSoil(req.layerIndex, req.cellPos);
+                    break;
+                case FarmActionType.Water:
+                    ExecuteWaterTile(req.layerIndex, req.cellPos, req.puddleVariant);
+                    break;
+            }
+        }
+        _pendingTileUpdate = null;
+        _tileUpdateTriggered = false;
+        
         _isExecutingFarming = false;
         _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
+        
+        // 🔴 补丁004 模块G（CP-G3）：执行完成时移除执行预览（替代 RemoveQueuePreview）
+        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.cellPos);
+        
         ProcessNextAction();
     }
     
@@ -2550,6 +2517,10 @@ public class GameInputManager : MonoBehaviour
         _currentHarvestTarget = null;
         _isExecutingFarming = false;
         _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
+        
+        // 🔴 补丁004 模块G（CP-G3）：执行完成时移除执行预览（替代 RemoveQueuePreview）
+        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.cellPos);
+        
         ProcessNextAction();
     }
     
@@ -2565,6 +2536,13 @@ public class GameInputManager : MonoBehaviour
         _isExecutingFarming = false;
         _currentHarvestTarget = null;
         _currentProcessingRequest = default;
+        
+        // 🔴 补丁003 模块D：清理待执行的 tile 更新（V1 漏洞修补）
+        _pendingTileUpdate = null;
+        _tileUpdateTriggered = false;
+        
+        // 🔴 补丁003 模块D/I（CP-I3）：清理所有队列预览
+        FarmToolPreview.Instance?.ClearAllQueuePreviews();
     }
     
     /// <summary>
@@ -2625,7 +2603,7 @@ public class GameInputManager : MonoBehaviour
                     type = FarmActionType.Harvest,
                     cellPos = crop.CellPos,
                     layerIndex = crop.LayerIndex,
-                    worldPos = crop.transform.position,
+                    worldPos = crop.GetCellCenterPosition(),
                     targetCrop = crop
                 });
                 return true;
@@ -2645,14 +2623,40 @@ public class GameInputManager : MonoBehaviour
         if (farmPreview == null || !farmPreview.IsValid()) return; // CP-9：预览无效不入队
 
         var type = tool.toolType == ToolType.Hoe ? FarmActionType.Till : FarmActionType.Water;
+        
+        // 🔴 补丁004 模块G（CP-G4）：耕地入队时读取 ghost 数据快照
+        Dictionary<Vector3Int, TileBase> ghostData = null;
+        if (type == FarmActionType.Till)
+        {
+            ghostData = farmPreview.CurrentGhostTileData;
+            // 复制一份快照（ghost 数据每帧更新，入队后不应被后续帧覆盖）
+            if (ghostData != null)
+                ghostData = new Dictionary<Vector3Int, TileBase>(ghostData);
+        }
+        
+        // 🔴 补丁004 模块G（CP-G5）：浇水入队时使用 ghost 缓存的 variant（替代当前的 Random.Range）
+        int variant = -1;
+        if (type == FarmActionType.Water)
+        {
+            variant = farmPreview.CurrentPuddleVariant;
+            // 兜底：如果 ghost 没有缓存（异常情况），随机分配
+            if (variant < 0)
+            {
+                var puddleTiles = FarmVisualManager.Instance?.GetPuddleTiles();
+                int puddleCount = puddleTiles != null ? puddleTiles.Length : 3;
+                variant = Random.Range(0, puddleCount);
+            }
+        }
+        
         EnqueueAction(new FarmActionRequest
         {
             type = type,
             cellPos = farmPreview.CurrentCellPos,
             layerIndex = farmPreview.CurrentLayerIndex,
             worldPos = farmPreview.CurrentCursorPos,
-            targetCrop = null
-        });
+            targetCrop = null,
+            puddleVariant = variant
+        }, ghostData);
     }
 
     /// <summary>
@@ -2675,10 +2679,15 @@ public class GameInputManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 队列是否为空（供 OnActionComplete 长按分支查询）— 补丁003 模块E CP-E2
+    /// </summary>
+    public bool IsQueueEmpty() => _farmActionQueue.Count == 0;
+
+    /// <summary>
     /// 保护分支统一入队方法：在 _isExecutingFarming 或 isPerformingAction 期间调用。
     /// 替代旧的 CacheFarmInput，先尝试收获（CP-5 最高优先级），再尝试工具/种子。
     /// </summary>
-    private void TryEnqueueFromCurrentInput()
+    public void TryEnqueueFromCurrentInput()
     {
         // CP-5：先尝试收获（最高优先级）
         if (TryDetectAndEnqueueHarvest()) return;

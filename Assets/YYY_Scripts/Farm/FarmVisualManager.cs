@@ -478,5 +478,23 @@ namespace FarmGame.Farm
         }
         
         #endregion
+
+        #region 补丁003 模块G：水渍 tile 接口暴露（CP-G1）
+
+        /// <summary>
+        /// 获取随机水渍 Tile（浇水预览用）
+        /// </summary>
+        public TileBase GetRandomPuddleTile()
+        {
+            if (wetPuddleTiles == null || wetPuddleTiles.Length == 0) return null;
+            return wetPuddleTiles[Random.Range(0, wetPuddleTiles.Length)];
+        }
+
+        /// <summary>
+        /// 获取所有水渍 Tile 变体
+        /// </summary>
+        public TileBase[] GetPuddleTiles() => wetPuddleTiles;
+
+        #endregion
     }
 }

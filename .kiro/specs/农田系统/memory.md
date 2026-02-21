@@ -110,6 +110,8 @@ CropManager（纯工厂）
 | 10.1.0 | 全面持久化前夕 | 🚧 进行中 | 全面审查报告完成，用户补充3点bug/需求待处理 |
 | 10.1.1补丁001 | 农田系统交互漏洞全面修补 | ✅ 二次修复完成 | 验收bug F1+F2修复完成，0警告编译通过，待二次验收 |
 | 10.1.1补丁002 | 农田交互体验优化 | 🚧 进行中 | design V2 + tasks V2 完成（11改进点/22任务），待用户审核 |
+| 10.1.1补丁003 | 预览系统全面改造 | ✅ 代码完成 | V3三件套10任务全部完成，shader覆盖层+双Tilemap分离+队列预览，待验收 |
+| 10.1.1补丁004 | 三层预览架构重构 | 🚧 进行中 | V2全面分析报告完成（6大问题+增量差集计算），待用户审核后迭代designV4/tasksV4 |
 
 ---
 
@@ -2197,3 +2199,425 @@ CropManager（纯工厂）
 **V3 报告当前状态**：所有方案已全部锁定，无待确认项。用户已明确"先暂时不更新 design.md 和 tasks.md"。
 
 **状态**: V3 审视报告全面锁定完成 ✅
+
+
+---
+
+### 会话 10.1.1补丁003-续17 - 2026-02-20（一条龙重构三件套 — 被压缩中断）
+
+**来源**：继承恢复（快照：2026-02-20_会话1_续16.md）
+
+**用户需求**：
+> 结合V2和V3审视报告全面重构补丁003的「全面分析与修复方案.md」「design.md」「tasks.md」，学习补丁002 design.md的垂直结构设计理念，一条龙完成。
+
+**完成任务**：
+1. 继承恢复 + 重新读取所有关键代码和文档
+2. 创建「补丁003全面分析与修复方案V2.md」（8章完整）
+3. 创建「designV2.md」模块A-I（9个模块全部完成，第十~十二章未写）
+
+**未完成**：designV2.md 第十~十二章 + tasksV2.md + 主memory同步
+
+**新建文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `补丁003全面分析与修复方案V2.md` | 新建 | 全面重构版，8章完整 |
+| `designV2.md` | 新建 | 垂直结构设计，模块A-I完成 |
+| `memory.md`（子） | 追加 | 续17记录 |
+
+**状态**: 被压缩中断，续18继续
+
+---
+
+### 会话 10.1.1补丁003-续18 - 2026-02-20（一条龙重构三件套 — 完成）
+
+**来源**：继承恢复（快照：2026-02-20_会话1_续17.md）
+
+**完成任务**：
+1. 继承恢复（快照续17与memory续17交叉验证，无异常）
+2. 完成 designV2.md 第十章（交互矩阵：6个子矩阵）
+3. 完成 designV2.md 第十一章（正确性属性汇总：CP-A1~CP-I3 共25条）
+4. 完成 designV2.md 第十二章（涉及文件汇总 + 测试框架）
+5. 创建 tasksV2.md（8阶段18大任务，覆盖模块A-I全部改动）
+6. 同步主 memory（本记录）
+
+**新建/修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `designV2.md` | 追加 | 第十~十二章完成，全文档完整 |
+| `tasksV2.md` | 新建 | 8阶段18大任务 |
+| `memory.md`（主） | 追加 | 续17+续18同步记录 |
+
+**designV2.md 最终结构**：12章完整（模块A-I + 交互矩阵 + 正确性属性汇总 + 涉及文件汇总）
+**tasksV2.md 结构**：8阶段18大任务，按依赖关系分阶段，所有任务必须完成
+
+**状态**: 一条龙重构三件套 ✅ 全部完成，待用户审核后开始实施
+
+
+
+---
+
+### 会话 10.1.1补丁003-续19 - 2026-02-20（tasksV2 审视与精确补充）
+
+**来源**：用户要求审视 tasksV2 对照分析方案V2和designV2，确认无遗漏后一条龙执行
+
+**完成任务**：
+1. 读取三份核心文档 + 所有关键代码文件
+2. 全局搜索验证 CropController transform.position 外部引用
+3. 发现4个精确度问题并修正了2个（任务3字段类型+动画进度访问路径、任务6新增IsQueueEmpty子任务）
+
+**修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `tasksV2.md` | 修改 | 任务3精确化、任务6精确化 |
+
+**状态**: tasksV2 审视完成 ✅，一条龙执行被压缩中断
+
+
+---
+
+### 会话 10.1.1补丁003-续20 - 2026-02-20（一条龙执行任务1-4）
+
+**来源**：继承恢复（快照续19）
+
+**完成任务**：
+1. 阶段一任务1：创建 Editor 批量工具 CropPrefabParentWrapper.cs
+2. 阶段一任务2：CropController 接口暴露（GetFirstStageSprite + GetCellCenterPosition + 全局替换）
+3. 阶段二任务3：ExecuteFarmAction 延迟执行机制（_pendingTileUpdate + Update监听 + 兜底）
+4. 阶段二任务4（部分）：ClearActionQueue 清理完整性
+
+**修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `CropPrefabParentWrapper.cs` | 新建 | Editor 批量工具 |
+| `CropController.cs` | 修改 | GetFirstStageSprite + GetCellCenterPosition |
+| `GameInputManager.cs` | 修改 | 延迟执行 + ClearActionQueue 清理 + crop.transform.position 替换 |
+| `PlayerInteraction.cs` | 修改 | GetAnimationProgress 转发方法 |
+
+**状态**: 任务1-4基本完成，被压缩中断
+
+
+---
+
+### 会话 10.1.1补丁003-续21 - 2026-02-20（一条龙执行任务4-10+任务11部分）
+
+**来源**：继承恢复（快照续20）
+
+**完成任务**：
+1. 任务4标记完成 + 任务5-10全部完成 + 任务11部分完成
+2. 阶段三：OnActionComplete 松开分支时序修复 + 长按分支改造 + Collect 专用分支确认
+3. 阶段四：HandleUseCurrentTool 导航入队统一
+4. 阶段五：FarmVisualManager 水渍 tile 接口暴露
+5. 阶段六任务10：FarmToolPreview 新增组件和字段 + 任务11部分（UpdateHoePreview 覆盖层改造）
+
+**修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `PlayerInteraction.cs` | 修改 | 松开分支时序修复 + 长按分支改造 |
+| `GameInputManager.cs` | 修改 | IsQueueEmpty + TryEnqueueFromCurrentInput改public + 导航入队统一 |
+| `FarmVisualManager.cs` | 修改 | GetRandomPuddleTile + GetPuddleTiles |
+| `FarmToolPreview.cs` | 修改 | 全部补丁003字段 + EnsureComponents + 辅助方法 + UpdateHoePreview覆盖层（部分） |
+
+**状态**: 任务4-10完成 + 任务11部分，被压缩中断
+
+
+---
+
+### 会话 10.1.1补丁003-续22 - 2026-02-20（一条龙执行任务11-18 — 全部完成）
+
+**来源**：继承恢复（快照续21）
+
+**完成任务**：
+1. 阶段六任务11-15：UpdateHoePreview完成 + UpdateWateringPreview + UpdateSeedPreview + 队列预览管理三方法 + Hide扩展
+2. 阶段七任务16：GameInputManager 队列预览联动（EnqueueAction/OnFarmActionAnimationComplete/OnCollectAnimationComplete/ClearActionQueue）
+3. 阶段八任务17：编译验证（6个文件全部0错误0警告）
+4. 阶段八任务18：正确性属性逐项审查（25条CP全部满足）+ 创建验收指南V2
+
+**修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `FarmToolPreview.cs` | 修改 | 任务11-15全部预览系统改造 |
+| `GameInputManager.cs` | 修改 | 任务16队列预览联动 |
+| `验收指南V2.md` | 新建 | 7章验收测试场景 |
+
+**状态**: 🎉 tasksV2 全部18个任务一条龙执行完毕！待用户在 Unity 中验收。
+
+**用户下一步**：
+1. 在 Unity Editor 中执行 `Tools/补丁003/作物 Prefab 套父物体`
+2. 按验收指南V2.md 逐项测试
+
+
+
+
+---
+
+### 会话 10.1.1补丁003-续24 - 2026-02-20（SeedData.OnValidate 适配父子Prefab结构）
+
+**来源**：继承恢复（快照续23）
+
+**完成任务**：
+1. SeedData.cs OnValidate 第81行 `GetComponent` → `GetComponentInChildren`
+2. 全局搜索发现 Tool_BatchItemSOGenerator.cs 第1131行同样问题，一并修复
+3. 二次全局搜索确认无残留，两个文件均0错误0警告
+
+**修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `SeedData.cs` | 修改 | OnValidate GetComponent → GetComponentInChildren |
+| `Tool_BatchItemSOGenerator.cs` | 修改 | 第1131行同样修复 |
+
+**状态**: SeedData 适配完成 ✅
+
+
+
+---
+
+### 会话 10.1.1补丁003-续25 - 2026-02-20（验收反馈：预览方案C太差+队列预览bug+Prefab适配不完整 — 被压缩中断）
+
+**来源**：用户验收补丁003后反馈三类问题
+
+**完成任务**：
+1. ✅ 全局搜索 `GetComponent<CropController>` 发现4处需要适配
+2. ✅ 修复 FarmToolPreview.cs、DynamicObjectFactory.cs、CropManager.cs（GetComponent→GetComponentInChildren）
+3. ⚠️ 修复 GameInputManager.cs 时 strReplace 操作失误，代码结构断裂
+
+**未完成**：GameInputManager代码断裂修复、预览系统方案变更讨论、队列预览bug修复
+
+**状态**: 被压缩中断
+
+---
+
+### 会话 10.1.1补丁003-续26 - 2026-02-20（继承恢复 + GameInputManager代码断裂修复 + 全面适配完成）
+
+**来源**：继承恢复（快照续25）
+
+**完成任务**：
+1. ✅ 修复 GameInputManager.cs ExecutePlantSeed 代码断裂（恢复if null检查块）
+2. ✅ 全局搜索确认无残留 GetComponent<CropController>
+3. ✅ 4个文件全部编译通过
+
+**TASK 2 完成**：全面适配作物Prefab父子结构 ✅
+**TASK 3 待讨论**：预览系统方案变更（shader+三层Tilemap vs 方案C）+ 队列预览bug修复
+
+**修改文件**：GameInputManager.cs（修复代码断裂）
+
+
+
+---
+
+### 会话 10.1.1补丁003-续27 - 2026-02-20（V3三件套需求 — 被压缩中断）
+
+**来源**：用户提出在当前补丁003工作区创建V3三件套
+
+**用户需求**：
+> 在当前补丁003工作区创建V3三件套（requirementsV3 + designV3 + tasksV3），涵盖4个问题：
+> - P1：预览系统方案C太差 → 改用 shader + 三层 Tilemap
+> - P2：队列预览缺少 8+1 逻辑（严重bug）
+> - P3：浇水队列预览与实际浇水不一致（严重bug）
+> - P4：种子预览位置与实际种植位置不一致
+
+**完成任务**：加载 farming.md 和 communication.md 规范
+
+**未完成**：代码读取、requirementsV3创建、审视、一条龙执行
+
+**状态**: 被压缩中断
+
+
+---
+
+### 会话 10.1.1补丁003-续28 - 2026-02-20（V3三件套创建 + 一条龙执行任务1-2 — 被压缩中断）
+
+**来源**：继承恢复（快照续27）
+
+**完成任务**：
+1. 继承恢复 + 重新读取所有关键代码文件
+2. 全面审视代码，4个问题全部可行
+3. 创建 requirementsV3.md（4个问题P1-P4）
+4. 创建 designV3.md（4个模块J/K/L/M，14条正确性属性CP-J1~CP-M6）
+5. 创建 tasksV3.md（3阶段10大任务）
+6. 任务1（模块J种子预览位置修复）：UpdateSeedPreview用GetCellCenterWorld替代alignedPos ✅
+7. 任务2（模块K耕地队列预览8+1）：新增tillQueueTileGroups字段，AddQueuePreview遍历全部9个tile ✅
+8. 任务3（模块L浇水队列预览一致性）：进行中，被压缩中断
+
+**新建文件**：requirementsV3.md、designV3.md、tasksV3.md
+**修改文件**：FarmToolPreview.cs（任务1-2）、tasksV3.md（任务1-2标记完成）
+
+**状态**: 任务1-2完成，任务3进行中，被压缩中断
+
+
+---
+
+### 会话 10.1.1补丁003-续29 - 2026-02-20（V3三件套一条龙执行任务3-10 — 全部完成）
+
+**来源**：继承恢复（快照续28）
+
+**完成任务**：
+1. 继承恢复 + 重新读取所有关键代码和文档
+2. 任务3（模块L浇水队列预览一致性）：FarmActionRequest新增puddleVariant字段，TryEnqueueFarmTool预分配variant，AddQueuePreview使用确定性tile，ExecuteWaterTile传递variant给SetWatered ✅
+3. 任务4（模块M-1）：创建FarmPreviewOverlay.shader（基于Sprites-Default，_OverlayColor属性，lerp混合）✅
+4. 任务5（模块M-2）：EnsureComponents加载shader创建Material赋给ghostTilemapRenderer，移除方案C组件创建 ✅
+5. 任务6（模块M-3）：UpdateHoePreview移除方案C覆盖层，改用previewOverlayMaterial.SetColor ✅
+6. 任务7（模块M-4）：UpdateWateringPreview同上改造 ✅
+7. 任务8（模块M-5）：Hide方法清理，删除CreateOverlaySprite/CreateOverlayRenderer方法，删除废弃字段 ✅
+8. 任务9：编译验证3个文件0错误0警告 ✅
+9. 任务10：14条正确性属性CP-J1~CP-M6逐项审查全部通过 ✅
+
+**新建文件**：FarmPreviewOverlay.shader
+**修改文件**：GameInputManager.cs、FarmToolPreview.cs、tasksV3.md
+
+**状态**: 🎉 tasksV3 全部10个任务一条龙执行完毕！待用户在 Unity 中验收测试。
+
+
+
+---
+
+### 10.1.1补丁004 会话1续1 - 2026-02-20（三件套创建）
+
+**来源**：继承恢复（快照：2026-02-20_会话1.md）
+
+**完成任务**：
+1. ✅ 创建 `requirements.md` — 6个用户故事（差异化ghost/队列清理/执行预览保护/三层统一/浇水稳定/ghost不锁定）、7个边界情况、4个设计约束
+2. ✅ 创建 `design.md` — 三层预览架构设计（ghost/队列/执行分离）、7个正确性属性、异议说明
+3. ✅ 创建 `tasks.md` — 6 Phase、14个任务
+4. ✅ 更新子工作区 memory.md
+5. ✅ 更新主工作区 memory.md（本文件）
+
+**核心设计决策**：
+- 移除 LockPosition 机制，ghost 永不锁定
+- 执行预览复用 queuePreviewTilemap（通过 executingTileGroups 数据结构区分）
+- 实际落地通过数据层驱动（TillAt → UpdateBorderAt），不直接复制 tile
+- ghost 差异化过滤在调用方完成，不修改 GetPreviewTiles
+
+**新建文件**：requirements.md、design.md、tasks.md
+**修改文件**：memory.md（子+主）
+
+**状态**：三件套完成，待用户审核后执行任务
+
+
+---
+
+### 10.1.1补丁004 会话1续5 - 2026-02-20（一条龙执行完成）
+
+**来源**：继承恢复（快照：2026-02-20_会话1_续4.md）
+
+**完成任务**：
+1. ✅ 继承恢复后继续一条龙执行
+2. ✅ 旧单次执行路径 LockPosition/UnlockPosition 全部移除（TryTillSoil/TryWaterTile/TryPlantSeed/WaitForNavigationComplete/ESC中断/Obsolete方法）
+3. ✅ LockedWorldPos → targetPos 替换（导航回调距离校验）
+4. ✅ Phase 6.1 编译验证：0 错误 0 警告
+5. ✅ Phase 6.2 正确性属性逐项审查：22 条 CP 全部通过
+6. ✅ Phase 6.3 创建验收指南V2
+7. ✅ Phase 6.4 更新 memory（子+主）
+
+**修改文件**：
+- `GameInputManager.cs` — 旧路径 Lock/Unlock 全部移除
+- `验收指南V2.md` — 新建
+- `memory.md`（子+主）— 追加
+
+**状态**：补丁004 全部代码修改完成，待用户游戏内验收
+
+---
+
+### 10.1.1补丁004 会话1续6 - 2026-02-21（验收后 bug 深度分析 — 用户四点纠正）
+
+**来源**：继承恢复（子 memory 续6记录）
+
+**用户四点纠正**：
+1. WASD 本就不中断动画，问题是 `ClearActionQueue` 清空 `_pendingTileUpdate`/`_currentProcessingRequest` 导致动画完成后 tile 不创建 + 执行预览残留
+2. 需要结合纠正1重新全面分析
+3. 预览差异化 + 1+8 情况矩阵需全面分析（含斜角），与"是否能交互"逻辑隔离
+4. 执行 = 动画开始的瞬间，导航途中只是前置行为
+
+**分析结论（5个待修复问题）**：
+1. `ClearActionQueue` 不应清空正在执行的操作状态
+2. `PromoteToExecutingPreview` 调用时机从 `ProcessNextAction` 移到 `ExecuteFarmAction`
+3. ghost 预览在 `canTill = false` 时应显示红色反馈
+4. ghost 预览与实际 tilemap 的 tile 叠加问题
+5. 批量操作时队列预览之间的 tile 重叠问题
+
+**涉及代码文件（分析，未修改）**：FarmToolPreview.cs、GameInputManager.cs、FarmlandBorderManager.cs
+
+**状态**：分析完成，等待用户确认修复方向后创建 designV3 + tasksV3
+
+---
+
+### 10.1.1补丁004 会话1续8 - 2026-02-21（V2 三件套创建）
+
+**来源**：继承恢复（子 memory 续8记录）
+
+**完成任务**：
+1. 重新读取核心代码（FarmToolPreview/GameInputManager/FarmlandBorderManager）
+2. 四点纠正代码事实验证全部完成
+3. 创建 `预览情况矩阵分析.md` — 6 场景分析 + 5 个遗留问题 + V2 修复方案
+4. 创建 `designV3.md` — 4 个修复模块（H/I/J/K）+ 12 条新增正确性属性
+5. 创建 `tasksV3.md` — 5 Phase、8 个任务
+6. 补记续6/续7 子 memory + 记录续8
+
+**V2 修复模块**：
+- 模块 H：ClearActionQueue 执行状态保护
+- 模块 I：PromoteToExecutingPreview 时机修正（移到 ExecuteFarmAction）
+- 模块 J：canTill=false 红色反馈
+- 模块 K：Sorting Order 确认
+
+**新建文件**：预览情况矩阵分析.md、designV3.md、tasksV3.md
+
+**状态**：V2 三件套完成，待用户审核后执行任务
+
+---
+
+### 10.1.1补丁004 会话2 - 2026-02-21（农田三层显示交互矩阵文档）
+
+**来源**：继承恢复（子 memory 会话2记录）
+
+**用户需求**：之前的预览情况矩阵分析混杂了V2修复方案内容，不够专注。需要独立的、彻底正确的农田三层显示详细交互矩阵文档。
+
+**完成任务**：
+1. 全面回顾补丁004工作区历史（memory、聊天记录001/002/003、所有设计文档）
+2. 深入读取核心代码（FarmlandBorderManager/FarmToolPreview/LayerTilemaps）
+3. 创建 `农田三层显示交互矩阵.md` — 7个场景逐一分析 + 三层规则总表 + Sorting Order 机制
+
+**核心结论**：
+- 场景1-5 差异化过滤逻辑正确（ghost 显示最终 tile，通过 Sorting Order 覆盖实际层）
+- tile 不可分割是固有限制（已存在部分被整体染绿是可接受的小瑕疵）
+- 场景6（已有耕地上无反馈）需 designV3 模块 J 修复
+- 场景7（批量操作互相覆盖）是已知限制
+- 前提条件：ghostTilemap Sorting Order > farmlandBorderTilemap
+
+**新建文件**：农田三层显示交互矩阵.md
+
+**状态**：交互矩阵文档完成，待用户审核。V3 design/tasks 暂不迭代（用户明确要求）
+
+---
+
+### 10.1.1补丁004 会话2续3 - 2026-02-21（交互矩阵 V2 — 修正"tile 可拆分"）
+
+**来源**：子 memory 会话2续3记录
+
+**核心修正**：V1 交互矩阵基于"tile 不可分割"的错误前提。用户纠正：tile 资源按方向组合独立存在（B_L、B_R、B_LR 都是独立 sprite），可以拆开。
+
+**完成任务**：
+1. 重新读取核心代码，确认 tile 资源结构
+2. 创建 `农田三层显示交互矩阵V2.md` — 基于正确理解重新分析全部 7 场景
+3. 识别 4 处增量计算错误（场景2/3/4），提出增量差集计算修复方案
+
+**新建文件**：农田三层显示交互矩阵V2.md
+
+**状态**：交互矩阵 V2 完成，待用户审核后迭代 designV3/tasksV3
+
+---
+
+### 10.1.1补丁004 会话2续4 - 2026-02-21（补丁004V2 全面分析报告）
+
+**来源**：继承恢复（快照：2026-02-21_会话2_续4.md）
+
+**用户需求**：不只是交互矩阵，还要结合聊天记录003_prompt 的所有历史需求写一个完整的补丁004V2版本全面分析报告。审核通过后才迭代 designV4/tasksV4。
+
+**完成任务**：
+1. 重新读取核心代码（FarmToolPreview/GameInputManager/FarmlandBorderManager）
+2. 重新读取历史文档（聊天记录003_prompt/002/交互矩阵V2/designV3/tasksV3）
+3. 创建 `补丁004V2全面分析报告.md` — 12 章节，涵盖 6 大问题（P1~P6）+ 18 条正确性属性 + 完整数据流
+
+**报告核心**：P1 ClearActionQueue 保护 + P2 Promote 时机 + P3 增量差集计算（核心新增模块 L）+ P4 canTill=false 反馈 + P5 批量限制 + P6 Sorting Order
+
+**新建文件**：补丁004V2全面分析报告.md
+
+**状态**：全面分析报告完成，待用户审核后迭代 designV4/tasksV4
