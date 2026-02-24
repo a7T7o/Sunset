@@ -551,6 +551,33 @@ namespace FarmGame.Farm
             
             DestroyCrop();
         }
+        /// <summary>
+        /// 🔴 V6 模块S（CP-S4/S5）：锄头清除任何状态的农作物
+        /// </summary>
+        public void RemoveCrop()
+        {
+            if (showDebugInfo)
+                Debug.Log($"[CropController] RemoveCrop: seed={seedData?.itemName}, state={state}, stage={instanceData?.currentStage}");
+
+            DestroyCrop();
+        }
+        
+        /// <summary>
+        /// 🔴 004-P3：隐藏作物视觉（动画中期调用），不销毁数据
+        /// 让锄头动画播放时作物先消失，动画结束后再真正销毁
+        /// </summary>
+        public void HideCropVisuals()
+        {
+            if (spriteRenderer != null)
+                spriteRenderer.enabled = false;
+            
+            // 禁用交互触发器，防止隐藏后仍可交互
+            if (interactionTrigger != null)
+                interactionTrigger.enabled = false;
+            
+            if (showDebugInfo)
+                Debug.Log($"[CropController] HideCropVisuals: seed={seedData?.itemName}, state={state}");
+        }
         
         /// <summary>
         /// 销毁作物

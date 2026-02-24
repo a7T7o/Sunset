@@ -173,49 +173,61 @@ public class TimeManagerDebugger : MonoBehaviour
     }
 
     /// <summary>
-    /// 前进1小时（屏幕时钟微调）
+    /// 前进到下一个整点（分钟归零）
+    /// 例：14:30 → 15:00，14:00 → 15:00
+    /// 跨天时走 Sleep() 统一流程，与右方向键行为一致
     /// </summary>
     private void AdvanceOneHour()
     {
         var tm = TimeManager.Instance;
-        int hour = tm.GetHour() + 1;
-        int day = tm.GetDay();
-        var season = tm.GetSeason();
-        int year = tm.GetYear();
+        int targetHour = tm.GetHour() + 1;
 
-        // 超过 dayEndHour(26) → 进入下一天 06:00
-        if (hour > 26)
+        // 超过 dayEndHour(26) → 走 Sleep() 统一流程进入下一天
+        if (targetHour > 26)
         {
-            hour = 6;
-            day++;
-            if (day > 28)
-            {
-                day = 1;
-                int nextIdx = ((int)season + 1) % 4;
-                season = (SeasonManager.Season)nextIdx;
-                if (season == SeasonManager.Season.Spring) year++;
-            }
+            tm.Sleep();
+            if (showDebugInfo)
+                Debug.Log($"<color=cyan>[Debugger] ⏩ +整点 → 跨天(Sleep) → {tm.GetFormattedTime()}</color>");
+            return;
         }
 
-        tm.SetTime(year, season, day, hour, tm.GetMinute());
+        // 分钟归零，跳到下一个整点
+        tm.SetTime(tm.GetYear(), tm.GetSeason(), tm.GetDay(), targetHour, 0);
 
         if (showDebugInfo)
-            Debug.Log($"<color=cyan>[Debugger] ⏩ +1h → {tm.GetFormattedTime()}</color>");
+            Debug.Log($"<color=cyan>[Debugger] ⏩ +整点 → {tm.GetFormattedTime()}</color>");
     }
 
+
     /// <summary>
-    /// 后退1小时（最低不低于当天 06:00）
+    /// 后退到上一个整点（分钟归零）
+    /// 例：14:30 → 14:00，14:00 → 13:00
+    /// 最低不低于当天 06:00
     /// </summary>
     private void RewindOneHour()
     {
         var tm = TimeManager.Instance;
-        int hour = tm.GetHour() - 1;
-        if (hour < 6) hour = 6;
+        int currentHour = tm.GetHour();
+        int currentMinute = tm.GetMinute();
 
-        tm.SetTime(tm.GetYear(), tm.GetSeason(), tm.GetDay(), hour, tm.GetMinute());
+        int targetHour;
+        if (currentMinute > 0)
+        {
+            // 有分钟余数：退到当前小时的整点（如 14:30 → 14:00）
+            targetHour = currentHour;
+        }
+        else
+        {
+            // 已经是整点：退到上一个小时（如 14:00 → 13:00）
+            targetHour = currentHour - 1;
+        }
+
+        if (targetHour < 6) targetHour = 6;
+
+        tm.SetTime(tm.GetYear(), tm.GetSeason(), tm.GetDay(), targetHour, 0);
 
         if (showDebugInfo)
-            Debug.Log($"<color=cyan>[Debugger] ⏪ -1h → {tm.GetFormattedTime()}</color>");
+            Debug.Log($"<color=cyan>[Debugger] ⏪ -整点 → {tm.GetFormattedTime()}</color>");
     }
 
     private void OnGUI()

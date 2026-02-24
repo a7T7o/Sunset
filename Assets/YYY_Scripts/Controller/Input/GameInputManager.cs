@@ -10,7 +10,7 @@ using FarmGame.Farm;
 // ===== 10.1.1 补丁002：FIFO 操作队列类型定义 =====
 
 /// <summary>农田操作类型</summary>
-public enum FarmActionType { Till, Water, PlantSeed, Harvest }
+public enum FarmActionType { Till, Water, PlantSeed, Harvest, RemoveCrop }
 
 /// <summary>操作请求（值类型，轻量）</summary>
 public struct FarmActionRequest
@@ -229,6 +229,10 @@ public class GameInputManager : MonoBehaviour
                         break;
                     case FarmActionType.Water:
                         ExecuteWaterTile(req.layerIndex, req.cellPos, req.puddleVariant);
+                        break;
+                    case FarmActionType.RemoveCrop:
+                        // 🔴 V6 模块S（CP-S4）：动画中期清除农作物
+                        ExecuteRemoveCrop(req.layerIndex, req.cellPos);
                         break;
                 }
                 _tileUpdateTriggered = true;
@@ -452,11 +456,18 @@ public class GameInputManager : MonoBehaviour
         bool hasActiveQueue = _farmActionQueue.Count > 0 || _isProcessingQueue;
         if (hasWASD && hasActiveQueue)
         {
-            ClearActionQueue();
-            CancelFarmingNavigation();
-            // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
-            ToolActionLockManager.Instance?.ForceUnlock();
-            // 不 return，继续执行下面的移动逻辑
+            // 🔴 V6 模块Q（CP-Q1/Q2）：绝对锁定原则
+            bool wasExecuting = _isExecutingFarming;
+            ClearActionQueue();  // 清空等待队列（模块H已保护执行状态）
+            
+            if (!wasExecuting)
+            {
+                // 没有动画在执行（导航途中或空闲）→ 正常取消一切
+                CancelFarmingNavigation();
+                ToolActionLockManager.Instance?.ForceUnlock();
+            }
+            // else: 动画执行中 → 只清空队列，不取消导航/不解锁移动
+            // 动画完成后由 OnFarmActionAnimationComplete 回调链正常清理一切
         }
 
         // 检查是否处于工具动作锁定状态
@@ -1350,6 +1361,26 @@ public class GameInputManager : MonoBehaviour
         
         return success;
     }
+    /// <summary>
+    /// 🔴 V6 模块S（CP-S4）：清除耕地上的农作物（任何状态）
+    /// </summary>
+    private bool ExecuteRemoveCrop(int layerIndex, Vector3Int cellPos)
+    {
+        var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
+        if (farmTileManager == null) return false;
+
+        var tileData = farmTileManager.GetTileData(layerIndex, cellPos);
+        if (tileData?.cropController != null)
+        {
+            // 🔴 004-P3：动画中期只隐藏视觉，不销毁数据
+            // 真正的 RemoveCrop 在 OnFarmActionAnimationComplete 兜底中执行
+            tileData.cropController.HideCropVisuals();
+            if (showDebugInfo)
+                Debug.Log($"[GameInputManager] 隐藏农作物视觉: Layer={layerIndex}, Pos={cellPos}");
+            return true;
+        }
+        return false;
+    }
     
     /// <summary>
     /// 尝试浇水
@@ -1454,6 +1485,12 @@ public class GameInputManager : MonoBehaviour
         float currentHour = TimeManager.Instance != null ? TimeManager.Instance.GetHour() : 0f;
         // 🔴 V3 模块L（CP-L2）：传递预分配的 puddleVariant，确保预览与实际一致
         bool success = farmTileManager.SetWatered(layerIndex, cellPos, currentHour, puddleVariant);
+        
+        // 🔴 V6 模块T（CP-T4）：浇水成功后通知预览系统需要在移出格子时随机新样式
+        if (success)
+        {
+            FarmToolPreview.Instance?.OnWaterExecuted(cellPos);
+        }
         
         if (showDebugInfo)
             Debug.Log($"[GameInputManager] 浇水{(success ? "成功" : "失败")}: Layer={layerIndex}, Pos={cellPos}, variant={puddleVariant}");
@@ -1915,21 +1952,15 @@ public class GameInputManager : MonoBehaviour
                 if (showDebugInfo)
                     Debug.Log($"[FarmNav] 到达目标, distance={distance:F2}");
                 
-                // 🔥 9.0.5：使用 try/finally 确保 UnlockPosition 一定被调用
+                // 🔴 004-P0：协程只负责导航和调用回调，不管理 _isExecutingFarming
+                // ExecuteFarmAction 全权管理执行状态的生命周期
                 _farmNavState = FarmNavState.Executing;
-                _isExecutingFarming = true;
-                try
-                {
-                    onArrived?.Invoke();
-                }
-                finally
-                {
-                    _isExecutingFarming = false;
-                    // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
-                    _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
-                    _farmNavigationAction = null;
-                    _farmingNavigationCoroutine = null;
-                }
+                onArrived?.Invoke();
+                
+                // 回调完成后清理导航状态（执行状态由 ExecuteFarmAction → OnFarmActionAnimationComplete 管理）
+                _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
+                _farmNavigationAction = null;
+                _farmingNavigationCoroutine = null;
                 
                 yield break;
             }
@@ -1946,20 +1977,14 @@ public class GameInputManager : MonoBehaviour
             if (showDebugInfo)
                 Debug.Log($"[FarmNav] 导航结束但在范围内，执行回调: distance={finalDistance:F2}");
             
+            // 🔴 004-P0：协程只负责导航和调用回调，不管理 _isExecutingFarming
             _farmNavState = FarmNavState.Executing;
-            _isExecutingFarming = true;
-            try
-            {
-                onArrived?.Invoke();
-            }
-            finally
-            {
-                _isExecutingFarming = false;
-                // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
-                _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
-                _farmNavigationAction = null;
-                _farmingNavigationCoroutine = null;
-            }
+            onArrived?.Invoke();
+            
+            // 回调完成后清理导航状态
+            _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
+            _farmNavigationAction = null;
+            _farmingNavigationCoroutine = null;
         }
         else
         {
@@ -1997,6 +2022,17 @@ public class GameInputManager : MonoBehaviour
         }
         
         // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
+        
+        // 🔴 V6 模块Q（CP-Q3）：执行中不清除标志，不解锁
+        if (_isExecutingFarming)
+        {
+            // 动画正在执行，只清理导航相关状态，保留执行状态
+            _farmNavState = FarmNavState.Preview;
+            _farmNavigationAction = null;
+            _cachedSeedData = null;
+            ClearSnapshot();
+            return;  // 不清除 _isExecutingFarming，不 ForceUnlock
+        }
         
         // 🔥 9.0.5：重置状态 → 回到 Preview（而非 Idle）
         // 如果仍持有农具/种子，回到 Preview；否则回到 Idle
@@ -2460,6 +2496,14 @@ public class GameInputManager : MonoBehaviour
                 ProcessNextAction(); // 立即取下一个
                 break;
             
+            case FarmActionType.RemoveCrop:
+                // 🔴 V6 模块S（CP-S6）：锄头清除农作物，使用 Crush 动画（和耕地一致）
+                FaceTarget(request.worldPos);
+                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Crush);
+                _pendingTileUpdate = request;
+                _tileUpdateTriggered = false;
+                break;
+            
             case FarmActionType.Harvest:
                 _currentHarvestTarget = request.targetCrop;
                 FaceTarget(request.worldPos);
@@ -2487,8 +2531,30 @@ public class GameInputManager : MonoBehaviour
                 case FarmActionType.Water:
                     ExecuteWaterTile(req.layerIndex, req.cellPos, req.puddleVariant);
                     break;
+                case FarmActionType.RemoveCrop:
+                    // 🔴 004-P3：兜底 — 如果动画中期没触发隐藏，这里直接隐藏
+                    ExecuteRemoveCrop(req.layerIndex, req.cellPos);
+                    break;
             }
         }
+        
+        // 🔴 004-P3：动画完成后，RemoveCrop 类型执行真正的数据销毁
+        if (_pendingTileUpdate != null && _pendingTileUpdate.Value.type == FarmActionType.RemoveCrop)
+        {
+            var req = _pendingTileUpdate.Value;
+            var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
+            if (farmTileManager != null)
+            {
+                var tileData = farmTileManager.GetTileData(req.layerIndex, req.cellPos);
+                if (tileData?.cropController != null)
+                {
+                    tileData.cropController.RemoveCrop();
+                    if (showDebugInfo)
+                        Debug.Log($"[GameInputManager] 动画完成，销毁农作物: Layer={req.layerIndex}, Pos={req.cellPos}");
+                }
+            }
+        }
+        
         _pendingTileUpdate = null;
         _tileUpdateTriggered = false;
         
@@ -2629,7 +2695,9 @@ public class GameInputManager : MonoBehaviour
         var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
         if (farmPreview == null || !farmPreview.IsValid()) return; // CP-9：预览无效不入队
 
-        var type = tool.toolType == ToolType.Hoe ? FarmActionType.Till : FarmActionType.Water;
+        var type = tool.toolType == ToolType.Hoe 
+            ? (farmPreview.HasCrop ? FarmActionType.RemoveCrop : FarmActionType.Till) 
+            : FarmActionType.Water;
         
         // 🔴 补丁004V3：耕地入队不再传递 ghost 数据（b 层独立计算完整预览）
         
@@ -2656,6 +2724,14 @@ public class GameInputManager : MonoBehaviour
             targetCrop = null,
             puddleVariant = variant
         });
+        
+        // 🔴 003修复：浇水入队成功后立刻随机新样式（与执行动作解耦）
+        if (type == FarmActionType.Water)
+        {
+            var puddleTiles = FarmVisualManager.Instance?.GetPuddleTiles();
+            int count = puddleTiles != null ? puddleTiles.Length : 3;
+            farmPreview.SetPuddleVariant(Random.Range(0, count));
+        }
     }
 
     /// <summary>
