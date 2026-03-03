@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using FarmGame.Data;
 using FarmGame.Events;
+using FarmGame.Farm;
 
 /// <summary>
 /// 放置管理器
@@ -196,6 +197,16 @@ public class PlacementManager : MonoBehaviour
     
     private void Update()
     {
+        // ===== 10.2.0 V键拦截：非放置模式时退出 =====
+        if (GameInputManager.Instance != null && !GameInputManager.Instance.IsPlacementMode)
+        {
+            if (currentState != PlacementState.Idle)
+            {
+                ExitPlacementMode();
+            }
+            return;
+        }
+
         if (currentState == PlacementState.Idle) return;
         
         // 检查背包是否打开 - 如果打开则暂停预览更新
@@ -298,14 +309,6 @@ public class PlacementManager : MonoBehaviour
     {
         if (item == null || !item.isPlaceable)
             return;
-        
-        // ★ SeedData 不通过放置系统处理，由农田系统管理
-        if (item is SeedData)
-        {
-            if (showDebugInfo)
-                Debug.Log($"<color=yellow>[PlacementManagerV3] SeedData 不通过放置系统处理，请使用农田系统种植: {item.itemName}</color>");
-            return;
-        }
         
         currentPlacementItem = item;
         currentItemQuality = quality;
@@ -578,6 +581,15 @@ public class PlacementManager : MonoBehaviour
             var saplingState = validator.ValidateSaplingPlacement(saplingData, previewPos, playerTransform);
             currentCellStates = new List<CellState> { saplingState };
         }
+        else if (currentPlacementItem is SeedData seedData)
+        {
+            // 🔴 补丁005 B.2.2：种子使用专用验证（农田系统 layerIndex + 耕地数据 + 季节）
+            bool seedValid = PlacementValidator.ValidateSeedPlacement(seedData, previewPos);
+            currentCellStates = new List<CellState> 
+            { 
+                new CellState(Vector2Int.zero, seedValid, seedValid ? InvalidReason.None : InvalidReason.HasObstacle) 
+            };
+        }
         else
         {
             // 其他物品使用通用验证
@@ -810,6 +822,13 @@ public class PlacementManager : MonoBehaviour
         
         Vector3 position = placementPreview.LockedPosition;
         
+        // 🔴 补丁005 B.4.2：种子专用分支路由（不走通用放置流程）
+        if (currentPlacementItem is SeedData seedData)
+        {
+            ExecuteSeedPlacement(seedData);
+            return;
+        }
+        
         // 检查 PlaceableItemData 的自定义验证
         if (currentPlacementItem is PlaceableItemData placeableItem)
         {
@@ -925,6 +944,200 @@ public class PlacementManager : MonoBehaviour
                 Debug.Log($"<color=cyan>[PlacementManagerV3] 还有物品，回到 Preview 状态</color>");
             
             currentSnapshot = PlacementSnapshot.Invalid; // 清除旧快照
+            if (placementPreview != null)
+            {
+                placementPreview.UnlockPosition();
+            }
+            ChangeState(PlacementState.Preview);
+        }
+    }
+    
+    /// <summary>
+    /// 🔴 补丁005 B.4.1：种子专用放置执行（从 GameInputManager.ExecutePlantSeed 完整迁移）
+    /// 不走通用放置流程：用 cropPrefab 不是 placementPrefab，物品扣除走 SeedBagHelper，
+    /// 需要 CropController.Initialize + tileData.SetCropData 农田数据绑定。
+    /// </summary>
+    private void ExecuteSeedPlacement(SeedData seedData)
+    {
+        if (placementPreview == null || seedData == null) return;
+        
+        isExecutingPlacement = true;
+        
+        Vector3 position = placementPreview.LockedPosition;
+        
+        // 获取农田系统数据
+        var farmTileManager = FarmTileManager.Instance;
+        if (farmTileManager == null)
+        {
+            if (showDebugInfo)
+                Debug.Log("<color=red>[PlacementManager] ExecuteSeedPlacement: FarmTileManager 未初始化</color>");
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        if (seedData.cropPrefab == null)
+        {
+            Debug.LogError($"[PlacementManager] 种子 {seedData.itemName} 的 cropPrefab 为空");
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        // layerIndex 获取（与 FarmToolPreview.UpdateSeedPreview 同源）
+        int layerIndex = farmTileManager.GetCurrentLayerIndex(position);
+        var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
+        if (tilemaps == null || !tilemaps.IsValid())
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=red>[PlacementManager] 楼层 {layerIndex} 的 Tilemap 未配置</color>");
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        Vector3Int cellPos = tilemaps.WorldToCell(position);
+        
+        // 二次验证：耕地数据 + 可种植
+        var tileData = farmTileManager.GetTileData(layerIndex, cellPos);
+        if (tileData == null || !tileData.CanPlant())
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=red>[PlacementManager] 无法在此位置种植: {cellPos}</color>");
+            PlaySound(placeFailSound);
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        // 季节检查
+        var timeManager = TimeManager.Instance;
+        if (timeManager != null && seedData.season != Season.AllSeason)
+        {
+            var currentSeason = timeManager.GetSeason();
+            if ((int)seedData.season != (int)currentSeason)
+            {
+                if (showDebugInfo)
+                    Debug.Log($"<color=red>[PlacementManager] {seedData.itemName} 不适合当前季节</color>");
+                PlaySound(placeFailSound);
+                isExecutingPlacement = false;
+                HandleInterrupt();
+                return;
+            }
+        }
+        
+        // 快照验证
+        if (!ValidateSnapshot())
+        {
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        // 从种子袋消耗一颗种子（走 SeedBagHelper 保质期链路）
+        int consumedSlotIndex = currentSnapshot.slotIndex;
+        var seedItem = inventoryService.GetInventoryItem(consumedSlotIndex);
+        if (seedItem == null || seedItem.IsEmpty)
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=red>[PlacementManager] 背包中没有种子: {seedData.itemName}</color>");
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        int currentTotalDays = timeManager?.GetTotalDaysPassed() ?? 0;
+        
+        // 自动初始化未初始化的种子袋
+        if (!SeedBagHelper.IsSeedBag(seedItem))
+        {
+            SeedBagHelper.InitializeSeedBag(seedItem, seedData, currentTotalDays);
+        }
+        
+        // 检查是否过期
+        if (SeedBagHelper.IsExpired(seedItem, currentTotalDays))
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=red>[PlacementManager] 种子袋已过期: {seedData.itemName}</color>");
+            PlaySound(placeFailSound);
+            isExecutingPlacement = false;
+            ExitPlacementMode();
+            return;
+        }
+        
+        int remaining = SeedBagHelper.ConsumeSeed(seedItem, seedData, currentTotalDays);
+        if (remaining < 0)
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=red>[PlacementManager] 种子消耗失败: {seedData.itemName}</color>");
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        // 种子袋用完，清除槽位
+        if (remaining <= 0)
+        {
+            inventoryService.ClearSlot(consumedSlotIndex);
+        }
+        
+        // 实例化作物
+        int currentDay = timeManager?.GetTotalDaysPassed() ?? 0;
+        Vector3 cropWorldPos = tilemaps.GetCellCenterWorld(cellPos);
+        Transform container = tilemaps.propsContainer;
+        
+        GameObject cropObj = Instantiate(seedData.cropPrefab, cropWorldPos, Quaternion.identity, container);
+        cropObj.name = $"Crop_{seedData.itemName}_{cellPos}";
+        
+        var controller = cropObj.GetComponentInChildren<CropController>();
+        if (controller == null)
+        {
+            Debug.LogError($"[PlacementManager] 作物预制体缺少 CropController: {seedData.itemName}");
+            Destroy(cropObj);
+            
+            // 退还种子
+            if (seedItem != null && !seedItem.IsEmpty)
+            {
+                int curRemaining = SeedBagHelper.GetRemaining(seedItem);
+                seedItem.SetProperty(SeedBagHelper.KEY_REMAINING, curRemaining + 1);
+            }
+            else
+            {
+                inventoryService.AddItem(seedData.itemID, 0, 1);
+            }
+            
+            isExecutingPlacement = false;
+            HandleInterrupt();
+            return;
+        }
+        
+        // 创建作物实例数据并初始化
+        var instanceData = new CropInstanceData(seedData.itemID, currentDay);
+        controller.Initialize(seedData, instanceData, layerIndex, cellPos);
+        
+        // 更新耕地数据
+        tileData.SetCropData(instanceData);
+        
+        // 播放音效和特效
+        PlaySound(placeSuccessSound);
+        PlayPlaceEffect(position);
+        
+        if (showDebugInfo)
+            Debug.Log($"<color=green>[PlacementManager] 种植成功: {seedData.itemName}, Layer={layerIndex}, Pos={cellPos}</color>");
+        
+        // 检查是否还有种子
+        bool hasMore = HasMoreItems();
+        
+        isExecutingPlacement = false;
+        
+        if (!hasMore)
+        {
+            ExitPlacementMode();
+        }
+        else
+        {
+            // 还有种子，回到 Preview 状态
+            currentSnapshot = PlacementSnapshot.Invalid;
             if (placementPreview != null)
             {
                 placementPreview.UnlockPosition();
@@ -1162,6 +1375,14 @@ public class PlacementManager : MonoBehaviour
         // ★ 使用快照数据检查剩余物品
         if (inventoryService == null || !currentSnapshot.isValid)
             return false;
+        
+        // 🔴 补丁005 B.4.3：种子袋剩余检测（走 SeedBagHelper，不是 slot.amount）
+        if (currentPlacementItem is SeedData)
+        {
+            var seedItem = inventoryService.GetInventoryItem(currentSnapshot.slotIndex);
+            return seedItem != null && !seedItem.IsEmpty 
+                && SeedBagHelper.GetRemaining(seedItem) > 0;
+        }
         
         var slot = inventoryService.GetSlot(currentSnapshot.slotIndex);
         

@@ -1,0 +1,170 @@
+---
+inclusion: manual
+priority: P1
+keywords: [SO, ScriptableObject, 物品ID, 品质, ItemData, ToolData]
+lastUpdated: 2026-02-15
+---
+
+# ScriptableObject 设计规范
+
+## 物品 ID 分配
+
+> **权威来源**：`.kiro/specs/SO设计系统与工具/ID分配规范.md`
+> 以下为简要摘要，完整规范和变更审计日志请查阅权威文档。
+
+```
+0XXX: 工具和武器 (00XX农具, 01XX采集, 02XX武器)
+1XXX: 种植与放置类
+    10XX: 种子
+    11XX: 农作物（共享段）
+        1100-1149: 正常作物（CropData）
+        1150-1199: 枯萎作物（WitheredCropData）
+    12XX: 树苗（SaplingData）
+    13XX: 工作台（WorkstationData）
+    14XX: 存储/钥匙锁
+        1400-1409: 存储  1410-1419: 锁  1420-1499: 钥匙
+    15XX: 交互展示  16XX: 简单事件
+2XXX: 动物产品（预留）
+3XXX: 矿物和材料 (30XX矿石, 31XX锭, 32XX自然, 33XX怪物)
+4XXX: 消耗品 (40XX药水)
+5XXX: 食品 (50XX简单, 51XX高级)
+6XXX: 家具
+7XXX: 特殊物品
+8XXX: 装备（EquipmentData）
+```
+
+## ⚠️ 关键设计原则
+
+### 品质 ≠ 等级
+
+- **工具和武器没有"等级"属性**
+- 不同材质的工具/武器是**独立的 ItemID**（如铜斧=0、铁斧=1、金斧=2）
+- **品质 (Quality)** 是运行时属性，通过 UI 星星显示，影响售价
+- 动画通过后缀区分品质：`{ActionType}_{Direction}_Clip_{itemId}_{quality}`
+
+### 品质枚举
+
+| 品质 | 值 | 价格倍率 | 星星颜色 |
+|------|-----|---------|---------|
+| Normal | 0 | ×1.0 | 无星星 |
+| Rare | 1 | ×1.25 | 蓝色 |
+| Epic | 2 | ×2.0 | 紫色 |
+| Legendary | 3 | ×3.25 | 金色 |
+
+> 价格计算后**向上取整** (`Mathf.CeilToInt`)
+
+## SO 类型
+
+| 类型 | 继承 | ID范围 | 说明 |
+|------|------|--------|------|
+| ItemData | - | - | 基类 |
+| ToolData | ItemData | 00XX-01XX | 工具（无等级属性） |
+| WeaponData | ItemData | 02XX | 武器（无等级属性） |
+| SeedData | ItemData | 10XX | 种子 |
+| CropData | ItemData | 11XX | 作物 |
+| FoodData | ItemData | 50XX-51XX | 食物 |
+| MaterialData | ItemData | 30XX-33XX | 材料 |
+| PotionData | ItemData | 40XX | 药水 |
+
+## 工具/武器类型到动画映射
+
+| 类型 | AnimActionType | 值 |
+|------|---------------|-----|
+| Axe/Sickle | Slice | 6 |
+| Sword | Pierce | 7 |
+| Pickaxe/Hoe | Crush | 8 |
+| FishingRod | Fish | 9 |
+| WateringCan | Watering | 10 |
+
+## 动画配置字段（工具和武器通用）
+
+| 字段 | 说明 |
+|------|------|
+| animatorController | RuntimeAnimatorController，动画控制器 |
+| animationFrameCount | 动画帧数（用于帧同步） |
+| animActionType | 动画动作类型枚举 |
+
+## 文件命名
+
+```
+SO资产：{TypePrefix}_{itemID}_{itemName}.asset（ID不补零）
+动画剪辑：{ActionType}_{Direction}_Clip_{itemId}_{quality}.anim
+控制器：{ActionType}_Controller_{itemId}_{itemName}.controller
+```
+
+示例：`Tool_0_Axe_0.asset`、`Weapon_200_Sword_0.asset`
+
+## 装备类型系统
+
+### EquipmentType 枚举
+
+用于快速装备功能判断物品应该装备到哪个槽位：
+
+| 类型 | 值 | 对应槽位 | 说明 |
+|------|-----|---------|------|
+| None | 0 | - | 非装备物品 |
+| Helmet | 1 | 0 | 头盔 |
+| Armor | 2 | 2 | 盔甲 |
+| Pants | 3 | 1 | 裤子 |
+| Shoes | 4 | 3 | 鞋子 |
+| Ring | 5 | 4,5 | 戒指（双槽位） |
+| Accessory | 6 | - | 饰品（预留） |
+
+### ItemData 装备字段
+
+```csharp
+[Header("=== 装备配置 ===")]
+[Tooltip("装备类型（None表示非装备）")]
+public EquipmentType equipmentType = EquipmentType.None;
+```
+
+### 装备类型判断规则
+
+1. **ToolData/WeaponData** - 默认 `equipmentType = None`（工具和武器不是穿戴装备）
+2. **装备类物品** - 需要在 SO 中手动设置 `equipmentType`
+3. **快速装备** - 根据 `equipmentType` 判断目标槽位
+
+## 🔴 SO 工具同步规则（重要）
+
+### 核心原则
+
+**所有与 SO 增删改有关的操作都必须同步更新到批量生成 SO 等相关工具内！**
+
+### 需要同步的工具
+
+| 工具 | 路径 | 说明 |
+|------|------|------|
+| Tool_BatchItemSOGenerator | Assets/Editor/Tool_BatchItemSOGenerator.cs | 批量生成物品 SO |
+| Tool_BatchItemSOModifier | Assets/Editor/Tool_BatchItemSOModifier.cs | 批量修改物品 SO |
+| ItemSOBatchCreator | Assets/Editor/ItemSOBatchCreator.cs | 物品 SO 批量创建器 |
+
+### 同步检查清单
+
+当修改 ItemData 或其子类时，必须检查并更新：
+
+1. **新增字段** → 在批量生成工具中添加对应的 UI 和赋值逻辑
+2. **删除字段** → 从批量工具中移除相关代码
+3. **修改字段类型** → 更新批量工具中的类型处理
+4. **新增 SO 子类** → 在批量工具中添加新类型支持
+
+### 相关工作区
+
+- `.kiro/specs/编辑器工具/` - 编辑器工具设计和维护记录
+
+## 详细文档
+
+参见：`Docx/设计/SO参数设计.md`
+
+
+## 🔴 ItemDatabase 访问规范
+
+> **2026-02-12 从 rules.md 迁移至此（Phase 4.0 精简）**
+
+```csharp
+// ✅ 正确：从已有引用的 MonoBehaviour 获取
+if (inventory != null)
+    database = inventory.Database;
+
+// ❌ 错误：永远返回 null（ItemDatabase 是 SO，不在场景中）
+database = FindFirstObjectByType<ItemDatabase>();
+```

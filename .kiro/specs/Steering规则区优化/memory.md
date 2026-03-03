@@ -1,3 +1,20 @@
+### 2026-03-02 会话（Cursor 配置体系梳理与迁移规划）
+
+**子工作区**: 2026.03.02_Cursor规则迁移
+
+**完成内容**:
+- 在完全遵守 `.kiro/steering` 规则与 Hook 流程的前提下，重新加载并消化 Steering 全部规则文件与 Hook 说明。
+- 在主工作区下新建《Cursor规则_Skills_Subagents教程》，系统整理 Cursor Rules / Skills / Subagents / Commands 与 Steering/Hook 的职责边界。
+- 新建子工作区 `2026.03.02_Cursor规则迁移/`，完成该子工作区的三件套与《迁移计划》v1.0，为后续多阶段迁移与 demo Hook 试点提供蓝图。
+
+**修改文件**:
+- `.kiro/specs/Steering规则区优化/Cursor规则_Skills_Subagents教程.md` - 新建。
+- `.kiro/specs/Steering规则区优化/2026.03.02_Cursor规则迁移/memory.md` - 新建。
+- `.kiro/specs/Steering规则区优化/2026.03.02_Cursor规则迁移/requirements.md` - 新建。
+- `.kiro/specs/Steering规则区优化/2026.03.02_Cursor规则迁移/design.md` - 新建。
+- `.kiro/specs/Steering规则区优化/2026.03.02_Cursor规则迁移/tasks.md` - 新建。
+- `.kiro/specs/Steering规则区优化/2026.03.02_Cursor规则迁移/迁移计划.md` - 新建。
+
 # Steering规则区优化 - 开发记忆
 
 ## 模块概述
@@ -1437,3 +1454,27 @@ P2 优先级（3项）：
 - `memory-update-check.kiro.hook` - v8，输出极简化
 - `memory.md`（子工作区 2026.02.11智能加载）- 追加会话 31（续1）
 - `memory.md`（主工作区 Steering规则区优化）- 本条
+
+### 2026-03-02 会话（Cursor 配置体系梳理与迁移规划 - 修正版）
+
+**子工作区**: 2026.03.02_Cursor规则迁移
+
+**用户需求变更**:
+> 阅读两份聊天记录后，明确核心差异：Kiro 有自动继承对话机制（>80%压缩+Hook生成快照），Cursor 没有这个机制，不需要融入。需求是全面完成 Kiro 规则与 Hook 的 Cursor 化适配。
+
+**完成内容**:
+- 阅读 `9_Kiro-Cursor迁移聊天记录001.md` 和 `9_Kiro-Claude迁移聊天记录001.md`，彻底理解用户核心需求
+- 明确 Kiro 与 Cursor 核心差异：
+  - Kiro：自动继承对话（>80%压缩 + Hook 生成快照 + context-recovery）
+  - Cursor：无此机制
+- 修正 `Cursor规则_Skills_Subagents教程.md`：
+  - 不需要融入：自动继承对话、context-recovery、memory 自动更新检查
+  - 需要融入：Steering 规则体系、Hook 可手动执行部分、Memory 手动更新
+- 修正《迁移计划.md》为 v2.0：
+  - 明确融入范围
+  - 区分 Kiro 自动特性和 Cursor 手动特性
+
+**修改文件**:
+- `.kiro/specs/Steering规则区优化/Cursor规则_Skills_Subagents教程.md` - 修正：明确融入范围
+- `.kiro/specs/Steering规则区优化/2026.03.02_Cursor规则迁移/迁移计划.md` - 修正为 v2.0
+- `.kiro/specs/Steering规则区优化/2026.03.02_Cursor规则迁移/memory.md` - 追加会话 2

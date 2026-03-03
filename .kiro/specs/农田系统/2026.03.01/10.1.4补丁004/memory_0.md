@@ -1502,3 +1502,273 @@
 
 **状态**：P0/P2/P3 三个手术 ✅ 全部完成，待用户游戏内验收。P1 浇水随机待讨论。
 
+
+
+---
+
+### 会话 2 续 42 - 2026-02-25（005锐评001 审视报告 — 种子幽灵占位根因剖析）
+
+**用户需求**：
+> 审核 005锐评001.md（Gemini 对种子幽灵占位的分析和种子剥离指令），要求彻底全面审核。用户额外要求：
+> 1. 剖析种子种植快速点击的幽灵占位问题（数量不足边界情况）
+> 2. 彻底检查浇水和耕地是否也有幽灵情况
+> 3. 检查快速点击导致左键耕地触发导航移动失效
+> 4. 检查耕地和浇水是否会串流互相影响
+
+**完成任务**：
+1. ✅ 加载锐评处理规范（code-reaper-review.md）
+2. ✅ 完整阅读锐评（005锐评001.md）
+3. ✅ 重新读取所有核心代码进行事实核查：
+   - GameInputManager.cs（TryEnqueueSeed/EnqueueAction/ExecuteFarmAction/ExecutePlantSeed/ProcessNextAction/HandleUseCurrentTool/HandleMovement/ClearActionQueue/CancelFarmingNavigation/TryEnqueueFromCurrentInput/TryEnqueueFarmTool/HasSeedRemaining/OnFarmActionAnimationComplete/ExecuteTillSoil/ExecuteWaterTile）
+   - FarmToolPreview.cs（UpdateSeedPreview/UpdateHoePreview/UpdateWateringPreview/AddQueuePreview/RemoveExecutingPreview）
+   - SeedBagHelper.cs（ConsumeSeed/GetRemaining 完整实现）
+4. ✅ 逐条事实核查 5 个声明
+5. ✅ 独立分析用户 4 个额外问题
+6. ✅ 路径判断：🔴 路径 C（种子幽灵占位根因分析事实错误）
+7. ✅ 创建 `005锐评001审视报告.md`（8章完整报告）
+
+**事实核查结果**：
+| 声明 | 结论 | 说明 |
+|------|------|------|
+| P0/P2/P3 执行完美 | ✅ 正确 | 代码验证确认 |
+| 浇水随机已在入队瞬间实现 | ✅ 正确 | TryEnqueueFarmTool 入队后 SetPuddleVariant |
+| 种子幽灵占位是 Instantiate 竞态 | ❌ 事实错误 | Unity 单线程无竞态，真正根因是队列预览未清理 |
+| 耕地浇水绝对安全 | ⚠️ 部分正确 | 结论对但论证过于绝对 |
+| 种子剥离方向 | ✅ 方向正确 | 已知待办模块R |
+
+**关键发现 — 种子幽灵占位真正根因**：
+- ProcessNextAction 中 `HasSeedRemaining()` 返回 false 跳过种子执行时
+- 只移除了 GameInputManager 的 `_queuedPositions`
+- ❌ 未清理 FarmToolPreview 的 `queuePreviewPositions`（b 层拦截数据）
+- ❌ 未清理 `activeSeedQueuePreviews`（残留 SpriteRenderer）
+- 导致：幽灵格子被 b 层拦截，所有农田操作失效
+
+**用户额外问题分析结论**：
+- 浇水：✅ 不存在幽灵占位（无"数量不足"概念，水壶无限使用）
+- 耕地：✅ 不存在幽灵占位（无"数量不足"概念，锄头无限使用）
+- 左键耕地失效：是种子幽灵占位的连锁影响（queuePreviewPositions 残留 → b 层拦截）
+- 耕地浇水串流：✅ 不会串流（队列串行执行 + _isExecutingFarming 保护）
+
+**发现的 bug**：
+| Bug | 严重程度 | 说明 |
+|-----|---------|------|
+| Bug 1：种子跳过时队列预览残留 | 🔴 严重 | ProcessNextAction 跳过种子未清理 FarmToolPreview |
+| Bug 2：队列清空时未清理 FarmToolPreview | 🟡 中等 | ProcessNextAction 队列清空分支缺少 ClearAllQueuePreviews |
+
+**修复方向**：
+1. ProcessNextAction 跳过种子时新增 RemoveSeedQueuePreview 调用
+2. ProcessNextAction 队列清空时增加 ClearAllQueuePreviews 兜底
+3. 种子剥离（模块R）保持待办状态
+
+**新建文件**：
+| 文件 | 说明 |
+|------|------|
+| `005锐评001审视报告.md` | 锐评事实核查 + 种子幽灵占位根因剖析 + 耕地浇水安全性分析（8章） |
+
+**状态**：审视报告 ✅ 完成，待用户审核
+
+
+---
+
+### 会话 2 续 44 - 2026-02-25（005锐评002 审视报告）
+
+**用户需求**：
+> 审核 005锐评002.md（Gemini 对审视报告的强烈反驳），用户说"gemini很执着，请你重新客观冷静思考是否应该这样做"
+
+**完成任务**：
+1. ✅ 加载锐评处理规范（code-reaper-review.md）
+2. ✅ 读取 005锐评002.md 原文
+3. ✅ 读取 005锐评001审视报告.md（上一轮结论）
+4. ✅ 重新读取核心代码事实核查：GameInputManager.cs（ProcessNextAction/ExecuteFarmAction/ExecutePlantSeed/TryEnqueueSeed/HasSeedRemaining）、FarmToolPreview.cs（RemoveExecutingPreview）
+5. ✅ 逐条事实核查 3 个核心声明
+6. ✅ 路径判断：🔴 路径 C（帧级竞态论点事实错误）
+7. ✅ 创建 `005锐评002审视报告.md`（6章完整报告）
+8. ✅ 主 memory 续42+续44记录同步
+
+**事实核查结果**：
+| 声明 | 结论 | 说明 |
+|------|------|------|
+| Bug 1/Bug 2 只是修 UI 视觉残留 | ❌ 事实错误 | queuePreviewPositions 是 b 层拦截数据源 |
+| PlantSeed 零耗时 | ✅ 正确 | 确实没有动画 |
+| 高频零耗时出队导致竞态 | ❌ 事实错误 | Unity 单线程同步串行 |
+| 种子剥离方向 | ✅ 方向正确 | 已知待办模块R |
+
+**独立判断**：
+- Bug 1 修复的是 b 层拦截数据残留（queuePreviewPositions），不是"UI 视觉残留"
+- 修复 Bug 1/Bug 2 确实能解决当前幽灵占位问题
+- 种子剥离方向正确，但紧迫性基于错误的竞态论证被夸大
+- 两条路都能走通：A 先修 Bug（几行代码）/ B 直接模块R（多文件重构）
+
+**新建文件**：
+| 文件 | 说明 |
+|------|------|
+| `005锐评002审视报告.md` | 锐评事实核查 + 独立客观分析 + 方案对比（6章） |
+
+**修改文件**：
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `memory.md`（主） | 追加 | 续42+续44记录同步 |
+| `memory.md`（子） | 追加 | 续44记录 |
+
+**状态**：审视报告 ✅ 完成，待用户审核决策
+
+
+---
+
+### 会话 2 续 45 - 2026-02-25（005锐评003 审视 — 被压缩中断）
+
+**用户需求**：
+> 审核 005锐评003.md。用户说"我最开始也提出了种子种植不需要走这个该死的FIFO，但是你还是走到现在了，你彻底权衡一下利弊和是否需要这样做"。用户强调放置系统未来会壮大，要求从全局出发思考：如果本质上是错的就修复，如果不需要就保持现状。
+
+**005锐评003 核心内容**：
+- Gemini 正式认输竞态论点，承认 Kiro 的 Bug 1/Bug 2 分析完全正确
+- 但坚决选择选项 B（直接执行模块R），拒绝选项 A（先修 Bug）
+- 提供了具体执行指令：删除 PlantSeed 枚举、TryEnqueueSeed、种子预览，全面路由到 PlacementManager
+
+**完成任务**：
+1. ✅ 加载锐评处理规范（code-reaper-review.md）
+2. ✅ 读取 005锐评003.md 原文
+3. ✅ 读取 005锐评002审视报告.md（上一轮结论）
+4. ✅ 读取放置系统规范（placeable-items.md）
+5. ❌ 核心代码未读取（被压缩中断）
+6. ❌ 独立全局权衡分析未完成
+7. ❌ 审视报告未创建
+8. ❌ 未向用户输出任何分析结论
+
+**用户关键态度**：
+- 用户自己也认为种子不该走 FIFO（"我最开始也提出了"）
+- 但要求独立权衡，不是直接执行 Gemini 的指令
+- 强调"后续放置系统肯定会更加壮大"——暗示倾向种子走放置系统
+- "如果不需要的话我们就这样，如果本质上是错的就修复"——要求给出明确结论
+
+**状态**：被压缩中断，文档读取部分完成，分析和报告未开始
+
+---
+
+### 会话 2 续 46 - 2026-02-25（005锐评003 审视报告完成）
+
+**用户需求**：
+> 继承恢复续45。审核 005锐评003.md（Gemini 认输竞态论点但坚持选项B模块R），用户自己也认为种子不该走 FIFO，要求从全局出发彻底权衡利弊。
+
+**完成任务**：
+1. ✅ 继承恢复：读取快照（续45）、子 memory（续45）、交叉验证无异常
+2. ✅ 重新读取核心代码事实核查：GameInputManager（TryEnqueueSeed/ProcessNextAction/ExecuteFarmAction PlantSeed分支/TryPlantSeed/ExecutePlantSeed）、PlacementManager（EnterPlacementMode 种子拦截）、FarmToolPreview（UpdateSeedPreview/AddQueuePreview 种子分支）、HotbarSelectionService（路由逻辑）
+3. ✅ 种子在 FIFO 中的完整足迹梳理（14个触点）
+4. ✅ 全局权衡分析完成
+5. ✅ 路径判断：🟢 路径 A（方向完全正确，无事实错误）
+6. ✅ 创建 `005锐评003审视报告.md`（6章完整报告）
+7. ✅ 主 memory 续45补记 + 续46记录
+8. ✅ 子 memory 续46记录
+
+**事实核查结果**：
+- "种子没有动画，走 FIFO 是代码毒瘤"：✅ 正确 — PlantSeed 是唯一同步递归类型
+- "必须立刻剥离"：⚠️ 方向正确 — 建议先修 Bug 再剥离（但直接剥离也可行）
+
+**最终结论**：种子走 FIFO 队列本质上是错的。三个决策选项：
+- A（推荐）：先修 Bug 1/Bug 2（5行代码），再执行模块R
+- B（可行）：直接执行模块R
+- C（不推荐）：只修 Bug，模块R 保持待办
+
+**新建文件**：
+| 文件 | 说明 |
+|------|------|
+| `005锐评003审视报告.md` | 全局权衡分析 + 事实核查 + 决策选项（6章） |
+
+**状态**：审视报告 ✅ 完成，待用户决策
+
+---
+
+### 会话 2 续 47 - 2026-02-25（用户决策：选项A先修Bug — 被压缩中断）
+
+**用户需求**：
+> "先修复吧孩子，先修复最重要确实"——用户选择选项 A（先修 Bug 1/Bug 2，再执行模块R）
+
+**完成任务**：
+1. ✅ 用户决策确认：选项 A（先修 Bug 1/Bug 2）
+2. ✅ 重新读取 ProcessNextAction 代码确认 Bug 位置
+3. ❌ Bug 1 修复未执行（被压缩中断）
+4. ❌ Bug 2 修复未执行
+
+**Bug 1 位置**：ProcessNextAction 中 PlantSeed 二次验证 `!HasSeedRemaining()` 跳过时，只做了 `_queuedPositions.Remove` 但未清理 `FarmToolPreview` 的 `queuePreviewPositions` 和种子队列预览
+**Bug 2 位置**：ProcessNextAction 队列为空分支，只做了 `_queuedPositions.Clear()` 但未调用 `ClearAllQueuePreviews`
+
+**状态**：被压缩中断，修复未开始
+
+---
+
+### 会话 2 续 49 - 2026-02-25（用户撤回修复 + 要求彻底剖析 — 被压缩中断）
+
+**用户需求**：
+> 续48的 Bug 1/Bug 2 修复结果很差，不仅没修好反而更容易出 bug。用户撤回了修改。要求：
+> 1. 彻底看看毛病在哪，应该如何处理
+> 2. 耕地 ghost 预览对房子等不可耕种内容不再标红，判断出错了
+> 3. 只分析不修改代码
+
+**完成任务**：
+1. ✅ 重新读取核心代码（修改已撤回后的状态）：
+   - ProcessNextAction（完整实现，确认无续48修改）
+   - UpdateHoePreview（完整实现，canTill/hasObstacle/hasCrop/b层拦截逻辑）
+   - ClearAllQueuePreviews / RemoveQueuePreview（清理逻辑）
+   - ExecuteFarmAction（执行流程，种子直接递归 ProcessNextAction）
+   - OnFarmActionAnimationComplete（动画完成回调）
+   - ClearActionQueue（WASD 中断清理，模块H执行状态保护）
+   - TryEnqueueFarmTool（入队逻辑）
+   - CanTillAt（耕地判断：检查 groundTilemap 有无地面 tile）
+   - HasFarmingObstacle（障碍物检测：Tree/Rock/Building 标签）
+   - UpdatePreviews / UpdateFarmToolPreview（预览调用链）
+   - HandleMovement（WASD 中断逻辑）
+   - GetCurrentLayerIndex（固定返回 0）
+2. ❌ 分析结论未输出（被压缩中断）
+
+**代码事实记录**（供下轮恢复用）：
+- Bug 1/Bug 2 位置确认：ProcessNextAction 中种子跳过分支和队列为空分支确实缺少 FarmToolPreview 清理
+- 但用户说修复后"更容易出 bug"——需要分析为什么加了 RemoveQueuePreview/ClearAllQueuePreviews 反而更差
+- ghost 不标红问题：UpdateHoePreview 中 `hasObstacle = PlacementValidator.HasFarmingObstacle(cellCenter)` 检测 Tree/Rock/Building 标签，房子应该有 Building 标签。需要确认房子是否确实有 Building 标签，或者问题出在其他地方
+- CanTillAt 检查 groundTilemap 有无地面 tile，房子区域如果有地面 tile 则 canTill=true
+- isValid = !hasObstacle && (canTill || hasCrop)，如果 hasObstacle=false 且 canTill=true 则显示绿色
+
+**状态**：被压缩中断，分析未完成
+
+---
+
+### 会话 2 续 50 - 2026-02-25（005锐评004 审视报告 — 架构方向独立分析）
+
+**用户需求**：
+> 审核 005锐评004.md，严格审查代码并思考核心问题：种子彻底实现无动画的 FIFO 队列交互是可行还是不可行？彻底复刻耕地的 abc 三层困难还是彻底复刻放置系统困难？从当前架构分析哪个更合理，长远来看哪个更合理？需要架构师和执行者角度的彻底思考。
+
+**完成任务**：
+1. ✅ 加载锐评处理规范（code-reaper-review.md）
+2. ✅ 完整阅读锐评（005锐评004.md）
+3. ✅ 重新读取所有核心代码进行事实核查：
+   - FarmToolPreview.cs（UpdateHoePreview/UpdateSeedPreview/AddQueuePreview/RemoveExecutingPreview/ClearAllQueuePreviews/PromoteToExecutingPreview 完整实现）
+   - GameInputManager.cs（ProcessNextAction/ExecuteFarmAction/TryEnqueueSeed/ExecutePlantSeed 完整实现）
+   - PlacementValidator.cs（HasFarmingObstacle 完整实现 + FarmingObstacleTags 定义）
+   - PlacementManager.cs（EnterPlacementMode/ExecutePlacement 完整实现 + 完整签名）
+   - FarmTileManager.cs（CanTillAt 完整实现）
+   - FarmlandBorderManager.cs（GetPreviewTiles）
+4. ✅ 读取放置系统规范（placeable-items.md）
+5. ✅ 逐条事实核查 4 个声明
+6. ✅ 路径判断：🔴 路径 C（声明1竞态炸弹事实错误）
+7. ✅ 独立架构分析完成（三个核心问题逐一回答）
+8. ✅ 创建 `005锐评004审视报告.md`（7章完整报告）
+
+**事实核查结果**：
+| 声明 | 结论 | 说明 |
+|------|------|------|
+| 种子"同一帧竞态炸弹" | ❌ 事实错误 | b 层拦截防重复入队，SetCropData 同步更新，Unity 单线程无竞态 |
+| 房子不标红布尔逻辑盲区 | ✅ 完全正确 | canTill=true 跳过红方框分支 |
+| 种子必须从 FIFO 剥离 | ✅ 方向正确 | 架构错位，但论证应基于"无动画不需要串行"而非"竞态" |
+| `!canTill` 改为 `!isValid` | ✅ 方向正确 | 更精确做法是修改第一个 if 条件 |
+
+**架构分析结论**：
+- 种子走 FIFO 技术上可行但架构上不合理（唯一同步递归类型，两套预览系统，Bug 温床）
+- 复刻放置系统（中等难度）< 维护 FIFO 中种子的长期成本
+- 放置系统是种子的正确归宿（已有完整基础设施，树苗是成功案例）
+- 建议：步骤0修复房子不标红 + 步骤1修 Bug 1/Bug 2 + 步骤2执行模块R
+
+**新建文件**：
+| 文件 | 说明 |
+|------|------|
+| `005锐评004审视报告.md` | 锐评事实核查 + 架构方向独立分析 + 执行建议（7章） |
+
+**状态**：审视报告 ✅ 完成，待用户审核决策

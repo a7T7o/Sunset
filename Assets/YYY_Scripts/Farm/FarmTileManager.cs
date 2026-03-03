@@ -32,10 +32,30 @@ namespace FarmGame.Farm
         
         [Header("视觉管理器引用")]
         [SerializeField] private FarmVisualManager visualManager;
-        
+
+        [Header("耕地障碍物检测配置")]
+        [Tooltip("耕地障碍物检测半径（1.5 = 中心1格 + 周围8格半格）")]
+        [SerializeField] private float farmingObstacleCheckRadius = 1.5f;
+
+        [Tooltip("耕地障碍物标签（可多选）")]
+        [SerializeField] private string[] farmingObstacleTags = new string[] { "Tree", "Rock", "Building" };
+
+        [Tooltip("耕地白名单标签（这些物体不算障碍物，如稻草人、洒水器）")]
+        [SerializeField] private string[] farmingWhitelistTags = new string[0];
+
+        [Header("耕地地面检测配置")]
+        [Tooltip("是否检测周围8格地面（防止悬空耕地）")]
+        [SerializeField] private bool requireGroundAround = false;
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = false;
-        
+
+        // 耕地检测配置访问器（供 FarmingManagerNew 使用）
+        public static float FarmingObstacleCheckRadius => Instance != null ? Instance.farmingObstacleCheckRadius : 1.5f;
+        public static string[] FarmingObstacleTags => Instance != null ? Instance.farmingObstacleTags : new string[] { "Tree", "Rock", "Building" };
+        public static string[] FarmingWhitelistTags => Instance != null ? Instance.farmingWhitelistTags : new string[0];
+        public static bool RequireGroundAround => Instance != null ? Instance.requireGroundAround : false;
+
         #endregion
 
         #region 数据存储

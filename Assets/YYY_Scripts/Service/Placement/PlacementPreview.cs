@@ -49,6 +49,8 @@ public class PlacementPreview : MonoBehaviour
     private bool isLocked = false;
     private Vector3 lockedPosition;
     
+    // 🔴 补丁005续8回滚：hideCellVisuals 已删除，种子走标准放置系统流程（方框+实物）
+    
     #endregion
     
     #region 属性
@@ -184,6 +186,40 @@ public class PlacementPreview : MonoBehaviour
     public void Show(ItemData item)
     {
         Vector2Int gridSize = Vector2Int.one;
+        
+        // 🔴 补丁005 B.3.1：种子没有 placementPrefab，使用 cropPrefab 第一阶段 sprite
+        // 🔴 补丁005续8回滚：种子走标准放置系统流程（方框+实物），和箱子/树苗一致
+        if (item is SeedData seedData)
+        {
+            // 种子固定 1x1 格子，走标准 Show 流程（保留方框）
+            Show(item, gridSize);
+            
+            // 覆盖 sprite：从 cropPrefab 获取第一阶段 sprite
+            if (seedData.cropPrefab != null)
+            {
+                var cropController = seedData.cropPrefab.GetComponentInChildren<FarmGame.Farm.CropController>();
+                if (cropController != null)
+                {
+                    var firstSprite = cropController.GetFirstStageSprite();
+                    if (firstSprite != null && itemPreviewRenderer != null)
+                    {
+                        itemPreviewRenderer.sprite = firstSprite;
+                        
+                        // 底部对齐偏移（复用 AlignSpriteBottom 模式）
+                        Bounds spriteBounds = firstSprite.bounds;
+                        float spriteBottomOffset = spriteBounds.min.y;
+                        Vector3 localPos = itemPreviewRenderer.transform.localPosition;
+                        localPos.y = -spriteBottomOffset;
+                        itemPreviewRenderer.transform.localPosition = localPos;
+                        
+                        Color previewColor = Color.white;
+                        previewColor.a = itemPreviewAlpha;
+                        itemPreviewRenderer.color = previewColor;
+                    }
+                }
+            }
+            return;
+        }
         
         if (item.placementPrefab != null)
         {
@@ -456,6 +492,7 @@ public class PlacementPreview : MonoBehaviour
         {
             gridCells[i].Initialize(cellIndices[i], cellCenters[i]);
         }
+        
     }
     
     /// <summary>

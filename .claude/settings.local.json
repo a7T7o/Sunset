@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(\".kiro/specs/农田系统/2026.03.01/审视报告001.md\":*)"
+    ]
+  }
+}

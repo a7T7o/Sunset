@@ -63,6 +63,9 @@ namespace FarmGame.Data
         {
             base.OnValidate();
 
+            // 🔴 补丁005 B.1.1：种子标记为可放置，走放置系统
+            isPlaceable = true;
+
             // 验证种子ID范围（1000-1099）
             if (itemID < 1000 || itemID >= 1100)
             {
