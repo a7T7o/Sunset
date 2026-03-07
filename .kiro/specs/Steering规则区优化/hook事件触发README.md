@@ -63,7 +63,7 @@ Kiro 支持 8 种事件类型，分为三大类：
 
 #### 触发条件
 - 用户在 IDE 中创建新文件时触发
-- 智能体通过工具（如 fsWrite）创建文件时也会触发
+- 智能体通过工具（如 Write）创建文件时也会触发
 - 必须配置 `patterns` 指定监听哪些文件
 
 #### 配置参数
@@ -169,7 +169,7 @@ Kiro 支持 8 种事件类型，分为三大类：
   },
   "then": {
     "type": "askAgent",
-    "prompt": "用 getDiagnostics 检查刚保存的文件是否有编译错误。如果有错误，简要列出；如果没有，回复「编译正常」。不做任何代码修改。"
+    "prompt": "保存 C# 文件后：用 mcp__mcp-unity__recompile_scripts 触发脚本重编译，然后用 mcp__mcp-unity__get_console_logs（logType=error）读取编译错误。如果有错误，简要列出；如果没有，回复「编译正常」。不做任何代码修改。"
   }
 }
 ```
@@ -241,7 +241,7 @@ Kiro 支持 8 种事件类型，分为三大类：
   },
   "then": {
     "type": "askAgent",
-    "prompt": "一个C#脚本被删除了。用 grepSearch 搜索项目中是否还有其他文件引用了这个被删除的类名。如果有引用，列出受影响的文件；如果没有，回复「无残留引用」。"
+    "prompt": "一个C#脚本被删除了。用 Grep 搜索项目中是否还有其他文件引用了这个被删除的类名。如果有引用，列出受影响的文件；如果没有，回复「无残留引用」。"
   }
 }
 ```
@@ -319,7 +319,7 @@ Kiro 支持 8 种事件类型，分为三大类：
   },
   "then": {
     "type": "askAgent",
-    "prompt": "分析用户消息，如涉及以下领域且规则未加载，用 readFile 静默加载：层级→layers.md | UI→ui.md | SO→so-design.md ... 完成后立即回到用户的实际请求。"
+    "prompt": "分析用户消息，如涉及以下领域且规则未加载，用 Read 静默加载：层级→layers.md | UI→ui.md | SO→so-design.md ... 完成后立即回到用户的实际请求。"
   }
 }
 ```
@@ -448,11 +448,11 @@ Kiro 支持 8 种事件类型，分为三大类：
 
 | 类别 | 包含的工具 | 说明 |
 |------|-----------|------|
-| 读取类（`read`） | readFile、readCode、readMultipleFiles、grepSearch、fileSearch、listDirectory、getDiagnostics | 文件读取相关操作 |
-| 写入类（`write`） | fsWrite、fsAppend、strReplace、editCode、deleteFile、semanticRename、smartRelocate | 文件写入相关操作 |
-| 终端类（`shell`） | executePwsh、controlPwshProcess | 终端命令执行 |
-| 网络类（`web`） | remote_web_search、webFetch | 网络访问 |
-| 规格类（`spec`） | taskStatus、updatePBTStatus、prework | 规格文档相关操作 |
+| 读取类（`read`） | Read、Grep、Glob、ReadMcpResourceTool | 文件读取相关操作 |
+| 写入类（`write`） | Write、Edit、NotebookEdit | 文件写入相关操作 |
+| 终端类（`shell`） | Bash | 终端命令执行 |
+| 网络类（`web`） | WebSearch、WebFetch | 网络访问 |
+| 规格类（`spec`） | TaskList、TaskGet、TaskCreate、TaskUpdate | 任务列表相关操作 |
 | 全部（`*`） | 所有工具 | 通配符，匹配一切 |
 
 正则匹配（用于 MCP 工具）：
@@ -667,7 +667,7 @@ Kiro 支持 8 种事件类型，分为三大类：
   },
   "then": {
     "type": "askAgent",
-    "prompt": "用 grepSearch 搜索项目中所有 TODO 和 FIXME 注释（在 **/*.cs 文件中）。按文件分组列出，每条注释附上行号。如果超过20条，只列出最重要的20条。"
+    "prompt": "用 Grep 搜索项目中所有 TODO 和 FIXME 注释（在 **/*.cs 文件中）。按文件分组列出，每条注释附上行号。如果超过20条，只列出最重要的20条。"
   }
 }
 ```
@@ -700,7 +700,7 @@ Hook 的提示词约束力在 Kiro 的规则体系中处于第 4 层（最弱）
 |------|------|--------|--------|
 | 1（最强） | steering 规则（始终加载模式） | 每轮系统注入 | 永久 |
 | 2 | steering 规则（手动加载模式） | 用户 # 引用时注入 | 当次对话 |
-| 3 | 通过 readFile 加载的内容 | 留在上下文中 | 直到上下文溢出 |
+| 3 | 通过 Read 加载的内容 | 留在上下文中 | 直到上下文溢出 |
 | 4（最弱） | Hook 询问智能体的提示词 | 注入一次 | 容易被"淹没" |
 
 实际影响：

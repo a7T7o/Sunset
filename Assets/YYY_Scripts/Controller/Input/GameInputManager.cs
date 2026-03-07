@@ -58,6 +58,40 @@ public class GameInputManager : MonoBehaviour
     private GameObject uiRootCache;
     private bool packageTabsInitialized = false;
 
+    #region 阶段1：对话输入锁（最小接入）
+    private bool _inputEnabled = true;
+
+    public void SetInputEnabled(bool enabled)
+    {
+        _inputEnabled = enabled;
+        if (!enabled)
+        {
+            if (playerMovement != null) playerMovement.SetMovementInput(Vector2.zero, false);
+        }
+    }
+
+    private void OnEnable()
+    {
+        Sunset.Events.EventBus.Subscribe<Sunset.Events.DialogueStartEvent>(OnDialogueStart, owner: this);
+        Sunset.Events.EventBus.Subscribe<Sunset.Events.DialogueEndEvent>(OnDialogueEnd, owner: this);
+    }
+
+    private void OnDisable()
+    {
+        Sunset.Events.EventBus.UnsubscribeAll(this);
+    }
+
+    private void OnDialogueStart(Sunset.Events.DialogueStartEvent _)
+    {
+        SetInputEnabled(false);
+    }
+
+    private void OnDialogueEnd(Sunset.Events.DialogueEndEvent _)
+    {
+        SetInputEnabled(true);
+    }
+    #endregion
+
     private static GameInputManager s_instance;
     /// <summary>公开单例访问（供 PlayerInteraction 回调使用）</summary>
     public static GameInputManager Instance => s_instance;
@@ -137,7 +171,7 @@ public class GameInputManager : MonoBehaviour
     /// true = 允许农田操作和放置操作
     /// false = 只允许常规工具打击（除草、打怪、砍树）
     /// </summary>
-    public bool IsPlacementMode { get; private set; } = true;  // 默认开启
+    public bool IsPlacementMode { get; private set; } = false;  // 默认关闭
 
     void Awake()
     {
@@ -201,12 +235,13 @@ public class GameInputManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.V))
         {
             IsPlacementMode = !IsPlacementMode;
-            
-            // 退出放置模式时，清空所有预览
+
             if (!IsPlacementMode)
             {
-                HideAllPreviews();
+                HideFarmToolPreview();
             }
+
+            SyncPlaceableModeWithCurrentSelection();
         }
         
         // 🔥 9.0.4 修复：UpdatePreviews 必须在第一行，确保 WYSIWYG（所见即所得）
@@ -324,12 +359,26 @@ public class GameInputManager : MonoBehaviour
             {
                 case ToolType.Hoe:
                     HidePlacementPreview();
-                    UpdateFarmToolPreview(alignedPos, true);
+                    if (IsPlacementMode)
+                    {
+                        UpdateFarmToolPreview(alignedPos, true);
+                    }
+                    else
+                    {
+                        HideFarmToolPreview();
+                    }
                     return;
-                    
+
                 case ToolType.WateringCan:
                     HidePlacementPreview();
-                    UpdateFarmToolPreview(alignedPos, false);
+                    if (IsPlacementMode)
+                    {
+                        UpdateFarmToolPreview(alignedPos, false);
+                    }
+                    else
+                    {
+                        HideFarmToolPreview();
+                    }
                     return;
                     
                 default:
@@ -428,6 +477,48 @@ public class GameInputManager : MonoBehaviour
         // 这里只是占位，实际隐藏逻辑在 PlacementManager 中
     }
 
+    private void SyncPlaceableModeWithCurrentSelection()
+    {
+        var placementManager = PlacementManager.Instance;
+        bool placementActive = placementManager != null && placementManager.IsPlacementMode;
+
+        if (inventory == null || database == null || hotbarSelection == null)
+        {
+            if (placementActive)
+            {
+                placementManager.ExitPlacementMode();
+            }
+            return;
+        }
+
+        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(idx);
+        if (slot.IsEmpty)
+        {
+            if (placementActive)
+            {
+                placementManager.ExitPlacementMode();
+            }
+            return;
+        }
+
+        var itemData = database.GetItemByID(slot.itemId);
+        if (itemData == null || !itemData.isPlaceable || !IsPlacementMode)
+        {
+            if (placementActive)
+            {
+                placementManager.ExitPlacementMode();
+            }
+            return;
+        }
+
+        if (placementManager != null)
+        {
+            placementManager.EnterPlacementMode(itemData, slot.quality);
+            placementManager.RefreshCurrentPreview();
+        }
+    }
+
     void HandleRunToggleWhileNav()
     {
         // ✅ Shift 逻辑已由 SprintStateManager 统一管理，这里不需要处理
@@ -436,6 +527,13 @@ public class GameInputManager : MonoBehaviour
 
     void HandleMovement()
     {
+        // 对话/演出输入锁
+        if (!_inputEnabled)
+        {
+            if (playerMovement != null) playerMovement.SetMovementInput(Vector2.zero, false);
+            return;
+        }
+
         // 背包或箱子UI打开时禁用移动输入
         bool uiOpen = IsAnyPanelOpen();
         if (uiOpen)
@@ -464,9 +562,7 @@ public class GameInputManager : MonoBehaviour
         {
             // 🔴 V6 模块Q（CP-Q1/Q2）：绝对锁定原则
             bool wasExecuting = _isExecutingFarming;
-            // ===== 10.2.0：WASD 退出放置模式 =====
-            IsPlacementMode = false;
-            HideAllPreviews();
+            HideFarmToolPreview();
             ClearActionQueue();  // 清空等待队列（模块H已保护执行状态）
 
             if (!wasExecuting)
@@ -656,12 +752,15 @@ public class GameInputManager : MonoBehaviour
             // 🔥 9.0.5：无面板打开时，ESC 中断导航
             // 🔥 10.1.1补丁002：ESC 清空操作队列 + 取消导航（CP-3）
             // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
-            // ===== 10.2.0：ESC 退出放置模式 =====
-            IsPlacementMode = false;
-            HideAllPreviews();
+            HideFarmToolPreview();
             ClearActionQueue();
             CancelFarmingNavigation();
             if (_farmNavState == FarmNavState.Navigating || _farmNavState == FarmNavState.Locked)
+            {
+                return;
+            }
+
+            if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
             {
                 return;
             }
@@ -731,10 +830,13 @@ public class GameInputManager : MonoBehaviour
 
     void HandleUseCurrentTool()
     {
+        // 对话/演出输入锁
+        if (!_inputEnabled) return;
+
         // 任何面板打开时禁用工具使用
         bool uiOpen = IsAnyPanelOpen();
         if (uiOpen) return;
-        
+
         // 🔥 10.1.1补丁002：执行保护 — 执行中/动画中的点击走 FIFO 入队（替代旧 CacheFarmInput）
         // V1 漏洞修补：保护分支1（_isExecutingFarming）+ 保护分支2（isPerformingAction）合并
         if (_isExecutingFarming || (playerInteraction != null && playerInteraction.IsPerformingAction()))
@@ -746,33 +848,29 @@ public class GameInputManager : MonoBehaviour
             }
             return; // 无论是否成功入队，都 return（不穿透到下面的正常流程）
         }
-        
+
         // 改为 GetMouseButton 支持长按连续使用
         bool isFirstPress = Input.GetMouseButtonDown(0);
-        
+
         if (!isFirstPress) return;
-        
+
         if (EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
-        
+
         // 🔴 补丁003 模块F（CP-F1）：导航中/执行中的左键点击 → 统一入队
         if (_farmNavState == FarmNavState.Navigating || _farmNavState == FarmNavState.Locked)
         {
             TryEnqueueFromCurrentInput();
             return;
         }
-        
+
         // ★ 检查是否处于放置模式
         if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
         {
             PlacementManager.Instance.OnLeftClick();
             return;
         }
-        
+
         if (inventory == null || database == null || hotbarSelection == null) return;
-        
-        // 🔥 10.1.1补丁002 CP-5：收获检测（最高优先级）— 在所有工具分发之前
-        if (TryDetectAndEnqueueHarvest())
-            return;
 
         int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
         var slot = inventory.GetSlot(idx);
@@ -781,16 +879,36 @@ public class GameInputManager : MonoBehaviour
         var itemData = database.GetItemByID(slot.itemId);
         if (itemData == null) return;
 
+        // 🔥 10.1.1补丁002 CP-5：收获检测（最高优先级）— 在所有工具分发之前
+        if (TryDetectAndEnqueueHarvest())
+            return;
+
         if (itemData is ToolData tool)
         {
-            // 🔥 10.1.1补丁002：农田工具（锄头/水壶）走 FIFO 入队
-            // CP-9：预览无效时不入队（TryEnqueueFarmTool 内部检查）
-            if (tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan)
+            if (tool.toolType == ToolType.Hoe)
             {
-                TryEnqueueFarmTool(tool);
-                return; // 始终 return，绝不穿透
+                if (IsPlacementMode)
+                {
+                    TryEnqueueFarmTool(tool);
+                    return;
+                }
+
+                if (TryEnqueueHoeRemoveCropFromMouse())
+                    return;
+
+                playerInteraction?.RequestAction(ResolveAction(tool.toolType));
+                return;
             }
-            
+
+            if (tool.toolType == ToolType.WateringCan)
+            {
+                if (IsPlacementMode)
+                {
+                    TryEnqueueFarmTool(tool);
+                }
+                return;
+            }
+
             // 其他工具正常处理（CP-19：镐子/斧头/武器保持原有逻辑不变）
             var toolAction = ResolveAction(tool.toolType);
             playerInteraction?.RequestAction(toolAction);
@@ -811,7 +929,12 @@ public class GameInputManager : MonoBehaviour
     void HandleRightClickAutoNav()
     {
         if (!Input.GetMouseButtonDown(1)) return;
-        
+
+        if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
+        {
+            return;
+        }
+
         // 🔥 Bug F 修复：右键导航立即重置农田预览锁定
         if (_farmNavState == FarmNavState.Locked || _farmNavState == FarmNavState.Navigating)
         {
@@ -1863,17 +1986,25 @@ public class GameInputManager : MonoBehaviour
     public bool IsHoldingFarmTool()
     {
         if (inventory == null || database == null || hotbarSelection == null) return false;
-        
+
         int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
         var slot = inventory.GetSlot(idx);
         if (slot.IsEmpty) return false;
-        
+
         var itemData = database.GetItemByID(slot.itemId);
         if (itemData is ToolData tool)
         {
-            return tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan;
+            if (tool.toolType == ToolType.Hoe)
+            {
+                return IsPlacementMode;
+            }
+
+            if (tool.toolType == ToolType.WateringCan)
+            {
+                return IsPlacementMode;
+            }
         }
-        return itemData is SeedData;
+        return false;
     }
     
     /// <summary>
@@ -2427,6 +2558,45 @@ public class GameInputManager : MonoBehaviour
         return false;
     }
 
+    private bool TryEnqueueHoeRemoveCropFromMouse()
+    {
+        Vector3 mouseWorldPos = GetMouseWorldPosition();
+        var hits = Physics2D.OverlapPointAll(mouseWorldPos);
+        if (hits == null || hits.Length == 0) return false;
+
+        var farmTileManager = FarmTileManager.Instance;
+        if (farmTileManager == null) return false;
+
+        Vector2 playerCenter = GetPlayerCenter();
+        int playerLayer = farmTileManager.GetCurrentLayerIndex(playerCenter);
+
+        foreach (var hit in hits)
+        {
+            if (playerMovement != null &&
+                (hit.transform == playerMovement.transform || hit.transform.IsChildOf(playerMovement.transform)))
+                continue;
+
+            var crop = hit.GetComponent<CropController>();
+            if (crop == null)
+                crop = hit.GetComponentInParent<CropController>();
+
+            if (crop == null) continue;
+            if (crop.LayerIndex != playerLayer) continue;
+
+            EnqueueAction(new FarmActionRequest
+            {
+                type = FarmActionType.RemoveCrop,
+                cellPos = crop.CellPos,
+                layerIndex = crop.LayerIndex,
+                worldPos = crop.GetCellCenterPosition(),
+                targetCrop = crop
+            });
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// 农田工具入队方法：检查预览有效性后，将锄头/浇水操作入队。
     /// CP-9：预览无效时不入队。
@@ -2485,9 +2655,6 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     public void TryEnqueueFromCurrentInput()
     {
-        // CP-5：先尝试收获（最高优先级）
-        if (TryDetectAndEnqueueHarvest()) return;
-
         // 再尝试工具/种子
         if (inventory == null || database == null || hotbarSelection == null) return;
         int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
@@ -2495,8 +2662,32 @@ public class GameInputManager : MonoBehaviour
         if (slot.IsEmpty) return;
         var itemData = database.GetItemByID(slot.itemId);
 
-        if (itemData is ToolData tool && (tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan))
-            TryEnqueueFarmTool(tool);
+        // CP-5：先尝试收获（最高优先级）
+        if (TryDetectAndEnqueueHarvest()) return;
+
+        if (itemData is ToolData tool)
+        {
+            if (tool.toolType == ToolType.Hoe)
+            {
+                if (IsPlacementMode)
+                {
+                    TryEnqueueFarmTool(tool);
+                }
+                else
+                {
+                    TryEnqueueHoeRemoveCropFromMouse();
+                }
+                return;
+            }
+
+            if (tool.toolType == ToolType.WateringCan)
+            {
+                if (IsPlacementMode)
+                {
+                    TryEnqueueFarmTool(tool);
+                }
+            }
+        }
         // 🔴 补丁005：种子不再走 FIFO 入队（已迁移到放置系统）
     }
     

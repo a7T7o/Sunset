@@ -59,7 +59,7 @@
 |------|------|------|
 | 1（最强） | steering `inclusion: always` | 每轮系统注入（rules.md、000-context-recovery.md） |
 | 2 | steering `inclusion: manual` | 用户 # 引用时注入 |
-| 3 | readFile 加载 | 对话期间留在上下文 |
+| 3 | Read 加载 | 对话期间留在上下文 |
 | 4（较弱） | Hook askAgent prompt | 注入一次，受上下文影响 |
 
 这不意味着第 4 层"不可用"，只是在极端场景下约束力较弱。日常使用中第 4 层完全够用。

@@ -1,7 +1,28 @@
 {
   "permissions": {
+    "defaultMode": "acceptEdits",
     "allow": [
-      "Bash(\".kiro/specs/农田系统/2026.03.01/审视报告001.md\":*)"
+      "Bash(*)",
+      "Read(*)",
+      "Edit(*)",
+      "Write(*)",
+      "Glob(*)",
+      "Grep(*)",
+      "WebFetch(*)",
+      "WebSearch",
+      "ListMcpResourcesTool(*)",
+      "ReadMcpResourceTool(*)",
+      "TaskList",
+      "TaskGet",
+      "TaskCreate",
+      "TaskUpdate",
+      "TaskOutput(*)",
+      "TaskStop(*)",
+      "ExitPlanMode",
+      "AskUserQuestion",
+      "NotebookEdit(*)",
+      "EnterWorktree(*)",
+      "mcp__mcp-unity__*"
     ]
   }
 }

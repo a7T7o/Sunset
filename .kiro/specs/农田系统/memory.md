@@ -156,3 +156,9 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-03：10.1.6补丁006 - 双线并行重构代码完成
 战线一：PlacementValidator AABB距离检测修复。战线二：V键状态机隔离（GameInputManager + FarmToolPreview）。
 文件：PlacementValidator.cs、GameInputManager.cs、FarmToolPreview.cs
+
+
+## 2026-03-06：10.2.0改进001 - V 键统一授权语义纠正与收尾修复
+修正此前把 `V` 误收缩成“只控制农田工具模式”的错误理解，正式恢复为“统一约束农田工具链 + placeable 放置链”的总开关；已将纠正后的需求和设计记录到 `10.2.0改进001/纠正001.md`。代码侧完成 `GameInputManager.cs` 与 `HotbarSelectionService.cs` 的最小兼容修复：当前手持 placeable 时按 `V` 可立即进入/退出有效放置态，ESC/右键不再误伤 placeable 状态机；Unity 重新编译通过（0 error，2 个既有 warning）。
+文件：10.2.0改进001/纠正001.md、Assets/YYY_Scripts/Controller/Input/GameInputManager.cs、Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs
+

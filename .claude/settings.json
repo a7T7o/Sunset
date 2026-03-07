@@ -1,4 +1,10 @@
-{
+{   
+    "permissions": {
+      "defaultMode": "acceptEdits",
+      "allow": [
+        "Bash(*)" 
+      ]
+    },
     "hooks": {
       "UserPromptSubmit": [
         {
@@ -12,7 +18,7 @@
       ],
       "PreToolUse": [
         {
-          "matcher": "Bash(rm*|git reset --hard*|git push -f*)",
+          "matcher": "Bash",
           "hooks": [
             {
               "type": "command",

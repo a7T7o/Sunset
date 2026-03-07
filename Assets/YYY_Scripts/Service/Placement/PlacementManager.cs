@@ -197,16 +197,6 @@ public class PlacementManager : MonoBehaviour
     
     private void Update()
     {
-        // ===== 10.2.0 V键拦截：非放置模式时退出 =====
-        if (GameInputManager.Instance != null && !GameInputManager.Instance.IsPlacementMode)
-        {
-            if (currentState != PlacementState.Idle)
-            {
-                ExitPlacementMode();
-            }
-            return;
-        }
-
         if (currentState == PlacementState.Idle) return;
         
         // 检查背包是否打开 - 如果打开则暂停预览更新
@@ -527,7 +517,35 @@ public class PlacementManager : MonoBehaviour
             HandleInterrupt();
         }
     }
-    
+
+    public void RefreshCurrentPreview()
+    {
+        if (currentState == PlacementState.Idle || currentPlacementItem == null || placementPreview == null)
+            return;
+
+        if (!placementPreview.gameObject.activeSelf)
+        {
+            placementPreview.gameObject.SetActive(true);
+        }
+
+        if (currentState == PlacementState.Preview)
+        {
+            UpdatePreview();
+            return;
+        }
+
+        if (playerTransform != null)
+        {
+            string sortingLayerName = PlacementLayerDetector.GetPlayerSortingLayer(playerTransform);
+            placementPreview.UpdateSortingLayer(sortingLayerName);
+        }
+
+        if (currentCellStates != null)
+        {
+            placementPreview.UpdateCellStates(currentCellStates);
+        }
+    }
+
     #endregion
     
     #region 状态机

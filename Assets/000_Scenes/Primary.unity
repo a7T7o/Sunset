@@ -77088,6 +77088,13 @@ MonoBehaviour:
     propsContainer: {fileID: 173791655}
   hoursUntilPuddleDry: 2
   visualManager: {fileID: 0}
+  farmingObstacleCheckRadius: 1.5
+  farmingObstacleTags:
+  - Tree
+  - Rock
+  - Building
+  farmingWhitelistTags: []
+  requireGroundAround: 0
   showDebugInfo: 1
 --- !u!1 &1704871044
 GameObject:
@@ -77139,8 +77146,6 @@ MonoBehaviour:
   wateringColor: {r: 0, g: 0.5, b: 1, a: 0.5}
   previewAlpha: 0.5
   showDebugInfo: 0
-  seedValidColor: {r: 0, g: 0.8, b: 0.2, a: 0.6}
-  seedInvalidColor: {r: 1, g: 0.2, b: 0, a: 0.6}
   overlayValidColor: {r: 0, g: 1, b: 0, a: 0.3}
   overlayInvalidColor: {r: 1, g: 0, b: 0, a: 0.3}
   queuePreviewAlpha: 0.5
@@ -79850,7 +79855,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2848996238861523530, guid: f1e7ca51a62c98b49a8cd4f48623a798, type: 3}
       propertyPath: m_IsOn
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 2997727173835069239, guid: f1e7ca51a62c98b49a8cd4f48623a798, type: 3}
       propertyPath: m_AnchorMax.y

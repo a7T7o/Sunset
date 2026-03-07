@@ -72,8 +72,26 @@
 - 用户已自行复制 `.kiro/steering` 和 `.kiro/hooks` 到 `.cursor/` 目录
 - 目标是让 Cursor 也能像 Kiro 一样自动执行规则和工作流，但通过 Cursor 的方式（Rules 配置、手动触发）
 
-**遗留问题**:
-- [ ] 确认用户复制的具体文件范围
-- [ ] 制定详细的规则适配测试方案
-- [ ] 设计 Memory 手动更新的具体流程
+
+### 会话 3 - 2026-03-06
+
+**用户需求**：
+> 继续推进“全库范围工具术语一致性清扫”，重点修复 `.cursor/rules` 中残留的旧工具术语（`readFile/fsWrite/fsAppend` 等），避免规则文本继续误导不可执行的工具调用。
+
+**完成任务**：
+- 修正 `.cursor/rules` 文档中的旧工具名：`readFile/fsWrite/fsAppend` → `Read/Edit/Write/Bash` 对齐为 Claude Code 可执行语义。
+- 将 `rules.md` 的“文档写入规范”改写为 Claude Code 工具模型（新建/修改/大段追加的分块策略）。
+- 复扫确认：`.cursor/rules/**/*.md` 不再出现 `readFile/fsWrite/fsAppend/read_file` 等残留。
+
+**修改文件**：
+- `.cursor/rules/README.md` - 修改：`readFile` → `Read`（智能加载机制表述对齐）。
+- `.cursor/rules/rules.md` - 修改：文档写入规范从 `fsWrite/fsAppend` 迁移为 `Write/Edit/Bash`。
+- `.cursor/rules/000-context-recovery.md` - 修改：`readFile` → `Read`（继承恢复规则表述对齐）。
+- `.cursor/rules/maintenance-guidelines.md` - 修改：`readFile` → `Read`（keywords/智能加载说明对齐）。
+
+**解决方案**：
+- 统一将“规则文本中的工具术语”与 Claude Code 的实际工具集合绑定，避免文档继续产出不可执行指令。
+
+**遗留问题**：
+- [ ] 扩展同类清扫范围：对 `.kiro/specs/**`（尤其是历史 Hook/迁移文档）中残留的旧工具术语做分层治理（必要处标注“历史语境”，其余对齐 Claude Code 工具名）。
 

@@ -22,7 +22,7 @@ lastUpdated: 2026-02-12
 ### 智能加载机制（Phase 4.0/4.1 升级）
 
 P1/P2 规则通过 `smart-assistant.kiro.hook`（promptSubmit Hook）实现智能加载：
-- AI 分析用户输入中的关键词，自动用 `readFile` 加载匹配的规则文件
+- AI 分析用户输入中的关键词，自动用 `Read` 加载匹配的规则文件
 - 无需用户手动输入 `#rulename`，AI 静默完成
 - 用户仍可通过 `#rulename` 手动加载（两种方式并存）
 - 默认加载仅 2 个文件（rules.md + 000-context-recovery.md），其余按需加载

@@ -1,212 +1,222 @@
-# Spring Day 1 Implementation - 工作记录
+# Spring Day 1 Implementation - 工作记录（摘要续卷）
 
-## 会话1：需求文档审核与改进
+## 模块概述
+- 模块目标：落地 Spring Day1 的剧情基础设施，并以工作区分阶段推进。
+- 当前采用：按 `000-深入交流` → `001-全面勘察` → `002-初步搭建` 逐阶段审查与实现。
 
-**时间**：2026-03-XX
-**目标**：审核并改进春1日剧情实现需求文档
+## 当前状态
+- **完成度**：文档阶段进行中
+- **最后更新**：2026-03-04
+- **状态**：阶段1微设计已产出，进入锐评核查
 
-### 审核发现的问题
+## 前情提要（来自 memory_1.md）
+- 已完成会话1~会话6的历史记录沉淀（需求/设计/任务拆解、阶段化方案、微设计草案）。
+- 关键历史状态：`requirements.md`、`design.md`（导出为 `OUT_design.md`）、`tasks.md`（导出为 `OUT_tasks.md`）已形成并多轮评审。
+- 最近一条历史记录：会话6已创建 `002-初步搭建/阶段1_微设计与任务.md`，等待进一步审查。
 
-1. **缺少非功能性需求** - 性能、可维护性、可扩展性未明确
-2. **缺少依赖关系说明** - 与现有系统（农田、精力、背包）的集成点不清晰
-3. **缺少数据结构设计** - 对话数据、事件数据的具体格式未定义
-4. **缺少错误处理** - 异常情况（如玩家跳过教学、卡住）的处理未说明
-5. **缺少测试策略** - 如何验证剧情流程的正确性未提及
+### 会话 7 - 2026-03-04
+**用户需求**：[读取 `002-初步搭建/迭代锐评001.md`，对涉及文档与代码做全面事实核查；按 `code-reaper-review.md` 判断是否生成锐评回应；若不需要则直接生成 diff；写入时先确认目录存在并采用少量多次写入策略。]
+**完成任务**：
+- 读取并核查：
+  - 锐评文件 `002-初步搭建/迭代锐评001.md`
+  - 规则文件 `.kiro/steering/code-reaper-review.md`
+  - 三件套/上下文文件：`requirements.md`、`memory.md`（并按阈值分卷）、`000-深入交流/需求拆分报告.md`、`001-全面勘察/现状评估报告.md`、`OUT_design.md`、`OUT_tasks.md`
+- 代码事实核查：
+  - 核验 `EventBus`/`IGameEvent`、`PlayerMovement`、`GameInputManager`、`IPersistentObject`、`PersistentObjectRegistry` 实际实现
+  - 核验 `PlayerController.cs` 实际存在（用于驳正锐评中的错误事实）
+- 路径判断：依据 `code-reaper-review.md` 规则，判定为 **路径 C**（存在 ❌ 事实错误）
+- 产出审视报告：生成 `002-初步搭建/迭代锐评001审视报告.md`
+- memory 分卷处理：原 `memory.md` 行数超阈值，归档为 `memory_1.md`，新建本摘要续卷 `memory.md`
 
-### 改进方向
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/迭代锐评001审视报告.md` - [新增]：路径C审视报告（含核查表、异议、代码证据、执行建议）
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory_1.md` - [归档]：由原 `memory.md` 重命名保留
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [新建]：摘要续卷并追加本会话
 
-1. 补充非功能性需求章节
-2. 明确系统集成点和依赖关系
-3. 定义核心数据结构
-4. 补充异常处理和边界情况
-5. 添加测试验收标准
+**解决方案**：[按锐评流程先做逐条事实核查；因锐评含“`PlayerController`不存在”这一错误声明，执行路径C，先生成审视报告并等待用户确认，再进入后续diff实施。]
+**遗留问题**：
+- [ ] 等待用户确认路径C审视报告是否通过
+- [ ] 用户确认后，基于审视结论输出并落地 `002` 工作区的修正 diff
 
-### 改进内容
+## 相关文件
+- `.../002-初步搭建/迭代锐评001.md`
+- `.../002-初步搭建/阶段1_微设计与任务.md`
+- `.../002-初步搭建/迭代锐评001审视报告.md`
+- `.../requirements.md`
+- `.../OUT_design.md`
+- `.../OUT_tasks.md`
+- `.../000-深入交流/需求拆分报告.md`
+- `.../001-全面勘察/现状评估报告.md`
+- `Assets/YYY_Scripts/Core/Events/EventBus.cs`
+- `Assets/YYY_Scripts/Core/Events/IGameEvent.cs`
+- `Assets/YYY_Scripts/Core/Events/GameEvents.cs`
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+- `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+- `Assets/YYY_Scripts/Controller/Player/PlayerController.cs`
+- `Assets/YYY_Scripts/Data/Core/IPersistentObject.cs`
 
-#### 新增章节
+### 会话 8 - 2026-03-04
+**用户需求**：[“迭代锐评002通过，开始执行”：先修 `002-初步搭建/阶段1_微设计与任务.md`，并按批复输出两个核心代码Diff方案（DialogueManager打字机协程 + 输入锁接入GameInputManager/PlayerMovement）。]
+**完成任务**：
+- 完成 `阶段1_微设计与任务.md` 关键章节重构，落地 5 条共识方向：
+  - 单资产 `DialogueSequenceSO + DialogueNode`
+  - 跨系统通信统一 `EventBus`
+  - 阶段1恢复 `StringBuilder + 协程` 打字机
+  - 路径统一 `Assets/YYY_Scripts` / `Assets/111_Data`
+  - 输入锁接入 `GameInputManager -> PlayerMovement`
+- 将 UI 示例从 Action 事件订阅改为 EventBus 订阅，文本组件统一 `TextMeshProUGUI`
+- 重写文件清单、测试验收、未来集成点、任务清单和完成标准，使其与锐评002要求一致
+- 读取并核查现有代码链路（`EventBus.cs`、`GameInputManager.cs`、`PlayerMovement.cs`）用于后续输出可审代码Diff
 
-1. **系统集成与依赖** - 明确与现有系统（时间、精力、农田、背包、交互）的集成点和依赖接口
-2. **核心数据结构** - 定义对话数据、事件数据、剧情阶段数据的具体格式
-3. **非功能性需求** - 补充性能、可维护性、可扩展性要求
-4. **异常处理与边界情况** - 定义5种异常场景的处理策略
-5. **测试验收标准** - 补充功能测试、集成测试、异常测试、性能测试
-6. **实现优先级** - 将需求分为P0/P1/P2三个优先级
-7. **技术风险与缓解措施** - 识别4个主要技术风险并提供缓解方案
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/阶段1_微设计与任务.md` - [修改]：按锐评002全量修正文档结构与实现方案
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：记录会话8执行内容与产出
 
-#### 关键改进点
+**解决方案**：[先文档收敛再代码评审：通过文档先统一架构与接口，再给出“最小可落地Diff方案”供最终审核，避免一次性生成全量代码导致偏航。]
+**遗留问题**：
+- [ ] 等待用户审核本轮文档修正与两个核心代码Diff方案
+- [ ] 用户确认后再生成实际代码文件与最小改动补丁
 
-- **集成点明确化**：列出每个现有系统的依赖接口和具体调用时机
-- **数据结构具体化**：提供完整的C#数据结构定义，可直接用于实现
-- **异常处理完善**：覆盖玩家跳过教学、卡住、晕倒、数据缺失、时间冲突等场景
-- **测试标准细化**：从功能、集成、异常、性能四个维度定义验收标准
-- **风险前置识别**：提前识别剧情复杂度、数据配置、时间控制、系统耦合等风险
+## 相关文件
+- `.../002-初步搭建/迭代锐评001.md`
+- `.../002-初步搭建/阶段1_微设计与任务.md`
+- `.../002-初步搭建/迭代锐评001审视报告.md`
+- `.../requirements.md`
+- `.../OUT_design.md`
+- `.../OUT_tasks.md`
+- `.../000-深入交流/需求拆分报告.md`
+- `.../001-全面勘察/现状评估报告.md`
+- `Assets/YYY_Scripts/Core/Events/EventBus.cs`
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+- `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
 
-### 修改文件
+### 会话 9 - 2026-03-04
+**用户需求**：[审核 `002-初步搭建/迭代锐评005.md`，判断是否符合并给出结论；同时确认“写文件是否需要 MCP”。]
+**完成任务**：
+- 读取并核查 `迭代锐评005.md` 的全部技术声明。
+- 对照真实实现验证 EventBus API：
+  - `owner` 参数存在（`EventBus.Subscribe<T>(..., owner = null)`）
+  - `UnsubscribeAll(object owner)` 存在
+- 对照 `OUT_design.md` 验证 `DialogueStartEvent` 空事件类、OnEnable/OnDisable 示例、TMP路线。
+- 依据 `code-reaper-review.md` 判定为路径C（存在事实错误）并生成审视报告。
 
-- `requirements.md` - 需求文档改进（已完成）
-  - 新增7个章节，约300行内容
-  - 文档从228行扩展到约530行
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/迭代锐评005审视报告.md` - [新增]：路径C审视报告（含核查表、异议、执行建议）
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：记录会话9核查与结论
 
----
+**解决方案**：[对锐评坚持“方向可采纳、事实须核验”原则：对 API 存在性错误进行驳正，同时保留可行工程改进建议。]
+**遗留问题**：
+- [ ] 等待用户确认 `迭代锐评005审视报告.md`
+- [ ] 用户确认后，按最终共识输出可落地的终版代码 Diff
 
-## 会话2：设计文档审核
+## 相关文件
+- `.../002-初步搭建/迭代锐评005.md`
+- `.../002-初步搭建/迭代锐评005审视报告.md`
+- `.../OUT_design.md`
+- `Assets/YYY_Scripts/Core/Events/EventBus.cs`
 
-**时间**：2026-03-XX
-**目标**：审核设计文档的完整性、正确性、可实现性
+### 会话 10 - 2026-03-04
+**用户需求**：[审核 `002-初步搭建/迭代锐评006.md`，按锐评流程给出路径结论并继续推进。]
+**完成任务**：
+- 读取并核查 `迭代锐评006.md` 的关键技术声明。
+- 对照 `EventBus.cs` 验证 `Subscribe(... owner = null)` 与 `UnsubscribeAll(object owner)` 实际存在。
+- 对照 `OUT_design.md` 验证 `DialogueStartEvent / DialogueEndEvent` 为空事件类定义，且 `StoryEvents` 基线未包含 `DialogueNodeChangedEvent`。
+- 依据 `.kiro/steering/code-reaper-review.md` 判定为路径B（核心方向正确，含执行层面的约束性建议）。
 
-### 审核维度
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：记录会话10核查过程与路径B结论
 
-1. **架构设计合理性** - 系统分层、职责划分、通信方式
-2. **接口设计完整性** - 公开接口、参数定义、返回值
-3. **数据模型完整性** - ScriptableObject 结构、字段定义
-4. **与现有系统集成** - 依赖接口、事件通信、兼容性
-5. **可实现性** - 技术可行性、复杂度评估
-6. **正确性属性** - 形式化验证点、覆盖率
+**解决方案**：[对锐评006采用“事实核查优先”策略：确认关键声明与代码/文档一致后，按路径B给出可执行注意事项，不生成路径C审视报告。]
+**遗留问题**：
+- [ ] 等待用户确认路径B结论后，决定是否进入代码落地阶段
 
-### 审核发现
+## 相关文件
+- `.../002-初步搭建/迭代锐评006.md`
+- `.../OUT_design.md`
+- `.../.kiro/steering/code-reaper-review.md`
+- `Assets/YYY_Scripts/Core/Events/EventBus.cs`
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
 
-#### ✅ 优点
+### 会话 11 - 2026-03-05
+**用户需求**：[路径B确认后，按阶段1微设计与锐评006定调，创建对话系统脚本并最小改动接入输入锁；先列出创建/修改清单再执行。]
+**完成任务**：
+- [记录] 阶段1代码落地资产清单（创建/修改）。
 
-1. **架构清晰** - 六层系统分工明确，Story_Manager 作为顶层控制器协调各子系统
-2. **数据驱动** - 所有剧情内容以 ScriptableObject 配置，符合 Unity 最佳实践
-3. **接口完整** - 每个系统都定义了清晰的公开接口和回调机制
-4. **正确性属性** - 21条形式化属性覆盖了核心需求，可用于测试验证
-5. **文件结构** - 目录组织清晰，代码和数据分离
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：记录会话11执行前资产清单
 
-#### ⚠️ 问题与风险
+**解决方案**：[按“新增为主 + 输入链路最小改动”执行；事件订阅使用 `owner:this` 与 `UnsubscribeAll(this)`，并将订阅生命周期锁定在 `OnEnable/OnDisable`。]
+**遗留问题**：
+- [ ] 等待完成物理创建/修改并做 Unity 脚本编译验证
 
-##### 1. 缺少错误处理设计
+**资产清单（将执行）**：
+- [新增] `Assets/YYY_Scripts/Story/Data/DialogueNode.cs`
+- [新增] `Assets/YYY_Scripts/Story/Data/DialogueSequenceSO.cs`
+- [新增] `Assets/YYY_Scripts/Story/Events/StoryEvents.cs`
+- [新增] `Assets/YYY_Scripts/Story/Managers/DialogueManager.cs`
+- [新增] `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+- [修改] `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`（订阅 DialogueStart/End → SetInputEnabled；在输入处理点加开关）
 
-**问题**：接口定义中没有说明异常情况的处理方式
+### 会话 12 - 2026-03-06
+**用户需求**：[审核 `002-初步搭建/迭代锐评009.md`，按锐评处理规范开始审核。]
+**完成任务**：
+- 读取并核查锐评009、`code-reaper-review.md`、`requirements.md`、`OUT_design.md`、工作区记忆以及 `DialogueManager.cs` / `DialogueNode.cs` / `DialogueUI.cs` / `StoryEvents.cs` 实际代码。
+- 确认乱码字段已存在，且 `DialogueManager` 当前确实仅把 `CurrentNode.text` 送入打字机，`garbledText` 尚未进入显示链路。
+- 确认锐评009对“问题存在”的定位正确，但其建议的三元表达式方案遗漏 `languageDecoded` 条件，不满足需求2与正式设计中的文本路由规则。
+- 按 `.kiro/steering/code-reaper-review.md` 判定为 **路径 C**，生成 `迭代锐评009审视报告.md` 并等待用户确认。
 
-**影响**：
-- 对话数据缺失时如何处理？
-- CG资源加载失败时如何降级？
-- 事件触发器配置错误时如何提示？
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/迭代锐评009审视报告.md` - [新增]：路径C审视报告（含事实核查表、异议与执行建议）。
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录本次子工作区核查过程与路径C结论。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步主工作区摘要记录。
 
-**建议**：补充错误处理章节，定义：
-- 数据校验机制（启动时检查引用完整性）
-- 降级策略（资源缺失时的占位显示）
-- 错误日志规范（统一的日志格式和级别）
+**解决方案**：[坚持“先核查问题是否存在，再核查补丁是否符合需求/设计”两步法；对锐评009采取“问题认可、方案驳正”的处理，不在用户确认前直接改代码。]
+**遗留问题**：
+- [ ] 等待用户确认 `002-初步搭建/迭代锐评009审视报告.md`
+- [ ] 用户若要求继续实现乱码显示链路，需要先决定是接受临时占位方案，还是等 `languageDecoded` 读取接口落地后按正式规则实现
 
-##### 2. 性能考虑不足
+### 会话 13 - 2026-03-06
+**用户需求**：[用户授权直接完成乱码补丁，并要求输出完整验收指南，同时通过 MCP 在 Unity 内落地当前阶段可安全执行的创建类操作。]
+**完成任务**：
+- 在 `DialogueManager.cs` 中新增 `IsLanguageDecoded` 临时状态存根，并将打字机文本路由调整为：仅当 `isGarbled=true` 且 `IsLanguageDecoded=false` 时显示 `garbledText`。
+- 读取 `rules.md`、`scene-modification-rule.md`、`coding-standards.md`、阶段1微设计和相关源码，确认本轮只做最小代码补丁，不擅自修改现有场景/Prefab 配置。
+- 尝试通过 Unity MCP 获取场景层级、重编译、控制台与测试信息；当前 MCP 与 Unity 连接存在 WebSocket/超时问题，只拿到了菜单项清单，未完成稳定验证闭环。
 
-**问题**：
-- 位置触发器每帧检测可能影响性能（如果触发器数量多）
-- 对话打字机效果的协程开销未评估
-- CG序列的资源加载策略未明确（预加载 vs 按需加载）
+**修改文件**：
+- `Assets/YYY_Scripts/Story/Managers/DialogueManager.cs` - [修改]：新增 `IsLanguageDecoded` 状态存根并接入乱码显示双条件路由。
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录子工作区补丁与 Unity MCP 现状。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步主工作区摘要记录。
 
-**建议**：补充性能优化章节：
-- 位置触发器使用空间分区（只检测玩家附近的触发器）
-- 对话打字机使用对象池复用 TextMeshPro 组件
-- CG资源在阶段切换时预加载，避免播放时卡顿
+**解决方案**：[采用“状态存根 + 最小补丁”先让阶段1具备可测试的乱码路由；Unity 侧遵守场景修改规则，在 MCP 不稳定且未充分审视现有配置前，不直接改生产场景，只汇报可安全继续的创建类操作与受阻原因。]
+**遗留问题**：
+- [ ] 需要等 Unity MCP 连接恢复稳定后，才能继续执行 `recompile_scripts / get_console_logs / run_tests` 验证闭环
+- [ ] 若要我继续在 Unity 内创建独立验证场景/对象，可以在 MCP 恢复后优先走“新建场景/新建对象”路径，避免污染现有生产场景
 
-##### 3. 存档系统集成缺失
+### 会话 14 - 2026-03-06
+**用户需求**：[继续通过 MCP 在 Unity 内落地当前阶段可安全执行的创建类操作，并补齐验证进度。]
+**完成任务**：
+- 在独立场景 `Assets/000_Scenes/DialogueValidation.unity` 中创建并命名对话验证骨架：`DialogueCanvas`、`DialoguePanel`、`SpeakerNameText`、`DialogueText`、`ContinueButton`、`PortraitImage`、`Background`、`DialogueManagerRoot`、`EventSystem`。
+- 通过 MCP 给 `DialogueCanvas` 挂载 `DialogueUI`、给 `DialogueManagerRoot` 挂载 `DialogueManager`，并复查场景层级确认组件已落地。
+- 执行 `recompile_scripts` 成功（0 warning）；一次错误日志读取为空数组，但随后 `get_console_logs` / `run_tests(EditMode)` 再次因 MCP `Connection failed: Unknown error` 中断，验证闭环仍未完全恢复。
+**修改文件**：
+- `Assets/000_Scenes/DialogueValidation.unity` - [MCP 创建]：新增独立对话验证场景骨架与核心组件挂载。
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录子工作区本轮 Unity 创建与验证进度。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步主工作区摘要结论。
+**解决方案**：[遵守场景修改规则，仅在独立验证场景内做“创建/挂载/命名/编译验证”这类可逆动作；序列化字段绑定、素材配置与测试资源创建留给后续人工接线或 MCP 稳定后继续完成。]
+**遗留问题**：
+- [ ] `DialogueUI` 序列化引用与测试用 `DialogueSequenceSO` 仍未配置
+- [ ] 需要在 MCP 恢复稳定后重新执行 `get_console_logs` 与 `run_tests(EditMode)` 完成闭环
 
-**问题**：设计文档未说明剧情进度如何持久化
-
-**影响**：
-- 玩家退出游戏后重新进入，剧情状态如何恢复？
-- 剧情变量（如 `languageDecoded`）是否需要存档？
-- 触发器的"已触发"状态是否需要持久化？
-
-**建议**：补充存档集成章节：
-- Story_Manager 实现 `IPersistentObject` 接口
-- 定义需要持久化的数据结构（当前阶段、剧情变量字典、已触发事件列表）
-- 说明存档加载时的状态恢复逻辑
-
-##### 4. UI层设计不完整
-
-**问题**：
-- 对话框UI的具体布局未定义（位置、尺寸、动画）
-- 教学提示UI的视觉样式未说明
-- 血条/精力条的首次显示动画未设计
-
-**建议**：补充UI设计章节：
-- 对话框布局（屏幕下方1/3，包含头像区、文本区、名称区）
-- 教学提示布局（屏幕上方居中，半透明背景）
-- UI动画规范（淡入淡出时长、缓动曲线）
-
-##### 5. 调试工具设计缺失
-
-**问题**：需求文档提到"剧情跳转调试工具"，但设计文档未说明如何实现
-
-**建议**：补充调试工具章节：
-- 编辑器窗口：显示当前剧情阶段、剧情变量、已触发事件
-- 快速跳转：下拉菜单选择阶段，点击按钮跳转
-- 变量修改：Inspector 中直接修改剧情变量用于测试
-
-##### 6. 事件总线使用不一致
-
-**问题**：
-- 文档说"通过 EventBus 发布/订阅"，但接口设计中大量使用 `Action` 回调
-- 何时用事件、何时用回调的规则不明确
-
-**建议**：明确通信方式选择规则：
-- **EventBus**：用于跨系统的广播通知（如对话开始/结束、阶段变化）
-- **Action 回调**：用于明确的调用-响应关系（如播放对话完成后的回调）
-
-##### 7. 数据结构冗余
-
-**问题**：
-- `StoryAction` 中有大量字段，但每个动作类型只用其中几个
-- 这种设计会导致 Inspector 显示混乱，容易配置错误
-
-**建议**：使用多态设计：
-```csharp
-[System.Serializable]
-public abstract class StoryAction
-{
-    public abstract void Execute(StoryActionContext context);
-}
-
-[System.Serializable]
-public class PlayDialogueAction : StoryAction { ... }
-
-[System.Serializable]
-public class PlayCGAction : StoryAction { ... }
-```
-
-##### 8. NPC引导系统过于简单
-
-**问题**：
-- 使用 `Transform.MoveTowards` 可能导致NPC穿墙
-- 没有考虑NPC动画（行走、停止、转向）
-- 没有考虑NPC与障碍物的碰撞
-
-**建议**：
-- 使用 NavMeshAgent 或 A* 寻路确保路径合法
-- 集成动画系统（根据移动方向播放行走动画）
-- 添加碰撞检测避免穿模
-
-##### 9. 时间控制逻辑不清晰
-
-**问题**：
-- "脚本化阶段暂停时间"的具体实现方式未说明
-- 如果玩家在自由时段触发了新的剧情事件，时间是否再次暂停？
-
-**建议**：明确时间控制规则：
-- Story_Manager 维护一个 `timeControlStack`，支持嵌套的暂停/恢复
-- 每次进入脚本化事件时 `Push(pause)`，退出时 `Pop()`
-- 只有栈为空时时间才真正流逝
-
-##### 10. 正确性属性验证方法缺失
-
-**问题**：
-- 定义了21条正确性属性，但没有说明如何验证
-- 这些属性是用于单元测试、集成测试还是手动测试？
-
-**建议**：补充测试策略章节：
-- 属性1-7：单元测试（模拟输入，断言状态）
-- 属性8-14：集成测试（运行完整剧情，检查UI状态）
-- 属性15-21：端到端测试（完整走一遍春1日流程）
-
-### 审核结论
-
-**总体评价**：设计文档质量较高，架构清晰，接口完整，但在错误处理、性能优化、存档集成、UI设计、调试工具等方面存在明显缺失。
-
-**建议行动**：
-1. 补充10个缺失章节（错误处理、性能优化、存档集成、UI设计、调试工具、通信规则、数据结构优化、NPC引导增强、时间控制细化、测试策略）
-2. 重构 `StoryAction` 数据结构，使用多态设计
-3. 明确 EventBus 和 Action 回调的使用场景
-4. 为每个正确性属性指定验证方法
+### 会话 15 - 2026-03-06
+**用户需求**：[要求输出详细的验收和使用配置指南，并落盘到当前工作区 `002-初步搭建`。]
+**完成任务**：
+- 新增 `002-初步搭建/阶段1_验收与使用配置指南.md`，集中整理阶段1对话系统的验收顺序、Unity 场景手动配置步骤、未解码/已解码验证方法、输入锁验收、正式使用方式、素材建议与常见问题排查。
+- 在指南中明确记录当前验证场景的真实现状：代码与自动化验证已基本通过，但 `DialogueCanvas` 根缩放仍为 `0,0,0`，多个 UI 元素仍处于临时占位布局，需先人工修正场景可见性再做 Play 验收。
+- 将“验证场景自补线只用于 `DialogueValidation`、正式场景需手动拖齐引用”作为使用边界写入文档，避免后续误用。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/阶段1_验收与使用配置指南.md` - [新增]：阶段1对话系统详细验收与配置指南。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：记录本次指南落盘。
+**解决方案**：[用“当前状态证据 + 最短人工修正路径 + 可逐项勾选验收单”的结构组织文档，让后续 Unity 内操作直接有据可依，不需要再反复回看会话内容。]
+**遗留问题**：
+- [ ] `DialogueValidation.unity` 仍需先人工修正 Canvas 缩放和 UI 布局，再执行完整 Play 验收
+- [ ] 正式剧情接入仍需后续创建真实 `DialogueSequenceSO` 资产并在正式场景中手动配置 `DialogueUI`

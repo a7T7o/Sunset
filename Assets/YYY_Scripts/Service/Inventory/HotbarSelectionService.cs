@@ -124,9 +124,15 @@ public class HotbarSelectionService : MonoBehaviour
         // ★ 检查是否是可放置物品
         if (itemData.isPlaceable)
         {
-            // 进入放置模式
             playerToolController.UnequipCurrent();
-            
+
+            var inputManager = GameInputManager.Instance;
+            if (inputManager == null || !inputManager.IsPlacementMode)
+            {
+                ExitPlacementModeIfActive();
+                return;
+            }
+
             if (PlacementManager.Instance != null)
             {
                 PlacementManager.Instance.EnterPlacementMode(itemData, slot.quality);
