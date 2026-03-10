@@ -45,6 +45,7 @@
 - 场景、预制体、检查器、ScriptableObject、序列化引用：`scene-modification-rule.md`
 - 编码风格、region、EventBus、分层约束：`coding-standards.md`
 - 存档、GUID、持久化、重建：`save-system.md`
+- Git、分支、提交、回退、checkpoint、preflight、`.gitattributes`：`git-safety-baseline.md`
 - 文档、规则落地、文档同步：`documentation.md`
 - 上下文恢复、长链任务接手：`000-context-recovery.md`
 - steering 自身维护、避免双源复制：`maintenance-guidelines.md`

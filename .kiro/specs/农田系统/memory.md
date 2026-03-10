@@ -190,3 +190,17 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 用户基于现场截图和实际需求，明确纠正 `10.2.1` 的理解偏差：普通 placeable、`SeedData`、`SaplingData` 不能再混用同一套耕地规则。本轮新建 `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/`，重新读取 `10.1.5补丁005`、`10.2.0改进001`、`10.2.1补丁001` 相关文档和 `PlacementManager / PlacementPreview / PlacementValidator / FarmToolPreview / SeedData / SaplingData / PlaceableItemData` 代码后，正式落盘五件套。新的稳定结论是：普通 placeable 的“禁压耕地”必须做成逐格红判定；种子继续走 `PlacementPreview`，但验证语义收敛到“播种”；树苗继续保留树苗专用验证链；`FarmToolPreview` 的 `1.5 x 1.5 footprint` 不向普通 placeable 泛化。当前状态：10.2.2 文档待用户审核，暂不进入代码实现。
 文件：10.2.2补丁002/requirements.md、10.2.2补丁002/analysis.md、10.2.2补丁002/design.md、10.2.2补丁002/tasks.md、10.2.2补丁002/memory.md
 
+
+## 2026-03-10：10.2.2补丁002 - 进入实现前先补 Git 可回退基线
+用户在准备进入 `10.2.2补丁002` 真实实现前，要求先全面确认 `Sunset` 仓库是否已经具备足够完善的 git 工作流，确保龙虾后续操作全部可以退回。本轮审视确认两项核心基础已具备：仓库是正常 git 仓库，且 Unity 已开启 `Force Text + Visible Meta Files`；但同时也识别出四项关键缺口：当前仍在 `main` 且超前 `origin/main` 4 个本地提交、工作树不干净、`.claude/worktrees/agent-a2df3da0` gitlink 内存在本地设置改动并持续污染根状态、仓库缺失 `.gitattributes` 且 `core.autocrlf=true` 已产生行尾噪音。因此当前结论不是“不能回滚”，而是“有基础但还不够工程化”，不建议直接在现状上进入 `10.2.2` 代码实现。下一步应先补 git 安全基线：独立任务分支、处理 dirty 状态 / worktree 噪音、补 `.gitattributes`、固定 preflight + checkpoint 流程，再进入补丁实现。
+文件：10.2.2补丁002/memory.md、ProjectSettings/EditorSettings.asset、ProjectSettings/VersionControlSettings.asset、.gitignore
+
+
+## 2026-03-10：10.2.2补丁002 - Git 基线任务转交全局规则线程
+用户决定不在当前业务线程里处理 git 工作流治理，而是转交给项目全局规则对话完成。本轮已收束好要转告的核心内容：当前 `10.2.2` 业务文档已就位，但实现前必须先补 `Sunset` 仓库级可回退基线，包括独立任务分支策略、dirty 状态治理、`.claude/worktrees/agent-a2df3da0` gitlink 噪音处理、`.gitattributes` 增补、以及 preflight / checkpoint / rollback 固化流程。当前农田主线恢复点更新为：等待全局规则线程完成 git 安全基线，然后再回到 `10.2.2` 实现阶段。
+文件：10.2.2补丁002/memory.md、农田系统/memory.md
+
+
+## 2026-03-11：10.2.2补丁002 - Git 基线已显著补齐，但实现仍需等待 dirty 状态拆分
+治理线程已正式落地仓库级 Git 基线：新增 `.kiro/steering/git-safety-baseline.md`、`.gitattributes`、Git preflight Hook，重写安全版 `git-quick-commit.kiro.hook`，并把 `.claude/worktrees/agent-a2df3da0` 与 `.claude/settings.local.json` 从根仓库跟踪中移除。旧结论里的 `main ahead 4` 已经过期，当前 `main` 与 `origin/main` 同步；但这并不等于农田 `10.2.2` 已可直接开工，因为仓库仍 dirty，且 dirty 范围横跨治理线、about 文档、农田线和 `Assets/` 现场改动。当前农田主线新的恢复点是：继续暂停 `10.2.2` 实现，先等待 dirty 状态拆分清楚，再建立 `codex/farm-10.2.2-patch002` 任务分支并做一次正式 preflight。
+文件：.kiro/steering/git-safety-baseline.md、.gitattributes、.gitignore、.kiro/hooks/git-preflight.kiro.hook、.kiro/hooks/git-quick-commit.kiro.hook、10.2.2补丁002/memory.md

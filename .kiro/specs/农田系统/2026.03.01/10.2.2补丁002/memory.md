@@ -69,3 +69,113 @@
 | 明确把普通 placeable、种子、树苗拆成三条验证链 | 当前代码本来就是分流的，继续混写只会重复犯错 | 2026-03-10 |
 | 明确普通 placeable 的耕地禁放必须做成逐格红判定 | 用户要求“哪些格子不可放置才标红”，整物品级失败无法表达这个需求 | 2026-03-10 |
 | 明确 `FarmToolPreview` 的 footprint 规则不泛化给普通 placeable | 这套规则属于农具施工链，直接上提会再次误伤种子与树苗 | 2026-03-10 |
+
+### 会话 2 - 2026-03-10（进入实现前的 Git 可回退基线审视）
+
+**用户需求**:
+> 在进入 `10.2.2补丁002` 新任务之前，先全面确认 `Sunset` 工作区是否已经具备完善的 git 工作流，确保龙虾后续所有操作都可以退回；如果有缺口，先分析清楚需要补什么，以及是否需要用户配置、skill 或 MCP。
+
+**主线判断**:
+- 当前仍然服务 `10.2.2补丁002` 主线，不是切换到新的治理话题。
+- 本轮属于实现前的阻塞清理与前置审查：先确认仓库是否具备“安全进入代码阶段”的可回退基础。
+
+**完成任务**:
+1. ✅ 核对 `Sunset` 仓库 git 基本状态、当前分支、远端与 ahead/behind 状态。
+2. ✅ 核对 Unity 可追踪基础：`ProjectSettings/EditorSettings.asset` 与 `VersionControlSettings.asset`。
+3. ✅ 核对 `.gitignore`、`.gitattributes`、`core.autocrlf`、`git lfs` 等仓库级配置。
+4. ✅ 识别当前最主要的 git 风险：`main` 超前未推送、工作树不干净、`.claude/worktrees/agent-a2df3da0` gitlink 污染状态、缺失 `.gitattributes` 导致 Windows 行尾噪音。
+5. ✅ 收束结论：当前“有基础，但还不够工程化”，不建议直接让龙虾在现状上进入 `10.2.2` 代码实现。
+
+**关键结论**:
+1. `Sunset` 已具备可回退的核心基础：是正常 git 仓库，有 `origin` 远端；Unity 也已启用 `Force Text`（`m_SerializationMode: 2`）和 `Visible Meta Files`。
+2. 当前还不够“放心让龙虾连续动手”的关键原因有四个：
+   - 当前在 `main` 分支，且 `main...origin/main [ahead 4]`，说明有 4 个本地未推送提交；
+   - 工作树不干净，除 `.claude/worktrees/agent-a2df3da0` 外，还有若干 tracked memory 文档处于未提交状态；
+   - `.claude/worktrees/agent-a2df3da0` 是一个 gitlink，且内部 ` .claude/settings.local.json` 有本地改动，会持续污染根仓库状态判断；
+   - 仓库没有 `.gitattributes`，同时 `core.autocrlf=true`，已经出现 LF/CRLF 警告，后续容易制造无意义 diff 噪音。
+3. 这意味着当前如果直接进入 `10.2.2` 代码实现，虽然“理论上能回滚”，但回滚边界会不够清晰，容易把本轮改动与现有脏状态混在一起。
+
+**建议顺序**:
+1. 先补 git 安全基线，再进入 `10.2.2` 代码实现。
+2. 推荐基线内容：
+   - 为 `10.2.2` 建立独立任务分支，而不是继续直接在 `main` 上做；
+   - 先处理或隔离当前 dirty 状态，尤其是 `.claude/worktrees/agent-a2df3da0` 的 gitlink 噪音；
+   - 增加仓库级 `.gitattributes`，统一行尾与文本/二进制属性；
+   - 建立“preflight 检查 -> 原子提交 -> 验证 -> 记录 commit hash”的固定流程。
+3. 当前不需要新 MCP；shell + git + 现有 Unity 能力已足够。
+4. 可以考虑后续新增一个本地 skill，例如 `sunset-git-safety`，把上述 preflight / checkpoint / rollback 协议固化下来，但不是本轮硬性前置。
+
+**修改文件**:
+- `10.2.2补丁002/memory.md` - 追加本轮 Git 可回退基线审视与结论
+
+**验证结果**:
+- ✅ `git rev-parse --show-toplevel` 正常返回仓库根目录
+- ✅ `git remote -v` 确认存在 `origin`
+- ✅ `git rev-list --left-right --count origin/main...main` 结果为 `0 4`
+- ✅ `EditorSettings.asset` 确认为 `m_SerializationMode: 2`
+- ✅ `VersionControlSettings.asset` 确认为 `Visible Meta Files`
+- ✅ `git lfs version` 可用
+- ❌ 仓库当前不干净
+- ❌ `.gitattributes` 缺失
+- ❌ 当前没有明确、成文、任务化的 git 工作流规范
+
+**恢复点 / 下一步**:
+- 当前主线仍然是 `10.2.2补丁002`。
+- 但在进入实现前，建议先完成 git 安全基线处理，再开始代码修改。
+- 只有这一步做完，`10.2.2` 的后续实现才能真正满足“龙虾操作全部可退回”的要求。
+
+### 会话 3 - 2026-03-10（用户决定转交全局规则线程处理 Git 基线）
+
+**用户需求**:
+> 认为这项 git 工作流 / 可回退基线任务应由项目全局规则处理对话完成，要求我把需求与已发现问题整理成详细汇总，供其转告对应线程。
+
+**主线判断**:
+- 当前仍服务 `10.2.2补丁002` 主线。
+- 本轮不是进入实现，而是明确把“实现前必须先补 git 基线”这件事转交给更合适的治理线程处理。
+
+**完成任务**:
+1. ✅ 收束一份可转告全局规则线程的详细问题汇总与执行需求。
+2. ✅ 明确当前线程暂停点：在 git 安全基线补齐前，不进入 `10.2.2` 代码实现。
+
+**关键结论**:
+1. `10.2.2` 的业务设计文档已建档，但实现前置条件尚未满足。
+2. 需要由全局治理线程处理的核心不是业务逻辑，而是 `Sunset` 仓库级的 git 安全基线：分支策略、dirty 状态治理、`.gitattributes`、checkpoint / rollback 流程。
+3. 当前线程应在这项治理完成后，再回到 `10.2.2` 的实现与验收。
+
+**修改文件**:
+- `10.2.2补丁002/memory.md` - 追加本轮转交决定与暂停点
+
+**恢复点 / 下一步**:
+- 等待全局规则线程完成 git 基线治理。
+- 治理完成后，回到 `10.2.2补丁002`，再决定是否进入实现。
+
+### 会话 4 - 2026-03-11（Git 基线治理结果回写与状态更正）
+
+**用户需求**:
+> 当前 `10.2.2补丁002` 业务线程继续暂停，不进入实现；先等待全局治理线程完成 Git 安全基线，并把最新可执行结论回写到本工作区，避免继续引用过期状态。
+
+**主线判断**:
+- 当前仍服务 `10.2.2补丁002` 主线，但本轮不是实现推进，而是接收上游治理结果并更新“能否进入实现”的前置条件判断。
+
+**完成任务**:
+1. ✅ 确认治理线程已新增仓库级 Git 规则入口：`.kiro/steering/git-safety-baseline.md`、`.gitattributes`、Git preflight Hook、安全版 `git-quick-commit.kiro.hook`。
+2. ✅ 确认旧结论中的 `main ahead 4` 已经过期：当前 `git rev-list --left-right --count origin/main...main` 为 `0 0`。
+3. ✅ 确认 `.claude/worktrees/agent-a2df3da0` 与 `.claude/settings.local.json` 已被重新定义为本地噪音，并从根仓库跟踪中移除。
+4. ✅ 同时确认：虽然 Git 基线已显著补齐，但当前仓库仍然 dirty，且 dirty 范围并不只属于 `10.2.2`；因此本工作区依旧不能直接进入实现。
+
+**关键结论**:
+1. `10.2.2` 之前依赖的“先补 Git 基线”这一步，已经从纯分析推进到“仓库已有实际配置与规则入口”。
+2. 但当前新的阻塞口径应改写为：
+   - 旧的 `ahead 4` 已不是问题；
+   - 现在真正的阻塞是“当前 dirty 状态仍跨多条主线，且尚未建立干净的 `codex/farm-10.2.2-patch002` 任务分支”。
+3. 因此 `10.2.2` 当前状态应继续维持“暂停实现”，直到：
+   - 当前 dirty 状态被拆干净；
+   - `10.2.2` 切到独立任务分支；
+   - 再做一次 Git preflight 并记录基线 hash。
+
+**修改文件**:
+- `10.2.2补丁002/memory.md` - 追加本轮治理结果回写与状态更正
+
+**恢复点 / 下一步**:
+- 当前主线仍是 `10.2.2补丁002`。
+- 但业务实现继续暂停；下一步不是写代码，而是等待仓库 dirty 状态拆分完成，并建立干净的 `codex/farm-10.2.2-patch002` 分支。

@@ -1,0 +1,64 @@
+# 默认文本自动检测
+* text=auto
+
+# Unity / 项目文本资源
+*.cs text diff=csharp eol=lf
+*.shader text eol=lf
+*.compute text eol=lf
+*.cginc text eol=lf
+*.hlsl text eol=lf
+*.uxml text eol=lf
+*.uss text eol=lf
+*.asmdef text eol=lf
+*.asmref text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.meta text eol=lf
+*.unity text eol=lf
+*.prefab text eol=lf
+*.mat text eol=lf
+*.asset text eol=lf
+*.anim text eol=lf
+*.controller text eol=lf
+*.overrideController text eol=lf
+*.inputactions text eol=lf
+*.kiro.hook text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+AGENTS.md text eol=lf
+CLAUDE.md text eol=lf
+SKILL.md text eol=lf
+*.sh text eol=lf
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 常见二进制资源
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.bmp binary
+*.tga binary
+*.psd binary
+*.psb binary
+*.exr binary
+*.tif binary
+*.tiff binary
+*.wav binary
+*.mp3 binary
+*.ogg binary
+*.aiff binary
+*.flac binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+*.dll binary
+*.exe binary
+*.zip binary
+*.7z binary
+*.rar binary
+*.pdf binary

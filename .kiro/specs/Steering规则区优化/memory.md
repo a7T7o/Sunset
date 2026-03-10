@@ -478,3 +478,179 @@
 **恢复点 / 下一步**：
 - 继续在子工作区推进第二轮补读和链路级对照。
 - 待 `.kiro/about/` 第一轮全景稳定后，再进入 T23 自校验，检查三份文档是否互相矛盾。
+
+### 会话 2026-03-10（about 文档工程第三轮场景级证据回写）
+**当前主线目标**：
+- 继续服务 `Codex迁移与规划` 子工作区下的 `.kiro/about/` 三文档工程，而不是切换到新的业务主线。
+
+**本轮支撑子任务**：
+- 补 `DialogueValidation.unity`、`Primary.unity`、`PackagePanel.prefab`、`MasterItemDatabase.asset` 的现场证据，并把结论回写到任务看板和 about 文档。
+
+**本轮完成事项**：
+1. 子工作区 `tasks.md` 已写入 Day1 场景阻塞证据、`Primary + PackagePanel` UI 挂载链，以及制作台资产反证。
+2. `.kiro/about/01_系统架构与代码全景.md` 已新增场景 / Prefab / SO 现场证据小节，`.kiro/about/02_当前状态、差异与接手指南.md` 已把 Day1 与制作台口径进一步收紧。
+3. 本轮继续遵守场景审视边界，只做证据整理，不改任何现有场景 / Prefab / SO 配置。
+
+**关键结论**：
+- Day1 当前更应被描述为“场景 UI 可见性 / 布局阻塞优先于纯脚本阻塞”。
+- 制作台当前更应被描述为“代码已落地，但资产 / 场景接入证据不足”，其中 `MasterItemDatabase.asset` 的 `allRecipes` 仍为空槽。
+- 父工作区主线未变，恢复点仍是继续为 `.kiro/about/` 累积可直接接手的仓库级认知文档。
+
+**涉及文件**：
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/tasks.md`
+- `.kiro/about/01_系统架构与代码全景.md`
+- `.kiro/about/02_当前状态、差异与接手指南.md`
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/memory.md`
+
+**恢复点 / 下一步**：
+- 继续等待子工作区补更多会改变判断的现场证据，再进入 T23 自校验。
+### 会话 2026-03-10（Unity MCP 打通后的配置收口）
+**用户需求**:
+- 在 Unity MCP 已显示 `Session Active` 后，继续判断还需不需要配 `Install Skills`、`Roslyn DLLs`，并分析 Kiro 侧 51 个工具是否代表额外负担。
+
+**完成任务**:
+- 确认当前 `unityMCP` HTTP 连接已经真实打通，Codex 侧可直接读取 Unity 场景与 Console。
+- 判定 `Install Skills` 与 `Roslyn DLLs` 当前都不是必需项，应暂缓。
+- 发现并清理 Codex 全局配置中旧的 `mcp-unity` stdio 遗留块，避免新旧两套 Unity 桥长期并存。
+- 明确 51 个工具更多是“能力暴露数量”而非持续高负载来源，当前可以先无视，必要时后续只保留 `core` 组瘦身。
+
+**修改文件**:
+- `C:\Users\aTo\.codex\config.toml`
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/memory.md`
+- `.kiro/specs/Steering规则区优化/memory.md`
+
+**解决方案**:
+- 主线已从“能不能连上”推进到“如何稳定收口”：保持 HTTP `unityMCP` 为唯一主桥，其他附加能力先不装，降低工具噪音与维护成本。
+- 当前治理恢复点：等待 Codex 重启让旧桥注释配置生效，然后继续 Unity MCP 验证闭环。
+
+### 会话 2026-03-10（Unity MCP 首轮验证通过）
+**用户需求**:
+- 继续推进，不只说明配置，还要验证链路是否真的可用。
+
+**完成任务**:
+- 成功读取 EditMode 测试列表，并实际启动 `unityMCP` 测试任务。
+- `94/94` 个 EditMode tests 全部通过，补齐了 Sunset 主线里“读取层级 / 日志 / EditMode tests”这条最小验证闭环证据。
+
+**修改文件**:
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/memory.md`
+- `.kiro/specs/Steering规则区优化/memory.md`
+
+**解决方案**:
+- 当前可以把 `CoplayDev/unity-mcp` 接入状态从“已连接”升级到“已通过首轮最小验证”。
+
+### 会话 2026-03-10（Sunset Git 工作流复核）
+**用户需求**:
+- 基于另一条对话里的 Git 基线分析，进一步要求澄清：Sunset 现在是否应该做到“每次修改代码都提交”、现有只靠 main 和手动 git-quick-commit.kiro.hook 是否合理，以及当前项目最该补哪一层 Git 纪律。
+
+**完成任务**:
+- 现场复核 Git 状态后确认：此前 10.2.2补丁002 里“main ahead 4”的判断已过期，当前 main 与 origin/main 已同步，但工作树仍然不干净。
+- 进一步确认：当前远端只有 origin/main，本地也只有 main 与一个 worktree-agent-a2df3da0，说明 Sunset 仍处于“主干为主、分支纪律薄弱”的阶段。
+- 识别出三个最核心风险：
+  1. .claude/worktrees/agent-a2df3da0 是没有 .gitmodules 的 gitlink，且内层 worktree 仍有本地改动；
+  2. 仓库缺 .gitattributes，同时 core.autocrlf=true；
+  3. git-quick-commit.kiro.hook 当前硬编码 git add -A 和 git push origin main，只适合“全量直推主干”，不适合任务分支工作流。
+- 收束治理结论：Sunset 现阶段不需要上重型 GitFlow，但必须尽快补“main 保稳 + codex/ 任务分支 + 小步原子提交 + 关键 checkpoint 推远端 + commit hash 回写 memory”的最小 Git 安全基线。
+
+**关键结论**：
+- 不需要“每改一点都提交”，但必须停止“改很多再一把全量提交”的做法，改为按可验证小任务提交。
+- 现有 git-quick-commit.kiro.hook 可作为临时工具保留，但已不适合作为 Sunset 主提交流程。
+- 当前最值得优先落地的是 Git 安全基线，而不是新 MCP。
+
+**恢复点 / 下一步**：
+- 父治理主线不变，仍服务 Codex / Sunset 执行底盘完善。
+- 若用户认可，下一步应进入 Git 基线规则或工具落地，而不是继续停留在抽象分析层。
+### 会话 2026-03-10（about 文档工程闭环收口）
+**用户需求**:
+- 不再来回确认，希望我按最初目标自主审视 `.kiro/about/` 三文档交付是否真的闭环，并把任务清单与记忆体系一起收口。
+
+**完成任务**:
+- 在 `Codex迁移与规划` 子工作区内完成最终自检，统一 `tasks.md` 中 T18 ~ T23、T28、T29 的状态口径。
+- 再次核对 `Assets/000_Scenes/`，确认当前实仓场景为 6 个，而不是早期记录中的 5 个。
+- 确认 about 三文档当前已达到“可接手版”交付要求，后续持续维护纪律统一并入 T24，不再把本轮交付挂成未完成。
+- 按规则完成子工作区 → 父工作区 → 线程记忆的最终同步。
+
+**修改文件**:
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/tasks.md`
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/memory.md`
+- `.kiro/specs/Steering规则区优化/memory.md`
+- `.codex/threads/Sunset/项目文档总览/memory_0.md`
+
+**解决方案**:
+- 把治理主线下的 `.kiro/about/` 三文档工程从“持续建设中”正式收口为“本轮可接手版已交付”。
+- 把后续 about 修订统一视为 T24 的常规维护，而不是当前主交付的缺口。
+
+**恢复点 / 下一步**:
+- 父工作区主线不变；后续若再出现新的 live 证据或新的误读点，继续通过 `Codex迁移与规划` 子工作区回写 `.kiro/about/` 与相关 memory。
+### 会话 2026-03-10（工作区宪法落盘并接入文档维护入口）
+**用户需求**:
+- 要求在 `Codex迁移与规划` 工作区内把其长期要求单独落成“宪法”，并继续按 tasks 先行、文档迭代、memory 同步的方式推进 `.kiro/about/` 文档工程。
+
+**完成任务**:
+- 子工作区已新增 `工作区宪法.md`，正式固化三主文档固定方案、语言要求、少问多做、tasks 先行、高风险配置审视边界、memory 同步顺序与闭环标准。
+- `00` 与 `02` 已接入该宪法的维护入口，后来者除了读三主文档外，也能知道继续维护时还必须读哪份治理文档。
+- `tasks.md` 已新增四阶段 T30 ~ T33 并全部收口，当前恢复点固定为“未来新增 live 证据时，先更 tasks，再按宪法回写三主文档与 memory”。
+- 已按规则完成子工作区 → 父工作区 → 线程记忆同步。
+
+**修改文件**:
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/tasks.md`
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/工作区宪法.md`
+- `.kiro/about/00_项目总览与阅读地图.md`
+- `.kiro/about/02_当前状态、差异与接手指南.md`
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/memory.md`
+- `.kiro/specs/Steering规则区优化/memory.md`
+- `.codex/threads/Sunset/项目文档总览/memory_0.md`
+
+**解决方案**:
+- 把 `.kiro/about/` 三主文档的维护方法从口头约束沉淀为工作区级执行宪法，降低后续会话与后续智能体的跑偏风险。
+
+**恢复点 / 下一步**:
+- 父工作区治理主线不变；后续若再出现新的项目证据或新的误读点，继续通过该子工作区按宪法推进文档迭代。
+### 会话 2026-03-11（后续优化 backlog 固化）
+**用户需求**:
+- 询问当前 about 文档工程基线之上，是否还有值得继续补充和优化的内容。
+
+**完成任务**:
+- 在子工作区 `Codex迁移与规划` 中新增五阶段 backlog，把后续最值得做的优化固定为 T34 ~ T37。
+- 明确当前后续优化重点不再是补主文档骨架，而是：导航 / 遮挡 / 树木证据深化、场景责任矩阵、制作台专项搜证、about 一致性巡检清单。
+- 完成子工作区 → 父工作区 → 线程记忆同步。
+
+**修改文件**:
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/tasks.md`
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/memory.md`
+- `.kiro/specs/Steering规则区优化/memory.md`
+- `.codex/threads/Sunset/项目文档总览/memory_0.md`
+
+**解决方案**:
+- 把“还可以优化什么”沉淀为正式 backlog，避免后续治理主线再次退回泛泛讨论。
+
+**恢复点 / 下一步**:
+- 后续若继续本主线，直接从 T34 ~ T37 进入下一轮，不必重做三主文档收口。
+### 会话 2026-03-11（Git 安全基线正式落地）
+**用户需求**:
+- 要求把另一条线程的 Git 基线分析补充成可执行任务清单，并真正落地仓库级 Git 安全基线，而不是继续停留在口头建议层。
+
+**完成任务**:
+- 已在当前治理子工作区新增 Git 基线任务看板，并落地仓库级 Git 规范、`.gitattributes`、`.gitignore`、Git preflight Hook 与安全版一键提交 Hook。
+- 已把 `.claude/worktrees/agent-a2df3da0` 和 `.claude/settings.local.json` 定义为本地噪音，并从根仓库跟踪中移除，同时保留本地文件本身。
+- 已确认：旧结论中的 `main ahead 4` 已过期，当前真正未解决的阻塞已转为“dirty 状态仍跨多条主线、尚未切出干净任务分支”。
+
+**关键结论**：
+- Sunset 的 Git 安全基线已从“缺制度”提升到“仓库内已有制度入口”。
+- 但当前还不能说“已完全可安全进入 10.2.2 实现”；还需要先拆干净当前 dirty 状态，再建独立任务分支。
+
+**恢复点 / 下一步**：
+- 父治理主线不变。
+- 后续若继续推进，优先进入“dirty 状态拆分 + 任务分支建立”，而不是直接开做农田实现。
+### 会话 2026-03-11（Git 基线现场复核补记）
+**用户需求**:
+- 用户要求先听一个简短进展汇报，因此需要先复核当前仓库现场，再给出不失真的对外状态说明。
+
+**完成任务**:
+- 已再次核对当前 Git 现场，确认 main 与 origin/main 同步，但仓库仍处于 dirty 状态。
+- 已确认 dirty 范围仍跨治理线、线程记忆、about 文档和 Assets/ 业务资源，不适合直接把状态表述成“可以安全进入农田实现”。
+
+**关键结论**：
+- 父治理线结论不变：Git 基线制度入口已经补齐，但现场收口尚未完成。
+
+**恢复点 / 下一步**：
+- 后续继续治理时，仍优先做 dirty 状态拆分与任务分支边界梳理。
