@@ -1469,20 +1469,7 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private bool ExecuteTillSoil(int layerIndex, Vector3Int cellPos)
     {
-        // 🔥 10.X 纠正：通过 FarmTileData.cropController 查找枯萎作物（替代 CropManager.GetCrop）
         var farmTileManager = FarmGame.Farm.FarmTileManager.Instance;
-        if (farmTileManager != null)
-        {
-            var tileData = farmTileManager.GetTileData(layerIndex, cellPos);
-            if (tileData?.cropController != null && tileData.cropController.GetState() == FarmGame.Farm.CropState.WitheredImmature)
-            {
-                tileData.cropController.ClearWitheredImmature();
-                if (showDebugInfo)
-                    Debug.Log($"[GameInputManager] 清除枯萎作物: Layer={layerIndex}, Pos={cellPos}");
-                return true;
-            }
-        }
-        
         if (farmTileManager == null)
         {
             Debug.LogError("[GameInputManager] 锄地失败：FarmTileManager.Instance 为空！");
@@ -2509,8 +2496,25 @@ public class GameInputManager : MonoBehaviour
     /// CP-5：收获最高优先级，无论手持什么物品都执行检测。
     /// CP-6：只检测玩家当前层级的作物。
     /// </summary>
+    private bool ShouldSkipHarvestPriorityForPlacementTool()
+    {
+        if (!IsPlacementMode || inventory == null || database == null || hotbarSelection == null)
+            return false;
+
+        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(idx);
+        if (slot.IsEmpty) return false;
+
+        var itemData = database.GetItemByID(slot.itemId);
+        return itemData is ToolData tool &&
+               (tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan);
+    }
+
     private bool TryDetectAndEnqueueHarvest()
     {
+        if (ShouldSkipHarvestPriorityForPlacementTool())
+            return false;
+
         Vector3 mouseWorldPos = GetMouseWorldPosition();
         var hits = Physics2D.OverlapPointAll(mouseWorldPos);
         if (hits == null || hits.Length == 0) return false;
@@ -2606,8 +2610,8 @@ public class GameInputManager : MonoBehaviour
         var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
         if (farmPreview == null || !farmPreview.IsValid()) return; // CP-9：预览无效不入队
 
-        var type = tool.toolType == ToolType.Hoe 
-            ? (farmPreview.HasCrop ? FarmActionType.RemoveCrop : FarmActionType.Till) 
+        var type = tool.toolType == ToolType.Hoe
+            ? FarmActionType.Till
             : FarmActionType.Water;
         
         // 🔴 补丁004V3：耕地入队不再传递 ghost 数据（b 层独立计算完整预览）

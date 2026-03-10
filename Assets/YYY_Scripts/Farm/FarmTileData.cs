@@ -132,7 +132,7 @@ namespace FarmGame.Farm
         /// </summary>
         public bool CanPlant()
         {
-            return isTilled && cropData == null;
+            return isTilled && !HasCrop();
         }
 
         /// <summary>
@@ -140,7 +140,7 @@ namespace FarmGame.Farm
         /// </summary>
         public bool HasCrop()
         {
-            return cropData != null;
+            return cropData != null || cropController != null;
         }
         
         #endregion

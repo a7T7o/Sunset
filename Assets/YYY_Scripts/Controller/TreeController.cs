@@ -5,6 +5,7 @@ using FarmGame.Combat;
 using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.Events;
+using FarmGame.Farm;
 using FarmGame.Utils;
 
 /// <summary>
@@ -635,6 +636,15 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         
         // 计算检测点（从中心向指定方向偏移）
         Vector2 checkPoint = center + direction * distance;
+
+        if (FarmTileManager.Instance != null && FarmTileManager.Instance.HasCropOccupantAtWorld(checkPoint))
+        {
+            if (showDebugInfo)
+            {
+                Debug.Log($"<color=yellow>[TreeController] {gameObject.name} 在 {direction} 方向检测到作物占位阻挡</color>");
+            }
+            return true;
+        }
         
         // 使用小范围圆形检测
         float checkRadius = 0.1f;
@@ -789,6 +799,16 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     public void OnHit(ToolHitContext ctx)
     {
+        if (currentStageIndex == STAGE_SAPLING &&
+            GameInputManager.Instance != null &&
+            GameInputManager.Instance.IsPlacementMode &&
+            ctx.toolType == ToolType.Hoe)
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=yellow>[TreeController] {gameObject.name} 施工模式下忽略锄头对树苗的命中</color>");
+            return;
+        }
+
         // 树桩状态：检查是否可以继续砍树桩
         if (currentState == TreeState.Stump)
         {

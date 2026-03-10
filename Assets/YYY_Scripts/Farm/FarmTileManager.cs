@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 using System.Collections.Generic;
@@ -34,7 +35,7 @@ namespace FarmGame.Farm
         [SerializeField] private FarmVisualManager visualManager;
 
         [Header("耕地障碍物检测配置")]
-        [Tooltip("耕地障碍物检测半径（1.5 = 中心1格 + 周围8格半格）")]
+        [Tooltip("耕地障碍物检测盒边长（历史字段名保留为 Radius；默认 1.5 x 1.5，格心锚定）")]
         [SerializeField] private float farmingObstacleCheckRadius = 1.5f;
 
         [Tooltip("耕地障碍物标签（可多选）")]
@@ -51,6 +52,7 @@ namespace FarmGame.Farm
         [SerializeField] private bool showDebugInfo = false;
 
         // 耕地检测配置访问器（供 FarmingManagerNew 使用）
+        // 注意：FarmingObstacleCheckRadius 是历史命名，实际语义是检测盒边长。
         public static float FarmingObstacleCheckRadius => Instance != null ? Instance.farmingObstacleCheckRadius : 1.5f;
         public static string[] FarmingObstacleTags => Instance != null ? Instance.farmingObstacleTags : new string[] { "Tree", "Rock", "Building" };
         public static string[] FarmingWhitelistTags => Instance != null ? Instance.farmingWhitelistTags : new string[0];
@@ -217,6 +219,15 @@ namespace FarmGame.Farm
         /// <returns>楼层索引（0 = LAYER 1）</returns>
         public int GetCurrentLayerIndex(Vector3 playerPosition)
         {
+            if (TryResolveLayerIndexFromDetectedLayer(playerPosition, out int detectedLayerIndex))
+            {
+                return detectedLayerIndex;
+            }
+
+            if (TryResolveLayerIndexFromConfiguredTilemaps(playerPosition, out int tilemapLayerIndex))
+            {
+                return tilemapLayerIndex;
+            }
             // TODO: 实现基于玩家位置的楼层检测
             // 目前默认返回 0（LAYER 1）
             // 后续可以根据玩家所在的 Transform 父级或 Y 坐标判断
@@ -228,6 +239,123 @@ namespace FarmGame.Farm
         /// </summary>
         /// <param name="layerIndex">楼层索引</param>
         /// <returns>楼层 Tilemap 配置，无效时返回 null</returns>
+        private bool TryResolveLayerIndexFromDetectedLayer(Vector3 worldPosition, out int layerIndex)
+        {
+            layerIndex = -1;
+
+            if (layerTilemaps == null || layerTilemaps.Length == 0)
+            {
+                return false;
+            }
+
+            int detectedLayer = PlacementLayerDetector.GetLayerAtPosition(worldPosition);
+            string detectedLayerName = LayerMask.LayerToName(detectedLayer);
+            if (string.IsNullOrEmpty(detectedLayerName) ||
+                string.Equals(detectedLayerName, "Default", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            for (int i = 0; i < layerTilemaps.Length; i++)
+            {
+                var tilemaps = layerTilemaps[i];
+                if (tilemaps == null) continue;
+
+                if (string.Equals(tilemaps.layerName, detectedLayerName, StringComparison.OrdinalIgnoreCase))
+                {
+                    layerIndex = i;
+                    return true;
+                }
+            }
+
+            if (TryParseLayerNameToIndex(detectedLayerName, out int parsedIndex) &&
+                parsedIndex >= 0 &&
+                parsedIndex < layerTilemaps.Length)
+            {
+                layerIndex = parsedIndex;
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryResolveLayerIndexFromConfiguredTilemaps(Vector3 worldPosition, out int layerIndex)
+        {
+            layerIndex = -1;
+
+            if (layerTilemaps == null || layerTilemaps.Length == 0)
+            {
+                return false;
+            }
+
+            for (int i = 0; i < layerTilemaps.Length; i++)
+            {
+                var tilemaps = layerTilemaps[i];
+                if (tilemaps == null) continue;
+
+                Vector3Int cellPos = tilemaps.WorldToCell(worldPosition);
+                if (HasAnyConfiguredTileAtCell(tilemaps, cellPos))
+                {
+                    layerIndex = i;
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool TryParseLayerNameToIndex(string layerName, out int layerIndex)
+        {
+            layerIndex = -1;
+            if (string.IsNullOrWhiteSpace(layerName)) return false;
+
+            const string prefix = "LAYER ";
+            if (!layerName.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (!int.TryParse(layerName.Substring(prefix.Length), out int parsedLayerNumber))
+            {
+                return false;
+            }
+
+            layerIndex = parsedLayerNumber - 1;
+            return layerIndex >= 0;
+        }
+
+        private static bool HasAnyConfiguredTileAtCell(LayerTilemaps tilemaps, Vector3Int cellPos)
+        {
+            if (tilemaps == null)
+            {
+                return false;
+            }
+
+            if (tilemaps.groundTilemap != null && tilemaps.groundTilemap.GetTile(cellPos) != null)
+            {
+                return true;
+            }
+
+            if (tilemaps.farmlandCenterTilemap != null && tilemaps.farmlandCenterTilemap.GetTile(cellPos) != null)
+            {
+                return true;
+            }
+
+            if (tilemaps.farmlandBorderTilemap != null && tilemaps.farmlandBorderTilemap.GetTile(cellPos) != null)
+            {
+                return true;
+            }
+
+            #pragma warning disable 0618
+            if (tilemaps.farmlandTilemap != null && tilemaps.farmlandTilemap.GetTile(cellPos) != null)
+            {
+                return true;
+            }
+            #pragma warning restore 0618
+
+            return false;
+        }
+
         public LayerTilemaps GetLayerTilemaps(int layerIndex)
         {
             if (layerTilemaps == null || layerIndex < 0 || layerIndex >= layerTilemaps.Length)
@@ -261,6 +389,73 @@ namespace FarmGame.Farm
             
             layerTiles.TryGetValue(cellPosition, out FarmTileData data);
             return data;
+        }
+
+        /// <summary>
+        /// 从世界坐标解析楼层、格子和耕地数据。
+        /// 返回 true 仅表示成功解析到楼层和格子，tileData 可能为空。
+        /// </summary>
+        public bool TryResolveTileAtWorld(
+            Vector3 worldPosition,
+            out int layerIndex,
+            out Vector3Int cellPosition,
+            out FarmTileData tileData)
+        {
+            layerIndex = GetCurrentLayerIndex(worldPosition);
+            cellPosition = Vector3Int.zero;
+            tileData = null;
+
+            var tilemaps = GetLayerTilemaps(layerIndex);
+            if (tilemaps == null)
+            {
+                return false;
+            }
+
+            cellPosition = tilemaps.WorldToCell(worldPosition);
+            tileData = GetTileData(layerIndex, cellPosition);
+            return true;
+        }
+
+        /// <summary>
+        /// 检查指定格子是否存在作物占位。
+        /// </summary>
+        public bool HasCropOccupant(int layerIndex, Vector3Int cellPosition)
+        {
+            var tileData = GetTileData(layerIndex, cellPosition);
+            return tileData != null && tileData.HasCrop();
+        }
+
+        /// <summary>
+        /// 检查世界坐标对应格子是否存在作物占位。
+        /// </summary>
+        public bool HasCropOccupantAtWorld(Vector3 worldPosition)
+        {
+            return TryResolveTileAtWorld(worldPosition, out int layerIndex, out Vector3Int cellPosition, out _) &&
+                   HasCropOccupant(layerIndex, cellPosition);
+        }
+
+        /// <summary>
+        /// 检查世界坐标对应格子是否已耕地。
+        /// </summary>
+        public bool IsTilledAtWorld(Vector3 worldPosition)
+        {
+            return TryResolveTileAtWorld(worldPosition, out _, out _, out FarmTileData tileData) &&
+                   tileData != null &&
+                   tileData.isTilled;
+        }
+
+        /// <summary>
+        /// 获取指定格子的世界格心坐标。
+        /// </summary>
+        public Vector3 GetCellCenterWorld(int layerIndex, Vector3Int cellPosition)
+        {
+            var tilemaps = GetLayerTilemaps(layerIndex);
+            if (tilemaps != null)
+            {
+                return tilemaps.GetCellCenterWorld(cellPosition);
+            }
+
+            return PlacementGridCalculator.CellIndexToWorldCenter(cellPosition);
         }
         
         /// <summary>
@@ -462,7 +657,7 @@ namespace FarmGame.Farm
             // 随机水渍变体
             if (puddleVariant < 0)
             {
-                puddleVariant = Random.Range(0, 3);
+                puddleVariant = UnityEngine.Random.Range(0, 3);
             }
             
             tileData.SetWatered(waterTime, puddleVariant);

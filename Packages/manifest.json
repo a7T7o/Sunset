@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.gamelovers.mcp-unity": "file:D:/迅雷下载/MCP/mcp-unity",
+    "com.coplaydev.unity-mcp": "https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main",
     "com.unity.cinemachine": "3.1.4",
     "com.unity.collab-proxy": "2.10.0",
     "com.unity.feature.2d": "2.0.1",

@@ -433,6 +433,18 @@ public static class PlacementGridCalculator
             z
         );
     }
+
+    /// <summary>
+    /// 格子索引转世界坐标（格子中心，Vector3Int 重载）。
+    /// </summary>
+    public static Vector3 CellIndexToWorldCenter(Vector3Int cellIndex, float z = 0f)
+    {
+        return new Vector3(
+            cellIndex.x + 0.5f,
+            cellIndex.y + 0.5f,
+            z
+        );
+    }
     
     /// <summary>
     /// 检查两个格子是否相邻

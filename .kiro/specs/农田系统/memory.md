@@ -162,3 +162,26 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 修正此前把 `V` 误收缩成“只控制农田工具模式”的错误理解，正式恢复为“统一约束农田工具链 + placeable 放置链”的总开关；已将纠正后的需求和设计记录到 `10.2.0改进001/纠正001.md`。代码侧完成 `GameInputManager.cs` 与 `HotbarSelectionService.cs` 的最小兼容修复：当前手持 placeable 时按 `V` 可立即进入/退出有效放置态，ESC/右键不再误伤 placeable 状态机；Unity 重新编译通过（0 error，2 个既有 warning）。
 文件：10.2.0改进001/纠正001.md、Assets/YYY_Scripts/Controller/Input/GameInputManager.cs、Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs
 
+
+## 2026-03-10：10.2.1补丁001 - 农田交互修复V2 审查建档完成
+当前主线切入 `.kiro/specs/农田系统/2026.03.01/10.2.1补丁001/`，本轮未改代码，先完成审查五件套建档：`requirements.md`、`analysis.md`、`design.md`、`tasks.md`、`memory.md`。已核实五个主问题都成立：放置导航与成功判定脱钩、放置链漏检作物占位、`V` 模式下 `Hoe` 仍混入清作物/挖树苗语义、第四点必须采用“1+8 + 0.75/1/1.5”口径、树苗成长未并入作物占位。同步记录三个补充风险：`PlacementValidator.IsOnFarmland()` 仍为 `TODO + false`、`FarmTileManager.GetCurrentLayerIndex()` 恒返回 `0`、`PlacementManager` 导航中改点位会丢失 seed/sapling 专用验证。当前状态：文档待用户审核，审核通过后再进入实现。
+文件：10.2.1补丁001/requirements.md、10.2.1补丁001/analysis.md、10.2.1补丁001/design.md、10.2.1补丁001/tasks.md、10.2.1补丁001/memory.md
+
+
+## 2026-03-10：10.2.1补丁001 - 问题四口径统一结论补充
+补充澄清第四点的核心不是“选 3x3 还是选 1.5”这种单值争论，而是统一同一交互足迹在三层表达中的口径：逻辑层是中心 1 格，视觉层是 1+8 邻域结构，物理层是 `1.5 x 1.5` 检测盒与 `0.75` half extent 的同义描述。后续实现应围绕“统一交互足迹”推进，而不是把九个格子错误地理解成等权硬占位。
+
+
+## 2026-03-10：10.2.1补丁001 - 问题四最终确认补充
+用户进一步确认后，正式把第四点实现基线固定为“基于放置系统格心坐标的 `1.5 x 1.5` 方框 footprint”。已核实主路径坐标基本统一：`GameInputManager` 用 `PlacementGridCalculator.GetCellCenter()` 对齐鼠标坐标，再转 `WorldToCell`，`FarmToolPreview` 再取回格心并交给 `PlacementValidator.HasFarmingObstacle()`。同时记录一个残留一致性问题：`FarmToolPreview.GetCellCenterWorld()` 的 fallback 仍用“先 `+0.5` 再交给 `PlacementGridCalculator`”的写法，表达口径不够干净，后续实现应顺手收掉。
+
+
+## 2026-03-10：10.2.1补丁001 - 用户审核通过后整包实现完成
+用户确认审查文档与问题四口径纠正后，主线从“待审核”切换为“直接完成 10.2.1 整包实现”。本轮落地完成：`PlacementManager` 新增统一验证入口并把导航改点位/导航到达都收束到同源重验；`FarmTileManager` / `PlacementValidator` / `FarmToolPreview` 完成作物占位与 `1.5 x 1.5` footprint 统一；`GameInputManager` / `PlayerToolHitEmitter` / `TreeController` 收口施工模式下 `Hoe/WateringCan` 的隔离边界，并把树成长阻挡并入农作物占位。同步更新 `10.2.1补丁001/tasks.md`，勾选实现任务并补充手动回归清单。验证方面：`mcp-unity` 当前连接失败，无法直接重编译；已通过 `Editor.log` 抓到并修复本轮唯一新增编译错误（`FarmTileManager.cs` 的 `Random` 歧义），仍需用户在编辑器内补跑一次最终编译确认。
+文件：Assets/YYY_Scripts/Farm/FarmTileData.cs、Assets/YYY_Scripts/Farm/FarmTileManager.cs、Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs、Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs、Assets/YYY_Scripts/Farm/FarmToolPreview.cs、Assets/YYY_Scripts/Service/Placement/PlacementManager.cs、Assets/YYY_Scripts/Controller/Input/GameInputManager.cs、Assets/YYY_Scripts/Combat/PlayerToolHitEmitter.cs、Assets/YYY_Scripts/Controller/TreeController.cs、10.2.1补丁001/tasks.md
+
+
+## 2026-03-10：10.2.1补丁001 - 独立编译闭环完成，等待编辑器内手动回归
+继续沿 `10.2.1补丁001` 主线收尾。由于 `mcp-unity` 仍不可用，本轮改走 Unity 自带 Roslyn 编译链：直接复用 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp` 与 `Assembly-CSharp-Editor.rsp`，使用 `Unity 6000.0.62f1` 自带 `dotnet.exe + csc.dll` 做独立编译验证。结果：运行时程序集 `Assembly-CSharp` 独立编译 `0 error`，只剩 1 个既有 obsolete warning；编辑器程序集 `Assembly-CSharp-Editor` 独立编译 `0 error`。同时纠正 `10.2.1补丁001/tasks.md` 中“手动回归清单”被误勾选的问题，明确当前真实状态是“整包实现完成、源码独立编译通过、待 Unity 编辑器内逐项回归”。主线恢复点更新为：等待用户按清单验证箱子、树苗、种子、`Hoe/WateringCan` 的现场行为，如有现象再继续验收修补。
+文件：10.2.1补丁001/tasks.md、10.2.1补丁001/memory.md、Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp、Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.rsp
+

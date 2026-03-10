@@ -55,3 +55,100 @@
 **遗留问题**：
 - [ ] `DialogueValidation.unity` 仍需手动修正 `DialogueCanvas` 缩放与 UI 布局，之后再按指南执行完整 Play 验收。
 - [ ] 正式剧情接入前，仍需创建真实 `DialogueSequenceSO` 资产并在正式场景中手动拖齐 `DialogueUI` 的 6 个引用。
+
+### 会话 6 - 2026-03-07
+**用户需求**：用户即将关机，要求在根目录 `History/2026.03.07-Claude-Cli-历史会话交接` 下新建一个与当前终端名称一致的 Markdown 交接文档，写入当前终端已知的全部准确情况，供任意后续终端完整接手。
+**完成任务**：
+- 先检查根目录与 `History/2026.03.07-Claude-Cli-历史会话交接` 目录实际存在。
+- 读取环境变量确认当前能被实际证实的终端标识为 `TERM=xterm-256color`，未检测到更具体的会话名变量。
+- 重新读取主/子工作区 memory、`CLAUDE.md`、验收指南以及核心脚本（`DialogueManager.cs`、`GameInputManager.cs`），确保交接文档仅写入已被证据确认的状态。
+- 新建交接文件 `History/2026.03.07-Claude-Cli-历史会话交接/xterm-256color.md`，系统整理：主线任务状态、已确认代码事实、验证场景真实现状、MCP 验证边界、关键文档索引、规则约束、用户偏好、待办清单和推荐接手步骤。
+**修改文件**：
+- `History/2026.03.07-Claude-Cli-历史会话交接/xterm-256color.md` - [新增]：当前终端完整历史会话交接文档。
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录本次关机前交接文档落盘。
+**解决方案**：以“只写已核实事实 + 为下一任提供可执行接手路径”为原则整理交接文档，避免把 MCP 连接失败误写成项目失败，也避免把未完成的 Play 验收写成已完成。
+**遗留问题**：
+- [ ] 当前主线 `完成对话验证闭环` 仍未完成，下一任应优先处理 `DialogueValidation.unity` 的可见性与布局后再做 Play 验收。
+- [ ] 若后续继续推进，应按规则先子后父补写 memory，并继续维护 `History/2026.03.07-Claude-Cli-历史会话交接` 下的交接材料。
+
+### 会话 7 - 2026-03-09
+**用户需求**：进入 `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建` 工作区并理解最新进程。
+**完成任务**：
+- 按工作区路由规则读取本子工作区 `memory.md`、父工作区 `memory.md`、`.kiro/steering/README.md`、`.kiro/steering/rules.md`、`.kiro/steering/workspace-memory.md`、`.kiro/steering/000-context-recovery.md` 与 `CLAUDE.md`。
+- 复核当前最关键材料：`阶段1_微设计与任务.md`、`阶段1_验收与使用配置指南.md`、实际存在的交接稿 `History/2026.03.07-Claude-Cli-历史会话交接/春一日V2.md`。
+- 交叉验证代码与场景事实：`DialogueManager.cs` 已接入 `isGarbled + IsLanguageDecoded` 文本路由；`DialogueValidationBootstrap.cs` 可切换 `startDecoded`；`GameInputManager.cs` 已订阅对话开始/结束事件；`DialogueValidation.unity` 中 `DialogueUI` 6 个序列化引用仍为空，且 `DialogueCanvas` 的 `RectTransform.m_LocalScale` 仍为 `0,0,0`。
+- 识别一处历史记录偏差：旧 memory 中提到的 `kiro.md` / `xterm-256color.md` 并非当前实际存在的交接文件名；当前可用的春一日交接稿为 `春一日V1.md` / `春一日V2.md`，应以现存文件与工作区 memory 为准。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录本轮工作区接手与进度核查结论。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步父工作区摘要。
+**解决方案**：本轮不直接改代码/场景，而是先用“子 memory → 父 memory → steering → 指南/交接 → 实际代码与场景”的顺序恢复上下文；在交接稿、memory 与实际文件不一致时，以实际存在的文件和源码/scene 内容作为最新事实源。
+**遗留问题**：
+- [ ] 当前主线仍是“阶段1最小对话系统验证闭环”，下一步应优先修复 `Assets/000_Scenes/DialogueValidation.unity` 的可见性与布局，再做真实 Play 验收。
+- [ ] `DialogueUI` 的 6 个 Inspector 引用在验证场景仍为空；虽然验证脚本可按名字自补线，但正式场景接入前仍需手动拖齐。
+- [ ] 本轮尚未补写线程 memory；若继续以 Codex 线程规则收尾，需确认当前线程名称/路径后再回写 `.codex/threads/.../memory_0.md`。
+
+### 会话 8 - 2026-03-10
+**用户需求**：提供基于当前全部理解的“下一步执行步骤清单”，明确接下来用户要做什么操作与验收、Codex 需要继续承担什么内容，并将当前线程路径定为 `.codex/threads/Sunset/spring-day1`。
+**完成任务**：
+- 确认当前线程工作区路径为 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1`。
+- 在已有代码、场景、验收指南、交接稿与 memory 结论基础上，收敛出下一阶段的执行顺序：先处理验证场景可见性与布局，再执行未解码/已解码 Play 验收，再补跑自动化验证，最后决定是否进入正式剧情接入。
+- 明确职责分工：用户侧以 Unity Editor 中的场景/UI 调整与 Play 验收为主；Codex 侧负责审视场景修改方案、在获授权后落地场景补丁、补跑脚本/测试验证、同步 memory 与交接材料。
+- 按规则补写本子工作区、父工作区与线程三级记忆，保证后续任何终端都能从本轮“执行清单”继续推进。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录本轮执行清单与职责分工结论。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [分卷+续写]：同步父工作区摘要。
+- `.codex/threads/Sunset/spring-day1/memory_0.md` - [新增]：创建当前线程首份线程记忆。
+**解决方案**：将“下一步怎么做”拆成一条稳定的闭环链路：场景审视与调整 → 真实 Play 验收 → 自动化验证补跑 → 正式接入决策；用户与 Codex 各自承担最适合的部分，避免一边改场景一边丢失主线。
+**遗留问题**：
+- [ ] `DialogueValidation.unity` 仍需先完成可见性与布局修正，当前尚未开始新的场景改动。
+- [ ] 自动化验证的 `get_console_logs` / `run_tests(EditMode)` 仍需要在 MCP 稳定时补跑一次，区分工具异常与项目异常。
+
+### 会话 9 - 2026-03-10
+**用户需求**：分析 TMP 组件无法支持中文输入的问题，判断应通过编码、字体、资源还是其他方式解决；并结合项目现状理解原有中文 UI 是如何实现的。
+**完成任务**：
+- 复核当前 TMP 链路，确认项目默认 TMP 字体资产仍是 `LiberationSans SDF`，且 `TMP Settings.asset` 的 `m_fallbackFontAssets` 为空，说明当前并没有任何中文后备字体链路。
+- 复核验证场景与主场景，确认对话相关 TMP 文本都指向 `LiberationSans SDF`，而旧 UI 系统中的背包、工具栏、手持物等中文 UI 仍主要使用 `UnityEngine.UI.Text`。
+- 收敛技术判断：当前问题不是编码问题，而是 TMP 字体资产缺少中文字形；旧 UI 能显示中文，主要是因为它仍在走 legacy `Text` 组件与动态字体链路。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录 TMP 中文问题的结论。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步父工作区摘要。
+- `.codex/threads/Sunset/spring-day1/memory_0.md` - [追加]：同步线程记忆。
+**解决方案**：优先方案不是改编码，而是补一套支持中文的 TMP 字体资产，并把它配置为对话系统的主字体或 TMP 全局后备字体；若只是短期验证，也可以临时把对话 UI 改回 legacy `Text`，但这更像兜底而不是长期方案。
+**遗留问题**：
+- [ ] 仍需决定是引入项目内正式中文字体资源，还是先用系统字体 / 临时下载字体生成 TMP 字体资产。
+- [ ] 若继续保留 TMP 路线，后续需要决定使用静态字库、动态字库还是主字体 + 后备字体组合。
+
+### 会话 10 - 2026-03-10
+**用户需求**：确认只需把“对话 UI 专用中文 TMP 字体”放到项目里，后续可直接在 Inspector 的 `Font Asset` 字段中手动引用，然后授权立即开始。
+**完成任务**：
+- 将中文字体文件 `NotoSansSC-VF.ttf` 复制到项目路径 `Assets/111_Data/UI/Fonts/Dialogue/`，确保字体资源已进入仓库工作区。
+- 新增编辑器菜单脚本 `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs`，提供 `Sunset/Story/生成对话专用中文TMP字体` 一键生成功能，目标资产路径为 `Assets/111_Data/UI/Fonts/Dialogue/TMP/DialogueChinese Dynamic SDF.asset`。
+- 尝试通过 Unity MCP 进行脚本重编译和菜单执行，但两次均返回 `Connection failed: Unknown error`；确认当前阻塞是工具连接问题，尚未实际生成 `.asset`。
+**修改文件**：
+- `Assets/111_Data/UI/Fonts/Dialogue/NotoSansSC-VF.ttf` - [新增]：对话专用中文字体源文件。
+- `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs` - [新增]：一键生成对话专用中文 TMP 字体资产的编辑器菜单。
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录本轮字体接入进度。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步父工作区摘要。
+- `.codex/threads/Sunset/spring-day1/memory_0.md` - [追加]：同步线程记忆。
+**解决方案**：将本轮改动限定为“资源 + 生成工具”两部分，不提前触碰你正在重搭的对话场景结构；等 Unity 连接正常后，只需执行一次菜单就能在 Project 中得到可直接拖拽引用的中文 TMP 字体资产。
+**遗留问题**：
+- [ ] 当前尚未生成 `DialogueChinese Dynamic SDF.asset`，需要在 Unity 编辑器内执行一次菜单。
+- [ ] MCP 当前不稳定，若下一轮仍无法连通，可由用户手动点击菜单完成最后一步。
+
+### 会话 11 - 2026-03-10
+**用户需求**：指出当前生成出来的字体资源图标与 `LiberationSans SDF` 不同，且无法直接拖进 TMP 组件的 `Font Asset` 字段，要求确认是否能做成与 `Assets/TextMesh Pro/Resources/Fonts & Materials` 中现有资源相同格式。
+**完成任务**：
+- 重新核查项目内实际落盘内容，确认此前自动生成的 `TMP_FontAsset` 并未成功写入磁盘；当前能看到的 `Aa NotoSansSC-VF` 更可能是 Unity/TMP 手动生成后的不兼容结果或可变字体衍生资源，而不是我们原计划中的稳定目标资产。
+- 收敛原因判断：目录位置不是主因，真正风险在于 `NotoSansSC-VF.ttf` 属于可变字体，Unity/TMP 兼容性不够稳，容易生成出不能直接用于 `TextMeshProUGUI.fontAsset` 的资源。
+- 调整策略：将生成器改为使用普通中文 `ttf` 字体 `simhei.ttf`，并把输出路径改到 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`，尽量与现有 `LiberationSans SDF` 处于同类目录和同类资源形态。
+- 将 `simhei.ttf` 复制进项目 `Assets/111_Data/UI/Fonts/Dialogue/simhei.ttf`，作为新的稳定中文字体源文件。
+**修改文件**：
+- `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs` - [修改]：改为使用 `simhei.ttf`，并输出到 TMP Fonts & Materials 目录。
+- `Assets/111_Data/UI/Fonts/Dialogue/simhei.ttf` - [新增]：稳定中文字体源文件。
+- `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/memory.md` - [追加]：记录本轮字体类型纠偏。
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步父工作区摘要。
+- `.codex/threads/Sunset/spring-day1/memory_0.md` - [追加]：同步线程记忆。
+**解决方案**：优先保证“生成出来的就是和 `LiberationSans SDF` 同类可选资源”，因此放弃可变字体 `VF` 路线，转为普通 `ttf` 中文字体 + TMP Fonts & Materials 输出目录。
+**遗留问题**：
+- [ ] 仍需在 Unity 中重新执行一次菜单，生成新的 `DialogueChinese SDF.asset`。
+- [ ] 建议删除或忽略当前那个不可拖拽的 `Aa NotoSansSC-VF` 结果，避免后续误用。

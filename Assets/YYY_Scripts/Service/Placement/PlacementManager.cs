@@ -567,6 +567,82 @@ public class PlacementManager : MonoBehaviour
     #endregion
     
     #region 预览更新
+
+    private List<CellState> ValidateCurrentPlacementAt(Vector3 previewPosition)
+    {
+        if (placementPreview == null || currentPlacementItem == null)
+        {
+            return new List<CellState>();
+        }
+
+        if (currentPlacementItem is SaplingData saplingData)
+        {
+            return new List<CellState> { validator.ValidateSaplingPlacement(saplingData, previewPosition, playerTransform) };
+        }
+
+        if (currentPlacementItem is SeedData seedData)
+        {
+            bool seedValid = PlacementValidator.ValidateSeedPlacement(seedData, previewPosition);
+            return new List<CellState>
+            {
+                new CellState(Vector2Int.zero, seedValid, seedValid ? InvalidReason.None : InvalidReason.HasObstacle)
+            };
+        }
+
+        var cellStates = validator.ValidateCells(previewPosition, placementPreview.GridSize, playerTransform);
+        if (currentPlacementItem is PlaceableItemData placeableItem &&
+            validator.AreAllCellsValid(cellStates) &&
+            !placeableItem.CanPlaceAt(previewPosition))
+        {
+            var invalidStates = new List<CellState>(cellStates.Count);
+            foreach (var state in cellStates)
+            {
+                invalidStates.Add(new CellState(state.gridPosition, false, InvalidReason.HasObstacle));
+            }
+            return invalidStates;
+        }
+
+        return cellStates;
+    }
+
+    private bool RefreshPlacementValidationAt(Vector3 worldPosition, bool updatePreviewPosition)
+    {
+        if (placementPreview == null)
+        {
+            currentCellStates = new List<CellState>();
+            return false;
+        }
+
+        if (updatePreviewPosition)
+        {
+            placementPreview.ForceUpdatePosition(worldPosition);
+        }
+
+        currentCellStates = ValidateCurrentPlacementAt(placementPreview.GetPreviewPosition());
+        placementPreview.UpdateCellStates(currentCellStates);
+        return currentCellStates.Count > 0 && validator.AreAllCellsValid(currentCellStates);
+    }
+
+    private bool TryExecuteLockedPlacement()
+    {
+        if (placementPreview == null)
+        {
+            return false;
+        }
+
+        if (!RefreshPlacementValidationAt(placementPreview.LockedPosition, false))
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=yellow>[PlacementManagerV3] 锁定位置重验失败，恢复预览跟随</color>");
+
+            PlaySound(placeFailSound);
+            HandleInterrupt();
+            return false;
+        }
+
+        ExecutePlacement();
+        return true;
+    }
     
     /// <summary>
     /// 更新预览位置和状态
@@ -588,37 +664,11 @@ public class PlacementManager : MonoBehaviour
             placementPreview.UpdateSortingLayer(sortingLayerName);
         }
         
-        // 验证格子状态
         Vector3 previewPos = placementPreview.GetPreviewPosition();
-        Vector2Int gridSize = placementPreview.GridSize;
-        
-        // ★ 根据物品类型选择验证方法
-        if (currentPlacementItem is SaplingData saplingData)
-        {
-            // 树苗使用专用验证（包含无碰撞体树苗检测）
-            var saplingState = validator.ValidateSaplingPlacement(saplingData, previewPos, playerTransform);
-            currentCellStates = new List<CellState> { saplingState };
-        }
-        else if (currentPlacementItem is SeedData seedData)
-        {
-            // 🔴 补丁005 B.2.2：种子使用专用验证（农田系统 layerIndex + 耕地数据 + 季节）
-            bool seedValid = PlacementValidator.ValidateSeedPlacement(seedData, previewPos);
-            currentCellStates = new List<CellState> 
-            { 
-                new CellState(Vector2Int.zero, seedValid, seedValid ? InvalidReason.None : InvalidReason.HasObstacle) 
-            };
-        }
-        else
-        {
-            // 其他物品使用通用验证
-            currentCellStates = validator.ValidateCells(previewPos, gridSize, playerTransform);
-        }
-        
-        placementPreview.UpdateCellStates(currentCellStates);
+        bool allValid = RefreshPlacementValidationAt(previewPos, false);
         
         if (showDebugInfo)
         {
-            bool allValid = validator.AreAllCellsValid(currentCellStates);
             Debug.Log($"<color=cyan>[PlacementManagerV3] UpdatePreview: pos={previewPos}, allValid={allValid}, isSapling={currentPlacementItem is SaplingData}</color>");
         }
     }
@@ -642,7 +692,7 @@ public class PlacementManager : MonoBehaviour
         if (currentState == PlacementState.Preview)
         {
             // Preview 状态：检查是否全绿，是则锁定位置
-            if (validator.AreAllCellsValid(currentCellStates))
+            if (RefreshPlacementValidationAt(placementPreview.GetPreviewPosition(), false))
             {
                 if (showDebugInfo)
                     Debug.Log($"<color=green>[PlacementManagerV3] 所有格子有效，锁定位置</color>");
@@ -658,26 +708,21 @@ public class PlacementManager : MonoBehaviour
         {
             // Navigating 状态：点击新位置，需要先验证新位置
             Vector3 mousePos = GetMouseWorldPosition();
-            Vector3 cellCenter = PlacementGridCalculator.GetCellCenter(mousePos);
-            var newCellStates = validator.ValidateCells(cellCenter, placementPreview.GridSize, playerTransform);
             
-            if (validator.AreAllCellsValid(newCellStates))
+            // 取消当前导航
+            navigator.CancelNavigation();
+            
+            // ★ 清除旧快照
+            currentSnapshot = PlacementSnapshot.Invalid;
+            
+            // 解锁并更新到新位置
+            placementPreview.UnlockPosition();
+
+            if (RefreshPlacementValidationAt(mousePos, true))
             {
                 if (showDebugInfo)
                     Debug.Log($"<color=cyan>[PlacementManagerV3] 导航中点击新位置，重新导航</color>");
-                
-                // 取消当前导航
-                navigator.CancelNavigation();
-                
-                // ★ 清除旧快照
-                currentSnapshot = PlacementSnapshot.Invalid;
-                
-                // 解锁并更新到新位置
-                placementPreview.UnlockPosition();
-                placementPreview.ForceUpdatePosition(mousePos);
-                currentCellStates = newCellStates;
-                placementPreview.UpdateCellStates(currentCellStates);
-                
+
                 // 锁定新位置（会创建新快照）
                 LockPreviewPosition();
             }
@@ -728,6 +773,12 @@ public class PlacementManager : MonoBehaviour
     private void LockPreviewPosition()
     {
         if (placementPreview == null) return;
+        if (!RefreshPlacementValidationAt(placementPreview.GetPreviewPosition(), false))
+        {
+            if (showDebugInfo)
+                Debug.Log($"<color=red>[PlacementManagerV3] 锁定前重验失败，取消本次锁定</color>");
+            return;
+        }
         
         // 锁定位置
         placementPreview.LockPosition();
@@ -757,8 +808,8 @@ public class PlacementManager : MonoBehaviour
             // 已经在附近，直接放置
             if (showDebugInfo)
                 Debug.Log($"<color=green>[PlacementManagerV3] 玩家已在目标附近，直接放置</color>");
-            
-            ExecutePlacement();
+
+            TryExecuteLockedPlacement();
         }
         else
         {
@@ -794,9 +845,9 @@ public class PlacementManager : MonoBehaviour
     private void OnNavigationReached()
     {
         if (showDebugInfo)
-            Debug.Log($"<color=green>[PlacementManagerV3] 到达目标，执行放置</color>");
-        
-        ExecutePlacement();
+            Debug.Log($"<color=green>[PlacementManagerV3] 到达目标，执行锁定位置重验</color>");
+
+        TryExecuteLockedPlacement();
     }
     
     /// <summary>

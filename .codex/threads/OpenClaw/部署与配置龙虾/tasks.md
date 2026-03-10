@@ -1,0 +1,21 @@
+# tasks
+
+- [x] 1. 复核当前线程 memory 与现有文档，确认真实未落地的基础需求
+- [x] 2. 复核 OpenClaw 当前模型、agent、gateway、browser、Feishu 的真实状态
+- [x] 3. 验证 `reader` 能读取 `Sunset`
+- [x] 4. 验证 `reviewer` 能读取 `Sunset`
+- [x] 5. 修复 Gateway 掉线后 fallback 到 embedded 的问题
+- [x] 6. 验证托管浏览器 `openclaw` profile
+- [x] 7. 为 `main` 补齐浏览器工具入口
+- [x] 8. 安装并核对 Chrome / Edge relay 扩展目录
+- [x] 9. 修复仓库根 `.env` 中残留旧 gateway token
+- [x] 10. 补强 `start-openclaw-hidden.ps1`，确保启动继承当前 token
+- [x] 11. 修复 Edge 遗留扩展中的硬编码旧 token
+- [x] 12. 重新验证 `18791`、`18792`、`18793` 三条链路认证
+- [x] 13. 验证 `main` 的 `web_fetch` 可用
+- [ ] 14. 在 Chrome 手动加载扩展并附着至少 1 个标签页
+- [ ] 15. 在 Edge 手动加载扩展并附着至少 1 个标签页
+- [ ] 16. 提供一个真实可用的搜索 provider key，或明确放弃 `web_search`
+- [ ] 17. 设计 `main/Feishu -> pm` 的统一入口协议
+- [ ] 18. 设计 `pm -> reader/reviewer/builder` 的半自动派单协议
+- [ ] 19. 决定是否进入自动派单试点

@@ -19,6 +19,9 @@ public class PlacementValidator
     /// <summary>障碍物检测标签（包含 Player）- 用于放置箱子/树苗等</summary>
     private string[] obstacleTags = new string[] { "Tree", "Rock", "Building", "Player" };
 
+    private const float DefaultFarmingFootprintSize = 1.5f;
+    private const float DefaultFarmingFootprintHalfExtent = DefaultFarmingFootprintSize * 0.5f;
+
     /// <summary>水域检测层</summary>
     private LayerMask waterLayer;
     
@@ -155,6 +158,10 @@ public class PlacementValidator
         }
         
         // 2. 新增：检测无碰撞体的树苗（Stage 0）
+        var farmTileManager = FarmTileManager.Instance;
+        if (farmTileManager != null && farmTileManager.HasCropOccupantAtWorld(cellCenter))
+            return true;
+
         if (HasTreeAtPosition(cellCenter, 0.5f))
             return true;
         
@@ -177,17 +184,17 @@ public class PlacementValidator
     /// </summary>
     /// <param name="cellCenter">格子中心世界坐标</param>
     /// <returns>true=有障碍物，false=无障碍物</returns>
-    public static bool HasFarmingObstacle(Vector3 cellCenter)
+    public static bool HasFarmingObstacle(Vector3 cellCenter, int layerIndex = -1, bool includeCropOccupant = true)
     {
         // 从 FarmTileManager 读取配置
-        float radius = FarmTileManager.FarmingObstacleCheckRadius;
+        float footprintSize = FarmTileManager.FarmingObstacleCheckRadius;
         string[] obstacleTags = FarmTileManager.FarmingObstacleTags;
         string[] whitelistTags = FarmTileManager.FarmingWhitelistTags;
         bool requireGroundAround = FarmTileManager.RequireGroundAround;
 
-        // 1. 碰撞体检测（使用 AABB 正方形检测）
-        // Physics2D.OverlapBoxAll 的第二个参数是 half extents，所以直接传 radius
-        Vector2 boxSize = new Vector2(radius, radius);
+        // 1. 碰撞体检测（使用格心锚定的 1.5 x 1.5 检测盒）
+        // Physics2D.OverlapBoxAll 的第二个参数是完整 box size，不是 half extents。
+        Vector2 boxSize = new Vector2(footprintSize, footprintSize);
         Collider2D[] hits = Physics2D.OverlapBoxAll(cellCenter, boxSize, 0f);
 
         foreach (var hit in hits)
@@ -204,6 +211,28 @@ public class PlacementValidator
         }
 
         // 2. 检测无碰撞体的树苗（Stage 0）
+        if (includeCropOccupant)
+        {
+            var farmTileManager = FarmTileManager.Instance;
+            if (farmTileManager != null)
+            {
+                if (layerIndex >= 0)
+                {
+                    var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
+                    if (tilemaps != null)
+                    {
+                        Vector3Int cellPos = tilemaps.WorldToCell(cellCenter);
+                        if (farmTileManager.HasCropOccupant(layerIndex, cellPos))
+                            return true;
+                    }
+                }
+                else if (farmTileManager.HasCropOccupantAtWorld(cellCenter))
+                {
+                    return true;
+                }
+            }
+        }
+
         if (HasTreeAtPositionStatic(cellCenter))
             return true;
 
@@ -245,7 +274,7 @@ public class PlacementValidator
     /// </summary>
     private static bool HasTreeAtPositionStatic(Vector3 cellCenter)
     {
-        float checkRadius = 0.75f;  // 1.5 / 2 = 0.75
+        float checkRadius = GetFarmingFootprintHalfExtent();
 
         // 遍历场景中所有 TreeController
         var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
@@ -273,7 +302,7 @@ public class PlacementValidator
     /// </summary>
     private static bool HasChestAtPositionStatic(Vector3 cellCenter)
     {
-        float checkRadius = 0.75f;  // 1.5 / 2 = 0.75
+        float checkRadius = GetFarmingFootprintHalfExtent();
         
         // 遍历场景中所有 ChestController
         var allChests = Object.FindObjectsByType<ChestController>(FindObjectsSortMode.None);
@@ -322,9 +351,10 @@ public class PlacementValidator
     public CellState ValidateSaplingPlacement(SaplingData sapling, Vector3 position, Transform playerTransform)
     {
         // 基础格子验证
-        var baseState = ValidateSingleCell(position, Vector2Int.zero, playerTransform);
-        if (!baseState.isValid)
-            return baseState;
+        if (enableLayerCheck && IsLayerMismatch(position, playerTransform))
+        {
+            return new CellState(Vector2Int.zero, false, InvalidReason.LayerMismatch);
+        }
         
         // 检查冬季
         if (sapling != null && sapling.IsWinter())
@@ -336,6 +366,16 @@ public class PlacementValidator
         if (IsOnFarmland(position))
         {
             return new CellState(Vector2Int.zero, false, InvalidReason.OnFarmland);
+        }
+
+        if (HasObstacle(position))
+        {
+            return new CellState(Vector2Int.zero, false, InvalidReason.HasObstacle);
+        }
+
+        if (IsOnWater(position))
+        {
+            return new CellState(Vector2Int.zero, false, InvalidReason.HasObstacle);
         }
         
         // 检查成长边距（使用距离检测，树苗之间需要保持一定距离）
@@ -362,8 +402,13 @@ public class PlacementValidator
     /// </summary>
     public bool IsOnFarmland(Vector3 position)
     {
-        // TODO: 与 FarmingSystem 集成
-        return false;
+        var farmTileManager = FarmTileManager.Instance;
+        if (farmTileManager == null)
+        {
+            return false;
+        }
+
+        return farmTileManager.IsTilledAtWorld(position);
     }
     
     /// <summary>
@@ -389,7 +434,7 @@ public class PlacementValidator
         }
 
         // 方法2：遍历场景中所有 TreeController，使用 AABB 正方形检测
-        float aabbRadius = 0.75f;  // 1.5 / 2 = 0.75
+        float aabbRadius = GetFarmingFootprintHalfExtent();
         var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
         foreach (var tree in allTrees)
         {
@@ -478,7 +523,7 @@ public class PlacementValidator
         }
 
         // 方法2：遍历场景中所有 ChestController，使用 AABB 正方形检测
-        float aabbRadius = 0.75f;  // 1.5 / 2 = 0.75
+        float aabbRadius = GetFarmingFootprintHalfExtent();
         var allChests = Object.FindObjectsByType<ChestController>(FindObjectsSortMode.None);
         foreach (var chest in allChests)
         {
@@ -574,6 +619,17 @@ public class PlacementValidator
         }
         return false;
     }
+
+    private static float GetFarmingFootprintHalfExtent()
+    {
+        float footprintSize = FarmTileManager.FarmingObstacleCheckRadius;
+        if (footprintSize <= 0f)
+        {
+            return DefaultFarmingFootprintHalfExtent;
+        }
+
+        return footprintSize * 0.5f;
+    }
     
     #endregion
     
@@ -610,22 +666,21 @@ public class PlacementValidator
         if (farmTileManager == null) return false;
         
         // 获取楼层索引（与 FarmToolPreview.UpdateSeedPreview 同源）
-        int layerIndex = farmTileManager.GetCurrentLayerIndex(worldPos);
-        var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
-        if (tilemaps == null) return false;
+        if (!farmTileManager.TryResolveTileAtWorld(worldPos, out int layerIndex, out Vector3Int cellPos, out FarmTileData tileData))
+            return false;
         
-        Vector3Int cellPos = tilemaps.WorldToCell(worldPos);
+        
         
         // 1. 检查有耕地数据
-        var tileData = farmTileManager.GetTileData(layerIndex, cellPos);
         if (tileData == null) return false;
         
         // 2. 检查可种植
         if (!tileData.CanPlant()) return false;
+        if (farmTileManager.HasCropOccupant(layerIndex, cellPos)) return false;
         
         // 3. 检查无障碍物
-        Vector3 cellCenter = tilemaps.GetCellCenterWorld(cellPos);
-        if (HasFarmingObstacle(cellCenter)) return false;
+        Vector3 cellCenter = farmTileManager.GetCellCenterWorld(layerIndex, cellPos);
+        if (HasFarmingObstacle(cellCenter, layerIndex, includeCropOccupant: false)) return false;
         
         // 4. 季节匹配检查
         if (seedData.season != Season.AllSeason && TimeManager.Instance != null)

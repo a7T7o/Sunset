@@ -409,21 +409,12 @@ namespace FarmGame.Farm
             // 获取格子中心世界坐标
             Vector3 cellCenter = GetCellCenterWorld(layerIndex, cellPos);
             
-            // 🔥 Step 2: 障碍物检测（使用 HasFarmingObstacle，不检测 Player）
-            bool hasObstacle = PlacementValidator.HasFarmingObstacle(cellCenter);
+            // 🔥 Step 2: 障碍物检测（统一使用格心锚定的 1.5 x 1.5 footprint）
+            bool hasObstacle = PlacementValidator.HasFarmingObstacle(cellCenter, layerIndex, true);
             
             // 🔥 Step 3: 检查是否可以锄地
             bool canTill = FarmTileManager.Instance != null && 
                            FarmTileManager.Instance.CanTillAt(layerIndex, cellPos);
-            
-            // 🔥 10.X 纠正：通过 FarmTileData.cropController 查找枯萎作物（替代 CropManager.GetCrop）
-            bool canClearWithered = false;
-            if (!canTill && FarmTileManager.Instance != null)
-            {
-                var tileData = FarmTileManager.Instance.GetTileData(layerIndex, cellPos);
-                if (tileData?.cropController != null && tileData.cropController.GetState() == CropState.WitheredImmature)
-                    canClearWithered = true;
-            }
             
             // 🔴 V6 模块S（CP-S1/S5）：检测任何状态的农作物
             bool hasCrop = false;
@@ -446,7 +437,8 @@ namespace FarmGame.Farm
             _hasCrop = hasCrop;
             
             // 🔥 9.0.4 修改：IsValid 不再包含距离判断
-            bool isValid = !hasObstacle && (canTill || hasCrop);
+            // 施工模式下，作物格必须给出明确无效反馈，而不是继续作为可执行态。
+            bool isValid = !hasObstacle && canTill;
             
             // 更新状态
             currentState = isValid ? FarmPreviewState.Valid : FarmPreviewState.Invalid;
@@ -588,19 +580,6 @@ namespace FarmGame.Farm
                     ghostTilemap.SetTile(kvp.Key, tileToDisplay);
                     currentPreviewPositions.Add(kvp.Key);
                     _currentGhostTileData[kvp.Key] = tileToDisplay; // 缓存增量 tile（非最终 tile）
-                }
-            }
-            else if (hasCrop)
-            {
-                // 🔴 V6 模块S（CP-S2）：有农作物的耕地 — 不显示任何预览
-                _currentGhostTileData?.Clear();
-                if (cursorRenderer != null) cursorRenderer.enabled = false;
-                // ghostTilemap 已被 ClearGhostTilemap 清空，保持空白
-                
-                if (!_hasLoggedPreviewTiles)
-                {
-                    _hasLoggedPreviewTiles = true;
-                    Debug.Log($"[FarmToolPreview] hasCrop=true: 不显示任何预览");
                 }
             }
             else
@@ -750,12 +729,12 @@ namespace FarmGame.Farm
             // 🔴 补丁005续8：未耕地不可交互也需要 shader 红色叠加
             if (previewOverlayMaterial != null)
             {
-                if (isValid && !hasCrop)
+                if (isValid)
                 {
                     // 可交互未耕地 → 绿色叠加
                     previewOverlayMaterial.SetColor("_OverlayColor", overlayValidColor);
                 }
-                else if (!isValid && !hasCrop)
+                else if (!hasCrop)
                 {
                     // 不可交互：区分未耕地（红色叠加）和已耕地（无叠加）
                     bool isTilledForShader = false;
@@ -828,7 +807,8 @@ namespace FarmGame.Farm
             Vector3 cellCenter = GetCellCenterWorld(layerIndex, cellPos);
             
             // 🔥 Step 2: 障碍物检测
-            bool hasObstacle = PlacementValidator.HasFarmingObstacle(cellCenter);
+            // 浇水允许落在已有作物的耕地上，因此这里显式忽略 crop occupant。
+            bool hasObstacle = PlacementValidator.HasFarmingObstacle(cellCenter, layerIndex, false);
             
             // 🔥 Step 3: 检查是否可以浇水
             var tileData = FarmTileManager.Instance?.GetTileData(layerIndex, cellPos);
@@ -1490,14 +1470,12 @@ namespace FarmGame.Farm
         /// </summary>
         private Vector3 GetCellCenterWorld(int layerIndex, Vector3Int cellPos)
         {
-            var tilemaps = FarmTileManager.Instance?.GetLayerTilemaps(layerIndex);
-            if (tilemaps != null)
+            if (FarmTileManager.Instance != null)
             {
-                return tilemaps.GetCellCenterWorld(cellPos);
+                return FarmTileManager.Instance.GetCellCenterWorld(layerIndex, cellPos);
             }
-            
-            // 回退：使用 PlacementGridCalculator
-            return PlacementGridCalculator.GetCellCenter(new Vector3(cellPos.x + 0.5f, cellPos.y + 0.5f, 0));
+
+            return PlacementGridCalculator.CellIndexToWorldCenter(cellPos);
         }
         
         /// <summary>

@@ -202,6 +202,15 @@ public class PlayerToolHitEmitter : MonoBehaviour
         
         // 构建命中上下文
         var ctx = BuildContext();
+
+        if (ShouldSuppressResourceNodeHit(ctx))
+        {
+            if (showDebugInfo)
+            {
+                Debug.Log($"<color=yellow>[PlayerToolHitEmitter] 施工模式下拦截 {ctx.toolType} 对 IResourceNode 的命中派发</color>");
+            }
+            return;
+        }
         
         // ✅ 筛选通过所有验证的候选节点
         List<(IResourceNode node, float distance, Bounds colliderBounds)> validCandidates = new List<(IResourceNode, float, Bounds)>();
@@ -471,6 +480,16 @@ public class PlayerToolHitEmitter : MonoBehaviour
             baseDamage = baseDamage,
             frameIndex = GetCurrentAnimationFrame()
         };
+    }
+
+    private bool ShouldSuppressResourceNodeHit(ToolHitContext ctx)
+    {
+        if (GameInputManager.Instance == null || !GameInputManager.Instance.IsPlacementMode)
+        {
+            return false;
+        }
+
+        return ctx.toolType == ToolType.Hoe || ctx.toolType == ToolType.WateringCan;
     }
     
     /// <summary>
