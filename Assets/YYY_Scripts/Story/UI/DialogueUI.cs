@@ -6,26 +6,35 @@ using UnityEngine.UI;
 
 namespace Sunset.Story
 {
-    /// <summary>警告：此脚本必须挂载在常驻活跃的 Canvas 根节点上，严禁挂载于可能被 SetActive(false) 的 UI 面板自身，以防止事件总线永久退订。</summary>
     public class DialogueUI : MonoBehaviour
     {
-        #region 序列化字段
-        [Header("UI引用")]
+        #region Serialized Fields
+        [Header("UI References")]
         [SerializeField] private GameObject root;
         [SerializeField] private TextMeshProUGUI speakerNameText;
         [SerializeField] private TextMeshProUGUI dialogueText;
         [SerializeField] private Button continueButton;
         [SerializeField] private Image portraitImage;
         [SerializeField] private Image backgroundImage;
+
+        [Header("Font Settings")]
+        [SerializeField] private DialogueFontLibrarySO fontLibrary;
+        [SerializeField] private string defaultFontKey = "default";
+        [SerializeField] private string speakerNameFontKey = "speaker_name";
+        [SerializeField] private string innerMonologueFontKey = "inner_monologue";
+        [SerializeField] private string garbledFontKey = "garbled";
         #endregion
 
-        #region 私有字段
+        #region Private Fields
         private DialogueManager _dialogueManager;
-        private bool _isVisible = false;
+        private bool _isVisible;
         private float _originalBackgroundAlpha = 1.0f;
+        private float _dialogueBaseFontSize;
+        private float _speakerBaseFontSize;
+        private float _dialogueBaseLineSpacing;
         #endregion
 
-        #region Unity生命周期
+        #region Unity Lifecycle
         private void Awake()
         {
             ResolveValidationSceneReferences();
@@ -34,6 +43,17 @@ namespace Sunset.Story
             if (backgroundImage != null)
             {
                 _originalBackgroundAlpha = backgroundImage.color.a;
+            }
+
+            if (dialogueText != null)
+            {
+                _dialogueBaseFontSize = dialogueText.fontSize;
+                _dialogueBaseLineSpacing = dialogueText.lineSpacing;
+            }
+
+            if (speakerNameText != null)
+            {
+                _speakerBaseFontSize = speakerNameText.fontSize;
             }
         }
 
@@ -63,12 +83,18 @@ namespace Sunset.Story
 
         private void Update()
         {
-            if (!_isVisible) return;
+            if (!_isVisible)
+            {
+                return;
+            }
 
             if (_dialogueManager == null)
             {
                 _dialogueManager = DialogueManager.Instance;
-                if (_dialogueManager == null) return;
+                if (_dialogueManager == null)
+                {
+                    return;
+                }
             }
 
             if (dialogueText != null)
@@ -78,19 +104,30 @@ namespace Sunset.Story
         }
         #endregion
 
-        #region 事件回调
+        #region Public Methods
+        public void ApplyFontStyle(string fontStyleKey)
+        {
+            ApplyFontStyle(fontStyleKey, speakerNameFontKey);
+        }
+        #endregion
+
+        #region Event Handlers
         private void OnDialogueStart(DialogueStartEvent _)
         {
             SetVisible(true);
         }
 
-        private void OnDialogueNodeChanged(DialogueNodeChangedEvent e)
+        private void OnDialogueNodeChanged(DialogueNodeChangedEvent eventData)
         {
-            if (e.Node == null) return;
-
-            if (e.Node.isInnerMonologue)
+            if (eventData.Node == null)
             {
-                // 内心独白：斜体、浅灰色、隐藏名字与头像、背景半透明
+                return;
+            }
+
+            ApplyFontPresetForNode(eventData.Node);
+
+            if (eventData.Node.isInnerMonologue)
+            {
                 if (dialogueText != null)
                 {
                     dialogueText.fontStyle = FontStyles.Italic;
@@ -99,17 +136,23 @@ namespace Sunset.Story
 
                 if (backgroundImage != null)
                 {
-                    Color bgColor = backgroundImage.color;
-                    bgColor.a = 0.5f;
-                    backgroundImage.color = bgColor;
+                    Color backgroundColor = backgroundImage.color;
+                    backgroundColor.a = 0.5f;
+                    backgroundImage.color = backgroundColor;
                 }
 
-                if (speakerNameText != null) speakerNameText.gameObject.SetActive(false);
-                if (portraitImage != null) portraitImage.gameObject.SetActive(false);
+                if (speakerNameText != null)
+                {
+                    speakerNameText.gameObject.SetActive(false);
+                }
+
+                if (portraitImage != null)
+                {
+                    portraitImage.gameObject.SetActive(false);
+                }
             }
             else
             {
-                // 普通对话：正常字体、白色、显示名字与头像、恢复原始背景透明度
                 if (dialogueText != null)
                 {
                     dialogueText.fontStyle = FontStyles.Normal;
@@ -118,21 +161,21 @@ namespace Sunset.Story
 
                 if (backgroundImage != null)
                 {
-                    Color bgColor = backgroundImage.color;
-                    bgColor.a = _originalBackgroundAlpha;
-                    backgroundImage.color = bgColor;
+                    Color backgroundColor = backgroundImage.color;
+                    backgroundColor.a = _originalBackgroundAlpha;
+                    backgroundImage.color = backgroundColor;
                 }
 
                 if (speakerNameText != null)
                 {
                     speakerNameText.gameObject.SetActive(true);
-                    speakerNameText.text = e.Node.speakerName;
+                    speakerNameText.text = eventData.Node.speakerName;
                 }
 
                 if (portraitImage != null)
                 {
                     portraitImage.gameObject.SetActive(true);
-                    portraitImage.sprite = e.Node.speakerPortrait;
+                    portraitImage.sprite = eventData.Node.speakerPortrait;
                     portraitImage.gameObject.SetActive(portraitImage.sprite != null);
                 }
             }
@@ -144,7 +187,7 @@ namespace Sunset.Story
         }
         #endregion
 
-        #region UI
+        #region Private Methods
         private void SetVisible(bool visible)
         {
             _isVisible = visible;
@@ -224,6 +267,71 @@ namespace Sunset.Story
                     backgroundImage = backgroundTransform.GetComponent<Image>();
                 }
             }
+        }
+
+        private void ApplyFontPresetForNode(DialogueNode node)
+        {
+            if (node == null)
+            {
+                ApplyFontStyle(defaultFontKey, speakerNameFontKey);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(node.fontStyleKey))
+            {
+                ApplyFontStyle(node.fontStyleKey, node.fontStyleKey);
+                return;
+            }
+
+            if (node.isGarbled && _dialogueManager != null && !_dialogueManager.IsLanguageDecoded)
+            {
+                ApplyFontStyle(garbledFontKey, speakerNameFontKey);
+                return;
+            }
+
+            if (node.isInnerMonologue)
+            {
+                ApplyFontStyle(innerMonologueFontKey, speakerNameFontKey);
+                return;
+            }
+
+            ApplyFontStyle(defaultFontKey, speakerNameFontKey);
+        }
+
+        private void ApplyFontStyle(string dialogueFontKey, string speakerFontKey)
+        {
+            if (fontLibrary == null)
+            {
+                return;
+            }
+
+            ApplyFontToText(dialogueText, dialogueFontKey, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
+            ApplyFontToText(speakerNameText, speakerFontKey, _speakerBaseFontSize, 0f);
+        }
+
+        private void ApplyFontToText(TextMeshProUGUI target, string key, float baseFontSize, float baseLineSpacing)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (!fontLibrary.TryGetEntry(key, out DialogueFontLibrarySO.FontEntry entry) || entry == null)
+            {
+                return;
+            }
+
+            if (entry.fontAsset != null)
+            {
+                target.font = entry.fontAsset;
+            }
+
+            if (baseFontSize > 0f)
+            {
+                target.fontSize = baseFontSize + entry.fontSizeOffset;
+            }
+
+            target.lineSpacing = baseLineSpacing + entry.lineSpacingOffset;
         }
         #endregion
     }

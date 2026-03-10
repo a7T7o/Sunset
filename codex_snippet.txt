@@ -1,0 +1,40 @@
+﻿using System.Collections;
+using System.Text;
+using Sunset.Events;
+using UnityEngine;
+
+namespace Sunset.Story
+{
+    public class DialogueManager : MonoBehaviour
+    {
+        #region 闈欐€佹垚鍛?
+        public static DialogueManager Instance { get; private set; }
+        #endregion
+
+        #region 绉佹湁瀛楁
+        private readonly StringBuilder _textBuilder = new StringBuilder(512);
+        private Coroutine _typingCoroutine;
+
+        private DialogueSequenceSO _currentSequence;
+        private int _currentNodeIndex = -1;
+        private bool _isNodeTyping = false;
+        private bool _advanceRequested = false;
+        #endregion
+
+        #region 鍏叡灞炴€?
+        public bool IsDialogueActive { get; private set; }
+        public string CurrentTypedText { get; private set; } = string.Empty;
+        public DialogueNode CurrentNode { get; private set; }
+        [field: SerializeField]
+        [field: Tooltip("涓存椂鐘舵€侊細鐜╁鏄惁宸茶В閿佸綋鍓嶈瑷€銆傛湭鏉ョ敱鍏ㄥ眬鍙橀噺绯荤粺鎺ョ銆?)]
+        public bool IsLanguageDecoded { get; set; } = false;
+        #endregion
+
+        #region Unity鐢熷懡鍛ㄦ湡
+        private void Awake()
+        {
+            if (Instance != null && Instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }

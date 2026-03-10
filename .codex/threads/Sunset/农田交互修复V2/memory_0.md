@@ -157,3 +157,42 @@
 **恢复点 / 下一步**:
 - 当前已经回到主线的“等用户在 Unity 编辑器内执行回归清单并反馈结果”这一步
 - 如果用户反馈现场异常，继续在 `10.2.1补丁001` 下迭代验收修补
+
+### 2026-03-10 - 10.2.2补丁002：重新审视规则边界并完成文档建档
+
+**当前主线目标**:
+- 主线已从 `10.2.1补丁001` 的实现验收，切换到 `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/` 的文档审查与方案收口
+
+**本轮子任务 / 阻塞**:
+- 用户基于现场行为纠偏，要求重新理解耕地系统、放置系统、预览系统和特殊物品分流，不准直接改代码，先给出新的补丁内容
+
+**已完成事项**:
+1. ✅ 重新核对 `10.1.5补丁005`、`10.2.0改进001`、`10.2.1补丁001` 的相关文档与结论
+2. ✅ 重新复核 `PlacementManager`、`PlacementPreview`、`PlacementGridCell`、`PlacementValidator`、`FarmToolPreview`、`SeedData`、`SaplingData`、`PlaceableItemData`
+3. ✅ 明确 `10.2.1` 的核心偏差不是单点 bug，而是把普通 placeable、种子、树苗、农具施工四条链混写到了一起
+4. ✅ 在 `10.2.2补丁002` 工作区建好五件套：`requirements.md`、`analysis.md`、`design.md`、`tasks.md`、`memory.md`
+5. ✅ 复核文档后再次确认：普通 placeable 的耕地禁放必须进逐格 `CellState`，`SeedData`/`SaplingData` 专用验证必须保留，`FarmToolPreview` 的 `1.5 x 1.5 footprint` 不泛化给普通 placeable
+
+**关键决策**:
+- 普通 `PlaceableItemData` 的“禁压耕地”属于逐格预览联动问题，不能挂到整物品级 `CanPlaceAt()`
+- `SeedData` 继续走 `PlacementPreview`，但验证语义应收敛到“播种”而不是“普通家具放置”
+- `SaplingData` 继续走树苗专用验证链，不并入普通 placeable 方案
+- `FarmToolPreview` 的 `1.5 x 1.5 footprint` 只属于 `Hoe / WateringCan` 的农具施工链
+
+**涉及文件或路径**:
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/requirements.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/analysis.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/design.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/tasks.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/memory.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/memory.md`
+
+**验证结果**:
+- ✅ 已完成文档、前序工作区与当前代码的重新核查
+- ✅ 已完成 `10.2.2补丁002` 的设计收口与建档
+- ❌ 本轮未修改代码
+- ❌ 本轮未进行 Unity 编辑器验证
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“等待用户审核 `10.2.2补丁002` 文档结论”这一步
+- 用户审核通过后，再按 `tasks.md` 进入 `10.2.2` 的代码实现

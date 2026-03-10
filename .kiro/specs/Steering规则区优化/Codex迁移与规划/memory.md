@@ -472,3 +472,94 @@
 **遗留问题**:
 - [ ] 如需进一步固化，可后续将本轮阅读路径整理成 `Codex工作流与技巧手册.md` 中的“Sunset 项目快速入门入口”章节。
 - [ ] 若后续用户要求“彻底盘点所有系统级总纲”，还需要把 `Docx/分类/*/000_系统完整文档.md` 与 `.kiro/specs/*/memory.md` 做一一映射表。
+
+### 会话 19 - 2026-03-10（Sunset 全面认知文档工程首轮落盘）
+
+**用户需求**：
+- 不只做“项目整体文档入口搜索”，而是要同时做“文档全读 + 代码对照”。
+- 在 .kiro/about/ 产出能让后来者或其他智能体快速接手项目的超详细文档，并明确要求采用“迭代写入”策略：先写一版，后续随着理解深化持续修正文档旧结论。
+- 还要求把完整流程拆成持续更新的 	asks 清单，放在当前工作区，用于实时督促与纠偏。
+
+**当前主线目标**：
+- 为 Sunset 建立可迭代维护的“项目总览 + 系统全景 + 当前状态接手”三文档体系，并持续用代码、文档、memory 三向对照推进。
+
+**本轮子任务**：
+- 在治理工作区内先把第二阶段任务清单正式落盘并更新真实状态。
+- 对 .kiro/about/ 三份主文档做第一轮“真源文档 + 代码结构 + 活跃工作区记忆”联合回写。
+
+**完成任务**：
+1. 重写并更新 	asks.md，把第二阶段 T16 ~ T24 从“刚创建骨架”推进到“有进度看板、有状态、有下一步”的可执行任务清单。
+2. 重写 .kiro/about/00_项目总览与阅读地图.md，补入第一轮仓库实况快照、阅读顺序、代码/资源入口、当前漂移点。
+3. 重写 .kiro/about/01_系统架构与代码全景.md，补入真实目录快照、脚本/资源数量、时间/输入/库存/农田/放置/箱子/存档/导航/对话系统入口级代码核对结论。
+4. 重写 .kiro/about/02_当前状态、差异与接手指南.md，补入三条活跃主线的真实恢复点、漂移点和接手顺序。
+5. 第一轮实仓核对确认了几个重要新事实：
+   - Assets/YYY_Scripts/ 是主代码目录，但 Assets/Scripts/Utils/ConvexHullCalculator.cs 仍然存在，旧路径并未完全消失。
+   - .kiro/specs/README.md 仍是旧英文工作区索引，不能直接代表当前中文工作区现状。
+   - 存档体系当前以 PrefabDatabase 为主，但 PrefabRegistry 代码与资产仍作为兼容回退保留。
+   - Packages/manifest.json 已含 com.coplaydev.unity-mcp，但这不等于 Unity MCP 现场已经稳定可用。
+
+**修改文件**：
+- .kiro/specs/Steering规则区优化/Codex迁移与规划/tasks.md
+- .kiro/about/00_项目总览与阅读地图.md
+- .kiro/about/01_系统架构与代码全景.md
+- .kiro/about/02_当前状态、差异与接手指南.md
+
+**验证结果**：
+- 已核对 ProjectSettings/ProjectVersion.txt，确认 Unity 版本为 6000.0.62f1。
+- 已核对 Packages/manifest.json，确认包含 com.coplaydev.unity-mcp 与 com.unity.test-framework。
+- 已完成第一轮结构统计：YYY_Scripts 172 个 .cs、YYY_Tests/Editor 8 个测试、 00_Scenes 5 个场景、222_Prefabs 343 个 Prefab、111_Data/Items 71 个 Item/SO 资产。
+- 已交叉读取：.kiro/steering/archive/{product,structure,progress,tech}.md、.kiro/specs/农田系统/memory.md、.kiro/specs/900_开篇/spring-day1-implementation/memory.md、.kiro/specs/999_全面重构_26.01.27/memory.md。
+
+**关键决策**：
+- 保持 .kiro/about/ 三份主文档方案不变，不先拆更多报告；先把三份主文档做成“可持续修正的总入口”。
+- 任务清单不只是记录待办，而是要持续反映当前真实进度；第二阶段后续都以 	asks.md 看板为准。
+- 文档写法明确采用“边读边修正旧结论”的策略，不允许第一版写完就冻结。
+
+**恢复点 / 下一步**：
+- 继续执行 T18 ~ T22：补读更多 live workspace memory.md 与高价值 Docx/History 文档，并把新的稳定理解继续回写到 .kiro/about/。
+- 下一轮优先深化：库存/UI、箱子、存档、导航/遮挡/树木、制作台等系统的链路级对照。
+- 等第一轮 about 文档稳定后，再执行 T23 自校验，检查三份主文档是否互相矛盾或混淆“历史设计”与“当前实现”。
+### 会话 20 - 2026-03-10（Sunset 全面认知文档工程第二轮补读与链路级回写）
+
+**用户需求**：
+- 继续按“tasks 持续更新 + 边读边修旧结论”的策略推进 Sunset 全面分析。
+- 本轮重点是补第二轮高价值文档、做链路级代码对照，并把新理解立刻回写到 `.kiro/about/` 三文档。
+
+**当前主线目标**：
+- 为 Sunset 建立可持续迭代维护的 `.kiro/about/` 三文档体系，让后来者或其他智能体只看这些文档也能快速接手项目。
+
+**本轮子任务 / 阻塞**：
+- 子任务：补读 `存档系统`、`箱子系统`、`物品放置系统`、`制作台系统`、`UI系统` 的 live `memory.md`，并继续吸收 `History/总索引` 与 `Docx` 总纲。
+- 服务主线：把第一轮 about 文档从“入口级总览”推进到“系统链路 + 资产证据 + 漂移点”级别。
+- 恢复点：完成这轮文档回写后，继续补更细的子工作区 memory 与场景级挂载证据，再准备 T23 自校验。
+
+**完成任务**：
+1. 补读第二轮高价值文档：`存档系统/memory.md`、`箱子系统/memory.md`、`物品放置系统/memory.md`、`制作台系统/memory.md`、`UI系统/memory.md`、`History/2026.03.07-Claude-Cli-历史会话交接/总索引.md`、`Docx/分类/全局/000_项目全局文档.md`、`Docx/分类/全局/全局功能需求总结文档.md`、`Docx/Plan/000_设计规划完整合集.md`、`Docx/分类/交接文档/000_交接文档完整合集.md`。
+2. 对库存/UI、箱子、放置、存档、制作台、对话验证执行第二轮链路级代码核对，补看 `InventoryService`、`InventoryInteractionManager`、`PackagePanelTabsUI`、`ChestController`、`BoxPanelUI`、`PlacementManager`、`SaveManager`、`DynamicObjectFactory`、`CraftingService`、`DialogueManager`、`DialogueUI` 等真实入口。
+3. 追加场景 / Prefab / SO 证据：确认 `Primary.unity` 中的 `PlacementManager`、`SaveManager`、`PersistentManagers`，确认 `PersistentManagers` 已挂 `PrefabDatabase.asset`，确认 `Storage_1400_小木箱子.asset` 与 `Box_36.prefab`、`PrefabDatabase.asset`、`Dialogue` 字体目录的现场关系。
+4. 更新 `tasks.md` 的二阶段看板，把第二轮文档吸收、资产映射、系统漂移修正全部写回任务清单。
+5. 更新 `.kiro/about/00_项目总览与阅读地图.md`、`01_系统架构与代码全景.md`、`02_当前状态、差异与接手指南.md`，把第二轮结论并入三文档。
+
+**关键结论 / 决策**：
+- `存档 / 箱子 / 放置` 已经形成真实耦合链，不能再按独立系统分别理解。
+- 放置系统的 live code 文件名已经无 `V3` 后缀，但历史 memory 和日志仍会使用 `V3` 语义，后续 about 文档必须显式标注这种命名漂移。
+- 背包当前真实实现是 `36` 格背包、第一行 `12` 格与 Hotbar 映射，旧 `20 + 8` 设计只能当历史快照。
+- 制作台 / 配方代码链已在，但资产层是否已有足够 `RecipeData` 配置仍待继续确认，不能提前写成“完整闭环”。
+- Day1 对话线当前更现实的阻塞点是验证场景 UI 可见性 / 布局 / 字体引用验收，而不是 `DialogueManager` 核心逻辑本身。
+
+**修改文件**：
+- `.kiro/specs/Steering规则区优化/Codex迁移与规划/tasks.md` - [更新]：写入第二轮进度看板与系统级接手结论。
+- `.kiro/about/00_项目总览与阅读地图.md` - [更新]：补第二轮阅读地图、高价值工作区入口与文档漂移说明。
+- `.kiro/about/01_系统架构与代码全景.md` - [更新]：补库存/UI、箱子、放置、制作台、存档、对话验证的链路级结论。
+- `.kiro/about/02_当前状态、差异与接手指南.md` - [更新]：补高风险非主线系统、漂移点和系统级接手顺序。
+
+**验证结果**：
+- 已核对 `Primary.unity` 中存在 `PlacementManager`、`SaveManager`、`PersistentManagers`，且 `PersistentManagers` 序列化引用 `PrefabDatabase.asset`。
+- 已核对 `PrefabDatabase.asset` 的扫描目录与旧 ID → `Box_1`~`Box_4` 别名映射。
+- 已核对 `Storage_1400_小木箱子.asset` 的 `storageCapacity=12`、`storageRows=1`、`storageCols=12`、`boxUiPrefab` 绑定。
+- 已核对 `Box_36.prefab` 的 `Up/Down` 双区域和 `Sort/Trash` 按钮结构。
+- 已核对 `DialogueValidationBootstrap.cs`、`DialogueUI.cs`、`DialogueManager.cs` 当前最小对话验证链。
+
+**恢复点 / 下一步**：
+- 继续补更细的子工作区 memory 和场景挂载证据，优先看哪些结论还能改变 `.kiro/about/` 三文档的判断。
+- 下一轮可继续深挖 `Primary.unity` 的管理器挂载、`DialogueValidation.unity` 的可见性问题证据，以及制作台资产层是否存在明确 `RecipeData` 入口。

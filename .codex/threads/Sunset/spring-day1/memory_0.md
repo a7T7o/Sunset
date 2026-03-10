@@ -137,3 +137,81 @@
 | `.kiro/specs/900_开篇/spring-day1-implementation/002-初步搭建/阶段1_验收与使用配置指南.md` | 当前最直接的人工验收指南 |
 | `Assets/000_Scenes/DialogueValidation.unity` | 当前验证场景 |
 | `History/2026.03.07-Claude-Cli-历史会话交接/春一日V2.md` | 现存最完整的春一日交接稿 |
+### 会话 22 - 2026-03-10
+**用户目标**：继续完成“对话 UI 专用中文 TMP 字体”阻塞处理，拿到真正可在 Inspector 里直接引用的中文 `TMP_FontAsset`，然后回到对话 UI 重搭主线。
+**已完成事项**：
+- 重新锚定当前主线：本轮仍是服务 `002-初步搭建` 工作区下的对话字体阻塞处理，不是新任务。
+- 复核 `DialogueChineseFontAssetCreator.cs`、`DialogueChinese SDF.asset`、`simhei.ttf.meta` 与 `Editor.log`，确认旧失败根因是 `clearDynamicDataOnBuild` 编译报错；该报错已解除。
+- 抓到新的关键证据：`Editor.log` 显示 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset` 已由 `NativeFormatImporter` 导入，且自动创建逻辑判定“目标字体资产已存在”，说明当前 Unity 已把它识别为 `TMP_FontAsset`。
+**关键决策**：
+- 不再继续扩大改动面，不碰旧 UI、不改全局 TMP 默认设置。
+- 下一步先让用户在 `TextMeshProUGUI.fontAsset` 上直接引用 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset` 做中文验收；只有这一步失败才进入 fallback/替换字体资源分支。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\DialogueChineseFontAssetCreator.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese SDF.asset`
+- `D:\Unity\Unity_learning\Sunset\Assets\111_Data\UI\Fonts\Dialogue\simhei.ttf.meta`
+- `C:\Users\aTo\AppData\Local\Unity\Editor\Editor.log`
+**验证结果**：
+- 日志证据支持“资源类型已正确”，但尚缺用户侧 Inspector 实际引用与中文显示的最终人工验收。
+**主线恢复点 / 下一步**：
+- 阻塞已基本收口；下一步由用户先在 Inspector 里选择 `DialogueChinese SDF` 并输入中文验证。
+- 若通过，立即回到对话 UI 重搭主线；若不通过，我再接着处理 fallback 或备用中文字体方案。
+### 会话 23 - 2026-03-10
+**用户目标**：在已可用的中文 TMP 基础上，再补一套更干净的 V2 和一套像素风字体，形成对话 UI 专用字体包。
+**已完成事项**：
+- 盘点本地字体后确认项目内没有现成像素中文字体，于是下载并落地 `Fusion Pixel Font` 简中版到 `Assets/111_Data/UI/Fonts/Dialogue/Pixel/`。
+- 基于现有可识别的 `DialogueChinese SDF.asset` 复制并改造出 `DialogueChinese V2 SDF.asset` 与 `DialogueChinese Pixel SDF.asset`，其中像素风资产已改绑到 `fusion-pixel-10px-monospaced-zh_hans.ttf`。
+- 重写 `DialogueChineseFontAssetCreator.cs` 为多 profile 生成器，提供基础版 / V2 / 像素风 / 全量生成菜单，方便后续继续扩展。
+**关键决策**：
+- 仍坚持“只服务对话 UI、最小改动”边界，不改旧 UI、不改 TMP 全局默认设置。
+- 资产层直接提供三套可选字体，让用户在 Inspector 手动切换做美术验收；生成脚本仅作为后续复用工具。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\111_Data\UI\Fonts\Dialogue\Pixel\fusion-pixel-10px-monospaced-zh_hans.ttf`
+- `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese V2 SDF.asset`
+- `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese Pixel SDF.asset`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\DialogueChineseFontAssetCreator.cs`
+**验证结果**：
+- 文件级检查确认新像素风字体已绑定到 `DialogueChinese Pixel SDF.asset` 的 `m_SourceFontFileGUID`。
+- 由于 Unity MCP 仍不可用，本轮未做编辑器内自动验收，最终显示效果仍需用户在 Inspector 中实际切换确认。
+**主线恢复点 / 下一步**：
+- 现在先由用户分别试挂 `DialogueChinese V2 SDF` 和 `DialogueChinese Pixel SDF`。
+- 若观感通过，主线回到对话 UI 重搭；若像素风不满意，我继续补第二套像素字体候选。
+### 会话 24 - 2026-03-10
+**用户目标**：当前像素风过重，继续补两套更中和的中文字体给对话 UI 选择。
+**已完成事项**：
+- 选定并下载两种更中和的官方字体来源：TakWolf 官方 release 的 `Ark Pixel 12px Proportional`，以及 `AmusementClub/WenQuanYi-Bitmap-Song-TTF` 仓库的 `WenQuanYi Bitmap Song 14px`。
+- 在 `Assets/111_Data/UI/Fonts/Dialogue/PixelAlt/` 落地两份字体源文件与 `.meta`，并新增 `DialogueChinese SoftPixel SDF.asset`、`DialogueChinese BitmapSong SDF.asset` 两套 TMP 资产。
+- 继续扩展 `DialogueChineseFontAssetCreator.cs`，让基础版 / V2 / 重像素 / 轻像素 / 像素宋体都能通过菜单重复生成。
+**关键决策**：
+- 保持“先给足候选，再由用户按界面观感筛选”的节奏，不急着提前删减。
+- `WenQuanYi Bitmap Song` 已作为候选落地，但后续若项目分发对字体授权有额外要求，应再单独复核其许可边界。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\111_Data\UI\Fonts\Dialogue\PixelAlt\ark-pixel-12px-proportional-zh_cn.ttf`
+- `D:\Unity\Unity_learning\Sunset\Assets\111_Data\UI\Fonts\Dialogue\PixelAlt\WenQuanYi Bitmap Song 14px.ttf`
+- `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese SoftPixel SDF.asset`
+- `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese BitmapSong SDF.asset`
+**验证结果**：
+- 文件级检查确认两套新资产都已改绑到新的字体源 GUID。
+- Unity MCP 仍不可用，最终仍需用户在 Inspector 中切换显示验收。
+**主线恢复点 / 下一步**：
+- 用户下一步对比 `DialogueChinese V2 SDF`、`DialogueChinese SoftPixel SDF`、`DialogueChinese BitmapSong SDF`。
+- 选定后即可回到对话 UI 重搭主线；若仍不满意，我再继续补最后一轮字体筛选。
+### 会话 25 - 2026-03-10
+**用户目标**：先给未来“不同人物 / 不同状态不同字体”做一个轻量初始化骨架，然后立刻转入 UI 规划。
+**已完成事项**：
+- 新增 `DialogueFontLibrarySO`，把字体选择正式抽象成 `key -> TMP_FontAsset + offset` 的索引层。
+- 修改 `DialogueNode`，加入可选 `fontStyleKey`；修改 `DialogueUI`，加入 `fontLibrary` 引用、状态 key 配置和 `ApplyFontStyle(string key)` 入口。
+- 初始化默认资产 `DialogueFontLibrary_Default.asset`，预置 `default`、`speaker_name`、`inner_monologue`、`garbled`、`retro`、`narration` 六类 key，绑定到已有字体候选。
+**关键决策**：
+- 当前只做最小骨架，不做人物映射系统、不做外部规则表、不改场景。
+- 后续如果进入角色化字体系统，优先在上层配置 / Presenter 层决定 `fontStyleKey`，而不是让 UI 脚本承担业务判断。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\DialogueFontLibrarySO.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\DialogueNode.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\111_Data\UI\Fonts\Dialogue\DialogueFontLibrary_Default.asset`
+**验证结果**：
+- 已完成文件级静态复查；Unity MCP 仍不可用，因此尚未在编辑器内做自动编译验证。
+**主线恢复点 / 下一步**：
+- 下一步直接进入 UI 规划。
+- UI 规划时只需记住：字体层已经有正式扩展点，不必再在布局阶段临时硬编码字体逻辑。

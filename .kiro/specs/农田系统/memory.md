@@ -185,3 +185,8 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 继续沿 `10.2.1补丁001` 主线收尾。由于 `mcp-unity` 仍不可用，本轮改走 Unity 自带 Roslyn 编译链：直接复用 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp` 与 `Assembly-CSharp-Editor.rsp`，使用 `Unity 6000.0.62f1` 自带 `dotnet.exe + csc.dll` 做独立编译验证。结果：运行时程序集 `Assembly-CSharp` 独立编译 `0 error`，只剩 1 个既有 obsolete warning；编辑器程序集 `Assembly-CSharp-Editor` 独立编译 `0 error`。同时纠正 `10.2.1补丁001/tasks.md` 中“手动回归清单”被误勾选的问题，明确当前真实状态是“整包实现完成、源码独立编译通过、待 Unity 编辑器内逐项回归”。主线恢复点更新为：等待用户按清单验证箱子、树苗、种子、`Hoe/WateringCan` 的现场行为，如有现象再继续验收修补。
 文件：10.2.1补丁001/tasks.md、10.2.1补丁001/memory.md、Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp、Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.rsp
 
+
+## 2026-03-10：10.2.2补丁002 - 重新审视 placeable/种子/树苗边界并完成文档建档
+用户基于现场截图和实际需求，明确纠正 `10.2.1` 的理解偏差：普通 placeable、`SeedData`、`SaplingData` 不能再混用同一套耕地规则。本轮新建 `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/`，重新读取 `10.1.5补丁005`、`10.2.0改进001`、`10.2.1补丁001` 相关文档和 `PlacementManager / PlacementPreview / PlacementValidator / FarmToolPreview / SeedData / SaplingData / PlaceableItemData` 代码后，正式落盘五件套。新的稳定结论是：普通 placeable 的“禁压耕地”必须做成逐格红判定；种子继续走 `PlacementPreview`，但验证语义收敛到“播种”；树苗继续保留树苗专用验证链；`FarmToolPreview` 的 `1.5 x 1.5 footprint` 不向普通 placeable 泛化。当前状态：10.2.2 文档待用户审核，暂不进入代码实现。
+文件：10.2.2补丁002/requirements.md、10.2.2补丁002/analysis.md、10.2.2补丁002/design.md、10.2.2补丁002/tasks.md、10.2.2补丁002/memory.md
+

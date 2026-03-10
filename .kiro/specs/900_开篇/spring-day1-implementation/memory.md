@@ -84,3 +84,48 @@
 **解决方案**：[把目标从“能生成字体”进一步收紧为“生成出来必须和现有 TMP 字体一样可直接引用”。]
 **遗留问题**：
 - [ ] 还需要在 Unity 内重新执行一次菜单，拿到新的 `DialogueChinese SDF.asset`。
+### 会话 22 - 2026-03-10
+**用户需求**：继续完成对话 UI 专用中文 TMP 字体阻塞处理，确认当前 `DialogueChinese SDF.asset` 是否已真正变成可用 TMP 字体资产，并收口后续执行方案。
+**完成任务**：
+- 复核子工作区字体阻塞相关证据链，确认当前焦点仍是“为对话 UI 准备一个可在 Inspector 直接引用的中文 `TMP_FontAsset`”，而非扩散到旧 UI 或全局 TMP 配置。
+- 核查 `Editor.log`、字体生成脚本与现有 `.asset` 后，确认 `DialogueChinese SDF.asset` 已被 Unity 以 `NativeFormatImporter` 导入，且 `AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(OutputAssetPath)` 路径已可命中，说明资源类型已正确。
+- 收口结论：当前最小下一步不再是继续造新格式，而是让用户在 `TextMeshProUGUI` 的 `Font Asset` 字段里直接引用 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset` 做中文输入验收。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步字体资产已被 Unity 识别的结论与下一步执行方向。
+**解决方案**：保持“只服务对话 UI、最小改动”的策略不变；先用已识别的 `DialogueChinese SDF.asset` 完成一次真实 Inspector 引用和中文显示验收，再决定是否需要 fallback/替换字体风格。
+**遗留问题**：
+- [ ] 用户侧仍需完成一次真实 Inspector 引用与中文显示验收。
+- [ ] 若通过，则回到对话 UI 主线；若不通过，再进入备用字体资源方案。
+### 会话 23 - 2026-03-10
+**用户需求**：继续服务“对话 UI 专用中文 TMP 字体”阻塞处理，再补一套 V2 和一套像素风版本，形成可选字体包。
+**完成任务**：
+- 确认本地不存在现成像素风中文字体后，引入开源 `Fusion Pixel Font` 简中等宽版到项目字体目录。
+- 在 `Assets/TextMesh Pro/Resources/Fonts & Materials/` 新增 `DialogueChinese V2 SDF.asset` 与 `DialogueChinese Pixel SDF.asset`，分别对应稳妥 V2 与像素风两条路线。
+- 将字体生成脚本整理为多 profile 版本，后续即使用户替换字体资源，也可沿同一菜单继续生成新的对话专用 TMP 资产。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步双字体方案与生成器升级结论。
+**解决方案**：对话 UI 字体阻塞已从“先做出一个能用的中文 TMP 资产”推进到“提供三套对话专用字体选择”，主线可以在完成美术验收后回到对话 UI 重搭。
+**遗留问题**：
+- [ ] 仍需用户在 Inspector 中完成 V2 / 像素风两套字体的实际切换与主观观感验收。
+### 会话 24 - 2026-03-10
+**用户需求**：继续优化对话 UI 中文字体候选，补两套“比当前像素风更中和”的版本。
+**完成任务**：
+- 引入 `Ark Pixel 12px Proportional` 与 `WenQuanYi Bitmap Song 14px` 两种新风格，分别对应轻像素黑体感与像素宋体感。
+- 新增 `DialogueChinese SoftPixel SDF.asset` 与 `DialogueChinese BitmapSong SDF.asset` 两套可在 Inspector 直接切换的 TMP 资产。
+- 扩展字体生成脚本，使这两套新候选也具备后续可重复生成能力。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步两套新增中和风格字体候选。
+**解决方案**：对话 UI 字体选择已从“能显示中文”提升到“多风格候选可比较”，下一步应由用户做主观审美验收，再决定保留哪些字体。
+**遗留问题**：
+- [ ] 仍需在 Unity 中实际对比 SoftPixel / BitmapSong / V2 三套观感。
+### 会话 25 - 2026-03-10
+**用户需求**：在 UI 规划前，先为未来“不同人物 / 不同情况不同字体”的需求做一个轻量级初始化骨架。
+**完成任务**：
+- 新增 `DialogueFontLibrarySO` 与默认字体库资产，形成正式的对话字体配置层。
+- 在 `DialogueNode` / `DialogueUI` 中接入最小读取入口：支持节点自定义字体 key 和常见状态字体切换。
+- 保持本轮边界为“轻初始化”，不扩展成完整角色字体系统，避免主线漂移。
+**修改文件**：
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：同步字体库骨架初始化结论。
+**解决方案**：后续字体系统建议走 `ScriptableObject 字体库 + key 驱动` 路线；本轮已经把这条路线的最小入口搭好，可以无缝衔接 UI 规划。
+**遗留问题**：
+- [ ] UI 规划阶段应顺手决定：哪些 UI 状态需要保留字体切换入口，哪些保持统一字体。
