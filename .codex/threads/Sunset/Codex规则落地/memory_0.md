@@ -572,3 +572,29 @@
 - 当前线程名称：Codex规则落地。
 - 本轮再次澄清：NPC 线现在不是“已经结束并已回主线”，而是“已经归位到 codex/npc-generator-pipeline，但业务本身仍未收尾，也还没有 merge 到 main”。
 - 当前最准确的理解是：治理层已先把 NPC 的工作房间和工作入口固定好，后续 NPC 业务仍应在 D:\Unity\Unity_learning\Sunset_worktrees\NPC 中继续推进。
+
+## 2026-03-11（线程记忆补记：重新澄清 Codex 线程/UI 层与 Git/worktree 层的边界）
+- 当前线程名称：Codex规则落地。
+- 当前主线目标不变：继续完善 Sunset 的 Codex 全局治理，重点是把“线程 / 分支 / worktree / 客户端 UI”之间的真实关系解释清楚，避免继续把不同层的现象混成一件事。
+- 本轮支撑子任务：重新阅读外部分析稿 `gemini002.md`、`gemini003.md`、`Sunset_OpenClaw_线程分支分析.md`、系统全局 `memory_0.md`，并结合当前 Sunset 与 Codex 本机状态做交叉核验。
+- 本轮稳定结论：
+  - NPC 线程自述里“这条线程真正该跟 NPC worktree，而不是根仓库 main”这句话，在业务文件归属层面是对的；NPC 真实文件、真实业务工作区、真实业务分支当前都在 `D:\Unity\Unity_learning\Sunset_worktrees\NPC / codex/npc-generator-pipeline`。
+  - 但这还不能完整解释用户在 Codex 客户端里看到的混乱，因为客户端还存在独立的线程实体元数据层与 UI 激活工作区层：
+    - `state_5.sqlite` 中 NPC 线程的 `cwd` 已是 NPC worktree，但 `git_branch` 仍漂移为 `main`；
+    - `session_index.jsonl` 中同一线程 id 既出现过 `Interpret malformed prompt`，也出现过 `NPC`；
+    - `.codex-global-state.json` 里已保存 NPC 工作区根，但当前激活工作区根仍是 `D:\Unity\Unity_learning\Sunset`。
+  - 因此现在最准确的四层理解应是：
+    1. Git 真实分支层；
+    2. worktree 物理目录层；
+    3. Codex 线程实体元数据层；
+    4. Codex 客户端当前 UI / 激活工作区 / 缓存层。
+  - 目前第 1、2 层已基本理顺；第 3 层部分对齐但仍有漂移；第 4 层没有完全跟上。这就是用户现在“明明 NPC 分支和目录都在，但界面又像回到了 Sunset/main”的核心原因。
+  - `.codex/threads/.../memory_0.md` 仍只是我们自己维护的线程记忆，不是 Codex UI 线程的唯一真源；它很重要，但不能再被误当成“只要文件在这里，客户端线程就一定在这里”。
+  - `provider-bridge` 当前不是主因，因为它主要规范 `cwd`，不会主动改 `git_branch`，也不会把 NPC worktree 折回 Sunset 根仓库。
+- 当前线程级统一口径：
+  - `gemini003` 的方向更接近真实；
+  - `gemini002` 把 `.codex/threads/...` 当成 UI 线程本体这一点不成立；
+  - 这次乱的不是“NPC 分支没了”，也不是“Git 又把文件吞了”，而是“Codex 客户端没有把旧线程体验与新 worktree 房间完全闭环起来”。
+- 当前恢复点：
+  - 后续再进入 Sunset 的任何长期线程时，必须先核验真实工作目录和 `git branch --show-current`；
+  - UI 标题、底部分支提示、旧线程记忆路径，只能当线索，不能再当最终真相。

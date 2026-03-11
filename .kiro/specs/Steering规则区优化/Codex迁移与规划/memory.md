@@ -1078,3 +1078,61 @@
   - 当前只是完成了“线程 / 分支 / worktree 的治理固化”，不是完成了 NPC 全部业务，也不是已经 merge 到 main；
   - 因此现在的正确理解应是：NPC 还在自己的功能分支上继续做，main 暂时还看不到这条线的最终成果。
 - 当前恢复点：治理主线继续等待用户验收客户端线程归位口径；NPC 业务线本身后续仍需在 D:\Unity\Unity_learning\Sunset_worktrees\NPC / codex/npc-generator-pipeline 上继续推进，之后再单独决定是否 merge 到 main。
+## 2026-03-11（补记：Git 基线复查结论已达可开工标准）
+- 当前主线目标不变：继续推进 Steering规则区优化 / Codex迁移与规划 治理主线，为 Sunset 后续真实任务提供可回退、可审计、可交接的 Git 底盘。
+- 本轮子任务：按用户要求全局复查新增 Git 规范与落地内容，判断当前是否已经达到“可以放心进入真实任务”的标准。
+- 本轮稳定结论：
+  - Sunset 的 Git 基线现在已基本达标，不再只是规则文档存在，而是规则、脚本、对照表、worktree 与现场状态已经同时落地；
+  - `AGENTS.md` 已把 `git-safety-baseline.md`、`preflight`、`ensure-branch`、`sync`、长期线程 worktree 固定等口径收进主规则；
+  - `.kiro/steering/git-safety-baseline.md`、`.gitattributes`、`.gitignore`、`scripts/git-safe-sync.ps1`、`.codex/threads/线程分支对照表.md`、`git-preflight.kiro.hook`、`git-quick-commit.kiro.hook` 均已存在；
+  - 根仓库 `D:\Unity\Unity_learning\Sunset` 当前保持 `main` 且与 `origin/main` 对齐；`farm` 与 `NPC` 的长期功能 worktree 均已落在各自 `codex/*` 分支；
+  - `preflight` 已验证出正确的治理边界：治理线程在根目录 `main` 上可继续，真实任务若还停在 `main` 会被 task 模式拦下，而 `D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002` 上的 task 模式已经允许继续。
+- 残余边界：
+  - `scripts/git-safe-sync.ps1` 当前通过 `git rev-parse --show-toplevel` 识别 repo root；若从别的仓库 cwd 调起，可能误把调用者仓库当成目标仓库，后续仍建议把 repo 锚点收紧到脚本所在仓库；
+  - governance 模式对白名单目录仍偏宽，当前能用，但从“最小白名单”标准看仍有进一步收紧空间。
+- 涉及文件与对象：
+  - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\steering\git-safety-baseline.md`
+  - `D:\Unity\Unity_learning\Sunset\.gitattributes`
+  - `D:\Unity\Unity_learning\Sunset\.gitignore`
+  - `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.md`
+- 验证结果：
+  - `git worktree list` 已显示根目录、`NPC`、`farm-10.2.2-patch002` 三个正式入口；
+  - 根仓库 `git status --short --branch --ignored` 只剩被忽略噪音，没有未收口的 tracked dirty；
+  - `preflight(governance)` 在根目录返回 `True`，`preflight(task)` 在根目录返回 `False`，`preflight(task)` 在 farm worktree 返回 `True`。
+- 当前恢复点：Git 基线已从“是否存在”推进到“已可作为真实任务底盘使用”；后续业务线不必再停留在 Git 方案讨论，直接按对照表进入对应 worktree，先跑 preflight，再进入实现。
+
+## 2026-03-11（补记：Codex 客户端线程层与 Git/worktree 层未完全闭环）
+- 当前主线目标不变：继续服务 `Steering规则区优化/Codex迁移与规划` 治理主线，澄清 Sunset 中“线程 / 分支 / worktree / UI”四层到底如何对应，避免用户继续被客户端显示带乱。
+- 本轮子任务：复核外部分析稿 `gemini002.md`、`gemini003.md`、`Sunset_OpenClaw_线程分支分析.md`、`memory_0.md`，并结合当前本机真实状态，重新收敛对 NPC 线程混乱问题的统一解释。
+- 本轮已完成的核查与稳定结论：
+  - 已确认 `D:\Unity\Unity_learning\Sunset` 当前真实分支是 `main`，而 `D:\Unity\Unity_learning\Sunset_worktrees\NPC` 当前真实分支是 `codex/npc-generator-pipeline`，HEAD=`40493346`；因此“根仓库是 main”和“NPC 业务线在 NPC worktree”这两件事同时都是真的。
+  - 已确认 NPC 相关核心文件当前真实存在于 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`，包括：
+    - `D:\Unity\Unity_learning\Sunset_worktrees\NPC\Assets\Editor\NPCPrefabGeneratorTool.cs`
+    - `D:\Unity\Unity_learning\Sunset_worktrees\NPC\.kiro\specs\002_After_26.1.21\NPC系统\0_NPC生成器与预制体流水线`
+    - `D:\Unity\Unity_learning\Sunset_worktrees\NPC\.codex\threads\Sunset\NPC\memory_0.md`
+    - 以上三项在根仓库 `D:\Unity\Unity_learning\Sunset` 当前都不存在，因此用户在 `main` 看不到 NPC 工具是正常现象，不是再次丢失。
+  - 已确认 `.codex/threads/.../memory_0.md` 只是用户自建的线程记忆体系，不是 Codex 客户端 UI 线程的唯一真源；UI 真正还会依赖 `C:\Users\aTo\.codex\session_index.jsonl` 与 `C:\Users\aTo\.codex\state_5.sqlite`。
+  - 已确认 NPC 线程对应的真实线程实体 `019cda74-411d-7821-9f94-7e14e36e4e16` 当前存在元数据漂移：
+    - `state_5.sqlite` 中该线程的 `cwd` 已是 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`，但 `git_branch` 仍是 `main`；
+    - `session_index.jsonl` 里同一线程 id 既出现过 `thread_name = Interpret malformed prompt`，也出现过 `thread_name = NPC`；
+    - 这说明线程实体是存在的，但其标题/分支元数据并不可靠，不能再拿来当线程真实归属的唯一依据。
+  - 已确认 `C:\Users\aTo\.codex\.codex-global-state.json` 中：
+    - `electron-saved-workspace-roots` 已包含 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`
+    - 但 `active-workspace-roots` 当前仍是 `D:\Unity\Unity_learning\Sunset`
+    - 这解释了为什么用户会看到“NPC worktree 已存在，但客户端当前主语境仍像是在 Sunset 根仓库”。
+  - 已收敛出当前最稳的四层模型：
+    1. Git 真实仓库/分支层；
+    2. worktree 物理目录层；
+    3. Codex 线程实体元数据层（`session_index.jsonl` + `state_5.sqlite`）；
+    4. Codex 客户端当前激活工作区 / 缓存 / UI 路由层。
+    当前 Sunset 已基本修好第 1、2 层；第 3 层部分对齐但仍有分支/标题漂移；第 4 层没有完全跟上，这正是这轮“看起来乱”的主要来源。
+  - 已复核 `provider-bridge` 的责任边界：它主要做 `cwd` 规范化，不会把 `Sunset_worktrees\NPC` 折回 `Sunset`，也不会主动改 `git_branch`；因此它不是这次 NPC/UI 混乱的主因。
+- 本轮统一结论：
+  - `gemini003` 的大方向更接近真实情况；
+  - `gemini002` 把 `.codex/threads/...` 当成 UI 线程本体这一点不成立；
+  - NPC 线并没有完工，也没有 merge 回 `main`；现在只是“业务真实文件和 worktree 房间都在”，但 Codex 客户端的线程/UI 绑定体验还没有完全闭环。
+- 当前恢复点：
+  - 治理主线已经从“Git/worktree 是否建好”推进到“如何正确理解 Codex 客户端线程层与 UI 层”；
+  - 后续若继续本主线，应优先做“用户操作口径固定化”，明确：看真实归属先看 worktree 目录与 `git branch --show-current`，不要再优先相信 UI 线程标题、底部分支提示或旧线程记忆路径。
