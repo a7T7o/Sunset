@@ -9,6 +9,7 @@ namespace Sunset.Story
         [Header("验证配置")]
         [SerializeField] private bool playOnStart = true;
         [SerializeField] private bool startDecoded = false;
+        [SerializeField] private DialogueSequenceSO sampleSequence;
         #endregion
 
         #region 私有字段
@@ -84,6 +85,11 @@ namespace Sunset.Story
 
         private DialogueSequenceSO GetOrCreateRuntimeSequence()
         {
+            if (sampleSequence != null && sampleSequence.nodes != null && sampleSequence.nodes.Count > 0)
+            {
+                return sampleSequence;
+            }
+
             if (_runtimeSequence != null)
             {
                 return _runtimeSequence;

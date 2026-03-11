@@ -215,3 +215,101 @@
 **主线恢复点 / 下一步**：
 - 下一步直接进入 UI 规划。
 - UI 规划时只需记住：字体层已经有正式扩展点，不必再在布局阶段临时硬编码字体逻辑。
+### 会话 26 - 2026-03-10
+**用户目标**：利用已接入的 Unity MCP 补做之前未完成的验证，并用 MCP 获取当前对话 UI 的真实结构、命名和组件信息，然后再进入 UI 规划。
+**已完成事项**：
+- 成功验证 MCP 已恢复：`manage_scene(get_active)`、`read_console`、`manage_editor(telemetry_ping)`、`read_mcp_resource` 都能返回结果。
+- 补做最小验证：控制台当前只有 14 条旧的农作物放置配置日志；`DialogueUI.cs`、`DialogueFontLibrarySO.cs`、`DialogueNode.cs`、`DialogueChineseFontAssetCreator.cs` 的 `validate_script` 结果均无错误。
+- 读取到当前 `Primary` 场景里的真实对话 UI：`UI/DialogueCanvas` 下包含 `DialoguePanel/Background`、`Avatar/Icon`、`SpeakerNameText`、`ContinueButton/Text (TMP)`、`DialogueText`；`DialogueText` 当前字体为 `DialogueChinese Pixel SDF.asset`，并已产生 4 个 `TMP SubMeshUI` 多图集子节点。
+- 读取组件序列化后确认关键现场：`DialogueUI` 组件上的 `root / speakerNameText / dialogueText / continueButton / portraitImage / backgroundImage / fontLibrary` 目前全为空引用。
+**关键决策**：
+- 后续 UI 规划必须以 MCP 读到的真实层级和组件状态为准，不再只靠截图判断。
+- 在用户确认前不直接改现有场景配置；先把问题链路和改造建议讲清楚。
+**涉及文件或路径**：
+- `Assets/000_Scenes/Primary.unity`
+- `UI/DialogueCanvas`
+- `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+- `Assets/111_Data/UI/Fonts/Dialogue/DialogueFontLibrary_Default.asset`
+**验证结果**：
+- 项目级：当前未发现本轮脚本变更导致的编译错误。
+- MCP 级：读操作稳定可用；`editor/state` 返回 `ready_for_tools=false` 的原因是 `stale_status`，但并不阻止当前读链路工作。
+**主线恢复点 / 下一步**：
+- 下一步直接进入 UI 规划。
+- UI 规划时先围绕“显式引用是否补齐、字体风格是否切换、层级命名是否保留”三件事做结构方案，再决定是否开始改场景。
+### 会话 27 - 2026-03-11
+**用户目标**：继续 `003-进一步搭建` 工作区，把首个正式剧情数据挂到 `Primary`，并继续向 NPC 对话交互入口推进。
+**已完成事项**：
+- 重新读取父工作区与规则，确认当前仍在同一主线下推进，只是活跃子工作区切换为 `003-进一步搭建`。
+- 用 MCP 读取到 `Primary/1_Managers/DialogueManagerRoot` 的 `DialogueValidationBootstrap.sampleSequence` 仍为 `null`；因 MCP 对 `ScriptableObject` 引用写入失败，改用最小 YAML 定点修正，把 `SpringDay1_FirstDialogue.asset` 直接挂进 `Assets/000_Scenes/Primary.unity`。
+- 复核 `DialogueValidationBootstrap.cs` 后确认它依旧仅对 `DialogueValidation` 场景自动生效，因此补写 `NPCDialogueInteractable.cs` 作为后续真实 NPC 的最小对话入口。
+- 创建 `003-进一步搭建/memory.md`，把当前子工作区正式纳入工作区记忆链路。
+**关键决策**：
+- `Primary` 不强行走自动播，继续坚持“最小改动 + NPC 交互触发正式剧情”的方向。
+- Unity MCP 在中途进入未就绪状态时，优先完成不依赖编辑器的场景定点修正与脚本准备，避免主线停摆。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCDialogueInteractable.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\memory.md`
+- `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Story\Dialogue\SpringDay1_FirstDialogue.asset`
+**验证结果**：
+- 文件级确认：`sampleSequence` 引用已落到场景 YAML，`NPCDialogueInteractable.cs` 语义上与现有 `IInteractable` 链路兼容。
+- 阻塞仍在：Unity MCP 仍未恢复就绪，因此尚未完成编辑器内回读、脚本导入后挂载到真实 NPC、以及最终点击验收。
+**主线恢复点 / 下一步**：
+- 下一步先恢复 Unity MCP / 编辑器就绪，然后把 `NPCDialogueInteractable` 挂到 `Primary` 中真实 NPC 对象并赋值剧本资产，最后做首个剧情点击验收。
+### 会话 28 - 2026-03-11
+**用户目标**：重新开始未完成内容，并希望我主动规避 Unity 未确认弹窗/未保存状态；随后直接把未完成的 NPC 对话入口和验收补完。
+**已完成事项**：
+- 先用 `editor/windows` / `editor/state` 查清当前状态，再执行“保存场景 → 强制刷新 → 请求编译”的保险流程，成功恢复稳定 MCP。
+- 继续回读确认：`DialogueUI` 场景引用已闭环、`DialogueManagerRoot.sampleSequence` 已正确指向 `SpringDay1_FirstDialogue.asset`。
+- 由于 `Primary` 里当前没有现成真实 NPC，我在 `SCENE/LAYER 1/Props` 下创建了一个最小测试对象 `DialogueTestNPC`，挂上 `SpriteRenderer`、`DynamicSortingOrder`、`CircleCollider2D`、`NPCDialogueInteractable`，并把正式剧本资产绑上。
+- 完成脚本校验、组件回读、编辑器截图与 PlayMode 轻验收；测试 NPC 已可见，且本轮新增脚本无编译错误。
+**关键决策**：
+- 后续所有会改场景的动作，都优先走“先保存、再改、改后立刻回读/保存”的保险流程。
+- 在真实 NPC 资源未接入前，先用最小测试 NPC 闭环主线，避免剧情与 UI 工作继续被场景入口阻塞。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCDialogueInteractable.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Screenshots\primary_dialogue_testnpc.png`
+- `D:\Unity\Unity_learning\Sunset\Assets\Screenshots\primary_dialogue_testnpc_play.png`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\memory.md`
+**验证结果**：
+- 配置回读通过：测试 NPC 的 Sprite、Collider、DialogueSequence 均已在编辑器中读回确认。
+- 运行轻验收通过：PlayMode 未见本轮新增错误；仍存在既有 warning：`DontDestroyOnLoad only works for root GameObjects` 与缺少 `AudioListener`。
+**主线恢复点 / 下一步**：
+- 下一步由用户在 `Primary` 中靠近并点击 `DialogueTestNPC` 做人工终验；若通过，我们直接把入口迁移到真实 NPC 并继续 UI / 剧情整合。
+### 会话 29 - 2026-03-11
+**用户目标**：先听清楚当前实现流程、完整验收步骤，以及图一/图二差异到底来自哪里。
+**已完成事项**：
+- 重新读取运行链路相关脚本并核对 `DialogueCanvas` 现场组件。
+- 明确定位根因：当前 `DialogueUI` 只把 `DialoguePanel` 当作 `root` 控制显隐，但文本、头像、名字、按钮并不在 `DialoguePanel` 下面，而是 `DialogueCanvas` 的同级子物体。
+- 因此当前实现虽然已经打通“NPC 触发正式剧本 + 字体链路”，但视觉显隐并未完全收口，所以运行现场会更接近图一，而不是用户设计的图二。
+**关键决策**：
+- 下一步优先修 UI 显隐/层级，不再继续往下堆剧情逻辑。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+**验证结果**：
+- 稳定诊断：当前差异主因是 UI 层级与代码的 `root` 假设不一致，而不是字体资源本身失效。
+**主线恢复点 / 下一步**：
+- 先按图二样式修正对话 UI 的显隐收口，再做后续真实 NPC 替换与剧情整合。
+
+### 会话 31 - 2026-03-11
+**用户目标**：继续完成未收口的对话收尾，在同一主线下把结束淡出和 MCP 自验收最后一个风险点完成。
+**已完成事项**：
+- 重新定位到 `DialogueUI.FadeCanvas()` 的真实尾帧问题：淡出最后一帧抱着 `alpha=0` 还要多等一帧才会清空内容，这解释了之前 MCP 自验收为什么会出现“看不见但还没收干净”状态。
+- 已在 `Assets/YYY_Scripts/Story/UI/DialogueUI.cs` 修复该协程尾帧，并补上 `ContinueButton.interactable` 与 `CanvasGroup` 的同步。
+- 用 Unity MCP 重跑一轮 PlayMode 自验收：结束后已确认 `SpeakerVisible=False`、`PortraitVisible=False`、`ButtonInteractable=False`、`CanvasAlpha=0.00`、`TimePaused=False`、`InputEnabled=True`，对话逻辑收口正常。
+- 补做 Git preflight：当前分支 `main`，HEAD `3b45da72`，与 upstream 关系为 `+0/-3`，仓库存在大量非本轮 dirty 改动，且规则提到的 `git-safe-sync.ps1` 在仓库内实际缺失，因此本轮无法完成 Git 安全同步收尾。
+**关键决策**：
+- 线程主线现已从“自验收是否真收口”恢复到“可进入下一步 UI 版式规划 / 真实 NPC 替换”的正常推进状态。
+- Git 收尾则因仓库全局 dirty 状态与 safe-sync 脚本缺失被组织级阻断，后续应单独立项治理。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\memory.md`
+**验证结果**：
+- `DialogueUI.cs` 验证 0 error / 1 条旧 warning。
+- MCP 自验收已确认结束态清空、按钮禁用、时间恢复、输入恢复都正常，控制台无本轮新增编译错误。
+**主线恢复点 / 下一步**：
+- 下一步可以安心进入 `Primary` 对话 UI 版式规划与真实 NPC 替换。
+- 如果要做最后的前台人工验收，重点是“任意键推进手感”和“结束淡出视觉流畅度”。

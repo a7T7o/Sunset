@@ -7,11 +7,17 @@ namespace Sunset.Story
 {
     public class DialogueManager : MonoBehaviour
     {
-        #region 静态成员
+        #region Static Members
+        private const string DialoguePauseSource = "Dialogue";
         public static DialogueManager Instance { get; private set; }
         #endregion
 
-        #region 私有字段
+        #region Serialized Fields
+        [SerializeField] private bool useInspectorTypingSpeedOverride = false;
+        [SerializeField] private float inspectorCharsPerSecond = 30f;
+        #endregion
+
+        #region Private Fields
         private readonly StringBuilder _textBuilder = new StringBuilder(512);
         private Coroutine _typingCoroutine;
 
@@ -21,16 +27,18 @@ namespace Sunset.Story
         private bool _advanceRequested = false;
         #endregion
 
-        #region 公共属性
+        #region Public Properties
         public bool IsDialogueActive { get; private set; }
         public string CurrentTypedText { get; private set; } = string.Empty;
         public DialogueNode CurrentNode { get; private set; }
+        public bool IsNodeTyping => _isNodeTyping;
+
         [field: SerializeField]
         [field: Tooltip("临时状态：玩家是否已解锁当前语言。未来由全局变量系统接管。")]
         public bool IsLanguageDecoded { get; set; } = false;
         #endregion
 
-        #region Unity生命周期
+        #region Unity Lifecycle
         private void Awake()
         {
             if (Instance != null && Instance != this)
@@ -40,7 +48,11 @@ namespace Sunset.Story
             }
 
             Instance = this;
-            DontDestroyOnLoad(gameObject);
+
+            if (transform.parent == null)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
         }
 
         private void OnDestroy()
@@ -52,7 +64,7 @@ namespace Sunset.Story
         }
         #endregion
 
-        #region 公共方法
+        #region Public Methods
         public void PlayDialogue(DialogueSequenceSO sequence)
         {
             if (sequence == null || sequence.nodes == null || sequence.nodes.Count == 0)
@@ -67,18 +79,34 @@ namespace Sunset.Story
             _currentNodeIndex = -1;
             IsDialogueActive = true;
 
+            if (TimeManager.Instance != null)
+            {
+                TimeManager.Instance.PauseTime(DialoguePauseSource);
+            }
+
             EventBus.Publish(new DialogueStartEvent());
             AdvanceDialogue();
         }
 
         public void AdvanceDialogue()
         {
-            if (!IsDialogueActive) return;
+            if (!IsDialogueActive)
+            {
+                return;
+            }
 
             if (_isNodeTyping)
             {
-                _advanceRequested = true;
-                return;
+                string targetText = ResolveNodeDisplayText(CurrentNode);
+                if (!string.IsNullOrEmpty(targetText) && CurrentTypedText == targetText)
+                {
+                    StopTyping();
+                }
+                else
+                {
+                    _advanceRequested = true;
+                    return;
+                }
             }
 
             _currentNodeIndex++;
@@ -102,24 +130,58 @@ namespace Sunset.Story
             StartTypingCurrentNode();
         }
 
+        public void CompleteCurrentNodeImmediately()
+        {
+            if (!IsDialogueActive || !_isNodeTyping || CurrentNode == null)
+            {
+                return;
+            }
+
+            StopTyping();
+            CurrentTypedText = ResolveNodeDisplayText(CurrentNode);
+        }
+
+        public void ForceCompleteOrAdvance()
+        {
+            if (!IsDialogueActive)
+            {
+                return;
+            }
+
+            if (_isNodeTyping)
+            {
+                CompleteCurrentNodeImmediately();
+                return;
+            }
+
+            AdvanceDialogue();
+        }
+
         public void StopDialogue()
         {
             StopTyping();
 
-            if (IsDialogueActive)
+            if (!IsDialogueActive)
             {
-                IsDialogueActive = false;
-                _currentSequence = null;
-                _currentNodeIndex = -1;
-                CurrentNode = null;
-                CurrentTypedText = string.Empty;
-
-                EventBus.Publish(new DialogueEndEvent());
+                return;
             }
+
+            IsDialogueActive = false;
+            _currentSequence = null;
+            _currentNodeIndex = -1;
+            CurrentNode = null;
+            CurrentTypedText = string.Empty;
+
+            if (TimeManager.Instance != null)
+            {
+                TimeManager.Instance.ResumeTime(DialoguePauseSource);
+            }
+
+            EventBus.Publish(new DialogueEndEvent());
         }
         #endregion
 
-        #region 私有方法
+        #region Private Methods
         private void StartTypingCurrentNode()
         {
             StopTyping();
@@ -130,15 +192,37 @@ namespace Sunset.Story
                 return;
             }
 
-            float cps = (CurrentNode.typingSpeedOverride > 0f)
-                ? CurrentNode.typingSpeedOverride
-                : (_currentSequence != null ? _currentSequence.defaultTypingSpeed : 30f);
+            float charsPerSecond = ResolveTypingSpeed();
+            string targetText = ResolveNodeDisplayText(CurrentNode);
 
-            string targetText = (CurrentNode.isGarbled && !IsLanguageDecoded)
-                ? CurrentNode.garbledText
-                : CurrentNode.text;
+            _typingCoroutine = StartCoroutine(TypeNodeText(targetText, charsPerSecond));
+        }
 
-            _typingCoroutine = StartCoroutine(TypeNodeText(targetText, cps));
+        private string ResolveNodeDisplayText(DialogueNode node)
+        {
+            if (node == null)
+            {
+                return string.Empty;
+            }
+
+            return (node.isGarbled && !IsLanguageDecoded)
+                ? node.garbledText
+                : node.text;
+        }
+
+        private float ResolveTypingSpeed()
+        {
+            if (CurrentNode != null && CurrentNode.typingSpeedOverride > 0f)
+            {
+                return CurrentNode.typingSpeedOverride;
+            }
+
+            if (useInspectorTypingSpeedOverride && inspectorCharsPerSecond > 0f)
+            {
+                return inspectorCharsPerSecond;
+            }
+
+            return _currentSequence != null ? _currentSequence.defaultTypingSpeed : 30f;
         }
 
         private void StopTyping()
@@ -157,36 +241,57 @@ namespace Sunset.Story
         {
             _isNodeTyping = true;
             _advanceRequested = false;
-
             _textBuilder.Clear();
 
             if (string.IsNullOrEmpty(fullText))
             {
                 CurrentTypedText = string.Empty;
                 _isNodeTyping = false;
+                _typingCoroutine = null;
                 yield break;
             }
 
-            float interval = 1f / Mathf.Max(charsPerSecond, 1f);
-            var wait = new WaitForSeconds(interval);
+            float secondsPerChar = 1f / Mathf.Max(charsPerSecond, 1f);
+            float accumulatedTime = secondsPerChar;
+            int nextCharacterIndex = 0;
 
-            for (int i = 0; i < fullText.Length; i++)
+            while (nextCharacterIndex < fullText.Length)
             {
                 if (_advanceRequested)
                 {
                     _textBuilder.Clear();
                     _textBuilder.Append(fullText);
-                    CurrentTypedText = _textBuilder.ToString();
+                    CurrentTypedText = fullText;
                     _advanceRequested = false;
                     break;
                 }
 
-                _textBuilder.Append(fullText[i]);
-                CurrentTypedText = _textBuilder.ToString();
-                yield return wait;
+                accumulatedTime += Time.unscaledDeltaTime;
+                bool hasUpdatedText = false;
+
+                while (accumulatedTime >= secondsPerChar && nextCharacterIndex < fullText.Length)
+                {
+                    _textBuilder.Append(fullText[nextCharacterIndex]);
+                    nextCharacterIndex++;
+                    accumulatedTime -= secondsPerChar;
+                    hasUpdatedText = true;
+                }
+
+                if (hasUpdatedText)
+                {
+                    CurrentTypedText = _textBuilder.ToString();
+                }
+
+                yield return null;
+            }
+
+            if (CurrentTypedText != fullText)
+            {
+                CurrentTypedText = fullText;
             }
 
             _isNodeTyping = false;
+            _typingCoroutine = null;
         }
         #endregion
     }

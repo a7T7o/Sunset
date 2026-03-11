@@ -60,13 +60,33 @@ public class GameInputManager : MonoBehaviour
 
     #region 阶段1：对话输入锁（最小接入）
     private bool _inputEnabled = true;
+    public bool IsInputEnabledForDebug => _inputEnabled;
 
     public void SetInputEnabled(bool enabled)
     {
+        if (_inputEnabled == enabled)
+        {
+            return;
+        }
+
         _inputEnabled = enabled;
         if (!enabled)
         {
             if (playerMovement != null) playerMovement.SetMovementInput(Vector2.zero, false);
+            CancelCurrentNavigation();
+            HideAllPreviews();
+            HideFarmToolPreview();
+            _isQueuePaused = true;
+            _pendingTileUpdate = null;
+        }
+        else
+        {
+            bool uiOpen = IsAnyPanelOpen();
+            _isQueuePaused = uiOpen;
+            if (!uiOpen && _farmActionQueue.Count > 0 && !_isExecutingFarming)
+            {
+                ProcessNextAction();
+            }
         }
     }
 
@@ -231,7 +251,22 @@ public class GameInputManager : MonoBehaviour
 
     void Update()
     {
-        // ===== 10.2.0 V键放置模式切换 =====
+        if (!_inputEnabled)
+        {
+            HideAllPreviews();
+            if (playerMovement != null)
+            {
+                playerMovement.SetMovementInput(Vector2.zero, false);
+            }
+
+            if (timeDebugger != null)
+            {
+                timeDebugger.enableDebugKeys = enableTimeDebugKeys;
+            }
+
+            return;
+        }
+
         if (Input.GetKeyDown(KeyCode.V))
         {
             IsPlacementMode = !IsPlacementMode;
@@ -243,34 +278,30 @@ public class GameInputManager : MonoBehaviour
 
             SyncPlaceableModeWithCurrentSelection();
         }
-        
-        // 🔥 9.0.4 修复：UpdatePreviews 必须在第一行，确保 WYSIWYG（所见即所得）
+
         UpdatePreviews();
-        
+
         HandlePanelHotkeys();
         HandleRunToggleWhileNav();
         HandleMovement();
         HandleHotbarSelection();
-        
-        // 🔥 10.1.1补丁002 任务5.3：面板暂停/恢复机制
-        // 在 HandleUseCurrentTool 之前检测面板状态变化
+
         bool uiOpen = IsAnyPanelOpen();
         if (uiOpen && !_wasUIOpen)
         {
-            // 面板刚打开 → 暂停队列，取消当前导航（不清空队列）
             _isQueuePaused = true;
             CancelCurrentNavigation();
         }
         else if (!uiOpen && _wasUIOpen)
         {
-            // 面板刚关闭 → 恢复队列
             _isQueuePaused = false;
             if (_farmActionQueue.Count > 0 && !_isExecutingFarming)
+            {
                 ProcessNextAction();
+            }
         }
         _wasUIOpen = uiOpen;
-        
-        // 🔴 补丁003 模块C：延迟 tile 更新 — 监听动画进度
+
         if (_pendingTileUpdate != null && !_tileUpdateTriggered)
         {
             float progress = playerInteraction != null ? playerInteraction.GetAnimationProgress() : 1f;
@@ -286,15 +317,13 @@ public class GameInputManager : MonoBehaviour
                         ExecuteWaterTile(req.layerIndex, req.cellPos, req.puddleVariant);
                         break;
                     case FarmActionType.RemoveCrop:
-                        // 🔴 V6 模块S（CP-S4）：动画中期清除农作物
                         ExecuteRemoveCrop(req.layerIndex, req.cellPos);
                         break;
                 }
                 _tileUpdateTriggered = true;
-                // 不清空 _pendingTileUpdate，等动画完成回调时清空
             }
         }
-        
+
         HandleUseCurrentTool();
         HandleRightClickAutoNav();
         if (timeDebugger != null) timeDebugger.enableDebugKeys = enableTimeDebugKeys;
