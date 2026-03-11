@@ -204,19 +204,11 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-11：10.2.2补丁002 - Git 基线已显著补齐，但实现仍需等待 dirty 状态拆分
 治理线程已正式落地仓库级 Git 基线：新增 `.kiro/steering/git-safety-baseline.md`、`.gitattributes`、Git preflight Hook，重写安全版 `git-quick-commit.kiro.hook`，并把 `.claude/worktrees/agent-a2df3da0` 与 `.claude/settings.local.json` 从根仓库跟踪中移除。旧结论里的 `main ahead 4` 已经过期，当前 `main` 与 `origin/main` 同步；但这并不等于农田 `10.2.2` 已可直接开工，因为仓库仍 dirty，且 dirty 范围横跨治理线、about 文档、农田线和 `Assets/` 现场改动。当前农田主线新的恢复点是：继续暂停 `10.2.2` 实现，先等待 dirty 状态拆分清楚，再建立 `codex/farm-10.2.2-patch002` 任务分支并做一次正式 preflight。
 文件：.kiro/steering/git-safety-baseline.md、.gitattributes、.gitignore、.kiro/hooks/git-preflight.kiro.hook、.kiro/hooks/git-quick-commit.kiro.hook、10.2.2补丁002/memory.md
-### 会话 2026-03-11（农田线 Git 前置条件补记）
+### 会话 2026-03-11（农田父工作区同步跨工作区说明入口）
 **完成任务**:
-- 已同步治理线最新结论：本地 Git 基线 checkpoint 已创建，但农田线仍不能进入实现。
-- 已固定农田线下一步前置条件：清理无关 dirty → 创建 codex/farm-10.2.2-patch002 → 执行 preflight → 再开始实现。
+- 已同步当前仓库 Git 自动同步与治理现状说明文档的存在与用途，供后续农田线接手时查阅。
 
-### 会话 2026-03-11（农田线 Git 自动同步补记）
+### 会话 2026-03-11（农田父工作区同步补完后的说明口径）
 **完成任务**:
-- 已同步 Git 自动同步新口径：后续农田线在自己的 codex/ 分支收尾时，也必须像 memory 一样完成白名单提交与推送。
-
-### 会话 2026-03-11（农田线远端同步口径补记）
-**完成任务**:
-- 已同步最新事实：Git 自动同步治理提交 77f7eec5 已进入远端主线，后续农田线应复用这套闭环。
-
-### 会话 2026-03-11（农田父工作区更新最终治理 hash）
-**完成任务**:
-- 已同步当前最新治理基线 hash 为 5d14b8ca。
+- 已同步跨工作区说明文档已补完的事实，后续农田线接手时应优先通过该文档理解 Git 现场，而不是继续沿用旧的 `ahead 4` 口径。
+- 已再次固定父工作区恢复点：农田线当前仍等待仓库 dirty 拆分与独立任务分支建立，不进入 `10.2.2补丁002` 实现。
