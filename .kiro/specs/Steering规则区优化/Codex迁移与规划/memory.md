@@ -1030,3 +1030,27 @@
 - 我认为需要补充/收紧的一点是：gemini001.md 中“配置线程路由，确保切换线程时精准映射到 worktree 物理目录”这件事，不应表述成 Codex 会自动永远识别线程并强制路由；更稳妥的落地方式应是“建立显式对照表 + 固定工作目录使用约定 + 进入线程先核验当前目录/分支”。
 - 对后续执行口径的更新：可以继续采用“先固定长期线程 worktree，后单独决定是否 merge NPC 到 main”的顺序；但在执行前，需要把任务清单写清楚并先经用户审批。
 - 当前恢复点：治理主线继续停留在“准备执行 worktree 固定与线程分支对照治理”这一步，尚未开始实际建 worktree 或做 merge。
+
+## 2026-03-11（十阶段收口：Sunset 线程 - 分支 - Worktree 固化治理已完成）
+- 当前主线目标：继续服务 Steering规则区优化/Codex迁移与规划 治理主线，目标是把 Sunset 的长期线程、分支与 worktree 关系固定下来。
+- 本轮子任务：按用户批准的一步到位范围，完成第 1 到第 11 步，不触碰 NPC 合并到 main。
+- 本轮已完成的关键动作：
+  1. 盘点了 Sunset 当前长期线程、真实分支、现有 worktree 与 Codex 状态库中的 cwd/git_branch 现状；
+  2. 固化 A 类治理线程留根目录 main、B 类功能线程进入独立 worktree 的原则；
+  3. 创建 D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.md；
+  4. 创建 worktree 根目录 D:\Unity\Unity_learning\Sunset_worktrees；
+  5. 创建 D:\Unity\Unity_learning\Sunset_worktrees\NPC，并确认分支为 codex/npc-generator-pipeline，HEAD=40493346；
+  6. 创建 D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002，并确认分支为 codex/farm-10.2.2-patch002，HEAD=47da9e1；
+  7. 复核根目录 D:\Unity\Unity_learning\Sunset 继续绑定 main；
+  8. 备份 C:\Users\aTo\.codex\state_5.sqlite 到 C:\Users\aTo\.codex\state_5.sqlite.bak-20260311-183352-sunset-worktree-routing，并对齐相关活跃线程的默认 cwd/git_branch/git_sha；
+  9. 把“进入线程先核验当前目录与真实分支”的纪律写入 AGENTS.md 与 .kiro/steering/git-safety-baseline.md；
+  10. 把 main 与功能线程的边界写入治理规则；
+  11. 产出 Codex线程Worktree使用说明.md 与 Sunset线程Worktree治理实施记录_2026-03-11.md。
+- 当前真实目录映射：
+  - D:\Unity\Unity_learning\Sunset -> main
+  - D:\Unity\Unity_learning\Sunset_worktrees\NPC -> codex/npc-generator-pipeline
+  - D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002 -> codex/farm-10.2.2-patch002
+- 涉及文件：	asks.md、AGENTS.md、.kiro/steering/git-safety-baseline.md、.codex/threads/线程分支对照表.md、Codex线程Worktree使用说明.md、Sunset线程Worktree治理实施记录_2026-03-11.md
+- 验证结果：git worktree list 已显示根目录 + NPC + 农田三个正式入口；根目录真实分支仍为 main；两个新 worktree 的真实分支已核对正确。
+- 遗留边界：当前明确没有执行 NPC -> main merge；后续只有在用户验收通过后，才进入是否合并的单独决策。
+- 当前恢复点：治理主线已从“解释方案”推进到“worktree、对照表、状态层路由全部落地完成”，下一步只等待用户验收使用说明和目录状态。

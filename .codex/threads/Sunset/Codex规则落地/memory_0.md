@@ -541,3 +541,19 @@
 - 我额外收紧的一条原则是：不能把 Codex 桌面线程切换幻想成“自动强绑定 Git 分支”的系统能力；正确落地应是显式对照表、固定 worktree、进入线程先核验真实目录与真实分支。
 - 当前线程主线不变：继续服务 Sunset 的 Codex 规则落地与 Git/线程治理底盘。
 - 本轮输出目标是给用户一份可审的简短分析结论和完整待执行清单，待用户批准后再一步到位执行。
+
+## 2026-03-11（线程记忆补记：已完成前 11 步线程-worktree 固化治理）
+- 当前线程名称：Codex规则落地。
+- 当前线程主线目标不变：继续完善 Sunset 的 Codex 规则、Git 治理和线程底盘，而不是进入具体业务实现。
+- 本轮已按用户批准，完整执行前 11 步，且严格未触碰 NPC 合并到 main。
+- 本轮落地结果：
+  - 已创建 D:\Unity\Unity_learning\Sunset_worktrees\NPC 与 D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002；
+  - 已把 D:\Unity\Unity_learning\Sunset 固定为稳定 main 主路；
+  - 已创建 .codex/threads/线程分支对照表.md；
+  - 已创建 Codex线程Worktree使用说明.md 与 Sunset线程Worktree治理实施记录_2026-03-11.md；
+  - 已备份并更新 C:\Users\aTo\.codex\state_5.sqlite，使 NPC 与农田活跃线程默认 cwd 对齐到各自 worktree。
+- 当前目录映射已固定为：
+  - 根目录 D:\Unity\Unity_learning\Sunset -> main
+  - NPC 线程 -> D:\Unity\Unity_learning\Sunset_worktrees\NPC -> codex/npc-generator-pipeline
+  - 农田交互修复V2 -> D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002 -> codex/farm-10.2.2-patch002
+- 当前恢复点：接下来只向用户交付使用说明、目录最终状态和验收口径；只有验收通过后，才讨论 NPC 是否 merge 回 main。

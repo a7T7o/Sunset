@@ -1,7 +1,7 @@
 # Codex迁移与规划 - 任务列表
 
 **创建日期**: 2026-03-07
-**最后更新**: 2026-03-10
+**最后更新**: 2026-03-11
 
 ---
 
@@ -662,3 +662,158 @@
 - 已采用干净临时 worktree `C:\Users\aTo\AppData\Local\Temp\sunset-status-sync-d380b3e638d04631bf802aabe7814ae1`，承接本轮同步动作。
 - 已把 `当前仓库Git自动同步与治理现状说明_2026-03-11.md`、`about一致性巡检清单.md`、九阶段看板更新与相关多层记忆纳入白名单同步范围。
 - 已将“当前本地 `main` 仍落后远端、仓库依旧 dirty、农田 `10.2.2` 仍不得直接进入实现”这一口径同步为可查阅的远端基线。
+
+---
+
+## 十阶段：Sunset 线程 - 分支 - Worktree 固化治理（2026-03-11 启动）
+
+### 十阶段详细任务看板
+
+| 任务 | 状态 | 目标 |
+|------|------|------|
+| T55 | ✅ 完成 | 已盘点当前 `Sunset` 长期线程、真实分支、现有 worktree 与 Codex 状态库中的 `cwd/git_branch` 现状。 |
+| T56 | ✅ 完成 | 已固化 A 类治理线程留在根目录 `main`、B 类功能线程进入独立 worktree 的映射原则。 |
+| T57 | ✅ 完成 | 已创建项目内唯一有效的 `线程分支对照表.md`。 |
+| T58 | ✅ 完成 | 已创建 `D:\Unity\Unity_learning\Sunset_worktrees` 作为长期 worktree 根目录。 |
+| T59 | ✅ 完成 | 已为 `codex/npc-generator-pipeline` 创建独立 `NPC` worktree。 |
+| T60 | ✅ 完成 | 已为 `codex/farm-10.2.2-patch002` 创建独立农田 worktree。 |
+| T61 | ✅ 完成 | 已复核并保护 `D:\Unity\Unity_learning\Sunset` 根目录继续绑定稳定 `main`。 |
+| T62 | ✅ 完成 | 已备份并对齐 Codex 状态层中相关线程的默认 `cwd/git_branch/git_sha`。 |
+| T63 | ✅ 完成 | 已把“进入线程先核验当前目录与真实分支”的纪律写入治理规则。 |
+| T64 | ✅ 完成 | 已把“哪些线程允许留在 `main`、哪些绝不允许在 `main` 做实现”写入规则。 |
+| T65 | ✅ 完成 | 已输出最终 `Codex` 用户使用说明、实施记录与验收口径。 |
+
+## T55: 盘点当前 `Sunset` 长期线程、真实分支、worktree 与状态库现场
+
+**状态**: ✅ 完成
+
+**目标**:
+- 在动手创建 worktree 之前，先把“现在到底有哪些线程、哪些分支、哪些已有 worktree、哪些线程的 `cwd` 还停在根目录”盘清楚，避免二次误配。
+
+**本轮已完成**:
+- 已确认根目录真实分支为 `main`，且当前根工作树干净。
+- 已确认本地存在并可用的关键分支：`main`、`codex/npc-generator-pipeline`、`codex/farm-10.2.2-patch002`、`codex/restored-mixed-snapshot-20260311`。
+- 已确认既有特殊 worktree 仅剩 `.claude/worktrees/agent-a2df3da0`。
+- 已核对 `C:\Users\aTo\.codex\state_5.sqlite` 的 `threads` 表，确认 `cwd`、`git_branch`、`git_sha` 可作为本轮线程默认目录对齐入口。
+
+## T56: 固化治理线程 / 功能线程映射原则
+
+**状态**: ✅ 完成
+
+**目标**:
+- 正式把 `Sunset` 的长期线程划分为两类：
+  - A 类：治理 / 总览 / 只读 / 审计线程，固定根目录 `main`
+  - B 类：独立功能实现线程，固定各自 `codex/*` 分支与独立 worktree
+
+**本轮已完成**:
+- 已正式采纳 A / B 两类线程划分。
+- 已明确：`Codex规则落地`、`spring-day1`、`项目文档总览`、`导航检查`、`遮挡检查` 留在根目录 `main`。
+- 已明确：`NPC` 与 `农田交互修复V2` 进入各自独立 worktree。
+
+## T57: 创建唯一有效的 `线程分支对照表.md`
+
+**状态**: ✅ 完成
+
+**目标**:
+- 在项目内落一份长期可查的对照表，明确线程名、默认工作目录、默认分支、适用边界与例外说明。
+
+**本轮已完成**:
+- 已创建 `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.md`
+- 已把线程类型、默认目录、默认分支、特殊说明与红线写清。
+
+## T58: 创建长期 worktree 根目录
+
+**状态**: ✅ 完成
+
+**目标**:
+- 在仓库外侧创建 `D:\Unity\Unity_learning\Sunset_worktrees`，作为 `Sunset` 长期功能线程的统一物理目录根。
+
+**本轮已完成**:
+- 已创建 `D:\Unity\Unity_learning\Sunset_worktrees`
+
+## T59: 为 `codex/npc-generator-pipeline` 创建独立 `NPC` worktree
+
+**状态**: ✅ 完成
+
+**目标**:
+- 让 NPC 线程拥有独立文件视图，不再与根目录 `main` 共享同一份工作树。
+
+**本轮已完成**:
+- 已创建 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`
+- 已确认该目录真实分支为 `codex/npc-generator-pipeline`
+- 已确认该目录 HEAD 为 `40493346`
+
+## T60: 为 `codex/farm-10.2.2-patch002` 创建独立农田 worktree
+
+**状态**: ✅ 完成
+
+**目标**:
+- 让农田补丁线程拥有独立文件视图，不再通过根目录反复切分支。
+
+**本轮已完成**:
+- 已创建 `D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002`
+- 已确认该目录真实分支为 `codex/farm-10.2.2-patch002`
+- 已确认该目录 HEAD 为 `a47da9e1`
+
+## T61: 复核并保护根目录只绑定稳定 `main`
+
+**状态**: ✅ 完成
+
+**目标**:
+- 确保 `D:\Unity\Unity_learning\Sunset` 继续作为治理与联调主路，只承载稳定 `main`，不再承载长期功能分支实现。
+
+**本轮已完成**:
+- 已确认根目录 `D:\Unity\Unity_learning\Sunset` 当前真实分支仍为 `main`
+- 已确认根目录当前未被切到 NPC 或农田功能分支
+- 已把“根目录只承载稳定 `main`”回写到规则与对照表
+
+## T62: 对齐 Codex 状态层中的默认 `cwd/git_branch`
+
+**状态**: ✅ 完成
+
+**目标**:
+- 先备份 `C:\Users\aTo\.codex\state_5.sqlite`，再把相关 `Sunset` 活跃线程的默认目录对齐到正确 worktree，减少线程重新打开时继续抢占根目录的概率。
+
+**本轮已完成**:
+- 已备份 `C:\Users\aTo\.codex\state_5.sqlite.bak-20260311-183352-sunset-worktree-routing`
+- 已将相关活跃线程的默认 `cwd` / `git_branch` / `git_sha` 对齐：
+  - 治理类线程 -> `D:\Unity\Unity_learning\Sunset` / `main`
+  - NPC 线程 -> `D:\Unity\Unity_learning\Sunset_worktrees\NPC` / `codex/npc-generator-pipeline`
+  - 农田线程 -> `D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002` / `codex/farm-10.2.2-patch002`
+
+## T63: 写入“进入线程先核验目录 / 分支”纪律
+
+**状态**: ✅ 完成
+
+**目标**:
+- 把“UI 分支提示不等于真实 Git，进入线程先核验 `cwd` 与 `git branch --show-current`”写入治理规则，作为固定闸门。
+
+**本轮已完成**:
+- 已把该纪律写入 `.kiro/steering/git-safety-baseline.md`
+- 已把该纪律接入项目 `AGENTS.md`
+
+## T64: 写入 `main` 与功能线程边界规则
+
+**状态**: ✅ 完成
+
+**目标**:
+- 把“哪些线程允许留在 `main`、哪些线程绝不允许在 `main` 做实现”正式写成规则，避免后续再次回到多线程共用根目录开发。
+
+**本轮已完成**:
+- 已把 A 类 / B 类线程边界写入 `.kiro/steering/git-safety-baseline.md`
+- 已在 `AGENTS.md` 中补充“长期功能线程默认进入独立 worktree”的路由口径
+
+## T65: 输出 `Codex` 用户使用说明与验收口径
+
+**状态**: ✅ 完成
+
+**目标**:
+- 产出一份用户可直接照着做的说明，写清楚：
+  - 每个线程应该进哪个目录
+  - 进入后先看什么
+  - 如果目录或分支不对该怎么处理
+  - 当前不允许提前做的动作（尤其是 NPC 合并到 `main`）
+
+**本轮已完成**:
+- 已创建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex线程Worktree使用说明.md`
+- 已创建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Sunset线程Worktree治理实施记录_2026-03-11.md`
