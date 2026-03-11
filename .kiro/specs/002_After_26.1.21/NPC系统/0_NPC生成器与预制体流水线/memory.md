@@ -115,3 +115,36 @@
 - 本轮已从备份目录 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659\files` 中，把本工作区文档、NPC 相关脚本与资源恢复到 `codex/npc-generator-pipeline` 对应 worktree。
 - 当前恢复到分支的关键内容包括：`Assets/Editor/NPCPrefabGeneratorTool.cs`、`Assets/YYY_Scripts/Anim/NPC/`、`Assets/YYY_Scripts/Controller/NPC/`、`Assets/YYY_Scripts/Story/Interaction/`、`Assets/Sprites/NPC/` 以及本工作区文档与线程记忆。
 - 当前主线恢复点：NPC 生成器内容已经重新回到正确分支，下一步是将恢复内容正式提交并推送，然后释放临时 worktree 占用。
+
+---
+
+### 会话 1（续） - 2026-03-12（治理交叉文档补记）
+
+**用户需求**:
+> 请你把我们讨论的聊天记录全部原封不动塞入 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\NPC.md`，当然你可以加入批注和理解，这是一个给 git 规则和搭建的线程看的内容，让他知道你的思考和你当前希望的规范和规则以及你希望他对你的友好程度，以及你的建议各种各种，这个文档不限制内容，越详细越好。
+
+**完成任务**:
+1. 以当前 NPC worktree 为真实现场重新核对 `cwd`、Git 分支与线程绑定关系，确认仍应以 `D:\Unity\Unity_learning\Sunset_worktrees\NPC` 和 `codex/npc-generator-pipeline` 为准。
+2. 新建并写入外部治理交叉文档 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\NPC.md`。
+3. 在文档中完整收录此前围绕“当前在哪个工作区/分支”“worktree 与根仓库混淆”“是否应该即时更新到 main”“文件夹结构是否合理”等讨论记录。
+4. 追加治理侧批注，明确表达对 worktree 识别优先级、memory 跟随 active worktree、`main` 以 checkpoint 合并、以及协作时降低用户焦虑的建议。
+5. 用 `cmd /c chcp 65001 & type` 回读文档，确认中文内容按 UTF-8 可正常显示。
+
+**修改文件**:
+- `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\NPC.md` - 写入聊天记录、治理批注与规则建议
+- `.kiro/specs/002_After_26.1.21/NPC系统/0_NPC生成器与预制体流水线/memory.md` - 追加本轮治理文档记录
+- `.kiro/specs/002_After_26.1.21/NPC系统/memory.md` - 追加父工作区摘要
+- `.codex/threads/Sunset/NPC/memory_0.md` - 追加线程视角摘要
+
+**解决方案 / 关键结论**:
+- 这次文档落盘属于 NPC 主线的治理侧支撑任务，不改变 NPC 生成器实现本身，但沉淀了当前线程后续必须遵循的执行现场判断。
+- 当前 NPC 主线的唯一执行现场应继续锁定在 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`，而不是根仓库 `D:\Unity\Unity_learning\Sunset`。
+- 当根仓库视角与 worktree 视角冲突时，应先分层说明，再明确当前业务主线跟随 worktree 现场。
+- `main` 不应承载每一次试写与试验；更合理的节奏是当前分支内即时推进，在闭环或 checkpoint 节点再进入主干。
+
+**遗留问题**:
+- [ ] 这次完成的是治理交叉文档，不是 NPC 真实素材导入验证；主线仍未完成首轮真实 PNG 生成与观感检查。
+- [ ] 仍需回到 NPC 业务主线，用真实四向三帧素材跑一轮生成器，验证动画、控制器、Prefab 和默认参数。
+
+**当前主线恢复点**:
+- 治理侧说明已补齐，NPC 主线恢复到“在正确的 NPC worktree 里执行首轮真实素材生成与验证”这一步。

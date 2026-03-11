@@ -86,3 +86,8 @@
 ## 2026-03-11（分支归位恢复）
 - NPC 系统相关文件已从备份恢复到 `codex/npc-generator-pipeline` 分支 worktree。
 - 当前目标从“找回文件”恢复到“把找回内容正式提交到 NPC 分支并推送”。
+
+## 2026-03-12（治理交叉文档补记）
+- 按用户要求，为 Git/规则线程写入外部交叉材料 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\NPC.md`，汇总 NPC 线程关于 worktree、根仓库、memory 路径与 `main` 节奏的讨论。
+- 本轮关键结论：NPC 主线继续以 `D:\Unity\Unity_learning\Sunset_worktrees\NPC` 为唯一执行现场，memory 跟随 active worktree，`main` 仅在 checkpoint/闭环后再合并。
+- 这次属于治理侧支撑任务，没有新增 NPC 业务代码；主线恢复点仍是“用真实 NPC PNG 跑首轮生成与验证”。

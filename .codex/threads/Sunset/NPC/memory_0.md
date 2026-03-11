@@ -23,3 +23,9 @@
 - 先前 NPC 生成器相关文件实际没有进入提交历史，而是停留在未提交现场；后续在仓库清理时被移出工作树，但已被备份保住。
 - 本轮已把这些内容从备份恢复到 `codex/npc-generator-pipeline` 对应的 worktree 中。
 - 下一步：将当前恢复内容提交并推送，然后释放临时 worktree 占用，避免继续阻塞 NPC 线程切换分支。
+
+## 2026-03-12（治理交叉文档）
+- 用户要求把此前围绕“当前在哪个工作区/分支、是否能继续做、memory 应更新到哪里、是否应即时并入 `main`”的讨论整理给另一个 Git/规则线程参考。
+- 已在 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\NPC.md` 写入完整聊天记录与批注，并确认该文档可按 UTF-8 正常读取。
+- 稳定结论：当前 NPC 线程必须继续锚定 `D:\Unity\Unity_learning\Sunset_worktrees\NPC` 与 `codex/npc-generator-pipeline`；memory 跟随 worktree；`main` 采用 checkpoint 合并而非每次小改即时同步。
+- 当前主线恢复点不变：治理文档已补齐，接下来仍应回到 NPC 真实素材生成与验证。
