@@ -755,3 +755,8 @@
 - 已向用户澄清：NPC 线程中手动切换到 codex/npc-generator-pipeline 报“already used by worktree”，说明 worktree 固化已生效；后续应直接进入 D:\Unity\Unity_learning\Sunset_worktrees\NPC，而不是在其他目录重复 checkout 同一分支。
 - 已向用户澄清：右下角分支列表显示的是仓库真实存在的分支，不是线程路由真相；线程该去哪应看显式对照表和实际 cwd/真实分支核验。
 - 当前恢复点：父治理线后续只需继续配合用户做体验级验收与必要的剩余噪音清理评估，不进入 NPC merge 决策。
+
+## 2026-03-11（父治理层补记：NPC 线尚未收尾也未合并主线）
+- 已再次向用户澄清：当前完成的是 worktree 与线程治理，不是 NPC 业务线收尾。
+- NPC 线当前仍在 codex/npc-generator-pipeline 上继续存在，后续若继续开发或补验证，仍应在该分支 / 对应 worktree 中进行。
+- 当前没有把 NPC 合并回 main；是否合并，仍是验收后的下一阶段决策。
