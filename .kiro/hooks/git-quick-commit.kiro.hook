@@ -1,13 +1,13 @@
 {
   "enabled": true,
   "name": "一键提交推送",
-  "description": "手动触发后先做 Git 安全预检，再按当前分支提交并推送；会过滤 `.claude` 本地噪音，拒绝在不安全状态下盲目提交。",
-  "version": "2",
+  "description": "手动触发后通过仓库脚本执行 Git 安全同步：按当前模式显式筛文件、提交并推送，同时保留其他主线 dirty 不被误提交。",
+  "version": "3",
   "when": {
     "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
-    "prompt": "执行 Sunset 的安全版提交推送流程，严格按步骤操作；如果发现不满足安全基线，直接停止并报告原因，不要硬提交。\n\n1. 先执行 preflight：读取当前分支、`git status --porcelain=v2`、当前 `HEAD` 短 hash、upstream ahead/behind 状态。\n2. 识别并排除本地噪音：`.claude/worktrees/**`、`.claude/settings.local.json` 不得纳入本次提交。\n3. 如果当前在 `main`，只允许提交治理/文档/规则/Hook/Git 基线相关文件；若存在 `Assets/`、`Packages/`、`ProjectSettings/` 或业务实现相关改动，立即停止并报告“必须先建 `codex/` 任务分支”。\n4. 如果剩余改动明显跨多个无关工作区，立即停止并报告“必须先拆分脏改”。不要替用户猜测哪些该一起提交。\n5. 只有在通过上述检查后，才继续统计今天已有多少次提交，生成日期编号消息，格式仍为 `YYYY.MM.DD-NN`。\n6. 不要使用 `git add -A`；改为只把通过筛选的相关文件显式加入暂存区。\n7. 执行 `git commit -m \"生成的消息\"`。\n8. 推送当前分支：如果当前分支已有 upstream，用 `git push`；如果没有 upstream，用 `git push -u origin <当前分支>`。\n9. 完成后必须报告：当前分支、起始基线 hash、本次提交消息、push 是否成功、仍未处理的已知本地噪音是否存在。\n\n注意：全程不要询问用户确认；但如果安全基线不满足，必须拒绝提交并清楚说明阻塞点。"
+    "prompt": "执行 Sunset 的自动 Git 安全同步流程，优先调用仓库脚本 `scripts/git-safe-sync.ps1`。要求如下：\n\n1. 先根据当前主线判断本轮应走 `governance` 还是 `task` 模式。\n2. 如果是治理任务且当前仍在 `main`，调用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 带上本轮受影响的工作区记忆和线程记忆。\n3. 如果当前已经位于某个 `codex/` 分支，而本轮只是顺手修治理文件，不要强行切回 `main`；改用 `git-safe-sync.ps1 -Action sync -Mode task -IncludePaths ...`，只白名单提交本轮治理文件。\n4. 如果是真实实现任务且当前仍在 `main`，不要直接提交；先在满足条件时调用 `git-safe-sync.ps1 -Action ensure-branch -BranchName codex/...` 创建/切换任务分支。\n5. 如果是真实实现任务且当前已在 `codex/` 分支，调用 `git-safe-sync.ps1 -Action sync -Mode task -ScopeRoots ... -IncludePaths ...`，只提交当前任务白名单路径。\n6. 不得使用无边界 `git add -A`；剩余其他主线 dirty 必须保留原位并在结果里汇报。\n7. 完成后必须明确报告：当前分支、起始基线 hash、当前 checkpoint hash、本次提交消息、push 是否成功、仍留在工作树中的其他 dirty 是什么。\n\n如果脚本判断当前不能安全同步，直接停止并清楚说明阻塞点，不要硬提交。"
   }
 }

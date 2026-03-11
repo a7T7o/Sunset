@@ -186,3 +186,53 @@ lastUpdated: 2026-03-11
 - 当前起始基线与最近 checkpoint 已可明确说明
 
 若任一项不满足，默认先补 Git 基线，再进入业务实现。
+
+## 10. 显式白名单同步原则
+
+- Git 自动同步只允许基于显式白名单路径执行，不能靠无边界 `git add -A` 扫全仓。
+- 白名单由两部分组成：
+  1. 当前模式的默认允许范围；
+  2. 本轮通过 `ScopeRoots` / `IncludePaths` 明确声明的额外路径。
+- 未落在白名单内的 dirty 改动，一律只做分类与汇报，不自动纳入提交。
+- 这意味着：即使工作树里同时存在其他主线 dirty，只要本轮同步明确限定了自己的白名单，仍可安全形成当前任务的 checkpoint；但这些剩余 dirty 不等于已经安全，也不代表可以直接进入实现。
+
+## 11. Codex 自动同步纪律
+
+在 `Sunset` 仓库里，Codex 每轮实质性工作收尾时，固定执行顺序为：
+
+1. 更新当前子工作区记忆
+2. 更新受影响父工作区记忆
+3. 更新当前线程记忆
+4. 执行 `scripts/git-safe-sync.ps1`
+5. 汇报当前分支、起始基线、最新 checkpoint、push 结果与剩余 dirty
+
+### 模式要求
+
+- 治理任务留在 `main` 时：
+  - 使用 `git-safe-sync.ps1 -Action sync -Mode governance`
+  - 允许默认治理白名单 + 本轮明确声明的记忆路径
+- 如果当前线程已经在某个 `codex/` 分支上，而本轮只是在该分支顺手修治理文件：
+  - 不强制切回 `main`
+  - 改用 `git-safe-sync.ps1 -Action sync -Mode task -IncludePaths ...`
+  - 只提交本轮明确列出的治理文件，不顺手吃进该分支上的其他业务 dirty
+- 真实实现任务进入代码 / 场景前：
+  - 先用 `git-safe-sync.ps1 -Action ensure-branch -BranchName codex/...`
+- 真实实现任务收尾时：
+  - 使用 `git-safe-sync.ps1 -Action sync -Mode task -ScopeRoots ... -IncludePaths ...`
+
+### 自动同步失败时的口径
+
+如果脚本判断当前不能安全同步，必须至少汇报：
+
+- 当前分支
+- 当前 `HEAD` 短 hash
+- 不允许继续的原因
+- 剩余 dirty 中哪些是当前任务外改动
+- 下一步最小动作是什么
+
+## 12. 自动任务分支托管
+
+- `git-safe-sync.ps1 -Action ensure-branch` 只允许在工作树干净时创建或切换任务分支。
+- 若当前位于 `main`，且 `main` 相对远端存在 ahead / behind，默认先同步 `main`，再建 `codex/` 分支。
+- 推荐命名仍为：`codex/<系统>-<任务>-<补丁号>`。
+- 任何 `Assets/`、`Packages/`、`ProjectSettings/` 的真实实现，都不应先改完再想起建分支；分支必须先于实现动作存在。

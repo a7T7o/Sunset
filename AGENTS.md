@@ -64,6 +64,13 @@
 - 记忆文件中的说明文字默认使用中文，不要把普通叙述写成英文；只有文件名、路径、命令、专有名词或特殊技术名词可以保留原文。
 
 ## 7. 风险任务处理
+- 本项目的 Git 收尾顺序固定为：先按工作区规则更新工作区记忆，再更新线程记忆，最后执行 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`。
+- 任何 Sunset 实质性工作在完成记忆更新后，只要当前改动已经达到可提交状态，Codex 就必须继续执行 Git 安全同步，而不是停在“本地已改完但未提交/未推送”。
+- 治理任务若留在 `main`，只允许使用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 明确带上本轮受影响的业务记忆或线程记忆。
+- 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -IncludePaths ...`，只白名单提交本轮治理文件。
+- 真实实现任务若准备从 `main` 进入代码或场景修改，必须先执行 `git-safe-sync.ps1 -Action ensure-branch -BranchName codex/...`；只有在工作树干净、基线同步时才允许创建任务分支。
+- 真实实现任务完成后，必须在对应 `codex/` 分支上执行 `git-safe-sync.ps1 -Action sync -Mode task -ScopeRoots ... -IncludePaths ...`，用显式白名单提交当前任务，不得使用无边界 `git add -A`。
+- 如果 `git-safe-sync.ps1` 判断当前不能安全同步，必须明确汇报阻塞点、当前分支、基线 hash 和剩余 dirty 分类；禁止硬提交、硬推送或偷偷跳过 Git 收尾。
 - 评审任务先按 `code-reaper-review.md` 判路由；若落到需要出审视报告的路径，先出报告，不要抢先改文件。
 - 场景、预制体、检查器、ScriptableObject 任务先审视再修改；当序列化引用、挂载关系或场景影响范围不清晰时，先给证据和判断，再做改动。
 - 历史交接文档和 Claude 迁移文档只作为背景与经验库，不替代当前活跃工作区。

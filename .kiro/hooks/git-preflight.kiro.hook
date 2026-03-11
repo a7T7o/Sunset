@@ -1,13 +1,13 @@
 {
   "enabled": true,
   "name": "Git安全预检",
-  "description": "手动触发后只执行 Git preflight，不提交、不推送，用于判断当前是否允许进入实现或继续提交。",
+  "description": "手动触发后通过仓库脚本执行 Git preflight，不提交、不推送，用于判断当前是否允许进入实现或继续同步。",
   "version": "1",
   "when": {
     "type": "userTriggered"
   },
   "then": {
     "type": "askAgent",
-    "prompt": "按 Sunset 的 Git 安全基线执行一次 preflight，只做检查和结论汇报，不提交、不修改文件。必须至少执行以下动作：1) 读取当前分支；2) 读取 `git status --porcelain=v2`；3) 读取当前 `HEAD` 短 hash；4) 检查 upstream ahead/behind；5) 把 dirty 文件分成“当前任务相关 / 必须先收口 / 必须隔离 / 已知本地噪音”四类；6) 明确回答：现在是否允许继续在当前分支工作；7) 如果不允许，给出最小下一步动作。特别注意：`.claude/worktrees/` 与 `.claude/settings.local.json` 视为本地噪音，`main` 上若存在 `Assets/`、`Packages/`、`ProjectSettings/` 或业务工作区实现改动，默认不允许直接进入实现。"
+    "prompt": "按 Sunset 的 Git 安全基线执行一次 preflight，只做检查和结论汇报，不提交、不修改文件。优先调用仓库脚本 `scripts/git-safe-sync.ps1 -Action preflight`；根据当前主线选择 `-Mode governance` 或 `-Mode task`，必要时补 `-ScopeRoots` / `-IncludePaths`。输出必须明确说明：当前分支、当前 HEAD、upstream ahead/behind、允许纳入本轮同步的白名单文件、不会自动纳入同步的剩余 dirty、现在是否允许继续，以及如果不允许时的最小下一步动作。"
   }
 }

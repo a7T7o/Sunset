@@ -32,6 +32,7 @@ AGENTS.md text eol=lf
 CLAUDE.md text eol=lf
 SKILL.md text eol=lf
 *.sh text eol=lf
+*.ps1 text eol=lf
 *.cmd text eol=crlf
 *.bat text eol=crlf
 
