@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "project": "Sunset",
+  "updated_at": "2026-03-11T00:00:00+08:00",
+  "description": "供 Codex 客户端线程承接审计与后续兼容层读取的机器可读线程路由映射。它不是聊天原文，不替代 session_index.jsonl 或 state_5.sqlite。",
+  "threads": {
+    "019cc7be-8659-7e32-aeea-d892b0634949": {
+      "display_name": "Codex规则落地（治理样本线程）",
+      "group": "Sunset",
+      "thread_type": "governance",
+      "expected_cwd": "D:\\Unity\\Unity_learning\\Sunset",
+      "expected_worktree_root": "D:\\Unity\\Unity_learning\\Sunset",
+      "expected_git_branch": "main",
+      "expected_thread_memory": "D:\\Unity\\Unity_learning\\Sunset\\.codex\\threads\\Sunset\\Codex规则落地\\memory_0.md",
+      "autofix_policy": {
+        "cwd": true,
+        "git_branch": false,
+        "git_sha": false,
+        "title": false,
+        "thread_name": false,
+        "active_workspace_root": false
+      }
+    },
+    "019cda74-411d-7821-9f94-7e14e36e4e16": {
+      "display_name": "NPC",
+      "group": "Sunset",
+      "thread_type": "feature",
+      "expected_cwd": "D:\\Unity\\Unity_learning\\Sunset_worktrees\\NPC",
+      "expected_worktree_root": "D:\\Unity\\Unity_learning\\Sunset_worktrees\\NPC",
+      "expected_git_branch": "codex/npc-generator-pipeline",
+      "expected_thread_memory": "D:\\Unity\\Unity_learning\\Sunset\\.codex\\threads\\Sunset\\NPC\\memory_0.md",
+      "observed_thread_memory": "D:\\Unity\\Unity_learning\\Sunset_worktrees\\NPC\\.codex\\threads\\Sunset\\NPC\\memory_0.md",
+      "memory_note": "当前历史线程记忆仍位于 NPC worktree 内；本映射中的 expected_thread_memory 代表 Sunset 统一规则下的目标归位路径。",
+      "autofix_policy": {
+        "cwd": true,
+        "git_branch": false,
+        "git_sha": false,
+        "title": false,
+        "thread_name": false,
+        "active_workspace_root": false
+      }
+    },
+    "019cd565-fb4d-7730-a45b-3ce67410ab07": {
+      "display_name": "农田交互修复V2",
+      "group": "Sunset",
+      "thread_type": "feature",
+      "expected_cwd": "D:\\Unity\\Unity_learning\\Sunset_worktrees\\farm-10.2.2-patch002",
+      "expected_worktree_root": "D:\\Unity\\Unity_learning\\Sunset_worktrees\\farm-10.2.2-patch002",
+      "expected_git_branch": "codex/farm-10.2.2-patch002",
+      "expected_thread_memory": "D:\\Unity\\Unity_learning\\Sunset\\.codex\\threads\\Sunset\\农田交互修复V2\\memory_0.md",
+      "autofix_policy": {
+        "cwd": true,
+        "git_branch": false,
+        "git_sha": false,
+        "title": false,
+        "thread_name": false,
+        "active_workspace_root": false
+      }
+    }
+  }
+}

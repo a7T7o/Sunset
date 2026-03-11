@@ -1168,3 +1168,31 @@
 - 当前恢复点：
   - `Codex迁移与规划` 治理线后续的第一优先级，已经从“Git 规则是否齐全”切换为“线程/UI/worktree 的客户端承接闭环”；
   - 下一轮若继续本主线，应优先进入 T68 ~ T75，而不是再回到泛泛的 Git 讨论或继续把判断责任交给用户。
+
+## 2026-03-11（补记：锐评交叉验证已按路径 B 完成纠偏）
+- 当前主线目标不变：继续服务 `Steering规则区优化/Codex迁移与规划` 治理主线，把“Git/worktree 房子盖好”和“Codex 客户端线程/UI 真正承接到位”彻底分开，并推进到可执行整改。
+- 本轮子任务：按用户给出的锐评 prompt 进行带证据复核，不能再停留在“方向对了”的层面，而是要把文档口径、任务状态和审计产物全部纠偏到现场事实。
+- 路径判断：按 `sunset-review-router` 与 `.kiro/steering/code-reaper-review.md` 核查后，本轮属于路径 B——问题真实存在，锐评方向基本正确，可直接执行局部纠正，不需要先停下来出审视报告。
+- 本轮已证实事实：
+  - `C:\Users\aTo\.codex\state_5.sqlite` 存在 `threads` 表，NPC 线程 `019cda74-411d-7821-9f94-7e14e36e4e16` 当前为 `cwd = D:\Unity\Unity_learning\Sunset_worktrees\NPC`、`git_sha = 404933466f5538475c0c898b21dc808a60b38ea2`、`git_branch = main`。
+  - `git -C D:\Unity\Unity_learning\Sunset_worktrees\NPC branch --show-current` 的真实结果仍是 `codex/npc-generator-pipeline`，因此 NPC 线程只能算“半迁移”，不能写成“全对齐”。
+  - 治理样本线程 `019cc7be-8659-7e32-aeea-d892b0634949` 当前 `git_branch = main`、`cwd` 正常，但数据库 `git_sha` 仍停留 `8b7d630f...`，而根仓库真实 HEAD 已是 `33f15139...`，因此也只能算“半迁移”。
+  - 农田线程 `019cd565-fb4d-7730-a45b-3ce67410ab07` 当前数据库字段与真实 `worktree / 分支 / HEAD` 三项一致，属于“完全一致”。
+  - `.codex-global-state.json` 当前 `active-workspace-roots` 仍是 `D:\Unity\Unity_learning\Sunset`；在首轮审计结果里，治理样本线程命中，NPC / 农田线程均未命中，这说明客户端激活根层仍是后续 T73 的真实阻塞点之一。
+- 本轮已落地纠正：
+  - 重写 `D:\Unity\Unity_learning\Sunset\scripts\codex_thread_routing_audit.py`，补齐 Windows 路径规范化，消除此前把斜杠差异误判成 worktree 偏差的问题。
+  - 生成并回写 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Sunset线程承接审计表_2026-03-11.md`，正式把三条线程分类为“半迁移 / 半迁移 / 完全一致”。
+  - 纠正 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\tasks.md` 中 T68 ~ T70 的验收口径，写清首轮审计结果与脚本修正点。
+  - 纠正 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Sunset线程Worktree治理实施记录_2026-03-11.md` 中“已全对齐”的过满表述，明确后续一律以审计表为准。
+  - 纠正 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex线程状态纠偏边界与兼容层路线_2026-03-11.md`，把当前全局激活工作区根只命中治理样本线程这一事实写入 T73 约束。
+  - 更新 `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.json`，把 NPC 线程的 `expected_thread_memory` 收紧到 `Sunset` 统一根路径，并保留 `observed_thread_memory` 说明当前历史记忆仍在 NPC worktree 内。
+- 关键决策：
+  - T62 的真实口径正式固定为“部分完成”，后续不再把它当成“已全对齐”。
+  - 当前第一阶段整改已经从“先看用户如何判断”转为“先把状态源审计、脚本、路由映射和字段边界写实”。
+  - `active-workspace-roots` 继续维持“先观察、不自动改”，直到 T73 有更充分验证为止。
+- 验证结果：
+  - 已实际运行：`python scripts\\codex_thread_routing_audit.py --routes ".codex\\threads\\线程分支对照表.json" --output-md ".kiro\\specs\\Steering规则区优化\\Codex迁移与规划\\Sunset线程承接审计表_2026-03-11.md"`。
+  - 首轮输出结果稳定为：治理样本线程“半迁移（数据库 git_sha 漂移）”、NPC 线程“半迁移（数据库 git_branch 漂移）”、农田线程“完全一致”。
+- 当前恢复点：
+  - 本工作区关于“锐评是否说对了、哪些完成状态说早了”的审核与纠偏已经完成，后续可以把精力继续收回到 T73 ~ T75。
+  - 下一轮若继续本主线，应直接推进“激活工作区根纠偏 → 真实闭环验证 → 回滚/验收口径”，不再回到空泛反思。
