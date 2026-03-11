@@ -702,8 +702,8 @@
 | T48 | ✅ 完成 | 已把“像 memory 一样自动做 Git 安全收尾”纳入当前治理看板，并明确自动同步必须走显式白名单。 |
 | T49 | ✅ 完成 | 已实现仓库级 `scripts/git-safe-sync.ps1`，统一 `preflight / ensure-branch / sync` 三种动作。 |
 | T50 | ✅ 完成 | 已把自动 Git 同步纪律接入 `git-safety-baseline.md`、`AGENTS.md`、`git-preflight.kiro.hook` 与 `git-quick-commit.kiro.hook`。 |
-| T51 | 🔄 进行中 | 已用当前治理主线白名单验证脚本；下一步是在当前 `codex/npc-generator-pipeline` 分支上形成治理提交并推送远端。 |
-| T52 | ⏳ 待执行 | 把新的自动 Git 同步口径回写到子工作区、父工作区、业务工作区与线程记忆。 |
+| T51 | ✅ 完成 | 已在 `codex/npc-generator-pipeline` 上用白名单脚本形成 `2026.03.11-02` / `77f7eec5`，并推到远端分支与 `origin/main`。 |
+| T52 | ✅ 完成 | 已把自动 Git 同步口径与本轮提交/推送结果回写到子工作区、父工作区、业务工作区与线程记忆。 |
 
 ## T48: 把自动 Git 同步与分支托管写入看板
 
@@ -743,7 +743,7 @@
 
 ## T51: 用当前治理主线验证脚本并形成远端同步
 
-**状态**: 🔄 进行中
+**状态**: ✅ 完成
 
 **目标**:
 - 在当前真实现场下验证：即便工作树已经位于 `codex/npc-generator-pipeline`，也能用显式白名单把本轮治理文件安全提交并推到远端，而不误带 NPC / Story / Dialogue 业务 dirty。
@@ -751,3 +751,19 @@
 **本轮已完成**:
 - 已分别用 `governance` 和 `task` 白名单方式跑通 `preflight`
 - 已确认 `ensure-branch` 不会在 dirty 工作树里偷切分支
+- 已在 `codex/npc-generator-pipeline` 上通过 `git-safe-sync.ps1` 形成提交 `2026.03.11-02` / `77f7eec5`
+- 已推送 `origin/codex/npc-generator-pipeline`
+- 已把 `77f7eec5` 安全快进推送到 `origin/main`
+
+## T52: 回写多层记忆并固定新的自动同步恢复点
+
+**状态**: ✅ 完成
+
+**目标**:
+- 把自动 Git 同步的新规则、当前提交 hash、远端推送结果和剩余 dirty 现状固定到多层记忆里，让后续线程直接从新基线接手。
+
+**本轮已完成**:
+- 已回写 `Codex迁移与规划/memory.md`
+- 已回写 `Steering规则区优化/memory.md`
+- 已回写 `10.2.2补丁002/memory.md` 与 `农田系统/memory.md`
+- 已回写当前线程记忆

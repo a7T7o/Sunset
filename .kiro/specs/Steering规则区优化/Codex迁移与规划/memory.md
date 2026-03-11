@@ -947,3 +947,16 @@
 
 **恢复点 / 下一步**：
 - 下一步是用显式白名单调用 git-safe-sync.ps1 -Action sync -Mode task，把本轮治理文件安全提交并推送到远端，而不误带 NPC / Story / Dialogue 的业务 dirty。
+
+### 会话 2026-03-11（自动 Git 同步已执行并上传）
+**完成任务**：
+1. 已在 codex/npc-generator-pipeline 上通过 git-safe-sync.ps1 形成提交：2026.03.11-02 / 77f7eec5。
+2. 已推送 origin/codex/npc-generator-pipeline，当前分支 upstream 已建立且 head=0。
+3. 已将 77f7eec5 进一步快进推送到 origin/main，因此这轮治理自动化不再只停留在远端分支，而是已经进入远端主线。
+
+**关键结论**：
+- Sunset 现在已经具备“memory 自动更新 + Git 自动白名单提交 + 自动推送”的真实闭环。
+- 当前剩余的不是 Git 自动化缺口，而是其他主线 dirty 仍未收口，因此农田 10.2.2 仍不能直接开做。
+
+**恢复点 / 下一步**：
+- 后续任何线程完成实质性工作后，都应按“更新多层记忆 → 调用 git-safe-sync.ps1 → 汇报剩余 dirty”的顺序收尾。

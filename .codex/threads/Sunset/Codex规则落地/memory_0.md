@@ -495,3 +495,15 @@
 
 **恢复点 / 下一步**:
 - 立即用 git-safe-sync.ps1 -Action sync -Mode task -IncludePaths ... 提交并推送本轮治理文件。
+
+### 会话 2026-03-11（自动 Git 同步远端验收通过）
+**完成任务**:
+1. 已用 git-safe-sync.ps1 在当前 codex/npc-generator-pipeline 分支上完成白名单提交 2026.03.11-02 / 77f7eec5。
+2. 已推送 origin/codex/npc-generator-pipeline，并进一步把同一治理提交快进推送到 origin/main。
+3. 已证明这套流程可以在真实 dirty 工作树中只上传当前白名单治理文件，而不误带其他业务线脏改。
+
+**关键结论**:
+- 现在的 Git 自动收尾已经从“规则设计”升级为“真实执行通过”。
+
+**恢复点 / 下一步**:
+- 后续若继续帮用户推进，应优先处理剩余 dirty 主线收口，并在对应 codex/ 分支上复用同一脚本闭环。
