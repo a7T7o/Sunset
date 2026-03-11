@@ -557,3 +557,13 @@
   - NPC 线程 -> D:\Unity\Unity_learning\Sunset_worktrees\NPC -> codex/npc-generator-pipeline
   - 农田交互修复V2 -> D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002 -> codex/farm-10.2.2-patch002
 - 当前恢复点：接下来只向用户交付使用说明、目录最终状态和验收口径；只有验收通过后，才讨论 NPC 是否 merge 回 main。
+
+## 2026-03-11（线程记忆补记：merge 与 worktree 使用疑问已澄清）
+- 当前线程名称：Codex规则落地。
+- 本轮已向用户明确：
+  - merge 只把当时分支上的已提交状态带回 main；分支后续若继续更新，还需要再次 merge；
+  - NPC 线程中手动切换到 codex/npc-generator-pipeline 报 worktree 占用，是正常现象，说明这条分支已经固定由 D:\Unity\Unity_learning\Sunset_worktrees\NPC 承载；
+  - 因此 NPC 线程后续不该再手动切到 NPC 分支，而应直接进入 NPC worktree；
+  - 右下角分支列表不是“过时内容”，它只是分支引用列表，不能再当线程路由真相使用；
+  - 外侧 worktree 对 NPC / 农田两条长期功能线的迁移已经完成，但并不等于功能已经合回 main。
+- 当前恢复点：等待用户继续验收线程实际进入体验；后续若还需继续治理，优先处理“线程打开后是否稳定落在正确目录”与“是否清理历史本地特殊 worktree 噪音”。

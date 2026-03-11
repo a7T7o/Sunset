@@ -1054,3 +1054,18 @@
 - 验证结果：git worktree list 已显示根目录 + NPC + 农田三个正式入口；根目录真实分支仍为 main；两个新 worktree 的真实分支已核对正确。
 - 遗留边界：当前明确没有执行 NPC -> main merge；后续只有在用户验收通过后，才进入是否合并的单独决策。
 - 当前恢复点：治理主线已从“解释方案”推进到“worktree、对照表、状态层路由全部落地完成”，下一步只等待用户验收使用说明和目录状态。
+
+## 2026-03-11（补记：merge 语义、worktree 占用报错与 UI 分支列表口径）
+- 当前主线目标不变：继续服务 Steering规则区优化/Codex迁移与规划 治理主线，不提前进入 NPC 合并到 main。
+- 本轮用户核心疑问有四个：
+  1. merge 后 NPC 是否还继续在分支上工作；
+  2. NPC 线程里手动切到 codex/npc-generator-pipeline 为何报“already used by worktree”；
+  3. Codex 右下角分支列表是不是已经过时；
+  4. 外侧新建的 worktree 是否已经完成迁移。
+- 当前稳定结论：
+  - merge 只是把“当时那个分支上的已提交状态”带回 main，不会让分支消失；后续分支若继续新增提交，要再次 merge（或用其他显式整合方式）才能把新变化带回 main；
+  - atal: 'codex/npc-generator-pipeline' is already used by worktree at 'D:/Unity/Unity_learning/Sunset_worktrees/NPC' 是正常且符合预期的 Git 保护：同一分支已经被 NPC worktree 占用，所以不应再在根目录或其他 worktree 里重复 checkout 这条分支；
+  - 这意味着 NPC 线程后续不需要再手动“切分支到 NPC”，而是应该直接进入 D:\Unity\Unity_learning\Sunset_worktrees\NPC 这份工作目录；
+  - 右下角的分支列表不是“过时垃圾”，它展示的是仓库里真实存在的分支引用；真正过时/不可靠的是把它当成“线程默认该去哪”的唯一依据；线程路由现在应以显式对照表、默认 cwd 和进入后核验为准；
+  - 外侧 worktree 对于 NPC 与农田两条长期功能线，已经完成本轮需要的迁移：目录已创建、分支已绑定、状态层默认 cwd 已对齐；但这不等于这些功能已经合回 main。
+- 当前恢复点：治理主线已经从“创建 worktree”推进到“解释如何正确使用 worktree、如何理解 merge 与 UI 分支列表”；下一步只剩用户验收，以及按需处理线程打开后的实际路由体验问题。
