@@ -924,3 +924,10 @@
 **恢复点 / 下一步**：
 - 后续若继续治理线，优先处理“本地 `main` 快进 + dirty 分类/收口”；
 - 若切回农田线，继续保持 `10.2.2补丁002` 暂停实现，直到建立干净的 `codex/farm-10.2.2-patch002` 并完成 preflight。
+
+### 会话补记 2026-03-11（分支漂移与 NPC 现场核对）
+- 用户指出另一条 NPC 线程曾汇报“已在 `codex/npc-generator-pipeline` 完成 NPC 首版生成链路”，但当前项目里看不到对应文件，担心我在清理旧脏现场时把关键内容当脏文件删掉。
+- 现场核对结果：当前仓库工作树现在位于 `main`，不是 `codex/farm-10.2.2-patch002`；Codex 桌面弹出的“Continue on a different branch?”就是因为当前线程之前停留的分支记录和当前工作树分支不一致。
+- 已确认 `codex/npc-generator-pipeline` 分支存在，但其 HEAD 为 `19ffe247`，工作树干净，且分支树内并不包含 `Assets/Editor/NPCPrefabGeneratorTool.cs`、`Assets/YYY_Scripts/Anim/NPC/NPCAnimController.cs`、`Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`、`.kiro/specs/002_After_26.1.21/NPC系统/`、`.codex/threads/Sunset/NPC/memory_0.md`。
+- 已确认这批 NPC 内容当前仍存在于备份目录：`D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659`，说明它们不是进入了 Git 提交历史，而是停留在当时的未提交现场，随后在我执行 `git clean -fd` 时从仓库工作树移除了。
+- 当前稳定结论：NPC 内容没有从磁盘彻底丢失，但确实没有被正确提交到 `codex/npc-generator-pipeline`；后续应优先从备份中恢复到正确的 NPC 分支，而不是继续在 `main` 或农田分支上混做。
