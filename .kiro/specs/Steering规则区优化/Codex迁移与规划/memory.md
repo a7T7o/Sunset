@@ -1196,3 +1196,27 @@
 - 当前恢复点：
   - 本工作区关于“锐评是否说对了、哪些完成状态说早了”的审核与纠偏已经完成，后续可以把精力继续收回到 T73 ~ T75。
   - 下一轮若继续本主线，应直接推进“激活工作区根纠偏 → 真实闭环验证 → 回滚/验收口径”，不再回到空泛反思。
+
+## 2026-03-12（补记：锐评纠偏治理线已完成 Git 安全同步）
+- 当前主线目标不变：继续服务 `Steering规则区优化/Codex迁移与规划` 治理主线，把“审计口径纠偏完成”推进到“仓库级可追溯、可回退”。
+- 本轮子任务：对本轮锐评纠偏产物执行一次治理线白名单 Git 同步，只提交当前工作区、父工作区、线程记忆与线程路由审计脚本相关文件，不混入无关业务 dirty。
+- 本轮 Git 结果：
+  - 已执行 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1 -Action sync -Mode governance -IncludePaths ...`。
+  - 已创建并推送提交：`d93a2b35`（提交标题：`2026.03.12-01`）。
+  - 推送后 `main` 相对 `@{upstream}` 状态为 `behind=0, ahead=0`。
+- 本轮纳入同步的关键文件：
+  - `D:\Unity\Unity_learning\Sunset\scripts\codex_thread_routing_audit.py`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Sunset线程承接审计表_2026-03-11.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex线程状态纠偏边界与兼容层路线_2026-03-11.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Sunset线程Worktree治理实施记录_2026-03-11.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\tasks.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Codex规则落地\memory_0.md`
+- 验证结果：
+  - 白名单 preflight 通过，未误纳入 `Assets/` 与其他线程记忆改动。
+  - 同步后工作树仍保留无关 dirty：`Assets/000_Scenes/Primary.unity`、多份 `TextMesh Pro` 字体资产、`.codex/threads/OpenClaw/部署与配置龙虾V2/memory_3.md`、`.codex/threads/Sunset/backup-script/memory_0.md`。
+- 当前恢复点：
+  - 本轮锐评纠偏的治理产物已经完成提交与远端固化，可作为后续 T73 ~ T75 的稳定基线。
+  - 下一轮若继续本主线，应从“激活工作区根纠偏”进入，而不是重复整理这轮已提交的审计材料。
