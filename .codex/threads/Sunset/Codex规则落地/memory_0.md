@@ -475,3 +475,25 @@
 - 当前仓库实际位于 `main`，不是 `farm`；桌面弹窗是线程历史分支记录与当前工作树分支不一致导致。
 - NPC 线程提到的那批内容当前不在任何已提交分支树里，但仍存在于 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659`。
 - 关键结论：我之前清理旧脏现场时，确实把“未提交的 NPC 内容”从工作树移除了，但没有从磁盘彻底丢掉；后续应从备份恢复到 `codex/npc-generator-pipeline`。
+
+### 会话补记 2026-03-11（清理内容清单已向用户明确）
+- 已向用户明确区分两类被清理内容：
+  1. `git reset --hard origin/main` 覆盖的已跟踪修改
+  2. `git clean -fd` 删除的未跟踪文件/目录
+- 并明确告知：上述内容都已在备份目录 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659` 中保留；其中后续新增的 `.codex/threads/Sunset/备份脚本/` 额外保留在 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659\late_extra\备份脚本`
+
+## 2026-03-11（线程补记：用户要求整包复原，已完成）
+- 用户明确要求把此前被我清理出工作树的关键内容全部复原。
+- 本轮先备份恢复前当前现场到 `D:\Unity\Unity_learning\Sunset_backups\pre_restore_current_20260311_165004`，再把 `git_dirty_backup_20260311_160659\files` 整包覆盖回仓库。
+- 已逐条核对，之前列出的清理清单路径现已全部重新存在；唯一例外是 `003-进一步搭建` 在备份中没有实体文件，已补回空目录。
+- 当前仓库再次变脏是恢复成功后的正常结果；此时不适合自动 Git 同步，应先按用户意图整理分支与提交策略。
+
+### 会话补记 2026-03-11（恢复后 Git 口径）
+- 已执行一次 `git-safe-sync.ps1 -Action preflight -Mode governance` 仅做安全口径检查。
+- 结论：当前分支是 `main`，恢复后的现场包含大量实现/资源改动、NPC 工作区文件、线程记忆与截图资源，因此不适合直接做治理式自动同步。
+- 当前正确动作不是立刻提交，而是先按用户意图决定“先整理 NPC 分支”还是“先整理其他恢复内容”。
+
+## 2026-03-11（线程补记：NPC 分支已归位并解除 worktree 占用）
+- 已把恢复回来的 NPC 文件整理提交到 `codex/npc-generator-pipeline`，最新提交 `40493346` 已推送。
+- 已删除占用该分支的临时 worktree，因此用户截图里的“branch is already used by worktree”报错来源已被清除。
+- 当前主线恢复点：NPC 内容已回到正确分支；若用户后续仍遇到切换问题，需继续处理当前根工作树的 dirty 状态，而不是再查 worktree 锁。

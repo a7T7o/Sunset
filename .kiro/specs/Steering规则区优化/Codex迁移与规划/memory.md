@@ -931,3 +931,27 @@
 - 已确认 `codex/npc-generator-pipeline` 分支存在，但其 HEAD 为 `19ffe247`，工作树干净，且分支树内并不包含 `Assets/Editor/NPCPrefabGeneratorTool.cs`、`Assets/YYY_Scripts/Anim/NPC/NPCAnimController.cs`、`Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`、`.kiro/specs/002_After_26.1.21/NPC系统/`、`.codex/threads/Sunset/NPC/memory_0.md`。
 - 已确认这批 NPC 内容当前仍存在于备份目录：`D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659`，说明它们不是进入了 Git 提交历史，而是停留在当时的未提交现场，随后在我执行 `git clean -fd` 时从仓库工作树移除了。
 - 当前稳定结论：NPC 内容没有从磁盘彻底丢失，但确实没有被正确提交到 `codex/npc-generator-pipeline`；后续应优先从备份中恢复到正确的 NPC 分支，而不是继续在 `main` 或农田分支上混做。
+
+### 会话补记 2026-03-11（清理内容清单已向用户明确）
+- 已向用户明确区分两类被清理内容：
+  1. `git reset --hard origin/main` 覆盖的已跟踪修改
+  2. `git clean -fd` 删除的未跟踪文件/目录
+- 并明确告知：上述内容都已在备份目录 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659` 中保留；其中后续新增的 `.codex/threads/Sunset/备份脚本/` 额外保留在 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659\late_extra\备份脚本`
+
+### 会话补记 2026-03-11（按用户要求整包复原已完成）
+- 用户要求把此前被清理出工作树的关键内容全部复原，原则是“本地没有的都要保留”。
+- 本轮已先将恢复前当前现场额外备份到 `D:\Unity\Unity_learning\Sunset_backups\pre_restore_current_20260311_165004`，随后把 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659\files` 整包覆盖回项目工作树。
+- 已确认此前列出的清理清单对应路径现已全部重新出现在项目中；其中 `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建` 未在备份中找到实体内容，已按原路径补回空目录。
+- 当前仓库之所以重新变脏，是因为这是恢复后的真实现场，而不是新的误清理。
+- 当前恢复点：关键工作文件已经回到项目中，下一步应由用户决定先整理 NPC 线、还是继续做分支归位与提交。
+
+### 会话补记 2026-03-11（恢复后 Git 口径）
+- 已执行一次 `git-safe-sync.ps1 -Action preflight -Mode governance` 仅做安全口径检查。
+- 结论：当前分支是 `main`，恢复后的现场包含大量实现/资源改动、NPC 工作区文件、线程记忆与截图资源，因此不适合直接做治理式自动同步。
+- 当前正确动作不是立刻提交，而是先按用户意图决定“先整理 NPC 分支”还是“先整理其他恢复内容”。
+
+### 会话补记 2026-03-11（NPC 分支归位完成）
+- 已利用之前占用 `codex/npc-generator-pipeline` 的临时 worktree，把恢复回来的 NPC 专属文件白名单整理并提交到该分支。
+- NPC 分支最新提交为：`40493346`，已成功推送到 `origin/codex/npc-generator-pipeline`。
+- 随后已移除临时 worktree `C:\Users\aTo\AppData\Local\Temp\sunset-status-sync-d380b3e638d04631bf802aabe7814ae1`，因此之前“分支已被 worktree 占用”的切换报错已解除。
+- 当前正确口径：NPC 内容已经正式回到 Git 分支历史；若后续仍有切换障碍，新的阻塞将只会来自当前根工作树自身的 dirty 状态，而不是 worktree 占用。
