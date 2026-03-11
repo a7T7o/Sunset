@@ -924,3 +924,32 @@
 **恢复点 / 下一步**：
 - 后续若继续治理线，优先处理“本地 `main` 快进 + dirty 分类/收口”；
 - 若切回农田线，继续保持 `10.2.2补丁002` 暂停实现，直到建立干净的 `codex/farm-10.2.2-patch002` 并完成 preflight。
+
+### 会话 2026-03-11（Git 现场一条龙整理完成，仓库进入可继续开发状态）
+**用户需求**:
+- 不再只做 Git 解释，要求我直接把当前仓库整理到“可以继续下一步开发”的状态，并在完成后给出结果汇报。
+**当前主线目标**:
+- 继续服务 `Steering规则区优化/Codex迁移与规划` 治理主线，把 Git 安全基线从“规则已落地”推进到“仓库现场也已经收口、业务线可以从干净入口继续开发”。
+**本轮支撑子任务**:
+- 先完整备份当前旧脏现场，再对齐 `main`、补齐治理提交、创建干净业务分支，并把结果回写到多层文档与记忆。
+**完成任务**:
+1. 已把旧现场完整备份到 `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659`，备份中保留了文件副本、`tracked.diff`、`git_status_short.txt` 与 `manifest.txt`。
+2. 已执行 `git reset --hard origin/main` 与 `git clean -fd`，将本地旧 `main` 收口到远端基线。
+3. 已将治理提交 `19ffe247` cherry-pick 到 `main`，形成新提交 `5187ca09`，并已推送到 `origin/main`。
+4. 已用干净基线创建并推送 `codex/farm-10.2.2-patch002`，当前线程已切到该分支。
+5. 已确认当前仓库状态为：`codex/farm-10.2.2-patch002...origin/codex/farm-10.2.2-patch002`，工作树干净。
+**关键决策**:
+- 旧脏现场不混入当前任务分支，统一改为“仓库外备份 + 干净基线重建”。
+- 不尝试把旧现场的多条主线改动硬塞进一次提交，而是先恢复仓库秩序，再让业务线从新分支继续。
+**涉及文件或路径**:
+- `D:\Unity\Unity_learning\Sunset_backups\git_dirty_backup_20260311_160659`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\当前仓库Git自动同步与治理现状说明_2026-03-11.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\steering\git-safety-baseline.md`
+- `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+**验证结果**:
+- `main` 已推送到 `origin/main`
+- `codex/farm-10.2.2-patch002` 已推送并建立 upstream
+- 当前 `git status --short --branch` 为空，仅显示干净跟踪分支头
+**恢复点 / 下一步**:
+- 治理阻塞已解除，主线恢复到“农田 `10.2.2补丁002` 可以从干净任务分支继续进入实现准备”的状态。
+- 若后续需要取回旧现场改动，应从备份目录按需拣回，不要整体反向覆盖当前仓库。
