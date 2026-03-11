@@ -497,3 +497,8 @@
 - 已把恢复回来的 NPC 文件整理提交到 `codex/npc-generator-pipeline`，最新提交 `40493346` 已推送。
 - 已删除占用该分支的临时 worktree，因此用户截图里的“branch is already used by worktree”报错来源已被清除。
 - 当前主线恢复点：NPC 内容已回到正确分支；若用户后续仍遇到切换问题，需继续处理当前根工作树的 dirty 状态，而不是再查 worktree 锁。
+
+## 2026-03-11（线程补记：根工作树切分支已恢复正常）
+- 为避免再次丢内容，先把恢复后的混合现场整体提交到 `codex/restored-mixed-snapshot-20260311`，提交 `41caa67b` 已推远端。
+- 然后清理根工作树 `main`，并实测完成 `main -> codex/npc-generator-pipeline -> main` 切换，无报错。
+- 这一步服务于主线：保住内容、恢复秩序、让业务线回到正确分支继续，而不是单纯做 Git 操作。

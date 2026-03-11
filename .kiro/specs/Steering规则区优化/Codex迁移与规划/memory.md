@@ -955,3 +955,9 @@
 - NPC 分支最新提交为：`40493346`，已成功推送到 `origin/codex/npc-generator-pipeline`。
 - 随后已移除临时 worktree `C:\Users\aTo\AppData\Local\Temp\sunset-status-sync-d380b3e638d04631bf802aabe7814ae1`，因此之前“分支已被 worktree 占用”的切换报错已解除。
 - 当前正确口径：NPC 内容已经正式回到 Git 分支历史；若后续仍有切换障碍，新的阻塞将只会来自当前根工作树自身的 dirty 状态，而不是 worktree 占用。
+
+### 会话补记 2026-03-11（根工作树切分支阻塞已解除）
+- 用户再次强调主线后，本轮把“恢复后的混合现场”整体保存到快照分支 `codex/restored-mixed-snapshot-20260311`，提交 `41caa67b`，并已推送远端。
+- 随后已将根工作树切回并清理 `main`，使 `main` 回到与 `origin/main` 同步的干净状态。
+- 已实际验证：根工作树可以从 `main` 切到 `codex/npc-generator-pipeline`，再切回 `main`，当前分支切换阻塞已解除。
+- 当前主线恢复点：Codex 工作底盘已进一步稳定，NPC 线可在正确分支继续，根工作树也不再因为混合现场阻塞正常切换。
