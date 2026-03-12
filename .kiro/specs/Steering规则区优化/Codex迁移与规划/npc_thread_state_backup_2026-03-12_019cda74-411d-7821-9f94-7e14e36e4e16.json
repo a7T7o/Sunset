@@ -1,0 +1,29 @@
+[
+  {
+    "table": "threads",
+    "row": {
+      "id": "019cda74-411d-7821-9f94-7e14e36e4e16",
+      "rollout_path": "C:\\Users\\aTo\\.codex\\sessions\\2026\\03\\11\\rollout-2026-03-11T09-12-57-019cda74-411d-7821-9f94-7e14e36e4e16.jsonl",
+      "created_at": 1773191577,
+      "updated_at": 1773246262,
+      "source": "vscode",
+      "model_provider": "LZ",
+      "cwd": "D:\\Unity\\Unity_learning\\Sunset_worktrees\\NPC",
+      "title": "--+++*",
+      "sandbox_policy": "{\"type\":\"danger-full-access\"}",
+      "approval_mode": "never",
+      "tokens_used": 7914198,
+      "has_user_event": 1,
+      "archived": 0,
+      "archived_at": null,
+      "git_sha": "404933466f5538475c0c898b21dc808a60b38ea2",
+      "git_branch": "main",
+      "git_origin_url": "https://github.com/a7T7o/Sunset.git",
+      "cli_version": "0.112.0-alpha.3",
+      "first_user_message": "--+++*",
+      "agent_nickname": null,
+      "agent_role": null,
+      "memory_mode": "enabled"
+    }
+  }
+]

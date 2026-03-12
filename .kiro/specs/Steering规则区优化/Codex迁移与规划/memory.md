@@ -1538,3 +1538,17 @@
   - `.kiro/specs/Steering规则区优化/Codex迁移与规划/NPC_单线程状态投影最小修正预案_2026-03-12.md`
 - 验证结果：当前完成的是“执行前准备”而不是“真实修复已完成”；`T74` 仍待补齐真实 UI 样本，`T80` 仍待进入备份后的一线程最小字段修正。
 - 主线恢复点：下一步回到 `NPC` 单线程真实修复入口，先做备份与执行前核对，再决定是否首轮只改 `git_branch`。
+
+## 2026-03-12 NPC 首刀 git_branch 实写
+- 当前主线目标：产出 NPC 首个可验收样本，或至少产出“首刀失败但可回滚”的完整证据。
+- 本轮实做：已备份 state_5.sqlite，导出 NPC 整行状态，记录 worktree 快照，并把 NPC 的 git_branch 从 main 写成 codex/npc-generator-pipeline。
+- 当前验证：工具面已确认状态投影层改善；cwd 仍正确指向 D:\Unity\Unity_learning\Sunset_worktrees\NPC，git_sha 仍保留旧值；客户端“点开线程 / 重启后再点开”两条路径仍待实测，因此当前不能宣称用户验收通过。
+- 当前决策：arm 暂不进入第二刀；先看 NPC 客户端点击结果是否证明只修 git_branch 已足够，否则下一刀候选才轮到 git_sha。
+- 涉及文件：
+  - C:\Users\aTo\.codex\state_5.sqlite
+  - $backupDb
+  - $rowBackup
+  - $worktreeSnap
+  - $execLog
+  - $matrix
+- 恢复点：若客户端点击验证证明首刀无效，再用本轮备份执行单线程回滚，并评估是否把 git_sha 列为第二刀。
