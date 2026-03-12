@@ -1219,5 +1219,26 @@
 - 当前回滚决策：暂不回滚 `git_branch`，因为该修正无副作用，且保留它更利于隔离后续变量
 - `farm` 新定位：暂不执行首刀，作为验证 `NPC` 失败结论是否具有普适性的高价值对照样本
 
+## T80 补记：第二刀对象已锁定为 rollout 恢复层 + `threads.git_sha`（2026-03-12）
+
+- 当前状态：🟡 已进入，且已从“候选分析”推进到“执行决策已明确”。
+- 当前实时前提：
+  - `threads.cwd` 已正确指向 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`
+  - `threads.git_branch` 已正确为 `codex/npc-generator-pipeline`
+  - `threads.git_sha` 仍旧
+  - rollout 文件仍完整保留 `Sunset/main` 恢复语义
+- 第二刀正式选择 **方案 C**：
+  1. 主刀 rollout `session_meta.cwd`
+  2. 主刀 rollout `session_meta.git.branch`
+  3. 主刀 rollout `session_meta.git.commit_hash`
+  4. 主刀 rollout 全部 `turn_context.cwd`
+  5. 联动修正 `threads.git_sha`
+- 当前明确不先动：
+  - `title`
+  - `first_user_message`
+  - `session_index.jsonl`
+  - `farm`
+- 本任务到下一轮的最小执行入口已经固定为：`NPC_第二刀最小修正预案_2026-03-12.md`
+
 
 

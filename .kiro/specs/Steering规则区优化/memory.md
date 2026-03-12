@@ -1086,3 +1086,22 @@
   - arm 当前改定位为高价值对照样本，暂不重复首刀，等待 NPC 第二刀对象排清后再评估是否推广。
 - 涉及文件：	asks.md、T74_用户真实点击线程闭环验证矩阵_2026-03-12.md、NPC_单线程首刀执行记录_2026-03-12.md、NPC_单线程状态投影最小修正预案_2026-03-12.md、NPC_第二刀候选彻查报告_2026-03-12.md、Codex真实线程承接修复设计_2026-03-12.md、Codex统一协议闭环整改总方案_2026-03-12.md。
 - 恢复点：当前已完成第一轮错误方向排除；下一步主线直接回到第二刀对象设计与最小可控修正入口，而不是再回头争论 git_branch 首刀是否“也许还会成功”。
+
+## 2026-03-12（补记：NPC 第二刀对象已锁定为 rollout 恢复层 + threads.git_sha）
+- 当前主线目标：继续推进 Sunset 真实线程承接修复，把 NPC 第二刀从候选方向收紧到可直接执行的最小修正预案。
+- 本轮子任务：重跑第二刀候选核定，把实时值与阶段快照分开，完成证据表、执行决策、T74 回填和 T80 收口。
+- 本轮确认的稳定结论：
+  - 当前实时 .codex-global-state.json 中 ctive-workspace-roots = ["D:\Unity\Unity_learning\Sunset"]，D:\迅雷下载\开始 只保留为历史/其他线程语境样本；
+  - NPC 线程表当前已是 cwd = D:\Unity\Unity_learning\Sunset_worktrees\NPC、git_branch = codex/npc-generator-pipeline，但 git_sha 仍旧；
+  - rollout 文件仍完整保留根仓库恢复语义：session_meta.cwd = D:\Unity\Unity_learning\Sunset、session_meta.git.branch = main、session_meta.git.commit_hash = 3b45da720500f3df9945a67f06acf69d9fba76ab，且全部 	urn_context.cwd 仍在根仓库；
+  - 因此第二刀正式锁定为方案 C：主刀 rollout 恢复字段，联动修正 	hreads.git_sha；
+  - 	itle / first_user_message / session_index.jsonl 继续保留为解释层和第三层候选，不进入第二刀首批写入对象；
+  - NPC.git_branch 暂不回滚；arm 继续作为高价值对照样本，等待 NPC 第二刀结果后再决定是否推广。
+- 本轮落盘文件：
+  - D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\NPC_第二刀候选彻查报告_2026-03-12.md
+  - D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\NPC_第二刀最小修正预案_2026-03-12.md
+  - D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\T74_用户真实点击线程闭环验证矩阵_2026-03-12.md
+  - D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex真实线程承接修复设计_2026-03-12.md
+  - D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex统一协议闭环整改总方案_2026-03-12.md
+  - D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\tasks.md
+- 恢复点：下一轮不再讨论“第二刀先动谁”，而是可直接按 NPC_第二刀最小修正预案_2026-03-12.md 执行单线程第二刀，并按 T74 做真实点击验收与失败回滚。
