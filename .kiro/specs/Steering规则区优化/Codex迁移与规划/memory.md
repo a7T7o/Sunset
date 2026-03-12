@@ -1640,3 +1640,50 @@
   - arm 在未核查前不能直接假定与 NPC 完全同型；
   - 热刷新候选对象排序必须保留“证据成立 / 证据不足 / 黑箱推断”边界。
 - 恢复点：后续执行不再重复审核这套方向，而是直接进入：更新 A/B 验收模型 -> 核查 arm 全链路 -> 形成热刷新差异报告 -> 必要时执行 arm 同级修正。
+
+## 2026-03-12（补记：`NPC` 已重判为 A 层通过样本，`farm` 已执行同级第二刀）
+- 当前主线目标：把线程验收正式拆成 A 层“重启后持久态恢复”和 B 层“不重启热刷新恢复”，并让 `farm` 追平 `NPC` 的持久态修正层。
+- 本轮已完成：
+  - 基于用户真实重启后现象，正式把 `NPC` 重判为“A 层通过、B 层未通过”；
+  - 完整核查 `farm` 线程行、真实 worktree、rollout、`session_index.jsonl` 与线程元数据；
+  - 真实备份 `state_5.sqlite`、`farm` rollout、全局采样、整行状态与 worktree 快照；
+  - 真实执行 `farm` 同级第二刀：修正 `threads.git_branch`，补齐 rollout `session_meta.cwd/git.branch/git.commit_hash`，统一全部 `turn_context.cwd`；
+  - 本地回读确认 `farm` 已对齐到 `D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002` 与 `codex/farm-10.2.2-patch002@a47da9e1af84f9479b33a9c3dbefabd1eff1d7f9`。
+- 新落盘文件：
+  - `farm_第二刀候选核查与执行记录_2026-03-12.md`
+  - `Codex线程热刷新阻断层差异彻查报告_2026-03-12.md`
+- 关键结论：
+  - `NPC` 第二刀不是整体失败，而是“持久态恢复成功、热刷新未通过”；
+  - `farm` 当前已进入“A 层待用户复验，B 层未通过”；
+  - 当前新的主阻断层固定为热刷新，而不是 Git/worktree 本体。
+- 恢复点：下一步只剩让用户按 A/B 口径复验 `farm`，并据此判断 `farm` A 层是否成立、热刷新阻断是否在两个样本上同样复现。
+
+## 2026-03-12（补记：主线已切到热恢复零回归修复）
+- 当前主线目标已收紧为：在不破坏 `NPC` / `farm` 现有持久态恢复成果、不影响其他线程与其他 worktree 的前提下，继续推进“当前会话内自动热恢复 / 自动热归位”。
+- 本轮新增两份核心文档：
+  - `Codex线程热恢复修复保护基线_2026-03-12.md`
+  - `Codex线程热恢复最小修正预案_2026-03-12.md`
+- 已正式把验收模型重写为 `P/H/U` 三层：
+  - `NPC`：`P` 通过，`H` 未通过，`U` 未通过；
+  - `farm`：`P` 通过，`H` 未通过，`U` 未通过。
+- 本轮新补的直接证据：
+  - `session_index.jsonl` 当前命中键是 `id` 而不是 `thread_id`；
+  - `NPC` 与 `farm` 都仍存在重复 / 脏 `thread_name`；
+  - rollout 当前真实结构应按首行 `type=session_meta` 的 `payload.cwd/git.branch/git.commit_hash` 读取，不再沿用旧的平铺口径。
+- 当前热恢复候选已重新分层：
+  - 第一类：`session_index.jsonl` 的重复索引、`title / first_user_message` 脏值；
+  - 第二类：`.codex-global-state.json` 采样值；
+  - 第三类：客户端启动重建但会话内不重建的黑箱缓存层。
+- 恢复点：
+  - 当前尚未进入新的热恢复真实写入；
+  - 下一步唯一最小主动作固定为：先按预案对白名单单线程索引层做热恢复首刀，而不是再动 `threads` / rollout。
+
+## 2026-03-13（补记：默认开发哲学出现根本性重判）
+- 当前主线出现新的高优先级反思：`NPC` 与 `farm` 虽然已走通 worktree 承接修复链，但这条链不再应被当成 Sunset 的默认开发模式候选。
+- 新的稳定判断是：对当前用户“固定只开一个 Unity 项目 `D:\Unity\Unity_learning\Sunset`”的真实工作流来说，主项目优先比独立 worktree 更符合长期默认策略；worktree 应降级为高风险隔离、故障修复、特殊实验的例外工具链。
+- 当前尚未执行 `NPC/farm` 回归 `Sunset/main` 的真实评估或合流动作；这次只完成了主线重判与后续治理方向收束，等待下一轮进入正式评估与执行。
+
+## 2026-03-13（补记：`NPC/farm` 回归 `Sunset/main` 评估已完成）
+- 当前主线已正式从“热恢复零回归修复”切换到“评估并推进 `NPC` 与 `farm` 回归 `D:\Unity\Unity_learning\Sunset` 主项目体系”。
+- 本轮新增 `NPC与farm回归Sunset_main评估_2026-03-13.md`，结论已收紧为：两条线都可以回归 `main`，但都不能直接整支 merge，唯一阻断点是分支内混入治理/记忆文件，必须走白名单业务成果回归。
+- 当前已写明推荐顺序：先 `NPC`，再 `farm`，最后统一处理线程锚点回根仓库与 worktree 退役；`T74` 自此降级为历史阶段验收矩阵，不再是当前最高优先级入口。
