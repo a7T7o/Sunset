@@ -1,0 +1,3 @@
+﻿worktree_path=D:\Unity\Unity_learning\Sunset_worktrees\NPC
+branch=codex/npc-generator-pipeline
+head=1f068ed1731316a07cb471b90bce8e8af7534277

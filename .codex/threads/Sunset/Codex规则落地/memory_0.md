@@ -996,3 +996,18 @@
   - 失败即回滚必须建立在用户复验结果已返回的前提下，不能在同轮无结果时预设为可自动完成。
 - 本轮新增落盘：D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\执行锐评审视报告_2026-03-12.md
 - 恢复点：下一轮若继续推进主线，正确顺序应为“先收紧采样值口径 -> 再执行第二刀写入 -> 本地回读 -> 更新 T74 为待用户复验 -> 等用户返回结果后再决定是否回滚”，而不是把写入、验收、回滚压成同轮自动闭环。
+
+## 2026-03-12（补记：NPC 第二刀已真实执行，当前待用户两条路径复验）
+- 当前主线目标：把 NPC 第二刀推进到“只差用户真实点击复验”的状态，而不是继续停在候选分析或预案层。
+- 本轮已独立完成：
+  - 再次直读 .codex-global-state.json，确认第二刀执行前采样值为 ctive-workspace-roots = ["D:\Unity\Unity_learning"]，并把相关口径收紧为“采样值，不是恒定实时值”；
+  - 真实备份 state_5.sqlite、NPC 单线程整行、rollout 原文件、NPC worktree 快照、第二刀前全局状态采样；
+  - 真实执行第二刀写入：rollout session_meta.cwd、session_meta.git.branch、session_meta.git.commit_hash、全部 	urn_context.cwd，以及 	hreads.git_sha；
+  - 本地回读确认：	hreads.cwd/git_branch/git_sha/rollout_path 已对齐，rollout 恢复层也已全部对齐到 D:\Unity\Unity_learning\Sunset_worktrees\NPC 与 codex/npc-generator-pipeline@1f068ed1731316a07cb471b90bce8e8af7534277。
+- 本轮新增落盘：
+  - D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\NPC_第二刀执行记录_2026-03-12.md
+  - 同步更新 NPC_第二刀候选彻查报告_2026-03-12.md
+  - 同步更新 NPC_第二刀最小修正预案_2026-03-12.md
+  - 同步更新 T74_用户真实点击线程闭环验证矩阵_2026-03-12.md
+  - 同步更新 	asks.md
+- 当前恢复点：第二刀已执行完成，当前唯一未完成项是用户两条路径复验；若用户反馈仍回落到 Sunset/main、仍显示“无线程”、仍错误挂组或仍报 worktree 占用，则下一步立即按第二刀执行记录中的回滚顺序恢复，并将 NPC 定性为第二刀失败样本；在此之前 arm 继续冻结。
