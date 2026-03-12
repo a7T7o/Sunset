@@ -148,3 +148,45 @@
 
 **当前主线恢复点**:
 - 治理侧说明已补齐，NPC 主线恢复到“在正确的 NPC worktree 里执行首轮真实素材生成与验证”这一步。
+
+---
+
+### 会话 1（续） - 2026-03-12（新规接管检查）
+
+**用户需求**:
+> 你现在先不要立即开发或修改内容，先按“新规接管模式”完成启动检查、规则回顾、主线回溯、未完成任务接管，再决定是否执行。
+
+**完成任务**:
+1. 按新规回读全局 `AGENTS.md`、当前 worktree `AGENTS.md`、`workspace-memory.md`、`rules.md`，确认当前轮必须先规则接管、再做完成态判断。
+2. 回读用户指定的 Sunset 治理文档：`tasks.md`、`Codex统一协议闭环整改总方案_2026-03-12.md`、`Codex真实线程承接修复设计_2026-03-12.md`、`T74_用户真实点击线程闭环验证矩阵_2026-03-12.md`。
+3. 回读本子工作区 `requirements.md`、`design.md`、`tasks.md`，以及子/父工作区 memory 与线程 `memory_0.md`，重建 NPC 主线。
+4. 只读核对当前真实现场：确认当前线程仍在 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`、分支仍是 `codex/npc-generator-pipeline`、当前 HEAD 为 `1f068ed1`。
+5. 只读核对当前资产与产物现场：确认 `Assets/Sprites/NPC` 下存在 `001.png`、`002.png`、`003.png` 三张 PNG，但 `Assets/100_Anim/NPC` 与 `Assets/Prefabs/NPC` 目前没有已生成产物。
+6. 只读回读 `NPCPrefabGeneratorTool.cs`，确认当前生成器动作识别仍依赖文件名关键词 `Idle / Run / Walk / Move / Death`。
+7. 调用 Unity MCP 读取控制台时收到 `Connection failed: Unknown error`，说明当前轮无法把 Unity MCP 回读结果写成已验证事实。
+
+**修改文件**:
+- `.kiro/specs/002_After_26.1.21/NPC系统/0_NPC生成器与预制体流水线/memory.md` - 追加新规接管检查结论
+- `.kiro/specs/002_After_26.1.21/NPC系统/memory.md` - 追加父工作区摘要
+- `.codex/threads/Sunset/NPC/memory_0.md` - 追加线程视角摘要
+
+**解决方案 / 关键结论**:
+- 当前 NPC 主线没有换线，仍然是“把四向三帧 PNG 真实跑成动画、控制器、Prefab，并完成首轮验证”。
+- 这轮新规接管后，已确认当前完成态不应被写成“基本完成待提交”，而应判定为“核心实现已在，但真实素材生成与回读验证尚未完成”。
+- 当前最关键的新阻塞不再是“没有真实 PNG”，而是：
+  1. 现有真实 PNG 文件名为 `001/002/003`，与生成器当前仅按动作关键词识别的逻辑不匹配；
+  2. 生成输出目录当前为空，说明这批图尚未真实跑出产物；
+  3. Unity MCP 当前连接失败，导致任务清单第 12 项“用 MCP 审视生成结果与预制体结构”仍无法完成。
+
+**验证结果**:
+- 本地文件系统验证通过：NPC 三个核心脚本仍存在；`Assets/Sprites/NPC` 真实 PNG 存在；生成输出目录为空。
+- 本地代码回读验证通过：生成器当前确实依赖动作关键词命名。
+- Unity MCP 验证失败：控制台读取返回 `Connection failed: Unknown error`，因此本轮没有新的 Unity 侧实时验证结果。
+
+**遗留问题**:
+- [ ] 真实 PNG 语义尚未映射到 `Idle / Move / Death`，当前命名 `001/002/003` 不能直接被生成器识别。
+- [ ] 尚未在 Unity 内真实生成动画、控制器、Prefab，因此任务清单第 12 项仍未完成。
+- [ ] 尚未得到用户真实点击或 PlayMode 观感验收结果。
+
+**当前主线恢复点**:
+- 当前主线恢复到“先解决真实 PNG 与生成器动作识别不匹配，再执行首轮真实生成与验证”这一步。

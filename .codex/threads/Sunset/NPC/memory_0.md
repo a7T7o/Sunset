@@ -29,3 +29,9 @@
 - 已在 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\NPC.md` 写入完整聊天记录与批注，并确认该文档可按 UTF-8 正常读取。
 - 稳定结论：当前 NPC 线程必须继续锚定 `D:\Unity\Unity_learning\Sunset_worktrees\NPC` 与 `codex/npc-generator-pipeline`；memory 跟随 worktree；`main` 采用 checkpoint 合并而非每次小改即时同步。
 - 当前主线恢复点不变：治理文档已补齐，接下来仍应回到 NPC 真实素材生成与验证。
+
+## 2026-03-12（新规接管检查）
+- 按用户要求执行了“新规接管模式”：已回读全局/项目规则、指定治理文档、NPC 子工作区文档、父工作区 memory 与线程 memory，再做完成态判断。
+- 当前实时现场已再次确认：`cwd=D:\Unity\Unity_learning\Sunset_worktrees\NPC`，分支 `codex/npc-generator-pipeline`，HEAD `1f068ed1`。
+- 新增真实阻塞证据：`Assets/Sprites/NPC` 已有三张 PNG，但文件名是 `001/002/003`；而现有生成器只按 `Idle / Run / Walk / Move / Death` 关键词识别，所以这批图当前不能直接跑通；同时 Unity MCP 本轮连接失败，无法完成任务 12 的回读验证。
+- 当前主线恢复点：先处理真实 PNG 与动作识别不匹配的问题，再做首轮真实生成与验证；在这之前，不能把 NPC 主线写成已完成或可验收。

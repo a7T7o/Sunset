@@ -91,3 +91,8 @@
 - 按用户要求，为 Git/规则线程写入外部交叉材料 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\NPC.md`，汇总 NPC 线程关于 worktree、根仓库、memory 路径与 `main` 节奏的讨论。
 - 本轮关键结论：NPC 主线继续以 `D:\Unity\Unity_learning\Sunset_worktrees\NPC` 为唯一执行现场，memory 跟随 active worktree，`main` 仅在 checkpoint/闭环后再合并。
 - 这次属于治理侧支撑任务，没有新增 NPC 业务代码；主线恢复点仍是“用真实 NPC PNG 跑首轮生成与验证”。
+
+## 2026-03-12（新规接管检查）
+- 按用户要求完成启动检查与主线接管：回读规则链、治理文档、NPC 子工作区文档与三层记忆，并重新核对当前 worktree 现场。
+- 本轮新增证据：`Assets/Sprites/NPC` 已有三张真实 PNG，但文件名为 `001/002/003`，与生成器当前按 `Idle / Run / Walk / Move / Death` 关键词识别的逻辑不匹配；`Assets/100_Anim/NPC` 与 `Assets/Prefabs/NPC` 当前仍无生成产物。
+- 结论收紧：NPC 主线属于“实现已在、真实素材生成与 MCP 回读验证未完成”；当前最小恢复点是先解决素材命名/动作映射，再执行首轮真实生成。
