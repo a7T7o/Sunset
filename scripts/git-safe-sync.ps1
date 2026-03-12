@@ -391,7 +391,35 @@ function Stage-Paths {
         return
     }
 
-    Invoke-Git -Arguments (@('add', '--') + $uniquePaths) | Out-Null
+    $existingPaths = @()
+    $missingPaths = @()
+
+    foreach ($path in $uniquePaths) {
+        if (Test-Path -LiteralPath $path) {
+            $existingPaths += $path
+        }
+        else {
+            $cachedStatus = Invoke-Git -Arguments @('diff', '--cached', '--name-only', '--', $path)
+            $isAlreadyStaged = @($cachedStatus.Output | Where-Object { (Normalize-InputPath -Path $_) -eq (Normalize-InputPath -Path $path) }).Count -gt 0
+
+            if ($isAlreadyStaged) {
+                continue
+            }
+
+            $trackedStatus = Invoke-Git -Arguments @('ls-files', '--error-unmatch', '--', $path) -AllowFailure
+            if ($trackedStatus.ExitCode -eq 0) {
+                $missingPaths += $path
+            }
+        }
+    }
+
+    if ($existingPaths.Count -gt 0) {
+        Invoke-Git -Arguments (@('add', '--') + $existingPaths) | Out-Null
+    }
+
+    if ($missingPaths.Count -gt 0) {
+        Invoke-Git -Arguments (@('add', '-u', '--') + $missingPaths) | Out-Null
+    }
 }
 
 function Ensure-TaskBranch {
@@ -494,8 +522,6 @@ switch ($Action) {
         }
     }
 }
-
-
 
 
 

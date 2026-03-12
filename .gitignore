@@ -20,6 +20,7 @@ Packages/*/Temp/
 # ========== 本地工具 / 工作树噪音（不进仓库） ==========
 .claude/worktrees/
 .claude/settings.local.json
+scripts/__pycache__/
 
 # ========== 只保留需要提交的核心文件（不用写，默认跟踪）==========
 # Assets/、Packages/manifest.json、ProjectSettings/ 这些核心目录/文件会被保留，Git不会碰被占用的缓存
