@@ -589,7 +589,7 @@ public class PlacementManager : MonoBehaviour
             };
         }
 
-        var cellStates = validator.ValidateCells(previewPosition, placementPreview.GridSize, playerTransform);
+        var cellStates = validator.ValidateCells(previewPosition, placementPreview.GridSize, playerTransform, currentPlacementItem);
         if (currentPlacementItem is PlaceableItemData placeableItem &&
             validator.AreAllCellsValid(cellStates) &&
             !placeableItem.CanPlaceAt(previewPosition))

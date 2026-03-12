@@ -52,11 +52,12 @@ public class PlacementValidator
     /// <param name="gridSize">格子大小</param>
     /// <param name="playerTransform">玩家 Transform</param>
     /// <returns>每个格子的状态列表</returns>
-    public List<CellState> ValidateCells(Vector3 centerPosition, Vector2Int gridSize, Transform playerTransform)
+    public List<CellState> ValidateCells(Vector3 centerPosition, Vector2Int gridSize, Transform playerTransform, ItemData placementItem = null)
     {
         var cellStates = new List<CellState>();
         var cellCenters = PlacementGridCalculator.GetOccupiedCellCenters(centerPosition, gridSize);
         var cellIndices = PlacementGridCalculator.GetOccupiedCellIndices(centerPosition, gridSize);
+        bool forbidTilledFarmland = ShouldBlockTilledFarmland(placementItem);
         
         for (int i = 0; i < cellCenters.Count; i++)
         {
@@ -64,7 +65,7 @@ public class PlacementValidator
             Vector2Int cellIndex = cellIndices[i];
             
             // 验证单个格子
-            var state = ValidateSingleCell(cellCenter, cellIndex, playerTransform);
+            var state = ValidateSingleCell(cellCenter, cellIndex, playerTransform, forbidTilledFarmland);
             cellStates.Add(state);
             
             if (showDebugInfo && !state.isValid)
@@ -79,12 +80,17 @@ public class PlacementValidator
     /// <summary>
     /// 验证单个格子
     /// </summary>
-    public CellState ValidateSingleCell(Vector3 cellCenter, Vector2Int cellIndex, Transform playerTransform)
+    public CellState ValidateSingleCell(Vector3 cellCenter, Vector2Int cellIndex, Transform playerTransform, bool forbidTilledFarmland = false)
     {
         // 检查 1：Layer 是否一致
         if (enableLayerCheck && IsLayerMismatch(cellCenter, playerTransform))
         {
             return new CellState(cellIndex, false, InvalidReason.LayerMismatch);
+        }
+
+        if (forbidTilledFarmland && IsOnFarmland(cellCenter))
+        {
+            return new CellState(cellIndex, false, InvalidReason.OnFarmland);
         }
         
         // 检查 2：是否有障碍物
@@ -651,6 +657,15 @@ public class PlacementValidator
     }
     
     #endregion
+
+    #region 普通 Placeable 规则
+
+    private bool ShouldBlockTilledFarmland(ItemData placementItem)
+    {
+        return placementItem is PlaceableItemData && placementItem is not SaplingData;
+    }
+
+    #endregion
     
     #region 种子放置验证（补丁005 B.2.1）
     
@@ -678,11 +693,7 @@ public class PlacementValidator
         if (!tileData.CanPlant()) return false;
         if (farmTileManager.HasCropOccupant(layerIndex, cellPos)) return false;
         
-        // 3. 检查无障碍物
-        Vector3 cellCenter = farmTileManager.GetCellCenterWorld(layerIndex, cellPos);
-        if (HasFarmingObstacle(cellCenter, layerIndex, includeCropOccupant: false)) return false;
-        
-        // 4. 季节匹配检查
+        // 3. 季节匹配检查
         if (seedData.season != Season.AllSeason && TimeManager.Instance != null)
         {
             var currentSeason = TimeManager.Instance.GetSeason();
