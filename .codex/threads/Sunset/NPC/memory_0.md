@@ -35,3 +35,13 @@
 - 当前实时现场已再次确认：`cwd=D:\Unity\Unity_learning\Sunset_worktrees\NPC`，分支 `codex/npc-generator-pipeline`，HEAD `1f068ed1`。
 - 新增真实阻塞证据：`Assets/Sprites/NPC` 已有三张 PNG，但文件名是 `001/002/003`；而现有生成器只按 `Idle / Run / Walk / Move / Death` 关键词识别，所以这批图当前不能直接跑通；同时 Unity MCP 本轮连接失败，无法完成任务 12 的回读验证。
 - 当前主线恢复点：先处理真实 PNG 与动作识别不匹配的问题，再做首轮真实生成与验证；在这之前，不能把 NPC 主线写成已完成或可验收。
+
+## 2026-03-12（Idle 中帧规范修正）
+- 已开始恢复 NPC 主线真实缺口，不再停留在治理分析：本轮直接修改 `Assets/Editor/NPCPrefabGeneratorTool.cs`。
+- 对齐结果：
+  - 方向行序维持 `0=Down / 1=Left / 2=Right / 3=Up`
+  - Idle 改为每行只取中间帧
+  - Move 保持整行三帧
+  - 生成器新增动作映射入口，允许对 `001 / 002 / 003` 手动指定 `Idle / Move / Ignore`
+- 验证边界：Unity MCP 当前仍返回 `Connection failed: Unknown error`，所以本轮不能声称 Unity 编译和真实生成已通过。
+- 关于是否合并 `main`：按当前规则不能合并，因为真实素材首轮生成、任务 12 的 MCP 回读、以及用户测试前置都还没完成；当前只适合继续留在 `codex/npc-generator-pipeline` 分支推进。

@@ -190,3 +190,53 @@
 
 **当前主线恢复点**:
 - 当前主线恢复到“先解决真实 PNG 与生成器动作识别不匹配，再执行首轮真实生成与验证”这一步。
+
+---
+
+### 会话 1（续） - 2026-03-12（Idle 中帧规范与动作映射修正）
+
+**用户需求**:
+> 第 0 行：Down / 第 1 行：Left / 第 2 行：Right / 第 3 行：Up 这个没问题，但是 idle 应该是每一行的第 1 列，也就是第二帧，一共 012 三帧，idle 是只使用这中间的这一帧。
+
+**完成任务**:
+1. 复盘当前未对齐点，确认此前实现里最大的两个偏差是：
+   - 生成器仍强依赖文件名关键词 `Idle / Run / Walk / Move / Death`
+   - Idle 动画仍按整行三帧生成，而不是按用户要求只取中间帧
+2. 修改 `NPCPrefabGeneratorTool.cs`，新增动作映射枚举与扫描结果缓存，让生成器支持：
+   - 自动识别文件名关键词
+   - 对 `001 / 002 / 003` 这类无语义文件名在窗口中手动指定 `Idle / Move / Ignore`
+3. 在编辑器窗口新增“动作映射”区域，明确提示：
+   - Idle 只使用每一行中间那一帧（第 1 列）
+   - Move 使用整行三帧
+4. 修改生成流程，`GenerateNpcAssets()` 不再直接依赖文件名命中，而是先读取扫描结果和用户手动指定的动作映射。
+5. 修改动画生成逻辑，Idle 状态改为只取每行的中间帧；Move 和 Death（若未来有）仍使用整行帧序列。
+6. 尝试用 Unity MCP 执行脚本重编译与控制台读取，但当前返回 `Connection failed: Unknown error`，因此本轮无法把 Unity 编译写成已验证通过。
+
+**修改文件**:
+- `Assets/Editor/NPCPrefabGeneratorTool.cs` - 新增动作映射入口，支持无语义文件名手动指定 Idle / Move；Idle 动画改为每行只取中间帧
+- `.kiro/specs/002_After_26.1.21/NPC系统/0_NPC生成器与预制体流水线/memory.md` - 追加本轮实现与验证口径
+- `.kiro/specs/002_After_26.1.21/NPC系统/memory.md` - 追加父工作区摘要
+- `.codex/threads/Sunset/NPC/memory_0.md` - 追加线程视角摘要
+
+**解决方案 / 关键结论**:
+- 方向行序继续保持：
+  - 第 0 行：Down
+  - 第 1 行：Left
+  - 第 2 行：Right
+  - 第 3 行：Up
+- Idle 新规范已落地为：每个方向只取该行的第 1 列，也就是中间帧。
+- Move 规范保持为：每个方向继续使用该行的三帧序列。
+- 当前生成器不再把“文件名必须叫 Idle/Move”当硬前置；如果素材是 `001 / 002 / 003` 这种名字，可以先扫描，再在窗口里手动指定动作。
+
+**验证结果**:
+- 本地代码回读通过：新枚举 `ActionAssignment`、新窗口区块 `DrawAssignmentSection()`、`BuildGenerationTasks()` 与 `FilterSpritesForState()` 已写入。
+- Unity MCP 验证未通过：`recompile_scripts` 与 `get_console_logs` 均返回 `Connection failed: Unknown error`。
+- 因此本轮只能确认代码层已落盘，不能确认 Unity 实时编译与生成结果。
+
+**遗留问题**:
+- [ ] 仍需在 Unity 内用真实 PNG 跑一轮：先扫描，再指定哪张是 Idle、哪张是 Move，然后真实生成。
+- [ ] 仍需确认三张 `001 / 002 / 003` 中具体哪两张是本轮应使用的 Idle / Move 图，剩余那张是忽略还是另有用途。
+- [ ] 仍需完成任务 12：用 MCP 审视生成结果与预制体结构。
+
+**当前主线恢复点**:
+- 真实素材适配规则已经和用户口径对齐；下一步应直接在 Unity 内对 `001 / 002 / 003` 做动作指定并执行首轮真实生成，而不是再改抽象方案。

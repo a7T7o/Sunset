@@ -35,11 +35,21 @@ public class NPCPrefabGeneratorTool : EditorWindow
         Death = 2
     }
 
+    private enum ActionAssignment
+    {
+        AutoDetect,
+        Ignore,
+        Idle,
+        Move,
+        Death
+    }
+
     private sealed class TextureTask
     {
         public string TexturePath;
         public string FileNameWithoutExtension;
         public GeneratedState State;
+        public ActionAssignment Assignment;
         public Dictionary<SourceDirection, List<Sprite>> SpritesByDirection = new Dictionary<SourceDirection, List<Sprite>>();
     }
 
@@ -83,6 +93,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
     private Vector2 scrollPos;
     private string lastSummary = "尚未执行生成。";
+    private List<TextureTask> scannedTasks = new List<TextureTask>();
 
     #endregion
 
@@ -116,6 +127,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
         DrawHeader();
         DrawInputSection();
         DrawGridSection();
+        DrawAssignmentSection();
         DrawOutputSection();
         DrawRuntimeSection();
         DrawSummarySection();
@@ -178,6 +190,33 @@ public class NPCPrefabGeneratorTool : EditorWindow
             "默认按用户当前 NPC 模板处理：Down / Left / Right / Up。\n" +
             "若后续换素材包，只需要在这里改行顺序，不需要改代码。",
             MessageType.None);
+
+        EditorGUILayout.Space(10f);
+    }
+
+    private void DrawAssignmentSection()
+    {
+        EditorGUILayout.LabelField("━━━━ 动作映射 ━━━━", EditorStyles.boldLabel);
+
+        if (scannedTasks == null || scannedTasks.Count == 0)
+        {
+            EditorGUILayout.HelpBox(
+                "先点“扫描输入”，再给没有动作关键词的 PNG 手动指定 Idle / Move。\n" +
+                "如果文件名本身带有 Idle / Run / Move，工具会先自动识别。",
+                MessageType.None);
+            EditorGUILayout.Space(10f);
+            return;
+        }
+
+        EditorGUILayout.HelpBox(
+            "当前规则已经收紧：Idle 只使用每一行中间那一帧（第 1 列），Move 使用整行三帧。\n" +
+            "像 001 / 002 / 003 这种文件名，可以在这里手动指定动作类型。",
+            MessageType.None);
+
+        foreach (TextureTask task in scannedTasks)
+        {
+            task.Assignment = (ActionAssignment)EditorGUILayout.EnumPopup(task.FileNameWithoutExtension, task.Assignment);
+        }
 
         EditorGUILayout.Space(10f);
     }
@@ -260,12 +299,14 @@ public class NPCPrefabGeneratorTool : EditorWindow
         List<TextureTask> tasks = CollectTextureTasks(inputFolderPath);
         if (tasks.Count == 0)
         {
-            lastSummary = "未在输入文件夹内找到可识别的 PNG（Idle / Run / Death）。";
+            scannedTasks = new List<TextureTask>();
+            lastSummary = "输入文件夹里没有找到 PNG。";
             return;
         }
 
-        string stateSummary = string.Join("、", tasks.Select(t => $"{t.FileNameWithoutExtension}->{t.State}"));
-        lastSummary = $"扫描成功：NPC={npcName}\n识别到 {tasks.Count} 张动作图：{stateSummary}";
+        scannedTasks = tasks;
+        string stateSummary = string.Join("、", tasks.Select(t => $"{t.FileNameWithoutExtension}->{GetAssignmentLabel(t.Assignment)}"));
+        lastSummary = $"扫描成功：NPC={npcName}\n识别到 {tasks.Count} 张 PNG：{stateSummary}";
     }
 
     private void GenerateNpcAssets()
@@ -279,15 +320,15 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
         try
         {
-            List<TextureTask> tasks = CollectTextureTasks(inputFolderPath);
+            List<TextureTask> tasks = BuildGenerationTasks(inputFolderPath);
             if (tasks.Count == 0)
             {
-                throw new InvalidOperationException("未找到可识别的 Idle / Run / Death PNG。");
+                throw new InvalidOperationException("未找到可用于生成的 PNG。请先扫描并指定 Idle / Move。");
             }
 
             if (!tasks.Any(t => t.State == GeneratedState.Idle) || !tasks.Any(t => t.State == GeneratedState.Move))
             {
-                throw new InvalidOperationException("至少需要 Idle 和 Run（或 Walk / Move）两类 PNG。");
+                throw new InvalidOperationException("至少需要一张 Idle 图和一张 Move 图。");
             }
 
             foreach (TextureTask task in tasks)
@@ -377,20 +418,46 @@ public class NPCPrefabGeneratorTool : EditorWindow
             }
 
             string fileName = Path.GetFileNameWithoutExtension(texturePath);
-            if (!TryParseState(fileName, out GeneratedState state))
-            {
-                continue;
-            }
+            bool detected = TryParseState(fileName, out GeneratedState state);
 
             tasks.Add(new TextureTask
             {
                 TexturePath = texturePath,
                 FileNameWithoutExtension = fileName,
-                State = state
+                State = state,
+                Assignment = detected ? ConvertStateToAssignment(state) : ActionAssignment.AutoDetect
             });
         }
 
         return tasks
+            .OrderBy(t => t.FileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private List<TextureTask> BuildGenerationTasks(string inputFolderPath)
+    {
+        List<TextureTask> sourceTasks = (scannedTasks != null && scannedTasks.Count > 0)
+            ? scannedTasks
+                .Where(task => task.TexturePath.StartsWith(inputFolderPath, StringComparison.OrdinalIgnoreCase))
+                .Select(CloneTaskWithoutSprites)
+                .ToList()
+            : CollectTextureTasks(inputFolderPath)
+                .Select(CloneTaskWithoutSprites)
+                .ToList();
+
+        List<TextureTask> resolvedTasks = new List<TextureTask>();
+        foreach (TextureTask task in sourceTasks)
+        {
+            if (!TryResolveState(task, out GeneratedState state))
+            {
+                continue;
+            }
+
+            task.State = state;
+            resolvedTasks.Add(task);
+        }
+
+        return resolvedTasks
             .OrderBy(t => t.State)
             .ThenBy(t => t.FileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
             .ToList();
@@ -420,6 +487,63 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
         state = GeneratedState.Idle;
         return false;
+    }
+
+    private ActionAssignment ConvertStateToAssignment(GeneratedState state)
+    {
+        return state switch
+        {
+            GeneratedState.Idle => ActionAssignment.Idle,
+            GeneratedState.Move => ActionAssignment.Move,
+            GeneratedState.Death => ActionAssignment.Death,
+            _ => ActionAssignment.AutoDetect
+        };
+    }
+
+    private bool TryResolveState(TextureTask task, out GeneratedState state)
+    {
+        switch (task.Assignment)
+        {
+            case ActionAssignment.Idle:
+                state = GeneratedState.Idle;
+                return true;
+            case ActionAssignment.Move:
+                state = GeneratedState.Move;
+                return true;
+            case ActionAssignment.Death:
+                state = GeneratedState.Death;
+                return true;
+            case ActionAssignment.Ignore:
+                state = GeneratedState.Idle;
+                return false;
+            case ActionAssignment.AutoDetect:
+            default:
+                return TryParseState(task.FileNameWithoutExtension, out state);
+        }
+    }
+
+    private string GetAssignmentLabel(ActionAssignment assignment)
+    {
+        return assignment switch
+        {
+            ActionAssignment.AutoDetect => "待指定",
+            ActionAssignment.Ignore => "忽略",
+            ActionAssignment.Idle => "Idle",
+            ActionAssignment.Move => "Move",
+            ActionAssignment.Death => "Death",
+            _ => "待指定"
+        };
+    }
+
+    private TextureTask CloneTaskWithoutSprites(TextureTask task)
+    {
+        return new TextureTask
+        {
+            TexturePath = task.TexturePath,
+            FileNameWithoutExtension = task.FileNameWithoutExtension,
+            State = task.State,
+            Assignment = task.Assignment
+        };
     }
 
     #endregion
@@ -592,11 +716,17 @@ public class NPCPrefabGeneratorTool : EditorWindow
             return;
         }
 
+        List<Sprite> clipSprites = FilterSpritesForState(sprites, state);
+        if (clipSprites.Count == 0)
+        {
+            return;
+        }
+
         string clipName = $"{state}_{clipDirection}_Clip";
         string clipPath = $"{assets.ClipsFolder}/{clipName}.anim";
         bool shouldLoop = state != GeneratedState.Death;
 
-        AnimationClip clip = CreateAnimationClip(clipName, clipPath, sprites, shouldLoop);
+        AnimationClip clip = CreateAnimationClip(clipName, clipPath, clipSprites, shouldLoop);
         assets.Clips[clipName] = clip;
     }
 
@@ -618,12 +748,34 @@ public class NPCPrefabGeneratorTool : EditorWindow
             return;
         }
 
+        List<Sprite> clipSprites = FilterSpritesForState(sourceSprites, state);
+        if (clipSprites.Count == 0)
+        {
+            return;
+        }
+
         string clipName = $"{state}_Side_Clip";
         string clipPath = $"{assets.ClipsFolder}/{clipName}.anim";
         bool shouldLoop = state != GeneratedState.Death;
 
-        AnimationClip clip = CreateAnimationClip(clipName, clipPath, sourceSprites, shouldLoop);
+        AnimationClip clip = CreateAnimationClip(clipName, clipPath, clipSprites, shouldLoop);
         assets.Clips[clipName] = clip;
+    }
+
+    private List<Sprite> FilterSpritesForState(List<Sprite> sprites, GeneratedState state)
+    {
+        if (sprites == null || sprites.Count == 0)
+        {
+            return new List<Sprite>();
+        }
+
+        if (state != GeneratedState.Idle)
+        {
+            return new List<Sprite>(sprites);
+        }
+
+        int middleFrameIndex = Mathf.Clamp(1, 0, sprites.Count - 1);
+        return new List<Sprite> { sprites[middleFrameIndex] };
     }
 
     private AnimationClip CreateAnimationClip(string clipName, string clipPath, List<Sprite> sprites, bool shouldLoop)
