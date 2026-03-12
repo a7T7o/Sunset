@@ -222,3 +222,7 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-11（父工作区补记：仓库已完全干净）
 - 农田当前实现分支 `codex/farm-10.2.2-patch002` 现已无任何 dirty 项
 - 可以把该分支视为后续农田开发的正式干净入口
+
+## 2026-03-12：10.2.2补丁002 - 普通 placeable / 种子 / 树苗三链修补首轮实现完成
+`10.2.2补丁002` 已从文档阶段推进到首轮真实实现：`PlacementValidator` 新增普通 placeable 的逐格禁耕地判定，`PlacementManager` 重验时开始携带当前物品类型，`ValidateSeedPlacement()` 收窄为播种语义，树苗继续保留 `ValidateSaplingPlacement()` 专用链。验证方面，已把相同代码镜像到用户当前打开的 `D:/Unity/Unity_learning/Sunset/main` 工程中，运行时程序集 `Assembly-CSharp` 独立编译 `0 error`，Unity 控制台未见本轮新增编译错误；当前恢复点为等待用户在该 Unity 现场按箱子 / 种子 / 树苗清单做手动验收。
+文件：10.2.2补丁002/tasks.md、10.2.2补丁002/memory.md、Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs、Assets/YYY_Scripts/Service/Placement/PlacementManager.cs

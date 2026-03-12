@@ -70,6 +70,48 @@
 | 明确普通 placeable 的耕地禁放必须做成逐格红判定 | 用户要求“哪些格子不可放置才标红”，整物品级失败无法表达这个需求 | 2026-03-10 |
 | 明确 `FarmToolPreview` 的 footprint 规则不泛化给普通 placeable | 这套规则属于农具施工链，直接上提会再次误伤种子与树苗 | 2026-03-10 |
 
+### 会话 3 - 2026-03-12（10.2.2 实现落地、编译验证与 main 验收同步）
+
+**用户需求**:
+> 直接开始，并且我是在 sunset 项目下打开的 Unity 且我不希望切换，我希望在 sunset 里面进行验收，所以你完成后请你按照规则同步到 main 里面给我验收。
+
+**主线判断**:
+- 当前仍是 `10.2.2补丁002` 主线。
+- 本轮不再停留在文档审核，而是进入真实实现；同时增加一个支撑性子任务：把实现结果同步到用户当前打开的 `Sunset/main` 工作区，便于直接在该 Unity 现场验收。
+
+**完成任务**:
+1. ✅ 在 `PlacementValidator.ValidateCells(...)` 中显式增加普通 placeable 的逐格耕地禁放分支。
+2. ✅ 将普通 placeable 的耕地禁放保持在 `CellState` 层返回，确保 `PlacementPreview.UpdateCellStates(...)` 能继续逐格标红。
+3. ✅ 收窄 `ValidateSeedPlacement(...)`：保留耕地数据、`CanPlant()`、作物占位和季节检查，不再继续叠加农具施工链的 `HasFarmingObstacle(...)`。
+4. ✅ 复核 `ValidateSaplingPlacement(...)`、`IsOnFarmland()` 与 `HasTreeWithinDistance()`，确认树苗仍维持专用链，无需并入普通 placeable 方案。
+5. ✅ 把同样的两处脚本改动镜像同步到用户当前打开的 `D:/Unity/Unity_learning/Sunset` 主工作区，供不切换 Unity 的现场验收使用。
+6. ✅ 在 `Sunset/main` 工作区复用现有 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp` 做运行时程序集独立编译验证。
+7. ✅ 通过 Unity MCP 读取控制台最近日志，确认本轮没有新增编译错误；当前仅见既有 warning 与 NPC 相关 assert。
+
+**关键结论**:
+1. 普通 `PlaceableItemData` 现在会在逐格验证阶段识别“该格是否已耕地”，因此箱子等普通 placeable 压到耕地时，可以把压中的格子单独标红，而不是整组靠 `CanPlaceAt()` 一起打红。
+2. `SeedData` 的合法性重新收敛到“播种语义”，不再额外被农具施工链的障碍规则误伤。
+3. `SaplingData` 继续走树苗专用验证：冬季 / 耕地 / 水域 / 树距 / Stage0 成长边距口径保持不变。
+4. 当前任务分支已具备可提交状态；但用户为了现场验收要求，我额外把代码镜像到了 `Sunset/main` 工作区。这个 main 现场仅用于本地验收，不代表 main 已达到可安全提交状态。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs` - 新增普通 placeable 逐格禁耕地规则，并收窄种子验证口径
+- `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs` - 普通 placeable 预览重验改为携带当前物品类型，支持逐格耕地禁放
+- `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/tasks.md` - 勾选本轮已完成的实现任务
+- `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/memory.md` - 追加本轮实现与验证记录
+
+**验证结果**:
+- ✅ `codex/farm-10.2.2-patch002` 当前工作树干净基线明确，适合作为任务分支继续推进
+- ✅ 已将相同代码镜像到 `D:/Unity/Unity_learning/Sunset` 当前打开的主工程
+- ✅ 在 `Sunset/main` 复用 Unity 6000.0.62f1 自带 Roslyn 编译 `Assembly-CSharp`，结果为 `0 error`，仅有 1 条既有 obsolete warning
+- ✅ 通过 Unity MCP 读取控制台，未发现本轮新增编译错误
+- ⚠️ 控制台仍有既有 warning（若干 Seed/ItemData 配置告警）与 NPC 工具相关 assert，不属于本轮变更引入
+- ❌ “箱子 / 种子 / 树苗” 的现场行为仍需用户在当前打开的 Unity 工程里手动验收
+
+**恢复点 / 下一步**:
+- 当前已经从“文档待审核”推进到“代码已落地、编译通过、已同步到 `Sunset/main` 供现场验收”这一步。
+- 下一步只剩用户在当前 Unity 现场按清单验证箱子、种子、树苗三条链路；若有现象，再继续在 `10.2.2补丁002` 下修补。
+
 ### 会话 2 - 2026-03-10（进入实现前的 Git 可回退基线审视）
 
 **用户需求**:

@@ -30,11 +30,11 @@
 
 ## 3. 待实现任务（等待用户审核后再进入）
 
-- [ ] 16. 为普通 `PlaceableItemData` 增加“逐格耕地禁放”验证分支
-- [ ] 17. 将普通 placeable 压耕地的无效结果回传到 `PlacementPreview.UpdateCellStates(...)`
-- [ ] 18. 校准普通 placeable 的多格预览，确保“哪些格子踩耕地，哪些格子标红”
-- [ ] 19. 收窄 `ValidateSeedPlacement(...)`，避免再被普通 placeable / 农具施工障碍规则误伤
-- [ ] 20. 复核 `ValidateSaplingPlacement(...)` 与 `TreeController` 成长边距的边界口径，确保树苗继续走专用链
+- [x] 16. 为普通 `PlaceableItemData` 增加“逐格耕地禁放”验证分支
+- [x] 17. 将普通 placeable 压耕地的无效结果回传到 `PlacementPreview.UpdateCellStates(...)`
+- [x] 18. 校准普通 placeable 的多格预览，确保“哪些格子踩耕地，哪些格子标红”
+- [x] 19. 收窄 `ValidateSeedPlacement(...)`，避免再被普通 placeable / 农具施工障碍规则误伤
+- [x] 20. 复核 `ValidateSaplingPlacement(...)` 与 `TreeController` 成长边距的边界口径，确保树苗继续走专用链
 - [ ] 21. 做一轮专门针对“箱子 / 种子 / 树苗”的手动回归清单
 
 ## 4. 待验证场景

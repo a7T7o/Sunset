@@ -196,3 +196,43 @@
 **恢复点 / 下一步**:
 - 当前已经回到主线的“等待用户审核 `10.2.2补丁002` 文档结论”这一步
 - 用户审核通过后，再按 `tasks.md` 进入 `10.2.2` 的代码实现
+
+### 2026-03-12 - 10.2.2补丁002：首轮实现完成并同步到用户当前打开的 main 工程验收
+
+**当前主线目标**:
+- 进入 `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/` 的真实实现阶段，把普通 placeable / 种子 / 树苗三条链按新文档口径落到代码
+
+**本轮子任务 / 阻塞**:
+- 用户明确要求不切换当前打开的 Unity 工程，希望直接在 `D:/Unity/Unity_learning/Sunset` 的 `main` 现场验收
+
+**已完成事项**:
+1. ✅ 在任务分支 `codex/farm-10.2.2-patch002` 上完成首轮实现
+2. ✅ `PlacementValidator` 新增普通 placeable 的逐格禁耕地规则
+3. ✅ `PlacementManager` 重验时开始携带当前物品类型，确保耕地禁放直接进入 `CellState`
+4. ✅ `ValidateSeedPlacement()` 收窄到耕地数据 / `CanPlant()` / 作物占位 / 季节语义
+5. ✅ 复核树苗专用验证链，确认仍保留 `ValidateSaplingPlacement()`、`IsOnFarmland()` 与成长边距约束
+6. ✅ 把相同脚本改动镜像同步到用户当前打开的 `Sunset/main` 工作区，便于不切换 Unity 直接验收
+7. ✅ 在 `Sunset/main` 现场复用 `Assembly-CSharp.rsp` 独立编译，结果 `0 error`
+8. ✅ 通过 Unity MCP 读取控制台，确认当前没有本轮新增编译错误
+
+**关键决策**:
+- 任务分支继续作为正式交付基线；`Sunset/main` 上的同代码同步只服务当前本地验收，不等于 main 已达到可提交状态
+- 普通 placeable 的耕地禁放继续留在逐格 `CellState` 层，不回退到整物品级 `CanPlaceAt()` 兜底
+- 种子与树苗继续保留特殊链，不再被普通 placeable 规则吞掉
+
+**涉及文件或路径**:
+- `D:/Unity/Unity_learning/Sunset_worktrees/farm-10.2.2-patch002/Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+- `D:/Unity/Unity_learning/Sunset_worktrees/farm-10.2.2-patch002/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/tasks.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/memory.md`
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+
+**验证结果**:
+- `Assembly-CSharp` 独立编译：`0 error, 1 warning`
+- Unity 控制台读取成功，未见本轮新增编译错误
+- 当前仍需用户在 Unity 现场手动验证箱子 / 种子 / 树苗行为
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“等待用户在当前打开的 Sunset 工程里执行 10.2.2 手动验收”这一步
+- 若用户反馈现场问题，继续在 `10.2.2补丁002` 下迭代修补
