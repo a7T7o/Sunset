@@ -964,3 +964,24 @@
   - 该 prompt 按审查路径应归为 **Path B**；
   - 方向正确且值得执行；
   - 但执行时必须显式写出“系统全局监督线程不属于 `Sunset` 内部治理对象”以及“自动分类/自动迁移目前只是协议化目标，不是已证实的原生客户端能力”。
+
+## 2026-03-12（父治理层补记：线程类型分流与生命周期规范已正式落盘）
+- 父治理主线保持不变：继续把 `Sunset` 的线程治理从“统一协议建设”推进到“线程类型分流 + 新线程生命周期规范 + 联合迁移能力边界”。
+- 本轮父层确认的新增稳定结论：
+  - 当前实时 `active-workspace-roots` 已直读回到 `D:\Unity\Unity_learning\Sunset`；`D:\迅雷下载\开始` 只保留为系统全局监督线程的历史样本；
+  - 现有协议文档已不再默认把所有线程都当成 `Sunset` 内部线程，而是正式区分六类线程；
+  - 联合迁移已经被定义为“branch + worktree + cwd + 记忆 + 路由 + UI/workspace 策略 + 基线”的最小闭环，而不是只建房间；
+  - 当前最优先的 Sunset 内部真实冲突已收敛为 `NPC` 线程状态库 `git_branch` 旧值。
+- 父层已同步的落地对象：
+  - `Codex现场判定与完成态协议_2026-03-12.md`
+  - `Codex统一协议闭环整改总方案_2026-03-12.md`
+  - `tasks.md`
+  - `scripts/codex_protocol_baseline.py`
+  - `Codex统一协议建设最新现场基线_2026-03-12_e70b1723.md`
+- 父层明确未动对象：
+  - `state_5.sqlite`
+  - `.codex-global-state.json`
+  - `session_index.jsonl`
+  - `provider-bridge`
+- 父层恢复点：
+  - 后续继续治理时，直接承接“`NPC` 单线程 `git_branch` 修正前的备份前置与验收口径设计”，而不是再回到抽象 prompt 审核。

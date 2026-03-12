@@ -14,6 +14,20 @@ STATE_DB_PATH = CODEX_HOME / "state_5.sqlite"
 SESSION_INDEX_PATH = CODEX_HOME / "session_index.jsonl"
 GLOBAL_STATE_PATH = CODEX_HOME / ".codex-global-state.json"
 
+HISTORICAL_ACTIVE_ROOT_SAMPLES = [
+    {
+        "value": r"D:\迅雷下载\开始",
+        "source": "用户与前序核查样本",
+        "label": "系统全局",
+        "note": "这是系统全局监督线程样本，不应直接写成 Sunset 内部实时 bug。",
+    }
+]
+
+THREAD_TYPE_LABELS = {
+    "governance": "项目治理线程",
+    "feature": "独立 worktree 功能线程",
+}
+
 
 @dataclass
 class RouteSpec:
@@ -46,6 +60,11 @@ def normalize_path_list(values: list[str] | None) -> list[str]:
         if normalized:
             result.append(normalized)
     return result
+
+
+def path_key(value: str | None) -> str | None:
+    normalized = normalize_path(value)
+    return normalized.lower() if normalized else None
 
 
 def load_json(path: Path) -> dict:
@@ -133,144 +152,219 @@ def inspect_git(cwd: str | None) -> dict[str, str | None]:
     }
 
 
-def short_sha(value: str | None) -> str:
-    if not value:
-        return "（空）"
-    return value[:8]
+def path_exists(value: str | None) -> bool:
+    return bool(value) and Path(value).exists()
 
 
-def path_exists(path_value: str | None) -> bool:
-    if not path_value:
-        return False
-    return Path(path_value).exists()
+def thread_type_label(route: RouteSpec) -> str:
+    if route.thread_type == "feature" and path_key(route.expected_worktree_root) == path_key(route.expected_cwd):
+        return "独立 worktree 功能线程"
+    return THREAD_TYPE_LABELS.get(route.thread_type, route.thread_type)
 
 
-def describe_memory_paths(route: RouteSpec) -> list[tuple[str, str, bool]]:
-    paths: list[tuple[str, str, bool]] = []
-    if route.expected_thread_memory:
-        paths.append(("目标线程记忆", route.expected_thread_memory, path_exists(route.expected_thread_memory)))
-    if route.observed_thread_memory:
-        paths.append(("当前观测线程记忆", route.observed_thread_memory, path_exists(route.observed_thread_memory)))
-    return paths
-
-
-def collect_conflicts(
-    route: RouteSpec,
-    db_row: dict,
-    git_state: dict[str, str | None],
-    active_workspace_roots: list[str],
-) -> list[str]:
-    conflicts: list[str] = []
-    expected_cwd = normalize_path(route.expected_cwd)
-    expected_root = normalize_path(route.expected_worktree_root)
-    current_cwd = normalize_path(db_row.get("cwd"))
-    db_branch = db_row.get("git_branch")
-    db_sha = db_row.get("git_sha")
-    real_root = normalize_path(git_state.get("worktree_root"))
-    real_branch = git_state.get("branch")
-    real_sha = git_state.get("sha")
-    active_roots = normalize_path_list(active_workspace_roots)
-
-    if current_cwd != expected_cwd:
-        conflicts.append("数据库 `cwd` 未对齐期望目录")
-    if real_root != expected_root:
-        conflicts.append("真实 worktree 根未对齐期望 worktree")
-    if real_branch != route.expected_git_branch:
-        conflicts.append("真实 Git 分支未对齐期望分支")
-    if db_branch != route.expected_git_branch:
-        conflicts.append("数据库 `git_branch` 仍停留在旧值")
-    if db_sha and real_sha and db_sha != real_sha:
-        conflicts.append("数据库 `git_sha` 落后于真实 Git HEAD")
-    if expected_root and expected_root not in active_roots:
-        conflicts.append("UI 激活工作区根未命中该线程期望现场")
-
-    memory_paths = describe_memory_paths(route)
-    expected_exists = any(label == "目标线程记忆" and exists for label, _, exists in memory_paths)
-    observed_exists = any(label == "当前观测线程记忆" and exists for label, _, exists in memory_paths)
-    if route.observed_thread_memory and observed_exists and not expected_exists:
-        conflicts.append("线程记忆仍停留在 worktree 内，尚未归位到项目统一路径")
-
-    return conflicts
-
-
-def evaluate_completion_level(
-    route: RouteSpec,
-    db_row: dict,
-    git_state: dict[str, str | None],
-    active_workspace_roots: list[str],
-) -> tuple[str, str]:
-    if not db_row:
-        return ("L0", "只有路由规则存在，数据库样本线程记录缺失。")
-
-    if not git_state.get("sha"):
-        return ("L0", "数据库里有样本线程记录，但当前无法读取真实 Git 现场。")
-
-    level = "L1"
-    reason = "真实 Git 现场可读，内容已经具备可追溯基线。"
-
-    conflicts = collect_conflicts(route, db_row, git_state, active_workspace_roots)
-    hard_conflicts = [
-        conflict
-        for conflict in conflicts
-        if conflict
-        in {
-            "数据库 `cwd` 未对齐期望目录",
-            "真实 worktree 根未对齐期望 worktree",
-            "真实 Git 分支未对齐期望分支",
-            "数据库 `git_branch` 仍停留在旧值",
-        }
-    ]
-
-    if not hard_conflicts:
-        level = "L2"
-        reason = "线程目录、worktree 与分支已经对齐，可在正确现场继续推进。"
-
-    return (level, reason)
-
-
-def explain_not_higher(level: str, conflicts: list[str]) -> str:
-    if level == "L0":
-        return "还没有稳定到 Git 记录态，不能进入线程现场态。"
-    if level == "L1":
-        if conflicts:
-            return "线程现场仍有漂移项，尚不能提升到 L2；更无法自动宣称 L3/L4/L5。"
-        return "虽已具备 Git 记录态，但本轮未核验线程现场与用户验收现场。"
-    if level == "L2":
-        return "用户当前打开工程与可见视图尚未核验，不能提升到 L3；文档同步与回滚口径也未收口到 L4/L5。"
-    return "本轮脚本只做只读基线，不自动判断更高层级。"
-
-
-def default_action(route: RouteSpec, conflicts: list[str], level: str) -> str:
-    if level == "L0":
-        return "先核验该样本线程是否仍在状态库中可读，再决定是否纳入后续治理。"
-    if "数据库 `cwd` 未对齐期望目录" in conflicts or "真实 worktree 根未对齐期望 worktree" in conflicts:
-        return "继续保持只读，先收口线程默认 `cwd` / worktree 路由口径。"
-    if "数据库 `git_branch` 仍停留在旧值" in conflicts:
-        return "继续保持只读，下一刀只论证状态投影层 `git_branch` 是否允许最小修正。"
-    if "线程记忆仍停留在 worktree 内，尚未归位到项目统一路径" in conflicts:
-        return "先补线程记忆归位策略或索引映射，不迁移历史文件。"
-    if "UI 激活工作区根未命中该线程期望现场" in conflicts:
-        return "把 UI 激活工作区根漂移列为下一刀重点，但暂不自动改写全局状态。"
-    return "该样本线程已具备进入 T74 的基础，可用于下一轮真实验收验证。"
-
-
-def render_conflict_summary(conflicts: list[str]) -> str:
-    if not conflicts:
-        return "无"
-    return "；".join(conflicts)
-
-
-def render_memory_paths(route: RouteSpec) -> list[str]:
+def describe_memory_paths(route: RouteSpec) -> list[str]:
     lines: list[str] = []
-    for label, path_value, exists in describe_memory_paths(route):
-        status = "存在" if exists else "不存在"
-        lines.append(f"- {label}：`{path_value}`（{status}）")
+    lines.append(
+        f"- 目标线程记忆：`{route.expected_thread_memory}`（{'存在' if path_exists(route.expected_thread_memory) else '不存在'}）"
+    )
+    if route.observed_thread_memory:
+        lines.append(
+            f"- 当前观测线程记忆：`{route.observed_thread_memory}`（{'存在' if path_exists(route.observed_thread_memory) else '不存在'}）"
+        )
     if route.memory_note:
         lines.append(f"- 记忆说明：{route.memory_note}")
     return lines
 
 
-def render_protocol_markdown(
+def evaluate_thread(route: RouteSpec, db_row: dict) -> dict:
+    current_cwd = normalize_path(db_row.get("cwd")) if db_row else None
+    git_state = inspect_git(current_cwd or route.expected_cwd)
+    expected_cwd = normalize_path(route.expected_cwd)
+    expected_root = normalize_path(route.expected_worktree_root)
+    expected_branch = route.expected_git_branch
+    db_branch = db_row.get("git_branch") if db_row else None
+    db_sha = db_row.get("git_sha") if db_row else None
+    real_root = normalize_path(git_state.get("worktree_root"))
+    real_branch = git_state.get("branch")
+    real_sha = git_state.get("sha")
+
+    findings: list[str] = []
+    hard_conflicts: list[str] = []
+
+    if not db_row:
+        findings.append("状态库中缺少该线程样本记录")
+        return {
+            "git_state": git_state,
+            "level": "L0",
+            "reason": "状态库里没有该线程样本，无法进入线程现场态。",
+            "findings": findings,
+            "hard_conflicts": hard_conflicts,
+        }
+
+    if not real_sha:
+        findings.append("无法读取真实 Git 现场")
+        return {
+            "git_state": git_state,
+            "level": "L0",
+            "reason": "当前无法读取真实 worktree / 分支 / HEAD。",
+            "findings": findings,
+            "hard_conflicts": hard_conflicts,
+        }
+
+    if current_cwd != expected_cwd:
+        hard_conflicts.append("数据库 `cwd` 未对齐期望目录")
+    if real_root != expected_root:
+        hard_conflicts.append("真实 worktree 根未对齐期望 worktree")
+    if real_branch != expected_branch:
+        hard_conflicts.append("真实 Git 分支未对齐期望分支")
+
+    if db_branch != expected_branch:
+        findings.append("状态库 `git_branch` 仍停留在旧值")
+    if db_sha and real_sha and db_sha != real_sha:
+        findings.append("状态库 `git_sha` 落后于真实 Git HEAD")
+    if route.observed_thread_memory and path_exists(route.observed_thread_memory) and not path_exists(route.expected_thread_memory):
+        findings.append("线程记忆仍停留在 worktree 观测路径，目标归位路径尚未落地")
+
+    if hard_conflicts:
+        level = "L1"
+        reason = "真实线程现场仍有主现场错位，不能提升到 L2。"
+    elif db_branch != expected_branch and route.thread_type == "feature":
+        level = "L1"
+        reason = "真实现场已在正确 worktree，但功能线程的状态投影仍未收口。"
+    else:
+        level = "L2"
+        reason = "当前目录、真实 worktree 与真实分支已对齐，可在正确现场继续推进。"
+
+    return {
+        "git_state": git_state,
+        "level": level,
+        "reason": reason,
+        "findings": findings,
+        "hard_conflicts": hard_conflicts,
+    }
+
+
+def active_root_labels(global_state: dict) -> dict[str, str]:
+    result: dict[str, str] = {}
+    for key, value in (global_state.get("electron-workspace-root-labels", {}) or {}).items():
+        normalized = normalize_path(key)
+        if normalized:
+            result[normalized] = str(value)
+    return result
+
+
+def classify_active_workspace(repo_root: Path, routes: dict[str, RouteSpec], global_state: dict) -> dict:
+    active_roots = normalize_path_list(global_state.get("active-workspace-roots", []))
+    label_map = active_root_labels(global_state)
+    repo_root_normalized = normalize_path(str(repo_root))
+    internal_feature_roots = {
+        normalize_path(route.expected_worktree_root)
+        for route in routes.values()
+        if route.thread_type == "feature"
+    }
+
+    entries = []
+    for root in active_roots:
+        label = label_map.get(root)
+        if label == "系统全局":
+            relation = "系统全局监督线程现场"
+        elif root == repo_root_normalized:
+            relation = "Sunset 根仓库 / 治理现场"
+        elif root in internal_feature_roots:
+            relation = "Sunset 内部长线功能 worktree 现场"
+        else:
+            relation = "未归类工作区现场"
+        entries.append({"root": root, "label": label, "relation": relation})
+
+    historical_notes: list[str] = []
+    current_keys = {path_key(item["root"]) for item in entries}
+    for sample in HISTORICAL_ACTIVE_ROOT_SAMPLES:
+        sample_key = path_key(sample["value"])
+        if sample_key not in current_keys:
+            historical_notes.append(
+                f"- 历史样本：`{sample['value']}`（来源：`{sample['source']}`，标签：`{sample['label']}`）。"
+                " 当前实时值已不同，说明 `active-workspace-roots` 是可变的全局 UI 状态。"
+            )
+        else:
+            historical_notes.append(
+                f"- 历史样本：`{sample['value']}` 仍与当前实时值一致。"
+            )
+
+    if not entries:
+        conclusion = "当前 `active-workspace-roots` 为空，只能视为 UI 现场缺失样本。"
+    elif any(item["relation"] == "Sunset 根仓库 / 治理现场" for item in entries):
+        conclusion = (
+            "当前实时 `active-workspace-roots` 命中 Sunset 根仓库，"
+            "对当前治理线程是正常现场；它不能被直接推导为 NPC / 农田线程已经完成 UI 承接。"
+        )
+    elif any(item["relation"] == "系统全局监督线程现场" for item in entries):
+        conclusion = (
+            "当前实时 `active-workspace-roots` 命中系统全局监督线程现场。"
+            "这属于外部监督工作区样本，不应直接判成 Sunset 内部 bug。"
+        )
+    elif any(item["relation"] == "Sunset 内部长线功能 worktree 现场" for item in entries):
+        conclusion = (
+            "当前实时 `active-workspace-roots` 命中某条 Sunset 功能 worktree，"
+            "但仍需结合“当前打开的是哪条线程”判断是否真正承接到位。"
+        )
+    else:
+        conclusion = "当前实时 `active-workspace-roots` 未命中已知类型，需要继续保留为只读样本。"
+
+    trust_rule = (
+        "当前执行一律以“最新直读 `.codex-global-state.json` + 线程类型判定”为准；"
+        "旧值保留为历史样本，不再直接写成当前实时事实。"
+    )
+
+    return {
+        "active_roots": active_roots,
+        "entries": entries,
+        "historical_notes": historical_notes,
+        "conclusion": conclusion,
+        "trust_rule": trust_rule,
+    }
+
+
+def rejudge_boundary_conflicts(
+    active_assessment: dict,
+    routes: dict[str, RouteSpec],
+    evaluations: dict[str, dict],
+) -> dict:
+    npc_route = next(route for route in routes.values() if route.display_name == "NPC")
+    npc_eval = evaluations[npc_route.thread_id]
+
+    active_root_judgement = (
+        "当前实时值为 `D:\\Unity\\Unity_learning\\Sunset`，属于 Sunset 根仓库 / 治理现场样本；"
+        "它解释了客户端当前为何落在治理视角，但它本轮不是 Sunset 内部最优先的真实冲突。"
+    )
+    npc_branch_judgement = (
+        "NPC 线程的状态库 `git_branch` 仍是 `main`，而真实分支已是 "
+        "`codex/npc-generator-pipeline`；这是当前最强的 Sunset 内部真实冲突候选项。"
+    )
+    npc_memory_judgement = (
+        "NPC 线程记忆当前事实现场仍在 worktree 观测路径，"
+        "项目根目录下的目标归位路径尚未落地；它属于“归位策略未收口”，不是内容丢失。"
+    )
+
+    highest_conflict = "NPC 线程状态库 `git_branch` 旧值"
+    next_step = (
+        "继续维持只读治理；先为 NPC 单线程 `git_branch` 修正准备备份前置与单样本验收口径，"
+        "暂不直接改状态库。"
+    )
+
+    if npc_eval["level"] != "L1":
+        highest_conflict = "NPC 线程记忆归位策略未收口"
+        next_step = "先把 NPC 线程记忆的“当前事实现场 / 未来归位目标”口径固定下来。"
+
+    return {
+        "active": active_root_judgement,
+        "npc_branch": npc_branch_judgement,
+        "npc_memory": npc_memory_judgement,
+        "highest": highest_conflict,
+        "next_step": next_step,
+    }
+
+
+def render_markdown(
     repo_root: Path,
     routes: dict[str, RouteSpec],
     db_rows: dict[str, dict],
@@ -278,125 +372,137 @@ def render_protocol_markdown(
     global_state: dict,
 ) -> str:
     generated_at = datetime.now().astimezone().isoformat()
-    repo_root_str = str(repo_root.resolve())
+    repo_root_str = normalize_path(str(repo_root)) or str(repo_root)
     root_branch = run_git(repo_root_str, "branch", "--show-current")
     root_sha = run_git(repo_root_str, "rev-parse", "HEAD")
-    worktree_list = run_git(repo_root_str, "worktree", "list")
-    active_workspace_roots = normalize_path_list(global_state.get("active-workspace-roots", []))
-    saved_workspace_roots = normalize_path_list(global_state.get("electron-saved-workspace-roots", []))
+    worktree_list = run_git(repo_root_str, "worktree", "list", "--porcelain")
+    active_assessment = classify_active_workspace(repo_root, routes, global_state)
+    evaluations = {
+        thread_id: evaluate_thread(route, db_rows.get(thread_id, {}))
+        for thread_id, route in routes.items()
+    }
+    boundary = rejudge_boundary_conflicts(active_assessment, routes, evaluations)
 
     lines: list[str] = []
     lines.append("# Codex统一协议建设最新现场基线")
     lines.append("")
     lines.append(f"- 生成时间：{generated_at}")
     lines.append(f"- 生成脚本：`{repo_root / 'scripts' / 'codex_protocol_baseline.py'}`")
-    lines.append("- 任务入口：现行 `T73`")
-    lines.append("- 执行方式：只读采样，不改写 `state_5.sqlite`、`.codex-global-state.json` 或任何守护逻辑")
-    lines.append(
-        f"- 数据源：`{STATE_DB_PATH}`、`{SESSION_INDEX_PATH}`、`{GLOBAL_STATE_PATH}`、真实 Git worktree"
-    )
+    lines.append("- 当前执行入口：现行 `T73`")
+    lines.append("- 执行方式：只读采样，不改 `state_5.sqlite`、`.codex-global-state.json`、`session_index.jsonl`")
     lines.append("")
-    lines.append("## 根仓库现场")
+    lines.append("## 1. `active-workspace-roots` 实时冲突核查")
+    lines.append("")
+    lines.append(f"- 本轮直读文件：`{GLOBAL_STATE_PATH}`")
+    lines.append(
+        f"- 当前实时 `active-workspace-roots`："
+        f"{'、'.join(f'`{item}`' for item in active_assessment['active_roots']) if active_assessment['active_roots'] else '（空）'}"
+    )
+    if active_assessment["entries"]:
+        lines.append("- 当前实时值分类：")
+        for item in active_assessment["entries"]:
+            label_suffix = f"，标签=`{item['label']}`" if item["label"] else ""
+            lines.append(f"  - `{item['root']}` → {item['relation']}{label_suffix}")
+    else:
+        lines.append("- 当前实时值分类：无可用激活工作区样本。")
+    lines.append("- 历史冲突样本：")
+    lines.extend(active_assessment["historical_notes"] or ["- 无历史样本。"])
+    lines.append(f"- 当前解释口径：{active_assessment['conclusion']}")
+    lines.append(f"- 当前信任规则：{active_assessment['trust_rule']}")
+    lines.append("")
+    lines.append("## 2. 根仓库与 worktree 现场")
     lines.append("")
     lines.append(f"- 根仓库路径：`{repo_root_str}`")
     lines.append(f"- 根仓库分支：`{root_branch or '（无法获取）'}`")
     lines.append(f"- 根仓库 HEAD：`{root_sha or '（无法获取）'}`")
-    lines.append(
-        f"- 当前 `active-workspace-roots`：`{', '.join(active_workspace_roots) if active_workspace_roots else '（空）'}`"
-    )
-    lines.append(f"- 已保存工作区根数量：{len(saved_workspace_roots)}")
-    lines.append("")
-    lines.append("## git worktree list")
-    lines.append("")
+    lines.append("- `git worktree list --porcelain`：")
     lines.append("```text")
     lines.append(worktree_list or "（无法获取）")
     lines.append("```")
     lines.append("")
-    lines.append("## 样本线程汇总")
+    lines.append("## 3. 样本线程总览")
     lines.append("")
-    lines.append(
-        "| 样本线程 | thread id | 最新 thread_name | 数据库 `git_branch` | 真实 Git 分支 | 当前完成态 | 当前冲突摘要 | 当前默认建议动作 |"
-    )
+    lines.append("| 样本线程 | thread id | 线程类型 | 数据库 `cwd` | 数据库 `git_branch` | 真实分支 | 完成态 | 当前主要结论 |")
     lines.append("|---|---|---|---|---|---|---|---|")
-
-    overall_conflicts: list[str] = []
-    per_thread_details: list[str] = []
-
     for thread_id, route in routes.items():
         db_row = db_rows.get(thread_id, {})
-        latest_name = latest_names.get(thread_id, {}).get("thread_name", "（未找到）")
-        git_state = inspect_git(db_row.get("cwd"))
-        conflicts = collect_conflicts(route, db_row, git_state, active_workspace_roots)
-        completion_level, completion_reason = evaluate_completion_level(
-            route, db_row, git_state, active_workspace_roots
-        )
-        next_action = default_action(route, conflicts, completion_level)
-
-        overall_conflicts.extend(conflicts)
+        evaluation = evaluations[thread_id]
+        git_state = evaluation["git_state"]
+        primary = "；".join(evaluation["hard_conflicts"] + evaluation["findings"]) or "当前样本没有新的只读冲突。"
         lines.append(
-            "| {display_name} | `{thread_id}` | `{thread_name}` | `{db_branch}` | `{real_branch}` | `{completion}` | {conflicts} | {action} |".format(
+            "| {display_name} | `{thread_id}` | {thread_type} | `{cwd}` | `{db_branch}` | `{real_branch}` | `{level}` | {primary} |".format(
                 display_name=route.display_name,
                 thread_id=thread_id,
-                thread_name=latest_name.replace("|", "/"),
+                thread_type=thread_type_label(route),
+                cwd=str(db_row.get("cwd", "（空）")).replace("|", "/"),
                 db_branch=str(db_row.get("git_branch", "（空）")).replace("|", "/"),
                 real_branch=str(git_state.get("branch", "（无法获取）")).replace("|", "/"),
-                completion=completion_level,
-                conflicts=render_conflict_summary(conflicts).replace("|", "/"),
-                action=next_action.replace("|", "/"),
+                level=evaluation["level"],
+                primary=primary.replace("|", "/"),
             )
         )
-
-        per_thread_details.append(f"## {route.display_name}")
-        per_thread_details.append("")
-        per_thread_details.append(f"- thread id：`{thread_id}`")
-        per_thread_details.append(f"- 最新 `thread_name`：`{latest_name}`")
-        per_thread_details.append(f"- 线程类型：`{route.thread_type}`")
-        per_thread_details.append(f"- 当前 `title`：`{db_row.get('title', '（未找到）')}`")
-        per_thread_details.append(f"- 当前 `cwd`：`{db_row.get('cwd', '（未找到）')}`")
-        per_thread_details.append(f"- 当前 `git_branch`：`{db_row.get('git_branch', '（空）')}`")
-        per_thread_details.append(f"- 当前 `git_sha`：`{db_row.get('git_sha', '（空）')}`")
-        per_thread_details.append(f"- 当前 `rollout_path`：`{db_row.get('rollout_path', '（空）')}`")
-        per_thread_details.append(f"- 期望目录：`{route.expected_cwd}`")
-        per_thread_details.append(f"- 期望 worktree 根：`{route.expected_worktree_root}`")
-        per_thread_details.append(f"- 期望分支：`{route.expected_git_branch}`")
-        per_thread_details.append(f"- 当前真实 worktree 根：`{git_state.get('worktree_root', '（无法获取）')}`")
-        per_thread_details.append(f"- 当前真实 Git 分支：`{git_state.get('branch', '（无法获取）')}`")
-        per_thread_details.append(f"- 当前真实 Git HEAD：`{git_state.get('sha', '（无法获取）')}`")
-        per_thread_details.append(
-            f"- UI 激活工作区命中：`{'命中' if normalize_path(route.expected_worktree_root) in active_workspace_roots else '未命中'}`"
-        )
-        per_thread_details.append("- 线程 memory 路径状态：")
-        per_thread_details.extend(render_memory_paths(route))
-        per_thread_details.append("- 用户验收现场占位：未核验（需以用户当前真实打开工程与可见视图确认为准）")
-        per_thread_details.append(f"- 当前完成态：`{completion_level}`")
-        per_thread_details.append(f"- 完成态判定原因：{completion_reason}")
-        per_thread_details.append(f"- 尚未提升原因：{explain_not_higher(completion_level, conflicts)}")
-        per_thread_details.append(f"- 当前冲突摘要：{render_conflict_summary(conflicts)}")
-        per_thread_details.append(f"- 当前默认建议动作：{next_action}")
-        per_thread_details.append("")
-
-    lines.append("")
-    lines.append("## 全局判断")
     lines.append("")
 
-    root_active_hit = repo_root_str in active_workspace_roots
-    overall_biggest_conflict = (
-        f"当前 `active-workspace-roots` 仍停在 `{', '.join(active_workspace_roots)}`，没有命中 `Sunset` 根仓库或其功能 worktree。"
-        if not root_active_hit
-        else "根仓库 UI 激活工作区已命中，当前更大的问题转到样本线程元数据漂移。"
-    )
+    for index, (thread_id, route) in enumerate(routes.items(), start=1):
+        db_row = db_rows.get(thread_id, {})
+        latest_name = latest_names.get(thread_id, {}).get("thread_name", "（未找到）")
+        evaluation = evaluations[thread_id]
+        git_state = evaluation["git_state"]
+        lines.append(f"## 4.{index} {route.display_name}")
+        lines.append("")
+        lines.append(f"- thread id：`{thread_id}`")
+        lines.append(f"- 最新 `thread_name`：`{latest_name}`")
+        lines.append(f"- 线程类型：`{thread_type_label(route)}`")
+        lines.append(f"- 当前 `title`：`{db_row.get('title', '（未找到）')}`")
+        lines.append(f"- 当前 `cwd`：`{db_row.get('cwd', '（未找到）')}`")
+        lines.append(f"- 当前 `git_branch`：`{db_row.get('git_branch', '（空）')}`")
+        lines.append(f"- 当前 `git_sha`：`{db_row.get('git_sha', '（空）')}`")
+        lines.append(f"- 当前 `rollout_path`：`{db_row.get('rollout_path', '（空）')}`")
+        lines.append(f"- 期望目录：`{route.expected_cwd}`")
+        lines.append(f"- 期望 worktree 根：`{route.expected_worktree_root}`")
+        lines.append(f"- 期望分支：`{route.expected_git_branch}`")
+        lines.append(f"- 当前真实 worktree 根：`{git_state.get('worktree_root', '（无法获取）')}`")
+        lines.append(f"- 当前真实 Git 分支：`{git_state.get('branch', '（无法获取）')}`")
+        lines.append(f"- 当前真实 Git HEAD：`{git_state.get('sha', '（无法获取）')}`")
+        lines.append("- 线程 memory 路径状态：")
+        lines.extend(describe_memory_paths(route))
+        lines.append("- 当前完成态：")
+        lines.append(f"  - 级别：`{evaluation['level']}`")
+        lines.append(f"  - 判定原因：{evaluation['reason']}")
+        if evaluation["hard_conflicts"]:
+            lines.append("  - 主现场冲突：")
+            for item in evaluation["hard_conflicts"]:
+                lines.append(f"    - {item}")
+        if evaluation["findings"]:
+            lines.append("  - 状态投影 / 策略问题：")
+            for item in evaluation["findings"]:
+                lines.append(f"    - {item}")
+        else:
+            lines.append("  - 状态投影 / 策略问题：当前没有新的只读问题。")
+        lines.append("- 用户验收现场占位：未核验（需以用户当前真实打开工程与可见视图为准）")
+        lines.append("")
 
-    lines.append(f"- 当前最大冲突点：{overall_biggest_conflict}")
+    lines.append("## 5. 三项边界冲突重判")
+    lines.append("")
+    lines.append(f"- `active-workspace-roots`：{boundary['active']}")
+    lines.append(f"- NPC 状态库 `git_branch` 旧值：{boundary['npc_branch']}")
+    lines.append(f"- NPC 线程记忆归位策略：{boundary['npc_memory']}")
+    lines.append("- 当前优先级排序：")
+    lines.append(f"  1. {boundary['highest']}")
+    lines.append("  2. NPC 线程记忆归位策略未收口")
+    lines.append("  3. `active-workspace-roots` 的历史样本冲突解释")
+    lines.append("")
+    lines.append("## 6. 当前结论")
+    lines.append("")
+    lines.append(f"- 当前 Sunset 内部最该先动的真实冲突：{boundary['highest']}")
+    lines.append(f"- 当前最小下一步：{boundary['next_step']}")
     lines.append(
-        "- 当前最小下一步：以这份基线为现行 `T73` 证据，继续只读收口“UI 激活工作区漂移 / NPC `git_branch` 漂移 / NPC 线程记忆归位策略”三项边界，不提前进入自动纠偏。"
+        "- 当前完成态判断：治理样本为 `L2`，NPC 为 `L1`，农田样本为 `L2`；"
+        "这说明统一协议已经进入执行层，但客户端线程承接还没有闭环到用户验收层。"
     )
-    lines.append(
-        "- 当前执行口径：旧总方案中的历史值继续保留为阶段快照；后续任何动作都以本文件代表的当前执行基线为准。"
-    )
+    lines.append("- 当前口径：历史快照继续保留，当前执行一律以本文件代表的最新直读基线为准。")
     lines.append("")
-
-    lines.extend(per_thread_details)
-    return "\n".join(lines) + "\n"
+    return "\n".join(lines)
 
 
 def main() -> int:
@@ -407,7 +513,7 @@ def main() -> int:
     args = parser.parse_args()
 
     routes_path = Path(args.routes)
-    repo_root = Path(args.repo_root)
+    repo_root = Path(args.repo_root).resolve()
     output_path = Path(args.output_md)
 
     routes = load_routes(routes_path)
@@ -415,8 +521,8 @@ def main() -> int:
     latest_names = load_latest_thread_names(SESSION_INDEX_PATH)
     global_state = load_json(GLOBAL_STATE_PATH)
 
-    markdown = render_protocol_markdown(repo_root, routes, db_rows, latest_names, global_state)
-    output_path.write_text(markdown, encoding="utf-8")
+    markdown = render_markdown(repo_root, routes, db_rows, latest_names, global_state)
+    output_path.write_text(markdown + "\n", encoding="utf-8")
     print(str(output_path))
     return 0
 

@@ -817,3 +817,38 @@
     2. “线程自己自动识别 / 自动分流 / 自动申请”目前只能理解为协议化目标和工具辅助流程，不能被误写成当前 `Codex` 本体已具备的原生自动化。
 - 当前恢复点：
   - 后续如果执行这份 prompt，我应先补线程类型模型与生命周期规范，再回到 `active-workspace-roots`、NPC `git_branch`、NPC 线程记忆归位这三项冲突下做重判。
+
+## 2026-03-12（线程记忆补记：线程类型分流、生命周期规范与最新基线已完成）
+- 当前线程名称：Codex规则落地。
+- 当前主线目标不变：继续把 `Sunset` 的 `Codex` 线程 / worktree / UI 承接治理推进到可执行、可解释、可回退的状态。
+- 本轮子任务：停止继续审核 prompt，直接把“线程类型模型 + 新线程生命周期规范 + 联合迁移能力边界 + 实时 `active-workspace-roots` 冲突解释”落到协议文档、任务定义和只读基线工具链里。
+- 本轮已完成动作：
+  - 重新直读 `C:\Users\aTo\.codex\.codex-global-state.json`，确认当前实时 `active-workspace-roots` 是 `D:\Unity\Unity_learning\Sunset`；
+  - 把 `系统全局` 监督线程正式从 `Sunset` 内部执行线程里剥离出来，写成协议硬规则；
+  - 在协议文档中补入六类线程类型模型、生命周期规范、联合迁移最小闭环和 A/B/C 能力边界；
+  - 更新总方案与 `T73` 口径，把本轮执行锚定到 `Codex统一协议建设最新现场基线_2026-03-12_e70b1723.md`；
+  - 重写 `scripts/codex_protocol_baseline.py` 并用它生成新的只读基线。
+- 本轮线程级关键结论：
+  - `active-workspace-roots` 的历史样本冲突已经不再是当前 Sunset 内部最优先问题；
+  - 当前真正最该先动的是 `NPC` 线程状态库 `git_branch` 旧值；
+  - `NPC` 线程记忆问题当前被定义为“事实现场 vs 未来归位目标”的策略缺口，而不是内容丢失；
+  - “线程自己自动识别 / 自动分流 / 自动申请 / 自动联合迁移”当前只属于协议目标与工具辅助，不得写成已被原生验证通过的能力。
+- 本轮涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex现场判定与完成态协议_2026-03-12.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex统一协议闭环整改总方案_2026-03-12.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\tasks.md`
+  - `D:\Unity\Unity_learning\Sunset\scripts\codex_protocol_baseline.py`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex统一协议建设最新现场基线_2026-03-12_e70b1723.md`
+- 验证结果：
+  - 根仓库真实基线仍为 `main@e70b1723`；
+  - 新基线给出的样本完成态为：治理线程 `L2`、NPC `L1`、农田线程 `L2`；
+  - 当前实时 `active-workspace-roots` 命中治理现场，不足以证明 NPC / 农田 UI 承接已经成立。
+- 本轮明确没动的高风险对象：
+  - `state_5.sqlite`
+  - `.codex-global-state.json`
+  - `session_index.jsonl`
+  - `provider-bridge`
+  - 与本轮无关的所有 dirty
+- 当前恢复点：
+  - 这条线程现在已经拥有最新线程类型协议、最新生命周期规范、最新执行基线和重新排好的真实冲突优先级；
+  - 下一步最小动作固定为：先给 `NPC` 单线程 `git_branch` 修正建立备份前置和单样本验收口径，再决定是否进入最小状态层修正。

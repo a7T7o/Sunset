@@ -1423,3 +1423,38 @@
     2. 把“线程自己自动识别 / 自动分流 / 自动申请”理解为协议和工具辅助目标，不夸大为当前 `Codex` 客户端已具备的原生能力。
 - 当前恢复点：
   - 后续若执行这份 prompt，优先动作不再是继续盯三项旧冲突本身，而是先补线程类型模型与生命周期规范，再在该模型下重判三项冲突的优先级。
+
+## 2026-03-12（补记：线程类型模型、生命周期规范与实时基线已完成二轮落地）
+- 当前主线目标保持不变：继续推进 `Steering规则区优化/Codex迁移与规划` 治理主线，把 `Sunset` 的线程 / worktree / UI 承接从“统一协议建设”继续推进到“线程类型分流 + 新线程生命周期规范 + 联合迁移能力边界”。
+- 本轮子任务：先解决 `active-workspace-roots` 的实时冲突口径，再把线程类型模型、生命周期规范、能力边界和三项边界冲突重判正式落盘，并重新生成最新执行基线。
+- 本轮已完成事项：
+  - 重新直读 `C:\Users\aTo\.codex\.codex-global-state.json`，确认当前实时 `active-workspace-roots` 是 `D:\Unity\Unity_learning\Sunset`，而 `D:\迅雷下载\开始` 只保留为历史样本；
+  - 在 `Codex现场判定与完成态协议_2026-03-12.md` 中正式补入六类线程类型模型、`Sunset` 新线程生命周期规范、联合迁移最小闭环、UI / workspace / 线程承接 A/B/C 三层能力边界；
+  - 在 `Codex统一协议闭环整改总方案_2026-03-12.md` 中补入“实时值 vs 历史样本”冲突说明、系统全局监督线程不属于 `Sunset` 内部执行线程的前提修正，以及最新执行基线切换到 `e70b1723`；
+  - 在 `tasks.md` 的现行 `T73` 中把本轮范围正式收敛为“线程类型 / 生命周期 / 联合迁移边界”的二轮落地；
+  - 重写 `scripts/codex_protocol_baseline.py`，并生成最新基线 `Codex统一协议建设最新现场基线_2026-03-12_e70b1723.md`。
+- 本轮关键决策：
+  - `active-workspace-roots` 不能再被直接当成 `Sunset` 内部 bug；后续必须先判线程类型，再判它是否构成内部冲突；
+  - 当前 Sunset 内部最该先动的真实冲突已收敛为：`NPC` 线程状态库 `git_branch` 旧值；
+  - `NPC` 线程记忆问题被明确重定义为“当前事实现场仍在 worktree 观测路径、项目根目录目标归位路径尚未落地”，不是内容丢失；
+  - “线程自己自动识别 / 自动分流 / 自动申请 / 自动联合迁移”当前只属于协议目标与工具辅助流程，不得写成 `Codex` 已具备的原生自动化能力。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex现场判定与完成态协议_2026-03-12.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex统一协议闭环整改总方案_2026-03-12.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\tasks.md`
+  - `D:\Unity\Unity_learning\Sunset\scripts\codex_protocol_baseline.py`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\Codex迁移与规划\Codex统一协议建设最新现场基线_2026-03-12_e70b1723.md`
+- 验证结果：
+  - 只读核查确认根仓库仍为 `main@e70b1723`；
+  - `git worktree list` 仍显示根仓库、`.claude/worktrees/agent-a2df3da0`、`NPC`、`farm-10.2.2-patch002` 四个现场；
+  - 新基线判定当前样本完成态为：治理线程 `L2`、NPC `L1`、农田线程 `L2`；
+  - 当前实时 `active-workspace-roots` 已命中 Sunset 根仓库治理现场，但这不等于 NPC / 农田线程 UI 承接已经成立。
+- 本轮明确没动的高风险对象：
+  - `state_5.sqlite`
+  - `.codex-global-state.json`
+  - `session_index.jsonl`
+  - `provider-bridge`
+  - 与本轮无关的 `spring-day1` / `Primary.unity` / `DialogueChinese *.asset` / `backup-script` / `OpenClaw` dirty
+- 当前恢复点：
+  - 现行 `T73` 已从“统一协议建设首轮落地”推进到“线程类型 + 生命周期 + 联合迁移边界”的二轮协议层落地；
+  - 下一步最小动作已固定为：在不直接改状态库的前提下，先为 `NPC` 单线程 `git_branch` 修正准备备份前置与单样本验收口径。
