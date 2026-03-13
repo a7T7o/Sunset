@@ -7,14 +7,17 @@ using UnityEditor.Animations;
 using UnityEngine;
 
 /// <summary>
-/// NPC 预制体生成器
-/// 输入四向三帧 PNG 后，一键生成 Sprite 切片、动画、控制器和预制体。
+/// NPC 预制体生成器。
+/// 固定适配 Sunset 当前 NPC 通用模板：
+/// - 一张 PNG = 一个 NPC
+/// - 固定 4 行 3 列
+/// - 第 0 行 Down / 第 1 行 Left / 第 2 行 Right / 第 3 行 Up
+/// - Idle 只使用每行第 1 列
+/// - Move 使用每行 3 帧
 /// </summary>
 public class NPCPrefabGeneratorTool : EditorWindow
 {
-    #region 内部类型
-
-    private enum SourceDirection
+    private enum TemplateDirection
     {
         Down,
         Left,
@@ -22,35 +25,17 @@ public class NPCPrefabGeneratorTool : EditorWindow
         Up
     }
 
-    private enum PivotMode
-    {
-        BottomCenter,
-        Center
-    }
-
     private enum GeneratedState
     {
         Idle = 0,
-        Move = 1,
-        Death = 2
-    }
-
-    private enum ActionAssignment
-    {
-        AutoDetect,
-        Ignore,
-        Idle,
-        Move,
-        Death
+        Move = 1
     }
 
     private sealed class TextureTask
     {
         public string TexturePath;
-        public string FileNameWithoutExtension;
-        public GeneratedState State;
-        public ActionAssignment Assignment;
-        public Dictionary<SourceDirection, List<Sprite>> SpritesByDirection = new Dictionary<SourceDirection, List<Sprite>>();
+        public string NpcName;
+        public Dictionary<TemplateDirection, List<Sprite>> SpritesByDirection = new Dictionary<TemplateDirection, List<Sprite>>();
     }
 
     private sealed class GeneratedAssets
@@ -62,59 +47,46 @@ public class NPCPrefabGeneratorTool : EditorWindow
         public Dictionary<string, AnimationClip> Clips = new Dictionary<string, AnimationClip>();
     }
 
-    #endregion
+    private const int Columns = 3;
+    private const int Rows = 4;
+    private const int IdleFrameIndex = 1;
+    private const int PixelsPerUnit = 16;
+    private const float ClipFrameRate = 6f;
 
-    #region 配置字段
+    private static readonly TemplateDirection[] RowDirections =
+    {
+        TemplateDirection.Down,
+        TemplateDirection.Left,
+        TemplateDirection.Right,
+        TemplateDirection.Up
+    };
 
-    private DefaultAsset inputFolder;
-    private string npcNameOverride = string.Empty;
+    private readonly List<Texture2D> selectedTextures = new List<Texture2D>();
 
     private string animationRootPath = "Assets/100_Anim/NPC";
-    private string prefabRootPath = "Assets/Prefabs/NPC";
-
-    private int columns = 3;
-    private int rows = 4;
-    private int pixelsPerUnit = 16;
-    private float clipFrameRate = 6f;
-
-    private SourceDirection row0 = SourceDirection.Down;
-    private SourceDirection row1 = SourceDirection.Left;
-    private SourceDirection row2 = SourceDirection.Right;
-    private SourceDirection row3 = SourceDirection.Up;
-
-    private PivotMode pivotMode = PivotMode.BottomCenter;
+    private string prefabRootPath = "Assets/222_Prefabs/NPC";
     private string sortingLayerName = "Layer 1";
 
     private float defaultMoveSpeed = 2.5f;
     private float defaultIdleAnimationSpeed = 1f;
     private float defaultMoveAnimationSpeed = 1f;
-    private float defaultDeathAnimationSpeed = 1f;
     private bool enableDebugLogOnPrefab = false;
 
     private Vector2 scrollPos;
-    private string lastSummary = "尚未执行生成。";
-    private List<TextureTask> scannedTasks = new List<TextureTask>();
-
-    #endregion
-
-    #region 菜单
+    private string lastSummary = "尚未获取选中项。";
 
     [MenuItem("Tools/NPC/NPC预制体生成器")]
     private static void ShowWindow()
     {
         NPCPrefabGeneratorTool window = GetWindow<NPCPrefabGeneratorTool>("NPC预制体生成器");
-        window.minSize = new Vector2(620f, 760f);
+        window.minSize = new Vector2(620f, 660f);
         window.Show();
     }
-
-    #endregion
-
-    #region Unity生命周期
 
     private void OnEnable()
     {
         string[] sortingLayers = GetSortingLayerNames();
-        if (sortingLayers != null && sortingLayers.Length > 0 && !sortingLayers.Contains(sortingLayerName))
+        if (sortingLayers.Length > 0 && !sortingLayers.Contains(sortingLayerName))
         {
             sortingLayerName = sortingLayers[0];
         }
@@ -125,9 +97,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
 
         DrawHeader();
-        DrawInputSection();
-        DrawGridSection();
-        DrawAssignmentSection();
+        DrawSelectionSection();
         DrawOutputSection();
         DrawRuntimeSection();
         DrawSummarySection();
@@ -136,86 +106,52 @@ public class NPCPrefabGeneratorTool : EditorWindow
         EditorGUILayout.EndScrollView();
     }
 
-    #endregion
-
-    #region 界面绘制
-
     private void DrawHeader()
     {
         EditorGUILayout.Space(10f);
         EditorGUILayout.LabelField("━━━━ NPC 预制体生成器 ━━━━", EditorStyles.boldLabel);
         EditorGUILayout.HelpBox(
-            "输入四向三帧 NPC PNG 后，一键生成：\n" +
-            "1. Sprite 切片与重命名\n" +
-            "2. Idle / Move / Death 动画剪辑\n" +
-            "3. NPC Animator Controller\n" +
-            "4. 可直接拖入场景的 NPC Prefab\n\n" +
-            "默认桥接规则：Left / Right → Side 参数 + flipX。",
+            "固定处理 Sunset 当前 NPC 通用模板：\n" +
+            "1. 一张 PNG = 一个 NPC\n" +
+            "2. 固定 4 行 3 列\n" +
+            "3. 第 0 行 Down / 第 1 行 Left / 第 2 行 Right / 第 3 行 Up\n" +
+            "4. Idle 只取中间帧，Move 使用三帧\n" +
+            "5. 直接生成 Idle / Move / Controller / Prefab",
             MessageType.Info);
         EditorGUILayout.Space(10f);
     }
 
-    private void DrawInputSection()
+    private void DrawSelectionSection()
     {
-        EditorGUILayout.LabelField("━━━━ 输入 ━━━━", EditorStyles.boldLabel);
-        inputFolder = EditorGUILayout.ObjectField("PNG 文件夹", inputFolder, typeof(DefaultAsset), false) as DefaultAsset;
-        npcNameOverride = EditorGUILayout.TextField("NPC 名称（可选覆盖）", npcNameOverride);
+        EditorGUILayout.LabelField("━━━━ 选中项 ━━━━", EditorStyles.boldLabel);
 
-        EditorGUILayout.HelpBox(
-            "文件夹内至少需要包含 Idle 与 Run 的 PNG。\n" +
-            "支持文件名关键词：Idle / Run / Walk / Move / Death。",
-            MessageType.None);
-
-        EditorGUILayout.Space(10f);
-    }
-
-    private void DrawGridSection()
-    {
-        EditorGUILayout.LabelField("━━━━ 切片与方向映射 ━━━━", EditorStyles.boldLabel);
-
-        columns = EditorGUILayout.IntField("列数（每方向帧数）", columns);
-        rows = EditorGUILayout.IntField("行数（方向数）", rows);
-        pixelsPerUnit = EditorGUILayout.IntField("Pixels Per Unit", pixelsPerUnit);
-        clipFrameRate = EditorGUILayout.FloatField("Clip 帧率", clipFrameRate);
-        pivotMode = (PivotMode)EditorGUILayout.EnumPopup("Pivot 模式", pivotMode);
-
-        EditorGUILayout.Space(5f);
-        EditorGUILayout.LabelField("行方向顺序", EditorStyles.boldLabel);
-        row0 = (SourceDirection)EditorGUILayout.EnumPopup("第 0 行", row0);
-        row1 = (SourceDirection)EditorGUILayout.EnumPopup("第 1 行", row1);
-        row2 = (SourceDirection)EditorGUILayout.EnumPopup("第 2 行", row2);
-        row3 = (SourceDirection)EditorGUILayout.EnumPopup("第 3 行", row3);
-
-        EditorGUILayout.HelpBox(
-            "默认按用户当前 NPC 模板处理：Down / Left / Right / Up。\n" +
-            "若后续换素材包，只需要在这里改行顺序，不需要改代码。",
-            MessageType.None);
-
-        EditorGUILayout.Space(10f);
-    }
-
-    private void DrawAssignmentSection()
-    {
-        EditorGUILayout.LabelField("━━━━ 动作映射 ━━━━", EditorStyles.boldLabel);
-
-        if (scannedTasks == null || scannedTasks.Count == 0)
+        if (GUILayout.Button("获取选中项", GUILayout.Height(32f)))
         {
-            EditorGUILayout.HelpBox(
-                "先点“扫描输入”，再给没有动作关键词的 PNG 手动指定 Idle / Move。\n" +
-                "如果文件名本身带有 Idle / Run / Move，工具会先自动识别。",
-                MessageType.None);
-            EditorGUILayout.Space(10f);
-            return;
+            RefreshSelectedTextures();
         }
 
-        EditorGUILayout.HelpBox(
-            "当前规则已经收紧：Idle 只使用每一行中间那一帧（第 1 列），Move 使用整行三帧。\n" +
-            "像 001 / 002 / 003 这种文件名，可以在这里手动指定动作类型。",
-            MessageType.None);
-
-        foreach (TextureTask task in scannedTasks)
+        if (selectedTextures.Count == 0)
         {
-            task.Assignment = (ActionAssignment)EditorGUILayout.EnumPopup(task.FileNameWithoutExtension, task.Assignment);
+            EditorGUILayout.HelpBox("去 Project 窗口选中 PNG 或文件夹，然后点“获取选中项”。", MessageType.None);
+        }
+        else
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField($"已获取 {selectedTextures.Count} 个 PNG", EditorStyles.boldLabel);
+
+            int showCount = Mathf.Min(selectedTextures.Count, 8);
+            for (int i = 0; i < showCount; i++)
+            {
+                string assetPath = AssetDatabase.GetAssetPath(selectedTextures[i]);
+                EditorGUILayout.LabelField($"• {Path.GetFileName(assetPath)}", EditorStyles.miniLabel);
+            }
+
+            if (selectedTextures.Count > showCount)
+            {
+                EditorGUILayout.LabelField($"... 还有 {selectedTextures.Count - showCount} 个", EditorStyles.miniLabel);
+            }
+
+            EditorGUILayout.EndVertical();
         }
 
         EditorGUILayout.Space(10f);
@@ -228,7 +164,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
         prefabRootPath = EditorGUILayout.TextField("预制体根目录", prefabRootPath);
 
         string[] sortingLayers = GetSortingLayerNames();
-        if (sortingLayers != null && sortingLayers.Length > 0)
+        if (sortingLayers.Length > 0)
         {
             int selectedIndex = Mathf.Max(0, Array.IndexOf(sortingLayers, sortingLayerName));
             selectedIndex = EditorGUILayout.Popup("Sorting Layer", selectedIndex, sortingLayers);
@@ -248,12 +184,11 @@ public class NPCPrefabGeneratorTool : EditorWindow
         defaultMoveSpeed = EditorGUILayout.FloatField("默认移动速度", defaultMoveSpeed);
         defaultIdleAnimationSpeed = EditorGUILayout.FloatField("Idle 动画速度", defaultIdleAnimationSpeed);
         defaultMoveAnimationSpeed = EditorGUILayout.FloatField("Move 动画速度", defaultMoveAnimationSpeed);
-        defaultDeathAnimationSpeed = EditorGUILayout.FloatField("Death 动画速度", defaultDeathAnimationSpeed);
         enableDebugLogOnPrefab = EditorGUILayout.Toggle("生成时启用调试日志", enableDebugLogOnPrefab);
 
         EditorGUILayout.HelpBox(
-            "默认值已参考当前玩家实配：WalkSpeed=4、RunSpeed=6、Animator.speed=1。\n" +
-            "这里给 NPC 采用更保守的初值，后续可在生成出的预制体 Inspector 中继续调。",
+            "4 行 3 列、PPU=16、帧率=6、Bottom Center Pivot、方向顺序全都已经硬编码。\n" +
+            "这里只保留输出路径、Sorting Layer 和运行时默认值。",
             MessageType.None);
 
         EditorGUILayout.Space(10f);
@@ -268,14 +203,8 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
     private void DrawActionButtons()
     {
-        GUI.enabled = inputFolder != null;
-
-        if (GUILayout.Button("扫描输入", GUILayout.Height(36f)))
-        {
-            ScanInputFolder();
-        }
-
-        if (GUILayout.Button("一键生成 NPC 资源", GUILayout.Height(48f)))
+        GUI.enabled = selectedTextures.Count > 0;
+        if (GUILayout.Button("一键生成 NPC 资源", GUILayout.Height(50f)))
         {
             GenerateNpcAssets();
         }
@@ -283,76 +212,103 @@ public class NPCPrefabGeneratorTool : EditorWindow
         GUI.enabled = true;
     }
 
-    #endregion
-
-    #region 生成流程
-
-    private void ScanInputFolder()
+    private void RefreshSelectedTextures()
     {
-        if (!TryValidateInput(out string inputFolderPath, out string npcName, out string error))
+        selectedTextures.Clear();
+        HashSet<string> texturePaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (UnityEngine.Object selectedObject in Selection.objects)
         {
-            lastSummary = error;
-            ShowNotification(new GUIContent("输入校验失败"));
+            string assetPath = AssetDatabase.GetAssetPath(selectedObject);
+            if (string.IsNullOrEmpty(assetPath))
+            {
+                continue;
+            }
+
+            if (AssetDatabase.IsValidFolder(assetPath))
+            {
+                string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { assetPath });
+                foreach (string guid in guids)
+                {
+                    string texturePath = AssetDatabase.GUIDToAssetPath(guid);
+                    if (string.Equals(Path.GetExtension(texturePath), ".png", StringComparison.OrdinalIgnoreCase))
+                    {
+                        texturePaths.Add(texturePath);
+                    }
+                }
+
+                continue;
+            }
+
+            if (string.Equals(Path.GetExtension(assetPath), ".png", StringComparison.OrdinalIgnoreCase))
+            {
+                texturePaths.Add(assetPath);
+            }
+        }
+
+        foreach (string texturePath in texturePaths.OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+        {
+            Texture2D texture = AssetDatabase.LoadAssetAtPath<Texture2D>(texturePath);
+            if (texture != null)
+            {
+                selectedTextures.Add(texture);
+            }
+        }
+
+        if (selectedTextures.Count == 0)
+        {
+            lastSummary = "未获取到有效 PNG。请去 Project 窗口重新选择。";
             return;
         }
 
-        List<TextureTask> tasks = CollectTextureTasks(inputFolderPath);
-        if (tasks.Count == 0)
-        {
-            scannedTasks = new List<TextureTask>();
-            lastSummary = "输入文件夹里没有找到 PNG。";
-            return;
-        }
-
-        scannedTasks = tasks;
-        string stateSummary = string.Join("、", tasks.Select(t => $"{t.FileNameWithoutExtension}->{GetAssignmentLabel(t.Assignment)}"));
-        lastSummary = $"扫描成功：NPC={npcName}\n识别到 {tasks.Count} 张 PNG：{stateSummary}";
+        lastSummary = $"已获取 {selectedTextures.Count} 个 PNG，可以直接一键生成。";
     }
 
     private void GenerateNpcAssets()
     {
-        if (!TryValidateInput(out string inputFolderPath, out string npcName, out string error))
+        if (selectedTextures.Count == 0)
         {
-            lastSummary = error;
-            EditorUtility.DisplayDialog("NPC 生成器", error, "确定");
+            lastSummary = "没有可生成的 PNG。";
+            EditorUtility.DisplayDialog("NPC 生成器", "没有可生成的 PNG。请先获取选中项。", "确定");
             return;
         }
 
+        defaultMoveSpeed = Mathf.Max(0f, defaultMoveSpeed);
+        defaultIdleAnimationSpeed = Mathf.Max(0.1f, defaultIdleAnimationSpeed);
+        defaultMoveAnimationSpeed = Mathf.Max(0.1f, defaultMoveAnimationSpeed);
+
+        List<TextureTask> tasks = selectedTextures
+            .Select(texture => new TextureTask
+            {
+                TexturePath = AssetDatabase.GetAssetPath(texture),
+                NpcName = texture.name
+            })
+            .ToList();
+
         try
         {
-            List<TextureTask> tasks = BuildGenerationTasks(inputFolderPath);
-            if (tasks.Count == 0)
+            for (int i = 0; i < tasks.Count; i++)
             {
-                throw new InvalidOperationException("未找到可用于生成的 PNG。请先扫描并指定 Idle / Move。");
-            }
+                TextureTask task = tasks[i];
+                EditorUtility.DisplayProgressBar(
+                    "NPC 生成器",
+                    $"正在处理 {task.NpcName} ({i + 1}/{tasks.Count})",
+                    (float)(i + 1) / tasks.Count);
 
-            if (!tasks.Any(t => t.State == GeneratedState.Idle) || !tasks.Any(t => t.State == GeneratedState.Move))
-            {
-                throw new InvalidOperationException("至少需要一张 Idle 图和一张 Move 图。");
-            }
-
-            foreach (TextureTask task in tasks)
-            {
                 SliceTexture(task);
                 task.SpritesByDirection = LoadDirectionalSprites(task);
-            }
+                ValidateDirectionalSprites(task);
 
-            GeneratedAssets assets = CreateAnimationAssets(npcName, tasks);
-            RuntimeAnimatorController controller = CreateAnimatorController(assets);
-            CreatePrefab(npcName, controller, tasks, assets.PrefabPath);
+                GeneratedAssets assets = CreateAnimationAssets(task);
+                RuntimeAnimatorController controller = CreateAnimatorController(assets);
+                CreatePrefab(task, controller, assets.PrefabPath);
+            }
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            lastSummary =
-                $"生成完成：\n" +
-                $"NPC 名称：{npcName}\n" +
-                $"动作图数量：{tasks.Count}\n" +
-                $"动画目录：{assets.ClipsFolder}\n" +
-                $"控制器：{assets.ControllerPath}\n" +
-                $"预制体：{assets.PrefabPath}";
-
-            EditorUtility.DisplayDialog("NPC 生成器", "NPC 资源生成完成。", "确定");
+            lastSummary = $"生成完成：共处理 {tasks.Count} 个 NPC PNG。";
+            EditorUtility.DisplayDialog("NPC 生成器", $"生成完成，共处理 {tasks.Count} 个 NPC PNG。", "确定");
         }
         catch (Exception ex)
         {
@@ -360,195 +316,11 @@ public class NPCPrefabGeneratorTool : EditorWindow
             Debug.LogException(ex);
             EditorUtility.DisplayDialog("NPC 生成器", $"生成失败：\n{ex.Message}", "确定");
         }
-    }
-
-    #endregion
-
-    #region 输入处理
-
-    private bool TryValidateInput(out string inputFolderPath, out string npcName, out string error)
-    {
-        inputFolderPath = string.Empty;
-        npcName = string.Empty;
-        error = string.Empty;
-
-        if (inputFolder == null)
+        finally
         {
-            error = "请先选择 NPC PNG 文件夹。";
-            return false;
-        }
-
-        columns = Mathf.Max(1, columns);
-        rows = Mathf.Max(1, rows);
-        pixelsPerUnit = Mathf.Max(1, pixelsPerUnit);
-        clipFrameRate = Mathf.Max(1f, clipFrameRate);
-
-        inputFolderPath = AssetDatabase.GetAssetPath(inputFolder);
-        if (string.IsNullOrEmpty(inputFolderPath) || !AssetDatabase.IsValidFolder(inputFolderPath))
-        {
-            error = "输入对象不是有效的 Unity 文件夹。";
-            return false;
-        }
-
-        npcName = string.IsNullOrWhiteSpace(npcNameOverride)
-            ? Path.GetFileName(inputFolderPath.TrimEnd('/', '\\'))
-            : npcNameOverride.Trim();
-
-        if (string.IsNullOrWhiteSpace(npcName))
-        {
-            error = "无法推断 NPC 名称，请手动填写名称。";
-            return false;
-        }
-
-        return true;
-    }
-
-    private List<TextureTask> CollectTextureTasks(string inputFolderPath)
-    {
-        string[] guids = AssetDatabase.FindAssets("t:Texture2D", new[] { inputFolderPath });
-        List<TextureTask> tasks = new List<TextureTask>();
-
-        foreach (string guid in guids)
-        {
-            string texturePath = AssetDatabase.GUIDToAssetPath(guid);
-            string extension = Path.GetExtension(texturePath);
-            if (!string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
-            {
-                continue;
-            }
-
-            string fileName = Path.GetFileNameWithoutExtension(texturePath);
-            bool detected = TryParseState(fileName, out GeneratedState state);
-
-            tasks.Add(new TextureTask
-            {
-                TexturePath = texturePath,
-                FileNameWithoutExtension = fileName,
-                State = state,
-                Assignment = detected ? ConvertStateToAssignment(state) : ActionAssignment.AutoDetect
-            });
-        }
-
-        return tasks
-            .OrderBy(t => t.FileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private List<TextureTask> BuildGenerationTasks(string inputFolderPath)
-    {
-        List<TextureTask> sourceTasks = (scannedTasks != null && scannedTasks.Count > 0)
-            ? scannedTasks
-                .Where(task => task.TexturePath.StartsWith(inputFolderPath, StringComparison.OrdinalIgnoreCase))
-                .Select(CloneTaskWithoutSprites)
-                .ToList()
-            : CollectTextureTasks(inputFolderPath)
-                .Select(CloneTaskWithoutSprites)
-                .ToList();
-
-        List<TextureTask> resolvedTasks = new List<TextureTask>();
-        foreach (TextureTask task in sourceTasks)
-        {
-            if (!TryResolveState(task, out GeneratedState state))
-            {
-                continue;
-            }
-
-            task.State = state;
-            resolvedTasks.Add(task);
-        }
-
-        return resolvedTasks
-            .OrderBy(t => t.State)
-            .ThenBy(t => t.FileNameWithoutExtension, StringComparer.OrdinalIgnoreCase)
-            .ToList();
-    }
-
-    private bool TryParseState(string fileName, out GeneratedState state)
-    {
-        string lowered = fileName.ToLowerInvariant();
-
-        if (lowered.Contains("idle"))
-        {
-            state = GeneratedState.Idle;
-            return true;
-        }
-
-        if (lowered.Contains("run") || lowered.Contains("walk") || lowered.Contains("move"))
-        {
-            state = GeneratedState.Move;
-            return true;
-        }
-
-        if (lowered.Contains("death"))
-        {
-            state = GeneratedState.Death;
-            return true;
-        }
-
-        state = GeneratedState.Idle;
-        return false;
-    }
-
-    private ActionAssignment ConvertStateToAssignment(GeneratedState state)
-    {
-        return state switch
-        {
-            GeneratedState.Idle => ActionAssignment.Idle,
-            GeneratedState.Move => ActionAssignment.Move,
-            GeneratedState.Death => ActionAssignment.Death,
-            _ => ActionAssignment.AutoDetect
-        };
-    }
-
-    private bool TryResolveState(TextureTask task, out GeneratedState state)
-    {
-        switch (task.Assignment)
-        {
-            case ActionAssignment.Idle:
-                state = GeneratedState.Idle;
-                return true;
-            case ActionAssignment.Move:
-                state = GeneratedState.Move;
-                return true;
-            case ActionAssignment.Death:
-                state = GeneratedState.Death;
-                return true;
-            case ActionAssignment.Ignore:
-                state = GeneratedState.Idle;
-                return false;
-            case ActionAssignment.AutoDetect:
-            default:
-                return TryParseState(task.FileNameWithoutExtension, out state);
+            EditorUtility.ClearProgressBar();
         }
     }
-
-    private string GetAssignmentLabel(ActionAssignment assignment)
-    {
-        return assignment switch
-        {
-            ActionAssignment.AutoDetect => "待指定",
-            ActionAssignment.Ignore => "忽略",
-            ActionAssignment.Idle => "Idle",
-            ActionAssignment.Move => "Move",
-            ActionAssignment.Death => "Death",
-            _ => "待指定"
-        };
-    }
-
-    private TextureTask CloneTaskWithoutSprites(TextureTask task)
-    {
-        return new TextureTask
-        {
-            TexturePath = task.TexturePath,
-            FileNameWithoutExtension = task.FileNameWithoutExtension,
-            State = task.State,
-            Assignment = task.Assignment
-        };
-    }
-
-    #endregion
-
-    #region 纹理切片
 
     private void SliceTexture(TextureTask task)
     {
@@ -564,12 +336,13 @@ public class NPCPrefabGeneratorTool : EditorWindow
             throw new InvalidOperationException($"无法加载纹理：{task.TexturePath}");
         }
 
-        int cellWidth = texture.width / columns;
-        int cellHeight = texture.height / rows;
-        if (cellWidth <= 0 || cellHeight <= 0)
+        if (texture.width % Columns != 0 || texture.height % Rows != 0)
         {
-            throw new InvalidOperationException($"切片尺寸非法：{task.TexturePath}");
+            throw new InvalidOperationException($"{task.NpcName} 不是标准 4x3 模板：{task.TexturePath}");
         }
+
+        int cellWidth = texture.width / Columns;
+        int cellHeight = texture.height / Rows;
 
         importer.textureType = TextureImporterType.Sprite;
         importer.spriteImportMode = SpriteImportMode.Multiple;
@@ -578,48 +351,38 @@ public class NPCPrefabGeneratorTool : EditorWindow
         importer.mipmapEnabled = false;
         importer.isReadable = true;
         importer.alphaIsTransparency = true;
-        importer.spritePixelsPerUnit = pixelsPerUnit;
-
-        SpriteMetaData[] metas = BuildSpriteMetas(task, texture.width, texture.height, cellWidth, cellHeight);
-        importer.spritesheet = metas;
+        importer.spritePixelsPerUnit = PixelsPerUnit;
+        importer.spritesheet = BuildSpriteMetas(task.NpcName, texture.height, cellWidth, cellHeight);
         EditorUtility.SetDirty(importer);
         importer.SaveAndReimport();
     }
 
-    private SpriteMetaData[] BuildSpriteMetas(TextureTask task, int textureWidth, int textureHeight, int cellWidth, int cellHeight)
+    private SpriteMetaData[] BuildSpriteMetas(string npcName, int textureHeight, int cellWidth, int cellHeight)
     {
-        List<SpriteMetaData> metas = new List<SpriteMetaData>(rows * columns);
-        SourceDirection[] rowDirections = GetRowDirections();
+        List<SpriteMetaData> metas = new List<SpriteMetaData>(Rows * Columns);
 
-        for (int row = 0; row < rows; row++)
+        for (int row = 0; row < Rows; row++)
         {
-            SourceDirection direction = row < rowDirections.Length ? rowDirections[row] : SourceDirection.Down;
+            TemplateDirection direction = RowDirections[row];
 
-            for (int col = 0; col < columns; col++)
+            for (int col = 0; col < Columns; col++)
             {
-                Rect rect = new Rect(
-                    col * cellWidth,
-                    textureHeight - ((row + 1) * cellHeight),
-                    cellWidth,
-                    cellHeight);
-
-                SpriteMetaData meta = new SpriteMetaData
+                metas.Add(new SpriteMetaData
                 {
-                    name = $"{task.State}_{direction}_{col}",
-                    rect = rect,
+                    name = $"{npcName}_{direction}_{col}",
+                    rect = new Rect(col * cellWidth, textureHeight - ((row + 1) * cellHeight), cellWidth, cellHeight),
                     alignment = (int)SpriteAlignment.Custom,
-                    pivot = pivotMode == PivotMode.BottomCenter ? new Vector2(0.5f, 0f) : new Vector2(0.5f, 0.5f)
-                };
-                metas.Add(meta);
+                    pivot = new Vector2(0.5f, 0f)
+                });
             }
         }
 
         return metas.ToArray();
     }
 
-    private Dictionary<SourceDirection, List<Sprite>> LoadDirectionalSprites(TextureTask task)
+    private Dictionary<TemplateDirection, List<Sprite>> LoadDirectionalSprites(TextureTask task)
     {
-        Dictionary<SourceDirection, List<Sprite>> map = new Dictionary<SourceDirection, List<Sprite>>();
+        Dictionary<TemplateDirection, List<Sprite>> map = new Dictionary<TemplateDirection, List<Sprite>>();
         Sprite[] sprites = AssetDatabase.LoadAllAssetsAtPath(task.TexturePath).OfType<Sprite>().ToArray();
 
         foreach (Sprite sprite in sprites)
@@ -630,7 +393,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
                 continue;
             }
 
-            if (!Enum.TryParse(parts[1], out SourceDirection direction))
+            if (!Enum.TryParse(parts[parts.Length - 2], out TemplateDirection direction))
             {
                 continue;
             }
@@ -644,23 +407,25 @@ public class NPCPrefabGeneratorTool : EditorWindow
             list.Add(sprite);
         }
 
-        foreach ((SourceDirection direction, List<Sprite> list) in map.ToArray())
+        foreach (TemplateDirection direction in map.Keys.ToList())
         {
-            map[direction] = list.OrderBy(sprite => ExtractTrailingNumber(sprite.name)).ToList();
+            map[direction] = map[direction]
+                .OrderBy(sprite => ExtractTrailingNumber(sprite.name))
+                .ToList();
         }
 
         return map;
     }
 
-    private SourceDirection[] GetRowDirections()
+    private void ValidateDirectionalSprites(TextureTask task)
     {
-        return new[]
+        foreach (TemplateDirection direction in RowDirections)
         {
-            row0,
-            row1,
-            row2,
-            row3
-        };
+            if (!task.SpritesByDirection.TryGetValue(direction, out List<Sprite> sprites) || sprites.Count != Columns)
+            {
+                throw new InvalidOperationException($"{task.NpcName} 缺少 {direction} 方向的 3 帧切片。");
+            }
+        }
     }
 
     private int ExtractTrailingNumber(string value)
@@ -671,17 +436,12 @@ public class NPCPrefabGeneratorTool : EditorWindow
             return 0;
         }
 
-        string suffix = value.Substring(lastUnderscore + 1);
-        return int.TryParse(suffix, out int number) ? number : 0;
+        return int.TryParse(value.Substring(lastUnderscore + 1), out int number) ? number : 0;
     }
 
-    #endregion
-
-    #region 动画资源生成
-
-    private GeneratedAssets CreateAnimationAssets(string npcName, List<TextureTask> tasks)
+    private GeneratedAssets CreateAnimationAssets(TextureTask task)
     {
-        string npcAnimRoot = $"{animationRootPath}/{npcName}";
+        string npcAnimRoot = $"{animationRootPath}/{task.NpcName}";
         string clipsFolder = $"{npcAnimRoot}/Clips";
         string controllerFolder = $"{npcAnimRoot}/Controller";
 
@@ -693,94 +453,66 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
         GeneratedAssets assets = new GeneratedAssets
         {
-            NpcName = npcName,
+            NpcName = task.NpcName,
             ClipsFolder = clipsFolder,
-            ControllerPath = $"{controllerFolder}/{npcName}_Controller.controller",
-            PrefabPath = $"{prefabRootPath}/{npcName}.prefab"
+            ControllerPath = $"{controllerFolder}/{task.NpcName}_Controller.controller",
+            PrefabPath = $"{prefabRootPath}/{task.NpcName}.prefab"
         };
 
-        foreach (TextureTask task in tasks)
-        {
-            BuildClipForDirection(task, SourceDirection.Down, "Down", task.State, assets);
-            BuildSideClip(task, task.State, assets);
-            BuildClipForDirection(task, SourceDirection.Up, "Up", task.State, assets);
-        }
+        BuildDirectionalClip(task, TemplateDirection.Down, "Down", GeneratedState.Idle, assets);
+        BuildSideClip(task, GeneratedState.Idle, assets);
+        BuildDirectionalClip(task, TemplateDirection.Up, "Up", GeneratedState.Idle, assets);
+
+        BuildDirectionalClip(task, TemplateDirection.Down, "Down", GeneratedState.Move, assets);
+        BuildSideClip(task, GeneratedState.Move, assets);
+        BuildDirectionalClip(task, TemplateDirection.Up, "Up", GeneratedState.Move, assets);
 
         return assets;
     }
 
-    private void BuildClipForDirection(TextureTask task, SourceDirection sourceDirection, string clipDirection, GeneratedState state, GeneratedAssets assets)
+    private void BuildDirectionalClip(
+        TextureTask task,
+        TemplateDirection sourceDirection,
+        string clipDirection,
+        GeneratedState state,
+        GeneratedAssets assets)
     {
-        if (!task.SpritesByDirection.TryGetValue(sourceDirection, out List<Sprite> sprites) || sprites.Count == 0)
-        {
-            return;
-        }
-
-        List<Sprite> clipSprites = FilterSpritesForState(sprites, state);
-        if (clipSprites.Count == 0)
-        {
-            return;
-        }
-
-        string clipName = $"{state}_{clipDirection}_Clip";
+        List<Sprite> clipSprites = FilterSpritesForState(task.SpritesByDirection[sourceDirection], state);
+        string clipName = $"{task.NpcName}_{state}_{clipDirection}";
         string clipPath = $"{assets.ClipsFolder}/{clipName}.anim";
-        bool shouldLoop = state != GeneratedState.Death;
-
-        AnimationClip clip = CreateAnimationClip(clipName, clipPath, clipSprites, shouldLoop);
+        AnimationClip clip = CreateAnimationClip(clipName, clipPath, clipSprites);
         assets.Clips[clipName] = clip;
     }
 
     private void BuildSideClip(TextureTask task, GeneratedState state, GeneratedAssets assets)
     {
-        List<Sprite> sourceSprites = null;
-
-        if (task.SpritesByDirection.TryGetValue(SourceDirection.Right, out List<Sprite> rightSprites) && rightSprites.Count > 0)
-        {
-            sourceSprites = rightSprites;
-        }
-        else if (task.SpritesByDirection.TryGetValue(SourceDirection.Left, out List<Sprite> leftSprites) && leftSprites.Count > 0)
-        {
-            sourceSprites = leftSprites;
-        }
-
+        List<Sprite> sourceSprites = task.SpritesByDirection[TemplateDirection.Right];
         if (sourceSprites == null || sourceSprites.Count == 0)
         {
-            return;
+            sourceSprites = task.SpritesByDirection[TemplateDirection.Left];
         }
 
         List<Sprite> clipSprites = FilterSpritesForState(sourceSprites, state);
-        if (clipSprites.Count == 0)
-        {
-            return;
-        }
-
-        string clipName = $"{state}_Side_Clip";
+        string clipName = $"{task.NpcName}_{state}_Side";
         string clipPath = $"{assets.ClipsFolder}/{clipName}.anim";
-        bool shouldLoop = state != GeneratedState.Death;
-
-        AnimationClip clip = CreateAnimationClip(clipName, clipPath, clipSprites, shouldLoop);
+        AnimationClip clip = CreateAnimationClip(clipName, clipPath, clipSprites);
         assets.Clips[clipName] = clip;
     }
 
     private List<Sprite> FilterSpritesForState(List<Sprite> sprites, GeneratedState state)
     {
-        if (sprites == null || sprites.Count == 0)
+        if (state == GeneratedState.Idle)
         {
-            return new List<Sprite>();
+            return new List<Sprite> { sprites[IdleFrameIndex] };
         }
 
-        if (state != GeneratedState.Idle)
-        {
-            return new List<Sprite>(sprites);
-        }
-
-        int middleFrameIndex = Mathf.Clamp(1, 0, sprites.Count - 1);
-        return new List<Sprite> { sprites[middleFrameIndex] };
+        return new List<Sprite>(sprites);
     }
 
-    private AnimationClip CreateAnimationClip(string clipName, string clipPath, List<Sprite> sprites, bool shouldLoop)
+    private AnimationClip CreateAnimationClip(string clipName, string clipPath, List<Sprite> sprites)
     {
-        if (AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath) != null)
+        AnimationClip existing = AssetDatabase.LoadAssetAtPath<AnimationClip>(clipPath);
+        if (existing != null)
         {
             AssetDatabase.DeleteAsset(clipPath);
         }
@@ -788,10 +520,9 @@ public class NPCPrefabGeneratorTool : EditorWindow
         AnimationClip clip = new AnimationClip
         {
             name = clipName,
-            frameRate = clipFrameRate
+            frameRate = ClipFrameRate
         };
 
-        ObjectReferenceKeyframe[] keyframes = BuildKeyframes(sprites);
         EditorCurveBinding binding = new EditorCurveBinding
         {
             path = string.Empty,
@@ -799,11 +530,11 @@ public class NPCPrefabGeneratorTool : EditorWindow
             propertyName = "m_Sprite"
         };
 
-        AnimationUtility.SetObjectReferenceCurve(clip, binding, keyframes);
+        AnimationUtility.SetObjectReferenceCurve(clip, binding, BuildKeyframes(sprites));
 
         AnimationClipSettings settings = AnimationUtility.GetAnimationClipSettings(clip);
-        settings.loopTime = shouldLoop;
-        settings.stopTime = sprites.Count / clipFrameRate;
+        settings.loopTime = true;
+        settings.stopTime = Mathf.Max(sprites.Count / ClipFrameRate, 1f / ClipFrameRate);
         AnimationUtility.SetAnimationClipSettings(clip, settings);
 
         AssetDatabase.CreateAsset(clip, clipPath);
@@ -812,59 +543,55 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
     private ObjectReferenceKeyframe[] BuildKeyframes(List<Sprite> sprites)
     {
+        float clipDuration = Mathf.Max(sprites.Count / ClipFrameRate, 1f / ClipFrameRate);
         List<ObjectReferenceKeyframe> keyframes = new List<ObjectReferenceKeyframe>();
 
         for (int i = 0; i < sprites.Count; i++)
         {
             keyframes.Add(new ObjectReferenceKeyframe
             {
-                time = i / clipFrameRate,
+                time = i / ClipFrameRate,
                 value = sprites[i]
             });
         }
 
-        if (sprites.Count > 0)
+        keyframes.Add(new ObjectReferenceKeyframe
         {
-            keyframes.Add(new ObjectReferenceKeyframe
-            {
-                time = Mathf.Max((sprites.Count / clipFrameRate) - 0.0001f, 0f),
-                value = sprites[sprites.Count - 1]
-            });
-        }
+            time = Mathf.Max(clipDuration - 0.0001f, 0f),
+            value = sprites[sprites.Count - 1]
+        });
 
         return keyframes.ToArray();
     }
 
-    #endregion
-
-    #region 控制器生成
-
     private RuntimeAnimatorController CreateAnimatorController(GeneratedAssets assets)
     {
-        if (AssetDatabase.LoadAssetAtPath<UnityEditor.Animations.AnimatorController>(assets.ControllerPath) != null)
+        AnimatorController existing = AssetDatabase.LoadAssetAtPath<AnimatorController>(assets.ControllerPath);
+        if (existing != null)
         {
             AssetDatabase.DeleteAsset(assets.ControllerPath);
         }
 
-        UnityEditor.Animations.AnimatorController controller = UnityEditor.Animations.AnimatorController.CreateAnimatorControllerAtPath(assets.ControllerPath);
-        controller.AddParameter("State", UnityEngine.AnimatorControllerParameterType.Int);
-        controller.AddParameter("Direction", UnityEngine.AnimatorControllerParameterType.Int);
+        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(assets.ControllerPath);
+        controller.AddParameter("State", AnimatorControllerParameterType.Int);
+        controller.AddParameter("Direction", AnimatorControllerParameterType.Int);
 
-        UnityEditor.Animations.AnimatorControllerLayer baseLayer = controller.layers[0];
-        AnimatorStateMachine stateMachine = baseLayer.stateMachine;
-
+        AnimatorStateMachine stateMachine = controller.layers[0].stateMachine;
         Dictionary<string, AnimatorState> states = new Dictionary<string, AnimatorState>();
-        int index = 0;
 
+        int index = 0;
         foreach (KeyValuePair<string, AnimationClip> pair in assets.Clips.OrderBy(pair => pair.Key, StringComparer.Ordinal))
         {
-            AnimatorState state = stateMachine.AddState(pair.Key, new Vector3(320f + ((index % 3) * 240f), (index / 3) * 90f, 0f));
+            AnimatorState state = stateMachine.AddState(
+                pair.Key,
+                new Vector3(320f + ((index % 3) * 240f), (index / 3) * 90f, 0f));
             state.motion = pair.Value;
             states[pair.Key] = state;
             index++;
         }
 
-        if (states.TryGetValue("Idle_Down_Clip", out AnimatorState defaultState))
+        string defaultStateName = $"{assets.NpcName}_{GeneratedState.Idle}_Down";
+        if (states.TryGetValue(defaultStateName, out AnimatorState defaultState))
         {
             stateMachine.defaultState = defaultState;
         }
@@ -875,7 +602,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
         foreach (KeyValuePair<string, AnimatorState> pair in states)
         {
-            if (!TryParseClipStateInfo(pair.Key, out GeneratedState state, out int direction))
+            if (!TryParseClipStateInfo(assets.NpcName, pair.Key, out GeneratedState state, out int direction))
             {
                 continue;
             }
@@ -893,13 +620,19 @@ public class NPCPrefabGeneratorTool : EditorWindow
         return AssetDatabase.LoadAssetAtPath<RuntimeAnimatorController>(assets.ControllerPath);
     }
 
-    private bool TryParseClipStateInfo(string clipName, out GeneratedState state, out int direction)
+    private bool TryParseClipStateInfo(string npcName, string clipName, out GeneratedState state, out int direction)
     {
         state = GeneratedState.Idle;
         direction = 0;
 
-        string[] parts = clipName.Split('_');
-        if (parts.Length < 3)
+        string prefix = $"{npcName}_";
+        if (!clipName.StartsWith(prefix, StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        string[] parts = clipName.Substring(prefix.Length).Split('_');
+        if (parts.Length < 2)
         {
             return false;
         }
@@ -920,24 +653,21 @@ public class NPCPrefabGeneratorTool : EditorWindow
         return true;
     }
 
-    #endregion
-
-    #region 预制体生成
-
-    private void CreatePrefab(string npcName, RuntimeAnimatorController controller, List<TextureTask> tasks, string prefabPath)
+    private void CreatePrefab(TextureTask task, RuntimeAnimatorController controller, string prefabPath)
     {
-        Sprite initialSprite = ResolveInitialSprite(tasks);
+        Sprite initialSprite = ResolveInitialSprite(task);
         if (initialSprite == null)
         {
-            throw new InvalidOperationException("无法确定预制体初始 Sprite。");
+            throw new InvalidOperationException($"{task.NpcName} 无法确定初始 Sprite。");
         }
 
-        if (AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath) != null)
+        GameObject existing = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (existing != null)
         {
             AssetDatabase.DeleteAsset(prefabPath);
         }
 
-        GameObject root = new GameObject(npcName);
+        GameObject root = new GameObject(task.NpcName);
         try
         {
             SpriteRenderer spriteRenderer = root.AddComponent<SpriteRenderer>();
@@ -956,7 +686,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
             ConfigureCollider(circleCollider, initialSprite);
 
             NPCAnimController animController = root.AddComponent<NPCAnimController>();
-            animController.SetAnimationSpeed(defaultIdleAnimationSpeed, defaultMoveAnimationSpeed, defaultDeathAnimationSpeed);
+            animController.SetAnimationSpeed(defaultIdleAnimationSpeed, defaultMoveAnimationSpeed);
 
             NPCMotionController motionController = root.AddComponent<NPCMotionController>();
             motionController.MoveSpeed = defaultMoveSpeed;
@@ -975,20 +705,9 @@ public class NPCPrefabGeneratorTool : EditorWindow
         }
     }
 
-    private Sprite ResolveInitialSprite(List<TextureTask> tasks)
+    private Sprite ResolveInitialSprite(TextureTask task)
     {
-        TextureTask idleTask = tasks.FirstOrDefault(task => task.State == GeneratedState.Idle);
-        if (idleTask == null || idleTask.SpritesByDirection.Count == 0)
-        {
-            return null;
-        }
-
-        if (idleTask.SpritesByDirection.TryGetValue(SourceDirection.Down, out List<Sprite> downSprites) && downSprites.Count > 0)
-        {
-            return downSprites[0];
-        }
-
-        return idleTask.SpritesByDirection.Values.FirstOrDefault(list => list.Count > 0)?.FirstOrDefault();
+        return task.SpritesByDirection[TemplateDirection.Down][IdleFrameIndex];
     }
 
     private void ConfigureCollider(CircleCollider2D circleCollider, Sprite sprite)
@@ -1001,9 +720,9 @@ public class NPCPrefabGeneratorTool : EditorWindow
         circleCollider.offset = offset;
     }
 
-    private void SetPrivateBoolField(object target, string fieldName, bool value)
+    private void SetPrivateBoolField(UnityEngine.Object target, string fieldName, bool value)
     {
-        SerializedObject serializedObject = new SerializedObject((UnityEngine.Object)target);
+        SerializedObject serializedObject = new SerializedObject(target);
         SerializedProperty property = serializedObject.FindProperty(fieldName);
         if (property != null)
         {
@@ -1011,10 +730,6 @@ public class NPCPrefabGeneratorTool : EditorWindow
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
     }
-
-    #endregion
-
-    #region 目录辅助
 
     private void EnsureAssetFolder(string assetFolderPath)
     {
@@ -1042,6 +757,4 @@ public class NPCPrefabGeneratorTool : EditorWindow
     {
         return SortingLayer.layers.Select(layer => layer.name).ToArray();
     }
-
-    #endregion
 }

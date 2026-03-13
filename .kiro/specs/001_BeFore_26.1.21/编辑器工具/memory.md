@@ -173,3 +173,58 @@
 | `Assets/Editor/DatabaseSyncHelper.cs` | 数据库同步助手 |
 | `Assets/Editor/WorldPrefabGeneratorTool.cs` | 世界预制体生成器 |
 | `Assets/Editor/ToolAnimationGeneratorTool.cs` | 工具动画生成器 |
+
+---
+
+### 会话 3 - 2026-03-13
+
+**主线目标**:
+> 在 `main` 主项目里把 NPC 通用模板工具改成固定模板傻瓜版，让用户只导入 PNG 就能直接得到 Idle / Move、Controller 和 Prefab。
+
+**本轮阻塞 / 子任务**:
+1. 核对 `main` 上的真实代码是否已经同步到用户最新口径。
+2. 复测 Unity MCP 是否恢复可用。
+3. 修正工具与 NPC 运行时脚本之间的状态口径漂移。
+
+**完成任务**:
+1. 确认当前 `main` 的 `Assets/Editor/NPCPrefabGeneratorTool.cs` 仍是旧版长表单工具，并未对齐用户要求。
+2. 在当前仓库里未发现独立的 NPC 生成器 spec，故本轮按“编辑器工具”工作区承接落盘，同时补建 `Sunset/NPC` 线程记忆。
+3. 将 NPC 工具重写为固定模板版：选中 PNG / 文件夹后，一键生成 `Idle + Move + Controller + Prefab`，命名以图片名为基准，不再暴露 NPC 名称、动作映射、Death 等旧配置。
+4. 清理 `NPCAnimController.cs` 与 `NPCMotionController.cs` 的 Death 逻辑，使运行时只保留 Idle / Move，保证生成器与挂载组件语义一致。
+5. 复测 Unity MCP，`get_console_logs` 与 `recompile_scripts` 仍返回 `Connection failed: Unknown error`，因此本轮验证停留在代码回读、旧引用清零和 Git 白名单收口前检查。
+
+**修改文件**:
+- `Assets/Editor/NPCPrefabGeneratorTool.cs` - 重写为固定模板 NPC 生成器
+- `Assets/YYY_Scripts/Anim/NPC/NPCAnimController.cs` - 运行时仅保留 Idle / Move 状态
+- `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs` - 去除 Death 入口，保留运动检测与朝向桥接
+- `.codex/threads/Sunset/NPC/memory_0.md` - 补建当前线程记忆入口
+
+**当前恢复点**:
+- 主线已回到“用户可在 `D:\Unity\Unity_learning\Sunset@main` 上直接测试 NPC 固定模板工具”的状态。
+- 当前唯一未闭环点是 Unity MCP 断开导致的未编译验证；下一步应执行白名单 Git 同步并等待用户在 Unity 主项目里手测。
+
+---
+
+### 会话 4 - 2026-03-13
+
+**主线目标**:
+> 在 `main` 主项目里把 NPC 通用模板工具收口到用户最终确认的最简交互，并准备进入可同步、可手测状态。
+
+**本轮阻塞 / 子任务**:
+1. 复核 `main` 上的真实 UI 是否完全对齐用户最新口径。
+2. 复测 Unity MCP 连接状态。
+3. 仅补齐还没对齐的最小缺口。
+
+**完成任务**:
+1. 代码回读确认：固定模板生成链已成立，工具只生成 Idle / Move 两类动画及配套 Controller / Prefab。
+2. 发现此前仍有一个交互细节未对齐：`获取选中项` 按钮在底部，不符合用户指定的顶部操作习惯。
+3. 已将 `获取选中项` 移入“选中项”区顶部，底部操作区现仅保留 `一键生成 NPC 资源`。
+4. 全仓静态搜索确认，旧版 `Death / 动作映射 / 扫描输入 / NPC 名称` 口径未再残留到当前主线代码。
+5. Unity MCP 仍返回 `Connection failed: Unknown error`，本轮依旧无法补做编辑器内编译验证。
+
+**修改文件**:
+- `Assets/Editor/NPCPrefabGeneratorTool.cs` - 调整为顶部获取选中项、底部单独生成的最终交互
+
+**当前恢复点**:
+- 主线仍是 NPC 固定模板生成器闭环。
+- 当前代码口径已对齐，下一步应执行白名单 Git 同步，并等待用户在 `main` 主项目中手测。
