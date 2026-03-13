@@ -214,3 +214,22 @@
 **遗留问题**：
 - [ ] 仍需在 Unity 中把 `DialogueFontLibrary_Default.asset` 挂到 `DialogueUI` 的 `fontLibrary` 字段做一次手动确认。
 - [ ] 后续若真的进入“不同人物不同字体”，建议在上层 Presenter / 配置表中统一决定 `fontStyleKey`，而不是把规则散落进 UI 脚本。
+### 会话 26 - 2026-03-12
+**用户需求**：把本线程关于 `spring-day1` 的聊天记录、当前分支失配结论、以及我对后续 `git` / worktree / Unity 验收规范的完整思考，整理到 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\spring-day1.md`，供专门的 git 治理 / 搭建线程阅读；文档允许加入批注和理解，要求尽量详细。
+**完成任务**：
+- 只读复用当前线程上下文、`git` 只读排查结果、工作区与 thread memory，确认当前核心治理问题不是“工作全丢”，而是“成果分散在 `main`、当前未提交改动、以及 `codex/restored-mixed-snapshot-20260311`，且用户实际打开的是 `main`”。
+- 在目标路径新建并写入一份长文档，系统整理：可直接确认的聊天原文、关键分支 / worktree / 文件位置、问题复盘、以后是否应即时回 `main` 的判断、以及对治理线程的协作诉求与友好反馈偏好。
+- 明确提出后续规范主张：Unity 可视任务必须先对齐“用户当前打开的工程 / 当前分支 / 本轮验收所在 worktree”；任务分支可以存在，但每个可验收节点都必须尽快回到用户当前可见状态，或明确要求切换到对应 worktree。
+**修改文件**：
+- `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\spring-day1.md` - [新增]：给 git 治理 / 搭建线程的完整交接稿，含原文聊天、证据复盘、治理建议与协作偏好。
+**解决方案**：这轮不再继续扩展 `spring-day1` 的业务实现，而是先把“为什么用户在 Unity 里看到旧版本、我的成果究竟落在哪、以后分支与验收该如何约束”完整外显给治理线程；目标是先把工作流规则收紧，再恢复主线开发。
+**遗留问题**：
+- [ ] 仍需由后续治理线程基于该文档与现有 `git` 状态，给出一版可执行的“分散成果归拢方案”。
+- [ ] `spring-day1` 主线实现本身尚未恢复，后续仍需先完成“当前工程可见状态”和“修复成果所在分支”的统一，再继续 UI / 对话闭环推进。
+
+## 2026-03-13 补记：spring-day1 已从恢复快照补回关键缺失对象
+- 当前主线目标已从“说明成果分散”推进到“把 spring-day1 恢复到主项目内可继续原进度开发”。
+- 本轮已从 codex/restored-mixed-snapshot-20260311 白名单带回：SpringDay1_FirstDialogue.asset、DialogueDebugMenu.cs 及必要 .meta；并复核 DialogueManager.cs、DialogueUI.cs 的增强版已在当前主项目承载面。
+- NPCDialogueInteractable.cs 已随 NPC 回流，不再重复判定为 spring-day1 缺失项。
+- Primary.unity 与五套 TMP 字体资产当前 dirty 本轮不混入恢复提交，已改为保护对象，后续交回 spring-day1 自身线程判断是否单独补回。
+- 恢复点：spring-day1 现已脱离“部分在 main、部分在 snapshot”的半恢复状态，可继续在主项目体系中推进后续 UI / 对话闭环开发。

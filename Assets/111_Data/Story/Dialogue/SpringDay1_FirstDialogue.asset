@@ -1,0 +1,54 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
+  m_Name: SpringDay1_FirstDialogue
+  m_EditorClassIdentifier: 
+  sequenceId: spring-day1-first
+  nodes:
+  - speakerName: 陌生旅人
+    text: 欢迎。你现在已经能听懂这句正式文本了。
+    isGarbled: 1
+    garbledText: ▣◇▢……咔……阶……
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: 
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 这句走默认字体，用来确认主对白已经从重像素切回更干净的版本。
+    isGarbled: 0
+    garbledText: 
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 
+    text: （内心独白：这里使用叙述字体，方便我们检查字体库切换和版面融合是否自然。）
+    isGarbled: 0
+    garbledText: 
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 最后一段切到复古风，用来做首个剧情的混搭验收。
+    isGarbled: 0
+    garbledText: 
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: retro
+    typingSpeedOverride: 0
+  canSkip: 1
+  defaultTypingSpeed: 60

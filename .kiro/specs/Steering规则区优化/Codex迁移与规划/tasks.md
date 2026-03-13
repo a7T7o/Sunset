@@ -1338,3 +1338,15 @@
   - 本地 `main` 历史里的超大 SQLite 文件阻断，不再继续拖延，但本轮不做破坏性历史改写。
 - 当前执行入口已变更为：
   - `NPC与farm回归Sunset_main总收口执行记录_2026-03-13.md`
+
+## 2026-03-13 补记：总恢复执行轮已纳入 spring-day1
+- 当前总恢复范围正式收口为：NPC、arm、spring-day1、主项目承载面、线程锚点、默认规则与可推送承载链。
+- 最终承载链路固定为：
+  - 本地主项目现场：D:\Unity\Unity_learning\Sunset
+  - Git 可推送承载分支：codex/main-reflow-carrier
+- spring-day1 本轮白名单恢复对象已执行：
+  - SpringDay1_FirstDialogue.asset
+  - DialogueDebugMenu.cs
+  - 并复核 DialogueManager.cs、DialogueUI.cs 的增强版已在主项目承载面。
+- Primary.unity 与五套 TMP 字体资产当前 dirty 已降级为保护对象，不纳入本轮恢复提交。
+- NPC/farm/spring-day1 三条线程本轮统一回到主项目语义；worktree 仅保留为历史对照与例外工具链。

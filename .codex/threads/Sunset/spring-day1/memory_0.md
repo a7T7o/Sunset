@@ -215,3 +215,30 @@
 **主线恢复点 / 下一步**：
 - 下一步直接进入 UI 规划。
 - UI 规划时只需记住：字体层已经有正式扩展点，不必再在布局阶段临时硬编码字体逻辑。
+### 会话 26 - 2026-03-12
+**用户目标**：把本线程的聊天原文、分支失配复盘、成果位置判断、以及我对后续 git / worktree / Unity 验收规范的完整思考，写入 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\spring-day1.md`，交给专门负责 git 治理与搭建的线程阅读。
+**已完成事项**：
+- 基于当前上下文、只读 `git` 结果和既有 memory，明确当前真正的问题不是“工作消失”，而是“成果分散”：字体链路主要还在 `main`，但 UI 显隐修复、调试菜单、NPC 对话交互、剧本资产与验收截图主要落在 `codex/restored-mixed-snapshot-20260311`，且该分支没有独立 worktree。
+- 将当前能直接确认的用户原文与 assistant 原文、分支 / worktree / 文件位置证据、阶段复盘、以及我对未来规范的具体建议，整理成一份长文档写入 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\spring-day1.md`。
+- 明确向治理线程提出后续偏好：允许任务分支存在，但任何准备让用户验收的 Unity 可视节点，都必须尽快回到用户当前打开的工程 / worktree；如果做不到，就必须先显式说明“现在该看哪一份”，不能再让用户和我处在不同工作树里对话。
+**关键决策**：
+- 当前不继续业务实现，不做迁移，不直接改 `main` 或快照分支，而是先把这次“成果做了但用户眼前看不到”的问题完整外显给治理线程，优先修工作流。
+- 对“是不是每次都该即时回 `main`”的最终判断是：不是每一步都必须直接进 `main`，但每一个可验收节点都必须尽快回到用户当前真实可见的主线状态。
+**涉及文件或路径**：
+- `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\spring-day1.md`
+- `D:\Unity\Unity_learning\Sunset`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\memory_0.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\002-初步搭建\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\memory.md`
+**验证结果**：
+- 目标文档已成功写入，文件长度约 39 KB；使用 `Get-Content -Encoding UTF8` 复核头尾，确认内容未截断。
+**主线恢复点 / 下一步**：
+- `spring-day1` 主线当前并未恢复到可继续开发的稳定状态；下一步应由治理线程先给出一版“如何把 `main`、当前未提交改动、`codex/restored-mixed-snapshot-20260311` 重新归拢”的明确方案。
+- 只有在“用户当前打开的工程”和“我宣称已完成的成果所在工作树”重新统一后，才适合继续 UI / 对话交互闭环开发。
+
+## 2026-03-13 补记：spring-day1 已从恢复快照补回关键缺失对象
+- 当前主线目标已从“说明成果分散”推进到“把 spring-day1 恢复到主项目内可继续原进度开发”。
+- 本轮已从 codex/restored-mixed-snapshot-20260311 白名单带回：SpringDay1_FirstDialogue.asset、DialogueDebugMenu.cs 及必要 .meta；并复核 DialogueManager.cs、DialogueUI.cs 的增强版已在当前主项目承载面。
+- NPCDialogueInteractable.cs 已随 NPC 回流，不再重复判定为 spring-day1 缺失项。
+- Primary.unity 与五套 TMP 字体资产当前 dirty 本轮不混入恢复提交，已改为保护对象，后续交回 spring-day1 自身线程判断是否单独补回。
+- 恢复点：spring-day1 现已脱离“部分在 main、部分在 snapshot”的半恢复状态，可继续在主项目体系中推进后续 UI / 对话闭环开发。
