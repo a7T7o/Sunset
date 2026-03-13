@@ -60,6 +60,7 @@ public class GameInputManager : MonoBehaviour
 
     #region 阶段1：对话输入锁（最小接入）
     private bool _inputEnabled = true;
+    public bool IsInputEnabledForDebug => _inputEnabled;
 
     public void SetInputEnabled(bool enabled)
     {

@@ -1259,3 +1259,9 @@
   - `DialogueUI.cs` 头像路径兼容、任意键/按钮双触发保护、`root` 从悬空字段收口为真实搜索/显隐根节点。
 - 父层已核实：代码层收尾本身成立，但 Unity MCP 再次实测 `recompile_scripts` / `get_console_logs` 仍返回 `Connection failed: Unknown error`，因此本轮后的唯一验证阻断继续是 Editor/MCP 连接异常，而不是业务代码缺口。
 - 父层恢复点：后续可继续进入正常开发；若要补验证链，只需单独修 Unity MCP / Editor 连接，不再回头重做本轮代码收尾。
+
+## 2026-03-13（父治理层补记：最后红编译已收掉，剩余阻断重新定性为 Codex 侧 MCP 工具链）
+- 父治理主线最后一次收尾只处理两个对象：`DialogueDebugMenu.cs:158` 红编译与 Unity MCP 真实定性。
+- 子工作区本轮采用最小修复：在 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 新增只读调试属性 `IsInputEnabledForDebug`，让 `DialogueDebugMenu.cs` 继续读取当前真实 `_inputEnabled` 状态，而不重构输入系统。
+- 父层已核实：源码层面该红编译对应的悬空访问已消失；当前剩余未闭环项不再是这条代码错误，而是 Codex 侧 `get_console_logs` / `recompile_scripts` 依旧 `Connection failed: Unknown error`。
+- 结合用户截图里 `Session Active (Sunset)` 和 MCP Server `/mcp` 的 `200 OK / 202 Accepted`，当前唯一真实结论已收紧为：Unity 端 Session 是活的，但 Codex 侧 MCP 工具链本身仍未闭环。

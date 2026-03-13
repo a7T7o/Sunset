@@ -1764,3 +1764,9 @@
   - 在 `DialogueUI.cs` 内收掉 `头像/Icon` 路径适配、Enter/Space 双触发保护、`root` 改为真实搜索/显隐根节点三项问题。
 - 本轮验证已完成源码回读与 Git 白名单 diff 回读；Unity MCP 再次实测 `recompile_scripts` / `get_console_logs` 仍返回 `Connection failed: Unknown error`，因此验证链结论继续是真实阻断未解除，而不是“已验证通过”。
 - 恢复点：当前代码层恢复已经补齐；若后续继续追验证链，只需单独处理 Unity MCP / Editor 连接异常。
+
+## 2026-03-13（补记：`DialogueDebugMenu.cs:158` 红编译已按最小方案收口）
+- 当前子工作区主线继续收最后两个阻断；本轮先处理 Unity Console 中真实存在的 `DialogueDebugMenu.cs:158` 红编译。
+- 最终采用的是“补 `GameInputManager` 调试属性”，不是改 `DialogueDebugMenu` 调用：已在 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 增加只读属性 `IsInputEnabledForDebug => _inputEnabled`，不改现有输入启停逻辑。
+- 当前源码回读已确认：`DialogueDebugMenu.cs:158` 的 `gameInputManager.IsInputEnabledForDebug` 不再悬空；本轮 Git diff 也只新增了 `GameInputManager.cs` 这一处代码改动。
+- Unity MCP 再次重试 `get_console_logs` / `recompile_scripts` 仍是 `Connection failed: Unknown error`；结合用户截图中的 `Session Active (Sunset)` 与 `/mcp 200/202`，当前唯一真实定性是“Unity 端 Session 活着，但 Codex 侧 MCP 工具链未闭环”，而不是“Unity 没起”。
