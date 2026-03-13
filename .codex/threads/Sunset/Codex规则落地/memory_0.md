@@ -1115,3 +1115,8 @@
 - 本轮已执行：对比 `codex/restored-mixed-snapshot-20260311` 与 `codex/main-reflow-carrier` 后，确认前者才是真正增强版来源，并已白名单恢复 `DialogueUI.cs` 与 `DialogueManager.cs`。
 - 当前工作树直接回读证据成立；`NPC/farm` 本轮复核未倒退；三条线程继续统一锚定到 `D:\Unity\Unity_learning\Sunset@main`。
 - 当前恢复点已固定为：进入正常开发；后续若继续做 Git 治理，只单独处理本地 `main` 的超大 SQLite 历史链。
+
+## 2026-03-13 补记：Git 治理收尾已完成
+- 当前线程主线已从“解决总恢复尾巴”推进到“把默认 Git 开发/推送主线真正统一回 `main`”。
+- 本轮已完成：`origin/main` 快进到干净恢复链、本地 `main` 对齐、`codex/main-reflow-carrier` 降级、保护类 dirty 外部补丁化。
+- 当前恢复点固定为：后续正常开发默认直接在 `D:\Unity\Unity_learning\Sunset@main` 进行；只有高风险任务才再开 `codex/` 分支或 worktree。

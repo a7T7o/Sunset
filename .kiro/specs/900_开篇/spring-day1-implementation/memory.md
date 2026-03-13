@@ -161,3 +161,13 @@
 - 早前“增强版已在主项目承载面”的判断已被本轮执行纠正为真实恢复动作；恢复来源固定为 `codex/restored-mixed-snapshot-20260311`。
 - 当前 spring-day1 关键对象齐备：首段对话资产、调试菜单、增强版 UI、增强版 Manager、NPC 对话交互脚本，后续可以继续在主项目体系里推进开发。
 - `Primary.unity` 与五套 TMP 字体资产 dirty 继续维持保护状态，不混入本轮恢复提交。
+
+## 2026-03-13 补记：父工作区已切回默认主线开发
+- 当前父工作区已完成 Git 收尾：本地 `main` 与 `origin/main` 重新统一，`spring-day1` 后续默认直接在主项目 `main` 上推进。
+- `codex/main-reflow-carrier` 已降级为过渡/追溯分支；`codex/restored-mixed-snapshot-20260311` 继续只保留恢复来源价值。
+
+## 2026-03-13 补记：main 现场的 DialogueManager 编译阻塞已解除
+- 用户在 `main` 现场编译时暴露出 `DialogueManager.cs` 仍依赖旧的 `TimeManager.PauseTime/ResumeTime` 接口；同时 `DialogueDebugMenu` 也需要 `IsTimePaused()/GetPauseStackDepth()`。
+- 本轮已在 `Assets/YYY_Scripts/Service/TimeManager.cs` 补回这套兼容接口，并用“手动暂停覆盖 + 来源暂停集合”的最小实现承接旧语义。
+- 运行时程序集 `Assembly-CSharp` 已用 Unity 6000.0.62f1 自带 Roslyn 独立编译通过，用户最初给出的两条 `DialogueManager` 报错已消失。
+- 当前真正剩余阻塞不在业务代码，而在工具链：Unity MCP 仍报 `Connection failed: Unknown error`，Editor 程序集的本地独立编译也因 Bee 中间文件缺失未完全闭环。

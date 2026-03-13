@@ -246,3 +246,23 @@
 - 本轮已确认正确来源为 `codex/restored-mixed-snapshot-20260311`，并将 `DialogueUI.cs` 与 `DialogueManager.cs` 的增强版白名单恢复到当前主项目工作树。
 - 当前工作树直接回读已检出：`CanvasGroup`、`CurrentCanvasAlpha`、`IsCanvasInteractable`、`IsCanvasBlockingRaycasts`、`PauseTime`、`ResumeTime`、`ForceCompleteOrAdvance`、`CompleteCurrentNodeImmediately`。
 - 结合已在主项目中的 `SpringDay1_FirstDialogue.asset`、`DialogueDebugMenu.cs`、`NPCDialogueInteractable.cs`，spring-day1 现已恢复到按原完成进度继续开发的状态。
+
+## 2026-03-13 补记：子工作区 Git 收尾完成
+- `Assets/111_Data/Story.meta` 已纳入最终默认主线，补齐 `spring-day1` 恢复结果所需的 Unity 文件夹元数据。
+- `Primary.unity` 与五套 TMP 字体资产未并入默认主线，已导出外部补丁并从默认工作树移除，交回原线程后续认领。
+- 本子工作区后续默认直接在 `D:\Unity\Unity_learning\Sunset@main` 继续开发；不再依赖 `codex/main-reflow-carrier` 或独立 worktree。
+
+### 会话 27 - 2026-03-13（main 编译阻塞排查：TimeManager 兼容接口补回）
+**用户需求**：先检查当前 `main` 上的最新代码是否已对齐农田线实现，再检查 Unity MCP 是否能正常连接，并修复 `DialogueManager.cs` 中 `TimeManager.PauseTime/ResumeTime` 缺失导致的编译错误。
+**完成任务**：
+- 核对 `main` 当前放置代码，确认 `10.2.2` 的核心修补已在 `PlacementManager.cs / PlacementValidator.cs` 中存在。
+- 检查 Unity MCP 连接，`get_console_logs` 当前返回 `Connection failed: Unknown error`，判定为工具连接异常，不能作为项目编译状态依据。
+- 定位 `DialogueManager` 的两个报错根因：当前 `TimeManager` 只保留了 `TogglePause()/SetPaused(bool)`，但 `spring-day1` 恢复版 `DialogueManager` 仍使用旧兼容口径 `PauseTime/ResumeTime`；同时 `DialogueDebugMenu` 也依赖 `IsTimePaused()/GetPauseStackDepth()`。
+- 在 `TimeManager.cs` 中补回四个兼容接口：`PauseTime(string)`、`ResumeTime(string)`、`IsTimePaused()`、`GetPauseStackDepth()`，并新增“手动暂停覆盖 + 来源暂停集合”的最小兼容实现，避免后续多来源暂停语义再漂移。
+- 使用 Unity 6000.0.62f1 自带 Roslyn 重新独立编译 `Assembly-CSharp`，结果为 `0 error`，仅剩 1 条既有 obsolete warning；确认用户给出的 `DialogueManager` 两条编译错误已解除。
+**修改文件**：
+- `Assets/YYY_Scripts/Service/TimeManager.cs` - [修改]：补回旧暂停兼容接口与最小暂停栈语义。
+**解决方案**：不把 `DialogueManager` 强行改回更窄的 `SetPaused(true/false)`，而是在 `TimeManager` 层补回恢复版 `spring-day1` 仍依赖的兼容 API，保证运行时和调试工具都能继续工作。
+**遗留问题**：
+- [ ] Unity MCP 当前仍未恢复正常连接，后续若要依赖控制台/测试读取，需要单独修工具链。
+- [ ] `Assembly-CSharp-Editor` 的本地独立编译仍受 `Library/Bee/artifacts/.../Assembly-CSharp.ref.dll` 缺失影响，当前只能确认运行时程序集已恢复；Editor 侧是否仍有旧日志中的 `DialogueDebugMenu` 关联错误，需要等 Unity 正常刷新或 MCP 恢复后再做一次现场确认。

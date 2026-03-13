@@ -1236,3 +1236,8 @@
 - 直接回读证据成立：`DialogueUI.cs` 已具备 `CanvasGroup` 与可观测 UI 状态接口，`DialogueManager.cs` 已具备暂停/恢复时间与强制完成/推进能力，因此 spring-day1 不再停留在半恢复状态。
 - `NPC/farm` 同轮复核未倒退，三条线程锚点继续统一到 `D:\Unity\Unity_learning\Sunset@main`；默认开发哲学继续固定为主项目优先，worktree 为例外工具链。
 - 父层收口结论：用户现在只打开 `D:\Unity\Unity_learning\Sunset` 就可以继续正常开发；唯一仍需单独治理的只是本地 `main` 的超大 SQLite 历史链推送问题，但它已不构成总恢复阻断。
+
+## 2026-03-13（父治理层补记：Git 治理收尾通过）
+- `origin/main` 已快进到干净恢复链，本地 `main` 已重对齐到新的 `origin/main`。
+- `codex/main-reflow-carrier` 已退出默认主线角色，仅保留为过渡/历史收口分支；默认开发与默认推送重新统一到 `main -> origin/main`。
+- 当前默认工作树已不再残留归属不明的 tracked dirty；保护类场景/字体改动与无关线程改动均已做 Git 外补丁或本地忽略处理。

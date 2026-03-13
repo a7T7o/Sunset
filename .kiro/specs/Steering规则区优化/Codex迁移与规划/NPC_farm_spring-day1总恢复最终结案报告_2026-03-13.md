@@ -35,3 +35,21 @@
   - `Assets/000_Scenes/Primary.unity`
   - 五套中文 TMP 字体资产 dirty
   - 其他线程无关 memory / dirty / backup-script
+
+## 6. Git 治理最终收尾
+- 默认开发现场：`D:\Unity\Unity_learning\Sunset`
+- 默认开发分支：`main`
+- 默认推送分支：`origin/main`
+- `origin/main` 已快进到干净恢复链；本地 `main` 已重对齐到新的 `origin/main`，不再受旧超大 SQLite 历史链阻断。
+- `codex/main-reflow-carrier` 已降级为过渡/历史收口分支，不再承担默认开发/默认推送职责。
+
+## 7. 剩余对象最终归类
+- A 类：`Assets/111_Data/Story.meta`，纳入最终默认主线。
+- B 类：`codex/main-reflow-carrier`、`codex/restored-mixed-snapshot-20260311`、`codex/npc-generator-pipeline`、`codex/farm-10.2.2-patch002`，保留为历史对照/恢复追溯/隔离工具链。
+- C 类：`Assets/000_Scenes/Primary.unity`、五套 TMP 中文字体资产、`.codex/threads/OpenClaw/部署与配置龙虾V2/memory_3.md`，已导出外部补丁并从默认工作树移除。
+- D 类：`.codex/state_backups/`、`.codex/threads/Sunset/backup-script/`、`总恢复最终结论纠偏审视报告_2026-03-13.md`，保留在 Git 外并写入本地忽略。
+
+## 8. 进入状态
+- 三条线已回正轨。
+- 默认工作流已固定为主项目优先、`main -> origin/main` 单线推进。
+- 用户现在只打开 `D:\Unity\Unity_learning\Sunset` 就可以进入正常开发。

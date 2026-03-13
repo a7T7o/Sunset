@@ -1729,3 +1729,14 @@
 - 当前工作树直接回读已检出 `CanvasGroup`、`CurrentCanvasAlpha`、`IsCanvasInteractable`、`IsCanvasBlockingRaycasts`、`PauseTime`、`ResumeTime`、`ForceCompleteOrAdvance`、`CompleteCurrentNodeImmediately`，因此 spring-day1 已恢复到按原完成进度继续开发的状态。
 - `NPC/farm` 本轮复核未倒退；三条线程外部状态继续统一到 `D:\Unity\Unity_learning\Sunset@main`；默认开发现场与默认工作流已正式收口为主项目优先。
 - 涉及文件：`DialogueUI.cs`、`DialogueManager.cs`、`spring-day1白名单恢复执行记录_2026-03-13.md`、`NPC_farm_spring-day1总恢复最终结案报告_2026-03-13.md`；恢复点为进入正常开发。
+
+## 2026-03-13 最终 Git 治理补记
+- 当前子工作区主线已从“总恢复通过”继续推进到“Git 治理收尾通过”。
+- 本轮已完成：
+  - `origin/main` 快进到干净恢复链；
+  - 本地 `main` 重对齐到新的 `origin/main`；
+  - `codex/main-reflow-carrier` 降级为过渡/历史收口分支；
+  - `Assets/111_Data/Story.meta` 纳入主线；
+  - `Primary.unity`、五套 TMP 字体资产、无关线程 memory 变更导出到 Git 外补丁；
+  - `.codex/state_backups/`、`.codex/threads/Sunset/backup-script/`、单次中间审视稿写入本地忽略。
+- 恢复点：默认开发基线、默认推送基线、默认规则三者已统一；后续进入正常开发。

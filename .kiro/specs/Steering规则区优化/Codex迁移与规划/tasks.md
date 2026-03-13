@@ -1356,3 +1356,13 @@
 - 已完成：当前工作树直接回读检出 `CanvasGroup`、`CurrentCanvasAlpha`、`IsCanvasInteractable`、`IsCanvasBlockingRaycasts`、`PauseTime`、`ResumeTime`、`ForceCompleteOrAdvance`、`CompleteCurrentNodeImmediately`。
 - 已完成：`spring-day1` 恢复到“按原完成进度继续开发”的状态；`NPC/farm` 同轮复核未倒退，线程锚点继续保持在 `D:\Unity\Unity_learning\Sunset@main`。
 - 已完成：总恢复最终结论改写为通过；默认开发现场固定为 `D:\Unity\Unity_learning\Sunset`，worktree 降级为例外工具链。
+
+## 2026-03-13 最终 Git 治理收尾补记
+- `origin/main` 已快进到干净恢复链，本地 `main` 已重对齐到新的 `origin/main`。
+- 默认开发分支与默认推送分支已统一回 `main -> origin/main`；`codex/main-reflow-carrier` 仅保留为过渡/历史收口分支。
+- 剩余对象治理分类已固定：
+  - A 类：`Assets/111_Data/Story.meta`，纳入最终默认主线；
+  - B 类：`codex/main-reflow-carrier`、`codex/restored-mixed-snapshot-20260311`、`codex/npc-generator-pipeline`、`codex/farm-10.2.2-patch002`，保留但不作为默认现场；
+  - C 类：`Assets/000_Scenes/Primary.unity`、五套 TMP 中文字体资产、`.codex/threads/OpenClaw/部署与配置龙虾V2/memory_3.md`，已导出外部补丁并交回原线程/原用途；
+  - D 类：`.codex/state_backups/`、`.codex/threads/Sunset/backup-script/`、`总恢复最终结论纠偏审视报告_2026-03-13.md`，明确留在 Git 外并写入本地忽略。
+- 当前默认工作树已达到“可持续继续开发”的状态。

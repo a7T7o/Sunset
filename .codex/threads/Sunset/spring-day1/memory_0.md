@@ -255,3 +255,8 @@
 - 本轮已从 `codex/restored-mixed-snapshot-20260311` 白名单恢复 `DialogueUI.cs` 与 `DialogueManager.cs`，并在当前工作树直接回读确认增强标记已存在。
 - 结合已在主项目中的 `SpringDay1_FirstDialogue.asset`、`DialogueDebugMenu.cs`、`NPCDialogueInteractable.cs`，spring-day1 现在已经回到可按原完成进度继续开发的状态。
 - 当前恢复点：后续不再先处理“归拢缺失内容”，而是直接在 `D:\Unity\Unity_learning\Sunset` 主项目里继续正常开发。
+
+## 2026-03-13 补记：spring-day1 线程已并入最终默认主线
+- 当前线程已完成 Git 收尾：默认开发现场继续是 `D:\Unity\Unity_learning\Sunset`，默认开发/推送分支统一为 `main -> origin/main`。
+- `Assets/111_Data/Story.meta` 已纳入主线；保护类 `Primary.unity`、字体资产等未并入默认主线的对象已导出 Git 外补丁并移出默认工作树。
+- 当前恢复点固定为：spring-day1 后续直接在主项目 `main` 上继续开发，不再依赖 snapshot 分支或 carrier 分支。
