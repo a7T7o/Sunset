@@ -1340,7 +1340,7 @@
   - `NPC与farm回归Sunset_main总收口执行记录_2026-03-13.md`
 
 ## 2026-03-13 补记：总恢复执行轮已纳入 spring-day1
-- 当前总恢复范围正式收口为：NPC、arm、spring-day1、主项目承载面、线程锚点、默认规则与可推送承载链。
+- 当前总恢复范围正式收口为：NPC、farm、spring-day1、主项目承载面、线程锚点、默认规则与可推送承载链。
 - 最终承载链路固定为：
   - 本地主项目现场：D:\Unity\Unity_learning\Sunset
   - Git 可推送承载分支：codex/main-reflow-carrier
@@ -1350,3 +1350,9 @@
   - 并复核 DialogueManager.cs、DialogueUI.cs 的增强版已在主项目承载面。
 - Primary.unity 与五套 TMP 字体资产当前 dirty 已降级为保护对象，不纳入本轮恢复提交。
 - NPC/farm/spring-day1 三条线程本轮统一回到主项目语义；worktree 仅保留为历史对照与例外工具链。
+
+## 2026-03-13 最终总验收补记
+- 已完成：从 `codex/restored-mixed-snapshot-20260311` 把 `DialogueUI.cs` 与 `DialogueManager.cs` 的增强版真实恢复到当前主项目工作树。
+- 已完成：当前工作树直接回读检出 `CanvasGroup`、`CurrentCanvasAlpha`、`IsCanvasInteractable`、`IsCanvasBlockingRaycasts`、`PauseTime`、`ResumeTime`、`ForceCompleteOrAdvance`、`CompleteCurrentNodeImmediately`。
+- 已完成：`spring-day1` 恢复到“按原完成进度继续开发”的状态；`NPC/farm` 同轮复核未倒退，线程锚点继续保持在 `D:\Unity\Unity_learning\Sunset@main`。
+- 已完成：总恢复最终结论改写为通过；默认开发现场固定为 `D:\Unity\Unity_learning\Sunset`，worktree 降级为例外工具链。

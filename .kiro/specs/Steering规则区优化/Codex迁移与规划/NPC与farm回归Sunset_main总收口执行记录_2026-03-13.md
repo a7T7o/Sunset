@@ -1,4 +1,4 @@
-# `NPC` 与 `farm` 回归 `Sunset/main` 总收口执行记录（2026-03-13）
+﻿# `NPC` 与 `farm` 回归 `Sunset/main` 总收口执行记录（2026-03-13）
 
 ## 1. 本轮目标
 
@@ -148,18 +148,30 @@
 - 可推送替代链：已建立 `codex/main-reflow-carrier`；
 - 本地 `main` 历史大文件阻断：已绕开，但未对旧历史本身做消除。
 
-## 2026-03-13 补记：最终硬回读发现 arm rollout 残留并已当场补齐
+## 2026-03-13 补记：最终硬回读发现 farm rollout 残留并已当场补齐
 
 - 在最终交付前对两条线程做程序化回读时，发现：
   - NPC rollout 已对齐到 D:\Unity\Unity_learning\Sunset@main；
-  - arm rollout 仍残留旧 worktree 语义，session_meta.cwd 与 	urn_context.cwd 仍指向 D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002。
+  - farm rollout 仍残留旧 worktree 语义，session_meta.cwd 与 	urn_context.cwd 仍指向 D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002。
 - 已立即对 C:\Users\aTo\.codex\sessions\2026\03\10\rollout-2026-03-10T09-39-16-019cd565-fb4d-7730-a45b-3ce67410ab07.jsonl 做最小补写：
   - session_meta.payload.cwd -> D:\Unity\Unity_learning\Sunset
   - session_meta.payload.git.branch -> main
   - session_meta.payload.git.commit_hash -> 8ccdc51dbba4e40ba53bcda92577ebad3d7ee7f6
   - 全部命中的 	urn_context.payload.cwd -> D:\Unity\Unity_learning\Sunset
 - 补写后程序化回读已确认：
-  - NPC / arm 两条线程在 state_5.sqlite 中均为 cwd = D:\Unity\Unity_learning\Sunset、git_branch = main、git_sha = 8ccdc51dbba4e40ba53bcda92577ebad3d7ee7f6；
+  - NPC / farm 两条线程在 state_5.sqlite 中均为 cwd = D:\Unity\Unity_learning\Sunset、git_branch = main、git_sha = 8ccdc51dbba4e40ba53bcda92577ebad3d7ee7f6；
   - 两个 rollout 的 session_meta 与首个 	urn_context 均已回根仓库；
   - 两个 rollout 中均已检索不到 Sunset_worktrees\\NPC 或 Sunset_worktrees\\farm-10.2.2-patch002 残留。
 - 因此，本轮“线程锚点回根仓库”状态最终收口为：数据库行与 rollout 恢复层现已全部对齐，剩余验收仅在客户端实际打开路径。
+
+## 2026-03-13 补记：总恢复执行轮已完成主状态统一
+- 本轮最终已把 NPC、farm、spring-day1 三条线统一回到 D:\Unity\Unity_learning\Sunset 主项目语义，且外部线程状态已对齐到本地 main@cf1d58dfecc04a9aa6cb509a321dec92c412fcb6。
+- spring-day1 当前已补回缺失的首段对话资产与调试菜单；DialogueManager.cs、DialogueUI.cs 的增强版经复核已在主项目承载面，不再处于“部分在 snapshot、部分在 main”的半恢复状态。
+- 当前 Git 承载分工已固定：根仓库 main 继续作为用户本地主项目现场；codex/main-reflow-carrier@0855d3f3f4c0d7341c710a85a593cff89782d7c0 作为唯一干净、已推送的恢复承载链。
+- Primary.unity 与五套 TMP 字体资产当前 dirty 继续留在保护分类，不纳入本轮恢复提交；其他无关线程 dirty 继续排除。
+- 恢复点：本轮总恢复已到“用户可以只开 Sunset 一个 Unity 项目继续开发”的状态；剩余唯一尾巴仅是本地 main 历史超大文件导致不能直接推送，后续若要收回到可直推 main，需单独处理历史链。
+
+## 2026-03-13 补记：spring-day1 最后两个增强脚本已补齐，总恢复完成
+- 本轮在不改动 `NPC/farm` 既有主项目状态的前提下，补齐了 `spring-day1` 剩余唯一硬缺口：`DialogueUI.cs` 与 `DialogueManager.cs` 的增强版重新回到当前主项目工作树。
+- 恢复来源已重新锁定为 `codex/restored-mixed-snapshot-20260311`，因为 `codex/main-reflow-carrier` 上同名文件并不包含增强版关键标记。
+- 当前总恢复正式收口为：`NPC`、`farm`、`spring-day1` 三条线都能在 `D:\Unity\Unity_learning\Sunset` 主项目体系中继续开发；worktree 继续保留为例外工具链，而不是默认现场。

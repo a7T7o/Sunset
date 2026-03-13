@@ -1,4 +1,4 @@
-# Spring Day 1 Implementation - 工作记录（摘要续卷）
+﻿# Spring Day 1 Implementation - 工作记录（摘要续卷）
 
 ## 模块概述
 - 模块目标：落地 Spring Day1 的剧情基础设施，并按工作区分阶段推进。
@@ -148,3 +148,16 @@
 - NPCDialogueInteractable.cs 已随 NPC 回流，不再重复判定为 spring-day1 缺失项。
 - Primary.unity 与五套 TMP 字体资产当前 dirty 本轮不混入恢复提交，已改为保护对象，后续交回 spring-day1 自身线程判断是否单独补回。
 - 恢复点：spring-day1 现已脱离“部分在 main、部分在 snapshot”的半恢复状态，可继续在主项目体系中推进后续 UI / 对话闭环开发。
+
+## 2026-03-13 补记：总恢复执行轮已完成主状态统一
+- 本轮最终已把 NPC、farm、spring-day1 三条线统一回到 D:\Unity\Unity_learning\Sunset 主项目语义，且外部线程状态已对齐到本地 main@cf1d58dfecc04a9aa6cb509a321dec92c412fcb6。
+- spring-day1 当前已补回缺失的首段对话资产与调试菜单；DialogueManager.cs、DialogueUI.cs 的增强版经复核已在主项目承载面，不再处于“部分在 snapshot、部分在 main”的半恢复状态。
+- 当前 Git 承载分工已固定：根仓库 main 继续作为用户本地主项目现场；codex/main-reflow-carrier@0855d3f3f4c0d7341c710a85a593cff89782d7c0 作为唯一干净、已推送的恢复承载链。
+- Primary.unity 与五套 TMP 字体资产当前 dirty 继续留在保护分类，不纳入本轮恢复提交；其他无关线程 dirty 继续排除。
+- 恢复点：本轮总恢复已到“用户可以只开 Sunset 一个 Unity 项目继续开发”的状态；剩余唯一尾巴仅是本地 main 历史超大文件导致不能直接推送，后续若要收回到可直推 main，需单独处理历史链。
+
+## 2026-03-13 补记：spring-day1 已补齐最后两个增强脚本
+- 当前父工作区正式收口：`DialogueUI.cs` 与 `DialogueManager.cs` 的增强版已经真正回到 `D:\Unity\Unity_learning\Sunset` 当前主项目工作树。
+- 早前“增强版已在主项目承载面”的判断已被本轮执行纠正为真实恢复动作；恢复来源固定为 `codex/restored-mixed-snapshot-20260311`。
+- 当前 spring-day1 关键对象齐备：首段对话资产、调试菜单、增强版 UI、增强版 Manager、NPC 对话交互脚本，后续可以继续在主项目体系里推进开发。
+- `Primary.unity` 与五套 TMP 字体资产 dirty 继续维持保护状态，不混入本轮恢复提交。

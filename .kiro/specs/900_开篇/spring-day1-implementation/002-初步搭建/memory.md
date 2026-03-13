@@ -1,4 +1,4 @@
-### 会话 1 - 2026-03-05
+﻿### 会话 1 - 2026-03-05
 **用户需求**：根据《迭代锐评008纠正.md》对已落盘代码执行精准补丁（禁止全量覆写），补齐乱码字段、清理事件冗余 using、升级对话 UI（头像/内心独白/背景透明度动态恢复/防自毁注释），并完成编译与测试验证。
 **完成任务**：
 - 补齐对话节点“乱码”数据字段：`isGarbled` / `garbledText`。
@@ -233,3 +233,16 @@
 - NPCDialogueInteractable.cs 已随 NPC 回流，不再重复判定为 spring-day1 缺失项。
 - Primary.unity 与五套 TMP 字体资产当前 dirty 本轮不混入恢复提交，已改为保护对象，后续交回 spring-day1 自身线程判断是否单独补回。
 - 恢复点：spring-day1 现已脱离“部分在 main、部分在 snapshot”的半恢复状态，可继续在主项目体系中推进后续 UI / 对话闭环开发。
+
+## 2026-03-13 补记：总恢复执行轮已完成主状态统一
+- 本轮最终已把 NPC、farm、spring-day1 三条线统一回到 D:\Unity\Unity_learning\Sunset 主项目语义，且外部线程状态已对齐到本地 main@cf1d58dfecc04a9aa6cb509a321dec92c412fcb6。
+- spring-day1 当前已补回缺失的首段对话资产与调试菜单；DialogueManager.cs、DialogueUI.cs 的增强版经复核已在主项目承载面，不再处于“部分在 snapshot、部分在 main”的半恢复状态。
+- 当前 Git 承载分工已固定：根仓库 main 继续作为用户本地主项目现场；codex/main-reflow-carrier@0855d3f3f4c0d7341c710a85a593cff89782d7c0 作为唯一干净、已推送的恢复承载链。
+- Primary.unity 与五套 TMP 字体资产当前 dirty 继续留在保护分类，不纳入本轮恢复提交；其他无关线程 dirty 继续排除。
+- 恢复点：本轮总恢复已到“用户可以只开 Sunset 一个 Unity 项目继续开发”的状态；剩余唯一尾巴仅是本地 main 历史超大文件导致不能直接推送，后续若要收回到可直推 main，需单独处理历史链。
+
+## 2026-03-13 补记：最后两个增强脚本已回到主项目工作树
+- 当前子工作区主线目标已从“说明成果分散”推进到“补齐最后两个增强脚本并恢复可继续开发状态”。
+- 本轮已确认正确来源为 `codex/restored-mixed-snapshot-20260311`，并将 `DialogueUI.cs` 与 `DialogueManager.cs` 的增强版白名单恢复到当前主项目工作树。
+- 当前工作树直接回读已检出：`CanvasGroup`、`CurrentCanvasAlpha`、`IsCanvasInteractable`、`IsCanvasBlockingRaycasts`、`PauseTime`、`ResumeTime`、`ForceCompleteOrAdvance`、`CompleteCurrentNodeImmediately`。
+- 结合已在主项目中的 `SpringDay1_FirstDialogue.asset`、`DialogueDebugMenu.cs`、`NPCDialogueInteractable.cs`，spring-day1 现已恢复到按原完成进度继续开发的状态。
