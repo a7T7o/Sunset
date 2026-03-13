@@ -1740,3 +1740,27 @@
   - `Primary.unity`、五套 TMP 字体资产、无关线程 memory 变更导出到 Git 外补丁；
   - `.codex/state_backups/`、`.codex/threads/Sunset/backup-script/`、单次中间审视稿写入本地忽略。
 - 恢复点：默认开发基线、默认推送基线、默认规则三者已统一；后续进入正常开发。
+
+## 2026-03-13（补记：农田线程 MCP 不可用根因已锁定为旧桥误用）
+- 当前主线目标仍是 `Unity MCP` 稳定接入与验证闭环；本轮子任务是排查 `农田交互修复V2` 线程为何仍报告“用不了 MCP”。
+- 本轮只读核查已确认：
+  - `C:\Users\aTo\.codex\config.toml` 仍同时保留 `[mcp_servers.unityMCP]` 与 `[mcp_servers.mcp-unity]` 两套接入；
+  - 新桥 `unityMCP` 已真实可用：成功读取活动场景 `Primary`，并成功读取 Unity Console；
+  - 旧桥 `mcp-unity` 在同一现场下实测 `get_console_logs`、`recompile_scripts` 均返回 `Connection failed: Unknown error`；
+  - 项目当前 `Packages\manifest.json` 只安装 `com.coplaydev.unity-mcp`，旧 `com.gamelovers.mcp-unity` 只存在于 `Packages\manifest.json.20260310-coplay-switch.bak`，说明旧桥已失去项目侧配套；
+  - 本机仍可见多个 `node ... mcp-unity/Server~/build/index.js` 进程，表明旧桥仍会被 Codex 拉起，但并未形成可用链路。
+- 稳定结论：
+  - `农田` 线程报错中的 `get_console_logs` / `recompile_scripts` 属于旧 `mcp-unity` 工具名；
+  - 当前真正可用的是新 HTTP 桥 `unityMCP`，不是旧 stdio 桥；
+  - 因此这次失败根因不是 Unity 侧 `8080` HTTP server 没起，而是对应会话仍在走旧桥。
+- 补充验证：新桥 Console 已读到 `Assets/YYY_Scripts/Story/Managers/DialogueManager.cs` 中 `PauseTime` / `ResumeTime` 缺失的编译错误，说明新桥请求已到达 Unity；这是项目级编译问题，不是 MCP 传输失败。
+- 恢复点：下一步应先让对应会话切换/重载到 `unityMCP` 工具集合；若要彻底消除误用，再评估是否清理 `config.toml` 中的旧 `[mcp_servers.mcp-unity]` 残留配置。
+
+## 2026-03-13（补记：主项目白名单收尾已补齐最后代码缺口）
+- 当前子工作区主线已切到“只收剩余硬问题”的执行收尾；本轮直接在 `D:\Unity\Unity_learning\Sunset@main` 白名单修补 `TimeManager`、NPC 工具链与 `DialogueUI`。
+- 本轮已完成：
+  - `TimeManager.cs` 最小回放 `PauseTime(string)`、`ResumeTime(string)`、`IsTimePaused()`、`GetPauseStackDepth()` 四个兼容接口；
+  - 从 `codex/npc-fixed-template-main` 白名单回带 `NPCPrefabGeneratorTool.cs`、`NPCAnimController.cs`、`NPCMotionController.cs`；
+  - 在 `DialogueUI.cs` 内收掉 `头像/Icon` 路径适配、Enter/Space 双触发保护、`root` 改为真实搜索/显隐根节点三项问题。
+- 本轮验证已完成源码回读与 Git 白名单 diff 回读；Unity MCP 再次实测 `recompile_scripts` / `get_console_logs` 仍返回 `Connection failed: Unknown error`，因此验证链结论继续是真实阻断未解除，而不是“已验证通过”。
+- 恢复点：当前代码层恢复已经补齐；若后续继续追验证链，只需单独处理 Unity MCP / Editor 连接异常。

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System;
+using System.Collections.Generic;
 
 /// <summary>
 /// 时间管理器 - 星露谷物语风格
@@ -47,6 +48,8 @@ public class TimeManager : MonoBehaviour
 
     [Tooltip("是否暂停时间")]
     [SerializeField] private bool isPaused = false;
+    private const string ManualPauseSource = "__manual__";
+    private readonly HashSet<string> pauseSources = new HashSet<string>();
 
     [Header("=== 游戏时间设置 ===")]
     [Tooltip("每天开始时间（小时）")]
@@ -138,6 +141,10 @@ public class TimeManager : MonoBehaviour
         if (instance == null)
         {
             instance = this;
+            if (isPaused)
+            {
+                pauseSources.Add(ManualPauseSource);
+            }
             // ✅ DontDestroyOnLoad 由 PersistentManagers 统一处理
             // 不再在此调用，避免 "only works for root GameObjects" 警告
             Initialize();
@@ -322,7 +329,14 @@ public class TimeManager : MonoBehaviour
     /// <summary>暂停/继续时间</summary>
     public void TogglePause()
     {
-        isPaused = !isPaused;
+        if (pauseSources.Contains(ManualPauseSource))
+        {
+            ResumeTime(ManualPauseSource);
+        }
+        else
+        {
+            PauseTime(ManualPauseSource);
+        }
         if (showDebugInfo)
         {
             Debug.Log($"<color=yellow>[Time] {(isPaused ? "暂停" : "继续")}</color>");
@@ -338,7 +352,42 @@ public class TimeManager : MonoBehaviour
     /// <summary>设置暂停状态</summary>
     public void SetPaused(bool paused)
     {
-        isPaused = paused;
+        if (paused)
+        {
+            PauseTime(ManualPauseSource);
+        }
+        else
+        {
+            ResumeTime(ManualPauseSource);
+        }
+    }
+
+    public void PauseTime(string source)
+    {
+        string normalizedSource = NormalizePauseSource(source);
+        if (pauseSources.Add(normalizedSource))
+        {
+            SyncPauseState();
+        }
+    }
+
+    public void ResumeTime(string source)
+    {
+        string normalizedSource = NormalizePauseSource(source);
+        if (pauseSources.Remove(normalizedSource))
+        {
+            SyncPauseState();
+        }
+    }
+
+    public bool IsTimePaused()
+    {
+        return isPaused;
+    }
+
+    public int GetPauseStackDepth()
+    {
+        return pauseSources.Count;
     }
 
     /// <summary>设置具体时间</summary>
@@ -450,6 +499,16 @@ public class TimeManager : MonoBehaviour
     #endregion
 
     #region 工具方法
+    private void SyncPauseState()
+    {
+        isPaused = pauseSources.Count > 0;
+    }
+
+    private static string NormalizePauseSource(string source)
+    {
+        return string.IsNullOrWhiteSpace(source) ? ManualPauseSource : source;
+    }
+
     private string FormatTime(int hour, int minute)
     {
         int displayHour = hour;
@@ -526,4 +585,3 @@ public class TimeManager : MonoBehaviour
 #endif
     #endregion
 }
-

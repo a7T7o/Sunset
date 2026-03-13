@@ -1241,3 +1241,21 @@
 - `origin/main` 已快进到干净恢复链，本地 `main` 已重对齐到新的 `origin/main`。
 - `codex/main-reflow-carrier` 已退出默认主线角色，仅保留为过渡/历史收口分支；默认开发与默认推送重新统一到 `main -> origin/main`。
 - 当前默认工作树已不再残留归属不明的 tracked dirty；保护类场景/字体改动与无关线程改动均已做 Git 外补丁或本地忽略处理。
+
+## 2026-03-13（父治理层补记：农田线程 MCP 失败已确认为旧桥残留问题）
+- 当前父治理主线不变，仍服务于 Codex / Unity 工具链稳定化；本轮新增的阻塞排查对象是 `农田交互修复V2` 线程“仍说用不了 MCP”。
+- 子工作区已完成只读核查并形成稳定结论：
+  - `C:\Users\aTo\.codex\config.toml` 仍并存新桥 `unityMCP` 与旧桥 `mcp-unity`；
+  - 新桥已真实可用，旧桥实测 `get_console_logs` / `recompile_scripts` 仍直接报 `Connection failed: Unknown error`；
+  - 项目当前只安装 `com.coplaydev.unity-mcp`，旧 `com.gamelovers.mcp-unity` 已退回到 `manifest` 备份，不再是当前项目配套。
+- 父层稳定结论：这次 `农田` 线程的“MCP 不可用”应归类为“会话仍走旧桥”的工具链误用，不应再泛化成“Unity MCP 整体没起”。
+- 父层恢复点：下一步先推动对应会话切换到 `unityMCP` 工具集合；只有在确认所有活跃线程都不再依赖旧桥后，才评估是否清理全局 `mcp-unity` 残留配置。
+
+## 2026-03-13（父治理层补记：代码层白名单收尾已完成，验证链仍保留单点阻断）
+- 父治理主线已从“泛治理收口”收窄到“只补剩余硬问题”；本轮真实落地的代码面仅限 `TimeManager`、NPC 固定模板工具链、`DialogueUI` 三处白名单。
+- 子工作区已完成：
+  - `TimeManager.cs` 兼容接口最小回放，补齐 `DialogueManager.cs` / `DialogueDebugMenu.cs` 的真实调用落点；
+  - NPC 工具最终三文件白名单回流到 `main`，旧长表单 / `Death` 语义桥接退出默认代码路径；
+  - `DialogueUI.cs` 头像路径兼容、任意键/按钮双触发保护、`root` 从悬空字段收口为真实搜索/显隐根节点。
+- 父层已核实：代码层收尾本身成立，但 Unity MCP 再次实测 `recompile_scripts` / `get_console_logs` 仍返回 `Connection failed: Unknown error`，因此本轮后的唯一验证阻断继续是 Editor/MCP 连接异常，而不是业务代码缺口。
+- 父层恢复点：后续可继续进入正常开发；若要补验证链，只需单独修 Unity MCP / Editor 连接，不再回头重做本轮代码收尾。

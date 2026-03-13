@@ -48,6 +48,7 @@ namespace Sunset.Story
         private Coroutine _fadeCoroutine;
         private bool _isVisible;
         private float _advanceInputReadyTime = float.PositiveInfinity;
+        private int _lastAdvanceFrame = -1;
         private float _originalBackgroundAlpha = 1.0f;
         private float _dialogueBaseFontSize;
         private float _speakerBaseFontSize;
@@ -135,8 +136,7 @@ namespace Sunset.Story
 
             if (IsAdvanceInputPressed())
             {
-                _advanceInputReadyTime = Time.unscaledTime + 0.05f;
-                OnContinueClicked();
+                RequestAdvanceDialogue();
             }
         }
         #endregion
@@ -277,7 +277,7 @@ namespace Sunset.Story
 
             if (portraitImage == null)
             {
-                Transform portraitTransform = FindChild("Avatar/Icon") ?? FindChild("PortraitImage") ?? FindChild("Avatar");
+                Transform portraitTransform = FindPortraitTransform();
                 if (portraitTransform != null)
                 {
                     portraitImage = EnsureImage(portraitTransform);
@@ -287,7 +287,7 @@ namespace Sunset.Story
 
         private void ResolvePortraitTarget()
         {
-            Transform iconTransform = FindChild("Avatar/Icon");
+            Transform iconTransform = FindPortraitTransform();
             if (iconTransform != null)
             {
                 portraitImage = EnsureImage(iconTransform);
@@ -300,14 +300,16 @@ namespace Sunset.Story
 
         private void EnsureCanvasGroup()
         {
-            if (canvasGroup == null)
+            GameObject canvasRoot = root != null ? root : gameObject;
+            if (canvasGroup != null && canvasGroup.gameObject == canvasRoot)
             {
-                canvasGroup = GetComponent<CanvasGroup>();
+                return;
             }
 
+            canvasGroup = canvasRoot.GetComponent<CanvasGroup>();
             if (canvasGroup == null)
             {
-                canvasGroup = gameObject.AddComponent<CanvasGroup>();
+                canvasGroup = canvasRoot.AddComponent<CanvasGroup>();
             }
         }
 
@@ -318,7 +320,7 @@ namespace Sunset.Story
             SetRaycastTarget(dialogueText, false);
             SetRaycastTarget(portraitImage, false);
 
-            Transform avatarTransform = FindChild("Avatar");
+            Transform avatarTransform = FindChild("头像") ?? FindChild("Avatar");
             if (avatarTransform != null)
             {
                 SetRaycastTarget(avatarTransform.GetComponent<Image>(), false);
@@ -552,13 +554,24 @@ namespace Sunset.Story
 
         private void OnContinueClicked()
         {
+            RequestAdvanceDialogue();
+        }
+
+        private void RequestAdvanceDialogue()
+        {
             if (_dialogueManager == null)
             {
                 _dialogueManager = DialogueManager.Instance;
             }
 
+            if (_dialogueManager == null || _lastAdvanceFrame == Time.frameCount)
+            {
+                return;
+            }
+
+            _lastAdvanceFrame = Time.frameCount;
             _advanceInputReadyTime = Time.unscaledTime + 0.05f;
-            _dialogueManager?.AdvanceDialogue();
+            _dialogueManager.AdvanceDialogue();
         }
 
         private bool IsAdvanceInputPressed()
@@ -588,6 +601,11 @@ namespace Sunset.Story
 
         private bool IsKeyboardAdvancePressed()
         {
+            if (IsSubmitKeyRoutedToContinueButton())
+            {
+                return false;
+            }
+
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame)
             {
@@ -622,9 +640,59 @@ namespace Sunset.Story
             return Input.GetMouseButtonDown(0);
         }
 
+        private bool IsSubmitKeyRoutedToContinueButton()
+        {
+            return continueButton != null &&
+                   EventSystem.current != null &&
+                   EventSystem.current.currentSelectedGameObject == continueButton.gameObject &&
+                   WasSubmitAdvancePressedThisFrame();
+        }
+
+        private bool WasSubmitAdvancePressedThisFrame()
+        {
+#if ENABLE_INPUT_SYSTEM
+            if (Keyboard.current != null)
+            {
+                return Keyboard.current.enterKey.wasPressedThisFrame ||
+                       Keyboard.current.numpadEnterKey.wasPressedThisFrame ||
+                       Keyboard.current.spaceKey.wasPressedThisFrame;
+            }
+#endif
+
+            return Input.GetKeyDown(KeyCode.Return) ||
+                   Input.GetKeyDown(KeyCode.KeypadEnter) ||
+                   Input.GetKeyDown(KeyCode.Space);
+        }
+
         private Transform FindChild(string path)
         {
-            return string.IsNullOrWhiteSpace(path) ? null : transform.Find(path);
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return null;
+            }
+
+            Transform rootTransform = root != null ? root.transform : null;
+            Transform found = FindInScope(rootTransform, path) ?? FindInScope(transform, path);
+            if (found != null)
+            {
+                return found;
+            }
+
+            if (!path.Contains("/"))
+            {
+                found = FindDescendantByName(rootTransform, path);
+                if (found != null)
+                {
+                    return found;
+                }
+
+                if (rootTransform != transform)
+                {
+                    return FindDescendantByName(transform, path);
+                }
+            }
+
+            return null;
         }
 
         private Image EnsureImage(Transform targetTransform)
@@ -643,6 +711,45 @@ namespace Sunset.Story
             image.raycastTarget = false;
             image.preserveAspect = true;
             return image;
+        }
+
+        private Transform FindPortraitTransform()
+        {
+            return FindChild("头像/Icon") ??
+                   FindChild("Avatar/Icon") ??
+                   FindChild("PortraitImage") ??
+                   FindChild("头像") ??
+                   FindChild("Avatar");
+        }
+
+        private static Transform FindInScope(Transform scope, string path)
+        {
+            return scope == null ? null : scope.Find(path);
+        }
+
+        private static Transform FindDescendantByName(Transform scope, string name)
+        {
+            if (scope == null)
+            {
+                return null;
+            }
+
+            for (int childIndex = 0; childIndex < scope.childCount; childIndex++)
+            {
+                Transform child = scope.GetChild(childIndex);
+                if (child.name == name)
+                {
+                    return child;
+                }
+
+                Transform nestedChild = FindDescendantByName(child, name);
+                if (nestedChild != null)
+                {
+                    return nestedChild;
+                }
+            }
+
+            return null;
         }
 
         private void UpdateContinueButtonSelection(bool visible)

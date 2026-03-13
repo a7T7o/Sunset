@@ -3,7 +3,6 @@ using UnityEngine;
 /// <summary>
 /// NPC 运动与动画桥接器。
 /// 默认作为“被动观察者”工作：侦测 Rigidbody2D 或 Transform 位移，并驱动 NPCAnimController。
-/// 后续如果接入日程、寻路、剧情位移系统，可直接调用公开接口。
 /// </summary>
 [DisallowMultipleComponent]
 public class NPCMotionController : MonoBehaviour
@@ -35,7 +34,6 @@ public class NPCMotionController : MonoBehaviour
     private Vector3 _lastPosition;
     private Vector2 _externalVelocity;
     private bool _hasExternalVelocity;
-    private bool _isDead;
 
     #endregion
 
@@ -75,7 +73,7 @@ public class NPCMotionController : MonoBehaviour
 
     private void Update()
     {
-        if (_isDead || animController == null)
+        if (animController == null)
         {
             return;
         }
@@ -155,17 +153,6 @@ public class NPCMotionController : MonoBehaviour
         if (animController != null)
         {
             animController.PlayIdle(animController.CurrentDirection, force: true);
-        }
-    }
-
-    public void SetDeathState()
-    {
-        _isDead = true;
-        StopMotion();
-
-        if (animController != null)
-        {
-            animController.PlayDeath(animController.CurrentDirection, force: true);
         }
     }
 

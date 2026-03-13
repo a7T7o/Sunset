@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /// <summary>
-/// NPC 动画控制器
-/// 负责维护 NPC 的状态、方向、翻转与不同状态下的动画播放速度。
+/// NPC 动画控制器。
+/// 只维护 Idle / Move 两种状态，并负责左右翻转桥接。
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(Animator))]
@@ -14,8 +14,7 @@ public class NPCAnimController : MonoBehaviour
     public enum NPCAnimState
     {
         Idle = 0,
-        Move = 1,
-        Death = 2
+        Move = 1
     }
 
     public enum NPCAnimDirection
@@ -37,7 +36,6 @@ public class NPCAnimController : MonoBehaviour
     [Header("动画速度")]
     [SerializeField, Range(0.1f, 3f)] private float idleAnimationSpeed = 1f;
     [SerializeField, Range(0.1f, 3f)] private float moveAnimationSpeed = 1f;
-    [SerializeField, Range(0.1f, 3f)] private float deathAnimationSpeed = 1f;
 
     [Header("调试")]
     [SerializeField] private bool showDebugLog = false;
@@ -62,7 +60,6 @@ public class NPCAnimController : MonoBehaviour
     public bool IsFlipped => _isFlipped;
     public float IdleAnimationSpeed => idleAnimationSpeed;
     public float MoveAnimationSpeed => moveAnimationSpeed;
-    public float DeathAnimationSpeed => deathAnimationSpeed;
 
     #endregion
 
@@ -83,7 +80,6 @@ public class NPCAnimController : MonoBehaviour
     {
         idleAnimationSpeed = Mathf.Max(0.1f, idleAnimationSpeed);
         moveAnimationSpeed = Mathf.Max(0.1f, moveAnimationSpeed);
-        deathAnimationSpeed = Mathf.Max(0.1f, deathAnimationSpeed);
 
         if (!Application.isPlaying)
         {
@@ -131,13 +127,6 @@ public class NPCAnimController : MonoBehaviour
         ApplyVisualState(force);
     }
 
-    public void PlayDeath(NPCAnimDirection direction, bool force = true)
-    {
-        _currentState = NPCAnimState.Death;
-        _currentDirection = direction;
-        ApplyVisualState(force);
-    }
-
     public void ApplyMovementVisual(Vector2 movement)
     {
         if (movement.sqrMagnitude <= 0.0001f)
@@ -148,11 +137,10 @@ public class NPCAnimController : MonoBehaviour
         SetDirection(ConvertVectorToDirection(movement));
     }
 
-    public void SetAnimationSpeed(float idleSpeed, float moveSpeed, float deathSpeed)
+    public void SetAnimationSpeed(float idleSpeed, float moveSpeed)
     {
         idleAnimationSpeed = Mathf.Max(0.1f, idleSpeed);
         moveAnimationSpeed = Mathf.Max(0.1f, moveSpeed);
-        deathAnimationSpeed = Mathf.Max(0.1f, deathSpeed);
         ApplyAnimatorSpeed();
     }
 
@@ -166,12 +154,6 @@ public class NPCAnimController : MonoBehaviour
     public void DebugMoveDown()
     {
         PlayMove(NPCAnimDirection.Down, force: true);
-    }
-
-    [ContextMenu("调试/Death 朝下")]
-    public void DebugDeathDown()
-    {
-        PlayDeath(NPCAnimDirection.Down, force: true);
     }
 
     #endregion
@@ -203,10 +185,8 @@ public class NPCAnimController : MonoBehaviour
             return;
         }
 
-        int animatorDirection = ConvertToAnimatorDirection(_currentDirection);
-
         animator.SetInteger(StateHash, (int)_currentState);
-        animator.SetInteger(DirectionHash, animatorDirection);
+        animator.SetInteger(DirectionHash, ConvertToAnimatorDirection(_currentDirection));
 
         bool shouldFlip = _currentDirection == NPCAnimDirection.Left;
         if (force || _isFlipped != shouldFlip)
@@ -232,13 +212,9 @@ public class NPCAnimController : MonoBehaviour
             return;
         }
 
-        animator.speed = _currentState switch
-        {
-            NPCAnimState.Idle => idleAnimationSpeed,
-            NPCAnimState.Move => moveAnimationSpeed,
-            NPCAnimState.Death => deathAnimationSpeed,
-            _ => 1f
-        };
+        animator.speed = _currentState == NPCAnimState.Move
+            ? moveAnimationSpeed
+            : idleAnimationSpeed;
     }
 
     private int ConvertToAnimatorDirection(NPCAnimDirection direction)
