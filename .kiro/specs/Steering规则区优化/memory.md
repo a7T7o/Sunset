@@ -1251,6 +1251,10 @@
 - 父层稳定结论：这次 `农田` 线程的“MCP 不可用”应归类为“会话仍走旧桥”的工具链误用，不应再泛化成“Unity MCP 整体没起”。
 - 父层恢复点：下一步先推动对应会话切换到 `unityMCP` 工具集合；只有在确认所有活跃线程都不再依赖旧桥后，才评估是否清理全局 `mcp-unity` 残留配置。
 
+## 2026-03-13（父治理层补记：旧桥探测现已确认会带来前台弹窗风险）
+- 子工作区本轮又补到一条可复用结论：在当前 Windows 环境里，主动探测旧桥 `mcp-unity` 除了会失败，还可能触发可见的系统错误弹窗。
+- 父层因此新增约束：后续所有“只为确认 MCP 现在能不能用”的检查，一律优先只测新桥 `unityMCP`；旧桥只在明确需要清退或修复时再处理，避免继续给用户前台制造干扰。
+
 ## 2026-03-13（父治理层补记：代码层白名单收尾已完成，验证链仍保留单点阻断）
 - 父治理主线已从“泛治理收口”收窄到“只补剩余硬问题”；本轮真实落地的代码面仅限 `TimeManager`、NPC 固定模板工具链、`DialogueUI` 三处白名单。
 - 子工作区已完成：
@@ -1265,3 +1269,22 @@
 - 子工作区本轮采用最小修复：在 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 新增只读调试属性 `IsInputEnabledForDebug`，让 `DialogueDebugMenu.cs` 继续读取当前真实 `_inputEnabled` 状态，而不重构输入系统。
 - 父层已核实：源码层面该红编译对应的悬空访问已消失；当前剩余未闭环项不再是这条代码错误，而是 Codex 侧 `get_console_logs` / `recompile_scripts` 依旧 `Connection failed: Unknown error`。
 - 结合用户截图里 `Session Active (Sunset)` 和 MCP Server `/mcp` 的 `200 OK / 202 Accepted`，当前唯一真实结论已收紧为：Unity 端 Session 是活的，但 Codex 侧 MCP 工具链本身仍未闭环。
+
+## 2026-03-13（补记：验证层补刀未拿到成功证据，当前只能验收到源码层通过）
+- 当前主线目标是把状态从“源码层大体已闭”推进到“拿到一次真实 Unity 验证成功证据”；本轮子任务只做验证，不再扩散改 NPC / spring-day1 / farm 业务代码。
+- 本轮已完成的源码层复核：`Assets/Editor/Story/DialogueDebugMenu.cs:158` 仍读取 `gameInputManager.IsInputEnabledForDebug`，而 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 已真实定义 `public bool IsInputEnabledForDebug => _inputEnabled;`，因此当前已知红编译对应的源码悬空访问已消失。
+- 本轮再次实测 Unity MCP：`get_console_logs` 与 `recompile_scripts` 仍均返回 `Connection failed: Unknown error`；结合用户现场截图中的 `Session Active (Sunset)` 与 MCP Server `/mcp` 的 `200 OK / 202 Accepted`，不能再定性为“Unity 没起”，只能定性为“Unity 端 Session 活着，但 Codex 侧 MCP 工具调用链未闭环”。
+- 本轮补强证据读取了 `%LOCALAPPDATA%\Unity\Editor\Editor.log`；其中仍可见 `DialogueDebugMenu.cs(158,75)`、`DialogueManager.cs` 的旧红编译痕迹，但这些错误已与当前源码状态不一致，因此只能视作旧日志/陈旧证据，不能作为“当前源码仍然同样悬空”的铁证。
+- 当前稳定结论：本轮没有拿到任何成功的 Unity 验证证据，也没有新增代码提交；当前只能验收到源码层通过，验证层未通过；若后续继续推进，唯一剩余阻断点就是 Codex 侧 MCP 工具链未闭环。
+- 恢复点：主线仍服务于“验证链收口”，但在拿到新的 Unity 成功回执前，对外口径必须保持为“源码层通过，验证层未通过”，不能上提成“Unity 验证已通过”。
+
+## 2026-03-13（补记：Sunset 当前唯一口径已固定）
+- 当前主线目标已从“恢复与验证”切换到“统一当前唯一口径”，目的是让后续所有线程都基于同一默认现场、同一默认分支、同一工具链口径继续开发。
+- 本轮已正式落盘 `Sunset当前唯一状态说明_2026-03-13.md`，并同步更新 `基础规则与执行口径.md`、`tasks.md`：默认开发现场固定为 `D:\Unity\Unity_learning\Sunset`，默认开发分支固定为 `main`，默认推送分支固定为 `origin/main`，`NPC/farm/spring-day1` 不再按“待恢复”口径描述。
+- 当前 MCP 真实定性已收紧：Unity 侧 `com.coplaydev.unity-mcp` 成功打印 `Successfully registered with Claude Code using HTTP transport.`，这证明的是 Unity 包已向 `Claude Code` 注册 HTTP 客户端，而不是 `Codex` 会话已经成功闭环；`C:\Users\aTo\.codex\config.toml` 里新旧两套入口并存，是当前 `Codex` 侧持续 `Connection failed: Unknown error` 的高概率原因。
+- 当前默认治理结论已固定为：Sunset 后续默认客户端统一到 `Codex + unityMCP(HTTP)`；`Claude Code` 注册仅保留为明确切换客户端时的例外配置，不再作为默认口径。
+- 当前 warning 分流已固定：
+  - 全局可接受：当前未见新的项目级红错误，不再把非阻断 warning 上提为“项目恢复未完成”；
+  - `farm` 线程：`_hasPendingFarmInput` obsolete、`PlacementNavigator` 缺少 `PlayerAutoNavigator`、`PlacementPreview` 缺少 Sprite；
+  - 工具治理：`NPCPrefabGeneratorTool.cs:355` 的 `TextureImporter.spritesheet` obsolete。
+- 恢复点：后续线程启动前先读 `Sunset当前唯一状态说明_2026-03-13.md`；治理线继续收 `Codex`/Unity MCP 客户端统一，`farm` 与 NPC 工具 warning 则交回对应线程各自收尾。

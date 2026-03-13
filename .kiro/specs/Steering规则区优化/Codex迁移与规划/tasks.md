@@ -1366,3 +1366,12 @@
   - C 类：`Assets/000_Scenes/Primary.unity`、五套 TMP 中文字体资产、`.codex/threads/OpenClaw/部署与配置龙虾V2/memory_3.md`，已导出外部补丁并交回原线程/原用途；
   - D 类：`.codex/state_backups/`、`.codex/threads/Sunset/backup-script/`、`总恢复最终结论纠偏审视报告_2026-03-13.md`，明确留在 Git 外并写入本地忽略。
 - 当前默认工作树已达到“可持续继续开发”的状态。
+
+## 2026-03-13 当前唯一口径后的剩余任务
+- [ ] 1. 统一 Sunset 的默认 MCP 客户端为 `Codex + unityMCP(HTTP)`，停止新旧入口混用。
+- [ ] 2. 在所有继续开发线程的入口说明中引用 `Sunset当前唯一状态说明_2026-03-13.md` 作为启动基线。
+- [ ] 3. 将 `farm` 相关 warning 交回对应线程收尾：
+  - `_hasPendingFarmInput` obsolete
+  - `PlacementNavigator` 缺少 `PlayerAutoNavigator`
+  - `PlacementPreview` 物品缺少 Sprite
+- [ ] 4. 将 `NPCPrefabGeneratorTool.cs` 的 `TextureImporter.spritesheet` obsolete warning 交回工具治理线单独升级。
