@@ -1764,6 +1764,21 @@
 - 本轮新增一条操作层结论：在当前这台 Windows 机器上，主动调用旧桥 `mcp-unity` 进行对比探测，不仅会返回 `Connection failed: Unknown error`，还可能弹出系统级错误窗（用户现场看到标题为 `\`、正文为“系统找不到指定的设备。”）。
 - 该弹窗应视为旧桥 `stdio` 启动链的副作用，而不是新桥 `unityMCP` 本身的问题；后续若只是确认“当前 MCP 能否工作”，应只测新桥，避免再主动触发旧桥对比调用。
 
+## 2026-03-13（补记：旧 `mcp-unity` 已完成活配置清退）
+- 当前主线目标仍是 Sunset 的 Unity MCP 稳定化；本轮阻塞子任务是把旧 `mcp-unity` 从 Codex 活环境里彻底清退，避免继续误触、误判和前台弹窗。
+- 本轮已实际完成：
+  - 从 `C:\Users\aTo\.codex\config.toml` 中彻底删除旧 `[mcp_servers.mcp-unity]` 配置块，仅保留 `[mcp_servers.unityMCP]`；
+  - 保留一份新的回退备份 `C:\Users\aTo\.codex\config.toml.20260313-pre-remove-mcp-unity.bak`，并删除旧的 `config.toml.20260310-coplay-switch.bak`，避免后续搜配置时继续被旧备份误导；
+  - 更新 `hook事件触发README.md` 中仍在引用旧桥工具名的活示例，改为新桥 `mcp__unityMCP__refresh_unity + mcp__unityMCP__read_console`；
+  - 更新 `Sunset当前唯一状态说明_2026-03-13.md`，明确当前活配置已只维护 `unityMCP`；
+  - 杀掉全部旧 `node ... mcp-unity/Server~/build/index.js` 进程，并复查确认 5 秒后未自动复活。
+- 本轮复测结果：
+  - 新桥 `unityMCP` 继续成功读取活动场景 `Primary` 与最新 Console；
+  - 当前 `.codex` 目录下仅剩 `config.toml` 与本轮新建的清退前备份，不再保留旧切换备份；
+  - 旧 `mcp-unity` 活进程已清零。
+- 稳定结论：旧 `mcp-unity` 已从“活配置 + 活进程 + 活文档示例”三个层面退出当前 Codex 环境；后续若用户仍在某个旧窗口看见旧工具名，那属于会话级缓存/旧线程注入残留，而不是当前配置仍在继续加载旧桥。
+- 恢复点：下一步只剩用户择机重启一次当前 Codex 客户端，让旧工具定义从会话级视图里一起退出；主线随后回到用 `unityMCP` 做正常验证与开发支撑。
+
 ## 2026-03-13（补记：主项目白名单收尾已补齐最后代码缺口）
 - 当前子工作区主线已切到“只收剩余硬问题”的执行收尾；本轮直接在 `D:\Unity\Unity_learning\Sunset@main` 白名单修补 `TimeManager`、NPC 工具链与 `DialogueUI`。
 - 本轮已完成：
@@ -1797,3 +1812,11 @@
   - `farm` 线程：`_hasPendingFarmInput` obsolete、`PlacementNavigator` 缺少 `PlayerAutoNavigator`、`PlacementPreview` 缺少 Sprite；
   - 工具治理：`NPCPrefabGeneratorTool.cs:355` 的 `TextureImporter.spritesheet` obsolete。
 - 恢复点：后续线程启动前先读 `Sunset当前唯一状态说明_2026-03-13.md`；治理线继续收 `Codex`/Unity MCP 客户端统一，`farm` 与 NPC 工具 warning 则交回对应线程各自收尾。
+
+## 2026-03-14 补记：迁移期文档体系已完成结构收口
+- 当前主线目标已从“迁移/修复期治理”切换到“常态开发可用结构”；本轮不再新增迁移期活文档，而是把现行入口、历史归档、原始样本做了真实拆层。
+- 本轮已新建当前活文档目录：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则`，并迁入当前仍有效的 `Sunset当前唯一状态说明_2026-03-13.md`、`基础规则与执行口径.md`、`tasks.md`、当前子工作区 `memory.md`，以及仍有效的 `hook事件触发README.md`。
+- 本轮已新建历史归档目录：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\文档归档\2026-03-Codex恢复与迁移收口`，并按阶段拆分为迁移准备、worktree 承接修复、main 回归与三线恢复、纠偏审视、原始样本五层以上结构；旧 `Codex迁移与规划` 根目录中的阶段文档已全部迁出归档。
+- `Codex迁移与规划` 当前只保留 `README_迁移结束与路由说明_2026-03-14.md`，其身份已降级为迁移期历史入口 / 旧阶段索引 / 路由页，不再承担现行开发规则主入口。
+- 当前活文档新增了 `文档重组总索引_2026-03-13.md`；其中已完整记录每份移动文件的旧路径、新路径、移动原因与当前身份。当前默认基线与线程 WIP 边界也已写入 `Sunset当前唯一状态说明_2026-03-13.md`，明确排除 `Assets/100_Anim/NPC/`、`Assets/222_Prefabs/NPC/`、`Assets/Sprites/NPC/*.meta` 及其他线程 memory dirty。
+- 恢复点：后续线程默认从 `当前运行基线与开发规则` 进入；追溯 2026-03-07 至 2026-03-13 的迁移期资料时，才进入 `文档归档\2026-03-Codex恢复与迁移收口`。

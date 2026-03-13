@@ -169,7 +169,7 @@ Kiro 支持 8 种事件类型，分为三大类：
   },
   "then": {
     "type": "askAgent",
-    "prompt": "保存 C# 文件后：用 mcp__mcp-unity__recompile_scripts 触发脚本重编译，然后用 mcp__mcp-unity__get_console_logs（logType=error）读取编译错误。如果有错误，简要列出；如果没有，回复「编译正常」。不做任何代码修改。"
+    "prompt": "保存 C# 文件后：先用 mcp__unityMCP__refresh_unity（compile=true，wait_for_ready=true）触发脚本重编译，再用 mcp__unityMCP__read_console（action=get，types=error，include_stacktrace=false）读取编译错误。如果有错误，简要列出；如果没有，回复「编译正常」。不做任何代码修改。"
   }
 }
 ```

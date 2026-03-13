@@ -1139,6 +1139,22 @@
 - 本轮又确认了一条操作层风险：在这台 Windows 机器上，主动调用旧桥 `mcp-unity` 做对比探测，不仅会失败，还可能弹出前台系统错误窗（标题为 `\`，正文为“系统找不到指定的设备。”）。
 - 这类弹窗应归因于旧桥 `stdio` 启动链，而不是新桥 `unityMCP`；后续若只是复测“现在 MCP 能不能用”，我应只测新桥，不再主动打旧桥。
 
+## 2026-03-13 补记：旧 `mcp-unity` 已完成运行态清退
+- 当前线程主线仍是 Codex / Unity 工具链统一；本轮继续处理服务主线的阻塞：把旧 `mcp-unity` 从当前 Codex 活环境中安全清掉。
+- 本轮已完成：
+  - 备份当前 `C:\Users\aTo\.codex\config.toml` 到 `config.toml.20260313-pre-remove-mcp-unity.bak`；
+  - 从 `config.toml` 中删除旧 `[mcp_servers.mcp-unity]` 块，仅保留 `[mcp_servers.unityMCP]`；
+  - 删除旧的全局切换备份 `config.toml.20260310-coplay-switch.bak`，避免后续查配置再次误中旧桥；
+  - 更新 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\hook事件触发README.md` 的活示例，把旧桥工具名替换为新桥 `mcp__unityMCP__refresh_unity` 与 `mcp__unityMCP__read_console`；
+  - 更新 `Sunset当前唯一状态说明_2026-03-13.md`，明确当前活配置只认 `unityMCP`；
+  - 杀掉全部旧 `node ... mcp-unity/Server~/build/index.js` 进程，并在 5 秒后复查确认没有自动复活。
+- 本轮复测结果：
+  - 新桥继续成功读取活动场景 `Primary` 与最新 Console；
+  - `.codex` 下当前只剩 `config.toml` 与本轮新建的清退前备份；
+  - 旧桥活进程已清零。
+- 稳定结论：旧 `mcp-unity` 现在已经从“活配置、活进程、活文档示例”三个层面退出；剩下唯一不能由我在当前线程内直接抹掉的，是本会话已经注入过的历史工具定义视图，它需要后续重启一次 Codex 客户端才会完全从界面层消失。
+- 当前恢复点：主线可回到仅使用 `unityMCP` 的正常验证闭环；用户方便时重启一次当前 Codex，即可完成最后一层会话级刷新。
+
 ## 2026-03-13 补记：主项目白名单收尾已完成最后代码修补
 - 当前线程主线已从“只读核对剩余硬问题”推进到“直接在 `D:\Unity\Unity_learning\Sunset@main` 完成最后代码收尾并做真实验证”。
 - 本轮已完成的代码动作：
@@ -1172,3 +1188,11 @@
   - `farm` 线程：`_hasPendingFarmInput` obsolete、`PlacementNavigator` 缺少 `PlayerAutoNavigator`、`PlacementPreview` 缺少 Sprite；
   - 工具治理：`NPCPrefabGeneratorTool.cs:355` 的 `TextureImporter.spritesheet` obsolete。
 - 恢复点：后续线程启动前先读 `Sunset当前唯一状态说明_2026-03-13.md`；治理线继续收 `Codex`/Unity MCP 客户端统一，`farm` 与 NPC 工具 warning 则交回对应线程各自收尾。
+
+## 2026-03-14 补记：迁移期文档体系已完成结构收口
+- 当前主线目标已从“迁移/修复期治理”切换到“常态开发可用结构”；本轮不再新增迁移期活文档，而是把现行入口、历史归档、原始样本做了真实拆层。
+- 本轮已新建当前活文档目录：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则`，并迁入当前仍有效的 `Sunset当前唯一状态说明_2026-03-13.md`、`基础规则与执行口径.md`、`tasks.md`、当前子工作区 `memory.md`，以及仍有效的 `hook事件触发README.md`。
+- 本轮已新建历史归档目录：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\文档归档\2026-03-Codex恢复与迁移收口`，并按阶段拆分为迁移准备、worktree 承接修复、main 回归与三线恢复、纠偏审视、原始样本五层以上结构；旧 `Codex迁移与规划` 根目录中的阶段文档已全部迁出归档。
+- `Codex迁移与规划` 当前只保留 `README_迁移结束与路由说明_2026-03-14.md`，其身份已降级为迁移期历史入口 / 旧阶段索引 / 路由页，不再承担现行开发规则主入口。
+- 当前活文档新增了 `文档重组总索引_2026-03-13.md`；其中已完整记录每份移动文件的旧路径、新路径、移动原因与当前身份。当前默认基线与线程 WIP 边界也已写入 `Sunset当前唯一状态说明_2026-03-13.md`，明确排除 `Assets/100_Anim/NPC/`、`Assets/222_Prefabs/NPC/`、`Assets/Sprites/NPC/*.meta` 及其他线程 memory dirty。
+- 恢复点：后续线程默认从 `当前运行基线与开发规则` 进入；追溯 2026-03-07 至 2026-03-13 的迁移期资料时，才进入 `文档归档\2026-03-Codex恢复与迁移收口`。
