@@ -147,3 +147,19 @@
 - 线程锚点：本轮按 root/main 语义统一改回；
 - 可推送替代链：已建立 `codex/main-reflow-carrier`；
 - 本地 `main` 历史大文件阻断：已绕开，但未对旧历史本身做消除。
+
+## 2026-03-13 补记：最终硬回读发现 arm rollout 残留并已当场补齐
+
+- 在最终交付前对两条线程做程序化回读时，发现：
+  - NPC rollout 已对齐到 D:\Unity\Unity_learning\Sunset@main；
+  - arm rollout 仍残留旧 worktree 语义，session_meta.cwd 与 	urn_context.cwd 仍指向 D:\Unity\Unity_learning\Sunset_worktrees\farm-10.2.2-patch002。
+- 已立即对 C:\Users\aTo\.codex\sessions\2026\03\10\rollout-2026-03-10T09-39-16-019cd565-fb4d-7730-a45b-3ce67410ab07.jsonl 做最小补写：
+  - session_meta.payload.cwd -> D:\Unity\Unity_learning\Sunset
+  - session_meta.payload.git.branch -> main
+  - session_meta.payload.git.commit_hash -> 8ccdc51dbba4e40ba53bcda92577ebad3d7ee7f6
+  - 全部命中的 	urn_context.payload.cwd -> D:\Unity\Unity_learning\Sunset
+- 补写后程序化回读已确认：
+  - NPC / arm 两条线程在 state_5.sqlite 中均为 cwd = D:\Unity\Unity_learning\Sunset、git_branch = main、git_sha = 8ccdc51dbba4e40ba53bcda92577ebad3d7ee7f6；
+  - 两个 rollout 的 session_meta 与首个 	urn_context 均已回根仓库；
+  - 两个 rollout 中均已检索不到 Sunset_worktrees\\NPC 或 Sunset_worktrees\\farm-10.2.2-patch002 残留。
+- 因此，本轮“线程锚点回根仓库”状态最终收口为：数据库行与 rollout 恢复层现已全部对齐，剩余验收仅在客户端实际打开路径。
