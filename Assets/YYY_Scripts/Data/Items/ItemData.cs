@@ -244,8 +244,9 @@ namespace FarmGame.Data
                 }
             }
 
-            // 验证放置配置
-            if (isPlaceable)
+            // 种子会参与放置系统入口，但真实使用的是 cropPrefab 播种链，
+            // 不要求配置普通 placeable 的 placementType / placementPrefab。
+            if (isPlaceable && this is not SeedData)
             {
                 if (placementType == PlacementType.None)
                 {

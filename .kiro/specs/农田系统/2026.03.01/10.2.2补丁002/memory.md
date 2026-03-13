@@ -189,3 +189,84 @@
 - 已确认跨工作区现状说明文档已补完，能够直接回答农田线最关心的三个问题：当前基线在哪、为什么还不能开做、下一步该等什么。
 - 已确认 `about一致性巡检清单.md` 与本轮相关记忆会一并走治理线白名单同步，农田线不需要重复补建同类说明。
 - 已再次固定农田线当前仍不得进入实现：先等本地 `main` 对齐远端、跨主线 dirty 拆分，再创建 `codex/farm-10.2.2-patch002` 并做 preflight。
+
+### 会话 2026-03-13（main 控制台 warning 归因与主线同步）
+**用户需求**:
+> 不再讨论 farm 是否已回到 main，而是直接接手当前 main 控制台里真正属于 farm 的 warning，区分数据配置缺口、代码逻辑缺口和低优先级技术债，并明确 farm 当前真实开发起点。
+**主线判断**:
+- 当前主线已转为“在 `Sunset/main` 上继续 farm 放置链开发并清理控制台 warning”。
+- 本轮是主线内的只读核查子任务，目标是确认哪些 warning 真正属于 farm，哪些只是共享或低优先级噪音。
+**完成任务**:
+1. 回读 `Editor.log`，确认当前反复出现的 farm 相关 warning 为两类：
+   - `已启用放置但未设置放置类型/预制体`
+   - `GameInputManager._hasPendingFarmInput` obsolete
+2. 定位 `已启用放置...` 的代码源头在 `Assets/YYY_Scripts/Data/Items/ItemData.cs` 的通用 `OnValidate()`。
+3. 核对触发对象，确认 warning 对应的是 7 个 `SeedData` 资产：
+   - `Seed_1000_大蒜`
+   - `Seed_1001_生菜`
+   - `Seed_1002_花椰菜`
+   - `Seed_1003_卷心菜`
+   - `Seed_1004_西兰花`
+   - `Seed_1005_甜菜`
+   - `Seed_1006_胡萝卜`
+4. 回读上述 7 个 `.asset`，确认它们都已配置 `cropPrefab`，而 `placementType/placementPrefab` 为空。
+5. 回读 `SeedData.OnValidate()`，确认种子会被标记为 `isPlaceable = true`，但仍走 `cropPrefab + ValidateSeedPlacement(...)` 的专用播种链；因此这批 warning 是通用 placeable 校验误伤种子，不是资源真实漏配。
+6. 回读 `GameInputManager.cs`，确认 `_hasPendingFarmInput` 及其配套字段/方法仍在文件内自引用，但 `ConsumePendingFarmInput`、`HasPendingFarmInput`、`ProcessFarmInputAt` 没有外部调用，属于 FIFO 替代后的遗留代码。
+**关键结论**:
+1. 当前放置 warning 的本质是 farm 代码逻辑缺口，不是数据配置缺口。
+2. 7 个种子 warning 会污染当前放置链控制台，但不构成 farm 主线的运行阻断，因为种子真实运行路径使用的是 `ValidateSeedPlacement(...) + cropPrefab`。
+3. `_hasPendingFarmInput` warning 属于 farm 低优先级技术债；它说明旧缓存输入链还没清理干净，但不是当前放置主线阻断。
+4. `NPCPrefabGeneratorTool.cs` 的 `TextureImporter.spritesheet` obsolete 是共享 Editor warning，不计入 farm 主线。
+5. farm 当前真实开发起点应改写为：在 `main` 上继续清理放置链 warning 与控制台噪音，然后做 `10.2.2` 的箱子/种子/树苗回归，而不是继续讨论恢复问题。
+**涉及文件**:
+- `Assets/YYY_Scripts/Data/Items/ItemData.cs`
+- `Assets/YYY_Scripts/Data/Items/SeedData.cs`
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+- `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+- `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+- `Assets/111_Data/Items/Seeds/Seed_1000_大蒜.asset`
+- `Assets/111_Data/Items/Seeds/Seed_1001_生菜.asset`
+- `Assets/111_Data/Items/Seeds/Seed_1002_花椰菜.asset`
+- `Assets/111_Data/Items/Seeds/Seed_1003_卷心菜.asset`
+- `Assets/111_Data/Items/Seeds/Seed_1004_西兰花.asset`
+- `Assets/111_Data/Items/Seeds/Seed_1005_甜菜.asset`
+- `Assets/111_Data/Items/Seeds/Seed_1006_胡萝卜.asset`
+- `C:/Users/aTo/AppData/Local/Unity/Editor/Editor.log`
+**验证结果**:
+- 已完成 `Editor.log` 文案回读与分组。
+- 已完成 warning 字符串源头定位。
+- 已完成 7 个种子资产字段回读。
+- 已完成旧农田输入链外部引用核查。
+- 本轮未修改业务代码，未进行 Unity 重新编译。
+**恢复点 / 下一步**:
+- 当前主线保持在 `Sunset/main`。
+- 下一最小动作应先清理 `SeedData` 被通用 placeable 校验误伤的 placement warning，再重新编译确认放置链控制台收敛。
+
+### 会话 2026-03-14（最小动作：清理种子 placement 假阳性 warning）
+**用户需求**:
+> 直接开始上一步确认的最小动作；完成后汇报农田与农田相关放置系统的全部现状。
+**主线判断**:
+- 当前仍在 `10.2.2补丁002` 主线内推进。
+- 本轮不扩散范围，先只修“种子被通用 placeable 校验误伤”的 warning，再做最小验证。
+**完成任务**:
+1. 修改 `Assets/YYY_Scripts/Data/Items/ItemData.cs`。
+2. 将通用放置校验从 `if (isPlaceable)` 收窄为 `if (isPlaceable && this is not SeedData)`。
+3. 保留普通 `PlaceableItemData` / `SaplingData` 的 `placementType / placementPrefab` 校验，不动种子的 `cropPrefab + ValidateSeedPlacement(...)` 播种链。
+4. 尝试使用当前打开的 Unity 做 MCP 重编译与控制台回读；结果仍为 transport closed，判定为 MCP 传输失败，不把它当作项目失败。
+5. 回退到本地 Roslyn 编译 `Assembly-CSharp.rsp` 做脚本侧验证；结果运行时程序集编译通过，仅剩 1 条既有 warning：`GameInputManager._hasPendingFarmInput` obsolete。
+**关键结论**:
+1. 7 个种子 placement warning 的代码根因已修正。
+2. 当前运行时程序集已无 farm 放置链编译错误。
+3. 当前农田主线剩余的直接相关 warning 只剩 `_hasPendingFarmInput` 这条低优先级技术债。
+4. 由于 MCP 仍断开，本轮无法从 Unity live console 直接复读“7 个种子 warning 已消失”；这是验证未闭环，不是项目失败。
+**涉及文件**:
+- `Assets/YYY_Scripts/Data/Items/ItemData.cs`
+- `C:/Users/aTo/AppData/Local/Unity/Editor/Editor.log`
+- `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`
+**验证结果**:
+- `mcp-unity recompile_scripts / get_console_logs`：失败，类型为 transport closed。
+- 本地 Roslyn 编译：通过，仅剩 `GameInputManager._hasPendingFarmInput` warning。
+- 本轮未处理 Unity Editor 侧共享 warning。
+**恢复点 / 下一步**:
+- 当前最小修复已完成。
+- 下一步若继续清 warning，应处理 `GameInputManager` 的旧缓存农田输入链，移除 `_hasPendingFarmInput` 相关 obsolete warning。

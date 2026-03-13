@@ -196,3 +196,58 @@
 **恢复点 / 下一步**:
 - 当前已经回到主线的“等待用户审核 `10.2.2补丁002` 文档结论”这一步
 - 用户审核通过后，再按 `tasks.md` 进入 `10.2.2` 的代码实现
+
+### 会话 2026-03-13（main 控制台 warning 接管）
+**用户目标**:
+> 不再讨论 farm 是否已恢复到 main，而是直接接手当前 `Sunset/main` 控制台里真正属于 farm 的 warning，区分数据配置、代码逻辑和技术债，并给出继续开发的最小入口。
+**已完成事项**:
+1. 回读 `Editor.log`，确认 farm 相关 warning 主要是两类：7 个种子条目的“已启用放置但未设置放置类型/预制体”，以及 `GameInputManager._hasPendingFarmInput` obsolete。
+2. 定位放置 warning 源头为 `Assets/YYY_Scripts/Data/Items/ItemData.cs` 的通用 `OnValidate()` 校验。
+3. 确认触发对象是 `Assets/111_Data/Items/Seeds/Seed_1000_大蒜.asset` 到 `Seed_1006_胡萝卜.asset` 这 7 个 `SeedData` 资产；它们都已配置 `cropPrefab`，并不走普通 placeable 的 `placementType/placementPrefab` 链。
+4. 确认 `SeedData.OnValidate()` 会把种子标记为 `isPlaceable = true`，因此当前 warning 属于基类通用校验误伤种子，是代码逻辑缺口，不是资产真实漏配。
+5. 确认 `_hasPendingFarmInput` 及其旧缓存输入链只剩 `GameInputManager` 文件内自引用，无外部调用，属于 FIFO 替代后的低优先级技术债。
+**关键决策**:
+- 当前 farm 主线正式锚定为：在 `Sunset/main` 上继续放置链开发和 warning 清理，不再默认要求独立 worktree。
+- 当前 farm 真问题优先级顺序应为：先清理种子 placement 假阳性 warning，再考虑清理 `_hasPendingFarmInput` obsolete。
+- `NPCPrefabGeneratorTool.cs` 的 `TextureImporter.spritesheet` obsolete 是共享 Editor warning，不纳入 farm 主线阻断。
+**涉及文件或路径**:
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Items/ItemData.cs`
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Items/SeedData.cs`
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+- `D:/Unity/Unity_learning/Sunset/Assets/111_Data/Items/Seeds/Seed_1000_大蒜.asset`
+- `D:/Unity/Unity_learning/Sunset/Assets/111_Data/Items/Seeds/Seed_1001_生菜.asset`
+- `D:/Unity/Unity_learning/Sunset/Assets/111_Data/Items/Seeds/Seed_1002_花椰菜.asset`
+- `D:/Unity/Unity_learning/Sunset/Assets/111_Data/Items/Seeds/Seed_1003_卷心菜.asset`
+- `D:/Unity/Unity_learning/Sunset/Assets/111_Data/Items/Seeds/Seed_1004_西兰花.asset`
+- `D:/Unity/Unity_learning/Sunset/Assets/111_Data/Items/Seeds/Seed_1005_甜菜.asset`
+- `D:/Unity/Unity_learning/Sunset/Assets/111_Data/Items/Seeds/Seed_1006_胡萝卜.asset`
+- `C:/Users/aTo/AppData/Local/Unity/Editor/Editor.log`
+**验证结果**:
+- 已完成日志、代码、资产三方交叉核对。
+- 未修改业务代码，未重新编译。
+**遗留问题或下一步**:
+- 下一最小动作：先修 `SeedData` 被通用 placeable 校验误伤的 warning，并在 `main` 上做一次白名单小提交。
+
+### 会话 2026-03-14（执行最小动作并做脚本侧验证）
+**用户目标**:
+> 直接开始最小动作，完成后在对话里汇报农田和农田相关放置系统的全部现状。
+**已完成事项**:
+1. 在 `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Items/ItemData.cs` 中收窄通用放置校验，跳过 `SeedData` 的 `placementType / placementPrefab` warning。
+2. 保持 `SeedData` 仍走 `cropPrefab + ValidateSeedPlacement(...)` 的原有专用播种链，不改放置执行逻辑。
+3. 尝试通过 `mcp-unity` 重新编译与读取控制台，结果均为 transport closed；明确记为 MCP 传输失败，不记为项目失败。
+4. 使用 Unity 6000.0.62f1 自带 Roslyn 编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果通过，仅剩 `GameInputManager._hasPendingFarmInput` 一条既有 obsolete warning。
+**关键决策**:
+- 本轮只做最小收口，不顺手扩展到 `_hasPendingFarmInput` 清理。
+- 当前 farm 主线可继续描述为：种子 placement 假阳性 warning 已完成代码级修正，下一步再清旧缓存农田输入链。
+**涉及文件**:
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Items/ItemData.cs`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/memory.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/memory.md`
+- `C:/Users/aTo/AppData/Local/Unity/Editor/Editor.log`
+**验证结果**:
+- MCP：失败（transport closed）
+- 本地 Roslyn：通过，仅剩 1 条 farm 相关 obsolete warning
+**遗留问题或下一步**:
+- 下一最小动作：处理 `GameInputManager` 里的 `_hasPendingFarmInput` 技术债 warning，并再次做最小编译验证。
