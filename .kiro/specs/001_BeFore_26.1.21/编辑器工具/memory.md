@@ -228,3 +228,8 @@
 **当前恢复点**:
 - 主线仍是 NPC 固定模板生成器闭环。
 - 当前代码口径已对齐，下一步应执行白名单 Git 同步，并等待用户在 `main` 主项目中手测。
+
+**Git 收尾结果**:
+1. 安全同步脚本明确禁止在 `main` 上直接收口真实实现改动。
+2. 为保持用户仍在同一主项目路径中测试，本轮没有切换 worktree，只是在当前 `D:\Unity\Unity_learning\Sunset` 工作区内转入 `codex/npc-fixed-template-main` 分支。
+3. 通过 `stash -> ensure-branch -> stash pop -> sync` 的顺序完成白名单提交与推送，当前远端分支已建立 upstream。

@@ -86,3 +86,8 @@
 **当前恢复点**:
 - `main` 上的 NPC 工具交互已与用户最新硬规则对齐。
 - 下一步进入 Git 白名单同步；Unity 内真实编译验证仍受 MCP 断连阻塞。
+
+**Git 收尾结果**:
+1. 直接在 `main` 执行 `git-safe-sync.ps1 -Action sync -Mode task` 被脚本阻断，原因是“真实任务不能直接在 `main` 同步，必须先创建 `codex/` 任务分支”。
+2. 随后使用临时 `stash` 无损隔离当前白名单改动，执行 `ensure-branch` 创建并切换到 `codex/npc-fixed-template-main`，再恢复改动。
+3. 已在 `codex/npc-fixed-template-main` 上完成白名单同步并推送成功，首次提交为 `f62022ef`。
