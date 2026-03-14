@@ -1831,3 +1831,15 @@
 - 额外说明：本轮第一次 `refresh_unity` 调用只是参数写法不符合当前工具校验（不是 MCP 传输失败）；改成正确参数后已正常通过。
 - 当前稳定结论：重启后当前会话已能以“只走新桥”的方式完成最小验证闭环；旧桥残留不再构成当前会话阻塞。
 - 恢复点：主线可正式回到正常开发支撑；后续若要再验，只需继续使用 `unityMCP`，不再回头探测历史旧桥。
+
+## 2026-03-15 补记：Git 现行规则与场景示例已统一落盘
+- 当前子工作区主线目标是把 Sunset 现行 Git 系统规则、脚本拦截逻辑和常见执行场景整理成唯一可读口径，解决用户因 NPC 线程“脚本把 main 拦住”而产生的规则歧义。
+- 本轮已完成：
+  - 新增 `Sunset Git系统现行规则与场景示例_2026-03-15.md`，系统整理 `governance` / `task`、`preflight` / `ensure-branch` / `sync`、白名单同步、dirty 分类、`main` 与 `codex/` 分支边界、worktree 例外场景，以及 NPC 那句说明的人话解释；
+  - 修订 `Sunset当前唯一状态说明_2026-03-13.md`，把“小改动可直接进 main”收紧为“治理类小改动可 `main + governance`，真实任务改动必须 `codex/... + task`”；
+  - 修订 `基础规则与执行口径.md` 与 `文档重组总索引_2026-03-13.md`，让当前活文档层统一指向这份 Git 总说明。
+- 本轮稳定结论：
+  - 治理类改动（规则、索引、memory、Hook、脚本说明）允许直接留在 `main`，通过 `git-safe-sync.ps1 -Action sync -Mode governance` 白名单同步；
+  - 真实任务改动（`Assets/`、`Packages/`、`ProjectSettings/`、业务脚本、场景、Prefab、资源）不允许直接在 `main` 上按 `task` 收尾，必须先进入 `codex/xxx` 分支，再通过 `-Mode task` 白名单同步；
+  - NPC 那轮“脚本把 main 拦住”是脚本按真实任务规则提前刹车，不是文档坏了，也不是对方乱碰了其他 dirty。
+- 本轮恢复点：后续线程若涉及 Git 提交或推送，先读 `Sunset当前唯一状态说明_2026-03-13.md` 和 `Sunset Git系统现行规则与场景示例_2026-03-15.md`，再决定是走 `main + governance` 还是 `codex/... + task`。
