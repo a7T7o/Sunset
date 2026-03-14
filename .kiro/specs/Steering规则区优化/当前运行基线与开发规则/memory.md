@@ -1820,3 +1820,14 @@
 - `Codex迁移与规划` 当前只保留 `README_迁移结束与路由说明_2026-03-14.md`，其身份已降级为迁移期历史入口 / 旧阶段索引 / 路由页，不再承担现行开发规则主入口。
 - 当前活文档新增了 `文档重组总索引_2026-03-13.md`；其中已完整记录每份移动文件的旧路径、新路径、移动原因与当前身份。当前默认基线与线程 WIP 边界也已写入 `Sunset当前唯一状态说明_2026-03-13.md`，明确排除 `Assets/100_Anim/NPC/`、`Assets/222_Prefabs/NPC/`、`Assets/Sprites/NPC/*.meta` 及其他线程 memory dirty。
 - 恢复点：后续线程默认从 `当前运行基线与开发规则` 进入；追溯 2026-03-07 至 2026-03-13 的迁移期资料时，才进入 `文档归档\2026-03-Codex恢复与迁移收口`。
+
+## 2026-03-15 补记：重启后 `unityMCP` 最小复测已通过
+- 当前子工作区主线仍是“让 Sunset 默认只认 `Codex + unityMCP(HTTP)`”；本轮子任务是用户重启 Codex 后，确认旧桥会话残留是否已经退出，并验证新桥是否能稳定工作。
+- 本轮已核实：`C:\Users\aTo\.codex\config.toml` 现在只保留 `[mcp_servers.unityMCP]`，旧 `[mcp_servers.mcp-unity]` 配置块未再出现。
+- 本轮新桥实测结果：
+  - `mcp__unityMCP__manage_scene(action=get_active)` 成功返回活动场景 `Primary`；
+  - `mcp__unityMCP__read_console(action=get)` 连续两次成功返回，当前 `0` 条日志；
+  - `mcp__unityMCP__refresh_unity` 在使用正确参数 `compile=request, mode=force, scope=all` 后成功受理刷新/编译请求。
+- 额外说明：本轮第一次 `refresh_unity` 调用只是参数写法不符合当前工具校验（不是 MCP 传输失败）；改成正确参数后已正常通过。
+- 当前稳定结论：重启后当前会话已能以“只走新桥”的方式完成最小验证闭环；旧桥残留不再构成当前会话阻塞。
+- 恢复点：主线可正式回到正常开发支撑；后续若要再验，只需继续使用 `unityMCP`，不再回头探测历史旧桥。
