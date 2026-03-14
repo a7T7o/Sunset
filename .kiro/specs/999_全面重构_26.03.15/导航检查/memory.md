@@ -119,3 +119,20 @@
 | `.codex/threads/Sunset/导航检查/1.0.0初步检查/01_导航代码索引.md` | 线程旧索引 |
 | `.codex/threads/Sunset/导航检查/1.0.0初步检查/02_导航全盘分析报告.md` | 线程旧报告 |
 | `.codex/threads/Sunset/导航检查/1.0.0初步检查/03_现状核实与差异分析.md` | 本轮新增分析 |
+
+### 会话 1 - Git 收尾补记 - 2026-03-15
+
+**执行动作**：
+- 运行 `scripts/git-safe-sync.ps1 -Action sync -Mode governance -IncludePaths ...`
+
+**结果**：
+- 已创建并推送提交：`2026.03.15-01`（`3d7d65d5`）
+- 当前分支仍为 `main`
+- 推送后 upstream 状态：`behind=0, ahead=0`
+
+**异常/注意事项**：
+- 本次脚本除了白名单中的 4 个目标文件，还自动纳入了两份既有治理线 memory 改动：
+  - `.kiro/specs/Steering规则区优化/memory.md`
+  - `.kiro/specs/Steering规则区优化/当前运行基线与开发规则/memory.md`
+- 原因不是本轮手工扩大范围，而是 `governance` 模式默认允许治理线目录；脚本预检时将这两份已存在的脏改一起判定为可同步。
+- 仓库里仍保留大量与本线程无关的脏改，尤其是 NPC 线资产、其他线程 memory、以及本线程旧稿的删除/未跟踪状态，本轮未继续处理。
