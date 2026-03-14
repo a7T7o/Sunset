@@ -270,3 +270,29 @@
 **恢复点 / 下一步**:
 - 当前最小修复已完成。
 - 下一步若继续清 warning，应处理 `GameInputManager` 的旧缓存农田输入链，移除 `_hasPendingFarmInput` 相关 obsolete warning。
+
+### 会话 2026-03-15（一步到位收口农田主线 warning）
+**用户需求**:
+> 直接完成当前能一步完成的全部内容，然后按统一模式汇报当前进度、剩余内容、下一步与每一步可验收点。
+**主线判断**:
+- 当前仍在 `10.2.2补丁002` 主线内推进。
+- 本轮目标是把农田主线剩余的 `_hasPendingFarmInput` warning 与 Unity 验证闭环一起完成。
+**完成任务**:
+1. 修改 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`，将已被 FIFO 队列替代的旧“农田输入缓存链”整体移出编译路径。
+2. 同时移除 `CancelFarmingNavigation` 路径里对 `_hasPendingFarmInput` 的多余清零赋值，避免字段已删后继续报错。
+3. 使用 Unity Roslyn 重新编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果 `0 error / 0 warning`。
+4. 通过 Unity MCP 清空 Console、强制刷新编译、回读控制台；当前只剩 1 条共享 Editor warning：`Assets/Editor/NPCPrefabGeneratorTool.cs` 的 `TextureImporter.spritesheet` obsolete。
+**关键结论**:
+1. 当前与 farm 主线直接相关的控制台 warning 已全部清空。
+2. `SeedData` 假阳性 placement warning 与 `_hasPendingFarmInput` obsolete warning 都已完成收口。
+3. 当前 Unity live Console 中不再有 farm 相关 warning；剩余 warning 属于共享 Editor 工具链，不计入农田主线阻断。
+**涉及文件**:
+- `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+- `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`
+**验证结果**:
+- Roslyn 编译：通过，`0 error / 0 warning`
+- Unity MCP：连接可用，编译与 Console 回读成功
+- Unity Console：仅剩 `Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)` 的共享 warning
+**恢复点 / 下一步**:
+- 当前农田放置链 warning 收口任务已完成。
+- 下一步应转入 `10.2.2` 的功能回归验收：种子、箱子、树苗、锄地、浇水的现场交互验证。

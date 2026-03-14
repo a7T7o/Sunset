@@ -119,13 +119,6 @@ public class GameInputManager : MonoBehaviour
     
     // 🔥 10.1.0 新增：输入缓存（动画期间暂存玩家输入，动画结束后消费）
     // ⚠️ 10.1.1补丁002 废弃：已被 FIFO 队列（_farmActionQueue）替代，保留字段避免编译错误
-    [System.Obsolete("10.1.1补丁002：被 FIFO 队列替代，不再使用")]
-    private bool _hasPendingFarmInput = false;
-    [System.Obsolete("10.1.1补丁002：被 FIFO 队列替代，不再使用")]
-    private Vector3 _pendingFarmWorldPos;
-    [System.Obsolete("10.1.1补丁002：被 FIFO 队列替代，不再使用")]
-    private int _pendingFarmItemId;
-    
     // 🔥 9.0.4 新增：农田操作快照（防止"种瓜得豆"）
     private struct FarmingSnapshot
     {
@@ -1354,7 +1347,7 @@ public class GameInputManager : MonoBehaviour
         if (tool == null) return false;
         
         // 🔥 10.1.0 修复：不再调用 GetMouseWorldPosition()
-        // 位置信息已经由 ForceUpdatePreviewToPosition 或 UpdatePreviews 更新到 FarmToolPreview
+        // 位置信息已经由实时预览更新到 FarmToolPreview
         // 直接使用 FarmToolPreview 的 CurrentCursorPos
         
         switch (tool.toolType)
@@ -1935,7 +1928,6 @@ public class GameInputManager : MonoBehaviour
         // 🔥 10.1.1 方案E：取消导航时清除输入缓存（防止过时缓存被消费）
         // ⚠️ 10.1.1补丁002：旧缓存字段已废弃，保留赋值作为安全网
 #pragma warning disable CS0612 // 已知废弃，保留作为安全网
-        _hasPendingFarmInput = false;
 #pragma warning restore CS0612
         
         // 🔥 10.1.1-F2：安全网 — 确保 lockManager 也解锁（防止永久卡死）
@@ -2050,6 +2042,8 @@ public class GameInputManager : MonoBehaviour
         return itemData is SeedData seed && seed.itemID == expectedSeed.itemID;
     }
 
+#if LEGACY_PENDING_FARM_INPUT
+
     #region 10.1.0 输入缓存系统
     
     /// <summary>是否有待消费的农田输入缓存</summary>
@@ -2060,13 +2054,6 @@ public class GameInputManager : MonoBehaviour
     /// 清除农田输入缓存并解锁预览（10.1.1 方案Q4：切换工具栏时丢弃缓存）
     /// </summary>
     [System.Obsolete("10.1.1补丁002：被 ClearActionQueue 替代")]
-    public void ClearPendingFarmInput()
-    {
-        _hasPendingFarmInput = false;
-        var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
-        // 🔴 补丁004 模块A/G：移除 UnlockPosition（ghost 永不锁定）
-    }
-    
     /// <summary>
     /// 缓存农田输入（动画/执行期间调用，后来的覆盖前面的）
     /// </summary>
@@ -2208,6 +2195,7 @@ public class GameInputManager : MonoBehaviour
     
     #endregion
     
+    #endif
     #region ===== 10.1.1 补丁002：FIFO 操作队列方法 =====
     
     /// <summary>

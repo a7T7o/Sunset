@@ -218,3 +218,6 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 
 ## 2026-03-14：完成种子 placement 假阳性 warning 最小修复
 本轮已执行上一条记录中的最小动作：在 `Assets/YYY_Scripts/Data/Items/ItemData.cs` 中，将通用放置校验从所有 `isPlaceable` 物品收窄为“非 `SeedData` 的 isPlaceable 物品”。这次修改的目标非常明确：保留普通 placeable / 树苗的 `placementType / placementPrefab` 数据校验，同时停止对种子报“已启用放置但未设置放置类型/预制体”的假阳性 warning。验证方面，`mcp-unity` 仍为 transport closed，无法读取 Unity live console；因此本轮用 Unity Roslyn 直接编译 `Assembly-CSharp.rsp`，结果运行时程序集编译通过，仅剩 1 条既有 warning：`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 中 `_hasPendingFarmInput` obsolete。由此更新父工作区状态：farm 放置链的首要控制台噪音已完成代码级收口，当前与农田主线直接相关的剩余 warning 只剩旧缓存农田输入链技术债；共享 Editor warning 仍不计入 farm 主线阻断。下一最小动作：清理 `GameInputManager` 中 `_hasPendingFarmInput` 及其废弃配套链。
+
+## 2026-03-15：farm 主线 warning 全部收口并完成 Unity 现场闭环
+本轮继续沿 `Sunset/main` 推进农田主线，在 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 中把已被 FIFO 队列彻底替代的旧“农田输入缓存链”整体退出编译路径，并顺手清掉 `CancelFarmingNavigation` 中对 `_hasPendingFarmInput` 的残余赋值。验证分两层完成：首先使用 Unity 6000.0.62f1 自带 Roslyn 重新编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果 `0 error / 0 warning`；随后通过 Unity MCP 清空 Console、触发编译并回读日志，当前控制台只剩 `Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)` 的共享 Editor warning，已不再存在 farm 相关 warning。由此更新父工作区结论：农田主线当前已完成“种子 placement 假阳性 + 旧缓存输入链 obsolete”两类 warning 的全部收口，主线不再被控制台噪音阻断，下一步可直接进入 `10.2.2` 的现场交互回归验收。

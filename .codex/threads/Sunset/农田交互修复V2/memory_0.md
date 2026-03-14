@@ -251,3 +251,26 @@
 - 本地 Roslyn：通过，仅剩 1 条 farm 相关 obsolete warning
 **遗留问题或下一步**:
 - 下一最小动作：处理 `GameInputManager` 里的 `_hasPendingFarmInput` 技术债 warning，并再次做最小编译验证。
+
+### 会话 2026-03-15（一步到位完成农田 warning 收口）
+**用户目标**:
+> 直接完成当前能一步完成的全部内容，然后重新按统一模式汇报所有进度、剩余内容与下一步验收点。
+**已完成事项**:
+1. 在 `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 中，把旧的 `_hasPendingFarmInput` 缓存输入链整体移出编译路径。
+2. 同时删除 `CancelFarmingNavigation` 路径里对 `_hasPendingFarmInput` 的残余赋值，修复字段移除后的直接编译错误。
+3. 使用 Unity Roslyn 重新编译 `D:/Unity/Unity_learning/Sunset/Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果为 `0 error / 0 warning`。
+4. 通过 Unity MCP 清空 Console、请求编译并回读日志，当前仅剩 `Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)` 的共享 Editor warning。
+**关键决策**:
+- 本轮将“旧缓存输入链”按退出编译路径处理，而不是继续保留带 warning 的安全网。
+- 当前 farm 主线状态已更新为：主线 warning 全部收口，可直接转入 `10.2.2` 的现场交互验收。
+**涉及文件或路径**:
+- `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/memory.md`
+- `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/memory.md`
+- `D:/Unity/Unity_learning/Sunset/Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`
+**验证结果**:
+- Roslyn：通过，`0 error / 0 warning`
+- Unity MCP：连接恢复，可清 Console、可请求编译、可回读日志
+- Unity live Console：farm warning 已消失，仅剩共享 Editor warning
+**遗留问题或下一步**:
+- 下一步不再是 warning 清理，而是开始做农田与放置系统的现场交互回归验收。
