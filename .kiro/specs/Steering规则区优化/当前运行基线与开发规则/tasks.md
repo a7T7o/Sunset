@@ -1375,3 +1375,14 @@
   - `PlacementNavigator` 缺少 `PlayerAutoNavigator`
   - `PlacementPreview` 物品缺少 Sprite
 - [ ] 4. 将 `NPCPrefabGeneratorTool.cs` 的 `TextureImporter.spritesheet` obsolete warning 交回工具治理线单独升级。
+
+## 2026-03-15 多线程并行协作收口补记
+- [x] 1. 落盘 `Sunset多线程并行协作现状分析与收口计划_2026-03-15.md`，正式确认当前主缺口是“共享状态层缺失”。
+- [x] 2. 建立 `Sunset活跃线程总表_2026-03-15.md`，产出首轮治理侧统一快照。
+- [x] 3. 建立 `Sunset文件认领与锁定表_2026-03-15.md`，明确当前高风险路径归属。
+- [x] 4. 建立 `Sunset当前工作树dirty与WIP归属表_2026-03-15.md`，明确当前工作树的主要归属。
+- [x] 5. 建立 `Sunset统一汇总验收模型_2026-03-15.md`，统一项目级收口标准。
+- [x] 6. 建立 `Sunset线程统一汇总模板_2026-03-15.md`，为下一轮统一快照做准备。
+- [x] 7. 更新 `线程分支对照表.md / .json`，清理 `NPC/farm` 仍默认为旧 worktree 的活规则冲突。
+- [ ] 8. 让所有活跃线程按统一模板补一轮新快照。
+- [ ] 9. 基于新快照回填共享表，并决定是否调整现行 Git 规则边界。

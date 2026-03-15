@@ -237,14 +237,15 @@ lastUpdated: 2026-03-11
 - 推荐命名仍为：`codex/<系统>-<任务>-<补丁号>`。
 - 任何 `Assets/`、`Packages/`、`ProjectSettings/` 的真实实现，都不应先改完再想起建分支；分支必须先于实现动作存在。
 
-## 13. 长期线程与 worktree 固定原则
+## 13. 长期线程、任务分支与 worktree 例外原则
 
-- `Sunset` 的长期线程分两类：
+- `Sunset` 的长期线程分三类语义：
   1. **A 类：治理 / 总览 / 只读 / 审计线程**，固定使用仓库根目录 `D:\Unity\Unity_learning\Sunset`，默认分支为 `main`
-  2. **B 类：独立功能实现线程**，固定使用对照表指定的独立 worktree，默认分支为对应 `codex/*`
+  2. **B 类：功能推进 / 集成 / 实现线程**，默认也先从仓库根目录 `D:\Unity\Unity_learning\Sunset` 进入，入口基线为 `main`；一旦进入真实实现，再切到对应 `codex/*` 分支
+  3. **C 类：高风险隔离 / 故障修复 / 特殊实验线程**，只在确有必要时才使用独立 `worktree`
 - 固定映射表的唯一项目内入口为：`D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.md`
-- `worktree` 的职责是解决“哪个线程看哪份文件”，不是替代分支管理
-- `merge` 的职责是让功能分支成果回到 `main` 参与联调，不能拿线程切换或 worktree 视图替代
+- `worktree` 现在只承担高风险隔离、故障修复、特殊实验和历史对照职责，不再作为普通功能线程的默认现场
+- `merge` 的职责是让功能分支成果回到 `main` 参与联调，不能拿线程切换或 `worktree` 视图替代
 - 名称中带 `restored`、`snapshot`、`backup`、`mixed` 的分支，默认只用于取证、恢复、对比，不作为长期线程默认归属
 
 ## 14. 进入线程前的固定核验

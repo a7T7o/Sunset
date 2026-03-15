@@ -1876,3 +1876,33 @@
 - 对照证据：同目录 `Sunset当前唯一状态说明_2026-03-13.md` 仍是正常 UTF-8 BOM 中文内容，因此不是“整个目录都显示错了”，而是这一个文件此前在改写过程中发生过编码错写。
 - 当前稳定判断：这类乱码属于“先被按错误编码解释，再被重新保存”的内容级损坏，后续若要修复，必须回到正确版本重写或人工校正，不能只靠切换编辑器编码解决。
 - 恢复点：后续若继续修这个文件，应按“以现行有效口径为准重新写正文本体”的方式处理，不把它再当作可直接信任的来源文本。
+
+## 2026-03-15 补记：共享状态层首轮落地已完成，当前任务清单推进到“等统一快照”
+- 当前子工作区主线目标已收紧为两件事：
+  - 先把多线程并行协作的共享状态层、文件认领层和统一验收层正式落盘；
+  - 再基于所有活跃线程的新一轮统一快照，判断现行 Git 规则是否需要继续放宽或重构。
+- 本轮已真实完成：
+  - 新增 `Sunset活跃线程总表_2026-03-15.md`、`Sunset文件认领与锁定表_2026-03-15.md`、`Sunset当前工作树dirty与WIP归属表_2026-03-15.md`、`Sunset统一汇总验收模型_2026-03-15.md`、`Sunset线程统一汇总模板_2026-03-15.md`；
+  - 更新 `.codex/threads/线程分支对照表.md / .json`，清掉 `NPC/farm` 仍默认旧 worktree 的活规则冲突；
+  - 同步修订 `Sunset当前唯一状态说明_2026-03-13.md`、`基础规则与执行口径.md`、`文档重组总索引_2026-03-13.md`、`tasks.md`，把共享状态层文件升格为现行入口；
+  - 修正 `.kiro/steering/git-safety-baseline.md` 的旧口径：功能线程默认先从主项目根目录进入，真实实现再切 `codex/*`，`worktree` 仅保留为例外工具链。
+- 本轮稳定结论：
+  - “统一回复模板”仍重要，但当前第一优先级已经由它改判为“共享状态层缺失”；
+  - 当前任务清单里 1-7 已经完成，剩余未完成项只剩：
+    - 让所有活跃线程按统一模板补一轮新快照；
+    - 基于新快照回填共享表，并决定是否调整 Git 规则边界。
+- 本轮验证结果：
+  - 已把现行入口文档、线程映射表、canonical 的 `git-safety-baseline.md` 与当前 Git / Unity live 现场做过交叉核对；
+  - 本轮未修改任何业务代码、场景或资源；
+  - 当前 `main` 虽与 `origin/main` 同步，但工作树仍存在多线程 WIP，因此不能把“基线同步”误读成“已适合无边界继续开发”。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\steering\git-safety-baseline.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset活跃线程总表_2026-03-15.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset文件认领与锁定表_2026-03-15.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前工作树dirty与WIP归属表_2026-03-15.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset统一汇总验收模型_2026-03-15.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset线程统一汇总模板_2026-03-15.md`
+- 恢复点：
+  - 下一步不该继续凭单线程旧汇报推进开发，而应先收全体活跃线程统一快照，再用共享表决定 Git 边界、锁定冲突和后续正常并行开发准入。
