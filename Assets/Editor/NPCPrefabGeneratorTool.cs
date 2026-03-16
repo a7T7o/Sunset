@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.U2D.Sprites;
 using UnityEngine;
 
 /// <summary>
@@ -352,14 +353,27 @@ public class NPCPrefabGeneratorTool : EditorWindow
         importer.isReadable = true;
         importer.alphaIsTransparency = true;
         importer.spritePixelsPerUnit = PixelsPerUnit;
-        importer.spritesheet = BuildSpriteMetas(task.NpcName, texture.height, cellWidth, cellHeight);
+        importer.SaveAndReimport();
+
+        SpriteDataProviderFactories dataProviderFactories = new SpriteDataProviderFactories();
+        dataProviderFactories.Init();
+        ISpriteEditorDataProvider dataProvider = dataProviderFactories.GetSpriteEditorDataProviderFromObject(importer);
+        if (dataProvider == null)
+        {
+            throw new InvalidOperationException($"无法获取 ISpriteEditorDataProvider：{task.TexturePath}");
+        }
+
+        dataProvider.InitSpriteEditorDataProvider();
+        dataProvider.SetSpriteRects(BuildSpriteRects(task.NpcName, texture.height, cellWidth, cellHeight));
+        dataProvider.Apply();
+
         EditorUtility.SetDirty(importer);
         importer.SaveAndReimport();
     }
 
-    private SpriteMetaData[] BuildSpriteMetas(string npcName, int textureHeight, int cellWidth, int cellHeight)
+    private SpriteRect[] BuildSpriteRects(string npcName, int textureHeight, int cellWidth, int cellHeight)
     {
-        List<SpriteMetaData> metas = new List<SpriteMetaData>(Rows * Columns);
+        List<SpriteRect> rects = new List<SpriteRect>(Rows * Columns);
 
         for (int row = 0; row < Rows; row++)
         {
@@ -367,17 +381,18 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
             for (int col = 0; col < Columns; col++)
             {
-                metas.Add(new SpriteMetaData
+                rects.Add(new SpriteRect
                 {
                     name = $"{npcName}_{direction}_{col}",
                     rect = new Rect(col * cellWidth, textureHeight - ((row + 1) * cellHeight), cellWidth, cellHeight),
-                    alignment = (int)SpriteAlignment.Custom,
-                    pivot = new Vector2(0.5f, 0f)
+                    alignment = SpriteAlignment.Custom,
+                    pivot = new Vector2(0.5f, 0f),
+                    spriteID = GUID.Generate()
                 });
             }
         }
 
-        return metas.ToArray();
+        return rects.ToArray();
     }
 
     private Dictionary<TemplateDirection, List<Sprite>> LoadDirectionalSprites(TextureTask task)
