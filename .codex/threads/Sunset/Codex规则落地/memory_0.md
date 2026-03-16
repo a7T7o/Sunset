@@ -1225,3 +1225,31 @@
 - 本轮只读核查结论：该文件当前是 UTF-8 无 BOM，但内容本身已经是被错码后的字符串；也就是“文件保存成功了，但保存进去的已经不是原本中文”。
 - 这说明问题不只是查看器显示，而是此前某次改写过程中发生了编码链错位；后续若修，必须按正文重写/回正，而不是只切换编辑器编码。
 - 恢复点：以后遇到类似情况，先对比字节头和同目录正常文件，再区分“显示问题”与“文件本体损坏”。
+
+## 2026-03-16 补记：冻结期现场快照已写入统一汇总目录
+- 当前线程主线暂停推进实现，转为配合全局冻结汇总；本轮按用户指定路径，将本线程现场快照写入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\Codex规则落地.md`。
+- 本轮保持冻结：未新增代码、场景、Prefab、资源、规则正文修改，未提交、未推送；只做只读复核与文档落盘。
+- 当前恢复点：冻结解除后，先看 A 类热文件锁裁决，再决定本线程是否恢复只动治理文档。
+
+## 2026-03-16 补记：Skills / MCP 主线已迁出为独立线程入口
+- 当前 `Codex规则落地` 线程继续保留为“规则落地 / 治理分层 / 路由口径”历史主线；其中与 Skills、Unity MCP、旧桥清退、验证闭环直接相关的后续承接入口已从本线程中抽离。
+- 本轮已新增独立线程记忆：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Skills和MCP\memory_0.md`。
+- 当前恢复点：
+  - 后续若继续处理项目专用 Skills、Unity MCP 候选、接入、验证或旧桥相关问题，优先从 `Skills和MCP` 线程继续；
+  - 本线程只保留历史背景、规则落地脉络与迁移说明，不再承担 Skills / MCP 主线的默认第一入口。
+
+## 2026-03-16 补记：物理锁基建与首批复工追认锁已实际落地
+- 当前线程主线已从“统一冻结快照与共享状态层”推进到“把 A 类热文件锁机制从文档设计真正变成可执行工具”。
+- 本轮已完成：
+  - 在 `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\` 下新增 `LockCommon.ps1`、`Check-Lock.ps1`、`Acquire-Lock.ps1`、`Release-Lock.ps1`；
+  - 在 `D:\Unity\Unity_learning\Sunset\.kiro\locks\` 下新增运行态目录骨架与忽略规则，使活动锁 JSON 留在 Git 外，但锁目录本身可纳入治理提交；
+  - 通过 `Acquire-Lock.ps1` 为 `Primary.unity` 与 `DialogueUI.cs` 两个当前真实 dirty 的 A 类热文件发出首批追认锁；
+  - 通过 `Check-Lock.ps1` 已成功回读两把锁，确认锁文件和脚本链都已生效。
+- 当前锁状态：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__YYY_Scripts__Story__UI__DialogueUI.cs.lock.json`
+  - 两把锁的 owner 都是 `spring-day1`，并附带严格 checkpoint 范围，不允许借锁扩写其他主场景或 UI 内容。
+- 当前恢复点：
+  - `spring-day1` 现在可以在锁内范围开始第一批单 checkpoint 复工；
+  - 其他业务线程继续冻结 A 类文件，等待 `spring-day1` 释放锁后的第二轮裁决；
+  - 后续只允许通过 `Release-Lock.ps1` 释放锁，不再手删 JSON。

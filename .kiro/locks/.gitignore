@@ -1,0 +1,4 @@
+active/*.lock.json
+history/*.json
+!active/.gitkeep
+!history/.gitkeep

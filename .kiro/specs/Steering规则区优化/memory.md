@@ -1366,3 +1366,97 @@
   - 当前真正需要治理的是活跃线程之间的共享状态、认领冲突和 Git 规则分层，而不是某个已删除的 agent 目录。
 - 父层恢复点：
   - 后续若继续修规则或起草调度 prompt，应只保留“历史本地工作树噪音统一忽略”这一抽象规则，不再写具体 agent 名称。
+
+## 2026-03-16（父治理层补记：冻结汇总子工作区已开始接收线程快照）
+- 当前父治理主线继续服务于“统一时间窗线程汇总快照”；本轮未继续改动代码或场景，而是把 `遮挡检查` 线程的冻结现场正式落盘到治理汇总区。
+- 子工作区 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总` 本轮已补建 `memory.md`，并新增：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\遮挡检查.md`
+- 父层已确认的稳定事实：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\` 当前尚不存在；
+  - 当前共享热文件中至少已有 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 与 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs` 两个未持锁 dirty 需要统一裁决；
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs` 当前未出现在 dirty 清单，但仍被列入 A 类共享热文件观察对象。
+- 父层恢复点：
+  - 后续继续收其他线程冻结快照时，统一沿用“线程名.md + 子工作区 memory + 父工作区 memory”的落盘结构，不在冻结期自行推进共享热文件开发。
+
+## 2026-03-16（父治理层补记：冻结文档汇总目录已开始承接线程快照）
+- 当前父治理主线继续服务于“统一冻结期现场快照”；本轮用户明确指定将 `spring-day1` 线程快照写入 `Steering规则区优化/2026.03.16冻结文档汇总/`。
+- 已在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\spring-day1.md` 落盘该线程的结构化冻结快照，并为该目录补建 `memory.md` 作为后续汇总记录入口。
+- 当前恢复点：后续若继续汇总其他线程，应沿用“线程名文档 + 子目录 memory”方式继续追加，不再散落到对话或临时回复中。
+
+## 2026-03-16（父治理层补记：项目文档总览线程冻结快照已纠偏重写）
+- 当前父治理主线仍是冻结汇总与共享状态统一；本轮子工作区 `2026.03.16冻结文档汇总` 已纠正一条线程级误判。
+- 已确认：此前有一次冻结快照把 `项目文档总览` 错认成了 `spring-day1`；本轮已回到 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\memory_0.md` 和 `.kiro/about/` 三份正式成果做定向复核，并重写对应冻结文档。
+- 父层稳定结论：
+  - `项目文档总览` 线程的真实主线仍是 `.kiro/about/` 三份正式成果与后续“总索引层 / 主线承接映射”；
+  - 但其旧记忆所依赖的治理语境仍停留在 `Codex迁移与规划`，而父层现行活入口已经迁到 `当前运行基线与开发规则`；
+  - 因此该线程后续若恢复推进，第一步应是“承接关系对齐”，不是直接继续写正文或重整目录。
+- 当前恢复点：冻结期继续只做快照；解除冻结后，再决定是否让 `项目文档总览` 线程正式补做总索引层。
+
+## 2026-03-16（父治理层补记：农田交互修复V2 线程冻结快照已落盘）
+- 当前父治理主线仍是“统一冻结期现场快照”；本轮继续在子工作区 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总` 承接线程级现场文档。
+- 已新增：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\农田交互修复V2.md`
+- 父层已确认的稳定事实：
+  - `农田交互修复V2` 当前现场仍以 `D:\Unity\Unity_learning\Sunset @ main` 为锚点；
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 与 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs` 当前都是未持锁 dirty 的 A 类共享热文件；
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs` 当前 Git clean，但仍被保留为后续 farm 输入链回归时可能需要申请锁的观察对象；
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\` 目前仍不存在。
+- 父层恢复点：
+  - 冻结期继续只做快照汇总；
+  - 解除冻结后，先统一 owner / 锁裁决，再决定是否允许 farm 线程恢复 `Primary.unity` 侧现场回归。
+
+## 2026-03-16（父治理层补记：导航检查线程冻结快照已落盘）
+- 当前父治理主线继续服务于“统一冻结期现场快照”；本轮用户明确指定将 `导航检查` 线程快照写入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\`。
+- 已在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\导航检查.md` 落盘该线程的结构化冻结快照，并同步追加子工作区 `memory.md` 与线程记忆。
+- 父层已确认的稳定事实：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\` 当前尚不存在；
+  - 当前共享热文件中至少已有 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 与 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs` 两个未持锁 dirty 需要统一裁决；
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs` 当前未出现在 dirty 清单，但仍被列入 A 类共享热文件观察对象。
+- 父层恢复点：
+  - 后续继续收其他线程冻结快照时，统一沿用“线程名.md + 子工作区 memory + 父工作区 memory”的落盘结构，不在冻结期自行推进共享热文件开发。
+
+## 2026-03-16（父治理层补记：`Codex规则落地` 线程冻结快照已落盘）
+- 当前父治理主线继续服务于统一冻结期现场快照；本轮已按用户指定路径，将 `Codex规则落地` 线程的结构化冻结快照写入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\Codex规则落地.md`。
+- 已明确记录的现场要点包括：当前工作目录/分支/HEAD、Unity live 读链状态、A 类热文件 `Primary.unity` 与 `DialogueUI.cs` 的既有未持锁 dirty、以及冻结解除后的最小下一步。
+- 当前恢复点：继续收其他线程冻结快照时，统一沿用相同 12 段结构，不再用临时聊天文本代替现场文档。
+
+## 2026-03-16（父治理层补记：`Skills和MCP` 线程已独立迁移并纳入冻结汇总）
+- 当前父治理主线仍是“统一冻结期现场快照”；本轮用户明确更正：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Skills和MCP` 才是该主线的正确 Codex 线程工作区。
+- 本轮已完成：
+  - 以 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Codex规则落地\memory_0.md` 为源，抽离 Skills / MCP 相关主线并新建 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Skills和MCP\memory_0.md`；
+  - 在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\Skills和MCP.md` 落盘冻结快照；
+  - 重建子工作区 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\memory.md`，并将原始写入记录归档到 `memory_0.md`。
+- 父层已确认的稳定事实：
+  - `C:\Users\aTo\.codex\skills\sunset-workspace-router`、`C:\Users\aTo\.codex\skills\sunset-scene-audit`、`C:\Users\aTo\.codex\skills\sunset-review-router`、`C:\Users\aTo\.codex\skills\sunset-unity-validation-loop` 当前都存在；
+  - `C:\Users\aTo\.codex\config.toml` 当前只读到 `[mcp_servers.unityMCP]`；
+  - Unity live 本轮成功返回活动场景 `Primary` 与最新 Console；
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\` 当前仍不存在。
+- 父层恢复点：
+  - 冻结期继续只做快照汇总与线程入口整理，不推进新的 Skills / MCP 实现；
+  - 解除冻结后，如继续这条主线，优先从 `Skills和MCP` 新线程入口与 `当前运行基线与开发规则` 活文档恢复。
+
+## 2026-03-16（父治理层补记：`NPC` 线程冻结快照已落盘）
+- 当前父治理主线继续服务于统一冻结期现场快照；本轮已按用户指定路径，将 `NPC` 线程的结构化冻结快照写入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\NPC.md`。
+- 已明确记录的现场要点包括：当前工作目录/分支/HEAD、`NPC` 工作区与线程记忆的存在状态、NPC 相关资源 dirty、以及 A 类热文件 `Primary.unity` 与 `DialogueUI.cs` 的既有未持锁 dirty。
+- 当前恢复点：后续全局排期、owner 裁决与冻结解除顺序，可以直接引用 `NPC.md`，不必再回聊天记录手工拼接现场。
+
+## 2026-03-16（父治理层补记：A 类物理锁已落地并发出首批追认锁）
+- 当前父治理主线已从“冻结快照收集”推进到“首批复工前的物理锁基建”；本轮不再停留在《文件认领与锁定表》的看板层，而是把锁脚本与运行态目录真实写进仓库。
+- 子工作区 `当前运行基线与开发规则` 本轮已新增：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\LockCommon.ps1`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\Check-Lock.ps1`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\Acquire-Lock.ps1`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\Release-Lock.ps1`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\.gitignore`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\.gitkeep`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\history\.gitkeep`
+- 本轮已通过脚本追认发放两把活动锁：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__YYY_Scripts__Story__UI__DialogueUI.cs.lock.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+- 当前两把锁的 owner 均为 `spring-day1`，目的是让它先收掉当前冻结前已存在的 `DialogueUI.cs` / `Primary.unity` dirty，而不是现在就同时放开其他线程进入共享热文件。
+- 父层稳定结论：
+  - 物理锁机制已从“设计”变成“仓库现场真实存在的脚本 + 目录 + 活动锁文件”；
+  - 第一批复工只允许 `spring-day1` 在锁内范围推进单 checkpoint；
+  - `farm`、`NPC`、`导航检查`、`遮挡检查` 继续冻结 A 类文件，等待第二轮裁决。
+- 父层恢复点：
+  - 待 `spring-day1` 释放两把锁并交回 checkpoint 结果后，再决定是否给 `farm` 发放 `Primary.unity` 或 `GameInputManager.cs` 的下一批锁。

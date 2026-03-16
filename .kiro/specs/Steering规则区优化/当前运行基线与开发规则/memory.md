@@ -1920,3 +1920,25 @@
   - 当前真正应该进入现行治理的，是活跃线程、共享状态层、文件认领表和统一时间窗快照，而不是某个被删掉的临时 agent 目录。
 - 恢复点：
   - 后续如果再做调度文档或线程冻结 prompt，不再提 `agent-a2df3da0`，只保留“历史本地工作树噪音统一忽略”这一条抽象规则。
+
+## 2026-03-16 补记：物理锁脚本已落地，首批追认锁已发给 `spring-day1`
+- 当前子工作区主线已从“统一冻结快照”推进到“把 A 类共享热文件的物理锁真正落地”，避免后续继续停留在纯 Markdown 锁定表阶段。
+- 本轮已真实落地：
+  - 新增锁脚本目录 `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\`；
+  - 新增 `Check-Lock.ps1`、`Acquire-Lock.ps1`、`Release-Lock.ps1` 与公共脚本 `LockCommon.ps1`；
+  - 新增运行态目录骨架 `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\`、`D:\Unity\Unity_learning\Sunset\.kiro\locks\history\`，并用 `.gitignore + .gitkeep` 保证锁文件留在 Git 外但目录结构可留在仓库。
+- 本轮已执行的发锁动作：
+  - 通过 `Acquire-Lock.ps1` 为 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs` 追认发放活动锁：`D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__YYY_Scripts__Story__UI__DialogueUI.cs.lock.json`
+  - 通过 `Acquire-Lock.ps1` 为 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 追认发放活动锁：`D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+  - 两把锁当前 owner 均为 `spring-day1`，owner_branch 均为 `main@f5ac305c2ccd86da1aa373fcaadae5218fed9d59`，属于冻结期遗留 dirty 的追认锁，不代表后续放宽所有任务都可继续在 `main` 收尾。
+- 本轮验证结果：
+  - `Check-Lock.ps1` 已成功回读两把活动锁；
+  - 当前 `git status` 仍只显示 `.kiro/scripts/locks/` 与 `.kiro/locks/` 目录骨架，活动锁 JSON 由于 `.gitignore` 已留在 Git 外；
+  - 现有 A 类 Git dirty 仍只有 `Primary.unity` 与 `DialogueUI.cs`，`GameInputManager.cs` 继续保持 clean。
+- 本轮治理结论：
+  - 物理锁机制从这一刻开始生效；
+  - 第一批复工只允许 `spring-day1` 在这两把锁保护下完成单 checkpoint：收口 `DialogueCanvas` 显隐/必要引用/fontLibrary 闭环与 `NPC001 -> 对话 -> 结束` 最小验收；
+  - `farm`、`NPC`、`导航检查`、`遮挡检查` 继续冻结 A 类共享热文件，待 `spring-day1` 释放锁后再做第二轮裁决。
+- 恢复点：
+  - 下一步应由 `spring-day1` 按锁内范围执行单 checkpoint；
+  - 完成后必须通过 `Release-Lock.ps1` 释放两把锁，并交回新的 checkpoint 回执，再决定是否让 `farm` 进入 `Primary.unity`。
