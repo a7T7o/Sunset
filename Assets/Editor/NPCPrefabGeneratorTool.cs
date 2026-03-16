@@ -691,6 +691,9 @@ public class NPCPrefabGeneratorTool : EditorWindow
             NPCMotionController motionController = root.AddComponent<NPCMotionController>();
             motionController.MoveSpeed = defaultMoveSpeed;
 
+            root.AddComponent<NPCBubblePresenter>();
+            root.AddComponent<NPCAutoRoamController>();
+
             if (!enableDebugLogOnPrefab)
             {
                 SetPrivateBoolField(animController, "showDebugLog", false);

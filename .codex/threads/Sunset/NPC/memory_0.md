@@ -147,3 +147,39 @@
 
 **恢复点 / 下一步**:
 - 当前已进入 `codex/npc-asset-solidify-001`，下一步直接按 task 白名单固化这批 NPC 资产与相关记忆。
+
+### 会话 8 - 2026-03-16
+
+**用户需求**:
+> 在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划` 工作区下直接开始 NPC 自动移动 V1 开发，先按 Sunset 规则接管上下文和导航基线，再实现自动漫游、长停气泡和 prefab 直接可用链路。
+
+**完成任务**:
+1. 按当前工作区读完了 Steering / workspace memory / NPC 记忆 / `npc规划001.md` / `tasks.md` / `NPCMotionController.cs` / `NPCAnimController.cs` / `NavGrid2D.cs` / `PlayerAutoNavigator.cs` / `NPCPrefabGeneratorTool.cs`，并核实 Unity MCP 已可用，当前真实现场为 `D:\Unity\Unity_learning\Sunset @ codex/npc-asset-solidify-001`，HEAD=`88055425`。
+2. 新增 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`，使用世界空间 TMP UI 做独立 NPC 头顶气泡，能随机抽自言文本并在长停时显示。
+3. 新增 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`，将 `NavGrid2D.TryFindPath(...)`、`NPCMotionController.SetExternalVelocity(...)` 和 `NPCBubblePresenter` 组合起来，实现活动半径内随机选点、短停 `0.5~3s`、`3~5` 次短停后长停、长停自言气泡的 V1 闭环。
+4. 更新 `Assets/Editor/NPCPrefabGeneratorTool.cs`，让新生成的 NPC prefab 自动挂载 `NPCBubblePresenter` 和 `NPCAutoRoamController`。
+5. 通过 Unity MCP 编译和头无 prefab 修改，将 `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 补加到新组件，让用户在不重跑生成器的前提下也能直接拖入场景测试。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+- `Assets/Editor/NPCPrefabGeneratorTool.cs`
+- `Assets/222_Prefabs/NPC/001.prefab`
+- `Assets/222_Prefabs/NPC/002.prefab`
+- `Assets/222_Prefabs/NPC/003.prefab`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+- `.codex/threads/Sunset/NPC/memory_0.md`
+
+**验证结果**:
+- Unity MCP `refresh_unity(compile=request, mode=if_dirty, scope=scripts)` 后，`read_console(types='["error","warning"]')` 返回 0 条，当前没有新的编译错误或 warning。
+- `manage_prefabs.get_info` 回读确认 `001/002/003.prefab` 根节点组件列表已包含 `NPCBubblePresenter` 和 `NPCAutoRoamController`。
+- 本轮未触碰 `Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs` 等 A 类共享热文件。
+
+**关键决策**:
+- 当前线程主线仍然是 NPC，本轮子任务是“V1 自动漫游和气泡链路落地”，它服务于“让 NPC 具备基础生活化行为”而非换线到其他系统。
+- V1 气泡独立于 `DialogueUI`，以免把全屏剧情 UI 拉进 NPC 游先自动行为主线；所以当前只做独立 `NPCBubblePresenter`。
+
+**恢复点 / 下一步**:
+- 当前 `codex/npc-asset-solidify-001` 已从资产收口推进到 NPC 自动漫游 V1 真实实现。
+- 下一步不再重做规划，而是按白名单同步当前变更，再向用户提供手工功能测试入口。

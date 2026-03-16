@@ -102,3 +102,21 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 | `.kiro/specs/NPC/memory.md` | NPC 主工作区记忆 |
 | `.kiro/specs/NPC/1.0.0初步规划/npc规划001.md` | 第一版 NPC 自动移动与环境社交规划 |
 | `.kiro/specs/NPC/1.0.0初步规划/tasks.md` | 基于 `npc规划001` 拆出的任务文档 |
+
+### 会话 5 - 2026-03-16
+
+**用户需求**:
+> 在 `NPC/1.0.0初步规划` 下开始落地 NPC 自动移动 V1，将随机漫游、短停/长停、长停气泡自言自语和 prefab 直接可用打通。
+
+**完成任务**:
+1. 以子工作区 `1.0.0初步规划` 为主战场，回读了 NPC 运行时代码、导航系统与 Unity MCP 现场，确认这一轮 V1 只做单人漫游和自言自语气泡，不变更 `DialogueUI.cs` 和 A 类热文件。
+2. 新增 `NPCBubblePresenter` 和 `NPCAutoRoamController` 两个运行时组件，把 `NavGrid2D.TryFindPath(...)`、`NPCMotionController`、`NPCAnimController` 联通起来，让 NPC 具备“活动半径内随机移动 + 短停 / 长停 + 长停气泡”的基础生活化行为。
+3. 更新 `NPCPrefabGeneratorTool.cs` 支持新生成 prefab 自动挂载新组件，并通过 Unity MCP 头无地把 `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 的现有资产也补加到位，让用户不用先重跑生成器。
+
+**关键决策**:
+- V1 气泡层继续采用独立 `NPCBubblePresenter`，不接既有全屏 `DialogueUI`，以免把 NPC 游先聊天误入到大型剧情 UI 链中。
+- V1 漫游层直接复用 `NavGrid2D.TryFindPath(...)`，同时通过 `NPCMotionController.SetExternalVelocity(...)` 驱动动画，不新建一套单独的 NPC 移动动画桥接。
+
+**当前恢复点**:
+- NPC 父工作区当前已从“首轮实体资产收口”进一步到“自动漫游 V1 代码和 prefab 落地”。
+- 下一步仍在 NPC 线上，不换线；直接按白名单收口 Git 并让用户在 Sunset 主项目中手工拖入 NPC prefab 测试。

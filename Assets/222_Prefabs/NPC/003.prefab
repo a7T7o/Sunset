@@ -15,6 +15,8 @@ GameObject:
   - component: {fileID: 6363274181247668983}
   - component: {fileID: 6753703280515682947}
   - component: {fileID: 8522985639821944669}
+  - component: {fileID: 1143789803073532438}
+  - component: {fileID: 3567178868468748681}
   m_Layer: 0
   m_Name: 003
   m_TagString: Untagged
@@ -208,3 +210,62 @@ MonoBehaviour:
   showDebugLog: 0
   enableEditorPreview: 0
   previewMoveInput: {x: 0, y: 0}
+--- !u!114 &1143789803073532438
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3131872138138888922}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ac174c341f38786448acc149c20ffde3, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  targetRenderer: {fileID: 7873992007039065483}
+  fontAsset: {fileID: 11400000, guid: 755c320ea03a43b596917e389ec373ed, type: 2}
+  bubbleLocalOffset: {x: 0, y: 1.1, z: 0}
+  bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
+  bubblePadding: {x: 24, y: 16}
+  maxTextWidth: 220
+  sortingOrderOffset: 20
+  bubbleColor: {r: 0.13, g: 0.13, b: 0.13, a: 0.92}
+  textColor: {r: 0.97, g: 0.97, b: 0.97, a: 1}
+  fontSize: 24
+  selfTalkLines:
+  - "\u5148\u5728\u8FD9\u8FB9\u770B\u770B\u3002"
+  - "\u4ECA\u5929\u8FD8\u633A\u5B89\u9759\u3002"
+  - "\u4F11\u606F\u4E00\u4E0B\u518D\u8D70\u3002"
+  - "\u55EF \u8FD9\u8FB9\u98CE\u6709\u70B9\u8212\u670D\u3002"
+  - "\u4E0D\u77E5\u9053\u5927\u5BB6\u5728\u5FD9\u4EC0\u4E48\u3002"
+  showDebugLog: 0
+--- !u!114 &3567178868468748681
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3131872138138888922}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cd5b960b4766650449a960eda299b830, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  motionController: {fileID: 8522985639821944669}
+  bubblePresenter: {fileID: 1143789803073532438}
+  navGrid: {fileID: 0}
+  homeAnchor: {fileID: 0}
+  autoStart: 1
+  activityRadius: 3
+  minimumMoveDistance: 0.6
+  pathSampleAttempts: 12
+  shortPauseMin: 0.5
+  shortPauseMax: 3
+  shortPauseCountMin: 3
+  shortPauseCountMax: 5
+  longPauseMin: 3
+  longPauseMax: 6
+  waypointTolerance: 0.08
+  destinationTolerance: 0.12
+  showDebugLog: 0
+  drawDebugPath: 1

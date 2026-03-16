@@ -115,3 +115,32 @@
 **当前恢复点**:
 - 当前子工作区仍停留在“规划已落盘，开始收口首轮真实生成资产”的阶段。
 - 下一步直接对白名单范围执行 task 固化，不在这轮顺手扩展新功能。
+
+### 会话 6 - 2026-03-16
+
+**用户需求**:
+> 按照当前 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划` 工作区直接进入 NPC 自动移动 V1 实现，先回顾导航口径，再落地“随机漫游 + 短停 / 长停 + 长停自言自语气泡”，同时让生成器和现有 NPC prefab 都能直接使用。
+
+**完成任务**:
+1. 回读当前子工作区 `memory.md`、`npc规划001.md`、`tasks.md`，并回读 `NPCMotionController`、`NPCAnimController`、`NavGrid2D`、`PlayerAutoNavigator` 和 Unity MCP 现场，确认 V1 边界是“单 NPC 随机移动 + 短停 / 长停 + 自言自语气泡”，不接 `DialogueUI.cs`，不做双人聊天。
+2. 新增 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`，使用世界空间 TMP UI 在 NPC 头顶生成独立气泡，提供 `ShowRandomSelfTalk()` / `ShowText()` / `HideBubble()` 入口，并跟随 NPC 的 Sorting Layer 与绘制顺序。
+3. 新增 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`，复用 `NavGrid2D.TryFindPath(...)` + `NPCMotionController.SetExternalVelocity(...)`，在活动半径内做随机选点、路径跟随、短停 `0.5~3s`、`3~5` 次短停后长停和长停气泡触发。
+4. 更新 `Assets/Editor/NPCPrefabGeneratorTool.cs`，让新生成的 NPC prefab 自动挂载 `NPCBubblePresenter` 和 `NPCAutoRoamController`，不需要手动再补加。
+5. 使用 Unity MCP 编译验证，并对 `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 做 headless 修改，只追加 `NPCBubblePresenter` / `NPCAutoRoamController`，不动 `NPCDialogueInteractable` 或其他组件。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` - 新增 NPC 头顶自言自语气泡表现器
+- `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` - 新增 NPC 随机漫游、停留节奏与长停气泡控制器
+- `Assets/Editor/NPCPrefabGeneratorTool.cs` - 新增到自动生成的 prefab 组件挂载
+- `Assets/222_Prefabs/NPC/001.prefab` - 补加自动漫游 / 气泡组件
+- `Assets/222_Prefabs/NPC/002.prefab` - 补加自动漫游 / 气泡组件
+- `Assets/222_Prefabs/NPC/003.prefab` - 补加自动漫游 / 气泡组件
+
+**验证结果**:
+- 通过 `refresh_unity(compile=request, scope=scripts)` 完成脚本刷新与编译，当前 `read_console(types='["error","warning"]')` 返回 0 条。
+- 通过 `manage_prefabs.get_info` 回读确认 `001/002/003.prefab` 根节点都已包含 `NPCBubblePresenter` 和 `NPCAutoRoamController`。
+- 本轮未触碰 `Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs` 等 A 类热文件。
+
+**当前恢复点**:
+- 当前子工作区已从“纯规划 / 资产收口”推进到“自动漫游 V1 运行时代码已落地并编译通过”。
+- 下一步是同步子 memory / 父 memory / 线程记忆后，按白名单形成本轮 Git 收口，再交给用户直接拖入 prefab 手工测试。
