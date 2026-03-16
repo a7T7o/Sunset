@@ -232,11 +232,7 @@ namespace Sunset.Story
         {
             if (root == null)
             {
-                Transform panelTransform = FindChild("DialoguePanel");
-                if (panelTransform != null)
-                {
-                    root = panelTransform.gameObject;
-                }
+                root = gameObject;
             }
 
             if (speakerNameText == null)
@@ -300,7 +296,7 @@ namespace Sunset.Story
 
         private void EnsureCanvasGroup()
         {
-            GameObject canvasRoot = root != null ? root : gameObject;
+            GameObject canvasRoot = ResolveCanvasStateTarget();
             if (canvasGroup != null && canvasGroup.gameObject == canvasRoot)
             {
                 return;
@@ -311,6 +307,34 @@ namespace Sunset.Story
             {
                 canvasGroup = canvasRoot.AddComponent<CanvasGroup>();
             }
+        }
+
+        private GameObject ResolveCanvasStateTarget()
+        {
+            if (root == null)
+            {
+                return gameObject;
+            }
+
+            if (root == gameObject)
+            {
+                return gameObject;
+            }
+
+            Transform rootTransform = root.transform;
+            if (!rootTransform.IsChildOf(transform))
+            {
+                return root;
+            }
+
+            bool coversSpeaker = IsInScope(rootTransform, speakerNameText != null ? speakerNameText.transform : null);
+            bool coversDialogue = IsInScope(rootTransform, dialogueText != null ? dialogueText.transform : null);
+            bool coversButton = IsInScope(rootTransform, continueButton != null ? continueButton.transform : null);
+            bool coversPortrait = IsInScope(rootTransform, portraitImage != null ? portraitImage.transform : null);
+
+            return coversSpeaker && coversDialogue && coversButton && coversPortrait
+                ? root
+                : gameObject;
         }
 
         private void ConfigureInteractionSurfaces()
@@ -750,6 +774,11 @@ namespace Sunset.Story
             }
 
             return null;
+        }
+
+        private static bool IsInScope(Transform scope, Transform target)
+        {
+            return target == null || target == scope || target.IsChildOf(scope);
         }
 
         private void UpdateContinueButtonSelection(bool visible)
