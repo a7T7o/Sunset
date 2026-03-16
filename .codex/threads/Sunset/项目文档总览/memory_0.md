@@ -149,3 +149,81 @@
 - 围绕 `D:\迅雷下载\开始\.codex\threads\系统全局\000_git治理交叉内容\项目文档总览.md` 的仓库内补账已经通过治理线白名单完成同步并推送远端。
 - 这意味着当前线程关于“成果未丢、只是分散且缺总索引”的关键判断，已经不仅存在于对话和外部文档，也已经稳定落在 Sunset 仓库记忆里。
 - 当前恢复点：若继续这条线程，应从“如何做总索引层与主线承接映射”继续，而不是重新证明成果有没有消失。
+
+### 会话 4 - 2026-03-16（冻结汇总纠偏：当前线程不是 spring-day1）
+
+**用户需求**：
+- 指出我在冻结汇总阶段把当前线程误认成了 `spring-day1`，要求我滚回 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览` 的历史会话记录和 memory，重新为本线程写一份冻结现场快照，并直接写入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\项目文档总览.md`。
+
+**当前主线目标**：
+- 本线程真实主线仍是维护 `.kiro/about/` 三份正式成果及其后续“总索引层 / 主线承接映射”，而不是 `spring-day1` 的对话链验收。
+
+**完成任务**：
+1. 回读当前线程记忆，确认线程身份与历史恢复点，纠正上一版冻结快照里的线程错认。
+2. 回读 `.kiro/about/` 三份正式成果，确认本线程直接关联的正式成果仍存在且当前不在 git dirty 清单里。
+3. 回读父治理记忆，确认现行治理入口已经迁到 `当前运行基线与开发规则`，而旧记忆里的 `Codex迁移与规划` 已属于迁移期旧入口。
+4. 将纠正后的冻结快照直接写入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\项目文档总览.md`。
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\项目文档总览.md` - [重写]：当前线程的冻结现场快照。
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\memory.md` - [新增]：冻结汇总工作区记忆。
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\memory.md` - [追加]：同步父治理层摘要。
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\memory_0.md` - [追加]：回写线程视角纠偏记录。
+
+**解决方案**：
+- 本轮不再使用上一版把线程错认成 `spring-day1` 的汇总，而是严格以本线程自己的记忆链和正式成果文件集合为准，重新输出冻结快照。
+- 同时把一个重要的当前差异补充出来：本线程旧记忆所处的治理语境已经发生变化，后续若恢复推进，应先做承接关系对齐，再决定是否补总索引层。
+
+**遗留问题**：
+- [ ] 冻结解除后，需要先决定本线程是否正式补做“总索引层 / 主线承接映射”。
+- [ ] 若继续推进本线程，应先对齐旧线程记忆与现行治理入口，避免继续沿用过期路由。
+
+### 会话 5 - 2026-03-16（按现行活入口重新对齐：当前线程降级为历史总览线程候选）
+
+**用户需求**：
+- 不要继续把 `项目文档总览` 当作现行活入口线程；先以 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\` 为当前唯一活文档根，再决定这条总览线应该保留什么、归档什么，并用治理方式收口当前文档改动。
+
+**完成任务**：
+1. 回读现行活入口文档，确认当前唯一活文档根、当前状态入口和当前文档重组总索引。
+2. 重新核对现场：当前工作目录仍是 `D:\Unity\Unity_learning\Sunset`，但当前分支已经是 `codex/npc-main-recover-001`，不是 `main`。
+3. 确认 `项目文档总览` 的冻结快照现在应被视为归档资料，留在 `文档归档\2026-03-Codex恢复与迁移收口\06_L5解冻与阶段快照_2026-03-16\2026.03.16冻结文档汇总\`。
+4. 收紧本线程新口径：默认降级为“历史总览线程 / 按需维护线程”；只有用户明确重新激活全局阅读地图治理时，才继续补“总索引层 / 主线承接映射”。
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\文档归档\2026-03-Codex恢复与迁移收口\06_L5解冻与阶段快照_2026-03-16\2026.03.16冻结文档汇总\项目文档总览.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\文档归档\2026-03-Codex恢复与迁移收口\06_L5解冻与阶段快照_2026-03-16\2026.03.16冻结文档汇总\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\memory_0.md`
+
+**解决方案**：
+- 不再尝试把这条线程抬回当前活文档根，而是把它稳定收束到“历史总览层”：正式成果继续留在 `.kiro/about/`，活治理入口留在 `当前运行基线与开发规则`，冻结快照留在归档目录。
+- 这样既保住这条线程的历史价值，也避免它继续与现行治理入口竞争身份。
+
+**遗留问题**：
+- [ ] 若未来需要重新激活这条线，必须先明确：它是做“总索引层补建”，还是仅做 about 正文增量维护。
+
+### 会话 6 - 2026-03-16（最小白名单收口边界确认）
+
+**用户需求**：
+- 先以 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\` 为当前唯一活文档根，重新核对本线程相关文档改动哪些应固化、哪些应归档，并按治理式最小范围收口。
+
+**当前主线目标**：
+- 本线程不再争夺现行活入口身份，而是完成一次干净的“历史总览线程降级收口”，让 about 正式成果、现行活入口与冻结归档各归其位。
+
+**完成任务**：
+1. 定点复核 Git 现场，确认当前工作目录为 `D:\Unity\Unity_learning\Sunset`，当前分支为 `codex/npc-main-recover-001`，当前 `HEAD` 为 `b9b6ac4881f4436abbc1f3232f14706ca76bb869`。
+2. 通过 targeted `git status` / `git diff --numstat` 确认本线程最小可收口范围只有三项：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\memory_0.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\文档归档\2026-03-Codex恢复与迁移收口\06_L5解冻与阶段快照_2026-03-16\2026.03.16冻结文档汇总\项目文档总览.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\文档归档\2026-03-Codex恢复与迁移收口\06_L5解冻与阶段快照_2026-03-16\2026.03.16冻结文档汇总\memory.md`
+3. 明确排除：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\memory.md`
+   原因：两者当前都带有大块既有治理改写，不适合作为本轮“项目文档总览线程对齐”的最小白名单。
+
+**解决方案**：
+- 本线程只保留“历史总览层”职责：`.kiro/about/` 三份正式成果继续留在正式成果层，现行活入口继续留在 `当前运行基线与开发规则`，冻结快照继续固化在归档层。
+- 本轮 Git 收口也只围绕这个最小边界进行，不顺手混入父治理层或现行活入口层的大体量 dirty。
+
+**遗留问题**：
+- [ ] 若未来重新激活本线程，第一步仍应先决定是补“总索引层 / 主线承接映射”，还是只做 about 正文增量维护。
