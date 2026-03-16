@@ -1,12 +1,16 @@
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
+using System.Collections;
+using System.Collections.Generic;
 using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.UI;
 
 public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
 {
+    private static readonly Dictionary<int, ToolbarSlotUI> RegisteredSlots = new Dictionary<int, ToolbarSlotUI>();
+
     [SerializeField] private Image iconImage;
     [SerializeField] private Text amountText;
     [SerializeField] private Image selectedOverlay;
@@ -19,10 +23,18 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
     private InventoryService inventory;
     private ItemDatabase database;
     private HotbarSelectionService selection;
-    private int index; // 0..11
+    private int index = -1;
+    private RectTransform _rectTransform;
+    private Vector2 _restAnchoredPosition;
+    private Coroutine _rejectShakeCoroutine;
+    private const float RejectShakeDuration = 0.18f;
+    private const float RejectShakeDistance = 8f;
 
     void Awake()
     {
+        _rectTransform = transform as RectTransform;
+        CaptureRestAnchoredPosition();
+
         if (toggle == null) toggle = GetComponent<Toggle>();
         if (iconImage == null)
         {
@@ -97,6 +109,9 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
 
     void OnEnable()
     {
+        CaptureRestAnchoredPosition();
+        RegisterSlot();
+
         if (inventory != null)
         {
             inventory.OnHotbarSlotChanged += HandleHotbarChanged;
@@ -121,6 +136,8 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
 
     void OnDisable()
     {
+        UnregisterSlot();
+
         if (inventory != null)
         {
             inventory.OnHotbarSlotChanged -= HandleHotbarChanged;
@@ -158,6 +175,8 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
         database = db;
         selection = sel;
         index = hotbarIndex;
+        CaptureRestAnchoredPosition();
+        RegisterSlot();
         if (isActiveAndEnabled)
         {
             OnDisable();
@@ -344,6 +363,12 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
     {
         if (eventData.button == PointerEventData.InputButton.Left)
         {
+            if (GameInputManager.Instance != null && GameInputManager.Instance.TryRejectActiveFarmToolSwitch(index))
+            {
+                ForceRestoreToggleState();
+                return;
+            }
+
             // ★ 检查是否有面板打开（背包/箱子）- 被遮挡时不响应
             var packageTabs = FindFirstObjectByType<PackagePanelTabsUI>();
             if (packageTabs != null && packageTabs.IsPanelOpen()) 
@@ -395,5 +420,76 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
         // 同时更新选中覆盖层
         if (selectedOverlay != null)
             selectedOverlay.enabled = shouldBeSelected;
+    }
+
+    public void PlayRejectShake()
+    {
+        CaptureRestAnchoredPosition();
+        if (_rectTransform == null)
+        {
+            return;
+        }
+
+        if (_rejectShakeCoroutine != null)
+        {
+            StopCoroutine(_rejectShakeCoroutine);
+            _rectTransform.anchoredPosition = _restAnchoredPosition;
+        }
+
+        _rejectShakeCoroutine = StartCoroutine(RejectShakeCoroutine());
+    }
+
+    public static void PlayRejectShakeAt(int hotbarIndex)
+    {
+        if (RegisteredSlots.TryGetValue(hotbarIndex, out var slot) && slot != null)
+        {
+            slot.PlayRejectShake();
+        }
+    }
+
+    private void CaptureRestAnchoredPosition()
+    {
+        if (_rectTransform == null)
+        {
+            _rectTransform = transform as RectTransform;
+        }
+
+        if (_rectTransform != null && _rejectShakeCoroutine == null)
+        {
+            _restAnchoredPosition = _rectTransform.anchoredPosition;
+        }
+    }
+
+    private void RegisterSlot()
+    {
+        if (index >= 0)
+        {
+            RegisteredSlots[index] = this;
+        }
+    }
+
+    private void UnregisterSlot()
+    {
+        if (index >= 0 && RegisteredSlots.TryGetValue(index, out var slot) && slot == this)
+        {
+            RegisteredSlots.Remove(index);
+        }
+    }
+
+    private IEnumerator RejectShakeCoroutine()
+    {
+        float elapsed = 0f;
+        while (elapsed < RejectShakeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float progress = elapsed / RejectShakeDuration;
+            float damping = 1f - progress;
+            float offset = Mathf.Sin(progress * Mathf.PI * 6f) * RejectShakeDistance * damping;
+            _rectTransform.anchoredPosition = _restAnchoredPosition + new Vector2(offset, 0f);
+            yield return null;
+        }
+
+        _rectTransform.anchoredPosition = _restAnchoredPosition;
+        _rejectShakeCoroutine = null;
     }
 }

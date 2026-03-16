@@ -1183,6 +1183,7 @@ public class PlacementManager : MonoBehaviour
         // 创建作物实例数据并初始化
         var instanceData = new CropInstanceData(seedData.itemID, currentDay);
         controller.Initialize(seedData, instanceData, layerIndex, cellPos);
+        ConfigureCropPlacementVisuals(cropObj, controller, cropWorldPos);
         
         // 更新耕地数据
         tileData.SetCropData(instanceData);
@@ -1324,6 +1325,43 @@ public class PlacementManager : MonoBehaviour
             bool isShadow = renderer.gameObject.name.ToLower().Contains("shadow");
             renderer.sortingOrder = isShadow ? order - 1 : order;
         }
+    }
+
+    /// <summary>
+    /// 为种植生成的作物补齐放置系统已有的图层与动态排序配置。
+    /// </summary>
+    private void ConfigureCropPlacementVisuals(GameObject cropObject, CropController controller, Vector3 worldPosition)
+    {
+        if (cropObject == null)
+        {
+            return;
+        }
+
+        int targetLayer = PlacementLayerDetector.GetLayerAtPosition(worldPosition);
+        SyncLayerToPlacedObject(cropObject, targetLayer);
+        SetSortingOrder(cropObject, worldPosition);
+
+        GameObject sortingTarget = controller != null ? controller.gameObject : cropObject;
+        EnsureDynamicSortingOnPlacedObject(sortingTarget);
+    }
+
+    private void EnsureDynamicSortingOnPlacedObject(GameObject sortingTarget)
+    {
+        if (sortingTarget == null)
+        {
+            return;
+        }
+
+        var dynamicSorting = sortingTarget.GetComponent<DynamicSortingOrder>();
+        if (dynamicSorting == null)
+        {
+            dynamicSorting = sortingTarget.AddComponent<DynamicSortingOrder>();
+        }
+
+        dynamicSorting.sortingOrderMultiplier = sortingOrderMultiplier;
+        dynamicSorting.sortingOrderOffset = sortingOrderOffset;
+        dynamicSorting.useSpriteBounds = true;
+        dynamicSorting.autoHandleShadow = true;
     }
     
     /// <summary>
@@ -1480,6 +1518,11 @@ public class PlacementManager : MonoBehaviour
     {
         if (clip == null) return;
         AudioSource.PlayClipAtPoint(clip, transform.position, soundVolume);
+    }
+
+    public void PlayFailFeedbackSound()
+    {
+        PlaySound(placeFailSound);
     }
     
     private void PlayPlaceEffect(Vector3 position)

@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
@@ -30,6 +31,11 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     private ItemDatabase database;
     private int index;
     private bool isHotbar;
+    private RectTransform _rectTransform;
+    private Vector2 _restAnchoredPosition;
+    private Coroutine _rejectShakeCoroutine;
+    private const float RejectShakeDuration = 0.18f;
+    private const float RejectShakeDistance = 8f;
 
     /// <summary>
     /// 槽位索引（供外部查询）
@@ -44,6 +50,9 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     #region Unity 生命周期
     void Awake()
     {
+        _rectTransform = transform as RectTransform;
+        CaptureRestAnchoredPosition();
+
         if (toggle == null) toggle = GetComponent<Toggle>();
 
         // ★ 与 ToolbarSlotUI 保持一致：查找或创建 Icon
@@ -119,6 +128,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
     void OnEnable()
     {
+        CaptureRestAnchoredPosition();
         // 🔥 修复 Ⅱ：只订阅事件，不自动刷新
         // 刷新由外部调用 Bind/BindContainer 时触发
         if (container != null)
@@ -437,6 +447,53 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         {
             toggle.isOn = false;
         }
+    }
+
+    public void PlayRejectShake()
+    {
+        CaptureRestAnchoredPosition();
+        if (_rectTransform == null)
+        {
+            return;
+        }
+
+        if (_rejectShakeCoroutine != null)
+        {
+            StopCoroutine(_rejectShakeCoroutine);
+            _rectTransform.anchoredPosition = _restAnchoredPosition;
+        }
+
+        _rejectShakeCoroutine = StartCoroutine(RejectShakeCoroutine());
+    }
+
+    private void CaptureRestAnchoredPosition()
+    {
+        if (_rectTransform == null)
+        {
+            _rectTransform = transform as RectTransform;
+        }
+
+        if (_rectTransform != null && _rejectShakeCoroutine == null)
+        {
+            _restAnchoredPosition = _rectTransform.anchoredPosition;
+        }
+    }
+
+    private IEnumerator RejectShakeCoroutine()
+    {
+        float elapsed = 0f;
+        while (elapsed < RejectShakeDuration)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float progress = elapsed / RejectShakeDuration;
+            float damping = 1f - progress;
+            float offset = Mathf.Sin(progress * Mathf.PI * 6f) * RejectShakeDistance * damping;
+            _rectTransform.anchoredPosition = _restAnchoredPosition + new Vector2(offset, 0f);
+            yield return null;
+        }
+
+        _rectTransform.anchoredPosition = _restAnchoredPosition;
+        _rejectShakeCoroutine = null;
     }
     #endregion
 }

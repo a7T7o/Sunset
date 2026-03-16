@@ -650,6 +650,15 @@ public class GameInputManager : MonoBehaviour
                 
                 // 计算滚动步数（支持高精度滚轮）
                 int scrollSteps = scroll > 0 ? -1 : 1; // 向上滚 = -1（上一个），向下滚 = +1（下一个）
+                int currentIndex = hotbarSelection != null ? hotbarSelection.selectedIndex : 0;
+                int targetIndex = (currentIndex + scrollSteps) % InventoryService.HotbarWidth;
+                if (targetIndex < 0) targetIndex += InventoryService.HotbarWidth;
+
+                if (TryRejectActiveFarmToolSwitch(targetIndex))
+                {
+                    _accumulatedScrollSteps = 0;
+                    return;
+                }
                 
                 if (isLocked)
                 {
@@ -657,8 +666,8 @@ public class GameInputManager : MonoBehaviour
                     _accumulatedScrollSteps += scrollSteps;
                     
                     // 计算目标索引（基于当前选中 + 累积步数）
-                    int currentIndex = hotbarSelection != null ? hotbarSelection.selectedIndex : 0;
-                    int targetIndex = (currentIndex + _accumulatedScrollSteps) % InventoryService.HotbarWidth;
+                    currentIndex = hotbarSelection != null ? hotbarSelection.selectedIndex : 0;
+                    targetIndex = (currentIndex + _accumulatedScrollSteps) % InventoryService.HotbarWidth;
                     if (targetIndex < 0) targetIndex += InventoryService.HotbarWidth;
                     
                     // 缓存最终目标索引
@@ -697,6 +706,12 @@ public class GameInputManager : MonoBehaviour
         
         if (keyIndex >= 0)
         {
+            if (TryRejectActiveFarmToolSwitch(keyIndex))
+            {
+                _accumulatedScrollSteps = 0;
+                return;
+            }
+
             if (isLocked)
             {
                 // 锁定状态：缓存输入（数字键直接指定索引，重置累积值）
@@ -2632,8 +2647,88 @@ public class GameInputManager : MonoBehaviour
         // 🔴 补丁005续3修复：浇水入队成功后设置标志，等待鼠标移出才随机
         if (type == FarmActionType.Water)
         {
-            farmPreview.SetNeedsNewPuddleVariant(true);
+            farmPreview.MarkWaterQueued(farmPreview.CurrentCellPos);
         }
+    }
+
+    private bool HasActiveAutomatedFarmToolOperation()
+    {
+        if (!IsPlacementMode || inventory == null || database == null || hotbarSelection == null)
+        {
+            return false;
+        }
+
+        int currentIndex = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(currentIndex);
+        if (slot.IsEmpty)
+        {
+            return false;
+        }
+
+        var itemData = database.GetItemByID(slot.itemId);
+        if (itemData is not ToolData tool)
+        {
+            return false;
+        }
+
+        bool isFarmTool = tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan;
+        if (!isFarmTool)
+        {
+            return false;
+        }
+
+        return _farmActionQueue.Count > 0 ||
+               _isProcessingQueue ||
+               _isExecutingFarming ||
+               _farmNavState == FarmNavState.Locked ||
+               _farmNavState == FarmNavState.Navigating ||
+               _farmNavState == FarmNavState.Executing;
+    }
+
+    private void InterruptAutomatedFarmToolOperation()
+    {
+        HideFarmToolPreview();
+        ClearActionQueue();
+
+        var lockManager = ToolActionLockManager.Instance;
+        lockManager?.ClearHotbarCache();
+
+        bool isExecuting = _isExecutingFarming || (playerInteraction != null && playerInteraction.IsPerformingAction());
+        if (!isExecuting)
+        {
+            CancelFarmingNavigation();
+            lockManager?.ForceUnlock();
+        }
+    }
+
+    private void PlayAutomatedFarmToolRejectSound()
+    {
+        PlacementManager.Instance?.PlayFailFeedbackSound();
+    }
+
+    public bool TryRejectActiveFarmToolSwitch(int requestedIndex)
+    {
+        if (hotbarSelection == null || requestedIndex == hotbarSelection.selectedIndex || !HasActiveAutomatedFarmToolOperation())
+        {
+            return false;
+        }
+
+        PlayAutomatedFarmToolRejectSound();
+        ToolbarSlotUI.PlayRejectShakeAt(requestedIndex);
+        InterruptAutomatedFarmToolOperation();
+        return true;
+    }
+
+    public bool TryRejectActiveFarmToolInventoryMove(int slotIndex, bool isEquip)
+    {
+        if (isEquip || hotbarSelection == null || slotIndex != hotbarSelection.selectedIndex || !HasActiveAutomatedFarmToolOperation())
+        {
+            return false;
+        }
+
+        PlayAutomatedFarmToolRejectSound();
+        InterruptAutomatedFarmToolOperation();
+        return true;
     }
 
 

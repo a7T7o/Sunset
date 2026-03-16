@@ -129,6 +129,23 @@ public class InventorySlotInteraction : MonoBehaviour,
     
     private bool IsChestSlot => CurrentContainer is ChestInventory;
     private bool IsInventorySlot => CurrentContainer is InventoryService;
+
+    private bool TryRejectAutomatedFarmToolInventoryMove()
+    {
+        if (!IsInventorySlot)
+        {
+            return false;
+        }
+
+        var inputManager = GameInputManager.Instance;
+        if (inputManager == null || !inputManager.TryRejectActiveFarmToolInventoryMove(SlotIndex, isEquip))
+        {
+            return false;
+        }
+
+        inventorySlotUI?.PlayRejectShake();
+        return true;
+    }
     
     public void Bind(InventorySlotUI slot, bool isEquipmentSlot)
     {
@@ -174,6 +191,11 @@ public class InventorySlotInteraction : MonoBehaviour,
         }
         
         // 🔥 修复 2：箱子槽位处理修饰键
+        if ((shift || ctrl) && TryRejectAutomatedFarmToolInventoryMove())
+        {
+            return;
+        }
+
         if (IsChestSlot)
         {
             if (shift || ctrl)
@@ -213,6 +235,11 @@ public class InventorySlotInteraction : MonoBehaviour,
         float moveDistance = Vector2.Distance(eventData.position, pressPosition);
         
         if (holdTime < 0.15f && moveDistance < 5f) return;
+
+        if (TryRejectAutomatedFarmToolInventoryMove())
+        {
+            return;
+        }
         
         int index = SlotIndex;
         var container = CurrentContainer;

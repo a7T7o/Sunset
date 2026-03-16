@@ -943,14 +943,21 @@ namespace FarmGame.Farm
         {
             _needsNewPuddleVariant = value;
         }
+
+        /// <summary>
+        /// 记录一次浇水入队，下一次只有离开该格子时才刷新新样式。
+        /// </summary>
+        public void MarkWaterQueued(Vector3Int queuedCellPos)
+        {
+            _lastWateringCellPos = queuedCellPos;
+            _needsNewPuddleVariant = true;
+        }
         
         /// <summary>
-        /// 🔴 V6 模块T（CP-T4）：浇水执行成功后调用，标记需要在移出格子时随机新样式
-        /// 🔴 003修复：不再设置 _needsNewPuddleVariant（随机已移到入队瞬间），仅记录位置
+        /// 浇水成功后同步最近执行位置，保持“离开当前格才刷新下一次样式”的口径。
         /// </summary>
         public void OnWaterExecuted(Vector3Int wateredCellPos)
         {
-            // 003修复：_needsNewPuddleVariant 已废弃，随机在入队瞬间完成
             _lastWateringCellPos = wateredCellPos;
         }
         

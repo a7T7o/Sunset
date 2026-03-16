@@ -221,3 +221,9 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 
 ## 2026-03-15：farm 主线 warning 全部收口并完成 Unity 现场闭环
 本轮继续沿 `Sunset/main` 推进农田主线，在 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 中把已被 FIFO 队列彻底替代的旧“农田输入缓存链”整体退出编译路径，并顺手清掉 `CancelFarmingNavigation` 中对 `_hasPendingFarmInput` 的残余赋值。验证分两层完成：首先使用 Unity 6000.0.62f1 自带 Roslyn 重新编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果 `0 error / 0 warning`；随后通过 Unity MCP 清空 Console、触发编译并回读日志，当前控制台只剩 `Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)` 的共享 Editor warning，已不再存在 farm 相关 warning。由此更新父工作区结论：农田主线当前已完成“种子 placement 假阳性 + 旧缓存输入链 obsolete”两类 warning 的全部收口，主线不再被控制台噪音阻断，下一步可直接进入 `10.2.2` 的现场交互回归验收。
+
+## 2026-03-16：农田主线新增 1.0.0 / 1.0.1 实现分支，当前未同步回 main
+在 `2026.03.16` 父工作区下已继续推进两条新的农田实现子线：`1.0.0图层与浇水修正` 与 `1.0.1自动农具进阶中断`。当前真实代码现场不在 `main`，而在分支 `codex/farm-1.0.0-1.0.1`，`HEAD` 为 `9b9a6bd0dd7c5ee7d18cc82e3ea9da74a146bf9d`。已落地实现包括：作物创建后的图层与排序修正、浇水随机样式延后到“入队后且鼠标移出当前农田格”再刷新、自动农具队列进行中的 Toolbar/背包切换与拖拽拒绝反馈。当前已完成 Roslyn 编译与 Unity MCP/Console 只读复核，但尚未完成该轮 tasks/memory 全量补写、白名单提交、锁释放和同步回 `main`，因此此刻不能对外宣称“main 已可验收这两项新补丁”。本主线的恢复点已更新为：先完成 `2026.03.16` 工作区的收尾同步，再回到 `main` 让用户做真实场景验收。
+
+## 2026-03-16：农田 1.0.0 / 1.0.1 已达到可提交前状态
+`2026.03.16` 农田子线在本轮完成了最后一轮提交前复核：Unity MCP 可正常连接，活动场景为 `Primary`，Console 仅剩共享 Editor warning，未见新的 farm 专属报错；`1.0.0` 与 `1.0.1` 的 tasks 已全部勾完，子/父工作区与线程记忆也已补齐到“待同步回 main”的现场。随后对白名单路径执行 `git-safe-sync.ps1` 预检，结果允许在当前 `codex/farm-1.0.0-1.0.1` 分支继续收口。由此农田主线当前唯一剩余动作已收敛为：创建本轮 checkpoint，释放 `GameInputManager.cs` 锁，并将这批实现同步到 `main` 供用户验收。
