@@ -1,0 +1,38 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
+  m_Name: SpringDay1_FirstDialogue_Followup
+  m_EditorClassIdentifier: 
+  sequenceId: spring-day1-first-followup
+  nodes:
+  - speakerName: 陌生旅人
+    text: 这次你应该能听懂我说的话了。先跟我回村子，我再慢慢告诉你这里发生了什么。
+    isGarbled: 0
+    garbledText: 
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 
+    text: （那些古怪的符号像潮水一样退去了。至少接下来，我终于能听懂这个世界。）
+    isGarbled: 0
+    garbledText: 
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  canSkip: 1
+  defaultTypingSpeed: 60
+  markLanguageDecodedOnComplete: 0
+  followupSequence: {fileID: 0}

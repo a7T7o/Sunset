@@ -5,7 +5,7 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public class NPCDialogueInteractable : MonoBehaviour, IInteractable
     {
-        #region 序列化字段
+        #region Serialized Fields
         [Header("对话配置")]
         [SerializeField] private DialogueSequenceSO dialogueSequence;
         [SerializeField] private string interactionHint = "对话";
@@ -14,19 +14,22 @@ namespace Sunset.Story
         [SerializeField] private bool playOnlyOnce = false;
         #endregion
 
-        #region 私有字段
+        #region Private Fields
         private bool _hasPlayed;
         #endregion
 
-        #region 公共属性
+        #region Public Properties
         public int InteractionPriority => interactionPriority;
         public float InteractionDistance => interactionDistance;
         #endregion
 
-        #region 公共方法
+        #region Public Methods
         public bool CanInteract(InteractionContext context)
         {
-            if (dialogueSequence == null)
+            DialogueManager manager = DialogueManager.Instance;
+            DialogueSequenceSO sequenceToPlay = ResolveDialogueSequence(manager);
+
+            if (sequenceToPlay == null)
             {
                 return false;
             }
@@ -36,19 +39,20 @@ namespace Sunset.Story
                 return false;
             }
 
-            DialogueManager manager = DialogueManager.Instance;
             return manager != null && !manager.IsDialogueActive;
         }
 
         public void OnInteract(InteractionContext context)
         {
-            if (dialogueSequence == null)
+            DialogueManager manager = DialogueManager.Instance;
+            DialogueSequenceSO sequenceToPlay = ResolveDialogueSequence(manager);
+
+            if (sequenceToPlay == null)
             {
-                Debug.LogWarning($"[NPCDialogueInteractable] {name} 未配置 dialogueSequence。");
+                Debug.LogWarning($"[NPCDialogueInteractable] {name} 未配置可播放的 dialogueSequence。");
                 return;
             }
 
-            DialogueManager manager = DialogueManager.Instance;
             if (manager == null)
             {
                 Debug.LogError($"[NPCDialogueInteractable] {name} 找不到 DialogueManager.Instance。");
@@ -61,12 +65,42 @@ namespace Sunset.Story
             }
 
             _hasPlayed = true;
-            manager.PlayDialogue(dialogueSequence);
+            manager.PlayDialogue(sequenceToPlay);
         }
 
         public string GetInteractionHint(InteractionContext context)
         {
             return CanInteract(context) ? interactionHint : string.Empty;
+        }
+        #endregion
+
+        #region Private Methods
+        private DialogueSequenceSO ResolveDialogueSequence(DialogueManager manager)
+        {
+            if (!HasPlayableNodes(dialogueSequence))
+            {
+                return null;
+            }
+
+            if (manager == null || dialogueSequence.followupSequence == null)
+            {
+                return dialogueSequence;
+            }
+
+            bool hasCompletedInitialSequence = manager.HasCompletedSequence(dialogueSequence.sequenceId);
+            bool languageAlreadyDecoded = dialogueSequence.markLanguageDecodedOnComplete && manager.IsLanguageDecoded;
+
+            if ((hasCompletedInitialSequence || languageAlreadyDecoded) && HasPlayableNodes(dialogueSequence.followupSequence))
+            {
+                return dialogueSequence.followupSequence;
+            }
+
+            return dialogueSequence;
+        }
+
+        private static bool HasPlayableNodes(DialogueSequenceSO sequence)
+        {
+            return sequence != null && sequence.nodes != null && sequence.nodes.Count > 0;
         }
         #endregion
     }

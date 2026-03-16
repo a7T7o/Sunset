@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using System.Text;
 using Sunset.Events;
 using UnityEngine;
@@ -19,6 +20,7 @@ namespace Sunset.Story
 
         #region Private Fields
         private readonly StringBuilder _textBuilder = new StringBuilder(512);
+        private readonly HashSet<string> _completedSequenceIds = new HashSet<string>();
         private Coroutine _typingCoroutine;
 
         private DialogueSequenceSO _currentSequence;
@@ -36,6 +38,11 @@ namespace Sunset.Story
         [field: SerializeField]
         [field: Tooltip("临时状态：玩家是否已解锁当前语言。未来由全局变量系统接管。")]
         public bool IsLanguageDecoded { get; set; } = false;
+
+        public bool HasCompletedSequence(string sequenceId)
+        {
+            return !string.IsNullOrWhiteSpace(sequenceId) && _completedSequenceIds.Contains(sequenceId);
+        }
         #endregion
 
         #region Unity Lifecycle
@@ -113,7 +120,7 @@ namespace Sunset.Story
 
             if (_currentSequence == null || _currentSequence.nodes == null || _currentNodeIndex >= _currentSequence.nodes.Count)
             {
-                StopDialogue();
+                CompleteCurrentSequence();
                 return;
             }
 
@@ -159,12 +166,45 @@ namespace Sunset.Story
 
         public void StopDialogue()
         {
+            StopDialogueInternal(false, null, false);
+        }
+        #endregion
+
+        #region Private Methods
+        private void CompleteCurrentSequence()
+        {
+            DialogueSequenceSO completedSequence = _currentSequence;
+            if (completedSequence == null)
+            {
+                StopDialogueInternal(false, null, false);
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(completedSequence.sequenceId))
+            {
+                _completedSequenceIds.Add(completedSequence.sequenceId);
+            }
+
+            bool languageDecodedChanged = completedSequence.markLanguageDecodedOnComplete && !IsLanguageDecoded;
+            if (languageDecodedChanged)
+            {
+                IsLanguageDecoded = true;
+            }
+
+            StopDialogueInternal(true, completedSequence, languageDecodedChanged);
+        }
+
+        private void StopDialogueInternal(bool wasCompleted, DialogueSequenceSO endingSequenceOverride, bool languageDecodedChanged)
+        {
             StopTyping();
 
             if (!IsDialogueActive)
             {
                 return;
             }
+
+            DialogueSequenceSO endingSequence = endingSequenceOverride ?? _currentSequence;
+            string endingSequenceId = endingSequence != null ? endingSequence.sequenceId : string.Empty;
 
             IsDialogueActive = false;
             _currentSequence = null;
@@ -177,11 +217,28 @@ namespace Sunset.Story
                 TimeManager.Instance.ResumeTime(DialoguePauseSource);
             }
 
-            EventBus.Publish(new DialogueEndEvent());
-        }
-        #endregion
+            if (wasCompleted && endingSequence != null)
+            {
+                EventBus.Publish(new DialogueSequenceCompletedEvent
+                {
+                    SequenceId = endingSequenceId,
+                    Sequence = endingSequence,
+                    FollowupSequence = endingSequence.followupSequence,
+                    LanguageDecoded = IsLanguageDecoded,
+                    LanguageDecodedChanged = languageDecodedChanged
+                });
+            }
 
-        #region Private Methods
+            EventBus.Publish(new DialogueEndEvent
+            {
+                SequenceId = endingSequenceId,
+                Sequence = endingSequence,
+                WasCompleted = wasCompleted,
+                LanguageDecoded = IsLanguageDecoded,
+                LanguageDecodedChanged = languageDecodedChanged
+            });
+        }
+
         private void StartTypingCurrentNode()
         {
             StopTyping();

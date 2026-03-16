@@ -17,5 +17,12 @@ namespace Sunset.Story
 
         [Tooltip("字/秒")]
         public float defaultTypingSpeed = 30f;
+
+        [Header("Progression")]
+        [Tooltip("Unlock readable language after this sequence completes.")]
+        public bool markLanguageDecodedOnComplete = false;
+
+        [Tooltip("Optional follow-up sequence to use after this sequence has been completed.")]
+        public DialogueSequenceSO followupSequence;
     }
 }

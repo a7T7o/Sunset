@@ -52,3 +52,5 @@ MonoBehaviour:
     typingSpeedOverride: 0
   canSkip: 1
   defaultTypingSpeed: 60
+  markLanguageDecodedOnComplete: 1
+  followupSequence: {fileID: 11400000, guid: 1f4a9ce1e4794124b7f0dd6c50e4b8ea, type: 2}
