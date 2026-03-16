@@ -75,3 +75,14 @@
 **Git 预检结论**:
 - `codex/farm-1.0.0-1.0.1` 的白名单 preflight 已通过。
 - `1.0.1` 涉及的 `GameInputManager.cs`、`ToolbarSlotUI.cs`、`InventorySlotUI.cs`、`InventorySlotInteraction.cs` 均在允许提交范围内。
+
+### 会话 2026-03-16（checkpoint 已回 main）
+
+**完成事项**:
+1. 通过白名单同步创建实现 checkpoint `7aadbde7`。
+2. 已将包含 `1.0.1` 修复的分支成果同步回 `Sunset/main` 并推送远端。
+3. `GameInputManager.cs` 的 A 类锁已释放，当前不再阻塞后续协作或验收。
+
+**当前状态**:
+- `1.0.1` 代码现已在 `main`。
+- 后续剩余项只包括用户对自动队列切换/拖拽行为的真实场景验收。

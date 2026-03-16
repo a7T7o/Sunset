@@ -53,3 +53,6 @@
 
 ## 2026-03-16：白名单同步前的最终验证已完成
 本轮继续沿 `2026.03.16` 父工作区推进收尾，先通过 Unity MCP 复核当前活动场景仍为 `Assets/000_Scenes/Primary.unity`，再触发 Unity 刷新/编译并读取 Console。当前 Console 仅见共享 Editor warning：`Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)` 的 `TextureImporter.spritesheet` obsolete，未出现新的 farm 相关 error / warning。随后使用 `scripts/git-safe-sync.ps1 -Action preflight -Mode task` 对 `1.0.0/1.0.1` 相关代码、文档、父/线程记忆做白名单预检，结果允许继续同步，且无关 dirty 仍被正确隔离在白名单之外。由此更新当前恢复点：`2026.03.16` 工作区的实现、验证、tasks/memory 补写都已完成，下一步仅剩创建 checkpoint、释放 `GameInputManager.cs` 锁并把结果同步回 `main`。
+
+## 2026-03-16：2026.03.16 农田补丁已同步回 main
+本轮已完成 `2026.03.16` 工作区的 Git 收尾：先在 `codex/farm-1.0.0-1.0.1` 上通过白名单同步生成 checkpoint `7aadbde7`，随后将 `main` 快进到该提交并推送远端。同步完成后，又显式释放了 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 的 A 类锁，确保验收现场不再带锁。由此父工作区状态正式切换为“实现、验证、Git 同步均已完成，当前等待用户在 `main` 做真实场景验收”，不再是“待回 main”的中间态。

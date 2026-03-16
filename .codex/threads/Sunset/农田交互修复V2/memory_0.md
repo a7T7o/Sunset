@@ -326,3 +326,6 @@
 
 ## 2026-03-16：进入 Git 收尾前的最终现场确认
 本轮继续沿农田主线做真正的收尾，而不是新增实现。已完成的确认包括：通过 Unity MCP 读取活动场景，确认当前为 `Assets/000_Scenes/Primary.unity`；触发 Unity 刷新/编译并读取 Console，当前仅剩共享 Editor warning `Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)`，没有新的 farm 相关 error / warning；用 `scripts/git-safe-sync.ps1 -Action preflight -Mode task` 对农田 1.0.0 / 1.0.1 的代码、文档、父工作区记忆、线程记忆做了白名单预检，结果允许继续同步。与此同时，`GameInputManager.cs` 的 A 类锁仍处于占用状态，owner thread 仍是本线程 `农田交互修复V2`，说明收尾后还必须显式释放锁。当前恢复点更新为：下一步直接执行白名单 checkpoint、释放锁，并把本轮农田补丁同步到 `main`。
+
+## 2026-03-16：农田 1.0.0 / 1.0.1 收尾完成并切回 main
+本轮已真正完成农田 `1.0.0` / `1.0.1` 的收尾闭环：使用 `scripts/git-safe-sync.ps1 -Action sync -Mode task` 在 `codex/farm-1.0.0-1.0.1` 上创建并推送 checkpoint `7aadbde7`；随后把本地 `main` 快进到该提交、切换到 `main` 并推送远端；最后调用 `Release-Lock.ps1` 释放了 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 的 A 类锁。当前线程的主线恢复点已不再是“继续收尾”，而是“代码已在 main，等待用户在 Unity 现场做手动验收；若验收再出真问题，再进入下一轮修复”。
