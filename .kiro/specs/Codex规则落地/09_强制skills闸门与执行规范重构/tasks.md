@@ -21,6 +21,8 @@
 - [x] 统一线程回复最小结构
 - [x] 确认当前 session 与后续新线程都可稳定看到 `sunset-startup-guard`
 - [x] 把 `worktree` 只作例外机制写入现行规则与 skills
+- [x] 把“进入 Play Mode 后必须回到 Edit Mode 才算离场”写入闸门与 MCP 单实例层
+- [x] 把 UI / 字体 / 气泡 / 样式的审美与专业度验收写入闸门与 `ui.md`
 - [x] 完成至少一轮真实治理回合验证
 
 ## 当前裁定

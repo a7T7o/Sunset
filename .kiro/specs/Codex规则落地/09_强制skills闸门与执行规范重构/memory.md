@@ -118,3 +118,35 @@
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\09_强制skills闸门与执行规范重构\tasks.md` - 当前阶段任务清单
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\09_强制skills闸门与执行规范重构\design.md` - 当前阶段设计说明
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前唯一状态说明_2026-03-17.md` - 当前现行状态入口
+
+### 会话 4 - 2026-03-17（补强 Play Mode 离场纪律、表现层验收与 shared root 实时占用口径）
+**用户目标**：
+> 在继续彻底清盘的同时，把“做完 Play Mode 验证后必须回到 Edit Mode”与“UI / 气泡 / 字体 / 样式要好看且专业”补成真正会命中的强约束，并把当前 shared root 的实时状态写成真相而不是旧快照。
+
+**完成事项**：
+1. 实核当前仓库现场：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - 最新治理提交：`ece0c0ea`
+   - 当前 shared root 仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆，因此不是实时中性现场。
+2. 更新本阶段执行面：
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\references\checklist.md`
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+3. 补强 live 规则：
+   - `基础规则与执行口径.md`
+   - `Sunset强制技能闸门与线程回复规范_2026-03-17.md`
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `shared-root-branch-occupancy.md`
+4. 回写本阶段 `tasks.md / design.md`，把新增两条硬约束纳入正式记录。
+
+**关键决策**：
+- `main + branch-only` 是默认入口模型，不等于 shared root 实时中性；实时能不能切分支，仍要看 `shared-root-branch-occupancy.md`。
+- 任何为了取证、调试或验收进入 Play Mode 的线程，离场前都必须先 Stop 回 Edit Mode。
+- UI / 对话框 / 气泡 / 字体 / 样式类任务，不再允许只以“功能通了”为完成标准；必须把观感、可读性和专业度当成硬验收。
+
+**恢复点 / 下一步**：
+- `09` 的强制执行面已继续加厚。
+- 后续若还要深化治理，应继续围绕“启动闸门稳定命中”和“shared root 实时占用真相”展开，而不是回退到 `11/12`。

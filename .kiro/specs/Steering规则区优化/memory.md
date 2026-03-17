@@ -306,3 +306,28 @@
 **恢复点**：
 - 父治理工作区后续只继续维护结构性稳定结论。
 - 真正的治理正文续办继续落在 `Codex规则落地`。
+
+### 会话 15 - 2026-03-17（现行入口补强：shared root 实时状态、Play Mode 离场与表现层验收）
+**用户目标**：
+> 把当前 live 规则补到真正能约束线程的程度：既要说清 shared root 当前是否真中性，也要把 Play Mode 离场纪律和 UI / 字体 / 气泡 / 样式的验收标准并进现行入口。
+
+**完成任务**：
+1. 实核 shared root 现场已在 `main @ ece0c0ea`，但 working tree 仍有其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆。
+2. 更新 live 入口文档：
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `基础规则与执行口径.md`
+   - `Sunset强制技能闸门与线程回复规范_2026-03-17.md`
+3. 更新占用文档：
+   - `shared-root-branch-occupancy.md`
+   - `mcp-single-instance-occupancy.md`
+   - `mcp-hot-zones.md`
+4. 更新 steering 正文：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+
+**关键结论**：
+- shared root 现在是“默认入口模型已恢复到 `main + branch-only`”，不是“当前现场完全干净可直接切分支”。
+- Play Mode 退出纪律和表现层审美验收，已经进入 live 规则，不再只存在于聊天提醒。
+
+**恢复点**：
+- 现行入口层已完成这轮补强。
+- 后续若再遇到 shared root 不干净，优先看占用文档与 preflight，而不是机械把 `main` 当安全许可证。

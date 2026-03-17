@@ -83,3 +83,24 @@
 
 ## 一句话恢复点
 - 治理工作区归位已经完成；后续任何 Sunset 治理续办都应从 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地` 继续，而不是回到 `000_代办/codex`。
+
+### 会话 3 - 2026-03-17（12 阶段收官后复核：终局结构保留，实时占用改写为真相）
+**用户目标**：
+> 在不重开 `12` 阶段的前提下，确认治理提交是否真的落在 `main`，并把 shared root 当前是否仍属中性入口写成真实口径。
+
+**完成事项**：
+1. 复核治理提交 `ece0c0ea` 已在 `main`，且 `main...origin/main` 无 ahead / behind。
+2. 复核 `git worktree list --porcelain` 仍只剩 shared root，`Sunset_external_archives` 与 `Sunset_backups` 继续不存在。
+3. 发现 shared root 当前虽然在 `main`，但 working tree 仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆。
+4. 因此改写：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前唯一状态说明_2026-03-17.md`
+   把 “`main` 且中性” 修正为 “默认模型已恢复，但实时现场仍需 preflight”。
+
+**关键决策**：
+- `12` 阶段的结构性清盘已经完成，不需要重开。
+- 但 live 状态文档必须说真话：shared root 当前不是“无脑可切分支”的干净现场。
+
+**恢复点 / 下一步**：
+- `12` 继续保持完成状态。
+- 后续治理重点回到 `09` 的执行面，而 shared root 的实时中性判断交给占用文档和 preflight。

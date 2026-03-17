@@ -39,6 +39,8 @@
   - 当前 Editor / MCP 是否适合继续读写；
   - 当前是否命中 Play / Compile / Domain Reload / Scene / Prefab / Inspector 热区；
   - 出现对象失效、端口占用、中间态读数时是否必须先退回只读。
+- 它还要强制一条离场纪律：
+  - 凡是为了调试或验收进入 Play Mode，完成当前步骤后必须先 Stop 回 Edit Mode，才能把现场让给其他线程。
 - 对应落盘位置：
   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
@@ -53,6 +55,9 @@
   - `sunset-doc-encoding-auditor`
   - `sunset-release-snapshot`
   - `sunset-unity-validation-loop`
+- 若任务涉及 UI、字体、气泡、布局或表现层观感：
+  - 额外补读 `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+  - 必要时补用 `sunset-scene-audit`
 
 ### 第 3 层：现行活文档与 AGENTS
 - 用来提供项目当前口径与边界。
@@ -72,6 +77,7 @@
   - 当前主线目标
   - 当前工作目录 / 分支 / `HEAD`
   - 本轮实际动作
+  - 如进过 Play Mode，是否已回到 Edit Mode
   - 是否触及 Unity / MCP 单实例热区
   - 是否触及共享热文件
   - 已验证事实

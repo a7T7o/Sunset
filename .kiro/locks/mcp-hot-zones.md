@@ -9,6 +9,7 @@
 
 ## 热区 A：编辑器全局状态
 - Play Mode / Stop
+- 把 Editor 停留在 Play Mode 的遗留运行态
 - Compile
 - Domain Reload
 - Package / Asset Refresh
@@ -31,6 +32,7 @@
 - Sorting Layer
 - Layer / Tag
 - UI 样式、材质、公共工具脚本
+- 对话框、气泡样式、字体配置与其他直接影响观感的视觉资源
 - 虽然不一定属于某业务线核心，但会间接影响 NPC / UI / 生成器 / 验收表现
 
 ## 热区 E：文档与记忆写入
@@ -48,6 +50,10 @@
    - 先只读
    - 先回收证据
    - 再决定是否继续
+5. 若自己为了取证进入过 Play Mode：
+   - 完成当前步骤后立即 Stop
+   - 确认已回到 Edit Mode
+   - 再把 Unity 现场让给其他线程
 
 ## 一句话口径
 - Git 分支没冲突，不代表 Unity / MCP 没冲突；凡是命中这些热区，都要先把 Editor 当共享单实例资源处理。

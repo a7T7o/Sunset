@@ -201,3 +201,38 @@
 **关键决策**：
 - shared root 中性和 Unity / MCP 单实例安全必须分层判断。
 - 后续只要继续治理，统一回到 `09`，不再重开 “worktree 退役” 主线。
+
+### 会话 8 - 2026-03-17（治理收官复核与两条补强规则正式落盘）
+**用户目标**：
+> 不要只停在“worktree 退役已经完成”的描述上，还要继续把 shared root 当前真实状态、Play Mode 离场纪律和表现层审美要求一起补成强规则。
+
+**已完成事项**：
+1. 复核当前仓库现场：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - 最新治理提交：`ece0c0ea`
+   - `main...origin/main` 无 ahead / behind
+   - shared root 当前仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆，因此实时上不是中性现场
+2. 更新 repo 内规则与 live 文档：
+   - `AGENTS.md`
+   - `shared-root-branch-occupancy.md`
+   - `mcp-single-instance-occupancy.md`
+   - `mcp-hot-zones.md`
+   - `基础规则与执行口径.md`
+   - `Sunset强制技能闸门与线程回复规范_2026-03-17.md`
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `ui.md`
+3. 更新本机 skill：
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\references\checklist.md`
+4. 回写：
+   - `09_强制skills闸门与执行规范重构/tasks.md`
+   - `09_强制skills闸门与执行规范重构/design.md`
+
+**关键决策**：
+- `main` 只是默认入口模型，不代表 shared root 实时已干净。
+- 进入 Play Mode 做验证后，回到 Edit Mode 才算离场完成。
+- UI / 气泡 / 字体 / 样式的审美与专业度现在是正式验收项，不再只是提醒。
+
+**恢复点 / 下一步**：
+- 治理主线已基本闭环。
+- 当前未完成项不在治理文档，而在 shared root 仍残留的 NPC 业务 dirty；这不是本轮治理提交的白名单范围。

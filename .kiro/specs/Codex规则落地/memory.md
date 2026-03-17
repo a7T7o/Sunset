@@ -214,3 +214,35 @@
 **恢复点 / 下一步**：
 - `12` 到此彻底完成。
 - 如继续治理，只回到 `09` 深化强制执行面。
+
+### 会话 8 - 2026-03-17（补强 shared root 实时占用、Play Mode 离场纪律与表现层验收）
+**用户目标**：
+> 继续完成治理主线，同时把“Play Mode 用完必须退回 Edit Mode”和“UI / 气泡 / 字体 / 样式必须兼顾审美与专业度”写进真正会被命中的闸门层。
+
+**完成事项**：
+1. 复核当前 Git 事实：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - 最新治理提交：`ece0c0ea`
+   - shared root 当前仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆
+2. 更新 repo 内规则：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\基础规则与执行口径.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset强制技能闸门与线程回复规范_2026-03-17.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前唯一状态说明_2026-03-17.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+3. 更新本机 skill（不进入 repo 提交）：
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\references\checklist.md`
+4. 同步 `09` 阶段设计与任务清单，纳入新增两条硬约束。
+
+**关键决策**：
+- `main + branch-only` 是默认工作模型，不是 shared root 实时中性的保证；实时能否切分支必须再看占用文档与 `git status`。
+- 进入 Play Mode 做验证的线程，离场前必须先回到 Edit Mode。
+- 表现层任务必须按“好看、合理、专业、可读”验收，而不是只看功能通过。
+
+**恢复点 / 下一步**：
+- 治理主线仍落在 `09`，但结构性清盘和规则层补强都已基本闭环。
+- 当前剩余现场阻塞不在治理正文，而在 shared root 上仍保留的 NPC 相关业务 dirty。

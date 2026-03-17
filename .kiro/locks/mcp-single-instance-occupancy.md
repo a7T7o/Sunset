@@ -16,6 +16,7 @@
 - default_read_policy: `read-mostly-not-guaranteed`
 - current_claim: `none`
 - play_mode_status: `must-verify-live`
+- play_mode_exit_policy: `must-return-to-edit-mode-before-handoff`
 - compile_status: `must-verify-live`
 - domain_reload_status: `must-verify-live`
 - last_updated: `2026-03-17`
@@ -39,6 +40,7 @@
 - 单实例 Editor 下：
   - 写操作默认不假设天然排队安全。
   - 读操作也不假设一定能读到最终稳定态。
+- 凡是为了调试、取证或验收进入 Play Mode，完成当前步骤后都必须主动退回 Edit Mode；把运行中的 Editor 留给别人处理，视为现场未清干净。
 - 只要不能证明当前 still safe，就先停写、先复核、先降级只读。
 
 ## 冲突信号
@@ -57,6 +59,7 @@
    - 当前 shared root 与热文件占用
 3. 只能有限次重试，且每次重试前都必须重新取现场。
 4. 无法证明现场安全时，退回只读取证并汇报。
+5. 如果本线程进入过 Play Mode，则在汇报或交棒前先确认已经回到 Edit Mode。
 
 ## 一句话口径
 - shared root 在 `main` 只代表 Git 入口中性；Unity / MCP 读写还要再过单实例占用层。
