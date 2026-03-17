@@ -193,8 +193,7 @@ function Get-GovernanceRules {
         'AGENTS.md',
         'scripts',
         '.kiro/steering',
-        '.kiro/hooks',
-        '.kiro/specs/Steering规则区优化'
+        '.kiro/hooks'
     )
 }
 
@@ -255,7 +254,7 @@ function Get-PathGroup {
 
     if (Test-NoisePath -Path $Path) { return '已知本地噪音' }
     if ($Path -like 'Assets/*' -or $Path -like 'Packages/*' -or $Path -like 'ProjectSettings/*') { return '实现/资源改动' }
-    if ($Path -like '.kiro/specs/Steering规则区优化/*' -or $Path -like '.kiro/steering/*' -or $Path -like '.kiro/hooks/*' -or $Path -eq '.gitattributes' -or $Path -eq '.gitignore' -or $Path -eq 'AGENTS.md' -or $Path -like 'scripts/*') { return '治理线改动' }
+    if ($Path -like '.kiro/specs/Steering规则区优化/*' -or $Path -like '.kiro/specs/000_代办/*' -or $Path -like '.kiro/steering/*' -or $Path -like '.kiro/hooks/*' -or $Path -eq '.gitattributes' -or $Path -eq '.gitignore' -or $Path -eq 'AGENTS.md' -or $Path -like 'scripts/*') { return '治理线改动' }
     if ($Path -like '.kiro/specs/农田系统/*') { return '农田线改动' }
     if ($Path -like '.kiro/specs/900_开篇/*') { return '开篇线改动' }
     if ($Path -like '.kiro/about/*') { return 'about治理线改动' }
@@ -522,6 +521,5 @@ switch ($Action) {
         }
     }
 }
-
 
 

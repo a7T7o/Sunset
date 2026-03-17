@@ -34,3 +34,28 @@
   - `Assets/100_Anim/NPC/001/Clips/001_Idle_Down.anim` 与 `001_Move_Down.anim` 的 `m_PPtrCurves` 当前引用的 fileID 已与修复后的 `.meta` 对齐。
   - 当前 Unity Console 为 0 条，未再出现本轮的 `Missing Sprite` / `Missing Script` 噪音。
 - 当前恢复点：NPC 的 PNG 子资源 ID 已重新和 Prefab/动画链路对齐，三张 NPC 贴图依赖已补全。
+
+- 当前主线目标：在继续 NPC 主线前，先把“为什么这条 NPC 线程后来会落到 farm 分支上继续提交”做成可交给治理线程的写实分析。
+- 本轮子任务：只读核查 NPC 线程相关的 Git 分支、worktree、reflog 与线程规则，澄清分支和 worktree 的关系并重建时间线。
+- 已证实事实：
+  - 当前根仓库真实现场是 `D:\Unity\Unity_learning\Sunset @ codex/farm-1.0.2-correct001`，`HEAD = 11e0b7b4`，不是 `main`，也不是某条 `codex/npc-*` 分支。
+  - 旧 NPC 独立 worktree 仍然存在于 `D:\Unity\Unity_learning\Sunset_worktrees\NPC`，其检出分支是 `codex/npc-generator-pipeline`；这说明“NPC 默认不再用独立 worktree”是规则口径，但旧 worktree 现场并未物理消失。
+  - `codex/npc-fixed-template-main`、`codex/npc-asset-solidify-001`、`codex/npc-main-recover-001`、`codex/npc-roam-phase2-001` 这些 NPC 分支都是真实存在的仓库分支，不“属于”某个 worktree；只有 `codex/npc-generator-pipeline` 当前仍附着在旧 NPC worktree 上。
+  - `git reflog` 显示 2026-03-17 01:35 从 `codex/farm-1.0.2-correct001` 切到 `codex/npc-roam-phase2-001`，01:44 又切回 `codex/farm-1.0.2-correct001`；随后 `07ffe199`、`18f3a9e1`、`11e0b7b4` 连续提交都发生在 `codex/farm-1.0.2-correct001`。
+  - `07ffe199` 与 `18f3a9e1` 这两次提交实际承载了 NPC 二阶段代码、动画、Prefab 与 PNG meta 修复，且 `git branch --contains` 结果表明它们当前只在 `codex/farm-1.0.2-correct001` 上。
+- 当前判断：
+  - “为什么会回到 farm” 的主观动机无法从 Git 直接证明，但从时间线看，最合理解释是：根仓库当时已经在 farm 线工作，短暂切去 NPC 分支做恢复后，又回到了原活跃根分支，导致后续 NPC 成果提交到了 farm。
+  - 我此前把“历史上存在 NPC worktree”说成了“现在 NPC 就是在那个 worktree 上”，表述失真；更准确的说法应是“规则上 NPC 现在线程默认应从根仓库 `main` 进入，但 Git 现场仍保留旧 NPC worktree，同时本轮根仓库又实际停在 farm 分支上”。
+- 恢复点：NPC 这条线当前新增了完整的 Git 取证结论，下一步应由治理线程裁定如何处理“NPC 成果落在 farm 分支”与“旧 NPC worktree 残留”的收口方案。
+
+- 当前主线目标：按治理裁定，把 NPC 的后续可写基线收敛到 `codex/npc-roam-phase2-001 @ f6b4db2f`，不再借用共享根目录 `D:\Unity\Unity_learning\Sunset @ codex/farm-1.0.2-correct001`。
+- 本轮子任务：只读确认 `f6b4db2f` 是否已经包含 NPC 核心资产 / Prefab / meta / 运行时代码，并判断 `FarmToolPreview.cs` 与 `NPCPrefabGeneratorTool.cs` 的最小收口策略。
+- 已证实事实：
+  - `git ls-tree -r f6b4db2f` 已包含 `Assets/100_Anim/NPC/`、`Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset`、`Assets/222_Prefabs/NPC/001~003.prefab`、`Assets/Sprites/NPC/001~003.png(.meta)`、`Assets/YYY_Scripts/Anim/NPC/NPCAnimController.cs`、`Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`、`NPCBubblePresenter.cs`、`NPCMotionController.cs`、`Assets/YYY_Scripts/Data/NPCRoamProfile.cs` 与 `Assets/Editor/NPCPrefabGeneratorTool.cs`。
+  - `f6b4db2f` 对比 farm 上 `18f3a9e1`，NPC 范围内只剩 `Assets/Editor/NPCPrefabGeneratorTool.cs` 与 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 两个差异文件；说明 `f6b4db2f` 本身已经带齐 NPC 核心资产，不缺额外 Prefab / meta / 脚本。
+  - `f6b4db2f` 对比其上游 `8aed637f`，真正额外拖入 NPC 线的 farm 侧文件只有 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`。
+  - `git grep` 显示在 `f6b4db2f` 中，`GameInputManager.cs` 仍只调用无参 `ClearAllQueuePreviews()`，NPC 线内没有其他代码依赖 `FarmToolPreview.ClearAllQueuePreviews(bool)` 这组 farm 侧扩展。
+- 关键判断：
+  - `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 的这次改动不应继续留在 NPC 救援线中；最小剔除方式是把该文件回退到 `8aed637f` 版本。
+  - `Assets/Editor/NPCPrefabGeneratorTool.cs` 继续保持 `f6b4db2f` 版本即可作为 NPC 救援基线，因为它已经和这条线里的 Prefab / 漫游组件 / 默认 profile 链路一致；不需要再借用 farm 上更旧的那版。
+- 恢复点：NPC 现已可以以 `codex/npc-roam-phase2-001 @ f6b4db2f` 作为唯一救援基线继续收口；下一步最小动作应是在独立 NPC 可写现场里，仅剔除 `FarmToolPreview.cs` 的 farm 侧拖带改动，并做一次 Unity 编译 + `001/002/003` Prefab/动画引用验证。
