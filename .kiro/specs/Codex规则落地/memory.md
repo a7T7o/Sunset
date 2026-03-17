@@ -222,7 +222,7 @@
 **完成事项**：
 1. 复核当前 Git 事实：
    - `D:\Unity\Unity_learning\Sunset @ main`
-   - 最新治理提交：`ece0c0ea`
+   - 最新治理提交：`663af03c`
    - shared root 当前仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆
 2. 更新 repo 内规则：
    - `D:\Unity\Unity_learning\Sunset\AGENTS.md`

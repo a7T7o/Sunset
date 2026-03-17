@@ -9,7 +9,7 @@
 - root_path: `D:\Unity\Unity_learning\Sunset`
 - owner_mode: `main-dirty-shared-root`
 - current_branch: `main`
-- last_verified_head: `ece0c0ea`
+- last_verified_head: `663af03c`
 - is_neutral: `false`
 - blocking_dirty_scope: `other-thread dirty is still present in shared root, currently dominated by NPC business files plus non-governance memories`
 - daily_policy: `main + branch-only`

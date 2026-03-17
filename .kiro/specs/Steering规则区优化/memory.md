@@ -312,7 +312,7 @@
 > 把当前 live 规则补到真正能约束线程的程度：既要说清 shared root 当前是否真中性，也要把 Play Mode 离场纪律和 UI / 字体 / 气泡 / 样式的验收标准并进现行入口。
 
 **完成任务**：
-1. 实核 shared root 现场已在 `main @ ece0c0ea`，但 working tree 仍有其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆。
+1. 实核 shared root 现场已在 `main @ 663af03c`，但 working tree 仍有其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆。
 2. 更新 live 入口文档：
    - `Sunset当前唯一状态说明_2026-03-17.md`
    - `基础规则与执行口径.md`

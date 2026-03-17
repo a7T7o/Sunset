@@ -126,7 +126,7 @@
 **完成事项**：
 1. 实核当前仓库现场：
    - `D:\Unity\Unity_learning\Sunset @ main`
-   - 最新治理提交：`ece0c0ea`
+   - 最新治理提交：`663af03c`
    - 当前 shared root 仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆，因此不是实时中性现场。
 2. 更新本阶段执行面：
    - `C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`

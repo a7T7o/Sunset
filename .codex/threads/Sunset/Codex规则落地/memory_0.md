@@ -209,7 +209,7 @@
 **已完成事项**：
 1. 复核当前仓库现场：
    - `D:\Unity\Unity_learning\Sunset @ main`
-   - 最新治理提交：`ece0c0ea`
+   - 最新治理提交：`663af03c`
    - `main...origin/main` 无 ahead / behind
    - shared root 当前仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆，因此实时上不是中性现场
 2. 更新 repo 内规则与 live 文档：
