@@ -15,6 +15,10 @@
 - 线程记忆文件一律写入 `D:\Unity\Unity_learning\Sunset\.codex\threads\<分组>\<线程名>\memory_0.md` 这一项目内结构，不写到 `C:\Users\aTo\.codex\`。
 - 如果当前任务属于长期线程治理或线程进入前核验，先读 `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.md` 与当前治理工作区中的用户使用说明。
 - `sunset-startup-guard` 的职责优先级高于普通工作区路由：它先核主线、`cwd/branch/HEAD`、共享根目录占用与模式判定，再决定是否继续调用 `sunset-workspace-router`、`sunset-lock-steward` 等同伴 skills。
+- 如果任务涉及 Unity、MCP、Play Mode、Compile、Domain Reload、Console、Scene / Prefab 验证或 Inspector 读写，除 shared root 占用外，还必须额外核：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+  - 必要时回看 `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-log.md`
 - 如果任务涉及工作区、记忆、交接、治理、报告、Claude 或 Codex 迁移、历史接手，优先使用 `sunset-workspace-router`。
 - 如果任务涉及场景、预制体、检查器、ScriptableObject、序列化引用或验证场景，优先使用 `sunset-scene-audit`。
 - 如果任务涉及锐评、审视报告、差异、纠正、是否采纳评审，优先使用 `sunset-review-router`。
@@ -89,6 +93,8 @@
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\` 属于治理正文工作区；`D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex\` 只属于 TD 镜像区。不要把二者再混成一个入口。
 - 进入任一长期线程前，先核验两件事：当前工作目录、`git branch --show-current`；UI 中残留的分支提示不能替代真实 Git 状态。
 - 如果共享根目录 `D:\Unity\Unity_learning\Sunset` 当前 checkout 不在 `main`，则必须先由 `sunset-startup-guard` 判断它是否已被其他线程占用；未经确认不得把它当成中性业务现场继续写入。
+- `shared-root-branch-occupancy.md` 只回答 Git/目录层是否中性；它不替代 Unity/MCP 单实例占用判断。
+- 只要任务会触发 Unity/MCP 读写，就必须把 `mcp-single-instance-occupancy.md` 与 `mcp-hot-zones.md` 当成第二层现场闸门；出现 Play/Compile/Domain Reload/对象失效/端口占用等冲突信号时，先降级只读，再决定是否继续。
 - 治理任务若留在 `main`，只允许使用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 明确带上本轮受影响的业务记忆或线程记忆。
 - 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -IncludePaths ...`，只白名单提交本轮治理文件。
 - 真实实现任务若准备从 `main` 进入代码或场景修改，必须先执行 `git-safe-sync.ps1 -Action ensure-branch -BranchName codex/...`；只有在工作树干净、基线同步时才允许创建任务分支。

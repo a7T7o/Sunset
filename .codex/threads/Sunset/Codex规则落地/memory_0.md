@@ -12,16 +12,20 @@
 - 同时把本轮 `NPC / farm / spring-day1` 带出来的事故期临时 `worktree` 全部收回；这一步已经完成，当前若继续治理应回到启动闸门、skills 与规则执行面的深化。
 
 ## 当前状态
-- **用户视角完成度（11阶段）**：100%
-- **治理推进度（当前子主线 11）**：100%
+- **用户视角完成度（12阶段）**：100%
+- **治理推进度（当前子主线 12）**：100%
 - **最后更新**：2026-03-17
-- **状态**：`11` 已完成并封板
+- **状态**：`12` 已完成；后续治理回到 `09`
 
 ## 当前稳定结论
 - Sunset 当前治理续办总入口固定为：
-  - [D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex)
-- 当前最终收口主线已经升级为：
-  - [11_main-branch-only回归与worktree退役收口](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/tasks.md)
+  - [D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地)
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex` 已降级为 TD-only 镜像区，不再承载治理正文。
+- 当前已完成的最终收口主线保留为：
+  - [11_main-branch-only回归与worktree退役收口](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/tasks.md)
+- 当前治理工作区归位与彻底清盘已由：
+  - [12_治理工作区归位与彻底清盘](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/12_治理工作区归位与彻底清盘/tasks.md)
+  完成封板。
 - 当前共享根目录已经恢复为：
   - `D:\Unity\Unity_learning\Sunset @ main`
 - `worktree` 在当前 Sunset 口径中已重新收束为例外：
@@ -33,6 +37,11 @@
   - `spring-day1 -> codex/spring-day1-story-progression-001 @ a9c952b7`
 - 当前 `git worktree list --porcelain` 只剩共享根目录。
 - `npc_restore.zip` 与 `Assets/Screenshots*` 已移出仓库工作树。
+- Unity / MCP 单实例层三件套已落盘：
+  - `mcp-single-instance-occupancy.md`
+  - `mcp-hot-zones.md`
+  - `mcp-single-instance-log.md`
+- `D:\Unity\Unity_learning\Sunset_external_archives` 与 `D:\Unity\Unity_learning\Sunset_backups` 已真实删除。
 
 ## 最近会话
 
@@ -47,15 +56,15 @@
    - `执行方案.md`
    - `memory.md`
 2. 新增：
-   - [总进度与收口清单_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/总进度与收口清单_2026-03-17.md)
-   - [分发Prompt_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/分发Prompt_2026-03-17.md)
+   - [总进度与收口清单_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/总进度与收口清单_2026-03-17.md)
+   - [分发Prompt_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/分发Prompt_2026-03-17.md)
 3. 重写现行入口文档：
    - [Sunset当前唯一状态说明_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset当前唯一状态说明_2026-03-17.md)
    - [Sunset现行入口总索引_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset现行入口总索引_2026-03-17.md)
 4. 已真实执行第一批纯历史 worktree 退役，`git worktree list` 已缩减。
 5. 已新增：
-   - [所有线程回归誓言.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/所有线程回归誓言.md)（线程回包索引）
-   - [共享根目录dirty归属初版_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/共享根目录dirty归属初版_2026-03-17.md)
+   - [所有线程回归誓言.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/所有线程回归誓言.md)（线程回包索引）
+   - [共享根目录dirty归属初版_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/共享根目录dirty归属初版_2026-03-17.md)
 
 **关键决策**：
 - `09/10` 不再继续承接新增收尾尾巴；`11` 是当前最终收口主线。
@@ -91,10 +100,10 @@
    - shared root 治理/归档 dirty 尚未形成可执行收口
    - `Assets/111_Data/NPC 1.meta`、`Assets/Screenshots*`、`npc_restore.zip` 尚未裁定
 4. 更新或新增：
-   - [所有线程回归誓言.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/所有线程回归誓言.md)
-   - [共享根目录dirty归属可执行版_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/共享根目录dirty归属可执行版_2026-03-17.md)
-   - [第二批worktree核验表_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/第二批worktree核验表_2026-03-17.md)
-   - [分发Prompt_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/分发Prompt_2026-03-17.md)
+   - [所有线程回归誓言.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/所有线程回归誓言.md)
+   - [共享根目录dirty归属可执行版_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/共享根目录dirty归属可执行版_2026-03-17.md)
+   - [第二批worktree核验表_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/第二批worktree核验表_2026-03-17.md)
+   - [分发Prompt_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/分发Prompt_2026-03-17.md)
 
 **关键决策**：
 - 现在不再缺三大业务线的 branch-only carrier 判断。
@@ -150,7 +159,7 @@
    - 当前线程 `memory_0.md`
    - 现行状态说明与现行入口总索引
 4. 为 `11` 新增终局快照：
-   - [终局快照_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/终局快照_2026-03-17.md)
+   - [终局快照_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/终局快照_2026-03-17.md)
 
 **关键决策**：
 - 本线程关于 `11` 的子主线已经完成，不再继续把新的 shared root 尾巴往里塞。
@@ -164,12 +173,31 @@
 **用户目标**：基于上一轮终局摘要，确认 Sunset 现场是否真的已经回到 `main + branch-only`，并明确当前线程接下来该回到哪条治理主线。  
 **完成事项**：只读复核 shared root 当前为 `D:\Unity\Unity_learning\Sunset @ main`、`git worktree list --porcelain` 仅剩根目录、`git status --short --branch` clean、最新提交为 `dd83ff74`；同时发现 `09_强制skills闸门与执行规范重构` 目录缺少 `memory.md`，本轮已补建并同步父层记忆。  
 **关键决策**：把 `09` 明确恢复为 `11` 封板后的唯一治理续办点；`11` 继续只保留终局快照与过程证据，不再承接新尾巴。  
-**涉及文件**：`C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`、[09_强制skills闸门与执行规范重构/memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/memory.md)、[memory_0.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_0.md)。  
+**涉及文件**：`C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`、[09_强制skills闸门与执行规范重构/memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/memory.md)、[memory_0.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_0.md)。  
 **恢复点 / 下一步**：后续若继续推进本线程，优先进入 `09` 去压实 `sunset-startup-guard` 的稳定命中、最小回复结构和 `worktree` 红线执行。
 
 ### 会话 6 - 2026-03-17（总进度盘点与未完项重新分层）
 **用户目标**：要一份能够直接回答“现在项目到底到哪一步、还剩什么、哪些是真的没做完”的总盘点。  
 **完成事项**：通读 `000_代办/codex/01-11` 的 `tasks.md`，并结合当前 Git 现场重新分层：`11` 已真实完成，`04/05/06/08` 也已达到阶段完成；`03/10` 有旧勾选未收口，但多数已被 `11` 的终局动作覆盖；当前真正还活跃的治理主线只剩 `09`，此外还有 `01/02/07` 的少量收尾债。  
 **关键决策**：业务线程警戒线已经解除，不需要再分发 branch-only prompt；当前剩余的“警戒线”主要是治理层的，即 skills 强制命中、启动闸门稳定执行、旧待办显式封板这几项。  
-**涉及文件**：[09_强制skills闸门与执行规范重构/tasks.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/tasks.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/memory.md)。  
+**涉及文件**：[09_强制skills闸门与执行规范重构/tasks.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/09_强制skills闸门与执行规范重构/tasks.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/memory.md)。  
 **恢复点 / 下一步**：从 `09` 继续做强制 skills 闸门落地；同时择机清掉 `03/10` 的文档残余未勾选项，防止以后再被误读成系统尚未收口。
+
+### 会话 7 - 2026-03-17（12 阶段真实清盘与 MCP 单实例层并入执行面）
+**用户目标**：在不漂移主线的前提下，把“代办区误当工作区”的结构错位、仓库外历史容器退役，以及 Unity / MCP 单实例冲突一起补成真实可执行口径。  
+**已完成事项**：
+1. 新建：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-log.md`
+2. 更新：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - 当前运行基线与开发规则下的 live 入口文档
+3. 新建 [外部历史容器退役说明_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/12_治理工作区归位与彻底清盘/外部历史容器退役说明_2026-03-17.md)。
+4. 真实删除：
+   - `D:\Unity\Unity_learning\Sunset_external_archives`
+   - `D:\Unity\Unity_learning\Sunset_backups`
+5. 实测当前 shared root `HEAD = 952a1f23`。
+**关键决策**：
+- shared root 中性和 Unity / MCP 单实例安全必须分层判断。
+- 后续只要继续治理，统一回到 `09`，不再重开 “worktree 退役” 主线。
