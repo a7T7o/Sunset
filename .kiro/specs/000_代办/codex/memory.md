@@ -86,6 +86,13 @@
 - 现在应优先把 branch-only 回归 prompt 发给 `spring-day1 / NPC / farm`。
 - 收到三方答复后，继续推进 shared root 清理和第二批 worktree 退役。
 
+### 会话 2 - 2026-03-17（11 封板后的治理恢复点核验）
+**用户目标**：在 `11` 已完成的前提下，复核 Sunset 当前真实现场，并确认后续治理应该回到哪条主线继续推进。  
+**完成事项**：只读核验 `D:\Unity\Unity_learning\Sunset @ main`、`git worktree list --porcelain` 仅剩 shared root、最新提交为 `dd83ff74`；同时补建 [09_强制skills闸门与执行规范重构/memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/memory.md)，避免 `11` 封板后下一阶段入口缺少工作区记忆承接。  
+**关键决策**：`11` 继续保持“终局快照层”，不再追加新治理尾巴；后续若继续推进 skills 强制命中、启动闸门、AGENTS/四件套执行约束，统一回到 `09` 续办。  
+**涉及文件**：`C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`、[09_强制skills闸门与执行规范重构/memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/memory.md)、[memory_0.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_0.md)。  
+**恢复点 / 下一步**：继续在 `09` 压实 `sunset-startup-guard` 的 session 可见性、首条 `commentary` 结构命中率，以及“禁止把 worktree 常态化”的稳定闸门口径。
+
 ### 会话 2 - 2026-03-17（`11` 阶段纠正“真实回包目录”并进入执行态）
 **用户目标**：
 > `所有线程回归誓言` 目录里存放的是线程真实回包，不是规范正文；要求基于这批真实回包继续推进，而不是继续围着占位索引打转。
