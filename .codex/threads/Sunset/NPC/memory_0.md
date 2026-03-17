@@ -238,3 +238,29 @@
 **当前恢复点**:
 - 线程视角下的真实状态已经切换为“救援分支完成最小收口并通过固定范围验证”。
 - 下一步只剩在救援 worktree 内对白名单文件做 Git 收口并确认分支干净，不再回共享根目录承载 NPC 写入。
+---
+
+### 会话 11 - 2026-03-17
+
+**用户需求**:
+> 救援提交完成后，不再继续做 NPC 救火；先只读核查 rescue worktree 中剩余的 4 个 TMP 字体 dirty，并给出后续续航方案 A/B 的明确建议。
+
+**完成任务**:
+1. 重新核对 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue @ codex/npc-roam-phase2-001` 的 `git status`，确认唯一剩余 dirty 是 4 个 TMP 字体资源文件。
+2. 回读 `git show --stat --name-only f7a1c0f5`，确认当前 NPC 救援提交未包含这 4 个文件，它们没有进入已推送的 NPC 结果。
+3. 结合 rescue 接管前已记录的现场摘要，得出线程级稳定判断：这 4 个 TMP dirty 与 NPC 业务无关，并且早于本轮最小救援收口已存在。
+4. 在线程层面明确推荐方案 A：基于 `f7a1c0f562a476febe50084124dbeee382d31ac9` 另起一个新的 NPC continuation 可写现场，让当前 rescue worktree 降级为取证/收口现场，避免未来 NPC 提交再次混线。
+
+**关键决策**:
+- 当前主线仍然是 NPC，但本轮子任务已经切换为“救援后续航治理”，服务于恢复一个长期可写、`git status` clean 的 NPC 开发现场。
+- 方案 B 只有在能证明这 4 个文件有稳定 owner、稳定隔离策略、且不会再次被 Unity 自动改脏时才成立；当前证据不足，因此不推荐。
+
+**关键文件**:
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese BitmapSong SDF.asset`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese Pixel SDF.asset`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese SDF.asset`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese V2 SDF.asset`
+
+**当前恢复点**:
+- 当前线程的真实状态是“NPC 救援已完成，rescue worktree 只剩无关 TMP dirty 待隔离”。
+- 下一步最小动作是按方案 A 新建 clean continuation 现场，再恢复 NPC 主线开发。

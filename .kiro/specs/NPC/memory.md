@@ -168,3 +168,29 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 **当前恢复点**:
 - NPC 父工作区当前真实状态是“救援分支最小收口已完成，静态验证通过，等待白名单 Git 固化”。
 - 下一步不是继续扩写功能，而是只对白名单文件做提交并确认救援分支重新干净。
+---
+
+### 会话 8 - 2026-03-17
+
+**用户需求**:
+> NPC 救援通过后，不再继续救火；先处理当前 rescue worktree 里的 4 个无关 TMP 字体 dirty，判断归属并选择后续续航方案。
+
+**完成任务**:
+1. 回读 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue` 的 `git status`，确认当前仅剩 4 个 TMP 字体资源 dirty，路径全部位于 `Assets/TextMesh Pro/Resources/Fonts & Materials/`。
+2. 回读 `f7a1c0f5` 的提交边界，确认这 4 个字体资源没有进入当前 NPC 救援提交，说明它们不是 NPC 救援收口的一部分。
+3. 结合 rescue 接管前的现场摘要，形成父工作区层面的稳定结论：这 4 个文件与 NPC 业务无关，且属于 rescue 现场既有残留，不宜继续在该现场直接承接新一轮 NPC 开发。
+4. 明确推荐方案 A：从 `f7a1c0f562a476febe50084124dbeee382d31ac9` 新起 continuation worktree 和新 `codex/` 分支，把当前 rescue worktree 降级为取证现场。
+
+**关键决策**:
+- 当前最优先的不是证明 rescue worktree 还能继续凑合用，而是主动切断无关 dirty 对后续 NPC 提交的污染链。
+- continuation 现场应以当前已推送的 `f7a1c0f5` 作为起点，并与 rescue 现场物理隔离。
+
+**关键文件**:
+- `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese BitmapSong SDF.asset`
+- `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+- `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+- `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+
+**当前恢复点**:
+- NPC 父工作区已完成救援验证与救援提交，当前进入“切换干净 continuation 现场”的治理准备阶段。
+- 下一步最小动作是按方案 A 新建 clean worktree，而不是继续在当前 rescue worktree 上承接新开发。

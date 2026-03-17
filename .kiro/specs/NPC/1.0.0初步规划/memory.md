@@ -203,3 +203,28 @@
 **当前恢复点**:
 - 当前子工作区主线已经从“功能推进”切换到“救援基线最小收口”，后续 NPC 写入只允许发生在独立救援 worktree。
 - 下一步只剩对白名单文件做 Git 收口，并确认 `codex/npc-roam-phase2-001` 回到干净可继续开发状态。
+---
+
+### 会话 9 - 2026-03-17
+
+**用户需求**:
+> NPC 救援已通过治理核验，本轮不再继续救火，只读核查当前 rescue worktree 里剩余的 4 个 TMP 字体资源 dirty，判断它们是否属于 NPC、是否早于本轮救援已存在，并给出最安全的后续续航方案。
+
+**完成任务**:
+1. 在 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue` 重新回读 `git status --short`，确认剩余 dirty 仅有 4 个 TMP 字体资源：`Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese BitmapSong SDF.asset`、`DialogueChinese Pixel SDF.asset`、`DialogueChinese SDF.asset`、`DialogueChinese V2 SDF.asset`。
+2. 回读 `git show --stat --name-only f7a1c0f5`，确认当前 NPC 救援提交只包含 `FarmToolPreview.cs` 与三层 memory，没有把上述 4 个字体资源卷入本轮提交。
+3. 结合本轮接管前的 rescue 现场摘要与当前提交边界，形成稳定判断：这 4 个字体 dirty 与 NPC 业务无关，且在本轮最小救援收口前就已经作为现场残留存在，不属于当前 NPC 提交结果。
+4. 给出续航建议时明确推荐方案 A：基于 `f7a1c0f562a476febe50084124dbeee382d31ac9` 另起一个全新的 NPC continuation 可写现场，让当前 rescue worktree 退回只读取证/收口现场。
+
+**修改文件**:
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md` - 追加 rescue worktree 无关 dirty 核查结论
+- `.kiro/specs/NPC/memory.md` - 同步父工作区层面的续航决策
+- `.codex/threads/Sunset/NPC/memory_0.md` - 同步线程视角下的现场切换建议
+
+**关键决策**:
+- 当前最安全的 NPC 续航方式是“换新 continuation 现场”，而不是继续在已带无关 dirty 的 rescue worktree 上开发。
+- 当前 rescue worktree 的角色从“可继续写入的救援现场”降级为“取证 / 收口现场”，后续仅保留用于回读和对照。
+
+**当前恢复点**:
+- NPC 子工作区当前已经结束救援收口，进入“切换到全新 continuation 现场前的治理清场”阶段。
+- 下一步不是做新功能，而是按方案 A 建立一个 `git status` clean 的新 NPC worktree，再继续主线开发。
