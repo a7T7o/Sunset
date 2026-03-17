@@ -47,6 +47,7 @@ public class NPCAnimController : MonoBehaviour
     private NPCAnimState _currentState = NPCAnimState.Idle;
     private NPCAnimDirection _currentDirection = NPCAnimDirection.Down;
     private bool _isFlipped;
+    private bool _warnedMissingController;
 
     private static readonly int StateHash = Animator.StringToHash("State");
     private static readonly int DirectionHash = Animator.StringToHash("Direction");
@@ -115,6 +116,11 @@ public class NPCAnimController : MonoBehaviour
 
     public void PlayIdle(NPCAnimDirection direction, bool force = false)
     {
+        if (!force && _currentState == NPCAnimState.Idle && _currentDirection == direction)
+        {
+            return;
+        }
+
         _currentState = NPCAnimState.Idle;
         _currentDirection = direction;
         ApplyVisualState(force);
@@ -122,6 +128,11 @@ public class NPCAnimController : MonoBehaviour
 
     public void PlayMove(NPCAnimDirection direction, bool force = false)
     {
+        if (!force && _currentState == NPCAnimState.Move && _currentDirection == direction)
+        {
+            return;
+        }
+
         _currentState = NPCAnimState.Move;
         _currentDirection = direction;
         ApplyVisualState(force);
@@ -185,9 +196,6 @@ public class NPCAnimController : MonoBehaviour
             return;
         }
 
-        animator.SetInteger(StateHash, (int)_currentState);
-        animator.SetInteger(DirectionHash, ConvertToAnimatorDirection(_currentDirection));
-
         bool shouldFlip = _currentDirection == NPCAnimDirection.Left;
         if (force || _isFlipped != shouldFlip)
         {
@@ -196,6 +204,28 @@ public class NPCAnimController : MonoBehaviour
         }
 
         ApplyAnimatorSpeed();
+
+        if (!animator.isActiveAndEnabled || !gameObject.activeInHierarchy || !animator.isInitialized)
+        {
+            return;
+        }
+
+        if (!HasRuntimeController())
+        {
+            if (!_warnedMissingController)
+            {
+                _warnedMissingController = true;
+                Debug.LogWarning(
+                    $"[NPCAnimController] {name} 的 Animator 尚未绑定 RuntimeAnimatorController，先跳过参数驱动。",
+                    this);
+            }
+
+            return;
+        }
+
+        _warnedMissingController = false;
+        animator.SetInteger(StateHash, (int)_currentState);
+        animator.SetInteger(DirectionHash, ConvertToAnimatorDirection(_currentDirection));
 
         if (showDebugLog)
         {
@@ -215,6 +245,11 @@ public class NPCAnimController : MonoBehaviour
         animator.speed = _currentState == NPCAnimState.Move
             ? moveAnimationSpeed
             : idleAnimationSpeed;
+    }
+
+    private bool HasRuntimeController()
+    {
+        return animator != null && animator.runtimeAnimatorController != null;
     }
 
     private int ConvertToAnimatorDirection(NPCAnimDirection direction)
