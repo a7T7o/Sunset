@@ -8,9 +8,9 @@
 ## 2. 最终裁定
 - `11` 阶段目标已经真实完成，不再继续向本阶段追加新尾巴。
 - shared root 当前真实状态是：
-  - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+  - `D:\Unity\Unity_learning\Sunset @ main`
   - `git status --short --branch` clean
-  - `origin/main` 已同步到同一提交
+  - `origin/main` 已同步
 - 当前 `git worktree list --porcelain` 只剩：
   - `D:/Unity/Unity_learning/Sunset`
 - 三条业务线现在都只保留“根目录 + 分支”入口：
@@ -23,8 +23,8 @@
 - 先在 `codex/governance-11-shared-root-return001` 上完成治理收口提交 `af3060f9`。
 - 因该治理分支基于污染链 `11e0b7b4`，没有整支并回 `main`，而是只将治理提交 `cherry-pick` 到 `main`，形成干净终局提交 `763ba4a1`。
 - 已真实完成并推送：
-  - `main @ 763ba4a1`
-  - `origin/main @ 763ba4a1`
+  - shared root 首个回 `main` 的干净提交：`763ba4a1`
+  - 随后的终局文档同步继续在 `main` 上追加
 - 第二批 worktree 已真实退役并删除物理目录：
   - `D:\Unity\Unity_learning\Sunset_worktrees\spring-day1-story-progression-001`
   - `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue`

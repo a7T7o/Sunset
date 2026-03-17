@@ -8,7 +8,7 @@
 ## 当前裁定
 - `11` 阶段已经完成，不再继续向本阶段追加新尾巴。
 - shared root 已恢复为：
-  - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+  - `D:\Unity\Unity_learning\Sunset @ main`
 - 当前 `git worktree list --porcelain` 只剩共享根目录。
 - `NPC / farm / spring-day1` 的 branch-only 验证已经真实完成，不再需要继续下发本阶段 prompt。
 
@@ -53,7 +53,7 @@
   - `Assets/Screenshots*`
   - `npc_restore.zip`
 - [x] 已将治理收口提交安全落盘到：
-  - `main @ 763ba4a1`
+  - shared root 首个回 `main` 的干净提交：`763ba4a1`
 - [x] 已在 shared root 对以下分支完成 root + branch 检出验证：
   - `codex/spring-day1-story-progression-001`
   - `codex/npc-roam-phase2-002`

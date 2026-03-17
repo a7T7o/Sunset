@@ -30,7 +30,7 @@
   - `spring-day1` clean checkpoint：`codex/spring-day1-story-progression-001 @ a9c952b7`
 - `11` 已完成最终收口目标：
   - 临时 `worktree` 只能是事故容器
-  - shared root 已回到 `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+  - shared root 已回到 `D:\Unity\Unity_learning\Sunset @ main`
   - `git worktree list --porcelain` 只剩共享根目录
   - `spring-day1 / NPC / farm` 已完成根目录 branch-only 检出验证
   - `npc_restore.zip` 与 `Assets/Screenshots*` 已移出仓库工作树
@@ -144,7 +144,7 @@
 
 **已完成事项**：
 1. 复核 `11` 终局事实：
-   - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+   - `D:\Unity\Unity_learning\Sunset @ main`
    - `git worktree list --porcelain` 只剩共享根目录
 2. 为 `11` 新增 [终局快照_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/终局快照_2026-03-17.md)。
 3. 重写 `11` 的 `tasks.md / analysis.md / 总进度与收口清单_2026-03-17.md`，把阶段状态从“执行中”改成“已完成”。

@@ -219,7 +219,7 @@
 
 **已完成事项**：
 1. 重新核对 shared root 终局现场：
-   - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+   - `D:\Unity\Unity_learning\Sunset @ main`
    - `git status --short --branch` clean
    - `git worktree list --porcelain` 只剩共享根目录
 2. 复核根目录 branch-only 检出验证证据：

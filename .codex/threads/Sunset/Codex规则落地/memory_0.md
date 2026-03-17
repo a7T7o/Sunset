@@ -23,7 +23,7 @@
 - 当前最终收口主线已经升级为：
   - [11_main-branch-only回归与worktree退役收口](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/tasks.md)
 - 当前共享根目录已经恢复为：
-  - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+  - `D:\Unity\Unity_learning\Sunset @ main`
 - `worktree` 在当前 Sunset 口径中已重新收束为例外：
   - 只用于高风险隔离、事故 cleanroom 或特殊实验
   - 不再是默认开发方式
@@ -141,7 +141,7 @@
 
 **已完成事项**：
 1. 复核 shared root 终局状态：
-   - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+   - `D:\Unity\Unity_learning\Sunset @ main`
    - `git worktree list --porcelain` 只剩共享根目录
 2. 确认 `spring-day1 / NPC / farm` 的根目录 branch-only 检出验证都已真实完成。
 3. 同步重写：
