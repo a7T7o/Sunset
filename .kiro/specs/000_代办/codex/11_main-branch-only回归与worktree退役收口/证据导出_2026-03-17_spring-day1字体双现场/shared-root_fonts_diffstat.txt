@@ -1,0 +1,5 @@
+﻿ .../DialogueChinese BitmapSong SDF.asset           | 1000 +++++++-
+ .../DialogueChinese Pixel SDF.asset                | 1626 ++++++++++++-
+ .../DialogueChinese SoftPixel SDF.asset            | 2523 +++++++++++++++++++-
+ .../Fonts & Materials/DialogueChinese V2 SDF.asset |  954 +++++++-
+ 4 files changed, 5825 insertions(+), 278 deletions(-)

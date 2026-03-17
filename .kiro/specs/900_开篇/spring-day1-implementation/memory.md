@@ -171,3 +171,47 @@
 - 本轮已在 `Assets/YYY_Scripts/Service/TimeManager.cs` 补回这套兼容接口，并用“手动暂停覆盖 + 来源暂停集合”的最小实现承接旧语义。
 - 运行时程序集 `Assembly-CSharp` 已用 Unity 6000.0.62f1 自带 Roslyn 独立编译通过，用户最初给出的两条 `DialogueManager` 报错已消失。
 - 当前真正剩余阻塞不在业务代码，而在工具链：Unity MCP 仍报 `Connection failed: Unknown error`，Editor 程序集的本地独立编译也因 Bee 中间文件缺失未完全闭环。
+
+## 2026-03-13 补记：003-进一步搭建已接回 NPC001 对话测试入口
+- 当前父工作区主线已从“恢复 spring-day1 关键对象”进入“继续把对话链接回当前 NPC 与场景”。
+- 本轮在 Unity MCP 失联的情况下，改用 prefab 取证确认 `001/002/003` 当前都具备动画、运动、排序与触发碰撞基础链，但均未挂 `NPCDialogueInteractable`。
+- 已按最小策略仅修改 `Assets/222_Prefabs/NPC/001.prefab`：新增 `NPCDialogueInteractable` 并绑定 `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset`，用于当前对话系统验证。
+- 对默认挂载策略的结论已收敛：通用基础组件适合做 NPC 模板默认值，但具体对话脚本与剧情资源不应给所有 NPC 一刀切默认挂载。
+- 当前恢复点：后续应优先用 `NPC001` 做一次真实对话链手工验收；若通过，再继续 UI 体验收尾与剧情/NPC 接入扩展。
+
+## 2026-03-14 补记：对话 UI 显隐问题已定位到作用域错位
+- 本轮重新审查 `Primary.unity` 与 `DialogueValidation.unity` 的对话层级后确认：`DialoguePanel`、`头像`、`SpeakerNameText`、`ContinueButton`、`DialogueText` 都是 `DialogueCanvas` 下的同级子物体。
+- 旧版 `DialogueUI` 却会在 `root` 为空时自动把 `root` 指到 `DialoguePanel`，导致 `CanvasGroup` 只管到面板，不管按钮和文本，从而出现“提示还留在场上”的显隐错位。
+- 已在 `Assets/YYY_Scripts/Story/UI/DialogueUI.cs` 修正：默认显隐目标改为脚本所在 `DialogueCanvas`，并新增覆盖范围校验，未来即便错误配置了子级 `root`，也会自动回退到整套 UI 根节点。
+- 本轮没有改任何 `Primary.unity` 布局值；当前后续重点转为 PlayMode 复验显隐与继续回收 UI 体验边角。
+
+## 2026-03-15 补记：Unity MCP 已恢复，可直接读取 spring-day1 live 现场
+- 本轮确认 Unity MCP 已恢复连通：可直接读取 request context、active scene，以及 `Primary` 场景中的 `DialogueCanvas` 与 `NPCs/001` live 对象状态。
+- live 现场证据已确认 `NPC001` 现在真实挂有 `NPCDialogueInteractable`，并已绑定 `SpringDay1_FirstDialogue.asset`；NPC→剧情入口链在编辑器现场成立。
+- live 现场同时确认 `DialogueUI` 当前仍是“序列化字段空、依赖运行时自动补线”的状态，包含 `root`、文本引用、按钮引用、头像引用、`canvasGroup` 与 `fontLibrary` 都未在场景 Inspector 中显式落盘。
+- Unity 刷新/编译请求已通过 MCP 发出，未读到新的对话链相关 console error；后续 spring-day1 应转入“基于 live 现场做 PlayMode 验收与显式配置收口”的阶段。
+
+## 2026-03-15 补记：Unity MCP 已恢复，但项目出现新的编译阻断
+- 本轮已确认 Unity MCP 重新可用：可正常读取活动场景 `Primary`、层级、GameObject 组件和控制台。
+- 现场证据确认 `UI/DialogueCanvas` 与 `NPCs/001` 都已存在于当前主场景中，且 `NPCs/001` 真实挂有 `NPCDialogueInteractable`；这说明 NPC 测试入口已经在 live 场景层面成立。
+- 同时通过 MCP 控制台确认当前项目存在新的项目级真实错误：`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 报 4 条编译错误，这已经成为继续做 PlayMode 对话验收的首要阻断。
+- 额外确认了一个配置缺口：`Primary` 场景里 `DialogueUI` 的 `fontLibrary` 仍为空；运行时 UI 引用能靠名字自动补线，但字体库当前不会自动补齐，后续需要显式接上或补代码兜底。
+- 当前恢复点：后续最优先动作不再是继续猜显隐，而是先恢复项目可编译状态，再用 MCP + PlayMode 复验对话显隐与字体切换。
+
+## 2026-03-16 补记：spring-day1 首批复工 checkpoint 已完成
+- 当前主线目标是把 `NPC001 -> 对话 -> 结束` 在 `Primary` 场景重新收成最小闭环；本轮子任务严格限定为 `DialogueUI.cs` / `Primary.unity` 两把锁对应的显隐与引用收口。
+- 本轮已仅在 `Assets/000_Scenes/Primary.unity` 完成 Inspector 显式闭环：为 `DialogueCanvas` 补 `CanvasGroup`，为 `头像/Icon` 补 `Image`，并把 `DialogueUI` 需要的 UI 引用与 `DialogueFontLibrary_Default.asset` 全部落盘。
+- 已用 `DialogueDebugMenu` 在 PlayMode 走通 `NPC001` 真实入口，确认按钮推进、字体切换、占位头像、结束隐藏、时间恢复与输入恢复都成立；最早两条 `CanvasAlpha=0.00` 日志已确认只是 `Play + Pause` 状态下的假阴性，不再视为显隐失败。
+- 当前恢复点：spring-day1 已完成这轮单 checkpoint，可从“最小闭环已通”继续进入下一轮体验打磨或剧情扩展。
+
+## 2026-03-16 补记：spring-day1 下一项最值得推进的是剧情推进而非 UI 收尾
+- 本轮重新核对真实 Git 现场后确认：当前工作目录仍是 `D:\Unity\Unity_learning\Sunset`，但当前分支已漂到 `codex/npc-asset-solidify-001`，并非适合直接承接 spring-day1 新实现的专用分支。
+- 结合 requirements 与现有 `DialogueManager / DialogueSequenceSO / StoryEvents` 现状，当前 Day1 最缺的不是继续修对话显示，而是“首段对话完成后如何真正推动 Day1 剧情前进”的正式能力。
+- 已收敛推荐方向：下一轮最小新功能应做“对话完成事件 + languageDecoded/阶段标记切换 + NPC 首段前后序列分流”，并优先限定在非 hot-file 脚本与对话数据资产层，不碰 `Primary.unity`、`GameInputManager.cs` 与其他 A 类共享热文件。
+- 后续若开工真实实现，应先从干净基线新开 spring-day1 专用 `codex/` 任务分支，再按 task 白名单提交。
+
+## 2026-03-16 补记：spring-day1 已落下首个“对话驱动剧情推进” checkpoint
+- 本轮已在独立任务分支 `codex/spring-day1-story-progression-001` 完成最小剧情推进链：`DialogueSequenceSO` 新增完成后解码 / follow-up 字段，`DialogueManager` 新增自然完成事件与运行时完成序列标记，`NPCDialogueInteractable` 改为按剧情状态自动分流首段与后续对话。
+- `SpringDay1_FirstDialogue.asset` 已配置为“完成后解码 + 指向 `SpringDay1_FirstDialogue_Followup.asset`”；因此 Day1 当前已经从“只会播放首段测试对话”升级为“首段完成后，后续再次交互会自动进入正常可读的新对话”。
+- 本轮明确未触碰 `Primary.unity`、`GameInputManager.cs` 或其他 A 类共享热文件，新增需求被限制在 `Story` 脚本与对话资产层。
+- Git 收尾已完成：提交 `a9c952b717395c561c0f50a55bf3382dd7c4c925` 已推送到 `origin/codex/spring-day1-story-progression-001`。
