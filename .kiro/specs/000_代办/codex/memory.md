@@ -93,6 +93,16 @@
 **涉及文件**：`C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`、[09_强制skills闸门与执行规范重构/memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/memory.md)、[memory_0.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_0.md)。  
 **恢复点 / 下一步**：继续在 `09` 压实 `sunset-startup-guard` 的 session 可见性、首条 `commentary` 结构命中率，以及“禁止把 worktree 常态化”的稳定闸门口径。
 
+### 会话 3 - 2026-03-17（治理总盘点与未完项分层）
+**用户目标**：要一份当前 Sunset 治理与项目进度总盘点，明确哪些阶段已真完成、哪些只是旧勾选未收口、哪些是现在真正还要做的。  
+**完成事项**：逐个复核 `000_代办/codex/01-11` 的 `tasks.md`，并结合当前 Git 现场确认：`11` 已真完成、branch-only prompt 不再需要继续分发、当前真正活跃未完主线只剩 `09`；`01/02/07` 各有少量收尾债，`03/10` 则属于被 `11` 覆盖后尚未文档封板的旧待办。  
+**关键决策**：后续汇报统一采用三层口径：
+1. 已完成并封板：`04/05/06/08/11`
+2. 历史已完成但文档待显式降级：`03/10`
+3. 当前唯一活跃主线：`09`
+**涉及文件**：[09_强制skills闸门与执行规范重构/tasks.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/tasks.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/memory.md)、[memory_0.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_0.md)。  
+**恢复点 / 下一步**：继续推进 `09` 的剩余 5 项，并择机把 `03/10` 的旧未勾选项做显式封板处理，避免未来再次误判。
+
 ### 会话 2 - 2026-03-17（`11` 阶段纠正“真实回包目录”并进入执行态）
 **用户目标**：
 > `所有线程回归誓言` 目录里存放的是线程真实回包，不是规范正文；要求基于这批真实回包继续推进，而不是继续围着占位索引打转。
