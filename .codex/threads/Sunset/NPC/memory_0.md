@@ -264,3 +264,27 @@
 **当前恢复点**:
 - 当前线程的真实状态是“NPC 救援已完成，rescue worktree 只剩无关 TMP dirty 待隔离”。
 - 下一步最小动作是按方案 A 新建 clean continuation 现场，再恢复 NPC 主线开发。
+---
+
+### 会话 12 - 2026-03-17
+
+**用户需求**:
+> 执行治理正式切换：创建 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue @ codex/npc-roam-phase2-002`，起点 `28aef95d16f176ac5538bbd93c73769b2c686a8c`，确认新现场 clean，并声明旧 rescue 现场降级。
+
+**完成任务**:
+1. 成功创建新 continuation worktree：`D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue`，分支 `codex/npc-roam-phase2-002`，创建起点为 `28aef95d16f176ac5538bbd93c73769b2c686a8c`。
+2. 在新现场核对 `git branch --show-current`、`git rev-parse HEAD` 与 `git status --short`，确认新 worktree 创建完成即为 clean，没有带上 rescue 现场中的 4 个 TMP 无关 dirty。
+3. 在线程层面正式确认：`D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue` 现在只保留为阶段性救援 / 取证 / 收口现场，不再作为后续 NPC 正常开发现场。
+4. 明确后续主线入口：NPC 的新开发从本轮起只在 `codex/npc-roam-phase2-002` 上继续。
+
+**关键决策**:
+- 当前主线仍然是 NPC，但本轮子任务已经从“救援收口”切换为“正式 continuation 现场接管”。
+- 本轮不扩写功能，只完成现场切换与口径固定。
+
+**关键文件**:
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue`
+
+**当前恢复点**:
+- 当前线程已完成 NPC 正式 continuation 现场切换，新现场 clean，可承接下一轮真实开发。
+- 后续 NPC 新开发、验证与提交只允许在 `codex/npc-roam-phase2-002` 上继续。

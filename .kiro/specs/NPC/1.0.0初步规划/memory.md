@@ -228,3 +228,28 @@
 **当前恢复点**:
 - NPC 子工作区当前已经结束救援收口，进入“切换到全新 continuation 现场前的治理清场”阶段。
 - 下一步不是做新功能，而是按方案 A 建立一个 `git status` clean 的新 NPC worktree，再继续主线开发。
+---
+
+### 会话 10 - 2026-03-17
+
+**用户需求**:
+> 按治理执行令，把 NPC 从 rescue 现场切换到正式 continuation 现场：在 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue` 上创建 `codex/npc-roam-phase2-002`，起点固定为 `28aef95d16f176ac5538bbd93c73769b2c686a8c`，本轮只完成现场切换，不扩写新功能。
+
+**完成任务**:
+1. 从 `28aef95d16f176ac5538bbd93c73769b2c686a8c` 成功创建新 worktree：`D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue`，并新建分支 `codex/npc-roam-phase2-002`。
+2. 在新现场回读 `git rev-parse --show-toplevel`、`git branch --show-current`、`git rev-parse HEAD` 与 `git status --short`，确认新 continuation 现场起点正确，且创建完成后工作树为 clean。
+3. 记录治理口径：旧的 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue` 已完成阶段性救援职责，后续降级为只读取证 / 收口现场，不再承接新的 NPC 正常开发。
+4. 明确后续主线恢复点：NPC 的新功能开发、验证与提交只允许在 `codex/npc-roam-phase2-002` continuation 现场继续。
+
+**修改文件**:
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md` - 追加 continuation 现场切换完成记录
+- `.kiro/specs/NPC/memory.md` - 同步父工作区层面的现场切换结论
+- `.codex/threads/Sunset/NPC/memory_0.md` - 同步线程视角下的新正式开发入口
+
+**关键决策**:
+- continuation 现场以 `28aef95d` 为创建基线，但后续 NPC 正常开发入口从本轮开始统一切换到 `codex/npc-roam-phase2-002`。
+- rescue worktree 不删除，但角色已从“可写救援现场”降级为“只读取证 / 收口现场”。
+
+**当前恢复点**:
+- NPC 子工作区已经完成从救援现场到正式 continuation 现场的切换，且新现场创建完成后是 clean。
+- 下一步恢复 NPC 主线时，只在 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue @ codex/npc-roam-phase2-002` 上继续。

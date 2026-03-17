@@ -194,3 +194,27 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 **当前恢复点**:
 - NPC 父工作区已完成救援验证与救援提交，当前进入“切换干净 continuation 现场”的治理准备阶段。
 - 下一步最小动作是按方案 A 新建 clean worktree，而不是继续在当前 rescue worktree 上承接新开发。
+---
+
+### 会话 9 - 2026-03-17
+
+**用户需求**:
+> 正式执行方案 A：为 NPC 建立 continuation 可写现场，确认新现场 clean，并将旧 rescue worktree 降级，不在本轮继续开发新功能。
+
+**完成任务**:
+1. 成功创建 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue`，分支为 `codex/npc-roam-phase2-002`，创建基线为 `28aef95d16f176ac5538bbd93c73769b2c686a8c`。
+2. 在新现场核对 `git status`，确认 continuation worktree 不再带有 rescue 现场中的 4 个 TMP 字体资源 dirty，创建后即为 clean。
+3. 在父工作区层面正式确认角色切换：`NPC_roam_phase2_rescue` 保留为阶段性救援收口现场，不再作为 NPC 正常开发现场。
+4. 明确新的唯一开发入口：后续 NPC 新开发、验证、提交统一在 `codex/npc-roam-phase2-002` continuation 现场继续。
+
+**关键决策**:
+- 现场切换本身就是本轮唯一目标，不顺手扩写任何新的 NPC 功能。
+- 继续开发时优先以“clean continuation 现场”作为防混线边界，而不是继续依赖白名单在 rescue worktree 上硬隔离。
+
+**关键文件**:
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_continue`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue`
+
+**当前恢复点**:
+- NPC 父工作区的正式开发入口已经切换为新的 continuation worktree。
+- 下一步恢复主线时，不再回 rescue 现场承载 NPC 写入。
