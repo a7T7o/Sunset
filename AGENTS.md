@@ -23,8 +23,8 @@
 - 如果任务涉及阶段收口、版本快照、冻结归档、解冻后基线摘要、或需要把当前锁池 / Console / 活文档入口 / 线程状态打包成一份快照，优先使用 `sunset-release-snapshot`。
 - 如果任务属于当前治理续办、L5 后入口重构、skills/AGENTS 重构、四件套规范或线程解冻收口，优先从：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前唯一状态说明_2026-03-17.md`
-  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex`
-  进入，而不是回到 `Codex迁移与规划` 或旧全局 `tasks.md`。
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地`
+  进入，而不是回到 `Codex迁移与规划`、旧全局 `tasks.md` 或把 `000_代办/codex` 误当成正式工作区。
 
 ## 3. Sunset 任务连续性与主线恢复
 - 先判断当前这句用户输入是在继续现有主线、处理中途阻塞，还是明确切换到新主线。
@@ -78,13 +78,15 @@
   - 线程历史卷：`memory_1.md`、`memory_2.md`...
 - 如果本轮只完成了阻塞处理而主线尚未完成，收尾时必须同时汇报“阻塞已解除”和“主线下一步”，不能只汇报修复动作本身。
 - `900_开篇/spring-day1-implementation` 是落地参考样板：其 `memory.md` 体现追加式记录，其 `requirements.md` 与 `OUT_tasks.md` 体现需求驱动和任务拆解。新工作区可以借鉴这种信息密度，但不必机械复制文件数量。
-- `000_代办/codex` 是 Sunset 当前治理续办样板：其根层 `memory.md` + 分阶段 `tasks.md` 体现“根层记忆、阶段承接、按需 design”的新代办结构。
+- `Codex规则落地` 是 Sunset 当前正式治理工作区样板：其根层 `memory.md` + 分阶段 `tasks.md` 体现“根层记忆、阶段承接、按需 design”的新治理结构。
+- `000_代办/codex` 只保留 TD 镜像与读取入口，不再承载工作区正文。
 - 记忆文件中的说明文字默认使用中文，不要把普通叙述写成英文；只有文件名、路径、命令、专有名词或特殊技术名词可以保留原文。
 
 ## 7. 风险任务处理
 - 本项目的 Git 收尾顺序固定为：先按工作区规则更新工作区记忆，再更新线程记忆，最后执行 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`。
 - 任何 Sunset 实质性工作在完成记忆更新后，只要当前改动已经达到可提交状态，Codex 就必须继续执行 Git 安全同步，而不是停在“本地已改完但未提交/未推送”。
 - 长期治理 / 总览 / 审计线程默认停留在根目录 `D:\Unity\Unity_learning\Sunset` 的 `main`；长期功能线程也默认先从根目录进入，再按真实任务切到对应 `codex/` 分支；`worktree` 只保留给高风险隔离、故障修复与特殊实验。
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\` 属于治理正文工作区；`D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex\` 只属于 TD 镜像区。不要把二者再混成一个入口。
 - 进入任一长期线程前，先核验两件事：当前工作目录、`git branch --show-current`；UI 中残留的分支提示不能替代真实 Git 状态。
 - 如果共享根目录 `D:\Unity\Unity_learning\Sunset` 当前 checkout 不在 `main`，则必须先由 `sunset-startup-guard` 判断它是否已被其他线程占用；未经确认不得把它当成中性业务现场继续写入。
 - 治理任务若留在 `main`，只允许使用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 明确带上本轮受影响的业务记忆或线程记忆。
