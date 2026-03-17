@@ -1,58 +1,89 @@
-# 农田系统 2026.03.16 - 开发记忆
+# 农田系统 2026.03.16 - cleanroom 记忆
 
-## 模块概述
+## 模块概览
 
-本工作区承接 2026-03-16 起的新一轮农田交互优化，按两条子线推进：
-- `1.0.0图层与浇水修正`：作物创建后的图层/排序修正，浇水样式随机时机修正
-- `1.0.1自动农具进阶中断`：自动农具队列的拒绝切换、拒绝拖拽、失败反馈与中断口径收束
+本层用于承接 2026-03-16 之后的农田交互修复工作。当前唯一活跃子工作区为 `1.0.2纠正001` 的 cleanroom 重建现场，不再沿污染分支继续开发。
 
 ## 当前状态
 
-- **完成度**: 0%
-- **最后更新**: 2026-03-16
-- **状态**: 进行中
-- **当前焦点**: 先完成 1.0.0，再收口 1.0.1
+- cleanroom 工作目录：`D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+- cleanroom 分支：`codex/farm-1.0.2-cleanroom001`
+- cleanroom 基线：`b9b6ac4881f4436abbc1f3232f14706ca76bb869`
+- 污染现场：`D:\Unity\Unity_learning\Sunset` 上的 `codex/farm-1.0.2-correct001@11e0b7b4c1340e0359a546b038d711b03836dc72`
+- 当前阶段：farm-only 回放已完成，cleanroom 记忆已重写，最小编译验证失败，尚未达到可接替后续 farm 开发状态
 
 ## 会话记录
 
-### 会话 2026-03-16（新主线建档与实现前接管）
+### 2026-03-17 - 1.0.2 cleanroom 重建与最小验证
 
-**用户需求**:
-> 农作物创建时图层顺序不对；浇水应在队列创建后且鼠标移出当前农田框时才更新样式；自动农具队列中打开背包拖走工具、Toolbar/滚轮/快捷键切换都应被拒绝并给失败反馈；这次拆成 1.0.0 和 1.0.1 两个子工作区推进。
+**用户目标**：
+> 按治理正式执行令停止沿污染分支开发，在独立 cleanroom 中以 `b9b6ac48` 为起点，严格白名单回放 farm-only 文件，重写记录类文件，并给出 cleanroom 是否已经可以接替污染分支继续开发的事实结论。
 
-**完成任务**:
-1. 创建 `2026.03.16` 父工作区和两个子工作区目录。
-2. 明确主线拆分：`1.0.0` 负责图层与浇水时机，`1.0.1` 负责自动农具进阶中断。
-3. 在动代码前重新核对 `PlacementManager`、`FarmToolPreview`、`CropController`、`GameInputManager`、`ToolbarSlotUI`、`InventoryInteractionManager`、`InventorySlotInteraction`、`PlayerInteraction`。
+**完成事项**：
+1. 确认 cleanroom 现场为 `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`、分支 `codex/farm-1.0.2-cleanroom001`、HEAD `b9b6ac48...`。
+2. 按用户指定白名单完成 farm-only 回放：
+   - 从 `07ffe199` 仅保留 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+   - 从 `11e0b7b4` 回放 7 个 farm 代码文件与 4 份正文文档
+3. 核对 `git status --short`，当前 tracked 改动仍只包含 12 个回放文件，没有混入 NPC、治理归档或额外业务文件。
+4. 按 cleanroom 新现场重写当前子工作区、父工作区、农田系统总记忆与线程记忆，不机械复制污染现场旧记忆。
+5. 用 Unity 6000.0.62f1 的 batchmode 对 cleanroom 做最小编译验证，日志落在 `C:\Users\aTo\AppData\Local\Temp\sunset_farm_cleanroom_compile.log`。
 
-**关键决策**:
-- 自动拒绝切换/拖拽逻辑只针对“自动农具队列进行中”，不能误伤手动长按连续动作。
-- 作物排序以玩家现有正确遮挡关系为基准，优先复用项目已有 `DynamicSortingOrder`。
-- 浇水随机样式以“成功入队后，移出本次格子时才刷新下一次样式”为唯一口径。
+**明确排除**：
+- `18f3a9e1` 的全部内容
+- `07ffe199` 中除 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 外的全部 NPC 资产、脚本、文档与 NPC 线程记忆
+- 所有 `NPC` 路径
+- 治理归档 / 项目总览类文件
+- 污染现场旧 `memory` 文本的直接照搬
 
-**涉及文件**:
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\CropController.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\DynamicSortingOrder.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
-- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+**验证结果**：
+- 回放后 `git status --short` 仍只包含 12 个白名单文件：
+  - 8 个 farm 代码文件
+  - 4 份 `1.0.2纠正001` 正文文档
+- cleanroom 未复用共享根目录的 Unity live / MCP 会话；本轮验证以 batchmode 编译日志为准。
+- batchmode 编译失败，主要阻断集中在：
+  - `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 的 `PreviewCellKey` 改造未闭合，文件内部仍大量以 `Vector3Int` 直接访问 `queuePreviewPositions / tillQueueTileGroups / executingTileGroups / executingWaterPositions`
+  - `Assets/YYY_Scripts\Farm\FarmToolPreview.cs` 的 `Random` 调用在当前 `using` 组合下触发 `UnityEngine.Random` / `System.Random` 二义性
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 仍按双参数签名调用 `PromoteToExecutingPreview` / `RemoveExecutingPreview`
+- 额外看到 1 条非 farm 代码 warning：`Assets/YYY_Tests/Editor/WorldItemDropSystemTests.cs(272,15)` 的未使用变量 `groundY`
+- 当前结论：cleanroom 回放边界正确，但指定回放集在 `b9b6ac48` 上尚未形成可编译闭环
 
-**验证结果**:
-- 已完成代码与规则接管。
-- 尚未开始本轮代码修改与 Unity 验证。
+**恢复点 / 下一步**：
+- 后续必须先在 cleanroom 内确认“最小补齐集”：
+  - 要么继续补齐真正缺失的 farm-only 代码回放
+  - 要么在已回放的 8 个 farm 代码文件内做最小兼容修复
+- 在 compile 通过前，不执行 checkpoint、提交或同步动作
+- 回放得到的 `tasks.md` 仅保留源现场正文；cleanroom 的实时状态以本 `memory.md` 与上层 cleanroom 记忆为准
 
-**下一步**:
-- 先完成 `1.0.0图层与浇水修正` 的实现与验证，再进入 `1.0.1自动农具进阶中断`。
+## 涉及文件
 
-## 2026-03-16：1.0.0 / 1.0.1 代码已落地，当前停在同步回 main 前的收尾阶段
-本轮已在 `D:\Unity\Unity_learning\Sunset` 仓库内完成 `1.0.0图层与浇水修正` 与 `1.0.1自动农具进阶中断` 的代码实现，实际工作分支为 `codex/farm-1.0.0-1.0.1`，当前 `HEAD` 为 `9b9a6bd0dd7c5ee7d18cc82e3ea9da74a146bf9d`。代码层面已经落地的内容包括：`PlacementManager.cs` 的作物图层/排序修正、`FarmToolPreview.cs` 与 `GameInputManager.cs` 的浇水随机样式时机修正、`GameInputManager.cs` / `ToolbarSlotUI.cs` / `InventorySlotUI.cs` / `InventorySlotInteraction.cs` 的自动农具队列拒绝切换与拒绝拖拽反馈。验证层面已完成 Roslyn 编译通过与 Unity MCP/Console 只读核查，当前 Console 未见新的 farm 相关红编译，但用户真实 PlayMode 手动验收尚未完成。由此更新父工作区现场：当前不是“尚未开始实现”，而是“实现已完成，停在 tasks/memory 补写、白名单提交、释放锁并同步回 `main` 前的收尾阶段”；同时仓库仍有大量无关 dirty / untracked，后续 Git 收尾必须严格白名单，不能无边界提交。
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\Service\Placement\PlacementNavigator.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\Service\Placement\PlacementPreview.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\requirements.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\analysis.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\design.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\tasks.md`
+- `C:\Users\aTo\AppData\Local\Temp\sunset_farm_cleanroom_compile.log`
 
-## 2026-03-16：白名单同步前的最终验证已完成
-本轮继续沿 `2026.03.16` 父工作区推进收尾，先通过 Unity MCP 复核当前活动场景仍为 `Assets/000_Scenes/Primary.unity`，再触发 Unity 刷新/编译并读取 Console。当前 Console 仅见共享 Editor warning：`Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)` 的 `TextureImporter.spritesheet` obsolete，未出现新的 farm 相关 error / warning。随后使用 `scripts/git-safe-sync.ps1 -Action preflight -Mode task` 对 `1.0.0/1.0.1` 相关代码、文档、父/线程记忆做白名单预检，结果允许继续同步，且无关 dirty 仍被正确隔离在白名单之外。由此更新当前恢复点：`2026.03.16` 工作区的实现、验证、tasks/memory 补写都已完成，下一步仅剩创建 checkpoint、释放 `GameInputManager.cs` 锁并把结果同步回 `main`。
+### 2026-03-17 - cleanroom 第二轮接口闭环已通过
+**用户目标**：
+> 在 cleanroom 现场继续完成第二轮接口闭环，只闭合 `FarmToolPreview.cs / GameInputManager.cs` 的接口关系并重新验证 compile，不回污染分支，不扩围到更多文件。
 
-## 2026-03-16：2026.03.16 农田补丁已同步回 main
-本轮已完成 `2026.03.16` 工作区的 Git 收尾：先在 `codex/farm-1.0.0-1.0.1` 上通过白名单同步生成 checkpoint `7aadbde7`，随后将 `main` 快进到该提交并推送远端。同步完成后，又显式释放了 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 的 A 类锁，确保验收现场不再带锁。由此父工作区状态正式切换为“实现、验证、Git 同步均已完成，当前等待用户在 `main` 做真实场景验收”，不再是“待回 main”的中间态。
+**完成事项**：
+1. 复核 `GameInputManager.cs` 当前调用已是 `11e0b7b4` 口径，本轮无需再改它。
+2. 仅在 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 内补齐 `PreviewCellKey` 追踪、按层收集占位集合以及执行态提升/移除接口。
+3. 重新执行 cleanroom batchmode compile，验证 `FarmToolPreview.cs` 与 `GameInputManager.cs` 的接口闭环。
+
+**已证实事实**：
+- `FarmToolPreview.cs` 现已对齐到 `11e0b7b4` 版接口口径。
+- batchmode 编译已通过，日志位于 `C:\Users\aTo\AppData\Local\Temp\sunset_farm_cleanroom_compile.log`。
+- 当前仅剩 `Assets\Editor\NPCPrefabGeneratorTool.cs(355,9)` 的 obsolete warning，不属于 farm cleanroom。
+
+**当前结论**：
+- `2026.03.16/1.0.2纠正001` cleanroom 已从“compile 未闭环”推进到“代码与编译可接替污染分支”状态。
+- 当前主线已从“确认最小补齐集”切换为“做 cleanroom 收尾并形成 checkpoint”。

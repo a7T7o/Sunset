@@ -91,6 +91,7 @@ public class PlacementManager : MonoBehaviour
     private HotbarSelectionService hotbarSelection;
     private PackagePanelTabsUI packageTabs;
     private PlacementSnapshot currentSnapshot;
+    private bool wasPanelOpen;
     
     #endregion
     
@@ -209,6 +210,11 @@ public class PlacementManager : MonoBehaviour
         // 背包打开时隐藏预览
         if (isPanelOpen)
         {
+            if (!wasPanelOpen && navigator != null && currentState == PlacementState.Navigating)
+            {
+                navigator.PauseNavigation();
+            }
+
             if (placementPreview != null && placementPreview.gameObject.activeSelf)
             {
                 placementPreview.gameObject.SetActive(false);
@@ -219,11 +225,17 @@ public class PlacementManager : MonoBehaviour
             // 🔥 Bug E 修复：面板打开 = 暂停，不中断
             // 不调用 HandleInterrupt()，保持 Locked/Navigating 状态
             // 关闭面板后自动恢复
+            wasPanelOpen = true;
             return;
         }
         else
         {
             // 背包关闭时恢复预览
+            if (wasPanelOpen && navigator != null && currentState == PlacementState.Navigating && navigator.IsPaused)
+            {
+                navigator.ResumeNavigation();
+            }
+
             if (placementPreview != null && !placementPreview.gameObject.activeSelf && currentState != PlacementState.Idle)
             {
                 placementPreview.gameObject.SetActive(true);
@@ -231,6 +243,7 @@ public class PlacementManager : MonoBehaviour
                     Debug.Log($"<color=green>[PlacementManagerV3] 背包关闭，恢复预览显示</color>");
             }
         }
+        wasPanelOpen = false;
         
         // ★ 在 Locked/Navigating 状态下检测中断条件
         if (currentState == PlacementState.Locked || currentState == PlacementState.Navigating)

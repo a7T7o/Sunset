@@ -44,6 +44,7 @@ public class PlacementNavigator : MonoBehaviour
     private PlayerAutoNavigator autoNavigator;
     
     private bool isNavigating = false;
+    private bool isPaused = false;
     private Vector3 targetPosition;
     private Bounds targetBounds;
     private float navigationStartTime;
@@ -54,6 +55,7 @@ public class PlacementNavigator : MonoBehaviour
     
     /// <summary>是否正在导航</summary>
     public bool IsNavigating => isNavigating;
+    public bool IsPaused => isPaused;
     
     /// <summary>目标位置</summary>
     public Vector3 TargetPosition => targetPosition;
@@ -70,7 +72,7 @@ public class PlacementNavigator : MonoBehaviour
     
     private void Update()
     {
-        if (!isNavigating) return;
+        if (!isNavigating || isPaused) return;
         
         // 检查超时
         if (Time.time - navigationStartTime > navigationTimeout)
@@ -175,6 +177,7 @@ public class PlacementNavigator : MonoBehaviour
         targetPosition = target;
         targetBounds = previewBounds;
         isNavigating = true;
+        isPaused = false;
         navigationStartTime = Time.time;
         
         // 启动自动导航
@@ -192,6 +195,7 @@ public class PlacementNavigator : MonoBehaviour
         if (!isNavigating) return;
         
         isNavigating = false;
+        isPaused = false;
         
         // 取消自动导航
         if (autoNavigator != null)
@@ -203,6 +207,32 @@ public class PlacementNavigator : MonoBehaviour
         
         if (showDebugInfo)
             Debug.Log($"<color=yellow>[PlacementNavigator] 导航已取消</color>");
+    }
+
+    public void PauseNavigation()
+    {
+        if (!isNavigating || isPaused)
+        {
+            return;
+        }
+
+        isPaused = true;
+        if (autoNavigator != null && autoNavigator.IsActive)
+        {
+            autoNavigator.Cancel();
+        }
+    }
+
+    public void ResumeNavigation()
+    {
+        if (!isNavigating || !isPaused || autoNavigator == null)
+        {
+            return;
+        }
+
+        isPaused = false;
+        navigationStartTime = Time.time;
+        autoNavigator.SetDestination(targetPosition);
     }
     
     /// <summary>

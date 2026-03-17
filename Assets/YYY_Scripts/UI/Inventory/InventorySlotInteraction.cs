@@ -143,8 +143,31 @@ public class InventorySlotInteraction : MonoBehaviour,
             return false;
         }
 
-        inventorySlotUI?.PlayRejectShake();
         return true;
+    }
+
+    private bool TryRejectProtectedHeldMutation(
+        IItemContainer sourceContainer,
+        int sourceIndex,
+        bool sourceIsEquipSlot,
+        IItemContainer targetContainer,
+        int targetIndex,
+        bool targetIsEquipSlot)
+    {
+        var inputManager = GameInputManager.Instance;
+        if (inputManager == null)
+        {
+            return false;
+        }
+
+        bool sourceIsInventorySlot = !sourceIsEquipSlot && sourceContainer is InventoryService;
+        bool targetIsInventorySlot = !targetIsEquipSlot && targetContainer is InventoryService;
+
+        return inputManager.TryRejectProtectedHeldInventoryMutation(
+            sourceIndex,
+            sourceIsInventorySlot,
+            targetIndex,
+            targetIsInventorySlot);
     }
     
     public void Bind(InventorySlotUI slot, bool isEquipmentSlot)
@@ -365,6 +388,15 @@ public class InventorySlotInteraction : MonoBehaviour,
         var sourceContainer = SlotDragContext.SourceContainer;
         int sourceIndex = SlotDragContext.SourceSlotIndex;
         var draggedItem = SlotDragContext.DraggedItem;
+        bool targetIsEquipmentSlot = targetContainer == null && isEquip;
+
+        if (TryRejectProtectedHeldMutation(sourceContainer, sourceIndex, false, targetContainer, targetIndex, targetIsEquipmentSlot))
+        {
+            SlotDragContext.Cancel();
+            HideDragIcon();
+            ResetChestHeldState();
+            return;
+        }
         
         // 🔥 P0 修复：处理装备槽位（targetContainer == null && isEquip == true）
         if (targetContainer == null && isEquip)

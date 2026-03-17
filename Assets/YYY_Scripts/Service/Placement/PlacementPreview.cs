@@ -237,6 +237,14 @@ public class PlacementPreview : MonoBehaviour
         gameObject.SetActive(false);
         currentItem = null;
         isLocked = false;
+        lockedPosition = Vector3.zero;
+
+        if (itemPreviewRenderer != null)
+        {
+            itemPreviewRenderer.sprite = null;
+            itemPreviewRenderer.color = Color.white;
+            itemPreviewRenderer.transform.localPosition = Vector3.zero;
+        }
         
         // 回收所有格子到池
         foreach (var cell in gridCells)
