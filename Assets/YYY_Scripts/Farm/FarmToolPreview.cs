@@ -1283,75 +1283,35 @@ namespace FarmGame.Farm
         }
 
         /// <summary>
-        /// 清空所有队列预览（WASD 中断 / 切换工具 / ESC）（CP-H5）。
-        /// 默认保留正在执行中的预览；当上层明确要求时可一并清空。
+        /// 清空所有队列预览（WASD 中断 / 切换工具 / ESC）（CP-H5）
         /// </summary>
         public void ClearAllQueuePreviews()
         {
-            ClearAllQueuePreviews(clearExecutingPreviews: false);
-        }
-
-        public void ClearAllQueuePreviews(bool clearExecutingPreviews)
-        {
-            // 🔴 补丁004 模块E（CP-E1/E2）：清除耕地队列的所有 tile（中心块 + 边界），默认跳过执行预览
+            // 🔴 补丁004 模块E（CP-E1/E2）：清除耕地队列的所有 tile（中心块 + 边界），跳过执行预览
             if (queuePreviewTilemap != null)
             {
                 foreach (var kvp in tillQueueTileGroups)
                 {
-                    if (!clearExecutingPreviews && executingTileGroups.ContainsKey(kvp.Key))
-                    {
-                        continue;  // CP-E3：保留执行预览
-                    }
-
+                    if (executingTileGroups.ContainsKey(kvp.Key)) continue;  // CP-E3：跳过执行预览
                     foreach (var pos in kvp.Value)
-                    {
                         queuePreviewTilemap.SetTile(pos, null);
-                    }
                 }
-
-                // 清除浇水等单点队列预览，默认跳过执行预览
+                
+                // 清除浇水等单点队列预览，跳过执行预览
                 foreach (var pos in queuePreviewPositions)
                 {
-                    if (!clearExecutingPreviews && executingWaterPositions.Contains(pos))
-                    {
-                        continue;  // CP-E3：保留执行预览
-                    }
-
-                    if (tillQueueTileGroups.ContainsKey(pos))
-                    {
-                        continue;  // 已在上面处理
-                    }
-
+                    if (executingWaterPositions.Contains(pos)) continue;  // CP-E3：跳过执行预览
+                    if (tillQueueTileGroups.ContainsKey(pos)) continue;  // 已在上面处理
                     queuePreviewTilemap.SetTile(pos, null);
-                }
-
-                if (clearExecutingPreviews)
-                {
-                    foreach (var kvp in executingTileGroups)
-                    {
-                        foreach (var pos in kvp.Value)
-                        {
-                            queuePreviewTilemap.SetTile(pos, null);
-                        }
-                    }
-
-                    foreach (var pos in executingWaterPositions)
-                    {
-                        queuePreviewTilemap.SetTile(pos, null);
-                    }
                 }
             }
 
             // 🔴 补丁005：种子队列预览回收分支已移除（种子走放置系统）
 
             queuePreviewPositions.Clear();
+            
+            // 🔴 V3 模块K（CP-K3）：清空耕地 tile 组追踪（不清 executing* 数据）
             tillQueueTileGroups.Clear();
-
-            if (clearExecutingPreviews)
-            {
-                executingTileGroups.Clear();
-                executingWaterPositions.Clear();
-            }
         }
         
         /// <summary>

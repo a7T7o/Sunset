@@ -211,3 +211,30 @@
 **关键结论**:
 - 当前 NPC 这条线的真实状态已经从“代码初次落地”推进到“编译阻断解除 + 首轮运行态验证完成”。
 - 当前剩余的主线缺口不再是基础漫游或动画报错，而是两件更小的收口项：真实场景下抓到一组 NPC 配对聊天正样本，以及按白名单提交本轮变更供用户继续测试。
+---
+
+### 会话 10 - 2026-03-17
+
+**用户需求**:
+> 按治理正式执行令，把 NPC 迁入独立救援现场，以 `codex/npc-roam-phase2-001 @ f6b4db2f` 为唯一基线，只做 `FarmToolPreview.cs` 剔除和最小验证，不再在共享根目录写 NPC。
+
+**完成任务**:
+1. 核实独立救援现场为 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue`，当前分支 `codex/npc-roam-phase2-001`，当前 `HEAD=f6b4db2f852910f5249aca4f51639cbddd893c05`。
+2. 将 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 回退到 `8aed637f` 版本，剔除 farm 误带入的兼容重载改动，本轮不再新增任何 NPC 功能。
+3. 回读 `Logs/npc_rescue_compile_wait4.log` 确认 batchmode 编译成功，未见新的 NPC 红错，也未再见 `Animator is not playing an AnimatorController`、`Missing Sprite`、`Missing Script`。
+4. 抽查 `001/002/003` 的 Prefab / Sprite / 动画 / controller / 漫游组件链，确认 Sprite 与 Animator Controller 引用非空，`NPCAnimController`、`NPCMotionController`、`NPCBubblePresenter`、`NPCAutoRoamController` 仍完整保留。
+
+**关键决策**:
+- 当前线程主线仍然是 NPC，本轮子任务收窄为“救援分支最小收口”，服务于恢复干净可继续开发的基线，而不是继续扩写功能。
+- `D:\Unity\Unity_learning\Sunset` 继续视为 farm 事故现场；NPC 这条线今后的可写现场只认独立救援 worktree。
+
+**关键文件**:
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Logs\npc_rescue_compile_wait4.log`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\222_Prefabs\NPC\001.prefab`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\222_Prefabs\NPC\002.prefab`
+- `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue\Assets\222_Prefabs\NPC\003.prefab`
+
+**当前恢复点**:
+- 线程视角下的真实状态已经切换为“救援分支完成最小收口并通过固定范围验证”。
+- 下一步只剩在救援 worktree 内对白名单文件做 Git 收口并确认分支干净，不再回共享根目录承载 NPC 写入。

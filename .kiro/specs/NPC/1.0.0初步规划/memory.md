@@ -175,3 +175,31 @@
 **当前恢复点**:
 - 当前子工作区的真实阶段已经从“V1 代码初次落地”推进到“编译阻断已解除，自动漫游 / 长停气泡已在 `Primary` 场景完成首轮运行态验证”。
 - 当前仍未闭环的只剩两类：一是抓到一组真实场景下的 NPC 配对聊天正样本，二是按白名单同步本轮变更并交给用户继续手测。
+---
+
+### 会话 8 - 2026-03-17
+
+**用户需求**:
+> 按治理裁定，将 NPC 从共享根目录切到独立救援现场，以 `codex/npc-roam-phase2-001 @ f6b4db2f` 作为唯一救援基线，只做最小收口：剔除误带入的 `FarmToolPreview.cs`，完成最小验证后再汇报。
+
+**完成任务**:
+1. 在独立救援 worktree `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue` 接管现场，确认当前分支为 `codex/npc-roam-phase2-001`，当前 `HEAD=f6b4db2f852910f5249aca4f51639cbddd893c05`。
+2. 将 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 从 `8aed637f` 恢复，剔除误带入 NPC 线的 farm 侧改动，不再扩写新的 NPC 功能。
+3. 回读 `Logs/npc_rescue_compile_wait4.log`，确认 batchmode 编译成功退出，未发现新的 `error CS`、`Animator is not playing an AnimatorController`、`Missing Sprite` 或 `Missing Script`。
+4. 静态抽查 `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab`，确认三者的 `m_Sprite`、`Animator.m_Controller` 都非空，并继续保留 `NPCAnimController`、`NPCMotionController`、`NPCBubblePresenter`、`NPCAutoRoamController` 组件链。
+5. 抽查 `Assets/100_Anim/NPC/001~003` 下的 `Idle_Down` / `Move_Down` clip 与 controller，确认 Sprite 曲线引用不为空，controller 仍保留 `State` / `Direction` 参数和 `Idle_*` / `Move_*` 状态。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` - 按 `8aed637f` 回退，剔除 farm 误带入改动
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md` - 追加本轮救援收口记录
+- `.kiro/specs/NPC/memory.md` - 同步父工作区收口摘要
+- `.codex/threads/Sunset/NPC/memory_0.md` - 同步线程视角下的救援结论
+
+**验证结果**:
+- `Logs/npc_rescue_compile_wait4.log` 中出现 `Exiting batchmode successfully now!` 与 `return code 0`，当前救援 worktree 可编译。
+- 非阻断日志仅包含 Licensing token、Cinemachine editor 提示、`MCP-FOR-UNITY: No process found listening on port 8080` 和 `Curl error 42`，不是 NPC 红错。
+- `001/002/003` 的 Prefab / Sprite / 动画 / 漫游组件链均完整，`idle/move` 与 Sprite 引用无空值。
+
+**当前恢复点**:
+- 当前子工作区主线已经从“功能推进”切换到“救援基线最小收口”，后续 NPC 写入只允许发生在独立救援 worktree。
+- 下一步只剩对白名单文件做 Git 收口，并确认 `codex/npc-roam-phase2-001` 回到干净可继续开发状态。

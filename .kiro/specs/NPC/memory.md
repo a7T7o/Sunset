@@ -142,3 +142,29 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 **当前恢复点**:
 - NPC 父工作区当前已从“自动漫游 V1 代码和 prefab 落地”推进到“编译阻断解除 + `Primary` 场景首轮运行态验证通过”。
 - 下一步回到 NPC 主线收口：同步线程记忆后，按 NPC 白名单提交本轮变更，并继续补一组真实场景下的配对聊天正样本或交给用户继续手测。
+---
+
+### 会话 7 - 2026-03-17
+
+**用户需求**:
+> 在治理裁定下停止借用共享根目录，把 NPC 改到独立救援现场处理，只做最小收口：以 `codex/npc-roam-phase2-001 @ f6b4db2f` 为唯一基线，剔除误带入的 `FarmToolPreview.cs` 并完成固定范围验证。
+
+**完成任务**:
+1. 确认新的唯一可写现场为 `D:\Unity\Unity_learning\Sunset_worktrees\NPC_roam_phase2_rescue @ codex/npc-roam-phase2-001`，`HEAD=f6b4db2f852910f5249aca4f51639cbddd893c05`。
+2. 将 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 按 `8aed637f` 回退，去掉 farm 侧拖带进 NPC 线的改动，保证本轮不再扩大 NPC 改动范围。
+3. 回读 `Logs/npc_rescue_compile_wait4.log`，确认编译成功退出且没有新的 NPC 红错，再抽查 `001/002/003` 的 Prefab、Sprite、动画与漫游组件链。
+
+**关键决策**:
+- 共享根目录 `D:\Unity\Unity_learning\Sunset` 继续视为 farm 事故现场，NPC 后续写入不得再回到那里执行。
+- `FarmToolPreview.cs` 属于 farm 误带入内容，本轮只需要从 NPC 线剔除；`NPCPrefabGeneratorTool.cs` 等 NPC 核心内容继续保留 `f6b4db2f` 版本即可。
+
+**关键文件**:
+- `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+- `Assets/222_Prefabs/NPC/001.prefab`
+- `Assets/222_Prefabs/NPC/002.prefab`
+- `Assets/222_Prefabs/NPC/003.prefab`
+- `Logs/npc_rescue_compile_wait4.log`
+
+**当前恢复点**:
+- NPC 父工作区当前真实状态是“救援分支最小收口已完成，静态验证通过，等待白名单 Git 固化”。
+- 下一步不是继续扩写功能，而是只对白名单文件做提交并确认救援分支重新干净。
