@@ -246,3 +246,34 @@
 **恢复点 / 下一步**：
 - `11` 内无剩余待办。
 - 若用户继续推进治理主线，下一步应回到 `09` 的 skills/AGENTS/四件套强约束深化，而不是回头继续往 `11` 塞过程尾巴。
+
+### 会话 8 - 2026-03-17：farm continuation 现状复核与 branch-only 切换口径确认
+**用户目标**：
+> 回来后先确认当前现场是否已经全部就位、是否还有代办残留，以及我现在对“何时切分支、何时回归 main”的理解是否已经正确。
+
+**本轮子任务**：
+- 只读核对 shared root 当前真实状态。
+- 只读核对 farm continuation branch 是否仍存在、物理 cleanroom worktree 是否已经退役。
+- 明确 branch-only 常态下的切换/回归口径。
+
+**已完成事项**：
+1. 复核 shared root 当前实时现场：
+   - 工作目录仍为 `D:\Unity\Unity_learning\Sunset`
+   - 当前分支为 `main`
+   - 当前 HEAD 为 `c525ba12f78988397e4145467445d8f467fe7b2b`
+   - `git status --short --branch` 为 clean
+2. 复核 farm continuation branch：
+   - `codex/farm-1.0.2-cleanroom001` 仍存在，当前指向 `66c19fa17a55afec7bf2e0a2a1c695aa0c7f75d0`
+   - `codex/farm-1.0.2-correct001` 仍存在，但只保留事故取证身份
+3. 复核 `git worktree list --porcelain`：
+   - 当前只剩共享根目录 worktree
+   - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001` 已不再作为挂载中的物理 worktree 现场
+
+**关键决策**：
+- `farm-1.0.2-cleanroom001` 已完成“事故 cleanroom -> 普通 continuation branch carrier”的转换，不再被描述为长期工作现场。
+- 后续若继续 farm 实现，应在共享根目录 `main` 上先做治理/总览，只在真正进入 farm 代码或场景修改前，检出 `codex/farm-1.0.2-cleanroom001`。
+- 完成该分支阶段性目标并同步/合回后，应把共享根目录恢复到 `main`，而不是把 root 长期停在 farm 分支。
+
+**恢复点 / 下一步**：
+- 当前从治理角度看，farm continuation 现场已就位，无新增阻断。
+- 若用户下一步要继续 farm 开发，最小动作是在 `D:\Unity\Unity_learning\Sunset` 检出 `codex/farm-1.0.2-cleanroom001` 后再进入实现。

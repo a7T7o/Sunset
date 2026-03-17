@@ -329,3 +329,6 @@
 
 ## 2026-03-16：农田 1.0.0 / 1.0.1 收尾完成并切回 main
 本轮已真正完成农田 `1.0.0` / `1.0.1` 的收尾闭环：使用 `scripts/git-safe-sync.ps1 -Action sync -Mode task` 在 `codex/farm-1.0.0-1.0.1` 上创建并推送 checkpoint `7aadbde7`；随后把本地 `main` 快进到该提交、切换到 `main` 并推送远端；最后调用 `Release-Lock.ps1` 释放了 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 的 A 类锁。当前线程的主线恢复点已不再是“继续收尾”，而是“代码已在 main，等待用户在 Unity 现场做手动验收；若验收再出真问题，再进入下一轮修复”。
+
+## 2026-03-17：farm cleanroom 已退回 branch carrier，shared root 恢复 branch-only 常态
+本轮用户回到线程后，要求先把当前真实状态和我对分支切换纪律的理解讲清楚。已做只读核对：`D:\Unity\Unity_learning\Sunset` 当前实时位于 `main@c525ba12f78988397e4145467445d8f467fe7b2b`，`git status --short --branch` clean；`codex/farm-1.0.2-cleanroom001` 仍存在并指向 `66c19fa17a55afec7bf2e0a2a1c695aa0c7f75d0`，可继续作为 farm 后续唯一 continuation branch carrier；`codex/farm-1.0.2-correct001` 仍停在 `11e0b7b4c1340e0359a546b038d711b03836dc72`，只保留事故取证身份；`git worktree list --porcelain` 当前只剩共享根目录，说明物理 cleanroom worktree 已经退役，不再是长期现场。当前我对规则的理解已经收敛为：治理、只读核查、总览、线程协调留在共享根目录 `main`；真正进入 farm 代码/场景实现时，再从 `D:\Unity\Unity_learning\Sunset` 检出 `codex/farm-1.0.2-cleanroom001`；分支阶段目标完成并同步/合回后，根目录应回归 `main`，而不是长期滞留在 farm 分支。当前从现场治理角度看，我这边没有新的 farm 残留阻断；剩下是否继续开发，取决于用户是否要从这个 carrier 进入下一轮 farm 实现。 
