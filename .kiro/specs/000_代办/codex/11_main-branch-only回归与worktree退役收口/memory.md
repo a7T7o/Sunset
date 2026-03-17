@@ -1,10 +1,10 @@
 # 阶段记忆：main-branch-only 回归与 worktree 退役收口
 
 ## 当前状态
-- **用户视角完成度**：0%
-- **治理推进度**：65%
+- **用户视角完成度**：100%
+- **治理推进度**：100%
 - **最后更新**：2026-03-17
-- **状态**：已完成立项、回包收齐、`spring-day1` 字体双现场清尾与第一批历史 worktree 退役；当前卡在 shared root 自身收口、截图/zip 杂项裁定与最终回 `main`。
+- **状态**：shared root 已回 `main`，三条业务线根目录 branch-only 验证已完成，第二批 worktree 已退役，`11` 阶段已封板。
 
 ## 会话记录
 
@@ -207,3 +207,42 @@
 - 继续处理 shared root 自身治理尾巴。
 - 裁定 `Assets/Screenshots*` 与 `npc_restore.zip` 的最终去留。
 - 然后推进 shared root 回 `main`。
+
+### 会话 7 - 2026-03-17：shared root 已回 `main`，`11` 阶段封板
+**用户目标**：
+> 在 Git/现场层面的真实收口已经完成后，把 `11` 阶段文档、现行状态入口、父级 memory 和线程 memory 全部同步到终局口径，不要再保留“65%”“shared root 仍冻结”这类旧说法。
+
+**本轮子任务**：
+- 用真实 Git 现场重新核对 `11` 的终局事实。
+- 把 `11` 阶段从“执行中”改写为“已完成”。
+- 把终局状态同步回父级与线程级记忆。
+
+**已完成事项**：
+1. 重新核对 shared root 终局现场：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+   - `git status --short --branch` clean
+   - `git worktree list --porcelain` 只剩共享根目录
+2. 复核根目录 branch-only 检出验证证据：
+   - `spring-day1 -> a9c952b7`
+   - `NPC -> 6e2af71b`
+   - `farm -> 66c19fa1`
+3. 新增：
+   - [终局快照_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/终局快照_2026-03-17.md)
+4. 重写并同步：
+   - [tasks.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/tasks.md)
+   - [analysis.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/analysis.md)
+   - [总进度与收口清单_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/总进度与收口清单_2026-03-17.md)
+   - [所有线程回归誓言.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/所有线程回归誓言.md)
+   - [第二批worktree核验表_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/第二批worktree核验表_2026-03-17.md)
+   - [Sunset当前唯一状态说明_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset当前唯一状态说明_2026-03-17.md)
+   - [Sunset现行入口总索引_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset现行入口总索引_2026-03-17.md)
+5. 同步更新父级 memory 与线程 memory，使 `11` 的完成状态在治理总入口和当前线程里都可恢复。
+
+**关键决策**：
+- `11` 阶段已经完成，不再继续承接新 prompt、新尾巴或新的 shared root 事故。
+- `分发Prompt_2026-03-17.md` 现在只保留为过程留档，不再作为现行动作入口。
+- 如果后续继续推进 Codex 治理续办，应回到 `09_强制skills闸门与执行规范重构` 或另行立项。
+
+**恢复点 / 下一步**：
+- `11` 内无剩余待办。
+- 若用户继续推进治理主线，下一步应回到 `09` 的 skills/AGENTS/四件套强约束深化，而不是回头继续往 `11` 塞过程尾巴。

@@ -9,32 +9,30 @@
 
 ## 当前主线目标
 - 把 Sunset 的治理体系从“规则很多但经常被跳过”，推进到“进入实质性任务前会被强制触发正确入口与现场核查”。
-- 同时把本轮 `NPC / farm / spring-day1` 带出来的事故期临时 `worktree` 全部收回，最终回到 `main + branch-only` 常态。
+- 同时把本轮 `NPC / farm / spring-day1` 带出来的事故期临时 `worktree` 全部收回；这一步已经完成，当前若继续治理应回到启动闸门、skills 与规则执行面的深化。
 
 ## 当前状态
-- **用户视角完成度**：0%
-- **治理推进度**：65%
+- **用户视角完成度（11阶段）**：100%
+- **治理推进度（当前子主线 11）**：100%
 - **最后更新**：2026-03-17
-- **状态**：持续推进中
+- **状态**：`11` 已完成并封板
 
 ## 当前稳定结论
 - Sunset 当前治理续办总入口固定为：
   - [D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex)
 - 当前最终收口主线已经升级为：
   - [11_main-branch-only回归与worktree退役收口](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/tasks.md)
-- 当前共享根目录 `D:\Unity\Unity_learning\Sunset` 仍是事故取证现场，不是可写业务现场。
-- `worktree` 当前只能被承认为：
-  - 事故隔离容器
-  - cleanroom / rescue / 历史取证点
-  - 不是 Sunset 默认开发方式
-- 当前三条业务线的合法 carrier 已基本明确：
+- 当前共享根目录已经恢复为：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+- `worktree` 在当前 Sunset 口径中已重新收束为例外：
+  - 只用于高风险隔离、事故 cleanroom 或特殊实验
+  - 不再是默认开发方式
+- 当前三条业务线的合法 carrier 已完成 branch-only 回归：
   - `farm -> codex/farm-1.0.2-cleanroom001 @ 66c19fa1`
   - `NPC -> codex/npc-roam-phase2-002 @ 6e2af71b`
   - `spring-day1 -> codex/spring-day1-story-progression-001 @ a9c952b7`
-- 第一批纯历史 worktree 已真实退役：
-  - `main-reflow-carrier`
-  - `NPC`
-  - `farm-10.2.2-patch002`
+- 当前 `git worktree list --porcelain` 只剩共享根目录。
+- `npc_restore.zip` 与 `Assets/Screenshots*` 已移出仓库工作树。
 
 ## 最近会话
 
@@ -133,6 +131,31 @@
 - 然后推进 shared root 回 `main` 与第二批 worktree 退役。
 
 ## 当前下一步
-1. 等三条业务线返回 branch-only 迁回方案。
-2. 补 shared root 归属表。
-3. 开始执行第二批临时 worktree 退役，而不是继续容忍它们作为长期现场存在。
+1. `11` 不再追加新任务。
+2. 若继续推进治理，回到 `09_强制skills闸门与执行规范重构`，继续压实启动闸门、skills 与规则执行面。
+3. 保持 shared root `main` + 业务分支 的默认模型，不再让 `worktree` 回潮成常态。
+
+### 会话 4 - 2026-03-17（shared root 已回 `main`，线程同步改写为终局口径）
+**用户目标**：
+> 在 `11` 的真实 Git/现场动作已经做完后，把当前线程记忆、父级 memory 和现行状态入口一起改成终局口径，不要再保留“shared root 仍是事故现场”的说法。
+
+**已完成事项**：
+1. 复核 shared root 终局状态：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+   - `git worktree list --porcelain` 只剩共享根目录
+2. 确认 `spring-day1 / NPC / farm` 的根目录 branch-only 检出验证都已真实完成。
+3. 同步重写：
+   - `11` 阶段核心文档
+   - 父级 `000_代办/codex/memory.md`
+   - 当前线程 `memory_0.md`
+   - 现行状态说明与现行入口总索引
+4. 为 `11` 新增终局快照：
+   - [终局快照_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/终局快照_2026-03-17.md)
+
+**关键决策**：
+- 本线程关于 `11` 的子主线已经完成，不再继续把新的 shared root 尾巴往里塞。
+- 如果用户接下来继续强调 skills、AGENTS、四件套或强制闸门，这些都应重新落到 `09` 或新的治理阶段，而不是回头再扩写 `11`。
+
+**恢复点 / 下一步**：
+- `11` 已封板。
+- 当前线程若继续治理，应回到“让规则被稳定触发与遵守”的主命题，而不是继续处理已经收口的 worktree 事故。

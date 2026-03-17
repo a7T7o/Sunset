@@ -4,13 +4,13 @@
 
 ## 当前主线目标
 - 让 `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex` 成为 L5 之后唯一有效的治理续办总入口。
-- 当前治理主线不再承担“项目恢复”本身，而是负责恢复之后遗留的规则收口、skills/AGENTS 强约束、branch-only 回归、共享现场校验与 memory 体系重构。
+- 当前治理主线不再承担“项目恢复”本身，而是负责恢复之后遗留的规则收口、skills/AGENTS 强约束、shared root 纪律与 memory 体系重构；其中 `11` 已完成，后续如继续治理应回到 `09` 或另行立项。
 
 ## 当前状态
-- **用户视角完成度**：0%
-- **治理推进度**：65%
+- **用户视角完成度（11阶段）**：100%
+- **治理续办总盘状态**：Git/现场层终局已完成，后续如继续治理应回到 `09`
 - **最后更新**：2026-03-17
-- **状态**：持续推进中
+- **状态**：`11` 已完成并封板
 
 ## 当前阶段目录
 - `09_强制skills闸门与执行规范重构`
@@ -24,21 +24,21 @@
   - `sunset-startup-guard` 已创建
   - `Sunset/AGENTS.md` 已写入强制入口
 - `10` 已完成事故事实厘清与承载面找回：
-  - 共享根目录当前是事故现场：`D:\Unity\Unity_learning\Sunset @ codex/farm-1.0.2-correct001 @ 11e0b7b4`
+  - 污染分支历史已锁定为：`codex/farm-1.0.2-correct001 @ 11e0b7b4`
   - `farm` 合法 carrier：`codex/farm-1.0.2-cleanroom001 @ 66c19fa1`
   - `NPC` 合法 carrier：`codex/npc-roam-phase2-002 @ 6e2af71b`
   - `spring-day1` clean checkpoint：`codex/spring-day1-story-progression-001 @ a9c952b7`
-- `11` 已正式接管最终收口目标：
+- `11` 已完成最终收口目标：
   - 临时 `worktree` 只能是事故容器
-  - 最终必须回到 `main + branch-only`
-  - 第一批纯历史 worktree 已真实删除
+  - shared root 已回到 `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+  - `git worktree list --porcelain` 只剩共享根目录
+  - `spring-day1 / NPC / farm` 已完成根目录 branch-only 检出验证
+  - `npc_restore.zip` 与 `Assets/Screenshots*` 已移出仓库工作树
 
 ## 当前最高优先级
-1. 收口 shared root 自身治理/归档 dirty。
-2. 裁定并处理 `Assets/Screenshots*`、`npc_restore.zip`。
-3. 恢复共享根目录到 `main` 中性现场。
-4. 在根目录完成 `spring-day1 / NPC / farm` 的 branch-only 检出验证。
-5. 退役第二批临时容器。
+1. 若继续治理，回到 `09_强制skills闸门与执行规范重构`，继续压实 skills、AGENTS 与四件套的强约束。
+2. `10` 与 `11` 保留为历史结论层，不再继续承接新的过程尾巴。
+3. 继续遵守“shared root `main` + 业务分支”的默认模型，除非未来再次出现确有必要的高风险隔离例外。
 
 ## 当前恢复点
 - `09` 下一步：
@@ -48,9 +48,8 @@
   - 不再新增尾巴
   - 保留为事故治理前置结论层
 - `11` 下一步：
-  - 继续处理 shared root 自身治理尾巴和剩余 `untracked`
-  - 再推进 shared root 回 `main`
-  - 最后完成第二批 worktree 物理退役
+  - 无阶段内剩余动作
+  - 后续只保留终局快照、任务清单与过程证据，不再继续承接新任务
 
 ## 最近会话
 
@@ -138,3 +137,28 @@
 - 继续 shared root 自身清尾。
 - 处理截图与 zip 杂项。
 - 然后推进 shared root 回 `main`。
+
+### 会话 4 - 2026-03-17（`11` 已封板，治理总入口切回终局口径）
+**用户目标**：
+> 在 shared root 已回 `main`、worktree 已退役之后，把 `000_代办/codex` 总入口和相关 memory 全部改成终局口径，不要再保留“11 还在 65%”“还要继续发 prompt”的旧状态。
+
+**已完成事项**：
+1. 复核 `11` 终局事实：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 763ba4a1`
+   - `git worktree list --porcelain` 只剩共享根目录
+2. 为 `11` 新增 [终局快照_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/000_代办/codex/11_main-branch-only回归与worktree退役收口/终局快照_2026-03-17.md)。
+3. 重写 `11` 的 `tasks.md / analysis.md / 总进度与收口清单_2026-03-17.md`，把阶段状态从“执行中”改成“已完成”。
+4. 重写当前状态入口：
+   - [Sunset当前唯一状态说明_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset当前唯一状态说明_2026-03-17.md)
+   - [Sunset现行入口总索引_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset现行入口总索引_2026-03-17.md)
+5. 同步本父级 memory，明确：
+   - `11` 已封板
+   - 后续治理应回到 `09` 或新阶段
+
+**关键决策**：
+- `11` 完成后，不再继续用它承接新的治理过程尾巴。
+- `10` 保留事故结论，`11` 保留终局快照；下一步若继续治理，应返回 `09` 的强制闸门与规则执行面。
+
+**恢复点 / 下一步**：
+- `000_代办/codex` 仍然是治理总入口。
+- 但当前活跃推进点已经从 `11` 切回到后续治理深化；若用户继续推进规则/skills/四件套，应直接回到 `09` 或新阶段开工。
