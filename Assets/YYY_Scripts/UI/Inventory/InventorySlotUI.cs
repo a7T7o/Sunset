@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using FarmGame.Data;
 using FarmGame.Data.Core;
+using System.Collections.Generic;
 
 /// <summary>
 /// 背包槽位 UI - 基础版本
@@ -23,6 +24,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     // 🔥 V2 新增：耐久度条
     private Image _durabilityBar;
     private Image _durabilityBarBg;
+    private static readonly Dictionary<int, InventorySlotUI> RegisteredSlots = new Dictionary<int, InventorySlotUI>();
 
     // 🔥 新增：支持 IItemContainer 接口
     private IItemContainer container;
@@ -139,11 +141,13 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         {
             inventory.OnSlotChanged += OnSlotChanged;
         }
+        RegisterSlot();
         // 移除 Refresh()，避免使用旧绑定数据
     }
 
     void OnDisable()
     {
+        UnregisterSlot();
         if (container != null)
         {
             container.OnSlotChanged -= OnSlotChanged;
@@ -164,6 +168,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     {
         // 清理旧绑定
         UnbindEvents();
+        UnregisterSlot();
 
         container = inv; // InventoryService 实现了 IItemContainer
         inventory = inv;
@@ -178,6 +183,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             {
                 inventory.OnSlotChanged += OnSlotChanged;
             }
+            RegisterSlot();
             Refresh();
         }
     }
@@ -189,6 +195,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     {
         // 清理旧绑定
         UnbindEvents();
+        UnregisterSlot();
 
         // 🔥 修复 Ⅰ：强制清空显示，避免显示旧数据
         if (iconImage != null)
@@ -214,6 +221,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             {
                 container.OnSlotChanged += OnSlotChanged;
             }
+            RegisterSlot();
             Refresh();
         }
     }
@@ -466,6 +474,14 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         _rejectShakeCoroutine = StartCoroutine(RejectShakeCoroutine());
     }
 
+    public static void PlayRejectShakeAt(int slotIndex)
+    {
+        if (RegisteredSlots.TryGetValue(slotIndex, out var slot) && slot != null && slot.isActiveAndEnabled)
+        {
+            slot.PlayRejectShake();
+        }
+    }
+
     private void CaptureRestAnchoredPosition()
     {
         if (_rectTransform == null)
@@ -476,6 +492,22 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         if (_rectTransform != null && _rejectShakeCoroutine == null)
         {
             _restAnchoredPosition = _rectTransform.anchoredPosition;
+        }
+    }
+
+    private void RegisterSlot()
+    {
+        if (container is InventoryService && index >= 0)
+        {
+            RegisteredSlots[index] = this;
+        }
+    }
+
+    private void UnregisterSlot()
+    {
+        if (index >= 0 && RegisteredSlots.TryGetValue(index, out var slot) && ReferenceEquals(slot, this))
+        {
+            RegisteredSlots.Remove(index);
         }
     }
 

@@ -550,7 +550,7 @@ namespace FarmGame.Farm
             }
             
             // 🔴 V6 模块N'（CP-N1）：b 层统一拦截（已在队列中的格子统统无效）
-            if (queuePreviewPositions.Contains(cellPos))
+            if (HasQueuePreview(layerIndex, cellPos))
             {
                 canTill = false;
                 hasCrop = false;
@@ -585,11 +585,7 @@ namespace FarmGame.Farm
             if (isValid && !hasCrop && FarmlandBorderManager.Instance != null)
             {
                 // 🔴 003修复：构建联合集合（b层 + 执行层），填补执行态真空期
-                var combinedPositions = new HashSet<Vector3Int>(queuePreviewPositions);
-                foreach (var key in executingTileGroups.Keys)
-                    combinedPositions.Add(key);
-                foreach (var pos in executingWaterPositions)
-                    combinedPositions.Add(pos);
+                var combinedPositions = CollectOccupiedPreviewPositionsForLayer(layerIndex);
                 
                 var previewTiles = FarmlandBorderManager.Instance.GetPreviewTiles(layerIndex, cellPos, combinedPositions);
                 
@@ -724,11 +720,7 @@ namespace FarmGame.Farm
                     _currentGhostTileData?.Clear();
                     if (cursorRenderer != null) cursorRenderer.enabled = false;
 
-                    var combinedPositions = new HashSet<Vector3Int>(queuePreviewPositions);
-                    foreach (var key in executingTileGroups.Keys)
-                        combinedPositions.Add(key);
-                    foreach (var pos in executingWaterPositions)
-                        combinedPositions.Add(pos);
+                    var combinedPositions = CollectOccupiedPreviewPositionsForLayer(layerIndex);
 
                     var previewTiles = FarmlandBorderManager.Instance.GetPreviewTiles(layerIndex, cellPos, combinedPositions);
 
@@ -906,7 +898,7 @@ namespace FarmGame.Farm
             {
                 var initTiles = FarmVisualManager.Instance?.GetPuddleTiles();
                 int initCount = initTiles != null ? initTiles.Length : 3;
-                _cachedPuddleVariant = Random.Range(0, initCount);
+                _cachedPuddleVariant = UnityEngine.Random.Range(0, initCount);
                 _wateringModeInitialized = true;
                 _needsNewPuddleVariant = false;  // 重置标志
             }
@@ -916,7 +908,7 @@ namespace FarmGame.Farm
             {
                 var tiles = FarmVisualManager.Instance?.GetPuddleTiles();
                 int count = tiles != null ? tiles.Length : 3;
-                _cachedPuddleVariant = Random.Range(0, count);
+                _cachedPuddleVariant = UnityEngine.Random.Range(0, count);
                 _needsNewPuddleVariant = false;
                 _lastWateringCellPos = cellPos;
             }
@@ -941,7 +933,7 @@ namespace FarmGame.Farm
                             !tileData.wateredToday;
             
             // 🔴 V6 模块U（CP-U1）：b 层拦截（已在队列中的格子不可浇水）
-            if (canWater && queuePreviewPositions.Contains(cellPos))
+            if (canWater && HasQueuePreview(layerIndex, cellPos))
                 canWater = false;
             
             // 🔥 9.0.5：记录浇水失败原因
@@ -1280,7 +1272,8 @@ namespace FarmGame.Farm
         public void AddQueuePreview(Vector3Int cellPos, int layerIndex, FarmActionType type, 
             int puddleVariant = -1, Dictionary<Vector3Int, TileBase> ghostTileData = null)
         {
-            if (queuePreviewPositions.Contains(cellPos)) return;  // 防重复
+            var previewKey = MakePreviewCellKey(layerIndex, cellPos);
+            if (queuePreviewPositions.Contains(previewKey)) return;  // 防重复
 
             // 🔴 补丁005：种子已迁移到放置系统，PlantSeed 分支已移除
             // 耕地/浇水队列预览：queuePreviewTilemap
@@ -1308,12 +1301,7 @@ namespace FarmGame.Farm
                 Dictionary<Vector3Int, TileBase> tilesToPlace = new Dictionary<Vector3Int, TileBase>();
                 if (FarmlandBorderManager.Instance != null)
                 {
-                    var combinedForQueue = new HashSet<Vector3Int>(queuePreviewPositions);
-                    foreach (var key in executingTileGroups.Keys)
-                        combinedForQueue.Add(key);
-                    foreach (var pos in executingWaterPositions)
-                        combinedForQueue.Add(pos);
-                    
+                    var combinedForQueue = CollectOccupiedPreviewPositionsForLayer(layerIndex);
                     var previewTiles = FarmlandBorderManager.Instance.GetPreviewTiles(layerIndex, cellPos, combinedForQueue);
                     foreach (var kvp in previewTiles)
                     {
@@ -1364,7 +1352,7 @@ namespace FarmGame.Farm
                     queuePreviewTilemap.SetColor(kvp.Key, new Color(1f, 1f, 1f, queuePreviewAlpha));
                     tilePositions.Add(kvp.Key);
                 }
-                tillQueueTileGroups[cellPos] = tilePositions;
+                tillQueueTileGroups[previewKey] = tilePositions;
             }
 
             // 🔴 V3 模块K：Water 分支的 tile 放置移到上面的 if 块中已处理
@@ -1374,19 +1362,32 @@ namespace FarmGame.Farm
                 queuePreviewTilemap.SetColor(cellPos, new Color(1f, 1f, 1f, queuePreviewAlpha));
             }
 
-            queuePreviewPositions.Add(cellPos);
+            queuePreviewPositions.Add(previewKey);
         }
 
         /// <summary>
         /// 执行完成时调用：移除指定位置的队列预览（CP-H5）
         /// </summary>
+        public void RemoveQueuePreview(int layerIndex, Vector3Int cellPos)
+        {
+            RemoveQueuePreview(MakePreviewCellKey(layerIndex, cellPos));
+        }
+
         public void RemoveQueuePreview(Vector3Int cellPos)
         {
-            if (!queuePreviewPositions.Contains(cellPos)) return;
+            foreach (var previewKey in FindQueueKeysByCell(cellPos))
+            {
+                RemoveQueuePreview(previewKey);
+            }
+        }
+
+        private void RemoveQueuePreview(PreviewCellKey previewKey)
+        {
+            if (!queuePreviewPositions.Contains(previewKey)) return;
 
             // 🔴 补丁005：种子队列预览分支已移除（种子走放置系统）
             // 🔴 V3 模块K（CP-K2）：耕地队列从 tillQueueTileGroups 获取关联位置列表
-            if (tillQueueTileGroups.TryGetValue(cellPos, out var tilePositions))
+            if (tillQueueTileGroups.TryGetValue(previewKey, out var tilePositions))
             {
                 if (queuePreviewTilemap != null)
                 {
@@ -1395,15 +1396,16 @@ namespace FarmGame.Farm
                         queuePreviewTilemap.SetTile(pos, null);
                     }
                 }
-                tillQueueTileGroups.Remove(cellPos);
+
+                tillQueueTileGroups.Remove(previewKey);
             }
             else if (queuePreviewTilemap != null)
             {
                 // 浇水等：单点清除
-                queuePreviewTilemap.SetTile(cellPos, null);
+                queuePreviewTilemap.SetTile(previewKey.CellPos, null);
             }
 
-            queuePreviewPositions.Remove(cellPos);
+            queuePreviewPositions.Remove(previewKey);
         }
 
         /// <summary>
@@ -1434,19 +1436,19 @@ namespace FarmGame.Farm
                 }
 
                 // 清除浇水等单点队列预览，默认跳过执行预览
-                foreach (var pos in queuePreviewPositions)
+                foreach (var previewKey in queuePreviewPositions)
                 {
-                    if (!clearExecutingPreviews && executingWaterPositions.Contains(pos))
+                    if (!clearExecutingPreviews && executingWaterPositions.Contains(previewKey))
                     {
                         continue;  // CP-E3：保留执行预览
                     }
 
-                    if (tillQueueTileGroups.ContainsKey(pos))
+                    if (tillQueueTileGroups.ContainsKey(previewKey))
                     {
                         continue;  // 已在上面处理
                     }
 
-                    queuePreviewTilemap.SetTile(pos, null);
+                    queuePreviewTilemap.SetTile(previewKey.CellPos, null);
                 }
 
                 if (clearExecutingPreviews)
@@ -1459,9 +1461,9 @@ namespace FarmGame.Farm
                         }
                     }
 
-                    foreach (var pos in executingWaterPositions)
+                    foreach (var previewKey in executingWaterPositions)
                     {
-                        queuePreviewTilemap.SetTile(pos, null);
+                        queuePreviewTilemap.SetTile(previewKey.CellPos, null);
                     }
                 }
             }
@@ -1482,49 +1484,64 @@ namespace FarmGame.Farm
         /// 🔴 补丁004 模块D（CP-D1）：将队列预览提升为执行预览。
         /// ProcessNextAction 出队时调用。tile 保留在 queuePreviewTilemap 上，只转移追踪数据。
         /// </summary>
+        public void PromoteToExecutingPreview(int layerIndex, Vector3Int cellPos)
+        {
+            PromoteToExecutingPreview(MakePreviewCellKey(layerIndex, cellPos));
+        }
+
         public void PromoteToExecutingPreview(Vector3Int cellPos)
         {
-            // 耕地：从 tillQueueTileGroups 转移到 executingTileGroups
-            if (tillQueueTileGroups.TryGetValue(cellPos, out var tilePositions))
+            foreach (var previewKey in FindQueueKeysByCell(cellPos))
             {
-                executingTileGroups[cellPos] = tilePositions;
-                tillQueueTileGroups.Remove(cellPos);
+                PromoteToExecutingPreview(previewKey);
+            }
+        }
+
+        private void PromoteToExecutingPreview(PreviewCellKey previewKey)
+        {
+            // 耕地：从 tillQueueTileGroups 转移到 executingTileGroups
+            if (tillQueueTileGroups.TryGetValue(previewKey, out var tilePositions))
+            {
+                executingTileGroups[previewKey] = tilePositions;
+                tillQueueTileGroups.Remove(previewKey);
             }
             // 浇水：从 queuePreviewPositions 转移到 executingWaterPositions
             else
             {
-                executingWaterPositions.Add(cellPos);
+                executingWaterPositions.Add(previewKey);
             }
             
             // 从队列追踪中移除（但 tile 保留在 tilemap 上）
-            queuePreviewPositions.Remove(cellPos);
+            queuePreviewPositions.Remove(previewKey);
         }
         
         /// <summary>
         /// 🔴 补丁004 模块D（CP-D2）：清除执行预览。
         /// 动画完成后调用，此时 tile 已落地，视觉无缝。
         /// </summary>
+        public void RemoveExecutingPreview(int layerIndex, Vector3Int cellPos)
+        {
+            RemoveExecutingPreview(MakePreviewCellKey(layerIndex, cellPos));
+        }
+
         public void RemoveExecutingPreview(Vector3Int cellPos)
         {
+            foreach (var previewKey in FindExecutingKeysByCell(cellPos))
+            {
+                RemoveExecutingPreview(previewKey);
+            }
+        }
+
+        private void RemoveExecutingPreview(PreviewCellKey previewKey)
+        {
             // 耕地：清除关联的所有 tile
-            if (executingTileGroups.TryGetValue(cellPos, out var tilePositions))
+            if (executingTileGroups.TryGetValue(previewKey, out var tilePositions))
             {
                 if (queuePreviewTilemap != null)
                 {
                     foreach (var pos in tilePositions)
                     {
-                        // 🔴 补丁004V4（CP-V4-1/V4-2）：检查 pos 是否被其他队列预览占用
-                        bool isOccupiedByOtherQueue = false;
-                        foreach (var kvp in tillQueueTileGroups)
-                        {
-                            if (kvp.Value.Contains(pos))
-                            {
-                                isOccupiedByOtherQueue = true;
-                                break;
-                            }
-                        }
-
-                        if (!isOccupiedByOtherQueue)
+                        if (!IsTileQueuedByAnotherPreview(previewKey, pos))
                         {
                             // 不被占用 → 安全清空
                             queuePreviewTilemap.SetTile(pos, null);
@@ -1532,15 +1549,15 @@ namespace FarmGame.Farm
                         // 被占用 → 保留队列预览的 tile（B 入队时已写入，无需重新填充）
                     }
                 }
-                executingTileGroups.Remove(cellPos);
+                executingTileGroups.Remove(previewKey);
                 return;
             }
 
             // 浇水：清除单点
-            if (executingWaterPositions.Contains(cellPos))
+            if (executingWaterPositions.Contains(previewKey))
             {
-                queuePreviewTilemap?.SetTile(cellPos, null);
-                executingWaterPositions.Remove(cellPos);
+                queuePreviewTilemap?.SetTile(previewKey.CellPos, null);
+                executingWaterPositions.Remove(previewKey);
                 return;
             }
         }
