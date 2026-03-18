@@ -36,6 +36,7 @@
 - 如果任务会进入 Play Mode 做取证、调试或验收，完成当前步骤后必须主动退回 Edit Mode，再允许继续后续操作、汇报或把现场交给其他线程；禁止把运行中的 Editor 留给别人收尾。
 - 如果任务涉及 DialogueUI、NPC 气泡、字体、UI 样式、布局、材质或其他直接影响观感的表现层资源，除相关业务文档外，还必须补读 `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`，并把“好看、合理、专业、可读”当成硬验收项，而不是只看功能是否可用。
 - 如果任务涉及工作区、记忆、交接、治理、报告、Claude 或 Codex 迁移、历史接手，优先使用 `sunset-workspace-router`。
+- 如果任务属于 `Codex规则落地` 治理线程，且涉及多线程 prompt 分发、统一领取入口、本轮批次文件、固定回收卡收件或最小回复格式约束，优先使用 `sunset-governance-dispatch-protocol`；如果当前会话未显式暴露该 skill，必须改读 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md` 并执行手工等价流程。
 - 如果任务涉及场景、预制体、检查器、ScriptableObject、序列化引用或验证场景，优先使用 `sunset-scene-audit`。
 - 如果任务涉及锐评、审视报告、差异、纠正、是否采纳评审，优先使用 `sunset-review-router`。
 - 如果任务涉及 `.kiro/locks/`、A 类热文件、`Primary.unity`、`GameInputManager.cs`、`Acquire-Lock.ps1`、`Release-Lock.ps1`、或 `Committed/Parked/Abandoned` 交接判断，优先使用 `sunset-lock-steward`。
