@@ -80,3 +80,29 @@
 - 当前主线恢复点：
   - 若用户批准阶段二，先申请 `grant-branch`，再执行 `ensure-branch`；
   - 若未批准，本线程继续保持只读，不自行切分支。
+
+### 会话 5 - 2026-03-18（阶段二已进入 docs-first checkpoint）
+
+- 用户明确要求开始执行阶段二 prompt。
+- 本轮显式继续使用 `skills-governor`、`sunset-workspace-router`，并在 shared root 上手工执行了 `sunset-startup-guard` 的等价 preflight。
+- 已在 live 现场确认阶段二前提成立：
+  - `D:\Unity\Unity_learning\Sunset`
+  - `main`
+  - `HEAD = 6b32ac248a67ad9bab37f68d7fab2d8757a28b21`
+  - `git status --short --branch = ## main...origin/main`
+  - `shared-root-branch-occupancy.md` 仍为 `neutral`
+- 已执行：
+  - `git-safe-sync.ps1 -Action grant-branch -OwnerThread "导航检查" -BranchName "codex/navigation-audit-001"`
+  - `git-safe-sync.ps1 -Action ensure-branch -OwnerThread "导航检查" -BranchName "codex/navigation-audit-001"`
+- 当前线程已进入 `codex/navigation-audit-001`，并完成最小 checkpoint：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\requirements.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\design.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\tasks.md`
+- 关键决策：
+  - 本轮不直接进入导航代码整改；
+  - `2.0.0` 的首个 checkpoint 仅用于固化整改边界、热文件策略和实现顺序；
+  - 后续代码顺序优先 `NavGrid2D -> PlayerAutoNavigator -> GameInputManager`，尽量把 A 类热文件接触时机后移。
+- 当前主线恢复点：
+  - 下一步先把本 checkpoint 提交到 `codex/navigation-audit-001` 并推送；
+  - 然后执行 `return-main` 归还 shared root；
+  - 回到 `main` 后再补阶段二回收卡与治理侧记录。

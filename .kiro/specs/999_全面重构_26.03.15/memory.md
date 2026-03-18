@@ -88,3 +88,17 @@
   - 如果继续导航主线，下一轮必须进入 branch-only 真实写入，而不能继续把 shared root 当长期现场；
   - 推荐 continuation branch 仍为 `codex/navigation-audit-001`；
   - 最小 checkpoint 先固化 `2.0.0` 设计文档，再决定是否扩到 `GameInputManager / PlayerAutoNavigator / NavGrid2D` 的代码整改。
+
+### 会话 6 - 2026-03-18
+
+- 子工作区 `导航检查` 已经完成阶段二准入，并在任务分支 `codex/navigation-audit-001` 上落下 `2.0.0` 的 docs-first checkpoint。
+- 父层本轮新增事实：
+  - 子工作区现在已具备：
+    - `requirements.md`
+    - `design.md`
+    - `tasks.md`
+  - 这次 checkpoint 仍属于低风险文档固化，没有进入 Unity / MCP / Play Mode，也没有碰 `Primary.unity`。
+- 父层本轮新增稳定结论：
+  - `导航检查` 已从“只有 `1.0.0` 审计基线”推进到“有 `2.0.0` 整改方案的可执行阶段”；
+  - 方案明确后续顺序应优先 `NavGrid2D -> PlayerAutoNavigator -> GameInputManager`，以尽量降低热文件冲突；
+  - `001_BeFore_26.1.21/导航系统重构` 的长期目标仍可作为参考，但当前 live 方案不再照搬“完整导航重构”，而是先解决 GC、刷新调度和桥接边界。

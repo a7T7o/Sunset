@@ -207,3 +207,44 @@
 **遗留问题 / 下一步**：
 - [ ] 若治理批准阶段二，先申请 `grant-branch`，再执行 `ensure-branch`。
 - [ ] 阶段二的第一步应先固化 `2.0.0整改设计`，而不是立刻扩大到 Unity / 热文件写入。
+
+### 会话 4 - 2026-03-18（阶段二准入与 2.0.0 docs-first checkpoint）
+
+**用户需求**：
+> 读取阶段二并开始完成阶段二 prompt 的内容。
+
+**当前主线目标**：
+- 当前导航主线已从“判断是否值得立项整改”进入“在独立任务分支上固化 2.0.0 的最小整改方案”。
+- 本轮最小 checkpoint 不是代码整改，而是先把 `requirements.md / design.md / tasks.md` 写出来。
+
+**完成任务**：
+1. 在 shared root 上重新做 live preflight：
+   - `D:\Unity\Unity_learning\Sunset`
+   - `main`
+   - `HEAD = 6b32ac248a67ad9bab37f68d7fab2d8757a28b21`
+   - `git status --short --branch = ## main...origin/main`
+   - `shared-root-branch-occupancy.md` 仍为 `neutral`
+2. 执行阶段二准入：
+   - `git-safe-sync.ps1 -Action grant-branch -OwnerThread "导航检查" -BranchName "codex/navigation-audit-001"`
+   - `git-safe-sync.ps1 -Action ensure-branch -OwnerThread "导航检查" -BranchName "codex/navigation-audit-001"`
+3. 在任务分支 `codex/navigation-audit-001` 下完成 docs-first checkpoint：
+   - 新建 `requirements.md`
+   - 新建 `design.md`
+   - 新建 `tasks.md`
+4. 本轮补读并吸收到方案中的历史输入：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\001_BeFore_26.1.21\导航系统重构\requirements.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\001_BeFore_26.1.21\导航系统重构\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\001_BeFore_26.1.21\遮挡与导航\memory.md`
+
+**关键结论**：
+- `2.0.0` 已正式从“只存在于阶段一判断里的 continuation”变成工作区内可执行的整改阶段。
+- 本轮方案明确了首批整改顺序：
+  - 先 `NavGrid2D`
+  - 再 `PlayerAutoNavigator`
+  - 最后才在必要时碰 `GameInputManager`
+- 本轮没有进入 Unity / MCP / Play Mode，也没有触碰 `Primary.unity`。
+- 本轮仍未直接修改任何导航代码；这次 checkpoint 的唯一目标就是把整改边界、热文件策略和后续任务顺序钉住。
+
+**遗留问题 / 下一步**：
+- [ ] 下一轮若继续推进，应先执行 `T1-T3`，从高频分配清单与 `NavGrid2D / PlayerAutoNavigator` 的非分配收口开始。
+- [ ] 若后续需要真正改 `GameInputManager.cs`，应在进入前单独确认热文件准入。
