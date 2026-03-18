@@ -178,3 +178,41 @@
   1. 审核并同步本轮脚本修补
   2. 清掉当前 live 的 `main + branch-granted` 中间态
   3. 用 Farm 的第二阶段重新实盘验证 `grant -> ensure-branch`
+
+### 会话 22 - 2026-03-18（补齐 skill 触发显式可见与 trigger log 审计层）
+**用户目标**：
+> 在 `B` 路线完成后，继续解决“skills 触发用户几乎看不见、也没有统一日志”的治理缺口；不仅要说明当前已经 learn 了什么，还要把 trigger log 真的落盘，避免继续停留在纸面规则。
+
+**已完成事项**：
+1. 在全局治理层新增统一审计日志：
+   - `C:\Users\aTo\.codex\memories\skill-trigger-log.md`
+   - 采用 append-only，专门记录实质性任务里的 skill 触发、触发原因、可见性与结果。
+2. 收紧全局规则源：
+   - `C:\Users\aTo\.codex\AGENTS.md`
+   - `C:\Users\aTo\.codex\memories\global-learning-system.md`
+   - `C:\Users\aTo\.codex\memories\global-skill-registry.md`
+   - `C:\Users\aTo\.codex\memories\global-learnings.md`
+   - 新增 `GL-20260318-002 skill-policy.explicit-skill-callout-and-trigger-log`
+3. 收紧治理 skill：
+   - `C:\Users\aTo\.codex\skills\skills-governor\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\skills-governor\agents\openai.yaml`
+   - `C:\Users\aTo\.codex\skills\global-learnings\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\agents\openai.yaml`
+4. 把这条要求接进 Sunset 项目入口：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - 明确 Sunset 实质性任务也必须显式点名命中的 skill，并在收尾前补记 `skill-trigger-log.md`。
+5. 写入首条 trigger log：
+   - `STL-20260318-001 global-skill-trigger-visibility`
+
+**关键决策**：
+- `global-learnings` 与 `global-skill-registry` 解决的是“稳定结论”和“当前状态板”，但不能替代“这次任务到底有没有真的触发 skill”的执行审计层。
+- 从本轮开始，skill 触发必须满足两件事：
+  1. 首条 `commentary` 显式可见
+  2. 收尾前追加 trigger log
+- 如果某个应命中的 skill 在当前会话没有显式暴露，但执行了手工等价流程，也必须显式说明并记日志，不能继续留成暗箱动作。
+
+**恢复点 / 下一步**：
+- 本轮显式可见与日志化缺口已补上。
+- 若用户继续追问，可直接汇总当前 global learnings 已有条目，并说明本轮新增的 trigger log 机制如何使用。
+- 若用户把主线重新切回阶段 21 的“历史回读 / 纸面规则差距清单”，则从 `TD_13` 记录的恢复点继续。

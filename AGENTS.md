@@ -12,6 +12,7 @@
 - 第一次唤醒阶段 MUST 是纯只读阶段。没有显式 Lease / Grant 的线程，NEVER 允许执行 `ensure-branch`。
 - shared root 上的 `ensure-branch` 不是局部动作，而是全局写态。没有租约就切分支，一律视为严重违规。
 - 如果你试图绕过这条顺序，必须先阻断、先汇报，再等待显式准入；NEVER 允许“先切过去再说”。
+- 对任何 Sunset 实质性任务，首次 `commentary` MUST 显式点名本轮正在使用的 skill；如果 `sunset-startup-guard` 当前会话未显式暴露而改走 `skills-governor + 手工等价闸门`，也必须明说。
 
 ## 1. 文件定位
 - 本文件是 Sunset 项目的 Codex 路由层，不重复抄写 `.kiro/steering` 正文。
@@ -87,7 +88,9 @@
   - Codex 线程记忆：`D:\Unity\Unity_learning\Sunset\.codex\threads\<分组>\<线程名>\memory_0.md`
   - 工作区记忆：`.kiro/specs/.../memory.md`
 - 任何产生可复用结论的 Sunset 实质性工作，都不能只写在线程记忆里；对应工作区记忆也要落盘。
+- 任何 Sunset 实质性工作，除了项目 / 工作区记忆与线程记忆，还必须补记 `C:\Users\aTo\.codex\memories\skill-trigger-log.md`，记录本轮技能触发、原因、可见性与结果。
 - 更新顺序固定为：当前子工作区 → 受影响的父工作区 → 当前线程记忆。
+- 如果本轮同时命中了全局治理层写回，则更新顺序收紧为：当前子工作区 → 受影响的父工作区 → 必要的全局层（如 `global-learnings.md` / `skill-trigger-log.md`）→ 当前线程记忆。
 - 只读分析如果产生了稳定的治理结论、路由结论、风险判断，也要更新记忆。
 - 线程记忆和工作区记忆的每次追加，都应写清：当前主线目标、本轮阻塞或子任务、恢复点或下一步主线动作。
 - 分卷命名固定为：
@@ -102,7 +105,7 @@
 - 记忆文件中的说明文字默认使用中文，不要把普通叙述写成英文；只有文件名、路径、命令、专有名词或特殊技术名词可以保留原文。
 
 ## 7. 风险任务处理
-- 本项目的 Git 收尾顺序固定为：先按工作区规则更新工作区记忆，再更新线程记忆，最后执行 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`。
+- 本项目的 Git 收尾顺序固定为：先按工作区规则更新工作区记忆；如果本轮命中了全局治理层，再补写必要的全局层（如 `global-learnings.md`、`skill-trigger-log.md`）；再更新线程记忆；最后执行 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`。
 - 任何 Sunset 实质性工作在完成记忆更新后，只要当前改动已经达到可提交状态，Codex 就必须继续执行 Git 安全同步，而不是停在“本地已改完但未提交/未推送”。
 - 长期治理 / 总览 / 审计线程默认停留在根目录 `D:\Unity\Unity_learning\Sunset` 的 `main`；长期功能线程也默认先从根目录进入，再按真实任务切到对应 `codex/` 分支；`worktree` 只保留给高风险隔离、故障修复与特殊实验。
 - 如果历史 `worktree` 仍暂时存在，不得默认信任其中的脚本副本、规则副本和入口文档副本与 shared root 同步；凡是执行闸机脚本或读取 live 治理入口时，优先以 shared root 的现行版本为准。

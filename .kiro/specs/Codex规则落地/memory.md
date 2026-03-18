@@ -633,3 +633,20 @@
   2. 解除当前 `main + branch-granted` 中间态
   3. 重新实盘验证 Farm 的 `grant -> ensure-branch`
 - 原本的阶段 21 历史回读主线已写入 `TD_13`，后续可从那里继续恢复。
+
+### 会话 22 - 2026-03-18（skill 触发显式可见与 trigger log 落地）
+**用户目标**：
+> 不只要有 skill，还要让 skill 触发对用户显式可见，并建立统一日志，便于后续继续迭代规范。
+
+**已完成事项**：
+1. 新增全局 `skill-trigger-log.md` 审计层，并写入首条记录。
+2. 在全局 `AGENTS.md`、`global-learning-system.md`、`global-learnings.md`、`global-skill-registry.md` 中补齐“首条 commentary 显式点名 + 收尾补记 trigger log”的统一口径。
+3. 收紧 `skills-governor`、`global-learnings`、`sunset-startup-guard` 的 skill 正文与 `agents/openai.yaml`。
+4. 更新 `D:\Unity\Unity_learning\Sunset\AGENTS.md`，把这条要求接进 Sunset 项目入口。
+
+**关键决策**：
+- 以后不能再把“用了 skill 但用户看不见、事后也查不到”当成可接受状态。
+- `skill-trigger-log.md` 被正式定为执行审计层；`global-learnings.md` 继续只承接稳定结论。
+
+**恢复点 / 下一步**：
+- 这轮治理子任务收口后，若用户继续当前主线，可继续回到阶段 21 的“纸面规则 vs 物理闸机”差距清单整理。

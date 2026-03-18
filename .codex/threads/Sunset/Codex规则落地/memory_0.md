@@ -607,3 +607,24 @@
 **恢复点 / 下一步**：
 - 当前最高优先级是让用户审核本轮脚本修补，然后清掉 `main + branch-granted` 中间态并重测 Farm。
 - 修补完成后，再回到 `TD_13` 记录的历史回读恢复点，继续阶段 21 的查漏补缺。
+
+### 会话 22 - 2026-03-18（用户要求显式展示已触发 skills，并建立统一 trigger log）
+**用户目标**：
+> 在 `B` 路线完成后，继续补上“skills 触发不可见、没有统一日志”的治理缺口，并说明当前 global learnings 已经沉淀了什么。
+
+**已完成事项**：
+1. 新增 `C:\Users\aTo\.codex\memories\skill-trigger-log.md`，定义固定模板并写入首条记录。
+2. 在全局规则源、治理 skill 和 `Sunset/AGENTS.md` 中接入“首条 commentary 显式点名 skill + 收尾补记 trigger log”的硬要求。
+3. 追加新的全局 learning：
+   - `GL-20260318-002 skill-policy.explicit-skill-callout-and-trigger-log`
+
+**关键决策**：
+- 以后“用了 skill 但用户没看见、事后也查不到”被正式视为治理缺口，而不是可忽略的体验问题。
+- trigger log 是执行审计层，不替代线程 / 项目记忆，也不替代 global learnings。
+
+**恢复点 / 下一步**：
+- 当前子任务完成后，可以向用户直接汇总：
+  1. 当前已有的 global learnings 清单
+  2. 本轮新增的 trigger log 机制
+  3. 之后每个实质性任务会如何显式展示 skill 触发
+- 若用户把主线切回阶段 21 的历史回读，则从 `TD_13` 的恢复点继续。
