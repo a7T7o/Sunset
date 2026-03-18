@@ -8,9 +8,9 @@
 
 - cleanroom 工作目录：`D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
 - cleanroom 分支：`codex/farm-1.0.2-cleanroom001`
-- cleanroom 基线：`b9b6ac4881f4436abbc1f3232f14706ca76bb869`
+- cleanroom 基线：`4b9ad7ea750ca04d6701aa35f67383044eb3bc9d`
 - 污染现场：`D:\Unity\Unity_learning\Sunset` 上的 `codex/farm-1.0.2-correct001@11e0b7b4c1340e0359a546b038d711b03836dc72`
-- 当前阶段：farm-only 回放已完成，cleanroom 记忆已重写，最小编译验证失败，尚未达到可接替后续 farm 开发状态
+- 当前阶段：continuation branch 已 merge 最新 `main` 并重新验证 compile，通过后只剩 live 场景验收与 checkpoint 收尾
 
 ## 会话记录
 
@@ -87,3 +87,32 @@
 **当前结论**：
 - `2026.03.16/1.0.2纠正001` cleanroom 已从“compile 未闭环”推进到“代码与编译可接替污染分支”状态。
 - 当前主线已从“确认最小补齐集”切换为“做 cleanroom 收尾并形成 checkpoint”。
+
+### 2026-03-18 - continuation branch 归一后复核完成
+**用户目标**：
+> 在 continuation branch 上继续 `1.0.2纠正001`，要求先确认 merge `main` 后的真实现场，再做编译复核、MCP 连通性检查和最小记忆收尾。
+
+**完成事项**：
+1. 复核 `codex/farm-1.0.2-cleanroom001@4b9ad7ea750ca04d6701aa35f67383044eb3bc9d` 相对 `main` 仍只承载 farm 相关 8 个代码文件、`1.0.2纠正001` 四件套与三层/线程记忆。
+2. 回读关键实现，确认本线当前真正承载的是：
+   - UI 打开后的保护槽位冻结
+   - 右键与 `WASD` 的统一中断口径
+   - 浇水“入队后、鼠标移出原格才刷新下一样式”
+   - 种植后图层/排序修正与预览残留清理
+3. 对 cleanroom 再次执行 batchmode 编译验证，日志落在 `C:\Users\aTo\AppData\Local\Temp\sunset_farm_continuation_compile.log`。
+4. 发现并恢复了 batchmode 触发的 4 个 TMP 字体 `.asset` 噪音，保持 worktree 干净。
+5. 尝试使用 Unity MCP 读取活动场景与 Console，但当前 transport 异常，未拿到 live Unity 只读结果。
+
+**验证结果**：
+- batchmode compile 通过，日志含 `Exiting batchmode successfully now!` 与 return code 0。
+- 当前仅剩 2 类非 farm warning：
+  - `Assets\YYY_Tests\Editor\WorldItemDropSystemTests.cs(272,15)` `groundY` 未使用
+  - `Assets\Editor\NPCPrefabGeneratorTool.cs(355,9)` `TextureImporter.spritesheet` obsolete
+- `git status --short` 已回到干净状态。
+
+**当前结论**：
+- `2026.03.16` 层的 cleanroom 现场已经从“可编译承接”推进到“merge 最新 main 后仍保持可编译、可继续承接”的状态。
+- 当前唯一未闭环项是 live 场景验收，不是新的 farm 代码阻断。
+
+**恢复点 / 下一步**：
+- 继续按白名单同步本轮 memory，形成 continuation branch checkpoint。

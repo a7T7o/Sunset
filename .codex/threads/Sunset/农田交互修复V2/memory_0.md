@@ -9,7 +9,7 @@
 - 主线目标：把 `1.0.2纠正001` 从污染分支拆出为可独立继续开发的 continuation branch，并在对齐最新 `main` 后继续实现与验收
 - 当前 continuation branch：`codex/farm-1.0.2-cleanroom001`
 - 污染分支：`codex/farm-1.0.2-correct001`
-- 当前阶段：已完成 cleanroom 回放与 compile 闭环，正在把 continuation branch 归一到最新 `main` 基线，再继续 `1.0.2纠正001`
+- 当前阶段：continuation branch 已归一到最新 `main` 并重新验证 compile，当前只剩 live 场景验收与 checkpoint 收尾
 
 ## 会话记录
 
@@ -87,3 +87,41 @@
 **恢复点 / 下一步**：
 - 先完成 `merge main` 收尾，确认 continuation branch 已基于最新 `main`
 - 然后回读 `1.0.2纠正001` 文档与关键代码，逐条完成尚未关闭的验收项
+
+### 2026-03-18 - continuation branch 复核、编译与 MCP 状态确认
+**用户目标**：
+> 在 continuation branch 上一条龙完成当前可做的收尾：确认 merge `main` 后的真实农田实现状态，重新验证 compile，核查 MCP 是否可连接，并把当前现场沉淀成后续可直接接手的线程记忆。
+
+**本轮子任务 / 服务对象**：
+- 子任务：对 `1.0.2纠正001` 做 continuation 现场复核与验证收尾。
+- 服务主线：确保后续 farm 开发继续沿 `codex/farm-1.0.2-cleanroom001` 推进，而不是再回到污染分支或过期快照。
+
+**已完成事项**：
+1. 复核 continuation branch 当前位于：
+   - 工作目录 `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+   - 分支 `codex/farm-1.0.2-cleanroom001`
+   - `HEAD=4b9ad7ea750ca04d6701aa35f67383044eb3bc9d`
+2. 回读 merge `main` 后的关键代码，确认当前分支确实承载了：
+   - UI 打开时的活跃手持槽位保护
+   - 右键 / `WASD` 对农田自动链的一致收尾
+   - 浇水样式“入队后、移出原格再刷新”
+   - 种植后图层排序修正与预览残留清理
+3. 使用 `D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Unity.exe` 对 cleanroom 重新执行 batchmode compile，日志为 `C:\Users\aTo\AppData\Local\Temp\sunset_farm_continuation_compile.log`。
+4. 恢复了本次 batchmode 触发的 4 个 TMP 字体 `.asset` 脏改，避免把无关资源噪音混入 farm 现场。
+5. 尝试通过 Unity MCP 读取活动场景与 Console，但当前 transport 报错 `missing-content-type; body:`，因此本轮没有 live Unity 读数。
+
+**验证结果**：
+- batchmode compile 通过，日志中包含：
+  - `Exiting batchmode successfully now!`
+  - `Exiting without the bug reporter. Application will terminate with return code 0`
+- 当前 warning 仅剩两类非 farm 项：
+  - `Assets\YYY_Tests\Editor\WorldItemDropSystemTests.cs(272,15)` `groundY` 未使用
+  - `Assets\Editor\NPCPrefabGeneratorTool.cs(355,9)` `TextureImporter.spritesheet` obsolete
+- `git status --short` 已回到干净状态。
+
+**关键结论**：
+- 当前 continuation branch 已经是 merge 最新 `main` 后仍可编译、可继续接手 `1.0.2纠正001` 的唯一正确现场。
+- 当前真正剩余的是用户在 Unity 场景里的 live 验收，不是新的代码恢复缺口。
+
+**恢复点 / 下一步**：
+- 先执行本轮 memory 的白名单 Git 收尾，形成 continuation branch checkpoint。

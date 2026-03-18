@@ -8,10 +8,10 @@
 
 - cleanroom 现场：`D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
 - cleanroom 分支：`codex/farm-1.0.2-cleanroom001`
-- cleanroom 基线：`b9b6ac4881f4436abbc1f3232f14706ca76bb869`
+- cleanroom 基线：`4b9ad7ea750ca04d6701aa35f67383044eb3bc9d`
 - 污染现场：`D:\Unity\Unity_learning\Sunset` 上的 `codex/farm-1.0.2-correct001@11e0b7b4c1340e0359a546b038d711b03836dc72`
 - 当前主线：`2026.03.16/1.0.2纠正001` 的 farm-only cleanroom 重建
-- 当前结论：白名单回放已完成，但 cleanroom 编译未闭环，暂不能接替污染分支继续 farm 后续开发
+- 当前结论：continuation branch 已 merge 最新 `main` 并重新验证 compile，通过后已具备继续承接 farm 开发的代码基础，当前只剩 live 场景验收与 checkpoint 收尾
 
 ## 会话记录
 
@@ -67,3 +67,26 @@
 **当前阻塞/边界**：
 - 已无 farm 专属 compile 阻断。
 - 仍需在 Git 收尾前排除 batchmode 触发的 TMP 资产噪音，避免污染 cleanroom 提交边界。
+
+### 2026-03-18 - continuation branch merge main 后的总线复核
+**用户目标**：
+> 不再从杂乱旧线程回看结论，而是直接以 continuation branch 的最新现场为准，确认当前 farm 还剩什么、哪些已经就位，并把本轮进展沉淀成可继续接手的真实记忆。
+
+**完成事项**：
+1. 复核 cleanroom continuation branch 当前位于 `4b9ad7ea750ca04d6701aa35f67383044eb3bc9d`，已 merge 最新 `main`。
+2. 确认 `main..HEAD` 的差异仍是 farm 专属白名单内容，不含 NPC 业务文件。
+3. 重新回读 `GameInputManager.cs`、`FarmToolPreview.cs`、`PlacementManager.cs`、`PlacementPreview.cs`、背包链相关脚本，确认 `1.0.2纠正001` 的主要实现口径仍然在位。
+4. 使用 Unity 6000.0.62f1 对 cleanroom 再次执行 batchmode compile，并恢复编译产生的无关 TMP 字体资产噪音。
+5. 只读尝试 Unity MCP，确认当前共享 Unity 实例存在 transport 异常，无法作为本轮 live 结论来源。
+
+**验证结果**：
+- batchmode compile 通过；非 farm warning 仍只剩测试/Editor 工具两类旧项。
+- cleanroom worktree 已恢复到干净状态。
+- MCP live 读取失败，错误为 `missing-content-type; body:`。
+
+**当前结论**：
+- farm continuation branch 现在已经是“代码闭环 + 编译通过 + 可继续承接”的现场。
+- 当前未完成的是用户在真实 `Primary` 场景里的交互验收，而不是新的恢复工程。
+
+**恢复点 / 下一步**：
+- 先执行白名单 Git 收尾，形成 continuation branch checkpoint，再等待用户场景验收。

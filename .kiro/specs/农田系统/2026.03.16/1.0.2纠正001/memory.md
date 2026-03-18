@@ -8,12 +8,12 @@
 
 - cleanroom 工作目录：`D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
 - cleanroom 分支：`codex/farm-1.0.2-cleanroom001`
-- cleanroom 基线：`b9b6ac4881f4436abbc1f3232f14706ca76bb869`
+- cleanroom 基线：`4b9ad7ea750ca04d6701aa35f67383044eb3bc9d`
 - 回放来源：
   - `07ffe199` 仅保留 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
   - `11e0b7b4` 回放 7 个 farm 代码文件与 4 份正文文档
 - 污染现场：`D:\Unity\Unity_learning\Sunset` 上的 `codex/farm-1.0.2-correct001@11e0b7b4c1340e0359a546b038d711b03836dc72`
-- 当前阶段：回放已完成，cleanroom 记忆已建立，compile 未闭环
+- 当前阶段：continuation branch 已 merge 最新 `main`，代码与 compile 闭环已复核，当前只剩 live 场景验收与 checkpoint 收尾
 
 ## 会话记录
 
@@ -112,3 +112,37 @@
 - 清理 batchmode 触发的非白名单 asset 噪音，避免混入 checkpoint。
 - 按 cleanroom 现状追加更新三层 memory 与线程记忆。
 - 若白名单 preflight 通过，则执行 `git-safe-sync.ps1` 做 cleanroom checkpoint。
+
+### 2026-03-18 - continuation branch 归一后复核与收尾准备
+**用户目标**：
+> 在 `codex/farm-1.0.2-cleanroom001` 上一条龙完成当前 `1.0.2纠正001` 的 continuation 收口：确认 merge `main` 后的真实代码状态、重新验证 compile、核查 MCP 连接，并把现场落盘成可继续接手的 checkpoint。
+
+**完成事项**：
+1. 复核 continuation branch 现场：
+   - 工作目录 `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+   - 分支 `codex/farm-1.0.2-cleanroom001`
+   - `HEAD=4b9ad7ea750ca04d6701aa35f67383044eb3bc9d`
+2. 回读 merge `main` 后的关键实现，确认本线已包含：
+   - `GameInputManager.cs` 的 UI 冻结保护槽位、右键与 `WASD` 统一中断、浇水延迟随机与拒绝反馈同步
+   - `FarmToolPreview.cs` 的按层 `PreviewCellKey`、队列/执行预览迁移与清理
+   - `PlacementManager.cs` / `PlacementPreview.cs` 的种植排序修正与预览残留重置
+3. 使用 `D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Unity.exe` 对 cleanroom 再次执行 batchmode 编译验证，日志输出到 `C:\Users\aTo\AppData\Local\Temp\sunset_farm_continuation_compile.log`。
+4. 发现 batchmode 临时改写 4 个 TMP 字体 `.asset`，已在 cleanroom 内恢复，不纳入 farm 白名单。
+5. 尝试通过 Unity MCP 读取活动场景与 Console，但当前 transport 返回 `missing-content-type; body:`，本轮未拿到 live Unity 只读结果。
+
+**验证结果**：
+- `sunset_farm_continuation_compile.log` 包含：
+  - `Exiting batchmode successfully now!`
+  - `Exiting without the bug reporter. Application will terminate with return code 0`
+- 当前 warning 仅剩两类非 farm 项：
+  - `Assets\YYY_Tests\Editor\WorldItemDropSystemTests.cs(272,15)` 的 `groundY` 未使用
+  - `Assets\Editor\NPCPrefabGeneratorTool.cs(355,9)` 的 `TextureImporter.spritesheet` obsolete
+- `git status --short` 在恢复 batchmode 噪音后重新回到干净状态。
+- MCP 本轮不可用，因此“compile 通过”是已证实事实，“Primary 场景 live 行为复验”仍待用户或后续可用 MCP 现场。
+
+**关键结论**：
+- continuation branch 在 merge 最新 `main` 后仍保持 farm-only 差异，且 compile 通过。
+- `1.0.2纠正001` 当前剩余的不是新的代码恢复阻断，而是 live 场景验收与 branch checkpoint 收尾。
+
+**恢复点 / 下一步**：
+- 先按白名单同步本轮 memory 收尾，形成 continuation branch checkpoint。
