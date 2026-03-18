@@ -551,3 +551,38 @@
 **恢复点 / 下一步**：
 - 用新的双阶段唤醒模板重发线程。
 - 若这轮仓库治理改动成功同步，可把阶段 21 视为进入可验收状态。
+
+### 会话 19 - 2026-03-18（回顾 Kiro 规则正文与治理历史，重新压实原始规范）
+**用户目标**：
+> 在重新唤醒线程期间，先回顾 Kiro 的核心规则与 `Codex规则落地` 历史，重新抓稳用户从一开始就在强调的那些规范，不要再靠“我大概记得”推进。
+
+**已完成事项**：
+1. 回读 live 入口与核心规则源：
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `Sunset现行入口总索引_2026-03-17.md`
+   - `基础规则与执行口径.md`
+   - `.kiro/steering/README.md`
+   - `.kiro/steering/rules.md`
+   - `.kiro/steering/workspace-memory.md`
+   - `.kiro/steering/git-safety-baseline.md`
+   - `.kiro/steering/documentation.md`
+   - `.kiro/steering/communication.md`
+   - `.kiro/steering/scene-modification-rule.md`
+   - `.kiro/steering/code-reaper-review.md`
+   - `.kiro/steering/maintenance-guidelines.md`
+   - `.kiro/steering/ui.md`
+2. 复盘 `Codex规则落地` 的关键阶段演化：
+   - `01` 活入口重构
+   - `02` skills / AGENTS / 启动闸门
+   - `05` 四件套与代办区边界
+   - `09` 强制闸门、MCP、PlayMode 离场、样式验收
+   - `10/11/12` shared root 与 worktree 退役、工作区归位
+   - `20/21` 物理闸机与 shared root 分支租约
+
+**关键决策**：
+- 这条治理主线的真实核心不是“多立阶段”，而是不断把用户反复强调的红线从纸面规则改造成物理入口。
+- 目前最该继续盯住的残余风险是：仍有部分历史规则只存在于 steering / memory 里，还没完全变成强制闸机。
+
+**恢复点 / 下一步**：
+- 后续继续输出“仍是纸面约束的规则差距清单”。
+- 业务线程恢复时继续以 `21` 的两阶段唤醒和 grant 准入为唯一口径。
