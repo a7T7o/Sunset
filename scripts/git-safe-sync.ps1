@@ -524,12 +524,20 @@ function Get-BlockingStatusEntries {
         $Occupancy
     )
 
-    return @(
+    if ($null -eq $Entries -or @($Entries).Count -eq 0) {
+        return @()
+    }
+
+    $filtered = @(
         $Entries | Where-Object {
+            $null -ne $_ -and
+            -not [string]::IsNullOrWhiteSpace($_.Path) -and
             -not (Test-NoisePath -Path $_.Path) -and
             -not (Test-SharedRootLeaseRuntimeDirtyPath -Path $_.Path -Branch $Branch -Occupancy $Occupancy)
         }
     )
+
+    return @($filtered)
 }
 
 function Test-AllowedPath {
@@ -581,10 +589,20 @@ function Get-PathGroup {
 function Get-RemainingDirtyEntries {
     param([object[]]$Entries)
 
-    return @($Entries | Where-Object {
+    if ($null -eq $Entries -or @($Entries).Count -eq 0) {
+        return @()
+    }
+
+    $filtered = @(
+        $Entries | Where-Object {
+            $null -ne $_ -and
+            -not [string]::IsNullOrWhiteSpace($_.Path) -and
             $_.Category -ne '已知本地噪音' -and
             $_.Category -ne 'shared root 租约运行态脏改'
-        })
+        }
+    )
+
+    return @($filtered)
 }
 
 function Get-RemainingDirtyGateMessage {

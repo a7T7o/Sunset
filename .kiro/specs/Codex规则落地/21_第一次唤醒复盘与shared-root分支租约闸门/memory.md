@@ -269,3 +269,37 @@
 
 **恢复点 / 下一步**：
 - 下一步直接进入 farm 的阶段二 Lease / Grant 与准入重测。
+
+### 会话 25 - 2026-03-18（farm 二阶段重测暴露“空数组幽灵 dirty”）
+**用户目标**：
+> 在 farm 执行阶段二 `grant-branch` / `ensure-branch` 重测后，发现 shared root 明明是 `main + neutral + clean`，但 `grant-branch` 仍报“shared root 当前不干净”；要求定位并修复这个阻断点，尽快恢复真实开发能力。
+
+**已完成事项**：
+1. 复核 live 事实：
+   - `git status --short --branch` 为 clean `main`
+   - `shared-root-branch-occupancy.md` 仍为 `main + neutral + branch_grant_state = none`
+   - `preflight -Mode governance` 也显示“允许继续、无 remaining dirty”
+2. 成功在本地复现 farm 的报错：
+   - `git-safe-sync.ps1 -Action grant-branch -OwnerThread "农田交互修复V2" -BranchName "codex/farm-1.0.2-cleanroom001"`
+   - 报错仍指向 `Grant-SharedRootBranchLease` 中的 line `624`
+3. 通过 dot-source 脚本内部函数定位到根因：
+   - `Get-StatusEntries` 在 clean 仓库里返回 `0` 条
+   - 但 `Get-BlockingStatusEntries` 对空输入使用 `@(...)` 包装后，返回了 `1` 个空对象
+   - 所以 `$entries.Count -gt 0` 被误判为 `true`
+4. 已完成最小补丁：
+   - `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+   - 在 `Get-BlockingStatusEntries`
+   - 在 `Get-RemainingDirtyEntries`
+   - 增加空数组短路和空对象 / 空路径过滤
+
+**关键决策**：
+- 这次 bug 的根因不是 Git 脏、不是 occupancy 脏、也不是 farm 线程误操作，而是 PowerShell 数组包装把“空结果”包装成了“1 个空项”。
+- 修补策略仍然保持最小化：只修空数组处理，不扩写 shared root 租约模型的其他部分。
+
+**恢复点 / 下一步**：
+- 先把本轮脚本补丁与记忆同步到 `main`，恢复 shared root clean。
+- 然后在 clean 现场重新执行完整闭环验证：
+  1. `grant-branch`
+  2. `ensure-branch`
+  3. `return-main`
+  4. 确认最终仍回到 `main + neutral + clean`

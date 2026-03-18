@@ -688,3 +688,25 @@
 
 **恢复点 / 下一步**：
 - 直接把 farm 阶段二重测 Prompt 交给用户分发。
+
+### 会话 25 - 2026-03-18（修复 grant-branch 的幽灵 dirty 判定）
+**用户目标**：
+> farm 二阶段重测时，`grant-branch` 在 live `main + neutral + clean` 上仍然报“shared root 当前不干净”；要求立刻查明并修复。
+
+**已完成事项**：
+1. 已本地复现 farm 的报错，不再把它视为 farm 线程个例。
+2. 已证明真实根因：
+   - `Get-StatusEntries = 0`
+   - `Get-BlockingStatusEntries = 1 个空对象`
+   - 属于 PowerShell 空数组包装缺陷
+3. 已在 `git-safe-sync.ps1` 中完成最小补丁：
+   - `Get-BlockingStatusEntries`
+   - `Get-RemainingDirtyEntries`
+   都改为真正返回空数组，不再把空结果包成伪 dirty。
+
+**关键决策**：
+- 这次属于 shared root 物理闸机的第二个脚本 bug。
+- 当前先修复并验证，不扩写别的治理功能。
+
+**恢复点 / 下一步**：
+- 先同步脚本补丁到 `main`，再在 clean shared root 上跑 farm 的完整闭环验证。

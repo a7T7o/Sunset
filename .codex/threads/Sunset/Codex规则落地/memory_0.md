@@ -669,3 +669,22 @@
 
 **恢复点 / 下一步**：
 - 向用户输出 `路径 B` 锐评结论与可直接分发给 farm 的 Prompt。
+
+### 会话 25 - 2026-03-18（farm 重测暴露第二个 shared root 闸机 bug）
+**用户目标**：
+> farm 已按 Prompt 执行阶段二，但 `grant-branch` 在 clean `main` 上仍然报 shared root 不干净；要求直接排查并修掉，让系统恢复可开发状态。
+
+**已完成事项**：
+1. 已在本地复现报错。
+2. 已用脚本内部取值证明根因：
+   - `Get-StatusEntries` 没有任何真实 dirty
+   - `Get-BlockingStatusEntries` 却因为 `@($null)` 产生了 1 个幽灵条目
+3. 已完成脚本最小修补：
+   - 修 `Get-BlockingStatusEntries`
+   - 修 `Get-RemainingDirtyEntries`
+
+**关键决策**：
+- 当前主线继续保持“恢复开发能力”，所以这次先修 shared root 闸机，不转去别的补强。
+
+**恢复点 / 下一步**：
+- 先把脚本和记忆同步到 `main`，再在 clean 现场跑 `grant -> ensure-branch -> return-main` 完整验证。
