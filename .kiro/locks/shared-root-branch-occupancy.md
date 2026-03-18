@@ -7,13 +7,13 @@
 
 ## 当前状态
 - root_path: `D:\Unity\Unity_learning\Sunset`
-- owner_mode: `governance-main-finalizing`
-- owner_thread: `Codex规则落地`
+- owner_mode: `neutral-main-ready`
+- owner_thread: `none`
 - current_branch: `main`
-- last_verified_head: `64ff9816`
-- is_neutral: `false`
-- lease_state: `governance-finalizing`
-- blocking_dirty_scope: `A 阶段 Git 外科已执行完毕，shared root 已回到 main；当前仅剩阶段 20 治理文档与脚本改动尚未同步`
+- last_verified_head: `2966daa5`
+- is_neutral: `true`
+- lease_state: `neutral`
+- blocking_dirty_scope: `none`
 - daily_policy: `main-common + branch-task + checkpoint-first + merge-last`
 - worktree_policy: `exception-only`
 - last_updated: `2026-03-18`
@@ -34,9 +34,9 @@
     - `current_branch`
     - 是否仍残留未纳入白名单的 remaining dirty
   - 在回正到 clean `main` 之前，只允许只读核查、治理记录与经审核的恢复动作。
-- 当 shared root 已回到 `main`，但 `owner_mode = governance-main-finalizing` 时：
-  - 说明业务分支错位已剥离，shared root 已进入治理收口阶段。
-  - 此时只允许治理线程在 `main + governance` 上做最后同步；业务线程仍不应抢入。
+- 当 `current_branch = main` 且 `is_neutral = true` 时：
+  - shared root 已恢复为默认进入现场。
+  - 业务线程可以重新按 `main-common + branch-task + checkpoint-first + merge-last` 模型进入。
 
 ## 一句话口径
-- 当前 shared root 已经从错位的 NPC 分支回到了 `main`，但阶段 20 的治理同步尚未完成；现在是“治理收口中”，还不是最终 neutral。
+- 当前 shared root 已恢复为 `main + neutral`；后续线程应先从 shared root 进入，再按闸机切入各自的 `codex/...` 分支，到 checkpoint 即归还。

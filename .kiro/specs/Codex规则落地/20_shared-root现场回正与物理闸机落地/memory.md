@@ -190,3 +190,29 @@
 **恢复点 / 下一步**：
 - 继续完成治理同步。
 - 同步完成后，把 shared root 占用文档收成最终 neutral，并输出全线程唤醒清单。
+
+### 会话 6 - 2026-03-18（阶段 20 治理同步已形成 checkpoint，正在做最后 neutral 回填）
+**用户目标**：
+> 既然 A 阶段和 D 阶段都已经推进到位，就继续把治理同步真正推上 `main`，再把 shared root 占用文档和 live 入口收成最终 neutral。
+
+**已完成事项**：
+1. 使用新版 `git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread Codex规则落地` 在 `main` 上完成一次治理同步。
+2. 已创建并推送治理 checkpoint：
+   - `2966daa5`
+3. 当前阶段 20 的核心成果已经全部进入 `main`：
+   - 第一波分支语义闸机
+   - 第二波 shared root 最小闸机
+   - A 阶段 runbook
+   - D 阶段 `operating-model.md`
+4. 当前正在做最后一轮文档回填：
+   - `shared-root-branch-occupancy.md` 收成 `main + neutral`
+   - `Sunset当前唯一状态说明_2026-03-17.md` 改写为“当前已恢复常态”
+   - `20/tasks.md` 改为已完成状态
+
+**关键决策**：
+- 阶段 20 的“治理同步”已经不是待办，而是已有主干 checkpoint 的 live 事实。
+- 现在剩下的是很小的一次 neutral 收尾提交，而不是新的治理主任务。
+
+**恢复点 / 下一步**：
+- 再做最后一次 tiny governance sync。
+- 收尾后输出全线程唤醒清单与 superpower / skills 审视结论。

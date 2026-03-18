@@ -6,9 +6,9 @@
 - 再把现有规则从“说明书”升级为“会拦人的物理闸机”。
 
 ## 当前状态
-- **阶段状态**：进行中，A 阶段已执行，治理同步收口中
-- **工作性质**：A 阶段 Git 外科已完成；当前正把 D 阶段模型与治理文档收口到 `main`
-- **现场前提**：shared root 已回到 `main`，但治理线程仍在 `main + governance` 上做最后同步
+- **阶段状态**：已完成
+- **工作性质**：A 阶段 Git 外科、B 阶段最小闸机、D 阶段模型与治理同步均已完成
+- **现场前提**：shared root 已回到 `main + neutral`
 
 ## 已完成
 - [x] 重新实核 live 现场：
@@ -43,6 +43,9 @@
   - 将 shared root 切回 `main`
 - [x] 清理 Git worktree 挂载：
   - `git worktree list --porcelain` 当前只剩 shared root
+- [x] 完成阶段 20 治理同步：
+  - 使用新版 `git-safe-sync.ps1 -Mode governance -OwnerThread Codex规则落地`
+  - 已在 `main` 上形成并推送治理 checkpoint `2966daa5`
 
 ## 待审核任务清单
 ### A. shared root 现场回正 runbook
@@ -99,6 +102,7 @@
 ## 当前裁定
 - `20` 是当前新的治理主线。
 - `09/11/12` 只保留历史作用，不再继续承接这轮 live 回正。
+- 阶段 `20` 当前已完成；后续若继续补自动 claim / release wrapper 或 superpower 化 skills 约束，应另立后续阶段承接。
 
 ## 完成标准
 - [x] shared root 真正回到 clean `main`

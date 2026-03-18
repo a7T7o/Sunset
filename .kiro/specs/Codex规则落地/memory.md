@@ -427,3 +427,27 @@
 **恢复点 / 下一步**：
 - 用新版 `git-safe-sync.ps1 -Mode governance` 完成治理同步。
 - 同步后再把 shared root 占用文档收成最终 neutral，并输出全线程唤醒清单。
+
+### 会话 15 - 2026-03-18（治理同步 checkpoint 已推到 main）
+**用户目标**：
+> 在 shared root 回正后，不要停在本地脏改；继续把阶段 20 的文档、脚本、任务板和记忆一起同步到 `main`。
+
+**已完成事项**：
+1. 用新版 `git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread Codex规则落地` 在 `main` 上完成治理同步。
+2. 新增并推送治理 checkpoint：
+   - `2966daa5`
+3. 当前阶段 20 的核心成果已全部进入 `main`：
+   - 第一波分支语义闸机
+   - 第二波 shared root 最小闸机
+   - A 阶段回正 runbook
+   - D 阶段 operating model
+4. 当前正在做最后的 neutral 回填与收尾说明，不再涉及危险 Git 手术。
+
+**关键决策**：
+- 阶段 20 现在已经不是“本地准备状态”，而是已经有主干 checkpoint 的 live 治理成果。
+- 接下来只需要再做一次很小的 finalizing commit，就能把 shared root 明确收成 `main + neutral`。
+
+**恢复点 / 下一步**：
+- 完成 neutral 回填。
+- 输出全线程唤醒清单。
+- 再审视是否需要另立后续阶段承接 superpower / wrapper 化约束。
