@@ -291,10 +291,18 @@
    - 在 `Get-BlockingStatusEntries`
    - 在 `Get-RemainingDirtyEntries`
    - 增加空数组短路和空对象 / 空路径过滤
+5. 在继续验证 `grant -> ensure-branch` 时，又暴露出第二个真实阻断：
+   - `ensure-branch` 会被 Git 正常保护拦住
+   - 因为 shared root 的 occupancy 运行态脏改会在切到目标分支时与分支内版本冲突
+6. 已补上第二个最小补丁：
+   - 仅当“唯一脏改就是 shared root 运行态 occupancy”时
+   - `ensure-branch` / `return-main` 才允许用受控的强制 checkout 切换分支
+   - `return-main` 不再重写新的 neutral 文件，而是直接把 occupancy 恢复到 `HEAD` 的 neutral 基线，避免制造新的 neutral dirty
 
 **关键决策**：
 - 这次 bug 的根因不是 Git 脏、不是 occupancy 脏、也不是 farm 线程误操作，而是 PowerShell 数组包装把“空结果”包装成了“1 个空项”。
 - 修补策略仍然保持最小化：只修空数组处理，不扩写 shared root 租约模型的其他部分。
+- shared root 的 occupancy 文件在租约周期结束时，正确行为不是“写一个新的 neutral 版本”，而是“回到当前 `HEAD` 上的 neutral 基线”；否则 return-main 结束后现场仍会脏。
 
 **恢复点 / 下一步**：
 - 先把本轮脚本补丁与记忆同步到 `main`，恢复 shared root clean。

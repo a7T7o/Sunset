@@ -703,10 +703,14 @@
    - `Get-BlockingStatusEntries`
    - `Get-RemainingDirtyEntries`
    都改为真正返回空数组，不再把空结果包成伪 dirty。
+4. 已继续修补第二个链路问题：
+   - 当唯一脏改是 occupancy 运行态脏改时，`ensure-branch` / `return-main` 允许受控 `checkout -f`
+   - `return-main` 现在恢复 occupancy 到 `HEAD` 基线，不再写出新的 neutral dirty
 
 **关键决策**：
 - 这次属于 shared root 物理闸机的第二个脚本 bug。
 - 当前先修复并验证，不扩写别的治理功能。
+- 如果不把 neutral 收口改成恢复 `HEAD` 基线，就算切分支成功，shared root 最终仍不能 clean 归还。
 
 **恢复点 / 下一步**：
 - 先同步脚本补丁到 `main`，再在 clean shared root 上跑 farm 的完整闭环验证。

@@ -682,9 +682,13 @@
 3. 已完成脚本最小修补：
    - 修 `Get-BlockingStatusEntries`
    - 修 `Get-RemainingDirtyEntries`
+4. 已继续补上分支切换链路修补：
+   - 唯一 runtime dirty 为 occupancy 时，允许受控 force checkout
+   - `return-main` 改为恢复 occupancy 到 `HEAD` 基线
 
 **关键决策**：
 - 当前主线继续保持“恢复开发能力”，所以这次先修 shared root 闸机，不转去别的补强。
+- 只有把 `return-main` 改成真正回到 `HEAD` 基线，shared root 才可能在闭环验证后重新 clean。
 
 **恢复点 / 下一步**：
 - 先把脚本和记忆同步到 `main`，再在 clean 现场跑 `grant -> ensure-branch -> return-main` 完整验证。

@@ -314,21 +314,13 @@ function Set-SharedRootTaskActive {
         })
 }
 
+function Restore-SharedRootOccupancyToHead {
+    $relativePath = Get-SharedRootOccupancyRelativePath
+    Invoke-Git -Arguments @('restore', '--source=HEAD', '--', $relativePath) | Out-Null
+}
+
 function Set-SharedRootNeutralState {
-    Set-SharedRootOccupancyValues -Values ([ordered]@{
-            owner_mode                = 'neutral-main-ready'
-            owner_thread              = 'none'
-            current_branch            = 'main'
-            last_verified_head        = (Get-HeadShort)
-            is_neutral                = 'true'
-            lease_state               = 'neutral'
-            branch_grant_state        = 'none'
-            branch_grant_owner_thread = 'none'
-            branch_grant_branch       = 'none'
-            branch_grant_updated      = (Get-OccupancyTimestamp)
-            blocking_dirty_scope      = 'none'
-            last_updated              = (Get-OccupancyDateStamp)
-        })
+    Restore-SharedRootOccupancyToHead
 }
 
 function Get-OwnerBranchKeywords {
@@ -605,6 +597,28 @@ function Get-RemainingDirtyEntries {
     return @($filtered)
 }
 
+function Test-OnlySharedRootLeaseRuntimeDirtyEntries {
+    param(
+        [object[]]$Entries,
+        [string]$Branch,
+        $Occupancy
+    )
+
+    if ($null -eq $Entries -or @($Entries).Count -eq 0) {
+        return $false
+    }
+
+    $runtimeDirty = @(
+        $Entries | Where-Object {
+            $null -ne $_ -and
+            -not [string]::IsNullOrWhiteSpace($_.Path) -and
+            (Test-SharedRootLeaseRuntimeDirtyPath -Path $_.Path -Branch $Branch -Occupancy $Occupancy)
+        }
+    )
+
+    return ($runtimeDirty.Count -gt 0 -and $runtimeDirty.Count -eq @($Entries).Count)
+}
+
 function Get-RemainingDirtyGateMessage {
     param([object[]]$Entries)
 
@@ -687,7 +701,8 @@ function Return-SharedRootToMain {
         throw "FATAL: shared root 当前未消费租约属于 '$($occupancy.BranchGrantOwner)'，'$OwnerThread' 不得越权清空。"
     }
 
-    $entries = @(Get-BlockingStatusEntries -Entries (Get-StatusEntries) -Branch $branch -Occupancy $occupancy)
+    $allStatusEntries = @(Get-StatusEntries)
+    $entries = @(Get-BlockingStatusEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy)
     if ($entries.Count -gt 0) {
         throw 'FATAL: 当前工作树不干净，禁止 return-main。请先提交、推送或清理当前任务脏改。'
     }
@@ -701,7 +716,12 @@ function Return-SharedRootToMain {
             }
         }
 
-        Invoke-Git -Arguments @('checkout', 'main') | Out-Null
+        $checkoutArgs = @('checkout', 'main')
+        if (Test-OnlySharedRootLeaseRuntimeDirtyEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy) {
+            $checkoutArgs = @('checkout', '-f', 'main')
+        }
+
+        Invoke-Git -Arguments $checkoutArgs | Out-Null
     }
 
     Set-SharedRootNeutralState
@@ -1021,7 +1041,8 @@ function Ensure-TaskBranch {
         return
     }
 
-    $entries = @(Get-BlockingStatusEntries -Entries (Get-StatusEntries) -Branch $branch -Occupancy $occupancy)
+    $allStatusEntries = @(Get-StatusEntries)
+    $entries = @(Get-BlockingStatusEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy)
     if ($entries.Count -gt 0) {
         throw "当前工作树不干净，不能安全创建/切换到 $TargetBranch。请先收口或隔离现有脏改。"
     }
@@ -1032,12 +1053,23 @@ function Ensure-TaskBranch {
     }
 
     $existing = Invoke-Git -Arguments @('branch', '--list', $TargetBranch)
+    $checkoutArgs = @()
     if ($existing.Output.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace(($existing.Output -join '').Trim())) {
-        Invoke-Git -Arguments @('checkout', $TargetBranch) | Out-Null
+        $checkoutArgs = @('checkout', $TargetBranch)
+        if (Test-OnlySharedRootLeaseRuntimeDirtyEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy) {
+            $checkoutArgs = @('checkout', '-f', $TargetBranch)
+        }
+
+        Invoke-Git -Arguments $checkoutArgs | Out-Null
         Write-Output "已切换到现有分支：$TargetBranch"
     }
     else {
-        Invoke-Git -Arguments @('checkout', '-b', $TargetBranch) | Out-Null
+        $checkoutArgs = @('checkout', '-b', $TargetBranch)
+        if (Test-OnlySharedRootLeaseRuntimeDirtyEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy) {
+            $checkoutArgs = @('checkout', '-f', '-b', $TargetBranch)
+        }
+
+        Invoke-Git -Arguments $checkoutArgs | Out-Null
         Write-Output "已创建并切换到新分支：$TargetBranch"
     }
 
