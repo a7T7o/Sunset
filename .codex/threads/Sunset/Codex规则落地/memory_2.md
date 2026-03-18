@@ -1,0 +1,42 @@
+# Codex规则落地 Thread Memory Continuation 2
+
+## 2026-03-18｜shared root 恢复验证收口
+
+**用户目标**
+- 当前主线不是再写新规范，而是把 Sunset 真正恢复到“全部健康、可以继续开发”的状态。
+- 本轮阻塞处理服务于这条主线：先核清 `farm` 二阶段阻断，再把还没自愈完的 continuation branch 补齐。
+
+**本轮完成**
+- 现场核查发现 shared root 实际卡在 `codex/spring-day1-story-progression-001 @ a9c952b7`，不是外部汇报里的 `main`。
+- 已把 shared root 直接回正到 `main`。
+- 已亲自完成 `farm` 的闭环复测：
+  - `grant-branch`
+  - `ensure-branch`
+  - `return-main`
+  全部通过。
+- 已确认此前 `farm` 的 FATAL 不再是当前主线故障。
+- 已处理 `spring-day1` 的 branch-local drift，并在其分支上推送治理热修：
+  - `27dc06a1`
+- 已亲自完成 `spring-day1` 的闭环复测：
+  - `grant-branch`
+  - `ensure-branch`
+  - `return-main`
+  全部通过。
+
+**关键判断**
+- 当前 shared root 主闸机已经能支撑真实恢复开发。
+- 当前主要 continuation branch 的健康状态：
+  - `codex/farm-1.0.2-cleanroom001`：健康
+  - `codex/npc-roam-phase2-003`：健康
+  - `codex/spring-day1-story-progression-001`：已自愈完成，健康
+- `导航` / `遮挡` 目前没有现成 continuation branch 需要做同样 graft。
+
+**当前现场**
+- `D:\Unity\Unity_learning\Sunset`
+- `main @ 1add175b`
+- `git status --short --branch` clean
+- `.kiro/locks/shared-root-branch-occupancy.md` 为 `main + neutral`
+
+**恢复点**
+- 阻塞处理已完成，主线回到“继续发放线程准入 prompt，并恢复业务开发”。
+- 这轮不新增阶段 22 正文；若后续要做自动化 hook，只留在 TD/后续补强，不抢占当前恢复窗口。
