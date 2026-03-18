@@ -1,7 +1,10 @@
 ﻿param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('preflight', 'ensure-branch', 'sync')]
+    [ValidateSet('preflight', 'ensure-branch', 'grant-branch', 'return-main', 'sync')]
     [string]$Action,
+
+    [Parameter(Mandatory = $true)]
+    [string]$OwnerThread,
 
     [ValidateSet('governance', 'task')]
     [string]$Mode = 'task',
@@ -126,6 +129,267 @@ function Get-CurrentBranch {
     return (Invoke-Git -Arguments @('branch', '--show-current')).Output[0].Trim()
 }
 
+function Convert-MarkdownScalarValue {
+    param([string]$Value)
+
+    $normalized = $Value.Trim()
+
+    if ($normalized.StartsWith('`') -and $normalized.EndsWith('`')) {
+        $normalized = $normalized.Substring(1, $normalized.Length - 2)
+    }
+
+    if (($normalized.StartsWith("'") -and $normalized.EndsWith("'")) -or ($normalized.StartsWith('"') -and $normalized.EndsWith('"'))) {
+        $normalized = $normalized.Substring(1, $normalized.Length - 2)
+    }
+
+    return $normalized.Trim()
+}
+
+function Get-SharedRootOccupancyPath {
+    return (Join-Path (Get-RepoRoot) '.kiro/locks/shared-root-branch-occupancy.md')
+}
+
+function Get-OccupancyDateStamp {
+    return (Get-Date).ToString('yyyy-MM-dd')
+}
+
+function Get-OccupancyTimestamp {
+    return (Get-Date).ToString('yyyy-MM-dd HH:mm:ss zzz')
+}
+
+function Format-MarkdownScalarLine {
+    param(
+        [string]$Key,
+        [string]$Value
+    )
+
+    $normalized = if ([string]::IsNullOrWhiteSpace($Value)) { 'none' } else { $Value.Trim() }
+    return "- $($Key): ``$normalized``"
+}
+
+function Set-SharedRootOccupancyValues {
+    param([hashtable]$Values)
+
+    $path = Get-SharedRootOccupancyPath
+    if (-not (Test-Path -LiteralPath $path)) {
+        throw "FATAL: shared root 占用文档不存在：$path"
+    }
+
+    $lines = [System.Collections.Generic.List[string]]::new()
+    foreach ($line in (Get-Content -LiteralPath $path -Encoding UTF8)) {
+        $lines.Add($line)
+    }
+
+    $handled = @{}
+    for ($i = 0; $i -lt $lines.Count; $i++) {
+        if ($lines[$i] -match '^- ([a-z_]+): (.+)$') {
+            $key = $Matches[1]
+            if ($Values.ContainsKey($key)) {
+                $lines[$i] = Format-MarkdownScalarLine -Key $key -Value ([string]$Values[$key])
+                $handled[$key] = $true
+            }
+        }
+    }
+
+    $insertIndex = $lines.IndexOf('## 解释口径')
+    if ($insertIndex -lt 0) {
+        $insertIndex = $lines.Count
+    }
+
+    foreach ($entry in $Values.GetEnumerator()) {
+        if (-not $handled.ContainsKey($entry.Key)) {
+            $lines.Insert($insertIndex, (Format-MarkdownScalarLine -Key $entry.Key -Value ([string]$entry.Value)))
+            $insertIndex++
+        }
+    }
+
+    Set-Content -LiteralPath $path -Encoding UTF8 -Value $lines
+}
+
+function Get-SharedRootOccupancyRecord {
+    $path = Get-SharedRootOccupancyPath
+
+    if (-not (Test-Path -LiteralPath $path)) {
+        return $null
+    }
+
+    $values = @{}
+    foreach ($line in (Get-Content -LiteralPath $path -Encoding UTF8)) {
+        if ($line -match '^- ([a-z_]+): (.+)$') {
+            $values[$Matches[1]] = Convert-MarkdownScalarValue -Value $Matches[2]
+        }
+    }
+
+    if ($values.Count -eq 0) {
+        return $null
+    }
+
+    $isNeutral = $false
+    if ($values.ContainsKey('is_neutral')) {
+        $isNeutral = $values['is_neutral'].Trim().ToLowerInvariant() -eq 'true'
+    }
+
+    return [PSCustomObject]@{
+        OccupancyPath      = $path
+        RootPath           = $values['root_path']
+        OwnerMode          = $values['owner_mode']
+        OwnerThread        = $values['owner_thread']
+        CurrentBranch      = $values['current_branch']
+        LastVerifiedHead   = $values['last_verified_head']
+        IsNeutral          = $isNeutral
+        BlockingDirtyScope = $values['blocking_dirty_scope']
+        DailyPolicy        = $values['daily_policy']
+        WorktreePolicy     = $values['worktree_policy']
+        LeaseState         = $values['lease_state']
+        BranchGrantState   = $values['branch_grant_state']
+        BranchGrantOwner   = $values['branch_grant_owner_thread']
+        BranchGrantBranch  = $values['branch_grant_branch']
+        BranchGrantUpdated = $values['branch_grant_updated']
+        LastUpdated        = $values['last_updated']
+    }
+}
+
+function Test-IsSharedRootWorkspace {
+    param(
+        [string]$RepoRoot,
+        $OccupancyRecord
+    )
+
+    if ($null -eq $OccupancyRecord -or [string]::IsNullOrWhiteSpace($OccupancyRecord.RootPath)) {
+        return $false
+    }
+
+    $normalizedRepoRoot = (Normalize-InputPath -Path $RepoRoot).ToLowerInvariant()
+    $normalizedSharedRoot = (Normalize-InputPath -Path $OccupancyRecord.RootPath).ToLowerInvariant()
+    return $normalizedRepoRoot -eq $normalizedSharedRoot
+}
+
+function Assert-SharedRootBranchGrant {
+    param(
+        $Occupancy,
+        [string]$OwnerThread,
+        [string]$TargetBranch
+    )
+
+    if ($null -eq $Occupancy) {
+        throw 'FATAL: shared root 缺少 occupancy 文档，禁止 ensure-branch。'
+    }
+
+    if (-not $Occupancy.IsNeutral -or $Occupancy.CurrentBranch -ne 'main') {
+        throw "FATAL: shared root 当前不是 neutral main 大厅（current_branch='$($Occupancy.CurrentBranch)'，is_neutral='$($Occupancy.IsNeutral)'），禁止 ensure-branch。"
+    }
+
+    if ($Occupancy.BranchGrantState -ne 'granted') {
+        throw "FATAL: OwnerThread '$OwnerThread' 未拿到 shared root 的独占分支租约，禁止 ensure-branch。"
+    }
+
+    if ($Occupancy.BranchGrantOwner -ne $OwnerThread) {
+        throw "FATAL: shared root 当前租约属于 '$($Occupancy.BranchGrantOwner)'，而不是 '$OwnerThread'，禁止 ensure-branch。"
+    }
+
+    if ($Occupancy.BranchGrantBranch -ne $TargetBranch) {
+        throw "FATAL: shared root 当前租约只允许切到 '$($Occupancy.BranchGrantBranch)'，你请求的是 '$TargetBranch'，禁止 ensure-branch。"
+    }
+}
+
+function Set-SharedRootTaskActive {
+    param(
+        [string]$OwnerThread,
+        [string]$TargetBranch
+    )
+
+    Set-SharedRootOccupancyValues -Values ([ordered]@{
+            owner_mode                = 'task-branch-active'
+            owner_thread              = $OwnerThread
+            current_branch            = $TargetBranch
+            last_verified_head        = (Get-HeadShort)
+            is_neutral                = 'false'
+            lease_state               = 'task-active'
+            branch_grant_state        = 'consumed'
+            branch_grant_owner_thread = 'none'
+            branch_grant_branch       = 'none'
+            branch_grant_updated      = (Get-OccupancyTimestamp)
+            blocking_dirty_scope      = 'owned-task-branch'
+            last_updated              = (Get-OccupancyDateStamp)
+        })
+}
+
+function Restore-SharedRootOccupancyToHead {
+    $relativePath = Get-SharedRootOccupancyRelativePath
+    Invoke-Git -Arguments @('restore', '--source=HEAD', '--', $relativePath) | Out-Null
+}
+
+function Set-SharedRootNeutralState {
+    Restore-SharedRootOccupancyToHead
+}
+
+function Get-OwnerBranchKeywords {
+    param([string]$OwnerThread)
+
+    $normalizedOwner = $OwnerThread.Trim().ToLowerInvariant()
+
+    switch -Regex ($normalizedOwner) {
+        'npc' { return @('npc') }
+        'farm|农田' { return @('farm') }
+        'spring-day1|spring|day1' { return @('spring-day1', 'spring', 'day1') }
+        '导航|navigation|nav' { return @('navigation', 'nav') }
+        '遮挡|occlusion' { return @('occlusion', '遮挡') }
+        '项目文档总览|documentation|docs|about' { return @('documentation', 'docs', 'about') }
+        'codex规则落地|governance|rules|rule|治理' { return @('governance', 'rules', 'rule', 'guard') }
+        default {
+            $asciiFallback = ($normalizedOwner -replace '[^a-z0-9/-]+', '')
+            if (-not [string]::IsNullOrWhiteSpace($asciiFallback)) {
+                return @($asciiFallback)
+            }
+
+            return @($normalizedOwner)
+        }
+    }
+}
+
+function Test-BranchOwnedByThread {
+    param(
+        [string]$Branch,
+        [string]$OwnerThread
+    )
+
+    if ([string]::IsNullOrWhiteSpace($Branch) -or [string]::IsNullOrWhiteSpace($OwnerThread)) {
+        return $false
+    }
+
+    $normalizedBranch = $Branch.Trim().ToLowerInvariant()
+    $keywords = @(Get-OwnerBranchKeywords -OwnerThread $OwnerThread | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+    foreach ($keyword in $keywords) {
+        if ($normalizedBranch.Contains($keyword.ToLowerInvariant())) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Get-BranchOwnershipMessage {
+    param(
+        [string]$Branch,
+        [string]$OwnerThread
+    )
+
+    $keywords = @(Get-OwnerBranchKeywords -OwnerThread $OwnerThread | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    return "FATAL: 当前所在分支 '$Branch' 与 OwnerThread '$OwnerThread' 不符；允许的分支语义关键词至少应包含：$($keywords -join ', ')。"
+}
+
+function Assert-TaskBranchMatchesOwner {
+    param(
+        [string]$Branch,
+        [string]$OwnerThread
+    )
+
+    if (-not (Test-BranchOwnedByThread -Branch $Branch -OwnerThread $OwnerThread)) {
+        throw (Get-BranchOwnershipMessage -Branch $Branch -OwnerThread $OwnerThread)
+    }
+}
+
 function Get-HeadShort {
     return (Invoke-Git -Arguments @('rev-parse', '--short', 'HEAD')).Output[0].Trim()
 }
@@ -216,6 +480,58 @@ function Test-NoisePath {
     return $false
 }
 
+function Get-SharedRootOccupancyRelativePath {
+    return '.kiro/locks/shared-root-branch-occupancy.md'
+}
+
+function Test-SharedRootLeaseRuntimeDirtyPath {
+    param(
+        [string]$Path,
+        [string]$Branch,
+        $Occupancy
+    )
+
+    if ($null -eq $Occupancy) {
+        return $false
+    }
+
+    $normalizedPath = Normalize-InputPath -Path $Path
+    $occupancyPath = Normalize-InputPath -Path (Get-SharedRootOccupancyRelativePath)
+
+    if ($normalizedPath -ne $occupancyPath) {
+        return $false
+    }
+
+    if ($Branch -eq 'main') {
+        return ($Occupancy.IsNeutral -and $Occupancy.CurrentBranch -eq 'main' -and $Occupancy.BranchGrantState -eq 'granted')
+    }
+
+    return ((-not $Occupancy.IsNeutral) -and $Occupancy.CurrentBranch -eq $Branch)
+}
+
+function Get-BlockingStatusEntries {
+    param(
+        [object[]]$Entries,
+        [string]$Branch,
+        $Occupancy
+    )
+
+    if ($null -eq $Entries -or @($Entries).Count -eq 0) {
+        return @()
+    }
+
+    $filtered = @(
+        $Entries | Where-Object {
+            $null -ne $_ -and
+            -not [string]::IsNullOrWhiteSpace($_.Path) -and
+            -not (Test-NoisePath -Path $_.Path) -and
+            -not (Test-SharedRootLeaseRuntimeDirtyPath -Path $_.Path -Branch $Branch -Occupancy $Occupancy)
+        }
+    )
+
+    return @($filtered)
+}
+
 function Test-AllowedPath {
     param(
         [string]$Path,
@@ -262,16 +578,254 @@ function Get-PathGroup {
     return '其他改动'
 }
 
+function Get-RemainingDirtyEntries {
+    param([object[]]$Entries)
+
+    if ($null -eq $Entries -or @($Entries).Count -eq 0) {
+        return @()
+    }
+
+    $filtered = @(
+        $Entries | Where-Object {
+            $null -ne $_ -and
+            -not [string]::IsNullOrWhiteSpace($_.Path) -and
+            $_.Category -ne '已知本地噪音' -and
+            $_.Category -ne 'shared root 租约运行态脏改'
+        }
+    )
+
+    return @($filtered)
+}
+
+function Test-OnlySharedRootLeaseRuntimeDirtyEntries {
+    param(
+        [object[]]$Entries,
+        [string]$Branch,
+        $Occupancy
+    )
+
+    if ($null -eq $Entries -or @($Entries).Count -eq 0) {
+        return $false
+    }
+
+    $runtimeDirty = @(
+        $Entries | Where-Object {
+            $null -ne $_ -and
+            -not [string]::IsNullOrWhiteSpace($_.Path) -and
+            (Test-SharedRootLeaseRuntimeDirtyPath -Path $_.Path -Branch $Branch -Occupancy $Occupancy)
+        }
+    )
+
+    return ($runtimeDirty.Count -gt 0 -and $runtimeDirty.Count -eq @($Entries).Count)
+}
+
+function Get-RemainingDirtyGateMessage {
+    param([object[]]$Entries)
+
+    $preview = @($Entries | Select-Object -First 5 | ForEach-Object { "$($_.Status) $($_.Path)" })
+    $suffix = ''
+    if (@($Entries).Count -gt 5) {
+        $suffix = ' ...'
+    }
+
+    return "FATAL: shared root 当前仍存在未纳入本轮白名单的 remaining dirty，task 模式禁止继续写入或同步。请先清尾、归属或隔离这些改动：$($preview -join '; ')$suffix"
+}
+
+function Grant-SharedRootBranchLease {
+    param(
+        [string]$OwnerThread,
+        [string]$TargetBranch
+    )
+
+    $repoRoot = Get-RepoRoot
+    $branch = Get-CurrentBranch
+    $occupancy = Get-SharedRootOccupancyRecord
+
+    if (-not (Test-IsSharedRootWorkspace -RepoRoot $repoRoot -OccupancyRecord $occupancy)) {
+        throw 'FATAL: 只允许在 shared root 上发放分支租约。'
+    }
+
+    if ($branch -ne 'main') {
+        throw "FATAL: 当前 live 分支是 '$branch'，只有 main 大厅才能发放分支租约。"
+    }
+
+    Assert-TaskBranchMatchesOwner -Branch $TargetBranch -OwnerThread $OwnerThread
+
+    $entries = @(Get-BlockingStatusEntries -Entries (Get-StatusEntries) -Branch $branch -Occupancy $occupancy)
+    if ($entries.Count -gt 0) {
+        throw 'FATAL: shared root 当前不干净，禁止发放分支租约。'
+    }
+
+    if ($null -eq $occupancy) {
+        throw 'FATAL: shared root 缺少 occupancy 文档，禁止发放分支租约。'
+    }
+
+    if (-not $occupancy.IsNeutral -or $occupancy.CurrentBranch -ne 'main') {
+        throw "FATAL: shared root 当前不是 neutral main 状态（current_branch='$($occupancy.CurrentBranch)'，is_neutral='$($occupancy.IsNeutral)'），禁止发放分支租约。"
+    }
+
+    if ($occupancy.BranchGrantState -eq 'granted' -and $occupancy.BranchGrantOwner -ne 'none') {
+        throw "FATAL: shared root 已存在未消费的分支租约（owner='$($occupancy.BranchGrantOwner)'，branch='$($occupancy.BranchGrantBranch)'），禁止重复发放。"
+    }
+
+    Set-SharedRootOccupancyValues -Values ([ordered]@{
+            owner_mode                = 'neutral-main-ready'
+            owner_thread              = 'none'
+            current_branch            = 'main'
+            last_verified_head        = (Get-HeadShort)
+            is_neutral                = 'true'
+            lease_state               = 'branch-granted'
+            branch_grant_state        = 'granted'
+            branch_grant_owner_thread = $OwnerThread
+            branch_grant_branch       = $TargetBranch
+            branch_grant_updated      = (Get-OccupancyTimestamp)
+            blocking_dirty_scope      = 'none'
+            last_updated              = (Get-OccupancyDateStamp)
+        })
+
+    Write-Output "已向 OwnerThread '$OwnerThread' 发放 shared root 分支租约：$TargetBranch"
+}
+
+function Return-SharedRootToMain {
+    param([string]$OwnerThread)
+
+    $repoRoot = Get-RepoRoot
+    $occupancy = Get-SharedRootOccupancyRecord
+
+    if (-not (Test-IsSharedRootWorkspace -RepoRoot $repoRoot -OccupancyRecord $occupancy)) {
+        throw 'FATAL: 只允许在 shared root 上执行 return-main。'
+    }
+
+    $branch = Get-CurrentBranch
+    if ($branch -eq 'main' -and $null -ne $occupancy -and $occupancy.BranchGrantState -eq 'granted' -and $occupancy.BranchGrantOwner -ne 'none' -and $occupancy.BranchGrantOwner -ne $OwnerThread) {
+        throw "FATAL: shared root 当前未消费租约属于 '$($occupancy.BranchGrantOwner)'，'$OwnerThread' 不得越权清空。"
+    }
+
+    $allStatusEntries = @(Get-StatusEntries)
+    $entries = @(Get-BlockingStatusEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy)
+    if ($entries.Count -gt 0) {
+        throw 'FATAL: 当前工作树不干净，禁止 return-main。请先提交、推送或清理当前任务脏改。'
+    }
+
+    if ($branch -ne 'main') {
+        Assert-TaskBranchMatchesOwner -Branch $branch -OwnerThread $OwnerThread
+
+        if ($null -ne $occupancy) {
+            if ($occupancy.OwnerThread -ne $OwnerThread -or $occupancy.CurrentBranch -ne $branch) {
+                throw "FATAL: occupancy 文档登记的是 owner_thread='$($occupancy.OwnerThread)' / current_branch='$($occupancy.CurrentBranch)'，与当前 '$OwnerThread' / '$branch' 不符，禁止 return-main。"
+            }
+        }
+
+        $checkoutArgs = @('checkout', 'main')
+        if (Test-OnlySharedRootLeaseRuntimeDirtyEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy) {
+            $checkoutArgs = @('checkout', '-f', 'main')
+        }
+
+        Invoke-Git -Arguments $checkoutArgs | Out-Null
+    }
+
+    Set-SharedRootNeutralState
+    Write-Output '已归还 shared root 到 main，并清空分支租约。'
+}
+
+function Test-TaskSharedRootLease {
+    param(
+        [string]$RepoRoot,
+        [string]$Branch,
+        [string]$OwnerThread,
+        [object[]]$RemainingEntries
+    )
+
+    $occupancy = Get-SharedRootOccupancyRecord
+
+    if (-not (Test-IsSharedRootWorkspace -RepoRoot $RepoRoot -OccupancyRecord $occupancy)) {
+        return [PSCustomObject]@{
+            Applies   = $false
+            CanUse    = $true
+            Reason    = '当前不在 shared root，不适用 shared root lease 闸机。'
+            Occupancy = $occupancy
+        }
+    }
+
+    $remainingDirty = @(Get-RemainingDirtyEntries -Entries $RemainingEntries)
+
+    if ($null -eq $occupancy) {
+        return [PSCustomObject]@{
+            Applies   = $true
+            CanUse    = ($remainingDirty.Count -eq 0)
+            Reason    = if ($remainingDirty.Count -eq 0) { 'shared root 未发现 occupancy 文档，lease 校验暂时跳过。' } else { Get-RemainingDirtyGateMessage -Entries $remainingDirty }
+            Occupancy = $null
+        }
+    }
+
+    if (-not $occupancy.IsNeutral) {
+        if ([string]::IsNullOrWhiteSpace($occupancy.CurrentBranch)) {
+            return [PSCustomObject]@{
+                Applies   = $true
+                CanUse    = $false
+                Reason    = "FATAL: shared root 占用文档 '$($occupancy.OccupancyPath)' 已声明非中性，但未写明 current_branch。"
+                Occupancy = $occupancy
+            }
+        }
+
+        if ($occupancy.CurrentBranch -ne $Branch) {
+            return [PSCustomObject]@{
+                Applies   = $true
+                CanUse    = $false
+                Reason    = "FATAL: shared root 占用文档声明 current_branch='$($occupancy.CurrentBranch)'，但 live 分支是 '$Branch'；请先回正或纠偏占用文档。"
+                Occupancy = $occupancy
+            }
+        }
+
+        if ([string]::IsNullOrWhiteSpace($occupancy.OwnerThread)) {
+            return [PSCustomObject]@{
+                Applies   = $true
+                CanUse    = $false
+                Reason    = "FATAL: shared root 已声明为 occupied，但占用文档缺少 owner_thread；请先补齐占用人。"
+                Occupancy = $occupancy
+            }
+        }
+
+        if ($occupancy.OwnerThread -ne $OwnerThread) {
+            return [PSCustomObject]@{
+                Applies   = $true
+                CanUse    = $false
+                Reason    = "FATAL: shared root 当前登记 owner_thread='$($occupancy.OwnerThread)'，OwnerThread '$OwnerThread' 不得继续在 shared root 上以 task 模式写入。"
+                Occupancy = $occupancy
+            }
+        }
+    }
+
+    if ($remainingDirty.Count -gt 0) {
+        return [PSCustomObject]@{
+            Applies   = $true
+            CanUse    = $false
+            Reason    = Get-RemainingDirtyGateMessage -Entries $remainingDirty
+            Occupancy = $occupancy
+        }
+    }
+
+    return [PSCustomObject]@{
+        Applies   = $true
+        CanUse    = $true
+        Reason    = if ($occupancy.IsNeutral) { 'shared root 当前登记为 neutral，且没有剩余 dirty 阻塞。' } else { 'shared root owner/lease 校验通过，且没有剩余 dirty 阻塞。' }
+        Occupancy = $occupancy
+    }
+}
+
 function New-PreflightReport {
     param(
         [string]$Mode,
+        [string]$OwnerThread,
         [string[]]$ScopeRoots,
         [string[]]$IncludePaths
     )
 
+    $repoRoot = Get-RepoRoot
     $branch = Get-CurrentBranch
     $head = Get-HeadShort
     $upstream = Get-UpstreamCounts
+    $occupancy = Get-SharedRootOccupancyRecord
     $entries = Get-StatusEntries
     $allowed = @()
     $remaining = @()
@@ -282,6 +836,15 @@ function New-PreflightReport {
                 Path     = $entry.Path
                 Status   = $entry.Status
                 Category = '已知本地噪音'
+            }
+            continue
+        }
+
+        if (Test-SharedRootLeaseRuntimeDirtyPath -Path $entry.Path -Branch $branch -Occupancy $occupancy) {
+            $remaining += [PSCustomObject]@{
+                Path     = $entry.Path
+                Status   = $entry.Status
+                Category = 'shared root 租约运行态脏改'
             }
             continue
         }
@@ -305,38 +868,70 @@ function New-PreflightReport {
     $canContinue = $true
     $reason = '允许继续'
 
+    $sharedRootLease = Test-TaskSharedRootLease -RepoRoot $repoRoot -Branch $branch -OwnerThread $OwnerThread -RemainingEntries $remaining
+
     if ($Mode -eq 'task' -and $branch -eq 'main') {
         $canContinue = $false
-        $reason = '当前在 main，上真实任务前必须先创建 codex/ 任务分支。'
+        $reason = "FATAL: OwnerThread '$OwnerThread' 当前位于 main，禁止以 task 模式继续写入；请先切到匹配该线程的 codex/ 分支。"
     }
-    elseif ($Mode -eq 'task' -and -not $branch.StartsWith('codex/')) {
+    elseif ($Mode -eq 'task' -and -not $branch.ToLowerInvariant().StartsWith('codex/')) {
         $canContinue = $false
-        $reason = '真实任务分支必须使用 codex/ 前缀。'
+        $reason = "FATAL: 当前分支 '$branch' 不是 codex/ 前缀，真实任务禁止继续写入。"
+    }
+    elseif ($Mode -eq 'task' -and -not (Test-BranchOwnedByThread -Branch $branch -OwnerThread $OwnerThread)) {
+        $canContinue = $false
+        $reason = Get-BranchOwnershipMessage -Branch $branch -OwnerThread $OwnerThread
     }
     elseif ($Mode -eq 'task' -and ((@(Expand-PathList -Paths $ScopeRoots).Count -eq 0) -and (@(Expand-PathList -Paths $IncludePaths).Count -eq 0))) {
         $canContinue = $false
-        $reason = 'task 模式必须提供 ScopeRoots 或 IncludePaths，不能无边界自动提交。'
+        $reason = "FATAL: OwnerThread '$OwnerThread' 在 task 模式下必须提供 ScopeRoots 或 IncludePaths，禁止无边界自动提交。"
+    }
+    elseif ($Mode -eq 'task' -and -not $sharedRootLease.CanUse) {
+        $canContinue = $false
+        $reason = $sharedRootLease.Reason
     }
 
     return [PSCustomObject]@{
-        Branch      = $branch
-        Head        = $head
-        Upstream    = $upstream
-        Allowed     = @($allowed)
-        Remaining   = @($remaining)
-        CanContinue = $canContinue
-        Reason      = $reason
+        OwnerThread     = $OwnerThread
+        RepoRoot        = $repoRoot
+        Branch          = $branch
+        Head            = $head
+        Upstream        = $upstream
+        Allowed         = @($allowed)
+        Remaining       = @($remaining)
+        SharedRootLease = $sharedRootLease
+        CanContinue     = $canContinue
+        Reason          = $reason
     }
 }
 
 function Write-PreflightReport {
     param($Report)
 
+    Write-Output "OwnerThread: $($Report.OwnerThread)"
+    Write-Output "仓库根目录: $($Report.RepoRoot)"
     Write-Output "当前分支: $($Report.Branch)"
     Write-Output "当前 HEAD: $($Report.Head)"
     Write-Output "upstream 状态 ($($Report.Upstream.Label)): behind=$($Report.Upstream.Behind), ahead=$($Report.Upstream.Ahead)"
     Write-Output "是否允许按当前模式继续: $($Report.CanContinue)"
     Write-Output "判断原因: $($Report.Reason)"
+
+    if ($null -ne $Report.SharedRootLease -and $Report.SharedRootLease.Applies) {
+        Write-Output "shared root lease 判断: $($Report.SharedRootLease.CanUse)"
+        Write-Output "shared root lease 原因: $($Report.SharedRootLease.Reason)"
+
+        if ($null -ne $Report.SharedRootLease.Occupancy) {
+            Write-Output "shared root owner_mode: $($Report.SharedRootLease.Occupancy.OwnerMode)"
+            Write-Output "shared root owner_thread: $($Report.SharedRootLease.Occupancy.OwnerThread)"
+            Write-Output "shared root current_branch: $($Report.SharedRootLease.Occupancy.CurrentBranch)"
+            Write-Output "shared root is_neutral: $($Report.SharedRootLease.Occupancy.IsNeutral)"
+            Write-Output "shared root lease_state: $($Report.SharedRootLease.Occupancy.LeaseState)"
+            Write-Output "shared root branch_grant_state: $($Report.SharedRootLease.Occupancy.BranchGrantState)"
+            Write-Output "shared root branch_grant_owner: $($Report.SharedRootLease.Occupancy.BranchGrantOwner)"
+            Write-Output "shared root branch_grant_branch: $($Report.SharedRootLease.Occupancy.BranchGrantBranch)"
+        }
+    }
+
     Write-Output ''
     Write-Output '本轮允许纳入同步的改动:'
 
@@ -422,15 +1017,32 @@ function Stage-Paths {
 }
 
 function Ensure-TaskBranch {
-    param([string]$TargetBranch)
+    param(
+        [string]$TargetBranch,
+        [string]$OwnerThread
+    )
+
+    if (-not $TargetBranch.ToLowerInvariant().StartsWith('codex/')) {
+        throw "FATAL: 目标分支 '$TargetBranch' 不是 codex/ 前缀，禁止创建或切换。"
+    }
+
+    Assert-TaskBranchMatchesOwner -Branch $TargetBranch -OwnerThread $OwnerThread
 
     $branch = Get-CurrentBranch
+    $repoRoot = Get-RepoRoot
+    $occupancy = Get-SharedRootOccupancyRecord
+
+    if ((Test-IsSharedRootWorkspace -RepoRoot $repoRoot -OccupancyRecord $occupancy) -and $branch -eq 'main') {
+        Assert-SharedRootBranchGrant -Occupancy $occupancy -OwnerThread $OwnerThread -TargetBranch $TargetBranch
+    }
+
     if ($branch -eq $TargetBranch) {
         Write-Output "已位于目标分支：$TargetBranch"
         return
     }
 
-    $entries = @(Get-StatusEntries | Where-Object { -not (Test-NoisePath -Path $_.Path) })
+    $allStatusEntries = @(Get-StatusEntries)
+    $entries = @(Get-BlockingStatusEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy)
     if ($entries.Count -gt 0) {
         throw "当前工作树不干净，不能安全创建/切换到 $TargetBranch。请先收口或隔离现有脏改。"
     }
@@ -441,13 +1053,29 @@ function Ensure-TaskBranch {
     }
 
     $existing = Invoke-Git -Arguments @('branch', '--list', $TargetBranch)
+    $checkoutArgs = @()
     if ($existing.Output.Count -gt 0 -and -not [string]::IsNullOrWhiteSpace(($existing.Output -join '').Trim())) {
-        Invoke-Git -Arguments @('checkout', $TargetBranch) | Out-Null
+        $checkoutArgs = @('checkout', $TargetBranch)
+        if (Test-OnlySharedRootLeaseRuntimeDirtyEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy) {
+            $checkoutArgs = @('checkout', '-f', $TargetBranch)
+        }
+
+        Invoke-Git -Arguments $checkoutArgs | Out-Null
         Write-Output "已切换到现有分支：$TargetBranch"
     }
     else {
-        Invoke-Git -Arguments @('checkout', '-b', $TargetBranch) | Out-Null
+        $checkoutArgs = @('checkout', '-b', $TargetBranch)
+        if (Test-OnlySharedRootLeaseRuntimeDirtyEntries -Entries $allStatusEntries -Branch $branch -Occupancy $occupancy) {
+            $checkoutArgs = @('checkout', '-f', '-b', $TargetBranch)
+        }
+
+        Invoke-Git -Arguments $checkoutArgs | Out-Null
         Write-Output "已创建并切换到新分支：$TargetBranch"
+    }
+
+    if ((Test-IsSharedRootWorkspace -RepoRoot $repoRoot -OccupancyRecord $occupancy) -and $branch -eq 'main') {
+        Set-SharedRootTaskActive -OwnerThread $OwnerThread -TargetBranch $TargetBranch
+        Write-Output "已消费 shared root 分支租约，并登记为 task-active：$OwnerThread -> $TargetBranch"
     }
 }
 
@@ -456,7 +1084,7 @@ Set-Location $repoRoot
 
 switch ($Action) {
     'preflight' {
-        $report = New-PreflightReport -Mode $Mode -ScopeRoots $ScopeRoots -IncludePaths $IncludePaths
+        $report = New-PreflightReport -Mode $Mode -OwnerThread $OwnerThread -ScopeRoots $ScopeRoots -IncludePaths $IncludePaths
         Write-PreflightReport -Report $report
     }
 
@@ -465,11 +1093,23 @@ switch ($Action) {
             throw 'ensure-branch 必须提供 -BranchName。'
         }
 
-        Ensure-TaskBranch -TargetBranch $BranchName
+        Ensure-TaskBranch -TargetBranch $BranchName -OwnerThread $OwnerThread
+    }
+
+    'grant-branch' {
+        if ([string]::IsNullOrWhiteSpace($BranchName)) {
+            throw 'grant-branch 必须提供 -BranchName。'
+        }
+
+        Grant-SharedRootBranchLease -OwnerThread $OwnerThread -TargetBranch $BranchName
+    }
+
+    'return-main' {
+        Return-SharedRootToMain -OwnerThread $OwnerThread
     }
 
     'sync' {
-        $report = New-PreflightReport -Mode $Mode -ScopeRoots $ScopeRoots -IncludePaths $IncludePaths
+        $report = New-PreflightReport -Mode $Mode -OwnerThread $OwnerThread -ScopeRoots $ScopeRoots -IncludePaths $IncludePaths
         Write-PreflightReport -Report $report
         Write-Output ''
 
@@ -521,5 +1161,3 @@ switch ($Action) {
         }
     }
 }
-
-
