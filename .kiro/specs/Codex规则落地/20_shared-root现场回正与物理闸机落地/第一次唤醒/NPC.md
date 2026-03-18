@@ -1,0 +1,63 @@
+- 当前 `cwd / branch / HEAD`
+  - `cwd`: `D:\Unity\Unity_learning\Sunset`
+  - `branch`: `main`
+  - `HEAD`: `6d247bb42cc9cddeea2d7f18340dd1f8e327afb0`
+  - `git status --short --branch`: `## main...origin/main`
+  - 当前 live 现场是干净的 shared root，和我上一轮审计里提到的 `codex/npc-roam-phase2-003 @ 2ecc2b75` 已不一致；那是旧现场口径，现已失效。
+
+- 你读了哪些文档和哪两条分支
+  - 已读文档：
+    - [D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\memory_0.md](D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/NPC/memory_0.md)
+    - [D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/NPC/memory.md)
+    - [D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\memory.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/NPC/1.0.0初步规划/memory.md)
+  - 已只读比较分支：
+    - `codex/npc-roam-phase2-002 @ 6e2af71b204750f554935eae3728108d23c86bb2`
+    - `codex/npc-roam-phase2-003 @ c81d1f99e4cb3a53f054ab445fc972de09b6ab97`
+  - 关键只读证据：
+    - 两分支 `merge-base`：`b9b6ac4881f4436abbc1f3232f14706ca76bb869`
+    - `git branch -vv` 显示两条分支都存在，且都跟踪远端
+    - `git log --left-right codex/npc-roam-phase2-002...codex/npc-roam-phase2-003` 显示两条线各自长出独立历史
+    - 仅看 NPC 路径时，`002..003` 仍有 13 个 NPC 相关差异，不只是记忆
+
+- 你认定的唯一 continuation branch
+  - 我认定：`codex/npc-roam-phase2-003` 才是今后唯一 NPC continuation branch。
+  - `codex/npc-roam-phase2-002` 应视为阶段性过渡 / 只读对照分支，不应再作为继续开发 carrier。
+  - 选择 `003` 的 live 证据比 `002` 更强，具体有 4 条：
+    - 证据 1：`003` 的分支头更晚。
+      - `002` 头是 `6e2af71b`，提交时间 `2026-03-17 14:50:12 +0800`
+      - `003` 头是 `c81d1f99`，提交时间 `2026-03-18 09:12:02 +0800`
+    - 证据 2：`002` 的顶点提交 `6e2af71b` 只改了 3 份记忆文件，没有新的 NPC 运行时代码、Prefab、Profile 或 TD。
+    - 证据 3：`003` 的 NPC 路径历史里包含 `7bc94fc8`，而这个提交实际带入了 NPC 的后续业务内容：
+      - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+      - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+      - `Assets/YYY_Scripts/Data/NPCRoamProfile.cs`
+      - `Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset`
+      - `Assets/222_Prefabs/NPC/001.prefab`
+      - `Assets/222_Prefabs/NPC/002.prefab`
+      - `Assets/222_Prefabs/NPC/003.prefab`
+      - 以及 `.kiro/specs/NPC/.../tasks.md`
+    - 证据 4：`003` 比 `002` 在 NPC 路径上多出的差异，live 仍然明确存在，共 13 个文件，包含：
+      - `.codex/threads/Sunset/NPC/memory_0.md`
+      - `.kiro/specs/NPC/memory.md`
+      - `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+      - `.kiro/specs/NPC/1.0.0初步规划/tasks.md`
+      - `.kiro/specs/000_代办/kiro/NPC/TD_000_NPC.md`
+      - `.kiro/specs/000_代办/kiro/NPC/TD_1.0.0初步规划.md`
+      - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+      - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+      - `Assets/YYY_Scripts/Data/NPCRoamProfile.cs`
+      - `Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset`
+      - `Assets/222_Prefabs/NPC/001.prefab`
+      - `Assets/222_Prefabs/NPC/002.prefab`
+      - `Assets/222_Prefabs/NPC/003.prefab`
+  - 所以 `002` 更像“worktree 时代的 continuation 过渡点”，`003` 才是已经承接了后续 NPC 实际业务推进的 live continuation。
+  - 旧 memory 里凡是把 `002` 写成“唯一 continuation carrier”的表述，现阶段都只能算阶段性口径，已经被 2026-03-18 的 live 分支指针和 NPC 路径差异覆盖。
+
+- 你下一步若恢复开发，最小 checkpoint 会是什么
+  - 最小 checkpoint 不是直接写代码，而是先从 shared root 执行一次显式 branch 领用：
+  - `git-safe-sync.ps1 -Action ensure-branch -Mode task -OwnerThread NPC -BranchName codex/npc-roam-phase2-003`
+  - 然后只确认 3 件事再开始任何写入：
+    - 当前仍在 `D:\Unity\Unity_learning\Sunset`
+    - 当前分支确实是 `codex/npc-roam-phase2-003`
+    - `git status --short --branch` 仍然 clean
+  - 只有这一步通过后，NPC 才算恢复到可继续开发的正确 carrier 上。

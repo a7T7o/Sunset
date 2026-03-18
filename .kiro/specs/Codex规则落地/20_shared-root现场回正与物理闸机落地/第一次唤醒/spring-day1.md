@@ -1,0 +1,53 @@
+- 当前 `cwd / branch / HEAD`
+  - `cwd`：`D:\Unity\Unity_learning\Sunset`
+  - `branch`：`main`
+  - `HEAD`：`6d247bb42cc9cddeea2d7f18340dd1f8e327afb0`
+
+- 是否通过 preflight
+  - 通过。
+  - 只读证据：
+    - `git status --short --branch` 为干净：`## main...origin/main`
+    - `git worktree list` 只剩 shared root：`D:\Unity\Unity_learning\Sunset`
+    - 活动锁目录当前只有 `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\.gitkeep`
+  - 已按要求读取：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\memory_0.md:1`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\memory.md:1`
+    - 当前子工作区记忆：`D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\memory.md:1`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md:1`
+  - 额外只读确认：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md:1` 当前是 `current_claim: none`
+    - 但 Unity/MCP 仍是 `single-instance-shared-editor`，且 `play_mode / compile / domain_reload = must-verify-live`
+
+- 是否安全切入 `codex/spring-day1-story-progression-001`
+  - 是，从 Git 入口角度现在可以安全切入。
+  - 理由：
+    - shared root 已回到 `main`
+    - working tree 干净
+    - 只剩 shared root，一个 worktree
+    - `spring-day1` 功能入口分支仍在，且工作区记忆显示当前最自然的续做点就是接着 `003-进一步搭建` 的“剧情推进 + 现场验收”链条
+  - 但本轮我还没切分支、也没写入；若进入真实写入，我会先执行：
+    - `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1 -Action ensure-branch -Mode task -OwnerThread spring-day1 -BranchName codex/spring-day1-story-progression-001`
+
+- 如果要碰热文件/Unity 热区，先报你要申请什么
+  - 当前最小下一步我优先不碰热文件，先做已有实现的现场验收。
+  - 如果验收后必须改 UI/场景，我会先申请：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+  - 如果验收发现要调共享字体/共享 UI 观感，我会先做热区核查，再报备：
+    - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese SDF.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese V2 SDF.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese SoftPixel SDF.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese BitmapSong SDF.asset`
+  - 进入 Unity 前还会先复核 live 的 `Play Mode / Compile / Domain Reload`，不把 MCP 文档当成现场安全替代。
+
+- 本轮最小 checkpoint
+  - 最优先不是继续写新功能，而是：
+    - 在 `codex/spring-day1-story-progression-001` 上做一次当前 Day1 对话推进链的真实手工验收
+  - 具体验收点：
+    - 第一次与 `NPC001` 交互播首段
+    - 首段结束后剧情状态发生切换
+    - 第二次交互自动播 `follow-up`
+    - 同时验 UI / 气泡 / 字体 / 可读性 / 节奏 / 关闭表现，按 `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md:1` 的审美标准看，不以“能显示”代替“通过”
+  - 这样做的好处：
+    - 先不碰 `Primary.unity` / `DialogueUI.cs`
+    - 先把“现有实现到底够不够用、观感过不过关”用最小风险看清，再决定是否申请热文件进入下一轮修正

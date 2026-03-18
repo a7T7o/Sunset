@@ -5,14 +5,14 @@
 ## 当前主线目标
 - 让 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地` 成为 L5 之后唯一有效的治理续办总入口。
 - 当前治理主线已切换为：
-  - `20_shared-root现场回正与物理闸机落地`
-- 本轮重点已经从“回正现场”推进到“阶段 20 封板与常态恢复”；后续若继续治理，应另立新阶段承接自动 wrapper 或更强的 session 级闸机。
+  - `21_第一次唤醒复盘与shared-root分支租约闸门`
+- 本轮重点不再是解释 `20` 的成果，而是修掉第一次唤醒暴露出的“shared root 提前切分支”缺口，并补强认知钢印入口。
 
 ## 当前状态
-- **用户视角完成度（恢复正常开发）**：shared root 已恢复常态，可重新进入 branch-only 开发
-- **治理续办总盘状态**：`20` 已完成；`09/11/12` 为历史基础层
+- **用户视角完成度（恢复正常开发）**：shared root 主入口仍在 `main`，但第一次唤醒协议需要先修正后再大规模恢复线程
+- **治理续办总盘状态**：`20` 已完成；`21` 已接管新增缺口；`09/11/12` 为历史基础层
 - **最后更新**：2026-03-18
-- **状态**：阶段 20 已完成收口，当前无新的 live 治理阻塞
+- **状态**：阶段 21 已立项，当前 live 阻塞是“分支切换租约闸门尚未落地”
 
 ## 当前阶段目录
 - `09_强制skills闸门与执行规范重构`
@@ -42,23 +42,25 @@
   - `git worktree list --porcelain` 只剩 shared root
   - `obra/superpowers` 已复审并维持 `rejected-as-is`
   - `C:\Users\aTo\.agents\skills\` 已暴露 `skill-vetter / skills-governor / sunset-startup-guard`
+- 第一次唤醒复盘已经证明：
+  - `ensure-branch` 还缺 shared root 独占租约闸门
+  - 第一次唤醒与第二次准入 prompt 需要拆开
 - 当前唯一剩余物理尾巴是：
   - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
   - 已无 Git 身份，只剩被占用的空目录残壳
 
 ## 当前最高优先级
-1. 以 `20` 作为已封板的最新治理基线，分发五线程唤醒 prompt 并恢复正常 branch-only 开发。
-2. 若用户继续要求更强的 session 级命中或自动 claim/release wrapper，另立新阶段承接，不回填 `20`。
-3. 仅在外部进程释放后，顺手删除 `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001` 的空目录残壳。
+1. 推进 `21_第一次唤醒复盘与shared-root分支租约闸门`。
+2. 把 `第一次唤醒/` 目录纳入治理证据并完成可信度分级。
+3. 补 shared root 分支租约闸门与双阶段唤醒协议。
 
 ## 当前恢复点
-- `20` 已完成，不再继续接收新尾巴。
-- 当前若恢复业务推进：
-  - 从 shared root 的 `main` 进入
-  - 先 preflight
-  - 再 `ensure-branch`
-  - 到 checkpoint 即归还
-- 下一轮治理若要继续，主题应是“自动 wrapper / session 级强闸机”，而不是再次解释 worktree 退役。
+- `20` 已封板，历史成果继续有效。
+- `21` 当前恢复点：
+  - 先收证据
+  - 再补租约闸门
+  - 再补 `AGENTS.md` / `openai.yaml` 认知钢印
+  - 最后重发双阶段唤醒 prompt
 
 ## 最近会话
 
@@ -492,3 +494,34 @@
 **恢复点 / 下一步**：
 - 当前可直接分发 `wakeup-prompts.md`。
 - 业务线程恢复时统一按 `main-common + branch-task + checkpoint-first + merge-last` 执行。
+
+### 会话 17 - 2026-03-18（第一次唤醒复盘后，建议转入 21）
+**用户目标**：
+> 复盘第一次唤醒的真实回包，判断第一次唤醒为什么没有稳定工作，并明确是否需要新的治理阶段继续补闸机。
+
+**已完成事项**：
+1. 读取并复盘 `20/第一次唤醒/` 下五份真实回包。
+2. 明确第一次唤醒并非“所有线程都失控”：
+   - `NPC` 与 `spring-day1` 基本遵守只读
+   - `farm` 提前执行 `ensure-branch`，把 shared root 从 `main` 切到 farm 分支
+   - `导航检查` 的只读审计因此被污染
+   - `遮挡检查` 结果相对可信
+3. 锁定当前剩余缺口不是 `sync` 闸机，而是：
+   - shared root 分支切换租约
+   - 第一次唤醒与第二次“正式进入 branch-task”的协议拆分
+4. 当前 live 仓库状态变为：
+   - `main`
+   - tracked clean
+   - 但新增了未跟踪证据目录：
+     - `20_shared-root现场回正与物理闸机落地/第一次唤醒/`
+
+**关键决策**：
+- 阶段 20 不回滚，它已经解决了“错分支提交 / 错 owner sync”的硬阻断。
+- 但阶段 20 不足以覆盖“branch switch 也是共享写态”的新暴露问题。
+- 建议正式立项 `21`，主题聚焦：
+  - 第一次唤醒复盘
+  - shared root 租约闸门
+  - 两阶段唤醒协议
+
+**恢复点 / 下一步**：
+- 若用户认可，下一阶段应先把 `第一次唤醒/` 目录纳入治理证据，再在 `21` 内实现新闸机与新 prompt 模型。
