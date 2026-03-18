@@ -55,3 +55,28 @@
   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\1.0.0初步检查\04_审计阶段结案与移交建议.md`
 - 关键决策：将 `1.0.0初步检查` 先作为“审计基线阶段”正式收口，不在当前阶段内直接滑入代码整改。
 - 当前主线恢复点：如果用户后续确认继续导航整改，下一步应新开整改阶段并先补 `requirements.md` / `design.md` / `tasks.md`；若不继续，本线程当前即可停在“审计基线阶段结案”状态。
+
+### 会话 4 - 2026-03-18（阶段22第一阶段 prompt 已回包）
+
+- 用户要求从 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\可分发Prompt` 领取本线程专属 prompt，并完成第一阶段 prompt 的读取和回应。
+- 本轮显式使用了 `skills-governor`、`sunset-workspace-router`、`sunset-thread-wakeup-coordinator`，并手工执行了 `sunset-startup-guard` 的等价 preflight。
+- 已核对当前 live 现场：
+  - `D:\Unity\Unity_learning\Sunset`
+  - `main`
+  - `14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0`
+  - `git status --short --branch = ## main...origin/main`
+- 已回读当前治理入口、shared root 占用文档、线程记忆、工作区记忆，以及 `1.0.0初步检查` 的 `03/04` 文档；并重新抽查导航核心代码，确认以下事实仍成立：
+  - `GameInputManager.cs` 仍使用 `OverlapPointAll`
+  - `PlayerAutoNavigator.cs` / `NavGrid2D.cs` 仍使用 `OverlapCircleAll`
+  - `PlacementNavigator.cs` 仍走 `ClosestPoint`
+  - `ChestController.cs` / `TreeController.cs` 仍直接触发 `NavGrid2D.OnRequestGridRefresh`
+- 已把阶段一回包写入：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\线程回收\导航检查.md`
+- 关键决策：
+  - 当前 live 仍支持原有 `1.0.0` 审计基线，不需要回退到更早线程旧稿；
+  - 若继续本线程主线，下一轮确实需要进入真实写入，但必须先走阶段二 grant 准入；
+  - 推荐 continuation branch 仍是 `codex/navigation-audit-001`；
+  - 最小 checkpoint 先固化 `2.0.0整改设计` 的 `requirements.md / design.md / tasks.md`，不直接在 `main` 上改导航代码，也不直接进入 Unity / Play Mode。
+- 当前主线恢复点：
+  - 若用户批准阶段二，先申请 `grant-branch`，再执行 `ensure-branch`；
+  - 若未批准，本线程继续保持只读，不自行切分支。

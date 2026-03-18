@@ -173,3 +173,37 @@
 **遗留问题 / 下一步**：
 - [ ] 如果用户确认继续导航整改，下一步先新开整改阶段文档，再进入方案和代码。
 - [ ] 如果用户确认先阶段结案，则本子工作区当前可以作为只读审计基线保留。
+
+### 会话 3 - 2026-03-18（阶段22只读唤醒回包）
+
+**用户需求**：
+> `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\可分发Prompt`，领取你的专属 prompt 并完成对第一阶段 prompt 读取和回应。
+
+**当前主线目标**：
+- 当前导航主线没有切换，仍是“从 `1.0.0` 审计基线过渡到下一阶段是否立项整改”的判断。
+- 本轮子任务是：按阶段 22 的线程唤醒协议，只读回包当前 live 是否允许进入阶段二。
+
+**完成任务**：
+1. 在 `D:\Unity\Unity_learning\Sunset @ main` 上重新做只读 preflight：
+   - `HEAD = 14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0`
+   - `git status --short --branch = ## main...origin/main`
+2. 回读当前治理入口、shared root 占用文档、线程记忆、子工作区记忆，以及 `1.0.0` 的 `03/04` 审计文档。
+3. 重新抽查 live 代码现状：
+   - `GameInputManager.cs` 仍使用 `OverlapPointAll`
+   - `PlayerAutoNavigator.cs` / `NavGrid2D.cs` 仍使用 `OverlapCircleAll`
+   - `PlacementNavigator.cs` 仍走 `ClosestPoint`
+   - `ChestController.cs` / `TreeController.cs` 仍直接触发 `OnRequestGridRefresh`
+4. 将阶段一结论回写到：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\线程回收\导航检查.md`
+
+**关键结论**：
+- 当前 live 仍支持原有 `1.0.0` 审计结论，不存在“导航线程主要成果已丢失”的情况。
+- 当前 live 仍未进入 `2.0.0整改设计`，所以如果继续导航主线，下一轮必须进入真实写入。
+- 但这次真实写入必须是 branch-only：
+  - 推荐分支仍为 `codex/navigation-audit-001`
+  - 最小 checkpoint 先补 `requirements.md / design.md / tasks.md`
+  - 不应在 `main` 上直接开始导航整改
+
+**遗留问题 / 下一步**：
+- [ ] 若治理批准阶段二，先申请 `grant-branch`，再执行 `ensure-branch`。
+- [ ] 阶段二的第一步应先固化 `2.0.0整改设计`，而不是立刻扩大到 Unity / 热文件写入。

@@ -74,3 +74,17 @@
   - 先回到共享根目录 `main`
   - 重新做 `preflight`
   - 若确认开整改，再切 `codex/occlusion-remediation-001`
+
+### 会话 5 - 2026-03-18
+
+- 子工作区 `导航检查` 本轮以阶段 22 的线程唤醒协议做了一次只读回包，不进入实现。
+- 当前父层重新确认的 stable 事实：
+  - shared root live 现场为 `D:\Unity\Unity_learning\Sunset @ main`
+  - 当前 `HEAD = 14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0`
+  - `git status --short --branch = ## main...origin/main`
+  - `shared-root-branch-occupancy.md` 当前为 `main + neutral`
+- `导航检查` 子线现状仍停在 `1.0.0` 审计基线，`2.0.0整改设计` 与 `requirements/design/tasks` 仍未建立。
+- 父层本轮新增稳定结论：
+  - 如果继续导航主线，下一轮必须进入 branch-only 真实写入，而不能继续把 shared root 当长期现场；
+  - 推荐 continuation branch 仍为 `codex/navigation-audit-001`；
+  - 最小 checkpoint 先固化 `2.0.0` 设计文档，再决定是否扩到 `GameInputManager / PlayerAutoNavigator / NavGrid2D` 的代码整改。

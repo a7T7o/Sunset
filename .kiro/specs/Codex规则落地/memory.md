@@ -714,3 +714,36 @@
 
 **恢复点 / 下一步**：
 - 先同步脚本补丁到 `main`，再在 clean shared root 上跑 farm 的完整闭环验证。
+
+### 会话 26 - 2026-03-18（阶段22收到导航检查阶段一回包）
+**用户目标**：
+> 从 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\可分发Prompt` 领取 `导航检查` 的专属 prompt，并完成对第一阶段 prompt 的读取和回应。
+
+**已完成事项**：
+1. 对 `导航检查` 线程手工执行了 `sunset-startup-guard` 等价 preflight，并显式按要求点名 `skills-governor`、`sunset-workspace-router`。
+2. 读取并执行：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\可分发Prompt\导航检查.md`
+3. 只读复核导航线程现场：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `HEAD = 14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0`
+   - `git status --short --branch = ## main...origin/main`
+4. 将阶段一回包写入：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\线程回收\导航检查.md`
+5. 复核 `导航检查` 当前 live 结论仍停在 `1.0.0` 审计基线：
+   - `2.0.0整改设计` 不存在
+   - `requirements.md / design.md / tasks.md` 不存在
+   - 导航核心代码仍保留 `OverlapPointAll / OverlapCircleAll / ClosestPoint / OnRequestGridRefresh` 这些审计关键事实
+
+**关键决策**：
+- `导航检查` 阶段一已完成，且已给出“建议进入阶段二”的结论。
+- 但阶段二只能按 `grant -> ensure-branch -> branch-only` 进入，不能把 shared root 直接改成导航线程长期现场。
+- `导航检查` 的最小阶段二 checkpoint 应先固化 `2.0.0` 设计文档，不直接扩大到 Unity / Play Mode 或热文件写入。
+
+**恢复点 / 下一步**：
+- 当前阶段 22 已开始收回真实线程回包，不再停留在 prompt 分发态。
+- 若治理批准，下一步为 `导航检查` 发放 `codex/navigation-audit-001` 的阶段二准入。
+### 会话 26 - 2026-03-18（阶段22分发执行：NPC阶段一回收）
+**用户目标**：要求进入 `22_恢复开发分发与回收/可分发Prompt` 领取 NPC 专属 prompt，并完成第一阶段 prompt 的读取与回应。
+**完成事项**：只读核对 shared root live Git、NPC 线程记忆 / 工作区记忆、`shared-root-branch-occupancy.md`、`mcp-single-instance-occupancy.md`、`mcp-hot-zones.md`，并将结果写入 [NPC.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/22_恢复开发分发与回收/线程回收/NPC.md)。
+**关键决策**：本轮以 live 事实为准，确认 NPC continuation branch 当前仍为 `codex/npc-roam-phase2-003 @ 7385d123`；阶段一可通过，但因 `branch_grant_state = none` 且 Unity/MCP 仍需 live verify，不能越级进入阶段二写入。
+**恢复点 / 下一步**：等待治理线程依据线程回收单裁定 NPC 是否准入阶段二。
