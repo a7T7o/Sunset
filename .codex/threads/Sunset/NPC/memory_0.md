@@ -60,3 +60,7 @@
   - `8aed637f -> f6b4db2f` 的对比表明，真正应从 NPC 线剔除的 farm 侧拖带改动是 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`。
   - `NPCPrefabGeneratorTool.cs` 保持 `f6b4db2f` 版本即可作为救援线版本；下一步最小验证应是“回退 `FarmToolPreview.cs` 后，做 Unity 编译 + `001/002/003` Prefab/动画引用检查”。
 - 当前恢复点：NPC 已经有了明确的唯一救援基线和最小收口边界，后续只需在独立 NPC 可写现场里执行剔除与验证，不需要再从 farm 搬回更多 NPC 核心文件。
+- 2026-03-18：按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\可分发Prompt\NPC.md` 领取阶段一只读唤醒 prompt，并完成只读 preflight。
+- 本轮 live 现场：`D:\Unity\Unity_learning\Sunset @ main @ 14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0`，`git status --short --branch = ## main...origin/main`，shared root 仍是 `main + neutral`。
+- 只读确认 continuation branch 当前仍为 `codex/npc-roam-phase2-003 @ 7385d1236d0b85c191caff5c5c19b08678d1cf80`。
+- 已回写线程回收单：[NPC.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/22_恢复开发分发与回收/线程回收/NPC.md)；结论是阶段一通过，但因 `branch_grant_state = none` 且 Unity / MCP 仍需 live verify，本轮不能直接进入阶段二写入。

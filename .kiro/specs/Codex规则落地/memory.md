@@ -747,3 +747,35 @@
 **完成事项**：只读核对 shared root live Git、NPC 线程记忆 / 工作区记忆、`shared-root-branch-occupancy.md`、`mcp-single-instance-occupancy.md`、`mcp-hot-zones.md`，并将结果写入 [NPC.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/22_恢复开发分发与回收/线程回收/NPC.md)。
 **关键决策**：本轮以 live 事实为准，确认 NPC continuation branch 当前仍为 `codex/npc-roam-phase2-003 @ 7385d123`；阶段一可通过，但因 `branch_grant_state = none` 且 Unity/MCP 仍需 live verify，不能越级进入阶段二写入。
 **恢复点 / 下一步**：等待治理线程依据线程回收单裁定 NPC 是否准入阶段二。
+
+### 会话 27 - 2026-03-18（阶段22分发执行：遮挡检查阶段一回收）
+**用户目标**：要求进入 `22_恢复开发分发与回收/可分发Prompt` 领取 `遮挡检查` 专属 prompt，并完成第一阶段 prompt 的读取与回应。  
+**完成事项**：只读核对 shared root live Git、`shared-root-branch-occupancy.md`、`mcp-single-instance-occupancy.md`、`mcp-hot-zones.md`、遮挡线程记忆、遮挡工作区记忆和当前治理入口；重新核对遮挡主链 live 代码 / 场景 / Prefab 证据；将阶段一结果写入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\线程回收\遮挡检查.md`。  
+**关键决策**：本轮以 live 事实为准，确认 shared root 当前是 `main + neutral + clean`；`遮挡检查` 的旧审计结论在首次 clean preflight 的 `HEAD = 14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0` 与回写收口前 latest live `HEAD = d0c6bb72ae1100b0ef5626685c6cfe1ee6a9d958` 上都仍成立；若进入阶段二，默认 continuation branch 为 `codex/occlusion-audit-001`，但 grant 未发放前不能进入真实写入。  
+**恢复点 / 下一步**：等待治理线程依据 `线程回收\遮挡检查.md` 裁定是否准入阶段二；本线程继续保持只读。
+
+### 会话 28 - 2026-03-18（阶段22阶段一全量收件，补治理裁定与统一领取入口）
+**用户目标**：阶段一已经全部回收，要求治理线程去“收件箱”接收全部结果，并把“统一群发先去领取专属 prompt”的模式固化成正式流程规范，之后类似群发都按这个模式走。  
+**完成事项**：
+1. 复核当前 live 现场为 `D:\Unity\Unity_learning\Sunset @ main @ d0c6bb72`，当前 dirty 来自阶段 22 治理回写和线程 memory 回写，不属于 shared root 失控。
+2. 正式审阅 5 张阶段一回收卡，并把治理裁定回写进：
+   - `线程回收/NPC.md`
+   - `线程回收/农田交互修复V2.md`
+   - `线程回收/spring-day1.md`
+   - `线程回收/导航检查.md`
+   - `线程回收/遮挡检查.md`
+3. 新增统一群发领取入口：
+   - `22_恢复开发分发与回收/可分发Prompt/00_统一群发领取入口.md`
+4. 新增阶段一审核汇总：
+   - `22_恢复开发分发与回收/阶段一审核结论与阶段二分发建议.md`
+5. 修正 5 份专属 prompt 中写死的 `HEAD = 9b14814b`，统一改为“以 live preflight 为准”。
+6. 更新阶段 22 `总入口_如何分发与回收.md`、`tasks.md`、`memory.md`，把“统一群发入口 + 固定收件箱 + 串行阶段二”固化为当前标准流程。
+
+**关键决策**：
+- 现在的标准群发方式已经不是手工复制每个线程的专属 prompt，而是先群发统一入口，让线程自己去 `可分发Prompt/` 领取同名文件。
+- 阶段一 5 条线程全部通过，但阶段二不能一起开。
+- 推荐 `导航检查` 作为低风险首个阶段二准入对象；`农田交互修复V2 / spring-day1 / NPC` 共享下一个业务写入槽位；`遮挡检查` 放在导航之后更稳妥。
+
+**恢复点 / 下一步**：
+- 如要立即恢复真实开发，先单发 `导航检查` 的阶段二 prompt，做一次 docs-only 的低风险闭环验证。
+- 导航闭环通过后，再按用户业务优先级从 `农田交互修复V2 / spring-day1 / NPC` 三者中选一条进入下一槽位。

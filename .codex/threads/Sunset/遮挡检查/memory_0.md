@@ -175,3 +175,53 @@
 **恢复点 / 下一步**：
 - 当前主线已具备明确的 branch-only 路由口径。
 - 如果后续开整改，先回到 `main` 做 `preflight`，确认现场干净度和热文件占用，再创建新的遮挡整改分支。
+
+### 会话 5 - 2026-03-18
+
+**用户目标**：
+- 领取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\可分发Prompt\遮挡检查.md` 里的专属 prompt，并完成第一阶段 prompt 的读取与回应。
+
+**当前主线目标**：
+- 维持 `遮挡检查` 作为只读审计线程，在 shared root 已恢复 `main + neutral` 的前提下，把阶段一回收结果正式写入治理收件箱，而不是直接进入整改。
+
+**本轮子任务 / 阻塞**：
+- 子任务是治理侧的“阶段一回收落盘”，不是遮挡功能开发。
+- 当前技术阻塞已经不在 shared root 脏树，而在流程边界：阶段二 grant 尚未发放，不能越过第一阶段直接进入写入。
+
+**已完成事项**：
+1. 读取并执行：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\可分发Prompt\遮挡检查.md`
+2. 复核当前 live Git：
+   - 工作目录：`D:\Unity\Unity_learning\Sunset`
+   - 分支：`main`
+   - `HEAD`：首次 clean preflight = `14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0`；回写收口前 latest live = `d0c6bb72ae1100b0ef5626685c6cfe1ee6a9d958`
+   - `git status --short --branch`：`## main...origin/main`
+3. 读取并确认：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前唯一状态说明_2026-03-17.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\遮挡检查\memory.md`
+4. 重新核对当前 live 遮挡证据：
+   - `OcclusionManager.cs` 仍按 `OcclusionTransparency` 组件集合维护树林与遮挡
+   - `OcclusionTransparency.cs` 仍保留双层结构、像素采样和 `GetPixel` 路径
+   - `TreeController.cs` 仍只拿当前节点上的 `OcclusionTransparency`
+   - 树 Prefab 仍存在父/子双 `OcclusionTransparency`
+   - `GameInputManager.cs` 与 `PlayerToolHitEmitter.cs` 仍保持点击 / 工具双标准
+5. 将第一阶段回收结果写入：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\线程回收\遮挡检查.md`
+
+**关键决策**：
+- 当前最稳的口径仍是：“遮挡审计成果仍成立，但本线程现在只停在阶段一回收，不直接进入整改。”
+- 如果后续进入阶段二，默认 continuation branch 使用：
+  - `codex/occlusion-audit-001`
+- 最小 checkpoint 仍是先验证并收口“树 Prefab 父/子双 `OcclusionTransparency` 是否为当前误判主根因”，不应一上来扩大到 `Primary.unity` 或 `GameInputManager.cs`。
+
+**验证结果**：
+- shared root 当前确实是 `main + neutral + clean`
+- `mcp-single-instance-occupancy.md` 当前 `current_claim = none`，但这不等于允许直接写 Unity / MCP 热区
+- 第一阶段 prompt 内写死的 `HEAD = 9b14814b` 已过时；本轮先在 clean preflight 上取到 `14838753...`，回写收口前 latest live 又前移到 `d0c6bb72ae1100b0ef5626685c6cfe1ee6a9d958`
+
+**恢复点 / 下一步**：
+- 等治理线程读取 `线程回收\遮挡检查.md` 并裁定是否发放阶段二 grant。
+- grant 到位前，本线程继续保持只读，不执行 `ensure-branch`，也不进入真实开发。
