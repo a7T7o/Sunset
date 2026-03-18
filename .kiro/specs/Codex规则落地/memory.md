@@ -6,13 +6,13 @@
 - 让 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地` 成为 L5 之后唯一有效的治理续办总入口。
 - 当前治理主线已切换为：
   - `20_shared-root现场回正与物理闸机落地`
-- 本轮重点不再是宣称“已经收口”，而是先把 live 现场回正，再把 rules / skills / AGENTS 升级成真正的物理闸机。
+- 本轮重点已经从“回正现场”推进到“阶段 20 封板与常态恢复”；后续若继续治理，应另立新阶段承接自动 wrapper 或更强的 session 级闸机。
 
 ## 当前状态
-- **用户视角完成度（恢复正常开发）**：0%
-- **治理续办总盘状态**：`20` 进行中；`09/11/12` 转为历史基础层
+- **用户视角完成度（恢复正常开发）**：shared root 已恢复常态，可重新进入 branch-only 开发
+- **治理续办总盘状态**：`20` 已完成；`09/11/12` 为历史基础层
 - **最后更新**：2026-03-18
-- **状态**：shared root live 现场失真，`20` 已正式接管
+- **状态**：阶段 20 已完成收口，当前无新的 live 治理阻塞
 
 ## 当前阶段目录
 - `09_强制skills闸门与执行规范重构`
@@ -34,27 +34,31 @@
   - `NPC` 合法 carrier：`codex/npc-roam-phase2-002 @ 6e2af71b`
   - `spring-day1` clean checkpoint：`codex/spring-day1-story-progression-001 @ a9c952b7`
 - `11` 与 `12` 的历史文档结论仍保留，但 `2026-03-18` 的 live 现场已证明：
-  - shared root 当前并不在 `main`
-  - `git worktree list` 也未维持在预期终局
-  - 因此新的 live 回正与硬闸机工作已迁移到 `20`
-- 当前 live 事实是：
-  - `D:\Unity\Unity_learning\Sunset @ codex/npc-roam-phase2-003 @ 2ecc2b753ea711557baca09432d0c7e3760cb3f7`
-  - shared root 仍有 mixed dirty / untracked
-  - farm cleanroom worktree 仍真实存在
+  - 旧口径无法阻止现场再次失真
+  - 因此新的 live 回正与硬闸机工作迁移到 `20`
+- 当前 live 事实已经变为：
+  - `D:\Unity\Unity_learning\Sunset @ main`
+  - `shared-root-branch-occupancy.md` 当前为 `main + neutral`
+  - `git worktree list --porcelain` 只剩 shared root
+  - `obra/superpowers` 已复审并维持 `rejected-as-is`
+  - `C:\Users\aTo\.agents\skills\` 已暴露 `skill-vetter / skills-governor / sunset-startup-guard`
+- 当前唯一剩余物理尾巴是：
+  - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+  - 已无 Git 身份，只剩被占用的空目录残壳
 
 ## 当前最高优先级
-1. 推进 `20_shared-root现场回正与物理闸机落地`，先形成经审核的现场回正 runbook。
-2. 在 `20` 内给出 `git-safe-sync.ps1` / preflight 的物理闸机改造方案。
-3. 把 `09/11/12` 明确降级为历史基础层，避免后续再次误读旧快照。
+1. 以 `20` 作为已封板的最新治理基线，分发五线程唤醒 prompt 并恢复正常 branch-only 开发。
+2. 若用户继续要求更强的 session 级命中或自动 claim/release wrapper，另立新阶段承接，不回填 `20`。
+3. 仅在外部进程释放后，顺手删除 `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001` 的空目录残壳。
 
 ## 当前恢复点
-- `20` 下一步：
-  - 固化 shared root 现场回正 runbook
-  - 固化物理闸机最小实现清单
-  - 等用户审核后再进入下一轮实操
-- `09/11/12` 下一步：
-  - 只保留历史结论、阶段证据与迁移说明
-  - 不再承担当前 live 回正主线
+- `20` 已完成，不再继续接收新尾巴。
+- 当前若恢复业务推进：
+  - 从 shared root 的 `main` 进入
+  - 先 preflight
+  - 再 `ensure-branch`
+  - 到 checkpoint 即归还
+- 下一轮治理若要继续，主题应是“自动 wrapper / session 级强闸机”，而不是再次解释 worktree 退役。
 
 ## 最近会话
 
@@ -451,3 +455,40 @@
 - 完成 neutral 回填。
 - 输出全线程唤醒清单。
 - 再审视是否需要另立后续阶段承接 superpower / wrapper 化约束。
+
+### 会话 16 - 2026-03-18（阶段 20 封板与 superpower 本地适配收口）
+**用户目标**：
+> 把阶段 20 做到真正可验收，不只保留脚本和 runbook，还要把 superpower 复审、本地技能原生暴露、五线程唤醒 prompt 和全局技能层回写一并做完。
+
+**已完成事项**：
+1. 复审 `obra/superpowers`，确认：
+   - 可吸收“先过技能闸门再行动”的方法论
+   - 不接受其 `worktree-first` 与私有 Skill 工具前提
+   - 继续维持 `rejected-as-is`
+2. 把本地闸门技能暴露到 `C:\Users\aTo\.agents\skills\`：
+   - `skill-vetter`
+   - `skills-governor`
+   - `sunset-startup-guard`
+3. 在 `20` 内新增五线程复工清单：
+   - `wakeup-prompts.md`
+4. 同步更新：
+   - 阶段 `20` 记忆
+   - 根层 `Codex规则落地/memory.md`
+   - 线程 `memory_0.md`
+   - 全局 `global-skill-registry.md`
+   - 全局 `global-learnings.md`
+5. 核查仓库外历史容器：
+   - `Sunset_external_archives` 不存在
+   - `Sunset_backups` 不存在
+6. 保留并记录唯一剩余物理尾巴：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+   - 当前只是被占用的空目录残壳，不再拥有 Git 身份
+
+**关键决策**：
+- 阶段 20 到此正式封板。
+- 现在的治理基线已经能支撑恢复正常 branch-only 开发。
+- 如果后续继续追求自动 claim/release wrapper 或更强的 session 级强制技能命中，应新开阶段承接，不再污染已完成的 `20`。
+
+**恢复点 / 下一步**：
+- 当前可直接分发 `wakeup-prompts.md`。
+- 业务线程恢复时统一按 `main-common + branch-task + checkpoint-first + merge-last` 执行。

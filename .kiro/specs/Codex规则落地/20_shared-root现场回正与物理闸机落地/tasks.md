@@ -99,6 +99,20 @@
   - 切回 `main`
   - 不留 unrelated dirty
 
+### E. superpower 本地适配与唤醒收口
+- [x] 复审 `obra/superpowers` 与其 Codex 适配入口，明确维持 `rejected-as-is`
+- [x] 把兼容的本地闸门技能暴露到 `C:\Users\aTo\.agents\skills\`：
+  - `skill-vetter`
+  - `skills-governor`
+  - `sunset-startup-guard`
+- [x] 产出 [wakeup-prompts.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/20_shared-root现场回正与物理闸机落地/wakeup-prompts.md)，供 `NPC / farm / spring-day1 / 导航检查 / 遮挡检查` 复工使用
+- [x] 复核仓库外历史容器：
+  - `D:\Unity\Unity_learning\Sunset_external_archives` 不存在
+  - `D:\Unity\Unity_learning\Sunset_backups` 不存在
+- [x] 记录唯一剩余物理尾巴：
+  - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001` 已无 Git 身份，只剩被外部进程占用的空目录残壳
+- [ ] 若后续继续做 shared root 自动 claim/release wrapper 或 session 级强制命中包装器，另立新阶段承接，不再回写本阶段
+
 ## 当前裁定
 - `20` 是当前新的治理主线。
 - `09/11/12` 只保留历史作用，不再继续承接这轮 live 回正。

@@ -79,3 +79,44 @@
   - shared root owner/lease 未满足即阻断
   - Play Mode 未退回 Edit Mode 不允许交还
 - `09/11/12` 不再被误读为“当前仍在执行中的 live 阶段”
+
+## 9. 最终执行结果（2026-03-18）
+- A 阶段 Git 外科已经执行并完成：
+  - `codex/npc-roam-phase2-003` 已从错位提交 `2ecc2b75` 回正到 `c81d1f99`
+  - 远端回正使用了 `push --force-with-lease`
+  - shared root 已切回 `main`
+- 阶段 20 的治理同步已经完成并推上 `main`
+- 当前 live Git 口径是：
+  - `D:\Unity\Unity_learning\Sunset @ main`
+  - `git status --short --branch` clean
+  - `git stash list` empty
+  - `git worktree list --porcelain` 只剩 shared root
+
+## 10. superpowers 复审结论
+- 这轮已重新审查 `obra/superpowers` 的 Codex 适配入口，证据包括：
+  - `D:\Temp\superpowers-vet\.codex\INSTALL.md`
+  - `D:\Temp\superpowers-vet\skills\using-superpowers\SKILL.md`
+  - `D:\Temp\superpowers-vet\skills\using-git-worktrees\SKILL.md`
+- 可吸收部分：
+  - “先过技能闸门再行动”的纪律
+  - 通过原生 skill discovery 让技能在新会话里自动可见
+- 不可原样接管部分：
+  - `using-git-worktrees` 把 worktree 当默认 feature isolation，这与 Sunset 的 `worktree = exception-only` 正面冲突
+  - `using-superpowers` 假定平台有统一 Skill 工具和它自己的强制技能总入口，不适合作为 Sunset 当前环境的原样接管包
+- 最终裁定：
+  - `obra/superpowers` 继续保持 `rejected-as-is`
+  - Sunset 采用“本地化吸收”而不是“原版整包安装”
+  - 已把本地核心闸门 skill 暴露到 `C:\Users\aTo\.agents\skills\`：
+    - `skills-governor`
+    - `skill-vetter`
+    - `sunset-startup-guard`
+  - 这意味着后续新会话重启后，可以同时依赖：
+    - repo / 全局 AGENTS 的显式规则
+    - 原生 skill discovery 对核心闸门技能的发现
+
+## 11. 剩余唯一物理尾巴
+- `Sunset_external_archives` 与 `Sunset_backups` 当前都不存在，不构成尾巴
+- 当前唯一剩余物理尾巴是：
+  - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+- 它已经不再是 Git worktree，只是一个空目录残壳
+- 当前尝试物理删除时仍被外部进程占用，因此不在本阶段强删；应在占用释放后直接删空目录即可

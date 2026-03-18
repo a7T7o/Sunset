@@ -10,7 +10,7 @@
 - owner_mode: `neutral-main-ready`
 - owner_thread: `none`
 - current_branch: `main`
-- last_verified_head: `2966daa5`
+- last_verified_head: `3d305036`
 - is_neutral: `true`
 - lease_state: `neutral`
 - blocking_dirty_scope: `none`

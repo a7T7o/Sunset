@@ -5,18 +5,24 @@
 - 先把 shared root 从混线现场回正，再把 rules / skills / AGENTS 升级成真正的物理闸机。
 
 ## 当前状态
-- **阶段状态**：进行中，待用户审核
+- **阶段状态**：已完成
 - **最后更新**：2026-03-18
-- **阶段定位**：文档先行；暂不直接执行 Git 手术
+- **阶段定位**：live 回正、最小物理闸机、superpower 本地适配与线程唤醒清单均已收口
 
 ## 当前稳定结论
-- 当前 live 现场已推翻旧的“shared root 已稳定回到 `main`、`worktree` 已彻底退役”的口径。
-- 问题根本原因不是“并发这个目标错了”，而是：
-  - 错分支继续写入没有被物理阻断
-  - owner 未归还没有被强制拦停
-  - 文档型规则无法替代脚本级闸机
-- Gemini 的高层诊断可以吸收，但它给出的 Git 手术命令序列仍需进入本阶段 runbook 审核，不能直接视为已批准执行。
-- 用户已经人为冻结新的实质性写入，因此本阶段可以先专注文档、清单与方案，不急于继续扩散现场。
+- shared root 已恢复为 `main + neutral`，当前默认开发模型重新固定为 `main-common + branch-task + checkpoint-first + merge-last`。
+- 第一波分支语义闸机、第二波 shared root 最小闸机、A 阶段 runbook 与 D 阶段 operating model 都已进入 `main`。
+- `obra/superpowers` 已完成复审：
+  - 保留其“先过技能闸门再行动”的方法论
+  - 不接受其 `worktree-first` 与私有 Skill 工具假设
+  - 最终维持 `rejected-as-is`
+- 这轮真正落地的 superpower 化方式是：
+  - repo / 全局 `AGENTS.md`
+  - `git-safe-sync.ps1` 物理闸机
+  - `C:\Users\aTo\.agents\skills\` 下的本地原生技能暴露
+- 当前唯一未清空的物理尾巴只剩：
+  - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+  - 它已不再是 Git worktree，只是被外部进程占用的空目录残壳
 
 ## 会话记录
 
@@ -216,3 +222,37 @@
 **恢复点 / 下一步**：
 - 再做最后一次 tiny governance sync。
 - 收尾后输出全线程唤醒清单与 superpower / skills 审视结论。
+
+### 会话 7 - 2026-03-18（superpower 复审、本地原生技能暴露与唤醒收口）
+**用户目标**：
+> 不要只停在“阶段 20 已经有脚本闸机”；还要把 superpower 式强制技能命中的诉求真正落到本地环境里，并把最终可分发的线程唤醒 prompt、全局技能注册和 learnings 一并收完。
+
+**已完成事项**：
+1. 重新复审 `obra/superpowers` 相关证据：
+   - `D:\Temp\superpowers-vet\.codex\INSTALL.md`
+   - `D:\Temp\superpowers-vet\skills\using-superpowers\SKILL.md`
+   - `D:\Temp\superpowers-vet\skills\using-git-worktrees\SKILL.md`
+2. 明确最终裁定：
+   - 原版继续 `rejected-as-is`
+   - 只吸收“技能闸门先行”的方法论
+   - 不接受 `worktree-first` 与私有 Skill 工具前提
+3. 在本机完成原生 discovery 暴露：
+   - `C:\Users\aTo\.agents\skills\skill-vetter`
+   - `C:\Users\aTo\.agents\skills\skills-governor`
+   - `C:\Users\aTo\.agents\skills\sunset-startup-guard`
+4. 新增 [wakeup-prompts.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/20_shared-root现场回正与物理闸机落地/wakeup-prompts.md)，产出 `NPC / farm / spring-day1 / 导航检查 / 遮挡检查` 五线程复工 prompt。
+5. 补做外部目录核查：
+   - `D:\Unity\Unity_learning\Sunset_external_archives` 不存在
+   - `D:\Unity\Unity_learning\Sunset_backups` 不存在
+6. 识别并保留唯一剩余物理尾巴：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\farm-1.0.2-cleanroom001`
+   - 仅剩无 Git 身份的空目录残壳，当前删除失败原因是外部进程占用
+
+**关键决策**：
+- “superpower 式强制命中”在 Sunset 的落地方式，不是把第三方整包直接装进来，而是把兼容的本地治理技能暴露到原生 discovery，再由 repo 级闸机脚本负责硬阻断。
+- 阶段 20 到此完成；如果后续继续追求自动 claim/release wrapper、session 级包装器或更强的原生闸机，需要另立新阶段，不再回填本阶段。
+
+**恢复点 / 下一步**：
+- 阶段 20 已无新的 live 阻塞。
+- 现在可以直接分发 `wakeup-prompts.md` 给五个线程。
+- 若用户要继续深化自动 wrapper 或更强的 session 级闸机，再从新的治理阶段开工。
