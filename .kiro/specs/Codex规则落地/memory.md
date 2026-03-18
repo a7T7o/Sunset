@@ -525,3 +525,29 @@
 
 **恢复点 / 下一步**：
 - 若用户认可，下一阶段应先把 `第一次唤醒/` 目录纳入治理证据，再在 `21` 内实现新闸机与新 prompt 模型。
+
+### 会话 18 - 2026-03-18（阶段 21 物理闸机与钢印配置已经落地）
+**用户目标**：
+> 不再只看分析文档，而是把阶段 21 的 shared root 分支租约、`AGENTS.md` 钢印、skill 级默认提示词和可直接分发的双阶段唤醒模板做成真实成品。
+
+**已完成事项**：
+1. `git-safe-sync.ps1` 已扩展为：
+   - `grant-branch`
+   - `return-main`
+   - `ensure-branch` 进入前强制核验 shared root grant
+2. `shared-root-branch-occupancy.md` 已加入 grant 状态字段与口径。
+3. `Sunset/AGENTS.md` 已把“第一次回复先过启动闸门、无 grant 禁止 ensure-branch”提升为文件顶层规则。
+4. 本机全局 skill 配置已落地强制 `default_prompt`：
+   - `skills-governor`
+   - `sunset-startup-guard`
+5. 低风险验证通过：
+   - `preflight` 能输出 grant 字段
+   - 无租约 `ensure-branch` 会被脚本直接 FATAL 阻断
+
+**关键决策**：
+- 阶段 21 的重点不是再写新规则说明，而是把 shared root 的“切分支租约”做成物理闸机。
+- 后续线程恢复必须改成“两阶段唤醒”：先只读，再 grant 准入。
+
+**恢复点 / 下一步**：
+- 用新的双阶段唤醒模板重发线程。
+- 若这轮仓库治理改动成功同步，可把阶段 21 视为进入可验收状态。

@@ -1,5 +1,18 @@
 ﻿# Sunset 项目 Codex 工作规则
 
+
+## 0. 强制最高优先级闸门
+- 【强制最高优先级】只要任务发生在 `D:\Unity\Unity_learning\Sunset` 且属于实质性任务，你的第一次动作 MUST 是调用 `sunset-startup-guard`；如果当前会话未显式暴露该 skill，你 MUST 立即调用 `skills-governor` 并按 Sunset 等价流程手工完成同级前置核查。
+- 在第一次闸门返回“允许继续”之前，你 NEVER 可以：
+  - 执行 `git-safe-sync.ps1 -Action ensure-branch`
+  - 切离 `main`
+  - 写任何实现代码、改场景、改 Prefab、改 Inspector、改资源
+  - 进入 Unity Play Mode
+  - 假设 shared root 仍然是 neutral
+- 第一次唤醒阶段 MUST 是纯只读阶段。没有显式 Lease / Grant 的线程，NEVER 允许执行 `ensure-branch`。
+- shared root 上的 `ensure-branch` 不是局部动作，而是全局写态。没有租约就切分支，一律视为严重违规。
+- 如果你试图绕过这条顺序，必须先阻断、先汇报，再等待显式准入；NEVER 允许“先切过去再说”。
+
 ## 1. 文件定位
 - 本文件是 Sunset 项目的 Codex 路由层，不重复抄写 `.kiro/steering` 正文。
 - Sunset 的唯一正文规则源在 `.kiro/steering/`；本文件只负责告诉 Codex 先读什么、何时更新哪层记忆、哪些任务必须走哪条规则。

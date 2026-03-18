@@ -520,3 +520,29 @@
 
 **恢复点 / 下一步**：
 - 若用户同意，下一步就该把 `第一次唤醒/` 证据纳入治理工作区，并以 `21` 继续推进。
+
+### 会话 18 - 2026-03-18（阶段 21 进入物理落地）
+**用户目标**：
+> 不再反复讨论原理，要求直接产出并尽量落地：`git-safe-sync.ps1` 的 shared root 租约闸机、`AGENTS.md` 钢印、两个 skill 的 `default_prompt`、以及双阶段唤醒模板。
+
+**已完成事项**：
+1. 在 shared root 仓库内完成：
+   - `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+   的物理改造。
+2. 在本机全局 skill 目录完成：
+   - `C:\Users\aTo\.codex\skills\skills-governor\agents\openai.yaml`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\agents\openai.yaml`
+   的强制钢印配置。
+3. 已完成两次低风险验证：
+   - `preflight` 正常读取 grant 字段
+   - 无 grant 的 `ensure-branch` 被脚本 FATAL 阻断
+
+**关键决策**：
+- 这轮以后，shared root 上的 `ensure-branch` 不再允许在第一次唤醒阶段出现。
+- 第一次唤醒只读、第二次 grant 准入的协议已成为新的恢复入口模型。
+
+**恢复点 / 下一步**：
+- 将仓库内治理文件白名单同步到 `main`。
+- 输出最终标准版双阶段唤醒 Prompt，供后续重新唤醒业务线程。

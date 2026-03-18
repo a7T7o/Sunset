@@ -13,6 +13,10 @@
 - last_verified_head: `3d305036`
 - is_neutral: `true`
 - lease_state: `neutral`
+- branch_grant_state: `none`
+- branch_grant_owner_thread: `none`
+- branch_grant_branch: `none`
+- branch_grant_updated: `none`
 - blocking_dirty_scope: `none`
 - daily_policy: `main-common + branch-task + checkpoint-first + merge-last`
 - worktree_policy: `exception-only`
@@ -24,6 +28,9 @@
 - 当 `current_branch = main` 但 `is_neutral = false` 时：
   - 说明默认入口模型仍是 `main + branch-only`，但 shared root 当下不是可直接切分支的干净现场。
   - 必须先做 preflight，核清当前 dirty 归属，再决定是否允许继续进入业务分支。
+- 当 `lease_state = branch-granted` 时：
+  - 说明 shared root 仍停在 `main`，但“切出任务分支”的独占租约已经发给某个线程。
+  - 没拿到 grant 的线程，禁止执行 `ensure-branch`。
 - 但这不替代 Unity / MCP 单实例层；进入 Editor / MCP 读写前仍要再核：
   - `mcp-single-instance-occupancy.md`
   - `mcp-hot-zones.md`
@@ -37,6 +44,7 @@
 - 当 `current_branch = main` 且 `is_neutral = true` 时：
   - shared root 已恢复为默认进入现场。
   - 业务线程可以重新按 `main-common + branch-task + checkpoint-first + merge-last` 模型进入。
+  - 但真正执行 `ensure-branch` 前，仍必须先拿到显式 grant。
 
 ## 一句话口径
-- 当前 shared root 已恢复为 `main + neutral`；后续线程应先从 shared root 进入，再按闸机切入各自的 `codex/...` 分支，到 checkpoint 即归还。
+- 当前 shared root 已恢复为 `main + neutral`；后续线程应先从 shared root 进入，先拿 grant，再按闸机切入各自的 `codex/...` 分支，到 checkpoint 即归还。

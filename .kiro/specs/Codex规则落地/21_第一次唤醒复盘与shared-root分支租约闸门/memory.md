@@ -55,3 +55,37 @@
   - 脚本补强
   - `AGENTS.md` / `openai.yaml` 认知钢印
   - 双阶段唤醒 prompt
+
+### 会话 2 - 2026-03-18（阶段 21 物理闸机与钢印配置落地）
+**用户目标**：
+> 不再停留在规划或原理解说，直接把 shared root 分支租约闸机、`AGENTS.md` 钢印、skill `default_prompt` 和双阶段唤醒模板落到物理文件，并给出可验收成品。
+
+**已完成事项**：
+1. 在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 落地 shared root 分支租约机制：
+   - 新增 `grant-branch`
+   - 新增 `return-main`
+   - `ensure-branch` 从 shared root 的 `main` 进入前必须先通过 `Assert-SharedRootBranchGrant`
+2. 在 `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md` 增补 grant 字段与解释口径：
+   - `branch_grant_state`
+   - `branch_grant_owner_thread`
+   - `branch_grant_branch`
+   - `branch_grant_updated`
+3. 把强制钢印块插到 `D:\Unity\Unity_learning\Sunset\AGENTS.md` 最顶部，明确：
+   - 第一次回复先过 `sunset-startup-guard` / `skills-governor`
+   - 没有显式 Lease / Grant 前，禁止 `ensure-branch`
+   - 第一次唤醒阶段必须纯只读
+4. 在本机 live skill 配置中落地强制 `default_prompt`：
+   - `C:\Users\aTo\.codex\skills\skills-governor\agents\openai.yaml`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\agents\openai.yaml`
+5. 低风险验证通过：
+   - `preflight` 可正常读取并输出 grant 字段
+   - 用匹配线程名的假分支执行 `ensure-branch` 时，会被“未拿到独占分支租约”硬阻断
+
+**关键决策**：
+- shared root 上的 `ensure-branch` 正式被定性为全局写态，不再允许把它当成线程局部动作。
+- 第一次唤醒与第二次正式进入业务分支必须分成两阶段；第一次只读，第二次先发 grant 再准入。
+- `superpowers` 继续只吸收“认知钢印 + 前置闸门”的灵魂，不引入其 worktree-first 实现。
+
+**恢复点 / 下一步**：
+- 产出并分发新的双阶段唤醒模板。
+- 仓库内治理文件完成白名单同步后，可按新闸机重新组织业务线程恢复。
