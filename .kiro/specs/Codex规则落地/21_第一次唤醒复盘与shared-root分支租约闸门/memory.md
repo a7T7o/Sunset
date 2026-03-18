@@ -244,3 +244,28 @@
   1. `路径 B` 的锐评裁决
   2. `TD_14` 已登记确认
   3. 可直接发给 farm 的阶段二重测 Prompt
+
+### 会话 24 - 2026-03-18（TD_14 与锐评裁决已同步，现场重新回到可重测状态）
+**用户目标**：
+> 不只要结论，还要把“自动化 hook 先列代办、当前先恢复开发能力”真正固化到仓库里，让后续 farm 重测基于稳定现场进行。
+
+**已完成事项**：
+1. 已将以下文件同步到 `main`：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex\TD_14_自动化skill触发日志Hook待办.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\21_第一次唤醒复盘与shared-root分支租约闸门\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Codex规则落地\memory_0.md`
+2. governance sync 提交已创建并推送：
+   - `98fc19e6 / 2026.03.18-10`
+3. 当前 shared root 再次确认：
+   - `main`
+   - `is_neutral = true`
+   - `branch_grant_state = none`
+   - `git status clean`
+
+**关键决策**：
+- 当前现场已经重新回到“可发放 grant、可执行 farm 阶段二重测”的开发恢复点。
+- 自动化 hook 仍停留在 TD 层，不占用当前恢复窗口。
+
+**恢复点 / 下一步**：
+- 下一步直接进入 farm 的阶段二 Lease / Grant 与准入重测。
