@@ -151,3 +151,42 @@
 **恢复点 / 下一步**
 - 若用户现在要开始恢复真实开发，建议先给 `导航检查` 发阶段二，完成一次低风险 `grant -> ensure-branch -> checkpoint -> return-main` 闭环。
 - 导航闭环完成后，再从 `农田交互修复V2 / spring-day1 / NPC` 中按业务优先级选择下一写入线程。
+
+## 2026-03-18｜导航检查阶段二已完成 docs-first 闭环
+
+**当前主线目标**
+- 当前主线仍是“通过阶段 22 组织恢复开发”，本轮子任务是验证 `导航检查` 能否完成一次低风险阶段二闭环。
+
+**本轮已完成**
+- 重新核对阶段二前提成立：
+  - `D:\Unity\Unity_learning\Sunset @ main`
+  - `HEAD = 6b32ac248a67ad9bab37f68d7fab2d8757a28b21`
+  - `git status --short --branch = ## main...origin/main`
+  - occupancy = `neutral`
+- 已执行：
+  - `git-safe-sync.ps1 -Action grant-branch -OwnerThread "导航检查" -BranchName "codex/navigation-audit-001"`
+  - `git-safe-sync.ps1 -Action ensure-branch -OwnerThread "导航检查" -BranchName "codex/navigation-audit-001"`
+- `导航检查` 已在 `codex/navigation-audit-001` 上完成最小 checkpoint，并已推送：
+  - 提交：`71905387`
+  - 产物：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\requirements.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\design.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\tasks.md`
+- 已执行 `return-main`，当前 shared root 已回到 `main`。
+- 已将阶段二结果回写到：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\线程回收\导航检查.md`
+
+**关键结论**
+- 阶段 22 现在已经完成了第一条真正的阶段二闭环，不再只有阶段一只读回收。
+- `导航检查` 的低风险路线成立：
+  - 先 branch-only 准入
+  - 只做 docs-first checkpoint
+  - 不碰 Unity / Play Mode / 热文件
+  - 完成后 return-main 归还 shared root
+- 这证明当前 shared root 的 `grant -> ensure-branch -> task sync -> return-main` 流程对低风险文档线程是可工作的。
+
+**恢复点 / 下一步**
+- 若继续导航主线，下一跳应直接回到 `codex/navigation-audit-001`，从 `T1-T3` 开始进入真实代码整改准备。
+- 治理侧下一步可决定：
+  - 继续让 `导航检查` 承接代码整改
+  - 或切换到下一条业务线程占用阶段二槽位
