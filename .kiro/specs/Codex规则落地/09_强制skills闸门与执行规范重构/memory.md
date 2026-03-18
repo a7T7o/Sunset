@@ -150,3 +150,37 @@
 **恢复点 / 下一步**：
 - `09` 的强制执行面已继续加厚。
 - 后续若还要深化治理，应继续围绕“启动闸门稳定命中”和“shared root 实时占用真相”展开，而不是回退到 `11/12`。
+
+### 会话 5 - 2026-03-18（live 现场推翻旧“已回 main + 无 worktree”口径）
+**用户目标**：
+> 不要再照旧文档自我安慰，而是基于 live Git、线程回包和真实并发事故彻底反思：为什么 rules/skills 做了很多轮仍然没有变成硬闸门，为什么项目又回到了“大规模 dirty -> 冻结 -> 清理 -> 再次 dirty”的循环；本轮先给出恢复正常开发进度的判断，不先动 Git。
+
+**完成事项**：
+1. 重新实核 shared root 当前现场：
+   - `D:\Unity\Unity_learning\Sunset`
+   - `git branch --show-current -> codex/npc-roam-phase2-003`
+   - `HEAD -> 2ecc2b753ea711557baca09432d0c7e3760cb3f7`
+   - `git status --short --branch` 仍有两份 farm memory dirty，加上 `2026.03.18线程并发讨论` 未跟踪目录
+2. 复核 `git worktree list --porcelain`，确认 farm cleanroom worktree 仍真实存在；因此“worktree 已彻底退役”“shared root 已稳定回到 main”的旧口径已被 live 事实推翻。
+3. 通读 `2026.03.18线程并发讨论` 下 `NPC / spring-day1 / 农田交互修复V2 / 导航检测 / 遮挡检查` 的回包，锁定真实事故链：
+   - NPC 把 shared root 切到自己的分支后没有归还
+   - 导航检测又在该 NPC 分支上继续提交了 `2ecc2b75`
+   - farm 在 shared root 留下两份 memory dirty
+   - `spring-day1` 因现场非中性而拒绝重入
+4. 形成本阶段最重要的反思结论：问题不是“并发天然不行”，而是“单 shared root 下的真实写入没有被物理闸门阻断”；当前 skills / AGENTS / 占用文档仍主要停留在说明层，没有变成 checkout / commit 前的强制阻断。
+
+**关键决策**：
+- 现在不能再边写边治理、边污染边解释；恢复开发前必须先完成一次“现场回正”。
+- 恢复路线固定为：
+  1. 先冻结 shared root 的新增写入，只允许只读核查
+  2. 由当前 owner 先归还 shared root，而不是等整条业务线“全做完”
+  3. shared root 回到 clean `main` 后，再恢复 `main-common + branch-task + checkpoint-first`
+  4. 读线程可并发，真实写线程必须串行；到 checkpoint 就提交、推送、回 `main`、退回 Edit Mode、释放锁
+- 后续治理主线仍归 `09`，但重点不再是“补更多说明文档”，而是把“规则存在”升级成“规则不满足就直接停”。
+
+**遗留问题**：
+- [ ] shared root 当前 owner 归还动作尚未执行
+- [ ] `2ecc2b75` 这次导航误落在 NPC 分支上的提交尚未剥离
+- [ ] live 入口文档与 occupancy 口径尚未追上真实 Git
+- [ ] `git-safe-sync.ps1` / preflight 仍未具备“分支不匹配即 exit 1”的硬阻断
+- [ ] shared root 单写者 lease、checkout guard、Play Mode 离场归还，还没有形成真正的代码级闸门

@@ -1,5 +1,13 @@
 # 12_治理工作区归位与彻底清盘 - 工作区记忆
 
+## 2026-03-18 迁移说明
+- 本阶段保留“治理工作区归位”和“代办区降级为 TD 镜像”的历史结论。
+- 但后续 live 现场重新失真后，新的主线已不再是工作区迁移，而是：
+  - shared root 现场回正
+  - 物理闸机落地
+- 当前请改读：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\20_shared-root现场回正与物理闸机落地`
+
 ## 当前主线目标
 - 把 Sunset 的治理正文工作区正式迁到 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地`。
 - 把 `000_代办/codex` 降级为只负责记录和读取 TD 的镜像层。

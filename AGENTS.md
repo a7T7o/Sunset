@@ -92,6 +92,7 @@
 - 本项目的 Git 收尾顺序固定为：先按工作区规则更新工作区记忆，再更新线程记忆，最后执行 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`。
 - 任何 Sunset 实质性工作在完成记忆更新后，只要当前改动已经达到可提交状态，Codex 就必须继续执行 Git 安全同步，而不是停在“本地已改完但未提交/未推送”。
 - 长期治理 / 总览 / 审计线程默认停留在根目录 `D:\Unity\Unity_learning\Sunset` 的 `main`；长期功能线程也默认先从根目录进入，再按真实任务切到对应 `codex/` 分支；`worktree` 只保留给高风险隔离、故障修复与特殊实验。
+- 如果历史 `worktree` 仍暂时存在，不得默认信任其中的脚本副本、规则副本和入口文档副本与 shared root 同步；凡是执行闸机脚本或读取 live 治理入口时，优先以 shared root 的现行版本为准。
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\` 属于治理正文工作区；`D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex\` 只属于 TD 镜像区。不要把二者再混成一个入口。
 - 进入任一长期线程前，先核验两件事：当前工作目录、`git branch --show-current`；UI 中残留的分支提示不能替代真实 Git 状态。
 - 如果共享根目录 `D:\Unity\Unity_learning\Sunset` 当前 checkout 不在 `main`，则必须先由 `sunset-startup-guard` 判断它是否已被其他线程占用；未经确认不得把它当成中性业务现场继续写入。
@@ -100,9 +101,12 @@
 - 凡是为了验证进入 Play Mode 的任务，完成当前取证后都必须先确认已经回到 Edit Mode；未退回前，不算完成现场清理，也不允许把 Unity 让给其他线程。
 - 涉及 UI、对话框、气泡、字体、布局、样式的任务，不得以“能显示”为完成标准；必须额外核可读性、锚点、留白、层级遮挡、字体协调性和整体专业感。
 - 治理任务若留在 `main`，只允许使用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 明确带上本轮受影响的业务记忆或线程记忆。
-- 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -IncludePaths ...`，只白名单提交本轮治理文件。
-- 真实实现任务若准备从 `main` 进入代码或场景修改，必须先执行 `git-safe-sync.ps1 -Action ensure-branch -BranchName codex/...`；只有在工作树干净、基线同步时才允许创建任务分支。
-- 真实实现任务完成后，必须在对应 `codex/` 分支上执行 `git-safe-sync.ps1 -Action sync -Mode task -ScopeRoots ... -IncludePaths ...`，用显式白名单提交当前任务，不得使用无边界 `git add -A`。
+- 调用 `git-safe-sync.ps1` 时，必须显式传入 `-OwnerThread <线程名>`；脚本会按线程身份校验当前分支语义，不匹配直接阻断。
+- 如果 shared root 占用文档已经声明 `is_neutral = false`，则 `git-safe-sync.ps1` 的 `task` 模式还会额外核对 `owner_thread + current_branch`，并在仍有 remaining dirty 时直接阻断。
+- 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...`，只白名单提交本轮治理文件。
+- 真实实现任务若准备从 `main` 进入代码或场景修改，必须先执行 `git-safe-sync.ps1 -Action ensure-branch -OwnerThread <线程名> -BranchName codex/...`；只有在工作树干净、基线同步时才允许创建任务分支。
+- 若从 shared root 的 `main` 进入 `ensure-branch`，shared root 占用文档必须先回到 neutral；未归还的 shared root 不得继续开新任务分支。
+- 真实实现任务完成后，必须在对应 `codex/` 分支上执行 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -ScopeRoots ... -IncludePaths ...`，用显式白名单提交当前任务，不得使用无边界 `git add -A`。
 - 如果 `git-safe-sync.ps1` 判断当前不能安全同步，必须明确汇报阻塞点、当前分支、基线 hash 和剩余 dirty 分类；禁止硬提交、硬推送或偷偷跳过 Git 收尾。
 - 旧的 `Codex迁移与规划`、旧全局 `tasks.md`、旧 `TD_*` 代办文件都只作为历史兼容入口，不再承接当前治理续办的新任务。
 - 评审任务先按 `code-reaper-review.md` 判路由；若落到需要出审视报告的路径，先出报告，不要抢先改文件。

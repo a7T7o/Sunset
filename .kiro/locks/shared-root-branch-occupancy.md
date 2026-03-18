@@ -7,14 +7,16 @@
 
 ## 当前状态
 - root_path: `D:\Unity\Unity_learning\Sunset`
-- owner_mode: `main-dirty-shared-root`
+- owner_mode: `governance-main-finalizing`
+- owner_thread: `Codex规则落地`
 - current_branch: `main`
-- last_verified_head: `663af03c`
+- last_verified_head: `64ff9816`
 - is_neutral: `false`
-- blocking_dirty_scope: `other-thread dirty is still present in shared root, currently dominated by NPC business files plus non-governance memories`
-- daily_policy: `main + branch-only`
+- lease_state: `governance-finalizing`
+- blocking_dirty_scope: `A 阶段 Git 外科已执行完毕，shared root 已回到 main；当前仅剩阶段 20 治理文档与脚本改动尚未同步`
+- daily_policy: `main-common + branch-task + checkpoint-first + merge-last`
 - worktree_policy: `exception-only`
-- last_updated: `2026-03-17`
+- last_updated: `2026-03-18`
 
 ## 解释口径
 - 当 `current_branch = main` 且 `is_neutral = true` 时：
@@ -27,7 +29,14 @@
   - `mcp-hot-zones.md`
 - 当 shared root checkout 不在 `main` 时：
   - 必须先判定是否已被特定线程合法占用。
-  - 未裁定前不得把它当中性现场继续写业务。
+  - 当前若 `is_neutral = false`，则 `git-safe-sync.ps1` 的 `task` 模式会额外核对：
+    - `owner_thread`
+    - `current_branch`
+    - 是否仍残留未纳入白名单的 remaining dirty
+  - 在回正到 clean `main` 之前，只允许只读核查、治理记录与经审核的恢复动作。
+- 当 shared root 已回到 `main`，但 `owner_mode = governance-main-finalizing` 时：
+  - 说明业务分支错位已剥离，shared root 已进入治理收口阶段。
+  - 此时只允许治理线程在 `main + governance` 上做最后同步；业务线程仍不应抢入。
 
 ## 一句话口径
-- 当前 shared root 虽已回到 `main`，但仍带其他线程的 dirty，因此默认入口模型是 `main + branch-only`，不代表此刻可以无前置核查地直接切分支。
+- 当前 shared root 已经从错位的 NPC 分支回到了 `main`，但阶段 20 的治理同步尚未完成；现在是“治理收口中”，还不是最终 neutral。

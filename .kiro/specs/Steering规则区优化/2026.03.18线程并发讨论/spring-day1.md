@@ -1,0 +1,172 @@
+1. 当前真实现场
+- 当前工作目录：`D:\Unity\Unity_learning\Sunset`
+- 当前真实分支：`codex/npc-roam-phase2-003`
+- 当前真实 `HEAD`：`2ecc2b753ea711557baca09432d0c7e3760cb3f7`
+- 当前 `git status --short --branch`：
+  - `## codex/npc-roam-phase2-003...origin/codex/npc-roam-phase2-003`
+  - `M D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\memory_0.md`
+  - `M D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+- 已失效旧口径：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md` 仍写着 `current_branch: main`、`last_verified_head: 663af03c`；这与当前 live Git 不一致，已失效。
+  - 你转述的 NPC 口径“最新提交是 `c81d1f99`”已失效；当前 live `HEAD` 已是 `2ecc2b75`。
+  - 我上一轮继承到的旧快照里 `HEAD = 7bc94fc8` 也已失效；当前 live `HEAD` 以 `2ecc2b75` 为准。
+
+2. 本轮时间线
+- 历史只读证据能确认的 `spring-day1` 相关顺序：
+  - `2026-03-16 17:18:38 +0800`：`codex/spring-day1-hotfile-solidify-20260316` 从 `HEAD` 创建。
+  - `2026-03-16 17:20:45 +0800`：提交 `9b9a6bd0dd7c5ee7d18cc82e3ea9da74a146bf9d`。
+  - `2026-03-16 19:02:41 +0800`：`codex/spring-day1-story-progression-001` 从 `main` 创建。
+  - `2026-03-16 19:12:45 +0800`：提交 `a9c952b78f1b0184edc6622820158b70ee1d7ea6`。
+  - `2026-03-17 19:38:29 +0800`：shared root 发生 `checkout: moving from main to codex/spring-day1-story-progression-001`。
+  - `2026-03-17 19:38:31 +0800`：shared root 发生 `checkout: moving from codex/spring-day1-story-progression-001 to main`。
+  - `2026-03-17 22:53:13 +0800`：shared root 发生 `checkout: moving from main to codex/npc-roam-phase2-003`。
+  - `2026-03-18 09:12:02 +0800`：当前 root 所在分支提交 `c81d1f99e4cb3a53f054ab445fc972de09b6ab97`。
+  - `2026-03-18 09:24:21 +0800`：当前 root 所在分支提交 `2ecc2b753ea711557baca09432d0c7e3760cb3f7`。
+- 我这次只读审计开始接手后的第一次 live 读取结果：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = codex/npc-roam-phase2-003`
+  - `HEAD = 2ecc2b753ea711557baca09432d0c7e3760cb3f7`
+- 我这次只读审计轮：
+  - 未发生写入。
+  - 未切分支。
+  - 未提交。
+  - 未推送。
+- 远端状态只读可证：
+  - `origin/codex/spring-day1-story-progression-001` 指向 `a9c952b7`
+  - `origin/codex/npc-roam-phase2-003` 指向 `2ecc2b75`
+  - 仅凭本地只读证据拿不到精确 push 时刻。
+
+3. 本轮实际写入清单
+- 本次只读审计轮实际新增写入：无。
+- 当前 working tree 里的 dirty：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+- 当前 dirty 中我应认领的：无。
+- 当前 dirty 中我看见但不应认领的：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+- `spring-day1` 历史上已提交、且可直接从 Git 复核到的文件：
+  - 提交 `9b9a6bd0dd7c5ee7d18cc82e3ea9da74a146bf9d`
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\DialogueUI.cs`
+  - 提交 `a9c952b78f1b0184edc6622820158b70ee1d7ea6`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Story\Dialogue\SpringDay1_FirstDialogue.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Story\Dialogue\SpringDay1_FirstDialogue_Followup.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Story\Dialogue\SpringDay1_FirstDialogue_Followup.asset.meta`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\DialogueSequenceSO.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Events\StoryEvents.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCDialogueInteractable.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\DialogueManager.cs`
+- `spring-day1` 历史辅助治理提交、可直接复核到的文件：
+  - 提交 `c022239568c6a6011d89d4260a95287cb9f7a950`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Codex规则落地\memory_0.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\locks\.gitignore`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\.gitkeep`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\locks\history\.gitkeep`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\Acquire-Lock.ps1`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\Check-Lock.ps1`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\LockCommon.ps1`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\locks\Release-Lock.ps1`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\memory.md`
+  - 提交 `f5ac305c2ccd86da1aa373fcaadae5218fed9d59`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\steering\git-safety-baseline.md`
+    - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+
+4. 分支与 shared root 合规性自查
+- 你是否曾在 shared root 不中性的情况下继续写入：  
+  - 就本次只读审计轮：否。  
+  - 证据：本轮未切分支、未提交、未产生新 dirty；当前 dirty 仅为 `农田交互修复V2` 与 `农田系统` 两处。
+- 你是否曾在不属于你线程语义的分支上继续写入：  
+  - 就本次只读审计轮：否。  
+  - 证据：当前 live 分支虽是 `codex/npc-roam-phase2-003`，但本轮没有任何写入。
+- 你是否曾把 shared root 当成自己的长期现场占着不归还：  
+  - 当前结论：否。  
+  - 证据：当前 branch 不是 `spring-day1`，当前 dirty 不是 `spring-day1`，`D:\Unity\Unity_learning\Sunset\.kiro\locks\active` 下只有 `.gitkeep`，无我方活动锁。
+- 你是否在本轮引入了和你线程无关的 dirty：  
+  - 否。  
+  - 证据：本轮零写入；现场 dirty 为两处他线文档。
+- 你是否已经把现场归还；如果没有，卡在哪里：  
+  - 是。  
+  - 证据：我本轮未取得锁、未写入、未切分支；当前无我方未释放占用。
+- 你是否认为自己当前仍是 shared root 的实际占用者：  
+  - 否。  
+  - 证据：当前 live 分支为 `codex/npc-roam-phase2-003`，当前 dirty 为 `农田交互修复V2` / `农田系统`，不是 `spring-day1`。
+
+5. Unity / MCP / Play Mode 自查
+- 你是否进入过 Play Mode：否。
+- 如果进入过，是否已经回到 Edit Mode：未进入，不适用。
+- 你是否触发过 Compile / Domain Reload / Scene / Prefab / Inspector 写入：否。
+- 你是否碰过共享热区：
+  - `Primary.unity`：本轮未碰。
+  - `GameInputManager.cs`：本轮未碰。
+  - 共享 UI / 字体 / 材质 / Layer / Sorting：本轮未碰。
+- 如果你报过错，你当时是否停写并降级只读：本轮未发生这类报错；从开始就是只读。
+- 现在 Unity 现场从你的视角是否可安全交给别人：
+  - 从我这条线的占用视角：可交接，我没有留下 Unity / MCP 占用。
+  - 从项目全局视角：仍需 live 校验，因为 `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md` 只写到 `2026-03-17`，并明确 `play_mode_status = must-verify-live`、`compile_status = must-verify-live`、`domain_reload_status = must-verify-live`。
+
+6. 对 spring-day1 当前“不能直接继续写”的解释
+- 当前不能直接继续写，不是因为 `spring-day1` 自己还有未提交尾巴。
+- 当前阻塞是几项同时存在：
+  - 当前 shared root 分支不对：`codex/npc-roam-phase2-003`，不是 `codex/spring-day1-story-progression-001`。
+  - 当前 shared root 有他线 dirty：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\memory_0.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+  - 当前占用说明文档已过时：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md` 仍写 `current_branch: main`，与 live Git 不符，不能再拿它当当前切入依据。
+  - Unity / MCP 现场是附加风险，不是当前第一阻塞：
+    - `mcp-single-instance-occupancy.md` 记录 `current_claim: none`，但也明确要求 `must-verify-live`；所以它不是“已证安全”，只是“不能替代 live 校验”。
+- 过时判断：
+  - “shared root 已回到 `main`，可以按 `main + branch-only` 直接进入”的说法已过时。
+  - “当前最新提交是 `c81d1f99`”也已过时；live `HEAD` 已是 `2ecc2b75`。
+
+7. 你建议的最小收口动作
+- 我不是当前 shared root owner。
+- 我后续会保持只读，直到 root 回到可安全进入状态。
+- 最小可执行动作只有一个：
+  - 由当前 root 实际占用方先清掉或带走这两处 dirty：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\memory_0.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+  - 然后把 shared root 切回一个明确可进入的中性入口，再决定是否进入 `codex/spring-day1-story-progression-001`。
+
+8. 必须附带的只读证据
+- `pwd`
+  - 结果对应：当前工作目录是 `D:\Unity\Unity_learning\Sunset`
+- `git branch --show-current`
+  - 结果对应：当前分支是 `codex/npc-roam-phase2-003`
+- `git rev-parse HEAD`
+  - 结果对应：当前 `HEAD` 是 `2ecc2b753ea711557baca09432d0c7e3760cb3f7`
+- `git status --short --branch`
+  - 结果对应：当前 root 跟踪 `origin/codex/npc-roam-phase2-003`，并有两处 dirty：`农田交互修复V2/memory_0.md`、`农田系统/memory.md`
+- `git reflog --date=iso -n 20`
+  - 结果对应：
+    - `2026-03-17 19:38:29` 曾从 `main` 切到 `codex/spring-day1-story-progression-001`
+    - `2026-03-17 19:38:31` 又切回 `main`
+    - `2026-03-17 22:53:13` 从 `main` 切到 `codex/npc-roam-phase2-003`
+    - `2026-03-18 09:12:02` 提交 `c81d1f99`
+    - `2026-03-18 09:24:21` 提交 `2ecc2b75`
+- `git log --oneline --decorate -n 10`
+  - 结果对应：当前 `HEAD` 与 `origin/codex/npc-roam-phase2-003` 对齐，`main` 在 `64ff9816`
+- `git reflog show --date=iso codex/spring-day1-story-progression-001 -n 20`
+  - 结果对应：
+    - `2026-03-16 19:02:41` 从 `main` 创建
+    - `2026-03-16 19:12:45` 提交 `a9c952b7`
+- `git reflog show --date=iso codex/spring-day1-hotfile-solidify-20260316 -n 20`
+  - 结果对应：
+    - `2026-03-16 17:18:38` 从 `HEAD` 创建
+    - `2026-03-16 17:20:45` 提交 `9b9a6bd0`
+- `git show --name-only --format=fuller a9c952b7`、`git show --name-only --format=fuller 9b9a6bd0`、`git show --name-only --format=fuller c0222395`、`git show --name-only --format=fuller f5ac305c`
+  - 结果对应：上面第 3 节列出的已提交文件清单
+- 只读查看：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active`
+  - 结果对应：
+    - 占用文档仍写 `main / 663af03c`，已过时
+    - MCP 文档写 `current_claim: none`，但要求 `must-verify-live`
+    - 活动锁目录下只有 `.gitkeep`
+
+结论：我现在不占用 shared root，只是被当前现场阻塞。

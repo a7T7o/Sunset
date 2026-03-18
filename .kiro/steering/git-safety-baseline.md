@@ -195,7 +195,8 @@ lastUpdated: 2026-03-11
   1. 当前模式的默认允许范围；
   2. 本轮通过 `ScopeRoots` / `IncludePaths` 明确声明的额外路径。
 - 未落在白名单内的 dirty 改动，一律只做分类与汇报，不自动纳入提交。
-- 这意味着：即使工作树里同时存在其他主线 dirty，只要本轮同步明确限定了自己的白名单，仍可安全形成当前任务的 checkpoint；但这些剩余 dirty 不等于已经安全，也不代表可以直接进入实现。
+- 这意味着：显式白名单只能防止“误吃进别人的改动”，不等于“剩余 dirty 也安全”。
+- 如果当前工作目录就是 shared root，且 `task` 模式下仍存在未纳入白名单的 non-noise dirty，`git-safe-sync.ps1` 必须直接阻断继续写入或同步；不能一边留着 unrelated dirty，一边继续把 shared root 当任务现场。
 
 ## 11. Codex 自动同步纪律
 
@@ -210,16 +211,16 @@ lastUpdated: 2026-03-11
 ### 模式要求
 
 - 治理任务留在 `main` 时：
-  - 使用 `git-safe-sync.ps1 -Action sync -Mode governance`
+  - 使用 `git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread <线程名>`
   - 允许默认治理白名单 + 本轮明确声明的记忆路径
 - 如果当前线程已经在某个 `codex/` 分支上，而本轮只是在该分支顺手修治理文件：
   - 不强制切回 `main`
-  - 改用 `git-safe-sync.ps1 -Action sync -Mode task -IncludePaths ...`
+  - 改用 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...`
   - 只提交本轮明确列出的治理文件，不顺手吃进该分支上的其他业务 dirty
 - 真实实现任务进入代码 / 场景前：
-  - 先用 `git-safe-sync.ps1 -Action ensure-branch -BranchName codex/...`
+  - 先用 `git-safe-sync.ps1 -Action ensure-branch -OwnerThread <线程名> -BranchName codex/...`
 - 真实实现任务收尾时：
-  - 使用 `git-safe-sync.ps1 -Action sync -Mode task -ScopeRoots ... -IncludePaths ...`
+  - 使用 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -ScopeRoots ... -IncludePaths ...`
 
 ### 自动同步失败时的口径
 
@@ -234,6 +235,14 @@ lastUpdated: 2026-03-11
 ## 12. 自动任务分支托管
 
 - `git-safe-sync.ps1 -Action ensure-branch` 只允许在工作树干净时创建或切换任务分支。
+- `git-safe-sync.ps1` 现在必须显式接收 `-OwnerThread <线程名>`，并对 task 分支做线程语义校验。
+- 若 `-Mode task` 且当前分支是 `main`，脚本必须直接阻断。
+- 若 `-Mode task` 且当前分支与 `OwnerThread` 语义不匹配，脚本必须直接阻断。
+- 若 shared root 占用文档已声明 `is_neutral = false`，则 `task` 模式还必须额外校验：
+  - `owner_thread` 与当前 `OwnerThread` 一致
+  - `current_branch` 与 live 分支一致
+  - remaining dirty 中不存在未纳入白名单的 non-noise 改动
+- 若从 shared root 的 `main` 进入 `ensure-branch`，占用文档必须先处于 neutral；未归还的 shared root 不得再开新任务分支。
 - 若当前位于 `main`，且 `main` 相对远端存在 ahead / behind，默认先同步 `main`，再建 `codex/` 分支。
 - 推荐命名仍为：`codex/<系统>-<任务>-<补丁号>`。
 - 任何 `Assets/`、`Packages/`、`ProjectSettings/` 的真实实现，都不应先改完再想起建分支；分支必须先于实现动作存在。

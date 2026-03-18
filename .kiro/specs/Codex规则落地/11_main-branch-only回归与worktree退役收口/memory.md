@@ -1,5 +1,11 @@
 # 阶段记忆：main-branch-only 回归与 worktree 退役收口
 
+## 2026-03-18 迁移说明
+- 本阶段保留“历史上曾完成一次 branch-only 回归”的事实记录。
+- 但 `2026-03-18` 的 live 现场已再次失真，因此新的 shared root 回正与防回退工作，不再由本阶段承接。
+- 当前请改读：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\20_shared-root现场回正与物理闸机落地`
+
 ## 当前状态
 - **用户视角完成度**：100%
 - **治理推进度**：100%

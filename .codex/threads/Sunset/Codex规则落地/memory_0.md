@@ -9,39 +9,33 @@
 
 ## 当前主线目标
 - 把 Sunset 的治理体系从“规则很多但经常被跳过”，推进到“进入实质性任务前会被强制触发正确入口与现场核查”。
-- 同时把本轮 `NPC / farm / spring-day1` 带出来的事故期临时 `worktree` 全部收回；这一步已经完成，当前若继续治理应回到启动闸门、skills 与规则执行面的深化。
+- 当前 live 主线已切换到：
+  - `20_shared-root现场回正与物理闸机落地`
+- 当前重点是先结束 shared root 的再次失真，再落地真正会拦人的物理闸机。
 
 ## 当前状态
-- **用户视角完成度（12阶段）**：100%
-- **治理推进度（当前子主线 12）**：100%
-- **最后更新**：2026-03-17
-- **状态**：`12` 已完成；后续治理回到 `09`
+- **用户视角完成度（恢复正常开发）**：0%
+- **治理推进度（当前子主线 20）**：进行中
+- **最后更新**：2026-03-18
+- **状态**：旧“已收口”口径被 live 现场推翻，`20` 已接管
 
 ## 当前稳定结论
 - Sunset 当前治理续办总入口固定为：
   - [D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地)
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex` 已降级为 TD-only 镜像区，不再承载治理正文。
-- 当前已完成的最终收口主线保留为：
-  - [11_main-branch-only回归与worktree退役收口](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/tasks.md)
-- 当前治理工作区归位与彻底清盘已由：
-  - [12_治理工作区归位与彻底清盘](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/12_治理工作区归位与彻底清盘/tasks.md)
-  完成封板。
-- 当前共享根目录已经恢复为：
-  - `D:\Unity\Unity_learning\Sunset @ main`
-- `worktree` 在当前 Sunset 口径中已重新收束为例外：
-  - 只用于高风险隔离、事故 cleanroom 或特殊实验
-  - 不再是默认开发方式
-- 当前三条业务线的合法 carrier 已完成 branch-only 回归：
-  - `farm -> codex/farm-1.0.2-cleanroom001 @ 66c19fa1`
-  - `NPC -> codex/npc-roam-phase2-002 @ 6e2af71b`
-  - `spring-day1 -> codex/spring-day1-story-progression-001 @ a9c952b7`
-- 当前 `git worktree list --porcelain` 只剩共享根目录。
-- `npc_restore.zip` 与 `Assets/Screenshots*` 已移出仓库工作树。
+- [11_main-branch-only回归与worktree退役收口](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/tasks.md) 与 [12_治理工作区归位与彻底清盘](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/12_治理工作区归位与彻底清盘/tasks.md) 仍保留历史完成记录，但不再代表当前 live 现场。
+- 当前 live 事实是：
+  - `D:\Unity\Unity_learning\Sunset @ codex/npc-roam-phase2-003`
+  - `HEAD = 2ecc2b753ea711557baca09432d0c7e3760cb3f7`
+  - shared root 仍有 mixed dirty / untracked
+  - farm cleanroom worktree 仍真实存在
+- 当前三条业务线的合法 carrier 历史判断仍可作为参考，但 shared root 常态入口尚未恢复到可安全进入的状态。
+- `worktree` 仍然是 Sunset 红线例外；本轮新增的回正工作不是重新常态化它，而是把 live 现场重新拉回 branch-only 模型。
 - Unity / MCP 单实例层三件套已落盘：
   - `mcp-single-instance-occupancy.md`
   - `mcp-hot-zones.md`
   - `mcp-single-instance-log.md`
-- `D:\Unity\Unity_learning\Sunset_external_archives` 与 `D:\Unity\Unity_learning\Sunset_backups` 已真实删除。
+- `D:\Unity\Unity_learning\Sunset_external_archives` 与 `D:\Unity\Unity_learning\Sunset_backups` 的历史退役结论仍然有效。
 
 ## 最近会话
 
@@ -236,3 +230,195 @@
 **恢复点 / 下一步**：
 - 治理主线已基本闭环。
 - 当前未完成项不在治理文档，而在 shared root 仍残留的 NPC 业务 dirty；这不是本轮治理提交的白名单范围。
+
+### 会话 9 - 2026-03-18（对 dirty 循环的彻底反思与恢复路线重定）
+**用户目标**：
+> 用户明确要求我停止“半成品也算完成”的治理叙事，正面回答为什么 skills / superpower 落了这么多轮仍没有真正拦住错误现场写入，并给出恢复正常开发进度的现实路线；本轮不要先照 Gemini 的建议动 Git，而是先把问题想透。
+
+**已完成事项**：
+1. 重新实核 live Git：
+   - `D:\Unity\Unity_learning\Sunset`
+   - `codex/npc-roam-phase2-003`
+   - `HEAD = 2ecc2b753ea711557baca09432d0c7e3760cb3f7`
+   - 仍有 farm 两份 memory dirty 与 `2026.03.18线程并发讨论` 未跟踪目录
+2. 复核 worktree 现场，确认 farm cleanroom 仍存在，说明“worktree 已彻底退役”的旧结论已经失效。
+3. 结合 `NPC / 导航检测 / farm / spring-day1 / 遮挡检查` 的回包和 reflog，确认真实事故链是：
+   - shared root 先被切到 NPC 分支且未归还
+   - 导航检测继续在这条 NPC 分支上提交 `2ecc2b75`
+   - farm 再留下 unrelated dirty
+   - 其他线程因此无法把 shared root 当成中性入口重入
+4. 明确这次失败的核心责任不在“并发目标”，而在“治理执行面没有变成物理约束”：
+   - live 分支不匹配时没有被硬停
+   - owner 占用后没有强制归还
+   - worktree 退役没有持续验收
+   - skills/AGENTS 仍可被绕过，只是说明，不是闸机
+
+**关键决策**：
+- 当前用户的真正目标是：`main-common + branch-task + checkpoint-first + merge-last`，而不是“所有线程永远不能并发”。
+- 在这个模型下：
+  - 读、预检、设计、只读取证可以并发
+  - 真实写入必须单 shared root 单写者串行
+  - 归还不是等整个功能做完，而是到 checkpoint 就归还
+- 恢复正常开发的顺序必须是：
+  1. 冻结当前 shared root 新写入
+  2. 让当前 owner 先归还现场
+  3. shared root 回 clean `main`
+  4. 再恢复 branch-only 开发
+- 后续治理应继续回到 `09`，但重点必须转成“分支不对即停、现场不对即停、Play Mode 未退即不许交还”的硬闸门。
+
+**恢复点 / 下一步**：
+- 先完成一次“现场回正”，再谈正常并发开发。
+- 在硬闸门没有代码级落地前，不能再宣称系统已经稳定恢复。
+
+### 会话 10 - 2026-03-18（阶段 20 接管与旧阶段迁移标记落盘）
+**用户目标**：
+> 先做文档工作，把新的认知和代办落入新的 `20` 阶段；旧阶段只保留历史作用，但必须标记“未解决问题已迁移”，避免以后再读乱。
+
+**已完成事项**：
+1. 新建 `20_shared-root现场回正与物理闸机落地` 阶段，并写入：
+   - `analysis.md`
+   - `tasks.md`
+   - `memory.md`
+2. 在新阶段中落盘：
+   - live 现场真相
+   - 事故根因
+   - 对 Gemini 建议的采用边界
+   - 待审核的现场回正清单与物理闸机任务清单
+3. 在旧阶段显式补写迁移说明：
+   - `09/tasks.md`
+   - `11/tasks.md`
+   - `12/tasks.md`
+   - `11/memory.md`
+   - `12/memory.md`
+4. 把父级与线程级摘要切换到 `20` 主线，停止继续把 `09/11/12` 当作 live 入口。
+
+**关键决策**：
+- `20` 现在是治理线程新的唯一活跃主线。
+- 旧阶段继续保留其历史事实，但后续再读必须被导向 `20`。
+- 这一步仍然是文档先行，不代表 Git 手术已经获批执行。
+
+**恢复点 / 下一步**：
+- 等用户审核 `20` 阶段清单。
+- 审核后再进入实操方案输出，不提前越权改 Git。
+
+### 会话 11 - 2026-03-18（第一波脚本闸机已落地）
+**用户目标**：
+> 在文档修正后直接执行，不要继续停留在空设计；先把最核心的 `git-safe-sync.ps1` 闸机写进去，再标记任务清单。
+
+**已完成事项**：
+1. 先重新实核 live 现场，确认当前仍不是 `main + clean`，因此没有把 Gemini 的人工清场假设误写进文档。
+2. 直接修改 `scripts/git-safe-sync.ps1`：
+   - 新增强制参数 `-OwnerThread`
+   - `task` 模式位于 `main` 时直接阻断
+   - `task` 分支必须具备 `codex/` 前缀
+   - `task` 分支必须匹配 `OwnerThread`
+   - `ensure-branch` 目标分支也必须匹配 `OwnerThread`
+3. 同步修正文档：
+   - `AGENTS.md`
+   - `git-safety-baseline.md`
+   - `基础规则与执行口径.md`
+   - `shared-root-branch-occupancy.md`
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+4. 更新 `20/tasks.md`，把第一波脚本闸机标记为已完成。
+5. 完成三条自测，确认脚本能拦住“错线程 / 错分支 / 错目标分支”。
+
+**关键决策**：
+- 这轮真正落下去的是“脚本闸机第一波”，不是 shared root 现场回正。
+- 所以当前可以说“第一波防呆已开始落地”，但还不能说“系统已经恢复正常开发”。
+
+**恢复点 / 下一步**：
+- 继续输出 shared root 回正 runbook。
+- 审核后再决定是否补第二波 owner/lease 闸机。
+
+### 会话 12 - 2026-03-18（第二波 shared root 最小闸机补齐）
+**用户目标**：
+> 不要只停在第一波 `OwnerThread` 闸机；继续把 shared root 的 owner/lease 与 remaining dirty 阻断也补到最小可用，并把文档口径统一掉。
+
+**已完成事项**：
+1. 在 `scripts/git-safe-sync.ps1` 中继续落下第二波最小闸机：
+   - occupied shared root 必须匹配 `owner_thread + current_branch`
+   - shared root 上如果仍有未纳入白名单的 remaining dirty，`task` 模式直接阻断
+   - shared root 的 `main` 在 `ensure-branch` 前必须先恢复 neutral
+2. 同步修正文档与阶段清单：
+   - `shared-root-branch-occupancy.md`
+   - `git-safety-baseline.md`
+   - `基础规则与执行口径.md`
+   - `AGENTS.md`
+   - `20/tasks.md`
+3. 重新自测：
+   - 当前 `codex/npc-roam-phase2-003` shared root 上，`OwnerThread = NPC` 也会被 remaining dirty 拦住
+   - `OwnerThread = 农田交互修复V2` 会被 branch mismatch + shared root owner mismatch 双重拦截
+   - 在干净的 farm cleanroom 工作目录里，调用 shared root 最新脚本时，`task` preflight 可以正常通过
+4. 新发现：
+   - farm cleanroom 自带的 `scripts/git-safe-sync.ps1` 还是旧副本，没有 `-OwnerThread`
+   - 这说明历史 worktree 会发生脚本与规则漂移，进一步支持“shared root 才是 live 治理入口，worktree 只保留例外”的判断
+
+**关键决策**：
+- 第二波最小闸机现在已落盘，但 shared root 现场仍未回正，所以这轮仍属于“治理推进中”，不是“开发已恢复正常”。
+- 当前 owner/lease 校验只覆盖“共享根目录已声明 occupied 时的硬阻断”；自动 claim/release wrapper 仍待后续判断，不冒充已完成。
+
+**恢复点 / 下一步**：
+- 继续产出 shared root 人工回正 runbook。
+- 等 runbook 经过用户审阅后，再决定是否进入 Git 外科执行或继续补自动 claim/release。
+
+### 会话 13 - 2026-03-18（shared root 人工回正 runbook 已产出）
+**用户目标**：
+> 在补完第二波最小闸机后，继续把 shared root 人工回正 runbook 真正写出来，并把当前 owner / blocker / blocked、回退点和风险写成可审核执行的清单。
+
+**已完成事项**：
+1. 重新核实当前 live Git 与目标回退点：
+   - 当前 shared root：`codex/npc-roam-phase2-003 @ 2ecc2b75`
+   - 目标回退点：`c81d1f99`
+   - 当前 `origin/codex/npc-roam-phase2-003` 也在 `2ecc2b75`
+   - `main / origin/main @ 64ff9816`
+2. 在阶段 `20` 新增：
+   - `runbook.md`
+   - 内容包括：
+     - 当前 owner / blocker / blocked 分层裁定
+     - stage 20 治理脏改与 farm dirty 的分组 park
+     - 推荐 `reset --hard c81d1f99 + push --force-with-lease` 路径
+     - 保守 `revert 2ecc2b75` 的替代路径
+     - shared root 切回 `main` 后只恢复治理 stash、不恢复 farm stash 的步骤
+     - neutral 回填与最终验收标准
+3. 同步更新 `20/tasks.md`，把 A 阶段 runbook 四项任务全部标记为完成。
+
+**关键决策**：
+- 现在阶段 `20` 已具备“手术前准备层”的三件核心物：
+  - 第一波脚本闸机
+  - 第二波 shared root 最小闸机
+  - A 阶段人工回正 runbook
+- 但 Git 外科本身仍未执行，shared root 仍未回正，所以当前状态仍不是“恢复正常开发”。
+
+**恢复点 / 下一步**：
+- 等用户审核 `runbook.md`。
+- 审核通过后，再由用户人工执行危险步骤，或继续让我补自动 claim / release wrapper。
+
+### 会话 14 - 2026-03-18（A 阶段已执行，D 阶段模型已补）
+**用户目标**：
+> 既然已经批准执行，就直接完成 shared root 回正、继续补 D 阶段文档，并把治理主线推进到可最终同步的状态。
+
+**已完成事项**：
+1. 执行 A 阶段 Git 外科：
+   - 分组 park `stage20-governance-parking`
+   - 分组 park `farm-root-dirty-parking`
+   - 将 `codex/npc-roam-phase2-003` 从 `2ecc2b75` 回正到 `c81d1f99`
+   - 使用 `push --force-with-lease` 回正远端
+   - 将 shared root 切回 `main`
+2. 恢复治理 stash，不恢复 farm stash。
+3. `git worktree list --porcelain` 现在只剩 shared root，farm cleanroom 已在 Git 层退役。
+4. 新增 D 阶段文档：
+   - `operating-model.md`
+   - 正式写入 `main-common + branch-task + checkpoint-first + merge-last`
+5. 更新当前活入口与占用文档，使当前口径变成：
+   - shared root 已回到 `main`
+   - 当前仍处于 `governance-main-finalizing`
+   - 做完最后一次治理同步后再回到最终 neutral
+
+**关键决策**：
+- 当前阶段 `20` 已经从“准备手术”推进到“手术已做完，正在收口”。
+- 当前剩余工作是治理线程在 `main + governance` 上做最后同步，不再是业务错位继续扩散。
+- farm cleanroom 如果磁盘上还有空目录残壳，也已经不再拥有 Git worktree 身份。
+
+**恢复点 / 下一步**：
+- 用新版 `git-safe-sync.ps1 -Mode governance` 完成治理同步。
+- 同步完成后，把 shared root 占用文档收成最终 neutral，并输出全线程唤醒清单。
