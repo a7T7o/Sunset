@@ -1,0 +1,248 @@
+# codex 代办主线记忆
+
+> 历史长卷已保留在 [memory_0.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/memory_0.md)。本卷只保留当前治理续办的活跃摘要、恢复点和下一步。
+
+## 当前主线目标
+- 让 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地` 成为 L5 之后唯一有效的治理续办总入口。
+- 当前治理主线不再承担“项目恢复”本身，而是负责恢复之后遗留的规则收口、skills/AGENTS 强约束、shared root 纪律与 memory 体系重构；其中 `11` 已完成，后续如继续治理应回到 `09` 或另行立项。
+
+## 当前状态
+- **用户视角完成度（工作区归位与清盘）**：100%
+- **治理续办总盘状态**：`12` 已完成，治理正文已归位；后续如继续治理统一回到 `09`
+- **最后更新**：2026-03-17
+- **状态**：`12` 已完成，`09` 继续承接闸门深化
+
+## 当前阶段目录
+- `09_强制skills闸门与执行规范重构`
+- `10_共享根仓库分支漂移与现场占用治理`
+- `11_main-branch-only回归与worktree退役收口`
+- `12_治理工作区归位与彻底清盘`
+
+## 当前稳定结论
+- 旧全局 `tasks.md` 不再承接新治理任务；当前治理正文统一进入 `Codex规则落地`，`000_代办/codex` 只保留 TD 镜像与读取入口。
+- `03-17` 起，现行入口已经切到新的状态说明与总索引。
+- `09` 已完成“项目级启动闸门落地”的第一轮：
+  - `sunset-startup-guard` 已创建
+  - `Sunset/AGENTS.md` 已写入强制入口
+  - Unity / MCP 单实例层三件套已落盘
+- `10` 已完成事故事实厘清与承载面找回：
+  - 污染分支历史已锁定为：`codex/farm-1.0.2-correct001 @ 11e0b7b4`
+  - `farm` 合法 carrier：`codex/farm-1.0.2-cleanroom001 @ 66c19fa1`
+  - `NPC` 合法 carrier：`codex/npc-roam-phase2-002 @ 6e2af71b`
+  - `spring-day1` clean checkpoint：`codex/spring-day1-story-progression-001 @ a9c952b7`
+- `11` 已完成最终收口目标：
+  - 临时 `worktree` 只能是事故容器
+  - shared root 已回到 `D:\Unity\Unity_learning\Sunset @ main`
+  - `git worktree list --porcelain` 只剩共享根目录
+  - `spring-day1 / NPC / farm` 已完成根目录 branch-only 检出验证
+  - `npc_restore.zip` 与 `Assets/Screenshots*` 已移出仓库工作树
+- `12` 已完成治理工作区归位与彻底清盘：
+  - 正式治理工作区固定为 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex` 已降级为 TD-only 镜像区
+  - `D:\Unity\Unity_learning\Sunset_external_archives` 与 `D:\Unity\Unity_learning\Sunset_backups` 已真实删除
+
+## 当前最高优先级
+1. 若继续治理，回到 `09_强制skills闸门与执行规范重构`，继续压实 skills、AGENTS、MCP 单实例层与四件套的强约束。
+2. `10` 与 `11` 保留为历史结论层，不再继续承接新的过程尾巴。
+3. 继续遵守“shared root `main` + 业务分支”的默认模型，除非未来再次出现确有必要的高风险隔离例外。
+
+## 当前恢复点
+- `09` 下一步：
+  - 继续验证 `sunset-startup-guard` 的 session 稳定可见性
+  - 把“禁止 worktree 常态化”进一步吸收到启动闸门口径
+- `10` 下一步：
+  - 不再新增尾巴
+  - 保留为事故治理前置结论层
+- `11` 下一步：
+  - 无阶段内剩余动作
+  - 后续只保留终局快照、任务清单与过程证据，不再继续承接新任务
+- `12` 下一步：
+  - 无阶段内剩余动作
+  - 后续只把它保留为“治理工作区归位与彻底清盘”的终局记录层
+
+## 最近会话
+
+### 会话 1 - 2026-03-17（11 阶段正式接管最终收口）
+**用户目标**：
+> 不接受 worktree 变成常态；要求彻底回到 `main-branch-only`，并把剩余所有代办、情况和 prompt 统一收进新阶段，不再让 `09/10` 继续承担收尾杂项。
+
+**已完成事项**：
+1. 创建并重写 `11_main-branch-only回归与worktree退役收口`：
+   - `analysis.md`
+   - `tasks.md`
+   - `执行方案.md`
+   - `memory.md`
+2. 新增：
+   - [总进度与收口清单_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/总进度与收口清单_2026-03-17.md)
+   - [分发Prompt_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/分发Prompt_2026-03-17.md)
+3. 重写现行入口文档：
+   - [Sunset当前唯一状态说明_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset当前唯一状态说明_2026-03-17.md)
+   - [Sunset现行入口总索引_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset现行入口总索引_2026-03-17.md)
+4. 已真实退役第一批纯历史 worktree：
+   - `main-reflow-carrier`
+   - `NPC`
+   - `farm-10.2.2-patch002`
+5. 已新增：
+   - [所有线程回归誓言.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/所有线程回归誓言.md)（线程回包索引）
+   - [共享根目录dirty归属初版_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/共享根目录dirty归属初版_2026-03-17.md)
+
+**关键决策**：
+- 当前用户视角完成度仍按 `0%` 计，直到共享根目录回到 `main` 且 worktree 被真正退役。
+- 分支是长期 carrier，worktree 只是事故容器。
+- `导航检查 / 遮挡检查 / 项目文档总览` 当前都不需要为了这轮 branch-only 回归新建 worktree。
+
+**恢复点 / 下一步**：
+- 现在应优先把 branch-only 回归 prompt 发给 `spring-day1 / NPC / farm`。
+- 收到三方答复后，继续推进 shared root 清理和第二批 worktree 退役。
+
+### 会话 2 - 2026-03-17（11 封板后的治理恢复点核验）
+**用户目标**：在 `11` 已完成的前提下，复核 Sunset 当前真实现场，并确认后续治理应该回到哪条主线继续推进。  
+**完成事项**：只读核验 `D:\Unity\Unity_learning\Sunset @ main`、`git worktree list --porcelain` 仅剩 shared root、最新提交为 `dd83ff74`；同时补建 [09_强制skills闸门与执行规范重构/memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/09_强制skills闸门与执行规范重构/memory.md)，避免 `11` 封板后下一阶段入口缺少工作区记忆承接。  
+**关键决策**：`11` 继续保持“终局快照层”，不再追加新治理尾巴；后续若继续推进 skills 强制命中、启动闸门、AGENTS/四件套执行约束，统一回到 `09` 续办。  
+**涉及文件**：`C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`、[09_强制skills闸门与执行规范重构/memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/memory.md)、[memory_0.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_0.md)。  
+**恢复点 / 下一步**：继续在 `09` 压实 `sunset-startup-guard` 的 session 可见性、首条 `commentary` 结构命中率，以及“禁止把 worktree 常态化”的稳定闸门口径。
+
+### 会话 3 - 2026-03-17（治理总盘点与未完项分层）
+**用户目标**：要一份当前 Sunset 治理与项目进度总盘点，明确哪些阶段已真完成、哪些只是旧勾选未收口、哪些是现在真正还要做的。  
+**完成事项**：逐个复核 `000_代办/codex/01-11` 的 `tasks.md`，并结合当前 Git 现场确认：`11` 已真完成、branch-only prompt 不再需要继续分发、当前真正活跃未完主线只剩 `09`；`01/02/07` 各有少量收尾债，`03/10` 则属于被 `11` 覆盖后尚未文档封板的旧待办。  
+**关键决策**：后续汇报统一采用三层口径：
+1. 已完成并封板：`04/05/06/08/11`
+2. 历史已完成但文档待显式降级：`03/10`
+3. 当前唯一活跃主线：`09`
+**涉及文件**：[09_强制skills闸门与执行规范重构/tasks.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/09_强制skills闸门与执行规范重构/tasks.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/09_强制skills闸门与执行规范重构/memory.md)、[memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/memory.md)、[memory_0.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_0.md)。  
+**恢复点 / 下一步**：继续推进 `09` 的剩余 5 项，并择机把 `03/10` 的旧未勾选项做显式封板处理，避免未来再次误判。
+
+### 会话 2 - 2026-03-17（`11` 阶段纠正“真实回包目录”并进入执行态）
+**用户目标**：
+> `所有线程回归誓言` 目录里存放的是线程真实回包，不是规范正文；要求基于这批真实回包继续推进，而不是继续围着占位索引打转。
+
+**已完成事项**：
+1. 纠正 `11` 阶段中对 `所有线程回归誓言` 的语义：
+   - `.md` 是索引/提炼位
+   - 同名目录 `所有线程回归誓言\*.md` 才是真实线程回包
+2. 读取并提炼六份线程回包，确认：
+   - `spring-day1`、`NPC`、`farm` 的 branch-only 唯一入口都已明确
+   - `导航检查 / 遮挡检查 / 项目文档总览` 都已退出 worktree 阻塞清单
+3. 识别出当前真正剩余阻塞：
+   - `spring-day1` 字体 dirty 在 shared root 与 `NPC_roam_phase2_rescue` 双现场分裂
+   - shared root 自身治理/归档 dirty 尚未形成可执行收口
+   - 杂项 `untracked` 归属未定
+4. 新增或更新：
+   - [共享根目录dirty归属可执行版_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/共享根目录dirty归属可执行版_2026-03-17.md)
+   - [所有线程回归誓言.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/所有线程回归誓言.md)
+   - [第二批worktree核验表_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/第二批worktree核验表_2026-03-17.md)
+   - [分发Prompt_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/分发Prompt_2026-03-17.md)
+
+**关键决策**：
+- `11` 当前已经从“等待回包”切换到“执行 shared root 回 `main` 前置动作”的状态。
+- 二轮 prompt 当前只需要发给 `spring-day1`；`NPC` 与 `farm` 只需等待 shared root 回 `main` 后做 branch-only 验证。
+
+**恢复点 / 下一步**：
+- 发 `spring-day1` 二轮 prompt。
+- 然后继续 shared root 的治理收口与最终回 `main` 执行准备。
+
+### 会话 3 - 2026-03-17（`spring-day1` 二轮已执行，阻塞缩到治理层）
+**用户目标**：
+> 审核 `spring-day1` 二轮回复并直接推进下一步。
+
+**已完成事项**：
+1. 实核二轮回复的资源引用与 diff 结论成立。
+2. 导出 shared root 与 rescue 的字体 dirty 证据补丁与 diffstat。
+3. 已实际清掉两处字体 dirty，保留已提交版本。
+4. `NPC_roam_phase2_rescue` 已恢复为 `CLEAN`。
+5. 已删除 `Assets/111_Data/NPC 1.meta`。
+
+**关键决策**：
+- `spring-day1` 不再是 shared root 回 `main` 的主要阻塞。
+- 当前剩余阻塞已收缩成：
+  - shared root 治理/归档 dirty
+  - `Assets/Screenshots*`
+  - `npc_restore.zip`
+
+**恢复点 / 下一步**：
+- 继续 shared root 自身清尾。
+- 处理截图与 zip 杂项。
+- 然后推进 shared root 回 `main`。
+
+### 会话 4 - 2026-03-17（`11` 已封板，治理总入口切回终局口径）
+**用户目标**：
+> 在 shared root 已回 `main`、worktree 已退役之后，把 `000_代办/codex` 总入口和相关 memory 全部改成终局口径，不要再保留“11 还在 65%”“还要继续发 prompt”的旧状态。
+
+**已完成事项**：
+1. 复核 `11` 终局事实：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `git worktree list --porcelain` 只剩共享根目录
+2. 为 `11` 新增 [终局快照_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/11_main-branch-only回归与worktree退役收口/终局快照_2026-03-17.md)。
+3. 重写 `11` 的 `tasks.md / analysis.md / 总进度与收口清单_2026-03-17.md`，把阶段状态从“执行中”改成“已完成”。
+4. 重写当前状态入口：
+   - [Sunset当前唯一状态说明_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset当前唯一状态说明_2026-03-17.md)
+   - [Sunset现行入口总索引_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset现行入口总索引_2026-03-17.md)
+5. 同步本父级 memory，明确：
+   - `11` 已封板
+   - 后续治理应回到 `09` 或新阶段
+
+**关键决策**：
+- `11` 完成后，不再继续用它承接新的治理过程尾巴。
+- `10` 保留事故结论，`11` 保留终局快照；下一步若继续治理，应返回 `09` 的强制闸门与规则执行面。
+
+**恢复点 / 下一步**：
+- `000_代办/codex` 只保留 TD 镜像与读取入口，不再承接治理正文。
+- 当前活跃推进点已经从 `11` 切回到后续治理深化；若用户继续推进规则/skills/四件套，应直接回到 `09` 或新阶段开工。
+
+### 会话 7 - 2026-03-17（12 阶段真实清盘与 MCP 单实例层并入 live 规则）
+**用户目标**：在继续彻底清盘的同时，把“代办区误当工作区”的结构性错误彻底纠正，并把 Unity / MCP 单实例冲突补成正式规则层。  
+**完成事项**：
+1. 新建：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-log.md`
+2. 更新项目与 live 规则入口：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `基础规则与执行口径.md`
+   - `Sunset强制技能闸门与线程回复规范_2026-03-17.md`
+   - `Sunset Git系统现行规则与场景示例_2026-03-16.md`
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `Sunset现行入口总索引_2026-03-17.md`
+3. 新建 [外部历史容器退役说明_2026-03-17.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/12_治理工作区归位与彻底清盘/外部历史容器退役说明_2026-03-17.md)。
+4. 真实删除：
+   - `D:\Unity\Unity_learning\Sunset_external_archives`
+   - `D:\Unity\Unity_learning\Sunset_backups`
+5. 复核当前 shared root 真实 `HEAD` 为 `952a1f23`。
+**关键决策**：
+- shared root 中性与 Unity / MCP 单实例安全是两层不同闸门。
+- `000_代办/codex` 不再承担任何治理正文职责，只保留 TD。
+**恢复点 / 下一步**：
+- `12` 到此彻底完成。
+- 如继续治理，只回到 `09` 深化强制执行面。
+
+### 会话 8 - 2026-03-17（补强 shared root 实时占用、Play Mode 离场纪律与表现层验收）
+**用户目标**：
+> 继续完成治理主线，同时把“Play Mode 用完必须退回 Edit Mode”和“UI / 气泡 / 字体 / 样式必须兼顾审美与专业度”写进真正会被命中的闸门层。
+
+**完成事项**：
+1. 复核当前 Git 事实：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - 最新治理提交：`663af03c`
+   - shared root 当前仍带其他线程 dirty，主体是 NPC 业务文件并夹杂少量非治理记忆
+2. 更新 repo 内规则：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\基础规则与执行口径.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset强制技能闸门与线程回复规范_2026-03-17.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前唯一状态说明_2026-03-17.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+3. 更新本机 skill（不进入 repo 提交）：
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\references\checklist.md`
+4. 同步 `09` 阶段设计与任务清单，纳入新增两条硬约束。
+
+**关键决策**：
+- `main + branch-only` 是默认工作模型，不是 shared root 实时中性的保证；实时能否切分支必须再看占用文档与 `git status`。
+- 进入 Play Mode 做验证的线程，离场前必须先回到 Edit Mode。
+- 表现层任务必须按“好看、合理、专业、可读”验收，而不是只看功能通过。
+
+**恢复点 / 下一步**：
+- 治理主线仍落在 `09`，但结构性清盘和规则层补强都已基本闭环。
+- 当前剩余现场阻塞不在治理正文，而在 shared root 上仍保留的 NPC 相关业务 dirty。

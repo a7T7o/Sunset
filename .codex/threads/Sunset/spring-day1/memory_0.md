@@ -260,3 +260,52 @@
 - 当前线程已完成 Git 收尾：默认开发现场继续是 `D:\Unity\Unity_learning\Sunset`，默认开发/推送分支统一为 `main -> origin/main`。
 - `Assets/111_Data/Story.meta` 已纳入主线；保护类 `Primary.unity`、字体资产等未并入默认主线的对象已导出 Git 外补丁并移出默认工作树。
 - 当前恢复点固定为：spring-day1 后续直接在主项目 `main` 上继续开发，不再依赖 snapshot 分支或 carrier 分支。
+
+## 2026-03-13 补记：当前主线已接回 NPC001 对话测试
+- 当前线程主线已从“核主项目承载面是否恢复完成”推进到“把对话系统重新接到当前 NPC 链路上，准备做真实验收”。
+- 本轮先按场景修改规则审查 `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab`；确认三者都有动画/运动/排序/触发碰撞基础链，但都还没有挂 `NPCDialogueInteractable`。
+- 在 Unity MCP `Transport closed` 的前提下，采用最小改动策略：仅对 `Assets/222_Prefabs/NPC/001.prefab` 新增 `NPCDialogueInteractable`，并绑定 `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset`。
+- 同时收敛了一条稳定结论：NPC 模板应默认携带通用基础组件，但具体对话脚本和剧情资源属于语义层，不宜给所有 NPC 默认一刀切挂载。
+- 当前恢复点：`NPC001` 已具备本地对话测试入口；下一步优先做真实手工验收，确认触发、推进、时间暂停、字体切换与关闭链是否正常。
+
+## 2026-03-14 补记：显隐问题根因已从层级与脚本作用域上收口
+- 当前线程主线继续围绕 spring-day1 的真实对话验收闭环推进；本轮用户反馈“其他都还行，显隐问题很明显”。
+- 复盘 `Primary.unity` / `DialogueValidation.unity` 后确认，当前对话 UI 结构是 `DialogueCanvas` 下挂多个同级子物体，而旧版 `DialogueUI` 默认却把显隐根节点缩到 `DialoguePanel`。
+- 已在 `Assets/YYY_Scripts/Story/UI/DialogueUI.cs` 修正默认显隐目标，并新增覆盖范围校验逻辑，确保 `CanvasGroup` 控制的是整套 `DialogueCanvas` 而不是某个局部子节点。
+- 当前恢复点：代码侧显隐根因已修正；下一步应回到 Unity PlayMode 做一次现场复验，并据此继续收尾对话 UI 的剩余体验问题。
+
+## 2026-03-15 补记：MCP 现已回到可直接支撑现场验收的状态
+- 本轮重新测试 Unity MCP，确认其已恢复：active scene 真实为 `Primary`，且可直接读取 `DialogueCanvas`、`NPCs/001` 等 live 对象与组件属性。
+- 现场证据确认 `NPC001` 已真实挂有 `NPCDialogueInteractable` 且剧情资源绑定正确；这意味着“NPC 入口没接上”已经不是当前主阻塞。
+- 同时也确认 `DialogueUI` 当前在编辑态仍然是空序列化引用模式，实际依赖运行时自动补线；因此后续 UI 收尾应优先围绕“显式 Inspector 落盘”和“PlayMode 现场表现”两条线继续推进。
+- 当前恢复点：我们已经从“不能读现场”回到了“能直接读现场”；接下来该收的是 PlayMode 显隐、Inspector 显式配置、字体库挂载与最终剧情验收。
+
+## 2026-03-16 补记：线程冻结快照已转存到治理汇总目录
+- 本轮不是继续开发，而是响应冻结汇总要求，把当前 `spring-day1` 线程现场快照转存到治理汇总目录。
+- 已落盘文件：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\2026.03.16冻结文档汇总\spring-day1.md`。
+- 当前恢复点：本线程后续继续保持冻结，等待统一排期与 A 类共享热文件裁决结果。
+
+## 2026-03-15 补记：MCP 已恢复，当前主阻断切换为 GameInputManager 编译错误
+- 本轮重新尝试 Unity MCP 后已确认其恢复正常，不再是之前的 `Transport closed` 状态；活动场景为 `Primary`，live 层级与组件都可直接读取。
+- 通过 MCP 现场确认：`UI/DialogueCanvas` 在场，`NPCs/001` 真实挂有 `NPCDialogueInteractable`；因此 NPC 对话测试入口已经进入主场景 live 状态。
+- 同时通过控制台读到新的项目级真实阻断：`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 当前存在 4 条编译错误，优先级已高于后续所有 PlayMode 级对话验收。
+- 还确认了一个后续缺口：`Primary` 场景里的 `DialogueUI.fontLibrary` 仍为空，意味着字体切换链还没有在主场景真正接通。
+- 当前恢复点：下一步最优先是先恢复编译，再继续对话显隐/字体/暂停链的现场验收，而不是继续在编译失败状态下判断 UI 表现。
+
+## 2026-03-16 补记：首批复工 checkpoint 已在 main 现场闭环
+- 当前线程主线是继续在 `D:\Unity\Unity_learning\Sunset @ main` 上推进 spring-day1，而不是再做恢复史；本轮子任务是只用获批的两把锁收口 `DialogueCanvas` 显隐与 `NPC001` 最小验收。
+- 已通过 Unity MCP 在 `Assets/000_Scenes/Primary.unity` 补齐 `DialogueCanvas` 的 `CanvasGroup`、`头像/Icon` 的 `Image`，并把 `DialogueUI` 需要的 `root/speakerNameText/dialogueText/continueButton/portraitImage/backgroundImage/canvasGroup/fontLibrary` 全部显式写入场景。
+- 已在 PlayMode 通过 `DialogueDebugMenu` 走通 `NPC001 -> 对话 -> 结束`：按钮推进成立，字体库切换成立，结束后 `CanvasAlpha=0`、`IsDialogueActive=False`、`TimePaused=False`、`InputEnabled=True`；显隐链路已从“怀疑异常”收敛为“实际通过”。
+- 本轮未新增 `DialogueUI.cs` 代码修改，只沿用已有显隐作用域修复版做现场闭环；后续若继续开发，应以当前 main 为基线，进入下一轮体验优化或剧情扩展。
+
+## 2026-03-16 补记：Day1 下一功能判断已收敛
+- 当前真实现场核对结果：`D:\Unity\Unity_learning\Sunset @ codex/npc-asset-solidify-001`，`HEAD=8805542555b557f65c5d3ed21aacc2c7f8285d8d`；这不是适合直接继续 spring-day1 新实现的目标分支。
+- 现有对话系统已具备播放/打字机/UI/输入锁/NPC 触发，但仍缺“对话完成后推动 Day1 剧情前进”的能力。
+- 下一项最值得推进的新功能已收敛为：对话完成事件 + languageDecoded/阶段标记切换 + 首段前后序列分流，且应尽量不碰 `Primary.unity`、`GameInputManager.cs` 与其他 A 类共享热文件。
+- 真实开工时应先新开 spring-day1 专用 `codex/` 任务分支，再用 task 白名单同步。
+
+## 2026-03-16 补记：Day1 对话已具备最小剧情推进能力
+- 真实实现已在 `codex/spring-day1-story-progression-001` 完成并推送，提交 `a9c952b717395c561c0f50a55bf3382dd7c4c925`。
+- 本轮新增了 `DialogueSequenceCompletedEvent`、`DialogueManager.HasCompletedSequence(...)`、序列完成后 `IsLanguageDecoded` 切换，以及 `NPCDialogueInteractable` 的首段/后续分流逻辑。
+- `SpringDay1_FirstDialogue.asset` 现在会在完成后解码语言，并指向新的 `SpringDay1_FirstDialogue_Followup.asset`；下一次与同一 NPC 交互时会自动改播 follow-up。
+- 本轮未碰 `Primary.unity`、`GameInputManager.cs` 或其他 A 类共享热文件；下一轮优先做可见工程中的手工验收，再决定是否把完成事件继续接到 Day1 更大的阶段管理。
