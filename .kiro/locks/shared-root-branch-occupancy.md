@@ -1,4 +1,4 @@
-# shared-root-branch-occupancy
+﻿# shared-root-branch-occupancy
 
 ## 文件身份
 - 本文件用于记录 shared root `D:\Unity\Unity_learning\Sunset` 的占用语义。
@@ -10,7 +10,7 @@
 - owner_mode: `neutral-main-ready`
 - owner_thread: `none`
 - current_branch: `main`
-- last_verified_head: `3d305036`
+- last_verified_head: `35df00a2`
 - is_neutral: `true`
 - lease_state: `neutral`
 - branch_grant_state: `none`

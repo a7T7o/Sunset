@@ -144,3 +144,37 @@
 
 **恢复点 / 下一步**：
 - 若用户继续追问，我再从这份来源清单里展开讲某一组规则的演化。
+
+### 会话 5 - 2026-03-18（紧急插单：修复 grant 与 ensure-branch 的自锁）
+**用户目标**：
+> 先把当前主线任务和进度迅速存入代办，然后立刻处理 `farm` 在线验证暴露出的紧急 Bug：`grant-branch` 写脏 occupancy 后，`ensure-branch` 又把这份合法脏改当成阻断项，导致 shared root 卡死在 `main + branch-granted`。
+
+**已完成事项**：
+1. 新增 TD 镜像：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex\TD_13_阶段21历史回读暂停与分支租约死锁修复.md`
+   - 将原本“历史回读 / 查漏补缺”主线的当前任务、已完成进度、恢复点和本次紧急插单一起登记到记录层。
+2. 修补 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - 新增 `Get-SharedRootOccupancyRelativePath`
+   - 新增 `Test-SharedRootLeaseRuntimeDirtyPath`
+   - 新增 `Get-BlockingStatusEntries`
+   - 让 `grant-branch`、`ensure-branch`、`return-main` 在合法租约运行态下忽略 `.kiro/locks/shared-root-branch-occupancy.md` 这一份脚本自管态脏改
+   - 让 `New-PreflightReport` 把该文件标记为 `shared root 租约运行态脏改`，不再误算成普通 blocking dirty
+   - `Get-RemainingDirtyEntries` 也同步排除该类别
+3. 顺手补了一条安全收口：
+   - 当 shared root 仍在 `main` 且租约属于别的线程时，`return-main` 不再允许越权清空他人的未消费 grant
+4. 完成低风险验证：
+   - PowerShell 语法解析 `OK`
+   - 在当前 live repo 上执行只读 `preflight` 时，occupancy 已被正确归类为 `shared root 租约运行态脏改`
+   - `shared root lease` 不再因为 occupancy 本身报错，而是只会继续指出真正的其他 dirty（本轮是脚本与新 TD 自身）
+
+**关键决策**：
+- 这次不把 `shared-root-branch-occupancy.md` 整体降级为永久 noise。
+- 只在“shared root 合法租约运行态”下对它做精确豁免，避免影响未来把 occupancy 当治理文件正常提交。
+- 这次 Farm 的失败被正式定性为脚本逻辑漏洞，不是线程违规。
+
+**恢复点 / 下一步**：
+- 原本暂停的“历史回读 / 查漏补缺”主线仍保留，后续从 `TD_13` 记录的恢复点继续。
+- 紧急 Bug 这条线下一步应先：
+  1. 审核并同步本轮脚本修补
+  2. 清掉当前 live 的 `main + branch-granted` 中间态
+  3. 用 Farm 的第二阶段重新实盘验证 `grant -> ensure-branch`

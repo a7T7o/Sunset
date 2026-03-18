@@ -604,3 +604,32 @@
 
 **恢复点 / 下一步**：
 - 若用户继续追问，再基于这份来源清单展开某组规则的详细复盘。
+
+### 会话 21 - 2026-03-18（紧急插单：shared root 分支租约死锁修复）
+**用户目标**：
+> 先把当前任务和进度存入代办，再立刻处理 `farm` 实盘测试暴露出的脚本死锁：`grant-branch` 自己写脏 occupancy，随后 `ensure-branch` 又把它当阻断项。
+
+**已完成事项**：
+1. 在 TD 镜像层新增：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex\TD_13_阶段21历史回读暂停与分支租约死锁修复.md`
+   用于记录原主线暂停点、恢复点和本轮紧急插单。
+2. 在正式正文里完成 `git-safe-sync.ps1` 修补：
+   - 为 occupancy 增加“合法租约运行态脏改”识别
+   - `grant-branch` / `ensure-branch` / `return-main` 改用新的 blocking dirty 过滤逻辑
+   - `preflight` 与 remaining dirty 口径同步收敛
+3. 顺手补了一个越权口子：
+   - 其他线程不能在 `main` 上直接 `return-main` 清掉不属于自己的未消费租约
+4. 低风险验证通过：
+   - PowerShell 语法无错误
+   - live `preflight` 已能把 occupancy 标成 `shared root 租约运行态脏改`，不再误当普通 blocking dirty
+
+**关键决策**：
+- 这次 Farm 的 `FATAL` 已正式判定为脚本 Bug，不是线程执行不规范。
+- occupancy 不能粗暴地整体降级成 noise；必须是“仅在合法租约运行态下精确豁免”。
+
+**恢复点 / 下一步**：
+- 下一步优先不是继续历史回读，而是：
+  1. 审核本轮脚本修补
+  2. 解除当前 `main + branch-granted` 中间态
+  3. 重新实盘验证 Farm 的 `grant -> ensure-branch`
+- 原本的阶段 21 历史回读主线已写入 `TD_13`，后续可从那里继续恢复。

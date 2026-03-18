@@ -488,6 +488,50 @@ function Test-NoisePath {
     return $false
 }
 
+function Get-SharedRootOccupancyRelativePath {
+    return '.kiro/locks/shared-root-branch-occupancy.md'
+}
+
+function Test-SharedRootLeaseRuntimeDirtyPath {
+    param(
+        [string]$Path,
+        [string]$Branch,
+        $Occupancy
+    )
+
+    if ($null -eq $Occupancy) {
+        return $false
+    }
+
+    $normalizedPath = Normalize-InputPath -Path $Path
+    $occupancyPath = Normalize-InputPath -Path (Get-SharedRootOccupancyRelativePath)
+
+    if ($normalizedPath -ne $occupancyPath) {
+        return $false
+    }
+
+    if ($Branch -eq 'main') {
+        return ($Occupancy.IsNeutral -and $Occupancy.CurrentBranch -eq 'main' -and $Occupancy.BranchGrantState -eq 'granted')
+    }
+
+    return ((-not $Occupancy.IsNeutral) -and $Occupancy.CurrentBranch -eq $Branch)
+}
+
+function Get-BlockingStatusEntries {
+    param(
+        [object[]]$Entries,
+        [string]$Branch,
+        $Occupancy
+    )
+
+    return @(
+        $Entries | Where-Object {
+            -not (Test-NoisePath -Path $_.Path) -and
+            -not (Test-SharedRootLeaseRuntimeDirtyPath -Path $_.Path -Branch $Branch -Occupancy $Occupancy)
+        }
+    )
+}
+
 function Test-AllowedPath {
     param(
         [string]$Path,
@@ -537,7 +581,10 @@ function Get-PathGroup {
 function Get-RemainingDirtyEntries {
     param([object[]]$Entries)
 
-    return @($Entries | Where-Object { $_.Category -ne '已知本地噪音' })
+    return @($Entries | Where-Object {
+            $_.Category -ne '已知本地噪音' -and
+            $_.Category -ne 'shared root 租约运行态脏改'
+        })
 }
 
 function Get-RemainingDirtyGateMessage {
@@ -572,7 +619,7 @@ function Grant-SharedRootBranchLease {
 
     Assert-TaskBranchMatchesOwner -Branch $TargetBranch -OwnerThread $OwnerThread
 
-    $entries = @(Get-StatusEntries | Where-Object { -not (Test-NoisePath -Path $_.Path) })
+    $entries = @(Get-BlockingStatusEntries -Entries (Get-StatusEntries) -Branch $branch -Occupancy $occupancy)
     if ($entries.Count -gt 0) {
         throw 'FATAL: shared root 当前不干净，禁止发放分支租约。'
     }
@@ -618,7 +665,11 @@ function Return-SharedRootToMain {
     }
 
     $branch = Get-CurrentBranch
-    $entries = @(Get-StatusEntries | Where-Object { -not (Test-NoisePath -Path $_.Path) })
+    if ($branch -eq 'main' -and $null -ne $occupancy -and $occupancy.BranchGrantState -eq 'granted' -and $occupancy.BranchGrantOwner -ne 'none' -and $occupancy.BranchGrantOwner -ne $OwnerThread) {
+        throw "FATAL: shared root 当前未消费租约属于 '$($occupancy.BranchGrantOwner)'，'$OwnerThread' 不得越权清空。"
+    }
+
+    $entries = @(Get-BlockingStatusEntries -Entries (Get-StatusEntries) -Branch $branch -Occupancy $occupancy)
     if ($entries.Count -gt 0) {
         throw 'FATAL: 当前工作树不干净，禁止 return-main。请先提交、推送或清理当前任务脏改。'
     }
@@ -736,6 +787,7 @@ function New-PreflightReport {
     $branch = Get-CurrentBranch
     $head = Get-HeadShort
     $upstream = Get-UpstreamCounts
+    $occupancy = Get-SharedRootOccupancyRecord
     $entries = Get-StatusEntries
     $allowed = @()
     $remaining = @()
@@ -746,6 +798,15 @@ function New-PreflightReport {
                 Path     = $entry.Path
                 Status   = $entry.Status
                 Category = '已知本地噪音'
+            }
+            continue
+        }
+
+        if (Test-SharedRootLeaseRuntimeDirtyPath -Path $entry.Path -Branch $branch -Occupancy $occupancy) {
+            $remaining += [PSCustomObject]@{
+                Path     = $entry.Path
+                Status   = $entry.Status
+                Category = 'shared root 租约运行态脏改'
             }
             continue
         }
@@ -942,7 +1003,7 @@ function Ensure-TaskBranch {
         return
     }
 
-    $entries = @(Get-StatusEntries | Where-Object { -not (Test-NoisePath -Path $_.Path) })
+    $entries = @(Get-BlockingStatusEntries -Entries (Get-StatusEntries) -Branch $branch -Occupancy $occupancy)
     if ($entries.Count -gt 0) {
         throw "当前工作树不干净，不能安全创建/切换到 $TargetBranch。请先收口或隔离现有脏改。"
     }

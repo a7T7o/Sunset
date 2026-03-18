@@ -581,3 +581,29 @@
 
 **恢复点 / 下一步**：
 - 如用户继续追问，再从这些来源文件中展开具体规则差距。
+
+### 会话 21 - 2026-03-18（紧急暂停历史回读，转入租约死锁修复）
+**用户目标**：
+> 暂停当前“历史回读 / 查漏补缺”主线，先把任务和进度迅速存入代办，然后立刻处理 `farm` 的在线测试暴露出的 shared root 租约死锁。
+
+**已完成事项**：
+1. 先把原主线暂停点与恢复点写入 TD：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\codex\TD_13_阶段21历史回读暂停与分支租约死锁修复.md`
+2. 定位并修复脚本逻辑漏洞：
+   - `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+   - 新增 shared root occupancy 的“合法租约运行态脏改”识别
+   - `grant-branch / ensure-branch / return-main / preflight` 同步接入新过滤逻辑
+3. 安全补强：
+   - 阻止其他线程在 `main` 上越权清空不属于自己的 `branch-granted`
+4. 低风险验证：
+   - PowerShell 语法检查 `OK`
+   - live `preflight` 已显示 occupancy 被归为 `shared root 租约运行态脏改`，不再被当作普通 blocking dirty
+
+**关键决策**：
+- 这次 `farm` 的失败被正式定性为脚本 Bug，不是线程失误。
+- occupancy 不能被永久降级成噪音；只能在“合法租约运行态”下做精确豁免。
+- 原主线并未取消，只是被 `P0` Bug 暂停。
+
+**恢复点 / 下一步**：
+- 当前最高优先级是让用户审核本轮脚本修补，然后清掉 `main + branch-granted` 中间态并重测 Farm。
+- 修补完成后，再回到 `TD_13` 记录的历史回读恢复点，继续阶段 21 的查漏补缺。
