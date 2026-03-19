@@ -1294,3 +1294,30 @@
 **恢复点**
 - 先对白名单治理文件执行一次最小 `governance sync`
 - 同步完成后继续 `wake-next -> 农田交互修复V2`
+
+## 2026-03-19｜农田 smoke-test_01 续跑成功，队列只剩遮挡
+**用户目标**
+- 在 `NPC` 闭环后继续消费本轮队列，不中断，直接推进 `农田交互修复V2`。
+
+**本轮完成**
+- 治理线程已执行 `wake-next`，成功向 `农田交互修复V2` 发放 `codex/farm-1.0.2-cleanroom001` 的 shared root grant。
+- `农田交互修复V2` 回执确认：
+  - `request-branch = ALREADY_GRANTED`
+  - `ensure-branch = 成功`
+  - `return-main = 成功`
+  - `post_return_evidence_mode = defer-tracked-while-queue-waiting`
+- 只读核对附加事实：
+  - `FarmToolPreview.cs` 与 `PlacementManager.cs` 在位
+  - `FarmManager.cs` 当前不存在
+- live 复核显示：
+  - shared root 已再次回到 `main + neutral`
+  - queue 中 `ticket 4 / 农田交互修复V2 = completed`
+  - 仅剩 `遮挡检查` 一条 waiting
+
+**关键判断**
+- 这说明当前脚本与队列模型已连续支撑三次真实闭环，没有再次出现 `return-main` 阻断。
+- 当前最合理的继续动作已经非常明确：先最小 tracked 回收，再推进最后一个 waiting 条目 `遮挡检查`。
+
+**恢复点**
+- 先对白名单治理文件执行一次最小 `governance sync`
+- 同步完成后继续 `wake-next -> 遮挡检查`

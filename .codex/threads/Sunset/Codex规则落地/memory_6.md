@@ -211,3 +211,36 @@
 - 先把 `NPC` 这轮成功闭环补入执行层 / 治理层记忆与回收卡
 - 然后执行最小 `governance sync`
 - 同步完成后直接继续到 `农田交互修复V2`
+
+## 会话 52 - 2026-03-19（农田续跑与第三次真实闭环）
+**用户目标**：
+> 继续沿 `smoke-test_01` 队列推进 `农田交互修复V2`，不要因为说明或审核中断节奏。
+
+**已完成事项**：
+1. 在 `NPC` 回收后确认 shared root 再次处于 `main + neutral + clean`
+2. 执行：
+   - `sunset-git-safe-sync.ps1 -Action wake-next -OwnerThread 'Codex规则落地'`
+   成功向 `农田交互修复V2` 发放 `codex/farm-1.0.2-cleanroom001` 的 grant
+3. 收到 `农田交互修复V2` 最小回执，确认其完成：
+   - `request-branch = ALREADY_GRANTED`
+   - `ensure-branch = 成功`
+   - `return-main = 成功`
+   - `post_return_evidence_mode = defer-tracked-while-queue-waiting`
+4. 补充保留了一条对业务判断有价值的只读事实：
+   - `FarmManager.cs` 当前不存在
+5. live 再次复核后确认：
+   - `main + neutral`
+   - queue 中 `ticket 4 / 农田交互修复V2 = completed`
+   - 当前只剩 `遮挡检查` 一条 waiting
+
+**关键决策**：
+- 到这里已经连续有三条线程完成真实闭环：`导航检查`、`NPC`、`农田交互修复V2`
+- 当前最合理的节奏不变：
+  - 先最小 tracked 回收
+  - 治理同步回 `main`
+  - 再继续 `wake-next -> 遮挡检查`
+
+**恢复点 / 下一步**：
+- 先把农田这轮成功闭环补入执行层 / 治理层记忆与回收卡
+- 然后执行最小 `governance sync`
+- 同步完成后直接继续到 `遮挡检查`

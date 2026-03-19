@@ -279,3 +279,38 @@
 **恢复点 / 下一步**：
 - 先把 NPC 成功闭环的最小 tracked 回收与记忆同步进 `main`
 - 同步完成后，继续 `wake-next -> 农田交互修复V2`
+
+### 会话 9 - 2026-03-19（农田 smoke-test_01 续跑成功闭环）
+**用户需求**：
+> 在 `NPC` 完成后继续沿队列推进下一位，也就是 `农田交互修复V2`，不要中断主线。
+
+**已完成事项**：
+1. 在 `NPC` 回收完成并治理同步后，确认 shared root 再次处于 `main + neutral + clean`
+2. 治理线程执行：
+   - `sunset-git-safe-sync.ps1 -Action wake-next -OwnerThread 'Codex规则落地'`
+   并成功向 `农田交互修复V2` 发放：
+   - `codex/farm-1.0.2-cleanroom001`
+3. `农田交互修复V2` 按续跑 prompt 完成：
+   - `request-branch = ALREADY_GRANTED`
+   - `ensure-branch = 成功`
+   - 对 `FarmToolPreview.cs / PlacementManager.cs / FarmManager.cs` 的只读核对
+   - `return-main = 成功`
+4. 只读核对补充事实：
+   - `FarmToolPreview.cs` 在位
+   - `PlacementManager.cs` 在位
+   - `FarmManager.cs` 当前不存在
+5. 退场后现场再次恢复为：
+   - `main + neutral`
+   - queue 中 `ticket 4 / 农田交互修复V2 = completed`
+   - 当前只剩 `遮挡检查` 一条 waiting
+
+**关键决策**：
+- 到这一步，`smoke-test_01` 已连续完成三条真实闭环：
+  - `导航检查`
+  - `NPC`
+  - `农田交互修复V2`
+- 当前执行层剩余的唯一 waiting 条目是 `遮挡检查`，说明这轮 smoke test 已经接近尾声。
+
+**恢复点 / 下一步**：
+- 先把农田成功闭环的最小 tracked 回收与记忆同步进 `main`
+- 同步完成后，继续 `wake-next -> 遮挡检查`
