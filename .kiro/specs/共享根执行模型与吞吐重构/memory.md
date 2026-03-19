@@ -211,3 +211,41 @@
 | `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\design.md` | 新执行层分层设计 |
 | `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\tasks.md` | 新主线任务清单 |
 | `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\memory.md` | 旧治理工作区的重判与交接背景 |
+
+### 会话 7 - 2026-03-19（smoke-test_01 回收与 shared root 恢复）
+**用户需求**：
+> 四条 smoke test 线程都已回复，需要治理线程开始回收，并把当前卡死现场真正恢复成可继续调度的状态。
+
+**已完成事项**：
+1. 只读复核 live 现场，确认 shared root 并没有正常完成第一轮 smoke test，而是卡在：
+   - `codex/navigation-audit-001 @ 71905387`
+   - `owner_thread = 导航检查`
+   - queue 中另有 `NPC / 农田交互修复V2 / 遮挡检查` 三条 waiting
+2. 复核 `preflight` 与 Draft 证据，锁定本轮新暴露的 P1 根因：
+   - waiting 线程写入的 `.codex/drafts/**` 在 `导航检查` 所处旧分支上未被忽略
+   - 这些 Draft 被 `return-main` 误判成 remaining dirty，从而反向阻断退场
+3. 采用最小恢复方案，在仓库本地 `D:\Unity\Unity_learning\Sunset\.git\info\exclude` 增加：
+   - `.codex/drafts/**`
+   以兼容仍未合入新版 `.gitignore` 的旧 continuation branch
+4. 在该兜底生效后重新执行：
+   - `sunset-git-safe-sync.ps1 -Action return-main -OwnerThread '导航检查'`
+   并成功返回：
+   - `STATUS: RETURNED_MAIN`
+   - `NEXT_IN_LINE_OWNER_THREAD: NPC`
+   - `POST_RETURN_EVIDENCE_MODE: defer-tracked-while-queue-waiting`
+5. 恢复后现场已回正为：
+   - `main @ c09ac560`
+   - `git status --short --branch = ## main...origin/main`
+   - `shared-root-branch-occupancy.md = main + neutral`
+   - `shared-root-active-session.lock.json = absent`
+   - queue 中 `导航检查` 已完成，`NPC / 农田交互修复V2 / 遮挡检查` 保持 waiting
+6. 同步补完本轮 `smoke-test_01` 的四张治理镜像回收卡，确保“聊天事实”转成仓库内治理事实。
+
+**关键决策**：
+- 这次失败并不推翻 Draft 沙盒方案；真正的缺口是“旧 continuation branch 对 Draft 的忽略策略不完整”。
+- shared root 的恢复动作必须先于下一位线程唤醒；否则队列会在错误基线上继续放大问题。
+- `导航检查` 这轮暴露出的另一个有效信号是持槽过长：`docs-fast-lane` 推荐 3 分钟，但实际持槽达到 11.25 分钟，后续 rollout 必须继续压缩持槽窗口。
+
+**恢复点 / 下一步**：
+- 先对白名单治理文件做一次 `governance sync`，把本轮回收与恢复结论收进口径层。
+- 同步完成后，shared root 应继续保持 `main + neutral`，再决定是否执行 `wake-next` 唤醒 `NPC`。

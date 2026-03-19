@@ -150,3 +150,33 @@
 
 **恢复点 / 下一步**：
 - 同步这批新分发文件进 `main`，然后即可对外发车。
+
+## 会话 50 - 2026-03-19（smoke-test_01 事故回收与 shared root 回正）
+**用户目标**：
+> 四条 smoke test 线程都已回复，要求我直接开始回收、恢复现场，并把当前治理主线继续推进到可再次调度的状态。
+
+**已完成事项**：
+1. 复核 live 现场，确认 shared root 并未正常完成本轮 smoke test，而是卡在：
+   - `codex/navigation-audit-001 @ 71905387`
+   - `owner_thread = 导航检查`
+   - 另有 `NPC / 农田交互修复V2 / 遮挡检查` 三条 waiting 条目
+2. 用 stable launcher `preflight` 明确验证：
+   - 阻断 `return-main` 的 remaining dirty 正是其他 waiting 线程写入的 `.codex/drafts/**`
+3. 在本机仓库 `D:\Unity\Unity_learning\Sunset\.git\info\exclude` 增加 `.codex/drafts/**` 作为旧分支兼容兜底
+4. 随后重新执行：
+   - `sunset-git-safe-sync.ps1 -Action return-main -OwnerThread '导航检查'`
+   成功把 shared root 恢复到：
+   - `main @ c09ac560`
+   - `git status --short --branch = ## main...origin/main`
+   - `shared-root-branch-occupancy.md = main + neutral`
+   - active session 清空
+5. 补写执行层工作区 `smoke-test_01` 的四张治理镜像回收卡，并把“旧分支 Draft 忽略兜底”写回执行层工作区任务 / 记忆。
+
+**关键决策**：
+- 本轮失败的核心不是 Draft 沙盒方向错误，而是旧 continuation branch 尚未带上新版忽略规则，导致 waiting Draft 会反向阻断持槽线程退场。
+- `导航检查` 这轮虽然最终被救回，但也暴露出持槽 11.25 分钟、显著超出 `docs-fast-lane` 推荐 3 分钟的吞吐问题；后续 rollout 仍要继续压缩持槽窗口。
+- 当前我不在 shared root 仍有 waiting 时直接写更多 tracked 治理杂项，而是先做最小回收、最小同步，再决定是否唤醒队首。
+
+**恢复点 / 下一步**：
+- 立即对白名单治理文件执行 `governance sync`，把这轮回收与恢复结论安全收进 `main`。
+- 同步完成后，shared root 继续保持 `main + neutral`，再根据 clean 现场决定是否 `wake-next -> NPC`。

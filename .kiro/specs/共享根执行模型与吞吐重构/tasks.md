@@ -29,3 +29,5 @@
 
 - [x] 10. 补 Waiting Draft 沙盒与 post-return 证据策略
   说明：为等待态和 `return-main` 后但队列未清空的线程提供 gitignored 草稿承载面，并明确 tracked 证据何时允许最小落盘。
+- [x] 11. 补旧分支 Draft 忽略兜底与 smoke-test 恢复闭环
+  说明：为仍停留在旧规则基线上的 continuation branch 增加 repo-local Draft 忽略兜底，避免 waiting 线程的 `.codex/drafts/**` 反向阻断持槽线程 `return-main`；并据此完成 `smoke-test_01` 的 shared root 恢复与回收闭环。

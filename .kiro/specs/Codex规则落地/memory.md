@@ -1240,3 +1240,31 @@
 **恢复点 / 下一步**
 - 等 shared root 回到 `main + neutral` 且治理层重新唤醒 `导航检查`。
 - 下一次继续时仍以 `codex/navigation-audit-001` 为 continuation branch，先做 `NavGrid2D / PlayerAutoNavigator` 的首个非热文件 checkpoint，不碰 `GameInputManager.cs`、`Primary.unity`，也不进入 Unity / MCP / Play Mode。
+
+## 2026-03-19｜smoke-test_01 卡死恢复完成，shared root 已回正
+**用户目标**
+- 四条执行层 smoke test 都已给出回执，要求治理线程立即开始回收、修正当前卡死现场，并恢复可继续调度的 shared root 基线。
+
+**本轮完成**
+- 只读确认本轮真正卡死点不是“线程都完成了”，而是：
+  - `导航检查` 已进入 `codex/navigation-audit-001`
+  - `NPC / 农田交互修复V2 / 遮挡检查` 正确进入 waiting，并写入 Draft
+  - `导航检查` 的 `return-main` 被其他 waiting 线程的 Draft 反向阻断
+- 根因已锁定为：旧 continuation branch 对 `.codex/drafts/**` 缺少忽略规则；这不是 Draft 沙盒概念本身失败，而是跨旧分支兼容层缺口。
+- 已采用最小恢复动作：
+  - 在 repo-local `D:\Unity\Unity_learning\Sunset\.git\info\exclude` 增加 `.codex/drafts/**`
+  - 重新执行 `导航检查` 的 `return-main`
+- 当前 live 已恢复为：
+  - `main @ c09ac560`
+  - `git status --short --branch = ## main...origin/main`
+  - `shared-root-branch-occupancy.md = main + neutral`
+  - queue 中 `导航检查 = completed`，`NPC / 农田交互修复V2 / 遮挡检查 = waiting`
+- 已补写执行层工作区下 `smoke-test_01` 的四张治理镜像回收卡，避免回收结论继续只停留在聊天态。
+
+**关键判断**
+- `Codex规则落地` 当前对这轮执行层事件的职责仍然是：事故恢复、治理裁定、根层口径同步；不重新夺回执行层主线。
+- 现在可以客观地说：shared root 已从这轮 smoke test 的卡死态恢复，但队列仍未消费完，下一步仍要先做治理收口再继续叫号。
+
+**恢复点**
+- 先对白名单治理文件执行一次 `governance sync`。
+- 同步完成后，再决定是否立刻 `wake-next -> NPC`，或先把专属唤醒 prompt 发出去。
