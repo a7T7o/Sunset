@@ -356,6 +356,87 @@ function New-SharedRootQueueRecord {
     }
 }
 
+function Repair-SharedRootQueueRecord {
+    param(
+        $Queue,
+        $Occupancy
+    )
+
+    if ($null -eq $Queue) {
+        return [PSCustomObject]@{
+            Queue   = $Queue
+            Changed = $false
+        }
+    }
+
+    $changed = $false
+    $timestamp = Get-OccupancyTimestamp
+
+    foreach ($entry in @($Queue.Entries)) {
+        if ($null -eq $entry) {
+            continue
+        }
+
+        if ($entry.State -eq 'waiting' -and $null -ne $Occupancy -and $Occupancy.CurrentBranch -eq 'main' -and $Occupancy.BranchGrantState -eq 'granted' -and $Occupancy.BranchGrantOwner -eq $entry.OwnerThread -and $Occupancy.BranchGrantBranch -eq $entry.TargetBranch) {
+            $entry.State = 'granted'
+            $entry.LastSeen = $timestamp
+            if ($entry.GrantedAt -eq 'none' -or [string]::IsNullOrWhiteSpace($entry.GrantedAt)) {
+                $entry.GrantedAt = $timestamp
+            }
+            $entry.LastReason = 'reconciled-grant-from-occupancy'
+            $changed = $true
+            continue
+        }
+
+        if ($entry.State -eq 'granted') {
+            $isLiveGrant = $null -ne $Occupancy -and $Occupancy.CurrentBranch -eq 'main' -and $Occupancy.BranchGrantState -eq 'granted' -and $Occupancy.BranchGrantOwner -eq $entry.OwnerThread -and $Occupancy.BranchGrantBranch -eq $entry.TargetBranch
+            if (-not $isLiveGrant) {
+                $entry.State = 'cancelled'
+                $entry.LastSeen = $timestamp
+                $entry.LastReason = 'reconciled-missing-grant'
+                $changed = $true
+            }
+            continue
+        }
+
+        if ($entry.State -eq 'task-active') {
+            $isLiveTask = $null -ne $Occupancy -and -not $Occupancy.IsNeutral -and $Occupancy.OwnerThread -eq $entry.OwnerThread -and $Occupancy.CurrentBranch -eq $entry.TargetBranch
+            if (-not $isLiveTask) {
+                $entry.State = 'completed'
+                $entry.LastSeen = $timestamp
+                if ($entry.CompletedAt -eq 'none' -or [string]::IsNullOrWhiteSpace($entry.CompletedAt)) {
+                    $entry.CompletedAt = $timestamp
+                }
+                $entry.LastReason = 'reconciled-missing-task-active'
+                $changed = $true
+            }
+        }
+    }
+
+    $expectedServing = $null
+    $taskActiveEntries = @($Queue.Entries | Where-Object { $_.State -eq 'task-active' } | Sort-Object Ticket | Select-Object -First 1)
+    if ($taskActiveEntries.Count -gt 0) {
+        $expectedServing = [int]$taskActiveEntries[0].Ticket
+    }
+    else {
+        $grantedEntries = @($Queue.Entries | Where-Object { $_.State -eq 'granted' } | Sort-Object Ticket | Select-Object -First 1)
+        if ($grantedEntries.Count -gt 0) {
+            $expectedServing = [int]$grantedEntries[0].Ticket
+        }
+    }
+
+    $currentServing = $Queue.CurrentServingTicket
+    if (($null -eq $currentServing -and $null -ne $expectedServing) -or ($null -ne $currentServing -and $null -eq $expectedServing) -or ($null -ne $currentServing -and $null -ne $expectedServing -and [int]$currentServing -ne [int]$expectedServing)) {
+        $Queue.CurrentServingTicket = $expectedServing
+        $changed = $true
+    }
+
+    return [PSCustomObject]@{
+        Queue   = $Queue
+        Changed = $changed
+    }
+}
+
 function Get-SharedRootQueueRecord {
     $path = Get-SharedRootQueueRuntimePath
 
@@ -401,7 +482,7 @@ function Get-SharedRootQueueRecord {
         $currentServing = [int]$state.current_serving_ticket
     }
 
-    return [PSCustomObject]@{
+    $queue = [PSCustomObject]@{
         RuntimePath           = $path
         SpecPath              = Get-SharedRootQueueSpecPath
         QueueEnabled          = if ($null -eq $state.queue_enabled) { $true } else { [bool]$state.queue_enabled }
@@ -411,6 +492,13 @@ function Get-SharedRootQueueRecord {
         LastUpdated           = [string]$state.last_updated
         Entries               = @($entries)
     }
+
+    $repair = Repair-SharedRootQueueRecord -Queue $queue -Occupancy (Get-SharedRootOccupancyRecord)
+    if ($repair.Changed) {
+        Set-SharedRootQueueRecord -Queue $repair.Queue
+    }
+
+    return $repair.Queue
 }
 
 function Set-SharedRootQueueRecord {
