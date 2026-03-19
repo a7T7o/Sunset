@@ -504,3 +504,35 @@
 **恢复点 / 下一步**：
 - 现在可立即分发 `NPC_phase2集成清洗.md`
 - 等 `NPC` 成功 `return-main` 后，再分发 `农田交互修复V2_GameInputManager热文件专项.md`
+
+### 会话 15 - 2026-03-19（真实开发准入批次 02 回执已回收）
+**用户需求**：
+> 用户贴回 `NPC_phase2集成清洗` 与 `农田交互修复V2_GameInputManager热文件专项` 两张回执，要求治理线程正式收件。
+
+**本轮完成**：
+1. 已确认 live 仍为：
+   - `main`
+   - `neutral`
+   - `clean`
+2. 已结合 queue runtime 确认：
+   - `ticket 8 / NPC = completed`
+   - `ticket 9 / 农田交互修复V2 = completed`
+3. 已确认 `GameInputManager.cs` 热文件锁在农田退场后已释放。
+4. 已回填批次 02 的两张固定回收卡。
+
+**关键判断**：
+- `NPC` 本轮的真实结论是：
+  - phase2 carrier 的业务交付面完整
+  - 但 branch 相对 `main` 仍混有 merge-noise
+  - 因而下一步应是 NPC carrier 的去噪 / 合流，而不是继续重复 phase2 集成清点
+- `农田交互修复V2` 本轮的真实结论是：
+  - `GameInputManager / Inventory / Farm / Placement` 的第二检查点接口已完整存在于 continuation carrier
+  - 热文件锁已成功申请并释放，证明该阶段的物理通道畅通
+  - 但下一步不该再重复热文件专项，而应转入农田 carrier 的去噪 / 合流
+- 到这一步，两条线都从“继续探测 branch 里有没有东西”推进到了“branch 已有业务内容，但需要治理 merge-noise 才能安全落地”的新阶段。
+
+**恢复点 / 下一步**：
+- 后续若继续推进，不再复用批次 02
+- 下一轮更合理的是：
+  - `NPC` carrier 去噪 / 合流批次
+  - `农田` carrier 去噪 / 合流批次

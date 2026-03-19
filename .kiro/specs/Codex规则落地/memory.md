@@ -1464,3 +1464,28 @@
 **恢复点**
 - 现在直接给用户发 `NPC` 的批次 02 prompt
 - 收到 `NPC` 回执后，再发 `农田` 的热文件专项 prompt
+
+## 2026-03-19｜真实开发准入批次 02 已正式收件
+**用户目标**
+- 用户贴回批次 02 的 `NPC` 与 `农田` 回执，希望治理线程正式入账并给出后续裁定。
+
+**本轮完成**
+- 已复核 live：`main + neutral + clean`
+- 已复核 queue runtime：
+  - `ticket 8 / NPC = completed`
+  - `ticket 9 / 农田交互修复V2 = completed`
+- 已复核 `GameInputManager.cs` 当前为 unlocked
+- 已回填批次 02 的两张固定回收卡
+
+**关键判断**
+- 批次 02 的真实产出仍然不是新代码，而是两条更明确的治理结论：
+  - `NPC`：phase2 carrier 完整，但需要 merge-noise 清洗
+  - `农田`：第二检查点已在 continuation carrier 中齐备，且热文件通道已验证可通，但也需要 merge-noise 清洗
+- 因此两条线现在都不该再继续发“探测型 prompt”，而应直接升级到：
+  - carrier 去噪 / 合流批次
+
+**恢复点**
+- 当前 shared root 仍可继续调度
+- 下一轮应优先生成：
+  - `NPC` carrier 去噪 / 合流批次
+  - `农田` carrier 去噪 / 合流批次
