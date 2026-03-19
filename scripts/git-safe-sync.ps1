@@ -390,7 +390,18 @@ function Repair-SharedRootQueueRecord {
 
         if ($entry.State -eq 'granted') {
             $isLiveGrant = $null -ne $Occupancy -and $Occupancy.CurrentBranch -eq 'main' -and $Occupancy.BranchGrantState -eq 'granted' -and $Occupancy.BranchGrantOwner -eq $entry.OwnerThread -and $Occupancy.BranchGrantBranch -eq $entry.TargetBranch
-            if (-not $isLiveGrant) {
+            $isLiveTask = $null -ne $Occupancy -and -not $Occupancy.IsNeutral -and $Occupancy.OwnerThread -eq $entry.OwnerThread -and $Occupancy.CurrentBranch -eq $entry.TargetBranch
+
+            if ($isLiveTask) {
+                $entry.State = 'task-active'
+                $entry.LastSeen = $timestamp
+                if ($entry.GrantedAt -eq 'none' -or [string]::IsNullOrWhiteSpace($entry.GrantedAt)) {
+                    $entry.GrantedAt = $timestamp
+                }
+                $entry.LastReason = 'reconciled-task-active-from-occupancy'
+                $changed = $true
+            }
+            elseif (-not $isLiveGrant) {
                 $entry.State = 'cancelled'
                 $entry.LastSeen = $timestamp
                 $entry.LastReason = 'reconciled-missing-grant'
