@@ -314,3 +314,42 @@
 **恢复点 / 下一步**：
 - 先把农田成功闭环的最小 tracked 回收与记忆同步进 `main`
 - 同步完成后，继续 `wake-next -> 遮挡检查`
+
+### 会话 10 - 2026-03-19（遮挡 smoke-test_01 续跑成功，整轮 smoke test 完成）
+**用户需求**：
+> 在 `农田交互修复V2` 之后继续推进最后一个 waiting 条目 `遮挡检查`，并在其回执到位后完成整轮 `smoke-test_01` 的最终收口。
+
+**已完成事项**：
+1. 在 `农田` 回收完成并治理同步后，确认 shared root 再次处于 `main + neutral + clean`
+2. 治理线程执行：
+   - `sunset-git-safe-sync.ps1 -Action wake-next -OwnerThread 'Codex规则落地'`
+   并成功向 `遮挡检查` 发放：
+   - `codex/occlusion-audit-001`
+3. `遮挡检查` 按续跑 prompt 完成：
+   - `request-branch = ALREADY_GRANTED`
+   - `ensure-branch = 成功`
+   - `return-main = 成功`
+   - `post_return_evidence_mode = minimal-tracked-allowed`
+4. 只读核对结论：
+   - 调查 carrier 在位
+   - 关键文档与调查线索仍在位
+5. 退场后现场再次恢复为：
+   - `main + neutral + clean`
+   - queue 中 `ticket 5 / 遮挡检查 = completed`
+   - `shared-root-active-session.lock.json = absent`
+   - 当前 waiting 条目已清空
+
+**关键决策**：
+- 到这一步，`smoke-test_01` 已完成四条真实闭环：
+  - `导航检查`
+  - `NPC`
+  - `农田交互修复V2`
+  - `遮挡检查`
+- 这轮 smoke test 已经不再只是“验证排队会不会挂起”，而是完成了完整的实盘证明：
+  - waiting Draft 不再污染 `main`
+  - `wake-next -> ALREADY_GRANTED -> ensure-branch -> return-main` 可以连续多次成功闭环
+  - 最后一条退场后，当队列清空时会正确返回 `minimal-tracked-allowed`
+
+**恢复点 / 下一步**：
+- 先把 `遮挡检查` 的成功闭环与“整轮 smoke-test_01 已完成”的结论同步进 `main`
+- 同步完成后，shared root 应保持 `main + neutral + clean`，再决定是否进入下一批真实开发准入

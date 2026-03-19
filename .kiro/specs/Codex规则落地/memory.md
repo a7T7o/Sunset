@@ -1321,3 +1321,35 @@
 **恢复点**
 - 先对白名单治理文件执行一次最小 `governance sync`
 - 同步完成后继续 `wake-next -> 遮挡检查`
+
+## 2026-03-19｜遮挡 smoke-test_01 续跑成功，整轮执行层 smoke test 收口
+**用户目标**
+- 在 `农田交互修复V2` 之后继续推进最后一个 waiting 条目 `遮挡检查`，并在其完成后给出整轮 `smoke-test_01` 的真实收口状态。
+
+**本轮完成**
+- 治理线程已执行 `wake-next`，成功向 `遮挡检查` 发放 `codex/occlusion-audit-001` 的 shared root grant。
+- `遮挡检查` 回执确认：
+  - `request-branch = ALREADY_GRANTED`
+  - `ensure-branch = 成功`
+  - `return-main = 成功`
+  - `post_return_evidence_mode = minimal-tracked-allowed`
+- live 复核显示：
+  - shared root 已再次回到 `main + neutral + clean`
+  - queue 中 `ticket 5 / 遮挡检查 = completed`
+  - 当前队列 waiting 条目已清空
+
+**关键判断**
+- 这意味着本轮执行层 `smoke-test_01` 已经完成完整实盘闭环，而不是停在局部验证：
+  - `导航检查`
+  - `NPC`
+  - `农田交互修复V2`
+  - `遮挡检查`
+  全部都真实完成了从 waiting / grant 到 `return-main` 的退场链路
+- `Codex规则落地` 当前对这轮的职责已经转为：
+  - 做最终治理同步
+  - 给用户汇报“这套 shared root 执行交通系统在 smoke-test 层面已通过”
+  - 然后再裁定下一批是否进入真实开发准入
+
+**恢复点**
+- 先对白名单治理文件执行最后一次最小 `governance sync`
+- 同步完成后向用户汇报本轮最终验收结果与下一步建议

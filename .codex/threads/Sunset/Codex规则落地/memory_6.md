@@ -244,3 +244,32 @@
 - 先把农田这轮成功闭环补入执行层 / 治理层记忆与回收卡
 - 然后执行最小 `governance sync`
 - 同步完成后直接继续到 `遮挡检查`
+
+## 会话 53 - 2026-03-19（遮挡续跑与 smoke-test_01 全轮完成）
+**用户目标**：
+> 在 `农田交互修复V2` 之后继续推进最后一个 waiting 条目 `遮挡检查`，并在回执到位后完成整轮 `smoke-test_01` 的总收口。
+
+**已完成事项**：
+1. 在 `农田` 回收后确认 shared root 再次处于 `main + neutral + clean`
+2. 执行：
+   - `sunset-git-safe-sync.ps1 -Action wake-next -OwnerThread 'Codex规则落地'`
+   成功向 `遮挡检查` 发放 `codex/occlusion-audit-001` 的 grant
+3. 收到 `遮挡检查` 最小回执，确认其完成：
+   - `request-branch = ALREADY_GRANTED`
+   - `ensure-branch = 成功`
+   - `return-main = 成功`
+   - `post_return_evidence_mode = minimal-tracked-allowed`
+4. live 最终复核后确认：
+   - `main + neutral + clean`
+   - queue 中 `ticket 5 / 遮挡检查 = completed`
+   - active session 已清空
+   - 当前 waiting 队列为空
+
+**关键决策**：
+- 到这里，`smoke-test_01` 已完成四线程完整实盘闭环，不再只是局部补丁验证。
+- 当前最重要的结论是：这套 shared root 交通系统已经通过 smoke-test 层面的执行验证，可以进入“是否开始真实开发准入”的裁定阶段。
+
+**恢复点 / 下一步**：
+- 先把 `遮挡检查` 与“整轮 smoke-test_01 完成”补入执行层 / 治理层记忆与回收卡
+- 然后执行最后一次最小 `governance sync`
+- 同步完成后向用户汇报本轮最终验收结果与下一步建议
