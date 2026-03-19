@@ -472,3 +472,35 @@
 - `农田交互修复V2` 后续应直接进入：
   - `GameInputManager.cs` 热文件专项批次
 - `导航检查` / `spring-day1` 仍可按原计划准备下一批，但不要与上述两条新决策点混写
+
+### 会话 14 - 2026-03-19（真实开发准入批次 02 已生成）
+**用户需求**：
+> 用户批准不要再停在解释层，而是直接开始下一轮，让我把 `NPC` 集成批次和 `农田` 热文件批次做成可发车的实物 prompt。
+
+**本轮完成**：
+1. 已新建：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_真实开发准入批次_02\`
+2. 已生成可分发 prompt：
+   - `NPC_phase2集成清洗.md`
+   - `农田交互修复V2_GameInputManager热文件专项.md`
+3. 已生成对应固定回收卡：
+   - `NPC_phase2集成清洗.md`
+   - `农田交互修复V2_GameInputManager热文件专项.md`
+4. 已用锁脚本与 live 现场核实：
+   - `GameInputManager.cs = unlocked`
+   - `Primary.unity = unlocked`
+   - shared root 仍是 `main + neutral + clean`
+
+**关键判断**：
+- `NPC` 这轮不再是“有没有 phase2”问题，而是“怎样把现有 phase2 carrier 收束为可交付交付面”。
+- `农田` 这轮不再是“第一检查点是否存在”，而是“如何在拿到 `GameInputManager.cs` 热文件锁后推进第二检查点”。
+- 当前最稳调度仍然是：
+  - 先发 `NPC_phase2集成清洗`
+  - `NPC` 退场后，再发 `农田交互修复V2_GameInputManager热文件专项`
+- 农田这轮之所以不和 `NPC` 同时发车，不是因为锁现在被占用，而是因为：
+  - shared root 仍是单槽位
+  - 热文件锁不应该提前空占
+
+**恢复点 / 下一步**：
+- 现在可立即分发 `NPC_phase2集成清洗.md`
+- 等 `NPC` 成功 `return-main` 后，再分发 `农田交互修复V2_GameInputManager热文件专项.md`
