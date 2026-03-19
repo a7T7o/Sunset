@@ -1,4 +1,4 @@
-# 999_全面重构_26.03.15 - 工作区记忆
+﻿# 999_全面重构_26.03.15 - 工作区记忆
 
 ## 模块概述
 
@@ -88,3 +88,12 @@
   - 如果继续导航主线，下一轮必须进入 branch-only 真实写入，而不能继续把 shared root 当长期现场；
   - 推荐 continuation branch 仍为 `codex/navigation-audit-001`；
   - 最小 checkpoint 先固化 `2.0.0` 设计文档，再决定是否扩到 `GameInputManager / PlayerAutoNavigator / NavGrid2D` 的代码整改。
+
+### 会话 4 - 2026-03-19（导航检查进入 queue waiting）
+
+- 子工作区 `导航检查` 本轮不再只是“可继续 branch-only”的静态判断，而是已经实测进入 `queue-aware` waiting。
+- live Git 在执行准入时不是 `main`，而是 `codex/npc-roam-phase2-003 @ 7385d1236d0b85c191caff5c5c19b08678d1cf80`；canonical `request-branch` 返回 `LOCKED_PLEASE_YIELD`，`ticket = 3`，`queue_position = 2`。
+- `导航检查` 未进入 `codex/navigation-audit-001`，未做代码 checkpoint，固定回收卡已写回：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\线程回收\导航检查.md`
+- 稳定 launcher 本轮暴露出 optional 参数未转发缺口，会直接吃掉 `request-branch` 所需的 `-BranchName`。
+- 后续恢复点：等 shared root 回到 `main + neutral` 后，再让 `导航检查` 继续 `codex/navigation-audit-001` 上的首个非热文件 checkpoint。

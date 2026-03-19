@@ -1,4 +1,4 @@
-# codex 代办主线记忆
+﻿# codex 代办主线记忆
 
 > 历史长卷已保留在 [memory_0.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/memory_0.md)。本卷只保留当前治理续办的活跃摘要、恢复点和下一步。
 
@@ -1061,3 +1061,34 @@
 
 **恢复点**
 - 后续治理动作应回到阶段 23 / 当前批次调度视角，继续决定下一轮谁领取准入 prompt。
+
+## 2026-03-19｜queue-aware 业务准入 01：导航检查进入 waiting
+
+**用户目标**
+- 领取 `导航检查` 专属 prompt，并按 `2026.03.19_queue-aware业务准入_01` 执行准入与固定回收。
+
+**本轮现场**
+- live cwd：`D:\Unity\Unity_learning\Sunset`
+- live branch：`codex/npc-roam-phase2-003`
+- live HEAD：`7385d1236d0b85c191caff5c5c19b08678d1cf80`
+- `git status --short --branch`：`## codex/npc-roam-phase2-003...origin/codex/npc-roam-phase2-003`，并带 `M .kiro/locks/shared-root-branch-occupancy.md`
+
+**已完成**
+- 读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\可分发Prompt\导航检查.md`
+- 先用稳定 launcher 按 prompt 原文执行 `request-branch`，实测暴露 optional 参数未转发：`-BranchName` 在 launcher 到 canonical script 之间丢失，返回 `request-branch 必须提供 -BranchName。`
+- 为避免退回仓库 working tree 脚本，改用 `main:scripts/git-safe-sync.ps1` 的手工等价 canonical 执行再次申请。
+- canonical `request-branch` 返回：
+  - `STATUS: LOCKED_PLEASE_YIELD`
+  - `TICKET: 3`
+  - `QUEUE_POSITION: 2`
+  - `REASON: 当前 live 分支是 'codex/npc-roam-phase2-003'，只有 main 大厅才能发放分支租约。`
+- 已按 prompt 停止后续动作，未执行 `ensure-branch` / `task sync` / `return-main`，并把结果写入固定回收卡：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\线程回收\导航检查.md`
+
+**关键判断**
+- 这次阻塞不是 `导航检查` 自身代码问题，而是 shared root 已被 `NPC` 线程占用，当前不具备 `main + neutral` 发租约前提。
+- 稳定 launcher 的 optional 参数转发存在真实缺口，至少影响 `request-branch` 这类需要 `-BranchName` 的 live 准入动作。
+
+**恢复点 / 下一步**
+- 等 shared root 回到 `main + neutral` 且治理层重新唤醒 `导航检查`。
+- 下一次继续时仍以 `codex/navigation-audit-001` 为 continuation branch，先做 `NavGrid2D / PlayerAutoNavigator` 的首个非热文件 checkpoint，不碰 `GameInputManager.cs`、`Primary.unity`，也不进入 Unity / MCP / Play Mode。

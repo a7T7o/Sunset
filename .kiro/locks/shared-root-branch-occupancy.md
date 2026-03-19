@@ -10,7 +10,7 @@
 - owner_mode: `neutral-main-ready`
 - owner_thread: `none`
 - current_branch: `main`
-- last_verified_head: `35df00a2`
+- last_verified_head: `98cbb88b`
 - is_neutral: `true`
 - lease_state: `neutral`
 - branch_grant_state: `none`
@@ -20,7 +20,7 @@
 - blocking_dirty_scope: `none`
 - daily_policy: `main-common + branch-task + checkpoint-first + merge-last`
 - worktree_policy: `exception-only`
-- last_updated: `2026-03-18`
+- last_updated: `2026-03-19`
 
 ## 解释口径
 - 当 `current_branch = main` 且 `is_neutral = true` 时：

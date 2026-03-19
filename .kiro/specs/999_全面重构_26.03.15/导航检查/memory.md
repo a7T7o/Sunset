@@ -1,4 +1,4 @@
-# 导航检查 - 工作区记忆
+﻿# 导航检查 - 工作区记忆
 
 ## 模块概述
 
@@ -207,3 +207,38 @@
 **遗留问题 / 下一步**：
 - [ ] 若治理批准阶段二，先申请 `grant-branch`，再执行 `ensure-branch`。
 - [ ] 阶段二的第一步应先固化 `2.0.0整改设计`，而不是立刻扩大到 Unity / 热文件写入。
+
+### 会话 4 - 2026-03-19（queue-aware业务准入 01 回收）
+
+**用户需求**
+> 从 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\可分发Prompt\导航检查.md` 领取本线程 prompt，并按 prompt 申请 continuation branch、开始写固定回收卡。
+
+**当前主线目标**
+- 从 `1.0.0` 审计基线进入 `2.0.0` 的最小 branch-only 整改 checkpoint，但前提是先拿到 `codex/navigation-audit-001` 的租约。
+
+**本轮子任务 / 阻塞**
+- 子任务是执行 `request-branch -> ensure-branch` 的 queue-aware 准入；阻塞是 shared root live 分支已切到 `codex/npc-roam-phase2-003`，不再是可发租约的 `main` 大厅。
+
+**完成任务**
+1. 读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\可分发Prompt\导航检查.md`，确认允许的 continuation branch 仍是 `codex/navigation-audit-001`，且本轮不得进入 Unity / MCP / Play Mode，不得碰 `GameInputManager.cs`。
+2. 复核 live 现场并确认当前真实 Git 已变为：
+   - `D:\Unity\Unity_learning\Sunset`
+   - `codex/npc-roam-phase2-003`
+   - `7385d1236d0b85c191caff5c5c19b08678d1cf80`
+3. 先按 prompt 原文用稳定 launcher 执行 `request-branch`，实测命中 launcher optional 参数未转发缺口，`-BranchName` 在转发过程中丢失，返回 `request-branch 必须提供 -BranchName。`
+4. 为避免退回仓库 working tree 脚本，改用 `main:scripts/git-safe-sync.ps1` 的手工等价 canonical 执行 `request-branch`，得到：
+   - `STATUS: LOCKED_PLEASE_YIELD`
+   - `TICKET: 3`
+   - `QUEUE_POSITION: 2`
+   - `REASON: 当前 live 分支是 'codex/npc-roam-phase2-003'，只有 main 大厅才能发放分支租约。`
+5. 未继续 `ensure-branch`，未进入 Unity / MCP / Play Mode，未碰 `GameInputManager.cs` / `Primary.unity`，并已回写固定回收卡：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\线程回收\导航检查.md`
+
+**关键结论**
+- `导航检查` 本轮已正式进入 waiting，而不是继续停留在“可随时开工”的只读判断态。
+- continuation branch 没变，仍是 `codex/navigation-audit-001`；只是当前 shared root 不可发租约。
+- 稳定 launcher 对 optional 参数的转发现有缺口，会直接影响 queue-aware 准入命令。
+
+**恢复点 / 下一步**
+- 等 shared root 回到 `main + neutral` 且治理层重新唤醒 `导航检查`。
+- 获得 `GRANTED / ALREADY_GRANTED` 后，再执行 `ensure-branch` 并只做首个非热文件 checkpoint：优先 `NavGrid2D / PlayerAutoNavigator`，不扩到 `GameInputManager.cs`、`Primary.unity`，也不进入 Unity / MCP。

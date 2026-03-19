@@ -1,4 +1,4 @@
-# 导航检查线程记忆
+﻿# 导航检查线程记忆
 
 ## 线程概述
 
@@ -80,3 +80,23 @@
 - 当前主线恢复点：
   - 若用户批准阶段二，先申请 `grant-branch`，再执行 `ensure-branch`；
   - 若未批准，本线程继续保持只读，不自行切分支。
+
+### 会话 5 - 2026-03-19（queue-aware业务准入 01 回执）
+
+- 用户要求从 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\可分发Prompt` 领取 `导航检查` 专属 prompt 并开始写回执单。
+- 当前主线没有变化：仍是把导航线程从 `1.0.0` 审计基线推进到 `2.0.0` 的最小 code checkpoint；本轮子任务是先拿 continuation branch 租约。
+- 读取 prompt 后先执行 `request-branch`。稳定 launcher 实测存在 optional 参数未转发缺口，`-BranchName` 被吃掉，返回 `request-branch 必须提供 -BranchName。`
+- 随后用 `main:scripts/git-safe-sync.ps1` 的手工等价 canonical 方式重试，得到：
+  - `STATUS: LOCKED_PLEASE_YIELD`
+  - `TICKET: 3`
+  - `QUEUE_POSITION: 2`
+  - `REASON: 当前 live 分支是 'codex/npc-roam-phase2-003'，只有 main 大厅才能发放分支租约。`
+- 本轮真实现场因此更新为：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = codex/npc-roam-phase2-003`
+  - `HEAD = 7385d1236d0b85c191caff5c5c19b08678d1cf80`
+  - `git status --short --branch = ## codex/npc-roam-phase2-003...origin/codex/npc-roam-phase2-003` + `M .kiro/locks/shared-root-branch-occupancy.md`
+- 已停止继续 `ensure-branch`，未进入 Unity / MCP / Play Mode，未碰 `GameInputManager.cs` / `Primary.unity`，并已把回执写入：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\线程回收\导航检查.md`
+- 关键决策：不绕过 queue 直接切分支；保持 `codex/navigation-audit-001` 作为 continuation branch，等待 shared root 回到 `main + neutral` 后再继续。
+- 主线恢复点：下次被唤醒时，直接从 `ensure-branch -> 首个 NavGrid2D / PlayerAutoNavigator 非热文件 checkpoint` 继续，而不是重做 `1.0.0` 审计。
