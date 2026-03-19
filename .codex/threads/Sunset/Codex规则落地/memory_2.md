@@ -352,3 +352,40 @@
 **恢复点**：
 - 现在可以直接分发这轮根层批次文件给 `Skills和MCP`。
 - 等它回写固定回收卡并确认 `main + clean` 后，再继续生成下一轮业务线程 live 准入批次。
+
+### 会话 38 - 2026-03-19（shared root 清场完成后，生成 queue-aware 业务准入批次 01）
+**用户目标**：
+> 继续主线，不要停在“清场轮”汇报；在 shared root 真 clean 后，直接进入下一轮业务线程 live 准入运营。
+
+**已完成事项**：
+1. 读取 `Skills和MCP` 清场回收卡，确认：
+   - 它已完成稳定 launcher 的治理同步
+   - shared root 已恢复为 `main + clean`
+2. 再次复核 live：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 00e3b734`
+   - `occupancy = neutral`
+   - `queue runtime = empty`
+3. 回读阶段 22 既有回收卡，对 5 条业务线程做现阶段分层：
+   - `NPC / 农田 / 导航 / 遮挡`：适合进入本轮 queue-aware Git 槽位准入
+   - `spring-day1`：延后到下一轮 `Unity/MCP-aware` 准入
+4. 新建根层批次文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_02_queue-aware业务准入_01.md`
+5. 新建 4 条线程的专属 prompt 与固定回收卡：
+   - `NPC`
+   - `农田交互修复V2`
+   - `导航检查`
+   - `遮挡检查`
+
+**关键决策**：
+- 这轮不再沿用旧的 `grant-branch` 直推口径，而是统一切到：
+  - `request-branch`
+  - `GRANTED / ALREADY_GRANTED / LOCKED_PLEASE_YIELD`
+  - `ensure-branch`
+  - `最小 checkpoint`
+  - `return-main`
+- 这轮也没有把所有线程一股脑推进去：
+  - `spring-day1` 单独延后，不是因为不健康，而是因为它的下一最小 checkpoint 天然带 Unity / MCP / Play Mode
+
+**恢复点**：
+- 用户现在可以直接群发这轮根层批次文件。
+- 后续等 4 条线程回写后，再做下一轮调度，包括是否给 `spring-day1` 发单独的 `Unity/MCP-aware` 准入批次。

@@ -78,3 +78,4 @@
 - [x] 增加仓库外稳定 launcher，固定从 `main` 读取 canonical `git-safe-sync.ps1`
 - [x] 用稳定 launcher 完成一轮最小实测，并把结果回写到阶段 23
 - [x] 发现 shared root 当前被 `Skills和MCP` 线的治理 dirty 阻断后，按根层协议新建一轮“清场优先”批次分发文件、线程专属 prompt 与固定回收卡
+- [x] shared root 清场完成后，生成一轮 `queue-aware` 业务线程 live 准入批次，并明确 `spring-day1` 延后到下一轮 `Unity/MCP-aware` 准入

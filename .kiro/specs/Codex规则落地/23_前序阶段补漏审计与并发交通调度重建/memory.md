@@ -236,6 +236,48 @@
   - 读取回收卡并确认 shared root 是否 clean
   - 若 clean，再生成下一轮业务线程 live 准入批次
 
+## 2026-03-19｜shared root 已 clean，queue-aware 业务准入批次 01 已生成
+
+**用户目标**
+- 在 blocker 清掉后，不要再停在“等一等”，而是继续恢复真正的业务线程 live 准入。
+
+**本轮完成**
+- 读取 `Skills和MCP` 固定回收卡，确认：
+  - 它已用稳定 launcher 完成治理同步
+  - shared root 当前已恢复为 `main + clean`
+- 再次复核 live shared root：
+  - `branch = main`
+  - `occupancy = neutral`
+  - `queue runtime = empty`
+- 回看阶段 22 的线程回收卡后，生成了新的根层批次分发文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_02_queue-aware业务准入_01.md`
+- 同时为以下 4 条线程生成了专属 prompt 与固定回收卡：
+  - `NPC`
+  - `农田交互修复V2`
+  - `导航检查`
+  - `遮挡检查`
+
+**关键判断**
+- 这轮不再沿用旧的 `grant-branch -> ensure-branch` 直推模型，而是统一切到：
+  - 先 `request-branch`
+  - 再按 `GRANTED / ALREADY_GRANTED / LOCKED_PLEASE_YIELD` 分流
+- 这轮也没有把全部线程一股脑塞进去：
+  - `spring-day1` 被刻意留到下一轮
+  - 原因不是它不健康，而是它的下一最小 checkpoint 天然带 `Unity / MCP / Play Mode`
+  - 应单独走 `Unity/MCP-aware` 准入批次
+- 当前这轮 4 线程的设计目标是：
+  - 先恢复 queue-aware 的 Git 槽位并发
+  - 但每条线只做一个低风险最小 checkpoint
+  - 先不把 `GameInputManager.cs / Primary.unity / Play Mode` 混进第一轮
+
+**当前恢复点**
+- 用户现在可以直接群发：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_02_queue-aware业务准入_01.md`
+- 治理线程下一步应：
+  - 等 4 条线程各自回写固定回收卡
+  - 根据谁拿到 `GRANTED`、谁进入 `LOCKED_PLEASE_YIELD`、谁已 `return-main`
+  - 再决定下一轮是否给 `spring-day1` 单发 `Unity/MCP-aware` 准入
+
 ## 2026-03-19｜Skills和MCP 清场回收已完成
 **用户目标**
 - 领取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\可分发Prompt\Skills和MCP.md`，核对 live Git 现场并在一致时执行稳定 launcher 的治理收口。

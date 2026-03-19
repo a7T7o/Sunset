@@ -1020,6 +1020,32 @@
 - 当前用户如果要继续分发，先发根层批次分发文件给 `Skills和MCP`。
 - 治理线程收到回收卡并确认 clean 后，再生成下一轮业务线程 batch。
 
+## 2026-03-19｜queue-aware 业务准入批次 01 已落根层
+
+**本轮完成**
+- `Skills和MCP` 清场回收完成后，治理线程继续读取：
+  - live shared root
+  - queue runtime
+  - 阶段 22 既有线程回收卡
+- 在此基础上，新建并落盘：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_02_queue-aware业务准入_01.md`
+- 并为以下线程生成专属 prompt / 回收卡：
+  - `NPC`
+  - `农田交互修复V2`
+  - `导航检查`
+  - `遮挡检查`
+
+**关键判断**
+- 现在 shared root 已经可以恢复业务线程 live 准入，但本轮仍要克制地分层：
+  - 先放 4 条适合先拿 Git 槽位、先做低风险 checkpoint 的线
+  - `spring-day1` 暂缓到下一轮 `Unity/MCP-aware` 准入
+- 这轮正式把业务线程准入模型切成：
+  - `request-branch -> GRANTED/ALREADY_GRANTED/LOCKED_PLEASE_YIELD -> ensure-branch -> 最小 checkpoint -> return-main`
+
+**恢复点**
+- 用户现在可直接群发新的根层批次分发文件。
+- 治理线程收到 4 条回收卡后，再做下一轮调度裁定。
+
 ## 2026-03-19｜Skills和MCP 固定回收卡已完成
 **用户目标**
 - 按 `23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场` 批次要求，完成 `Skills和MCP` 线程的 live 清场、治理同步与固定回收卡写回。
