@@ -1019,3 +1019,19 @@
 **恢复点**
 - 当前用户如果要继续分发，先发根层批次分发文件给 `Skills和MCP`。
 - 治理线程收到回收卡并确认 clean 后，再生成下一轮业务线程 batch。
+
+## 2026-03-19｜Skills和MCP 固定回收卡已完成
+**用户目标**
+- 按 `23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场` 批次要求，完成 `Skills和MCP` 线程的 live 清场、治理同步与固定回收卡写回。
+
+**本轮完成**
+- 只读确认 shared root 当时处于 `main @ cfeedf33`，且 dirty 仅有 `Skills和MCP` 线程遗留的 3 个治理 / 记忆文件。
+- 已通过稳定 launcher 执行 `governance sync`，创建并推送提交：`0b41d4ed`。
+- 清场后 `git status --short --branch = ## main...origin/main`。
+- 已写回回收卡：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\线程回收\Skills和MCP.md`。
+
+**关键判断**
+- `Skills和MCP` 线程对应的 live blocker 已解除；当前 shared root 可继续作为下一轮业务线程 live 准入的基础现场。
+
+**恢复点**
+- 后续治理动作应回到阶段 23 / 当前批次调度视角，继续决定下一轮谁领取准入 prompt。

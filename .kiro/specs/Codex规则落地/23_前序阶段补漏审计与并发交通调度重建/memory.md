@@ -235,3 +235,23 @@
   - 等 `Skills和MCP` 回收卡
   - 读取回收卡并确认 shared root 是否 clean
   - 若 clean，再生成下一轮业务线程 live 准入批次
+
+## 2026-03-19｜Skills和MCP 清场回收已完成
+**用户目标**
+- 领取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\可分发Prompt\Skills和MCP.md`，核对 live Git 现场并在一致时执行稳定 launcher 的治理收口。
+
+**本轮完成**
+- 在 `D:\Unity\Unity_learning\Sunset` 只读复核到：`branch = main`、`HEAD = cfeedf33`、`git status --short --branch = ## main...origin/main`。
+- 确认 dirty 恰好只有 3 个预期文件：
+  - `.codex/threads/Sunset/Skills和MCP/memory_0.md`
+  - `.kiro/specs/Steering规则区优化/memory.md`
+  - `.kiro/specs/Steering规则区优化/当前运行基线与开发规则/memory.md`
+- 已执行稳定 launcher 的治理同步并成功创建 / 推送提交：`main @ 0b41d4ed`。
+- 已把结果写回固定回收卡：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\线程回收\Skills和MCP.md`。
+
+**关键判断**
+- 本轮 live blocker 不是 occupancy、queue 或 launcher 故障，而是 `Skills和MCP` 线程遗留的 3 个治理 / 记忆 dirty。
+- 该 blocker 现已收口，shared root 当前回到 `main + clean`。
+
+**恢复点**
+- 治理线程现在可继续读取固定回收卡，并决定是否发放下一轮业务线程 live 准入。

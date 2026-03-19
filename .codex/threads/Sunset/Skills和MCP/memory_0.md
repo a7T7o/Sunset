@@ -127,3 +127,24 @@
 
 **遗留问题**:
 - [ ] 真正进入落地前，仍需先做一次“原有配置 / 问题原因 / 建议修改 / 风险影响”的场景审视，不应直接在生产场景盲写。
+### 会话 3 - 2026-03-19（按固定 prompt 完成 Skills和MCP 清场回收）
+
+**用户需求**:
+> 领取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\可分发Prompt\Skills和MCP.md`，按其中要求核对 live Git 现场、必要时执行稳定 launcher 的治理同步，并把结果写回固定回收卡。
+
+**完成任务**:
+1. 只读核对 `D:\Unity\Unity_learning\Sunset`、`git branch --show-current`、`git rev-parse --short HEAD`、`git status --short --branch`。
+2. 确认 pre-sync 现场为 `main @ cfeedf33`，且 dirty 恰好只有 3 个预期文件：
+   - `.codex/threads/Sunset/Skills和MCP/memory_0.md`
+   - `.kiro/specs/Steering规则区优化/memory.md`
+   - `.kiro/specs/Steering规则区优化/当前运行基线与开发规则/memory.md`
+3. 执行稳定 launcher：`powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread "Skills和MCP" -IncludePaths ".codex/threads/Sunset/Skills和MCP/memory_0.md;.kiro/specs/Steering规则区优化/memory.md;.kiro/specs/Steering规则区优化/当前运行基线与开发规则/memory.md"`。
+4. launcher 成功创建并推送提交：`0b41d4ed`；sync 后现场恢复为 `main + clean`。
+5. 已把回收结果写入：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\线程回收\Skills和MCP.md`。
+
+**关键结论**:
+- 本轮阻断业务 live 准入的根因不是 Unity / MCP、occupancy 或 queue 本身，而是本线程残留的 3 个治理 / 记忆 dirty 未收口。
+- 该 blocker 已完成治理同步并推送；shared root 当前回到 `main + clean`。
+
+**恢复点 / 下一步**:
+- 本线程当前已完成 prompt 要求的清场回收；后续由治理线程读取固定回收卡并决定下一轮业务线程准入。
