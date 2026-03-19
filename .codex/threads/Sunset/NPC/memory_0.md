@@ -343,3 +343,30 @@
 **当前恢复点**:
 - 当前线程已完成本轮“用户手测反馈转正式代办”的收口。
 - 下一步继续实现前，可以直接以新 TD 为准判断优先级，同时保留“运行态验收尽量保持 Unity/GameView 前台”的验证前提。
+
+### 会话 15 - 2026-03-19
+
+**用户需求**:
+> 领取 `2026.03.19_queue-aware业务准入_01` 中的 NPC prompt，完成本轮 queue-aware 准入、最小 checkpoint 固化与回执写回。
+
+**完成任务**:
+1. 按 Sunset 当前 shared root 规则先做纯只读 preflight：确认 `D:\Unity\Unity_learning\Sunset @ main @ 9b5279a58128e902770df92f706c6796378de7fc`，当时 `git status` clean，occupancy neutral，符合申请本轮分支租约的前置条件。
+2. 读取 NPC prompt 与回执模板后，先按规定尝试 stable launcher；launcher 两次 `request-branch` 都报 `request-branch 必须提供 -BranchName。`，因此本轮改走 canonical `scripts/git-safe-sync.ps1`，成功完成 `request-branch => GRANTED` 与 `ensure-branch => codex/npc-roam-phase2-003 @ 7385d1236d0b85c191caff5c5c19b08678d1cf80`。
+3. 严格停留在 prompt 允许的最小 checkpoint：只复核 continuation 基线与关键文件在位情况，不进入 Unity / MCP / Play Mode，不碰 `Primary.unity` 与 `GameInputManager.cs`。
+4. 记录当前 live 异常：`active/shared-root-queue.lock.json` 中 NPC `ticket=1` 被记成 `cancelled / reconciled-missing-grant`，但 occupancy 文档仍把 shared root 登记给 NPC；本轮按“写实记录、不私改治理 runtime”处理。
+
+**修改文件**:
+- `.kiro/specs/Codex规则落地/23_前序阶段补漏审计与并发交通调度重建/2026.03.19_queue-aware业务准入_01/memory.md`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+- `.codex/threads/Sunset/NPC/memory_0.md`
+
+**关键结论**:
+- 当前 NPC 线程的 continuation branch 仍是 `codex/npc-roam-phase2-003`，本轮没有重新争论 carrier，而是在 queue-aware 规则下把它合法唤醒。
+- 这轮不是功能开发，而是把“最小基线复核 -> 白名单 sync -> 回执 -> return-main”闭环走完，确保 shared root 能按规则归还。
+
+**当前恢复点**:
+- 本轮最小 checkpoint 的业务复核已完成，下一步执行显式白名单 task sync、补回执卡并 `return-main`。
+
+**阻塞更新**:
+- `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread NPC` 已实际跑过，白名单本身通过分类，但 shared root 出现了新的非 NPC remaining dirty，导致脚本明确拒绝继续 sync；因此本轮尚未 `return-main`，当前仍是 NPC 持有 shared root 分支租约但被外部 dirty 阻断的状态。

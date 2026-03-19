@@ -271,3 +271,29 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 **当前恢复点**:
 - 当前父工作区已完成本轮“新增体验优化点转代办”的收口。
 - 下一步继续 NPC 主线时，可以直接从这批 TD 出发判断优先级，而不用再重复回忆这次手测反馈。
+
+### 会话 12 - 2026-03-19
+
+**用户需求**:
+> 按 queue-aware 准入规则恢复 NPC 线程进入 continuation branch，但本轮只允许做最小 live 基线复核与边界固化，不直接恢复 Unity 侧开发。
+
+**完成任务**:
+1. 在父工作区层面确认本轮仍服务于 NPC 主线，而不是切到治理主线：实际 continuation branch 仍指向 `codex/npc-roam-phase2-003`，本轮只是在 queue-aware 调度框架下合法恢复一次最小 checkpoint。
+2. 写实记录 shared root 准入链路：stable launcher 的 `request-branch` 在本轮存在 `-BranchName` 透传异常，因此实际由 canonical `scripts/git-safe-sync.ps1` 完成 `GRANTED + ensure-branch`，shared root 当前被 NPC 合法占用在 `codex/npc-roam-phase2-003 @ 7385d123...`。
+3. 在不进入 Unity / MCP / Play 的前提下，完成了 NPC 核心产物的存活复核：运行时代码、默认 roam profile、`001/002/003` 预制体与 prefab generator 均仍在位，说明当前 continuation 基线没有发生业务文件丢失。
+4. 父工作区层面额外记录一条治理风险：queue runtime 把 NPC 的 `ticket=1` 标成 `cancelled`，但 occupancy 文档仍保持 `task-active`；该异常目前只作为观察事实保留，后续以治理线程裁定为准，不在 NPC 线私自修。
+
+**修改文件**:
+- `.kiro/specs/Codex规则落地/23_前序阶段补漏审计与并发交通调度重建/2026.03.19_queue-aware业务准入_01/memory.md`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+
+**关键结论**:
+- NPC 父工作区当前的真实阶段是“queue-aware 合法恢复最小 checkpoint”，不是“恢复全面开发”。
+- 只要本轮按白名单完成 task sync 并执行 `return-main`，NPC 线程就能把 shared root 交还给下一位线程，而不把未验证的 Unity 写入混进来。
+
+**当前恢复点**:
+- 业务基线已复核完，下一步只剩白名单收口与 shared root 归还。
+
+**阻塞更新**:
+- 当我按本轮 NPC 白名单执行 task preflight 时，脚本额外发现 shared root 上存在不属于 NPC 的治理 dirty，因而阻断了本轮 sync；当前真实阶段变为“已完成最小 checkpoint，但收口被 shared root 其余 remaining dirty 卡住”。

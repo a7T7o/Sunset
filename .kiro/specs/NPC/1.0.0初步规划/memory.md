@@ -309,3 +309,30 @@
 **当前恢复点**:
 - 当前子工作区的代码主线没有新增阻断 bug；这轮新增的是正式代办承接。
 - 下一步若继续推进主线，应先复核还有没有未收口的非代办缺口，再决定是否进入下一轮实现或验收。
+
+---
+
+### 会话 13 - 2026-03-19
+
+**用户需求**:
+> 按 `queue-aware业务准入_01` 分发 prompt 领取 NPC 专属准入卡，在 shared root 只读 preflight 后进入 continuation branch，完成本轮最小 checkpoint，并回写回执单。
+
+**完成任务**:
+1. 按 Sunset 启动闸门要求先在 shared root 做 live preflight，复核当前现场为 `D:\Unity\Unity_learning\Sunset @ main @ 9b5279a58128e902770df92f706c6796378de7fc`，当时 `git status --short --branch` 为 clean，`shared-root-branch-occupancy.md` 处于 neutral。
+2. 读取本轮 NPC prompt 与回执模板后，先尝试 stable launcher 走 `request-branch`，两次都报 `request-branch 必须提供 -BranchName。`；随即改用 canonical `scripts/git-safe-sync.ps1`，成功获得 `GRANTED` 并通过 `ensure-branch` 进入 `codex/npc-roam-phase2-003 @ 7385d1236d0b85c191caff5c5c19b08678d1cf80`。
+3. 严格遵守 prompt 边界，只做最小 live 基线复核：未进入 Unity / MCP / Play Mode，未触碰 `Primary.unity`、`GameInputManager.cs`；已确认 `NPCAutoRoamController.cs`、`NPCBubblePresenter.cs`、`NPC_DefaultRoamProfile.asset`、`001~003.prefab` 与 `NPCPrefabGeneratorTool.cs` 仍在位。
+4. 写实记录 queue-aware runtime 异常：`active/shared-root-queue.lock.json` 中 NPC 的 `ticket=1` 被 reconciler 标成 `cancelled`，但 occupancy 仍登记为 `task-active / owner_thread=NPC`；本轮只记录该事实，不擅自修租约状态。
+
+**修改文件**:
+- `.kiro/specs/Codex规则落地/23_前序阶段补漏审计与并发交通调度重建/2026.03.19_queue-aware业务准入_01/memory.md` - 记录本轮准入、launcher 异常与 queue runtime 写实结论
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md` - 追加本轮 queue-aware 最小 checkpoint 摘要
+
+**关键结论**:
+- NPC 当前 continuation carrier 仍以 `codex/npc-roam-phase2-003` 为准，本轮没有回退到旧 continuation 或 rescue 语义。
+- 这轮的真实目标不是继续开发新 NPC 功能，而是把“shared root 准入 -> continuation branch 最小基线复核 -> 白名单收口 -> 归还 shared root”这条治理链走完整。
+
+**当前恢复点**:
+- 本轮最小 checkpoint 已完成基线复核，下一步只剩显式白名单 task sync、补回执卡并执行 `return-main`。
+
+**阻塞更新**:
+- 本轮 task sync preflight 已实际执行，但被 shared root 上新增的无关治理 dirty 阻断；当前不能把 `return-main` 写成已完成，需等待这些非 NPC remaining dirty 先清尾或隔离。
