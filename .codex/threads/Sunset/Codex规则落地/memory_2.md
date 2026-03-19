@@ -234,3 +234,43 @@
   - cancel / requeue / wake 协议
   - 负例矩阵与 rollout 条件
 - 若本轮治理改动收口完毕，按 `governance` 模式安全同步到 `main`。
+
+### 会话 35 - 2026-03-19（补齐 wake/cancel/requeue，并完成 Git 层 queue 实盘演习）
+**用户目标**：
+> 不再停在草案层，直接把 queue 系统一步到位补成可用闭环，同时持续自我审视，不把外部夸奖当作完工证明。
+
+**已完成事项**：
+1. 在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 中新增：
+   - `cancel-branch-request`
+   - `requeue-branch-request`
+   - `wake-next`
+   - `return-main` 的 `NEXT_IN_LINE_*` 输出
+2. 新增 queue runtime 自愈逻辑：
+   - `Repair-SharedRootQueueRecord`
+   - 用于修补旧任务分支脚本留下的 stale `task-active / granted`
+3. 更新正文与协议：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-queue.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\dispatch-protocol.md`
+   - `queue-rollout-matrix.md`
+4. 完成 Git 层实盘演习：
+   - `navigation` 首次拿到 grant
+   - `farm / npc` 进入 waiting
+   - `farm` 被重排到队尾
+   - 治理线程 `wake-next` 唤醒 `npc`，随后取消 `npc`
+   - 再次 `wake-next` 唤醒 `farm`，随后取消 `farm`
+   - 额外验证 `wake-next` 在已有未消费 grant 时会返回 `WAKE_BLOCKED`
+5. 演习结束后已把 runtime queue 回写为空基线，当前 live 为：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `git status --short --branch = ## main...origin/main`
+
+**关键决策**：
+- 当前可以确认 Git 层 queue 闭环已经成立。
+- 但我也明确保留一个残余风险判断：
+  - 旧任务分支里的脚本版本仍可能落后
+  - 所以“所有分支天然携带最新闸机”仍不能被当成已完成事实
+- 自愈逻辑已经显著降低这个风险，但没有把它神话成完全消失。
+
+**恢复点**：
+- 后续若继续阶段 `23`，重点应从“基础 queue”切到：
+  - 脚本漂移的更彻底解决方案
+  - Unity / MCP 高风险联动调度

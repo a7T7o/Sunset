@@ -29,8 +29,8 @@
 - [ ] 如有必要，补写 `Codex规则落地` 根层入口说明，指明当前治理主线已转入 `23`
 
 ## C. 并发交通模型重建
-- [ ] 定义 shared root 的“写入槽位 / 排队 / 等待 / 归还”模型
-- [ ] 定义线程切不进去时的标准动作：
+- [x] 定义 shared root 的“写入槽位 / 排队 / 等待 / 归还”模型
+- [x] 定义线程切不进去时的标准动作：
   - 继续只读
   - 补文档
   - 准备下一个 checkpoint
@@ -45,9 +45,9 @@
   - Play Mode / Edit Mode 交接口径
 
 ## D. 验证与落地
-- [ ] 产出新的并发交通调度文档或运行口径
-- [ ] 设计至少一轮“等待态线程 + 获准线程”并发验证路线
-- [ ] 明确哪些动作可并发，哪些只能排队
+- [x] 产出新的并发交通调度文档或运行口径
+- [x] 设计至少一轮“等待态线程 + 获准线程”并发验证路线
+- [x] 明确哪些动作可并发，哪些只能排队
 - [ ] 明确治理线程之后如何发放本轮批次入口与收件回执，避免重复再造固定群发模板
 
 ## 当前裁定
@@ -69,5 +69,7 @@
   - 返回 `STATUS: LOCKED_PLEASE_YIELD`
 - [x] 验证 queue runtime 会落到 `.kiro/locks/active/shared-root-queue.lock.json`，且不会污染 tracked Git 现场
 - [x] 清空本轮验证生成的测试票据，避免把假 `waiting` 留给后续真实调度
-- [ ] 继续补 `waiting -> granted -> task-active -> completed/cancelled` 的完整状态流与负例矩阵
-- [ ] 设计真正的 queue 消费、取消、唤醒与回执动作
+- [x] 继续补 `waiting -> granted -> task-active -> completed/cancelled` 的完整状态流与负例矩阵
+- [x] 设计真正的 queue 消费、取消、唤醒与回执动作
+- [x] 增加 queue runtime 自愈，修补旧任务分支脚本造成的 stale `task-active / granted`
+- [x] 完成一轮 Git 层实盘演习，并在演习后把 runtime queue 恢复为空基线

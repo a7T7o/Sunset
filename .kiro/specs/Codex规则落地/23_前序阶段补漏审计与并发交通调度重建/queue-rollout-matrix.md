@@ -31,3 +31,21 @@
 
 ## 一句话口径
 - rollout 先验证 Git 层调度闭环，Unity / MCP 独占调度放在下一轮更高风险验证里。
+
+## 2026-03-19 实测结果
+- 已实测通过：
+  - `request-branch` 首次申请返回 `GRANTED`
+  - 第二、第三线程在已有 grant 时返回 `LOCKED_PLEASE_YIELD`
+  - `requeue-branch-request` 会撤销旧 ticket，并把线程重新放到队尾
+  - `wake-next` 能把队首 `waiting` 提升为 `granted`
+  - 被唤醒线程再次 `request-branch` 返回 `ALREADY_GRANTED`
+  - `cancel-branch-request` 能取消 granted，并释放 grant
+  - `wake-next` 在已有未消费 grant 时返回 `WAKE_BLOCKED`
+  - 所有演习结束后，shared root 恢复到 `main + clean`
+- 演习中暴露并已修补：
+  - 切到旧任务分支后，仓库里的旧版 `git-safe-sync.ps1` 会带来旧输出或旧 queue 回写
+  - 已新增 queue runtime 自愈逻辑；回到 `main` 后，新版脚本会按 `occupancy` 修正 stale open entry
+- 本轮未覆盖：
+  - Unity / MCP 层写态调度
+  - 越序审批的治理记录格式
+  - 长期运行后的 queue runtime 裁剪策略

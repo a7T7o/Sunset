@@ -22,6 +22,7 @@
   - 记录等待顺序
   - 记录挂起前的 checkpoint hint / note
   - 记录当前被服务的 ticket
+  - 在新版脚本读取时，对照 `occupancy` 做 runtime 自愈，修补旧分支脚本留下的陈旧 open entry
 
 ### 2.3 业务线程 memory
 - 文件：
@@ -121,10 +122,15 @@
   - queue-aware 的请求入口
   - `cancel-branch-request / requeue-branch-request / wake-next`
   - `ensure-branch / return-main` 对 queue 状态的回写与 `NEXT_IN_LINE` 提示
+  - 回到 `main` 后依据 `occupancy` 自愈 runtime queue 漂移
 - 当前仍需后续补强的是：
   - 更完整的负例矩阵
   - 公平性 / 优先级 / 越序审批规则
   - 更高级的自动化守护进程或 Hook
+- 当前仍需显式记住的风险：
+  - 长期业务分支上的 `git-safe-sync.ps1` 可能仍是旧版本
+  - 因此旧分支上执行 `return-main` 时，命令行输出可能不是最新口径
+  - 但一旦回到 `main`，新版脚本会按 `occupancy` 修正 runtime queue，不让 stale `task-active / granted` 长期污染调度
 
 ## 7. 一句话口径
 - 不是“谁先喊得大声谁进”，而是“谁先排到、现场又允许，谁就拿到下一次 shared root 写入机会”。

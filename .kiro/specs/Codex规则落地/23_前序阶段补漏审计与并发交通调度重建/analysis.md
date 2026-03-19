@@ -127,3 +127,25 @@
 - 因此当前口径应收紧为：
   - queue 入口已从纸面进入脚本可运行态
   - 但 Sunset 还没有到可以全员并发实盘抢租约的阶段
+
+## 8. 实盘演习、脚本漂移与当前剩余风险
+- 本轮已完成 Git 层 queue 演习：
+  - `navigation` 先拿 grant
+  - `farm / npc` 进入 waiting
+  - `farm` 重排到队尾
+  - `navigation` 切入任务分支并归还
+  - 治理线程用 `wake-next` 依次唤醒 `npc`、再唤醒 `farm`
+  - `cancel-branch-request` 成功释放 granted
+  - `wake-next` 在已有 grant 时能正确返回 `WAKE_BLOCKED`
+- 演习中暴露的真实问题：
+  - 当 shared root 切入旧任务分支后，仓库内的 `git-safe-sync.ps1` 会跟着切成该分支自己的旧版本
+  - 这会导致：
+    - 某些新输出口径缺失
+    - runtime queue 可能残留陈旧 `task-active / granted`
+- 本轮已做的修补：
+  - 增加 `Repair-SharedRootQueueRecord`
+  - 让新版脚本在回到 `main` 后，读取 queue runtime 时依据 `occupancy` 自动修补 stale open entry
+- 因此当前更客观的结论是：
+  - Git 层 queue 闭环已经真实成立
+  - 但“所有任务分支都天然携带最新脚本”这件事仍不成立
+  - 现阶段依然要把“旧分支脚本漂移”视为已知风险，而不是假装已经彻底消失

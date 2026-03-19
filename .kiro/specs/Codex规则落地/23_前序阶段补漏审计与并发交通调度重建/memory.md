@@ -92,3 +92,49 @@
   - waiting/granted/task-active/completed/cancelled 的完整状态流
   - queue 消费 / 取消 / 唤醒 / 回执协议
   - 真正适合 rollout 的实盘验证矩阵
+
+## 2026-03-19｜queue 闭环演习完成，并补入 runtime 自愈
+
+**用户目标**
+- 不是只要设计草案，而是要求我一步到位把 queue 的 wake / cancel / requeue 补成真正可用的闭环，并且在推进过程中持续客观审视自身。
+
+**本轮完成**
+- 在 `git-safe-sync.ps1` 中新增：
+  - `cancel-branch-request`
+  - `requeue-branch-request`
+  - `wake-next`
+- 为 `return-main` 新增 `NEXT_IN_LINE_*` 输出。
+- 为 queue runtime 新增自愈逻辑：
+  - `Repair-SharedRootQueueRecord`
+  - 依据 `occupancy` 修补 stale `task-active / granted`
+- 新增文档：
+  - `queue-rollout-matrix.md`
+- 完成一轮 Git 层实盘演习，验证：
+  - 首次 `request-branch -> GRANTED`
+  - 后续线程 `LOCKED_PLEASE_YIELD`
+  - `requeue-branch-request` 重新排到队尾
+  - `wake-next` 唤醒队首
+  - 再次 `request-branch -> ALREADY_GRANTED`
+  - `cancel-branch-request` 释放 grant
+  - `wake-next` 在已有未消费 grant 时返回 `WAKE_BLOCKED`
+- 演习结束后已恢复：
+  - `D:\Unity\Unity_learning\Sunset @ main`
+  - `git status --short --branch = ## main...origin/main`
+  - runtime queue 为空基线
+
+**关键判断**
+- 现在可以更有把握地说：
+  - Git 层的 queue / wait / wake / cancel / requeue 闭环已经真实存在
+  - 不再只是文档口径
+- 但我也必须保留一个清醒判断：
+  - 老任务分支里可能仍是旧版 `git-safe-sync.ps1`
+  - 所以“所有任务分支天然携带最新闸机”这件事还不能吹成已完成
+- 本轮的自愈逻辑已经显著缓解这个问题：
+  - 即使旧分支脚本留下 stale open entry
+  - 回到 `main` 后，新版脚本也会按 `occupancy` 修回 queue runtime
+
+**当前恢复点**
+- `23` 现在可以从“写出 queue 机制”进入“评估是否需要更强的脚本分发/launcher 方案”。
+- 若继续补强，下一轮重点不再是基础 queue，而是：
+  - 旧分支脚本漂移的更彻底解法
+  - Unity / MCP 层的高风险联动调度

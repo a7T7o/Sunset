@@ -6,6 +6,9 @@
 - `occupancy` 仍是 shared root 当前 live 分支、租约状态与中性判断的唯一事实源。
 - 真正的 runtime 机器状态写入：
   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\shared-root-queue.lock.json`
+- 新版 `git-safe-sync.ps1` 会在读取 runtime queue 时，对照 `occupancy` 做一次自愈：
+  - 如果旧分支脚本留下了陈旧的 `task-active / granted`
+  - 回到 `main` 后，新脚本会把 runtime queue 修回与 live occupancy 一致的状态
 - 本文件只回答：
   - 哪些线程正在等待 shared root 的下一次准入机会
   - 哪个 ticket 正在被服务
