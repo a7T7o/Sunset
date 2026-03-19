@@ -317,7 +317,18 @@ function Set-SharedRootTaskActive {
             last_updated              = (Get-OccupancyDateStamp)
         })
 
-    Set-SharedRootQueueTaskActive -OwnerThread $OwnerThread -TargetBranch $TargetBranch
+    $queueEntry = Set-SharedRootQueueTaskActive -OwnerThread $OwnerThread -TargetBranch $TargetBranch
+    $checkpointHint = 'none'
+    $note = 'none'
+    $ticket = $null
+
+    if ($null -ne $queueEntry) {
+        $checkpointHint = $queueEntry.CheckpointHint
+        $note = $queueEntry.Note
+        $ticket = $queueEntry.Ticket
+    }
+
+    Set-SharedRootActiveSession -OwnerThread $OwnerThread -TargetBranch $TargetBranch -CheckpointHint $checkpointHint -Note $note -Ticket $ticket | Out-Null
 }
 
 function Restore-SharedRootOccupancyToHead {
@@ -335,6 +346,231 @@ function Get-SharedRootQueueSpecPath {
 
 function Get-SharedRootQueueRuntimePath {
     return (Join-Path (Get-RepoRoot) '.kiro/locks/active/shared-root-queue.lock.json')
+}
+
+function Get-SharedRootActiveSessionRuntimePath {
+    return (Join-Path (Get-RepoRoot) '.kiro/locks/active/shared-root-active-session.lock.json')
+}
+
+function Get-SharedRootActiveSessionHistoryPath {
+    return (Join-Path (Get-RepoRoot) '.kiro/locks/history/shared-root-active-session.history.json')
+}
+
+function Get-SharedRootHoldWindowPolicy {
+    param(
+        [string]$CheckpointHint,
+        [string]$Note,
+        [string]$TargetBranch
+    )
+
+    $normalized = @($CheckpointHint, $Note, $TargetBranch) -join ' '
+    $normalized = $normalized.ToLowerInvariant()
+
+    if ($normalized -match 'docs|doc|audit|review|retest|requirements|design|tasks|memory') {
+        return [PSCustomObject]@{
+            Category   = 'docs-fast-lane'
+            MaxMinutes = 3
+            Summary    = '文档 / 审计 / docs-first 事务应快进快出，建议 3 分钟内完成。'
+        }
+    }
+
+    if ($normalized -match 'unity|scene|prefab|inspector|play|mcp|animation|vfx') {
+        return [PSCustomObject]@{
+            Category   = 'unity-guarded-window'
+            MaxMinutes = 15
+            Summary    = 'Unity / MCP 事务允许更长窗口，但必须聚焦单次验证；超过 15 分钟应拆批。'
+        }
+    }
+
+    return [PSCustomObject]@{
+        Category   = 'code-checkpoint'
+        MaxMinutes = 8
+        Summary    = '默认代码 checkpoint 窗口 8 分钟；超过应拆小或先 return-main。'
+    }
+}
+
+function Get-SharedRootActiveSession {
+    $path = Get-SharedRootActiveSessionRuntimePath
+
+    if (-not (Test-Path -LiteralPath $path)) {
+        return $null
+    }
+
+    $rawState = Get-Content -Raw -LiteralPath $path -Encoding UTF8
+    if ([string]::IsNullOrWhiteSpace($rawState)) {
+        return $null
+    }
+
+    try {
+        return ($rawState | ConvertFrom-Json)
+    }
+    catch {
+        throw "FATAL: shared root active session runtime 解析失败：$path。请先核查 JSON 是否损坏。"
+    }
+}
+
+function Set-SharedRootActiveSession {
+    param(
+        [string]$OwnerThread,
+        [string]$TargetBranch,
+        [string]$CheckpointHint,
+        [string]$Note,
+        $Ticket
+    )
+
+    $path = Get-SharedRootActiveSessionRuntimePath
+    $directory = Split-Path -Parent $path
+    if (-not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $policy = Get-SharedRootHoldWindowPolicy -CheckpointHint $CheckpointHint -Note $Note -TargetBranch $TargetBranch
+    $timestamp = Get-OccupancyTimestamp
+
+    $state = [ordered]@{
+        version                  = 1
+        owner_thread             = $OwnerThread
+        target_branch            = $TargetBranch
+        ticket                   = if ($null -eq $Ticket) { $null } else { [int]$Ticket }
+        checkpoint_hint          = if ([string]::IsNullOrWhiteSpace($CheckpointHint)) { 'none' } else { $CheckpointHint }
+        note                     = if ([string]::IsNullOrWhiteSpace($Note)) { 'none' } else { $Note }
+        entered_at               = $timestamp
+        last_updated             = $timestamp
+        hold_category            = $policy.Category
+        recommended_hold_minutes = [int]$policy.MaxMinutes
+        hold_summary             = $policy.Summary
+        source                   = 'ensure-branch'
+    }
+
+    $json = $state | ConvertTo-Json -Depth 6
+    Set-Content -LiteralPath $path -Encoding UTF8 -Value $json
+
+    return [PSCustomObject]$state
+}
+
+function Touch-SharedRootActiveSession {
+    param(
+        [string]$OwnerThread,
+        [string]$TargetBranch,
+        [string]$Reason
+    )
+
+    $active = Get-SharedRootActiveSession
+    if ($null -eq $active) {
+        return $null
+    }
+
+    if ($active.owner_thread -ne $OwnerThread -or $active.target_branch -ne $TargetBranch) {
+        return $null
+    }
+
+    $path = Get-SharedRootActiveSessionRuntimePath
+    $active.last_updated = Get-OccupancyTimestamp
+    if (-not [string]::IsNullOrWhiteSpace($Reason)) {
+        $active.last_reason = $Reason
+    }
+
+    $json = $active | ConvertTo-Json -Depth 6
+    Set-Content -LiteralPath $path -Encoding UTF8 -Value $json
+    return $active
+}
+
+function Add-SharedRootActiveSessionHistory {
+    param($HistoryEntry)
+
+    $path = Get-SharedRootActiveSessionHistoryPath
+    $directory = Split-Path -Parent $path
+    if (-not (Test-Path -LiteralPath $directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $entries = @()
+    if (Test-Path -LiteralPath $path) {
+        $rawState = Get-Content -Raw -LiteralPath $path -Encoding UTF8
+        if (-not [string]::IsNullOrWhiteSpace($rawState)) {
+            try {
+                $history = $rawState | ConvertFrom-Json
+                $entries = @($history.entries)
+            }
+            catch {
+                throw "FATAL: shared root active session history 解析失败：$path。请先核查 JSON 是否损坏。"
+            }
+        }
+    }
+
+    $entries += $HistoryEntry
+    if ($entries.Count -gt 50) {
+        $entries = @($entries | Select-Object -Last 50)
+    }
+
+    $state = [ordered]@{
+        version      = 1
+        last_updated = Get-OccupancyTimestamp
+        entries      = @($entries)
+    }
+
+    $json = $state | ConvertTo-Json -Depth 8
+    Set-Content -LiteralPath $path -Encoding UTF8 -Value $json
+}
+
+function Complete-SharedRootActiveSession {
+    param(
+        [string]$OwnerThread,
+        [string]$TargetBranch,
+        [string]$CompletionStatus
+    )
+
+    $active = Get-SharedRootActiveSession
+    if ($null -eq $active) {
+        return $null
+    }
+
+    if ($active.owner_thread -ne $OwnerThread -or $active.target_branch -ne $TargetBranch) {
+        return $null
+    }
+
+    $closedAt = Get-OccupancyTimestamp
+    $actualHoldMinutes = $null
+    try {
+        $enteredAt = [DateTimeOffset]::Parse([string]$active.entered_at)
+        $closedAtDto = [DateTimeOffset]::Parse($closedAt)
+        $actualHoldMinutes = [math]::Round(($closedAtDto - $enteredAt).TotalMinutes, 2)
+    }
+    catch {
+        $actualHoldMinutes = $null
+    }
+
+    $budgetStatus = 'unknown'
+    if ($null -ne $actualHoldMinutes -and $null -ne $active.recommended_hold_minutes) {
+        if ([double]$actualHoldMinutes -le [double]$active.recommended_hold_minutes) {
+            $budgetStatus = 'within-budget'
+        }
+        else {
+            $budgetStatus = 'overtime'
+        }
+    }
+
+    $historyEntry = [ordered]@{
+        owner_thread             = [string]$active.owner_thread
+        target_branch            = [string]$active.target_branch
+        ticket                   = $active.ticket
+        checkpoint_hint          = [string]$active.checkpoint_hint
+        note                     = [string]$active.note
+        entered_at               = [string]$active.entered_at
+        last_updated             = [string]$active.last_updated
+        returned_at              = $closedAt
+        hold_category            = [string]$active.hold_category
+        recommended_hold_minutes = $active.recommended_hold_minutes
+        hold_summary             = [string]$active.hold_summary
+        actual_hold_minutes      = $actualHoldMinutes
+        budget_status            = $budgetStatus
+        completion_status        = if ([string]::IsNullOrWhiteSpace($CompletionStatus)) { 'returned-main' } else { $CompletionStatus }
+    }
+
+    Add-SharedRootActiveSessionHistory -HistoryEntry $historyEntry
+    Remove-Item (Get-SharedRootActiveSessionRuntimePath) -ErrorAction SilentlyContinue
+
+    return [PSCustomObject]$historyEntry
 }
 
 function New-SharedRootQueueRecord {
@@ -669,12 +905,13 @@ function Set-SharedRootQueueTaskActive {
     $queue = Get-SharedRootQueueRecord
     $entry = Get-OpenSharedRootQueueEntry -Queue $queue -OwnerThread $OwnerThread -TargetBranch $TargetBranch
     if ($null -eq $entry) {
-        return
+        return $null
     }
 
     $entry = Upsert-SharedRootQueueEntry -Queue $queue -OwnerThread $OwnerThread -TargetBranch $TargetBranch -NewState 'task-active' -CheckpointHint $entry.CheckpointHint -Note $entry.Note -LastReason 'task-active'
     $queue.CurrentServingTicket = [int]$entry.Ticket
     Set-SharedRootQueueRecord -Queue $queue
+    return $entry
 }
 
 function Complete-SharedRootQueueEntry {
@@ -907,11 +1144,16 @@ function Wake-NextSharedRootBranchRequest {
 
     $queue = Get-SharedRootQueueRecord
     $entry = Get-OpenSharedRootQueueEntry -Queue $queue -OwnerThread $nextWaiting.OwnerThread -TargetBranch $nextWaiting.TargetBranch
+    $policy = Get-SharedRootHoldWindowPolicy -CheckpointHint $entry.CheckpointHint -Note $entry.Note -TargetBranch $entry.TargetBranch
     Write-Output 'STATUS: WOKE_NEXT'
     Write-Output "DISPATCHER_OWNER_THREAD: $DispatcherOwnerThread"
     Write-Output "NEXT_IN_LINE_TICKET: $($entry.Ticket)"
     Write-Output "NEXT_IN_LINE_OWNER_THREAD: $($entry.OwnerThread)"
     Write-Output "NEXT_IN_LINE_BRANCH: $($entry.TargetBranch)"
+    Write-Output "NEXT_IN_LINE_CHECKPOINT_HINT: $($entry.CheckpointHint)"
+    Write-Output "NEXT_IN_LINE_NOTE: $($entry.Note)"
+    Write-Output "NEXT_IN_LINE_RECOMMENDED_HOLD_MINUTES: $($policy.MaxMinutes)"
+    Write-Output "NEXT_IN_LINE_HOLD_CATEGORY: $($policy.Category)"
     Write-Output 'NEXT_ACTION: 通知该线程重做 live preflight；随后执行 request-branch（应返回 ALREADY_GRANTED）并继续 ensure-branch。'
 }
 
@@ -1312,11 +1554,17 @@ function Request-SharedRootBranchLease {
         $entry = Upsert-SharedRootQueueEntry -Queue $queue -OwnerThread $OwnerThread -TargetBranch $TargetBranch -NewState 'granted' -CheckpointHint $CheckpointHint -Note $Note -LastReason $gate.Reason
         $queue.CurrentServingTicket = [int]$entry.Ticket
         Set-SharedRootQueueRecord -Queue $queue
+        $policy = Get-SharedRootHoldWindowPolicy -CheckpointHint $entry.CheckpointHint -Note $entry.Note -TargetBranch $TargetBranch
 
         Write-Output 'STATUS: ALREADY_GRANTED'
         Write-Output "OWNER_THREAD: $OwnerThread"
         Write-Output "BRANCH: $TargetBranch"
         Write-Output "TICKET: $($entry.Ticket)"
+        Write-Output "CHECKPOINT_HINT: $($entry.CheckpointHint)"
+        Write-Output "QUEUE_NOTE: $($entry.Note)"
+        Write-Output "RECOMMENDED_HOLD_MINUTES: $($policy.MaxMinutes)"
+        Write-Output "HOLD_CATEGORY: $($policy.Category)"
+        Write-Output "HOLD_SUMMARY: $($policy.Summary)"
         Write-Output "QUEUE_RUNTIME_PATH: $($queue.RuntimePath)"
         Write-Output "QUEUE_SPEC_PATH: $($queue.SpecPath)"
         Write-Output "MESSAGE: $($gate.Reason)"
@@ -1335,11 +1583,17 @@ function Request-SharedRootBranchLease {
         Grant-SharedRootBranchLease -OwnerThread $OwnerThread -TargetBranch $TargetBranch
         $queue = Get-SharedRootQueueRecord
         $entry = Get-OpenSharedRootQueueEntry -Queue $queue -OwnerThread $OwnerThread -TargetBranch $TargetBranch
+        $policy = Get-SharedRootHoldWindowPolicy -CheckpointHint $entry.CheckpointHint -Note $entry.Note -TargetBranch $TargetBranch
 
         Write-Output 'STATUS: GRANTED'
         Write-Output "OWNER_THREAD: $OwnerThread"
         Write-Output "BRANCH: $TargetBranch"
         Write-Output "TICKET: $($entry.Ticket)"
+        Write-Output "CHECKPOINT_HINT: $($entry.CheckpointHint)"
+        Write-Output "QUEUE_NOTE: $($entry.Note)"
+        Write-Output "RECOMMENDED_HOLD_MINUTES: $($policy.MaxMinutes)"
+        Write-Output "HOLD_CATEGORY: $($policy.Category)"
+        Write-Output "HOLD_SUMMARY: $($policy.Summary)"
         Write-Output "QUEUE_RUNTIME_PATH: $($queue.RuntimePath)"
         Write-Output "QUEUE_SPEC_PATH: $($queue.SpecPath)"
         Write-Output "MESSAGE: 已发放 shared root 分支租约，可继续执行 ensure-branch。"
@@ -1361,10 +1615,12 @@ function Request-SharedRootBranchLease {
     Write-Output "BRANCH: $TargetBranch"
     Write-Output "TICKET: $($entry.Ticket)"
     Write-Output "QUEUE_POSITION: $queuePosition"
+    Write-Output "CHECKPOINT_HINT: $($entry.CheckpointHint)"
+    Write-Output "QUEUE_NOTE: $($entry.Note)"
     Write-Output "QUEUE_RUNTIME_PATH: $($queue.RuntimePath)"
     Write-Output "QUEUE_SPEC_PATH: $($queue.SpecPath)"
     Write-Output "REASON: $reason"
-    Write-Output 'NEXT_ACTION: 保存当前恢复点到 memory_0.md，停止继续尝试 ensure-branch，进入等待态。'
+    Write-Output 'NEXT_ACTION: 停止继续尝试 ensure-branch；不要在 main 上写 tracked memory / 回执；如需保存恢复点，请使用 CheckpointHint / QueueNote 或最小聊天回执，进入等待态。'
 }
 
 function Grant-SharedRootBranchLease {
@@ -1478,6 +1734,11 @@ function Return-SharedRootToMain {
         Invoke-Git -Arguments $checkoutArgs | Out-Null
     }
 
+    $sessionSummary = $null
+    if ($taskBranch -ne 'main') {
+        $sessionSummary = Complete-SharedRootActiveSession -OwnerThread $OwnerThread -TargetBranch $taskBranch -CompletionStatus 'returned-main'
+    }
+
     Set-SharedRootNeutralState
     if ($taskBranch -ne 'main') {
         Complete-SharedRootQueueEntry -OwnerThread $OwnerThread -TargetBranch $taskBranch
@@ -1487,10 +1748,18 @@ function Return-SharedRootToMain {
 
     Write-Output 'STATUS: RETURNED_MAIN'
     Write-Output 'MESSAGE: 已归还 shared root 到 main，并清空分支租约。'
+    if ($null -ne $sessionSummary) {
+        Write-Output "ACTIVE_HOLD_CATEGORY: $($sessionSummary.hold_category)"
+        Write-Output "ACTIVE_RECOMMENDED_HOLD_MINUTES: $($sessionSummary.recommended_hold_minutes)"
+        Write-Output "ACTIVE_ACTUAL_HOLD_MINUTES: $($sessionSummary.actual_hold_minutes)"
+        Write-Output "ACTIVE_HOLD_BUDGET_STATUS: $($sessionSummary.budget_status)"
+    }
     if ($null -ne $nextWaiting) {
         Write-Output "NEXT_IN_LINE_TICKET: $($nextWaiting.Ticket)"
         Write-Output "NEXT_IN_LINE_OWNER_THREAD: $($nextWaiting.OwnerThread)"
         Write-Output "NEXT_IN_LINE_BRANCH: $($nextWaiting.TargetBranch)"
+        Write-Output "NEXT_IN_LINE_CHECKPOINT_HINT: $($nextWaiting.CheckpointHint)"
+        Write-Output "NEXT_IN_LINE_NOTE: $($nextWaiting.Note)"
         Write-Output 'NEXT_ACTION: 治理线程可执行 wake-next，或向队首线程发放唤醒 Prompt。'
     }
     else {
@@ -1639,7 +1908,18 @@ function New-PreflightReport {
     $canContinue = $true
     $reason = '允许继续'
 
-    $sharedRootLease = Test-TaskSharedRootLease -RepoRoot $repoRoot -Branch $branch -OwnerThread $OwnerThread -RemainingEntries $remaining
+    $sharedRootLease = $null
+    if ($Mode -eq 'task') {
+        $sharedRootLease = Test-TaskSharedRootLease -RepoRoot $repoRoot -Branch $branch -OwnerThread $OwnerThread -RemainingEntries $remaining
+    }
+    else {
+        $sharedRootLease = [PSCustomObject]@{
+            Applies   = $false
+            CanUse    = $true
+            Reason    = 'governance 模式不消费 shared root task lease；只校验白名单同步边界。'
+            Occupancy = $occupancy
+        }
+    }
 
     if ($Mode -eq 'task' -and $branch -eq 'main') {
         $canContinue = $false
@@ -1847,6 +2127,14 @@ function Ensure-TaskBranch {
     if ((Test-IsSharedRootWorkspace -RepoRoot $repoRoot -OccupancyRecord $occupancy) -and $branch -eq 'main') {
         Set-SharedRootTaskActive -OwnerThread $OwnerThread -TargetBranch $TargetBranch
         Write-Output "已消费 shared root 分支租约，并登记为 task-active：$OwnerThread -> $TargetBranch"
+        $activeSession = Get-SharedRootActiveSession
+        if ($null -ne $activeSession) {
+            Write-Output "RUNTIME_ACTIVE_SESSION_PATH: $(Get-SharedRootActiveSessionRuntimePath)"
+            Write-Output "RECOMMENDED_HOLD_MINUTES: $($activeSession.recommended_hold_minutes)"
+            Write-Output "HOLD_CATEGORY: $($activeSession.hold_category)"
+            Write-Output "HOLD_SUMMARY: $($activeSession.hold_summary)"
+            Write-Output 'NEXT_ACTION: 在 shared root 中只做最小写事务；长时间只读分析、治理回执和 memory 补记请放到 return-main 之后。'
+        }
     }
 }
 
@@ -1950,6 +2238,15 @@ switch ($Action) {
         $finalUpstream = Get-UpstreamCounts
         Write-Output "最终 HEAD: $finalHead"
         Write-Output "推送后 upstream 状态 ($($finalUpstream.Label)): behind=$($finalUpstream.Behind), ahead=$($finalUpstream.Ahead)"
+
+        if ($Mode -eq 'task') {
+            $currentBranch = Get-CurrentBranch
+            $activeSession = Touch-SharedRootActiveSession -OwnerThread $OwnerThread -TargetBranch $currentBranch -Reason 'task-sync'
+            if ($null -ne $activeSession) {
+                Write-Output "ACTIVE_SESSION_LAST_UPDATED: $($activeSession.last_updated)"
+                Write-Output "ACTIVE_SESSION_HOLD_CATEGORY: $($activeSession.hold_category)"
+            }
+        }
 
         if ($report.Remaining.Count -gt 0) {
             Write-Output ''

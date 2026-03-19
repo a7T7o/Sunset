@@ -26,8 +26,8 @@
   - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action requeue-branch-request -OwnerThread <线程名> -BranchName codex/...`
 - 当 shared root 暂时不能发租约时：
   - 脚本返回 `LOCKED_PLEASE_YIELD`
-  - 线程必须保存当前上下文到自己的 `memory_0.md`
   - 线程进入等待态，而不是继续乱试 `ensure-branch`
+  - 恢复点优先放进 `CheckpointHint / QueueNote / 最小聊天回执 / queue runtime`
 - 当 shared root 回到 `main + neutral` 且无未消费租约时：
   - `return-main` 会打印当前 `NEXT_IN_LINE`
   - 治理线程可执行：
@@ -48,6 +48,21 @@
 }
 ```
 <!-- queue-state:end -->
+
+## 2026-03-19 执行层补充口径
+- waiting 线程不再默认在 `main` 上写 tracked `memory_0.md` 或固定回执卡。
+- `request-branch` 返回 `LOCKED_PLEASE_YIELD` 时，恢复点优先进入：
+  - `CheckpointHint`
+  - `QueueNote`
+  - `.kiro/locks/active/shared-root-queue.lock.json`
+- shared root 一旦进入 `task-active`，脚本会额外写入 ignored runtime：
+  - `.kiro/locks/active/shared-root-active-session.lock.json`
+- 该 runtime 记录：
+  - 当前占用线程
+  - 目标分支
+  - checkpoint hint / note
+  - 推荐持槽分钟数
+- `return-main` 会打印实际持槽分钟数与下一位 waiting 条目的 hint；治理线程应优先读取这些字段，而不是重新手工翻 tracked 回执。
 
 ## 状态说明
 - `waiting`：已登记排队，尚未拿到租约。

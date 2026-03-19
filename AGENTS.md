@@ -12,6 +12,8 @@
 - 第一次唤醒阶段 MUST 是纯只读阶段。没有显式 Lease / Grant 的线程，NEVER 允许执行 `ensure-branch`。
 - shared root 上的 `ensure-branch` 不是局部动作，而是全局写态。没有租约就切分支，一律视为严重违规。
 - 如果你试图绕过这条顺序，必须先阻断、先汇报，再等待显式准入；NEVER 允许“先切过去再说”。
+- 没拿到 `GRANTED / ALREADY_GRANTED` 的 waiting 线程，NEVER 允许在 `main` 上写 tracked `memory`、回执卡或治理文档；恢复点优先放进 `CheckpointHint / QueueNote` 或最小聊天回执。
+- 一旦进入 shared root 的任务分支，你 MUST 把这次占用视为“最小写事务窗口”：先做 checkpoint 或最小代码写入，长时间只读分析、治理回执和 memory 补记一律放到 `return-main` 之后。
 - 对任何 Sunset 实质性任务，首次 `commentary` MUST 显式点名本轮正在使用的 skill；如果 `sunset-startup-guard` 当前会话未显式暴露而改走 `skills-governor + 手工等价闸门`，也必须明说。
 - 对 shared root 的 live Git 准入命令：
   - `request-branch`
@@ -138,6 +140,8 @@
 - 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...`，只白名单提交本轮治理文件。
 - 真实实现任务若准备从 `main` 进入代码或场景修改，必须先执行 `git-safe-sync.ps1 -Action ensure-branch -OwnerThread <线程名> -BranchName codex/...`；只有在工作树干净、基线同步时才允许创建任务分支。
 - 若从 shared root 的 `main` 进入 `ensure-branch`，shared root 占用文档必须先回到 neutral；未归还的 shared root 不得继续开新任务分支。
+- shared root 进入 `task-active` 后，脚本会在 ignored runtime 中记录 active session 与推荐持槽窗口；线程应把它当作时长预算，而不是默认长时间占槽。
+- `return-main` 之后才是补写 tracked 证据、memory、治理总结的默认时机；不要把这些动作塞回持槽期。
 - 真实实现任务完成后，必须在对应 `codex/` 分支上执行 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -ScopeRoots ... -IncludePaths ...`，用显式白名单提交当前任务，不得使用无边界 `git add -A`。
 - 如果 `git-safe-sync.ps1` 判断当前不能安全同步，必须明确汇报阻塞点、当前分支、基线 hash 和剩余 dirty 分类；禁止硬提交、硬推送或偷偷跳过 Git 收尾。
 - 旧的 `Codex迁移与规划`、旧全局 `tasks.md`、旧 `TD_*` 代办文件都只作为历史兼容入口，不再承接当前治理续办的新任务。
