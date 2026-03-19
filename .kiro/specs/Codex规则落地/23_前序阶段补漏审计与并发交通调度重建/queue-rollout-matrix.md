@@ -3,6 +3,8 @@
 ## 目标
 - 在不碰 Unity / MCP / Play Mode 的前提下，先把 shared root queue 的核心路径做成可重复演习的 Git 层闭环。
 - 明确哪些场景已经实测，哪些仍只是协议层设计。
+- 所有实测命令默认走稳定入口：
+  - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
 
 ## 实测优先级
 
@@ -45,6 +47,15 @@
 - 演习中暴露并已修补：
   - 切到旧任务分支后，仓库里的旧版 `git-safe-sync.ps1` 会带来旧输出或旧 queue 回写
   - 已新增 queue runtime 自愈逻辑；回到 `main` 后，新版脚本会按 `occupancy` 修正 stale open entry
+- 本轮进一步补强：
+  - 已新增仓库外稳定 launcher
+  - 现在 live 调度命令可固定取 `main` 上的 canonical 脚本，不再依赖当前 checkout 的仓库内脚本版本
+  - 已从仓库外 `cwd = D:\迅雷下载\开始` 执行一次：
+    - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -Mode governance -OwnerThread Codex规则落地`
+  - 结果：
+    - launcher 成功解析 `RepoRoot / SourceRef / live branch`
+    - 成功调用 `main` 上的 canonical 脚本
+    - shared root queue runtime 保持空基线、未被污染
 - 本轮未覆盖：
   - Unity / MCP 层写态调度
   - 越序审批的治理记录格式

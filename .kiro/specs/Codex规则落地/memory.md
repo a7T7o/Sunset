@@ -971,3 +971,29 @@
 - 真正值得继续补强的是：
   - 旧分支脚本漂移的更彻底解法
   - Unity / MCP 调度层
+
+## 2026-03-19｜阶段 23 已补入稳定 launcher
+
+**本轮完成**
+- `Codex规则落地/23_前序阶段补漏审计与并发交通调度重建` 已新增并落地：
+  - 仓库外稳定 launcher
+  - 路径：`C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+- 现行 live 口径已从“默认直接调用仓库内 `scripts/git-safe-sync.ps1`”收紧为：
+  - shared root 的 `request-branch / grant-branch / ensure-branch / wake-next / return-main`
+  - 默认走稳定 launcher
+- 已完成一轮最小烟雾验证：
+  - 从仓库外 `cwd` 执行 launcher 的 `preflight`
+  - launcher 能正确抓取 `main` 上的 canonical 脚本并执行
+
+**关键判断**
+- `23` 的焦点已经从“有没有 queue”转成“入口是否稳定、剩余边界还有哪些”。
+- 现在不能再说“旧分支脚本漂移会直接把 live 调度拉回旧版本”，因为默认入口已换成稳定 launcher。
+- 但仍不能夸大成：
+  - 所有历史分支都已经自动升级
+  - Unity / MCP 层已经拥有同等级调度器
+
+**恢复点**
+- `23` 后续继续补：
+  - 多 checkpoint 持续推进模型
+  - Unity / MCP 单实例边界
+  - 治理线程批次发放 / 回收协议

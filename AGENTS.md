@@ -13,6 +13,18 @@
 - shared root 上的 `ensure-branch` 不是局部动作，而是全局写态。没有租约就切分支，一律视为严重违规。
 - 如果你试图绕过这条顺序，必须先阻断、先汇报，再等待显式准入；NEVER 允许“先切过去再说”。
 - 对任何 Sunset 实质性任务，首次 `commentary` MUST 显式点名本轮正在使用的 skill；如果 `sunset-startup-guard` 当前会话未显式暴露而改走 `skills-governor + 手工等价闸门`，也必须明说。
+- 对 shared root 的 live Git 准入命令：
+  - `request-branch`
+  - `grant-branch`
+  - `ensure-branch`
+  - `wake-next`
+  - `return-main`
+  默认 MUST 通过稳定 launcher：
+  - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+  而不是直接调用仓库内 `scripts\git-safe-sync.ps1`。
+- 唯一例外是治理线程正在修改 `scripts\git-safe-sync.ps1` 本体并需要验证 working tree 版本；此时才允许：
+  - 直接运行仓库内脚本
+  - 或运行稳定 launcher 但显式带 `-SourceRef HEAD`
 
 ## 1. 文件定位
 - 本文件是 Sunset 项目的 Codex 路由层，不重复抄写 `.kiro/steering` 正文。
@@ -119,6 +131,9 @@
 - 涉及 UI、对话框、气泡、字体、布局、样式的任务，不得以“能显示”为完成标准；必须额外核可读性、锚点、留白、层级遮挡、字体协调性和整体专业感。
 - 治理任务若留在 `main`，只允许使用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 明确带上本轮受影响的业务记忆或线程记忆。
 - 调用 `git-safe-sync.ps1` 时，必须显式传入 `-OwnerThread <线程名>`；脚本会按线程身份校验当前分支语义，不匹配直接阻断。
+- 只要动作属于 shared root 的 live 准入 / 排队 / 唤醒，默认命令入口改为：
+  - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 ...`
+  这样即使 shared root 已切到旧任务分支，也不会退回执行该分支自带的旧版仓库脚本。
 - 如果 shared root 占用文档已经声明 `is_neutral = false`，则 `git-safe-sync.ps1` 的 `task` 模式还会额外核对 `owner_thread + current_branch`，并在仍有 remaining dirty 时直接阻断。
 - 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...`，只白名单提交本轮治理文件。
 - 真实实现任务若准备从 `main` 进入代码或场景修改，必须先执行 `git-safe-sync.ps1 -Action ensure-branch -OwnerThread <线程名> -BranchName codex/...`；只有在工作树干净、基线同步时才允许创建任务分支。

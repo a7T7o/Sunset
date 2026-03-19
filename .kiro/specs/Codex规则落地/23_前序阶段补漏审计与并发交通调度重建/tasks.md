@@ -35,6 +35,7 @@
   - 补文档
   - 准备下一个 checkpoint
   - 维持 branch carrier 不丢进度
+- [x] 定义并落地稳定 launcher，避免 live 调度命令受旧任务分支脚本漂移影响
 - [ ] 定义多 checkpoint 持续推进模型：
   - checkpoint 触发条件
   - 归还条件
@@ -48,6 +49,7 @@
 - [x] 产出新的并发交通调度文档或运行口径
 - [x] 设计至少一轮“等待态线程 + 获准线程”并发验证路线
 - [x] 明确哪些动作可并发，哪些只能排队
+- [x] 将当前 live 调度入口统一切到稳定 launcher，并回写现行文档
 - [ ] 明确治理线程之后如何发放本轮批次入口与收件回执，避免重复再造固定群发模板
 
 ## 当前裁定
@@ -73,3 +75,5 @@
 - [x] 设计真正的 queue 消费、取消、唤醒与回执动作
 - [x] 增加 queue runtime 自愈，修补旧任务分支脚本造成的 stale `task-active / granted`
 - [x] 完成一轮 Git 层实盘演习，并在演习后把 runtime queue 恢复为空基线
+- [x] 增加仓库外稳定 launcher，固定从 `main` 读取 canonical `git-safe-sync.ps1`
+- [x] 用稳定 launcher 完成一轮最小实测，并把结果回写到阶段 23

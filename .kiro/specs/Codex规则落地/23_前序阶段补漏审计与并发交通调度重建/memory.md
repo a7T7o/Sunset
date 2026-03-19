@@ -138,3 +138,59 @@
 - 若继续补强，下一轮重点不再是基础 queue，而是：
   - 旧分支脚本漂移的更彻底解法
   - Unity / MCP 层的高风险联动调度
+
+## 2026-03-19｜稳定 launcher 落地，旧分支脚本漂移风险继续收口
+
+**用户目标**
+- 在 Git 层 queue 已经跑通后，不再停在“旧分支脚本漂移先靠 runtime 自愈兜底”的状态，而是继续把 live 入口做稳。
+- 同时要求我保持客观，不把现状夸大成“已经全自动调度完成”。
+
+**本轮完成**
+- 新增仓库外稳定 launcher：
+  - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+- launcher 的执行策略已固定为：
+  - 在 `D:\Unity\Unity_learning\Sunset` 上读取 `main:scripts/git-safe-sync.ps1`
+  - 写到临时文件
+  - 再以该 canonical 版本执行 live 调度命令
+- 已同步更新当前现行文档口径：
+  - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-queue.md`
+  - `dispatch-protocol.md`
+  - `queue-rollout-matrix.md`
+  - `tasks.md`
+  - `analysis.md`
+- 已完成一轮最小烟雾验证：
+  - 从仓库外 `D:\迅雷下载\开始` 执行 launcher 的 `preflight`
+  - launcher 正确输出：
+    - `LAUNCHER_MODE`
+    - `LAUNCHER_REPO_ROOT`
+    - `LAUNCHER_SOURCE_REF`
+    - `LAUNCHER_LIVE_BRANCH`
+  - canonical 主脚本成功执行，shared root queue runtime 未被污染
+
+**本轮暴露并修复的真实 bug**
+- launcher 初版自身存在 PowerShell 语法拼接错误
+- Windows PowerShell 5.1 在 `-File` 执行临时 UTF-8 无 BOM 且含中文脚本时，会出现解析异常
+- launcher 初版参数转发把整串参数误当成一个参数
+- 当前收口方式：
+  - launcher 自身改成 ASCII-only
+  - 临时 canonical 脚本改为 UTF-8 with BOM
+  - 参数改为真正的数组转发
+
+**关键判断**
+- 现在更客观的状态是：
+  - Git 层 queue / wait / wake / cancel / requeue 闭环成立
+  - 旧分支脚本漂移不再直接卡住 live 调度入口
+  - 但这仍不是“全项目所有层都自动化调度完成”
+- 当前剩余重点仍是：
+  - 多 checkpoint 持续推进模型
+  - Unity / MCP 单实例调度边界
+  - 治理线程的批次发放 / 回收规范继续收口
+
+**当前恢复点**
+- 之后若继续发放业务线程的 live 调度命令，应默认改用：
+  - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 ...`
+- 治理线程如需继续补阶段 23，不必再重复造 queue 本体，而应把注意力放在：
+  - 并发 checkpoint 模型
+  - Unity / MCP 层
+  - 调度运营协议

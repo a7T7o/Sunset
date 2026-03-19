@@ -274,3 +274,55 @@
 - 后续若继续阶段 `23`，重点应从“基础 queue”切到：
   - 脚本漂移的更彻底解决方案
   - Unity / MCP 高风险联动调度
+
+### 会话 36 - 2026-03-19（落地 stable launcher，切断 shared root live 调度对当前 checkout 脚本版本的依赖）
+**用户目标**：
+> 在 Git 层 queue 已经真实成立后，继续推进阶段 23，但不要被“已经像 OS 调度器”这类夸奖带偏；真正补掉旧任务分支脚本漂移这个物理风险，并保持持续自审。
+
+**已完成事项**：
+1. 重新执行 Sunset 前置核查：
+   - 显式按 `skills-governor + sunset-workspace-router + sunset-startup-guard(manual-equivalent)` 路由
+   - 复核 `AGENTS.md`
+   - 复核阶段 `23` 的 `tasks.md / analysis.md / dispatch-protocol.md`
+   - 复核 live 基线：
+     - `D:\Unity\Unity_learning\Sunset @ main @ 57b68e66`
+     - runtime queue 空基线
+2. 新增仓库外稳定 launcher：
+   - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+   - 默认从 `main:scripts/git-safe-sync.ps1` 读取 canonical 脚本，再落临时文件执行
+3. 把现行入口文档改口：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-queue.md`
+   - `dispatch-protocol.md`
+   - `queue-rollout-matrix.md`
+   - `tasks.md`
+   - `analysis.md`
+4. 完成一轮最小烟雾验证：
+   - 从仓库外 `D:\迅雷下载\开始` 执行：
+     - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -Mode governance -OwnerThread Codex规则落地`
+   - launcher 成功输出：
+     - `LAUNCHER_MODE`
+     - `LAUNCHER_REPO_ROOT`
+     - `LAUNCHER_SOURCE_REF`
+     - `LAUNCHER_LIVE_BRANCH`
+   - canonical 主脚本成功执行，shared root queue runtime 未被污染
+5. 过程中暴露并修复了 launcher 自身的三个真实 bug：
+   - PowerShell 参数拼接错误
+   - 路径分隔符归一化误判
+   - Windows PowerShell 5.1 执行临时 UTF-8 无 BOM 含中文脚本时的解析异常
+
+**关键决策**：
+- 现在更客观的结论是：
+  - Git 层 queue / wait / wake / cancel / requeue 闭环成立
+  - shared root live 调度入口已经不再直接受当前 checkout 的仓库内脚本版本摆布
+  - 但这仍不等于 Unity / MCP 层也拥有同等级调度器
+- 这轮新增的全局 gotcha 值得跨项目复用：
+  - Windows PowerShell 5.1 下做临时脚本桥接时，入口脚本应尽量 ASCII-only，临时目标脚本应写 BOM
+
+**恢复点**：
+- 阶段 `23` 下一步不再重复造 queue，而是优先补：
+  - 多 checkpoint 持续推进模型
+  - Unity / MCP 单实例调度边界
+  - 治理线程的批次发放 / 回收协议
+- 之后若继续唤醒业务线程进入 shared root live 调度，默认应改用：
+  - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 ...`

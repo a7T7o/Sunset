@@ -149,3 +149,35 @@
   - Git 层 queue 闭环已经真实成立
   - 但“所有任务分支都天然携带最新脚本”这件事仍不成立
   - 现阶段依然要把“旧分支脚本漂移”视为已知风险，而不是假装已经彻底消失
+
+## 9. 旧分支脚本漂移的进一步物理解法
+- 为了不让 live 调度命令继续依赖当前 checkout 的仓库内脚本版本，本轮新增稳定 launcher：
+  - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+- 它的策略不是再复制一份仓库脚本长期独立演化，而是：
+  - 每次执行时，先在 `D:\Unity\Unity_learning\Sunset` 上读取
+    - `main:scripts/git-safe-sync.ps1`
+  - 再把这个 canonical 脚本落到临时文件并执行
+- 这样做的收益：
+  - 当前 shared root 即使已切到旧任务分支
+  - `request-branch / ensure-branch / wake-next / return-main` 这些 live 命令仍会吃到 `main` 上最新治理逻辑
+- 仍保留的边界：
+  - 这不能替代“把老业务分支本身更新到新治理基线”
+  - 也不能替代 Unity / MCP 层的单实例调度
+  - 治理线程如果正在修改脚本本体并要验证 working tree 版本，仍应直接运行仓库内脚本或 launcher `-SourceRef HEAD`
+
+## 10. 稳定 launcher 的最小烟雾验证
+- 本轮已从 Sunset 仓库外的 `cwd` 执行：
+  - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -Mode governance -OwnerThread Codex规则落地`
+- 这次验证刻意不在仓库目录里运行，目的是验证两件事：
+  - launcher 不依赖当前 shell 所在目录
+  - launcher 能稳定抓取 `main` 的 canonical 脚本，而不是回落到当前 checkout 的仓库内脚本
+- 验证结果：
+  - `LAUNCHER_MODE / REPO_ROOT / SOURCE_REF / LIVE_BRANCH` 均正确输出
+  - canonical 脚本已成功执行，并返回真实 preflight 报告
+  - shared root 仍保持 `main + clean`，runtime queue 仍为空基线
+- 本轮修补过的真实 bug：
+  - launcher 自己的 PowerShell 参数转发错误
+  - Windows PowerShell 5.1 对“临时 UTF-8 无 BOM + 含中文脚本”执行不稳
+  - 最终收口为：
+    - launcher 自身保持 ASCII-only
+    - 临时 canonical 脚本以 UTF-8 with BOM 写出
