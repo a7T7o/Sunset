@@ -123,3 +123,30 @@
 
 **恢复点 / 下一步**：
 - 下一步应生成新一轮 smoke test / 开发准入批次，而不是继续补旧 prompt。
+
+## 会话 49 - 2026-03-19（新版 smoke test 批次已生成）
+**用户目标**：
+> 对 Gemini 的“现在直接发旧 4 份 prompt 开跑”做锐评审核；除非 Path C，否则直接按更稳的判断继续做。
+
+**已完成事项**：
+1. 路径判断为 `Path B`：
+   - Gemini 对方向的赞许可采纳
+   - 但“旧 prompt 可直接复用”不采纳
+2. 已生成新版分发资产：
+   - 根层批次文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_04_执行层smoke-test_01.md`
+   - 新工作区专属 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_smoke-test_01\可分发Prompt\*.md`
+   - 新工作区治理镜像回收卡：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_smoke-test_01\线程回收\*.md`
+3. 批次内容已包含：
+   - Draft 沙盒
+   - `POST_RETURN_EVIDENCE_MODE`
+   - waiting / granted 全部禁止 tracked 写入
+
+**关键决策**：
+- 这轮继续推进，但不是盲从 Gemini 的“直接复用旧批次”。
+- 当前真正可群发的是 smoke test 01，而不是阶段 23 里的旧 prompt。
+
+**恢复点 / 下一步**：
+- 同步这批新分发文件进 `main`，然后即可对外发车。

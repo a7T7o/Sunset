@@ -169,6 +169,33 @@
 **遗留问题 / 下一步**：
 - 下一步不再是补这轮脚本，而是基于新口径生成小批次、低风险 smoke test / 开发准入。
 
+### 会话 6 - 2026-03-19
+**用户需求**：
+> 对 Gemini 的“直接复用旧 4 份 prompt 开跑”做审核，如果不是 Path C 就按更稳的判断继续推进。
+
+**完成任务**：
+1. 走 `Path B`：
+   - 认可 Gemini 对方向的肯定
+   - 但否定“旧 4 份 prompt 可直接复用”的做法
+2. 新建第一轮真正匹配当前 live 规则的 smoke test 批次：
+   - 根层批次入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_04_执行层smoke-test_01.md`
+   - 新执行层工作区中的 prompt / 收件箱：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_smoke-test_01\可分发Prompt\`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_smoke-test_01\线程回收\`
+3. 批次内容已升级为：
+   - waiting 线程必须落 Draft note
+   - granted 线程必须回报 `POST_RETURN_EVIDENCE_MODE`
+   - 全部线程本轮都禁止 tracked 写入
+
+**关键决策**：
+- 旧批次 prompt 仍可作历史证据，但不再作为当前 smoke test 的 live 入口。
+- 这轮 smoke test 测的是“Draft 挂起 + return-main 分流”，不是只重复旧版 queue 行为。
+
+**遗留问题 / 下一步**：
+- 将本轮 smoke test 批次同步进 `main`。
+- 同步后即可直接群发新版批次入口。
+
 ## 关键决策
 
 | 决策 | 原因 | 日期 |
