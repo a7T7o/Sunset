@@ -13,7 +13,9 @@
 - shared root 上的 `ensure-branch` 不是局部动作，而是全局写态。没有租约就切分支，一律视为严重违规。
 - 如果你试图绕过这条顺序，必须先阻断、先汇报，再等待显式准入；NEVER 允许“先切过去再说”。
 - 没拿到 `GRANTED / ALREADY_GRANTED` 的 waiting 线程，NEVER 允许在 `main` 上写 tracked `memory`、回执卡或治理文档；恢复点优先放进 `CheckpointHint / QueueNote` 或最小聊天回执。
+- waiting / 挂起阶段如需写代码草稿或复盘草稿，唯一允许的落点是 gitignored Draft 沙盒：`D:\Unity\Unity_learning\Sunset\.codex\drafts\<OwnerThread>\`；NEVER 用 tracked 文档顶替它。
 - 一旦进入 shared root 的任务分支，你 MUST 把这次占用视为“最小写事务窗口”：先做 checkpoint 或最小代码写入，长时间只读分析、治理回执和 memory 补记一律放到 `return-main` 之后。
+- `return-main` 之后也不等于可以无脑立刻写脏 `main`；如果队列仍有 waiting 线程，事后复盘优先继续放进 Draft 沙盒或最小聊天回执，tracked 证据应延后到治理窗口或最小白名单同步时再落。
 - 对任何 Sunset 实质性任务，首次 `commentary` MUST 显式点名本轮正在使用的 skill；如果 `sunset-startup-guard` 当前会话未显式暴露而改走 `skills-governor + 手工等价闸门`，也必须明说。
 - 对 shared root 的 live Git 准入命令：
   - `request-branch`

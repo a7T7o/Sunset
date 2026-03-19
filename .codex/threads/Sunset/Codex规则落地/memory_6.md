@@ -79,3 +79,24 @@
 
 **恢复点 / 下一步**：
 - 立即执行 governance sync，把本轮最终收口版同步进 `main`。
+
+## 会话 47 - 2026-03-19（第二轮执行层补丁：Draft 沙盒与 post-return 策略）
+**用户目标**：
+> 审核 Gemini 对新工作区的鼓励性建议，但不要被夸大带偏；要求我查漏补缺后直接进入下一轮物理改造。
+
+**已完成事项**：
+1. 采纳并落地 Draft 沙盒：
+   - `.codex/drafts/README.md`
+   - `.gitignore` 对 `.codex/drafts/**` 的忽略规则
+2. 为 `git-safe-sync.ps1` 增加 Draft 提示输出：
+   - waiting / granted / wake-next / return-main 均可直接给出草稿目录和文件 hint
+3. 纠正 `return-main` 后的误导性想象：
+   - 不再默认暗示“归还槽位后立刻安全写 tracked memory”
+   - 改为根据队列是否仍有人等待，输出不同的 post-return 证据策略
+
+**关键决策**：
+- Gemini 的大方向可采纳，但“return-main 后就安全写 tracked 复盘”对本项目并不严谨；真实可用版本必须把队列状态也算进去。
+- 这轮补丁的核心不是增加更多规则，而是减少 shared root 释放后的二次污染。
+
+**恢复点 / 下一步**：
+- 先做 parser、ignore 规则和 preflight 验证，再执行治理同步。

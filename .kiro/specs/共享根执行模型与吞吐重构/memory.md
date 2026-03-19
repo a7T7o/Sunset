@@ -105,6 +105,45 @@
 - 通过治理同步把本轮改动收进 `main`。
 - 同步后以 launcher 复核 canonical script 生效，再进入执行层实盘验证。
 
+### 会话 4 - 2026-03-19
+**用户需求**：
+> 带着审核态度消化 Gemini 对新工作区的判断，查漏补缺后直接开始下一轮物理改造，不再停在理论框架。
+
+**完成任务**：
+1. 审核后采纳 Gemini 的两个有效方向：
+   - waiting 线程需要一个真正免疫 Git 脏检查的 Draft 沙盒
+   - `return-main` 需要更明确的事后动作提示
+2. 同时纠正 Gemini 被放大的部分：
+   - `request-branch / wake-next` 的 runtime 化并不是“现在才要做”，而是此前已经落地
+   - `return-main` 后也不能简单地说“现在可以安全写 tracked memory”，因为这会在队列未清空时再次把 `main` 写脏
+3. 物理落地补丁：
+   - `git-safe-sync.ps1` 新增 Draft 沙盒路径输出
+   - `LOCKED_PLEASE_YIELD / GRANTED / ALREADY_GRANTED / wake-next / return-main` 输出 Draft 提示
+   - `return-main` 新增 `POST_RETURN_EVIDENCE_MODE / POST_RETURN_NEXT_ACTION`
+   - 新建 gitignored Draft 沙盒规范：`D:\Unity\Unity_learning\Sunset\.codex\drafts\README.md`
+   - `.gitignore` 正式忽略 `.codex/drafts/**`
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+- `D:\Unity\Unity_learning\Sunset\.gitignore`
+- `D:\Unity\Unity_learning\Sunset\.codex\drafts\README.md`
+- `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-queue.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\requirements.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\design.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\tasks.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\memory.md`
+
+**关键决策**：
+- Draft 沙盒是对“等待态不污染 Git”的补完，不是替代正式记忆或正式代码提交。
+- `return-main` 后的 tracked 证据写入必须区分：
+  - 队列仍有人等待：优先 Draft / 最小聊天回执，延后 tracked 落盘
+  - 队列为空：允许最小 tracked 收口
+
+**遗留问题 / 下一步**：
+- 做 parser、`.gitignore` 与 live preflight 验证。
+- 验证通过后执行治理同步，把第二轮执行层补丁并入 `main`。
+
 ## 关键决策
 
 | 决策 | 原因 | 日期 |

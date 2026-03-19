@@ -75,6 +75,7 @@
 ### 4.2 运行态与证据层分离
 - 运行态：
   - ignored JSON
+  - gitignored Draft 沙盒
   - 命令行状态输出
   - 短期 ticket / wake 信息
 - 证据层：
@@ -101,10 +102,22 @@
 - tracked 线程回收卡
   - 不再要求 waiting 线程在 `main` 上实时写回。
 
+### 5.3 Draft 沙盒
+- 位置：
+  - `D:\Unity\Unity_learning\Sunset\.codex\drafts\<OwnerThread>\`
+- 规则：
+  - 仅用于等待态、挂起态、或 `return-main` 后但队列仍未清空时的草稿承载
+  - 默认不进入 Git dirty 检查
+  - 不替代正式 memory、回执或代码提交
+- 作用：
+  - 让线程在没拿到槽位时仍能把思路和代码草稿准备好
+  - 拿到 grant 后只迁入最小 checkpoint 所需内容，实现快进快出
+
 ## 6. 第一轮实施方向
 1. 先定义“持槽期 / 非持槽期”的明确边界。
 2. 再把 waiting、wake、cancel、requeue 的 runtime 状态尽量抽到 ignored 层。
-3. 最后才决定哪些 tracked 文档还值得保留为事后证据。
+3. 给 waiting / post-return 线程补一个 gitignored Draft 沙盒。
+4. 最后才决定哪些 tracked 文档还值得保留为事后证据，以及何时允许它们最小落盘。
 
 ## 7. 风险
 - 如果继续把 tracked Markdown 当运行态消息总线，shared root 仍会被治理动作重新写脏。

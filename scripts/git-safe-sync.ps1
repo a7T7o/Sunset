@@ -356,6 +356,65 @@ function Get-SharedRootActiveSessionHistoryPath {
     return (Join-Path (Get-RepoRoot) '.kiro/locks/history/shared-root-active-session.history.json')
 }
 
+function Get-SharedRootDraftsRootPath {
+    return (Join-Path (Get-RepoRoot) '.codex/drafts')
+}
+
+function Get-SharedRootDraftsGuidePath {
+    return (Join-Path (Get-SharedRootDraftsRootPath) 'README.md')
+}
+
+function Convert-ToSafePathLeaf {
+    param([string]$Value)
+
+    $result = if ([string]::IsNullOrWhiteSpace($Value)) { 'unknown' } else { $Value.Trim() }
+
+    foreach ($char in [System.IO.Path]::GetInvalidFileNameChars()) {
+        $result = $result.Replace([string]$char, '-')
+    }
+
+    $result = $result.Replace('/', '-').Replace('\', '-').Replace(':', '-')
+    $result = [regex]::Replace($result, '\s+', '-')
+    $result = [regex]::Replace($result, '-{2,}', '-').Trim('-')
+
+    if ([string]::IsNullOrWhiteSpace($result)) {
+        return 'unknown'
+    }
+
+    return $result
+}
+
+function Get-SharedRootOwnerDraftsPath {
+    param([string]$OwnerThread)
+
+    $ownerLeaf = Convert-ToSafePathLeaf -Value $OwnerThread
+    return (Join-Path (Get-SharedRootDraftsRootPath) $ownerLeaf)
+}
+
+function Get-SharedRootDraftFileHint {
+    param(
+        [string]$OwnerThread,
+        [string]$TargetBranch
+    )
+
+    $ownerDir = Get-SharedRootOwnerDraftsPath -OwnerThread $OwnerThread
+    $branchLeaf = Convert-ToSafePathLeaf -Value $TargetBranch
+    $timestamp = (Get-Date).ToString('yyyyMMdd-HHmmss')
+    return (Join-Path $ownerDir "$timestamp-$branchLeaf.md")
+}
+
+function Write-SharedRootDraftHints {
+    param(
+        [string]$OwnerThread,
+        [string]$TargetBranch
+    )
+
+    Write-Output "DRAFTS_ROOT: $(Get-SharedRootDraftsRootPath)"
+    Write-Output "DRAFTS_GUIDE_PATH: $(Get-SharedRootDraftsGuidePath)"
+    Write-Output "DRAFTS_OWNER_DIR: $(Get-SharedRootOwnerDraftsPath -OwnerThread $OwnerThread)"
+    Write-Output "DRAFT_FILE_HINT: $(Get-SharedRootDraftFileHint -OwnerThread $OwnerThread -TargetBranch $TargetBranch)"
+}
+
 function Get-SharedRootHoldWindowPolicy {
     param(
         [string]$CheckpointHint,
@@ -1154,6 +1213,7 @@ function Wake-NextSharedRootBranchRequest {
     Write-Output "NEXT_IN_LINE_NOTE: $($entry.Note)"
     Write-Output "NEXT_IN_LINE_RECOMMENDED_HOLD_MINUTES: $($policy.MaxMinutes)"
     Write-Output "NEXT_IN_LINE_HOLD_CATEGORY: $($policy.Category)"
+    Write-SharedRootDraftHints -OwnerThread $entry.OwnerThread -TargetBranch $entry.TargetBranch
     Write-Output 'NEXT_ACTION: 通知该线程重做 live preflight；随后执行 request-branch（应返回 ALREADY_GRANTED）并继续 ensure-branch。'
 }
 
@@ -1567,7 +1627,9 @@ function Request-SharedRootBranchLease {
         Write-Output "HOLD_SUMMARY: $($policy.Summary)"
         Write-Output "QUEUE_RUNTIME_PATH: $($queue.RuntimePath)"
         Write-Output "QUEUE_SPEC_PATH: $($queue.SpecPath)"
+        Write-SharedRootDraftHints -OwnerThread $OwnerThread -TargetBranch $TargetBranch
         Write-Output "MESSAGE: $($gate.Reason)"
+        Write-Output 'NEXT_ACTION: 继续 live preflight 后即可 ensure-branch；若等待期已在 Draft 沙盒准备好草稿，请只迁入最小必要内容并快进快出。'
         return
     }
 
@@ -1596,7 +1658,9 @@ function Request-SharedRootBranchLease {
         Write-Output "HOLD_SUMMARY: $($policy.Summary)"
         Write-Output "QUEUE_RUNTIME_PATH: $($queue.RuntimePath)"
         Write-Output "QUEUE_SPEC_PATH: $($queue.SpecPath)"
+        Write-SharedRootDraftHints -OwnerThread $OwnerThread -TargetBranch $TargetBranch
         Write-Output "MESSAGE: 已发放 shared root 分支租约，可继续执行 ensure-branch。"
+        Write-Output 'NEXT_ACTION: 继续 ensure-branch；如果等待期已在 Draft 沙盒准备好草稿，只迁入本轮最小 checkpoint 所需内容。'
         return
     }
 
@@ -1619,8 +1683,9 @@ function Request-SharedRootBranchLease {
     Write-Output "QUEUE_NOTE: $($entry.Note)"
     Write-Output "QUEUE_RUNTIME_PATH: $($queue.RuntimePath)"
     Write-Output "QUEUE_SPEC_PATH: $($queue.SpecPath)"
+    Write-SharedRootDraftHints -OwnerThread $OwnerThread -TargetBranch $TargetBranch
     Write-Output "REASON: $reason"
-    Write-Output 'NEXT_ACTION: 停止继续尝试 ensure-branch；不要在 main 上写 tracked memory / 回执；如需保存恢复点，请使用 CheckpointHint / QueueNote 或最小聊天回执，进入等待态。'
+    Write-Output 'NEXT_ACTION: 停止继续尝试 ensure-branch；不要在 main 上写 tracked memory / 回执；如需保存恢复点或代码草稿，请使用 CheckpointHint / QueueNote / Draft 沙盒 / 最小聊天回执，进入等待态。'
 }
 
 function Grant-SharedRootBranchLease {
@@ -1748,6 +1813,7 @@ function Return-SharedRootToMain {
 
     Write-Output 'STATUS: RETURNED_MAIN'
     Write-Output 'MESSAGE: 已归还 shared root 到 main，并清空分支租约。'
+    Write-SharedRootDraftHints -OwnerThread $OwnerThread -TargetBranch $taskBranch
     if ($null -ne $sessionSummary) {
         Write-Output "ACTIVE_HOLD_CATEGORY: $($sessionSummary.hold_category)"
         Write-Output "ACTIVE_RECOMMENDED_HOLD_MINUTES: $($sessionSummary.recommended_hold_minutes)"
@@ -1760,10 +1826,14 @@ function Return-SharedRootToMain {
         Write-Output "NEXT_IN_LINE_BRANCH: $($nextWaiting.TargetBranch)"
         Write-Output "NEXT_IN_LINE_CHECKPOINT_HINT: $($nextWaiting.CheckpointHint)"
         Write-Output "NEXT_IN_LINE_NOTE: $($nextWaiting.Note)"
+        Write-Output 'POST_RETURN_EVIDENCE_MODE: defer-tracked-while-queue-waiting'
+        Write-Output 'POST_RETURN_NEXT_ACTION: shared root 已释放，但队列仍有人等待；不要立刻在 main 上写 tracked memory / 回执。请先把复盘或草稿放进 Draft 沙盒或最小聊天回执，待治理窗口再做最小白名单 sync。'
         Write-Output 'NEXT_ACTION: 治理线程可执行 wake-next，或向队首线程发放唤醒 Prompt。'
     }
     else {
         Write-Output 'NEXT_IN_LINE_TICKET: none'
+        Write-Output 'POST_RETURN_EVIDENCE_MODE: minimal-tracked-allowed'
+        Write-Output 'POST_RETURN_NEXT_ACTION: shared root 已释放且当前无 waiting 条目；如需补写 tracked memory / 回执，请保持最小修改并尽快用白名单 sync 收口。'
         Write-Output 'NEXT_ACTION: 当前队列无 waiting 条目，shared root 保持 neutral 待机。'
     }
 }

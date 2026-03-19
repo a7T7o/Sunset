@@ -54,6 +54,7 @@
 - `request-branch` 返回 `LOCKED_PLEASE_YIELD` 时，恢复点优先进入：
   - `CheckpointHint`
   - `QueueNote`
+  - `.codex/drafts/<OwnerThread>/`
   - `.kiro/locks/active/shared-root-queue.lock.json`
 - shared root 一旦进入 `task-active`，脚本会额外写入 ignored runtime：
   - `.kiro/locks/active/shared-root-active-session.lock.json`
@@ -63,6 +64,9 @@
   - checkpoint hint / note
   - 推荐持槽分钟数
 - `return-main` 会打印实际持槽分钟数与下一位 waiting 条目的 hint；治理线程应优先读取这些字段，而不是重新手工翻 tracked 回执。
+- 如果 `return-main` 后队列仍有 waiting 条目：
+  - 事后复盘优先继续留在 Draft 沙盒或最小聊天回执
+  - 不要立刻把 `main` 再次写脏
 
 ## 状态说明
 - `waiting`：已登记排队，尚未拿到租约。
