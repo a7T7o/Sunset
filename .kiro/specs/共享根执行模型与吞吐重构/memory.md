@@ -144,6 +144,31 @@
 - 做 parser、`.gitignore` 与 live preflight 验证。
 - 验证通过后执行治理同步，把第二轮执行层补丁并入 `main`。
 
+### 会话 5 - 2026-03-19
+**用户需求**：
+> 不要停在“补丁已改完”，而要把本轮第二次执行层补丁真正同步成 live 基线。
+
+**完成任务**：
+1. 验证通过：
+   - `git-safe-sync.ps1` parser 正常
+   - `.codex/drafts/example.md` 被 `.gitignore` 正确忽略
+   - `.codex/drafts/README.md` 保持可跟踪
+   - governance `preflight` 允许继续
+2. 通过治理白名单同步把第二轮补丁收进 `main`：
+   - 提交：`2026.03.19-16`
+   - HEAD：`306b29ee`
+3. 用 stable launcher 复核 canonical script：
+   - `LAUNCHER_MODE: stable-canonical-script`
+   - `HEAD: 306b29ee`
+   - 当前无待同步改动
+
+**关键决策**：
+- 这轮补丁现在不只是 working tree 改动，而是已经成为 shared root 的 live 规则。
+- Draft 沙盒与 post-return 分流策略正式进入 Sunset 当前执行模型基线。
+
+**遗留问题 / 下一步**：
+- 下一步不再是补这轮脚本，而是基于新口径生成小批次、低风险 smoke test / 开发准入。
+
 ## 关键决策
 
 | 决策 | 原因 | 日期 |
