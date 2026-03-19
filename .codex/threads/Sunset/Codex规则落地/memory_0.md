@@ -692,3 +692,59 @@
 
 **恢复点 / 下一步**：
 - 先把脚本和记忆同步到 `main`，再在 clean 现场跑 `grant -> ensure-branch -> return-main` 完整验证。
+
+### 会话 26 - 2026-03-20（承认批次 01/02 仍属护航测试，并纠偏测试覆盖面）
+**用户目标**：
+> 用户明确指出：我最近发出的 prompt 并不是他真正要的开发内容，而是测试 / 护航型内容；要求我诚实承认，并说清楚为什么只有 `NPC / 农田交互修复V2` 在继续测试、还有哪些线程应该一起测。
+
+**已完成事项**：
+1. 重新只读核查 Sunset live 现场，确认当前为：
+   - `main`
+   - `neutral`
+   - `clean`
+   - queue runtime 历史条目均已收口，没有活跃 grant / waiting
+2. 回读 `共享根执行模型与吞吐重构`、批次 01 / 02 入口与线程 prompt，确认用户判断成立：
+   - 这些 prompt 的主内容仍是准入、只读核对、carrier 收束、merge-noise 判断、热文件通道验证
+   - 还不是高密度的真实业务开发指令
+3. 正式给出更准确的定性：
+   - `smoke-test_01` 是交通系统实盘测试
+   - 批次 01 / 02 是“开发前护航式准入 / 收束”
+   - 不能再描述成“你要的开发内容已经在稳定分发”
+4. 明确为什么后续只有 `NPC / 农田交互修复V2` 在继续：
+   - 它们是用户当时反复点名的最高优先级业务线
+   - 我把 smoke-test 通过后的第一批护航资源集中投给了它们
+   - 但这样做也导致测试覆盖面偏窄，没把 `导航检查 / 遮挡检查 / spring-day1` 一起带入下一轮
+5. 明确后续如果目标仍是“交通系统测试”，至少还应覆盖：
+   - `导航检查`
+   - `遮挡检查`
+   - `spring-day1`
+
+**关键决策**：
+- 用户这次纠偏必须被视为有效治理结论：
+  - 我不能再把护航式 prompt 包装成真正的业务开发 prompt。
+- 当前阶段应诚实描述为：
+  - 交通系统已完成一轮 smoke-test 闭环
+  - 两条高优先级业务线又完成了两轮开发前收束
+  - 但还没进入用户真正要的“明确业务目标 + 明确交付面”的 prompt 阶段
+- 如果继续测交通系统，样本集应扩到：
+  - `NPC`
+  - `农田交互修复V2`
+  - `导航检查`
+  - `遮挡检查`
+  - `spring-day1`
+- 如果切到真正开发，就应停止继续发“探测 / 收束型” prompt，改发明确业务交付 prompt。
+
+**涉及文件**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_05_真实开发准入批次_01.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_06_真实开发准入批次_02.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\线程分支对照表.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\shared-root-queue.lock.json`
+
+**恢复点 / 下一步**：
+- 对用户的下一轮回复必须直说：
+  1. 你说得对，我最近发的仍主要是测试 / 护航 prompt。
+  2. 只推进 `NPC / 农田` 是因为我把资源集中给了最高优先级业务线，不代表覆盖面已经合理。
+  3. 后续若继续做测试，应把 `导航 / 遮挡 / spring-day1` 一起纳入。
+  4. 后续若切真正开发，应改发具体业务开发 prompt，而不是继续探测。
