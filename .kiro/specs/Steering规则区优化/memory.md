@@ -331,3 +331,22 @@
 **恢复点**：
 - 现行入口层已完成这轮补强。
 - 后续若再遇到 shared root 不干净，优先看占用文档与 preflight，而不是机械把 `main` 当安全许可证。
+
+## 2026-03-19（父治理层补记：Unity MCP 当前读链已复核通过，图驱动搭景的现行承诺值已明确）
+- 当前父治理主线不变，仍服务于 Sunset 当前活入口与工具链口径统一；本轮用户要求先确认“现在的 MCP 链接是否正常”，再判断是否能基于图片和 prefab 索引自动搭高精度基础场景。
+- 本轮已完成的稳定取证：
+  - `mcp__unityMCP__manage_scene(action=get_active)` 成功返回活动场景 `Primary`
+  - `mcp__unityMCP__read_console(action=get)` 成功返回最新 Console
+  - `mcp__unityMCP__manage_scene(action=get_hierarchy)` 成功返回当前根层级
+  - Console 中直接出现 `MCP-FOR-UNITY` 在 `8080` 端口停止后重新启动本地 HTTP server 的日志，说明当前读链不是历史缓存
+- 父层稳定结论：
+  - 当前 Unity MCP 至少在“场景 / Console / 层级”三条只读链路上是正常的
+  - 本轮还没有复测写链、编译链和 EditMode tests，因此现行准确口径应是“读链正常，完整验证链本轮未复测”
+  - 图驱动搭景当前统一承诺值为：
+    - 2D / 正交 / prefab 对照清晰：`85%`
+    - UI 布局或平面式摆放：`80%~90%`
+    - 3D 单张透视图基础还原：`55%~70%`
+    - 对用户当前的总体承诺值：`75%~85%`
+- 父层恢复点：
+  - 若后续进入这条主线，优先让用户提供图片、prefab 索引、目标场景路径、尺度参考和自动化边界
+  - 再由 `Skills和MCP` 线程承接“图驱动初稿搭建 + 回读校正 + 微调收口”的执行闭环

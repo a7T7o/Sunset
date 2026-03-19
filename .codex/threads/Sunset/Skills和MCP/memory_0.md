@@ -94,3 +94,36 @@
 
 **遗留问题**:
 - [ ] 冻结解除后，如本线程继续推进，应先在新线程下补一轮状态对齐：复核 `refresh_unity` 与 EditMode tests 是否仍稳定，再决定是否继续扩展文档或工作流。
+
+### 会话 2 - 2026-03-19
+
+**用户需求**:
+> 先测试现在的 MCP 链接是否正常；然后评估“给一张图片 + prefab 索引/目录，能否用 MCP 和初始化手段自动搭一个高精度基础场景，为后续微调节省工作量”，并给出可行度。
+
+**完成任务**:
+1. 读取 `sunset-unity-validation-loop` 与 `sunset-scene-audit`，确认本轮应先做最小只读验证，再给出场景搭建边界判断。
+2. 通过 Unity MCP 成功执行三次当前时点取证：
+   - `manage_scene(action=get_active)`：活动场景返回 `Primary`
+   - `read_console(action=get)`：成功读到最新 Console
+   - `manage_scene(action=get_hierarchy)`：成功读到当前根层级
+3. 从 Console 读到 `MCP-FOR-UNITY` 在 `8080` 端口停止后重新启动本地 HTTP server 的日志，确认当前链路确实打到了 Unity 侧服务。
+4. 基于当前 MCP 能力与 Sunset 的场景修改规则，形成“图驱动搭基础场景”的能力评估与精度边界。
+
+**修改文件**:
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Skills和MCP\memory_0.md`
+
+**关键结论**:
+- 当前 Unity MCP **读链正常**；至少场景、Console、层级三类读取都已在本轮成功返回。
+- 本轮**没有**复测 `refresh_unity`、Prefab 写入、EditMode tests，因此不能把当前结论夸大成“所有链路都已重新验证”。
+- 如果用户提供：图片、prefab 索引/目录、prefab 与画面元素的映射规则、尺度参考（像素 / 单位 / tile / 人物身高）、目标场景路径与允许自动改动边界，我可以用 MCP 先搭出一个**高质量基础场景初稿**，再通过场景回读和截图对比继续收口。
+
+**可行度判断**:
+- 2D / 正交 / prefab 对照清晰：`85%`
+- UI 布局或平面式摆放：`80%~90%`
+- 3D 单张透视图基础还原：`55%~70%`
+- 当前给用户的总体承诺值：`75%~85% 可把基础场景初稿搭到明显省时的程度`
+
+**遗留问题**:
+- [ ] 真正进入落地前，仍需先做一次“原有配置 / 问题原因 / 建议修改 / 风险影响”的场景审视，不应直接在生产场景盲写。
