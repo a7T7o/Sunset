@@ -326,3 +326,29 @@
   - 治理线程的批次发放 / 回收协议
 - 之后若继续唤醒业务线程进入 shared root live 调度，默认应改用：
   - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 ...`
+
+### 会话 37 - 2026-03-19（恢复开发前先清场：为 `Skills和MCP` 落根层批次分发文件）
+**用户目标**：
+> 不要停在“建议下一步”，而是直接开始恢复开发的实际运营动作。
+
+**已完成事项**：
+1. 按 `skills-governor + sunset-workspace-router + sunset-thread-wakeup-coordinator + sunset-startup-guard(manual-equivalent)` 重新核 shared root live 现场。
+2. 发现当前 live 事实并不是可直接发业务准入，而是：
+   - `D:\Unity\Unity_learning\Sunset @ main @ bfa8ae47`
+   - `occupancy = neutral`
+   - `queue runtime = empty`
+   - 但 Git working tree 仍有 3 个 dirty，归属 `Skills和MCP / Steering规则区优化`
+3. 没有误发业务线程的 `request-branch / ensure-branch` prompt，而是先按治理线程根层协议落了这一轮批次运营文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_01_稳定launcher复工前清场.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\可分发Prompt\Skills和MCP.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\线程回收\Skills和MCP.md`
+
+**关键决策**：
+- 当前最正确的“直接开始”不是假装已经能发业务线程 live 准入，而是先把 shared root 上当前真实 blocker 转成正式清场批次。
+- 当前裁定：
+  - 先 `Skills和MCP` 清场
+  - 后业务线程 live 准入
+
+**恢复点**：
+- 现在可以直接分发这轮根层批次文件给 `Skills和MCP`。
+- 等它回写固定回收卡并确认 `main + clean` 后，再继续生成下一轮业务线程 live 准入批次。

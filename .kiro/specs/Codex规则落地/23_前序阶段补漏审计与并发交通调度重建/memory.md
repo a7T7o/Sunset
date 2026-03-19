@@ -194,3 +194,44 @@
   - 并发 checkpoint 模型
   - Unity / MCP 层
   - 调度运营协议
+
+## 2026-03-19｜live 准入前先清场：已为 `Skills和MCP` 落一轮根层批次分发
+
+**用户目标**
+- 在 stable launcher 已经落地后，继续主线，不停在“建议下一步”层。
+- 直接进入恢复开发的实际运营动作，而不是再写一轮空分析。
+
+**本轮完成**
+- 再次复核 live shared root：
+  - `branch = main`
+  - `occupancy = neutral`
+  - `queue runtime = empty`
+- 但同时发现一个新的 live 阻断：
+  - Git working tree 当前仍有 3 个 dirty
+  - 且都落在 `Skills和MCP / Steering规则区优化` 这一线
+- 这意味着：
+  - 现在还不应直接向业务线程发放 `request-branch / ensure-branch`
+  - 否则线程大概率会被 shared root 闸机拦下
+- 已按根层协议落一轮新的批次运营文件：
+  - 根层批次分发文件：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_01_稳定launcher复工前清场.md`
+  - 线程专属 prompt：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\可分发Prompt\Skills和MCP.md`
+  - 固定回收卡：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\线程回收\Skills和MCP.md`
+
+**关键判断**
+- 这轮“直接开始”的最正确动作不是硬发业务准入，而是先把当前真实 blocker 纳入治理流程。
+- 目前阻断业务 live 准入的不是 queue 本身，也不是 launcher 本身，而是 shared root 还有别线 dirty 未收口。
+- 因此当前裁定为：
+  - 先给 `Skills和MCP` 发清场专属 prompt
+  - 收件并确认 `main + clean` 后
+  - 再进入下一轮业务线程 live 准入分发
+
+**当前恢复点**
+- 用户现在可以直接群发：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_01_稳定launcher复工前清场.md`
+- 治理线程下一步应：
+  - 等 `Skills和MCP` 回收卡
+  - 读取回收卡并确认 shared root 是否 clean
+  - 若 clean，再生成下一轮业务线程 live 准入批次

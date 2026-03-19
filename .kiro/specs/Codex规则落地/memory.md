@@ -997,3 +997,25 @@
   - 多 checkpoint 持续推进模型
   - Unity / MCP 单实例边界
   - 治理线程批次发放 / 回收协议
+
+## 2026-03-19｜恢复开发前的新 live 阻断已转成根层批次文件
+
+**本轮完成**
+- 在准备直接进入“业务线程 live 准入”前，再次复核 shared root 现场。
+- 确认当前 live 事实不是 `main + clean`，而是：
+  - `main + occupancy neutral`
+  - 但 Git working tree 仍有 `Skills和MCP / Steering规则区优化` 线留下的 3 个 dirty
+- 因此没有误发业务阶段二 prompt，而是先把这个 blocker 转成正式治理动作：
+  - 新增根层批次分发文件：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_01_稳定launcher复工前清场.md`
+  - 新增 `Skills和MCP` 专属 prompt 与固定回收卡
+
+**关键判断**
+- 现在的 shared root 还不适合直接恢复业务线程 live 准入。
+- 这次真正的下一步不是“让业务线程去抢租约”，而是：
+  - 先把当前 dirty owner 收口
+  - 再进入下一轮业务线程发放
+
+**恢复点**
+- 当前用户如果要继续分发，先发根层批次分发文件给 `Skills和MCP`。
+- 治理线程收到回收卡并确认 clean 后，再生成下一轮业务线程 batch。
