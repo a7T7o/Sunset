@@ -15,13 +15,18 @@
 - 业务线程如需进入真实写入，不应直接假设自己现在就能拿到租约。
 - queue-aware 流程的第一入口是：
   - `git-safe-sync.ps1 -Action request-branch -OwnerThread <线程名> -BranchName codex/...`
+- 业务线程如需退出等待或重新排到队尾，使用：
+  - `git-safe-sync.ps1 -Action cancel-branch-request -OwnerThread <线程名> -BranchName codex/...`
+  - `git-safe-sync.ps1 -Action requeue-branch-request -OwnerThread <线程名> -BranchName codex/...`
 - 当 shared root 暂时不能发租约时：
   - 脚本返回 `LOCKED_PLEASE_YIELD`
   - 线程必须保存当前上下文到自己的 `memory_0.md`
   - 线程进入等待态，而不是继续乱试 `ensure-branch`
 - 当 shared root 回到 `main + neutral` 且无未消费租约时：
-  - 治理线程读取本文件的队首 `waiting` 条目
-  - 决定下一次唤醒或发放准入
+  - `return-main` 会打印当前 `NEXT_IN_LINE`
+  - 治理线程可执行：
+    - `git-safe-sync.ps1 -Action wake-next -OwnerThread Codex规则落地`
+  - 将队首 `waiting` 条目提升为 `granted`
 
 ## Runtime State Template
 <!-- queue-state:begin -->
@@ -44,6 +49,19 @@
 - `task-active`：已切入任务分支并占用 shared root。
 - `completed`：本轮 checkpoint 已完成，并已 `return-main` 归还 shared root。
 - `cancelled`：本轮请求撤销，不再参与排队。
+
+## 标准命令口径
+- 首次申请：
+  - `git-safe-sync.ps1 -Action request-branch -OwnerThread <线程名> -BranchName codex/...`
+- 放弃当前 waiting / granted：
+  - `git-safe-sync.ps1 -Action cancel-branch-request -OwnerThread <线程名> -BranchName codex/...`
+- 重新排到队尾：
+  - `git-safe-sync.ps1 -Action requeue-branch-request -OwnerThread <线程名> -BranchName codex/...`
+- 治理线程唤醒队首：
+  - `git-safe-sync.ps1 -Action wake-next -OwnerThread Codex规则落地`
+- 当前版本不是自动守护进程：
+  - `wake-next` 仍由治理线程显式触发
+  - `return-main` 负责给出下一位提示，但不会替代治理裁定
 
 ## 一句话口径
 - `occupancy` 管 live 现场；runtime queue json 管等待与唤醒；本文件提供人类可读说明与模板。

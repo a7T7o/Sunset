@@ -67,6 +67,12 @@
      - 不继续乱试 `ensure-branch`
      - 保存当前恢复点到 `memory_0.md`
      - 标记自己处于等待态
+4. 如果本轮不想继续排队：
+   - 执行：
+     - `git-safe-sync.ps1 -Action cancel-branch-request -OwnerThread <线程名> -BranchName codex/...`
+5. 如果希望重新排到队尾：
+   - 执行：
+     - `git-safe-sync.ps1 -Action requeue-branch-request -OwnerThread <线程名> -BranchName codex/...`
 
 ### 4.2 等待态允许做什么
 - 继续只读核查
@@ -86,6 +92,11 @@
   - `main`
   - `occupancy = neutral`
   - 无未消费 grant
+- returning 线程执行 `return-main` 后，会直接打印：
+  - `NEXT_IN_LINE_TICKET`
+  - `NEXT_IN_LINE_OWNER_THREAD`
+  - `NEXT_IN_LINE_BRANCH`
+  这只是唤醒提示，不等于已经自动发放 grant。
 
 ### 5.2 如何选择下一个线程
 - 从 `shared-root-queue.md` 中读取最早的 `waiting` ticket。
@@ -93,9 +104,14 @@
 - 只有在明确业务优先级压过当前队首时，治理线程才可越序，但必须在文档中写明原因。
 
 ### 5.3 唤醒后线程该做什么
+- 治理线程执行：
+  - `git-safe-sync.ps1 -Action wake-next -OwnerThread Codex规则落地`
+- 该动作会把队首 `waiting` 提升为 `granted`
 - 先重做 live preflight
 - 再执行：
-  - `request-branch` 或既定准入动作
+  - `request-branch`
+  - 预期返回 `ALREADY_GRANTED`
+  - 然后继续 `ensure-branch`
 - 不因为自己曾在队首，就跳过 live 核查
 
 ## 6. 当前版本的边界
@@ -103,11 +119,12 @@
 - 当前已落地的是：
   - queue 文件载体
   - queue-aware 的请求入口
-  - `ensure-branch / return-main` 对 queue 状态的回写
+  - `cancel-branch-request / requeue-branch-request / wake-next`
+  - `ensure-branch / return-main` 对 queue 状态的回写与 `NEXT_IN_LINE` 提示
 - 当前仍需后续补强的是：
-  - 自动唤醒 hook
   - 更完整的负例矩阵
-  - 公平性 / 优先级 / 取消排队规则
+  - 公平性 / 优先级 / 越序审批规则
+  - 更高级的自动化守护进程或 Hook
 
 ## 7. 一句话口径
 - 不是“谁先喊得大声谁进”，而是“谁先排到、现场又允许，谁就拿到下一次 shared root 写入机会”。
