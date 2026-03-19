@@ -1268,3 +1268,29 @@
 **恢复点**
 - 先对白名单治理文件执行一次 `governance sync`。
 - 同步完成后，再决定是否立刻 `wake-next -> NPC`，或先把专属唤醒 prompt 发出去。
+
+## 2026-03-19｜NPC smoke-test_01 续跑成功，队列继续前推
+**用户目标**
+- 在 `导航检查` 退场恢复后，继续沿本轮 `smoke-test_01` 队列消费 `NPC`，不要停留在说明层。
+
+**本轮完成**
+- 治理线程已执行 `wake-next`，成功向 `NPC` 发放 `codex/npc-roam-phase2-003` 的 shared root grant。
+- `NPC` 回执确认：
+  - `request-branch = ALREADY_GRANTED`
+  - `ensure-branch = 成功`
+  - `return-main = 成功`
+  - `post_return_evidence_mode = defer-tracked-while-queue-waiting`
+- live 复核显示：
+  - shared root 已再次回到 `main + neutral`
+  - queue 中 `ticket 3 / NPC = completed`
+  - 下一位 waiting 变为 `农田交互修复V2`
+
+**关键判断**
+- 到这一步，执行层这轮已经连续完成了两次真实闭环：
+  - `导航检查`
+  - `NPC`
+- 这说明当前脚本和队列模型已具备继续消费后续 waiting 条目的可信度，但仍要保持“先最小回收，再继续叫号”的节奏，不把治理脏改夹进业务槽位。
+
+**恢复点**
+- 先对白名单治理文件执行一次最小 `governance sync`
+- 同步完成后继续 `wake-next -> 农田交互修复V2`

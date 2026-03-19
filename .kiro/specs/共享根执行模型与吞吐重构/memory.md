@@ -249,3 +249,33 @@
 **恢复点 / 下一步**：
 - 先对白名单治理文件做一次 `governance sync`，把本轮回收与恢复结论收进口径层。
 - 同步完成后，shared root 应继续保持 `main + neutral`，再决定是否执行 `wake-next` 唤醒 `NPC`。
+
+### 会话 8 - 2026-03-19（NPC smoke-test_01 续跑成功闭环）
+**用户需求**：
+> 在 `导航检查` 退场恢复完成后，不停留在解释层，继续沿队列消费下一位，也就是先 `wake-next -> NPC`，再准备发给 NPC 的续跑 prompt。
+
+**已完成事项**：
+1. 在确认 shared root 仍是 `main + neutral + clean` 后，治理线程执行：
+   - `sunset-git-safe-sync.ps1 -Action wake-next -OwnerThread 'Codex规则落地'`
+   并成功向 `NPC` 发放：
+   - `codex/npc-roam-phase2-003`
+2. `NPC` 按续跑 prompt 完成：
+   - `request-branch = ALREADY_GRANTED`
+   - `ensure-branch = 成功`
+   - 对 `NPCAutoRoamController.cs / NPCBubblePresenter.cs / NPC_DefaultRoamProfile.asset` 的只读核对
+   - `return-main = 成功`
+3. 退场后现场再次恢复为：
+   - `main + neutral`
+   - queue 中 `ticket 3 / NPC = completed`
+   - 下一位 waiting 已变成 `农田交互修复V2`
+4. 按 `POST_RETURN_EVIDENCE_MODE = defer-tracked-while-queue-waiting` 口径，本轮由治理线程统一补写 NPC 的 tracked 回收卡，而不是让 NPC 在线程内直接把 `main` 写脏。
+
+**关键决策**：
+- 这说明 `wake-next -> ALREADY_GRANTED -> ensure-branch -> return-main` 这条续跑链路现在已经实盘闭环，不再只停留在设计层。
+- 当前执行层的真实剩余队列已经缩减到两条：
+  - `农田交互修复V2`
+  - `遮挡检查`
+
+**恢复点 / 下一步**：
+- 先把 NPC 成功闭环的最小 tracked 回收与记忆同步进 `main`
+- 同步完成后，继续 `wake-next -> 农田交互修复V2`

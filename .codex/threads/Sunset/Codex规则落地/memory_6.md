@@ -180,3 +180,34 @@
 **恢复点 / 下一步**：
 - 立即对白名单治理文件执行 `governance sync`，把这轮回收与恢复结论安全收进 `main`。
 - 同步完成后，shared root 继续保持 `main + neutral`，再根据 clean 现场决定是否 `wake-next -> NPC`。
+
+## 会话 51 - 2026-03-19（NPC 续跑与第二次真实闭环）
+**用户目标**：
+> 不再停在“可以继续”的解释层，而是继续原计划，直接沿队列推进 `NPC`：先 `wake-next`，再让它消费 grant 并完成这一轮 smoke test 只读闭环。
+
+**已完成事项**：
+1. 在 shared root `main + neutral + clean` 的前提下执行：
+   - `sunset-git-safe-sync.ps1 -Action wake-next -OwnerThread 'Codex规则落地'`
+   脚本返回 `STATUS: WOKE_NEXT`，成功向 `NPC` 发放 `codex/npc-roam-phase2-003` 的 grant
+2. 收到 `NPC` 最小回执，确认其完成：
+   - `request-branch = ALREADY_GRANTED`
+   - `ensure-branch = 成功`
+   - `return-main = 成功`
+   - `post_return_evidence_mode = defer-tracked-while-queue-waiting`
+3. live 再次复核后确认：
+   - `main + neutral`
+   - queue 中 `ticket 3 / NPC = completed`
+   - 下一位队首 waiting 已变成 `农田交互修复V2`
+4. 按执行层规则，本轮 tracked 回收仍由治理线程统一补写，不让 `NPC` 在线程侧把 `main` 写脏。
+
+**关键决策**：
+- 现在已经连续有两条线完成真实闭环：`导航检查` 与 `NPC`。
+- 当前最合理的节奏仍是：
+  - 先最小 tracked 回收
+  - 立刻治理同步回 `main`
+  - 再继续 `wake-next -> 农田交互修复V2`
+
+**恢复点 / 下一步**：
+- 先把 `NPC` 这轮成功闭环补入执行层 / 治理层记忆与回收卡
+- 然后执行最小 `governance sync`
+- 同步完成后直接继续到 `农田交互修复V2`

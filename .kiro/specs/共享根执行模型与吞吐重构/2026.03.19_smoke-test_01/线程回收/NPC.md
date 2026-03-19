@@ -15,3 +15,18 @@
   - 本轮 smoke test 结果有效，不需要重写 tracked 回收或业务记忆
   - 下一步应等待治理线程执行 `wake-next` 或发放专属唤醒，再重做 live preflight，并按既有 prompt 继续 `request-branch -> ensure-branch`
 - 说明：本文件由治理线程根据聊天最小回执统一回填；业务线程不得直接修改。
+
+## 续跑结果（治理补记）
+- `wake-next`：已由治理线程执行，grant 已正式发放给 `NPC`
+- `request-branch`：`ALREADY_GRANTED`
+- `ensure-branch`：成功
+- `return-main`：成功
+- `post_return_evidence_mode`：`defer-tracked-while-queue-waiting`
+- 只读核对范围：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+  - `Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset`
+- 续跑完成后的治理裁定：
+  - `NPC` 本轮 smoke test 只读闭环已成立
+  - queue 中 `ticket 3 / NPC` 已转为 `completed`
+  - 后续如继续 NPC 业务，应回到 `codex/npc-roam-phase2-003`，但不属于本轮回收
