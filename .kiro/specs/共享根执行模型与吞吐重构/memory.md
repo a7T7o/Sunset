@@ -916,3 +916,28 @@
   1. 继续 `农田交互修复V2`
   2. 单开治理修复：补 `git-safe-sync.ps1` 在 shared root 上 `ensure-branch -> task-active -> sync -> return-main` 的鲁棒性
   3. 后续统一补 prompt 模板：系统级异常即冻结，禁止线程自行修环境
+
+## 2026-03-21｜正式立项 occupancy 收口脚本修复，并确认 worktree 不豁免 Unity / MCP 单写者
+**当前主线目标**
+- 不把“shared root 收口脚本缺口”继续留在聊天里，而是正式挂回工作区任务清单，并明确场景搭建 worktree 的并行边界。
+
+**本轮完成**
+1. 已新增任务：
+   - `20. 修复 shared root occupancy 收口状态机在异常下的鲁棒性`
+2. 已新增专题分析文档：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-21\shared-root_occupancy收口脚本缺口与修复计划.md`
+3. 已再次复核并确认：
+   - shared root 当前 clean，但我本轮治理文档 dirty 在未同步前会阻断 `wake-next`
+   - `farm` 后续应继续消费现有 batch04 真实业务 prompt，不是回到 smoke/test prompt
+   - `scene-build-5.0.0-001` 虽然是独立 worktree，但不自动绕过 Unity / MCP 单实例 / 单写者规则
+
+**关键判断**
+- `worktree` 只隔离 Git / 文档 / WIP，不隔离 Unity Editor / MCP 冲突。
+- 如果你要在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 打开 Unity，可以，但前提是：
+  - 当前没有另一份 Sunset Editor 在写
+  - 它自己成为当前唯一的 Unity / MCP 写线程
+- `farm` 现在不需要等治理脚本先修完才继续；它只需要等 shared root 再次 clean，然后按当前 batch04 实际 prompt 续跑。
+
+**恢复点 / 下一步**
+- 先同步本轮治理文档 dirty。
+- 然后立即重新执行 `wake-next`，把 `农田交互修复V2` 从 waiting 推进到可继续状态。

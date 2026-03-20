@@ -47,3 +47,5 @@
   说明：下一轮真实业务 prompt 与回收卡必须显式回答 `carrier-ready` 与 `main-ready`，并把 `导航 / 遮挡 / spring-day1` 的排位和类型一并纳入波次计划。
 - [ ] 19. 执行批次 04 的收件、裁定与下一波切换
   说明：基于 `NPC / 农田` 第一波回执决定是否立即切到 `导航 / 遮挡`，并继续保持 `spring-day1` 的独立集成波次口径。
+- [ ] 20. 修复 shared root occupancy 收口状态机在异常下的鲁棒性
+  说明：针对 2026-03-20 `NPC batch04` 中暴露出的 `ensure-branch` 半成功后 occupancy 未落成 `task-active`、导致 `sync / return-main` 被旧态误拦的问题，补齐 `git-safe-sync.ps1` 的异常冻结、幂等恢复、旧态识别与治理接管 runbook。

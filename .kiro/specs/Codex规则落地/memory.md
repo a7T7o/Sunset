@@ -1737,3 +1737,27 @@
   1. 继续 `农田交互修复V2`
   2. 单开治理修复 `git-safe-sync.ps1`
   3. 再决定第二波 `导航 / 遮挡`
+
+## 2026-03-21｜治理线程已把 occupancy 缺口正式挂回任务清单，且确认 `farm` 应继续真实业务 prompt
+**当前主线目标**
+- 继续 batch04 第一波，不再把 `farm` 卡在“要不要先等治理修完”这种不必要等待里。
+
+**本轮完成**
+1. 已将 occupancy 收口缺口正式立项到：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\tasks.md`
+2. 已新增分析稿：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-21\shared-root_occupancy收口脚本缺口与修复计划.md`
+3. 已实际尝试执行一次：
+   - `wake-next`
+   结果确认：shared root 不是被业务线程占用，而是被我本轮尚未同步的治理 dirty 阻断
+
+**关键判断**
+- `farm` 继续时应沿用当前 batch04 真实业务 prompt，不回退到 smoke/test prompt。
+- 其他线程也不是都必须等治理脚本先修完：
+  - Git / 文档 / worktree 内自治推进，可以并行
+  - Unity / MCP 写入线程，仍然必须按单写者节奏排队
+- 因此治理修复和业务推进是“分层并行”，不是“全部停工等治理”。
+
+**恢复点 / 下一步**
+- 先把本轮治理 dirty 同步进 `main`。
+- 然后重新 `wake-next`，继续 `农田交互修复V2`。

@@ -1037,3 +1037,21 @@
 **恢复点 / 下一步**
 - batch04 第一波已从 `NPC` 收口事故中恢复。
 - 下一步先继续 `农田交互修复V2`，随后单开治理修复 `scripts/git-safe-sync.ps1` 的 shared root 收口鲁棒性。
+
+## 会话 2026-03-21：场景搭建 worktree / Unity 边界已明确，occupancy 缺口已正式立项
+**当前主线目标**
+- 在继续 batch04 第一波前，把 worktree 能力边界、`farm` 续跑口径和 occupancy 收口脚本修复正式落盘。
+
+**本轮完成**
+1. 已确认：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 可以作为场景搭建线程的 Git / 文档 / WIP 独立现场，但不自动豁免 Unity / MCP 单实例、单写者规则。
+2. 已将 shared root 收口脚本缺口正式挂回任务清单：`tasks.md` 第 20 项。
+3. 已新增专题分析文档：`02_专题分析\2026-03-21\shared-root_occupancy收口脚本缺口与修复计划.md`。
+4. 已实际尝试 `wake-next`，结果确认当前阻断来自我本轮尚未同步的治理 dirty，而不是业务线程占槽。
+
+**关键决策**
+- `farm` 应继续当前 batch04 真实业务 prompt，不回退到 smoke/test prompt。
+- 其他线程不需要全部停工等治理修完；Git / worktree 层可并行，Unity / MCP 写线程仍需按单写者节奏排队。
+
+**恢复点 / 下一步**
+- 先同步本轮治理 dirty。
+- 然后重新 `wake-next`，继续 `农田交互修复V2`。
