@@ -1771,3 +1771,30 @@
   - `Branch = codex/farm-1.0.2-cleanroom001`
 - 对它的下一句正式续跑口径已经明确为：
   - `request-branch -> ALREADY_GRANTED -> ensure-branch`
+
+### 会话 10 - 2026-03-21（第二波结果裁定与 scene-build 施工前状态解释）
+**用户目标**：理解为什么第二波里看起来只有 `遮挡检查` 真正做了代码改动，并结合场景搭建线程的新回执，判断它现在要的到底是什么。  
+**完成事项**：
+1. 复核 live 现场，确认 shared root 当前为 `main + neutral`，没有业务线程继续占用。
+2. 复核 `导航检查` 提交 `e486b432`：
+   - 只包含 `2.0.0整改设计` 四件套与记忆更新
+   - 没有触碰业务代码
+3. 复核 `遮挡检查` 提交 `295e8138`：
+   - 在 `2.0.0整改设计` 四件套之外
+   - 额外改了 `Assets/Editor/BatchAddOcclusionComponents.cs`
+4. 裁定：`遮挡检查` 不是“做了完整开发”，而是完成了 prompt 允许的首个最小非热文件 code checkpoint；`导航检查` 则落在 docs-first checkpoint。
+5. 结合 scene-build worktree 回执，确认其当前状态为：
+   - 规划层基本完成
+   - 施工前准备已整理成顺序
+   - 尚未进入 Unity / MCP / create-only 写态
+
+**关键决策**：
+- 第二波两条线程都算“干了活”，只是产物形态不同：
+  - `导航检查`：文档型 checkpoint
+  - `遮挡检查`：文档 + 一个低风险编辑器脚本 checkpoint
+- `遮挡检查` 之所以能带一段代码，是因为它本轮选中的切入点是非热文件、低耦合、可快速验证的 `BatchAddOcclusionComponents.cs`，不等于它已经做完整轮整改。
+- scene-build 线程当前不是继续要规划，而是在等待“是否轮到它成为下一位唯一 Unity / MCP 写线程”的裁定。
+
+**恢复点 / 下一步**：
+- 当前 batch04 第二波已经实质收口。
+- 下一步需要在 `spring-day1`、scene-build 施工写态、以及治理脚本修复之间排优先级。
