@@ -1225,3 +1225,36 @@
 - 对我自己保持同一恢复点：
   - 等 scene-build checkpoint
   - 准备 dirty 分级设计
+
+## 会话 16 - 2026-03-21（scene-build 继续施工，我并行起草任务 15）
+**当前主线目标**
+- 不再停在“最新待办排程”层，而是顺着该排程直接开工：scene-build 继续施工，我这边并行推进治理任务 `15`。
+
+**本轮子任务 / 阻塞**
+- 用户明确让我不要再等 prompt，直接继续。
+- 我据此做了两件事：
+  - 只读看一眼 scene-build 是否真的在继续
+  - 直接启动 `dirty` 分级与 takeover 边界设计
+
+**本轮完成**
+1. 已确认 scene-build worktree 仍在活跃推进：
+   - worktree `git status` 显示新的施工相关未跟踪文件
+   - 说明它确实在继续，不是停滞等待
+2. 已新增任务 `15` 的正式设计稿：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-21\dirty分级与takeover边界设计稿.md`
+3. 已把结论挂回治理正文：
+   - `tasks.md`
+   - `design.md`
+4. 当前草案结论已明确：
+   - dirty 分四级
+   - 默认硬闸门不撤
+   - 只先承认 D1 与同线程 D2 continuation
+   - 不批准跨线程 raw dirty takeover
+
+**关键决策**
+- 这轮我没有去打断 scene-build，也没有试图接手它的现场；我把并行边界守住了。
+- 治理主线已正式切换为任务 `15`，不再重复 batch04 已完成部分。
+
+**恢复点 / 下一步**
+- 先完成本轮治理 `sync -Mode governance`。
+- 后续若继续任务 `15`，先补脚本报告层，再决定是否进入脚本放宽层。

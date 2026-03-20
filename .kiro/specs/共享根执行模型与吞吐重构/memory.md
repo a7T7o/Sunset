@@ -987,3 +987,39 @@
 **恢复点 / 下一步**
 - 先将本轮治理修复、工作区记忆、线程记忆一并同步进 `main`。
 - 后续再单开任务 `15`，讨论 `dirty` 分级、容忍边界和 takeover 条件。
+
+## 2026-03-21｜任务 15 已进入正式设计：dirty 分级、takeover 边界与放宽上限已写成草案
+**当前主线目标**
+- 在 `scene-build` 继续施工的同时，把任务 `15` 从旧讨论稿推进到正式设计稿，明确 dirty 不是“一刀切全禁”也不是“谁都能带脏跑”。
+
+**本轮完成**
+1. 已只读确认 `scene-build` 仍在自己的 worktree 内推进：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - worktree 内已出现新的施工相关产物与文档脏改
+   - 我未插手其现场，只把它视为当前唯一继续中的 Unity / MCP 写线程
+2. 已新增任务 15 的正式设计稿：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-21\dirty分级与takeover边界设计稿.md`
+3. 设计稿已把 dirty 正式拆为四级：
+   - `D0`：噪音 / ignored runtime
+   - `D1`：治理型可收口 dirty
+   - `D2`：任务分支内可继续的 owner-dirty
+   - `D3`：禁止放行 dirty
+4. 已明确当前阶段的正式边界：
+   - 默认硬闸门不撤：`main clean + shared root neutral`
+   - 允许继续讨论并逐步补脚本的“分级报告能力”
+   - 暂不批准跨线程直接接 raw dirty
+   - 当前只承认“同线程、同任务分支”的 D2 continuation
+5. 已更新：
+   - `tasks.md` 中任务 `15` 的当前进展说明
+   - `design.md` 中对任务 `15` 的正式挂接
+
+**关键判断**
+- 这次不是在给 shared root 开后门，而是在把 dirty 从“全部按事故处理”升级成“先分级，再决定哪些场景值得保守放宽”。
+- 当前最小可接受放宽只到：
+  - `D1` 治理 dirty 的可解释收口
+  - `D2` 同线程 continuation
+- 跨线程 raw dirty takeover 仍然不安全，不能在这一轮设计里偷渡上线。
+
+**恢复点 / 下一步**
+- 先把这轮设计稿、任务单更新和记忆同步进 `main`。
+- 后续若继续推进任务 `15`，下一步应先补脚本的“分级报告”能力，而不是先改放宽判定。
