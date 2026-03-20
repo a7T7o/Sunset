@@ -53,9 +53,9 @@
    - 为 `request-branch / wake-next / ensure-branch / return-main / sync` 增加执行层字段输出
    - 修正 governance preflight 的误导性 task lease 显示
 2. 补齐执行层支撑文档：
-   - `基线瓶颈盘点_2026-03-19.md`
-   - `前序阶段问题域映射_2026-03-19.md`
-   - `负例矩阵与rollout清单_2026-03-19.md`
+   - `02_专题分析/2026-03-19/基线瓶颈盘点.md`
+   - `02_专题分析/2026-03-19/前序阶段问题域映射.md`
+   - `02_专题分析/2026-03-19/负例矩阵与rollout清单.md`
 3. 收紧项目级执行口径：
    - `AGENTS.md`
    - `shared-root-queue.md`
@@ -66,9 +66,9 @@
 - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
 - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-queue.md`
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md`
-- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\基线瓶颈盘点_2026-03-19.md`
-- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\前序阶段问题域映射_2026-03-19.md`
-- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\负例矩阵与rollout清单_2026-03-19.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-19\基线瓶颈盘点.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-19\前序阶段问题域映射.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-19\负例矩阵与rollout清单.md`
 - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\tasks.md`
 
 **关键决策**：
@@ -181,8 +181,8 @@
    - 根层批次入口：
      - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_04_执行层smoke-test_01.md`
    - 新执行层工作区中的 prompt / 收件箱：
-     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_smoke-test_01\可分发Prompt\`
-     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_smoke-test_01\线程回收\`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.19_smoke-test_01\可分发Prompt\`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.19_smoke-test_01\线程回收\`
 3. 批次内容已升级为：
    - waiting 线程必须落 Draft note
    - granted 线程必须回报 `POST_RETURN_EVIDENCE_MODE`
@@ -408,7 +408,7 @@
 
 **本轮完成**：
 1. 已新建真实开发批次目录：
-   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_真实开发准入批次_01\`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.19_真实开发准入批次_01\`
 2. 已生成并可直接分发的 prompt 资产：
    - `NPC.md`
    - `农田交互修复V2_准备.md`
@@ -479,7 +479,7 @@
 
 **本轮完成**：
 1. 已新建：
-   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_真实开发准入批次_02\`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.19_真实开发准入批次_02\`
 2. 已生成可分发 prompt：
    - `NPC_phase2集成清洗.md`
    - `农田交互修复V2_GameInputManager热文件专项.md`
@@ -637,7 +637,7 @@
 
 **本轮完成**
 - 新建批次入口：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-20_批次分发_07_真实业务开发批次_03.md`
-- 新建阶段目录：`D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.20_真实业务开发批次_03\`
+- 新建阶段目录：`D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.20_真实业务开发批次_03\`
 - 已为两条高优先级业务线生成真实业务开发 prompt：
   - `NPC_phase2交付面收口.md`
   - `农田交互修复V2_1.0.2交付面收口.md`
@@ -673,9 +673,9 @@
 **用户需求**
 > 用户指出我在修完 NPC 事故后又丢了治理主线，要求我重新拿起当前线程全部工作，明确这次事故原因、我从中发现了什么、dirty 容忍度思考是否已记录，以及重度 MCP 场景搭建线程方案是否已正式落盘。
 **本轮完成**
-1. 补写 [2026-03-20_事故反思与主线重对齐.md](D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026-03-20_事故反思与主线重对齐.md)，把“不是 farm 覆盖，而是 main 早已依赖 branch-only 资产”的主因、治理缺口和主线重锚点单独固化。
-2. 补写 [2026-03-20_dirty容忍度与清扫推送机制讨论稿.md](D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026-03-20_dirty容忍度与清扫推送机制讨论稿.md)，明确这条方向值得做，但当前仍是讨论稿，不是已批准机制。
-3. 补写 [2026-03-20_重度MCP场景搭建线程执行方案.md](D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026-03-20_重度MCP场景搭建线程执行方案.md)，把单线程独占、验证场景优先、`worktree` 仅解决 Git/WIP 隔离而不解决 Unity/MCP 并行的方案写成正式口径。
+1. 补写 [事故反思与主线重对齐.md](D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-20\事故反思与主线重对齐.md)，把“不是 farm 覆盖，而是 main 早已依赖 branch-only 资产”的主因、治理缺口和主线重锚点单独固化。
+2. 补写 [dirty容忍度与清扫推送机制讨论稿.md](D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-20\dirty容忍度与清扫推送机制讨论稿.md)，明确这条方向值得做，但当前仍是讨论稿，不是已批准机制。
+3. 补写 [重度MCP场景搭建线程执行方案.md](D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-20\重度MCP场景搭建线程执行方案.md)，把单线程独占、验证场景优先、`worktree` 仅解决 Git/WIP 隔离而不解决 Unity/MCP 并行的方案写成正式口径。
 4. 同步更新 `requirements.md / design.md / tasks.md`，新增 `main-ready` 约束、dirty 讨论边界和重度 MCP 线程归类，并把“将 `main-ready` 验收并入真实业务批次模板”与“设计 dirty 分级机制”显式挂成待办。
 **关键决策**
 - 当前治理线程的职责不只是把 shared root 交通系统修通，还必须补齐“业务恢复是否真的在 main 上成立”的终局验收。
@@ -746,3 +746,39 @@
 - 这样以后就能同时做到：
   - 谁没交付完整，一眼能定责
   - 为什么系统会放过它，也能被治理层直接修正
+
+## 2026-03-20｜工作区目录重组与统一待办落盘
+**用户需求**
+> 用户指出当前工作区根目录混入了过多阶段内容，要求我先整理文件夹，再把当前所有遗留代办系统性写进文档，不要继续靠聊天悬空管理。
+
+**本轮完成**
+1. 已将本工作区根目录收束为：
+   - `requirements.md / design.md / tasks.md / memory.md`
+   - `00_工作区导航/`
+   - `01_执行批次/`
+   - `02_专题分析/`
+2. 已完成迁移：
+   - 四个历史批次目录下沉到 `01_执行批次/`
+   - 2026-03-19 / 2026-03-20 的专题分析文档下沉到 `02_专题分析/`
+3. 已新建总览文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\00_工作区导航\当前总览与待办_2026-03-20.md`
+4. 已补齐相关入口路径：
+   - `Codex规则落地` 根层批次入口
+   - 批次 01 / 02 的线程回收卡
+   - 本工作区 `memory.md` 中的旧目录引用
+
+**关键判断**
+- 这轮整理不是美化目录，而是为了把“正文 / 批次 / 专题分析 / 当前总表”分层固定下来，避免后续继续把执行主线埋在大量历史阶段材料里。
+- 当前总待办已经统一写入导航总表，覆盖：
+  - `NPC`
+  - `农田交互修复V2`
+  - `导航检查`
+  - `遮挡检查`
+  - `spring-day1`
+  - `dirty` 机制
+  - 重度 `MCP` 场景线程
+- 用户刚刚说明场景搭建线程已自行开始做自己的文档，因此本工作区当前只记录其方案，不介入、不打断。
+
+**恢复点 / 下一步**
+- 下一步优先执行 `任务 18`：生成补入 `main-ready` 的真实业务开发批次 04。
+- 后续所有新批次与阶段材料默认继续下沉到 `01_执行批次/` 或 `02_专题分析/`，根目录不再堆历史阶段文档。

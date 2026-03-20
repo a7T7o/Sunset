@@ -2,7 +2,7 @@
 
 - 状态：已回收
 - 对应 prompt：
-  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_真实开发准入批次_02\可分发Prompt\农田交互修复V2_GameInputManager热文件专项.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.19_真实开发准入批次_02\可分发Prompt\农田交互修复V2_GameInputManager热文件专项.md`
 
 ## 本轮最小回执
 - request-branch: `GRANTED`
