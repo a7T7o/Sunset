@@ -1854,3 +1854,26 @@
 **恢复点**：
 - 继续完成治理记忆回写与 `sync -Mode governance`。
 - 收口后再回到任务 `15`，单独讨论 `dirty` 分级与容忍边界。
+
+### 会话 13 - 2026-03-21（scene-build 已对准 worktree，可继续最小施工窗口）
+**用户目标**：接收场景搭建线程最新回执，并确认它现在是否已经具备继续 `SceneBuild_01 -> Grid + Tilemaps` 的现场条件。  
+**当前主线目标**：在治理 bugfix 已收口后，明确 scene-build 的 Unity / MCP 写态是否已经真正回到专属 worktree。  
+**本轮子任务**：把 scene-build 的最新现场确认纳入治理口径，并给用户一个可直接转发的白话结论。  
+**完成事项**：
+1. 已接收 scene-build 最新回执：
+   - `project_root = D:/Unity/Unity_learning/Sunset_worktrees/scene-build-5.0.0-001`
+   - 不在 `Play Mode`
+   - 不在 `Compile / Domain Reload` 中间态
+2. 已确认本轮 `editor/state` 虽然仍带 `stale_status` 提示，但核心状态字段已经成功返回，且不影响这三项准入判断。
+3. 已把治理口径收束为：
+   - Unity / MCP 已重新对准 scene-build 专属 worktree
+   - 当前可以继续 `SceneBuild_01 -> Grid + Tilemaps`
+
+**关键决策**：
+- 这次是“写态已恢复”，不是“仍在等待治理批准”。
+- `stale_status` 在这轮只是提示噪音，不构成阻断，因为真正需要的 `project_root / Play Mode / Compile 状态` 都已经明确返回。
+- 继续范围仍然限定在之前放行的最小施工窗口，不自动扩展到整轮场景精修。
+
+**恢复点**：
+- 现在可以把口径直接转发给 scene-build：按既定窗口继续 `SceneBuild_01 -> Grid + Tilemaps`。
+- 等它完成首个施工 checkpoint 后，再决定是否扩展到底稿 / 结构层。

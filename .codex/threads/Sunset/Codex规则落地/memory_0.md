@@ -1134,3 +1134,30 @@
   - 责任在哪一层
   - 已修了什么
   - 还有什么后续任务没做
+
+## 会话 13 - 2026-03-21（scene-build 回执已接收，写态恢复）
+**当前主线目标**
+- 在治理脚本 bugfix 完成后，继续维持各线程的现场裁定清晰，避免 scene-build 因旧阻塞印象继续停着不动。
+
+**本轮子任务 / 阻塞**
+- 用户贴回了 scene-build 最新确认：
+  - Unity / MCP 的 `project_root` 已对准 `D:/Unity/Unity_learning/Sunset_worktrees/scene-build-5.0.0-001`
+  - 不在 Play Mode
+  - 不在 Compile / Domain Reload 中间态
+  - `editor/state` 仍有 `stale_status` 提示，但核心状态字段可读
+
+**本轮完成**
+1. 已将该回执纳入治理判断。
+2. 已明确这条回执意味着：
+   - scene-build 不再卡在“要不要先修 Unity/MCP 指向”
+   - 当前可以继续之前已裁定的最小施工窗口：`SceneBuild_01 -> Grid + Tilemaps`
+
+**关键决策**
+- `stale_status` 本轮不构成阻断，因为关键准入字段已经返回且一致。
+- scene-build 现在是“可继续施工”，不是“仍在等待批准”。
+- 继续边界不变：先做首个 create-only checkpoint，再回执，不直接扩张范围。
+
+**恢复点 / 下一步**
+- 向用户给出一句可直接转发的口径：
+  - 现场已回正，可以继续 `SceneBuild_01 -> Grid + Tilemaps`
+- 等 scene-build 完成首个施工 checkpoint 后，再评估下一段施工窗口。
