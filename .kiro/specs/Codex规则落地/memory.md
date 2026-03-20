@@ -1877,3 +1877,38 @@
 **恢复点**：
 - 现在可以把口径直接转发给 scene-build：按既定窗口继续 `SceneBuild_01 -> Grid + Tilemaps`。
 - 等它完成首个施工 checkpoint 后，再决定是否扩展到底稿 / 结构层。
+
+### 会话 14 - 2026-03-21（把旧执行计划与当前实际进度对账）
+**用户目标**：对照我之前写过的“先等 farm、再跑第二波、最后修治理脚本”的计划，弄清楚我们现在到底走到哪一步了。  
+**当前主线目标**：把 Sunset 治理主线的实际推进位置讲清楚，避免继续拿旧计划当当前状态。  
+**本轮子任务**：复核 live 现场、最近治理提交、shared root 状态与 Unity / MCP 占用口径，然后把“哪些已经完成、哪些还没做”整理成当前账本。  
+**完成事项**：
+1. live 现场已再次确认：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `git status --short --branch = ## main...origin/main`
+   - shared root occupancy 为 `main + neutral`
+   - `current_claim = none`
+2. 已确认我之前那段计划现在已有多项完成，不再是未来时：
+   - `farm` 本轮 batch04 已完成并归还 shared root
+   - 第二波 `导航检查 / 遮挡检查` 已完成并归还
+   - `git-safe-sync.ps1 / occupancy` 收口 bugfix 已完成并进 `main`
+   - scene-build 的 Unity / MCP 已对准专属 worktree，已恢复到可继续最小施工窗口
+3. 已确认当前最新治理提交链：
+   - `601b07db`：occupancy bugfix 收口
+   - `f05c8e4d`：scene-build ready-to-continue 结论回写
+
+**关键决策**：
+- 你引用的那段计划是“当时的待执行路线图”，现在已经不是当前现场。
+- 当前真正还没做完的，不是 batch04 第一、二波，也不是 occupancy bugfix，而是：
+  - `dirty` 分级 / 放宽机制设计（任务 `15`）
+  - `spring-day1` 的独立进入时机
+  - scene-build 首个施工 checkpoint 之后的下一段施工窗口裁定
+- 所以主线状态已经从“等 farm 回执”推进到了“业务两波已收口、治理 bugfix 已修完、scene-build 已恢复施工、只剩后续治理设计和施工回执”。
+
+**恢复点**：
+- 现在给用户的正式口径应更新为：
+  - batch04 第一波：完成
+  - batch04 第二波：完成
+  - occupancy bugfix：完成
+  - scene-build：可继续 `SceneBuild_01 -> Grid + Tilemaps`
+  - 后续治理主任务：任务 `15`
