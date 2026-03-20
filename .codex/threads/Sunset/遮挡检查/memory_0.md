@@ -225,3 +225,39 @@
 **恢复点 / 下一步**：
 - 等治理线程读取 `线程回收\遮挡检查.md` 并裁定是否发放阶段二 grant。
 - grant 到位前，本线程继续保持只读，不执行 `ensure-branch`，也不进入真实开发。
+
+### 会话 8 - 2026-03-21（2.0.0 整改设计与首个 checkpoint）
+
+**用户目标**
+- 按 `2026.03.20_真实业务开发批次_04` prompt，让 `遮挡检查` 从审计基线正式进入 `2.0.0` 整改设计，并尽量完成围绕树双组件粒度的首个最小 checkpoint。
+
+**当前主线目标**
+- 在 continuation branch `codex/occlusion-audit-001` 上完成 docs-first 的 `2.0.0整改设计` 落地，并收敛一个低风险、真实可提交的首个 checkpoint。
+
+**本轮子任务 / 阻塞**
+- 本轮已拿到租约并进入分支；阻塞不在队列，而在“先收紧哪个最小切口最值得”。最终选择先修过时批处理工具，而不是直接大改 `OcclusionManager` 主链。
+
+**已完成事项**
+1. 通过 stable launcher 执行：
+   - `request-branch -> ALREADY_GRANTED`
+   - `ensure-branch -> 成功进入 codex/occlusion-audit-001`
+2. 创建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\遮挡检查\2.0.0整改设计\` 四件套：
+   - `requirements.md`
+   - `design.md`
+   - `tasks.md`
+   - `memory.md`
+3. 完成最小 checkpoint：
+   - 重写 `D:\Unity\Unity_learning\Sunset\Assets\Editor\BatchAddOcclusionComponents.cs`
+   - 保留当前批处理职责
+   - 删除对已删除字段 `affectChildren` / `occlusionTags` 的写入
+   - 仅对齐当前仍存在的 `occludedAlpha`、`fadeSpeed`、`canBeOccluded`
+   - 增加小型 helper，避免 `FindProperty` 空引用式写入
+
+**关键结论**
+- `carrier_ready = yes`：本轮 branch checkpoint 已经收束成“2.0.0 设计入口 + 过时工具对齐”的最小闭环。
+- `main_ready = yes`：本轮不碰场景、热文件、Unity/MCP，也没有引入 `main` 依赖缺口；return-main 后主入口仍应可用。
+
+**恢复点 / 下一步**
+- 后续优先比较两个方向：
+  - `TreeController` 是否应联动父/子两份 `OcclusionTransparency`
+  - `OcclusionSystemTests.cs` 是否先补“单树双组件误入森林逻辑”的最小覆盖
