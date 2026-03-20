@@ -109,3 +109,18 @@
 - 本轮主线不是“证明 farm 是否还在”，而是把这个 continuation carrier 真正整理成只保留农田交付面的分支现场。
 **恢复点 / 下一步**：
 - 继续完成本轮白名单 sync 与 `return-main`；完成后 shared root 才算被正式归还。
+
+### 2026-03-21 - batch04 热文件阶段已从 waiting 转入真实实现
+**用户目标**：在 `main + branch-only` 模型下，把农田线程的 `batch04` 从等待租约推进到真实热文件 checkpoint，并在收尾时给出是否 `carrier_ready / main_ready` 的事实结论。  
+**本轮子任务 / 服务主线**：
+- 子任务：只做 `1.0.2` 首个热文件 checkpoint，不碰 Unity/MCP/场景，不扩到 prompt 白名单外。
+- 服务主线：让农田 continuation branch 的热文件阶段真正开始产生可提交增量，而不是停在排队或只读复述。
+**已完成事项**：
+1. 已消费 `ticket=15` 对应的 shared root 分支租约，成功进入 `codex/farm-1.0.2-cleanroom001`。
+2. 已拿到 `GameInputManager.cs` 的 A 类锁。
+3. 已把热栏切换的最终农田拒绝/收尾逻辑下沉到 `HotbarSelectionService -> GameInputManager` 的统一入口上，形成首个真实热文件 checkpoint。
+**关键结论**：
+- 当前 farm 线程已不再是 `waiting`，而是处于热文件事务窗口内。
+- 本轮代码改动仍严格限定在农田 `1.0.2` 允许路径，不涉及治理文件、NPC 文件或 Unity 资源。
+**恢复点 / 下一步**：
+- 完成本轮 sync、释放热文件锁并 return-main 后，再用最终 diff 判断 `carrier_ready / main_ready`。

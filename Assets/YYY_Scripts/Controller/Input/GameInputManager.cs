@@ -690,11 +690,8 @@ public class GameInputManager : MonoBehaviour
                 {
                     // 正常切换：重置累积值
                     _accumulatedScrollSteps = 0;
-                    
-                    // 🔥 10.1.1补丁002：切换工具时清空队列 + 取消导航（CP-3）
-                    ClearActionQueue();
-                    CancelFarmingNavigation();
-                    
+
+                    // 统一交给 HotbarSelectionService 做最终切换与农田态收尾
                     if (scrollSteps > 0) hotbarSelection?.SelectNext();
                     else hotbarSelection?.SelectPrev();
                 }
@@ -733,11 +730,7 @@ public class GameInputManager : MonoBehaviour
             }
             else
             {
-                // 🔥 10.1.1补丁002：切换工具时清空队列 + 取消导航（CP-3）
-                ClearActionQueue();
-                CancelFarmingNavigation();
-                
-                // 正常切换
+                // 统一交给 HotbarSelectionService 做最终切换与农田态收尾
                 hotbarSelection?.SelectIndex(keyIndex);
             }
         }
@@ -2924,6 +2917,24 @@ public class GameInputManager : MonoBehaviour
         }
 
         return false;
+    }
+
+    public bool TryPrepareHotbarSelectionChange(int requestedIndex)
+    {
+        int clampedIndex = Mathf.Clamp(requestedIndex, 0, InventoryService.HotbarWidth - 1);
+        if (hotbarSelection != null && clampedIndex == hotbarSelection.selectedIndex)
+        {
+            return true;
+        }
+
+        if (TryRejectActiveFarmToolSwitch(clampedIndex))
+        {
+            return false;
+        }
+
+        ClearActionQueue();
+        CancelFarmingNavigation();
+        return true;
     }
 
     public bool TryRejectActiveFarmToolInventoryMove(int slotIndex, bool isEquip)

@@ -150,3 +150,32 @@
 - 当前尚未触碰 `GameInputManager.cs` 热文件锁；本轮 hotfile 口径维持 `not-needed`。
 **恢复点 / 下一步**：
 - 继续按白名单提交四层 memory 与 `AGENTS.md` / `scripts/git-safe-sync.ps1` 的恢复改动；若 sync 成功，则立刻 `return-main` 并结束本轮占槽。
+
+### 2026-03-21 - batch04 热文件真实 checkpoint 续跑
+**用户目标**：在 `ticket=15` 的租约已经发给本线程后，继续执行 `农田交互修复V2_1.0.2热文件真实checkpoint与main-ready核验.md`，并产出一个真正的热文件 checkpoint。  
+**当前主线目标**：
+- 主线已从 batch03 的交付面收口切换到 batch04 的热文件真实 checkpoint 与 `main-ready` 核验。
+**本轮子任务 / 服务对象**：
+- 子任务：优先收口 `GameInputManager <-> HotbarSelectionService` 入口链，让 Toolbar/直接 `SelectIndex()` 不再绕开农田拒绝与收尾语义。
+- 服务主线：把 `1.0.2` 推进到“已产生新的热文件可提交增量”的状态。
+**已完成事项**：
+1. live preflight 现场：
+   - 工作目录 `D:\Unity\Unity_learning\Sunset`
+   - 分支 `main`
+   - HEAD `defe85857a9e4c09a2963eea364106efefefc35e`
+   - occupancy 显示 `lease_state = branch-granted`，租约归属 `农田交互修复V2 -> codex/farm-1.0.2-cleanroom001`
+2. `request-branch` 返回 `ALREADY_GRANTED`，`ensure-branch` 成功进入 `codex/farm-1.0.2-cleanroom001`。
+3. `Check-Lock` 显示 `GameInputManager.cs = unlocked`，随后 `Acquire-Lock` 成功。
+4. 已修改：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - `Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs`
+5. 本轮真实 checkpoint 内容：
+   - 新增 `GameInputManager.TryPrepareHotbarSelectionChange(int requestedIndex)`
+   - `HotbarSelectionService.SelectIndex()` 统一先走该钩子
+   - `GameInputManager` 自己的正常热栏切换路径改为复用服务层统一入口
+6. `git diff --check` 通过，当前未发现内容级格式错误。
+**关键决策**：
+- 本轮不再重复证明旧 branch 已有什么，而是让“热栏切换的统一入口权威”真正落到代码里。
+- 当前热文件锁已持有；在 sync 成功前不允许自行 release / return-main。
+**恢复点 / 下一步**：
+- 继续完成白名单 sync；若成功，则释放 `GameInputManager.cs` 锁并 `return-main`，随后给出最小回执中的 `carrier_ready / main_ready`。

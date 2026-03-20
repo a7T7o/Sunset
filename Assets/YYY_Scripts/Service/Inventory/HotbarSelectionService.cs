@@ -80,6 +80,7 @@ public class HotbarSelectionService : MonoBehaviour
     {
         int clamped = Mathf.Clamp(index, 0, InventoryService.HotbarWidth - 1);
         if (clamped == selectedIndex) return;
+        if (!CanApplySelectionChange(clamped)) return;
         selectedIndex = clamped;
         
         // 选中变化时立即装备工具
@@ -98,6 +99,12 @@ public class HotbarSelectionService : MonoBehaviour
     {
         int prev = (selectedIndex - 1 + InventoryService.HotbarWidth) % InventoryService.HotbarWidth;
         SelectIndex(prev);
+    }
+
+    private bool CanApplySelectionChange(int requestedIndex)
+    {
+        var inputManager = GameInputManager.Instance;
+        return inputManager == null || inputManager.TryPrepareHotbarSelectionChange(requestedIndex);
     }
 
     /// <summary>

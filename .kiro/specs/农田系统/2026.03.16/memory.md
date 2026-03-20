@@ -140,3 +140,26 @@
 - 本轮若 sync 成功，则本层会从“交付面已在位但 carrier 尚未净化”推进到“交付面已收口且可归还 shared root”。
 **恢复点 / 下一步**：
 - 继续执行白名单 sync；若被允许路径规则阻断，则按 `carrier-noise-cleanup-cannot-be-whitelisted` 停止汇报，不扩围到业务代码。
+
+### 2026-03-21 - batch04 进入首个热文件真实 checkpoint
+**用户目标**：在 shared root 租约已发放的前提下，继续执行农田 `batch04` 的真实业务 prompt，不做 smoke/test，而是把 `GameInputManager` 热文件阶段推进出一个真实 checkpoint。  
+**本轮子任务 / 阻塞**：
+- 子任务：拿到 `GameInputManager.cs` 锁后，先完成 `GameInputManager <-> HotbarSelectionService` 的统一热栏切换收口。
+- 当前阻塞：本轮尚未执行 sync / return-main，`carrier_ready / main_ready` 仍要以最终白名单收尾结果为准。
+**已完成事项**：
+1. 复核 shared root 当前处于：
+   - `current_branch = main`
+   - `is_neutral = true`
+   - `lease_state = branch-granted`
+   - `branch_grant_owner_thread = 农田交互修复V2`
+2. `request-branch` 返回 `ALREADY_GRANTED`，随后 `ensure-branch` 成功重新进入 `codex/farm-1.0.2-cleanroom001`。
+3. 成功获取 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 的 A 类热文件锁。
+4. 完成首个热文件主入口收口：
+   - `GameInputManager` 暴露统一的热栏切换前置钩子
+   - `HotbarSelectionService` 对所有 `SelectIndex()` 入口执行该钩子
+   - `GameInputManager` 自己的滚轮/数字键正常切换路径改为复用服务层入口
+**关键结论**：
+- `2026.03.16` 层本轮已经从“只读判断哪个链最该先收”进入“真实热文件改动已落地”的阶段。
+- 当前最小 checkpoint 已明确落在 `GameInputManager <-> HotbarSelectionService`，而不是继续停留在 carrier 描述层。
+**恢复点 / 下一步**：
+- 继续完成本轮白名单 sync、释放热文件锁并归还 `main`；再基于 live diff 回答 `carrier_ready / main_ready`。

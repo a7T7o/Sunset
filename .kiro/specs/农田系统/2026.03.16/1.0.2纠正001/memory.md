@@ -173,3 +173,27 @@
 - 当前仍未进入 `GameInputManager.cs` 热文件专项流程；本轮 `hotfile_lock` 口径仍为 `not-needed`。
 **恢复点 / 下一步**：
 - 继续按白名单提交本轮 memory 与 carrier 清洗结果，然后执行 `return-main` 归还 shared root。
+
+### 2026-03-21 - batch04 热文件真实 checkpoint：热栏切换统一收口
+**用户目标**：按 `batch04` 真实业务 prompt，在 `codex/farm-1.0.2-cleanroom001` 上把 `1.0.2` 的首个热文件 checkpoint 做实，并明确当前 branch 的 `carrier_ready / main_ready` 口径。  
+**本轮子任务 / 服务主线**：
+- 子任务：进入 `GameInputManager.cs` 热文件阶段，优先收口 `GameInputManager <-> HotbarSelectionService` 这条热栏切换主入口链。
+- 服务主线：把 `1.0.2纠正001` 从“分散在输入/UI 路径中的保护逻辑”推进到“至少一条热文件主入口已统一落到服务层”的真实 checkpoint。
+**已完成事项**：
+1. 按 prompt 完成 live preflight，并以 `ticket=15` 的既有租约返回 `ALREADY_GRANTED` 后执行 `ensure-branch`。
+2. 复核 `git diff --name-status main...HEAD`，确认当前热文件主链仍集中在：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+   - `Assets/YYY_Scripts/Service/Placement/*`
+   - `Assets/YYY_Scripts/UI/Inventory/*`
+3. 复核 `GameInputManager.cs` 的 A 类锁状态为 `unlocked`，随后成功获取热文件锁。
+4. 在允许范围内新增真实代码收口：
+   - `GameInputManager.TryPrepareHotbarSelectionChange(int requestedIndex)` 统一承担“热栏切换前的农田拒绝判断 + 队列/导航收尾”
+   - `HotbarSelectionService.SelectIndex()` 新增服务层入口保护，任何直达 `SelectIndex()` 的路径都会先回到 `GameInputManager`
+   - `HandleHotbarSelection()` 的非锁定切换路径不再重复手写收尾，而是委托给 `HotbarSelectionService`
+5. 执行 `git diff --check`，当前两处代码改动通过内容级检查。
+**关键结论**：
+- 本轮热文件 checkpoint 已不再只是“GameInputManager 自己能挡住滚轮/数字键”，而是把 `Toolbar 点击 / 其他直接 SelectIndex 调用` 一并纳入统一入口。
+- 这条 checkpoint 让 `GameInputManager <-> HotbarSelectionService` 的职责边界更接近设计稿要求的“底层权威落点”。
+**恢复点 / 下一步**：
+- 继续按白名单提交本轮代码与记忆；若 sync 成功，则释放 `GameInputManager.cs` 热文件锁并 `return-main`。
