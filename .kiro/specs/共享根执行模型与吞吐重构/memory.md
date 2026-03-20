@@ -941,3 +941,16 @@
 **恢复点 / 下一步**
 - 先同步本轮治理文档 dirty。
 - 然后立即重新执行 `wake-next`，把 `农田交互修复V2` 从 waiting 推进到可继续状态。
+
+### 补充更新
+- 本轮治理文档已同步进 `main`：
+  - 提交：`e39e097a`
+- 随后治理线程已成功执行一次 `wake-next`：
+  - `农田交互修复V2`
+  - `ticket = 15`
+  - `branch = codex/farm-1.0.2-cleanroom001`
+- 当前对 `farm` 的正式口径已变为：
+  - 继续沿用 batch04 真实业务 prompt
+  - 先做 live preflight
+  - 随后执行 `request-branch`，预期返回 `ALREADY_GRANTED`
+  - 再继续 `ensure-branch`

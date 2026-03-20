@@ -1055,3 +1055,8 @@
 **恢复点 / 下一步**
 - 先同步本轮治理 dirty。
 - 然后重新 `wake-next`，继续 `农田交互修复V2`。
+
+### 补充更新
+- 本轮治理文档已同步进 `main`，提交为 `e39e097a`。
+- 随后治理线程已成功执行 `wake-next`，将 `农田交互修复V2` 推进到 shared root 分支租约已发放状态。
+- 对 `farm` 的正式续跑口径现已明确为：`request-branch -> ALREADY_GRANTED -> ensure-branch`。

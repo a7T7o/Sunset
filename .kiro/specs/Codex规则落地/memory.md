@@ -1761,3 +1761,13 @@
 **恢复点 / 下一步**
 - 先把本轮治理 dirty 同步进 `main`。
 - 然后重新 `wake-next`，继续 `农田交互修复V2`。
+
+### 补充更新
+- 治理线程随后已完成：
+  - 治理 sync：`e39e097a`
+  - `wake-next`：成功
+- 当前 `farm` 不再是 waiting-unknown，而是已拿到 shared root 分支租约：
+  - `OwnerThread = 农田交互修复V2`
+  - `Branch = codex/farm-1.0.2-cleanroom001`
+- 对它的下一句正式续跑口径已经明确为：
+  - `request-branch -> ALREADY_GRANTED -> ensure-branch`
