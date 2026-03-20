@@ -33,3 +33,11 @@
   说明：为仍停留在旧规则基线上的 continuation branch 增加 repo-local Draft 忽略兜底，避免 waiting 线程的 `.codex/drafts/**` 反向阻断持槽线程 `return-main`；并据此完成 `smoke-test_01` 的 shared root 恢复与回收闭环。
 - [x] 12. 完成 `smoke-test_01` 四线程真实闭环验收
   说明：按队列顺序实际跑通 `导航检查 -> NPC -> 农田交互修复V2 -> 遮挡检查` 的 `wake-next / ALREADY_GRANTED / ensure-branch / return-main` 续跑链路，并完成最终回收与基线回正。
+- [x] 13. 固化 `carrier-ready / main-ready` 事故补洞口径
+  说明：把 NPC 主场景断链事故中暴露出的验收缺口写回执行模型，明确后续不能再只凭 branch 收口就宣称生产场景已恢复。
+- [ ] 14. 将 `main-ready` 验收并入真实业务批次模板与回收卡
+  说明：下一轮生成真实业务批次 prompt 时，必须加入“是否已真正落入 main”这一治理问答，不再只收 `changed_paths / sync / return-main`。
+- [ ] 15. 设计 `dirty` 分级与清扫推送机制
+  说明：把用户提出的“能跑且可接手的 dirty 是否允许直接推进”做成正式讨论稿，明确哪些可容忍、哪些绝对禁止、哪些必须先满足 takeover 条件。
+- [x] 16. 固化重度 MCP 场景搭建线程执行方案
+  说明：明确这类线程的单线程独占、验证场景优先、`worktree` 边界和交付方式，避免后续把它误塞进普通共享根短事务模型。
