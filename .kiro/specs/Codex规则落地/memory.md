@@ -1798,3 +1798,25 @@
 **恢复点 / 下一步**：
 - 当前 batch04 第二波已经实质收口。
 - 下一步需要在 `spring-day1`、scene-build 施工写态、以及治理脚本修复之间排优先级。
+
+### 会话 11 - 2026-03-21（scene-build 写态放行前裁定）
+**用户目标**：在 `导航检查` 与 `遮挡检查` 都结束后，搞清楚为什么看起来只有 `遮挡检查` 做了代码开发，并判断 scene-build 线程是否可以正式成为下一位 Unity / MCP 写线程。  
+**完成事项**：
+1. 复核第二波提交差异：
+   - `导航检查` 提交 `e486b432`：docs-first checkpoint
+   - `遮挡检查` 提交 `295e8138`：docs-first + `Assets/Editor/BatchAddOcclusionComponents.cs`
+2. 裁定两条线程都完成了真实工作，只是 checkpoint 类型不同，不存在“只有遮挡干活”的事实。
+3. 复核 live 现场：
+   - shared root `D:\Unity\Unity_learning\Sunset` 为 `main + neutral`
+   - `git status --short --branch = ## main...origin/main`
+   - Unity / MCP 记录 `current_claim = none`
+4. 结合 scene-build 回执，确认其三个施工前尾项已全部收口，只剩写态裁定。
+
+**关键决策**：
+- 当前可以把 scene-build 视为下一位候选 Unity / MCP 写线程。
+- 放行口径应当是“允许进入 `SceneBuild_01 -> Grid + Tilemaps` 的 create-only 施工起步”，而不是无限制自由施工。
+- 进入前仍需现场复核 Play Mode / Compile / Console，但不再缺治理层批准。
+
+**恢复点 / 下一步**：
+- 直接向 scene-build 下发正式写态放行口令。
+- 要求其以 `SceneBuild_01 -> Grid + Tilemaps` 为首个施工 checkpoint，完成后先回执再扩展到底稿/结构层。
