@@ -976,3 +976,10 @@
 - 一旦 shared root 回到 `main + clean + neutral`，就可以按 batch04 开始第一波：
   - `NPC`
   - `农田交互修复V2`
+
+### 补充更新
+- 这一步我已经替用户做完了：
+  - `Skills和MCP` 场景搭建线已被迁入 `codex/scene-build-5.0.0-001`
+  - 专属 worktree：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+- shared root 因此重新放空，当前 batch04 第一波已具备直接分发条件。
+- `spring-day1` 仍不进 batch04；它后续要单开一轮集成波次，而不是混进当前的短事务并发波。

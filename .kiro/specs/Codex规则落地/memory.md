@@ -1658,3 +1658,11 @@
   - 收件 `NPC / 农田`
   - 做批次 04 第一波裁定
   - 再决定是否切到 `导航 / 遮挡`
+
+### 补充更新
+- 当前上述 dirty 已不再留在 shared root：
+  - 已为 `Skills和MCP（场景搭建）` 分配：
+    - branch：`codex/scene-build-5.0.0-001`
+    - worktree：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+- 因此 shared root 现已回到可用的 `main` 入口，batch04 第一波可以开始。
+- `spring-day1` 继续排除在 batch04 之外，因为它不是短事务功能线，而是独立集成波次候选。

@@ -818,3 +818,17 @@
   - `Skills和MCP/memory_0.md`
   - `900_开篇/5.0.0场景搭建/**`
 - 收口完成、shared root 回到 `main + clean + neutral` 后，再发 `NPC / 农田` 会最稳。
+
+### 补充更新
+- 上述阻塞现已解除：
+  - `Skills和MCP` 线程的 tracked `memory_0.md`
+  - `900_开篇/5.0.0场景搭建/**`
+  已整体迁入专属 branch/worktree：
+  - `codex/scene-build-5.0.0-001`
+  - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+- 当前 shared root 已重新放空到 `main`，因此 batch04 第一波现在可以直接启动：
+  - `NPC`
+  - `农田交互修复V2`
+- `spring-day1` 仍不并入 batch04，原因不变：
+  - 它是集成型 / 主场景型 / 高 Unity 风险线程
+  - 需要独立集成波次，而不是混入当前短事务 shared root 波次
