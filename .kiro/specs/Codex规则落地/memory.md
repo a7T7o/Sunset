@@ -1912,3 +1912,37 @@
   - occupancy bugfix：完成
   - scene-build：可继续 `SceneBuild_01 -> Grid + Tilemaps`
   - 后续治理主任务：任务 `15`
+
+### 会话 15 - 2026-03-21（最新待办顺序重排）
+**用户目标**：要一份“写给你也写给我”的最新待办顺序，不再混用旧计划、旧阻塞和已经完成的事项。  
+**当前主线目标**：把 Sunset 当前真正剩余的任务按执行优先级排出来，让后续协作不再靠聊天回忆。  
+**本轮子任务**：结合 live 现场、治理任务单、scene-build 最新回执和 worktree 内旧任务稿，给出一版最新执行顺序。  
+**完成事项**：
+1. 已再次确认当前 live 基线：
+   - shared root = `main + neutral`
+   - `git status --short --branch = ## main...origin/main`
+   - shared-root Unity / MCP claim = `none`
+2. 已确认治理任务单当前真正未完成的核心项只剩：
+   - 任务 `14`：持续把 `main-ready` 验收并入后续真实业务批次模板
+   - 任务 `15`：`dirty` 分级 / 放宽机制设计
+3. 已确认 scene-build 的实时现场比其 `tasks.md` 更靠前：
+   - worktree 内旧任务稿仍保留“修正 Unity / MCP 根目录错连”“处理 shared root 误写资产”等旧阻塞
+   - 但最新线程回执已经说明：
+     - `project_root` 已对准 worktree
+     - 不在 `Play Mode`
+     - 不在 `Compile / Domain Reload`
+     - 当前可以继续 `SceneBuild_01 -> Grid + Tilemaps`
+   - 因此后续排程以最新实时回执为准，不再把旧阻塞项当成当前卡点
+
+**关键决策**：
+- 当前最新待办顺序应改为：
+  1. scene-build 继续首个施工窗口：`SceneBuild_01 -> Grid + Tilemaps`
+  2. 等 scene-build 回来首个施工 checkpoint，再裁定是否扩展到底稿 / 结构层
+  3. 治理线程单开任务 `15`，设计 `dirty` 分级 / 放宽与 takeover 边界
+  4. 继续把任务 `14` 的 `main-ready` 验收问答固化进后续真实业务批次模板
+  5. `spring-day1` 继续保持独立波次，暂不混入当前施工节奏
+- 当前不是“继续等 batch04 回执”，而是“场景施工继续 + 治理设计并行准备”。
+
+**恢复点**：
+- 用户现在可以把 scene-build 视为当前唯一正在推进的 Unity / MCP 写线程。
+- 我这边的治理主线则切换为：以任务 `15` 为主，准备下一轮 `dirty` 管控设计。
