@@ -1666,3 +1666,35 @@
     - worktree：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
 - 因此 shared root 现已回到可用的 `main` 入口，batch04 第一波可以开始。
 - `spring-day1` 继续排除在 batch04 之外，因为它不是短事务功能线，而是独立集成波次候选。
+
+## 2026-03-20｜场景搭建残留已迁回 worktree，shared root 再次回正
+**用户目标**
+> 用户要求我不要停在判断上，而是直接把场景搭建线留在 shared root 的残留迁回它自己的执行面，并继续为 `NPC / 农田` 恢复真实分发。
+
+**本轮完成**
+1. 已确认阻断 batch04 第一波的 shared root 脏态来自场景搭建线残留：
+   - `.codex/threads/Sunset/Skills和MCP/memory_1.md`
+   - `.kiro/specs/900_开篇/5.0.0场景搭建/**`
+2. 已采用“无损迁入”方式把上述残留移入：
+   - `codex/scene-build-5.0.0-001`
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   其中：
+   - `5.0.0场景搭建/**` 进入 `shared-root-import_2026-03-20/`
+   - `memory_1.md` 已复制到该线程自己的 `.codex/threads/...`
+3. 已从 shared root 清除对应残留副本。
+4. 额外还清掉了一棵误生成的 URL 编码历史目录：
+   - `.kiro/specs/%E5%85%B1%E4%BA%AB...`
+   它此前会制造 `Filename too long` warning，并让 `wake-next` 误判 shared root dirty。
+5. 当前 live 已回正到：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `git status --short --branch = ## main...origin/main`
+   - occupancy 仍为 `main + neutral`
+
+**关键判断**
+- 从治理视角，这轮已经证明：场景搭建这种特种线程不能再把任何 tracked / untracked WIP 留在 shared root；它必须彻底依附自己的 `branch + worktree`。
+- `NPC` 现在已有未消费 grant，因此不该重发 request；下一步是直接让它消费 grant 进入续跑。
+- `农田` 继续排在 `NPC` 之后，等 `NPC return-main` 后再继续 `wake-next`。
+
+**恢复点**
+- shared root 已重新可调度。
+- 当前主线已切回：`NPC -> 农田` 的 batch04 第一波真实业务续跑。

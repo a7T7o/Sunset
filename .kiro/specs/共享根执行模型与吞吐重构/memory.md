@@ -832,3 +832,46 @@
 - `spring-day1` 仍不并入 batch04，原因不变：
   - 它是集成型 / 主场景型 / 高 Unity 风险线程
   - 需要独立集成波次，而不是混入当前短事务 shared root 波次
+
+## 2026-03-20｜shared root 残留清场完成，batch04 第一波恢复到可续跑
+**用户目标**
+> 用户要求我直接开始：先把场景搭建线残留从 shared root 移走并告知它后续动作，再继续推进 `NPC / 农田` 的 batch04 第一波续跑；同时明确 `dirty` 放宽机制到底应从哪里启动。
+
+**本轮完成**
+1. 复核 shared root 阻断根因，确认 `NPC / 农田` 的 `LOCKED_PLEASE_YIELD` 不是 occupancy 错态，而是 shared root 上残留了场景搭建线的两处内容：
+   - `.codex/threads/Sunset/Skills和MCP/memory_1.md`
+   - `.kiro/specs/900_开篇/5.0.0场景搭建/**`
+2. 进一步核到这批内容并非纯重复副本：
+   - `5.0.0场景搭建/**` 在 shared root 与 `scene-build-5.0.0-001` worktree 中已经分叉
+   - `memory_1.md` 当时只存在于 shared root
+3. 已采用“无损迁入”方案完成现场清场：
+   - 把 shared root 的 `5.0.0场景搭建/**` 复制到
+     `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\shared-root-import_2026-03-20\`
+   - 把 shared root 的 `memory_1.md` 复制到
+     `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\Skills和MCP\memory_1.md`
+   - 随后已从 shared root 删除这两处残留副本
+4. 继续复核时又发现第二层阻断：`.kiro/specs/` 下还残留一棵误生成的 URL 编码历史目录：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\%E5%85%B1%E4%BA%AB...`
+   这棵目录会触发 `git status` 的 `Filename too long` warning，并被 `wake-next` 视为 shared root dirty。
+5. 已删除这棵 URL 编码残留目录后，shared root 重新恢复为：
+   - `main`
+   - `git status --short --branch = ## main...origin/main`
+   - occupancy 仍为 `main + neutral`
+6. live queue 现状已推进到：
+   - `NPC` 已存在未消费 grant，下一步应直接走 `ALREADY_GRANTED -> ensure-branch`
+   - `农田交互修复V2` 仍处于 waiting，需在 `NPC` 退场后继续 `wake-next`
+7. `dirty` 放宽机制的启动点已正式钉回总览：
+   - 继续留在治理窗口
+   - 等 `batch04` 第一波完成真实回收后，再从 `dirty容忍度与清扫推送机制讨论稿.md` 起下一阶段
+
+**关键判断**
+- 场景搭建线的文档与线程记忆确实应回到它自己的 `branch + worktree` 承载；继续留在 shared root，只会持续卡死业务线程准入。
+- 对这类已分叉残留，正确做法不是直接删除，也不是继续霸占 `main`，而是“先无损迁入、再清 shared root”。
+- `NPC / 农田` 当前还不需要重发新的 request；前者应直接消费现有 grant，后者应等待 `NPC` 退场后由治理线程继续叫号。
+
+**恢复点**
+- shared root 已重新 clean，可继续 batch04 第一波。
+- 立即下一步：
+  1. 给场景搭建线程发“去 worktree 吸收 `shared-root-import_2026-03-20`”的收口 prompt
+  2. 先让 `NPC` 消费现有 grant 完成本轮真实 checkpoint
+  3. `NPC` 退场后再 `wake-next -> 农田交互修复V2`
