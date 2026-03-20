@@ -1820,3 +1820,37 @@
 **恢复点 / 下一步**：
 - 直接向 scene-build 下发正式写态放行口令。
 - 要求其以 `SceneBuild_01 -> Grid + Tilemaps` 为首个施工 checkpoint，完成后先回执再扩展到底稿/结构层。
+
+### 会话 12 - 2026-03-21（shared-root occupancy 收口 bugfix 落地）
+**用户目标**：不要再停留在讨论层，而是把 `git-safe-sync.ps1 / shared-root occupancy` 这条治理缺口直接修完并收口。  
+**当前主线目标**：修复 batch04 中多次出现的“提交/推送已成功，但 `sync` 尾部或 `return-main` 因 runtime 字段缺失再次报错”的治理 bug。  
+**本轮子任务**：在 shared root `main` 上完成脚本补丁、更新治理任务单和分析稿，并准备治理同步。  
+**完成事项**：
+1. 在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 补上 active-session 旧结构兼容：
+   - 读取旧 runtime 时自动补齐 `source / last_reason / entered_at / last_updated` 等字段
+   - 初始化 runtime 时显式写入 `last_reason`
+   - `touch` 阶段不再对缺失属性直接赋值
+   - 归档历史时补带 `source / last_reason`
+2. 在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\tasks.md` 将：
+   - `19` 标为完成
+   - `20` 标为完成
+   - `15` 明确保留未完成，不混入本次 bugfix
+3. 在专题分析文档中明确：
+   - 本次主责在治理工具链
+   - 业务线程不应再在系统异常后自行深挖 PATH / ACL / restore
+   - `dirty` 放宽仍是后续设计题
+4. 已完成本地验证：
+   - PowerShell 语法通过
+   - legacy active-session 兼容测试通过
+   - 从仓库根运行 working tree 版 `preflight -Mode governance` 成功
+
+**关键决策**：
+- 这次修的是确定性 bug，不是“顺手放宽 dirty 闸门”。
+- `scene-build worktree` 只隔离 Git/WIP，不豁免 Unity / MCP 单写者规则；这个判断继续有效，不因本轮脚本修复发生变化。
+- 责任划分保持清晰：
+  - 旧 `main-ready` 验收缺口：业务执行责任 + 治理验收责任
+  - 本轮 `sync / return-main` 尾部误炸：治理脚本实现主责
+
+**恢复点**：
+- 继续完成治理记忆回写与 `sync -Mode governance`。
+- 收口后再回到任务 `15`，单独讨论 `dirty` 分级与容忍边界。

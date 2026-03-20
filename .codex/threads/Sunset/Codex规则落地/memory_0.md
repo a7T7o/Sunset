@@ -1098,3 +1098,39 @@
 **恢复点**：
 - 给用户一条可直接转发给 scene-build 的正式放行口令。
 - scene-build 完成第一个施工 checkpoint 后，再决定是否继续到底稿/结构层。
+## 会话 12 - 2026-03-21（治理主线回正到 occupancy bugfix 收口）
+**当前主线目标**
+- 把 `git-safe-sync.ps1 / shared-root occupancy` 这次确定性收口 bug 真正修完并同步，而不是继续停在“问题分析已知道”的聊天层。
+
+**本轮子任务 / 阻塞**
+- 用户要求我不要再只讨论，要直接把治理问题干完；这轮子任务因此是：
+  - 修脚本
+  - 补工作区/治理/线程记忆
+  - 做治理 `sync`
+
+**本轮完成**
+1. 已在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 落地修复：
+   - 增加 `Set-OrAddPsNoteProperty`
+   - 增加 `Repair-SharedRootActiveSessionRecord`
+   - 修复 legacy runtime 缺字段时 `Touch-SharedRootActiveSession` 直接赋值会炸的问题
+   - 让 `Get/Set/Touch/Complete-SharedRootActiveSession` 对旧结构兼容
+2. 已更新治理正文：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\tasks.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\02_专题分析\2026-03-21\shared-root_occupancy收口脚本缺口与修复计划.md`
+3. 已完成验证：
+   - PowerShell 语法检查通过
+   - active-session 兼容测试通过
+   - 从仓库根运行 working tree 版 `preflight -Mode governance` 成功
+
+**关键决策**
+- 这次真正修掉的是治理工具链主责 bug，而不是业务线程又犯了新错误。
+- `dirty` 分级 / 放宽仍留在任务 `15`，这轮不混改。
+- 当前主线在本轮修复完成后会回到：治理 `sync` 收口，然后再向用户交付白话责任说明和后续安排。
+
+**恢复点 / 下一步**
+- 先完成本轮治理 `sync -Mode governance`。
+- 然后向用户交付：
+  - 问题到底是什么
+  - 责任在哪一层
+  - 已修了什么
+  - 还有什么后续任务没做

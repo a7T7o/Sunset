@@ -954,3 +954,36 @@
   - 先做 live preflight
   - 随后执行 `request-branch`，预期返回 `ALREADY_GRANTED`
   - 再继续 `ensure-branch`
+
+## 2026-03-21｜shared-root active-session 旧结构兼容缺口已修复，occupancy 收口 bug 正式落地补洞
+**当前主线目标**
+- 修复 `git-safe-sync.ps1` 在 shared root 收口链路中的确定性 bug，避免旧 `active-session` runtime 因缺字段把 `sync` 尾部和 `return-main` 收口再次炸掉。
+
+**本轮完成**
+1. 已在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 落地 active-session 兼容修复：
+   - 新增 `Set-OrAddPsNoteProperty`
+   - 新增 `Repair-SharedRootActiveSessionRecord`
+   - `Get-SharedRootActiveSession` 读取旧 runtime 时会自动补齐缺失字段并回写
+   - `Set-SharedRootActiveSession` 初始化时显式写入 `last_reason = entered-task-active`
+   - `Touch-SharedRootActiveSession` 改为“缺属性则补、已有则改”
+   - `Complete-SharedRootActiveSession` 归档历史时补带 `source / last_reason`
+2. 已更新任务单：
+   - `19` 改为完成，表示 batch04 第二波收件与切换已完成
+   - `20` 改为完成，表示本次 occupancy 收口鲁棒性补丁已落地
+   - `15` 继续保留未完成，明确 `dirty` 分级/放宽不混入这次 bugfix
+3. 已更新专题分析文档：
+   - 明确这次修的是治理工具层 bug，不是业务线程再犯同一种交付错误
+   - 明确 `dirty` 放宽仍属于后续设计题
+4. 已完成本地验证：
+   - PowerShell 语法解析通过
+   - 旧 active-session 结构兼容测试通过
+   - 从仓库根运行 working tree 版 `preflight -Mode governance` 成功
+
+**关键判断**
+- 这次最像真根因的是 ignored runtime 的旧结构缺少 `last_reason`，旧逻辑在 `Touch-SharedRootActiveSession` 里直接赋值，导致提交/推送已经成功后，脚本尾部在补写 active-session 状态时再炸。
+- 这属于 shared root 治理工具链主责，不应再把责任继续压给 `NPC / farm / 导航 / 遮挡` 这些业务线程。
+- 本轮没有放宽 `dirty` 闸门；我们只修确定性 bug，不把设计变更和 bugfix 混做一团。
+
+**恢复点 / 下一步**
+- 先将本轮治理修复、工作区记忆、线程记忆一并同步进 `main`。
+- 后续再单开任务 `15`，讨论 `dirty` 分级、容忍边界和 takeover 条件。

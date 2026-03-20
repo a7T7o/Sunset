@@ -356,6 +356,89 @@ function Get-SharedRootActiveSessionHistoryPath {
     return (Join-Path (Get-RepoRoot) '.kiro/locks/history/shared-root-active-session.history.json')
 }
 
+function Set-OrAddPsNoteProperty {
+    param(
+        $Object,
+        [string]$Name,
+        $Value
+    )
+
+    if ($null -eq $Object) {
+        return $false
+    }
+
+    $property = $Object.PSObject.Properties[$Name]
+    if ($null -eq $property) {
+        $Object | Add-Member -NotePropertyName $Name -NotePropertyValue $Value
+        return $true
+    }
+
+    $currentValue = $property.Value
+    if (($null -eq $currentValue -and $null -ne $Value) -or
+        ($null -ne $currentValue -and $null -eq $Value) -or
+        ([string]$currentValue -ne [string]$Value)) {
+        $property.Value = $Value
+        return $true
+    }
+
+    return $false
+}
+
+function Repair-SharedRootActiveSessionRecord {
+    param($Session)
+
+    if ($null -eq $Session) {
+        return [PSCustomObject]@{
+            Session = $null
+            Changed = $false
+        }
+    }
+
+    $timestamp = Get-OccupancyTimestamp
+    $enteredAt = if ([string]::IsNullOrWhiteSpace([string]$Session.entered_at)) {
+        if ([string]::IsNullOrWhiteSpace([string]$Session.last_updated)) { $timestamp } else { [string]$Session.last_updated }
+    }
+    else {
+        [string]$Session.entered_at
+    }
+
+    $lastUpdated = if ([string]::IsNullOrWhiteSpace([string]$Session.last_updated)) {
+        $enteredAt
+    }
+    else {
+        [string]$Session.last_updated
+    }
+
+    # 兼容旧 runtime：缺字段时在读路径补齐，避免尾部 touch/complete 因属性不存在而再炸。
+    $normalized = [ordered]@{
+        version                  = if ($null -eq $Session.version -or [string]::IsNullOrWhiteSpace([string]$Session.version)) { 1 } else { [int]$Session.version }
+        owner_thread             = if ([string]::IsNullOrWhiteSpace([string]$Session.owner_thread)) { 'unknown' } else { [string]$Session.owner_thread }
+        target_branch            = if ([string]::IsNullOrWhiteSpace([string]$Session.target_branch)) { 'unknown' } else { [string]$Session.target_branch }
+        ticket                   = if ($null -eq $Session.ticket -or [string]::IsNullOrWhiteSpace([string]$Session.ticket)) { $null } else { [int]$Session.ticket }
+        checkpoint_hint          = if ([string]::IsNullOrWhiteSpace([string]$Session.checkpoint_hint)) { 'none' } else { [string]$Session.checkpoint_hint }
+        note                     = if ([string]::IsNullOrWhiteSpace([string]$Session.note)) { 'none' } else { [string]$Session.note }
+        entered_at               = $enteredAt
+        last_updated             = $lastUpdated
+        hold_category            = if ([string]::IsNullOrWhiteSpace([string]$Session.hold_category)) { 'unknown' } else { [string]$Session.hold_category }
+        recommended_hold_minutes = if ($null -eq $Session.recommended_hold_minutes -or [string]::IsNullOrWhiteSpace([string]$Session.recommended_hold_minutes)) { $null } else { [int]$Session.recommended_hold_minutes }
+        hold_summary             = if ([string]::IsNullOrWhiteSpace([string]$Session.hold_summary)) { 'none' } else { [string]$Session.hold_summary }
+        source                   = if ([string]::IsNullOrWhiteSpace([string]$Session.source)) { 'legacy-runtime' } else { [string]$Session.source }
+        last_reason              = if ([string]::IsNullOrWhiteSpace([string]$Session.last_reason)) { 'none' } else { [string]$Session.last_reason }
+    }
+
+    $changed = $false
+    foreach ($entry in $normalized.GetEnumerator()) {
+        if (Set-OrAddPsNoteProperty -Object $Session -Name $entry.Key -Value $entry.Value) {
+            $changed = $true
+        }
+    }
+
+    return [PSCustomObject]@{
+        Session = $Session
+        Changed = $changed
+    }
+}
+
 function Get-SharedRootDraftsRootPath {
     return (Join-Path (Get-RepoRoot) '.codex/drafts')
 }
@@ -461,11 +544,19 @@ function Get-SharedRootActiveSession {
     }
 
     try {
-        return ($rawState | ConvertFrom-Json)
+        $state = $rawState | ConvertFrom-Json
     }
     catch {
         throw "FATAL: shared root active session runtime 解析失败：$path。请先核查 JSON 是否损坏。"
     }
+
+    $repair = Repair-SharedRootActiveSessionRecord -Session $state
+    if ($repair.Changed) {
+        $json = $repair.Session | ConvertTo-Json -Depth 6
+        Set-Content -LiteralPath $path -Encoding UTF8 -Value $json
+    }
+
+    return $repair.Session
 }
 
 function Set-SharedRootActiveSession {
@@ -499,6 +590,7 @@ function Set-SharedRootActiveSession {
         recommended_hold_minutes = [int]$policy.MaxMinutes
         hold_summary             = $policy.Summary
         source                   = 'ensure-branch'
+        last_reason              = 'entered-task-active'
     }
 
     $json = $state | ConvertTo-Json -Depth 6
@@ -524,9 +616,9 @@ function Touch-SharedRootActiveSession {
     }
 
     $path = Get-SharedRootActiveSessionRuntimePath
-    $active.last_updated = Get-OccupancyTimestamp
+    Set-OrAddPsNoteProperty -Object $active -Name 'last_updated' -Value (Get-OccupancyTimestamp) | Out-Null
     if (-not [string]::IsNullOrWhiteSpace($Reason)) {
-        $active.last_reason = $Reason
+        Set-OrAddPsNoteProperty -Object $active -Name 'last_reason' -Value $Reason | Out-Null
     }
 
     $json = $active | ConvertTo-Json -Depth 6
@@ -621,6 +713,8 @@ function Complete-SharedRootActiveSession {
         hold_category            = [string]$active.hold_category
         recommended_hold_minutes = $active.recommended_hold_minutes
         hold_summary             = [string]$active.hold_summary
+        source                   = [string]$active.source
+        last_reason              = [string]$active.last_reason
         actual_hold_minutes      = $actualHoldMinutes
         budget_status            = $budgetStatus
         completion_status        = if ([string]::IsNullOrWhiteSpace($CompletionStatus)) { 'returned-main' } else { $CompletionStatus }
