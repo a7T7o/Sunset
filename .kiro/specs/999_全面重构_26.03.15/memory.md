@@ -102,3 +102,15 @@
   - `导航检查` 已从“只有 `1.0.0` 审计基线”推进到“有 `2.0.0` 整改方案的可执行阶段”；
   - 方案明确后续顺序应优先 `NavGrid2D -> PlayerAutoNavigator -> GameInputManager`，以尽量降低热文件冲突；
   - `001_BeFore_26.1.21/导航系统重构` 的长期目标仍可作为参考，但当前 live 方案不再照搬“完整导航重构”，而是先解决 GC、刷新调度和桥接边界。
+### 会话 7 - 2026-03-21
+
+- 子工作区 `导航检查` 已从“只有 `1.0.0初步检查` 审计基线”推进到“已建立 `2.0.0整改设计` 目录”的状态。
+- 本轮推进方式仍是低冲突 docs-first checkpoint，而不是直接进入代码整改。
+- 本轮新落点：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\requirements.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\design.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\tasks.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\memory.md`
+- 子工作区当前稳定结论：
+  - `2.0.0` 已具备继续整改入口，但这轮仍未触碰热文件或 Unity 热区。
+  - 后续若继续推进，首个代码 checkpoint 仍应优先压在 `NavGrid2D.cs`、`PlayerAutoNavigator.cs`。

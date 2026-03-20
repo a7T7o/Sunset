@@ -248,3 +248,21 @@
 **遗留问题 / 下一步**：
 - [ ] 下一轮若继续推进，应先执行 `T1-T3`，从高频分配清单与 `NavGrid2D / PlayerAutoNavigator` 的非分配收口开始。
 - [ ] 若后续需要真正改 `GameInputManager.cs`，应在进入前单独确认热文件准入。
+### 会话 7 - 2026-03-21
+
+- 当前主线目标：把 `导航检查` 从 `1.0.0初步检查` 审计基线推进到 `2.0.0整改设计` 的可继续整改入口。
+- 本轮子任务：按 batch04 的最小 docs-first checkpoint，在 `codex/navigation-audit-001` 上固化 `2.0.0整改设计` 目录，而不是直接进入热文件或 Unity。
+- 已完成：
+  - 在 shared root 做 live preflight，并确认通过 `request-branch -> ensure-branch` 进入 `codex/navigation-audit-001`。
+  - 新建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\requirements.md`
+  - 新建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\design.md`
+  - 新建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\tasks.md`
+  - 新建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\memory.md`
+- 关键决策：
+  - 2.0.0 的首个 batch04 checkpoint 继续坚持 docs-first，不把这次持槽扩展到 `GameInputManager.cs` 或 `Primary.unity`。
+  - 后续首个代码 checkpoint 仍推荐从 `NavGrid2D.cs`、`PlayerAutoNavigator.cs` 开始。
+- 验证结果：
+  - 本轮未进入 Unity / MCP / Play Mode。
+  - 本轮未修改共享热文件。
+- 恢复点：
+  - 下一轮如果继续整改，可直接从 `2.0.0整改设计` 四件套进入首个非热文件代码 checkpoint。

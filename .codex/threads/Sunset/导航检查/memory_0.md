@@ -106,3 +106,26 @@
   - 下一步先把本 checkpoint 提交到 `codex/navigation-audit-001` 并推送；
   - 然后执行 `return-main` 归还 shared root；
   - 回到 `main` 后再补阶段二回收卡与治理侧记录。
+### 会话 6 - 2026-03-21（batch04 最小 docs-first checkpoint）
+
+- 用户要求按 batch04 prompt 继续，而不是 smoke/test；顺序是 `live preflight -> request-branch -> ensure-branch -> 按原 prompt 收口`。
+- 本轮显式使用 `skills-governor`、`sunset-workspace-router`，并按 Sunset 启动闸门做了等价 preflight。
+- live 现场：
+  - `D:\Unity\Unity_learning\Sunset`
+  - `main`
+  - `defe85857a9e4c09a2963eea364106efefefc35e`
+  - `git status --short --branch` 在 `request-branch` 后出现 `.kiro/locks/shared-root-branch-occupancy.md` 脏改，属于持槽现场的一部分
+- 本轮完成：
+  - `request-branch` 获批 `codex/navigation-audit-001`
+  - `ensure-branch` 成功切入 `codex/navigation-audit-001`
+  - 在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\` 下建立四件套：
+    - `requirements.md`
+    - `design.md`
+    - `tasks.md`
+    - `memory.md`
+- 关键决策：
+  - 本轮继续坚持 docs-first checkpoint，不把 batch04 持槽扩展到 `GameInputManager.cs`、`Primary.unity` 或 Unity / MCP。
+  - 2.0.0 的下一刀实现仍建议先看 `NavGrid2D.cs` 与 `PlayerAutoNavigator.cs`。
+- 恢复点：
+  - 先按白名单完成 `sync` 和 `return-main`。
+  - 之后若继续 2.0.0，直接从新建的整改设计目录进入首个非热文件代码 checkpoint。
