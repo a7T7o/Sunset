@@ -148,3 +148,24 @@
 
 **恢复点 / 下一步**:
 - 本线程当前已完成 prompt 要求的清场回收；后续由治理线程读取固定回收卡并决定下一轮业务线程准入。
+
+### 会话 4 - 2026-03-20（线程身份证与现场快照复核）
+**用户需求**：
+> 在继续讨论新场景任务前，先完整汇报我当前线程、Kiro 工作区、分支、shared root、Unity/MCP 与队列现场，明确我对自身处境的理解。
+**本轮完成**：
+1. 只读复核当前 live 身份：`D:\Unity\Unity_learning\Sunset @ main @ 6d85c50e`。
+2. 确认本线程记忆文件仍位于：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\Skills和MCP\memory_0.md`，且本线程当前没有独立 `codex/` 业务分支在用。
+3. 确认与本线程直接相关的 Kiro 落点主要有两类：
+   - 历史沉淀 / 归档：`Steering规则区优化` 下的 Skills和MCP 冻结文档
+   - 当前治理 prompt 挂点：`Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_稳定launcher复工前清场\...\Skills和MCP.md`
+4. 复核 shared root / queue / Unity：
+   - 占用文档仍写 `main + neutral`
+   - queue 当前无 active serving，历史票据已推进到 `next_ticket = 14`
+   - Unity 当前活动场景仍为 `Assets/000_Scenes/Primary.unity`
+   - 本轮抽样 Console 只读到 MCP 注册日志，未据此宣称全局无错
+5. 复核 live Git 后发现：当前 shared root 实际并非 clean，而是挂有 `Codex规则落地` 与 `共享根执行模型与吞吐重构` 的治理 dirty；这说明文档口径与 live Git 现场暂时不同步，后续应以 live Git 为准。
+**关键结论**：
+- `Skills和MCP` 是一个项目级专题线程，有线程记忆，有历史 Kiro 落点，但当前没有单独挂在某个 `codex/...` 业务分支上。
+- 如果后续要让我接管新场景执行，我不能直接在当前 shared root 上开工；必须先等 live Git 收口，再按准入切到独立任务分支。
+**恢复点 / 下一步**：
+- 本线程已完成身份快照复核；后续继续讨论或执行新场景任务时，优先以 `live Git + live Unity + queue runtime` 为准，而不是只看占用文档的静态描述。
