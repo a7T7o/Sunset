@@ -1018,3 +1018,22 @@
   - 场景搭建线程：去 worktree 吸收 `shared-root-import_2026-03-20`
   - `NPC`：立即消费现有 grant
   - `农田`：保持 waiting，待 `NPC return-main` 后再续跑
+
+## 会话 2026-03-20：NPC docs-only 收口完成后的治理裁定
+**当前主线目标**
+- 在 `NPC` 已成功 `sync + return-main` 后，把事故性质、责任层级与场景搭建线程的并行边界讲清楚，并继续维持 batch04 第一波推进。
+
+**本轮完成**
+1. 已确认 `NPC` 本轮 docs-only checkpoint 提交为 `b680cd4b`，`sync` 与 `return-main` 均成功。
+2. 已确认 shared root 当前回到：`D:\Unity\Unity_learning\Sunset @ main`，`git status --short --branch` clean，occupancy 为 `neutral-main-ready`。
+3. 已确认场景搭建线程继续停留在：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001 @ codex/scene-build-5.0.0-001`，其 dirty 只属于自身 worktree。
+
+**关键决策**
+- 需要把两类问题拆开对用户说明：
+  - 之前 `main` 内 NPC sprite / 资产依赖缺失：属于业务交付验收问题，执行与治理均有责任。
+  - 本轮 batch04 收口时 `sync / return-main` 一度被卡：属于治理脚本 / occupancy 状态机问题，主责在 shared root 收口工具链。
+- 场景搭建线程现在可以与治理线程、业务线程长期并行，但只限于 Git 层；进入 Unity / MCP 重写场景时，仍必须遵守单实例 / 单写者闸门。
+
+**恢复点 / 下一步**
+- batch04 第一波已从 `NPC` 收口事故中恢复。
+- 下一步先继续 `农田交互修复V2`，随后单开治理修复 `scripts/git-safe-sync.ps1` 的 shared root 收口鲁棒性。

@@ -1698,3 +1698,42 @@
 **恢复点**
 - shared root 已重新可调度。
 - 当前主线已切回：`NPC -> 农田` 的 batch04 第一波真实业务续跑。
+
+## 2026-03-20｜batch04-NPC 收口问题复盘：shared root 已归还，但需要向用户拆清“业务事故”与“脚本事故”
+**当前主线目标**
+- 在 `NPC` docs-only checkpoint 已成功提交并 return-main 后，给出一份面向项目经理的清晰定性：到底是业务线没做好，还是治理脚本没做好。
+
+**本轮完成**
+1. 已复核 `NPC` 最终回执：
+   - `sync = 成功`
+   - `return-main = 成功`
+   - checkpoint 提交：`b680cd4b`
+2. 已复核当前 shared root：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - occupancy：`neutral-main-ready`
+   - queue 当前无人占槽
+3. 已复核场景搭建 worktree：
+   - `codex/scene-build-5.0.0-001`
+   - 保留自己的文档 dirty，不需要 shared root 代管
+
+**关键判断**
+- 现在必须明确区分两起问题：
+  1. “之前 main 里 NPC 丢 sprite / 资产缺依赖”：
+     - 是业务交付验收事故
+     - `NPC` 线程与治理验收都负有责任
+  2. “本轮 batch04 中 NPC docs-only checkpoint 一度无法 sync / return-main”：
+     - 是治理脚本 / occupancy 状态机事故
+     - 主责在 `scripts/git-safe-sync.ps1` 对 shared root 收口异常恢复不够鲁棒
+- 当前最可信的证据链是：
+  - `ensure-branch` 过程中出现系统异常
+  - 仓库实际上已经切入 `codex/npc-roam-phase2-003`
+  - 但 occupancy 没及时写成 `task-active`
+  - 所以后续 `sync` 和 `return-main` 一度按旧态误拦
+- 这说明后续治理不仅要补 prompt，还要补脚本层的幂等恢复和异常冻结。
+
+**恢复点 / 下一步**
+- 当前 shared root 已恢复，可继续 batch04 第一波后继线程。
+- 下一步：
+  1. 继续 `农田交互修复V2`
+  2. 单开治理修复 `git-safe-sync.ps1`
+  3. 再决定第二波 `导航 / 遮挡`

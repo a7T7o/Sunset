@@ -875,3 +875,44 @@
   1. 给场景搭建线程发“去 worktree 吸收 `shared-root-import_2026-03-20`”的收口 prompt
   2. 先让 `NPC` 消费现有 grant 完成本轮真实 checkpoint
   3. `NPC` 退场后再 `wake-next -> 农田交互修复V2`
+
+## 2026-03-20｜NPC 已完成 docs-only 收口，当前需向用户明确事故分型、责任层级与 worktree 并行边界
+**当前主线目标**
+- 在 `NPC` 已完成 batch04 第一波最小收口后，把“到底出了什么问题、责任是谁、场景搭建线程能否继续并行”明确写成治理结论。
+
+**本轮完成**
+1. 已复核当前 live 现场：
+   - shared root：`D:\Unity\Unity_learning\Sunset @ main`
+   - `git status --short --branch`：clean
+   - occupancy：`neutral-main-ready`
+   - queue：`current_serving_ticket = null`
+   - `农田交互修复V2` 仍保持 waiting
+2. 已复核 `NPC` 本轮 docs-only checkpoint：
+   - 提交：`b680cd4b`
+   - 文件：`D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\2026-03-20_phase2_main-ready核验.md`
+   - `sync / return-main` 最终都已成功
+3. 已复核场景搭建线程现场：
+   - worktree：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - branch：`codex/scene-build-5.0.0-001`
+   - dirty 仅留在该 worktree 自己的文档与线程记忆，不再污染 shared root
+
+**关键判断**
+- 必须把两类问题分开：
+  1. 更早之前的 `main` 内 NPC sprite / 资产依赖缺失：
+     - 性质：业务交付验收缺口
+     - 责任：`NPC` 执行责任 + 治理验收责任
+     - 根因：当时只验 `carrier-ready`，没有把 `main-ready` 设成硬门
+  2. 这次 batch04 收口时 `sync / return-main` 一度被卡：
+     - 性质：shared root 收口状态机缺口
+     - 责任：治理 / 工具实现主责；`NPC` 只承担异常后不该继续扩大环境诊断的次责
+     - 根因：`ensure-branch` 曾半成功，但 occupancy 没同步落成 `task-active`，导致后续按旧态错拦
+- 场景搭建线程现在可以长期并行，但边界必须说清：
+  - Git 层：可以，因为它已迁入自己的 `branch + worktree`
+  - Unity / MCP 层：不自动安全；进入真实 scene 写入时仍需单实例 / 单写者闸门
+
+**恢复点 / 下一步**
+- batch04 第一波已从 `NPC` 收口事故中恢复。
+- 立即下一步：
+  1. 继续 `农田交互修复V2`
+  2. 单开治理修复：补 `git-safe-sync.ps1` 在 shared root 上 `ensure-branch -> task-active -> sync -> return-main` 的鲁棒性
+  3. 后续统一补 prompt 模板：系统级异常即冻结，禁止线程自行修环境
