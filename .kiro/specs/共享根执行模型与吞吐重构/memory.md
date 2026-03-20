@@ -1,4 +1,4 @@
-# 共享根执行模型与吞吐重构 - 开发记忆
+﻿# 共享根执行模型与吞吐重构 - 开发记忆
 
 ## 模块概述
 - 本工作区承接 Sunset 在完成安全治理层之后，暴露出的“执行层吞吐与调度模型错位”问题。
@@ -653,3 +653,18 @@
 - 先同步：`共享根执行模型与吞吐重构`、`Codex规则落地`、治理线程记忆与 skill-trigger-log。
 - 再执行一次治理收口，把当前 `main` 恢复到可直接分发的 clean 状态。
 - 收口完成后，再把批次 03 作为用户可直接群发的真实开发入口交付出去。
+
+### 会话 18 - 2026-03-20（NPC phase2 资产未真正落入 main 的事故补救）
+**用户需求**
+> 用户发现 `NPC` batch03 后场景里 NPC 一度恢复，但 `farm` 收口回到 `main` 后 `Primary` 场景的 `001/002/003` 又红掉，要求彻底查清到底是谁动了什么并恢复正常。
+**已完成事项**
+1. 重新按 live Git 与场景 YAML 取证，确认 `codex/farm-1.0.2-cleanroom001` 对 NPC 运行时路径没有差异，`farm` 不是覆盖源头。
+2. 反查 `Primary.unity` 中 `001/002/003` 的 prefab GUID，确认 `main` 早已引用 `codex/npc-roam-phase2-003` 才有的 `Assets/222_Prefabs/NPC/*.prefab`、`Assets/100_Anim/NPC/**`、`Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset`、`Assets/Sprites/NPC/001~003.png.meta` 与对应 runtime 脚本。
+3. 已从 `codex/npc-roam-phase2-003` 把上述 NPC phase2 运行时资产精确恢复到当前 `main` 工作树，并静态验证 `Primary.unity -> prefab -> sprite/meta -> animator controller -> roam profile -> runtime scripts` 这条链路已经在 `main` 上重新闭合。
+4. Unity Editor 侧已发生脚本重编译与 Asset Refresh；本轮 MCP 桥失联，未能做 Inspector 读回，但 Editor.log 尾部未再出现新的 NPC missing 报错。
+**关键决策**
+- 这次事故不是 queue / grant / return-main 的交通故障，而是“真实业务批次验收口径不够严”：只看 `carrier` 在位与退槽成功，不足以证明 `main` 已经具备生产场景依赖的运行时资产。
+- 后续真实业务批次的治理回收必须补一条硬验收：如果 `main` 场景已经引用了某条 branch 才有的 runtime 资产，则本轮结束前必须要么把它们真正并入 `main`，要么明确标记“scene not main-ready”，不能再仅凭 `branch carrier clean` 判通过。
+**恢复点 / 下一步**
+- 先把本轮 NPC 资产恢复与记忆层一起最小提交，恢复 `main + clean`。
+- 收口后再回到真实业务开发批次 03，继续处理 `NPC / 农田` 的后续业务开发，而不是把这次事故误判成 `farm` 覆盖。

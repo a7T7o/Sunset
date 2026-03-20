@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Animations;
+using UnityEditor.U2D.Sprites;
 using UnityEngine;
 
 /// <summary>
@@ -52,6 +53,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
     private const int IdleFrameIndex = 1;
     private const int PixelsPerUnit = 16;
     private const float ClipFrameRate = 6f;
+    private const string DefaultRoamProfilePath = "Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset";
 
     private static readonly TemplateDirection[] RowDirections =
     {
@@ -352,14 +354,59 @@ public class NPCPrefabGeneratorTool : EditorWindow
         importer.isReadable = true;
         importer.alphaIsTransparency = true;
         importer.spritePixelsPerUnit = PixelsPerUnit;
-        importer.spritesheet = BuildSpriteMetas(task.NpcName, texture.height, cellWidth, cellHeight);
         EditorUtility.SetDirty(importer);
         importer.SaveAndReimport();
+
+        importer = AssetImporter.GetAtPath(task.TexturePath) as TextureImporter;
+        if (importer == null)
+        {
+            throw new InvalidOperationException($"切片回写后无法重新读取 TextureImporter：{task.TexturePath}");
+        }
+
+        ApplySpriteSlices(task.NpcName, texture.height, cellWidth, cellHeight, importer);
+        AssetDatabase.ImportAsset(task.TexturePath, ImportAssetOptions.ForceUpdate);
     }
 
-    private SpriteMetaData[] BuildSpriteMetas(string npcName, int textureHeight, int cellWidth, int cellHeight)
+    private void ApplySpriteSlices(string npcName, int textureHeight, int cellWidth, int cellHeight, TextureImporter importer)
     {
-        List<SpriteMetaData> metas = new List<SpriteMetaData>(Rows * Columns);
+        SpriteDataProviderFactories factory = new SpriteDataProviderFactories();
+        factory.Init();
+
+        ISpriteEditorDataProvider dataProvider = factory.GetSpriteEditorDataProviderFromObject(importer);
+        if (dataProvider == null)
+        {
+            throw new InvalidOperationException($"无法初始化 SpriteEditorDataProvider：{importer.assetPath}");
+        }
+
+        dataProvider.InitSpriteEditorDataProvider();
+
+        Dictionary<string, GUID> existingSpriteIds = dataProvider
+            .GetSpriteRects()
+            .ToDictionary(rect => rect.name, rect => rect.spriteID, StringComparer.Ordinal);
+
+        List<SpriteRect> spriteRects = BuildSpriteRects(npcName, textureHeight, cellWidth, cellHeight, existingSpriteIds);
+        dataProvider.SetSpriteRects(spriteRects.ToArray());
+
+        ISpriteNameFileIdDataProvider nameFileIdDataProvider = dataProvider.GetDataProvider<ISpriteNameFileIdDataProvider>();
+        if (nameFileIdDataProvider != null)
+        {
+            List<SpriteNameFileIdPair> nameFileIdPairs = spriteRects
+                .Select(rect => new SpriteNameFileIdPair(rect.name, rect.spriteID))
+                .ToList();
+            nameFileIdDataProvider.SetNameFileIdPairs(nameFileIdPairs);
+        }
+
+        dataProvider.Apply();
+    }
+
+    private List<SpriteRect> BuildSpriteRects(
+        string npcName,
+        int textureHeight,
+        int cellWidth,
+        int cellHeight,
+        Dictionary<string, GUID> existingSpriteIds)
+    {
+        List<SpriteRect> spriteRects = new List<SpriteRect>(Rows * Columns);
 
         for (int row = 0; row < Rows; row++)
         {
@@ -367,17 +414,21 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
             for (int col = 0; col < Columns; col++)
             {
-                metas.Add(new SpriteMetaData
+                string spriteName = $"{npcName}_{direction}_{col}";
+                spriteRects.Add(new SpriteRect
                 {
-                    name = $"{npcName}_{direction}_{col}",
+                    name = spriteName,
                     rect = new Rect(col * cellWidth, textureHeight - ((row + 1) * cellHeight), cellWidth, cellHeight),
-                    alignment = (int)SpriteAlignment.Custom,
-                    pivot = new Vector2(0.5f, 0f)
+                    alignment = SpriteAlignment.Custom,
+                    pivot = new Vector2(0.5f, 0f),
+                    spriteID = existingSpriteIds.TryGetValue(spriteName, out GUID spriteId)
+                        ? spriteId
+                        : GUID.Generate()
                 });
             }
         }
 
-        return metas.ToArray();
+        return spriteRects;
     }
 
     private Dictionary<TemplateDirection, List<Sprite>> LoadDirectionalSprites(TextureTask task)
@@ -691,6 +742,10 @@ public class NPCPrefabGeneratorTool : EditorWindow
             NPCMotionController motionController = root.AddComponent<NPCMotionController>();
             motionController.MoveSpeed = defaultMoveSpeed;
 
+            root.AddComponent<NPCBubblePresenter>();
+            NPCAutoRoamController roamController = root.AddComponent<NPCAutoRoamController>();
+            AssignDefaultRoamProfile(roamController);
+
             if (!enableDebugLogOnPrefab)
             {
                 SetPrivateBoolField(animController, "showDebugLog", false);
@@ -729,6 +784,37 @@ public class NPCPrefabGeneratorTool : EditorWindow
             property.boolValue = value;
             serializedObject.ApplyModifiedPropertiesWithoutUndo();
         }
+    }
+
+    private void AssignDefaultRoamProfile(NPCAutoRoamController roamController)
+    {
+        if (roamController == null)
+        {
+            return;
+        }
+
+        NPCRoamProfile defaultProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(DefaultRoamProfilePath);
+        if (defaultProfile == null)
+        {
+            return;
+        }
+
+        SerializedObject serializedObject = new SerializedObject(roamController);
+        SerializedProperty profileProperty = serializedObject.FindProperty("roamProfile");
+        SerializedProperty applyOnAwakeProperty = serializedObject.FindProperty("applyProfileOnAwake");
+
+        if (profileProperty != null)
+        {
+            profileProperty.objectReferenceValue = defaultProfile;
+        }
+
+        if (applyOnAwakeProperty != null)
+        {
+            applyOnAwakeProperty.boolValue = true;
+        }
+
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        roamController.ApplyProfile();
     }
 
     private void EnsureAssetFolder(string assetFolderPath)

@@ -835,3 +835,16 @@
 **恢复点 / 下一步**
 - 下一步先执行治理 sync 收口，把 `main` 恢复到 clean。
 - 收口完成后，再把这轮批次正式交付用户群发。
+
+## 会话 2026-03-20：NPC 主场景断链事故复核与 main 资产恢复
+**当前主线目标**
+- 继续治理主线，但本轮插入的阻塞处理是：把 `Primary.unity` 中 `NPC 001/002/003` 再次红掉的事故查清并恢复，确保真实业务开发不会建立在“branch 正常、main 场景仍断链”的假基线上。
+**本轮子任务 / 阻塞**
+- 用户观察到 `NPC` batch03 后场景一度恢复，但 `farm` 收口回到 `main` 后又出现 `Missing Prefab / Missing Sprite / Missing RuntimeAnimatorController`；要求判断到底是谁动了什么。
+**本轮完成**
+- 已重新核对 `main...codex/farm-1.0.2-cleanroom001`，确认 `farm` 对 NPC phase2 路径无差异；真正根因是 `main` 的 `Primary.unity` 已引用 `codex/npc-roam-phase2-003` 才有的 prefab / meta / profile / runtime 资产，但这批资产此前未真正合回 `main`。
+- 已从 `codex/npc-roam-phase2-003` 把 `Assets/100_Anim/NPC/`、`Assets/111_Data/NPC/`、`Assets/222_Prefabs/NPC/`、`Assets/Sprites/NPC/001~003.png.meta`、`Assets/YYY_Scripts/Controller/NPC/`、`Assets/YYY_Scripts/Data/NPCRoamProfile.cs`、`Assets/YYY_Scripts/Anim/NPC/NPCAnimController.cs`、`Assets/Editor/NPCPrefabGeneratorTool.cs` 精确恢复到当前 `main` 工作树，并静态验证引用链已经闭合。
+- Unity Editor 本轮已发生脚本重编译与 Asset Refresh；MCP 桥失联，未能做 Inspector 二次读取，但 Editor.log 尾部未再出现新的 NPC missing 报错。
+**恢复点 / 下一步**
+- 下一步直接把这批 NPC 恢复文件连同治理记忆最小提交到 `main`，恢复 clean 基线。
+- 这轮阻塞解除后，主线回到：补强真实业务批次的验收口径，明确 `main-ready` 检查，再继续 `NPC / 农田` 的真实开发推进。

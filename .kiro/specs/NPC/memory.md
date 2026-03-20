@@ -57,3 +57,10 @@
   - 在 `f6b4db2f` 内，`GameInputManager.cs` 只调用无参 `ClearAllQueuePreviews()`；没有 NPC 代码依赖 `FarmToolPreview` 里新增的 bool 重载。
   - `f6b4db2f` 版 `NPCPrefabGeneratorTool.cs` 足以作为救援基线版本保留，但这表示“先保证救援线自洽”，不等于“最终工具 UX 已经做完”。
 - 当前恢复点：NPC 现在的最小干净收口方案已经清楚了，后续应在独立 NPC 可写现场里只做一刀：回退 `FarmToolPreview.cs` 到 `8aed637f` 版本，再做最小验证。
+
+## 2026-03-20｜NPC phase2 主场景断链补救
+- 当前主线目标：把 `Primary.unity` 里已经引用到的 NPC phase2 运行时资产真正补回 `main`，彻底消除 001/002/003 再次红掉的问题。
+- 本轮阻塞：用户反馈 `NPC` batch03 一度看起来正常，但 `farm` 收口回到 `main` 后，`Primary` 场景里的 `001/002/003` 又出现 `Missing Prefab / Missing Sprite / Missing RuntimeAnimatorController`。
+- 本轮完成：重新按 Git 与场景 YAML 取证，确认不是 `farm` 覆盖了 NPC，而是 `main` 的 [Primary.unity](D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity) 早已引用 `codex/npc-roam-phase2-003` 才有的 prefab / profile / meta / runtime 脚本；随后已从 `codex/npc-roam-phase2-003` 精确恢复 `Assets/100_Anim/NPC/`、`Assets/111_Data/NPC/`、`Assets/222_Prefabs/NPC/`、`Assets/Sprites/NPC/001~003.png.meta`、`Assets/YYY_Scripts/Controller/NPC/`、`Assets/YYY_Scripts/Data/NPCRoamProfile.cs`、`Assets/YYY_Scripts/Anim/NPC/NPCAnimController.cs` 与 `Assets/Editor/NPCPrefabGeneratorTool.cs` 到当前 `main` 工作树。
+- 已验证事实：`Primary.unity` 中 `001/002/003` 的 prefab GUID 现在都能反查到恢复后的 `Assets/222_Prefabs/NPC/*.prefab.meta`；prefab 内的 Sprite / Animator / roamProfile / AutoRoam / BubblePresenter 引用也都能在恢复后的资源上闭合；`Unity` Editor 日志显示本轮发生了脚本重编译与 Asset Refresh，且尾部未再出现新的 NPC missing 报错；MCP 桥本轮不可用，所以没有做 Inspector 侧二次读取。
+- 当前恢复点：下一步应把这批 NPC 运行时恢复文件与事故记忆一起最小提交到 `main`，并在治理层补一条验收口径：不能只验 `carrier` 在位，还必须验 `main` 是否已经拥有生产场景实际依赖的运行时资产。

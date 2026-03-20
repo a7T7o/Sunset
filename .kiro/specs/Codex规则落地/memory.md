@@ -1517,3 +1517,20 @@
   - 执行治理收口
   - 验证 `main + clean`
 - 完成后，这份批次入口就可以直接交给用户群发。
+
+## 2026-03-20｜真实业务批次 03 的 NPC 主场景断链事故补洞
+**用户目标**
+- 用户要求查清 `NPC` 在 batch03 后一度恢复、但 `farm` 收口回到 `main` 后 `Primary` 场景再次出现 `Missing Prefab / Missing Sprite / Missing Animator Controller` 的根因，并彻底恢复正常。
+
+**本轮完成**
+- 按 live Git 差异重新复核，确认 `codex/farm-1.0.2-cleanroom001` 对 NPC phase2 运行时路径没有改动，`farm` 不是覆盖源。
+- 反查 [Primary.unity](D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity) 中 `001/002/003` 的 prefab GUID，确认 `main` 场景已经依赖 `codex/npc-roam-phase2-003` 才有的 prefab / anim / profile / meta / runtime 代码，但这些资产此前从未真正进入 `main`。
+- 已将上述 NPC 运行时资产从 `codex/npc-roam-phase2-003` 精确恢复到当前 `main` 工作树，并静态验证 GUID / fileID 引用链已经重新闭合；Unity Editor 也已完成重编译与 Asset Refresh。
+
+**关键判断**
+- `NPC` batch03 不是“写坏了场景”，而是“只做了 carrier 清洗与 branch 提交，没有把 `main` 生产场景实际依赖的运行时资产真正提升到 `main`”。
+- 因此治理层后续不能再只看 `changed_paths`、`sync`、`return-main` 和 `carrier` 是否更干净；还必须加一条面向生产场景的主线验收：`main` 若已依赖该 branch 的运行时资产，则必须显式检查 `main-ready`。
+
+**恢复点**
+- 下一步先把这次 NPC 主场景修复最小提交到 `main` 并恢复 clean 现场。
+- 后续再补真实业务批次 prompt / 回收卡口径，避免再次出现“branch 好了，但 main 场景仍断链”的假通过。
