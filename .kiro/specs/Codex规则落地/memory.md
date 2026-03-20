@@ -1579,3 +1579,8 @@
 - 还剩两项硬尾项待继续：
   - 下一轮真实业务批次模板补入 `main-ready`
   - 后续独立窗口设计 `dirty` 分级与 takeover 机制
+
+### 补充更新
+- 为把 live 基线彻底恢复到可直接开发的状态，我已继续对白名单外唯一残留的 `Skills和MCP/memory_0.md` 做单文件治理收口。
+- 收口提交：`1eaac0c8`（`2026.03.20-05`）。
+- 当前 `Sunset` live 现场已恢复为 `main + clean + neutral shared root`。

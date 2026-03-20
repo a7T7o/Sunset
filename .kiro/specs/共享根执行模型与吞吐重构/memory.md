@@ -707,3 +707,10 @@
   - 把 `main-ready` 验收并入下一轮真实业务批次模板与回收卡
   - 继续把 `dirty` 分级机制留在独立治理窗口设计
 - 若要恢复仓库“绝对 clean”，需由 `Skills和MCP` 线程单独收口其 `memory_0.md`，或由用户明确授权我代管。
+
+### 补充更新
+- 我已继续代为完成 `Skills和MCP` 线程 `memory_0.md` 的单文件治理收口，提交：`1eaac0c8`（`2026.03.20-05`）。
+- 当前仓库现场已恢复为：
+  - `main @ 1eaac0c8`
+  - `git status --short --branch = ## main...origin/main`
+  - shared root 仍为 `main + neutral`

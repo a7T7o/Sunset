@@ -893,3 +893,12 @@
   - 把 `main-ready` 验收并入下一轮真实业务批次模板与回收卡
   - 后续独立设计 `dirty` 分级机制
   - 如需仓库绝对 clean，单独处理 `Skills和MCP` 线程遗留的 memory dirty
+
+### 补充更新
+- 上述最后一个尾巴我已直接处理完：对 `.codex/threads/Sunset/Skills和MCP/memory_0.md` 执行了单文件治理 sync。
+- 对应提交：`1eaac0c8`（`2026.03.20-05`）。
+- 当前 live 状态已回正为：
+  - `D:\Unity\Unity_learning\Sunset @ main`
+  - `HEAD = 1eaac0c8`
+  - `git status --short --branch = ## main...origin/main`
+  - shared root `main + neutral`
