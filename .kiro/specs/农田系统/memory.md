@@ -90,3 +90,22 @@
 
 **恢复点 / 下一步**：
 - 先执行白名单 Git 收尾，形成 continuation branch checkpoint，再等待用户场景验收。
+
+### 2026-03-20 - shared root branch-only 收口续跑
+**用户目标**：在 `main + branch-only` 现行模型下，把 farm 的唯一 continuation branch 进一步收束为干净的 `1.0.2` 交付 carrier，并在完成后及时归还 shared root。  
+**本轮子任务 / 服务主线**：
+- 子任务：只做 branch 收口，不做新的农田功能开发，不进入 Unity/MCP，不新增热文件改动。
+- 服务主线：让农田系统当前唯一 continuation branch 具备稳定可接手、可回退、可继续分发的 checkpoint 形态。
+**已完成事项**：
+1. 复核当前 live 现场已不再使用历史 cleanroom worktree，而是在 shared root `D:\Unity\Unity_learning\Sunset` 的任务分支模式下续跑。
+2. 复核当前 active carrier 仍是：
+   - 分支 `codex/farm-1.0.2-cleanroom001`
+   - HEAD `e4ec0d8e44e59cce16c38b91784aa514a3d0e981`
+3. 确认本轮实际要收口的是两层内容：
+   - branch 中本就存在的 `1.0.2` farm 交付面
+   - 当前 working tree 中相对 branch HEAD 的 carrier 清洗恢复态（`AGENTS.md`、`scripts/git-safe-sync.ps1`）
+**关键结论**：
+- farm 当前唯一正确 continuation 口径没有变化，仍是 `codex/farm-1.0.2-cleanroom001`。
+- 本轮主线不是“证明 farm 是否还在”，而是把这个 continuation carrier 真正整理成只保留农田交付面的分支现场。
+**恢复点 / 下一步**：
+- 继续完成本轮白名单 sync 与 `return-main`；完成后 shared root 才算被正式归还。

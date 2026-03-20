@@ -125,3 +125,28 @@
 
 **恢复点 / 下一步**：
 - 先执行本轮 memory 的白名单 Git 收尾，形成 continuation branch checkpoint。
+
+### 2026-03-20 - batch03 交付面收口续跑
+**用户目标**：在 NPC 线程退场后继续执行农田 `1.0.2` 的真实业务批次收口，让本线程把 shared root 上的 continuation branch 收束到可直接验收、可直接回退的 checkpoint。  
+**当前主线目标**：
+- 主线仍是 `1.0.2纠正001` 的 continuation branch 收口，不是新的 farm 功能开发。
+**本轮子任务 / 服务对象**：
+- 子任务：在已成功 `request-branch -> ensure-branch` 进入 `codex/farm-1.0.2-cleanroom001` 后，完成 memory 回写、carrier 噪音清洗提交与 `return-main`。
+- 服务主线：把本线程当前持有的 shared root 分支占用一次性收口，避免继续占槽。
+**已完成事项**：
+1. 复核 live 现场：
+   - 工作目录 `D:\Unity\Unity_learning\Sunset`
+   - 分支 `codex/farm-1.0.2-cleanroom001`
+   - HEAD `e4ec0d8e44e59cce16c38b91784aa514a3d0e981`
+2. 复核 `git diff --name-status main...HEAD`，确认 branch 相对 `main` 的核心差异仍是农田 `1.0.2` 既有交付面，而不是新的混线内容。
+3. 复核当前 working tree 的 branch 噪音只剩：
+   - `AGENTS.md`
+   - `scripts/git-safe-sync.ps1`
+   - `.kiro/locks/shared-root-branch-occupancy.md`
+4. 已把 `AGENTS.md`、`scripts/git-safe-sync.ps1` 的内容恢复到 `main` 版本；它们当前仍显示为 `M`，原因是 branch HEAD 里带有旧版本，尚需一次新的 sync 把“恢复态”正式提交。
+**关键决策**：
+- 本轮不重新回到 smoke / hotfile 专项，不做新的业务实现。
+- 本轮优先走“真实 carrier 清洗 / 真实 checkpoint”路径，先把非热文件噪音从 continuation branch 清出。
+- 当前尚未触碰 `GameInputManager.cs` 热文件锁；本轮 hotfile 口径维持 `not-needed`。
+**恢复点 / 下一步**：
+- 继续按白名单提交四层 memory 与 `AGENTS.md` / `scripts/git-safe-sync.ps1` 的恢复改动；若 sync 成功，则立刻 `return-main` 并结束本轮占槽。

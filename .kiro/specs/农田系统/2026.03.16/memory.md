@@ -116,3 +116,27 @@
 
 **恢复点 / 下一步**：
 - 继续按白名单同步本轮 memory，形成 continuation branch checkpoint。
+
+### 2026-03-20 - batch03 交付面收口进入 branch 收束阶段
+**用户目标**：在 shared root 上续跑 `codex/farm-1.0.2-cleanroom001` 的 `1.0.2` 交付面收口，完成一次可直接回退的 branch-only checkpoint，并在完成后归还 `main`。  
+**本轮子任务 / 阻塞**：
+- 子任务：确认当前 farm continuation branch 的交付面与 branch 噪音边界，补记收口事实后执行白名单 sync。
+- 阻塞：若 `AGENTS.md` / `scripts/git-safe-sync.ps1` 的“恢复改动”不能通过允许路径带入 sync，则当前 carrier 无法在本轮完成净化收口。
+**已完成事项**：
+1. 复核 shared root 当前已由本线程合法持槽，occupancy 处于：
+   - `owner_mode = task-branch-active`
+   - `current_branch = codex/farm-1.0.2-cleanroom001`
+   - `owner_thread = 农田交互修复V2`
+2. 复核当前 continuation branch 的主交付内容仍然限定在：
+   - farm 8 个代码文件
+   - `2026.03.16/1.0.2纠正001` 四件正文
+   - 农田系统三层 / 线程记忆
+3. 复核 branch 噪音只剩：
+   - `AGENTS.md`
+   - `scripts/git-safe-sync.ps1`
+   其中二者的工作树内容已回对到 `main`，当前等待通过一次新的 sync 把这份“恢复态”真正固化到 branch 历史里。
+**关键结论**：
+- `2026.03.16` 层当前不再处于“继续分析实现是否存在”的阶段，而是在执行真实 branch 收束。
+- 本轮若 sync 成功，则本层会从“交付面已在位但 carrier 尚未净化”推进到“交付面已收口且可归还 shared root”。
+**恢复点 / 下一步**：
+- 继续执行白名单 sync；若被允许路径规则阻断，则按 `carrier-noise-cleanup-cannot-be-whitelisted` 停止汇报，不扩围到业务代码。
