@@ -748,3 +748,90 @@
   2. 只推进 `NPC / 农田` 是因为我把资源集中给了最高优先级业务线，不代表覆盖面已经合理。
   3. 后续若继续做测试，应把 `导航 / 遮挡 / spring-day1` 一起纳入。
   4. 后续若切真正开发，应改发具体业务开发 prompt，而不是继续探测。
+### 会话 27 - 2026-03-20（主线再锚定：当前仍是“交通系统可用 + 业务开发未全面发车”）
+**用户目标**：
+> 继续当前主线，不要漂移；直接进入复核并告诉我现在究竟做到哪、哪些内容只是测试、哪些线程还没真正进入开发。
+
+**本轮完成事项**
+1. 重新执行前置核查并显式命中：
+   - `skills-governor`
+   - `sunset-workspace-router`
+   以手工等价方式完成 Sunset 启动闸门与工作区定位。
+2. 复核 live 现场：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `git status --short --branch = ## main...origin/main`
+   - occupancy = `main + neutral`
+   - queue runtime 当前无活跃条目
+3. 回读 `共享根执行模型与吞吐重构` 根层记忆、批次 05/06 分发入口、批次 02 回收卡，确认：
+   - `smoke-test_01` 已完整闭环
+   - `真实开发准入批次_01 / 02` 已全部收口
+   - 但这些批次仍主要是准入、核验、收束，不是高密度业务实现
+4. 明确补正此前口径：
+   - 我最近确实还在做测试/护航主导，而不是你真正要的完整开发内容分发
+   - 之所以只持续推进 `NPC / 农田交互修复V2`，是因为它们被优先级前置，不代表其他线程已被同轮覆盖
+
+**关键决策**
+- 当前主线仍是“把共享根执行模型从可测试推进到可用于真实开发分发”。
+- 当前已经完成的是交通系统基础闭环与两条高优先级业务线的开发前收束。
+- 当前还没完成的是：
+  - 面向真实业务交付的 prompt 体系
+  - `导航 / 遮挡 / spring-day1` 的同轮覆盖策略
+
+**涉及文件**
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_05_真实开发准入批次_01.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-19_批次分发_06_真实开发准入批次_02.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_真实开发准入批次_02\线程回收\NPC_phase2集成清洗.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.19_真实开发准入批次_02\线程回收\农田交互修复V2_GameInputManager热文件专项.md`
+
+**验证结果**
+- live 仓库 clean
+- shared root neutral
+- queue 无残留 waiting / granted / task-active
+
+**遗留问题 / 下一步**
+- 如果继续做“交通系统覆盖测试”，应把 `导航检查 / 遮挡检查 / spring-day1` 纳入下一轮。
+- 如果切“真实开发”，下一步就不再发准入型 prompt，而是直接发业务交付型 prompt。
+
+## 会话 2026-03-20：从测试型分发切到真实业务开发批次 03
+**当前主线目标**
+- 沿 `Codex规则落地` 治理主线，把共享根执行模型真正切换到“能服务真实业务开发恢复”的阶段，而不是继续停留在 smoke / 准入 / 护航。
+
+**本轮子任务 / 阻塞**
+- 用户明确纠偏：此前批次 01/02 仍然偏测试和护航，真实开发必须开始。
+- 当前阻塞不是规则缺失，而是需要把分发内容改成真实业务开发口径，并在发出前把治理写脏的 `main` 收口回 clean。
+
+**本轮完成**
+- 已生成新的真实业务开发批次：
+  - 根层入口：`D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-20_批次分发_07_真实业务开发批次_03.md`
+  - 阶段目录：`D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.20_真实业务开发批次_03\`
+- 已生成两份真实业务开发 prompt：
+  - `NPC_phase2交付面收口.md`
+  - `农田交互修复V2_1.0.2交付面收口.md`
+- 这两份 prompt 均已写明：
+  - 具体业务目标
+  - 允许修改 / 保留范围
+  - 必须排除的治理噪音
+  - `request-branch -> ensure-branch -> sync -> return-main` 收口路径
+  - `农田` 的 `GameInputManager.cs` 热文件锁要求
+- 已同时建立固定回收卡，便于后续治理镜像收件。
+
+**关键决策**
+- 这轮不再继续包装“准入 / 核验 / carrier 收束”成真实开发，而是第一次直接发真实业务开发 prompt。
+- 当前仍优先恢复 `NPC / 农田交互修复V2`，其他线程不在本轮立刻发车。
+- 在把这轮治理改动 sync 回 `main` 之前，不能对用户谎称“现在已经可以直接分发”。
+
+**涉及文件 / 路径**
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-20_批次分发_07_真实业务开发批次_03.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.20_真实业务开发批次_03\可分发Prompt\NPC_phase2交付面收口.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.20_真实业务开发批次_03\可分发Prompt\农田交互修复V2_1.0.2交付面收口.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.20_真实业务开发批次_03\线程回收\NPC_phase2交付面收口.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\2026.03.20_真实业务开发批次_03\线程回收\农田交互修复V2_1.0.2交付面收口.md`
+
+**验证结果**
+- 已复核 current HEAD 为 `9f1dbafc`
+- 当前 still dirty 的来源是治理线程本轮新增的分发文件与记忆追加，不是业务线程残留占用
+
+**恢复点 / 下一步**
+- 下一步先执行治理 sync 收口，把 `main` 恢复到 clean。
+- 收口完成后，再把这轮批次正式交付用户群发。
