@@ -1281,3 +1281,38 @@
 - 同步后，对用户的正式口径就是：
   - 现在如果要发 shared root 第一条，就发 `NPC`
   - 如果要继续场景施工，`scene-build` 也可并行继续自己的 worktree 线
+
+## 2026-03-21｜scene-build 与 NPC 的当前 prompt 已按真实验收反馈更新
+**当前主线目标**
+- 不再沿用已经过时的“结构层继续施工 / NPC 当前开发放行”通用口径，而是把用户刚给出的真实验收反馈直接写进新 prompt。
+
+**本轮完成**
+1. 已基于 scene-build 最新回执与用户截图反馈，新增：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_恢复开发总控_01\可分发Prompt\scene-build_装饰层纠偏与Primary参考重做.md`
+2. 这份 prompt 已明确写死：
+   - 当前装饰层审美不达标
+   - 必须先只读学习 `Assets/000_Scenes/Primary.unity`
+   - 再重做 `Decor_Farmstead`
+   - 重点是整体组织、院落关系、留白、簇与环境叙事，而不是继续随手加道具
+3. 已基于 NPC 最新回执与用户图片反馈，新增：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_恢复开发总控_01\可分发Prompt\NPC_气泡位置碰撞体修正与下一步规划.md`
+4. 这份 prompt 已明确写死：
+   - 当前气泡仍压脸
+   - 位置与观感仍怪
+   - NPC 与玩家穿透问题必须纳入本轮
+   - 碰撞体应参考玩家，只保留合理下半身实体感
+   - 同时要求给出 `next_step_plan`
+   - 若修复离不开 Unity / MCP / prefab live 调参，则必须回 `needs-unity-window`
+5. 已同步更新：
+   - 总控文件中的当前推荐施工内容与当前 prompt 入口
+   - 批次入口文件中的对应路径
+
+**关键判断**
+- 这轮不是抽象改文案，而是把“你对结果不满意的点”直接变成下一轮线程的硬目标。
+- scene-build 和 NPC 现在都不该再按旧 prompt 继续，因为旧 prompt 没有把这次真实验收问题写进去。
+
+**恢复点 / 下一步**
+- 先把这轮新 prompt 与记忆同步进 `main`。
+- 同步后：
+  - scene-build 当前应发 `scene-build_装饰层纠偏与Primary参考重做.md`
+  - NPC 当前应发 `NPC_气泡位置碰撞体修正与下一步规划.md`
