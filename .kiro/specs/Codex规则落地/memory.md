@@ -2106,3 +2106,42 @@
 **恢复点 / 下一步**
 - 先做治理 `sync -Mode governance`，把第三轮样本修正收进口径层。
 - 收口后继续任务 `15`，优先找剩余 owner fallback 仍偏粗的路径。
+
+## 2026-03-21｜scene-build 底稿 v1 已形成干净 checkpoint，可继续结构层但仍未拿到 Unity live 验收
+**当前主线目标**
+- 在不介入 scene-build worktree 现场的前提下，只读裁定它这次 `地图底稿 v1` 回执是否已经达到“允许继续下一施工层”的条件。
+
+**本轮子任务 / 阻塞**
+- 用户贴来 scene-build 最新回执，要求我判断：
+  - 这次是不是已经形成了可信 checkpoint
+  - 下一步能不能从地图底稿继续进入 `结构层`
+
+**本轮完成**
+1. 已只读复核 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 的 live Git 现场：
+   - `branch = codex/scene-build-5.0.0-001`
+   - `HEAD = 7b92abe0`
+   - `origin/codex/scene-build-5.0.0-001` 已同步到同一提交
+   - `git status --short --branch` 为 clean
+2. 已核对其工作区文档落盘，确认这轮不是口头完成，而是已把：
+   - `SceneBuild_01` 的地图底稿 v1
+   - 底稿计数
+   - “MCP 仍未 live 验收，只能算 scene YAML 已落盘”的限制
+   写回到该 worktree 自己的 `tasks.md / memory.md / thread memory`
+3. 已明确保持边界：
+   - 我未进入该 worktree 改文件
+   - 我未处理 shared root 中残留的 `SceneBuild_01.unity`
+   - 我未把这轮判定升级成“Unity / Console 已通过”
+
+**关键决策**
+- 这次回执已经满足“可继续下一施工层”的最低治理条件，因为：
+  - worktree 内已有真实 Git checkpoint
+  - checkpoint 已推到远端
+  - 当前工作树 clean，可随时回到该基线
+- 但这仍然只是“场景 YAML / 资产层施工 checkpoint”，不是 Unity live 验收通过。
+- 因此我给出的正式口径是：
+  - 允许 scene-build 继续进入 `结构层`
+  - 但后续仍要把 `MCP / Console / Unity live` 缺失当成独立验证债，不得假装已经验收完成
+
+**恢复点 / 下一步**
+- scene-build 下一步可继续在同一 worktree 内做 `结构层`。
+- shared root 残留 `SceneBuild_01.unity` 仍保持单独待裁定，不混进这轮施工推进。

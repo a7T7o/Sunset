@@ -1413,3 +1413,40 @@
 **恢复点**
 - 先按治理白名单同步本轮脚本与记忆。
 - 同步后继续任务 `15`，优先看还有没有其他 owner fallback 需要收窄。
+
+## 会话 21 - 2026-03-21（scene-build 底稿 v1 回执已核对，可继续结构层）
+**当前主线目标**
+- 继续承担 Sunset 治理收件与裁定，不插手 scene-build 现场，只判断这次 `地图底稿 v1` 回执是否已经达到可继续下一层施工的条件。
+
+**本轮子任务 / 阻塞**
+- 用户贴来了 scene-build 最新回执，核心问题是：
+  - 这次是不是已经有真实 checkpoint
+  - 现在能不能直接放行到 `结构层`
+
+**本轮完成**
+1. 已只读复核 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`：
+   - `branch = codex/scene-build-5.0.0-001`
+   - `HEAD = 7b92abe0`
+   - upstream 已同步到 `origin/codex/scene-build-5.0.0-001`
+   - 当前 worktree clean
+2. 已核对该 worktree 自己的 `tasks.md / memory.md` 尾部，确认这轮确实已经把：
+   - 底稿 v1 落盘
+   - 底稿计数
+   - “MCP 仍未 live 验收”的限制
+   记进它自己的工作区文档
+3. 已形成治理裁定：
+   - 允许继续 `结构层`
+   - 但这仍只是 Git/YAML 级 checkpoint，不是 Unity live 通过
+   - shared root 残留 `SceneBuild_01.unity` 继续保持单独待治理，不混入本轮施工推进
+
+**关键决策**
+- 这次放行的依据不是“他说自己做完了”，而是：
+  - 有真实提交
+  - 已推送
+  - worktree clean
+  - 可随时从 `7b92abe0` 回到当前底稿基线
+- 因为 MCP 仍未正常工作，所以这次不能对外说“场景已 live 验收”，只能说“允许从稳定基线继续向结构层施工”。
+
+**恢复点**
+- 对用户的正式口径是：scene-build 可以继续做 `结构层`。
+- 我这边继续留在治理主线，不进入 scene-build worktree 施工。
