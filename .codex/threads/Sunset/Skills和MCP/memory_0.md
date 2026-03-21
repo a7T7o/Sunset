@@ -531,3 +531,41 @@
 **恢复点 / 下一步**：
 - 下一步直接进入装饰层最小版本。
 - 等装饰层和逻辑层完成后，再统一补 Unity live / Console / MCP 验证闭环。
+
+### 会话 18 - 2026-03-21（用户重开 Unity 侧 MCP 后，线程继续以 YAML 兜底完成装饰层最小版本）
+
+**用户目标**：
+- 用户已重新打开 Unity 侧 MCP，希望我先核实当前状态；主线仍然不是回去做 Skills / MCP 治理，而是继续在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 内推进 `SceneBuild_01` 的场景搭建。
+
+**本轮子任务 / 阻塞**：
+- 子任务：确认 Unity 侧 MCP 是否真的恢复，并在不冒充 Unity live 验收通过的前提下继续完成装饰层最小版本。
+- 阻塞：当前 Codex 会话里的 Unity MCP 工具仍没有真正连到本地 Unity 会话。
+
+**已完成事项**：
+1. 只读确认 `C:\Users\aTo\.codex\config.toml` 里的 `unityMCP` 仍指向 `http://127.0.0.1:8888/mcp`。
+2. 只读确认 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Library\MCPForUnity\TerminalScripts\mcp-terminal.cmd` 当前确实以 `mcpforunityserver==9.5.3` 在本地启动 HTTP Server。
+3. 只读确认 `127.0.0.1:8888/mcp` 已返回 MCP 协议级错误而非静态网页，说明 Unity 本地服务已经活着。
+4. 但这条 Codex 会话的 `unityMCP` 调用仍然回 `Sub2API` HTML，`mcp__mcp_unity__*` 仍报 `Connection failed: Unknown error`，所以本轮继续保持 Scene YAML 兜底，而不是切回 Unity live 施工。
+5. 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 中新增 `Decor_Farmstead` 与 7 个纯视觉装饰对象，完成装饰层最小版本。
+
+**关键决策**：
+- 当前应把“Unity 本地服务是否存活”与“这条 Codex 会话是否已经真正接上 live”分开表述：
+  - 前者：已活；
+  - 后者：仍未恢复。
+- 因此场景主线继续推进可以靠 YAML 兜底，但任何 Unity live 验证、Console 闭环、MCP 自动回读都仍不能冒充已恢复。
+
+**涉及文件 / 路径**：
+- `C:\Users\aTo\.codex\config.toml`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Library\MCPForUnity\TerminalScripts\mcp-terminal.cmd`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\tasks.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\memory.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\memory.md`
+
+**验证结果**：
+- 文件级回读确认 `Decor_Farmstead` 及其 7 个子对象都已写入 scene YAML，新增 `fileID` 唯一。
+- 当前 `git status` 仅包含 `Assets/000_Scenes/SceneBuild_01.unity` 与本轮文档/记忆改动。
+
+**恢复点 / 下一步**：
+- 主线恢复点：`SceneBuild_01` 已完成骨架、底稿、结构层、装饰层最小版本。
+- 下一步：如果继续施工，则进入逻辑层最小版本；如果优先恢复验证闭环，则先处理当前 Codex 会话的 Unity / MCP 路由问题。

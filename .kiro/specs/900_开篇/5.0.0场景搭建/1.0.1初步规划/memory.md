@@ -499,3 +499,41 @@
 **恢复点 / 下一步**：
 - 主线恢复点已从“继续做结构层”推进到“进入装饰层最小版本”。
 - 下一步最小动作是继续补装饰层：植被、小物件与中景节奏；之后再集中处理逻辑层与 Unity live 验证。
+
+### 会话 18 - 2026-03-21（装饰层最小版本完成，Unity 本地 MCP 已活但当前 Codex 会话仍未回正）
+
+**用户需求**：
+> 用户重新开启 Unity 侧 MCP，希望确认当前状态；主线仍是继续 `SceneBuild_01` 的装饰层，边界保持在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 内、最小真实推进、不宣称 Unity live 验收通过。
+
+**完成任务**：
+1. 按 `skills-governor + sunset-workspace-router + sunset-scene-audit + sunset-unity-validation-loop` 继续做手工等价闸门，确认当前现场仍是 `codex/scene-build-5.0.0-001 @ 11d99609`。
+2. 回读 `C:\Users\aTo\.codex\config.toml` 与 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Library\MCPForUnity\TerminalScripts\mcp-terminal.cmd`，确认 Unity 本地 HTTP MCP 服务确实配置为 `http://127.0.0.1:8888/mcp`。
+3. 通过本机只读探测确认：
+   - `127.0.0.1:8888` 当前由本地 `python` 进程监听；
+   - 直接访问 `http://127.0.0.1:8888/mcp` 已返回 MCP 协议级错误，说明 Unity 侧本地服务本身已活。
+4. 但当前 Codex 会话里的 `unityMCP` 工具仍返回 `Sub2API` HTML，`mcp__mcp_unity__*` 仍返回 `Connection failed: Unknown error`；因此本轮不升级到 Unity / MCP live 写态或 live 验证，继续遵守用户口径走 Scene YAML 兜底。
+5. 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 的 `SceneRoot/PrefabSetDress` 下新增 `Decor_Farmstead`，落入 7 个纯视觉装饰对象：
+   - `Decor_Tree_WestBig_01`
+   - `Decor_Sapling_SouthWest_01`
+   - `Decor_Sapling_NorthEast_01`
+   - `Decor_Rock_NorthWest_01`
+   - `Decor_Rock_SouthEast_01`
+   - `Decor_Prop_Yard_01`
+   - `Decor_Prop_Yard_02`
+6. 本轮装饰层明确只使用 `Transform + SpriteRenderer`，不带脚本、不带 Collider，避免提前越界到逻辑层。
+7. 文件级回读已确认：
+   - `PrefabSetDress` 已新增子挂点 `Decor_Farmstead`
+   - 7 个装饰对象均挂在 `Decor_Farmstead` 下
+   - 新增 `fileID` 全部唯一
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\tasks.md`
+
+**关键结论**：
+- Unity 侧本地 MCP Server 已经活起来，但“当前这条 Codex 会话”仍没有真正吃到正确的 Unity live 路由，所以当前最准确的口径仍然是：**本地服务正常，当前会话工具仍未回正**。
+- `SceneBuild_01` 的装饰层最小版本已经在 worktree 内稳定落地，且没有越界去碰 shared root，也没有冒充 Unity live 验收结论。
+
+**恢复点 / 下一步**：
+- 主线恢复点已从“继续做装饰层”推进到“进入逻辑层最小版本，或先修当前 Codex 会话的 Unity / MCP live 路由”。
+- 如果下一轮仍按当前边界继续施工，最小动作就是补逻辑层（碰撞 / 遮挡 / 锚点）；如果你要求先闭合 live 验证，则应先处理当前 Codex 会话的 MCP 路由问题。

@@ -38,7 +38,7 @@
 - [x] 7. 在 worktree 对应的合法 Unity 现场中，创建 `SceneBuild_01` 的最小 scene 骨架与 `Grid + Tilemaps`
 - [x] 8. 完成地图底稿：地表、道路、水体或高差构图
 - [x] 9. 完成结构层：建筑、边界、围栏、入口和主视觉模块
-- [ ] 10. 完成装饰层：植被、小物件、中景节奏和空间填充
+- [x] 10. 完成装饰层：植被、小物件、中景节奏和空间填充
 - [ ] 11. 完成逻辑层：碰撞、遮挡、锚点与必要辅助层
 - [ ] 12. 用一轮 MCP / Console / 层级回读完成施工自检
 - [ ] 13. 交付可继续精修的高质量场景初稿
@@ -80,7 +80,7 @@
 - [x] 2. 在独立 scene 中搭建 `Grid + Tilemap` 基础骨架
 - [x] 3. 完成地图底稿：地表、道路、水体或高差构图
 - [x] 4. 完成结构层：建筑、边界、围栏、入口和主视觉模块
-- [ ] 5. 完成装饰层：植被、小物件、中景节奏和空间填充
+- [x] 5. 完成装饰层：植被、小物件、中景节奏和空间填充
 - [ ] 6. 完成逻辑层：碰撞、遮挡、锚点与必要辅助层
 - [ ] 7. 通过 MCP / Console / 层级回读完成一轮施工自检
 - [ ] 8. 交付可继续精修的高质量场景初稿
@@ -101,3 +101,11 @@
 - [x] 3. 新增 `Fence_North_01 / Fence_North_02 / Fence_South_01 / Fence_South_02 / Fence_East_Lower / Fence_East_Upper`，完成东侧院落边界与入口
 - [x] 4. 文件级回读已确认：新对象均挂在 `PrefabSetDress` 下，`fileID` 唯一，父子引用完整
 - [ ] 5. 下一步进入装饰层前，仍待 Unity live / Console / MCP 自检恢复
+
+## 装饰层最小收口（2026-03-21）
+
+- [x] 1. 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 的 `SceneRoot/PrefabSetDress` 下新增 `Decor_Farmstead`
+- [x] 2. 本轮仅补纯视觉装饰对象：`Decor_Tree_WestBig_01 / Decor_Sapling_SouthWest_01 / Decor_Sapling_NorthEast_01 / Decor_Rock_NorthWest_01 / Decor_Rock_SouthEast_01 / Decor_Prop_Yard_01 / Decor_Prop_Yard_02`
+- [x] 3. 装饰层继续遵守 Scene YAML 兜底口径：不带脚本、不带 Collider、不宣称 Unity live 验收通过
+- [x] 4. 文件级回读已确认：`Decor_Farmstead` 已挂在 `PrefabSetDress` 下，7 个装饰对象父子引用完整，新增 `fileID` 唯一
+- [ ] 5. 下一步进入逻辑层前，仍待当前 Codex 会话的 Unity / MCP live 路由恢复

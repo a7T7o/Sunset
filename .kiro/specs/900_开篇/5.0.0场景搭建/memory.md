@@ -322,3 +322,11 @@
 
 **恢复点 / 下一步**：
 - 后续继续由子工作区承接装饰层最小版本：先补植被、中景小件与空间节奏，再决定是否进入逻辑层。
+
+### 2026-03-21（装饰层最小版本已落地，当前 Codex 会话的 Unity live 仍未恢复）
+
+- 子工作区 `1.0.1初步规划` 已继续把 `SceneBuild_01` 从结构层推进到装饰层最小版本。
+- 本轮在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 的 `SceneRoot/PrefabSetDress` 下新增 `Decor_Farmstead`，落入 7 个纯视觉装饰对象（树 / 苗木 / 石头 / 小物件）。
+- 本轮没有进入 Unity / MCP live 写态；原因不是 Unity 侧 HTTP MCP 没起，而是当前 Codex 会话里的 `unityMCP` 仍误回 `Sub2API` HTML，旧 `mcp_unity` 仍报 `Connection failed: Unknown error`。
+- 因此当前最稳的项目口径仍然是：`SceneBuild_01` 已完成骨架、底稿、结构层、装饰层最小版本；Unity live 验证链仍待当前会话路由恢复后再补。
+- 后续最小恢复点：进入逻辑层最小版本，或先修这条 Codex 会话的 Unity / MCP 路由，再做 live 自检。
