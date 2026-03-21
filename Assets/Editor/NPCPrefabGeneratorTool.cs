@@ -732,9 +732,11 @@ public class NPCPrefabGeneratorTool : EditorWindow
             sortingOrder.useSpriteBounds = true;
             sortingOrder.autoHandleShadow = true;
 
-            CircleCollider2D circleCollider = root.AddComponent<CircleCollider2D>();
-            circleCollider.isTrigger = true;
-            ConfigureCollider(circleCollider, initialSprite);
+            BoxCollider2D boxCollider = root.AddComponent<BoxCollider2D>();
+            ConfigureCollider(boxCollider, initialSprite);
+
+            Rigidbody2D rigidbody2D = root.AddComponent<Rigidbody2D>();
+            ConfigureRigidbody(rigidbody2D);
 
             NPCAnimController animController = root.AddComponent<NPCAnimController>();
             animController.SetAnimationSpeed(defaultIdleAnimationSpeed, defaultMoveAnimationSpeed);
@@ -765,14 +767,26 @@ public class NPCPrefabGeneratorTool : EditorWindow
         return task.SpritesByDirection[TemplateDirection.Down][IdleFrameIndex];
     }
 
-    private void ConfigureCollider(CircleCollider2D circleCollider, Sprite sprite)
+    private void ConfigureCollider(BoxCollider2D boxCollider, Sprite sprite)
     {
         Bounds bounds = sprite.bounds;
-        float radius = Mathf.Clamp(bounds.size.x * 0.35f, 0.18f, 0.75f);
-        Vector2 offset = new Vector2(bounds.center.x, bounds.min.y + radius);
+        float colliderWidth = Mathf.Clamp(bounds.size.x * 0.44f, 0.32f, Mathf.Max(0.36f, bounds.size.x * 0.72f));
+        float colliderHeight = Mathf.Clamp(bounds.size.y * 0.34f, 0.28f, Mathf.Max(0.34f, bounds.size.y * 0.46f));
+        float bottomInset = Mathf.Clamp(bounds.size.y * 0.06f, 0.02f, 0.12f);
 
-        circleCollider.radius = radius;
-        circleCollider.offset = offset;
+        boxCollider.size = new Vector2(colliderWidth, colliderHeight);
+        boxCollider.offset = new Vector2(bounds.center.x, bounds.min.y + bottomInset + (colliderHeight * 0.5f));
+        boxCollider.isTrigger = false;
+    }
+
+    private void ConfigureRigidbody(Rigidbody2D rigidbody2D)
+    {
+        rigidbody2D.bodyType = RigidbodyType2D.Dynamic;
+        rigidbody2D.gravityScale = 0f;
+        rigidbody2D.linearDamping = 0f;
+        rigidbody2D.angularDamping = 0.05f;
+        rigidbody2D.constraints = RigidbodyConstraints2D.FreezeRotation;
+        rigidbody2D.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
     }
 
     private void SetPrivateBoolField(UnityEngine.Object target, string fieldName, bool value)

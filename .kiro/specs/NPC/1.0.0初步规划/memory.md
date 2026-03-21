@@ -361,3 +361,33 @@
 
 **当前恢复点**:
 - 子工作区当前新增了一次真实的 UI 表现层 checkpoint，下一步是按白名单同步 `NPCBubblePresenter.cs` 与三层 memory，然后立刻 `return-main`。
+
+---
+
+### 会话 17 - 2026-03-21
+
+**用户需求**:
+> 继续执行 `NPC_气泡位置碰撞体修正与下一步规划` 这轮 prompt，在不扩新功能、不进入 Unity / MCP / Play 的前提下，把 NPC 气泡位置和 NPC 实体碰撞链路一次收到真正可手测的状态，同时把气泡再做得更自然一些。
+**完成任务**:
+1. 回读 `NPCBubblePresenter.cs`、`NPCAutoRoamController.cs`、`NPCPrefabGeneratorTool.cs` 以及 `001/002/003.prefab`，确认当前真实问题是“气泡旧序列化值仍在覆盖新版默认值，碰撞体仍是 trigger 圆形导致 NPC 与玩家可穿透”。
+2. 更新 `NPCBubblePresenter`：样式版本提升到 `CurrentStyleVersion = 4`，新增按气泡真实底边计算的头顶净空高度，并同步微调 padding、尾巴、显隐时长和轻微浮动，让气泡不再贴脸。
+3. 更新 `NPCAutoRoamController`：新增 `Rigidbody2D` 引用，移动时优先走 `rb.MovePosition(...)`，保留 transform fallback，让实体碰撞体真正参与阻挡。
+4. 更新 `NPCPrefabGeneratorTool.cs`：新生成的 NPC prefab 不再使用 `CircleCollider2D + isTrigger=true`，统一改成“下半身 `BoxCollider2D` + `Rigidbody2D`（重力 0、冻结旋转）”。
+5. 直接同步 `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab`：旧 `CircleCollider2D` 改成实体 `BoxCollider2D`，新增 `Rigidbody2D`，同时把 `NPCBubblePresenter` 旧值改成新版默认值，并写入 `styleVersion: 4`，避免继续依赖运行时升级。
+6. 本轮验证仅使用 `git diff --check` 做纯 Git 静态自检，确认 patch 没有格式问题；真实的气泡观感与不穿透效果仍需后续 Unity 手测窗口确认。
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+- `Assets/Editor/NPCPrefabGeneratorTool.cs`
+- `Assets/222_Prefabs/NPC/001.prefab`
+- `Assets/222_Prefabs/NPC/002.prefab`
+- `Assets/222_Prefabs/NPC/003.prefab`
+
+**关键结论**:
+- 这轮不是再加新行为，而是把 V1 已能跑起来的 NPC 表现层和实体阻挡链路收回一个更接近 main-ready 的候选状态：气泡不该再压脸，NPC 也不该继续是 trigger 圆身子。
+- 代码层、生成器层、现有 prefab 层现在已经统一对齐到同一套碰撞与气泡口径，后续不会再出现“新生成是 A，旧 prefab 还是 B”的双轨状态。
+- 当前仍未闭环的只剩 Unity 手测：要看气泡是否仍压脸，以及玩家/NPC、NPC/NPC 是否还会互相穿透。
+
+**当前恢复点**:
+- 子工作区当前已完成“气泡位置 + 实体碰撞体 + 生成器链路 + 现有 prefabs 同步”的静态 checkpoint。
+- 下一步是按白名单同步本轮改动和三层 memory，然后 `return-main`；若继续推进，最小动作就是申请一次 Unity 手测窗口验证气泡观感与不穿透效果。

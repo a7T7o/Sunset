@@ -323,3 +323,29 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 
 **当前恢复点**:
 - 父工作区现在已经记录了这次 UI 表现层收口；下一步是白名单同步本轮代码与记忆，然后 `return-main`，把 shared root 归还给默认入口模式。
+
+---
+
+### 会话 17 - 2026-03-21
+
+**用户需求**:
+> 在当前 `codex/npc-roam-phase2-003` 窗口内继续执行 NPC 气泡位置与碰撞体修正，不扩新功能，只做一次真正可交付前的收口 checkpoint。
+**完成任务**:
+1. 确认本轮主线仍是 NPC V1 体验收口，而不是切换到新系统开发。
+2. 将 `NPCBubblePresenter`、`NPCAutoRoamController`、`NPCPrefabGeneratorTool` 与 `001/002/003.prefab` 一起对齐：气泡按真实底边抬高，NPC 改为下半身实体 `BoxCollider2D + Rigidbody2D`，现有 prefab 与生成器口径统一。
+3. 用 `git diff --check` 完成静态自检，本轮仍未把 Unity 观感手测写成已验证事实。
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+- `Assets/Editor/NPCPrefabGeneratorTool.cs`
+- `Assets/222_Prefabs/NPC/001.prefab`
+- `Assets/222_Prefabs/NPC/002.prefab`
+- `Assets/222_Prefabs/NPC/003.prefab`
+
+**关键结论**:
+- NPC 这条线当前已从“只修气泡表现”推进到“气泡表现 + 实体碰撞链路 + 新旧 prefab/生成器统一收口”的更完整 checkpoint。
+- 当前最小剩余缺口不是代码，而是一次安全的 Unity 手测窗口，用来验证真实 GameView 下的气泡位置和玩家/NPC、NPC/NPC 不穿透效果。
+
+**当前恢复点**:
+- 父工作区现在可以把这轮判断写实为：NPC V1 的静态交付面已进一步收口，但 main-ready 仍取决于后续 Unity 手测证据。
+- 后续若继续推进，优先级最高的不是加新行为，而是验证这轮碰撞体与气泡在主项目里的真实观感。

@@ -37,6 +37,7 @@ public class NPCAutoRoamController : MonoBehaviour
     [Header("组件引用")]
     [SerializeField] private NPCMotionController motionController;
     [SerializeField] private NPCBubblePresenter bubblePresenter;
+    [SerializeField] private Rigidbody2D rb;
     [SerializeField] private NavGrid2D navGrid;
     [SerializeField] private Transform homeAnchor;
     [SerializeField] private NPCRoamProfile roamProfile;
@@ -348,6 +349,11 @@ public class NPCAutoRoamController : MonoBehaviour
             bubblePresenter = GetComponent<NPCBubblePresenter>();
         }
 
+        if (rb == null)
+        {
+            rb = GetComponent<Rigidbody2D>();
+        }
+
         if (navGrid == null)
         {
             navGrid = FindFirstObjectByType<NavGrid2D>();
@@ -427,7 +433,14 @@ public class NPCAutoRoamController : MonoBehaviour
         Vector2 velocity = (nextPosition - currentPosition) / deltaTime;
 
         motionController.SetExternalVelocity(velocity);
-        transform.position = new Vector3(nextPosition.x, nextPosition.y, transform.position.z);
+        if (rb != null)
+        {
+            rb.MovePosition(nextPosition);
+        }
+        else
+        {
+            transform.position = new Vector3(nextPosition.x, nextPosition.y, transform.position.z);
+        }
     }
 
     private void TickLongPause()

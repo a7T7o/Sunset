@@ -10,7 +10,7 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class NPCBubblePresenter : MonoBehaviour
 {
-    private const int CurrentStyleVersion = 3;
+    private const int CurrentStyleVersion = 4;
 
     private static readonly string[] PreferredFontResourcePaths =
     {
@@ -92,6 +92,7 @@ public class NPCBubblePresenter : MonoBehaviour
     private TextMeshProUGUI _bubbleText;
     private Coroutine _hideCoroutine;
     private Coroutine _visibilityCoroutine;
+    private float _lowestVisibleLocalY;
 
     public bool IsBubbleVisible => _canvas != null && _canvas.gameObject.activeSelf;
     public string CurrentBubbleText => IsBubbleVisible && _bubbleText != null ? _bubbleText.text : string.Empty;
@@ -144,9 +145,9 @@ public class NPCBubblePresenter : MonoBehaviour
 
         if (_canvas != null)
         {
-            SyncCanvasTransform();
             UpdateStyleVisuals();
             UpdateLayout();
+            SyncCanvasTransform();
         }
     }
 
@@ -202,6 +203,7 @@ public class NPCBubblePresenter : MonoBehaviour
         _bubbleText.text = content.Trim();
         UpdateStyleVisuals();
         UpdateLayout();
+        SyncCanvasTransform();
         StartVisibilityAnimation(visible: true, deactivateAfter: false);
 
         if (duration > 0f)
@@ -287,27 +289,27 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private void ApplyCurrentStylePreset()
     {
-        bubbleLocalOffset = new Vector3(0f, 1.36f, 0f);
-        bubblePadding = new Vector2(34f, 22f);
+        bubbleLocalOffset = new Vector3(0f, 1.52f, 0f);
+        bubblePadding = new Vector2(32f, 20f);
         bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
         bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
         bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
         textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
         textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
-        fontSize = 22f;
+        fontSize = 21f;
         textOutlineWidth = 0.18f;
-        maxTextWidth = 244f;
+        maxTextWidth = 232f;
         borderThickness = 6f;
-        tailSize = new Vector2(24f, 14f);
-        tailYOffset = -3f;
-        shadowOffset = new Vector2(4f, -6f);
-        minBubbleHeight = 1.28f;
-        bubbleGapAboveRenderer = 0.34f;
-        visibleFloatAmplitude = 0.035f;
-        visibleFloatFrequency = 2.2f;
-        showDuration = 0.16f;
-        hideDuration = 0.12f;
-        showScaleOvershoot = 0.08f;
+        tailSize = new Vector2(22f, 12f);
+        tailYOffset = -2f;
+        shadowOffset = new Vector2(3f, -5f);
+        minBubbleHeight = 1.34f;
+        bubbleGapAboveRenderer = 0.2f;
+        visibleFloatAmplitude = 0.028f;
+        visibleFloatFrequency = 1.85f;
+        showDuration = 0.15f;
+        hideDuration = 0.1f;
+        showScaleOvershoot = 0.06f;
     }
 
     private void EnsureBubbleUi()
@@ -479,6 +481,10 @@ public class NPCBubblePresenter : MonoBehaviour
         SetRect(_fillTailRect, fillTailSize, tailPosition + (Vector2.up * 0.75f));
         SetRect(_bubbleText.rectTransform, preferredSize, bodyPosition);
 
+        _lowestVisibleLocalY = Mathf.Min(
+            bodyPosition.y - (bodySize.y * 0.5f),
+            tailPosition.y - (tailSize.y * 0.5f));
+
         float canvasWidth = bodySize.x + Mathf.Abs(shadowOffset.x) + 18f;
         float canvasHeight = bodySize.y + tailSize.y + Mathf.Abs(tailYOffset) + Mathf.Abs(shadowOffset.y) + 20f;
         Vector2 canvasSize = new Vector2(canvasWidth, canvasHeight);
@@ -626,7 +632,10 @@ public class NPCBubblePresenter : MonoBehaviour
             Bounds rendererBounds = targetRenderer.bounds;
             Vector3 rendererTopLocal =
                 transform.InverseTransformPoint(rendererBounds.center + (Vector3.up * rendererBounds.extents.y));
-            resolvedOffset.y = Mathf.Max(resolvedOffset.y, rendererTopLocal.y + bubbleGapAboveRenderer);
+            float lowestVisibleWorldY = _lowestVisibleLocalY * bubbleLocalScale.y;
+            resolvedOffset.y = Mathf.Max(
+                resolvedOffset.y,
+                rendererTopLocal.y + bubbleGapAboveRenderer - lowestVisibleWorldY);
         }
 
         if (Application.isPlaying && IsBubbleVisible)
