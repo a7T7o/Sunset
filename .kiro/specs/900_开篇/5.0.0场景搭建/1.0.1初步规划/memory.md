@@ -451,3 +451,51 @@
 - [ ] ???? Unity live / Console / PlayMode ????????? YAML ???????? Editor ??????
 - [ ] `shared root` ??? `SceneBuild_01.unity` ???????????????
 - [ ] ?????????? v1???????????????? Grid checkpoint?
+
+### 会话 13 - 2026-03-21（结构层最小版本完成）
+
+**用户需求**：
+> 继续做 `结构层`。当前 `7b92abe0` 已经是稳定 checkpoint，你就在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 里继续推进；这轮口径仍然只是施工推进，不是 Unity live 验收通过，也不要碰 shared root 残留。做完结构层后，再按“最小 checkpoint + clean + 回执”回来。
+
+**当前主线目标**：
+- 在专属 worktree 的 `SceneBuild_01` 内继续场景搭建主线，从“地图底稿 v1”推进到“结构层最小版本”，仍不宣称 Unity live 验收通过。
+
+**本轮子任务 / 阻塞**：
+- 子任务是完成结构层里的主建筑、边界、围栏、入口和主视觉模块。
+- 阻塞没有来自 Git 现场，而是 `unityMCP` 仍被错误路由到 `Sub2API` HTML，无法依赖 Unity live 写入或回读，所以本轮继续走 Scene YAML 兜底。
+
+**完成任务**：
+1. 先做等价前置核查，确认当前现场仍是：
+   - `cwd = D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - `branch = codex/scene-build-5.0.0-001`
+   - `HEAD = 7b92abe0`
+2. 只读复核结构层资产入口与样本：
+   - `Assets\222_Prefabs\House\House 3_0.prefab`
+   - `Assets\222_Prefabs\Farm\T\Farm_27.prefab`
+   - `Assets\222_Prefabs\Farm\T\Farm_28.prefab`
+   - `Assets\222_Prefabs\Farm\T\Farm_29.prefab`
+3. 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 内完成结构层最小写入：
+   - 在 `SceneRoot/PrefabSetDress` 下新增 `Structure_Farmstead`
+   - 新增主建筑 `Structure_House_Main`
+   - 新增围栏与入口：`Fence_North_01 / Fence_North_02 / Fence_South_01 / Fence_South_02 / Fence_East_Lower / Fence_East_Upper`
+4. 主建筑方案采用 `House 3_0` 的 Sprite + PolygonCollider；围栏方案采用 `Farm/T` 的横段与竖段 prefab 序列化参数直接落入 scene。
+5. 文件级回读已确认：
+   - `PrefabSetDress` 已包含 `Structure_Farmstead`
+   - `Structure_Farmstead` 已包含 7 个子物件
+   - 新增对象的 `fileID` 唯一
+   - 所有 `m_Father` 引用均指向存在的 Transform
+6. 本轮没有进入 Unity live 验收，也没有处理 shared root 残留。
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` - [修改]：追加结构层最小版本的主建筑、围栏与入口。
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\tasks.md` - [修改]：将“地图底稿 / 结构层”标记为完成，并追加结构层最小收口清单。
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\memory.md` - [追加]：记录本轮结构层施工、MCP 失败口径与恢复点。
+
+**关键结论**：
+- 结构层最小版本已经在 worktree 内落地，当前 `SceneBuild_01` 不再只有骨架和底稿，也已经具备第一批结构视觉锚点。
+- 本轮的“结构层完成”是施工推进结论，不是 Unity live / Console / PlayMode 闭环结论。
+- MCP 传输失败仍然是独立工具债务；它没有阻止本轮 Scene YAML 落地，但它仍阻断 Unity 侧自动验证闭环。
+
+**恢复点 / 下一步**：
+- 主线恢复点已从“继续做结构层”推进到“进入装饰层最小版本”。
+- 下一步最小动作是继续补装饰层：植被、小物件与中景节奏；之后再集中处理逻辑层与 Unity live 验证。

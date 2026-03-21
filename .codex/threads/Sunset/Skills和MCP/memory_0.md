@@ -490,3 +490,44 @@
 - ???????? Unity live ????? YAML ??????????????????????Editor ??????????????????
 **??? / ???**?
 - ????????????????? worktree ??? `???` ???????????????????????MCP ???????? / Unity live ??????
+
+### 会话 17 - 2026-03-21（结构层最小版本完成，主线恢复到装饰层）
+
+**用户需求**：
+> 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 内继续推进 `结构层`，做完后按“最小 checkpoint + clean + 回执”回来。
+
+**当前主线目标**：
+- 线程职责已从早期的 Skills / MCP 治理线稳定迁移为“场景搭建”，当前主线是继续完成 `SceneBuild_01` 的场景初稿。
+
+**本轮子任务 / 阻塞**：
+- 子任务：完成结构层最小版本。
+- 阻塞：`unityMCP` 仍返回 `Sub2API` HTML，无法做稳定 Unity live 写入与验证，所以改用 Scene YAML 兜底。
+
+**完成任务**：
+1. 在 worktree 现场确认：
+   - `cwd = D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - `branch = codex/scene-build-5.0.0-001`
+   - `HEAD = 7b92abe0`
+2. 完成结构层最小写入：
+   - `Structure_Farmstead`
+   - `Structure_House_Main`
+   - `Fence_North_01 / Fence_North_02 / Fence_South_01 / Fence_South_02 / Fence_East_Lower / Fence_East_Upper`
+3. 文件级回读确认：
+   - 新对象全部挂在 `SceneRoot/PrefabSetDress`
+   - `fileID` 唯一
+   - 父子引用完整
+4. 本轮没有触碰 shared root 残留，也没有宣称 Unity live 验收通过。
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\tasks.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\memory.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\memory.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\Skills和MCP\memory_0.md`
+
+**关键决策**：
+- 当前结构层不再强绑 `TM_Structure_Back / TM_Structure_Front`，而是优先使用 `PrefabSetDress` 承载主建筑与围栏院落，理由是：MCP 不稳时这条 YAML 路线更可控，也更容易在后续装饰层继续扩写。
+
+**恢复点 / 下一步**：
+- 下一步直接进入装饰层最小版本。
+- 等装饰层和逻辑层完成后，再统一补 Unity live / Console / MCP 验证闭环。

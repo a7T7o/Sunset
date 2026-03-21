@@ -296,3 +296,29 @@
 - ????????????????? Unity live ???MCP ?????????????????? Editor ?????????????
 **??? / ???**?
 - ??????????? `???` ???????shared root ????????????????
+
+### 会话 17 - 2026-03-21（父工作区确认结构层最小版本已完成）
+
+**用户需求**：
+> 继续做 `结构层`，但口径仍是施工推进，不是 Unity live 验收通过，也不要碰 shared root 残留。
+
+**完成任务**：
+1. 子工作区在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 内继续推进 `SceneBuild_01`，没有回 shared root。
+2. 由于 `unityMCP` 仍被错误路由到 `Sub2API` HTML，本轮继续采用 Scene YAML 兜底，不依赖 Unity live 写入。
+3. 子工作区已在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 的 `SceneRoot/PrefabSetDress` 下新增：
+   - `Structure_Farmstead`
+   - `Structure_House_Main`
+   - `Fence_North_01 / Fence_North_02 / Fence_South_01 / Fence_South_02 / Fence_East_Lower / Fence_East_Upper`
+4. 文件级回读已确认：
+   - 新对象均挂在 `PrefabSetDress` 下
+   - 父子引用完整
+   - `fileID` 唯一
+   - 当前 dirty 仅来自本 worktree 的 `SceneBuild_01.unity` 与记忆 / 任务同步
+
+**关键结论**：
+- 父工作区当前状态已从“地图底稿完成、等待结构层”推进到“结构层最小版本完成、等待装饰层”。
+- 当前仍不能把这轮成果表述为 Unity live 验收通过；它只是结构层施工完成。
+- shared root 的历史残留没有被本轮触碰，仍保持独立治理议题。
+
+**恢复点 / 下一步**：
+- 后续继续由子工作区承接装饰层最小版本：先补植被、中景小件与空间节奏，再决定是否进入逻辑层。

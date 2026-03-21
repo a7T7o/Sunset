@@ -36,8 +36,8 @@
 - [x] 5. 修正 Unity / MCP 当前连接根目录：已确认当前 `projectRoot = D:/Unity/Unity_learning/Sunset_worktrees/scene-build-5.0.0-001`
 - [ ] 6. 处理本次误写到 shared root 的 `SceneBuild_01` 错位资产，再恢复到合法施工现场
 - [x] 7. 在 worktree 对应的合法 Unity 现场中，创建 `SceneBuild_01` 的最小 scene 骨架与 `Grid + Tilemaps`
-- [ ] 8. 完成地图底稿：地表、道路、水体或高差构图
-- [ ] 9. 完成结构层：建筑、边界、围栏、入口和主视觉模块
+- [x] 8. 完成地图底稿：地表、道路、水体或高差构图
+- [x] 9. 完成结构层：建筑、边界、围栏、入口和主视觉模块
 - [ ] 10. 完成装饰层：植被、小物件、中景节奏和空间填充
 - [ ] 11. 完成逻辑层：碰撞、遮挡、锚点与必要辅助层
 - [ ] 12. 用一轮 MCP / Console / 层级回读完成施工自检
@@ -78,8 +78,8 @@
 
 - [x] 1. 完成独立新 scene 的命名、路径与最小创建方案
 - [x] 2. 在独立 scene 中搭建 `Grid + Tilemap` 基础骨架
-- [ ] 3. 完成地图底稿：地表、道路、水体或高差构图
-- [ ] 4. 完成结构层：建筑、边界、围栏、入口和主视觉模块
+- [x] 3. 完成地图底稿：地表、道路、水体或高差构图
+- [x] 4. 完成结构层：建筑、边界、围栏、入口和主视觉模块
 - [ ] 5. 完成装饰层：植被、小物件、中景节奏和空间填充
 - [ ] 6. 完成逻辑层：碰撞、遮挡、锚点与必要辅助层
 - [ ] 7. 通过 MCP / Console / 层级回读完成一轮施工自检
@@ -93,3 +93,11 @@
 - [x] 5. ?????????? `Assets/Editor/CodexSceneBuild01MapDraft.cs` ? `.meta` ???????? live ?????
 - [ ] 6. ????????????????????????????
 - [ ] 7. ? Unity live / Console ???????????????? scene ????? Console ???
+
+## 结构层最小收口（2026-03-21）
+
+- [x] 1. 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 的 `SceneRoot/PrefabSetDress` 下新增 `Structure_Farmstead`
+- [x] 2. 新增 `Structure_House_Main`，使用 `House 3_0` 的 Sprite / Collider 作为本轮主建筑与主视觉模块
+- [x] 3. 新增 `Fence_North_01 / Fence_North_02 / Fence_South_01 / Fence_South_02 / Fence_East_Lower / Fence_East_Upper`，完成东侧院落边界与入口
+- [x] 4. 文件级回读已确认：新对象均挂在 `PrefabSetDress` 下，`fileID` 唯一，父子引用完整
+- [ ] 5. 下一步进入装饰层前，仍待 Unity live / Console / MCP 自检恢复
