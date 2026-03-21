@@ -1566,6 +1566,198 @@ function Get-PathGroup {
     return '其他改动'
 }
 
+function Test-GovernanceReportPath {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $false
+    }
+
+    foreach ($rule in Get-GovernanceRules) {
+        if (Test-PathMatch -Path $Path -Rule $rule) {
+            return $true
+        }
+    }
+
+    return (
+        (Test-PathMatch -Path $Path -Rule '.codex/threads') -or
+        (Test-PathMatch -Path $Path -Rule '.kiro/specs/Codex规则落地') -or
+        (Test-PathMatch -Path $Path -Rule '.kiro/specs/共享根执行模型与吞吐重构') -or
+        (Test-PathMatch -Path $Path -Rule '.kiro/about')
+    )
+}
+
+function Get-ThreadMemoryOwnerHint {
+    param([string]$Path)
+
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return $null
+    }
+
+    $segments = @(($Path -replace '\\', '/').Split('/', [System.StringSplitOptions]::RemoveEmptyEntries))
+    if ($segments.Count -ge 5 -and $segments[0] -ieq '.codex' -and $segments[1] -ieq 'threads') {
+        return $segments[3]
+    }
+
+    if ($segments.Count -ge 3 -and $segments[0] -ieq '.codex' -and $segments[1] -ieq 'threads') {
+        return 'thread-governance'
+    }
+
+    return $null
+}
+
+function Test-DirtyHardBlockPath {
+    param([string]$Path)
+
+    $normalizedPath = Normalize-InputPath -Path $Path
+    if ([string]::IsNullOrWhiteSpace($normalizedPath)) {
+        return $false
+    }
+
+    if ($normalizedPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') {
+        return $true
+    }
+
+    if ($normalizedPath.StartsWith('projectsettings/') -or $normalizedPath.StartsWith('packages/')) {
+        return $true
+    }
+
+    return $normalizedPath.EndsWith('/primary.unity')
+}
+
+function Get-DirtyLevel {
+    param(
+        [string]$Path,
+        [string]$Category,
+        [string]$Branch,
+        [string]$Mode
+    )
+
+    if ($Category -eq '已知本地噪音' -or $Category -eq 'shared root 租约运行态脏改') {
+        return 'D0'
+    }
+
+    if (Test-DirtyHardBlockPath -Path $Path) {
+        return 'D3'
+    }
+
+    if (Test-GovernanceReportPath -Path $Path) {
+        return 'D1'
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($Branch) -and $Branch.ToLowerInvariant().StartsWith('codex/')) {
+        return 'D2'
+    }
+
+    return 'D3'
+}
+
+function Get-DirtyOwnerHint {
+    param(
+        [string]$Path,
+        [string]$Category,
+        [string]$Branch,
+        [string]$Mode,
+        [string]$OwnerThread
+    )
+
+    $normalizedPath = Normalize-InputPath -Path $Path
+
+    if ($Category -eq '已知本地噪音') { return 'noise' }
+    if ($Category -eq 'shared root 租约运行态脏改') { return 'shared-root-runtime' }
+    if ($normalizedPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') { return 'hotfile-owner-required' }
+    if ($normalizedPath.EndsWith('/primary.unity')) { return 'scene-hotfile-owner-required' }
+    $threadMemoryOwnerHint = Get-ThreadMemoryOwnerHint -Path $Path
+    if (-not [string]::IsNullOrWhiteSpace($threadMemoryOwnerHint)) { return $threadMemoryOwnerHint }
+    if (Test-GovernanceReportPath -Path $Path) { return 'Codex规则落地' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/农田系统') -or $normalizedPath -match '(^|/)(farm|hotbar)(/|$)') { return '农田交互修复V2' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/NPC') -or $normalizedPath -match '(^|/)npc(/|$)') { return 'NPC' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/导航检查') -or $normalizedPath -match '(^|/)(navigation|nav)(/|$)') { return '导航检查' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/遮挡检查') -or $normalizedPath -match '(^|/)(occlusion|遮挡)(/|$)') { return '遮挡检查' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/900_开篇') -or $normalizedPath -match 'scenebuild|tilemap') { return 'scene-build' }
+    if (-not [string]::IsNullOrWhiteSpace($OwnerThread)) { return $OwnerThread }
+    if (-not [string]::IsNullOrWhiteSpace($Branch) -and $Branch.ToLowerInvariant().StartsWith('codex/')) { return $Branch }
+
+    return 'unknown-owner'
+}
+
+function Get-DirtyPolicyHint {
+    param([string]$DirtyLevel)
+
+    switch ($DirtyLevel) {
+        'D0' { return 'ignored-runtime-no-block' }
+        'D1' { return 'governance-white-listable' }
+        'D2' { return 'same-thread-branch-only' }
+        default { return 'hard-block-cleanup-required' }
+    }
+}
+
+function New-DirtyReportEntry {
+    param(
+        [string]$Path,
+        [string]$Status,
+        [string]$Category,
+        [string]$Branch,
+        [string]$Mode,
+        [string]$OwnerThread
+    )
+
+    $dirtyLevel = Get-DirtyLevel -Path $Path -Category $Category -Branch $Branch -Mode $Mode
+    $ownerHint = Get-DirtyOwnerHint -Path $Path -Category $Category -Branch $Branch -Mode $Mode -OwnerThread $OwnerThread
+    $policyHint = Get-DirtyPolicyHint -DirtyLevel $dirtyLevel
+
+    return [PSCustomObject]@{
+        Path       = $Path
+        Status     = $Status
+        Category   = $Category
+        DirtyLevel = $dirtyLevel
+        OwnerHint  = $ownerHint
+        PolicyHint = $policyHint
+    }
+}
+
+function Format-DirtyReportEntry {
+    param($Entry)
+
+    $details = @()
+    if ($null -ne $Entry -and $Entry.PSObject.Properties['Category']) {
+        $details += [string]$Entry.Category
+    }
+    if ($null -ne $Entry -and $Entry.PSObject.Properties['DirtyLevel']) {
+        $details += "level=$($Entry.DirtyLevel)"
+    }
+    if ($null -ne $Entry -and $Entry.PSObject.Properties['OwnerHint']) {
+        $details += "owner=$($Entry.OwnerHint)"
+    }
+    if ($null -ne $Entry -and $Entry.PSObject.Properties['PolicyHint']) {
+        $details += "policy=$($Entry.PolicyHint)"
+    }
+
+    return "- [$($Entry.Status)] $($Entry.Path) <$($details -join ' | ')>"
+}
+
+function Get-DirtyLevelSummaryText {
+    param([object[]]$Entries)
+
+    if ($null -eq $Entries -or @($Entries).Count -eq 0) {
+        return 'none'
+    }
+
+    $parts = @()
+    foreach ($level in @('D0', 'D1', 'D2', 'D3')) {
+        $count = @($Entries | Where-Object { $null -ne $_ -and $_.DirtyLevel -eq $level }).Count
+        if ($count -gt 0) {
+            $parts += ('{0}={1}' -f $level, $count)
+        }
+    }
+
+    if ($parts.Count -eq 0) {
+        return 'none'
+    }
+
+    return ($parts -join ', ')
+}
+
 function Get-RemainingDirtyEntries {
     param([object[]]$Entries)
 
@@ -1610,7 +1802,14 @@ function Test-OnlySharedRootLeaseRuntimeDirtyEntries {
 function Get-RemainingDirtyGateMessage {
     param([object[]]$Entries)
 
-    $preview = @($Entries | Select-Object -First 5 | ForEach-Object { "$($_.Status) $($_.Path)" })
+    $preview = @($Entries | Select-Object -First 5 | ForEach-Object {
+            if ($null -ne $_.PSObject.Properties['DirtyLevel']) {
+                "$($_.Status) $($_.Path) <$($_.DirtyLevel)/$($_.OwnerHint)>"
+            }
+            else {
+                "$($_.Status) $($_.Path)"
+            }
+        })
     $suffix = ''
     if (@($Entries).Count -gt 5) {
         $suffix = ' ...'
@@ -2036,36 +2235,20 @@ function New-PreflightReport {
 
     foreach ($entry in $entries) {
         if (Test-NoisePath -Path $entry.Path) {
-            $remaining += [PSCustomObject]@{
-                Path     = $entry.Path
-                Status   = $entry.Status
-                Category = '已知本地噪音'
-            }
+            $remaining += New-DirtyReportEntry -Path $entry.Path -Status $entry.Status -Category '已知本地噪音' -Branch $branch -Mode $Mode -OwnerThread $OwnerThread
             continue
         }
 
         if (Test-SharedRootLeaseRuntimeDirtyPath -Path $entry.Path -Branch $branch -Occupancy $occupancy) {
-            $remaining += [PSCustomObject]@{
-                Path     = $entry.Path
-                Status   = $entry.Status
-                Category = 'shared root 租约运行态脏改'
-            }
+            $remaining += New-DirtyReportEntry -Path $entry.Path -Status $entry.Status -Category 'shared root 租约运行态脏改' -Branch $branch -Mode $Mode -OwnerThread $OwnerThread
             continue
         }
 
         if (Test-AllowedPath -Path $entry.Path -Mode $Mode -ScopeRoots $ScopeRoots -IncludePaths $IncludePaths) {
-            $allowed += [PSCustomObject]@{
-                Path     = $entry.Path
-                Status   = $entry.Status
-                Category = Get-PathGroup -Path $entry.Path
-            }
+            $allowed += New-DirtyReportEntry -Path $entry.Path -Status $entry.Status -Category (Get-PathGroup -Path $entry.Path) -Branch $branch -Mode $Mode -OwnerThread $OwnerThread
         }
         else {
-            $remaining += [PSCustomObject]@{
-                Path     = $entry.Path
-                Status   = $entry.Status
-                Category = Get-PathGroup -Path $entry.Path
-            }
+            $remaining += New-DirtyReportEntry -Path $entry.Path -Status $entry.Status -Category (Get-PathGroup -Path $entry.Path) -Branch $branch -Mode $Mode -OwnerThread $OwnerThread
         }
     }
 
@@ -2149,25 +2332,27 @@ function Write-PreflightReport {
 
     Write-Output ''
     Write-Output '本轮允许纳入同步的改动:'
+    Write-Output "允许项 dirty 分级概览: $(Get-DirtyLevelSummaryText -Entries $Report.Allowed)"
 
     if (@($Report.Allowed).Count -eq 0) {
         Write-Output '- （无）'
     }
     else {
         foreach ($item in $Report.Allowed) {
-            Write-Output "- [$($item.Status)] $($item.Path) <$($item.Category)>"
+            Write-Output (Format-DirtyReportEntry -Entry $item)
         }
     }
 
     Write-Output ''
     Write-Output '本轮不会自动纳入同步、只做保留/报告的改动:'
+    Write-Output "剩余项 dirty 分级概览: $(Get-DirtyLevelSummaryText -Entries $Report.Remaining)"
 
     if (@($Report.Remaining).Count -eq 0) {
         Write-Output '- （无）'
     }
     else {
         foreach ($item in $Report.Remaining) {
-            Write-Output "- [$($item.Status)] $($item.Path) <$($item.Category)>"
+            Write-Output (Format-DirtyReportEntry -Entry $item)
         }
     }
 }
