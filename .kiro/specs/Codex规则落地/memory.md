@@ -2038,3 +2038,35 @@
 **恢复点 / 下一步**
 - 下一步先完成治理 `sync -Mode governance`。
 - 收口后，任务 `15` 继续沿“真实样本 -> 分类边界 -> 是否还需补洞”的顺序推进。
+
+## 2026-03-21｜任务 15 第二轮样本审计已补齐 Scene / Anim / Sprite 与 Hotbar owner 提示
+**用户目标**
+> 不只做一轮样本回放就停下，而是继续把任务 `15` 的真实边界再扫一遍，看看还有没有别的误分级或 owner 提示盲区。
+
+**完成事项**
+1. 已继续回放第二批真实样本：
+   - `SceneBuild_01.unity / .meta`
+   - 真实 `.anim` clip
+   - 真实 sprite 图片文件
+   - `HotbarSelectionService.cs`
+2. 已再次确认并修正四个盲区：
+   - 非 `Primary` scene 文件此前仍误报 `D2`
+   - `Assets/100_Anim/*` 下真实 clip 仍误报 `D2`
+   - `Assets/Sprites/*` 下真实 sprite 文件仍误报 `D2`
+   - `HotbarSelectionService.cs` 的 owner hint 仍误归治理线程
+3. 已更新 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - 所有 `.unity / .unity.meta` 统一报告为 `D3`
+   - `Assets/222_Prefabs/*`、`Assets/111_Data/*`、`Assets/100_Anim/*`、`Assets/Sprites/*` 统一按整根高风险资产处理
+   - 农田 owner hint 补认 `hotbar` 关键字
+4. 已完成二次验证：
+   - `SceneBuild_01.unity / .meta` 现已进入 `D3`
+   - 真实 `.anim` clip 与 sprite 图片现已进入 `D3`
+   - `HotbarSelectionService.cs` 现已正确归属 `农田交互修复V2`
+
+**关键决策**
+- 这轮仍然只修报告层，不放宽 shared root 准入。
+- 到这一步，任务 `15` 的脚本报告层已经从“第一版能用”推进到“至少对当前已知高风险目录与真实样本基本对齐”。
+
+**恢复点 / 下一步**
+- 先完成本轮治理同步。
+- 后续继续任务 `15` 时，优先查剩余 owner hint 盲区和目录覆盖盲区。

@@ -30,7 +30,7 @@
   说明：后续持续把“是否已真正落入 `main`”作为治理必答项，而不再只收 `changed_paths / sync / return-main`。
 - [ ] 15. 设计 `dirty` 分级与清扫推送机制
   说明：把“能跑且可接手的 dirty 是否允许直接推进”做成正式讨论稿，明确哪些可容忍、哪些绝对禁止、哪些必须先满足 takeover 条件。
-  当前进展：已形成 `02_专题分析/2026-03-21/dirty分级与takeover边界设计稿.md`，并已在 `scripts/git-safe-sync.ps1` 落下首轮 dirty 分级报告层（`DirtyLevel / OwnerHint / PolicyHint`）；2026-03-21 的真实样本回放又确认并修正了两处分类偏差：`Primary.unity` 的大小写漏判，以及 `Assets/222_Prefabs/*`、`Assets/111_Data/*`、`Assets/100_Anim/*.controller*`、`Assets/Sprites/*.meta` 仍被误报为 `D2` 的问题；当前结论仍为“先分级、先报告、默认硬闸门不撤，且暂不批准跨线程 raw dirty takeover”。
+  当前进展：已形成 `02_专题分析/2026-03-21/dirty分级与takeover边界设计稿.md`，并已在 `scripts/git-safe-sync.ps1` 落下首轮 dirty 分级报告层（`DirtyLevel / OwnerHint / PolicyHint`）；2026-03-21 的两轮真实样本回放已连续修正分类边界：第一轮补齐了 `Primary.unity` 大小写漏判与 `Assets/222_Prefabs/*`、`Assets/111_Data/*`、`Assets/100_Anim/*.controller*`、`Assets/Sprites/*.meta` 的误报 `D2`；第二轮又确认并修正了所有 `.unity / .unity.meta` 场景文件、`Assets/100_Anim/*` 下真实 `.anim` clip、`Assets/Sprites/*` 下真实 sprite 文件仍被误报 `D2` 的问题，同时修正了 `HotbarSelectionService.cs` 的 owner hint 误归治理线程；当前结论仍为“先分级、先报告、默认硬闸门不撤，且暂不批准跨线程 raw dirty takeover”。
 - [x] 16. 固化重度 MCP 场景搭建线程执行方案
   说明：明确这类线程的单线程独占、验证场景优先、`worktree` 边界和交付方式，避免后续把它误塞进普通 shared root 短事务模型。
 - [x] 17. 整理工作区目录并建立总览待办

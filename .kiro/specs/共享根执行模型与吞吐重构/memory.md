@@ -1098,3 +1098,38 @@
 **恢复点 / 下一步**
 - 先把本轮脚本补丁、任务单更新和三层记忆同步进 `main`。
 - 同步后，任务 `15` 的下一子步应转向“是否还存在其他误分边界”，而不是提前讨论放宽闸门。
+
+## 2026-03-21｜任务 15 第二轮样本审计已补齐 Scene / Anim / Sprite 与 Hotbar owner 边界
+**当前主线目标**
+- 在上一轮已修正共享 Prefab / ScriptableObject 边界后，继续沿任务 `15` 做第二轮真实样本审计，确认是否还有其他会给治理层制造错误安全感的误分级。
+
+**本轮完成**
+1. 已再次用同一 PowerShell 会话 dot-source working tree 版 `scripts/git-safe-sync.ps1`，回放第二批真实样本：
+   - `Assets/000_Scenes/SceneBuild_01.unity`
+   - `Assets/000_Scenes/SceneBuild_01.unity.meta`
+   - `Assets/100_Anim/NPC/001/Clips/001_Idle_Down.anim`
+   - `Assets/Sprites/NPC/1/001.png`
+   - `Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs`
+   - `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+2. 已确认四类边界仍有偏差：
+   - 非 `Primary` 的真实 scene 文件与 `.meta` 仍被报成 `D2`
+   - `Assets/100_Anim/*` 下真实 `.anim` clip 仍被报成 `D2`
+   - `Assets/Sprites/*` 下真实 sprite 图片文件仍被报成 `D2`
+   - `HotbarSelectionService.cs` 的 owner hint 仍误归到 `Codex规则落地`
+3. 已再次修正 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - 将场景高风险判断从 `Primary.unity` 扩成所有 `.unity / .unity.meta`
+   - 将 `Assets/222_Prefabs/*`、`Assets/111_Data/*`、`Assets/100_Anim/*`、`Assets/Sprites/*` 的整根高风险语义写回 `D3`
+   - 将农田 owner hint 从“只认目录段”补成“也认 `hotbar` 关键字”，修正 `HotbarSelectionService.cs`
+4. 已完成第二轮二次验证：
+   - `SceneBuild_01.unity / .meta` 现已归入 `D3`
+   - 真实 `.anim` clip 与真实 sprite 图片文件现已归入 `D3`
+   - `HotbarSelectionService.cs` 现已正确归属 `农田交互修复V2`
+   - `FarmToolPreview.cs` 仍保持 `D2 + 农田交互修复V2`
+
+**关键判断**
+- 到这一步，任务 `15` 的报告层已经不只是“会说 D1/D2/D3”，而是开始和真实现场更一致。
+- 这依然不代表 shared root 可以带脏放行；我们修的是分类准确性和 owner 提示，不是准入策略。
+
+**恢复点 / 下一步**
+- 先把这轮第二次样本修正一并同步进 `main`。
+- 同步后，任务 `15` 的下一子步应转向“是否还存在其他高风险目录或 owner 提示盲区”，而不是提前改放宽规则。

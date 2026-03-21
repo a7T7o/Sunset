@@ -1624,28 +1624,23 @@ function Test-DirtyHardBlockPath {
         return $true
     }
 
-    if ($comparisonPath.EndsWith('/primary.unity')) {
+    if ($comparisonPath.EndsWith('.unity') -or $comparisonPath.EndsWith('.unity.meta')) {
         return $true
     }
 
-    if ($comparisonPath.StartsWith('assets/222_prefabs/') -and ($comparisonPath.EndsWith('.prefab') -or $comparisonPath.EndsWith('.prefab.meta'))) {
+    if ($comparisonPath.StartsWith('assets/222_prefabs/')) {
         return $true
     }
 
-    if ($comparisonPath.StartsWith('assets/111_data/') -and ($comparisonPath.EndsWith('.asset') -or $comparisonPath.EndsWith('.asset.meta'))) {
+    if ($comparisonPath.StartsWith('assets/111_data/')) {
         return $true
     }
 
-    if ($comparisonPath.StartsWith('assets/100_anim/') -and (
-            $comparisonPath.EndsWith('.controller') -or
-            $comparisonPath.EndsWith('.controller.meta') -or
-            $comparisonPath.EndsWith('.overridecontroller') -or
-            $comparisonPath.EndsWith('.overridecontroller.meta')
-        )) {
+    if ($comparisonPath.StartsWith('assets/100_anim/')) {
         return $true
     }
 
-    return ($comparisonPath.StartsWith('assets/sprites/') -and $comparisonPath.EndsWith('.meta'))
+    return $comparisonPath.StartsWith('assets/sprites/')
 }
 
 function Get-DirtyLevel {
@@ -1694,7 +1689,7 @@ function Get-DirtyOwnerHint {
     $threadMemoryOwnerHint = Get-ThreadMemoryOwnerHint -Path $Path
     if (-not [string]::IsNullOrWhiteSpace($threadMemoryOwnerHint)) { return $threadMemoryOwnerHint }
     if (Test-GovernanceReportPath -Path $Path) { return 'Codex规则落地' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/农田系统') -or $comparisonPath -match '(^|/)(farm|hotbar)(/|$)') { return '农田交互修复V2' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/农田系统') -or $comparisonPath -match '(^|/)farm(/|$)' -or $comparisonPath -match 'hotbar') { return '农田交互修复V2' }
     if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/NPC') -or $comparisonPath -match '(^|/)npc(/|$)') { return 'NPC' }
     if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/导航检查') -or $comparisonPath -match '(^|/)(navigation|nav)(/|$)') { return '导航检查' }
     if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/遮挡检查') -or $comparisonPath -match '(^|/)(occlusion|遮挡)(/|$)') { return '遮挡检查' }

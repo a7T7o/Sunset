@@ -1337,3 +1337,41 @@
 **恢复点 / 下一步**
 - 先做治理 `sync -Mode governance`，把这轮脚本修正与记忆同步进 `main`。
 - 收口后继续任务 `15`，下一子步再看是否还有别的真实样本需要纠正。
+## 会话 19 - 2026-03-21（任务 15 第二轮样本审计继续补洞）
+**当前主线目标**
+- 继续把治理主线压在任务 `15` 上，不提前碰 shared root 放宽，而是再做一轮真实样本审计，把报告层剩余的误分级和 owner hint 盲区继续修准。
+
+**本轮子任务 / 阻塞**
+- 第一轮样本虽然已经修掉共享 Prefab / ScriptableObject / `Primary.unity` 的误分级，但还没验证：
+  - 非 `Primary` 的 scene 文件
+  - 真实 `.anim` clip
+  - 真实 sprite 图片文件
+  - `HotbarSelectionService.cs` 的 owner hint
+
+**本轮完成**
+1. 已在同一 PowerShell 会话中对第二批真实样本做回放：
+   - `Assets/000_Scenes/SceneBuild_01.unity`
+   - `Assets/000_Scenes/SceneBuild_01.unity.meta`
+   - `Assets/100_Anim/NPC/001/Clips/001_Idle_Down.anim`
+   - `Assets/Sprites/NPC/1/001.png`
+   - `Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs`
+2. 已确认第二批真实偏差：
+   - 非 `Primary` scene 与 `.meta` 仍被误报成 `D2`
+   - 真实 `.anim` clip 与 sprite 图片仍被误报成 `D2`
+   - `HotbarSelectionService.cs` 的 owner hint 仍误归 `Codex规则落地`
+3. 已修改 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - 所有 `.unity / .unity.meta` 统一按 `D3` 报告
+   - `Assets/222_Prefabs/*`、`Assets/111_Data/*`、`Assets/100_Anim/*`、`Assets/Sprites/*` 统一回到高风险共享资产口径
+   - 农田 owner hint 补认 `hotbar`
+4. 已完成回归验证：
+   - `SceneBuild_01.unity / .meta` 现已归入 `D3`
+   - 真实 `.anim` clip 与 sprite 图片现已归入 `D3`
+   - `HotbarSelectionService.cs` 现已正确归属 `农田交互修复V2`
+
+**关键决策**
+- 这轮继续只修报告层准确性，不改 shared root 的默认硬闸门。
+- 到这一步，任务 `15` 的已知高风险目录和真实样本覆盖面明显更完整，但仍不等于批准带脏推进。
+
+**恢复点 / 下一步**
+- 先做治理 `sync -Mode governance`，把这轮第二次样本修正收进口径层。
+- 收口后继续任务 `15`，优先查剩余 owner hint 盲区。
