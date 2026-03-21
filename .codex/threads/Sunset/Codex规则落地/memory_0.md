@@ -1,4 +1,4 @@
-# Codex规则落地 - 线程记忆
+﻿# Codex规则落地 - 线程记忆
 
 > 历史长卷保留在 [memory_1.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_1.md)。本卷只保留当前活跃治理主线、稳定结论与恢复点。
 
@@ -1805,3 +1805,28 @@
 - 当前继续等待：
   - `NPC` 的 Unity 验收窗口
   - `遮挡检查` 的 shared root 顺位
+
+## 会话 34 - 2026-03-21（恢复开发总控已正式 sync，项目经理可按 live prompt 分发）
+**当前主线目标**
+- 把上一轮已经改好的恢复开发总控真正推到 `main`，并把“scene-build 对齐 spring-day1 剧本”的新要求变成正式 live 口径。
+
+**本轮完成**
+1. 已使用稳定 launcher 执行治理同步：
+   - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action sync -OwnerThread Codex规则落地 -Mode governance`
+2. 已推送提交：
+   - `D:\Unity\Unity_learning\Sunset @ main @ ff90f0be`
+   - commit = `2026.03.21-23`
+3. 已复核：
+   - `git status --short --branch = ## main...origin/main`
+   - occupancy 仍为 `neutral-main-ready`
+4. 已确认当前给项目经理的 live 口径已经落地：
+   - `scene-build` 用 `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+   - shared root 下一条用 `导航检查_当前开发放行.md`
+   - `NPC` 保持 `needs-unity-window`
+
+**关键决策**
+- 这轮不是新增业务开发，而是把排序、边界和参考标准正式收进 live 总控。
+- 用户强调的“scene-build 高精度要求要和 spring-day1 剧本一致”现在已经完成文件化、记忆化和 Git 同步，不再只是聊天约定。
+
+**恢复点**
+- 下一次如果用户继续问“现在谁能开发 / 发哪个 prompt”，直接基于 `ff90f0be` 之后的 `main` 回答，不再重新手工拼装旧回执。

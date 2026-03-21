@@ -2480,3 +2480,31 @@
   - `scene-build` 发 `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
   - shared root 当前发 `导航检查_当前开发放行.md`
   - `NPC` 等 Unity 验收窗口
+
+## 2026-03-21｜恢复开发总控已完成治理 sync，当前放行顺序正式写入 main
+**当前主线目标**
+- 把上一轮已经改好的恢复开发总控正式推上 `main`，避免项目经理继续依据本地未同步状态分发旧 prompt。
+
+**本轮完成**
+1. 已用稳定 launcher 执行治理 `sync`：
+   - `OwnerThread = Codex规则落地`
+   - `Mode = governance`
+2. 已创建并推送提交：
+   - `main @ ff90f0be`
+   - commit message = `2026.03.21-23`
+3. 已复核 live 状态：
+   - shared root = `D:\Unity\Unity_learning\Sunset @ main`
+   - `git status = clean`
+   - occupancy = `neutral-main-ready`
+
+**关键决策**
+- `scene-build` 当前生效 prompt 已正式切到：
+  - `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+- shared root 当前正式下一条是：
+  - `导航检查`
+  - 然后 `遮挡检查`
+- `NPC` 继续停在：
+  - `needs-unity-window`
+
+**恢复点 / 下一步**
+- 后续如果用户继续问“现在到底该发谁”，直接按已经 sync 到 `main` 的这套口径回答，不再回退到旧排序。

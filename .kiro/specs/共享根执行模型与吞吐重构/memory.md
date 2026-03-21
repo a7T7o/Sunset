@@ -1482,3 +1482,32 @@
   - `导航检查_当前开发放行.md`
 - `NPC` 当前继续等待：
   - 真正可用的 Unity / MCP 验收窗口
+
+## 2026-03-21｜恢复开发总控已正式 sync 到 main，scene-build 对齐 spring-day1 剧本要求生效
+**当前主线目标**
+- 把上一轮已经改好的恢复开发总控文档真正同步到 `main`，并确认项目经理现在拿到的是 live 口径，而不是“本地已改未推”的半成品状态。
+
+**本轮完成**
+1. 已使用稳定 launcher 执行治理同步：
+   - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+   - `-Action sync -Mode governance -OwnerThread Codex规则落地`
+2. 已把以下治理改动正式推到 `main`：
+   - `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+   - 恢复开发总控 / 批次入口 / 治理线程执行 prompt / 治理线程职责与更新规则
+   - 对应工作区与线程记忆
+3. 已确认同步结果：
+   - `D:\Unity\Unity_learning\Sunset @ main @ ff90f0be`
+   - `git status --short --branch = ## main...origin/main`
+   - shared root occupancy 仍为 `neutral-main-ready`
+
+**关键判断**
+- 现在“scene-build 的后续精修必须和 spring-day1 剧本对齐”已经不是口头提醒，而是正式进入 live 总控和可分发 prompt。
+- `NPC` 当前仍不是 shared root 下一条；它继续停在 `needs-unity-window`，等真正可用的 Unity 验收窗口。
+- shared root 当前正式顺序仍是：
+  - `导航检查`
+  - 然后 `遮挡检查`
+
+**恢复点 / 下一步**
+- 现在项目经理可直接使用：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_恢复开发总控_01\可分发Prompt\scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_恢复开发总控_01\可分发Prompt\导航检查_当前开发放行.md`
