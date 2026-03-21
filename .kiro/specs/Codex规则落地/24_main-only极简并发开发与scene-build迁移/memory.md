@@ -53,3 +53,28 @@
 **恢复点 / 下一步**
 - 现在可以直接把新目录里的 prompt 发给相应线程。
 - 等 `scene-build / spring-day1` 两份回执回来后，再执行 `scene-build` 的正式迁移。
+
+## 2026-03-21｜spring-day1 prompt 已改成给 scene-build 的正式空间 brief 交付口径
+**当前主线目标**
+- 把 `spring-day1` 从“泛开发 / 泛回执”口径，收紧成“向 scene-build 输出 Day1 空间职责表”的明确交付任务。
+
+**本轮完成**
+1. 已重写当前直接开发 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\spring-day1_当前开发放行.md`
+2. 已重写对应交接 / 回执 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\spring-day1_当前任务回执与向scene-build交接.md`
+3. 已把 `spring-day1` 这轮必须输出的内容写死为：
+   - `Day1` 场景模块清单
+   - `SceneBuild_01` 正式身份
+   - 强制承载动作
+   - 禁止误扩边界
+   - 给 `scene-build` 的精修优先级
+4. 已明确这轮不是继续做 UI / 字幕 / 对话实现，也不是另起新 scene，而是输出可直接施工的空间 brief。
+
+**关键决策**
+- `spring-day1` 现在最重要的价值不是自己再开一个施工面，而是把剧情理解翻译成 `scene-build` 看完就能继续搭的空间职责表。
+- 因此这轮 prompt 不再接受“泛剧情复述”或“只有状态没有交付件”的结果。
+
+**恢复点 / 下一步**
+- 现在可以直接把新的 `spring-day1_当前开发放行.md` 发给 `spring-day1` 线程。
+- 等它交回正式 brief 后，再让 `scene-build` 继续按这份口径精修，不再靠聊天反复解释。

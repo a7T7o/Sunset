@@ -2567,3 +2567,25 @@
 **恢复点 / 下一步**
 - 先等 `scene-build / spring-day1` 两份真实回执。
 - 回执回来后，再执行 `scene-build` 的正式迁移动作。
+
+## 2026-03-21｜spring-day1 的 live prompt 已切到“给 scene-build 交正式 brief”
+**当前主线目标**
+- 避免 `spring-day1` 继续以泛开发口径跑偏，改成直接服务 `scene-build` 的剧情到空间翻译线程。
+
+**本轮完成**
+1. 已重写 `spring-day1` 的当前开发 prompt，明确其唯一职责是输出给 `scene-build` 的空间职责表。
+2. 已重写 `spring-day1` 的交接 / 回执 prompt，要求它回来的必须是正式交付口径，而不是空泛状态汇报。
+3. 已把固定交付块写清：
+   - `Day1` 场景模块清单
+   - `SceneBuild_01` 的正式身份
+   - 强制承载动作
+   - 禁止误扩边界
+   - `next_scene_build_focus`
+
+**关键决策**
+- `spring-day1` 当前不是第二个施工线程，而是 `scene-build` 的剧情约束与空间职责提供者。
+- 因此它这轮的完成标准不再是“做了点什么”，而是“交出了一份场景线程能直接执行的 brief”。
+
+**恢复点 / 下一步**
+- 项目经理现在可以直接发送新的 `spring-day1` prompt。
+- 等 `spring-day1` 交回 brief 后，再决定是否需要进一步改 `scene-build` 的后续口径。

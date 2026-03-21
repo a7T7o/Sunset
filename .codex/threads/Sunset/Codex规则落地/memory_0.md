@@ -1896,3 +1896,28 @@
 **恢复点**
 - 现在可以直接从新目录发 prompt。
 - 下一步等 `scene-build / spring-day1` 两份真实回执回来，再继续执行 `scene-build` 迁移和后续 `vibecoding` 场景规范适配。
+
+## 会话 37 - 2026-03-21（spring-day1 prompt 已重写为 scene-build 空间 brief 交付）
+**当前主线目标**
+- 按用户要求，先把 `spring-day1` 的 prompt 改到真正可发的状态，让它不再泛泛继续开发，而是直接输出给 `scene-build` 的正式空间职责表。
+
+**本轮完成**
+1. 已补做 Sunset 手工等价启动核查：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 65468c2d`
+   - `git status --short --branch = ## main...origin/main`
+   - shared root occupancy = `neutral-main-ready`
+2. 已重写：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\spring-day1_当前开发放行.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\spring-day1_当前任务回执与向scene-build交接.md`
+3. 已把 prompt 的核心改成：
+   - `spring-day1` 负责把 Day1 剧情流程翻译成 `scene-build` 可直接施工的空间 brief
+   - 交付内容必须覆盖 `Day1` 场景模块、`SceneBuild_01` 身份、强制承载动作、禁止误扩边界与精修优先级
+   - 回执必须带正式交付文件路径，不再接受只有状态没有交件
+
+**关键决策**
+- 这轮最重要的不是再增加一份“能不能继续”的测试 prompt，而是把 `spring-day1` 的职责重新钉死。
+- `spring-day1` 现在是 `scene-build` 的剧情空间交付线，不是第二个自由施工线程。
+
+**恢复点**
+- 现在可以直接把新的 `spring-day1_当前开发放行.md` 发给 `spring-day1`。
+- 等它交回正式交付件，再继续看 `scene-build` 如何吃这份 brief 往下搭。
