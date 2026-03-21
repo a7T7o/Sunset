@@ -537,3 +537,97 @@
 **恢复点 / 下一步**：
 - 主线恢复点已从“继续做装饰层”推进到“进入逻辑层最小版本，或先修当前 Codex 会话的 Unity / MCP live 路由”。
 - 如果下一轮仍按当前边界继续施工，最小动作就是补逻辑层（碰撞 / 遮挡 / 锚点）；如果你要求先闭合 live 验证，则应先处理当前 Codex 会话的 MCP 路由问题。
+
+### 会话 19 - 2026-03-21（按 shared-root Prompt 对照 Primary 后重做 Decor_Farmstead）
+
+**用户需求**：
+> 用户下发 `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_恢复开发总控_01\可分发Prompt\scene-build_装饰层纠偏与Primary参考重做.md`，要求先只读对照 shared root 的 `Assets/000_Scenes/Primary.unity`，再回到当前 worktree 重做 `SceneBuild_01` 的装饰层，不允许只口头总结、不允许继续把装饰做成散点堆物。
+
+**按 scene-modification-rule 收敛后的五段式判断**：
+1. 原有配置：
+   - `SceneBuild_01` 里的 `Decor_Farmstead` 直接挂了 7 个装饰对象，虽然没有越界到逻辑层，但在层级上仍是“同一父节点下的散点摆放”。
+2. 问题原因：
+   - 缺少对地表 / 边界 / 入口 / 留白的组织关系回应；
+   - 建筑周边没有形成明确的“框景边”“院内生活组”“东侧边界组”；
+   - 结果就是装饰像附加物，而不是环境叙事的一部分。
+3. 建议修改：
+   - 先以 `Primary.unity` 为只读参考，总结出“先地形分块、再道具叠加”“树石成簇”“院内道具服务入口与留白”三条原则；
+   - 再把 `Decor_Farmstead` 重构为 3 个组簇而不是 7 个散点。
+4. 修改后效果：
+   - 西北框景组负责把左上角和屋后边缘立住；
+   - 东侧边界组只占上段，不堵东侧入口；
+   - 院内生活组回到房前右侧，让院落关系更像一个小场景而不是临时摆件。
+5. 对原有功能的影响：
+   - 仍然只改纯视觉 `Transform + SpriteRenderer`；
+   - 仍未触碰 shared root 残留，也未宣称 Unity live 验收通过；
+   - 对后续逻辑层只增加了更清晰的结构锚点，没有提前引入脚本 / Collider 风险。
+
+**完成任务**：
+1. 只读解析 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`，确认 `Primary` 的 farm 组织不是“先扔 props”，而是：
+   - `SCENE/LAYER 1/Tilemap/Layer 1 - Farmland_Center`
+   - `SCENE/LAYER 1/Tilemap/Layer 1 - Farmland_Border`
+   - `SCENE/LAYER 1/Tilemap/Layer 1 - Farmland_Water`
+   - `SCENE/LAYER 1/Props/Farm`
+   - `SCENE/LAYER 1/Test Tree`
+   - `SCENE/LAYER 1/Test Rock`
+2. 从 `Primary` 抽出 3 条直接用于本轮纠偏的组织原则：
+   - 先把地表 / 边界 / 水体分块立住，再让装饰覆盖其上；
+   - 树 / 石头以成组簇的方式参与边角和外缘，而不是随机散点；
+   - 建筑周边道具只围绕院内生活与入口动线，不占主通路。
+3. 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 中把 `Decor_Farmstead` 重构为：
+   - `DecorCluster_NorthWestFrame`
+   - `DecorCluster_EastBorder`
+   - `DecorCluster_YardLife`
+4. 将原先 7 个装饰对象重新编组并纠偏命名 / 坐标：
+   - `Decor_Tree_WestBig_01`
+   - `Decor_Rock_WestBorder_01`
+   - `Decor_Plant_EastBorder_01`
+   - `Decor_Rock_EastBorder_01`
+   - `Decor_Plant_Yard_01`
+   - `Decor_YardSupplies_01`
+   - `Decor_YardSupplies_02`
+5. 文件级回读确认：
+   - 3 个组簇已全部挂在 `Decor_Farmstead` 下；
+   - 世界坐标上，东侧入口仍位于 `Fence_East_Lower(11,-0.5)` 与 `Fence_East_Upper(11,3)` 之间保持通行；
+   - 东侧装饰重心被抬到 `(10.75, 3.65)` 一带，不再把下段入口堵死。
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\tasks.md`
+
+**关键结论**：
+- 这次不只是“再摆几个物件”，而是把装饰层从散点堆叠，纠偏成了 3 个服务地形、入口和院内生活逻辑的组簇。
+- 当前最准确口径仍然是：**装饰层纠偏重做已完成，SceneBuild_01 的审美方向已明显向 Primary 靠拢，但这仍不是 Unity live 验收通过结论。**
+
+**恢复点 / 下一步**：
+- 主线恢复点已从“装饰层最小版”推进到“装饰层已完成一轮 Primary 参考纠偏重做”。
+- 下一步最小动作：进入逻辑层最小版本，或先修当前 Codex 会话的 Unity / MCP live 路由。
+
+### 会话 20 - 2026-03-21（装饰层纠偏进入最小 checkpoint 收口）
+
+**用户需求**：
+> 继续按 worktree 口径推进，但这轮先不要扩到逻辑层；先把 `Primary` 参考下完成的装饰层纠偏收成一次最小 checkpoint，并按最小格式回执。
+
+**完成任务**：
+1. 复核当前现场仍为：
+   - `cwd = D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - `branch = codex/scene-build-5.0.0-001`
+   - `HEAD = 0717172a`
+2. 复核当前 dirty 仍限定在：
+   - `Assets\000_Scenes\SceneBuild_01.unity`
+   - 当前子工作区 `tasks.md / memory.md`
+   - 父工作区 `memory.md`
+   - 线程记忆 `memory_0.md`
+3. 保持本轮施工边界不变：
+   - 不回 shared root 写任何业务内容；
+   - 不宣称 Unity live 验收通过；
+   - 不把 `unityMCP` 当前会话未回正的状态包装成已恢复。
+4. 确认当前已达到“最小白名单 sync 收口”条件，下一动作只应是 checkpoint，同步后再决定是否进入逻辑层。
+
+**关键结论**：
+- `Decor_Farmstead` 的纠偏重做已经不是 WIP 草稿，而是可以被收成稳定 checkpoint 的一轮真实推进。
+- 本轮收口目标是“先 clean，再回执”，不是继续扩大施工面。
+
+**恢复点 / 下一步**：
+- 收口完成后，主线恢复点保持为：`SceneBuild_01` 已完成一轮 `Primary` 参考下的装饰层纠偏重做。
+- 后续是否进入逻辑层，等待下一轮明确放行后再推进。

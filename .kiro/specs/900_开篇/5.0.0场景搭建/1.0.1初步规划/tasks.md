@@ -109,3 +109,14 @@
 - [x] 3. 装饰层继续遵守 Scene YAML 兜底口径：不带脚本、不带 Collider、不宣称 Unity live 验收通过
 - [x] 4. 文件级回读已确认：`Decor_Farmstead` 已挂在 `PrefabSetDress` 下，7 个装饰对象父子引用完整，新增 `fileID` 唯一
 - [ ] 5. 下一步进入逻辑层前，仍待当前 Codex 会话的 Unity / MCP live 路由恢复
+
+## 装饰层纠偏重做（2026-03-21）
+
+- [x] 1. 已只读对照 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`，提炼当前场景必须落地的 3 条组织原则：
+  - 先有地表 / 边界 / 水体分块，再叠 Props，不反过来靠散点装饰救画面
+  - 树 / 石头应以簇和边角关系出现，而不是单点撒开
+  - 院内生活道具必须服务建筑、入口和留白，不能堵主通道
+- [x] 2. 已把 `Decor_Farmstead` 从“直接挂 7 个散点对象”重构为 3 个组簇：`DecorCluster_NorthWestFrame / DecorCluster_EastBorder / DecorCluster_YardLife`
+- [x] 3. 已重排西北框景、东侧边界、水边点景与院内生活组的父子关系和坐标，避免继续出现“房子贴在灰底上、装饰像散落杂物”的观感
+- [x] 4. 文件级回读已确认：东侧入口仍保持通行留白；建筑、边界、院内小物件与外缘点景已形成更明确的层次
+- [ ] 5. 下一步若继续推进，则进入逻辑层最小版本；若先补验证闭环，则优先修当前 Codex 会话的 Unity / MCP live 路由

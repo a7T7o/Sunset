@@ -330,3 +330,23 @@
 - 本轮没有进入 Unity / MCP live 写态；原因不是 Unity 侧 HTTP MCP 没起，而是当前 Codex 会话里的 `unityMCP` 仍误回 `Sub2API` HTML，旧 `mcp_unity` 仍报 `Connection failed: Unknown error`。
 - 因此当前最稳的项目口径仍然是：`SceneBuild_01` 已完成骨架、底稿、结构层、装饰层最小版本；Unity live 验证链仍待当前会话路由恢复后再补。
 - 后续最小恢复点：进入逻辑层最小版本，或先修这条 Codex 会话的 Unity / MCP 路由，再做 live 自检。
+
+### 2026-03-21（按 Primary 参考完成装饰层纠偏重做）
+
+- 子工作区已按 shared-root Prompt 只读对照 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`，不再把装饰层理解成“补几个空位”。
+- 当前 `SceneBuild_01` 的 `Decor_Farmstead` 已从 7 个散点对象，重构为 3 个组簇：
+  - `DecorCluster_NorthWestFrame`
+  - `DecorCluster_EastBorder`
+  - `DecorCluster_YardLife`
+- 本轮真正落地的 3 条原则是：
+  - 地表 / 边界 / 水体先成块，再叠 Props；
+  - 树石围绕边角和外缘成簇，不散撒；
+  - 院内物件围绕建筑与入口生活逻辑组织，保留中心和入口留白。
+- 当前父工作区状态已从“装饰层最小版完成”推进到“装饰层已完成一轮审美纠偏重做，可继续进入逻辑层或 live 验证修复”。
+
+### 2026-03-21（装饰层纠偏进入最小 checkpoint 收口）
+
+- 子工作区已完成本轮装饰层纠偏的只读复核，当前现场仍锁定在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 的 `codex/scene-build-5.0.0-001 @ 0717172a`。
+- 当前 dirty 仍只来自本轮 `SceneBuild_01.unity` 与三层记忆 / tasks 同步，没有新扩出的施工面。
+- 父工作区层面的最新判断是：这轮应先把“Primary 参考下的装饰层纠偏重做”收成最小 checkpoint，而不是继续扩到逻辑层。
+- 当前父工作区恢复点保持为：`SceneBuild_01` 已完成装饰层纠偏重做，等待 checkpoint clean 后再决定下一施工窗口。
