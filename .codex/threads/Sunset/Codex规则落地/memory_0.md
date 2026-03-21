@@ -1705,3 +1705,63 @@
   - 发 `scene-build_逻辑层继续施工.md`
   - 发 `农田交互修复V2_当前开发放行.md`
   - `NPC` 暂停在待手测态
+
+## 会话 31 - 2026-03-21（farm 收口后，NPC 因真实验收失败升为下一条）
+**当前主线目标**
+- 接住 `farm` 的回执，并把用户刚给出的 NPC 真实失败证据写回 live 排程。
+
+**本轮完成**
+1. 已 live 核对 shared root：
+   - `main @ 91f7328a`
+   - `git status = clean`
+   - occupancy = `neutral-main-ready`
+2. 已确认 `farm`：
+   - checkpoint 已推送到 `21a5f8df`
+   - `carrier_ready = yes`
+   - `main_ready = no`
+   - 原因是 continuation branch 仍带历史差异：`AGENTS.md`、`scripts/git-safe-sync.ps1`
+3. 已根据用户的真实 Unity 验收结果改判 `NPC`：
+   - 不是“待手测”
+   - 而是“验收失败返工”
+4. 已新增正式可分发 prompt：
+   - `NPC_验收失败返工与live验收闭环.md`
+5. 已更新 live 总控：
+   - shared root 下一条 = `NPC（验收失败返工）`
+   - `farm` 改列到“已完成 checkpoint 但当前不是 main-ready”
+
+**关键决策**
+- `farm` 这轮不需要立刻继续占 shared root。
+- `NPC` 则因为已经被用户真实验收打回，当前优先级必须升到 shared root 下一条。
+
+**恢复点**
+- 现在对用户的明确建议：
+  - `scene-build` 可以继续留在 worktree 内推进
+  - shared root 下一条应发 `NPC_验收失败返工与live验收闭环.md`
+
+## 会话 32 - 2026-03-21（scene-build 逻辑层收口后升到回读自检阶段）
+**当前主线目标**
+- 接住 scene-build 新回执，把它从“逻辑层继续施工”切到下一阶段。
+
+**本轮完成**
+1. 已 live 核对 scene-build worktree：
+   - `codex/scene-build-5.0.0-001 @ a62b557d`
+   - `git status = clean`
+2. 已确认：
+   - 逻辑层最小版本 checkpoint 已完成
+   - 本轮触碰了只读 MCP 探测
+   - 实际施工仍走 Scene YAML
+3. 已确认未解点：
+   - 本会话 `unityMCP` 仍没有恢复成可用的 Unity live 验证闭环
+4. 已新增正式 prompt：
+   - `scene-build_回读自检与高质量初稿收口.md`
+5. 已更新 live 总控：
+   - scene-build 当前阶段 = `回读自检与高质量初稿收口`
+
+**关键决策**
+- 现在 scene-build 不该再拿旧的“逻辑层继续施工”prompt。
+- 它下一步应该做的是自检、回读和高质量初稿收口。
+
+**恢复点**
+- 对用户的明确建议：
+  - scene-build 现在应发 `scene-build_回读自检与高质量初稿收口.md`
+  - shared root 现在应发 `NPC_验收失败返工与live验收闭环.md`
