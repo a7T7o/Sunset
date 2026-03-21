@@ -143,8 +143,31 @@ public class InventorySlotInteraction : MonoBehaviour,
             return false;
         }
 
-        inventorySlotUI?.PlayRejectShake();
         return true;
+    }
+
+    private bool TryRejectProtectedHeldMutation(
+        IItemContainer sourceContainer,
+        int sourceIndex,
+        bool sourceIsEquipSlot,
+        IItemContainer targetContainer,
+        int targetIndex,
+        bool targetIsEquipSlot)
+    {
+        var inputManager = GameInputManager.Instance;
+        if (inputManager == null)
+        {
+            return false;
+        }
+
+        bool sourceIsInventorySlot = !sourceIsEquipSlot && sourceContainer is InventoryService;
+        bool targetIsInventorySlot = !targetIsEquipSlot && targetContainer is InventoryService;
+
+        return inputManager.TryRejectProtectedHeldInventoryMutation(
+            sourceIndex,
+            sourceIsInventorySlot,
+            targetIndex,
+            targetIsInventorySlot);
     }
     
     public void Bind(InventorySlotUI slot, bool isEquipmentSlot)
@@ -227,6 +250,11 @@ public class InventorySlotInteraction : MonoBehaviour,
         // 🔥 修复：如果已经在 Held 状态（通过 Shift/Ctrl 拿起），不要开始拖拽
         // 与背包区域行为保持一致：Held 状态下移动鼠标不会触发拖拽
         if (SlotDragContext.IsDragging || _chestHeldByShift || _chestHeldByCtrl)
+        {
+            return;
+        }
+
+        if (IsInventorySlot && TryRejectAutomatedFarmToolInventoryMove())
         {
             return;
         }
@@ -365,6 +393,15 @@ public class InventorySlotInteraction : MonoBehaviour,
         var sourceContainer = SlotDragContext.SourceContainer;
         int sourceIndex = SlotDragContext.SourceSlotIndex;
         var draggedItem = SlotDragContext.DraggedItem;
+        bool targetIsEquipmentSlot = targetContainer == null && isEquip;
+
+        if (TryRejectProtectedHeldMutation(sourceContainer, sourceIndex, false, targetContainer, targetIndex, targetIsEquipmentSlot))
+        {
+            SlotDragContext.Cancel();
+            HideDragIcon();
+            ResetChestHeldState();
+            return;
+        }
         
         // 🔥 P0 修复：处理装备槽位（targetContainer == null && isEquip == true）
         if (targetContainer == null && isEquip)

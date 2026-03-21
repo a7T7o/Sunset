@@ -641,6 +641,11 @@ namespace FarmGame.Farm
             instanceData = data;
             layerIndex = layer;
             cellPosition = cell;
+
+            if (spriteRenderer != null)
+                spriteRenderer.enabled = true;
+            if (interactionTrigger != null)
+                interactionTrigger.enabled = true;
             
             // 🔥 10.X 纠正：设置 FarmTileData 的控制器引用
             var ftm = FarmTileManager.Instance;
@@ -959,6 +964,11 @@ namespace FarmGame.Farm
                 }
             }
             
+            if (spriteRenderer != null)
+                spriteRenderer.enabled = true;
+            if (interactionTrigger != null)
+                interactionTrigger.enabled = true;
+
             RestoreStateFromData();
             isInitialized = true;
             UpdateVisuals();

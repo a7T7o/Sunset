@@ -363,12 +363,6 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
     {
         if (eventData.button == PointerEventData.InputButton.Left)
         {
-            if (GameInputManager.Instance != null && GameInputManager.Instance.TryRejectActiveFarmToolSwitch(index))
-            {
-                ForceRestoreToggleState();
-                return;
-            }
-
             // ★ 检查是否有面板打开（背包/箱子）- 被遮挡时不响应
             var packageTabs = FindFirstObjectByType<PackagePanelTabsUI>();
             if (packageTabs != null && packageTabs.IsPanelOpen()) 
@@ -377,6 +371,12 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
                 return;
             }
             if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen) 
+            {
+                ForceRestoreToggleState();
+                return;
+            }
+
+            if (GameInputManager.Instance != null && GameInputManager.Instance.TryRejectActiveFarmToolSwitch(index))
             {
                 ForceRestoreToggleState();
                 return;

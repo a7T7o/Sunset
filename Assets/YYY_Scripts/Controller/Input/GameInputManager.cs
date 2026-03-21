@@ -113,6 +113,10 @@ public class GameInputManager : MonoBehaviour
     private System.Action _farmNavigationAction = null;
     // 🔴 补丁005：_cachedSeedData 已移除（种子不再走 FIFO 导航）
     private Coroutine _farmingNavigationCoroutine = null;
+    private Vector3 _farmNavigationTarget = Vector3.zero;
+    private bool _hasPausedFarmNavigation = false;
+    private Vector3 _pausedFarmNavigationTarget = Vector3.zero;
+    private System.Action _pausedFarmNavigationAction = null;
     
     // 🔥 9.0.5 新增：执行保护标志
     private bool _isExecutingFarming = false;
@@ -151,6 +155,8 @@ public class GameInputManager : MonoBehaviour
     private CropController _currentHarvestTarget = null;   // 当前正在收获的作物
     private FarmActionRequest _currentProcessingRequest;    // 当前正在处理的请求
     private bool _wasUIOpen = false;                        // 面板暂停/恢复：上一帧 UI 状态
+    private bool _hasUIFrozenProtectedHeldSlot = false;
+    private int _uiFrozenProtectedHeldSlotIndex = -1;
 
     // ===== 补丁003 模块C：延迟 tile 更新 =====
     private FarmActionRequest? _pendingTileUpdate = null;
@@ -251,15 +257,20 @@ public class GameInputManager : MonoBehaviour
         bool uiOpen = IsAnyPanelOpen();
         if (uiOpen && !_wasUIOpen)
         {
-            // 面板刚打开 → 暂停队列，取消当前导航（不清空队列）
+            // 面板刚打开 → 冻结自动链推进，并隐藏实时预览
+            CaptureProtectedHeldSlotForUIFreeze();
             _isQueuePaused = true;
-            CancelCurrentNavigation();
+            HideFarmToolPreview();
+            PauseCurrentNavigationForUI();
         }
         else if (!uiOpen && _wasUIOpen)
         {
-            // 面板刚关闭 → 恢复队列
+            // 面板刚关闭 → 恢复预览与队列推进
             _isQueuePaused = false;
-            if (_farmActionQueue.Count > 0 && !_isExecutingFarming)
+            PlacementManager.Instance?.RefreshCurrentPreview();
+            bool resumedPausedNavigation = ResumePausedFarmNavigationAfterUI();
+            ClearProtectedHeldSlotForUIFreeze();
+            if (!resumedPausedNavigation && (_farmActionQueue.Count > 0 || _isProcessingQueue) && !_isExecutingFarming)
                 ProcessNextAction();
         }
         _wasUIOpen = uiOpen;
@@ -519,6 +530,18 @@ public class GameInputManager : MonoBehaviour
         // 导航会自动从 SprintStateManager 获取疾跑状态
     }
 
+    private Vector2 GetManualMovementInput()
+    {
+        if (useAxisForMovement)
+        {
+            return new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
+        }
+
+        float x = (Input.GetKey(KeyCode.D) ? 1f : 0f) + (Input.GetKey(KeyCode.A) ? -1f : 0f);
+        float y = (Input.GetKey(KeyCode.W) ? 1f : 0f) + (Input.GetKey(KeyCode.S) ? -1f : 0f);
+        return new Vector2(x, y);
+    }
+
     void HandleMovement()
     {
         // 对话/演出输入锁
@@ -536,17 +559,7 @@ public class GameInputManager : MonoBehaviour
             return;
         }
         
-        Vector2 input;
-        if (useAxisForMovement)
-        {
-            input = new Vector2(Input.GetAxisRaw("Horizontal"), Input.GetAxisRaw("Vertical"));
-        }
-        else
-        {
-            float x = (Input.GetKey(KeyCode.D) ? 1f : 0f) + (Input.GetKey(KeyCode.A) ? -1f : 0f);
-            float y = (Input.GetKey(KeyCode.W) ? 1f : 0f) + (Input.GetKey(KeyCode.S) ? -1f : 0f);
-            input = new Vector2(x, y);
-        }
+        Vector2 input = GetManualMovementInput();
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
 
         // 🔥 10.1.1补丁002 V4：WASD 中断队列（优先级高于 lockManager）
@@ -677,11 +690,8 @@ public class GameInputManager : MonoBehaviour
                 {
                     // 正常切换：重置累积值
                     _accumulatedScrollSteps = 0;
-                    
-                    // 🔥 10.1.1补丁002：切换工具时清空队列 + 取消导航（CP-3）
-                    ClearActionQueue();
-                    CancelFarmingNavigation();
-                    
+
+                    // 统一交给 HotbarSelectionService 做最终切换与农田态收尾
                     if (scrollSteps > 0) hotbarSelection?.SelectNext();
                     else hotbarSelection?.SelectPrev();
                 }
@@ -720,11 +730,7 @@ public class GameInputManager : MonoBehaviour
             }
             else
             {
-                // 🔥 10.1.1补丁002：切换工具时清空队列 + 取消导航（CP-3）
-                ClearActionQueue();
-                CancelFarmingNavigation();
-                
-                // 正常切换
+                // 统一交给 HotbarSelectionService 做最终切换与农田态收尾
                 hotbarSelection?.SelectIndex(keyIndex);
             }
         }
@@ -846,6 +852,13 @@ public class GameInputManager : MonoBehaviour
         bool uiOpen = IsAnyPanelOpen();
         if (uiOpen) return;
 
+        bool hasManualMovementInput = GetManualMovementInput().sqrMagnitude > 0.01f;
+        bool hasPlacementFlow = IsPlacementMode || (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode);
+        if (hasManualMovementInput && hasPlacementFlow)
+        {
+            return;
+        }
+
         // 🔥 10.1.1补丁002：执行保护 — 执行中/动画中的点击走 FIFO 入队（替代旧 CacheFarmInput）
         // V1 漏洞修补：保护分支1（_isExecutingFarming）+ 保护分支2（isPerformingAction）合并
         if (_isExecutingFarming || (playerInteraction != null && playerInteraction.IsPerformingAction()))
@@ -939,31 +952,31 @@ public class GameInputManager : MonoBehaviour
     {
         if (!Input.GetMouseButtonDown(1)) return;
 
-        if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
-        {
-            return;
-        }
-
-        // 🔥 Bug F 修复：右键导航立即重置农田预览锁定
-        if (_farmNavState == FarmNavState.Locked || _farmNavState == FarmNavState.Navigating)
-        {
-            CancelFarmingNavigation();
-        }
-        
-        // 任何面板打开时禁用右键导航
-        bool uiOpen = IsAnyPanelOpen();
         bool boxOpen = BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen;
-        
-        // 🔥 P0-1 修复：Box 打开时，右键点击另一个箱子应该先关闭当前 Box，然后导航到新箱子
-        // 但普通背包打开时，右键导航仍然禁用
         bool packageOpen = packageTabs != null && packageTabs.IsPanelOpen() && !boxOpen;
-        
         if (packageOpen)
         {
             // 背包打开（非 Box 模式），禁用右键导航
             return;
         }
-        
+
+        if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
+        {
+            return;
+        }
+
+        // 右键属于移动意图：先统一收尾农田自动链，再进入普通导航
+        if (HasActiveAutomatedFarmToolOperation())
+        {
+            InterruptAutomatedFarmToolOperation();
+        }
+        else if (_farmNavState == FarmNavState.Locked || _farmNavState == FarmNavState.Navigating)
+        {
+            CancelFarmingNavigation();
+        }
+
+        // 🔥 P0-1 修复：Box 打开时，右键点击另一个箱子应该先关闭当前 Box，然后导航到新箱子
+        // 但普通背包打开时，右键导航仍然禁用
         // blockNavOverUI 只阻挡导航，不应该阻挡面板热键
         if (blockNavOverUI && EventSystem.current != null && EventSystem.current.IsPointerOverGameObject()) return;
         
@@ -1817,6 +1830,7 @@ public class GameInputManager : MonoBehaviour
         // 设置状态
         _farmNavState = FarmNavState.Navigating;
         _farmNavigationAction = onArrived;
+        _farmNavigationTarget = targetPos;
         
         // 计算停止距离（略小于工具使用距离）
         float stopDistance = farmToolReach * 0.8f;
@@ -1861,6 +1875,7 @@ public class GameInputManager : MonoBehaviour
                 _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
                 _farmNavigationAction = null;
                 _farmingNavigationCoroutine = null;
+                _farmNavigationTarget = Vector3.zero;
                 
                 yield break;
             }
@@ -1885,6 +1900,7 @@ public class GameInputManager : MonoBehaviour
             _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
             _farmNavigationAction = null;
             _farmingNavigationCoroutine = null;
+            _farmNavigationTarget = Vector3.zero;
         }
         else
         {
@@ -1901,6 +1917,7 @@ public class GameInputManager : MonoBehaviour
             _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
             _farmNavigationAction = null;
             _farmingNavigationCoroutine = null;
+            _farmNavigationTarget = Vector3.zero;
         }
     }
     
@@ -1922,6 +1939,8 @@ public class GameInputManager : MonoBehaviour
         }
         
         // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
+        ClearPausedFarmingNavigation();
+        _farmNavigationTarget = Vector3.zero;
         
         // 🔴 V6 模块Q（CP-Q3）：执行中不清除标志，不解锁
         if (_isExecutingFarming)
@@ -1952,6 +1971,74 @@ public class GameInputManager : MonoBehaviour
             lockMgr.ForceUnlock();
         }
     }
+
+    private void ClearPausedFarmingNavigation()
+    {
+        _hasPausedFarmNavigation = false;
+        _pausedFarmNavigationTarget = Vector3.zero;
+        _pausedFarmNavigationAction = null;
+    }
+
+    private void PauseCurrentNavigationForUI()
+    {
+        bool hasActiveNavigation = _farmNavState == FarmNavState.Navigating ||
+                                   _farmingNavigationCoroutine != null ||
+                                   (autoNavigator != null && autoNavigator.IsActive);
+        if (!hasActiveNavigation)
+        {
+            return;
+        }
+
+        _hasPausedFarmNavigation = true;
+        _pausedFarmNavigationTarget = _farmNavigationTarget;
+        _pausedFarmNavigationAction = _farmNavigationAction;
+
+        if (_farmingNavigationCoroutine != null)
+        {
+            StopCoroutine(_farmingNavigationCoroutine);
+            _farmingNavigationCoroutine = null;
+        }
+
+        if (autoNavigator != null && autoNavigator.IsActive)
+        {
+            autoNavigator.ForceCancel();
+        }
+
+        _farmNavigationAction = null;
+        _farmNavState = FarmNavState.Locked;
+    }
+
+    private bool ResumePausedFarmNavigationAfterUI()
+    {
+        if (!_hasPausedFarmNavigation || _isExecutingFarming || _pausedFarmNavigationAction == null)
+        {
+            return false;
+        }
+
+        Vector3 target = _pausedFarmNavigationTarget;
+        System.Action onArrived = _pausedFarmNavigationAction;
+        ClearPausedFarmingNavigation();
+        StartFarmingNavigation(target, onArrived);
+        return true;
+    }
+
+    private void CaptureProtectedHeldSlotForUIFreeze()
+    {
+        if (TryGetRuntimeProtectedHeldSlotIndex(out int protectedSlotIndex))
+        {
+            _hasUIFrozenProtectedHeldSlot = true;
+            _uiFrozenProtectedHeldSlotIndex = protectedSlotIndex;
+            return;
+        }
+
+        ClearProtectedHeldSlotForUIFreeze();
+    }
+
+    private void ClearProtectedHeldSlotForUIFreeze()
+    {
+        _hasUIFrozenProtectedHeldSlot = false;
+        _uiFrozenProtectedHeldSlotIndex = -1;
+    }
     
     /// <summary>
     /// 🔥 10.1.1补丁002 任务5.3：轻量版导航取消（面板暂停专用）
@@ -1973,6 +2060,13 @@ public class GameInputManager : MonoBehaviour
         }
         
         _farmNavigationAction = null;
+
+        bool isExecuting = _isExecutingFarming || (playerInteraction != null && playerInteraction.IsPerformingAction());
+        if (!isExecuting)
+        {
+            _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
+            ClearSnapshot();
+        }
     }
     
     /// <summary>
@@ -2341,7 +2435,7 @@ public class GameInputManager : MonoBehaviour
         
         // 🔴 补丁004V2 模块I（CP-I3）：执行 = 动画开始的瞬间，在此设置执行状态
         _isExecutingFarming = true;
-        FarmToolPreview.Instance?.PromoteToExecutingPreview(request.cellPos);
+        FarmToolPreview.Instance?.PromoteToExecutingPreview(request.layerIndex, request.cellPos);
         
         switch (request.type)
         {
@@ -2438,7 +2532,7 @@ public class GameInputManager : MonoBehaviour
         _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
         
         // 🔴 补丁004 模块G（CP-G3）：执行完成时移除执行预览（替代 RemoveQueuePreview）
-        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.cellPos);
+        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos);
         
         ProcessNextAction();
     }
@@ -2462,7 +2556,7 @@ public class GameInputManager : MonoBehaviour
         _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
         
         // 🔴 补丁004 模块G（CP-G3）：执行完成时移除执行预览（替代 RemoveQueuePreview）
-        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.cellPos);
+        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos);
         
         ProcessNextAction();
     }
@@ -2491,7 +2585,8 @@ public class GameInputManager : MonoBehaviour
         // 动画完成后由 OnFarmActionAnimationComplete/OnCollectAnimationComplete 正常清理
 
         // 🔴 补丁003 模块D/I（CP-I3）：清理所有队列预览
-        FarmToolPreview.Instance?.ClearAllQueuePreviews();
+        FarmToolPreview.Instance?.ClearAllQueuePreviews(!_isExecutingFarming);
+        ClearPausedFarmingNavigation();
     }
     
 
@@ -2653,19 +2748,10 @@ public class GameInputManager : MonoBehaviour
 
     private bool HasActiveAutomatedFarmToolOperation()
     {
-        if (!IsPlacementMode || inventory == null || database == null || hotbarSelection == null)
+        if (!IsPlacementMode || !TryGetCurrentHotbarItem(out _, out var itemData))
         {
             return false;
         }
-
-        int currentIndex = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
-        var slot = inventory.GetSlot(currentIndex);
-        if (slot.IsEmpty)
-        {
-            return false;
-        }
-
-        var itemData = database.GetItemByID(slot.itemId);
         if (itemData is not ToolData tool)
         {
             return false;
@@ -2683,6 +2769,91 @@ public class GameInputManager : MonoBehaviour
                _farmNavState == FarmNavState.Locked ||
                _farmNavState == FarmNavState.Navigating ||
                _farmNavState == FarmNavState.Executing;
+    }
+
+    private bool TryGetCurrentHotbarItem(out int slotIndex, out ItemData itemData)
+    {
+        slotIndex = -1;
+        itemData = null;
+
+        if (inventory == null || database == null || hotbarSelection == null)
+        {
+            return false;
+        }
+
+        slotIndex = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        var slot = inventory.GetSlot(slotIndex);
+        if (slot.IsEmpty)
+        {
+            return false;
+        }
+
+        itemData = database.GetItemByID(slot.itemId);
+        return itemData != null;
+    }
+
+    private bool HasActivePlacementHeldSession(ItemData itemData)
+    {
+        return itemData != null &&
+               itemData.isPlaceable &&
+               PlacementManager.Instance != null &&
+               PlacementManager.Instance.IsPlacementMode;
+    }
+
+    private bool HasActivePlacementNavigationSession()
+    {
+        if (PlacementManager.Instance == null)
+        {
+            return false;
+        }
+
+        return PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Locked ||
+               PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Navigating;
+    }
+
+    private bool HasActiveToolHeldSession(ItemData itemData)
+    {
+        if (itemData is not ToolData)
+        {
+            return false;
+        }
+
+        if (HasActiveAutomatedFarmToolOperation())
+        {
+            return true;
+        }
+
+        bool isPerformingAction = playerInteraction != null && playerInteraction.IsPerformingAction();
+        bool isLocked = ToolActionLockManager.Instance != null && ToolActionLockManager.Instance.IsLocked;
+        return isPerformingAction || isLocked;
+    }
+
+    private bool TryGetRuntimeProtectedHeldSlotIndex(out int slotIndex)
+    {
+        slotIndex = -1;
+        if (!TryGetCurrentHotbarItem(out slotIndex, out var itemData))
+        {
+            return false;
+        }
+
+        return HasActivePlacementHeldSession(itemData) || HasActiveToolHeldSession(itemData);
+    }
+
+    private bool TryGetProtectedHeldSlotIndex(out int slotIndex)
+    {
+        if (TryGetRuntimeProtectedHeldSlotIndex(out slotIndex))
+        {
+            return true;
+        }
+
+        if (IsAnyPanelOpen() && _hasUIFrozenProtectedHeldSlot && _uiFrozenProtectedHeldSlotIndex >= 0)
+        {
+            slotIndex = _uiFrozenProtectedHeldSlotIndex;
+            return true;
+        }
+
+        slotIndex = -1;
+        return false;
     }
 
     private void InterruptAutomatedFarmToolOperation()
@@ -2706,28 +2877,102 @@ public class GameInputManager : MonoBehaviour
         PlacementManager.Instance?.PlayFailFeedbackSound();
     }
 
-    public bool TryRejectActiveFarmToolSwitch(int requestedIndex)
+    private void PlayProtectedHeldRejectFeedback(int sourceSlotIndex)
     {
-        if (hotbarSelection == null || requestedIndex == hotbarSelection.selectedIndex || !HasActiveAutomatedFarmToolOperation())
+        PlayAutomatedFarmToolRejectSound();
+        ToolbarSlotUI.PlayRejectShakeAt(sourceSlotIndex);
+        InventorySlotUI.PlayRejectShakeAt(sourceSlotIndex);
+    }
+
+    public bool IsActiveHeldSlotProtected(int slotIndex, bool isEquip = false)
+    {
+        if (isEquip)
         {
             return false;
         }
 
-        PlayAutomatedFarmToolRejectSound();
-        ToolbarSlotUI.PlayRejectShakeAt(requestedIndex);
-        InterruptAutomatedFarmToolOperation();
+        return TryGetProtectedHeldSlotIndex(out int protectedSlotIndex) && protectedSlotIndex == slotIndex;
+    }
+
+    public bool TryRejectActiveFarmToolSwitch(int requestedIndex)
+    {
+        if (!TryGetCurrentHotbarItem(out int protectedSlotIndex, out var itemData) || requestedIndex == protectedSlotIndex)
+        {
+            return false;
+        }
+
+        if (HasActiveAutomatedFarmToolOperation())
+        {
+            PlayProtectedHeldRejectFeedback(protectedSlotIndex);
+            InterruptAutomatedFarmToolOperation();
+            return true;
+        }
+
+        if (itemData != null && itemData.isPlaceable && HasActivePlacementNavigationSession())
+        {
+            PlayProtectedHeldRejectFeedback(protectedSlotIndex);
+            PlacementManager.Instance?.InterruptFromExternal();
+            return true;
+        }
+
+        return false;
+    }
+
+    public bool TryPrepareHotbarSelectionChange(int requestedIndex)
+    {
+        int clampedIndex = Mathf.Clamp(requestedIndex, 0, InventoryService.HotbarWidth - 1);
+        if (hotbarSelection != null && clampedIndex == hotbarSelection.selectedIndex)
+        {
+            return true;
+        }
+
+        if (TryRejectActiveFarmToolSwitch(clampedIndex))
+        {
+            return false;
+        }
+
+        ClearActionQueue();
+        CancelFarmingNavigation();
         return true;
     }
 
     public bool TryRejectActiveFarmToolInventoryMove(int slotIndex, bool isEquip)
     {
-        if (isEquip || hotbarSelection == null || slotIndex != hotbarSelection.selectedIndex || !HasActiveAutomatedFarmToolOperation())
+        if (isEquip || !TryGetProtectedHeldSlotIndex(out int protectedSlotIndex) || slotIndex != protectedSlotIndex)
         {
             return false;
         }
 
-        PlayAutomatedFarmToolRejectSound();
-        InterruptAutomatedFarmToolOperation();
+        PlayProtectedHeldRejectFeedback(protectedSlotIndex);
+        return true;
+    }
+
+    public bool TryRejectProtectedHeldInventoryMutation(int sourceSlotIndex, bool sourceIsInventorySlot, int targetSlotIndex, bool targetIsInventorySlot)
+    {
+        if (!TryGetProtectedHeldSlotIndex(out int protectedSlotIndex))
+        {
+            return false;
+        }
+
+        bool touchesProtectedSource = sourceIsInventorySlot && sourceSlotIndex == protectedSlotIndex;
+        bool touchesProtectedTarget = targetIsInventorySlot && targetSlotIndex == protectedSlotIndex;
+        if (!touchesProtectedSource && !touchesProtectedTarget)
+        {
+            return false;
+        }
+
+        PlayProtectedHeldRejectFeedback(protectedSlotIndex);
+        return true;
+    }
+
+    public bool TryRejectProtectedHeldInventoryReshuffle()
+    {
+        if (!TryGetProtectedHeldSlotIndex(out int protectedSlotIndex))
+        {
+            return false;
+        }
+
+        PlayProtectedHeldRejectFeedback(protectedSlotIndex);
         return true;
     }
 
@@ -2743,6 +2988,16 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     public void TryEnqueueFromCurrentInput()
     {
+        if (IsAnyPanelOpen())
+        {
+            return;
+        }
+
+        if (GetManualMovementInput().sqrMagnitude > 0.01f)
+        {
+            return;
+        }
+
         // 再尝试工具/种子
         if (inventory == null || database == null || hotbarSelection == null) return;
         int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);

@@ -176,6 +176,11 @@ public class InventoryInteractionManager : MonoBehaviour
     public void OnSlotBeginDrag(int index, bool isEquip, PointerEventData eventData)
     {
         if (currentState != State.Idle) return;
+
+        if (TryRejectProtectedHeldInventoryPickup(index, isEquip))
+        {
+            return;
+        }
         
         ItemStack slot = GetSlot(index, isEquip);
         if (slot.IsEmpty) return;
@@ -337,6 +342,11 @@ public class InventoryInteractionManager : MonoBehaviour
     private void HandleIdleClick(int index, bool isEquip, bool shift, bool ctrl)
     {
         ItemStack slot = GetSlot(index, isEquip);
+
+        if (!slot.IsEmpty && (shift || ctrl) && TryRejectProtectedHeldInventoryPickup(index, isEquip))
+        {
+            return;
+        }
         
         if (shift && !slot.IsEmpty)
         {
@@ -521,6 +531,13 @@ public class InventoryInteractionManager : MonoBehaviour
     private void ExecutePlacement(int targetIndex, bool targetIsEquip, bool allowSwap)
     {
         ItemStack target = GetSlot(targetIndex, targetIsEquip);
+
+        if (TryRejectProtectedHeldInventoryMutation(targetIndex, targetIsEquip))
+        {
+            ReturnToSource();
+            ResetState();
+            return;
+        }
         
         // 装备槽位限制检查
         if (targetIsEquip)
@@ -608,6 +625,33 @@ public class InventoryInteractionManager : MonoBehaviour
     private ItemStack GetSlot(int index, bool isEquip)
     {
         return isEquip ? equipment.GetEquip(index) : inventory.GetSlot(index);
+    }
+
+    private bool TryRejectProtectedHeldInventoryMutation(int targetIndex, bool targetIsEquip)
+    {
+        var inputManager = GameInputManager.Instance;
+        if (inputManager == null || sourceIndex < 0)
+        {
+            return false;
+        }
+
+        return inputManager.TryRejectProtectedHeldInventoryMutation(
+            sourceIndex,
+            !sourceIsEquip,
+            targetIndex,
+            !targetIsEquip);
+    }
+
+    private bool TryRejectProtectedHeldInventoryPickup(int slotIndex, bool isEquip)
+    {
+        var inputManager = GameInputManager.Instance;
+        return inputManager != null && inputManager.TryRejectActiveFarmToolInventoryMove(slotIndex, isEquip);
+    }
+
+    private bool TryRejectProtectedHeldInventoryReshuffle()
+    {
+        var inputManager = GameInputManager.Instance;
+        return inputManager != null && inputManager.TryRejectProtectedHeldInventoryReshuffle();
     }
     
     private void SetSlot(int index, bool isEquip, ItemStack item)
@@ -725,6 +769,11 @@ public class InventoryInteractionManager : MonoBehaviour
     /// </summary>
     private void OnSortButtonClick()
     {
+        if (TryRejectProtectedHeldInventoryReshuffle())
+        {
+            return;
+        }
+
         // 如果正在拿取物品，先取消
         if (IsHolding)
         {
@@ -811,6 +860,13 @@ public class InventoryInteractionManager : MonoBehaviour
     {
         int targetSlot = GetEquipSlotForType(itemData.equipmentType);
         if (targetSlot < 0) return;
+
+        var inputManager = GameInputManager.Instance;
+        if (inputManager != null &&
+            inputManager.TryRejectProtectedHeldInventoryMutation(srcIndex, true, targetSlot, false))
+        {
+            return;
+        }
         
         ItemStack current = equipment.GetEquip(targetSlot);
         equipment.SetEquip(targetSlot, item);
