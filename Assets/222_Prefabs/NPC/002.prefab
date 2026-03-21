@@ -262,29 +262,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetRenderer: {fileID: 1276010894800916247}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0, y: 1.52, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.68, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
-  bubblePadding: {x: 32, y: 20}
-  maxTextWidth: 232
+  bubblePadding: {x: 30, y: 18}
+  maxTextWidth: 220
   borderThickness: 6
-  tailSize: {x: 22, y: 12}
-  tailYOffset: -2
+  tailSize: {x: 20, y: 12}
+  tailYOffset: -4
   shadowOffset: {x: 3, y: -5}
   sortingOrderOffset: 20
-  minBubbleHeight: 1.34
-  bubbleGapAboveRenderer: 0.2
-  visibleFloatAmplitude: 0.028
-  visibleFloatFrequency: 1.85
+  minBubbleHeight: 1.46
+  bubbleGapAboveRenderer: 0.32
+  visibleFloatAmplitude: 0.024
+  visibleFloatFrequency: 1.6
   bubbleBorderColor: {r: 0.92, g: 0.79, b: 0.56, a: 1}
   bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 0.96}
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
   textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
   textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
-  fontSize: 21
+  fontSize: 20
   textOutlineWidth: 0.18
-  showDuration: 0.15
+  showDuration: 0.14
   hideDuration: 0.1
-  showScaleOvershoot: 0.06
+  showScaleOvershoot: 0.05
   selfTalkLines:
   - "\u5148\u5728\u8FD9\u8FB9\u770B\u770B\u3002"
   - "\u4ECA\u5929\u8FD8\u633A\u5B89\u9759\u3002"
@@ -292,7 +292,7 @@ MonoBehaviour:
   - "\u55EF \u8FD9\u8FB9\u98CE\u6709\u70B9\u8212\u670D\u3002"
   - "\u4E0D\u77E5\u9053\u5927\u5BB6\u5728\u5FD9\u4EC0\u4E48\u3002"
   showDebugLog: 0
-  styleVersion: 4
+  styleVersion: 5
 --- !u!114 &8904943649822209385
 MonoBehaviour:
   m_ObjectHideFlags: 0

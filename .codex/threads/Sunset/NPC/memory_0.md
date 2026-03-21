@@ -429,3 +429,35 @@
 **恢复点 / 下一步**:
 - 当前分支已经具备一次新的 NPC 静态 checkpoint，下一步是更新技能审计日志、执行 NPC 白名单 sync，并立刻 `return-main`。
 - 后续真正最小的业务动作，是申请一次 Unity 手测窗口，验证气泡最终观感和不穿透效果是否符合用户预期。
+
+---
+
+### 会话 18 - 2026-03-21
+
+**用户需求**:
+> 继续执行 `NPC_验收失败返工与live验收闭环`，把这轮 NPC 返工收清楚；如果 live 还没法闭环，就明确告诉治理和用户到底卡在哪一层。
+
+**完成任务**:
+1. 在 `D:\Unity\Unity_learning\Sunset @ codex/npc-roam-phase2-003 @ 3e7af95b` 接住当前分支现场，确认 NPC 主线仍是 V1 体验返工，不是换线。
+2. 回读本轮业务 patch，确认已新增两项真实返工：
+   - `NPCAutoRoamController` 把 `Rigidbody2D` 移动主路径放回 `FixedUpdate()`，降低物理阻挡继续“有刚体没物理节奏”的风险。
+   - `NPCBubblePresenter` 与 `001/002/003.prefab` 同步升级到气泡样式 `styleVersion: 5`，进一步抬高和收紧气泡默认表现。
+3. 做只读 MCP 探针后确认：`unityMCP/read_console` 仍返回 HTML 网关页，不是 Unity 数据；因此这轮不能把结果包装成“live 验收通过”。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `Assets/222_Prefabs/NPC/001.prefab`
+- `Assets/222_Prefabs/NPC/002.prefab`
+- `Assets/222_Prefabs/NPC/003.prefab`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+- `.codex/threads/Sunset/NPC/memory_0.md`
+
+**关键结论**:
+- 当前 NPC 分支已经具备新的返工 checkpoint，但 live 验收仍被 MCP transport failure 阻塞。
+- 本轮真实收口目标不是宣称已经通过，而是把“业务已返工到哪、闭环为什么还差一步”写实落盘，再完成白名单同步与 `return-main`。
+
+**当前恢复点**:
+- 线程下一步是补技能审计日志、执行本轮 allowlist sync、然后 `return-main`。
+- 真正的业务闭环依旧等待 Unity 手测窗口。

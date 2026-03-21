@@ -349,3 +349,33 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 **当前恢复点**:
 - 父工作区现在可以把这轮判断写实为：NPC V1 的静态交付面已进一步收口，但 main-ready 仍取决于后续 Unity 手测证据。
 - 后续若继续推进，优先级最高的不是加新行为，而是验证这轮碰撞体与气泡在主项目里的真实观感。
+
+---
+
+### 会话 18 - 2026-03-21
+
+**用户需求**:
+> 按 `NPC_验收失败返工与live验收闭环` 口令继续 NPC 返工；如果 live 验收还过不去，要把真正阻塞层写清楚，再完成这轮收口。
+
+**完成任务**:
+1. 在 `codex/npc-roam-phase2-003 @ 3e7af95b` 继续接管 NPC 主线返工，确认当前业务 dirty 只剩 `NPCAutoRoamController`、`NPCBubblePresenter` 与 `001/002/003.prefab`。
+2. 复核本轮 patch，确认 branch 内新增返工点已经从“旧碰撞体 + 旧气泡序列化值”推进到“物理时序修正 + 气泡样式 V5 收口”。
+3. 追加一条只读 MCP 探针，确认 `unityMCP/read_console` 仍直接返回 `Sub2API` HTML 网关页；因此当前 live 验收仍被 MCP transport failure 阻塞，而不是 NPC 代码再次回红。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `Assets/222_Prefabs/NPC/001.prefab`
+- `Assets/222_Prefabs/NPC/002.prefab`
+- `Assets/222_Prefabs/NPC/003.prefab`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+- `.codex/threads/Sunset/NPC/memory_0.md`
+
+**关键结论**:
+- 当前父工作区可以把这轮结果写实为：NPC 已形成一版新的返工 checkpoint，但还没有 live 验收通过证据。
+- 这轮最真实的阻塞点不是业务逻辑继续坏掉，而是 MCP 传输层没有把只读请求送到 Unity。
+
+**当前恢复点**:
+- 父工作区下一步是白名单 sync 并 `return-main`。
+- 真正的 main-ready 结论仍取决于后续 Unity 手测窗口。

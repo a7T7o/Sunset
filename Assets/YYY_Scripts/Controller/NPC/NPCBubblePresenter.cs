@@ -10,7 +10,7 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class NPCBubblePresenter : MonoBehaviour
 {
-    private const int CurrentStyleVersion = 4;
+    private const int CurrentStyleVersion = 5;
 
     private static readonly string[] PreferredFontResourcePaths =
     {
@@ -33,19 +33,19 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private TMP_FontAsset fontAsset;
 
     [Header("气泡布局")]
-    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.36f, 0f);
+    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.68f, 0f);
     [SerializeField] private Vector3 bubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
-    [SerializeField] private Vector2 bubblePadding = new Vector2(34f, 22f);
-    [SerializeField] private float maxTextWidth = 244f;
+    [SerializeField] private Vector2 bubblePadding = new Vector2(30f, 18f);
+    [SerializeField] private float maxTextWidth = 220f;
     [SerializeField] private float borderThickness = 6f;
-    [SerializeField] private Vector2 tailSize = new Vector2(24f, 14f);
-    [SerializeField] private float tailYOffset = -3f;
-    [SerializeField] private Vector2 shadowOffset = new Vector2(4f, -6f);
+    [SerializeField] private Vector2 tailSize = new Vector2(20f, 12f);
+    [SerializeField] private float tailYOffset = -4f;
+    [SerializeField] private Vector2 shadowOffset = new Vector2(3f, -5f);
     [SerializeField] private int sortingOrderOffset = 20;
-    [SerializeField] private float minBubbleHeight = 1.28f;
-    [SerializeField] private float bubbleGapAboveRenderer = 0.34f;
-    [SerializeField] private float visibleFloatAmplitude = 0.035f;
-    [SerializeField] private float visibleFloatFrequency = 2.2f;
+    [SerializeField] private float minBubbleHeight = 1.46f;
+    [SerializeField] private float bubbleGapAboveRenderer = 0.32f;
+    [SerializeField] private float visibleFloatAmplitude = 0.024f;
+    [SerializeField] private float visibleFloatFrequency = 1.6f;
 
     [Header("气泡样式")]
     [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
@@ -53,11 +53,11 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private Color bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
     [SerializeField] private Color textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
     [SerializeField] private Color textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
-    [SerializeField] private float fontSize = 22f;
+    [SerializeField] private float fontSize = 20f;
     [SerializeField] private float textOutlineWidth = 0.18f;
-    [SerializeField] private float showDuration = 0.16f;
-    [SerializeField] private float hideDuration = 0.12f;
-    [SerializeField] private float showScaleOvershoot = 0.08f;
+    [SerializeField] private float showDuration = 0.14f;
+    [SerializeField] private float hideDuration = 0.1f;
+    [SerializeField] private float showScaleOvershoot = 0.05f;
 
     [Header("默认文本池")]
     [SerializeField] private string[] selfTalkLines =
@@ -289,27 +289,27 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private void ApplyCurrentStylePreset()
     {
-        bubbleLocalOffset = new Vector3(0f, 1.52f, 0f);
-        bubblePadding = new Vector2(32f, 20f);
+        bubbleLocalOffset = new Vector3(0f, 1.68f, 0f);
+        bubblePadding = new Vector2(30f, 18f);
         bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
         bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
         bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
         textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
         textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
-        fontSize = 21f;
+        fontSize = 20f;
         textOutlineWidth = 0.18f;
-        maxTextWidth = 232f;
+        maxTextWidth = 220f;
         borderThickness = 6f;
-        tailSize = new Vector2(22f, 12f);
-        tailYOffset = -2f;
+        tailSize = new Vector2(20f, 12f);
+        tailYOffset = -4f;
         shadowOffset = new Vector2(3f, -5f);
-        minBubbleHeight = 1.34f;
-        bubbleGapAboveRenderer = 0.2f;
-        visibleFloatAmplitude = 0.028f;
-        visibleFloatFrequency = 1.85f;
-        showDuration = 0.15f;
+        minBubbleHeight = 1.46f;
+        bubbleGapAboveRenderer = 0.32f;
+        visibleFloatAmplitude = 0.024f;
+        visibleFloatFrequency = 1.6f;
+        showDuration = 0.14f;
         hideDuration = 0.1f;
-        showScaleOvershoot = 0.06f;
+        showScaleOvershoot = 0.05f;
     }
 
     private void EnsureBubbleUi()

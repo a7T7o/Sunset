@@ -391,3 +391,40 @@
 **当前恢复点**:
 - 子工作区当前已完成“气泡位置 + 实体碰撞体 + 生成器链路 + 现有 prefabs 同步”的静态 checkpoint。
 - 下一步是按白名单同步本轮改动和三层 memory，然后 `return-main`；若继续推进，最小动作就是申请一次 Unity 手测窗口验证气泡观感与不穿透效果。
+
+---
+
+### 会话 18 - 2026-03-21
+
+**用户需求**:
+> 按 `NPC_验收失败返工与live验收闭环` 口令继续本轮返工；要么把 live 可见问题修到达标，要么写实指出阻塞层，并完成本轮允许域内的最小收口。
+
+**完成任务**:
+1. 继续在 `D:\Unity\Unity_learning\Sunset @ codex/npc-roam-phase2-003 @ 3e7af95b` 接管 live 现场，确认当前 dirty 只包含 `NPCAutoRoamController.cs`、`NPCBubblePresenter.cs`、`001/002/003.prefab` 与运行态 `shared-root-branch-occupancy.md`。
+2. 回读本轮 patch 并用 `git diff --check` 做纯 Git 静态验证；确认返工聚焦两件事：
+   - `NPCAutoRoamController` 已把带 `Rigidbody2D` 的位移主路径迁回 `FixedUpdate()`，`Update()` 只保留无 `rb` 的 fallback。
+   - `NPCBubblePresenter` 已升到 `CurrentStyleVersion = 5`，并同步 `001/002/003.prefab` 的气泡样式参数，让默认气泡更高、更窄、更轻，不再沿用上一轮偏压脸的序列化值。
+3. 做了一次只读 MCP 健康探针：`unityMCP/read_console` 仍返回 `Unexpected content type: text/html`，正文是 `Sub2API - AI API Gateway` 网关页，而不是 Unity Console 数据；因此当前 live 验收阻塞仍属于 MCP 传输层，不是本轮 NPC 业务代码重新报红。
+4. 将本轮写实口径收紧为：当前已经形成新的 NPC 返工 checkpoint，但还不能写成“live 验收通过”；真正闭环仍要等待可用的 Unity / MCP 窗口或人工 Unity 手测。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `Assets/222_Prefabs/NPC/001.prefab`
+- `Assets/222_Prefabs/NPC/002.prefab`
+- `Assets/222_Prefabs/NPC/003.prefab`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+- `.codex/threads/Sunset/NPC/memory_0.md`
+
+**验证结果**:
+- `git diff --check` 通过，当前 patch 没有格式错误。
+- `unityMCP/read_console` 失败，错误为 `Unexpected content type ... text/html ... Sub2API - AI API Gateway`，说明 MCP transport 仍未回到 Unity。
+
+**关键结论**:
+- 当前 root cause class 更偏 `C`：branch 自身确实存在需要返工的实现缺口，本轮已经补上物理时序与气泡样式 V5；但 live 闭环仍被 MCP transport failure 卡住。
+- 当前可以把这轮结果写成“carrier-ready 的返工 checkpoint”，不能写成“main-ready / live 验收通过”。
+
+**当前恢复点**:
+- 子工作区下一步是补技能审计日志、白名单 sync、`return-main`。
+- 真正的业务闭环仍等待一次可用的 Unity 手测窗口。
