@@ -702,3 +702,54 @@
 **恢复点 / 下一步**：
 - 当前主线恢复点已推进到：`SceneBuild_01` 已收成可继续精修的高质量初稿。
 - 本轮结束动作应是更新记忆、做仅含文档的最小 checkpoint，并按 prompt 最小格式回执。
+
+### 会话 23 - 2026-03-21（回读 `900_开篇` 最新剧情，重新钉死 scene-build 的剧本承载定位）
+
+**用户目标**：
+- 先切回当前 worktree，完整阅读 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇` 下的最新剧情 / 实现文档，再说明“当前我要搭建的场景到底是什么”；随后用户又补充了一份原本应指导本线程的 prompt，强调后续不要把旧 worktree 当长期终点，而要把有效成果尽快回到 `D:\Unity\Unity_learning\Sunset @ main` 继续精修。
+
+**本轮子任务 / 阻塞**：
+- 子任务是跨工作区只读回看与主线对齐，不做任何代码 / scene / prefab 写入。
+- 阻塞不是工具本身，而是如果不先把 `spring-day1` 的剧情节拍和当前 `SceneBuild_01` 的空间定位重新对齐，后续精修会继续漂成“泛化摆景”。
+
+**已完成事项**：
+1. 复核当前 worktree 现场：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001 @ codex/scene-build-5.0.0-001 @ 0a14b93c`，`git status = clean`。
+2. 回读 shared root 下 `0.0.1剧情初稿`、`spring-day1-implementation`、以及当前 `5.0.0场景搭建` 文档链，确认春1日从坠落、进村、疗伤、工作台闪回、农田教学、晚餐到夜间提醒的正式剧情节拍。
+3. 额外按用户补充 prompt 复核 shared root 当前真实基线：`D:\Unity\Unity_learning\Sunset @ main @ f1ac9872`，`git status = clean`。
+
+**关键结论**：
+- `SceneBuild_01` 当前不该再被理解成“整座落日村总图”或“矿洞口 / 饭馆段落 scene”，而应明确收敛成：**春1日 `14:20-15:10` 前后，承载“废弃小屋 + 院落 + 小块农田 + 教学互动”的农舍院落场景**。
+- 当前这个场景后续最需要继续服务的，不是抽象美术完整度，而是：
+  - 东侧主入口与 NPC 带路进入；
+  - 建筑 / 院落 / 工作台 / 农田的视线与动线；
+  - 对话站位、恢复段落、教学落点、工作台闪回与农田/砍树教学的空间支撑。
+- 用户新补充 prompt 已被吸收为策略信号：这条线后续不应继续把 worktree 当长期岛屿，而应尽快把有效成果对齐回 `main` 再继续精修。
+
+**恢复点 / 下一步**：
+- 当前主线恢复点已从“高质量初稿已收口”推进到“高质量初稿的剧情承载定位已重新对齐 spring-day1”。
+- 下一步若继续做 scene-build，优先级应切到“主入口 / 院落 / 工作台 / 农田教学 / NPC 引导焦点”的精修，而不是继续横向堆装饰。
+
+### 会话 24 - 2026-03-21（scene-build 迁移前冻结回执）
+
+**用户目标**：
+- 读取 `scene-build_当前任务回执与迁移前冻结.md`，不要再开新施工，只把当前这一刀收口成可描述状态，并按固定字段汇报迁移前冻结状态。
+
+**本轮子任务 / 阻塞**：
+- 子任务是冻结前状态回执，不是继续开发。
+- 当前无新的场景阻塞；仅需如实报告 worktree 里 3 个记忆文件仍 dirty。
+
+**已完成事项**：
+1. 已读取 prompt 并按字段要求复核当前现场。
+2. 已确认当前 worktree 为 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001 @ codex/scene-build-5.0.0-001 @ 0a14b93c`。
+3. 已确认这轮“当前这一刀”实际完成的是剧情回读与场景定位对齐，而非新的 scene 施工。
+4. 已确认 dirty 仅限：
+   - `.kiro/specs/900_开篇/5.0.0场景搭建/1.0.1初步规划/memory.md`
+   - `.kiro/specs/900_开篇/5.0.0场景搭建/memory.md`
+   - `.codex/threads/Sunset/Skills和MCP/memory_0.md`
+
+**关键结论**：
+- 当前 worktree 已可冻结，没有半写的 `SceneBuild_01` 资产或 Unity / MCP live 写入进行中。
+- 当前最准确口径是：`can_freeze_now = yes`；`migration_ready` 取决于治理侧是否允许带记忆 dirty 直接迁移。
+
+**恢复点 / 下一步**：
+- 当前主线保持冻结等待，不自行搬目录、不回 shared root 改东西。

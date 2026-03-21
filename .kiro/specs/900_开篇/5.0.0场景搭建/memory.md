@@ -374,3 +374,25 @@
   - `SceneBuild_01` 已达到“可继续精修的高质量初稿”；
   - 但 Unity live / MCP 验证闭环仍未恢复，不得表述成 live 验收通过。
 - 当前父工作区恢复点已推进到“高质量初稿已收口，等待后续精修或 live 验证链修复”。
+
+### 2026-03-21（`900_开篇` 剧情回读完成，scene-build 目标从“泛搭景”收紧为 `spring-day1` 承载）
+
+- 子工作区已完成对 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇` 的一轮系统回读，覆盖 `0.0.1剧情初稿`、`spring-day1-implementation` 与当前 `5.0.0场景搭建` 正文。
+- 本轮收敛出的父工作区级稳定结论是：`SceneBuild_01` 当前不应再被理解成“整座村庄总图”或“纯环境试搭 scene”，而应明确视为春1日 `14:20 进入村庄` 之后的“废弃小屋 + 院落 + 农田教学”承载场景。
+- 这意味着后续精修的正确方向，已经从“再补一点泛化美术”切换为：
+  - 强化东侧主入口与 NPC 引导进入；
+  - 明确建筑、院落、工作台、农田教学与站位对话的空间关系；
+  - 保住院内留白与视线焦点；
+  - 让场景继续服务 `spring-day1` 剧本，而不是继续扩成无主线的环境孤岛。
+- 用户新补充的指导 prompt 也已吸收为策略信号：旧 worktree 只作为过渡现场，后续有效场景成果应尽快对齐 `D:\Unity\Unity_learning\Sunset @ main` 这一唯一真实基线，而不是继续长期悬在隔离现场。
+
+### 2026-03-21（迁移前冻结回执已完成，当前现场可冻结但仍有记忆 dirty）
+
+- 子工作区已按新的 `scene-build_当前任务回执与迁移前冻结.md` prompt 完成冻结前只读复核。
+- 当前父工作区层面的最新判断是：
+  - worktree 现场仍为 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001 @ codex/scene-build-5.0.0-001 @ 0a14b93c`；
+  - 当前 dirty 只剩 3 个记忆文件；
+  - 没有未收口的 scene / prefab / script 写态。
+- 因此父工作区当前口径可收敛为：
+  - `can_freeze_now = yes`
+  - 但 `migration_ready` 是否直接视为 `yes`，仍取决于治理侧是否接受“仅带记忆 dirty 的 worktree 迁移”。
