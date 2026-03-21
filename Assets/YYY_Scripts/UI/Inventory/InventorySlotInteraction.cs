@@ -253,6 +253,11 @@ public class InventorySlotInteraction : MonoBehaviour,
         {
             return;
         }
+
+        if (IsInventorySlot && TryRejectAutomatedFarmToolInventoryMove())
+        {
+            return;
+        }
         
         float holdTime = Time.time - pressTime;
         float moveDistance = Vector2.Distance(eventData.position, pressPosition);

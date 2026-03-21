@@ -197,3 +197,26 @@
 - 这条 checkpoint 让 `GameInputManager <-> HotbarSelectionService` 的职责边界更接近设计稿要求的“底层权威落点”。
 **恢复点 / 下一步**：
 - 继续按白名单提交本轮代码与记忆；若 sync 成功，则释放 `GameInputManager.cs` 热文件锁并 `return-main`。
+
+### 2026-03-21 - recovery-control-01：受保护手持槽位拖拽起手拒绝补齐
+**用户目标**：
+> 在 `codex/farm-1.0.2-cleanroom001` 上继续推进一个真实业务 checkpoint，不进入 Unity / MCP，不扩出 `1.0.2` 白名单允许域。
+
+**完成事项**：
+1. 回读背包 / Toolbar 保护链，确认当前 branch 已覆盖交换落点、整理与热栏切换保护，但普通拖拽起手仍缺一层源槽位拒绝。
+2. 在 `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs` 的 `OnBeginDrag(...)` 中补入受保护手持槽位拒绝判断：
+   - 当源槽位属于 `InventoryService`
+   - 且当前触碰的是受保护手持槽位
+   - 直接触发既有拒绝反馈并拒绝启动拖拽
+3. 同步更新 `1.0.2纠正001/tasks.md`，把这次 checkpoint 记录为已完成实现任务。
+
+**验证结果**：
+- 本轮未进入 Unity / MCP / Play Mode。
+- 本轮验证以代码链回读与白名单内容级检查为准，后续仍需用 `git diff --check` 与白名单 sync 做最终收口。
+
+**关键结论**：
+- 当前 `1.0.2` 的“受保护手持内容不可交换”语义已从交换落点进一步补齐到拖拽起手层。
+- 这次 checkpoint 直接服务于用户此前指出的边界 bug：打开 UI 后不能再通过普通拖拽把正在使用的手持内容从背包第一行拖走。
+
+**恢复点 / 下一步**：
+- 继续执行本轮白名单检查与 sync；如果收口成功，再 return-main 并回报 `carrier_ready / main_ready`。

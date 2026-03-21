@@ -179,3 +179,6 @@
 - 当前热文件锁已持有；在 sync 成功前不允许自行 release / return-main。
 **恢复点 / 下一步**：
 - 继续完成白名单 sync；若成功，则释放 `GameInputManager.cs` 锁并 `return-main`，随后给出最小回执中的 `carrier_ready / main_ready`。
+
+## 2026-03-21：recovery-control-01 当前业务 checkpoint
+本轮用户通过 `恢复开发总控_01` 正式放行当前农田线程继续开发，要求在 `codex/farm-1.0.2-cleanroom001` 上推进一个真实业务 checkpoint，而不是只做 carrier 说明。按放行 prompt 已完成 `request-branch -> ensure-branch`，并确认允许域仍限定在 `GameInputManager / Farm / Placement / UI/Inventory / HotbarSelectionService` 及 `2026.03.16` 相关文档。回读当前分支实现后，识别出一个不需要 Unity/MCP、但确实属于 `1.0.2` 主线的剩余缺口：虽然当前 branch 已经挡住交换落点、整理与热栏切换，但普通拖拽起手仍可能绕过“受保护手持槽位不可交换”的规则。因此本轮把最小真实 checkpoint 收敛为：在 `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs` 的 `OnBeginDrag(...)` 中补上受保护手持槽位拒绝，让背包第一行 / Toolbar 对应槽位在“当前正在使用中”时，连普通拖拽起手也会被既有拒绝反馈拦下。这个 checkpoint 服务的仍是用户明确提出的主线语义：“UI 打开时只允许背包更新，但不会因为 UI 交换而改变正在执行、正在播放或正在使用的手持内容。” 当前恢复点：继续完成本轮白名单 `sync`，然后 `return-main`，再根据 live diff 回答 `carrier_ready / main_ready`。

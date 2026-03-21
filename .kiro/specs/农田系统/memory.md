@@ -124,3 +124,6 @@
 - 本轮代码改动仍严格限定在农田 `1.0.2` 允许路径，不涉及治理文件、NPC 文件或 Unity 资源。
 **恢复点 / 下一步**：
 - 完成本轮 sync、释放热文件锁并 return-main 后，再用最终 diff 判断 `carrier_ready / main_ready`。
+
+## 2026-03-21：1.0.2 continuation branch 新增拖拽起手保护 checkpoint
+在 `codex/farm-1.0.2-cleanroom001` 的恢复开发窗口中，`1.0.2纠正001` 继续推进了一个不依赖 Unity live 的真实业务 checkpoint：补上受保护手持槽位在普通拖拽起手时的拒绝判断，避免当前正在使用中的手持内容仍可通过背包第一行 / Toolbar 对应槽位被拖走。当前这条改动只落在 `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`，服务的仍是用户此前明确指出的“UI 打开时只允许背包更新，但不允许交换正在使用手持内容”的主线要求。该 checkpoint 目前仍停留在 continuation branch，后续是否 `main_ready` 仍取决于本轮白名单 sync 与 shared root 归还是否顺利完成。

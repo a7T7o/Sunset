@@ -163,3 +163,19 @@
 - 当前最小 checkpoint 已明确落在 `GameInputManager <-> HotbarSelectionService`，而不是继续停留在 carrier 描述层。
 **恢复点 / 下一步**：
 - 继续完成本轮白名单 sync、释放热文件锁并归还 `main`；再基于 live diff 回答 `carrier_ready / main_ready`。
+
+### 2026-03-21 - recovery-control-01：继续补齐背包拖拽拒绝语义
+**用户目标**：
+> 在 continuation branch 已恢复可写后，继续推进一个不依赖 Unity 窗口的真实 `1.0.2` 业务 checkpoint。
+
+**完成事项**：
+1. 回读 `InventoryInteractionManager.cs`、`InventorySlotInteraction.cs`、`InventorySlotUI.cs` 与 `HotbarSelectionService.cs`，确认当前保护链已覆盖交换落点、整理按钮与热栏切换，但普通拖拽起手仍缺一层源槽位拒绝。
+2. 在 `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs` 中补上“受保护手持槽位不允许开始普通拖拽”。
+3. 将该 checkpoint 追加记录到 `2026.03.16/1.0.2纠正001` 子工作区任务与记忆。
+
+**关键结论**：
+- `1.0.2` 这条线当前又新增了一个真实业务 checkpoint，而不是停留在 carrier 说明层。
+- 本轮不需要触碰 `GameInputManager.cs` 热文件，因此不新增热文件锁流程。
+
+**恢复点 / 下一步**：
+- 继续执行当前 shared root 持槽期内的白名单 sync 与归还动作。
