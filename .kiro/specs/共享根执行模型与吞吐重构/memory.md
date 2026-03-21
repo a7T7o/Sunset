@@ -1055,3 +1055,46 @@
 **恢复点 / 下一步**
 - 先把本轮脚本补丁与记忆一并同步进 `main`。
 - 后续若继续任务 `15`，下一子步应优先拿真实 dirty 样本复核分类边界，再决定是否需要进入更深一层的 takeover / 放宽判定。
+
+## 2026-03-21｜任务 15 真实样本回放已校正 D3 边界，仍未触碰放宽闸门
+**当前主线目标**
+- 继续推进任务 `15`，把 dirty 报告层从“能输出”推进到“分类边界与设计稿一致”，同时不打断 `scene-build` 的 Unity / MCP 施工窗口。
+
+**本轮完成**
+1. 已在 shared root `main @ 5570ce48` 上复核 live 基线：
+   - `git status --short --branch = ## main...origin/main`
+   - shared root 仍为 `main + neutral`
+   - `scene-build` 继续停留在自己的 worktree，我未介入其现场
+2. 已用同一 PowerShell 会话 dot-source working tree 版 `scripts/git-safe-sync.ps1`，对以下真实样本做分级回放：
+   - `Assets/222_Prefabs/NPC/NPC.prefab`
+   - `Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset`
+   - `Assets/100_Anim/NPC/NPC.controller`
+   - `Assets/Sprites/NPC/icon.png.meta`
+   - `Assets/000_Scenes/Primary.unity`
+   - 以及对照样本 `HotbarSelectionService.cs / GameInputManager.cs / ProjectSettings/TagManager.asset`
+3. 已复现两类真实偏差：
+   - `Primary.unity` 因 `EndsWith('/primary.unity')` 的大小写比较而漏判成 `D2`
+   - 设计稿中应视为 `D3` 的共享 Prefab / ScriptableObject / Animator Controller / Sprite meta 仍被误报成 `D2`
+4. 已在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 修正报告层分类：
+   - `Test-DirtyHardBlockPath` 统一改为基于小写比较
+   - 补入 `Assets/222_Prefabs/*.prefab*`
+   - 补入 `Assets/111_Data/*.asset*`
+   - 补入 `Assets/100_Anim/*.controller*` 与 `*.overrideController*`
+   - 补入 `Assets/Sprites/*.meta`
+   - `Get-DirtyOwnerHint` 的 `Primary.unity / GameInputManager.cs` 热文件提示同步改为大小写稳定判断
+5. 已完成二次样本回放验证：
+   - `NPC.prefab / NPC_DefaultRoamProfile.asset / NPC.controller / icon.png.meta / Primary.unity` 现已全部报告为 `D3`
+   - `HotbarSelectionService.cs` 仍为 `D2`
+   - `GameInputManager.cs / ProjectSettings/TagManager.asset` 仍为 `D3`
+
+**关键判断**
+- 这轮修的是“报告层分类准确性”，不是 shared root 的放宽准入。
+- 默认硬闸门保持不变：
+  - `main clean`
+  - shared root `neutral`
+  - 不批准跨线程直接接 `raw dirty`
+- 真实样本已经证明，设计稿里点名的共享资产此前确实存在误报为 `D2` 的缺口；如果不补，后续 dirty 报告会给出错误安全感。
+
+**恢复点 / 下一步**
+- 先把本轮脚本补丁、任务单更新和三层记忆同步进 `main`。
+- 同步后，任务 `15` 的下一子步应转向“是否还存在其他误分边界”，而不是提前讨论放宽闸门。

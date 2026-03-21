@@ -1614,15 +1614,38 @@ function Test-DirtyHardBlockPath {
         return $false
     }
 
-    if ($normalizedPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') {
+    $comparisonPath = $normalizedPath.ToLowerInvariant()
+
+    if ($comparisonPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') {
         return $true
     }
 
-    if ($normalizedPath.StartsWith('projectsettings/') -or $normalizedPath.StartsWith('packages/')) {
+    if ($comparisonPath.StartsWith('projectsettings/') -or $comparisonPath.StartsWith('packages/')) {
         return $true
     }
 
-    return $normalizedPath.EndsWith('/primary.unity')
+    if ($comparisonPath.EndsWith('/primary.unity')) {
+        return $true
+    }
+
+    if ($comparisonPath.StartsWith('assets/222_prefabs/') -and ($comparisonPath.EndsWith('.prefab') -or $comparisonPath.EndsWith('.prefab.meta'))) {
+        return $true
+    }
+
+    if ($comparisonPath.StartsWith('assets/111_data/') -and ($comparisonPath.EndsWith('.asset') -or $comparisonPath.EndsWith('.asset.meta'))) {
+        return $true
+    }
+
+    if ($comparisonPath.StartsWith('assets/100_anim/') -and (
+            $comparisonPath.EndsWith('.controller') -or
+            $comparisonPath.EndsWith('.controller.meta') -or
+            $comparisonPath.EndsWith('.overridecontroller') -or
+            $comparisonPath.EndsWith('.overridecontroller.meta')
+        )) {
+        return $true
+    }
+
+    return ($comparisonPath.StartsWith('assets/sprites/') -and $comparisonPath.EndsWith('.meta'))
 }
 
 function Get-DirtyLevel {
@@ -1662,19 +1685,20 @@ function Get-DirtyOwnerHint {
     )
 
     $normalizedPath = Normalize-InputPath -Path $Path
+    $comparisonPath = if ([string]::IsNullOrWhiteSpace($normalizedPath)) { '' } else { $normalizedPath.ToLowerInvariant() }
 
     if ($Category -eq '已知本地噪音') { return 'noise' }
     if ($Category -eq 'shared root 租约运行态脏改') { return 'shared-root-runtime' }
-    if ($normalizedPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') { return 'hotfile-owner-required' }
-    if ($normalizedPath.EndsWith('/primary.unity')) { return 'scene-hotfile-owner-required' }
+    if ($comparisonPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') { return 'hotfile-owner-required' }
+    if ($comparisonPath.EndsWith('/primary.unity')) { return 'scene-hotfile-owner-required' }
     $threadMemoryOwnerHint = Get-ThreadMemoryOwnerHint -Path $Path
     if (-not [string]::IsNullOrWhiteSpace($threadMemoryOwnerHint)) { return $threadMemoryOwnerHint }
     if (Test-GovernanceReportPath -Path $Path) { return 'Codex规则落地' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/农田系统') -or $normalizedPath -match '(^|/)(farm|hotbar)(/|$)') { return '农田交互修复V2' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/NPC') -or $normalizedPath -match '(^|/)npc(/|$)') { return 'NPC' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/导航检查') -or $normalizedPath -match '(^|/)(navigation|nav)(/|$)') { return '导航检查' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/遮挡检查') -or $normalizedPath -match '(^|/)(occlusion|遮挡)(/|$)') { return '遮挡检查' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/900_开篇') -or $normalizedPath -match 'scenebuild|tilemap') { return 'scene-build' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/农田系统') -or $comparisonPath -match '(^|/)(farm|hotbar)(/|$)') { return '农田交互修复V2' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/NPC') -or $comparisonPath -match '(^|/)npc(/|$)') { return 'NPC' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/导航检查') -or $comparisonPath -match '(^|/)(navigation|nav)(/|$)') { return '导航检查' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/遮挡检查') -or $comparisonPath -match '(^|/)(occlusion|遮挡)(/|$)') { return '遮挡检查' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/900_开篇') -or $comparisonPath -match 'scenebuild|tilemap') { return 'scene-build' }
     if (-not [string]::IsNullOrWhiteSpace($OwnerThread)) { return $OwnerThread }
     if (-not [string]::IsNullOrWhiteSpace($Branch) -and $Branch.ToLowerInvariant().StartsWith('codex/')) { return $Branch }
 

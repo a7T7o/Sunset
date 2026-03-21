@@ -2005,3 +2005,36 @@
 **恢复点**：
 - 下一步优先把这轮任务 `15` 设计稿同步进 `main`。
 - 若继续推进任务 `15`，下一子步应先设计脚本如何输出 dirty 等级与 owner 信息。
+
+## 2026-03-21｜任务 15 的真实样本回放已纠正 shared asset / Primary 的误分级
+**用户目标**
+> 继续推进 Sunset 当前治理主线，不停在“报告层已经做出来”这一步，而是拿真实 dirty 样本去核对分类边界，并把能确认的误差直接修掉。
+
+**完成事项**
+1. 已复核 shared root 当前现场仍为：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `git status --short --branch = ## main...origin/main`
+   - occupancy = `main + neutral`
+2. 已在同一 PowerShell 会话里直接 dot-source working tree 版 `scripts/git-safe-sync.ps1`，完成任务 `15` 的真实样本回放。
+3. 已实锤两处报告层偏差：
+   - `Primary.unity` 因大小写比较问题被误判成 `D2`
+   - 设计稿里应算 `D3` 的共享 Prefab / ScriptableObject / Animator Controller / Sprite meta 仍被误报成 `D2`
+4. 已修正 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - `Test-DirtyHardBlockPath` 改为大小写稳定比较
+   - 新增共享资产高风险根与扩展名的 `D3` 命中
+   - `Get-DirtyOwnerHint` 对 `Primary.unity / GameInputManager.cs` 的热文件提示同步修正
+5. 已完成二次样本回放验证：
+   - `NPC.prefab / NPC_DefaultRoamProfile.asset / NPC.controller / icon.png.meta / Primary.unity` 现已全部归入 `D3`
+   - `HotbarSelectionService.cs` 继续为 `D2`
+   - `GameInputManager.cs / ProjectSettings/TagManager.asset` 继续为 `D3`
+
+**关键决策**
+- 这轮仍然只修“报告层准确性”，不触碰 shared root 放宽机制本身。
+- 对外口径保持不变：
+  - 默认硬闸门不撤
+  - 不批准跨线程直接接 `raw dirty`
+  - `scene-build` 继续独立施工，我不插手它的 worktree / Unity 现场
+
+**恢复点 / 下一步**
+- 下一步先完成治理 `sync -Mode governance`。
+- 收口后，任务 `15` 继续沿“真实样本 -> 分类边界 -> 是否还需补洞”的顺序推进。

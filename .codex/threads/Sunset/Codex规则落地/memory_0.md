@@ -1301,3 +1301,39 @@
 **恢复点 / 下一步**
 - 立刻执行本轮治理 `sync -Mode governance`，把脚本报告层与记忆一起收口进 `main`。
 - 收口后继续任务 `15`，优先观察真实 dirty 样本，再决定是否要进一步细化分类边界或模板口径。
+## 会话 18 - 2026-03-21（任务 15 真实样本回放后修正 D3 漏判）
+**当前主线目标**
+- 继续把治理主线压在任务 `15` 上：不讨论空泛方向，直接拿真实 dirty 样本校对脚本分级边界，并把确认无误的报告层偏差修掉。
+
+**本轮子任务 / 阻塞**
+- 用户要求我继续推进，不要只停在说明层。
+- 当前最合适的推进点是：验证 dirty 报告层有没有把设计稿里应当属于 `D3` 的共享资产错误报告成 `D2`。
+
+**本轮完成**
+1. 已确认 shared root 现场稳定：
+   - `D:\Unity\Unity_learning\Sunset @ main`
+   - `git status --short --branch = ## main...origin/main`
+   - occupancy = `main + neutral`
+2. 已在同一 PowerShell 会话里 dot-source `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`，对真实样本做分级回放。
+3. 已实锤两类偏差：
+   - `Assets/000_Scenes/Primary.unity` 因大小写比较漏判成 `D2`
+   - `Assets/222_Prefabs/*.prefab*`、`Assets/111_Data/*.asset*`、`Assets/100_Anim/*.controller*`、`Assets/Sprites/*.meta` 仍被误报为 `D2`
+4. 已修改 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - `Test-DirtyHardBlockPath` 改为小写比较
+   - 补入上述共享资产的 `D3` 硬阻断命中
+   - `Get-DirtyOwnerHint` 的 `Primary.unity / GameInputManager.cs` 热文件判断同步改为大小写稳定
+5. 已完成二次验证：
+   - 共享 Prefab / Data / Anim controller / Sprite meta 与 `Primary.unity` 现已全部回到 `D3`
+   - `HotbarSelectionService.cs` 继续保持 `D2`
+   - `GameInputManager.cs / ProjectSettings/TagManager.asset` 继续保持 `D3`
+
+**关键决策**
+- 这轮修的是报告层精度，不是 shared root 放宽策略。
+- 当前边界仍不变：
+  - 默认硬闸门不撤
+  - 不批准跨线程 `raw dirty takeover`
+  - `scene-build` 继续是唯一实际 Unity / MCP 写线程，我不碰它的现场
+
+**恢复点 / 下一步**
+- 先做治理 `sync -Mode governance`，把这轮脚本修正与记忆同步进 `main`。
+- 收口后继续任务 `15`，下一子步再看是否还有别的真实样本需要纠正。
