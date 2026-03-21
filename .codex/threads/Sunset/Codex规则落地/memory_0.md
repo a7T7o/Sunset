@@ -1677,3 +1677,31 @@
 - 同步后：
   - 给 scene-build 发 `scene-build_逻辑层继续施工.md`
   - 给 farm 发 `农田交互修复V2_当前开发放行.md`
+
+## 会话 30 - 2026-03-21（恢复开发总控已同步完成）
+**当前主线目标**
+- 把上一条会话里的交通裁定真正推上 `main`，形成正式 live 放行基线。
+
+**本轮完成**
+1. 已执行治理白名单 `sync` 并成功推送：
+   - `main @ 7c6fc1e9`
+2. 已正式生效的放行状态：
+   - `scene-build` 当前继续 `逻辑层`
+   - shared root 当前下一条是 `农田交互修复V2`
+   - `NPC` 当前不再发新开发 prompt，而是等待后续 Unity 手测窗口
+3. 已额外确认一个文档层风险：
+   - `scene-build_逻辑层继续施工.md` 本体按 `UTF-8` 读取正常
+   - PowerShell `Get-Content -Encoding Default` 会出现假乱码
+   - 这属于编码读法差异，不是 prompt 内容损坏
+
+**关键决策**
+- 当前最重要的是严格按新顺序推进，不把 `NPC` 再塞回 shared root 串行槽位。
+- `scene-build` 和 `farm` 现在是两条可继续推进的线，但职责不同：
+  - `scene-build` 在自己的 worktree 继续
+  - `farm` 在 shared root 接下一棒
+
+**恢复点**
+- 对用户的明确建议：
+  - 发 `scene-build_逻辑层继续施工.md`
+  - 发 `农田交互修复V2_当前开发放行.md`
+  - `NPC` 暂停在待手测态

@@ -1353,3 +1353,27 @@
 - 同步后：
   - `scene-build` 现在应发 `scene-build_逻辑层继续施工.md`
   - shared root 现在应发 `农田交互修复V2_当前开发放行.md`
+
+## 2026-03-21｜恢复开发总控状态已正式同步进 main
+**当前主线目标**
+- 把最新交通裁定真正落成 live 基线，避免“文档说一套、仓库实际还是上一轮”的漂移。
+
+**本轮完成**
+1. 已使用治理白名单同步成功：
+   - `main @ 7c6fc1e9`
+2. 已正式把以下状态写进 live 文档：
+   - `scene-build` 当前阶段 = `逻辑层`
+   - shared root 当前下一条 = `农田交互修复V2`
+   - `NPC` 当前身份 = 已收口但待后续 Unity 手测
+3. 已确认 shared root 仍保持：
+   - `branch = main`
+   - `occupancy = neutral`
+
+**当前执行口径**
+- 现在可以继续发：
+  - `scene-build_逻辑层继续施工.md`
+  - `农田交互修复V2_当前开发放行.md`
+- 现在先不要再发新的 shared root 开发 prompt 给 `NPC`
+
+**下一步**
+- 等用户决定是否立刻放行 `scene-build` 进入逻辑层、以及是否让 `farm` 接棒 shared root。
