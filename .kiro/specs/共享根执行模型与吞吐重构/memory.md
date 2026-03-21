@@ -1589,3 +1589,30 @@
 **恢复点 / 下一步**
 - 现在用户可以直接把新的 `spring-day1` prompt 发出去。
 - 等交回正式 handoff 后，再由 `scene-build` 吃这份 brief 继续施工。
+
+## 2026-03-21｜scene-build 已从“冻结回执”进入“最小 checkpoint 后等待迁移”
+**当前主线目标**
+- 在 `scene-build` 冻结回执已经到手的前提下，把下一步从模糊讨论收成一个单独可发的执行 prompt。
+
+**本轮完成**
+1. 已新增：
+   - `scene-build_最小checkpoint并等待正式迁移.md`
+2. 已把 `scene-build` 下一步口径收紧为：
+   - 只允许处理 3 个记忆 dirty
+   - 不继续扩施工
+   - 不自己迁移
+   - clean 后等待治理侧执行 `git worktree move`
+3. 已补强 `spring-day1` prompt：
+   - 其交付 brief 必须在 `scene-build` 迁移后仍然自洽可用
+
+**关键决策**
+- 当前 `scene-build` 不该直接恢复为持续施工态。
+- 更合理的顺序是：
+  - 最小 checkpoint
+  - 正式迁移
+  - 迁后复核
+  - 再恢复施工
+
+**恢复点 / 下一步**
+- 现在项目经理可以直接把新的 `scene-build` prompt 发给线程。
+- 等收到 `ready_for_move = yes` 后，再进入物理迁移动作。

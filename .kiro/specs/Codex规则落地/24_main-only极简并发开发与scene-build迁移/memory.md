@@ -78,3 +78,33 @@
 **恢复点 / 下一步**
 - 现在可以直接把新的 `spring-day1_当前开发放行.md` 发给 `spring-day1` 线程。
 - 等它交回正式 brief 后，再让 `scene-build` 继续按这份口径精修，不再靠聊天反复解释。
+
+## 2026-03-21｜scene-build 冻结回执已收，下一步改为“最小 checkpoint 后再迁移”
+**当前主线目标**
+- 基于 `scene-build` 的真实冻结回执，把“是否现在恢复施工”和“什么时候正式迁移”收成一个明确执行方案。
+
+**本轮完成**
+1. 已复核 `scene-build` 当前真实现场：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - `codex/scene-build-5.0.0-001 @ 0a14b93c`
+   - 当前 tracked dirty 仅剩 3 个记忆文件
+2. 已确认目标迁移路径当前不存在：
+   - `D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+3. 已新增下一步专用 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\scene-build_最小checkpoint并等待正式迁移.md`
+4. 已把裁定写死为：
+   - 不采用“带 3 个记忆 dirty 直接迁移”
+   - 先做 memory-only 最小 checkpoint
+   - clean 后停下，等待治理侧执行 `git worktree move`
+
+**关键决策**
+- `scene-build` 现在不是该立刻恢复自由施工，而是先把冻结点收干净。
+- 真正恢复后续施工的时机应放在：
+  - 最小 checkpoint 完成
+  - 正式迁移完成
+  - 新路径复核通过
+  之后，而不是现在这个 still-dirty 的过渡点。
+
+**恢复点 / 下一步**
+- 现在可以直接把 `scene-build_最小checkpoint并等待正式迁移.md` 发给 `scene-build`。
+- 等它回执 `ready_for_move = yes` 后，再由治理侧执行正式迁移。

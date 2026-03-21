@@ -34,4 +34,5 @@
 - 不是泛剧情复述
 - 不是 UI / 字幕 / 对话实现代办
 - 已经把“该做什么”和“先别扩什么”分开写清
+- 即使 `scene-build` 下一步迁到 `D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`，这份交付件仍然可以直接读、直接用
 ```
