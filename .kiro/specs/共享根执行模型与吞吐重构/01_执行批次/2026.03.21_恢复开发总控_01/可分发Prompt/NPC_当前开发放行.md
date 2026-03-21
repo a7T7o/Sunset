@@ -1,68 +1,45 @@
 # NPC - 当前开发放行
 
 ```text
-【恢复开发总控 01｜NPC｜当前开发放行】
-你的 continuation branch：
-- codex/npc-roam-phase2-003
+你现在直接开始真实开发，不再先走 branch / grant / return-main。
 
-你当前属于 shared root 串行开发位。你的目标是：
-- 在 NPC 允许域内继续推进一个真实业务 checkpoint
-- 明确回答本轮 carrier_ready / main_ready
+当前唯一真实基线：
+- `D:\Unity\Unity_learning\Sunset @ main`
 
-你的第一动作 MUST 是：
-1. 执行：
-   powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action request-branch -OwnerThread "NPC" -BranchName "codex/npc-roam-phase2-003" -CheckpointHint "npc-current-dev" -QueueNote "recovery-control-01"
+你这轮直接做 NPC 真问题，不要再停在“先验证我能不能开始”：
+- 气泡位置仍然糊脸、贴脸的问题
+- 气泡观感不自然的问题
+- NPC 与 NPC 互相穿透
+- 玩家与 NPC 互相穿透
+- 碰撞体尺寸和透视关系不合理的问题
 
-分流规则：
-- 如果返回 GRANTED 或 ALREADY_GRANTED：
-  1. 执行：
-     powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action ensure-branch -OwnerThread "NPC" -BranchName "codex/npc-roam-phase2-003"
-  2. 进入 branch 后先执行：
-     git diff --name-status main...HEAD
-  3. 本轮允许域只限：
-     - Assets/100_Anim/NPC/
-     - Assets/111_Data/NPC/
-     - Assets/222_Prefabs/NPC/
-     - Assets/Sprites/NPC/
-     - Assets/YYY_Scripts/Anim/NPC/
-     - Assets/YYY_Scripts/Controller/NPC/
-     - Assets/YYY_Scripts/Data/NPCRoamProfile.cs
-     - Assets/Editor/NPCPrefabGeneratorTool.cs
-     - Assets/Editor/NPCAutoRoamControllerEditor.cs
-     - .kiro/specs/NPC/
-     - .codex/threads/Sunset/NPC/memory_0.md
-  4. 本轮必须做出一个真实 checkpoint，不准只回答“branch 里本来就有内容”
-  5. 如果你发现这轮必须进入 Unity / MCP、Primary.unity 或其他主场景 live 验证：
-     - 立刻停下
-     - 不准自行升级范围
-     - 把 blocker_or_checkpoint 写成 needs-unity-window
-  6. 如果形成 checkpoint，执行：
-     powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action sync -Mode task -OwnerThread "NPC" -ScopeRoots "Assets/100_Anim/NPC","Assets/111_Data/NPC","Assets/222_Prefabs/NPC","Assets/Sprites/NPC","Assets/YYY_Scripts/Anim/NPC","Assets/YYY_Scripts/Controller/NPC","Assets/YYY_Scripts/Data/NPCRoamProfile.cs","Assets/Editor/NPCPrefabGeneratorTool.cs","Assets/Editor/NPCAutoRoamControllerEditor.cs",".kiro/specs/NPC",".codex/threads/Sunset/NPC" -IncludePaths "<按实际改动逐条填写>"
-  7. sync 成功后立刻执行：
-     powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action return-main -OwnerThread "NPC"
+你可以直接修改的允许域：
+- `Assets/YYY_Scripts/Controller/NPC/`
+- `Assets/YYY_Scripts/Anim/NPC/`
+- `Assets/YYY_Scripts/Data/NPCRoamProfile.cs`
+- `Assets/Editor/NPCPrefabGeneratorTool.cs`
+- `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+- `Assets/222_Prefabs/NPC/`
+- `Assets/111_Data/NPC/`
+- `Assets/100_Anim/NPC/`
+- `Assets/Sprites/NPC/`
+- `.kiro/specs/NPC/`
 
-- 如果返回 LOCKED_PLEASE_YIELD：
-  - 不准 ensure-branch
-  - 不准在 main 写 tracked 文件
-  - 草稿只准写进 Draft
+这轮不要做的事：
+- 不要先搞 branch
+- 不要只写结论不改业务
+- 不要顺手扩成大系统重构
 
-聊天只回复：
-- 已读 prompt 路径
-- request-branch
-- ensure-branch
-- hotfile_lock: not-needed
-- sync
-- return-main
-- carrier_ready
-- main_ready
-- main_ready_basis
+只有命中下面情况你才停：
+1. 发现有人已经在改同一批 NPC Prefab / 同一批 NPC 脚本。
+2. 你要进 Unity / MCP live 写，但已经有人在写。
+3. 你已经把 NPC 现场写坏了，需要先收口。
+
+聊天只回：
+- 当前在改什么
 - changed_paths
+- 是否触碰 Unity / MCP live 写
+- 是否撞到高危目标
 - blocker_or_checkpoint
 - 一句话摘要
-
-本轮禁止：
-- Primary.unity
-- Unity / MCP / Play Mode
-- 在 main 写 tracked 文件
-- 长篇复述过程
 ```

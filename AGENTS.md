@@ -1,5 +1,26 @@
 ﻿# Sunset 项目 Codex 工作规则
 
+## 0A. 2026-03-21 极简并发开发临时口径（高于下文旧流程，直到用户撤销）
+- 当前最高目标不是流程完美，而是尽快恢复真实开发、缩短等待、减少治理摩擦。
+- 即日起 Sunset 普通开发的真实基线默认只有一个：`main`。
+- 对普通开发，暂停把 `request-branch`、`grant-branch`、`ensure-branch`、`wake-next`、`return-main` 当成必经前置。
+- 不再为普通开发继续新增 `codex/*` 分支或新增 worktree。
+- 治理线程的角色改成“收烂摊子 + 高危打断 + 极简口径维护”，不再做重排队、重放行、重闸门。
+- 所有线程都可以直接开始开发；只有命中下面这些硬打断条件时才必须停下：
+  1. 正在改同一个高危目标。
+  2. 需要 Unity / MCP live 写入，但已经有别的线程在写。
+  3. 准备做破坏性 Git 动作，例如 `reset --hard`、`checkout --`、`clean`、强推、危险 rebase。
+  4. 已经造成编译坏、场景坏、引用坏，需要先收烂摊子。
+- “高危目标”默认包括：
+  - 同一个 Scene
+  - 同一个 Prefab
+  - `Primary.unity`
+  - `Assets/000_Scenes/SceneBuild_01.unity`
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - 任何当前正被另一个线程 live 写入的 Unity 资源
+- 等待态不再强制先写 tracked memory、占用文档或治理回执；能用最小聊天回执解决的，就不要先制造治理脏改。
+- 已经存在的 branch / worktree 只视为过渡现场，不再扩张成长期模型；其有价值成果应尽快回到 `main`，然后继续只以 `main` 为准。
+- 如果本节与下文旧的 branch-only / grant-only / queue-only 规则冲突，以本节为准。
 
 ## 0. 强制最高优先级闸门
 - 【强制最高优先级】只要任务发生在 `D:\Unity\Unity_learning\Sunset` 且属于实质性任务，你的第一次动作 MUST 是调用 `sunset-startup-guard`；如果当前会话未显式暴露该 skill，你 MUST 立即调用 `skills-governor` 并按 Sunset 等价流程手工完成同级前置核查。
@@ -155,3 +176,4 @@
 ## 8. 本文件边界
 - 本文件不是第二套 steering。遇到细节判断，以 `.kiro/steering` 正文与活跃工作区文档为准。
 - 当规则冲突时，优先级按“用户当前指令 → 更近目录的 `AGENTS.md` → 本文件 → 历史与迁移参考文档”理解。
+
