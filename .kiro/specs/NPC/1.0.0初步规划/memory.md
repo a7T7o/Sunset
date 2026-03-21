@@ -336,3 +336,28 @@
 
 **阻塞更新**:
 - 本轮 task sync preflight 已实际执行，但被 shared root 上新增的无关治理 dirty 阻断；当前不能把 `return-main` 写成已完成，需等待这些非 NPC remaining dirty 先清尾或隔离。
+
+---
+
+### 会话 16 - 2026-03-21
+
+**用户需求**:
+> 在已获放行的 NPC 分支窗口内继续做一个真实 checkpoint，把 NPC 头顶气泡从“贴脸、尺寸和观感一般”往更美观、更合理、更灵动的方向收口，但这轮不要扩成新功能开发，也不要进入 Unity / MCP / Play。
+
+**完成任务**:
+1. 继续以 `codex/npc-roam-phase2-003` 作为当前 NPC continuation 分支，锁定本轮只改 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`，不碰场景、Prefab、Profile、动画、生成器和热文件。
+2. 将 `NPCBubblePresenter` 的样式版本提升到 `CurrentStyleVersion = 3`，让已有 NPC prefab 上的旧默认值也能自动吃到这次新的气泡布局与动效预设，而不是只有新挂载组件才生效。
+3. 新增“基于 `SpriteRenderer.bounds` 自动抬高气泡”的头顶偏移计算：气泡现在会优先贴着角色头顶往上浮，不再只依赖固定 `bubbleLocalOffset`，从而减少“气泡糊在脸上”的情况。
+4. 同步微调了气泡的 padding、最大宽度、尾巴尺寸、阴影、显隐时长和轻微浮动效果，让默认观感更轻一些、更像头顶提示，而不是硬贴在角色脸前的一块牌子。
+5. 用 `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 做了纯 Git 静态自检，确认这轮单文件 patch 没有格式类问题；本轮仍未进入 Unity / MCP / Play，运行态验收留到用户继续主项目手测阶段。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+
+**关键结论**:
+- 这轮主线仍然是 NPC V1 收口；本轮子任务是“气泡位置与表现优化 checkpoint”，它服务于此前用户已经确认可用、但仍需更美观的 NPC 漫游/对聊表现层。
+- 这次不是在补新系统，而是在现有 `NPCBubblePresenter` 上做一次更接近正式交付感的样式修整，所以不需要重新动 `NPCAutoRoamController` 或 `NPCRoamProfile`。
+- 本轮验证边界依旧保持写实：目前只有代码级静态回读和 Git 自检通过；真正的“看起来是不是更顺眼、是否还会贴脸”仍需要回到 Unity 主项目里做手测。
+
+**当前恢复点**:
+- 子工作区当前新增了一次真实的 UI 表现层 checkpoint，下一步是按白名单同步 `NPCBubblePresenter.cs` 与三层 memory，然后立刻 `return-main`。

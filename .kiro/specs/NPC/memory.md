@@ -297,3 +297,29 @@ NPC 主工作区用于承接 Sunset 项目中所有 NPC 相关的规划、设计
 
 **阻塞更新**:
 - 当我按本轮 NPC 白名单执行 task preflight 时，脚本额外发现 shared root 上存在不属于 NPC 的治理 dirty，因而阻断了本轮 sync；当前真实阶段变为“已完成最小 checkpoint，但收口被 shared root 其余 remaining dirty 卡住”。
+
+---
+
+### 会话 16 - 2026-03-21
+
+**用户需求**:
+> 在已有放行分支窗口里继续推进 NPC，但这轮只做一个真实的小 checkpoint：把 NPC 气泡的位置、尺寸和灵动感再往正式交付方向推一步，不扩新功能，不进入 Unity / MCP / Play。
+
+**完成任务**:
+1. 维持当前 continuation 分支语义不变，继续以 `codex/npc-roam-phase2-003` 承载这轮 NPC 主线收口，而不是回退到旧 continuation / rescue 口径。
+2. 把这轮修改范围严格收窄到 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`，只处理 NPC 气泡表现层，不去触碰 `NPCAutoRoamController`、Profile、Prefab、场景和其他共享热区。
+3. 完成了一次真实的表现层 checkpoint：旧 prefab 上的 `NPCBubblePresenter` 通过样式版本升级自动吃到新默认值；气泡高度改为优先依据 `SpriteRenderer.bounds` 抬到头顶上方，再叠加轻微浮动、较舒展的尺寸留白和更柔和的显隐节奏。
+4. 用纯 Git 侧 `git diff --check` 做了静态自检，确认本轮 patch 没有明显格式问题；运行态观感验收仍明确留给后续 Unity 主项目手测，而没有把推测写成已验证事实。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+- `.codex/threads/Sunset/NPC/memory_0.md`
+
+**关键结论**:
+- NPC 父工作区当前主线仍是“V1 可用基础上的体验收口”，而不是新增系统开发；这轮新增的是一个更靠近正式交付感的气泡表现 checkpoint。
+- 当前最真实的状态是：代码层已补上“别贴脸、稍微更灵动”的默认表现，但是否达到你眼里的最终美观标准，还需要回到 Unity 主项目里继续手测确认。
+
+**当前恢复点**:
+- 父工作区现在已经记录了这次 UI 表现层收口；下一步是白名单同步本轮代码与记忆，然后 `return-main`，把 shared root 归还给默认入口模式。

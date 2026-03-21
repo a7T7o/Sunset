@@ -370,3 +370,29 @@
 
 **阻塞更新**:
 - `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread NPC` 已实际跑过，白名单本身通过分类，但 shared root 出现了新的非 NPC remaining dirty，导致脚本明确拒绝继续 sync；因此本轮尚未 `return-main`，当前仍是 NPC 持有 shared root 分支租约但被外部 dirty 阻断的状态。
+
+---
+
+### 会话 16 - 2026-03-21
+
+**用户需求**:
+> 在已获 grant 的 NPC 分支窗口里继续做一个真实 checkpoint：把 NPC 头顶气泡从“贴脸、尺寸和灵动感都还差一点”优化到更顺眼，但这轮不要扩新功能，也不要进 Unity / MCP / Play。
+
+**完成任务**:
+1. 沿着当前 shared root 的合法占用态继续推进，live 现场保持在 `D:\Unity\Unity_learning\Sunset @ codex/npc-roam-phase2-003`，当前业务写入范围只收敛到 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`。
+2. 把 `NPCBubblePresenter` 的样式版本升级到 `CurrentStyleVersion = 3`，确保现有 NPC prefab 上已经序列化过的旧默认值，也能在这轮自动升级到新的头顶气泡布局与动效预设。
+3. 新增基于 `SpriteRenderer.bounds` 的自动抬高逻辑，气泡不再只吃固定 `bubbleLocalOffset`，而是会优先落在角色头顶上方；同时补了更舒展的 padding / 尾巴 / 阴影、轻微浮动和更柔和的 show/hide 动效。
+4. 本轮只做了代码级静态回读和 `git diff --check`，没有把“应该会更好看”包装成已经在 Unity 里验收通过的事实；真正的视觉结果仍需回到主项目继续手测。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+- `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+- `.kiro/specs/NPC/memory.md`
+- `.codex/threads/Sunset/NPC/memory_0.md`
+
+**关键结论**:
+- 当前 NPC 线程主线没有变化，仍然是“在已可用的 V1 基础上继续做表现层和体验收口”；这轮子任务只是把气泡表现拉到更接近正式交付的状态。
+- 本轮最重要的写实口径是：现阶段已经完成“代码侧气泡位置与表现优化”，但还没有完成“Unity 手测确认最终观感”。
+
+**当前恢复点**:
+- 当前线程已经具备一次新的真实 UI checkpoint，下一步应白名单同步本轮代码与三层 memory，然后立刻 `return-main`。
