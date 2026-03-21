@@ -2329,3 +2329,36 @@
 - 同步后，把新 prompt 发给：
   - scene-build
   - NPC
+
+## 2026-03-21｜收件后裁定更新：shared root 下一条改为 farm，scene-build 进入逻辑层
+**当前主线目标**
+- 接住 NPC 与 scene-build 的最新回执，把这轮真正的 live 状态变化写回总控，而不是继续沿用旧排序。
+
+**本轮子任务 / 阻塞**
+- `NPC` 已完成一轮分支 checkpoint 并成功归还 `main`
+- `scene-build` 已完成装饰层纠偏 checkpoint，并询问是否进入逻辑层
+
+**本轮完成**
+1. 已 live 复核 shared root：
+   - `main @ 95b3f793`
+   - `git status = clean`
+   - occupancy = neutral
+2. 已 live 复核 scene-build worktree：
+   - `codex/scene-build-5.0.0-001 @ 44afab3f`
+   - `git status = clean`
+3. 已新增 scene-build 新 prompt：
+   - `scene-build_逻辑层继续施工.md`
+4. 已更新总控与批次入口：
+   - `scene-build` 当前阶段切到 `逻辑层`
+   - shared root 当前下一条切到 `农田交互修复V2`
+   - `NPC` 不再列为当前开发发放对象，而是列为“已收口但待分支手测”
+
+**关键决策**
+- 这轮的交通裁定已经变了：不是继续发 `NPC`，而是该切到 `farm`
+- 但 `NPC` 也不是完全结束，它只是从“开发线程”切换成了“待分支验收线程”
+
+**恢复点 / 下一步**
+- 先做治理同步。
+- 同步后，对用户的直接建议就是：
+  - 把 `scene-build_逻辑层继续施工.md` 发给 scene-build
+  - 把 `农田交互修复V2_当前开发放行.md` 发给 farm

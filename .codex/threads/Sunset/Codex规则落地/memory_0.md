@@ -1641,3 +1641,39 @@
 - 同步后，对用户的直接建议就是：
   - 把新的 scene-build prompt 发过去
   - 把新的 NPC prompt 发过去
+
+## 会话 29 - 2026-03-21（NPC 归还后 shared root 下一条改为 farm，scene-build 升到逻辑层）
+**当前主线目标**
+- 根据两条新回执，把当前 live 交通模型重新裁定成最新状态，并落实成正式文件。
+
+**本轮子任务 / 阻塞**
+- `NPC` 已完成新的分支 checkpoint 并归还 shared root
+- `scene-build` 已在 worktree 内完成装饰层纠偏 checkpoint，等待治理裁定下一步是否进入逻辑层
+
+**本轮完成**
+1. 已 live 核对 shared root：
+   - `branch = main`
+   - `HEAD = 95b3f793`
+   - `git status = clean`
+   - occupancy = `neutral-main-ready`
+2. 已 live 核对 scene-build worktree：
+   - `branch = codex/scene-build-5.0.0-001`
+   - `HEAD = 44afab3f`
+   - `git status = clean`
+3. 已新增：
+   - `scene-build_逻辑层继续施工.md`
+4. 已更新总控文件与批次入口：
+   - shared root 下一条从 `NPC` 改为 `农田交互修复V2`
+   - `scene-build` 当前阶段改为 `逻辑层`
+   - `NPC` 改列为“已收口但待 Unity 手测”，不再是当前应立即继续发的开发线程
+
+**关键决策**
+- 这轮不是再改质量要求，而是改交通状态。
+- `NPC` 当前成果已经足够让出 shared root，但还不足以宣称完全验收。
+- `scene-build` 则因当前 worktree 干净、前一层已收口，可以继续推进到逻辑层。
+
+**恢复点**
+- 先做治理同步。
+- 同步后：
+  - 给 scene-build 发 `scene-build_逻辑层继续施工.md`
+  - 给 farm 发 `农田交互修复V2_当前开发放行.md`

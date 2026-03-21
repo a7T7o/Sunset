@@ -1316,3 +1316,40 @@
 - 同步后：
   - scene-build 当前应发 `scene-build_装饰层纠偏与Primary参考重做.md`
   - NPC 当前应发 `NPC_气泡位置碰撞体修正与下一步规划.md`
+
+## 2026-03-21｜NPC 已归还 shared root，scene-build 已收口装饰层，当前交通模型已更新
+**当前主线目标**
+- 根据最新两条回执，把“当前到底该发谁、谁先不要发、scene-build 下一步是什么”更新成正式 live 口径。
+
+**本轮完成**
+1. 已 live 核对 shared root：
+   - `main @ 95b3f793`
+   - `git status = clean`
+   - occupancy = `neutral-main-ready`
+2. 已确认 NPC 本轮结果：
+   - `codex/npc-roam-phase2-003 @ 3e7af95b`
+   - shared root 已成功 `return-main`
+   - 当前成果在分支，不在 `main`
+   - 后续待办不是“继续开发”，而是单独的 Unity 视觉 / 碰撞手测窗口
+3. 已 live 核对 scene-build worktree：
+   - `codex/scene-build-5.0.0-001 @ 44afab3f`
+   - `git status = clean`
+4. 已新增：
+   - `scene-build_逻辑层继续施工.md`
+5. 已更新总控文件与批次入口文件：
+   - scene-build 当前阶段改为 `逻辑层`
+   - shared root 当前下一条改为 `农田交互修复V2`
+   - `NPC` 改列到“已收口但待后续手测”，不再视为当前应立即再次发放的开发线程
+
+**关键判断**
+- 这轮最重要的变化不是新增 bug，而是交通状态变化：
+  - `NPC` 已完成当前开发窗口并归还
+  - `scene-build` 已完成装饰层纠偏并收口
+  - 所以 shared root 这边现在该轮到 `农田交互修复V2`
+- 同时，`NPC` 虽然当前不再占槽，但也不等于“已经彻底验收通过”；它还有分支内手测债。
+
+**恢复点 / 下一步**
+- 先把这轮状态更新与新 prompt 同步进 `main`
+- 同步后：
+  - `scene-build` 现在应发 `scene-build_逻辑层继续施工.md`
+  - shared root 现在应发 `农田交互修复V2_当前开发放行.md`
