@@ -350,3 +350,14 @@
 - 当前 dirty 仍只来自本轮 `SceneBuild_01.unity` 与三层记忆 / tasks 同步，没有新扩出的施工面。
 - 父工作区层面的最新判断是：这轮应先把“Primary 参考下的装饰层纠偏重做”收成最小 checkpoint，而不是继续扩到逻辑层。
 - 当前父工作区恢复点保持为：`SceneBuild_01` 已完成装饰层纠偏重做，等待 checkpoint clean 后再决定下一施工窗口。
+
+### 2026-03-21（逻辑层最小版本已落地）
+
+- 子工作区已按新 prompt 从“结构 + 装饰”继续推进到“逻辑层最小版本”，继续只在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 内施工。
+- 本轮在 `SceneBuild_01.unity` 中补齐了三类逻辑承接内容：
+  - `GameplayAnchors` 下的 4 个真实锚点；
+  - `Systems/LogicLayer_Farmstead` 下的 4 个围栏阻挡体和 2 个触发区；
+  - `LightingFX / DebugPreview` 下的最小挂点。
+- 文件级回读已确认新增对象 `fileID` 唯一、父子链完整、东侧入口仍保持开口。
+- MCP 只读探测仍失败并返回 `Sub2API` HTML，因此这轮继续保持“Scene YAML 施工推进成功，但不是 Unity live 验收通过”的项目口径。
+- 当前父工作区恢复点已从“装饰层纠偏完成”推进到“逻辑层最小版本完成”，下一步进入施工自检或交付收口。

@@ -631,3 +631,66 @@
 **恢复点 / 下一步**：
 - 收口完成后，主线恢复点保持为：`SceneBuild_01` 已完成一轮 `Primary` 参考下的装饰层纠偏重做。
 - 后续是否进入逻辑层，等待下一轮明确放行后再推进。
+
+### 会话 21 - 2026-03-21（逻辑层最小版本继续施工）
+
+**用户需求**：
+> 继续使用 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`，不要回头再解释装饰层，也不要处理 shared root 残留；目标是把 `SceneBuild_01` 从“结构 + 装饰”推进到“逻辑层最小版本”。
+
+**按 scene-modification-rule 的五段式判断**：
+1. 原有配置：
+   - `GameplayAnchors / LightingFX / DebugPreview` 仍为空；
+   - `Systems` 目前只有 `MainCamera`；
+   - `Structure_House_Main` 已自带 `PolygonCollider2D`，但围栏仍只有 `SpriteRenderer`；
+   - 东侧入口、院内站位和后续触发点仍停留在“视觉成立、逻辑未落地”的状态。
+2. 问题原因：
+   - 当前 scene 已具备地表、结构和装饰层，但缺少可接手的逻辑层最小框架；
+   - 东侧入口和院内生活区已有明确空间关系，却没有对应锚点、阻挡或触发结构；
+   - `LightingFX / DebugPreview / Systems` 作为后续施工承接层，还没有真正有用途的挂点。
+3. 建议修改：
+   - 在 `GameplayAnchors` 下补 4 个真实用途锚点；
+   - 在 `Systems` 下补 `LogicLayer_Farmstead`，落 4 个围栏阻挡体与 2 个触发区；
+   - 在 `LightingFX / DebugPreview` 下各补 1 个最小挂点。
+4. 修改后效果：
+   - `SceneBuild_01` 不再只有“看起来像院落”，而是具备最小可延续的出入口 / 可站位 / 触发框架；
+   - 东侧入口保留开口，但围栏的阻挡逻辑已能与结构层对齐；
+   - 后续光照、调试视角和系统接线都有明确落点。
+5. 对原有功能的影响：
+   - 本轮仍只改当前 worktree 的 scene YAML，不碰 shared root；
+   - 不把逻辑层推进表述成 Unity live 验收通过；
+   - 当前 Codex 会话中的 `unityMCP` 仍返回 `Sub2API` HTML，所以继续采用 Scene YAML 兜底。
+
+**完成任务**：
+1. 在 `GameplayAnchors` 下新增：
+   - `Anchor_Spawn_EastApproach`
+   - `Anchor_Entry_EastGate`
+   - `Anchor_Stand_YardCenter`
+   - `Anchor_Interact_HouseYardSide`
+2. 在 `Systems` 下新增 `LogicLayer_Farmstead`，并补齐：
+   - `Blocker_NorthFence`
+   - `Blocker_SouthFence`
+   - `Blocker_EastFence_Lower`
+   - `Blocker_EastFence_Upper`
+   - `Trigger_EastGateApproach`
+   - `Trigger_YardCore`
+3. 在 `LightingFX / DebugPreview` 下新增：
+   - `LightAnchor_YardWarmth`
+   - `PreviewFocus_FarmsteadLogic`
+4. 通过文件级回读确认：
+   - 新增 `fileID` 唯一；
+   - `m_Father` 全部指向已存在 Transform；
+   - `GameplayAnchors / Systems / LightingFX / DebugPreview` 的新子节点均已挂入；
+   - 东侧入口通行口仍保持在 `Fence_East_Lower` 与 `Fence_East_Upper` 之间。
+5. 只读复核 MCP 现状：`unityMCP/manage_scene` 仍返回 `Sub2API` HTML，说明这轮依然不能宣称 Unity live 闭环恢复。
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\tasks.md`
+
+**关键结论**：
+- `SceneBuild_01` 的逻辑层最小版本已经落地，不再只有视觉层面的“农舍院落”，而是具备了后续可接手的锚点、围栏阻挡与触发框架。
+- 当前最准确口径仍然是：**逻辑层施工推进已完成最小版本，但这仍不是 Unity live / Console 验收通过结论。**
+
+**恢复点 / 下一步**：
+- 主线恢复点已从“装饰层纠偏完成”推进到“逻辑层最小版本完成”。
+- 下一步最小动作：做一轮施工自检（优先 Unity / MCP live 恢复后回读；若仍不可用，则继续补 Scene YAML 级验证与交付收口）。

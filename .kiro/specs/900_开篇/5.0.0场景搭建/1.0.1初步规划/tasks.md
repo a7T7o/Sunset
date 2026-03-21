@@ -81,7 +81,7 @@
 - [x] 3. 完成地图底稿：地表、道路、水体或高差构图
 - [x] 4. 完成结构层：建筑、边界、围栏、入口和主视觉模块
 - [x] 5. 完成装饰层：植被、小物件、中景节奏和空间填充
-- [ ] 6. 完成逻辑层：碰撞、遮挡、锚点与必要辅助层
+- [x] 6. 完成逻辑层：碰撞、遮挡、锚点与必要辅助层
 - [ ] 7. 通过 MCP / Console / 层级回读完成一轮施工自检
 - [ ] 8. 交付可继续精修的高质量场景初稿
 
@@ -120,3 +120,12 @@
 - [x] 3. 已重排西北框景、东侧边界、水边点景与院内生活组的父子关系和坐标，避免继续出现“房子贴在灰底上、装饰像散落杂物”的观感
 - [x] 4. 文件级回读已确认：东侧入口仍保持通行留白；建筑、边界、院内小物件与外缘点景已形成更明确的层次
 - [ ] 5. 下一步若继续推进，则进入逻辑层最小版本；若先补验证闭环，则优先修当前 Codex 会话的 Unity / MCP live 路由
+
+## 逻辑层最小收口（2026-03-21）
+
+- [x] 1. 在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 的 `GameplayAnchors` 下新增 4 个真实锚点：`Anchor_Spawn_EastApproach / Anchor_Entry_EastGate / Anchor_Stand_YardCenter / Anchor_Interact_HouseYardSide`
+- [x] 2. 在 `SceneRoot/Systems` 下新增 `LogicLayer_Farmstead`，并落地 4 个围栏阻挡体：`Blocker_NorthFence / Blocker_SouthFence / Blocker_EastFence_Lower / Blocker_EastFence_Upper`
+- [x] 3. 在 `LogicLayer_Farmstead` 下新增 2 个触发区：`Trigger_EastGateApproach / Trigger_YardCore`，作为入口接近与院内核心区的最小逻辑框架
+- [x] 4. 在 `LightingFX / DebugPreview` 下分别新增 `LightAnchor_YardWarmth / PreviewFocus_FarmsteadLogic`，为后续光照与调试视角保留最小挂点
+- [x] 5. 文件级回读已确认：新对象 `fileID` 唯一、父子引用完整、`m_Father` 全部有效；东侧入口仍保持通行口
+- [ ] 6. 下一步进入施工自检前，仍待当前 Codex 会话的 Unity / MCP live 路由恢复，或继续沿 Scene YAML 路径补验证

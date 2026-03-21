@@ -648,3 +648,27 @@
 **恢复点 / 下一步**：
 - 当前主线恢复点仍是：`SceneBuild_01` 已完成一轮装饰层纠偏重做。
 - 本轮结束动作应是完成 checkpoint 并 clean；下一轮再由用户裁定是否进入逻辑层。
+
+### 会话 21 - 2026-03-21（scene-build 进入逻辑层最小版本）
+
+**用户目标**：
+- 继续沿用 `scene-build` 主线，在专属 worktree 中把 `SceneBuild_01` 从“结构 + 装饰”推进到“逻辑层最小版本”，但不处理 shared root 残留，也不冒充 Unity live 验收通过。
+
+**本轮子任务 / 阻塞**：
+- 子任务是逻辑层最小施工，不是回头复盘装饰层。
+- 阻塞仍然是当前 Codex 会话的 `unityMCP` 路由未恢复，`manage_scene` 只读探测仍返回 `Sub2API` HTML，所以继续改走 Scene YAML。
+
+**已完成事项**：
+1. 复核当前线程现场仍为 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001 @ codex/scene-build-5.0.0-001`。
+2. 在 `SceneBuild_01.unity` 中新增 4 个 `GameplayAnchors` 锚点。
+3. 在 `Systems` 下新增 `LogicLayer_Farmstead`，并补 4 个 `BoxCollider2D` 阻挡体与 2 个 `isTrigger` 触发区。
+4. 在 `LightingFX / DebugPreview` 下各补 1 个最小挂点。
+5. 用文件级校验确认新增 `fileID` 唯一、父子引用完整、入口未堵。
+
+**关键决策**：
+- 逻辑层这轮优先落“有后续承接价值的最小框架”，而不是给 `TM_Logic` 硬塞无证据 tile 或空节点。
+- 继续不触碰 shared root 残留，不宣称 Unity live / Console 已闭环。
+
+**恢复点 / 下一步**：
+- 当前主线恢复点已推进到：`SceneBuild_01` 已完成逻辑层最小版本。
+- 本轮结束动作应是更新三层 memory、做最小白名单 checkpoint，并按 prompt 最小格式回执。
