@@ -1692,8 +1692,9 @@ function Get-DirtyOwnerHint {
     if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/农田系统') -or $comparisonPath -match '(^|/)farm(/|$)' -or $comparisonPath -match 'hotbar') { return '农田交互修复V2' }
     if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/NPC') -or $comparisonPath -match '(^|/)npc(/|$)') { return 'NPC' }
     if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/导航检查') -or $comparisonPath -match '(^|/)(navigation|nav)(/|$)') { return '导航检查' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/遮挡检查') -or $comparisonPath -match '(^|/)(occlusion|遮挡)(/|$)') { return '遮挡检查' }
-    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/900_开篇') -or $comparisonPath -match 'scenebuild|tilemap') { return 'scene-build' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/999_全面重构_26.03.15/遮挡检查') -or (Test-PathMatch -Path $Path -Rule '.kiro/specs/云朵遮挡系统') -or $comparisonPath -match 'occlusion|遮挡') { return '遮挡检查' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/900_开篇/spring-day1-implementation') -or $comparisonPath -match 'spring[-_]?day1|springday1') { return 'spring-day1' }
+    if ((Test-PathMatch -Path $Path -Rule '.kiro/specs/900_开篇/5.0.0场景搭建') -or $comparisonPath -match 'scenebuild') { return 'scene-build' }
     if (-not [string]::IsNullOrWhiteSpace($OwnerThread)) { return $OwnerThread }
     if (-not [string]::IsNullOrWhiteSpace($Branch) -and $Branch.ToLowerInvariant().StartsWith('codex/')) { return $Branch }
 

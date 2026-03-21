@@ -1133,3 +1133,41 @@
 **恢复点 / 下一步**
 - 先把这轮第二次样本修正一并同步进 `main`。
 - 同步后，任务 `15` 的下一子步应转向“是否还存在其他高风险目录或 owner 提示盲区”，而不是提前改放宽规则。
+
+## 2026-03-21｜任务 15 第三轮样本审计已补齐 spring-day1 与遮挡 owner 边界
+**当前主线目标**
+- 沿着任务 `15` 继续排查“谁的 dirty 被脚本说错了”这类 owner hint 盲区，而不是提前讨论 shared root 放宽。
+
+**本轮完成**
+1. 已再次在 shared root `main` 上复核 live 基线：
+   - `git status --short --branch = ## main...origin/main`
+   - shared root 仍为 `main + neutral`
+   - `scene-build` 继续停留在自己的 worktree，我未介入其现场
+2. 已继续用同一 PowerShell 会话 dot-source working tree 版 `scripts/git-safe-sync.ps1`，回放第三批真实样本：
+   - `.kiro/specs/900_开篇/5.0.0场景搭建/1.0.1初步规划/tasks.md`
+   - `.kiro/specs/900_开篇/spring-day1-implementation/requirements.md`
+   - `.kiro/specs/900_开篇/spring-day1-implementation/OUT_tasks.md`
+   - `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset`
+   - `Assets/Editor/BatchAddOcclusionComponents.cs`
+   - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+   - `Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs`
+   - `Assets/YYY_Tests/Editor/OcclusionSystemTests.cs`
+3. 已确认两类 owner 边界仍有偏差：
+   - 整个 `.kiro/specs/900_开篇` 之前都被粗暴归成 `scene-build`，导致 `spring-day1` 文档也被误认成场景线程
+   - `Occlusion` 相关文件名虽然清楚指向遮挡线，但旧规则只认目录段，结果这些文件都回退成治理线程默认 owner
+4. 已修正 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - 将 `scene-build` owner 规则从整个 `.kiro/specs/900_开篇` 收窄到 `.kiro/specs/900_开篇/5.0.0场景搭建`
+   - 新增 `spring-day1` owner 规则，识别 `spring-day1-implementation` 与 `springday1 / spring-day1`
+   - 将遮挡 owner 规则扩成可识别 `.kiro/specs/云朵遮挡系统` 与文件名中的 `occlusion / 遮挡`
+5. 已完成第三轮回归验证：
+   - `spring-day1` 文档与 `SpringDay1_FirstDialogue.asset` 现已正确显示为 `spring-day1`
+   - `BatchAddOcclusionComponents.cs / OcclusionManager.cs / OcclusionTransparency.cs / OcclusionSystemTests.cs` 现已正确显示为 `遮挡检查`
+   - `5.0.0场景搭建` 文档与 `SceneBuild_01.unity` 仍继续正确显示为 `scene-build`
+
+**关键判断**
+- 这轮仍然只修 owner hint 的归属准确性，不放宽 `sync / return-main` 的硬闸门。
+- `TilemapToSprite.cs` 这类泛 Tilemap 工具本轮刻意没有强行绑到 `scene-build`，避免用过宽关键词继续制造新的误归属。
+
+**恢复点 / 下一步**
+- 先把这轮第三次样本修正一并同步进 `main`。
+- 同步后，任务 `15` 的下一子步应转向“是否还存在其他 owner fallback 仍过于粗糙的路径”，而不是提前谈带脏放行。

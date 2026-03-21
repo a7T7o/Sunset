@@ -2070,3 +2070,39 @@
 **恢复点 / 下一步**
 - 先完成本轮治理同步。
 - 后续继续任务 `15` 时，优先查剩余 owner hint 盲区和目录覆盖盲区。
+
+## 2026-03-21｜任务 15 第三轮样本审计已补齐 spring-day1 与遮挡 owner 误归属
+**当前主线目标**
+- 继续把治理主线压在任务 `15` 上，专门修 dirty 报告层里还会误导排障判断的 owner hint 盲区。
+
+**本轮子任务 / 阻塞**
+- 第二轮样本虽然已经把 `Scene / Anim / Sprite / Hotbar` 修准，但还没核对：
+  - `spring-day1` 是否会被 `scene-build` 误吞
+  - `Occlusion` 文件名驱动的文件是否会掉回治理线程默认 owner
+
+**本轮完成**
+1. 已继续回放第三批真实样本：
+   - `.kiro/specs/900_开篇/spring-day1-implementation/*`
+   - `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset`
+   - `Assets/Editor/BatchAddOcclusionComponents.cs`
+   - `Assets/YYY_Scripts/Service/Rendering/Occlusion*.cs`
+   - `Assets/YYY_Tests/Editor/OcclusionSystemTests.cs`
+2. 已确认两个真实偏差：
+   - `.kiro/specs/900_开篇/*` 旧规则过宽，导致 `spring-day1` 被误报为 `scene-build`
+   - `occlusion` 只按目录段匹配，导致遮挡相关文件名被误回退到 `Codex规则落地`
+3. 已修正 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`：
+   - `scene-build` 只再认 `.kiro/specs/900_开篇/5.0.0场景搭建` 与 `scenebuild`
+   - 新增 `spring-day1` owner 识别
+   - 遮挡 owner 扩到 `云朵遮挡系统` 与文件名 `occlusion / 遮挡`
+4. 已完成回归验证：
+   - `spring-day1` 文档与故事对白资产现已正确归属 `spring-day1`
+   - 遮挡相关 Editor / Runtime / Test 文件现已正确归属 `遮挡检查`
+   - `scene-build` 文档与 `SceneBuild_01.unity` 仍保持正确归属
+
+**关键决策**
+- 这轮仍只修报告层的归属提示，不动 shared root 的准入硬闸门。
+- 对 `TilemapToSprite.cs` 这类泛工具，本轮选择保持保守，不为了一次修正再引入新的 owner 误报。
+
+**恢复点 / 下一步**
+- 先做治理 `sync -Mode governance`，把第三轮样本修正收进口径层。
+- 收口后继续任务 `15`，优先找剩余 owner fallback 仍偏粗的路径。
