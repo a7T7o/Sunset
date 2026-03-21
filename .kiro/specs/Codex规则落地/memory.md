@@ -2543,3 +2543,27 @@
 
 **恢复点 / 下一步**
 - 之后项目经理如果继续贴线程回执，优先判断是否命中这 4 个硬刹车；如果没有，就直接让线程继续，而不是重新拉回放行体系。
+
+## 2026-03-21｜main-only 新阶段目录与 scene-build 迁移口径已正式建立
+**当前主线目标**
+- 把“main-only 极简并发开发”从旧阶段目录里剥离出来，建立新的现行目录、现行 prompt 集合，以及 `scene-build / spring-day1` 的迁移与交接口径。
+
+**本轮完成**
+1. 已建立新的现行目录：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01`
+2. 已在新目录下补齐当前直接开发 prompt 与回执型 prompt。
+3. 已把旧目录 `2026.03.21_恢复开发总控_01` 标成历史阶段。
+4. 已把两个现行入口文件重写为新目录跳转入口。
+5. 已明确 `scene-build` 的迁移口径：
+   - 当前现场：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - 目标路径：`D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+   - 迁移方式：`git worktree move`
+   - 执行时机：先冻结，再迁移
+
+**关键判断**
+- 用户这轮要的不是“继续堆更复杂的治理”，而是“先把当前入口、命名、分区理顺，再为后续轻治理和 vibecoding 场景规范留出干净起点”。
+- 因此这轮先收口目录与入口，不把 `vibecoding` 规范适配和 `scene-build` 正式迁移混成一步。
+
+**恢复点 / 下一步**
+- 先等 `scene-build / spring-day1` 两份真实回执。
+- 回执回来后，再执行 `scene-build` 的正式迁移动作。

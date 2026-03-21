@@ -1860,3 +1860,39 @@
   2. 有没有撞 Unity / MCP 单写
   3. 有没有把现场写坏
 - 如果都没有，就直接让线程继续干，不再重新造排队流程。
+
+## 会话 36 - 2026-03-21（main-only 新阶段目录、scene-build / spring-day1 新 prompt 与迁移口径已落盘）
+**当前主线目标**
+- 响应用户对“目录太乱、命名太差、旧阶段和新阶段混在一起”的批评，把当前极简并发开发正式整理成一个新阶段入口，并补 `scene-build / spring-day1` 的新 prompt 与迁移口径。
+
+**本轮完成**
+1. 已建立并写实当前现行目录：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01`
+2. 已在新目录补齐 6 份当前直接开发 prompt：
+   - `scene-build`
+   - `NPC`
+   - `农田交互修复V2`
+   - `导航检查`
+   - `遮挡检查`
+   - `spring-day1`
+3. 已补齐用户明确点名要的两份新 prompt：
+   - `scene-build_当前任务回执与迁移前冻结.md`
+   - `spring-day1_当前任务回执与向scene-build交接.md`
+4. 已把以下入口文件改为新目录跳转入口：
+   - `恢复开发总控与线程放行规范_2026-03-21.md`
+   - `2026-03-21_批次分发_09_恢复开发总控与线程放行规范.md`
+5. 已把旧目录 `2026.03.21_恢复开发总控_01` 标成历史阶段。
+6. 已把 `scene-build` 的后续迁移口径写死：
+   - 当前现场：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - 目标路径：`D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+   - 迁移方式：`git worktree move`
+   - 执行顺序：先冻结回执，再迁移
+
+**关键决策**
+- 这轮不能再把“极简并发开发”伪装成旧阶段尾巴，必须有自己的目录和自己的 prompt 集合。
+- `scene-build` 现在被正式定义为“待迁移的独立项目现场”，不是 shared root 普通线程。
+- `spring-day1` 当前被正式定义为“向 scene-build 交接”的内容线，而不是平行的第二个大施工面。
+
+**恢复点**
+- 现在可以直接从新目录发 prompt。
+- 下一步等 `scene-build / spring-day1` 两份真实回执回来，再继续执行 `scene-build` 迁移和后续 `vibecoding` 场景规范适配。
