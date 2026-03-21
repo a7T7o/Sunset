@@ -158,7 +158,8 @@
   - `D2`：任务分支内可继续的 owner-dirty
   - `D3`：禁止放行 dirty
 - 当前阶段的正式边界是：
-  - 允许继续讨论并逐步补脚本报告能力
+  - 已完成首轮脚本报告层落地：`preflight` 会输出 `DirtyLevel / OwnerHint / PolicyHint`，并在 remaining dirty 预览中带出 `<Dx/owner>`
+  - 报告层当前只增强可见性，不改变 `CanContinue`、`sync` 或 `return-main` 的硬闸门判断
   - 不撤销 `main clean + shared root neutral` 的默认硬闸门
   - 不批准跨线程直接接 raw dirty
 

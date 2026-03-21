@@ -1023,3 +1023,35 @@
 **恢复点 / 下一步**
 - 先把这轮设计稿、任务单更新和记忆同步进 `main`。
 - 后续若继续推进任务 `15`，下一步应先补脚本的“分级报告”能力，而不是先改放宽判定。
+
+## 2026-03-21｜任务 15 首轮 dirty 报告层已落到脚本并通过只读验证
+**当前主线目标**
+- 把任务 `15` 从“只有设计稿”推进到脚本级首轮落地，但继续保持 `main clean + shared root neutral` 的默认硬闸门不变。
+
+**本轮完成**
+1. 已在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 落下首轮 dirty 报告层：
+   - 新增 `Test-GovernanceReportPath / Test-DirtyHardBlockPath / Get-DirtyLevel / Get-DirtyOwnerHint / Get-DirtyPolicyHint`
+   - 新增 `New-DirtyReportEntry / Format-DirtyReportEntry / Get-DirtyLevelSummaryText`
+2. 已让 `New-PreflightReport` 和 `Write-PreflightReport` 不再只输出 `Category`，而是同时输出：
+   - `DirtyLevel`
+   - `OwnerHint`
+   - `PolicyHint`
+   - 以及 allowed / remaining 的分级概览
+3. 已让 `Get-RemainingDirtyGateMessage` 在 remaining dirty 阻断预览里补带 `<Dx/owner>`，便于后续快速判断是治理收口、同线程 continuation，还是硬阻断。
+4. 已完成本地只读验证：
+   - PowerShell 语法解析通过
+   - `preflight -Mode governance` 成功，当前 `scripts/git-safe-sync.ps1` 被正确报告为 `D1`
+   - `preflight -Mode task` 在 `main` 上仍然明确返回 `CanContinue = False`，证明报告层没有偷偷放宽 task 闸门
+
+**关键判断**
+- 这轮已经把“dirty 分级”从纯文档讨论推进到了脚本可见性层，但还没有进入“放宽准入”的策略层。
+- 当前脚本的正式口径仍然是：
+  - `D0`：噪音 / runtime，不把它误说成业务脏改
+  - `D1`：治理型可收口 dirty，可解释、可审计
+  - `D2`：仅保留给同线程、同任务分支 continuation 的 owner-dirty 讨论空间
+  - `D3`：继续视为硬阻断 dirty
+- 这说明任务 `15` 当前已经进入“先让脚本会说清楚脏改是什么”，而不是“先让脚本带脏放行”。
+
+**恢复点 / 下一步**
+- 先把本轮脚本补丁与记忆一并同步进 `main`。
+- 后续若继续任务 `15`，下一子步应优先拿真实 dirty 样本复核分类边界，再决定是否需要进入更深一层的 takeover / 放宽判定。

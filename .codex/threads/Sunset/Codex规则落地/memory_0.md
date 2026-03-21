@@ -1258,3 +1258,46 @@
 **恢复点 / 下一步**
 - 先完成本轮治理 `sync -Mode governance`。
 - 后续若继续任务 `15`，先补脚本报告层，再决定是否进入脚本放宽层。
+
+## 会话 17 - 2026-03-21（任务 15 首轮报告层落地并完成只读验证）
+**当前主线目标**
+- 不打断 `scene-build` 的施工，把治理主线继续推进到任务 `15` 的脚本可见性层：先让 `git-safe-sync.ps1` 会说清 dirty 是什么，再决定以后要不要讨论放宽。
+
+**本轮子任务 / 阻塞**
+- 用户明确要求我继续干活，不要只停在讨论里。
+- 当前最合适的推进点不是再发 prompt，而是把任务 `15` 的“报告层”真正落到脚本，并验证不会误改现有硬闸门行为。
+
+**本轮完成**
+1. 已在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 加入首轮 dirty 报告层函数：
+   - `Test-GovernanceReportPath`
+   - `Test-DirtyHardBlockPath`
+   - `Get-DirtyLevel`
+   - `Get-DirtyOwnerHint`
+   - `Get-DirtyPolicyHint`
+   - `New-DirtyReportEntry`
+   - `Format-DirtyReportEntry`
+   - `Get-DirtyLevelSummaryText`
+2. 已让 `preflight` 输出升级为：
+   - allowed / remaining 的分级概览
+   - 每条 dirty 的 `level / owner / policy`
+   - remaining dirty gate message 的 `<Dx/owner>` 预览
+3. 已完成本地验证：
+   - PowerShell 语法解析通过
+   - `preflight -Mode governance` 成功
+   - `preflight -Mode task` 在 `main` 上仍返回 `CanContinue = False`
+4. 已同步补记：
+   - 子工作区 `共享根执行模型与吞吐重构`
+   - 父工作区 `Codex规则落地`
+   - 本线程 `memory_0.md`
+
+**关键决策**
+- 这轮不是 shared root 带脏放行，而是先把 dirty 变得“可解释、可审计、可归类”。
+- 当前边界仍保持：
+  - `D1` 只代表治理型可收口 dirty
+  - `D2` 只保留给同线程 continuation 的讨论空间
+  - `D3` 继续是硬阻断 dirty
+- `scene-build` 继续并行施工，但我没有介入它的 worktree 或 Unity 现场。
+
+**恢复点 / 下一步**
+- 立刻执行本轮治理 `sync -Mode governance`，把脚本报告层与记忆一起收口进 `main`。
+- 收口后继续任务 `15`，优先观察真实 dirty 样本，再决定是否要进一步细化分类边界或模板口径。

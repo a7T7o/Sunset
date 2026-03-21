@@ -1947,6 +1947,36 @@
 - 用户现在可以把 scene-build 视为当前唯一正在推进的 Unity / MCP 写线程。
 - 我这边的治理主线则切换为：以任务 `15` 为主，准备下一轮 `dirty` 管控设计。
 
+## 2026-03-21｜任务 15 的 dirty 报告层已进入脚本验证阶段
+**用户目标**
+> 用户要求我不要只停在讨论或排程，而是继续把治理主线往前推进；在不打断 `scene-build` 的前提下，直接把任务 `15` 做到更接近 live 的层级。
+
+**完成事项**
+1. 已在 `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1` 补入首轮 dirty 报告层：
+   - `preflight` 现在会为每个 dirty 项输出 `DirtyLevel / OwnerHint / PolicyHint`
+   - allowed / remaining 两侧都会给出分级概览
+   - remaining dirty 的阻断预览会补带 `<Dx/owner>`
+2. 已把该结果回写到：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\tasks.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\design.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\memory.md`
+3. 已完成本地验证：
+   - 脚本语法通过
+   - `preflight -Mode governance` 输出符合预期
+   - `preflight -Mode task` 在 `main` 上仍被硬闸门阻断，说明这轮没有偷偷放宽策略
+
+**关键决策**
+- 任务 `15` 现在已经从“纯设计稿”推进到了“脚本会报告，但不会放宽”的阶段。
+- 这属于治理工具层的可见性增强，不是 shared root 放行策略变更。
+- 因此当前对用户和各线程的对外口径仍保持不变：
+  - 默认硬闸门不撤
+  - 不批准跨线程直接接 raw dirty
+  - scene-build 继续独立施工，我不插手它的现场
+
+**恢复点 / 下一步**
+- 继续按治理顺序执行一次 `sync -Mode governance`，把本轮脚本报告层补丁正式收进口径层。
+- 收口后，治理主线继续留在任务 `15`，下一步优先观察真实 dirty 样本是否支持进一步细化分类边界。
+
 ### 会话 16 - 2026-03-21（任务 15 正式起草）
 **用户目标**：不再等我发 prompt，而是让我自己接着推进主线；用户特别点明 scene-build 一直在干活，要我看一眼后直接继续。  
 **当前主线目标**：在不干扰 scene-build 施工现场的前提下，正式启动治理任务 `15`，把 `dirty` 分级 / 放宽 / takeover 边界写成可执行草案。  
