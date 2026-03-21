@@ -2441,3 +2441,42 @@
 **恢复点 / 下一步**
 - 当前应发给 scene-build 的是：
   - `scene-build_回读自检与高质量初稿收口.md`
+
+## 2026-03-21｜最新回执已入账：NPC 转入 needs-unity-window，scene-build 升级到剧本对齐精修
+**当前主线目标**
+- 把 `scene-build` 与 `NPC` 的最新回执写回 live 总控，让项目经理下一条该发谁、谁该等待，不再停留在上一轮旧排序。
+
+**本轮完成**
+1. 已再次核对 shared root：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 26ce1d04`
+   - `git status = clean`
+   - occupancy = `neutral-main-ready`
+2. 已核对 scene-build worktree：
+   - `codex/scene-build-5.0.0-001 @ 0a14b93c`
+   - `git status = clean`
+3. 已确认 `NPC`：
+   - 返工 checkpoint 已推送到 `codex/npc-roam-phase2-003 @ 657594a6`
+   - shared root 已归还
+   - `carrier_ready = yes`
+   - `main_ready = no`
+   - 当前 blocker = `needs-unity-window`
+4. 已新增并切换 scene-build 当前可分发 prompt：
+   - `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+5. 已同步更新：
+   - `恢复开发总控与线程放行规范_2026-03-21.md`
+   - `2026-03-21_批次分发_09_恢复开发总控与线程放行规范.md`
+   - `治理线程_当前执行Prompt.md`
+   - `治理线程_职责与更新规则.md`
+
+**关键决策**
+- `NPC` 当前不再是 shared root 下一条；它的问题已经从“需不需要再写分支”切到“缺真正可用的 Unity 验收窗口”。
+- `scene-build` 当前不该再发“回读自检与高质量初稿收口”旧 prompt；那一步已经完成，下一步是有边界的后续精修，并要和 `spring-day1` 剧本对齐。
+- 当前 shared root 下一条正式改为：
+  - `导航检查`
+  - 然后 `遮挡检查`
+
+**恢复点 / 下一步**
+- 现在给用户的正式口径应是：
+  - `scene-build` 发 `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+  - shared root 当前发 `导航检查_当前开发放行.md`
+  - `NPC` 等 Unity 验收窗口

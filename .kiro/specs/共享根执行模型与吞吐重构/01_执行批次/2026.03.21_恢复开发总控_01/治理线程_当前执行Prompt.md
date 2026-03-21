@@ -46,13 +46,12 @@
 6. 记忆写完后，用 governance sync 收口，不停在本地 dirty
 
 当前固定口径：
-- scene-build 可继续自己的 worktree 施工，但这不代表其他线程可同时进 Unity / MCP
-- shared root 业务线一次只放一条
-- 当前推荐顺序：
-  1. NPC
-  2. 农田交互修复V2
-  3. 导航检查
-  4. 遮挡检查
+- scene-build 可继续自己的 worktree 施工，当前阶段 = `高质量初稿后续精修与spring-day1剧本对齐`
+- shared root 当前推荐顺序：
+  1. 导航检查
+  2. 遮挡检查
+- NPC 当前不在 shared root 下一条；它已形成 `codex/npc-roam-phase2-003 @ 657594a6` carrier checkpoint，但 blocker = `needs-unity-window`
+- 农田交互修复V2 当前已完成 checkpoint，但 branch 仍不是 main-ready
 - spring-day1 当前只允许“集成波次前只读准备”
 
 当前禁止：

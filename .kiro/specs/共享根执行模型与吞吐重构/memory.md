@@ -1436,3 +1436,49 @@
 **恢复点 / 下一步**
 - 现在 scene-build 应发：
   - `scene-build_回读自检与高质量初稿收口.md`
+
+## 2026-03-21｜NPC 返工已形成 carrier checkpoint，shared root 下一条改为导航检查，scene-build 升级到剧本对齐精修
+**当前主线目标**
+- 接住 `scene-build` 与 `NPC` 的最新回执，把恢复开发总控正式改到最新 live 状态，而不是继续沿用“NPC 仍是下一条 / scene-build 仍在高质量初稿收口”的旧口径。
+
+**本轮完成**
+1. 已 live 核对 shared root：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 26ce1d04`
+   - `git status --short --branch = ## main...origin/main`
+   - `shared-root-branch-occupancy.md = neutral-main-ready`
+2. 已 live 核对 scene-build worktree：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001 @ codex/scene-build-5.0.0-001 @ 0a14b93c`
+   - `git status --short --branch = clean`
+3. 已确认 `NPC` 最新结果：
+   - `codex/npc-roam-phase2-003 @ 657594a6`
+   - `carrier_ready = yes`
+   - `main_ready = no`
+   - `blocker_or_checkpoint = needs-unity-window`
+   - 当前阻塞不是 shared root 槽位，而是 live 验收仍被 `unityMCP -> Sub2API HTML` 与旧 `mcp_unity -> Connection failed` 卡住
+4. 已结合用户新增要求，把 scene-build 下一阶段改成“高质量初稿后续精修 + spring-day1 剧本对齐”，并要求它先只读回看：
+   - `spring-day1-implementation/requirements.md`
+   - `spring-day1-implementation/OUT_tasks.md`
+   - scene-build 自己的 `tasks.md`
+5. 已更新：
+   - 总控文件
+   - 批次入口文件
+   - 治理线程自用 prompt
+   - 治理线程职责文件
+   使当前 live 口径变为：
+   - `scene-build` 当前阶段 = `高质量初稿后续精修与spring-day1剧本对齐`
+   - shared root 下一条 = `导航检查`
+   - 然后 = `遮挡检查`
+   - `NPC` 转入“待专属 Unity 验收窗口”
+   - `农田交互修复V2` 继续保留为“已完成 checkpoint 但当前不是 main-ready”
+
+**关键判断**
+- `NPC` 当前不是“还得继续占 shared root 再做一轮文本开发”，而是“分支 checkpoint 已够，但 live 验收还差真正可用的 Unity 窗口”。
+- `scene-build` 当前也不该继续拿“回读自检与高质量初稿收口”旧 prompt，因为它那一步已经做完，下一步应转向有边界的精修推进，并以 `spring-day1` 剧本为精度基准。
+
+**恢复点 / 下一步**
+- 现在应发给 scene-build：
+  - `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+- shared root 当前下一条应发：
+  - `导航检查_当前开发放行.md`
+- `NPC` 当前继续等待：
+  - 真正可用的 Unity / MCP 验收窗口

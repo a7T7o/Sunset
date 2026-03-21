@@ -1765,3 +1765,43 @@
 - 对用户的明确建议：
   - scene-build 现在应发 `scene-build_回读自检与高质量初稿收口.md`
   - shared root 现在应发 `NPC_验收失败返工与live验收闭环.md`
+
+## 会话 33 - 2026-03-21（NPC 已转入 needs-unity-window，scene-build 升到剧本对齐精修）
+**当前主线目标**
+- 把用户刚贴回的 `scene-build` 与 `NPC` 最新回执真正写回总控文件，并把 shared root 下一条改成最新可发线程。
+
+**本轮子任务 / 阻塞**
+- `scene-build` 已完成“回读自检与高质量初稿收口”，说明当前 prompt 已过期。
+- `NPC` 已在 `codex/npc-roam-phase2-003 @ 657594a6` 完成返工 checkpoint 并归还 shared root，但回执明确写出 `needs-unity-window`。
+- 用户补充了新的质量要求：scene-build 的精修标准必须和既有 `spring-day1` 剧本对齐，而不是只做泛化美术打磨。
+
+**本轮完成**
+1. 已 live 核对 shared root：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 26ce1d04`
+   - `git status = clean`
+   - occupancy = `neutral-main-ready`
+2. 已 live 核对 scene-build worktree：
+   - `codex/scene-build-5.0.0-001 @ 0a14b93c`
+   - `git status = clean`
+3. 已新增 scene-build 当前版 prompt：
+   - `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+4. 已更新总控文件、批次入口、治理线程自用 prompt 与职责文件，使当前 live 口径改为：
+   - `scene-build` 当前阶段 = `高质量初稿后续精修与spring-day1剧本对齐`
+   - shared root 下一条 = `导航检查`
+   - 然后 = `遮挡检查`
+   - `NPC` 当前转入待专属 Unity 验收窗口
+   - `农田交互修复V2` 继续保留为“已完成 checkpoint 但当前不是 main-ready”
+5. 已准备做本轮 governance sync，把这轮更新推成 `main` 上的正式口径。
+
+**关键决策**
+- `NPC` 当前不是继续占 shared root 的对象，而是“carrier checkpoint 已够，但 live 手测仍缺真正可用的 Unity 窗口”。
+- `scene-build` 当前不是卡住，而是已经进入下一阶段；如果继续发旧 prompt，只会让项目经理再次拿过期文件分发。
+- `spring-day1` 文档现在被正式用作 scene-build 精修的剧情精度参考，而不是只当旁支历史材料。
+
+**恢复点**
+- 当前应发：
+  - `scene-build_高质量初稿后续精修与spring-day1剧本对齐.md`
+  - `导航检查_当前开发放行.md`
+- 当前继续等待：
+  - `NPC` 的 Unity 验收窗口
+  - `遮挡检查` 的 shared root 顺位
