@@ -672,3 +672,33 @@
 **恢复点 / 下一步**：
 - 当前主线恢复点已推进到：`SceneBuild_01` 已完成逻辑层最小版本。
 - 本轮结束动作应是更新三层 memory、做最小白名单 checkpoint，并按 prompt 最小格式回执。
+
+### 会话 22 - 2026-03-21（scene-build 完成回读自检与高质量初稿收口）
+
+**用户目标**：
+- 继续沿用 `scene-build` 主线，但这轮重点不再是新增施工，而是把当前 `SceneBuild_01` 做成一版经回读自检支撑的高质量初稿。
+
+**本轮子任务 / 阻塞**：
+- 子任务是自检与收口，不是继续扩面。
+- 阻塞仍然是当前会话的 `unityMCP` / `mcp_unity` 传输层没有恢复，所以不能给出 Unity live 验收口径。
+
+**已完成事项**：
+1. 通过 Scene YAML 读回关键层级，确认：
+   - `SceneRoot` 六大根层齐全；
+   - `Systems / GameplayAnchors / LightingFX / DebugPreview / PrefabSetDress / LogicLayer_Farmstead` 的子级命名稳定且用途清楚。
+2. 通过 YAML 读回确认逻辑对象一致性：
+   - `Blocker_*` 全是非触发 `BoxCollider2D`；
+   - `Trigger_*` 全是触发 `BoxCollider2D`。
+3. 通过只读 MCP 探测确认：
+   - `unityMCP` 仍读到 `Sub2API` HTML；
+   - 旧 `mcp_unity` 仍报 `Connection failed: Unknown error`。
+4. 通过读取 `C:\Users\aTo\AppData\Local\Unity\Editor\Editor.log` 最近 200 行确认未见新的显式 `error / exception` 关键字。
+
+**关键决策**：
+- 本轮不新增 scene 对象，不为“高质量初稿”而继续堆物件；
+- 以 YAML 回读 + Editor.log 只读检查完成“当前够不够像可交付初稿”的判断；
+- 明确保留 MCP 传输阻塞，不假装 live 闭环已恢复。
+
+**恢复点 / 下一步**：
+- 当前主线恢复点已推进到：`SceneBuild_01` 已收成可继续精修的高质量初稿。
+- 本轮结束动作应是更新记忆、做仅含文档的最小 checkpoint，并按 prompt 最小格式回执。

@@ -694,3 +694,51 @@
 **恢复点 / 下一步**：
 - 主线恢复点已从“装饰层纠偏完成”推进到“逻辑层最小版本完成”。
 - 下一步最小动作：做一轮施工自检（优先 Unity / MCP live 恢复后回读；若仍不可用，则继续补 Scene YAML 级验证与交付收口）。
+
+### 会话 22 - 2026-03-21（回读自检与高质量初稿收口）
+
+**用户需求**：
+> 不回头再解释逻辑层，也不处理 shared root 残留；本轮目标是把当前 `SceneBuild_01` 做一次真正的回读自检，并在不失控扩面的前提下收成“可继续精修的高质量初稿”。
+
+**验证范围**：
+- Scene / prefab / serialized config change；
+- 重点验证当前 scene 的层级、命名、挂点、逻辑对象组织和明显布局失衡风险；
+- 不做脚本重编译，不冒充 Unity live 闭环已经恢复。
+
+**已执行检查**：
+1. Scene YAML 层级回读：
+   - `SceneRoot` 下保持 `GameplayAnchors / DebugPreview / Systems / LightingFX / PrefabSetDress / Tilemaps` 六大根层；
+   - `Systems` 下为 `MainCamera + LogicLayer_Farmstead`；
+   - `GameplayAnchors` 下为 4 个 `Anchor_*`；
+   - `PrefabSetDress` 下为 `Structure_Farmstead + Decor_Farmstead`；
+   - `LogicLayer_Farmstead` 下为 4 个 `Blocker_*` 与 2 个 `Trigger_*`。
+2. 逻辑对象一致性检查：
+   - 4 个 `Blocker_*` 全部为 `BoxCollider2D` 且 `m_IsTrigger = 0`；
+   - 2 个 `Trigger_*` 全部为 `BoxCollider2D` 且 `m_IsTrigger = 1`；
+   - 锚点、光照挂点、调试挂点没有混入无验证价值的空节点命名。
+3. MCP / Unity 传输层探测：
+   - `unityMCP/manage_scene` 仍返回 `Sub2API` HTML；
+   - 旧 `mcp_unity/get_console_logs` 仍报 `Connection failed: Unknown error`。
+4. Unity 本机日志只读检查：
+   - 读取 `C:\Users\aTo\AppData\Local\Unity\Editor\Editor.log` 最近 200 行；
+   - 未见新的显式 `error / exception` 关键字，仅见编译耗时记录。
+
+**项目级结果**：
+- 当前 `SceneBuild_01` 的结构层、装饰层、逻辑层已经形成清楚的父子组织与命名体系；
+- 没有发现需要本轮继续扩面的明显“穿帮、命名失控、逻辑挂点乱挂”问题；
+- 以当前 YAML 证据看，场景已经可以作为“可继续精修的高质量初稿”交付。
+
+**MCP 级结果**：
+- 当前会话的 `unityMCP` 仍未回正；
+- 因此这轮只能确认“YAML 回读自检通过 + 本机日志未见新显式错误”，不能确认“Unity live / Console 验收通过”。
+
+**修改文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\tasks.md`
+
+**关键结论**：
+- 当前场景已达到“项目经理直接看也不至于太糙”的初稿口径，且不是靠继续堆物件换来的。
+- 最准确口径是：**高质量初稿已收口，但 Unity live / MCP 验证闭环仍未恢复。**
+
+**恢复点 / 下一步**：
+- 主线恢复点已从“逻辑层最小版本完成”推进到“高质量初稿已收口，待 live 验证链恢复或后续精修”。
+- 下一步最小动作：若优先闭环，则修当前 Codex 会话的 Unity / MCP live 路由；若优先交付后续施工，则基于当前初稿继续做精修需求拆分。

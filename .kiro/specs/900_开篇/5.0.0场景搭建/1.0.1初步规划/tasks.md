@@ -82,8 +82,8 @@
 - [x] 4. 完成结构层：建筑、边界、围栏、入口和主视觉模块
 - [x] 5. 完成装饰层：植被、小物件、中景节奏和空间填充
 - [x] 6. 完成逻辑层：碰撞、遮挡、锚点与必要辅助层
-- [ ] 7. 通过 MCP / Console / 层级回读完成一轮施工自检
-- [ ] 8. 交付可继续精修的高质量场景初稿
+- [x] 7. 通过 MCP / Console / 层级回读完成一轮施工自检
+- [x] 8. 交付可继续精修的高质量场景初稿
 
 ## ???? v1 checkpoint?2026-03-21?
 - [x] 1. ? `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` ???? `TM_Ground_Base / TM_Ground_Detail / TM_Path_Water` ?? Tilemap ????
@@ -129,3 +129,13 @@
 - [x] 4. 在 `LightingFX / DebugPreview` 下分别新增 `LightAnchor_YardWarmth / PreviewFocus_FarmsteadLogic`，为后续光照与调试视角保留最小挂点
 - [x] 5. 文件级回读已确认：新对象 `fileID` 唯一、父子引用完整、`m_Father` 全部有效；东侧入口仍保持通行口
 - [ ] 6. 下一步进入施工自检前，仍待当前 Codex 会话的 Unity / MCP live 路由恢复，或继续沿 Scene YAML 路径补验证
+
+## 回读自检与高质量初稿收口（2026-03-21）
+
+- [x] 1. 已完成 Scene YAML 层级回读：`SceneRoot / Systems / GameplayAnchors / LightingFX / DebugPreview / PrefabSetDress / Tilemaps` 结构清楚，命名稳定
+- [x] 2. 已确认逻辑层对象与场景组织一致：`LogicLayer_Farmstead` 下仅承载 `Blocker_* / Trigger_*`，`GameplayAnchors` 下仅承载 `Anchor_*`
+- [x] 3. 已确认当前初稿不存在明显“乱堆物件”问题：`PrefabSetDress` 只承载 `Structure_Farmstead / Decor_Farmstead`，`Decor_Farmstead` 下维持 3 个组簇结构
+- [x] 4. 已完成最小验证分流：`unityMCP` 仍返回 `Sub2API` HTML，旧 `mcp_unity` 仍报 `Connection failed: Unknown error`，明确归类为 MCP 传输层阻塞，不冒充 Unity live 闭环恢复
+- [x] 5. 已读取本机 `C:\Users\aTo\AppData\Local\Unity\Editor\Editor.log` 最近 200 行；未见新的显式 `error / exception` 关键字，仅见编译耗时记录
+- [x] 6. 当前场景已可按“可继续精修的高质量初稿”口径交付：结构、装饰、逻辑三层关系自洽，后续只需围绕 live 验证与精修推进
+- [ ] 7. 后续若要补完整闭环，仍需修复当前 Codex 会话的 Unity / MCP live 路由，再补 Console / live 回读
