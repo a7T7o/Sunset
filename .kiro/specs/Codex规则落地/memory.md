@@ -2228,3 +2228,35 @@
 **恢复点 / 下一步**
 - 连同前面的治理线程自用 prompt，一起做本轮 governance sync。
 - 同步后，对用户的白话口径固定为：除了 `spring-day1`，其他这些 prompt 都是发过去就开干。
+
+## 2026-03-21｜治理线程已正式进入执行态，当前发放裁定保持为 NPC 优先
+**当前主线目标**
+- 把“治理线程 prompt 已写好”推进到“治理线程已按 prompt 实际执行”，并给出当前第一条可发 shared root 线程的正式裁定。
+
+**本轮子任务 / 阻塞**
+- 用户明确要求“那你开始吧”，意味着治理线程不能再停在文档准备态，而要正式进入 live 执行。
+
+**本轮完成**
+1. 已按治理线程自用 prompt 完成 live 核查：
+   - `main`
+   - `HEAD = d382c41c`
+   - `git status = clean`
+2. 已核对 occupancy：
+   - shared root 当前为 `neutral-main-ready`
+   - `lease_state = neutral`
+3. 已核对 Unity / MCP 单实例口径：
+   - 当前无人 claim
+   - 但 shared root 线程默认仍不因此自动获得 Unity / MCP 权限
+4. 已复核总控文件与治理线程 prompt 一致，未见需要调整队列顺序
+5. 已形成当前治理裁定：
+   - `scene-build` 继续 worktree 施工线
+   - shared root 当前下一条仍发 `NPC`
+   - 其余 shared root 线程继续等待当前队列顺序
+
+**关键决策**
+- 当前没有新的现场信号支持改序。
+- 所以这轮真正的治理动作不是“再解释一次规则”，而是正式把当前第一条锁定为 `NPC`。
+
+**恢复点 / 下一步**
+- 先做本轮最小 governance sync。
+- 同步后，用户可以直接发 `NPC_当前开发放行.md`，而我继续承担收件与后续裁定。

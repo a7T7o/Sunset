@@ -1248,3 +1248,36 @@
 **恢复点 / 下一步**
 - 继续把这轮新增说明与前面的自用 prompt 一并同步进 `main`。
 - 同步后，对用户的口径统一为：除 `spring-day1` 外，当前目录中的 prompt 都可直接发出去执行。
+
+## 2026-03-21｜治理线程已按自用 prompt 进入执行态，并裁定当前第一条仍为 NPC
+**当前主线目标**
+- 不再只是“写好治理线程 prompt”，而是正式按它执行一轮 live 核查和当前发放裁定。
+
+**本轮完成**
+1. 已按治理线程自用 prompt 完成手工等价启动闸门核查，确认：
+   - `D:\Unity\Unity_learning\Sunset`
+   - `branch = main`
+   - `HEAD = d382c41c`
+   - `git status --short --branch = ## main...origin/main`
+2. 已核对 shared root 占用文档：
+   - `current_branch = main`
+   - `is_neutral = true`
+   - `lease_state = neutral`
+3. 已核对 Unity / MCP 单实例层：
+   - `current_claim = none`
+   - 但口径仍保持“如需进入 Unity / MCP，必须再核 live”
+4. 已再次对齐当前总控文件与治理线程自用 prompt，没有发现顺序漂移或规则冲突
+5. 已形成当前执行裁定：
+   - `scene-build` 可继续其 worktree 施工
+   - shared root 当前下一条仍应发 `NPC`
+   - `农田交互修复V2 / 导航检查 / 遮挡检查 / spring-day1` 继续按既定顺序等待
+
+**关键判断**
+- 这轮不是新改规则，而是把“治理线程现在开始正式照规则跑”变成 live 事实。
+- 在当前 clean `main + neutral` 的前提下，没有理由跳过 `NPC` 去先发别的 shared root 线程。
+
+**恢复点 / 下一步**
+- 先把这次 live 核查与裁定补记同步进 `main`。
+- 同步后，对用户的正式口径就是：
+  - 现在如果要发 shared root 第一条，就发 `NPC`
+  - 如果要继续场景施工，`scene-build` 也可并行继续自己的 worktree 线

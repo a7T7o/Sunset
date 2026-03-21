@@ -1540,3 +1540,37 @@
 **恢复点**
 - 接着把这轮补充说明和前面的自用 prompt 一起做 governance sync。
 - 同步后，对用户的正式口径固定为：除 `spring-day1` 外，当前目录里的这些 prompt 都可以直接发出去执行。
+
+## 会话 25 - 2026-03-21（治理线程正式进入执行态，当前第一条维持 NPC）
+**当前主线目标**
+- 不再停留在“治理线程自用 prompt 已存在”，而是正式按这份 prompt 执行首轮 live 核查与发放裁定。
+
+**本轮子任务 / 阻塞**
+- 用户直接要求“那你开始吧”，我需要把治理线程从规则准备态推进到实际执行态。
+
+**本轮完成**
+1. 已按自用 prompt 做 live 核查：
+   - `cwd = D:\Unity\Unity_learning\Sunset`
+   - `branch = main`
+   - `HEAD = d382c41c`
+   - `git status --short --branch = ## main...origin/main`
+2. 已核对 shared root 占用：
+   - `current_branch = main`
+   - `is_neutral = true`
+   - `lease_state = neutral`
+3. 已核对 Unity / MCP 单实例文档：
+   - `current_claim = none`
+   - 但仍保持“shared root 线程默认不进 Unity / MCP”的硬边界
+4. 已复核总控文件、自用 prompt 与现行队列一致，没有发现需要改序的 live 信号
+5. 已形成当前治理裁定：
+   - `scene-build` 可继续自己 worktree 的施工线
+   - shared root 当前下一条仍应发 `NPC`
+   - `农田交互修复V2 / 导航检查 / 遮挡检查 / spring-day1` 继续按既定顺序等待
+
+**关键决策**
+- 当前 clean `main + neutral` 现场下，没有理由跳过 `NPC` 去先发后面的 shared root 线程。
+- 这轮真正的推进不是再写新规则，而是把“现在先发谁”固化成 live 裁定。
+
+**恢复点**
+- 先做最小 governance sync，把这轮执行态裁定推进到 `main`。
+- 同步后，对用户的直接口径就是：shared root 现在先发 `NPC`；scene-build 继续自己的 worktree 线。
