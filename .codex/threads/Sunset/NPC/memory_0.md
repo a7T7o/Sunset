@@ -162,3 +162,17 @@
   - `git diff --check` 通过。
   - MCP 重编译尝试失败，当前报 `Connection failed: Unknown error`；因此本轮还没有 Unity live 编译证据。
 - 当前恢复点：这刀已经形成新的 NPC 本地 checkpoint，可以继续走 live 目测验收，或者直接按白名单提交到 `main`。
+
+## 2026-03-23 NPC第三刀继续开发：003持续说话样本落地
+
+- 当前主线目标：把 `003` 变成真正可用的气泡压测 NPC，并把气泡第三刀做成能 live 证明的版本。
+- 本轮子任务：追加测试脚本、更新 prefab、用 `unityMCP` 拿到场景内运行证据。
+- 本轮完成：
+  - 新增 `NPCBubbleStressTalker.cs` 并挂到 `003.prefab`。
+  - `003` 测试模式下会持续随机输出短中长不同长度的话术，最长约 50~60 字。
+  - `NPCBubblePresenter` 第三刀加入更偏审美的自适应尺寸策略，并把整体高度往下压了一点。
+- 本轮验证：
+  - `unityMCP` live 读回确认 `003` 的测试器在场景里真实工作，`ShowCount` 增长且 `LastShowSucceeded = true`。
+  - live 读回确认 `NPCBubblePresenter.IsBubbleVisible = true`，长句文本已进入气泡。
+  - 本轮结束前已退回 Edit Mode，没有把 Unity 留在 Play。
+- 当前恢复点：下一步只差把这轮提交到 `main`，然后等用户按主项目真实观感做验收。

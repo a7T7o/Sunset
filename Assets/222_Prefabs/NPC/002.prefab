@@ -262,7 +262,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetRenderer: {fileID: 1276010894800916247}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0, y: 1.82, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.72, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
   bubblePadding: {x: 38, y: 24}
   maxTextWidth: 248
@@ -271,8 +271,8 @@ MonoBehaviour:
   tailYOffset: -7
   shadowOffset: {x: 3, y: -5}
   sortingOrderOffset: 20
-  minBubbleHeight: 1.58
-  bubbleGapAboveRenderer: 0.42
+  minBubbleHeight: 1.5
+  bubbleGapAboveRenderer: 0.3
   visibleFloatAmplitude: 0.012
   visibleFloatFrequency: 1.25
   tailBobAmplitude: 2.2
@@ -294,7 +294,7 @@ MonoBehaviour:
   - "\u55EF \u8FD9\u8FB9\u98CE\u6709\u70B9\u8212\u670D\u3002"
   - "\u4E0D\u77E5\u9053\u5927\u5BB6\u5728\u5FD9\u4EC0\u4E48\u3002"
   showDebugLog: 0
-  styleVersion: 6
+  styleVersion: 7
 --- !u!114 &8904943649822209385
 MonoBehaviour:
   m_ObjectHideFlags: 0

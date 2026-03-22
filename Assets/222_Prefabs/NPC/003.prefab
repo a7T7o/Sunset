@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 8522985639821944669}
   - component: {fileID: 1143789803073532438}
   - component: {fileID: 3567178868468748681}
+  - component: {fileID: 2080913850347154353}
   m_Layer: 0
   m_Name: 003
   m_TagString: Untagged
@@ -127,8 +128,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45a3d1d4bd5a8744aa9ed982679f875a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name: ""
+  m_EditorClassIdentifier: ""
   sortingOrderMultiplier: 100
   sortingOrderOffset: 0
   useSpriteBounds: 1
@@ -174,8 +175,8 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0}
-    oldSize: {x: 1, y: 1}
-    newSize: {x: 1, y: 1}
+    oldSize: {x: 2, y: 2}
+    newSize: {x: 2, y: 2}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
     adaptiveTiling: 0
@@ -219,8 +220,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e004ed4ea9953478ba4e8cd978ce83, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animator: {fileID: 6493957216589283537}
   spriteRenderer: {fileID: 7873992007039065483}
   idleAnimationSpeed: 1
@@ -236,8 +237,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 160b8ec8fa40bf4488cc674ecc3ac425, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name: ""
+  m_EditorClassIdentifier: ""
   animController: {fileID: 6753703280515682947}
   rb: {fileID: 2300030030030030030}
   moveSpeed: 2.5
@@ -262,17 +263,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetRenderer: {fileID: 7873992007039065483}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0, y: 1.82, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.72, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
-  bubblePadding: {x: 38, y: 24}
-  maxTextWidth: 248
+  bubblePadding: {x: 44, y: 30}
+  maxTextWidth: 236
+  minAdaptiveTextWidth: 152
+  textSafePadding: {x: 12, y: 10}
   borderThickness: 6
-  tailSize: {x: 26, y: 16}
-  tailYOffset: -7
+  tailSize: {x: 28, y: 18}
+  tailYOffset: -11
   shadowOffset: {x: 3, y: -5}
   sortingOrderOffset: 20
-  minBubbleHeight: 1.58
-  bubbleGapAboveRenderer: 0.42
+  minBubbleHeight: 1.5
+  bubbleGapAboveRenderer: 0.3
   visibleFloatAmplitude: 0.012
   visibleFloatFrequency: 1.25
   tailBobAmplitude: 2.2
@@ -282,7 +285,7 @@ MonoBehaviour:
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
   textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
   textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
-  fontSize: 23
+  fontSize: 24
   textOutlineWidth: 0.18
   showDuration: 0.14
   hideDuration: 0.1
@@ -294,7 +297,7 @@ MonoBehaviour:
   - "\u55EF \u8FD9\u8FB9\u98CE\u6709\u70B9\u8212\u670D\u3002"
   - "\u4E0D\u77E5\u9053\u5927\u5BB6\u5728\u5FD9\u4EC0\u4E48\u3002"
   showDebugLog: 0
-  styleVersion: 6
+  styleVersion: 7
 --- !u!114 &3567178868468748681
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -324,7 +327,56 @@ MonoBehaviour:
   shortPauseCountMax: 5
   longPauseMin: 3
   longPauseMax: 6
+  enableAmbientChat: 1
+  ambientChatRadius: 3.8
+  ambientChatChance: 0.75
+  ambientChatResponseDelay: 0.85
+  chatInitiatorLines:
+  - "\u4ECA\u5929\u8FD9\u8FB9\u633A\u5B89\u9759\u7684\u3002"
+  - "\u4F60\u4E5F\u5728\u8FD9\u8FB9\u6B47\u4E00\u4F1A\u513F\u554A\u3002"
+  - "\u8FD9\u9644\u8FD1\u98CE\u5439\u7740\u8FD8\u633A\u8212\u670D\u3002"
+  - "\u7B49\u4F1A\u513F\u518D\u7EE7\u7EED\u5FD9\u5427\u3002"
+  chatResponderLines:
+  - "\u662F\u554A\uFF0C\u5148\u7F13\u4E00\u7F13\u3002"
+  - "\u6211\u4E5F\u521A\u8D70\u5230\u8FD9\u513F\u3002"
+  - "\u8FD9\u8FB9\u5F85\u7740\u8FD8\u633A\u8212\u670D\u7684\u3002"
+  - "\u597D\uFF0C\u7B49\u4E0B\u518D\u53BB\u8F6C\u8F6C\u3002"
   waypointTolerance: 0.08
   destinationTolerance: 0.12
+  stuckCheckInterval: 0.3
+  stuckDistanceThreshold: 0.08
+  maxStuckRecoveries: 3
   showDebugLog: 0
   drawDebugPath: 1
+--- !u!114 &2080913850347154353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3131872138138888922}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2a83cf9837b058742b73c9ff3ad3796a, type: 3}
+  m_Name: ""
+  m_EditorClassIdentifier: ""
+  bubblePresenter: {fileID: 0}
+  startOnEnable: 1
+  disableRoamWhileTesting: 1
+  minGapSeconds: 0.2
+  maxGapSeconds: 0.7
+  minDuration: 1.8
+  maxDuration: 5
+  testLines:
+  - "\u55EF\u3002"
+  - "\u5148\u7F13\u4E00\u7F13\u3002"
+  - "\u8FD9\u8FB9\u98CE\u633A\u8212\u670D\u7684\u3002"
+  - "\u6211\u60F3\u5148\u628A\u4ECA\u5929\u7684\u8DEF\u7EBF\u518D\u8FC7\u4E00\u904D\u3002"
+  - "\u521A\u521A\u90A3\u8FB9\u6709\u70B9\u5435\uFF0C\u8FD9\u91CC\u5012\u662F\u5B89\u9759\u4E0B\u6765\u4E86\u4E00\u70B9\u3002"
+  - "\u7B49\u4F1A\u513F\u518D\u5F80\u524D\u8D70\uFF0C\u6211\u60F3\u5148\u628A\u811A\u6B65\u548C\u8282\u594F\u91CD\u65B0\u653E\u7A33\u3002"
+  - "\u4ECA\u5929\u7684\u4E8B\u60C5\u4E0D\u7B97\u5C11\uFF0C\u4F46\u4E5F\u6CA1\u5230\u614C\u7684\u65F6\u5019\uFF0C\u5148\u628A\u773C\u524D\u8FD9\u51E0\u6B65\u8D70\u987A\u518D\u8BF4\u3002"
+  - "\u8981\u662F\u5F85\u4F1A\u513F\u5927\u5BB6\u90FD\u5F80\u8FD9\u8FB9\u7ECF\u8FC7\uFF0C\u6211\u5F97\u63D0\u524D\u7559\u4E00\u70B9\u4F4D\u7F6E\uFF0C\u4E0D\u7136\u53C8\u4F1A\u6324\u6210\u4E00\u56E2\u3002"
+  - "\u6211\u521A\u624D\u4E00\u8DEF\u8D70\u8FC7\u6765\uFF0C\u53D1\u73B0\u8FD9\u8FB9\u7684\u5149\u7EBF\u548C\u7A7A\u5730\u90FD\u8FD8\u4E0D\u9519\uFF0C\u9002\u5408\u505C\u4E00\u4F1A\u513F\u518D\u51B3\u5B9A\u4E0B\u4E00\u6B65\u3002"
+  - "\u6709\u65F6\u5019\u6211\u4F1A\u6545\u610F\u6162\u4E00\u70B9\uFF0C\u56E0\u4E3A\u592A\u7740\u6025\u53CD\u800C\u5BB9\u6613\u649E\u5230\u522B\u4EBA\uFF0C\u7A33\u4F4F\u8282\u594F\u4E4B\u540E\u6574\u6761\u8DEF\u90FD\u4F1A\u987A\u5F88\u591A\u3002"
+  - "\u5982\u679C\u4E00\u4F1A\u513F\u65C1\u8FB9\u53C8\u6709\u4EBA\u7ECF\u8FC7\uFF0C\u6211\u5E0C\u671B\u81EA\u5DF1\u522B\u518D\u50CF\u6728\u6869\u4E00\u6837\u5361\u4F4F\uFF0C\u81F3\u5C11\u5F97\u770B\u8D77\u6765\u50CF\u771F\u7684\u4F1A\u601D\u8003\u4E00\u4E0B\u8981\u4E0D\u8981\u8BA9\u8DEF\u3002"
+  - "\u6211\u60F3\u6D4B\u8BD5\u4E00\u4E0B\u81EA\u5DF1\u8BF4\u957F\u4E00\u70B9\u7684\u8BDD\u65F6\uFF0C\u6C14\u6CE1\u4F1A\u4E0D\u4F1A\u53EA\u662F\u6A2A\u7740\u53D8\u957F\uFF0C\u800C\u662F\u66F4\u81EA\u7136\u5730\u540C\u65F6\u957F\u9AD8\u4E00\u70B9\uFF0C\u518D\u987A\u624B\u628A\u6587\u5B57\u597D\u597D\u5305\u8FDB\u53BB\u3002"

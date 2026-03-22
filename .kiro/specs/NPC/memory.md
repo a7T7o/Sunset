@@ -161,3 +161,16 @@
   - 静态 diff 检查通过。
   - MCP live 编译未取得证据，原因是 `recompile_scripts` 当前连接失败；因此这轮还欠一次 live 目测验收。
 - 当前恢复点：下一步可以直接拿 `Primary.unity` 做一次 live 目测，重点看尾巴观感与玩家推挤体感；若通过即可按白名单继续收口。
+
+## 2026-03-23 NPC第三刀：自适应气泡与003压测器
+
+- 当前主线目标：让 NPC 气泡从“能用”继续收口到“长短句都好看、003 可以稳定当测试样本”。
+- 本轮子任务：追加一个专门的 003 持续说话压测器，并继续细修气泡下沉和自适应尺寸。
+- 本轮完成：
+  - 气泡布局：加入 `minAdaptiveTextWidth` 和 `textSafePadding`，长句不再只横向变宽，气泡会更自然地兼顾长高和变宽。
+  - 气泡位置：把 `bubbleLocalOffset / minBubbleHeight / bubbleGapAboveRenderer` 再往下压一档，专门修“箭头太高”的反馈。
+  - 003 压测：新增 `NPCBubbleStressTalker`，让 `003` 持续随机说短中长不同长度的话，并在测试模式下关闭自身漫游，避免状态机抢气泡。
+- 本轮 live 证据：
+  - `unityMCP` 已正常工作。
+  - `003` 在 `Primary` 里 live 读回为：`NPCBubbleStressTalker.ShowCount = 2`、`LastShowSucceeded = true`、`NPCBubblePresenter.IsBubbleVisible = true`、`CurrentBubbleText` 为长句。
+- 当前恢复点：用户现在可以直接在主项目里拿 `003` 做气泡自适应验收，不再需要手动反复触发对话。

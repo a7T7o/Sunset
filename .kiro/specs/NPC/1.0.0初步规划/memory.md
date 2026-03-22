@@ -193,3 +193,19 @@
   - 只读回看确认样本 prefab 当前已为 `m_Mass: 6`、`m_LinearDamping: 8`、`m_Interpolate: 1`、`tailBobAmplitude: 2.2`、`tailBobFrequency: 2.1`、`styleVersion: 6`。
   - 尝试通过 MCP 执行 `recompile_scripts` 获取最小 live 编译证据，但当前返回 `Connection failed: Unknown error`，因此本轮仍只能写实为“静态验证通过，Unity live 编译证据未取得”。
 - 当前恢复点：NPC 现在已经具备第二刀本地 checkpoint 条件；下一步若继续，应优先做一次 `Primary` 场景的 live 目测验收，看尾巴指向感和玩家推挤体感是否达标。
+
+## 2026-03-23 NPC气泡第三刀与003持续说话压测
+
+- 当前主线目标：继续把 NPC 气泡的“太高、包边不稳、长文本压测不足”收紧到可直接验收的状态。
+- 本轮子任务：只改 NPC 自己的气泡布局逻辑与 `003` 测试用 prefab，不碰导航核心。
+- 本轮完成：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 升到 `styleVersion = 7`，加入自适应换行宽度与文本安全边距，让长文本不再只横向拉长；同时把气泡整体再下收一小段，避免尾巴离 NPC 头顶太远。
+  - 新增 `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs`，把 `003` 做成持续说话测试 NPC，内置短句/中句/长句混合文案，最长约 50~60 字。
+  - `Assets/222_Prefabs/NPC/003.prefab` 挂上 `NPCBubbleStressTalker`，并开启 `disableRoamWhileTesting`，确保压测时不再被漫游状态机抢走气泡。
+  - `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 同步到最新气泡位置参数与 `styleVersion = 7`。
+- 本轮验证：
+  - `unityMCP.manage_scene(get_active)` 返回 `Primary`，`unityMCP.read_console(get)` 可正常读取，确认当前会话确实挂在新的 `unityMCP` 上。
+  - `unityMCP` 读回 `003` 场景实例组件，确认 `NPCBubbleStressTalker` 已挂载，`ShowCount = 2`、`LastShowSucceeded = true`。
+  - 同一轮 live 读回 `NPCBubblePresenter`，确认 `IsBubbleVisible = true` 且 `CurrentBubbleText` 为长句，说明持续说话压测已真正跑起来。
+  - `git diff --check` 对本轮 NPC 相关脚本和 prefab 通过。
+- 当前恢复点：现在你可以直接进 `Primary` 看 `003` 头顶的持续说话效果，重点验三件事：尾巴是否够低、长句是否被气泡完整包住、整体高度是否比上一版更自然。
