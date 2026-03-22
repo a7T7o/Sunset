@@ -64,3 +64,88 @@
 - 本轮 live 现场：`D:\Unity\Unity_learning\Sunset @ main @ 14838753b4ae9b09b2146b92fb3bfdc9ac82b2a0`，`git status --short --branch = ## main...origin/main`，shared root 仍是 `main + neutral`。
 - 只读确认 continuation branch 当前仍为 `codex/npc-roam-phase2-003 @ 7385d1236d0b85c191caff5c5c19b08678d1cf80`。
 - 已回写线程回收单：[NPC.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/22_恢复开发分发与回收/线程回收/NPC.md)；结论是阶段一通过，但因 `branch_grant_state = none` 且 Unity / MCP 仍需 live verify，本轮不能直接进入阶段二写入。
+
+## 2026-03-22
+
+- 当前主线目标：只在 `main` 上收口 NPC 两项返工，不扩写新系统。
+- 用户已明确纠正：`main` 是唯一开发现场，`codex/npc-roam-phase2-003` 现在只作为只读参考源。
+- 本轮真实现场：
+  - 工作目录：`D:\Unity\Unity_learning\Sunset`
+  - 当前分支：`main`
+  - 当前 `HEAD`：`c6af2657`
+  - shared root 占用文档当前仍显示 `main + neutral`
+- 本轮实际认领的业务文件：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  - `Assets/Editor/NPCPrefabGeneratorTool.cs`
+  - `Assets/222_Prefabs/NPC/001.prefab`
+  - `Assets/222_Prefabs/NPC/002.prefab`
+  - `Assets/222_Prefabs/NPC/003.prefab`
+- 本轮完成：
+  - 气泡样式与锚点提升到新版，目标是从“压脸”改成“真正离开头顶”。
+  - NPC 漫游位移改成优先使用 `Rigidbody2D`，为实体碰撞让路。
+  - 生成器与三个样本 prefab 都改成下半身 `BoxCollider2D + Rigidbody2D`，不再使用整身 trigger。
+- 本轮验证：
+  - `git diff --check` 对上述 6 个 NPC 文件通过。
+  - 只读回看 prefab YAML，确认三个样本都已是 `BoxCollider2D + Rigidbody2D`、`m_IsTrigger: 0`、`styleVersion: 5`。
+  - Unity / MCP 本轮未形成可靠 live 验证，`recompile_scripts` 返回连接失败，因此不能冒充“Unity 已验收通过”。
+- 当前恢复点：NPC 两项核心返工已经真实落到 `main`，后续只需要围绕主项目现场验证这两项效果是否达标，再决定是否对白名单 NPC 文件做 Git 收口。
+
+## 2026-03-22 导航缺陷与下一轮需求澄清
+
+- 当前主线目标：只读核查 NPC 当前气泡、碰撞与导航能力边界，给用户一份可直接拿去申请修正的写实清单。
+- 本轮真实现场：`D:\Unity\Unity_learning\Sunset @ main @ c6af2657`。
+- 本轮已证实：
+  - NPC 漫游确实调用 `NavGrid2D.TryFindPath()`，不是完全没接导航。
+  - 但 NPC 当前没有任何局部避障逻辑，只会沿静态路径前进；撞住后靠 stuck 检测重建路径。
+  - 当前 NavGrid2D 是静态网格，不跟踪玩家/NPC 的实时占位；`Primary.unity` 的 `obstacleTags` 也不含 NPC，而 `Assets/222_Prefabs/NPC/001.prefab` 当前 tag 为 `Untagged`。
+  - 玩家自动导航存在局部碰撞偏转，因此“玩家路上偶尔会侧一下”是有代码依据的；但它仍不是动态让行系统，不能保证面对移动 NPC 时稳定绕过。
+  - 玩家与 NPC 当前都为 `Dynamic Rigidbody2D + mass 1`，而玩家移动速度更高，所以“玩家把 NPC 顶开太容易”是现配置下的真实问题。
+  - 当前气泡已经有轻微浮动，但浮的是整颗气泡，不是箭头单独浮；箭头方向本身朝下，但体量偏小、指向性不够强。
+- 用户刚刚新增并确认的需求：
+  - 箭头要更明显朝下指向 NPC，并带轻微悬浮感。
+  - 气泡和文字都要再大一点，达到清晰可读。
+  - NPC 需要更难被玩家顶开。
+  - 后续希望玩家导航遇到路过 NPC 能自动规避，NPC 与 NPC 也能互相规避和路口礼让。
+- 需要申请修正的系统缺口：
+  - NPC 局部避障缺失
+  - 动态障碍占用与实时重规划缺失
+  - 双向让行 / 会车 / 路口优先级缺失
+  - 玩家/NPC 物理权重与接触策略设计缺失
+  - 气泡视觉参数仍未达到可读性验收标准
+- 当前恢复点：现在已经能明确区分“当前已有静态 A* 调路能力”和“当前没有动态人群导航能力”，后续返工可以避免再把两个问题混成一团。
+
+## 2026-03-22 输出口径纠正：职责分离与导航交接
+
+- 用户本轮纠正成立：我上一轮没有把 NPC 线程自己的问题和导航线程的问题分开，输出偏题。
+- 正确口径：
+  - 我只认领 NPC 自己的代码：`NPCBubblePresenter.cs`、`NPCPrefabGeneratorTool.cs`、`001~003.prefab`、`NPCMotionController.cs`、`NPCAutoRoamController.cs` 中属于 NPC 消费导航结果的部分。
+  - 我不认领导航系统核心增强：`NavGrid2D.cs`、`PlayerAutoNavigator.cs` 及动态占位/让行/避障框架，应明确移交导航线程。
+- 用户视觉需求纠正：
+  - 当前尾巴从最终观感看是正三角朝上，不符合需求。
+  - 正确需求是倒三角朝下指向 NPC，并做尾巴单独的轻微上下跳动。
+  - 气泡和文字都要适度放大，提高可读性。
+- 给导航线程的交接要点：
+  - 当前 NPC 已调用静态 A*，问题不在“有没有调导航”，而在“导航系统没有动态避让能力”。
+  - 需要导航线程解决玩家绕移动 NPC、NPC/NPC 互相规避、路口礼让、动态占位和 agent 分型。
+- 当前恢复点：现在已经有了一份正确的职责分离口径，后续汇报与实现都必须按这个边界执行。
+
+## 2026-03-22 用户强纠正后的回炉重写
+
+- 当前主线目标：把 NPC 线程的责任边界重新写清楚，避免再把 NPC 自身返工与导航系统增强混为一谈。
+- 本轮子任务：只读复核 `main @ c6af2657` 下 NPC / 导航代码证据，重写给用户和导航线程的正式口径。
+- 本轮确认：
+  - 上一轮边界混乱是我自己的问题，现已纠正为“NPC 只认 NPC 自己的代码，导航只认导航核心代码”。
+  - `NPCBubblePresenter.cs` 当前尾巴生成与布局仍会呈现更像“正三角朝上”的观感；用户要的是“倒三角朝下指向 NPC”，且尾巴要单独轻微跳动。
+  - `NPCAutoRoamController.cs` 已接静态 A*，但动态避让不是 NPC 线程该补的核心代码。
+  - 给导航线程的核心需求已锁定为：动态障碍占位、玩家绕移动 NPC、NPC/NPC 互相规避、路口礼让、agent 分型。
+- 当前恢复点：下一轮继续开发时，NPC 线程只做气泡视觉和 NPC 侧 collider / movement-consumer 返工；导航增强改走跨线程交接。
+
+## 2026-03-22 双Prompt交付
+
+- 当前主线目标：把这条 NPC 线和导航线之间的协作方式彻底写成可执行 prompt。
+- 本轮子任务：起草“导航线程 prompt”与“NPC 线程自压 prompt”两份成稿。
+- 本轮完成：
+  - 已按 `main @ c6af2657` 的 live 现场准备两份 prompt，均会锁定代码归属、禁止越界范围、验证要求和回执格式。
+  - 这次不做业务代码变更，只沉淀协作执行文案。
+- 当前恢复点：后续直接按 prompt 派工即可，减少再次误解职责边界的风险。

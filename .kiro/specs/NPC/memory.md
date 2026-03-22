@@ -64,3 +64,87 @@
 - 本轮完成：重新按 Git 与场景 YAML 取证，确认不是 `farm` 覆盖了 NPC，而是 `main` 的 [Primary.unity](D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity) 早已引用 `codex/npc-roam-phase2-003` 才有的 prefab / profile / meta / runtime 脚本；随后已从 `codex/npc-roam-phase2-003` 精确恢复 `Assets/100_Anim/NPC/`、`Assets/111_Data/NPC/`、`Assets/222_Prefabs/NPC/`、`Assets/Sprites/NPC/001~003.png.meta`、`Assets/YYY_Scripts/Controller/NPC/`、`Assets/YYY_Scripts/Data/NPCRoamProfile.cs`、`Assets/YYY_Scripts/Anim/NPC/NPCAnimController.cs` 与 `Assets/Editor/NPCPrefabGeneratorTool.cs` 到当前 `main` 工作树。
 - 已验证事实：`Primary.unity` 中 `001/002/003` 的 prefab GUID 现在都能反查到恢复后的 `Assets/222_Prefabs/NPC/*.prefab.meta`；prefab 内的 Sprite / Animator / roamProfile / AutoRoam / BubblePresenter 引用也都能在恢复后的资源上闭合；`Unity` Editor 日志显示本轮发生了脚本重编译与 Asset Refresh，且尾部未再出现新的 NPC missing 报错；MCP 桥本轮不可用，所以没有做 Inspector 侧二次读取。
 - 当前恢复点：下一步应把这批 NPC 运行时恢复文件与事故记忆一起最小提交到 `main`，并在治理层补一条验收口径：不能只验 `carrier` 在位，还必须验 `main` 是否已经拥有生产场景实际依赖的运行时资产。
+
+## 2026-03-22
+
+- 当前主线目标：在 `main-only` 新口径下，把 NPC 返工直接收口到 `main`，不再回到 `codex/npc-roam-phase2-003` 开发。
+- 本轮锁定范围：
+  - 气泡真正抬离头顶，不能压脸，留白更稳定。
+  - NPC 改成下半身实体碰撞，不再是整身 trigger，玩家与 NPC、NPC 与 NPC 不再继续互相穿透。
+- 本轮已落到 `main` 的业务文件：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  - `Assets/Editor/NPCPrefabGeneratorTool.cs`
+  - `Assets/222_Prefabs/NPC/001.prefab`
+  - `Assets/222_Prefabs/NPC/002.prefab`
+  - `Assets/222_Prefabs/NPC/003.prefab`
+- 本轮关键结论：
+  - `NPCBubblePresenter` 已提升到 `styleVersion = 5`，包含基于渲染器顶部计算的稳定抬高逻辑与新版样式参数。
+  - 三个样本 prefab 当前均为 `BoxCollider2D + Rigidbody2D`，`m_IsTrigger: 0`，并已绑定 `NPCMotionController.rb` 与 `NPCAutoRoamController.rb`。
+  - `git diff --check` 已通过上述 6 个 NPC 文件。
+- 本轮阻塞：
+  - `main` 中同时存在大量与 NPC 无关的其他线程 dirty，当前还不能把“是否立即 Git 收口”写成已完成。
+  - Unity / MCP 本轮连接失败，不能替代主项目手测。
+- 当前恢复点：NPC 的 main-only 返工已经真实落到 `main`；下一步应先做主项目手测验收这两项效果，再决定是否对白名单 NPC 文件做 Git 收口。
+
+## 2026-03-22 导航能力边界只读核查
+
+- 当前主线目标：为 NPC 下一轮返工提供准确的问题定义，不扩写实现。
+- 本轮结论：
+  - NPC 当前“有导航调用，但没有动态避让系统”。
+  - 玩家自动导航当前“有一点局部绕障能力，但没有动态礼让与双向协同能力”。
+- 已证实依据：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 会调用 `NavGrid2D.TryFindPath()`，卡住后只会 `TryRebuildPath()` 或重新抽点，不会做局部 steering。
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs` 是静态网格 A*，网格刷新不跟随 NPC/玩家实时移动；`Primary.unity` 当前 `obstacleTags` 也不包含 NPC。
+  - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs` 存在 `AdjustDirectionByColliders()`，所以玩家导航能做有限的局部偏转，但不是动态 reroute，也不保证窄路会车成功。
+  - 玩家与 NPC 当前质量同为 `1`，而玩家移动速度高于 NPC，因此“玩家容易顶开 NPC”是现配置下的真实体感问题，不是错觉。
+- 用户新增需求口径：
+  - 气泡箭头要更明显朝下指向 NPC，并带轻微悬浮感。
+  - 气泡和文字都要适度放大，达到清晰可读。
+  - NPC 不应轻易被玩家顶开。
+  - 后续需要更完整的动态避让、互相规避与路口礼让能力。
+- 需要申请加强的缺口：
+  - NPC 局部避障 / 分离 steering
+  - 动态障碍占用与实时重规划
+  - agent 优先级 / 路口礼让
+  - 玩家/NPC 物理交互权重与抗推动策略
+  - NPC 导航专项验收标准
+- 当前恢复点：问题定义已经厘清，可以据此申请“表现层小修 + 动态导航增强”两类后续修正。
+
+## 2026-03-22 职责边界更正与导航交接口径
+
+- 用户已明确纠正：这一轮我要输出的是“NPC线程自己的认领范围 + 给导航线程的详细需求”，不是泛泛谈整套物理系统。
+- NPC线程认领范围：
+  - 气泡视觉代码与 prefab 参数
+  - NPC 自身碰撞体与刚体默认值
+  - NPC 如何消费导航结果移动与做卡住恢复
+- 导航线程认领范围：
+  - NavGrid2D 动态障碍与动态重规划
+  - 玩家自动导航绕移动 NPC
+  - NPC/NPC 局部避障、会车、路口礼让
+  - agent 半径/占位策略分型
+- 用户重新明确的 NPC 视觉需求：
+  - 尾巴必须是倒三角朝下指向 NPC
+  - 尾巴本身需要轻微上下跳动
+  - 气泡与字体都要适度放大到清晰可读
+- 当前恢复点：后续对外沟通时必须先分清“NPC代码问题”和“导航核心问题”，不能再把两个线程的职责混着汇报。
+
+## 2026-03-22 用户强纠正后的职责边界定稿
+
+- 当前主线目标：修正 NPC 线程的对外口径，确保 NPC 只认 NPC 自己的代码，导航缺口单独移交导航线程。
+- 本轮子任务：只读核查 `main @ c6af2657` 中 NPC / 导航相关脚本和样本 prefab，输出最终职责分离结论。
+- 本轮定稿结论：
+  - 上一轮边界混乱是 NPC 线程自己的问题，不能再把“NPC 表现返工”和“导航核心增强”打包成一锅。
+  - `NPCBubblePresenter.cs` 当前尾巴视觉仍不对，用户验收口径明确要求它改成“倒三角朝下 + 尾巴单独轻微跳动 + 气泡与字适度放大”。
+  - `NPCAutoRoamController.cs` 当前职责只应包括“NPC 如何使用现有导航结果去移动与恢复”，不能越界去定义导航系统的动态避让框架。
+  - `NavGrid2D.cs` / `PlayerAutoNavigator.cs` 以及动态障碍、礼让、让行、会车等能力缺口必须由导航线程认领。
+- 当前恢复点：后续如果继续推进，NPC 线程先做 NPC 自己的 UI / collider / movement-consumer 修正；导航线程单独接动态避让需求。
+
+## 2026-03-22 导航 / NPC 双Prompt定稿
+
+- 当前主线目标：把 NPC 与导航线程的后续推进方式产品化成两份标准 prompt。
+- 本轮子任务：输出一份给导航线程的专家级需求 prompt，以及一份给 NPC 线程自己的执行 prompt。
+- 本轮结论：
+  - 导航 prompt 负责把“动态障碍、玩家绕移动 NPC、NPC/NPC 互相规避、路口礼让、agent 分型”讲透并锁定验收。
+  - NPC prompt 负责把“倒三角尾巴、尾巴单独跳动、气泡/字体放大、下半身实体碰撞、后续接导航成果适配”讲透并锁定验收。
+- 当前恢复点：后续对外协作可以直接复用这两份 prompt，不再临时口述需求。

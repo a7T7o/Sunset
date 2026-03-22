@@ -37,6 +37,7 @@ public class NPCAutoRoamController : MonoBehaviour
     [Header("组件引用")]
     [SerializeField] private NPCMotionController motionController;
     [SerializeField] private NPCBubblePresenter bubblePresenter;
+    [SerializeField] private Rigidbody2D rb;
     [SerializeField] private NavGrid2D navGrid;
     [SerializeField] private Transform homeAnchor;
     [SerializeField] private NPCRoamProfile roamProfile;
@@ -168,12 +169,23 @@ public class NPCAutoRoamController : MonoBehaviour
                 break;
 
             case RoamState.Moving:
-                TickMoving();
+                if (rb == null)
+                {
+                    TickMoving(Time.deltaTime);
+                }
                 break;
 
             case RoamState.LongPause:
                 TickLongPause();
                 break;
+        }
+    }
+
+    private void FixedUpdate()
+    {
+        if (state == RoamState.Moving && rb != null)
+        {
+            TickMoving(Time.fixedDeltaTime);
         }
     }
 
@@ -348,6 +360,11 @@ public class NPCAutoRoamController : MonoBehaviour
             bubblePresenter = GetComponent<NPCBubblePresenter>();
         }
 
+        if (rb == null)
+        {
+            rb = GetComponent<Rigidbody2D>();
+        }
+
         if (navGrid == null)
         {
             navGrid = FindFirstObjectByType<NavGrid2D>();
@@ -374,7 +391,7 @@ public class NPCAutoRoamController : MonoBehaviour
         }
     }
 
-    private void TickMoving()
+    private void TickMoving(float deltaTime)
     {
         if (motionController == null)
         {
@@ -387,7 +404,7 @@ public class NPCAutoRoamController : MonoBehaviour
             return;
         }
 
-        Vector2 currentPosition = transform.position;
+        Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
 
         while (currentPathIndex < path.Count &&
                Vector2.Distance(currentPosition, path[currentPathIndex]) <= waypointTolerance)
@@ -411,7 +428,7 @@ public class NPCAutoRoamController : MonoBehaviour
         Vector2 toWaypoint = waypoint - currentPosition;
         float distance = toWaypoint.magnitude;
         float moveSpeed = Mathf.Max(0f, motionController.MoveSpeed);
-        float step = moveSpeed * Time.deltaTime;
+        float step = moveSpeed * Mathf.Max(deltaTime, 0.0001f);
 
         if (distance <= 0.0001f || step <= 0f)
         {
@@ -423,11 +440,18 @@ public class NPCAutoRoamController : MonoBehaviour
             ? waypoint
             : currentPosition + (toWaypoint / distance) * step;
 
-        float deltaTime = Mathf.Max(Time.deltaTime, 0.0001f);
-        Vector2 velocity = (nextPosition - currentPosition) / deltaTime;
+        float safeDeltaTime = Mathf.Max(deltaTime, 0.0001f);
+        Vector2 velocity = (nextPosition - currentPosition) / safeDeltaTime;
 
         motionController.SetExternalVelocity(velocity);
-        transform.position = new Vector3(nextPosition.x, nextPosition.y, transform.position.z);
+        if (rb != null)
+        {
+            rb.MovePosition(nextPosition);
+        }
+        else
+        {
+            transform.position = new Vector3(nextPosition.x, nextPosition.y, transform.position.z);
+        }
     }
 
     private void TickLongPause()

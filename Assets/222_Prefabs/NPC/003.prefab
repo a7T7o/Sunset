@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 6493957216589283537}
   - component: {fileID: 4911342435590730407}
   - component: {fileID: 6363274181247668983}
+  - component: {fileID: 2300030030030030030}
   - component: {fileID: 6753703280515682947}
   - component: {fileID: 8522985639821944669}
   - component: {fileID: 1143789803073532438}
@@ -135,8 +136,8 @@ MonoBehaviour:
   autoHandleShadow: 1
   shadowOrderOffset: -1
   showDebugInfo: 0
---- !u!58 &6363274181247668983
-CircleCollider2D:
+--- !u!61 &6363274181247668983
+BoxCollider2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -165,12 +166,49 @@ CircleCollider2D:
   m_CallbackLayers:
     serializedVersion: 2
     m_Bits: 4294967295
-  m_IsTrigger: 1
+  m_IsTrigger: 0
   m_UsedByEffector: 0
   m_CompositeOperation: 0
   m_CompositeOrder: 0
-  m_Offset: {x: 0, y: 0.7}
-  m_Radius: 0.7
+  m_Offset: {x: 0, y: 0.46}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0.5, y: 0}
+    oldSize: {x: 1, y: 1}
+    newSize: {x: 1, y: 1}
+    adaptiveTilingThreshold: 0.5
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 0.88, y: 0.68}
+  m_EdgeRadius: 0
+--- !u!50 &2300030030030030030
+Rigidbody2D:
+  serializedVersion: 5
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3131872138138888922}
+  m_BodyType: 0
+  m_Simulated: 1
+  m_UseFullKinematicContacts: 0
+  m_UseAutoMass: 0
+  m_Mass: 1
+  m_LinearDamping: 0
+  m_AngularDamping: 0.05
+  m_GravityScale: 0
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_Interpolate: 0
+  m_SleepingMode: 1
+  m_CollisionDetection: 1
+  m_Constraints: 4
 --- !u!114 &6753703280515682947
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -201,7 +239,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   animController: {fileID: 6753703280515682947}
-  rb: {fileID: 0}
+  rb: {fileID: 2300030030030030030}
   moveSpeed: 2.5
   moveThreshold: 0.05
   useRigidbodyVelocity: 1
@@ -224,14 +262,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetRenderer: {fileID: 7873992007039065483}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0, y: 1.1, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.68, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
-  bubblePadding: {x: 24, y: 16}
+  bubblePadding: {x: 30, y: 18}
   maxTextWidth: 220
+  borderThickness: 6
+  tailSize: {x: 20, y: 12}
+  tailYOffset: -4
+  shadowOffset: {x: 3, y: -5}
   sortingOrderOffset: 20
-  bubbleColor: {r: 0.13, g: 0.13, b: 0.13, a: 0.92}
-  textColor: {r: 0.97, g: 0.97, b: 0.97, a: 1}
-  fontSize: 24
+  minBubbleHeight: 1.46
+  bubbleGapAboveRenderer: 0.32
+  visibleFloatAmplitude: 0.024
+  visibleFloatFrequency: 1.6
+  bubbleBorderColor: {r: 0.92, g: 0.79, b: 0.56, a: 1}
+  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 0.96}
+  bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
+  textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
+  textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
+  fontSize: 20
+  textOutlineWidth: 0.18
+  showDuration: 0.14
+  hideDuration: 0.1
+  showScaleOvershoot: 0.05
   selfTalkLines:
   - "\u5148\u5728\u8FD9\u8FB9\u770B\u770B\u3002"
   - "\u4ECA\u5929\u8FD8\u633A\u5B89\u9759\u3002"
@@ -239,6 +292,7 @@ MonoBehaviour:
   - "\u55EF \u8FD9\u8FB9\u98CE\u6709\u70B9\u8212\u670D\u3002"
   - "\u4E0D\u77E5\u9053\u5927\u5BB6\u5728\u5FD9\u4EC0\u4E48\u3002"
   showDebugLog: 0
+  styleVersion: 5
 --- !u!114 &3567178868468748681
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -253,6 +307,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   motionController: {fileID: 8522985639821944669}
   bubblePresenter: {fileID: 1143789803073532438}
+  rb: {fileID: 2300030030030030030}
   navGrid: {fileID: 0}
   homeAnchor: {fileID: 0}
   roamProfile: {fileID: 11400000, guid: 43840fe5def0543459c896e1fd11f676, type: 2}
