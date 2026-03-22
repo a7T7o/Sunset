@@ -81,3 +81,166 @@
 
 **恢复点 / 下一步**:
 - 当前已经回到主线的“做本线白名单 Git 收口，然后交给用户在 `main` 做真实场景验收”这一步。
+
+## 2026-03-22：1.0.2 收尾抖动修复 + 下一阶段 UI / 交互盘点
+
+**用户目标**:
+- 先修复背包槽位拒绝抖动“发黏、卡顿、不如 Toolbar 灵动”的收尾问题。
+- 然后纯只读盘点三类历史内容：种子保质期 UI、耐久度显示、精力/体力扣减与 UI 代办，为下一阶段“全面交互改进”做准备。
+
+**当前主线目标**:
+- 继续服务农田交互主线的收尾与下一阶段衔接，不新建工作区；先把现存交互细节修顺，再把后续 UI / 交互改造入口说清楚。
+
+**本轮子任务 / 阻塞**:
+- 子任务 1：定位背包 reject shake 与 Toolbar 观感不一致的真实原因并做最小修复。
+- 子任务 2：只读核对保质期 / 耐久度 / 精力的代码现状与历史代办，区分“已经落地”“历史口径已过时”“下一阶段真实缺口”。
+- 阻塞不在 farm 代码本身，而在于当前项目存在大量 unrelated dirty，所以这轮 Git 收尾必须严格白名单。
+
+**已完成事项**:
+1. 回读 `InventorySlotUI.cs`、`ToolbarSlotUI.cs`、`InventorySlotInteraction.cs`、`InventoryInteractionManager.cs` 与背包槽位 prefab，确认 reject shake 协程本身并无差异。
+2. 锁定根因：背包槽位 `Toggle` 仍保留默认视觉过渡，而 Toolbar 在 `Awake()` 中已关闭 `targetGraphic/transition`；两者叠加后，背包 shake 会被 Toggle 过渡拖慢。
+3. 在 `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs` 的 `Awake()` 中补齐：
+   - `toggle.targetGraphic = null;`
+   - `toggle.transition = Selectable.Transition.None;`
+4. 同文件顺手把一条过期注释改成写实口径，明确这里只关闭 Toggle 自带视觉过渡，避免后续误读。
+5. 使用项目现成 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，配合 `C:\Program Files\dotnet\sdk\9.0.301\Roslyn\bincore\csc.dll` 做两次最小编译验证；修改前后结果均为 `0 error / 0 warning`。
+6. 完成第二段只读核查，确认：
+   - 种子袋保质期运行时逻辑已存在：`SeedData` + `SeedBagHelper` + `InventoryService.OnDayChanged` + `PlacementManager` 的种植消耗链路。
+   - 当前缺的不是保质期底层逻辑，而是 UI 出口。
+   - `ItemTooltip` 目前只显示 `itemData.description`，根本没有消费 `ItemData.GetTooltipText()`，导致很多已经写好的保质期 / 耐久度 / 精力文案实际上没有统一展示入口。
+   - 耐久度条本身已在 `InventorySlotUI` / `ToolbarSlotUI` 落地，但掉落链 `ItemDropHelper` 仍有明确 TODO：不支持 `InventoryItem` 实例数据，掉落后不保留耐久度。
+   - 精力系统当前已真实存在于 runtime：`EnergySystem`、`PlayerInteraction`、`TreeController`、`StoneController`、`ToolData.energyCost`、`FoodData.energyRestore`、`PotionData.energyRestore` 都在工作；旧文档里“精力系统不存在/待确认实现”的口径已经过时。
+
+**关键决策**:
+- 这轮不新建新工作区，仍按现有农田系统主线推进；当前只把背包 shake 作为 `1.0.2` 收尾修复处理。
+- 下一阶段“全面交互改进”的重点不该再写成“从零做保质期 / 精力 / 耐久”，而应该写成“把已有底层能力统一接到可见 UI 与真实交互出口上”。
+- `GetTooltipText()` 现成能力没有被 `ItemTooltip` 使用，是后续 UI 整合的关键断点；保质期、工具精力/耐久、食物精力恢复说明都应围绕这个出口整口径。
+
+**涉及文件 / 路径**:
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\SeedData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\SeedBagHelper.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\InventoryService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\InventoryItem.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Utility\ItemDropHelper.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergySystem.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\SprintStateManager.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.02.28\10.0.1农作物设计与完善\requirements.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.02.28\10.0.1农作物设计与完善\design.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.02.28\10.0.1农作物设计与完善\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办\kiro\精力系统\TD_000_精力系统.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.01.27\2_完善工作\memory.md`
+
+**验证结果**:
+- 代码级根因验证：通过。
+- 最小编译验证：通过，`Assembly-CSharp.rsp` 两次编译均为 `0 error / 0 warning`。
+- Unity live 手感验收：尚未做，待用户在 `main` 现场确认背包 shake 已与 Toolbar 观感对齐。
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“让用户先验收这次背包 shake 收尾修复；若通过，再进入下一阶段 UI / 交互统一改造设计与实现”这一步。
+
+## 2026-03-22：1.0.2 收尾 Git 预检与 main-only 白名单收口口径确认
+
+**用户目标**:
+- 在不新建工作区的前提下，先把这轮背包 reject shake 收尾修复真正做到可收口，再把下一阶段 UI / 交互升级的入口、文件范围和真实缺口彻底讲清楚。
+
+**当前主线目标**:
+- 继续服务农田交互主线的收尾与下一阶段衔接；当前阶段仍是 `1.0.2` 收尾修复 + 只读盘点，不切换到新工作区。
+
+**本轮子任务 / 阻塞**:
+- 子任务 1：确认这轮 main-only 现场能否用显式白名单安全收口，不把 NPC / spring-day1 / 治理线 dirty 混进来。
+- 子任务 2：把“已修完的背包 shake”和“下一阶段 UI / 交互升级真实入口”沉淀为可继续执行的稳定结论。
+- 共享阻塞不在 farm 代码本身，而在当前仓库存在大量 unrelated dirty，所以本轮 Git 只能走严格白名单。
+
+**已完成事项**:
+1. 回读 `scripts/git-safe-sync.ps1`，确认当前 shared root 的旧 task 分支闸门仍存在，但 `-Mode governance + -IncludePaths` 可以在 `main` 上做显式白名单 preflight / sync。
+2. 运行只读 preflight，确认当前这轮允许纳入同步的 farm 文件只有两个：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\memory.md`
+3. 复核第二阶段分析涉及的真实断点，补强结论：
+   - `ItemTooltip` 仍只显示 `itemData.description`，没有消费 `ItemData.GetTooltipText()`。
+   - 种子袋保质期、耐久度、精力恢复与工具精力消耗都已有底层实现，不是从零开发。
+   - 下一阶段真正缺的是统一 UI 出口、实例数据链路和术语口径，而不是底层 runtime 能力。
+
+**关键决策**:
+- 本轮 Git 收尾按 `main-only + governance 白名单 sync` 处理，不再回退到旧的 `codex/*` 分支口径。
+- `ItemTooltip` 不走 `GetTooltipText()` 被正式确认为下一阶段 UI 升级的第一关键断点。
+- `ItemDropHelper` 的实例数据 TODO 被正式确认为耐久度链路的关键技术债，后续不能再只看 UI 条有没有显示。
+
+**涉及文件 / 路径**:
+- `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\ItemData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\SeedData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\SeedBagHelper.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\InventoryService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\InventoryItem.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Utility\ItemDropHelper.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergySystem.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\StoneController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\SprintStateManager.cs`
+
+**验证结果**:
+- `git-safe-sync.ps1 -Action preflight -Mode governance`：通过，且未误吃 unrelated dirty。
+- 本轮未新增 Unity / MCP live 写入。
+- 代码侧最小编译闭环仍以 `Assembly-CSharp.rsp = 0 error / 0 warning` 为准。
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“执行白名单 sync 收掉本轮背包 shake 修复，并把下一阶段 UI / 交互改造计划交给用户审阅”这一步。
+## 2026-03-22：背包 reject shake 手感收尾完成，实例态 Tooltip 缺口被正式坐实
+**用户目标**：
+- 先修复背包槽位 reject shake 相比 Toolbar 更“发黏、卡顿、不灵动”的收尾问题。
+- 再把种子保质期 UI、工具耐久、精力/体力显示的真实现状和下一阶段改造入口彻底讲清楚，但这一段只做只读分析。
+
+**当前主线目标**：
+- 继续服务农田交互主线的收尾与下一阶段衔接；本轮不是新开子工作区，而是在现有 `1.0.2纠正001` 语义下完成一个小修复，并把下一阶段 UI/交互统一改造的真实断点讲透。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：确认背包 shake 不如 Toolbar 的根因并做最小代码修复。
+- 子任务 2：确认“保质期 / 耐久 / 精力”到底缺的是底层逻辑、静态 tooltip 出口，还是运行时实例数据出口。
+- 当前阻塞不在 farm 业务逻辑，而在于项目里存在大量 unrelated dirty，因此 Git 收尾必须坚持显式白名单。
+
+**已完成事项**：
+1. 回读 `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs` 与 `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`，确认两边 `RejectShakeCoroutine()` 基本一致，差异不在 shake 算法本身。
+2. 在 `InventorySlotUI.Awake()` 中补齐：
+   - `toggle.targetGraphic = null;`
+   - `toggle.transition = Selectable.Transition.None;`
+   让背包槽位和 Toolbar 一样关闭 Toggle 自带视觉过渡，避免它与自定义 reject shake 叠加打架。
+3. 用 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp` 配合 Roslyn `csc.dll` 做最小编译验证，结果为 `0 error / 0 warning`。
+4. 只读核对 `ItemTooltip.cs`、`ItemData.cs`、`SeedData.cs`、`SeedBagHelper.cs`、`InventoryService.cs`、`InventoryItem.cs`、`ItemDropHelper.cs`、`EnergySystem.cs`、`PlayerInteraction.cs`、`SprintStateManager.cs`，确认下一阶段缺口分成两层：
+   - 静态说明出口缺口：`ItemTooltip` 现在只写 `itemData.description`，没有消费 `ItemData.GetTooltipText()`。
+   - 实例态数据出口缺口：即便改成 `GetTooltipText()`，`ItemTooltip.Show()` 目前仍只拿到 `ItemStack` 和 `ItemData`，吃不到 `InventoryItem` 的动态属性，因此种子袋开袋状态、剩余种子、保质期剩余天数这类运行时信息仍然无处展示。
+5. 只读确认旧口径里“精力系统不存在/待实现”的说法已经过时；当前 runtime 里真实存在 `EnergySystem`，工具消耗与食物/药水恢复也都已经接上。
+
+**关键决策**：
+- 这轮背包 shake 不重写协程，只做 Toggle 过渡对齐，因为真正的问题是 UI 组件默认视觉反馈干扰了自定义 shake。
+- 下一阶段不能再把“保质期 UI”理解成简单补几行文案；它至少是“统一 Tooltip 静态出口”与“给 Tooltip 打开实例态入口”两步。
+- 工具耐久条已经在背包/Toolbar UI 中存在，但掉落链 `ItemDropHelper` 仍会丢 `InventoryItem` 实例数据，这一条必须算进下一阶段的真实改造范围。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\ItemData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\SeedData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\SeedBagHelper.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\InventoryService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\InventoryItem.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Utility\ItemDropHelper.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergySystem.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\SprintStateManager.cs`
+
+**验证结果**：
+- 已验证：背包 shake 与 Toolbar 的真实差异点、最小代码修复、Roslyn 编译通过。
+- 已验证：种子保质期逻辑、工具耐久逻辑、精力消耗/恢复逻辑在 runtime 侧都已存在。
+- 已验证：`ItemTooltip` 当前没有消费 `GetTooltipText()`，也没有实例态入口。
+- 未验证：Unity live 手感是否已与 Toolbar 完全一致，仍待用户在 `main` 场景内实手验收。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“用白名单提交收掉这次 shake 收尾修复，然后把下一阶段 UI/交互统一改造方案交给用户确认”这一步。

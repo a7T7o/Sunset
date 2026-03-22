@@ -56,6 +56,11 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         CaptureRestAnchoredPosition();
 
         if (toggle == null) toggle = GetComponent<Toggle>();
+        if (toggle != null)
+        {
+            toggle.targetGraphic = null;
+            toggle.transition = Selectable.Transition.None;
+        }
 
         // ★ 与 ToolbarSlotUI 保持一致：查找或创建 Icon
         if (iconImage == null)
@@ -119,7 +124,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         CreateDurabilityBar();
         
         // ★ 方案 D：自动添加 Interaction 组件
-        // 注意：完全不修改 Toggle 的任何配置，保留用户原有设计
+        // 注意：仅关闭 Toggle 自带视觉过渡，避免它和自定义 reject shake 互相打架
         var interaction = gameObject.GetComponent<InventorySlotInteraction>();
         if (interaction == null)
         {
