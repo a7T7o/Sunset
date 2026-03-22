@@ -215,3 +215,24 @@
 - `SpringDay1_FirstDialogue.asset` 已配置为“完成后解码 + 指向 `SpringDay1_FirstDialogue_Followup.asset`”；因此 Day1 当前已经从“只会播放首段测试对话”升级为“首段完成后，后续再次交互会自动进入正常可读的新对话”。
 - 本轮明确未触碰 `Primary.unity`、`GameInputManager.cs` 或其他 A 类共享热文件，新增需求被限制在 `Story` 脚本与对话资产层。
 - Git 收尾已完成：提交 `a9c952b717395c561c0f50a55bf3382dd7c4c925` 已推送到 `origin/codex/spring-day1-story-progression-001`。
+
+## 2026-03-22 补记：0.0.2 基础脊柱已在隔离任务现场再次落地
+- 当前父工作区主线已从“文档化 0.0.2 checkpoint”进入“直接开工基础层实现”；但 shared root live preflight 被大量 unrelated dirty 阻断，无法按 branch-only 从 `main` 直接切入。
+- 本轮按 exception-only 原则改在隔离现场 `D:\Unity\Unity_learning\Sunset_worktrees\spring-day1-0.0.2-foundation-001` 的 `codex/spring-day1-0.0.2-foundation-001` 分支推进代码，不触碰 shared root。
+- 已新增 `StoryPhase.cs` 与 `StoryManager.cs`，并扩展：
+  - `DialogueSequenceSO.cs`
+  - `StoryEvents.cs`
+  - `DialogueManager.cs`
+  - `NPCDialogueInteractable.cs`
+- 本轮完成的能力包括：
+  - Day1 正式阶段枚举
+  - 运行时 `StoryManager` 状态入口
+  - `DialogueSequenceCompletedEvent`
+  - 对话完成后语言解码 / 阶段推进
+  - NPC 首段 / follow-up 分流
+- 本轮明确未碰：
+  - `Primary.unity`
+  - `DialogueUI.cs`
+  - `GameInputManager.cs`
+  - 任何 UI 热区或共享场景资源
+- 当前恢复点：基础脊柱代码已完成，等待 branch 内白名单提交；后续再决定何时把它安全回收到 shared root 常态。

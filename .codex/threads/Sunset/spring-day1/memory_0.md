@@ -309,3 +309,22 @@
 - 本轮新增了 `DialogueSequenceCompletedEvent`、`DialogueManager.HasCompletedSequence(...)`、序列完成后 `IsLanguageDecoded` 切换，以及 `NPCDialogueInteractable` 的首段/后续分流逻辑。
 - `SpringDay1_FirstDialogue.asset` 现在会在完成后解码语言，并指向新的 `SpringDay1_FirstDialogue_Followup.asset`；下一次与同一 NPC 交互时会自动改播 follow-up。
 - 本轮未碰 `Primary.unity`、`GameInputManager.cs` 或其他 A 类共享热文件；下一轮优先做可见工程中的手工验收，再决定是否把完成事件继续接到 Day1 更大的阶段管理。
+
+## 2026-03-22 补记：0.0.2 基础层代码已在隔离 worktree 开工并落地
+- 用户已明确批准“不等文档审核，直接先做不管怎么改都迟早要落实的基础层”，因此本线程已从文档阶段进入真实实现。
+- 但 shared root `D:\Unity\Unity_learning\Sunset @ main` 的 live preflight 显示存在大量 unrelated dirty，既无法发 grant，也无法 ensure-branch；因此本轮没有违规在 shared root 上继续写。
+- 本轮改走 exception-only 隔离现场：
+  - 工作目录：`D:\Unity\Unity_learning\Sunset_worktrees\spring-day1-0.0.2-foundation-001`
+  - 分支：`codex/spring-day1-0.0.2-foundation-001`
+  - 基线：`c6af26574234329e3525acbdfd5b645a3f5b278a`
+- 已在该隔离分支完成基础脊柱代码：
+  - 新建 `Assets/YYY_Scripts/Story/Data/StoryPhase.cs`
+  - 新建 `Assets/YYY_Scripts/Story/Managers/StoryManager.cs`
+  - 扩展 `Assets/YYY_Scripts/Story/Data/DialogueSequenceSO.cs`
+  - 扩展 `Assets/YYY_Scripts/Story/Events/StoryEvents.cs`
+  - 扩展 `Assets/YYY_Scripts/Story/Managers/DialogueManager.cs`
+  - 扩展 `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+- 本轮静态自检已通过：
+  - `git diff --check` 无报错
+  - 改动范围仍限定在 Story 脚本白名单
+- 当前恢复点：本轮代码已具备最小提交条件；下一步做 branch 内白名单提交并向用户汇报结果。

@@ -17,5 +17,18 @@ namespace Sunset.Story
 
         [Tooltip("字/秒")]
         public float defaultTypingSpeed = 30f;
+
+        [Header("剧情推进")]
+        [Tooltip("该序列完成后是否解码语言。")]
+        public bool markLanguageDecodedOnComplete = false;
+
+        [Tooltip("该序列完成后是否推进剧情阶段。")]
+        public bool advanceStoryPhaseOnComplete = false;
+
+        [Tooltip("完成后切换到的剧情阶段。")]
+        public StoryPhase nextStoryPhase = StoryPhase.None;
+
+        [Tooltip("该序列完成后默认切换到的后续对话。")]
+        public DialogueSequenceSO followupSequence;
     }
 }
