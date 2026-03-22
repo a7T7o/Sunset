@@ -283,3 +283,17 @@
 - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\StoryManager.cs` 中的 `FindObjectOfType<StoryManager>()` 已改为 `FindFirstObjectByType<StoryManager>()`，不再留下 Unity 6 的过时 API warning。
 - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\WorldItemDropSystemTests.cs` 中未使用的 `groundY` 局部变量已删除。
 - 这两处都属于“应该由我先扫掉”的编译层噪音，不应等用户在 Unity 里替我发现。
+
+## 2026-03-22 补记：spring-day1 与 NPC 的当前接轨边界已收敛
+- 只读核对 `NPC001` prefab 与 `NPCAutoRoamController` 后确认：当前 spring-day1 与 NPC 的关系不是“还没接上”，而是“已经接上对话入口，但缺剧情态下的 NPC 行为控制协议”。
+- `NPC001` 当前真实同时挂有 `NPCDialogueInteractable + NPCAutoRoamController + NPCMotionController + NPCBubblePresenter`，因此对话触发和 NPC 漫游目前是并存状态。
+- 对当前 `0.0.2` 的结论是：
+  - 可以先由 spring-day1 独立完成当前 checkpoint，不必先等 NPC 线程继续扩写；
+  - 但要做 live 对话验收时，对话期间当前交互 NPC 应静止，这属于当前对话线自己的最小验收前提；
+  - 更重的接轨项（朝向、站位、剧情演出位、群体事件广播给所有 NPC）可留到下一轮与 NPC 线程正式协作。
+- 当前恢复点：spring-day1 下一步若继续开工，应优先补“对话期间冻结当前交互 NPC / 结束恢复”这一最小协议，然后再做 `NPC001` live 验收。
+
+## 2026-03-22 补记：NPC 接轨已并入当前主线任务表
+- 本轮已明确：NPC 相关内容不是切换主线，而是作为 `spring-day1` 当前 checkpoint 的新增子任务并入开发。
+- 当前优先级已收敛为：先补单个交互 NPC 的对话占用（冻结 / 恢复 / 必要时面向玩家），再做 live 验收。
+- 更大的 NPC 接轨项（剧情站位、群体广播、导航增强）保留为后续协作项，不抢占当前主线。

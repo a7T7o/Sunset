@@ -9,6 +9,7 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string FollowupDialoguePath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset");
     private static readonly string FollowupMetaPath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset.meta");
     private static readonly string DebugMenuPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/DialogueDebugMenu.cs");
+    private static readonly string InteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs");
 
     [Test]
     public void FirstDialogueAsset_ContainsDecodeAndPhaseAdvanceConfig()
@@ -43,5 +44,17 @@ public class SpringDay1DialogueProgressionTests
 
         StringAssert.Contains("StoryPhase", scriptText, "调试日志应输出剧情阶段");
         StringAssert.Contains("LanguageDecoded", scriptText, "调试日志应输出语言解码状态");
+    }
+
+    [Test]
+    public void NpcDialogueInteractable_ContainsMinimalNpcDialogueOccupation()
+    {
+        string scriptText = File.ReadAllText(InteractablePath);
+
+        StringAssert.Contains("freezeRoamDuringDialogue", scriptText, "当前交互 NPC 的对话冻结开关应存在");
+        StringAssert.Contains("facePlayerOnInteract", scriptText, "对话开始时面向玩家的开关应存在");
+        StringAssert.Contains("EventBus.Subscribe<DialogueEndEvent>", scriptText, "应监听对话结束事件以恢复 NPC");
+        StringAssert.Contains("autoRoamController.StopRoam()", scriptText, "对话开始时应冻结 NPC 漫游");
+        StringAssert.Contains("autoRoamController.StartRoam()", scriptText, "对话结束后应恢复 NPC 漫游");
     }
 }

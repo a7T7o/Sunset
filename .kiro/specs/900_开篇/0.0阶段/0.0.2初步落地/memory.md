@@ -121,3 +121,38 @@
 - `WorldItemDropSystemTests.cs` 的目标方法中未再保留 `groundY`。
 **恢复点 / 下一步**：
 - 这轮 warning 清理已完成；后续继续回到 Day1 首段推进链的 live Play 验收。
+
+### 会话 8 - 2026-03-22（与 NPC 线程接轨边界判断）
+**用户需求**：
+> 分析 spring-day1 当前剩余代办是否可以先独立落地，还是现在就必须和 NPC 线程深度接轨；重点判断对话时 NPC 是否应停下、是否需要事件通知、朝向/站位是否应纳入当前 checkpoint。
+**已核对事实**：
+1. `Assets/222_Prefabs/NPC/001.prefab` 当前真实同时挂有：
+   - `NPCDialogueInteractable`
+   - `NPCAutoRoamController`
+   - `NPCMotionController`
+   - `NPCBubblePresenter`
+2. `NPCAutoRoamController` 当前是持续漫游状态机，没有内建“进入剧情后自动冻结/恢复”的正式接口。
+3. `spring-day1` 这边当前已经具备：
+   - `DialogueStartEvent / DialogueEndEvent / DialogueSequenceCompletedEvent`
+   - `StoryManager / StoryPhase / LanguageDecoded`
+   - 首段与 follow-up 对话资产
+4. 这说明 spring-day1 与 NPC 的当前耦合并不是“还没接入口”，而是“已经能对话，但缺剧情态下的 NPC 行为控制协议”。
+**结论**：
+- `0.0.2` 当前可以先独立落地到“首段推进链闭环 + live 验收”这一层，不必等 NPC 线程先完成新一轮开发。
+- 但只要进入真实对话验收，NPC 在对话期间应当静止，这已经是当前对话线自己的验收前提，不该无限后拖。
+- 更重的内容（例如 NPC 朝向精修、站位重摆、剧情演出位、群体事件广播给所有 NPC）不属于当前 `0.0.2` 必做项，可以作为下一层 NPC 接轨任务。
+**推荐拆分**：
+1. spring-day1 当前先补“对话期间冻结当前交互 NPC 漫游 / 结束后恢复”这一最小协议；
+2. 验收通过后，再给 NPC 线程正式移交“朝向、站位、剧情演出位、群体暂停规则”等更完整接轨需求。
+**恢复点 / 下一步**：
+- 当前最优先不是立刻和 NPC 线程并行改一大套，而是先由 spring-day1 自己把 `0.0.2` 验收前提补齐到可验收。
+
+### 会话 9 - 2026-03-22（NPC 最小接轨并入主线）
+**用户需求**：
+> 不要把主线切成 NPC 接轨方向，而是把 NPC 相关内容作为新增代办并入当前主线，自行安排优先级后继续开发。
+**完成任务**：
+1. 只读核对当前 `NPC001` prefab 与 `NPCAutoRoamController`，确认当前对话入口已经和 NPC 并存，只缺“对话期间 NPC 行为控制协议”。
+2. 将“当前交互 NPC 的最小对话占用”正式并入 `0.0.2` 的任务面与实现口径。
+3. 同步收敛优先级：先做单个 NPC 的冻结 / 恢复，再把更大的剧情演出位、群体广播、导航增强留到后续协作。
+**恢复点 / 下一步**：
+- 当前主线不变，下一步直接实现 `NPCDialogueInteractable` 的最小对话接轨。

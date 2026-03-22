@@ -1,3 +1,4 @@
+using Sunset.Events;
 using UnityEngine;
 using UnityEngine.Serialization;
 
@@ -7,7 +8,7 @@ namespace Sunset.Story
     public class NPCDialogueInteractable : MonoBehaviour, IInteractable
     {
         #region Serialized Fields
-        [Header("对话配置")]
+        [Header("Dialogue")]
         [FormerlySerializedAs("dialogueSequence")]
         [SerializeField] private DialogueSequenceSO initialSequence;
         [SerializeField] private DialogueSequenceSO followupSequence;
@@ -15,15 +16,47 @@ namespace Sunset.Story
         [SerializeField] private float interactionDistance = 1.5f;
         [SerializeField] private int interactionPriority = 30;
         [SerializeField] private bool playOnlyOnce = false;
+
+        [Header("NPC 对话接轨")]
+        [SerializeField] private bool freezeRoamDuringDialogue = true;
+        [SerializeField] private bool facePlayerOnInteract = true;
+        [SerializeField] private NPCAutoRoamController autoRoamController;
+        [SerializeField] private NPCMotionController motionController;
         #endregion
 
         #region Private Fields
         private bool _hasPlayed;
+        private bool _ownsActiveDialogue;
+        private bool _resumeRoamAfterDialogue;
         #endregion
 
         #region Public Properties
         public int InteractionPriority => interactionPriority;
         public float InteractionDistance => interactionDistance;
+        #endregion
+
+        #region Unity Lifecycle
+        private void Awake()
+        {
+            CacheComponents();
+        }
+
+        private void OnEnable()
+        {
+            EventBus.Subscribe<DialogueEndEvent>(HandleDialogueEnded, owner: this);
+        }
+
+        private void OnDisable()
+        {
+            EventBus.UnsubscribeAll(this);
+            _ownsActiveDialogue = false;
+            _resumeRoamAfterDialogue = false;
+        }
+
+        private void OnValidate()
+        {
+            CacheComponents();
+        }
         #endregion
 
         #region Public Methods
@@ -67,6 +100,8 @@ namespace Sunset.Story
                 return;
             }
 
+            EnterDialogueOccupation(context);
+
             _hasPlayed = true;
             manager.PlayDialogue(sequenceToPlay);
         }
@@ -78,6 +113,62 @@ namespace Sunset.Story
         #endregion
 
         #region Private Methods
+        private void CacheComponents()
+        {
+            if (autoRoamController == null)
+            {
+                autoRoamController = GetComponent<NPCAutoRoamController>();
+            }
+
+            if (motionController == null)
+            {
+                motionController = GetComponent<NPCMotionController>();
+            }
+        }
+
+        private void EnterDialogueOccupation(InteractionContext context)
+        {
+            CacheComponents();
+
+            _ownsActiveDialogue = true;
+            _resumeRoamAfterDialogue = false;
+
+            if (freezeRoamDuringDialogue)
+            {
+                if (autoRoamController != null && autoRoamController.IsRoaming)
+                {
+                    _resumeRoamAfterDialogue = true;
+                    autoRoamController.StopRoam();
+                }
+                else if (motionController != null)
+                {
+                    motionController.StopMotion();
+                }
+            }
+
+            if (facePlayerOnInteract && motionController != null && context?.PlayerTransform != null)
+            {
+                Vector2 facingDirection = context.PlayerTransform.position - transform.position;
+                motionController.SetFacingDirection(facingDirection);
+            }
+        }
+
+        private void HandleDialogueEnded(DialogueEndEvent _)
+        {
+            if (!_ownsActiveDialogue)
+            {
+                return;
+            }
+
+            if (_resumeRoamAfterDialogue && autoRoamController != null && autoRoamController.isActiveAndEnabled)
+            {
+                autoRoamController.StartRoam();
+            }
+
+            _ownsActiveDialogue = false;
+            _resumeRoamAfterDialogue = false;
+        }
+
         private DialogueSequenceSO ResolveDialogueSequence(DialogueManager manager)
         {
             if (!HasPlayableNodes(initialSequence))
