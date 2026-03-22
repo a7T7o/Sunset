@@ -209,3 +209,17 @@
   - 同一轮 live 读回 `NPCBubblePresenter`，确认 `IsBubbleVisible = true` 且 `CurrentBubbleText` 为长句，说明持续说话压测已真正跑起来。
   - `git diff --check` 对本轮 NPC 相关脚本和 prefab 通过。
 - 当前恢复点：现在你可以直接进 `Primary` 看 `003` 头顶的持续说话效果，重点验三件事：尾巴是否够低、长句是否被气泡完整包住、整体高度是否比上一版更自然。
+
+## 2026-03-23 NPC第四刀：内边距收口与场景化入口
+
+- 当前主线目标：把 NPC 气泡收口到更适合正式验收的观感，并把后续场景化配置入口搭顺。
+- 本轮子任务：修正气泡内边距，正规化 `003` 测试模式，并增强 `NPCAutoRoamController` 的配置入口。
+- 本轮完成：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`：将 `textSafePadding` 从 `{12,10}` 提升到 `{18,16}`，并进一步缩小文字实际占用区域，确保文字四周离边框更远。
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs`：补齐正式测试入口能力，新增公开状态、一次性发话接口、显式测试模式开关与组件菜单；`003.prefab` 不再靠运行时猜引用，而是显式绑定 `bubblePresenter` 与 `roamController`。
+  - `Assets/Editor/NPCBubbleStressTalkerEditor.cs`：新增测试组件专用编辑器，让 `003` 的持续说话测试模式成为明确的编辑器入口，而不是临时脚本状态。
+  - `Assets/Editor/NPCAutoRoamControllerEditor.cs` 与 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`：新增 Home Anchor 创建/吸附/清空、Profile 复制/选中/应用、测试组件提示与运行时状态读取，正式进入 NPC 场景化与集成阶段的配置入口建设。
+- 本轮验证：
+  - 本轮 NPC 相关脚本与 prefab 的 `git diff --check` 通过。
+  - 本轮早些时候 `unityMCP` 曾成功读回 `Primary` 与 `003` 的 stress talker live 状态；但后续 RMCP 资源层开始对 `127.0.0.1:8080/mcp` 握手失败，因此当前收尾口径应写实为：代码与 prefab 静态检查通过，Unity live 需在下一次稳定连接下补终验。
+- 当前恢复点：如果用户认可这轮收口，下一步就不是继续救火，而是直接进入 NPC 场景化配置与导航交付后的接入准备。

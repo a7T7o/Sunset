@@ -268,7 +268,7 @@ MonoBehaviour:
   bubblePadding: {x: 44, y: 30}
   maxTextWidth: 236
   minAdaptiveTextWidth: 152
-  textSafePadding: {x: 12, y: 10}
+  textSafePadding: {x: 18, y: 16}
   borderThickness: 6
   tailSize: {x: 28, y: 18}
   tailYOffset: -11
@@ -360,7 +360,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2a83cf9837b058742b73c9ff3ad3796a, type: 3}
   m_Name: ""
   m_EditorClassIdentifier: ""
-  bubblePresenter: {fileID: 0}
+  bubblePresenter: {fileID: 1143789803073532438}
+  roamController: {fileID: 3567178868468748681}
   startOnEnable: 1
   disableRoamWhileTesting: 1
   minGapSeconds: 0.2

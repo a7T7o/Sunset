@@ -264,8 +264,10 @@ MonoBehaviour:
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
   bubbleLocalOffset: {x: 0, y: 1.72, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
-  bubblePadding: {x: 38, y: 24}
-  maxTextWidth: 248
+  bubblePadding: {x: 44, y: 30}
+  maxTextWidth: 236
+  minAdaptiveTextWidth: 152
+  textSafePadding: {x: 18, y: 16}
   borderThickness: 6
   tailSize: {x: 26, y: 16}
   tailYOffset: -7
@@ -282,7 +284,7 @@ MonoBehaviour:
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
   textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
   textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
-  fontSize: 23
+  fontSize: 24
   textOutlineWidth: 0.18
   showDuration: 0.14
   hideDuration: 0.1

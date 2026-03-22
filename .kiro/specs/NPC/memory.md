@@ -174,3 +174,16 @@
   - `unityMCP` 已正常工作。
   - `003` 在 `Primary` 里 live 读回为：`NPCBubbleStressTalker.ShowCount = 2`、`LastShowSucceeded = true`、`NPCBubblePresenter.IsBubbleVisible = true`、`CurrentBubbleText` 为长句。
 - 当前恢复点：用户现在可以直接在主项目里拿 `003` 做气泡自适应验收，不再需要手动反复触发对话。
+
+## 2026-03-23 NPC第四刀：气泡内边距与场景化配置入口
+
+- 当前主线目标：把 NPC 的表现层细节收紧到接近最终验收，并把后续场景配置入口整理顺。
+- 本轮子任务：只改 NPC 自己的代码与编辑器入口，不碰 `Primary.unity` 和导航核心。
+- 本轮完成：
+  - 气泡内边距修正：文字框四周进一步向内收，解决“文字贴边框”的观感问题。
+  - 003 测试模式正规化：新增 `NPCBubbleStressTalkerEditor`，并把 `003.prefab` 的测试引用显式序列化，避免测试逻辑继续像一次性临时脚本。
+  - 漫游配置入口增强：`NPCAutoRoamControllerEditor` 现在可直接创建/选择/清空 Home Anchor、复制 Profile、本地应用 Profile，并显示当前活动范围与路径点状态。
+- 本轮验证：
+  - 静态 diff 检查通过。
+  - 当前 `unityMCP` 连接在收尾阶段出现 `http://127.0.0.1:8080/mcp` 握手失败，因此 live 终验尚未闭环；但这轮前段已经拿到过 `003` 压测器在场景中工作的 live 证据。
+- 当前恢复点：这轮之后，NPC 线已经正式进入“场景化与集成阶段”，后续重点就是配置、验收和等待导航交付后的接入。

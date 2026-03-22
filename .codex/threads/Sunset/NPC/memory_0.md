@@ -176,3 +176,16 @@
   - live 读回确认 `NPCBubblePresenter.IsBubbleVisible = true`，长句文本已进入气泡。
   - 本轮结束前已退回 Edit Mode，没有把 Unity 留在 Play。
 - 当前恢复点：下一步只差把这轮提交到 `main`，然后等用户按主项目真实观感做验收。
+
+## 2026-03-23 NPC第四刀继续开发：从临时压测到正式配置入口
+
+- 当前主线目标：不再只修气泡外观，而是把 NPC 后续场景化落地所需的测试入口和配置入口一起搭好。
+- 本轮子任务：完成内边距微调、`003` 测试模式正规化、漫游配置编辑器增强。
+- 本轮完成：
+  - `NPCBubblePresenter` 完成文字内边距收口。
+  - `NPCBubbleStressTalker` 从临时压测脚本提升为正式测试组件，配套了专用 Editor。
+  - `NPCAutoRoamControllerEditor` 已具备场景化配置入口能力，不再只是默认 Inspector。
+- 本轮验证：
+  - 静态检查通过。
+  - 本轮前段拿到过 `unityMCP` live 读回 `003` 测试组件的证据；收尾阶段 MCP 传输层转为 `8080` 握手失败，故最终 live 闭环待补。
+- 当前恢复点：下一步可以直接继续做 NPC 活动区域、路线、profile 的场景化收口，而不是再造新的临时测试手段。

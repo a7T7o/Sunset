@@ -5,6 +5,7 @@ using UnityEngine;
 /// 挂在指定测试 NPC 上后，会持续随机播报不同长度的话术。
 /// </summary>
 [DisallowMultipleComponent]
+[AddComponentMenu("Sunset/NPC/Testing/Bubble Stress Talker")]
 public class NPCBubbleStressTalker : MonoBehaviour
 {
     [SerializeField] private NPCBubblePresenter bubblePresenter;
@@ -39,6 +40,10 @@ public class NPCBubbleStressTalker : MonoBehaviour
     public int ShowCount => _showCount;
     public string LastLine => _lastLine;
     public bool LastShowSucceeded => _lastShowSucceeded;
+    public NPCBubblePresenter BubblePresenter => bubblePresenter;
+    public NPCAutoRoamController RoamController => roamController;
+    public bool TestModeEnabled => startOnEnable;
+    public bool DisableRoamInTestMode => disableRoamWhileTesting;
 
     private void Reset()
     {
@@ -101,12 +106,30 @@ public class NPCBubbleStressTalker : MonoBehaviour
             return;
         }
 
+        TrySpeakOnce();
+        _nextSpeakAt = Time.unscaledTime + Random.Range(minGapSeconds, maxGapSeconds);
+    }
+
+    public void RebindReferences()
+    {
+        CacheComponents();
+    }
+
+    public bool TrySpeakOnce()
+    {
+        CacheComponents();
+        if (bubblePresenter == null || testLines == null || testLines.Length == 0)
+        {
+            _lastShowSucceeded = false;
+            return false;
+        }
+
         string line = testLines[Random.Range(0, testLines.Length)];
         float duration = Mathf.Clamp(minDuration + (line.Length * 0.05f), minDuration, maxDuration);
         _showCount++;
         _lastLine = line;
         _lastShowSucceeded = bubblePresenter.ShowText(line, duration);
-        _nextSpeakAt = Time.unscaledTime + Random.Range(minGapSeconds, maxGapSeconds);
+        return _lastShowSucceeded;
     }
 
     private void CacheComponents()

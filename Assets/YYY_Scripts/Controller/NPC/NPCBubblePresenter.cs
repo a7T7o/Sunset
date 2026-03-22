@@ -38,7 +38,7 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private Vector2 bubblePadding = new Vector2(44f, 30f);
     [SerializeField] private float maxTextWidth = 236f;
     [SerializeField] private float minAdaptiveTextWidth = 152f;
-    [SerializeField] private Vector2 textSafePadding = new Vector2(12f, 10f);
+    [SerializeField] private Vector2 textSafePadding = new Vector2(18f, 16f);
     [SerializeField] private float borderThickness = 6f;
     [SerializeField] private Vector2 tailSize = new Vector2(28f, 18f);
     [SerializeField] private float tailYOffset = -11f;
@@ -313,7 +313,7 @@ public class NPCBubblePresenter : MonoBehaviour
         textOutlineWidth = 0.18f;
         maxTextWidth = 236f;
         minAdaptiveTextWidth = 152f;
-        textSafePadding = new Vector2(12f, 10f);
+        textSafePadding = new Vector2(18f, 16f);
         borderThickness = 6f;
         tailSize = new Vector2(28f, 18f);
         tailYOffset = -11f;
@@ -488,8 +488,8 @@ public class NPCBubblePresenter : MonoBehaviour
             Mathf.Max(8f, tailSize.x - (borderThickness * 1.6f)),
             Mathf.Max(6f, tailSize.y - (borderThickness * 1.2f)));
         Vector2 textRectSize = new Vector2(
-            Mathf.Max(60f, fillBodySize.x - 12f),
-            Mathf.Max(fontSize + 12f, fillBodySize.y - 10f));
+            Mathf.Max(56f, fillBodySize.x - 20f),
+            Mathf.Max(fontSize + 10f, fillBodySize.y - 16f));
 
         float bodyCenterY = Mathf.Max(tailSize.y * 0.72f, 10f);
         float tailCenterY = bodyCenterY - (bodySize.y * 0.54f) - (tailSize.y * 0.06f) + tailYOffset;

@@ -1,11 +1,22 @@
+using System.IO;
 using UnityEditor;
 using UnityEngine;
 
 [CustomEditor(typeof(NPCAutoRoamController))]
 public class NPCAutoRoamControllerEditor : Editor
 {
+    private bool showSetup = true;
     private bool showRuntimeStatus = true;
     private bool showRuntimeActions = true;
+
+    private SerializedProperty _homeAnchorProperty;
+    private SerializedProperty _roamProfileProperty;
+
+    private void OnEnable()
+    {
+        _homeAnchorProperty = serializedObject.FindProperty("homeAnchor");
+        _roamProfileProperty = serializedObject.FindProperty("roamProfile");
+    }
 
     public override void OnInspectorGUI()
     {
@@ -14,6 +25,8 @@ public class NPCAutoRoamControllerEditor : Editor
         serializedObject.ApplyModifiedProperties();
 
         EditorGUILayout.Space(8f);
+        DrawSetupTools();
+        EditorGUILayout.Space(8f);
         DrawProfileHint();
         EditorGUILayout.Space(8f);
         DrawRuntimeStatus();
@@ -21,13 +34,111 @@ public class NPCAutoRoamControllerEditor : Editor
         DrawRuntimeActions();
     }
 
+    private void DrawSetupTools()
+    {
+        NPCAutoRoamController controller = (NPCAutoRoamController)target;
+        NPCBubbleStressTalker stressTalker = controller.GetComponent<NPCBubbleStressTalker>();
+
+        showSetup = EditorGUILayout.BeginFoldoutHeaderGroup(showSetup, "Scene Integration");
+        if (showSetup)
+        {
+            EditorGUI.indentLevel++;
+
+            string centerSource = controller.HomeAnchor != null ? "Home Anchor" : "NPC Self";
+            string profileName = controller.RoamProfile != null ? controller.RoamProfile.name : "None";
+
+            EditorGUILayout.HelpBox(
+                $"Roam center source: {centerSource}\n" +
+                $"Activity radius: {controller.ActivityRadius:F2}\n" +
+                $"Min move distance: {controller.MinimumMoveDistance:F2}\n" +
+                $"Sample attempts: {controller.PathSampleAttempts}\n" +
+                $"Profile: {profileName}\n" +
+                $"Current debug path points: {controller.DebugPathPointCount}",
+                MessageType.None);
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button(controller.HomeAnchor == null ? "Create Home Anchor" : "Select Home Anchor"))
+            {
+                if (controller.HomeAnchor == null)
+                {
+                    CreateHomeAnchor(controller);
+                }
+                else
+                {
+                    Selection.activeObject = controller.HomeAnchor.gameObject;
+                }
+            }
+
+            if (GUILayout.Button("Snap Anchor To NPC"))
+            {
+                Undo.RecordObject(controller, "Snap NPC Home Anchor");
+                controller.SyncHomeAnchorToCurrentPosition();
+                EditorUtility.SetDirty(controller);
+                if (controller.HomeAnchor != null)
+                {
+                    EditorUtility.SetDirty(controller.HomeAnchor);
+                }
+            }
+
+            if (GUILayout.Button("Clear Home Anchor"))
+            {
+                Undo.RecordObject(controller, "Clear NPC Home Anchor");
+                controller.SetHomeAnchor(null);
+                _homeAnchorProperty.objectReferenceValue = null;
+                serializedObject.ApplyModifiedProperties();
+                EditorUtility.SetDirty(controller);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            EditorGUILayout.BeginHorizontal();
+            if (GUILayout.Button("Apply Profile Now"))
+            {
+                Undo.RecordObject(controller, "Apply NPC Roam Profile");
+                controller.ApplyProfile();
+                EditorUtility.SetDirty(controller);
+            }
+
+            if (GUILayout.Button("Select Profile"))
+            {
+                Selection.activeObject = controller.RoamProfile != null ? controller.RoamProfile : controller.gameObject;
+            }
+
+            if (GUILayout.Button("Duplicate Profile Copy"))
+            {
+                DuplicateProfileCopy(controller);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            if (stressTalker != null)
+            {
+                EditorGUILayout.Space(4f);
+                EditorGUILayout.HelpBox(
+                    "This NPC has an attached bubble stress talker. Treat it as a validation NPC, not a normal production NPC.",
+                    MessageType.Info);
+
+                if (GUILayout.Button("Select Stress Talker"))
+                {
+                    Selection.activeObject = stressTalker;
+                }
+            }
+
+            EditorGUILayout.HelpBox(
+                "Tip: select this NPC in Scene view to see the activity radius gizmo and current path preview.",
+                MessageType.Info);
+
+            EditorGUI.indentLevel--;
+        }
+
+        EditorGUILayout.EndFoldoutHeaderGroup();
+    }
+
     private void DrawProfileHint()
     {
         NPCAutoRoamController controller = (NPCAutoRoamController)target;
-        string profileName = controller.RoamProfile != null ? controller.RoamProfile.name : "未指定";
+        string profileName = controller.RoamProfile != null ? controller.RoamProfile.name : "None";
         EditorGUILayout.HelpBox(
-            $"当前漫游配置资产：{profileName}\n" +
-            "未指定 Profile 时继续使用组件内参数；指定后可用下方按钮重新应用到当前 NPC。",
+            $"Current roam profile: {profileName}\n" +
+            "If no profile is assigned, the component keeps using its local serialized values.",
             MessageType.None);
     }
 
@@ -36,38 +147,45 @@ public class NPCAutoRoamControllerEditor : Editor
         NPCAutoRoamController controller = (NPCAutoRoamController)target;
         NPCBubblePresenter bubblePresenter = controller.GetComponent<NPCBubblePresenter>();
         NPCMotionController motionController = controller.GetComponent<NPCMotionController>();
+        NPCBubbleStressTalker stressTalker = controller.GetComponent<NPCBubbleStressTalker>();
 
-        showRuntimeStatus = EditorGUILayout.BeginFoldoutHeaderGroup(showRuntimeStatus, "运行时状态");
+        showRuntimeStatus = EditorGUILayout.BeginFoldoutHeaderGroup(showRuntimeStatus, "Runtime Status");
         if (showRuntimeStatus)
         {
             EditorGUI.indentLevel++;
-            EditorGUILayout.LabelField("当前状态", controller.DebugState);
-            EditorGUILayout.LabelField("状态计时", $"{controller.DebugStateTimer:F2}s");
-            EditorGUILayout.LabelField("短停计数", $"{controller.CompletedShortPauseCount}/{controller.LongPauseTriggerCount}");
-            EditorGUILayout.LabelField("卡住重试", controller.CurrentStuckRecoveryCount.ToString());
-            EditorGUILayout.LabelField("最近位移", $"{controller.DebugLastProgressDistance:F3}m");
-            EditorGUILayout.LabelField("正在漫游", controller.IsRoaming ? "是" : "否");
-            EditorGUILayout.LabelField("正在移动", controller.IsMoving ? "是" : "否");
-            EditorGUILayout.LabelField("环境聊天", controller.IsInAmbientChat ? "进行中" : "未进行");
-            EditorGUILayout.LabelField("聊天对象", string.IsNullOrEmpty(controller.ChatPartnerName) ? "无" : controller.ChatPartnerName);
-            EditorGUILayout.LabelField("最近决策", string.IsNullOrEmpty(controller.LastAmbientDecision) ? "无" : controller.LastAmbientDecision);
+            EditorGUILayout.LabelField("State", controller.DebugState);
+            EditorGUILayout.LabelField("State Timer", $"{controller.DebugStateTimer:F2}s");
+            EditorGUILayout.LabelField("Short Pause Count", $"{controller.CompletedShortPauseCount}/{controller.LongPauseTriggerCount}");
+            EditorGUILayout.LabelField("Stuck Recoveries", controller.CurrentStuckRecoveryCount.ToString());
+            EditorGUILayout.LabelField("Recent Progress", $"{controller.DebugLastProgressDistance:F3}m");
+            EditorGUILayout.LabelField("Is Roaming", controller.IsRoaming ? "Yes" : "No");
+            EditorGUILayout.LabelField("Is Moving", controller.IsMoving ? "Yes" : "No");
+            EditorGUILayout.LabelField("Ambient Chat", controller.IsInAmbientChat ? "Active" : "Idle");
+            EditorGUILayout.LabelField("Chat Partner", string.IsNullOrEmpty(controller.ChatPartnerName) ? "None" : controller.ChatPartnerName);
+            EditorGUILayout.LabelField("Last Decision", string.IsNullOrEmpty(controller.LastAmbientDecision) ? "None" : controller.LastAmbientDecision);
 
             if (motionController != null)
             {
-                EditorGUILayout.LabelField("移动速度", motionController.MoveSpeed.ToString("F2"));
-                EditorGUILayout.LabelField("当前速度", motionController.CurrentVelocity.ToString("F2"));
+                EditorGUILayout.LabelField("Move Speed", motionController.MoveSpeed.ToString("F2"));
+                EditorGUILayout.LabelField("Current Velocity", motionController.CurrentVelocity.ToString("F2"));
             }
 
             if (bubblePresenter != null)
             {
-                EditorGUILayout.LabelField("气泡可见", bubblePresenter.IsBubbleVisible ? "是" : "否");
-                EditorGUILayout.LabelField("气泡文本", string.IsNullOrEmpty(bubblePresenter.CurrentBubbleText) ? "无" : bubblePresenter.CurrentBubbleText);
-                EditorGUILayout.LabelField("自言自语条数", bubblePresenter.SelfTalkLineCount.ToString());
+                EditorGUILayout.LabelField("Bubble Visible", bubblePresenter.IsBubbleVisible ? "Yes" : "No");
+                EditorGUILayout.LabelField("Bubble Text", string.IsNullOrEmpty(bubblePresenter.CurrentBubbleText) ? "None" : bubblePresenter.CurrentBubbleText);
+            }
+
+            if (stressTalker != null)
+            {
+                EditorGUILayout.LabelField("Stress Talk Count", stressTalker.ShowCount.ToString());
+                EditorGUILayout.LabelField("Stress Last Success", stressTalker.LastShowSucceeded ? "Yes" : "No");
+                EditorGUILayout.LabelField("Stress Last Line", string.IsNullOrEmpty(stressTalker.LastLine) ? "None" : stressTalker.LastLine);
             }
 
             if (!Application.isPlaying)
             {
-                EditorGUILayout.HelpBox("当前不在 Play 模式，状态值显示的是最近一次序列化快照。", MessageType.Info);
+                EditorGUILayout.HelpBox("Not in Play Mode. Values shown here are serialized snapshot values.", MessageType.Info);
             }
 
             EditorGUI.indentLevel--;
@@ -80,63 +198,95 @@ public class NPCAutoRoamControllerEditor : Editor
     {
         NPCAutoRoamController controller = (NPCAutoRoamController)target;
         NPCBubblePresenter bubblePresenter = controller.GetComponent<NPCBubblePresenter>();
+        NPCBubbleStressTalker stressTalker = controller.GetComponent<NPCBubbleStressTalker>();
 
-        showRuntimeActions = EditorGUILayout.BeginFoldoutHeaderGroup(showRuntimeActions, "调试动作");
+        showRuntimeActions = EditorGUILayout.BeginFoldoutHeaderGroup(showRuntimeActions, "Debug Actions");
         if (showRuntimeActions)
         {
-            EditorGUILayout.BeginHorizontal();
-            if (GUILayout.Button("应用 Profile"))
+            using (new EditorGUI.DisabledScope(!Application.isPlaying))
             {
-                Undo.RecordObject(controller, "Apply NPC Roam Profile");
-                controller.ApplyProfile();
-                EditorUtility.SetDirty(controller);
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Start Roam"))
+                {
+                    controller.StartRoam();
+                }
+
+                if (GUILayout.Button("Stop Roam"))
+                {
+                    controller.StopRoam();
+                }
+
+                if (GUILayout.Button("Force Long Pause"))
+                {
+                    controller.DebugEnterLongPause();
+                }
+                EditorGUILayout.EndHorizontal();
+
+                EditorGUILayout.BeginHorizontal();
+                if (GUILayout.Button("Try Ambient Chat"))
+                {
+                    controller.DebugTryAmbientChat();
+                }
+
+                if (GUILayout.Button("Show Random Bubble"))
+                {
+                    bubblePresenter?.ShowRandomSelfTalk(2.5f);
+                }
+
+                if (GUILayout.Button("Hide Bubble"))
+                {
+                    bubblePresenter?.HideBubble();
+                }
+                EditorGUILayout.EndHorizontal();
+
+                if (stressTalker != null && GUILayout.Button("Stress Talk Once"))
+                {
+                    stressTalker.TrySpeakOnce();
+                }
             }
-
-            GUI.enabled = Application.isPlaying;
-            if (GUILayout.Button("开始漫游"))
-            {
-                controller.StartRoam();
-            }
-
-            GUI.enabled = true;
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            GUI.enabled = Application.isPlaying;
-            if (GUILayout.Button("停止漫游"))
-            {
-                controller.StopRoam();
-            }
-
-            if (GUILayout.Button("强制长停"))
-            {
-                controller.DebugEnterLongPause();
-            }
-
-            if (GUILayout.Button("尝试聊天"))
-            {
-                controller.DebugTryAmbientChat();
-            }
-
-            GUI.enabled = true;
-            EditorGUILayout.EndHorizontal();
-
-            EditorGUILayout.BeginHorizontal();
-            GUI.enabled = Application.isPlaying && bubblePresenter != null;
-            if (GUILayout.Button("显示自言自语"))
-            {
-                bubblePresenter.ShowRandomSelfTalk(2.5f);
-            }
-
-            if (GUILayout.Button("隐藏气泡"))
-            {
-                bubblePresenter.HideBubble();
-            }
-
-            GUI.enabled = true;
-            EditorGUILayout.EndHorizontal();
         }
 
         EditorGUILayout.EndFoldoutHeaderGroup();
+    }
+
+    private void CreateHomeAnchor(NPCAutoRoamController controller)
+    {
+        GameObject anchorObject = new GameObject($"{controller.name}_HomeAnchor");
+        Undo.RegisterCreatedObjectUndo(anchorObject, "Create NPC Home Anchor");
+        Undo.SetTransformParent(anchorObject.transform, controller.transform, "Parent NPC Home Anchor");
+        anchorObject.transform.position = controller.transform.position;
+        anchorObject.transform.rotation = Quaternion.identity;
+        controller.SetHomeAnchor(anchorObject.transform);
+        _homeAnchorProperty.objectReferenceValue = anchorObject.transform;
+        serializedObject.ApplyModifiedProperties();
+        EditorUtility.SetDirty(controller);
+        EditorUtility.SetDirty(anchorObject);
+        Selection.activeObject = anchorObject;
+    }
+
+    private void DuplicateProfileCopy(NPCAutoRoamController controller)
+    {
+        if (controller.RoamProfile == null)
+        {
+            EditorUtility.DisplayDialog("Duplicate Profile", "Assign a roam profile first.", "OK");
+            return;
+        }
+
+        string sourcePath = AssetDatabase.GetAssetPath(controller.RoamProfile);
+        string folderPath = Path.GetDirectoryName(sourcePath) ?? "Assets";
+        string assetName = $"{controller.name}_{controller.RoamProfile.name}.asset";
+        string targetPath = AssetDatabase.GenerateUniqueAssetPath($"{folderPath.Replace('\\', '/')}/{assetName}");
+
+        NPCRoamProfile copy = Object.Instantiate(controller.RoamProfile);
+        AssetDatabase.CreateAsset(copy, targetPath);
+        AssetDatabase.SaveAssets();
+        AssetDatabase.Refresh();
+
+        _roamProfileProperty.objectReferenceValue = copy;
+        serializedObject.ApplyModifiedProperties();
+        Undo.RecordObject(controller, "Assign NPC Roam Profile Copy");
+        controller.ApplyProfile();
+        EditorUtility.SetDirty(controller);
+        Selection.activeObject = copy;
     }
 }
