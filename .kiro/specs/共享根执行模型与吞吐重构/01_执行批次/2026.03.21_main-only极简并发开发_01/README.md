@@ -58,3 +58,15 @@
   - 用于普通线程重对齐当前制度、回忆剩余任务并直接继续开发
 - `scene-build_当前版本更新前缀.md`
   - 用于 `scene-build` 按独立 worktree 口径重对齐并继续施工
+
+## 当前新增可直接转发的第二波 prompt
+- `下一波直接唤醒顺序_2026-03-22.md`
+  - 用于当前批次直接查看“谁先醒、为什么先醒、该发哪份 prompt”
+- `可分发Prompt\scene-build_当前版本更新并继续施工.md`
+  - `scene-build` 独立 worktree 持续施工版
+- `可分发Prompt\导航检查_当前版本更新并继续直接开发.md`
+  - 导航线程从 docs-first 进入首个真实代码 checkpoint
+- `可分发Prompt\NPC_当前版本更新并继续直接开发.md`
+  - NPC 线程继续收 NPC 自己的表现层与体感
+- `可分发Prompt\遮挡检查_当前版本更新并继续直接开发.md`
+  - 遮挡线程从审计态进入首个真实整改 checkpoint
