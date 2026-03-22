@@ -49,3 +49,18 @@
 |------|------|
 | `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\统一导航重构阶段设计与执行主表.md` | 导航线唯一主文档 |
 | `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md` | 导航线子工作区记忆 |
+
+### 会话 2 - 2026-03-23
+
+- 子工作区 `导航检查` 本轮进入 `锐评/001.md` 审核。
+- 已回读：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\锐评\001.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\steering\code-reaper-review.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\统一导航重构阶段设计与执行主表.md`
+- 父层稳定结论：
+  - 本次锐评不走 Path C，走 **Path B**
+  - 锐评方向大体正确，但“必须统一改成 `linearVelocity`”属于过强技术预设，不能直接当项目定案
+  - 其余三类建议应作为主表的局部修订输入：
+    - 为 S3 明确第一版算法边界
+    - 为执行顺序补交织迭代口径
+    - 为代理契约补 sleeping / moving 状态

@@ -83,3 +83,39 @@
 | `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\memory.md` | 旧导航审计工作区记忆 |
 | `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\memory.md` | 旧父工作区记忆 |
 | `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\memory_0.md` | 导航线程记忆 |
+
+### 会话 2 - 2026-03-23（锐评 001 审核）
+
+**用户需求**：
+> `.kiro\specs\屎山修复\导航检查\锐评\001.md，走审核锐评`
+
+**当前主线目标**：
+- 审核 `统一导航重构阶段设计与执行主表.md` 对应的锐评文件，判断其结论应走 Path A / B / C 哪一条。
+
+**完成任务**：
+1. 读取锐评文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\锐评\001.md`
+2. 读取评审规则：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\steering\code-reaper-review.md`
+3. 回读主文档：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\统一导航重构阶段设计与执行主表.md`
+4. 回读相关 live 代码证据：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCMotionController.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerMovement.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\INavigationUnit.cs`
+
+**路径判断**：
+- 结论：**Path B**
+
+**审核结论**：
+1. 锐评指出“最终运动语义不一致”这个问题是对的。
+2. 但它把修正方向进一步绝对化为“必须把 `MovePosition` 全部改成 `linearVelocity` / 动力学移动”，这一步没有被当前项目代码和架构证据充分证明，不能原样采纳。
+3. 锐评指出 S3 避让求解器缺少算法边界定义，这一点成立，应吸收。
+4. 锐评指出当前阶段顺序偏瀑布流，这一点成立，应吸收。
+5. 锐评指出动态代理需要 sleeping / moving 状态，这一点成立，应吸收。
+
+**关键结论**：
+- 这份锐评整体方向正确，不需要走 Path C。
+- 但不能照单全收其“统一改成 `linearVelocity`”的具体技术方案。
+- 后续应把它作为对主表的局部修订输入，而不是直接当成实现指令。

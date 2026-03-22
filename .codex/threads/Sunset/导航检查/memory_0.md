@@ -158,3 +158,19 @@
   - 主文档将直接承载需求描述、阶段设计、执行清单、状态标记和修订记录，作为后续统一导航重构的唯一入口。
 - 当前恢复点：
   - 后续再推进这条线时，默认先读 `统一导航重构阶段设计与执行主表.md`，再按阶段执行，不再回到旧的文档散铺模式。
+
+### 会话 9 - 2026-03-23（锐评 001 审核结论）
+
+- 用户要求对 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\锐评\001.md` 走审核锐评流程。
+- 本轮显式使用 `skills-governor`、`sunset-workspace-router`、`sunset-review-router`，并按 Sunset 启动闸门做了等价 preflight。
+- 已核对：
+  - 锐评文件本体
+  - `D:\Unity\Unity_learning\Sunset\.kiro\steering\code-reaper-review.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\统一导航重构阶段设计与执行主表.md`
+  - 相关 live 代码：`NPCAutoRoamController.cs`、`NPCMotionController.cs`、`PlayerMovement.cs`、`INavigationUnit.cs`
+- 路径判断：
+  - 本次锐评走 **Path B**
+- 关键结论：
+  - 锐评指出“最终运动语义不一致”“S3 算法边界不足”“执行顺序过瀑布流”“缺 sleeping 机制”这些问题，大方向成立。
+  - 但其“必须把 NPC 运动统一改成 `linearVelocity`”的建议过于绝对，当前不能直接作为项目定案。
+  - 后续应把这份锐评作为主表的局部修订输入，而不是直接照单实现。
