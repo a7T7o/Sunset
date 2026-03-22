@@ -396,3 +396,158 @@
 - 因此父工作区当前口径可收敛为：
   - `can_freeze_now = yes`
   - 但 `migration_ready` 是否直接视为 `yes`，仍取决于治理侧是否接受“仅带记忆 dirty 的 worktree 迁移”。
+
+### 2026-03-22（MCP 最小可用性复测）
+
+- 当前主线仍是 `SceneBuild_01` 的剧情承载精修；本轮只是做支撑子任务：确认 Unity MCP 是否已恢复。
+- 已按 `skills-governor` + `sunset-unity-validation-loop` 的最小只读路径，对 Unity MCP 做单次 Console 拉取测试。
+- 本次 `mcp__mcp_unity__get_console_logs(includeStackTrace=false, limit=3)` 直接返回：`Connection failed: Unknown error`。
+- 因此父工作区当前最新判断是：
+  - MCP 仍然是这条线后续所需工具；
+  - 但当前会话里的 Unity MCP 仍不可用；
+  - 这属于 MCP 传输层失败，不是项目级编译失败结论。
+- 当前恢复点保持为：后续如果继续进入 scene 精修，仍需把 live 验证闭环视为未恢复状态。
+
+### 2026-03-22（独立 Unity 实例身份确认）
+
+- 用户提供的 Unity 侧日志已明确表明：当前 MCP-FOR-UNITY 的 HTTP Server 运行于 `127.0.0.1:8888/mcp`，且注册到的 Unity 插件实例是 `scene-build-5.0.0-001 (b4abdcc2b4706d2c)`。
+- 配合标题栏截图，可确认当前 Unity 实例就是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 对应的独立 Unity 6 (`6000.0.62f1`) 窗口，而不是 shared root 实例。
+- 但我在当前 Codex 会话内再次执行 `mcp__mcp_unity__get_console_logs` 时，仍返回 `Connection failed: Unknown error`。
+- 因此当前最新判断更新为：
+  - Unity 实例识别无误；
+  - Unity 侧 MCP 服务大概率已启动；
+  - 但当前会话对该 MCP 的绑定仍未成功。
+
+### 2026-03-22（场景理解与精修方案快照已落盘）
+
+- 当前子工作区已新增完整快照文件：
+  - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\900_开篇\5.0.0场景搭建\1.0.1初步规划\scene-build_场景理解与精修施工方案快照_2026-03-22.md`
+- 该文件完整保留了 `SceneBuild_01` 的叙事定位、施工优先级、预期修改对象、明确不碰边界与第一轮精修打法。
+- 因此父工作区当前新增一条稳定事实：
+  - 后续即使继续深挖 MCP 问题，`SceneBuild_01` 的空间理解和精修路线已在工作区内被固化，不再依赖聊天上下文暂存。
+
+### 2026-03-22（`Install Skills` 失败与当前会话 MCP 绑定错层已厘清）
+
+- 已复核 `C:\Users\aTo\.codex\config.toml`：当前正式配置写的是 `[mcp_servers.unityMCP] url = "http://127.0.0.1:8888/mcp"`，旧 `mcp-unity` stdio 项已禁用。
+- 但当前会话通过 `list_mcp_resources` 实际暴露出来的 server 名仍是 `mcp-unity`，且资源读取继续报 `Connection failed: Unknown error`。
+- 这说明当前最可能的问题不再是“Unity 项目根识别错误”，而是：
+  - 当前对话会话仍挂在旧的 MCP server 句柄上；
+  - 还没有重新加载到新的 `unityMCP` HTTP 配置。
+- 同时，`Install Skills` 的失败已被进一步定性为：
+  - Unity 侧 `SkillSyncService` 的 GitHub 请求失败；
+  - 不是 skill 内容问题。
+- 官方 `unity-mcp-skill` 已经被手工补齐到：
+  - `C:\Users\aTo\.codex\skills\unity-mcp-skill`
+- 但当前父工作区口径要明确：
+  - skill 已补齐；
+  - skill 不等于连接修复；
+  - 下一步更应优先重启 Codex / 新开会话，验证是否真正切到 `unityMCP` HTTP server。
+
+### 2026-03-22（即时复测结果未变）
+
+- 已对当前会话再做一次最小只读复测。
+- `list_mcp_resources` 结果显示当前会话仍暴露旧 server 名：
+  - `mcp-unity`
+- 随后无论是：
+  - `mcp__mcp_unity__get_console_logs`
+  - 还是 `read_mcp_resource('unity://scenes_hierarchy')`
+  都继续返回：`Connection failed: Unknown error`。
+- 因此父工作区当前最新判断没有变化：
+  - 当前会话里的 Unity MCP 仍不可用；
+  - 资源目录可见不代表调用层已恢复；
+  - 下一步仍更应重启 Codex / 新开会话，而不是继续在旧会话里重试。
+
+### 2026-03-22（两个 Unity MCP 的正误口径已厘清）
+
+- 当前会话通过资源清单确认：它实际暴露的只有旧 server：
+  - `mcp-unity`
+- 而 `C:\Users\aTo\.codex\config.toml` 当前同时存在两条 Unity MCP：
+  - 新的官方 HTTP：`unityMCP -> http://127.0.0.1:8888/mcp`
+  - 旧的本地 stdio：`mcp-unity`
+- 关键新事实是：旧的 `mcp-unity` 现在又被重新打开了（`enabled = true`）。
+- 因此父工作区当前最新判断更新为：
+  - 我前面的复测确实一直在打旧 `mcp-unity`；
+  - 对当前这条 `scene-build` 独立 Unity 实例来说，真正应测的是官方 HTTP `unityMCP`；
+  - 在旧 `mcp-unity` 还开着的情况下，Codex 会话很容易继续挂到旧桥上，导致误测。
+
+## 2026-03-22 补记：旧 `mcp-unity` 清盘完成，但 scene-build live 根仍待回正
+- 当前父工作区主线不变，仍服务 `SceneBuild_01` 的场景搭建与精修；本轮子任务是清掉阻塞主线的旧 MCP 残留。
+- 已确认 `C:\Users\aTo\.codex\config.toml` 中旧 `[mcp_servers.mcp-unity]` 块再次出现；本轮已先备份，再删除，仅保留 `[mcp_servers.unityMCP]`。
+- 已终止全部旧 `node ... mcp-unity/Server~/build/index.js` 进程，并复查确认未自动复活。
+- 当前会话的 `list_mcp_resources` 已不再暴露旧桥，但也尚未自动切到新桥，说明后续仍需新会话重载。
+- 本轮额外确认到一个更关键的现场事实：当前 `127.0.0.1:8888` 上活着的 `mcp-for-unity` HTTP server 仍绑定在 `D:\Unity\Unity_learning\Sunset` shared root；scene-build worktree 下对应 `RunState\mcp_http_8888.pid` 当前缺失，因此后续若要恢复 scene-build live 写态，必须先把 Unity / HTTP server 重新指向 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`。
+- 当前恢复点：scene-build 的文档与快照进度完好，旧桥活残留已清；下一步等待新会话 + 正确 worktree Unity 实例回正后，再继续 `SceneBuild_01` 精修。
+
+### 2026-03-22（SceneBuild_01 首批剧情语义精修已落地）
+- 父工作区当前主线不变：`SceneBuild_01` 继续服务 `spring-day1` 的“住处安置 + 工作台闪回 + 农田/砍树教学”主承载。
+- 本轮没有进入 Unity live 写态，因为当前 `unityMCP` 仍指向 shared root 的 `Primary`；施工继续走 worktree 内的 scene YAML 精修。
+- 已在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 完成首批剧情语义精修：
+  - 将 `DecorCluster_YardLife` 收回屋前边缘；
+  - 将 `Anchor_Stand_YardCenter` 调整为真正的院心停驻点；
+  - 扩大 `Trigger_EastGateApproach` 与 `Trigger_YardCore`；
+  - 新增 `Anchor_Stand_EntryArrival`、`Anchor_Interact_Workbench`、`Anchor_Observe_FarmLesson`、`Anchor_Observe_TreeLesson`、`Anchor_Door_Exterior` 五个语义锚点。
+- 当前父工作区最新口径：`SceneBuild_01` 已从“高质量初稿”继续推进到“首批剧情语义硬化已落地”；下一步是继续细化院心 / 工作台 / 教学区之间的真实空间关系，而不是回到泛装饰扩张。
+
+### 2026-03-22（第二批局部剧情 trigger 已补齐）
+- 父工作区当前推进点已从“入口/院心精修”继续推进到“工作台 / 教学区 / 门口衔接”这一层。
+- `SceneBuild_01.unity` 本轮继续新增并收紧了 4 个局部触发区：`Trigger_WorkbenchFocus`、`Trigger_FarmLessonFocus`、`Trigger_TreeLessonFocus`、`Trigger_DoorExterior`。
+- 同时把 `Anchor_Observe_FarmLesson` 从南侧围栏外逻辑后侧收回到院落南侧可达区域，把 `Anchor_Observe_TreeLesson` 从东侧入口带边缘收回到更像教学站位的区域。
+- 当前父工作区最新口径：`SceneBuild_01` 现在不只是“有大 trigger 和几个 anchor”，而是已经开始形成 Day1 真正需要的局部剧情窗口层。
+
+### 2026-03-22（SceneBuild_01 已推进到第三批前场微调，MCP 现卡在 HTTP 响应格式层）
+- 父工作区主线不变：`SceneBuild_01` 继续作为 `spring-day1` 在 `14:20 进村 -> 15:10 教学前后` 的主承载场景精修对象。
+- 当前推进点已从第二批“局部剧情 trigger 补硬”继续推进到第三批“门前前场与工作台焦点重排”。
+- 本轮在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 中继续只做小范围 scene YAML 施工：
+  - 收紧并重排 `DecorCluster_YardLife` 及其 3 个子物件；
+  - 同步重排 `Anchor_Interact_Workbench` / `Trigger_WorkbenchFocus`；
+  - 同步重排 `Anchor_Door_Exterior` / `Trigger_DoorExterior`；
+  - 微调 `Anchor_Interact_HouseYardSide`，让门口过渡和工作台前场分离得更清楚。
+- 这一轮的稳定口径是：`SceneBuild_01` 不再只是“有剧情锚点”，而是开始有更明确的“门口前场 -> 驻足介绍 -> 工作台开始劳动”的空间语义顺序。
+- 本轮仍未使用 Unity live 写态；不是因为当前会话没有 `unityMCP` 工具面，而是因为只读调用 `manage_scene/get_active` 与 `read_console/get` 都返回 `Unexpected content type: Some("missing-content-type; body: ")`，当前更像 HTTP 传输层回包格式异常。
+- 因此父工作区当前最准确口径更新为：
+  - `SceneBuild_01` 已完成三批稳定的 worktree 文件级精修；
+  - live MCP 不再是“旧 server 误连 shared root”的唯一问题，现在还新增了“HTTP 响应头/内容类型异常”的现象；
+  - 主线仍可继续通过 scene YAML 推进，但 live 验收闭环仍待恢复。
+- 当前恢复点：后续若继续施工，优先做第四批“入口停驻点到院心、再到工作台”的镜头节奏微调；若要补验收，则先解决当前 `unityMCP` 的 `missing-content-type` 响应问题。
+
+### 2026-03-23（SceneBuild_01 已补齐入口停驻窗口）
+- 父工作区主线不变：`SceneBuild_01` 继续作为 `spring-day1` 在村内安置与教学前后的主承载场景推进。
+- 当前推进点已从第三批“门前前场与工作台焦点重排”继续推进到第四批“入口停驻窗口补齐”。
+- 本轮在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 中只做了两件事：
+  - 把 `Anchor_Stand_EntryArrival` 从入口边缘收回到更适合作为 NPC 带入后的第一停点；
+  - 在 `LogicLayer_Farmstead` 下新增 `Trigger_EntryArrivalPause`，把入口短暂停驻做成明确语义窗口。
+- 这让当前 `SceneBuild_01` 的最小叙事节奏更完整：
+  - `Trigger_EastGateApproach`
+  - `Trigger_EntryArrivalPause`
+  - `Trigger_YardCore`
+  - `Trigger_WorkbenchFocus`
+- 父工作区当前最准确口径更新为：入口到院心这段已经不再只是“有方向”，而是开始具备明确的停驻和导入层次。
+- 当前恢复点：如继续精修，下一步收院心介绍区与工作台之间的节奏；如转去验收，仍需单独处理 live MCP 闭环恢复。
+
+### 2026-03-23（已按 worktree-only 新口径推进到第五批转场精修）
+- 父工作区已吸收新版前缀口径：这条 `scene-build` 线不再按 shared root 普通线程理解，而是专属 worktree 内的独立持续施工线。
+- 当前仍只在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 内推进；shared root 仅作为只读 prompt / handoff 来源，不再作为这条线的施工现场。
+- 本轮继续把 `SceneBuild_01` 从第四批“入口停驻”推进到第五批“院心 -> 工作台”转场补硬：
+  - `Anchor_Stand_YardCenter` 微调到 `(3.3, -0.02)`；
+  - `Trigger_YardCore` 微调到 `(3.25, -0.08)`；
+  - 新增 `Trigger_YardWorkbenchTransition`，中心 `(2.55, -0.72)`，尺寸 `(2.0, 1.4)`。
+- 这意味着当前 `SceneBuild_01` 的主叙事链条已经更完整：
+  - `Trigger_EastGateApproach`
+  - `Trigger_EntryArrivalPause`
+  - `Trigger_YardCore`
+  - `Trigger_YardWorkbenchTransition`
+  - `Trigger_WorkbenchFocus`
+- 当前恢复点：下一步继续从工作台往教学区收节奏，而不是回头做 shared root 收口叙事。
+
+### 2026-03-23（SceneBuild_01 已补齐工作台到农田教学的承接窗）
+- 父工作区当前已从第五批“院心 -> 工作台”继续推进到第六批“工作台 -> 农田教学”转场补齐。
+- 本轮只在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\Assets\000_Scenes\SceneBuild_01.unity` 中新增 `Trigger_WorkbenchFarmTransition`，中心 `(3.9, -0.98)`，尺寸 `(2.6, 1.2)`。
+- 当前 `SceneBuild_01` 的主叙事链条已进一步完整：
+  - `Trigger_EastGateApproach`
+  - `Trigger_EntryArrivalPause`
+  - `Trigger_YardCore`
+  - `Trigger_YardWorkbenchTransition`
+  - `Trigger_WorkbenchFocus`
+  - `Trigger_WorkbenchFarmTransition`
+  - `Trigger_FarmLessonFocus`
+- 当前恢复点：后续可继续从农田教学转去砍树教学，或在你显式要求时为本 worktree 做自己的一次 checkpoint 收口。
