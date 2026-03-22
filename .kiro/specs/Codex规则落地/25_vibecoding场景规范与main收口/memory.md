@@ -241,3 +241,26 @@
 **恢复点 / 下一步**
 - 现在直接进入治理线自己的白名单 `sync`。
 - 这刀收完后，shared root 里应只剩业务线程和剧情整理线自己的 dirty。
+
+## 2026-03-22｜已补两份“规则已更新，可直接 self-sync 到 main”的直接转发 prompt
+**当前主线目标**
+- 把“规则已更新、线程现在可以自己白名单提交”这件事，直接变成可转发给线程的最短 prompt，而不是继续只停留在治理说明里。
+
+**本轮完成**
+1. 已新增 NPC 直达 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\NPC_继续修复并直接main收口.md`
+2. 已新增 `spring-day1` 文档尾巴收口 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\spring-day1_剩余文档整理并直接main收口.md`
+3. 两份 prompt 都已明确写入：
+   - 当前规则已更新
+   - 当前可以自己白名单提交到 `main`
+   - 不再沿用“shared root 有 unrelated dirty 所以默认不能提交”的旧口径
+
+**关键决策**
+- 这一步现在可以直接发给线程，不需要再额外配一段人工解释。
+- `NPC` 走“继续修复 + 完成后 self-sync 到 main”。
+- `spring-day1` 走“不要再碰已进 `main` 的 Story 代码，只收剩余文档整理面”。
+
+**恢复点 / 下一步**
+- 现在可以直接把这两份 prompt 发出去。
+- 下一步等它们回新的 checkpoint / blocker 回执。
