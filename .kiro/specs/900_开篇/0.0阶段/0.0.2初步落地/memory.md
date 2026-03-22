@@ -215,3 +215,13 @@
    - `behaviour.gameObject.activeInHierarchy`
 **恢复点 / 下一步**：
 - 当前已清掉一个会直接阻断编译的单点；后续继续以 `spring-day1` 主线推进，但会顺手把这种明显编译阻断先拔掉。
+
+### 会话 13 - 2026-03-23（调试增强与后续验收提速）
+**完成任务**：
+1. 扩展 `DialogueDebugMenu` 的状态日志，新增：
+   - `Day1Director`
+   - `HP`
+   - `EP`
+2. 对应更新 `SpringDay1DialogueProgressionTests.cs` 的静态断言，防止调试字段回退。
+**恢复点 / 下一步**：
+- 后续做 0.0.3~0.0.6 验收时，已能直接从一条调试日志里看到剧情阶段、导演摘要、生命值和精力值。

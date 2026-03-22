@@ -131,6 +131,9 @@ public static class DialogueDebugMenu
         DialogueManager dialogueManager = Object.FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
         DialogueUI dialogueUI = Object.FindFirstObjectByType<DialogueUI>(FindObjectsInactive.Include);
         StoryManager storyManager = Object.FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
+        SpringDay1Director day1Director = Object.FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
+        HealthSystem healthSystem = Object.FindFirstObjectByType<HealthSystem>(FindObjectsInactive.Include);
+        EnergySystem energySystem = Object.FindFirstObjectByType<EnergySystem>(FindObjectsInactive.Include);
         CanvasGroup canvasGroup = dialogueUI != null ? dialogueUI.GetComponent<CanvasGroup>() : null;
         TimeManager timeManager = Object.FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
         GameInputManager gameInputManager = Object.FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
@@ -156,6 +159,9 @@ public static class DialogueDebugMenu
             $"ContinueListeners={continueListenerCount}, " +
             $"StoryPhase={(storyManager != null ? storyManager.CurrentPhase.ToString() : "n/a")}, " +
             $"LanguageDecoded={(storyManager != null && storyManager.IsLanguageDecoded)}, " +
+            $"Day1Director='{(day1Director != null ? day1Director.GetDebugSummary() : "n/a")}', " +
+            $"HP={(healthSystem != null ? $"{healthSystem.CurrentHealth}/{healthSystem.MaxHealth}" : "n/a")}, " +
+            $"EP={(energySystem != null ? $"{energySystem.CurrentEnergy}/{energySystem.MaxEnergy}" : "n/a")}, " +
             $"TimePaused={(timeManager != null && timeManager.IsTimePaused())}, " +
             $"PauseDepth={(timeManager != null ? timeManager.GetPauseStackDepth().ToString() : "n/a")}, " +
             $"InputEnabled={(gameInputManager != null && gameInputManager.IsInputEnabledForDebug)}";

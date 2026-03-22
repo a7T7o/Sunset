@@ -320,3 +320,7 @@
 ## 2026-03-23 补记：为继续 spring-day1 验收顺手清理了一个项目级编译阻断
 - 从 `Editor.log` 读到当前真实编译阻断落在 `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`。
 - 这不是 spring-day1 业务逻辑本身，但会卡住后续所有 Unity 侧验证，因此已做最小修复：把 `isActiveAndEnabled` 改成显式的 `enabled + activeInHierarchy` 判断。
+
+## 2026-03-23 补记：spring-day1 验收日志已补齐 HP/EP 与导演摘要
+- `DialogueDebugMenu` 现在除了对话状态外，还会直接输出 `Day1Director / HP / EP`。
+- 这让后续 0.0.3~0.0.6 的最小通路验收可以继续压缩，不必每次都手工到处翻 Inspector。

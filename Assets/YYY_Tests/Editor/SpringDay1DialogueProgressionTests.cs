@@ -47,6 +47,8 @@ public class SpringDay1DialogueProgressionTests
 
         StringAssert.Contains("StoryPhase", scriptText, "调试日志应输出剧情阶段");
         StringAssert.Contains("LanguageDecoded", scriptText, "调试日志应输出语言解码状态");
+        StringAssert.Contains("HP=", scriptText, "调试日志应输出当前生命值");
+        StringAssert.Contains("EP=", scriptText, "调试日志应输出当前精力值");
     }
 
     [Test]
