@@ -10,7 +10,7 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class NPCBubblePresenter : MonoBehaviour
 {
-    private const int CurrentStyleVersion = 5;
+    private const int CurrentStyleVersion = 6;
 
     private static readonly string[] PreferredFontResourcePaths =
     {
@@ -33,19 +33,21 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private TMP_FontAsset fontAsset;
 
     [Header("气泡布局")]
-    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.68f, 0f);
+    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.82f, 0f);
     [SerializeField] private Vector3 bubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
-    [SerializeField] private Vector2 bubblePadding = new Vector2(30f, 18f);
-    [SerializeField] private float maxTextWidth = 220f;
+    [SerializeField] private Vector2 bubblePadding = new Vector2(38f, 24f);
+    [SerializeField] private float maxTextWidth = 248f;
     [SerializeField] private float borderThickness = 6f;
-    [SerializeField] private Vector2 tailSize = new Vector2(20f, 12f);
-    [SerializeField] private float tailYOffset = -4f;
+    [SerializeField] private Vector2 tailSize = new Vector2(26f, 16f);
+    [SerializeField] private float tailYOffset = -7f;
     [SerializeField] private Vector2 shadowOffset = new Vector2(3f, -5f);
     [SerializeField] private int sortingOrderOffset = 20;
-    [SerializeField] private float minBubbleHeight = 1.46f;
-    [SerializeField] private float bubbleGapAboveRenderer = 0.32f;
-    [SerializeField] private float visibleFloatAmplitude = 0.024f;
-    [SerializeField] private float visibleFloatFrequency = 1.6f;
+    [SerializeField] private float minBubbleHeight = 1.58f;
+    [SerializeField] private float bubbleGapAboveRenderer = 0.42f;
+    [SerializeField] private float visibleFloatAmplitude = 0.012f;
+    [SerializeField] private float visibleFloatFrequency = 1.25f;
+    [SerializeField] private float tailBobAmplitude = 2.2f;
+    [SerializeField] private float tailBobFrequency = 2.1f;
 
     [Header("气泡样式")]
     [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
@@ -53,7 +55,7 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private Color bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
     [SerializeField] private Color textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
     [SerializeField] private Color textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
-    [SerializeField] private float fontSize = 20f;
+    [SerializeField] private float fontSize = 23f;
     [SerializeField] private float textOutlineWidth = 0.18f;
     [SerializeField] private float showDuration = 0.14f;
     [SerializeField] private float hideDuration = 0.1f;
@@ -93,6 +95,9 @@ public class NPCBubblePresenter : MonoBehaviour
     private Coroutine _hideCoroutine;
     private Coroutine _visibilityCoroutine;
     private float _lowestVisibleLocalY;
+    private Vector2 _shadowTailBasePosition;
+    private Vector2 _borderTailBasePosition;
+    private Vector2 _fillTailBasePosition;
 
     public bool IsBubbleVisible => _canvas != null && _canvas.gameObject.activeSelf;
     public string CurrentBubbleText => IsBubbleVisible && _bubbleText != null ? _bubbleText.text : string.Empty;
@@ -120,6 +125,7 @@ public class NPCBubblePresenter : MonoBehaviour
         }
 
         SyncCanvasTransform();
+        ApplyTailBob();
         SyncSorting();
     }
 
@@ -139,6 +145,8 @@ public class NPCBubblePresenter : MonoBehaviour
         bubbleGapAboveRenderer = Mathf.Max(0f, bubbleGapAboveRenderer);
         visibleFloatAmplitude = Mathf.Clamp(visibleFloatAmplitude, 0f, 0.12f);
         visibleFloatFrequency = Mathf.Clamp(visibleFloatFrequency, 0.1f, 6f);
+        tailBobAmplitude = Mathf.Clamp(tailBobAmplitude, 0f, 8f);
+        tailBobFrequency = Mathf.Clamp(tailBobFrequency, 0.1f, 8f);
         showDuration = Mathf.Max(0.01f, showDuration);
         hideDuration = Mathf.Max(0.01f, hideDuration);
         showScaleOvershoot = Mathf.Clamp(showScaleOvershoot, 0f, 0.2f);
@@ -289,24 +297,26 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private void ApplyCurrentStylePreset()
     {
-        bubbleLocalOffset = new Vector3(0f, 1.68f, 0f);
-        bubblePadding = new Vector2(30f, 18f);
+        bubbleLocalOffset = new Vector3(0f, 1.82f, 0f);
+        bubblePadding = new Vector2(38f, 24f);
         bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
         bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
         bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
         textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
         textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
-        fontSize = 20f;
+        fontSize = 23f;
         textOutlineWidth = 0.18f;
-        maxTextWidth = 220f;
+        maxTextWidth = 248f;
         borderThickness = 6f;
-        tailSize = new Vector2(20f, 12f);
-        tailYOffset = -4f;
+        tailSize = new Vector2(26f, 16f);
+        tailYOffset = -7f;
         shadowOffset = new Vector2(3f, -5f);
-        minBubbleHeight = 1.46f;
-        bubbleGapAboveRenderer = 0.32f;
-        visibleFloatAmplitude = 0.024f;
-        visibleFloatFrequency = 1.6f;
+        minBubbleHeight = 1.58f;
+        bubbleGapAboveRenderer = 0.42f;
+        visibleFloatAmplitude = 0.012f;
+        visibleFloatFrequency = 1.25f;
+        tailBobAmplitude = 2.2f;
+        tailBobFrequency = 2.1f;
         showDuration = 0.14f;
         hideDuration = 0.1f;
         showScaleOvershoot = 0.05f;
@@ -472,13 +482,18 @@ public class NPCBubblePresenter : MonoBehaviour
         Vector2 tailPosition = new Vector2(0f, tailCenterY);
         Vector2 shadowBodyPosition = bodyPosition + shadowOffset;
         Vector2 shadowTailPosition = tailPosition + shadowOffset;
+        Vector2 fillTailPosition = tailPosition + (Vector2.up * 0.75f);
+
+        _shadowTailBasePosition = shadowTailPosition;
+        _borderTailBasePosition = tailPosition;
+        _fillTailBasePosition = fillTailPosition;
 
         SetRect(_shadowBodyRect, bodySize, shadowBodyPosition);
-        SetRect(_shadowTailRect, tailSize, shadowTailPosition);
+        SetRect(_shadowTailRect, tailSize, _shadowTailBasePosition);
         SetRect(_borderBodyRect, bodySize, bodyPosition);
-        SetRect(_borderTailRect, tailSize, tailPosition);
+        SetRect(_borderTailRect, tailSize, _borderTailBasePosition);
         SetRect(_fillBodyRect, fillBodySize, bodyPosition);
-        SetRect(_fillTailRect, fillTailSize, tailPosition + (Vector2.up * 0.75f));
+        SetRect(_fillTailRect, fillTailSize, _fillTailBasePosition);
         SetRect(_bubbleText.rectTransform, preferredSize, bodyPosition);
 
         _lowestVisibleLocalY = Mathf.Min(
@@ -491,6 +506,7 @@ public class NPCBubblePresenter : MonoBehaviour
 
         _canvasRect.sizeDelta = canvasSize;
         _bubbleRoot.sizeDelta = canvasSize;
+        ApplyTailBob();
     }
 
     private void SyncCanvasTransform()
@@ -653,6 +669,26 @@ public class NPCBubblePresenter : MonoBehaviour
         return new Vector3(0.84f, 0.78f, 1f);
     }
 
+    private void ApplyTailBob()
+    {
+        if (_shadowTailRect == null || _borderTailRect == null || _fillTailRect == null)
+        {
+            return;
+        }
+
+        float tailBobOffset = 0f;
+        if (Application.isPlaying && IsBubbleVisible)
+        {
+            tailBobOffset =
+                Mathf.Sin(Time.unscaledTime * tailBobFrequency * Mathf.PI * 2f) * tailBobAmplitude;
+        }
+
+        Vector2 bobOffset = Vector2.up * tailBobOffset;
+        _shadowTailRect.anchoredPosition = _shadowTailBasePosition + bobOffset;
+        _borderTailRect.anchoredPosition = _borderTailBasePosition + bobOffset;
+        _fillTailRect.anchoredPosition = _fillTailBasePosition + bobOffset;
+    }
+
     private TMP_FontAsset ResolveFontAsset()
     {
         if (fontAsset != null)
@@ -773,7 +809,7 @@ public class NPCBubblePresenter : MonoBehaviour
         for (int y = 0; y < height; y++)
         {
             float normalized = y / Mathf.Max(1f, height - 1f);
-            float halfWidth = Mathf.Lerp((width - 1) * 0.5f, 0f, normalized);
+            float halfWidth = Mathf.SmoothStep(0f, (width - 1) * 0.5f, normalized);
             for (int x = 0; x < width; x++)
             {
                 bool inside = Mathf.Abs(x - centerX) <= halfWidth;

@@ -782,9 +782,11 @@ public class NPCPrefabGeneratorTool : EditorWindow
     private void ConfigureRigidbody(Rigidbody2D rigidbody2D)
     {
         rigidbody2D.bodyType = RigidbodyType2D.Dynamic;
+        rigidbody2D.mass = 6f;
         rigidbody2D.gravityScale = 0f;
-        rigidbody2D.linearDamping = 0f;
+        rigidbody2D.linearDamping = 8f;
         rigidbody2D.angularDamping = 0.05f;
+        rigidbody2D.interpolation = RigidbodyInterpolation2D.Interpolate;
         rigidbody2D.constraints = RigidbodyConstraints2D.FreezeRotation;
         rigidbody2D.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
     }

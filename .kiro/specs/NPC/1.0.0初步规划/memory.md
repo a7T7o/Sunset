@@ -179,3 +179,17 @@
   - NPC 自压 prompt 会明确写清：NPC 线程只修气泡观感、默认碰撞体、NPC 如何消费导航结果，不重写导航核心；并要求收到导航交付后再做 NPC 侧适配验收。
   - 两份 prompt 都会带：目标、现场基线、代码归属、非目标、硬验收项、验证方式、回执格式。
 - 当前恢复点：后续只要把这两份 prompt 发出去，就能让导航线程和 NPC 线程按统一边界并行推进，不再混线。
+
+## 2026-03-23 NPC第二刀表现层与碰撞体感精修
+
+- 当前主线目标：按 `main-only` 新口径继续推进 NPC 自己的下一刀，只修气泡表现与 NPC 自身碰撞体感，不越界去动导航核心。
+- 本轮子任务：完成倒三角尾巴朝下、尾巴单独轻微跳动、气泡与字体适度放大，以及 NPC 默认刚体更难被玩家顶开的第二刀精修。
+- 本轮完成：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 升到 `styleVersion = 6`，把默认气泡抬高、放大并增加留白；尾巴运行时纹理改成上宽下尖的倒三角；新增 `tailBobAmplitude / tailBobFrequency`，只让尾巴自己轻微上下跳动。
+  - `Assets/Editor/NPCPrefabGeneratorTool.cs` 的默认 `Rigidbody2D` 改为 `mass = 6`、`linearDamping = 8`、`interpolation = Interpolate`，保持 Dynamic + Continuous，不改导航系统本体。
+  - `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 已同步成新气泡参数与新刚体参数，确保“代码默认值 / 生成器默认值 / 样本 prefab 真相”一致。
+- 本轮验证：
+  - 对 `NPCBubblePresenter.cs`、`NPCPrefabGeneratorTool.cs`、`001~003.prefab` 执行了 `git diff --check`，通过。
+  - 只读回看确认样本 prefab 当前已为 `m_Mass: 6`、`m_LinearDamping: 8`、`m_Interpolate: 1`、`tailBobAmplitude: 2.2`、`tailBobFrequency: 2.1`、`styleVersion: 6`。
+  - 尝试通过 MCP 执行 `recompile_scripts` 获取最小 live 编译证据，但当前返回 `Connection failed: Unknown error`，因此本轮仍只能写实为“静态验证通过，Unity live 编译证据未取得”。
+- 当前恢复点：NPC 现在已经具备第二刀本地 checkpoint 条件；下一步若继续，应优先做一次 `Primary` 场景的 live 目测验收，看尾巴指向感和玩家推挤体感是否达标。
