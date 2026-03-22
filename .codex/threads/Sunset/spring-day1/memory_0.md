@@ -309,3 +309,78 @@
 - 本轮新增了 `DialogueSequenceCompletedEvent`、`DialogueManager.HasCompletedSequence(...)`、序列完成后 `IsLanguageDecoded` 切换，以及 `NPCDialogueInteractable` 的首段/后续分流逻辑。
 - `SpringDay1_FirstDialogue.asset` 现在会在完成后解码语言，并指向新的 `SpringDay1_FirstDialogue_Followup.asset`；下一次与同一 NPC 交互时会自动改播 follow-up。
 - 本轮未碰 `Primary.unity`、`GameInputManager.cs` 或其他 A 类共享热文件；下一轮优先做可见工程中的手工验收，再决定是否把完成事件继续接到 Day1 更大的阶段管理。
+
+## 2026-03-21 补记：spring-day1 已向 scene-build 交付 Day1 空间职责表
+- 当前线程主线已从“继续对话功能”临时切换为“把 Day1 剧情承载要求翻译给场景搭建线程”。
+- 本轮正式输出了 `scene-build` 可直接施工的空间 brief，新增文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\scene-build_handoff.md`
+- 核心结论已明确：
+  - Day1 需要按场景模块拆分理解，而不是一张大图全包；
+  - `SceneBuild_01` 的正式身份是春1日 `14:20` 进入村庄后，到 `15:10` 教学前后的“住处安置 + 工作台闪回 + 农田/砍树教学”主承载场景；
+  - `scene-build` 后续精修重点应放在入口动线、院落焦点、工作台与教学区关系、室内外衔接，而不是继续泛化扩景。
+- 本轮没有触碰 Unity / MCP live、没有去改 `SceneBuild_01`、也没有把主线又拉回 UI / 字幕 / 对话实现。
+- 当前恢复点：本轮交接已经可以独立交给 `scene-build` 继续施工，`spring-day1` 当前任务按交接口径完成收口。
+
+## 2026-03-22 补记：已收敛 scene-build 开工 prompt 与 spring-day1 后续实现方案
+- 本轮继续保持只读分析，没有新增业务代码修改。
+- 已把后续可执行内容拆成两块：
+  - 给 `scene-build` 的直接开工 prompt：围绕 `SceneBuild_01` 的入口动线、院落焦点、工作台、农田/砍树教学区和室内外衔接继续精修，不再扩成整村。
+  - 给 `spring-day1` 自己的实现方案：先收 Day1 阶段推进链，再做疗伤/血条、工作台闪回、农田/砍树教学，最后再收晚餐、归途、自由时段和睡觉结束。
+- 当前恢复点：场景侧已具备开工口径；本线程后续恢复真实开发时，重点应回到 Story 管线实现而不是再回头修已验收的 UI。
+
+## 2026-03-22 补记：0.0阶段执行文档已建立并进入待审核状态
+- 当前线程主线已从“只给 scene-build 交接”进一步扩展到“给春1日 0.0 阶段建立正式执行层文档”，但仍未进入新的业务代码实现。
+- 已在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段` 建立根层四件套，并在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0.2初步落地` 建立首个 checkpoint 四件套。
+- 关键决策保持稳定：`0.0.1剧情初稿` 继续作为剧情原稿；执行层从 `0.0阶段` 开始，首个 checkpoint 固定为“Day1 阶段推进主链”。
+- live 复核确认当前 shared root 仍为 `D:\Unity\Unity_learning\Sunset @ main @ c6af26574234329e3525acbdfd5b645a3f5b278a`；本轮新增内容仍未提交，处于待用户审核状态。
+- 当前恢复点：等待用户审核 `0.0阶段` 与 `0.0.2初步落地` 文档；审核通过后，再进入 Story 管线真实实现前的最终收敛。
+
+## 2026-03-22 补记：0.0阶段根层已收口为单一主线清单
+- 用户明确纠正：`0.0阶段` 根目录不应保留三件套/四件套，只需要一个全局执行清单。
+- 本轮已删除根层多余文档，改为保留：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0阶段主线任务清单.md`
+- `0.0.2初步落地` 继续承接详细设计与任务拆分，并补上了“承接根层第一个 checkpoint”的说明。
+- 当前恢复点：现已回到“根层一份总清单 + 子工作区详细文档”的正确结构，等待用户审核。
+
+## 2026-03-22 补记：0.0.2 已压成真正可执行的 checkpoint checklist
+- 本轮继续停留在文档层，没有进入新的业务代码实现。
+- 已基于 live 代码现状回读 `DialogueManager.cs`、`DialogueSequenceSO.cs`、`NPCDialogueInteractable.cs`、`StoryEvents.cs`，确认当前仍缺正式的 Day1 主控脊柱。
+- 已将 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0.2初步落地\tasks.md` 收口为可执行 checklist，明确了实现顺序、逐项验收点、以及“不碰 UI / 不碰 Primary.unity / 不扩写 0.0.3+”的边界。
+- 当前恢复点：`0.0.2` 文档已经从“方向说明”收敛到“可直接开工的任务单”；下一步等待用户审核。
+
+## 2026-03-22 补记：0.0.2 已补到文件级实现方案
+- 本轮仍然没有进入业务代码实现，而是继续压缩实现前文档。
+- 已新增 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0.2初步落地\实现落地方案.md`。
+- 该文档已明确：
+  - 需要新建哪些文件：`StoryPhase.cs`、`StoryManager.cs`
+  - 需要扩展哪些文件：`StoryEvents.cs`、`DialogueSequenceSO.cs`、`DialogueManager.cs`、`NPCDialogueInteractable.cs`
+  - 推荐实现顺序
+  - 每一步验收点
+  - 首轮实现白名单与明确不碰项
+- 当前恢复点：`0.0.2` 已具备从 checkpoint 清单到文件级实现方案的完整落地入口；等待用户审核后即可进入真实编码阶段。
+
+## 2026-03-22 补记：`4ff31663` 基础脊柱已最小面迁入 `main`
+- 本轮不继续扩写 `0.0.2`，只执行 branch carrier 到 `main` 的定向迁入。
+- 已从 `codex/spring-day1-0.0.2-foundation-001 @ 4ff31663004ec6293b1fc0246b75a21fc37a1a2b` 白名单迁入：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\StoryPhase.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\StoryManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\DialogueSequenceSO.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Events\StoryEvents.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\DialogueManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCDialogueInteractable.cs`
+- 同时带入了两个新建脚本必需的 `.meta`：`StoryPhase.cs.meta`、`StoryManager.cs.meta`。
+- 本轮未触碰 `Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs`、Scene、Prefab、对话资源或 `0.0.2` 其他后续正文。
+- Git 提交已完成：`83d809a9`（`spring-day1: migrate 0.0.2 story foundation`）。
+- 当前恢复点：`0.0.2` 这刀基础层代码已正式进入 `main`；后续若继续开发，应从 `main` 上的这批 `Story` 脊柱继续向真实剧情链推进。
+
+## 2026-03-22 补记：剩余文档整理面已在 `main` 直接收口
+- 本轮严格不碰 `83d809a9` 已进入 `main` 的 `Story` 代码，只处理 spring-day1 自己遗留的文档整理面。
+- 本轮收口对象限定为：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\requirements.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\scene-build_handoff.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\`
+  - 以及旧目录 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0.1剧情初稿\` 的迁移删除
+- 这次整理的目标是把 `0.0阶段` 的结构与 `spring-day1-implementation` 的文档面一起压平到当前 `main`，避免后续再依赖分散草稿或旧目录。
+- 当前恢复点：spring-day1 文档面已与当前 `main` 的实现基线对齐；下一轮若继续推进，应直接从 `main` 上的 `0.0阶段 + spring-day1-implementation` 入口继续。

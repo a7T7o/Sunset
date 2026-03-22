@@ -215,3 +215,49 @@
 - `SpringDay1_FirstDialogue.asset` 已配置为“完成后解码 + 指向 `SpringDay1_FirstDialogue_Followup.asset`”；因此 Day1 当前已经从“只会播放首段测试对话”升级为“首段完成后，后续再次交互会自动进入正常可读的新对话”。
 - 本轮明确未触碰 `Primary.unity`、`GameInputManager.cs` 或其他 A 类共享热文件，新增需求被限制在 `Story` 脚本与对话资产层。
 - Git 收尾已完成：提交 `a9c952b717395c561c0f50a55bf3382dd7c4c925` 已推送到 `origin/codex/spring-day1-story-progression-001`。
+
+## 2026-03-21 补记：已向 `scene-build` 输出 Day1 空间职责交接口径
+- 当前主线目标不是继续做 UI / 字幕 / 对话实现，而是把 `spring-day1` 的剧情承载要求翻译成 `scene-build` 可直接施工的空间 brief。
+- 本轮只读回看了 `spring-day1-implementation` 正文与 `scene-build` 当前 `SceneBuild_01` 结论，正式收敛出 Day1 的场景模块拆分、`SceneBuild_01` 的正式身份、强制承载动作、禁止误扩边界与精修优先级。
+- 已新增交接正文：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\scene-build_handoff.md`
+- 已同步把该结论压入 `requirements.md`，使 `spring-day1` 工作区自身也明确记录：`SceneBuild_01` 应被视为“住处安置 + 工作台闪回 + 农田/砍树教学”的主承载场景，而不是整村总图。
+- 本轮未触碰 Unity / MCP live、未改 `SceneBuild_01`、未进入 `scene-build` worktree 代写施工。
+- 当前恢复点：`scene-build` 已具备继续精修 `SceneBuild_01` 的正式空间口径；`spring-day1` 这边本轮任务可收口为交付完成。
+
+## 2026-03-22 补记：已形成给 `scene-build` 的直接开工 prompt 与 `spring-day1` 后续实现落地方案
+- 本轮没有继续改业务代码，而是把两件事收敛成可执行口径：一是发给 `scene-build` 的开工 prompt；二是 `spring-day1` 自己后续实现的阶段化落地方案。
+- 已确认可直接引用的现有依据包括：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\scene-build_handoff.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\requirements.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\OUT_design.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\OUT_tasks.md`
+- 当前收敛出的 `spring-day1` 后续实现主线优先级为：
+  1. 先把 Day1 阶段推进主链真正接起来；
+  2. 再落地“疗伤/血条 -> 工作台闪回 -> 农田/砍树教学”；
+  3. 再补晚餐、归途、自由时段与睡觉结束。
+- 当前恢复点：场景搭建已可以按交接文件继续；`spring-day1` 自身后续应转回“剧情驱动链 + 教学链 + 阶段控制”的正式实现。
+
+## 2026-03-22 补记：`0.0.2` 基础脊柱已从 carrier 最小迁入 `main`
+- 本轮没有继续扩写 `0.0.2` 业务，而是执行一次定向迁入，把 `codex/spring-day1-0.0.2-foundation-001 @ 4ff31663004ec6293b1fc0246b75a21fc37a1a2b` 的最小代码面带回 `main`。
+- 实际迁入路径限定为：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\StoryPhase.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\StoryManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\DialogueSequenceSO.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Events\StoryEvents.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\DialogueManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCDialogueInteractable.cs`
+- Unity 新脚本配套 `.meta` 也已一并进入 `main`：`StoryPhase.cs.meta`、`StoryManager.cs.meta`。
+- 本轮明确未迁入 `Primary.unity`、`DialogueUI.cs`、Scene/Prefab、对话资产或 `0.0.2` 后续文档整理。
+- Git 提交已完成：`83d809a9`（`spring-day1: migrate 0.0.2 story foundation`）。
+- 当前恢复点：`main` 已具备 Day1 剧情基础脊柱；下一轮再决定是否继续接真实阶段推进与对话资产配置。
+
+## 2026-03-22 补记：spring-day1 剩余文档整理已直接对齐到 `main`
+- 本轮不再变动 `Assets/YYY_Scripts/Story/` 下任何业务代码，只收口 `spring-day1` 自身遗留的文档面。
+- 本轮实际整理并准备收口到 `main` 的文档路径为：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\requirements.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\scene-build_handoff.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\`
+- 同时把旧目录 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0.1剧情初稿\` 的历史内容迁入 `0.0阶段\0.0.1剧情初稿\` 结构，并清掉旧落点。
+- 当前恢复点：`spring-day1-implementation` 与 `0.0阶段` 的文档入口已经回到统一结构，后续可以直接围绕 `main` 上的现有文档继续推进。
