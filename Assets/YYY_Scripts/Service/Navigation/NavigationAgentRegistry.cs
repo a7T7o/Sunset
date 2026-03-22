@@ -48,7 +48,7 @@ public static class NavigationAgentRegistry
                 continue;
             }
 
-            if (!behaviour || !behaviour.isActiveAndEnabled)
+            if (!behaviour || !behaviour.enabled || !behaviour.gameObject.activeInHierarchy)
             {
                 if (!behaviour)
                 {

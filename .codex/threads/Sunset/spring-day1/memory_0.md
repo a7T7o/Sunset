@@ -424,3 +424,7 @@
 - 我当前的落点不是把每一段都先打磨完，而是先建立一个不会把后续阶段卡死的统一导演层。
 - 这轮新增的核心是：`HealthSystem + SpringDay1PromptOverlay + SpringDay1Director`。
 - 当前我对主线的理解是：先把 Day1 整体主链串通，再回头做压缩验收，而不是每段都停下来精修。
+
+## 2026-03-23 补记：当前继续开发前，顺手拔掉了一个 Unity 编译挡路点
+- 我从 `Editor.log` 读到一个不属于 spring-day1 业务、但会卡死 Unity 验证链的编译点：`NavigationAgentRegistry.cs`。
+- 这类问题我后面会继续按“低风险、单点、只为恢复验证链”原则处理，不把它误判成主线切换。

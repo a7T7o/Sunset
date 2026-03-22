@@ -203,3 +203,15 @@
 - 复杂演出位、群体 NPC 调度、完整导航增强仍后置。
 **恢复点 / 下一步**：
 - 下一步应继续补导演层与现有系统的真实钩子，把 0.0.3~0.0.6 从“骨架可跑”继续推到“可通过最小通路验收”。
+
+### 会话 12 - 2026-03-23（编译阻断顺手清理）
+**用户需求**：
+> 代码不要留编译/语法问题，自己先检查，不要等 Unity 替你兜底。
+**完成任务**：
+1. 从 `Editor.log` 读到当前项目级编译阻断：
+   - `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs(51,42)`
+2. 只改这一处低风险单点，把 `behaviour.isActiveAndEnabled` 改成更稳妥的显式判断：
+   - `behaviour.enabled`
+   - `behaviour.gameObject.activeInHierarchy`
+**恢复点 / 下一步**：
+- 当前已清掉一个会直接阻断编译的单点；后续继续以 `spring-day1` 主线推进，但会顺手把这种明显编译阻断先拔掉。

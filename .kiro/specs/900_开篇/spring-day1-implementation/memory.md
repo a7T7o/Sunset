@@ -316,3 +316,7 @@
   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
 - 当前目标是让 `HealingAndHP -> WorkbenchFlashback -> FarmingTutorial -> DinnerConflict -> ReturnAndReminder -> FreeTime -> DayEnd` 能先被一个统一导演层接住，再逐步补每一段的真实触发与验收。
 - 当前恢复点：spring-day1 已从“只收首段对话闭环”推进到“开始搭建 Day1 后四阶段的统一运行时主链”。
+
+## 2026-03-23 补记：为继续 spring-day1 验收顺手清理了一个项目级编译阻断
+- 从 `Editor.log` 读到当前真实编译阻断落在 `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`。
+- 这不是 spring-day1 业务逻辑本身，但会卡住后续所有 Unity 侧验证，因此已做最小修复：把 `isActiveAndEnabled` 改成显式的 `enabled + activeInHierarchy` 判断。
