@@ -61,7 +61,11 @@
 2. 你要进 Unity / MCP live 写，但已经有人在写
 3. 你发现当前 dirty 里混进了明显不属于 NPC 的路径
 
-聊天只回：
+回执不要再让项目经理手动建文件。
+直接把最终回执追加到：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\001部分回执.md`
+
+回执固定字段：
 - 当前在改什么
 - changed_paths
 - 是否触碰 Unity / MCP live 写

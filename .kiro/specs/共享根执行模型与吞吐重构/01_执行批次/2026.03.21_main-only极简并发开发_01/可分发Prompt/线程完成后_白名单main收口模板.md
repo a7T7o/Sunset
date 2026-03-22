@@ -28,6 +28,11 @@
 - 跨线程强耦合
 - 你的成果还在 branch carrier / worktree，尚未迁入 `main`
 
+## 回执落点
+- 不要让项目经理手动再建文件。
+- 直接把最终回执追加到：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\001部分回执.md`
+
 ## 你回我只要这些
 - 实际提交到 `main` 的路径
 - 提交 SHA
