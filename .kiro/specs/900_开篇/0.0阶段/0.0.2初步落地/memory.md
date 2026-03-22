@@ -156,3 +156,24 @@
 3. 同步收敛优先级：先做单个 NPC 的冻结 / 恢复，再把更大的剧情演出位、群体广播、导航增强留到后续协作。
 **恢复点 / 下一步**：
 - 当前主线不变，下一步直接实现 `NPCDialogueInteractable` 的最小对话接轨。
+
+### 会话 10 - 2026-03-22（live 验收尝试）
+**用户需求**：
+> 在代码自检后，必要时调用 mcp；如果 mcp 失败就继续自己的事情，除非必须依赖 mcp 才停下。
+**完成任务**：
+1. 使用 `unityMCP` 只读读取 `NPC001` 与 `DialogueCanvas` 的 live 现场，确认：
+   - `NPC001` 当前真实挂有 `NPCDialogueInteractable + NPCAutoRoamController + NPCMotionController + NPCBubblePresenter`
+   - `NPCDialogueInteractable` 新增字段已经正确落到 live prefab
+2. 在 PlayMode 内通过 `DialogueDebugMenu` 触发一次真实 NPC 对话，并在对话进行中重新读取 `NPC001` 组件。
+3. 已直接取到正向证据：
+   - 对话进行中 `NPCAutoRoamController.IsRoaming = false`
+   - `DebugState = Inactive`
+   - `NPCMotionController.IsMoving = false`
+   - `DialogueDebugMenu` 日志显示 `IsDialogueActive=True`、`TimePaused=True`、`InputEnabled=False`
+**未闭环项**：
+- 在继续做“强制推进到结束并确认恢复漫游”时，Unity/MCP 会话在重新进入 Play 后出现：
+  - `[WebSocket] Unexpected receive error: WebSocket is not initialised`
+  - `Unity plugin session ... disconnected while awaiting command_result`
+- 因此本轮 live 验收只能确认“开聊会冻结当前交互 NPC”，尚未稳定确认“播完后恢复漫游”。
+**恢复点 / 下一步**：
+- 当前代码与静态约束已经补齐；下一步应在稳定的 Unity/MCP 会话或人工验收下，补完“首段播完 -> 恢复漫游 -> 再次交互走 follow-up”的最后运行态闭环。

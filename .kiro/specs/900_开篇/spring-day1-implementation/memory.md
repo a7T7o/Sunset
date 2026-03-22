@@ -297,3 +297,13 @@
 - 本轮已明确：NPC 相关内容不是切换主线，而是作为 `spring-day1` 当前 checkpoint 的新增子任务并入开发。
 - 当前优先级已收敛为：先补单个交互 NPC 的对话占用（冻结 / 恢复 / 必要时面向玩家），再做 live 验收。
 - 更大的 NPC 接轨项（剧情站位、群体广播、导航增强）保留为后续协作项，不抢占当前主线。
+
+## 2026-03-22 补记：NPC 最小接轨已拿到首个 live 正向证据
+- 本轮通过 `unityMCP` 读取 `Primary` 场景 live 现场，已确认 `NPC001` 在对话进行中会被正确冻结：
+  - `NPCAutoRoamController.IsRoaming = false`
+  - `DebugState = Inactive`
+  - `NPCMotionController.IsMoving = false`
+  - 同时 `DialogueDebugMenu` 日志显示对话激活、时间暂停、输入关闭
+- 这说明“当前交互 NPC 的最小对话占用协议”已经在 live 现场拿到正向证据。
+- 但“对话播完后恢复漫游、再次交互走 follow-up”仍未在同一轮里稳定闭环：重新进入 Play 后 `unityMCP` 出现 WebSocket / session 断连。
+- 当前恢复点：代码层已到位，live 验收已完成一半；剩余只差稳定会话下的收尾验证。
