@@ -411,3 +411,42 @@
   - 不重
   - 不拖慢节奏
   - 但足够防住这次暴露出来的三类低级错误。
+
+## 2026-03-23｜代码闸门已正式落地到 `git-safe-sync.ps1`，并完成直测与集成测试
+**当前主线目标**
+- 不再只停留在“并发现场缺 post-edit / pre-sync 两层自检”的诊断，而是直接把这套正确率闸门接进 Sunset 当前真实会走的收口主流程里。
+
+**本轮完成**
+1. 已新增独立检查器：
+   - `D:\Unity\Unity_learning\Sunset\scripts\CodexCodeGuard\CodexCodeGuard.csproj`
+   - `D:\Unity\Unity_learning\Sunset\scripts\CodexCodeGuard\Program.cs`
+2. 已把代码闸门正式接入：
+   - `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+3. 当前 `task` 模式只要白名单里含 `.cs`，收口前会自动做：
+   - 目标文件 UTF-8 检查
+   - `git diff --check`
+   - 基于 Unity 程序集引用的程序集级编译检查
+4. 该编译检查不是弱正则，而是：
+   - 读取 Unity Editor 安装路径
+   - 读取 `Library/ScriptAssemblies`
+   - 按 `Assembly-CSharp / Assembly-CSharp-Editor / Tests.Editor` 分组编译
+   - 用当前线程改动 + `HEAD` 基线做差分，只报这轮新引入的诊断
+5. 已完成两轮真实测试：
+   - 直测：对当前遮挡线 5 个 `.cs` 改动直接调用 `CodexCodeGuard.dll`，结果通过
+   - 集成测：对当前工作树 dirty 做一次 `git-safe-sync.ps1 -Action preflight -Mode task`，代码闸门正常出现在输出中并通过
+6. 已把线程侧口径同步到：
+   - `AGENTS.md`
+   - `Sunset当前规范快照_2026-03-22.md`
+   - `2026.03.21_main-only极简并发开发_01/README.md`
+   - `并发线程_当前版本更新前缀.md`
+   - `线程完成后_白名单main收口模板.md`
+   - 导航 / 遮挡 / `spring-day1` 当前开发 prompt
+
+**关键决策**
+- 现在的主流程已经不再允许“改完 `.cs`，先不查，等用户贴报错再补”。
+- 也不再把 Unity/MCP 当成第一层低级错误筛查工具；第一层筛查已经进入 `git-safe-sync.ps1`。
+- 当前代码闸门以“只报这轮新引入的诊断”为核心，这样才能在 shared root 并发 dirty 现场里真正可用。
+
+**恢复点 / 下一步**
+- 从现在开始，线程只要改 `.cs` 并准备收口，就会被脚本自动卡一次。
+- 下一步不再是继续发明规则，而是观察线程真实使用一轮，看看是否还需要补“targeted test gate”或“warning 白名单”之类的细化策略。

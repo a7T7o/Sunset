@@ -1382,6 +1382,125 @@ function Get-HeadShort {
     return (Invoke-Git -Arguments @('rev-parse', '--short', 'HEAD')).Output[0].Trim()
 }
 
+function Get-CodeGuardProjectPath {
+    return (Join-Path (Get-RepoRoot) 'scripts/CodexCodeGuard/CodexCodeGuard.csproj')
+}
+
+function Get-CodeGuardDllPath {
+    $projectPath = Get-CodeGuardProjectPath
+    $projectDirectory = Split-Path -Parent $projectPath
+    return (Join-Path $projectDirectory 'bin/Release/net9.0/CodexCodeGuard.dll')
+}
+
+function Test-CodeGuardBuildRequired {
+    $dllPath = Get-CodeGuardDllPath
+    if (-not (Test-Path -LiteralPath $dllPath)) {
+        return $true
+    }
+
+    $projectDirectory = Split-Path -Parent (Get-CodeGuardProjectPath)
+    $latestInput = Get-ChildItem -Path $projectDirectory -Recurse -File |
+        Where-Object { $_.Extension -in @('.cs', '.csproj') } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -First 1
+
+    if ($null -eq $latestInput) {
+        return $false
+    }
+
+    return $latestInput.LastWriteTime -gt (Get-Item -LiteralPath $dllPath).LastWriteTime
+}
+
+function Ensure-CodeGuardBuilt {
+    $projectPath = Get-CodeGuardProjectPath
+    if (-not (Test-Path -LiteralPath $projectPath)) {
+        throw "FATAL: CodexCodeGuard 项目不存在：$projectPath"
+    }
+
+    if (-not (Test-CodeGuardBuildRequired)) {
+        return
+    }
+
+    $output = & dotnet build $projectPath -c Release --nologo 2>&1
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "FATAL: CodexCodeGuard 构建失败：$($output -join [Environment]::NewLine)"
+    }
+}
+
+function New-EmptyCodeGuardReport {
+    param([string]$Reason)
+
+    return [PSCustomObject]@{
+        Applies          = $false
+        CanContinue      = $true
+        Phase            = 'pre-sync'
+        RepoRoot         = Get-RepoRoot
+        OwnerThread      = 'none'
+        Branch           = Get-CurrentBranch
+        ChangedCodeFiles = @()
+        AffectedAssemblies = @()
+        ChecksRun        = @()
+        Diagnostics      = @()
+        Summary          = $Reason
+        Reason           = $Reason
+    }
+}
+
+function Invoke-CodeGuard {
+    param(
+        [string]$RepoRoot,
+        [string]$OwnerThread,
+        [string]$Branch,
+        [object[]]$AllowedEntries,
+        [string]$Phase
+    )
+
+    $candidatePaths = @(
+        $AllowedEntries |
+        Where-Object { $null -ne $_ -and -not [string]::IsNullOrWhiteSpace($_.Path) -and $_.Path.ToLowerInvariant().EndsWith('.cs') } |
+        ForEach-Object {
+            $normalized = Normalize-InputPath -Path $_.Path
+            Join-Path $RepoRoot ($normalized.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
+        } |
+        Sort-Object -Unique
+    )
+
+    if ($candidatePaths.Count -eq 0) {
+        return (New-EmptyCodeGuardReport -Reason '本轮白名单未触发 C# 代码闸门。')
+    }
+
+    Ensure-CodeGuardBuilt
+    $dllPath = Get-CodeGuardDllPath
+
+    $arguments = @($dllPath, '--repo-root', $RepoRoot, '--phase', $Phase, '--owner-thread', $OwnerThread, '--branch', $Branch)
+    foreach ($path in $candidatePaths) {
+        $arguments += @('--path', $path)
+    }
+
+    $output = & dotnet @arguments 2>&1
+    $exitCode = $LASTEXITCODE
+    $lines = @($output | ForEach-Object { "$_" } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $jsonLine = $lines | Select-Object -Last 1
+
+    if ([string]::IsNullOrWhiteSpace($jsonLine)) {
+        throw "FATAL: CodexCodeGuard 未返回 JSON 结果。原始输出：$($lines -join [Environment]::NewLine)"
+    }
+
+    try {
+        $report = $jsonLine | ConvertFrom-Json
+    }
+    catch {
+        throw "FATAL: CodexCodeGuard JSON 解析失败：$jsonLine"
+    }
+
+    if ($exitCode -ne 0 -and ($null -eq $report -or $report.CanContinue)) {
+        throw "FATAL: CodexCodeGuard 进程失败但未返回明确阻断结果：$($lines -join [Environment]::NewLine)"
+    }
+
+    return $report
+}
+
 function Get-UpstreamCounts {
     $upstream = Invoke-Git -Arguments @('rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{upstream}') -AllowFailure
 
@@ -2300,6 +2419,7 @@ function New-PreflightReport {
 
     $canContinue = $true
     $reason = '允许继续'
+    $codeGuard = New-EmptyCodeGuardReport -Reason '当前模式未运行代码闸门。'
 
     $sharedRootLease = $null
     if ($Mode -eq 'task') {
@@ -2333,6 +2453,14 @@ function New-PreflightReport {
         $reason = $sharedRootLease.Reason
     }
 
+    if ($canContinue -and $Mode -eq 'task') {
+        $codeGuard = Invoke-CodeGuard -RepoRoot $repoRoot -OwnerThread $OwnerThread -Branch $branch -AllowedEntries $allowed -Phase 'pre-sync'
+        if ($codeGuard.Applies -and -not $codeGuard.CanContinue) {
+            $canContinue = $false
+            $reason = "FATAL: 代码闸门未通过：$($codeGuard.Reason)"
+        }
+    }
+
     return [PSCustomObject]@{
         OwnerThread     = $OwnerThread
         RepoRoot        = $repoRoot
@@ -2342,6 +2470,7 @@ function New-PreflightReport {
         Allowed         = @($allowed)
         Remaining       = @($remaining)
         SharedRootLease = $sharedRootLease
+        CodeGuard       = $codeGuard
         CanContinue     = $canContinue
         Reason          = $reason
     }
@@ -2357,6 +2486,36 @@ function Write-PreflightReport {
     Write-Output "upstream 状态 ($($Report.Upstream.Label)): behind=$($Report.Upstream.Behind), ahead=$($Report.Upstream.Ahead)"
     Write-Output "是否允许按当前模式继续: $($Report.CanContinue)"
     Write-Output "判断原因: $($Report.Reason)"
+
+    if ($null -ne $Report.CodeGuard) {
+        Write-Output "代码闸门适用: $($Report.CodeGuard.Applies)"
+        Write-Output "代码闸门通过: $($Report.CodeGuard.CanContinue)"
+        Write-Output "代码闸门摘要: $($Report.CodeGuard.Summary)"
+        Write-Output "代码闸门原因: $($Report.CodeGuard.Reason)"
+        if (@($Report.CodeGuard.ChangedCodeFiles).Count -gt 0) {
+            Write-Output "代码闸门文件数: $(@($Report.CodeGuard.ChangedCodeFiles).Count)"
+        }
+        if (@($Report.CodeGuard.AffectedAssemblies).Count -gt 0) {
+            Write-Output "代码闸门程序集: $((@($Report.CodeGuard.AffectedAssemblies) -join ', '))"
+        }
+        if (@($Report.CodeGuard.Diagnostics).Count -gt 0) {
+            Write-Output '代码闸门诊断:'
+            foreach ($diagnostic in @($Report.CodeGuard.Diagnostics)) {
+                $location = 'n/a'
+                if (-not [string]::IsNullOrWhiteSpace($diagnostic.FilePath)) {
+                    $location = $diagnostic.FilePath
+                    if ($null -ne $diagnostic.Line) {
+                        $location += ":$($diagnostic.Line)"
+                        if ($null -ne $diagnostic.Column) {
+                            $location += ":$($diagnostic.Column)"
+                        }
+                    }
+                }
+                $assemblySegment = if (-not [string]::IsNullOrWhiteSpace($diagnostic.Assembly)) { " [$($diagnostic.Assembly)]" } else { '' }
+                Write-Output "- [$($diagnostic.Severity)] $($diagnostic.RuleId)$assemblySegment $location :: $($diagnostic.Message)"
+            }
+        }
+    }
 
     if ($null -ne $Report.SharedRootLease -and $Report.SharedRootLease.Applies) {
         Write-Output "shared root lease 判断: $($Report.SharedRootLease.CanUse)"

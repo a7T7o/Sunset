@@ -10,6 +10,9 @@
 - 你上一轮已进入 `main` 的关键 checkpoint：
   - `83d809a9`：`0.0.2` 基础脊柱代码
   - `b64d4cdd`：`0.0阶段` / handoff / 文档整理
+- 如果这轮改 `.cs`：
+  - 收口前 `git-safe-sync.ps1` 会自动跑代码闸门
+  - 你不能再等用户贴编译 warning / error 后才补修
 
 先纠正当前口径：
 - 继续重复整理 `0.0阶段` / `spring-day1-implementation` 文档，这条路已经判废。
@@ -50,6 +53,8 @@
 - changed_paths
 - 是否触碰高危目标
 - 是否需要 Unity / MCP live 写
+- `code_self_check: pass / fail / not-applicable`
+- `pre_sync_validation: pass / fail / not-run`
 - 当前是否可以直接提交到 `main`
 - blocker_or_checkpoint
 - 一句话摘要

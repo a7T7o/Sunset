@@ -16,6 +16,13 @@
    - `YYYY.MM.DD_<线程名>_<编号>`
 5. 收口后立刻停下，不再顺手继续改。
 
+## 代码闸门
+- 如果你这轮改了任何 `.cs` 文件：
+  - `git-safe-sync.ps1` 在收口前会自动触发代码闸门
+  - 代码闸门会先做目标文件 UTF-8 / `git diff --check` / 程序集级编译检查
+  - 代码闸门没过，就不允许收口
+- 所以你不要再把“等用户贴编译错误再修”当默认流程。
+
 ## 本轮禁止事项
 - 不要碰白名单之外的路径
 - 不要把 shared root 里的 unrelated dirty 混进来
@@ -36,6 +43,8 @@
 ## 你回我只要这些
 - 实际提交到 `main` 的路径
 - 提交 SHA
+- `code_self_check: pass / fail / not-applicable`
+- `pre_sync_validation: pass / fail / not-run`
 - 当前 `git status` 是否 clean
 - blocker_or_checkpoint
 - 一句话摘要

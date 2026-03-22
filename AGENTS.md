@@ -166,6 +166,11 @@
 - 如果 shared root 占用文档已经声明 `is_neutral = false`，则 `git-safe-sync.ps1` 的 `task` 模式仍会额外核对 `owner_thread + current_branch`；但在 `main-only` 白名单 sync 下，脚本不再因 unrelated remaining dirty 一刀切阻断。
 - 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...`，只白名单提交本轮治理文件。
 - 普通真实实现任务当前默认不再要求先 `ensure-branch`；完成一刀后，默认直接在 `main` 上执行 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...` 做白名单提交。
+- 自 2026-03-23 起，只要 `task` 模式白名单中包含 `.cs` 文件，`git-safe-sync.ps1` 会在收口前自动触发代码闸门：
+  - 目标文件 UTF-8 检查
+  - `git diff --check`
+  - 程序集级编译检查
+- 代码闸门未通过时，禁止继续收口；不要再把“等用户贴编译报错后再修”当成默认流程。
 - 只有命中 branch carrier / worktree 例外场景时，才继续使用 `ensure-branch`、`return-main` 和 `task-active` 这套旧事务模型。
 - 无论在 `main` 还是 `codex/` 分支，真实实现任务完成后都必须使用显式白名单同步，不得使用无边界 `git add -A`。
 - 如果 `git-safe-sync.ps1` 判断当前不能安全同步，必须明确汇报阻塞点、当前分支、基线 hash 和剩余 dirty 分类；禁止硬提交、硬推送或偷偷跳过 Git 收尾。
