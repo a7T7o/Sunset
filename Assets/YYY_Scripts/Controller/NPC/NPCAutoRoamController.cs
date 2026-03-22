@@ -8,7 +8,7 @@ using UnityEngine;
 /// </summary>
 [DisallowMultipleComponent]
 [RequireComponent(typeof(NPCMotionController))]
-public class NPCAutoRoamController : MonoBehaviour
+public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 {
     private const float AmbientChatRetryDelay = 0.9f;
     private const float AmbientChatRetryMinRemainingTime = 1.25f;
@@ -94,7 +94,14 @@ public class NPCAutoRoamController : MonoBehaviour
     [SerializeField] private bool showDebugLog = false;
     [SerializeField] private bool drawDebugPath = true;
 
+    [Header("共享动态避让")]
+    [SerializeField] private float avoidanceRadius = 0.6f;
+    [SerializeField] private int avoidancePriority = 50;
+    [SerializeField] private float sharedAvoidanceLookAhead = 0.8f;
+    [SerializeField] private float sharedAvoidanceRepathCooldown = 0.45f;
+
     private readonly List<Vector2> path = new List<Vector2>();
+    private readonly List<NavigationAgentSnapshot> nearbyNavigationAgents = new List<NavigationAgentSnapshot>(12);
 
     private RoamState state = RoamState.Inactive;
     private Vector2 homePosition;
@@ -114,6 +121,10 @@ public class NPCAutoRoamController : MonoBehaviour
     private float lastProgressCheckTime;
     private float lastProgressDistance;
     private int currentStuckRecoveryCount;
+    private Collider2D navigationCollider;
+    private float lastSharedAvoidanceRepathTime = float.NegativeInfinity;
+    private int lastBlockingAgentId;
+    private int blockingAgentSightings;
 
     public bool IsRoaming => state != RoamState.Inactive;
     public bool IsMoving => state == RoamState.Moving;
@@ -127,6 +138,40 @@ public class NPCAutoRoamController : MonoBehaviour
     public int CurrentStuckRecoveryCount => currentStuckRecoveryCount;
     public float DebugLastProgressDistance => lastProgressDistance;
     public NPCRoamProfile RoamProfile => roamProfile;
+    public NavigationUnitType GetUnitType() => NavigationUnitType.NPC;
+    public Vector2 GetPosition() => rb != null ? rb.position : (Vector2)transform.position;
+    public float GetColliderRadius()
+    {
+        return navigationCollider != null
+            ? Mathf.Max(navigationCollider.bounds.extents.x, navigationCollider.bounds.extents.y)
+            : 0.25f;
+    }
+    public bool ShouldAvoid(INavigationUnit other)
+    {
+        return other != null && other.GetUnitType() != NavigationUnitType.StaticObstacle;
+    }
+    public float GetAvoidanceRadius() => Mathf.Max(avoidanceRadius, GetColliderRadius());
+    public Vector2 GetCurrentVelocity()
+    {
+        if (motionController != null)
+        {
+            return motionController.CurrentVelocity;
+        }
+
+        return rb != null ? rb.linearVelocity : Vector2.zero;
+    }
+    public int GetAvoidancePriority() => avoidancePriority;
+    public bool IsCurrentlyMoving() => state == RoamState.Moving && GetCurrentVelocity().sqrMagnitude > 0.0001f;
+    public bool IsNavigationSleeping() => state != RoamState.Moving;
+    public bool ParticipatesInLocalAvoidance() => state == RoamState.Moving;
+    public Transform HomeAnchor => homeAnchor;
+    public float ActivityRadius => activityRadius;
+    public float MinimumMoveDistance => minimumMoveDistance;
+    public int PathSampleAttempts => pathSampleAttempts;
+    public bool AutoStartEnabled => autoStart;
+    public bool ApplyProfileOnAwakeEnabled => applyProfileOnAwake;
+    public int DebugPathPointCount => path.Count;
+    public Vector2 DebugRoamCenter => GetRoamCenter();
 
     private void Reset()
     {
@@ -143,6 +188,11 @@ public class NPCAutoRoamController : MonoBehaviour
         }
 
         homePosition = transform.position;
+    }
+
+    private void OnEnable()
+    {
+        NavigationAgentRegistry.Register(this);
     }
 
     private void Start()
@@ -191,6 +241,7 @@ public class NPCAutoRoamController : MonoBehaviour
 
     private void OnDisable()
     {
+        NavigationAgentRegistry.Unregister(this);
         StopRoam();
     }
 
@@ -312,6 +363,22 @@ public class NPCAutoRoamController : MonoBehaviour
         }
     }
 
+    public void SetHomeAnchor(Transform anchor)
+    {
+        homeAnchor = anchor;
+        homePosition = anchor != null ? anchor.position : transform.position;
+    }
+
+    public void SyncHomeAnchorToCurrentPosition()
+    {
+        if (homeAnchor != null)
+        {
+            homeAnchor.position = transform.position;
+        }
+
+        homePosition = transform.position;
+    }
+
     [ContextMenu("调试/立即开始漫游")]
     public void DebugStartRoam()
     {
@@ -363,6 +430,15 @@ public class NPCAutoRoamController : MonoBehaviour
         if (rb == null)
         {
             rb = GetComponent<Rigidbody2D>();
+        }
+
+        if (navigationCollider == null)
+        {
+            navigationCollider = GetComponent<Collider2D>();
+            if (navigationCollider == null)
+            {
+                navigationCollider = GetComponentInChildren<Collider2D>();
+            }
         }
 
         if (navGrid == null)
@@ -436,9 +512,15 @@ public class NPCAutoRoamController : MonoBehaviour
             return;
         }
 
+        Vector2 moveDirection = toWaypoint / distance;
+        if (TryHandleSharedAvoidance(currentPosition, moveDirection, out Vector2 adjustedDirection))
+        {
+            return;
+        }
+
         Vector2 nextPosition = distance <= step
             ? waypoint
-            : currentPosition + (toWaypoint / distance) * step;
+            : currentPosition + adjustedDirection * step;
 
         float safeDeltaTime = Mathf.Max(deltaTime, 0.0001f);
         Vector2 velocity = (nextPosition - currentPosition) / safeDeltaTime;
@@ -620,6 +702,65 @@ public class NPCAutoRoamController : MonoBehaviour
         }
 
         return true;
+    }
+
+    private bool TryHandleSharedAvoidance(Vector2 currentPosition, Vector2 desiredDirection, out Vector2 adjustedDirection)
+    {
+        adjustedDirection = desiredDirection;
+        NavigationAgentSnapshot self = NavigationAgentSnapshot.FromUnit(this);
+        if (!self.IsValid || desiredDirection.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        NavigationAgentRegistry.GetNearbySnapshots(this, currentPosition, sharedAvoidanceLookAhead, nearbyNavigationAgents);
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance = NavigationLocalAvoidanceSolver.Solve(
+            self,
+            desiredDirection,
+            sharedAvoidanceLookAhead,
+            nearbyNavigationAgents);
+
+        if (!avoidance.HasBlockingAgent)
+        {
+            lastBlockingAgentId = 0;
+            blockingAgentSightings = 0;
+            adjustedDirection = avoidance.AdjustedDirection;
+            return false;
+        }
+
+        if (lastBlockingAgentId == avoidance.BlockingAgentId)
+        {
+            blockingAgentSightings++;
+        }
+        else
+        {
+            lastBlockingAgentId = avoidance.BlockingAgentId;
+            blockingAgentSightings = 1;
+        }
+
+        adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
+            ? avoidance.AdjustedDirection
+            : desiredDirection;
+
+        if (!avoidance.ShouldRepath || blockingAgentSightings < 2)
+        {
+            return false;
+        }
+
+        if (Time.time - lastSharedAvoidanceRepathTime < sharedAvoidanceRepathCooldown)
+        {
+            return false;
+        }
+
+        lastSharedAvoidanceRepathTime = Time.time;
+        blockingAgentSightings = 0;
+
+        if (TryRebuildPath(currentPosition))
+        {
+            return true;
+        }
+
+        return false;
     }
 
     private bool TryResolveNavGrid()
@@ -1036,6 +1177,8 @@ public class NPCAutoRoamController : MonoBehaviour
         lastProgressCheckPosition = currentPosition;
         lastProgressCheckTime = Time.time;
         lastProgressDistance = 0f;
+        lastBlockingAgentId = 0;
+        blockingAgentSightings = 0;
 
         if (resetCounter)
         {

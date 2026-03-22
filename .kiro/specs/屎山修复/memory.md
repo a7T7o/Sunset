@@ -64,3 +64,21 @@
     - 为 S3 明确第一版算法边界
     - 为执行顺序补交织迭代口径
     - 为代理契约补 sleeping / moving 状态
+
+### 会话 3 - 2026-03-23
+
+- 子工作区 `导航检查` 本轮已从“锐评审核”推进到“Path B 第一批共享导航核心实现”。
+- 父层新增稳定事实：
+  - 已落地的共享核心文件：
+    - `NavigationAgentSnapshot.cs`
+    - `NavigationAvoidanceRules.cs`
+    - `NavigationAgentRegistry.cs`
+    - `NavigationLocalAvoidanceSolver.cs`
+  - 已扩展的统一代理契约：
+    - `INavigationUnit.cs`
+  - 已接入共享核心的现有执行体：
+    - `PlayerAutoNavigator.cs`
+    - `NPCAutoRoamController.cs`
+- 父层当前判断：
+  - `导航检查` 已正式从“架构主表期”进入“共享导航核心第一批实现期”
+  - 但这轮还没有完成统一路径执行层，也还没有完成最终运动语义收口，因此当前属于“第一阶段已实装，不是最终闭环”

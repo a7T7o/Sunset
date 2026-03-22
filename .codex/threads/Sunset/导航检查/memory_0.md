@@ -174,3 +174,29 @@
   - 锐评指出“最终运动语义不一致”“S3 算法边界不足”“执行顺序过瀑布流”“缺 sleeping 机制”这些问题，大方向成立。
   - 但其“必须把 NPC 运动统一改成 `linearVelocity`”的建议过于绝对，当前不能直接作为项目定案。
   - 后续应把这份锐评作为主表的局部修订输入，而不是直接照单实现。
+
+### 会话 10 - 2026-03-23（Path B 全面落地第一批共享导航核心）
+
+- 用户明确要求：不要停在审核结论，直接按 Path B 把所有成立任务落地，并开始全面实现。
+- 本轮显式继续使用 `skills-governor`、`sunset-workspace-router`、`sunset-review-router`，并按 Sunset 启动闸门做了等价 preflight。
+- 当前 live 现场：
+  - `D:\Unity\Unity_learning\Sunset`
+  - `main`
+  - `c661f669`
+- 本轮已完成：
+  - 修订 `屎山修复/导航检查/统一导航重构阶段设计与执行主表.md`
+  - 扩展 `INavigationUnit.cs`
+  - 新增共享导航核心第一批文件：
+    - `NavigationAgentSnapshot.cs`
+    - `NavigationAvoidanceRules.cs`
+    - `NavigationAgentRegistry.cs`
+    - `NavigationLocalAvoidanceSolver.cs`
+  - 修改 `PlayerAutoNavigator.cs`，接入共享代理注册与共享局部避让
+  - 修改 `NPCAutoRoamController.cs`，接入共享代理注册与共享局部避让
+- 关键结论：
+  - 这轮已经把“共享动态代理层”从纯设计推进到真实代码层。
+  - 玩家与 NPC 开始共享动态代理真相，不再完全依赖各自私有补丁。
+  - 但统一路径执行层和最终运动语义收口仍未完成，这轮不是终局，而是第一批核心基础设施已成立。
+- 当前恢复点：
+  - 下一轮优先做最小静态 / Unity 验证；
+  - 验证通过后，继续推进共享路径执行层，而不是回头再补局部动态避让私货。

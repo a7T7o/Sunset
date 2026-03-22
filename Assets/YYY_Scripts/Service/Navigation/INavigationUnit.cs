@@ -30,6 +30,31 @@ public interface INavigationUnit
     /// 获取避让半径（个人空间）
     /// </summary>
     float GetAvoidanceRadius();
+
+    /// <summary>
+    /// 获取当前速度。
+    /// </summary>
+    Vector2 GetCurrentVelocity();
+
+    /// <summary>
+    /// 获取局部避让优先级。值越大，越不应该主动让路。
+    /// </summary>
+    int GetAvoidancePriority();
+
+    /// <summary>
+    /// 当前是否处于主动移动状态。
+    /// </summary>
+    bool IsCurrentlyMoving();
+
+    /// <summary>
+    /// 当前是否处于 sleeping / pause 状态。
+    /// </summary>
+    bool IsNavigationSleeping();
+
+    /// <summary>
+    /// 当前是否参与局部避让求解。
+    /// </summary>
+    bool ParticipatesInLocalAvoidance();
 }
 
 /// <summary>
@@ -52,14 +77,18 @@ public abstract class NavigationUnitBase : MonoBehaviour, INavigationUnit
     [Header("导航单位配置")]
     [SerializeField] protected NavigationUnitType unitType = NavigationUnitType.NPC;
     [SerializeField, Range(0.3f, 2f)] protected float avoidanceRadius = 0.6f;
+    [SerializeField] protected int avoidancePriority = 50;
+    [SerializeField] protected bool participateInLocalAvoidance = true;
     
     protected Collider2D unitCollider;
+    protected Rigidbody2D unitRigidbody;
     
     protected virtual void Awake()
     {
         unitCollider = GetComponent<Collider2D>();
         if (unitCollider == null)
             unitCollider = GetComponentInChildren<Collider2D>();
+        unitRigidbody = GetComponent<Rigidbody2D>();
     }
     
     public virtual NavigationUnitType GetUnitType() => unitType;
@@ -110,4 +139,23 @@ public abstract class NavigationUnitBase : MonoBehaviour, INavigationUnit
     }
     
     public virtual float GetAvoidanceRadius() => avoidanceRadius;
+
+    public virtual Vector2 GetCurrentVelocity()
+    {
+        return unitRigidbody != null ? unitRigidbody.linearVelocity : Vector2.zero;
+    }
+
+    public virtual int GetAvoidancePriority() => avoidancePriority;
+
+    public virtual bool IsCurrentlyMoving()
+    {
+        return GetCurrentVelocity().sqrMagnitude > 0.0001f;
+    }
+
+    public virtual bool IsNavigationSleeping()
+    {
+        return !IsCurrentlyMoving();
+    }
+
+    public virtual bool ParticipatesInLocalAvoidance() => participateInLocalAvoidance;
 }

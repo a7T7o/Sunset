@@ -47,6 +47,7 @@ public class EnergySystem : MonoBehaviour
     public int CurrentEnergy => currentEnergy;
     public float EnergyPercent => maxEnergy > 0 ? (float)currentEnergy / maxEnergy : 0f;
     public bool IsExhausted => currentEnergy <= 0;
+    public bool IsVisible => energySlider != null && energySlider.gameObject.activeSelf;
     #endregion
 
     #region Unity生命周期
@@ -151,6 +152,33 @@ public class EnergySystem : MonoBehaviour
         currentEnergy = Mathf.Min(currentEnergy, maxEnergy);
         UpdateUI();
         OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
+    }
+
+    /// <summary>
+    /// 直接设置精力上限与当前值
+    /// </summary>
+    public void SetEnergyState(int current, int max)
+    {
+        maxEnergy = Mathf.Max(1, max);
+        currentEnergy = Mathf.Clamp(current, 0, maxEnergy);
+        UpdateUI();
+        OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
+    }
+
+    /// <summary>
+    /// 控制精力条显隐
+    /// </summary>
+    public void SetVisible(bool visible)
+    {
+        if (energySlider == null)
+        {
+            TryFindEnergySlider();
+        }
+
+        if (energySlider != null)
+        {
+            energySlider.gameObject.SetActive(visible);
+        }
     }
 
     /// <summary>

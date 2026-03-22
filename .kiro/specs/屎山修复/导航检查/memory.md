@@ -119,3 +119,79 @@
 - 这份锐评整体方向正确，不需要走 Path C。
 - 但不能照单全收其“统一改成 `linearVelocity`”的具体技术方案。
 - 后续应把它作为对主表的局部修订输入，而不是直接当成实现指令。
+
+### 会话 3 - 2026-03-23（Path B 第一批共享导航核心落地）
+
+**用户需求**：
+> 请你按照路径b完成所有任务，直接一步到位完成所有的任务，直接开始全面落地
+
+**当前主线目标**：
+- 不再停留在锐评审核或纯文档层，而是直接把 Path B 成立的建议落成第一批共享导航核心代码。
+
+**完成任务**：
+1. 修订主文档：
+   - 吸收锐评中成立的三类问题：
+     - S1 / S2 增加 moving / sleeping 状态
+     - S3 增加第一版算法边界与防抖要求
+     - 执行顺序改成交织推进，不再读成瀑布流
+     - S6 增加“最终运动语义必须显式收口”的任务，而不是直接武断定为 velocity-only
+2. 扩展导航代理契约：
+   - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\INavigationUnit.cs`
+   - 新增：
+     - `GetCurrentVelocity()`
+     - `GetAvoidancePriority()`
+     - `IsCurrentlyMoving()`
+     - `IsNavigationSleeping()`
+     - `ParticipatesInLocalAvoidance()`
+3. 新增共享导航核心第一批基础设施：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAgentSnapshot.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAvoidanceRules.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAgentRegistry.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+4. 玩家侧接入共享核心：
+   - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+   - 完成：
+     - 注册/反注册到共享代理注册表
+     - 生成统一代理快照
+     - 通过共享 solver 进行动态代理避让
+     - 动态阻挡持久化后触发路径重建
+5. NPC 侧接入共享核心：
+   - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+   - 完成：
+     - 实现统一代理契约
+     - 注册/反注册到共享代理注册表
+     - 在 `TickMoving()` 中先走共享 solver，再执行原有运动
+     - 持续阻挡后触发重建路径
+
+**关键结论**：
+- 这轮已经不再是“审视一下锐评然后继续想”，而是把第一批共享导航核心真的落进了代码里。
+- 玩家和 NPC 现在开始共享：
+  - 统一代理契约
+  - 统一代理注册表
+  - 统一局部避让求解器入口
+- 但当前仍未完成的关键收口是：
+  - 统一路径执行层还没抽出
+  - NPC 最终运动语义是否继续保留 `MovePosition`，还是迁移到另一种统一语义，仍然是显式待决任务
+
+**涉及的代码文件**
+
+### 本轮新增文件
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Assets/YYY_Scripts/Service/Navigation/NavigationAgentSnapshot.cs` | 新增 | 共享代理快照 |
+| `Assets/YYY_Scripts/Service/Navigation/NavigationAvoidanceRules.cs` | 新增 | 共享让行与阻挡规则 |
+| `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs` | 新增 | 共享动态代理注册表 |
+| `Assets/YYY_Scripts/Service/Navigation/NavigationLocalAvoidanceSolver.cs` | 新增 | 第一版局部避让求解器 |
+
+### 本轮修改文件
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Assets/YYY_Scripts/Service/Navigation/INavigationUnit.cs` | 修改 | 扩展统一代理契约 |
+| `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs` | 修改 | 玩家接入共享代理与共享局部避让 |
+| `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` | 修改 | NPC 接入共享代理与共享局部避让 |
+| `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\统一导航重构阶段设计与执行主表.md` | 修改 | 吸收 Path B 结论并同步进度 |
+
+**遗留问题**：
+- [ ] 做最小静态验证，排掉当前新增共享核心代码的明显编译问题
+- [ ] 做 Unity / MCP / Play 现场验证，确认玩家绕移动 NPC、NPC 绕玩家是否成立
+- [ ] 进入下一步时优先继续统一路径执行层，而不是回到局部补丁

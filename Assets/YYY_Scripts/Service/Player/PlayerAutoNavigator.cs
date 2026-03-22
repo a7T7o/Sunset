@@ -44,9 +44,12 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     [SerializeField, Min(0.1f)] private float dynamicObstacleRepathCooldown = 0.45f;
     [SerializeField, Range(0.01f, 1f)] private float dynamicObstacleVelocityThreshold = 0.05f;
     [SerializeField, Min(8)] private int obstacleProbeBufferSize = 16;
+    [SerializeField, Min(0.2f)] private float sharedAvoidanceLookAhead = 0.8f;
+    [SerializeField] private int avoidancePriority = 100;
 
     // 私有字段
     private Collider2D playerCollider;
+    private Rigidbody2D playerRigidbody;
     private float playerRadius;
     private bool active;
     private Vector3 targetPoint;
@@ -78,11 +81,21 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private float _lastDynamicObstacleRepathTime = float.NegativeInfinity;
     private int _lastDynamicObstacleId;
     private int _dynamicObstacleSightings;
+    private readonly List<NavigationAgentSnapshot> _nearbyNavigationAgents = new List<NavigationAgentSnapshot>(12);
 
     public bool IsActive => active;
     public NavigationUnitType GetUnitType() => NavigationUnitType.Player;
     public Vector2 GetPosition() => GetPlayerPosition();
     public float GetColliderRadius() => playerRadius;
+    public Vector2 GetCurrentVelocity() => playerRigidbody != null ? playerRigidbody.linearVelocity : Vector2.zero;
+    public int GetAvoidancePriority() => avoidancePriority;
+    public bool IsCurrentlyMoving()
+    {
+        float velocityThreshold = dynamicObstacleVelocityThreshold * dynamicObstacleVelocityThreshold;
+        return GetCurrentVelocity().sqrMagnitude >= velocityThreshold;
+    }
+    public bool IsNavigationSleeping() => !active && !IsCurrentlyMoving();
+    public bool ParticipatesInLocalAvoidance() => true;
     public bool ShouldAvoid(INavigationUnit other)
     {
         if (other == null) return false;
@@ -99,6 +112,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         if (navGrid == null) navGrid = FindFirstObjectByType<NavGrid2D>();
         _obstacleProbeBuffer = new Collider2D[Mathf.Max(8, obstacleProbeBufferSize)];
         _obstacleProbeFilter = new ContactFilter2D().NoFilter();
+        playerRigidbody = GetComponent<Rigidbody2D>();
         
         playerCollider = GetComponent<Collider2D>();
         if (playerCollider == null) playerCollider = GetComponentInChildren<Collider2D>();
@@ -112,6 +126,16 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         {
             playerRadius = 0.25f;
         }
+    }
+
+    void OnEnable()
+    {
+        NavigationAgentRegistry.Register(this);
+    }
+
+    void OnDisable()
+    {
+        NavigationAgentRegistry.Unregister(this);
     }
 
     void Update()
@@ -364,10 +388,12 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         // 计算移动方向
         Vector2 moveDir = toWaypoint.normalized;
 
-        if (TryRepathAroundDynamicObstacle(playerPos, moveDir))
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance = SolveSharedDynamicAvoidance(playerPos, moveDir);
+        if (HandleSharedDynamicBlocker(playerPos, avoidance))
         {
             return;
         }
+        moveDir = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f ? avoidance.AdjustedDirection : moveDir;
         
         // 碰撞调整（只在必要时）
         moveDir = AdjustDirectionByColliders(playerPos, moveDir);
@@ -721,6 +747,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             for (int i = 0; i < hitCount; i++)
             {
                 var hit = _obstacleProbeBuffer[i];
+                if (TryGetNavigationUnit(hit, out _)) continue;
                 if (IsPlayerCollider(hit) || !IsObstacle(hit)) continue;
                 obstacleCount++;
                 
@@ -736,23 +763,8 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
                 
                 if (dist > 0.01f)
                 {
-                    bool isDynamicBlocker = TryGetDynamicAvoidanceRadius(hit, out float dynamicAvoidanceRadius);
                     float repulseStrength = 1f / (dist * dist + 0.1f);
                     totalRepulse += away.normalized * repulseStrength * weight;
-
-                    if (isDynamicBlocker)
-                    {
-                        Vector2 lateral = Vector2.Perpendicular(desiredDir).normalized;
-                        float side = Mathf.Sign(Vector2.Dot(lateral, away));
-                        if (Mathf.Approximately(side, 0f))
-                        {
-                            side = (hit.GetInstanceID() & 1) == 0 ? 1f : -1f;
-                        }
-
-                        Vector2 sidestep = lateral * side;
-                        float dynamicWeight = Mathf.Max(1f, dynamicAvoidanceRadius / Mathf.Max(0.05f, clearance));
-                        totalRepulse += sidestep * repulseStrength * weight * 0.75f * dynamicWeight;
-                    }
                 }
             }
         }
@@ -773,32 +785,38 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         return adjusted.sqrMagnitude > 0.001f ? adjusted : desiredDir;
     }
 
-    private bool TryRepathAroundDynamicObstacle(Vector2 playerPos, Vector2 desiredDir)
+    private NavigationLocalAvoidanceSolver.AvoidanceResult SolveSharedDynamicAvoidance(Vector2 playerPos, Vector2 desiredDir)
     {
-        if (navGrid == null || desiredDir.sqrMagnitude < 0.0001f)
+        NavigationAgentSnapshot self = NavigationAgentSnapshot.FromUnit(this);
+        if (!self.IsValid)
         {
-            return false;
+            return new NavigationLocalAvoidanceSolver.AvoidanceResult(desiredDir, false, false, 0, float.PositiveInfinity);
         }
 
-        if (!TryFindDynamicNavigationObstacle(playerPos, desiredDir, out Collider2D dynamicObstacle))
+        NavigationAgentRegistry.GetNearbySnapshots(this, playerPos, sharedAvoidanceLookAhead, _nearbyNavigationAgents);
+        return NavigationLocalAvoidanceSolver.Solve(self, desiredDir, sharedAvoidanceLookAhead, _nearbyNavigationAgents);
+    }
+
+    private bool HandleSharedDynamicBlocker(Vector2 playerPos, NavigationLocalAvoidanceSolver.AvoidanceResult avoidance)
+    {
+        if (!avoidance.HasBlockingAgent)
         {
             _lastDynamicObstacleId = 0;
             _dynamicObstacleSightings = 0;
             return false;
         }
 
-        int obstacleId = dynamicObstacle.GetInstanceID();
-        if (_lastDynamicObstacleId == obstacleId)
+        if (_lastDynamicObstacleId == avoidance.BlockingAgentId)
         {
             _dynamicObstacleSightings++;
         }
         else
         {
-            _lastDynamicObstacleId = obstacleId;
+            _lastDynamicObstacleId = avoidance.BlockingAgentId;
             _dynamicObstacleSightings = 1;
         }
 
-        if (_dynamicObstacleSightings < 2)
+        if (!avoidance.ShouldRepath || _dynamicObstacleSightings < 2)
         {
             return false;
         }
@@ -814,47 +832,9 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         lastCheckTime = Time.time;
         stuckRetryCount = 0;
 
-        AddDebugLog($"检测到动态导航障碍 {dynamicObstacle.name}，刷新网格并重建路径");
-        navGrid.RefreshGrid();
+        AddDebugLog($"共享动态代理持续阻挡，重建路径 => AgentId={avoidance.BlockingAgentId}");
         BuildPath();
         return true;
-    }
-
-    private bool TryFindDynamicNavigationObstacle(Vector2 playerPos, Vector2 desiredDir, out Collider2D dynamicObstacle)
-    {
-        dynamicObstacle = null;
-        if (playerCollider == null)
-        {
-            return false;
-        }
-
-        float[] aheadDistances = runWhileNavigating
-            ? new float[] { 0.15f, 0.35f, 0.6f }
-            : new float[] { 0.1f, 0.25f, 0.45f };
-
-        float probeRadius = GetAvoidanceRadius();
-        foreach (float ahead in aheadDistances)
-        {
-            Vector2 probe = playerPos + desiredDir * ahead;
-            int hitCount = ProbeObstacleHits(probe, probeRadius);
-            for (int i = 0; i < hitCount; i++)
-            {
-                Collider2D hit = _obstacleProbeBuffer[i];
-                if (!TryGetDynamicAvoidanceRadius(hit, out float dynamicAvoidanceRadius))
-                {
-                    continue;
-                }
-
-                Vector2 closest = hit.ClosestPoint(probe);
-                if (Vector2.Distance(closest, probe) <= probeRadius + dynamicAvoidanceRadius)
-                {
-                    dynamicObstacle = hit;
-                    return true;
-                }
-            }
-        }
-
-        return false;
     }
 
     private int ProbeObstacleHits(Vector2 center, float radius)
@@ -865,44 +845,6 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         }
 
         return Physics2D.OverlapCircle(center, radius, _obstacleProbeFilter, _obstacleProbeBuffer);
-    }
-
-    private bool TryGetDynamicAvoidanceRadius(Collider2D col, out float avoidanceRadius)
-    {
-        avoidanceRadius = 0f;
-        if (col == null || IsPlayerCollider(col) || !IsObstacle(col))
-        {
-            return false;
-        }
-
-        if (TryGetNavigationUnit(col, out INavigationUnit navigationUnit))
-        {
-            if (navigationUnit.GetUnitType() == NavigationUnitType.StaticObstacle || !ShouldAvoid(navigationUnit))
-            {
-                return false;
-            }
-
-            avoidanceRadius = Mathf.Max(navigationUnit.GetAvoidanceRadius(), EstimateColliderRadius(col) + dynamicObstaclePadding);
-            return true;
-        }
-
-        NPCAutoRoamController npcRoamController = col.GetComponentInParent<NPCAutoRoamController>();
-        if (npcRoamController != null && npcRoamController.IsMoving)
-        {
-            avoidanceRadius = EstimateColliderRadius(col) + dynamicObstaclePadding;
-            return true;
-        }
-
-        Rigidbody2D attachedRb = col.attachedRigidbody;
-        if (attachedRb != null &&
-            attachedRb.bodyType != RigidbodyType2D.Static &&
-            attachedRb.linearVelocity.sqrMagnitude >= dynamicObstacleVelocityThreshold * dynamicObstacleVelocityThreshold)
-        {
-            avoidanceRadius = EstimateColliderRadius(col) + dynamicObstaclePadding;
-            return true;
-        }
-
-        return false;
     }
 
     private bool TryGetNavigationUnit(Collider2D col, out INavigationUnit navigationUnit)
@@ -927,12 +869,14 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return true;
         }
 
-        return false;
-    }
+        NPCAutoRoamController npcNavigator = col.GetComponentInParent<NPCAutoRoamController>();
+        if (npcNavigator != null)
+        {
+            navigationUnit = npcNavigator;
+            return true;
+        }
 
-    private static float EstimateColliderRadius(Collider2D col)
-    {
-        return Mathf.Max(col.bounds.extents.x, col.bounds.extents.y);
+        return false;
     }
 
     private Vector2 RotateVector(Vector2 v, float degrees)
