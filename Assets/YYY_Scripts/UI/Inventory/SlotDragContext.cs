@@ -1,4 +1,5 @@
 using UnityEngine;
+using FarmGame.Data.Core;
 
 /// <summary>
 /// 槽位拖拽上下文 - 跨容器拖拽支持
@@ -36,6 +37,7 @@ public static class SlotDragContext
     /// 拖拽的物品
     /// </summary>
     public static ItemStack DraggedItem { get; private set; }
+    public static InventoryItem DraggedRuntimeItem { get; private set; }
 
     /// <summary>
     /// 🔥 新增：源槽位 UI 引用（用于跨区域放置时取消选中）
@@ -63,7 +65,12 @@ public static class SlotDragContext
     /// <param name="slotIndex">源槽位索引</param>
     /// <param name="item">拖拽的物品</param>
     /// <param name="slotUI">源槽位 UI（可选，用于跨区域放置时取消选中）</param>
-    public static void Begin(IItemContainer container, int slotIndex, ItemStack item, InventorySlotUI slotUI = null)
+    public static void Begin(
+        IItemContainer container,
+        int slotIndex,
+        ItemStack item,
+        InventorySlotUI slotUI = null,
+        InventoryItem runtimeItem = null)
     {
         // 🔥 互斥检查：如果 Manager 正在持有物品，拒绝开始拖拽
         if (InventoryInteractionManager.Instance != null && 
@@ -77,6 +84,7 @@ public static class SlotDragContext
         SourceContainer = container;
         SourceSlotIndex = slotIndex;
         DraggedItem = item;
+        DraggedRuntimeItem = runtimeItem;
         SourceSlotUI = slotUI;
         // 🔥 P1：移除日志输出（符合日志规范）
     }
@@ -91,6 +99,7 @@ public static class SlotDragContext
         SourceContainer = null;
         SourceSlotIndex = -1;
         DraggedItem = ItemStack.Empty;
+        DraggedRuntimeItem = null;
         SourceSlotUI = null;
     }
 
@@ -104,6 +113,12 @@ public static class SlotDragContext
         DraggedItem = item;
     }
 
+    public static void UpdateDraggedRuntimeItem(InventoryItem runtimeItem)
+    {
+        if (!IsDragging) return;
+        DraggedRuntimeItem = runtimeItem;
+    }
+
     /// <summary>
     /// 取消拖拽（返回物品到源槽位）
     /// </summary>
@@ -115,7 +130,7 @@ public static class SlotDragContext
         var currentSlot = SourceContainer.GetSlot(SourceSlotIndex);
         if (currentSlot.IsEmpty)
         {
-            SourceContainer.SetSlot(SourceSlotIndex, DraggedItem);
+            RestoreToSource();
         }
         else if (currentSlot.CanStackWith(DraggedItem))
         {
@@ -131,6 +146,23 @@ public static class SlotDragContext
 
         // 🔥 P1：移除日志输出（符合日志规范）
         End();
+    }
+
+    private static void RestoreToSource()
+    {
+        if (SourceContainer is InventoryService inventoryService && DraggedRuntimeItem != null && !DraggedRuntimeItem.IsEmpty)
+        {
+            inventoryService.SetInventoryItem(SourceSlotIndex, DraggedRuntimeItem);
+            return;
+        }
+
+        if (SourceContainer is ChestInventoryV2 chestInventoryV2 && DraggedRuntimeItem != null && !DraggedRuntimeItem.IsEmpty)
+        {
+            chestInventoryV2.SetItem(SourceSlotIndex, DraggedRuntimeItem);
+            return;
+        }
+
+        SourceContainer.SetSlot(SourceSlotIndex, DraggedItem);
     }
 
     #endregion
