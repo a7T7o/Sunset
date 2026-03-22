@@ -177,3 +177,29 @@
 - 因此本轮 live 验收只能确认“开聊会冻结当前交互 NPC”，尚未稳定确认“播完后恢复漫游”。
 **恢复点 / 下一步**：
 - 当前代码与静态约束已经补齐；下一步应在稳定的 Unity/MCP 会话或人工验收下，补完“首段播完 -> 恢复漫游 -> 再次交互走 follow-up”的最后运行态闭环。
+
+### 会话 11 - 2026-03-23（0.0.3~0.0.6 运行时导演骨架）
+**用户需求**：
+> 不再停在 0.0.2，直接踩满油门推进到 0.0.6；中间验收压缩为最小通路验收，优先做可继续堆叠的基础层。
+**完成任务**：
+1. 基于现有系统回读后确认：
+   - `EnergySystem` 已存在，且 `UI/State/EP` 有现成 Slider；
+   - `UI/State/HP` 也有现成 Slider，但项目里没有独立 `HealthSystem`；
+   - `CraftingService / CraftingPanel / FarmTileManager / TreeController / TimeManager` 足以支撑一套最小 Day1 后四阶段导演层。
+2. 新增 `HealthSystem.cs`，专门接 Day1 的 HP 展示与数值控制。
+3. 新增 `SpringDay1PromptOverlay.cs`，运行时动态生成教程提示层，不改场景结构。
+4. 新增 `SpringDay1Director.cs`，开始承接 `0.0.3 ~ 0.0.6` 的运行时骨架：
+   - `HealingAndHP`
+   - `WorkbenchFlashback`
+   - `FarmingTutorial`
+   - `DinnerConflict`
+   - `ReturnAndReminder`
+   - `FreeTime`
+   - `DayEnd`
+5. 在 `StoryManager` 初始化时自动确保导演层运行。
+6. 保留当前主线不变，把 NPC 最小接轨继续视为当前主线子任务，而不是切线。
+**当前实现口径**：
+- 先做“后四阶段能推进”的导演层与 UI/状态控制基础。
+- 复杂演出位、群体 NPC 调度、完整导航增强仍后置。
+**恢复点 / 下一步**：
+- 下一步应继续补导演层与现有系统的真实钩子，把 0.0.3~0.0.6 从“骨架可跑”继续推到“可通过最小通路验收”。

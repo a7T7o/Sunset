@@ -10,6 +10,9 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string FollowupMetaPath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset.meta");
     private static readonly string DebugMenuPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/DialogueDebugMenu.cs");
     private static readonly string InteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs");
+    private static readonly string DirectorPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs");
+    private static readonly string EnergySystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/EnergySystem.cs");
+    private static readonly string HealthSystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/HealthSystem.cs");
 
     [Test]
     public void FirstDialogueAsset_ContainsDecodeAndPhaseAdvanceConfig()
@@ -56,5 +59,31 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("EventBus.Subscribe<DialogueEndEvent>", scriptText, "应监听对话结束事件以恢复 NPC");
         StringAssert.Contains("autoRoamController.StopRoam()", scriptText, "对话开始时应冻结 NPC 漫游");
         StringAssert.Contains("autoRoamController.StartRoam()", scriptText, "对话结束后应恢复 NPC 漫游");
+    }
+
+    [Test]
+    public void SpringDay1Director_ContainsStageThreeToSixRuntimeFlow()
+    {
+        string scriptText = File.ReadAllText(DirectorPath);
+
+        StringAssert.Contains("StoryPhase.HealingAndHP", scriptText, "导演应包含 0.0.3 阶段");
+        StringAssert.Contains("StoryPhase.WorkbenchFlashback", scriptText, "导演应包含 0.0.4 阶段");
+        StringAssert.Contains("StoryPhase.FarmingTutorial", scriptText, "导演应包含 0.0.5 阶段");
+        StringAssert.Contains("StoryPhase.DinnerConflict", scriptText, "导演应包含 0.0.6 晚餐冲突阶段");
+        StringAssert.Contains("StoryPhase.ReturnAndReminder", scriptText, "导演应包含归途提醒阶段");
+        StringAssert.Contains("StoryPhase.FreeTime", scriptText, "导演应包含自由时段阶段");
+        StringAssert.Contains("StoryPhase.DayEnd", scriptText, "导演应包含睡觉结束阶段");
+    }
+
+    [Test]
+    public void StatusSystems_ContainStoryFacingMethods()
+    {
+        string energyText = File.ReadAllText(EnergySystemPath);
+        string healthText = File.ReadAllText(HealthSystemPath);
+
+        StringAssert.Contains("SetVisible(bool visible)", energyText, "EnergySystem 应支持剧情控制显隐");
+        StringAssert.Contains("SetEnergyState(int current, int max)", energyText, "EnergySystem 应支持剧情设定精力值");
+        StringAssert.Contains("SetHealthState(int current, int max)", healthText, "HealthSystem 应支持剧情设定生命值");
+        StringAssert.Contains("TryFindHealthSlider()", healthText, "HealthSystem 应能自动绑定 HP UI");
     }
 }

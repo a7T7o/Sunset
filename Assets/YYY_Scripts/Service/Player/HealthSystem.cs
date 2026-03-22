@@ -10,7 +10,27 @@ public class HealthSystem : MonoBehaviour
 {
     private const int DefaultMaxHealth = 100;
 
-    public static HealthSystem Instance { get; private set; }
+    private static HealthSystem _instance;
+    public static HealthSystem Instance
+    {
+        get
+        {
+            if (_instance != null)
+            {
+                return _instance;
+            }
+
+            _instance = FindFirstObjectByType<HealthSystem>();
+            if (_instance != null)
+            {
+                return _instance;
+            }
+
+            GameObject runtimeObject = new GameObject(nameof(HealthSystem));
+            _instance = runtimeObject.AddComponent<HealthSystem>();
+            return _instance;
+        }
+    }
     public static event Action<int, int> OnHealthChanged;
 
     [Header("Health Config")]
@@ -29,13 +49,13 @@ public class HealthSystem : MonoBehaviour
 
     private void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
 
-        Instance = this;
+        _instance = this;
         currentHealth = Mathf.Clamp(currentHealth, 0, Mathf.Max(1, maxHealth));
     }
 
@@ -51,9 +71,9 @@ public class HealthSystem : MonoBehaviour
 
     private void OnDestroy()
     {
-        if (Instance == this)
+        if (_instance == this)
         {
-            Instance = null;
+            _instance = null;
         }
     }
 

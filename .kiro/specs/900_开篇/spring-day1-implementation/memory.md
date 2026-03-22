@@ -307,3 +307,12 @@
 - 这说明“当前交互 NPC 的最小对话占用协议”已经在 live 现场拿到正向证据。
 - 但“对话播完后恢复漫游、再次交互走 follow-up”仍未在同一轮里稳定闭环：重新进入 Play 后 `unityMCP` 出现 WebSocket / session 断连。
 - 当前恢复点：代码层已到位，live 验收已完成一半；剩余只差稳定会话下的收尾验证。
+
+## 2026-03-23 补记：spring-day1 已开始把 0.0.3~0.0.6 接成运行时导演骨架
+- 本轮在不改 `Primary.unity` 的前提下，开始直接补 Day1 后四阶段的运行时骨架，而不是继续停在 0.0.2 的局部收尾。
+- 已新增：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\HealthSystem.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1PromptOverlay.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+- 当前目标是让 `HealingAndHP -> WorkbenchFlashback -> FarmingTutorial -> DinnerConflict -> ReturnAndReminder -> FreeTime -> DayEnd` 能先被一个统一导演层接住，再逐步补每一段的真实触发与验收。
+- 当前恢复点：spring-day1 已从“只收首段对话闭环”推进到“开始搭建 Day1 后四阶段的统一运行时主链”。

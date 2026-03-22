@@ -124,6 +124,7 @@ namespace Sunset.Story
 
             CurrentPhase = initialPhase == StoryPhase.None ? StoryPhase.CrashAndMeet : initialPhase;
             IsLanguageDecoded = startLanguageDecoded;
+            SpringDay1Director.EnsureRuntime();
         }
         #endregion
     }
