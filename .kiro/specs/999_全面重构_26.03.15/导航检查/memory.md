@@ -242,3 +242,17 @@
 **恢复点 / 下一步**
 - 等 shared root 回到 `main + neutral` 且治理层重新唤醒 `导航检查`。
 - 获得 `GRANTED / ALREADY_GRANTED` 后，再执行 `ensure-branch` 并只做首个非热文件 checkpoint：优先 `NavGrid2D / PlayerAutoNavigator`，不扩到 `GameInputManager.cs`、`Primary.unity`，也不进入 Unity / MCP。
+
+### 会话 5 - 2026-03-22（main-only 旧分支收口 + 首个真实代码 checkpoint）
+
+- 当前主线目标：不再把 `2.0.0整改设计` 停留在分支文档层，而是把它推进成 `main` 上的真实导航代码整改入口。
+- 本轮已完成：
+  - 处理旧分支 `codex/navigation-audit-001` 遗留：仅保留并迁回 `main` 的是 `2.0.0整改设计` 四件套；旧分支根层 docs-first 垫片直接判废，不再继续挂作 blocker。
+  - 在 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavGrid2D.cs` 中，将 `IsPointBlocked()` 改为复用缓冲区查询，收掉已确认的一处分配式热点。
+  - 在 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs` 中，补上移动 NPC / 动态导航单元的识别、局部绕行、持续阻挡触发重规划，以及未来 `INavigationUnit` 接线的兼容入口。
+- 关键决策：
+  - 这轮不继续扩写设计稿，也不进入热文件 `GameInputManager.cs`。
+  - 首个真实代码 checkpoint 以 `NavGrid2D + PlayerAutoNavigator` 为边界，不越界碰 NPC 气泡、场景搭建或共享热区。
+- 当前恢复点：
+  - 下一轮优先做真实验证，确认“玩家自动导航绕移动 NPC”是否稳定；
+  - 若验证通过，再决定是否继续扩到 NPC/NPC 局部规避的真实接线。

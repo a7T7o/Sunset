@@ -100,3 +100,25 @@
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\线程回收\导航检查.md`
 - 关键决策：不绕过 queue 直接切分支；保持 `codex/navigation-audit-001` 作为 continuation branch，等待 shared root 回到 `main + neutral` 后再继续。
 - 主线恢复点：下次被唤醒时，直接从 `ensure-branch -> 首个 NavGrid2D / PlayerAutoNavigator 非热文件 checkpoint` 继续，而不是重做 `1.0.0` 审计。
+
+### 会话 6 - 2026-03-22（main-only 首个真实导航代码 checkpoint）
+
+- 用户明确要求停止继续停在 docs-first 或旧 branch waiting 口径上，先处理 `codex/navigation-audit-001` 的遗留，再在同一轮进入真实导航开发。
+- 本轮显式继续使用 `skills-governor`、`sunset-workspace-router`，并按 Sunset 启动闸门做了等价 preflight。
+- 当前 live 现场：
+  - `D:\Unity\Unity_learning\Sunset`
+  - `main`
+  - `9e6a94ca539e895b3a8398b2e23746cefc70bf08`
+- 本轮处理旧分支遗留的结论：
+  - 保留并迁回 `main`：`2.0.0整改设计` 四件套
+  - 判废：旧分支根层 docs-first 垫片，不再继续作为 blocker
+- 本轮真实代码改动：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavGrid2D.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- 本轮真实代码结论：
+  - `NavGrid2D` 的 `IsPointBlocked()` 已从 `OverlapCircleAll(...)` 改到复用缓冲区查询
+  - `PlayerAutoNavigator` 已开始支持移动 NPC / 动态导航单元的识别、侧向绕行和持续阻挡时的重规划入口
+  - 玩家导航本体已实现 `INavigationUnit`，为后续 NPC/NPC 局部规避接线留出兼容位
+- 当前恢复点：
+  - 下一轮先验证真实场景里的“玩家自动导航绕移动 NPC”；
+  - 如果验证成立，再继续扩到 NPC/NPC 的真实接线，而不是回头重做文档整理。

@@ -32,6 +32,7 @@ public class NavGrid2D : MonoBehaviour
 
     // 🔥 Unity 6 优化：预分配碰撞体缓存数组，避免 GC 分配
     private Collider2D[] _colliderCache = new Collider2D[10];
+    private ContactFilter2D _obstacleFilter;
 
     // 公共事件：外部可调用以通知网格需要刷新
     public static System.Action OnRequestGridRefresh;
@@ -40,6 +41,7 @@ public class NavGrid2D : MonoBehaviour
     {
         s_instance = this;
         ValidateParameters();
+        _obstacleFilter = new ContactFilter2D().NoFilter();
         
         // 订阅外部刷新请求
         OnRequestGridRefresh += RefreshGrid;
@@ -262,12 +264,11 @@ public class NavGrid2D : MonoBehaviour
 
     private bool IsPointBlocked(Vector2 worldPos, float radius)
     {
-        // 🔥 Unity 6：使用新版 OverlapCircle API（返回数组），旧版 NonAlloc 已弃用
-        var hits = Physics2D.OverlapCircleAll(worldPos, radius);
-        int hitCount = Mathf.Min(hits.Length, _colliderCache.Length);
-        for (int i = 0; i < hitCount; i++)
+        int hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
+        if (hitCount == _colliderCache.Length)
         {
-            _colliderCache[i] = hits[i];
+            System.Array.Resize(ref _colliderCache, _colliderCache.Length * 2);
+            hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
         }
         
         // 先检查标签

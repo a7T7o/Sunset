@@ -97,3 +97,40 @@
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\23_前序阶段补漏审计与并发交通调度重建\2026.03.19_queue-aware业务准入_01\线程回收\导航检查.md`
 - 稳定 launcher 本轮暴露出 optional 参数未转发缺口，会直接吃掉 `request-branch` 所需的 `-BranchName`。
 - 后续恢复点：等 shared root 回到 `main + neutral` 后，再让 `导航检查` 继续 `codex/navigation-audit-001` 上的首个非热文件 checkpoint。
+
+### 会话 5 - 2026-03-22（遮挡检查进入 main 上真实整改）
+
+- 子工作区 `遮挡检查` 本轮不再停在“旧分支遗留是否并回”的判断，而是已经在 `main` 上落下首个真实遮挡整改 checkpoint。
+- 父层新增稳定事实：
+  - `codex/occlusion-audit-001 @ 295e8138` 中仍有价值的部分已按“部分保留”迁回 `main`：
+    - `BatchAddOcclusionComponents.cs` 工具对齐
+    - `2.0.0整改设计` 四件套
+  - 旧口径“因为 `295e8138` 还在分支上，所以当前不能继续”已作废，不再作为默认 blocker。
+- 本轮已完成的真实整改落点：
+  - `TreeController` 改为联动同树范围内全部相关 `OcclusionTransparency`
+  - `OcclusionTransparency` 新增物理树根识别
+  - `OcclusionManager` 改为按物理树去重处理树林缓存、恢复与 preview 恢复
+  - `OcclusionSystemTests` 新增父/子双组件同树归属的最小证据
+- 当前父层残留风险：
+  - Unity MCP live 验证未完成；`recompile_scripts` 与 `run_tests` 当前都返回 `Connection failed: Unknown error`
+  - 因此这轮可以确认“代码与文档 checkpoint 已落下”，但不能冒充“Unity live 已验证通过”
+
+### 会话 6 - 2026-03-22（导航检查进入 main 上真实整改）
+
+- 子工作区 `导航检查` 已不再停留在 `codex/navigation-audit-001` 的 docs-first 挂起状态，而是进入 `main` 上的真实整改。
+- 本轮父层新增稳定事实：
+  - `codex/navigation-audit-001` 中仍有价值的遗留已按“部分保留”迁回 `main`：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\requirements.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\design.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\tasks.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\导航检查\2.0.0整改设计\memory.md`
+  - 旧口径“因为成果还在分支上，所以当前不能继续”已作废，不再作为默认 blocker。
+- 本轮已落下的真实代码 checkpoint：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavGrid2D.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- 本轮导航侧真实推进内容：
+  - `NavGrid2D` 改为复用缓冲区做阻挡检测，避免继续走 `OverlapCircleAll(...)` 分配路径
+  - `PlayerAutoNavigator` 开始承担动态导航障碍识别、移动 NPC 局部绕行、持续阻挡后的刷新重规划
+  - 未来 `INavigationUnit` 接线入口已在玩家导航侧预留
+- 当前父层残留风险：
+  - 尚未做 Unity / MCP live 验证，不能把“代码已落下”冒充成“场景里已经确认稳定”
