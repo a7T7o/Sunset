@@ -86,3 +86,25 @@
 - 本轮明确将 `Primary.unity`、`DialogueUI.cs`、新输入系统排除在首轮实现白名单之外。
 **恢复点 / 下一步**：
 - `0.0.2` 现已具备文件级开工方案；下一步等待用户审核后，可进入真实实现。
+
+### 会话 6 - 2026-03-22（首段推进链真实闭环）
+**用户需求**：
+> 不再继续文档整理，直接把 Day1 首段对话完成后的阶段推进接到现有对话资产，做出“首段对话 -> 解码/阶段变化 -> follow-up”的最小真实闭环。
+**完成任务**：
+1. 只读核对当前 `Story` 脚本和对话资产后，确认当前真实缺口不在基础脊柱代码，而在数据侧：
+   - `SpringDay1_FirstDialogue.asset` 仍是旧的测试文案；
+   - 资产里还没写入 `markLanguageDecodedOnComplete / advanceStoryPhaseOnComplete / nextStoryPhase / followupSequence`；
+   - `SpringDay1_FirstDialogue_Followup.asset` 尚不存在。
+2. 重写 `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset`，将其收敛为“未解码首段”。
+3. 新建 `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset`，承接首段完成后的可读对话。
+4. 更新 `Assets/Editor/Story/DialogueDebugMenu.cs`，让日志额外输出 `StoryPhase` 与 `LanguageDecoded`。
+5. 新增 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`，静态验证首段资产配置、follow-up 资产存在性，以及 `NPCDialogueInteractable` 在解码后的分流。
+**关键决策**：
+- 本轮继续遵守 `0.0.2` 的边界，不碰 `Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs`。
+- 先把“真实剧情推进链的数据与调试入口”接通，再把运行态 Play 验收留给 Unity/MCP 恢复后的下一刀。
+**验证结果**：
+- 文件级检查确认首段资产已写入解码、阶段推进与 follow-up 引用；follow-up 资产 GUID 与首段引用一致；新增测试与调试日志补充已落盘；本轮白名单 `git diff --check` 通过。
+- Unity / MCP 运行态验证本轮未闭环：`mcp__mcp_unity__get_console_logs` 返回 `Connection failed: Unknown error`，当前不能安全做 live Play 验收。
+**恢复点 / 下一步**：
+- `0.0.2` 已从“基础脊柱完成”推进到“首段对话推进链数据闭环已接通”。
+- 下一步最小动作是在 Unity/MCP 恢复后，用 `NPC001` 或 `DialogueDebugMenu` 跑一次真实 Play 验收，确认 `StoryPhase` 和 `LanguageDecoded` 的运行态变化正确。

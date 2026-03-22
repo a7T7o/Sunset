@@ -384,3 +384,15 @@
   - 以及旧目录 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0.1剧情初稿\` 的迁移删除
 - 这次整理的目标是把 `0.0阶段` 的结构与 `spring-day1-implementation` 的文档面一起压平到当前 `main`，避免后续再依赖分散草稿或旧目录。
 - 当前恢复点：spring-day1 文档面已与当前 `main` 的实现基线对齐；下一轮若继续推进，应直接从 `main` 上的 `0.0阶段 + spring-day1-implementation` 入口继续。
+
+## 2026-03-22 补记：本线程已重新回到真实 Day1 剧情推进开发
+- 这轮已按新口径从 `D:\Unity\Unity_learning\Sunset @ main` 继续真实开发，不再把 shared root 的无关 dirty 当成本线程停工理由。
+- 当前 Day1 首段推进链原本还缺 3 个真实连接点：首段资产仍是测试文案、资产层没写解码/阶段推进/follow-up、follow-up 资产不存在。
+- 已完成的最小真实闭环内容：
+  - 重写 `SpringDay1_FirstDialogue.asset` 为“未解码首段”
+  - 新建 `SpringDay1_FirstDialogue_Followup.asset`
+  - 在 `DialogueDebugMenu` 日志中加入 `StoryPhase` / `LanguageDecoded`
+  - 新增 `SpringDay1DialogueProgressionTests.cs` 作为这条链的最小静态验证
+- 本轮继续遵守硬边界：没有碰 `Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs`。
+- 当前真实 blocker 不是 Git，也不是 branch carrier，而是 Unity/MCP 运行态验证：`mcp__mcp_unity__get_console_logs` 返回 `Connection failed: Unknown error`，因此这轮只能先收静态闭环，下一轮再补 live Play 验收。
+- 当前恢复点：如果下轮 Unity/MCP 恢复，我应直接做 `NPC001 / DialogueDebugMenu` 的运行态验收，不再回头整理文档。

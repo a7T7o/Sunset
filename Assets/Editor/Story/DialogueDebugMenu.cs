@@ -130,6 +130,7 @@ public static class DialogueDebugMenu
     {
         DialogueManager dialogueManager = Object.FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
         DialogueUI dialogueUI = Object.FindFirstObjectByType<DialogueUI>(FindObjectsInactive.Include);
+        StoryManager storyManager = Object.FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
         CanvasGroup canvasGroup = dialogueUI != null ? dialogueUI.GetComponent<CanvasGroup>() : null;
         TimeManager timeManager = Object.FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
         GameInputManager gameInputManager = Object.FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
@@ -153,6 +154,8 @@ public static class DialogueDebugMenu
             $"CanvasBlocksRaycasts={(dialogueUI != null && dialogueUI.IsCanvasBlockingRaycasts)}, " +
             $"ButtonInteractable={(dialogueUI != null && dialogueUI.IsContinueButtonInteractable)}, " +
             $"ContinueListeners={continueListenerCount}, " +
+            $"StoryPhase={(storyManager != null ? storyManager.CurrentPhase.ToString() : "n/a")}, " +
+            $"LanguageDecoded={(storyManager != null && storyManager.IsLanguageDecoded)}, " +
             $"TimePaused={(timeManager != null && timeManager.IsTimePaused())}, " +
             $"PauseDepth={(timeManager != null ? timeManager.GetPauseStackDepth().ToString() : "n/a")}, " +
             $"InputEnabled={(gameInputManager != null && gameInputManager.IsInputEnabledForDebug)}";

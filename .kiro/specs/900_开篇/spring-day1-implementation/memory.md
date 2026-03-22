@@ -261,3 +261,20 @@
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\`
 - 同时把旧目录 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0.1剧情初稿\` 的历史内容迁入 `0.0阶段\0.0.1剧情初稿\` 结构，并清掉旧落点。
 - 当前恢复点：`spring-day1-implementation` 与 `0.0阶段` 的文档入口已经回到统一结构，后续可以直接围绕 `main` 上的现有文档继续推进。
+
+## 2026-03-22 补记：Day1 首段对话推进链已接到真实对话资产
+- 本轮已按 `main-only + whitelist-sync` 口径重新开工，不再继续 docs-first 空转。
+- 当前真实补口对象不是 `Story` 基础代码，而是首段对话资产本身：此前 `SpringDay1_FirstDialogue.asset` 仍停留在测试文案，且没有把解码 / 阶段推进 / follow-up 接到资产层。
+- 本轮已完成：
+  - 重写 `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Story\Dialogue\SpringDay1_FirstDialogue.asset`
+  - 新建 `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Story\Dialogue\SpringDay1_FirstDialogue_Followup.asset`
+  - 更新 `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\DialogueDebugMenu.cs`，让日志直接输出 `StoryPhase` 与 `LanguageDecoded`
+  - 新增 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1DialogueProgressionTests.cs`
+- 当前首段资产已经具备：
+  - `markLanguageDecodedOnComplete = true`
+  - `advanceStoryPhaseOnComplete = true`
+  - `nextStoryPhase = EnterVillage`
+  - `followupSequence -> SpringDay1_FirstDialogue_Followup`
+- 本轮明确仍未碰：`Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs`。
+- 本轮静态验证已通过，但 live 运行态验证未闭环：Unity MCP 当前返回 `Connection failed: Unknown error`，因此 PlayMode 验收留到下一刀。
+- 当前恢复点：Day1 已从“有基础脊柱代码”推进到“首段对话资产真的会驱动解码 / 阶段变化 / follow-up”。
