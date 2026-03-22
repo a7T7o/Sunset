@@ -65,8 +65,10 @@
 - `可分发Prompt\scene-build_当前版本更新并继续施工.md`
   - `scene-build` 独立 worktree 持续施工版
 - `可分发Prompt\导航检查_当前版本更新并继续直接开发.md`
-  - 导航线程从 docs-first 进入首个真实代码 checkpoint
+  - 导航线程自己处理旧分支遗留后，从 docs-first 进入首个真实代码 checkpoint
 - `可分发Prompt\NPC_当前版本更新并继续直接开发.md`
   - NPC 线程继续收 NPC 自己的表现层与体感
+- `可分发Prompt\spring-day1_当前版本更新并继续直接开发.md`
+  - `spring-day1` 从收口态回到 Day1 首段剧情真实闭环
 - `可分发Prompt\遮挡检查_当前版本更新并继续直接开发.md`
-  - 遮挡线程从审计态进入首个真实整改 checkpoint
+  - 遮挡线程自己处理旧分支遗留后，从审计态进入首个真实整改 checkpoint
