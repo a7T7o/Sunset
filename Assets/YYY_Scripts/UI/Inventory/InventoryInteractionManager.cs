@@ -3,6 +3,7 @@ using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using System.Collections;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 
 /// <summary>
 /// 背包交互管理器 - 修复版 v2
@@ -51,6 +52,7 @@ public class InventoryInteractionManager : MonoBehaviour
     
     // 拿取数据
     private ItemStack heldItem;
+    private InventoryItem heldRuntimeItem;
     private int sourceIndex = -1;
     private bool sourceIsEquip = false;
     
@@ -176,6 +178,7 @@ public class InventoryInteractionManager : MonoBehaviour
     public void OnSlotBeginDrag(int index, bool isEquip, PointerEventData eventData)
     {
         if (currentState != State.Idle) return;
+        ItemTooltip.Instance?.Hide();
 
         if (TryRejectProtectedHeldInventoryPickup(index, isEquip))
         {
@@ -188,6 +191,7 @@ public class InventoryInteractionManager : MonoBehaviour
         sourceIndex = index;
         sourceIsEquip = isEquip;
         heldItem = slot;
+        heldRuntimeItem = GetRuntimeItem(index, isEquip);
         
         // 清空源槽位
         ClearSlot(index, isEquip);
@@ -276,7 +280,7 @@ public class InventoryInteractionManager : MonoBehaviour
         ItemStack src = GetSlot(sourceIndex, sourceIsEquip);
         if (src.IsEmpty)
         {
-            SetSlot(sourceIndex, sourceIsEquip, heldItem);
+            SetSlot(sourceIndex, sourceIsEquip, heldItem, heldRuntimeItem);
             Debug.Log($"[InventoryInteractionManager] 物品归位：返回原槽位 {sourceIndex}");
             ResetState();
             return;
@@ -310,7 +314,7 @@ public class InventoryInteractionManager : MonoBehaviour
         {
             if (inventory.GetSlot(i).IsEmpty)
             {
-                inventory.SetSlot(i, heldItem);
+                SetSlot(i, false, heldItem, heldRuntimeItem);
                 Debug.Log($"[InventoryInteractionManager] 物品归位：放入背包空位 {i}");
                 ResetState();
                 return;
@@ -330,8 +334,12 @@ public class InventoryInteractionManager : MonoBehaviour
         if (heldItem.IsEmpty) return;
         
         Debug.Log($"[InventoryInteractionManager] 物品归位：背包已满，扔在脚下");
-        FarmGame.UI.ItemDropHelper.DropAtPlayer(heldItem, dropCooldown);
+        if (heldRuntimeItem != null && !heldRuntimeItem.IsEmpty)
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(heldRuntimeItem, dropCooldown);
+        else
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(heldItem, dropCooldown);
         heldItem = new ItemStack();
+        heldRuntimeItem = null;
     }
     
     #endregion
@@ -380,6 +388,7 @@ public class InventoryInteractionManager : MonoBehaviour
         int sourceAmount = slot.amount - handAmount;
         
         heldItem = new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = handAmount };
+        heldRuntimeItem = slot.amount == handAmount ? GetRuntimeItem(index, isEquip) : null;
         
         // 如果源槽位数量为 0，清空槽位
         if (sourceAmount > 0)
@@ -412,6 +421,7 @@ public class InventoryInteractionManager : MonoBehaviour
         }
         
         heldItem = new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = 1 };
+        heldRuntimeItem = slot.amount == 1 ? GetRuntimeItem(index, isEquip) : null;
         
         if (slot.amount > 1)
             SetSlot(index, isEquip, new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = slot.amount - 1 });
@@ -531,6 +541,7 @@ public class InventoryInteractionManager : MonoBehaviour
     private void ExecutePlacement(int targetIndex, bool targetIsEquip, bool allowSwap)
     {
         ItemStack target = GetSlot(targetIndex, targetIsEquip);
+        InventoryItem targetRuntimeItem = GetRuntimeItem(targetIndex, targetIsEquip);
 
         if (TryRejectProtectedHeldInventoryMutation(targetIndex, targetIsEquip))
         {
@@ -554,8 +565,9 @@ public class InventoryInteractionManager : MonoBehaviour
         // 目标为空：直接放置
         if (target.IsEmpty)
         {
-            SetSlot(targetIndex, targetIsEquip, heldItem);
+            SetSlot(targetIndex, targetIsEquip, heldItem, heldRuntimeItem);
             heldItem = new ItemStack();
+            heldRuntimeItem = null;
             SelectSlot(targetIndex, targetIsEquip);  // 选中目标槽位
             ResetState();
             return;
@@ -572,6 +584,7 @@ public class InventoryInteractionManager : MonoBehaviour
             {
                 SetSlot(targetIndex, targetIsEquip, new ItemStack { itemId = target.itemId, quality = target.quality, amount = total });
                 heldItem = new ItemStack();
+                heldRuntimeItem = null;
                 SelectSlot(targetIndex, targetIsEquip);  // 选中目标槽位
                 ResetState();
             }
@@ -588,9 +601,10 @@ public class InventoryInteractionManager : MonoBehaviour
         if (allowSwap)
         {
             // 拖拽模式：交换（把手上物品放到目标，把目标物品放到源槽位）
-            SetSlot(targetIndex, targetIsEquip, heldItem);
-            SetSlot(sourceIndex, sourceIsEquip, target);
+            SetSlot(targetIndex, targetIsEquip, heldItem, heldRuntimeItem);
+            SetSlot(sourceIndex, sourceIsEquip, target, targetRuntimeItem);
             heldItem = new ItemStack();
+            heldRuntimeItem = null;
             SelectSlot(targetIndex, targetIsEquip);  // 选中目标槽位
             ResetState();
         }
@@ -602,9 +616,10 @@ public class InventoryInteractionManager : MonoBehaviour
             if (source.IsEmpty)
             {
                 // 源槽位为空：允许交换
-                SetSlot(targetIndex, targetIsEquip, heldItem);
-                SetSlot(sourceIndex, sourceIsEquip, target);
+                SetSlot(targetIndex, targetIsEquip, heldItem, heldRuntimeItem);
+                SetSlot(sourceIndex, sourceIsEquip, target, targetRuntimeItem);
                 heldItem = new ItemStack();
+                heldRuntimeItem = null;
                 SelectSlot(targetIndex, targetIsEquip);  // 选中目标槽位
                 ResetState();
             }
@@ -625,6 +640,11 @@ public class InventoryInteractionManager : MonoBehaviour
     private ItemStack GetSlot(int index, bool isEquip)
     {
         return isEquip ? equipment.GetEquip(index) : inventory.GetSlot(index);
+    }
+
+    private InventoryItem GetRuntimeItem(int index, bool isEquip)
+    {
+        return isEquip ? equipment.GetEquipItem(index) : inventory.GetInventoryItem(index);
     }
 
     private bool TryRejectProtectedHeldInventoryMutation(int targetIndex, bool targetIsEquip)
@@ -659,6 +679,18 @@ public class InventoryInteractionManager : MonoBehaviour
         if (isEquip) equipment.SetEquip(index, item);
         else inventory.SetSlot(index, item);
     }
+
+    private void SetSlot(int index, bool isEquip, ItemStack item, InventoryItem runtimeItem)
+    {
+        if (runtimeItem != null && !runtimeItem.IsEmpty)
+        {
+            if (isEquip) equipment.SetEquipItem(index, runtimeItem);
+            else inventory.SetInventoryItem(index, runtimeItem);
+            return;
+        }
+
+        SetSlot(index, isEquip, item);
+    }
     
     private void ClearSlot(int index, bool isEquip)
     {
@@ -673,7 +705,7 @@ public class InventoryInteractionManager : MonoBehaviour
         ItemStack src = GetSlot(sourceIndex, sourceIsEquip);
         if (src.IsEmpty)
         {
-            SetSlot(sourceIndex, sourceIsEquip, heldItem);
+            SetSlot(sourceIndex, sourceIsEquip, heldItem, heldRuntimeItem);
         }
         else if (src.itemId == heldItem.itemId && src.quality == heldItem.quality)
         {
@@ -686,14 +718,16 @@ public class InventoryInteractionManager : MonoBehaviour
             {
                 if (inventory.GetSlot(i).IsEmpty)
                 {
-                    inventory.SetSlot(i, heldItem);
+                    SetSlot(i, false, heldItem, heldRuntimeItem);
                     heldItem = new ItemStack();
+                    heldRuntimeItem = null;
                     return;
                 }
             }
             DropItem();
         }
         heldItem = new ItemStack();
+        heldRuntimeItem = null;
     }
     
     private void DropItem()
@@ -704,9 +738,13 @@ public class InventoryInteractionManager : MonoBehaviour
         }
         
         // 🔥 使用 ItemDropHelper 统一丢弃逻辑
-        FarmGame.UI.ItemDropHelper.DropAtPlayer(heldItem, dropCooldown);
+        if (heldRuntimeItem != null && !heldRuntimeItem.IsEmpty)
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(heldRuntimeItem, dropCooldown);
+        else
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(heldItem, dropCooldown);
         
         heldItem = new ItemStack();
+        heldRuntimeItem = null;
     }
     
     private void ShowHeld()
@@ -721,6 +759,7 @@ public class InventoryInteractionManager : MonoBehaviour
     {
         currentState = State.Idle;
         heldItem = new ItemStack();
+        heldRuntimeItem = null;
         sourceIndex = -1;
         dropTargetIndex = DROP_TARGET_NONE;  // ★ 使用常量
         heldDisplay?.Hide();
@@ -869,10 +908,16 @@ public class InventoryInteractionManager : MonoBehaviour
         }
         
         ItemStack current = equipment.GetEquip(targetSlot);
-        equipment.SetEquip(targetSlot, item);
+        InventoryItem currentRuntimeItem = equipment.GetEquipItem(targetSlot);
+        InventoryItem sourceRuntimeItem = inventory.GetInventoryItem(srcIndex);
+
+        if (sourceRuntimeItem != null && !sourceRuntimeItem.IsEmpty)
+            equipment.SetEquipItem(targetSlot, sourceRuntimeItem);
+        else
+            equipment.SetEquip(targetSlot, item);
         
         if (!current.IsEmpty)
-            inventory.SetSlot(srcIndex, current);
+            SetSlot(srcIndex, false, current, currentRuntimeItem);
         else
             inventory.ClearSlot(srcIndex);
     }

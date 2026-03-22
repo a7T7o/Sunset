@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 
 /// <summary>
 /// 装备槽位 UI - 基础版本
@@ -23,6 +24,19 @@ public class EquipmentSlotUI : MonoBehaviour, IPointerClickHandler
     /// 槽位索引（供外部查询）
     /// </summary>
     public int Index => index;
+
+    public EquipmentService Equipment => equipment;
+    public ItemDatabase Database => database;
+
+    public ItemStack GetCurrentStack()
+    {
+        return equipment != null ? equipment.GetEquip(index) : ItemStack.Empty;
+    }
+
+    public InventoryItem GetCurrentRuntimeItem()
+    {
+        return equipment != null ? equipment.GetEquipItem(index) : null;
+    }
 
     #region Unity 生命周期
     void Awake()

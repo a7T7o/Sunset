@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using System.Collections;
 using FarmGame.Data;
 using FarmGame.Data.Core;
@@ -39,6 +39,7 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
     [SerializeField] private float flyHeight = 0.3f;
 
     private ItemDatabase database;
+    private InventoryItem runtimeItem;
     private bool _isFlying = false;
     private Coroutine _flyCoroutine;
     private bool _initialized = false;
@@ -59,6 +60,23 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
         itemId = stack.itemId;
         quality = stack.quality;
         amount = Mathf.Max(1, stack.amount);
+        runtimeItem = InventoryItem.FromItemStack(stack);
+        _initialized = true;
+        ApplyVisual();
+    }
+
+    public void Init(ItemDatabase db, InventoryItem item)
+    {
+        if (item == null || item.IsEmpty)
+        {
+            return;
+        }
+
+        database = db;
+        runtimeItem = item;
+        itemId = item.ItemId;
+        quality = item.Quality;
+        amount = Mathf.Max(1, item.Amount);
         _initialized = true;
         ApplyVisual();
     }
@@ -70,6 +88,7 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
             itemId = data.itemID;
             quality = q;
             amount = Mathf.Max(1, amt);
+            runtimeItem = new InventoryItem(itemId, quality, amount);
             linkedItemData = data;
             _initialized = true;
             if (spriteRenderer == null) spriteRenderer = GetComponentInChildren<SpriteRenderer>();
@@ -220,36 +239,83 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
         }
     }
 
-    public ItemStack GetStack() => new ItemStack(itemId, quality, amount);
+    public ItemStack GetStack() => runtimeItem != null && !runtimeItem.IsEmpty ? runtimeItem.ToItemStack() : new ItemStack(itemId, quality, amount);
+
+    public InventoryItem GetRuntimeItem() => runtimeItem;
+
+    public void SetRuntimeItem(InventoryItem item, ItemDatabase db = null)
+    {
+        if (item == null || item.IsEmpty)
+        {
+            runtimeItem = null;
+            return;
+        }
+
+        if (db != null)
+        {
+            database = db;
+        }
+
+        runtimeItem = item;
+        itemId = item.ItemId;
+        quality = item.Quality;
+        amount = Mathf.Max(1, item.Amount);
+        _initialized = true;
+        ApplyVisual();
+    }
 
     public bool TryPickup(InventoryService inventory)
     {
         if (inventory == null) return false;
+
+        bool usesRuntimeState = runtimeItem != null && !runtimeItem.IsEmpty &&
+                                (runtimeItem.HasDurability || runtimeItem.HasDynamicProperties);
+
+        if (usesRuntimeState)
+        {
+            bool success = inventory.AddInventoryItem(runtimeItem);
+            if (success)
+            {
+                DespawnSelf();
+                return true;
+            }
+
+            return false;
+        }
+
         int rem = inventory.AddItem(itemId, quality, amount);
         if (rem == 0)
         {
-            // 停止动画
-            var dropAnim = GetComponent<WorldItemDrop>();
-            if (dropAnim != null)
-            {
-                dropAnim.StopAnimation();
-            }
-
-            // 优先使用对象池回收
-            if (WorldItemPool.Instance != null)
-            {
-                WorldItemPool.Instance.Despawn(this);
-            }
-            else
-            {
-                Destroy(gameObject);
-            }
+            DespawnSelf();
             return true;
         }
-        amount = rem; // 未拾完，更新堆叠
+
+        amount = rem;
+        if (runtimeItem != null && !runtimeItem.IsEmpty)
+        {
+            runtimeItem.SetAmount(rem);
+        }
         return false;
     }
-    
+
+    private void DespawnSelf()
+    {
+        var dropAnim = GetComponent<WorldItemDrop>();
+        if (dropAnim != null)
+        {
+            dropAnim.StopAnimation();
+        }
+
+        if (WorldItemPool.Instance != null)
+        {
+            WorldItemPool.Instance.Despawn(this);
+        }
+        else
+        {
+            Destroy(gameObject);
+        }
+    }
+
     /// <summary>
     /// 飞向玩家动画
     /// </summary>
@@ -337,6 +403,7 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
         quality = 0;
         amount = 1;
         linkedItemData = null;
+        runtimeItem = null;
         _isFlying = false;
         _initialized = false;
         _pickupCooldownEndTime = 0f;

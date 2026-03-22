@@ -1,6 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 
 /// <summary>
 /// 物品详情悬浮框
@@ -44,6 +45,7 @@ public class ItemTooltip : MonoBehaviour
     private ItemStack _currentItem;
     private ItemDatabase _database;
     private int _currentAmount = 0;
+    private InventoryItem _currentRuntimeItem;
     
     #endregion
     
@@ -116,39 +118,46 @@ public class ItemTooltip : MonoBehaviour
     /// <param name="amount">数量（用于计算总价）</param>
     public void Show(ItemStack item, int amount = 1)
     {
+        Show(item, null, amount);
+    }
+
+    public void Show(ItemStack item, InventoryItem runtimeItem, int amount = 1)
+    {
         if (item.IsEmpty || _database == null)
         {
             Hide();
             return;
         }
-        
+
         var itemData = _database.GetItemByID(item.itemId);
-        if (itemData == null)
+        Show(itemData, item, runtimeItem, amount);
+    }
+
+    public void Show(ItemData itemData, ItemStack item, InventoryItem runtimeItem = null, int amount = 1)
+    {
+        if (itemData == null || item.IsEmpty)
         {
             Hide();
             return;
         }
-        
+
         _currentItem = item;
         _currentAmount = amount;
+        _currentRuntimeItem = runtimeItem;
         _isShowing = true;
         gameObject.SetActive(true);
-        
-        // 设置物品名称
+
         if (itemNameText != null)
         {
             itemNameText.text = itemData.itemName;
-            // 根据品质设置颜色
             itemNameText.color = GetQualityColor((ItemQuality)item.quality);
         }
-        
-        // 设置描述
+
         if (descriptionText != null)
         {
-            descriptionText.text = itemData.description;
+            descriptionText.text = ItemTooltipTextBuilder.Build(itemData, runtimeItem);
         }
-        
-        // 设置价格（显示总价而非单价）
+
         if (priceText != null)
         {
             int totalPrice = itemData.GetSellPriceWithQuality((ItemQuality)item.quality) * amount;
@@ -195,6 +204,7 @@ public class ItemTooltip : MonoBehaviour
         _isShowing = false;
         _currentItem = ItemStack.Empty;
         _currentAmount = 0;
+        _currentRuntimeItem = null;
         gameObject.SetActive(false);
         
         if (canvasGroup != null)

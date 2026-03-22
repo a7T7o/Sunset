@@ -123,7 +123,7 @@ public class ChestInventoryV2 : IItemContainer
         if (item == null || item.IsEmpty) return false;
 
         // 有动态属性的物品不能堆叠，直接找空位
-        if (item.HasDurability || item.HasProperty("enchantment"))
+        if (item.HasDurability || item.HasDynamicProperties)
         {
             for (int i = 0; i < _capacity; i++)
             {

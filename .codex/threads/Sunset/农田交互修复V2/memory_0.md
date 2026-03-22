@@ -343,3 +343,26 @@
 
 ## 2026-03-22：用户批准后，正式新建 1.0.3 工作区承接下一阶段
 用户在看过上述分析后，明确提出“这个方向已经成立，建议直接在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16` 下新开 `1.0.3` 文件夹，把你刚刚的输出正式写进去”，并授权我开始落盘。本轮已按该要求执行：新建 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\requirements.md / analysis.md / design.md / tasks.md / memory.md`，把这一轮的完整结论固化为正式工作区正文。当前稳定结论是：`1.0.3` 不再服务于农田交互纠偏，而是承接基础 UI / 物品交互统一改进；第一优先级是重建 Tooltip 的真实入口与静态/实例态展示链，第二优先级是补齐掉落链实例态闭环与食物/药水真实生效，第三优先级是统一精力相关术语。当前主线恢复点已更新为：这轮“高质量分析落盘”任务完成，下一步若继续推进，就应直接按 `1.0.3` 五件套进入真实实现，而不是再回头凭聊天记录回忆方向。
+
+## 2026-03-23：1.0.3 第一轮实现已落地，当前停在共享编译阻断前
+- 已完成代码落地：
+  - `ItemTooltip.cs` 不再直接显示 `itemData.description`，开始统一走 `GetTooltipText()` 的静态出口，并叠加实例态信息。
+  - 新增 `ItemTooltipTextBuilder.cs`，集中拼装静态文本、工具当前耐久、种子袋开袋状态、剩余种子数与剩余保质期。
+  - `InventorySlotInteraction.cs` 与 `ToolbarSlotUI.cs` 已接入 Tooltip 悬浮显示/隐藏入口；装备槽通过 `InventorySlotInteraction` 复用该入口。
+  - `EquipmentSlotUI.cs` 暴露当前装备槽的 `ItemStack / InventoryItem / Database` 读取口径，供 Tooltip 与后续实例态链使用。
+  - `InventoryItem.cs` 新增动态属性可见性口径，`PlayerInventoryData.cs` 与 `ChestInventoryV2.cs` 改为把所有实例态属性都视为不可堆叠数据，避免种子袋/耐久物品被错判成普通静态物品。
+  - `InventoryInteractionManager.cs`、`InventorySlotInteraction.cs`、`SlotDragContext.cs` 已补齐主要拖拽/归位/丢弃链上的实例态随行，避免工具耐久、种子袋状态在换格或丢到地上时直接丢失。
+  - `ItemDropHelper.cs` 与 `WorldItemPickup.cs` 已支持 `InventoryItem` 实例态掉落与拾取回背包。
+  - `BoxPanelUI.cs` 的 SlotDragContext 丢弃入口也已跟上实例态掉落分流。
+  - `ItemUseConfirmDialog.cs` 已把食物/药水的精力恢复接到 `EnergySystem`；生命恢复因当前项目缺少明确的玩家生命系统，仍写实保留 warning，不伪称已完成。
+- 已完成验证：
+  - 中途 Roslyn 运行时代码独立编译曾通过。
+  - 当前再次跑全量 `Assembly-CSharp.rsp` 时，新的阻断来自共享现场：`Assets/YYY_Scripts/Story/Managers/StoryManager.cs(127,13): SpringDay1Director` 未定义，不属于农田这批脚本。
+  - `git diff --check` 针对本轮农田白名单脚本已无空白格式错误，只剩 CRLF/LF 提示。
+- 当前未完成 / 残留：
+  - `1.0.3` 的任务文档 checkbox 还未回填到实现后状态。
+  - 父工作区、根工作区、线程记忆与 skill 审计还未同步这轮真实实现结果。
+  - 生命恢复仍未真正落地，因为项目内暂未发现可接的玩家生命系统。
+  - 当前箱子主 UI 仍走 `ChestInventory` 旧链，因此“箱子内实例态完整保真”不应冒充已彻底解决。
+- 当前恢复点：
+  - 农田 `1.0.3` 已从“纯设计”推进到“Tooltip + 实例态 + 掉落 + 食物药水精力恢复”的第一轮实现，下一步先同步文档/记忆，再按白名单提交 checkpoint，然后交给用户按清单验收。

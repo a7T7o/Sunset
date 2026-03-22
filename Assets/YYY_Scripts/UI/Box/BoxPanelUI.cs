@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
 using FarmGame.Data;
@@ -349,7 +349,7 @@ namespace FarmGame.UI
             if (!item.IsEmpty)
             {
                 // 🔥 使用 ItemDropHelper 统一丢弃逻辑
-                ItemDropHelper.DropAtPlayer(item);
+                if (SlotDragContext.DraggedRuntimeItem != null && !SlotDragContext.DraggedRuntimeItem.IsEmpty) ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem); else ItemDropHelper.DropAtPlayer(item);
             }
             
             // 清空拖拽状态
@@ -829,7 +829,7 @@ namespace FarmGame.UI
             }
             
             // 4. 都满了，扔在脚下
-            ItemDropHelper.DropAtPlayer(item);
+            if (SlotDragContext.DraggedRuntimeItem != null && !SlotDragContext.DraggedRuntimeItem.IsEmpty) ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem); else ItemDropHelper.DropAtPlayer(item);
             SlotDragContext.End();
             if (showDebugInfo)
                 Debug.Log("[BoxPanelUI] 箱子物品归位：扔在脚下");

@@ -7,7 +7,7 @@ using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.UI;
 
-public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
+public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterHandler, IPointerExitHandler
 {
     private static readonly Dictionary<int, ToolbarSlotUI> RegisteredSlots = new Dictionary<int, ToolbarSlotUI>();
 
@@ -398,6 +398,40 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler
             selection?.SelectIndex(index);
             RefreshSelection();
         }
+    }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        if (SlotDragContext.IsDragging || (InventoryInteractionManager.Instance != null && InventoryInteractionManager.Instance.IsHolding))
+        {
+            return;
+        }
+
+        if (inventory == null || database == null || index < 0)
+        {
+            return;
+        }
+
+        var stack = inventory.GetSlot(index);
+        if (stack.IsEmpty)
+        {
+            ItemTooltip.Instance?.Hide();
+            return;
+        }
+
+        var itemData = database.GetItemByID(stack.itemId);
+        if (itemData == null)
+        {
+            ItemTooltip.Instance?.Hide();
+            return;
+        }
+
+        ItemTooltip.Instance?.Show(itemData, stack, inventory.GetInventoryItem(index), stack.amount);
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        ItemTooltip.Instance?.Hide();
     }
     
     /// <summary>

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -179,7 +179,7 @@ namespace FarmGame.Data.Core
             if (item == null || item.IsEmpty) return false;
             
             // 有动态属性的物品不能堆叠，直接找空位
-            if (item.HasDurability || HasAnyProperty(item))
+            if (item.HasDurability || item.HasDynamicProperties)
             {
                 // 优先 Hotbar
                 for (int i = 0; i < HotbarWidth; i++)
@@ -209,14 +209,6 @@ namespace FarmGame.Data.Core
             // 普通物品：使用标准添加逻辑
             int remaining = AddItem(item.ItemId, item.Quality, item.Amount);
             return remaining == 0;
-        }
-        
-        private bool HasAnyProperty(InventoryItem item)
-        {
-            // 简单检查：如果有任何动态属性
-            return item.HasProperty("enchantment") || 
-                   item.HasProperty("customName") ||
-                   item.HasProperty("createdTime");
         }
         
         private int FillExistingStacksRange(int itemId, int quality, int remaining, int start, int end)

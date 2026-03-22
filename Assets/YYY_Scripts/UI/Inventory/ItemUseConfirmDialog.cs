@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using FarmGame.Data;
 using System;
@@ -225,22 +225,59 @@ public class ItemUseConfirmDialog : MonoBehaviour
     /// </summary>
     private void ApplyItemEffect(ItemData itemData, int quality)
     {
-        // 根据物品类型应用效果
         if (itemData is FoodData foodData)
         {
-            // 恢复精力和生命值
-            // TODO: 连接到玩家状态系统
-            Debug.Log($"[ItemUseConfirmDialog] 食物效果: 精力+{foodData.energyRestore}, HP+{foodData.healthRestore}");
+            ApplyFoodEffect(foodData);
         }
         else if (itemData is PotionData potionData)
         {
-            // 恢复生命值和精力
-            // TODO: 连接到玩家状态系统
-            Debug.Log($"[ItemUseConfirmDialog] 药水效果: HP+{potionData.healthRestore}, 精力+{potionData.energyRestore}");
+            ApplyPotionEffect(potionData);
         }
-        
-        // 触发使用事件（供外部系统订阅）
+
         OnItemUsed?.Invoke(itemData, quality);
+    }
+
+    private void ApplyFoodEffect(FoodData foodData)
+    {
+        int restoredEnergy = RestorePlayerEnergy(foodData.energyRestore);
+        LogPendingHealthRestore(foodData.healthRestore, "Food");
+        Debug.Log($"[ItemUseConfirmDialog] 食物效果: 精力+{restoredEnergy}, HP+{foodData.healthRestore}");
+    }
+
+    private void ApplyPotionEffect(PotionData potionData)
+    {
+        int restoredEnergy = RestorePlayerEnergy(potionData.energyRestore);
+        LogPendingHealthRestore(potionData.healthRestore, "Potion");
+        Debug.Log($"[ItemUseConfirmDialog] 药水效果: HP+{potionData.healthRestore}, 精力+{restoredEnergy}");
+    }
+
+    private int RestorePlayerEnergy(int amount)
+    {
+        if (amount <= 0)
+        {
+            return 0;
+        }
+
+        var energySystem = EnergySystem.Instance;
+        if (energySystem == null)
+        {
+            Debug.LogWarning("[ItemUseConfirmDialog] EnergySystem 不存在，无法恢复精力");
+            return 0;
+        }
+
+        int before = energySystem.CurrentEnergy;
+        energySystem.RestoreEnergy(amount);
+        return energySystem.CurrentEnergy - before;
+    }
+
+    private void LogPendingHealthRestore(int amount, string source)
+    {
+        if (amount <= 0)
+        {
+            return;
+        }
+
+        Debug.LogWarning($"[ItemUseConfirmDialog] {source} 的生命恢复仍未接入玩家生命系统，本次未应用 HP+{amount}");
     }
     
     /// <summary>

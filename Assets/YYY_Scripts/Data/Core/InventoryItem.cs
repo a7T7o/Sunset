@@ -98,6 +98,18 @@ namespace FarmGame.Data.Core
         /// 是否有耐久度系统
         /// </summary>
         public bool HasDurability => maxDurability > 0;
+
+        /// <summary>
+        /// Whether this item carries any runtime properties that should block stacking.
+        /// </summary>
+        public bool HasDynamicProperties
+        {
+            get
+            {
+                EnsurePropertiesInitialized();
+                return properties.Count > 0;
+            }
+        }
         
         /// <summary>
         /// 耐久度百分比（0-1）
@@ -307,6 +319,15 @@ namespace FarmGame.Data.Core
         {
             EnsurePropertiesInitialized();
             return properties.Remove(key);
+        }
+
+        /// <summary>
+        /// Returns a copy of the current runtime property map for persistence / transfers.
+        /// </summary>
+        public Dictionary<string, string> GetPropertiesSnapshot()
+        {
+            EnsurePropertiesInitialized();
+            return new Dictionary<string, string>(properties);
         }
         
         private void EnsurePropertiesInitialized()

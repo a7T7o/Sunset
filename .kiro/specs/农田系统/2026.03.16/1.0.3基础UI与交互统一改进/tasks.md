@@ -50,3 +50,14 @@
 - [ ] 4. 掉落再拾取后实例态仍正确。
 - [ ] 5. 食物 / 药水真实影响玩家状态。
 - [ ] 6. 不引入新的 farm runtime 编译错误或 warning。
+
+## I. 2026-03-23 第一轮实现进展
+- [x] 1. `ItemTooltip.cs` 已接入统一静态文本出口，并不再只显示 `itemData.description`。
+- [x] 2. `ItemTooltipTextBuilder.cs` 已建立，工具耐久与种子袋实例态信息可进入 Tooltip 文本。
+- [x] 3. 背包 / 装备 / Toolbar 的 Tooltip 悬浮入口已接上，拖拽开始时会主动隐藏 Tooltip。
+- [x] 4. 主要实例态拖拽 / 归位 / 掉落链已补齐，`InventoryItem` 不再在常见的换格与丢弃路径里直接丢失。
+- [x] 5. `ItemDropHelper.cs` 与 `WorldItemPickup.cs` 已支持 `InventoryItem` 实例态掉落和拾取回背包。
+- [x] 6. `ItemUseConfirmDialog.cs` 已将食物 / 药水的精力恢复接到 `EnergySystem`。
+- [ ] 7. 玩家生命恢复仍未真正落地，当前项目内未发现可安全接入的玩家生命系统。
+- [ ] 8. 箱子主 UI 仍走 `ChestInventory` 旧链，箱内实例态完整保真尚未彻底治理。
+- [ ] 9. 用户现场验收与共享编译阻断清理仍待完成。

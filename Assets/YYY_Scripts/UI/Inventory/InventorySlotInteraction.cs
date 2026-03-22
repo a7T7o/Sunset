@@ -1,6 +1,8 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+using FarmGame.Data;
+using FarmGame.Data.Core;
 using FarmGame.UI;
 
 /// <summary>
@@ -17,6 +19,8 @@ using FarmGame.UI;
 public class InventorySlotInteraction : MonoBehaviour,
     IPointerDownHandler,
     IPointerUpHandler,
+    IPointerEnterHandler,
+    IPointerExitHandler,
     IBeginDragHandler,
     IDragHandler,
     IEndDragHandler,
@@ -125,6 +129,118 @@ public class InventorySlotInteraction : MonoBehaviour,
                 return inventorySlotUI.Container;
             return null;
         }
+    }
+
+    private ItemStack ResolveCurrentStack()
+    {
+        if (isEquip && equipmentSlotUI != null)
+        {
+            return equipmentSlotUI.GetCurrentStack();
+        }
+
+        if (CurrentContainer != null && SlotIndex >= 0)
+        {
+            return CurrentContainer.GetSlot(SlotIndex);
+        }
+
+        return ItemStack.Empty;
+    }
+
+    private ItemData ResolveCurrentItemData(ItemStack stack)
+    {
+        if (stack.IsEmpty)
+        {
+            return null;
+        }
+
+        if (isEquip && equipmentSlotUI != null)
+        {
+            return equipmentSlotUI.Database != null ? equipmentSlotUI.Database.GetItemByID(stack.itemId) : null;
+        }
+
+        return CurrentContainer?.Database != null ? CurrentContainer.Database.GetItemByID(stack.itemId) : null;
+    }
+
+    private InventoryItem ResolveCurrentRuntimeItem()
+    {
+        if (isEquip && equipmentSlotUI != null)
+        {
+            return equipmentSlotUI.GetCurrentRuntimeItem();
+        }
+
+        if (CurrentContainer is InventoryService inventoryService)
+        {
+            return inventoryService.GetInventoryItem(SlotIndex);
+        }
+
+        if (CurrentContainer is ChestInventoryV2 chestInventoryV2)
+        {
+            return chestInventoryV2.GetItem(SlotIndex);
+        }
+
+        return null;
+    }
+
+    private void TryShowTooltip()
+    {
+        if (SlotDragContext.IsDragging || (InventoryInteractionManager.Instance != null && InventoryInteractionManager.Instance.IsHolding))
+        {
+            return;
+        }
+
+        var tooltip = ItemTooltip.Instance;
+        if (tooltip == null)
+        {
+            return;
+        }
+
+        var stack = ResolveCurrentStack();
+        if (stack.IsEmpty)
+        {
+            tooltip.Hide();
+            return;
+        }
+
+        var itemData = ResolveCurrentItemData(stack);
+        if (itemData == null)
+        {
+            tooltip.Hide();
+            return;
+        }
+
+        tooltip.Show(itemData, stack, ResolveCurrentRuntimeItem(), stack.amount);
+    }
+
+    private InventoryItem ResolveContainerRuntimeItem(IItemContainer container, int slotIndex)
+    {
+        if (container is InventoryService inventoryService)
+        {
+            return inventoryService.GetInventoryItem(slotIndex);
+        }
+
+        if (container is ChestInventoryV2 chestInventoryV2)
+        {
+            return chestInventoryV2.GetItem(slotIndex);
+        }
+
+        return null;
+    }
+
+    private void SetContainerSlot(IItemContainer container, int slotIndex, ItemStack stack, InventoryItem runtimeItem = null)
+    {
+        if (container is InventoryService inventoryService && runtimeItem != null && !runtimeItem.IsEmpty)
+        {
+            inventoryService.SetInventoryItem(slotIndex, runtimeItem);
+            return;
+        }
+
+        if (container is ChestInventoryV2 chestInventoryV2 && runtimeItem != null && !runtimeItem.IsEmpty)
+        {
+            chestInventoryV2.SetItem(slotIndex, runtimeItem);
+            return;
+        }
+
+        container.SetSlot(slotIndex, stack);
     }
     
     private bool IsChestSlot => CurrentContainer is ChestInventory;
@@ -242,10 +358,21 @@ public class InventorySlotInteraction : MonoBehaviour,
     {
         // PointerUp 不做任何事
     }
+
+    public void OnPointerEnter(PointerEventData eventData)
+    {
+        TryShowTooltip();
+    }
+
+    public void OnPointerExit(PointerEventData eventData)
+    {
+        ItemTooltip.Instance?.Hide();
+    }
     
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (eventData.button != PointerEventData.InputButton.Left) return;
+        ItemTooltip.Instance?.Hide();
         
         // 🔥 修复：如果已经在 Held 状态（通过 Shift/Ctrl 拿起），不要开始拖拽
         // 与背包区域行为保持一致：Held 状态下移动鼠标不会触发拖拽
@@ -314,7 +441,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             if (manager != null && manager.IsHolding) return;
             
             isDragging = true;
-            SlotDragContext.Begin(inventory, index, item, inventorySlotUI);  // 🔥 传入源槽位 UI
+            SlotDragContext.Begin(inventory, index, item, inventorySlotUI, inventory.GetInventoryItem(index));  // 🔥 传入源槽位 UI
             inventory.ClearSlot(index);
             ShowDragIcon(item);
         }
@@ -489,6 +616,8 @@ public class InventorySlotInteraction : MonoBehaviour,
     
     private void HandleSameContainerDrop(IItemContainer container, int sourceIndex, int targetIndex, ItemStack draggedItem)
     {
+        var draggedRuntimeItem = SlotDragContext.DraggedRuntimeItem;
+
         if (sourceIndex == targetIndex)
         {
             // 🔥 修复 P0-3：放回原位时应该合并，而不是覆盖
@@ -496,7 +625,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             var currentSlot = container.GetSlot(sourceIndex);
             if (currentSlot.IsEmpty)
             {
-                container.SetSlot(sourceIndex, draggedItem);
+                SetContainerSlot(container, sourceIndex, draggedItem, draggedRuntimeItem);
             }
             else if (currentSlot.CanStackWith(draggedItem))
             {
@@ -507,7 +636,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             else
             {
                 // 不同物品，直接覆盖（理论上不应该发生，因为是同一槽位）
-                container.SetSlot(sourceIndex, draggedItem);
+                SetContainerSlot(container, sourceIndex, draggedItem, draggedRuntimeItem);
             }
             // 🔥 选中状态优化：放回原位也选中
             SelectTargetSlot();
@@ -518,7 +647,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         
         if (targetSlot.IsEmpty)
         {
-            container.SetSlot(targetIndex, draggedItem);
+            SetContainerSlot(container, targetIndex, draggedItem, draggedRuntimeItem);
             // 🔥 选中状态优化：放置成功后选中目标槽位
             SelectTargetSlot();
             return;
@@ -549,12 +678,13 @@ public class InventorySlotInteraction : MonoBehaviour,
         // 🔥 修复 P0-4：不同物品时，检查源槽位是否为空
         // 与背包 ExecutePlacement 逻辑保持一致
         var sourceSlot = container.GetSlot(sourceIndex);
+        var targetRuntimeItem = ResolveContainerRuntimeItem(container, targetIndex);
         
         if (sourceSlot.IsEmpty || isDragging)
         {
             // 源槽位为空 或 拖拽模式：允许交换
-            container.SetSlot(targetIndex, draggedItem);
-            container.SetSlot(sourceIndex, targetSlot);
+            SetContainerSlot(container, targetIndex, draggedItem, draggedRuntimeItem);
+            SetContainerSlot(container, sourceIndex, targetSlot, targetRuntimeItem);
             // 🔥 选中状态优化：交换后选中目标槽位
             SelectTargetSlot();
         }
@@ -569,7 +699,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             else
             {
                 // 不同物品，无法合并，直接放回（理论上不应该发生）
-                container.SetSlot(sourceIndex, draggedItem);
+                SetContainerSlot(container, sourceIndex, draggedItem, draggedRuntimeItem);
             }
             // 🔥 选中状态优化：返回原位也选中源槽位
             // 注意：这里需要选中源槽位，而不是目标槽位
@@ -716,6 +846,7 @@ public class InventorySlotInteraction : MonoBehaviour,
     {
         var equipService = CachedEquipmentService;
         var invService = CachedInventoryService;
+        var draggedRuntimeItem = SlotDragContext.DraggedRuntimeItem;
         
         if (equipService == null || invService == null || invService.Database == null)
         {
@@ -738,9 +869,12 @@ public class InventorySlotInteraction : MonoBehaviour,
         
         // 验证通过，执行装备操作
         var currentEquip = equipService.GetEquip(targetEquipIndex);
+        var currentEquipRuntimeItem = equipService.GetEquipItem(targetEquipIndex);
         
         // 设置新装备
-        bool success = equipService.SetEquip(targetEquipIndex, draggedItem);
+        bool success = draggedRuntimeItem != null && !draggedRuntimeItem.IsEmpty
+            ? equipService.SetEquipItem(targetEquipIndex, draggedRuntimeItem)
+            : equipService.SetEquip(targetEquipIndex, draggedItem);
         if (!success)
         {
             // 设置失败，回滚
@@ -758,7 +892,10 @@ public class InventorySlotInteraction : MonoBehaviour,
                 var sourceSlot = chest.GetSlot(sourceIndex);
                 if (sourceSlot.IsEmpty)
                 {
-                    chest.SetSlot(sourceIndex, currentEquip);
+                    if (currentEquipRuntimeItem != null && !currentEquipRuntimeItem.IsEmpty)
+                        SetContainerSlot(chest, sourceIndex, currentEquip, currentEquipRuntimeItem);
+                    else
+                        chest.SetSlot(sourceIndex, currentEquip);
                 }
                 else
                 {
@@ -780,7 +917,10 @@ public class InventorySlotInteraction : MonoBehaviour,
                         if (remaining > 0)
                         {
                             // 背包也满了，扔在脚下
-                            FarmGame.UI.ItemDropHelper.DropAtPlayer(new ItemStack { itemId = currentEquip.itemId, quality = currentEquip.quality, amount = remaining });
+                            if (currentEquipRuntimeItem != null && !currentEquipRuntimeItem.IsEmpty)
+                                FarmGame.UI.ItemDropHelper.DropAtPlayer(currentEquipRuntimeItem);
+                            else
+                                FarmGame.UI.ItemDropHelper.DropAtPlayer(new ItemStack { itemId = currentEquip.itemId, quality = currentEquip.quality, amount = remaining });
                         }
                     }
                 }
@@ -790,16 +930,21 @@ public class InventorySlotInteraction : MonoBehaviour,
                 var sourceSlot = inv.GetSlot(sourceIndex);
                 if (sourceSlot.IsEmpty)
                 {
-                    inv.SetSlot(sourceIndex, currentEquip);
+                    SetContainerSlot(inv, sourceIndex, currentEquip, currentEquipRuntimeItem);
                 }
                 else
                 {
                     // 源槽位非空，尝试找空位
-                    int remaining = inv.AddItem(currentEquip.itemId, currentEquip.quality, currentEquip.amount);
-                    if (remaining > 0)
+                    bool added = currentEquipRuntimeItem != null && !currentEquipRuntimeItem.IsEmpty
+                        ? inv.AddInventoryItem(currentEquipRuntimeItem)
+                        : inv.AddItem(currentEquip.itemId, currentEquip.quality, currentEquip.amount) == 0;
+                    if (!added)
                     {
                         // 背包满了，扔在脚下
-                        FarmGame.UI.ItemDropHelper.DropAtPlayer(new ItemStack { itemId = currentEquip.itemId, quality = currentEquip.quality, amount = remaining });
+                        if (currentEquipRuntimeItem != null && !currentEquipRuntimeItem.IsEmpty)
+                            FarmGame.UI.ItemDropHelper.DropAtPlayer(currentEquipRuntimeItem);
+                        else
+                            FarmGame.UI.ItemDropHelper.DropAtPlayer(currentEquip);
                     }
                 }
             }
@@ -1137,7 +1282,10 @@ public class InventorySlotInteraction : MonoBehaviour,
         if (!item.IsEmpty)
         {
             // 🔥 使用 ItemDropHelper 统一丢弃逻辑
-            FarmGame.UI.ItemDropHelper.DropAtPlayer(item);
+            if (SlotDragContext.DraggedRuntimeItem != null && !SlotDragContext.DraggedRuntimeItem.IsEmpty)
+                FarmGame.UI.ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem);
+            else
+                FarmGame.UI.ItemDropHelper.DropAtPlayer(item);
         }
         
         SlotDragContext.End();
