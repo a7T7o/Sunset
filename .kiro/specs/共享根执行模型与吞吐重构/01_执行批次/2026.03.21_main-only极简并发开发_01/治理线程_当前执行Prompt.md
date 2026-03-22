@@ -15,7 +15,8 @@
 - 普通开发默认只认 `D:\Unity\Unity_learning\Sunset @ main`
 - 不再先做 branch / grant / return-main
 - 只有高危才打断
-- `scene-build` 是当前唯一例外：它是待迁移的独立项目现场，目前仍在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+- `scene-build` 是当前唯一例外：它是独立 worktree 施工线，但当前正式路径仍是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+- 误复制副本 `D:\Unity\Unity_learning\scene-build-5.0.0-001` 已删除，不再存在第二现场
 
 你不要再做的事：
 - 不要恢复旧的 queue / grant 交通体系
@@ -23,9 +24,8 @@
 - 不要继续把旧目录当现行入口
 - 不要为了治理继续扩写一堆低价值 tracked 文档
 
-如果 `scene-build` 要迁移：
-- 先收一份 `scene-build_当前任务回执与迁移前冻结.md`
-- 再确认它当前一刀已经 checkpoint，或至少已经明确冻结点
-- 再由治理线程执行 `git worktree move`
-- 目标路径固定为：`D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+如果再有人提 `scene-build` 迁移：
+- 先打断并统一口径：当前正式 worktree 仍是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+- 明确说明误复制副本 `D:\Unity\Unity_learning\scene-build-5.0.0-001` 已删除
+- 当前治理职责是继续收误操作与修文档，不再继续执行新的 `git worktree move`
 ```

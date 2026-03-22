@@ -1616,3 +1616,119 @@
 **恢复点 / 下一步**
 - 现在项目经理可以直接把新的 `scene-build` prompt 发给线程。
 - 等收到 `ready_for_move = yes` 后，再进入物理迁移动作。
+
+## 2026-03-21｜scene-build 进入“释放目录锁后再迁移”的最小执行态
+**当前主线目标**
+- 在 `scene-build / spring-day1` 两份回执已经到手后，给当前批次补上真正必要的下一步，而不是继续空转。
+
+**本轮完成**
+1. 已确认：
+   - `scene-build` 已完成最小 checkpoint，`ready_for_move = yes`
+   - `spring-day1` 已完成向 `scene-build` 的正式 handoff
+2. 已纠正 `scene-build` 的迁移目标路径为：
+   - `D:\Unity\Unity_learning\scene-build-5.0.0-001`
+3. 已由治理侧直接实测 `git worktree move`，结果不是策略失败，而是系统级 `Permission denied`
+4. 已锁定 live 占用进程：
+   - `Unity.exe`
+   - `mcp-for-unity` 的 `http / stdio` 进程
+   - `mcp-terminal.cmd`
+5. 已新增当前唯一必要 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\scene-build_迁移前释放Unity与MCP目录锁.md`
+
+**关键决策**
+- 这轮不再给 `spring-day1` 追加动作。
+- `scene-build` 也不继续施工；先释放锁，再迁移，再恢复。
+
+**恢复点 / 下一步**
+- 先把新的释放目录锁 prompt 发给 `scene-build`。
+- 它一回执 `ready_for_move_now = yes`，治理侧就继续执行迁移。
+
+## 2026-03-22｜scene-build 已完成注册迁移，当前只差迁后复核
+**当前主线目标**
+- 把 `scene-build` 从旧 `Sunset_worktrees` 体系里真正摘出来，并把当前 batch 收到可继续推进的状态。
+
+**本轮完成**
+1. `spring-day1` handoff 已确认完成；这轮后不再需要持续抄送给治理线程。
+2. `scene-build` 线程确认 Unity / MCP 目录锁已释放，但随之暴露 4 个 TMP 字体资源 dirty。
+3. 治理侧再次尝试直接 `git worktree move`，仍为 `Permission denied`。
+4. 已改走兜底路径：
+   - `robocopy` 复制到 `D:\Unity\Unity_learning\scene-build-5.0.0-001`
+   - `git worktree repair D:\Unity\Unity_learning\scene-build-5.0.0-001`
+5. 迁后复核成立：
+   - `git worktree list --porcelain` 正式路径已变成新目录
+   - 新路径仍是 `codex/scene-build-5.0.0-001 @ 8e641e67`
+6. 已新增下一步必要 prompt：
+   - `scene-build_迁后复核与从新路径恢复.md`
+
+**关键决策**
+- 这轮可以不再把 `scene-build` 当成“待迁移线程”。
+- 它现在是“已迁移但待复核的新项目现场”。
+
+**恢复点 / 下一步**
+- 把迁后复核 prompt 发给 `scene-build`。
+- 等它确认只在新路径继续后，再恢复精修。
+
+## 2026-03-22｜scene-build 路径误判已撤回，shared-root 批次入口改回旧 worktree 口径
+**当前主线目标**
+- 修正我在执行批次入口里写错的 scene-build 路径，把“迁到新路径”的误口径撤回成用户指定的旧 worktree 事实。
+
+**本轮完成**
+1. 已确认正式 `scene-build` worktree 仍应视为：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+2. 已确认 `D:\Unity\Unity_learning\scene-build-5.0.0-001` 只是误复制副本，不能作为正式现场。
+3. 已修正当前批次 README、治理线程执行口径、治理职责文件，以及仍可能被继续转发的 scene-build / spring-day1 prompt。
+4. 已把几份错误迁移 prompt 标成“已废弃（2026-03-22）”，防止后续继续误发。
+
+**关键决策**
+- 当前 shared-root 批次层只做入口止血，不再继续推动 scene-build 物理迁移。
+- 后续如再处理 scene-build，只能围绕旧 worktree 的正式现场继续。
+
+**恢复点 / 下一步**
+- 等用户决定是否清理误复制副本目录。
+- 在此之前，任何线程都不要把 `D:\Unity\Unity_learning\scene-build-5.0.0-001` 当成正式项目根。
+
+## 2026-03-22｜误复制副本已删，批次层对 scene-build 的唯一口径完成收口
+**当前主线目标**
+- 把批次层“误副本仍在”的过渡叙述删干净，正式收成只认旧 worktree 的唯一执行口径。
+
+**本轮完成**
+1. 已删除误复制副本目录：
+   - `D:\Unity\Unity_learning\scene-build-5.0.0-001`
+2. 已复核当前唯一正式现场仍是：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+3. 已更新当前批次 README、治理线程 prompt、治理职责与 `scene-build_当前开发放行.md`，全部改成“副本已删，只有一条正式路径”。
+
+**关键决策**
+- 批次层不再保留“还有一个误副本等处理”的中间状态。
+- scene-build 相关后续动作只围绕旧 worktree 继续。
+
+**恢复点 / 下一步**
+- 如果你继续调 scene-build，就直接让线程在旧 worktree 上继续干，不需要再讨论副本或迁移。
+
+## 2026-03-22｜批次壳已从 scene-build 止血切到 main-only 收口执行层
+**当前主线目标**
+- 不再让这个执行批次壳继续围着 scene-build 迁移转，而是把它真正切回“并发线程统一回执 + 白名单 main 收口”的当前职责。
+
+**本轮完成**
+1. 已把当前批次层的默认口径固定为：
+   - 普通线程默认在 `main` 语义下并发推进
+   - 每线程只提交自己的白名单
+   - 每线程一次只收一刀 checkpoint
+2. 已更新：
+   - `README.md`
+   - `治理线程_当前执行Prompt.md`
+   - `治理线程_职责与更新规则.md`
+   - `线程完成后_白名单main收口模板.md`
+3. 已把第一轮执行结果同步进回收卡：
+   - 农田已入 `main @ f40d228d`
+   - `spring-day1` 基础脊柱已入 `main @ 83d809a9`
+4. 已确认当前批次层不再继续推动：
+   - scene-build 新路径迁移
+   - queue / grant / ensure-branch 的旧式正文化扩建
+
+**关键决策**
+- 从这条父工作区往下看，当前最重要的不是再造新的交通系统，而是把已有线程真实推进的结果持续收进回收卡和模板里。
+
+**恢复点 / 下一步**
+- 当前治理线自己还有一批入口 / 批次文件白名单待同步。
+- 这刀收完后，批次层就能以更干净的 shared root 继续服务后续线程。

@@ -17,5 +17,40 @@
 - 普通开发默认直接在 `D:\Unity\Unity_learning\Sunset @ main` 并发推进。
 - 治理线程只在高危撞车、Unity / MCP 单写冲突、或现场已写坏时介入。
 - `scene-build` 是当前唯一的过渡例外：
-  - 现工作现场：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
-  - 目标迁移路径：`D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+  - 当前正式 worktree：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+  - 误复制副本 `D:\Unity\Unity_learning\scene-build-5.0.0-001` 已删除，当前只认这一条正式路径
+
+## 当前默认提交规则
+- 默认就是：
+  - 每个线程只提交自己修改的内容
+  - 每个线程只提交自己的白名单路径
+  - 每个线程一次只收一刀自己的 checkpoint
+- 只有命中这些少数例外时，治理线程才升级介入：
+  - 撞到同一个高危目标
+  - 同一个 Scene / Prefab / 热脚本被多人改
+  - 跨线程强耦合
+  - 成果还在 branch carrier / worktree，尚未迁入 `main`
+
+## 当前命名规则
+- Git SHA 不能自定义。
+- 当前统一的是 checkpoint 名称 / commit message。
+- 推荐格式：
+  - `YYYY.MM.DD_<线程名>_<编号>`
+- 例如：
+  - `2026.03.22_农田_01`
+  - `2026.03.22_spring-day1_01`
+  - `2026.03.22_导航检查_01`
+
+## 当前正文主线
+- 本批次目录现在只负责“执行层壳”，不是正文主线本体。
+- 当前真正的治理正文主线已经切到：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\25_vibecoding场景规范与main收口`
+- 简单理解：
+  - 正文看 `25_vibecoding场景规范与main收口`
+  - 分发和回执还在这里拿 prompt
+
+## 当前新增可直接分发的通用 prompt
+- `并发线程_统一收口回执.md`
+  - 用于一轮统一收件，判断谁现在可以顺序进 `main`
+- `线程完成后_白名单main收口模板.md`
+  - 用于任何线程完成一刀后，按默认白名单规则直接收口

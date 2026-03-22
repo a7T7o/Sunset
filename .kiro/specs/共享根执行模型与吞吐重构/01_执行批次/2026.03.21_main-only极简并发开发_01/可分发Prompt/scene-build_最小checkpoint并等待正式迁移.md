@@ -1,5 +1,11 @@
 # scene-build - 最小checkpoint并等待正式迁移
 
+## 已废弃（2026-03-22）
+- 这份 prompt 基于错误前提“scene-build 将迁到 `D:\Unity\Unity_learning\scene-build-5.0.0-001`”。
+- 当前统一口径：正式 worktree 仍是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`。
+- `D:\Unity\Unity_learning\scene-build-5.0.0-001` 只是误复制副本，`.git` 已失活，不可作为正式现场。
+- 本文件只保留历史，不再分发。
+
 ```text
 这不是继续施工的 prompt。
 你现在不要继续扩 `SceneBuild_01`，也不要自己搬目录。
@@ -12,7 +18,7 @@
 当前现场：
 - project_root：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
 - 当前工作分支应仍是：`codex/scene-build-5.0.0-001`
-- 目标迁移路径固定为：`D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+- 目标迁移路径固定为：`D:\Unity\Unity_learning\scene-build-5.0.0-001`
 - 正式迁移方式固定为：`git worktree move`
 
 这轮只允许纳入 checkpoint 的文件：

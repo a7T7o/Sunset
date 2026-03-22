@@ -62,7 +62,7 @@
 这轮的产物不是“剧情复述”，而是 `scene-build` 看完就能继续搭的正式口径。
 如果你写出来的东西还停留在“故事讲了什么”，那就说明这轮没做完。
 你的交付件还必须满足一条额外要求：
-- 口径要独立自洽，不能依赖 `scene-build` 还停在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 这个旧路径；就算它后续迁到 `D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`，这份 brief 也要能直接继续使用。
+- 口径要独立自洽，不能依赖未来还会发生什么目录迁移；当前 `scene-build` 正式现场就是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`，即使后续 Codex 映射再调整，这份 brief 也要能直接继续使用。
 
 建议落盘方式：
 - 必改：

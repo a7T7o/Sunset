@@ -1,5 +1,10 @@
 # spring-day1 - 当前任务回执与向 scene-build 交接
 
+## 停用说明（2026-03-22）
+- 本文件正文可继续作为交接字段参考，但其中关于“scene-build 后续还会迁到新路径”的假设已经失效。
+- 当前统一口径：`scene-build` 正式现场仍是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`。
+- 如果后续继续使用本文件，请按上面这个正式路径理解，不要再引用错误副本路径。
+
 ```text
 这不是一份“再开一轮新开发”的 prompt。
 你现在只做一件事：把你手上的 `spring-day1` 理解，收成一份 `scene-build` 可直接执行的空间 brief，然后停下来交件。
@@ -34,5 +39,5 @@
 - 不是泛剧情复述
 - 不是 UI / 字幕 / 对话实现代办
 - 已经把“该做什么”和“先别扩什么”分开写清
-- 即使 `scene-build` 下一步迁到 `D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`，这份交付件仍然可以直接读、直接用
+- 即使后续 Codex 映射再调整，这份交付件也仍然可以直接读、直接用
 ```

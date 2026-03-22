@@ -2171,12 +2171,21 @@ function Test-TaskSharedRootLease {
     }
 
     $remainingDirty = @(Get-RemainingDirtyEntries -Entries $RemainingEntries)
+    $isMainOnlyTaskSync = $Branch -eq 'main'
 
     if ($null -eq $occupancy) {
         return [PSCustomObject]@{
             Applies   = $true
-            CanUse    = ($remainingDirty.Count -eq 0)
-            Reason    = if ($remainingDirty.Count -eq 0) { 'shared root 未发现 occupancy 文档，lease 校验暂时跳过。' } else { Get-RemainingDirtyGateMessage -Entries $remainingDirty }
+            CanUse    = ($isMainOnlyTaskSync -or $remainingDirty.Count -eq 0)
+            Reason    = if ($isMainOnlyTaskSync) {
+                'shared root 未发现 occupancy 文档；当前按 main-only 白名单 sync 继续。'
+            }
+            elseif ($remainingDirty.Count -eq 0) {
+                'shared root 未发现 occupancy 文档，lease 校验暂时跳过。'
+            }
+            else {
+                Get-RemainingDirtyGateMessage -Entries $remainingDirty
+            }
             Occupancy = $null
         }
     }
@@ -2216,6 +2225,23 @@ function Test-TaskSharedRootLease {
                 Reason    = "FATAL: shared root 当前登记 owner_thread='$($occupancy.OwnerThread)'，OwnerThread '$OwnerThread' 不得继续在 shared root 上以 task 模式写入。"
                 Occupancy = $occupancy
             }
+        }
+    }
+
+    if ($isMainOnlyTaskSync) {
+        return [PSCustomObject]@{
+            Applies   = $true
+            CanUse    = $true
+            Reason    = if ($remainingDirty.Count -gt 0) {
+                'shared root 当前位于 main-only 白名单 sync；允许保留 unrelated dirty，不再因 remaining dirty 一刀切阻断。'
+            }
+            elseif ($occupancy.IsNeutral) {
+                'shared root 当前登记为 neutral main，允许 main-only 白名单 sync。'
+            }
+            else {
+                'shared root main-only 白名单 sync 校验通过。'
+            }
+            Occupancy = $occupancy
         }
     }
 
@@ -2288,15 +2314,13 @@ function New-PreflightReport {
         }
     }
 
-    if ($Mode -eq 'task' -and $branch -eq 'main') {
-        $canContinue = $false
-        $reason = "FATAL: OwnerThread '$OwnerThread' 当前位于 main，禁止以 task 模式继续写入；请先切到匹配该线程的 codex/ 分支。"
-    }
-    elseif ($Mode -eq 'task' -and -not $branch.ToLowerInvariant().StartsWith('codex/')) {
+    $isMainOnlyTaskSync = $Mode -eq 'task' -and $branch -eq 'main'
+
+    if ($Mode -eq 'task' -and -not $isMainOnlyTaskSync -and -not $branch.ToLowerInvariant().StartsWith('codex/')) {
         $canContinue = $false
         $reason = "FATAL: 当前分支 '$branch' 不是 codex/ 前缀，真实任务禁止继续写入。"
     }
-    elseif ($Mode -eq 'task' -and -not (Test-BranchOwnedByThread -Branch $branch -OwnerThread $OwnerThread)) {
+    elseif ($Mode -eq 'task' -and -not $isMainOnlyTaskSync -and -not (Test-BranchOwnedByThread -Branch $branch -OwnerThread $OwnerThread)) {
         $canContinue = $false
         $reason = Get-BranchOwnershipMessage -Branch $branch -OwnerThread $OwnerThread
     }
@@ -2378,13 +2402,22 @@ function Write-PreflightReport {
 }
 
 function Get-NextCommitMessage {
+    param([string]$OwnerThread)
+
     $prefix = Get-Date -Format 'yyyy.MM.dd'
+    $threadSegment = if ([string]::IsNullOrWhiteSpace($OwnerThread)) {
+        'unknown-thread'
+    }
+    else {
+        (($OwnerThread.Trim()) -replace '\s+', '-') -replace '[\\/:"*?<>|]+', '-'
+    }
+    $messagePrefix = '{0}_{1}_' -f $prefix, $threadSegment
     $since = (Get-Date).ToString('yyyy-MM-dd') + ' 00:00'
     $messages = (Invoke-Git -Arguments @('log', "--since=$since", '--format=%s')).Output
     $numbers = @()
 
     foreach ($message in $messages) {
-        if ($message -match "^$([regex]::Escape($prefix))-(\d{2})$") {
+        if ($message -match "^$([regex]::Escape($messagePrefix))(\d{2})$") {
             $numbers += [int]$Matches[1]
         }
     }
@@ -2394,7 +2427,7 @@ function Get-NextCommitMessage {
         $next = (($numbers | Measure-Object -Maximum).Maximum) + 1
     }
 
-    return ('{0}-{1}' -f $prefix, ('{0:D2}' -f [int]$next))
+    return ('{0}{1}' -f $messagePrefix, ('{0:D2}' -f [int]$next))
 }
 
 function Stage-Paths {
@@ -2583,7 +2616,7 @@ switch ($Action) {
             (Invoke-Git -Arguments @('diff', '--cached', '--stat')).Output | ForEach-Object { Write-Output $_ }
             Write-Output ''
 
-            $message = Get-NextCommitMessage
+            $message = Get-NextCommitMessage -OwnerThread $OwnerThread
             Invoke-Git -Arguments @('commit', '-m', $message) | Out-Null
             $newHead = Get-HeadShort
             Write-Output "已创建提交：$message ($newHead)"

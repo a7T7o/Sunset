@@ -2556,7 +2556,7 @@
 4. 已把两个现行入口文件重写为新目录跳转入口。
 5. 已明确 `scene-build` 的迁移口径：
    - 当前现场：`D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
-   - 目标路径：`D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+   - 目标路径：`D:\Unity\Unity_learning\scene-build-5.0.0-001`
    - 迁移方式：`git worktree move`
    - 执行时机：先冻结，再迁移
 
@@ -2602,7 +2602,7 @@
 2. 已新增专用 prompt：
    - `scene-build_最小checkpoint并等待正式迁移.md`
 3. 已对 `spring-day1` prompt 做一处补强：
-   - 其交付件必须在 `scene-build` 迁到 `SceneBuild_Standalone` 后仍然可直接使用
+   - 其交付件必须在 `scene-build` 迁到 `D:\Unity\Unity_learning\scene-build-5.0.0-001` 后仍然可直接使用
 
 **关键决策**
 - 当前阻塞 `scene-build` 的不是场景内容，而是迁移前的最后一层收口。
@@ -2613,3 +2613,327 @@
   - `spring-day1_当前开发放行.md`
   - `scene-build_最小checkpoint并等待正式迁移.md`
 - 等 `scene-build` clean 并回执 ready 后，再执行 `git worktree move`。
+
+## 2026-03-21｜scene-build 迁移口径纠偏：不是热切换，不是 `SceneBuild_Standalone`，当前卡在 live 目录锁
+**当前主线目标**
+- 继续服务 `24_main-only极简并发开发与scene-build迁移`：把 `scene-build` 的真实迁移动作从错误认知中拉回现场事实。
+
+**本轮完成**
+1. 已纠正一条关键历史认知：
+   - `NPC / farm` 当时真正稳定成立的是“回根仓库后，重启 Codex 才完全显现”
+   - 不是“会话内热切换完全成功”
+2. 已纠正 `scene-build` 目标路径：
+   - 从 `D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+   - 改为 `D:\Unity\Unity_learning\scene-build-5.0.0-001`
+3. 已实测 `git worktree move`，确认当前不是规则阻断，而是 OS 级目录占用阻断。
+4. 已定位 live 占用来源为 `Unity.exe + mcp-for-unity + mcp-terminal.cmd` 全部仍指向旧目录。
+
+**关键决策**
+- 当前治理线程不再给 `spring-day1` 发新 prompt。
+- 当前唯一必要的新 prompt 是让 `scene-build` 释放 Unity / MCP 目录锁。
+
+**恢复点 / 下一步**
+- 等 `scene-build` 释放旧目录锁后，立刻继续迁移，不再回头讨论目标路径。
+
+## 2026-03-22｜scene-build 已完成 Git 层迁移，当前转入“旧路径废弃 + 新路径复核”
+**当前主线目标**
+- 把 `scene-build` 从“等待迁移”推进到“迁移完成后的可继续施工态”。
+
+**本轮完成**
+1. 已收下 `spring-day1` 的最终 handoff 回执；它本轮已经完成职责，不再需要持续贴给治理线程。
+2. 已收下 `scene-build` 的释放目录锁回执，但同时确认关 Unity 后浮出 4 个 TMP 字体资源 dirty。
+3. 已再次验证：直接 `git worktree move` 仍然被 OS 级 `Permission denied` 阻断。
+4. 已改走 `copy + repair` 兜底方案，并验证成功：
+   - 新正式路径：`D:\Unity\Unity_learning\scene-build-5.0.0-001`
+   - `git worktree list --porcelain` 已只认新路径
+5. 已新增迁后 prompt：
+   - `scene-build_迁后复核与从新路径恢复.md`
+
+**关键决策**
+- 当前可以把“迁移本身”视为已完成，不再继续纠缠直接 `move`。
+- 旧 `Sunset_worktrees` 路径当前只剩危险旧壳，不应再作为 live 现场使用。
+
+**恢复点 / 下一步**
+- 等 `scene-build` 按迁后 prompt 回执“只认新路径”后，再切回施工推进。
+
+## 2026-03-22｜scene-build 迁移结论作废，正式 worktree 已收回旧路径
+**当前主线目标**
+- 收住我前一轮对 scene-build 路径的误判，恢复到用户明确指定的旧 worktree 认知，并把误导性入口先止血。
+
+**本轮完成**
+1. 已确认正式 `scene-build` worktree 重新回到：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+2. 已确认 `D:\Unity\Unity_learning\scene-build-5.0.0-001` 只是误复制副本：
+   - `.git` 已失活为 `.git.DISABLED_DO_NOT_USE`
+3. 已改正当前 live 批次目录里的现行口径：
+   - README
+   - 治理线程执行 prompt
+   - 治理线程职责文件
+   - scene-build / spring-day1 相关 prompt
+4. 已把几份错误迁移 prompt 标成“已废弃”，避免后续再被分发。
+
+**关键决策**
+- 这轮不再继续任何 scene-build 物理迁移动作。
+- 当前治理线程的职责只剩：收误操作、修入口、阻止别人误入错误副本路径。
+
+**恢复点 / 下一步**
+- 如果用户后续要继续 scene-build，只按旧 worktree 路径继续。
+- 错误副本是否删除，等待用户明确裁定。
+
+## 2026-03-22｜误复制副本已删除，scene-build 当前只剩旧 worktree 正式现场
+**当前主线目标**
+- 把上一轮“副本仍待裁定”的状态收成最终事实，避免现场继续保持半清理状态。
+
+**本轮完成**
+1. 已按用户明确要求删除误复制副本：
+   - `D:\Unity\Unity_learning\scene-build-5.0.0-001`
+2. 已复核：
+   - `Test-Path` 返回 `False`
+   - `git worktree list --porcelain` 仍只认 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+3. 已把当前批次入口与治理口径改成“副本已删除，现场唯一”。
+
+**关键决策**
+- scene-build 的“迁移落地”到这里已经结束：结果不是产生一个新项目根，而是把误副本清掉，只保留唯一正式 worktree。
+- 后续再动 scene-build，只能继续旧 worktree，不再讨论新路径。
+
+**恢复点 / 下一步**
+- 如果继续做，就直接回 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 干活。
+
+## 会话 43 - 2026-03-22（scene-build 真正完成的是 Codex 应用层归位，不是 Git 再迁移）
+**当前主线目标**
+- 把 `scene-build` 的剩余问题从“Git / 目录层”彻底收口到“Codex 桌面端线程 cwd 绑定错误”，并完成真正对用户有用的归位修复。
+
+**本轮完成**
+1. 已确认用户看到的报错：
+   - `fatal: 'codex/scene-build-5.0.0-001' is already used by worktree ...`
+   说明 Git 本体仍然正常，错误来自 UI 还在错误 cwd 下尝试切那个分支。
+2. 已定位到 Codex 本地状态层：
+   - `C:\Users\aTo\.codex\state_5.sqlite`
+   - `C:\Users\aTo\.codex\session_index.jsonl`
+   - `C:\Users\aTo\.codex\.codex-global-state.json`
+3. 已确认当前被命名为“场景搭建”的线程 id 为：
+   - `019cc7ba-fb87-7012-a7ef-0ccee21121c0`
+4. 已把它的 `cwd` / `git_branch` / `git_sha` 改回旧 worktree 现场。
+5. 已把全局激活 workspace 根改成优先包含：
+   - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+   - `D:\Unity\Unity_learning\Sunset`
+
+**关键决策**
+- 从现在开始，scene-build 的“迁移成功”口径应理解为：
+  - Codex 应用层线程已归位到旧 worktree
+  - 用户重启 Codex 后检查是否显示/切换正常
+- 不再把“新建路径 / 复制路径 / 再 repair Git”当成后续默认动作。
+
+**恢复点**
+- 用户现在可以直接重启 Codex 做归位验证。
+- 如果验证通过，scene-build 这条线就回到正常开发，不再停留在迁移话题。
+
+## 2026-03-22｜治理线程自审：把本线未完成项、作废项和文档债集中摊开
+**当前主线目标**
+- 不再只围绕单个阻塞点救火，而是把治理线程自己在 `23 / 24 / TD` 层留下的欠账一次性对齐，明确哪些是真的没做完，哪些已经被用户口头推翻但文档还没清干净。
+
+**本轮完成**
+1. 已对账以下入口：
+   - `24_main-only极简并发开发与scene-build迁移/tasks.md`
+   - `24_main-only极简并发开发与scene-build迁移/memory.md`
+   - 根层 `Codex规则落地/memory.md`
+   - `23_前序阶段补漏审计与并发交通调度重建/tasks.md`
+   - `000_代办/codex/TD_14_自动化skill触发日志Hook待办.md`
+   - 线程记忆 `memory_0.md`
+2. 已形成一份集中总表：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\24_main-only极简并发开发与scene-build迁移\治理线程自审与未完成项总表_2026-03-22.md`
+3. 已明确区分三类对象：
+   - 真未完成：`scene-build` 归位验收回执、`vibecoding` 场景规范适配立项、批次目录收口、`TD_14`
+   - 已作废但文档仍残留：`scene-build` 正式迁移到新路径、`23` 阶段 queue/多 checkpoint 正文化
+   - 文档债：`24/tasks.md` 与 `24/memory.md` 坏编码且仍夹带旧迁移叙事
+
+**关键决策**
+- 当前治理线最该补的不是再造新规则，而是先把自己留下的坏入口和假待办清掉。
+- `24` 这组文件已经不能再被默认当作健康活文档继续叠写，后续应以新的健康文档承接。
+
+**恢复点 / 下一步**
+- 后续优先顺序应是：
+  1. 收 `scene-build` 归位最终验收回执
+  2. 清理/替换 `24` 阶段坏入口
+  3. 单开 `vibecoding` 场景规范适配阶段
+  4. 再决定 `TD_14` 是否升级为正式阶段
+
+## 2026-03-22｜当前治理主线正式切到“vibecoding 场景规范与 main 收口”
+**当前主线目标**
+- 接受用户最新裁定，把治理线从“继续清 scene-build 尾巴”切到新的正式主线：
+  - `vibecoding` 场景规范适配
+  - `main-only` 并发开发的统一收口机制
+
+**本轮完成**
+1. 已新建正式阶段工作区：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\25_vibecoding场景规范与main收口`
+2. 已明确层级关系：
+   - `25_vibecoding场景规范与main收口` 是正文主线
+   - `2026.03.21_main-only极简并发开发_01` 是执行批次壳
+3. 已新增机制文档：
+   - `并发线程统一回执与main收口机制_2026-03-22.md`
+4. 已新增固定群发 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\并发线程_统一收口回执.md`
+5. 已新增给全局 skills 的窄范围委托：
+   - `给全局skills的窄范围委托_2026-03-22.md`
+   - 范围只锁定 `sunset-startup-guard` 一级告警、trigger-log 格式统一、`Missed-Skills`、`Promote-To-Learning`
+
+**关键决策**
+- `TD_14` 当前不作为优先级最高项，它先降级到后手。
+- 对 `main-only` 的正确补强不是回到旧 queue，而是“一次广播、一次收件、一个收口窗口、顺序进 main”。
+
+**恢复点 / 下一步**
+- 先按新阶段继续出第一版 `vibecoding` 场景规范适配 brief。
+- 需要收口时，直接发 `并发线程_统一收口回执.md`。
+
+## 2026-03-22｜第一版 `vibecoding` 场景规范适配 brief 已进入正式主线
+**当前主线目标**
+- 把 `25` 阶段从“只有治理壳”推进到“已经有第一份场景规范正文”。
+
+**本轮完成**
+1. 已结合 `spring-day1` handoff、requirements 和 `scene-build` 现有定位，新增：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\25_vibecoding场景规范与main收口\vibecoding场景规范适配Brief_2026-03-22.md`
+2. 已把当前 `SceneBuild_01` 的 `vibecoding` 标准收成短口径：
+   - 住处安置
+   - 院落对话留白
+   - 工作台焦点
+   - 教学区与生活区相邻
+   - 禁止误扩成整村总图
+
+**关键决策**
+- 当前 `vibecoding` 主线已经正式进入“有正文可执行”的状态，不再只是口头要求。
+
+**恢复点 / 下一步**
+- 继续补 dirty 归属说明。
+- 然后进入第一轮统一回执窗口。
+
+## 2026-03-22｜`25` 阶段已补齐 shared root dirty 归属说明
+**当前主线目标**
+- 让 `main-only` 并发现场不再靠脑内记忆区分 dirty，而是有一份可直接引用的归属口径，服务后续统一回执和顺序进 `main`。
+
+**本轮完成**
+- 已新增 `25_vibecoding场景规范与main收口/当前shared_root_dirty归属说明_2026-03-22.md`。
+- 已把当前 mixed dirty 正式拆成：治理线当前认领、治理线旧账停用区、NPC、`spring-day1` / 剧情整理、农田 / 库存交互。
+- 已把 `25/tasks.md` 推进到“dirty 归属说明完成，下一步发统一回执窗口”。
+
+**关键决策**
+- 当前 shared root 脏，不等于所有线程都不能继续；线程只认自己的 `changed_paths`，治理侧再用统一回执和批次表做顺序收口。
+
+**恢复点 / 下一步**
+- 下一步发第一轮统一回执窗口。
+- 再基于回执结果形成第一版 main 收口批次表。
+
+## 2026-03-22｜第一轮统一回执与第一版 main 收口批次表已完成
+**当前主线目标**
+- 把 `main-only` 从“已经开始收件”推进到“已经做出首轮批次裁定”，让后续执行不再停留在原始回执堆里。
+
+**本轮完成**
+- 已基于 `000全员回执.md` 收到农田、`spring-day1`、NPC、导航、遮挡检查、全局 skills 的正式回执。
+- 已新增 `第一轮main收口批次表_2026-03-22.md`。
+- 已形成首轮分组：
+  - A组：农田
+  - B组：`spring-day1`、遮挡检查
+  - C组：NPC、导航
+  - 支援：全局 skills
+
+**关键决策**
+- 本轮最适合先入 `main` 的只有农田。
+- `spring-day1` 与遮挡检查作为 branch carrier 下一批处理，NPC 与导航继续开发更划算。
+
+**恢复点 / 下一步**
+- 下一步优先发农田第一批 `main` 收口执行 prompt。
+- 然后再决定 B组 先迁哪条线。
+
+## 2026-03-22｜农田第一批 `main` 收口 prompt 已准备完成
+**当前主线目标**
+- 在第一版批次表形成后，立刻把 A组 的第一刀执行 prompt 准备好，避免治理线停在“有表无动作”。
+
+**本轮完成**
+- 已新增 `农田_第一批main收口执行.md`。
+- 已把农田动作压成最小执行面：只核对白名单、只收农田自己的 checkpoint、不再扩写。
+
+**关键决策**
+- 当前真正开始执行的第一刀就是农田，不再继续停在抽象裁定层。
+
+**恢复点 / 下一步**
+- 现在可以直接把农田 prompt 发出去。
+- 农田回执后再接 B组。
+
+## 2026-03-22｜每线程白名单提交已被收成正式默认规则
+**当前主线目标**
+- 把用户提出的“每个线程只提交自己修改的内容”从聊天判断推进成治理正文里的正式默认原则。
+
+**本轮完成**
+- 已在 `并发线程统一回执与main收口机制_2026-03-22.md` 中补入：
+  - 默认一线程一白名单提交
+  - 默认一线程一刀 checkpoint
+  - 仅在高危撞车、跨线程耦合、branch carrier / worktree 迁入时升级处理
+- 已补清：
+  - Git SHA 不能自定义
+  - 可统一的是 checkpoint 名称 / commit message
+  - 推荐格式：`YYYY.MM.DD_<线程名>_<编号>`
+
+**关键决策**
+- 当前并发治理最接近最终方案的，不是“大一统提交”，而是“线程各收各的白名单提交，治理侧只处理少数例外”。
+
+**恢复点 / 下一步**
+- 以后线程完成一刀后，默认直接按这条规则执行即可。
+
+## 2026-03-22｜B组 先收 spring-day1 的执行 prompt 已准备完成
+**当前主线目标**
+- 在 A组 农田之后，继续把 B组 的下一个执行对象推进到“可立刻发 prompt”的状态。
+
+**本轮完成**
+- 已裁定 B组 先收 `spring-day1`。
+- 已新增 `spring-day1_B组main迁入执行.md`。
+- 已把 `spring-day1` 动作压成 branch carrier `4ff31663` 到 `main` 的最小迁入窗口。
+
+**关键决策**
+- 当前 B组 更值得先迁的是 `spring-day1`，不是遮挡检查。
+
+**恢复点 / 下一步**
+- 现在可以直接把 `spring-day1` prompt 发出去。
+- 回执后再处理遮挡检查。
+
+## 2026-03-22｜默认白名单提交规则已落到执行壳入口
+**当前主线目标**
+- 不让“每线程白名单提交”只停在正文规则里，而是把它同步到真正会被反复打开的执行层入口。
+
+**本轮完成**
+- 已更新批次壳 `README.md` 与 `治理线程_职责与更新规则.md`。
+- 已新增通用模板 `线程完成后_白名单main收口模板.md`。
+- 已把默认提交规则和命名规则同步到执行层。
+
+**关键决策**
+- 当前这条规则已经算真正落地，不再只是治理正文里的抽象结论。
+
+**恢复点 / 下一步**
+- 后续线程的正常收口，默认直接套这个模板即可。
+
+## 2026-03-22｜当前 live 入口、阶段正文和执行壳已对齐到同一条 main-only 收口线
+**当前主线目标**
+- 把本轮用户最强调的一点真正落下去：不仅正文说“每线程白名单提交”，而且线程实际会读到的入口、批次表、回收卡和脏改归属说明也必须同步改成同一条口径。
+
+**已完成**
+1. 已纠偏 live 入口：
+   - `AGENTS.md`
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `Sunset Git系统现行规则与场景示例_2026-03-16.md`
+2. 已把 `spring-day1` 新回执并回阶段正文与执行层：
+   - `83d809a9` 已进入 `main`
+   - 不再继续把它当“待 branch carrier 迁入”
+3. 已把农田与 `spring-day1` 的最新状态同步到：
+   - `000全员回执.md`
+   - `第一轮main收口批次表_2026-03-22.md`
+   - `当前shared_root_dirty归属说明_2026-03-22.md`
+4. 已吸收全局 skills 的窄裁定：
+   - `sunset-startup-guard` 保留硬前置
+   - 但退出当前 `manual-equivalent` 一级告警统计
+   - Sunset 治理线程后续只再写 `STL-v2`
+5. 已完成一轮真实 `task + main + IncludePaths` 预检验证，结果允许继续。
+
+**关键决策**
+- 当前 `25_vibecoding场景规范与main收口` 已经不只是“机制阶段”，而是把入口、正文、执行壳、回收卡和预检证据接成了闭环。
+
+**恢复点 / 下一步**
+- 当前下一步不是再补外围解释，而是直接把治理线自己的白名单文件同步掉。

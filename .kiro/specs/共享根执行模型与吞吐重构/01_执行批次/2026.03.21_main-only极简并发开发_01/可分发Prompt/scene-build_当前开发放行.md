@@ -6,8 +6,9 @@
 当前工作现场：
 - 只在 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001` 内工作
 - 不回 shared root 改场景
-- 当前过渡目录后续要迁到 `D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
-- 在治理线程发“迁移前冻结”prompt 之前，不自行搬目录
+- 当前正式现场仍是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`
+- 不存在第二个 scene-build 项目根；误复制副本已经删除
+- 不自行处理目录切换或再造新副本
 
 你这轮直接做真实推进，不要再做“先证明我能不能开始”：
 - 继续把 `SceneBuild_01` 做成能承载 `spring-day1` 的场景

@@ -1,5 +1,11 @@
 # scene-build - 当前任务回执与迁移前冻结
 
+## 已废弃（2026-03-22）
+- 这份 prompt 基于错误前提“scene-build 将迁到 `D:\Unity\Unity_learning\scene-build-5.0.0-001`”。
+- 当前统一口径：正式 worktree 仍是 `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001`。
+- `D:\Unity\Unity_learning\scene-build-5.0.0-001` 只是误复制副本，`.git` 已失活，不可作为正式现场。
+- 本文件只保留历史，不再分发。
+
 ```text
 这不是新的施工 prompt。
 你先把手里“当前这一刀”收口到可描述状态，然后停下来给我一份迁移前冻结回执。
@@ -22,7 +28,7 @@
 - can_freeze_now: yes / no
 - migration_ready: yes / no
 - migration_blockers
-- move_target: `D:\Unity\Unity_learning\SceneBuild_Standalone\scene-build-5.0.0-001`
+- move_target: `D:\Unity\Unity_learning\scene-build-5.0.0-001`
 - expected_move_method: `git worktree move`
 - blocker_or_checkpoint
 - 一句话摘要
