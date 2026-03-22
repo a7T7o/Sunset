@@ -16,7 +16,7 @@ namespace Sunset.Story
                     return _instance;
                 }
 
-                _instance = FindObjectOfType<StoryManager>();
+                _instance = FindFirstObjectByType<StoryManager>();
                 if (_instance != null)
                 {
                     return _instance;

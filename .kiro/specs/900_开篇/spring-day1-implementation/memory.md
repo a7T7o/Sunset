@@ -278,3 +278,8 @@
 - 本轮明确仍未碰：`Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs`。
 - 本轮静态验证已通过，但 live 运行态验证未闭环：Unity MCP 当前返回 `Connection failed: Unknown error`，因此 PlayMode 验收留到下一刀。
 - 当前恢复点：Day1 已从“有基础脊柱代码”推进到“首段对话资产真的会驱动解码 / 阶段变化 / follow-up”。
+
+## 2026-03-22 补记：本轮已补清用户当场暴露的两个编译 warning
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\StoryManager.cs` 中的 `FindObjectOfType<StoryManager>()` 已改为 `FindFirstObjectByType<StoryManager>()`，不再留下 Unity 6 的过时 API warning。
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\WorldItemDropSystemTests.cs` 中未使用的 `groundY` 局部变量已删除。
+- 这两处都属于“应该由我先扫掉”的编译层噪音，不应等用户在 Unity 里替我发现。

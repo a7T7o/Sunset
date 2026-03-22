@@ -396,3 +396,8 @@
 - 本轮继续遵守硬边界：没有碰 `Primary.unity`、`DialogueUI.cs`、`GameInputManager.cs`。
 - 当前真实 blocker 不是 Git，也不是 branch carrier，而是 Unity/MCP 运行态验证：`mcp__mcp_unity__get_console_logs` 返回 `Connection failed: Unknown error`，因此这轮只能先收静态闭环，下一轮再补 live Play 验收。
 - 当前恢复点：如果下轮 Unity/MCP 恢复，我应直接做 `NPC001 / DialogueDebugMenu` 的运行态验收，不再回头整理文档。
+
+## 2026-03-22 补记：用户追加指出两个 warning，本轮已直接清掉
+- 第一条 `StoryManager.cs` 的 obsolete warning 是我当前实现带出的，我已经直接修掉。
+- 第二条 `WorldItemDropSystemTests.cs` 的 unused variable warning 不是我新增的业务逻辑，但既然已经被现场暴露，我也顺手清掉，避免继续噪音。
+- 这类 warning 不需要等 `MCP` 才能发现；我可以先做静态检索和本地代码复核，Unity/MCP 只是最终运行态编译和验收的权威来源。

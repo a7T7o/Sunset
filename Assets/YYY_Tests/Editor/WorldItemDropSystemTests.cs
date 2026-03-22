@@ -269,7 +269,6 @@ public class WorldItemDropSystemTests
     public void ShadowScale_InverselyProportionalToHeight()
     {
         // Arrange
-        float groundY = 0f;
         float maxHeight = 1f;
         float minShadowScale = 0.5f;
         float maxShadowScale = 1f;

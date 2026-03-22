@@ -108,3 +108,16 @@
 **恢复点 / 下一步**：
 - `0.0.2` 已从“基础脊柱完成”推进到“首段对话推进链数据闭环已接通”。
 - 下一步最小动作是在 Unity/MCP 恢复后，用 `NPC001` 或 `DialogueDebugMenu` 跑一次真实 Play 验收，确认 `StoryPhase` 和 `LanguageDecoded` 的运行态变化正确。
+
+### 会话 7 - 2026-03-22（warning 清理）
+**用户需求**：
+> Unity 提示 `StoryManager.cs` 的 `FindObjectOfType<T>()` 过时 warning，以及 `WorldItemDropSystemTests.cs` 的未使用变量 warning，要求不要把这类问题留给用户兜底。
+**完成任务**：
+1. 确认 `StoryManager.cs:19` 的过时 API warning 是本线程当前实现带出的。
+2. 将 `FindObjectOfType<StoryManager>()` 改为 `FindFirstObjectByType<StoryManager>()`。
+3. 顺手清掉 `WorldItemDropSystemTests.cs` 中未使用的 `groundY` 局部变量，避免继续制造无关 warning 噪音。
+**验证结果**：
+- 代码检索确认项目内已不存在 `FindObjectOfType<StoryManager>`。
+- `WorldItemDropSystemTests.cs` 的目标方法中未再保留 `groundY`。
+**恢复点 / 下一步**：
+- 这轮 warning 清理已完成；后续继续回到 Day1 首段推进链的 live Play 验收。
