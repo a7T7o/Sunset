@@ -41,6 +41,10 @@ namespace Sunset.Story
         [Header("Portrait Settings")]
         [SerializeField] private bool usePlaceholderPortraitWhenMissing = true;
         [SerializeField] private Color placeholderPortraitColor = new Color(0.55f, 0.55f, 0.55f, 1f);
+
+        [Header("Test Status")]
+        [SerializeField] private bool showTestStatus = true;
+        [SerializeField] private TextMeshProUGUI testStatusText;
         #endregion
 
         #region Private Fields
@@ -55,6 +59,7 @@ namespace Sunset.Story
         private float _dialogueBaseLineSpacing;
         private Color _dialogueBaseColor = Color.white;
         private FontStyles _dialogueBaseFontStyle = FontStyles.Normal;
+        private float _testStatusBaseFontSize;
         private Sprite _placeholderPortraitSprite;
         #endregion
 
@@ -64,6 +69,7 @@ namespace Sunset.Story
             ResolveReferences();
             EnsureCanvasGroup();
             ResolvePortraitTarget();
+            EnsureTestStatusText();
             ConfigureInteractionSurfaces();
             CacheBasePresentation();
             InitializeHiddenState();
@@ -123,6 +129,8 @@ namespace Sunset.Story
                 {
                     dialogueText.text = _dialogueManager.CurrentTypedText;
                 }
+
+                UpdateTestStatusText();
             }
 
             if (!_isVisible ||
@@ -156,6 +164,7 @@ namespace Sunset.Story
         public string CurrentDialogueFontName => dialogueText != null && dialogueText.font != null ? dialogueText.font.name : string.Empty;
         public string CurrentSpeakerFontName => speakerNameText != null && speakerNameText.font != null ? speakerNameText.font.name : string.Empty;
         public FontStyles CurrentDialogueFontStyle => dialogueText != null ? dialogueText.fontStyle : FontStyles.Normal;
+        public string CurrentTestStatus => testStatusText != null ? testStatusText.text : string.Empty;
 
         public void ApplyFontStyle(string fontStyleKey)
         {
@@ -281,6 +290,45 @@ namespace Sunset.Story
             }
         }
 
+        private void EnsureTestStatusText()
+        {
+            if (testStatusText != null)
+            {
+                return;
+            }
+
+            Transform existing = FindChild("TestStatusText");
+            if (existing != null)
+            {
+                testStatusText = existing.GetComponent<TextMeshProUGUI>();
+                return;
+            }
+
+            Transform parent = backgroundImage != null ? backgroundImage.transform : transform;
+            GameObject textObject = new GameObject("TestStatusText", typeof(RectTransform), typeof(TextMeshProUGUI));
+            textObject.transform.SetParent(parent, false);
+
+            testStatusText = textObject.GetComponent<TextMeshProUGUI>();
+            testStatusText.fontSize = 16f;
+            testStatusText.alignment = TextAlignmentOptions.Bottom;
+            testStatusText.color = new Color(0.92f, 0.9f, 0.82f, 0.92f);
+            testStatusText.textWrappingMode = TextWrappingModes.NoWrap;
+            testStatusText.overflowMode = TextOverflowModes.Ellipsis;
+            testStatusText.raycastTarget = false;
+
+            if (dialogueText != null && dialogueText.font != null)
+            {
+                testStatusText.font = dialogueText.font;
+            }
+
+            RectTransform textRect = testStatusText.rectTransform;
+            textRect.anchorMin = new Vector2(0f, 0f);
+            textRect.anchorMax = new Vector2(1f, 0f);
+            textRect.pivot = new Vector2(0.5f, 0f);
+            textRect.anchoredPosition = new Vector2(0f, 8f);
+            textRect.sizeDelta = new Vector2(-36f, 26f);
+        }
+
         private void ResolvePortraitTarget()
         {
             Transform iconTransform = FindPortraitTransform();
@@ -384,6 +432,11 @@ namespace Sunset.Story
             {
                 _speakerBaseFontSize = speakerNameText.fontSize;
             }
+
+            if (testStatusText != null)
+            {
+                _testStatusBaseFontSize = testStatusText.fontSize;
+            }
         }
 
         private void InitializeHiddenState()
@@ -439,6 +492,12 @@ namespace Sunset.Story
                 portraitImage.sprite = null;
                 portraitImage.color = Color.white;
                 portraitImage.gameObject.SetActive(false);
+            }
+
+            if (testStatusText != null)
+            {
+                testStatusText.text = string.Empty;
+                testStatusText.gameObject.SetActive(false);
             }
         }
 
@@ -863,6 +922,7 @@ namespace Sunset.Story
 
             ApplyFontToText(dialogueText, dialogueFontKey, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
             ApplyFontToText(speakerNameText, speakerFontKey, _speakerBaseFontSize, 0f);
+            ApplyFontToText(testStatusText, defaultFontKey, _testStatusBaseFontSize, 0f);
         }
 
         private void ApplyFontToText(TextMeshProUGUI target, string key, float baseFontSize, float baseLineSpacing)
@@ -888,6 +948,29 @@ namespace Sunset.Story
             }
 
             target.lineSpacing = baseLineSpacing + entry.lineSpacingOffset;
+        }
+
+        private void UpdateTestStatusText()
+        {
+            if (!showTestStatus || testStatusText == null || _dialogueManager == null || !_dialogueManager.IsDialogueActive)
+            {
+                if (testStatusText != null)
+                {
+                    testStatusText.gameObject.SetActive(false);
+                }
+
+                return;
+            }
+
+            SpringDay1Director day1Director = SpringDay1Director.Instance;
+            string sequenceId = string.IsNullOrWhiteSpace(_dialogueManager.CurrentSequenceId) ? "unknown" : _dialogueManager.CurrentSequenceId;
+            int displayIndex = Mathf.Clamp(_dialogueManager.CurrentNodeIndex + 1, 0, Mathf.Max(1, _dialogueManager.CurrentNodeCount));
+            int totalCount = Mathf.Max(1, _dialogueManager.CurrentNodeCount);
+            string taskLabel = day1Director != null ? day1Director.GetCurrentTaskLabel() : "n/a";
+            string progressLabel = day1Director != null ? day1Director.GetCurrentProgressLabel() : "n/a";
+
+            testStatusText.gameObject.SetActive(true);
+            testStatusText.text = $"测试对话: {sequenceId} [{displayIndex}/{totalCount}]  |  当前任务: {taskLabel}  |  进度: {progressLabel}";
         }
         #endregion
     }

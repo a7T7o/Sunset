@@ -143,6 +143,44 @@ namespace Sunset.Story
             return $"Phase={StoryManager.Instance.CurrentPhase}, Tilled={GetTilledCount()}, Planted={GetPlantedCount()}, Watered={GetWateredCount()}, Trees={GetTreeStumpCount()}, Crafted={_craftedCount}, FreeTime={_freeTimeEntered}, DayEnd={_dayEnded}";
         }
 
+        public string GetCurrentTaskLabel()
+        {
+            return StoryManager.Instance.CurrentPhase switch
+            {
+                StoryPhase.CrashAndMeet => "0.0.2 首段推进链",
+                StoryPhase.EnterVillage => "0.0.2 首段推进链",
+                StoryPhase.HealingAndHP => "0.0.3 疗伤/血条",
+                StoryPhase.WorkbenchFlashback => "0.0.4 工作台闪回",
+                StoryPhase.FarmingTutorial => "0.0.5 农田/砍树教学",
+                StoryPhase.DinnerConflict => "0.0.6 晚餐冲突",
+                StoryPhase.ReturnAndReminder => "0.0.6 归途提醒",
+                StoryPhase.FreeTime => "0.0.6 自由时段",
+                StoryPhase.DayEnd => "0.0.6 睡觉结束",
+                _ => "未开始"
+            };
+        }
+
+        public string GetCurrentProgressLabel()
+        {
+            StoryPhase phase = StoryManager.Instance.CurrentPhase;
+            if (phase == StoryPhase.FarmingTutorial)
+            {
+                return $"开垦 {GetTilledCount()}/{requiredTilledCount} | 播种 {GetPlantedCount()}/{requiredPlantedCount} | 浇水 {GetWateredCount()}/{requiredWateredCount} | 砍树 {GetTreeStumpCount()}/{requiredTreeChoppedCount} | 制作 {_craftedCount}/{requiredCraftedCount}";
+            }
+
+            if (phase == StoryPhase.FreeTime)
+            {
+                return "已进入自由时段，回床边即可结束春1日";
+            }
+
+            if (phase == StoryPhase.DayEnd)
+            {
+                return "春1日已收尾";
+            }
+
+            return GetCurrentTaskLabel();
+        }
+
         private void HandleStoryPhaseChanged(StoryPhaseChangedEvent evt)
         {
             if (!IsPrimarySceneActive())

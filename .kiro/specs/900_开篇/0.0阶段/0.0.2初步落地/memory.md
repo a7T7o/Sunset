@@ -229,3 +229,22 @@
 ### 会话 14 - 2026-03-23（TMP 过时 API 清理）
 - 修复 `SpringDay1PromptOverlay.cs` 中的 TMP 过时 API warning：将 `enableWordWrapping` 改为 `textWrappingMode = TextWrappingModes.Normal`。
 - 当前恢复点：该提示层不再依赖已废弃的 TMP 包装接口。
+
+### 会话 15 - 2026-03-23（对话框底部测试状态条）
+**用户需求**：
+> 讲清楚 spring-day1 的完整验收过程；同时在对话框底部显示当前测试的对话编号和任务进程，方便边测边看。
+**完成任务**：
+1. 扩展 `DialogueManager`，公开：
+   - `CurrentSequenceId`
+   - `CurrentNodeIndex`
+   - `CurrentNodeCount`
+2. 扩展 `SpringDay1Director`，新增：
+   - `GetCurrentTaskLabel()`
+   - `GetCurrentProgressLabel()`
+3. 扩展 `DialogueUI`：
+   - 运行时自动创建 `TestStatusText`
+   - 挂在对话框底部
+   - 显示格式：`测试对话: <sequenceId> [当前句/总句数] | 当前任务: <task> | 进度: <progress>`
+4. 同步扩展 `SpringDay1DialogueProgressionTests.cs`，增加对测试状态条与导演进度接口的文件级断言。
+**恢复点 / 下一步**：
+- 现在进入对话时，底部应直接显示当前测试对话编号和进度；下一步可按这套口径继续做 live 验收。

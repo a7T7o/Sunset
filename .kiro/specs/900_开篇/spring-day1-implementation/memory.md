@@ -327,3 +327,7 @@
 
 ## 2026-03-23 补记：已清理 `SpringDay1PromptOverlay` 的 TMP 过时 API warning
 - 将 `enableWordWrapping` 替换为 `textWrappingMode`，避免继续产生 `CS0618`。
+
+## 2026-03-23 补记：对话框底部已补入测试状态条
+- `DialogueUI` 现在会在对话框底部显示：当前测试对话编号、句子进度、当前任务标签、任务进度。
+- 这一步是为了把 spring-day1 的验收从“靠记忆猜现在跑到哪”变成“看屏幕就知道当前测的是哪条链路”。

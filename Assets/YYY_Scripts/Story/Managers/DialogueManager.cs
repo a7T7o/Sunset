@@ -34,6 +34,9 @@ namespace Sunset.Story
         public string CurrentTypedText { get; private set; } = string.Empty;
         public DialogueNode CurrentNode { get; private set; }
         public bool IsNodeTyping => _isNodeTyping;
+        public string CurrentSequenceId => _currentSequence != null ? _currentSequence.sequenceId : string.Empty;
+        public int CurrentNodeIndex => _currentNodeIndex;
+        public int CurrentNodeCount => _currentSequence != null && _currentSequence.nodes != null ? _currentSequence.nodes.Count : 0;
 
         public bool IsLanguageDecoded
         {

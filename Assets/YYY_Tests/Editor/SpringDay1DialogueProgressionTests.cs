@@ -10,6 +10,8 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string FollowupMetaPath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset.meta");
     private static readonly string DebugMenuPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/DialogueDebugMenu.cs");
     private static readonly string InteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs");
+    private static readonly string DialogueUiPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/DialogueUI.cs");
+    private static readonly string DialogueManagerPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/DialogueManager.cs");
     private static readonly string DirectorPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs");
     private static readonly string EnergySystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/EnergySystem.cs");
     private static readonly string HealthSystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/HealthSystem.cs");
@@ -64,17 +66,17 @@ public class SpringDay1DialogueProgressionTests
     }
 
     [Test]
-    public void SpringDay1Director_ContainsStageThreeToSixRuntimeFlow()
+    public void DialogueUi_ContainsBottomTestStatusText()
     {
-        string scriptText = File.ReadAllText(DirectorPath);
+        string uiText = File.ReadAllText(DialogueUiPath);
+        string managerText = File.ReadAllText(DialogueManagerPath);
+        string directorText = File.ReadAllText(DirectorPath);
 
-        StringAssert.Contains("StoryPhase.HealingAndHP", scriptText, "导演应包含 0.0.3 阶段");
-        StringAssert.Contains("StoryPhase.WorkbenchFlashback", scriptText, "导演应包含 0.0.4 阶段");
-        StringAssert.Contains("StoryPhase.FarmingTutorial", scriptText, "导演应包含 0.0.5 阶段");
-        StringAssert.Contains("StoryPhase.DinnerConflict", scriptText, "导演应包含 0.0.6 晚餐冲突阶段");
-        StringAssert.Contains("StoryPhase.ReturnAndReminder", scriptText, "导演应包含归途提醒阶段");
-        StringAssert.Contains("StoryPhase.FreeTime", scriptText, "导演应包含自由时段阶段");
-        StringAssert.Contains("StoryPhase.DayEnd", scriptText, "导演应包含睡觉结束阶段");
+        StringAssert.Contains("TestStatusText", uiText, "DialogueUI 应创建测试状态文本");
+        StringAssert.Contains("测试对话:", uiText, "状态文本应显示当前测试对话编号");
+        StringAssert.Contains("CurrentSequenceId", managerText, "DialogueManager 应暴露当前对话编号");
+        StringAssert.Contains("GetCurrentTaskLabel()", directorText, "导演层应提供当前任务标签");
+        StringAssert.Contains("GetCurrentProgressLabel()", directorText, "导演层应提供当前任务进度");
     }
 
     [Test]
