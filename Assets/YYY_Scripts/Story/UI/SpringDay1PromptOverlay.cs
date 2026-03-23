@@ -10,6 +10,14 @@ namespace Sunset.Story
     /// </summary>
     public class SpringDay1PromptOverlay : MonoBehaviour
     {
+        private static readonly string[] PreferredFontResourcePaths =
+        {
+            "Fonts & Materials/DialogueChinese V2 SDF",
+            "Fonts & Materials/DialogueChinese SDF",
+            "Fonts & Materials/DialogueChinese SoftPixel SDF",
+            "Fonts & Materials/DialogueChinese Pixel SDF"
+        };
+
         private static SpringDay1PromptOverlay _instance;
 
         [SerializeField] private CanvasGroup canvasGroup;
@@ -127,6 +135,7 @@ namespace Sunset.Story
             GameObject textObject = new GameObject("PromptText", typeof(RectTransform), typeof(TextMeshProUGUI));
             textObject.transform.SetParent(transform, false);
             promptText = textObject.GetComponent<TextMeshProUGUI>();
+            promptText.font = ResolveFontAsset();
             promptText.alignment = TextAlignmentOptions.Center;
             promptText.fontSize = 28f;
             promptText.color = new Color(0.98f, 0.96f, 0.9f, 1f);
@@ -138,6 +147,20 @@ namespace Sunset.Story
             textRect.anchorMax = Vector2.one;
             textRect.offsetMin = new Vector2(24f, 14f);
             textRect.offsetMax = new Vector2(-24f, -14f);
+        }
+
+        private TMP_FontAsset ResolveFontAsset()
+        {
+            for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
+            {
+                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
+                if (candidate != null)
+                {
+                    return candidate;
+                }
+            }
+
+            return TMP_Settings.defaultFontAsset;
         }
     }
 }

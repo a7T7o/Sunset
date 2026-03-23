@@ -260,3 +260,8 @@
 4. 将 `SpringDay1Director.GetCurrentProgressLabel()` 改成更短、更像验收信息的内容，避免“任务名和进度名重复”。
 **恢复点 / 下一步**：
 - 现在底部状态条应更像“正式测试辅助信息”，而不是一条糊在工具栏上的生文本。
+
+### 会话 17 - 2026-03-23（任务提示条中文乱码修复）
+- 确认用户截图中的黑色半透明常驻条来自 `SpringDay1PromptOverlay`，不是对话框底部测试状态条。
+- 根因是该提示条运行时创建 TMP 文本时没有绑定中文字体，导致中文显示成方框。
+- 已修复：为 `SpringDay1PromptOverlay` 增加中文字体加载逻辑，优先尝试 `DialogueChinese V2 / SDF / SoftPixel / Pixel`。
