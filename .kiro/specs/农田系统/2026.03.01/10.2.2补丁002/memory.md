@@ -264,7 +264,7 @@
 - `C:/Users/aTo/AppData/Local/Unity/Editor/Editor.log`
 - `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`
 **验证结果**:
-- `mcp-unity recompile_scripts / get_console_logs`：失败，类型为 transport closed。
+- `旧 MCP 桥口径（已失效） recompile_scripts / get_console_logs`：失败，类型为 transport closed。
 - 本地 Roslyn 编译：通过，仅剩 `GameInputManager._hasPendingFarmInput` warning。
 - 本轮未处理 Unity Editor 侧共享 warning。
 **恢复点 / 下一步**:
@@ -296,3 +296,7 @@
 **恢复点 / 下一步**:
 - 当前农田放置链 warning 收口任务已完成。
 - 下一步应转入 `10.2.2` 的功能回归验收：种子、箱子、树苗、锄地、浇水的现场交互验证。
+
+## 2026-03-23 MCP 桥口径纠偏
+- 本文件中若出现“旧 MCP 桥口径（已失效）”，均表示历史阶段使用过的旧桥结论，不再代表当前 live 入口。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。

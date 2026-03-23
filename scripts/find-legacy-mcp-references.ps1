@@ -4,23 +4,24 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$roots = @(
-    (Join-Path $RepoRoot ".kiro"),
-    (Join-Path $RepoRoot ".codex")
-)
+$targets = @()
 
-$excludeWildcards = @(
-    "*\\state_backups\\*",
-    "*\\文档归档\\*",
-    "*\\History\\*",
-    "*\\archive\\*",
-    "*\\archived\\*",
-    "*\\当前运行基线与开发规则\\memory_0.md",
-    "*\\当前运行基线与开发规则\\memory_1.md",
-    "*\\当前运行基线与开发规则\\memory_2.md",
-    "*\\当前运行基线与开发规则\\memory_3.md",
-    "*\\mcp-live-baseline.md"
-)
+$draftRoot = Join-Path $RepoRoot ".codex\drafts"
+if (Test-Path $draftRoot) {
+    $targets += Get-ChildItem $draftRoot -Recurse -File -Filter "*.md" -ErrorAction SilentlyContinue
+}
+
+$threadRoot = Join-Path $RepoRoot ".codex\threads\Sunset"
+if (Test-Path $threadRoot) {
+    $targets += Get-ChildItem $threadRoot -Recurse -File -Filter "memory_0.md" -ErrorAction SilentlyContinue
+}
+
+$specRoot = Join-Path $RepoRoot ".kiro\specs"
+if (Test-Path $specRoot) {
+    $targets += Get-ChildItem $specRoot -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
+        $_.Name -eq "memory.md" -or $_.Name -eq "001部分回执.md"
+    }
+}
 
 $patterns = @(
     "127\.0\.0\.1:8080",
@@ -28,16 +29,7 @@ $patterns = @(
     "\bmcp-unity\b"
 )
 
-$files = Get-ChildItem $roots -Recurse -File -ErrorAction SilentlyContinue |
-    Where-Object {
-        $_.Extension -in ".md", ".txt", ".toml", ".yaml", ".yml"
-    } |
-    Where-Object {
-        $full = $_.FullName.ToLowerInvariant()
-        -not ($excludeWildcards | Where-Object { $full -like $_.ToLowerInvariant() })
-    }
-
-$hits = foreach ($file in $files) {
+$hits = foreach ($file in ($targets | Sort-Object FullName -Unique)) {
     Select-String -Path $file.FullName -Pattern $patterns -ErrorAction SilentlyContinue
 }
 

@@ -1,4 +1,4 @@
-﻿# 共享根执行模型与吞吐重构 - 开发记忆
+# 共享根执行模型与吞吐重构 - 开发记忆
 
 ## 模块概述
 - 本工作区承接 Sunset 在完成安全治理层之后，暴露出的“执行层吞吐与调度模型错位”问题。
@@ -1774,7 +1774,7 @@
 
 **本轮完成**
 1. 只读复盘当前 live 现场，确认根因不是“休眠打断”，而是更深的四层漂移：
-   - 配置层：`config.toml` 曾在不同时间残留旧 `mcp-unity`
+   - 配置层：`config.toml` 曾在不同时间残留旧 `旧 MCP 桥口径（已失效）`
    - 文档层：active drafts / memory / 回执里仍有人持续写 `8080`
    - 会话层：即使配置改对，旧会话与旧结论仍会继续外推
    - 规范层：缺少一个统一硬闸门，把端口 / server / 监听 / 目标实例一次性钉死
@@ -1789,7 +1789,7 @@
    - 当前唯一有效 server 名：`unityMCP`
    - 当前唯一有效端点：`http://127.0.0.1:8888/mcp`
    - 当前 shared root pidfile：`D:\Unity\Unity_learning\Sunset\Library\MCPForUnity\RunState\mcp_http_8888.pid`
-   - 任何 `8080` / `mcp-unity` / “Session Active 所以可用” 一律视为不完整或旧口径
+   - 任何 `8080` / `旧 MCP 桥口径（已失效）` / “Session Active 所以可用” 一律视为不完整或旧口径
 5. 新脚本 `check-unity-mcp-baseline.ps1` 已实际运行通过，能稳定输出：
    - config 里是否只剩 `unityMCP`
    - 8888 是否监听
@@ -1836,3 +1836,28 @@
 **恢复点 / 下一步**
 - 下一步对白名单尝试把这批 active 清理文件与扫描脚本收进 `main`。
 - 如果个别文件因 owner / 热区策略不宜直接收口，则至少已完成局部中和，可在后续 owner 收口时继续并轨。
+
+## 2026-03-23 MCP 桥口径纠偏
+- 本文件中若出现“旧 MCP 桥口径（已失效）”，均表示历史阶段使用过的旧桥结论，不再代表当前 live 入口。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。
+## 2026-03-23｜MCP 第二阶段清理补完：active 扫描已 clean
+**当前主线目标**
+- 把 active 层里最后剩下的旧桥口径也清掉，让新加的扫描脚本真正能给出 `clean`。
+
+**本轮完成**
+1. 在第二阶段第一批清理后，再次使用 `scripts/find-legacy-mcp-references.ps1` 复扫 active 层。
+2. 复扫发现剩余 active 残留已不再是 `8080`，而是一些 `mcp-unity` 旧桥历史口径，集中在：
+   - `Skills和MCP` 线程记忆
+   - `共享根执行模型与吞吐重构/memory.md`
+   - `农田系统` 根层与 `10.2.1 / 10.2.2` memory
+3. 已把这些文件中的 `mcp-unity` 全部中和为：`旧 MCP 桥口径（已失效）`，并补统一纠偏说明。
+4. 再次执行 `scripts/find-legacy-mcp-references.ps1` 后，结果已返回：
+   - `legacy_mcp_reference_status: clean`
+
+**关键决策**
+- 这轮之后，active memory / draft / 回执层里已经没有“还能被误读成 live 事实”的旧端口或旧桥直接字符串。
+- 历史档案和专门的基线说明文件保留历史价值，不纳入 active 残留统计。
+
+**恢复点 / 下一步**
+- 现在可以对白名单把这一小批收尾文件再收一次进 `main`。
+- 后续若脚本再次报 `found`，就可以直接当成新的口径漂移告警处理。

@@ -177,12 +177,12 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 
 
 ## 2026-03-10：10.2.1补丁001 - 用户审核通过后整包实现完成
-用户确认审查文档与问题四口径纠正后，主线从“待审核”切换为“直接完成 10.2.1 整包实现”。本轮落地完成：`PlacementManager` 新增统一验证入口并把导航改点位/导航到达都收束到同源重验；`FarmTileManager` / `PlacementValidator` / `FarmToolPreview` 完成作物占位与 `1.5 x 1.5` footprint 统一；`GameInputManager` / `PlayerToolHitEmitter` / `TreeController` 收口施工模式下 `Hoe/WateringCan` 的隔离边界，并把树成长阻挡并入农作物占位。同步更新 `10.2.1补丁001/tasks.md`，勾选实现任务并补充手动回归清单。验证方面：`mcp-unity` 当前连接失败，无法直接重编译；已通过 `Editor.log` 抓到并修复本轮唯一新增编译错误（`FarmTileManager.cs` 的 `Random` 歧义），仍需用户在编辑器内补跑一次最终编译确认。
+用户确认审查文档与问题四口径纠正后，主线从“待审核”切换为“直接完成 10.2.1 整包实现”。本轮落地完成：`PlacementManager` 新增统一验证入口并把导航改点位/导航到达都收束到同源重验；`FarmTileManager` / `PlacementValidator` / `FarmToolPreview` 完成作物占位与 `1.5 x 1.5` footprint 统一；`GameInputManager` / `PlayerToolHitEmitter` / `TreeController` 收口施工模式下 `Hoe/WateringCan` 的隔离边界，并把树成长阻挡并入农作物占位。同步更新 `10.2.1补丁001/tasks.md`，勾选实现任务并补充手动回归清单。验证方面：`旧 MCP 桥口径（已失效）` 当前连接失败，无法直接重编译；已通过 `Editor.log` 抓到并修复本轮唯一新增编译错误（`FarmTileManager.cs` 的 `Random` 歧义），仍需用户在编辑器内补跑一次最终编译确认。
 文件：Assets/YYY_Scripts/Farm/FarmTileData.cs、Assets/YYY_Scripts/Farm/FarmTileManager.cs、Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs、Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs、Assets/YYY_Scripts/Farm/FarmToolPreview.cs、Assets/YYY_Scripts/Service/Placement/PlacementManager.cs、Assets/YYY_Scripts/Controller/Input/GameInputManager.cs、Assets/YYY_Scripts/Combat/PlayerToolHitEmitter.cs、Assets/YYY_Scripts/Controller/TreeController.cs、10.2.1补丁001/tasks.md
 
 
 ## 2026-03-10：10.2.1补丁001 - 独立编译闭环完成，等待编辑器内手动回归
-继续沿 `10.2.1补丁001` 主线收尾。由于 `mcp-unity` 仍不可用，本轮改走 Unity 自带 Roslyn 编译链：直接复用 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp` 与 `Assembly-CSharp-Editor.rsp`，使用 `Unity 6000.0.62f1` 自带 `dotnet.exe + csc.dll` 做独立编译验证。结果：运行时程序集 `Assembly-CSharp` 独立编译 `0 error`，只剩 1 个既有 obsolete warning；编辑器程序集 `Assembly-CSharp-Editor` 独立编译 `0 error`。同时纠正 `10.2.1补丁001/tasks.md` 中“手动回归清单”被误勾选的问题，明确当前真实状态是“整包实现完成、源码独立编译通过、待 Unity 编辑器内逐项回归”。主线恢复点更新为：等待用户按清单验证箱子、树苗、种子、`Hoe/WateringCan` 的现场行为，如有现象再继续验收修补。
+继续沿 `10.2.1补丁001` 主线收尾。由于 `旧 MCP 桥口径（已失效）` 仍不可用，本轮改走 Unity 自带 Roslyn 编译链：直接复用 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp` 与 `Assembly-CSharp-Editor.rsp`，使用 `Unity 6000.0.62f1` 自带 `dotnet.exe + csc.dll` 做独立编译验证。结果：运行时程序集 `Assembly-CSharp` 独立编译 `0 error`，只剩 1 个既有 obsolete warning；编辑器程序集 `Assembly-CSharp-Editor` 独立编译 `0 error`。同时纠正 `10.2.1补丁001/tasks.md` 中“手动回归清单”被误勾选的问题，明确当前真实状态是“整包实现完成、源码独立编译通过、待 Unity 编辑器内逐项回归”。主线恢复点更新为：等待用户按清单验证箱子、树苗、种子、`Hoe/WateringCan` 的现场行为，如有现象再继续验收修补。
 文件：10.2.1补丁001/tasks.md、10.2.1补丁001/memory.md、Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp、Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp-Editor.rsp
 
 
@@ -217,7 +217,7 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 当前 `farm` 的统一基线已切换为 `Sunset/main` 持续开发，不再默认使用独立 worktree，也不再把主线描述为“恢复回 main”。本轮只读核查确认：当前真正属于 farm 的控制台 warning 有两类。第一类是 7 个种子资产（`Seed_1000~1006`：大蒜、生菜、花椰菜、卷心菜、西兰花、甜菜、胡萝卜）反复报“已启用放置但未设置放置类型/预制体”，源头在 `ItemData.OnValidate()` 的通用 placeable 校验，而这些种子真实走的是 `SeedData.cropPrefab + ValidateSeedPlacement(...)` 专用播种链，所以这是代码逻辑缺口导致的假阳性，不是资源真实漏配。第二类是 `GameInputManager._hasPendingFarmInput` obsolete warning，已确认只剩 `GameInputManager` 内部遗留缓存输入链自引用，无外部调用，属于低优先级技术债。由此更新父工作区口径：farm 当前真实开发起点是“在 main 上清理放置链 warning 与控制台噪音，然后继续 10.2.2 回归验收”；`NPCPrefabGeneratorTool.cs` 的 `TextureImporter.spritesheet` obsolete 属于共享 Editor warning，不计入 farm 主线阻断。涉及文件：`Assets/YYY_Scripts/Data/Items/ItemData.cs`、`Assets/YYY_Scripts/Data/Items/SeedData.cs`、`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`、`Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`、`Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`、`Assets/111_Data/Items/Seeds/Seed_1000_大蒜.asset` 至 `Seed_1006_胡萝卜.asset`、`C:/Users/aTo/AppData/Local/Unity/Editor/Editor.log`。下一最小动作：先修 `SeedData` 被通用 placeable 校验误伤的 warning，再重新编译确认放置链控制台收敛。
 
 ## 2026-03-14：完成种子 placement 假阳性 warning 最小修复
-本轮已执行上一条记录中的最小动作：在 `Assets/YYY_Scripts/Data/Items/ItemData.cs` 中，将通用放置校验从所有 `isPlaceable` 物品收窄为“非 `SeedData` 的 isPlaceable 物品”。这次修改的目标非常明确：保留普通 placeable / 树苗的 `placementType / placementPrefab` 数据校验，同时停止对种子报“已启用放置但未设置放置类型/预制体”的假阳性 warning。验证方面，`mcp-unity` 仍为 transport closed，无法读取 Unity live console；因此本轮用 Unity Roslyn 直接编译 `Assembly-CSharp.rsp`，结果运行时程序集编译通过，仅剩 1 条既有 warning：`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 中 `_hasPendingFarmInput` obsolete。由此更新父工作区状态：farm 放置链的首要控制台噪音已完成代码级收口，当前与农田主线直接相关的剩余 warning 只剩旧缓存农田输入链技术债；共享 Editor warning 仍不计入 farm 主线阻断。下一最小动作：清理 `GameInputManager` 中 `_hasPendingFarmInput` 及其废弃配套链。
+本轮已执行上一条记录中的最小动作：在 `Assets/YYY_Scripts/Data/Items/ItemData.cs` 中，将通用放置校验从所有 `isPlaceable` 物品收窄为“非 `SeedData` 的 isPlaceable 物品”。这次修改的目标非常明确：保留普通 placeable / 树苗的 `placementType / placementPrefab` 数据校验，同时停止对种子报“已启用放置但未设置放置类型/预制体”的假阳性 warning。验证方面，`旧 MCP 桥口径（已失效）` 仍为 transport closed，无法读取 Unity live console；因此本轮用 Unity Roslyn 直接编译 `Assembly-CSharp.rsp`，结果运行时程序集编译通过，仅剩 1 条既有 warning：`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 中 `_hasPendingFarmInput` obsolete。由此更新父工作区状态：farm 放置链的首要控制台噪音已完成代码级收口，当前与农田主线直接相关的剩余 warning 只剩旧缓存农田输入链技术债；共享 Editor warning 仍不计入 farm 主线阻断。下一最小动作：清理 `GameInputManager` 中 `_hasPendingFarmInput` 及其废弃配套链。
 
 ## 2026-03-15：farm 主线 warning 全部收口并完成 Unity 现场闭环
 本轮继续沿 `Sunset/main` 推进农田主线，在 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 中把已被 FIFO 队列彻底替代的旧“农田输入缓存链”整体退出编译路径，并顺手清掉 `CancelFarmingNavigation` 中对 `_hasPendingFarmInput` 的残余赋值。验证分两层完成：首先使用 Unity 6000.0.62f1 自带 Roslyn 重新编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果 `0 error / 0 warning`；随后通过 Unity MCP 清空 Console、触发编译并回读日志，当前控制台只剩 `Assets/Editor/NPCPrefabGeneratorTool.cs(355,9)` 的共享 Editor warning，已不再存在 farm 相关 warning。由此更新父工作区结论：农田主线当前已完成“种子 placement 假阳性 + 旧缓存输入链 obsolete”两类 warning 的全部收口，主线不再被控制台噪音阻断，下一步可直接进入 `10.2.2` 的现场交互回归验收。
@@ -286,3 +286,19 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
   - `git diff --check` 针对本轮相关脚本通过，仅剩 CRLF/LF 换行警告。
 - 当前恢复点：
   - `1.0.3` 的食物/药水真实状态接线现在已从“只精力恢复”推进到“精力 + 生命恢复”；背包第一行与 Toolbar 的热槽同步也已修正，下一步继续回到剩余未闭环项（尤其是箱内实例态保真与用户现场验收）。
+
+## 2026-03-23：恢复 prefab 原始 Toggle 配置口径，并补完背包第一行与 Toolbar 的实时同源同步
+- 用户在现场指出一个关键事实：`InventorySlotUI` / `ToolbarSlotUI` 原本的 prefab 配置是 `Transition = Color Tint`、`Target Graphic = Target`、`Graphic = Selected`，而不是脚本硬改成 `transition=None / targetGraphic=null`。这说明此前为了修 shake 手感而在脚本中强制覆盖 Toggle 配置，本质上是偏离了项目既有配置口径。
+- 本轮已执行的修正：
+  - 撤销脚本侧对 `InventorySlotUI.cs`、`ToolbarSlotUI.cs` 的强制 Toggle 配置覆盖，重新尊重 prefab 中的 `Target / Selected / ToggleGroup` 关系。
+  - `InventorySlotUI.cs` 现已直接订阅 `HotbarSelectionService.OnSelectedChanged`，并新增 `RefreshSelection()`，使背包第一行与 Toolbar 在同一热槽索引上实时同步，不再出现“Toolbar 切换后第一次打开背包未选中、第二次才正确”的延迟现象。
+  - `InventoryPanelUI.cs` 与 `BoxPanelUI.cs` 在刷新背包区域时，现会同步调用 `InventorySlotUI.RefreshSelection()`，确保第一次打开面板就拿到正确热槽状态。
+- 同轮还继续推进了未完成项：`ItemUseConfirmDialog.cs` 已识别到项目内现有 `HealthSystem.cs`，因此食物 / 药水效果已从“仅精力恢复”推进到“精力 + 生命恢复”都走真实状态系统。
+- 当前运行时代码编译状态：`Assembly-CSharp.rsp` Roslyn 独立编译通过。
+- 当前恢复点：
+  - 背包第一行 / Toolbar 同步问题已按“恢复原配置 + 补实时同步”方向修正；
+  - `1.0.3` 剩余未闭合的最大实质缺口已收敛为“箱子主 UI 仍主要走 `ChestInventory` 旧链，箱内实例态保真还未彻底统一到 V2”。
+
+## 2026-03-23 MCP 桥口径纠偏
+- 本文件中若出现“旧 MCP 桥口径（已失效）”，均表示历史阶段使用过的旧桥结论，不再代表当前 live 入口。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。

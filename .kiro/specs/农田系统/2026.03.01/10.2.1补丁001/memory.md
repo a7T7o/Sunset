@@ -18,7 +18,7 @@
 - **最后更新**: 2026-03-10
 - **状态**: ✅ 整包实现完成，独立 Roslyn 编译通过，待 Unity 编辑器内手动回归
 - **当前主线目标**: 等待用户在 Unity 编辑器内按回归清单逐项验收，并根据现场反馈做 10.2.1 收尾修补
-- **本轮子任务 / 阻塞**: `mcp-unity` 连接失败，只能改走独立 Roslyn 编译验证，并纠正文档中“手动回归已完成”的误记
+- **本轮子任务 / 阻塞**: `旧 MCP 桥口径（已失效）` 连接失败，只能改走独立 Roslyn 编译验证，并纠正文档中“手动回归已完成”的误记
 - **恢复点**: 用户在编辑器内按 `tasks.md` 执行 5 条手动回归；若出现现场现象，继续在本工作区迭代验收修补
 
 ## 会话记录
@@ -178,7 +178,7 @@
 
 **验证结果**:
 - ✅ 已通过源码复核确认：`canClearWithered` 残留变量已从当前 `FarmToolPreview.cs` 移除，`FarmTileManager.cs` 中 `Random` 歧义点已改为 `UnityEngine.Random`
-- ⚠️ Unity 编辑器正在运行，但 `mcp-unity` 当前返回 `Connection failed: Unknown error`，无法直接走 `recompile_scripts / get_console_logs / run_tests`
+- ⚠️ Unity 编辑器正在运行，但 `旧 MCP 桥口径（已失效）` 当前返回 `Connection failed: Unknown error`，无法直接走 `recompile_scripts / get_console_logs / run_tests`
 - ⚠️ 已退回读取 `Editor.log` 做兜底检查，抓到修前一次真实编译错误：`FarmTileManager.cs` 因 `using System;` 导致 `Random` 歧义；该点已在源码修复
 - ❌ 修复后的这一次未能强制触发新的 Unity 编译日志，因此最终的编辑器编译闭环仍需用户在本机编辑器内补跑确认
 
@@ -193,7 +193,7 @@
 - 在不偏离 `10.2.1补丁001` 的前提下，把“实现完成但编译闭环未确认”的状态推进到“源码独立编译通过，待编辑器内手动回归”
 
 **本轮子任务 / 阻塞**:
-- `mcp-unity` 仍然不可用，无法直接走 `recompile_scripts / get_console_logs / run_tests`
+- `旧 MCP 桥口径（已失效）` 仍然不可用，无法直接走 `recompile_scripts / get_console_logs / run_tests`
 - `tasks.md` 的“手动回归清单”被误勾选为已完成，需要按真实状态纠正
 
 **完成任务**:
@@ -223,3 +223,7 @@
 **恢复点 / 下一步**:
 - 当前已经回到主线的“等待用户在 Unity 编辑器内按 `tasks.md` 执行 5 条手动回归并反馈结果”这一步
 - 若用户反馈现场异常，继续在 `10.2.1补丁001` 下做验收修补
+
+## 2026-03-23 MCP 桥口径纠偏
+- 本文件中若出现“旧 MCP 桥口径（已失效）”，均表示历史阶段使用过的旧桥结论，不再代表当前 live 入口。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。

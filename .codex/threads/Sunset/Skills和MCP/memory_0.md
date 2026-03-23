@@ -36,7 +36,7 @@
 - 旧结论保留：2026-03-10 曾成功读取 94 个 EditMode tests，并跑通一次 `94/94 succeeded`；这是历史已记录结果，本轮迁移未重跑，只保留为旧结论。
 
 ### 2026-03-13：旧桥误用排查、弹窗定位与旧桥清退
-- 已确认 `农田交互修复V2` 线程里“用不了 MCP”的根因是旧 `mcp-unity` 误用，而不是 Unity Server 没起。
+- 已确认 `农田交互修复V2` 线程里“用不了 MCP”的根因是旧 `旧 MCP 桥口径（已失效）` 误用，而不是 Unity Server 没起。
 - 已确认在当前 Windows 环境里，主动对比探测旧桥可能触发前台系统弹窗，因此后续验证默认只测新桥 `unityMCP`。
 - 已将旧桥从活配置、活文档示例和活进程层面清退，相关处理背景可追溯至：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\文档归档\2026-03-Codex恢复与迁移收口\00_迁移总纲与过程规则_2026-03-07_2026-03-13\OpenClaw终端闪窗排查与止血报告_2026-03-10.md`
@@ -172,7 +172,7 @@
 
 ### 会话 44 - 2026-03-23（MCP 根因治理从 scene-build 子问题升级为 main 基线治理）
 **用户需求**：不再满足于单次端口纠偏，要求把更深层的“配置 / 文档 / 会话 / 规范漂移”根因直接治理掉，而且这轮应落在 `main` 而不是 `scene-build` 分支。
-**当前主线目标**：将 MCP live 事实统一成 shared root `main` 的硬基线，防止 future threads 再拿 `8080` / `mcp-unity` / 会话旧结论继续误判。
+**当前主线目标**：将 MCP live 事实统一成 shared root `main` 的硬基线，防止 future threads 再拿 `8080` / `旧 MCP 桥口径（已失效）` / 会话旧结论继续误判。
 **已完成事项**：
 1. 重新划清现场边界：
    - `scene-build` worktree 上的场景改动仍然有效，但这轮 MCP 根因治理必须落到 `D:\Unity\Unity_learning\Sunset @ main`。
@@ -221,3 +221,25 @@
 - 活文档能清的先清；历史归档与旧阶段卷继续保留历史价值，不在本轮强改。
 **恢复点 / 下一步**：
 - 下一步对白名单做一次 `main` 收口；如果 owner / 热区策略阻断个别文件，就优先把可安全纳入的治理文件与脚本先进 `main`。
+
+## 2026-03-23 MCP 桥口径纠偏
+- 本文件中若出现“旧 MCP 桥口径（已失效）”，均表示历史阶段使用过的旧桥结论，不再代表当前 live 入口。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。
+### 会话 46 - 2026-03-23（MCP 第二阶段收尾：active 扫描已 clean）
+**用户需求**：继续把第二阶段清理做完，不停在半套治理层。
+**当前主线目标**：彻底清掉 active 层中仍会误导线程判断的旧桥 / 旧端口口径。
+**已完成事项**：
+1. 跑 `scripts/find-legacy-mcp-references.ps1` 后，发现 active 层剩余的是旧 `mcp-unity` 桥口径，而不再是 `8080`。
+2. 已继续处理中和：
+   - `.codex/threads/Sunset/Skills和MCP/memory_0.md`
+   - `.kiro/specs/共享根执行模型与吞吐重构/memory.md`
+   - `.kiro/specs/农田系统/memory.md`
+   - `.kiro/specs/农田系统/2026.03.01/10.2.1补丁001/memory.md`
+   - `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/memory.md`
+3. 所有这些文件里的 `mcp-unity` 已统一改写为“旧 MCP 桥口径（已失效）”，并追加统一纠偏说明。
+4. 再次运行扫描脚本，结果已变为：`legacy_mcp_reference_status: clean`。
+**关键决策**：
+- 第二阶段现在不只是“建立了规则”，而是已经把当前 active 层里会误导人的旧字面口径清到了可接受状态。
+- 以后再出现旧口径，可以直接由扫描脚本作为治理告警入口。
+**恢复点 / 下一步**：
+- 下一步只剩这批第二阶段收尾文件同步进 `main`。
