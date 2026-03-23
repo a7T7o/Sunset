@@ -275,3 +275,16 @@
   - 本轮没有改 `NPCMotionController` / `NPCAutoRoamController` 的最终位移语义。
   - 本轮只改气泡表现层与测试频率，不改变 NPC 运动基线。
 - 当前恢复点：下一步应优先做一次新的用户目测验收，看箭头是否终于足够低、内边距是否终于足够明显。
+
+## 2026-03-23 NPC第七刀：更明显的气泡参数收口
+
+- 当前主线目标：把气泡改动从“细微”提升到“肉眼一眼能看出变化”的程度。
+- 本轮子任务：在用户已确认认知一致后，直接加大箭头下压、放大字体、收窄长文本宽度、重调内边距，并降低 `003` 的持续说话速度。
+- 本轮完成：
+  - `NPCBubblePresenter`：`bubbleLocalOffset` 下压到 `1.46`；`tailYOffset` 保持大幅下压 `-28`；`textSafePadding` 调整为 `{22,18}`；`textVerticalOffset = -6`；`bubblePadding = {48,34}`；`maxTextWidth = 224`；`fontSize = 26`；`bubbleGapAboveRenderer = 0.02`；`tailBobFrequency = 0.85`，让箭头更低、更慢、更明显。
+  - `NPCBubbleStressTalker`：将 `003` 的持续说话间隔调慢到 `0.75~1.35s`，不再像机关枪一样刷屏。
+  - `001/002/003.prefab`：同步到这套更新后的更激进参数。
+- 本轮验证：
+  - `git diff --check` 对本轮 NPC 相关脚本与 prefab 通过。
+  - 当前 `unityMCP` 仍然卡在 `http://127.0.0.1:8080/mcp` 握手失败，因此本轮 live 终验未取得。
+- 当前恢复点：用户现在可以直接在主项目里看这套“明显变化版”气泡；若方向正确，下一步只剩微收审美，不再需要大幅改参数。

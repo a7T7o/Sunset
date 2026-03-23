@@ -12,8 +12,8 @@ public class NPCBubbleStressTalker : MonoBehaviour
     [SerializeField] private NPCAutoRoamController roamController;
     [SerializeField] private bool startOnEnable = true;
     [SerializeField] private bool disableRoamWhileTesting = true;
-    [SerializeField] private float minGapSeconds = 0.05f;
-    [SerializeField] private float maxGapSeconds = 0.18f;
+    [SerializeField] private float minGapSeconds = 0.75f;
+    [SerializeField] private float maxGapSeconds = 1.35f;
     [SerializeField] private float minDuration = 1.8f;
     [SerializeField] private float maxDuration = 5f;
     [SerializeField] private string[] testLines =
