@@ -441,8 +441,19 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         Vector2 facingDir = GetFacingDirection(moveDir);
 
         MaybeLogSharedAvoidance(playerPos, waypoint, avoidance, closeRangeConstraint, moveScale, _hasDynamicDetour ? "DetourMove" : "PathMove");
-        
-        movement.SetMovementInput(moveDir * moveScale, runWhileNavigating, facingDir);
+
+        if (ShouldUseBlockedNavigationInput(avoidance, closeRangeConstraint, moveScale))
+        {
+            movement.SetBlockedNavigationInput(
+                moveDir * moveScale,
+                runWhileNavigating,
+                avoidance.BlockingAgentPosition,
+                closeRangeConstraint.Clearance,
+                facingDir);
+            return;
+        }
+
+        movement.SetNavigationInput(moveDir * moveScale, runWhileNavigating, facingDir);
     }
 
     /// <summary>
@@ -585,7 +596,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         
         Vector2 moveDir = toTarget.normalized;
         Vector2 facingDir = GetFacingDirection(moveDir);
-        movement.SetMovementInput(moveDir, runWhileNavigating, facingDir);
+        movement.SetNavigationInput(moveDir, runWhileNavigating, facingDir);
     }
 
     private void BuildPath()
@@ -992,6 +1003,30 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         }
 
         return runWhileNavigating ? movement.RunSpeed : movement.WalkSpeed;
+    }
+
+    private bool ShouldUseBlockedNavigationInput(
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint,
+        float moveScale)
+    {
+        if (!avoidance.HasBlockingAgent)
+        {
+            return false;
+        }
+
+        if (closeRangeConstraint.Applied || avoidance.ShouldRepath || _hasDynamicDetour)
+        {
+            return true;
+        }
+
+        float engageDistance =
+            GetAvoidanceRadius() +
+            Mathf.Max(avoidance.BlockingAgentRadius, 0.01f) +
+            dynamicObstaclePadding +
+            0.25f;
+
+        return moveScale <= 0.35f && avoidance.BlockingDistance <= engageDistance;
     }
 
     private void ForceImmediateMovementStop()

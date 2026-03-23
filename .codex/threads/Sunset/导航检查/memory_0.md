@@ -376,3 +376,23 @@
     - `clearance < 0` 时不再出现 `closeConstraint=False`
     - `blockerPos` 更接近 NPC collider center
   - 如果这两点都对了但仍有推挤，下一刀优先打玩家 Rigidbody 的 runtime 物理语义，而不是再改 prefab 标签。
+
+### 会话 18 - 2026-03-23（玩家阻挡态执行层补刀）
+
+- 当前主线目标仍是：彻底解决“玩家右键导航遇移动 NPC 仍像推土机一样顶着走”，并顺带复验 NPC/NPC 会车问题；本轮不是换线，只是在修运行态 blocker。
+- 用户这轮再次明确纠偏：不要再把问题甩给 tag / 截图 / prefab 猜测，要直接用 MCP / 序列化 / 运行日志把 NPC 现场与执行层根因钉死。
+- 本轮显式使用：`skills-governor`、`sunset-workspace-router`、`sunset-unity-validation-loop`、`unity-mcp-orchestrator`；`sunset-startup-guard` 继续手工等价。
+- 现场新证据：
+  - 当前会话 `list_mcp_resources` / `templates` 仍为空，但这次已按 `unity-mcp-orchestrator + mcp-live-baseline` 明确分类为“服务基线正常、会话暴露异常”，不再混说成项目没起。
+  - `001 / 003.prefab` 仍是 `Untagged + BoxCollider2D + Rigidbody2D(mass=6, linearDamping=8, collisionDetection=1)`；`Primary.unity` 中玩家刚体仍是 `mass=1 / linearDamping=0 / collisionDetection=0`。
+- 根因收敛：
+  - 共享避让 / close-range constraint 已经在算，但玩家执行层没有真正的 blocked-state 运动语义；`PlayerMovement.Update()` 仍在零阻尼刚体上直写 `linearVelocity`，这就是“推土机感”的主怀疑点。
+- 本轮已改：
+  - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`：新增导航阻挡态速度约束、去前冲、限速和临时高阻尼，并在退出阻挡态时恢复默认参数。
+  - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`：在 `closeRangeConstraint.Applied` / `avoidance.ShouldRepath` / detour 等场景切到 `SetBlockedNavigationInput(...)`，不再继续走普通导航输入。
+- 验证：
+  - `git diff --check` 通过。
+  - `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread 导航检查 -IncludePaths ...` 通过；代码闸门已明确通过 `Assembly-CSharp`。
+- 当前恢复点：
+  - 现在主线已经回到“新代码下重新看运行态 `NavAvoid` 日志和实际体感”，不是再回去查 NPC tag。
+  - 如果下一轮仍有速度尖峰或继续顶人，应继续加硬玩家阻挡态，不优先回退到 prefab / MCP 挂载方向。

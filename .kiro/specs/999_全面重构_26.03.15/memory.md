@@ -189,3 +189,15 @@
 - 父层当前判断：
   - `遮挡检查` 这条线到此已经没有遗留的必须继续补的尾项
   - 农田 preview 遮挡应视为后续新业务，已转由其他线程承接，不属于本线程继续扩写范围
+
+### 会话 8 - 2026-03-23（导航执行层阻挡态补刀）
+
+- 子工作区 `导航检查` 本轮已从“继续怀疑 NPC tag / MCP 是否没起”彻底收窄到“玩家执行层 blocked-state 缺失”的根因，并在 `PlayerMovement + PlayerAutoNavigator` 落下最小实现。
+- 父层新增稳定事实：
+  - 当前 `unityMCP` 基线仍正常，但本会话 `resources / templates` 为空；这类空枚举不应再被误判成项目服务没起。
+  - `001 / 003.prefab` 仍是 `Untagged + BoxCollider2D + Rigidbody2D(mass=6, linearDamping=8, collisionDetection=1)`，玩家主场景刚体仍是 `mass=1 / linearDamping=0 / collisionDetection=0`。
+- 本轮已落地代码：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerMovement.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- 当前父层判断：
+  - 下一步验收不再看 tag，而是直接看新运行态下 `rbVelocity` 尖峰是否消失、玩家是否停止继续把 NPC 顶着走。

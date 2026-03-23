@@ -256,3 +256,74 @@
 - 当前恢复点：
   - 下一轮优先做真实验证，确认“玩家自动导航绕移动 NPC”是否稳定；
   - 若验证通过，再决定是否继续扩到 NPC/NPC 局部规避的真实接线。
+
+### 会话 6 - 2026-03-22（统一导航架构复判）
+
+- 当前主线目标：判断 Sunset 是否应该从“玩家导航补丁 + NPC 漫游补丁”升级为“所有移动体共享的统一导航核心”。
+- 本轮只读复盘后确认的关键事实：
+  - `PlayerAutoNavigator` 与 `NPCAutoRoamController` 目前各自维护独立的寻路、卡住恢复和移动执行循环。
+  - `NavGrid2D` 仍主要承担静态/准静态障碍网格职责，并不等于动态多代理导航系统。
+  - 当前仓库中虽然已有 `INavigationUnit` / `NavigationUnitBase`，但真正接到共享导航主链上的实现还非常少。
+  - `PlayerMovement` 与 `NPCAutoRoamController` 的最终运动语义也不一致：前者主要走 `rb.linearVelocity`，后者主要走 `rb.MovePosition(...)`。
+- 当前判断：
+  - 是，后续应重构为“共享导航核心 + 各自行为脑 + 各自运动适配器”，而不是继续在玩家导航和 NPC 漫游上分别堆补丁。
+  - 当前继续只在 `PlayerAutoNavigator` / `NPCAutoRoamController` 上追加局部补丁，已经开始接近“在屎山上雕花”。
+- 推荐重构方向：
+  - 将问题拆成三层：静态路径规划层、动态代理避让层、最终运动/接触解析层。
+  - 所有移动体共享前两层，不再各自维护一套独立的寻路与卡住恢复逻辑。
+  - `GameInputManager`、`NPCAutoRoamController`、未来怪物/牲畜/宠物控制器，只保留为“行为脑/意图发起层”。
+
+### 会话 7 - 2026-03-23（玩家阻挡态执行层修复）
+
+**用户需求**：
+> 用户指出实测 300 条日志后，玩家自动导航遇移动 NPC 依旧像推土机一样顶着走；要求彻查，不再回到 tag / 截图 / prefab 猜测，并明确要求把 NPC 组件事实和 MCP 现场一起查清。
+
+**当前主线目标**：
+- 把“共享避让已经在算，但玩家最终运动语义还在推人”这条根因收敛并落下最小真实修复。
+
+**本轮子任务 / 阻塞**：
+- 子任务是把玩家执行层补上真正的 blocked-state 运动语义。
+- 当前阻塞是：`unityMCP` 服务基线虽然正常，但本会话 `list_mcp_resources` / `list_mcp_resource_templates` 仍为空，只能做到基线分类与序列化取证，无法直接做 live resource 读写。
+
+**完成任务**：
+1. 复跑 `list_mcp_resources` / `list_mcp_resource_templates`，确认当前会话依旧为空枚举，并结合 `mcp-live-baseline` 与 `unity-mcp-orchestrator` 技能口径，把现场明确分类为“服务正常、会话暴露异常”。
+2. 直接回读 `Assets/222_Prefabs/NPC/001.prefab`、`Assets/222_Prefabs/NPC/003.prefab` 与 `Assets/000_Scenes/Primary.unity`，确认 NPC 真实组件链与刚体参数稳定存在：
+   - NPC 仍是 `BoxCollider2D + Rigidbody2D + NPCMotionController + NPCAutoRoamController ...`
+   - NPC 刚体仍是 `m_Mass = 6 / m_LinearDamping = 8 / m_CollisionDetection = 1`
+   - 玩家主场景刚体仍是 `m_Mass = 1 / m_LinearDamping = 0 / m_CollisionDetection = 0`
+3. 继续核对 `PlayerMovement.cs / PlayerAutoNavigator.cs / NavigationLocalAvoidanceSolver.cs / NPCAutoRoamController.cs`，确认问题已收敛到“玩家缺少 blocked-state 执行层”。
+4. 修改 `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`：
+   - 新增导航阻挡态约束
+   - 近距时剥离继续冲向 blocker 的前向速度
+   - 给阻挡态加低速上限与临时高阻尼
+   - 在退出阻挡态时恢复默认刚体参数
+5. 修改 `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`：
+   - 在 `closeRangeConstraint.Applied` / `avoidance.ShouldRepath` / detour 等近距阻挡场景下改走 `SetBlockedNavigationInput(...)`
+   - 普通导航输入改为显式 `SetNavigationInput(...)`
+6. 运行验证：
+   - `git diff --check`
+   - `powershell -ExecutionPolicy Bypass -File D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread 导航检查 -IncludePaths ...`
+
+**修改文件**：
+- `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs` - 新增导航阻挡态速度语义、去前冲与阻尼收束
+- `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs` - 在近距阻挡 / 重规划 / detour 场景切换到阻挡态输入
+
+**关键结论**：
+1. 这轮再次确认：不是 tag 问题，也不是“NPC 没被识别到”；NPC prefab 本身和碰撞刚体配置都在。
+2. 推土机感最像的根因是玩家执行层：`PlayerMovement.Update()` 仍在零阻尼玩家刚体上每帧直写 `linearVelocity`，把 solver 的减前冲 / 减速意图重新放大。
+3. 这刀不再试图“让 solver 更聪明”，而是直接让 AutoNav 在近距阻挡态切换到低速、去前冲、临时高阻尼的执行语义。
+4. 当前 `unityMCP` 服务基线依旧是好的，但本会话资源暴露仍异常；因此本轮 MCP 只用于分类和基线核查，不用于 live 资源操作。
+
+**验证结果**：
+- `list_mcp_resources` / `list_mcp_resource_templates`：空
+- `git diff --check`：通过
+- `git-safe-sync.ps1 -Action preflight ...`：通过
+  - 代码闸门适用：`True`
+  - 代码闸门通过：`True`
+  - 程序集：`Assembly-CSharp`
+- `Editor.log` 尾部未出现本轮新增的 Unity 编译报错，但新代码下的运行态 `NavAvoid` 仍待重新取证。
+
+**遗留问题 / 下一步**：
+- [ ] 重新进入 Unity 运行态，用新一轮 `[NavAvoid]` 日志确认 `rbVelocity` 是否已经被压回低速，且近距时不再继续朝 blocker 壳层内推进。
+- [ ] 重点复验两个场景：玩家绕行移动 NPC；NPC/NPC 会车。
+- [ ] 如果新日志仍显示被阻挡态存在异常尖峰，则继续收紧玩家刚体语义，而不是回退到 tag / prefab / MCP 挂载排查。
