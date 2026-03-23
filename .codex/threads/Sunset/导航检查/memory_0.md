@@ -266,3 +266,22 @@
 - 当前恢复点：
   - 现在需要优先复验“玩家是否仍在推着 NPC 走”；
   - 如果仍失败，则下一刀应直接进入共享路径执行层，而不是继续补局部 steering。
+
+### 会话 15 - 2026-03-23（Primary.unity 导航热文件卫生处理）
+
+- 当前主线目标：
+  - 继续服务 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查` 这条“玩家右键导航遇 NPC 不能继续推着走”的主线。
+- 本轮子任务：
+  - 先处理我留在 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 上的导航侧脏改卫生问题，避免继续堵住热场景。
+- 本轮 live 结论：
+  - `Primary.unity` 中属于导航线的新增字段只有 `dynamicObstaclePadding`、`dynamicObstacleRepathCooldown`、`dynamicObstacleVelocityThreshold`、`obstacleProbeBufferSize`、`sharedAvoidanceLookAhead`、`avoidancePriority`。
+  - 这些值与 `PlayerAutoNavigator.cs` 当前代码默认值一致，不需要继续靠 scene 序列化保存。
+  - 同一份 scene diff 里还混有 `StoryManager`、对话测试状态等非导航内容，不应整文件纳入导航 checkpoint。
+- 本轮完成：
+  - 已从 `Primary.unity` 移除上述 6 个导航字段级脏改。
+  - 已把需要保留的导航侧 WIP 收口为最小代码 checkpoint 候选：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- 恢复点：
+  - `Primary.unity` 对我这条导航线已不再有上述字段级占用；
+  - 下一步回到主线时，应继续围绕代码验证“玩家绕开 NPC”，而不是再把中间态参数压到热场景里。

@@ -315,3 +315,25 @@
   1. 让行规则一开始就偏了
   2. 玩家最终运动层把减速信息吃掉了
 - 在 NPC 线当前地基稳定的前提下，这两刀都是我导航线必须优先修掉的内容。
+
+### 会话 8 - 2026-03-23（Primary.unity 导航脏改卫生收口）
+
+- 用户明确要求先停下非必要推进，优先处理 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 里由导航线留下的热文件脏改。
+- 本轮 live 核查确认：
+  - `Primary.unity` 中属于导航线的新增字段只有 `PlayerAutoNavigator` 上的 6 个序列化参数：
+    - `dynamicObstaclePadding`
+    - `dynamicObstacleRepathCooldown`
+    - `dynamicObstacleVelocityThreshold`
+    - `obstacleProbeBufferSize`
+    - `sharedAvoidanceLookAhead`
+    - `avoidancePriority`
+  - 这些值与 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs` 中当前字段默认值一致，不属于必须保留在 scene 上的独立配置。
+  - 同一份 `Primary.unity` diff 中还混有 `StoryManager`、对话测试状态等非导航内容，因此不应把整份 scene 一起当成导航 checkpoint 收口。
+- 本轮动作：
+  - 已从 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 移除上述 6 个导航序列化字段，释放导航线对热场景的字段级占用。
+  - 保留并准备独立收口的代码 checkpoint：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- 当前恢复点：
+  - `Primary.unity` 已不再包含导航线新增的那 6 个字段级脏改；
+  - 后续继续修“玩家绕开 NPC”时，应优先围绕代码与验证推进，不再让 `Primary.unity` 承担导航侧中间态。

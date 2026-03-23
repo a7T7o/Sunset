@@ -830,7 +830,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             _dynamicObstacleSightings = 1;
         }
 
-        if (!avoidance.ShouldRepath || _dynamicObstacleSightings < 2)
+        if (!avoidance.ShouldRepath)
         {
             return false;
         }
@@ -864,8 +864,12 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return false;
         }
 
-        float detourDistance = GetAvoidanceRadius() + Mathf.Max(avoidance.BlockingAgentRadius, 0.35f) + 0.35f;
-        Vector2 candidate = avoidance.BlockingAgentPosition + avoidance.SuggestedDetourDirection.normalized * detourDistance;
+        float lateralDistance = GetAvoidanceRadius() + Mathf.Max(avoidance.BlockingAgentRadius, 0.35f) + 0.4f;
+        float forwardDistance = Mathf.Max(GetAvoidanceRadius(), avoidance.BlockingAgentRadius) + 0.35f;
+        Vector2 candidate =
+            avoidance.BlockingAgentPosition +
+            avoidance.SuggestedDetourDirection.normalized * lateralDistance +
+            avoidance.AdjustedDirection.normalized * forwardDistance;
         if (!navGrid.TryFindNearestWalkable(candidate, out Vector2 detourPoint))
         {
             return false;

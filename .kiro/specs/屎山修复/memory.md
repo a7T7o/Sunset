@@ -128,3 +128,19 @@
   - `PlayerMovement.cs` 改为保留输入强度，不再把减速信息全部归一化吃掉
   - `PlayerAutoNavigator.cs` 增加临时动态绕行点
   - `NavigationLocalAvoidanceSolver.cs` 增加速度缩放与更完整的阻挡信息
+
+### 会话 8 - 2026-03-23
+
+- 子工作区 `导航检查` 本轮先处理中断性卫生问题，而不是继续扩写整改范围。
+- 已核实：
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 中导航线新增的 scene 脏改仅为 `PlayerAutoNavigator` 的 6 个新序列化字段。
+  - 这些字段值与代码默认值一致，不是必须保留在场景里的长期配置。
+  - 同一份 scene diff 还混有非导航内容，因此不适合整文件按导航线 checkpoint。
+- 已执行：
+  - 从 `Primary.unity` 中移除上述 6 个导航字段，释放导航线对 A 类热场景的字段级占用。
+  - 将导航线本轮仍需保留的最小代码变更收口到独立 checkpoint：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- 父层当前判断：
+  - `导航检查` 这条线对 `Primary.unity` 的直接占用应视为已解除；
+  - 后续这条线如果还需要再次碰场景，必须是带明确验证目的和最小修改面，而不是继续把导航中间态挂在热文件上。

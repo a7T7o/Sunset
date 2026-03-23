@@ -109,7 +109,7 @@ public static class NavigationLocalAvoidanceSolver
             {
                 float slowDownWeight = Mathf.Lerp(0.2f, 1f, lateralFactor);
                 avoidance += (-desired) * weight * slowDownWeight;
-                float localSpeedScale = Mathf.Clamp01(forwardDistance / Mathf.Max(interactionRadius * 1.35f, 0.001f));
+                float localSpeedScale = Mathf.Clamp01(forwardDistance / Mathf.Max(interactionRadius * 1.6f, 0.001f));
                 speedScale = Mathf.Min(speedScale, localSpeedScale);
             }
 
@@ -124,7 +124,7 @@ public static class NavigationLocalAvoidanceSolver
                     detourDirection = sidestep;
                 }
 
-                if ((treatAsBlockingObstacle || shouldYield) && forwardDistance <= interactionRadius * 1.1f)
+                if ((treatAsBlockingObstacle || shouldYield) && forwardDistance <= interactionRadius * 1.35f)
                 {
                     shouldRepath = true;
                 }
