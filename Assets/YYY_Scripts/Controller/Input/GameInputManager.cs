@@ -704,7 +704,8 @@ public class GameInputManager : MonoBehaviour
             _accumulatedScrollSteps = 0;
         }
 
-        // 数字键切换 - 面板打开时禁用
+        // 数字键直选仅覆盖前 5 格；滚轮仍在 12 格内循环
+        // 面板打开时禁用数字键直选
         if (uiOpen) return;
         
         int keyIndex = -1;
@@ -713,6 +714,11 @@ public class GameInputManager : MonoBehaviour
         else if (Input.GetKeyDown(KeyCode.Alpha3)) keyIndex = 2;
         else if (Input.GetKeyDown(KeyCode.Alpha4)) keyIndex = 3;
         else if (Input.GetKeyDown(KeyCode.Alpha5)) keyIndex = 4;
+
+        if (keyIndex >= InventoryService.HotbarDirectSelectCount)
+        {
+            keyIndex = -1;
+        }
         
         if (keyIndex >= 0)
         {

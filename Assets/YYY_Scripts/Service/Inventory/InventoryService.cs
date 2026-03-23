@@ -21,7 +21,8 @@ using FarmGame.Data.Core;
 public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
 {
     public const int DefaultInventorySize = 36; // 3行 * 12列
-    public const int HotbarWidth = 12;          // 第一行 12 格
+    public const int HotbarWidth = 12;          // 第一行 12 格，滚轮循环范围
+    public const int HotbarDirectSelectCount = 5; // 数字键仅直选前 5 格
 
     [Header("数据库")]
     [SerializeField] private ItemDatabase database;

@@ -244,3 +244,57 @@
 
 **恢复点 / 下一步**：
 - 当前已经回到主线的“用白名单提交收掉这次 shake 收尾修复，然后把下一阶段 UI/交互统一改造方案交给用户确认”这一步。
+
+## 2026-03-23：Toolbar 输入边界口径纠偏并固化为 live 规则
+**用户目标**：
+- 用户明确纠正 Toolbar 规则：数字键只允许 `1~5` 直选前五格，但滚轮在 `1~12` 间循环本身是正确设计，不应再被误判成违规。
+- 要求我不要继续沿着误解推进，而是直接按这个 live 口径落地。
+
+**当前主线目标**：
+- 主线仍是农田交互边界收口；本轮子任务是把 Toolbar/背包热槽输入边界重新钉死，避免后续实现和文档继续被旧口径带偏。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：复核 live 代码里当前真正生效的 Toolbar 切换入口。
+- 子任务 2：把“数字键 1~5 直选、滚轮 1~12 循环”的边界同时固化到代码与规则文档。
+- 当前没有新的业务阻塞，主要风险是旧文档残留继续误导后续开发。
+
+**已完成事项**：
+1. 回读 `GameInputManager.cs`、`HotbarSelectionService.cs`、`ToolbarSlotUI.cs`、`InventoryPanelUI.cs` 与 `PlayerInteraction.cs`，确认当前 live 切换入口只有：
+   - `GameInputManager.HandleHotbarSelection()` 中的数字键 `1~5`
+   - 同一方法中的滚轮循环
+   - `ToolbarSlotUI.OnPointerClick(...)` 的 UI 点击
+2. 在 `InventoryService.cs` 中新增 `HotbarDirectSelectCount = 5`，把“数字键直选前五格”固化成显式常量。
+3. 在 `GameInputManager.cs` 中把数字键切换逻辑改为明确依赖 `HotbarDirectSelectCount`，并补注释区分：
+   - 数字键只负责前五格直选
+   - 滚轮继续在 12 格内循环
+4. 修正当前 live 文档口径：
+   - `1.0.2纠正001/requirements.md`
+   - `1.0.2纠正001/tasks.md`
+   - `最终交互矩阵.md`
+   - `.kiro/steering/ui.md`
+   - `.kiro/steering/items.md`
+   - `.kiro/steering/maintenance-guidelines.md`
+   统一去掉“快捷键泛化”“1-8 / 1-9 数字键”之类旧表述。
+
+**关键决策**：
+- `HotbarWidth = 12` 本轮不再被视为错误，因为它服务的是滚轮循环范围，不是数字键直选范围。
+- Toolbar 点击继续被视为 UI 交互入口，不把它重新描述成“键盘快捷键集合”的一部分。
+- `PlayerInteraction.enableLegacyInput` 仍只是潜在调试残留，不将其误写成当前 live 工具切换入口。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\InventoryService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\requirements.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\tasks.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\最终交互矩阵.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\steering\items.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\steering\maintenance-guidelines.md`
+
+**验证结果**：
+- `Assembly-CSharp.rsp` 独立编译通过。
+- `git diff --check` 针对白名单路径通过，仅剩 CRLF/LF 换行提示。
+- 当前 live 代码未发现新的额外 Toolbar 快捷切换入口。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“继续做用户真实场景验收与剩余交互收尾，而不是再纠缠 Toolbar 输入边界到底是不是 12 格”这一步。

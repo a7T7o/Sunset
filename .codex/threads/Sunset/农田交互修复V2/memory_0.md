@@ -547,3 +547,46 @@
 
 **恢复点 / 下一步**:
 - 当前已经回到主线的“只剩手动交互验收；代码侧已收口完毕，可以白名单提交本轮术语统一与 live 验收记忆同步”这一步。
+
+## 2026-03-23：Toolbar 输入边界误判已纠正，当前只做最小规则固化
+**用户目标**：
+- 用户明确纠正我之前的误判：数字键只负责 `1~5` 直选前五格，滚轮在 `1~12` 间循环没有问题；要求我不要再沿着“HotbarWidth=12 是 bug”这条错线走，而是直接按正确口径落地。
+
+**当前主线目标**：
+- 主线仍是农田交互与后续 UI/交互升级收口；本轮只是把 Toolbar 输入边界重新钉死，不是另起新线。
+
+**本轮子任务 / 阻塞**：
+- 子任务是复核 live 代码真正的切换入口，并把“数字键 1~5 / 滚轮 1~12”这组边界同步到代码与活规则。
+- 当前没有新的功能阻塞，主要风险来自旧文档残留会继续误导后续实现。
+
+**已完成事项**：
+1. 回读 `GameInputManager.cs`、`HotbarSelectionService.cs`、`ToolbarSlotUI.cs`、`InventoryPanelUI.cs` 与 `PlayerInteraction.cs`，确认当前 live 切换入口仍是：
+   - 数字键 `1~5`
+   - 滚轮循环
+   - Toolbar UI 点击
+2. 在 `InventoryService.cs` 中新增 `HotbarDirectSelectCount = 5`，把数字键直选边界固化成显式常量。
+3. 在 `GameInputManager.cs` 中让数字键切换逻辑显式依赖 `HotbarDirectSelectCount`，并补上“滚轮仍跑 12 格循环”的注释。
+4. 同步修正 `.kiro/steering/ui.md`、`.kiro/steering/items.md`、`.kiro/steering/maintenance-guidelines.md`、`1.0.2纠正001/requirements.md`、`1.0.2纠正001/tasks.md` 与 `最终交互矩阵.md` 的旧口径残留。
+
+**关键决策**：
+- `HotbarWidth = 12` 本轮不再视为错误，它服务的是滚轮循环范围而不是数字键直选范围。
+- Toolbar 点击继续视为 UI 交互，不把它重新包装成“键盘快捷键扩张”。
+- `PlayerInteraction.enableLegacyInput` 仍只作为潜在调试残留记录，不误写成当前 live 工具切换入口。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\InventoryService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\steering\items.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\steering\maintenance-guidelines.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\requirements.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\tasks.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\最终交互矩阵.md`
+
+**验证结果**：
+- `Assembly-CSharp.rsp` 独立编译通过。
+- 白名单 `git diff --check` 通过，仅剩 CRLF/LF 提示。
+- 未发现新的额外 Toolbar 快捷切换入口。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“继续剩余手动交互验收与后续 UI/交互改进，而不是再争论 Toolbar 是否只能有 5 格”这一步。

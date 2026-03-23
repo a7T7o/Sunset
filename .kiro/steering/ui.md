@@ -70,8 +70,8 @@ rt.offsetMax = new Vector2(-3.8808f, -41.568f); // -right, -top
 | O | 切换显示 Settings 页 |
 | ESC | 已打开任意页面→打开Settings页；未打开→打开Settings面板 |
 | J | 保留给任务面板（当前无功能） |
-| 1-8 | 快捷栏槽位选择 |
-| 滚轮 | 快捷栏上下切换 |
+| 数字键 1-5 | 快捷栏前五个槽位直选 |
+| 滚轮 | 在 12 个快捷栏槽位间循环切换 |
 
 ## 面板切换逻辑
 
@@ -89,7 +89,7 @@ rt.offsetMax = new Vector2(-3.8808f, -41.568f); // -right, -top
 - 未打开任何页面 → 打开 Settings 面板
 
 ### 双击逻辑
-- 鼠标点击 Top 的 Toggle = 按快捷键
+- 鼠标点击 Top 的 Toggle = UI 点击切换，不等于扩张键盘快捷键集合
 - 通过 Toggle 状态检测实现"同键双击关闭"
 
 ## 初始状态

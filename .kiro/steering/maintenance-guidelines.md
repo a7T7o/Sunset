@@ -661,7 +661,7 @@ for (int i = 0; i < _inventorySlots.Count; i++)
 | 左键点击世界 | 使用工具、攻击 | `IsAnyPanelOpen` 检查 |
 | 右键点击世界 | 自动导航 | `IsAnyPanelOpen` 检查 |
 | 滚轮 | 切换工具 | `pointerOverUI` 检查 |
-| 数字键 1-9 | 切换工具 | `IsAnyPanelOpen` 检查 |
+| 数字键 1-5 | 直选前五个快捷栏槽位 | `IsAnyPanelOpen` 检查 |
 | WASD | 移动 | `IsAnyPanelOpen` 检查 |
 
 ### 需要保持可用的输入
@@ -705,5 +705,5 @@ Box UI 在 PackagePanel 内部，`panelRoot` 保持 active，因此：
 - [ ] 左键点击世界不触发任何行为
 - [ ] 右键点击世界不触发自动导航
 - [ ] 滚轮不切换工具
-- [ ] 数字键不切换工具
+- [ ] 数字键 `1~5` 不切换工具
 - [ ] Tab/ESC 仍然可用
