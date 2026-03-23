@@ -235,3 +235,34 @@
 - 当前恢复点：
   - 现在应优先看修正后是否仍然推着 NPC 走；
   - 如果仍失败，就不再继续补规则，而是直接推进共享路径执行层或最终运动语义收口。
+
+### 会话 13 - 2026-03-23（NavigationAvoidanceRulesTests 编译修复）
+
+- 用户要求我直接认领并修复 `NavigationAvoidanceRulesTests.cs` 带来的编译错误。
+- 本轮已确认：
+  - 问题根因不是共享导航核心代码缺失
+  - 而是 `Tests.Editor.asmdef` 下的测试文件直接引用了主程序集里的全局类型，导致编译期不可见
+- 本轮已完成：
+  - 将 `Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs` 改写为反射式测试
+  - 通过最小代码闸门确认 `Tests.Editor` 装配可编译
+- 当前恢复点：
+  - 这组测试装配层的“找不到类型”错误已经止血；
+  - 后续继续回到“玩家为什么仍然推着 NPC 走”的运行态复验。
+
+### 会话 14 - 2026-03-23（基于 NPC 正式回执继续打 P0）
+
+- 用户补充了 NPC 线的正式回执，并要求不打断当前修复进程，继续直接完成任务。
+- 本轮已吸收 NPC 回执中的关键前提：
+  - `Moving / ShortPause / LongPause` 先稳定
+  - `IsMoving` 先稳定
+  - `rb.MovePosition(...)` 仍视为 NPC 当前基线
+  - `001 / 002 / 003` 的刚体与碰撞配置当前视为稳定
+- 这让我可以把当前排查责任继续锁在导航线，而不是再怀疑 NPC 线正在边联调边改地基。
+- 本轮进一步发现并修正：
+  - `PlayerMovement.UpdateMovement()` 会把输入再次 `normalized`，导致 solver 的减前冲 / 减速信息被最终运动层吞掉
+  - 已修改 `PlayerMovement.cs`，改为 `Vector2.ClampMagnitude(...)`
+  - 已修改 `PlayerAutoNavigator.cs`，增加临时动态绕行点
+  - 已修改 `NavigationLocalAvoidanceSolver.cs`，增加 `SpeedScale`、阻挡代理位置 / 半径 / 建议侧绕方向
+- 当前恢复点：
+  - 现在需要优先复验“玩家是否仍在推着 NPC 走”；
+  - 如果仍失败，则下一刀应直接进入共享路径执行层，而不是继续补局部 steering。

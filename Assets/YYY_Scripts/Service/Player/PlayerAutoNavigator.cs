@@ -82,6 +82,9 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private int _lastDynamicObstacleId;
     private int _dynamicObstacleSightings;
     private readonly List<NavigationAgentSnapshot> _nearbyNavigationAgents = new List<NavigationAgentSnapshot>(12);
+    private bool _hasDynamicDetour;
+    private Vector2 _dynamicDetourPoint;
+    private int _dynamicDetourAgentId;
 
     public bool IsActive => active;
     public NavigationUnitType GetUnitType() => NavigationUnitType.Player;
@@ -302,6 +305,9 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         pathIndex = 0;
         stuckRetryCount = 0;
         runWhileNavigating = false;
+        _hasDynamicDetour = false;
+        _dynamicDetourPoint = Vector2.zero;
+        _dynamicDetourAgentId = 0;
         _onArrivedCallback = null;
         if (movement != null) movement.SetMovementInput(Vector2.zero, false);
     }
@@ -314,7 +320,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     {
         Vector2 playerPos = GetPlayerPosition();
 
-        if (path.Count == 0)
+        if (path.Count == 0 && !_hasDynamicDetour)
         {
             BuildPath();
             if (path.Count == 0) 
@@ -333,19 +339,25 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             }
         }
 
-        if (pathIndex >= path.Count) { Cancel(); return; }
+        if (!_hasDynamicDetour && pathIndex >= path.Count) { Cancel(); return; }
 
         // 视线优化：尝试跳过中间路径点
-        if (enableLineOfSightOptimization)
+        if (!_hasDynamicDetour && enableLineOfSightOptimization)
         {
             TrySkipWaypoints(playerPos);
         }
 
-        Vector2 waypoint = path[pathIndex];
+        Vector2 waypoint = _hasDynamicDetour ? _dynamicDetourPoint : path[pathIndex];
         Vector2 toWaypoint = waypoint - playerPos;
         float distance = toWaypoint.magnitude;
         
-        bool isLastWaypoint = (pathIndex == path.Count - 1);
+        bool isLastWaypoint = !_hasDynamicDetour && (pathIndex == path.Count - 1);
+
+        if (_hasDynamicDetour && distance <= waypointTolerance * 1.25f)
+        {
+            ClearDynamicDetour();
+            return;
+        }
         
         // 🔥 核心修复：停止条件基于是否足够近可以交互
         if (isLastWaypoint && targetTransform != null)
@@ -394,6 +406,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return;
         }
         moveDir = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f ? avoidance.AdjustedDirection : moveDir;
+        float moveScale = Mathf.Clamp01(avoidance.SpeedScale);
         
         // 碰撞调整（只在必要时）
         moveDir = AdjustDirectionByColliders(playerPos, moveDir);
@@ -402,7 +415,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         // 这样可以避免角色摇头
         Vector2 facingDir = GetFacingDirection(moveDir);
         
-        movement.SetMovementInput(moveDir, runWhileNavigating, facingDir);
+        movement.SetMovementInput(moveDir * moveScale, runWhileNavigating, facingDir);
     }
 
     /// <summary>
@@ -790,7 +803,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         NavigationAgentSnapshot self = NavigationAgentSnapshot.FromUnit(this);
         if (!self.IsValid)
         {
-            return new NavigationLocalAvoidanceSolver.AvoidanceResult(desiredDir, false, false, 0, float.PositiveInfinity);
+            return new NavigationLocalAvoidanceSolver.AvoidanceResult(desiredDir, 1f, false, false, 0, float.PositiveInfinity, Vector2.zero, 0f, Vector2.zero);
         }
 
         NavigationAgentRegistry.GetNearbySnapshots(this, playerPos, sharedAvoidanceLookAhead, _nearbyNavigationAgents);
@@ -803,6 +816,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         {
             _lastDynamicObstacleId = 0;
             _dynamicObstacleSightings = 0;
+            ClearDynamicDetourIfNeeded(avoidance.BlockingAgentId);
             return false;
         }
 
@@ -832,9 +846,50 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         lastCheckTime = Time.time;
         stuckRetryCount = 0;
 
+        if (TryCreateDynamicDetour(playerPos, avoidance))
+        {
+            AddDebugLog($"共享动态代理持续阻挡，切入临时绕行点 => AgentId={avoidance.BlockingAgentId}");
+            return true;
+        }
+
         AddDebugLog($"共享动态代理持续阻挡，重建路径 => AgentId={avoidance.BlockingAgentId}");
         BuildPath();
         return true;
+    }
+
+    private bool TryCreateDynamicDetour(Vector2 playerPos, NavigationLocalAvoidanceSolver.AvoidanceResult avoidance)
+    {
+        if (navGrid == null || avoidance.SuggestedDetourDirection.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        float detourDistance = GetAvoidanceRadius() + Mathf.Max(avoidance.BlockingAgentRadius, 0.35f) + 0.35f;
+        Vector2 candidate = avoidance.BlockingAgentPosition + avoidance.SuggestedDetourDirection.normalized * detourDistance;
+        if (!navGrid.TryFindNearestWalkable(candidate, out Vector2 detourPoint))
+        {
+            return false;
+        }
+
+        _hasDynamicDetour = true;
+        _dynamicDetourPoint = detourPoint;
+        _dynamicDetourAgentId = avoidance.BlockingAgentId;
+        return true;
+    }
+
+    private void ClearDynamicDetour()
+    {
+        _hasDynamicDetour = false;
+        _dynamicDetourPoint = Vector2.zero;
+        _dynamicDetourAgentId = 0;
+    }
+
+    private void ClearDynamicDetourIfNeeded(int blockingAgentId)
+    {
+        if (_hasDynamicDetour && (blockingAgentId == 0 || _dynamicDetourAgentId != blockingAgentId))
+        {
+            ClearDynamicDetour();
+        }
     }
 
     private int ProbeObstacleHits(Vector2 center, float radius)

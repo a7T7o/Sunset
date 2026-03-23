@@ -10,18 +10,35 @@ public static class NavigationLocalAvoidanceSolver
     public readonly struct AvoidanceResult
     {
         public readonly Vector2 AdjustedDirection;
+        public readonly float SpeedScale;
         public readonly bool HasBlockingAgent;
         public readonly bool ShouldRepath;
         public readonly int BlockingAgentId;
         public readonly float BlockingDistance;
+        public readonly Vector2 BlockingAgentPosition;
+        public readonly float BlockingAgentRadius;
+        public readonly Vector2 SuggestedDetourDirection;
 
-        public AvoidanceResult(Vector2 adjustedDirection, bool hasBlockingAgent, bool shouldRepath, int blockingAgentId, float blockingDistance)
+        public AvoidanceResult(
+            Vector2 adjustedDirection,
+            float speedScale,
+            bool hasBlockingAgent,
+            bool shouldRepath,
+            int blockingAgentId,
+            float blockingDistance,
+            Vector2 blockingAgentPosition,
+            float blockingAgentRadius,
+            Vector2 suggestedDetourDirection)
         {
             AdjustedDirection = adjustedDirection;
+            SpeedScale = speedScale;
             HasBlockingAgent = hasBlockingAgent;
             ShouldRepath = shouldRepath;
             BlockingAgentId = blockingAgentId;
             BlockingDistance = blockingDistance;
+            BlockingAgentPosition = blockingAgentPosition;
+            BlockingAgentRadius = blockingAgentRadius;
+            SuggestedDetourDirection = suggestedDetourDirection;
         }
     }
 
@@ -33,14 +50,18 @@ public static class NavigationLocalAvoidanceSolver
     {
         if (!self.IsValid || desiredDirection.sqrMagnitude < 0.0001f || nearbyAgents == null || nearbyAgents.Count == 0)
         {
-            return new AvoidanceResult(desiredDirection, false, false, 0, float.PositiveInfinity);
+            return new AvoidanceResult(desiredDirection, 1f, false, false, 0, float.PositiveInfinity, Vector2.zero, 0f, Vector2.zero);
         }
 
         Vector2 desired = desiredDirection.normalized;
         Vector2 avoidance = Vector2.zero;
         int blockingAgentId = 0;
         float nearestBlockingDistance = float.PositiveInfinity;
+        Vector2 blockingAgentPosition = Vector2.zero;
+        float blockingAgentRadius = 0f;
+        Vector2 detourDirection = Vector2.zero;
         bool shouldRepath = false;
+        float speedScale = 1f;
 
         for (int i = 0; i < nearbyAgents.Count; i++)
         {
@@ -88,6 +109,8 @@ public static class NavigationLocalAvoidanceSolver
             {
                 float slowDownWeight = Mathf.Lerp(0.2f, 1f, lateralFactor);
                 avoidance += (-desired) * weight * slowDownWeight;
+                float localSpeedScale = Mathf.Clamp01(forwardDistance / Mathf.Max(interactionRadius * 1.35f, 0.001f));
+                speedScale = Mathf.Min(speedScale, localSpeedScale);
             }
 
             if (treatAsBlockingObstacle || shouldYield)
@@ -96,6 +119,9 @@ public static class NavigationLocalAvoidanceSolver
                 {
                     nearestBlockingDistance = forwardDistance;
                     blockingAgentId = other.InstanceId;
+                    blockingAgentPosition = other.Position;
+                    blockingAgentRadius = other.AvoidanceRadius;
+                    detourDirection = sidestep;
                 }
 
                 if ((treatAsBlockingObstacle || shouldYield) && forwardDistance <= interactionRadius * 1.1f)
@@ -112,6 +138,15 @@ public static class NavigationLocalAvoidanceSolver
         }
 
         bool hasBlockingAgent = blockingAgentId != 0;
-        return new AvoidanceResult(adjustedDirection, hasBlockingAgent, shouldRepath, blockingAgentId, nearestBlockingDistance);
+        return new AvoidanceResult(
+            adjustedDirection,
+            speedScale,
+            hasBlockingAgent,
+            shouldRepath,
+            blockingAgentId,
+            nearestBlockingDistance,
+            blockingAgentPosition,
+            blockingAgentRadius,
+            detourDirection);
     }
 }

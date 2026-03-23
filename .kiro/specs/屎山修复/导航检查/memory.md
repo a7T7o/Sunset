@@ -256,3 +256,62 @@
 **遗留问题**：
 - [ ] 复验修正后是否仍然推着 NPC 走
 - [ ] 若仍失败，则下一刀直接进入共享路径执行层或最终运动语义收口
+
+### 会话 6 - 2026-03-23（测试装配编译止血）
+
+**用户反馈**：
+> `NavigationAvoidanceRulesTests.cs` 出现找不到 `NavigationAgentSnapshot / NavigationUnitType / NavigationAvoidanceRules / NavigationLocalAvoidanceSolver` 的编译错误
+
+**当前主线目标**：
+- 先把因为我新增测试导致的编译错误止血，恢复测试装配可编译。
+
+**完成任务**：
+1. 确认错误根因不是导航运行时代码本身，而是 `Assets/YYY_Tests/Editor/Tests.Editor.asmdef` 无法直接编译期引用主程序集中的全局类型。
+2. 将 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs` 改写为反射式测试，不再直接在编译期引用：
+   - `NavigationAgentSnapshot`
+   - `NavigationUnitType`
+   - `NavigationAvoidanceRules`
+   - `NavigationLocalAvoidanceSolver`
+3. 用最小代码闸门只对该测试文件做预检，确认 `Tests.Editor` 装配编译通过。
+
+**关键结论**：
+- 这组编译错误是我新增测试写法不对引起的，我已修正。
+- 当前这组“类型/命名空间找不到”的测试装配错误已被止血。
+
+### 会话 7 - 2026-03-23（基于 NPC 正式回执继续修复 P0）
+
+**用户补充信息**：
+> 你先来看看npc的回执文档吧……总的来说就是不打断你的修复进程
+
+**当前主线目标**：
+- 在不打断修复进程的前提下，吸收 NPC 线当前正式回执，并继续围绕“玩家仍然推着 NPC 走”做导航侧纠偏。
+
+**本轮已确认的可直接利用信息**：
+1. NPC 线当前承诺稳定：
+   - `Moving / ShortPause / LongPause` 语义
+   - `IsMoving` 判定语义
+   - `rb.MovePosition(...)` 作为当前 NPC 最终位移语义
+   - `001 / 002 / 003` 的刚体与碰撞配置
+2. 这意味着当前联调阶段不应再优先怀疑“NPC 线在偷偷改地基”，而应该先继续从导航侧排查玩家执行层与共享规则。
+
+**本轮进一步修复**：
+1. 发现第二个关键根因：
+   - `PlayerMovement.UpdateMovement()` 会把输入再次 `normalized`
+   - 导致共享 solver 就算给出了减前冲 / 减速倾向，也会在最终运动层被吃掉
+2. 修正：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerMovement.cs`
+   - 将最终速度计算改为 `Vector2.ClampMagnitude(movementInput, 1f) * currentSpeed`
+3. 同时修正：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+     - 增加 `SpeedScale`
+     - 增加阻挡代理位置 / 半径 / 建议侧绕方向
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+     - 使用 `SpeedScale`
+     - 增加临时动态绕行点
+     - 避免“共享规则说要绕，但静态 path 仍然笔直穿过 NPC”时继续硬顶
+
+**关键结论**：
+- 现在已经明确：当前 P0 不合格并不是单一原因，而至少有两层问题同时存在：
+  1. 让行规则一开始就偏了
+  2. 玩家最终运动层把减速信息吃掉了
+- 在 NPC 线当前地基稳定的前提下，这两刀都是我导航线必须优先修掉的内容。

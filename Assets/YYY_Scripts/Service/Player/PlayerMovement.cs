@@ -54,7 +54,7 @@ public class PlayerMovement : MonoBehaviour
     private void UpdateMovement()
     {
         float currentSpeed = isShiftHeld ? RunSpeed : WalkSpeed;
-        rb.linearVelocity = movementInput.normalized * currentSpeed;
+        rb.linearVelocity = Vector2.ClampMagnitude(movementInput, 1f) * currentSpeed;
     }
 
     private void UpdateAnimation()
