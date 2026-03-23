@@ -890,18 +890,75 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private bool TryCreateDynamicDetour(Vector2 playerPos, NavigationLocalAvoidanceSolver.AvoidanceResult avoidance)
     {
-        if (navGrid == null || avoidance.SuggestedDetourDirection.sqrMagnitude < 0.0001f)
+        if (navGrid == null)
         {
             return false;
         }
 
-        float lateralDistance = GetAvoidanceRadius() + Mathf.Max(avoidance.BlockingAgentRadius, 0.35f) + 0.4f;
-        float forwardDistance = Mathf.Max(GetAvoidanceRadius(), avoidance.BlockingAgentRadius) + 0.35f;
-        Vector2 candidate =
-            avoidance.BlockingAgentPosition +
-            avoidance.SuggestedDetourDirection.normalized * lateralDistance +
-            avoidance.AdjustedDirection.normalized * forwardDistance;
-        if (!navGrid.TryFindNearestWalkable(candidate, out Vector2 detourPoint))
+        Vector2 separationDirection = playerPos - avoidance.BlockingAgentPosition;
+        if (separationDirection.sqrMagnitude < 0.0001f)
+        {
+            separationDirection = -avoidance.AdjustedDirection;
+        }
+
+        if (separationDirection.sqrMagnitude < 0.0001f)
+        {
+            separationDirection = Vector2.left;
+        }
+
+        separationDirection.Normalize();
+        Vector2 sidestepDirection = avoidance.SuggestedDetourDirection.sqrMagnitude > 0.0001f
+            ? avoidance.SuggestedDetourDirection.normalized
+            : Vector2.Perpendicular(separationDirection).normalized;
+
+        float contactShellDistance =
+            GetAvoidanceRadius() +
+            Mathf.Max(avoidance.BlockingAgentRadius, 0.35f) +
+            dynamicObstaclePadding +
+            0.25f;
+        float minimumClearanceSqr = contactShellDistance * contactShellDistance * 0.85f;
+
+        if (TrySetDynamicDetourCandidate(
+                playerPos + separationDirection * (contactShellDistance * 0.9f) + sidestepDirection * (contactShellDistance * 0.9f),
+                avoidance,
+                minimumClearanceSqr))
+        {
+            return true;
+        }
+
+        if (TrySetDynamicDetourCandidate(
+                avoidance.BlockingAgentPosition + sidestepDirection * (contactShellDistance * 1.15f) + separationDirection * (contactShellDistance * 0.65f),
+                avoidance,
+                minimumClearanceSqr))
+        {
+            return true;
+        }
+
+        if (TrySetDynamicDetourCandidate(
+                playerPos + sidestepDirection * (contactShellDistance * 1.1f),
+                avoidance,
+                minimumClearanceSqr))
+        {
+            return true;
+        }
+
+        return TrySetDynamicDetourCandidate(
+            playerPos + separationDirection * contactShellDistance,
+            avoidance,
+            minimumClearanceSqr);
+    }
+
+    private bool TrySetDynamicDetourCandidate(
+        Vector2 candidate,
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        float minimumClearanceSqr)
+    {
+        if (navGrid == null || !navGrid.TryFindNearestWalkable(candidate, out Vector2 detourPoint))
+        {
+            return false;
+        }
+
+        if ((detourPoint - avoidance.BlockingAgentPosition).sqrMagnitude < minimumClearanceSqr)
         {
             return false;
         }

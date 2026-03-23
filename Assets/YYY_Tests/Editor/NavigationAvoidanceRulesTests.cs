@@ -138,6 +138,52 @@ public class NavigationAvoidanceRulesTests
         Assert.That(constrainedSpeedScale, Is.LessThan(0.2f));
     }
 
+    [Test]
+    public void CloseRangeConstraint_ShouldForceSeparation_WhenAlreadyOverlappingButNotFacingBlocker()
+    {
+        Type solverType = ResolveTypeOrFail("NavigationLocalAvoidanceSolver");
+        Type avoidanceResultType = ResolveTypeOrFail("NavigationLocalAvoidanceSolver+AvoidanceResult");
+
+        Vector2 blockerPosition = new Vector2(0.52f, 0.1f);
+        object avoidance = Activator.CreateInstance(
+            avoidanceResultType,
+            Vector2.down,
+            0.05f,
+            true,
+            true,
+            2,
+            0.07f,
+            blockerPosition,
+            0.35f,
+            Vector2.down);
+
+        object constraint = InvokeStatic(
+            solverType,
+            "ApplyCloseRangeConstraint",
+            Vector2.zero,
+            Vector2.down,
+            0.05f,
+            0.35f,
+            0.05f,
+            avoidance);
+
+        Assert.IsNotNull(constraint);
+
+        bool applied = (bool)GetFieldOrProperty(constraint, "Applied");
+        bool hardBlocked = (bool)GetFieldOrProperty(constraint, "HardBlocked");
+        Vector2 constrainedDirection = (Vector2)GetFieldOrProperty(constraint, "ConstrainedDirection");
+        float constrainedSpeedScale = (float)GetFieldOrProperty(constraint, "SpeedScale");
+        float clearance = (float)GetFieldOrProperty(constraint, "Clearance");
+
+        Vector2 separationDirection = (-blockerPosition).normalized;
+
+        Assert.That(clearance, Is.LessThan(0f));
+        Assert.That(applied, Is.True);
+        Assert.That(hardBlocked, Is.False);
+        Assert.That(Vector2.Dot(constrainedDirection.normalized, separationDirection), Is.GreaterThan(0.25f));
+        Assert.That(constrainedSpeedScale, Is.GreaterThan(0.15f));
+    }
+
     private static object CreateSnapshot(
         Type snapshotType,
         Type unitType,

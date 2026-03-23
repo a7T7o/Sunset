@@ -162,3 +162,19 @@
 - 父层当前判断：
   - 这一刀比前几轮更接近真正的 P0/P1 根因；
   - 但由于本轮会话没有可用 Unity MCP resources，运行态结论仍需后续真人/Editor 现场终验，不能把“代码已补齐”冒充为“行为已验收通过”。
+
+### 会话 10 - 2026-03-23
+
+- 子工作区 `导航检查` 本轮继续围绕“玩家右键导航遇 NPC 仍像推土机一样顶人”做执行层深挖，而不是再回到 tag / obstacleTags 误区。
+- 父层新增稳定事实：
+  - NPC prefab 的 `BoxCollider2D` 当前存在显式中心偏移（`m_Offset.y = 0.46`），而导航共享代理此前一直把 NPC 位置当成 `rb.position` 使用，这会直接把 blocker 中心和 avoidance 法线算歪。
+  - `check-unity-mcp-baseline.ps1` 已确认 Sunset 当前 `unityMCP@8888` 服务基线是通的；这次读不到 MCP resources 的原因是当前会话资源暴露层异常，不是项目服务没起。
+  - 当前真正的新根因是“代理中心点不一致 + 负 clearance 脱离态缺失 + detour 候选未强制净空”三件事的组合，而不是 NPC 有没有 Tag。
+- 本轮子工作区已落地：
+  - `NPCAutoRoamController.cs`
+  - `NavigationLocalAvoidanceSolver.cs`
+  - `PlayerAutoNavigator.cs`
+  - `NavigationAvoidanceRulesTests.cs`
+- 父层当前判断：
+  - 这轮修正已经从“规则补丁”深入到接触区几何与执行语义层，比之前更接近真实根因；
+  - 但最终是否达标仍取决于下一轮 Editor / Play 运行态终验，且若仍失败，下一优先嫌疑已收敛到玩家 Rigidbody 运行语义，而不是再回头查 NPC Tag。

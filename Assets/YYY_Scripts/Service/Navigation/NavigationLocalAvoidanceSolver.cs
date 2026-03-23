@@ -118,12 +118,8 @@ public static class NavigationLocalAvoidanceSolver
 
         Vector2 desired = desiredDirection.normalized;
         float forwardIntoBlocker = Mathf.Max(0f, Vector2.Dot(desired, blockerNormal));
-        if (forwardIntoBlocker <= 0.0001f)
-        {
-            return new CloseRangeConstraintResult(desiredDirection, speedScale, false, false, clearance, 0f);
-        }
-
         float contactFactor = 1f - Mathf.Clamp01((centerDistance - minimumDistance) / Mathf.Max(engageDistance - minimumDistance, 0.001f));
+        bool insideContactShell = clearance <= 0f;
         Vector2 tangential = desired - blockerNormal * forwardIntoBlocker;
         if (tangential.sqrMagnitude < 0.0001f)
         {
@@ -136,15 +132,60 @@ public static class NavigationLocalAvoidanceSolver
             tangential.Normalize();
         }
 
+        Vector2 separationDirection = -blockerNormal;
+        if (!insideContactShell && forwardIntoBlocker <= 0.0001f)
+        {
+            return new CloseRangeConstraintResult(desiredDirection, speedScale, false, false, clearance, 0f);
+        }
+
+        if (insideContactShell)
+        {
+            Vector2 escapeDirection = separationDirection * Mathf.Lerp(0.9f, 1.35f, contactFactor);
+            float desiredEscapeAlignment = Mathf.Max(0f, Vector2.Dot(desired, separationDirection));
+            if (desiredEscapeAlignment > 0.0001f)
+            {
+                escapeDirection += desired * Mathf.Lerp(0.25f, 0.55f, desiredEscapeAlignment);
+            }
+
+            float tangentialWeight = avoidance.SuggestedDetourDirection.sqrMagnitude > 0.0001f ? 0.75f : 0.5f;
+            escapeDirection += tangential * tangentialWeight;
+
+            Vector2 escapeConstrainedDirection = escapeDirection.sqrMagnitude > 0.0001f
+                ? escapeDirection.normalized
+                : separationDirection;
+
+            float escapeMinSpeed = Mathf.Lerp(0.18f, 0.3f, contactFactor);
+            float escapeMaxSpeed = Mathf.Lerp(0.35f, 0.5f, contactFactor);
+            float escapeConstrainedSpeedScale = Mathf.Clamp(Mathf.Max(speedScale, escapeMinSpeed), escapeMinSpeed, escapeMaxSpeed);
+            bool escapeHardBlocked = forwardIntoBlocker >= 0.85f;
+            if (escapeHardBlocked)
+            {
+                escapeConstrainedSpeedScale = Mathf.Min(escapeConstrainedSpeedScale, 0.15f);
+            }
+
+            return new CloseRangeConstraintResult(
+                escapeConstrainedDirection,
+                escapeConstrainedSpeedScale,
+                true,
+                escapeHardBlocked,
+                clearance,
+                forwardIntoBlocker);
+        }
+
         float blend = Mathf.Clamp01(contactFactor * Mathf.Lerp(0.55f, 1f, forwardIntoBlocker));
-        Vector2 constrainedDirection = Vector2.Lerp(desired, tangential, blend).normalized;
+        Vector2 constrainedBasis = tangential + separationDirection * Mathf.Lerp(0.15f, 0.4f, contactFactor);
+        constrainedBasis = constrainedBasis.sqrMagnitude > 0.0001f ? constrainedBasis.normalized : tangential;
+        Vector2 constrainedDirection = Vector2.Lerp(desired, constrainedBasis, blend).normalized;
         if (constrainedDirection.sqrMagnitude < 0.0001f)
         {
-            constrainedDirection = tangential;
+            constrainedDirection = constrainedBasis;
         }
 
         float constrainedSpeedScale = Mathf.Min(speedScale, Mathf.Lerp(speedScale, 0.05f, contactFactor));
-        bool hardBlocked = contactFactor >= 0.85f && forwardIntoBlocker >= 0.45f;
+        bool hardBlocked =
+            contactFactor >= 0.92f &&
+            forwardIntoBlocker >= 0.55f &&
+            clearance <= Mathf.Max(0.02f, padding * 0.35f);
         if (hardBlocked)
         {
             constrainedSpeedScale = Mathf.Min(constrainedSpeedScale, 0.025f);

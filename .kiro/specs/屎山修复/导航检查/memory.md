@@ -384,3 +384,62 @@
     - 玩家绕移动 NPC
     - NPC/NPC 会车
     - NPC 绕玩家
+
+### 会话 10 - 2026-03-23（NPC 代理中心点与负 clearance 脱离态修正）
+
+- 用户再次明确要求“彻查、彻底解决”，并追问为什么不用 MCP 去直接核实 NPC 组件与现场事实。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-unity-validation-loop`
+  - `unity-mcp-orchestrator`
+  - `sunset-startup-guard` 仍因当前会话未显式暴露，改走手工等价 preflight
+- 本轮 live / MCP 事实先行确认：
+  - 当前会话 `list_mcp_resources` / `list_mcp_resource_templates` 仍然返回空。
+  - 但 `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1` 已实测通过：
+    - `C:\Users\aTo\.codex\config.toml` 只保留 `unityMCP`
+    - `http://127.0.0.1:8888/mcp` 正在监听
+    - `Library\\MCPForUnity\\RunState\\mcp_http_8888.pid` 存在且与监听进程一致
+  - 因而这次“用不上 MCP”不是项目服务没起，而是**当前会话资源暴露层失效**；不能继续把责任甩给用户截图。
+  - `Assets/222_Prefabs/NPC/001.prefab` / `003.prefab` 的 `BoxCollider2D` 当前都明确是：
+    - `m_Offset: {x: 0, y: 0.46}`
+    - `m_Size: {x: 0.88, y: 0.68}`
+- 本轮锁定的新根因：
+  1. 玩家共享避让位置一直用 `playerCollider.bounds.center`，但 NPC 共享代理位置此前却用 `rb.position / transform.position`，没有对齐到碰撞体中心；在 NPC collider 存在明显 Y 偏移时，阻挡体中心、法线方向、clearance 与 detour 落点都会被系统性算歪。
+  2. `NavigationLocalAvoidanceSolver.ApplyCloseRangeConstraint(...)` 之前只在“仍然明显朝着 blocker 前冲”时才施加约束；一旦 `clearance < 0` 但 `forwardIntoBlocker` 已经降到很小，就会错误返回“未施加约束”，于是日志里才会出现“明明已经负 clearance，还在 `DetourMove` 慢慢蹭”的现象。
+  3. `PlayerAutoNavigator.TryCreateDynamicDetour(...)` 之前只用单个前向候选点，没有要求 detour 点真正落到 blocker 接触壳层之外，所以 detour 虽然触发了，但仍可能把玩家留在接触区里磨蹭。
+- 本轮已落地代码：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+    - `GetPosition()` 改为统一返回 `navigationCollider.bounds.center`
+    - `TickMoving()` 中显式拆分：
+      - 路径/位移基点：`rb.position`
+      - 共享避让基点：`GetNavigationCenter()`
+    - 避免再用 NPC 脚底点冒充 blocker 中心
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+    - 对 `clearance <= 0` 的情况新增真正的“脱离接触区”逻辑
+    - 即使 `forwardIntoBlocker` 已经很低，只要还在接触壳层内，也会继续给出 separation + tangential 的逃离方向，而不是直接放行成“未约束”
+    - 保留“正面硬顶 blocker”时的 `HardBlocked` 语义
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+    - detour 候选改为多候选
+    - 以 separation direction + sidestep 为主
+    - 新增 detour 点必须落在 blocker 接触壳层之外的最小净空校验
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+    - 新增“`clearance` 已为负、但朝向不再正冲 blocker 时，仍必须触发接触脱离约束”的回归测试
+- 本轮验证结果：
+  - 已运行：
+    - `powershell -ExecutionPolicy Bypass -File D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread 导航检查 -IncludePaths ...`
+  - 代码闸门通过：
+    - `Assembly-CSharp`
+    - `Tests.Editor`
+  - `git diff --check` 通过
+  - 但这仍然只是代码/编译闭环，**不等于行为已验收通过**
+- 当前恢复点：
+  - 下一轮真实 Editor / Play 验收时，优先观察两件事：
+    1. `[NavAvoid]` 在 `clearance < 0` 时是否不再出现 `closeConstraint=False`
+    2. `blockerPos` 是否比之前更接近 NPC 实际碰撞体中心，而不再像脚底点
+  - 如果运行态仍然出现“推土机顶人”，下一刀优先怀疑玩家的最终物理语义：
+    - `Rigidbody2D Dynamic`
+    - `m_Mass = 1`
+    - `m_LinearDamping = 0`
+    - `Update` 中持续写 `linearVelocity`
+    而不是再回到 tag / obstacleTags / prefab 挂载是否存在这种已经排除过的问题。

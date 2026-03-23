@@ -325,3 +325,54 @@
   - 之后再回到运行态终验，重点看：
     - 玩家是否还会把移动中的 NPC 顶着走
     - NPC/NPC 是否仍会在窄路直接互顶
+
+### 会话 17 - 2026-03-23（MCP 基线复核 + NPC 代理中心点修正）
+
+- 当前主线目标：
+  - 继续服务 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查` 这条“玩家右键导航遇 NPC 不再推着走，NPC/NPC 会车不再互顶”的主线。
+- 本轮子任务：
+  - 回应用户对“MCP 为什么不用、NPC 到底是什么组件、为什么还在顶人”的直接质疑，把 MCP 基线、NPC prefab 几何事实和共享避让执行链一起彻查清楚，再继续修代码。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-unity-validation-loop`
+  - `unity-mcp-orchestrator`
+  - `sunset-startup-guard` 仍为手工等价
+- 本轮新增硬证据：
+  - 当前会话 `list_mcp_resources` / `list_mcp_resource_templates` 依旧为空，但 `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1` 已确认：
+    - `C:\Users\aTo\.codex\config.toml` 指向 `http://127.0.0.1:8888/mcp`
+    - `127.0.0.1:8888` 正在监听
+    - `Library\MCPForUnity\RunState\mcp_http_8888.pid` 与监听进程一致
+  - 因而这次不能再把“没用 MCP”解释成项目没起服务；真实分类应是：
+    - 项目 / 服务基线：正常
+    - 当前会话资源暴露：异常
+  - `Assets/222_Prefabs/NPC/001.prefab` 与 `003.prefab` 的 `BoxCollider2D` 都明确有 `m_Offset.y = 0.46`；此前共享导航把 NPC blocker 位置当成 `rb.position`，确实是在用脚底点近似碰撞体中心。
+- 本轮关键决策：
+  - 不再继续纠结 NPC Tag / NavGrid2D obstacleTags，因为共享 local avoidance 已经证明确实检测到了 NPC。
+  - 把本轮真正的修复重点收窄到三处：
+    1. NPC 代理中心点改为 collider center
+    2. `clearance < 0` 时必须进入接触脱离态，不能因为 `forwardIntoBlocker` 低就当成“无需约束”
+    3. detour 点必须验证自己落在 blocker 接触壳层外
+- 本轮已完成：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+    - `GetPosition()` 改为返回 `navigationCollider.bounds.center`
+    - `TickMoving()` 拆分位移基点与避让基点
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+    - 新增真正的 overlap escape 逻辑
+    - 保留正面硬顶时的 `HardBlocked` 语义
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+    - detour 候选改为 separation + sidestep 多候选
+    - 新增最小净空校验
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+    - 新增负 `clearance` 但非正冲场景的回归测试
+- 本轮验证：
+  - `git diff --check` 通过
+  - `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread 导航检查 -IncludePaths ...` 通过
+  - 代码闸门已明确通过：
+    - `Assembly-CSharp`
+    - `Tests.Editor`
+- 当前恢复点：
+  - 现在已经不该再回头查“NPC 有没有 Tag”，而是直接去看真实运行态日志是否满足：
+    - `clearance < 0` 时不再出现 `closeConstraint=False`
+    - `blockerPos` 更接近 NPC collider center
+  - 如果这两点都对了但仍有推挤，下一刀优先打玩家 Rigidbody 的 runtime 物理语义，而不是再改 prefab 标签。
