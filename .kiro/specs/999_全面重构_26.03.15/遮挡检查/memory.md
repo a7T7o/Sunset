@@ -471,3 +471,41 @@
 ## 2026-03-23 MCP 口径纠偏
 - 本文件中若出现“旧 MCP 端口口径（已失效）”或“旧 MCP 桥口径（已失效）”，均视为历史阶段事实，不再作为当前 live 口径使用。
 - 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。
+
+### 会话 15 - 2026-03-23（Primary 甜甜圈树圈场景尾项）
+
+**用户需求**：
+- 不回代码整改，只在 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 的 `Layer 1` 下、与 `TestTree` 同级完成一个名为“甜甜圈”的树圈装饰组，并默认做好 `sort` 等价结果。
+
+**当前主线目标**：
+- 将 `遮挡检查` 这条线最后遗留的 scene-only 尾项独立收成一个最小 checkpoint，不扩展为新一轮遮挡代码开发。
+
+**本轮子任务 / 阻塞**：
+- 现场已有其他线程 dirty，因此本轮只白名单认领 `Primary.unity`。
+- 先前 scene 脏稿里混入了错误重排和少量无关 hunk，需要先回到 `HEAD` 底稿再最小重建。
+
+**完成任务**：
+1. 以 `HEAD` 版 `Primary.unity` 为底稿，重建 `甜甜圈` 根节点与 12 棵 `DonutTree_*` 实例，确保 diff 只保留本轮 scene 尾项。
+2. 将 `甜甜圈` 作为 `Layer 1` 的直接子节点挂入，与 `TestTree` 同级。
+3. 为 12 棵装饰树固化不可生长配置：
+   - `currentStageIndex = 5`
+   - `autoGrow = false`
+   - `editorPreview = false`
+4. 固化 `sort` 等价结果：
+   - 树身 `sortingOrder = -Round(rootY * 100)`
+   - 阴影 `sortingOrder = treeOrder - 1`
+5. 清掉中途误混入的无关 scene hunk，并确保 `DonutTreeTest`、`showTestStatus`、动态避障参数等非本轮内容不进入最终 diff。
+
+**验证结果**：
+- `Primary.unity` 当前只剩：
+  - `Layer 1` 增加一个 child 引用：`811729794`
+  - `甜甜圈` 根节点与 12 棵 `DonutTree_*` 新增 section
+- 行级校验通过：
+  - `甜甜圈` 根节点 children 数量 = 12
+  - 12 棵树的 `sortingOrder` 全部匹配目标值
+  - `DonutTreeTest` 不存在
+- `git diff --check -- Assets/000_Scenes/Primary.unity` 通过。
+
+**当前恢复点 / 下一步**：
+- 本线程在场景侧只剩这一个 `Primary.unity` 尾项，现已完成并可白名单同步。
+- 农田 preview 遮挡属于后续新业务，已由用户决定交给 farm 线程处理，不在本轮继续展开。

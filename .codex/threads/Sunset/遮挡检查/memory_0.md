@@ -466,3 +466,36 @@
   - 主工程单实例验证
   - 收件箱回执
 - 当前若继续做，则应视为下一阶段新业务，而不是补本轮尾巴。
+
+### 会话 17 - 2026-03-23（Primary 甜甜圈树圈尾项）
+
+**用户目标**：
+- 在 `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 中，只补最后一个场景尾项：`Layer 1` 下、与 `TestTree` 同级的“甜甜圈”树圈装饰组，并默认带上图层顺序 `sort` 结果。
+
+**当前主线目标**：
+- 不再回遮挡代码整改，而是把本线程最后一个 scene-only 遗留项独立收口成最小 checkpoint。
+
+**本轮子任务 / 阻塞**：
+- `Primary.unity` 是高危热场景，本轮必须把 diff 压到只剩本尾项。
+- 中途发现此前 scene 脏稿里混入了错误重排与少量无关 hunk，因此先回到 `HEAD` 底稿再重建。
+
+**本轮完成**：
+1. 以 `HEAD` 版 `Primary.unity` 为底稿，重新拼回 `甜甜圈` 根节点与 12 棵 `DonutTree_*` 实例，只保留本轮需要的场景差异。
+2. 将 `甜甜圈` 挂到 `Layer 1` 下，作为 `TestTree` 的同级对象。
+3. 将 12 棵树全部固化为不可生长装饰树：
+   - `currentStageIndex = 5`
+   - `autoGrow = false`
+   - `editorPreview = false`
+4. 将 `sort` 等价结果直接烘进场景：
+   - 树身 `sortingOrder = -Round(rootY * 100)`
+   - 阴影 `sortingOrder = treeOrder - 1`
+
+**验证结果**：
+- `甜甜圈` 根节点 children 数量 = 12。
+- 12 棵树的目标排序值全部核对通过。
+- `DonutTreeTest`、`showTestStatus`、动态避障参数等非本轮场景噪音不在最终 diff 中。
+- `git diff --check -- Assets/000_Scenes/Primary.unity` 通过。
+
+**恢复点 / 下一步**：
+- 本线程自身已无继续必须落地的尾项；本轮只需做白名单同步提交。
+- 农田 preview 遮挡已由用户决定转给 farm 线程处理，不在本线程继续展开。

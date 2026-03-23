@@ -178,3 +178,14 @@
   - 动态代理避让层
   - 最终运动/接触解析层
 - 所有移动体应共享前两层，行为差异只保留在各自 brain / controller 层。
+
+### 会话 9 - 2026-03-23（遮挡检查 scene 尾项补齐）
+
+- 子工作区 `遮挡检查` 在代码与验证范围已收尾后，又按用户要求补了一个独立的 scene-only checkpoint。
+- 父层新增稳定事实：
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` 的 `Layer 1` 下新增了一个与 `TestTree` 同级的树圈装饰组：`甜甜圈`
+  - `甜甜圈` 下固定为 12 棵不可生长装饰树，采用 stage 5 固化配置与 baked `sort` 结果
+  - 本轮 scene diff 已压回最小，不再夹带 `DonutTreeTest`、动态避障参数或其他无关场景噪音
+- 父层当前判断：
+  - `遮挡检查` 这条线到此已经没有遗留的必须继续补的尾项
+  - 农田 preview 遮挡应视为后续新业务，已转由其他线程承接，不属于本线程继续扩写范围
