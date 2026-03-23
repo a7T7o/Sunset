@@ -21,6 +21,20 @@
 - domain_reload_status: `must-verify-live`
 - last_updated: `2026-03-17`
 
+## 当前 MCP live 基线
+- 当前唯一基线文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md`
+- 当前唯一有效 server 名：
+  - `unityMCP`
+- 当前唯一有效 HTTP 端点：
+  - `http://127.0.0.1:8888/mcp`
+- 当前 shared root pidfile：
+  - `D:\Unity\Unity_learning\Sunset\Library\MCPForUnity\RunState\mcp_http_8888.pid`
+- 以下口径一律视为旧口径残留，不再可直接引用：
+  - `http://127.0.0.1:8080/mcp`
+  - `http://localhost:8080/mcp`
+  - `mcp-unity`
+
 ## 进入 Unity / MCP 前必须先核
 1. 当前任务是不是确实需要 Unity / MCP。
 2. 当前 shared root 是否允许进入。
@@ -33,7 +47,12 @@
    - `Primary.unity`
    - Prefab / Scene / Inspector 写入
    - 共享 UI / 字体 / Sorting / Layer / 材质
-5. 当前 Console 与 MCP 是否出现对象失效、端口占用、返回中间态等信号。
+5. 当前 MCP live 基线是否通过：
+   - `config.toml` 中只保留 `unityMCP`
+   - `127.0.0.1:8888` 正在监听
+   - 当前目标 pidfile 存在
+   - 当前会话 resources / templates 实际暴露的是 `unityMCP`
+6. 当前 Console 与 MCP 是否出现对象失效、端口占用、返回中间态等信号。
 
 ## 默认裁定
 - Git 现场中性，不代表 Unity / MCP 现场安全。

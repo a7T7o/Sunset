@@ -72,6 +72,7 @@
 - `sunset-startup-guard` 的职责优先级高于普通工作区路由：它先核主线、`cwd/branch/HEAD`、共享根目录占用与模式判定，再决定是否继续调用 `sunset-workspace-router`、`sunset-lock-steward` 等同伴 skills。
 - 如果任务涉及 Unity、MCP、Play Mode、Compile、Domain Reload、Console、Scene / Prefab 验证或 Inspector 读写，除 shared root 占用外，还必须额外核：
   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md`
   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
   - 必要时回看 `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-log.md`
 - 如果任务会进入 Play Mode 做取证、调试或验收，完成当前步骤后必须主动退回 Edit Mode，再允许继续后续操作、汇报或把现场交给其他线程；禁止把运行中的 Editor 留给别人收尾。
@@ -156,6 +157,12 @@
 - 如果共享根目录 `D:\Unity\Unity_learning\Sunset` 当前 checkout 不在 `main`，则必须先由 `sunset-startup-guard` 判断它是否已被其他线程占用；只有在 branch carrier / worktree 例外场景下，才继续按非 `main` 现场处理。
 - `shared-root-branch-occupancy.md` 只回答 Git/目录层是否中性；它不替代 Unity/MCP 单实例占用判断。
 - 只要任务会触发 Unity/MCP 读写，就必须把 `mcp-single-instance-occupancy.md` 与 `mcp-hot-zones.md` 当成第二层现场闸门；出现 Play/Compile/Domain Reload/对象失效/端口占用等冲突信号时，先降级只读，再决定是否继续。
+- 自 2026-03-23 起，只要任务涉及 Unity / MCP live 验证、Console 读取、Scene / Prefab live 回读，除占用层外还必须通过 `mcp-live-baseline.md` 的四项基线核查：
+  - `config.toml` 中只保留 `unityMCP`
+  - `127.0.0.1:8888` 正在监听且目标 pidfile 存在
+  - 当前会话 resources / templates 暴露的 server 确实是 `unityMCP`
+  - 当前实例与本轮目标实例一致
+- 任何线程、prompt、draft、memory、回执若仍把 `http://127.0.0.1:8080/mcp`、`localhost:8080/mcp`、`mcp-unity` 当成当前 live 口径，统一视为旧口径残留，不能直接当成本轮事实继续外推。
 - 凡是为了验证进入 Play Mode 的任务，完成当前取证后都必须先确认已经回到 Edit Mode；未退回前，不算完成现场清理，也不允许把 Unity 让给其他线程。
 - 涉及 UI、对话框、气泡、字体、布局、样式的任务，不得以“能显示”为完成标准；必须额外核可读性、锚点、留白、层级遮挡、字体协调性和整体专业感。
 - 治理任务若留在 `main`，只允许使用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 明确带上本轮受影响的业务记忆或线程记忆。

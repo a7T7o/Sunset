@@ -169,3 +169,34 @@
 - 如果后续要让我接管新场景执行，我不能直接在当前 shared root 上开工；必须先等 live Git 收口，再按准入切到独立任务分支。
 **恢复点 / 下一步**：
 - 本线程已完成身份快照复核；后续继续讨论或执行新场景任务时，优先以 `live Git + live Unity + queue runtime` 为准，而不是只看占用文档的静态描述。
+
+### 会话 44 - 2026-03-23（MCP 根因治理从 scene-build 子问题升级为 main 基线治理）
+**用户需求**：不再满足于单次端口纠偏，要求把更深层的“配置 / 文档 / 会话 / 规范漂移”根因直接治理掉，而且这轮应落在 `main` 而不是 `scene-build` 分支。
+**当前主线目标**：将 MCP live 事实统一成 shared root `main` 的硬基线，防止 future threads 再拿 `8080` / `mcp-unity` / 会话旧结论继续误判。
+**已完成事项**：
+1. 重新划清现场边界：
+   - `scene-build` worktree 上的场景改动仍然有效，但这轮 MCP 根因治理必须落到 `D:\Unity\Unity_learning\Sunset @ main`。
+2. 只读核查后确认根病不在“休眠”，而在四层漂移：
+   - 配置漂移
+   - 文档漂移
+   - 会话漂移
+   - 规范未硬闸门化
+3. 点名发现当前仍在误导的 active 残留：
+   - `D:\Unity\Unity_learning\Sunset\.codex\drafts\遮挡检查\main-live-validation_2026-03-23.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\001部分回执.md`
+   等文件中仍有 `8080` 旧口径。
+4. 在 shared root `main` 直接新增 / 修改：
+   - `AGENTS.md`
+   - `.kiro/locks/mcp-live-baseline.md`
+   - `.kiro/locks/mcp-single-instance-occupancy.md`
+   - `.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset当前规范快照_2026-03-22.md`
+   - `scripts/check-unity-mcp-baseline.ps1`
+5. 实测新脚本通过，当前 live 现场输出 `baseline_status: pass`。
+**关键决策**：
+- 这轮不去直接篡改别的线程旧回执正文，而是先把“以后谁都必须服从的硬基线”立起来。
+- 今后 MCP live 判断必须同时满足：`unityMCP + 8888 + pidfile + 当前会话 resources server 正确 + 目标实例正确`。
+**恢复点 / 下一步**：
+- 立即对白名单把这批治理文件 sync 到 `main`。
+- 后续再按治理需要，决定是否给 active drafts / 回执追加“旧口径失效说明”。

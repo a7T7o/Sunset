@@ -1767,3 +1767,40 @@
 
 **恢复点 / 下一步**
 - 当前继续等 `NPC` 和 `spring-day1` 后续回执。
+
+## 2026-03-23｜MCP 根因治理开始从“端口纠偏”升级到“硬基线落地”
+**当前主线目标**
+- 不再把 MCP 问题当成一次性的端口误配，而是把它收束成 shared root `main` 上的长期治理基线。
+
+**本轮完成**
+1. 只读复盘当前 live 现场，确认根因不是“休眠打断”，而是更深的四层漂移：
+   - 配置层：`config.toml` 曾在不同时间残留旧 `mcp-unity`
+   - 文档层：active drafts / memory / 回执里仍有人持续写 `8080`
+   - 会话层：即使配置改对，旧会话与旧结论仍会继续外推
+   - 规范层：缺少一个统一硬闸门，把端口 / server / 监听 / 目标实例一次性钉死
+2. 已确认当前最具误导性的活文件层仍存在 `8080` 残留，且这些残留不在历史归档，而在 active memory / drafts / 回执里。
+3. 已在 shared root `main` 直接新增并落地以下治理改动：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md`
+   - `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1`
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+4. 新增的统一硬口径是：
+   - 当前唯一有效 server 名：`unityMCP`
+   - 当前唯一有效端点：`http://127.0.0.1:8888/mcp`
+   - 当前 shared root pidfile：`D:\Unity\Unity_learning\Sunset\Library\MCPForUnity\RunState\mcp_http_8888.pid`
+   - 任何 `8080` / `mcp-unity` / “Session Active 所以可用” 一律视为不完整或旧口径
+5. 新脚本 `check-unity-mcp-baseline.ps1` 已实际运行通过，能稳定输出：
+   - config 里是否只剩 `unityMCP`
+   - 8888 是否监听
+   - pidfile 是否存在
+   - terminal script 当前实际命令
+
+**关键决策**
+- 这轮不去重写别的线程的历史回执正文；那些旧结论保留历史事实。
+- 真正的根治方式是：新增唯一 live 基线，并让 `AGENTS + occupancy + 当前规范快照` 统一引用它。
+- 以后线程再拿 `8080` 当 live 事实，不再是“误会”，而是明确违规 / 旧口径残留。
+
+**恢复点 / 下一步**
+- 下一步应对白名单把这 5 个 shared root 文件收进 `main`。
+- 收口后，再由治理层决定是否补一轮 active draft / 回执的定向清理与纠偏说明。
