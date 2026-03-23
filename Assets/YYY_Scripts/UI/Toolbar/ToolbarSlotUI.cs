@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections;
@@ -94,13 +94,6 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         // 选中红框完全由 selectedOverlay 控制
         if (toggle != null)
         {
-            toggle.targetGraphic = null;  // 不让Toggle着色任何图像
-            toggle.transition = Selectable.Transition.None;
-#if UNITY_2021_2_OR_NEWER
-            toggle.SetIsOnWithoutNotify(false);
-#else
-            toggle.isOn = false;
-#endif
         }
         
         // 🔥 V2 新增：创建耐久度条

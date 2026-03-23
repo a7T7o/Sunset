@@ -712,6 +712,7 @@ namespace FarmGame.UI
                 
                 // 🔥 致命修复 1：Bind 后必须调用 Refresh 才能更新 UI 显示
                 slot.Refresh();
+                slot.RefreshSelection();
             }
         }
 

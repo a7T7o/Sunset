@@ -240,15 +240,15 @@ public class ItemUseConfirmDialog : MonoBehaviour
     private void ApplyFoodEffect(FoodData foodData)
     {
         int restoredEnergy = RestorePlayerEnergy(foodData.energyRestore);
-        LogPendingHealthRestore(foodData.healthRestore, "Food");
-        Debug.Log($"[ItemUseConfirmDialog] 食物效果: 精力+{restoredEnergy}, HP+{foodData.healthRestore}");
+        int restoredHealth = RestorePlayerHealth(foodData.healthRestore);
+        Debug.Log($"[ItemUseConfirmDialog] 食物效果: 精力+{restoredEnergy}, HP+{restoredHealth}");
     }
 
     private void ApplyPotionEffect(PotionData potionData)
     {
         int restoredEnergy = RestorePlayerEnergy(potionData.energyRestore);
-        LogPendingHealthRestore(potionData.healthRestore, "Potion");
-        Debug.Log($"[ItemUseConfirmDialog] 药水效果: HP+{potionData.healthRestore}, 精力+{restoredEnergy}");
+        int restoredHealth = RestorePlayerHealth(potionData.healthRestore);
+        Debug.Log($"[ItemUseConfirmDialog] 药水效果: HP+{restoredHealth}, 精力+{restoredEnergy}");
     }
 
     private int RestorePlayerEnergy(int amount)
@@ -270,14 +270,23 @@ public class ItemUseConfirmDialog : MonoBehaviour
         return energySystem.CurrentEnergy - before;
     }
 
-    private void LogPendingHealthRestore(int amount, string source)
+    private int RestorePlayerHealth(int amount)
     {
         if (amount <= 0)
         {
-            return;
+            return 0;
         }
 
-        Debug.LogWarning($"[ItemUseConfirmDialog] {source} 的生命恢复仍未接入玩家生命系统，本次未应用 HP+{amount}");
+        var healthSystem = HealthSystem.Instance;
+        if (healthSystem == null)
+        {
+            Debug.LogWarning("[ItemUseConfirmDialog] HealthSystem 不存在，无法恢复生命");
+            return 0;
+        }
+
+        int before = healthSystem.CurrentHealth;
+        healthSystem.RestoreHealth(amount);
+        return healthSystem.CurrentHealth - before;
     }
     
     /// <summary>

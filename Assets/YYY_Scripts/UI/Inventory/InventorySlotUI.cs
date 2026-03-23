@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -11,7 +11,7 @@ using FarmGame.Data.Core;
 /// 只负责显示物品图标和数量
 /// 实现基础的点击功能（选中槽位）
 /// 与 ToolbarSlotUI 保持一致的简单设计
-/// 
+///
 /// V2 新增：耐久度条显示
 /// </summary>
 public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
@@ -20,7 +20,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     [SerializeField] private Image iconImage;
     [SerializeField] private Text amountText;
     [SerializeField] private Image selectedOverlay;
-    
+
     // 🔥 V2 新增：耐久度条
     private Image _durabilityBar;
     private Image _durabilityBarBg;
@@ -31,6 +31,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     private InventoryService inventory;
     private EquipmentService equipment;
     private ItemDatabase database;
+    private HotbarSelectionService hotbarSelection;
     private int index;
     private bool isHotbar;
     private RectTransform _rectTransform;
@@ -56,18 +57,6 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         CaptureRestAnchoredPosition();
 
         if (toggle == null) toggle = GetComponent<Toggle>();
-        if (toggle != null)
-        {
-            toggle.targetGraphic = null;
-            toggle.transition = Selectable.Transition.None;
-#if UNITY_2021_2_OR_NEWER
-            toggle.SetIsOnWithoutNotify(false);
-#else
-            toggle.isOn = false;
-#endif
-            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
-            toggle.onValueChanged.AddListener(OnToggleValueChanged);
-        }
 
         // ★ 与 ToolbarSlotUI 保持一致：查找或创建 Icon
         if (iconImage == null)
@@ -126,11 +115,12 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             var t = transform.Find("Selected");
             if (t != null) selectedOverlay = t.GetComponent<Image>();
         }
-        ApplySelectionVisual(false);
-        
+
+        hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+
         // 🔥 V2 新增：创建耐久度条
         CreateDurabilityBar();
-        
+
         // ★ 方案 D：自动添加 Interaction 组件
         // 注意：仅关闭 Toggle 自带视觉过渡，避免它和自定义 reject shake 互相打架
         var interaction = gameObject.GetComponent<InventorySlotInteraction>();
@@ -154,6 +144,12 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         {
             inventory.OnSlotChanged += OnSlotChanged;
         }
+        if (isHotbar && hotbarSelection != null)
+        {
+            hotbarSelection.OnSelectedChanged -= OnHotbarSelectionChanged;
+            hotbarSelection.OnSelectedChanged += OnHotbarSelectionChanged;
+            RefreshSelection();
+        }
         RegisterSlot();
         // 移除 Refresh()，避免使用旧绑定数据
     }
@@ -161,9 +157,9 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     void OnDisable()
     {
         UnregisterSlot();
-        if (toggle != null)
+        if (isHotbar && hotbarSelection != null)
         {
-            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
+            hotbarSelection.OnSelectedChanged -= OnHotbarSelectionChanged;
         }
         if (container != null)
         {
@@ -191,6 +187,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         inventory = inv;
         equipment = equip;
         database = db;
+        if (hotbarSelection == null) hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
         index = slotIndex;
         isHotbar = hotbar;
 
@@ -200,9 +197,14 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             {
                 inventory.OnSlotChanged += OnSlotChanged;
             }
+            if (isHotbar && hotbarSelection != null)
+            {
+                hotbarSelection.OnSelectedChanged -= OnHotbarSelectionChanged;
+                hotbarSelection.OnSelectedChanged += OnHotbarSelectionChanged;
+            }
             RegisterSlot();
             Refresh();
-            ApplySelectionVisual(toggle != null && toggle.isOn);
+            RefreshSelection();
         }
     }
 
@@ -245,11 +247,6 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         }
     }
 
-    private void OnToggleValueChanged(bool isOn)
-    {
-        ApplySelectionVisual(isOn);
-    }
-
     private void ApplySelectionVisual(bool isSelected)
     {
         if (selectedOverlay != null)
@@ -278,6 +275,27 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         if (idx == index) Refresh();
     }
 
+    private void OnHotbarSelectionChanged(int selectedIndex)
+    {
+        RefreshSelection();
+    }
+
+    public void RefreshSelection()
+    {
+        if (!isHotbar || hotbarSelection == null || toggle == null)
+        {
+            return;
+        }
+
+        bool isSelected = hotbarSelection.selectedIndex == index;
+#if UNITY_2021_2_OR_NEWER
+        toggle.SetIsOnWithoutNotify(isSelected);
+#else
+        toggle.isOn = isSelected;
+#endif
+        ApplySelectionVisual(isSelected);
+    }
+
     public void Refresh()
     {
         if (container == null || database == null)
@@ -286,7 +304,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         }
 
         var s = container.GetSlot(index);
-        
+
         if (s.IsEmpty)
         {
             if (iconImage != null) UIItemIconScaler.SetIconWithAutoScale(iconImage, null, null);
@@ -305,7 +323,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             {
                 amountText.text = s.amount > 1 ? s.amount.ToString() : "";
             }
-            
+
             // 🔥 V2 新增：更新耐久度条
             // 尝试获取 InventoryItem 以读取耐久度
             InventoryItem invItem = null;
@@ -316,9 +334,9 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             UpdateDurabilityBar(invItem);
         }
     }
-    
+
     #region 耐久度条
-    
+
     /// <summary>
     /// 创建耐久度条 UI（代码动态生成，无需美术资源）
     /// Rule: P2-1 耐久度条样式 - 距离底部 6px，贴着 4px 边框，加 1px 黑色描边
@@ -334,21 +352,21 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             if (bgTransform != null) _durabilityBarBg = bgTransform.GetComponent<Image>();
             return;
         }
-        
+
         // 🔥 P2-1：计算位置参数
         // 槽位边框 4px，耐久度条距离底部 6px
         // 使用像素偏移而非锚点百分比，确保精确定位
         float borderPx = 4f;
         float bottomPx = 6f;
         float barHeight = 4f; // 耐久度条高度
-        
+
         // 创建背景条（深灰色 + 1px 黑色描边效果）
         var bgGo = new GameObject("DurabilityBarBg");
         bgGo.transform.SetParent(transform, false);
         _durabilityBarBg = bgGo.AddComponent<Image>();
         _durabilityBarBg.color = new Color(0.1f, 0.1f, 0.1f, 1f); // 黑色描边背景
         _durabilityBarBg.raycastTarget = false;
-        
+
         var bgRt = (RectTransform)_durabilityBarBg.transform;
         // 使用绝对定位：左右贴着边框，底部距离 6px
         bgRt.anchorMin = new Vector2(0, 0);
@@ -358,14 +376,14 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         // offsetMax.x = -右边距, offsetMax.y = 底部距离 + 高度
         bgRt.offsetMin = new Vector2(borderPx, bottomPx - 1f); // -1 是描边
         bgRt.offsetMax = new Vector2(-borderPx, bottomPx + barHeight + 1f); // +1 是描边
-        
+
         // 创建前景条（绿色）
         var barGo = new GameObject("DurabilityBar");
         barGo.transform.SetParent(transform, false);
         _durabilityBar = barGo.AddComponent<Image>();
         _durabilityBar.color = new Color(0.2f, 0.8f, 0.2f, 1f); // 绿色
         _durabilityBar.raycastTarget = false;
-        
+
         var barRt = (RectTransform)_durabilityBar.transform;
         barRt.anchorMin = new Vector2(0, 0);
         barRt.anchorMax = new Vector2(1, 0);
@@ -373,12 +391,12 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         // 前景条比背景条小 1px（描边效果）
         barRt.offsetMin = new Vector2(borderPx + 1f, bottomPx);
         barRt.offsetMax = new Vector2(-borderPx - 1f, bottomPx + barHeight);
-        
+
         // 默认隐藏
         _durabilityBarBg.enabled = false;
         _durabilityBar.enabled = false;
     }
-    
+
     /// <summary>
     /// 更新耐久度条显示
     /// Rule: P0-2 BoxUI 交互 - 支持从 IItemContainer 获取 InventoryItem
@@ -387,7 +405,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     private void UpdateDurabilityBar(InventoryItem item)
     {
         if (_durabilityBar == null || _durabilityBarBg == null) return;
-        
+
         // 🔥 修复：如果 item 为 null，尝试从 container 获取
         if (item == null && container != null)
         {
@@ -402,7 +420,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
                 item = invService.GetInventoryItem(index);
             }
         }
-        
+
         // 如果物品为空或没有耐久度，隐藏耐久度条
         if (item == null || !item.HasDurability)
         {
@@ -410,28 +428,28 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             _durabilityBar.enabled = false;
             return;
         }
-        
+
         // 显示耐久度条
         _durabilityBarBg.enabled = true;
         _durabilityBar.enabled = true;
-        
+
         // 计算耐久度百分比
         float percent = item.DurabilityPercent;
-        
+
         // 🔥 P2-1：使用像素偏移控制宽度
         var rt = (RectTransform)_durabilityBar.transform;
         var bgRt = (RectTransform)_durabilityBarBg.transform;
-        
+
         // 获取背景条的实际宽度（减去描边）
         float bgWidth = bgRt.rect.width - 2f; // 左右各 1px 描边
         float barWidth = bgWidth * percent;
-        
+
         // 更新前景条的右边界
         // offsetMax.x 是相对于右锚点的偏移，负值表示向左收缩
         float borderPx = 4f;
         float rightOffset = -borderPx - 1f - (bgWidth - barWidth);
         rt.offsetMax = new Vector2(rightOffset, rt.offsetMax.y);
-        
+
         // 根据耐久度百分比改变颜色
         // 100%-50%: 绿色 -> 黄色
         // 50%-0%: 黄色 -> 红色
@@ -450,10 +468,10 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         }
         _durabilityBar.color = barColor;
     }
-    
+
     #endregion
     #endregion
-    
+
     #region 点击事件
     /// <summary>
     /// 基础点击功能 - 仅用于测试和选中槽位
@@ -466,7 +484,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             // Toggle 会自动管理选中状态，不需要手动切换
         }
     }
-    
+
     /// <summary>
     /// 选中此槽位（设置 Toggle.isOn = true）
     /// </summary>
@@ -481,7 +499,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             ApplySelectionVisual(true);
         }
     }
-    
+
     /// <summary>
     /// 取消选中此槽位（设置 Toggle.isOn = false）
     /// </summary>

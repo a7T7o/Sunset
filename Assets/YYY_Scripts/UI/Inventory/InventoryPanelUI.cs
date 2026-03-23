@@ -110,7 +110,11 @@ public class InventoryPanelUI : MonoBehaviour
             for (int i = 0; i < n; i++)
             {
                 var slot = upParent.GetChild(i).GetComponent<InventorySlotUI>();
-                if (slot != null) slot.Refresh();
+                if (slot != null)
+                {
+                    slot.Refresh();
+                    slot.RefreshSelection();
+                }
             }
         }
         if (downParent != null)

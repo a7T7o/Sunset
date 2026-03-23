@@ -271,3 +271,18 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
   - `Bind()` / `BindContainer()` 以及 `Select()` / `Deselect()` 都改为同步更新选中覆盖层。
 - 验证：`Assembly-CSharp.rsp` Roslyn 运行时代码独立编译通过，`git diff --check` 针对本次最小修复通过。
 - 当前恢复点：已把背包“全选”回归单独收敛成一个最小修复点，下一步可直接由用户在背包界面手动确认选中视觉是否恢复正常。
+
+## 2026-03-23：背包第一行与 Toolbar 热槽同步修复 + 食物药水生命恢复接线
+- 已补完的代码闭环：
+  - `InventorySlotUI.cs` 不再强行覆盖 prefab 上的 `Toggle` 过渡配置，恢复尊重原始 `Target / Selected / ToggleGroup` 关系。
+  - `InventorySlotUI.cs` 已直接订阅 `HotbarSelectionService.OnSelectedChanged`，使背包第一行与 Toolbar 在同一热槽索引上实时同步，而不是等到第二次打开后才对齐。
+  - `InventoryPanelUI.cs` 与 `BoxPanelUI.cs` 刷新背包区域时已同步调用 `RefreshSelection()`，确保第一次打开面板就能看到正确热槽。
+  - `ToolbarSlotUI.cs` 已撤销脚本侧对 `Toggle.transition=None` 的强制覆盖，恢复 prefab 原配置口径。
+  - `ItemUseConfirmDialog.cs` 已在现有 `EnergySystem` 基础上进一步接入 `HealthSystem`，使食物 / 药水的生命恢复与精力恢复都走真实状态系统，不再只是日志占位。
+- 本轮根因修正：
+  - 背包“全部红框常亮”以及“第一次打开背包第一行不跟 Toolbar 同步”的核心问题，不在业务逻辑，而在于此前脚本错误地覆盖了 prefab 原有 `Toggle` 配置关系，同时背包第一行又没有像 Toolbar 一样直接订阅热槽选择服务。
+- 验证结果：
+  - `Assembly-CSharp.rsp` Roslyn 运行时代码独立编译通过。
+  - `git diff --check` 针对本轮相关脚本通过，仅剩 CRLF/LF 换行警告。
+- 当前恢复点：
+  - `1.0.3` 的食物/药水真实状态接线现在已从“只精力恢复”推进到“精力 + 生命恢复”；背包第一行与 Toolbar 的热槽同步也已修正，下一步继续回到剩余未闭环项（尤其是箱内实例态保真与用户现场验收）。
