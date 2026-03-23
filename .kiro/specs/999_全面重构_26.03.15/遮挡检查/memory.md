@@ -1,4 +1,4 @@
-# 遮挡检查 - 工作区记忆
+﻿# 遮挡检查 - 工作区记忆
 
 ## 模块概述
 
@@ -428,7 +428,7 @@
 - `list_mcp_resources(server=unityMCP)` 失败
 - `list_mcp_resource_templates(server=unityMCP)` 失败
 - 报错都指向：
-  - `http://127.0.0.1:8080/mcp`
+  - `旧 MCP 端口口径（已失效）`
   - `handshaking with MCP server failed`
 
 **当前结论**：
@@ -467,3 +467,7 @@
 
 **收尾结论**：
 - 这条 `遮挡检查` 主线在“林判断 / 物理树粒度 / preview 恢复 / 行为测试”这个范围内，已可视为彻底收尾。
+
+## 2026-03-23 MCP 口径纠偏
+- 本文件中若出现“旧 MCP 端口口径（已失效）”或“旧 MCP 桥口径（已失效）”，均视为历史阶段事实，不再作为当前 live 口径使用。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。

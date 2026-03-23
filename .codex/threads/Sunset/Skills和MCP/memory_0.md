@@ -200,3 +200,24 @@
 **恢复点 / 下一步**：
 - 立即对白名单把这批治理文件 sync 到 `main`。
 - 后续再按治理需要，决定是否给 active drafts / 回执追加“旧口径失效说明”。
+
+### 会话 45 - 2026-03-23（MCP 第二阶段：active 旧口径残留清理）
+**用户需求**：继续把“第二阶段清理”直接落地，把当前还在误导人的 active `8080` 残留逐个点名、分批清掉。
+**当前主线目标**：继续在 `main` 做 MCP 根因治理，不回到 scene-build 场景施工。
+**已完成事项**：
+1. 只看 active 层重新排查，确认这轮真正要处理的不是历史归档，而是仍可能被当前线程读成 live 事实的 memory / 回执 / draft。
+2. 已处理中和的文件包括：
+   - `.kiro/specs/999_全面重构_26.03.15/遮挡检查/memory.md`
+   - `.kiro/specs/NPC/memory.md`
+   - `.kiro/specs/NPC/1.0.0初步规划/memory.md`
+   - `.codex/threads/Sunset/NPC/memory_0.md`
+   - `.codex/threads/Sunset/农田交互修复V2/memory_0.md`
+   - `.kiro/specs/共享根执行模型与吞吐重构/01_执行批次/2026.03.21_main-only极简并发开发_01/001部分回执.md`
+   - `.codex/drafts/遮挡检查/main-live-validation_2026-03-23.md`
+3. 已把这些文件中的精确旧地址替换为“旧 MCP 端口口径（已失效）”，旧桥名替换为“旧 MCP 桥口径（已失效）”，并追加统一纠偏说明。
+4. 已新增 `scripts/find-legacy-mcp-references.ps1` 作为第二把治理脚本，用来专扫 active `.kiro/.codex` 层的旧口径残留。
+**关键决策**：
+- 这轮清理不是篡改历史事实，而是阻断“旧事实继续被读成当前事实”。
+- 活文档能清的先清；历史归档与旧阶段卷继续保留历史价值，不在本轮强改。
+**恢复点 / 下一步**：
+- 下一步对白名单做一次 `main` 收口；如果 owner / 热区策略阻断个别文件，就优先把可安全纳入的治理文件与脚本先进 `main`。

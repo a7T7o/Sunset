@@ -1804,3 +1804,35 @@
 **恢复点 / 下一步**
 - 下一步应对白名单把这 5 个 shared root 文件收进 `main`。
 - 收口后，再由治理层决定是否补一轮 active draft / 回执的定向清理与纠偏说明。
+
+## 2026-03-23｜MCP 第二阶段清理：active 旧口径残留已开始逐文件中和
+**当前主线目标**
+- 在第一阶段“唯一基线 + AGENTS 硬闸门 + 可执行脚本”落地后，继续处理当前仍会误导线程判断的 active 旧口径残留。
+
+**本轮完成**
+1. 重新只看 active 层，点名仍残留旧 `8080` / 旧桥口径的活文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\999_全面重构_26.03.15\遮挡检查\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\memory_0.md`
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\memory_0.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\001部分回执.md`
+   - `D:\Unity\Unity_learning\Sunset\.codex\drafts\遮挡检查\main-live-validation_2026-03-23.md`
+2. 对上述 active 文件已做两类处理中和：
+   - 把精确旧地址替换为：`旧 MCP 端口口径（已失效）`
+   - 把旧桥名替换为：`旧 MCP 桥口径（已失效）`
+3. 同时在这些 active 文件尾部追加统一纠偏说明，明确：
+   - 旧口径只保留历史阶段事实
+   - 当前唯一有效 live 基线以 `mcp-live-baseline.md` 为准
+4. 新增第二把治理脚本：
+   - `D:\Unity\Unity_learning\Sunset\scripts\find-legacy-mcp-references.ps1`
+   用于扫 active `.kiro/.codex` 层里仍残留的旧端口 / 旧桥口径。
+
+**关键决策**
+- 本轮不篡改历史归档，不清 state_backups，不重写历史迁移报告。
+- 只处理中还会被线程继续读成“当前事实”的 active 文档、draft、线程记忆与回执层。
+- “清理”方式不是抹除历史，而是把旧口径显式中和成失效标签，防止 future threads 再把它外推出去。
+
+**恢复点 / 下一步**
+- 下一步对白名单尝试把这批 active 清理文件与扫描脚本收进 `main`。
+- 如果个别文件因 owner / 热区策略不宜直接收口，则至少已完成局部中和，可在后续 owner 收口时继续并轨。

@@ -1,4 +1,4 @@
-# NPC 1.0.0 初步规划 memory
+﻿# NPC 1.0.0 初步规划 memory
 
 ## 2026-03-16
 
@@ -221,7 +221,7 @@
   - `Assets/Editor/NPCAutoRoamControllerEditor.cs` 与 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`：新增 Home Anchor 创建/吸附/清空、Profile 复制/选中/应用、测试组件提示与运行时状态读取，正式进入 NPC 场景化与集成阶段的配置入口建设。
 - 本轮验证：
   - 本轮 NPC 相关脚本与 prefab 的 `git diff --check` 通过。
-  - 本轮早些时候 `unityMCP` 曾成功读回 `Primary` 与 `003` 的 stress talker live 状态；但后续 RMCP 资源层开始对 `127.0.0.1:8080/mcp` 握手失败，因此当前收尾口径应写实为：代码与 prefab 静态检查通过，Unity live 需在下一次稳定连接下补终验。
+  - 本轮早些时候 `unityMCP` 曾成功读回 `Primary` 与 `003` 的 stress talker live 状态；但后续 RMCP 资源层开始对 `旧 MCP 端口口径（已失效）/mcp` 握手失败，因此当前收尾口径应写实为：代码与 prefab 静态检查通过，Unity live 需在下一次稳定连接下补终验。
 - 当前恢复点：如果用户认可这轮收口，下一步就不是继续救火，而是直接进入 NPC 场景化配置与导航交付后的接入准备。
 
 ## 2026-03-23 NPC第五刀：内边距收口与场景化入口增强
@@ -237,7 +237,7 @@
   - `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab`：同步内边距参数；`003.prefab` 的 `NPCBubbleStressTalker` 现已显式绑定 `bubblePresenter` 与 `roamController`。
 - 本轮验证：
   - `git diff --check` 对本轮 NPC 相关脚本、编辑器脚本和 prefab 通过。
-  - `unityMCP` 在本轮开始前一度可以正常读写，但收尾阶段通用 RMCP 握手回到 `http://127.0.0.1:8080/mcp` 失败；因此本轮 live 终验未补齐，只能写实为 transport 阻塞。
+  - `unityMCP` 在本轮开始前一度可以正常读写，但收尾阶段通用 RMCP 握手回到 `旧 MCP 端口口径（已失效）` 失败；因此本轮 live 终验未补齐，只能写实为 transport 阻塞。
 - 当前恢复点：NPC 线已正式进入“场景化与集成阶段”，下一步应围绕 `Home Anchor / 活动范围 / Profile` 的真实场景配置继续推进，并等待导航线交付后做接入验收。
 
 ## 2026-03-23 NPC_04 推送阻塞补记
@@ -286,5 +286,9 @@
   - `001/002/003.prefab`：同步到这套更新后的更激进参数。
 - 本轮验证：
   - `git diff --check` 对本轮 NPC 相关脚本与 prefab 通过。
-  - 当前 `unityMCP` 仍然卡在 `http://127.0.0.1:8080/mcp` 握手失败，因此本轮 live 终验未取得。
+  - 当前 `unityMCP` 仍然卡在 `旧 MCP 端口口径（已失效）` 握手失败，因此本轮 live 终验未取得。
 - 当前恢复点：用户现在可以直接在主项目里看这套“明显变化版”气泡；若方向正确，下一步只剩微收审美，不再需要大幅改参数。
+
+## 2026-03-23 MCP 口径纠偏
+- 本文件中若出现“旧 MCP 端口口径（已失效）”或“旧 MCP 桥口径（已失效）”，均视为历史阶段事实，不再作为当前 live 口径使用。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。

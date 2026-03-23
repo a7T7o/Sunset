@@ -1,4 +1,4 @@
-# 农田交互修复V2 - 线程记忆
+﻿# 农田交互修复V2 - 线程记忆
 
 ## 线程概述
 
@@ -115,7 +115,7 @@
 - `D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.01/10.2.1补丁001/tasks.md`
 
 **验证结果**:
-- `mcp-unity` 当前连接失败，无法直接运行重编译、控制台拉取和 EditMode 测试
+- `旧 MCP 桥口径（已失效）` 当前连接失败，无法直接运行重编译、控制台拉取和 EditMode 测试
 - 已通过 `Editor.log` 抓到并修复本轮唯一新增编译错误：`FarmTileManager.cs` 的 `Random` 歧义
 - 修复后未能强制触发一轮新的编辑器编译日志，因此最终编译闭环仍需用户在 Unity 编辑器里补跑确认
 
@@ -129,7 +129,7 @@
 - 继续收尾 `10.2.1补丁001`，把状态从“旧日志未闭环”推进到“源码独立编译已通过，待编辑器内手动回归”
 
 **本轮子任务 / 阻塞**:
-- `mcp-unity` 继续不可用，不能直接走 Unity 编辑器内的重编译、日志拉取和测试
+- `旧 MCP 桥口径（已失效）` 继续不可用，不能直接走 Unity 编辑器内的重编译、日志拉取和测试
 - 子工作区 `tasks.md` 误把手动回归清单勾成了已完成，需要按真实状态纠正
 
 **已完成事项**:
@@ -236,7 +236,7 @@
 **已完成事项**:
 1. 在 `D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Items/ItemData.cs` 中收窄通用放置校验，跳过 `SeedData` 的 `placementType / placementPrefab` warning。
 2. 保持 `SeedData` 仍走 `cropPrefab + ValidateSeedPlacement(...)` 的原有专用播种链，不改放置执行逻辑。
-3. 尝试通过 `mcp-unity` 重新编译与读取控制台，结果均为 transport closed；明确记为 MCP 传输失败，不记为项目失败。
+3. 尝试通过 `旧 MCP 桥口径（已失效）` 重新编译与读取控制台，结果均为 transport closed；明确记为 MCP 传输失败，不记为项目失败。
 4. 使用 Unity 6000.0.62f1 自带 Roslyn 编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果通过，仅剩 `GameInputManager._hasPendingFarmInput` 一条既有 obsolete warning。
 **关键决策**:
 - 本轮只做最小收口，不顺手扩展到 `_hasPendingFarmInput` 清理。
@@ -334,7 +334,7 @@
 本轮用户回到线程后，要求先把当前真实状态和我对分支切换纪律的理解讲清楚。已做只读核对：`D:\Unity\Unity_learning\Sunset` 当前实时位于 `main@c525ba12f78988397e4145467445d8f467fe7b2b`，`git status --short --branch` clean；`codex/farm-1.0.2-cleanroom001` 仍存在并指向 `66c19fa17a55afec7bf2e0a2a1c695aa0c7f75d0`，可继续作为 farm 后续唯一 continuation branch carrier；`codex/farm-1.0.2-correct001` 仍停在 `11e0b7b4c1340e0359a546b038d711b03836dc72`，只保留事故取证身份；`git worktree list --porcelain` 当前只剩共享根目录，说明物理 cleanroom worktree 已经退役，不再是长期现场。当前我对规则的理解已经收敛为：治理、只读核查、总览、线程协调留在共享根目录 `main`；真正进入 farm 代码/场景实现时，再从 `D:\Unity\Unity_learning\Sunset` 检出 `codex/farm-1.0.2-cleanroom001`；分支阶段目标完成并同步/合回后，根目录应回归 `main`，而不是长期滞留在 farm 分支。当前从现场治理角度看，我这边没有新的 farm 残留阻断；剩下是否继续开发，取决于用户是否要从这个 carrier 进入下一轮 farm 实现。 
 
 ## 2026-03-17：MCP 并行使用边界、文档现场与分支切换口径补充
-本轮用户要求我把“多人并行时只有一个 Unity / 一个 MCP 实例会怎样冲突、我会怎么处理、我现在有哪些工作区与文档”交代清楚。已核对的事实包括：`D:\Unity\Unity_learning\Sunset` 当前仍为 clean 的 `main@00ae6fe5`；`.kiro/locks/shared-root-branch-occupancy.md` 当前记录 `owner_mode=neutral-shared-root`、`current_branch=main`、`daily_policy=main + branch-only`；`mcp__unityMCP__debug_request_context` 显示当前 MCP 服务挂在 `http://127.0.0.1:8080`，`active_instance=Sunset@21935cd3ad733705`，说明当前确实是单一 Unity 实例上的单一 MCP 服务入口；`manage_editor telemetry_ping` 返回 `queued`，证明至少部分请求会进入队列，但工具侧没有直接暴露“另一个线程正在占用 MCP”的总线级占用标记。基于这些证据，我现在的执行口径是：不能假设所有并发 MCP 调用都会自动排队并安全串行，必须把它视为共享单实例资源；只要遇到 read/write 冲突风险，就优先靠 shared root 占用文档、A 类热文件锁、当前分支状态和场景/Console 回读来协调，而不是盲目重试。若我是报错的线程，标准处理顺序是：先停止写操作，先判定是否为 Unity 编译/域重载/PlayMode 切换/他线程改场景导致的瞬时失败，再做一次幂等只读重试；若仍失败，就明确上报“当前结论不成立、需等待现场稳定或人工裁决”，不把失败硬说成项目错误。当前我能知道的“占用”分三层：shared root 是否中性，可从 `.kiro/locks/shared-root-branch-occupancy.md` 读取；A 类热文件是否被显式持锁，可从 `.kiro/locks/` 与锁脚本流程判断；但“是否有另一个线程此刻正在点 MCP 按钮”没有可靠显式信号，只能从 queued / stale / scene 变动 / Console 被清空等现象间接判断。当前线程工作区仍是 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2`，线程记忆文件为 `memory_0.md`；farm 的项目工作区主根当前在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统`，`main` 上可直接读取的文档包括根层 `memory.md`、`memory_0.md`、`最终交互矩阵.md`，以及 `2026.03.16\memory.md`、`1.0.0图层与浇水修正` 四件套、`1.0.1自动农具进阶中断` 四件套、`2026.03.01\10.2.2补丁002` 四件套；而 `1.0.2纠正001` 的 `requirements.md / analysis.md / design.md / tasks.md / memory.md` 当前属于 continuation branch `codex/farm-1.0.2-cleanroom001` 的文档集合，不在 `main` 的实时工作树里。后续若继续 farm 实现，我继续遵守的切分支/回归规则已经固定为：在 `main` 做治理、核查、读文档；真正开始 farm 代码或场景改动前，再从共享根目录检出 `codex/farm-1.0.2-cleanroom001`；阶段目标完成并形成 checkpoint 后，再把共享根目录回归 `main`。 
+本轮用户要求我把“多人并行时只有一个 Unity / 一个 MCP 实例会怎样冲突、我会怎么处理、我现在有哪些工作区与文档”交代清楚。已核对的事实包括：`D:\Unity\Unity_learning\Sunset` 当前仍为 clean 的 `main@00ae6fe5`；`.kiro/locks/shared-root-branch-occupancy.md` 当前记录 `owner_mode=neutral-shared-root`、`current_branch=main`、`daily_policy=main + branch-only`；`mcp__unityMCP__debug_request_context` 显示当前 MCP 服务挂在 `http://旧 MCP 端口口径（已失效）`，`active_instance=Sunset@21935cd3ad733705`，说明当前确实是单一 Unity 实例上的单一 MCP 服务入口；`manage_editor telemetry_ping` 返回 `queued`，证明至少部分请求会进入队列，但工具侧没有直接暴露“另一个线程正在占用 MCP”的总线级占用标记。基于这些证据，我现在的执行口径是：不能假设所有并发 MCP 调用都会自动排队并安全串行，必须把它视为共享单实例资源；只要遇到 read/write 冲突风险，就优先靠 shared root 占用文档、A 类热文件锁、当前分支状态和场景/Console 回读来协调，而不是盲目重试。若我是报错的线程，标准处理顺序是：先停止写操作，先判定是否为 Unity 编译/域重载/PlayMode 切换/他线程改场景导致的瞬时失败，再做一次幂等只读重试；若仍失败，就明确上报“当前结论不成立、需等待现场稳定或人工裁决”，不把失败硬说成项目错误。当前我能知道的“占用”分三层：shared root 是否中性，可从 `.kiro/locks/shared-root-branch-occupancy.md` 读取；A 类热文件是否被显式持锁，可从 `.kiro/locks/` 与锁脚本流程判断；但“是否有另一个线程此刻正在点 MCP 按钮”没有可靠显式信号，只能从 queued / stale / scene 变动 / Console 被清空等现象间接判断。当前线程工作区仍是 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2`，线程记忆文件为 `memory_0.md`；farm 的项目工作区主根当前在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统`，`main` 上可直接读取的文档包括根层 `memory.md`、`memory_0.md`、`最终交互矩阵.md`，以及 `2026.03.16\memory.md`、`1.0.0图层与浇水修正` 四件套、`1.0.1自动农具进阶中断` 四件套、`2026.03.01\10.2.2补丁002` 四件套；而 `1.0.2纠正001` 的 `requirements.md / analysis.md / design.md / tasks.md / memory.md` 当前属于 continuation branch `codex/farm-1.0.2-cleanroom001` 的文档集合，不在 `main` 的实时工作树里。后续若继续 farm 实现，我继续遵守的切分支/回归规则已经固定为：在 `main` 做治理、核查、读文档；真正开始 farm 代码或场景改动前，再从共享根目录检出 `codex/farm-1.0.2-cleanroom001`；阶段目标完成并形成 checkpoint 后，再把共享根目录回归 `main`。 
 
 ## 2026-03-21：切入 main-only 自治，1.0.2 重新收拢到 main
 用户这轮明确要求停止沿旧 cleanroom / continuation 叙事继续回顾，而是直接在 `D:\Unity\Unity_learning\Sunset @ main` 上重新拾起此前所有农田交互升级讨论，彻查当前落地情况，并“彻底进入守底线的 main-only 自治”。本轮按 Sunset 启动闸门的手工等价流程先读了 `2026.03.21_main-only极简并发开发_01` 的农田放行 prompt、线程记忆、农田系统根记忆、`2026.03.16` 父工作区记忆和 `1.0.0 / 1.0.1` 正文，再回看 `codex/farm-1.0.2-cleanroom001` 中 `1.0.2纠正001` 的四份正文作为历史参考。live 现场核对结果：当前工作目录为 `D:\Unity\Unity_learning\Sunset`，分支是 `main`，`HEAD=8ac0fb5d0db0714f9879ed12885aefc056a03624`；working tree 并不干净，且其中 11 个 farm 相关 dirty 文件正承载 `1.0.2` 的有效代码实现：`GameInputManager.cs`、`CropController.cs`、`FarmToolPreview.cs`、`HotbarSelectionService.cs`、`PlacementManager.cs`、`PlacementNavigator.cs`、`PlacementPreview.cs`、`InventoryInteractionManager.cs`、`InventorySlotInteraction.cs`、`InventorySlotUI.cs`、`ToolbarSlotUI.cs`。进一步验证：`Assembly-CSharp.rsp` 独立编译通过（`0 error / 0 warning`）；`Assembly-CSharp-Editor.rsp` 当前仍报 `Assets/Editor/NPCPrefabGeneratorTool.cs(789,43): NPCAutoRoamController`，这属于共享 NPC Editor 缺口，不是 farm runtime 阻断；MCP 当前读场景 / 读 Console 都返回 `Sub2API - AI API Gateway` 的 HTML 页面，因此不能把它写成“Unity live 验收已失败”。基于这些 live 事实，本轮正式在 `main` 新建了 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.2纠正001\requirements.md / analysis.md / design.md / tasks.md / memory.md`，把 `1.0.2` 的正文和当前现场口径重新补回 `main`，不再把它留在旧 cleanroom 分支语义里。当前主线恢复点已更新为：`1.0.2` 的代码、正文、父/根/线程记忆现在都已经回到 `main` 语义下，下一步只剩按白名单做 Git 收口，然后交给用户在 `main` 的 Unity 场景做真实交互验收。
@@ -391,3 +391,19 @@
   - `git diff --check` 针对本轮相关脚本通过，仅剩 CRLF/LF 换行警告。
 - 当前恢复点：
   - `1.0.3` 的食物/药水真实状态接线现在已从“只精力恢复”推进到“精力 + 生命恢复”；背包第一行与 Toolbar 的热槽同步也已修正，下一步继续回到剩余未闭环项（尤其是箱内实例态保真与用户现场验收）。
+
+## 2026-03-23：恢复 prefab 原始 Toggle 配置口径，并补完背包第一行与 Toolbar 的实时同源同步
+- 用户在现场指出一个关键事实：`InventorySlotUI` / `ToolbarSlotUI` 原本的 prefab 配置是 `Transition = Color Tint`、`Target Graphic = Target`、`Graphic = Selected`，而不是脚本硬改成 `transition=None / targetGraphic=null`。这说明此前为了修 shake 手感而在脚本中强制覆盖 Toggle 配置，本质上是偏离了项目既有配置口径。
+- 本轮已执行的修正：
+  - 撤销脚本侧对 `InventorySlotUI.cs`、`ToolbarSlotUI.cs` 的强制 Toggle 配置覆盖，重新尊重 prefab 中的 `Target / Selected / ToggleGroup` 关系。
+  - `InventorySlotUI.cs` 现已直接订阅 `HotbarSelectionService.OnSelectedChanged`，并新增 `RefreshSelection()`，使背包第一行与 Toolbar 在同一热槽索引上实时同步，不再出现“Toolbar 切换后第一次打开背包未选中、第二次才正确”的延迟现象。
+  - `InventoryPanelUI.cs` 与 `BoxPanelUI.cs` 在刷新背包区域时，现会同步调用 `InventorySlotUI.RefreshSelection()`，确保第一次打开面板就拿到正确热槽状态。
+- 同轮还继续推进了未完成项：`ItemUseConfirmDialog.cs` 已识别到项目内现有 `HealthSystem.cs`，因此食物 / 药水效果已从“仅精力恢复”推进到“精力 + 生命恢复”都走真实状态系统。
+- 当前运行时代码编译状态：`Assembly-CSharp.rsp` Roslyn 独立编译通过。
+- 当前恢复点：
+  - 背包第一行 / Toolbar 同步问题已按“恢复原配置 + 补实时同步”方向修正；
+  - `1.0.3` 剩余未闭合的最大实质缺口已收敛为“箱子主 UI 仍主要走 `ChestInventory` 旧链，箱内实例态保真还未彻底统一到 V2”。
+
+## 2026-03-23 MCP 口径纠偏
+- 本文件中若出现“旧 MCP 端口口径（已失效）”或“旧 MCP 桥口径（已失效）”，均视为历史阶段事实，不再作为当前 live 口径使用。
+- 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。
