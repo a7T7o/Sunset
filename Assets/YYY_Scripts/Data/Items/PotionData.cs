@@ -55,7 +55,7 @@ namespace FarmGame.Data
             string text = base.GetTooltipText();
 
             if (healthRestore > 0)
-                text += $"\n<color=red>+{healthRestore} HP</color>";
+                text += $"\n<color=red>+{healthRestore} 生命</color>";
 
             if (energyRestore > 0)
                 text += $"\n<color=yellow>+{energyRestore} 精力</color>";

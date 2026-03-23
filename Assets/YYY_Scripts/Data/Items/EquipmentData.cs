@@ -155,7 +155,7 @@ namespace FarmGame.Data
                 StatType.Strength => "力量",
                 StatType.Agility => "敏捷",
                 StatType.Intelligence => "智力",
-                StatType.Vitality => "体力",
+                StatType.Vitality => "精力",
                 StatType.Luck => "幸运",
                 StatType.Defense => "防御",
                 StatType.Attack => "攻击",

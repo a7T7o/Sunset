@@ -57,7 +57,7 @@ namespace FarmGame.Data
                 text += $"\n<color=yellow>+{energyRestore} 精力</color>";
             
             if (healthRestore > 0)
-                text += $"\n<color=red>+{healthRestore} HP</color>";
+                text += $"\n<color=red>+{healthRestore} 生命</color>";
 
             if (buffType != BuffType.None)
             {

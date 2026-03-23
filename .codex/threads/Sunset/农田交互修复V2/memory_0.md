@@ -498,3 +498,52 @@
 
 **恢复点 / 下一步**:
 - 当前已经回到主线的“先恢复 Unity live 验收入口，再做 `1.0.3` 的箱内实例态与农田 hover 遮挡场景回归”这一步。
+
+## 2026-03-23：shell 版 unityMCP live 验收恢复 + 1.0.3 术语统一收尾
+**用户目标**:
+- 用户明确告知当前 MCP 已恢复到 `8888`，要求我“验收完直接继续后续的未完成内容”。
+
+**当前主线目标**:
+- 主线仍是 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\`，这轮先补 live 验收，再继续剩余最小代码项。
+
+**本轮子任务 / 阻塞**:
+- 子任务 1：通过 shell 版 `unityMCP@8888` 做 `1.0.3` 的最小 live 验收。
+- 子任务 2：在 live 基线恢复后，补完 `1.0.3` 唯一剩余的代码项“术语与文案统一”。
+- 当前阻塞已从“mcp 入口没回正”收敛为“手动交互无法被现有工具完全替代”。
+
+**已完成事项**:
+1. 成功用 shell 版 `unityMCP@8888` 握手，读取到：
+   - `instances`：唯一实例 `Sunset@21935cd3ad733705`
+   - `editor_state`：活动场景 `Assets/000_Scenes/Primary.unity`
+   - `project_info` / `custom-tools`：均可正常读取
+2. 先读取 Console，发现最初那批 `OcclusionTransparency` 注册失败与 `Unknown script missing` 是旧日志噪音。
+3. 执行 `Console clear -> Play -> 等待 -> read_console -> Stop`，当前窗口内返回 `0 error / 0 warning`。
+4. 明确发现 Editor 在本轮开始验收前就停留在 Play Mode；已在本轮结束前显式执行 `stop`，确保回到 Edit Mode。
+5. 只读取证确认场景中存在激活的 `Primary/1_Managers/OcclusionManager`，农田 hover 遮挡当前不再被“Manager 缺失”前提阻断。
+6. 尝试运行 `run_tests(EditMode, OcclusionSystemTests)` 时，Unity 插件会话在等待 `command_result` 期间断开；随后 `refresh_unity` 成功恢复连接，并再次确认 Console 为空。该现象被归类为 MCP/plugin 级不稳定，不写成项目失败。
+7. 完成 `1.0.3` 的术语统一最小代码收尾：
+   - `EquipmentData.cs`：`Vitality` 的用户显示改为“精力”
+   - `FoodData.cs` / `PotionData.cs`：Tooltip 中的 `HP` 改为“生命”
+   - `ItemUseConfirmDialog.cs`：结果日志改为“生命 / 精力”口径
+8. 再次独立编译 `Assembly-CSharp.rsp`，运行时代码通过；`refresh_unity` 后 `read_console` 当前为 `0 error / 0 warning`。
+
+**关键决策**:
+- 当前会话内建 RMCP 仍不稳定，但 shell 版 `unityMCP@8888` 已足以完成 live 验收；不再把“内建握手失败”误写成 farm 功能未完成。
+- 旧 Console 中的遮挡告警不能直接当成当前项目失败；必须以清 Console 后的新窗口结果为准。
+- `1.0.3` 当前已经没有继续扩写的新代码缺口，后续只剩手动交互验收。
+
+**涉及文件或路径**:
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\EquipmentData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\FoodData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\PotionData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemUseConfirmDialog.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\tasks.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\memory.md`
+
+**验证结果**:
+- `Assembly-CSharp.rsp` 独立编译通过。
+- shell 版 unityMCP live 验收通过：当前 `Primary` 的 `Play/Stop + Console` 基线干净。
+- `run_tests(EditMode, OcclusionSystemTests)` 失败原因属于 MCP/plugin 断链，不等于项目断言失败。
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“只剩手动交互验收；代码侧已收口完毕，可以白名单提交本轮术语统一与 live 验收记忆同步”这一步。

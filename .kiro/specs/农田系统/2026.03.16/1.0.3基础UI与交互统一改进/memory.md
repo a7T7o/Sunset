@@ -141,3 +141,27 @@
 - 当前恢复点：
   - `1.0.3` 的代码闭环已经覆盖旧截图中的剩余项；
   - 后续真正要继续的不是再补箱子或再补遮挡，而是先让 Unity live 验收入口回正，然后在场景里回归箱内实例态与农田 hover 遮挡表现。
+
+## 2026-03-23：shell 版 unityMCP live 验收已恢复，当前只剩手动交互闭环
+- 用户明确告知“mcp 可以了，就是 8888”，并要求我先完成验收，再继续未完成内容。本轮改按 shell 版 `unityMCP@8888` 直接握手，而不再依赖当前会话里失败的 RMCP 封装。已确认：
+  - `mcpforunity://instances` 返回唯一实例 `Sunset@21935cd3ad733705`
+  - `mcpforunity://editor/state` 返回活动场景 `Assets/000_Scenes/Primary.unity`
+  - `mcpforunity://project/info` 与 `mcpforunity://custom-tools` 均可正常读取
+- live 验收先按最小范围做项目级核查：
+  - `read_console` 先读到的 `OcclusionTransparency` 注册失败与 `Unknown script missing` 是旧 Console 条目；
+  - 清空 Console 后，再执行 `Play -> 等待 -> read_console -> Stop`，结果当前窗口内 `0 error / 0 warning`；
+  - 同时确认场景里存在激活的 `Primary/1_Managers/OcclusionManager`，所以农田 hover 遮挡当前不再被“场景里没有 Manager”这一假前提阻断。
+- 测试层补充：
+  - 尝试通过 `run_tests(EditMode, test_names=[OcclusionSystemTests])` 做遮挡核心回归，但 Unity 插件会话在等待 `command_result` 时断开；这被记录为 MCP/plugin 级不稳定，不写成项目失败。
+  - `refresh_unity` 随后成功恢复连接，并再次确认 Editor 已回到 Edit Mode、Console 为空。
+- 在 live 验收恢复后，本轮继续补完 `1.0.3` 剩余的代码项“术语与文案统一”：
+  - `EquipmentData.cs` 将 `Vitality` 的用户显示口径从“体力”统一为“精力”
+  - `FoodData.cs` / `PotionData.cs` 将 Tooltip 中的 `HP` 统一为“生命”
+  - `ItemUseConfirmDialog.cs` 的结果日志也同步改为“生命 / 精力”口径
+- 验证结果：
+  - `Assembly-CSharp.rsp` 再次独立编译通过
+  - `git diff --check` 针对本轮脚本通过，仅剩 CRLF/LF 提示
+  - `refresh_unity` 后 `read_console` 当前为 `0 error / 0 warning`
+- 当前恢复点：
+  - `1.0.3` 现在已经没有继续扩写的新代码缺口；
+  - 当前唯一剩余项只剩“无法由现有 MCP 工具完全替代的手动交互验收”，也就是箱内实例态拖拽手感与农田 hover 遮挡表现的真实操作确认。

@@ -241,14 +241,14 @@ public class ItemUseConfirmDialog : MonoBehaviour
     {
         int restoredEnergy = RestorePlayerEnergy(foodData.energyRestore);
         int restoredHealth = RestorePlayerHealth(foodData.healthRestore);
-        Debug.Log($"[ItemUseConfirmDialog] 食物效果: 精力+{restoredEnergy}, HP+{restoredHealth}");
+        Debug.Log($"[ItemUseConfirmDialog] 食物效果: 精力+{restoredEnergy}, 生命+{restoredHealth}");
     }
 
     private void ApplyPotionEffect(PotionData potionData)
     {
         int restoredEnergy = RestorePlayerEnergy(potionData.energyRestore);
         int restoredHealth = RestorePlayerHealth(potionData.healthRestore);
-        Debug.Log($"[ItemUseConfirmDialog] 药水效果: HP+{restoredHealth}, 精力+{restoredEnergy}");
+        Debug.Log($"[ItemUseConfirmDialog] 药水效果: 生命+{restoredHealth}, 精力+{restoredEnergy}");
     }
 
     private int RestorePlayerEnergy(int amount)
