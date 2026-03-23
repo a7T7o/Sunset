@@ -165,3 +165,17 @@
 - 当前恢复点：
   - `1.0.3` 现在已经没有继续扩写的新代码缺口；
   - 当前唯一剩余项只剩“无法由现有 MCP 工具完全替代的手动交互验收”，也就是箱内实例态拖拽手感与农田 hover 遮挡表现的真实操作确认。
+
+## 2026-03-23：`1.0.3` 已按 `全局交互V3` 语义完成收尾并正式转交 `1.0.4`
+- 本轮按 `001最后通牒.md` 的要求，没有继续写业务代码，而是先对 `1.0.3` 做了只读收尾判断。回读范围覆盖：`1.0.2纠正001` 四件套、`1.0.3/tasks.md`、`最终交互矩阵.md`、线程记忆、父/根工作区记忆，以及当前 live 代码链 `PlacementManager.cs / PlacementNavigator.cs / PlacementPreview.cs / FarmToolPreview.cs / GameInputManager.cs / ChestInventory.cs / ChestInventoryV2.cs / ChestController.cs / BoxPanelUI.cs / InventorySlotUI.cs / ToolbarSlotUI.cs / InventoryInteractionManager.cs / InventorySlotInteraction.cs / SlotDragContext.cs / ItemTooltip.cs / ItemTooltipTextBuilder.cs / InventoryItem.cs / ToolData.cs / EnergySystem.cs / HealthSystem.cs`。
+- 当前 live 现场确认：`D:\Unity\Unity_learning\Sunset @ main @ 2a304c6f80199f0e34c65ac9ce71a8dd61015bcb`。本轮认领的结论是，`1.0.3` 已经完成了基础 Tooltip 入口、实例态跟随、掉落链、食物药水真实状态接线、背包第一行与 Toolbar 同源同步、箱子运行时容器接线、农田 hover 遮挡和 Toolbar 输入边界收口；剩余问题已不再是“再补几个尾项”，而是必须升级为 `1.0.4` 的全局交互治理主题。
+- 因此，`1.0.3` 的最终边界已明确写死为：它负责基础 UI 与交互统一改进的第一轮代码闭环，不再继续承接放置成功事务、导航与 reach envelope 统一、受保护槽位最终语义、工具运行时参数链统一、箱子单真源与桥接策略这类系统性边界问题。
+- 本轮没有新增 `1.0.3` 业务实现；只完成了收尾判断并把“未完成但必须升级转入 `1.0.4`”的五大主题正式移交：
+  1. 放置系统与“幽灵占位”
+  2. 箱子放置时导航 retry 3 次停下
+  3. 背包关闭后 Toolbar 双选中，以及不该触发的抖动锁定
+  4. 工具耐久 / 精力 / Tooltip / SO 参数链
+  5. 箱子 `StackOverflowException` 与双库存同步递归
+- 当前恢复点：
+  - `1.0.3` 收尾已完成；
+  - 后续交互主线从这一刻起正式由 `1.0.4交互全面检查` 接管。

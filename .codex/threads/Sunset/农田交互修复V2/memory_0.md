@@ -590,3 +590,55 @@
 
 **恢复点 / 下一步**：
 - 当前已经回到主线的“继续剩余手动交互验收与后续 UI/交互改进，而不是再争论 Toolbar 是否只能有 5 格”这一步。
+
+## 2026-03-23：线程语义正式升级为 `全局交互V3`，本轮完成 `1.0.4` docs-first 接管
+**用户目标**：
+- 用户明确要求我先完整读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\001最后通牒.md`，不要先改代码、不要先口头汇报；从本轮起按 `全局交互V3（原：农田交互修复V2）` 语义执行，先收尾 `1.0.3`，再 docs-first 进入 `1.0.4`，最后只按最小回执格式回复。
+
+**当前主线目标**：
+- 把原本分散在农田交互、放置、背包、Toolbar、工具耐久、精力、Tooltip、箱子交互里的问题，统一上提为“全局交互处理”主线，并先用主导文档把边界彻底钉死。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：严格按 `001最后通牒.md` 做只读接管，补齐 `1.0.3` 的最终收尾判断。
+- 子任务 2：完成 `1.0.4` 两份核心文档，而不是继续写业务代码。
+- 当前阻塞不是代码实现，而是必须先消除历史认知漂移，避免后续代码再沿错线推进。
+
+**已完成事项**：
+1. 只读核查当前 live 现场：`D:\Unity\Unity_learning\Sunset @ main @ 2a304c6f80199f0e34c65ac9ce71a8dd61015bcb`。
+2. 按顺序回读：
+   - `1.0.4交互全面检查/001最后通牒.md`
+   - `1.0.2纠正001/requirements.md`、`analysis.md`、`design.md`
+   - `1.0.3基础UI与交互统一改进/tasks.md`、`memory.md`
+   - `最终交互矩阵.md`
+   - `.kiro/steering/ui.md`、`.kiro/steering/items.md`、`.kiro/steering/maintenance-guidelines.md`
+   - 当前线程记忆、父工作区记忆、根工作区记忆
+3. 结合代码链回顾当前五大系统性主题：
+   - 放置 / 导航 / 预览：`PlacementManager.cs`、`PlacementNavigator.cs`、`PlacementPreview.cs`、`FarmToolPreview.cs`、`GameInputManager.cs`
+   - 箱子 / UI：`ChestInventory.cs`、`ChestInventoryV2.cs`、`ChestController.cs`、`BoxPanelUI.cs`
+   - 背包 / Toolbar：`InventorySlotUI.cs`、`ToolbarSlotUI.cs`、`InventoryInteractionManager.cs`、`InventorySlotInteraction.cs`、`SlotDragContext.cs`
+   - 工具参数 / Tooltip：`ItemTooltip.cs`、`ItemTooltipTextBuilder.cs`、`InventoryItem.cs`、`ToolData.cs`、`FoodData.cs`、`PotionData.cs`、`EquipmentData.cs`、`EnergySystem.cs`、`HealthSystem.cs`
+4. 完成 `1.0.3` 收尾判断：已明确其最终边界为“基础 UI 与交互统一改进的第一轮代码闭环”，后续不再承接放置成功事务、受保护槽位最终语义、工具统一消耗链、箱子单真源等系统性问题。
+5. 完成 `1.0.4` 两份主文档：
+   - `全面理解需求与分析.md`：已写入线程语义升级说明、用户原始需求完整摘抄、历史演进、五大主题的事实/推断/风险/建议口径。
+   - `全面设计与详细任务执行清单.md`：已写入总目标、设计原则、统一交互边界、子系统拆分、根因假设、结构改造、日志测试、实施顺序、风险与回滚点。
+
+**关键决策**：
+- 从本轮起，这条线的执行语义正式升级为：`全局交互V3（原：农田交互修复V2）`。
+- `1.0.3` 已完成收尾，不再继续扩 scope。
+- `1.0.4` 的后续实现必须以两份主文档为唯一执行入口，禁止再按印象直接写代码。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\全面理解需求与分析.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\全面设计与详细任务执行清单.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+
+**验证结果**：
+- 已验证：`1.0.4` 两份文档已在工作区正式落盘。
+- 已验证：`1.0.3` 收尾边界已写实明确。
+- 未验证：本轮没有进行任何业务代码改动，也没有进入 Unity live 验收。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“`1.0.4` docs-first 已完成，可以在后续轮次按主导文档进入实现”的这一步。
