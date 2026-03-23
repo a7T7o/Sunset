@@ -200,3 +200,39 @@
   - 静态 diff 检查通过。
   - 当前 `unityMCP` transport 在收尾阶段失联，live 终验待补。
 - 当前恢复点：接下来可以直接开始做 NPC 活动区域、路线和 Profile 的场景化配置，而不需要再回头搭测试基础设施。
+
+## 2026-03-23 NPC_04 推送阻塞补记
+
+- 当前状态：`2026.03.23_NPC_04 @ 27fda5c5` 已在本地 `main` 提交完成，但推送远端失败。
+- 失败原因：当前 Git 远端访问被代理 `127.0.0.1:7897` 阻断；先是 LFS locks verify 报错，关闭该仓库 `locksverify` 后，普通 `git push origin main` 仍然因代理不可连接失败。
+- 结论：这不是 NPC 代码冲突，也不是白名单问题，而是当前机器网络/代理层阻塞远端推送。
+- 恢复点：本地 `main` 已包含本轮 NPC 修改与导航回执所需结论；下一步若要远端同步，只需在代理恢复后重跑 `git push origin main`。
+
+## 2026-03-23 给导航线程的正式回执已落盘
+
+- 当前主线目标：把 NPC 线程对导航线程的正式口径沉淀成可直接转交的回执文档。
+- 本轮子任务：围绕运动语义、状态语义、prefab 基线、测试入口定位与后续联调边界，整理一份专业回执。
+- 本轮完成：
+  - 新增 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\给导航线程的正式回执_2026-03-23.md`
+  - 文档已明确写清：
+    - `Moving / ShortPause / LongPause` 的当前稳定语义
+    - `IsMoving` 与最终位移方式 `rb.MovePosition(...)` 的当前稳定承诺
+    - `001 / 002 / 003` 当前 `Rigidbody2D + BoxCollider2D + roam` 基线
+    - `NPCBubbleStressTalker` 是长期保留测试入口，但不是正式生产行为组件
+    - 后续若 NPC 线要动 `NPCAutoRoamController` / `NPCMotionController`，会先同步“是否动 IsMoving / pause 状态 / 最终位移方式”
+- 当前恢复点：导航线程现在已经有一份可直接使用的 NPC 正式回执，后续联调不需要再靠聊天里口头摘录。
+
+## 2026-03-23 NPC第六刀：更激进的气泡可见改动
+
+- 当前主线目标：把气泡改到“肉眼一眼就看得出变化”的程度，而不是继续做保守微调。
+- 本轮子任务：继续下压箭头与气泡整体位置，显著加大内边距，限制长文本横向扩张，并提高 `003` 的持续说话频率。
+- 本轮完成：
+  - `NPCBubblePresenter`：将 `bubbleLocalOffset` 下压到 `1.58`，`tailYOffset` 下压到 `-28`，`tailSize` 扩到 `34x24`，并把尾巴往返改成“低位到高位”的明显运动，而不是围绕中点的小抖动。
+  - `NPCBubblePresenter`：将 `bubblePadding` 提到 `52x38`、`textSafePadding` 提到 `28x24`，并将 `maxTextWidth` 收到 `220`、`minAdaptiveTextWidth` 收到 `144`，让长文本更倾向于长高，而不是横向摊开。
+  - `NPCBubbleStressTalker`：将 `003` 的持续发话间隔压到 `0.05~0.18s`，让它更接近“持续测试 NPC”而不是偶尔说一句。
+  - `001/002/003.prefab`：同步到这套更激进的气泡参数。
+- 本轮对导航线程的影响说明：
+  - 本轮没有改 `NPCAutoRoamController` 的状态语义。
+  - 本轮没有改 `NPCMotionController` / `NPCAutoRoamController` 的最终位移语义。
+  - 本轮只改气泡表现层与测试频率，不改变 NPC 运动基线。
+- 当前恢复点：下一步应优先做一次新的用户目测验收，看箭头是否终于足够低、内边距是否终于足够明显。

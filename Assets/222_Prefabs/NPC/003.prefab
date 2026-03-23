@@ -263,23 +263,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   targetRenderer: {fileID: 7873992007039065483}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0, y: 1.72, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.58, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
-  bubblePadding: {x: 44, y: 30}
-  maxTextWidth: 236
-  minAdaptiveTextWidth: 152
-  textSafePadding: {x: 18, y: 16}
+  bubblePadding: {x: 52, y: 38}
+  maxTextWidth: 220
+  minAdaptiveTextWidth: 144
+  textSafePadding: {x: 28, y: 24}
   borderThickness: 6
-  tailSize: {x: 28, y: 18}
-  tailYOffset: -11
+  tailSize: {x: 34, y: 24}
+  tailYOffset: -28
   shadowOffset: {x: 3, y: -5}
   sortingOrderOffset: 20
-  minBubbleHeight: 1.5
-  bubbleGapAboveRenderer: 0.3
-  visibleFloatAmplitude: 0.012
-  visibleFloatFrequency: 1.25
-  tailBobAmplitude: 2.2
-  tailBobFrequency: 2.1
+  minBubbleHeight: 1.36
+  bubbleGapAboveRenderer: 0.12
+  visibleFloatAmplitude: 0.006
+  visibleFloatFrequency: 1.05
+  tailBobAmplitude: 26
+  tailBobFrequency: 1.35
   bubbleBorderColor: {r: 0.92, g: 0.79, b: 0.56, a: 1}
   bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 0.96}
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
@@ -364,8 +364,8 @@ MonoBehaviour:
   roamController: {fileID: 3567178868468748681}
   startOnEnable: 1
   disableRoamWhileTesting: 1
-  minGapSeconds: 0.2
-  maxGapSeconds: 0.7
+  minGapSeconds: 0.05
+  maxGapSeconds: 0.18
   minDuration: 1.8
   maxDuration: 5
   testLines:

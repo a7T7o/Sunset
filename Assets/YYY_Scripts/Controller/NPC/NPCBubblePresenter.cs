@@ -33,23 +33,23 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private TMP_FontAsset fontAsset;
 
     [Header("气泡布局")]
-    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.72f, 0f);
+    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.58f, 0f);
     [SerializeField] private Vector3 bubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
-    [SerializeField] private Vector2 bubblePadding = new Vector2(44f, 30f);
-    [SerializeField] private float maxTextWidth = 236f;
-    [SerializeField] private float minAdaptiveTextWidth = 152f;
-    [SerializeField] private Vector2 textSafePadding = new Vector2(18f, 16f);
+    [SerializeField] private Vector2 bubblePadding = new Vector2(52f, 38f);
+    [SerializeField] private float maxTextWidth = 220f;
+    [SerializeField] private float minAdaptiveTextWidth = 144f;
+    [SerializeField] private Vector2 textSafePadding = new Vector2(28f, 24f);
     [SerializeField] private float borderThickness = 6f;
-    [SerializeField] private Vector2 tailSize = new Vector2(28f, 18f);
-    [SerializeField] private float tailYOffset = -11f;
+    [SerializeField] private Vector2 tailSize = new Vector2(34f, 24f);
+    [SerializeField] private float tailYOffset = -28f;
     [SerializeField] private Vector2 shadowOffset = new Vector2(3f, -5f);
     [SerializeField] private int sortingOrderOffset = 20;
-    [SerializeField] private float minBubbleHeight = 1.5f;
-    [SerializeField] private float bubbleGapAboveRenderer = 0.3f;
-    [SerializeField] private float visibleFloatAmplitude = 0.012f;
-    [SerializeField] private float visibleFloatFrequency = 1.25f;
-    [SerializeField] private float tailBobAmplitude = 2.2f;
-    [SerializeField] private float tailBobFrequency = 2.1f;
+    [SerializeField] private float minBubbleHeight = 1.36f;
+    [SerializeField] private float bubbleGapAboveRenderer = 0.12f;
+    [SerializeField] private float visibleFloatAmplitude = 0.006f;
+    [SerializeField] private float visibleFloatFrequency = 1.05f;
+    [SerializeField] private float tailBobAmplitude = 26f;
+    [SerializeField] private float tailBobFrequency = 1.35f;
 
     [Header("气泡样式")]
     [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
@@ -138,8 +138,8 @@ public class NPCBubblePresenter : MonoBehaviour
 
         maxTextWidth = Mathf.Max(80f, maxTextWidth);
         minAdaptiveTextWidth = Mathf.Clamp(minAdaptiveTextWidth, 96f, maxTextWidth);
-        textSafePadding.x = Mathf.Max(0f, textSafePadding.x);
-        textSafePadding.y = Mathf.Max(0f, textSafePadding.y);
+        textSafePadding.x = Mathf.Max(4f, textSafePadding.x);
+        textSafePadding.y = Mathf.Max(4f, textSafePadding.y);
         fontSize = Mathf.Max(10f, fontSize);
         borderThickness = Mathf.Max(2f, borderThickness);
         tailSize.x = Mathf.Max(12f, tailSize.x);
@@ -150,7 +150,7 @@ public class NPCBubblePresenter : MonoBehaviour
         bubbleGapAboveRenderer = Mathf.Max(0f, bubbleGapAboveRenderer);
         visibleFloatAmplitude = Mathf.Clamp(visibleFloatAmplitude, 0f, 0.12f);
         visibleFloatFrequency = Mathf.Clamp(visibleFloatFrequency, 0.1f, 6f);
-        tailBobAmplitude = Mathf.Clamp(tailBobAmplitude, 0f, 8f);
+        tailBobAmplitude = Mathf.Clamp(tailBobAmplitude, 0f, 48f);
         tailBobFrequency = Mathf.Clamp(tailBobFrequency, 0.1f, 8f);
         showDuration = Mathf.Max(0.01f, showDuration);
         hideDuration = Mathf.Max(0.01f, hideDuration);
@@ -302,8 +302,8 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private void ApplyCurrentStylePreset()
     {
-        bubbleLocalOffset = new Vector3(0f, 1.72f, 0f);
-        bubblePadding = new Vector2(44f, 30f);
+        bubbleLocalOffset = new Vector3(0f, 1.58f, 0f);
+        bubblePadding = new Vector2(52f, 38f);
         bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
         bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
         bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
@@ -311,19 +311,19 @@ public class NPCBubblePresenter : MonoBehaviour
         textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
         fontSize = 24f;
         textOutlineWidth = 0.18f;
-        maxTextWidth = 236f;
-        minAdaptiveTextWidth = 152f;
-        textSafePadding = new Vector2(18f, 16f);
+        maxTextWidth = 220f;
+        minAdaptiveTextWidth = 144f;
+        textSafePadding = new Vector2(28f, 24f);
         borderThickness = 6f;
-        tailSize = new Vector2(28f, 18f);
-        tailYOffset = -11f;
+        tailSize = new Vector2(34f, 24f);
+        tailYOffset = -28f;
         shadowOffset = new Vector2(3f, -5f);
-        minBubbleHeight = 1.5f;
-        bubbleGapAboveRenderer = 0.3f;
-        visibleFloatAmplitude = 0.012f;
-        visibleFloatFrequency = 1.25f;
-        tailBobAmplitude = 2.2f;
-        tailBobFrequency = 2.1f;
+        minBubbleHeight = 1.36f;
+        bubbleGapAboveRenderer = 0.12f;
+        visibleFloatAmplitude = 0.006f;
+        visibleFloatFrequency = 1.05f;
+        tailBobAmplitude = 26f;
+        tailBobFrequency = 1.35f;
         showDuration = 0.14f;
         hideDuration = 0.1f;
         showScaleOvershoot = 0.05f;
@@ -480,7 +480,7 @@ public class NPCBubblePresenter : MonoBehaviour
 
         Vector2 textBoxSize = preferredSize + textSafePadding;
         float shapeBias = Mathf.InverseLerp(16f, 60f, visibleCharacterCount);
-        Vector2 bodySize = textBoxSize + bubblePadding + new Vector2(shapeBias * 3f, shapeBias * 10f);
+        Vector2 bodySize = textBoxSize + bubblePadding + new Vector2(shapeBias * 2f, shapeBias * 18f);
         Vector2 fillBodySize = new Vector2(
             Mathf.Max(60f, bodySize.x - (borderThickness * 2f)),
             Mathf.Max(fontSize + 18f, bodySize.y - (borderThickness * 2f)));
@@ -488,8 +488,8 @@ public class NPCBubblePresenter : MonoBehaviour
             Mathf.Max(8f, tailSize.x - (borderThickness * 1.6f)),
             Mathf.Max(6f, tailSize.y - (borderThickness * 1.2f)));
         Vector2 textRectSize = new Vector2(
-            Mathf.Max(56f, fillBodySize.x - 20f),
-            Mathf.Max(fontSize + 10f, fillBodySize.y - 16f));
+            Mathf.Max(52f, fillBodySize.x - ((textSafePadding.x + 8f) * 2f)),
+            Mathf.Max(fontSize + 8f, fillBodySize.y - ((textSafePadding.y + 4f) * 2f)));
 
         float bodyCenterY = Mathf.Max(tailSize.y * 0.72f, 10f);
         float tailCenterY = bodyCenterY - (bodySize.y * 0.54f) - (tailSize.y * 0.06f) + tailYOffset;
@@ -695,8 +695,8 @@ public class NPCBubblePresenter : MonoBehaviour
         float tailBobOffset = 0f;
         if (Application.isPlaying && IsBubbleVisible)
         {
-            tailBobOffset =
-                Mathf.Sin(Time.unscaledTime * tailBobFrequency * Mathf.PI * 2f) * tailBobAmplitude;
+            float bobPhase = (Mathf.Sin(Time.unscaledTime * tailBobFrequency * Mathf.PI * 2f) * 0.5f) + 0.5f;
+            tailBobOffset = bobPhase * tailBobAmplitude;
         }
 
         Vector2 bobOffset = Vector2.up * tailBobOffset;
@@ -707,7 +707,7 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private float ResolveAdaptiveWrapWidth(int visibleCharacterCount)
     {
-        float targetWidth = minAdaptiveTextWidth + (Mathf.Sqrt(Mathf.Max(1, visibleCharacterCount)) * 18f);
+        float targetWidth = minAdaptiveTextWidth + (Mathf.Max(0f, visibleCharacterCount - 12f) * 1.55f);
         return Mathf.Clamp(targetWidth, minAdaptiveTextWidth, maxTextWidth);
     }
 
