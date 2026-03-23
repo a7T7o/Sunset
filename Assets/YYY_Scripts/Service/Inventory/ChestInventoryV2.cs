@@ -102,6 +102,7 @@ public class ChestInventoryV2 : IItemContainer
         if (!InRange(index)) return false;
         _items[index] = item;
         RaiseSlotChanged(index);
+        RaiseInventoryChanged();
         return true;
     }
 
@@ -113,6 +114,7 @@ public class ChestInventoryV2 : IItemContainer
         if (!InRange(index)) return;
         _items[index] = null;
         RaiseSlotChanged(index);
+        RaiseInventoryChanged();
     }
 
     /// <summary>
@@ -226,6 +228,7 @@ public class ChestInventoryV2 : IItemContainer
                 
                 RaiseSlotChanged(a);
                 RaiseSlotChanged(b);
+                RaiseInventoryChanged();
                 return true;
             }
         }
@@ -235,6 +238,7 @@ public class ChestInventoryV2 : IItemContainer
         _items[b] = itemA;
         RaiseSlotChanged(a);
         RaiseSlotChanged(b);
+        RaiseInventoryChanged();
         return true;
     }
 
@@ -270,6 +274,7 @@ public class ChestInventoryV2 : IItemContainer
         }
         
         RaiseSlotChanged(index);
+        RaiseInventoryChanged();
         return true;
     }
 
@@ -313,6 +318,7 @@ public class ChestInventoryV2 : IItemContainer
         if (item.IsEmpty) _items[index] = null;
         
         RaiseSlotChanged(index);
+        RaiseInventoryChanged();
         return true;
     }
 

@@ -110,3 +110,17 @@
   - `git diff --check` 针对本轮相关脚本通过，仅剩 CRLF/LF 换行警告。
 - 当前恢复点：
   - `1.0.3` 的食物/药水真实状态接线现在已从“只精力恢复”推进到“精力 + 生命恢复”；背包第一行与 Toolbar 的热槽同步也已修正，下一步继续回到剩余未闭环项（尤其是箱内实例态保真与用户现场验收）。
+
+## 2026-03-23：恢复 prefab 原始 Toggle 配置口径，并补完背包第一行与 Toolbar 的实时同源同步
+- 用户在现场指出一个关键事实：`InventorySlotUI` / `ToolbarSlotUI` 原本的 prefab 配置是 `Transition = Color Tint`、`Target Graphic = Target`、`Graphic = Selected`，而不是脚本硬改成 `transition=None / targetGraphic=null`。这说明此前为了修 shake 手感而在脚本中强制覆盖 Toggle 配置，本质上是偏离了项目既有配置口径。
+- 本轮已执行的修正：
+  - 撤销脚本侧对 `InventorySlotUI.cs`、`ToolbarSlotUI.cs` 的强制 Toggle 配置覆盖，重新尊重 prefab 中的 `Target / Selected / ToggleGroup` 关系。
+  - `InventorySlotUI.cs` 现已直接订阅 `HotbarSelectionService.OnSelectedChanged`，并新增 `RefreshSelection()`，使背包第一行与 Toolbar 在同一热槽索引上实时同步，不再出现“Toolbar 切换后第一次打开背包未选中、第二次才正确”的延迟现象。
+  - `InventoryPanelUI.cs` 与 `BoxPanelUI.cs` 在刷新背包区域时，现会同步调用 `InventorySlotUI.RefreshSelection()`，确保第一次打开面板就拿到正确热槽状态。
+- 同轮还继续推进了未完成项：`ItemUseConfirmDialog.cs` 已识别到项目内现有 `HealthSystem.cs`，因此食物 / 药水效果已从“仅精力恢复”推进到“精力 + 生命恢复”都走真实状态系统。
+- 当前运行时代码编译状态：`Assembly-CSharp.rsp` Roslyn 独立编译通过。
+- 当前恢复点：
+  - 背包第一行 / Toolbar 同步问题已按“恢复原配置 + 补实时同步”方向修正；
+  - `1.0.3` 剩余未闭合的最大实质缺口已收敛为“箱子主 UI 仍主要走 `ChestInventory` 旧链，箱内实例态保真还未彻底统一到 V2”。
+## 2026-03-23：1.0.3 第二轮收口进入“可交用户验收”的代码阶段
+本轮继续在 `D:\Unity\Unity_learning\Sunset @ main` 下推进 `1.0.3`，用户新增要求是：在做完箱子实例态链之后，把“农田专属预览遮挡联动”也并入当前任务清单，由 farm 线程直接接手。已完成的代码落地分两块：一是箱子实例态保真，`ChestInventory.cs` / `ChestInventoryV2.cs` 的写入路径统一补发 `OnInventoryChanged`，`ChestController.cs` 新增 `RuntimeInventory` 并把 `_inventoryV2.OnInventoryChanged` 接回旧库存同步，`BoxPanelUI.cs` 改为优先绑定运行时容器，`InventorySlotInteraction.cs` / `InventoryInteractionManager.cs` / `SlotDragContext.cs` 则继续补齐 chest / inventory / equip / manager-held 之间的 runtime item 保真；二是农田 hover 预览遮挡，`FarmToolPreview.cs` 现已复用 `OcclusionManager.SetPreviewBounds(Bounds?)`，把当前 `ghostTilemap + cursorRenderer` 的 Bounds 通知给遮挡系统，并在 `Hide()` / `ClearGhostTilemap()` / `OnDestroy()` 时主动清理。验证方面，本轮 `git diff --check` 针对白名单通过，`Assembly-CSharp.rsp` 也已通过 `D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\NetCoreRuntime\dotnet.exe + D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\DotNetSdkRoslyn\csc.dll` 再次独立编译通过。当前父工作区恢复点已更新为：`1.0.3` 代码层已经把“箱子实例态保真 + 农田预览遮挡联动”补到可交用户验收的阶段；下一步只剩同步记忆/白名单 checkpoint，并等待用户在 Unity 现场验证箱子拖拽/交换/装备回滚与锄头/水壶 hover 遮挡表现。

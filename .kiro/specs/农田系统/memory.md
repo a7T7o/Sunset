@@ -302,3 +302,5 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-23 MCP 桥口径纠偏
 - 本文件中若出现“旧 MCP 桥口径（已失效）”，均表示历史阶段使用过的旧桥结论，不再代表当前 live 入口。
 - 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。
+## 2026-03-23：1.0.3 第二轮收口已把箱子实例态与农田遮挡联动并入主线
+用户这轮没有换题，而是明确告诉本线程：“你剩下的任务不止是箱子，遮挡检查线程那边已经确认农田预览遮挡联动应该由 farm 线程做，做完箱子后继续把遮挡也一起做掉。” 基于这个新增要求，当前农田主线没有变化，仍是 `2026.03.16/1.0.3基础UI与交互统一改进`，但其真实交付面已扩到两类收口：箱子实例态保真，以及农田 hover 预览遮挡。代码层已经完成：`ChestInventory.cs`、`ChestInventoryV2.cs`、`ChestController.cs`、`BoxPanelUI.cs`、`InventorySlotInteraction.cs`、`InventoryInteractionManager.cs`、`SlotDragContext.cs` 补齐运行时容器与 runtime item 保真；`FarmToolPreview.cs` 接入 `OcclusionManager.SetPreviewBounds(Bounds?)`，只同步当前 hover 预览，不把 queue/executing 并入遮挡。验证层已经完成：白名单 `git diff --check` 通过，`Assembly-CSharp.rsp` 运行时代码独立编译通过。当前根工作区恢复点更新为：农田 `1.0.3` 代码层已经达到可交用户现场验收的阶段，剩余不再是代码闸门，而是 Unity 场景中的手动行为验收与本轮白名单 checkpoint 收口。

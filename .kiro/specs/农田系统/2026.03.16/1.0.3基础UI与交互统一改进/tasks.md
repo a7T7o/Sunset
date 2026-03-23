@@ -61,3 +61,10 @@
 - [ ] 7. 玩家生命恢复仍未真正落地，当前项目内未发现可安全接入的玩家生命系统。
 - [ ] 8. 箱子主 UI 仍走 `ChestInventory` 旧链，箱内实例态完整保真尚未彻底治理。
 - [ ] 9. 用户现场验收与共享编译阻断清理仍待完成。
+## J. 2026-03-23 第二轮收口：箱子实例态保真 + 农田预览遮挡
+- [x] 1. `ChestInventory.cs` 与 `ChestInventoryV2.cs` 的 `Set/Clear/SwapOrMerge/Remove` 已统一补发 `OnInventoryChanged`，避免箱内实例态修改后 UI 不刷新。
+- [x] 2. `ChestController.cs` 新增 `RuntimeInventory`，`BoxPanelUI.cs` 改为优先绑定运行时容器，箱子排序/刷新/订阅不再只认旧 `ChestInventory`。
+- [x] 3. `InventorySlotInteraction.cs`、`InventoryInteractionManager.cs`、`SlotDragContext.cs` 已补齐 chest/inventory/equip/manager-held 四条链上的 runtime item 保真，避免交换或回滚时退化成静态 `ItemStack`。
+- [x] 4. `FarmToolPreview.cs` 已复用 `OcclusionManager.SetPreviewBounds(Bounds?)`，仅把当前 hover 预览的 `ghostTilemap + cursorRenderer` 同步给遮挡系统，不把 queue/executing 预览并进去。
+- [x] 5. `Assembly-CSharp.rsp` 已在 `D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\DotNetSdkRoslyn\csc.dll` 路径下再次独立编译通过。
+- [ ] 6. 待用户在 Unity 场景回归：箱内实例态拖拽/交换/装备回滚是否保真，以及锄头/水壶 hover 预览在树或建筑后方时是否正确触发遮挡透明。

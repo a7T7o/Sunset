@@ -345,6 +345,8 @@ namespace FarmGame.Farm
         
         private void OnDestroy()
         {
+            ClearOcclusionPreview();
+
             if (_instance == this)
             {
                 _instance = null;
@@ -1007,6 +1009,7 @@ namespace FarmGame.Farm
                 ghostTilemap.gameObject.SetActive(true);
             if (cursorRenderer != null)
                 cursorRenderer.gameObject.SetActive(true);
+            NotifyOcclusionSystem();
         }
         
         /// <summary>
@@ -1033,6 +1036,7 @@ namespace FarmGame.Farm
             // 🔴 补丁005续3：重置浇水模式标志
             _wateringModeInitialized = false;
             _needsNewPuddleVariant = false;
+            ClearOcclusionPreview();
             // 注意：不清空队列预览（Hide 只隐藏鼠标跟随预览）
         }
         
@@ -1105,6 +1109,70 @@ namespace FarmGame.Farm
         /// 🔥 一次性诊断日志（只在首次调用时输出）
         /// 用于排查预览不显示的问题
         /// </summary>
+        private void NotifyOcclusionSystem()
+        {
+            if (global::OcclusionManager.Instance == null)
+            {
+                return;
+            }
+
+            if (!gameObject.activeInHierarchy)
+            {
+                global::OcclusionManager.Instance.SetPreviewBounds(null);
+                return;
+            }
+
+            if (TryGetHoverPreviewBounds(out Bounds previewBounds))
+            {
+                global::OcclusionManager.Instance.SetPreviewBounds(previewBounds);
+            }
+            else
+            {
+                global::OcclusionManager.Instance.SetPreviewBounds(null);
+            }
+        }
+
+        private void ClearOcclusionPreview()
+        {
+            if (global::OcclusionManager.Instance != null)
+            {
+                global::OcclusionManager.Instance.SetPreviewBounds(null);
+            }
+        }
+
+        private bool TryGetHoverPreviewBounds(out Bounds previewBounds)
+        {
+            previewBounds = default;
+            bool hasBounds = false;
+
+            if (currentPreviewPositions.Count > 0 &&
+                ghostTilemapRenderer != null &&
+                ghostTilemap != null &&
+                ghostTilemap.gameObject.activeInHierarchy)
+            {
+                previewBounds = ghostTilemapRenderer.bounds;
+                hasBounds = true;
+            }
+
+            if (cursorRenderer != null &&
+                cursorRenderer.enabled &&
+                cursorRenderer.sprite != null &&
+                cursorRenderer.gameObject.activeInHierarchy)
+            {
+                if (!hasBounds)
+                {
+                    previewBounds = cursorRenderer.bounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    previewBounds.Encapsulate(cursorRenderer.bounds);
+                }
+            }
+
+            return hasBounds;
+        }
+
         private void LogDiagnosticsOnce()
         {
             if (_hasLoggedDiagnostics) return;
@@ -1264,6 +1332,7 @@ namespace FarmGame.Farm
                 ghostTilemap.SetTile(pos, null);
             }
             currentPreviewPositions.Clear();
+            ClearOcclusionPreview();
         }
 
         /// <summary>

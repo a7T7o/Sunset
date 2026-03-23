@@ -118,6 +118,11 @@ namespace FarmGame.World
         /// 箱子库存（新接口，推荐使用）
         /// </summary>
         public ChestInventory Inventory => _inventory;
+
+        /// <summary>
+        /// 当前运行时优先使用的箱子容器。
+        /// </summary>
+        public IItemContainer RuntimeInventory => (IItemContainer)_inventoryV2 ?? _inventory;
         
         /// <summary>
         /// V2 库存（支持 InventoryItem，用于存档）
@@ -572,6 +577,8 @@ namespace FarmGame.World
             // 🔥 P1 任务 4：取消订阅事件，避免内存泄漏
             if (_inventory != null)
                 _inventory.OnInventoryChanged -= OnInventoryChangedHandler;
+            if (_inventoryV2 != null)
+                _inventoryV2.OnInventoryChanged -= OnInventoryV2ChangedHandler;
         }
 
         #endregion
@@ -621,6 +628,9 @@ namespace FarmGame.World
                         Debug.Log($"[ChestController] Initialize: _inventoryV2 已存在（来自 Load），跳过重建");
                 }
 
+                _inventoryV2.OnInventoryChanged -= OnInventoryV2ChangedHandler;
+                _inventoryV2.OnInventoryChanged += OnInventoryV2ChangedHandler;
+
                 // 🔥 C4：添加调试日志验证每个箱子有独立的 ChestInventory 实例
                 if (showDebugInfo)
                     Debug.Log($"[ChestController] 初始化完成: {storageData.itemName}, 血量={currentHealth}, 容量={storageData.storageCapacity}, instanceId={GetInstanceID()}, GUID={PersistentId}");
@@ -642,6 +652,14 @@ namespace FarmGame.World
             
             if (showDebugInfo)
                 Debug.Log($"[ChestController] OnInventoryChanged: 已同步到 V2");
+        }
+
+        private void OnInventoryV2ChangedHandler()
+        {
+            SyncV2ToInventory();
+
+            if (showDebugInfo)
+                Debug.Log($"[ChestController] OnInventoryV2Changed: 已同步回旧库存");
         }
 
         public void Initialize(StorageData data, ChestOwnership initialOwnership = ChestOwnership.Player)
@@ -670,6 +688,7 @@ namespace FarmGame.World
         public void SetDatabase(ItemDatabase database)
         {
             _inventory?.SetDatabase(database);
+            _inventoryV2?.SetDatabase(database);
         }
 
         #endregion

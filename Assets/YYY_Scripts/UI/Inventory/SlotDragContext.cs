@@ -47,7 +47,7 @@ public static class SlotDragContext
     /// <summary>
     /// 源容器是否为箱子
     /// </summary>
-    public static bool IsSourceChest => SourceContainer is ChestInventory;
+    public static bool IsSourceChest => SourceContainer is ChestInventory || SourceContainer is ChestInventoryV2;
 
     /// <summary>
     /// 源容器是否为背包

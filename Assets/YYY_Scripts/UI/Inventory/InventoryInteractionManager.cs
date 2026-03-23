@@ -69,6 +69,11 @@ public class InventoryInteractionManager : MonoBehaviour
     /// 获取当前 Held 物品（供外部使用）
     /// </summary>
     public ItemStack GetHeldItem() => heldItem;
+
+    /// <summary>
+    /// 获取当前 Held 的 runtime item（供跨容器写回保真使用）
+    /// </summary>
+    public InventoryItem GetHeldRuntimeItem() => heldRuntimeItem;
     
     /// <summary>
     /// 获取源槽位索引（供外部使用）

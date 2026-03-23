@@ -132,6 +132,7 @@ public class ChestInventory : IItemContainer
         if (!InRange(index)) return false;
         _slots[index] = stack;
         RaiseSlotChanged(index);
+        RaiseInventoryChanged();
         return true;
     }
 
@@ -143,6 +144,7 @@ public class ChestInventory : IItemContainer
         if (!InRange(index)) return;
         _slots[index] = ItemStack.Empty;
         RaiseSlotChanged(index);
+        RaiseInventoryChanged();
     }
 
     /// <summary>
@@ -180,6 +182,7 @@ public class ChestInventory : IItemContainer
         _slots[b] = slotA;
         RaiseSlotChanged(a);
         RaiseSlotChanged(b);
+        RaiseInventoryChanged();
         return true;
     }
 
@@ -200,6 +203,7 @@ public class ChestInventory : IItemContainer
         }
         _slots[index] = slot;
         RaiseSlotChanged(index);
+        RaiseInventoryChanged();
         return true;
     }
 

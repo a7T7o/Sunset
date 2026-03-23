@@ -275,7 +275,8 @@ namespace FarmGame.UI
         {
             if (_currentChest?.Inventory == null) return;
             
-            _currentChest.Inventory.Sort();
+            if (_currentChest.RuntimeInventory != null)
+                _currentChest.RuntimeInventory.Sort();
             RefreshChestSlots();  // 🔥 P0-2：排序后刷新 UI
             
             // 🔥 选中状态优化：Sort 后清空选中状态
@@ -475,10 +476,11 @@ namespace FarmGame.UI
 
         private void SubscribeToChest()
         {
-            if (_currentChest?.Inventory == null) return;
+            var runtimeInventory = _currentChest?.RuntimeInventory;
+            if (runtimeInventory == null) return;
 
-            _currentChest.Inventory.OnSlotChanged += OnChestSlotChanged;
-            _currentChest.Inventory.OnInventoryChanged += OnChestInventoryChanged;
+            runtimeInventory.OnSlotChanged += OnChestSlotChanged;
+            runtimeInventory.OnInventoryChanged += OnChestInventoryChanged;
 
             // 🔥 修复 1：订阅 InventoryService.OnInventoryChanged
             // 这样背包整理后 BoxPanelUI 才能刷新 Down 区域
@@ -493,10 +495,11 @@ namespace FarmGame.UI
 
         private void UnsubscribeFromChest()
         {
-            if (_currentChest?.Inventory != null)
+            var runtimeInventory = _currentChest?.RuntimeInventory;
+            if (runtimeInventory != null)
             {
-                _currentChest.Inventory.OnSlotChanged -= OnChestSlotChanged;
-                _currentChest.Inventory.OnInventoryChanged -= OnChestInventoryChanged;
+                runtimeInventory.OnSlotChanged -= OnChestSlotChanged;
+                runtimeInventory.OnInventoryChanged -= OnChestInventoryChanged;
             }
 
             // 🔥 修复 1：取消订阅 InventoryService.OnInventoryChanged
@@ -595,9 +598,10 @@ namespace FarmGame.UI
         /// </summary>
         private void RefreshChestSlots()
         {
-            if (_currentChest?.Inventory == null) return;
+            var runtimeInventory = _currentChest?.RuntimeInventory;
+            if (runtimeInventory == null) return;
 
-            var inventory = _currentChest.Inventory;
+            var inventory = runtimeInventory;
             int capacity = inventory.Capacity;
 
             // 🔴 只绑定数据，不修改槽位数量
@@ -644,19 +648,20 @@ namespace FarmGame.UI
         /// </summary>
         private void BindChestSlotData(InventorySlotUI slot, int index)
         {
-            if (_currentChest?.Inventory == null || _database == null)
+            var runtimeInventory = _currentChest?.RuntimeInventory;
+            if (runtimeInventory == null || _database == null)
             {
                 // 🔥 P1：警告去重（实例级别）
                 if (!_hasLoggedBindFailure)
                 {
-                    Debug.LogWarning($"[BoxPanelUI] BindChestSlotData 失败: chest={_currentChest != null}, inventory={_currentChest?.Inventory != null}, db={_database != null}");
+                    Debug.LogWarning($"[BoxPanelUI] BindChestSlotData 失败: chest={_currentChest != null}, inventory={runtimeInventory != null}, db={_database != null}");
                     _hasLoggedBindFailure = true;
                 }
                 return;
             }
 
-            // 🔥 使用新的 BindContainer 方法绑定 ChestInventory
-            slot.BindContainer(_currentChest.Inventory, index);
+            // 🔥 优先绑定到 RuntimeInventory（InventoryV2 优先）
+            slot.BindContainer(runtimeInventory, index);
             
             // 🔥 P1：删除逐格日志，只在 showDebugInfo 开启时输出汇总
         }
@@ -877,8 +882,6 @@ namespace FarmGame.UI
             if (_database != null)
             {
                 chest?.SetDatabase(_database);
-                // 同步到 ChestInventory
-                chest?.Inventory?.SetDatabase(_database);
             }
             else
             {

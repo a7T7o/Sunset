@@ -107,3 +107,28 @@
   - `git diff --check` 针对本轮相关脚本通过，仅剩 CRLF/LF 换行警告。
 - 当前恢复点：
   - `1.0.3` 的食物/药水真实状态接线现在已从“只精力恢复”推进到“精力 + 生命恢复”；背包第一行与 Toolbar 的热槽同步也已修正，下一步继续回到剩余未闭环项（尤其是箱内实例态保真与用户现场验收）。
+
+## 2026-03-23：恢复 prefab 原始 Toggle 配置口径，并补完背包第一行与 Toolbar 的实时同源同步
+- 用户在现场指出一个关键事实：`InventorySlotUI` / `ToolbarSlotUI` 原本的 prefab 配置是 `Transition = Color Tint`、`Target Graphic = Target`、`Graphic = Selected`，而不是脚本硬改成 `transition=None / targetGraphic=null`。这说明此前为了修 shake 手感而在脚本中强制覆盖 Toggle 配置，本质上是偏离了项目既有配置口径。
+- 本轮已执行的修正：
+  - 撤销脚本侧对 `InventorySlotUI.cs`、`ToolbarSlotUI.cs` 的强制 Toggle 配置覆盖，重新尊重 prefab 中的 `Target / Selected / ToggleGroup` 关系。
+  - `InventorySlotUI.cs` 现已直接订阅 `HotbarSelectionService.OnSelectedChanged`，并新增 `RefreshSelection()`，使背包第一行与 Toolbar 在同一热槽索引上实时同步，不再出现“Toolbar 切换后第一次打开背包未选中、第二次才正确”的延迟现象。
+  - `InventoryPanelUI.cs` 与 `BoxPanelUI.cs` 在刷新背包区域时，现会同步调用 `InventorySlotUI.RefreshSelection()`，确保第一次打开面板就拿到正确热槽状态。
+- 同轮还继续推进了未完成项：`ItemUseConfirmDialog.cs` 已识别到项目内现有 `HealthSystem.cs`，因此食物 / 药水效果已从“仅精力恢复”推进到“精力 + 生命恢复”都走真实状态系统。
+- 当前运行时代码编译状态：`Assembly-CSharp.rsp` Roslyn 独立编译通过。
+- 当前恢复点：
+  - 背包第一行 / Toolbar 同步问题已按“恢复原配置 + 补实时同步”方向修正；
+  - `1.0.3` 剩余未闭合的最大实质缺口已收敛为“箱子主 UI 仍主要走 `ChestInventory` 旧链，箱内实例态保真还未彻底统一到 V2”。
+## 2026-03-23：1.0.3 第二轮收口，补齐箱子实例态与农田预览遮挡
+- 用户在本轮明确追加了一个来自“遮挡检查”线程的交接任务：农田专属预览遮挡联动应由 farm 线程接手，不改单独的遮挡核心协议，而是在 `FarmToolPreview.cs` 内复用 `OcclusionManager.SetPreviewBounds(Bounds?)`。同时，箱子链不再只是“文档里未完成”，而是需要真实补完 `ChestInventoryV2` 运行时保真。
+- 本轮已完成的代码收口：
+  - `ChestInventory.cs` 与 `ChestInventoryV2.cs` 的 `Set/Clear/SwapOrMerge/Remove` 路径统一补发 `OnInventoryChanged`，让箱内实例态修改可以稳定触发 UI 刷新。
+  - `ChestController.cs` 新增 `RuntimeInventory`，并把 `_inventoryV2.OnInventoryChanged` 接到 `SyncV2ToInventory()`；`BoxPanelUI.cs` 改为优先订阅、刷新、排序这个运行时容器，不再只绑定旧 `_inventory`。
+  - `InventorySlotInteraction.cs`、`InventoryInteractionManager.cs`、`SlotDragContext.cs` 进一步补齐 runtime item 保真：同容器交换、箱子/背包互拖、装备回滚、Manager held 放入箱子时，都不再把实例态错误写回成静态 `ItemStack`。
+  - `FarmToolPreview.cs` 新增 hover 预览遮挡通知，只把当前 `ghostTilemap + cursorRenderer` 的 Bounds 推给遮挡系统；`Hide()`、`ClearGhostTilemap()` 与 `OnDestroy()` 都会清理 preview bounds，不把 queue/executing 预览并入遮挡。
+- 本轮验证结果：
+  - `git diff --check` 针对农田白名单通过，仅有 CRLF/LF 提示，无新的空白格式错误。
+  - 基于 `D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\NetCoreRuntime\dotnet.exe + D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\DotNetSdkRoslyn\csc.dll` 的 `Assembly-CSharp.rsp` 独立编译再次通过。
+  - 尚未做 Unity live 场景验收，因此“箱内实例态最终手感”和“锄头/水壶 hover 遮挡视觉”仍待用户在场景里确认。
+- 当前恢复点：
+  - `1.0.3` 的剩余缺口已经从“箱子主 UI 仍走旧链”推进到“代码链已补齐，等待用户在 Unity 现场验收箱内实例态保真与农田预览遮挡表现”。

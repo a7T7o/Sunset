@@ -407,3 +407,51 @@
 ## 2026-03-23 MCP 口径纠偏
 - 本文件中若出现“旧 MCP 端口口径（已失效）”或“旧 MCP 桥口径（已失效）”，均视为历史阶段事实，不再作为当前 live 口径使用。
 - 当前唯一有效 live 基线以 D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md 为准：unityMCP + http://127.0.0.1:8888/mcp。
+## 2026-03-23：继续 1.0.3 收口，补齐箱子实例态保真与农田 hover 预览遮挡
+**用户目标**:
+- 用户明确说明本轮不是新开话题，而是在现有 `1.0.3` 主线下继续收口：先完成箱子实例态链，再把“遮挡检查”线程转交给 farm 的农田预览遮挡联动一并做完。
+
+**当前主线目标**:
+- 继续推进 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\`，把箱子实例态保真与农田 hover 预览遮挡补到可交用户现场验收。
+
+**本轮子任务 / 阻塞**:
+- 子任务 1：清掉 `InventorySlotInteraction` / `InventoryInteractionManager` / `SlotDragContext` 里剩余的 runtime item 回落口。
+- 子任务 2：在 `FarmToolPreview.cs` 内复用 `OcclusionManager.SetPreviewBounds(Bounds?)`，但不碰遮挡核心协议。
+- 当前阻塞不在代码逻辑，而在于最终视觉/交互只能由用户在 Unity 场景里验。
+
+**已完成事项**:
+1. 复核 live 现场仍在 `D:\Unity\Unity_learning\Sunset @ main @ f323f0bc`，并确认 shared root 存在大量 unrelated dirty，因此本轮继续只认农田白名单。
+2. 完成箱子实例态收口：
+   - `ChestInventory.cs`、`ChestInventoryV2.cs` 的 `Set/Clear/SwapOrMerge/Remove` 补齐 `OnInventoryChanged`。
+   - `ChestController.cs` 新增 `RuntimeInventory`，并把 `_inventoryV2.OnInventoryChanged` 接回旧库存同步。
+   - `BoxPanelUI.cs` 优先订阅/刷新/排序运行时容器。
+   - `InventorySlotInteraction.cs`、`InventoryInteractionManager.cs`、`SlotDragContext.cs` 补齐 chest / inventory / equip / manager-held 间的 runtime item 保真写回。
+3. 完成农田 hover 预览遮挡联动：
+   - `FarmToolPreview.cs` 新增 preview bounds 同步逻辑，使用当前 `ghostTilemap + cursorRenderer` 作为 hover preview Bounds。
+   - `Show()` 会刷新遮挡预览，`Hide()` / `ClearGhostTilemap()` / `OnDestroy()` 会清理 preview bounds。
+4. 完成代码门验证：
+   - `git diff --check` 针对白名单通过，仅有 CRLF/LF 提示。
+   - `Assembly-CSharp.rsp` 已通过 `D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\NetCoreRuntime\dotnet.exe + D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\DotNetSdkRoslyn\csc.dll` 独立编译通过。
+
+**关键决策**:
+- 农田遮挡联动不改单独的 `OcclusionManager.cs` / `OcclusionTransparency.cs` 协议，只在 `FarmToolPreview.cs` 内对齐 `PlacementPreview` 的通知方式。
+- queue / executing 预览不并入当前遮挡预览，先严格只认 hover preview，避免农田队列残影错误驱动遮挡。
+- shared root 有 unrelated dirty，但当前主线不再被这些脏改阻断；本轮按白名单收口即可。
+
+**涉及文件或路径**:
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventory.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventoryV2.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Box\BoxPanelUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\tasks.md`
+
+**验证结果**:
+- 已验证：白名单 `git diff --check` 通过；`Assembly-CSharp.rsp` 独立编译通过。
+- 未验证：Unity live 场景中的箱子实例态最终手感、装备回滚表现，以及锄头/水壶 hover 预览遮挡视觉。
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“同步记忆并做白名单 checkpoint，然后交给用户在 Unity 场景验收”这一步。
