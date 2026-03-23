@@ -4,6 +4,14 @@
 - 当前最高目标不是流程完美，而是尽快恢复真实开发、缩短等待、减少治理摩擦。
 - 当前唯一规范快照：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+- 自 2026-03-23 起，以下 7 条补强项视为当前 live 口径的一部分：
+  1. 规则变更必须同轮同步到 `AGENTS.md`、当前规范快照、批次 `README.md`、通用前缀 prompt；少一处都不算真正生效。
+  2. 只要线程碰过 `Scene`、`Prefab`、`Primary.unity` 或其他热 Unity 资源，回执里必须显式说明“我留了什么、保留什么、清掉什么、当前是否已对我这条线 clean”。
+  3. 只要白名单路径包含 `.unity`、`.prefab`、`.asset`，收口前必须把本轮改动分类为“有效内容 / 自动副产物 / 调试残留 / 他线脏改”；自动副产物默认不得混入 checkpoint。
+  4. branch / worktree 只允许作为例外载体存在；一旦例外成果已可迁回 `main`，线程必须先迁最小 checkpoint，再移除旧 carrier blocker，再回到 `main` 语义继续。
+  5. 任何 Unity / MCP live 写或 live 验证，都必须先说清 4 件事：需要什么实例、最多占多久、只做什么、做完退回什么状态。
+  6. 线程回执最小字段固定为：`当前在改什么 / changed_paths / 是否触碰高危目标 / 是否需要 Unity-MCP live 写 / code_self_check / pre_sync_validation / 当前是否可直接提交到 main / 提交 SHA / 当前 git status 是否 clean / blocker_or_checkpoint / 一句话摘要`。
+  7. 默认执行纪律是“一刀一收”；除非同一逻辑尚未闭环、同一 live 窗口内必须连跑、或用户明确要求更大 checkpoint，否则不要顺手叠第二刀。
 - 即日起 Sunset 普通开发的真实基线默认只有一个：`main`。
 - 对普通开发，暂停把 `request-branch`、`grant-branch`、`ensure-branch`、`wake-next`、`return-main` 当成必经前置。
 - 不再为普通开发继续新增 `codex/*` 分支或新增 worktree。
