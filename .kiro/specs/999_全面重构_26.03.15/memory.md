@@ -201,3 +201,13 @@
   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
 - 当前父层判断：
   - 下一步验收不再看 tag，而是直接看新运行态下 `rbVelocity` 尖峰是否消失、玩家是否停止继续把 NPC 顶着走。
+
+### 会话 9 - 2026-03-23（导航检查：MCP live 读取链路分层澄清）
+
+- 子工作区 `导航检查` 本轮新增了一条很关键的现场分层事实：
+  - 当前会话并不是“完全拿不到 MCP”，而是 `unityMCP` 的 scene / gameobject / component 直连链路可用，只有 `resources` 枚举层与 `read_console` 仍表现异常。
+- 父层新增稳定事实：
+  - `Primary` 当前 live 里玩家对象 `285878` 已挂 `PlayerMovement + PlayerAutoNavigator`，并且 `PlayerMovement` 组件上能直接读到本轮新增的 blocked-state 参数，说明新脚本已编进 Editor。
+  - 3 个 live NPC 都真实存在，且当前都已是 `tag = NPC`，并继续保持 `BoxCollider2D.offset.y = 0.46 / Rigidbody2D.mass = 6 / linearDamping = 8 / collisionDetectionMode = 1`。
+- 父层当前判断：
+  - 之后再提“MCP 没内容”时，必须区分到底是资源枚举异常，还是 scene/component 直连也坏了；这两者不能再混成一个结论。

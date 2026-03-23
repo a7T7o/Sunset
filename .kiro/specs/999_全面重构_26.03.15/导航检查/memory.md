@@ -327,3 +327,56 @@
 - [ ] 重新进入 Unity 运行态，用新一轮 `[NavAvoid]` 日志确认 `rbVelocity` 是否已经被压回低速，且近距时不再继续朝 blocker 壳层内推进。
 - [ ] 重点复验两个场景：玩家绕行移动 NPC；NPC/NPC 会车。
 - [ ] 如果新日志仍显示被阻挡态存在异常尖峰，则继续收紧玩家刚体语义，而不是回退到 tag / prefab / MCP 挂载排查。
+
+### 会话 8 - 2026-03-23（unityMCP 直连 live 对象取证）
+
+**用户需求**：
+> 用户追问“那你没做完吗？你没获取到 MCP 内容吗？”，并贴出当前 Unity Console 中持续刷新的 `[NavAvoid]` 截图，要求我明确说明当前到底有没有拿到 MCP 现场。
+
+**当前主线目标**：
+- 不再模糊描述“没拿到 MCP”，而是把当前会话里 MCP 哪些链路通、哪些链路还异常，直接用 live 场景对象取证说清楚。
+
+**本轮完成**：
+1. 直接通过 `unityMCP` 工具读取当前 active scene，确认当前就是 `Assets/000_Scenes/Primary.unity`，且场景处于 `isDirty = true`。
+2. 用 `find_gameobjects` + `read_mcp_resource` 直接读取 live 玩家对象与 3 个 live NPC：
+   - 玩家 instance id：`285878`
+   - NPC instance id：`-356184 / -356316 / -353858`
+3. 确认 live 玩家对象已挂载：
+   - `PlayerMovement`
+   - `PlayerAutoNavigator`
+   - `Rigidbody2D`
+   - `BoxCollider2D`
+4. 确认 live `PlayerMovement` 已经出现本轮新增字段：
+   - `blockedNavigationDamping`
+   - `blockedNavigationMaxSpeedFactor`
+   - `blockedNavigationMinSpeed`
+   - `blockedNavigationSpeedBuffer`
+   - `blockedNavigationForwardClearanceSlack`
+   这说明新脚本已经编进当前 Editor 现场，而不只是仓库里改了文件。
+5. 确认 3 个 live NPC 当前全部是 `tag = NPC`，并且都真实挂有：
+   - `BoxCollider2D`
+   - `Rigidbody2D`
+   - `NPCMotionController`
+   - `NPCAutoRoamController`
+   其 live 物理参数仍是：
+   - `BoxCollider2D.offset.y = 0.46`
+   - `Rigidbody2D.mass = 6`
+   - `Rigidbody2D.linearDamping = 8`
+   - `Rigidbody2D.collisionDetectionMode = 1`
+6. 同时确认当前会话仍存在 MCP 局部异常：
+   - `list_mcp_resources / list_mcp_resource_templates` 仍为空
+   - `read_console` 当前返回 0 条，即使用户截图中 Console 明显还在刷 `[NavAvoid]`
+
+**关键结论**：
+1. 当前不是“完全拿不到 MCP 内容”，而是：
+   - `unityMCP` 的 scene / gameobject / component 直连链路是通的
+   - `resources` 枚举层和 `read_console` 在本会话里仍有局部异常
+2. 这次已经用 live 对象而不是 prefab 猜测证实：
+   - 玩家对象与 3 个 NPC 都真实在场
+   - NPC 组件链和物理参数都在
+   - 本轮新增的玩家阻挡态字段已经编进现场
+3. 因而当前主线不该再回到“有没有拿到 NPC / NPC 有没组件”的方向，而应继续盯运行态行为本身。
+
+**当前恢复点**：
+- 现在可以明确对用户说：我已经拿到 MCP live 内容了，只是当前会话的 `resources` 和 `read_console` 这两条链路还不稳定。
+- 下一步若继续终验，优先继续用当前可用的 `unityMCP` scene / component 直连路径，不再退回截图驱动排查。

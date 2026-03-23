@@ -396,3 +396,23 @@
 - 当前恢复点：
   - 现在主线已经回到“新代码下重新看运行态 `NavAvoid` 日志和实际体感”，不是再回去查 NPC tag。
   - 如果下一轮仍有速度尖峰或继续顶人，应继续加硬玩家阻挡态，不优先回退到 prefab / MCP 挂载方向。
+
+### 会话 19 - 2026-03-23（unityMCP live 内容已直接取到）
+
+- 用户继续追问“你是不是根本没获取到 MCP 内容”，并贴了当前 Unity Console 里仍在刷 `[NavAvoid]` 的截图；这轮仍然服务导航主线，不是换线。
+- 本轮显式使用：`skills-governor`、`sunset-workspace-router`、`sunset-unity-validation-loop`、`unity-mcp-orchestrator`；`sunset-startup-guard` 继续手工等价。
+- 这轮关键纠正结论：
+  - 前一轮“resources 枚举为空”不等于“完全拿不到 MCP 内容”。
+  - 现在已经直接通过 `unityMCP` 读到了 live scene / gameobject / components。
+- 已取到的 live 事实：
+  - 当前 active scene 确实是 `Primary`，且 `isDirty = true`
+  - 玩家对象 instance id `285878`，live 组件里已经能读到本轮新增的 `blockedNavigation*` 参数，说明新脚本已编进 Editor
+  - 3 个 live NPC（`001 / 002 / 003`）都真实存在且都已是 `tag = NPC`
+  - 它们 live 上都挂有 `BoxCollider2D + Rigidbody2D + NPCMotionController + NPCAutoRoamController`
+  - 其 live 物理参数仍是 `offset.y = 0.46 / mass = 6 / linearDamping = 8 / collisionDetectionMode = 1`
+- 当前 MCP 局部异常仍然存在两条：
+  - `list_mcp_resources / list_mcp_resource_templates` 依旧为空
+  - `read_console` 当前仍返回 0 条，和用户截图中正在刷的 `[NavAvoid]` 不一致
+- 当前恢复点：
+  - 现在可以明确说：MCP 内容我已经拿到了，但拿到的是 scene/component 直连内容，不是资源枚举层。
+  - 下一步如果继续终验，要继续沿着当前可用的 live scene/component 读取链路做，不再把“枚举空”误说成“完全没法用 MCP”。
