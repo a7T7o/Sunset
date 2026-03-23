@@ -88,6 +88,7 @@ namespace FarmGame.World
         /// V2 库存（支持 InventoryItem）
         /// </summary>
         private ChestInventoryV2 _inventoryV2;
+        private bool _isSyncingInventoryBridge;
         
         private bool _isPushing = false;
         private bool _isShaking = false;
@@ -141,67 +142,136 @@ namespace FarmGame.World
 
         /// <summary>
         /// 是否为空
-        /// 🔥 P0 修复：只检查 _inventory，因为它是 UI 操作的目标
-        /// _inventoryV2 只用于存档序列化，不参与运行时逻辑判断
+        /// `InventoryV2` 已是 authoritative runtime source，旧库存只保留为兼容镜像。
         /// </summary>
-        public bool IsEmpty => _inventory == null || _inventory.IsEmpty;
+        public bool IsEmpty => _inventoryV2?.IsEmpty ?? _inventory?.IsEmpty ?? true;
 
         #endregion
         
         #region 数据同步
         
         /// <summary>
-        /// 🔥 P0-1 修复：将 _inventory 数据同步到 _inventoryV2
-        /// UI 操作修改的是 _inventory，存档保存的是 _inventoryV2
-        /// 必须在保存前调用此方法同步数据
+        /// 将 legacy `ChestInventory` 的变更桥接到 authoritative `ChestInventoryV2`。
+        /// 旧库存只作为兼容入口保留，bridge 时必须静默写入，避免事件互相反写。
         /// </summary>
         private void SyncInventoryToV2()
         {
             if (_inventory == null || _inventoryV2 == null) return;
-            
+
             var slots = _inventory.GetAllSlots();
-            for (int i = 0; i < slots.Length && i < _inventoryV2.Capacity; i++)
+            List<int> changedSlots = null;
+            for (int i = 0; i < _inventoryV2.Capacity; i++)
             {
-                var stack = slots[i];
+                var stack = i < slots.Length ? slots[i] : ItemStack.Empty;
+                if (LegacyStackMatchesRuntimeItem(stack, _inventoryV2.GetItem(i)))
+                    continue;
+
+                changedSlots ??= new List<int>();
+
                 if (stack.IsEmpty)
                 {
-                    _inventoryV2.ClearItem(i);
+                    _inventoryV2.ClearItemSilently(i);
                 }
                 else
                 {
-                    // 将 ItemStack 转换为 InventoryItem
-                    var item = InventoryItem.FromItemStack(stack);
-                    _inventoryV2.SetItem(i, item);
+                    _inventoryV2.SetItemSilently(i, InventoryItem.FromItemStack(stack));
                 }
+
+                changedSlots.Add(i);
             }
-            
+
+            if (changedSlots == null || changedSlots.Count == 0)
+                return;
+
+            foreach (int index in changedSlots)
+            {
+                _inventoryV2.NotifySlotChanged(index);
+            }
+
+            _inventoryV2.NotifyInventoryChanged();
+
             if (showDebugInfo)
-                Debug.Log($"[ChestController] SyncInventoryToV2: 同步了 {slots.Length} 个槽位");
+                Debug.Log($"[ChestController] SyncInventoryToV2: 已将 legacy mirror 同步到 authoritative V2，变更槽位数={changedSlots.Count}");
         }
         
         /// <summary>
-        /// 🔥 P0-1 修复：将 _inventoryV2 数据同步到 _inventory
-        /// 加载存档后调用此方法，确保 UI 显示正确
+        /// 将 authoritative `ChestInventoryV2` 同步回 legacy `ChestInventory` 兼容镜像。
+        /// 仅用于旧接口读取，不允许再次触发双向事件回写。
         /// </summary>
         private void SyncV2ToInventory()
         {
             if (_inventory == null || _inventoryV2 == null) return;
-            
-            for (int i = 0; i < _inventoryV2.Capacity && i < _inventory.Capacity; i++)
+
+            List<int> changedSlots = null;
+            int syncCount = Mathf.Min(_inventoryV2.Capacity, _inventory.Capacity);
+            for (int i = 0; i < syncCount; i++)
             {
                 var item = _inventoryV2.GetItem(i);
+                var desiredStack = item == null || item.IsEmpty ? ItemStack.Empty : item.ToItemStack();
+                var currentStack = _inventory.GetSlot(i);
+                if (ItemStacksEqual(currentStack, desiredStack))
+                    continue;
+
+                changedSlots ??= new List<int>();
+
                 if (item == null || item.IsEmpty)
                 {
-                    _inventory.ClearSlot(i);
+                    _inventory.ClearSlotSilently(i);
                 }
                 else
                 {
-                    _inventory.SetSlot(i, item.ToItemStack());
+                    _inventory.SetSlotSilently(i, desiredStack);
                 }
+
+                changedSlots.Add(i);
             }
-            
+
+            for (int i = syncCount; i < _inventory.Capacity; i++)
+            {
+                var currentStack = _inventory.GetSlot(i);
+                if (currentStack.IsEmpty)
+                    continue;
+
+                changedSlots ??= new List<int>();
+                _inventory.ClearSlotSilently(i);
+                changedSlots.Add(i);
+            }
+
+            if (changedSlots == null || changedSlots.Count == 0)
+                return;
+
+            foreach (int index in changedSlots)
+            {
+                _inventory.NotifySlotChanged(index);
+            }
+
+            _inventory.NotifyInventoryChanged();
+
             if (showDebugInfo)
-                Debug.Log($"[ChestController] SyncV2ToInventory: 同步了 {_inventoryV2.Capacity} 个槽位");
+                Debug.Log($"[ChestController] SyncV2ToInventory: 已刷新 legacy mirror，变更槽位数={changedSlots.Count}");
+        }
+
+        private bool ItemStacksEqual(ItemStack a, ItemStack b)
+        {
+            if (a.IsEmpty && b.IsEmpty)
+                return true;
+
+            return a.itemId == b.itemId &&
+                   a.quality == b.quality &&
+                   a.amount == b.amount;
+        }
+
+        private bool LegacyStackMatchesRuntimeItem(ItemStack legacyStack, InventoryItem runtimeItem)
+        {
+            if (legacyStack.IsEmpty)
+                return runtimeItem == null || runtimeItem.IsEmpty;
+
+            if (runtimeItem == null || runtimeItem.IsEmpty)
+                return false;
+
+            return runtimeItem.ItemId == legacyStack.itemId &&
+                   runtimeItem.Quality == legacyStack.quality &&
+                   runtimeItem.Amount == legacyStack.amount;
         }
         
         #endregion
@@ -274,11 +344,6 @@ namespace FarmGame.World
                 isLocked = isLocked,
                 customName = storageData?.itemName
             };
-            
-            // 🔥 P0-1 修复：保存前同步 _inventory 到 _inventoryV2
-            // UI 操作修改的是 _inventory，存档保存的是 _inventoryV2
-            // 必须在保存前同步数据
-            SyncInventoryToV2();
             
             // 保存库存数据（优先使用 V2）
             if (_inventoryV2 != null)
@@ -407,11 +472,11 @@ namespace FarmGame.World
                         // 必须清空两个库存系统，避免残留数据
                         for (int i = 0; i < _inventoryV2.Capacity; i++)
                         {
-                            _inventoryV2.ClearSlot(i);
+                            _inventoryV2.ClearItemSilently(i);
                         }
                         for (int i = 0; i < _inventory.Capacity; i++)
                         {
-                            _inventory.ClearSlot(i);
+                            _inventory.ClearSlotSilently(i);
                         }
                         
                         if (showDebugInfo)
@@ -648,7 +713,18 @@ namespace FarmGame.World
         /// </summary>
         private void OnInventoryChangedHandler()
         {
-            SyncInventoryToV2();
+            if (_isSyncingInventoryBridge)
+                return;
+
+            _isSyncingInventoryBridge = true;
+            try
+            {
+                SyncInventoryToV2();
+            }
+            finally
+            {
+                _isSyncingInventoryBridge = false;
+            }
             
             if (showDebugInfo)
                 Debug.Log($"[ChestController] OnInventoryChanged: 已同步到 V2");
@@ -656,10 +732,21 @@ namespace FarmGame.World
 
         private void OnInventoryV2ChangedHandler()
         {
-            SyncV2ToInventory();
+            if (_isSyncingInventoryBridge)
+                return;
+
+            _isSyncingInventoryBridge = true;
+            try
+            {
+                SyncV2ToInventory();
+            }
+            finally
+            {
+                _isSyncingInventoryBridge = false;
+            }
 
             if (showDebugInfo)
-                Debug.Log($"[ChestController] OnInventoryV2Changed: 已同步回旧库存");
+                Debug.Log($"[ChestController] OnInventoryV2Changed: authoritative V2 已刷新 legacy mirror");
         }
 
         public void Initialize(StorageData data, ChestOwnership initialOwnership = ChestOwnership.Player)

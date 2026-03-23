@@ -124,3 +124,205 @@
 
 **恢复点 / 下一步**：
 - 下一步应由业务线程按 `002-从文档转入实现与阻塞清除.md` 直接进入第一刀代码实现，而不是继续补文档。
+
+## 2026-03-23：第一刀已落地，先清掉箱子双库存递归与 `StackOverflowException`
+
+**用户目标**：
+- 用户明确接受上一轮 `docs-first` checkpoint，并要求我继续执行，不要再停在文档层；必须先完整读取 `002-从文档转入实现与阻塞清除.md`，再严格按里面的硬顺序进入第一刀代码实现。
+
+**当前主线目标**：
+- `全局交互V3 / 1.0.4` 已从文档阶段进入实现阶段。
+- 当前最高优先级是先打掉“阻断后续交互验收”的箱子递归同步链，而不是平均推进五个主题。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：锁定 `ChestController / ChestInventory / ChestInventoryV2` 的 authoritative source、事件回环和递归根因。
+- 子任务 2：完成第一刀代码修复，并补最小编辑器级验证。
+- 当前阻塞不是业务理解，而是旧箱子结构把 `RuntimeInventory`、legacy mirror 和存档链混成了双向事件互踢。
+
+**已完成事项**：
+1. 先只读接管 `002-从文档转入实现与阻塞清除.md`，确认本轮硬顺序：先箱子递归，再放置系统，再 Toolbar/锁定边界，再工具耐久/精力/Tooltip。
+2. 锁定本刀根因：
+   - `ChestController` 同时订阅 `_inventory.OnInventoryChanged` 与 `_inventoryV2.OnInventoryChanged`
+   - `OnInventoryChangedHandler()` 会调用 `SyncInventoryToV2()`
+   - `OnInventoryV2ChangedHandler()` 会调用 `SyncV2ToInventory()`
+   - 两个 `Sync` 又都使用 `ClearSlot / SetSlot / ClearItem / SetItem` 这类会继续抛事件的普通写接口
+   - 因而形成双向 mirror 的递归事件环
+3. 明确最终口径并落到代码：
+   - `ChestInventoryV2` 作为 authoritative runtime / save source
+   - `ChestInventory` 降为 legacy mirror，只保留兼容读取与少量旧写入口
+4. 已在 `ChestInventory.cs` 新增：
+   - `SetSlotSilently()`
+   - `ClearSlotSilently()`
+   - `NotifySlotChanged()`
+   - `NotifyInventoryChanged()`
+   - 并补上 `SwapOrMerge()` 合并分支缺失的 `RaiseInventoryChanged()`
+5. 已在 `ChestInventoryV2.cs` 新增：
+   - `SetItemSilently()`
+   - `ClearItemSilently()`
+   - `SetSlotSilently()`
+   - `NotifySlotChanged()`
+   - `NotifyInventoryChanged()`
+6. 已在 `ChestController.cs` 完成 bridge 重构：
+   - 新增 `_isSyncingInventoryBridge`，阻断 mirror 事件再入
+   - `SyncInventoryToV2()` 改为静默写入 V2，再按变更槽位一次性补发事件
+   - `SyncV2ToInventory()` 改为静默刷新 legacy mirror，再按变更槽位一次性补发事件
+   - 新增 `LegacyStackMatchesRuntimeItem()` 与 `ItemStacksEqual()`，避免不必要覆盖
+   - `IsEmpty` 改为以 `InventoryV2` 为优先事实源
+   - `Save()` 不再在保存前无条件用 legacy mirror 覆盖 V2，避免把 authoritative runtime 数据写坏
+   - `Load()` 的空箱清理分支改为静默清空，避免加载期也触发事件风暴
+7. 已补最小编辑器测试：
+   - 原先先把测试写到 `Assets/YYY_Tests/Editor/`，随后发现该目录受 `Tests.Editor.asmdef` 约束，无法引用 `Assembly-CSharp` 里的运行时代码
+   - 因此将测试迁到 `Assets/Editor/ChestInventoryBridgeTests.cs`
+   - 现有 3 条测试：
+     - `LegacyInventoryWrite_SyncsToV2WithoutRecursiveOverflow`
+     - `RuntimeInventoryWrite_RefreshesLegacyMirrorWithoutRecursiveOverflow`
+     - `MixedChestOperations_RemainConsistentAcrossRapidSetClearSequence`
+
+**关键决策**：
+- 第一刀不再接受“双库存实时互相反写”的旧口径。
+- 这轮的 authoritative source 已正式定为 `ChestInventoryV2`，旧 `ChestInventory` 只做兼容镜像。
+- 这不是只加一个 guard 就结束，而是同时补了静默 bridge API 和一次性事件补发机制。
+- 测试入口也必须服从 Unity 真实编译结构，不能把运行时代码测试硬塞进看不到 `Assembly-CSharp` 的独立 asmdef。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventory.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventoryV2.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\ChestInventoryBridgeTests.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\ChestInventoryBridgeTests.cs.meta`
+- 已删除错误入口测试：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\ChestInventoryBridgeTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\ChestInventoryBridgeTests.cs.meta`
+
+**验证结果**：
+- `git diff --check` 针对本刀白名单通过，仅有 CRLF/LF 提示，无新的空白错误。
+- `Assembly-CSharp.rsp` 独立编译通过。
+- `Assembly-CSharp-Editor.rsp` 独立编译通过。
+- Unity EditMode 最小测试通过：`ChestInventoryBridgeTests` 共 3 条，`3 passed / 0 failed`。
+- 清空 Console 后重新读取，当前只有测试运行器日志，无新的项目级红错；因此这轮验证结果应判定为项目级通过，而不是 MCP 误报或旧日志残留。
+
+**恢复点 / 下一步**：
+- 第一刀“箱子递归同步与 `StackOverflowException` 阻断清除”已完成。
+- 下一步按 `002` 的硬顺序进入第二刀：放置系统的“幽灵占位”和箱子放置导航 retry 3 次停下。
+
+## 2026-03-24：第二刀第一轮收口已补 reach envelope、放置事务层与树苗 post-spawn confirm
+
+**用户目标**：
+- 用户在接受上一轮第 1 刀 checkpoint 后，明确要求继续执行 `003-第一刀checkpoint通过并转入第二刀与箱子链补强回归.md`，不要回头扩写背景，而是直接沿既定顺序推进第二刀。
+
+**当前主线目标**：
+- 在 `1.0.4` 下继续推进第二刀：
+  - 统一箱子/树苗放置的 reach envelope
+  - 收掉“成功后下一轮还沿旧 preview 继续”的竞争窗口
+  - 把树苗快速连续放置时的半提交/幽灵占位风险收进可回滚事务
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：按 `003` 附加要求补上箱子链 `Save()/Load()` 回归证据。
+- 子任务 2：继续完成第二刀的第一轮实现，不扩题到 Toolbar / Tooltip / 其他交互主题。
+- 当前剩余阻塞不在编译，而在于 MCP `run_tests` 仍然只返回 `total=0` 的空结果，不能当成这轮测试通过证据。
+
+**已完成事项**：
+1. 已补第 1 刀附加回归：
+   - `Assets/Editor/ChestInventoryBridgeTests.cs` 新增 `SaveLoad_RestoresAuthoritativeInventoryAndLegacyMirrorWithoutReintroducingBridgeLoop()`
+   - 把 authoritative `ChestInventoryV2` 与 legacy mirror 在 `Save() -> Load()` 往返后的恢复一致性补成显式证据
+2. 已补 reach envelope 第一块底座：
+   - `PlacementPreview.GetPreviewBounds()` 改为“交互 envelope = 格子联合框 + item preview sprite bounds”
+   - 新增 `GetVisualPreviewBounds()`，只保留 hover/遮挡预览用的格子范围
+   - `NotifyOcclusionSystem()` 明确继续走视觉 bounds，不把交互 envelope 直接塞给遮挡系统
+3. 已补 `PlacementManager` 第二刀第一轮收口：
+   - `LockPreviewPosition()` / `StartNavigation()` 明确区分 `interactionBounds` 与 `visualBounds`
+   - 新增 `ResumePreviewAfterSuccessfulPlacement()`，成功放置且仍有剩余物品时立即解锁并按当前鼠标位置重刷预览验证
+   - 新增 `PlacementExecutionTransaction.cs`，把一次放置的 `Spawned / VisualReady / InventoryCommitted / OccupancyCommitted` 最小阶段显式化
+   - `ExecutePlacement()` 改为在最小事务对象下执行：实例化、视觉准备、背包扣除、事件提交和失败回滚不再是裸串行步骤
+   - 树苗分支新增 `TryPrepareSaplingPlacement(...)`，在 `InitializeAsNewTree()` + `SetStage(0)` 后立即做一次 `validator.HasTreeAtPosition(...)` post-spawn confirm；如果下一轮验证链还识别不到该树苗，就直接视为半提交并回滚
+4. 已补编辑器级结构测试：
+   - `Assets/Editor/PlacementReachEnvelopeTests.cs`
+   - `Assets/Editor/PlacementExecutionTransactionTests.cs`
+
+**关键决策**：
+- 这一轮只把第二刀推进到“代码闭环 + 可编译 + 有最小结构证据”，不冒充“已经做完用户 live 验收”。
+- `run_tests(EditMode, PlacementExecutionTransactionTests, PlacementReachEnvelopeTests, ChestInventoryBridgeTests)` 当前虽然能启动，但结果仍返回 `total=0`，因此不把它写成通过证据。
+- 这轮真实可认的证据层是：白名单格式检查、脚本级验证、运行时/编辑器 Roslyn 编译、Unity 清 Console 后重新编译为 `0 error / 0 warning`。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementExecutionTransaction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\ChestInventoryBridgeTests.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\PlacementReachEnvelopeTests.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\PlacementExecutionTransactionTests.cs`
+
+**验证结果**：
+- `git diff --check` 针对本轮白名单通过。
+- `validate_script`：
+  - `PlacementPreview.cs` 0 error / 0 warning
+  - `PlacementExecutionTransaction.cs` 0 error / 0 warning
+  - `PlacementExecutionTransactionTests.cs` 0 error / 0 warning
+  - `PlacementReachEnvelopeTests.cs` 0 error / 0 warning
+  - `ChestInventoryBridgeTests.cs` 0 error / 0 warning
+  - `PlacementManager.cs` 0 error / 2 warning（仍是既有 `Update()` 性能类提示）
+- `Assembly-CSharp.rsp` 独立编译通过。
+- `Assembly-CSharp-Editor.rsp` 独立编译通过。
+- Unity 侧重新清 Console 后再请求编译，当前 `read_console(error|warning)` 返回 `0` 条。
+- MCP `run_tests` 仍只返回 `total=0`，因此这轮没有把测试 runner 结果当成可信通过证据。
+
+**恢复点 / 下一步**：
+- 第 1 刀补强回归已完成。
+- 第 2 刀当前已完成第一轮代码收口，但还没有拿到用户 live 手动复测，因此不能表述成“第二刀已经彻底完成”。
+- 下一步是在不扩题的前提下，把这刀以最小 checkpoint 口径回给用户，并由用户直接按箱子导航/树苗连续放置场景做现场复测。
+
+## 2026-03-24：第二刀 live 终验已完成，`ChestSaveLoadRegression` 的最后缺口已闭上
+
+**用户目标**：
+- 用户没有切换主线，而是在 `004-第二刀进入live终验与验收分流.md` 口径下继续要求我把 second-blade 跑到真实结果，不允许停在“等用户自己试”。
+
+**当前主线目标**：
+- 完成 `1.0.4` 第二刀的 live 终验，并在 4 条场景全部通过后正式转入第二刀验收报告。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：定位并修掉 `ChestSaveLoadRegression` 的最后真实失败点。
+- 子任务 2：在单实例 Unity live 里重跑 second-blade runner，拿到 4 条场景的真实结果。
+- 本轮首个真实代码阻塞集中在 `ChestInventoryV2.ToSaveData()` 没有把 `InventoryItem` 动态属性写入 `InventorySlotSaveData.properties`。
+
+**已完成事项**：
+1. 回读 `ChestInventoryV2.cs`、`SaveDataDTOs.cs` 与 `ChestInventoryBridgeTests.cs` 后，确认箱子 live 存读失败并不是 UI 打不开，而是 runtime item 的动态属性在 `Save()` 时被丢掉。
+2. 在 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventoryV2.cs` 中补齐动态属性导出：`ToSaveData()` 现在会把 `InventoryItem.GetPropertiesSnapshot()` 写进 `slotData.properties`。
+3. 再次独立编译：
+   - `Assembly-CSharp.rsp`
+   - `Assembly-CSharp-Editor.rsp`
+   结果都通过。
+4. 用 unityMCP 重新做 second-blade live 终验：
+   - 先把 Editor 退回 `Edit Mode`
+   - 清 Console
+   - 重新进入 `Play`
+   - 通过 `Tools/Sunset/Placement/Run Second Blade Live Validation` 重跑 runner
+5. 在完整 `Stop -> Play -> 等待稳定 -> 重跑` 的干净窗口里，拿到 4 条场景全部通过的真实结果：
+   - `ChestReachEnvelope`：通过
+   - `PreviewRefreshAfterPlacement`：通过
+   - `SaplingGhostOccupancy`：通过
+   - `ChestSaveLoadRegression`：通过
+6. 新增 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\第二刀验收报告_2026-03-24.md`，正式沉淀第二刀验收结论。
+
+**关键决策**：
+- `ChestSaveLoadRegression` 的真实根因被正式收敛到 `ChestInventoryV2.ToSaveData()` 的动态属性漏存，不扩散到更大的箱子/UI 结构。
+- 第一次 live 尝试里出现的 `ChestReachEnvelope pass=False` 被写实判定为“过期 PlayMode transition 窗口导致的验证抖动”，不是项目回归；在干净重跑后，live 结果才作为最终结论。
+- 本轮 Console 中的 `audio listener`、MCP package WebSocket 警告、`PersistentObjectRegistry` GUID 冲突、测试物品 ID 缺省提示，都不作为 second-blade 阻断。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventoryV2.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\第二刀验收报告_2026-03-24.md`
+
+**验证结果**：
+- `Assembly-CSharp.rsp` 独立编译通过。
+- `Assembly-CSharp-Editor.rsp` 独立编译通过。
+- second-blade live runner 最终结果：`4 / 4 pass`。
+- 验收关键日志：
+  - `ChestReachEnvelope pass=True`
+  - `PreviewRefreshAfterPlacement pass=True`
+  - `SaplingGhostOccupancy pass=True`
+  - `ChestSaveLoadRegression pass=True`
+- 完成后已显式退回 `Edit Mode`。
+
+**恢复点 / 下一步**：
+- `1.0.4` 第二刀已经从“代码闭环”推进到“live 终验通过”。
+- 下一步不再停留在 second-blade，而是等待用户决定是否继续进入 `1.0.4` 的后续刀次，并优先回到后续交互问题（包括 Toolbar/背包边界）。

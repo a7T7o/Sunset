@@ -118,6 +118,51 @@ public class ChestInventoryV2 : IItemContainer
     }
 
     /// <summary>
+    /// 静默设置 InventoryItem，用于 authoritative source 和 legacy mirror 之间的桥接。
+    /// </summary>
+    public bool SetItemSilently(int index, InventoryItem item)
+    {
+        if (!InRange(index)) return false;
+        _items[index] = item;
+        return true;
+    }
+
+    /// <summary>
+    /// 静默清空槽位，用于 bridge mirror，避免递归事件风暴。
+    /// </summary>
+    public void ClearItemSilently(int index)
+    {
+        if (!InRange(index)) return;
+        _items[index] = null;
+    }
+
+    /// <summary>
+    /// 静默设置 ItemStack 兼容值，仅用于 bridge mirror。
+    /// </summary>
+    public bool SetSlotSilently(int index, ItemStack stack)
+    {
+        if (!InRange(index)) return false;
+        _items[index] = stack.IsEmpty ? null : InventoryItem.FromItemStack(stack);
+        return true;
+    }
+
+    /// <summary>
+    /// 手动补发单槽事件，供批量静默同步后一次性刷新使用。
+    /// </summary>
+    public void NotifySlotChanged(int index)
+    {
+        RaiseSlotChanged(index);
+    }
+
+    /// <summary>
+    /// 手动补发整体变化事件，供批量静默同步后一次性刷新使用。
+    /// </summary>
+    public void NotifyInventoryChanged()
+    {
+        RaiseInventoryChanged();
+    }
+
+    /// <summary>
     /// 添加 InventoryItem 到库存
     /// </summary>
     public bool AddItem(InventoryItem item)
@@ -354,10 +399,15 @@ public class ChestInventoryV2 : IItemContainer
                 currentDurability = item.CurrentDurability,
                 maxDurability = item.MaxDurability
             };
-            
-            // 导出动态属性
-            // 注意：需要访问 InventoryItem 的内部属性
-            // 这里简化处理，实际可能需要扩展 InventoryItem
+
+            var properties = item.GetPropertiesSnapshot();
+            if (properties.Count > 0)
+            {
+                foreach (KeyValuePair<string, string> entry in properties)
+                {
+                    slotData.properties.Add(new PropertyEntrySaveData(entry.Key, entry.Value));
+                }
+            }
             
             result.Add(slotData);
         }

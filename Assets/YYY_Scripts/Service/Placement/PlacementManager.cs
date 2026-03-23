@@ -559,6 +559,34 @@ public class PlacementManager : MonoBehaviour
         }
     }
 
+    private PlacementExecutionTransaction BeginPlacementTransaction(Vector3 lockedPosition)
+    {
+        int slotIndex = currentSnapshot.isValid ? currentSnapshot.slotIndex : -1;
+        return new PlacementExecutionTransaction(currentPlacementItem, currentItemQuality, lockedPosition, slotIndex, LogPlacementTransaction);
+    }
+
+    private void LogPlacementTransaction(string message)
+    {
+        if (showDebugInfo)
+        {
+            Debug.Log($"<color=#9aa6b2>[PlacementManagerV3] {message}</color>");
+        }
+    }
+
+    private void RollbackPlacementTransaction(PlacementExecutionTransaction transaction, string reason, bool restoreInventory, Action rollbackOccupancy = null)
+    {
+        Action restoreInventoryAction = null;
+        if (restoreInventory && transaction != null)
+        {
+            restoreInventoryAction = () => ReturnItemToInventory(transaction.ItemId, transaction.Quality);
+        }
+
+        transaction?.Rollback(reason, restoreInventoryAction, rollbackOccupancy);
+        PlaySound(placeFailSound);
+        isExecutingPlacement = false;
+        HandleInterrupt();
+    }
+
     #endregion
     
     #region 状态机
@@ -810,10 +838,11 @@ public class PlacementManager : MonoBehaviour
         // 检查是否已经在目标附近
         Bounds playerBounds = GetPlayerBounds();
         Bounds previewBounds = placementPreview.GetPreviewBounds();
+        Bounds visualBounds = placementPreview.GetVisualPreviewBounds();
         
         if (showDebugInfo)
         {
-            Debug.Log($"<color=cyan>[PlacementManagerV3] LockPreviewPosition: playerBounds={playerBounds}, previewBounds={previewBounds}</color>");
+            Debug.Log($"<color=cyan>[PlacementManagerV3] LockPreviewPosition: playerBounds={playerBounds}, interactionBounds={previewBounds}, visualBounds={visualBounds}</color>");
         }
         
         if (navigator.IsAlreadyNearTarget(playerBounds, previewBounds))
@@ -840,6 +869,7 @@ public class PlacementManager : MonoBehaviour
         
         Bounds playerBounds = GetPlayerBounds();
         Bounds previewBounds = placementPreview.GetPreviewBounds();
+        Bounds visualBounds = placementPreview.GetVisualPreviewBounds();
         
         // 计算导航目标点
         Vector3 targetPos = navigator.CalculateNavigationTarget(playerBounds, previewBounds);
@@ -849,7 +879,7 @@ public class PlacementManager : MonoBehaviour
         ChangeState(PlacementState.Navigating);
         
         if (showDebugInfo)
-            Debug.Log($"<color=cyan>[PlacementManagerV3] 开始导航到: {targetPos}</color>");
+            Debug.Log($"<color=cyan>[PlacementManagerV3] 开始导航到: {targetPos}, interactionBounds={previewBounds}, visualBounds={visualBounds}</color>");
     }
     
     /// <summary>
@@ -892,18 +922,18 @@ public class PlacementManager : MonoBehaviour
         if (showDebugInfo)
             Debug.Log($"<color=cyan>[PlacementManagerV3] ExecutePlacement 开始, item={currentPlacementItem.itemName}</color>");
         
+        Vector3 position = placementPreview.LockedPosition;
+        PlacementExecutionTransaction transaction = BeginPlacementTransaction(position);
+
         // ★ 验证快照有效性
         if (!ValidateSnapshot())
         {
             if (showDebugInfo)
                 Debug.Log($"<color=red>[PlacementManagerV3] 快照验证失败，取消放置</color>");
-            isExecutingPlacement = false;
-            HandleInterrupt();
+            RollbackPlacementTransaction(transaction, "快照验证失败", false);
             return;
         }
-        
-        Vector3 position = placementPreview.LockedPosition;
-        
+
         // 🔴 补丁005 B.4.2：种子专用分支路由（不走通用放置流程）
         if (currentPlacementItem is SeedData seedData)
         {
@@ -916,9 +946,7 @@ public class PlacementManager : MonoBehaviour
         {
             if (!placeableItem.CanPlaceAt(position))
             {
-                PlaySound(placeFailSound);
-                isExecutingPlacement = false;
-                HandleInterrupt();
+                RollbackPlacementTransaction(transaction, "自定义放置验证失败", false);
                 return;
             }
         }
@@ -938,23 +966,31 @@ public class PlacementManager : MonoBehaviour
         GameObject placedObject = InstantiatePlacementPrefab(position);
         if (placedObject == null)
         {
-            PlaySound(placeFailSound);
-            isExecutingPlacement = false;
-            HandleInterrupt();
+            RollbackPlacementTransaction(transaction, "实例化放置预制体失败", false);
             return;
         }
+        transaction.MarkSpawned(placedObject);
         
         if (showDebugInfo)
             Debug.Log($"<color=cyan>[PlacementManagerV3] 预制体实例化成功: {placedObject.name}</color>");
         
-        // 获取目标 Layer
-        int targetLayer = PlacementLayerDetector.GetLayerAtPosition(position);
-        
-        // 同步 Layer
-        SyncLayerToPlacedObject(placedObject, targetLayer);
-        
-        // 设置排序 Order
-        SetSortingOrder(placedObject, position);
+        try
+        {
+            // 获取目标 Layer
+            int targetLayer = PlacementLayerDetector.GetLayerAtPosition(position);
+
+            // 同步 Layer
+            SyncLayerToPlacedObject(placedObject, targetLayer);
+
+            // 设置排序 Order
+            SetSortingOrder(placedObject, position);
+            transaction.MarkVisualReady();
+        }
+        catch (Exception ex)
+        {
+            RollbackPlacementTransaction(transaction, $"放置物视觉准备失败: {ex.Message}", false);
+            return;
+        }
         
         // ★ 扣除背包物品（使用快照数据）
         // 注意：这一步可能触发 HotbarSelectionService.OnSlotChanged，进而调用 ExitPlacementMode
@@ -964,45 +1000,56 @@ public class PlacementManager : MonoBehaviour
         
         if (!DeductItemFromInventory())
         {
-            // 扣除失败，销毁已实例化的物品
-            Destroy(placedObject);
-            PlaySound(placeFailSound);
             if (showDebugInfo)
                 Debug.Log($"<color=red>[PlacementManagerV3] 背包扣除失败，取消放置</color>");
-            isExecutingPlacement = false;
-            HandleInterrupt();
+            RollbackPlacementTransaction(transaction, "背包扣除失败", false);
             return;
         }
+        transaction.MarkInventoryCommitted();
         
         if (showDebugInfo)
             Debug.Log($"<color=green>[PlacementManagerV3] 背包扣除成功</color>");
-        
-        // ★ 使用保存的数据创建事件数据（不再依赖 currentPlacementItem）
-        var eventData = new PlacementEventData(
-            position,
-            savedItemData,  // 使用保存的数据
-            placedObject,
-            savedPlacementType  // 使用保存的数据
-        );
-        
-        // ★ 使用保存的数据添加到历史
-        AddToHistoryWithSavedData(eventData, savedItemId, savedQuality);
-        
+
+        SaplingPlantedEventData? saplingEventData = null;
+        if (savedPlacementType == PlacementType.Sapling &&
+            !TryPrepareSaplingPlacement(position, placedObject, savedItemData, out saplingEventData))
+        {
+            RollbackPlacementTransaction(transaction, "树苗落地确认失败", true);
+            return;
+        }
+
+        try
+        {
+            // ★ 使用保存的数据创建事件数据（不再依赖 currentPlacementItem）
+            var eventData = new PlacementEventData(
+                position,
+                savedItemData,
+                placedObject,
+                savedPlacementType
+            );
+
+            OnItemPlaced?.Invoke(eventData);
+
+            if (saplingEventData.HasValue)
+            {
+                OnSaplingPlanted?.Invoke(saplingEventData.Value);
+            }
+
+            transaction.MarkOccupancyCommitted();
+            AddToHistoryWithSavedData(eventData, savedItemId, savedQuality);
+        }
+        catch (Exception ex)
+        {
+            RollbackPlacementTransaction(transaction, $"放置提交异常: {ex.Message}", true);
+            return;
+        }
+
         // 播放音效和特效
         PlaySound(placeSuccessSound);
         PlayPlaceEffect(position);
         
-        // 广播事件
-        OnItemPlaced?.Invoke(eventData);
-        
-        // ★ 树苗特殊处理（使用保存的数据）
-        if (savedPlacementType == PlacementType.Sapling)
-        {
-            HandleSaplingPlacementWithSavedData(position, placedObject, savedItemData);
-        }
-        
         if (showDebugInfo)
-            Debug.Log($"<color=green>[PlacementManagerV3] 放置成功: {savedItemName}</color>");
+            Debug.Log($"<color=green>[PlacementManagerV3] 放置成功: {savedItemName}, tx#{transaction.TransactionId}</color>");
         
         // ★ 检查是否还有物品（使用快照数据）
         bool hasMore = HasMoreItems();
@@ -1024,13 +1071,8 @@ public class PlacementManager : MonoBehaviour
             // 还有物品，回到 Preview 状态
             if (showDebugInfo)
                 Debug.Log($"<color=cyan>[PlacementManagerV3] 还有物品，回到 Preview 状态</color>");
-            
-            currentSnapshot = PlacementSnapshot.Invalid; // 清除旧快照
-            if (placementPreview != null)
-            {
-                placementPreview.UnlockPosition();
-            }
-            ChangeState(PlacementState.Preview);
+
+            ResumePreviewAfterSuccessfulPlacement();
         }
     }
     
@@ -1220,13 +1262,38 @@ public class PlacementManager : MonoBehaviour
         else
         {
             // 还有种子，回到 Preview 状态
-            currentSnapshot = PlacementSnapshot.Invalid;
-            if (placementPreview != null)
-            {
-                placementPreview.UnlockPosition();
-            }
-            ChangeState(PlacementState.Preview);
+            ResumePreviewAfterSuccessfulPlacement();
         }
+    }
+
+    private void ResumePreviewAfterSuccessfulPlacement()
+    {
+        currentSnapshot = PlacementSnapshot.Invalid;
+
+        if (placementPreview != null)
+        {
+            placementPreview.UnlockPosition();
+        }
+
+        ChangeState(PlacementState.Preview);
+
+        if (placementPreview == null)
+        {
+            return;
+        }
+
+        if (mainCamera == null)
+        {
+            mainCamera = Camera.main;
+        }
+
+        if (mainCamera != null)
+        {
+            RefreshPlacementValidationAt(GetMouseWorldPosition(), true);
+            return;
+        }
+
+        RefreshPlacementValidationAt(placementPreview.GetPreviewPosition(), false);
     }
     
     /// <summary>
@@ -1251,27 +1318,41 @@ public class PlacementManager : MonoBehaviour
     /// <summary>
     /// 使用保存的数据处理树苗放置（避免依赖可能被清空的 currentPlacementItem）
     /// </summary>
-    private void HandleSaplingPlacementWithSavedData(Vector3 position, GameObject treeObject, ItemData savedItemData)
+    private bool TryPrepareSaplingPlacement(Vector3 position, GameObject treeObject, ItemData savedItemData, out SaplingPlantedEventData? saplingEvent)
     {
+        saplingEvent = null;
+
         var saplingData = savedItemData as SaplingData;
-        if (saplingData == null) return;
+        if (saplingData == null)
+        {
+            return true;
+        }
         
         var treeController = treeObject.GetComponentInChildren<TreeController>();
-        if (treeController != null)
+        if (treeController == null)
         {
-            // 🔥 锐评022：显式初始化新树木，生成 GUID 并注册
-            treeController.InitializeAsNewTree();
-            
-            treeController.SetStage(0);
-            
-            var saplingEvent = new SaplingPlantedEventData(
-                position,
-                saplingData,
-                treeObject,
-                treeController
-            );
-            OnSaplingPlanted?.Invoke(saplingEvent);
+            LogPlacementTransaction("树苗落地确认失败：缺少 TreeController");
+            return false;
         }
+
+        // 🔥 锐评022：显式初始化新树木，生成 GUID 并注册
+        treeController.InitializeAsNewTree();
+        treeController.SetStage(0);
+
+        // 第二刀补强：树苗成功必须马上进入下一轮可识别占位，否则视为半提交。
+        if (!validator.HasTreeAtPosition(position, 0.5f))
+        {
+            LogPlacementTransaction($"树苗落地确认失败：下一轮验证链尚未识别位置 {position}");
+            return false;
+        }
+
+        saplingEvent = new SaplingPlantedEventData(
+            position,
+            saplingData,
+            treeObject,
+            treeController
+        );
+        return true;
     }
     
     /// <summary>

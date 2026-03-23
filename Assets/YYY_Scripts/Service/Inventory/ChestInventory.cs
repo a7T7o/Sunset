@@ -148,6 +148,41 @@ public class ChestInventory : IItemContainer
     }
 
     /// <summary>
+    /// 静默设置槽位，用于 bridge mirror，避免递归事件风暴。
+    /// </summary>
+    public bool SetSlotSilently(int index, ItemStack stack)
+    {
+        if (!InRange(index)) return false;
+        _slots[index] = stack;
+        return true;
+    }
+
+    /// <summary>
+    /// 静默清空槽位，用于 bridge mirror，避免递归事件风暴。
+    /// </summary>
+    public void ClearSlotSilently(int index)
+    {
+        if (!InRange(index)) return;
+        _slots[index] = ItemStack.Empty;
+    }
+
+    /// <summary>
+    /// 手动补发单槽事件，供批量静默同步后一次性刷新使用。
+    /// </summary>
+    public void NotifySlotChanged(int index)
+    {
+        RaiseSlotChanged(index);
+    }
+
+    /// <summary>
+    /// 手动补发整体变化事件，供批量静默同步后一次性刷新使用。
+    /// </summary>
+    public void NotifyInventoryChanged()
+    {
+        RaiseInventoryChanged();
+    }
+
+    /// <summary>
     /// 交换或合并两个槽位
     /// </summary>
     public bool SwapOrMerge(int a, int b)
@@ -173,6 +208,7 @@ public class ChestInventory : IItemContainer
                 _slots[b] = slotB;
                 RaiseSlotChanged(a);
                 RaiseSlotChanged(b);
+                RaiseInventoryChanged();
                 return true;
             }
         }

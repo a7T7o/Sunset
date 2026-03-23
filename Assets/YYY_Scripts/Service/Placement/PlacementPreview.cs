@@ -371,10 +371,30 @@ public class PlacementPreview : MonoBehaviour
     #region 公共方法 - Bounds 获取
     
     /// <summary>
-    /// 获取预览格子的 Bounds
-    /// 用于导航目标点计算和到达检测
+    /// 获取用于导航 / 到达 / 执行前重验的统一交互 Bounds。
+    /// 这里不能只看格子联合框，否则多格物体和底部对齐预览会比真实可交互包络更小。
     /// </summary>
     public Bounds GetPreviewBounds()
+    {
+        Bounds interactionBounds = GetGridPreviewBounds();
+
+        if (itemPreviewRenderer != null && itemPreviewRenderer.sprite != null)
+        {
+            interactionBounds.Encapsulate(itemPreviewRenderer.bounds);
+        }
+
+        return interactionBounds;
+    }
+
+    /// <summary>
+    /// 获取仅用于格子可视化与遮挡预览的联合格子 Bounds。
+    /// </summary>
+    public Bounds GetVisualPreviewBounds()
+    {
+        return GetGridPreviewBounds();
+    }
+
+    private Bounds GetGridPreviewBounds()
     {
         if (gridCells.Count == 0)
         {
@@ -523,8 +543,8 @@ public class PlacementPreview : MonoBehaviour
         if (OcclusionManager.Instance == null) return;
         if (!gameObject.activeSelf) return;
         
-        // 计算预览的 Bounds（使用所有格子的联合 Bounds）
-        Bounds previewBounds = GetPreviewBounds();
+        // 遮挡系统仍以可视预览为准，避免把交互包络误当成 hover 可见范围。
+        Bounds previewBounds = GetVisualPreviewBounds();
         
         // 如果有物品预览 Sprite，扩展 Bounds 以包含 Sprite
         if (itemPreviewRenderer != null && itemPreviewRenderer.sprite != null)
