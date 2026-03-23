@@ -14,6 +14,9 @@ public class PlayerMovement : MonoBehaviour
     public float RunSpeed = 4f;
     public float WalkSpeed = 2f;
 
+    [Header("剧情运行时修正")]
+    [SerializeField, Range(0.1f, 2f)] private float runtimeSpeedMultiplier = 1f;
+
     [Header("导航阻挡修正")]
     [SerializeField, Min(0f)] private float blockedNavigationDamping = 12f;
     [SerializeField, Range(0.05f, 0.6f)] private float blockedNavigationMaxSpeedFactor = 0.25f;
@@ -78,7 +81,7 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
-        float currentSpeed = isShiftHeld ? RunSpeed : WalkSpeed;
+        float currentSpeed = (isShiftHeld ? RunSpeed : WalkSpeed) * runtimeSpeedMultiplier;
         Vector2 desiredVelocity = Vector2.ClampMagnitude(movementInput, 1f) * currentSpeed;
 
         if (hasBlockedNavigationConstraint)
@@ -262,6 +265,21 @@ public class PlayerMovement : MonoBehaviour
         {
             rb.linearVelocity = Vector2.zero;
         }
+    }
+
+    public void SetRuntimeSpeedMultiplier(float multiplier)
+    {
+        runtimeSpeedMultiplier = Mathf.Clamp(multiplier, 0.1f, 2f);
+    }
+
+    public void ResetRuntimeSpeedMultiplier()
+    {
+        runtimeSpeedMultiplier = 1f;
+    }
+
+    public float GetRuntimeSpeedMultiplier()
+    {
+        return runtimeSpeedMultiplier;
     }
 
     private void ApplyBlockedNavigationVelocity(Vector2 desiredVelocity, float currentSpeed)

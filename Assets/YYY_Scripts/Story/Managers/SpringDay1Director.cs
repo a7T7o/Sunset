@@ -16,12 +16,14 @@ namespace Sunset.Story
     public class SpringDay1Director : MonoBehaviour
     {
         private const string PrimarySceneName = "Primary";
+        private const string StoryTimePauseSource = "SpringDay1Director";
         private const string FirstSequenceId = "spring-day1-first";
         private const string HealingSequenceId = "spring-day1-healing";
         private const string WorkbenchSequenceId = "spring-day1-workbench";
         private const string DinnerSequenceId = "spring-day1-dinner";
         private const string ReminderSequenceId = "spring-day1-reminder";
         private static readonly string[] PreferredWorkbenchObjectNames = { "Anvil_0", "Workbench", "Anvil" };
+        private static readonly string[] PreferredBedObjectNames = { "Bed", "PlayerBed", "HomeBed" };
 
         private static SpringDay1Director _instance;
         private static FieldInfo _farmTilesField;
@@ -39,6 +41,9 @@ namespace Sunset.Story
         [SerializeField] private int maxEnergy = 200;
         [SerializeField] private int dinnerRestoreEnergy = 30;
         [SerializeField] private int lowEnergyWarningThreshold = 20;
+        [SerializeField] private float energyRevealDuration = 0.25f;
+        [SerializeField] private float dinnerRestoreDuration = 0.9f;
+        [SerializeField, Range(0.1f, 1f)] private float lowEnergyMoveSpeedMultiplier = 0.8f;
 
         [Header("Minimal Goals")]
         [SerializeField] private int requiredTilledCount = 1;
@@ -62,7 +67,10 @@ namespace Sunset.Story
         private bool _lowEnergyWarned;
         private bool _workbenchOpened;
         private CraftingStationInteractable _boundWorkbenchInteractable;
+        private SpringDay1BedInteractable _boundBedInteractable;
+        private PlayerMovement _playerMovement;
         private bool _uiInitialized;
+        private bool _storyTimePauseApplied;
 
         private int _craftedCount;
         private float _nextPollAt;
@@ -125,12 +133,16 @@ namespace Sunset.Story
             {
                 craftingService.OnCraftSuccess -= HandleCraftSuccess;
             }
+
+            ApplyLowEnergyMovementPenalty(false);
+            ReleaseStoryTimePause();
         }
 
         private void Update()
         {
             if (!IsPrimarySceneActive())
             {
+                ReleaseStoryTimePause();
                 return;
             }
 
@@ -218,6 +230,8 @@ namespace Sunset.Story
                 return;
             }
 
+            SyncStoryTimePauseState();
+
             if (showDebugLog)
             {
                 Debug.Log($"[SpringDay1Director] Phase: {evt.PreviousPhase} -> {evt.CurrentPhase}");
@@ -280,12 +294,16 @@ namespace Sunset.Story
 
         private void HandleEnergyChanged(int current, int max)
         {
-            if (_staminaRevealed && !_lowEnergyWarned && current > 0 && current <= lowEnergyWarningThreshold)
+            bool shouldWarn = _staminaRevealed && current > 0 && current <= lowEnergyWarningThreshold;
+            EnergySystem.Instance.SetLowEnergyWarningVisual(shouldWarn);
+            ApplyLowEnergyMovementPenalty(shouldWarn);
+
+            if (shouldWarn && !_lowEnergyWarned)
             {
                 _lowEnergyWarned = true;
                 SpringDay1PromptOverlay.Instance.Show("精力过低，先休息或吃点东西。");
             }
-            else if (current > lowEnergyWarningThreshold)
+            else if (!shouldWarn)
             {
                 _lowEnergyWarned = false;
             }
@@ -297,6 +315,9 @@ namespace Sunset.Story
             {
                 _dayEnded = true;
                 StoryManager.Instance.SetPhase(StoryPhase.DayEnd);
+                EnergySystem.Instance.FullRestore();
+                ApplyLowEnergyMovementPenalty(false);
+                SyncStoryTimePauseState();
                 SpringDay1PromptOverlay.Instance.Show("春1日结束。明天继续。");
             }
         }
@@ -305,6 +326,8 @@ namespace Sunset.Story
         {
             InitializeRuntimeUiIfNeeded();
             TryAutoBindWorkbenchInteractable();
+            TryAutoBindBedInteractable();
+            SyncStoryTimePauseState();
 
             StoryPhase currentPhase = StoryManager.Instance.CurrentPhase;
 
@@ -334,6 +357,7 @@ namespace Sunset.Story
 
             _healingStarted = true;
             StoryManager.Instance.SetPhase(StoryPhase.HealingAndHP);
+            SyncStoryTimePauseState();
 
             HealthSystem healthSystem = HealthSystem.Instance;
             healthSystem.SetHealthState(initialHealth, maxHealth);
@@ -391,6 +415,7 @@ namespace Sunset.Story
             SpringDay1PromptOverlay.EnsureRuntime();
             HealthSystem.Instance.SetVisible(false);
             EnergySystem.Instance.SetVisible(false);
+            SyncStoryTimePauseState();
         }
 
         private void TryAutoBindWorkbenchInteractable()
@@ -414,6 +439,29 @@ namespace Sunset.Story
 
             interactable.ConfigureRuntimeDefaults(CraftingStation.Workbench, "使用工作台", 1.8f, 28);
             _boundWorkbenchInteractable = interactable;
+        }
+
+        private void TryAutoBindBedInteractable()
+        {
+            if (_boundBedInteractable != null)
+            {
+                return;
+            }
+
+            Transform bedCandidate = FindBedCandidate();
+            if (bedCandidate == null || bedCandidate.GetComponent<Collider2D>() == null)
+            {
+                return;
+            }
+
+            SpringDay1BedInteractable interactable = bedCandidate.GetComponent<SpringDay1BedInteractable>();
+            if (interactable == null)
+            {
+                interactable = bedCandidate.gameObject.AddComponent<SpringDay1BedInteractable>();
+            }
+
+            interactable.ConfigureRuntimeDefaults("睡觉", 1.6f, 24);
+            _boundBedInteractable = interactable;
         }
 
         private IEnumerator HealAndPromptCoroutine()
@@ -450,7 +498,7 @@ namespace Sunset.Story
             {
                 _staminaRevealed = true;
                 EnergySystem.Instance.SetEnergyState(initialEnergy, maxEnergy);
-                EnergySystem.Instance.SetVisible(true);
+                EnergySystem.Instance.PlayRevealAndAnimateTo(initialEnergy, initialEnergy, maxEnergy, energyRevealDuration, 0f);
             }
 
             if (tilledCount < requiredTilledCount)
@@ -490,7 +538,8 @@ namespace Sunset.Story
         private void BeginReturnReminder()
         {
             StoryManager.Instance.SetPhase(StoryPhase.ReturnAndReminder);
-            EnergySystem.Instance.RestoreEnergy(dinnerRestoreEnergy);
+            EnergySystem.Instance.PlayRestoreAnimation(dinnerRestoreEnergy, dinnerRestoreDuration);
+            SyncStoryTimePauseState();
 
             if (!_returnSequencePlayed)
             {
@@ -508,7 +557,19 @@ namespace Sunset.Story
 
             _freeTimeEntered = true;
             StoryManager.Instance.SetPhase(StoryPhase.FreeTime);
+            SyncStoryTimePauseState();
             SpringDay1PromptOverlay.Instance.Show("今晚可以自由活动，记得回床边睡觉。");
+        }
+
+        public bool TryTriggerSleepFromBed()
+        {
+            if (_dayEnded || StoryManager.Instance.CurrentPhase != StoryPhase.FreeTime)
+            {
+                return false;
+            }
+
+            TimeManager.Instance.Sleep();
+            return true;
         }
 
         private void QueueDialogue(DialogueSequenceSO sequence)
@@ -757,6 +818,90 @@ namespace Sunset.Story
             }
 
             return null;
+        }
+
+        private static Transform FindBedCandidate()
+        {
+            for (int index = 0; index < PreferredBedObjectNames.Length; index++)
+            {
+                GameObject exactMatch = GameObject.Find(PreferredBedObjectNames[index]);
+                if (exactMatch != null)
+                {
+                    return exactMatch.transform;
+                }
+            }
+
+            Transform[] allTransforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            for (int index = 0; index < allTransforms.Length; index++)
+            {
+                Transform candidate = allTransforms[index];
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                if (candidate.name.ToLowerInvariant().Contains("bed"))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private void ApplyLowEnergyMovementPenalty(bool shouldSlow)
+        {
+            if (_playerMovement == null)
+            {
+                _playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            }
+
+            if (_playerMovement == null)
+            {
+                return;
+            }
+
+            if (shouldSlow)
+            {
+                _playerMovement.SetRuntimeSpeedMultiplier(lowEnergyMoveSpeedMultiplier);
+                return;
+            }
+
+            _playerMovement.ResetRuntimeSpeedMultiplier();
+        }
+
+        private void SyncStoryTimePauseState()
+        {
+            TimeManager timeManager = TimeManager.Instance;
+            if (timeManager == null)
+            {
+                return;
+            }
+
+            StoryPhase currentPhase = StoryManager.Instance.CurrentPhase;
+            bool shouldPause = currentPhase != StoryPhase.None
+                && currentPhase != StoryPhase.FreeTime
+                && currentPhase != StoryPhase.DayEnd;
+
+            if (shouldPause)
+            {
+                timeManager.PauseTime(StoryTimePauseSource);
+                _storyTimePauseApplied = true;
+                return;
+            }
+
+            ReleaseStoryTimePause();
+        }
+
+        private void ReleaseStoryTimePause()
+        {
+            if (!_storyTimePauseApplied)
+            {
+                return;
+            }
+
+            TimeManager.Instance.ResumeTime(StoryTimePauseSource);
+            _storyTimePauseApplied = false;
         }
     }
 }
