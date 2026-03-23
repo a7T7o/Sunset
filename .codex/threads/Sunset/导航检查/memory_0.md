@@ -285,3 +285,43 @@
 - 恢复点：
   - `Primary.unity` 对我这条导航线已不再有上述字段级占用；
   - 下一步回到主线时，应继续围绕代码验证“玩家绕开 NPC”，而不是再把中间态参数压到热场景里。
+
+### 会话 16 - 2026-03-23（动态避让闭环补刀）
+
+- 当前主线目标：
+  - 完成“玩家右键导航遇 NPC 不再推着走，NPC/NPC 会车不再只会顶住”的真实闭环修复。
+- 本轮子任务：
+  - 按用户要求彻底回看 NPC 结构、执行链和日志能力，找出为什么之前一直“看起来在避让，实际上还在推”。
+- 本轮已验证事实：
+  - live 起点是 `main @ 4f76b1b87efb455dc0cc370988ca8b69afc601a3`，不是用户转述的旧 `HEAD`。
+  - `PlayerAutoNavigator` 在 `Primary.unity` 中当前 `enableDetailedDebug = 1`。
+  - `001/002/003.prefab` 当前刚体/碰撞基线仍为 `isTrigger = false / mass = 6 / linearDamping = 8 / collisionDetection = 1`。
+  - `003.prefab` 上 `NPCMotionController` 与 `NPCAutoRoamController` 的 `showDebugLog` 当前为 `0`。
+  - 当前会话没有可用的 Unity MCP resources / templates，因此本轮无法直接做 MCP live Play 取证。
+- 本轮关键新结论：
+  1. 玩家侧 `HandleSharedDynamicBlocker(...)` 在触发 detour / repath 的那一帧会直接返回，但之前没有先停掉旧速度。
+  2. NPC 侧之前没有消费 solver 的 `SpeedScale`，所以动态避让只有“偏转”，没有真正“减速/让行”。
+  3. 两侧都缺少“近距离接触时剥离继续冲向阻挡代理的前向分量”这一层执行仲裁。
+  4. 固定 `0.8f` 的 look-ahead 偏短，需要按速度动态放大。
+- 本轮已落地：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+    - 新增 `GetRecommendedLookAhead(...)`
+    - 新增 `CloseRangeConstraintResult`
+    - 新增 `ApplyCloseRangeConstraint(...)`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+    - 动态 look-ahead
+    - repath / detour 当帧即时停步
+    - close-range 前冲钳制
+    - 玩家共享避让日志
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+    - 正式吃掉 `SpeedScale`
+    - repath / hard stop 当帧即时停步
+    - close-range 前冲钳制
+    - NPC 共享避让日志
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+    - 新增 close-range constraint 回归测试
+- 恢复点：
+  - 先对白名单路径走代码闸门与提交；
+  - 之后再回到运行态终验，重点看：
+    - 玩家是否还会把移动中的 NPC 顶着走
+    - NPC/NPC 是否仍会在窄路直接互顶

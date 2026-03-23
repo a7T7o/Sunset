@@ -96,6 +96,48 @@ public class NavigationAvoidanceRulesTests
         Assert.That(Mathf.Abs(adjustedDirection.y), Is.GreaterThan(0.01f));
     }
 
+    [Test]
+    public void CloseRangeConstraint_ShouldClampForwardPush_WhenBlockerIsTooClose()
+    {
+        Type solverType = ResolveTypeOrFail("NavigationLocalAvoidanceSolver");
+        Type avoidanceResultType = ResolveTypeOrFail("NavigationLocalAvoidanceSolver+AvoidanceResult");
+
+        object avoidance = Activator.CreateInstance(
+            avoidanceResultType,
+            Vector2.right,
+            1f,
+            true,
+            false,
+            2,
+            0.2f,
+            new Vector2(0.62f, 0f),
+            0.35f,
+            Vector2.up);
+
+        object constraint = InvokeStatic(
+            solverType,
+            "ApplyCloseRangeConstraint",
+            Vector2.zero,
+            Vector2.right,
+            1f,
+            0.35f,
+            0.05f,
+            avoidance);
+
+        Assert.IsNotNull(constraint);
+
+        bool applied = (bool)GetFieldOrProperty(constraint, "Applied");
+        bool hardBlocked = (bool)GetFieldOrProperty(constraint, "HardBlocked");
+        Vector2 constrainedDirection = (Vector2)GetFieldOrProperty(constraint, "ConstrainedDirection");
+        float constrainedSpeedScale = (float)GetFieldOrProperty(constraint, "SpeedScale");
+
+        Assert.That(applied, Is.True);
+        Assert.That(hardBlocked, Is.True);
+        Assert.That(constrainedDirection.x, Is.LessThan(0.95f));
+        Assert.That(Mathf.Abs(constrainedDirection.y), Is.GreaterThan(0.01f));
+        Assert.That(constrainedSpeedScale, Is.LessThan(0.2f));
+    }
+
     private static object CreateSnapshot(
         Type snapshotType,
         Type unitType,
@@ -133,6 +175,24 @@ public class NavigationAvoidanceRulesTests
             if (type != null)
             {
                 return type;
+            }
+
+            Type[] candidates;
+            try
+            {
+                candidates = assembly.GetTypes();
+            }
+            catch (ReflectionTypeLoadException ex)
+            {
+                candidates = ex.Types;
+            }
+
+            foreach (Type candidate in candidates)
+            {
+                if (candidate != null && (candidate.FullName == typeName || candidate.Name == typeName))
+                {
+                    return candidate;
+                }
             }
         }
 

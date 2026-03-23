@@ -337,3 +337,50 @@
 - 当前恢复点：
   - `Primary.unity` 已不再包含导航线新增的那 6 个字段级脏改；
   - 后续继续修“玩家绕开 NPC”时，应优先围绕代码与验证推进，不再让 `Primary.unity` 承担导航侧中间态。
+
+### 会话 9 - 2026-03-23（动态避让闭环失效根因补刀）
+
+- 用户再次明确：主线不是“已经接入共享导航”，而是必须解决“玩家右键导航遇到 NPC 仍然推着走”，并要求补足控制台日志、彻底看清 NPC 构造与执行链后再继续落地。
+- 本轮 live 复核事实：
+  - 当前 live Git 现场起点：
+    - `D:\Unity\Unity_learning\Sunset`
+    - `main`
+    - `4f76b1b87efb455dc0cc370988ca8b69afc601a3`
+  - `Primary.unity` 中玩家 `PlayerAutoNavigator` 当前 `enableDetailedDebug = 1`，因此玩家侧可直接复用现有调试开关输出新日志。
+  - `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 当前 live 基线仍是：
+    - `isTrigger = false`
+    - `mass = 6`
+    - `linearDamping = 8`
+    - `collisionDetection = 1`
+  - `003.prefab` 上 `NPCMotionController` / `NPCAutoRoamController` 的 `showDebugLog` 当前仍为 `0`，所以本轮日志能力必须写进代码但不能依赖样本 prefab 已默认开启。
+  - 当前会话没有可用的 Unity MCP resources / templates，说明本轮无法直接通过 MCP 做 live Play 取证，只能先完成代码层闭环修复与静态/编译闸门。
+- 本轮确认的关键根因，不再只是旧结论重复：
+  1. 玩家侧虽然已经有 `SpeedScale + detour`，但在“触发动态 repath 的那一帧”直接 `return`，没有先把旧速度清零，上一帧前冲会继续生效。
+  2. NPC 侧虽然接了共享 solver，但 `NPCAutoRoamController.TickMoving()` 之前根本没有消费 `NavigationLocalAvoidanceSolver` 返回的 `SpeedScale`，导致 NPC/NPC 会车时没有真正减速层。
+  3. 玩家和 NPC 两侧此前都缺少“近距离接触时禁止继续把前向速度压进阻挡代理”的最后一道执行仲裁，所以会出现逻辑上开始避让、物理上仍然把对方顶着走。
+  4. 固定 `sharedAvoidanceLookAhead = 0.8` 对运行态偏短，当前需要按速度自适应扩大探测前瞻，而不是只靠固定半径。
+- 本轮已落地代码：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+    - 新增 `GetRecommendedLookAhead(...)`
+    - 新增 `CloseRangeConstraintResult`
+    - 新增 `ApplyCloseRangeConstraint(...)`
+    - 作用：在接近阻挡代理时主动剥离“继续向阻挡体前冲”的分量，并把速度进一步压低到可停住/可侧绕的级别
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+    - 改为按建议速度自适应 `lookAhead`
+    - 动态 repath / detour 触发当帧先 `ForceImmediateMovementStop()`，不再沿用旧速度
+    - 在最终 `SetMovementInput(...)` 前应用 close-range constraint
+    - 新增共享避让运行日志，复用 `enableDetailedDebug`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+    - 现在正式消费共享 solver 的 `SpeedScale`
+    - 动态 repath / hard stop 当帧先 `StopMotion()` + 清零刚体速度
+    - 现在也应用 close-range constraint，而不是只改方向不减速
+    - 新增共享避让运行日志，复用 `showDebugLog`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+    - 新增 close-range constraint 反射测试
+    - 补强类型解析，兼容嵌套类型反射
+- 当前恢复点：
+  - 先对白名单路径跑代码闸门与提交收口；
+  - 收口完成后，下一轮第一优先级是做真实运行态验收：
+    - 玩家绕移动 NPC
+    - NPC/NPC 会车
+    - NPC 绕玩家

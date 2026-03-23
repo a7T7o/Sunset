@@ -144,3 +144,21 @@
 - 父层当前判断：
   - `导航检查` 这条线对 `Primary.unity` 的直接占用应视为已解除；
   - 后续这条线如果还需要再次碰场景，必须是带明确验证目的和最小修改面，而不是继续把导航中间态挂在热文件上。
+
+### 会话 9 - 2026-03-23
+
+- 子工作区 `导航检查` 本轮没有继续扩架构，而是围绕用户反复指出的 P0 失败现象回到执行层闭环修复。
+- 父层新增稳定结论：
+  - 当前“仍然推着走”至少有三个执行层根因同时存在：
+    1. 玩家动态 repath / detour 触发当帧没有停旧速度
+    2. NPC 执行层此前没有消费共享 solver 的 `SpeedScale`
+    3. 玩家/NPC 两侧都缺少近距接触时剥离前冲分量的最后仲裁
+  - 因而之前的问题不只是规则层或路径层，而是“共享 solver 输出没有被两端执行层真正闭环”
+- 本轮子工作区已落地：
+  - `NavigationLocalAvoidanceSolver.cs`
+  - `PlayerAutoNavigator.cs`
+  - `NPCAutoRoamController.cs`
+  - `NavigationAvoidanceRulesTests.cs`
+- 父层当前判断：
+  - 这一刀比前几轮更接近真正的 P0/P1 根因；
+  - 但由于本轮会话没有可用 Unity MCP resources，运行态结论仍需后续真人/Editor 现场终验，不能把“代码已补齐”冒充为“行为已验收通过”。

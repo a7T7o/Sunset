@@ -42,6 +42,123 @@ public static class NavigationLocalAvoidanceSolver
         }
     }
 
+    public readonly struct CloseRangeConstraintResult
+    {
+        public readonly Vector2 ConstrainedDirection;
+        public readonly float SpeedScale;
+        public readonly bool Applied;
+        public readonly bool HardBlocked;
+        public readonly float Clearance;
+        public readonly float ForwardIntoBlocker;
+
+        public CloseRangeConstraintResult(
+            Vector2 constrainedDirection,
+            float speedScale,
+            bool applied,
+            bool hardBlocked,
+            float clearance,
+            float forwardIntoBlocker)
+        {
+            ConstrainedDirection = constrainedDirection;
+            SpeedScale = speedScale;
+            Applied = applied;
+            HardBlocked = hardBlocked;
+            Clearance = clearance;
+            ForwardIntoBlocker = forwardIntoBlocker;
+        }
+    }
+
+    public static float GetRecommendedLookAhead(
+        NavigationAgentSnapshot self,
+        float baseLookAheadDistance,
+        float desiredSpeed)
+    {
+        float referenceSpeed = Mathf.Max(self.Velocity.magnitude, desiredSpeed);
+        float dynamicLookAhead = self.AvoidanceRadius + referenceSpeed * 0.45f;
+        return Mathf.Max(baseLookAheadDistance, dynamicLookAhead);
+    }
+
+    public static CloseRangeConstraintResult ApplyCloseRangeConstraint(
+        Vector2 currentPosition,
+        Vector2 desiredDirection,
+        float speedScale,
+        float selfRadius,
+        float padding,
+        AvoidanceResult avoidance)
+    {
+        if (!avoidance.HasBlockingAgent || desiredDirection.sqrMagnitude < 0.0001f)
+        {
+            return new CloseRangeConstraintResult(desiredDirection, speedScale, false, false, float.PositiveInfinity, 0f);
+        }
+
+        Vector2 toBlocker = avoidance.BlockingAgentPosition - currentPosition;
+        float centerDistance = toBlocker.magnitude;
+        float minimumDistance = Mathf.Max(0.01f, selfRadius) + Mathf.Max(0.01f, avoidance.BlockingAgentRadius) + Mathf.Max(0f, padding);
+        float engageDistance = minimumDistance + Mathf.Max(0.05f, padding);
+        float clearance = centerDistance - minimumDistance;
+
+        if (centerDistance > engageDistance)
+        {
+            return new CloseRangeConstraintResult(desiredDirection, speedScale, false, false, clearance, 0f);
+        }
+
+        Vector2 blockerNormal;
+        if (centerDistance > 0.0001f)
+        {
+            blockerNormal = toBlocker / centerDistance;
+        }
+        else if (avoidance.SuggestedDetourDirection.sqrMagnitude > 0.0001f)
+        {
+            blockerNormal = -avoidance.SuggestedDetourDirection.normalized;
+        }
+        else
+        {
+            blockerNormal = Vector2.right;
+        }
+
+        Vector2 desired = desiredDirection.normalized;
+        float forwardIntoBlocker = Mathf.Max(0f, Vector2.Dot(desired, blockerNormal));
+        if (forwardIntoBlocker <= 0.0001f)
+        {
+            return new CloseRangeConstraintResult(desiredDirection, speedScale, false, false, clearance, 0f);
+        }
+
+        float contactFactor = 1f - Mathf.Clamp01((centerDistance - minimumDistance) / Mathf.Max(engageDistance - minimumDistance, 0.001f));
+        Vector2 tangential = desired - blockerNormal * forwardIntoBlocker;
+        if (tangential.sqrMagnitude < 0.0001f)
+        {
+            tangential = avoidance.SuggestedDetourDirection.sqrMagnitude > 0.0001f
+                ? avoidance.SuggestedDetourDirection.normalized
+                : Vector2.Perpendicular(blockerNormal).normalized;
+        }
+        else
+        {
+            tangential.Normalize();
+        }
+
+        float blend = Mathf.Clamp01(contactFactor * Mathf.Lerp(0.55f, 1f, forwardIntoBlocker));
+        Vector2 constrainedDirection = Vector2.Lerp(desired, tangential, blend).normalized;
+        if (constrainedDirection.sqrMagnitude < 0.0001f)
+        {
+            constrainedDirection = tangential;
+        }
+
+        float constrainedSpeedScale = Mathf.Min(speedScale, Mathf.Lerp(speedScale, 0.05f, contactFactor));
+        bool hardBlocked = contactFactor >= 0.85f && forwardIntoBlocker >= 0.45f;
+        if (hardBlocked)
+        {
+            constrainedSpeedScale = Mathf.Min(constrainedSpeedScale, 0.025f);
+        }
+
+        return new CloseRangeConstraintResult(
+            constrainedDirection,
+            constrainedSpeedScale,
+            true,
+            hardBlocked,
+            clearance,
+            forwardIntoBlocker);
+    }
+
     public static AvoidanceResult Solve(
         in NavigationAgentSnapshot self,
         Vector2 desiredDirection,

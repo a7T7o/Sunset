@@ -125,6 +125,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private float lastSharedAvoidanceRepathTime = float.NegativeInfinity;
     private int lastBlockingAgentId;
     private int blockingAgentSightings;
+    private int lastSharedAvoidanceDebugFrame = -999;
 
     public bool IsRoaming => state != RoamState.Inactive;
     public bool IsMoving => state == RoamState.Moving;
@@ -504,17 +505,23 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 toWaypoint = waypoint - currentPosition;
         float distance = toWaypoint.magnitude;
         float moveSpeed = Mathf.Max(0f, motionController.MoveSpeed);
-        float step = moveSpeed * Mathf.Max(deltaTime, 0.0001f);
 
-        if (distance <= 0.0001f || step <= 0f)
+        if (distance <= 0.0001f || moveSpeed <= 0f)
         {
             motionController.StopMotion();
             return;
         }
 
         Vector2 moveDirection = toWaypoint / distance;
-        if (TryHandleSharedAvoidance(currentPosition, moveDirection, out Vector2 adjustedDirection))
+        if (TryHandleSharedAvoidance(currentPosition, waypoint, moveDirection, out Vector2 adjustedDirection, out float moveScale))
         {
+            return;
+        }
+
+        float step = moveSpeed * Mathf.Clamp01(moveScale) * Mathf.Max(deltaTime, 0.0001f);
+        if (step <= 0.0001f)
+        {
+            motionController.StopMotion();
             return;
         }
 
@@ -704,27 +711,38 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         return true;
     }
 
-    private bool TryHandleSharedAvoidance(Vector2 currentPosition, Vector2 desiredDirection, out Vector2 adjustedDirection)
+    private bool TryHandleSharedAvoidance(
+        Vector2 currentPosition,
+        Vector2 waypoint,
+        Vector2 desiredDirection,
+        out Vector2 adjustedDirection,
+        out float speedScale)
     {
         adjustedDirection = desiredDirection;
+        speedScale = 1f;
         NavigationAgentSnapshot self = NavigationAgentSnapshot.FromUnit(this);
         if (!self.IsValid || desiredDirection.sqrMagnitude < 0.0001f)
         {
             return false;
         }
 
-        NavigationAgentRegistry.GetNearbySnapshots(this, currentPosition, sharedAvoidanceLookAhead, nearbyNavigationAgents);
+        float referenceSpeed = motionController != null ? motionController.MoveSpeed : 0f;
+        float lookAhead = NavigationLocalAvoidanceSolver.GetRecommendedLookAhead(self, sharedAvoidanceLookAhead, referenceSpeed);
+        NavigationAgentRegistry.GetNearbySnapshots(this, currentPosition, lookAhead, nearbyNavigationAgents);
         NavigationLocalAvoidanceSolver.AvoidanceResult avoidance = NavigationLocalAvoidanceSolver.Solve(
             self,
             desiredDirection,
-            sharedAvoidanceLookAhead,
+            lookAhead,
             nearbyNavigationAgents);
 
         if (!avoidance.HasBlockingAgent)
         {
             lastBlockingAgentId = 0;
             blockingAgentSightings = 0;
-            adjustedDirection = avoidance.AdjustedDirection;
+            adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
+                ? avoidance.AdjustedDirection
+                : desiredDirection;
+            speedScale = Mathf.Clamp01(avoidance.SpeedScale);
             return false;
         }
 
@@ -741,19 +759,52 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
             ? avoidance.AdjustedDirection
             : desiredDirection;
+        speedScale = Mathf.Clamp01(avoidance.SpeedScale);
 
-        if (!avoidance.ShouldRepath || blockingAgentSightings < 2)
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint =
+            NavigationLocalAvoidanceSolver.ApplyCloseRangeConstraint(
+                currentPosition,
+                adjustedDirection,
+                speedScale,
+                GetAvoidanceRadius(),
+                0.05f,
+                avoidance);
+
+        if (closeRangeConstraint.Applied)
         {
+            adjustedDirection = closeRangeConstraint.ConstrainedDirection.sqrMagnitude > 0.0001f
+                ? closeRangeConstraint.ConstrainedDirection
+                : adjustedDirection;
+            speedScale = Mathf.Clamp01(closeRangeConstraint.SpeedScale);
+        }
+
+        MaybeLogSharedAvoidance(currentPosition, waypoint, avoidance, closeRangeConstraint, speedScale, "Move");
+
+        if (!avoidance.ShouldRepath)
+        {
+            if (closeRangeConstraint.HardBlocked && speedScale <= 0.025f)
+            {
+                StopForSharedAvoidance(currentPosition, avoidance, closeRangeConstraint, "HardStop");
+                return true;
+            }
+
             return false;
         }
 
         if (Time.time - lastSharedAvoidanceRepathTime < sharedAvoidanceRepathCooldown)
         {
+            if (closeRangeConstraint.HardBlocked && speedScale <= 0.025f)
+            {
+                StopForSharedAvoidance(currentPosition, avoidance, closeRangeConstraint, "HardStop");
+                return true;
+            }
+
             return false;
         }
 
         lastSharedAvoidanceRepathTime = Time.time;
         blockingAgentSightings = 0;
+        StopForSharedAvoidance(currentPosition, avoidance, closeRangeConstraint, "Repath");
 
         if (TryRebuildPath(currentPosition))
         {
@@ -761,6 +812,53 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         return false;
+    }
+
+    private void StopForSharedAvoidance(
+        Vector2 currentPosition,
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint,
+        string action)
+    {
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+        }
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        MaybeLogSharedAvoidance(currentPosition, currentDestination, avoidance, closeRangeConstraint, 0f, action);
+    }
+
+    private void MaybeLogSharedAvoidance(
+        Vector2 currentPosition,
+        Vector2 waypoint,
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint,
+        float speedScale,
+        string action)
+    {
+        if (!showDebugLog || !avoidance.HasBlockingAgent)
+        {
+            return;
+        }
+
+        if (Time.frameCount - lastSharedAvoidanceDebugFrame < 10)
+        {
+            return;
+        }
+
+        lastSharedAvoidanceDebugFrame = Time.frameCount;
+        Debug.Log(
+            $"<color=yellow>[NPCAvoid]</color> {name} action={action}, agent={avoidance.BlockingAgentId}, " +
+            $"state={state}, pos={currentPosition}, waypoint={waypoint}, blockerPos={avoidance.BlockingAgentPosition}, " +
+            $"blockingDistance={avoidance.BlockingDistance:F2}, speedScale={speedScale:F2}, shouldRepath={avoidance.ShouldRepath}, " +
+            $"clearance={closeRangeConstraint.Clearance:F2}, forwardInto={closeRangeConstraint.ForwardIntoBlocker:F2}, " +
+            $"hardBlocked={closeRangeConstraint.HardBlocked}, rbPos={(rb != null ? rb.position : currentPosition)}",
+            this);
     }
 
     private bool TryResolveNavGrid()

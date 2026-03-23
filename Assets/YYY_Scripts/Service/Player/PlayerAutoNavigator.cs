@@ -85,6 +85,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private bool _hasDynamicDetour;
     private Vector2 _dynamicDetourPoint;
     private int _dynamicDetourAgentId;
+    private int _lastSharedAvoidanceDebugFrame = -999;
 
     public bool IsActive => active;
     public NavigationUnitType GetUnitType() => NavigationUnitType.Player;
@@ -407,13 +408,39 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         }
         moveDir = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f ? avoidance.AdjustedDirection : moveDir;
         float moveScale = Mathf.Clamp01(avoidance.SpeedScale);
+
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint =
+            NavigationLocalAvoidanceSolver.ApplyCloseRangeConstraint(
+                playerPos,
+                moveDir,
+                moveScale,
+                GetAvoidanceRadius(),
+                dynamicObstaclePadding,
+                avoidance);
+
+        if (closeRangeConstraint.Applied)
+        {
+            moveDir = closeRangeConstraint.ConstrainedDirection.sqrMagnitude > 0.0001f
+                ? closeRangeConstraint.ConstrainedDirection
+                : moveDir;
+            moveScale = Mathf.Clamp01(closeRangeConstraint.SpeedScale);
+        }
         
         // 碰撞调整（只在必要时）
         moveDir = AdjustDirectionByColliders(playerPos, moveDir);
+
+        if (closeRangeConstraint.HardBlocked || moveScale <= 0.001f)
+        {
+            MaybeLogSharedAvoidance(playerPos, waypoint, avoidance, closeRangeConstraint, moveScale, "HardStop");
+            ForceImmediateMovementStop();
+            return;
+        }
         
         // 🔥 关键：斜向移动时固定朝向为左或右
         // 这样可以避免角色摇头
         Vector2 facingDir = GetFacingDirection(moveDir);
+
+        MaybeLogSharedAvoidance(playerPos, waypoint, avoidance, closeRangeConstraint, moveScale, _hasDynamicDetour ? "DetourMove" : "PathMove");
         
         movement.SetMovementInput(moveDir * moveScale, runWhileNavigating, facingDir);
     }
@@ -806,8 +833,10 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return new NavigationLocalAvoidanceSolver.AvoidanceResult(desiredDir, 1f, false, false, 0, float.PositiveInfinity, Vector2.zero, 0f, Vector2.zero);
         }
 
-        NavigationAgentRegistry.GetNearbySnapshots(this, playerPos, sharedAvoidanceLookAhead, _nearbyNavigationAgents);
-        return NavigationLocalAvoidanceSolver.Solve(self, desiredDir, sharedAvoidanceLookAhead, _nearbyNavigationAgents);
+        float desiredSpeed = GetRequestedMoveSpeed();
+        float lookAhead = NavigationLocalAvoidanceSolver.GetRecommendedLookAhead(self, sharedAvoidanceLookAhead, desiredSpeed);
+        NavigationAgentRegistry.GetNearbySnapshots(this, playerPos, lookAhead, _nearbyNavigationAgents);
+        return NavigationLocalAvoidanceSolver.Solve(self, desiredDir, lookAhead, _nearbyNavigationAgents);
     }
 
     private bool HandleSharedDynamicBlocker(Vector2 playerPos, NavigationLocalAvoidanceSolver.AvoidanceResult avoidance)
@@ -849,11 +878,13 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         if (TryCreateDynamicDetour(playerPos, avoidance))
         {
             AddDebugLog($"共享动态代理持续阻挡，切入临时绕行点 => AgentId={avoidance.BlockingAgentId}");
+            ForceImmediateMovementStop();
             return true;
         }
 
         AddDebugLog($"共享动态代理持续阻挡，重建路径 => AgentId={avoidance.BlockingAgentId}");
         BuildPath();
+        ForceImmediateMovementStop();
         return true;
     }
 
@@ -894,6 +925,59 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         {
             ClearDynamicDetour();
         }
+    }
+
+    private float GetRequestedMoveSpeed()
+    {
+        if (movement == null)
+        {
+            return 0f;
+        }
+
+        return runWhileNavigating ? movement.RunSpeed : movement.WalkSpeed;
+    }
+
+    private void ForceImmediateMovementStop()
+    {
+        if (movement != null)
+        {
+            movement.SetMovementInput(Vector2.zero, false);
+        }
+
+        if (playerRigidbody != null)
+        {
+            playerRigidbody.linearVelocity = Vector2.zero;
+        }
+    }
+
+    private void MaybeLogSharedAvoidance(
+        Vector2 playerPos,
+        Vector2 waypoint,
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint,
+        float moveScale,
+        string action)
+    {
+        if (!enableDetailedDebug || !avoidance.HasBlockingAgent)
+        {
+            return;
+        }
+
+        if (Time.frameCount - _lastSharedAvoidanceDebugFrame < 8)
+        {
+            return;
+        }
+
+        _lastSharedAvoidanceDebugFrame = Time.frameCount;
+        Debug.Log(
+            $"<color=orange>[NavAvoid]</color> action={action}, agent={avoidance.BlockingAgentId}, " +
+            $"playerPos={playerPos}, waypoint={waypoint}, blockerPos={avoidance.BlockingAgentPosition}, " +
+            $"blockingDistance={avoidance.BlockingDistance:F2}, moveScale={moveScale:F2}, " +
+            $"shouldRepath={avoidance.ShouldRepath}, detour={_hasDynamicDetour}, " +
+            $"closeConstraint={closeRangeConstraint.Applied}, hardBlocked={closeRangeConstraint.HardBlocked}, " +
+            $"clearance={closeRangeConstraint.Clearance:F2}, forwardInto={closeRangeConstraint.ForwardIntoBlocker:F2}, " +
+            $"rbVelocity={(playerRigidbody != null ? playerRigidbody.linearVelocity : Vector2.zero)}",
+            this);
     }
 
     private int ProbeObstacleHits(Vector2 center, float radius)
