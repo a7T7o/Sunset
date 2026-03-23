@@ -35,11 +35,12 @@ public class NPCBubblePresenter : MonoBehaviour
     [Header("气泡布局")]
     [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
     [SerializeField] private Vector3 bubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
-    [SerializeField] private Vector2 bubblePadding = new Vector2(48f, 34f);
-    [SerializeField] private float maxTextWidth = 224f;
-    [SerializeField] private float minAdaptiveTextWidth = 146f;
-    [SerializeField] private Vector2 textSafePadding = new Vector2(22f, 18f);
-    [SerializeField] private float textVerticalOffset = -6f;
+    [SerializeField] private Vector2 bubblePadding = new Vector2(82f, 42f);
+    [SerializeField] private float maxTextWidth = 290f;
+    [SerializeField] private float minAdaptiveTextWidth = 64f;
+    [SerializeField] private int preferredCharactersPerLine = 10;
+    [SerializeField] private Vector2 textSafePadding = new Vector2(24f, 22f);
+    [SerializeField] private float textVerticalOffset = -10f;
     [SerializeField] private float borderThickness = 6f;
     [SerializeField] private Vector2 tailSize = new Vector2(34f, 24f);
     [SerializeField] private float tailYOffset = -28f;
@@ -58,7 +59,7 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private Color bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
     [SerializeField] private Color textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
     [SerializeField] private Color textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
-    [SerializeField] private float fontSize = 26f;
+    [SerializeField] private float fontSize = 32f;
     [SerializeField] private float textOutlineWidth = 0.18f;
     [SerializeField] private float showDuration = 0.14f;
     [SerializeField] private float hideDuration = 0.1f;
@@ -138,7 +139,8 @@ public class NPCBubblePresenter : MonoBehaviour
         UpgradeLegacyStyleIfNeeded();
 
         maxTextWidth = Mathf.Max(80f, maxTextWidth);
-        minAdaptiveTextWidth = Mathf.Clamp(minAdaptiveTextWidth, 96f, maxTextWidth);
+        minAdaptiveTextWidth = Mathf.Clamp(minAdaptiveTextWidth, 40f, maxTextWidth);
+        preferredCharactersPerLine = Mathf.Clamp(preferredCharactersPerLine, 4, 20);
         textSafePadding.x = Mathf.Max(4f, textSafePadding.x);
         textSafePadding.y = Mathf.Max(4f, textSafePadding.y);
         textVerticalOffset = Mathf.Clamp(textVerticalOffset, -24f, 12f);
@@ -215,7 +217,7 @@ public class NPCBubblePresenter : MonoBehaviour
         SyncCanvasTransform();
         SyncSorting();
 
-        _bubbleText.text = content.Trim();
+        _bubbleText.text = FormatBubbleText(content.Trim());
         UpdateStyleVisuals();
         UpdateLayout();
         SyncCanvasTransform();
@@ -305,18 +307,19 @@ public class NPCBubblePresenter : MonoBehaviour
     private void ApplyCurrentStylePreset()
     {
         bubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
-        bubblePadding = new Vector2(48f, 34f);
+        bubblePadding = new Vector2(82f, 42f);
         bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
         bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
         bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
         textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
         textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
-        fontSize = 26f;
+        fontSize = 32f;
         textOutlineWidth = 0.18f;
-        maxTextWidth = 224f;
-        minAdaptiveTextWidth = 146f;
-        textSafePadding = new Vector2(22f, 18f);
-        textVerticalOffset = -6f;
+        maxTextWidth = 315f;
+        minAdaptiveTextWidth = 64f;
+        preferredCharactersPerLine = 10;
+        textSafePadding = new Vector2(24f, 22f);
+        textVerticalOffset = -10f;
         borderThickness = 6f;
         tailSize = new Vector2(34f, 24f);
         tailYOffset = -28f;
@@ -474,16 +477,18 @@ public class NPCBubblePresenter : MonoBehaviour
         }
 
         string bubbleText = _bubbleText.text ?? string.Empty;
-        int visibleCharacterCount = CountVisibleCharacters(bubbleText);
-        float adaptiveWrapWidth = ResolveAdaptiveWrapWidth(visibleCharacterCount);
+        AnalyzeBubbleText(bubbleText, out int visibleCharacterCount, out int longestLineCharacterCount);
 
-        Vector2 preferredSize = _bubbleText.GetPreferredValues(bubbleText, adaptiveWrapWidth, 0f);
-        preferredSize.x = Mathf.Min(adaptiveWrapWidth, Mathf.Max(92f, preferredSize.x));
+        Vector2 preferredSize = _bubbleText.GetPreferredValues(bubbleText, 10000f, 0f);
+        preferredSize.x = Mathf.Max(92f, preferredSize.x);
         preferredSize.y = Mathf.Max(fontSize + 16f, preferredSize.y);
 
         Vector2 textBoxSize = preferredSize + textSafePadding;
-        float shapeBias = Mathf.InverseLerp(16f, 60f, visibleCharacterCount);
-        Vector2 bodySize = textBoxSize + bubblePadding + new Vector2(shapeBias * 2f, shapeBias * 18f);
+        float shapeBias = Mathf.InverseLerp(preferredCharactersPerLine, preferredCharactersPerLine * 5f, visibleCharacterCount);
+        float lineWidthBias = Mathf.InverseLerp(1f, preferredCharactersPerLine, longestLineCharacterCount);
+        float horizontalPadding = Mathf.Lerp(42f, bubblePadding.x, shapeBias);
+        float verticalPadding = bubblePadding.y + Mathf.Lerp(0f, 12f, shapeBias);
+        Vector2 bodySize = textBoxSize + new Vector2(horizontalPadding, verticalPadding) + new Vector2(lineWidthBias * 10f, shapeBias * 18f);
         Vector2 fillBodySize = new Vector2(
             Mathf.Max(60f, bodySize.x - (borderThickness * 2f)),
             Mathf.Max(fontSize + 18f, bodySize.y - (borderThickness * 2f)));
@@ -708,29 +713,86 @@ public class NPCBubblePresenter : MonoBehaviour
         _fillTailRect.anchoredPosition = _fillTailBasePosition + bobOffset;
     }
 
-    private float ResolveAdaptiveWrapWidth(int visibleCharacterCount)
+    private string FormatBubbleText(string content)
     {
-        float targetWidth = minAdaptiveTextWidth + (Mathf.Max(0f, visibleCharacterCount - 12f) * 1.55f);
-        return Mathf.Clamp(targetWidth, minAdaptiveTextWidth, maxTextWidth);
-    }
-
-    private static int CountVisibleCharacters(string content)
-    {
-        if (string.IsNullOrEmpty(content))
+        if (string.IsNullOrWhiteSpace(content))
         {
-            return 0;
+            return string.Empty;
         }
 
-        int count = 0;
+        System.Text.StringBuilder builder = new System.Text.StringBuilder(content.Length + 8);
+        int lineCharacterCount = 0;
+
         for (int index = 0; index < content.Length; index++)
         {
-            if (!char.IsWhiteSpace(content[index]))
+            char current = content[index];
+
+            if (current == '\r')
             {
-                count++;
+                continue;
+            }
+
+            if (current == '\n')
+            {
+                if (builder.Length > 0 && builder[builder.Length - 1] != '\n')
+                {
+                    builder.Append('\n');
+                }
+
+                lineCharacterCount = 0;
+                continue;
+            }
+
+            if (lineCharacterCount >= preferredCharactersPerLine)
+            {
+                builder.Append('\n');
+                lineCharacterCount = 0;
+            }
+
+            builder.Append(current);
+            if (!char.IsWhiteSpace(current))
+            {
+                lineCharacterCount++;
             }
         }
 
-        return count;
+        return builder.ToString();
+    }
+
+    private static void AnalyzeBubbleText(string content, out int visibleCharacterCount, out int longestLineCharacterCount)
+    {
+        visibleCharacterCount = 0;
+        longestLineCharacterCount = 0;
+
+        if (string.IsNullOrEmpty(content))
+        {
+            return;
+        }
+
+        int currentLineCharacterCount = 0;
+        for (int index = 0; index < content.Length; index++)
+        {
+            char current = content[index];
+            if (current == '\r')
+            {
+                continue;
+            }
+
+            if (current == '\n')
+            {
+                longestLineCharacterCount = Mathf.Max(longestLineCharacterCount, currentLineCharacterCount);
+                currentLineCharacterCount = 0;
+                continue;
+            }
+
+            if (!char.IsWhiteSpace(current))
+            {
+                visibleCharacterCount++;
+                currentLineCharacterCount++;
+            }
+        }
+
+        longestLineCharacterCount = Mathf.Max(longestLineCharacterCount, currentLineCharacterCount);
     }
 
     private TMP_FontAsset ResolveFontAsset()

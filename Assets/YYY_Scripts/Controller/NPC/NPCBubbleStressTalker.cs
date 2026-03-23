@@ -12,30 +12,32 @@ public class NPCBubbleStressTalker : MonoBehaviour
     [SerializeField] private NPCAutoRoamController roamController;
     [SerializeField] private bool startOnEnable = true;
     [SerializeField] private bool disableRoamWhileTesting = true;
-    [SerializeField] private float minGapSeconds = 0.75f;
-    [SerializeField] private float maxGapSeconds = 1.35f;
-    [SerializeField] private float minDuration = 1.8f;
-    [SerializeField] private float maxDuration = 5f;
+    [SerializeField] private bool sequentialPlayback = true;
+    [SerializeField] private float minGapSeconds = 1.8f;
+    [SerializeField] private float maxGapSeconds = 2.6f;
+    [SerializeField] private float minDuration = 2.6f;
+    [SerializeField] private float maxDuration = 6.2f;
     [SerializeField] private string[] testLines =
     {
         "嗯。",
         "先缓一缓。",
-        "这边风挺舒服的。",
-        "我想先把今天的路线再过一遍。",
-        "刚刚那边有点吵，这里倒是安静下来了一点。",
-        "等会儿再往前走，我想先把脚步和节奏重新放稳。",
-        "今天的事情不算少，但也没到慌的时候，先把眼前这几步走顺再说。",
-        "要是待会儿大家都往这边经过，我得提前留一点位置，不然又会挤成一团。",
-        "我刚才一路走过来，发现这边的光线和空地都还不错，适合停一会儿再决定下一步。",
-        "有时候我会故意慢一点，因为太着急反而容易撞到别人，稳住节奏之后整条路都会顺很多。",
-        "如果一会儿旁边又有人经过，我希望自己别再像木桩一样卡住，至少得看起来像真的会思考一下要不要让路。",
-        "我想测试一下自己说长一点的话时，气泡会不会只是横着变长，而是更自然地同时长高一点，再顺手把文字好好包进去。"
+        "这边有点舒服。",
+        "这边风还挺舒服的。",
+        "等会儿再往前走吧。",
+        "刚刚那边有点吵，这里安静了一点。",
+        "我想先把脚步和节奏重新放稳。",
+        "今天事情不少，先把眼前几步走顺再说。",
+        "要是待会儿大家都往这边经过，我得提前留点位置。",
+        "我刚才一路走过来，发现这边光线和空地都还不错。",
+        "有时候我会故意慢一点，因为太着急反而容易撞到别人。",
+        "我想测试一下长一点的话时，气泡会不会按十个字一行去换行。"
     };
 
     private int _showCount;
     private string _lastLine = string.Empty;
     private bool _lastShowSucceeded;
     private float _nextSpeakAt;
+    private int _nextLineIndex;
 
     public int ShowCount => _showCount;
     public string LastLine => _lastLine;
@@ -44,6 +46,8 @@ public class NPCBubbleStressTalker : MonoBehaviour
     public NPCAutoRoamController RoamController => roamController;
     public bool TestModeEnabled => startOnEnable;
     public bool DisableRoamInTestMode => disableRoamWhileTesting;
+    public bool SequentialPlayback => sequentialPlayback;
+    public int NextLineIndex => _nextLineIndex;
 
     private void Reset()
     {
@@ -77,6 +81,7 @@ public class NPCBubbleStressTalker : MonoBehaviour
         {
             roamController.enabled = false;
         }
+        _nextLineIndex = 0;
         _nextSpeakAt = Time.unscaledTime + 0.05f;
     }
 
@@ -124,12 +129,30 @@ public class NPCBubbleStressTalker : MonoBehaviour
             return false;
         }
 
-        string line = testLines[Random.Range(0, testLines.Length)];
+        string line = GetNextLine();
         float duration = Mathf.Clamp(minDuration + (line.Length * 0.05f), minDuration, maxDuration);
         _showCount++;
         _lastLine = line;
         _lastShowSucceeded = bubblePresenter.ShowText(line, duration);
         return _lastShowSucceeded;
+    }
+
+    private string GetNextLine()
+    {
+        if (testLines == null || testLines.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (!sequentialPlayback)
+        {
+            return testLines[Random.Range(0, testLines.Length)];
+        }
+
+        int resolvedIndex = Mathf.Clamp(_nextLineIndex, 0, testLines.Length - 1);
+        string line = testLines[resolvedIndex];
+        _nextLineIndex = (_nextLineIndex + 1) % testLines.Length;
+        return line;
     }
 
     private void CacheComponents()
