@@ -130,7 +130,7 @@ namespace Sunset.Story
             promptText.alignment = TextAlignmentOptions.Center;
             promptText.fontSize = 28f;
             promptText.color = new Color(0.98f, 0.96f, 0.9f, 1f);
-            promptText.enableWordWrapping = true;
+            promptText.textWrappingMode = TextWrappingModes.Normal;
             promptText.text = string.Empty;
 
             RectTransform textRect = textObject.GetComponent<RectTransform>();

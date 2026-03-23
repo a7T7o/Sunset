@@ -324,3 +324,6 @@
 ## 2026-03-23 补记：spring-day1 验收日志已补齐 HP/EP 与导演摘要
 - `DialogueDebugMenu` 现在除了对话状态外，还会直接输出 `Day1Director / HP / EP`。
 - 这让后续 0.0.3~0.0.6 的最小通路验收可以继续压缩，不必每次都手工到处翻 Inspector。
+
+## 2026-03-23 补记：已清理 `SpringDay1PromptOverlay` 的 TMP 过时 API warning
+- 将 `enableWordWrapping` 替换为 `textWrappingMode`，避免继续产生 `CS0618`。

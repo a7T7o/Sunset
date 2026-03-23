@@ -225,3 +225,7 @@
 2. 对应更新 `SpringDay1DialogueProgressionTests.cs` 的静态断言，防止调试字段回退。
 **恢复点 / 下一步**：
 - 后续做 0.0.3~0.0.6 验收时，已能直接从一条调试日志里看到剧情阶段、导演摘要、生命值和精力值。
+
+### 会话 14 - 2026-03-23（TMP 过时 API 清理）
+- 修复 `SpringDay1PromptOverlay.cs` 中的 TMP 过时 API warning：将 `enableWordWrapping` 改为 `textWrappingMode = TextWrappingModes.Normal`。
+- 当前恢复点：该提示层不再依赖已废弃的 TMP 包装接口。
