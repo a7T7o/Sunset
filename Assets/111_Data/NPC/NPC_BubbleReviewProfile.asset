@@ -1,0 +1,48 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 43840fe5def0543459c896e1fd11f676, type: 3}
+  m_Name: NPC_BubbleReviewProfile
+  m_EditorClassIdentifier:
+  moveSpeed: 2.5
+  idleAnimationSpeed: 1
+  moveAnimationSpeed: 1
+  activityRadius: 0.8
+  minimumMoveDistance: 0.2
+  pathSampleAttempts: 6
+  shortPauseMin: 1.6
+  shortPauseMax: 2.6
+  shortPauseCountMin: 1
+  shortPauseCountMax: 2
+  longPauseMin: 3
+  longPauseMax: 4.5
+  stuckCheckInterval: 0.3
+  stuckDistanceThreshold: 0.08
+  maxStuckRecoveries: 3
+  enableAmbientChat: 0
+  ambientChatRadius: 3.8
+  ambientChatChance: 0.75
+  ambientChatResponseDelay: 0.85
+  selfTalkLines:
+  - "\u55EF\u3002"
+  - "\u5148\u7F13\u4E00\u7F13\u3002"
+  - "\u8FD9\u8FB9\u6709\u70B9\u8212\u670D\u3002"
+  - "\u8FD9\u8FB9\u98CE\u8FD8\u633A\u8212\u670D\u7684\u3002"
+  - "\u7B49\u4F1A\u513F\u518D\u5F80\u524D\u8D70\u5427\u3002"
+  - "\u521A\u521A\u90A3\u8FB9\u6709\u70B9\u5435\uFF0C\u8FD9\u91CC\u5B89\u9759\u4E86\u4E00\u70B9\u3002"
+  - "\u6211\u60F3\u5148\u628A\u811A\u6B65\u548C\u8282\u594F\u91CD\u65B0\u653E\u7A33\u3002"
+  - "\u4ECA\u5929\u4E8B\u60C5\u4E0D\u5C11\uFF0C\u5148\u628A\u773C\u524D\u51E0\u6B65\u8D70\u987A\u518D\u8BF4\u3002"
+  - "\u8981\u662F\u5F85\u4F1A\u513F\u5927\u5BB6\u90FD\u5F80\u8FD9\u8FB9\u7ECF\u8FC7\uFF0C\u6211\u5F97\u63D0\u524D\u7559\u70B9\u4F4D\u7F6E\u3002"
+  - "\u6211\u521A\u624D\u4E00\u8DEF\u8D70\u8FC7\u6765\uFF0C\u53D1\u73B0\u8FD9\u8FB9\u5149\u7EBF\u548C\u7A7A\u5730\u90FD\u8FD8\u4E0D\u9519\u3002"
+  - "\u6709\u65F6\u5019\u6211\u4F1A\u6545\u610F\u6162\u4E00\u70B9\uFF0C\u56E0\u4E3A\u592A\u7740\u6025\u53CD\u800C\u5BB9\u6613\u649E\u5230\u522B\u4EBA\u3002"
+  - "\u6211\u60F3\u6D4B\u8BD5\u4E00\u4E0B\u957F\u4E00\u70B9\u7684\u8BDD\u65F6\uFF0C\u6C14\u6CE1\u4F1A\u4E0D\u4F1A\u6309\u5341\u4E2A\u5B57\u4E00\u884C\u53BB\u6362\u884C\u3002"
+  chatInitiatorLines: []
+  chatResponderLines: []

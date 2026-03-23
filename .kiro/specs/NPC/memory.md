@@ -272,3 +272,17 @@
   - `git diff --check` 通过。
   - `003.prefab` 当前已明确序列化 `preferredCharactersPerLine: 10` 与顺序播放测试参数。
 - 当前恢复点：现在进入主项目验证时，短句应明显保持单行，小框；长句应按 10 字一行逐步长高，不再随机出现错乱换行。
+
+## 2026-03-23 NPC场景化与集成首版入口落地
+
+- 当前主线目标：把我之前一直口头承认“还没做完”的 NPC 场景化与集成工作推进到真正可复用的首版入口，而不是继续停留在零散功能状态。
+- 本轮子任务：先不去硬写 `Primary.unity` 这类高风险 Scene，而是把 NPC 自己能独立完成的 profile 分层、批量集成工具和收口文档先落稳。
+- 本轮完成：
+  - 新增 `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_BubbleReviewProfile.asset`，作为 `003` 这类验证样本的默认漫游/停留配置。
+  - 新增 `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCSceneIntegrationTool.cs`，支持对选中的 Scene NPC 批量切 `Production / BubbleReview` 模式、批量补 Home Anchor、吸附 Anchor、移除或补挂 `NPCBubbleStressTalker`，并在落地后自动 `MarkSceneDirty`。
+  - 将 `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\NPC\003.prefab` 的默认 `roamProfile` 切到 `NPC_BubbleReviewProfile.asset`，把 `003` 正式归类为长期保留的验证样本 prefab。
+  - 新增 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\2026-03-23_NPC场景化与集成首版收口.md`，把“正式 NPC / 验证样本 NPC / Scene 仍待人工落点的部分”明确写清。
+- 本轮已验证事实：
+  - `Primary.unity` 里 `001 / 002 / 003` 当前只有名称、位置、缩放等 prefab 实例覆盖，没有读到 `homeAnchor` 场景级覆盖证据，这说明“场景化与集成还没真正落进 Scene”是现场事实。
+  - `git diff --check` 已通过本轮新增/修改的 NPC 文件。
+- 当前恢复点：NPC 这条线现在已经不再只是“会动会说”的功能集合，而是有了正式/验证分层与批量场景接入工具；下一步若继续，就该在 `Primary.unity` 中用这套工具把 Home Anchor 和实际活动范围真正摆进场景。

@@ -317,7 +317,7 @@ MonoBehaviour:
   rb: {fileID: 2300030030030030030}
   navGrid: {fileID: 0}
   homeAnchor: {fileID: 0}
-  roamProfile: {fileID: 11400000, guid: 43840fe5def0543459c896e1fd11f676, type: 2}
+  roamProfile: {fileID: 11400000, guid: a8f29e6cfec772c4d8d9847bbd79f233, type: 2}
   autoStart: 1
   applyProfileOnAwake: 1
   activityRadius: 3
