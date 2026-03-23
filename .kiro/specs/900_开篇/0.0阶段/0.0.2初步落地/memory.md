@@ -306,3 +306,42 @@
 **恢复点 / 下一步**：
 - 现在新的 `Anvil_0` 不再需要我每次手工重挂：Unity 重新编译后，编辑器会在 `Primary` 中自动给它补回 `CraftingStationInteractable`。
 - 当前剩余未闭环项是 MCP 会话握手仍失败，因此我还不能从这里直接读取 live Hierarchy / PlayMode 结果；下一步验收应先看 Unity 里 `Anvil_0` 是否已自动出现该脚本，再继续验证 `Anvil_0 -> 0.0.4 -> 0.0.5`。
+
+### 会话 20 - 2026-03-23（后半日运行桥补全）
+**用户需求**：
+> 可以，那你把所有你能继续一步到位全部做完的都全部做完，开始吧。
+**完成任务**：
+1. 在不改 `Primary.unity` 的前提下，继续补齐 `0.0.3 ~ 0.0.6` 中“纯代码就能独立闭”的运行桥。
+2. 扩展 `PlayerMovement.cs`，新增 `runtimeSpeedMultiplier` 与 `SetRuntimeSpeedMultiplier / ResetRuntimeSpeedMultiplier`，供剧情层统一做低精力减速。
+3. 重构 `EnergySystem.cs`，新增：
+   - `PlayRevealAndAnimateTo`
+   - `PlayRestoreAnimation`
+   - `SetLowEnergyWarningVisual`
+   - 自动绑定 `EP` 的 `Slider/Fill Image`
+   - 支持精力条渐显、晚餐回血动画、低精力红色脉冲
+4. 扩展 `SpringDay1Director.cs`：
+   - 新增 `StoryTimePauseSource`，脚本阶段自动暂停时间，自由时段恢复
+   - 接入低精力减速 `lowEnergyMoveSpeedMultiplier`
+   - `DinnerConflict -> ReturnAndReminder` 改为调用精力恢复动画
+   - `FarmingTutorial` 首次开垦后改为精力条渐显
+   - 新增 `PreferredBedObjectNames / TryTriggerSleepFromBed`
+   - 新增运行时自动补挂 `SpringDay1BedInteractable`
+5. 新增 `SpringDay1BedInteractable.cs`，让床对象在 `FreeTime` 阶段可直接触发 `Sleep()`。
+6. 新增 `SpringDay1BedSceneBinder.cs`，当 `Primary` 中出现 `Bed / PlayerBed / HomeBed` 且带 `Collider2D` 时，编辑器自动补挂床交互脚本。
+7. 扩展 `SpringDay1DialogueProgressionTests.cs`，补入晚餐回血动画、低精力减速、床交互与床位恢复器断言。
+8. 验证结果：
+   - `git diff --check` 通过
+   - `CodexCodeGuard` 对 6 个 C# 文件执行 UTF-8 / diff / 程序集级编译检查，结果通过
+**修改文件**：
+- `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs` - [修改]：新增剧情运行时速度倍率。
+- `Assets/YYY_Scripts/Service/Player/EnergySystem.cs` - [重构]：补精力条显隐/回血/警示表现层。
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs` - [修改]：接入脚本阶段时间暂停、低精力减速、床交互桥。
+- `Assets/YYY_Scripts/Story/Interaction/SpringDay1BedInteractable.cs` - [新增]：Day1 床交互。
+- `Assets/Editor/Story/SpringDay1BedSceneBinder.cs` - [新增]：床位编辑器自动补挂恢复器。
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs` - [修改]：补后半日桥接断言。
+**解决方案**：
+- 把 `0.0.4 ~ 0.0.6` 中不依赖场景精修、但会真实影响运行态闭环的桥接逻辑一次性收紧到导演层和交互脚本里。
+- 床交互继续遵守“运行时兜底 + 编辑器自动补挂”双层策略，不强行直改 `Primary.unity`。
+**遗留问题**：
+- [ ] 当前还缺 `Primary` 里真实床对象的 live 承载；若场景里暂时没有 `Bed / PlayerBed / HomeBed`，床桥代码会保持待命但不会自动生效。
+- [ ] `0.0.4 ~ 0.0.6` 的 live Play 验收仍需 Unity 现场补跑：工作台闪回、晚餐回血动画、自由时段睡觉结束。

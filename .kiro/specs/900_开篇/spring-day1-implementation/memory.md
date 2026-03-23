@@ -356,3 +356,10 @@
 - 该恢复器会在 `Primary` 打开、层级变化后自动扫描 `Anvil_0 / Workbench / Anvil`，若对象带 `Collider2D` 且缺少 `CraftingStationInteractable`，则自动补挂并标记场景 dirty。
 - 这让“工作台被别的线程删掉后重新摆回”不再需要重复人工回挂脚本；后续 `spring-day1` 只需继续关心 `Anvil_0 -> 0.0.4 -> 0.0.5` 的剧情验收。
 - 当前恢复点：代码侧恢复已经完成，项目编译闸门通过；MCP 会话握手仍失败，所以 live 验收仍待会话层回正后补做。
+
+## 2026-03-23 补记：Day1 后半日代码桥已继续向前推进
+- 本轮没有回头改对话 UI，也没有碰 `Primary.unity`；继续把 `0.0.3 ~ 0.0.6` 中“纯代码能独立闭”的桥接口一次性补齐。
+- 已新增 / 修改：`PlayerMovement.cs`、`EnergySystem.cs`、`SpringDay1Director.cs`、`SpringDay1BedInteractable.cs`、`SpringDay1BedSceneBinder.cs`、`SpringDay1DialogueProgressionTests.cs`。
+- 当前新能力包括：脚本阶段时间暂停、低精力减速、精力条渐显与晚餐回血动画、自由时段床交互与睡觉结束桥。
+- `git diff --check` 与 `CodexCodeGuard` 已通过；说明这刀代码层可继续推进，不是停在半编译状态。
+- 当前恢复点：主线剩余重点已收缩为 Unity live 验收与真实场景承载物对接，尤其是 `Primary` 里真实床对象是否已经到位。

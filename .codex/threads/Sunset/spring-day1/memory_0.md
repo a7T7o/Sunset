@@ -464,3 +464,10 @@
 - 现在只要 Unity 在 `Primary` 里看到一个叫 `Anvil_0` 的带碰撞器物体，就会自动给它补挂 `CraftingStationInteractable`；也就是说，以后这个工作台被误删再摆回，我不需要再手工补一次。
 - 这次我还补跑了 `CodexCodeGuard`，确认恢复器、测试和工作台桥接相关代码都能过程序集级编译闸门。
 - 当前主线恢复点：下一步应去 Unity 里确认 `Anvil_0` 已自动挂回脚本，然后继续验收 `Anvil_0 -> 0.0.4 -> 0.0.5`；目前唯一阻塞仍是 MCP 会话握手没回正。
+
+## 2026-03-23 补记：后半日运行桥已补到床与精力层
+- 我这轮继续沿 Day1 主线推进，没有切题去修无关系统；目标是把 `0.0.4 ~ 0.0.6` 里还能纯代码落的桥都先做完。
+- 已完成：`PlayerMovement` 运行时速度倍率、`EnergySystem` 的渐显/回血/低精力表现、`SpringDay1Director` 的脚本阶段时间暂停与低精力减速、`SpringDay1BedInteractable` + `SpringDay1BedSceneBinder`。
+- 静态验证已通过：`git diff --check` 和 `CodexCodeGuard` 都是绿的。
+- 这说明我这条线现在不再缺“床怎么睡、晚餐怎么回血、低精力怎么减速”的代码口，而是只差 live 场景承载和 Play 验收。
+- 当前恢复点：下一步优先看 `Primary` 是否已有真实床对象；如果有，就能直接做 `工作台 -> 教学 -> 晚餐 -> 自由时段 -> 睡觉结束` 的最小通路验收。
