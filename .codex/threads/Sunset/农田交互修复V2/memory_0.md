@@ -475,7 +475,7 @@
    - `2218b47d` 已把箱子实例态保真与农田 hover 预览遮挡并入 `main`
 4. 针对白名单路径再次执行 `git status --short --branch -- <paths>`，结果为空，确认当前 farm 这批路径没有未提交草稿。
 5. 再次独立编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，当前 `main` 的运行时代码仍通过。
-6. 复核 Unity / MCP live 基线：当前会话 `list_mcp_resources` / `list_mcp_resource_templates` 为空；`C:\Users\aTo\.codex\config.toml` 仍指向旧的 `http://127.0.0.1:8080/mcp`，但 `127.0.0.1:8888` 与 `Library\MCPForUnity\RunState\mcp_http_8888.pid` 实际在线。
+6. 复核 Unity / MCP live 基线：当前会话 `list_mcp_resources` / `list_mcp_resource_templates` 为空；`C:\Users\aTo\.codex\config.toml` 当时仍落在旧端口口径（已失效），但 `127.0.0.1:8888` 与 `Library\MCPForUnity\RunState\mcp_http_8888.pid` 实际在线。
 7. 已将 `1.0.3/tasks.md`、子/父/根工作区记忆回写为当前真相：旧截图中的剩余代码项已被后续提交覆盖，当前真正剩余的是 Unity live 验收入口与场景回归。
 
 **关键决策**:

@@ -33,6 +33,10 @@
 2. 你要做 Unity / MCP live 写，但已经有人占用。
 3. 你把场景、引用或资源关系写坏了，需要先收口。
 
+如果你这轮要做 Unity / MCP live 验证或 live 写，再补一条：
+- 先按 `mcp-live-baseline.md` 核：`unityMCP + 8888 + pidfile + 当前会话暴露`
+- 如果基线脚本已 pass，但你这条旧线程还在报旧端口 / 旧桥名 / `resources/templates` 为空，优先按“旧会话 MCP 路由缓存未刷新”处理，不要直接判服务端回滚
+
 聊天只回这些字段：
 - 当前在改什么
 - 上次 checkpoint / 当前恢复点

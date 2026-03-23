@@ -88,6 +88,8 @@ if (-not (Test-Path $pidPath)) { $issues += "pidfile_missing" }
 
 if ($issues.Count -eq 0) {
     Write-Output "baseline_status: pass"
+    Write-Output "note: config/service baseline only; session resources + target instance still require separate verification"
+    Write-Output "stale_session_hint: if an old thread still reports 8080/mcp or mcp-unity after this passes, treat it as stale_session_route before blaming the server"
 }
 else {
     Write-Output "baseline_status: fail"

@@ -171,6 +171,7 @@
   - 当前会话 resources / templates 暴露的 server 确实是 `unityMCP`
   - 当前实例与本轮目标实例一致
 - 任何线程、prompt、draft、memory、回执若仍把 `http://127.0.0.1:8080/mcp`、`localhost:8080/mcp`、`mcp-unity` 当成当前 live 口径，统一视为旧口径残留，不能直接当成本轮事实继续外推。
+- 如果 `config.toml`、`127.0.0.1:8888`、pidfile 与 `check-unity-mcp-baseline.ps1` 都已通过，但某条旧线程 / 旧会话仍报旧端口、旧桥名或 `resources/templates` 为空，优先判定为“旧会话 MCP 路由缓存未刷新”，不要直接外推成 shared root 服务端已回滚；应改走新线程 / 新会话复核，或先手工对 `http://127.0.0.1:8888/mcp` 做 initialize + `tools/list` 证明服务端可用。
 - 凡是为了验证进入 Play Mode 的任务，完成当前取证后都必须先确认已经回到 Edit Mode；未退回前，不算完成现场清理，也不允许把 Unity 让给其他线程。
 - 涉及 UI、对话框、气泡、字体、布局、样式的任务，不得以“能显示”为完成标准；必须额外核可读性、锚点、留白、层级遮挡、字体协调性和整体专业感。
 - 治理任务若留在 `main`，只允许使用 `git-safe-sync.ps1 -Action sync -Mode governance`，并通过 `-IncludePaths` 明确带上本轮受影响的业务记忆或线程记忆。

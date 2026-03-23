@@ -350,3 +350,19 @@
 - 父层恢复点：
   - 若后续进入这条主线，优先让用户提供图片、prefab 索引、目标场景路径、尺度参考和自动化边界
   - 再由 `Skills和MCP` 线程承接“图驱动初稿搭建 + 回读校正 + 微调收口”的执行闭环
+## 2026-03-23（父层补记：MCP 根因已从端口漂移继续收紧到旧线程缓存未刷新）
+- 当前父层主线仍是“维护 Sunset 活入口与规则口径”，本轮继续处理的不是业务功能，而是 MCP live 误判根因。
+- 新补到的稳定事实是：
+  - shared root `main` 下的 `config.toml`、`8888` 监听、pidfile 与 `check-unity-mcp-baseline.ps1` 已能恢复一致；
+  - 但旧线程 / 旧会话即使在读到新配置后，也可能继续沿用旧 MCP 路由缓存发请求。
+- 因此父层 live 口径已升级为：
+  - 若 `config + 8888 + pidfile + baseline` 都通过，但旧线程仍报旧端口 / 旧桥名 / `resources/templates` 为空，默认先判为“旧会话 MCP 路由缓存未刷新”，不要直接宣布服务端回滚。
+- 本轮已同步更新：
+  - `AGENTS.md`
+  - `Sunset当前规范快照_2026-03-22.md`
+  - `mcp-live-baseline.md`
+  - 批次 `README.md`
+  - 通用前缀 prompt / `scene-build` 前缀 prompt
+  - `check-unity-mcp-baseline.ps1`
+- 父层恢复点：
+  - 后续线程若再贴“我这条会话还是打旧端口”的报错，优先回到这条规则判断是旧线程缓存问题，还是服务端真的坏了。

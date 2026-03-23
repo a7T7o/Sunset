@@ -90,4 +90,5 @@
   - 只要白名单里含 `.unity / .prefab / .asset`，收口前必须说明资源卫生分类：`有效内容 / 自动副产物 / 调试残留 / 他线脏改`
   - branch / worktree 例外完成后，必须先迁最小 checkpoint，再回到 `main` 语义继续，不再长期把旧 carrier 当 blocker
   - Unity / MCP live 验证或 live 写，必须先说清：`需要什么实例 / 最多占多久 / 只做什么 / 做完退回什么状态`
+  - 如果 `mcp-live-baseline` 已过，但旧线程仍报旧端口 / 旧桥名 / `resources/templates` 为空，优先按“旧会话 MCP 路由缓存未刷新”处理；先换新线程 / 新会话，或先手工对 `8888` 做 initialize + `tools/list`
   - 默认执行纪律是：`一刀一收`

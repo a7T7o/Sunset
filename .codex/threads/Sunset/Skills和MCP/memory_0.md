@@ -243,3 +243,127 @@
 - 以后再出现旧口径，可以直接由扫描脚本作为治理告警入口。
 **恢复点 / 下一步**：
 - 下一步只剩这批第二阶段收尾文件同步进 `main`。
+### 会话 47 - 2026-03-23（遮挡检查 preflight 风险复核）
+**用户目标**：
+- 查看“遮挡检查”线程的中间思考，判断当前是否已经出现会导致 `Primary.unity` 误写的危险信号。
+
+**当前主线目标**：
+- 继续把 Sunset 的 MCP live 基线压实到 shared root `main`，不要让别的线程因为旧口径 / 漂移口径重新误判。
+
+**本轮子任务 / 阻塞**：
+- 只读检查 `遮挡检查` 线程 preflight 里的 MCP 证据链是否成立。
+- 这一步服务于主线里的“根因治理”，不是切走去做遮挡业务实现。
+
+**已完成事项**：
+1. 读到 `C:\Users\aTo\.codex\config.toml` 当前又漂回旧端口口径（已失效）。
+2. 读到 shared root 唯一有效基线文档仍坚持 `unityMCP + http://127.0.0.1:8888/mcp`。
+3. 读到 `D:\Unity\Unity_learning\Sunset\Library\MCPForUnity\RunState\mcp_http_8888.pid` 存在，且 `127.0.0.1:8888` 正在监听。
+4. 运行 `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1` 后明确得到：
+   - `baseline_status: fail`
+   - `issues: unexpected_endpoint`
+5. 当前会话 `list_mcp_resources` / `list_mcp_resource_templates` 为空，所以不能把“服务在”直接等同于“这条会话已拿到安全可写的 Unity live 入口”。
+
+**关键决策**：
+- 这不是“语气有点危险”，而是确实存在 preflight 失败却准备继续逼近 `Primary.unity` 的风险。
+- 根因是三层再次分叉：
+  - 配置层：旧端口口径（已失效）
+  - 服务层：`8888`
+  - 会话层：资源暴露为空
+- 在这种状态下，任何面向 `Primary.unity` 的 live 写入都应先停。
+
+**验证结果**：
+- 已验证事实：配置与基线不一致；8888 监听正常；基线脚本失败。
+- 当前判断：造成遮挡线程阻塞的核心不是业务逻辑本身，而是 MCP preflight 现场没有统一回正。
+
+**恢复点 / 下一步**：
+- 先把 `config.toml` 再次纠回 `8888`，再做基线脚本 + 会话资源暴露复核。
+- 在复核通过前，主线仍停留在“MCP 根因治理未彻底完成”，不能宣布 `Primary.unity` 可安全进入 live 写态。
+### 会话 48 - 2026-03-23（用户称已改 config，但现场仍落在旧端口口径）
+**用户目标**：
+- 用户说自己已经改完配置，要求我确认现在是否还有别的问题。
+
+**当前主线目标**：
+- 继续完成 Sunset MCP 基线回正，不让线程在“自以为改好了”的状态下继续误判。
+
+**本轮子任务 / 阻塞**：
+- 只读复核当前 config 与基线脚本结果。
+
+**已完成事项**：
+1. 读取 `C:\Users\aTo\.codex\config.toml`，发现其 `url` 仍落在旧端口口径（已失效）。
+2. 运行 `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1`，结果仍为：
+   - `baseline_status: fail`
+   - `issues: unexpected_endpoint`
+3. 读取 terminal script，确认 Unity 侧服务口径依旧是 `8888`。
+
+**关键决策**：
+- 这轮不能宣布“已经回正，剩下再看别的问题”。
+- 当前仍然是同一个核心问题：配置层没有真正改到与 live 基线一致。
+
+**恢复点 / 下一步**：
+- 先把 `config.toml` 真改成 `http://127.0.0.1:8888/mcp`，再让我复跑一次。
+### 会话 48 - 2026-03-23（8888 已回正后的再次复核）
+**用户目标**：
+- 用户手动把 `config.toml` 改回 `8888` 后，确认现在是否还有别的问题。
+
+**当前主线目标**：
+- 继续 MCP 根因治理，确认问题是否已经从“配置层错误”收敛到“仅剩会话层 / 现场治理层尾项”。
+
+**本轮子任务 / 阻塞**：
+- 只读复核 MCP 基线是否已经转绿。
+- 再补看当前这条会话是否已经拿到可见的 MCP 暴露。
+
+**已完成事项**：
+1. 读到 `C:\Users\aTo\.codex\config.toml` 已正确写为 `http://127.0.0.1:8888/mcp`。
+2. 读到 `127.0.0.1:8888` 正在监听，且 shared root pidfile 仍存在。
+3. 运行 `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1` 已得到 `baseline_status: pass`。
+4. 当前会话 `list_mcp_resources` / `list_mcp_resource_templates` 仍为空，因此我只能确认“配置层与服务层已回正”，还不能从这条会话直接证明“会话层 MCP 暴露已回正”。
+5. 同时看到 shared root 仍存在其他线程业务 dirty，因此 MCP 回正不等于 shared root 立即变成可自由写入现场。
+
+**关键决策**：
+- 现在最大的 MCP 基线问题已经解决。
+- 剩余风险不再是“旧端口配置错误”，而是：
+  - 会话层是否真的挂上正确 live MCP
+  - shared root 是否具备写 `Primary.unity` 的准入条件
+
+**验证结果**：
+- 已验证事实：配置正确、8888 监听正常、pidfile 存在、基线脚本通过。
+- 当前判断：如果只问 MCP 基线，已经大体恢复；如果问“是否完全无风险”，答案仍然是否。
+
+**恢复点 / 下一步**：
+- 真要进 Unity/MCP live 写态，仍建议补一次会话层实际可调用验证。
+- 在 shared root 仍有其他 dirty 的情况下，不应因为 MCP 脚本通过就省略热区/占用核查。
+### 会话 49 - 2026-03-23（旧线程会话缓存未刷新已写成 live 硬口径）
+**用户目标**：
+- 不只修一次端口漂移，而是把更深层的“旧线程 / 旧会话仍沿用旧 MCP 路由缓存”根因也真正落地。
+
+**当前主线目标**：
+- 继续在 `D:\Unity\Unity_learning\Sunset @ main` 把 MCP live 真相压成不依赖人脑记忆的硬基线。
+
+**本轮子任务 / 阻塞**：
+- 只读复核 `main` 现场、Codex 会话日志与 live 规则入口。
+- 把“旧会话缓存未刷新”同步进规则、prompt、脚本与 active memory。
+
+**已完成事项**：
+1. 在 shared root `main` 只读确认：
+   - `C:\Users\aTo\.codex\config.toml` 已是 `http://127.0.0.1:8888/mcp`
+   - `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1` 已返回 `baseline_status: pass`
+2. 回读 Codex 会话日志后确认：同一条旧线程在已经读到 `8888` 配置之后，后续请求仍继续打旧端口，说明问题不止是配置层，也包括旧会话 MCP 路由缓存未刷新。
+3. 已把这条稳定口径同步到：
+   - `AGENTS.md`
+   - `Sunset当前规范快照_2026-03-22.md`
+   - `mcp-live-baseline.md`
+   - 批次 `README.md`
+   - `并发线程_当前版本更新前缀.md`
+   - `scene-build_当前版本更新前缀.md`
+   - `check-unity-mcp-baseline.ps1`
+4. 已把当前 active memory 中仍会误导人的旧端口字面改写成“旧端口口径（已失效）”，并重新执行 `scripts/find-legacy-mcp-references.ps1` 做复核。
+
+**关键决策**：
+- 以后只要 `config + 8888 + pidfile + baseline` 已通过，但旧线程仍报旧端口 / 旧桥名 / `resources/templates` 为空，优先判为“旧会话 MCP 路由缓存未刷新”，不要直接宣布 shared root 服务端回滚。
+- 真要继续 live 验证，优先开新线程 / 新会话，或先手工对 `8888` 做 initialize + `tools/list`，先证明服务端可用。
+
+**验证结果**：
+- 当前 stable 结论已经从“只知道 8888 才是对的”推进到“能区分配置层错误 vs 旧会话缓存未刷新”。
+
+**恢复点 / 下一步**：
+- 下一步只剩按白名单把这轮治理文档 / 脚本 / 记忆同步进 `main`。

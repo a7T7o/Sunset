@@ -137,7 +137,7 @@
 - 用户本轮给出的是更早一版截图，其中“下一刀该做箱子实例态”已经不再是 live 事实。回读 `main` 上的 farm 提交链后已确认：`0e87c430` 已把背包第一行 / Toolbar 同步与食物药水真实状态接线并入，`2218b47d` 已把箱子实例态保真与农田 hover 预览遮挡并入。
 - 当前 live Git 现场为 `D:\Unity\Unity_learning\Sunset @ main @ 4f76b1b87efb455dc0cc370988ca8b69afc601a3`。针对 `1.0.3` 白名单路径执行 `git status --short --branch -- <paths>` 结果为空，说明当前 farm 这批路径没有未提交草稿，截图中的“未完成”并不是现在的仓库状态。
 - 本轮再次使用 Unity 6000.0.62f1 自带 `dotnet.exe + csc.dll` 独立编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，结果通过，进一步确认当前 `main` 上 `1.0.3` 代码不是停在半编译状态。
-- 当前真正没有闭上的只剩 Unity live 验收入口：本会话 `list_mcp_resources` / `list_mcp_resource_templates` 为空，而 `C:\Users\aTo\.codex\config.toml` 仍保留旧的 `http://127.0.0.1:8080/mcp` 配置；与此同时，`127.0.0.1:8888` 监听正常且 `Library\MCPForUnity\RunState\mcp_http_8888.pid` 存在。这说明 live 验收阻塞更像 MCP 会话 / 配置未回正，而不是 `1.0.3` 代码还没做完。
+- 当前真正没有闭上的只剩 Unity live 验收入口：本会话 `list_mcp_resources` / `list_mcp_resource_templates` 为空，而 `C:\Users\aTo\.codex\config.toml` 当时仍落在旧端口口径（已失效）；与此同时，`127.0.0.1:8888` 监听正常且 `Library\MCPForUnity\RunState\mcp_http_8888.pid` 存在。这说明 live 验收阻塞更像 MCP 会话 / 配置未回正，而不是 `1.0.3` 代码还没做完。
 - 当前恢复点：
   - `1.0.3` 的代码闭环已经覆盖旧截图中的剩余项；
   - 后续真正要继续的不是再补箱子或再补遮挡，而是先让 Unity live 验收入口回正，然后在场景里回归箱内实例态与农田 hover 遮挡表现。

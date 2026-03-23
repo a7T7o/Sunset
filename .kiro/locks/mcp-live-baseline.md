@@ -47,6 +47,13 @@
 - 会话未回正
   - `config.toml` 已改对
   - 但当前会话 resources 仍为空或仍是 `mcp-unity`
+- 旧线程缓存未刷新
+  - `config.toml` 已改对
+  - `127.0.0.1:8888` 监听正常
+  - pidfile 存在
+  - 基线脚本已 `pass`
+  - 但旧线程 / 旧会话日志仍继续打旧端口或旧桥名
+  - 这类情况优先视为会话内 MCP 路由缓存未刷新，不直接判服务端回滚
 - 插件短断 / Unity 侧重连
   - server 仍监听
   - pidfile 仍存在
@@ -58,7 +65,8 @@
 2. 运行：
    - `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1`
 3. 再做当前会话 `list_mcp_resources`
-4. 再做 `manage_scene(get_active)` / `read_console(get)`
+4. 如果基线脚本已 `pass`，但旧线程仍报旧端口 / 旧桥名 / 资源为空，先换新线程 / 新会话，或先手工对 `http://127.0.0.1:8888/mcp` 做 initialize + `tools/list`
+5. 再做 `manage_scene(get_active)` / `read_console(get)`
 
 ## 一句话口径
-- 以后任何 Sunset 线程只要还在写 `8080`、`mcp-unity`、或只写“Session Active 所以可用”，都视为没有通过当前 MCP live 基线核查。
+- 以后任何 Sunset 线程只要还在写 `8080`、`mcp-unity`、只写“Session Active 所以可用”，或在基线已绿时仍把旧线程缓存误判成服务端回滚，都视为没有通过当前 MCP live 基线核查。
