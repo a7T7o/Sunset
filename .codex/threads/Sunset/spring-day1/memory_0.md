@@ -501,3 +501,16 @@
 - `Primary.unity` 与 `TagManager.asset` 仍在 working tree，但这次我不会把它们混进 spring-day1 的最小 checkpoint。
 - 我已经重新跑过本轮目标文件的 `git diff --check` 与 `CodexCodeGuard`，当前可安全进入 main 白名单同步。
 - 当前主线恢复点：本轮收口完成后，下一步应该回到 `Anvil_0 -> 0.0.4 -> 0.0.5 -> 晚餐回血 -> 自由时段 -> 回住处休息结束` 的整链 live 验收，而不是继续乱铺新代码。
+
+## 2026-03-23 补记：任务提示层与对话框的遮挡问题已从代码侧收掉
+- 这轮我先按 `skills-governor` 做了 Sunset 手工等价 startup guard，再只读核 `shared-root`、`mcp`、工作区 memory 和 `ui.md`，确认当前不是继续乱铺功能，而是收最后一个明显体验缺口。
+- 我重新读了 `DialogueUI.cs` / `SpringDay1PromptOverlay.cs` / `SpringDay1Director.cs` 后确认：对话框渐隐渐显、T 键推进、血条渐显和其他 UI 淡出都已经在；真正会顶到对话框前面的，是提示条恢复得太早。
+- 我把修复压在 `SpringDay1PromptOverlay.cs` 自己身上，而没有去碰热区：
+  - 新增 `_queuedPromptText`
+  - 对话期间仅压低可见度，不丢失待恢复提示
+  - 对话结束后等待 `DialogueUI.CurrentCanvasAlpha` 归零，再延迟淡入
+- 对应静态测试 `SpringDay1DialogueProgressionTests.cs` 已同步补断言；`git diff --check` 与 `CodexCodeGuard` 均通过。
+- 当前 live 阻塞不是 spring-day1 自己新引入的编译坏，而是共享 Unity 现场还停在 `PlayMode paused + playmode_transition + stale_status`，并且 Console 有他线错误：`Assets/Editor/ChestInventoryBridgeTests.cs(136,79)`。
+- 当前主线恢复点：
+  - 代码侧最后一个明显沉浸式问题已收掉
+  - 下一步不该继续盲写，而应等共享 Editor 回稳后做一次完整 Day1 live 验收

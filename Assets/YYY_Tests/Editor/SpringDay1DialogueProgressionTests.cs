@@ -115,7 +115,11 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("EventBus.Subscribe<DialogueStartEvent>", overlayText, "PromptOverlay 应监听对话开始");
         StringAssert.Contains("EventBus.Subscribe<DialogueEndEvent>", overlayText, "PromptOverlay 应监听对话结束");
         StringAssert.Contains("_suppressWhileDialogueActive", overlayText, "PromptOverlay 应在对话期间禁止再次显示");
-        StringAssert.Contains("Hide();", overlayText, "PromptOverlay 应在对话开始时立即隐藏");
+        StringAssert.Contains("FadeCanvasGroup(0f, false)", overlayText, "PromptOverlay 应在对话开始时立即压低可见度");
+        StringAssert.Contains("_queuedPromptText", overlayText, "PromptOverlay 应缓存对话前后的待显示提示");
+        StringAssert.Contains("WaitAndRevealQueuedPrompt", overlayText, "PromptOverlay 应在对话框完全收起后再恢复提示");
+        StringAssert.Contains("CurrentCanvasAlpha", overlayText, "PromptOverlay 应等 DialogueUI 视觉层彻底隐藏后再显示");
+        StringAssert.Contains("postDialogueResumeDelay", overlayText, "PromptOverlay 应支持对话结束后的缓冲淡入延迟");
     }
 
     [Test]

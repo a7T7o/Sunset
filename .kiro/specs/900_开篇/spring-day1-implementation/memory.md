@@ -390,3 +390,15 @@
 - 当前仍留在 working tree 的 `Primary.unity` 与 `TagManager.asset` 没有被我混进 spring-day1 这次最小 checkpoint；它们继续作为现场其他 dirty 保留观察。
 - 我已再次对本轮目标代码执行 `git diff --check` 与 `CodexCodeGuard`，结果通过。
 - 当前恢复点：spring-day1 这轮可安全收成 main 白名单提交；提交后下一主动作应回到 Day1 后半段整链 live 验收，而不是继续无边界扩写。
+
+## 2026-03-23 补记：任务提示条已改为“对话收完后再淡入”
+- 用户实测后的最后一个明显体验缺口不是剧情链断，而是 `SpringDay1PromptOverlay` 会在对话刚结束时过早恢复，视觉上顶到对话框前面。
+- 本轮没有继续碰 `DialogueUI.cs` 或 `Primary.unity`，而是只在 `SpringDay1PromptOverlay.cs` 做最小时序修复：
+  - 缓存待恢复的提示文案
+  - 对话期间压低可见度而不丢失任务提示
+  - 等待 `DialogueUI.CurrentCanvasAlpha` 归零后，再经过一小段 `postDialogueResumeDelay` 淡入
+- `SpringDay1DialogueProgressionTests.cs` 已同步补断言，静态验证继续通过：
+  - `git diff --check`
+  - `CodexCodeGuard`
+- 当前 Unity live 现场仍不适合继续整链验收：`unityMCP` 读到的是 `PlayMode paused + playmode_transition + stale_status`，Console 里还存在他线错误 `Assets/Editor/ChestInventoryBridgeTests.cs(136,79)`。
+- 当前恢复点：spring-day1 的代码侧沉浸式提示问题已收口；后续剩余重点重新收缩为“等待共享 Editor 回稳后，再做 Day1 后半段整链 live 验收”。

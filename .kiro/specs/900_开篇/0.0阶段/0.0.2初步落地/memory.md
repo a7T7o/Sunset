@@ -412,3 +412,35 @@
 **恢复点 / 下一步**：
 - 下一步应以 main 白名单方式同步这轮 3 个代码文件与 3 层 memory。
 - 同步完成后，spring-day1 的最小后续主动作是：完整手工验收 `Anvil_0 -> 0.0.4 -> 0.0.5 -> 晚餐回血 -> 自由时段 -> 回住处休息结束`。
+
+### 会话 23 - 2026-03-23（任务提示条延迟淡入收口）
+**用户需求**：
+> 继续把当前还能一步到位补完的内容做完，优先修掉“任务提示条会抢到对话框前面”的沉浸式体验缺口。
+**完成任务**：
+1. 重新核对 `DialogueUI.cs`、`SpringDay1PromptOverlay.cs`、`SpringDay1Director.cs` 与 `SpringDay1DialogueProgressionTests.cs`，确认：
+   - 对话框本体已经具备渐进渐出、T 键推进、其他 UI 淡出/淡入
+   - 真正还没收口的是 `SpringDay1PromptOverlay` 会在对话收尾时过早恢复，导致与对话框重叠
+2. 修改 `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`：
+   - 新增 `_queuedPromptText`、对话后缓冲淡入延迟和 `CanvasGroup` 淡入/淡出协程
+   - 对话开始时不再简单丢弃提示，而是先压低可见度并缓存待恢复文案
+   - 对话结束后会等待 `DialogueUI.CurrentCanvasAlpha` 归零，再经过 `postDialogueResumeDelay` 才重新淡入提示
+3. 同步更新 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs` 的静态断言，覆盖：
+   - 提示文案缓存
+   - 等待对话框视觉层完全隐藏后再恢复
+   - 对话后缓冲淡入延迟
+**验证结果**：
+- `git diff --check` 通过
+- `CodexCodeGuard` 对：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+  完成 UTF-8 / diff / 程序集级编译检查并通过
+- `unityMCP` 当前仍处于 `PlayMode paused + playmode_transition + stale_status`，不适合继续 live 写或测试
+- 只读 Console 里当前唯一错误为：
+  - `Assets/Editor/ChestInventoryBridgeTests.cs(136,79): error CS1503: Argument 2: cannot convert from 'int' to 'string'`
+  该错误不属于 spring-day1 本轮改动
+**关键决策**：
+- 这轮不去改 `DialogueUI.cs`、`Primary.unity` 或其他热区文件；问题根因已收敛为提示层自身的恢复时机，因此只在 `SpringDay1PromptOverlay.cs` 做最小修复。
+- Unity live 现场当前不稳定，先以静态代码闸门收口，不硬抢共享 Editor。
+**恢复点 / 下一步**：
+- 当前“任务提示挡住对话框”的代码侧问题已收口。
+- 下一步若继续 spring-day1，应等待 Unity 回到稳定 EditMode 且他线 `ChestInventoryBridgeTests.cs` 编译错误解除，再做整条 Day1 live 验收。

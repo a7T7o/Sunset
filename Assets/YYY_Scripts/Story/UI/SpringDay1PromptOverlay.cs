@@ -1,3 +1,4 @@
+using System.Collections;
 using Sunset.Events;
 using TMPro;
 using UnityEngine;
@@ -24,7 +25,13 @@ namespace Sunset.Story
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private TextMeshProUGUI promptText;
         [SerializeField] private Image backgroundImage;
+        [SerializeField] private float fadeDuration = 0.18f;
+        [SerializeField] private float postDialogueResumeDelay = 0.18f;
         private bool _suppressWhileDialogueActive;
+        private string _currentPromptText = string.Empty;
+        private string _queuedPromptText = string.Empty;
+        private Coroutine _visibilityCoroutine;
+        private Coroutine _queuedRevealCoroutine;
 
         public static SpringDay1PromptOverlay Instance
         {
@@ -92,16 +99,13 @@ namespace Sunset.Story
 
         private void OnDisable()
         {
+            StopVisibilityCoroutine();
+            StopQueuedRevealCoroutine();
             EventBus.UnsubscribeAll(this);
         }
 
         public void Show(string text)
         {
-            if (_suppressWhileDialogueActive)
-            {
-                return;
-            }
-
             if (string.IsNullOrWhiteSpace(text))
             {
                 Hide();
@@ -113,34 +117,44 @@ namespace Sunset.Story
                 BuildUi();
             }
 
-            promptText.text = text;
-            canvasGroup.alpha = 1f;
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
+            _currentPromptText = text;
+            _queuedPromptText = text;
+
+            if (ShouldDelayPromptDisplay())
+            {
+                QueuePromptReveal();
+                return;
+            }
+
+            ShowCurrentPromptImmediate(_currentPromptText);
         }
 
         public void Hide()
         {
-            if (canvasGroup == null)
-            {
-                return;
-            }
-
-            promptText.text = string.Empty;
-            canvasGroup.alpha = 0f;
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
+            _currentPromptText = string.Empty;
+            _queuedPromptText = string.Empty;
+            StopQueuedRevealCoroutine();
+            FadeCanvasGroup(0f, true);
         }
 
         private void OnDialogueStart(DialogueStartEvent _)
         {
             _suppressWhileDialogueActive = true;
-            Hide();
+            if (!string.IsNullOrWhiteSpace(_currentPromptText))
+            {
+                _queuedPromptText = _currentPromptText;
+            }
+
+            FadeCanvasGroup(0f, false);
         }
 
         private void OnDialogueEnd(DialogueEndEvent _)
         {
             _suppressWhileDialogueActive = false;
+            if (!string.IsNullOrWhiteSpace(_queuedPromptText))
+            {
+                QueuePromptReveal();
+            }
         }
 
         private void BuildUi()
@@ -194,6 +208,157 @@ namespace Sunset.Story
             }
 
             return TMP_Settings.defaultFontAsset;
+        }
+
+        private void ShowCurrentPromptImmediate(string text)
+        {
+            if (promptText == null)
+            {
+                return;
+            }
+
+            StopQueuedRevealCoroutine();
+            promptText.text = text;
+            FadeCanvasGroup(1f, false);
+        }
+
+        private void QueuePromptReveal()
+        {
+            if (string.IsNullOrWhiteSpace(_queuedPromptText))
+            {
+                return;
+            }
+
+            StopQueuedRevealCoroutine();
+            _queuedRevealCoroutine = StartCoroutine(WaitAndRevealQueuedPrompt());
+        }
+
+        private IEnumerator WaitAndRevealQueuedPrompt()
+        {
+            while (ShouldDelayPromptDisplay())
+            {
+                yield return null;
+            }
+
+            if (postDialogueResumeDelay > 0f)
+            {
+                float remaining = postDialogueResumeDelay;
+                while (remaining > 0f)
+                {
+                    if (ShouldDelayPromptDisplay())
+                    {
+                        remaining = postDialogueResumeDelay;
+                        yield return null;
+                        continue;
+                    }
+
+                    remaining -= Time.unscaledDeltaTime;
+                    yield return null;
+                }
+            }
+
+            if (!string.IsNullOrWhiteSpace(_queuedPromptText))
+            {
+                _currentPromptText = _queuedPromptText;
+                ShowCurrentPromptImmediate(_queuedPromptText);
+            }
+
+            _queuedRevealCoroutine = null;
+        }
+
+        private bool ShouldDelayPromptDisplay()
+        {
+            if (_suppressWhileDialogueActive)
+            {
+                return true;
+            }
+
+            DialogueManager dialogueManager = Object.FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
+            if (dialogueManager != null && dialogueManager.IsDialogueActive)
+            {
+                return true;
+            }
+
+            DialogueUI dialogueUi = Object.FindFirstObjectByType<DialogueUI>(FindObjectsInactive.Include);
+            return dialogueUi != null && dialogueUi.CurrentCanvasAlpha > 0.01f;
+        }
+
+        private void FadeCanvasGroup(float targetAlpha, bool clearTextOnComplete)
+        {
+            if (canvasGroup == null)
+            {
+                return;
+            }
+
+            StopVisibilityCoroutine();
+            _visibilityCoroutine = StartCoroutine(FadeCanvasGroupRoutine(canvasGroup.alpha, targetAlpha, clearTextOnComplete));
+        }
+
+        private IEnumerator FadeCanvasGroupRoutine(float from, float to, bool clearTextOnComplete)
+        {
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
+
+            if (fadeDuration <= 0f || Mathf.Approximately(from, to))
+            {
+                canvasGroup.alpha = to;
+                if (clearTextOnComplete && promptText != null)
+                {
+                    promptText.text = string.Empty;
+                }
+
+                _visibilityCoroutine = null;
+                yield break;
+            }
+
+            float elapsed = 0f;
+            while (elapsed < fadeDuration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float normalized = Mathf.Clamp01(elapsed / fadeDuration);
+                float eased = to > from
+                    ? 1f - ((1f - normalized) * (1f - normalized))
+                    : normalized * normalized;
+
+                canvasGroup.alpha = Mathf.Lerp(from, to, eased);
+
+                if (normalized >= 1f)
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+
+            canvasGroup.alpha = to;
+            if (clearTextOnComplete && promptText != null)
+            {
+                promptText.text = string.Empty;
+            }
+
+            _visibilityCoroutine = null;
+        }
+
+        private void StopVisibilityCoroutine()
+        {
+            if (_visibilityCoroutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_visibilityCoroutine);
+            _visibilityCoroutine = null;
+        }
+
+        private void StopQueuedRevealCoroutine()
+        {
+            if (_queuedRevealCoroutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_queuedRevealCoroutine);
+            _queuedRevealCoroutine = null;
         }
     }
 }
