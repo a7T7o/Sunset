@@ -443,3 +443,87 @@
     - `m_LinearDamping = 0`
     - `Update` 中持续写 `linearVelocity`
     而不是再回到 tag / obstacleTags / prefab 挂载是否存在这种已经排除过的问题。
+
+### 会话 11 - 2026-03-23（治理侧补发导航线高压 prompt）
+
+- 用户当前已经明确不再接受“继续一点一点补导航 patch”的推进方式，而是要求导航线先正视一个系统级事实：十多轮迭代后，用户现场体感依旧没有根本变化，玩家面对动态 NPC 仍像推土机。
+- 基于这条要求，本轮由治理侧在本工作区新增并写实：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-1.md`
+- 该 prompt 的职责不是普通提醒，而是强制导航线先完成一次“当前落地偏移审计”，核心要求包括：
+  - 重读主表、`memory.md`、`005-gemini-1.md`、`003-NPC-2.md`
+  - 正面回答“当前问题是否已经属于系统级失败”
+  - 把“文档承诺 / 代码落地 / Scene 挂载 / 用户现场体感”四层裂口写进主表
+  - 先用 `unityMCP` 做 live Scene / 组件 / 挂载核查，再决定怎么改
+  - 强制审计 `NavGrid2D` 当前挂在 `Systems` 上是否仍合理，必要时直接整理导航专属承载对象
+  - 不再允许只补局部规则，而是正面判断是否必须直接推进共享路径执行层、最终运动语义收口与导航根对象整理
+- 当前恢复点更新为：
+  - 导航线下一步不该再直接沿旧补丁链继续，而应先按 `002-prompt-1.md` 的要求补齐“当前落地偏移审计”，然后再进入下一轮真正的结构性落地与终验。
+
+### 会话 12 - 2026-03-23（002 prompt 当前落地偏移审计）
+
+- 用户这轮明确要求：
+  - 先完整读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-1.md`
+  - 不要继续局部 patch
+  - 先用 MCP 核查 live Scene / 组件 / 挂载
+  - 先完成“当前落地偏移审计”，再决定后续结构性落地
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-scene-audit`
+  - `unity-mcp-orchestrator`
+  - `sunset-startup-guard` 继续手工等价
+- 本轮已完整重读：
+  - `统一导航重构阶段设计与执行主表.md`
+  - `memory.md`
+  - `005-gemini-1.md`
+  - `003-NPC-2.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\steering\scene-modification-rule.md`
+- 本轮 unityMCP live 审计结论：
+  - active scene 确实是 `Primary`，当前 `isDirty = true`
+  - `Primary/2_World` 当前只有一个子物体：`Systems`
+  - `Primary/2_World/Systems` 当前同时挂有：
+    - `NavGrid2D`
+    - `WorldSpawnService`
+    - `WorldSpawnDebug`
+    - `GameInputManager`
+  - `Player` 当前 live 同时挂有：
+    - `PlayerMovement`
+    - `PlayerAutoNavigator`
+    - `Rigidbody2D`
+    - `BoxCollider2D`
+  - `NPCs/001`、`002`、`003` 当前 live 都挂有：
+    - `NPCMotionController`
+    - `NPCAutoRoamController`
+    - `Rigidbody2D`
+    - `BoxCollider2D`
+  - 玩家与 3 个 NPC 的 `navGrid` 引用当前都指向同一个 `Systems/NavGrid2D`
+- 本轮新增稳定判断：
+  1. 当前问题必须正式定性为“系统级失败”，不能再当局部 bug 处理。
+  2. 当前只落到了共享导航基础设施进入运行时，**没有**落到“玩家、NPC、未来动态移动体已经在同一个导航系统里运动”。
+  3. 当前最关键的裂口是：
+     - S1-S3 已有代码
+     - S4 共享路径执行层没有落
+     - 玩家 / NPC 仍各自保留私有路径执行主循环
+     - Scene 承载仍把 `NavGrid2D` 混在 `Systems`
+  4. 当前 `NavGrid2D` 继续留在 `Systems` 不合理；下一轮结构性落地应优先评估建立 `NavigationRoot`
+- 本轮已完成：
+  - 在 `统一导航重构阶段设计与执行主表.md` 中新增高优先级“当前落地偏移审计”段
+  - 明确写出：
+    - 系统级失败
+    - 当前真实架构
+    - 目标架构
+    - 现场失败与文档承诺的裂口
+    - 为什么十多轮后现场仍无本质变化
+    - 下一轮必须替换或重排的执行层
+- 本轮没有做的事：
+  - 没有继续补导航 patch
+  - 没有调整 `Primary.unity` 中导航相关挂载
+  - 没有声称玩家绕移动 NPC / NPC 绕玩家 / NPC-NPC 会车已经通过 live 验收
+- 当前恢复点：
+  - 下一轮结构性落地前，先按 `scene-modification-rule.md` 补出 NavigationRoot 迁移方案的五段分析
+  - 结构性实现优先级应改成：
+    1. `NavigationRoot` / 导航承载整理
+    2. S4 共享路径执行层
+    3. 玩家 / NPC 最终运动语义统一收口
+    4. live 场景终验

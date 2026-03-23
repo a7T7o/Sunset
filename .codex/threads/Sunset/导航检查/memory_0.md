@@ -416,3 +416,53 @@
 - 当前恢复点：
   - 现在可以明确说：MCP 内容我已经拿到了，但拿到的是 scene/component 直连内容，不是资源枚举层。
   - 下一步如果继续终验，要继续沿着当前可用的 live scene/component 读取链路做，不再把“枚举空”误说成“完全没法用 MCP”。
+
+### 会话 20 - 2026-03-23（按 002 prompt 完成当前落地偏移审计）
+
+- 当前主线目标：
+  - 严格按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-1.md` 先完成“当前落地偏移审计”，先用 unityMCP 核查 live Scene / 组件 / 挂载，再决定后续结构性落地。
+- 本轮子任务：
+  - 不继续补任何局部导航 patch；
+  - 把“文档承诺 / 代码落地 / Scene 挂载 / 用户现场体感”的裂口用主表和记忆正式写实。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-scene-audit`
+  - `unity-mcp-orchestrator`
+  - `sunset-startup-guard` 继续手工等价
+- 本轮关键 live 结论：
+  - active scene = `Primary`，当前 `isDirty = true`
+  - `Primary/2_World/Systems` 当前同时挂有：
+    - `NavGrid2D`
+    - `WorldSpawnService`
+    - `WorldSpawnDebug`
+    - `GameInputManager`
+  - `Primary/2_World` 当前只有 `Systems` 这一个子物体
+  - 玩家 `Player` 当前 live 同时挂有 `PlayerMovement + PlayerAutoNavigator + Rigidbody2D + BoxCollider2D`
+  - `NPCs/001`、`002`、`003` 当前都挂有 `NPCMotionController + NPCAutoRoamController + Rigidbody2D + BoxCollider2D`
+  - 玩家与 3 个 NPC 的 `navGrid` 引用都指向同一个 `Systems/NavGrid2D`
+- 本轮线程级判断：
+  1. 当前必须被定性为系统级失败，不再是局部 bug。
+  2. 当前真实落地物 != 主表目标架构。
+  3. 当前没有做到“玩家、NPC、未来动态代理都在同一个导航系统中运动”。
+  4. 当前 `Systems` 已经是“静态路径 + 世界生成 + 世界调试 + 输入入口”的混装节点，继续让 `NavGrid2D` 留在这里不合理。
+- 本轮完成：
+  - 在子工作区主表中新增高优先级“当前落地偏移审计”
+  - 正式写出：
+    - 系统级失败
+    - 当前真实架构
+    - 目标架构
+    - 现场失败与文档承诺的裂口
+    - 为什么十多轮之后现场仍无本质变化
+    - 下轮必须重排的执行层
+- 本轮没有完成：
+  - 没有结构性迁移 `Primary.unity` 挂载
+  - 没有新建 `NavigationRoot`
+  - 没有 claim 玩家绕移动 NPC / NPC 绕玩家 / NPC-NPC 会车已经 live 通过
+- 当前恢复点：
+  - 下一轮先按 `scene-modification-rule.md` 补 `NavigationRoot` 迁移的五段分析，再决定是否用 MCP 调整 live Scene
+  - 结构性开发顺序收敛为：
+    1. 导航承载对象整理
+    2. S4 共享路径执行层
+    3. 玩家 / NPC 最终运动语义收口
+    4. live 终验
