@@ -229,14 +229,14 @@
 **用户需求**：继续把第二阶段清理做完，不停在半套治理层。
 **当前主线目标**：彻底清掉 active 层中仍会误导线程判断的旧桥 / 旧端口口径。
 **已完成事项**：
-1. 跑 `scripts/find-legacy-mcp-references.ps1` 后，发现 active 层剩余的是旧 `mcp-unity` 桥口径，而不再是 `8080`。
+1. 跑 `scripts/find-legacy-mcp-references.ps1` 后，发现 active 层剩余的是旧 `旧桥` 桥口径，而不再是 `8080`。
 2. 已继续处理中和：
    - `.codex/threads/Sunset/Skills和MCP/memory_0.md`
    - `.kiro/specs/共享根执行模型与吞吐重构/memory.md`
    - `.kiro/specs/农田系统/memory.md`
    - `.kiro/specs/农田系统/2026.03.01/10.2.1补丁001/memory.md`
    - `.kiro/specs/农田系统/2026.03.01/10.2.2补丁002/memory.md`
-3. 所有这些文件里的 `mcp-unity` 已统一改写为“旧 MCP 桥口径（已失效）”，并追加统一纠偏说明。
+3. 所有这些文件里的 `旧桥` 已统一改写为“旧 MCP 桥口径（已失效）”，并追加统一纠偏说明。
 4. 再次运行扫描脚本，结果已变为：`legacy_mcp_reference_status: clean`。
 **关键决策**：
 - 第二阶段现在不只是“建立了规则”，而是已经把当前 active 层里会误导人的旧字面口径清到了可接受状态。

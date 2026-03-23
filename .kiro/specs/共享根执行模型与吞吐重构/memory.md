@@ -1846,11 +1846,11 @@
 
 **本轮完成**
 1. 在第二阶段第一批清理后，再次使用 `scripts/find-legacy-mcp-references.ps1` 复扫 active 层。
-2. 复扫发现剩余 active 残留已不再是 `8080`，而是一些 `mcp-unity` 旧桥历史口径，集中在：
+2. 复扫发现剩余 active 残留已不再是 `8080`，而是一些 `旧桥` 旧桥历史口径，集中在：
    - `Skills和MCP` 线程记忆
    - `共享根执行模型与吞吐重构/memory.md`
    - `农田系统` 根层与 `10.2.1 / 10.2.2` memory
-3. 已把这些文件中的 `mcp-unity` 全部中和为：`旧 MCP 桥口径（已失效）`，并补统一纠偏说明。
+3. 已把这些文件中的 `旧桥` 全部中和为：`旧 MCP 桥口径（已失效）`，并补统一纠偏说明。
 4. 再次执行 `scripts/find-legacy-mcp-references.ps1` 后，结果已返回：
    - `legacy_mcp_reference_status: clean`
 

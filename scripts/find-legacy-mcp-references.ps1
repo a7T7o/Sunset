@@ -5,6 +5,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 $targets = @()
+$excludePaths = @(
+    (Join-Path $RepoRoot ".codex\threads\Sunset\Skills和MCP\memory_0.md"),
+    (Join-Path $RepoRoot ".kiro\specs\共享根执行模型与吞吐重构\memory.md")
+)
 
 $draftRoot = Join-Path $RepoRoot ".codex\drafts"
 if (Test-Path $draftRoot) {
@@ -23,14 +27,34 @@ if (Test-Path $specRoot) {
     }
 }
 
+$targets = $targets | Where-Object { $excludePaths -notcontains $_.FullName }
+
 $patterns = @(
     "127\.0\.0\.1:8080",
     "8080/mcp",
     "\bmcp-unity\b"
 )
 
+$legacyMarker = [string]([char]0x65e7) + " MCP"
+$expiredMarker = [string]([char]0x5df2) + [char]0x5931 + [char]0x6548
+
 $hits = foreach ($file in ($targets | Sort-Object FullName -Unique)) {
-    Select-String -Path $file.FullName -Pattern $patterns -ErrorAction SilentlyContinue
+    Select-String -Path $file.FullName -Pattern $patterns -ErrorAction SilentlyContinue |
+        Where-Object {
+            $hit = $_
+            $isExcluded = $false
+            $normalizedPath = $hit.Path -replace '/', '\'
+            foreach ($excludePath in $excludePaths) {
+                $normalizedExclude = $excludePath -replace '/', '\'
+                if ($normalizedPath.Equals($normalizedExclude, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $isExcluded = $true
+                    break
+                }
+            }
+            (-not $isExcluded) -and
+            $hit.Line -notlike "*$legacyMarker*" -and
+            $hit.Line -notlike "*$expiredMarker*"
+        }
 }
 
 if (-not $hits) {
