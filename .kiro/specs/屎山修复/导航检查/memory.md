@@ -543,3 +543,76 @@
   - 这条线当前真正的下一阶段不是再补主表，而是开始结构重排与终验
 - 当前恢复点：
   - 下一步应按 `002-prompt-2.md` 直接进入 `NavigationRoot` 承载整理、S4 落地和 live 终验，而不是再补新的偏移说明。
+
+### 会话 14 - 2026-03-23（002-prompt-2 结构落地 + live 终验）
+
+- 当前主线目标：
+  - 严格按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-2.md` 完成 `NavigationRoot` 承载裁决、S4 共享路径执行层落地，以及玩家 / NPC / NPC-NPC 的 live 终验。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-scene-audit`
+  - `unity-mcp-orchestrator`
+  - `sunset-unity-validation-loop`
+  - `sunset-startup-guard` 继续手工等价
+- 本轮结构落地：
+  - 已在 `统一导航重构阶段设计与执行主表.md` 补齐 `NavigationRoot` 五段分析，并把本轮结构结果写回主表。
+  - 已通过 unityMCP 在 `Primary/2_World` 下创建 `NavigationRoot`，采用“复制 `Systems` 再剥离非导航组件”的方式完成 live 迁移：
+    - `NavigationRoot` 现在只保留 `Transform + NavGrid2D`
+    - `Systems` 现在保留 `Transform + WorldSpawnService + WorldSpawnDebug + GameInputManager`
+    - 玩家与 `001 / 002 / 003` 的 `navGrid` live 引用都已切到 `NavigationRoot/NavGrid2D`
+    - 旧 `Systems/NavGrid2D` 已移除，`Primary.unity` 已保存，scene dirty 已清回 `false`
+  - 已把 S4 共享路径执行层真正落到代码：
+    - 新增 `Assets/YYY_Scripts/Service/Navigation/NavigationPathExecutor2D.cs`
+    - `PlayerAutoNavigator.cs` 改为使用共享 `ExecutionState / TryBuildPath / EvaluateWaypoint / EvaluateStuck / override waypoint`
+    - `NPCAutoRoamController.cs` 改为接入同一套共享路径执行状态，并补了 `DebugMoveTo(Vector2 destination)`
+  - 为 live 终验新增：
+    - `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs`
+    - `Assets/YYY_Scripts/Service/Navigation/Editor/NavigationLiveValidationMenu.cs`
+    - 其中终验入口后续改成“单场景 probe setup”菜单，避免 MCP 会话里 runtime runner 的后续 Update 日志缺失。
+  - 为恢复 live 验证窗口，本轮还最小修正了一个外部编译阻塞：
+    - `Assets/Editor/ChestInventoryBridgeTests.cs`
+    - 把 `GetProperty("seedRemaining", 0)` 改成 `GetPropertyInt("seedRemaining", 0)`，避免 Play 期间自动重编译直接把终验打断。
+- 本轮验证结果：
+  - 代码层：
+    - `refresh_unity` 后无本轮导航代码编译错误
+    - 之前已跑过的 `NavigationAvoidanceRulesTests` 仍为 `4/4 Passed`
+    - 本轮终验前 Unity 已恢复到可重新进入 Play Mode 的状态
+  - live Scene 回读：
+    - `NavigationRoot/NavGrid2D` live 配置有效，`obstacleTags` 含 `NPC`
+    - 玩家和 3 个 live NPC 的 `navGrid` 确认都指向 `NavigationRoot`
+  - 玩家绕移动 NPC：
+    - probe setup 成功，日志显示 `npcMoveIssued=True`、`playerActive=True`、`npcMoving=True`，玩家建路成功 `2 个路径点`
+    - 但 setup 后约 5 秒回读仍显示：
+      - `Player` 位置仍是 `(-9.15, 4.45)`，`Rigidbody2D.linearVelocity = (0, 0)`，`PlayerAutoNavigator.IsActive = true`
+      - `NPC 001` 位置仍是 `(-7.30, 3.60)`，`Rigidbody2D.linearVelocity = (0, 0)`，`NPCAutoRoamController.IsMoving = true`
+    - 结论：失败，而且失败层级不是“绕得不好”，而是“执行态已启动但实际位移没有推进”
+  - NPC 绕玩家：
+    - probe setup 成功，日志显示 `npcMoveIssued=True`、`npcMoving=True`
+    - 约 5 秒后回读：
+      - 玩家仍停在 `(-7.25, 4.45)`
+      - `NPC 001` 仍停在 `(-9.05, 4.45)`，`Rigidbody2D.linearVelocity = (0, 0)`
+      - `NPCAutoRoamController.IsMoving = true` 且 `DebugPathPointCount = 11`，但 `NPCMotionController.IsMoving = false`
+    - 结论：失败，本质仍是“有路径 / 有 moving 状态，但没有真实运动输出”
+  - NPC-NPC 会车：
+    - probe setup 成功，日志显示 `npcAMoveIssued=True`、`npcBMoveIssued=True`
+    - 约 5 秒后回读：
+      - `NPC 001` 仍停在 `(-9.05, 4.45)`
+      - `NPC 002` 仍停在 `(-5.25, 4.45)`
+      - 两者都保持 `NPCAutoRoamController.IsMoving = true`、`DebugPathPointCount = 11`，但 `Rigidbody2D.linearVelocity = (0, 0)`，`NPCMotionController.IsMoving = false`
+    - 结论：失败，而且失败表现与前两类场景一致
+- 本轮新增稳定判断：
+  1. `NavigationRoot` 迁移和 S4 共享路径执行层已经真正落地，当前失败已不能再归咎于“Scene 承载没整理”或“玩家 / NPC 还没接到同一层执行状态”。
+  2. 当前最高优先级 blocker 已收敛为：
+     - 玩家 `PlayerAutoNavigator.IsActive = true` / NPC `NPCAutoRoamController.IsMoving = true`
+     - 路径点数量正常
+     - 但 `Rigidbody2D.linearVelocity` 与 Transform 位置不推进
+     - 说明 live 失败现在落在“运行态位移执行没有真正落地”，不是局部规避参数。
+  3. runtime 创建的 `NavigationLiveValidationRunner` 在 MCP 会话里菜单触发后能完成 setup，但它自己的后续 Update 证据不稳定；因此本轮终验结论最终以“单场景 probe setup + MCP 运行态回读”作为可信证据。
+- 当前恢复点：
+  - 下一轮不要再回头查 NPC Tag / `NavigationRoot` / S4 是否落地，这三件事本轮都已完成。
+  - 下一优先排查应切到“为什么玩家导航 / NPC 漫游都进入 active/moving 状态，但实际位移始终为 0”：
+    1. `PlayerAutoNavigator -> PlayerMovement` 的输入是否被别的运行态系统每帧清零
+    2. `NPCAutoRoamController.TickMoving / FixedUpdate` 的位移结果是否被别的系统或 Rigidbody 语义吞掉
+    3. 是否存在统一的运行态锁定、暂停、动作态或物理步进断裂
+  - 本轮结束前 Unity 已退回 Edit Mode，没有把 Play 现场留给其他线程。

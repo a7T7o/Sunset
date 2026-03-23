@@ -466,3 +466,63 @@
     2. S4 共享路径执行层
     3. 玩家 / NPC 最终运动语义收口
     4. live 终验
+
+### 会话 21 - 2026-03-23（002-prompt-2 结构落地、S4 落地与 live 终验）
+
+- 当前主线目标：
+  - 按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-2.md` 继续执行，不再停在偏移审计层，完成 `NavigationRoot` 承载裁决、S4 共享路径执行层落地和 live 终验。
+- 本轮子任务：
+  - 用 unityMCP 完成 `Primary` live 承载迁移
+  - 把玩家 / NPC 路径执行真正接到共享执行层
+  - 用 live probe setup + MCP 回读拿到三类场景的真实结果
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-scene-audit`
+  - `unity-mcp-orchestrator`
+  - `sunset-unity-validation-loop`
+  - `sunset-startup-guard` 手工等价
+- 本轮已完成：
+  - 主表已补 `NavigationRoot` 五段分析，并写回本轮结构落地结果
+  - live Scene 已完成 `NavigationRoot` 迁移：
+    - `NavigationRoot` 只挂 `NavGrid2D`
+    - `Systems` 只保留 `WorldSpawnService + WorldSpawnDebug + GameInputManager`
+    - 玩家与 `001 / 002 / 003` 的 `navGrid` live 引用都切到 `NavigationRoot`
+  - S4 共享路径执行层已落代码：
+    - 新增 `Assets/YYY_Scripts/Service/Navigation/NavigationPathExecutor2D.cs`
+    - 修改 `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+    - 修改 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  - 新增 live 终验入口：
+    - `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs`
+    - `Assets/YYY_Scripts/Service/Navigation/Editor/NavigationLiveValidationMenu.cs`
+    - 后续又补了三个单场景 `Probe Setup` 菜单，便于 MCP 直接回读现场
+  - 为恢复 live 验证窗口，还最小修正了一个外部编译阻塞：
+    - `Assets/Editor/ChestInventoryBridgeTests.cs`
+    - `GetProperty("seedRemaining", 0)` -> `GetPropertyInt("seedRemaining", 0)`
+- 本轮真实终验结果：
+  - 玩家绕移动 NPC：
+    - setup 成功，`npcMoveIssued=True`、`playerActive=True`、`npcMoving=True`
+    - 5 秒后 `Player` 仍在 `(-9.15, 4.45)`、`NPC 001` 仍在 `(-7.30, 3.60)`，两者 `Rigidbody2D.linearVelocity = (0, 0)`
+    - 结论：失败
+  - NPC 绕玩家：
+    - setup 成功，`npcMoveIssued=True`、`npcMoving=True`
+    - 5 秒后玩家仍在 `(-7.25, 4.45)`、`NPC 001` 仍在 `(-9.05, 4.45)`，NPC `Rigidbody2D.linearVelocity = (0, 0)`，`NPCAutoRoamController.IsMoving = true` 但 `NPCMotionController.IsMoving = false`
+    - 结论：失败
+  - NPC-NPC 会车：
+    - setup 成功，`npcAMoveIssued=True`、`npcBMoveIssued=True`
+    - 5 秒后 `NPC 001` 仍在 `(-9.05, 4.45)`、`NPC 002` 仍在 `(-5.25, 4.45)`，两者都 `Rigidbody2D.linearVelocity = (0, 0)`，但 `NPCAutoRoamController.IsMoving = true`
+    - 结论：失败
+- 本轮关键决策：
+  1. 当前失败已不能再归因于 `NavigationRoot` 没建、S4 没落或 NPC Tag 缺失。
+  2. 现在最像真实根因的是“运行态位移执行层没有把 active/moving 状态真正转成 Rigidbody / Transform 位移”。
+  3. runtime 创建的 validation runner 在 MCP 会话里能完成 setup，但其后续 Update 证据不稳定；因此本轮最终以 `Probe Setup + MCP 运行态回读` 为准。
+- 验证结果：
+  - `NavigationAvoidanceRulesTests` 之前已为 `4/4 Passed`
+  - 本轮 Unity 已完成 `NavigationRoot` live 回读与三类 probe 场景回读
+  - 收尾前已主动退回 Edit Mode
+- 当前恢复点：
+  - 后续不要再回头查 `NavigationRoot` / S4 / NPC Tag
+  - 下一步直接排查：
+    1. `PlayerAutoNavigator -> PlayerMovement` 的输入是否被运行态别的系统清零
+    2. `NPCAutoRoamController.TickMoving / FixedUpdate` 的位移为何没有真正打到 `Rigidbody2D`
+    3. 是否存在统一的动作锁、物理步进断裂或运行态速度归零源

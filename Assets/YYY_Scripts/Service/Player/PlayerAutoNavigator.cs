@@ -56,13 +56,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private Transform targetTransform;
     private float followStopRadius = 0.6f;
     private bool runWhileNavigating;
-    private readonly List<Vector2> path = new List<Vector2>();
-    private int pathIndex;
-
-    // 卡顿检测
-    private Vector2 lastCheckPosition;
-    private float lastCheckTime;
-    private int stuckRetryCount;
+    private readonly NavigationPathExecutor2D.ExecutionState navigationExecution = new NavigationPathExecutor2D.ExecutionState();
     private const float STUCK_THRESHOLD = 0.1f;
     private const float STUCK_CHECK_INTERVAL = 0.3f;
     private const int MAX_STUCK_RETRIES = 3;
@@ -82,10 +76,16 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private int _lastDynamicObstacleId;
     private int _dynamicObstacleSightings;
     private readonly List<NavigationAgentSnapshot> _nearbyNavigationAgents = new List<NavigationAgentSnapshot>(12);
-    private bool _hasDynamicDetour;
-    private Vector2 _dynamicDetourPoint;
-    private int _dynamicDetourAgentId;
     private int _lastSharedAvoidanceDebugFrame = -999;
+
+    private List<Vector2> path => navigationExecution.Path;
+    private int pathIndex { get => navigationExecution.PathIndex; set => navigationExecution.PathIndex = value; }
+    private Vector2 lastCheckPosition { get => navigationExecution.LastProgressCheckPosition; set => navigationExecution.LastProgressCheckPosition = value; }
+    private float lastCheckTime { get => navigationExecution.LastProgressCheckTime; set => navigationExecution.LastProgressCheckTime = value; }
+    private int stuckRetryCount { get => navigationExecution.StuckRetryCount; set => navigationExecution.StuckRetryCount = value; }
+    private bool _hasDynamicDetour { get => navigationExecution.HasOverrideWaypoint; set => navigationExecution.HasOverrideWaypoint = value; }
+    private Vector2 _dynamicDetourPoint { get => navigationExecution.OverrideWaypoint; set => navigationExecution.OverrideWaypoint = value; }
+    private int _dynamicDetourAgentId { get => navigationExecution.OverrideWaypointOwnerId; set => navigationExecution.OverrideWaypointOwnerId = value; }
 
     public bool IsActive => active;
     public NavigationUnitType GetUnitType() => NavigationUnitType.Player;
@@ -302,13 +302,8 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         targetTransform = null;
         _cachedTargetTransform = null;
         _cachedTargetCollider = null;
-        path.Clear();
-        pathIndex = 0;
-        stuckRetryCount = 0;
+        NavigationPathExecutor2D.Clear(navigationExecution);
         runWhileNavigating = false;
-        _hasDynamicDetour = false;
-        _dynamicDetourPoint = Vector2.zero;
-        _dynamicDetourAgentId = 0;
         _onArrivedCallback = null;
         if (movement != null) movement.SetMovementInput(Vector2.zero, false);
     }
@@ -340,63 +335,46 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             }
         }
 
-        if (!_hasDynamicDetour && pathIndex >= path.Count) { Cancel(); return; }
-
         // 视线优化：尝试跳过中间路径点
         if (!_hasDynamicDetour && enableLineOfSightOptimization)
         {
             TrySkipWaypoints(playerPos);
         }
 
-        Vector2 waypoint = _hasDynamicDetour ? _dynamicDetourPoint : path[pathIndex];
-        Vector2 toWaypoint = waypoint - playerPos;
-        float distance = toWaypoint.magnitude;
-        
-        bool isLastWaypoint = !_hasDynamicDetour && (pathIndex == path.Count - 1);
+        NavigationPathExecutor2D.WaypointResult waypointState = NavigationPathExecutor2D.EvaluateWaypoint(
+            navigationExecution,
+            playerPos,
+            waypointTolerance,
+            targetTransform != null ? waypointTolerance : GetFinalStopDistance(),
+            1.25f);
 
-        if (_hasDynamicDetour && distance <= waypointTolerance * 1.25f)
+        if (waypointState.ClearedOverrideWaypoint)
         {
-            ClearDynamicDetour();
             return;
         }
-        
-        // 🔥 核心修复：停止条件基于是否足够近可以交互
-        if (isLastWaypoint && targetTransform != null)
+
+        if (targetTransform != null && IsCloseEnoughToInteract(playerPos))
         {
-            // 检查是否已经足够近可以交互
-            if (IsCloseEnoughToInteract(playerPos))
-            {
-                CompleteArrival();
-                return;
-            }
-            
-            // 检查是否已经到达路径终点（可走的最近点）
-            if (distance <= waypointTolerance)
-            {
-                // 已经到达路径终点，这是 NavGrid 能到达的最近点
-                // 直接完成导航，让交互系统判断是否在交互距离内
-                CompleteArrival();
-                return;
-            }
+            CompleteArrival();
+            return;
         }
-        else if (!isLastWaypoint)
+
+        if (waypointState.ReachedPathEnd)
         {
-            // 非最后一个路径点：正常检查
-            if (distance <= waypointTolerance)
-            {
-                pathIndex++;
-                return;
-            }
+            CompleteArrival();
+            return;
         }
-        else
+
+        if (!waypointState.HasWaypoint)
         {
-            // 最后一个路径点但没有 targetTransform（普通导航）
-            if (distance <= GetFinalStopDistance())
-            {
-                CompleteArrival();
-                return;
-            }
+            Cancel();
+            return;
         }
+
+        Vector2 waypoint = waypointState.Waypoint;
+        Vector2 toWaypoint = waypoint - playerPos;
+        float distance = waypointState.DistanceToWaypoint;
+        bool isLastWaypoint = !waypointState.UsingOverrideWaypoint && waypointState.IsLastPathWaypoint;
 
         // 计算移动方向
         Vector2 moveDir = toWaypoint.normalized;
@@ -601,68 +579,30 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private void BuildPath()
     {
-        path.Clear();
-        pathIndex = 0;
         debugLogs.Clear();
-        
-        if (navGrid == null) 
+
+        string pathSummary = $"开始寻路: 起点={GetPlayerPosition()}, 终点={targetPoint}" +
+            (targetTransform != null ? $", 目标={targetTransform.name}" : string.Empty);
+        AddDebugLog(pathSummary);
+
+        NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryBuildPath(
+            navigationExecution,
+            navGrid,
+            GetPlayerPosition(),
+            targetPoint,
+            AddDebugLog);
+
+        if (!buildResult.Success)
         {
-            AddDebugLog("NavGrid2D 未找到");
+            LogFullDebugInfo(buildResult.FailureReason);
             return;
         }
-
-        Vector2 start = GetPlayerPosition();
-        Vector2 end = targetPoint;
-
-        AddDebugLog($"开始寻路: 起点={start}, 终点={end}" + (targetTransform != null ? $", 目标={targetTransform.name}" : ""));
-
-        // 检查起点是否可走
-        if (!navGrid.IsWalkable(start))
-        {
-            AddDebugLog($"起点不可走，尝试查找最近可走点");
-            
-            if (!navGrid.TryFindNearestWalkable(start, out Vector2 validStart))
-            {
-                AddDebugLog("无法找到有效起点");
-                LogFullDebugInfo("起点不可走且无法找到替代点");
-                return;
-            }
-            AddDebugLog($"找到替代起点: {validStart}");
-            start = validStart;
-        }
-
-        // 检查终点是否可走
-        Vector2 actualEnd = end;
-        if (!navGrid.IsWalkable(end))
-        {
-            AddDebugLog($"终点不可走，尝试查找最近可走点");
-            
-            if (navGrid.TryFindNearestWalkable(end, out Vector2 nearEnd))
-            {
-                AddDebugLog($"找到替代终点: {nearEnd}");
-                actualEnd = nearEnd;
-            }
-            else
-            {
-                AddDebugLog("无法找到有效终点");
-            }
-        }
-
-        // 尝试寻路
-        if (!navGrid.TryFindPath(start, actualEnd, path))
-        {
-            AddDebugLog($"A* 寻路失败");
-            LogFullDebugInfo("寻路失败");
-            return;
-        }
-
-        AddDebugLog($"寻路成功: {path.Count} 个路径点");
 
         // 路径平滑处理
-        SmoothPath();
-        
+        NavigationPathExecutor2D.SmoothPath(navigationExecution, HasLineOfSight, AddDebugLog);
+
         // 清理身后路径点
-        CleanupPathBehindPlayer();
+        NavigationPathExecutor2D.CleanupPathBehind(navigationExecution, GetPlayerPosition(), waypointTolerance);
         
         if (enableDetailedDebug)
         {
@@ -728,49 +668,46 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private bool CheckAndHandleStuck()
     {
-        if (Time.time - lastCheckTime < STUCK_CHECK_INTERVAL) return false;
-
         Vector2 currentPos = GetPlayerPosition();
-        float movedDistance = Vector2.Distance(currentPos, lastCheckPosition);
-        lastCheckPosition = currentPos;
-        lastCheckTime = Time.time;
+        NavigationPathExecutor2D.ProgressCheckResult progress = NavigationPathExecutor2D.EvaluateStuck(
+            navigationExecution,
+            currentPos,
+            Time.time,
+            STUCK_CHECK_INTERVAL,
+            STUCK_THRESHOLD,
+            MAX_STUCK_RETRIES);
 
-        if (movedDistance < STUCK_THRESHOLD)
+        if (!progress.Checked || !progress.IsStuck)
         {
-            stuckRetryCount++;
-            
-            AddDebugLog($"检测到卡顿 ({stuckRetryCount}/{MAX_STUCK_RETRIES})，移动距离={movedDistance:F3}m");
-            
-            if (stuckRetryCount >= MAX_STUCK_RETRIES)
-            {
-                LogFullDebugInfo($"卡顿 {stuckRetryCount} 次后取消导航");
-                Debug.LogWarning($"<color=red>[Nav] 卡顿 {stuckRetryCount} 次，取消导航</color>");
-                Cancel();
-                return true;
-            }
-            
-            Debug.Log($"<color=yellow>[Nav] 检测到卡顿（{stuckRetryCount}/{MAX_STUCK_RETRIES}），重建路径</color>");
-            BuildPath();
-            
-            if (path.Count == 0) 
-            { 
-                LogFullDebugInfo("重建路径失败");
-                Cancel(); 
-                return true; 
-            }
+            return false;
         }
-        else
+
+        AddDebugLog($"检测到卡顿 ({progress.RetryCount}/{MAX_STUCK_RETRIES})，移动距离={progress.MovedDistance:F3}m");
+
+        if (progress.ShouldCancel)
         {
-            stuckRetryCount = 0;
+            LogFullDebugInfo($"卡顿 {progress.RetryCount} 次后取消导航");
+            Debug.LogWarning($"<color=red>[Nav] 卡顿 {progress.RetryCount} 次，取消导航</color>");
+            Cancel();
+            return true;
         }
+
+        Debug.Log($"<color=yellow>[Nav] 检测到卡顿（{progress.RetryCount}/{MAX_STUCK_RETRIES}），重建路径</color>");
+        BuildPath();
+
+        if (path.Count == 0)
+        {
+            LogFullDebugInfo("重建路径失败");
+            Cancel();
+            return true;
+        }
+
         return false;
     }
 
     private void ResetStuckDetection()
     {
-        lastCheckPosition = GetPlayerPosition();
-        lastCheckTime = Time.time;
-        stuckRetryCount = 0;
+        NavigationPathExecutor2D.ResetProgress(navigationExecution, GetPlayerPosition(), true);
         debugLogs.Clear();
         _lastDynamicObstacleId = 0;
         _dynamicObstacleSightings = 0;
@@ -882,9 +819,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
         _lastDynamicObstacleRepathTime = Time.time;
         _dynamicObstacleSightings = 0;
-        lastCheckPosition = playerPos;
-        lastCheckTime = Time.time;
-        stuckRetryCount = 0;
+        NavigationPathExecutor2D.ResetProgress(navigationExecution, playerPos, true);
 
         if (TryCreateDynamicDetour(playerPos, avoidance))
         {
@@ -974,25 +909,18 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return false;
         }
 
-        _hasDynamicDetour = true;
-        _dynamicDetourPoint = detourPoint;
-        _dynamicDetourAgentId = avoidance.BlockingAgentId;
+        NavigationPathExecutor2D.SetOverrideWaypoint(navigationExecution, detourPoint, avoidance.BlockingAgentId);
         return true;
     }
 
     private void ClearDynamicDetour()
     {
-        _hasDynamicDetour = false;
-        _dynamicDetourPoint = Vector2.zero;
-        _dynamicDetourAgentId = 0;
+        NavigationPathExecutor2D.ClearOverrideWaypoint(navigationExecution);
     }
 
     private void ClearDynamicDetourIfNeeded(int blockingAgentId)
     {
-        if (_hasDynamicDetour && (blockingAgentId == 0 || _dynamicDetourAgentId != blockingAgentId))
-        {
-            ClearDynamicDetour();
-        }
+        NavigationPathExecutor2D.ClearOverrideWaypointIfChanged(navigationExecution, blockingAgentId);
     }
 
     private float GetRequestedMoveSpeed()

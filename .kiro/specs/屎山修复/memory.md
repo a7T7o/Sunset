@@ -228,3 +228,28 @@
     3. 玩家 / NPC / NPC-NPC 的 live 终验
 - 父层当前恢复点：
   - 后续如果导航线仍继续停在分析而没有进入结构落地，就应判定为没有真正执行第二轮 prompt。
+
+### 会话 14 - 2026-03-23
+
+- 子工作区 `导航检查` 本轮已真正执行 `002-prompt-2.md`，不再停在审计层。
+- 父层新增稳定事实：
+  - `NavigationRoot` 已通过 unityMCP 在 `Primary/2_World` live 建立并承接 `NavGrid2D`
+  - `Systems` 已从“导航 + 世界生成 + 世界调试 + 输入”混装节点，收回为 `WorldSpawnService + WorldSpawnDebug + GameInputManager`
+  - 玩家与 `001 / 002 / 003` 的 `navGrid` live 引用都已切到 `NavigationRoot/NavGrid2D`
+  - S4 共享路径执行层已真实落代码：`NavigationPathExecutor2D.cs` 已新增，玩家 / NPC 都已接入同一套路径执行状态
+- 父层新增关键判断：
+  - 现在导航线的失败层级已经再次前移：不再是“承载没整理”或“S4 没落”
+  - 当前真正的 blocker 是：
+    - 玩家 `PlayerAutoNavigator.IsActive = true`
+    - NPC `NPCAutoRoamController.IsMoving = true`
+    - 路径点数量正常
+    - 但 Player / NPC 的 `Rigidbody2D.linearVelocity` 与位置都不推进
+  - 因此“玩家像推土机”背后的当前根因，不再优先落在局部规避参数，而是落在运行态位移执行没有真正打出去。
+- 本轮 live 终验父层结论：
+  - 玩家绕移动 NPC：失败
+  - NPC 绕玩家：失败
+  - NPC-NPC 会车：失败
+  - 三类失败都表现为“setup 成功、路径存在、moving/active 状态成立，但几秒后位置仍停在 setup 起点”
+- 父层当前恢复点：
+  - 后续导航线不应再回头讨论 `NavigationRoot` 是否需要建、S4 是否需要落、NPC Tag 是否缺失；
+  - 下一步应直接围绕“为什么 movement/roam 的 active 状态没有转成真实位移”做运行态排查。
