@@ -13,6 +13,9 @@ public static class DialogueDebugMenu
     private const string InteractNpcMenuPath = "Sunset/Story/Debug/Trigger DialogueTestNPC";
     private const string ClickButtonMenuPath = "Sunset/Story/Debug/Invoke Continue Button";
     private const string LogStateMenuPath = "Sunset/Story/Debug/Log Dialogue State";
+    private const string BootstrapValidationMenuPath = "Sunset/Story/Debug/Bootstrap Spring Day1 Validation";
+    private const string LogValidationSnapshotMenuPath = "Sunset/Story/Debug/Log Spring Day1 Validation Snapshot";
+    private const string StepValidationMenuPath = "Sunset/Story/Debug/Step Spring Day1 Validation";
     private const string SequencePath = "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset";
 
     [MenuItem(PlayMenuPath)]
@@ -169,6 +172,47 @@ public static class DialogueDebugMenu
         Debug.Log(state);
     }
 
+    [MenuItem(BootstrapValidationMenuPath)]
+    private static void BootstrapSpringDay1Validation()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再初始化 spring-day1 验收入口。");
+            return;
+        }
+
+        SpringDay1LiveValidationRunner runner = SpringDay1LiveValidationRunner.EnsureRuntime();
+        Debug.Log($"[DialogueDebugMenu] {runner.BootstrapRuntime()}");
+        runner.LogSnapshot("bootstrap");
+    }
+
+    [MenuItem(LogValidationSnapshotMenuPath)]
+    private static void LogSpringDay1ValidationSnapshot()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再记录 spring-day1 验收快照。");
+            return;
+        }
+
+        SpringDay1LiveValidationRunner runner = SpringDay1LiveValidationRunner.EnsureRuntime();
+        runner.LogSnapshot("manual");
+    }
+
+    [MenuItem(StepValidationMenuPath)]
+    private static void StepSpringDay1Validation()
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再执行 spring-day1 验收步骤。");
+            return;
+        }
+
+        SpringDay1LiveValidationRunner runner = SpringDay1LiveValidationRunner.EnsureRuntime();
+        Debug.Log($"[DialogueDebugMenu] {runner.TriggerRecommendedAction()}");
+        runner.LogSnapshot("after-step");
+    }
+
     private static int GetContinueButtonListenerCount(DialogueUI dialogueUI)
     {
         if (dialogueUI == null)
@@ -227,6 +271,24 @@ public static class DialogueDebugMenu
 
     [MenuItem(LogStateMenuPath, true)]
     private static bool ValidateLogDialogueState()
+    {
+        return true;
+    }
+
+    [MenuItem(BootstrapValidationMenuPath, true)]
+    private static bool ValidateBootstrapSpringDay1Validation()
+    {
+        return true;
+    }
+
+    [MenuItem(LogValidationSnapshotMenuPath, true)]
+    private static bool ValidateLogSpringDay1ValidationSnapshot()
+    {
+        return true;
+    }
+
+    [MenuItem(StepValidationMenuPath, true)]
+    private static bool ValidateStepSpringDay1Validation()
     {
         return true;
     }

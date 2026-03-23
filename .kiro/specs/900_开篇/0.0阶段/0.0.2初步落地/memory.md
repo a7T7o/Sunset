@@ -444,3 +444,24 @@
 **恢复点 / 下一步**：
 - 当前“任务提示挡住对话框”的代码侧问题已收口。
 - 下一步若继续 spring-day1，应等待 Unity 回到稳定 EditMode 且他线 `ChestInventoryBridgeTests.cs` 编译错误解除，再做整条 Day1 live 验收。
+
+## 2026-03-24 补记：Day1 运行态验收入口已落地
+- 本轮没有继续扩写剧情内容，也没有触碰 `Primary.unity`；重点改为把 spring-day1 的整链验收入口正式收成可重复执行的代码侧工具。
+- 已新增 `Assets/YYY_Scripts/Story/Managers/SpringDay1LiveValidationRunner.cs`：
+  - 支持 `BootstrapRuntime()` 补齐最小运行时依赖
+  - 支持 `BuildSnapshot()` / `LogSnapshot()` 输出结构化 Day1 现场快照
+  - 支持 `GetRecommendedNextAction()` 给出当前阶段推荐动作
+  - 支持 `TriggerRecommendedAction()` 做最小单步推进（NPC 对话 / 工作台 / 回住处休息）
+- 已扩展 `Assets/Editor/Story/DialogueDebugMenu.cs`，新增 3 个菜单入口：
+  - `Bootstrap Spring Day1 Validation`
+  - `Log Spring Day1 Validation Snapshot`
+  - `Step Spring Day1 Validation`
+- 已扩展 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`，补入运行态验收入口与调试菜单的静态断言。
+- 当前关键决策：
+  - 不继续碰场景热区和共享 UI 资源
+  - 先把 Day1 验收链做成“进 Play 就能按菜单跑”的稳定入口
+  - 等共享 Unity Editor 回到稳定 EditMode 后，再用这套入口补 Day1 整链 live 验收
+- 当前恢复点 / 下一步：
+  - 代码侧已经具备更快的 Day1 现场验收入口
+  - 下一步应在 Unity 现场稳定后，按 `Bootstrap -> Snapshot -> Step` 口径跑一次 `NPC001 -> Workbench -> Farming -> Dinner -> FreeTime -> DayEnd` 的真实闭环
+- 补充纠偏：由于当前代码闸门基于现有项目文件列表做程序集检查，独立新增的 `SpringDay1LiveValidationRunner.cs` 会被视为尚未纳入编译清单；因此最终把 `SpringDay1LiveValidationRunner` 并入 `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`，对外菜单与验收能力保持不变。

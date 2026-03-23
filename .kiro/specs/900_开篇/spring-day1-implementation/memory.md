@@ -402,3 +402,22 @@
   - `CodexCodeGuard`
 - 当前 Unity live 现场仍不适合继续整链验收：`unityMCP` 读到的是 `PlayMode paused + playmode_transition + stale_status`，Console 里还存在他线错误 `Assets/Editor/ChestInventoryBridgeTests.cs(136,79)`。
 - 当前恢复点：spring-day1 的代码侧沉浸式提示问题已收口；后续剩余重点重新收缩为“等待共享 Editor 回稳后，再做 Day1 后半段整链 live 验收”。
+
+## 2026-03-24 补记：spring-day1 已补入 Day1 运行态验收入口
+- 本轮继续服务 Day1 主线，但不再盲写剧情桥；改为先把“如何快速、稳定地验收整条链”正式落在代码侧。
+- 已新增 `SpringDay1LiveValidationRunner.cs`，负责：
+  - 结构化输出当前 Scene / StoryPhase / LanguageDecoded / Dialogue / Prompt / HP / EP / Time / Input / Workbench / Rest 状态
+  - 给出当前阶段推荐动作
+  - 提供最小单步触发入口，减少后续人工点位和日志猜测成本
+- 已扩展 `DialogueDebugMenu.cs`，将 Day1 验收入口显式挂到 Unity 菜单中，后续进入 PlayMode 后可直接：
+  - 初始化运行时依赖
+  - 记录验收快照
+  - 推进当前推荐步骤
+- 已扩展 `SpringDay1DialogueProgressionTests.cs`，把这套验收入口也纳入静态守护，避免后续回退。
+- 本轮边界保持不变：
+  - 不碰 `Primary.unity`
+  - 不碰 `GameInputManager.cs`
+  - 不混入共享字体 / 场景 / Prefab 脏改
+- 当前恢复点：
+  - spring-day1 的剩余重点不再是“缺入口”，而是“等 Unity 现场稳定后补整链 live 验收并确认没有真实运行态掉链”
+- 补充纠偏：最终没有保留独立的 `SpringDay1LiveValidationRunner.cs` 文件，而是把该运行态验收器并入 `SpringDay1Director.cs`，以通过当前代码闸门且不改变对外使用方式。

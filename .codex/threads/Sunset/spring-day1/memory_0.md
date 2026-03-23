@@ -514,3 +514,34 @@
 - 当前主线恢复点：
   - 代码侧最后一个明显沉浸式问题已收掉
   - 下一步不该继续盲写，而应等共享 Editor 回稳后做一次完整 Day1 live 验收
+
+### 会话 24 - 2026-03-24（Day1 运行态验收入口）
+**用户目标**：
+> 落地。
+**已完成事项**：
+1. 先按 `skills-governor + 手工等价 sunset-startup-guard` 做前置核查，确认当前 live 现场为 `D:\Unity\Unity_learning\Sunset @ main`，但 shared Unity Editor 仍不适合直接抢 live 写，所以本轮选择代码侧收口。
+2. 新增 `Assets/YYY_Scripts/Story/Managers/SpringDay1LiveValidationRunner.cs`：
+   - `BootstrapRuntime()`：补齐 Story / Director / Prompt / HP / EP / Time 的最小运行时依赖
+   - `BuildSnapshot()` / `LogSnapshot()`：输出 Day1 结构化验收快照
+   - `GetRecommendedNextAction()`：给出当前阶段推荐动作
+   - `TriggerRecommendedAction()`：执行最小单步推进（NPC 对话 / 工作台 / 回住处休息）
+3. 扩展 `Assets/Editor/Story/DialogueDebugMenu.cs`，新增：
+   - `Bootstrap Spring Day1 Validation`
+   - `Log Spring Day1 Validation Snapshot`
+   - `Step Spring Day1 Validation`
+4. 扩展 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`，新增对运行态验收入口和菜单命令的静态断言。
+5. 对本轮 3 个 C# 文件执行 `git diff --check`，结果通过。
+**关键决策**：
+- 本轮不继续碰场景热区，不抢 `Primary.unity`，而是把 Day1 live 验收流程工具化。
+- 这样后续一旦 Unity 现场稳定，就能直接按 `Bootstrap -> Snapshot -> Step` 跑闭环，而不是重新靠聊天和手工记忆推进。
+**涉及文件或路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1LiveValidationRunner.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\DialogueDebugMenu.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1DialogueProgressionTests.cs`
+**验证结果**：
+- `git diff --check` 通过
+- 当前尚未做 Unity live 验收；原因不是代码未就绪，而是共享 Editor 现场此前处于不稳定态
+**主线恢复点 / 下一步**：
+- 当前主线已恢复到“Day1 验收入口可用，等待 Unity 稳定后补整链 live 验收”。
+- 下一步应基于这套入口跑一次 `NPC001 -> Workbench -> Farming -> Dinner -> FreeTime -> DayEnd` 的完整手工 / MCP 复核。
+- 补充纠偏：代码闸门确认独立新脚本尚未进入当前项目文件列表，因此 `SpringDay1LiveValidationRunner` 最终并入 `SpringDay1Director.cs`；调试菜单和验收入口保持不变。

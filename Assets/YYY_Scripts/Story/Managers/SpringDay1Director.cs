@@ -1,9 +1,11 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Text;
 using FarmGame.Data;
 using FarmGame.Farm;
 using Sunset.Events;
+using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -1008,6 +1010,335 @@ namespace Sunset.Story
 
             TimeManager.Instance.ResumeTime(StoryTimePauseSource);
             _storyTimePauseApplied = false;
+        }
+    }
+
+    /// <summary>
+    /// spring-day1 的轻量运行态验收入口。
+    /// 不修改场景承载，只负责汇总状态与触发“下一步最小验证动作”。
+    /// </summary>
+    [DisallowMultipleComponent]
+    public class SpringDay1LiveValidationRunner : MonoBehaviour
+    {
+        private static readonly string[] PreferredNpcObjectNames = { "NPC001", "001", "DialogueTestNPC" };
+        private static readonly string[] PreferredWorkbenchObjectNames = { "Anvil_0", "Workbench", "Anvil" };
+        private static readonly string[] PreferredRestObjectNames = { "Bed", "PlayerBed", "HomeBed", "House 1_2", "HomeDoor", "HouseDoor" };
+
+        private static SpringDay1LiveValidationRunner _instance;
+
+        private readonly StringBuilder _builder = new StringBuilder(512);
+
+        public static SpringDay1LiveValidationRunner Instance => EnsureRuntime();
+
+        public string LastSnapshot { get; private set; } = string.Empty;
+        public string LastActionResult { get; private set; } = string.Empty;
+
+        public static SpringDay1LiveValidationRunner EnsureRuntime()
+        {
+            if (_instance != null)
+            {
+                return _instance;
+            }
+
+            _instance = FindFirstObjectByType<SpringDay1LiveValidationRunner>(FindObjectsInactive.Include);
+            if (_instance != null)
+            {
+                return _instance;
+            }
+
+            GameObject runtimeObject = new GameObject(nameof(SpringDay1LiveValidationRunner));
+            _instance = runtimeObject.AddComponent<SpringDay1LiveValidationRunner>();
+            return _instance;
+        }
+
+        private void Awake()
+        {
+            if (_instance != null && _instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+
+            _instance = this;
+            DontDestroyOnLoad(gameObject);
+        }
+
+        public string BootstrapRuntime()
+        {
+            _ = StoryManager.Instance;
+            SpringDay1Director.EnsureRuntime();
+            SpringDay1PromptOverlay.EnsureRuntime();
+            _ = HealthSystem.Instance;
+            _ = EnergySystem.Instance;
+            _ = TimeManager.Instance;
+
+            return SetActionResult("已确保 StoryManager / Day1Director / PromptOverlay / HP / EP / Time 运行时对象就位。");
+        }
+
+        public string BuildSnapshot(string label = null)
+        {
+            StoryManager storyManager = FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
+            DialogueManager dialogueManager = FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
+            SpringDay1Director director = FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
+            DialogueUI dialogueUi = FindFirstObjectByType<DialogueUI>(FindObjectsInactive.Include);
+            SpringDay1PromptOverlay promptOverlay = FindFirstObjectByType<SpringDay1PromptOverlay>(FindObjectsInactive.Include);
+            HealthSystem healthSystem = FindFirstObjectByType<HealthSystem>(FindObjectsInactive.Include);
+            EnergySystem energySystem = FindFirstObjectByType<EnergySystem>(FindObjectsInactive.Include);
+            TimeManager timeManager = FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
+            GameInputManager inputManager = FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
+            NPCDialogueInteractable npcInteractable = FindPreferredComponent<NPCDialogueInteractable>(PreferredNpcObjectNames);
+            NPCAutoRoamController npcRoam = npcInteractable != null ? npcInteractable.GetComponent<NPCAutoRoamController>() : null;
+            CraftingStationInteractable workbenchInteractable = FindPreferredComponent<CraftingStationInteractable>(PreferredWorkbenchObjectNames);
+            SpringDay1BedInteractable restInteractable = FindPreferredComponent<SpringDay1BedInteractable>(PreferredRestObjectNames);
+
+            _builder.Clear();
+            AppendPair("Label", string.IsNullOrWhiteSpace(label) ? "manual" : label);
+            AppendPair("Scene", SceneManager.GetActiveScene().name);
+            AppendPair("Phase", storyManager != null ? storyManager.CurrentPhase.ToString() : "n/a");
+            AppendPair("Decoded", storyManager != null ? storyManager.IsLanguageDecoded.ToString() : "n/a");
+            AppendPair("Dialogue", BuildDialogueSummary(dialogueManager));
+            AppendPair("DialogueUI", BuildDialogueUiSummary(dialogueUi));
+            AppendPair("Prompt", BuildPromptSummary(promptOverlay));
+            AppendPair("HP", healthSystem != null ? $"{healthSystem.CurrentHealth}/{healthSystem.MaxHealth}|visible={healthSystem.IsVisible}" : "n/a");
+            AppendPair("EP", energySystem != null ? $"{energySystem.CurrentEnergy}/{energySystem.MaxEnergy}|visible={energySystem.IsVisible}" : "n/a");
+            AppendPair("Time", timeManager != null ? $"paused={timeManager.IsTimePaused()}|depth={timeManager.GetPauseStackDepth()}|clock={timeManager.GetFormattedTime()}" : "n/a");
+            AppendPair("Input", inputManager != null ? inputManager.IsInputEnabledForDebug.ToString() : "n/a");
+            AppendPair("Director", director != null ? $"{director.GetCurrentTaskLabel()}|{director.GetCurrentProgressLabel()}" : "n/a");
+            AppendPair("NPC", npcInteractable != null ? $"{npcInteractable.name}|roam={(npcRoam != null ? npcRoam.IsRoaming.ToString() : "n/a")}|state={(npcRoam != null ? npcRoam.DebugState : "n/a")}" : "n/a");
+            AppendPair("Workbench", workbenchInteractable != null ? workbenchInteractable.name : "n/a");
+            AppendPair("Rest", restInteractable != null ? restInteractable.name : "n/a");
+            AppendPair("Next", GetRecommendedNextAction());
+
+            LastSnapshot = _builder.ToString();
+            return LastSnapshot;
+        }
+
+        public void LogSnapshot(string label = null)
+        {
+            Debug.Log($"[SpringDay1LiveValidation] {BuildSnapshot(label)}");
+        }
+
+        public string GetRecommendedNextAction()
+        {
+            DialogueManager dialogueManager = FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
+            if (dialogueManager != null && dialogueManager.IsDialogueActive)
+            {
+                return "当前有对话进行中，继续推进或强制补完当前句。";
+            }
+
+            StoryManager storyManager = FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
+            if (storyManager == null)
+            {
+                return "缺少 StoryManager，先执行 Bootstrap。";
+            }
+
+            return storyManager.CurrentPhase switch
+            {
+                StoryPhase.CrashAndMeet => "触发 NPC001 首段对话。",
+                StoryPhase.EnterVillage => "等待疗伤段启动，若未启动可再次触发 NPC001。",
+                StoryPhase.HealingAndHP => "等待血条渐显与疗伤对话自动播出。",
+                StoryPhase.WorkbenchFlashback => "交互 Anvil_0 / Workbench，触发工作台闪回。",
+                StoryPhase.FarmingTutorial => "人工完成开垦、播种、浇水、砍树与一次制作。",
+                StoryPhase.DinnerConflict => "等待晚餐对话自动排队；若已播出则继续推进。",
+                StoryPhase.ReturnAndReminder => "推进归途提醒对话，准备进入自由时段。",
+                StoryPhase.FreeTime => "回住处休息，验证 DayEnd。",
+                StoryPhase.DayEnd => "春1日已结束，可开始下一轮复测。",
+                _ => "当前阶段暂无推荐动作。"
+            };
+        }
+
+        public string TriggerRecommendedAction()
+        {
+            DialogueManager dialogueManager = FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
+            if (dialogueManager != null && dialogueManager.IsDialogueActive)
+            {
+                dialogueManager.ForceCompleteOrAdvance();
+                return SetActionResult("已推进当前对话一拍。");
+            }
+
+            StoryManager storyManager = FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
+            if (storyManager == null)
+            {
+                return SetActionResult("未找到 StoryManager；请先执行 Bootstrap。");
+            }
+
+            return storyManager.CurrentPhase switch
+            {
+                StoryPhase.CrashAndMeet => SetActionResult(TryTriggerNpcDialogue()),
+                StoryPhase.EnterVillage => SetActionResult(TryTriggerNpcDialogue()),
+                StoryPhase.HealingAndHP => SetActionResult("疗伤阶段主要由导演自动推进；当前无需额外手动触发。"),
+                StoryPhase.WorkbenchFlashback => SetActionResult(TryTriggerWorkbenchInteraction()),
+                StoryPhase.FarmingTutorial => SetActionResult("农田教学阶段需要人工完成真实操作，当前不做脚本代跑。"),
+                StoryPhase.DinnerConflict => SetActionResult("晚餐阶段等待导演自动排队对话；若对话已开始，再次执行 Step 即可推进。"),
+                StoryPhase.ReturnAndReminder => SetActionResult("归途提醒阶段等待对话播出；若对话已开始，再次执行 Step 即可推进。"),
+                StoryPhase.FreeTime => SetActionResult(TryTriggerRestInteraction()),
+                StoryPhase.DayEnd => SetActionResult("春1日已结束，无需继续推进。"),
+                _ => SetActionResult("当前阶段暂无可脚本触发的推荐动作。")
+            };
+        }
+
+        private string TryTriggerNpcDialogue()
+        {
+            NPCDialogueInteractable interactable = FindPreferredComponent<NPCDialogueInteractable>(PreferredNpcObjectNames);
+            if (interactable == null)
+            {
+                return "未找到 NPCDialogueInteractable（优先查找 NPC001/001/DialogueTestNPC）。";
+            }
+
+            InteractionContext context = BuildInteractionContext();
+            if (!interactable.CanInteract(context))
+            {
+                return $"NPC {interactable.name} 当前不可交互。";
+            }
+
+            interactable.OnInteract(context);
+            return $"已触发 NPC 对话：{interactable.name}";
+        }
+
+        private string TryTriggerWorkbenchInteraction()
+        {
+            CraftingStationInteractable interactable = FindPreferredComponent<CraftingStationInteractable>(PreferredWorkbenchObjectNames);
+            if (interactable == null)
+            {
+                return "未找到工作台交互脚本（优先查找 Anvil_0 / Workbench / Anvil）。";
+            }
+
+            InteractionContext context = BuildInteractionContext();
+            if (!interactable.CanInteract(context))
+            {
+                return $"工作台 {interactable.name} 当前不可交互。";
+            }
+
+            interactable.OnInteract(context);
+            return $"已触发工作台交互：{interactable.name}";
+        }
+
+        private string TryTriggerRestInteraction()
+        {
+            SpringDay1BedInteractable interactable = FindPreferredComponent<SpringDay1BedInteractable>(PreferredRestObjectNames);
+            if (interactable == null)
+            {
+                return "未找到住处/床位交互脚本；请先确认 Day1 导演已自动补挂。";
+            }
+
+            InteractionContext context = BuildInteractionContext();
+            if (!interactable.CanInteract(context))
+            {
+                return $"休息承载物 {interactable.name} 当前不可交互。";
+            }
+
+            interactable.OnInteract(context);
+            return $"已触发休息交互：{interactable.name}";
+        }
+
+        private static InteractionContext BuildInteractionContext()
+        {
+            PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
+
+            return new InteractionContext
+            {
+                PlayerTransform = playerTransform,
+                PlayerPosition = playerTransform != null ? (Vector2)playerTransform.position : Vector2.zero
+            };
+        }
+
+        private string BuildDialogueSummary(DialogueManager dialogueManager)
+        {
+            if (dialogueManager == null)
+            {
+                return "n/a";
+            }
+
+            if (!dialogueManager.IsDialogueActive)
+            {
+                return "idle";
+            }
+
+            int displayIndex = Mathf.Max(1, dialogueManager.CurrentNodeIndex + 1);
+            int totalCount = Mathf.Max(1, dialogueManager.CurrentNodeCount);
+            return $"{Sanitize(dialogueManager.CurrentSequenceId)}[{displayIndex}/{totalCount}]|typing={dialogueManager.IsNodeTyping}";
+        }
+
+        private string BuildDialogueUiSummary(DialogueUI dialogueUi)
+        {
+            if (dialogueUi == null)
+            {
+                return "n/a";
+            }
+
+            return $"alpha={dialogueUi.CurrentCanvasAlpha:F2}|speaker={Sanitize(dialogueUi.CurrentSpeakerName)}|status={Sanitize(dialogueUi.CurrentTestStatus)}";
+        }
+
+        private string BuildPromptSummary(SpringDay1PromptOverlay promptOverlay)
+        {
+            if (promptOverlay == null)
+            {
+                return "n/a";
+            }
+
+            CanvasGroup group = promptOverlay.GetComponent<CanvasGroup>();
+            TextMeshProUGUI text = promptOverlay.GetComponentInChildren<TextMeshProUGUI>(true);
+            float alpha = group != null ? group.alpha : -1f;
+            string prompt = text != null ? Sanitize(text.text) : string.Empty;
+            return $"alpha={alpha:F2}|text={prompt}";
+        }
+
+        private void AppendPair(string key, string value)
+        {
+            if (_builder.Length > 0)
+            {
+                _builder.Append(", ");
+            }
+
+            _builder.Append(key);
+            _builder.Append('=');
+            _builder.Append(Sanitize(value));
+        }
+
+        private string SetActionResult(string result)
+        {
+            LastActionResult = result;
+            return LastActionResult;
+        }
+
+        private static string Sanitize(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "n/a";
+            }
+
+            return value.Replace('\n', ' ').Replace('\r', ' ').Trim();
+        }
+
+        private static T FindPreferredComponent<T>(string[] preferredObjectNames) where T : Component
+        {
+            if (preferredObjectNames != null)
+            {
+                for (int index = 0; index < preferredObjectNames.Length; index++)
+                {
+                    GameObject exactMatch = GameObject.Find(preferredObjectNames[index]);
+                    if (exactMatch == null)
+                    {
+                        continue;
+                    }
+
+                    T directComponent = exactMatch.GetComponent<T>();
+                    if (directComponent != null)
+                    {
+                        return directComponent;
+                    }
+
+                    T nestedComponent = exactMatch.GetComponentInChildren<T>(true);
+                    if (nestedComponent != null)
+                    {
+                        return nestedComponent;
+                    }
+                }
+            }
+
+            return FindFirstObjectByType<T>(FindObjectsInactive.Include);
         }
     }
 }

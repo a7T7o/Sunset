@@ -123,6 +123,24 @@ public class SpringDay1DialogueProgressionTests
     }
 
     [Test]
+    public void LiveValidationRunner_ProvidesRepeatableAcceptanceHooks()
+    {
+        string runnerText = File.ReadAllText(DirectorPath);
+        string debugMenuText = File.ReadAllText(DebugMenuPath);
+
+        StringAssert.Contains("BootstrapRuntime()", runnerText, "运行态验收器应支持一键补齐最小运行时依赖");
+        StringAssert.Contains("BuildSnapshot(string label = null)", runnerText, "运行态验收器应能生成结构化快照");
+        StringAssert.Contains("GetRecommendedNextAction()", runnerText, "运行态验收器应给出当前推荐下一步");
+        StringAssert.Contains("TriggerRecommendedAction()", runnerText, "运行态验收器应能触发最小验收动作");
+        StringAssert.Contains("TryTriggerNpcDialogue()", runnerText, "运行态验收器应支持触发 NPC001 对话");
+        StringAssert.Contains("TryTriggerWorkbenchInteraction()", runnerText, "运行态验收器应支持触发工作台交互");
+        StringAssert.Contains("TryTriggerRestInteraction()", runnerText, "运行态验收器应支持触发回住处休息");
+        StringAssert.Contains("Bootstrap Spring Day1 Validation", debugMenuText, "调试菜单应暴露 Day1 验收入口初始化命令");
+        StringAssert.Contains("Log Spring Day1 Validation Snapshot", debugMenuText, "调试菜单应暴露 Day1 验收快照命令");
+        StringAssert.Contains("Step Spring Day1 Validation", debugMenuText, "调试菜单应暴露 Day1 验收单步推进命令");
+    }
+
+    [Test]
     public void WorkbenchInteraction_ContainsRuntimeBindingBridge()
     {
         string directorText = File.ReadAllText(DirectorPath);
