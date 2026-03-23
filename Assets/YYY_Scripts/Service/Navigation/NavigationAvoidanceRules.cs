@@ -55,6 +55,22 @@ public static class NavigationAvoidanceRules
             return true;
         }
 
+        // 自动导航中的玩家应主动绕开动态 NPC / Enemy，而不是继续顶着走。
+        if (self.UnitType == NavigationUnitType.Player &&
+            other.ParticipatesInLocalAvoidance &&
+            other.IsCurrentlyMoving &&
+            (other.UnitType == NavigationUnitType.NPC || other.UnitType == NavigationUnitType.Enemy))
+        {
+            return true;
+        }
+
+        if (self.UnitType == NavigationUnitType.NPC &&
+            other.UnitType == NavigationUnitType.Player &&
+            self.ParticipatesInLocalAvoidance)
+        {
+            return false;
+        }
+
         if (other.AvoidancePriority > self.AvoidancePriority)
         {
             return true;

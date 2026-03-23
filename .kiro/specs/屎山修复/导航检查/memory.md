@@ -195,3 +195,64 @@
 - [ ] 做最小静态验证，排掉当前新增共享核心代码的明显编译问题
 - [ ] 做 Unity / MCP / Play 现场验证，确认玩家绕移动 NPC、NPC 绕玩家是否成立
 - [ ] 进入下一步时优先继续统一路径执行层，而不是回到局部补丁
+
+### 会话 4 - 2026-03-23（P0 失败后的共享规则修正）
+
+**用户反馈**：
+> 你的p0就已经彻底不合格了，现在我右键导航，路线上有npc，只会推着npc移动，这是不合格的
+
+**当前主线目标**：
+- 不再把“共享核心已接线”误当成行为通过，而是直接针对运行态失败现象修正共享规则。
+
+**本轮排查结论**：
+1. 玩家和 NPC 的脚本搭载是真实存在的，不是“代码写了但角色没挂上”。
+2. 当前一处关键根因是共享规则默认把玩家视为最高优先级，这会让自动导航玩家面对移动 NPC 时更容易继续顶着走，而不是主动让行。
+3. 当前 solver 在近距离动态阻挡时，前冲削弱还不够，容易导致玩家继续把 NPC 推着走。
+
+**本轮完成**：
+1. 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAvoidanceRules.cs`
+   - 显式规定：自动导航玩家面对 moving NPC / Enemy 时默认让行
+2. 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+   - 增强近距离动态阻挡时的减前冲与侧绕权重
+   - 让第一版 solver 不只是“轻微偏转”，而是会主动退让
+3. 新增：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+   - 用来锁定“玩家遇到移动 NPC 必须让行”的规则
+
+**关键结论**：
+- 当前已经确认一件事：P0 失败不只是“没做 Unity 验证”，而是规则层确实有一处方向性错误。
+- 这轮修正之后，才值得再次进入运行态验收。
+
+**新的恢复点**：
+- 下一轮优先做运行态复验，不再先补更多架构代码。
+- 如果这轮规则修正后仍然推着走，就说明问题主因已经进入“共享路径执行层缺失”或“最终运动语义冲突”。
+
+### 会话 5 - 2026-03-23（玩家推 NPC 的直接纠偏）
+
+**用户反馈**：
+> 你的p0就已经彻底不合格了，现在我右键导航，路线上有npc，只会推着npc移动，这是不合格的
+
+**当前主线目标**：
+- 针对“玩家自动导航仍然推着 NPC 走”的失败现象，直接修正共享规则，而不是继续补外围逻辑。
+
+**完成任务**：
+1. 重新核对角色脚本搭载事实：
+   - 玩家在 `Primary.unity` 中确有 `PlayerMovement + PlayerAutoNavigator`
+   - `001/002/003.prefab` 确有 `NPCAutoRoamController + NPCMotionController + Rigidbody2D + BoxCollider2D`
+2. 重新核对共享代码实现，定位到一处关键根因：
+   - 自动导航玩家当前在共享规则里并没有真正对 moving NPC 主动让行
+3. 直接修正：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAvoidanceRules.cs`
+     - 增加“玩家自动导航遇到 moving NPC / Enemy 默认让行”的规则
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+     - 近距离动态阻挡时增加减前冲与更强侧绕
+4. 新增最小回归测试：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+
+**关键结论**：
+- 这轮已经确认并修正了一处真实规则错误，不再只是“等待 Unity 验证”。
+- 但修正后是否真正解决“推着走”，仍必须回到运行态复验。
+
+**遗留问题**：
+- [ ] 复验修正后是否仍然推着 NPC 走
+- [ ] 若仍失败，则下一刀直接进入共享路径执行层或最终运动语义收口

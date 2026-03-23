@@ -80,7 +80,15 @@ public static class NavigationLocalAvoidanceSolver
             }
 
             Vector2 sidestep = sidestepAxis * -side;
-            avoidance += sidestep * weight * (shouldYield ? 1.25f : 0.65f);
+            float sidestepWeight = shouldYield ? 1.75f : 0.65f;
+            avoidance += sidestep * weight * sidestepWeight;
+
+            // 近距离动态阻挡时，除了侧绕还要主动减前冲，否则会继续把对方推走。
+            if (shouldYield)
+            {
+                float slowDownWeight = Mathf.Lerp(0.2f, 1f, lateralFactor);
+                avoidance += (-desired) * weight * slowDownWeight;
+            }
 
             if (treatAsBlockingObstacle || shouldYield)
             {
@@ -90,7 +98,7 @@ public static class NavigationLocalAvoidanceSolver
                     blockingAgentId = other.InstanceId;
                 }
 
-                if (treatAsBlockingObstacle && forwardDistance <= interactionRadius * 1.2f)
+                if ((treatAsBlockingObstacle || shouldYield) && forwardDistance <= interactionRadius * 1.1f)
                 {
                     shouldRepath = true;
                 }
