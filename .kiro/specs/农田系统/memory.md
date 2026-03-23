@@ -261,3 +261,13 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
   - 当前箱子主 UI 仍走 `ChestInventory` 旧链，因此“箱子内实例态完整保真”不应冒充已彻底解决。
 - 当前恢复点：
   - 农田 `1.0.3` 已从“纯设计”推进到“Tooltip + 实例态 + 掉落 + 食物药水精力恢复”的第一轮实现，下一步先同步文档/记忆，再按白名单提交 checkpoint，然后交给用户按清单验收。
+
+## 2026-03-23：修复背包“全部选中”回归
+- 根因：`InventorySlotUI.cs` 在此前为了修复 reject shake 手感，把 `Toggle` 的默认视觉过渡关闭后，背包槽位自己的 `selectedOverlay` 仍未像 `ToolbarSlotUI.cs` 那样被显式同步管理；结果原本隐性的选中覆盖层状态被直接暴露出来，表现为“背包内容全部选中”。
+- 修复：
+  - 在 `InventorySlotUI.cs` 中补齐与 `ToolbarSlotUI.cs` 同口径的选中视觉管理。
+  - `Awake()` 中显式将 `Toggle` 初始化为未选中。
+  - 监听 `toggle.onValueChanged`，统一驱动 `selectedOverlay.enabled`。
+  - `Bind()` / `BindContainer()` 以及 `Select()` / `Deselect()` 都改为同步更新选中覆盖层。
+- 验证：`Assembly-CSharp.rsp` Roslyn 运行时代码独立编译通过，`git diff --check` 针对本次最小修复通过。
+- 当前恢复点：已把背包“全选”回归单独收敛成一个最小修复点，下一步可直接由用户在背包界面手动确认选中视觉是否恢复正常。

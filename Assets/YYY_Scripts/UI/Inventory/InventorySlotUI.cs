@@ -60,6 +60,13 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         {
             toggle.targetGraphic = null;
             toggle.transition = Selectable.Transition.None;
+#if UNITY_2021_2_OR_NEWER
+            toggle.SetIsOnWithoutNotify(false);
+#else
+            toggle.isOn = false;
+#endif
+            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
+            toggle.onValueChanged.AddListener(OnToggleValueChanged);
         }
 
         // ★ 与 ToolbarSlotUI 保持一致：查找或创建 Icon
@@ -119,6 +126,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             var t = transform.Find("Selected");
             if (t != null) selectedOverlay = t.GetComponent<Image>();
         }
+        ApplySelectionVisual(false);
         
         // 🔥 V2 新增：创建耐久度条
         CreateDurabilityBar();
@@ -153,6 +161,10 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     void OnDisable()
     {
         UnregisterSlot();
+        if (toggle != null)
+        {
+            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
+        }
         if (container != null)
         {
             container.OnSlotChanged -= OnSlotChanged;
@@ -190,6 +202,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             }
             RegisterSlot();
             Refresh();
+            ApplySelectionVisual(toggle != null && toggle.isOn);
         }
     }
 
@@ -228,6 +241,20 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             }
             RegisterSlot();
             Refresh();
+            ApplySelectionVisual(toggle != null && toggle.isOn);
+        }
+    }
+
+    private void OnToggleValueChanged(bool isOn)
+    {
+        ApplySelectionVisual(isOn);
+    }
+
+    private void ApplySelectionVisual(bool isSelected)
+    {
+        if (selectedOverlay != null)
+        {
+            selectedOverlay.enabled = isSelected;
         }
     }
 
@@ -449,6 +476,10 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         {
             toggle.isOn = true;
         }
+        else
+        {
+            ApplySelectionVisual(true);
+        }
     }
     
     /// <summary>
@@ -459,6 +490,10 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         if (toggle != null)
         {
             toggle.isOn = false;
+        }
+        else
+        {
+            ApplySelectionVisual(false);
         }
     }
 
