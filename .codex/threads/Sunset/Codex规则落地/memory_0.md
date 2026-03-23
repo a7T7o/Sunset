@@ -2724,3 +2724,44 @@
 
 **恢复点**
 - 下一步是把这批 prompt 同步改动再收一刀治理白名单提交。
+
+## 2026-03-23｜网页学习后的编码检测已经补成正式治理结论
+**当前主线目标**
+- 用户让我阅读一篇关于 Codex 中文乱码根因的文章，并判断 Sunset 本地是否存在同类问题，要求给出本地检测报告。
+
+**本轮完成**
+1. 已确认文章核心不是“只改 VS Code”，而是统一：
+   - `files.encoding`
+   - `chcp`
+   - `[Console]::InputEncoding`
+   - `[Console]::OutputEncoding`
+   - `$OutputEncoding`
+   - PowerShell Profile 默认写文件编码
+2. 已完成本地环境取证：
+   - `PowerShell 5.1`
+   - `pwsh` 缺失
+   - `chcp=936`
+   - `InputEncoding=gb2312`
+   - `Console Output=utf-8`
+   - `$OutputEncoding=us-ascii`
+   - `$PROFILE` 缺失
+   - VS Code 未显式设置 `"files.encoding": "utf8"`
+3. 已完成文件层取证：
+   - 有些文件只是 `healthy-terminal-noise`
+   - `001部分回执.md` 这类样本已出现真实替换字符，不能再当成单纯终端误读
+4. 已落正式报告：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\25_vibecoding场景规范与main收口\本地编码检测报告_2026-03-23.md`
+
+**关键决策**
+- 当前 Sunset 的编码问题是两层并存：
+  1. 环境层未统一
+  2. 文件层已有少量真实损坏
+- 正确动作顺序是：
+  1. 先统一环境
+  2. 再修活文档
+  3. 最后处理历史样本
+
+**恢复点**
+- 如果用户要我继续直接落地，下一步就不是继续分析，而是：
+  - 修 Profile / VS Code UTF-8
+  - 定点修 `001部分回执.md`

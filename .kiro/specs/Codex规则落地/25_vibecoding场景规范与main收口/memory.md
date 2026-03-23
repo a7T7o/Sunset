@@ -695,3 +695,46 @@
 
 **恢复点 / 下一步**
 - 下一步应对白名单继续收口这批 prompt 同步改动。
+
+## 2026-03-23｜编码问题文章学习与本地检测已完成
+**当前主线目标**
+- 用户要求我完整阅读一篇关于 Codex / VS Code / PowerShell 中文乱码根因的文章，并判断 Sunset 本地是否也命中了同类问题，然后给出本地检测报告。
+
+**已完成**
+1. 已提炼文章的核心解决方法：
+   - 问题根因不在 VS Code 单点，而在“编辑器 UTF-8”与“终端/PowerShell 编码口径”没有统一。
+   - 真正要统一的是：
+     - `files.encoding`
+     - `chcp`
+     - `[Console]::InputEncoding`
+     - `[Console]::OutputEncoding`
+     - `$OutputEncoding`
+     - PowerShell Profile 里的默认文件写入编码
+2. 已对 Sunset 本地环境完成取证：
+   - 当前为 `Windows PowerShell 5.1.26100.7019`
+   - `pwsh` 缺失
+   - `chcp = 936`
+   - `[Console]::InputEncoding = gb2312`
+   - `[Console]::OutputEncoding = utf-8`
+   - `$OutputEncoding = us-ascii`
+   - `$PROFILE` 路径存在但文件缺失
+   - VS Code 只见到 `"files.autoGuessEncoding": true`，未见 `"files.encoding": "utf8"`
+3. 已区分“终端假乱码”和“文件真损坏”：
+   - `Sunset当前规范快照_2026-03-22.md` 等样本属于 `healthy-terminal-noise`
+   - `001部分回执.md` 在 UTF-8 解码下仍含替换字符，属于真实损坏样本
+4. 已生成正式报告：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\25_vibecoding场景规范与main收口\本地编码检测报告_2026-03-23.md`
+
+**关键决策**
+- Sunset 确实命中了文章里说的同类问题，而且比“单纯终端显示错”更严重：
+  - 环境层没有统一，仍在继续制造新乱码风险
+  - 文件层已经有少量活文档出现真实损坏
+- 正确治理顺序不是盲目批量转码，而是：
+  1. 先统一环境层 UTF-8 口径
+  2. 再定点修当前仍在使用的坏文档
+  3. 最后按历史价值分级处理旧样本
+
+**恢复点 / 下一步**
+- 如果用户下一步要我继续直接修，这一阶段最自然的动作应是：
+  - 先补 PowerShell Profile 与 VS Code `files.encoding`
+  - 再定点处理 `001部分回执.md`
