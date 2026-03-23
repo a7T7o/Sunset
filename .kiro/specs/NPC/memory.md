@@ -286,3 +286,18 @@
   - `Primary.unity` 里 `001 / 002 / 003` 当前只有名称、位置、缩放等 prefab 实例覆盖，没有读到 `homeAnchor` 场景级覆盖证据，这说明“场景化与集成还没真正落进 Scene”是现场事实。
   - `git diff --check` 已通过本轮新增/修改的 NPC 文件。
 - 当前恢复点：NPC 这条线现在已经不再只是“会动会说”的功能集合，而是有了正式/验证分层与批量场景接入工具；下一步若继续，就该在 `Primary.unity` 中用这套工具把 Home Anchor 和实际活动范围真正摆进场景。
+
+## 2026-03-23 NPC工具链继续收口：生成器支持正式/验证样本分流
+
+- 当前主线目标：在不碰 `Primary.unity` 这类热场景的前提下，继续把 NPC 自己的生成器和集成工具做顺，减少后续落场景时的手修量。
+- 本轮子任务：继续收口 `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCPrefabGeneratorTool.cs`，让它直接理解“正式 NPC”和“验证样本 NPC”的差异，而不是生成后再人工补。
+- 本轮完成：
+  - 新增生成器内的 `GeneratedNpcRole` 分流，支持 `Production / BubbleReview` 两类角色。
+  - 生成器 UI 新增“角色预设”区，可填写验证样本名称列表，默认识别 `003` 为 BubbleReview 样本。
+  - 正式 NPC 现在会自动绑定 `NPC_DefaultRoamProfile.asset`；验证样本会自动绑定 `NPC_BubbleReviewProfile.asset`。
+  - 验证样本可自动补挂 `NPCBubbleStressTalker`，把 `003` 这类 review 样本的默认真相收进生成器，而不是靠后补。
+  - 生成结果摘要会直接统计“正式 / 验证样本”数量，方便回看本次批量生成有没有串线。
+- 已验证事实：
+  - `git diff --check -- Assets/Editor/NPCPrefabGeneratorTool.cs` 已通过。
+  - 本轮没有改 `Primary.unity`、没有碰 4 个 TMP 字体资源、没有写 Prefab / Scene 热区资源。
+- 当前恢复点：NPC 当前还能继续安全推进的遗留项，已经从“再讲一遍场景化没做完”收缩成“继续做工具链减手修”；等热场景安全后，再用这些工具去做真实的 Home Anchor / 活动范围场景落点。

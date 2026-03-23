@@ -32,10 +32,17 @@ public class NPCPrefabGeneratorTool : EditorWindow
         Move = 1
     }
 
+    private enum GeneratedNpcRole
+    {
+        Production = 0,
+        BubbleReview = 1
+    }
+
     private sealed class TextureTask
     {
         public string TexturePath;
         public string NpcName;
+        public GeneratedNpcRole Role;
         public Dictionary<TemplateDirection, List<Sprite>> SpritesByDirection = new Dictionary<TemplateDirection, List<Sprite>>();
     }
 
@@ -54,6 +61,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
     private const int PixelsPerUnit = 16;
     private const float ClipFrameRate = 6f;
     private const string DefaultRoamProfilePath = "Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset";
+    private const string BubbleReviewProfilePath = "Assets/111_Data/NPC/NPC_BubbleReviewProfile.asset";
 
     private static readonly TemplateDirection[] RowDirections =
     {
@@ -73,6 +81,9 @@ public class NPCPrefabGeneratorTool : EditorWindow
     private float defaultIdleAnimationSpeed = 1f;
     private float defaultMoveAnimationSpeed = 1f;
     private bool enableDebugLogOnPrefab = false;
+    private bool autoAssignBubbleReviewRole = true;
+    private bool addStressTalkerToBubbleReview = true;
+    private string bubbleReviewNpcNames = "003";
 
     private Vector2 scrollPos;
     private string lastSummary = "尚未获取选中项。";
@@ -102,6 +113,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
         DrawSelectionSection();
         DrawOutputSection();
         DrawRuntimeSection();
+        DrawRolePresetSection();
         DrawSummarySection();
         DrawActionButtons();
 
@@ -196,6 +208,26 @@ public class NPCPrefabGeneratorTool : EditorWindow
         EditorGUILayout.Space(10f);
     }
 
+    private void DrawRolePresetSection()
+    {
+        EditorGUILayout.LabelField("━━━━ 角色预设 ━━━━", EditorStyles.boldLabel);
+        autoAssignBubbleReviewRole = EditorGUILayout.Toggle("自动分流验证样本", autoAssignBubbleReviewRole);
+
+        using (new EditorGUI.DisabledScope(!autoAssignBubbleReviewRole))
+        {
+            bubbleReviewNpcNames = EditorGUILayout.TextField("验证样本名称", bubbleReviewNpcNames);
+            addStressTalkerToBubbleReview = EditorGUILayout.Toggle("验证样本自动挂压测组件", addStressTalkerToBubbleReview);
+        }
+
+        EditorGUILayout.HelpBox(
+            "正式 NPC 默认使用 NPC_DefaultRoamProfile，不挂 NPCBubbleStressTalker。\n" +
+            "验证样本 NPC 默认使用 NPC_BubbleReviewProfile，并可自动挂上 NPCBubbleStressTalker。\n" +
+            "验证样本名称支持逗号、空格、分号或换行分隔，例如：003, NPC_Test_A",
+            MessageType.None);
+
+        EditorGUILayout.Space(10f);
+    }
+
     private void DrawSummarySection()
     {
         EditorGUILayout.LabelField("━━━━ 最近结果 ━━━━", EditorStyles.boldLabel);
@@ -283,7 +315,8 @@ public class NPCPrefabGeneratorTool : EditorWindow
             .Select(texture => new TextureTask
             {
                 TexturePath = AssetDatabase.GetAssetPath(texture),
-                NpcName = texture.name
+                NpcName = texture.name,
+                Role = ResolveGeneratedNpcRole(texture.name)
             })
             .ToList();
 
@@ -309,8 +342,13 @@ public class NPCPrefabGeneratorTool : EditorWindow
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
 
-            lastSummary = $"生成完成：共处理 {tasks.Count} 个 NPC PNG。";
-            EditorUtility.DisplayDialog("NPC 生成器", $"生成完成，共处理 {tasks.Count} 个 NPC PNG。", "确定");
+            int bubbleReviewCount = tasks.Count(task => task.Role == GeneratedNpcRole.BubbleReview);
+            int productionCount = tasks.Count - bubbleReviewCount;
+            lastSummary = $"生成完成：共处理 {tasks.Count} 个 NPC PNG，正式 {productionCount} / 验证样本 {bubbleReviewCount}。";
+            EditorUtility.DisplayDialog(
+                "NPC 生成器",
+                $"生成完成，共处理 {tasks.Count} 个 NPC PNG。\n正式：{productionCount}\n验证样本：{bubbleReviewCount}",
+                "确定");
         }
         catch (Exception ex)
         {
@@ -746,7 +784,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
             root.AddComponent<NPCBubblePresenter>();
             NPCAutoRoamController roamController = root.AddComponent<NPCAutoRoamController>();
-            AssignDefaultRoamProfile(roamController);
+            ApplyGeneratedRole(task, root, roamController);
 
             if (!enableDebugLogOnPrefab)
             {
@@ -802,15 +840,63 @@ public class NPCPrefabGeneratorTool : EditorWindow
         }
     }
 
-    private void AssignDefaultRoamProfile(NPCAutoRoamController roamController)
+    private GeneratedNpcRole ResolveGeneratedNpcRole(string npcName)
+    {
+        if (!autoAssignBubbleReviewRole)
+        {
+            return GeneratedNpcRole.Production;
+        }
+
+        HashSet<string> bubbleReviewNames = ParseNpcNameList(bubbleReviewNpcNames);
+        return bubbleReviewNames.Contains(npcName)
+            ? GeneratedNpcRole.BubbleReview
+            : GeneratedNpcRole.Production;
+    }
+
+    private HashSet<string> ParseNpcNameList(string rawValue)
+    {
+        HashSet<string> names = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(rawValue))
+        {
+            return names;
+        }
+
+        string[] tokens = rawValue.Split(new[] { ',', ';', '|', '\n', '\r', '\t', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            string normalized = tokens[i].Trim();
+            if (!string.IsNullOrEmpty(normalized))
+            {
+                names.Add(normalized);
+            }
+        }
+
+        return names;
+    }
+
+    private void ApplyGeneratedRole(TextureTask task, GameObject root, NPCAutoRoamController roamController)
+    {
+        string profilePath = task.Role == GeneratedNpcRole.BubbleReview
+            ? BubbleReviewProfilePath
+            : DefaultRoamProfilePath;
+        AssignRoamProfile(roamController, profilePath);
+
+        if (task.Role == GeneratedNpcRole.BubbleReview && addStressTalkerToBubbleReview)
+        {
+            NPCBubbleStressTalker stressTalker = root.AddComponent<NPCBubbleStressTalker>();
+            stressTalker.RebindReferences();
+        }
+    }
+
+    private void AssignRoamProfile(NPCAutoRoamController roamController, string profilePath)
     {
         if (roamController == null)
         {
             return;
         }
 
-        NPCRoamProfile defaultProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(DefaultRoamProfilePath);
-        if (defaultProfile == null)
+        NPCRoamProfile profile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(profilePath);
+        if (profile == null)
         {
             return;
         }
@@ -821,7 +907,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
         if (profileProperty != null)
         {
-            profileProperty.objectReferenceValue = defaultProfile;
+            profileProperty.objectReferenceValue = profile;
         }
 
         if (applyOnAwakeProperty != null)

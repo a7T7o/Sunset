@@ -289,3 +289,17 @@
 - 本轮验证：
   - `git diff --check` 对本轮 NPC 文件通过。
 - 当前恢复点：NPC 线现在已经有了可操作的 Scene 集成入口；后续继续开发时，可以直接进入 `Primary` 里的 Home Anchor / 活动区域真实落点，而不是再重讲“还没做完”的空话。
+
+## 2026-03-23 NPC遗留项继续推进：生成器角色分流落地
+
+- 当前主线目标：继续完成我前面已经反复认领但还没做完的 NPC 场景化与集成尾巴，不过先只做非热区的工具链收口。
+- 本轮子任务：在 `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCPrefabGeneratorTool.cs` 中补上正式 NPC / 验证样本 NPC 的自动分流逻辑，减少以后批量生 prefab 后的手修量。
+- 本轮完成：
+  - 生成器新增 `GeneratedNpcRole`，支持 `Production` 与 `BubbleReview` 两类默认角色。
+  - 生成器界面新增“角色预设”，可直接配置验证样本名称列表，默认把 `003` 视为 review 样本。
+  - 验证样本现在会自动绑定 `NPC_BubbleReviewProfile.asset`，并可自动补挂 `NPCBubbleStressTalker`；正式 NPC 则继续走 `NPC_DefaultRoamProfile.asset`。
+  - 生成完成后的摘要会明确回报本轮生成里“正式 / 验证样本”的数量，方便快速自检。
+- 本轮验证：
+  - `git diff --check -- Assets/Editor/NPCPrefabGeneratorTool.cs` 通过。
+  - 本轮没有触碰 `Primary.unity`、字体热区、Prefab 热资源，也没有进入 Unity live 写。
+- 当前恢复点：我现在没有再丢主线。NPC 自己还能继续推进的内容，已经被重新收束成“先把生成器 / 集成工具继续做顺”；真正的 Scene Home Anchor / 活动范围落点，仍然要等热场景安全后再做。
