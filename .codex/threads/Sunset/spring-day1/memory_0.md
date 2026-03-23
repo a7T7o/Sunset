@@ -471,3 +471,33 @@
 - 静态验证已通过：`git diff --check` 和 `CodexCodeGuard` 都是绿的。
 - 这说明我这条线现在不再缺“床怎么睡、晚餐怎么回血、低精力怎么减速”的代码口，而是只差 live 场景承载和 Play 验收。
 - 当前恢复点：下一步优先看 `Primary` 是否已有真实床对象；如果有，就能直接做 `工作台 -> 教学 -> 晚餐 -> 自由时段 -> 睡觉结束` 的最小通路验收。
+
+## 2026-03-23 补记：我已把“没有床对象”这件事真正处理掉
+- 我本轮先按 `skills-governor + 手工等价 startup guard`、`unity-mcp-orchestrator`、`sunset-unity-validation-loop`、`sunset-scene-audit` 做了完整前置核查，再进入 live 现场。
+- live 事实先确认了两件关键事：
+  1. `Anvil_0` 已真实带有 `CraftingStationInteractable`
+  2. `Primary` 里没有 `Bed / PlayerBed / HomeBed`
+- 所以 Day1 后半段真正卡住的不是代码主链，而是“自由时段没有可结束春1日的住处交互点”。
+- 我没有去赌 `Primary.unity` 直改，而是把 `SpringDay1Director` 扩成运行时兜底：
+  - 有床优先床
+  - 没床时自动识别 `House 1_2 / HomeDoor / HouseDoor / Door`
+  - 运行时自动补 `BoxCollider2D(isTrigger=true)` + `SpringDay1BedInteractable`
+  - 交互文案改成 `回屋休息`
+  - 自由时段提示改成“回住处休息”
+- 同时我修掉了导演层第一帧会踩到的 `EnergySystem.Instance` 空引用，并把 `SpringDay1PromptOverlay` 的字体优先级调成先走当前稳定的 `SoftPixel`，不再优先触发 `DialogueChinese V2 SDF` 的导入错误。
+- 验证层我已经补到了：
+  - `CodexCodeGuard` 通过
+  - `SpringDay1DialogueProgressionTests` 9/9 Passed
+  - PlayMode 第一轮实证里，`House 1_2` 的确出现过 `BoxCollider2D(isTrigger=true)` 和 `SpringDay1BedInteractable(interactionHint=回屋休息)`
+  - 清空 Console 后再次 Play，没有再读到 `DialogueChinese V2 SDF.asset` 的导入错误；当前只剩 `AudioListener` warning
+- 当前恢复点：
+  - 这条线现在不再被“没有床对象”卡死
+  - 真正剩下的是把 `Anvil_0 -> 教学 -> 晚餐回血 -> 自由时段 -> 回住处休息结束` 整条 live 通路完整跑一遍
+
+## 2026-03-23 补记：我已把这轮 spring-day1 的最小提交面重新裁干净
+- 本轮重新核过 live 现场后，确认当前 shared root 是 `main`，但 working tree 里混有不该直接跟着 spring-day1 同步的现场 dirty。
+- 我先把真正属于这条线的交付面收窄到 3 个代码文件：`SpringDay1Director.cs`、`SpringDay1PromptOverlay.cs`、`SpringDay1DialogueProgressionTests.cs`。
+- `DialogueChinese Pixel SDF.asset` 与 `DialogueChinese V2 SDF.asset` 这两个字体 asset 已判为我这轮 Unity live 导入留下的副产物，不属于功能本身，现已清掉；避免后面再被误判成“spring-day1 还占着字体脏改”。
+- `Primary.unity` 与 `TagManager.asset` 仍在 working tree，但这次我不会把它们混进 spring-day1 的最小 checkpoint。
+- 我已经重新跑过本轮目标文件的 `git diff --check` 与 `CodexCodeGuard`，当前可安全进入 main 白名单同步。
+- 当前主线恢复点：本轮收口完成后，下一步应该回到 `Anvil_0 -> 0.0.4 -> 0.0.5 -> 晚餐回血 -> 自由时段 -> 回住处休息结束` 的整链 live 验收，而不是继续乱铺新代码。

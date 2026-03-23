@@ -345,3 +345,70 @@
 **遗留问题**：
 - [ ] 当前还缺 `Primary` 里真实床对象的 live 承载；若场景里暂时没有 `Bed / PlayerBed / HomeBed`，床桥代码会保持待命但不会自动生效。
 - [ ] `0.0.4 ~ 0.0.6` 的 live Play 验收仍需 Unity 现场补跑：工作台闪回、晚餐回血动画、自由时段睡觉结束。
+
+### 会话 21 - 2026-03-23（住处休息兜底 + live 验收补口）
+**用户需求**：
+> 把 spring-day1 这条线当前还能一步到位补完的内容继续做完，优先清掉 Day1 后半段运行闭环里最后的物理承载阻塞。
+**完成任务**：
+1. 用 `unityMCP` 只读核对 `Primary`，确认：
+   - `Anvil_0` 已真实带有 `CraftingStationInteractable`
+   - `NPCs/001` 的对话入口仍在
+   - `Primary` 中没有 `Bed / PlayerBed / HomeBed`
+   - 当前唯一真实缺口是“自由时段没有可结束 DayEnd 的住处承载物”
+2. 在不改 `Primary.unity` 的前提下，扩展 `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`：
+   - 保留床对象优先策略
+   - 无床时自动识别 `House 1_2 / HomeDoor / HouseDoor / Door` 一类住处入口代理
+   - 运行时自动补 `BoxCollider2D(isTrigger=true)` 与 `SpringDay1BedInteractable`
+   - 交互提示改为 `回屋休息`
+   - 自由时段提示收敛为“回住处休息”，避免继续误导成“必须回床边”
+3. 修正 `SpringDay1Director.InitializeRuntimeUiIfNeeded()` 的启动时空引用：
+   - `HealthSystem.Instance`
+   - `EnergySystem.Instance`
+   都改为空安全初始化，避免导演层在第一帧卡死
+4. 调整 `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` 的字体优先级：
+   - `SoftPixel -> Pixel -> V2 -> SDF`
+   先走当前稳定字体，不再让提示条每次优先触发 `DialogueChinese V2 SDF` 的导入噪音
+5. 扩展 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`，补住处入口兜底断言。
+**验证结果**：
+- `git diff --check` 通过
+- `CodexCodeGuard` 对：
+  - `SpringDay1Director.cs`
+  - `SpringDay1PromptOverlay.cs`
+  - `SpringDay1DialogueProgressionTests.cs`
+  完成 UTF-8 / diff / 程序集级编译检查并通过
+- `SpringDay1DialogueProgressionTests` 9/9 Passed
+- PlayMode 第一轮取证已确认 `House 1_2` 运行时出现：
+  - `BoxCollider2D (isTrigger = true)`
+  - `SpringDay1BedInteractable (interactionHint = 回屋休息)`
+- 清空 Console 后再次进入 Play 触发对话，未再读到 `DialogueChinese V2 SDF.asset` 的导入错误；当前仅余 `AudioListener` warning
+**关键决策**：
+- 这轮继续遵守“不直接存盘 `Primary.unity`”的边界。
+- 住处承载改走“运行时兜底”，而不是把共享场景 dirty 强塞进当前 checkpoint。
+**恢复点 / 下一步**：
+- 当前 `0.0.4 ~ 0.0.6` 的最后一个物理 blocker 已从“没有床对象无法结束 DayEnd”收敛为“已可通过住处入口代理结束”。
+- 下一步若继续验收，应把 `Anvil_0 -> 0.0.4 -> 0.0.5 -> 晚餐回血 -> 自由时段 -> 住处休息结束` 整条通路做一次完整 live 手工跑通。
+
+### 会话 22 - 2026-03-23（脏改卫生收口 + main 白名单同步准备）
+**用户需求**：
+> 开始落地。
+**完成任务**：
+1. 按 Sunset 启动闸门做手工等价前置核查，重新确认 live 现场为 `D:\Unity\Unity_learning\Sunset @ main`，并核对当前 working tree 脏改归属。
+2. 明确本轮真正应保留的交付面只有：
+   - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+   - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+3. 将 `DialogueChinese Pixel SDF.asset` 与 `DialogueChinese V2 SDF.asset` 判定为本轮 Unity live 导入留下的 TMP 字体副产物，不属于当前功能必需交付面，已直接恢复到 HEAD，避免混入 checkpoint。
+4. 明确未纳入本轮提交的剩余现场 dirty 为：
+   - `Assets/000_Scenes/Primary.unity`
+   - `ProjectSettings/TagManager.asset`
+   它们不属于这次 spring-day1 最小代码 checkpoint，不在本轮白名单内处理。
+5. 对 3 个 C# 目标文件再次执行最小代码闸门：
+   - `git diff --check` 通过
+   - `CodexCodeGuard` 通过（UTF-8 / diff / 程序集级编译检查）
+**关键决策**：
+- 这轮不再把 Unity 自动副产物字体 asset 混入 spring-day1 提交。
+- `Primary.unity` 与 `TagManager.asset` 继续留在工作树中观察，不冒然覆盖他线或用户现场。
+- 当前主线恢复点已经从“继续盲写代码”切回“收最小 checkpoint 并准备下一次整链 live 验收”。
+**恢复点 / 下一步**：
+- 下一步应以 main 白名单方式同步这轮 3 个代码文件与 3 层 memory。
+- 同步完成后，spring-day1 的最小后续主动作是：完整手工验收 `Anvil_0 -> 0.0.4 -> 0.0.5 -> 晚餐回血 -> 自由时段 -> 回住处休息结束`。

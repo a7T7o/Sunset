@@ -13,10 +13,10 @@ namespace Sunset.Story
     {
         private static readonly string[] PreferredFontResourcePaths =
         {
-            "Fonts & Materials/DialogueChinese V2 SDF",
-            "Fonts & Materials/DialogueChinese SDF",
             "Fonts & Materials/DialogueChinese SoftPixel SDF",
-            "Fonts & Materials/DialogueChinese Pixel SDF"
+            "Fonts & Materials/DialogueChinese Pixel SDF",
+            "Fonts & Materials/DialogueChinese V2 SDF",
+            "Fonts & Materials/DialogueChinese SDF"
         };
 
         private static SpringDay1PromptOverlay _instance;

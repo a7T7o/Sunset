@@ -24,6 +24,12 @@ namespace Sunset.Story
         private const string ReminderSequenceId = "spring-day1-reminder";
         private static readonly string[] PreferredWorkbenchObjectNames = { "Anvil_0", "Workbench", "Anvil" };
         private static readonly string[] PreferredBedObjectNames = { "Bed", "PlayerBed", "HomeBed" };
+        private static readonly string[] PreferredRestProxyObjectNames = { "House 1_2", "HomeDoor", "HouseDoor", "Door" };
+        private static readonly string[] PreferredRestProxyKeywords = { "door", "entry", "entrance", "house", "home" };
+        private const string BedInteractionHint = "睡觉";
+        private const string RestProxyInteractionHint = "回屋休息";
+        private const string FreeTimePromptText = "今晚可以自由活动，记得回住处休息。";
+        private const string FreeTimeProgressText = "自由活动中，回住处休息即可结束";
 
         private static SpringDay1Director _instance;
         private static FieldInfo _farmTilesField;
@@ -212,7 +218,7 @@ namespace Sunset.Story
 
             if (phase == StoryPhase.FreeTime)
             {
-                return "自由活动中，回床边即可结束";
+                return FreeTimeProgressText;
             }
 
             if (phase == StoryPhase.DayEnd)
@@ -413,8 +419,17 @@ namespace Sunset.Story
 
             _uiInitialized = true;
             SpringDay1PromptOverlay.EnsureRuntime();
-            HealthSystem.Instance.SetVisible(false);
-            EnergySystem.Instance.SetVisible(false);
+            HealthSystem healthSystem = HealthSystem.Instance;
+            if (healthSystem != null)
+            {
+                healthSystem.SetVisible(false);
+            }
+
+            EnergySystem energySystem = EnergySystem.Instance;
+            if (energySystem != null)
+            {
+                energySystem.SetVisible(false);
+            }
             SyncStoryTimePauseState();
         }
 
@@ -448,19 +463,25 @@ namespace Sunset.Story
                 return;
             }
 
-            Transform bedCandidate = FindBedCandidate();
-            if (bedCandidate == null || bedCandidate.GetComponent<Collider2D>() == null)
+            RestTargetBinding binding = FindRestTargetCandidate();
+            if (binding.Transform == null)
             {
                 return;
             }
 
-            SpringDay1BedInteractable interactable = bedCandidate.GetComponent<SpringDay1BedInteractable>();
-            if (interactable == null)
+            Collider2D interactableCollider = EnsureRestInteractableCollider(binding);
+            if (interactableCollider == null)
             {
-                interactable = bedCandidate.gameObject.AddComponent<SpringDay1BedInteractable>();
+                return;
             }
 
-            interactable.ConfigureRuntimeDefaults("睡觉", 1.6f, 24);
+            SpringDay1BedInteractable interactable = binding.Transform.GetComponent<SpringDay1BedInteractable>();
+            if (interactable == null)
+            {
+                interactable = binding.Transform.gameObject.AddComponent<SpringDay1BedInteractable>();
+            }
+
+            interactable.ConfigureRuntimeDefaults(binding.InteractionHint, binding.InteractionDistance, binding.InteractionPriority);
             _boundBedInteractable = interactable;
         }
 
@@ -558,7 +579,7 @@ namespace Sunset.Story
             _freeTimeEntered = true;
             StoryManager.Instance.SetPhase(StoryPhase.FreeTime);
             SyncStoryTimePauseState();
-            SpringDay1PromptOverlay.Instance.Show("今晚可以自由活动，记得回床边睡觉。");
+            SpringDay1PromptOverlay.Instance.Show(FreeTimePromptText);
         }
 
         public bool TryTriggerSleepFromBed()
@@ -820,14 +841,23 @@ namespace Sunset.Story
             return null;
         }
 
-        private static Transform FindBedCandidate()
+        private static RestTargetBinding FindRestTargetCandidate()
         {
             for (int index = 0; index < PreferredBedObjectNames.Length; index++)
             {
                 GameObject exactMatch = GameObject.Find(PreferredBedObjectNames[index]);
                 if (exactMatch != null)
                 {
-                    return exactMatch.transform;
+                    return RestTargetBinding.ForBed(exactMatch.transform);
+                }
+            }
+
+            for (int index = 0; index < PreferredRestProxyObjectNames.Length; index++)
+            {
+                GameObject exactMatch = GameObject.Find(PreferredRestProxyObjectNames[index]);
+                if (exactMatch != null && IsRestProxyCandidate(exactMatch.transform))
+                {
+                    return RestTargetBinding.ForRestProxy(exactMatch.transform);
                 }
             }
 
@@ -840,13 +870,89 @@ namespace Sunset.Story
                     continue;
                 }
 
-                if (candidate.name.ToLowerInvariant().Contains("bed"))
+                string loweredName = candidate.name.ToLowerInvariant();
+                if (loweredName.Contains("bed"))
                 {
-                    return candidate;
+                    return RestTargetBinding.ForBed(candidate);
+                }
+
+                if (IsRestProxyCandidate(candidate))
+                {
+                    return RestTargetBinding.ForRestProxy(candidate);
                 }
             }
 
-            return null;
+            return default;
+        }
+
+        private static bool IsRestProxyCandidate(Transform candidate)
+        {
+            if (candidate == null || candidate.GetComponent<SpriteRenderer>() == null)
+            {
+                return false;
+            }
+
+            string loweredName = candidate.name.ToLowerInvariant();
+            bool nameMatched = false;
+            for (int index = 0; index < PreferredRestProxyKeywords.Length; index++)
+            {
+                if (loweredName.Contains(PreferredRestProxyKeywords[index]))
+                {
+                    nameMatched = true;
+                    break;
+                }
+            }
+
+            bool parentSuggestsRest = candidate.parent != null && candidate.parent.name.ToLowerInvariant().Contains("house");
+            bool tagMatched = candidate.CompareTag("Interactable") || candidate.CompareTag("Building");
+            return tagMatched && (nameMatched || parentSuggestsRest);
+        }
+
+        private static Collider2D EnsureRestInteractableCollider(RestTargetBinding binding)
+        {
+            Collider2D existingCollider = binding.Transform.GetComponent<Collider2D>();
+            if (existingCollider != null)
+            {
+                return existingCollider;
+            }
+
+            SpriteRenderer spriteRenderer = binding.Transform.GetComponent<SpriteRenderer>();
+            if (spriteRenderer == null || spriteRenderer.sprite == null)
+            {
+                return null;
+            }
+
+            BoxCollider2D runtimeCollider = binding.Transform.gameObject.AddComponent<BoxCollider2D>();
+            runtimeCollider.isTrigger = true;
+            runtimeCollider.offset = spriteRenderer.sprite.bounds.center;
+            runtimeCollider.size = spriteRenderer.sprite.bounds.size;
+            return runtimeCollider;
+        }
+
+        private readonly struct RestTargetBinding
+        {
+            public Transform Transform { get; }
+            public string InteractionHint { get; }
+            public float InteractionDistance { get; }
+            public int InteractionPriority { get; }
+
+            private RestTargetBinding(Transform transform, string interactionHint, float interactionDistance, int interactionPriority)
+            {
+                Transform = transform;
+                InteractionHint = interactionHint;
+                InteractionDistance = interactionDistance;
+                InteractionPriority = interactionPriority;
+            }
+
+            public static RestTargetBinding ForBed(Transform transform)
+            {
+                return new RestTargetBinding(transform, BedInteractionHint, 1.6f, 24);
+            }
+
+            public static RestTargetBinding ForRestProxy(Transform transform)
+            {
+                return new RestTargetBinding(transform, RestProxyInteractionHint, 1.8f, 24);
+            }
         }
 
         private void ApplyLowEnergyMovementPenalty(bool shouldSlow)

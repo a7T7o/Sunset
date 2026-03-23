@@ -363,3 +363,30 @@
 - 当前新能力包括：脚本阶段时间暂停、低精力减速、精力条渐显与晚餐回血动画、自由时段床交互与睡觉结束桥。
 - `git diff --check` 与 `CodexCodeGuard` 已通过；说明这刀代码层可继续推进，不是停在半编译状态。
 - 当前恢复点：主线剩余重点已收缩为 Unity live 验收与真实场景承载物对接，尤其是 `Primary` 里真实床对象是否已经到位。
+
+## 2026-03-23 补记：住处休息兜底已补上，DayEnd 不再被“缺床对象”卡死
+- 本轮继续沿 spring-day1 主线做最小补口，没有直改 `Primary.unity`，而是先用 `unityMCP` 只读确认真实阻塞：`Anvil_0` 已就位，但 `Primary` 中没有任何 `Bed / PlayerBed / HomeBed`。
+- 为避免把共享场景 dirty 混进当前 checkpoint，已将 `SpringDay1Director.cs` 扩展为双通道承载：
+  - 有床时仍优先绑定床
+  - 无床时自动识别 `House 1_2 / HomeDoor / HouseDoor / Door` 一类住处入口对象，并在运行时自动补：
+    - `BoxCollider2D (isTrigger = true)`
+    - `SpringDay1BedInteractable`
+    - 交互提示 `回屋休息`
+- 同轮顺手修掉了导演层第一帧启动时的空引用：`InitializeRuntimeUiIfNeeded()` 现在不会再因为 `EnergySystem.Instance` 尚未就位而打断后续轮询。
+- 任务提示条 `SpringDay1PromptOverlay` 的字体优先级也已改成先走当前稳定的 `SoftPixel`，避免再主动触发 `DialogueChinese V2 SDF.asset` 的导入错误噪音。
+- 验证结果：
+  - `CodexCodeGuard` 通过
+  - `SpringDay1DialogueProgressionTests` 9/9 Passed
+  - PlayMode 取证确认过一次：`House 1_2` 运行时已真实出现 `BoxCollider2D(isTrigger=true)` 与 `SpringDay1BedInteractable(interactionHint=回屋休息)`
+  - 清空 Console 后再次 Play，未再读到 `DialogueChinese V2 SDF.asset` 的导入错误
+- 当前恢复点：
+  - Day1 后半段的剩余问题已经从“物理承载缺失”收敛为“整条 0.0.4~0.0.6 还需要完整 live 手工跑一遍”
+  - 也就是说，现在不是“做不到”，而是“最后需要整链验收”
+
+## 2026-03-23 补记：本轮已完成 spring-day1 最小 checkpoint 的卫生收口
+- 这轮没有继续扩写新功能，而是先把当前 working tree 里属于 spring-day1 的最小交付面重新裁清。
+- 已确认应保留的只有 3 个代码文件：`SpringDay1Director.cs`、`SpringDay1PromptOverlay.cs`、`SpringDay1DialogueProgressionTests.cs`，以及对应的 3 层 memory。
+- `DialogueChinese Pixel SDF.asset` 与 `DialogueChinese V2 SDF.asset` 已判定为本轮 Unity live 导入留下的 TMP 字体副产物，不是当前功能真正需要提交的资产，现已恢复到 `HEAD`。
+- 当前仍留在 working tree 的 `Primary.unity` 与 `TagManager.asset` 没有被我混进 spring-day1 这次最小 checkpoint；它们继续作为现场其他 dirty 保留观察。
+- 我已再次对本轮目标代码执行 `git diff --check` 与 `CodexCodeGuard`，结果通过。
+- 当前恢复点：spring-day1 这轮可安全收成 main 白名单提交；提交后下一主动作应回到 Day1 后半段整链 live 验收，而不是继续无边界扩写。
