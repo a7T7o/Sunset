@@ -44,9 +44,13 @@ public class OcclusionTransparency : MonoBehaviour
     private Texture2D _cachedTexture;
     private Sprite _cachedSprite;
     private bool _textureReadable = true;  // 纹理是否可读
+    private Transform _occlusionRootTransform;
+    private bool _isTreeOccluder;
     
     void Awake()
     {
+        CacheOcclusionIdentity();
+
         // 获取所有子物体的SpriteRenderer（包括自己，如果有的话）
         childRenderers = GetComponentsInChildren<SpriteRenderer>();
         
@@ -84,7 +88,7 @@ public class OcclusionTransparency : MonoBehaviour
         }
         
         // 延迟注册，确保OcclusionManager已初始化
-        if (canBeOccluded)
+        if (canBeOccluded && Application.isPlaying)
         {
             StartCoroutine(RegisterDelayed());
         }
@@ -252,6 +256,23 @@ public class OcclusionTransparency : MonoBehaviour
             return mainRenderer.bounds;
         return new Bounds(transform.position, Vector3.one);
     }
+
+    public Transform GetOcclusionRootTransform()
+    {
+        CacheOcclusionIdentity();
+        return _occlusionRootTransform != null ? _occlusionRootTransform : transform;
+    }
+
+    public bool SharesOcclusionRoot(OcclusionTransparency other)
+    {
+        return other != null && GetOcclusionRootTransform() == other.GetOcclusionRootTransform();
+    }
+
+    public bool IsTreeOccluder()
+    {
+        CacheOcclusionIdentity();
+        return _isTreeOccluder;
+    }
     
     /// <summary>
     /// 获取树木的 Collider 边界（用于树林边界计算）
@@ -291,6 +312,14 @@ public class OcclusionTransparency : MonoBehaviour
     public int GetTreeGrowthStageIndex()
     {
         TreeController treeController = GetComponent<TreeController>();
+        if (treeController == null)
+        {
+            treeController = GetComponentInChildren<TreeController>(true);
+        }
+        if (treeController == null)
+        {
+            treeController = GetComponentInParent<TreeController>();
+        }
         if (treeController != null)
         {
             return treeController.GetCurrentStageIndex();
@@ -342,6 +371,36 @@ public class OcclusionTransparency : MonoBehaviour
             }
             SetOccluding(false);
         }
+    }
+
+    private void CacheOcclusionIdentity()
+    {
+        if (_occlusionRootTransform != null)
+        {
+            return;
+        }
+
+        TreeController treeController = GetComponent<TreeController>();
+        if (treeController == null)
+        {
+            treeController = GetComponentInChildren<TreeController>(true);
+        }
+        if (treeController == null)
+        {
+            treeController = GetComponentInParent<TreeController>();
+        }
+
+        if (treeController != null)
+        {
+            _occlusionRootTransform = treeController.transform.parent != null
+                ? treeController.transform.parent
+                : treeController.transform;
+            _isTreeOccluder = true;
+            return;
+        }
+
+        _occlusionRootTransform = transform;
+        _isTreeOccluder = CompareTag("Tree") || (transform.parent != null && transform.parent.CompareTag("Tree"));
     }
     
     #region 像素采样精确检测

@@ -196,6 +196,87 @@ public class OcclusionManager : MonoBehaviour
         // ✅ 砍伐高亮超时检测
         CheckChoppingTimeout();
     }
+
+    private bool ContainsPhysicalTree(HashSet<OcclusionTransparency> collection, OcclusionTransparency occluder)
+    {
+        if (occluder == null)
+        {
+            return false;
+        }
+
+        foreach (var item in collection)
+        {
+            if (item != null && item.SharesOcclusionRoot(occluder))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool ForestContainsPhysicalTree(OcclusionTransparency occluder)
+    {
+        return ContainsPhysicalTree(currentForest, occluder);
+    }
+
+    private void SetPhysicalTreeOccluding(
+        OcclusionTransparency occluder,
+        bool occluding,
+        float customAlpha = -1f,
+        float customSpeed = -1f)
+    {
+        if (occluder == null)
+        {
+            return;
+        }
+
+        foreach (var candidate in registeredOccluders)
+        {
+            if (candidate == null || !candidate.SharesOcclusionRoot(occluder))
+            {
+                continue;
+            }
+
+            candidate.SetOccluding(occluding, customAlpha, customSpeed);
+        }
+    }
+
+    private void SetPhysicalTreeChopping(
+        OcclusionTransparency occluder,
+        bool chopping,
+        float alphaOffset = 0.25f)
+    {
+        if (occluder == null)
+        {
+            return;
+        }
+
+        foreach (var candidate in registeredOccluders)
+        {
+            if (candidate == null || !candidate.SharesOcclusionRoot(occluder))
+            {
+                continue;
+            }
+
+            candidate.SetChoppingState(chopping, alphaOffset);
+        }
+    }
+
+    private Vector2 GetOccluderReferencePosition(OcclusionTransparency occluder)
+    {
+        if (occluder == null)
+        {
+            return Vector2.zero;
+        }
+
+        if (occluder.IsTreeOccluder())
+        {
+            return occluder.GetOcclusionRootTransform().position;
+        }
+
+        return occluder.transform.position;
+    }
     
     /// <summary>
     /// ✅ 设置当前正在砍伐的树木（砍伐高亮）
@@ -206,16 +287,16 @@ public class OcclusionManager : MonoBehaviour
     public void SetChoppingTree(OcclusionTransparency tree, float alphaOffset = 0.5f)
     {
         // 清除之前的高亮
-        if (currentChoppingTree != null && currentChoppingTree != tree)
+        if (currentChoppingTree != null && !currentChoppingTree.SharesOcclusionRoot(tree))
         {
-            currentChoppingTree.SetChoppingState(false);
+            SetPhysicalTreeChopping(currentChoppingTree, false);
         }
         
         // 设置新的高亮
         currentChoppingTree = tree;
         if (tree != null)
         {
-            tree.SetChoppingState(true, alphaOffset);
+            SetPhysicalTreeChopping(tree, true, alphaOffset);
             lastChopTime = Time.time;
         }
     }
@@ -227,7 +308,7 @@ public class OcclusionManager : MonoBehaviour
     {
         if (currentChoppingTree != null)
         {
-            currentChoppingTree.SetChoppingState(false);
+            SetPhysicalTreeChopping(currentChoppingTree, false);
             currentChoppingTree = null;
         }
     }
@@ -294,7 +375,7 @@ public class OcclusionManager : MonoBehaviour
             if (occluder == null || !occluder.CanBeOccluded) continue;
             
             // 获取遮挡物的位置
-            Vector2 occluderPos = occluder.transform.position;
+            Vector2 occluderPos = GetOccluderReferencePosition(occluder);
             
             // 距离过滤：只检测预览周围的物体
             float distance = Vector2.Distance(previewCenter, occluderPos);
@@ -319,9 +400,9 @@ public class OcclusionManager : MonoBehaviour
                 previewOccluding.Add(occluder);
                 
                 // 设置遮挡状态（如果还没有被玩家遮挡）
-                if (!currentlyOccluding.Contains(occluder))
+                if (!ContainsPhysicalTree(currentlyOccluding, occluder))
                 {
-                    occluder.SetOccluding(true);
+                    SetPhysicalTreeOccluding(occluder, true);
                 }
             }
         }
@@ -329,15 +410,17 @@ public class OcclusionManager : MonoBehaviour
         // 恢复不再被预览遮挡的物体（如果也没有被玩家遮挡）
         foreach (var occluder in previousPreviewOccluding)
         {
-            if (occluder != null && !previewOccluding.Contains(occluder) && !currentlyOccluding.Contains(occluder))
+            if (occluder != null &&
+                !ContainsPhysicalTree(previewOccluding, occluder) &&
+                !ContainsPhysicalTree(currentlyOccluding, occluder))
             {
                 // 如果是树林中的树木，不恢复（由树林逻辑统一管理）
-                if (enableForestTransparency && currentForest.Contains(occluder))
+                if (enableForestTransparency && ForestContainsPhysicalTree(occluder))
                 {
                     continue;
                 }
                 
-                occluder.SetOccluding(false);
+                SetPhysicalTreeOccluding(occluder, false);
             }
         }
         
@@ -354,15 +437,15 @@ public class OcclusionManager : MonoBehaviour
     {
         foreach (var occluder in previewOccluding)
         {
-            if (occluder != null && !currentlyOccluding.Contains(occluder))
+            if (occluder != null && !ContainsPhysicalTree(currentlyOccluding, occluder))
             {
                 // 如果是树林中的树木，不恢复（由树林逻辑统一管理）
-                if (enableForestTransparency && currentForest.Contains(occluder))
+                if (enableForestTransparency && ForestContainsPhysicalTree(occluder))
                 {
                     continue;
                 }
                 
-                occluder.SetOccluding(false);
+                SetPhysicalTreeOccluding(occluder, false);
             }
         }
         previewOccluding.Clear();
@@ -390,7 +473,7 @@ public class OcclusionManager : MonoBehaviour
         {
             registeredOccluders.Remove(occluder);
             currentlyOccluding.Remove(occluder);
-            currentForest.Remove(occluder);
+            currentForest.RemoveWhere(tree => tree == null || tree.SharesOcclusionRoot(occluder));
         }
     }
     
@@ -459,7 +542,7 @@ public class OcclusionManager : MonoBehaviour
             checkedCount++;
             
             // 获取遮挡物的位置（父物体位置 = 种植点）
-            Vector2 occluderPos = occluder.transform.position;
+            Vector2 occluderPos = GetOccluderReferencePosition(occluder);
             
             // 获取遮挡物的bounds
             Bounds occluderBounds = occluder.GetBounds();
@@ -519,7 +602,7 @@ public class OcclusionManager : MonoBehaviour
                 }
                 
                 // 检查是否在树林中（如果启用了树林透明功能）
-                bool isInForest = enableForestTransparency && currentForest.Contains(occluder);
+                bool isInForest = enableForestTransparency && ForestContainsPhysicalTree(occluder);
                 
                 // 只有满足以下条件之一才触发透明：
                 // 1. 被遮挡占比 >= 阈值
@@ -542,16 +625,16 @@ public class OcclusionManager : MonoBehaviour
                     TagOcclusionParams customParams = GetTagParams(occluder.gameObject.tag);
                     if (customParams != null)
                     {
-                        occluder.SetOccluding(true, customParams.occludedAlpha, customParams.fadeSpeed);
+                        SetPhysicalTreeOccluding(occluder, true, customParams.occludedAlpha, customParams.fadeSpeed);
                     }
                     else
                     {
-                        occluder.SetOccluding(true);
+                        SetPhysicalTreeOccluding(occluder, true);
                     }
                 }
                 else
                 {
-                    occluder.SetOccluding(true);
+                    SetPhysicalTreeOccluding(occluder, true);
                 }
                 
                 occludedCount++;
@@ -569,7 +652,7 @@ public class OcclusionManager : MonoBehaviour
             OcclusionTransparency occludingTree = null;
             foreach (var occluder in currentlyOccluding)
             {
-                if (occluder != null && occluder.CompareTag("Tree"))
+                if (occluder != null && occluder.IsTreeOccluder())
                 {
                     occludingTree = occluder;
                     break;
@@ -588,7 +671,7 @@ public class OcclusionManager : MonoBehaviour
                     // ✅ 使用智能边缘遮挡
                     HandleForestOcclusion(occludingTree, playerCenterPos, playerBounds);
                 }
-                else if (!currentForest.Contains(occludingTree))
+                else if (!ForestContainsPhysicalTree(occludingTree))
                 {
                     // 玩家移动到另一片树林 → 清空缓存，重新 Flood Fill
                     ClearForestTransparency();
@@ -633,15 +716,15 @@ public class OcclusionManager : MonoBehaviour
         // 恢复不再遮挡的物体（排除树林中的树木）
         foreach (var occluder in previousOccluding)
         {
-            if (occluder != null && !currentlyOccluding.Contains(occluder))
+            if (occluder != null && !ContainsPhysicalTree(currentlyOccluding, occluder))
             {
                 // 如果是树林中的树木，不恢复（由树林逻辑统一管理）
-                if (enableForestTransparency && currentForest.Contains(occluder))
+                if (enableForestTransparency && ForestContainsPhysicalTree(occluder))
                 {
                     continue;
                 }
                 
-                occluder.SetOccluding(false);
+                SetPhysicalTreeOccluding(occluder, false);
             }
         }
         
@@ -750,14 +833,14 @@ public class OcclusionManager : MonoBehaviour
         currentForest.Clear();
         
         Queue<OcclusionTransparency> queue = new Queue<OcclusionTransparency>();
-        HashSet<OcclusionTransparency> visited = new HashSet<OcclusionTransparency>();
+        HashSet<Transform> visitedRoots = new HashSet<Transform>();
         
         queue.Enqueue(startTree);
-        visited.Add(startTree);
+        visitedRoots.Add(startTree.GetOcclusionRootTransform());
         
         int searchCount = 0;
-        Vector2 minBounds = startTree.transform.position;
-        Vector2 maxBounds = startTree.transform.position;
+        Bounds forestBounds = default;
+        bool hasForestBounds = false;
         
         while (queue.Count > 0 && searchCount < maxForestSearchDepth)
         {
@@ -765,7 +848,7 @@ public class OcclusionManager : MonoBehaviour
             searchCount++;
             
             // 距离限制：超出最大搜索半径的树木不加入
-            float distanceToPlayer = Vector2.Distance(current.transform.position, playerPos);
+            float distanceToPlayer = Vector2.Distance(GetOccluderReferencePosition(current), playerPos);
             if (distanceToPlayer > maxForestSearchRadius)
             {
                 continue;
@@ -773,33 +856,39 @@ public class OcclusionManager : MonoBehaviour
             
             // 加入树林
             currentForest.Add(current);
-            current.SetOccluding(true);
+            SetPhysicalTreeOccluding(current, true);
             
-            // 更新边界
-            Vector2 pos = current.transform.position;
-            minBounds = Vector2.Min(minBounds, pos);
-            maxBounds = Vector2.Max(maxBounds, pos);
+            // 更新树林整体包围盒
+            Bounds colliderBounds = current.GetColliderBounds();
+            if (!hasForestBounds)
+            {
+                forestBounds = colliderBounds;
+                hasForestBounds = true;
+            }
+            else
+            {
+                forestBounds.Encapsulate(colliderBounds.min);
+                forestBounds.Encapsulate(colliderBounds.max);
+            }
             
             // 查找相邻的树木
             foreach (var occluder in registeredOccluders)
             {
                 if (occluder == null || !occluder.CanBeOccluded) continue;
-                if (!occluder.CompareTag("Tree")) continue;
-                if (visited.Contains(occluder)) continue;
+                if (!occluder.IsTreeOccluder()) continue;
+                if (visitedRoots.Contains(occluder.GetOcclusionRootTransform())) continue;
                 
                 // ✅ 核心判定：使用树根距离判断连通
                 if (AreTreesConnected(current, occluder))
                 {
                     queue.Enqueue(occluder);
-                    visited.Add(occluder);
+                    visitedRoots.Add(occluder.GetOcclusionRootTransform());
                 }
             }
         }
         
         // 计算树林边界（扩展一点，避免频繁重算）
-        Vector2 center = (minBounds + maxBounds) / 2f;
-        Vector2 size = (maxBounds - minBounds) + Vector2.one * 2f;
-        currentForestBounds = new Bounds(center, size);
+        currentForestBounds = hasForestBounds ? forestBounds : new Bounds(startTree.GetOcclusionRootTransform().position, Vector3.one * 2f);
         
         // ✅ 计算凸包边界
         CalculateForestBoundary();
@@ -820,6 +909,16 @@ public class OcclusionManager : MonoBehaviour
     {
         // ========== 条件1：树根距离判定 ==========
         // 树根距离近 = 种植在一起 = 同一片林
+        if (a == null || b == null)
+        {
+            return false;
+        }
+
+        if (a.SharesOcclusionRoot(b))
+        {
+            return false;
+        }
+
         Vector2 rootA = GetTreeRootPosition(a);
         Vector2 rootB = GetTreeRootPosition(b);
         float rootDistance = Vector2.Distance(rootA, rootB);
@@ -874,7 +973,7 @@ public class OcclusionManager : MonoBehaviour
         // 优先使用父物体位置（树根）
         if (tree.transform.parent != null)
         {
-            return tree.transform.parent.position;
+            return tree.GetOcclusionRootTransform().position;
         }
         
         // 如果没有父物体，使用 Bounds 底部中心
@@ -891,7 +990,7 @@ public class OcclusionManager : MonoBehaviour
         {
             if (tree != null)
             {
-                tree.SetOccluding(false);
+                SetPhysicalTreeOccluding(tree, false);
             }
         }
         
@@ -981,24 +1080,20 @@ public class OcclusionManager : MonoBehaviour
             return true; // 无法判断，默认是边界树（安全回退）
         }
         
-        // 使用树木的 Sprite Bounds 中心点
-        Bounds treeBounds = tree.GetBounds();
-        Vector2 treeCenter = treeBounds.center;
+        // 使用树木碰撞体中心判断边界归属：既保留物理树语义，又避免把边界树误判成内侧树
+        Vector2 treeReferencePosition = tree.GetColliderBounds().center;
         
-        // 计算树木中心到凸包边界的距离
-        float distance = ConvexHullCalculator.DistanceToConvexHull(treeCenter, currentForestHull);
+        // 计算树根到凸包边界的距离
+        float distance = ConvexHullCalculator.DistanceToConvexHull(treeReferencePosition, currentForestHull);
         
-        // 🔥 改进：使用更宽松的阈值判断边界树
-        // 距离边界小于 2.0 米视为边界树（之前是 1.5 米）
-        // 负值表示在凸包内部，正值表示在凸包外部
-        // 绝对值越小越靠近边界
-        float boundaryThreshold = 2.0f;
+        // 以接近树根碰撞体半宽的阈值判定边界树，保持边界树稳定，同时减少内侧树误判
+        float boundaryThreshold = 0.75f;
         
         bool isBoundary = Mathf.Abs(distance) < boundaryThreshold;
         
         if (enableDetailedDebug)
         {
-            Debug.Log($"<color=gray>[边界判定] {tree.name}: 距离边界={distance:F2}m, 阈值={boundaryThreshold}m, 是边界树={isBoundary}</color>");
+            Debug.Log($"<color=gray>[边界判定] {tree.name}: 根位置距边界={distance:F2}m, 阈值={boundaryThreshold}m, 是边界树={isBoundary}</color>");
         }
         
         return isBoundary;
@@ -1103,7 +1198,7 @@ public class OcclusionManager : MonoBehaviour
             
             if (enableDetailedDebug)
             {
-                OcclusionDirection direction = GetOcclusionDirection(playerPos, occludingTree.transform.position);
+                OcclusionDirection direction = GetOcclusionDirection(playerPos, GetOccluderReferencePosition(occludingTree));
                 Debug.Log($"<color=cyan>[边缘遮挡] 边界树 {direction} 遮挡，只透明单树</color>");
             }
         }
@@ -1118,7 +1213,7 @@ public class OcclusionManager : MonoBehaviour
         {
             if (tree != null)
             {
-                tree.SetOccluding(transparent);
+                SetPhysicalTreeOccluding(tree, transparent);
             }
         }
     }
@@ -1133,7 +1228,7 @@ public class OcclusionManager : MonoBehaviour
             if (tree != null)
             {
                 // 只有目标树透明，其他树恢复
-                tree.SetOccluding(tree == targetTree);
+                SetPhysicalTreeOccluding(tree, tree.SharesOcclusionRoot(targetTree));
             }
         }
     }

@@ -377,11 +377,11 @@ public class OcclusionSystemTests
         InvokeNonPublicVoid(context.Manager, "FindConnectedForest", context.Top.Occlusion, playerPos);
         InvokeNonPublicVoid(context.Manager, "HandleForestOcclusion", context.Top.Occlusion, playerPos, playerBounds);
 
-        Assert.IsTrue(ReadPrivateBoolField(context.Top.Occlusion, "isOccluding"));
-        Assert.IsFalse(ReadPrivateBoolField(context.Center.Occlusion, "isOccluding"));
-        Assert.IsFalse(ReadPrivateBoolField(context.Left.Occlusion, "isOccluding"));
-        Assert.IsFalse(ReadPrivateBoolField(context.Right.Occlusion, "isOccluding"));
-        Assert.IsFalse(ReadPrivateBoolField(context.Bottom.Occlusion, "isOccluding"));
+        Assert.IsTrue(ReadPrivateBoolField(context.Top.Occlusion, "isOccluding"), "边界树自身应保持透明");
+        Assert.IsFalse(ReadPrivateBoolField(context.Center.Occlusion, "isOccluding"), "中心树在林外单树遮挡时不应透明");
+        Assert.IsFalse(ReadPrivateBoolField(context.Left.Occlusion, "isOccluding"), "左侧树在林外单树遮挡时不应透明");
+        Assert.IsFalse(ReadPrivateBoolField(context.Right.Occlusion, "isOccluding"), "右侧树在林外单树遮挡时不应透明");
+        Assert.IsFalse(ReadPrivateBoolField(context.Bottom.Occlusion, "isOccluding"), "下侧树在林外单树遮挡时不应透明");
 
         CleanupForestContext(context);
     }

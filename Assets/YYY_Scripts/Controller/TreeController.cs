@@ -201,7 +201,8 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     
     #region 私有字段
     private SpriteRenderer spriteRenderer;
-    private OcclusionTransparency occlusionTransparency;
+    private OcclusionTransparency primaryOcclusionTransparency;
+    private OcclusionTransparency[] treeOcclusionTransparencies = new OcclusionTransparency[0];
     private int lastCheckDay = -1;
     private bool isWeatherWithered = false;
     // ★ isFrozenSapling 已移除：树苗在冬季直接死亡，不再需要冰封状态
@@ -256,7 +257,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         }
         
         // 缓存组件引用
-        occlusionTransparency = GetComponent<OcclusionTransparency>();
+        CacheOcclusionTransparencies();
         
         // 缓存影子引用
         InitializeShadowCache();
@@ -395,6 +396,50 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             if (_shadowRenderer != null)
             {
                 _originalShadowSprite = _shadowRenderer.sprite;
+            }
+        }
+    }
+
+    private void CacheOcclusionTransparencies()
+    {
+        Transform occlusionRoot = transform.parent != null ? transform.parent : transform;
+        treeOcclusionTransparencies = occlusionRoot.GetComponentsInChildren<OcclusionTransparency>(true);
+        primaryOcclusionTransparency = GetComponent<OcclusionTransparency>();
+
+        if (primaryOcclusionTransparency == null && treeOcclusionTransparencies.Length > 0)
+        {
+            primaryOcclusionTransparency = treeOcclusionTransparencies[0];
+        }
+    }
+
+    private void SetTreeOcclusionEnabled(bool enabled)
+    {
+        if (treeOcclusionTransparencies == null || treeOcclusionTransparencies.Length == 0)
+        {
+            CacheOcclusionTransparencies();
+        }
+
+        foreach (OcclusionTransparency occlusion in treeOcclusionTransparencies)
+        {
+            if (occlusion != null)
+            {
+                occlusion.SetCanBeOccluded(enabled);
+            }
+        }
+    }
+
+    private void SetTreeChoppingState(bool chopping, float alphaOffset = 0.25f)
+    {
+        if (treeOcclusionTransparencies == null || treeOcclusionTransparencies.Length == 0)
+        {
+            CacheOcclusionTransparencies();
+        }
+
+        foreach (OcclusionTransparency occlusion in treeOcclusionTransparencies)
+        {
+            if (occlusion != null)
+            {
+                occlusion.SetChoppingState(chopping, alphaOffset);
             }
         }
     }
@@ -969,15 +1014,15 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         }
         
         // ✅ 设置砍伐状态（通过 OcclusionManager 确保单一高亮）
-        if (occlusionTransparency != null)
+        if (primaryOcclusionTransparency != null)
         {
             if (OcclusionManager.Instance != null)
             {
-                OcclusionManager.Instance.SetChoppingTree(occlusionTransparency, 0.5f);
+                OcclusionManager.Instance.SetChoppingTree(primaryOcclusionTransparency, 0.5f);
             }
             else
             {
-                occlusionTransparency.SetChoppingState(true, 0.25f);
+                SetTreeChoppingState(true, 0.25f);
             }
         }
         
@@ -1147,9 +1192,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             OcclusionManager.Instance.ClearChoppingHighlight();
         }
-        else if (occlusionTransparency != null)
+        else if (primaryOcclusionTransparency != null)
         {
-            occlusionTransparency.SetChoppingState(false);
+            SetTreeChoppingState(false);
         }
         
         // 播放砍倒音效
@@ -1598,11 +1643,8 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         }
         
         // 更新遮挡透明
-        if (occlusionTransparency != null)
-        {
-            bool shouldEnableOcclusion = config.enableOcclusion && currentState != TreeState.Stump;
-            occlusionTransparency.SetCanBeOccluded(shouldEnableOcclusion);
-        }
+        bool shouldEnableOcclusion = config.enableOcclusion && currentState != TreeState.Stump;
+        SetTreeOcclusionEnabled(shouldEnableOcclusion);
         
         // 如果碰撞体状态改变，通知NavGrid2D刷新
         if (hadEnabledCollider != hasEnabledCollider)

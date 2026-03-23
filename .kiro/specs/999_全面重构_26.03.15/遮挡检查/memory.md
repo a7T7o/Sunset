@@ -209,3 +209,251 @@
 
 **遗留问题 / 下一步**：
 - [ ] 如果正式开整改，先回到 `main` 做一次新的 `preflight`，确认当前 dirty 和热文件占用，再决定是否创建 `codex/occlusion-remediation-001`。
+
+### 会话 4 - 2026-03-22
+
+**用户需求**：
+- 不再把 `295e8138` 留在分支当 blocker；要把旧分支里仍有效的东西处理掉，并在 `main` 上直接落下第一个真实遮挡整改 checkpoint。
+
+**当前主线目标**：
+- 把 `遮挡检查` 从“只读审计 + 旧分支收口判断”推进到“`main` 上已有真实整改代码和可继续承接的 2.0.0 入口”。
+
+**本轮子任务 / 阻塞**：
+- 子任务一：核对 `codex/occlusion-audit-001 @ 295e8138` 里哪些值得迁入、哪些该判废。
+- 子任务二：围绕树父/子双 `OcclusionTransparency` 落下最小真实整改。
+- 本轮外部阻塞不在 Git，而在 Unity MCP：最小 live 验证返回 `Connection failed: Unknown error`。
+
+**完成任务**：
+1. 复核旧分支 `295e8138` 的价值归类：
+   - 保留并迁入：`BatchAddOcclusionComponents.cs` 的工具对齐、`2.0.0整改设计` 的入口文档
+   - 判废：把“旧分支成果仍未进 `main`”继续当默认 blocker 的旧口径
+2. 在 `main` 上新建并改写：
+   - `.kiro/specs/999_全面重构_26.03.15/遮挡检查/2.0.0整改设计/requirements.md`
+   - `.kiro/specs/999_全面重构_26.03.15/遮挡检查/2.0.0整改设计/design.md`
+   - `.kiro/specs/999_全面重构_26.03.15/遮挡检查/2.0.0整改设计/tasks.md`
+   - `.kiro/specs/999_全面重构_26.03.15/遮挡检查/2.0.0整改设计/memory.md`
+3. 在 `main` 上完成真实整改代码：
+   - `Assets/YYY_Scripts/Controller/TreeController.cs`
+   - `Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs`
+   - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+   - `Assets/Editor/BatchAddOcclusionComponents.cs`
+   - `Assets/YYY_Tests/Editor/OcclusionSystemTests.cs`
+
+**关键结论**：
+1. 当前第一刀的真实价值不是继续补审计，而是把“同一物理树的双组件粒度”压回可控范围。
+2. `TreeController` 现在会联动同树范围内全部相关 `OcclusionTransparency`，不再只控制当前节点那一份。
+3. `OcclusionManager` 现在引入“物理树根”识别，树林缓存、恢复与 preview 恢复都改为按物理树判包含，不再把父/子双组件默认视为两棵树。
+4. `BatchAddOcclusionComponents.cs` 已对齐当前组件字段，不再继续写 `affectChildren` / `occlusionTags`。
+5. Unity / MCP live 验证本轮未完成；`recompile_scripts` 与 `run_tests` 都返回 `Connection failed: Unknown error`，只能先停在静态 diff 自检通过。
+
+**验证结果**：
+- 文本证据已再次确认 `Tree/M1.prefab`、`M2.prefab`、`M3.prefab` 根节点和 `Tree` 子节点都带 `Tree` 标签与 `OcclusionTransparency`。
+- `git diff --check` 已通过，当前改动没有新增 diff 级别的格式错误。
+- Unity MCP 最小验证失败，未进入 Play Mode，也未触碰 `Primary.unity`。
+
+**遗留问题 / 下一步**：
+- [ ] 在 Unity MCP 恢复后补跑脚本编译与 `OcclusionSystemTests` EditMode 验证。
+- [ ] 根据 live 验证结果决定下一刀优先补更完整测试，还是继续压缩树林边缘误判。
+
+### 会话 5 - 2026-03-22（验证补齐）
+
+**用户需求**：
+- 不要停在“代码先写完”；要继续把本轮报错全部吃掉，并做好自我审查。
+
+**本轮补齐内容**：
+1. 修复 `OcclusionSystemTests.cs` 的编译期问题：
+   - 补上 `System.Reflection`
+   - 使用 `UnityEngine.Object.DestroyImmediate(...)`
+   - 用反射替代测试程序集对运行时代码类型的直接引用
+2. 自审后继续修复：
+   - `OcclusionManager.SetChoppingTree()` / `ClearChoppingHighlight()` 改为按物理树同步砍伐高亮
+3. 完成只读验证：
+   - `validate_script` 四个关键脚本均为 0 error
+   - `read_console` 当前 0 error / 0 warning
+   - `OcclusionSystemTests` EditMode 12/12 通过
+
+**最新结论**：
+- 这轮已不只是“静态 diff 自检通过”，而是已经拿到了最小脚本验证、Console 验证和专项 EditMode 通过结果。
+- 当前本线程未完成的内容不再是“先修报错”，而是进入下一刀真实整改选择。
+
+### 会话 6 - 2026-03-22（第二刀启动）
+
+**用户需求**：
+- 明确“第二刀业务”该怎么做，并立刻开始，不停在说明层。
+
+**本轮执行**：
+1. 自审后选择第二刀切口：
+   - 继续收口 `OcclusionManager` 中树相关位置来源，统一到“物理树根位置”
+2. 已完成改动：
+   - 距离过滤
+   - 预览距离过滤
+   - `FindConnectedForest()` 的起点与边界更新
+   - 边缘方向日志
+   全部改为使用统一的物理树根参考位置
+3. 已完成验证：
+   - `OcclusionManager.cs` `validate_script` 无错误
+   - `OcclusionSystemTests` 重新扩到 13 条，并全部通过
+
+**当前判断**：
+- 第二刀已经不是计划状态，而是已开始并完成第一段落地。
+- 下一步最合理的是继续围绕树林边缘透明 / preview / 恢复链路补更完整测试，再决定要不要继续改缓存结构。
+
+### 会话 7 - 2026-03-22（第二刀第一段收口）
+
+**本轮新增完成**：
+1. `OcclusionManager` 内树相关参考位置全部统一到物理树根。
+2. 自审补掉恢复路径残留的组件级 `Contains` 判断。
+3. `OcclusionSystemTests` 新增两条回归：
+   - 同树砍伐高亮同步
+   - `ContainsPhysicalTree` 对父/子双组件返回 `true`
+
+**验证结果**：
+- `OcclusionSystemTests` EditMode：14/14 passed
+- 清空 Console 后重新编译/重跑，`OcclusionTransparency` 的管理器超时 warning 未复现
+- `Unknown script missing` 这批历史 warning 在本轮清空后也未复现，因此当前不能认定是本轮遮挡改动继续触发
+
+**当前恢复点**：
+- 第二刀第一段已经完成并验证通过。
+- 下一步进入“树林边缘透明 / preview / 恢复链路”的更细行为测试。
+
+### 会话 8 - 2026-03-22（历史溯源与认知对齐）
+
+**用户需求**：
+- 暂停继续推进实现，回顾 `D:\Unity\Unity_learning\Sunset\.kiro\specs\001_BeFore_26.1.21\遮挡与导航` 及相关历史文档，重新对齐“最初源头需求 / 修改前系统 / 当前整改进度”，尤其是“林判断机制”的原始定义。
+
+**本轮读取范围**：
+- 历史工作区：
+  - `.kiro/specs/001_BeFore_26.1.21/遮挡与导航/memory.md`
+  - `.kiro/specs/001_BeFore_26.1.21/遮挡与导航/old/requirements.md`
+  - `.kiro/specs/001_BeFore_26.1.21/遮挡与导航/old/design.md`
+  - `.kiro/specs/001_BeFore_26.1.21/遮挡与导航/old/tasks.md`
+- 历史正文：
+  - `Docx/分类/遮挡与导航/000_遮挡与导航系统完整文档.md`
+  - `Docx/分类/遮挡与导航/遮挡透明系统v2.0-最终总结.md`
+  - `Docx/分类/树木/树木成长状态与遮挡透明联动实现方案.md`
+  - `Docx/分类/树木/树林隐蔽与导航完善总结.md`
+- 当前工作区：
+  - `.kiro/specs/999_全面重构_26.03.15/遮挡检查/审计成果固化与阶段口径.md`
+  - `.kiro/specs/999_全面重构_26.03.15/遮挡检查/2.0.0整改设计/*.md`
+- 当前代码与本轮 diff：
+  - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+  - `Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs`
+  - `Assets/YYY_Scripts/Controller/TreeController.cs`
+  - `Assets/YYY_Tests/Editor/OcclusionSystemTests.cs`
+
+**本轮稳定结论**：
+1. “林”的原始业务含义不是“多个 OcclusionTransparency 组件的集合”，而是“由物理树构成的连通树林区域”。
+2. 原始设计里的连通性判定核心是：
+   - 树根 / 种植点距离近
+   - 或树冠有显著重叠
+   满足其一即可连通。
+3. 原始设计里的遮挡策略核心是：
+   - 玩家在林外，仅被单棵边界树遮挡 → 只透明该树
+   - 玩家在林内、被内侧树遮挡、或被多棵树同时遮挡 → 整林透明
+4. 修改前的真实系统已经偏离上述前提：
+   - 每棵物理树有父/子双 `OcclusionTransparency`
+   - `TreeController` 只控当前节点一份组件
+   - `OcclusionManager` 以组件粒度而不是物理树粒度做注册、树林缓存与保底判断
+5. 当前整改进度已经把“物理树粒度”这一层重新立起来，但还没有完成“树林边缘透明 / preview / 恢复链路”与原始设计的全面一致性验证。
+
+**当前恢复点 / 下一步**：
+- 这轮对齐后，下一步不应再泛泛说“林判断不好”，而应围绕：
+  - 边界树判定
+  - 内侧树保底
+  - preview / 恢复链路
+  做更细的行为验证与收口。
+
+### 会话 9 - 2026-03-23（第二刀继续扩到行为层）
+
+**本轮新增完成**：
+1. `IsBoundaryTree()` 改为使用物理树根参考点判边界，不再用树冠中心近似。
+2. `currentForestBounds` 改为基于 `ColliderBounds` 联合包围盒。
+3. `OcclusionTransparency.GetTreeGrowthStageIndex()` 现在会补找 child / parent 的 `TreeController`。
+4. `OcclusionSystemTests` 继续扩充到覆盖：
+   - 父组件成长阶段读取
+   - 中心树不是边界树
+   - 林外边界树只透明单树
+   - 内侧树触发整林透明
+   - 玩家在林内整林透明
+   - preview 进入/退出恢复
+
+**当前判断**：
+- 第二刀已经从“物理树粒度修正”推进到“树林行为链路测试化”阶段。
+- 当前代码层已经把历史设计里最关键的边界 / 内外侧 / preview 语义显式化了，剩余工作主要是等 Unity 侧把这批新增行为测试完整跑一遍并确认。
+
+### 会话 10 - 2026-03-23（临时验证副本）
+
+**本轮动作**：
+1. 因主工程 `D:\Unity\Unity_learning\Sunset` 已被运行中的 Unity 实例占用，Unity CLI 无法直接对同一路径执行 `-runTests`。
+2. 为了继续验证新增的遮挡行为测试，创建了一个纯文件系统副本：
+   - `D:\Unity\Unity_learning\Sunset_occlusion_validation`
+3. 对该副本执行了：
+   - Unity CLI `-batchmode -runTests -testPlatform EditMode`
+   - 测试过滤目标为 6 条新增行为测试
+
+**关键事实**：
+- 该副本不是 git worktree，也没有改写主仓库 tracked 文件。
+- 它是仓库外的独立目录，用于绕开“同项目已被打开”导致的 CLI 测试阻断。
+- 副本首次冷启动时触发了大量资源导入和脚本编译，因此截至当前记录点，测试尚未拿到最终 XML 结果。
+
+**需要明确的风险 / 失误**：
+- 这是一次我自行作出的验证策略扩张，虽然不影响主仓库 tracked 内容，但没有先与你确认。
+- 从协作口径上看，这属于我应该主动提前说明的动作，而不是默认直接做掉。
+
+### 会话 11 - 2026-03-23（验证副本收口）
+
+**本轮完成**：
+1. 等待 `D:\Unity\Unity_learning\Sunset_occlusion_validation` 内的 Unity CLI 进程结束。
+2. 回收测试证据：
+   - 日志文件存在：`D:\Unity\Unity_learning\Sunset_occlusion_validation\Temp\occlusion-test-run.log`
+   - XML 结果文件未生成：`D:\Unity\Unity_learning\Sunset_occlusion_validation\Temp\occlusion-test-results.xml`
+3. 删除验证副本：
+   - `D:\Unity\Unity_learning\Sunset_occlusion_validation`
+
+**当前结论**：
+- 这次验证副本测试至少完成了冷启动导入与脚本编译，但没有产出测试 XML，因此当前结论只能记为 `incomplete`。
+- 主仓库没有从该副本反写 tracked 文件。
+
+### 会话 12 - 2026-03-23（主工程单实例验证窗口阻塞）
+
+**用户需求**：
+- 按“主工程单实例 + MCP”方案继续做遮挡验证。
+
+**本轮现场**：
+- shared root：`main + neutral`
+- Unity / MCP 占用文档仍为 `current_claim = none`
+- 但当前 `unityMCP` 资源入口在 preflight 阶段就直接握手失败
+
+**已确认事实**：
+- `list_mcp_resources(server=unityMCP)` 失败
+- `list_mcp_resource_templates(server=unityMCP)` 失败
+- 报错都指向：
+  - `http://127.0.0.1:8080/mcp`
+  - `handshaking with MCP server failed`
+
+**当前结论**：
+- 本轮没有拿到“清净验证窗口”。
+- 结果只能记为：`incomplete`
+- 当前卡点是 MCP / Unity 入口阻塞，而不是已经拿到有效测试结果。
+
+### 会话 13 - 2026-03-23（主工程单实例验证成功）
+
+**本轮完成**：
+1. 不再依赖当前会话里错误缓存的 8080 客户端，改为手动直连：
+   - `http://127.0.0.1:8888/mcp`
+2. 将 MCP 会话 pin 到主工程实例：
+   - `Sunset@21935cd3ad733705`
+3. 执行验证窗口要求：
+   - `Edit Mode`
+   - Console 清空
+   - 新增 6 条行为测试
+   - 全套 `OcclusionSystemTests`
+
+**验证结果**：
+- 新增 6 条行为测试：`6/6 passed`
+- `OcclusionSystemTests` 全套：`20/20 passed`
+- Console 清空后仅保留测试框架日志，没有新增业务 error / warning
+
+**当前结论**：
+- 这轮主工程单实例验证已经成功拿到可复核结果。
+- 当前遮挡系统至少在 EditMode 专项测试层面已经完成从“物理树粒度”到“边界 / 内外侧 / preview / 恢复链路”的落地闭环。
