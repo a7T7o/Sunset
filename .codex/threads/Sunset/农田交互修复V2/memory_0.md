@@ -455,3 +455,46 @@
 
 **恢复点 / 下一步**:
 - 当前已经回到主线的“同步记忆并做白名单 checkpoint，然后交给用户在 Unity 场景验收”这一步。
+
+## 2026-03-23：回读旧截图后重新锚定 1.0.3 的真实剩余项
+**用户目标**:
+- 用户贴出一张更早版本的进度截图，要求我“回忆起所有内容，继续完成未完成的剩余内容”。
+
+**当前主线目标**:
+- 主线仍是 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\`，不是回头重做旧截图里的箱子链。
+
+**本轮子任务 / 阻塞**:
+- 子任务是把旧截图里的“当时未完成项”和当前 `main` 的真实状态对齐，确认现在到底还差什么。
+- 当前阻塞不在 farm 代码实现，而在 Unity live 验收入口没有回正。
+
+**已完成事项**:
+1. 复核 live Git 现场：`D:\Unity\Unity_learning\Sunset @ main @ 4f76b1b87efb455dc0cc370988ca8b69afc601a3`。
+2. 回读 `1.0.3` 子工作区 / 父工作区 / 根工作区记忆与 tasks，确认截图里的“下一刀该做箱子实例态”已经过期。
+3. 回读 farm 最近 5 个 checkpoint，确认：
+   - `0e87c430` 已把背包第一行 / Toolbar 同步与食物药水真实状态接线并入 `main`
+   - `2218b47d` 已把箱子实例态保真与农田 hover 预览遮挡并入 `main`
+4. 针对白名单路径再次执行 `git status --short --branch -- <paths>`，结果为空，确认当前 farm 这批路径没有未提交草稿。
+5. 再次独立编译 `Library/Bee/artifacts/1900b0aE.dag/Assembly-CSharp.rsp`，当前 `main` 的运行时代码仍通过。
+6. 复核 Unity / MCP live 基线：当前会话 `list_mcp_resources` / `list_mcp_resource_templates` 为空；`C:\Users\aTo\.codex\config.toml` 仍指向旧的 `http://127.0.0.1:8080/mcp`，但 `127.0.0.1:8888` 与 `Library\MCPForUnity\RunState\mcp_http_8888.pid` 实际在线。
+7. 已将 `1.0.3/tasks.md`、子/父/根工作区记忆回写为当前真相：旧截图中的剩余代码项已被后续提交覆盖，当前真正剩余的是 Unity live 验收入口与场景回归。
+
+**关键决策**:
+- 不再把旧截图里的“箱子还没做”当成当前事实，也不重复开发已经在 `main` 的箱子 / 遮挡代码。
+- 当前真正未闭环的是 Unity live 验收，不是源码编译或 farm 业务逻辑。
+- MCP 当前更像“会话/配置未回正”，不是 `1.0.3` 代码没落地。
+
+**涉及文件或路径**:
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\tasks.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.3基础UI与交互统一改进\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+- `D:\Unity\Unity_learning\Sunset\Library\Bee\artifacts\1900b0aE.dag\Assembly-CSharp.rsp`
+- `C:\Users\aTo\.codex\config.toml`
+
+**验证结果**:
+- 运行时代码独立编译通过。
+- farm 相关白名单路径当前无未提交 dirty。
+- MCP 会话资源仍为空，Unity live 自动化验收入口未回正。
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“先恢复 Unity live 验收入口，再做 `1.0.3` 的箱内实例态与农田 hover 遮挡场景回归”这一步。

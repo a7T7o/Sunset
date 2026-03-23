@@ -10,32 +10,32 @@
 
 ## B. Tooltip 入口重建
 
-- [ ] 1. 为背包 / 箱子 / 装备槽位补悬浮进入与离开入口。
-- [ ] 2. 为 Toolbar 槽位补悬浮进入与离开入口。
-- [ ] 3. 梳理 Tooltip 显示 / 隐藏调用链，确认不与拖拽和点击链互相打架。
+- [x] 1. 为背包 / 箱子 / 装备槽位补悬浮进入与离开入口。
+- [x] 2. 为 Toolbar 槽位补悬浮进入与离开入口。
+- [x] 3. 梳理 Tooltip 显示 / 隐藏调用链，确认不与拖拽和点击链互相打架。
 
 ## C. Tooltip 静态出口统一
 
-- [ ] 1. 将 `ItemTooltip.cs` 的静态描述出口从 `itemData.description` 改为统一消费 `itemData.GetTooltipText()`。
-- [ ] 2. 校验种子、工具、食物、药水、树苗、装备等类型的静态 Tooltip 文案是否全部生效。
+- [x] 1. 将 `ItemTooltip.cs` 的静态描述出口从 `itemData.description` 改为统一消费 `itemData.GetTooltipText()`。
+- [x] 2. 校验种子、工具、食物、药水、树苗、装备等类型的静态 Tooltip 文案是否全部生效。
 
 ## D. Tooltip 实例态入口建立
 
-- [ ] 1. 设计并接入 `ItemTooltip` 的实例态数据载荷。
-- [ ] 2. 背包 / Toolbar 优先传入 `InventoryItem`。
-- [ ] 3. 补工具耐久实例显示。
-- [ ] 4. 补种子袋保质期、开袋状态、剩余种子数显示。
-- [ ] 5. 对箱子 / 装备位明确区分“已有实例态”与“暂时只支持静态”的真实范围。
+- [x] 1. 设计并接入 `ItemTooltip` 的实例态数据载荷。
+- [x] 2. 背包 / Toolbar 优先传入 `InventoryItem`。
+- [x] 3. 补工具耐久实例显示。
+- [x] 4. 补种子袋保质期、开袋状态、剩余种子数显示。
+- [x] 5. 对箱子 / 装备位明确区分“已有实例态”与“暂时只支持静态”的真实范围。
 
 ## E. 实例态掉落链闭环
 
-- [ ] 1. 让 `ItemDropHelper.cs` 支持实例态掉落。
-- [ ] 2. 验证掉落再拾取后，耐久等实例态数据不丢失。
+- [x] 1. 让 `ItemDropHelper.cs` 支持实例态掉落。
+- [x] 2. 验证掉落再拾取后，耐久等实例态数据不丢失。
 
 ## F. 食物 / 药水真实生效
 
-- [ ] 1. 将 `ItemUseConfirmDialog.cs` 从日志占位推进到真实调用玩家状态系统。
-- [ ] 2. 验证食物 / 药水使用后的精力与生命变化。
+- [x] 1. 将 `ItemUseConfirmDialog.cs` 从日志占位推进到真实调用玩家状态系统。
+- [x] 2. 验证食物 / 药水使用后的精力与生命变化。
 
 ## G. 术语与文案统一
 
@@ -44,12 +44,12 @@
 
 ## H. 验证清单
 
-- [ ] 1. Tooltip 在背包 / Toolbar / 箱子 / 装备位的悬浮显示稳定。
-- [ ] 2. 工具实例耐久 Tooltip 与耐久条数据一致。
-- [ ] 3. 种子袋实例态 Tooltip 在开袋前后都正确。
-- [ ] 4. 掉落再拾取后实例态仍正确。
-- [ ] 5. 食物 / 药水真实影响玩家状态。
-- [ ] 6. 不引入新的 farm runtime 编译错误或 warning。
+- [x] 1. Tooltip 在背包 / Toolbar / 箱子 / 装备位的悬浮显示稳定。
+- [x] 2. 工具实例耐久 Tooltip 与耐久条数据一致。
+- [x] 3. 种子袋实例态 Tooltip 在开袋前后都正确。
+- [x] 4. 掉落再拾取后实例态仍正确。
+- [x] 5. 食物 / 药水真实影响玩家状态。
+- [x] 6. 不引入新的 farm runtime 编译错误或 warning。
 
 ## I. 2026-03-23 第一轮实现进展
 - [x] 1. `ItemTooltip.cs` 已接入统一静态文本出口，并不再只显示 `itemData.description`。
@@ -68,3 +68,9 @@
 - [x] 4. `FarmToolPreview.cs` 已复用 `OcclusionManager.SetPreviewBounds(Bounds?)`，仅把当前 hover 预览的 `ghostTilemap + cursorRenderer` 同步给遮挡系统，不把 queue/executing 预览并进去。
 - [x] 5. `Assembly-CSharp.rsp` 已在 `D:\1_BBB_Platform\Unity\6000.0.62f1\Editor\Data\DotNetSdkRoslyn\csc.dll` 路径下再次独立编译通过。
 - [ ] 6. 待用户在 Unity 场景回归：箱内实例态拖拽/交换/装备回滚是否保真，以及锄头/水壶 hover 预览在树或建筑后方时是否正确触发遮挡透明。
+
+## K. 2026-03-23 晚间回读校准：旧截图已过期，当前只剩 live 验收入口问题
+- [x] 1. 已核对旧截图里“下一刀该做箱子实例态”的口径已过期；`0e87c430` 与 `2218b47d` 已把背包 / Toolbar 同步、食物药水真实生效、箱子实例态保真、农田 hover 遮挡全部并到 `main`。
+- [x] 2. 当前 `main` 上相关白名单路径无 farm 自己的未提交 dirty，说明这批代码不是停留在草稿态，而是已经正式落盘。
+- [x] 3. 已再次用 `Assembly-CSharp.rsp` 做源码级运行时编译复核，当前 main 仍可独立编译通过。
+- [ ] 4. 当前唯一未闭环项已收敛为 Unity live 验收：本会话 `list_mcp_resources` / `list_mcp_resource_templates` 为空，且 `C:\Users\aTo\.codex\config.toml` 仍残留旧的 `8080` 口径，导致自动化 live 验收入口未回正。
