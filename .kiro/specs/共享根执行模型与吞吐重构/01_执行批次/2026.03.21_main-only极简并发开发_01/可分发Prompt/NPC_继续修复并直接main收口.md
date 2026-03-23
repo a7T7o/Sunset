@@ -76,3 +76,5 @@
 - blocker_or_checkpoint
 - 一句话摘要
 ```
+> 统一追加口径（2026-03-23）：
+> 当前默认执行纪律是 `一刀一收`。如果你碰过 `Scene / Prefab / Primary.unity / 热 Unity 资源`，收口回执必须补热文件卫生说明；如果 `changed_paths` 含 `.unity / .prefab / .asset`，收口前必须先做资源卫生分类；如果改了 `.cs`，收口前必须让 `git-safe-sync.ps1` 的代码闸门通过。

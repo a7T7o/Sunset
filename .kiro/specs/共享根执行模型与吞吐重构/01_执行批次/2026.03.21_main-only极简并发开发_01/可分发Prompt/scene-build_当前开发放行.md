@@ -36,3 +36,5 @@
 - blocker_or_checkpoint
 - 一句话摘要
 ```
+> 统一追加口径（2026-03-23）：
+> `scene-build` 仍是 worktree 例外，但例外完成后必须先迁最小 checkpoint，再移除旧 blocker，再继续下一刀。回执里同样要补热文件卫生说明、资源卫生分类，以及是否还存在未迁入 `main` 的真实有效成果。

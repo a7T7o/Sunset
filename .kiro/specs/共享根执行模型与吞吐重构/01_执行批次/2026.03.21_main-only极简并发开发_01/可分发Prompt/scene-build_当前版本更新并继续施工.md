@@ -54,3 +54,5 @@
 - blocker_or_checkpoint
 - 一句话摘要
 ```
+> 统一追加口径（2026-03-23）：
+> `scene-build` 仍按 worktree-only 施工，但回执必须补热文件卫生说明、资源卫生分类、以及“本轮是否形成最小 checkpoint，是否仍有未迁回主线的真实成果”。

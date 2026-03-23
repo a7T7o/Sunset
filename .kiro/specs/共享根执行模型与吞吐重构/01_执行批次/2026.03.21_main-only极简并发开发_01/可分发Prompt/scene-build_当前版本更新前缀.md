@@ -46,3 +46,5 @@
 - blocker_or_checkpoint
 - 一句话摘要
 ```
+> 统一追加口径（2026-03-23）：
+> `scene-build` 是当前例外 worktree，不等于可以长期把旧 carrier 当 blocker。默认执行纪律仍是 `一刀一收`；回执必须补热文件卫生说明、资源卫生分类，以及“当前剩余 dirty 里哪些是有效施工、哪些是自动副产物、哪些只是 memory/快照补记”。
