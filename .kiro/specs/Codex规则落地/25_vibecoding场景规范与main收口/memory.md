@@ -738,3 +738,36 @@
 - 如果用户下一步要我继续直接修，这一阶段最自然的动作应是：
   - 先补 PowerShell Profile 与 VS Code `files.encoding`
   - 再定点处理 `001部分回执.md`
+
+## 2026-03-23｜编码环境已经直接落地，不再停在报告层
+**当前主线目标**
+- 用户要求不要停在检测结论，直接把本机 PowerShell / VS Code 的 UTF-8 环境落地修掉。
+
+**已完成**
+1. 已修改 VS Code 用户设置：
+   - `C:\Users\aTo\AppData\Roaming\Code\User\settings.json`
+   - 新增 `"files.encoding": "utf8"`
+2. 已创建 PowerShell Profile：
+   - `C:\Users\aTo\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
+3. 已在 Profile 中统一：
+   - `chcp 65001`
+   - `[Console]::InputEncoding`
+   - `[Console]::OutputEncoding`
+   - `$OutputEncoding`
+   - `Get-Content / Set-Content / Add-Content / Out-File / Export-Csv` 默认编码
+4. 已完成复测：
+   - `chcp = 65001`
+   - 输入 / 输出 / 管道编码全部为 `utf-8`
+   - 默认 `Get-Content` 已能正确读取 UTF-8 无 BOM 文档
+
+**关键决策**
+- 这轮证明了一个关键细节：
+  - 只修 `chcp + Console 编码 + $OutputEncoding` 还不够
+  - 如果不补 `Get-Content:Encoding`，PowerShell 5.1 仍会把 UTF-8 无 BOM 文档默认错读成乱码
+- 因此当前固定口径应升级为：
+  - **控制台编码 + 默认读写编码 + 编辑器编码** 必须一起修
+
+**恢复点 / 下一步**
+- 当前环境层已收口。
+- 下一步如果继续推进，应直接转入：
+  - `001部分回执.md` 定点修复

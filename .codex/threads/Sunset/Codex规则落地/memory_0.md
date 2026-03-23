@@ -2765,3 +2765,28 @@
 - 如果用户要我继续直接落地，下一步就不是继续分析，而是：
   - 修 Profile / VS Code UTF-8
   - 定点修 `001部分回执.md`
+
+## 2026-03-23｜我已经把编码环境真的修掉了
+**当前主线目标**
+- 用户在看完检测结论后要求“直接开始落地”，所以我继续把环境层修复真正做完，而不是只留建议。
+
+**本轮完成**
+1. 已改本机 VS Code 用户设置，显式补上：
+   - `"files.encoding": "utf8"`
+2. 已创建：
+   - `C:\Users\aTo\Documents\WindowsPowerShell\Microsoft.PowerShell_profile.ps1`
+3. 已在 Profile 里统一：
+   - `chcp 65001`
+   - `InputEncoding / OutputEncoding / $OutputEncoding`
+   - `Get-Content / Set-Content / Add-Content / Out-File / Export-Csv` 默认编码
+4. 已复测确认：
+   - 当前 shell 的 `chcp`、输入、输出、管道都已回到 `utf-8`
+   - 不带 `-Encoding` 的 `Get-Content` 现在能正确读出本报告里的中文
+
+**关键决策**
+- 以后再遇到 Windows PowerShell 中文乱码，不能只修 Console 编码。
+- 必须把默认读写编码也一起纳入 Profile，尤其是 `Get-Content:Encoding`。
+
+**恢复点**
+- 当前环境修复已完成。
+- 下一步若继续，直接切到 `001部分回执.md` 定点修复。
