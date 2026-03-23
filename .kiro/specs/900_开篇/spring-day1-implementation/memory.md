@@ -338,3 +338,14 @@
 
 ## 2026-03-23 补记：`SpringDay1PromptOverlay` 已补中文字体绑定
 - 用户截图中的黑条方框乱码根因已确认并修复：任务提示条之前未绑定中文 TMP 字体，现在已按对话字体资源优先级自动加载。
+
+## 2026-03-23 补记：`Anvil_0` 已接入 Day1 工作台事件桥接
+- 本轮没有直接改 `Primary.unity`，因为当前 shared root 的场景现场仍带有其他 dirty，且 `Anvil_0` 本身未在 scene YAML 中稳定落盘；因此采用了更稳的运行时桥接方案。
+- 已新增 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`，用于给工作台类场景物体提供最小 `IInteractable` 能力：
+  - 默认按 `CraftingStation.Workbench` 处理
+  - 若找到 `CraftingPanel` 则直接打开
+  - 若缺 `CraftingService` 则运行时最小创建
+  - 交互结果会直接通知 `SpringDay1Director`
+- `SpringDay1Director.cs` 已补 `NotifyCraftingStationOpened()`，并新增 `Anvil_0 / Workbench / Anvil` 候选名的运行时自动绑定；这让场景里现成的 `Anvil_0` 即使尚未被我手动落盘，也能在 Play 时自动接上 Day1 的工作台触发链。
+- `SpringDay1DialogueProgressionTests.cs` 已同步补入工作台桥接的静态断言；`CodexCodeGuard` 也已对本轮 3 个 C# 文件执行程序集级编译检查并通过。
+- 当前恢复点：`0.0.4` 已从“只能依赖 crafting panel 被动检测”推进到“真实工作台交互可直接触发”；下一步应做 Unity live 验收，确认 `Anvil_0 -> 工作台闪回 -> 0.0.5` 的最小通路。

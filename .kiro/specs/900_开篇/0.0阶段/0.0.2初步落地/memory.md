@@ -265,3 +265,23 @@
 - 确认用户截图中的黑色半透明常驻条来自 `SpringDay1PromptOverlay`，不是对话框底部测试状态条。
 - 根因是该提示条运行时创建 TMP 文本时没有绑定中文字体，导致中文显示成方框。
 - 已修复：为 `SpringDay1PromptOverlay` 增加中文字体加载逻辑，优先尝试 `DialogueChinese V2 / SDF / SoftPixel / Pixel`。
+
+### 会话 18 - 2026-03-23（Anvil_0 工作台事件桥接）
+**用户需求**：
+> 002 和 003 已经差不多落地，现在基于场景里的 `Anvil_0` 工作台，把 Day1 后续的事件搭载和触发链接起来，由 Codex 直接完成。
+**完成任务**：
+1. 审核当前导演层后确认：`0.0.4` 的核心缺口不是再补 UI，而是“谁来把工作台交互真正桥接给剧情推进”。
+2. 新增 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`：
+   - 实现 `IInteractable`
+   - 默认按 `CraftingStation.Workbench` 工作
+   - 若现场已有 `CraftingPanel` 就直接尝试打开
+   - 若缺 `CraftingService` 则运行时最小创建
+   - 交互后回传给 `SpringDay1Director`
+3. 扩展 `SpringDay1Director.cs`：
+   - 新增 `NotifyCraftingStationOpened(CraftingStation station)`
+   - 将原本“必须依赖 `CraftingPanel` 已打开”的 `0.0.4` 触发，改成支持“工作台直接通知导演”
+   - 新增运行时自动绑定：优先识别 `Anvil_0`，在 `Primary` 场景内自动为其补上 `CraftingStationInteractable`
+4. 扩展 `SpringDay1DialogueProgressionTests.cs`，补入工作台桥接相关静态断言。
+5. 运行 `CodexCodeGuard` 对本轮 3 个 C# 文件执行 UTF-8 / diff / 程序集级编译检查，结果通过。
+**恢复点 / 下一步**：
+- 现在 `Anvil_0` 已有最小工作台剧情桥接能力；下一步应进入 Unity live 验收：确认交互 `Anvil_0` 后，`0.0.4` 的工作台闪回会被真实触发，并据现场决定是否还要补正式 crafting UI 的承载层。

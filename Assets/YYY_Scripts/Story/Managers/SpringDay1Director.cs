@@ -21,6 +21,7 @@ namespace Sunset.Story
         private const string WorkbenchSequenceId = "spring-day1-workbench";
         private const string DinnerSequenceId = "spring-day1-dinner";
         private const string ReminderSequenceId = "spring-day1-reminder";
+        private static readonly string[] PreferredWorkbenchObjectNames = { "Anvil_0", "Workbench", "Anvil" };
 
         private static SpringDay1Director _instance;
         private static FieldInfo _farmTilesField;
@@ -57,6 +58,7 @@ namespace Sunset.Story
         private bool _staminaRevealed;
         private bool _lowEnergyWarned;
         private bool _workbenchOpened;
+        private CraftingStationInteractable _boundWorkbenchInteractable;
         private bool _uiInitialized;
 
         private int _craftedCount;
@@ -299,6 +301,7 @@ namespace Sunset.Story
         private void TickPrimarySceneFlow()
         {
             InitializeRuntimeUiIfNeeded();
+            TryAutoBindWorkbenchInteractable();
 
             StoryPhase currentPhase = StoryManager.Instance.CurrentPhase;
 
@@ -353,18 +356,25 @@ namespace Sunset.Story
                 return;
             }
 
-            if (_workbenchOpened)
+            NotifyCraftingStationOpened(craftingService.CurrentStation);
+        }
+
+        public void NotifyCraftingStationOpened(CraftingStation station)
+        {
+            if (station != CraftingStation.Workbench)
             {
                 return;
             }
 
             _workbenchOpened = true;
 
-            if (!_workbenchSequencePlayed)
+            if (StoryManager.Instance.CurrentPhase != StoryPhase.WorkbenchFlashback || _workbenchSequencePlayed)
             {
-                _workbenchSequencePlayed = true;
-                QueueDialogue(BuildWorkbenchSequence());
+                return;
             }
+
+            _workbenchSequencePlayed = true;
+            QueueDialogue(BuildWorkbenchSequence());
         }
 
         private void InitializeRuntimeUiIfNeeded()
@@ -378,6 +388,29 @@ namespace Sunset.Story
             SpringDay1PromptOverlay.EnsureRuntime();
             HealthSystem.Instance.SetVisible(false);
             EnergySystem.Instance.SetVisible(false);
+        }
+
+        private void TryAutoBindWorkbenchInteractable()
+        {
+            if (_boundWorkbenchInteractable != null)
+            {
+                return;
+            }
+
+            Transform workbenchCandidate = FindWorkbenchCandidate();
+            if (workbenchCandidate == null || workbenchCandidate.GetComponent<Collider2D>() == null)
+            {
+                return;
+            }
+
+            CraftingStationInteractable interactable = workbenchCandidate.GetComponent<CraftingStationInteractable>();
+            if (interactable == null)
+            {
+                interactable = workbenchCandidate.gameObject.AddComponent<CraftingStationInteractable>();
+            }
+
+            interactable.ConfigureRuntimeDefaults(CraftingStation.Workbench, "使用工作台", 1.8f, 28);
+            _boundWorkbenchInteractable = interactable;
         }
 
         private IEnumerator HealAndPromptCoroutine()
@@ -681,6 +714,36 @@ namespace Sunset.Story
         private static bool IsPrimarySceneActive()
         {
             return SceneManager.GetActiveScene().name == PrimarySceneName;
+        }
+
+        private static Transform FindWorkbenchCandidate()
+        {
+            for (int index = 0; index < PreferredWorkbenchObjectNames.Length; index++)
+            {
+                GameObject exactMatch = GameObject.Find(PreferredWorkbenchObjectNames[index]);
+                if (exactMatch != null)
+                {
+                    return exactMatch.transform;
+                }
+            }
+
+            Transform[] allTransforms = FindObjectsByType<Transform>(FindObjectsInactive.Exclude, FindObjectsSortMode.None);
+            for (int index = 0; index < allTransforms.Length; index++)
+            {
+                Transform candidate = allTransforms[index];
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                string loweredName = candidate.name.ToLowerInvariant();
+                if (loweredName.Contains("anvil") || loweredName.Contains("workbench"))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
         }
     }
 }

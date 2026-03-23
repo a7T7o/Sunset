@@ -447,3 +447,13 @@
 ## 2026-03-23 补记：黑色任务提示条的方框乱码已定位并修复
 - 那不是测试状态条，而是 `SpringDay1PromptOverlay`。
 - 问题根因是中文字体没绑定，现在已经补上。
+
+## 2026-03-23 补记：我已把 `Anvil_0` 接成 Day1 的真实工作台触发点
+- 用户说明 002/003 已基本落地，只差事件搭载与触发，于是我把焦点从继续讲规划切回到“让场景里的工作台物体真的能推动剧情”。
+- 由于当前 `Primary.unity` 现场有其他 dirty，且 `Anvil_0` 没有稳定出现在 scene YAML 里，我没有去赌 live scene 直改，而是落了一套运行时自动桥接：
+  - 新增 `CraftingStationInteractable`
+  - `SpringDay1Director` 新增 `NotifyCraftingStationOpened()`
+  - 导演层会自动识别 `Anvil_0` 并在 Play 时补上工作台交互组件
+- 这意味着我这条线现在不再卡在“必须先等场景手工挂脚本”，而是可以直接进入 Unity live 验收，验证 `Anvil_0` 是否能触发 `0.0.4` 工作台闪回。
+- 本轮我还跑了 `CodexCodeGuard`，确认新脚本、导演层改动和测试文件都通过 UTF-8 / diff / 程序集级编译检查。
+- 当前主线恢复点：下一步不是再讲场景需求，而是去 Unity 里验收 `Anvil_0 -> 工作台闪回 -> 0.0.5 提示` 这条最小通路是否成立。
