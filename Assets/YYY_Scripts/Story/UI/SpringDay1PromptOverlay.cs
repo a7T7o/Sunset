@@ -1,3 +1,4 @@
+using Sunset.Events;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -23,6 +24,7 @@ namespace Sunset.Story
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private TextMeshProUGUI promptText;
         [SerializeField] private Image backgroundImage;
+        private bool _suppressWhileDialogueActive;
 
         public static SpringDay1PromptOverlay Instance
         {
@@ -82,8 +84,30 @@ namespace Sunset.Story
             _instance = this;
         }
 
+        private void OnEnable()
+        {
+            EventBus.Subscribe<DialogueStartEvent>(OnDialogueStart, owner: this);
+            EventBus.Subscribe<DialogueEndEvent>(OnDialogueEnd, owner: this);
+        }
+
+        private void OnDisable()
+        {
+            EventBus.UnsubscribeAll(this);
+        }
+
         public void Show(string text)
         {
+            if (_suppressWhileDialogueActive)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                Hide();
+                return;
+            }
+
             if (promptText == null)
             {
                 BuildUi();
@@ -93,7 +117,6 @@ namespace Sunset.Story
             canvasGroup.alpha = 1f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
-            gameObject.SetActive(true);
         }
 
         public void Hide()
@@ -107,7 +130,17 @@ namespace Sunset.Story
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
-            gameObject.SetActive(false);
+        }
+
+        private void OnDialogueStart(DialogueStartEvent _)
+        {
+            _suppressWhileDialogueActive = true;
+            Hide();
+        }
+
+        private void OnDialogueEnd(DialogueEndEvent _)
+        {
+            _suppressWhileDialogueActive = false;
         }
 
         private void BuildUi()

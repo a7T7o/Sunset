@@ -30,6 +30,9 @@ namespace Sunset.Story
         [SerializeField] private int initialHealth = 60;
         [SerializeField] private int maxHealth = 100;
         [SerializeField] private int healedHealth = 85;
+        [SerializeField] private float healthRevealDuration = 0.35f;
+        [SerializeField] private float healthRecoveryDuration = 0.95f;
+        [SerializeField] private float postHealDialogueDelay = 0.12f;
 
         [Header("Energy")]
         [SerializeField] private int initialEnergy = 80;
@@ -334,7 +337,7 @@ namespace Sunset.Story
 
             HealthSystem healthSystem = HealthSystem.Instance;
             healthSystem.SetHealthState(initialHealth, maxHealth);
-            healthSystem.SetVisible(true);
+            healthSystem.SetVisible(false);
 
             EnergySystem.Instance.SetVisible(false);
 
@@ -417,7 +420,17 @@ namespace Sunset.Story
         {
             yield return null;
 
-            HealthSystem.Instance.SetHealthState(healedHealth, maxHealth);
+            yield return HealthSystem.Instance.PlayRevealAndAnimateTo(
+                initialHealth,
+                healedHealth,
+                maxHealth,
+                healthRevealDuration,
+                healthRecoveryDuration);
+
+            if (postHealDialogueDelay > 0f)
+            {
+                yield return new WaitForSecondsRealtime(postHealDialogueDelay);
+            }
 
             if (!_healingSequencePlayed)
             {

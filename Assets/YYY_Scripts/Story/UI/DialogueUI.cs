@@ -1,4 +1,5 @@
 ﻿using System.Collections;
+using System.Collections.Generic;
 using Sunset.Events;
 using TMPro;
 using UnityEngine;
@@ -23,7 +24,7 @@ namespace Sunset.Story
         [SerializeField] private CanvasGroup canvasGroup;
 
         [Header("Font Settings")]
-        [SerializeField] private DialogueFontLibrarySO fontLibrary;
+        [SerializeField] private DialogueFontLibrarySO fontLibrary = null;
         [SerializeField] private string defaultFontKey = "default";
         [SerializeField] private string speakerNameFontKey = "speaker_name";
         [SerializeField] private string innerMonologueFontKey = "inner_monologue";
@@ -35,8 +36,13 @@ namespace Sunset.Story
 
         [Header("Advance Settings")]
         [SerializeField] private bool enableAnyKeyAdvance = true;
-        [SerializeField] private bool enablePointerClickAdvance = true;
+        [SerializeField] private KeyCode advanceKey = KeyCode.T;
+        [SerializeField] private bool enablePointerClickAdvance = false;
         [SerializeField] private float anyKeyAdvanceDebounce = 0.15f;
+
+        [Header("Immersion Settings")]
+        [SerializeField] private float otherUiFadeOutDuration = 0.12f;
+        [SerializeField] private float otherUiFadeInDuration = 0.18f;
 
         [Header("Portrait Settings")]
         [SerializeField] private bool usePlaceholderPortraitWhenMissing = true;
@@ -63,6 +69,19 @@ namespace Sunset.Story
         private float _testStatusBaseFontSize;
         private RectTransform _testStatusContainer;
         private Sprite _placeholderPortraitSprite;
+        private readonly List<NonDialogueUiSnapshot> _nonDialogueUiSnapshots = new();
+        #endregion
+
+        #region Nested Types
+        private sealed class NonDialogueUiSnapshot
+        {
+            public GameObject TargetObject;
+            public CanvasGroup CanvasGroup;
+            public bool WasActive;
+            public float OriginalAlpha;
+            public bool OriginalInteractable;
+            public bool OriginalBlocksRaycasts;
+        }
         #endregion
 
         #region Unity Lifecycle
@@ -99,6 +118,8 @@ namespace Sunset.Story
                 StopCoroutine(_fadeCoroutine);
                 _fadeCoroutine = null;
             }
+
+            RestoreNonDialogueUiImmediate();
 
             if (continueButton != null)
             {
@@ -546,22 +567,36 @@ namespace Sunset.Story
                 _fadeCoroutine = null;
             }
 
-            float from = canvasGroup != null ? canvasGroup.alpha : (visible ? 0f : 1f);
-            float to = visible ? 1f : 0f;
-            float duration = visible ? Mathf.Max(0f, fadeInDuration) : Mathf.Max(0f, fadeOutDuration);
-
-            _fadeCoroutine = StartCoroutine(FadeCanvas(from, to, duration, visible));
+            _fadeCoroutine = StartCoroutine(TransitionDialoguePresentation(visible));
         }
 
-        private IEnumerator FadeCanvas(float from, float to, float duration, bool finalVisible)
+        private IEnumerator TransitionDialoguePresentation(bool visible)
+        {
+            if (visible)
+            {
+                CaptureNonDialogueUiSnapshots();
+                yield return FadeNonDialogueUi(false, Mathf.Max(0f, otherUiFadeOutDuration));
+                yield return FadeDialogueCanvas(0f, 1f, Mathf.Max(0f, fadeInDuration), true);
+            }
+            else
+            {
+                float from = canvasGroup != null ? canvasGroup.alpha : 1f;
+                yield return FadeDialogueCanvas(from, 0f, Mathf.Max(0f, fadeOutDuration), false);
+                yield return FadeNonDialogueUi(true, Mathf.Max(0f, otherUiFadeInDuration));
+            }
+
+            _fadeCoroutine = null;
+        }
+
+        private IEnumerator FadeDialogueCanvas(float from, float to, float duration, bool finalVisible)
         {
             if (canvasGroup == null)
             {
                 yield break;
             }
 
-            SetCanvasState(from, finalVisible, finalVisible);
-            UpdateContinueButtonSelection(finalVisible);
+            SetCanvasState(from, false, false);
+            UpdateContinueButtonSelection(false);
 
             if (duration <= 0f)
             {
@@ -571,7 +606,6 @@ namespace Sunset.Story
                 {
                     ClearVisibleContent();
                 }
-                _fadeCoroutine = null;
                 yield break;
             }
 
@@ -584,7 +618,7 @@ namespace Sunset.Story
                     ? 1f - ((1f - normalized) * (1f - normalized))
                     : normalized * normalized;
 
-                SetCanvasState(Mathf.Lerp(from, to, eased), finalVisible, finalVisible);
+                SetCanvasState(Mathf.Lerp(from, to, eased), false, false);
 
                 if (normalized >= 1f)
                 {
@@ -600,8 +634,6 @@ namespace Sunset.Story
             {
                 ClearVisibleContent();
             }
-
-            _fadeCoroutine = null;
         }
 
         private void SetCanvasState(float alpha, bool interactable, bool blockRaycasts)
@@ -716,31 +748,22 @@ namespace Sunset.Story
 
         private bool IsKeyboardAdvancePressed()
         {
-            if (IsSubmitKeyRoutedToContinueButton())
+            if (!enableAnyKeyAdvance)
             {
                 return false;
             }
 
 #if ENABLE_INPUT_SYSTEM
-            if (Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame)
+            if (Keyboard.current != null &&
+                System.Enum.TryParse(advanceKey.ToString(), true, out Key keyboardKey) &&
+                Keyboard.current[keyboardKey] != null &&
+                Keyboard.current[keyboardKey].wasPressedThisFrame)
             {
                 return true;
             }
 #endif
 
-            if (!Input.anyKeyDown)
-            {
-                return false;
-            }
-
-            if (Input.GetMouseButtonDown(0) ||
-                Input.GetMouseButtonDown(1) ||
-                Input.GetMouseButtonDown(2))
-            {
-                return false;
-            }
-
-            return true;
+            return Input.GetKeyDown(advanceKey);
         }
 
         private bool WasPrimaryPointerPressedThisFrame()
@@ -1012,7 +1035,212 @@ namespace Sunset.Story
             }
 
             testStatusText.gameObject.SetActive(true);
-            testStatusText.text = $"测试: {sequenceId} [{displayIndex}/{totalCount}]  ·  阶段: {taskLabel}  ·  进度: {progressLabel}";
+            testStatusText.text = $"测试对话: {sequenceId} [{displayIndex}/{totalCount}]  ·  阶段: {taskLabel}  ·  进度: {progressLabel}";
+        }
+
+        private void CaptureNonDialogueUiSnapshots()
+        {
+            _nonDialogueUiSnapshots.Clear();
+
+            Transform siblingParent = ResolveNonDialogueUiParent();
+            Transform dialogueRoot = ResolveCanvasStateTarget().transform;
+            if (siblingParent == null)
+            {
+                return;
+            }
+
+            for (int childIndex = 0; childIndex < siblingParent.childCount; childIndex++)
+            {
+                Transform child = siblingParent.GetChild(childIndex);
+                if (!ShouldManageAsNonDialogueUi(child, dialogueRoot))
+                {
+                    continue;
+                }
+
+                CanvasGroup siblingCanvasGroup = child.GetComponent<CanvasGroup>();
+                if (siblingCanvasGroup == null)
+                {
+                    siblingCanvasGroup = child.gameObject.AddComponent<CanvasGroup>();
+                }
+
+                _nonDialogueUiSnapshots.Add(new NonDialogueUiSnapshot
+                {
+                    TargetObject = child.gameObject,
+                    CanvasGroup = siblingCanvasGroup,
+                    WasActive = child.gameObject.activeSelf,
+                    OriginalAlpha = siblingCanvasGroup.alpha,
+                    OriginalInteractable = siblingCanvasGroup.interactable,
+                    OriginalBlocksRaycasts = siblingCanvasGroup.blocksRaycasts
+                });
+            }
+        }
+
+        private IEnumerator FadeNonDialogueUi(bool visible, float duration)
+        {
+            if (_nonDialogueUiSnapshots.Count == 0)
+            {
+                yield break;
+            }
+
+            List<float> startAlphas = new List<float>(_nonDialogueUiSnapshots.Count);
+            List<float> targetAlphas = new List<float>(_nonDialogueUiSnapshots.Count);
+
+            for (int index = 0; index < _nonDialogueUiSnapshots.Count; index++)
+            {
+                NonDialogueUiSnapshot snapshot = _nonDialogueUiSnapshots[index];
+                if (snapshot == null || snapshot.CanvasGroup == null || snapshot.TargetObject == null)
+                {
+                    startAlphas.Add(0f);
+                    targetAlphas.Add(0f);
+                    continue;
+                }
+
+                if (visible)
+                {
+                    if (!snapshot.WasActive)
+                    {
+                        startAlphas.Add(0f);
+                        targetAlphas.Add(0f);
+                        continue;
+                    }
+
+                    snapshot.TargetObject.SetActive(true);
+                    snapshot.CanvasGroup.alpha = 0f;
+                    snapshot.CanvasGroup.interactable = false;
+                    snapshot.CanvasGroup.blocksRaycasts = false;
+                    startAlphas.Add(0f);
+                    targetAlphas.Add(snapshot.OriginalAlpha);
+                }
+                else
+                {
+                    if (!snapshot.TargetObject.activeSelf && snapshot.WasActive)
+                    {
+                        snapshot.TargetObject.SetActive(true);
+                    }
+
+                    snapshot.CanvasGroup.interactable = false;
+                    snapshot.CanvasGroup.blocksRaycasts = false;
+                    startAlphas.Add(snapshot.CanvasGroup.alpha);
+                    targetAlphas.Add(0f);
+                }
+            }
+
+            if (duration <= 0f)
+            {
+                for (int index = 0; index < _nonDialogueUiSnapshots.Count; index++)
+                {
+                    ApplyNonDialogueUiSnapshot(_nonDialogueUiSnapshots[index], targetAlphas[index], visible);
+                }
+
+                yield break;
+            }
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float normalized = Mathf.Clamp01(elapsed / duration);
+                float eased = visible
+                    ? 1f - ((1f - normalized) * (1f - normalized))
+                    : normalized * normalized;
+
+                for (int index = 0; index < _nonDialogueUiSnapshots.Count; index++)
+                {
+                    NonDialogueUiSnapshot snapshot = _nonDialogueUiSnapshots[index];
+                    if (snapshot == null || snapshot.CanvasGroup == null)
+                    {
+                        continue;
+                    }
+
+                    snapshot.CanvasGroup.alpha = Mathf.Lerp(startAlphas[index], targetAlphas[index], eased);
+                }
+
+                if (normalized >= 1f)
+                {
+                    break;
+                }
+
+                yield return null;
+            }
+
+            for (int index = 0; index < _nonDialogueUiSnapshots.Count; index++)
+            {
+                ApplyNonDialogueUiSnapshot(_nonDialogueUiSnapshots[index], targetAlphas[index], visible);
+            }
+        }
+
+        private void ApplyNonDialogueUiSnapshot(NonDialogueUiSnapshot snapshot, float alpha, bool visible)
+        {
+            if (snapshot == null || snapshot.TargetObject == null || snapshot.CanvasGroup == null)
+            {
+                return;
+            }
+
+            if (!visible)
+            {
+                snapshot.CanvasGroup.alpha = 0f;
+                snapshot.CanvasGroup.interactable = false;
+                snapshot.CanvasGroup.blocksRaycasts = false;
+                if (snapshot.WasActive)
+                {
+                    snapshot.TargetObject.SetActive(false);
+                }
+                return;
+            }
+
+            if (!snapshot.WasActive)
+            {
+                snapshot.TargetObject.SetActive(false);
+                snapshot.CanvasGroup.alpha = snapshot.OriginalAlpha;
+                snapshot.CanvasGroup.interactable = snapshot.OriginalInteractable;
+                snapshot.CanvasGroup.blocksRaycasts = snapshot.OriginalBlocksRaycasts;
+                return;
+            }
+
+            snapshot.TargetObject.SetActive(true);
+            snapshot.CanvasGroup.alpha = alpha;
+            snapshot.CanvasGroup.interactable = snapshot.OriginalInteractable;
+            snapshot.CanvasGroup.blocksRaycasts = snapshot.OriginalBlocksRaycasts;
+        }
+
+        private void RestoreNonDialogueUiImmediate()
+        {
+            if (_nonDialogueUiSnapshots.Count == 0)
+            {
+                return;
+            }
+
+            for (int index = 0; index < _nonDialogueUiSnapshots.Count; index++)
+            {
+                NonDialogueUiSnapshot snapshot = _nonDialogueUiSnapshots[index];
+                if (snapshot == null || snapshot.TargetObject == null || snapshot.CanvasGroup == null)
+                {
+                    continue;
+                }
+
+                snapshot.TargetObject.SetActive(snapshot.WasActive);
+                snapshot.CanvasGroup.alpha = snapshot.OriginalAlpha;
+                snapshot.CanvasGroup.interactable = snapshot.OriginalInteractable;
+                snapshot.CanvasGroup.blocksRaycasts = snapshot.OriginalBlocksRaycasts;
+            }
+
+            _nonDialogueUiSnapshots.Clear();
+        }
+
+        private Transform ResolveNonDialogueUiParent()
+        {
+            GameObject canvasStateTarget = ResolveCanvasStateTarget();
+            return canvasStateTarget != null ? canvasStateTarget.transform.parent : null;
+        }
+
+        private static bool ShouldManageAsNonDialogueUi(Transform candidate, Transform dialogueRoot)
+        {
+            if (candidate == null || candidate == dialogueRoot)
+            {
+                return false;
+            }
+
+            return candidate.GetComponent<SpringDay1PromptOverlay>() == null;
         }
         #endregion
     }

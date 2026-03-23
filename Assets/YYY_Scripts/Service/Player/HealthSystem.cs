@@ -1,3 +1,4 @@
+using System.Collections;
 using System;
 using UnityEngine;
 using UnityEngine.UI;
@@ -40,12 +41,19 @@ public class HealthSystem : MonoBehaviour
     [Header("UI Reference")]
     [SerializeField] private Slider healthSlider;
 
+    [Header("Story Presentation")]
+    [SerializeField] private float revealDuration = 0.35f;
+    [SerializeField] private float healFillDuration = 0.9f;
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = false;
 
     public int MaxHealth => maxHealth;
     public int CurrentHealth => currentHealth;
     public bool IsVisible => healthSlider != null && healthSlider.gameObject.activeSelf;
+
+    private Coroutine _presentationCoroutine;
+    private CanvasGroup _healthCanvasGroup;
 
     private void Awake()
     {
@@ -79,6 +87,7 @@ public class HealthSystem : MonoBehaviour
 
     public void SetHealthState(int current, int max)
     {
+        StopPresentationCoroutine();
         maxHealth = Mathf.Max(1, max);
         currentHealth = Mathf.Clamp(current, 0, maxHealth);
         UpdateUI();
@@ -92,6 +101,7 @@ public class HealthSystem : MonoBehaviour
             return;
         }
 
+        StopPresentationCoroutine();
         currentHealth = Mathf.Clamp(currentHealth + amount, 0, maxHealth);
         UpdateUI();
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
@@ -107,7 +117,99 @@ public class HealthSystem : MonoBehaviour
         if (healthSlider != null)
         {
             healthSlider.gameObject.SetActive(visible);
+            if (visible)
+            {
+                EnsureCanvasGroup();
+                _healthCanvasGroup.alpha = 1f;
+            }
         }
+    }
+
+    public Coroutine PlayRevealAndAnimateTo(int start, int target, int max, float? customRevealDuration = null, float? customFillDuration = null)
+    {
+        StopPresentationCoroutine();
+        _presentationCoroutine = StartCoroutine(RevealAndAnimateToRoutine(start, target, max, customRevealDuration, customFillDuration));
+        return _presentationCoroutine;
+    }
+
+    private IEnumerator RevealAndAnimateToRoutine(int start, int target, int max, float? customRevealDuration = null, float? customFillDuration = null)
+    {
+        if (healthSlider == null)
+        {
+            TryFindHealthSlider();
+        }
+
+        maxHealth = Mathf.Max(1, max);
+        currentHealth = Mathf.Clamp(start, 0, maxHealth);
+
+        if (healthSlider == null)
+        {
+            currentHealth = Mathf.Clamp(target, 0, maxHealth);
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            _presentationCoroutine = null;
+            yield break;
+        }
+
+        healthSlider.gameObject.SetActive(true);
+        EnsureCanvasGroup();
+
+        float revealSeconds = Mathf.Max(0f, customRevealDuration ?? revealDuration);
+        float fillSeconds = Mathf.Max(0f, customFillDuration ?? healFillDuration);
+        float clampedTarget = Mathf.Clamp(target, 0, maxHealth);
+
+        healthSlider.maxValue = maxHealth;
+        healthSlider.value = currentHealth;
+        _healthCanvasGroup.alpha = 0f;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
+
+        if (revealSeconds > 0f)
+        {
+            float revealElapsed = 0f;
+            while (revealElapsed < revealSeconds)
+            {
+                revealElapsed += Time.unscaledDeltaTime;
+                _healthCanvasGroup.alpha = Mathf.Clamp01(revealElapsed / revealSeconds);
+                yield return null;
+            }
+        }
+
+        _healthCanvasGroup.alpha = 1f;
+
+        if (fillSeconds <= 0f)
+        {
+            currentHealth = Mathf.RoundToInt(clampedTarget);
+            healthSlider.value = currentHealth;
+            OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            _presentationCoroutine = null;
+            yield break;
+        }
+
+        float startValue = currentHealth;
+        float fillElapsed = 0f;
+        int lastReportedHealth = currentHealth;
+        while (fillElapsed < fillSeconds)
+        {
+            fillElapsed += Time.unscaledDeltaTime;
+            float normalized = Mathf.Clamp01(fillElapsed / fillSeconds);
+            float eased = 1f - ((1f - normalized) * (1f - normalized));
+            float currentValue = Mathf.Lerp(startValue, clampedTarget, eased);
+            int roundedValue = Mathf.RoundToInt(currentValue);
+
+            healthSlider.value = currentValue;
+            if (roundedValue != lastReportedHealth)
+            {
+                currentHealth = roundedValue;
+                lastReportedHealth = roundedValue;
+                OnHealthChanged?.Invoke(currentHealth, maxHealth);
+            }
+
+            yield return null;
+        }
+
+        currentHealth = Mathf.RoundToInt(clampedTarget);
+        healthSlider.value = currentHealth;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
+        _presentationCoroutine = null;
     }
 
     private void UpdateUI()
@@ -119,6 +221,37 @@ public class HealthSystem : MonoBehaviour
 
         healthSlider.maxValue = maxHealth;
         healthSlider.value = currentHealth;
+    }
+
+    private void EnsureCanvasGroup()
+    {
+        if (healthSlider == null)
+        {
+            return;
+        }
+
+        if (_healthCanvasGroup == null)
+        {
+            _healthCanvasGroup = healthSlider.GetComponent<CanvasGroup>();
+            if (_healthCanvasGroup == null)
+            {
+                _healthCanvasGroup = healthSlider.gameObject.AddComponent<CanvasGroup>();
+            }
+        }
+
+        _healthCanvasGroup.interactable = false;
+        _healthCanvasGroup.blocksRaycasts = false;
+    }
+
+    private void StopPresentationCoroutine()
+    {
+        if (_presentationCoroutine == null)
+        {
+            return;
+        }
+
+        StopCoroutine(_presentationCoroutine);
+        _presentationCoroutine = null;
     }
 
     private void TryFindHealthSlider()

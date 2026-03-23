@@ -285,3 +285,24 @@
 5. 运行 `CodexCodeGuard` 对本轮 3 个 C# 文件执行 UTF-8 / diff / 程序集级编译检查，结果通过。
 **恢复点 / 下一步**：
 - 现在 `Anvil_0` 已有最小工作台剧情桥接能力；下一步应进入 Unity live 验收：确认交互 `Anvil_0` 后，`0.0.4` 的工作台闪回会被真实触发，并据现场决定是否还要补正式 crafting UI 的承载层。
+
+### 会话 19 - 2026-03-23（Anvil_0 重摆后的自动恢复补挂）
+**用户需求**：
+> 别的线程导致工作台消失后，用户已重新摆回 `Anvil_0`，但脚本和之前补的内容看起来没了；要求我重新完成前面做过的工作台接回内容。
+**完成任务**：
+1. 复核最新 `main @ 9d099365` 后确认：
+   - `CraftingStationInteractable.cs`
+   - `SpringDay1Director.cs` 中的 `Anvil_0` 运行时桥接
+   - `SpringDay1DialogueProgressionTests.cs` 中的工作台断言
+   这些代码层内容仍在，没有丢失。
+2. 进一步确认当前 `Primary.unity` 文件里仍读不到新的 `Anvil_0`，说明用户重新摆放的工作台还没有稳定体现在 scene YAML 中；因此不能再依赖“手工一次性场景落盘”来恢复工作台脚本。
+3. 新增 `Assets/Editor/Story/SpringDay1WorkbenchSceneBinder.cs`：
+   - `Primary` 场景打开时自动监听层级变化
+   - 只要层级里出现 `Anvil_0 / Workbench / Anvil` 且带 `Collider2D`
+   - 就自动为它补挂 `CraftingStationInteractable`
+   - 使用 `Undo.AddComponent`，并标记场景 dirty
+4. 扩展 `SpringDay1DialogueProgressionTests.cs`，补入对编辑器恢复器的静态断言。
+5. 运行 `CodexCodeGuard`，对编辑器恢复器、测试和工作台桥接相关 4 个 C# 文件执行 UTF-8 / diff / 程序集级编译检查，结果通过。
+**恢复点 / 下一步**：
+- 现在新的 `Anvil_0` 不再需要我每次手工重挂：Unity 重新编译后，编辑器会在 `Primary` 中自动给它补回 `CraftingStationInteractable`。
+- 当前剩余未闭环项是 MCP 会话握手仍失败，因此我还不能从这里直接读取 live Hierarchy / PlayMode 结果；下一步验收应先看 Unity 里 `Anvil_0` 是否已自动出现该脚本，再继续验证 `Anvil_0 -> 0.0.4 -> 0.0.5`。

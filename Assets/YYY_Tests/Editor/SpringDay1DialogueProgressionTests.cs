@@ -14,6 +14,8 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string DialogueManagerPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/DialogueManager.cs");
     private static readonly string DirectorPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs");
     private static readonly string WorkbenchInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs");
+    private static readonly string WorkbenchSceneBinderPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/SpringDay1WorkbenchSceneBinder.cs");
+    private static readonly string PromptOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs");
     private static readonly string EnergySystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/EnergySystem.cs");
     private static readonly string HealthSystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/HealthSystem.cs");
 
@@ -75,6 +77,9 @@ public class SpringDay1DialogueProgressionTests
 
         StringAssert.Contains("TestStatusText", uiText, "DialogueUI 应创建测试状态文本");
         StringAssert.Contains("测试对话:", uiText, "状态文本应显示当前测试对话编号");
+        StringAssert.Contains("KeyCode.T", uiText, "DialogueUI 的键盘推进键应改为 T");
+        StringAssert.Contains("FadeNonDialogueUi", uiText, "DialogueUI 应在对话期间隐藏其他 UI");
+        StringAssert.Contains("otherUiFadeOutDuration", uiText, "DialogueUI 应提供其他 UI 的淡出配置");
         StringAssert.Contains("CurrentSequenceId", managerText, "DialogueManager 应暴露当前对话编号");
         StringAssert.Contains("GetCurrentTaskLabel()", directorText, "导演层应提供当前任务标签");
         StringAssert.Contains("GetCurrentProgressLabel()", directorText, "导演层应提供当前任务进度");
@@ -89,7 +94,20 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("SetVisible(bool visible)", energyText, "EnergySystem 应支持剧情控制显隐");
         StringAssert.Contains("SetEnergyState(int current, int max)", energyText, "EnergySystem 应支持剧情设定精力值");
         StringAssert.Contains("SetHealthState(int current, int max)", healthText, "HealthSystem 应支持剧情设定生命值");
+        StringAssert.Contains("PlayRevealAndAnimateTo", healthText, "HealthSystem 应支持血条渐显并缓慢回血");
+        StringAssert.Contains("CanvasGroup", healthText, "HealthSystem 应通过 CanvasGroup 做显隐过渡");
         StringAssert.Contains("TryFindHealthSlider()", healthText, "HealthSystem 应能自动绑定 HP UI");
+    }
+
+    [Test]
+    public void PromptOverlay_SuppressesItselfDuringDialogue()
+    {
+        string overlayText = File.ReadAllText(PromptOverlayPath);
+
+        StringAssert.Contains("EventBus.Subscribe<DialogueStartEvent>", overlayText, "PromptOverlay 应监听对话开始");
+        StringAssert.Contains("EventBus.Subscribe<DialogueEndEvent>", overlayText, "PromptOverlay 应监听对话结束");
+        StringAssert.Contains("_suppressWhileDialogueActive", overlayText, "PromptOverlay 应在对话期间禁止再次显示");
+        StringAssert.Contains("Hide();", overlayText, "PromptOverlay 应在对话开始时立即隐藏");
     }
 
     [Test]
@@ -97,6 +115,7 @@ public class SpringDay1DialogueProgressionTests
     {
         string directorText = File.ReadAllText(DirectorPath);
         string interactableText = File.ReadAllText(WorkbenchInteractablePath);
+        string binderText = File.ReadAllText(WorkbenchSceneBinderPath);
 
         StringAssert.Contains("PreferredWorkbenchObjectNames", directorText, "Day1 导演应保留工作台候选名列表");
         StringAssert.Contains("Anvil_0", directorText, "Day1 导演应优先识别 Anvil_0 作为当前工作台承载物");
@@ -104,5 +123,8 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("CraftingStation.Workbench", interactableText, "工作台交互脚本应默认绑定到 Workbench 站点");
         StringAssert.Contains("panel.Open(station)", interactableText, "如果制作面板存在，工作台交互应尝试直接打开");
         StringAssert.Contains("NotifyCraftingStationOpened", interactableText, "工作台交互应把触发结果回传给 Day1 导演");
+        StringAssert.Contains("InitializeOnLoad", binderText, "编辑器恢复器应在 Unity 重新编译后自动生效");
+        StringAssert.Contains("Anvil_0", binderText, "编辑器恢复器应优先识别 Anvil_0");
+        StringAssert.Contains("Undo.AddComponent<CraftingStationInteractable>", binderText, "编辑器恢复器应能自动补挂工作台交互脚本");
     }
 }

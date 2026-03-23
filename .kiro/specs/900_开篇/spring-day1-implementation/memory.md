@@ -349,3 +349,10 @@
 - `SpringDay1Director.cs` 已补 `NotifyCraftingStationOpened()`，并新增 `Anvil_0 / Workbench / Anvil` 候选名的运行时自动绑定；这让场景里现成的 `Anvil_0` 即使尚未被我手动落盘，也能在 Play 时自动接上 Day1 的工作台触发链。
 - `SpringDay1DialogueProgressionTests.cs` 已同步补入工作台桥接的静态断言；`CodexCodeGuard` 也已对本轮 3 个 C# 文件执行程序集级编译检查并通过。
 - 当前恢复点：`0.0.4` 已从“只能依赖 crafting panel 被动检测”推进到“真实工作台交互可直接触发”；下一步应做 Unity live 验收，确认 `Anvil_0 -> 工作台闪回 -> 0.0.5` 的最小通路。
+
+## 2026-03-23 补记：已为重摆的 `Anvil_0` 增加编辑器自动恢复补挂
+- 本轮确认：此前的工作台桥接代码仍在 `main`，真正丢的是“用户重新摆出来的新 `Anvil_0` 没有继续挂着工作台交互脚本”。
+- 由于当前 `Primary.unity` 文件里仍读不到新的 `Anvil_0`，说明它还未稳定进入 scene YAML；因此改走更稳的恢复策略：新增 `Assets/Editor/Story/SpringDay1WorkbenchSceneBinder.cs`。
+- 该恢复器会在 `Primary` 打开、层级变化后自动扫描 `Anvil_0 / Workbench / Anvil`，若对象带 `Collider2D` 且缺少 `CraftingStationInteractable`，则自动补挂并标记场景 dirty。
+- 这让“工作台被别的线程删掉后重新摆回”不再需要重复人工回挂脚本；后续 `spring-day1` 只需继续关心 `Anvil_0 -> 0.0.4 -> 0.0.5` 的剧情验收。
+- 当前恢复点：代码侧恢复已经完成，项目编译闸门通过；MCP 会话握手仍失败，所以 live 验收仍待会话层回正后补做。
