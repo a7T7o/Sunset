@@ -163,22 +163,47 @@ namespace Sunset.Story
         public string GetCurrentProgressLabel()
         {
             StoryPhase phase = StoryManager.Instance.CurrentPhase;
+            if (phase == StoryPhase.CrashAndMeet || phase == StoryPhase.EnterVillage)
+            {
+                return "首段对话进行中";
+            }
+
+            if (phase == StoryPhase.HealingAndHP)
+            {
+                return "等待疗伤对话结束";
+            }
+
+            if (phase == StoryPhase.WorkbenchFlashback)
+            {
+                return _workbenchOpened ? "已打开工作台" : "等待打开工作台";
+            }
+
             if (phase == StoryPhase.FarmingTutorial)
             {
                 return $"开垦 {GetTilledCount()}/{requiredTilledCount} | 播种 {GetPlantedCount()}/{requiredPlantedCount} | 浇水 {GetWateredCount()}/{requiredWateredCount} | 砍树 {GetTreeStumpCount()}/{requiredTreeChoppedCount} | 制作 {_craftedCount}/{requiredCraftedCount}";
             }
 
+            if (phase == StoryPhase.DinnerConflict)
+            {
+                return "晚餐事件进行中";
+            }
+
+            if (phase == StoryPhase.ReturnAndReminder)
+            {
+                return "归途提醒进行中";
+            }
+
             if (phase == StoryPhase.FreeTime)
             {
-                return "已进入自由时段，回床边即可结束春1日";
+                return "自由活动中，回床边即可结束";
             }
 
             if (phase == StoryPhase.DayEnd)
             {
-                return "春1日已收尾";
+                return "春1日已结束";
             }
 
-            return GetCurrentTaskLabel();
+            return "等待推进";
         }
 
         private void HandleStoryPhaseChanged(StoryPhaseChangedEvent evt)

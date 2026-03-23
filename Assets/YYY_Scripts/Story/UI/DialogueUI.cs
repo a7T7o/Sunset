@@ -44,6 +44,7 @@ namespace Sunset.Story
 
         [Header("Test Status")]
         [SerializeField] private bool showTestStatus = true;
+        [SerializeField] private Image testStatusBackground;
         [SerializeField] private TextMeshProUGUI testStatusText;
         #endregion
 
@@ -60,6 +61,7 @@ namespace Sunset.Story
         private Color _dialogueBaseColor = Color.white;
         private FontStyles _dialogueBaseFontStyle = FontStyles.Normal;
         private float _testStatusBaseFontSize;
+        private RectTransform _testStatusContainer;
         private Sprite _placeholderPortraitSprite;
         #endregion
 
@@ -297,6 +299,19 @@ namespace Sunset.Story
                 return;
             }
 
+            Transform existingContainer = FindChild("TestStatusBar");
+            if (existingContainer != null)
+            {
+                _testStatusContainer = existingContainer as RectTransform;
+                testStatusBackground = existingContainer.GetComponent<Image>();
+                Transform existingText = existingContainer.Find("TestStatusText");
+                if (existingText != null)
+                {
+                    testStatusText = existingText.GetComponent<TextMeshProUGUI>();
+                }
+                return;
+            }
+
             Transform existing = FindChild("TestStatusText");
             if (existing != null)
             {
@@ -305,13 +320,26 @@ namespace Sunset.Story
             }
 
             Transform parent = backgroundImage != null ? backgroundImage.transform : transform;
+            GameObject containerObject = new GameObject("TestStatusBar", typeof(RectTransform), typeof(Image));
+            containerObject.transform.SetParent(parent, false);
+            _testStatusContainer = containerObject.GetComponent<RectTransform>();
+            testStatusBackground = containerObject.GetComponent<Image>();
+            testStatusBackground.color = new Color(0.22f, 0.16f, 0.12f, 0.92f);
+            testStatusBackground.raycastTarget = false;
+
+            _testStatusContainer.anchorMin = new Vector2(0.5f, 0f);
+            _testStatusContainer.anchorMax = new Vector2(0.5f, 0f);
+            _testStatusContainer.pivot = new Vector2(0.5f, 0f);
+            _testStatusContainer.anchoredPosition = new Vector2(0f, 18f);
+            _testStatusContainer.sizeDelta = new Vector2(980f, 28f);
+
             GameObject textObject = new GameObject("TestStatusText", typeof(RectTransform), typeof(TextMeshProUGUI));
-            textObject.transform.SetParent(parent, false);
+            textObject.transform.SetParent(containerObject.transform, false);
 
             testStatusText = textObject.GetComponent<TextMeshProUGUI>();
-            testStatusText.fontSize = 16f;
-            testStatusText.alignment = TextAlignmentOptions.Bottom;
-            testStatusText.color = new Color(0.92f, 0.9f, 0.82f, 0.92f);
+            testStatusText.fontSize = 17f;
+            testStatusText.alignment = TextAlignmentOptions.Center;
+            testStatusText.color = new Color(0.98f, 0.96f, 0.9f, 1f);
             testStatusText.textWrappingMode = TextWrappingModes.NoWrap;
             testStatusText.overflowMode = TextOverflowModes.Ellipsis;
             testStatusText.raycastTarget = false;
@@ -322,11 +350,10 @@ namespace Sunset.Story
             }
 
             RectTransform textRect = testStatusText.rectTransform;
-            textRect.anchorMin = new Vector2(0f, 0f);
-            textRect.anchorMax = new Vector2(1f, 0f);
-            textRect.pivot = new Vector2(0.5f, 0f);
-            textRect.anchoredPosition = new Vector2(0f, 8f);
-            textRect.sizeDelta = new Vector2(-36f, 26f);
+            textRect.anchorMin = Vector2.zero;
+            textRect.anchorMax = Vector2.one;
+            textRect.offsetMin = new Vector2(14f, 2f);
+            textRect.offsetMax = new Vector2(-14f, -2f);
         }
 
         private void ResolvePortraitTarget()
@@ -498,6 +525,11 @@ namespace Sunset.Story
             {
                 testStatusText.text = string.Empty;
                 testStatusText.gameObject.SetActive(false);
+            }
+
+            if (_testStatusContainer != null)
+            {
+                _testStatusContainer.gameObject.SetActive(false);
             }
         }
 
@@ -959,6 +991,11 @@ namespace Sunset.Story
                     testStatusText.gameObject.SetActive(false);
                 }
 
+                if (_testStatusContainer != null)
+                {
+                    _testStatusContainer.gameObject.SetActive(false);
+                }
+
                 return;
             }
 
@@ -969,8 +1006,13 @@ namespace Sunset.Story
             string taskLabel = day1Director != null ? day1Director.GetCurrentTaskLabel() : "n/a";
             string progressLabel = day1Director != null ? day1Director.GetCurrentProgressLabel() : "n/a";
 
+            if (_testStatusContainer != null)
+            {
+                _testStatusContainer.gameObject.SetActive(true);
+            }
+
             testStatusText.gameObject.SetActive(true);
-            testStatusText.text = $"测试对话: {sequenceId} [{displayIndex}/{totalCount}]  |  当前任务: {taskLabel}  |  进度: {progressLabel}";
+            testStatusText.text = $"测试: {sequenceId} [{displayIndex}/{totalCount}]  ·  阶段: {taskLabel}  ·  进度: {progressLabel}";
         }
         #endregion
     }
