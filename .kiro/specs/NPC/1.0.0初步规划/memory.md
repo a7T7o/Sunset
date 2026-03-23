@@ -223,3 +223,19 @@
   - 本轮 NPC 相关脚本与 prefab 的 `git diff --check` 通过。
   - 本轮早些时候 `unityMCP` 曾成功读回 `Primary` 与 `003` 的 stress talker live 状态；但后续 RMCP 资源层开始对 `127.0.0.1:8080/mcp` 握手失败，因此当前收尾口径应写实为：代码与 prefab 静态检查通过，Unity live 需在下一次稳定连接下补终验。
 - 当前恢复点：如果用户认可这轮收口，下一步就不是继续救火，而是直接进入 NPC 场景化配置与导航交付后的接入准备。
+
+## 2026-03-23 NPC第五刀：内边距收口与场景化入口增强
+
+- 当前主线目标：在用户已认可大部分效果的前提下，只收口剩余的气泡内边距，并把 NPC 场景化与集成阶段的入口搭顺。
+- 本轮子任务：修正文字距边框过近的问题，正规化 `003` 的测试模式，并增强 `NPCAutoRoamController` 的配置入口。
+- 本轮完成：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`：将 `textSafePadding` 提升到 `{18,16}`，同时进一步缩小文本实际占用区域，确保文字四周离边框更远。
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs`：从临时压测脚本升级为正式测试组件，新增公开状态、一次性发话接口、显式测试开关，并通过 `AddComponentMenu` 明确归类。
+  - `Assets/Editor/NPCBubbleStressTalkerEditor.cs`：新增测试组件专用编辑器，允许在 Inspector 中重绑引用、查看状态、手动触发一次发话。
+  - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`：新增 `HomeAnchor`、活动范围、路径点数等公开读取，以及 `SetHomeAnchor` / `SyncHomeAnchorToCurrentPosition` 入口。
+  - `Assets/Editor/NPCAutoRoamControllerEditor.cs`：新增 Scene Integration 面板，可创建/选中/清空 Home Anchor、复制/应用/选中 Profile，并提示测试组件状态。
+  - `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab`：同步内边距参数；`003.prefab` 的 `NPCBubbleStressTalker` 现已显式绑定 `bubblePresenter` 与 `roamController`。
+- 本轮验证：
+  - `git diff --check` 对本轮 NPC 相关脚本、编辑器脚本和 prefab 通过。
+  - `unityMCP` 在本轮开始前一度可以正常读写，但收尾阶段通用 RMCP 握手回到 `http://127.0.0.1:8080/mcp` 失败；因此本轮 live 终验未补齐，只能写实为 transport 阻塞。
+- 当前恢复点：NPC 线已正式进入“场景化与集成阶段”，下一步应围绕 `Home Anchor / 活动范围 / Profile` 的真实场景配置继续推进，并等待导航线交付后做接入验收。
