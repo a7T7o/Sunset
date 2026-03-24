@@ -253,3 +253,155 @@
 - 父层当前恢复点：
   - 后续导航线不应再回头讨论 `NavigationRoot` 是否需要建、S4 是否需要落、NPC Tag 是否缺失；
   - 下一步应直接围绕“为什么 movement/roam 的 active 状态没有转成真实位移”做运行态排查。
+
+### 会话 15 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮继续执行 `003-prompt-3`，没有再碰结构层。
+- 父层新增稳定事实：
+  - “位移未推进”这一级 blocker 已不再是当前事实；live 里玩家和 NPC 都已经能真实移动。
+  - `NPC Avoids Player` 这轮已通过：
+    - `pass=True`
+    - `npcReached=True`
+  - `PlayerAvoidsMovingNpc` 与 `NpcNpcCrossing` 仍失败，但失败形态已经变成：
+    - detour / close-range 生效后会真实位移
+    - 然后在 `stuck cancel / short pause / path-end` 收尾阶段提前结束
+    - 不再是“完全推土机”或“压根不动”
+- 父层新增关键判断：
+  1. 当前导航线的新责任点已经前移到“共享执行层的恢复与收尾”，而不是结构层或刚体写入层。
+  2. 现阶段最像的两个具体落点是：
+    - `PlayerAutoNavigator.CheckAndHandleStuck()` 对动态 detour 的容忍度不够，导致 live 上出现“绕开了，但卡顿 3 次后取消导航”
+    - 玩家 / NPC 当前都没有真正消费 `NavigationPathExecutor2D.BuildPathResult.ActualDestination`，导致 live 上出现“path 已结束 / 进入短停，但原目标并未真正到达”的风险
+  3. 因而后续导航线不该再回头查 `NavigationRoot`、NPC Tag、是否真的写了 velocity；这些层级已经被本轮 live 排掉了。
+- 父层当前恢复点：
+  - 下一轮直接让 `导航检查` 进入：
+    1. detour 期间的 stuck 免责 / 恢复推进
+    2. `ActualDestination` 贯通到玩家 / NPC 收尾判断
+    3. 再次 live 终验 `PlayerAvoidsMovingNpc` 与 `NpcNpcCrossing`
+
+### 会话 16 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已按 `005-prompt-5` 把 live 入口真正收短为单场 `PlayerAvoidsMovingNpc`，不再允许 probe setup 自动串起后两场。
+- 父层新增稳定事实：
+  - sleeping/stationary blocker 参数已在 `NavigationLocalAvoidanceSolver.cs` 中上调；
+  - `Tests.Editor` 本轮为 `119 / 119 Passed`；
+  - 单场 live 结果为：`PlayerAvoidsMovingNpc = fail`，但已经变成 `minClearance=0.161 / playerReached=True / npcReached=False`，不再是“推着玩家/NPC硬撞”。
+- 父层新增关键判断：
+  1. 这轮用户建议的“参数再抬高一点”已经落地并见效，失败形态从接触推挤收缩成“正净空但收尾超时”。
+  2. 当前第一责任点已不再优先留在 solver 的 sleeping blocker 裁决，而是更具体地前移到：
+     - `NPCAutoRoamController.TryHandleSharedAvoidance()`
+     - `shouldAttemptDetour && TryCreateDynamicDetour(...)`
+     - 以及其后 `OverrideWaypoint` 清理 / 恢复原目标路径的收尾链
+- 父层当前恢复点：
+  - 下一轮 `导航检查` 不再回结构层，也不再泛泛调避让参数；
+  - 直接锁 NPC detour 恢复链，解释为什么 `001` 在正净空状态下仍会围着旧 detour 区域摆动到超时。
+
+### 会话 17 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已按 `002-prompt-6` 把 detour 恢复链继续压实到“共享建路层误把 NPC 自己算成终点 blocker”，并完成最小代码修复。
+- 父层新增稳定事实：
+  - `PlayerAvoidsMovingNpc` fresh 已通过：`pass=True / minClearance=0.145 / playerReached=True / npcReached=True`
+  - `NpcAvoidsPlayer` fresh 也通过：`pass=True / minClearance=0.744 / npcReached=True`
+  - `NpcNpcCrossing` fresh 仍失败：`pass=False / timeout=6.57 / minClearance=0.553 / npcAReached=False / npcBReached=False`
+- 父层新增关键判断：
+  1. `导航检查` 当前不再卡在“绕开后原目标被替代”；这条 detour 恢复链已经过线。
+  2. 现在导航线新的剩余 blocker 已进一步收缩成“双 NPC 会车中段停滞”，不是玩家推土机，也不是 detour 恢复丢目标。
+  3. 因此后续导航线不该回头再调 solver 或回结构层，而应直接查 `NpcNpcCrossing` 的共享执行推进/收尾约束。
+- 父层当前恢复点：
+  - 下一轮 `导航检查` 直接沿 `NpcNpcCrossing` 这条 fresh blocker 继续；
+  - 保持当前事实基线：
+    - 玩家绕移动 NPC：通过
+    - NPC 绕玩家：通过
+    - NPC-NPC 会车：未通过
+
+### 会话 18 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已把 `002-prompt-6` 真正收口，不再停在“只剩 `NpcNpcCrossing` 未过”的阶段。
+- 父层新增稳定事实：
+  - `NPCAutoRoamController.TryHandleSharedAvoidance()` 当前决定性修复不是继续抬 solver 参数，而是取消 `!avoidance.HasBlockingAgent` 分支上的即时 detour 清理；
+  - `Tests.Editor` 当前 fresh 为 `123 / 123 Passed`；
+  - 同轮 unityMCP fresh 三场结果已全部转绿：
+    - `PlayerAvoidsMovingNpc = pass=True / minClearance=0.379 / playerReached=True / npcReached=True`
+    - `NpcAvoidsPlayer = pass=True / minClearance=0.989 / npcReached=True`
+    - `NpcNpcCrossing = pass=True / minClearance=0.632 / npcAReached=True / npcBReached=True`
+  - 本轮 live 收尾已退回 Edit Mode，没有把 Play 现场留给别的线程。
+- 父层新增关键判断：
+  1. 导航线当前已不再存在 prompt 6 口径下的剩余 blocker。
+  2. 双 NPC 会车的通过，确认了“detour 不得单帧清理”是当前共享执行层的稳定事实。
+  3. 后续若再出现导航回归，排查顺序应从“是否重新引入 detour clear/rebuild 风暴”开始，而不是重新回到 `NavigationRoot` / S4 是否落地。
+- 父层当前恢复点：
+  - `导航检查` 当前 checkpoint 已完成；
+  - 后续导航线如继续推进，应以“三条 live 同轮 fresh 全绿”为新的基线。
+
+### 会话 19 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮没有继续 patch，而是按用户要求对“当前实现方式 vs 实际体感”做了一次可审计拆解。
+- 父层新增稳定事实：
+  - 当前导航实现本质仍是“静态路径 + 启发式局部避让 + 临时 detour 点”，不是连续 crowd simulation。
+  - 玩家 / NPC 当前都用 `ColliderRadius / AvoidanceRadius / InteractionRadius` 这套圆形壳层近似；
+    - 因而用户感觉像“NPC 被一个大圆壳包住”与当前实现是吻合的，不是错觉。
+  - 当前三条 live fresh 全绿，证明的是受控 probe 场景链路能过，不等价于真实自由玩法手感已经过线。
+- 父层新增关键判断：
+  1. 当前导航线的争议已经从“功能是否完全坏掉”转成“当前启发式方案是否足够自然”。
+  2. 后续如果继续收口用户体感，不能再只拿 probe pass 当最终论据，必须正面验证真实右键玩法体验。
+
+### 会话 20 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮继续停留在“客观审核 / 锐评”模式，没有再补新 patch。
+- 父层新增稳定事实：
+  - 当前导航已经可以明确归类为：
+    - `NavGrid2D` 静态建路
+    - `NavigationPathExecutor2D` 统一路径执行 / stuck / override waypoint
+    - `NavigationLocalAvoidanceSolver` 启发式局部 steering
+    - 玩家 / NPC 各自一层 detour / repath 包装
+  - 当前玩家与 NPC 共享了一部分执行底座，但没有真正统一成同一套动态交通语义。
+  - 因此“大圆壳感”和“推土机残影”并不是用户误判，而是现实现有结构自然会长出的体感。
+- 父层新增关键判断：
+  1. 导航线不能判成“从头到尾都走错”；
+     - 共享执行层、共享 agent registry、共享 avoidance 入口这些方向本身成立。
+  2. 但它的起步抽象层级偏低；
+     - 更像“先统一执行，再不断给动态避让补丁”，而不是“先定义统一动态交通规则”。
+  3. 这也是为什么它前面会轮番出现：
+     - 推着走
+     - 不推进
+     - 慢蹭
+     - detour 清理风暴
+     - 恢复原目标失败
+  4. 所以当前最准确的结论不是“已经最佳”，而是：
+     - 功能口径：已经从系统级失败拉回到受控场景可通过
+     - 体验口径：仍不是最优雅、最自然的动态避让框架
+- 父层当前恢复点：
+  - 后续导航验收必须明确拆成：
+    1. 功能通过
+    2. 真实玩法手感通过
+  - 如果用户要的是“可交付、可稳定复现通过”，当前方案已接近验收；
+  - 如果用户要的是“玩家 / NPC 真像同一套活体交通系统”，则仍有架构升级空间。
+
+### 会话 21 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮没有新增 patch，而是按用户要求把 `005-gemini聊天记录-1.md` 整份硬读完并做二次理解。
+- 父层新增稳定事实：
+  - 这份文件内部其实包含了完整的四段演化：
+    1. 对当前实现的技术说明
+    2. 对当前架构原罪的猛烈锐评
+    3. 用户把目标从“修补能用”升级为“专业级导航底座”
+    4. Gemini 给出四层架构白皮书
+  - 因而它最重要的价值，不是再次证明“当前像推土机”，而是把用户的真实标准彻底抬高并钉死：
+    - 不是能用
+    - 是要支撑未来怪物追击、宠物跟随、NPC 生态的专业底座
+- 父层新增关键判断：
+  1. Gemini 方向上最有价值的部分包括：
+     - 宏观寻路与微观避让必须断层
+     - 动态活物不能再同时充当静态网格障碍与动态 blocker
+     - 当前 detour 机制确实在污染宏观路径层
+     - 玩家 / NPC 最终运动语义必须真正统一
+  2. 但 Gemini 的白皮书也不能被当成“可直接照抄施工”的圣旨：
+     - 它有些表述过于绝对
+     - 需要结合 Sunset 现有代码资产做二次收敛
+  3. 所以当前导航议题已经从“继续补丁”上升为“要不要正式产出一份项目级导航需求与架构设计稿”。
+- 父层当前恢复点：
+  - 若继续推进导航，不该再只围绕单点 bug；
+  - 应转向“专业导航底座”的需求与架构定义，把：
+    1. 现有可继承资产
+    2. 必须推翻的旧语义
+    3. 功能验收与体验验收
+    一次性定清。
