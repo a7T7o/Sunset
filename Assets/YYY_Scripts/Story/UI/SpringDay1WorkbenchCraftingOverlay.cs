@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using FarmGame.Data;
 using Sunset.Events;
 using TMPro;
@@ -7,29 +8,24 @@ using UnityEngine.UI;
 
 namespace Sunset.Story
 {
-    /// <summary>
-    /// spring-day1 专用的最小工作台制作浮层。
-    /// 运行时动态创建，跟随工作台显示，不依赖场景手工搭 UI。
-    /// </summary>
     [DisallowMultipleComponent]
     public class SpringDay1WorkbenchCraftingOverlay : MonoBehaviour
     {
         private static readonly string[] PreferredFontResourcePaths =
         {
             "Fonts & Materials/DialogueChinese SoftPixel SDF",
-            "Fonts & Materials/DialogueChinese Pixel SDF",
             "Fonts & Materials/DialogueChinese V2 SDF",
+            "Fonts & Materials/DialogueChinese BitmapSong SDF",
+            "Fonts & Materials/DialogueChinese Pixel SDF",
             "Fonts & Materials/DialogueChinese SDF"
         };
 
-        private const int AxeItemId = 0;
-        private const int PickaxeItemId = 6;
-        private const int HoeItemId = 12;
-        private const int WoodItemId = 3200;
-        private const int StoneItemId = 3201;
-        private const float VerticalWorldOffset = 1.4f;
-        private const float HorizontalMargin = 18f;
-        private const float VerticalMargin = 18f;
+        private const string RecipeResourceFolder = "Story/SpringDay1Workbench";
+        private const float PanelWidth = 660f;
+        private const float PanelHeight = 360f;
+        private const float ScreenMargin = 20f;
+        private const float AboveOffset = 1.0f;
+        private const float BelowOffset = 0.9f;
 
         private static SpringDay1WorkbenchCraftingOverlay _instance;
 
@@ -37,18 +33,33 @@ namespace Sunset.Story
         [SerializeField] private RectTransform panelRect;
         [SerializeField] private TextMeshProUGUI titleText;
         [SerializeField] private TextMeshProUGUI hintText;
+        [SerializeField] private RectTransform recipeListContent;
+        [SerializeField] private Image selectedIcon;
+        [SerializeField] private TextMeshProUGUI selectedNameText;
+        [SerializeField] private TextMeshProUGUI selectedDescriptionText;
+        [SerializeField] private TextMeshProUGUI selectedMaterialsText;
+        [SerializeField] private Slider quantitySlider;
+        [SerializeField] private TextMeshProUGUI quantityValueText;
+        [SerializeField] private Button decreaseButton;
+        [SerializeField] private Button increaseButton;
+        [SerializeField] private Button craftButton;
+        [SerializeField] private TextMeshProUGUI craftButtonLabel;
         [SerializeField] private TextMeshProUGUI statusText;
 
-        private readonly List<WorkbenchRecipeDefinition> _recipeDefinitions = new();
-        private readonly List<RecipeRow> _recipeRows = new();
-        private readonly List<RecipeData> _runtimeRecipes = new();
+        private readonly List<RecipeData> _recipes = new();
+        private readonly List<RowRefs> _rows = new();
 
+        private TMP_FontAsset _fontAsset;
+        private Canvas _canvas;
+        private RectTransform _canvasRect;
         private Transform _anchorTarget;
-        private Canvas _rootCanvas;
-        private RectTransform _rootCanvasRect;
-        private TMP_FontAsset _resolvedFontAsset;
+        private Transform _playerTransform;
         private CraftingService _craftingService;
         private InventoryService _inventoryService;
+        private int _selectedIndex = -1;
+        private int _selectedQuantity = 1;
+        private float _autoHideDistance = 1.5f;
+        private bool _displayBelow;
         private bool _isVisible;
 
         public static SpringDay1WorkbenchCraftingOverlay Instance
@@ -73,26 +84,8 @@ namespace Sunset.Story
                 return;
             }
 
-            Transform parent = null;
-            GameObject uiRoot = GameObject.Find("UI");
-            if (uiRoot != null)
-            {
-                parent = uiRoot.transform;
-            }
-            else
-            {
-                Canvas canvas = Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
-                parent = canvas != null ? canvas.transform : null;
-            }
-
-            GameObject root = new GameObject(
-                nameof(SpringDay1WorkbenchCraftingOverlay),
-                typeof(RectTransform),
-                typeof(CanvasGroup),
-                typeof(Image),
-                typeof(VerticalLayoutGroup),
-                typeof(ContentSizeFitter));
-
+            Transform parent = ResolveParent();
+            GameObject root = new GameObject(nameof(SpringDay1WorkbenchCraftingOverlay), typeof(RectTransform), typeof(CanvasGroup), typeof(Image));
             if (parent != null)
             {
                 root.transform.SetParent(parent, false);
@@ -122,31 +115,30 @@ namespace Sunset.Story
         private void OnDisable()
         {
             EventBus.UnsubscribeAll(this);
-            DetachInventoryListener();
-        }
-
-        private void OnDestroy()
-        {
-            for (int index = 0; index < _runtimeRecipes.Count; index++)
-            {
-                if (_runtimeRecipes[index] != null)
-                {
-                    Destroy(_runtimeRecipes[index]);
-                }
-            }
+            UnbindInventory();
         }
 
         private void LateUpdate()
         {
-            if (!_isVisible || panelRect == null || _rootCanvasRect == null)
+            if (!_isVisible || _anchorTarget == null)
             {
                 return;
             }
 
-            RepositionToAnchor();
+            if (_playerTransform != null)
+            {
+                float distance = Vector2.Distance(_playerTransform.position, GetClosestInteractionPoint(_playerTransform.position));
+                if (distance > _autoHideDistance)
+                {
+                    Hide();
+                    return;
+                }
+            }
+
+            Reposition();
         }
 
-        public bool Toggle(Transform anchorTarget, CraftingService craftingService, CraftingStation station)
+        public bool Toggle(Transform anchorTarget, Transform playerTransform, CraftingService craftingService, CraftingStation station, float autoHideDistance)
         {
             if (station != CraftingStation.Workbench)
             {
@@ -160,46 +152,54 @@ namespace Sunset.Story
                 return false;
             }
 
-            Open(anchorTarget, craftingService);
+            Open(anchorTarget, playerTransform, craftingService, autoHideDistance);
             return true;
         }
 
-        public void Open(Transform anchorTarget, CraftingService craftingService)
+        public void Open(Transform anchorTarget, Transform playerTransform, CraftingService craftingService, float autoHideDistance)
         {
             if (panelRect == null)
             {
                 BuildUi();
             }
 
-            if (craftingService == null)
+            if (craftingService == null || !EnsureRecipesLoaded())
             {
                 Hide();
                 return;
             }
 
             _anchorTarget = anchorTarget;
+            _playerTransform = playerTransform != null ? playerTransform : ResolvePlayerTransform();
             _craftingService = craftingService;
             _craftingService.SetStation(CraftingStation.Workbench);
+            _autoHideDistance = Mathf.Max(0.6f, autoHideDistance);
+            _displayBelow = _playerTransform != null && _playerTransform.position.y > GetAnchorBounds().center.y;
+            panelRect.pivot = _displayBelow ? new Vector2(0.5f, 1f) : new Vector2(0.5f, 0f);
+            BindInventory(craftingService.Inventory);
 
-            BindInventoryListener(craftingService.Inventory);
-            EnsureRecipeDefinitions();
-            EnsureRuntimeRecipes();
-            RefreshRecipeRows();
+            if (_selectedIndex < 0 || _selectedIndex >= _recipes.Count)
+            {
+                _selectedIndex = 0;
+            }
 
+            _selectedQuantity = 1;
+            RefreshAll();
             _isVisible = true;
             canvasGroup.alpha = 1f;
             canvasGroup.interactable = true;
             canvasGroup.blocksRaycasts = true;
-            gameObject.SetActive(true);
-            RepositionToAnchor();
+            transform.SetAsLastSibling();
+            Reposition();
         }
 
         public void Hide()
         {
             _isVisible = false;
             _anchorTarget = null;
+            _playerTransform = null;
             _craftingService = null;
-            DetachInventoryListener();
+            UnbindInventory();
             HideImmediate();
         }
 
@@ -211,61 +211,105 @@ namespace Sunset.Story
         private void BuildUi()
         {
             panelRect = transform as RectTransform;
+            canvasGroup = GetComponent<CanvasGroup>();
+            _canvas = GetComponentInParent<Canvas>();
+            _canvasRect = _canvas != null ? _canvas.transform as RectTransform : null;
+            _fontAsset = ResolveFont();
+
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            panelRect.pivot = new Vector2(0.5f, 0f);
-            panelRect.anchoredPosition = Vector2.zero;
-            panelRect.sizeDelta = new Vector2(440f, 0f);
+            panelRect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
+            GetComponent<Image>().color = new Color(0.06f, 0.08f, 0.12f, 0.9f);
 
-            canvasGroup = GetComponent<CanvasGroup>();
+            var rootLayout = gameObject.AddComponent<VerticalLayoutGroup>();
+            rootLayout.padding = new RectOffset(18, 18, 14, 14);
+            rootLayout.spacing = 10f;
+            rootLayout.childControlWidth = true;
+            rootLayout.childControlHeight = true;
+            rootLayout.childForceExpandWidth = true;
+            rootLayout.childForceExpandHeight = false;
 
-            Image panelImage = GetComponent<Image>();
-            panelImage.color = new Color(0.08f, 0.1f, 0.14f, 0.96f);
-            panelImage.raycastTarget = true;
+            titleText = CreateText(transform, "Title", "工作台制作", 28f, new Color(0.98f, 0.96f, 0.9f, 1f), TextAlignmentOptions.Center);
+            hintText = CreateText(transform, "Hint", "靠近后按 E 打开，离开 1.5 米自动关闭", 15f, new Color(0.8f, 0.86f, 0.94f, 0.95f), TextAlignmentOptions.Center);
 
-            VerticalLayoutGroup layout = GetComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(18, 18, 16, 16);
-            layout.spacing = 10f;
-            layout.childAlignment = TextAnchor.UpperCenter;
-            layout.childControlHeight = true;
-            layout.childControlWidth = true;
-            layout.childForceExpandHeight = false;
-            layout.childForceExpandWidth = true;
+            RectTransform body = CreateRect(transform, "Body");
+            body.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1f;
+            var bodyLayout = body.gameObject.AddComponent<HorizontalLayoutGroup>();
+            bodyLayout.spacing = 12f;
+            bodyLayout.childControlWidth = true;
+            bodyLayout.childControlHeight = true;
+            bodyLayout.childForceExpandWidth = false;
+            bodyLayout.childForceExpandHeight = true;
 
-            ContentSizeFitter fitter = GetComponent<ContentSizeFitter>();
-            fitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
-            fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            RectTransform left = CreatePanel(body, "RecipeColumn", 228f);
+            CreateText(left, "RecipeHeader", "配方选择", 18f, new Color(0.96f, 0.95f, 0.9f, 1f), TextAlignmentOptions.Left);
+            RectTransform scrollRoot = CreatePanel(left, "RecipeScrollRoot");
+            scrollRoot.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1f;
+            ScrollRect scrollRect = scrollRoot.gameObject.AddComponent<ScrollRect>();
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
 
-            _rootCanvas = GetComponentInParent<Canvas>();
-            _rootCanvasRect = _rootCanvas != null ? _rootCanvas.transform as RectTransform : null;
-            _resolvedFontAsset = ResolveFontAsset();
+            RectTransform viewport = CreateRect(scrollRoot, "Viewport");
+            viewport.anchorMin = Vector2.zero;
+            viewport.anchorMax = Vector2.one;
+            viewport.offsetMin = new Vector2(4f, 4f);
+            viewport.offsetMax = new Vector2(-4f, -4f);
+            var viewportImage = viewport.gameObject.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+            viewportImage.raycastTarget = true;
+            viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
 
-            titleText = CreateText("Title", "工作台制作", 28f, new Color(0.98f, 0.96f, 0.88f, 1f), TextAlignmentOptions.Center);
-            hintText = CreateText("Hint", "点击配方直接制作 · 再按 E 关闭", 18f, new Color(0.83f, 0.87f, 0.94f, 0.92f), TextAlignmentOptions.Center);
+            recipeListContent = CreateRect(viewport, "Content");
+            recipeListContent.anchorMin = new Vector2(0f, 1f);
+            recipeListContent.anchorMax = new Vector2(1f, 1f);
+            recipeListContent.pivot = new Vector2(0.5f, 1f);
+            var recipeListLayout = recipeListContent.gameObject.AddComponent<VerticalLayoutGroup>();
+            recipeListLayout.spacing = 8f;
+            recipeListLayout.childControlWidth = true;
+            recipeListLayout.childControlHeight = true;
+            recipeListLayout.childForceExpandWidth = true;
+            recipeListLayout.childForceExpandHeight = false;
+            recipeListContent.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            scrollRect.viewport = viewport;
+            scrollRect.content = recipeListContent;
 
-            GameObject listRoot = new GameObject("RecipeList", typeof(RectTransform), typeof(VerticalLayoutGroup));
-            listRoot.transform.SetParent(transform, false);
+            RectTransform right = CreatePanel(body, "DetailColumn");
+            right.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
 
-            VerticalLayoutGroup listLayout = listRoot.GetComponent<VerticalLayoutGroup>();
-            listLayout.spacing = 8f;
-            listLayout.childAlignment = TextAnchor.UpperCenter;
-            listLayout.childControlHeight = true;
-            listLayout.childControlWidth = true;
-            listLayout.childForceExpandHeight = false;
-            listLayout.childForceExpandWidth = true;
+            RectTransform detailHeader = CreateRect(right, "DetailHeader");
+            detailHeader.gameObject.AddComponent<HorizontalLayoutGroup>().spacing = 10f;
+            selectedIcon = CreateIcon(detailHeader, "SelectedIcon", 48f);
+            RectTransform titleBlock = CreateRect(detailHeader, "TitleBlock");
+            titleBlock.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            titleBlock.gameObject.AddComponent<VerticalLayoutGroup>().spacing = 4f;
+            selectedNameText = CreateText(titleBlock, "SelectedName", "请选择配方", 24f, new Color(0.98f, 0.96f, 0.9f, 1f), TextAlignmentOptions.Left);
+            selectedDescriptionText = CreateText(titleBlock, "SelectedDescription", "从左侧选择一个配方后，右侧会显示材料和制作说明。", 14f, new Color(0.82f, 0.88f, 0.94f, 0.95f), TextAlignmentOptions.TopLeft, true);
 
-            RectTransform listRect = listRoot.GetComponent<RectTransform>();
-            listRect.anchorMin = new Vector2(0f, 1f);
-            listRect.anchorMax = new Vector2(1f, 1f);
-            listRect.pivot = new Vector2(0.5f, 1f);
-            listRect.sizeDelta = new Vector2(0f, 0f);
+            selectedMaterialsText = CreateText(right, "SelectedMaterials", "材料需求会实时读取配方 SO 与当前背包。", 15f, new Color(0.77f, 0.84f, 0.9f, 1f), TextAlignmentOptions.TopLeft, true);
+            selectedMaterialsText.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1f;
 
-            for (int index = 0; index < 3; index++)
-            {
-                _recipeRows.Add(CreateRecipeRow(index, listRoot.transform));
-            }
+            RectTransform quantityArea = CreateRect(right, "QuantityArea");
+            quantityArea.gameObject.AddComponent<VerticalLayoutGroup>().spacing = 6f;
+            CreateText(quantityArea, "QuantityTitle", "制作数量", 18f, new Color(0.96f, 0.95f, 0.9f, 1f), TextAlignmentOptions.Left);
+            RectTransform controls = CreateRect(quantityArea, "QuantityControls");
+            controls.gameObject.AddComponent<HorizontalLayoutGroup>().spacing = 8f;
+            decreaseButton = CreateButton(controls, "Decrease", "-", 34f);
+            quantitySlider = CreateSlider(controls);
+            quantityValueText = CreateText(controls, "QuantityValue", "x1", 16f, new Color(0.77f, 0.9f, 0.84f, 1f), TextAlignmentOptions.Center);
+            quantityValueText.gameObject.AddComponent<LayoutElement>().preferredWidth = 58f;
+            increaseButton = CreateButton(controls, "Increase", "+", 34f);
 
-            statusText = CreateText("Status", "制作配方已解锁。", 18f, new Color(0.76f, 0.9f, 0.82f, 1f), TextAlignmentOptions.Center);
+            RectTransform footer = CreateRect(right, "Footer");
+            footer.gameObject.AddComponent<HorizontalLayoutGroup>().spacing = 10f;
+            statusText = CreateText(footer, "Status", "选择一个配方开始制作。", 15f, new Color(0.78f, 0.9f, 0.82f, 1f), TextAlignmentOptions.Left, true);
+            statusText.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            craftButton = CreateButton(footer, "Craft", "制作 x1", 150f);
+            craftButtonLabel = craftButton.GetComponentInChildren<TextMeshProUGUI>();
+
+            decreaseButton.onClick.AddListener(() => ChangeQuantity(-1));
+            increaseButton.onClick.AddListener(() => ChangeQuantity(1));
+            quantitySlider.onValueChanged.AddListener(v => SetQuantity(Mathf.RoundToInt(v), false));
+            craftButton.onClick.AddListener(OnCraftButtonClicked);
         }
 
         private void HideImmediate()
@@ -278,306 +322,261 @@ namespace Sunset.Story
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
-            gameObject.SetActive(false);
         }
 
-        private TextMeshProUGUI CreateText(string objectName, string text, float fontSize, Color color, TextAlignmentOptions alignment)
+        private bool EnsureRecipesLoaded()
         {
-            GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
-            textObject.transform.SetParent(transform, false);
-
-            LayoutElement layoutElement = textObject.GetComponent<LayoutElement>();
-            layoutElement.minHeight = fontSize + 10f;
-
-            TextMeshProUGUI textComponent = textObject.GetComponent<TextMeshProUGUI>();
-            textComponent.font = _resolvedFontAsset;
-            textComponent.text = text;
-            textComponent.fontSize = fontSize;
-            textComponent.color = color;
-            textComponent.alignment = alignment;
-            textComponent.textWrappingMode = TextWrappingModes.Normal;
-            textComponent.raycastTarget = false;
-            return textComponent;
-        }
-
-        private RecipeRow CreateRecipeRow(int rowIndex, Transform parent)
-        {
-            GameObject rowObject = new GameObject(
-                $"RecipeRow_{rowIndex}",
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(HorizontalLayoutGroup),
-                typeof(LayoutElement));
-            rowObject.transform.SetParent(parent, false);
-
-            Image rowBackground = rowObject.GetComponent<Image>();
-            rowBackground.color = new Color(0.16f, 0.2f, 0.27f, 0.94f);
-            rowBackground.raycastTarget = false;
-
-            LayoutElement rowLayoutElement = rowObject.GetComponent<LayoutElement>();
-            rowLayoutElement.preferredHeight = 72f;
-
-            HorizontalLayoutGroup rowLayout = rowObject.GetComponent<HorizontalLayoutGroup>();
-            rowLayout.padding = new RectOffset(10, 10, 8, 8);
-            rowLayout.spacing = 10f;
-            rowLayout.childAlignment = TextAnchor.MiddleLeft;
-            rowLayout.childControlHeight = true;
-            rowLayout.childControlWidth = true;
-            rowLayout.childForceExpandHeight = false;
-            rowLayout.childForceExpandWidth = false;
-
-            GameObject iconObject = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            iconObject.transform.SetParent(rowObject.transform, false);
-            LayoutElement iconLayout = iconObject.GetComponent<LayoutElement>();
-            iconLayout.preferredWidth = 42f;
-            iconLayout.preferredHeight = 42f;
-            Image iconImage = iconObject.GetComponent<Image>();
-            iconImage.preserveAspect = true;
-            iconImage.raycastTarget = false;
-
-            GameObject infoObject = new GameObject("Info", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(LayoutElement));
-            infoObject.transform.SetParent(rowObject.transform, false);
-            LayoutElement infoLayout = infoObject.GetComponent<LayoutElement>();
-            infoLayout.flexibleWidth = 1f;
-            infoLayout.minWidth = 180f;
-
-            VerticalLayoutGroup infoGroup = infoObject.GetComponent<VerticalLayoutGroup>();
-            infoGroup.spacing = 2f;
-            infoGroup.childAlignment = TextAnchor.MiddleLeft;
-            infoGroup.childControlHeight = true;
-            infoGroup.childControlWidth = true;
-            infoGroup.childForceExpandHeight = false;
-            infoGroup.childForceExpandWidth = true;
-
-            TextMeshProUGUI nameText = CreateRowText("Name", infoObject.transform, 23f, new Color(0.98f, 0.95f, 0.9f, 1f), TextAlignmentOptions.Left);
-            TextMeshProUGUI materialText = CreateRowText("Materials", infoObject.transform, 17f, new Color(0.84f, 0.9f, 0.94f, 0.95f), TextAlignmentOptions.Left);
-
-            GameObject buttonObject = new GameObject(
-                "CraftButton",
-                typeof(RectTransform),
-                typeof(Image),
-                typeof(Button),
-                typeof(LayoutElement));
-            buttonObject.transform.SetParent(rowObject.transform, false);
-
-            LayoutElement buttonLayout = buttonObject.GetComponent<LayoutElement>();
-            buttonLayout.preferredWidth = 104f;
-            buttonLayout.preferredHeight = 44f;
-
-            Image buttonImage = buttonObject.GetComponent<Image>();
-            buttonImage.color = new Color(0.35f, 0.6f, 0.38f, 1f);
-
-            Button craftButton = buttonObject.GetComponent<Button>();
-            craftButton.targetGraphic = buttonImage;
-
-            GameObject buttonTextObject = new GameObject("Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-            buttonTextObject.transform.SetParent(buttonObject.transform, false);
-            TextMeshProUGUI buttonText = buttonTextObject.GetComponent<TextMeshProUGUI>();
-            buttonText.font = _resolvedFontAsset;
-            buttonText.fontSize = 19f;
-            buttonText.color = Color.white;
-            buttonText.alignment = TextAlignmentOptions.Center;
-            buttonText.textWrappingMode = TextWrappingModes.NoWrap;
-            buttonText.raycastTarget = false;
-
-            RectTransform buttonTextRect = buttonText.rectTransform;
-            buttonTextRect.anchorMin = Vector2.zero;
-            buttonTextRect.anchorMax = Vector2.one;
-            buttonTextRect.offsetMin = Vector2.zero;
-            buttonTextRect.offsetMax = Vector2.zero;
-
-            int capturedIndex = rowIndex;
-            craftButton.onClick.AddListener(() => OnCraftButtonClicked(capturedIndex));
-
-            return new RecipeRow
+            if (_recipes.Count > 0)
             {
-                RootObject = rowObject,
-                IconImage = iconImage,
-                NameText = nameText,
-                MaterialText = materialText,
-                CraftButton = craftButton,
-                CraftButtonBackground = buttonImage,
-                CraftButtonLabel = buttonText
-            };
-        }
-
-        private TextMeshProUGUI CreateRowText(string objectName, Transform parent, float fontSize, Color color, TextAlignmentOptions alignment)
-        {
-            GameObject textObject = new GameObject(objectName, typeof(RectTransform), typeof(TextMeshProUGUI), typeof(LayoutElement));
-            textObject.transform.SetParent(parent, false);
-
-            LayoutElement layoutElement = textObject.GetComponent<LayoutElement>();
-            layoutElement.minHeight = fontSize + 4f;
-
-            TextMeshProUGUI textComponent = textObject.GetComponent<TextMeshProUGUI>();
-            textComponent.font = _resolvedFontAsset;
-            textComponent.fontSize = fontSize;
-            textComponent.color = color;
-            textComponent.alignment = alignment;
-            textComponent.textWrappingMode = TextWrappingModes.NoWrap;
-            textComponent.overflowMode = TextOverflowModes.Ellipsis;
-            textComponent.raycastTarget = false;
-            return textComponent;
-        }
-
-        private TMP_FontAsset ResolveFontAsset()
-        {
-            for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
-            {
-                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
-                if (candidate != null)
-                {
-                    return candidate;
-                }
+                return true;
             }
 
-            return TMP_Settings.defaultFontAsset;
+            RecipeData[] loaded = Resources.LoadAll<RecipeData>(RecipeResourceFolder);
+            if (loaded == null || loaded.Length == 0)
+            {
+                return false;
+            }
+
+            _recipes.AddRange(loaded.Where(r => r != null && r.requiredStation == CraftingStation.Workbench).OrderBy(r => r.recipeID));
+            return _recipes.Count > 0;
         }
 
-        private void EnsureRecipeDefinitions()
+        private void RefreshAll()
         {
-            if (_recipeDefinitions.Count > 0)
+            EnsureRows();
+            RefreshRows();
+            RefreshSelection();
+            UpdateQuantityUi();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
+        }
+
+        private void EnsureRows()
+        {
+            while (_rows.Count < _recipes.Count)
+            {
+                int capturedIndex = _rows.Count;
+                RectTransform row = CreatePanel(recipeListContent, $"RecipeRow_{capturedIndex}");
+                row.gameObject.AddComponent<LayoutElement>().preferredHeight = 64f;
+                var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
+                layout.spacing = 8f;
+                layout.padding = new RectOffset(8, 8, 8, 8);
+                layout.childControlWidth = false;
+                layout.childControlHeight = true;
+                layout.childForceExpandWidth = false;
+                layout.childForceExpandHeight = false;
+
+                Image icon = CreateIcon(row, "Icon", 30f);
+                RectTransform info = CreateRect(row, "Info");
+                info.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+                info.gameObject.AddComponent<VerticalLayoutGroup>().spacing = 2f;
+                TextMeshProUGUI name = CreateText(info, "Name", "配方", 17f, new Color(0.96f, 0.95f, 0.9f, 1f), TextAlignmentOptions.Left);
+                TextMeshProUGUI summary = CreateText(info, "Summary", "材料摘要", 12f, new Color(0.78f, 0.84f, 0.9f, 0.95f), TextAlignmentOptions.Left, true);
+
+                Button button = row.gameObject.AddComponent<Button>();
+                button.targetGraphic = row.GetComponent<Image>();
+                button.onClick.AddListener(() => SelectRecipe(capturedIndex));
+
+                _rows.Add(new RowRefs { root = row.gameObject, background = row.GetComponent<Image>(), icon = icon, name = name, summary = summary });
+            }
+        }
+
+        private void RefreshRows()
+        {
+            for (int index = 0; index < _rows.Count; index++)
+            {
+                RecipeData recipe = _recipes[index];
+                ItemData item = ResolveItem(recipe.resultItemID);
+                bool selected = index == _selectedIndex;
+                bool canCraft = GetMaxCraftableCount(recipe) > 0;
+                _rows[index].icon.sprite = item != null ? item.GetBagSprite() : null;
+                _rows[index].icon.color = _rows[index].icon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+                _rows[index].name.text = string.IsNullOrWhiteSpace(recipe.recipeName) ? (item != null ? item.itemName : $"配方 {recipe.recipeID}") : recipe.recipeName;
+                _rows[index].summary.text = BuildSummary(recipe);
+                _rows[index].background.color = selected
+                    ? new Color(0.24f, 0.32f, 0.25f, 0.96f)
+                    : canCraft ? new Color(0.16f, 0.2f, 0.27f, 0.92f) : new Color(0.25f, 0.18f, 0.15f, 0.9f);
+            }
+        }
+
+        private void SelectRecipe(int index)
+        {
+            if (index < 0 || index >= _recipes.Count)
             {
                 return;
             }
 
-            _recipeDefinitions.Add(new WorkbenchRecipeDefinition
-            {
-                recipeId = 9100,
-                resultItemId = AxeItemId,
-                displayName = "Axe_0",
-                ingredients = new List<IngredientDefinition>
-                {
-                    new IngredientDefinition(WoodItemId, 3)
-                }
-            });
-
-            _recipeDefinitions.Add(new WorkbenchRecipeDefinition
-            {
-                recipeId = 9101,
-                resultItemId = HoeItemId,
-                displayName = "Hoe_0",
-                ingredients = new List<IngredientDefinition>
-                {
-                    new IngredientDefinition(WoodItemId, 2)
-                }
-            });
-
-            _recipeDefinitions.Add(new WorkbenchRecipeDefinition
-            {
-                recipeId = 9102,
-                resultItemId = PickaxeItemId,
-                displayName = "Pickaxe_0",
-                ingredients = new List<IngredientDefinition>
-                {
-                    new IngredientDefinition(WoodItemId, 3),
-                    new IngredientDefinition(StoneItemId, 2)
-                }
-            });
+            _selectedIndex = index;
+            _selectedQuantity = 1;
+            RefreshAll();
         }
 
-        private void EnsureRuntimeRecipes()
+        private void RefreshSelection()
         {
-            if (_runtimeRecipes.Count == _recipeDefinitions.Count)
+            RecipeData recipe = GetSelectedRecipe();
+            if (recipe == null)
             {
                 return;
             }
 
-            for (int index = 0; index < _runtimeRecipes.Count; index++)
+            ItemData item = ResolveItem(recipe.resultItemID);
+            selectedIcon.sprite = item != null ? item.GetBagSprite() : null;
+            selectedIcon.color = selectedIcon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+            selectedNameText.text = string.IsNullOrWhiteSpace(recipe.recipeName) ? (item != null ? item.itemName : $"配方 {recipe.recipeID}") : recipe.recipeName;
+            selectedDescriptionText.text = string.IsNullOrWhiteSpace(recipe.description) ? "暂无配方说明。" : recipe.description;
+            selectedMaterialsText.text = BuildDetailText(recipe, _selectedQuantity);
+        }
+
+        private void UpdateQuantityUi()
+        {
+            RecipeData recipe = GetSelectedRecipe();
+            int maxCraftable = recipe != null ? Mathf.Max(1, GetMaxCraftableCount(recipe)) : 1;
+            _selectedQuantity = Mathf.Clamp(_selectedQuantity, 1, maxCraftable);
+            quantitySlider.minValue = 1f;
+            quantitySlider.maxValue = maxCraftable;
+            quantitySlider.wholeNumbers = true;
+            quantitySlider.SetValueWithoutNotify(_selectedQuantity);
+            quantityValueText.text = $"x{_selectedQuantity}";
+            decreaseButton.interactable = _selectedQuantity > 1;
+            increaseButton.interactable = _selectedQuantity < maxCraftable;
+
+            bool canCraft = recipe != null && _selectedQuantity <= GetMaxCraftableCount(recipe);
+            craftButton.interactable = canCraft;
+            craftButtonLabel.text = canCraft ? $"制作 x{_selectedQuantity}" : "材料不足";
+        }
+
+        private void ChangeQuantity(int delta)
+        {
+            SetQuantity(_selectedQuantity + delta);
+        }
+
+        private void SetQuantity(int quantity, bool updateSlider = true)
+        {
+            RecipeData recipe = GetSelectedRecipe();
+            int maxCraftable = recipe != null ? Mathf.Max(1, GetMaxCraftableCount(recipe)) : 1;
+            _selectedQuantity = Mathf.Clamp(quantity, 1, maxCraftable);
+            if (updateSlider)
             {
-                if (_runtimeRecipes[index] != null)
+                quantitySlider.SetValueWithoutNotify(_selectedQuantity);
+            }
+
+            RefreshSelection();
+            UpdateQuantityUi();
+        }
+
+        private void OnCraftButtonClicked()
+        {
+            RecipeData recipe = GetSelectedRecipe();
+            if (_craftingService == null || recipe == null)
+            {
+                return;
+            }
+
+            int successCount = 0;
+            CraftResult lastResult = default;
+            for (int index = 0; index < _selectedQuantity; index++)
+            {
+                lastResult = _craftingService.TryCraft(recipe);
+                if (!lastResult.success)
                 {
-                    Destroy(_runtimeRecipes[index]);
+                    break;
                 }
+
+                successCount++;
             }
 
-            _runtimeRecipes.Clear();
-
-            for (int index = 0; index < _recipeDefinitions.Count; index++)
+            if (successCount > 0)
             {
-                _runtimeRecipes.Add(CreateRuntimeRecipe(_recipeDefinitions[index]));
+                statusText.color = new Color(0.78f, 0.9f, 0.82f, 1f);
+                statusText.text = $"已制作 {recipe.recipeName} x{successCount}";
             }
+            else
+            {
+                statusText.color = new Color(0.98f, 0.75f, 0.62f, 1f);
+                statusText.text = string.IsNullOrWhiteSpace(lastResult.message) ? "当前无法制作该配方。" : lastResult.message;
+            }
+
+            _selectedQuantity = 1;
+            RefreshAll();
         }
 
-        private RecipeData CreateRuntimeRecipe(WorkbenchRecipeDefinition definition)
+        private int GetMaxCraftableCount(RecipeData recipe)
         {
-            RecipeData recipe = ScriptableObject.CreateInstance<RecipeData>();
-            recipe.hideFlags = HideFlags.HideAndDontSave;
-            recipe.recipeID = definition.recipeId;
-            recipe.recipeName = definition.displayName;
-            recipe.description = "spring-day1 工作台临时配方";
-            recipe.resultItemID = definition.resultItemId;
-            recipe.resultAmount = 1;
-            recipe.requiredStation = CraftingStation.Workbench;
-            recipe.unlockedByDefault = true;
-            recipe.requiredSkillLevel = 1;
-            recipe.requiredLevel = 1;
-            recipe.ingredients = new List<RecipeIngredient>();
-
-            for (int index = 0; index < definition.ingredients.Count; index++)
+            if (_craftingService == null || recipe == null || !_craftingService.IsRecipeUnlocked(recipe) || recipe.ingredients == null || recipe.ingredients.Count == 0)
             {
-                IngredientDefinition ingredient = definition.ingredients[index];
-                recipe.ingredients.Add(new RecipeIngredient
-                {
-                    itemID = ingredient.itemId,
-                    amount = ingredient.amount
-                });
+                return 0;
             }
 
-            return recipe;
-        }
-
-        private void RefreshRecipeRows()
-        {
-            for (int index = 0; index < _recipeRows.Count; index++)
+            int materialCap = int.MaxValue;
+            foreach (RecipeIngredient ingredient in recipe.ingredients)
             {
-                bool hasRecipe = index < _recipeDefinitions.Count && index < _runtimeRecipes.Count;
-                _recipeRows[index].SetVisible(hasRecipe);
-                if (!hasRecipe)
+                if (ingredient.amount <= 0)
                 {
                     continue;
                 }
 
-                WorkbenchRecipeDefinition definition = _recipeDefinitions[index];
-                RecipeData runtimeRecipe = _runtimeRecipes[index];
-                ItemData resultItem = ResolveItemData(definition.resultItemId);
-
-                _recipeRows[index].IconImage.sprite = resultItem != null ? resultItem.GetBagSprite() : null;
-                _recipeRows[index].IconImage.color = resultItem != null ? Color.white : new Color(1f, 1f, 1f, 0f);
-                _recipeRows[index].NameText.text = resultItem != null && !string.IsNullOrWhiteSpace(resultItem.itemName)
-                    ? resultItem.itemName
-                    : definition.displayName;
-                _recipeRows[index].MaterialText.text = BuildMaterialLine(definition);
-
-                bool canCraft = _craftingService != null && _craftingService.CanCraft(runtimeRecipe);
-                _recipeRows[index].CraftButton.interactable = true;
-                _recipeRows[index].CraftButtonLabel.text = canCraft ? "制作" : "缺材料";
-                _recipeRows[index].CraftButtonBackground.color = canCraft
-                    ? new Color(0.35f, 0.6f, 0.38f, 1f)
-                    : new Color(0.4f, 0.34f, 0.24f, 1f);
+                materialCap = Mathf.Min(materialCap, _craftingService.GetMaterialCount(ingredient.itemID) / ingredient.amount);
             }
 
-            LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
-        }
-
-        private string BuildMaterialLine(WorkbenchRecipeDefinition definition)
-        {
-            List<string> parts = new List<string>(definition.ingredients.Count);
-            for (int index = 0; index < definition.ingredients.Count; index++)
+            if (materialCap == int.MaxValue)
             {
-                IngredientDefinition ingredient = definition.ingredients[index];
-                ItemData itemData = ResolveItemData(ingredient.itemId);
-                string itemName = itemData != null && !string.IsNullOrWhiteSpace(itemData.itemName)
-                    ? itemData.itemName
-                    : $"Item_{ingredient.itemId}";
-                int ownedCount = _craftingService != null ? _craftingService.GetMaterialCount(ingredient.itemId) : 0;
-                parts.Add($"{itemName} {ownedCount}/{ingredient.amount}");
+                materialCap = 0;
             }
 
-            return string.Join("  ·  ", parts);
+            InventoryService inventory = _craftingService.Inventory;
+            if (inventory == null || recipe.resultAmount <= 0)
+            {
+                return 0;
+            }
+
+            int capacity = 0;
+            int maxStack = Mathf.Max(1, inventory.GetMaxStack(recipe.resultItemID));
+            for (int slotIndex = 0; slotIndex < inventory.Size; slotIndex++)
+            {
+                ItemStack slot = inventory.GetSlot(slotIndex);
+                if (slot.IsEmpty)
+                {
+                    capacity += maxStack;
+                }
+                else if (slot.itemId == recipe.resultItemID && slot.amount < maxStack)
+                {
+                    capacity += maxStack - slot.amount;
+                }
+            }
+
+            return Mathf.Max(0, Mathf.Min(materialCap, capacity / recipe.resultAmount));
         }
 
-        private ItemData ResolveItemData(int itemId)
+        private string BuildSummary(RecipeData recipe)
+        {
+            return recipe.ingredients == null
+                ? "暂无材料"
+                : string.Join(" · ", recipe.ingredients.Select(i => $"{ResolveItem(i.itemID)?.itemName ?? $"材料{i.itemID}"} x{i.amount}"));
+        }
+
+        private string BuildDetailText(RecipeData recipe, int quantity)
+        {
+            List<string> lines = new List<string>();
+            foreach (RecipeIngredient ingredient in recipe.ingredients)
+            {
+                ItemData item = ResolveItem(ingredient.itemID);
+                int owned = _craftingService != null ? _craftingService.GetMaterialCount(ingredient.itemID) : 0;
+                int required = ingredient.amount * quantity;
+                lines.Add($"{item?.itemName ?? $"材料 {ingredient.itemID}"}：{owned}/{required}");
+            }
+
+            int maxCraftable = GetMaxCraftableCount(recipe);
+            lines.Add(string.Empty);
+            lines.Add(maxCraftable > 0 ? $"当前最多可制作 {maxCraftable} 次" : "当前材料不足，暂时无法制作");
+            lines.Add("工作台 UI 只响应鼠标左键，右键停在面板上不会透到底板。");
+            return string.Join("\n", lines);
+        }
+
+        private RecipeData GetSelectedRecipe()
+        {
+            return _selectedIndex >= 0 && _selectedIndex < _recipes.Count ? _recipes[_selectedIndex] : null;
+        }
+
+        private ItemData ResolveItem(int itemId)
         {
             ItemDatabase database = _craftingService != null ? _craftingService.Database : null;
             if (database == null && _inventoryService != null)
@@ -588,38 +587,22 @@ namespace Sunset.Story
             return database != null ? database.GetItemByID(itemId) : null;
         }
 
-        private void OnCraftButtonClicked(int index)
-        {
-            if (_craftingService == null || index < 0 || index >= _runtimeRecipes.Count)
-            {
-                return;
-            }
-
-            CraftResult result = _craftingService.TryCraft(_runtimeRecipes[index]);
-            statusText.color = result.success
-                ? new Color(0.76f, 0.9f, 0.82f, 1f)
-                : new Color(0.98f, 0.73f, 0.62f, 1f);
-            statusText.text = result.message;
-            RefreshRecipeRows();
-        }
-
-        private void BindInventoryListener(InventoryService inventoryService)
+        private void BindInventory(InventoryService inventoryService)
         {
             if (_inventoryService == inventoryService)
             {
                 return;
             }
 
-            DetachInventoryListener();
+            UnbindInventory();
             _inventoryService = inventoryService;
-
             if (_inventoryService != null)
             {
                 _inventoryService.OnInventoryChanged += HandleInventoryChanged;
             }
         }
 
-        private void DetachInventoryListener()
+        private void UnbindInventory()
         {
             if (_inventoryService != null)
             {
@@ -632,110 +615,212 @@ namespace Sunset.Story
         {
             if (_isVisible)
             {
-                RefreshRecipeRows();
+                RefreshAll();
             }
         }
 
-        private void RepositionToAnchor()
+        private void Reposition()
         {
-            if (_anchorTarget == null || panelRect == null || _rootCanvasRect == null)
+            if (_canvasRect == null)
             {
                 return;
             }
 
-            Vector3 worldPosition = GetAnchorWorldPosition(_anchorTarget);
-            Camera projectionCamera = null;
-            if (_rootCanvas != null && _rootCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
-            {
-                projectionCamera = _rootCanvas.worldCamera != null ? _rootCanvas.worldCamera : Camera.main;
-            }
-
+            Camera projectionCamera = _canvas != null && _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? (_canvas.worldCamera != null ? _canvas.worldCamera : Camera.main)
+                : null;
+            Vector3 worldPosition = GetAnchorBounds().center + Vector3.up * (_displayBelow ? -BelowOffset : AboveOffset);
             Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(projectionCamera, worldPosition);
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_rootCanvasRect, screenPoint, projectionCamera, out Vector2 localPoint))
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(_canvasRect, screenPoint, projectionCamera, out Vector2 localPoint))
             {
                 return;
             }
 
-            float width = panelRect.rect.width > 0f ? panelRect.rect.width : 440f;
-            float height = panelRect.rect.height > 0f ? panelRect.rect.height : 240f;
+            float width = panelRect.rect.width > 0f ? panelRect.rect.width : PanelWidth;
+            float height = panelRect.rect.height > 0f ? panelRect.rect.height : PanelHeight;
+            float halfWidth = _canvasRect.rect.width * 0.5f;
+            float halfHeight = _canvasRect.rect.height * 0.5f;
+            float minX = -halfWidth + width * panelRect.pivot.x + ScreenMargin;
+            float maxX = halfWidth - width * (1f - panelRect.pivot.x) - ScreenMargin;
+            float minY = -halfHeight + height * panelRect.pivot.y + ScreenMargin;
+            float maxY = halfHeight - height * (1f - panelRect.pivot.y) - ScreenMargin;
 
-            float halfCanvasWidth = _rootCanvasRect.rect.width * 0.5f;
-            float halfCanvasHeight = _rootCanvasRect.rect.height * 0.5f;
-
-            float minX = -halfCanvasWidth + (width * 0.5f) + HorizontalMargin;
-            float maxX = halfCanvasWidth - (width * 0.5f) - HorizontalMargin;
-            float minY = -halfCanvasHeight + VerticalMargin;
-            float maxY = halfCanvasHeight - height - VerticalMargin;
-
-            panelRect.anchoredPosition = new Vector2(
-                Mathf.Clamp(localPoint.x, minX, maxX),
-                Mathf.Clamp(localPoint.y, minY, maxY));
+            panelRect.anchoredPosition = new Vector2(Mathf.Clamp(localPoint.x, minX, maxX), Mathf.Clamp(localPoint.y, minY, maxY));
         }
 
-        private static Vector3 GetAnchorWorldPosition(Transform target)
+        private Bounds GetAnchorBounds()
         {
-            Collider2D collider2D = target.GetComponent<Collider2D>();
-            if (collider2D == null)
+            if (_anchorTarget == null)
             {
-                collider2D = target.GetComponentInChildren<Collider2D>();
+                return new Bounds(Vector3.zero, Vector3.one);
             }
 
-            if (collider2D != null)
+            Collider2D col = _anchorTarget.GetComponent<Collider2D>() ?? _anchorTarget.GetComponentInChildren<Collider2D>();
+            if (col != null)
             {
-                return collider2D.bounds.center + new Vector3(0f, collider2D.bounds.extents.y + VerticalWorldOffset, 0f);
+                return col.bounds;
             }
 
-            SpriteRenderer spriteRenderer = target.GetComponent<SpriteRenderer>();
-            if (spriteRenderer == null)
+            SpriteRenderer sr = _anchorTarget.GetComponent<SpriteRenderer>() ?? _anchorTarget.GetComponentInChildren<SpriteRenderer>();
+            if (sr != null)
             {
-                spriteRenderer = target.GetComponentInChildren<SpriteRenderer>();
+                return sr.bounds;
             }
 
-            if (spriteRenderer != null)
-            {
-                return spriteRenderer.bounds.center + new Vector3(0f, spriteRenderer.bounds.extents.y + VerticalWorldOffset, 0f);
-            }
-
-            return target.position + Vector3.up * VerticalWorldOffset;
+            return new Bounds(_anchorTarget.position, Vector3.one);
         }
 
-        private sealed class WorkbenchRecipeDefinition
+        private Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
         {
-            public int recipeId;
-            public int resultItemId;
-            public string displayName;
-            public List<IngredientDefinition> ingredients = new();
+            Collider2D col = _anchorTarget != null ? (_anchorTarget.GetComponent<Collider2D>() ?? _anchorTarget.GetComponentInChildren<Collider2D>()) : null;
+            return col != null ? col.ClosestPoint(playerPosition) : (_anchorTarget != null ? (Vector2)_anchorTarget.position : Vector2.zero);
         }
 
-        private readonly struct IngredientDefinition
+        private TMP_FontAsset ResolveFont()
         {
-            public int itemId { get; }
-            public int amount { get; }
-
-            public IngredientDefinition(int itemId, int amount)
+            foreach (string path in PreferredFontResourcePaths)
             {
-                this.itemId = itemId;
-                this.amount = amount;
-            }
-        }
-
-        private sealed class RecipeRow
-        {
-            public GameObject RootObject;
-            public Image IconImage;
-            public TextMeshProUGUI NameText;
-            public TextMeshProUGUI MaterialText;
-            public Button CraftButton;
-            public Image CraftButtonBackground;
-            public TextMeshProUGUI CraftButtonLabel;
-
-            public void SetVisible(bool visible)
-            {
-                if (RootObject != null)
+                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(path);
+                if (candidate != null)
                 {
-                    RootObject.SetActive(visible);
+                    return candidate;
                 }
             }
+
+            return TMP_Settings.defaultFontAsset;
+        }
+
+        private static Transform ResolveParent()
+        {
+            GameObject uiRoot = GameObject.Find("UI");
+            if (uiRoot != null)
+            {
+                Canvas canvas = uiRoot.GetComponent<Canvas>() ?? uiRoot.GetComponentInChildren<Canvas>(true);
+                return canvas != null ? canvas.transform : uiRoot.transform;
+            }
+
+            Canvas fallback = Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+            return fallback != null ? fallback.transform : null;
+        }
+
+        private static Transform ResolvePlayerTransform()
+        {
+            PlayerMovement playerMovement = Object.FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            return playerMovement != null ? playerMovement.transform : null;
+        }
+
+        private RectTransform CreatePanel(Transform parent, string name, float preferredWidth = -1f)
+        {
+            RectTransform rect = CreateRect(parent, name);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = new Color(0.12f, 0.15f, 0.21f, 0.82f);
+            image.raycastTarget = true;
+            var layout = rect.gameObject.AddComponent<VerticalLayoutGroup>();
+            layout.padding = new RectOffset(12, 12, 12, 12);
+            layout.spacing = 8f;
+            layout.childControlWidth = true;
+            layout.childControlHeight = true;
+            layout.childForceExpandWidth = true;
+            layout.childForceExpandHeight = false;
+            if (preferredWidth > 0f)
+            {
+                rect.gameObject.AddComponent<LayoutElement>().preferredWidth = preferredWidth;
+            }
+
+            return rect;
+        }
+
+        private static RectTransform CreateRect(Transform parent, string name)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return go.GetComponent<RectTransform>();
+        }
+
+        private TextMeshProUGUI CreateText(Transform parent, string name, string text, float fontSize, Color color, TextAlignmentOptions alignment, bool wrap = false)
+        {
+            RectTransform rect = CreateRect(parent, name);
+            TextMeshProUGUI tmp = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            tmp.font = _fontAsset;
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.color = color;
+            tmp.alignment = alignment;
+            tmp.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            tmp.overflowMode = wrap ? TextOverflowModes.Overflow : TextOverflowModes.Ellipsis;
+            tmp.raycastTarget = false;
+            return tmp;
+        }
+
+        private Image CreateIcon(Transform parent, string name, float size)
+        {
+            RectTransform rect = CreateRect(parent, name);
+            LayoutElement layout = rect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredWidth = size;
+            layout.preferredHeight = size;
+            Image image = rect.gameObject.AddComponent<Image>();
+            image.preserveAspect = true;
+            image.raycastTarget = false;
+            image.color = new Color(1f, 1f, 1f, 0f);
+            return image;
+        }
+
+        private Button CreateButton(Transform parent, string name, string label, float width)
+        {
+            RectTransform rect = CreateRect(parent, name);
+            LayoutElement layout = rect.gameObject.AddComponent<LayoutElement>();
+            layout.preferredWidth = width;
+            layout.preferredHeight = 36f;
+            Image image = rect.gameObject.AddComponent<Image>();
+            image.color = new Color(0.3f, 0.38f, 0.48f, 0.96f);
+            image.raycastTarget = true;
+            Button button = rect.gameObject.AddComponent<Button>();
+            button.targetGraphic = image;
+            CreateText(rect, "Label", label, 18f, Color.white, TextAlignmentOptions.Center);
+            return button;
+        }
+
+        private Slider CreateSlider(Transform parent)
+        {
+            RectTransform rect = CreateRect(parent, "Slider");
+            rect.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
+            Image background = rect.gameObject.AddComponent<Image>();
+            background.color = new Color(0.18f, 0.22f, 0.3f, 0.94f);
+            background.raycastTarget = true;
+            Slider slider = rect.gameObject.AddComponent<Slider>();
+            slider.direction = Slider.Direction.LeftToRight;
+
+            RectTransform fillArea = CreateRect(rect, "FillArea");
+            fillArea.anchorMin = Vector2.zero;
+            fillArea.anchorMax = Vector2.one;
+            fillArea.offsetMin = new Vector2(8f, 8f);
+            fillArea.offsetMax = new Vector2(-8f, -8f);
+            RectTransform fill = CreateRect(fillArea, "Fill");
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = Vector2.one;
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+            fill.gameObject.AddComponent<Image>().color = new Color(0.46f, 0.71f, 0.56f, 0.96f);
+
+            RectTransform handle = CreateRect(rect, "Handle");
+            handle.sizeDelta = new Vector2(16f, 24f);
+            Image handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = Color.white;
+            handleImage.raycastTarget = true;
+
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            return slider;
+        }
+
+        private sealed class RowRefs
+        {
+            public GameObject root;
+            public Image background;
+            public Image icon;
+            public TextMeshProUGUI name;
+            public TextMeshProUGUI summary;
         }
     }
 }

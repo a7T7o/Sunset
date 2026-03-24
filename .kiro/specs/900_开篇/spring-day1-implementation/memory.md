@@ -479,3 +479,29 @@
 - 当前恢复点：
   - spring-day1 的工作台阶段已经从“只有测试兜底”推进到“有最小可点击制作 UI”
   - 后续主要剩人工验收：靠近 `Anvil_0` 按 `E`，确认浮层、制作和 Day1 统计都正常
+
+## 2026-03-24 补记：工作台 UI 已进一步收成正式三栏浮层
+- 本轮继续沿 spring-day1 主线推进，没有切到别的系统；只是把上一刀“最小可点击制作 UI”继续打磨成更接近正式可验收的表现。
+- 已修改 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`：
+  - 由单列测试浮层升级为三块结构：
+    - 左侧滚动配方列
+    - 右侧名称 / 简介 / 材料详情
+    - 底部数量滑条与 `+ / -`
+  - 交互数据不再运行时伪造 `RecipeData`，改为从 `Resources.LoadAll<RecipeData>("Story/SpringDay1Workbench")` 读取
+  - 关键背景全部保留 raycast，确保工作台 UI 只接受鼠标左键交互，右键停在 UI 面板上时不会把导航透到地板
+  - 新增“离工作台超距自动关闭”和“根据玩家位于工作台上/下方决定 UI 显示在上/下方”两条逻辑
+- 已修改 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`：
+  - 交互距离收口为 `0.5m`
+  - UI 自动关闭距离收口为 `1.5m`
+  - 打开浮层时把 `PlayerTransform` 一并传给工作台 UI，用于上下翻转判断
+- 已新增正式 RecipeData 资源：
+  - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9100_Axe_0.asset`
+  - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9101_Hoe_0.asset`
+  - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset`
+- 已同步更新 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`，把上述交互口径与 SO 数据源一起纳入静态守护。
+- 本轮静态验证：
+  - `git diff --check`
+  - `CodexCodeGuard`（`utf8-strict / git-diff-check / roslyn-assembly-compile`）
+- 当前恢复点：
+  - spring-day1 的工作台环节现在已经不是“先能用再说”的测试 UI，而是正式数据驱动的验收版本
+  - 下一步主要剩用户侧的最终观感与体感验收

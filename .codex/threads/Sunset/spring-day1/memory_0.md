@@ -624,3 +624,32 @@
 - 当前主线恢复点：
   - Day1 的代码侧主链已经补到“工作台真正可做东西”
   - 下一步主要是人工验收工作台浮层与实际制作表现
+
+## 2026-03-24 补记：我已把工作台 UI 从“最小能用”推进到“正式验收版”
+- 当前主线没有变化，仍是 spring-day1 的 Day1 剧情/交互推进；这轮只是继续把工作台口子打磨完整。
+- 本轮命中并显式使用：
+  - `skills-governor`：做前置核查、收尾技能审计
+  - `sunset-workspace-router`：确认仍应回写到 `spring-day1-implementation` 与 `0.0.2初步落地`
+- 本轮已完成：
+  - 重写 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+    - 左侧滚动配方选择
+    - 右侧详情 / 材料区
+    - 底部数量滑条与 `+ / -`
+    - 根据玩家交互时位于工作台上/下方，浮层只在两个方向切换
+    - 打开后玩家离开 `1.5m` 自动收起
+    - 所有关键底板都启用 raycast，右键停在 UI 上时不会把导航透到底板
+  - 修改 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+    - 工作台 `E` 键交互距离收口为 `0.5m`
+    - 把 `PlayerTransform + overlayAutoCloseDistance` 传给工作台浮层
+  - 新增 RecipeData 资源：
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9100_Axe_0.asset`
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9101_Hoe_0.asset`
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset`
+    - 这轮已不再运行时 `CreateInstance<RecipeData>()` 伪造配方，而是正式读 SO
+  - 更新 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 验证结果：
+  - `git diff --check` 通过
+  - `CodexCodeGuard` 通过
+- 当前主线恢复点：
+  - Day1 工作台 UI 代码侧已收成正式验收版
+  - 下一步主要剩用户做最终观感验收，我再根据体验细修

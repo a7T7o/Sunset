@@ -9,13 +9,14 @@ namespace Sunset.Story
         [Header("Crafting Station")]
         [SerializeField] private CraftingStation station = CraftingStation.Workbench;
         [SerializeField] private string interactionHint = "使用工作台";
-        [SerializeField] private float interactionDistance = 1.8f;
+        [SerializeField] private float interactionDistance = 0.5f;
         [SerializeField] private int interactionPriority = 28;
         [SerializeField] private bool createCraftingServiceIfMissing = true;
         [SerializeField] private bool notifySpringDay1Director = true;
         [SerializeField] private CraftingPanel craftingPanel;
         [SerializeField] private bool preferStoryWorkbenchOverlay = true;
         [SerializeField] private SpringDay1WorkbenchCraftingOverlay workbenchOverlay;
+        [SerializeField] private float overlayAutoCloseDistance = 1.5f;
 
         [Header("Test Interaction")]
         [SerializeField] private bool enableProximityKeyInteraction = true;
@@ -70,7 +71,7 @@ namespace Sunset.Story
                 if (overlay != null)
                 {
                     bool wasVisible = overlay.IsVisible;
-                    bool isVisible = overlay.Toggle(transform, craftingService, station);
+                    bool isVisible = overlay.Toggle(transform, context?.PlayerTransform, craftingService, station, overlayAutoCloseDistance);
                     if (wasVisible && !isVisible)
                     {
                         return;
@@ -122,6 +123,9 @@ namespace Sunset.Story
             {
                 interactionHint = station == CraftingStation.AnvilForge ? "使用铁砧" : "使用工作台";
             }
+
+            interactionDistance = Mathf.Max(0.1f, interactionDistance);
+            overlayAutoCloseDistance = Mathf.Max(interactionDistance, overlayAutoCloseDistance);
         }
 
         private void Update()
