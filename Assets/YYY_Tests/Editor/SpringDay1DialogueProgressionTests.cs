@@ -181,10 +181,14 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("GetClosestInteractionPoint", overlayText, "Day1 工作台浮层应根据玩家距离自动关闭");
         StringAssert.Contains("_displayBelow", overlayText, "Day1 工作台浮层应支持工作台上/下两个显示方向");
         StringAssert.Contains("ApplyDisplayDirection", overlayText, "Day1 工作台浮层应显式切换上/下两种悬浮方向");
+        StringAssert.Contains("GetWorldProjectionCamera()", overlayText, "Day1 工作台浮层应使用真实世界投影相机计算工作台屏幕位置");
+        StringAssert.Contains("GetUiEventCamera()", overlayText, "Day1 工作台浮层应区分 UI 事件相机与世界投影相机");
         StringAssert.Contains("pointerRect", overlayText, "Day1 工作台浮层应带有指向工作台的悬浮指针");
         StringAssert.Contains("RecipeColumn", overlayText, "Day1 工作台浮层应保留左侧滚动配方列");
         StringAssert.Contains("DetailColumn", overlayText, "Day1 工作台浮层应保留右侧详情列");
         StringAssert.Contains("QuantityControls", overlayText, "Day1 工作台浮层应保留底部数量调节区");
+        StringAssert.Contains("StretchRect(labelText.rectTransform", overlayText, "Day1 工作台浮层按钮标签应铺满按钮区域，避免出现空白按钮");
+        StringAssert.Contains("CenterRect(selectedIcon.rectTransform)", overlayText, "Day1 工作台浮层的选中图标应居中显示在详情卡片中");
         StringAssert.DoesNotContain("E 打开，超出 1.5 米自动收起", overlayText, "正式工作台 UI 不应再出现测试说明文案");
         StringAssert.DoesNotContain("工作台 UI 只响应鼠标左键", overlayText, "正式工作台 UI 不应在面板里显示调试提示语");
         StringAssert.Contains("recipeID: 9100", axeRecipeText, "Axe_0 配方资源应存在且使用固定 recipeID");

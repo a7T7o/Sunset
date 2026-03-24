@@ -574,3 +574,9 @@
 - 当前恢复点：
   - spring-day1 这轮 shared root 清扫已收缩为 `DialogueUI.cs + 4 个字体资产` 的最小白名单
   - 收口完成后，shared root 中与 spring-day1 明确相关的这批活 dirty 不再继续挂着
+
+## 2026-03-24 补记：工作台 UI 已从“样式版”收口到“真实跟随版”
+- 本轮继续只收 `SpringDay1WorkbenchCraftingOverlay.cs`，没有扩写别的 Day1 功能，也没有碰 `Primary.unity`。
+- 关键补口是：把工作台浮层的世界位置投影链与 UI 真实尺寸链补完整，解决“没有真正跟随工作台、左栏像没做出来、按钮/图标像空壳”的问题。
+- 已同步补 `SpringDay1DialogueProgressionTests.cs` 静态守护，并通过 `git diff --check` 与 `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 ...` 的两文件代码闸门。
+- 恢复点：spring-day1 这条工作台支线当前剩的已不是代码结构问题，而是最终体验验收与按白名单收口。

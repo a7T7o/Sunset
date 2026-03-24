@@ -576,3 +576,20 @@
 - 当前恢复点：
   - 代码侧已经回到“可交给用户做最终观感验收”的状态
   - 下一步应由用户直接验证：位置是否真跟随工作台、上/下翻转是否正确、左侧配方列是否正常、右键是否不透传
+
+## 2026-03-24 补记：工作台 UI 已补强真实跟随与正式成品布局
+- 本轮主线仍是 spring-day1 的工作台 UI 收口，不碰 `Primary.unity`、不调 MCP/live，只在代码侧把“位置错、左栏空、按钮像半成品”这类问题一次收口。
+- 已修改：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 本轮关键修正：
+  - `Reposition()` 现在明确区分 `GetWorldProjectionCamera()` 与 `GetUiEventCamera()`，真正按工作台世界位置投到屏幕，再落到 UI 本地坐标，不再漂到错误位置。
+  - 补齐 `CreateDivider(...)`，并修正 `CreateText / CreateIcon / CreateButton / CreateSlider` 的尺寸、锚点与拉伸逻辑；左侧配方列、右侧详情、底部数量区现在都具备完整可见尺寸，不再是“有对象但看不见”。
+  - 保留 `ApplyDisplayDirection(...)`、`0.5m` 打开、`1.5m` 超距自动关闭和 `ApplyNavigationBlock(...)` 的右键导航阻断链，继续满足正式游玩口径。
+- 本轮验证：
+  - `git diff --check`
+  - `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 -IncludePaths Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs;Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+  - 代码闸门通过：`Assembly-CSharp`、`Tests.Editor`
+- 当前恢复点：
+  - 工作台 UI 代码侧已从“样式重做一版”推进到“位置链 + 可见链 + 交互链都收实”的版本
+  - 下一步应直接由用户做最终体验验收，再决定是否只做最后一轮微调或直接白名单提交

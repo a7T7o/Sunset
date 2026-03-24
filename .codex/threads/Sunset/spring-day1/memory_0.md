@@ -723,3 +723,18 @@
 - 当前恢复点：
   - 这轮收完后，spring-day1 在 shared root 里的 owned dirty 将从“功能尾巴 + 字体尾巴”收缩为已提交 checkpoint
   - 后续再回到 Day1 运行链时，不需要继续带着这批 shared root 脏改前行
+
+## 2026-03-24 补记：我已把工作台浮层从“半成品悬浮板”收成真实跟随版
+- 当前主线还是 spring-day1 的 Day1 工作台口，不是切去做别的系统；用户这轮核心纠偏是：你这个 UI 没真正跟着工作台，左边像空的，而且整体太难看。
+- 我这轮只收两处：`Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` 和 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`。
+- 真正收掉的不是一句“重做样式”，而是两条底层链：
+  - 世界位置 -> 屏幕位置 -> UI 本地坐标 的投影链，现在通过 `GetWorldProjectionCamera()` / `GetUiEventCamera()` 明确区分，浮层会按工作台世界位置跟随。
+  - 文字、图标、按钮、滑条的尺寸/锚点链，现在补齐了 `CreateDivider`、`StretchRect`、`CenterRect`，并修正了 `CreateText / CreateIcon / CreateButton / CreateSlider`，左侧配方列和右侧详情区不会再出现“对象在，但视觉上像没做”的情况。
+- 我没有碰 `Primary.unity`、没有碰 `GameInputManager.cs`、没有调用 MCP/live；本轮就是纯代码收口。
+- 验证已经过：
+  - `git diff --check`
+  - `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 -IncludePaths Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs;Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+  - 代码闸门：`Assembly-CSharp`、`Tests.Editor`
+- 当前恢复点：
+  - 这条线下一步不是继续乱铺功能，而是让用户直接验：工作台上/下方翻转、左侧配方列、右键不透传、距离超出自动收起。
+  - 如果体验通过，就可以直接按这两文件做白名单收口；如果还差，只允许再做最后一轮观感微调。
