@@ -1106,3 +1106,176 @@
 - 当前恢复点：
   - 后续如果继续导航线，应直接让线程读取 `002-prompt-7.md`；
   - 判断它有没有真正推进到 `S0-S6` 的哪一步，而不是再按旧 prompt 口径审它单个小 bug。
+
+### 会话 26 - 2026-03-24（新增给 Codex / Gemini 的导航验收审稿 prompt）
+
+- 当前主线目标：
+  - 用户要求的不再是给导航线程发执行 prompt，而是给审稿者自己一份高压验收 prompt；
+  - 目的不是推进导航实现，而是保证后续审导航回执时不迷惘、不被文字气势带偏。
+- 本轮完成：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\008-给Codex与Gemini的导航验收审稿prompt.md`
+  2. 已在 `008` 中明确：
+     - 审稿者的定位不是秘书或鼓掌员，而是架构验收者
+     - 必须对照 `006 / 007 / 002-prompt-7 / 主表 / memory`
+     - 必须强制拆开 `S0-S6` 分阶段验收
+     - 必须区分功能线与体验线
+     - 必须警惕“旧 patch 冒充新底座”与“probe 过线冒充闭环完成”
+     - 必须正面回答“导航线程作为 Codex/GPT 组合到底做不做得到”
+- 本轮新增稳定事实：
+  1. 从这轮开始，导航线除了执行 prompt 与路线图之外，已经有了一份专门供审稿者反复复用的验收模板；
+  2. 后续用户只要把导航线程最新回执粘进 `008` 的预留区，再发给我，就能直接按高压口径审。
+- 当前恢复点：
+  - 下一轮如果用户贴来导航线程回执，应直接按 `008` 的结构输出：
+    - 核心判决
+    - `S0-S6` 分阶段验收表
+    - 关键风险
+    - 还缺什么证据
+    - 最终裁定
+
+### 会话 27 - 2026-03-24（live 审计：玩家为什么在 NPC inactive 后仍永久 Wait）
+
+- 当前主线目标：
+  - 不换题，仍按 `002-prompt-7` 与 `006 + 007` 审视 `S0-S6`；
+  - 本轮子任务是把“当前实现到底长什么样、为什么用户仍感到大圆壳 + 推土机”审成可复核结论，而不是继续盲 patch。
+- 本轮完成：
+  1. 用 MCP 回读当前 live：
+     - Active Scene = `Assets/000_Scenes/Primary.unity`
+     - 玩家对象 = `Player`
+     - 目标 NPC = `NPCs/001`
+     - 两者都挂在同一个 `NavigationRoot`
+  2. 用 MCP 回读 live 组件，确认当前动态交通不是靠 tag 在跑，而是靠：
+     - `PlayerAutoNavigator` / `NPCAutoRoamController` 实现 `INavigationUnit`
+     - `NavigationAgentRegistry` 收集 snapshot
+     - `NavigationTrafficArbiter` 做语义裁决
+     - `NavigationMotionCommand` 下发最终运动命令
+  3. 用 MCP 回读单场 `PlayerAvoidsMovingNpc` 最新 console，确认：
+     - 玩家持续 `action=Wait`
+     - NPC 已出现 `action=SidePass`
+     - 约 `timer=1.01s` 后 `npcAState=Inactive`
+     - 但玩家在 NPC inactive 后仍固定停在 `playerPos=(-8.44, 5.65)`，没有进入恢复推进
+  4. 从代码链路锁定当前责任点：
+     - NPC 半刀已经通了：`preserveTrafficState` 修复后，不再无限 `YieldRepath`
+     - 玩家剩余 blocker 在玩家侧：
+       - `NavigationAvoidanceRules.ShouldTreatAsBlockingObstacle()` 会把 sleeping / inactive NPC 当作阻挡体
+       - `NavigationLocalAvoidanceSolver` 因此继续把它当 sleeping blocker 压速 / 触发 raw repath
+       - `NavigationTrafficArbiter` 最终把玩家卡在 `Wait` / 锁态里，进不了 `Recover`
+  5. 用 live 组件数据量化了用户口中的“大圆壳感”：
+     - 玩家 live collider 半径约 `0.392`
+     - 玩家 AvoidanceRadius 约 `0.542`（含 `dynamicObstaclePadding = 0.15`）
+     - NPC live collider 半径约 `0.374`
+     - NPC AvoidanceRadius 固定下限 `0.6`
+     - 当前玩家/NPC 的共享 interaction shell 约 `1.142`
+- 本轮新增稳定事实：
+  1. 现在的导航已经不是纯旧 patch 线，而是“静态建路 + 共享交通裁决 + 共享路径执行 + 统一运动命令”的半闭环底座。
+  2. 但 `S4-S6` 仍未真正闭环，因为玩家面对 inactive NPC 时还没有走通 `Recover / SidePass` 恢复链。
+  3. 用户说“像 NPC 外面套了大圆壳”是符合当前 live 数据的，不是错觉。
+  4. 给 NPC 加 tag 或给 `NavGrid2D` 补参数不是当前第一责任点；这轮失败发生在动态交通阶段，不在静态建路阶段。
+- 当前恢复点：
+  - 下一轮如果继续真修，不要回头再修 NPC preserve 半刀；
+  - 直接锁玩家侧 sleeping blocker -> `Wait / Recover / SidePass` 晋级链；
+  - 验证仍只保留单场 `PlayerAvoidsMovingNpc`，不要再做长时间 full-run。
+
+## 2026-03-24（按 `008` 高压口径完成一次真正的 `S0-S6` 审稿）
+
+- 当前主线目标：
+  - 严格按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\008-给Codex与Gemini的导航验收审稿prompt.md`
+    审导航线程到底把 `S0-S6` 做到了哪一步；
+  - 不再复读导航线程自述，也不再把历史 `probe` 过线外推成“底座闭环完成”。
+- 本轮完成：
+  1. 对照读取：
+     - `006-Sunset专业导航系统需求与架构设计.md`
+     - `007-Sunset专业导航底座后续开发路线图.md`
+     - `002-prompt-7.md`
+     - `统一导航重构阶段设计与执行主表.md`
+     - 当前工作区 / 父工作区 / 线程 `memory`
+  2. 回读热区代码现状：
+     - `PlayerAutoNavigator.cs`
+     - `NPCAutoRoamController.cs`
+     - `PlayerMovement.cs`
+     - `NPCMotionController.cs`
+     - `NavigationPathExecutor2D.cs`
+     - `NavigationTrafficArbiter.cs`
+     - `NavigationMotionCommand.cs`
+     - `NavigationLocalAvoidanceSolver.cs`
+     - `NavigationAgentRegistry.cs`
+     - `NavGrid2D.cs`
+     - `NavigationAvoidanceRulesTests.cs`
+  3. 明确确认：
+     - `NavigationTrafficArbiter.cs` 与 `NavigationMotionCommand.cs` 当前仍是未跟踪文件，不是已收口基线。
+     - `Primary.unity`、`TagManager.asset` 与多份导航热区脚本仍处于 dirty 状态。
+- 本轮新增稳定结论：
+  1. 方向没有漂回“纯旧 patch”，因为共享代理、共享裁决、共享路径资产、统一运动命令这些骨架确实已落到代码。
+  2. 但当前交付物仍不是 `006/007` 承诺的 `S0-S6` 第一版闭环，而是“带新骨架的过渡系统”。
+  3. `PlayerAutoNavigator` 仍保留完整私有导航闭环：
+     - 自己维护 `targetPoint / targetTransform`
+     - 自己 `BuildPath()`
+     - 自己 `CheckAndHandleStuck()`
+     - 自己 `Cancel()/CompleteArrival()`
+     - 自己 `TryCreateDynamicDetour()`
+  4. `NPCAutoRoamController` 也仍保留完整私有导航闭环：
+     - 自己维护漫游状态机 `RoamState`
+     - 自己 `TryBeginMove()/TryRebuildPath()/CheckAndHandleStuck()`
+     - 自己 `TryCreateDynamicDetour()/ClearDynamicDetourIfNeeded()`
+     - 自己决定 `FinishMoveCycle/ShortPause/LongPause`
+  5. `NavigationTrafficArbiter` 还不是 `006` 要的“先裁决、后求解”中轴：
+     - 当前仍先调用 `NavigationLocalAvoidanceSolver.Solve()`
+     - 拿到 `AdjustedDirection / SpeedScale / ShouldRepath`
+     - 再翻译成 `Proceed / Yield / Wait / SidePass / Recover`
+     - 这说明交通裁决仍建立在 solver 的启发式输出之上，不是上位一层。
+  6. `S5` 的“统一运动执行语义”没有真正成立：
+     - 玩家侧 `PlayerMovement` 最终走 `rb.linearVelocity`
+     - NPC 侧 `NPCMotionController` 最终走 `rb.MovePosition(...)`
+     - 虽然都吃 `NavigationMotionCommand`，但体感与收口语义仍明显分裂。
+  7. `NavigationLiveValidationRunner` 给出的仍是功能线受控证据，不是体验线证据：
+     - 通过条件主要是 `minClearance / reached / timeout`
+     - 不能外推成你在真实右键玩法里“已经验收通过”。
+  8. 用户当前“没有验收到任何内容、看起来跟没改一样”的反馈，和代码现实并不矛盾：
+     - 当前系统依然以半径壳层、启发式 steering、私有 detour 生命周期为核心；
+     - 所以即便 probe 曾绿，也完全可能在真实体验线上仍旧是一坨。
+- 本轮阶段裁定：
+  - `S0`：文档层完成，但执行约束没有真正守住，只能算文档完成。
+  - `S1`：部分完成。
+  - `S2`：部分完成。
+  - `S3`：未完成。
+  - `S4`：部分完成。
+  - `S5`：未完成。
+  - `S6`：未完成。
+- 当前恢复点：
+  - 后续若继续导航审稿，必须固定沿这条事实基线继续：
+    1. 不再接受“`probe` 绿了 = `S0-S6` 完成”
+    2. 不再接受“接口统一了 = 语义统一了”
+    3. 优先盯旧私有导航闭环是否真实下线，再谈 `S7/S8`
+    4. 用户体验线未过之前，不得宣称导航已完成
+
+## 2026-03-24（基于硬审核结论下发 `002-prompt-8` 彻底复工令）
+
+- 当前主线目标：
+  - 不再让导航线程停留在“方向没错但结果未交卷”的解释模式；
+  - 基于已经固定的审稿结论，正式下发一份更硬的复工指令，让它继续留在 `S0-S6` 主线内施工。
+- 本轮完成：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-8.md`
+  2. 在 `002-prompt-8` 中明确钉死：
+     - 当前真实起点仍是：
+       - `S0` 文档完成但执行未守住
+       - `S1/S2/S4` 部分完成
+       - `S3/S5/S6` 未完成
+     - 当前用户体验线事实优先级高于历史 `probe` 绿灯；
+     - 这轮不是继续解释骨架进展，而是必须把旧私有导航闭环下线、把交通裁决前置、把统一运动语义做实、把体验线证据补齐。
+  3. 已在 prompt 中继续保留：
+     - `用户补充区`
+     - 固定热区边界
+     - 固定回执格式
+     - “未完成只接受单一剩余 blocker” 的回执约束
+- 本轮新增稳定事实：
+  1. 导航线当前不适合再发“软性续工 prompt”；后续必须按“未交卷复工”口径继续推进。
+  2. `002-prompt-8` 的作用不是重复 `002-prompt-7`，而是把上一轮“连续推进授权”升级成“基于不及格审稿结论的施工令”。
+- 当前恢复点：
+  - 下一轮若继续导航线，应直接让线程完整读取 `002-prompt-8.md`；
+  - 后续验收继续以：
+    1. 旧私有导航闭环是否真实下线
+    2. 交通裁决是否真正前置
+    3. 统一运动执行语义是否真实成立
+    4. 体验线证据是否补齐
+    作为第一审查顺序。

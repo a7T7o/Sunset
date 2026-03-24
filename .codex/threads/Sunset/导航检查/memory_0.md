@@ -526,3 +526,339 @@
     1. `PlayerAutoNavigator -> PlayerMovement` 的输入是否被运行态别的系统清零
     2. `NPCAutoRoamController.TickMoving / FixedUpdate` 的位移为何没有真正打到 `Rigidbody2D`
     3. 是否存在统一的动作锁、物理步进断裂或运行态速度归零源
+
+### 会话 22 - 2026-03-24（003-prompt-3 继续执行：接触裁决修复与三类 live 复验）
+
+- 当前主线目标：
+  - 按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\003-prompt-3.md` 继续推进；
+  - 既然“位移未推进”的第一责任点已经在上一轮锁到 `NavigationLiveValidationRunner.RunAll / RunSingleSetup` 的 `runInBackground` 现场问题，这一轮继续把真实 live bug 往下压。
+- 本轮子任务：
+  - 不再碰 `NavigationRoot` / S4 / Scene 承载；
+  - 只修“接触壳层里仍会持续推挤”和“detour 恢复失效”；
+  - 用 unityMCP 重跑三类 live 场景，不再让用户靠截图补事实。
+- 本轮显式使用：
+  - `skills-governor`
+  - `unity-mcp-orchestrator`
+  - `sunset-unity-validation-loop`
+  - `sunset-startup-guard` 继续手工等价
+- 本轮完成：
+  1. 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+     - 接触壳层里改成更强 separation、更低 escape speed
+     - 非让行方但已近接触时也会被标记为 blocking agent，并进入 close-range 裁决
+  2. 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+     - `clearance <= 0 && ShouldRepath` 时切 `ContactDetour / HardStop`
+     - 接触壳层内不再继续走环境碰撞微调
+     - close-range 裁决半径改用 `GetColliderRadius()`，修掉玩家侧 `dynamicObstaclePadding` 重复计入导致的长期负 clearance
+  3. 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+     - 增加“NPC 即使保留优先级，近接触时仍必须被 solver 标成 blocker”的回归测试
+  4. 重新执行：
+     - `Tests.Editor` -> `118 / 118 Passed`
+     - unityMCP `Tools/Sunset/Navigation/Run Live Validation`
+- 本轮真实 live 结果：
+  - `PlayerAvoidsMovingNpc`
+    - 已不再表现为“完全不动 / 推着 NPC 走”
+    - 玩家和 NPC 都真实位移过
+    - 但最终仍 `pass=False`，`minClearance=-0.092`
+    - `[NavAvoid]` 中已出现 `ContactDetour`
+    - 同轮 `[Nav]` 还出现了 `卡顿 3 次，取消导航`
+    - 当前判断：玩家侧当前已经不是推进层没打出去，而是 detour 之后的 stuck 恢复 / 收尾取消有问题
+  - `NpcAvoidsPlayer`
+    - `pass=True`
+    - `npcReached=True`
+    - 说明 NPC 绕玩家这条 live 终验已经过线
+  - `NpcNpcCrossing`
+    - 仍 `pass=False`
+    - `minClearance=0.513`
+    - 两个 NPC 都真实移动了，但会在 `Moving / ShortPause` 之间切换后停在侧下方路径，没有真正到达各自终点
+- 本轮关键决策：
+  1. “位移未推进”的第一责任点已经锁定并修掉，不再是当前主 blocker。
+  2. 当前真正的剩余 blocker 已经换成：
+     - `PlayerAutoNavigator.CheckAndHandleStuck()` 对动态 detour 期间的 stuck 判定过早
+     - 玩家 / NPC 当前没有消费 `NavigationPathExecutor2D.BuildPathResult.ActualDestination`，导致 live 上出现“path end / short pause 已触发，但原目标并未真正到达”的嫌疑
+  3. 因此后续不再回头讨论 NPC Tag / NavGrid 挂载 / velocity 是否写入；主线已经恢复到“共享执行层恢复与收尾”的下一刀
+- 验证与现场：
+  - 收尾前已回到 Edit Mode
+  - `Primary.unity` 当前 `isDirty = false`
+- 当前恢复点：
+  - 下一轮直接修：
+    1. detour 期间的 stuck 免责与恢复推进
+    2. `BuildPathResult.ActualDestination` 向玩家 / NPC 收尾判断的贯通
+    3. 再复跑 `PlayerAvoidsMovingNpc` 与 `NpcNpcCrossing`
+
+### 会话 23 - 2026-03-24（005-prompt-5 单场短窗续工）
+
+- 当前主线目标：
+  - 按 `005-prompt-5-续工裁决入口与用户补充区.md` 把推进方式收紧到“单场、短窗、可验证”；
+  - 先吸收用户“已经有一点绕开迹象，试着把避让参数调高一点”的补充，再看最后一条是否真是 solver。
+- 本轮完成：
+  1. 只改 `Assets/YYY_Scripts/Service/Navigation/NavigationLocalAvoidanceSolver.cs`
+     - 抬高 sleeping/stationary blocker 的 sidestep / slow-down / repath 阈值
+  2. 改 `Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs`
+     - 补 sleeping blocker 更早升级的回归测试
+  3. 改 `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs`
+     - 让 `Probe Setup/Player Avoids Moving NPC` 真正只跑单场，不再自动串场
+  4. 用 unityMCP 做最小闭环：
+     - `Tests.Editor = 119 / 119 Passed`
+     - 单场 `PlayerAvoidsMovingNpc = fail`
+     - 最新真实结果：`timeout=6.50 minClearance=0.161 playerReached=True npcReached=False`
+- 关键决策：
+  1. 用户要求的“把参数调高一点”已经真实落地，而且 live 上确实把失败形态从“接触推挤”压成了“正净空但收尾超时”。
+  2. 因为玩家很快到位、净空已为正、`001` 仍在 detour 区附近长期摆动到超时，当前第一责任点已经不该继续停在 solver 的 sleeping blocker 裁决。
+  3. 现在更具体的下一责任点应锁到：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `TryHandleSharedAvoidance()`
+     - `shouldAttemptDetour && TryCreateDynamicDetour(...)`
+     - 以及其后 `OverrideWaypoint` 清理 / 恢复原目标路径的收尾链
+- 现场与验证：
+  - 当前 live Scene `Primary.unity isDirty = false`
+  - 磁盘上的 `Primary.unity` diff 仍是既有 `StoryManager / CraftingStationInteractable` 改动，不是本轮 probe 脏改
+  - 本轮 runner 修复前的一次短窗里，`NpcAvoidsPlayer = pass`、`NpcNpcCrossing = pass`；runner 收短后未再次重跑，后续沿用这次最近 pass 基线
+- 当前恢复点：
+  - 下一轮不再泛泛调 sleeping blocker 参数；
+  - 直接查 NPC detour 恢复链为什么会让 `001` 在正净空状态下仍保持 `Moving` 并围着旧 detour 区域摆动到超时。
+
+## 2026-03-24（002-prompt-6 detour 恢复链收口）
+
+- 当前主线目标：
+  - 继续 `导航检查/002-prompt-6.md`；
+  - 不再回结构层、不再泛调 solver，只锁 `NPCAutoRoamController.TryHandleSharedAvoidance()` 的 detour 恢复链。
+- 本轮子任务：
+  - 查清“恢复原目标时为什么会被替代终点覆盖”；
+  - 先修 `PlayerAvoidsMovingNpc`，再补跑 `NpcAvoidsPlayer / NpcNpcCrossing` fresh 结果。
+- 本轮完成：
+  1. 改 `Assets/YYY_Scripts/Service/Navigation/NavigationPathExecutor2D.cs`
+     - 共享建路新增 `ignoredCollider`
+  2. 改 `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+     - `IsWalkable / TryFindNearestWalkable` 支持忽略指定碰撞体
+  3. 改 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - NPC 建路/重建路径时传入自身 `navigationCollider`
+     - 新增 `[NPCNavBuild]` 诊断日志
+  4. 改 `Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs`
+     - 新增“忽略 NPC 自挡终点后必须保留请求终点”的回归测试
+  5. 执行验证：
+     - `Tests.Editor = 121 / 121 Passed`
+     - fresh `PlayerAvoidsMovingNpc = pass`
+     - fresh `NpcAvoidsPlayer = pass`
+     - fresh `NpcNpcCrossing = fail`
+- 关键决策：
+  1. detour 恢复链现在已经能保住原目标，不再发生 `Requested != Actual` 的替代漂移。
+  2. 本轮主线已经从“NPC detour 恢复失败”恢复到新的剩余 blocker：`NpcNpcCrossing` 的中段停滞。
+- 验证结果：
+  - `PlayerAvoidsMovingNpc`
+    - `pass=True`
+    - `minClearance=0.145`
+    - `playerReached=True`
+    - `npcReached=True`
+  - `NpcAvoidsPlayer`
+    - `pass=True`
+    - `minClearance=0.744`
+    - `npcReached=True`
+  - `NpcNpcCrossing`
+    - `pass=False`
+    - `timeout=6.57`
+    - `minClearance=0.553`
+    - `npcAReached=False`
+    - `npcBReached=False`
+- 现场：
+  - Unity 已退回 Edit Mode
+  - `Primary.unity` 没留下本轮 probe 脏改
+- 当前恢复点：
+  - 下一轮不要再回头查 detour 恢复；
+  - 直接锁 `NpcNpcCrossing` 会车中段卡死为什么在正净空下仍不推进。
+
+## 2026-03-24（002-prompt-6 最终收口：会车通过，三条同轮 fresh 全绿）
+
+- 当前主线目标：
+  - 继续同一条导航主线，不改题；
+  - 在 `002-prompt-6` 约束下，把 `NpcNpcCrossing` 的剩余 blocker 钉死，并补齐同轮 fresh 终验。
+- 本轮子任务：
+  - 用 MCP 最小 live 窗口先确认 `PlayerAvoidsMovingNpc` 是否已真正过线；
+  - 若已过，再补 `NpcAvoidsPlayer / NpcNpcCrossing`；
+  - 最后退回 Edit Mode 做现场清理。
+- 本轮完成：
+  1. 核实 `NPCAutoRoamController.TryHandleSharedAvoidance()` 当前决定性修复已在代码里落地：
+     - detour 触发保留；
+     - `!avoidance.HasBlockingAgent` 分支上的即时 detour 清理已撤掉；
+     - 避免双 NPC 会车时出现 clear/rebuild 风暴。
+  2. 用 unityMCP 跑最小闭环：
+     - `Tests.Editor = 123 / 123 Passed`
+     - `PlayerAvoidsMovingNpc = pass=True / minClearance=0.379 / playerReached=True / npcReached=True`
+     - `NpcAvoidsPlayer = pass=True / minClearance=0.989 / npcReached=True`
+     - `NpcNpcCrossing = pass=True / minClearance=0.632 / npcAReached=True / npcBReached=True`
+  3. 本轮 live 结束后已显式退出 Play Mode，Unity 当前在 Edit Mode。
+- 关键决策：
+  1. `NpcNpcCrossing` 的决定性根因不是 solver 还不够猛，而是 detour 被单帧清理导致恢复推进链永远跑不完。
+  2. 当前 prompt 6 已真正闭环，后续不能再把“只剩会车没过”当成事实基线。
+  3. 下一轮如果导航线继续推进，默认从“三条同轮 fresh 全绿”这个基线出发；若再回归，先查 detour 清理链是否被重新引入。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\memory.md`
+- 验证与现场：
+  - MCP 实例：`Sunset@21935cd3ad733705`
+  - 本轮未留下新的 probe scene 脏改
+  - Edit Mode 已恢复
+- 当前恢复点：
+  - `002-prompt-6` 已完成；
+  - 等下一条治理入口或新的 live 回归现象，不再回头重复 detour 恢复链审计。
+
+## 2026-03-24（实现说明审计：为什么当前体感仍会像“大圆壳 + 推土机”）
+
+- 当前主线目标：
+  - 不换题，仍服务导航主线；
+  - 本轮子任务改为向用户完整解释当前实现与实际体感之间的对应关系，供审核。
+- 本轮完成：
+  1. 回读当前导航核心实现与 live 挂载；
+  2. 明确回答“当前导航到底是什么算法形态、不是哪种算法形态”；
+  3. 明确回答“为什么用户会觉得还是推土机、为什么会像圆壳层”。
+- 本轮稳定结论：
+  1. 当前不是 crowd sim / RVO / ORCA，而是：
+     - `NavGrid2D` 静态建路
+     - `NavigationLocalAvoidanceSolver` 启发式方向/速度修正
+     - `NavigationPathExecutor2D` 的单个 override waypoint
+  2. 当前几何近似用的是半径，不是 BoxCollider 真实轮廓：
+     - 玩家 live radius 约 `0.392`，AvoidanceRadius 约 `0.542`
+     - NPC live radius 约 `0.374`，AvoidanceRadius 固定下限 `0.6`
+     - 玩家/NPC interaction radius 约 `1.142`
+     - 玩家 contact detour shell 约 `1.64`
+     - 这正是“大圆壳感”的来源
+  3. 当前 probe pass 只证明受控场景可过，不等价于真实玩法手感达标。
+  4. 用户现在说“还是像推土机”，从实现上是解释得通的：
+     - 玩家目标意图始终强保持
+     - 局部避让只是改方向/减速/插临时 detour 点
+     - 不是先停、先让、再稳定绕
+- 当前恢复点：
+  - 如果下一轮继续做体验层修复，应把“功能过线”和“手感过线”拆开，不再混成一个结论。
+
+## 2026-03-24（MCP 复核：玩家卡死点已收缩到 sleeping NPC 的恢复链）
+
+- 当前主线目标：
+  - 继续导航主线，不换题；
+  - 本轮子任务是基于 MCP live 证据，把“当前实现方式 + 实际故障点”解释清楚，供用户审核。
+- 本轮完成：
+  1. 回读 live Scene 与对象组件：
+     - Scene 仍是 `Primary.unity`
+     - 玩家对象是 `Player`
+     - 目标 NPC 是 `NPCs/001`
+     - 玩家挂 `PlayerAutoNavigator + PlayerMovement`
+     - NPC 挂 `NPCAutoRoamController + NPCMotionController`
+  2. 回读当前单场 `PlayerAvoidsMovingNpc` console：
+     - 玩家持续 `action=Wait`
+     - NPC 已进入 `action=SidePass`
+     - `npcAState` 在约 `1.01s` 变为 `Inactive`
+     - 但玩家在 NPC inactive 后仍不恢复推进
+  3. 结合代码确认当前真正实现是：
+     - `NavGrid2D` 只负责静态建路
+     - `NavigationAgentRegistry + NavigationLocalAvoidanceSolver + NavigationTrafficArbiter` 负责动态交通语义
+     - `NavigationPathExecutor2D` 管共享路径/override waypoint/stuck
+     - `NavigationMotionCommand` 统一最终运动命令
+  4. 结合 live 组件数据确认“大圆壳感”来源：
+     - 玩家 collider 半径约 `0.392`，AvoidanceRadius 约 `0.542`
+     - NPC collider 半径约 `0.374`，AvoidanceRadius 下限是 `0.6`
+     - 共享 interaction shell 约 `1.142`
+  5. 锁定当前未修通责任点：
+     - NPC preserveTrafficState 那半刀已起效；
+     - 剩余问题是玩家把 inactive NPC 持续视作 sleeping blocker，raw repath 没能晋级成稳定 `Recover / SidePass`。
+- 关键决策：
+  1. 当前失败已不是“没挂组件 / 没打 NPC tag / NavGrid 参数没生效”。
+  2. 下一轮应只盯玩家侧 `sleeping blocker` 恢复链，不要再回头改 NPC detour 清理那半边。
+  3. 用户现在审核实现时，应把“架构已换半程”和“体验仍未达标”同时成立地看，不要把其中任一条抹掉。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationTrafficArbiter.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAvoidanceRules.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+- 验证与现场：
+  - MCP active scene：`Assets/000_Scenes/Primary.unity`
+  - 当前分支：`main`
+  - 当前仓库仍是未收口 dirty 状态，本轮未尝试白名单 sync
+- 当前恢复点：
+  - 下轮若继续修复，直接从“玩家面对 inactive NPC 仍永久 Wait”这个责任点继续，不再从 tag / detour 参数重新猜。
+
+## 2026-03-24（按 `008` 口径完成导航底座迁移审稿）
+
+- 当前主线目标：
+  - 严格按 `008-给Codex与Gemini的导航验收审稿prompt.md` 审导航线程到底把 `S0-S6` 做到了哪一步；
+  - 本轮子任务是回到热区代码本体核事实，而不是复读导航线程回执。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-review-router`
+  - `sunset-startup-guard` 手工等价流程
+- 本轮完成：
+  1. 回读：
+     - `006`
+     - `007`
+     - `002-prompt-7`
+     - 主表
+     - 当前工作区 / 父工作区 / 线程 `memory`
+  2. 逐个核热区代码：
+     - `PlayerAutoNavigator.cs`
+     - `NPCAutoRoamController.cs`
+     - `PlayerMovement.cs`
+     - `NPCMotionController.cs`
+     - `NavigationPathExecutor2D.cs`
+     - `NavigationTrafficArbiter.cs`
+     - `NavigationMotionCommand.cs`
+     - `NavigationLocalAvoidanceSolver.cs`
+     - `NavigationAgentRegistry.cs`
+     - `NavGrid2D.cs`
+     - `NavigationAvoidanceRulesTests.cs`
+  3. 复核现场：
+     - `NavigationTrafficArbiter.cs` / `NavigationMotionCommand.cs` 仍是未跟踪文件
+     - `Primary.unity` / `TagManager.asset` 与多份导航热区脚本仍 dirty
+- 关键结论：
+  1. 方向没有完全走错，但结果远低于 `006/007` 的承诺，不能宣称 `S0-S6` 已闭环。
+  2. `PlayerAutoNavigator` 仍自己维护目标、建路、卡住检测、取消/到达、动态 detour，仍是完整私有导航闭环。
+  3. `NPCAutoRoamController` 仍自己维护漫游状态机、建路/重建、卡住恢复、动态 detour、短停/长停，也是完整私有导航闭环。
+  4. `NavigationTrafficArbiter` 当前是“先吃 solver 的 `AdjustedDirection / SpeedScale / ShouldRepath`，再翻译交通语义”，还不是 `006` 要的“先裁决、后求解”。
+  5. `NavigationMotionCommand` 只证明接口层开始收口，不等于最终运动语义收口：
+     - 玩家最终仍走 `rb.linearVelocity`
+     - NPC 最终仍走 `rb.MovePosition(...)`
+  6. `NavigationLiveValidationRunner` 给出的仍是功能线 probe 证据，不是体验线证据；用户当前“看起来跟没改一样”的反馈应视为体验线失败的最高优先级事实。
+- 阶段裁定：
+  - `S0`：文档层完成，执行层未守住
+  - `S1`：部分完成
+  - `S2`：部分完成
+  - `S3`：未完成
+  - `S4`：部分完成
+  - `S5`：未完成
+  - `S6`：未完成
+- 当前恢复点：
+  - 后续若继续审导航，固定沿这条基线继续：
+    - 不再把 probe 绿灯当闭环完成
+    - 不再把接口统一当语义统一
+    - 先盯旧私有导航闭环是否真实下线，再谈 `S7/S8`
+
+## 2026-03-24（基于硬审核结论新增 `002-prompt-8` 复工令）
+
+- 当前主线目标：
+  - 不再复读导航线程的自我解释；
+  - 基于已经固定的高压审稿结论，正式给导航线下达“未交卷状态下继续施工”的复工令。
+- 本轮完成：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-8.md`
+  2. 在该 prompt 中正式钉死：
+     - 当前起点仍是：
+       - `S0` 文档完成 / 执行未守住
+       - `S1/S2/S4` 部分完成
+       - `S3/S5/S6` 未完成
+     - 当前用户体验线反馈优先级高于历史 `probe` 绿灯；
+     - 这轮不能再交“我其实搭了很多骨架”的解释稿，而要直接交：
+       - 旧私有导航闭环下线
+       - 交通裁决前置
+       - 统一运动执行语义成立
+       - 体验线证据补齐
+- 关键决策：
+  - 当前对导航线程的裁决状态不再是“继续分析”或“继续小刀纠偏”，而是“继续留在 `S0-S6` 主线内彻底复工”。
+  - `002-prompt-8` 不是对 `002-prompt-7` 的重复，而是基于不及格审稿结论的升级版施工令。
+- 当前恢复点：
+  - 下一轮若继续这条线，应直接从 `002-prompt-8` 进入；
+  - 后续验收优先顺序固定为：
+    1. 旧私有导航闭环是否真实下线
+    2. 交通裁决是否真正前置
+    3. 统一运动执行语义是否真实成立
+    4. 体验线证据是否真实补齐
