@@ -592,3 +592,36 @@
 
 **恢复点 / 下一步**：
 - 当前已经回到主线的“这 5 个用户新补充的 live 回归点已经完成代码修正，本轮 6 个农田脚本已通过脚本级验证，但项目级白名单收口仍要等待 shared root 他线红编译解除”的这一步。
+
+## 2026-03-24：这轮 6 个农田脚本与 4 层记忆已白名单收口到 `main`
+
+**用户目标**：
+- 在不混入 shared root 其他 dirty 的前提下，把本轮 5 个 live 回归点修复作为一个最小可回退 checkpoint 正式收进 `main`。
+
+**已完成事项**：
+1. 使用稳定入口 `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1` 执行：
+   - `-Action sync -Mode task -OwnerThread "农田交互修复V2"`
+2. 白名单只纳入：
+   - `FarmToolPreview.cs`
+   - `ChestInventoryV2.cs`
+   - `TreeController.cs`
+   - `PlacementNavigator.cs`
+   - `PlayerInteraction.cs`
+   - `GameInputManager.cs`
+   - `1.0.4 / 2026.03.16 / 根层 / 线程` 四层记忆
+3. `sync` 结果：
+   - 代码闸门：通过
+   - 已创建提交：`124caccc`
+   - 提交标题：`2026.03.24_农田交互修复V2_05`
+   - 已推送到：`main`
+
+**验证结果**：
+- `git-safe-sync` 明确记录：
+  - `代码闸门通过: True`
+  - `shared root lease 判断: True`
+  - `shared root owner_mode: neutral-main-ready`
+- 收口后，shared root 里仍保留的 dirty 都是别线改动，未被本线程混入本次 checkpoint。
+
+**恢复点 / 下一步**：
+- 这 5 个 live 回归点的代码修复现在已经正式在 `main@124caccc`。
+- 下一步直接以这个提交为验收基线，由用户在 Unity 场景里逐条复测体感与行为是否对齐。
