@@ -545,6 +545,8 @@ public class ChestInventoryV2 : IItemContainer
             }
         }
 
+        items = MergeItemsForSort(items);
+
         // 排序：itemId 升序，同 ID 按 quality 降序
         items.Sort((a, b) =>
         {
@@ -553,13 +555,54 @@ public class ChestInventoryV2 : IItemContainer
             return b.Quality.CompareTo(a.Quality);
         });
 
-        // 写回槽位（不合并有动态属性的物品）
+        // 写回槽位（普通物品先合并再排序；有耐久/动态属性的实例保持独立）
         for (int i = 0; i < _capacity; i++)
         {
             _items[i] = i < items.Count ? items[i] : null;
+            RaiseSlotChanged(i);
         }
 
         RaiseInventoryChanged();
+    }
+
+    private List<InventoryItem> MergeItemsForSort(List<InventoryItem> items)
+    {
+        var groupedAmounts = new Dictionary<(int itemId, int quality), int>();
+        var result = new List<InventoryItem>();
+
+        foreach (var item in items)
+        {
+            if (item == null || item.IsEmpty)
+            {
+                continue;
+            }
+
+            if (item.HasDurability || item.HasDynamicProperties)
+            {
+                result.Add(item);
+                continue;
+            }
+
+            var key = (item.ItemId, item.Quality);
+            groupedAmounts[key] = groupedAmounts.TryGetValue(key, out int currentAmount)
+                ? currentAmount + item.Amount
+                : item.Amount;
+        }
+
+        foreach (var kvp in groupedAmounts)
+        {
+            int remaining = kvp.Value;
+            int maxStack = GetMaxStack(kvp.Key.itemId);
+
+            while (remaining > 0)
+            {
+                int amount = Mathf.Min(remaining, maxStack);
+                result.Add(ToolRuntimeUtility.CreateRuntimeItem(_database, kvp.Key.itemId, kvp.Key.quality, amount));
+                remaining -= amount;
+            }
+        }
+
+        return result;
     }
 
     #endregion

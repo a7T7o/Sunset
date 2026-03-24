@@ -215,6 +215,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     // 记录最后一次命中时玩家的朝向
     private int lastHitPlayerDirection = 0;
     private bool lastHitPlayerFlipX = false;
+
+    private const float SharedNavGridRefreshDelay = 0.2f;
+    private static TreeController s_navGridRefreshRunner;
     
     #if UNITY_EDITOR
     private int lastEditorStageIndex;
@@ -324,6 +327,12 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     
     private void OnDestroy()
     {
+        if (s_navGridRefreshRunner == this)
+        {
+            CancelInvoke(nameof(TriggerSharedNavGridRefresh));
+            s_navGridRefreshRunner = null;
+        }
+
         // ★ 始终取消订阅所有事件
         SeasonManager.OnSeasonChanged -= OnSeasonChanged;
         SeasonManager.OnVegetationSeasonChanged -= OnVegetationSeasonChanged;
@@ -1711,11 +1720,31 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     private void RequestNavGridRefresh()
     {
-        if (IsInvoking(nameof(TriggerNavGridRefresh)))
+        if (!Application.isPlaying)
         {
-            CancelInvoke(nameof(TriggerNavGridRefresh));
+            TriggerNavGridRefresh();
+            return;
         }
-        Invoke(nameof(TriggerNavGridRefresh), 0.2f);
+
+        if (s_navGridRefreshRunner != null && s_navGridRefreshRunner != this)
+        {
+            s_navGridRefreshRunner.CancelInvoke(nameof(TriggerSharedNavGridRefresh));
+        }
+
+        s_navGridRefreshRunner = this;
+        CancelInvoke(nameof(TriggerSharedNavGridRefresh));
+        Invoke(nameof(TriggerSharedNavGridRefresh), SharedNavGridRefreshDelay);
+    }
+
+    private void TriggerSharedNavGridRefresh()
+    {
+        if (s_navGridRefreshRunner != this)
+        {
+            return;
+        }
+
+        s_navGridRefreshRunner = null;
+        TriggerNavGridRefresh();
     }
     
     private void TriggerNavGridRefresh()

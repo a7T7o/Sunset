@@ -502,3 +502,93 @@
 
 **恢复点 / 下一步**：
 - 下一步只对白名单的 `006 + 必要记忆` 做最小收口，shared root 其余 dirty 继续留给对应线程处理。
+
+## 2026-03-24：用户补充的 5 个 live 回归点已完成代码修正，但项目级收口再次被 shared root 他线红编译阻断
+
+**用户目标**：
+- 用户这轮不是继续拆刀推进，而是直接指出当前 live 里 5 个具体现象必须纠正：
+  1. 锄地成功却不扣精力，等价于“无限精力”。
+  2. 农田预览一启用，箱子就无条件持续透明，遮挡逻辑明显越界。
+  3. 箱子 `Sort` 后同物品没有正常堆叠。
+  4. 跳到下一天时树苗成长会触发明显卡顿。
+  5. 放置成功后角色仍继续多走，导航停下点与可放置成功距离不一致。
+
+**当前主线目标**：
+- 在 `全局交互V3（原：农田交互修复V2）` 语义下，把这 5 个 live 回归点直接收掉，并给出足够继续验收的代码闭环与验证证据。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：修正农田 hover 遮挡 bounds，避免把整张 `ghostTilemap` 包围盒误送给遮挡系统。
+- 子任务 2：补齐箱子 `Sort` 的先合并后排序逻辑，并保持有耐久/动态属性实例不被错误合并。
+- 子任务 3：把树成长触发的导航网格刷新改成 shared debounce，减少“下一天卡一秒”的尖峰。
+- 子任务 4：统一放置导航的到达停下口径，确保进入可放置距离后立刻停下并触发放置，而不是成功后继续往里走。
+- 子任务 5：把锄地/浇水这类成功动作的工具提交链真正闭上，防止动作成功但精力/耐久未提交。
+- 当前阻塞不在本轮脚本本体，而在 shared root 最新 main 上再次出现他线项目级红编译：
+  - `Assets\\YYY_Scripts\\Story\\UI\\SpringDay1WorkbenchCraftingOverlay.cs(274,37): error CS0103: The name 'CardColor' does not exist in the current context`
+  - `Assets\\YYY_Scripts\\Story\\UI\\SpringDay1WorkbenchCraftingOverlay.cs(283,34): error CS0103: The name 'CardColor' does not exist in the current context`
+  - 因此本轮无法把项目级 compile 通过当作农田线自己的最终白名单收口前提。
+
+**已完成事项**：
+1. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+   - `TryGetHoverPreviewBounds()` 不再直接取 `ghostTilemapRenderer.bounds`。
+   - 新增 `TryGetCurrentPreviewTileBounds()`，按 `currentPreviewPositions` 逐格构造 bounds，再与 `cursorRenderer.bounds` 合并。
+   - 结果是：农田预览只在当前 hover 的真实覆盖范围挡住箱子/树/建筑时才触发透明，不再“一进农田模式整个箱子就一直透明”。
+2. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventoryV2.cs`
+   - `Sort()` 现在会先走 `MergeItemsForSort()`。
+   - 普通可堆叠物品会先按 `itemId + quality` 汇总再拆回合法 stack。
+   - `HasDurability` 或 `HasDynamicProperties` 的 runtime item 仍保持独立，避免把实例态工具/种子误并。
+   - 排序回写时补发每格 `RaiseSlotChanged(i)`，避免 UI 不刷。
+3. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+   - `RequestNavGridRefresh()` 改成共享防抖：同一波树成长只保留最后一次 `TriggerSharedNavGridRefresh()`。
+   - 不再每棵树都独立安排一次导航网格刷新，减少隔天成长时的整图抖动。
+4. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementNavigator.cs`
+   - `Update()` 命中到达条件后，除了 `isNavigating=false`，现在会同步 `isPaused=false` 并显式 `autoNavigator.Cancel()`。
+   - `CalculateNavigationTarget()` 现在先算玩家中心点该停的位置，再减去 `playerCollider.bounds.center - playerTransform.position`，把目标换回角色 pivot 目标，避免 `PlayerAutoNavigator` 再叠一次中心偏移。
+   - 结果是：角色进入可放置距离就停，不再出现“已经放下了但还继续走一截”的错位。
+5. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+   - 新增 `TryCommitCurrentToolActionSuccess(ToolData tool, string context = null)`。
+   - `OnToolActionSuccess()` 不再盲目 fire-and-forget，而是走显式布尔回执，确保“动作成功但消耗未提交”的漏口能被上层判定到。
+6. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+   - `CommitCurrentToolUse(...)` 现在会优先调用 `playerInteraction.TryCommitCurrentToolActionSuccess(...)`。
+   - 只有当前动作链没有真正提交成功时，才 fallback 到 `ToolRuntimeUtility.TryConsumeHeldToolUse(...)`。
+   - 这条修正专门兜住“锄地 / 浇水成功，但精力/耐久没真正扣到 runtime tool/state 上”的漏口。
+
+**关键决策**：
+- 这轮没有再把“农田预览也走遮挡系统”理解成“整张 ghost tilemap 的 bounds 直接照抄放置系统”，而是回到用户口径：只让当前 hover 预览本身参与遮挡。
+- 箱子 `Sort` 的最终口径明确为：
+  - 普通堆叠物品应合并；
+  - 有耐久、动态属性、实例态的物品必须保留独立。
+- 树成长卡顿这轮先不扩到导航系统其他脏文件，而只在 `TreeController` 内做 shared debounce，避免碰 `NavGrid2D.cs` 与 `PlayerAutoNavigator.cs` 他线 dirty。
+- 放置“停下点”这轮按用户主观标准收敛为：
+  - 导航目标围绕预放置碰撞体 envelope 计算；
+  - 进入可放置距离即停；
+  - 停下时刚好触发成功放置。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventoryV2.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementNavigator.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+
+**验证结果**：
+- live Git 现场复核：`D:\Unity\Unity_learning\Sunset @ main @ b40e4cf150bcca3bc3d7a0a7af90c05223c31976`
+- `git diff --check -- <6 files>` 通过，仅有 CRLF/LF 提示。
+- `unityMCP` 基线通过：`unityMCP + 8888 + pidfile` 正常。
+- `manage_scene(get_active)`：
+  - 场景：`Primary`
+  - `isDirty=false`
+  - Editor 当前不在 Play 残留态。
+- 6 个脚本逐个 `validate_script`：
+  - `FarmToolPreview.cs`：0 error / 0 warning
+  - `ChestInventoryV2.cs`：0 error / 0 warning
+  - `TreeController.cs`：0 error / 1 warning（既有 `Update()` 字符串拼接提醒）
+  - `PlacementNavigator.cs`：0 error / 1 warning（既有 `Update()` 字符串拼接提醒）
+  - `PlayerInteraction.cs`：0 error / 0 warning
+  - `GameInputManager.cs`：0 error / 2 warning（既有 `GameObject.Find in Update()` 与字符串拼接提醒）
+- 项目级 Console 当前红编译只落在 shared root 他线文件：
+  - `SpringDay1WorkbenchCraftingOverlay.cs` 的 `CardColor` 未定义
+  - 不属于本轮农田脚本 diff。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“这 5 个用户新补充的 live 回归点已经完成代码修正，本轮 6 个农田脚本已通过脚本级验证，但项目级白名单收口仍要等待 shared root 他线红编译解除”的这一步。

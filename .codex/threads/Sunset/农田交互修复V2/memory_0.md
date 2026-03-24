@@ -941,3 +941,56 @@
 
 **恢复点 / 下一步**：
 - 当前已经回到主线的“只对白名单 `006 + 必要记忆` 做最小 shared root 收口”的这一步。
+
+## 2026-03-24：用户新增 5 个 live 回归点后，已完成 6 个农田脚本的最小修正与脚本级复核
+
+**用户目标**：
+- 不是继续分刀聊天，而是直接把当前 live 里新冒出来的 5 个农田/放置/箱子回归一起修掉：
+  - 锄地成功却不扣精力；
+  - 农田 hover 预览导致箱子无条件持续透明；
+  - 箱子 `Sort` 不堆叠同物品；
+  - 隔天树成长时导航刷新卡顿；
+  - 放置成功后角色还会继续多走，停下点与可放置成功距离不一致。
+
+**当前主线目标**：
+- 在 `全局交互V3（原：农田交互修复V2）` 下，先把这 5 个 live 回归点收进可验收的代码闭环，再视 shared root 状态决定能否白名单收口。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：修正 `FarmToolPreview` 的 hover 遮挡 bounds。
+- 子任务 2：修正 `ChestInventoryV2.Sort()` 的合并/排序口径。
+- 子任务 3：给 `TreeController` 的导航网格刷新加 shared debounce。
+- 子任务 4：统一 `PlacementNavigator` 的到达停下口径。
+- 子任务 5：把 `PlayerInteraction / GameInputManager` 的成功动作工具消耗提交链补成显式布尔回执。
+- 当前阻塞：shared root 项目级 compile blocker 已换成他线 `SpringDay1WorkbenchCraftingOverlay.cs` 的 `CardColor` 缺失，导致本轮还不能把项目级 compile 绿灯当成农田线已可提交的证据。
+
+**已完成事项**：
+1. `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+   - 新增 `TryGetCurrentPreviewTileBounds()`，按 `currentPreviewPositions` 逐格构造 hover bounds。
+   - 农田预览遮挡不再整片越界。
+2. `Assets/YYY_Scripts/Service/Inventory/ChestInventoryV2.cs`
+   - `Sort()` 先做 `MergeItemsForSort()`。
+   - 普通物品会堆叠；有耐久/动态属性的实例保持独立；回写时逐格触发 `RaiseSlotChanged(i)`。
+3. `Assets/YYY_Scripts/Controller/TreeController.cs`
+   - `RequestNavGridRefresh()` 改成 shared debounce，只保留最后一次刷新请求。
+4. `Assets/YYY_Scripts/Service/Placement/PlacementNavigator.cs`
+   - 到达可放置距离后显式 `autoNavigator.Cancel()`。
+   - 导航目标从中心点回算到玩家 pivot 目标，避免成功放置后继续多走。
+5. `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+   - 新增 `TryCommitCurrentToolActionSuccess(...)`。
+   - 成功动作的工具消耗提交现在有显式 true/false 回执。
+6. `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - `CommitCurrentToolUse(...)` 优先走 `playerInteraction.TryCommitCurrentToolActionSuccess(...)`。
+   - 只有当前动作链没真正提交成功时，才 fallback 到 `ToolRuntimeUtility.TryConsumeHeldToolUse(...)`。
+
+**验证结果**：
+- live Git：`D:\Unity\Unity_learning\Sunset @ main @ b40e4cf150bcca3bc3d7a0a7af90c05223c31976`
+- `git diff --check -- <6 files>` 通过，仅有 CRLF/LF 提示。
+- `unityMCP` 8888 基线通过；活动场景 `Primary`；`isDirty=false`；Editor 不在 Play 残留态。
+- 6 个文件逐个 `validate_script` 均无新增 error。
+- 当前项目级 Console 红编译：
+  - `Assets\\YYY_Scripts\\Story\\UI\\SpringDay1WorkbenchCraftingOverlay.cs(274,37): error CS0103: The name 'CardColor' does not exist in the current context`
+  - `Assets\\YYY_Scripts\\Story\\UI\\SpringDay1WorkbenchCraftingOverlay.cs(283,34): error CS0103: The name 'CardColor' does not exist in the current context`
+  - 不属于本线程本轮改动。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“这 5 个 live 回归点已完成代码修正，本线程真正剩下的是补记忆/技能日志并尝试白名单收口；若继续被 shared root 他线红编译拦截，就如实把 blocker 交还给用户”的这一步。

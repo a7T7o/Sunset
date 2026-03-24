@@ -2961,9 +2961,9 @@ public class GameInputManager : MonoBehaviour
             return;
         }
 
-        if (playerInteraction != null)
+        if (playerInteraction != null &&
+            playerInteraction.TryCommitCurrentToolActionSuccess(toolData, context))
         {
-            playerInteraction.OnToolActionSuccess(toolData);
             return;
         }
 

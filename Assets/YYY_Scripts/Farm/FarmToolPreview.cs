@@ -1145,12 +1145,9 @@ namespace FarmGame.Farm
             previewBounds = default;
             bool hasBounds = false;
 
-            if (currentPreviewPositions.Count > 0 &&
-                ghostTilemapRenderer != null &&
-                ghostTilemap != null &&
-                ghostTilemap.gameObject.activeInHierarchy)
+            if (TryGetCurrentPreviewTileBounds(out Bounds tileBounds))
             {
-                previewBounds = ghostTilemapRenderer.bounds;
+                previewBounds = tileBounds;
                 hasBounds = true;
             }
 
@@ -1167,6 +1164,42 @@ namespace FarmGame.Farm
                 else
                 {
                     previewBounds.Encapsulate(cursorRenderer.bounds);
+                }
+            }
+
+            return hasBounds;
+        }
+
+        private bool TryGetCurrentPreviewTileBounds(out Bounds previewBounds)
+        {
+            previewBounds = default;
+
+            if (currentPreviewPositions.Count == 0 ||
+                ghostTilemap == null ||
+                ghostTilemap.layoutGrid == null ||
+                !ghostTilemap.gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            Vector3 cellSize = ghostTilemap.layoutGrid.cellSize;
+            Vector3 absCellSize = new Vector3(
+                Mathf.Max(0.01f, Mathf.Abs(cellSize.x)),
+                Mathf.Max(0.01f, Mathf.Abs(cellSize.y)),
+                0.01f);
+
+            bool hasBounds = false;
+            foreach (var cellPos in currentPreviewPositions)
+            {
+                Bounds cellBounds = new Bounds(ghostTilemap.GetCellCenterWorld(cellPos), absCellSize);
+                if (!hasBounds)
+                {
+                    previewBounds = cellBounds;
+                    hasBounds = true;
+                }
+                else
+                {
+                    previewBounds.Encapsulate(cellBounds);
                 }
             }
 

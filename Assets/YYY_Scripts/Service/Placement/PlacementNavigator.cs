@@ -90,6 +90,11 @@ public class PlacementNavigator : MonoBehaviour
                 Debug.Log($"<color=green>[PlacementNavigator] 到达目标，触发放置</color>");
             
             isNavigating = false;
+            isPaused = false;
+            if (autoNavigator != null && autoNavigator.IsActive)
+            {
+                autoNavigator.Cancel();
+            }
             OnReachedTarget?.Invoke();
         }
     }
@@ -154,11 +159,16 @@ public class PlacementNavigator : MonoBehaviour
         }
         // 不再向外偏移，直接返回边缘最近点
         // 到达判断使用 triggerDistance 阈值，导航目标就是边缘点
+
+        // PlayerAutoNavigator 会把传入目标再叠加一次“pivot -> collider center”偏移，
+        // 这里必须把中心点目标换算回玩家根节点目标，避免成功放置后还继续多走一段。
+        Vector3 pivotTarget = closestPoint - GetPlayerCenterOffset();
+        pivotTarget.z = playerTransform != null ? playerTransform.position.z : closestPoint.z;
         
         if (showDebugInfo)
-            Debug.Log($"<color=cyan>[PlacementNavigator] 导航目标点: {closestPoint} (ClosestPoint 统一方案)</color>");
+            Debug.Log($"<color=cyan>[PlacementNavigator] 导航目标点: {pivotTarget} (centerTarget={closestPoint})</color>");
         
-        return closestPoint;
+        return pivotTarget;
     }
     
     /// <summary>
@@ -298,6 +308,16 @@ public class PlacementNavigator : MonoBehaviour
     {
         Vector3 closestPoint = previewBounds.ClosestPoint(playerCenter);
         return Vector3.Distance(playerCenter, closestPoint);
+    }
+
+    private Vector3 GetPlayerCenterOffset()
+    {
+        if (playerCollider != null && playerTransform != null)
+        {
+            return playerCollider.bounds.center - playerTransform.position;
+        }
+
+        return Vector3.zero;
     }
     
     /// <summary>

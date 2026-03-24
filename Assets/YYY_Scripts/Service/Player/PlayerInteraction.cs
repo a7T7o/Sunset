@@ -161,12 +161,18 @@ public class PlayerInteraction : MonoBehaviour
 
     public void OnToolActionSuccess()
     {
-        CommitCurrentToolUse(pendingToolData, $"PlayerInteraction/{currentAction}");
+        TryCommitCurrentToolActionSuccess(pendingToolData, $"PlayerInteraction/{currentAction}");
     }
 
     public void OnToolActionSuccess(ToolData tool)
     {
-        CommitCurrentToolUse(tool, $"PlayerInteraction/{currentAction}");
+        TryCommitCurrentToolActionSuccess(tool, $"PlayerInteraction/{currentAction}");
+    }
+
+    public bool TryCommitCurrentToolActionSuccess(ToolData tool, string context = null)
+    {
+        string resolvedContext = string.IsNullOrEmpty(context) ? $"PlayerInteraction/{currentAction}" : context;
+        return CommitCurrentToolUse(tool, resolvedContext);
     }
 
     /// <summary>
@@ -312,17 +318,25 @@ public class PlayerInteraction : MonoBehaviour
                action == PlayerAnimController.AnimState.Watering;
     }
 
-    private void CommitCurrentToolUse(ToolData tool, string context)
+    private bool CommitCurrentToolUse(ToolData tool, string context)
     {
-        if (toolUseCommittedForCurrentAction || tool == null)
+        if (toolUseCommittedForCurrentAction)
         {
-            return;
+            return true;
+        }
+
+        if (tool == null)
+        {
+            return false;
         }
 
         if (ToolRuntimeUtility.TryConsumeHeldToolUse(null, null, null, tool, context))
         {
             toolUseCommittedForCurrentAction = true;
+            return true;
         }
+
+        return false;
     }
 
     public bool IsCarrying() => isCarrying;
