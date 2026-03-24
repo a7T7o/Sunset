@@ -699,3 +699,27 @@
 - 当前主线恢复点：
   - 代码侧已经重新回到可交付的正式验收版
   - 下一步由用户直接做最终观感验证
+
+## 2026-03-24 补记：shared root 脏改清扫已回到 spring-day1 自己的最小面
+- 本轮主线不是继续写 Day1 新桥，而是根据用户补发的旧清扫指令，先把 shared root 里当前应由 spring-day1 认领的活 dirty 收口。
+- 我先按 `skills-governor + sunset-workspace-router` 做手工等价 startup guard，补读：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\26.03.24-shared-root脏改清扫与白名单收口.md`
+  - spring-day1 工作区记忆
+  - 线程记忆
+  - `workspace-memory.md` 与 `git-safety-baseline.md`
+- live 核查后确认：
+  - 当前真正属于 spring-day1 本轮白名单的活 dirty 只有：
+    - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese BitmapSong SDF.asset`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SoftPixel SDF.asset`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` 已 clean
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs.meta` 只是无内容伪脏改，已恢复
+- 关键判断：
+  - `DialogueUI.cs` 不是调试残留，而是连续剧情后其他 UI 不恢复的正式修复尾巴，必须保留
+  - 4 个 TMP 字体资产虽然是 TMP 图集重生成副产物，但当前 spring-day1 的提示条 / 工作台 UI 真实依赖这些新增字符，因此应按有效内容一起白名单收口，而不是再丢回去让后续继续白框
+- 只读 preflight 已确认本轮 main-only 白名单可继续，且代码闸门对 `DialogueUI.cs` 通过。
+- 当前恢复点：
+  - 这轮收完后，spring-day1 在 shared root 里的 owned dirty 将从“功能尾巴 + 字体尾巴”收缩为已提交 checkpoint
+  - 后续再回到 Day1 运行链时，不需要继续带着这批 shared root 脏改前行

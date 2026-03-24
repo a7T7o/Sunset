@@ -253,6 +253,11 @@ namespace Sunset.Story
 
         private void OnDialogueEnd(DialogueEndEvent _)
         {
+            if (ShouldIgnoreDialogueEndEvent())
+            {
+                return;
+            }
+
             _isVisible = false;
             _advanceInputReadyTime = float.PositiveInfinity;
             StartVisibilityTransition(false);
@@ -1040,6 +1045,11 @@ namespace Sunset.Story
 
         private void CaptureNonDialogueUiSnapshots()
         {
+            if (_nonDialogueUiSnapshots.Count > 0)
+            {
+                return;
+            }
+
             _nonDialogueUiSnapshots.Clear();
 
             Transform siblingParent = ResolveNonDialogueUiParent();
@@ -1225,6 +1235,16 @@ namespace Sunset.Story
             }
 
             _nonDialogueUiSnapshots.Clear();
+        }
+
+        private bool ShouldIgnoreDialogueEndEvent()
+        {
+            if (_dialogueManager == null)
+            {
+                _dialogueManager = DialogueManager.Instance;
+            }
+
+            return _dialogueManager != null && _dialogueManager.IsDialogueActive;
         }
 
         private Transform ResolveNonDialogueUiParent()

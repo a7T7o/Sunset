@@ -556,3 +556,21 @@
 - 当前恢复点：
   - 工作台 UI 代码侧已回到正式验收版
   - 下一步主要是用户做最终观感与体感验收
+
+## 2026-03-24 补记：shared root 中 spring-day1 owned dirty 已按最小白名单清扫
+- 这轮不是继续推进 Day1 新功能，而是按 `26.03.24-shared-root脏改清扫与白名单收口.md` 收 shared root 里当前明确属于 spring-day1 的尾巴。
+- 先只核清扫文档点名的 6 项，live 结果为：
+  - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`：当前仍是活 dirty，且属于 spring-day1 的真实时序修复；内容是忽略旧对话 `DialogueEndEvent` 对新对话的误收尾，并避免连续剧情时重复覆盖非对话 UI 快照。
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`：当前已 clean，不在本轮活 dirty 集合中。
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese BitmapSong SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SoftPixel SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+- 上述 4 个 TMP 字体资产本质上是 spring-day1 触发出来的 TMP 图集重生成副产物，但这轮判定为“有效内容”，不是纯噪音；原因是当前 `PromptOverlay / WorkbenchOverlay` 真实依赖它们承载新增中文文案，而 `HEAD` 版字体集合缺少本轮 UI 需要的多枚字符（如 `制 / 作 / 材 / 足 / 说 / 配 / 方 / 最 / 可`），working tree 才补齐。
+- 另外已顺手把 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs.meta` 的无内容伪脏改恢复到 `HEAD`，避免把 line-ending 噪音误算进 spring-day1 尾巴。
+- 本轮最小验证已做：
+  - `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 -IncludePaths ...`
+  - 代码闸门通过：对 `DialogueUI.cs` 完成 UTF-8 / diff / `Assembly-CSharp` 编译检查
+- 当前恢复点：
+  - spring-day1 这轮 shared root 清扫已收缩为 `DialogueUI.cs + 4 个字体资产` 的最小白名单
+  - 收口完成后，shared root 中与 spring-day1 明确相关的这批活 dirty 不再继续挂着
