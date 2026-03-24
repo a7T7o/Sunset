@@ -3628,3 +3628,33 @@
 **恢复点 / 下一步**
 - 现在对用户交付导航 prompt 路径时，应只使用新的 `002-prompt-3 / 4 / 5`；
 - 农田线命名本轮保持不变，不在这次纠偏范围内。
+
+## 2026-03-24｜导航线已接到 `002-prompt-5` 回执，下一轮正式切到 NPC detour 恢复链
+**当前主线目标**
+- 接住导航线程对 `002-prompt-5` 的回执，判断它是继续发散，还是已经把问题压到足够具体的下一责任点。
+
+**本轮完成**
+1. 已确认这轮回执满足上一轮治理要求：
+   - 已完整吸收用户补充区
+   - 已保持单场 `PlayerAvoidsMovingNpc`
+   - live 窗口已显著收短
+   - `Primary.unity isDirty` 来源已查清
+2. 已确认当前第一责任点继续前移，不再停在 solver 参数本身：
+   - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+   - `TryHandleSharedAvoidance()`
+   - `shouldAttemptDetour && TryCreateDynamicDetour(...)`
+   - 以及其后 `OverrideWaypoint` 清理 / 恢复原目标路径的收尾链
+3. 已新增下一轮导航 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-6.md`
+
+**关键决策**
+- 这轮不是“又卡住了”，而是有效 checkpoint：
+  - 玩家已到位
+  - 净空已转正
+  - 当前失败形态已压成“detour 后没有恢复原目标收尾”
+- 下一轮不再允许继续泛泛调 solver 参数；
+- 下一轮应直接打 NPC detour 恢复链 root-cause。
+
+**恢复点 / 下一步**
+- 现在可直接把 `002-prompt-6.md` 发给导航线程；
+- 若下一轮修通最后一条，还必须补跑另外两条，拿 fresh 同轮证据后才能转阶段验收报告。
