@@ -524,3 +524,19 @@
 - 当前恢复点：
   - 工作台这条线已经从“可用测试 UI”推进到“正式数据驱动 + 正式交互口径”的版本
   - 下一步主要剩人工观感验收：检查位置翻转、右键不穿透、数量调节与制作结果显示是否符合体感
+
+## 2026-03-24 补记：工作台 UI 首次运行回归已止血
+- 用户实际按 `E` 打开工作台后立即暴露了 3 个直接阻断运行的错误：
+  - `RecipeData.OnValidate()` 把合法的 `itemID=0 (Axe_0)` 误判成“未设置产物”
+  - `SpringDay1WorkbenchCraftingOverlay.EnsureRows()` 复用了带 `VerticalLayoutGroup` 的容器，随后又添加 `HorizontalLayoutGroup`，导致 Unity 直接报错并中断
+  - 浮层字体优先级先命中 `DialogueChinese SoftPixel SDF.asset`，会触发当前已知的 TMP 导入噪音
+- 本轮已修复：
+  - `Assets/YYY_Scripts/Data/Recipes/RecipeData.cs`：把“未设置产物”判定从 `resultItemID == 0` 改为 `resultItemID < 0`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`：为配方行改用不带布局组的专用根节点，消除布局组冲突与后续空引用
+  - 同文件的字体优先级改为先走 `DialogueChinese V2 / BitmapSong / Pixel / SDF`，把 `SoftPixel` 放到最后，避免这轮工作台 UI 主动触发导入错误
+- 本轮验证：
+  - `git diff --check`
+  - `CodexCodeGuard`（4 个 C# 文件通过）
+- 当前恢复点：
+  - 这轮已经把“按 E 立刻炸掉”的回归错误收掉
+  - 下一步应让用户重新按 `E` 复测工作台 UI 本体

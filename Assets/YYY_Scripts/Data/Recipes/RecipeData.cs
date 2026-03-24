@@ -138,7 +138,7 @@ namespace FarmGame.Data
                 Debug.LogWarning($"[{recipeName}] 配方没有材料！");
             }
 
-            if (resultItemID == 0)
+            if (resultItemID < 0)
             {
                 Debug.LogWarning($"[{recipeName}] 配方没有设置产物！");
             }

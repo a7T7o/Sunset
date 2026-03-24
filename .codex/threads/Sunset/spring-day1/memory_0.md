@@ -653,3 +653,18 @@
 - 当前主线恢复点：
   - Day1 工作台 UI 代码侧已收成正式验收版
   - 下一步主要剩用户做最终观感验收，我再根据体验细修
+
+## 2026-03-24 补记：我已修掉工作台 UI 打开即报错的回归
+- 用户实测时直接贴出了运行时栈，我据此确认这轮不是“体感小问题”，而是确实存在立即阻断交互的回归错误。
+- 已修复：
+  - `Assets/YYY_Scripts/Data/Recipes/RecipeData.cs`
+    - 让 `itemID = 0` 的合法产物不再被误报“配方没有设置产物”
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+    - 配方行创建改为专用行容器，不再叠加互斥的 `LayoutGroup`
+    - TMP 字体优先级调整，避免工作台浮层主动先吃到 `SoftPixel` 导入噪音
+- 我已重新跑过：
+  - `git diff --check`
+  - `CodexCodeGuard`
+- 当前主线恢复点：
+  - 工作台 UI 这刀已经从“打开即报错”回到“可重新让用户复测”
+  - 下一步就是用户重新按 `E` 验收是否还会停游戏

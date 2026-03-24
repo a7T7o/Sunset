@@ -505,3 +505,19 @@
 - 当前恢复点：
   - spring-day1 的工作台环节现在已经不是“先能用再说”的测试 UI，而是正式数据驱动的验收版本
   - 下一步主要剩用户侧的最终观感与体感验收
+
+## 2026-03-24 补记：已修掉工作台 UI 首次运行时的立即崩点
+- 用户实测后确认：当前不是观感问题，而是按 `E` 打开工作台时会直接打出 3 类运行时错误。
+- 已定位并修复：
+  - `Assets/YYY_Scripts/Data/Recipes/RecipeData.cs`
+    - 旧逻辑把 `resultItemID == 0` 当成“没设置产物”，但项目里 `Axe_0` 的合法物品 ID 就是 `0`
+    - 现已改为仅在 `resultItemID < 0` 时警告
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+    - 配方行不再复用自带 `VerticalLayoutGroup` 的容器，避免再叠加 `HorizontalLayoutGroup` 触发 Unity 组件冲突
+    - 字体优先级改为暂时绕开 `DialogueChinese SoftPixel SDF.asset`，避免工作台 UI 自己触发当前已知的 TMP 资源导入噪音
+- 本轮静态验证：
+  - `git diff --check`
+  - `CodexCodeGuard`（4 个 C# 文件通过）
+- 当前恢复点：
+  - 这轮已把“按 E 立刻炸掉”的回归错误止血
+  - 下一步回到用户侧重新复测工作台 UI 是否能正常弹出并继续交互

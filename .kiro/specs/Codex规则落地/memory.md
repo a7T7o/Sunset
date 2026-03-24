@@ -3658,3 +3658,82 @@
 **恢复点 / 下一步**
 - 现在可直接把 `002-prompt-6.md` 发给导航线程；
 - 若下一轮修通最后一条，还必须补跑另外两条，拿 fresh 同轮证据后才能转阶段验收报告。
+
+## 2026-03-24｜NPC 线程现状已回顾，当前不宜进入热场景落点与最终联调
+**当前主线目标**
+- 回答用户关于 `NPC` 现状的追问：在导航已经被连续鞭策这么多轮之后，`NPC` 这条线现在到底能不能继续，以及应继续到什么程度。
+
+**本轮完成**
+1. 已回读 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md` 中的近期收口记录，确认 NPC 线程自己的口径并没有变：
+   - 纯 NPC 工具链、气泡样本化、生成器与场景化入口已经基本收拢
+   - 剩余三件主事仍是：
+     - `Primary.unity` 里的正式场景化落点
+     - 导航交付后的 NPC 侧接入
+     - 最终联调验收
+2. 已对照当前导航最新进度确认：
+   - 导航不再卡在“位移不动”
+   - 也不再主要卡在 solver 参数本身
+   - 当前最新 blocker 已压到：
+     - `NPCAutoRoamController.TryHandleSharedAvoidance()`
+     - detour 清理 / `OverrideWaypoint` 恢复原目标路径的收尾链
+3. 已确认 `NPC` 相关现场当前仍是热状态：
+   - `Assets/000_Scenes/Primary.unity` 仍 dirty
+   - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+   - `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+   都还在 live 变动面里
+
+**关键决策**
+- `NPC` 当前**不能**继续做的事：
+  - 进入 `Primary.unity` 做正式 `001/002/003` 的 Home Anchor / 活动范围落点
+  - 宣称进入最终联调验收
+  - 以当前导航结果为基线做正式场景收口
+- `NPC` 当前**可以**继续做的事：
+  - 只读回顾导航交付面
+  - 整理 NPC 侧接入清单 / 适配清单
+  - 明确 `NPCAutoRoamController / NPCMotionController` 在导航最终交付后要核哪些接口与语义
+  - 保持 `003` 验证样本与 NPC 工具链可用，但不把它们升级成“最终验收”
+- 换句话说：
+  - `NPC` 现在不是“完全不能动”
+  - 但它现在也还不该进入“热场景落点 + 最终联调”阶段
+  - 它最合理的状态是：
+    - `低风险准备态`
+    - 等导航把 detour 恢复链真正收口后，再做热场景与最终联调
+
+**恢复点 / 下一步**
+- 当前对 NPC 最合理的治理口径应改成：
+  - `可做低风险接入准备`
+  - `暂不放行热场景落点与最终联调`
+- 等导航至少满足下面两种条件之一后，再放 NPC 往前走：
+  1. `PlayerAvoidsMovingNpc` 真通过，且三条场景补齐 fresh 同轮证据
+  2. detour 恢复链虽然未彻底通过，但已锁到稳定可接的最终行为语义，足以让 NPC 侧做适配与联调前准备
+
+## 2026-03-24｜shared root 脏改已分桶，spring 与 farm 清扫令已下发
+**当前主线目标**
+- 响应用户“先做警匪操作”的要求，先把当前 shared root dirty 盘清，再把清扫任务分给真正需要扫地的线程。
+
+**本轮完成**
+1. 已重新核当前 shared root dirty。
+2. 已明确当前 dirty **不是只有** `spring` 和 `farm` 两条线：
+   - 导航主堆自己仍有活跃 dirty
+   - `Primary.unity` 仍属热场景
+   - 但本轮按用户要求，先只给 `spring-day1` 与 `农田交互修复V2` 下清扫令
+3. 已新增批次分发入口：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-24_批次分发_10_shared-root脏改清扫_spring_farm_01.md`
+4. 已新增 spring 清扫 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\26.03.24-shared-root脏改清扫与白名单收口.md`
+5. 已新增 farm 清扫 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\007-shared-root脏改清扫与归属核对.md`
+
+**关键决策**
+- 本轮不让 `spring` 和 `farm` 代替导航 / NPC / 场景热面扫地。
+- spring 当前优先清扫口径是：
+  - `DialogueUI.cs`
+  - `SpringDay1WorkbenchCraftingOverlay.cs`
+  - 4 个 `DialogueChinese * SDF.asset`
+- farm 当前优先清扫口径是：
+  - 先核准自己当前是否真的只剩 `006-续工裁决入口与用户补充区.md` 这一项 shared root 尾账
+- 导航 / NPC / `Primary.unity` 当前不在这轮清扫令范围内。
+
+**恢复点 / 下一步**
+- 现在可以直接把批次入口或两份线程专属 prompt 发给 spring 与 farm；
+- 下一步等它们各自回执，再判断 shared root 里还剩多少“可扫的他线 dirty”和多少“仍在活跃开发中的 dirty”。

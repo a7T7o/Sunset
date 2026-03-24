@@ -13,11 +13,11 @@ namespace Sunset.Story
     {
         private static readonly string[] PreferredFontResourcePaths =
         {
-            "Fonts & Materials/DialogueChinese SoftPixel SDF",
             "Fonts & Materials/DialogueChinese V2 SDF",
             "Fonts & Materials/DialogueChinese BitmapSong SDF",
             "Fonts & Materials/DialogueChinese Pixel SDF",
-            "Fonts & Materials/DialogueChinese SDF"
+            "Fonts & Materials/DialogueChinese SDF",
+            "Fonts & Materials/DialogueChinese SoftPixel SDF"
         };
 
         private const string RecipeResourceFolder = "Story/SpringDay1Workbench";
@@ -355,7 +355,7 @@ namespace Sunset.Story
             while (_rows.Count < _recipes.Count)
             {
                 int capturedIndex = _rows.Count;
-                RectTransform row = CreatePanel(recipeListContent, $"RecipeRow_{capturedIndex}");
+                RectTransform row = CreateRecipeRowRoot(recipeListContent, $"RecipeRow_{capturedIndex}");
                 row.gameObject.AddComponent<LayoutElement>().preferredHeight = 64f;
                 var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
                 layout.spacing = 8f;
@@ -727,6 +727,15 @@ namespace Sunset.Story
                 rect.gameObject.AddComponent<LayoutElement>().preferredWidth = preferredWidth;
             }
 
+            return rect;
+        }
+
+        private RectTransform CreateRecipeRowRoot(Transform parent, string name)
+        {
+            RectTransform rect = CreateRect(parent, name);
+            var image = rect.gameObject.AddComponent<Image>();
+            image.color = new Color(0.12f, 0.15f, 0.21f, 0.82f);
+            image.raycastTarget = true;
             return rect;
         }
 
