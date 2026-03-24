@@ -174,7 +174,7 @@ namespace FarmGame.World
                 }
                 else
                 {
-                    _inventoryV2.SetItemSilently(i, InventoryItem.FromItemStack(stack));
+                    _inventoryV2.SetSlotSilently(i, stack);
                 }
 
                 changedSlots.Add(i);

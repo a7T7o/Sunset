@@ -58,6 +58,10 @@ namespace FarmGame.Data
         [Tooltip("最大耐久度")]
         public int maxDurability = 100;
 
+        [Tooltip("每次成功/有效使用消耗的耐久度")]
+        [Range(1, 20)]
+        public int durabilityCost = 1;
+
         [Header("=== 材料等级 ===")]
         [Tooltip("工具的材料等级（0=木质, 1=石质, 2=生铁, 3=黄铜, 4=钢质, 5=金质）")]
         public MaterialTier materialTier = MaterialTier.Wood;
@@ -115,7 +119,7 @@ namespace FarmGame.Data
             if (effectRadius > 1)
                 text += $"\n<color=green>范围: {effectRadius}x{effectRadius}</color>";
 
-            if (hasDurability)
+            if (hasDurability || maxDurability > 0)
                 text += $"\n<color=orange>耐久度: {maxDurability}</color>";
 
             return text;

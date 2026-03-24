@@ -1,5 +1,6 @@
 using UnityEngine;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 
 /// <summary>
 /// 玩家交互控制器
@@ -29,6 +30,7 @@ public class PlayerInteraction : MonoBehaviour
     private PlayerAnimController.AnimState currentAction;
     private float actionStartTime;
     public bool enableLegacyInput = false;
+    private bool toolUseCommittedForCurrentAction = false;
     
     // 当前操作的工具数据（用于精力消耗判定）
     private ToolData pendingToolData;
@@ -117,6 +119,7 @@ public class PlayerInteraction : MonoBehaviour
         isPerformingAction = true;
         currentAction = action;
         actionStartTime = Time.time;
+        toolUseCommittedForCurrentAction = false;
 
         lockManager?.BeginAction();
         
@@ -158,14 +161,12 @@ public class PlayerInteraction : MonoBehaviour
 
     public void OnToolActionSuccess()
     {
-        if (pendingToolData != null && energySystem != null)
-            energySystem.TryConsumeEnergy(pendingToolData.energyCost);
+        CommitCurrentToolUse(pendingToolData, $"PlayerInteraction/{currentAction}");
     }
 
     public void OnToolActionSuccess(ToolData tool)
     {
-        if (tool != null && energySystem != null)
-            energySystem.TryConsumeEnergy(tool.energyCost);
+        CommitCurrentToolUse(tool, $"PlayerInteraction/{currentAction}");
     }
 
     /// <summary>
@@ -309,6 +310,19 @@ public class PlayerInteraction : MonoBehaviour
                action == PlayerAnimController.AnimState.Crush ||
                action == PlayerAnimController.AnimState.Pierce ||
                action == PlayerAnimController.AnimState.Watering;
+    }
+
+    private void CommitCurrentToolUse(ToolData tool, string context)
+    {
+        if (toolUseCommittedForCurrentAction || tool == null)
+        {
+            return;
+        }
+
+        if (ToolRuntimeUtility.TryConsumeHeldToolUse(null, null, null, tool, context))
+        {
+            toolUseCommittedForCurrentAction = true;
+        }
     }
 
     public bool IsCarrying() => isCarrying;

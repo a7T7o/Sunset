@@ -962,9 +962,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     private void HandleSaplingDigOut(ToolHitContext ctx)
     {
-        // 尝试消耗精力
-        float energyCost = GetEnergyCost(ctx);
-        if (!TryConsumeEnergy(energyCost))
+        ToolData toolData = ResolveToolData(ctx);
+        float energyCost = toolData != null ? toolData.energyCost : 0f;
+        if (!CommitToolUse(ctx, toolData, $"{gameObject.name}/SaplingDigOut"))
         {
             if (showDebugInfo)
                 Debug.Log($"<color=yellow>[TreeController] {gameObject.name} 精力不足，无法挖出树苗</color>");
@@ -989,11 +989,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     private void HandleAxeChop(ToolHitContext ctx, Vector2 chopDirection)
     {
-        // ★ 先尝试消耗精力（无论等级是否足够，只要挥动斧头就消耗精力）
-        float energyCost = GetEnergyCost(ctx);
-        bool hasEnergy = TryConsumeEnergy(energyCost);
-        
-        if (!hasEnergy)
+        ToolData toolData = ResolveToolData(ctx);
+        float energyCost = toolData != null ? toolData.energyCost : 0f;
+        if (!CommitToolUse(ctx, toolData, $"{gameObject.name}/AxeChop"))
         {
             PlayHitEffect(chopDirection);
             if (showDebugInfo)
@@ -1005,7 +1003,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         int axeTier = GetAxeTier(ctx);
         if (!MaterialTierHelper.CanChopTree(axeTier, currentStageIndex))
         {
-            // 等级不足：播放金属碰撞音效和提示（精力已消耗，但不造成伤害）
+            // 等级不足：播放金属碰撞音效和提示（精力/耐久已提交，但不造成伤害）
             PlayTierInsufficientFeedback(axeTier);
             PlayHitEffect(chopDirection);
             if (showDebugInfo)
@@ -1081,9 +1079,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             return;
         }
         
-        // 尝试消耗精力
-        float energyCost = GetEnergyCost(ctx);
-        if (!TryConsumeEnergy(energyCost))
+        ToolData toolData = ResolveToolData(ctx);
+        float energyCost = toolData != null ? toolData.energyCost : 0f;
+        if (!CommitToolUse(ctx, toolData, $"{gameObject.name}/StumpHit"))
         {
             if (showDebugInfo)
                 Debug.Log($"<color=yellow>[TreeController] {gameObject.name} 精力不足，无法砍树桩</color>");
@@ -1143,6 +1141,34 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             }
         }
         return 0; // 默认木质
+    }
+
+    private ToolData ResolveToolData(ToolHitContext ctx)
+    {
+        if (ctx.attacker == null)
+        {
+            return null;
+        }
+
+        var toolController = ctx.attacker.GetComponent<PlayerToolController>();
+        return toolController != null ? toolController.CurrentToolData as ToolData : null;
+    }
+
+    private bool CommitToolUse(ToolHitContext ctx, ToolData toolData, string context)
+    {
+        if (toolData == null)
+        {
+            return false;
+        }
+
+        var interaction = ctx.attacker != null ? ctx.attacker.GetComponent<PlayerInteraction>() : null;
+        if (interaction != null)
+        {
+            interaction.OnToolActionSuccess(toolData);
+            return true;
+        }
+
+        return ToolRuntimeUtility.TryConsumeHeldToolUse(null, null, null, toolData, context);
     }
     
     /// <summary>

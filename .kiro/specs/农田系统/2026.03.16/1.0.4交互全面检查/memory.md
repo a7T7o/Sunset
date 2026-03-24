@@ -369,3 +369,99 @@
 **恢复点 / 下一步**：
 - `1.0.4` 当前已经完成“第二刀完成后的阶段总结与移交”。
 - 下一步等待用户决定是否接受第二刀体感并放行第三刀。
+
+## 2026-03-24：按用户“不要一刀一刀走，直接一步到位”口径完成 `1.0.4` 剩余全局交互收口，并锁定唯一 live 阻塞
+
+**用户目标**：
+- 用户明确要求：不要再按刀次聊天推进，而是重新回到 `001最后通牒.md` 所描述的整包问题，直接在 `main` 上把当前还能一步落地的 `1.0.4` 交互修正一次性补完，给最终验收结果。
+
+**当前主线目标**：
+- 在 `全局交互V3（原：农田交互修复V2）` 语义下，把第二刀之外仍未收住的全局交互问题集中补齐，重点覆盖：
+  - 背包 / Toolbar 的受保护槽位边界与 UI 焦点残留
+  - 工具耐久 / 精力 / Tooltip / SO 参数链
+  - 箱子 / 背包 / 装备 / 掉落 / 存档之间的 runtime item 保真
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：把“只是手持 preview 就被错误锁定”的口径彻底改回“只保护 Locked / Navigating / Executing”。
+- 子任务 2：把工具 runtime item 的创建、排序、装备、箱子、掉落、存档与消耗提交统一到一条 helper 链上。
+- 子任务 3：把 Tooltip 的 `0.6s` 延迟与精力条 hover 文案补成真实运行时行为，而不是只停在文档口径。
+- 当前唯一真实阻塞不在本轮脚本本身，而在 shared root 里存在他线删除 `SpringDay1WorkbenchCraftingOverlay.cs` 后留下的红编译，导致 Unity 全项目 live 验证无法完成最终 `Play` 闭环。
+
+**已完成事项**：
+1. 新增 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`，统一：
+   - 工具 runtime item 创建
+   - 工具耐久初始化
+   - 一次成功/有效使用的精力与耐久提交
+   - 控制台日志输出口径
+2. 新增 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergyBarTooltipWatcher.cs`，在不改 Scene/Prefab 的前提下给精力条补上 hover Tooltip 入口。
+3. 修改 `GameInputManager.cs`、`PlacementManager.cs`、`PlayerInteraction.cs`：
+   - `PlacementManager.HasProtectedHeldSession` 现在只在 `Locked / Navigating / Executing` 为真，不再因为纯 preview 误锁树苗/种子/placeable
+   - `GameInputManager` 的放置保护判断改为走这条统一口径
+   - `TryStartPlayerAction(...)` 与 `AbortCurrentQueuedFarmAction(...)` 已接入，避免动画没真正开始时队列继续推进
+   - 锄地 / 浇水 / 清作物成功后都统一走 `CommitCurrentToolUse(...)`
+   - `PlayerInteraction` 以 `toolUseCommittedForCurrentAction` 防止一次动作重复扣精力/耐久
+4. 修改 `TreeController.cs`、`StoneController.cs`：
+   - 资源节点工具命中成功后改走统一的 tool runtime 提交链
+   - 同一挥动动作下不再靠散落的 `TryConsumeEnergy(...)` 分支各自扣精力
+5. 修改 `PlayerInventoryData.cs`、`ChestInventoryV2.cs`、`EquipmentService.cs`、`InventorySortService.cs`、`WorldItemPickup.cs`、`SaveDataDTOs.cs`、`ChestController.cs`：
+   - 背包 / 箱子 / 装备 / 整理 / 掉落 / 存读现在都尽量保留 runtime item
+   - `ChestController.SyncInventoryToV2()` 的最后一处 `InventoryItem.FromItemStack(...)` 漏口已收掉，改为走 `SetSlotSilently(...)`
+   - 工具在这些链路里不再因为整理、装备、箱内桥接或存读而丢耐久态
+6. 修改 `InventorySlotUI.cs`、`ToolbarSlotUI.cs`、`InventorySlotInteraction.cs`：
+   - 只关闭 `Toggle.navigation`
+   - 点击 / 按下时主动清掉 `EventSystem.current.selectedGameObject`
+   - 用来修复“鼠标点 Toolbar 后 A/D 跑出独立框选”的焦点残留问题，同时不再破坏 prefab 原有颜色过渡配置
+7. 修改 `ItemTooltip.cs`：
+   - Tooltip 显示改成真实延迟协程，不再是伪参数
+   - `ShowCustom(...)` 已加入，供精力条等自定义文案复用
+   - 为避免 `ItemTooltip.prefab` 已序列化旧值 `showDelay: 0.3`，代码层新增 `MinimumShowDelay = 0.6f` 硬下限，确保 live 运行时不会偷偷退回旧口径
+8. 修改 `ToolData.cs`：
+   - 新增 `durabilityCost`
+   - 工具耐久消耗正式回到 SO 参数链
+
+**关键决策**：
+- 这轮没有再回头扩 `1.0.4` 文档，也没有把第三刀、第四刀拆开聊天推进，而是按用户要求直接收整包能落地的实现。
+- 受保护槽位的最终语义现在明确为“只保护真实进行中的导航/执行态”，纯手持 preview 不再误伤。
+- `Tooltip 0.6s` 不信默认值，直接在代码里做运行时下限，避免旧 prefab 序列化值把体验拉回去。
+- shared root 当前的 Unity 红编译被写实判定为他线阻塞：`Assets\YYY_Scripts\Story\Interaction\CraftingStationInteractable.cs` 对 `SpringDay1WorkbenchCraftingOverlay` 的引用失效，不属于本轮 `1.0.4` 交互改动根因。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergyBarTooltipWatcher.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergySystem.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\ToolData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\PlayerInventoryData.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\ChestInventoryV2.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Equipment\EquipmentService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Inventory\InventorySortService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\WorldItemPickup.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\SaveDataDTOs.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\StoneController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+
+**验证结果**：
+- 脚本级验证：
+  - 本轮白名单脚本已通过 `validate_script`，无新增 error；保留的 warning 仅是既有 `Update()` 性能提示。
+- 代码格式验证：
+  - 白名单 `git diff --check` 通过，仅剩 CRLF/LF 提示。
+- Unity / MCP live 证据：
+  - `mcp-live-baseline` 已通过：`unityMCP + 8888 + pidfile` 正常。
+  - 当前活动场景为 `Primary`，Editor 在 `Edit Mode`，无 Play 残留。
+  - Console 当前唯一红编译为：
+    - `Assets\YYY_Scripts\Story\Interaction\CraftingStationInteractable.cs(170,17): error CS0246: SpringDay1WorkbenchCraftingOverlay`
+    - `Assets\YYY_Scripts\Story\Interaction\CraftingStationInteractable.cs(18,34): error CS0246: SpringDay1WorkbenchCraftingOverlay`
+  - 由于该 shared root 红编译与本轮白名单无关，本轮未能完成最终 `Play` 级 live 终验。
+
+**恢复点 / 下一步**：
+- `1.0.4` 当前这批“背包/Toolbar 焦点 + 受保护槽位边界 + 工具 runtime 参数链 + Tooltip 0.6s + 箱子 runtime 保真”代码已经落地完成。
+- 下一步只剩两件事：
+  1. shared root 先清掉 `SpringDay1WorkbenchCraftingOverlay` 这条他线红编译；
+  2. 红编译解除后，立即回到 Unity live 做最终手动验收与白名单提交。

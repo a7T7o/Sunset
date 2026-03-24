@@ -556,9 +556,14 @@ namespace FarmGame.Data.Core
                 maxDurability = item.MaxDurability
             };
             
-            // 转换动态属性
-            // 注意：这里需要访问 InventoryItem 的内部属性
-            // 实际实现时可能需要调整
+            var properties = item.GetPropertiesSnapshot();
+            if (properties.Count > 0)
+            {
+                foreach (KeyValuePair<string, string> entry in properties)
+                {
+                    data.properties.Add(new PropertyEntrySaveData(entry.Key, entry.Value));
+                }
+            }
             
             return data;
         }

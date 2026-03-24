@@ -1,4 +1,5 @@
-﻿using UnityEngine;
+using System.Collections;
+using UnityEngine;
 using UnityEngine.UI;
 using FarmGame.Data;
 using FarmGame.Data.Core;
@@ -9,48 +10,58 @@ using FarmGame.Data.Core;
 /// </summary>
 public class ItemTooltip : MonoBehaviour
 {
+    private const float MinimumShowDelay = 0.6f;
+
     #region 单例
-    
+
     public static ItemTooltip Instance { get; private set; }
-    
+
     #endregion
-    
+
     #region 序列化字段
-    
+
     [Header("UI 引用")]
     [SerializeField] private RectTransform tooltipRect;
     [SerializeField] private CanvasGroup canvasGroup;
-    [SerializeField] private Text itemNameText;
-    [SerializeField] private Text descriptionText;
-    [SerializeField] private Text priceText;
-    [SerializeField] private Image qualityIcon;
-    
+    [SerializeField] private Text itemNameText = null;
+    [SerializeField] private Text descriptionText = null;
+    [SerializeField] private Text priceText = null;
+    [SerializeField] private Image qualityIcon = null;
+
     [Header("显示设置")]
     [SerializeField] private Vector2 offset = new Vector2(15f, -15f);
-    #pragma warning disable 0414
-    [SerializeField] private float showDelay = 0.3f;
-    #pragma warning restore 0414
+    [SerializeField] private float showDelay = 0.6f;
     [SerializeField] private float fadeSpeed = 10f;
-    
+
     #endregion
-    
+
     #region 私有字段
-    
+
+    private struct TooltipVisualData
+    {
+        public string title;
+        public Color titleColor;
+        public string description;
+        public string price;
+        public bool showPrice;
+        public bool showQualityIcon;
+        public Color qualityColor;
+    }
+
     private Canvas _parentCanvas;
     private Camera _uiCamera;
-    private bool _isShowing = false;
-    #pragma warning disable 0414
-    private float _hoverTimer = 0f;
-    #pragma warning restore 0414
+    private bool _isShowing;
     private ItemStack _currentItem;
     private ItemDatabase _database;
-    private int _currentAmount = 0;
+    private int _currentAmount;
     private InventoryItem _currentRuntimeItem;
-    
+    private Coroutine _pendingShowCoroutine;
+    private TooltipVisualData _pendingVisualData;
+
     #endregion
-    
+
     #region Unity 生命周期
-    
+
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -59,63 +70,53 @@ public class ItemTooltip : MonoBehaviour
             return;
         }
         Instance = this;
-        
+
         if (tooltipRect == null)
             tooltipRect = GetComponent<RectTransform>();
-        
+
         if (canvasGroup == null)
             canvasGroup = GetComponent<CanvasGroup>();
-        
+
         _parentCanvas = GetComponentInParent<Canvas>();
         if (_parentCanvas != null && _parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
         {
             _uiCamera = _parentCanvas.worldCamera;
         }
-        
-        // 初始隐藏
+
         if (canvasGroup != null)
             canvasGroup.alpha = 0f;
-        
+
         gameObject.SetActive(false);
     }
-    
+
     void OnDestroy()
     {
         if (Instance == this)
             Instance = null;
     }
-    
+
     void Update()
     {
         if (_isShowing)
         {
             FollowMouse();
-            
-            // 淡入效果
+
             if (canvasGroup != null && canvasGroup.alpha < 1f)
             {
                 canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, 1f, fadeSpeed * Time.unscaledDeltaTime);
             }
         }
     }
-    
+
     #endregion
-    
+
     #region 公共方法
-    
-    /// <summary>
-    /// 设置数据库引用
-    /// </summary>
+
     public void SetDatabase(ItemDatabase database)
     {
         _database = database;
     }
-    
-    /// <summary>
-    /// 显示物品详情
-    /// </summary>
-    /// <param name="item">物品栈</param>
-    /// <param name="amount">数量（用于计算总价）</param>
+
     public void Show(ItemStack item, int amount = 1)
     {
         Show(item, null, amount);
@@ -144,126 +145,157 @@ public class ItemTooltip : MonoBehaviour
         _currentItem = item;
         _currentAmount = amount;
         _currentRuntimeItem = runtimeItem;
-        _isShowing = true;
-        gameObject.SetActive(true);
 
-        if (itemNameText != null)
+        int totalPrice = itemData.GetSellPriceWithQuality((ItemQuality)item.quality) * amount;
+        QueueShow(new TooltipVisualData
         {
-            itemNameText.text = itemData.itemName;
-            itemNameText.color = GetQualityColor((ItemQuality)item.quality);
-        }
-
-        if (descriptionText != null)
-        {
-            descriptionText.text = ItemTooltipTextBuilder.Build(itemData, runtimeItem);
-        }
-
-        if (priceText != null)
-        {
-            int totalPrice = itemData.GetSellPriceWithQuality((ItemQuality)item.quality) * amount;
-            if (totalPrice > 0)
-            {
-                priceText.text = amount > 1 
-                    ? $"总价值: {totalPrice} 金币 ({amount}个)"
-                    : $"价值: {totalPrice} 金币";
-                priceText.gameObject.SetActive(true);
-            }
-            else
-            {
-                priceText.gameObject.SetActive(false);
-            }
-        }
-        
-        // 设置品质图标
-        if (qualityIcon != null)
-        {
-            if (item.quality > 0)
-            {
-                qualityIcon.color = itemData.GetQualityStarColor((ItemQuality)item.quality);
-                qualityIcon.gameObject.SetActive(true);
-            }
-            else
-            {
-                qualityIcon.gameObject.SetActive(false);
-            }
-        }
-        
-        // 立即更新位置
-        FollowMouse();
-        
-        // 重置透明度（淡入效果）
-        if (canvasGroup != null)
-            canvasGroup.alpha = 0f;
+            title = itemData.itemName,
+            titleColor = GetQualityColor((ItemQuality)item.quality),
+            description = ItemTooltipTextBuilder.Build(itemData, runtimeItem),
+            price = amount > 1 ? $"总价值: {totalPrice} 金币 ({amount}个)" : $"价值: {totalPrice} 金币",
+            showPrice = totalPrice > 0,
+            showQualityIcon = item.quality > 0,
+            qualityColor = itemData.GetQualityStarColor((ItemQuality)item.quality)
+        });
     }
-    
-    /// <summary>
-    /// 隐藏详情框
-    /// </summary>
+
+    public void ShowCustom(string title, string body)
+    {
+        QueueShow(new TooltipVisualData
+        {
+            title = title,
+            titleColor = Color.white,
+            description = body,
+            price = string.Empty,
+            showPrice = false,
+            showQualityIcon = false,
+            qualityColor = Color.white
+        });
+    }
+
     public void Hide()
     {
+        if (_pendingShowCoroutine != null)
+        {
+            StopCoroutine(_pendingShowCoroutine);
+            _pendingShowCoroutine = null;
+        }
+
         _isShowing = false;
         _currentItem = ItemStack.Empty;
         _currentAmount = 0;
         _currentRuntimeItem = null;
         gameObject.SetActive(false);
-        
+
         if (canvasGroup != null)
             canvasGroup.alpha = 0f;
     }
-    
-    /// <summary>
-    /// 跟随鼠标移动
-    /// </summary>
+
     public void FollowMouse()
     {
         if (tooltipRect == null || _parentCanvas == null) return;
-        
-        Vector2 localPoint;
+
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             _parentCanvas.transform as RectTransform,
             Input.mousePosition,
             _uiCamera,
-            out localPoint
+            out Vector2 localPoint
         );
-        
-        // 计算位置，确保不超出屏幕
+
         Vector2 targetPos = localPoint + offset;
-        
-        // 获取屏幕边界
         RectTransform canvasRect = _parentCanvas.transform as RectTransform;
         float halfWidth = tooltipRect.rect.width * 0.5f;
         float halfHeight = tooltipRect.rect.height * 0.5f;
-        
-        // 限制在屏幕内
+
         float maxX = canvasRect.rect.width * 0.5f - halfWidth;
         float minX = -canvasRect.rect.width * 0.5f + halfWidth;
         float maxY = canvasRect.rect.height * 0.5f - halfHeight;
         float minY = -canvasRect.rect.height * 0.5f + halfHeight;
-        
+
         targetPos.x = Mathf.Clamp(targetPos.x, minX, maxX);
         targetPos.y = Mathf.Clamp(targetPos.y, minY, maxY);
-        
+
         tooltipRect.anchoredPosition = targetPos;
     }
-    
+
     #endregion
-    
+
     #region 辅助方法
-    
-    /// <summary>
-    /// 获取品质对应的颜色
-    /// </summary>
+
     private Color GetQualityColor(ItemQuality quality)
     {
         return quality switch
         {
             ItemQuality.Normal => Color.white,
-            ItemQuality.Rare => new Color(0.3f, 0.7f, 1f),      // 蓝色
-            ItemQuality.Epic => new Color(0.6f, 0.2f, 0.8f),    // 紫色
-            ItemQuality.Legendary => new Color(1f, 0.8f, 0.2f), // 金色
+            ItemQuality.Rare => new Color(0.3f, 0.7f, 1f),
+            ItemQuality.Epic => new Color(0.6f, 0.2f, 0.8f),
+            ItemQuality.Legendary => new Color(1f, 0.8f, 0.2f),
             _ => Color.white
         };
     }
-    
+
+    private void QueueShow(TooltipVisualData visualData)
+    {
+        if (_pendingShowCoroutine != null)
+        {
+            StopCoroutine(_pendingShowCoroutine);
+            _pendingShowCoroutine = null;
+        }
+
+        _pendingVisualData = visualData;
+        _isShowing = false;
+        gameObject.SetActive(false);
+
+        if (canvasGroup != null)
+            canvasGroup.alpha = 0f;
+
+        _pendingShowCoroutine = StartCoroutine(ShowAfterDelayRoutine());
+    }
+
+    private IEnumerator ShowAfterDelayRoutine()
+    {
+        float delay = Mathf.Max(MinimumShowDelay, showDelay);
+        if (delay > 0f)
+        {
+            yield return new WaitForSecondsRealtime(delay);
+        }
+
+        ApplyVisual(_pendingVisualData);
+        _isShowing = true;
+        gameObject.SetActive(true);
+        FollowMouse();
+
+        if (canvasGroup != null)
+            canvasGroup.alpha = 0f;
+
+        _pendingShowCoroutine = null;
+    }
+
+    private void ApplyVisual(TooltipVisualData visualData)
+    {
+        if (itemNameText != null)
+        {
+            itemNameText.text = visualData.title;
+            itemNameText.color = visualData.titleColor;
+        }
+
+        if (descriptionText != null)
+        {
+            descriptionText.text = visualData.description;
+        }
+
+        if (priceText != null)
+        {
+            priceText.text = visualData.price;
+            priceText.gameObject.SetActive(visualData.showPrice);
+        }
+
+        if (qualityIcon != null)
+        {
+            qualityIcon.color = visualData.qualityColor;
+            qualityIcon.gameObject.SetActive(visualData.showQualityIcon);
+        }
+    }
+
     #endregion
 }

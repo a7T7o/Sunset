@@ -2,6 +2,7 @@ using UnityEngine;
 using System.Collections.Generic;
 using System.Linq;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 
 /// <summary>
 /// 背包整理服务
@@ -30,24 +31,24 @@ public class InventorySortService : MonoBehaviour
         }
         
         // 1. 收集所有物品
-        var items = new List<ItemStack>();
+        var runtimeItems = new List<InventoryItem>();
         for (int i = 0; i < 36; i++)
         {
-            var stack = inventory.GetSlot(i);
-            if (!stack.IsEmpty)
+            var runtimeItem = inventory.GetInventoryItem(i);
+            if (runtimeItem != null && !runtimeItem.IsEmpty)
             {
-                items.Add(stack);
-                inventory.SetSlot(i, ItemStack.Empty);
+                runtimeItems.Add(runtimeItem);
+                inventory.SetInventoryItem(i, null);
             }
         }
         
-        // 2. 合并相同物品
-        items = MergeStacks(items);
+        // 2. 合并仅允许堆叠的普通物品，保留工具/动态实例的运行时状态
+        var items = MergeRuntimeItems(runtimeItems);
         
         // 3. 按优先级排序
         items = items.OrderBy(s => GetPriority(s))
-                     .ThenBy(s => s.itemId)
-                     .ThenBy(s => s.quality)
+                     .ThenBy(s => s.ItemId)
+                     .ThenBy(s => s.Quality)
                      .ToList();
         
         // 4. 放回槽位
@@ -55,7 +56,7 @@ public class InventorySortService : MonoBehaviour
         foreach (var stack in items)
         {
             if (slotIndex >= 36) break;
-            inventory.SetSlot(slotIndex++, stack);
+            inventory.SetInventoryItem(slotIndex++, stack);
         }
         
         Debug.Log($"[InventorySortService] 整理完成: {items.Count} 种物品");
@@ -64,43 +65,40 @@ public class InventorySortService : MonoBehaviour
     /// <summary>
     /// 合并相同物品
     /// </summary>
-    private List<ItemStack> MergeStacks(List<ItemStack> items)
+    private List<InventoryItem> MergeRuntimeItems(List<InventoryItem> items)
     {
-        var merged = new Dictionary<(int id, int quality), ItemStack>();
+        var groupedAmounts = new Dictionary<(int id, int quality), int>();
+        var result = new List<InventoryItem>();
         
-        foreach (var stack in items)
+        foreach (var item in items)
         {
-            var key = (stack.itemId, stack.quality);
-            
-            if (merged.TryGetValue(key, out var existing))
+            if (item == null || item.IsEmpty)
             {
-                existing.amount += stack.amount;
-                merged[key] = existing;
+                continue;
             }
-            else
+
+            if (item.HasDurability || item.HasDynamicProperties)
             {
-                merged[key] = stack;
+                result.Add(item);
+                continue;
             }
+
+            var key = (item.ItemId, item.Quality);
+            groupedAmounts[key] = groupedAmounts.TryGetValue(key, out int existingAmount)
+                ? existingAmount + item.Amount
+                : item.Amount;
         }
-        
-        // 拆分超过最大堆叠的物品
-        var result = new List<ItemStack>();
-        foreach (var kvp in merged)
+
+        foreach (var kvp in groupedAmounts)
         {
-            var stack = kvp.Value;
-            var itemData = database.GetItemByID(stack.itemId);
-            int maxStack = itemData?.maxStackSize ?? 99;
-            
-            while (stack.amount > 0)
+            int remaining = kvp.Value;
+            int maxStack = database != null ? Mathf.Max(1, database.GetItemByID(kvp.Key.id)?.maxStackSize ?? 99) : 99;
+
+            while (remaining > 0)
             {
-                int amount = Mathf.Min(stack.amount, maxStack);
-                result.Add(new ItemStack
-                {
-                    itemId = stack.itemId,
-                    quality = stack.quality,
-                    amount = amount
-                });
-                stack.amount -= amount;
+                int amount = Mathf.Min(remaining, maxStack);
+                result.Add(ToolRuntimeUtility.CreateRuntimeItem(database, kvp.Key.id, kvp.Key.quality, amount));
+                remaining -= amount;
             }
         }
         
@@ -110,9 +108,9 @@ public class InventorySortService : MonoBehaviour
     /// <summary>
     /// 获取物品排序优先级（数字越小越靠前）
     /// </summary>
-    private int GetPriority(ItemStack stack)
+    private int GetPriority(InventoryItem stack)
     {
-        var itemData = database?.GetItemByID(stack.itemId);
+        var itemData = database?.GetItemByID(stack.ItemId);
         if (itemData == null) return 999;
         
         // 工具 > 武器 > 可放置 > 种子 > 消耗品 > 材料 > 其他

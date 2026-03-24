@@ -118,6 +118,7 @@ public class PlacementManager : MonoBehaviour
     public PlacementState CurrentState => currentState;
     public bool IsPlacementMode => currentState != PlacementState.Idle;
     public ItemData CurrentPlacementItem => currentPlacementItem;
+    public bool HasProtectedHeldSession => currentState == PlacementState.Locked || currentState == PlacementState.Navigating || isExecutingPlacement;
     
     #endregion
     

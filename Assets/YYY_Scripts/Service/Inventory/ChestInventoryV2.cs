@@ -100,7 +100,7 @@ public class ChestInventoryV2 : IItemContainer
     public bool SetItem(int index, InventoryItem item)
     {
         if (!InRange(index)) return false;
-        _items[index] = item;
+        _items[index] = ToolRuntimeUtility.NormalizeInventoryItem(item, _database);
         RaiseSlotChanged(index);
         RaiseInventoryChanged();
         return true;
@@ -123,7 +123,7 @@ public class ChestInventoryV2 : IItemContainer
     public bool SetItemSilently(int index, InventoryItem item)
     {
         if (!InRange(index)) return false;
-        _items[index] = item;
+        _items[index] = ToolRuntimeUtility.NormalizeInventoryItem(item, _database);
         return true;
     }
 
@@ -142,7 +142,7 @@ public class ChestInventoryV2 : IItemContainer
     public bool SetSlotSilently(int index, ItemStack stack)
     {
         if (!InRange(index)) return false;
-        _items[index] = stack.IsEmpty ? null : InventoryItem.FromItemStack(stack);
+        _items[index] = stack.IsEmpty ? null : ToolRuntimeUtility.CreateRuntimeItem(_database, stack.itemId, stack.quality, stack.amount);
         return true;
     }
 
@@ -168,6 +168,7 @@ public class ChestInventoryV2 : IItemContainer
     public bool AddItem(InventoryItem item)
     {
         if (item == null || item.IsEmpty) return false;
+        ToolRuntimeUtility.NormalizeInventoryItem(item, _database);
 
         // 有动态属性的物品不能堆叠，直接找空位
         if (item.HasDurability || item.HasDynamicProperties)
@@ -220,7 +221,7 @@ public class ChestInventoryV2 : IItemContainer
             if (emptySlot < 0) break; // 没有空位了
 
             int put = Mathf.Min(remaining, maxStack);
-            _items[emptySlot] = new InventoryItem(item.ItemId, item.Quality, put);
+            _items[emptySlot] = ToolRuntimeUtility.CreateRuntimeItem(_database, item.ItemId, item.Quality, put);
             remaining -= put;
             RaiseSlotChanged(emptySlot);
         }
@@ -315,7 +316,7 @@ public class ChestInventoryV2 : IItemContainer
         }
         else
         {
-            _items[index] = InventoryItem.FromItemStack(stack);
+            _items[index] = ToolRuntimeUtility.CreateRuntimeItem(_database, stack.itemId, stack.quality, stack.amount);
         }
         
         RaiseSlotChanged(index);
@@ -344,6 +345,7 @@ public class ChestInventoryV2 : IItemContainer
         if (amount <= 0) return 0;
         
         var item = new InventoryItem(itemId, quality, amount);
+        ToolRuntimeUtility.NormalizeInventoryItem(item, _database);
         bool success = AddItem(item);
         
         return success ? 0 : item.Amount;

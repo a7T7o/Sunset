@@ -306,6 +306,11 @@ public class InventorySlotInteraction : MonoBehaviour,
     public void OnPointerDown(PointerEventData eventData)
     {
         if (eventData.button != PointerEventData.InputButton.Left) return;
+
+        if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject == gameObject)
+        {
+            EventSystem.current.SetSelectedGameObject(null);
+        }
         
         pressTime = Time.time;
         pressPosition = eventData.position;

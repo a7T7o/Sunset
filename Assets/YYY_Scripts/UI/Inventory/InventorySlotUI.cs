@@ -57,6 +57,12 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         CaptureRestAnchoredPosition();
 
         if (toggle == null) toggle = GetComponent<Toggle>();
+        if (toggle != null)
+        {
+            var navigation = toggle.navigation;
+            navigation.mode = Navigation.Mode.None;
+            toggle.navigation = navigation;
+        }
 
         // ★ 与 ToolbarSlotUI 保持一致：查找或创建 Icon
         if (iconImage == null)
@@ -482,6 +488,10 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         {
             // 🔥 P1：移除高频调用的日志输出（符合日志规范）
             // Toggle 会自动管理选中状态，不需要手动切换
+            if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject == gameObject)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
         }
     }
 

@@ -94,6 +94,9 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         // 选中红框完全由 selectedOverlay 控制
         if (toggle != null)
         {
+            var navigation = toggle.navigation;
+            navigation.mode = Navigation.Mode.None;
+            toggle.navigation = navigation;
         }
         
         // 🔥 V2 新增：创建耐久度条
@@ -356,6 +359,11 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     {
         if (eventData.button == PointerEventData.InputButton.Left)
         {
+            if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject == gameObject)
+            {
+                EventSystem.current.SetSelectedGameObject(null);
+            }
+
             // ★ 检查是否有面板打开（背包/箱子）- 被遮挡时不响应
             var packageTabs = FindFirstObjectByType<PackagePanelTabsUI>();
             if (packageTabs != null && packageTabs.IsPanelOpen()) 

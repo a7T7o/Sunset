@@ -92,7 +92,7 @@ namespace FarmGame.Data.Core
         public bool SetItem(int index, InventoryItem item)
         {
             if (!InRange(index)) return false;
-            _items[index] = item;
+            _items[index] = ToolRuntimeUtility.NormalizeInventoryItem(item, _database);
             RaiseSlotChanged(index);
             return true;
         }
@@ -135,7 +135,7 @@ namespace FarmGame.Data.Core
             }
             else
             {
-                _items[index] = InventoryItem.FromItemStack(stack);
+                _items[index] = ToolRuntimeUtility.CreateRuntimeItem(_database, stack.itemId, stack.quality, stack.amount);
             }
             
             RaiseSlotChanged(index);
@@ -177,6 +177,7 @@ namespace FarmGame.Data.Core
         public bool AddInventoryItem(InventoryItem item)
         {
             if (item == null || item.IsEmpty) return false;
+            ToolRuntimeUtility.NormalizeInventoryItem(item, _database);
             
             // 有动态属性的物品不能堆叠，直接找空位
             if (item.HasDurability || item.HasDynamicProperties)
@@ -242,7 +243,7 @@ namespace FarmGame.Data.Core
                 if (_items[i] == null || _items[i].IsEmpty)
                 {
                     int put = Mathf.Min(remaining, maxStack);
-                    _items[i] = new InventoryItem(itemId, quality, put);
+                    _items[i] = ToolRuntimeUtility.CreateRuntimeItem(_database, itemId, quality, put);
                     remaining -= put;
                     RaiseSlotChanged(i);
                 }
@@ -497,6 +498,15 @@ namespace FarmGame.Data.Core
                     currentDurability = item.CurrentDurability,
                     maxDurability = item.MaxDurability
                 };
+
+                var properties = item.GetPropertiesSnapshot();
+                if (properties.Count > 0)
+                {
+                    foreach (KeyValuePair<string, string> entry in properties)
+                    {
+                        slotData.properties.Add(new PropertyEntrySaveData(entry.Key, entry.Value));
+                    }
+                }
                 
                 data.slots.Add(slotData);
             }

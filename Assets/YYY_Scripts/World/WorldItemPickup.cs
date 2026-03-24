@@ -60,7 +60,7 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
         itemId = stack.itemId;
         quality = stack.quality;
         amount = Mathf.Max(1, stack.amount);
-        runtimeItem = InventoryItem.FromItemStack(stack);
+        runtimeItem = ToolRuntimeUtility.CreateRuntimeItem(db, stack.itemId, stack.quality, amount);
         _initialized = true;
         ApplyVisual();
     }
@@ -88,7 +88,7 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
             itemId = data.itemID;
             quality = q;
             amount = Mathf.Max(1, amt);
-            runtimeItem = new InventoryItem(itemId, quality, amount);
+            runtimeItem = ToolRuntimeUtility.CreateRuntimeItem(data, quality, amount);
             linkedItemData = data;
             _initialized = true;
             if (spriteRenderer == null) spriteRenderer = GetComponentInChildren<SpriteRenderer>();

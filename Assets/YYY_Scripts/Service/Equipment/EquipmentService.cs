@@ -83,6 +83,15 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
                 currentDurability = item.CurrentDurability,
                 maxDurability = item.MaxDurability
             };
+
+            var properties = item.GetPropertiesSnapshot();
+            if (properties.Count > 0)
+            {
+                foreach (KeyValuePair<string, string> entry in properties)
+                {
+                    equipData.slots[i].properties.Add(new PropertyEntrySaveData(entry.Key, entry.Value));
+                }
+            }
         }
         
         data.genericData = JsonUtility.ToJson(equipData);
@@ -151,6 +160,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     public bool SetEquipItem(int index, InventoryItem item)
     {
         if (!InRange(index)) return false;
+        item = ToolRuntimeUtility.NormalizeInventoryItem(item, database);
         
         // 槽位限制检查
         if (item != null && !item.IsEmpty)
@@ -206,7 +216,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
             return false;
         }
         
-        equips[index] = InventoryItem.FromItemStack(stack);
+        equips[index] = ToolRuntimeUtility.CreateRuntimeItem(database, stack.itemId, stack.quality, stack.amount);
         OnEquipSlotChanged?.Invoke(index);
         return true;
     }
@@ -343,7 +353,21 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
 
         // 移动整堆（通常装备是不可堆叠的）
         // 使用 ItemStack 转换，因为 InventoryService 可能没有 GetItem 方法
-        SetEquip(target, st);
+        var runtimeItem = inv.GetInventoryItem(invIndex);
+        if (runtimeItem != null && !runtimeItem.IsEmpty)
+        {
+            if (!SetEquipItem(target, runtimeItem))
+            {
+                return false;
+            }
+        }
+        else
+        {
+            if (!SetEquip(target, st))
+            {
+                return false;
+            }
+        }
         inv.ClearSlot(invIndex);
         return true;
     }
@@ -359,8 +383,11 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
         if (item == null || item.IsEmpty) return false;
         
         // 尝试添加到背包（使用 ItemStack 兼容接口）
-        int remaining = inv.AddItem(item.ItemId, item.Quality, item.Amount);
-        if (remaining == 0)
+        bool success = (item.HasDurability || item.HasDynamicProperties)
+            ? inv.AddInventoryItem(item)
+            : inv.AddItem(item.ItemId, item.Quality, item.Amount) == 0;
+
+        if (success)
         {
             equips[equipIndex] = null;
             OnEquipSlotChanged?.Invoke(equipIndex);

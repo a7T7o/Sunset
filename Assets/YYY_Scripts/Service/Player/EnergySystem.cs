@@ -311,7 +311,7 @@ public class EnergySystem : MonoBehaviour
         if (energyCanvasGroup != null)
         {
             energyCanvasGroup.interactable = false;
-            energyCanvasGroup.blocksRaycasts = false;
+            energyCanvasGroup.blocksRaycasts = true;
             energyCanvasGroup.alpha = revealSeconds > 0f ? 0f : 1f;
         }
 
@@ -393,7 +393,14 @@ public class EnergySystem : MonoBehaviour
         }
 
         energyCanvasGroup.interactable = false;
-        energyCanvasGroup.blocksRaycasts = false;
+        energyCanvasGroup.blocksRaycasts = true;
+
+        var tooltipWatcher = energySlider.GetComponent<EnergyBarTooltipWatcher>();
+        if (tooltipWatcher == null)
+        {
+            tooltipWatcher = energySlider.gameObject.AddComponent<EnergyBarTooltipWatcher>();
+        }
+        tooltipWatcher.Bind(this);
 
         if (energyFillImage == null)
         {

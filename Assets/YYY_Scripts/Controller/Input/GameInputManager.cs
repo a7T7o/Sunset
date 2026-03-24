@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.Tilemaps;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 using FarmGame.UI;
 using FarmGame.World;
 using FarmGame.Farm;
@@ -49,7 +50,7 @@ public class GameInputManager : MonoBehaviour
     [Tooltip("农田工具（锄头、水壶）的最大使用距离")]
     [SerializeField, Range(0.5f, 3f)] private float farmToolReach = 1.5f;
     [Header("调试开关")]
-    [SerializeField, HideInInspector] private TimeManagerDebugger timeDebugger;
+    [SerializeField, HideInInspector] private TimeManagerDebugger timeDebugger = null;
     [SerializeField] private bool enableTimeDebugKeys = false;
     [Header("UI自动激活")]
     [SerializeField] private bool autoActivateUIRoot = true;
@@ -1440,8 +1441,10 @@ public class GameInputManager : MonoBehaviour
             _isExecutingFarming = true;
             try
             {
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Crush);
-                ExecuteTillSoil(layerIndex, cellPos);
+                if (TryStartPlayerAction(PlayerAnimController.AnimState.Crush))
+                {
+                    ExecuteTillSoil(layerIndex, cellPos);
+                }
             }
             finally
             {
@@ -1483,8 +1486,10 @@ public class GameInputManager : MonoBehaviour
                 }
                 
                 // 🔥 全部校验通过，执行动作
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Crush);
-                ExecuteTillSoil(cachedLayerIndex, cachedCellPos);
+                if (TryStartPlayerAction(PlayerAnimController.AnimState.Crush))
+                {
+                    ExecuteTillSoil(cachedLayerIndex, cachedCellPos);
+                }
                 ClearSnapshot();
             });
             return true;
@@ -1512,6 +1517,11 @@ public class GameInputManager : MonoBehaviour
         }
         
         bool success = farmTileManager.CreateTile(layerIndex, cellPos);
+
+        if (success)
+        {
+            CommitCurrentToolUse(GetCurrentHeldToolData(), $"Farm/Till L{layerIndex} {cellPos}");
+        }
         
         if (showDebugInfo)
             Debug.Log($"[GameInputManager] 锄地{(success ? "成功" : "失败")}: Layer={layerIndex}, Pos={cellPos}");
@@ -1532,6 +1542,7 @@ public class GameInputManager : MonoBehaviour
             // 🔴 004-P3：动画中期只隐藏视觉，不销毁数据
             // 真正的 RemoveCrop 在 OnFarmActionAnimationComplete 兜底中执行
             tileData.cropController.HideCropVisuals();
+            CommitCurrentToolUse(GetCurrentHeldToolData(), $"Farm/RemoveCrop L{layerIndex} {cellPos}");
             if (showDebugInfo)
                 Debug.Log($"[GameInputManager] 隐藏农作物视觉: Layer={layerIndex}, Pos={cellPos}");
             return true;
@@ -1584,8 +1595,10 @@ public class GameInputManager : MonoBehaviour
             _isExecutingFarming = true;
             try
             {
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Watering);
-                ExecuteWaterTile(layerIndex, cellPos);
+                if (TryStartPlayerAction(PlayerAnimController.AnimState.Watering))
+                {
+                    ExecuteWaterTile(layerIndex, cellPos);
+                }
             }
             finally
             {
@@ -1625,8 +1638,10 @@ public class GameInputManager : MonoBehaviour
                     return;
                 }
                 
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Watering);
-                ExecuteWaterTile(cachedLayerIndex, cachedCellPos);
+                if (TryStartPlayerAction(PlayerAnimController.AnimState.Watering))
+                {
+                    ExecuteWaterTile(cachedLayerIndex, cachedCellPos);
+                }
                 ClearSnapshot();
             });
             return true;
@@ -1653,6 +1668,7 @@ public class GameInputManager : MonoBehaviour
         // 🔴 V6 模块T（CP-T4）：浇水成功后通知预览系统需要在移出格子时随机新样式
         if (success)
         {
+            CommitCurrentToolUse(GetCurrentHeldToolData(), $"Farm/Water L{layerIndex} {cellPos}");
             FarmToolPreview.Instance?.OnWaterExecuted(cellPos);
         }
         
@@ -2413,6 +2429,22 @@ public class GameInputManager : MonoBehaviour
             });
         }
     }
+
+    private void AbortCurrentQueuedFarmAction(string reason)
+    {
+        if (showDebugInfo)
+        {
+            Debug.Log($"[FarmQueue] 跳过当前动作: {reason}");
+        }
+
+        _isExecutingFarming = false;
+        _currentHarvestTarget = null;
+        _pendingTileUpdate = null;
+        _tileUpdateTriggered = false;
+        _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
+        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos);
+        ProcessNextAction();
+    }
     
     /// <summary>
     /// 面向目标位置（根据 worldPos 相对于玩家 Collider 中心设置朝向）。
@@ -2447,7 +2479,11 @@ public class GameInputManager : MonoBehaviour
         {
             case FarmActionType.Till:
                 FaceTarget(request.worldPos);
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Crush);
+                if (!TryStartPlayerAction(PlayerAnimController.AnimState.Crush))
+                {
+                    AbortCurrentQueuedFarmAction("锄地动画未开始");
+                    break;
+                }
                 // 🔴 补丁003 模块C：不再同帧执行，改为延迟到动画中期
                 _pendingTileUpdate = request;
                 _tileUpdateTriggered = false;
@@ -2456,7 +2492,11 @@ public class GameInputManager : MonoBehaviour
             
             case FarmActionType.Water:
                 FaceTarget(request.worldPos);
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Watering);
+                if (!TryStartPlayerAction(PlayerAnimController.AnimState.Watering))
+                {
+                    AbortCurrentQueuedFarmAction("浇水动画未开始");
+                    break;
+                }
                 // 🔴 补丁003 模块C：不再同帧执行，改为延迟到动画中期
                 _pendingTileUpdate = request;
                 _tileUpdateTriggered = false;
@@ -2475,7 +2515,11 @@ public class GameInputManager : MonoBehaviour
             case FarmActionType.RemoveCrop:
                 // 🔴 V6 模块S（CP-S6）：锄头清除农作物，使用 Crush 动画（和耕地一致）
                 FaceTarget(request.worldPos);
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Crush);
+                if (!TryStartPlayerAction(PlayerAnimController.AnimState.Crush))
+                {
+                    AbortCurrentQueuedFarmAction("清除农作物动画未开始");
+                    break;
+                }
                 _pendingTileUpdate = request;
                 _tileUpdateTriggered = false;
                 break;
@@ -2803,7 +2847,7 @@ public class GameInputManager : MonoBehaviour
         return itemData != null &&
                itemData.isPlaceable &&
                PlacementManager.Instance != null &&
-               PlacementManager.Instance.IsPlacementMode;
+               PlacementManager.Instance.HasProtectedHeldSession;
     }
 
     private bool HasActivePlacementNavigationSession()
@@ -2813,8 +2857,7 @@ public class GameInputManager : MonoBehaviour
             return false;
         }
 
-        return PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Locked ||
-               PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Navigating;
+        return PlacementManager.Instance.HasProtectedHeldSession;
     }
 
     private bool HasActiveToolHeldSession(ItemData itemData)
@@ -2888,6 +2931,43 @@ public class GameInputManager : MonoBehaviour
         PlayAutomatedFarmToolRejectSound();
         ToolbarSlotUI.PlayRejectShakeAt(sourceSlotIndex);
         InventorySlotUI.PlayRejectShakeAt(sourceSlotIndex);
+    }
+
+    private bool TryStartPlayerAction(PlayerAnimController.AnimState action)
+    {
+        if (playerInteraction == null)
+        {
+            return true;
+        }
+
+        playerInteraction.RequestAction(action);
+        return playerInteraction.IsPerformingAction();
+    }
+
+    private ToolData GetCurrentHeldToolData()
+    {
+        if (!TryGetCurrentHotbarItem(out _, out var itemData))
+        {
+            return null;
+        }
+
+        return itemData as ToolData;
+    }
+
+    private void CommitCurrentToolUse(ToolData toolData, string context)
+    {
+        if (toolData == null)
+        {
+            return;
+        }
+
+        if (playerInteraction != null)
+        {
+            playerInteraction.OnToolActionSuccess(toolData);
+            return;
+        }
+
+        ToolRuntimeUtility.TryConsumeHeldToolUse(inventory, hotbarSelection, database, toolData, context);
     }
 
     public bool IsActiveHeldSlotProtected(int slotIndex, bool isEquip = false)

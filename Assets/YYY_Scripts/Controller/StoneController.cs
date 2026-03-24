@@ -434,9 +434,9 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         Debug.Log($"<color=cyan>  - 能否获取矿物: {lastHitCanGetOre} (pickaxeTier={pickaxeTier} >= required={MaterialTierHelper.GetRequiredPickaxeTier(oreType)})</color>");
         Debug.Log($"<color=cyan>[StoneController] ═══════════════════════════════════</color>");
         
-        // 尝试消耗精力
-        float energyCost = GetEnergyCost(ctx);
-        if (!TryConsumeEnergy(energyCost))
+        ToolData toolData = ResolveToolData(ctx);
+        float energyCost = toolData != null ? toolData.energyCost : 0f;
+        if (!CommitToolUse(ctx, toolData, $"{gameObject.name}/MineHit"))
         {
             PlayShakeEffect();
             Debug.Log($"<color=yellow>[StoneController] {gameObject.name} 精力不足，无法挖掘</color>");
@@ -897,6 +897,34 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         
         Debug.Log($"<color=yellow>[StoneController] 无法获取镐子等级，使用默认值 0 (木质)</color>");
         return 0; // 默认木质
+    }
+
+    private ToolData ResolveToolData(ToolHitContext ctx)
+    {
+        if (ctx.attacker == null)
+        {
+            return null;
+        }
+
+        var toolController = ctx.attacker.GetComponent<PlayerToolController>();
+        return toolController != null ? toolController.CurrentToolData as ToolData : null;
+    }
+
+    private bool CommitToolUse(ToolHitContext ctx, ToolData toolData, string context)
+    {
+        if (toolData == null)
+        {
+            return false;
+        }
+
+        var interaction = ctx.attacker != null ? ctx.attacker.GetComponent<PlayerInteraction>() : null;
+        if (interaction != null)
+        {
+            interaction.OnToolActionSuccess(toolData);
+            return true;
+        }
+
+        return ToolRuntimeUtility.TryConsumeHeldToolUse(null, null, null, toolData, context);
     }
     
     /// <summary>
