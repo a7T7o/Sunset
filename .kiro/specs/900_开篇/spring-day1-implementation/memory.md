@@ -580,3 +580,18 @@
 - 关键补口是：把工作台浮层的世界位置投影链与 UI 真实尺寸链补完整，解决“没有真正跟随工作台、左栏像没做出来、按钮/图标像空壳”的问题。
 - 已同步补 `SpringDay1DialogueProgressionTests.cs` 静态守护，并通过 `git diff --check` 与 `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 ...` 的两文件代码闸门。
 - 恢复点：spring-day1 这条工作台支线当前剩的已不是代码结构问题，而是最终体验验收与按白名单收口。
+
+## 2026-03-24 补记：已为 Day1 工作台/UI 重收口生成新一轮执行 prompt
+- 当前 spring-day1 主线没有改题，仍然是 Day1 工作台与相关 UI/任务体验收口；只是用户明确要求不要再靠零散聊天推进，而是给线程一份新的正式执行 prompt。
+- 本轮已在 `003-进一步搭建` 阶段新增：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.24-Day1工作台UI与任务体验重收口委托-01.md`
+- 该 prompt 已完整摘录用户这次的 7 点原文，并把以下内容固定成硬要求：
+  - 工作台 UI 左右结构与比例重做
+  - 用户必须能手动拖动 / 微调 UI，且线程必须解释此前为什么拖不动
+  - 砍树木材不能再旁路完成 Day1 任务
+  - 血量/精力条重做
+  - 工作台制作耗时 / 进度 / 动画 / 人物表现联动
+  - 交互距离 / 上下翻转 / 一次性 `E` 气泡 / 1.5m 关闭逻辑统一收口
+- 当前恢复点：
+  - spring-day1 后续不该再靠碎片化口头要求推进；
+  - 应直接读取这份新 prompt，按硬回执格式往下做。
