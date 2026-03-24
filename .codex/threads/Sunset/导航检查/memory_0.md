@@ -778,6 +778,47 @@
 - 当前恢复点：
   - 下轮若继续修复，直接从“玩家面对 inactive NPC 仍永久 Wait”这个责任点继续，不再从 tag / detour 参数重新猜。
 
+## 2026-03-24（按 `002-prompt-8` 继续施工：Wait 锁态释放 + NPC 速度语义收口）
+
+- 当前主线目标：
+  - 继续导航主线，不换题；
+  - 本轮子任务是按 `002-prompt-8` 真正落施工刀，而不是继续交解释稿。
+- 本轮完成：
+  1. 修改了 `NavigationTrafficArbiter.PreserveLockedAction(...)`：
+     - 同 blocker 仍在但已不再 `HardBlocked` 时，允许从 `Wait` 释放到 `SidePass / Recover / detour/repath`
+     - 不再把 `Wait` 锁态无限续杯
+  2. 修改了 `NPCMotionController.ApplyResolvedVelocity(...)`：
+     - `useRigidbodyVelocity = true` 时直接写 `rb.linearVelocity`
+     - 不再默认走 `rb.MovePosition(...)`
+  3. 新增两条测试：
+     - `NavigationTrafficArbiter_ShouldReleaseWaitLock_IntoSidePass_WhenBlockerNoLongerPins`
+     - `NPCMotionController_ShouldUseLinearVelocity_WhenConfigured`
+  4. 文件级验证：
+     - `NavigationTrafficArbiter.cs` / `NavigationAvoidanceRulesTests.cs` 通过 `validate_script`
+     - `NPCMotionController.cs` 通过 `validate_script`（仅既有 warning）
+     - `git diff --check` clean
+- 关键决策：
+  1. 本轮优先打的是 `S2 + S5` 的交叉口：
+     - 先把玩家恢复链里最明显的 `Wait` 锁死问题拆掉
+     - 再把 NPC 运动执行往玩家同语义上收一步
+  2. 本轮没有继续去碰无关业务线，也没有回头再调 solver 参数。
+  3. 当前不能宣称 fresh live 已通过，因为 shared root 编译被 `SpringDay1WorkbenchCraftingOverlay.cs` 的红错阻断。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationTrafficArbiter.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCMotionController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+- 验证与现场：
+  - Unity 已明确退回 Edit Mode
+  - `read_console` 显示当前 compile blocker 为他线：
+    - `Assets\\YYY_Scripts\\Story\\UI\\SpringDay1WorkbenchCraftingOverlay.cs`
+  - 因此外部 fresh compile / live 终验未完成
+- 当前恢复点：
+  - 下一轮若继续导航线，应从：
+    1. 继续跑通玩家 `Wait -> SidePass/Recover`
+    2. 继续统一玩家 / NPC 最终运动执行
+    3. 再逼近私有导航主循环下线
+    这三步继续，不再回头重新讲当前系统是什么。
+
 ## 2026-03-24（按 `008` 口径完成导航底座迁移审稿）
 
 - 当前主线目标：
@@ -862,3 +903,56 @@
     2. 交通裁决是否真正前置
     3. 统一运动执行语义是否真实成立
     4. 体验线证据是否真实补齐
+
+## 2026-03-24（修复本线程引入的导航测试 `CS0246`）
+
+- 当前主线目标：
+  - 继续按 `002-prompt-8` 推进导航 `S0-S6`；
+  - 本轮插入式子任务是先清掉我自己刚引入的测试编译错误，避免它继续污染主线验证结论。
+- 本轮子任务服务于：
+  - 恢复导航线最小验证链，确保后续 compile / console / EditMode 失败不再归因到我刚加的测试写法。
+- 本轮完成：
+  1. 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`：
+     - 将 `NPCMotionController controller = go.AddComponent<NPCMotionController>();`
+       改为反射式：
+       - `Type controllerType = ResolveTypeOrFail("NPCMotionController");`
+       - `Component controller = go.AddComponent(controllerType);`
+  2. 重新执行最小验证：
+     - 三个核心脚本 `validate_script` 全部 `0 error`
+     - Unity `read_console` 中已不再出现该测试文件的 `CS0246`
+- 关键决策：
+  - 这轮不把“我自己的测试红错”混进导航主线结论；
+  - 当前 fresh compile 剩余失败统一归到外部 blocker：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs`
+- 验证结果：
+  - 本线程新增红错：已解除
+  - 主线 compile：仍被外部 UI 语法错阻断
+  - `git diff --check`：当前仍因既存文档 / 场景尾随空格与他线文件 CRLF 提示不 clean，不能作为本线程单独 clean 证据
+- 当前恢复点：
+  - 下一轮继续导航线时，应直接从“本线程测试红错已修复，外部 compile blocker 仍在”继续；
+  - 不要再回头重复定位这条 `CS0246`。
+
+## 2026-03-24（补发 `002-prompt-9`：纠正“external blocker = 可以停车”的执行偏差）
+
+- 当前主线目标：
+  - 纠正导航线程把外部 compile blocker 当成主线停车位的执行偏差；
+  - 继续把导航主线拉回 `S0-S6` 的结构施工，而不是继续停在验证恢复叙事。
+- 本轮完成：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-9.md`
+  2. 在该 prompt 中明确要求：
+     - `SpringDay1WorkbenchCraftingOverlay.cs` 只能作为 `external_blocker_note`
+     - 不再允许它成为导航主线的收口理由
+     - 当前必须进入“导航结构施工模式”
+     - 本轮至少交出一个真实“退壳 checkpoint”，明确：
+       - 哪一组责任簇已从控制器迁出
+       - 哪个共享层接手了它
+- 关键决策：
+  - 当前不再接受“先恢复 compile 再继续导航”的回执节奏；
+  - 后续若仍被外部 blocker 卡住，线程必须明确证明：它已经把本轮所有不依赖 fresh compile 的结构施工都做完了。
+- 当前恢复点：
+  - 下一轮若继续这条线，应直接从 `002-prompt-9` 进入；
+  - 后续审稿优先检查：
+    1. 是否真的做出责任迁移
+    2. 是否真的开始退旧私有导航闭环
+    3. 是否仍在拿外部 compile blocker 掩盖主线未推进

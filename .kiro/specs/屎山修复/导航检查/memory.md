@@ -1176,6 +1176,51 @@
   - 直接锁玩家侧 sleeping blocker -> `Wait / Recover / SidePass` 晋级链；
   - 验证仍只保留单场 `PlayerAvoidsMovingNpc`，不要再做长时间 full-run。
 
+### 会话 28 - 2026-03-24（按 `002-prompt-8` 继续施工：释放 Wait 锁态并推进统一运动执行）
+
+- 当前主线目标：
+  - 按 `002-prompt-8` 从解释层彻底切回施工层；
+  - 本轮子任务不是再讲骨架，而是直接推进当前最卡交付的两层：
+    - 玩家侧 sleeping blocker 的 `Wait -> SidePass/Recover` 恢复链
+    - `S5` 里玩家 / NPC 的最终运动执行语义收口
+- 本轮完成：
+  1. 修改：
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationTrafficArbiter.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCMotionController.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+  2. 在 `NavigationTrafficArbiter.PreserveLockedAction(...)` 中新增 Wait 锁态释放条件：
+     - 当同一个 blocker 还在，但已经不再 `HardBlocked`
+     - 且当前裁决已经能够升到 `SidePass / Recover` 或需要 `detour/repath`
+     - 不再继续把 `Wait` 无限续杯
+  3. 在 `NPCMotionController.ApplyResolvedVelocity(...)` 中把 `useRigidbodyVelocity = true` 的路径正式改为：
+     - 直接写 `rb.linearVelocity`
+     - 不再继续走 `rb.MovePosition(...)`
+     - 这让 NPC 与玩家开始共享同一类最终速度语义，而不是只有接口名统一
+  4. 新增测试：
+     - `NavigationTrafficArbiter_ShouldReleaseWaitLock_IntoSidePass_WhenBlockerNoLongerPins`
+     - `NPCMotionController_ShouldUseLinearVelocity_WhenConfigured`
+  5. 文件级代码闸门：
+     - `validate_script`：
+       - `NavigationTrafficArbiter.cs` = 0 error
+       - `NPCMotionController.cs` = 0 error（仅 2 条既有 warning）
+       - `NavigationAvoidanceRulesTests.cs` = 0 error
+     - `git diff --check` = clean
+- 本轮新增稳定事实：
+  1. 当前玩家永久 `Wait` 的核心机制已经被进一步收口：`Wait` 不再在正净空条件下无条件锁死。
+  2. `S5` 至少前进了一小步：NPC 运动执行不再默认和玩家处在 `MovePosition` vs `linearVelocity` 的分裂语义里。
+  3. 这轮仍没有资格宣称 `S5` 完成，更不能宣称 `S0-S6` 闭环；因为：
+     - `PlayerAutoNavigator / NPCAutoRoamController` 私有导航闭环仍未真正下线
+     - 交通裁决也仍未完全变成“先裁决、后求解”的中轴
+  4. 当前 live 终验被 shared root 他线编译红错阻断：
+     - `Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs`
+     - 所以本轮没有拿到 fresh 的功能线 / 体验线运行证据
+- 当前恢复点：
+  - 下一轮若继续施工，应从这轮新 checkpoint 出发：
+    1. 继续把 `Wait` 释放后的玩家恢复链跑通到 live
+    2. 继续把玩家 / NPC 的最终运动学语义收口
+    3. 再逼近旧私有导航主循环下线
+  - 当前唯一外部 blocker 不是导航热区，而是 shared root 的 `SpringDay1WorkbenchCraftingOverlay.cs` 全局编译红错。
+
 ## 2026-03-24（按 `008` 高压口径完成一次真正的 `S0-S6` 审稿）
 
 - 当前主线目标：
@@ -1279,3 +1324,59 @@
     3. 统一运动执行语义是否真实成立
     4. 体验线证据是否补齐
     作为第一审查顺序。
+
+## 2026-03-24（修复导航测试自引入 `CS0246`，确认当前外部编译 blocker）
+
+- 当前主线目标：
+  - 继续按 `002-prompt-8` 推进导航 `S0-S6`；
+  - 先清掉本线程刚引入的测试编译错误，再恢复后续功能线 / 体验线验证链。
+- 本轮子任务：
+  - 修复 `NavigationAvoidanceRulesTests.cs` 中对 `NPCMotionController` 的直接强类型引用；
+  - 用 Unity MCP 重新给出最小编译与 Console 证据。
+- 本轮完成：
+  1. 修改：
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+  2. 将 `NPCMotionController_ShouldUseLinearVelocity_WhenConfigured()` 改回与该测试文件一致的反射式写法：
+     - `Type controllerType = ResolveTypeOrFail("NPCMotionController");`
+     - `Component controller = go.AddComponent(controllerType);`
+  3. 重新验证：
+     - `validate_script( NavigationAvoidanceRulesTests.cs )`：`0 error`
+     - `validate_script( NPCMotionController.cs )`：`0 error`（仅 warning）
+     - `validate_script( NavigationTrafficArbiter.cs )`：`0 error`
+     - Unity `refresh_unity` + `read_console`：当前不再出现测试文件的 `CS0246`
+- 本轮新增稳定事实：
+  1. 本线程这次新增的测试编译错误已经清掉；
+  2. 当前 fresh compile 仍被外部文件阻断，唯一明确 blocker 仍是：
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs`
+     - 现存错误集中在 `755`、`766`、`1125` 等行附近的语法断裂。
+  3. 因 shared root 仍处于外部编译红态，本轮无法继续推进导航线的 fresh EditMode tests / live 终验，只能形成硬 checkpoint。
+- 当前恢复点：
+  - 下一轮继续导航主线时，不需要再回头处理这条 `CS0246`；
+  - 应直接从“本线程测试红错已清，外部 UI 编译 blocker 仍在”这一基线继续推进 `S0-S6`。
+
+## 2026-03-24（补发 `002-prompt-9`：外部 blocker 不得停车，转入退壳施工）
+
+- 当前主线目标：
+  - 纠正导航线程对 `002-prompt-8` 的一处执行偏差；
+  - 不再允许它把外部 compile blocker 当成本轮停车位，而是继续留在 `S0-S6` 主线内做真实结构施工。
+- 本轮完成：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-9.md`
+  2. 在 `002-prompt-9` 中正式钉死：
+     - `SpringDay1WorkbenchCraftingOverlay.cs` 只能作为 `external_blocker_note` 存在；
+     - 这条外部 blocker 不再允许充当导航主线的收口理由；
+     - 当前必须转入“导航结构施工模式”，优先推进：
+       1. `NavigationTrafficArbiter` 从 solver 解释器向真实前置裁决中轴迁移
+       2. `PlayerAutoNavigator / NPCAutoRoamController` 的私有责任簇向共享底座退壳
+  3. 已把下一轮最小硬 checkpoint 收紧成：
+     - 至少交出一个真实“退壳 checkpoint”
+     - 明确哪一组责任簇已从控制器迁到底座共享层
+- 本轮新增稳定事实：
+  1. 上一轮线程不是没干活，而是把“外部 blocker 已备案”误执行成了“可以先停在这里”；
+  2. 从这轮开始，导航线后续回执必须把外部 blocker 降级成注记，而不再允许它占据主叙事。
+- 当前恢复点：
+  - 下一轮若继续导航线，应直接让线程读取 `002-prompt-9.md`；
+  - 后续审查重点继续放在：
+    1. 是否真的做出了责任迁移
+    2. 哪些旧私有闭环开始真实退壳
+    3. 是否仍在拿 compile blocker 掩盖主线未推进

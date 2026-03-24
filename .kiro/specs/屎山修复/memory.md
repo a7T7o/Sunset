@@ -531,3 +531,62 @@
 - 父层当前恢复点：
   - 后续若继续导航线，默认不再用“继续优化”口径；
   - 直接沿 `002-prompt-8` 的未交卷复工口径推进，并继续把 `S7/S8` 后延。
+
+### 会话 29 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已补发：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-9.md`
+- 父层新增稳定事实：
+  - 上一轮导航线程并非完全中断，而是把外部 compile blocker 当成了合法停车位；
+  - 这轮 prompt 已明确纠偏：
+    - `SpringDay1WorkbenchCraftingOverlay.cs` 只允许作为 `external_blocker_note`
+    - 不再允许作为导航主线的收口理由
+  - 当前对子工作区的下一步要求已进一步收紧成：
+    - 继续导航结构施工
+    - 至少交出一个真实“退壳 checkpoint”
+    - 用代码责任迁移，而不是验证恢复叙事，来证明主线继续推进
+- 父层当前恢复点：
+  - 后续若继续导航线，优先看它是否真的让某一组私有导航责任从控制器迁到底座共享层；
+  - 若再次停在 compile blocker，应视为未按 prompt 执行。
+
+### 会话 29 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已按 `002-prompt-8` 真正落了一次施工刀，不再只停留在解释与审稿：
+  - 修改了 `NavigationTrafficArbiter.cs`
+  - 修改了 `NPCMotionController.cs`
+  - 修改了 `NavigationAvoidanceRulesTests.cs`
+- 父层新增稳定事实：
+  1. 当前玩家面对 sleeping / inactive blocker 的永久 `Wait`，已经被收口到一个明确机制：
+     - `Wait` 锁态在正净空下不再允许无条件续杯；
+     - 当前已允许释放到 `SidePass / Recover` 路径。
+  2. `S5` 本轮也有实质推进：
+     - NPC 最终运动执行开始优先使用 `rb.linearVelocity`
+     - 不再默认落在 `MovePosition(...)` 这一套独立语义里。
+  3. 这轮新增的两条编辑器测试已经写入导航测试文件，但 fresh 运行态验证尚未拿到，因为 shared root 当前被他线文件编译红错阻断。
+- 父层当前判断：
+  - 这轮不是闭环完成，但属于 `002-prompt-8` 口径下的有效 checkpoint；
+  - 当前唯一外部 blocker 是：
+    - `Assets\\YYY_Scripts\\Story\\UI\\SpringDay1WorkbenchCraftingOverlay.cs`
+    - 它阻断了导航线本轮 fresh compile / live 终验。
+- 父层当前恢复点：
+  - 下一轮若继续导航施工，应从“Wait 锁态已松、NPC 速度语义已收一步”继续；
+  - 不要回头再从 tag / NavGrid 参数 / NPC preserve 半刀重新猜。
+
+### 会话 30 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮先处理了本线程自引入的编译阻塞：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+- 父层新增稳定事实：
+  1. `NavigationAvoidanceRulesTests.cs` 中对 `NPCMotionController` 的直接强类型引用已被移除，测试重新回到反射式挂载与调用。
+  2. Unity MCP 静态校验显示：
+     - `NavigationAvoidanceRulesTests.cs`：`0 error`
+     - `NPCMotionController.cs`：`0 error`
+     - `NavigationTrafficArbiter.cs`：`0 error`
+  3. fresh compile 里已不再出现该测试文件的 `CS0246`；shared root 当前剩余显式 blocker 仍是：
+     - `Assets\\YYY_Scripts\\Story\\UI\\SpringDay1WorkbenchCraftingOverlay.cs`
+- 父层当前判断：
+  - 这轮对子工作区来说是“先清自己引入的红错，再回到主线”的必要 checkpoint；
+  - 由于外部 UI 文件仍处于语法红态，导航线本轮仍不能伪装成 fresh compile / live 已恢复。
+- 父层当前恢复点：
+  - 下一轮继续导航线时，不需要再处理这条测试 `CS0246`；
+  - 直接从“我的测试 blocker 已清，外部 compile blocker 仍在”继续推进 `S0-S6`。
