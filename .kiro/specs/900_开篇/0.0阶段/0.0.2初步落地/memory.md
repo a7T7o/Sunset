@@ -540,3 +540,39 @@
 - 当前恢复点：
   - 这轮已经把“按 E 立刻炸掉”的回归错误收掉
   - 下一步应让用户重新按 `E` 复测工作台 UI 本体
+
+## 2026-03-24 补记：`SpringDay1WorkbenchCraftingOverlay.cs` 的 `CS0103` 已确认为旧报错口径
+- 用户随后贴出的 `ApplyNavigationBlock / _canvas / _canvasRect / AboveOffset / BelowOffset` 缺失报错，属于这份文件半重构阶段的旧编译口径，不是当前磁盘版本的 live 事实。
+- 本轮我没有继续写实现代码，只做只读复核：
+  - 确认现场：`D:\Unity\Unity_learning\Sunset @ main @ 96b63e228c71b2f163da4295b74d842b7c36bf14`
+  - 直读 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - 运行 `git diff --check`
+  - 运行 `CodexCodeGuard`
+- 已确认当前文件真实包含：
+  - `ApplyNavigationBlock(bool enable)`
+  - `private Canvas _canvas => overlayCanvas`
+  - `private RectTransform _canvasRect => rootRect`
+  - `AboveOffset / BelowOffset`
+- `CodexCodeGuard` 对 `SpringDay1WorkbenchCraftingOverlay.cs / CraftingStationInteractable.cs / RecipeData.cs` 的 UTF-8、diff、程序集级编译检查通过。
+- 当前恢复点：
+  - 这批 `CS0103` 已不再是 live blocker
+  - 工作台主线应回到交互与观感继续收口
+
+## 2026-03-24 补记：工作台 UI 已按正式游玩样式重做一版
+- 本轮主线没有变，仍是 spring-day1 的工作台 UI 收口；用户明确否定了上一版的“测试味 / 提示味 / 悬浮感不足”，要求直接做成最终游玩样式。
+- 已修改：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 这轮重做点：
+  - 去掉头部测试提示、底部调试提示和多余说明文案，只保留正式工作台内容
+  - 左侧收成真实可滚动配方列，配方行内直接显示 `Axe_0 / Hoe_0 / Pickaxe_0` 的图标与名称
+  - 右侧只保留所选工具的名称、描述、材料需求与数量调节
+  - 数量区保留滑条 + `+ / -`
+  - 增加指向工作台的悬浮指针，并通过 `ApplyDisplayDirection(...)` 只在“工作台上方 / 下方”两种状态间切换
+  - 保留 `0.5m` 打开、`1.5m` 超距自动关闭，以及 `ApplyNavigationBlock(...)` 的右键导航阻断链
+- 本轮验证：
+  - `git diff --check` 通过
+  - `CodexCodeGuard` 对上述 2 个文件的 UTF-8、diff、程序集级编译检查通过
+- 当前恢复点：
+  - 代码侧已经回到“可交给用户做最终观感验收”的状态
+  - 下一步应由用户直接验证：位置是否真跟随工作台、上/下翻转是否正确、左侧配方列是否正常、右键是否不透传

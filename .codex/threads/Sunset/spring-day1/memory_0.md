@@ -668,3 +668,34 @@
 - 当前主线恢复点：
   - 工作台 UI 这刀已经从“打开即报错”回到“可重新让用户复测”
   - 下一步就是用户重新按 `E` 验收是否还会停游戏
+
+## 2026-03-24 补记：`SpringDay1WorkbenchCraftingOverlay.cs` 的 `CS0103` 已确认不是当前 live 编译阻断
+- 当前主线仍是 spring-day1 的工作台 UI 收口，不是切题去修别的系统。
+- 用户贴出 `ApplyNavigationBlock / _canvas / _canvasRect / AboveOffset / BelowOffset` 缺失的 `CS0103` 后，我本轮没有继续改代码，而是先按 `skills-governor` 做前置核查，并补用 `sunset-workspace-router` 明确回写层级。
+- live 只读证据确认：
+  - 当前现场：`D:\Unity\Unity_learning\Sunset @ main @ 96b63e228c71b2f163da4295b74d842b7c36bf14`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` 当前真实包含上述符号
+  - `git diff --check` 通过
+  - `CodexCodeGuard` 对 `WorkbenchCraftingOverlay.cs / CraftingStationInteractable.cs / RecipeData.cs` 的程序集级编译检查通过
+- 结论：这批 `CS0103` 已不是当前 shared root 的 live blocker；主线恢复点应回到工作台 UI 的表现与交互细修，而不是继续追这组旧编译口径。
+
+## 2026-03-24 补记：工作台 UI 已按用户纠正重做到正式游玩版
+- 当前主线仍是 spring-day1 的 Day1 工作台链，不是切换系统。
+- 用户本轮核心纠正有 4 点：
+  1. 不要再带测试味提示文字
+  2. 左侧必须是真实可选的配方列
+  3. 面板必须明确跟随工作台悬浮
+  4. 只保留正式游玩时该看到的内容
+- 我这轮据此重做了 `SpringDay1WorkbenchCraftingOverlay.cs`：
+  - 去掉头部/底部测试提示
+  - 左侧配方列恢复为真实滚动选择区
+  - 右侧保留名称、描述、材料与数量
+  - 增加 `pointerRect` 和 `ApplyDisplayDirection(...)`，让面板更像附着在工作台上的悬浮卡片
+  - 保留右键 UI 区域不透传导航的运行时阻断
+- 对应 `SpringDay1DialogueProgressionTests.cs` 已同步改成新的静态守护口径。
+- 本轮验证通过：
+  - `git diff --check`
+  - `CodexCodeGuard`
+- 当前主线恢复点：
+  - 代码侧已经重新回到可交付的正式验收版
+  - 下一步由用户直接做最终观感验证

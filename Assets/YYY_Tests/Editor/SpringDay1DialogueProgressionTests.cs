@@ -180,7 +180,13 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("increaseButton", overlayText, "Day1 工作台浮层应提供数量加号按钮");
         StringAssert.Contains("GetClosestInteractionPoint", overlayText, "Day1 工作台浮层应根据玩家距离自动关闭");
         StringAssert.Contains("_displayBelow", overlayText, "Day1 工作台浮层应支持工作台上/下两个显示方向");
-        StringAssert.Contains("工作台 UI 只响应鼠标左键", overlayText, "Day1 工作台浮层应明确吞掉右键导航场景");
+        StringAssert.Contains("ApplyDisplayDirection", overlayText, "Day1 工作台浮层应显式切换上/下两种悬浮方向");
+        StringAssert.Contains("pointerRect", overlayText, "Day1 工作台浮层应带有指向工作台的悬浮指针");
+        StringAssert.Contains("RecipeColumn", overlayText, "Day1 工作台浮层应保留左侧滚动配方列");
+        StringAssert.Contains("DetailColumn", overlayText, "Day1 工作台浮层应保留右侧详情列");
+        StringAssert.Contains("QuantityControls", overlayText, "Day1 工作台浮层应保留底部数量调节区");
+        StringAssert.DoesNotContain("E 打开，超出 1.5 米自动收起", overlayText, "正式工作台 UI 不应再出现测试说明文案");
+        StringAssert.DoesNotContain("工作台 UI 只响应鼠标左键", overlayText, "正式工作台 UI 不应在面板里显示调试提示语");
         StringAssert.Contains("recipeID: 9100", axeRecipeText, "Axe_0 配方资源应存在且使用固定 recipeID");
         StringAssert.Contains("recipeName: Axe_0", axeRecipeText, "Axe_0 配方资源应稳定");
         StringAssert.Contains("itemID: 3200", axeRecipeText, "Axe_0 配方资源应使用木材");
@@ -188,9 +194,6 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("recipeName: Hoe_0", hoeRecipeText, "Hoe_0 配方资源应稳定");
         StringAssert.Contains("recipeID: 9102", pickaxeRecipeText, "Pickaxe_0 配方资源应存在且使用固定 recipeID");
         StringAssert.Contains("itemID: 3201", pickaxeRecipeText, "Pickaxe_0 配方资源应包含石料需求");
-        StringAssert.Contains("工作台制作", overlayText, "Day1 工作台浮层应提供明确标题");
-        StringAssert.Contains("配方选择", overlayText, "Day1 工作台浮层应保留左侧配方选择区");
-        StringAssert.Contains("制作数量", overlayText, "Day1 工作台浮层应提供数量调节区");
         StringAssert.Contains("InitializeOnLoad", binderText, "编辑器恢复器应在 Unity 重新编译后自动生效");
         StringAssert.Contains("Anvil_0", binderText, "编辑器恢复器应优先识别 Anvil_0");
         StringAssert.Contains("Undo.AddComponent<CraftingStationInteractable>", binderText, "编辑器恢复器应能自动补挂工作台交互脚本");

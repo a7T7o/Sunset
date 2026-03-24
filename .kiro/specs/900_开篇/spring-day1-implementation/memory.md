@@ -521,3 +521,38 @@
 - 当前恢复点：
   - 这轮已把“按 E 立刻炸掉”的回归错误止血
   - 下一步回到用户侧重新复测工作台 UI 是否能正常弹出并继续交互
+
+## 2026-03-24 补记：工作台 UI `CS0103` 口径已做 live 纠偏
+- 用户后续贴出的 `SpringDay1WorkbenchCraftingOverlay.cs` 一组 `CS0103`（`ApplyNavigationBlock / _canvas / _canvasRect / AboveOffset / BelowOffset`）经只读复核后，已判定为旧的半重构报错，不是当前 shared root 磁盘版本的 live 事实。
+- 本轮动作只做核查，不再改实现：
+  - 复核 `D:\Unity\Unity_learning\Sunset @ main`
+  - 回看 `ui.md`、线程记忆、工作区记忆
+  - 直读 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - 运行 `git diff --check`
+  - 运行 `CodexCodeGuard`
+- 已确认当前文件真实存在上述符号，且 `CodexCodeGuard` 对：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+  - `Assets/YYY_Scripts/Data/Recipes/RecipeData.cs`
+  的程序集级编译检查通过。
+- 结论：
+  - 工作台 UI 这条线当前不再被这批 `CS0103` 阻断
+  - 后续应回到运行效果与观感层面继续收口
+
+## 2026-03-24 补记：工作台 UI 已按最终游玩口径重做
+- 用户明确纠正：上一版虽然能用，但仍带有过多测试文案、悬浮感不足、左侧配方区不够像正式成品，因此这轮不再做“小修”，而是按最终游玩样式重收。
+- 本轮只改：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 已落地：
+  - 去除面板里的测试提示/说明提示，只保留纯工作台 UI
+  - 左侧改成真实滚动配方列，直接显示工具图标、名称和简要需求
+  - 右侧只显示当前选中工具的名称、描述、材料需求和数量区
+  - 通过 `pointerRect + ApplyDisplayDirection(...)` 强化“悬浮在工作台上/下方”的视觉关系
+  - 保留 `0.5m` 打开、`1.5m` 超距关闭和右键 UI 区域不透传导航的代码链
+- 本轮静态验证：
+  - `git diff --check`
+  - `CodexCodeGuard`
+- 当前恢复点：
+  - 工作台 UI 代码侧已回到正式验收版
+  - 下一步主要是用户做最终观感与体感验收
