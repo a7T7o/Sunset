@@ -7,26 +7,32 @@ using UnityEngine.UI;
 namespace Sunset.Story
 {
     /// <summary>
-    /// spring-day1 轻量教程提示层。
+    /// spring-day1 任务提示卡片。
     /// 运行时动态创建，不修改场景资源。
     /// </summary>
     public class SpringDay1PromptOverlay : MonoBehaviour
     {
         private static readonly string[] PreferredFontResourcePaths =
         {
-            "Fonts & Materials/DialogueChinese SoftPixel SDF",
-            "Fonts & Materials/DialogueChinese Pixel SDF",
             "Fonts & Materials/DialogueChinese V2 SDF",
+            "Fonts & Materials/DialogueChinese BitmapSong SDF",
+            "Fonts & Materials/DialogueChinese Pixel SDF",
+            "Fonts & Materials/DialogueChinese SoftPixel SDF",
             "Fonts & Materials/DialogueChinese SDF"
         };
 
         private static SpringDay1PromptOverlay _instance;
 
         [SerializeField] private CanvasGroup canvasGroup;
+        [SerializeField] private RectTransform rootRect;
+        [SerializeField] private TextMeshProUGUI titleText;
         [SerializeField] private TextMeshProUGUI promptText;
+        [SerializeField] private TextMeshProUGUI progressText;
         [SerializeField] private Image backgroundImage;
         [SerializeField] private float fadeDuration = 0.18f;
         [SerializeField] private float postDialogueResumeDelay = 0.18f;
+
+        private TMP_FontAsset _fontAsset;
         private bool _suppressWhileDialogueActive;
         private string _currentPromptText = string.Empty;
         private string _queuedPromptText = string.Empty;
@@ -53,18 +59,7 @@ namespace Sunset.Story
                 return;
             }
 
-            Transform parent = null;
-            GameObject uiRoot = GameObject.Find("UI");
-            if (uiRoot != null)
-            {
-                parent = uiRoot.transform;
-            }
-            else
-            {
-                Canvas rootCanvas = Object.FindFirstObjectByType<Canvas>();
-                parent = rootCanvas != null ? rootCanvas.transform : null;
-            }
-
+            Transform parent = ResolveParent();
             GameObject root = new GameObject(
                 nameof(SpringDay1PromptOverlay),
                 typeof(RectTransform),
@@ -104,6 +99,31 @@ namespace Sunset.Story
             EventBus.UnsubscribeAll(this);
         }
 
+        private void LateUpdate()
+        {
+            if (canvasGroup == null || titleText == null || progressText == null)
+            {
+                return;
+            }
+
+            UpdateContextTexts();
+
+            if (ShouldDelayPromptDisplay())
+            {
+                if (canvasGroup.alpha > 0.001f)
+                {
+                    FadeCanvasGroup(0f, false);
+                }
+
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_currentPromptText) && canvasGroup.alpha < 0.999f && _queuedRevealCoroutine == null)
+            {
+                FadeCanvasGroup(1f, false);
+            }
+        }
+
         public void Show(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
@@ -112,11 +132,7 @@ namespace Sunset.Story
                 return;
             }
 
-            if (promptText == null)
-            {
-                BuildUi();
-            }
-
+            EnsureBuilt();
             _currentPromptText = text;
             _queuedPromptText = text;
 
@@ -159,19 +175,34 @@ namespace Sunset.Story
 
         private void BuildUi()
         {
-            RectTransform rootRect = transform as RectTransform;
-            rootRect.anchorMin = new Vector2(0.5f, 0f);
-            rootRect.anchorMax = new Vector2(0.5f, 0f);
-            rootRect.pivot = new Vector2(0.5f, 0f);
-            rootRect.anchoredPosition = new Vector2(0f, 56f);
-            rootRect.sizeDelta = new Vector2(760f, 84f);
+            rootRect = transform as RectTransform;
+            _fontAsset = ResolveFontAsset();
+
+            rootRect.anchorMin = new Vector2(0f, 1f);
+            rootRect.anchorMax = new Vector2(0f, 1f);
+            rootRect.pivot = new Vector2(0f, 1f);
+            rootRect.anchoredPosition = new Vector2(20f, -18f);
+            rootRect.sizeDelta = new Vector2(348f, 112f);
 
             canvasGroup = GetComponent<CanvasGroup>();
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
 
-            GameObject background = new GameObject("PromptBackground", typeof(RectTransform), typeof(Image));
+            GameObject background = new GameObject("PromptCard", typeof(RectTransform), typeof(Image), typeof(Outline), typeof(Shadow));
             background.transform.SetParent(transform, false);
             backgroundImage = background.GetComponent<Image>();
-            backgroundImage.color = new Color(0.08f, 0.09f, 0.12f, 0.88f);
+            backgroundImage.color = new Color(0.08f, 0.1f, 0.14f, 0.82f);
+            backgroundImage.raycastTarget = false;
+
+            Outline outline = background.GetComponent<Outline>();
+            outline.effectColor = new Color(1f, 1f, 1f, 0.08f);
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = true;
+
+            Shadow shadow = background.GetComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.22f);
+            shadow.effectDistance = new Vector2(0f, -6f);
+            shadow.useGraphicAlpha = true;
 
             RectTransform backgroundRect = background.GetComponent<RectTransform>();
             backgroundRect.anchorMin = Vector2.zero;
@@ -179,21 +210,66 @@ namespace Sunset.Story
             backgroundRect.offsetMin = Vector2.zero;
             backgroundRect.offsetMax = Vector2.zero;
 
-            GameObject textObject = new GameObject("PromptText", typeof(RectTransform), typeof(TextMeshProUGUI));
-            textObject.transform.SetParent(transform, false);
-            promptText = textObject.GetComponent<TextMeshProUGUI>();
-            promptText.font = ResolveFontAsset();
-            promptText.alignment = TextAlignmentOptions.Center;
-            promptText.fontSize = 28f;
-            promptText.color = new Color(0.98f, 0.96f, 0.9f, 1f);
-            promptText.textWrappingMode = TextWrappingModes.Normal;
-            promptText.text = string.Empty;
+            RectTransform accentStrip = CreateRect(background.transform, "AccentStrip");
+            accentStrip.anchorMin = new Vector2(0f, 0f);
+            accentStrip.anchorMax = new Vector2(0f, 1f);
+            accentStrip.pivot = new Vector2(0f, 0.5f);
+            accentStrip.anchoredPosition = Vector2.zero;
+            accentStrip.sizeDelta = new Vector2(4f, 0f);
+            Image accentImage = accentStrip.gameObject.AddComponent<Image>();
+            accentImage.color = new Color(0.96f, 0.78f, 0.42f, 0.92f);
+            accentImage.raycastTarget = false;
 
-            RectTransform textRect = textObject.GetComponent<RectTransform>();
-            textRect.anchorMin = Vector2.zero;
-            textRect.anchorMax = Vector2.one;
-            textRect.offsetMin = new Vector2(24f, 14f);
-            textRect.offsetMax = new Vector2(-24f, -14f);
+            RectTransform titleTag = CreateRect(background.transform, "TitleTag");
+            titleTag.anchorMin = new Vector2(0f, 1f);
+            titleTag.anchorMax = new Vector2(0f, 1f);
+            titleTag.pivot = new Vector2(0f, 1f);
+            titleTag.anchoredPosition = new Vector2(18f, -12f);
+            titleTag.sizeDelta = new Vector2(138f, 20f);
+            Image titleTagImage = titleTag.gameObject.AddComponent<Image>();
+            titleTagImage.color = new Color(0.97f, 0.82f, 0.48f, 0.16f);
+            titleTagImage.raycastTarget = false;
+
+            titleText = CreateText(titleTag, "TitleText", "Day1 任务", 11f, new Color(0.98f, 0.92f, 0.72f, 1f), TextAlignmentOptions.Center);
+            StretchRect(titleText.rectTransform);
+
+            promptText = CreateText(background.transform, "PromptText", string.Empty, 17f, new Color(0.96f, 0.97f, 1f, 1f), TextAlignmentOptions.TopLeft, true);
+            RectTransform promptRect = promptText.rectTransform;
+            promptRect.anchorMin = new Vector2(0f, 1f);
+            promptRect.anchorMax = new Vector2(1f, 1f);
+            promptRect.pivot = new Vector2(0.5f, 1f);
+            promptRect.offsetMin = new Vector2(18f, -74f);
+            promptRect.offsetMax = new Vector2(-18f, -38f);
+
+            progressText = CreateText(background.transform, "ProgressText", string.Empty, 11f, new Color(0.78f, 0.84f, 0.93f, 0.96f), TextAlignmentOptions.BottomLeft, true);
+            RectTransform progressRect = progressText.rectTransform;
+            progressRect.anchorMin = new Vector2(0f, 0f);
+            progressRect.anchorMax = new Vector2(1f, 0f);
+            progressRect.pivot = new Vector2(0.5f, 0f);
+            progressRect.offsetMin = new Vector2(18f, 10f);
+            progressRect.offsetMax = new Vector2(-18f, 32f);
+        }
+
+        private void EnsureBuilt()
+        {
+            if (rootRect == null || canvasGroup == null || titleText == null || promptText == null || progressText == null)
+            {
+                BuildUi();
+            }
+        }
+
+        private void UpdateContextTexts()
+        {
+            SpringDay1Director director = SpringDay1Director.Instance;
+            if (director != null)
+            {
+                titleText.text = director.GetCurrentTaskLabel();
+                progressText.text = director.GetCurrentProgressLabel();
+                return;
+            }
+
+            titleText.text = "Day1 任务";
+            progressText.text = string.Empty;
         }
 
         private TMP_FontAsset ResolveFontAsset()
@@ -212,13 +288,10 @@ namespace Sunset.Story
 
         private void ShowCurrentPromptImmediate(string text)
         {
-            if (promptText == null)
-            {
-                return;
-            }
-
+            EnsureBuilt();
             StopQueuedRevealCoroutine();
             promptText.text = text;
+            UpdateContextTexts();
             FadeCanvasGroup(1f, false);
         }
 
@@ -259,7 +332,6 @@ namespace Sunset.Story
 
             if (!string.IsNullOrWhiteSpace(_queuedPromptText))
             {
-                _currentPromptText = _queuedPromptText;
                 ShowCurrentPromptImmediate(_queuedPromptText);
             }
 
@@ -273,17 +345,17 @@ namespace Sunset.Story
                 return true;
             }
 
-            DialogueManager dialogueManager = Object.FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
+            DialogueManager dialogueManager = DialogueManager.Instance;
             if (dialogueManager != null && dialogueManager.IsDialogueActive)
             {
                 return true;
             }
 
-            DialogueUI dialogueUi = Object.FindFirstObjectByType<DialogueUI>(FindObjectsInactive.Include);
-            return dialogueUi != null && dialogueUi.CurrentCanvasAlpha > 0.01f;
+            SpringDay1WorkbenchCraftingOverlay overlay = FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            return overlay != null && overlay.IsVisible;
         }
 
-        private void FadeCanvasGroup(float targetAlpha, bool clearTextOnComplete)
+        private void FadeCanvasGroup(float targetAlpha, bool immediate)
         {
             if (canvasGroup == null)
             {
@@ -291,51 +363,30 @@ namespace Sunset.Story
             }
 
             StopVisibilityCoroutine();
-            _visibilityCoroutine = StartCoroutine(FadeCanvasGroupRoutine(canvasGroup.alpha, targetAlpha, clearTextOnComplete));
-        }
 
-        private IEnumerator FadeCanvasGroupRoutine(float from, float to, bool clearTextOnComplete)
-        {
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
-
-            if (fadeDuration <= 0f || Mathf.Approximately(from, to))
+            if (immediate || fadeDuration <= 0f)
             {
-                canvasGroup.alpha = to;
-                if (clearTextOnComplete && promptText != null)
-                {
-                    promptText.text = string.Empty;
-                }
-
-                _visibilityCoroutine = null;
-                yield break;
+                canvasGroup.alpha = targetAlpha;
+                return;
             }
 
+            _visibilityCoroutine = StartCoroutine(FadeCanvasGroupRoutine(targetAlpha));
+        }
+
+        private IEnumerator FadeCanvasGroupRoutine(float targetAlpha)
+        {
+            float startAlpha = canvasGroup.alpha;
             float elapsed = 0f;
             while (elapsed < fadeDuration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float normalized = Mathf.Clamp01(elapsed / fadeDuration);
-                float eased = to > from
-                    ? 1f - ((1f - normalized) * (1f - normalized))
-                    : normalized * normalized;
-
-                canvasGroup.alpha = Mathf.Lerp(from, to, eased);
-
-                if (normalized >= 1f)
-                {
-                    break;
-                }
-
+                float eased = 1f - ((1f - normalized) * (1f - normalized));
+                canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, eased);
                 yield return null;
             }
 
-            canvasGroup.alpha = to;
-            if (clearTextOnComplete && promptText != null)
-            {
-                promptText.text = string.Empty;
-            }
-
+            canvasGroup.alpha = targetAlpha;
             _visibilityCoroutine = null;
         }
 
@@ -359,6 +410,49 @@ namespace Sunset.Story
 
             StopCoroutine(_queuedRevealCoroutine);
             _queuedRevealCoroutine = null;
+        }
+
+        private TextMeshProUGUI CreateText(Transform parent, string name, string text, float fontSize, Color color, TextAlignmentOptions alignment, bool wrap = false)
+        {
+            RectTransform rect = CreateRect(parent, name);
+            TextMeshProUGUI tmp = rect.gameObject.AddComponent<TextMeshProUGUI>();
+            tmp.font = _fontAsset;
+            tmp.text = text;
+            tmp.fontSize = fontSize;
+            tmp.color = color;
+            tmp.alignment = alignment;
+            tmp.textWrappingMode = wrap ? TextWrappingModes.Normal : TextWrappingModes.NoWrap;
+            tmp.overflowMode = wrap ? TextOverflowModes.Overflow : TextOverflowModes.Ellipsis;
+            tmp.raycastTarget = false;
+            return tmp;
+        }
+
+        private static RectTransform CreateRect(Transform parent, string name)
+        {
+            GameObject go = new GameObject(name, typeof(RectTransform));
+            go.transform.SetParent(parent, false);
+            return go.GetComponent<RectTransform>();
+        }
+
+        private static void StretchRect(RectTransform rect)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+        }
+
+        private static Transform ResolveParent()
+        {
+            GameObject uiRoot = GameObject.Find("UI");
+            if (uiRoot != null)
+            {
+                return uiRoot.transform;
+            }
+
+            Canvas rootCanvas = Object.FindFirstObjectByType<Canvas>();
+            return rootCanvas != null ? rootCanvas.transform : null;
         }
     }
 }

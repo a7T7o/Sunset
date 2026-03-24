@@ -80,6 +80,7 @@ namespace Sunset.Story
         private SpringDay1BedInteractable _boundBedInteractable;
         private PlayerMovement _playerMovement;
         private CraftingService _observedCraftingService;
+        private InventoryService _observedInventoryService;
         private bool _uiInitialized;
         private bool _storyTimePauseApplied;
 
@@ -91,6 +92,9 @@ namespace Sunset.Story
         private bool _waterObjectiveCompleted;
         private bool _woodObjectiveCompleted;
         private int _baselineWoodCount = -1;
+        private bool _woodTrackingArmed;
+        private int _trackedWoodCountSnapshot = -1;
+        private int _collectedWoodSinceWoodStepStart;
 
         public static SpringDay1Director Instance => _instance;
         private const int WoodItemId = 3200;
@@ -133,6 +137,7 @@ namespace Sunset.Story
             EnergySystem.OnEnergyChanged += HandleEnergyChanged;
             TimeManager.OnSleep += HandleSleep;
             RefreshCraftingServiceSubscription();
+            RefreshInventoryTrackingSubscription();
         }
 
         private void OnDisable()
@@ -141,6 +146,7 @@ namespace Sunset.Story
             EnergySystem.OnEnergyChanged -= HandleEnergyChanged;
             TimeManager.OnSleep -= HandleSleep;
             RefreshCraftingServiceSubscription(null);
+            RefreshInventoryTrackingSubscription(null);
 
             ApplyLowEnergyMovementPenalty(false);
             ReleaseStoryTimePause();
@@ -328,6 +334,54 @@ namespace Sunset.Story
             }
         }
 
+        private void RefreshInventoryTrackingSubscription(InventoryService targetService = null)
+        {
+            InventoryService resolvedService = targetService ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+            if (_observedInventoryService == resolvedService)
+            {
+                return;
+            }
+
+            if (_observedInventoryService != null)
+            {
+                _observedInventoryService.OnInventoryChanged -= HandleInventoryChanged;
+            }
+
+            _observedInventoryService = resolvedService;
+
+            if (_observedInventoryService != null)
+            {
+                _observedInventoryService.OnInventoryChanged += HandleInventoryChanged;
+            }
+        }
+
+        private void HandleInventoryChanged()
+        {
+            if (!_woodTrackingArmed || _woodObjectiveCompleted)
+            {
+                return;
+            }
+
+            int currentWoodCount = GetCurrentWoodCount();
+            if (_trackedWoodCountSnapshot < 0)
+            {
+                _trackedWoodCountSnapshot = currentWoodCount;
+            }
+
+            int delta = currentWoodCount - _trackedWoodCountSnapshot;
+            if (delta > 0)
+            {
+                _collectedWoodSinceWoodStepStart += delta;
+                if (_collectedWoodSinceWoodStepStart >= requiredWoodCollectedCount)
+                {
+                    _woodObjectiveCompleted = true;
+                    _collectedWoodSinceWoodStepStart = requiredWoodCollectedCount;
+                }
+            }
+
+            _trackedWoodCountSnapshot = currentWoodCount;
+        }
+
         private void HandleEnergyChanged(int current, int max)
         {
             bool shouldWarn = _staminaRevealed && current > 0 && current <= lowEnergyWarningThreshold;
@@ -362,6 +416,7 @@ namespace Sunset.Story
         {
             InitializeRuntimeUiIfNeeded();
             RefreshCraftingServiceSubscription();
+            RefreshInventoryTrackingSubscription();
             TryAutoBindWorkbenchInteractable();
             TryAutoBindBedInteractable();
             SyncStoryTimePauseState();
@@ -483,7 +538,7 @@ namespace Sunset.Story
                 interactable = workbenchCandidate.gameObject.AddComponent<CraftingStationInteractable>();
             }
 
-            interactable.ConfigureRuntimeDefaults(CraftingStation.Workbench, "使用工作台", 1.8f, 28);
+            interactable.ConfigureRuntimeDefaults(CraftingStation.Workbench, "使用工作台", 0.5f, 28);
             _boundWorkbenchInteractable = interactable;
         }
 
@@ -563,7 +618,12 @@ namespace Sunset.Story
                 _waterObjectiveCompleted = true;
             }
 
-            if (!_woodObjectiveCompleted && currentWoodCount - _baselineWoodCount >= requiredWoodCollectedCount)
+            if (_waterObjectiveCompleted && !_woodTrackingArmed)
+            {
+                ArmWoodTracking();
+            }
+
+            if (!_woodObjectiveCompleted && _woodTrackingArmed && _collectedWoodSinceWoodStepStart >= requiredWoodCollectedCount)
             {
                 _woodObjectiveCompleted = true;
             }
@@ -656,6 +716,57 @@ namespace Sunset.Story
 
             _craftedCount = requiredCraftedCount;
             return "测试用工作台交互：已记作一次基础制作。";
+        }
+
+        public bool CanPerformWorkbenchCraft(out string blockerMessage)
+        {
+            blockerMessage = string.Empty;
+
+            StoryPhase currentPhase = StoryManager.Instance.CurrentPhase;
+            if (currentPhase == StoryPhase.WorkbenchFlashback)
+            {
+                blockerMessage = "先完成这段工作台回忆。";
+                return false;
+            }
+
+            if (currentPhase != StoryPhase.FarmingTutorial)
+            {
+                return true;
+            }
+
+            InitializeFarmingTutorialTracking();
+
+            if (!_tillObjectiveCompleted)
+            {
+                blockerMessage = "先完成开垦，再回来制作。";
+                return false;
+            }
+
+            if (!_plantObjectiveCompleted)
+            {
+                blockerMessage = "先把种子种下，再回来制作。";
+                return false;
+            }
+
+            if (!_waterObjectiveCompleted)
+            {
+                blockerMessage = "先完成一次浇水，再回来制作。";
+                return false;
+            }
+
+            if (!_woodObjectiveCompleted)
+            {
+                blockerMessage = $"先收集足够木材，当前还差 {Mathf.Max(0, requiredWoodCollectedCount - GetCollectedWoodProgress())} 份。";
+                return false;
+            }
+
+            return true;
+        }
+
+        public bool ShouldShowWorkbenchEntryHint()
+        {
+            StoryPhase currentPhase = StoryManager.Instance.CurrentPhase;
+            return currentPhase == StoryPhase.WorkbenchFlashback && !_workbenchOpened;
         }
 
         private void BeginReturnReminder()
@@ -824,6 +935,9 @@ namespace Sunset.Story
             _waterObjectiveCompleted = false;
             _woodObjectiveCompleted = false;
             _baselineWoodCount = GetCurrentWoodCount();
+            _woodTrackingArmed = false;
+            _trackedWoodCountSnapshot = -1;
+            _collectedWoodSinceWoodStepStart = 0;
         }
 
         private static void CacheReflection()
@@ -914,14 +1028,21 @@ namespace Sunset.Story
 
         private int GetCollectedWoodProgress()
         {
-            if (_baselineWoodCount < 0)
+            if (!_woodTrackingArmed)
             {
                 return _woodObjectiveCompleted ? requiredWoodCollectedCount : 0;
             }
 
             return _woodObjectiveCompleted
                 ? requiredWoodCollectedCount
-                : Mathf.Max(0, GetCurrentWoodCount() - _baselineWoodCount);
+                : Mathf.Clamp(_collectedWoodSinceWoodStepStart, 0, requiredWoodCollectedCount);
+        }
+
+        private void ArmWoodTracking()
+        {
+            _woodTrackingArmed = true;
+            _trackedWoodCountSnapshot = GetCurrentWoodCount();
+            _collectedWoodSinceWoodStepStart = 0;
         }
 
         private static int GetLatchedProgress(bool completed, int requiredCount)

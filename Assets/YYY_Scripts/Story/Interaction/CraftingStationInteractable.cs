@@ -23,7 +23,14 @@ namespace Sunset.Story
         [SerializeField] private KeyCode proximityInteractionKey = KeyCode.E;
         [SerializeField] private float keyInteractionCooldown = 0.15f;
 
+        [Header("Workbench Hint Bubble")]
+        [SerializeField] private bool showFirstUseBubble = true;
+        [SerializeField] private float bubbleRevealDistance = 1.15f;
+        [SerializeField] private string bubbleCaption = "交互";
+
         private float _lastKeyInteractionAt = -999f;
+        private Collider2D[] _cachedColliders;
+        private bool _bubbleAlreadyAppeared;
 
         public int InteractionPriority => interactionPriority;
         public float InteractionDistance => interactionDistance;
@@ -48,6 +55,8 @@ namespace Sunset.Story
             {
                 return;
             }
+
+            ConsumeBubbleIfNeeded();
 
             CraftingService craftingService = ResolveCraftingService(createCraftingServiceIfMissing);
             CraftingPanel panel = ResolveCraftingPanel();
@@ -117,6 +126,70 @@ namespace Sunset.Story
             interactionPriority = priority;
         }
 
+        public Bounds GetCombinedBounds()
+        {
+            Collider2D[] colliders = GetRelevantColliders();
+            if (colliders.Length == 0)
+            {
+                return new Bounds(transform.position, Vector3.one);
+            }
+
+            Bounds combinedBounds = colliders[0].bounds;
+            for (int index = 1; index < colliders.Length; index++)
+            {
+                combinedBounds.Encapsulate(colliders[index].bounds);
+            }
+
+            return combinedBounds;
+        }
+
+        public Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
+        {
+            Collider2D[] colliders = GetRelevantColliders();
+            if (colliders.Length == 0)
+            {
+                return transform.position;
+            }
+
+            float bestDistance = float.MaxValue;
+            Vector2 bestPoint = transform.position;
+            for (int index = 0; index < colliders.Length; index++)
+            {
+                Collider2D collider2D = colliders[index];
+                if (collider2D == null)
+                {
+                    continue;
+                }
+
+                Vector2 candidate = collider2D.ClosestPoint(playerPosition);
+                float distance = (candidate - playerPosition).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestPoint = candidate;
+                }
+            }
+
+            return bestPoint;
+        }
+
+        public float GetBoundaryDistance(Vector2 playerPosition)
+        {
+            return Vector2.Distance(playerPosition, GetClosestInteractionPoint(playerPosition));
+        }
+
+        public bool ShouldDisplayOverlayBelow(Vector2 playerPosition)
+        {
+            Vector2 closestPoint = GetClosestInteractionPoint(playerPosition);
+            float verticalDelta = playerPosition.y - closestPoint.y;
+            if (Mathf.Abs(verticalDelta) > 0.04f)
+            {
+                return verticalDelta > 0f;
+            }
+
+            return playerPosition.y > GetCombinedBounds().center.y;
+        }
+
         private void OnValidate()
         {
             if (string.IsNullOrWhiteSpace(interactionHint))
@@ -126,10 +199,25 @@ namespace Sunset.Story
 
             interactionDistance = Mathf.Max(0.1f, interactionDistance);
             overlayAutoCloseDistance = Mathf.Max(interactionDistance, overlayAutoCloseDistance);
+            bubbleRevealDistance = Mathf.Max(interactionDistance, bubbleRevealDistance);
+            CacheColliders();
+        }
+
+        private void Awake()
+        {
+            CacheColliders();
         }
 
         private void Update()
         {
+            InteractionContext context = BuildProximityInteractionContext();
+            if (context?.PlayerTransform == null)
+            {
+                return;
+            }
+
+            UpdateWorkbenchHintBubble(context);
+
             if (!enableProximityKeyInteraction || !Input.GetKeyDown(proximityInteractionKey))
             {
                 return;
@@ -140,13 +228,7 @@ namespace Sunset.Story
                 return;
             }
 
-            InteractionContext context = BuildProximityInteractionContext();
-            if (context?.PlayerTransform == null)
-            {
-                return;
-            }
-
-            float distance = Vector2.Distance(context.PlayerPosition, GetClosestInteractionPoint(context.PlayerPosition));
+            float distance = GetBoundaryDistance(context.PlayerPosition);
             if (distance > interactionDistance)
             {
                 return;
@@ -159,6 +241,82 @@ namespace Sunset.Story
 
             _lastKeyInteractionAt = Time.unscaledTime;
             OnInteract(context);
+        }
+
+        private void UpdateWorkbenchHintBubble(InteractionContext context)
+        {
+            if (station != CraftingStation.Workbench || !showFirstUseBubble || _bubbleAlreadyAppeared)
+            {
+                return;
+            }
+
+            if (!ShouldShowWorkbenchHint())
+            {
+                SpringDay1WorldHintBubble.Instance?.Hide();
+                return;
+            }
+
+            SpringDay1WorkbenchCraftingOverlay overlay = workbenchOverlay != null
+                ? workbenchOverlay
+                : FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            if (overlay != null && overlay.IsVisible)
+            {
+                SpringDay1WorldHintBubble.Instance?.Hide();
+                return;
+            }
+
+            float distance = GetBoundaryDistance(context.PlayerPosition);
+            if (distance > bubbleRevealDistance)
+            {
+                SpringDay1WorldHintBubble.Instance?.Hide();
+                return;
+            }
+
+            SpringDay1WorldHintBubble.EnsureRuntime();
+            SpringDay1WorldHintBubble.Instance.Show(transform, proximityInteractionKey.ToString(), bubbleCaption);
+            _bubbleAlreadyAppeared = true;
+        }
+
+        private bool ShouldShowWorkbenchHint()
+        {
+            if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+            {
+                return false;
+            }
+
+            SpringDay1Director director = SpringDay1Director.Instance;
+            return director != null && director.ShouldShowWorkbenchEntryHint();
+        }
+
+        private void ConsumeBubbleIfNeeded()
+        {
+            if (station != CraftingStation.Workbench)
+            {
+                return;
+            }
+
+            SpringDay1WorldHintBubble.Instance?.Hide();
+            _bubbleAlreadyAppeared = true;
+        }
+
+        private void CacheColliders()
+        {
+            _cachedColliders = GetComponentsInChildren<Collider2D>(includeInactive: true);
+            if (_cachedColliders == null || _cachedColliders.Length == 0)
+            {
+                Collider2D collider2D = GetComponent<Collider2D>();
+                _cachedColliders = collider2D != null ? new[] { collider2D } : System.Array.Empty<Collider2D>();
+            }
+        }
+
+        private Collider2D[] GetRelevantColliders()
+        {
+            if (_cachedColliders == null || _cachedColliders.Length == 0)
+            {
+                CacheColliders();
+            }
+
+            return _cachedColliders ?? System.Array.Empty<Collider2D>();
         }
 
         private CraftingPanel ResolveCraftingPanel()
@@ -208,17 +366,6 @@ namespace Sunset.Story
                 PlayerTransform = playerTransform,
                 PlayerPosition = playerTransform.position
             };
-        }
-
-        private Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
-        {
-            Collider2D collider2D = GetComponent<Collider2D>();
-            if (collider2D == null)
-            {
-                collider2D = GetComponentInChildren<Collider2D>();
-            }
-
-            return collider2D != null ? collider2D.ClosestPoint(playerPosition) : (Vector2)transform.position;
         }
     }
 }

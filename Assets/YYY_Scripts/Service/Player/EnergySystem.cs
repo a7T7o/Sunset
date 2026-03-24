@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using Sunset.Story;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -57,7 +58,7 @@ public class EnergySystem : MonoBehaviour
     public int CurrentEnergy => currentEnergy;
     public float EnergyPercent => maxEnergy > 0 ? (float)currentEnergy / maxEnergy : 0f;
     public bool IsExhausted => currentEnergy <= 0;
-    public bool IsVisible => energySlider != null && energySlider.gameObject.activeSelf;
+    public bool IsVisible => overlayVisible;
     #endregion
 
     #region 私有字段
@@ -66,6 +67,8 @@ public class EnergySystem : MonoBehaviour
     private Image energyFillImage;
     private bool lowEnergyWarningVisual;
     private float restoreHighlightUntil;
+    private SpringDay1StatusOverlay statusOverlay;
+    private bool overlayVisible;
     #endregion
 
     #region Unity生命周期
@@ -88,6 +91,7 @@ public class EnergySystem : MonoBehaviour
             TryFindEnergySlider();
         }
 
+        HideLegacySlider();
         UpdateUI();
     }
 
@@ -245,16 +249,13 @@ public class EnergySystem : MonoBehaviour
     /// </summary>
     public void SetVisible(bool visible)
     {
-        EnsureEnergyUiReferences();
-
-        if (energySlider != null)
+        overlayVisible = visible;
+        HideLegacySlider();
+        if (EnsureOverlay())
         {
-            energySlider.gameObject.SetActive(visible);
-        }
-
-        if (energyCanvasGroup != null)
-        {
-            energyCanvasGroup.alpha = visible ? 1f : 0f;
+            statusOverlay.SetSectionVisible(SpringDay1StatusOverlay.Channel.Energy, visible);
+            statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Energy, visible ? 1f : 0f);
+            statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Energy, currentEnergy, maxEnergy);
         }
     }
 
@@ -279,23 +280,22 @@ public class EnergySystem : MonoBehaviour
     #region 私有方法
     private void UpdateUI()
     {
-        EnsureEnergyUiReferences();
-
-        if (energySlider != null)
+        if (EnsureOverlay())
         {
-            energySlider.maxValue = maxEnergy;
-            energySlider.value = currentEnergy;
+            statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Energy, currentEnergy, maxEnergy);
+            statusOverlay.SetSectionVisible(SpringDay1StatusOverlay.Channel.Energy, overlayVisible);
+            statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Energy, overlayVisible ? 1f : 0f);
         }
     }
 
     private IEnumerator RevealAndAnimateToRoutine(int start, int target, int max, float revealSeconds, float fillSeconds, bool highlightRestore)
     {
-        EnsureEnergyUiReferences();
-
         maxEnergy = Mathf.Max(1, max);
         currentEnergy = Mathf.Clamp(start, 0, maxEnergy);
+        overlayVisible = true;
+        HideLegacySlider();
 
-        if (energySlider == null)
+        if (!EnsureOverlay())
         {
             currentEnergy = Mathf.Clamp(target, 0, maxEnergy);
             OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
@@ -303,40 +303,33 @@ public class EnergySystem : MonoBehaviour
             yield break;
         }
 
-        energySlider.gameObject.SetActive(true);
-        energySlider.maxValue = maxEnergy;
-        energySlider.value = currentEnergy;
+        statusOverlay.SetSectionVisible(SpringDay1StatusOverlay.Channel.Energy, true);
+        statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Energy, currentEnergy, maxEnergy);
         OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
-
-        if (energyCanvasGroup != null)
-        {
-            energyCanvasGroup.interactable = false;
-            energyCanvasGroup.blocksRaycasts = true;
-            energyCanvasGroup.alpha = revealSeconds > 0f ? 0f : 1f;
-        }
+        statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Energy, revealSeconds > 0f ? 0f : 1f);
 
         if (highlightRestore)
         {
             restoreHighlightUntil = Time.unscaledTime + fillSeconds + 0.2f;
         }
 
-        if (revealSeconds > 0f && energyCanvasGroup != null)
+        if (revealSeconds > 0f)
         {
             float revealElapsed = 0f;
             while (revealElapsed < revealSeconds)
             {
                 revealElapsed += Time.unscaledDeltaTime;
-                energyCanvasGroup.alpha = Mathf.Clamp01(revealElapsed / revealSeconds);
+                statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Energy, Mathf.Clamp01(revealElapsed / revealSeconds));
                 yield return null;
             }
 
-            energyCanvasGroup.alpha = 1f;
+            statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Energy, 1f);
         }
 
         if (fillSeconds <= 0f)
         {
             currentEnergy = Mathf.Clamp(target, 0, maxEnergy);
-            energySlider.value = currentEnergy;
+            statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Energy, currentEnergy, maxEnergy);
             OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
             presentationCoroutine = null;
             yield break;
@@ -354,7 +347,7 @@ public class EnergySystem : MonoBehaviour
             float currentValue = Mathf.Lerp(startValue, clampedTarget, eased);
             int roundedValue = Mathf.RoundToInt(currentValue);
 
-            energySlider.value = currentValue;
+            statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Energy, roundedValue, maxEnergy);
             if (roundedValue != lastReportedEnergy)
             {
                 currentEnergy = roundedValue;
@@ -366,7 +359,7 @@ public class EnergySystem : MonoBehaviour
         }
 
         currentEnergy = Mathf.Clamp(Mathf.RoundToInt(clampedTarget), 0, maxEnergy);
-        energySlider.value = currentEnergy;
+        statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Energy, currentEnergy, maxEnergy);
         OnEnergyChanged?.Invoke(currentEnergy, maxEnergy);
         presentationCoroutine = null;
     }
@@ -451,6 +444,11 @@ public class EnergySystem : MonoBehaviour
 
     private void ApplyFillColor(Color color)
     {
+        if (EnsureOverlay())
+        {
+            statusOverlay.SetFillColor(SpringDay1StatusOverlay.Channel.Energy, color);
+        }
+
         if (energyFillImage != null && energyFillImage.color != color)
         {
             energyFillImage.color = color;
@@ -481,6 +479,30 @@ public class EnergySystem : MonoBehaviour
         if (energySlider != null && showDebugInfo)
         {
             Debug.Log("<color=cyan>[EnergySystem] 自动找到 EP Slider</color>");
+        }
+    }
+
+    private bool EnsureOverlay()
+    {
+        if (statusOverlay == null)
+        {
+            SpringDay1StatusOverlay.EnsureRuntime();
+            statusOverlay = SpringDay1StatusOverlay.Instance;
+        }
+
+        return statusOverlay != null;
+    }
+
+    private void HideLegacySlider()
+    {
+        if (energySlider == null)
+        {
+            TryFindEnergySlider();
+        }
+
+        if (energySlider != null)
+        {
+            energySlider.gameObject.SetActive(false);
         }
     }
 

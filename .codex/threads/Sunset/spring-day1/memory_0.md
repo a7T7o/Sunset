@@ -753,3 +753,16 @@
 - 当前恢复点：
   - 后续 spring-day1 不该再按零碎聊天猜执行边界；
   - 直接读取这份 prompt 往下做即可。
+## 2026-03-24 补记：Day1 工作台/UI 重收口这轮已先清编译，再回到体验主线
+- 当前线程主线仍是 Day1 工作台/UI/任务体验重收口；本轮子任务是先修 `SpringDay1WorkbenchCraftingOverlay.cs` 的真实编译断点，避免继续被半重写文件拖住。
+- 已做：
+  - 回读正式委托 prompt、`ui.md`、工作区/线程记忆；
+  - 通过稳定 launcher 跑 `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 -IncludePaths ...`，拿到真实 CodeGuard 诊断；
+  - 修复 `WorkbenchCraftingOverlay.cs` 的字符串语法、漏掉的 `EnsureRecipesLoaded()`、标题文本宽度为 0 的隐藏问题；
+  - 将工作台自动绑定交互阈值改回用户口径的 `0.5f` 边界距离。
+- 当前结论：
+  - 这轮的 8 个 Day1 C# 文件已经通过程序集级编译检查；
+  - 工作台 UI 现在是手写 `RectTransform` 结构，不再由 `LayoutGroup / ContentSizeFitter` 持续接管，因此 Play 时可以对运行时生成的内部节点做手调；根跟随节点不应手拖。
+- 恢复点：
+  - 下一步是只对白名单文件做 Git 收口；
+  - 若用户继续给体验反馈，应直接在这批 Day1 工作台/UI 文件上继续细修，不要漂回旧错误排查。

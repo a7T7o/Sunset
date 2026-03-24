@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using FarmGame.Data;
@@ -17,35 +18,15 @@ namespace Sunset.Story
             "Fonts & Materials/DialogueChinese V2 SDF",
             "Fonts & Materials/DialogueChinese BitmapSong SDF",
             "Fonts & Materials/DialogueChinese Pixel SDF",
-            "Fonts & Materials/DialogueChinese SDF",
-            "Fonts & Materials/DialogueChinese SoftPixel SDF"
+            "Fonts & Materials/DialogueChinese SoftPixel SDF",
+            "Fonts & Materials/DialogueChinese SDF"
         };
-
-        private const string RecipeResourceFolder = "Story/SpringDay1Workbench";
-        private const float PanelWidth = 448f;
-        private const float PanelHeight = 236f;
-        private const float RecipeColumnWidth = 158f;
-        private const float ScreenMargin = 20f;
-        private const float AboveOffsetPixels = 46f;
-        private const float BelowOffsetPixels = 38f;
-        private const float PointerSize = 16f;
-        private const int OverlaySortingOrder = 180;
-
-        private static readonly Color OuterFrameColor = new(0.78f, 0.52f, 0.18f, 0.98f);
-        private static readonly Color FrameHighlightColor = new(1f, 0.91f, 0.72f, 0.26f);
-        private static readonly Color SurfaceColor = new(0.11f, 0.13f, 0.2f, 0.96f);
-        private static readonly Color SectionColor = new(0.16f, 0.19f, 0.27f, 0.98f);
-        private static readonly Color SectionAccentColor = new(0.24f, 0.29f, 0.39f, 0.98f);
-        private static readonly Color SelectedRowColor = new(0.3f, 0.22f, 0.13f, 0.98f);
-        private static readonly Color ReadyRowColor = new(0.2f, 0.24f, 0.33f, 0.98f);
-        private static readonly Color DisabledRowColor = new(0.27f, 0.17f, 0.16f, 0.98f);
-        private static readonly Color AccentColor = new(0.98f, 0.81f, 0.45f, 1f);
-        private static readonly Color SoftTextColor = new(0.9f, 0.92f, 0.97f, 1f);
-        private static readonly Color MutedTextColor = new(0.73f, 0.78f, 0.87f, 0.96f);
-        private static readonly Color SecondaryAccentColor = new(0.65f, 0.87f, 0.76f, 1f);
 
         private static readonly FieldInfo BlockNavOverUiField =
             typeof(GameInputManager).GetField("blockNavOverUI", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        private const string RecipeResourceFolder = "Story/SpringDay1Workbench";
+        private const int OverlaySortingOrder = 180;
 
         private static SpringDay1WorkbenchCraftingOverlay _instance;
 
@@ -54,11 +35,15 @@ namespace Sunset.Story
         [SerializeField] private RectTransform rootRect;
         [SerializeField] private RectTransform panelRect;
         [SerializeField] private RectTransform pointerRect;
-        [SerializeField] private RectTransform recipeListContent;
+        [SerializeField] private RectTransform recipeViewportRect;
+        [SerializeField] private RectTransform recipeContentRect;
         [SerializeField] private Image selectedIcon;
         [SerializeField] private TextMeshProUGUI selectedNameText;
         [SerializeField] private TextMeshProUGUI selectedDescriptionText;
         [SerializeField] private TextMeshProUGUI selectedMaterialsText;
+        [SerializeField] private TextMeshProUGUI stageHintText;
+        [SerializeField] private TextMeshProUGUI progressLabelText;
+        [SerializeField] private Image progressFillImage;
         [SerializeField] private Slider quantitySlider;
         [SerializeField] private TextMeshProUGUI quantityValueText;
         [SerializeField] private Button decreaseButton;
@@ -66,6 +51,19 @@ namespace Sunset.Story
         [SerializeField] private Button craftButton;
         [SerializeField] private Image craftButtonBackground;
         [SerializeField] private TextMeshProUGUI craftButtonLabel;
+
+        [Header("Layout")]
+        [SerializeField] private float panelWidth = 438f;
+        [SerializeField] private float panelHeight = 246f;
+        [SerializeField] private float leftWidth = 242f;
+        [SerializeField] private float rowHeight = 52f;
+        [SerializeField] private float rowSpacing = 8f;
+        [SerializeField] private Vector2 aboveOffset = new(0f, 54f);
+        [SerializeField] private Vector2 belowOffset = new(0f, -44f);
+        [SerializeField] private Vector2 screenMargin = new(24f, 20f);
+        [SerializeField] private float followSmoothTime = 0.08f;
+        [SerializeField] private float defaultCraftDuration = 1.15f;
+        [SerializeField] private float extraCraftDurationPerItem = 0.22f;
 
         private readonly List<RecipeData> _recipes = new();
         private readonly List<RowRefs> _rows = new();
@@ -76,6 +74,7 @@ namespace Sunset.Story
         private CraftingService _craftingService;
         private InventoryService _inventoryService;
         private GameInputManager _gameInputManager;
+        private Vector2 _panelVelocity;
         private int _selectedIndex = -1;
         private int _selectedQuantity = 1;
         private float _autoHideDistance = 1.5f;
@@ -83,8 +82,8 @@ namespace Sunset.Story
         private bool _isVisible;
         private bool _navBlockWasEnabled;
         private bool _navBlockOverrideApplied;
-        private Canvas _canvas => overlayCanvas;
-        private RectTransform _canvasRect => rootRect;
+        private Coroutine _craftRoutine;
+        private float _craftProgress;
 
         public static SpringDay1WorkbenchCraftingOverlay Instance
         {
@@ -109,13 +108,7 @@ namespace Sunset.Story
             }
 
             Transform parent = ResolveParent();
-            GameObject root = new GameObject(
-                nameof(SpringDay1WorkbenchCraftingOverlay),
-                typeof(RectTransform),
-                typeof(Canvas),
-                typeof(GraphicRaycaster),
-                typeof(CanvasGroup));
-
+            GameObject root = new GameObject(nameof(SpringDay1WorkbenchCraftingOverlay), typeof(RectTransform), typeof(Canvas), typeof(GraphicRaycaster), typeof(CanvasGroup));
             if (parent != null)
             {
                 root.transform.SetParent(parent, false);
@@ -155,17 +148,13 @@ namespace Sunset.Story
                 return;
             }
 
-            if (_playerTransform != null)
+            if (_playerTransform != null && GetBoundaryDistance(_playerTransform.position) > _autoHideDistance)
             {
-                float distance = Vector2.Distance(_playerTransform.position, GetClosestInteractionPoint(_playerTransform.position));
-                if (distance > _autoHideDistance)
-                {
-                    Hide();
-                    return;
-                }
+                Hide();
+                return;
             }
 
-            bool shouldDisplayBelow = _playerTransform != null && _playerTransform.position.y > GetAnchorBounds().center.y;
+            bool shouldDisplayBelow = _playerTransform != null && ShouldDisplayBelow(_playerTransform.position);
             if (shouldDisplayBelow != _displayBelow)
             {
                 ApplyDisplayDirection(shouldDisplayBelow);
@@ -194,11 +183,7 @@ namespace Sunset.Story
 
         public void Open(Transform anchorTarget, Transform playerTransform, CraftingService craftingService, float autoHideDistance)
         {
-            if (panelRect == null)
-            {
-                BuildUi();
-            }
-
+            EnsureBuilt();
             if (craftingService == null || !EnsureRecipesLoaded())
             {
                 Hide();
@@ -210,7 +195,7 @@ namespace Sunset.Story
             _craftingService = craftingService;
             _craftingService.SetStation(CraftingStation.Workbench);
             _autoHideDistance = Mathf.Max(0.6f, autoHideDistance);
-            ApplyDisplayDirection(_playerTransform != null && _playerTransform.position.y > GetAnchorBounds().center.y);
+            ApplyDisplayDirection(_playerTransform != null && ShouldDisplayBelow(_playerTransform.position));
             BindInventory(craftingService.Inventory);
             ApplyNavigationBlock(true);
 
@@ -220,12 +205,12 @@ namespace Sunset.Story
             }
 
             _selectedQuantity = 1;
-            RefreshAll();
             _isVisible = true;
+            RefreshAll();
             canvasGroup.alpha = 1f;
             canvasGroup.interactable = true;
             canvasGroup.blocksRaycasts = true;
-            Reposition();
+            Reposition(true);
         }
 
         public void Hide()
@@ -234,6 +219,7 @@ namespace Sunset.Story
             _anchorTarget = null;
             _playerTransform = null;
             _craftingService = null;
+            StopCraftRoutine();
             CleanupTransientState();
             HideImmediate();
         }
@@ -242,6 +228,15 @@ namespace Sunset.Story
         {
             UnbindInventory();
             ApplyNavigationBlock(false);
+            if (progressFillImage != null)
+            {
+                progressFillImage.fillAmount = 0f;
+            }
+
+            if (progressLabelText != null)
+            {
+                progressLabelText.text = "准备好后即可开始打造";
+            }
         }
 
         private void OnDialogueStart(DialogueStartEvent _)
@@ -256,161 +251,177 @@ namespace Sunset.Story
             canvasGroup = GetComponent<CanvasGroup>();
             _fontAsset = ResolveFont();
 
-            Canvas parentCanvas = transform.parent != null ? transform.parent.GetComponentInParent<Canvas>() : null;
-            overlayCanvas.renderMode = parentCanvas != null ? parentCanvas.renderMode : RenderMode.ScreenSpaceOverlay;
-            overlayCanvas.worldCamera = overlayCanvas.renderMode == RenderMode.ScreenSpaceOverlay
-                ? null
-                : (parentCanvas != null ? parentCanvas.worldCamera : Camera.main);
+            overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             overlayCanvas.overrideSorting = true;
             overlayCanvas.sortingOrder = OverlaySortingOrder;
             overlayCanvas.pixelPerfect = true;
+
             rootRect.anchorMin = Vector2.zero;
             rootRect.anchorMax = Vector2.one;
-            rootRect.pivot = new Vector2(0.5f, 0.5f);
             rootRect.offsetMin = Vector2.zero;
             rootRect.offsetMax = Vector2.zero;
 
-            GameObject panelRoot = new GameObject("PanelRoot", typeof(RectTransform), typeof(Image), typeof(Outline), typeof(Shadow));
-            panelRoot.transform.SetParent(transform, false);
-            panelRect = panelRoot.GetComponent<RectTransform>();
+            panelRect = CreateRect(transform, "PanelRoot");
             panelRect.anchorMin = new Vector2(0.5f, 0.5f);
             panelRect.anchorMax = new Vector2(0.5f, 0.5f);
             panelRect.pivot = new Vector2(0.5f, 0f);
-            panelRect.sizeDelta = new Vector2(PanelWidth, PanelHeight);
-            Image panelBackground = panelRoot.GetComponent<Image>();
-            panelBackground.color = OuterFrameColor;
-            panelBackground.raycastTarget = true;
-            ApplyOutline(panelRoot.GetComponent<Outline>(), FrameHighlightColor, new Vector2(1f, -1f));
-            ApplyShadow(panelRoot.GetComponent<Shadow>(), new Color(0f, 0f, 0f, 0.35f), new Vector2(0f, -6f));
+            panelRect.sizeDelta = new Vector2(panelWidth, panelHeight);
+            Image panelImage = panelRect.gameObject.AddComponent<Image>();
+            panelImage.color = new Color(0.78f, 0.55f, 0.24f, 0.96f);
+            panelImage.raycastTarget = true;
+            ApplyOutline(panelRect.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.1f), new Vector2(1f, -1f));
+            ApplyShadow(panelRect.gameObject.AddComponent<Shadow>(), new Color(0f, 0f, 0f, 0.28f), new Vector2(0f, -6f));
 
             pointerRect = CreateRect(panelRect, "Pointer");
-            pointerRect.sizeDelta = new Vector2(PointerSize, PointerSize);
+            pointerRect.sizeDelta = new Vector2(14f, 14f);
             pointerRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
             Image pointerImage = pointerRect.gameObject.AddComponent<Image>();
-            pointerImage.color = OuterFrameColor;
+            pointerImage.color = new Color(0.78f, 0.55f, 0.24f, 0.96f);
             pointerImage.raycastTarget = false;
-            ApplyOutline(pointerRect.gameObject.AddComponent<Outline>(), FrameHighlightColor, new Vector2(1f, -1f));
 
             RectTransform surface = CreateRect(panelRect, "Surface");
-            surface.anchorMin = Vector2.zero;
-            surface.anchorMax = Vector2.one;
-            surface.offsetMin = new Vector2(4f, 4f);
-            surface.offsetMax = new Vector2(-4f, -4f);
+            Stretch(surface, new Vector2(4f, 4f), new Vector2(-4f, -4f));
             Image surfaceImage = surface.gameObject.AddComponent<Image>();
-            surfaceImage.color = SurfaceColor;
+            surfaceImage.color = new Color(0.09f, 0.11f, 0.16f, 0.92f);
             surfaceImage.raycastTarget = true;
 
-            RectTransform body = CreateRect(surface, "Body");
-            body.anchorMin = Vector2.zero;
-            body.anchorMax = Vector2.one;
-            body.offsetMin = new Vector2(10f, 10f);
-            body.offsetMax = new Vector2(-10f, -10f);
-            var bodyLayout = body.gameObject.AddComponent<HorizontalLayoutGroup>();
-            bodyLayout.spacing = 10f;
-            bodyLayout.childControlWidth = true;
-            bodyLayout.childControlHeight = true;
-            bodyLayout.childForceExpandWidth = false;
-            bodyLayout.childForceExpandHeight = true;
+            RectTransform leftPanel = CreateSection(surface, "LeftPanel");
+            leftPanel.anchorMin = new Vector2(0f, 0f);
+            leftPanel.anchorMax = new Vector2(0f, 1f);
+            leftPanel.pivot = new Vector2(0f, 0.5f);
+            leftPanel.anchoredPosition = new Vector2(12f, 0f);
+            leftPanel.sizeDelta = new Vector2(leftWidth, -24f);
 
-            RectTransform left = CreatePanel(body, "RecipeColumn", RecipeColumnWidth);
-            LayoutElement leftLayout = left.gameObject.AddComponent<LayoutElement>();
-            leftLayout.preferredWidth = RecipeColumnWidth;
-            leftLayout.flexibleHeight = 1f;
+            RectTransform rightPanel = CreateSection(surface, "RightPanel");
+            rightPanel.anchorMin = new Vector2(1f, 0f);
+            rightPanel.anchorMax = new Vector2(1f, 1f);
+            rightPanel.pivot = new Vector2(1f, 0.5f);
+            rightPanel.anchoredPosition = new Vector2(-12f, 0f);
+            rightPanel.sizeDelta = new Vector2(panelWidth - leftWidth - 38f, -24f);
 
-            RectTransform scrollRoot = CreateRect(left, "RecipeScrollRoot");
-            scrollRoot.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1f;
-            ScrollRect scrollRect = scrollRoot.gameObject.AddComponent<ScrollRect>();
+            RectTransform leftTag = CreateRect(leftPanel, "LeftTag");
+            leftTag.anchorMin = new Vector2(0f, 1f);
+            leftTag.anchorMax = new Vector2(0f, 1f);
+            leftTag.pivot = new Vector2(0f, 1f);
+            leftTag.anchoredPosition = new Vector2(10f, -10f);
+            leftTag.sizeDelta = new Vector2(90f, 18f);
+            leftTag.gameObject.AddComponent<Image>().color = new Color(0.98f, 0.81f, 0.44f, 0.15f);
+            CreateText(leftTag, "Label", "可制作工具", 10f, new Color(0.97f, 0.8f, 0.42f, 1f), TextAlignmentOptions.Center, false, true);
+
+            TextMeshProUGUI listSubtitle = CreateText(leftPanel, "ListSubtitle", "左侧点击选择，右侧看详情与材料", 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.Left);
+            listSubtitle.rectTransform.anchorMin = new Vector2(0f, 1f);
+            listSubtitle.rectTransform.anchorMax = new Vector2(1f, 1f);
+            listSubtitle.rectTransform.pivot = new Vector2(0f, 1f);
+            listSubtitle.rectTransform.offsetMin = new Vector2(10f, -40f);
+            listSubtitle.rectTransform.offsetMax = new Vector2(-10f, -22f);
+
+            recipeViewportRect = CreateRect(leftPanel, "Viewport");
+            recipeViewportRect.anchorMin = new Vector2(0f, 0f);
+            recipeViewportRect.anchorMax = new Vector2(1f, 1f);
+            recipeViewportRect.offsetMin = new Vector2(8f, 10f);
+            recipeViewportRect.offsetMax = new Vector2(-8f, -52f);
+            Image viewportImage = recipeViewportRect.gameObject.AddComponent<Image>();
+            viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+            viewportImage.raycastTarget = true;
+            recipeViewportRect.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            ScrollRect scrollRect = recipeViewportRect.gameObject.AddComponent<ScrollRect>();
             scrollRect.horizontal = false;
             scrollRect.vertical = true;
             scrollRect.inertia = false;
             scrollRect.movementType = ScrollRect.MovementType.Clamped;
-            scrollRect.scrollSensitivity = 20f;
+            scrollRect.scrollSensitivity = 18f;
 
-            RectTransform viewport = CreateRect(scrollRoot, "Viewport");
-            viewport.anchorMin = Vector2.zero;
-            viewport.anchorMax = Vector2.one;
-            viewport.offsetMin = Vector2.zero;
-            viewport.offsetMax = Vector2.zero;
-            var viewportImage = viewport.gameObject.AddComponent<Image>();
-            viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
-            viewportImage.raycastTarget = true;
-            viewport.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            recipeContentRect = CreateRect(recipeViewportRect, "Content");
+            recipeContentRect.anchorMin = new Vector2(0f, 1f);
+            recipeContentRect.anchorMax = new Vector2(1f, 1f);
+            recipeContentRect.pivot = new Vector2(0.5f, 1f);
+            recipeContentRect.anchoredPosition = Vector2.zero;
+            scrollRect.viewport = recipeViewportRect;
+            scrollRect.content = recipeContentRect;
 
-            recipeListContent = CreateRect(viewport, "Content");
-            recipeListContent.anchorMin = new Vector2(0f, 1f);
-            recipeListContent.anchorMax = new Vector2(1f, 1f);
-            recipeListContent.pivot = new Vector2(0.5f, 1f);
-            recipeListContent.offsetMin = Vector2.zero;
-            recipeListContent.offsetMax = Vector2.zero;
-            var recipeListLayout = recipeListContent.gameObject.AddComponent<VerticalLayoutGroup>();
-            recipeListLayout.spacing = 6f;
-            recipeListLayout.childControlWidth = true;
-            recipeListLayout.childControlHeight = true;
-            recipeListLayout.childForceExpandWidth = true;
-            recipeListLayout.childForceExpandHeight = false;
-            recipeListContent.gameObject.AddComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            scrollRect.viewport = viewport;
-            scrollRect.content = recipeListContent;
-
-            RectTransform right = CreatePanel(body, "DetailColumn");
-            LayoutElement rightLayout = right.gameObject.AddComponent<LayoutElement>();
-            rightLayout.flexibleWidth = 1f;
-            rightLayout.flexibleHeight = 1f;
-
-            RectTransform detailHeader = CreateRect(right, "DetailHeader");
-            detailHeader.gameObject.AddComponent<LayoutElement>().preferredHeight = 58f;
-            HorizontalLayoutGroup detailHeaderLayout = detailHeader.gameObject.AddComponent<HorizontalLayoutGroup>();
-            detailHeaderLayout.spacing = 10f;
-            detailHeaderLayout.childControlWidth = false;
-            detailHeaderLayout.childControlHeight = true;
-
-            RectTransform iconCard = CreateRect(detailHeader, "SelectedIconCard");
-            LayoutElement iconCardLayout = iconCard.gameObject.AddComponent<LayoutElement>();
-            iconCardLayout.preferredWidth = 44f;
-            iconCardLayout.preferredHeight = 44f;
-            Image iconCardImage = iconCard.gameObject.AddComponent<Image>();
-            iconCardImage.color = SectionAccentColor;
-            iconCardImage.raycastTarget = false;
+            RectTransform iconCard = CreateRect(rightPanel, "IconCard");
+            iconCard.anchorMin = new Vector2(0f, 1f);
+            iconCard.anchorMax = new Vector2(0f, 1f);
+            iconCard.pivot = new Vector2(0f, 1f);
+            iconCard.anchoredPosition = new Vector2(10f, -10f);
+            iconCard.sizeDelta = new Vector2(48f, 48f);
+            iconCard.gameObject.AddComponent<Image>().color = new Color(0.23f, 0.29f, 0.39f, 0.95f);
             ApplyOutline(iconCard.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.08f), new Vector2(1f, -1f));
-            selectedIcon = CreateIcon(iconCard, "SelectedIcon", 28f);
-            CenterRect(selectedIcon.rectTransform);
+            selectedIcon = CreateIcon(iconCard, "SelectedIcon", 30f);
+            Center(selectedIcon.rectTransform);
 
-            RectTransform titleBlock = CreateRect(detailHeader, "TitleBlock");
-            titleBlock.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
-            VerticalLayoutGroup titleLayout = titleBlock.gameObject.AddComponent<VerticalLayoutGroup>();
-            titleLayout.spacing = 4f;
-            selectedNameText = CreateText(titleBlock, "SelectedName", string.Empty, 19f, SoftTextColor, TextAlignmentOptions.Left);
-            selectedDescriptionText = CreateText(titleBlock, "SelectedDescription", string.Empty, 11f, MutedTextColor, TextAlignmentOptions.TopLeft, true);
+            selectedNameText = CreateText(rightPanel, "SelectedName", string.Empty, 16f, Color.white, TextAlignmentOptions.TopLeft);
+            Place(selectedNameText.rectTransform, 68f, 14f, 10f, 6f);
 
-            RectTransform topDivider = CreateDivider(right, "TopDivider");
-            topDivider.gameObject.AddComponent<LayoutElement>().preferredHeight = 1f;
+            selectedDescriptionText = CreateText(rightPanel, "SelectedDescription", string.Empty, 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.TopLeft, true);
+            Place(selectedDescriptionText.rectTransform, 68f, 54f, 10f, 30f);
 
-            selectedMaterialsText = CreateText(right, "SelectedMaterials", string.Empty, 13f, SoftTextColor, TextAlignmentOptions.TopLeft, true);
-            selectedMaterialsText.gameObject.AddComponent<LayoutElement>().flexibleHeight = 1f;
+            TextMeshProUGUI materialsTitle = CreateText(rightPanel, "MaterialsTitle", "所需材料", 10f, new Color(0.97f, 0.8f, 0.42f, 1f), TextAlignmentOptions.Left);
+            materialsTitle.rectTransform.anchorMin = new Vector2(0f, 1f);
+            materialsTitle.rectTransform.anchorMax = new Vector2(1f, 1f);
+            materialsTitle.rectTransform.pivot = new Vector2(0f, 1f);
+            materialsTitle.rectTransform.offsetMin = new Vector2(10f, -82f);
+            materialsTitle.rectTransform.offsetMax = new Vector2(-10f, -66f);
+            selectedMaterialsText = CreateText(rightPanel, "SelectedMaterials", string.Empty, 11f, Color.white, TextAlignmentOptions.TopLeft, true);
+            Place(selectedMaterialsText.rectTransform, 10f, 84f, 10f, 150f);
 
-            RectTransform bottomDivider = CreateDivider(right, "BottomDivider");
-            bottomDivider.gameObject.AddComponent<LayoutElement>().preferredHeight = 1f;
+            TextMeshProUGUI quantityTitle = CreateText(rightPanel, "QuantityTitle", "数量", 10f, new Color(0.97f, 0.8f, 0.42f, 1f), TextAlignmentOptions.Left);
+            quantityTitle.rectTransform.anchorMin = new Vector2(0f, 1f);
+            quantityTitle.rectTransform.anchorMax = new Vector2(1f, 1f);
+            quantityTitle.rectTransform.pivot = new Vector2(0f, 1f);
+            quantityTitle.rectTransform.offsetMin = new Vector2(10f, -168f);
+            quantityTitle.rectTransform.offsetMax = new Vector2(-10f, -154f);
 
-            RectTransform controls = CreateRect(right, "QuantityControls");
-            controls.gameObject.AddComponent<LayoutElement>().preferredHeight = 34f;
-            HorizontalLayoutGroup controlsLayout = controls.gameObject.AddComponent<HorizontalLayoutGroup>();
-            controlsLayout.spacing = 6f;
-            controlsLayout.childControlWidth = false;
-            controlsLayout.childControlHeight = true;
-            decreaseButton = CreateButton(controls, "Decrease", "-", 34f, 34f, 18f);
-            quantitySlider = CreateSlider(controls);
-            quantityValueText = CreateText(controls, "QuantityValue", "x1", 13f, SecondaryAccentColor, TextAlignmentOptions.Center);
-            quantityValueText.gameObject.AddComponent<LayoutElement>().preferredWidth = 44f;
-            increaseButton = CreateButton(controls, "Increase", "+", 34f, 34f, 18f);
+            decreaseButton = CreateButton(rightPanel, "Decrease", "-", new Vector2(24f, 20f), 11f);
+            AnchorTopLeft(decreaseButton.GetComponent<RectTransform>(), 10f, 176f);
+            quantitySlider = CreateSlider(rightPanel);
+            RectTransform sliderRect = quantitySlider.GetComponent<RectTransform>();
+            sliderRect.anchorMin = new Vector2(0f, 1f);
+            sliderRect.anchorMax = new Vector2(1f, 1f);
+            sliderRect.offsetMin = new Vector2(40f, -194f);
+            sliderRect.offsetMax = new Vector2(-40f, -176f);
+            increaseButton = CreateButton(rightPanel, "Increase", "+", new Vector2(24f, 20f), 11f);
+            RectTransform incRect = increaseButton.GetComponent<RectTransform>();
+            incRect.anchorMin = new Vector2(1f, 1f);
+            incRect.anchorMax = new Vector2(1f, 1f);
+            incRect.pivot = new Vector2(1f, 1f);
+            incRect.anchoredPosition = new Vector2(-10f, -176f);
+            quantityValueText = CreateText(rightPanel, "QuantityValue", "x1", 11f, Color.white, TextAlignmentOptions.Center);
+            quantityValueText.rectTransform.anchorMin = new Vector2(0.5f, 1f);
+            quantityValueText.rectTransform.anchorMax = new Vector2(0.5f, 1f);
+            quantityValueText.rectTransform.pivot = new Vector2(0.5f, 1f);
+            quantityValueText.rectTransform.anchoredPosition = new Vector2(0f, -176f);
+            quantityValueText.rectTransform.sizeDelta = new Vector2(44f, 16f);
 
-            RectTransform footer = CreateRect(right, "Footer");
-            footer.gameObject.AddComponent<LayoutElement>().preferredHeight = 34f;
-            HorizontalLayoutGroup footerLayout = footer.gameObject.AddComponent<HorizontalLayoutGroup>();
-            footerLayout.spacing = 0f;
-            footerLayout.childControlWidth = true;
-            footerLayout.childControlHeight = true;
-            footerLayout.childForceExpandWidth = true;
-            craftButton = CreateButton(footer, "Craft", "制作", 0f, 36f, 15f);
+            stageHintText = CreateText(rightPanel, "StageHint", string.Empty, 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.TopLeft, true);
+            Place(stageHintText.rectTransform, 10f, 194f, 10f, 214f);
+
+            RectTransform progressBackground = CreateRect(rightPanel, "ProgressBackground");
+            progressBackground.anchorMin = new Vector2(0f, 0f);
+            progressBackground.anchorMax = new Vector2(1f, 0f);
+            progressBackground.offsetMin = new Vector2(10f, 44f);
+            progressBackground.offsetMax = new Vector2(-10f, 62f);
+            progressBackground.gameObject.AddComponent<Image>().color = new Color(0.04f, 0.05f, 0.08f, 0.94f);
+            RectTransform progressFill = CreateRect(progressBackground, "ProgressFill");
+            Stretch(progressFill, new Vector2(1f, 1f), new Vector2(-1f, -1f));
+            progressFillImage = progressFill.gameObject.AddComponent<Image>();
+            progressFillImage.type = Image.Type.Filled;
+            progressFillImage.fillMethod = Image.FillMethod.Horizontal;
+            progressFillImage.fillAmount = 0f;
+            progressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.96f);
+
+            progressLabelText = CreateText(rightPanel, "ProgressLabel", "准备好后即可开始打造", 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.Left, true);
+            progressLabelText.rectTransform.anchorMin = new Vector2(0f, 0f);
+            progressLabelText.rectTransform.anchorMax = new Vector2(1f, 0f);
+            progressLabelText.rectTransform.offsetMin = new Vector2(10f, 64f);
+            progressLabelText.rectTransform.offsetMax = new Vector2(-10f, 82f);
+
+            craftButton = CreateButton(rightPanel, "CraftButton", "开始制作", new Vector2(0f, 30f), 13f);
+            RectTransform craftRect = craftButton.GetComponent<RectTransform>();
+            craftRect.anchorMin = new Vector2(0f, 0f);
+            craftRect.anchorMax = new Vector2(1f, 0f);
+            craftRect.offsetMin = new Vector2(10f, 10f);
+            craftRect.offsetMax = new Vector2(-10f, 40f);
             craftButtonBackground = craftButton.targetGraphic as Image;
             craftButtonLabel = craftButton.GetComponentInChildren<TextMeshProUGUI>();
 
@@ -420,42 +431,12 @@ namespace Sunset.Story
             craftButton.onClick.AddListener(OnCraftButtonClicked);
         }
 
-        private void ApplyDisplayDirection(bool displayBelow)
+        private void EnsureBuilt()
         {
-            _displayBelow = displayBelow;
-            panelRect.pivot = _displayBelow ? new Vector2(0.5f, 1f) : new Vector2(0.5f, 0f);
-
-            if (pointerRect == null)
+            if (panelRect == null || quantitySlider == null || craftButton == null)
             {
-                return;
+                BuildUi();
             }
-
-            if (_displayBelow)
-            {
-                pointerRect.anchorMin = new Vector2(0.5f, 1f);
-                pointerRect.anchorMax = new Vector2(0.5f, 1f);
-                pointerRect.pivot = new Vector2(0.5f, 0.5f);
-                pointerRect.anchoredPosition = new Vector2(0f, PointerSize * 0.32f);
-            }
-            else
-            {
-                pointerRect.anchorMin = new Vector2(0.5f, 0f);
-                pointerRect.anchorMax = new Vector2(0.5f, 0f);
-                pointerRect.pivot = new Vector2(0.5f, 0.5f);
-                pointerRect.anchoredPosition = new Vector2(0f, -PointerSize * 0.32f);
-            }
-        }
-
-        private void HideImmediate()
-        {
-            if (canvasGroup == null)
-            {
-                return;
-            }
-
-            canvasGroup.alpha = 0f;
-            canvasGroup.interactable = false;
-            canvasGroup.blocksRaycasts = false;
         }
 
         private bool EnsureRecipesLoaded()
@@ -465,14 +446,73 @@ namespace Sunset.Story
                 return true;
             }
 
-            RecipeData[] loaded = Resources.LoadAll<RecipeData>(RecipeResourceFolder);
-            if (loaded == null || loaded.Length == 0)
+            RecipeData[] loadedRecipes = Resources.LoadAll<RecipeData>(RecipeResourceFolder);
+            if (loadedRecipes == null || loadedRecipes.Length == 0)
             {
+                Debug.LogWarning($"[SpringDay1WorkbenchCraftingOverlay] 未在 Resources/{RecipeResourceFolder} 找到工作台配方。");
                 return false;
             }
 
-            _recipes.AddRange(loaded.Where(r => r != null && r.requiredStation == CraftingStation.Workbench).OrderBy(r => r.recipeID));
-            return _recipes.Count > 0;
+            _recipes.Clear();
+            _recipes.AddRange(
+                loadedRecipes
+                    .Where(recipe => recipe != null && recipe.requiredStation == CraftingStation.Workbench && recipe.resultItemID >= 0)
+                    .OrderBy(GetRecipeSortOrder)
+                    .ThenBy(recipe => recipe.recipeID));
+
+            if (_recipes.Count == 0)
+            {
+                Debug.LogWarning("[SpringDay1WorkbenchCraftingOverlay] 工作台配方全部无效，无法显示制作列表。");
+                return false;
+            }
+
+            return true;
+        }
+
+        private void EnsureRows()
+        {
+            while (_rows.Count < _recipes.Count)
+            {
+                int rowIndex = _rows.Count;
+                RectTransform rowRect = CreateRect(recipeContentRect, $"RecipeRow_{rowIndex}");
+                rowRect.anchorMin = new Vector2(0f, 1f);
+                rowRect.anchorMax = new Vector2(1f, 1f);
+                rowRect.pivot = new Vector2(0.5f, 1f);
+                rowRect.sizeDelta = new Vector2(0f, rowHeight);
+                rowRect.anchoredPosition = new Vector2(0f, -rowIndex * (rowHeight + rowSpacing));
+                Image background = rowRect.gameObject.AddComponent<Image>();
+                background.color = new Color(0.18f, 0.22f, 0.31f, 0.94f);
+                ApplyOutline(rowRect.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.06f), new Vector2(1f, -1f));
+                RectTransform accent = CreateRect(rowRect, "Accent");
+                accent.anchorMin = new Vector2(0f, 0.5f);
+                accent.anchorMax = new Vector2(0f, 0.5f);
+                accent.pivot = new Vector2(0f, 0.5f);
+                accent.sizeDelta = new Vector2(4f, rowHeight - 10f);
+                accent.anchoredPosition = Vector2.zero;
+                Image accentImage = accent.gameObject.AddComponent<Image>();
+                RectTransform iconCard = CreateRect(rowRect, "IconCard");
+                iconCard.anchorMin = new Vector2(0f, 0.5f);
+                iconCard.anchorMax = new Vector2(0f, 0.5f);
+                iconCard.pivot = new Vector2(0f, 0.5f);
+                iconCard.anchoredPosition = new Vector2(12f, 0f);
+                iconCard.sizeDelta = new Vector2(36f, 36f);
+                iconCard.gameObject.AddComponent<Image>().color = new Color(0.23f, 0.28f, 0.38f, 0.94f);
+                Image icon = CreateIcon(iconCard, "Icon", 24f);
+                Center(icon.rectTransform);
+                TextMeshProUGUI name = CreateText(rowRect, "Name", string.Empty, 13f, Color.white, TextAlignmentOptions.TopLeft);
+                Place(name.rectTransform, 56f, 10f, 10f, 6f);
+                TextMeshProUGUI summary = CreateText(rowRect, "Summary", string.Empty, 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.TopLeft, true);
+                summary.rectTransform.anchorMin = new Vector2(0f, 0f);
+                summary.rectTransform.anchorMax = new Vector2(1f, 1f);
+                summary.rectTransform.offsetMin = new Vector2(56f, 8f);
+                summary.rectTransform.offsetMax = new Vector2(-10f, -26f);
+                Button button = rowRect.gameObject.AddComponent<Button>();
+                button.targetGraphic = background;
+                button.onClick.AddListener(() => SelectRecipe(rowIndex));
+                _rows.Add(new RowRefs { rect = rowRect, background = background, accent = accentImage, icon = icon, name = name, summary = summary, button = button });
+            }
+
+            recipeContentRect.sizeDelta = new Vector2(0f, Mathf.Max(recipeViewportRect.rect.height, _rows.Count * rowHeight + Mathf.Max(0, _rows.Count - 1) * rowSpacing));
         }
 
         private void RefreshAll()
@@ -481,67 +521,28 @@ namespace Sunset.Story
             RefreshRows();
             RefreshSelection();
             UpdateQuantityUi();
-            LayoutRebuilder.ForceRebuildLayoutImmediate(panelRect);
-        }
-
-        private void EnsureRows()
-        {
-            while (_rows.Count < _recipes.Count)
-            {
-                int capturedIndex = _rows.Count;
-                RectTransform row = CreateRecipeRowRoot(recipeListContent, $"RecipeRow_{capturedIndex}");
-                row.gameObject.AddComponent<LayoutElement>().preferredHeight = 58f;
-                var layout = row.gameObject.AddComponent<HorizontalLayoutGroup>();
-                layout.spacing = 8f;
-                layout.padding = new RectOffset(0, 10, 8, 8);
-                layout.childControlWidth = false;
-                layout.childControlHeight = true;
-                layout.childForceExpandWidth = false;
-                layout.childForceExpandHeight = false;
-
-                RectTransform accentBarRect = CreateRect(row, "AccentBar");
-                accentBarRect.gameObject.AddComponent<LayoutElement>().preferredWidth = 4f;
-                Image accentBar = accentBarRect.gameObject.AddComponent<Image>();
-                accentBar.color = new Color(1f, 1f, 1f, 0f);
-                accentBar.raycastTarget = false;
-
-                Image icon = CreateIcon(row, "Icon", 24f);
-                RectTransform info = CreateRect(row, "Info");
-                info.gameObject.AddComponent<LayoutElement>().flexibleWidth = 1f;
-                info.gameObject.AddComponent<VerticalLayoutGroup>().spacing = 2f;
-                TextMeshProUGUI name = CreateText(info, "Name", "配方", 15f, new Color(0.96f, 0.95f, 0.9f, 1f), TextAlignmentOptions.Left);
-                TextMeshProUGUI summary = CreateText(info, "Summary", "材料摘要", 11f, new Color(0.78f, 0.84f, 0.9f, 0.95f), TextAlignmentOptions.Left, true);
-
-                Button button = row.gameObject.AddComponent<Button>();
-                button.targetGraphic = row.GetComponent<Image>();
-                button.onClick.AddListener(() => SelectRecipe(capturedIndex));
-
-                _rows.Add(new RowRefs { root = row.gameObject, background = row.GetComponent<Image>(), accentBar = accentBar, icon = icon, name = name, summary = summary });
-            }
         }
 
         private void RefreshRows()
         {
-            for (int index = 0; index < _rows.Count; index++)
+            for (int i = 0; i < _rows.Count; i++)
             {
-                RecipeData recipe = _recipes[index];
+                RecipeData recipe = _recipes[i];
                 ItemData item = ResolveItem(recipe.resultItemID);
-                bool selected = index == _selectedIndex;
-                bool canCraft = GetMaxCraftableCount(recipe) > 0;
-                _rows[index].icon.sprite = item != null ? item.GetBagSprite() : null;
-                _rows[index].icon.color = _rows[index].icon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
-                _rows[index].name.text = string.IsNullOrWhiteSpace(recipe.recipeName) ? (item != null ? item.itemName : $"配方 {recipe.recipeID}") : recipe.recipeName;
-                _rows[index].summary.text = BuildSummary(recipe);
-                _rows[index].background.color = selected
-                    ? SelectedRowColor
-                    : canCraft ? ReadyRowColor : DisabledRowColor;
-                _rows[index].accentBar.color = selected ? AccentColor : new Color(1f, 1f, 1f, 0f);
+                bool selected = i == _selectedIndex;
+                bool craftable = GetMaxCraftableCount(recipe) > 0;
+                _rows[i].icon.sprite = item != null ? item.GetBagSprite() : null;
+                _rows[i].icon.color = _rows[i].icon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+                _rows[i].name.text = GetRecipeDisplayName(recipe, item);
+                _rows[i].summary.text = BuildRowSummary(recipe);
+                _rows[i].background.color = selected ? new Color(0.31f, 0.23f, 0.14f, 0.98f) : craftable ? new Color(0.18f, 0.22f, 0.31f, 0.94f) : new Color(0.24f, 0.16f, 0.16f, 0.94f);
+                _rows[i].accent.color = selected ? new Color(0.97f, 0.8f, 0.42f, 1f) : new Color(1f, 1f, 1f, 0f);
             }
         }
 
         private void SelectRecipe(int index)
         {
-            if (index < 0 || index >= _recipes.Count)
+            if (index < 0 || index >= _recipes.Count || _craftRoutine != null)
             {
                 return;
             }
@@ -562,11 +563,11 @@ namespace Sunset.Story
             ItemData item = ResolveItem(recipe.resultItemID);
             selectedIcon.sprite = item != null ? item.GetBagSprite() : null;
             selectedIcon.color = selectedIcon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
-            selectedNameText.text = string.IsNullOrWhiteSpace(recipe.recipeName) ? (item != null ? item.itemName : $"配方 {recipe.recipeID}") : recipe.recipeName;
-            selectedDescriptionText.text = string.IsNullOrWhiteSpace(recipe.description)
-                ? (item != null && !string.IsNullOrWhiteSpace(item.description) ? item.description : "暂无说明")
-                : recipe.description;
-            selectedMaterialsText.text = BuildDetailText(recipe, _selectedQuantity);
+            selectedNameText.text = GetRecipeDisplayName(recipe, item);
+            selectedDescriptionText.text = string.IsNullOrWhiteSpace(recipe.description) ? (item != null ? item.description : "这件工具还没有额外说明。") : recipe.description;
+            selectedMaterialsText.text = BuildMaterialsText(recipe, _selectedQuantity);
+            stageHintText.text = BuildStageHint(recipe);
+            UpdateProgressLabel(recipe);
         }
 
         private void UpdateQuantityUi()
@@ -579,27 +580,29 @@ namespace Sunset.Story
             quantitySlider.wholeNumbers = true;
             quantitySlider.SetValueWithoutNotify(_selectedQuantity);
             quantityValueText.text = $"x{_selectedQuantity}";
-            decreaseButton.interactable = _selectedQuantity > 1;
-            increaseButton.interactable = _selectedQuantity < maxCraftable;
+            decreaseButton.interactable = _selectedQuantity > 1 && _craftRoutine == null;
+            increaseButton.interactable = _selectedQuantity < maxCraftable && _craftRoutine == null;
+            quantitySlider.interactable = maxCraftable > 1 && _craftRoutine == null;
 
-            bool canCraft = recipe != null && _selectedQuantity <= GetMaxCraftableCount(recipe);
-            craftButton.interactable = canCraft;
-            craftButtonLabel.text = canCraft ? $"制作 x{_selectedQuantity}" : "材料不足";
-            if (craftButtonBackground != null)
+            bool canCraft = CanCraftSelected(recipe, out string blockerMessage);
+            craftButton.interactable = canCraft && _craftRoutine == null;
+            craftButtonLabel.text = _craftRoutine != null ? $"制作中 {Mathf.RoundToInt(_craftProgress * 100f)}%" : canCraft ? $"开始制作 x{_selectedQuantity}" : "暂不可制作";
+            craftButtonBackground.color = _craftRoutine != null ? new Color(0.37f, 0.55f, 0.72f, 0.98f) : canCraft ? new Color(0.33f, 0.53f, 0.44f, 0.98f) : new Color(0.27f, 0.3f, 0.34f, 0.9f);
+            if (!canCraft && !string.IsNullOrWhiteSpace(blockerMessage))
             {
-                craftButtonBackground.color = canCraft
-                    ? new Color(0.33f, 0.53f, 0.44f, 0.98f)
-                    : new Color(0.27f, 0.3f, 0.34f, 0.9f);
+                stageHintText.text = blockerMessage;
             }
         }
 
-        private void ChangeQuantity(int delta)
-        {
-            SetQuantity(_selectedQuantity + delta);
-        }
+        private void ChangeQuantity(int delta) => SetQuantity(_selectedQuantity + delta);
 
         private void SetQuantity(int quantity, bool updateSlider = true)
         {
+            if (_craftRoutine != null)
+            {
+                return;
+            }
+
             RecipeData recipe = GetSelectedRecipe();
             int maxCraftable = recipe != null ? Mathf.Max(1, GetMaxCraftableCount(recipe)) : 1;
             _selectedQuantity = Mathf.Clamp(quantity, 1, maxCraftable);
@@ -615,13 +618,45 @@ namespace Sunset.Story
         private void OnCraftButtonClicked()
         {
             RecipeData recipe = GetSelectedRecipe();
-            if (_craftingService == null || recipe == null)
+            if (_craftRoutine != null || recipe == null || _craftingService == null)
             {
                 return;
             }
 
+            if (!CanCraftSelected(recipe, out string blockerMessage))
+            {
+                if (!string.IsNullOrWhiteSpace(blockerMessage))
+                {
+                    SpringDay1PromptOverlay.EnsureRuntime();
+                    SpringDay1PromptOverlay.Instance.Show(blockerMessage);
+                    stageHintText.text = blockerMessage;
+                }
+
+                UpdateQuantityUi();
+                return;
+            }
+
+            _craftRoutine = StartCoroutine(CraftRoutine(recipe, _selectedQuantity));
+        }
+
+        private IEnumerator CraftRoutine(RecipeData recipe, int quantity)
+        {
+            _craftProgress = 0f;
+            UpdateQuantityUi();
+            RefreshSelection();
+            float duration = Mathf.Max(0.25f, (recipe.craftingTime > 0f ? recipe.craftingTime : defaultCraftDuration) + Mathf.Max(0, quantity - 1) * extraCraftDurationPerItem);
+            PlayerMovement playerMovement = ResolvePlayerMovement();
+            while (_craftProgress < 1f)
+            {
+                _craftProgress += Time.unscaledDeltaTime / duration;
+                MaintainWorkbenchPose(playerMovement);
+                UpdateProgressLabel(recipe);
+                UpdateQuantityUi();
+                yield return null;
+            }
+
             int successCount = 0;
-            for (int index = 0; index < _selectedQuantity; index++)
+            for (int i = 0; i < quantity; i++)
             {
                 CraftResult result = _craftingService.TryCraft(recipe);
                 if (!result.success)
@@ -632,11 +667,72 @@ namespace Sunset.Story
                 successCount++;
             }
 
+            _craftRoutine = null;
+            _craftProgress = 0f;
+            _selectedQuantity = 1;
+            RefreshAll();
             if (successCount > 0)
             {
-                _selectedQuantity = 1;
-                RefreshAll();
+                SpringDay1PromptOverlay.EnsureRuntime();
+                SpringDay1PromptOverlay.Instance.Show($"{GetRecipeDisplayName(recipe, ResolveItem(recipe.resultItemID))} 已完成制作。");
             }
+        }
+
+        private void StopCraftRoutine()
+        {
+            if (_craftRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_craftRoutine);
+            _craftRoutine = null;
+            _craftProgress = 0f;
+        }
+
+        private void MaintainWorkbenchPose(PlayerMovement playerMovement)
+        {
+            if (playerMovement == null || _anchorTarget == null)
+            {
+                return;
+            }
+
+            playerMovement.StopMovement();
+            Vector2 direction = GetAnchorBounds().center - playerMovement.transform.position;
+            if (direction.sqrMagnitude > 0.001f)
+            {
+                playerMovement.SetFacingDirection(direction);
+            }
+        }
+
+        private bool CanCraftSelected(RecipeData recipe, out string blockerMessage)
+        {
+            blockerMessage = string.Empty;
+            if (_craftingService == null || recipe == null)
+            {
+                blockerMessage = "工作台暂未接入制作服务。";
+                return false;
+            }
+
+            if (!_craftingService.IsRecipeUnlocked(recipe))
+            {
+                blockerMessage = "这张配方目前还没有解锁。";
+                return false;
+            }
+
+            SpringDay1Director director = SpringDay1Director.Instance;
+            if (director != null && !director.CanPerformWorkbenchCraft(out blockerMessage))
+            {
+                return false;
+            }
+
+            if (GetMaxCraftableCount(recipe) <= 0)
+            {
+                blockerMessage = "材料还不够，先把清单里的材料收齐。";
+                return false;
+            }
+
+            return true;
         }
 
         private int GetMaxCraftableCount(RecipeData recipe)
@@ -670,9 +766,9 @@ namespace Sunset.Story
 
             int capacity = 0;
             int maxStack = Mathf.Max(1, inventory.GetMaxStack(recipe.resultItemID));
-            for (int slotIndex = 0; slotIndex < inventory.Size; slotIndex++)
+            for (int i = 0; i < inventory.Size; i++)
             {
-                ItemStack slot = inventory.GetSlot(slotIndex);
+                ItemStack slot = inventory.GetSlot(i);
                 if (slot.IsEmpty)
                 {
                     capacity += maxStack;
@@ -686,56 +782,102 @@ namespace Sunset.Story
             return Mathf.Max(0, Mathf.Min(materialCap, capacity / recipe.resultAmount));
         }
 
-        private string BuildSummary(RecipeData recipe)
+        private string GetRecipeDisplayName(RecipeData recipe, ItemData item)
         {
-            return recipe.ingredients == null
-                ? "暂无材料"
-                : string.Join(" · ", recipe.ingredients.Select(i => $"{ResolveItem(i.itemID)?.itemName ?? $"材料{i.itemID}"} x{i.amount}"));
+            return string.IsNullOrWhiteSpace(recipe.recipeName) ? (item != null ? item.itemName : $"配方 {recipe.recipeID}") : recipe.recipeName;
         }
 
-        private string BuildDetailText(RecipeData recipe, int quantity)
+        private string BuildRowSummary(RecipeData recipe)
         {
-            List<string> lines = new List<string>();
+            if (recipe.ingredients == null || recipe.ingredients.Count == 0)
+            {
+                return "暂无材料信息";
+            }
+
+            return string.Join(" · ", recipe.ingredients.Select(i => $"{ResolveItem(i.itemID)?.itemName ?? $"材料 {i.itemID}"} x{i.amount}"));
+        }
+
+        private string BuildMaterialsText(RecipeData recipe, int quantity)
+        {
+            List<string> lines = new();
             foreach (RecipeIngredient ingredient in recipe.ingredients)
             {
-                ItemData item = ResolveItem(ingredient.itemID);
                 int owned = _craftingService != null ? _craftingService.GetMaterialCount(ingredient.itemID) : 0;
                 int required = ingredient.amount * quantity;
                 string color = owned >= required ? "#B7E6C2" : "#F0B49E";
-                lines.Add($"<color={color}>{item?.itemName ?? $"材料 {ingredient.itemID}"}</color>    {owned}/{required}");
+                lines.Add($"<color={color}>{ResolveItem(ingredient.itemID)?.itemName ?? $"材料 {ingredient.itemID}"}</color>  {owned}/{required}");
             }
 
-            int maxCraftable = GetMaxCraftableCount(recipe);
-            lines.Add(string.Empty);
-            lines.Add($"最多可制作  {Mathf.Max(0, maxCraftable)}");
             return string.Join("\n", lines);
         }
 
-        private RecipeData GetSelectedRecipe()
+        private string BuildStageHint(RecipeData recipe)
         {
-            return _selectedIndex >= 0 && _selectedIndex < _recipes.Count ? _recipes[_selectedIndex] : null;
+            if (recipe == null)
+            {
+                return string.Empty;
+            }
+
+            if (!CanCraftSelected(recipe, out string blockerMessage))
+            {
+                return blockerMessage;
+            }
+
+            return "材料与阶段都已满足，可以开始这次制作。";
+        }
+
+        private void UpdateProgressLabel(RecipeData recipe)
+        {
+            if (_craftRoutine != null)
+            {
+                progressFillImage.fillAmount = _craftProgress;
+                progressLabelText.text = $"正在打造 {GetRecipeDisplayName(recipe, ResolveItem(recipe.resultItemID))} · {Mathf.RoundToInt(_craftProgress * 100f)}%";
+                return;
+            }
+
+            progressFillImage.fillAmount = 0f;
+            float preview = Mathf.Max(0.25f, (recipe.craftingTime > 0f ? recipe.craftingTime : defaultCraftDuration) + Mathf.Max(0, _selectedQuantity - 1) * extraCraftDurationPerItem);
+            progressLabelText.text = $"制作耗时约 {preview:0.0}s，开始后人物会朝向工作台。";
+        }
+
+        private RecipeData GetSelectedRecipe() => _selectedIndex >= 0 && _selectedIndex < _recipes.Count ? _recipes[_selectedIndex] : null;
+
+        private static int GetRecipeSortOrder(RecipeData recipe)
+        {
+            string name = (recipe.recipeName ?? string.Empty).ToLowerInvariant();
+            if (name.Contains("axe"))
+            {
+                return 0;
+            }
+
+            if (name.Contains("hoe"))
+            {
+                return 1;
+            }
+
+            if (name.Contains("pickaxe"))
+            {
+                return 2;
+            }
+
+            return 99;
         }
 
         private ItemData ResolveItem(int itemId)
         {
-            ItemDatabase database = _craftingService != null ? _craftingService.Database : null;
-            if (database == null && _inventoryService != null)
-            {
-                database = _inventoryService.Database;
-            }
-
+            ItemDatabase database = _craftingService != null ? _craftingService.Database : _inventoryService != null ? _inventoryService.Database : null;
             return database != null ? database.GetItemByID(itemId) : null;
         }
 
-        private void BindInventory(InventoryService inventoryService)
+        private void BindInventory(InventoryService inventory)
         {
-            if (_inventoryService == inventoryService)
+            if (_inventoryService == inventory)
             {
                 return;
             }
 
             UnbindInventory();
-            _inventoryService = inventoryService;
+            _inventoryService = inventory;
             if (_inventoryService != null)
             {
                 _inventoryService.OnInventoryChanged += HandleInventoryChanged;
@@ -759,108 +901,67 @@ namespace Sunset.Story
             }
         }
 
-        private void Reposition()
+        private void ApplyDisplayDirection(bool displayBelow)
+        {
+            _displayBelow = displayBelow;
+            panelRect.pivot = _displayBelow ? new Vector2(0.5f, 1f) : new Vector2(0.5f, 0f);
+            pointerRect.anchorMin = _displayBelow ? new Vector2(0.5f, 1f) : new Vector2(0.5f, 0f);
+            pointerRect.anchorMax = pointerRect.anchorMin;
+            pointerRect.pivot = new Vector2(0.5f, 0.5f);
+            pointerRect.anchoredPosition = new Vector2(0f, _displayBelow ? 5f : -5f);
+        }
+
+        private void Reposition(bool immediate = false)
         {
             if (panelRect == null || rootRect == null || _anchorTarget == null)
             {
                 return;
             }
 
-            Camera projectionCamera = GetWorldProjectionCamera();
-            if (projectionCamera == null)
-            {
-                return;
-            }
-
             Bounds bounds = GetAnchorBounds();
-            Vector3 worldAnchor = _displayBelow
-                ? new Vector3(bounds.center.x, bounds.min.y, bounds.center.z)
-                : new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
-            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(projectionCamera, worldAnchor);
-            screenPoint.y += _displayBelow ? -BelowOffsetPixels : AboveOffsetPixels;
-
-            Camera uiCamera = GetUiEventCamera();
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRect, screenPoint, uiCamera, out Vector2 localPoint))
+            Vector3 worldAnchor = _displayBelow ? new Vector3(bounds.center.x, bounds.min.y, bounds.center.z) : new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
+            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(Camera.main, worldAnchor) + (_displayBelow ? belowOffset : aboveOffset);
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRect, screenPoint, null, out Vector2 localPoint))
             {
                 return;
             }
 
-            Rect rootBounds = rootRect.rect;
-            float width = panelRect.rect.width > 0f ? panelRect.rect.width : PanelWidth;
-            float height = panelRect.rect.height > 0f ? panelRect.rect.height : PanelHeight;
-            float minX = rootBounds.xMin + width * panelRect.pivot.x + ScreenMargin;
-            float maxX = rootBounds.xMax - width * (1f - panelRect.pivot.x) - ScreenMargin;
-            float minY = rootBounds.yMin + height * panelRect.pivot.y + ScreenMargin;
-            float maxY = rootBounds.yMax - height * (1f - panelRect.pivot.y) - ScreenMargin;
-
-            panelRect.anchoredPosition = new Vector2(
-                Mathf.Clamp(localPoint.x, minX, maxX),
-                Mathf.Clamp(localPoint.y, minY, maxY));
-        }
-
-        private Camera GetWorldProjectionCamera()
-        {
-            if (overlayCanvas != null && overlayCanvas.worldCamera != null)
-            {
-                return overlayCanvas.worldCamera;
-            }
-
-            Canvas parentCanvas = transform.parent != null ? transform.parent.GetComponentInParent<Canvas>() : null;
-            if (parentCanvas != null && parentCanvas.worldCamera != null)
-            {
-                return parentCanvas.worldCamera;
-            }
-
-            return Camera.main;
-        }
-
-        private Camera GetUiEventCamera()
-        {
-            if (overlayCanvas == null || overlayCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
-            {
-                return null;
-            }
-
-            if (overlayCanvas.worldCamera != null)
-            {
-                return overlayCanvas.worldCamera;
-            }
-
-            Canvas parentCanvas = transform.parent != null ? transform.parent.GetComponentInParent<Canvas>() : null;
-            if (parentCanvas != null && parentCanvas.worldCamera != null)
-            {
-                return parentCanvas.worldCamera;
-            }
-
-            return Camera.main;
+            Rect rect = rootRect.rect;
+            float minX = rect.xMin + panelWidth * panelRect.pivot.x + screenMargin.x;
+            float maxX = rect.xMax - panelWidth * (1f - panelRect.pivot.x) - screenMargin.x;
+            float minY = rect.yMin + panelHeight * panelRect.pivot.y + screenMargin.y;
+            float maxY = rect.yMax - panelHeight * (1f - panelRect.pivot.y) - screenMargin.y;
+            Vector2 target = new(Mathf.Clamp(localPoint.x, minX, maxX), Mathf.Clamp(localPoint.y, minY, maxY));
+            panelRect.anchoredPosition = immediate ? target : Vector2.SmoothDamp(panelRect.anchoredPosition, target, ref _panelVelocity, followSmoothTime, Mathf.Infinity, Time.unscaledDeltaTime);
         }
 
         private Bounds GetAnchorBounds()
         {
-            if (_anchorTarget == null)
+            CraftingStationInteractable interactable = _anchorTarget != null ? _anchorTarget.GetComponent<CraftingStationInteractable>() : null;
+            if (interactable != null)
             {
-                return new Bounds(Vector3.zero, Vector3.one);
+                return interactable.GetCombinedBounds();
             }
 
-            Collider2D col = _anchorTarget.GetComponent<Collider2D>() ?? _anchorTarget.GetComponentInChildren<Collider2D>();
-            if (col != null)
-            {
-                return col.bounds;
-            }
-
-            SpriteRenderer sr = _anchorTarget.GetComponent<SpriteRenderer>() ?? _anchorTarget.GetComponentInChildren<SpriteRenderer>();
-            if (sr != null)
-            {
-                return sr.bounds;
-            }
-
-            return new Bounds(_anchorTarget.position, Vector3.one);
+            Collider2D collider2D = _anchorTarget != null ? (_anchorTarget.GetComponent<Collider2D>() ?? _anchorTarget.GetComponentInChildren<Collider2D>()) : null;
+            return collider2D != null ? collider2D.bounds : new Bounds(_anchorTarget != null ? _anchorTarget.position : Vector3.zero, Vector3.one);
         }
 
-        private Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
+        private float GetBoundaryDistance(Vector2 playerPosition)
         {
-            Collider2D col = _anchorTarget != null ? (_anchorTarget.GetComponent<Collider2D>() ?? _anchorTarget.GetComponentInChildren<Collider2D>()) : null;
-            return col != null ? col.ClosestPoint(playerPosition) : (_anchorTarget != null ? (Vector2)_anchorTarget.position : Vector2.zero);
+            CraftingStationInteractable interactable = _anchorTarget != null ? _anchorTarget.GetComponent<CraftingStationInteractable>() : null;
+            if (interactable != null)
+            {
+                return interactable.GetBoundaryDistance(playerPosition);
+            }
+
+            return Vector2.Distance(playerPosition, _anchorTarget != null ? (Vector2)_anchorTarget.position : Vector2.zero);
+        }
+
+        private bool ShouldDisplayBelow(Vector2 playerPosition)
+        {
+            CraftingStationInteractable interactable = _anchorTarget != null ? _anchorTarget.GetComponent<CraftingStationInteractable>() : null;
+            return interactable != null ? interactable.ShouldDisplayOverlayBelow(playerPosition) : playerPosition.y > GetAnchorBounds().center.y;
         }
 
         private TMP_FontAsset ResolveFont()
@@ -891,7 +992,7 @@ namespace Sunset.Story
                     return;
                 }
 
-                _gameInputManager = Object.FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
+                _gameInputManager = FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
                 if (_gameInputManager == null)
                 {
                     return;
@@ -926,57 +1027,23 @@ namespace Sunset.Story
                 return canvas != null ? canvas.transform : uiRoot.transform;
             }
 
-            Canvas fallback = Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+            Canvas fallback = FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
             return fallback != null ? fallback.transform : null;
         }
 
         private static Transform ResolvePlayerTransform()
         {
-            PlayerMovement playerMovement = Object.FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
             return playerMovement != null ? playerMovement.transform : null;
         }
 
-        private RectTransform CreatePanel(Transform parent, string name, float preferredWidth = -1f)
+        private static PlayerMovement ResolvePlayerMovement() => FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+
+        private RectTransform CreateSection(Transform parent, string name)
         {
             RectTransform rect = CreateRect(parent, name);
-            var image = rect.gameObject.AddComponent<Image>();
-            image.color = SectionColor;
-            image.raycastTarget = true;
-            Outline outline = rect.gameObject.AddComponent<Outline>();
-            ApplyOutline(outline, new Color(1f, 1f, 1f, 0.05f), new Vector2(1f, -1f));
-            var layout = rect.gameObject.AddComponent<VerticalLayoutGroup>();
-            layout.padding = new RectOffset(10, 10, 10, 10);
-            layout.spacing = 8f;
-            layout.childControlWidth = true;
-            layout.childControlHeight = true;
-            layout.childForceExpandWidth = true;
-            layout.childForceExpandHeight = false;
-            if (preferredWidth > 0f)
-            {
-                rect.gameObject.AddComponent<LayoutElement>().preferredWidth = preferredWidth;
-            }
-
-            return rect;
-        }
-
-        private RectTransform CreateRecipeRowRoot(Transform parent, string name)
-        {
-            RectTransform rect = CreateRect(parent, name);
-            var image = rect.gameObject.AddComponent<Image>();
-            image.color = ReadyRowColor;
-            image.raycastTarget = true;
-            Outline outline = rect.gameObject.AddComponent<Outline>();
-            ApplyOutline(outline, new Color(1f, 1f, 1f, 0.06f), new Vector2(1f, -1f));
-            return rect;
-        }
-
-        private RectTransform CreateDivider(Transform parent, string name)
-        {
-            RectTransform rect = CreateRect(parent, name);
-            Image image = rect.gameObject.AddComponent<Image>();
-            image.color = new Color(1f, 1f, 1f, 0.08f);
-            image.raycastTarget = false;
-            rect.sizeDelta = new Vector2(0f, 1f);
+            rect.gameObject.AddComponent<Image>().color = new Color(0.13f, 0.16f, 0.24f, 0.9f);
+            ApplyOutline(rect.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.05f), new Vector2(1f, -1f));
             return rect;
         }
 
@@ -987,10 +1054,14 @@ namespace Sunset.Story
             return go.GetComponent<RectTransform>();
         }
 
-        private TextMeshProUGUI CreateText(Transform parent, string name, string text, float fontSize, Color color, TextAlignmentOptions alignment, bool wrap = false)
+        private TextMeshProUGUI CreateText(Transform parent, string name, string text, float fontSize, Color color, TextAlignmentOptions alignment, bool wrap = false, bool stretch = false)
         {
             RectTransform rect = CreateRect(parent, name);
-            StretchRect(rect);
+            if (stretch)
+            {
+                Stretch(rect, Vector2.zero, Vector2.zero);
+            }
+
             TextMeshProUGUI tmp = rect.gameObject.AddComponent<TextMeshProUGUI>();
             tmp.font = _fontAsset;
             tmp.text = text;
@@ -1006,13 +1077,7 @@ namespace Sunset.Story
         private Image CreateIcon(Transform parent, string name, float size)
         {
             RectTransform rect = CreateRect(parent, name);
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
             rect.sizeDelta = new Vector2(size, size);
-            LayoutElement layout = rect.gameObject.AddComponent<LayoutElement>();
-            layout.preferredWidth = size;
-            layout.preferredHeight = size;
             Image image = rect.gameObject.AddComponent<Image>();
             image.preserveAspect = true;
             image.raycastTarget = false;
@@ -1020,26 +1085,81 @@ namespace Sunset.Story
             return image;
         }
 
-        private Button CreateButton(Transform parent, string name, string label, float width, float height, float fontSize)
+        private Button CreateButton(Transform parent, string name, string label, Vector2 size, float fontSize)
         {
             RectTransform rect = CreateRect(parent, name);
-            LayoutElement layout = rect.gameObject.AddComponent<LayoutElement>();
-            if (width > 0f)
+            if (size.x > 0f)
             {
-                layout.preferredWidth = width;
+                rect.sizeDelta = size;
             }
 
-            layout.preferredHeight = height;
             Image image = rect.gameObject.AddComponent<Image>();
-            image.color = new Color(0.27f, 0.36f, 0.43f, 0.98f);
+            image.color = new Color(0.28f, 0.36f, 0.44f, 0.96f);
             image.raycastTarget = true;
-            Outline outline = rect.gameObject.AddComponent<Outline>();
-            ApplyOutline(outline, new Color(1f, 1f, 1f, 0.1f), new Vector2(1f, -1f));
+            ApplyOutline(rect.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.1f), new Vector2(1f, -1f));
             Button button = rect.gameObject.AddComponent<Button>();
             button.targetGraphic = image;
-            TextMeshProUGUI labelText = CreateText(rect, "Label", label, fontSize, Color.white, TextAlignmentOptions.Center);
-            StretchRect(labelText.rectTransform, new Vector2(6f, 4f), new Vector2(-6f, -4f));
+            CreateText(rect, "Label", label, fontSize, Color.white, TextAlignmentOptions.Center, false, true);
             return button;
+        }
+
+        private Slider CreateSlider(Transform parent)
+        {
+            RectTransform rect = CreateRect(parent, "Slider");
+            Slider slider = rect.gameObject.AddComponent<Slider>();
+            slider.direction = Slider.Direction.LeftToRight;
+            RectTransform bg = CreateRect(rect, "Background");
+            Stretch(bg, new Vector2(0f, 4f), new Vector2(0f, -4f));
+            bg.gameObject.AddComponent<Image>().color = new Color(0.19f, 0.23f, 0.31f, 0.96f);
+            RectTransform fillArea = CreateRect(rect, "FillArea");
+            Stretch(fillArea, new Vector2(3f, 4f), new Vector2(-12f, -4f));
+            RectTransform fill = CreateRect(fillArea, "Fill");
+            Stretch(fill, Vector2.zero, Vector2.zero);
+            fill.gameObject.AddComponent<Image>().color = new Color(0.44f, 0.71f, 0.56f, 0.98f);
+            RectTransform handleArea = CreateRect(rect, "HandleSlideArea");
+            Stretch(handleArea, new Vector2(9f, 0f), new Vector2(-9f, 0f));
+            RectTransform handle = CreateRect(handleArea, "Handle");
+            handle.sizeDelta = new Vector2(12f, 18f);
+            Image handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = new Color(0.97f, 0.8f, 0.42f, 1f);
+            ApplyOutline(handle.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.12f), new Vector2(1f, -1f));
+            slider.fillRect = fill;
+            slider.handleRect = handle;
+            slider.targetGraphic = handleImage;
+            return slider;
+        }
+
+        private static void Stretch(RectTransform rect, Vector2 offsetMin, Vector2 offsetMax)
+        {
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.offsetMin = offsetMin;
+            rect.offsetMax = offsetMax;
+        }
+
+        private static void Place(RectTransform rect, float left, float top, float right, float bottom)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.offsetMin = new Vector2(left, -top);
+            rect.offsetMax = new Vector2(-right, -bottom);
+        }
+
+        private static void AnchorTopLeft(RectTransform rect, float x, float y)
+        {
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.anchoredPosition = new Vector2(x, -y);
+        }
+
+        private static void Center(RectTransform rect)
+        {
+            rect.anchorMin = new Vector2(0.5f, 0.5f);
+            rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.anchoredPosition = Vector2.zero;
         }
 
         private static void ApplyOutline(Outline outline, Color color, Vector2 distance)
@@ -1056,67 +1176,27 @@ namespace Sunset.Story
             shadow.useGraphicAlpha = true;
         }
 
-        private Slider CreateSlider(Transform parent)
+        private void HideImmediate()
         {
-            RectTransform rect = CreateRect(parent, "Slider");
-            LayoutElement layout = rect.gameObject.AddComponent<LayoutElement>();
-            layout.flexibleWidth = 1f;
-            layout.preferredHeight = 34f;
-            Slider slider = rect.gameObject.AddComponent<Slider>();
-            slider.direction = Slider.Direction.LeftToRight;
+            if (canvasGroup == null)
+            {
+                return;
+            }
 
-            RectTransform background = CreateRect(rect, "Background");
-            StretchRect(background, new Vector2(4f, 13f), new Vector2(-4f, -13f));
-            Image backgroundImage = background.gameObject.AddComponent<Image>();
-            backgroundImage.color = new Color(0.18f, 0.22f, 0.3f, 0.94f);
-            backgroundImage.raycastTarget = true;
-
-            RectTransform fillArea = CreateRect(rect, "FillArea");
-            StretchRect(fillArea, new Vector2(5f, 13f), new Vector2(-18f, -13f));
-            RectTransform fill = CreateRect(fillArea, "Fill");
-            StretchRect(fill);
-            fill.gameObject.AddComponent<Image>().color = new Color(0.46f, 0.71f, 0.56f, 0.96f);
-
-            RectTransform handleArea = CreateRect(rect, "HandleSlideArea");
-            StretchRect(handleArea, new Vector2(12f, 6f), new Vector2(-12f, -6f));
-            RectTransform handle = CreateRect(handleArea, "Handle");
-            handle.sizeDelta = new Vector2(16f, 24f);
-            Image handleImage = handle.gameObject.AddComponent<Image>();
-            handleImage.color = AccentColor;
-            handleImage.raycastTarget = true;
-            ApplyOutline(handle.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.12f), new Vector2(1f, -1f));
-
-            slider.fillRect = fill;
-            slider.handleRect = handle;
-            slider.targetGraphic = handleImage;
-            return slider;
-        }
-
-        private static void StretchRect(RectTransform rect, Vector2? offsetMin = null, Vector2? offsetMax = null)
-        {
-            rect.anchorMin = Vector2.zero;
-            rect.anchorMax = Vector2.one;
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.offsetMin = offsetMin ?? Vector2.zero;
-            rect.offsetMax = offsetMax ?? Vector2.zero;
-        }
-
-        private static void CenterRect(RectTransform rect)
-        {
-            rect.anchorMin = new Vector2(0.5f, 0.5f);
-            rect.anchorMax = new Vector2(0.5f, 0.5f);
-            rect.pivot = new Vector2(0.5f, 0.5f);
-            rect.anchoredPosition = Vector2.zero;
+            canvasGroup.alpha = 0f;
+            canvasGroup.interactable = false;
+            canvasGroup.blocksRaycasts = false;
         }
 
         private sealed class RowRefs
         {
-            public GameObject root;
+            public RectTransform rect;
             public Image background;
-            public Image accentBar;
+            public Image accent;
             public Image icon;
             public TextMeshProUGUI name;
             public TextMeshProUGUI summary;
+            public Button button;
         }
     }
 }

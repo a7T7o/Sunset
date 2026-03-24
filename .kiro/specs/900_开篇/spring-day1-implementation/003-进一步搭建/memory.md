@@ -139,3 +139,20 @@
 **遗留问题**：
 - [ ] 线程后续仍需自己把这 7 点真实落地，不允许停在“理解了”或“分析了”。
 - [ ] 如果用户后续在 prompt 的“用户补充区”继续加话，执行线程必须先吸收再推进。
+## 2026-03-24 补记：Day1 工作台/UI/任务体验重收口已先清编译阻塞并完成代码侧收口
+- 当前主线仍是 `26.03.24-Day1工作台UI与任务体验重收口委托-01.md` 这轮 Day1 工作台/UI/任务体验收口，没有漂移去别的系统。
+- 本轮先按 `skills-governor` 做 Sunset 等价启动核查，并回读：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.24-Day1工作台UI与任务体验重收口委托-01.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`
+  - 当前子工作区 / 父工作区 / 线程记忆
+- 关键代码收口：
+  - `SpringDay1WorkbenchCraftingOverlay.cs`：补回正式 `EnsureRecipesLoaded()`，左侧配方列固定从 `Resources/Story/SpringDay1Workbench` 载入 `Axe_0 / Hoe_0 / Pickaxe_0`，并按手写 `RectTransform` 布局重做工作台浮层；当前不再依赖 `LayoutGroup / ContentSizeFitter` 锁死子节点，因此用户在 Play 时可直接选中运行时生成的子对象做微调，根节点仍会继续跟随工作台。
+  - `CraftingStationInteractable.cs`：继续使用多 Collider 最近边界点做交互距离与上下翻转判断，保留 `E` 一次性提示气泡与 `1.5m` 超距关闭口径。
+  - `SpringDay1Director.cs`：木材教学维持“浇水完成后才 arm，之后只累计新增木材”的严格判定；并把自动绑定工作台的 `interactionDistance` 收回到 `0.5f`，不再是旧的宽松距离。
+  - `SpringDay1PromptOverlay.cs`、`SpringDay1StatusOverlay.cs`、`HealthSystem.cs`、`EnergySystem.cs`、`SpringDay1WorldHintBubble.cs`：继续接成 Day1 任务卡、正式 HP/EP 卡片和一次性工作台气泡链，旧 Slider 保持隐藏。
+- 本轮验证：
+  - `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 -IncludePaths ...`
+  - `CodexCodeGuard` 已对 8 个 C# 文件完成 UTF-8 / diff / `Assembly-CSharp` 编译检查，先前 `WorkbenchCraftingOverlay.cs` 的语法错误与缺方法阻塞已清零。
+- 当前恢复点：
+  - 代码侧已经回到“可编译、可继续做用户复测”的状态；
+  - 下一步只需按白名单提交本轮 Day1 工作台/UI 代码面，不卷入 shared root 其他线程 dirty。
