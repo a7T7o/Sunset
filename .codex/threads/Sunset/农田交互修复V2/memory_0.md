@@ -895,3 +895,49 @@
 
 **恢复点 / 下一步**：
 - 当前已经回到主线的“`1.0.4` 这批高层交互代码已落地完成，只差 shared root 清掉他线红编译后做最终 Unity live 验收与白名单提交”的这一步。
+
+## 2026-03-24：shared root 脏改清扫复核，当前本线程只剩 `1.0.4/006` 这一个 owned tracked dirty
+
+**用户目标**：
+- 用户明确要求：这轮不要继续推进 `1.0.4` 新实现，而是先扫 shared root，核清到底哪些 dirty 真属于农田线，再只扫本线程自己的地。
+
+**当前主线目标**：
+- 先把当前 shared root 中真正属于 `农田交互修复V2 / 全局交互V3` 的尾账说清楚并收干净，不扩题。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：读取 `007-shared-root脏改清扫与归属核对.md`。
+- 子任务 2：复核 `main` live Git 现场，并逐项确认 dirty 归属。
+- 当前没有实现阻塞；关键是避免误碰导航、NPC、Scene 和其他线程 memory。
+
+**已完成事项**：
+1. 读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\007-shared-root脏改清扫与归属核对.md`。
+2. 复核 live 现场：`D:\Unity\Unity_learning\Sunset @ main @ 1744c09b182c1aea61d0c06d6a491987d9cb8c69`。
+3. 用 `git -c core.quotepath=false status --short --branch` 与 `git diff --name-only` 展开当前 dirty 清单。
+4. 当前确认属于农田线的 owned dirty 只有：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\006-续工裁决入口与用户补充区.md`
+5. 当前确认不属于农田线、因此本轮不去碰的 dirty 包括：
+   - `导航检查` 线程 memory
+   - `屎山修复` 及其子工作区 memory
+   - `Assets/000_Scenes/Primary.unity`
+   - 字体材质
+   - `NPC` / 导航相关脚本
+   - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+   - `ProjectSettings/TagManager.asset`
+6. 只读查看 `006` 的 diff 后确认：它承接的是用户最新补充，属于应保留的 live 文档，不应删除。
+
+**关键决策**：
+- 当前本线程不再补报其他 owned dirty；这轮 shared root 尾账只认 `006`。
+- 下一步按“`006 + 必要记忆`”做最小白名单收口，不扩到任何实现脚本或他线文档。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\006-续工裁决入口与用户补充区.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+
+**验证结果**：
+- owned dirty 归属已核清。
+- 当前不属于农田线的 dirty 未被本线程触碰。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“只对白名单 `006 + 必要记忆` 做最小 shared root 收口”的这一步。
