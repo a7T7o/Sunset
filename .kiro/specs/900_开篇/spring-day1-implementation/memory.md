@@ -421,3 +421,61 @@
 - 当前恢复点：
   - spring-day1 的剩余重点不再是“缺入口”，而是“等 Unity 现场稳定后补整链 live 验收并确认没有真实运行态掉链”
 - 补充纠偏：最终没有保留独立的 `SpringDay1LiveValidationRunner.cs` 文件，而是把该运行态验收器并入 `SpringDay1Director.cs`，以通过当前代码闸门且不改变对外使用方式。
+
+## 2026-03-24 补记：工作台 `E` 键测试交互与农田教学锁定进度已落地
+- 用户人工验收后把剩余问题收窄为两类：
+  1. `Anvil_0` 缺少适合当前 Day1 的“近距按键测试交互”
+  2. `0.0.5` 教学目标依赖瞬时场景状态，过夜或状态刷新后会出现浇水/播种/耕地回退
+- 本轮继续遵守边界：
+  - 不碰 `Primary.unity`
+  - 不碰 `GameInputManager.cs`
+  - 不调用 Unity / MCP live
+- 已在 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs` 落地：
+  - 新增测试用近距 `E` 键交互
+  - 玩家走到工作台附近按 `E` 可直接触发当前工作台交互
+  - 若当前场景仍没有正式 `CraftingPanel`，则转入 Day1 测试兜底提示，不再表现为“完全没反应”
+- 已在 `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs` 落地：
+  - `开垦 / 播种 / 浇水` 改成一次达成即锁定完成
+  - `砍树` 改成背包木材净增量目标，使用 `WoodItemId = 3200`
+  - 进入 `FarmingTutorial` 时记录木材基线，后续只增不退
+  - 当前无正式制作面板时，工作台测试交互可兜底记作一次基础制作
+- 已在 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs` 补入对应静态断言。
+- 本轮本地验证已通过：
+  - `git diff --check`
+  - `CodexCodeGuard`（`utf8-strict / git-diff-check / roslyn-assembly-compile`）
+- 当前恢复点：
+  - spring-day1 这块不再缺代码骨架
+  - 下一步只需要按新的人工验收口径验证 `Anvil_0` 与 `0.0.5` 任务不回退
+
+## 2026-03-24 补记：连续剧情导致全局 UI 不恢复的问题已修正
+- 用户最新反馈指出：Day1 流程本身已经通过，但在跑完整条剧情后，`Toolbar / Tab / 背包` 等其他 UI 没有恢复显示。
+- 静态复核确认高概率根因在 `DialogueUI.cs` 的连续剧情时序：
+  - `DialogueManager` 在旧对话 `DialogueEndEvent` 还没完全发完时，就可能先启动下一段对话
+  - 旧逻辑会在这种情况下重复抓取 `_nonDialogueUiSnapshots`
+  - 导致原本应该恢复的 UI 被误记成“原本就是隐藏”，最终永久不恢复
+- 本轮只改：
+  - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 修正内容：
+  - `DialogueUI` 现在会忽略“旧对话的 End 事件”对新对话的误收尾
+  - 其他 UI 的快照只在首次隐藏时抓取，连续剧情期间不再重复覆盖
+- 本轮本地验证已通过：
+  - `git diff --check`
+  - `CodexCodeGuard`（`utf8-strict / git-diff-check / roslyn-assembly-compile`）
+- 当前恢复点：
+  - 这轮 UI 问题已从“可能是你点太快”收敛为确定的时序 bug，并已做代码侧修复
+  - 下一步只需重新人工验证连续剧情后 `Toolbar / 背包 / Tab` 是否恢复
+
+## 2026-03-24 补记：Day1 工作台已具备最小可点击制作 UI
+- 本轮在不碰 `Primary.unity`、不碰 `GameInputManager.cs`、不依赖 Unity/MCP live 写的前提下，补齐了 Day1 当前唯一明显缺口：工作台只有提示，没有真正可点制作 UI。
+- 已新增 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`，作为 spring-day1 专用最小工作台浮层：
+  - 运行时创建
+  - 跟随工作台上方显示
+  - 固定提供 `Axe_0 / Hoe_0 / Pickaxe_0` 3 个基础配方
+  - 直接点击即可调用现有 `CraftingService` 进行真实制作
+- `CraftingStationInteractable.cs` 已改为优先打开这套 Day1 浮层；同一次 `E` 交互支持打开 / 关闭切换。
+- `SpringDay1Director.cs` 已补 `RefreshCraftingServiceSubscription()`，确保 `CraftingService` 若是工作台第一次交互时才动态创建，导演层仍能收到真实制作成功事件并推进 Day1 统计。
+- `SpringDay1DialogueProgressionTests.cs` 已同步补静态断言；本轮 `git diff --check` 与 `CodexCodeGuard` 通过。
+- 当前恢复点：
+  - spring-day1 的工作台阶段已经从“只有测试兜底”推进到“有最小可点击制作 UI”
+  - 后续主要剩人工验收：靠近 `Anvil_0` 按 `E`，确认浮层、制作和 Day1 统计都正常

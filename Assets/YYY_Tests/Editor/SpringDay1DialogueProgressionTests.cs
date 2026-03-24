@@ -14,6 +14,7 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string DialogueManagerPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/DialogueManager.cs");
     private static readonly string DirectorPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs");
     private static readonly string WorkbenchInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs");
+    private static readonly string WorkbenchOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs");
     private static readonly string WorkbenchSceneBinderPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/SpringDay1WorkbenchSceneBinder.cs");
     private static readonly string BedInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/SpringDay1BedInteractable.cs");
     private static readonly string BedSceneBinderPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/SpringDay1BedSceneBinder.cs");
@@ -83,6 +84,8 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("KeyCode.T", uiText, "DialogueUI 的键盘推进键应改为 T");
         StringAssert.Contains("FadeNonDialogueUi", uiText, "DialogueUI 应在对话期间隐藏其他 UI");
         StringAssert.Contains("otherUiFadeOutDuration", uiText, "DialogueUI 应提供其他 UI 的淡出配置");
+        StringAssert.Contains("ShouldIgnoreDialogueEndEvent", uiText, "DialogueUI 应忽略旧对话的 End 事件，避免连续剧情时误恢复 UI");
+        StringAssert.Contains("_nonDialogueUiSnapshots.Count > 0", uiText, "DialogueUI 应复用首次快照，避免连续剧情时把隐藏态误记成原始态");
         StringAssert.Contains("CurrentSequenceId", managerText, "DialogueManager 应暴露当前对话编号");
         StringAssert.Contains("GetCurrentTaskLabel()", directorText, "导演层应提供当前任务标签");
         StringAssert.Contains("GetCurrentProgressLabel()", directorText, "导演层应提供当前任务进度");
@@ -145,14 +148,29 @@ public class SpringDay1DialogueProgressionTests
     {
         string directorText = File.ReadAllText(DirectorPath);
         string interactableText = File.ReadAllText(WorkbenchInteractablePath);
+        string overlayText = File.ReadAllText(WorkbenchOverlayPath);
         string binderText = File.ReadAllText(WorkbenchSceneBinderPath);
 
         StringAssert.Contains("PreferredWorkbenchObjectNames", directorText, "Day1 导演应保留工作台候选名列表");
         StringAssert.Contains("Anvil_0", directorText, "Day1 导演应优先识别 Anvil_0 作为当前工作台承载物");
         StringAssert.Contains("NotifyCraftingStationOpened", directorText, "Day1 导演应支持工作台直接触发剧情桥接");
+        StringAssert.Contains("RefreshCraftingServiceSubscription", directorText, "Day1 导演应在动态创建 CraftingService 后补挂制作成功事件");
         StringAssert.Contains("CraftingStation.Workbench", interactableText, "工作台交互脚本应默认绑定到 Workbench 站点");
         StringAssert.Contains("panel.Open(station)", interactableText, "如果制作面板存在，工作台交互应尝试直接打开");
         StringAssert.Contains("NotifyCraftingStationOpened", interactableText, "工作台交互应把触发结果回传给 Day1 导演");
+        StringAssert.Contains("KeyCode.E", interactableText, "工作台应支持测试用 E 键近距交互");
+        StringAssert.Contains("Input.GetKeyDown(proximityInteractionKey)", interactableText, "工作台测试交互应由脚本自行检测 E 键");
+        StringAssert.Contains("TryHandleWorkbenchTestInteraction", interactableText, "工作台在没有正式制作面板时应走 Day1 测试兜底");
+        StringAssert.Contains("preferStoryWorkbenchOverlay", interactableText, "工作台交互应支持优先打开 Day1 专用制作浮层");
+        StringAssert.Contains("ResolveWorkbenchOverlay", interactableText, "工作台交互应自动解析 Day1 工作台浮层");
+        StringAssert.Contains("overlay.Toggle(transform, craftingService, station)", interactableText, "工作台交互应在 E 键时切换 Day1 工作台浮层");
+        StringAssert.Contains("Axe_0", overlayText, "Day1 工作台浮层应固定提供 Axe_0 配方");
+        StringAssert.Contains("Hoe_0", overlayText, "Day1 工作台浮层应固定提供 Hoe_0 配方");
+        StringAssert.Contains("Pickaxe_0", overlayText, "Day1 工作台浮层应固定提供 Pickaxe_0 配方");
+        StringAssert.Contains("WoodItemId = 3200", overlayText, "Day1 工作台浮层应使用木料作为基础材料");
+        StringAssert.Contains("StoneItemId = 3201", overlayText, "Day1 工作台浮层应支持石料材料显示");
+        StringAssert.Contains("工作台制作", overlayText, "Day1 工作台浮层应提供明确标题");
+        StringAssert.Contains("点击配方直接制作", overlayText, "Day1 工作台浮层应支持直接点击制作");
         StringAssert.Contains("InitializeOnLoad", binderText, "编辑器恢复器应在 Unity 重新编译后自动生效");
         StringAssert.Contains("Anvil_0", binderText, "编辑器恢复器应优先识别 Anvil_0");
         StringAssert.Contains("Undo.AddComponent<CraftingStationInteractable>", binderText, "编辑器恢复器应能自动补挂工作台交互脚本");
@@ -176,6 +194,14 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("runtimeCollider.isTrigger = true", directorText, "住处入口兜底碰撞器应使用 Trigger，避免阻挡玩家");
         StringAssert.Contains("PlayRestoreAnimation", directorText, "导演层应在晚餐阶段触发精力恢复动画");
         StringAssert.Contains("回住处休息即可结束", directorText, "自由时段提示应兼容没有床对象的场景");
+        StringAssert.Contains("_tillObjectiveCompleted", directorText, "农田教学应记录开垦完成状态，避免后续回退");
+        StringAssert.Contains("_plantObjectiveCompleted", directorText, "农田教学应记录播种完成状态，避免后续回退");
+        StringAssert.Contains("_waterObjectiveCompleted", directorText, "农田教学应记录浇水完成状态，避免后续回退");
+        StringAssert.Contains("_woodObjectiveCompleted", directorText, "农田教学应记录木材收集完成状态，避免后续回退");
+        StringAssert.Contains("requiredWoodCollectedCount", directorText, "砍树目标应改为木材收集数量目标");
+        StringAssert.Contains("WoodItemId = 3200", directorText, "导演层应基于木材物品 ID 统计收集进度");
+        StringAssert.Contains("GetCurrentWoodCount()", directorText, "导演层应从背包读取当前木材数量");
+        StringAssert.Contains("TryHandleWorkbenchTestInteraction", directorText, "导演层应支持工作台测试交互兜底");
         StringAssert.Contains("StoryPhase.FreeTime", bedInteractableText, "床交互应只在自由时段开放");
         StringAssert.Contains("TimeManager.Instance.Sleep()", bedInteractableText, "床交互应能直接触发睡觉");
         StringAssert.Contains("InitializeOnLoad", bedBinderText, "床位编辑器恢复器应在 Unity 重新编译后自动生效");

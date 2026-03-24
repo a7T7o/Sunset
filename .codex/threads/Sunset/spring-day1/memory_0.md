@@ -545,3 +545,82 @@
 - 当前主线已恢复到“Day1 验收入口可用，等待 Unity 稳定后补整链 live 验收”。
 - 下一步应基于这套入口跑一次 `NPC001 -> Workbench -> Farming -> Dinner -> FreeTime -> DayEnd` 的完整手工 / MCP 复核。
 - 补充纠偏：代码闸门确认独立新脚本尚未进入当前项目文件列表，因此 `SpringDay1LiveValidationRunner` 最终并入 `SpringDay1Director.cs`；调试菜单和验收入口保持不变。
+
+### 会话 25 - 2026-03-24（工作台 `E` 键测试交互 + 农田教学不回退）
+**用户目标**：
+> 当前大部分已经人工测过，剩余重点收窄为“工作台交互”；随后用户进一步明确希望：
+> 1. 做一个测试用的近距 `E` 键工作台交互；
+> 2. 农田教学一旦达成就锁定完成，不再因过夜或刷新回退；
+> 3. 砍树目标改成“背包木材数量增量达标”。
+**已完成事项**：
+1. 只读复核 `Primary.unity`，确认当前 `Anvil_0` 已有 `PolygonCollider2D + CraftingStationInteractable`，所以问题不再是“对象没了”，而是缺少适合当前 Day1 现场的工作台测试交互路径。
+2. 修改 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`：
+   - 新增近距 `E` 键测试交互
+   - 不依赖 `GameInputManager.cs`
+   - 没有正式 `CraftingPanel` 时，转给导演层做 Day1 测试兜底
+3. 修改 `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`：
+   - 农田教学改成锁定式进度
+   - `开垦 / 播种 / 浇水` 一次完成后不再回退
+   - `砍树` 改为背包木材 `3200` 的净增量目标
+   - 当前无正式制作面板时，工作台测试交互可直接兜底记作一次基础制作
+4. 修改 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`，补入 `E` 键交互、木材目标与锁定进度的静态断言。
+5. 本轮明确不再调用 Unity / MCP live，只做本地代码闸门。
+**验证结果**：
+- `git diff --check` 通过
+- `CodexCodeGuard` 通过：
+  - `utf8-strict`
+  - `git-diff-check`
+  - `roslyn-assembly-compile`
+- 覆盖文件：
+  - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+**当前主线恢复点 / 下一步**：
+- 当前 spring-day1 不再缺这块代码实现。
+- 下一步只需要让用户按新口径人工验收：
+  1. 靠近 `Anvil_0` 按 `E`
+  2. 验证 `0.0.5` 已完成目标不会回退
+
+### 会话 26 - 2026-03-24（连续剧情后全局 UI 不恢复）
+**用户目标**：
+> Day1 流程已经测通，但剧情跑完后 `Toolbar / 背包 / Tab` 全都没恢复显示，要求直接定位并修复。
+**已完成事项**：
+1. 只读复核 `DialogueUI.cs` 与 `DialogueManager.cs` 后确认：
+   - 连续剧情时，`DialogueManager` 可能在旧对话 `DialogueEndEvent` 还没完全结束前，就启动下一段对话
+   - `DialogueUI` 原实现会在这种情况下重复记录 `_nonDialogueUiSnapshots`
+   - 结果是把本应恢复的 UI 误记成“原本就隐藏”，最终永久不恢复
+2. 修改 `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`：
+   - 新增 `ShouldIgnoreDialogueEndEvent()`
+   - 旧对话的 `End` 事件如果撞上新对话已开始，则直接忽略
+   - 其他 UI 的快照只在首次隐藏时抓一次，连续剧情期间不再覆盖
+3. 修改 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`，补入上述时序保护的静态断言。
+**验证结果**：
+- `git diff --check` 通过
+- `CodexCodeGuard` 通过：
+  - `utf8-strict`
+  - `git-diff-check`
+  - `roslyn-assembly-compile`
+**当前主线恢复点 / 下一步**：
+- 当前 bug 已从“用户可能点太快”明确收敛为 `DialogueUI` 的连续剧情时序 bug，并已修正。
+- 下一步让用户重新跑一次连续剧情，重点确认结尾时 `Toolbar / Tab / 背包` 是否恢复。
+
+## 2026-03-24 补记：我已把工作台真正接成可点击制作 UI
+- 当前主线仍是 spring-day1 的 Day1 运行链，不是切题去做场景美术；这轮新增的是工作台最小制作 UI。
+- 我先按 `skills-governor + sunset-workspace-router` 做了手工等价 startup guard：核对了 `D:\Unity\Unity_learning\Sunset @ main`、shared root neutral、工作区 memory 与 `ui.md`，确认这刀可以继续在 `main` 白名单推进。
+- 这轮已完成：
+  - 新增 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - 修改 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+  - 修改 `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - 修改 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 结果是：玩家靠近 `Anvil_0` 按 `E`，会弹出一个跟随工作台上方的最小制作浮层，里面固定有 `Axe_0 / Hoe_0 / Pickaxe_0` 三个入口，点击就会走现有 `CraftingService.TryCraft(...)`。
+- 我还顺手补掉了一个隐藏坑：如果 `CraftingService` 是第一次工作台交互时才动态创建，导演层以前拿不到制作成功事件；现在 `SpringDay1Director` 会主动重挂 `OnCraftSuccess`。
+- 本轮没有碰：
+  - `Primary.unity`
+  - `GameInputManager.cs`
+  - Unity / MCP live 写
+- 验证已过：
+  - `git diff --check`
+  - `CodexCodeGuard`（`utf8-strict / git-diff-check / roslyn-assembly-compile`）
+- 当前主线恢复点：
+  - Day1 的代码侧主链已经补到“工作台真正可做东西”
+  - 下一步主要是人工验收工作台浮层与实际制作表现

@@ -14,6 +14,15 @@ namespace Sunset.Story
         [SerializeField] private bool createCraftingServiceIfMissing = true;
         [SerializeField] private bool notifySpringDay1Director = true;
         [SerializeField] private CraftingPanel craftingPanel;
+        [SerializeField] private bool preferStoryWorkbenchOverlay = true;
+        [SerializeField] private SpringDay1WorkbenchCraftingOverlay workbenchOverlay;
+
+        [Header("Test Interaction")]
+        [SerializeField] private bool enableProximityKeyInteraction = true;
+        [SerializeField] private KeyCode proximityInteractionKey = KeyCode.E;
+        [SerializeField] private float keyInteractionCooldown = 0.15f;
+
+        private float _lastKeyInteractionAt = -999f;
 
         public int InteractionPriority => interactionPriority;
         public float InteractionDistance => interactionDistance;
@@ -53,15 +62,44 @@ namespace Sunset.Story
                 craftingService.SetStation(station);
             }
 
-            if (panel != null)
+            bool openedRealCraftingUi = false;
+            bool handledByWorkbenchOverlay = false;
+            if (station == CraftingStation.Workbench && preferStoryWorkbenchOverlay)
+            {
+                SpringDay1WorkbenchCraftingOverlay overlay = ResolveWorkbenchOverlay();
+                if (overlay != null)
+                {
+                    bool wasVisible = overlay.IsVisible;
+                    bool isVisible = overlay.Toggle(transform, craftingService, station);
+                    if (wasVisible && !isVisible)
+                    {
+                        return;
+                    }
+
+                    handledByWorkbenchOverlay = isVisible;
+                }
+            }
+
+            if (!handledByWorkbenchOverlay && panel != null)
             {
                 panel.Open(station);
+                openedRealCraftingUi = true;
             }
 
             if (notifySpringDay1Director)
             {
                 SpringDay1Director.EnsureRuntime();
                 SpringDay1Director.Instance?.NotifyCraftingStationOpened(station);
+
+                if (!openedRealCraftingUi && !handledByWorkbenchOverlay)
+                {
+                    string fallbackMessage = SpringDay1Director.Instance?.TryHandleWorkbenchTestInteraction(station);
+                    if (!string.IsNullOrWhiteSpace(fallbackMessage))
+                    {
+                        SpringDay1PromptOverlay.EnsureRuntime();
+                        SpringDay1PromptOverlay.Instance?.Show(fallbackMessage);
+                    }
+                }
             }
         }
 
@@ -86,6 +124,39 @@ namespace Sunset.Story
             }
         }
 
+        private void Update()
+        {
+            if (!enableProximityKeyInteraction || !Input.GetKeyDown(proximityInteractionKey))
+            {
+                return;
+            }
+
+            if (Time.unscaledTime - _lastKeyInteractionAt < keyInteractionCooldown)
+            {
+                return;
+            }
+
+            InteractionContext context = BuildProximityInteractionContext();
+            if (context?.PlayerTransform == null)
+            {
+                return;
+            }
+
+            float distance = Vector2.Distance(context.PlayerPosition, GetClosestInteractionPoint(context.PlayerPosition));
+            if (distance > interactionDistance)
+            {
+                return;
+            }
+
+            if (!CanInteract(context))
+            {
+                return;
+            }
+
+            _lastKeyInteractionAt = Time.unscaledTime;
+            OnInteract(context);
+        }
+
         private CraftingPanel ResolveCraftingPanel()
         {
             if (craftingPanel == null)
@@ -94,6 +165,17 @@ namespace Sunset.Story
             }
 
             return craftingPanel;
+        }
+
+        private SpringDay1WorkbenchCraftingOverlay ResolveWorkbenchOverlay()
+        {
+            if (workbenchOverlay == null)
+            {
+                SpringDay1WorkbenchCraftingOverlay.EnsureRuntime();
+                workbenchOverlay = FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            }
+
+            return workbenchOverlay;
         }
 
         private static CraftingService ResolveCraftingService(bool createIfMissing)
@@ -106,6 +188,33 @@ namespace Sunset.Story
 
             GameObject runtimeObject = new GameObject(nameof(CraftingService));
             return runtimeObject.AddComponent<CraftingService>();
+        }
+
+        private InteractionContext BuildProximityInteractionContext()
+        {
+            PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
+            if (playerTransform == null)
+            {
+                return null;
+            }
+
+            return new InteractionContext
+            {
+                PlayerTransform = playerTransform,
+                PlayerPosition = playerTransform.position
+            };
+        }
+
+        private Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
+        {
+            Collider2D collider2D = GetComponent<Collider2D>();
+            if (collider2D == null)
+            {
+                collider2D = GetComponentInChildren<Collider2D>();
+            }
+
+            return collider2D != null ? collider2D.ClosestPoint(playerPosition) : (Vector2)transform.position;
         }
     }
 }

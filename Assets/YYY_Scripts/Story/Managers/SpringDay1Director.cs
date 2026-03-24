@@ -2,6 +2,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
+using UnityEngine.Serialization;
 using FarmGame.Data;
 using FarmGame.Farm;
 using Sunset.Events;
@@ -57,7 +58,8 @@ namespace Sunset.Story
         [SerializeField] private int requiredTilledCount = 1;
         [SerializeField] private int requiredPlantedCount = 1;
         [SerializeField] private int requiredWateredCount = 1;
-        [SerializeField] private int requiredTreeChoppedCount = 1;
+        [FormerlySerializedAs("requiredTreeChoppedCount")]
+        [SerializeField] private int requiredWoodCollectedCount = 3;
         [SerializeField] private int requiredCraftedCount = 1;
 
         [Header("Debug")]
@@ -77,13 +79,21 @@ namespace Sunset.Story
         private CraftingStationInteractable _boundWorkbenchInteractable;
         private SpringDay1BedInteractable _boundBedInteractable;
         private PlayerMovement _playerMovement;
+        private CraftingService _observedCraftingService;
         private bool _uiInitialized;
         private bool _storyTimePauseApplied;
 
         private int _craftedCount;
         private float _nextPollAt;
+        private bool _farmingTutorialTrackingInitialized;
+        private bool _tillObjectiveCompleted;
+        private bool _plantObjectiveCompleted;
+        private bool _waterObjectiveCompleted;
+        private bool _woodObjectiveCompleted;
+        private int _baselineWoodCount = -1;
 
         public static SpringDay1Director Instance => _instance;
+        private const int WoodItemId = 3200;
 
         public static void EnsureRuntime()
         {
@@ -122,12 +132,7 @@ namespace Sunset.Story
             EventBus.Subscribe<StoryPhaseChangedEvent>(HandleStoryPhaseChanged, owner: this);
             EnergySystem.OnEnergyChanged += HandleEnergyChanged;
             TimeManager.OnSleep += HandleSleep;
-
-            CraftingService craftingService = FindFirstObjectByType<CraftingService>(FindObjectsInactive.Include);
-            if (craftingService != null)
-            {
-                craftingService.OnCraftSuccess += HandleCraftSuccess;
-            }
+            RefreshCraftingServiceSubscription();
         }
 
         private void OnDisable()
@@ -135,12 +140,7 @@ namespace Sunset.Story
             EventBus.UnsubscribeAll(this);
             EnergySystem.OnEnergyChanged -= HandleEnergyChanged;
             TimeManager.OnSleep -= HandleSleep;
-
-            CraftingService craftingService = FindFirstObjectByType<CraftingService>(FindObjectsInactive.Include);
-            if (craftingService != null)
-            {
-                craftingService.OnCraftSuccess -= HandleCraftSuccess;
-            }
+            RefreshCraftingServiceSubscription(null);
 
             ApplyLowEnergyMovementPenalty(false);
             ReleaseStoryTimePause();
@@ -165,7 +165,7 @@ namespace Sunset.Story
 
         public string GetDebugSummary()
         {
-            return $"Phase={StoryManager.Instance.CurrentPhase}, Tilled={GetTilledCount()}, Planted={GetPlantedCount()}, Watered={GetWateredCount()}, Trees={GetTreeStumpCount()}, Crafted={_craftedCount}, FreeTime={_freeTimeEntered}, DayEnd={_dayEnded}";
+            return $"Phase={StoryManager.Instance.CurrentPhase}, Tilled={GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}, Planted={GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}, Watered={GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}, Wood={GetCollectedWoodProgress()}/{requiredWoodCollectedCount}, Crafted={_craftedCount}, FreeTime={_freeTimeEntered}, DayEnd={_dayEnded}";
         }
 
         public string GetCurrentTaskLabel()
@@ -205,7 +205,7 @@ namespace Sunset.Story
 
             if (phase == StoryPhase.FarmingTutorial)
             {
-                return $"开垦 {GetTilledCount()}/{requiredTilledCount} | 播种 {GetPlantedCount()}/{requiredPlantedCount} | 浇水 {GetWateredCount()}/{requiredWateredCount} | 砍树 {GetTreeStumpCount()}/{requiredTreeChoppedCount} | 制作 {_craftedCount}/{requiredCraftedCount}";
+                return $"开垦 {GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}/{requiredTilledCount} | 播种 {GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}/{requiredPlantedCount} | 浇水 {GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}/{requiredWateredCount} | 木材 {GetCollectedWoodProgress()}/{requiredWoodCollectedCount} | 制作 {Mathf.Min(_craftedCount, requiredCraftedCount)}/{requiredCraftedCount}";
             }
 
             if (phase == StoryPhase.DinnerConflict)
@@ -248,6 +248,12 @@ namespace Sunset.Story
             if (evt.CurrentPhase == StoryPhase.EnterVillage)
             {
                 BeginHealingAndHp();
+                return;
+            }
+
+            if (evt.CurrentPhase == StoryPhase.FarmingTutorial)
+            {
+                InitializeFarmingTutorialTracking(true);
             }
         }
 
@@ -274,6 +280,7 @@ namespace Sunset.Story
             if (evt.SequenceId == WorkbenchSequenceId)
             {
                 StoryManager.Instance.SetPhase(StoryPhase.FarmingTutorial);
+                InitializeFarmingTutorialTracking(true);
                 SpringDay1PromptOverlay.Instance.Show("先用锄头开垦一格土地。");
                 return;
             }
@@ -297,6 +304,27 @@ namespace Sunset.Story
             if (showDebugLog)
             {
                 Debug.Log($"[SpringDay1Director] Craft success: {recipe?.recipeName} x{result.resultAmount}");
+            }
+        }
+
+        private void RefreshCraftingServiceSubscription(CraftingService targetService = null)
+        {
+            CraftingService resolvedService = targetService ?? FindFirstObjectByType<CraftingService>(FindObjectsInactive.Include);
+            if (_observedCraftingService == resolvedService)
+            {
+                return;
+            }
+
+            if (_observedCraftingService != null)
+            {
+                _observedCraftingService.OnCraftSuccess -= HandleCraftSuccess;
+            }
+
+            _observedCraftingService = resolvedService;
+
+            if (_observedCraftingService != null)
+            {
+                _observedCraftingService.OnCraftSuccess += HandleCraftSuccess;
             }
         }
 
@@ -333,6 +361,7 @@ namespace Sunset.Story
         private void TickPrimarySceneFlow()
         {
             InitializeRuntimeUiIfNeeded();
+            RefreshCraftingServiceSubscription();
             TryAutoBindWorkbenchInteractable();
             TryAutoBindBedInteractable();
             SyncStoryTimePauseState();
@@ -512,50 +541,121 @@ namespace Sunset.Story
 
         private void TickFarmingTutorial()
         {
+            InitializeFarmingTutorialTracking();
+
             int tilledCount = GetTilledCount();
             int plantedCount = GetPlantedCount();
             int wateredCount = GetWateredCount();
-            int treeCount = GetTreeStumpCount();
+            int currentWoodCount = GetCurrentWoodCount();
 
-            if (!_staminaRevealed && tilledCount > 0)
+            if (!_tillObjectiveCompleted && tilledCount >= requiredTilledCount)
+            {
+                _tillObjectiveCompleted = true;
+            }
+
+            if (!_plantObjectiveCompleted && plantedCount >= requiredPlantedCount)
+            {
+                _plantObjectiveCompleted = true;
+            }
+
+            if (!_waterObjectiveCompleted && wateredCount >= requiredWateredCount)
+            {
+                _waterObjectiveCompleted = true;
+            }
+
+            if (!_woodObjectiveCompleted && currentWoodCount - _baselineWoodCount >= requiredWoodCollectedCount)
+            {
+                _woodObjectiveCompleted = true;
+            }
+
+            if (!_staminaRevealed && _tillObjectiveCompleted)
             {
                 _staminaRevealed = true;
                 EnergySystem.Instance.SetEnergyState(initialEnergy, maxEnergy);
                 EnergySystem.Instance.PlayRevealAndAnimateTo(initialEnergy, initialEnergy, maxEnergy, energyRevealDuration, 0f);
             }
 
-            if (tilledCount < requiredTilledCount)
+            if (!_tillObjectiveCompleted)
             {
                 SpringDay1PromptOverlay.Instance.Show("先用锄头开垦一格土地。");
                 return;
             }
 
-            if (plantedCount < requiredPlantedCount)
+            if (!_plantObjectiveCompleted)
             {
                 SpringDay1PromptOverlay.Instance.Show("把花椰菜种子种进刚开垦的土地。");
                 return;
             }
 
-            if (wateredCount < requiredWateredCount)
+            if (!_waterObjectiveCompleted)
             {
                 SpringDay1PromptOverlay.Instance.Show("用浇水壶给作物浇水。");
                 return;
             }
 
-            if (treeCount < requiredTreeChoppedCount)
+            if (!_woodObjectiveCompleted)
             {
-                SpringDay1PromptOverlay.Instance.Show("再砍倒一棵树，收集一些木料。");
+                SpringDay1PromptOverlay.Instance.Show($"再去收集一些木材，当前还差 {Mathf.Max(0, requiredWoodCollectedCount - GetCollectedWoodProgress())} 份。");
                 return;
             }
 
             if (_craftedCount < requiredCraftedCount)
             {
-                SpringDay1PromptOverlay.Instance.Show("回到工作台，完成一次基础制作。");
+                SpringDay1PromptOverlay.Instance.Show("回到工作台附近，按 E 完成一次基础制作。");
                 return;
             }
 
             SpringDay1PromptOverlay.Instance.Hide();
             StoryManager.Instance.SetPhase(StoryPhase.DinnerConflict);
+        }
+
+        public string TryHandleWorkbenchTestInteraction(CraftingStation station)
+        {
+            if (station != CraftingStation.Workbench)
+            {
+                return string.Empty;
+            }
+
+            StoryPhase currentPhase = StoryManager.Instance.CurrentPhase;
+            if (currentPhase == StoryPhase.WorkbenchFlashback)
+            {
+                return "已触发工作台回忆。";
+            }
+
+            if (currentPhase != StoryPhase.FarmingTutorial)
+            {
+                return "工作台已接通，当前阶段暂不需要额外制作操作。";
+            }
+
+            InitializeFarmingTutorialTracking();
+
+            if (!_tillObjectiveCompleted)
+            {
+                return "先完成开垦，再回工作台。";
+            }
+
+            if (!_plantObjectiveCompleted)
+            {
+                return "先把种子种下，再回工作台。";
+            }
+
+            if (!_waterObjectiveCompleted)
+            {
+                return "先完成一次浇水，再回工作台。";
+            }
+
+            if (!_woodObjectiveCompleted)
+            {
+                return $"先收集足够木材，当前还差 {Mathf.Max(0, requiredWoodCollectedCount - GetCollectedWoodProgress())} 份。";
+            }
+
+            if (_craftedCount >= requiredCraftedCount)
+            {
+                return "基础制作已经完成。";
+            }
+
+            _craftedCount = requiredCraftedCount;
+            return "测试用工作台交互：已记作一次基础制作。";
         }
 
         private void BeginReturnReminder()
@@ -711,6 +811,21 @@ namespace Sunset.Story
             return sequence;
         }
 
+        private void InitializeFarmingTutorialTracking(bool forceReset = false)
+        {
+            if (_farmingTutorialTrackingInitialized && !forceReset)
+            {
+                return;
+            }
+
+            _farmingTutorialTrackingInitialized = true;
+            _tillObjectiveCompleted = false;
+            _plantObjectiveCompleted = false;
+            _waterObjectiveCompleted = false;
+            _woodObjectiveCompleted = false;
+            _baselineWoodCount = GetCurrentWoodCount();
+        }
+
         private static void CacheReflection()
         {
             if (_farmTilesField == null)
@@ -774,6 +889,49 @@ namespace Sunset.Story
             }
 
             return stumpCount;
+        }
+
+        private int GetCurrentWoodCount()
+        {
+            InventoryService inventoryService = FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+            if (inventoryService == null)
+            {
+                return 0;
+            }
+
+            int total = 0;
+            for (int slotIndex = 0; slotIndex < inventoryService.Size; slotIndex++)
+            {
+                ItemStack stack = inventoryService.GetSlot(slotIndex);
+                if (!stack.IsEmpty && stack.itemId == WoodItemId)
+                {
+                    total += stack.amount;
+                }
+            }
+
+            return total;
+        }
+
+        private int GetCollectedWoodProgress()
+        {
+            if (_baselineWoodCount < 0)
+            {
+                return _woodObjectiveCompleted ? requiredWoodCollectedCount : 0;
+            }
+
+            return _woodObjectiveCompleted
+                ? requiredWoodCollectedCount
+                : Mathf.Max(0, GetCurrentWoodCount() - _baselineWoodCount);
+        }
+
+        private static int GetLatchedProgress(bool completed, int requiredCount)
+        {
+            if (requiredCount <= 0)
+            {
+                return 0;
+            }
+
+            return completed ? requiredCount : 0;
         }
 
         private IEnumerable<FarmTileData> EnumerateFarmTiles()

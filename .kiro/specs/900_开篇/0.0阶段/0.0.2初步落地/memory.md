@@ -465,3 +465,32 @@
   - 代码侧已经具备更快的 Day1 现场验收入口
   - 下一步应在 Unity 现场稳定后，按 `Bootstrap -> Snapshot -> Step` 口径跑一次 `NPC001 -> Workbench -> Farming -> Dinner -> FreeTime -> DayEnd` 的真实闭环
 - 补充纠偏：由于当前代码闸门基于现有项目文件列表做程序集检查，独立新增的 `SpringDay1LiveValidationRunner.cs` 会被视为尚未纳入编译清单；因此最终把 `SpringDay1LiveValidationRunner` 并入 `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`，对外菜单与验收能力保持不变。
+
+## 2026-03-24 补记：Day1 工作台最小制作浮层已落地
+- 用户在确认 Day1 主流程已跑通后，新增需求收窄为：`Anvil_0` 按 `E` 后，需要在工作台上方弹出一个可点击制作的最小 UI，而不是继续沿用“只有测试提示、没有真正制作面板”的兜底。
+- 本轮继续遵守边界：
+  - 不碰 `Primary.unity`
+  - 不碰 `GameInputManager.cs`
+  - 不调用 Unity / MCP live 写
+- 已新增 `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`：
+  - 运行时动态创建 Day1 专用工作台浮层
+  - 自动跟随 `Anvil_0 / Workbench / Anvil` 一类工作台上方显示
+  - 固定提供 3 个基础配方：`Axe_0`、`Hoe_0`、`Pickaxe_0`
+  - 直接点击按钮即可调用 `CraftingService.TryCraft(...)`
+  - 会实时显示材料拥有量与制作结果，不依赖场景手工搭 UI
+- 已修改 `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`：
+  - 工作台交互现在优先切换 Day1 专用制作浮层
+  - 同一次 `E` 交互支持“打开 / 再按一次关闭”
+  - 没有浮层或正式面板时，仍保留原有 Day1 测试兜底，不让链路回退
+- 已修改 `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`：
+  - 新增 `RefreshCraftingServiceSubscription()`
+  - 解决 `CraftingService` 若在第一次工作台交互时才动态创建，导演层收不到 `OnCraftSuccess` 的隐藏问题
+  - 这样真实制作成功后，Day1 的 `craftedCount` 与阶段推进仍然可靠
+- 已修改 `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`：
+  - 补入工作台浮层、固定配方与动态 `CraftingService` 挂接的静态断言
+- 本轮本地验证已通过：
+  - `git diff --check`
+  - `CodexCodeGuard`（`utf8-strict / git-diff-check / roslyn-assembly-compile`）
+- 当前恢复点：
+  - Day1 现在不再只有“工作台测试提示”，而是已经有一套可点击、可制作、可推动导演层统计的最小工作台 UI
+  - 下一步主要是人工验收：靠近 `Anvil_0` 按 `E` → 浮层出现 → 点击 `Axe_0 / Hoe_0 / Pickaxe_0` 之一 → 确认制作结果与 Day1 阶段统计正常
