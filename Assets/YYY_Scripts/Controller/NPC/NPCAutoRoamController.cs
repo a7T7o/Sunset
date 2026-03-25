@@ -40,7 +40,9 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     [SerializeField] private Rigidbody2D rb;
     [SerializeField] private NavGrid2D navGrid;
     [SerializeField] private Transform homeAnchor;
+#pragma warning disable CS0649 // Assigned by Unity serialization.
     [SerializeField] private NPCRoamProfile roamProfile;
+#pragma warning restore CS0649
 
     [Header("基础开关")]
     [SerializeField] private bool autoStart = true;
@@ -92,7 +94,9 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     [Header("调试")]
     [SerializeField] private bool showDebugLog = false;
+#if UNITY_EDITOR
     [SerializeField] private bool drawDebugPath = true;
+#endif
 
     [Header("共享动态避让")]
     [SerializeField] private float avoidanceRadius = 0.6f;
@@ -115,11 +119,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private bool ambientChatRetryPending;
     private float ambientChatRetryAtTime;
     private int ambientChatRetryCount;
+    private bool debugMoveActive;
     private Collider2D navigationCollider;
     private float lastSharedAvoidanceRepathTime = float.NegativeInfinity;
     private int lastBlockingAgentId;
     private int blockingAgentSightings;
     private int lastSharedAvoidanceDebugFrame = -999;
+    private Vector2 requestedDestination;
+    private bool hasRequestedDestination;
 
     private List<Vector2> path => navigationExecution.Path;
     private Vector2 currentDestination { get => navigationExecution.Destination; set => navigationExecution.Destination = value; }
@@ -128,6 +135,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private float lastProgressCheckTime { get => navigationExecution.LastProgressCheckTime; set => navigationExecution.LastProgressCheckTime = value; }
     private float lastProgressDistance { get => navigationExecution.LastProgressDistance; set => navigationExecution.LastProgressDistance = value; }
     private int currentStuckRecoveryCount { get => navigationExecution.StuckRetryCount; set => navigationExecution.StuckRetryCount = value; }
+    private bool hasDynamicDetour => navigationExecution.HasOverrideWaypoint;
 
     public bool IsRoaming => state != RoamState.Inactive;
     public bool IsMoving => state == RoamState.Moving;
@@ -158,7 +166,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         if (motionController != null)
         {
-            return motionController.CurrentVelocity;
+            Vector2 currentVelocity = motionController.CurrentVelocity;
+            if (currentVelocity.sqrMagnitude > 0.0001f)
+            {
+                return currentVelocity;
+            }
+
+            return rb != null ? rb.linearVelocity : Vector2.zero;
         }
 
         return rb != null ? rb.linearVelocity : Vector2.zero;
@@ -299,6 +313,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public void StopRoam()
     {
         BreakAmbientChatLink(hideBubble: true);
+        debugMoveActive = false;
+        ClearRequestedDestination();
         state = RoamState.Inactive;
         stateTimer = 0f;
         currentPathIndex = 0;
@@ -428,22 +444,26 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         BreakAmbientChatLink(hideBubble: true);
         ClearAmbientChatRetry();
+        RememberRequestedDestination(destination);
 
         Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
-        NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryBuildPath(
+        NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
             navigationExecution,
             navGrid,
             currentPosition,
-            destination);
+            destination,
+            null,
+            null,
+            0f,
+            GetPathBuildLogger("DebugMoveTo"),
+            navigationCollider);
 
         if (!buildResult.Success || path.Count == 0)
         {
-            path.Clear();
-            currentPathIndex = 0;
             return false;
         }
 
-        currentDestination = buildResult.ActualDestination;
+        debugMoveActive = true;
         state = RoamState.Moving;
         stateTimer = 0f;
         ResetMovementRecovery(currentPosition, resetCounter: true);
@@ -497,6 +517,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void TickShortPause()
     {
+        if (debugMoveActive)
+        {
+            EndDebugMove(reachedDestination: false);
+            return;
+        }
+
         stateTimer -= Time.deltaTime;
         if (stateTimer > 0f)
         {
@@ -524,7 +550,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (path.Count == 0)
         {
-            EnterShortPause(true);
+            FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
             return;
         }
 
@@ -540,7 +566,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (waypointState.ReachedPathEnd ||
             Vector2.Distance(currentPosition, currentDestination) <= destinationTolerance)
         {
-            EnterShortPause(true);
+            FinishMoveCycle(countTowardLongPause: true, reachedDestination: true);
             return;
         }
 
@@ -551,7 +577,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (!waypointState.HasWaypoint)
         {
-            EnterShortPause(true);
+            FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
             return;
         }
 
@@ -599,6 +625,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void TickLongPause()
     {
+        if (debugMoveActive)
+        {
+            EndDebugMove(reachedDestination: false);
+            return;
+        }
+
         TryExecutePendingAmbientChatRetry();
 
         stateTimer -= Time.deltaTime;
@@ -629,6 +661,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return false;
         }
 
+        debugMoveActive = false;
         NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
 
         Vector2 currentPosition = transform.position;
@@ -656,18 +689,23 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 continue;
             }
 
-            NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryBuildPath(
+            NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
                 navigationExecution,
                 navGrid,
                 currentPosition,
-                walkableDestination);
+                walkableDestination,
+                null,
+                null,
+                0f,
+                GetPathBuildLogger("TryBeginMove"),
+                navigationCollider);
 
             if (!buildResult.Success || path.Count == 0)
             {
                 continue;
             }
 
-            currentDestination = walkableDestination;
+            RememberRequestedDestination(walkableDestination);
             state = RoamState.Moving;
             stateTimer = 0f;
             ResetMovementRecovery(currentPosition, resetCounter: true);
@@ -724,11 +762,17 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (progress.ShouldCancel)
         {
-            EnterShortPause(false);
+            FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
             return true;
         }
 
-        if (TryRebuildPath(currentPosition))
+        if (debugMoveActive)
+        {
+            EndDebugMove(reachedDestination: false);
+            return true;
+        }
+
+        if (TryRebuildPath(currentPosition, resetRecoveryCounter: false))
         {
             return false;
         }
@@ -738,38 +782,62 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
-        EnterShortPause(false);
+        FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
         return true;
     }
 
-    private bool TryRebuildPath(Vector2 currentPosition)
+    private bool TryRebuildPath(
+        Vector2 currentPosition,
+        bool resetRecoveryCounter,
+        string reason = "重建路径",
+        bool preserveTrafficState = false)
     {
         if (!TryResolveNavGrid())
         {
             return false;
         }
 
-        NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryBuildPath(
+        Vector2 rebuildDestination = GetRebuildRequestedDestination();
+        NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
             navigationExecution,
             navGrid,
             currentPosition,
-            currentDestination);
+            rebuildDestination,
+            null,
+            null,
+            0f,
+            GetPathBuildLogger(reason),
+            navigationCollider);
 
         if (!buildResult.Success || path.Count == 0)
         {
             return false;
         }
 
-        ResetMovementRecovery(currentPosition, resetCounter: false);
+        ResetMovementRecovery(
+            currentPosition,
+            resetCounter: resetRecoveryCounter,
+            preserveTrafficState: preserveTrafficState);
 
         if (showDebugLog)
         {
             Debug.Log(
-                $"<color=yellow>[NPCAutoRoamController]</color> {name} 卡住后重建路径 => Destination={currentDestination}, PathCount={path.Count}",
+                $"<color=yellow>[NPCAutoRoamController]</color> {name} {reason} => Requested={rebuildDestination}, Actual={currentDestination}, PathCount={path.Count}",
                 this);
         }
 
         return true;
+    }
+
+    private System.Action<string> GetPathBuildLogger(string context)
+    {
+        if (!showDebugLog)
+        {
+            return null;
+        }
+
+        return message =>
+            Debug.Log($"<color=orange>[NPCNavBuild]</color> {name} {context}: {message}", this);
     }
 
     private bool TryHandleSharedAvoidance(
@@ -868,7 +936,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         blockingAgentSightings = 0;
         StopForSharedAvoidance(navigationPosition, avoidance, closeRangeConstraint, "Repath");
 
-        if (TryRebuildPath(movementPosition))
+        if (TryRebuildPath(movementPosition, resetRecoveryCounter: false))
         {
             return true;
         }
@@ -957,6 +1025,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         BreakAmbientChatLink(hideBubble: true);
         ClearAmbientChatRetry();
+        ClearRequestedDestination();
         state = RoamState.ShortPause;
         stateTimer = Random.Range(shortPauseMin, shortPauseMax);
         path.Clear();
@@ -986,10 +1055,35 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
+    private void FinishMoveCycle(bool countTowardLongPause, bool reachedDestination)
+    {
+        if (debugMoveActive)
+        {
+            EndDebugMove(reachedDestination);
+            return;
+        }
+
+        EnterShortPause(countTowardLongPause);
+    }
+
+    private void EndDebugMove(bool reachedDestination)
+    {
+        debugMoveActive = false;
+        StopRoam();
+
+        if (showDebugLog)
+        {
+            Debug.Log(
+                $"<color=yellow>[NPCAutoRoamController]</color> {name} DebugMove {(reachedDestination ? "completed" : "stopped")} => Position={(rb != null ? rb.position : (Vector2)transform.position)}, Destination={currentDestination}",
+                this);
+        }
+    }
+
     private void EnterLongPause()
     {
         BreakAmbientChatLink(hideBubble: true);
         ClearAmbientChatRetry();
+        ClearRequestedDestination();
         state = RoamState.LongPause;
         stateTimer = Random.Range(longPauseMin, longPauseMax);
         path.Clear();
@@ -1339,11 +1433,34 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         ambientChatRetryCount = 0;
     }
 
-    private void ResetMovementRecovery(Vector2 currentPosition, bool resetCounter)
+    private void ResetMovementRecovery(
+        Vector2 currentPosition,
+        bool resetCounter,
+        bool preserveTrafficState = false)
     {
         NavigationPathExecutor2D.ResetProgress(navigationExecution, currentPosition, resetCounter);
-        lastBlockingAgentId = 0;
-        blockingAgentSightings = 0;
+        if (resetCounter)
+        {
+            lastBlockingAgentId = 0;
+            blockingAgentSightings = 0;
+        }
+    }
+
+    private void RememberRequestedDestination(Vector2 destination)
+    {
+        requestedDestination = destination;
+        hasRequestedDestination = true;
+    }
+
+    private void ClearRequestedDestination()
+    {
+        requestedDestination = Vector2.zero;
+        hasRequestedDestination = false;
+    }
+
+    private Vector2 GetRebuildRequestedDestination()
+    {
+        return hasRequestedDestination ? requestedDestination : currentDestination;
     }
 
     private static string[] CopyLines(string[] lines)

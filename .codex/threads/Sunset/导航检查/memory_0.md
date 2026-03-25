@@ -932,6 +932,82 @@
   - 下一轮继续导航线时，应直接从“本线程测试红错已修复，外部 compile blocker 仍在”继续；
   - 不要再回头重复定位这条 `CS0246`。
 
+## 2026-03-24（`002-prompt-9`：路径请求责任簇退壳 checkpoint）
+
+- 当前主线目标：
+  - 按 `002-prompt-9` 继续导航 `S0-S6` 施工；
+  - 不让 external compile blocker 继续占据本轮主叙事。
+- 本轮子任务：
+  - 把 `BuildPath / RebuildPath / ActualDestination / 路径后处理` 这组责任，进一步从玩家 / NPC 控制器迁到共享执行层。
+- 本轮完成：
+  1. `NavigationPathExecutor2D`：
+     - 新增 `ExecutionState.HasDestination`
+     - 新增共享路径刷新入口 `TryRefreshPath(...)`
+     - 新增共享终点读取 `GetResolvedDestination(...)`
+     - `TryBuildPath(...)` 成功时开始直接写回共享实际终点
+  2. `PlayerAutoNavigator`：
+     - `BuildPath()` 改接 `TryRefreshPath(...)`
+     - 删除私有 `resolvedPathDestination / hasResolvedPathDestination`
+     - 删除私有 `SmoothPath()` 与 `CleanupPathBehindPlayer()`
+  3. `NPCAutoRoamController`：
+     - `DebugMoveTo()` / `TryBeginMove()` / `TryRebuildPath()` 改接 `TryRefreshPath(...)`
+     - 不再自己手写 `TryBuildPath -> ActualDestination` 回填流程
+  4. `NavigationAvoidanceRulesTests`：
+     - 现已校验 `TryRefreshPath(...)` 对 `HasDestination/Destination` 的写回
+- 关键决策：
+  - 这轮只做路径请求责任簇退壳，不把 scope 扩散到 `spring-day1` 或其他业务线；
+  - external blocker 只作为备注保留，不再作为这轮停工理由。
+- 验证结果：
+  - `validate_script`：上述 4 个文件全部 `0 error`
+  - `git diff --check -- <本轮 4 文件>`：通过
+- 当前仍残留的 old fallback / private loop：
+  - 玩家：`ExecuteNavigation()`、`CheckAndHandleStuck()`、`TryCreateDynamicDetour()`
+  - NPC：`TickMoving()`、`CheckAndHandleStuck()`、`TryCreateDynamicDetour()`、`ClearDynamicDetourIfNeeded()`
+  - 中轴：`NavigationTrafficArbiter` 仍未达到完整“先裁决、后求解”
+- 当前恢复点：
+  - 下一轮若继续，应直接往 `stuck/repath` 或 `detour lifecycle` 再拆一簇，不要再回头围绕 external blocker 打转。
+
+## 2026-03-24（`002-prompt-10`：共享 stuck/repath owner checkpoint）
+
+- 当前主线目标：
+  - 继续沿 `002-prompt-10` 推进导航 `S0-S6`；
+  - 这轮主刀固定为 `CheckAndHandleStuck()` 退壳，不再停在轻责任簇上。
+- 本轮子任务：
+  - 把 `PlayerAutoNavigator.CheckAndHandleStuck()` / `NPCAutoRoamController.CheckAndHandleStuck()` 迁成共享 `stuck / repath / 恢复入口`。
+- 本轮完成：
+  1. `NavigationPathExecutor2D`：
+     - 新增 owner 状态：
+       - `LastRepathTime`
+       - `LastRecoveryTime`
+       - `LastRecoveryDistance`
+       - `LastRecoverySucceeded`
+     - 新增共享恢复入口：
+       - `TryHandleStuckRecovery(...)`
+  2. `PlayerAutoNavigator`：
+     - `CheckAndHandleStuck()` 不再自己吃 `EvaluateStuck(...) + BuildPath()`
+     - 改为共享恢复入口 + 玩家侧取消 / 日志分支
+  3. `NPCAutoRoamController`：
+     - `CheckAndHandleStuck()` 不再自己吃 `EvaluateStuck(...) + TryRebuildPath()`
+     - 改为共享恢复入口 + NPC 侧 debug move / 重新采样 / 短停分支
+  4. `NavigationAvoidanceRulesTests`：
+     - 新增两条共享 stuck owner 测试，覆盖恢复成功和 cooldown 阻断
+- 关键决策：
+  - 这轮明确避免只做 wrapper：
+    - 两边控制器已经不再直接调用 `EvaluateStuck(...)`
+    - 该判定链只剩共享 `NavigationPathExecutor2D` 内部自己消费
+  - external blocker 继续只作为备注，不进入本轮主叙事。
+- 验证结果：
+  - `validate_script`：上述 4 个文件全部 `0 error`
+  - `git diff --check -- <本轮 4 文件>`：通过
+  - 全仓 `EvaluateStuck(` 搜索结果：只剩共享执行层内部
+- 当前仍残留的 old fallback / private loop：
+  - 玩家：`HandleSharedTrafficDecision()` 的 `BuildPath()`、`TryCreateDynamicDetour()`、`Cancel/Arrival`
+  - NPC：`TryRebuildPath()`、`TryCreateDynamicDetour()`、`ClearDynamicDetourIfNeeded()`、`FinishMoveCycle()`
+  - 中轴：`NavigationTrafficArbiter` 仍未完成完整“先裁决、后求解”
+- 当前恢复点：
+  - 下一轮应继续拆 `arrival / cancel / path-end` 或 `detour create / clear / recover`；
+  - 这轮已经不需要再证明“stuck/repath 是不是共享 owner 迁移”。
+
 ## 2026-03-24（补发 `002-prompt-9`：纠正“external blocker = 可以停车”的执行偏差）
 
 - 当前主线目标：
@@ -956,3 +1032,335 @@
     1. 是否真的做出责任迁移
     2. 是否真的开始退旧私有导航闭环
     3. 是否仍在拿外部 compile blocker 掩盖主线未推进
+
+## 2026-03-24（已基于最新回执生成 `002-prompt-10`）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6` 未交卷状态下的持续治理与督促，不是切去别的系统。
+- 本轮已基于最新导航回执，新增：
+  - [002-prompt-10.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/屎山修复/导航检查/002-prompt-10.md)
+- 我对这次回执的治理裁定是：
+  1. 接受“路径请求责任簇已退壳”这个 checkpoint；
+  2. 但明确不允许线程停在这一簇上；
+  3. 下一刀唯一主刀收紧为：
+     - `PlayerAutoNavigator.CheckAndHandleStuck()`
+     - `NPCAutoRoamController.CheckAndHandleStuck()`
+     继续往 `NavigationPathExecutor2D` 迁成共享 `stuck / repath / 恢复入口`
+- 这轮 prompt 的核心约束：
+  - 不准再泛讲架构
+  - 不准再拿 external blocker 停车
+  - 不准只做 wrapper
+  - 必须正面回答共享执行层是否开始成为 stuck/repath 的真 owner
+- 当前恢复点：
+  - 如果用户下一步要发给导航线程，直接以 `002-prompt-10.md` 为准；
+  - 后续这条线的审稿口径也应切到 `002-prompt-10`，继续盯更重的私有闭环退壳。
+
+## 2026-03-24（已基于第二个退壳 checkpoint 生成 `002-prompt-11`）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6` 未交卷状态下的持续治理与督促。
+- 本轮已基于最新导航回执，新增：
+  - [002-prompt-11.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/屎山修复/导航检查/002-prompt-11.md)
+- 我对这次回执的治理裁定是：
+  1. 接受“`stuck / repath` 已真实退壳”这个第二个 checkpoint；
+  2. 但明确不允许线程停在这里继续摇摆两个候选下一步；
+  3. 下一刀唯一主刀收紧为：
+     - `detour create / clear / recover`
+     继续往 `NavigationPathExecutor2D` 迁成共享 `detour lifecycle`
+- 这轮 prompt 的核心约束：
+  - 不准再在 `arrival / cancel / path-end` 和 `detour lifecycle` 之间摇摆
+  - 不准再泛讲架构
+  - 不准再拿 external blocker 停车
+  - 必须正面回答 detour 生命周期到底是 wrapper 还是共享 owner 迁移
+- 当前恢复点：
+  - 如果用户下一步要发给导航线程，直接以 `002-prompt-11.md` 为准；
+  - 后续这条线的审稿口径也应切到 `002-prompt-11`，继续盯 detour 生命周期这刀。
+
+## 2026-03-25（detour lifecycle 第三个真实退壳 checkpoint）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6` 未交卷状态下的持续施工，不是切去别的系统。
+- 本轮按 `002-prompt-11` 真正落了 detour lifecycle：
+  - `NavigationPathExecutor2D` 补齐 `TryResolveDetourCandidate(...)`、`ClearOverrideWaypoint(time)` 与 `LastDetourClearTime`
+  - `PlayerAutoNavigator` / `NPCAutoRoamController` 的 detour create / clear / recover 已开始改走共享 `TryCreateDetour(...) / TryClearDetourAndRecover(...)`
+  - 新增两条共享 detour owner 测试并通过
+- 本轮验证：
+  - 4 个目标脚本 `validate_script` 全部 `0 error`
+  - `git diff --check` clean
+  - fresh compile `read_console(types=[error]) = 0`
+  - targeted EditMode 两条 detour owner 测试 pass
+  - 但单场 `PlayerAvoidsMovingNpc` fresh live 仍 fail：
+    - `timeout=6.50 / minClearance=0.526 / playerReached=False / npcReached=False`
+- 当前新增稳定事实：
+  - detour lifecycle 这刀已经不是 wrapper，而是第三个真实退壳 checkpoint；
+  - live 剩余第一责任点缩到 shared detour clear/recover 触发仍过密，NPC 在 `clear -> recover -> rebuild` 上反复震荡，玩家仍卡在 `Wait / SidePass`。
+- 当前恢复点：
+  - 下一轮直接锁共享 detour clear hysteresis / cooldown / owner 释放条件；
+  - 这一步不需要再等 fresh compile / fresh live 才能决定。
+
+## 2026-03-25（已基于第三个 detour lifecycle checkpoint 生成 `002-prompt-12`）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6` 未交卷状态下的持续治理与督促。
+- 本轮已基于最新导航回执，新增：
+  - [002-prompt-12.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/屎山修复/导航检查/002-prompt-12.md)
+- 我对这次回执的治理裁定是：
+  1. 接受“detour lifecycle 已真实迁入共享 `NavigationPathExecutor2D`”这个第三个 checkpoint；
+  2. 但明确不接受线程停在“又退了一簇 owner”就开始讲方向；
+  3. 下一刀唯一主刀收紧为：
+     - `TryClearDetourAndRecover()`
+     - detour clear hysteresis / cooldown / owner 释放条件
+- 这轮 prompt 的核心约束：
+  - 不准再横跳去 `arrival / cancel / path-end`
+  - 不准再漂回 `NavigationTrafficArbiter` 或 solver 参数
+  - live 只保留单场 `PlayerAvoidsMovingNpc`
+  - 一旦拿到证据立刻 `Pause / Stop`
+- 当前恢复点：
+  - 如果用户下一步要发给导航线程，直接以 `002-prompt-12.md` 为准；
+  - 后续这条线的审稿重点应切到：
+    1. clear / recover 风暴是否被压住
+    2. 当前 fail 是否继续收缩到更窄责任点
+
+## 2026-03-25（clear/recover 节制条件已压住 live 震荡，单场 fresh live 过线）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6` 未交卷主线；本轮子任务是把 `detour clear / recover` 从“能 clear/recover”推进到“不会因为过密触发把现场震荡死”。
+- 本轮代码只继续落在 4 个白名单文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationPathExecutor2D.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NavigationAvoidanceRulesTests.cs`
+- 本轮完成：
+  1. 共享 owner `NavigationPathExecutor2D.TryClearDetourAndRecover(...)` 新增：
+     - detour 最短存活时长约束
+     - recover cooldown 约束
+     - 过早 clear 时返回 `detour_clear_hysteresis`
+     - 过早再次 recover 时返回 `detour_owner_release_cooldown / detour_recovery_cooldown`
+  2. 玩家 traffic clear 分支开始把：
+     - `0.28f` clear hysteresis
+     - `0.22f` recovery cooldown
+     交给共享层统一判断；正常 waypoint clear 仍允许 `0f / 0f`
+  3. NPC traffic clear 分支开始把：
+     - `0.36f` clear hysteresis
+     - `0.28f` recovery cooldown
+     交给共享层统一判断；正常 waypoint clear 仍允许 `0f / 0f`
+  4. 新增两条共享节制测试并通过：
+     - `NavigationPathExecutor_ShouldKeepActiveDetour_WhenClearHysteresisIsActive`
+     - `NavigationPathExecutor_ShouldThrottleRepeatedRecovery_WhenCooldownIsActive`
+- 本轮验证：
+  - 4 个目标脚本 `validate_script`：`0 error`
+  - `git diff --check -- <4 文件>`：通过
+  - fresh compile 的 external blocker note：
+    - `Assets\Editor\Story\SpringDay1BedSceneBinder.cs` 的 `CS0104 Debug` 冲突
+  - targeted EditMode：上面两条新测试均 pass
+  - 单场 live：
+    - `PlayerAvoidsMovingNpc`
+    - `pass=True / minClearance=0.385 / playerReached=True / npcReached=True / timeout=3.13`
+    - 已在拿到 `scenario_end` / `all_completed` 后立刻 `Stop`
+    - Unity 已退回 Edit Mode
+- 当前新增稳定事实：
+  - 上一轮的 `clear -> recover -> rebuild` 风暴已被压住；
+  - live 中先大量出现 `detour_clear_hysteresis` 的 skip，再只出现一次成功 `Recovered=True`，随后玩家完成绕行并到达；
+  - 这说明本轮第一责任点已经过线，不需要再回头泛调 solver 或继续解释 detour owner 迁移。
+- 当前仍残留的 old fallback / private loop：
+  - 玩家仍保留 `ExecuteNavigation()`、`HandleSharedTrafficDecision()` 外围业务分支、`CompleteArrival()/ForceCancel()`
+  - NPC 仍保留 `TickMoving()`、`FinishMoveCycle()` 与 roam 状态机
+- 当前恢复点：
+  - detour clear/recover 过密这条热区已经压住；
+  - 若用户继续要求推进导航主线，下一步应回到剩余 old fallback / private loop 的真实退壳，而不是重打本轮已过线责任点。
+
+## 2026-03-25（`002-prompt-13`：三场同轮 fresh 全绿）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6` 主线；本轮子任务是把“单场 `PlayerAvoidsMovingNpc` 过线”升级成“三场同轮 fresh 无回归”，且不漂去新责任簇。
+- 本轮没有新增代码改动，仍只锁 detour clear / recover 节制这一簇做 live 复验。
+- live 取证过程分成三类：
+  1. 一次脏 Play 会话中的结果，不计入最终 fresh 结论；
+  2. 一次 runner 中途被外部退出打断的结果，不计入完整结论；
+  3. 最终有效 fresh 结果来自重新 fresh Play 后的一次完整 `Run Live Validation`。
+- 同轮 fresh 最终结果：
+  - `PlayerAvoidsMovingNpc pass=True / minClearance=0.386 / playerReached=True / npcReached=True / timeout=3.70`
+  - `NpcAvoidsPlayer pass=True / minClearance=0.745 / npcReached=True / timeout=3.27`
+  - `NpcNpcCrossing pass=True / minClearance=0.020 / npcAReached=True / npcBReached=True / timeout=5.57`
+  - `all_completed=True / scenario_count=3`
+- 本轮新增稳定事实：
+  - 当前 detour clear / recover 节制没有带来另外两条 probe 回归；
+  - 这刀已经从“单场过线”升级为“三场同轮 fresh 全绿”；
+  - Unity 现场已在拿到证据后立刻 `stop`，并确认回到 Edit Mode。
+- 当前恢复点：
+  - 当前责任簇已经可以认定为同轮三场无回归 checkpoint；
+  - 若继续导航主线，应在保住这条基线的前提下，再回到剩余 old fallback / private loop，而不是回头重打本轮已过线的 detour 节制。
+
+## 2026-03-25（`002-prompt-13` 最小回执收束）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6` 主线；本轮子任务不是新增施工，而是按 `002-prompt-13` 的固定字段把已完成 checkpoint 正式回执给用户。
+- 本轮完成：
+  - 复核 `002-prompt-13.md`、工作区记忆与已落盘 live 证据；
+  - 确认无需再改代码、无需再重跑 live；
+  - 本轮最终回执只沿用现成三场同轮 fresh 结果。
+- 本轮确认的有效结果不变：
+  - `PlayerAvoidsMovingNpc pass=True / minClearance=0.386 / playerReached=True / npcReached=True / timeout=3.70`
+  - `NpcAvoidsPlayer pass=True / minClearance=0.745 / npcReached=True / timeout=3.27`
+  - `NpcNpcCrossing pass=True / minClearance=0.020 / npcAReached=True / npcBReached=True / timeout=5.57`
+  - `all_completed=True / scenario_count=3`
+- 当前恢复点：
+  - detour clear / recover 节制簇维持“三场同轮 fresh 无回归”基线；
+  - 后续若继续导航主线，应等待用户明确下一刀，不再把这条已过线责任簇重新打回施工态。
+
+## 2026-03-25（彻底 review：设计方向 vs 当前实现）
+
+- 当前线程主线没有改题，仍然是导航 `S0-S6`；本轮用户要求我停止继续施工口径，彻底 review 代码与最初落地文档，并明确回答“是不是设计错了、还是我实现错了”。
+- 本轮完成：
+  - 回读 `统一导航重构阶段设计与执行主表.md`、`006`、`007`
+  - 回看当前核心代码：
+    - `NavigationTrafficArbiter.cs`
+    - `NavigationLocalAvoidanceSolver.cs`
+    - `NavigationPathExecutor2D.cs`
+    - `PlayerAutoNavigator.cs`
+    - `NPCAutoRoamController.cs`
+    - `PlayerMovement.cs`
+    - `NPCMotionController.cs`
+- 当前线程级结论：
+  1. 设计目标本身没有全错：
+     - 动静态分层
+     - 交通裁决前置
+     - 统一运动语义
+     - brain / executor / adapter 分层
+     这些方向都对。
+  2. 当前真正失败的是实现与验收纪律：
+     - 我把共享 owner 迁移、probe 绿灯、detour 节制过线过早包装成了“架构闭环”
+     - 但代码里 `TrafficArbiter` 仍先吃 solver，玩家 / NPC 仍各自养主循环，solver 仍是启发式壳层
+  3. 因而用户长期感受到“推土机 / 大圆壳 / 讲了很多骨架但还是没自然”的判断是成立的，不是误解。
+  4. 不是用户逼我做了一条错误路线；
+     - 相反，用户一直在把我往正确的高验收标准上拉；
+     - 我的问题是没有在该彻底下线旧闭环的时候足够果断。
+- 当前恢复点：
+  - 后续若继续推进导航，我应坚持：
+    1. 保留 `006/007` 作为目标架构
+    2. 只把过渡结构当过渡结构，不再误报为闭环完成
+    3. 优先继续处理 `先裁决、后求解`、旧私有主循环退壳、统一运动学真实收口
+
+## 2026-03-25（导航线程详尽复盘补记）
+
+- 用户目标：
+  - 用户要求我停止继续用 checkpoint 口径糊进度，直接回答：
+    1. 最初需求是什么
+    2. 最初设计是什么
+    3. 现在做到什么
+    4. 设计是不是错了
+    5. 我自己到底怎么判断这条线失败的原因
+- 本轮完成：
+  1. 使用 `skills-governor`、`sunset-workspace-router`、`sunset-review-router` 重新做前置核查与 review 路由；
+  2. 回读导航工作区主表、`006`、`007`、`memory.md`；
+  3. 复核导航热区代码与当前 git 现场，重点看：
+     - `NavigationTrafficArbiter`
+     - `NavigationMotionCommand`
+     - `PlayerMovement`
+     - `NPCMotionController`
+     - `PlayerAutoNavigator`
+     - `NPCAutoRoamController`
+     - `GameInputManager`
+     - `NavigationLiveValidationRunner`
+- 当前线程级结论：
+  1. 设计本身没有全错，真正对的硬轴仍是：
+     - 动静态分层
+     - 交通裁决前置
+     - 统一运动语义
+     - brain / executor / adapter 分层
+  2. 当前最大失败不是“用户压着我走了错误路线”，而是我自己的执行顺序与对外口径：
+     - 我把更容易写、更容易测的共享骨架和 owner 迁移做得太前；
+     - 但把最该优先闭环的真实入口体验和最终运动语义留到了后面；
+     - 然后又过早把结构进展包装成“已经快收口”。
+  3. 代码层最关键的三条硬缺口是：
+     - `TrafficArbiter` 仍是 solver-first
+     - 玩家 / NPC 仍各养私有导航主循环
+     - `NavigationMotionCommand` 没有被玩家 / NPC 对称消费，统一的是接口，不是运动学语义
+  4. 当前仍成立的用户批评：
+     - “方向上前进了，但结果还是没有变成可验收的真实体验”
+     是对的。
+  5. 本轮还额外确认一个流程错误：
+     - `memory.md` 写了 `002-prompt-14.md` 已落盘，但磁盘现场没有该文件；
+     - 这说明我连治理物料闭环都出现过一次“记忆先跑、文件没落”的脱节。
+- 当前恢复点：
+  - 如果继续导航主线，我应该坚持：
+    1. 不再把结构 checkpoint 当成体验交付
+    2. 按真实入口单场硬验收推进
+    3. 把最终运动语义的对称消费放到最高优先级
+
+## 2026-03-25（`002-prompt-15` 执行：selective restore 压回真实点击回归）
+
+- 当前线程主线没有改题，仍是导航回归事故处理；本轮子任务是按 `002-prompt-15.md` 只锁“真实点击入口下压掉最坏回归”，不再顺着旧的结构刀口继续漂移。
+- 本轮完成：
+  1. 手工等价执行了 `sunset-startup-guard` 前置核查，并显式使用：
+     - `skills-governor`
+     - `sunset-workspace-router`
+     - `sunset-no-red-handoff`
+     - `sunset-unity-validation-loop`
+     - `unity-mcp-orchestrator`
+  2. 代码路径选择为 `selective restore`：
+     - 撤回 runtime 上未收口的 `TrafficArbiter + MotionCommand` 接线
+     - 玩家恢复为 solver 直出 + `SetNavigationInput/SetBlockedNavigationInput`
+     - NPC 恢复为 solver 直出 + `SetExternalVelocity/MovePosition`
+  3. 明确处置悬空骨架：
+     - 已删除 `NavigationTrafficArbiter.cs / NavigationMotionCommand.cs` 及对应 `.meta`
+  4. 清理相关测试：
+     - `NavigationAvoidanceRulesTests` 中对 `NavigationTrafficArbiter / NavigationMotionCommand` 的测试已撤回
+- 本轮验证：
+  1. `validate_script`
+     - `PlayerAutoNavigator.cs / NPCAutoRoamController.cs / PlayerMovement.cs / NPCMotionController.cs / NavigationAvoidanceRulesTests.cs` 全部 `errors=0`
+  2. `git diff --check`
+     - 目标热区通过
+  3. EditMode
+     - `NavigationAvoidanceRulesTests` 16/16 通过
+  4. live
+     - 只跑 3 轮，拿到证据后立即 `Stop`
+     - 已确认退出 Play，回到 Edit Mode
+- 本轮 live 结果：
+  1. `RealInputPlayerAvoidsMovingNpc`
+     - `pass=True / minClearance=0.388 / pushDisplacement=0.000 / playerReached=True / npcReached=True / timeout=5.47`
+  2. `NpcAvoidsPlayer`
+     - `pass=False / minClearance=0.582 / npcReached=False / timeout=6.50`
+  3. `NpcNpcCrossing`
+     - `pass=False / minClearance=0.514 / npcAReached=False / npcBReached=False / timeout=6.51`
+- 当前线程级结论：
+  1. “玩家推着 NPC 走”这条最坏回归已被压掉；
+  2. 失败形态已经从 `保护罩 / 推挤 / 抽搐` 收缩为：
+     - NPC 自己在运行场景中提前停摆，没有完成到达；
+  3. 当前新的第一责任点固定为：
+     - `NPCAutoRoamController.TickMoving / CheckAndHandleStuck / TryRebuildPath`
+     - `NPCMotionController` 的终点到达/停止语义
+  4. 当前仍残留的 old/private loop：
+     - 玩家 / NPC 私有主循环仍在；
+     - 这轮只是把事故压回到更窄责任点，不等于 `S0-S6` 已闭环。
+- 本轮额外现场备注：
+  - live stop 时出现过两条 `SpringDay1UiLayerUtility` 相关 assert，链路落在 `SpringDay1WorldHintBubble / NPCDialogueInteractable`
+  - 已记录为 unrelated live assert 并清空 Console，清空后 error=0
+- 当前恢复点：
+  - 下一轮若继续导航，不准再回去讲 `TrafficArbiter` 架构，也不准再拿“推土机”当第一责任点；
+  - 必须直接锁 NPC 到达 / 停止语义，把另外两条 NPC 场景从“已不推挤，但停摆”继续压到过线。
+
+## 2026-03-25（`002-prompt-15` 收口补充：代码闸门视角对齐）
+
+- 当前线程主线未变，仍是导航回归事故处理；本轮子任务是把白名单 sync 前的 owned compile/warning 阻塞清掉，并确认当前源码截面下最坏回归没有反弹。
+- 本轮完成：
+  1. 明确查清 `CodexCodeGuard` 的工作方式：
+     - 白名单中的 dirty 文件按 working tree 编译；
+     - 非白名单 dirty 文件按 `HEAD` 编译；
+     - 因此此前 `TryRefreshPath / GetResolvedDestination` 不可见，不是代码又没了，而是 `NavigationPathExecutor2D.cs` 未被纳入白名单。
+  2. 继续收窄 compile blocker：
+     - 把 `NavGrid2D.cs` 一并纳入 owned 白名单后，真实阻塞只剩 `NPCAutoRoamController.drawDebugPath` 的 editor-only warning；
+     - 已用 `#if UNITY_EDITOR` 把它收进 editor 范围。
+  3. 代码闸门重新验证：
+     - `git diff --check` 通过
+     - `CodexCodeGuard` 对 `NavGrid2D.cs / NavigationPathExecutor2D.cs / PlayerAutoNavigator.cs / NPCAutoRoamController.cs / NPCMotionController.cs / NavigationAvoidanceRulesTests.cs` 通过
+     - `NavigationAvoidanceRulesTests` 仍为 `16/16 passed`
+  4. 最小 live 复验：
+     - 只重新跑 1 轮 `RealInputPlayerAvoidsMovingNpc`
+     - 拿到 `scenario_end` 后立即 `Stop`
+     - 已确认退回 `Edit Mode`
+- 本轮最新 live 结果：
+  - `RealInputPlayerAvoidsMovingNpc`
+    - `pass=True / minClearance=0.383 / pushDisplacement=0.000 / playerReached=True / npcReached=True / timeout=5.43`
+- 当前线程级结论：
+  1. “最后一个至少不更差的行为基线”现已可明确表述为：
+     - `4613255c`
+     - 语义上就是旧 solver 直出链，没有 `TrafficArbiter / MotionCommand` runtime 接线；
+  2. 当前真正还没过线的点仍是 NPC 自身提前停摆，不再是玩家把 NPC 顶着走；
+  3. 这轮已经把“代码闸门误判”与“导航主线真实剩余责任点”彻底分开了。
+- 当前恢复点：
+  - 下一轮如果继续导航，应直接锁 NPC 运行场景的到达/停止语义；
+  - 不需要再回头为 `TryRefreshPath` 或 `TrafficArbiter` 做口径辩论。

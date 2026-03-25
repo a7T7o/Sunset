@@ -262,7 +262,7 @@ public class NavGrid2D : MonoBehaviour
         return false;
     }
 
-    private bool IsPointBlocked(Vector2 worldPos, float radius)
+    private bool IsPointBlocked(Vector2 worldPos, float radius, Collider2D ignoredCollider = null)
     {
         int hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
         if (hitCount == _colliderCache.Length)
@@ -276,7 +276,14 @@ public class NavGrid2D : MonoBehaviour
         {
             for (int i = 0; i < hitCount; i++)
             {
-                var hitTransform = _colliderCache[i].transform;
+                Collider2D hitCollider = _colliderCache[i];
+                if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
+                    continue;
+
+                if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
+                    continue;
+
+                var hitTransform = hitCollider.transform;
                 // 跳过生成的物体
                 if (hitTransform.name.Contains("(Clone)") || hitTransform.name.Contains("Pickup"))
                     continue;
@@ -292,7 +299,20 @@ public class NavGrid2D : MonoBehaviour
         // 如果标签没检测到，再用LayerMask检测
         if (obstacleMask.value != 0)
         {
-            return Physics2D.OverlapCircle(worldPos, radius, obstacleMask);
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider2D hitCollider = _colliderCache[i];
+                if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
+                    continue;
+
+                if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
+                    continue;
+
+                if (((1 << hitCollider.gameObject.layer) & obstacleMask.value) != 0)
+                {
+                    return true;
+                }
+            }
         }
         
         return false;
@@ -386,21 +406,33 @@ public class NavGrid2D : MonoBehaviour
     /// <summary>
     /// 检查世界坐标是否可走（公共接口）
     /// </summary>
-    public bool IsWalkable(Vector2 worldPos)
+    public bool IsWalkable(Vector2 worldPos, Collider2D ignoredCollider = null)
     {
         if (!WorldToGrid(worldPos, out int gx, out int gy))
             return false;
+
+        if (ignoredCollider != null)
+        {
+            Physics2D.SyncTransforms();
+            return !IsPointBlocked(worldPos, probeRadius, ignoredCollider);
+        }
+
         return IsWalkable(gx, gy);
     }
 
-    public bool TryFindNearestWalkable(Vector2 world, out Vector2 nearestWorld)
+    public bool TryFindNearestWalkable(Vector2 world, out Vector2 nearestWorld, Collider2D ignoredCollider = null)
     {
         nearestWorld = world;
         if (!WorldToGrid(world, out int gx, out int gy)) return false;
+
+        if (ignoredCollider != null)
+        {
+            Physics2D.SyncTransforms();
+        }
         
         // 🔥 使用更大的搜索范围，确保能找到可走点
         // 并且找到真正最近的点，而不是第一个找到的点
-        if (FindNearestWalkableImproved(gx, gy, 30, out int nx, out int ny))
+        if (FindNearestWalkableImproved(gx, gy, 30, out int nx, out int ny, ignoredCollider))
         {
             nearestWorld = GridToWorldCenter(nx, ny);
             return true;
@@ -477,10 +509,10 @@ public class NavGrid2D : MonoBehaviour
     /// 改进的最近可走点查找：返回欧几里得距离最近的点
     /// 🔥 如果有多个距离相等的点，优先选择：下 > 右 > 上 > 左（确保稳定性）
     /// </summary>
-    private bool FindNearestWalkableImproved(int gx, int gy, int maxRange, out int nx, out int ny)
+    private bool FindNearestWalkableImproved(int gx, int gy, int maxRange, out int nx, out int ny, Collider2D ignoredCollider = null)
     {
         nx = gx; ny = gy;
-        if (InBounds(gx, gy) && IsWalkable(gx, gy)) return true;
+        if (IsGridWalkableForQuery(gx, gy, ignoredCollider)) return true;
         
         // 🔥 在搜索范围内找到欧几里得距离最近的可走点
         float bestDistSq = float.MaxValue;
@@ -503,7 +535,7 @@ public class NavGrid2D : MonoBehaviour
                     int x = gx + dx;
                     int y = gy + dy;
                     
-                    if (InBounds(x, y) && IsWalkable(x, y))
+                    if (IsGridWalkableForQuery(x, y, ignoredCollider))
                     {
                         // 计算欧几里得距离的平方（避免开方运算）
                         float distSq = dx * dx + dy * dy;
@@ -707,6 +739,63 @@ public class NavGrid2D : MonoBehaviour
     private bool IsWalkable(int x, int y)
     {
         return InBounds(x, y) && walkable[x, y];
+    }
+
+    private bool IsGridWalkableForQuery(int x, int y, Collider2D ignoredCollider)
+    {
+        if (!InBounds(x, y))
+        {
+            return false;
+        }
+
+        if (ignoredCollider == null)
+        {
+            return IsWalkable(x, y);
+        }
+
+        return !IsPointBlocked(GridToWorldCenter(x, y), probeRadius, ignoredCollider);
+    }
+
+    private static bool ShouldIgnoreCollider(Collider2D hitCollider, Collider2D ignoredCollider)
+    {
+        if (hitCollider == null || ignoredCollider == null)
+        {
+            return false;
+        }
+
+        if (hitCollider == ignoredCollider)
+        {
+            return true;
+        }
+
+        if (ignoredCollider.attachedRigidbody != null &&
+            hitCollider.attachedRigidbody != null &&
+            hitCollider.attachedRigidbody == ignoredCollider.attachedRigidbody)
+        {
+            return true;
+        }
+
+        return hitCollider.transform.root == ignoredCollider.transform.root;
+    }
+
+    private static bool ShouldIgnoreDynamicNavigationCollider(Collider2D hitCollider)
+    {
+        if (hitCollider == null)
+        {
+            return false;
+        }
+
+        MonoBehaviour[] behaviours = hitCollider.GetComponentsInParent<MonoBehaviour>(includeInactive: false);
+        for (int index = 0; index < behaviours.Length; index++)
+        {
+            if (behaviours[index] is INavigationUnit navigationUnit &&
+                navigationUnit.GetUnitType() != NavigationUnitType.StaticObstacle)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool HasAnyTag(Transform t, string[] tags)

@@ -16,6 +16,9 @@ public class NPCMotionController : MonoBehaviour
     [Header("移动参数")]
     [SerializeField] private float moveSpeed = 2.5f;
     [SerializeField] private float moveThreshold = 0.05f;
+    [SerializeField] private float navigationAcceleration = 16f;
+    [SerializeField] private float navigationDeceleration = 20f;
+    [SerializeField] private float navigationRecoverAcceleration = 12f;
     [SerializeField] private bool useRigidbodyVelocity = true;
     [SerializeField] private bool autoDetectMovement = true;
 
@@ -47,6 +50,7 @@ public class NPCMotionController : MonoBehaviour
 
     public bool IsMoving { get; private set; }
     public Vector2 CurrentVelocity { get; private set; }
+    public Vector2 ReportedVelocity => _hasExternalVelocity ? _externalVelocity : CurrentVelocity;
 
     #endregion
 
@@ -105,6 +109,9 @@ public class NPCMotionController : MonoBehaviour
     {
         moveSpeed = Mathf.Max(0f, moveSpeed);
         moveThreshold = Mathf.Max(0.001f, moveThreshold);
+        navigationAcceleration = Mathf.Max(0.1f, navigationAcceleration);
+        navigationDeceleration = Mathf.Max(0.1f, navigationDeceleration);
+        navigationRecoverAcceleration = Mathf.Max(0.1f, navigationRecoverAcceleration);
 
         if (!Application.isPlaying)
         {

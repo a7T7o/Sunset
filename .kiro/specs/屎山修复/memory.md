@@ -590,3 +590,280 @@
 - 父层当前恢复点：
   - 下一轮继续导航线时，不需要再处理这条测试 `CS0246`；
   - 直接从“我的测试 blocker 已清，外部 compile blocker 仍在”继续推进 `S0-S6`。
+
+### 会话 31 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮没有再把外部 compile blocker 当停车位，而是继续做了一个真实结构 checkpoint：
+  - 将 `BuildPath / RebuildPath / ActualDestination / 路径后处理` 这组责任继续迁向共享 `NavigationPathExecutor2D`
+- 父层新增稳定事实：
+  1. `NavigationPathExecutor2D` 现在开始真实持有“路径实际终点”的执行状态：
+     - 新增 `HasDestination`
+     - 新增 `TryRefreshPath(...)`
+     - 新增 `GetResolvedDestination(...)`
+  2. `PlayerAutoNavigator` 已少养一层私货：
+     - 删除私有 `resolvedPathDestination / hasResolvedPathDestination`
+     - 删除私有 `SmoothPath()` / `CleanupPathBehindPlayer()`
+     - `BuildPath()` 改为共享刷新入口
+  3. `NPCAutoRoamController` 已少养一层私货：
+     - `DebugMoveTo()` / `TryBeginMove()` / `TryRebuildPath()` 都改接共享刷新入口
+     - 不再各自手写 `TryBuildPath -> ActualDestination` 回填链
+  4. 测试也已同步到这条新责任链：
+     - `NavigationAvoidanceRulesTests` 现在直接校验 `TryRefreshPath(...)` 后 `HasDestination/Destination`
+- 父层当前判断：
+  - 这轮属于 `002-prompt-9` 要求的真实“退壳 checkpoint”；
+  - 但它只解决了路径请求责任簇，`stuck/repath`、`detour lifecycle`、`先裁决后求解` 仍未完成。
+- 父层当前恢复点：
+  - 下一轮继续导航线时，应优先再拆一组：
+    - `stuck/repath`
+    - 或 `detour create/clear/recover`
+  - external blocker 只保留备注，不再作为导航主线停工叙事。
+
+### 会话 32 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已基于最新回执补发：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-10.md`
+- 父层新增稳定事实：
+  - 最新回执已被正式承认为一个真实退壳 checkpoint：
+    - `BuildPath / RebuildPath / ActualDestination / 路径后处理`
+    - 已开始由共享 `NavigationPathExecutor2D` 接手
+  - 但这不再是下一轮的主刀；当前对子工作区的新要求已经收紧成：
+    - 继续拆 `stuck / repath / 恢复入口`
+    - 继续验证共享执行层是不是开始成为这组语义的真 owner
+  - 新 prompt 已明确禁止三种偏差：
+    1. 停在轻责任簇上重复盘旋
+    2. 再拿 external blocker 当停车位
+    3. 只做 wrapper，不做 owner 迁移
+- 父层当前恢复点：
+  - 后续若继续导航线，默认直接沿 `002-prompt-10` 推进；
+  - 审稿重点继续从“是否真的退掉更重私有闭环”出发，而不再回到轻责任簇讲故事。
+
+### 会话 33 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已按 `002-prompt-10` 继续施工，没有再停在“路径请求责任簇”上：
+  - 这次主刀落在共享 `stuck / repath / 恢复入口`
+- 父层新增稳定事实：
+  1. `NavigationPathExecutor2D` 现在开始真实持有 stuck/repath 的 owner 状态：
+     - `LastRepathTime`
+     - `LastRecoveryTime`
+     - `LastRecoveryDistance`
+     - `LastRecoverySucceeded`
+  2. `NavigationPathExecutor2D` 新增共享入口 `TryHandleStuckRecovery(...)`，并在内部统一处理：
+     - stuck 判定
+     - repath cooldown
+     - 共享刷新路径
+     - 恢复结果写回
+  3. 玩家 / NPC 控制器已不再直接调用 `EvaluateStuck(...)`：
+     - 玩家 `CheckAndHandleStuck()` 改吃共享 `StuckRecoveryResult`
+     - NPC `CheckAndHandleStuck()` 改吃共享 `StuckRecoveryResult`
+  4. 新增两条测试已锁住这次 owner 迁移：
+     - 共享恢复成功时写回 owner 状态
+     - 共享 repath cooldown 生效时阻断恢复
+- 父层当前判断：
+  - 这轮属于第二个真实退壳 checkpoint，不是 wrapper 换皮；
+  - 但 `arrival/cancel/path-end`、`detour lifecycle`、`先裁决后求解` 仍未完成。
+- 父层当前恢复点：
+  - 下一轮继续导航线时，优先接着拆：
+    - `arrival / cancel / path-end`
+    - 或 `detour create / clear / recover`
+  - 不需要再回头质疑“stuck/repath 是否还在各自控制器私判”。
+
+### 会话 34 - 2026-03-24
+
+- 子工作区 `导航检查` 本轮已基于最新回执补发：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-11.md`
+- 父层新增稳定事实：
+  1. 最新回执已被正式承认为第二个真实退壳 checkpoint：
+     - `stuck / repath / 恢复入口`
+     - 已开始由共享 `NavigationPathExecutor2D` 接手
+  2. 但这不再允许线程继续在两个候选下一步之间摇摆；
+     - 当前对子工作区的新要求已经收紧成：
+       - 继续拆 `detour create / clear / recover`
+       - 继续验证共享执行层是不是开始成为 detour lifecycle 的真 owner
+  3. 新 prompt 已明确禁止三种偏差：
+     - 再在 `arrival / cancel / path-end` 和 `detour lifecycle` 之间摇摆
+     - 再拿 external blocker 当停车位
+     - 只做 wrapper，不做 detour lifecycle owner 迁移
+- 父层当前恢复点：
+  - 后续若继续导航线，默认直接沿 `002-prompt-11` 推进；
+  - 审稿重点继续从“detour 生命周期是否真实退壳”出发，而不再回到 stuck/repath 本身。
+
+### 会话 35 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮已把 `002-prompt-11` 的唯一主刀落成代码：
+  - `PlayerAutoNavigator / NPCAutoRoamController` 的 `detour create / clear / recover`
+  - 已开始迁成共享 `NavigationPathExecutor2D` owner
+- 父层新增稳定事实：
+  1. 这轮可以接受为第三个真实退壳 checkpoint，不再只是 wrapper：
+     - 共享执行层现在持有 detour candidate 解析、clear 时间戳与恢复入口
+     - 玩家 / NPC 控制器已少掉私写 candidate loop 与直接 override waypoint 操作
+  2. fresh compile 已回正，当前不再是 external compile blocker 叙事；
+     - targeted detour owner 测试两条都 pass
+  3. 但单场 `PlayerAvoidsMovingNpc` fresh live 仍失败：
+     - `pass=False / timeout=6.50 / minClearance=0.526 / playerReached=False / npcReached=False`
+     - 当前第一责任点已收缩到 shared detour clear/recover 触发仍过密，导致 live 中反复 `clear -> recover -> rebuild`
+- 父层当前恢复点：
+  - 下一轮继续导航线时，不必再回结构层，也不必再等 compile/live；
+  - 直接锁共享 detour clear hysteresis / cooldown / owner 释放条件，先把 `PlayerAvoidsMovingNpc` 从 timeout 拉出来。
+
+### 会话 36 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮已把共享 detour clear/recover 的节制条件真正落地：
+  - `NavigationPathExecutor2D.TryClearDetourAndRecover()` 新增 clear hysteresis + recovery cooldown
+  - 玩家 / NPC traffic clear 分支都改为把节制阈值交给共享 owner
+- 父层新增稳定事实：
+  1. 这轮不再只是“失败形态收窄”，而是单场 `PlayerAvoidsMovingNpc` fresh live 已过线：
+     - `pass=True / minClearance=0.385 / playerReached=True / npcReached=True / timeout=3.13`
+  2. live 证据说明 clear/recover 风暴已被压住：
+     - 前段多次 `detour_clear_hysteresis` skip
+     - 中段仅出现一次成功 `Recovered=True`
+     - 随后玩家完成 `SidePass / Yield / Proceed` 到达
+  3. 当前 external blocker note 变更为：
+     - `Assets\Editor\Story\SpringDay1BedSceneBinder.cs` 的 `CS0104 Debug` 冲突
+     - 但这次 targeted tests 与单场 live 已继续跑通，没有再成为导航停车位
+- 父层当前恢复点：
+  - detour clear/recover 过密这刀已过线；
+  - 后续导航治理若继续推进，应回到剩余 old fallback / private loop 的退壳，而不是重打本轮已过线责任点。
+
+### 会话 37 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮未再扩散责任簇，也没有新增代码改动；
+  - 只补了 `002-prompt-13` 要求的三场同轮 fresh live 验证。
+- 父层新增稳定事实：
+  1. 当前 detour clear / recover 节制已不只是“单场 `PlayerAvoidsMovingNpc` 过线”；
+     - 三条核心 probe 同轮 fresh 全绿：
+       - `PlayerAvoidsMovingNpc pass=True`
+       - `NpcAvoidsPlayer pass=True`
+       - `NpcNpcCrossing pass=True`
+  2. 当前这版节制条件没有把另外两条 probe 打回归；
+  3. 本轮中途出现过“脏 Play 会话 / runner 被外部退出打断”的无效现场，但线程最终重新取到了真正 fresh 的三场结果，没有把无效证据混进最终结论。
+- 父层当前恢复点：
+  - 当前 detour 节制簇 checkpoint 已从“单场过线”升级为“三场同轮 fresh 无回归”；
+  - 后续若继续导航治理，应在保住这条基线的前提下，再回到剩余 old fallback / private loop 的退壳。
+
+### 会话 38 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮没有新增代码或 live 施工；
+  - 只按 `002-prompt-13` 固定口径完成收束回执补记。
+- 父层新增稳定事实：
+  1. 当前 detour clear / recover 节制簇仍维持三场同轮 fresh 全绿结论，无新增回归信号；
+  2. 本轮只是复核并确认：
+     - `PlayerAvoidsMovingNpc`
+     - `NpcAvoidsPlayer`
+     - `NpcNpcCrossing`
+     三条结果已足够作为当前 checkpoint 基线。
+- 父层当前恢复点：
+  - 后续如继续导航治理，应等待用户明确下一责任簇；
+  - 当前不再重跑已完成的 detour 节制簇。
+
+### 会话 39 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮新增的是一次“代码与设计对账复盘”，不是继续施工。
+- 父层新增稳定事实：
+  1. `006/007` 作为目标架构方向仍成立，不应整份推翻；
+  2. 当前真正的问题不是“用户把线程压去错误设计”，而是线程自己把过渡层 owner 迁移过早包装成架构闭环；
+  3. 当前仍未完成的硬缺口继续固定为：
+     - `先裁决、后求解` 未真正落地
+     - `NavigationLocalAvoidanceSolver` 仍是启发式壳层系统
+     - 玩家 / NPC 旧私有导航主循环未真正退干净
+     - 统一运动学只收了命令边界，未完全收口语义
+- 父层当前恢复点：
+  - 后续若继续导航治理，应以这次复盘作为新的诚实基线；
+  - 不再允许“骨架前进 = 已经交卷”的口径回潮。
+
+### 会话 40 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮新增的是一次“代码、设计、验收口径”的二次审视，不是继续写新结构。
+- 父层新增稳定事实：
+  1. 导航线当前最关键的失败已进一步收窄为：
+     - 不是目标设计全错；
+     - 而是 `S2 / S5 / S6` 仍未在代码与真实入口体验上真正闭环。
+  2. 当前必须继续坚持的诚实口径：
+     - 共享 owner / probe baseline 可以记成绩；
+     - 但不能再把它们包装成“专业导航底座已完成”。
+  3. 当前还新增一条流程风险：
+     - `导航检查/memory.md` 记载了“`002-prompt-14.md` 已落盘”，但磁盘现场无该文件；
+     - 后续治理不能再让 memory 先于真实文件闭环。
+- 父层当前恢复点：
+  - 若继续导航治理，应把“真实入口体验闭环”继续压在结构 checkpoint 之前；
+  - 不再允许以缺失的 prompt 文件或 memory 自述代替真实现场。
+
+### 会话 41 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮没有继续顺着旧口径写 `002-prompt-14` 的幽灵结论，而是基于最新用户手测重判主线。
+- 父层新增稳定事实：
+  1. 当前导航已不只是“结构成立、体验未闭环”，而是进入了真实点击体验回归事故态：
+     - 用户现场明确反馈“保护罩 / 推挤 / 被围抽搐”，并判定当前体感比旧基线更差；
+  2. 子工作区已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-15.md`
+     作为当前唯一有效续工文件；
+  3. 子工作区也已把一条治理脱节写实钉死：
+     - `memory.md` 曾写“`002-prompt-14.md` 已落盘”，但磁盘现场无该文件；
+     - 这轮起缺失的 `002-prompt-14` 不再作为有效依据继续外推；
+  4. 当前 live `git status` 里 `NavigationTrafficArbiter.cs / NavigationMotionCommand.cs` 仍为 untracked，说明导航骨架本身是否真正进基线仍未收干净。
+- 父层关键裁定：
+  1. 后续导航治理的优先级已变成：
+     - 先恢复真实点击入口下至少不比旧基线更差的体验；
+     - 再谈 `S2/S3/S5/S6` 的长期闭环；
+  2. 线程被允许在导航线内自主判断：
+     - `selective rollback`
+     - `selective restore`
+     - `forward fix`
+     但不允许继续把当前更差的体感留在现场。
+- 父层当前恢复点：
+  - 若继续导航治理，下一刀必须先把“最坏回归”压掉，而不是继续把结构成绩外推成体验进展；
+  - 导航这条线现在的硬门槛已经从“有没有更多共享 owner”改成“真实点击是否至少恢复到可接受基线”。
+
+### 会话 42 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮已按 `002-prompt-15` 从“结构主线续工”切成“回归事故处理”。
+- 父层新增稳定事实：
+  1. 导航线程这轮明确选择了 `selective restore`：
+     - 把 runtime 从未提交的 `TrafficArbiter + MotionCommand` 新链撤回到旧的 solver 直出链；
+     - 同时正式撤回了：
+       - `Assets/YYY_Scripts/Service/Navigation/NavigationTrafficArbiter.cs`
+       - `Assets/YYY_Scripts/Service/Navigation/NavigationMotionCommand.cs`
+  2. 最坏体验回归已经被压缩：
+     - 真实点击入口 `RealInputPlayerAvoidsMovingNpc` 重新过线；
+     - `pushDisplacement=0.000 / minClearance=0.388 / playerReached=True / npcReached=True`
+     - 说明“玩家推着 NPC 走”这条最痛现场已经不再成立。
+  3. 另外两条 NPC 场景没有过线，但失败形态继续收窄：
+     - `NpcAvoidsPlayer pass=False / minClearance=0.582 / npcReached=False`
+     - `NpcNpcCrossing pass=False / minClearance=0.514 / npcAReached=False / npcBReached=False`
+     - 当前主形态已不再是 `保护罩 / 推挤`，而是 NPC 自身提前停摆、未完成到达。
+  4. 子工作区新的第一责任点已被钉到：
+     - `NPCAutoRoamController.TickMoving / CheckAndHandleStuck / TryRebuildPath`
+     - `NPCMotionController` 的到达/停止语义
+- 父层关键裁定：
+  - 这轮可以接受为“最坏回归已压掉，但导航仍未真正交卷”；
+  - 后续若继续导航治理，不准再回去争论 `TrafficArbiter` 架构，也不准再把问题描述成“还是推土机”；
+  - 应直接围绕 NPC 提前停摆这条更窄责任点推进。
+- 父层当前恢复点：
+  - 导航线当前真实状态是：
+    - 玩家真实点击入口已回到至少不比旧基线更差；
+    - NPC 运行终点语义仍未恢复；
+  - 下一刀应继续留在导航工作区，锁 NPC runtime 到达簇，不再重开大架构话题。
+
+### 会话 43 - 2026-03-25
+
+- 子工作区 `导航检查` 本轮把 `002-prompt-15` 的事故处置又往前收了一步，但没有改主线。
+- 父层新增稳定事实：
+  1. 上一轮白名单 sync 里那组 “`NavigationPathExecutor2D` 缺少 `TryRefreshPath / GetResolvedDestination`” 并不是导航 runtime 又退坏了，而是 `CodexCodeGuard` 的编译视角和 working tree 视角不一致：
+     - 漏白名单的 dirty `.cs` 文件会按 `HEAD` 编译；
+     - 导航线程这轮已确认需要把 `NavGrid2D.cs` 和 `NavigationPathExecutor2D.cs` 一起纳入 owned 白名单，才能正确评估当前导航热区。
+  2. 子工作区已把最后一个 owned blocker 清成 editor-only 调试字段：
+     - `NPCAutoRoamController.drawDebugPath` 现已收进 `#if UNITY_EDITOR`
+     - 完整 owned 白名单下 `CodexCodeGuard` 已通过。
+  3. 子工作区又补了一轮最小 real-input 复验：
+     - `RealInputPlayerAvoidsMovingNpc`
+     - `pass=True / minClearance=0.383 / pushDisplacement=0.000 / timeout=5.43`
+     - 说明“玩家推着 NPC 走”这条最坏回归在当前源码截面上仍已压掉。
+  4. 导航线程把“最后一个至少不更差基线”进一步钉实为：
+     - `4613255c`
+     - 代表旧 solver 直出链而非 `TrafficArbiter / MotionCommand` runtime 接线状态。
+- 父层关键裁定：
+  - 当前导航线可以接受为“真实点击入口最坏回归已压掉，并且当前 owned 代码已能自洽编译收口”；
+  - 但父层对导航的未完成判断不变：
+    - `NpcAvoidsPlayer / NpcNpcCrossing` 的 NPC 提前停摆仍是下一刀主责任点。
+- 父层当前恢复点：
+  - 若导航继续施工，下一刀必须继续留在 NPC 到达/停止语义；
+  - 不需要再回头证明“是不是还在推着走”，也不需要再扩成新的结构迁移叙事。
