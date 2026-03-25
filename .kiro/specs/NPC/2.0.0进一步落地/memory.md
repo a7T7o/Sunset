@@ -95,3 +95,38 @@
 - 当前恢复点：
   - 这条切片本质上是在为后续 NPC / 玩家双气泡、关系反馈和玩家侧表达体验打基础，不依赖当前场景热区。
   - 后续只要用户仍在占用场景，我仍可继续沿“非热区、纯代码、可白名单收口”的方向补独立切片；一旦要做 live 表现验收，再等用户放开 Unity。
+
+## 2026-03-25｜003 测试模式正规化：默认不再自动抢占正式漫游
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ bd5e588d`
+- 当前主线目标：
+  - 在用户释放 MCP 后，重新回到 NPC 自身的 live 验证，优先把“003 仍像测试 NPC 一样自动锁死自己”这类污染正式使用的问题真正收掉。
+- 本轮子任务：
+  - 查清 `003` 为什么进 Play 后始终 `Inactive`。
+  - 让 `003` 的压力测试组件改成“默认不自启”，避免继续污染正式 NPC 漫游。
+  - 用最小 Play 窗口验证修正是否生效，并确保最后退回 Edit Mode。
+- 本轮证据：
+  - 只读扫描 `Primary` 后确认：
+    - `001 / 002` 在 Play 中会进入 `ShortPause / IsRoaming=true`
+    - `003` 同时保持 `Inactive / IsRoaming=false`
+  - 继续只读回查组件发现根因不是导航：
+    - `NPCBubbleStressTalker.startOnEnable = true`
+    - `NPCBubbleStressTalker.disableRoamWhileTesting = true`
+    - 也就是 `003` 会在 `OnEnable` 时主动把自己的 `NPCAutoRoamController` 关掉
+- 本轮完成：
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\NPC\003.prefab`
+  - 将 `NPCBubbleStressTalker.startOnEnable` 调整为 `false`
+- 本轮验证：
+  - 修改后，scene 实例 `NPCBubbleStressTalker.startOnEnable` 已同步显示为 `false`
+  - 再次短窗口 Play 取证时：
+    - `003` 已进入 `ShortPause`
+    - `IsRoaming = true`
+    - `NPCBubbleStressTalker.TestModeEnabled = false`
+  - Stop 后已确认：
+    - 当前回到 Edit Mode
+    - `Primary` 仍 `isDirty = false`
+    - console `error / warning = 0`
+- 当前恢复点：
+  - `003` 现在默认是正式 NPC，会正常参与漫游；若要做气泡压力测试，需要显式打开测试模式，而不会再自动污染日常场景。
+  - 仍未推进的 scene 集成项是 `HomeAnchor` 真实配置；这一步需要动 `Primary.unity`，要继续看热场景占用与用户是否要我直接进 scene 写入。

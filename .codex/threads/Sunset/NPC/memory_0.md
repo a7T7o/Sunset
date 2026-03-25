@@ -444,3 +444,35 @@
 - 当前恢复点：
   - 若用户继续占用场景，我仍可继续沿“非热区、纯代码、能过 `CodexCodeGuard` 的小闭环”推进
   - 若用户释放场景，我优先回到 NPC 自身的 live 集成与表现验收
+
+## 2026-03-25｜用户释放 MCP 后的第一刀 live 收口
+
+- 当前主线目标：
+  - 用户明确说可以重新使用 MCP 后，我先不乱开大题，而是回到 NPC 自身最明显的 live 遗留问题：`003` 仍被测试模式污染。
+- 本轮子任务：
+  - 只读确认 Unity / MCP 基线
+  - 做一次短窗口 Play，验证 `001 / 002 / 003` 的真实 runtime 状态
+  - 如果问题定位清楚，只做最小修正并再次短窗口复验，然后立刻 Stop
+- 本轮关键过程：
+  - MCP preflight 已通过：
+    - `unityMCP`
+    - `http://127.0.0.1:8888/mcp`
+    - `Primary` 已加载且 `isDirty = false`
+    - console 初始 `error / warning = 0`
+  - 第一次短窗口 Play 发现：
+    - `001 / 002` 正常 `IsRoaming = true`
+    - `003` 保持 `Inactive`
+  - 只读定位根因：
+    - `NPCBubbleStressTalker.startOnEnable = true`
+    - `NPCBubbleStressTalker.disableRoamWhileTesting = true`
+    - 003 是被自己的测试组件关掉了 roam，不是导航没起
+  - 已通过 MCP 只改一处 prefab 字段：
+    - `Assets/222_Prefabs/NPC/003.prefab`
+    - `NPCBubbleStressTalker.startOnEnable = false`
+  - 第二次短窗口 Play 复验：
+    - `003` 已恢复 `IsRoaming = true / DebugState = ShortPause`
+    - 测试模式默认未再自动启动
+  - 每次 Play 后都已主动 `Stop`，最终现场已回 Edit Mode
+- 当前恢复点：
+  - `003` 测试模式正规化这件事现在终于真正闭环了。
+  - 接下来如果还要继续 NPC live 推进，最自然的下一刀是 `HomeAnchor` 与 scene 集成；但那会正式进入 `Primary.unity` 写入范围，不能再假装是 prefab-only 小刀。

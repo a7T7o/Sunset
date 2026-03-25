@@ -458,3 +458,26 @@
 - 当前恢复点：
   - 场景一旦释放，我仍优先回到 NPC 自身的 live 表现与集成验收。
   - 在场景未释放前，仍可继续寻找同等级别的非热区独立切片推进。
+
+## 2026-03-25 续｜003 测试模式污染正式 NPC 的问题已收口
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ bd5e588d`
+- 当前主线目标：
+  - MCP 放开后，回到 NPC 自身 live 验证，优先收掉“003 还是默认测试 NPC”这个遗留问题。
+- 本轮关键事实：
+  - `Primary` 中 `001 / 002 / 003` 的 profile、碰撞链都在位。
+  - 但短窗口 Play 取证时，只有 `001 / 002` 进入漫游；`003` 仍 `Inactive`。
+  - 根因不是导航，而是 `NPCBubbleStressTalker` 仍默认：
+    - `startOnEnable = true`
+    - `disableRoamWhileTesting = true`
+- 本轮完成：
+  - 仅修改 `Assets/222_Prefabs/NPC/003.prefab`
+  - 把 `NPCBubbleStressTalker.startOnEnable` 改为 `false`
+- 本轮 live 验证结果：
+  - 修改后再次进入短窗口 Play，`003` 已恢复 `IsRoaming = true / DebugState = ShortPause`
+  - `NPCBubbleStressTalker.TestModeEnabled = false`
+  - Stop 后 `Primary` 仍未脏、console 仍无新 `error / warning`
+- 当前恢复点：
+  - `003` 默认不再自动抢占正式 NPC 漫游。
+  - 后续若要继续 NPC 场景化，最明显还没做的就是 `HomeAnchor` 真正落进 scene；这一步属于 scene 集成写入，不再是 prefab-only。
