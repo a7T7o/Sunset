@@ -523,3 +523,21 @@
   - 将 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs.meta` 纳入后续收口范围
 - 当前恢复点：
   - 这轮 NPC 工具链 checkpoint 还差一个极小 follow-up 提交，之后我会再判断当前是否还存在安全可推进的 NPC 自身内容。
+
+## 2026-03-25｜NPC 本轮已推到安全边界
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 55e2bccd`
+- 当前结论：
+  - `003` 的正式化修正、工具链正规化、回归测试补位、尾巴清理都已收口并推上 `main`。
+  - 当前没有新的非热区独立 NPC 代码切口可以继续安全推进。
+- 仍未完成但属于 NPC 后续主线的内容：
+  - `HomeAnchor` 的 scene 落点
+  - 正式 roam 区域 / 路线 / 相遇节奏
+  - 导航交付后的 NPC 联调
+  - Unity Test Runner 里的 `NPCToolchainRegularizationTests` 实跑
+- 当前阻塞：
+  - `Primary.unity` 属于共享热 scene
+  - Unity console 仍有外部 blocker：
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - `PageRefs` 缺失

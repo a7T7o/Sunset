@@ -194,3 +194,25 @@
   - 保留并准备收口 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCToolchainRegularizationTests.cs.meta`
 - 当前恢复点：
   - NPC 这轮自己的直接尾巴只剩最小 follow-up 收口，不再留“早期起稿 + 新脚本没 meta”的脏尾巴。
+
+## 2026-03-25｜本轮 NPC 安全推进边界确认
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 55e2bccd`
+- 当前主线目标：
+  - 在已经完成 `003` 工具链正规化与尾巴清理后，确认这轮 NPC 是否还存在可继续安全推进的独立实现切口。
+- 本轮只读核查结论：
+  - 当前已经没有“既属于 NPC 自己、又不撞热区、也不依赖外部编译 blocker”的下一刀可直接继续实现。
+  - 后续真正仍属于 NPC 的未完成项，按优先级主要是：
+    - `001 / 002 / 003` 的 `HomeAnchor` scene 落点
+    - 正式活动区域 / 路线 / 相遇节奏的 scene 级配置
+    - 导航线程交付后的 NPC 侧联调与体验验收
+    - `NPCToolchainRegularizationTests` 的 Unity Test Runner 实跑复验
+  - 其中：
+    - `HomeAnchor / 路线 / 活动区域` 会进入 `Primary.unity` 热区
+    - Unity 测试复验当前仍受外部 blocker 影响：
+      - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+      - `PageRefs` 缺失
+- 当前恢复点：
+  - 后续如果继续 NPC 实现，最合理的下一条是 scene 级正式集成，而不是继续在非热区里硬凑无关小刀。
+  - 在 `Primary.unity` 热区未释放、或外部编译 blocker 未清之前，本线程应停在当前 checkpoint，不再扩题。

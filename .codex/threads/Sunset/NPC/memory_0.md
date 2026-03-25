@@ -518,3 +518,25 @@
   - 确认 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs.meta` 是我新增测试脚本自动生成的必要文件，需跟下一次最小收口一起提交
 - 当前恢复点：
   - 这轮剩余自己的直接尾巴已经缩到一个极小 follow-up 提交；收完后再继续判断还有没有别的 NPC 自己能安全推进的活。
+
+## 2026-03-25｜剩余项盘点后的线程结论
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 55e2bccd`
+- 本轮最终判断：
+  - 我已经把这条 NPC 线推进到当前安全边界。
+  - 还能继续做的内容不是没有，但都已经进入：
+    - `Primary.unity` scene 热区
+    - 导航联调主战场
+    - 或被外部编译 blocker 卡住的 Unity 复验阶段
+- 当前仍属于我后续责任的内容：
+  - `HomeAnchor` scene 落点
+  - 正式活动区域 / 路线 / 相遇节奏
+  - 导航交付后的 NPC 侧联调与体验验收
+  - `NPCToolchainRegularizationTests` 的 Unity Test Runner 复验
+- 当前不该继续硬做的原因：
+  - `Primary.unity` 热区未确认给我独占写窗口
+  - Unity console 仍有外部 blocker：
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - `PageRefs` 缺失
+  - shared root 里还有大量他线 dirty，继续扩刀会明显增加误伤概率
