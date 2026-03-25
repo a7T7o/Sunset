@@ -481,3 +481,35 @@
 - 当前恢复点：
   - `003` 默认不再自动抢占正式 NPC 漫游。
   - 后续若要继续 NPC 场景化，最明显还没做的就是 `HomeAnchor` 真正落进 scene；这一步属于 scene 集成写入，不再是 prefab-only。
+
+## 2026-03-25｜003 工具链正规化补齐，防止正式 NPC 被工具重新污染
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 4c62ef05`
+- 当前主线目标：
+  - 把前一刀 `003.prefab` 的默认修正继续向工具链层补齐，确保生成器、scene 集成工具和巡检入口不会把正式 NPC 又打回“默认测试模式”。
+- 本轮完成：
+  - 修改：
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs`
+    - `Assets/Editor/NPCPrefabGeneratorTool.cs`
+    - `Assets/Editor/NPCSceneIntegrationTool.cs`
+    - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+  - 新增：
+    - `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs`
+- 本轮关键结果：
+  - stress talker 现在有显式模式接口，默认仍是手动启动。
+  - prefab generator 现在把 BubbleReview 改成显式 opt-in，且生产态 `003` 明确走研究型 profile。
+  - scene integration tool 在正式模式下会禁用 stress auto-start，而不是删除组件。
+  - roam inspector 现在可以直接看到并切换 stress auto-start。
+  - 新增纯 Editor 回归测试，把默认口径和 profile 映射钉成断言。
+- 本轮验证：
+  - `git diff --check` 通过。
+  - `CodexCodeGuard` 对上述 5 个 C# 文件通过。
+  - MCP 基线、实例和 scene 状态复核通过；本轮未进 Play，`Primary.unity` 仍 `isDirty = false`。
+  - 做过一次脚本级 compile 复核后，当前我 own 的错误已清零。
+  - 当前 Unity console 仍有外部 blocker：
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - `PageRefs` 缺失
+- 当前恢复点：
+  - `003` 的“默认正式 NPC，测试模式显式开启”现在已经从 prefab 修正推进到工具链语义。
+  - 下一刀如果继续 NPC 自己的集成，最自然还是 `HomeAnchor` scene 落点；但这一步要正式进入 `Primary.unity` 热区。

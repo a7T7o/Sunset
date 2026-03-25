@@ -10,7 +10,7 @@ public class NPCBubbleStressTalker : MonoBehaviour
 {
     [SerializeField] private NPCBubblePresenter bubblePresenter;
     [SerializeField] private NPCAutoRoamController roamController;
-    [SerializeField] private bool startOnEnable = true;
+    [SerializeField] private bool startOnEnable = false;
     [SerializeField] private bool disableRoamWhileTesting = true;
     [SerializeField] private bool sequentialPlayback = true;
     [SerializeField] private float minGapSeconds = 1.8f;
@@ -45,6 +45,8 @@ public class NPCBubbleStressTalker : MonoBehaviour
     public NPCBubblePresenter BubblePresenter => bubblePresenter;
     public NPCAutoRoamController RoamController => roamController;
     public bool TestModeEnabled => startOnEnable;
+    public bool StartOnEnable => startOnEnable;
+    public bool DisableRoamWhileTesting => disableRoamWhileTesting;
     public bool DisableRoamInTestMode => disableRoamWhileTesting;
     public bool SequentialPlayback => sequentialPlayback;
     public int NextLineIndex => _nextLineIndex;
@@ -117,6 +119,13 @@ public class NPCBubbleStressTalker : MonoBehaviour
 
     public void RebindReferences()
     {
+        CacheComponents();
+    }
+
+    public void ConfigureMode(bool enableOnStart, bool disableRoamDuringTest = true)
+    {
+        startOnEnable = enableOnStart;
+        disableRoamWhileTesting = disableRoamDuringTest;
         CacheComponents();
     }
 

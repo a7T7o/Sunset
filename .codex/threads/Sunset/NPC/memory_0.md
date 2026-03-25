@@ -476,3 +476,35 @@
 - 当前恢复点：
   - `003` 测试模式正规化这件事现在终于真正闭环了。
   - 接下来如果还要继续 NPC live 推进，最自然的下一刀是 `HomeAnchor` 与 scene 集成；但那会正式进入 `Primary.unity` 写入范围，不能再假装是 prefab-only 小刀。
+
+## 2026-03-25｜把 003 正规化继续推进到工具链层，并补齐 Editor 回归测试
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 4c62ef05`
+- 当前主线目标：
+  - 用户要求我继续做到“当前确实没有安全可推进项”为止，所以我没有停在 `003.prefab` 一处，而是继续把这次修正向工具链和测试层推进，避免后续生成器 / scene 工具把正式 NPC 再次污染回测试模式。
+- 本轮子任务：
+  - 补 `NPCBubbleStressTalker` 的显式模式接口
+  - 修 `NPCPrefabGeneratorTool` / `NPCSceneIntegrationTool` / `NPCAutoRoamControllerEditor`
+  - 增加纯 Editor 回归测试
+- 本轮完成：
+  - 修改 `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs`
+  - 修改 `Assets/Editor/NPCPrefabGeneratorTool.cs`
+  - 修改 `Assets/Editor/NPCSceneIntegrationTool.cs`
+  - 修改 `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+  - 新增 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs`
+- 本轮关键结论：
+  - 这组改动已经不再只是“Prefab 上手改一个 bool”，而是把 `003` 的正式语义推进到了生成器、scene 集成和 inspector 入口层。
+  - 我最初新增的测试文件曾在 Unity console 里报过“测试程序集直连类型”的 own 错误；我已把它改成反射式写法，并重新通过代码闸门与脚本级编译复核。
+  - 当前 Unity console 剩余错误不属于我这轮：
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - `PageRefs` 缺失
+- 本轮验证：
+  - `CodexCodeGuard` 对 5 个 C# 文件通过（`Assembly-CSharp / Assembly-CSharp-Editor / Tests.Editor`）
+  - MCP 基线通过，当前实例仍是 shared root `Sunset`
+  - 做过一次脚本级 `refresh + compile`
+  - 未进入 Play Mode
+  - `Primary.unity` 仍 `isDirty = false`
+- 当前恢复点：
+  - 这刀自己的代码与工具链已经形成可白名单收口的独立 checkpoint。
+  - 进一步的 Unity 测试作业现在会被 `SpringDay1PromptOverlay.cs / PageRefs` 外部 blocker 截住；除非对方先清掉，否则我不应该再把这条 NPC 切片继续硬拖进 shared root 长时间红态。

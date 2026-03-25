@@ -96,9 +96,9 @@ public class NPCPrefabGeneratorTool : EditorWindow
     private float defaultIdleAnimationSpeed = 1f;
     private float defaultMoveAnimationSpeed = 1f;
     private bool enableDebugLogOnPrefab = false;
-    private bool autoAssignBubbleReviewRole = true;
+    private bool autoAssignBubbleReviewRole = false;
     private bool addStressTalkerToBubbleReview = true;
-    private string bubbleReviewNpcNames = "003";
+    private string bubbleReviewNpcNames = string.Empty;
 
     private Vector2 scrollPos;
     private string lastSummary = "尚未获取选中项。";
@@ -235,8 +235,8 @@ public class NPCPrefabGeneratorTool : EditorWindow
         }
 
         EditorGUILayout.HelpBox(
-            "正式 NPC 默认使用 NPC_DefaultRoamProfile，不挂 NPCBubbleStressTalker。\n" +
-            "验证样本 NPC 默认使用 NPC_BubbleReviewProfile，并可自动挂上 NPCBubbleStressTalker。\n" +
+            "正式 NPC 默认不自动进入压测模式。\n" +
+            "只有显式填写到验证样本名称里的 NPC，才会进入 BubbleReview 模式并自动启用 NPCBubbleStressTalker。\n" +
             "验证样本名称支持逗号、空格、分号或换行分隔，例如：003, NPC_Test_A",
             MessageType.None);
 
@@ -897,6 +897,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
         if (task.Role == GeneratedNpcRole.BubbleReview && addStressTalkerToBubbleReview)
         {
             NPCBubbleStressTalker stressTalker = root.AddComponent<NPCBubbleStressTalker>();
+            stressTalker.ConfigureMode(enableOnStart: true, disableRoamDuringTest: true);
             stressTalker.RebindReferences();
             ConfigureBubbleReviewContent(task.NpcName, stressTalker);
         }
@@ -919,6 +920,11 @@ public class NPCPrefabGeneratorTool : EditorWindow
             if (string.Equals(npcName, "002", StringComparison.OrdinalIgnoreCase))
             {
                 return VillageDaughterProfilePath;
+            }
+
+            if (string.Equals(npcName, "003", StringComparison.OrdinalIgnoreCase))
+            {
+                return ResearchReviewProfilePath;
             }
         }
 

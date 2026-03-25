@@ -130,3 +130,54 @@
 - 当前恢复点：
   - `003` 现在默认是正式 NPC，会正常参与漫游；若要做气泡压力测试，需要显式打开测试模式，而不会再自动污染日常场景。
   - 仍未推进的 scene 集成项是 `HomeAnchor` 真实配置；这一步需要动 `Primary.unity`，要继续看热场景占用与用户是否要我直接进 scene 写入。
+
+## 2026-03-25｜003 测试模式工具链正规化与回归测试补位
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 4c62ef05`
+- 当前主线目标：
+  - 不让 `003.prefab` 上那次“默认不自启”的修正只停留在 prefab 一处，而是把生成器、scene 集成工具、巡检入口和回归测试一起收口，避免后续工具再把正式 NPC 污回测试模式。
+- 本轮子任务：
+  - 补齐 `NPCBubbleStressTalker` 的显式模式接口。
+  - 让 `NPCPrefabGeneratorTool` 改为“BubbleReview 必须显式 opt-in”。
+  - 让 `NPCSceneIntegrationTool` 在正式模式下禁用测试自动启动，而不是粗暴删除组件。
+  - 让 `NPCAutoRoamControllerEditor` 能直接看到并切换 stress auto-start。
+  - 增加一份纯 Editor 回归测试，固定这组语义。
+- 本轮完成：
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCBubbleStressTalker.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCPrefabGeneratorTool.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCSceneIntegrationTool.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCAutoRoamControllerEditor.cs`
+  - 新增 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCToolchainRegularizationTests.cs`
+- 本轮关键实现：
+  - `NPCBubbleStressTalker` 现在默认 `startOnEnable = false`，并提供：
+    - `StartOnEnable`
+    - `DisableRoamWhileTesting`
+    - `ConfigureMode(...)`
+  - `NPCPrefabGeneratorTool` 不再默认把 `003` 自动归到 BubbleReview；只有显式填入验证样本名称时才会自动挂压测模式，且生产态 `003` 会继续走研究型 profile。
+  - `NPCSceneIntegrationTool` 现在支持按 NPC 推荐 profile 批量落正式配置，并在 Production 模式下把 stress talker 调整为“手动触发”，而不是直接移除。
+  - `NPCAutoRoamControllerEditor` 现在会直接显示 stress auto-start 当前状态，并提供开/关按钮，减少手改 Inspector 的误操作。
+  - 新增 `NPCToolchainRegularizationTests`，覆盖：
+    - stress talker 默认手动启动
+    - `ConfigureMode(...)` 模式切换
+    - scene integration 推荐 profile 映射
+    - prefab generator 的显式 BubbleReview opt-in 口径
+- 本轮验证：
+  - `git diff --check` 对上述 5 个 C# 文件通过。
+  - `CodexCodeGuard` 对上述 5 个 C# 文件通过，覆盖：
+    - `utf8-strict`
+    - `git-diff-check`
+    - `roslyn-assembly-compile`
+  - MCP 基线复核通过：
+    - `unityMCP`
+    - `http://127.0.0.1:8888/mcp`
+    - 当前实例仍是 shared root `Sunset`
+  - 已做一次脚本级 `refresh + compile`，确认我本轮最初引入的测试程序集直连类型错误已清零。
+  - 当前 Unity console 剩余红错为外部 blocker：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1PromptOverlay.cs`
+    - `PageRefs` 缺失
+  - 本轮没有进入 Play Mode，也没有改 `Primary.unity`；当前 scene 仍 `isDirty = false`
+- 当前恢复点：
+  - `003` 测试模式从 prefab 到工具链已经完成一次完整正规化，不容易再被生成器或 scene 工具无意打回“默认压测 NPC”。
+  - 由于 Unity console 当前仍被 `SpringDay1PromptOverlay.cs / PageRefs` 外部编译错误占住，这轮没有继续硬跑 Unity EditMode 测试作业；后续可在外部 blocker 清掉后直接点跑 `NPCToolchainRegularizationTests` 做完整 Unity 侧复验。
+  - NPC 下一刀真正还值得做的，仍然是 scene 级 `HomeAnchor` 落点与正式集成，但那已经进入 `Primary.unity` 热区，不再属于这类非热区小事务。

@@ -113,13 +113,29 @@ public class NPCAutoRoamControllerEditor : Editor
             {
                 EditorGUILayout.Space(4f);
                 EditorGUILayout.HelpBox(
-                    "This NPC has an attached bubble stress talker. Treat it as a validation NPC, not a normal production NPC.",
+                    $"This NPC has an attached bubble stress talker.\nAuto Start: {(stressTalker.StartOnEnable ? "On" : "Off")}\nDisable Roam While Testing: {(stressTalker.DisableRoamWhileTesting ? "Yes" : "No")}",
                     MessageType.Info);
 
+                EditorGUILayout.BeginHorizontal();
                 if (GUILayout.Button("Select Stress Talker"))
                 {
                     Selection.activeObject = stressTalker;
                 }
+
+                if (GUILayout.Button("Enable Stress Auto Start"))
+                {
+                    Undo.RecordObject(stressTalker, "Enable NPC Stress Auto Start");
+                    stressTalker.ConfigureMode(enableOnStart: true, disableRoamDuringTest: true);
+                    EditorUtility.SetDirty(stressTalker);
+                }
+
+                if (GUILayout.Button("Disable Stress Auto Start"))
+                {
+                    Undo.RecordObject(stressTalker, "Disable NPC Stress Auto Start");
+                    stressTalker.ConfigureMode(enableOnStart: false, disableRoamDuringTest: true);
+                    EditorUtility.SetDirty(stressTalker);
+                }
+                EditorGUILayout.EndHorizontal();
             }
 
             EditorGUILayout.HelpBox(

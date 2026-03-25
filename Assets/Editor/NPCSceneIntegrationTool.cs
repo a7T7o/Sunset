@@ -7,6 +7,9 @@ public class NPCSceneIntegrationTool : EditorWindow
 {
     private const string ProductionProfilePath = "Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset";
     private const string BubbleReviewProfilePath = "Assets/111_Data/NPC/NPC_BubbleReviewProfile.asset";
+    private const string VillageChiefProfilePath = "Assets/111_Data/NPC/NPC_001_VillageChiefRoamProfile.asset";
+    private const string VillageDaughterProfilePath = "Assets/111_Data/NPC/NPC_002_VillageDaughterRoamProfile.asset";
+    private const string ResearchReviewProfilePath = "Assets/111_Data/NPC/NPC_003_ResearchReviewProfile.asset";
 
     private enum IntegrationMode
     {
@@ -16,10 +19,11 @@ public class NPCSceneIntegrationTool : EditorWindow
 
     private IntegrationMode mode = IntegrationMode.Production;
     private NPCRoamProfile assignedProfile;
+    private bool usePerNpcRecommendedProfile = true;
     private bool createHomeAnchorIfMissing = true;
     private bool snapAnchorToNpc = true;
     private bool selectAnchorAfterCreate = false;
-    private bool removeStressTalkerInProduction = true;
+    private bool disableStressTalkerAutoStartInProduction = true;
     private bool addStressTalkerInBubbleReview = true;
 
     [MenuItem("Tools/NPC/NPC Scene Integration Tool")]
@@ -32,10 +36,7 @@ public class NPCSceneIntegrationTool : EditorWindow
 
     private void OnEnable()
     {
-        if (assignedProfile == null)
-        {
-            assignedProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(ProductionProfilePath);
-        }
+        assignedProfile = null;
     }
 
     private void OnGUI()
@@ -48,27 +49,34 @@ public class NPCSceneIntegrationTool : EditorWindow
 
         mode = (IntegrationMode)EditorGUILayout.EnumPopup("Integration Mode", mode);
         DrawModeHint();
-        assignedProfile = (NPCRoamProfile)EditorGUILayout.ObjectField("Assigned Profile", assignedProfile, typeof(NPCRoamProfile), false);
+        usePerNpcRecommendedProfile = EditorGUILayout.Toggle("Use Per-NPC Recommended Profile", usePerNpcRecommendedProfile);
+        using (new EditorGUI.DisabledScope(usePerNpcRecommendedProfile))
+        {
+            assignedProfile = (NPCRoamProfile)EditorGUILayout.ObjectField("Assigned Profile Override", assignedProfile, typeof(NPCRoamProfile), false);
+        }
         EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("Use Default Production Profile"))
         {
+            usePerNpcRecommendedProfile = false;
             assignedProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(ProductionProfilePath);
         }
 
         if (GUILayout.Button("Use Bubble Review Profile"))
         {
+            usePerNpcRecommendedProfile = false;
             assignedProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(BubbleReviewProfilePath);
         }
 
-        if (GUILayout.Button("Use Recommended Profile"))
+        if (GUILayout.Button("Use Per-NPC Recommended"))
         {
-            assignedProfile = LoadRecommendedProfile(mode);
+            usePerNpcRecommendedProfile = true;
+            assignedProfile = null;
         }
         EditorGUILayout.EndHorizontal();
         createHomeAnchorIfMissing = EditorGUILayout.Toggle("Create Home Anchor If Missing", createHomeAnchorIfMissing);
         snapAnchorToNpc = EditorGUILayout.Toggle("Snap Anchor To NPC", snapAnchorToNpc);
         selectAnchorAfterCreate = EditorGUILayout.Toggle("Select Anchor After Create", selectAnchorAfterCreate);
-        removeStressTalkerInProduction = EditorGUILayout.Toggle("Remove Stress Talker In Production", removeStressTalkerInProduction);
+        disableStressTalkerAutoStartInProduction = EditorGUILayout.Toggle("Disable Stress Auto Start In Production", disableStressTalkerAutoStartInProduction);
         addStressTalkerInBubbleReview = EditorGUILayout.Toggle("Add Stress Talker In Bubble Review", addStressTalkerInBubbleReview);
 
         EditorGUILayout.Space(10f);
@@ -103,7 +111,9 @@ public class NPCSceneIntegrationTool : EditorWindow
             NPCBubbleStressTalker stressTalker = controller.GetComponent<NPCBubbleStressTalker>();
             string profileName = controller.RoamProfile != null ? controller.RoamProfile.name : "None";
             string anchorState = controller.HomeAnchor != null ? controller.HomeAnchor.name : "No Anchor";
-            string stressState = stressTalker != null ? "StressTalker" : "No StressTalker";
+            string stressState = stressTalker != null
+                ? (stressTalker.StartOnEnable ? "StressTalker(Auto)" : "StressTalker(Manual)")
+                : "No StressTalker";
             EditorGUILayout.LabelField($"- {controller.name} | {profileName} | {anchorState} | {stressState}", EditorStyles.miniLabel);
         }
         EditorGUILayout.EndVertical();
@@ -112,8 +122,8 @@ public class NPCSceneIntegrationTool : EditorWindow
     private void DrawModeHint()
     {
         string modeDescription = mode == IntegrationMode.Production
-            ? "Production mode keeps normal roam behavior, uses the default production profile, and removes BubbleStressTalker from formal NPCs."
-            : "Bubble Review mode keeps 003-style validation behavior, uses the BubbleReview profile, and ensures BubbleStressTalker is present.";
+            ? "Production mode keeps normal roam behavior, prefers each NPC's recommended formal profile, and disables BubbleStressTalker auto-start instead of silently hijacking roam."
+            : "Bubble Review mode is an explicit validation mode. It ensures BubbleStressTalker is present and auto-starts testing on enable.";
 
         EditorGUILayout.HelpBox(modeDescription, MessageType.None);
     }
@@ -124,11 +134,6 @@ public class NPCSceneIntegrationTool : EditorWindow
         if (controllers.Count == 0)
         {
             return;
-        }
-
-        if (assignedProfile == null)
-        {
-            assignedProfile = LoadRecommendedProfile(mode);
         }
 
         List<GameObject> createdAnchors = new List<GameObject>();
@@ -148,7 +153,8 @@ public class NPCSceneIntegrationTool : EditorWindow
 
             touchedScenes.Add(controller.gameObject.scene);
 
-            if (assignedProfile != null)
+            NPCRoamProfile profileToApply = ResolveProfileForController(controller);
+            if (profileToApply != null)
             {
                 Undo.RecordObject(controller, "Assign NPC Roam Profile");
                 SerializedObject serializedObject = new SerializedObject(controller);
@@ -156,7 +162,7 @@ public class NPCSceneIntegrationTool : EditorWindow
                 SerializedProperty applyOnAwakeProperty = serializedObject.FindProperty("applyProfileOnAwake");
                 if (profileProperty != null)
                 {
-                    profileProperty.objectReferenceValue = assignedProfile;
+                    profileProperty.objectReferenceValue = profileToApply;
                 }
                 if (applyOnAwakeProperty != null)
                 {
@@ -190,12 +196,15 @@ public class NPCSceneIntegrationTool : EditorWindow
                 }
             }
 
-            if (mode == IntegrationMode.Production && removeStressTalkerInProduction)
+            if (mode == IntegrationMode.Production && disableStressTalkerAutoStartInProduction)
             {
                 NPCBubbleStressTalker stressTalker = controller.GetComponent<NPCBubbleStressTalker>();
                 if (stressTalker != null)
                 {
-                    Undo.DestroyObjectImmediate(stressTalker);
+                    Undo.RecordObject(stressTalker, "Disable NPC Bubble Stress Auto Start");
+                    stressTalker.ConfigureMode(enableOnStart: false, disableRoamDuringTest: true);
+                    stressTalker.RebindReferences();
+                    EditorUtility.SetDirty(stressTalker);
                 }
             }
 
@@ -210,6 +219,7 @@ public class NPCSceneIntegrationTool : EditorWindow
                 if (stressTalker != null)
                 {
                     Undo.RecordObject(stressTalker, "Configure NPC Bubble Stress Talker");
+                    stressTalker.ConfigureMode(enableOnStart: true, disableRoamDuringTest: true);
                     stressTalker.RebindReferences();
                     EditorUtility.SetDirty(stressTalker);
                 }
@@ -265,12 +275,44 @@ public class NPCSceneIntegrationTool : EditorWindow
         return controllers;
     }
 
-    private static NPCRoamProfile LoadRecommendedProfile(IntegrationMode integrationMode)
+    private NPCRoamProfile ResolveProfileForController(NPCAutoRoamController controller)
     {
-        string assetPath = integrationMode == IntegrationMode.Production
-            ? ProductionProfilePath
-            : BubbleReviewProfilePath;
+        if (!usePerNpcRecommendedProfile)
+        {
+            return assignedProfile;
+        }
 
+        string assetPath = ResolveRecommendedProfilePath(controller != null ? controller.name : string.Empty, mode);
         return AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(assetPath);
+    }
+
+    private static string ResolveRecommendedProfilePath(string npcName, IntegrationMode integrationMode)
+    {
+        if (integrationMode == IntegrationMode.Production)
+        {
+            if (string.Equals(npcName, "001", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return VillageChiefProfilePath;
+            }
+
+            if (string.Equals(npcName, "002", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return VillageDaughterProfilePath;
+            }
+
+            if (string.Equals(npcName, "003", System.StringComparison.OrdinalIgnoreCase))
+            {
+                return ResearchReviewProfilePath;
+            }
+
+            return ProductionProfilePath;
+        }
+
+        if (string.Equals(npcName, "003", System.StringComparison.OrdinalIgnoreCase))
+        {
+            return ResearchReviewProfilePath;
+        }
+
+        return BubbleReviewProfilePath;
     }
 }
