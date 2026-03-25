@@ -292,11 +292,11 @@ MonoBehaviour:
   hideDuration: 0.1
   showScaleOvershoot: 0.05
   selfTalkLines:
-  - "\u5148\u5728\u8FD9\u8FB9\u770B\u770B\u3002"
-  - "\u4ECA\u5929\u8FD8\u633A\u5B89\u9759\u3002"
-  - "\u4F11\u606F\u4E00\u4E0B\u518D\u8D70\u3002"
-  - "\u55EF \u8FD9\u8FB9\u98CE\u6709\u70B9\u8212\u670D\u3002"
-  - "\u4E0D\u77E5\u9053\u5927\u5BB6\u5728\u5FD9\u4EC0\u4E48\u3002"
+  - "\u8FD9\u8FB9\u6652\u5F97\u521A\u521A\u597D\u3002"
+  - "\u8981\u662F\u518D\u5B89\u9759\u4E00\u70B9\uFF0C\u5C31\u66F4\u9002\u5408\u53D1\u5446\u4E86\u3002"
+  - "\u4ECA\u5929\u98CE\u6709\u70B9\u8F7B\uFF0C\u88D9\u6446\u90FD\u4E0D\u600E\u4E48\u4E71\u3002"
+  - "\u5927\u5BB6\u5404\u5FD9\u5404\u7684\uFF0C\u770B\u7740\u4E5F\u633A\u6709\u8DA3\u3002"
+  - "\u5148\u5728\u8FD9\u513F\u7F13\u4E00\u5C0F\u4F1A\u513F\u5427\u3002"
   showDebugLog: 0
   styleVersion: 7
 --- !u!114 &8904943649822209385
@@ -316,7 +316,7 @@ MonoBehaviour:
   rb: {fileID: 2200020020020020020}
   navGrid: {fileID: 0}
   homeAnchor: {fileID: 0}
-  roamProfile: {fileID: 11400000, guid: 43840fe5def0543459c896e1fd11f676, type: 2}
+  roamProfile: {fileID: 11400000, guid: 0c22a5d55f6b4ecd84af9d3ea7d27002, type: 2}
   autoStart: 1
   applyProfileOnAwake: 1
   activityRadius: 3

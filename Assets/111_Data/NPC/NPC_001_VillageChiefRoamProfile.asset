@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c01be81b1d634694b827b2f28f4987e2, type: 3}
+  m_Name: NPC_001_VillageChiefRoamProfile
+  m_EditorClassIdentifier: 
+  moveSpeed: 2.4
+  idleAnimationSpeed: 1
+  moveAnimationSpeed: 0.98
+  activityRadius: 2.4
+  minimumMoveDistance: 0.5
+  pathSampleAttempts: 12
+  shortPauseMin: 0.8
+  shortPauseMax: 2.6
+  shortPauseCountMin: 3
+  shortPauseCountMax: 4
+  longPauseMin: 4
+  longPauseMax: 6.8
+  stuckCheckInterval: 0.3
+  stuckDistanceThreshold: 0.08
+  maxStuckRecoveries: 3
+  enableAmbientChat: 1
+  ambientChatRadius: 3.6
+  ambientChatChance: 0.62
+  ambientChatResponseDelay: 0.9
+  selfTalkLines:
+  - "\u6751\u53E3\u4ECA\u5929\u8FD8\u7B97\u7A33\u5F53\u3002"
+  - "\u5148\u5728\u8FD9\u513F\u7AD9\u4E00\u4F1A\u513F\uFF0C\u770B\u770B\u5927\u5BB6\u90FD\u5FD9\u5F97\u600E\u4E48\u6837\u3002"
+  - "\u5730\u91CC\u7684\u4E8B\u3001\u5C4B\u91CC\u7684\u4E8B\uFF0C\u90FD\u5F97\u6709\u4EBA\u8BB0\u7740\u3002"
+  - "\u98CE\u5411\u987A\uFF0C\u4ECA\u5929\u505A\u4E8B\u4F1A\u5229\u7D22\u4E9B\u3002"
+  - "\u6162\u4E00\u70B9\u4E0D\u6253\u7D27\uFF0C\u522B\u5148\u628A\u8282\u594F\u4E71\u4E86\u3002"
+  chatInitiatorLines:
+  - "\u4ECA\u65E9\u6751\u91CC\u52A8\u9759\u4E0D\u5927\uFF0C\u5012\u662F\u4E2A\u505A\u4E8B\u7684\u597D\u65F6\u5019\u3002"
+  - "\u4F60\u90A3\u8FB9\u5FD9\u5B8C\u4E86\uFF1F\u5148\u628A\u811A\u8DDF\u7AD9\u7A33\u518D\u8BF4\u3002"
+  - "\u8DEF\u53E3\u8FD9\u4F1A\u513F\u4EBA\u6765\u4EBA\u5F80\uFF0C\u54B1\u4EEC\u90FD\u8BA9\u7740\u70B9\u3002"
+  - "\u6211\u521A\u770B\u4E86\u4E00\u5708\uFF0C\u5927\u5BB6\u4ECA\u5929\u7CBE\u795E\u90FD\u8FD8\u4E0D\u9519\u3002"
+  chatResponderLines:
+  - "\u55EF\uFF0C\u5148\u628A\u773C\u524D\u8FD9\u70B9\u4E8B\u7A33\u4F4F\u3002"
+  - "\u6211\u4E5F\u662F\u8FD9\u4E48\u60F3\u7684\uFF0C\u6025\u4E0D\u5F97\u3002"
+  - "\u884C\uFF0C\u7B49\u4F1A\u513F\u6211\u518D\u53BB\u522B\u5904\u770B\u770B\u3002"
+  - "\u6709\u4F60\u642D\u53E5\u8BDD\uFF0C\u5012\u662F\u6E05\u695A\u591A\u4E86\u3002"

@@ -315,3 +315,108 @@
 - 本轮验证：
   - 本轮没有新增业务代码，只更新了对导航线程的文档口径。
 - 当前恢复点：如果用户现在要把需求直接发给导航线程，这份回执已经够用了；NPC 这边后面还会继续做导航交付后的接入与场景化终验，不是彻底没事做。
+
+## 2026-03-25 NPC只读世界扫描
+
+- 当前主线目标：用户要我只做一次扫描检测，判断现在有没有新的用武之地，不开始干活。
+- 本轮子任务：只读核查当前 `main`、shared root、MCP 占用和 NPC/导航相关 dirty 面。
+- 本轮已证实：
+  - 当前 live 现场是 `D:\Unity\Unity_learning\Sunset @ main @ 84fc3818`。
+  - `main` 虽然与远端一致，但 working tree 很脏，而且核心业务面正在被多线程推进。
+  - NPC/导航最相关的 dirty 已覆盖 `Primary.unity`、`GameInputManager.cs`、`NPCAutoRoamController.cs`、`NPCMotionController.cs`、`NavGrid2D.cs`、`NavigationPathExecutor2D.cs`、`PlayerAutoNavigator.cs`、`PlayerMovement.cs` 等。
+  - 仅这组 NPC/导航相关 diff 就已经接近 2000 行新增级别，说明当前是明显的集成施工现场，不是适合我直接插进去补刀的空档。
+  - MCP 占用文档当前没有显式 claim，但热区文件本身正在 dirty，不能把“没人 claim”当成“适合随便 live 写”。
+- 当前判断：
+  - 我现在不是完全没用，而是更适合先做观察、验收准备、边界守门和后续接入等待。
+  - 真正适合我重新下场的时机，应该是这波导航/场景集成先收一段，再由我接手 NPC 侧适配、场景化落点和最终联调。
+
+## 2026-03-25 导航自检后的自我任务重排
+
+- 当前主线目标：基于导航线程最新自检，重新判断 NPC 线程接下来最值得自发认领的工作。
+- 本轮子任务：只做认知同步和任务设计，不开始实现。
+- 本轮已确认：
+  - 导航线程已经明确承认：共享底座方向没错，但 `S2 / S3 / S5 / S6` 远未收口，这意味着我现在不该抢碰导航核心，也不该提前改 NPC 运动语义去搅乱联调。
+  - NPC 线程当前仍有价值，但更适合先做“接入契约、验收清单、场景化落点设计、后续交互兼容设计”这些不会撞主战场的准备项。
+- 如果后续让我自发领活，我优先会做：
+  1. NPC-导航接入契约与联调验收清单
+  2. NPC 场景化真实落点设计
+  3. NPC 受击 / 工具命中 / 反应系统兼容设计草案
+
+## 2026-03-25 docs-only 收口：NPC导航接入契约定稿
+
+- 当前主线目标：
+  - 执行治理线程下发的 `2026-03-25_NPC导航接入契约与联调验收规范起稿.md`，把 NPC 当前能做的那部分跨线程协作前置文档真正收稳。
+- 本轮子任务：
+  - 不碰导航核心、不碰 NPC 业务实现、不碰 Unity live，只把 NPC -> 导航的唯一契约文件落盘，并结束同类文件继续堆量。
+- 本轮完成：
+  - 新增正式文件：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\NPC-导航接入契约与联调验收规范.md`
+  - 文档已经明确声明：
+    - 单文件持续维护
+    - supersede 历史 `给导航线程的正式回执_2026-03-23.md`
+    - 本轮只覆盖冻结语义、最小接入契约、联调验收清单、红线和 deferred 项
+- 本轮关键证据：
+  - live Git 仍是 `D:\Unity\Unity_learning\Sunset @ main @ 84fc3818f8049d3cd6a5697f87f288429b2b361c`
+  - live working tree 当前极脏，docs-only 是本轮唯一正确动作
+  - 旧回执已不在 live 文件树，但可从 `e339ccd65d48c56e35e7984e8b524be8124d8d45` 回读正文，说明“吸收旧回执而不复活旧文件”是合理收口方式
+  - 当前 `NPCAutoRoamController.cs` / `NPCMotionController.cs` / `001~003.prefab` 仍支持文档中冻结下来的稳定语义
+- 当前恢复点：
+  - NPC 这轮对导航线程的入口已经不再靠聊天临时口述
+  - 等导航线程下一次正式回包时，我应直接按这份新契约验收，而不是再重起平行版文档
+
+## 2026-03-25 NPC 2.0.0 工作区正式起步
+
+- 当前主线目标：
+  - 响应用户新增的大需求，把 NPC 从“只做导航协作文档”推进到“2.0.0 进一步落地”的设计阶段。
+- 本轮子任务：
+  - 落一份能长期回看对照的 `需求拆分.md`
+  - 把导航契约迁入 2.0.0，并结束 1.0.0 双份正文并存
+- 本轮完成：
+  - 新增 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\memory.md`
+  - 新增 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\需求拆分.md`
+  - 新增 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\NPC-导航接入契约与联调验收规范.md`
+  - 将 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\NPC-导航接入契约与联调验收规范.md` 改为迁移说明
+- 本轮新锁定的需求结构：
+  - 文档治理收口：导航契约只维护一个当前版本
+  - 场景化与角色化：001/002/003 不再只是测试对象
+  - 轻交互与关系层：人设气泡、相遇对话、好感度、玩家/NPC 双气泡
+  - 反应兼容层：受击 / 工具命中 / 反应系统
+- 当前恢复点：
+  - 后续如果继续推进 NPC 大设计，优先在 `2.0.0进一步落地` 下展开
+
+## 2026-03-25 续｜用户批准后开始 2.0.0 第一刀实现
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 84fc3818f8049d3cd6a5697f87f288429b2b361c`
+- 当前主线目标：
+  - 在用户已批准 2.0.0 文档后，把现在就能安全落地的 NPC 角色化内容直接落到 `main`，但不碰导航热区与场景热区。
+- 本轮子任务：
+  - 补齐 2.0.0 主文件族。
+  - 建立三名 NPC 的独立角色化 profile。
+  - 让 prefab 与生成器默认接入这套新 profile。
+- 本轮完成：
+  - 已补齐 `2.0.0进一步落地` 的 4 份主文件：
+    - `NPC-导航接入契约与联调验收规范.md`
+    - `NPC场景化真实落点与角色日常设计.md`
+    - `NPC交互反应与关系成长设计.md`
+    - `NPC系统实施主表.md`
+  - 已新增：
+    - `Assets/111_Data/NPC/NPC_001_VillageChiefRoamProfile.asset`
+    - `Assets/111_Data/NPC/NPC_002_VillageDaughterRoamProfile.asset`
+    - `Assets/111_Data/NPC/NPC_003_ResearchReviewProfile.asset`
+  - 已修改：
+    - `Assets/Editor/NPCPrefabGeneratorTool.cs`
+    - `Assets/222_Prefabs/NPC/001.prefab`
+    - `Assets/222_Prefabs/NPC/002.prefab`
+    - `Assets/222_Prefabs/NPC/003.prefab`
+- 本轮关键结论：
+  - `001 / 002 / 003` 现在不再共享一套通用环境话术。
+  - `003` 的验证样本文案也开始带研究型角色感，而不是继续停留在“纯压测句库”。
+  - 生成器后续重新生 `001 / 002 / 003` 时，会自动延续这套角色化 profile 基线，减少回退到旧通用配置的风险。
+- 本轮验证：
+  - `git diff --check` 通过本轮 NPC 文档、asset、prefab 与生成器脚本。
+  - prefab 指向的新 profile GUID 与对应 `.meta` 已闭合。
+  - 本轮没有触碰 `Primary.unity`、`NPCAutoRoamController.cs`、`NPCMotionController.cs`、导航核心、玩家导航核心，也没有做 Unity / MCP live 写。
+- 当前恢复点：
+  - 如果继续 NPC 2.0.0，下一刀更适合做场景真实落点、双气泡样式规范或关系成长入口。
+  - 导航运动语义、动态避让和玩家导航闭环仍由导航线程主刀，我保持不越界。

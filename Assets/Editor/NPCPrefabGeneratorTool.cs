@@ -62,6 +62,21 @@ public class NPCPrefabGeneratorTool : EditorWindow
     private const float ClipFrameRate = 6f;
     private const string DefaultRoamProfilePath = "Assets/111_Data/NPC/NPC_DefaultRoamProfile.asset";
     private const string BubbleReviewProfilePath = "Assets/111_Data/NPC/NPC_BubbleReviewProfile.asset";
+    private const string VillageChiefProfilePath = "Assets/111_Data/NPC/NPC_001_VillageChiefRoamProfile.asset";
+    private const string VillageDaughterProfilePath = "Assets/111_Data/NPC/NPC_002_VillageDaughterRoamProfile.asset";
+    private const string ResearchReviewProfilePath = "Assets/111_Data/NPC/NPC_003_ResearchReviewProfile.asset";
+
+    private static readonly string[] ResearcherStressTalkLines =
+    {
+        "先记一下。",
+        "这个位置的光线比路口稳定。",
+        "如果大家都从这边经过，我得留意间距。",
+        "我想再看一遍气泡的停留时间和换行节奏。",
+        "刚才那段路径有点挤，我得记下是谁先让开的。",
+        "只要把这几次相遇顺序记清楚，我就能知道问题更像出在让行还是节奏。",
+        "从这里观察会更方便，我能同时看到停顿、转向和说话时机有没有互相打架。",
+        "要是下一轮大家的移动更自然了，我就可以把这份记录从测试笔记改成真正有用的结论。"
+    };
 
     private static readonly TemplateDirection[] RowDirections =
     {
@@ -876,16 +891,63 @@ public class NPCPrefabGeneratorTool : EditorWindow
 
     private void ApplyGeneratedRole(TextureTask task, GameObject root, NPCAutoRoamController roamController)
     {
-        string profilePath = task.Role == GeneratedNpcRole.BubbleReview
-            ? BubbleReviewProfilePath
-            : DefaultRoamProfilePath;
+        string profilePath = ResolveGeneratedProfilePath(task.NpcName, task.Role);
         AssignRoamProfile(roamController, profilePath);
 
         if (task.Role == GeneratedNpcRole.BubbleReview && addStressTalkerToBubbleReview)
         {
             NPCBubbleStressTalker stressTalker = root.AddComponent<NPCBubbleStressTalker>();
             stressTalker.RebindReferences();
+            ConfigureBubbleReviewContent(task.NpcName, stressTalker);
         }
+    }
+
+    private string ResolveGeneratedProfilePath(string npcName, GeneratedNpcRole role)
+    {
+        if (role == GeneratedNpcRole.BubbleReview && string.Equals(npcName, "003", StringComparison.OrdinalIgnoreCase))
+        {
+            return ResearchReviewProfilePath;
+        }
+
+        if (role == GeneratedNpcRole.Production)
+        {
+            if (string.Equals(npcName, "001", StringComparison.OrdinalIgnoreCase))
+            {
+                return VillageChiefProfilePath;
+            }
+
+            if (string.Equals(npcName, "002", StringComparison.OrdinalIgnoreCase))
+            {
+                return VillageDaughterProfilePath;
+            }
+        }
+
+        return role == GeneratedNpcRole.BubbleReview
+            ? BubbleReviewProfilePath
+            : DefaultRoamProfilePath;
+    }
+
+    private void ConfigureBubbleReviewContent(string npcName, NPCBubbleStressTalker stressTalker)
+    {
+        if (stressTalker == null || !string.Equals(npcName, "003", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        SerializedObject serializedObject = new SerializedObject(stressTalker);
+        SerializedProperty linesProperty = serializedObject.FindProperty("testLines");
+        if (linesProperty == null || !linesProperty.isArray)
+        {
+            return;
+        }
+
+        linesProperty.arraySize = ResearcherStressTalkLines.Length;
+        for (int i = 0; i < ResearcherStressTalkLines.Length; i++)
+        {
+            linesProperty.GetArrayElementAtIndex(i).stringValue = ResearcherStressTalkLines[i];
+        }
+
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
     }
 
     private void AssignRoamProfile(NPCAutoRoamController roamController, string profilePath)

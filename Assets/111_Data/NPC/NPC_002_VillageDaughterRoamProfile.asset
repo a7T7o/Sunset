@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c01be81b1d634694b827b2f28f4987e2, type: 3}
+  m_Name: NPC_002_VillageDaughterRoamProfile
+  m_EditorClassIdentifier: 
+  moveSpeed: 2.55
+  idleAnimationSpeed: 1
+  moveAnimationSpeed: 1.02
+  activityRadius: 3.2
+  minimumMoveDistance: 0.55
+  pathSampleAttempts: 12
+  shortPauseMin: 0.7
+  shortPauseMax: 2.8
+  shortPauseCountMin: 2
+  shortPauseCountMax: 4
+  longPauseMin: 3.6
+  longPauseMax: 6.2
+  stuckCheckInterval: 0.3
+  stuckDistanceThreshold: 0.08
+  maxStuckRecoveries: 3
+  enableAmbientChat: 1
+  ambientChatRadius: 4.1
+  ambientChatChance: 0.84
+  ambientChatResponseDelay: 0.78
+  selfTalkLines:
+  - "\u8FD9\u8FB9\u6652\u5F97\u521A\u521A\u597D\u3002"
+  - "\u8981\u662F\u518D\u5B89\u9759\u4E00\u70B9\uFF0C\u5C31\u66F4\u9002\u5408\u53D1\u5446\u4E86\u3002"
+  - "\u4ECA\u5929\u98CE\u6709\u70B9\u8F7B\uFF0C\u88D9\u6446\u90FD\u4E0D\u600E\u4E48\u4E71\u3002"
+  - "\u5927\u5BB6\u5404\u5FD9\u5404\u7684\uFF0C\u770B\u7740\u4E5F\u633A\u6709\u8DA3\u3002"
+  - "\u5148\u5728\u8FD9\u513F\u7F13\u4E00\u5C0F\u4F1A\u513F\u5427\u3002"
+  chatInitiatorLines:
+  - "\u4F60\u4E5F\u6765\u8FD9\u8FB9\u900F\u53E3\u6C14\u5440\uFF1F"
+  - "\u521A\u624D\u90A3\u8FB9\u6709\u70B9\u5403\u529B\uFF0C\u6211\u8FD8\u662F\u66F4\u559C\u6B22\u8FD9\u513F\u3002"
+  - "\u4ECA\u5929\u5927\u5BB6\u90FD\u8D70\u5F97\u6025\uFF0C\u6211\u5012\u60F3\u6162\u4E00\u70B9\u3002"
+  - "\u8FD9\u4F1A\u513F\u9633\u5149\u6B63\u597D\uFF0C\u522B\u6025\u7740\u8D70\u561B\u3002"
+  chatResponderLines:
+  - "\u662F\u5440\uFF0C\u8FD9\u91CC\u5F85\u7740\u5FC3\u60C5\u4F1A\u597D\u4E00\u70B9\u3002"
+  - "\u6211\u4E5F\u6B63\u60F3\u627E\u4E2A\u4EBA\u8BF4\u4E24\u53E5\u3002"
+  - "\u4F60\u8FD9\u4E48\u4E00\u8BF4\uFF0C\u6211\u5012\u771F\u4E0D\u60F3\u6025\u7740\u8D70\u4E86\u3002"
+  - "\u90A3\u5C31\u5148\u804A\u4E24\u53E5\uFF0C\u518D\u53BB\u5FD9\u522B\u7684\u3002"
