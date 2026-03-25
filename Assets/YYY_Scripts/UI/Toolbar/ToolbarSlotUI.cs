@@ -210,7 +210,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
             if (iconImage) UIItemIconScaler.SetIconWithAutoScale(iconImage, null, null);
             if (amountText) amountText.text = "";
             // 隐藏耐久度条
-            UpdateDurabilityBar(null);
+            UpdateDurabilityBar(null, null);
             return;
         }
         var data = database.GetItemByID(s.itemId);
@@ -226,7 +226,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         
         // 🔥 V2 新增：更新耐久度条
         var invItem = inventory.GetInventoryItem(index);
-        UpdateDurabilityBar(invItem);
+        UpdateDurabilityBar(invItem, data);
     }
     
     #region 耐久度条
@@ -290,12 +290,14 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     /// 更新耐久度条显示
     /// Rule: P2-1 耐久度条样式 - 使用像素偏移控制宽度
     /// </summary>
-    private void UpdateDurabilityBar(InventoryItem item)
+    private void UpdateDurabilityBar(InventoryItem item, ItemData itemData)
     {
         if (_durabilityBar == null || _durabilityBarBg == null) return;
         
         // 如果物品为空或没有耐久度，隐藏耐久度条
-        if (item == null || !item.HasDurability)
+        if (item == null ||
+            !item.HasDurability ||
+            (itemData is ToolData toolData && ToolRuntimeUtility.UsesWater(toolData)))
         {
             _durabilityBarBg.enabled = false;
             _durabilityBar.enabled = false;

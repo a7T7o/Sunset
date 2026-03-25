@@ -86,7 +86,17 @@ public static class ItemTooltipTextBuilder
 
         var sb = new StringBuilder();
 
-        if (runtimeItem.HasDurability)
+        if (itemData is ToolData toolData && ToolRuntimeUtility.UsesWater(toolData))
+        {
+            int currentWater = ToolRuntimeUtility.GetCurrentWater(runtimeItem, toolData);
+            int maxWater = ToolRuntimeUtility.GetWaterCapacity(toolData);
+            sb.Append("<color=cyan>当前水量: ");
+            sb.Append(currentWater);
+            sb.Append('/');
+            sb.Append(maxWater);
+            sb.Append("</color>");
+        }
+        else if (runtimeItem.HasDurability)
         {
             sb.Append("<color=orange>当前耐久: ");
             sb.Append(runtimeItem.CurrentDurability);

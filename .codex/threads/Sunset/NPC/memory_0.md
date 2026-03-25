@@ -420,3 +420,27 @@
 - 当前恢复点：
   - 如果继续 NPC 2.0.0，下一刀更适合做场景真实落点、双气泡样式规范或关系成长入口。
   - 导航运动语义、动态避让和玩家导航闭环仍由导航线程主刀，我保持不越界。
+
+## 2026-03-25｜用户占用场景期间的无干扰续推
+
+- 当前主线目标：
+  - 用户正在使用 Unity 场景，明确要求我“先别用 MCP，把场景先留给他”，所以本线程要继续推进但不能打扰 live 编辑器。
+- 本轮子任务：
+  - 从整个脏现场里筛出一条不碰 Unity / MCP / 场景 / 导航热区 / `GameInputManager.cs` 的独立代码切片，继续把能落地的内容推进到不能再推进为止。
+- 本轮实际选择的切片：
+  - 玩家工具失败反馈气泡 + 水壶运行时状态链
+- 本轮完成：
+  - 只读核查后确认这不是散乱脏改，而是一条完整闭环：
+    - 玩家失败反馈服务与想法气泡
+    - `ToolUseCommitResult`
+    - 水壶 `watering_current / watering_max`
+    - UI 耐久条隐藏与 tooltip 水量显示
+  - 新增 `Assets/YYY_Tests/Editor/ToolRuntimeFeedbackTests.cs`
+  - 修正 `ToolData.GetTooltipText()`，让它与 `ToolRuntimeUtility.GetWaterCapacity()` 的回退逻辑一致
+  - 对完整 owned 白名单跑通 `CodexCodeGuard`，结果通过
+- 本轮重要判断：
+  - 第一次只拿 `ToolData.cs + 测试文件` 跑闸门时失败，暴露出这条链真实 owned 范围比想象更大；据此收窄出了 11 个真正需要一起白名单收口的文件
+  - 这轮没有进 Unity / MCP，没有抢用户场景，也没有碰导航主战场
+- 当前恢复点：
+  - 若用户继续占用场景，我仍可继续沿“非热区、纯代码、能过 `CodexCodeGuard` 的小闭环”推进
+  - 若用户释放场景，我优先回到 NPC 自身的 live 集成与表现验收

@@ -31,6 +31,7 @@ public class PlayerInteraction : MonoBehaviour
     private float actionStartTime;
     public bool enableLegacyInput = false;
     private bool toolUseCommittedForCurrentAction = false;
+    private ToolUseCommitResult lastToolUseCommitResult;
     
     // 当前操作的工具数据（用于精力消耗判定）
     private ToolData pendingToolData;
@@ -120,6 +121,7 @@ public class PlayerInteraction : MonoBehaviour
         currentAction = action;
         actionStartTime = Time.time;
         toolUseCommittedForCurrentAction = false;
+        lastToolUseCommitResult = default;
 
         lockManager?.BeginAction();
         
@@ -171,8 +173,13 @@ public class PlayerInteraction : MonoBehaviour
 
     public bool TryCommitCurrentToolActionSuccess(ToolData tool, string context = null)
     {
+        return TryCommitCurrentToolActionSuccessDetailed(tool, context).Succeeded;
+    }
+
+    public ToolUseCommitResult TryCommitCurrentToolActionSuccessDetailed(ToolData tool, string context = null)
+    {
         string resolvedContext = string.IsNullOrEmpty(context) ? $"PlayerInteraction/{currentAction}" : context;
-        return CommitCurrentToolUse(tool, resolvedContext);
+        return CommitCurrentToolUseDetailed(tool, resolvedContext);
     }
 
     /// <summary>
@@ -318,25 +325,26 @@ public class PlayerInteraction : MonoBehaviour
                action == PlayerAnimController.AnimState.Watering;
     }
 
-    private bool CommitCurrentToolUse(ToolData tool, string context)
+    private ToolUseCommitResult CommitCurrentToolUseDetailed(ToolData tool, string context)
     {
         if (toolUseCommittedForCurrentAction)
         {
-            return true;
+            return lastToolUseCommitResult;
         }
 
         if (tool == null)
         {
-            return false;
+            lastToolUseCommitResult = ToolUseCommitResult.Failure(ToolUseFailureReason.ToolMissing, context);
+            return lastToolUseCommitResult;
         }
 
-        if (ToolRuntimeUtility.TryConsumeHeldToolUse(null, null, null, tool, context))
+        lastToolUseCommitResult = ToolRuntimeUtility.TryConsumeHeldToolUseDetailed(null, null, null, tool, context);
+        if (lastToolUseCommitResult.Succeeded)
         {
             toolUseCommittedForCurrentAction = true;
-            return true;
         }
 
-        return false;
+        return lastToolUseCommitResult;
     }
 
     public bool IsCarrying() => isCarrying;

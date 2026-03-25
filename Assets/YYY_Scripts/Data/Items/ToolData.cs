@@ -62,6 +62,14 @@ namespace FarmGame.Data
         [Range(1, 20)]
         public int durabilityCost = 1;
 
+        [Header("=== 水量系统（水壶专用）===")]
+        [Tooltip("水壶最大水量。小于等于 0 时回退到 maxDurability 或默认容量。")]
+        public int waterCapacity = 0;
+
+        [Tooltip("每次成功浇水消耗的水量")]
+        [Range(1, 20)]
+        public int waterUseCost = 1;
+
         [Header("=== 材料等级 ===")]
         [Tooltip("工具的材料等级（0=木质, 1=石质, 2=生铁, 3=黄铜, 4=钢质, 5=金质）")]
         public MaterialTier materialTier = MaterialTier.Wood;
@@ -92,6 +100,12 @@ namespace FarmGame.Data
         [Tooltip("工具使用音效")]
         public AudioClip useSound;
 
+        [Tooltip("工具损坏音效（未设置时回退到失败反馈音效）")]
+        public AudioClip breakSound;
+
+        [Tooltip("水壶没水音效（未设置时回退到失败反馈音效）")]
+        public AudioClip emptyUseSound;
+
         protected override void OnValidate()
         {
             base.OnValidate();
@@ -119,7 +133,12 @@ namespace FarmGame.Data
             if (effectRadius > 1)
                 text += $"\n<color=green>范围: {effectRadius}x{effectRadius}</color>";
 
-            if (hasDurability || maxDurability > 0)
+            if (toolType == ToolType.WateringCan)
+            {
+                int capacity = global::FarmGame.Data.Core.ToolRuntimeUtility.GetWaterCapacity(this);
+                text += $"\n<color=cyan>水量上限: {capacity}</color>";
+            }
+            else if (hasDurability || maxDurability > 0)
                 text += $"\n<color=orange>耐久度: {maxDurability}</color>";
 
             return text;

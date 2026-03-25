@@ -54,3 +54,44 @@
 - 当前恢复点：
   - `2.0.0进一步落地` 现在已经不是纯文档工作区，而是开始承接角色化数据与 prefab 基线。
   - 下一刀若继续安全推进，应优先考虑真实场景落点、双气泡规范或关系成长入口；导航运动语义仍保持不越界。
+
+## 2026-03-25｜等待场景热区期间的独立推进：玩家失败反馈气泡与水壶运行时闭环
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 2adbc011`
+- 当前主线目标：
+  - 在用户暂时占用 Unity 场景、明确要求“不使用 MCP / 不打扰场景”的前提下，继续推进一条不撞热区、又能服务后续 NPC / 玩家双气泡与交互体验的独立代码切片。
+- 本轮子任务：
+  - 把玩家工具失败反馈与水壶运行时状态链收成可交付闭环。
+  - 修掉水壶静态 tooltip 与运行时容量回退规则不一致的问题。
+  - 用纯本地代码闸门验证，不进入 Unity / MCP / Play Mode。
+- 本轮完成：
+  - 新增 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+  - 新增 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerToolFeedbackService.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\InventoryItem.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\ToolData.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltipTextBuilder.cs`
+  - 修改 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+  - 新增 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\ToolRuntimeFeedbackTests.cs`
+- 本轮关键实现：
+  - 玩家现在有独立的失败反馈服务，能在工具损坏、斧头等级不足、水壶没水时触发“玩家自己的想法气泡 + reject shake + 音效/粒子”。
+  - 工具提交链已从简单 `bool` 升级为 `ToolUseCommitResult`，后续可继续承接更细的失败原因与反馈分流。
+  - 水壶正式从“假装走耐久”切到“运行时水量属性”：
+    - `watering_current`
+    - `watering_max`
+  - 背包 / 工具栏耐久条会对水壶隐藏，tooltip 会显示当前水量与水量上限。
+  - `ToolData.GetTooltipText()` 已与 `ToolRuntimeUtility.GetWaterCapacity()` 对齐，消掉“tooltip 显示 1、运行时按 100”这类口径错位。
+- 本轮验证：
+  - 首次缩小白名单运行 `CodexCodeGuard` 时，暴露出 `ToolData.cs` 依赖 `ToolRuntimeUtility.cs` 的真实 owned 范围，这一轮据此把完整闭环重新圈定。
+  - 之后对 11 个 owned C# 文件重跑 `CodexCodeGuard`，结果通过：
+    - `utf8-strict`
+    - `git-diff-check`
+    - `roslyn-assembly-compile`
+  - 本轮未触碰 `Primary.unity`、导航核心、玩家导航核心、`GameInputManager.cs`、Unity / MCP / Play Mode。
+- 当前恢复点：
+  - 这条切片本质上是在为后续 NPC / 玩家双气泡、关系反馈和玩家侧表达体验打基础，不依赖当前场景热区。
+  - 后续只要用户仍在占用场景，我仍可继续沿“非热区、纯代码、可白名单收口”的方向补独立切片；一旦要做 live 表现验收，再等用户放开 Unity。

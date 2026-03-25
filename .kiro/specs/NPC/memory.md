@@ -433,3 +433,28 @@
 - 当前恢复点：
   - NPC 现在已经开始从“测试型系统”转向“角色化系统”。
   - 后续若继续推进，优先继续在 NPC 自己的 profile / 交互 / 场景化入口层推进，不越界去抢导航运动语义。
+
+## 2026-03-25 续｜场景热区等待期间追加一条非热区代码切片
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 2adbc011`
+- 当前主线目标：
+  - 在用户暂时占用 Unity 场景、NPC 线无法继续做 live 表现验收时，不停工，转而推进一条不撞场景与导航热区的独立代码闭环。
+- 本轮子任务：
+  - 落地玩家工具失败反馈气泡与水壶运行时状态链，顺手为后续 NPC / 玩家双气泡与关系反馈体验打基础。
+- 本轮完成：
+  - 新增玩家侧气泡与失败反馈组件：
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs`
+  - 把工具提交链升级为 `ToolUseCommitResult`，并把水壶运行时口径切到 `watering_current / watering_max`
+  - 让背包 / 工具栏 / tooltip 正确区分“耐久工具”和“水壶”
+  - 新增 `Assets/YYY_Tests/Editor/ToolRuntimeFeedbackTests.cs`
+- 本轮关键结论：
+  - 用户暂停释放场景时，NPC 线程仍然有“非热区、可直推 main”的有效用武之地，不必空转等导航。
+  - 这条切片虽不属于 NPC 本体漫游与导航，但它确实服务后续 NPC / 玩家交互表达系统，因此被记入 NPC 主线的并行推进记录。
+- 本轮验证：
+  - `CodexCodeGuard` 对完整 owned 白名单通过，覆盖 UTF-8、diff 与程序集级编译检查。
+  - 没有使用 Unity / MCP，也没有碰 `Primary.unity`、`GameInputManager.cs`、导航核心或玩家导航核心。
+- 当前恢复点：
+  - 场景一旦释放，我仍优先回到 NPC 自身的 live 表现与集成验收。
+  - 在场景未释放前，仍可继续寻找同等级别的非热区独立切片推进。

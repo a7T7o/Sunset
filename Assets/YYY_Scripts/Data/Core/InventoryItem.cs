@@ -208,6 +208,15 @@ namespace FarmGame.Data.Core
             maxDurability = max;
             currentDurability = current < 0 ? max : Mathf.Clamp(current, 0, max);
         }
+
+        /// <summary>
+        /// 清除耐久度系统（用于把旧的错误运行时状态回收到“无耐久”口径）。
+        /// </summary>
+        public void ClearDurability()
+        {
+            maxDurability = -1;
+            currentDurability = -1;
+        }
         
         /// <summary>
         /// 消耗耐久度

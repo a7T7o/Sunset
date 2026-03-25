@@ -217,7 +217,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     private bool lastHitPlayerFlipX = false;
 
     private const float SharedNavGridRefreshDelay = 0.2f;
+    private const float InsufficientAxeCooldownSeconds = 30f;
     private static TreeController s_navGridRefreshRunner;
+    private static float s_insufficientAxeCooldownUntil = -1f;
     
     #if UNITY_EDITOR
     private int lastEditorStageIndex;
@@ -999,25 +1001,36 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     private void HandleAxeChop(ToolHitContext ctx, Vector2 chopDirection)
     {
         ToolData toolData = ResolveToolData(ctx);
-        float energyCost = toolData != null ? toolData.energyCost : 0f;
-        if (!CommitToolUse(ctx, toolData, $"{gameObject.name}/AxeChop"))
+        int axeTier = GetAxeTier(ctx);
+        int requiredTier = MaterialTierHelper.GetRequiredAxeTier(currentStageIndex);
+        bool canChop = MaterialTierHelper.CanChopTree(axeTier, currentStageIndex);
+        if (!canChop)
         {
-            PlayHitEffect(chopDirection);
+            bool cooldownActive = Time.time < s_insufficientAxeCooldownUntil;
+            if (!cooldownActive)
+            {
+                s_insufficientAxeCooldownUntil = Time.time + InsufficientAxeCooldownSeconds;
+                PlayHitEffect(chopDirection);
+            }
+
+            PlayTierInsufficientFeedback(ctx.attacker, !cooldownActive);
             if (showDebugInfo)
-                Debug.Log($"<color=yellow>[TreeController] {gameObject.name} 精力不足，无法砍伐</color>");
+                Debug.Log($"<color=red>[TreeController] {gameObject.name} 斧头等级不足！需要 {MaterialTierHelper.GetTierName(requiredTier)} 斧头，当前 {MaterialTierHelper.GetTierName(axeTier)} 斧头（本次不消耗精力）</color>");
             return;
         }
-        
-        // ★ 检查斧头材料等级（精力已消耗，但等级不足则不造成伤害）
-        int axeTier = GetAxeTier(ctx);
-        if (!MaterialTierHelper.CanChopTree(axeTier, currentStageIndex))
+
+        ToolUseCommitResult useResult = CommitToolUseDetailed(ctx, toolData, $"{gameObject.name}/AxeChop");
+        if (!useResult.Succeeded)
         {
-            // 等级不足：播放金属碰撞音效和提示（精力/耐久已提交，但不造成伤害）
-            PlayTierInsufficientFeedback(axeTier);
             PlayHitEffect(chopDirection);
             if (showDebugInfo)
-                Debug.Log($"<color=red>[TreeController] {gameObject.name} 斧头等级不足！需要 {MaterialTierHelper.GetTierName(MaterialTierHelper.GetRequiredAxeTier(currentStageIndex))} 斧头，当前 {MaterialTierHelper.GetTierName(axeTier)} 斧头（精力已消耗）</color>");
+                Debug.Log($"<color=yellow>[TreeController] {gameObject.name} 工具提交失败：{useResult.FailureReason}</color>");
             return;
+        }
+
+        if (requiredTier > 0 && Time.time < s_insufficientAxeCooldownUntil)
+        {
+            PlayerToolFeedbackService.ResolveForPlayer(ctx.attacker)?.HandleAxeTierRecovered();
         }
         
         // ✅ 设置砍伐状态（通过 OcclusionManager 确保单一高亮）
@@ -1043,7 +1056,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
                       $"  - 斧头等级：{MaterialTierHelper.GetTierName(axeTier)}\n" +
                       $"  - 基础伤害：{ctx.baseDamage}\n" +
                       $"  - 实际伤害：{damage}\n" +
-                      $"  - 精力消耗：{energyCost}\n" +
+                      $"  - 精力消耗：{useResult.EnergyCost}\n" +
                       $"  - 当前血量：{currentHealth}/{CurrentStageConfig.health}</color>");
         }
         
@@ -1165,19 +1178,23 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     private bool CommitToolUse(ToolHitContext ctx, ToolData toolData, string context)
     {
+        return CommitToolUseDetailed(ctx, toolData, context).Succeeded;
+    }
+
+    private ToolUseCommitResult CommitToolUseDetailed(ToolHitContext ctx, ToolData toolData, string context)
+    {
         if (toolData == null)
         {
-            return false;
+            return ToolUseCommitResult.Failure(ToolUseFailureReason.ToolMissing, context);
         }
 
         var interaction = ctx.attacker != null ? ctx.attacker.GetComponent<PlayerInteraction>() : null;
         if (interaction != null)
         {
-            interaction.OnToolActionSuccess(toolData);
-            return true;
+            return interaction.TryCommitCurrentToolActionSuccessDetailed(toolData, context);
         }
 
-        return ToolRuntimeUtility.TryConsumeHeldToolUse(null, null, null, toolData, context);
+        return ToolRuntimeUtility.TryConsumeHeldToolUseDetailed(null, null, null, toolData, context);
     }
     
     /// <summary>
@@ -1894,13 +1911,22 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// <summary>
     /// 播放斧头等级不足反馈
     /// </summary>
-    private void PlayTierInsufficientFeedback(int currentTier)
+    private void PlayTierInsufficientFeedback(GameObject attacker, bool shouldPlayAudio)
     {
-        // 播放金属碰撞音效
-        PlayTierInsufficientSound();
-        
-        // TODO: 显示UI提示 "斧头等级不足"
-        // 可以通过事件系统通知UI显示提示
+        PlayerToolFeedbackService feedbackService = PlayerToolFeedbackService.ResolveForPlayer(attacker);
+        if (shouldPlayAudio)
+        {
+            if (feedbackService != null)
+            {
+                feedbackService.PlayTierInsufficientSound(tierInsufficientSound, GetPosition(), soundVolume);
+            }
+            else
+            {
+                PlayTierInsufficientSound();
+            }
+        }
+
+        feedbackService?.HandleAxeTierInsufficient();
     }
     #endregion
     

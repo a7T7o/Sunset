@@ -316,7 +316,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             if (iconImage != null) UIItemIconScaler.SetIconWithAutoScale(iconImage, null, null);
             if (amountText != null) amountText.text = "";
             // 隐藏耐久度条
-            UpdateDurabilityBar(null);
+            UpdateDurabilityBar(null, null);
         }
         else
         {
@@ -337,7 +337,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             {
                 invItem = inventory.GetInventoryItem(index);
             }
-            UpdateDurabilityBar(invItem);
+            UpdateDurabilityBar(invItem, data);
         }
     }
 
@@ -408,7 +408,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     /// Rule: P0-2 BoxUI 交互 - 支持从 IItemContainer 获取 InventoryItem
     /// Rule: P2-1 耐久度条样式 - 使用像素偏移控制宽度
     /// </summary>
-    private void UpdateDurabilityBar(InventoryItem item)
+    private void UpdateDurabilityBar(InventoryItem item, ItemData itemData)
     {
         if (_durabilityBar == null || _durabilityBarBg == null) return;
 
@@ -428,7 +428,9 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         }
 
         // 如果物品为空或没有耐久度，隐藏耐久度条
-        if (item == null || !item.HasDurability)
+        if (item == null ||
+            !item.HasDurability ||
+            (itemData is ToolData toolData && ToolRuntimeUtility.UsesWater(toolData)))
         {
             _durabilityBarBg.enabled = false;
             _durabilityBar.enabled = false;
