@@ -71,6 +71,9 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("freezeRoamDuringDialogue", scriptText, "当前交互 NPC 的对话冻结开关应存在");
         StringAssert.Contains("facePlayerOnInteract", scriptText, "对话开始时面向玩家的开关应存在");
         StringAssert.Contains("EventBus.Subscribe<DialogueEndEvent>", scriptText, "应监听对话结束事件以恢复 NPC");
+        StringAssert.Contains("enableProximityKeyInteraction", scriptText, "NPC 应支持近距 E 键交互");
+        StringAssert.Contains("Input.GetKeyDown(proximityInteractionKey)", scriptText, "NPC 应自行检测 E 键触发");
+        StringAssert.Contains("SpringDay1WorldHintBubble", scriptText, "NPC 应复用统一的 E 提示气泡");
         StringAssert.Contains("autoRoamController.StopRoam()", scriptText, "对话开始时应冻结 NPC 漫游");
         StringAssert.Contains("autoRoamController.StartRoam()", scriptText, "对话结束后应恢复 NPC 漫游");
     }
@@ -124,7 +127,11 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("FadeCanvasGroup(0f, false)", overlayText, "PromptOverlay 应在对话开始时立即压低可见度");
         StringAssert.Contains("_queuedPromptText", overlayText, "PromptOverlay 应缓存对话前后的待显示提示");
         StringAssert.Contains("WaitAndRevealQueuedPrompt", overlayText, "PromptOverlay 应在对话框完全收起后再恢复提示");
-        StringAssert.Contains("CurrentCanvasAlpha", overlayText, "PromptOverlay 应等 DialogueUI 视觉层彻底隐藏后再显示");
+        StringAssert.Contains("SpringDay1UiLayerUtility.IsBlockingPageUiOpen()", overlayText, "PromptOverlay 应在页面级 UI 打开时主动降级隐藏");
+        StringAssert.Contains("BuildCurrentViewState", overlayText, "PromptOverlay 应根据导演层任务状态构建正式任务页内容");
+        StringAssert.Contains("TransitionToPendingState", overlayText, "PromptOverlay 应在任务变化时执行逐条过渡");
+        StringAssert.Contains("PlayPageFlip", overlayText, "PromptOverlay 应支持任务页翻页特效");
+        StringAssert.Contains("completionStepDuration", overlayText, "PromptOverlay 应显式配置逐条完成动画时长");
         StringAssert.Contains("postDialogueResumeDelay", overlayText, "PromptOverlay 应支持对话结束后的缓冲淡入延迟");
     }
 
@@ -172,13 +179,15 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("overlay.Toggle(transform, context?.PlayerTransform, craftingService, station, overlayAutoCloseDistance)", interactableText, "工作台交互应把玩家位置和自动关闭距离传给 Day1 浮层");
         StringAssert.Contains("interactionDistance = 0.5f", interactableText, "工作台交互距离应收口到 0.5 米");
         StringAssert.Contains("overlayAutoCloseDistance = 1.5f", interactableText, "工作台 UI 打开后离开 1.5 米应自动关闭");
+        StringAssert.Contains("GetVisualBounds()", interactableText, "工作台交互应暴露视觉边界供悬浮 UI 与提示气泡复用");
+        StringAssert.Contains("TryGetClosestVisualPoint", interactableText, "工作台交互应优先基于视觉轮廓计算最近交互点");
+        StringAssert.Contains("PlayerPrefs.SetInt", interactableText, "工作台首次 E 提示应支持跨会话记忆");
         StringAssert.Contains("RecipeResourceFolder", overlayText, "Day1 工作台浮层应从正式 RecipeData 资源目录读取配方");
         StringAssert.Contains("Resources.LoadAll<RecipeData>", overlayText, "Day1 工作台浮层不应再运行时伪造 RecipeData");
         StringAssert.Contains("selectedMaterialsText", overlayText, "Day1 工作台浮层应提供右侧详情区");
         StringAssert.Contains("quantitySlider", overlayText, "Day1 工作台浮层应提供数量滑条");
         StringAssert.Contains("decreaseButton", overlayText, "Day1 工作台浮层应提供数量减号按钮");
         StringAssert.Contains("increaseButton", overlayText, "Day1 工作台浮层应提供数量加号按钮");
-        StringAssert.Contains("GetClosestInteractionPoint", overlayText, "Day1 工作台浮层应根据玩家距离自动关闭");
         StringAssert.Contains("_displayBelow", overlayText, "Day1 工作台浮层应支持工作台上/下两个显示方向");
         StringAssert.Contains("ApplyDisplayDirection", overlayText, "Day1 工作台浮层应显式切换上/下两种悬浮方向");
         StringAssert.Contains("GetWorldProjectionCamera()", overlayText, "Day1 工作台浮层应使用真实世界投影相机计算工作台屏幕位置");
@@ -187,17 +196,22 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("RecipeColumn", overlayText, "Day1 工作台浮层应保留左侧滚动配方列");
         StringAssert.Contains("DetailColumn", overlayText, "Day1 工作台浮层应保留右侧详情列");
         StringAssert.Contains("QuantityControls", overlayText, "Day1 工作台浮层应保留底部数量调节区");
-        StringAssert.Contains("StretchRect(labelText.rectTransform", overlayText, "Day1 工作台浮层按钮标签应铺满按钮区域，避免出现空白按钮");
-        StringAssert.Contains("CenterRect(selectedIcon.rectTransform)", overlayText, "Day1 工作台浮层的选中图标应居中显示在详情卡片中");
+        StringAssert.Contains("BuildRowSummary", overlayText, "Day1 工作台浮层左列摘要应由正式配方信息生成");
+        StringAssert.Contains("recipe.craftingTime", overlayText, "Day1 工作台浮层应读取正式配方里的制作耗时");
+        StringAssert.Contains("SetWorkbenchAnimating", overlayText, "Day1 工作台浮层应尝试驱动工作台动画状态");
+        StringAssert.Contains("SpringDay1UiLayerUtility.IsBlockingPageUiOpen()", overlayText, "Day1 工作台浮层应在页面级 UI 打开时主动退场");
         StringAssert.DoesNotContain("E 打开，超出 1.5 米自动收起", overlayText, "正式工作台 UI 不应再出现测试说明文案");
         StringAssert.DoesNotContain("工作台 UI 只响应鼠标左键", overlayText, "正式工作台 UI 不应在面板里显示调试提示语");
         StringAssert.Contains("recipeID: 9100", axeRecipeText, "Axe_0 配方资源应存在且使用固定 recipeID");
         StringAssert.Contains("recipeName: Axe_0", axeRecipeText, "Axe_0 配方资源应稳定");
         StringAssert.Contains("itemID: 3200", axeRecipeText, "Axe_0 配方资源应使用木材");
+        StringAssert.Contains("craftingTime: 1.2", axeRecipeText, "Axe_0 配方资源应配置正式制作耗时");
         StringAssert.Contains("recipeID: 9101", hoeRecipeText, "Hoe_0 配方资源应存在且使用固定 recipeID");
         StringAssert.Contains("recipeName: Hoe_0", hoeRecipeText, "Hoe_0 配方资源应稳定");
+        StringAssert.Contains("craftingTime: 0.9", hoeRecipeText, "Hoe_0 配方资源应配置正式制作耗时");
         StringAssert.Contains("recipeID: 9102", pickaxeRecipeText, "Pickaxe_0 配方资源应存在且使用固定 recipeID");
         StringAssert.Contains("itemID: 3201", pickaxeRecipeText, "Pickaxe_0 配方资源应包含石料需求");
+        StringAssert.Contains("craftingTime: 1.4", pickaxeRecipeText, "Pickaxe_0 配方资源应配置正式制作耗时");
         StringAssert.Contains("InitializeOnLoad", binderText, "编辑器恢复器应在 Unity 重新编译后自动生效");
         StringAssert.Contains("Anvil_0", binderText, "编辑器恢复器应优先识别 Anvil_0");
         StringAssert.Contains("Undo.AddComponent<CraftingStationInteractable>", binderText, "编辑器恢复器应能自动补挂工作台交互脚本");

@@ -721,3 +721,16 @@
 - 父层当前最准确定性：
   - spring-day1 的 Day1 UI 这刀已经从“代码结构仍未稳定”推进到“可编译 checkpoint 已找到真实边界”；
   - 后续白名单收口应以 7 个代码文件（另加 `SpringDay1UiLayerUtility.cs.meta` 与本线记忆）为准，而不是误按 2 文件孤立收。
+
+## 2026-03-26 补记：spring-day1 已先完成非热文件 hygiene，当前唯一残留阻塞是 `Primary.unity`
+- 当前父工作区主线没有换题，仍然是 Day1 工作台 / UI / 任务体验收口；但这轮不再继续堆功能，而是先做 spring-day1 自己的 hygiene 收口。
+- 父层本轮新结论：
+  - `Primary.unity` 当前不是纯 spring-day1 own scene，而是 `mixed-in-place`：Day1 自己的 `StoryManager / startLanguageDecoded / Anvil_0` 参数块与相机位移、Player 位移、NPC debug override 同时存在；
+  - 因此 spring-day1 这轮不能继续 claim scene 写入，只能停在只读 ownership 判定。
+- 与此同时，spring-day1 自己能先收的非热文件已经开始收缩：
+  - 旧 prompt / hygiene 委托与样式快照目录已判定为临时证据并清掉；
+  - `LiberationSans SDF - Fallback.asset` 已改判为不应混入本线正式交付的 Unity 自动副产物并回退；
+  - 当前保留的正式面收敛为：3 个 workbench recipe、4 个对话中文字体资产、`SpringDay1DialogueProgressionTests.cs` 与 `Assets/222_Prefabs/UI/Spring-day1/`。
+- 父层当前最准确定性：
+  - spring-day1 现在已经不是“own dirty 一整团都没拆”；
+  - 当前真正剩下的 blocker 只剩 `Primary.unity` 这一个 hot-file mixed 问题，其他 formal 面已可以继续尝试白名单收口。

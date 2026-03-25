@@ -911,3 +911,36 @@
 - 当前线程判断：
   - Day1 UI 这轮不再存在 owned compile red；
   - 当前未完项已经从“补写代码”切换成“按 7 文件 checkpoint 做白名单收口，并继续等待用户做运行态观感终验”。
+
+## 2026-03-26 线程补记：我已开始做自己的 hygiene 收口，当前只被 `Primary.unity` mixed 阻住
+- 当前线程主线没有换题，仍然服务 spring-day1 的 Day1 UI / 工作台收口；这轮子任务则是“先把我 own 的 dirty 收到只剩正式面”，不是继续扩写 Day1 功能。
+- 我这轮显式使用：
+  - `skills-governor`
+  - `sunset-lock-steward`
+  - `sunset-no-red-handoff`
+- 当前 live 事实：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+  - `HEAD = 359331b99ce95a4e8592e1445ffc174f29e6f429`
+  - `Primary.unity` / `GameInputManager.cs` 当前都 `unlocked`，但 `Primary.unity` 仍 dirty
+- 我这轮已经做掉的收口动作：
+  - 删除旧 prompt / hygiene 委托：`委托-02 / 委托-03 / 委托-04 / 卫生清扫委托-05 / 卫生清扫委托-06`
+  - 删除 `V1.0_UI样式快照_2026-03-25/`
+  - 回退 `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`
+- 我这轮决定保留的正式交付面：
+  - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9100_Axe_0.asset`
+  - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9101_Hoe_0.asset`
+  - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese BitmapSong SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SoftPixel SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+  - `Assets/222_Prefabs/UI/Spring-day1/`
+- 我这轮没有做的事：
+  - 没去续写 `Primary.unity`
+  - 没碰 `GameInputManager.cs`
+  - 没再做 Unity / MCP live 写
+- 当前恢复点：
+  - 如果继续，我下一步应只对白名单 formal 面跑 `preflight / sync`
+  - `Primary.unity` 必须继续单独当成 hot-file mixed blocker 处理，不能混入本线这次 formal 收口
