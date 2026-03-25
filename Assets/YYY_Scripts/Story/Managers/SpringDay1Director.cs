@@ -18,6 +18,30 @@ namespace Sunset.Story
     /// </summary>
     public class SpringDay1Director : MonoBehaviour
     {
+        public readonly struct PromptTaskItem
+        {
+            public PromptTaskItem(string label, string detail, bool completed)
+            {
+                Label = label;
+                Detail = detail;
+                Completed = completed;
+            }
+
+            public string Label { get; }
+            public string Detail { get; }
+            public bool Completed { get; }
+        }
+
+        public sealed class PromptCardModel
+        {
+            public string PhaseKey;
+            public string StageLabel;
+            public string Subtitle;
+            public string FocusText;
+            public string FooterText;
+            public PromptTaskItem[] Items;
+        }
+
         private const string PrimarySceneName = "Primary";
         private const string StoryTimePauseSource = "SpringDay1Director";
         private const string FirstSequenceId = "spring-day1-first";
@@ -211,7 +235,7 @@ namespace Sunset.Story
 
             if (phase == StoryPhase.FarmingTutorial)
             {
-                return $"开垦 {GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}/{requiredTilledCount} | 播种 {GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}/{requiredPlantedCount} | 浇水 {GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}/{requiredWateredCount} | 木材 {GetCollectedWoodProgress()}/{requiredWoodCollectedCount} | 制作 {Mathf.Min(_craftedCount, requiredCraftedCount)}/{requiredCraftedCount}";
+                return $"教学进度 {GetCompletedTutorialObjectiveCount()}/5";
             }
 
             if (phase == StoryPhase.DinnerConflict)
@@ -235,6 +259,146 @@ namespace Sunset.Story
             }
 
             return "等待推进";
+        }
+
+        public PromptCardModel BuildPromptCardModel()
+        {
+            StoryPhase phase = StoryManager.Instance.CurrentPhase;
+            return new PromptCardModel
+            {
+                PhaseKey = phase.ToString(),
+                StageLabel = GetCurrentTaskLabel(),
+                Subtitle = GetPromptSubtitle(phase),
+                FocusText = GetPromptFocusText(phase),
+                FooterText = GetCurrentProgressLabel(),
+                Items = BuildPromptItems(phase)
+            };
+        }
+
+        private string GetPromptSubtitle(StoryPhase phase)
+        {
+            return phase switch
+            {
+                StoryPhase.CrashAndMeet or StoryPhase.EnterVillage => "先和村里第一个关键角色完成接触。",
+                StoryPhase.HealingAndHP => "疗伤演出与血量显现会在这里完成。",
+                StoryPhase.WorkbenchFlashback => "工作台需要先触发一次正式回忆，再进入教学链。",
+                StoryPhase.FarmingTutorial => "今天的教学链会逐条锁定并逐条完成。",
+                StoryPhase.DinnerConflict => "晚餐事件是 Day1 的情绪收束段。",
+                StoryPhase.ReturnAndReminder => "收完提醒后，才会进入真正的自由时段。",
+                StoryPhase.FreeTime => "现在可以自由走动，但最终还要回住处休息。",
+                StoryPhase.DayEnd => "Day1 主流程已结束。",
+                _ => "等待 Day1 剧情正式开始。"
+            };
+        }
+
+        private string GetPromptFocusText(StoryPhase phase)
+        {
+            return phase switch
+            {
+                StoryPhase.CrashAndMeet or StoryPhase.EnterVillage => "靠近 NPC 并按 E 开始首段对话。",
+                StoryPhase.HealingAndHP => "等待疗伤对白与 HP 卡片完整播完。",
+                StoryPhase.WorkbenchFlashback => "靠近 Anvil_0，按 E 打开工作台。",
+                StoryPhase.FarmingTutorial when !_tillObjectiveCompleted => "先用锄头开垦一格土地。",
+                StoryPhase.FarmingTutorial when !_plantObjectiveCompleted => "把花椰菜种子种进刚开垦的土地。",
+                StoryPhase.FarmingTutorial when !_waterObjectiveCompleted => "完成一次浇水，让作物稳稳进入下一步。",
+                StoryPhase.FarmingTutorial when !_woodObjectiveCompleted => $"继续收木材，还差 {Mathf.Max(0, requiredWoodCollectedCount - GetCollectedWoodProgress())} 份。",
+                StoryPhase.FarmingTutorial when _craftedCount < requiredCraftedCount => "回到工作台，完成一次真正的基础制作。",
+                StoryPhase.FarmingTutorial => "农田与制作目标都已完成，等待晚餐事件推进。",
+                StoryPhase.DinnerConflict => "看完晚餐事件，准备进入归途提醒。",
+                StoryPhase.ReturnAndReminder => "听完提醒，接住今天最后一段过渡。",
+                StoryPhase.FreeTime => FreeTimePromptText,
+                StoryPhase.DayEnd => "春1日结束，可以进入下一阶段开发或验收。",
+                _ => "等待推进。"
+            };
+        }
+
+        private PromptTaskItem[] BuildPromptItems(StoryPhase phase)
+        {
+            if (phase == StoryPhase.CrashAndMeet || phase == StoryPhase.EnterVillage)
+            {
+                return new[]
+                {
+                    new PromptTaskItem("和 NPC001 完成首段对话", "从 E 键接触开始，直到首段对白完整结束。", false)
+                };
+            }
+
+            if (phase == StoryPhase.HealingAndHP)
+            {
+                bool hpVisible = HealthSystem.Instance != null && HealthSystem.Instance.IsVisible;
+                return new[]
+                {
+                    !_healingStarted
+                        ? new PromptTaskItem("进入疗伤流程", "等待首段对话完成后触发。", false)
+                        : !hpVisible
+                            ? new PromptTaskItem("显示 HP 卡片", "先让血量条缓慢显现出来。", false)
+                            : new PromptTaskItem("播完疗伤对白", _healingSequencePlayed ? "疗伤对白已完整结束。" : "等待疗伤对白真正播完。", _healingSequencePlayed)
+                };
+            }
+
+            if (phase == StoryPhase.WorkbenchFlashback)
+            {
+                return new[]
+                {
+                    !_workbenchOpened
+                        ? new PromptTaskItem("靠近工作台并按 E", "从交互包络线进入后按 E 打开。", false)
+                        : new PromptTaskItem("触发工作台回忆", _workbenchSequencePlayed ? "工作台回忆已播完。" : "打开后会自动推进这段对白。", _workbenchSequencePlayed)
+                };
+            }
+
+            if (phase == StoryPhase.FarmingTutorial)
+            {
+                return new[]
+                {
+                    !_tillObjectiveCompleted
+                        ? new PromptTaskItem("开垦土地", $"{GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}/{requiredTilledCount}", false)
+                        : !_plantObjectiveCompleted
+                            ? new PromptTaskItem("完成播种", $"{GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}/{requiredPlantedCount}", false)
+                            : !_waterObjectiveCompleted
+                                ? new PromptTaskItem("完成浇水", $"{GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}/{requiredWateredCount}", false)
+                                : !_woodObjectiveCompleted
+                                    ? new PromptTaskItem("收集木材", $"{GetCollectedWoodProgress()}/{requiredWoodCollectedCount}", false)
+                                    : _craftedCount < requiredCraftedCount
+                                        ? new PromptTaskItem("完成基础制作", $"{Mathf.Min(_craftedCount, requiredCraftedCount)}/{requiredCraftedCount}", false)
+                                        : new PromptTaskItem("完成农田教学", "当前教学目标已全部完成，等待下一段剧情。", true)
+                };
+            }
+
+            if (phase == StoryPhase.DinnerConflict)
+            {
+                return new[]
+                {
+                    new PromptTaskItem("观看晚餐事件", _dinnerSequencePlayed ? "晚餐对白正在或已经播放。" : "等待晚餐剧情开始。", _dinnerSequencePlayed)
+                };
+            }
+
+            if (phase == StoryPhase.ReturnAndReminder)
+            {
+                return new[]
+                {
+                    new PromptTaskItem("接住归途提醒", _returnSequencePlayed ? "归途提醒已经开始。" : "等待提醒对白开始。", _returnSequencePlayed)
+                };
+            }
+
+            if (phase == StoryPhase.FreeTime)
+            {
+                return new[]
+                {
+                    new PromptTaskItem("回住处睡觉", _dayEnded ? "已完成。" : "靠近床或住处入口并按 E。", _dayEnded)
+                };
+            }
+
+            if (phase == StoryPhase.DayEnd)
+            {
+                return new[]
+                {
+                    new PromptTaskItem("完成 Day1 收尾", "今天的剧情与教学链已经全部跑完。", true)
+                };
+            }
+
+            return new[]
+            {
+                new PromptTaskItem("等待剧情推进", "当前还没有激活新的 Day1 任务。", false)
+            };
         }
 
         private void HandleStoryPhaseChanged(StoryPhaseChangedEvent evt)
@@ -357,12 +521,17 @@ namespace Sunset.Story
 
         private void HandleInventoryChanged()
         {
-            if (!_woodTrackingArmed || _woodObjectiveCompleted)
+            if (!_farmingTutorialTrackingInitialized || _woodObjectiveCompleted)
             {
                 return;
             }
 
             int currentWoodCount = GetCurrentWoodCount();
+            if (_baselineWoodCount < 0)
+            {
+                _baselineWoodCount = currentWoodCount;
+            }
+
             if (_trackedWoodCountSnapshot < 0)
             {
                 _trackedWoodCountSnapshot = currentWoodCount;
@@ -372,14 +541,15 @@ namespace Sunset.Story
             if (delta > 0)
             {
                 _collectedWoodSinceWoodStepStart += delta;
-                if (_collectedWoodSinceWoodStepStart >= requiredWoodCollectedCount)
-                {
-                    _woodObjectiveCompleted = true;
-                    _collectedWoodSinceWoodStepStart = requiredWoodCollectedCount;
-                }
+                _collectedWoodSinceWoodStepStart = Mathf.Min(_collectedWoodSinceWoodStepStart, requiredWoodCollectedCount);
             }
 
             _trackedWoodCountSnapshot = currentWoodCount;
+            if (_woodTrackingArmed && _collectedWoodSinceWoodStepStart >= requiredWoodCollectedCount)
+            {
+                _woodObjectiveCompleted = true;
+                _collectedWoodSinceWoodStepStart = requiredWoodCollectedCount;
+            }
         }
 
         private void HandleEnergyChanged(int current, int max)
@@ -936,7 +1106,7 @@ namespace Sunset.Story
             _woodObjectiveCompleted = false;
             _baselineWoodCount = GetCurrentWoodCount();
             _woodTrackingArmed = false;
-            _trackedWoodCountSnapshot = -1;
+            _trackedWoodCountSnapshot = _baselineWoodCount;
             _collectedWoodSinceWoodStepStart = 0;
         }
 
@@ -1028,9 +1198,9 @@ namespace Sunset.Story
 
         private int GetCollectedWoodProgress()
         {
-            if (!_woodTrackingArmed)
+            if (!_farmingTutorialTrackingInitialized)
             {
-                return _woodObjectiveCompleted ? requiredWoodCollectedCount : 0;
+                return 0;
             }
 
             return _woodObjectiveCompleted
@@ -1041,8 +1211,46 @@ namespace Sunset.Story
         private void ArmWoodTracking()
         {
             _woodTrackingArmed = true;
-            _trackedWoodCountSnapshot = GetCurrentWoodCount();
-            _collectedWoodSinceWoodStepStart = 0;
+            if (_trackedWoodCountSnapshot < 0)
+            {
+                _trackedWoodCountSnapshot = GetCurrentWoodCount();
+            }
+
+            if (_collectedWoodSinceWoodStepStart >= requiredWoodCollectedCount)
+            {
+                _woodObjectiveCompleted = true;
+            }
+        }
+
+        private int GetCompletedTutorialObjectiveCount()
+        {
+            int completedCount = 0;
+            if (_tillObjectiveCompleted)
+            {
+                completedCount++;
+            }
+
+            if (_plantObjectiveCompleted)
+            {
+                completedCount++;
+            }
+
+            if (_waterObjectiveCompleted)
+            {
+                completedCount++;
+            }
+
+            if (_woodObjectiveCompleted)
+            {
+                completedCount++;
+            }
+
+            if (_craftedCount >= requiredCraftedCount)
+            {
+                completedCount++;
+            }
+
+            return completedCount;
         }
 
         private static int GetLatchedProgress(bool completed, int requiredCount)
@@ -1470,6 +1678,11 @@ namespace Sunset.Story
                 return $"NPC {interactable.name} 当前不可交互。";
             }
 
+            if (context == null || interactable.GetBoundaryDistance(context.PlayerPosition) > interactable.InteractionDistance)
+            {
+                return $"NPC {interactable.name} 当前不在有效交互距离内。";
+            }
+
             interactable.OnInteract(context);
             return $"已触发 NPC 对话：{interactable.name}";
         }
@@ -1486,6 +1699,11 @@ namespace Sunset.Story
             if (!interactable.CanInteract(context))
             {
                 return $"工作台 {interactable.name} 当前不可交互。";
+            }
+
+            if (context == null || interactable.GetBoundaryDistance(context.PlayerPosition) > interactable.InteractionDistance)
+            {
+                return $"工作台 {interactable.name} 当前不在交互包络线内。";
             }
 
             interactable.OnInteract(context);
@@ -1518,7 +1736,7 @@ namespace Sunset.Story
             return new InteractionContext
             {
                 PlayerTransform = playerTransform,
-                PlayerPosition = playerTransform != null ? (Vector2)playerTransform.position : Vector2.zero
+                PlayerPosition = playerTransform != null ? SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform) : Vector2.zero
             };
         }
 

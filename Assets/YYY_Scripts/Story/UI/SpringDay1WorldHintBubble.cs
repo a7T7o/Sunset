@@ -8,6 +8,12 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public class SpringDay1WorldHintBubble : MonoBehaviour
     {
+        public enum HintVisualKind
+        {
+            Interaction,
+            Tutorial
+        }
+
         private static readonly string[] PreferredFontResourcePaths =
         {
             "Fonts & Materials/DialogueChinese V2 SDF",
@@ -24,13 +30,20 @@ namespace Sunset.Story
         [SerializeField] private RectTransform rootRect;
         [SerializeField] private RectTransform bubbleRect;
         [SerializeField] private RectTransform arrowRect;
+        [SerializeField] private Image bubbleBackground;
+        [SerializeField] private Image arrowImage;
+        [SerializeField] private Image keyPlateImage;
         [SerializeField] private TextMeshProUGUI keyText;
         [SerializeField] private TextMeshProUGUI captionText;
+        [SerializeField] private TextMeshProUGUI detailText;
 
         private TMP_FontAsset _fontAsset;
         private Transform _anchorTarget;
         private bool _visible;
         private bool _suppressWhileDialogueActive;
+        private HintVisualKind _visualKind;
+
+        public Transform CurrentAnchorTarget => _anchorTarget;
 
         public static SpringDay1WorldHintBubble Instance
         {
@@ -98,10 +111,25 @@ namespace Sunset.Story
                 return;
             }
 
+            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+            {
+                if (canvasGroup != null)
+                {
+                    canvasGroup.alpha = 0f;
+                }
+
+                return;
+            }
+
+            if (canvasGroup != null && canvasGroup.alpha < 0.999f)
+            {
+                canvasGroup.alpha = 1f;
+            }
+
             Reposition();
         }
 
-        public void Show(Transform anchorTarget, string keyLabel = "E", string caption = "")
+        public void Show(Transform anchorTarget, string keyLabel = "E", string caption = "", string detail = "", HintVisualKind visualKind = HintVisualKind.Interaction)
         {
             if (anchorTarget == null)
             {
@@ -112,9 +140,13 @@ namespace Sunset.Story
             EnsureBuilt();
             _anchorTarget = anchorTarget;
             _visible = true;
+            _visualKind = visualKind;
             keyText.text = string.IsNullOrWhiteSpace(keyLabel) ? "E" : keyLabel;
-            captionText.text = caption ?? string.Empty;
-            captionText.gameObject.SetActive(!string.IsNullOrWhiteSpace(caption));
+            captionText.text = string.IsNullOrWhiteSpace(caption) ? "交互" : caption;
+            detailText.text = detail ?? string.Empty;
+            detailText.gameObject.SetActive(!string.IsNullOrWhiteSpace(detail));
+            bubbleRect.sizeDelta = string.IsNullOrWhiteSpace(detail) ? new Vector2(118f, 42f) : new Vector2(128f, 54f);
+            ApplyVisualStyle();
             canvasGroup.alpha = 1f;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
@@ -133,6 +165,16 @@ namespace Sunset.Story
             }
         }
 
+        public void Hide(Transform anchorTarget)
+        {
+            if (anchorTarget != null && _anchorTarget != anchorTarget)
+            {
+                return;
+            }
+
+            Hide();
+        }
+
         private void BuildUi()
         {
             rootRect = transform as RectTransform;
@@ -142,7 +184,7 @@ namespace Sunset.Story
 
             overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
             overlayCanvas.overrideSorting = true;
-            overlayCanvas.sortingOrder = 176;
+            overlayCanvas.sortingOrder = 154;
             overlayCanvas.pixelPerfect = true;
 
             rootRect.anchorMin = Vector2.zero;
@@ -155,31 +197,52 @@ namespace Sunset.Story
             bubbleRect.anchorMin = new Vector2(0.5f, 0.5f);
             bubbleRect.anchorMax = new Vector2(0.5f, 0.5f);
             bubbleRect.pivot = new Vector2(0.5f, 0f);
-            bubbleRect.sizeDelta = new Vector2(86f, 64f);
+            bubbleRect.sizeDelta = new Vector2(118f, 42f);
 
-            Image background = bubbleRect.gameObject.AddComponent<Image>();
-            background.color = new Color(0.1f, 0.11f, 0.16f, 0.92f);
-            background.raycastTarget = false;
+            bubbleBackground = bubbleRect.gameObject.AddComponent<Image>();
+            bubbleBackground.raycastTarget = false;
             Outline outline = bubbleRect.gameObject.AddComponent<Outline>();
-            outline.effectColor = new Color(1f, 1f, 1f, 0.1f);
+            outline.effectColor = new Color(0.45f, 0.3f, 0.15f, 0.18f);
             outline.effectDistance = new Vector2(1f, -1f);
             outline.useGraphicAlpha = true;
+            Shadow shadow = bubbleRect.gameObject.AddComponent<Shadow>();
+            shadow.effectColor = new Color(0f, 0f, 0f, 0.22f);
+            shadow.effectDistance = new Vector2(0f, -3f);
+            shadow.useGraphicAlpha = true;
 
-            keyText = CreateText(bubbleRect, "KeyText", "E", 24f, new Color(0.98f, 0.88f, 0.56f, 1f), TextAlignmentOptions.Center);
+            RectTransform keyPlateRect = CreateRect(bubbleRect, "KeyPlate");
+            keyPlateRect.anchorMin = new Vector2(0f, 0.5f);
+            keyPlateRect.anchorMax = new Vector2(0f, 0.5f);
+            keyPlateRect.pivot = new Vector2(0f, 0.5f);
+            keyPlateRect.anchoredPosition = new Vector2(8f, 0f);
+            keyPlateRect.sizeDelta = new Vector2(28f, 28f);
+            keyPlateImage = keyPlateRect.gameObject.AddComponent<Image>();
+            ApplyOutline(keyPlateRect.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.1f), new Vector2(1f, -1f));
+
+            keyText = CreateText(keyPlateRect, "KeyText", "E", 18f, new Color(0.26f, 0.17f, 0.08f, 1f), TextAlignmentOptions.Center);
             RectTransform keyRect = keyText.rectTransform;
             keyRect.anchorMin = new Vector2(0.5f, 0.5f);
             keyRect.anchorMax = new Vector2(0.5f, 0.5f);
             keyRect.pivot = new Vector2(0.5f, 0.5f);
-            keyRect.anchoredPosition = new Vector2(0f, 8f);
-            keyRect.sizeDelta = new Vector2(52f, 28f);
+            keyRect.anchoredPosition = Vector2.zero;
+            keyRect.sizeDelta = new Vector2(22f, 22f);
 
-            captionText = CreateText(bubbleRect, "CaptionText", string.Empty, 10f, new Color(0.92f, 0.95f, 1f, 0.92f), TextAlignmentOptions.Center);
+            captionText = CreateText(bubbleRect, "CaptionText", string.Empty, 12f, new Color(0.26f, 0.17f, 0.08f, 1f), TextAlignmentOptions.Left);
             RectTransform captionRect = captionText.rectTransform;
-            captionRect.anchorMin = new Vector2(0.5f, 0f);
-            captionRect.anchorMax = new Vector2(0.5f, 0f);
-            captionRect.pivot = new Vector2(0.5f, 0f);
-            captionRect.anchoredPosition = new Vector2(0f, 6f);
-            captionRect.sizeDelta = new Vector2(70f, 14f);
+            captionRect.anchorMin = new Vector2(0f, 1f);
+            captionRect.anchorMax = new Vector2(1f, 1f);
+            captionRect.pivot = new Vector2(0f, 1f);
+            captionRect.offsetMin = new Vector2(44f, -22f);
+            captionRect.offsetMax = new Vector2(-10f, -6f);
+
+            detailText = CreateText(bubbleRect, "DetailText", string.Empty, 10f, new Color(0.36f, 0.26f, 0.16f, 0.92f), TextAlignmentOptions.Left);
+            RectTransform detailRect = detailText.rectTransform;
+            detailRect.anchorMin = new Vector2(0f, 0f);
+            detailRect.anchorMax = new Vector2(1f, 0f);
+            detailRect.pivot = new Vector2(0f, 0f);
+            detailRect.offsetMin = new Vector2(44f, 8f);
+            detailRect.offsetMax = new Vector2(-10f, 24f);
+            detailText.gameObject.SetActive(false);
 
             arrowRect = CreateRect(transform, "Arrow");
             arrowRect.anchorMin = new Vector2(0.5f, 0.5f);
@@ -187,9 +250,9 @@ namespace Sunset.Story
             arrowRect.pivot = new Vector2(0.5f, 1f);
             arrowRect.sizeDelta = new Vector2(14f, 14f);
             arrowRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
-            Image arrowImage = arrowRect.gameObject.AddComponent<Image>();
-            arrowImage.color = new Color(0.1f, 0.11f, 0.16f, 0.92f);
+            arrowImage = arrowRect.gameObject.AddComponent<Image>();
             arrowImage.raycastTarget = false;
+            ApplyVisualStyle();
         }
 
         private void EnsureBuilt()
@@ -202,7 +265,7 @@ namespace Sunset.Story
 
         private void Reposition()
         {
-            Camera camera = Camera.main;
+            Camera camera = SpringDay1UiLayerUtility.GetWorldProjectionCamera(overlayCanvas);
             if (camera == null)
             {
                 return;
@@ -211,9 +274,9 @@ namespace Sunset.Story
             Bounds bounds = ResolveBounds();
             Vector3 worldAnchor = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
             Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(camera, worldAnchor);
-            screenPoint.y += 36f + Mathf.Sin(Time.unscaledTime * 3.2f) * 2.5f;
+            screenPoint.y += 28f + Mathf.Sin(Time.unscaledTime * 2.4f) * 1.8f;
 
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRect, screenPoint, null, out Vector2 localPoint))
+            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRect, screenPoint, SpringDay1UiLayerUtility.GetUiEventCamera(overlayCanvas), out Vector2 localPoint))
             {
                 return;
             }
@@ -224,16 +287,9 @@ namespace Sunset.Story
 
         private Bounds ResolveBounds()
         {
-            CraftingStationInteractable interactable = _anchorTarget != null ? _anchorTarget.GetComponent<CraftingStationInteractable>() : null;
-            if (interactable != null)
+            if (SpringDay1UiLayerUtility.TryGetPresentationBounds(_anchorTarget, out Bounds bounds))
             {
-                return interactable.GetCombinedBounds();
-            }
-
-            Collider2D collider2D = _anchorTarget != null ? (_anchorTarget.GetComponent<Collider2D>() ?? _anchorTarget.GetComponentInChildren<Collider2D>()) : null;
-            if (collider2D != null)
-            {
-                return collider2D.bounds;
+                return bounds;
             }
 
             return new Bounds(_anchorTarget != null ? _anchorTarget.position : Vector3.zero, Vector3.one);
@@ -286,6 +342,38 @@ namespace Sunset.Story
             }
         }
 
+        private void ApplyVisualStyle()
+        {
+            Color bubbleColor = _visualKind == HintVisualKind.Tutorial
+                ? new Color(0.96f, 0.88f, 0.68f, 0.96f)
+                : new Color(0.94f, 0.88f, 0.76f, 0.94f);
+            Color keyPlateColor = _visualKind == HintVisualKind.Tutorial
+                ? new Color(0.98f, 0.8f, 0.42f, 0.98f)
+                : new Color(0.87f, 0.71f, 0.36f, 0.98f);
+
+            if (bubbleBackground != null)
+            {
+                bubbleBackground.color = bubbleColor;
+            }
+
+            if (arrowImage != null)
+            {
+                arrowImage.color = bubbleColor;
+            }
+
+            if (keyPlateImage != null)
+            {
+                keyPlateImage.color = keyPlateColor;
+            }
+        }
+
+        private static void ApplyOutline(Outline outline, Color color, Vector2 distance)
+        {
+            outline.effectColor = color;
+            outline.effectDistance = distance;
+            outline.useGraphicAlpha = true;
+        }
+
         private static RectTransform CreateRect(Transform parent, string name)
         {
             GameObject go = new GameObject(name, typeof(RectTransform));
@@ -295,15 +383,7 @@ namespace Sunset.Story
 
         private static Transform ResolveParent()
         {
-            GameObject uiRoot = GameObject.Find("UI");
-            if (uiRoot != null)
-            {
-                Canvas canvas = uiRoot.GetComponent<Canvas>() ?? uiRoot.GetComponentInChildren<Canvas>(true);
-                return canvas != null ? canvas.transform : uiRoot.transform;
-            }
-
-            Canvas fallback = Object.FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
-            return fallback != null ? fallback.transform : null;
+            return SpringDay1UiLayerUtility.ResolveUiParent();
         }
     }
 }

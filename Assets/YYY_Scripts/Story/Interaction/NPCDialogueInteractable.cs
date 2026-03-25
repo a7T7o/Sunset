@@ -13,7 +13,7 @@ namespace Sunset.Story
         [SerializeField] private DialogueSequenceSO initialSequence;
         [SerializeField] private DialogueSequenceSO followupSequence;
         [SerializeField] private string interactionHint = "对话";
-        [SerializeField] private float interactionDistance = 1.5f;
+        [SerializeField] private float interactionDistance = 0.95f;
         [SerializeField] private int interactionPriority = 30;
         [SerializeField] private bool playOnlyOnce = false;
 
@@ -22,18 +22,37 @@ namespace Sunset.Story
         [SerializeField] private bool facePlayerOnInteract = true;
         [SerializeField] private NPCAutoRoamController autoRoamController;
         [SerializeField] private NPCMotionController motionController;
+
+        [Header("E 键交互")]
+        [SerializeField] private bool enableProximityKeyInteraction = true;
+        [SerializeField] private KeyCode proximityInteractionKey = KeyCode.E;
+        [SerializeField] private float keyInteractionCooldown = 0.15f;
+        [SerializeField] private float bubbleRevealDistance = 1.2f;
+        [SerializeField] private string bubbleCaption = "交谈";
         #endregion
 
         #region Private Fields
         private bool _hasPlayed;
         private bool _ownsActiveDialogue;
         private bool _resumeRoamAfterDialogue;
+        private float _lastKeyInteractionAt = -999f;
         #endregion
 
         #region Public Properties
         public int InteractionPriority => interactionPriority;
         public float InteractionDistance => interactionDistance;
         #endregion
+
+        public Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
+        {
+            Bounds bounds = GetInteractionBounds();
+            return bounds.ClosestPoint(playerPosition);
+        }
+
+        public float GetBoundaryDistance(Vector2 playerPosition)
+        {
+            return Vector2.Distance(playerPosition, GetClosestInteractionPoint(playerPosition));
+        }
 
         #region Unity Lifecycle
         private void Awake()
@@ -49,6 +68,7 @@ namespace Sunset.Story
         private void OnDisable()
         {
             EventBus.UnsubscribeAll(this);
+            SpringDay1WorldHintBubble.Instance?.Hide(transform);
             _ownsActiveDialogue = false;
             _resumeRoamAfterDialogue = false;
         }
@@ -56,12 +76,53 @@ namespace Sunset.Story
         private void OnValidate()
         {
             CacheComponents();
+            interactionDistance = Mathf.Max(0.25f, interactionDistance);
+            bubbleRevealDistance = Mathf.Max(interactionDistance, bubbleRevealDistance);
+        }
+
+        private void Update()
+        {
+            InteractionContext context = BuildInteractionContext();
+            if (context?.PlayerTransform == null)
+            {
+                return;
+            }
+
+            UpdateHintBubble(context);
+
+            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() || !enableProximityKeyInteraction || !Input.GetKeyDown(proximityInteractionKey))
+            {
+                return;
+            }
+
+            if (Time.unscaledTime - _lastKeyInteractionAt < keyInteractionCooldown)
+            {
+                return;
+            }
+
+            if (GetBoundaryDistance(context.PlayerPosition) > interactionDistance)
+            {
+                return;
+            }
+
+            if (!CanInteract(context))
+            {
+                return;
+            }
+
+            _lastKeyInteractionAt = Time.unscaledTime;
+            OnInteract(context);
         }
         #endregion
 
         #region Public Methods
         public bool CanInteract(InteractionContext context)
         {
+            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+            {
+                return false;
+            }
+
             DialogueManager manager = DialogueManager.Instance;
             DialogueSequenceSO sequenceToPlay = ResolveDialogueSequence(manager);
 
@@ -100,6 +161,7 @@ namespace Sunset.Story
                 return;
             }
 
+            SpringDay1WorldHintBubble.Instance?.Hide(transform);
             EnterDialogueOccupation(context);
 
             _hasPlayed = true;
@@ -167,6 +229,58 @@ namespace Sunset.Story
 
             _ownsActiveDialogue = false;
             _resumeRoamAfterDialogue = false;
+        }
+
+        private void UpdateHintBubble(InteractionContext context)
+        {
+            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+            {
+                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                return;
+            }
+
+            if (!CanInteract(context))
+            {
+                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                return;
+            }
+
+            if (GetBoundaryDistance(context.PlayerPosition) > bubbleRevealDistance)
+            {
+                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                return;
+            }
+
+            SpringDay1WorldHintBubble.EnsureRuntime();
+            SpringDay1WorldHintBubble.Instance.Show(
+                transform,
+                proximityInteractionKey.ToString(),
+                bubbleCaption,
+                string.Empty,
+                SpringDay1WorldHintBubble.HintVisualKind.Interaction);
+        }
+
+        private InteractionContext BuildInteractionContext()
+        {
+            PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
+            if (playerTransform == null)
+            {
+                return null;
+            }
+
+            return new InteractionContext
+            {
+                PlayerTransform = playerTransform,
+                PlayerPosition = SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform)
+            };
+        }
+
+        private Bounds GetInteractionBounds()
+        {
+            return SpringDay1UiLayerUtility.TryGetPresentationBounds(transform, out Bounds bounds)
+                ? bounds
+                : new Bounds(transform.position, Vector3.one);
         }
 
         private DialogueSequenceSO ResolveDialogueSequence(DialogueManager manager)

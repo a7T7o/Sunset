@@ -766,3 +766,148 @@
 - 恢复点：
   - 下一步是只对白名单文件做 Git 收口；
   - 若用户继续给体验反馈，应直接在这批 Day1 工作台/UI 文件上继续细修，不要漂回旧错误排查。
+
+## 2026-03-24 补记：我已对 spring-day1 线程自己的最新回执做独立硬审核
+- 当前线程主线不是继续分发 prompt，而是响应用户要求，直接判断 spring-day1 这轮 Day1 工作台/UI 回执到底算不算合格。
+- 我本轮先做了手工等价的 Sunset 启动核查，再显式用了 `skills-governor`、`sunset-workspace-router`、`sunset-review-router`，并回读：
+  - `26.03.24-Day1工作台UI与任务体验重收口委托-01.md`
+  - 子工作区 / 父工作区 / 线程记忆
+  - `code-reaper-review.md`
+  - `git show --stat 84fc3818`
+  - 相关代码文件关键段落
+- 最终判断：
+  - 不是“啥都没做”；
+  - 但也绝对不是“最终合格”。
+- 我给出的审定口径是：
+  - `代码 checkpoint 合格`
+  - `最终用户需求验收不合格`
+- 我锁定的核心理由：
+  1. 工作台与人物动画链没有真正落地，只是进度条 + 站桩朝向。
+  2. 可手调 UI 只限 Play 期运行时对象，缺少持久化的可持续精调承载。
+  3. 一次性 `E` 气泡没有跨场景/跨会话记忆。
+  4. 测试覆盖不足以替代体验验收。
+- 当前恢复点：
+  - 如果用户后续要我继续管这条线，我不该把它当成“收口完成”，而应按“未过验收、需继续补口”的状态继续处理。
+
+## 2026-03-24 补记：我已把 spring-day1 的下一轮复工 prompt 重写成第二轮正式委托
+- 当前线程主线仍然是 Day1 工作台/UI/任务体验收口，没有切题；只是用户这轮要求我基于最新复测反馈，重写一份更强、更完整、把最初详细需求重新带回去的 prompt。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-governance-dispatch-protocol`
+- 已新增文件：
+  - [26.03.24-Day1工作台UI与任务体验重收口委托-02.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/26.03.24-Day1工作台UI与任务体验重收口委托-02.md)
+- 这份新 prompt 的核心收束：
+  1. 把最初 7 点原文完整带回去。
+  2. 把最新复测反馈完整落进去。
+  3. 强制线程复用 `Tool_BatchRecipeCreator / RecipeData / CraftingService` 等项目现有制作链。
+  4. 把“工作台视觉距离、Tab 层级优先级、NPC E 交互、任务卡逐条完成动画、美术功底”全部提升为硬要求。
+- 当前恢复点：
+  - 如果用户现在要直接发给 spring-day1 线程，应该以 `委托-02` 为准；
+  - 这条线后续再回执时，我也应按 `委托-02` 的口径继续审，不再回到旧 prompt。
+## 2026-03-24 补记：我已把委托-02对应的代码侧收口做到“可编译 + 可复测”
+- 当前线程主线没有变化，仍然是 Day1 工作台/UI/任务体验重收口；本轮子任务是把 委托-02 要点真正收进 spring-day1 自己的代码面，然后停在用户复测前。
+- 我本轮显式使用：
+  - skills-governor
+  - sunset-workspace-router
+- sunset-startup-guard 本会话未显式暴露，因此继续按 Sunset 项目 AGENTS、live cwd/branch/HEAD、工作区文档与委托文件做手工等价闸门。
+- 已落地的自有改动面：
+  - Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs
+  - Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs
+  - Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs
+  - Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs
+  - Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs
+  - Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs
+  - Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs
+  - Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs
+  - Assets/Resources/Story/SpringDay1Workbench/Recipe_9100_Axe_0.asset
+  - Assets/Resources/Story/SpringDay1Workbench/Recipe_9101_Hoe_0.asset
+  - Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset
+- 本轮确认结果：
+  - 工作台距离改为视觉边界优先语义；
+  - 左侧配方列已接上图标 / 名称 / 制作耗时，并继续复用现有 RecipeData / CraftingService；
+  - Tab / 背包 / 页面 UI 对低层 overlay 的压制改为逻辑统一入口处理，没有去碰 GameInputManager.cs；
+  - NPC 近距 E 键提示与交互已补齐；
+  - 任务卡改为左中页卡，并支持逐条完成动画与阶段翻页。
+- 静态验证已过：
+  - git diff --check（本轮白名单文件）
+  - sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 -IncludePaths ...
+  - Assembly-CSharp, Tests.Editor 程序集级编译检查通过
+- 本轮没有再做 MCP/live 验证；下一步应直接按 委托-02 回执格式交给用户复测，不要再自由发挥。## 2026-03-25 线程补记：委托-03 这轮我已把 Day1 代码面收紧，但运行态自验被他线 farm 编译红字挡住
+- 当前线程主线仍然是 spring-day1 的 Day1 工作台/UI/任务体验重收口，不是别的系统。
+- 本轮子任务是按 `26.03.25-Day1工作台UI与任务体验重收口委托-03.md` 同时收“交互包络线、提示双语义、木料任务、任务页一页一任务、以及自验”。
+- 我这轮实际完成：
+  - 工作台交互边界改成轮廓优先，玩家距离采样改成脚底点；
+  - NPC 交互也改成脚底采样 + 边界距离，不再拿中心点硬判；
+  - 工作台浮层修正布局 helper，左列空壳问题应已消除，右侧详情区获得更多宽度；
+  - 任务卡改成 1 row / 1 page，并在任务切换前补完成动画；
+  - 木料任务从教学阶段起累计新增木材，不再在 wood step 激活时清零；
+  - 世界提示气泡改成更统一的浅色正式样式，并支持教程态/常规态。
+- 本轮验证：
+  - `SpringDay1DialogueProgressionTests` EditMode 10/10 通过；
+  - Day1 相关脚本 `validate_script` 无 error；
+  - Unity live 尝试进入 Play 自验时，shared root 被 `Assets/YYY_Scripts/Farm/FarmRuntimeLiveValidationRunner.cs` 的编译错误阻断。
+- 关键阻塞：
+  - 我当前不能把“最终运行态观感已经通过”写成事实，因为 live Play 被他线 farm 未收口红字打断；
+  - 这不是我这轮 Day1 脚本自身的语法错误，而是 shared root 的他线编译阻断。
+- 下一步恢复点：
+  - 等 farm 红字清掉后，我回到 Play 自验，重点复查工作台距离、教程/常规提示、左侧配方列、任务页翻页与木料步骤承接。
+
+## 2026-03-25 补记：我已按委托-04 把 Day1 从 farm 编译阻断推进到真实 Play 自验，但当前还差稳定 live 窗口补齐后半段证据
+- 当前线程主线仍是 spring-day1 的 Day1 工作台/UI/任务体验重收口，不是别的系统。
+- 这轮我没有继续堆代码，只做了：
+  1. 读取 `委托-04`、MCP 占用层和 live 基线；
+  2. 复核 shared root 是否还被 `FarmRuntimeLiveValidationRunner.cs` 卡编译；
+  3. 进入 Play，用 `DialogueDebugMenu` / `SpringDay1LiveValidationRunner` 取首段运行态证据；
+  4. 把结果准备收成交接回执。
+- 已确认事实：
+  - farm 编译 blocker 已解除；
+  - 首段对话 live 至少成功命中过一次：`NPC 001` 首段对话被触发，`Prompt` 在对话期间压低为 0，`Input=False`，`Time paused depth=2`；
+  - 当前后续主要不是代码红，而是 MCP/Play 窗口不稳定，继续 Step 时会抖动并意外退回 Edit。
+- 当前 live 噪音：
+  - `There are no audio listeners in the scene`
+  - `SpringDay1UiLayerUtility.cs:18` assert
+  - `GameObjectSerializer.cs:501` 的 Animator/Playback 读取错误
+- 主线恢复点：
+  - 我已经不再被 farm 编译红字卡住；
+  - 但 Day1 后半段运行态（工作台/木料/任务翻页）还需要在稳定 Play 窗口中补齐证据，再交最终验收包。
+
+## 2026-03-25 线程补记：我已把 Day1 任务卡与工作台 UI 切到新的正式实现骨架
+- 当前线程主线没有换题，仍然是 spring-day1 的 Day1 工作台 / UI / 任务体验重收口。
+- 本轮子任务是继续落实用户明确给出的 6 条硬要求，而不是再做样式记录或分析。
+- 我这轮显式使用：
+  - `skills-governor`
+  - `sunset-no-red-handoff`
+- `sunset-startup-guard` 本会话未显式暴露；已按 Sunset `AGENTS.md`、当前 `cwd= D:\Unity\Unity_learning\Sunset`、`branch=main`、`HEAD=4c62ef052d5ce5b646e5e4e9d9efd41b7a93237d` 做手工等价前置核查。
+- 我这轮实际改动：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+- 我这轮已经完成：
+  - PromptOverlay 双页/撕页/自适应布局；
+  - Workbench 左列滚动可见、右侧材料滚动、自适应详情区、制作按钮 hover+进度状态机、离台小进度、去掉相对漂移；
+  - 语法级 no-red 验证：两份脚本 `validate_script` 均 0 error。
+- 我这轮没有做的事：
+  - 没再做 Unity live 写；
+  - 还没拿到用户最终运行态观感结论，因此这轮最准确定性是“代码骨架已收、等待观感终验”。
+- 下一步恢复点：
+  - 直接让用户验任务卡翻页和工作台交互观感；
+  - 如果通过，再按白名单同步这两份脚本和对应记忆。
+
+
+## 2026-03-25 线程补记：我已核清 Day1 UI 当前真正的提交闭包，并把最后一个 warning 清掉
+- 当前线程主线仍是 spring-day1 的 Day1 工作台 / UI / 任务体验重收口，没有改题。
+- 这轮我先按 live `main@55e2bccd` 跑了最小白名单 preflight，结论不是“这两份 UI 还写坏了”，而是“它们依赖的 Day1 live 接口还在 working tree，没有一起纳入闸门”。
+- 我这轮新增的代码补口只有两处：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`：删掉未使用的 `followSmoothTime`，并把上/下显示方向固定在打开瞬间的判定结果；
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`：把翻页 pivot 改成右下角撕页，更接近日历前页被拎起的语义。
+- 我随后把白名单扩大到真实依赖闭包后重跑 `preflight`，当前通过的最小代码面是：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+  - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+- 当前线程判断：
+  - Day1 UI 这轮不再存在 owned compile red；
+  - 当前未完项已经从“补写代码”切换成“按 7 文件 checkpoint 做白名单收口，并继续等待用户做运行态观感终验”。
