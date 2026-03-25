@@ -541,3 +541,23 @@
   - Unity console 仍有外部 blocker：
     - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
     - `PageRefs` 缺失
+
+## 2026-03-26｜Primary 场景开工条件复核
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 359331b9`
+- 当前结论：
+  - 现在仍不满足进入 `Primary.unity` 做 NPC scene 级写入的开工条件。
+- 直接原因：
+  - `Primary.unity` 没有 active lock，但 working tree 里它本身仍是 dirty
+  - Unity 当前可用、MCP 当前可用、scene 内存态也不脏
+  - 真正卡点是“热文件磁盘态已漂移但尚未建立独占归属”
+- 伴随风险：
+  - 共享字体 / 表现层资源也仍是 dirty：
+    - `DialogueChinese BitmapSong SDF.asset`
+    - `DialogueChinese Pixel SDF.asset`
+    - `DialogueChinese SoftPixel SDF.asset`
+    - `DialogueChinese V2 SDF.asset`
+    - `LiberationSans SDF - Fallback.asset`
+- 当前恢复点：
+  - 后续如果要让我开始 scene 集成，应先把 `Primary.unity` 的 dirty 归属说清，并给这次写入建立独占窗口。

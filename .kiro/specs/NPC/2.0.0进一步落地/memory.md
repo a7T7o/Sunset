@@ -216,3 +216,46 @@
 - 当前恢复点：
   - 后续如果继续 NPC 实现，最合理的下一条是 scene 级正式集成，而不是继续在非热区里硬凑无关小刀。
   - 在 `Primary.unity` 热区未释放、或外部编译 blocker 未清之前，本线程应停在当前 checkpoint，不再扩题。
+
+## 2026-03-26｜重新复核 Primary 场景开工条件
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 359331b9`
+- 本轮目标：
+  - 只读判断 `Primary.unity` 现在是否已经满足 NPC scene 级开工条件。
+- 本轮证据：
+  - shared root 仍为：
+    - `owner_mode = neutral-main-ready`
+    - `current_branch = main`
+    - `is_neutral = true`
+  - `Primary.unity` 当前没有 active lock：
+    - `Check-Lock.ps1` 返回 `state = unlocked`
+  - Unity / MCP live 基线通过：
+    - `unityMCP`
+    - `http://127.0.0.1:8888/mcp`
+    - 当前会话 resources / templates 均来自 `unityMCP`
+  - Editor 当前状态：
+    - Edit Mode
+    - 非 compiling
+    - 非 domain reload
+    - `Primary` 已加载
+    - scene 内存态 `isDirty = false`
+  - console 当前仅剩 2 条字体 warning：
+    - `DialogueChinese V2 SDF` 缺 Ellipsis 字符
+  - 但 Git working tree 中：
+    - `Assets/000_Scenes/Primary.unity` 仍为 `M`
+    - 且 `git diff --stat` 显示该 scene 不是零漂移，而是实质性 diff
+  - 同时共享表现层资源仍为 dirty：
+    - `DialogueChinese BitmapSong SDF.asset`
+    - `DialogueChinese Pixel SDF.asset`
+    - `DialogueChinese SoftPixel SDF.asset`
+    - `DialogueChinese V2 SDF.asset`
+    - `LiberationSans SDF - Fallback.asset`
+- 本轮裁定：
+  - `Primary.unity` 的“安全写窗口”仍未成立。
+  - 原因不是 Unity 正在忙，也不是锁被别人占着，而是：
+    - 热 scene 文件本身已经在 Git working tree 里 dirty
+    - 当前又没有 active lock 把它显式归属到本线程
+    - 同时共享表现层资源也在 dirty，继续写 scene 会放大串扰风险
+- 当前恢复点：
+  - 若要正式进入 NPC scene 集成，下一步不是直接开工，而是先明确 `Primary.unity` 当前 dirty 归属，再建立独占写窗口。

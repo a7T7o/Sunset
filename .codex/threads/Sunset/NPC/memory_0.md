@@ -540,3 +540,22 @@
     - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
     - `PageRefs` 缺失
   - shared root 里还有大量他线 dirty，继续扩刀会明显增加误伤概率
+
+## 2026-03-26｜再次复核是否可直接进入 Primary 开工
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 359331b9`
+- 本轮只读结论：
+  - 现在还不能直接进 `Primary.unity` 开工。
+- 证据摘要：
+  - shared root：`main + neutral`
+  - `Primary.unity`：无 active lock
+  - Unity：Edit Mode、非编译、非 domain reload、scene 内存态 `isDirty = false`
+  - console：仅剩字体 warning
+  - 但 Git working tree 中：
+    - `Assets/000_Scenes/Primary.unity` 仍是 `M`
+    - 且 diff 非零
+  - 共享表现层字体资源仍是 dirty
+- 当前线程判断：
+  - 这不是“Unity 不稳”的问题，而是“热 scene 磁盘态已 dirty 且没有独占写归属”的问题。
+  - 所以正确动作仍是 `read-only-first`，不是直接开始 scene 集成。
