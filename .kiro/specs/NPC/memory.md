@@ -513,3 +513,13 @@
 - 当前恢复点：
   - `003` 的“默认正式 NPC，测试模式显式开启”现在已经从 prefab 修正推进到工具链语义。
   - 下一刀如果继续 NPC 自己的集成，最自然还是 `HomeAnchor` scene 落点；但这一步要正式进入 `Primary.unity` 热区。
+
+## 2026-03-25｜最小扫尾：清掉旧起稿残留并补测文件 meta
+
+- 当前主线目标：
+  - 不把这轮新增测试带出的 `.meta` 和旧的 NPC 起稿残留继续留在 shared root 里脏着。
+- 本轮完成：
+  - 删除 `1.0.0初步规划/2026-03-25_NPC导航接入契约与联调验收规范起稿.md`
+  - 将 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs.meta` 纳入后续收口范围
+- 当前恢复点：
+  - 这轮 NPC 工具链 checkpoint 还差一个极小 follow-up 提交，之后我会再判断当前是否还存在安全可推进的 NPC 自身内容。

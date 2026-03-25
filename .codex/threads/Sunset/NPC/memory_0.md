@@ -508,3 +508,13 @@
 - 当前恢复点：
   - 这刀自己的代码与工具链已经形成可白名单收口的独立 checkpoint。
   - 进一步的 Unity 测试作业现在会被 `SpringDay1PromptOverlay.cs / PageRefs` 外部 blocker 截住；除非对方先清掉，否则我不应该再把这条 NPC 切片继续硬拖进 shared root 长时间红态。
+
+## 2026-03-25｜主 checkpoint 后的尾巴清理
+
+- 当前主线目标：
+  - 把主 checkpoint 之后直接由我这刀产生的剩余尾巴一起收干净，不把 `.meta` 和旧起稿残留继续丢在现场。
+- 本轮完成：
+  - 删除 `.kiro/specs/NPC/1.0.0初步规划/2026-03-25_NPC导航接入契约与联调验收规范起稿.md`
+  - 确认 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs.meta` 是我新增测试脚本自动生成的必要文件，需跟下一次最小收口一起提交
+- 当前恢复点：
+  - 这轮剩余自己的直接尾巴已经缩到一个极小 follow-up 提交；收完后再继续判断还有没有别的 NPC 自己能安全推进的活。

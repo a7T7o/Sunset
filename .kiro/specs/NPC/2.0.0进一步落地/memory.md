@@ -181,3 +181,16 @@
   - `003` 测试模式从 prefab 到工具链已经完成一次完整正规化，不容易再被生成器或 scene 工具无意打回“默认压测 NPC”。
   - 由于 Unity console 当前仍被 `SpringDay1PromptOverlay.cs / PageRefs` 外部编译错误占住，这轮没有继续硬跑 Unity EditMode 测试作业；后续可在外部 blocker 清掉后直接点跑 `NPCToolchainRegularizationTests` 做完整 Unity 侧复验。
   - NPC 下一刀真正还值得做的，仍然是 scene 级 `HomeAnchor` 落点与正式集成，但那已经进入 `Primary.unity` 热区，不再属于这类非热区小事务。
+
+## 2026-03-25｜工具链收口后的最小扫尾
+
+- 当前主线目标：
+  - 不把这轮新加测试文件的 `.meta` 和旧文档起稿残留继续留在 working tree 里脏着。
+- 本轮子任务：
+  - 删除已被正式 2.0 文档取代的早期起稿文件。
+  - 把 `NPCToolchainRegularizationTests.cs.meta` 纳入正式版本控制。
+- 本轮完成：
+  - 删除 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\2026-03-25_NPC导航接入契约与联调验收规范起稿.md`
+  - 保留并准备收口 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCToolchainRegularizationTests.cs.meta`
+- 当前恢复点：
+  - NPC 这轮自己的直接尾巴只剩最小 follow-up 收口，不再留“早期起稿 + 新脚本没 meta”的脏尾巴。
