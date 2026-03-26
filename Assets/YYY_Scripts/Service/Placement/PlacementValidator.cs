@@ -15,6 +15,8 @@ using FarmGame.Farm;
 public class PlacementValidator
 {
     #region 配置参数
+
+    private const string PlayerTag = "Player";
     
     /// <summary>障碍物检测标签（包含 Player）- 用于放置箱子/树苗等</summary>
     private string[] obstacleTags = new string[] { "Tree", "Rock", "Building", "Player" };
@@ -58,6 +60,7 @@ public class PlacementValidator
         var cellCenters = PlacementGridCalculator.GetOccupiedCellCenters(centerPosition, gridSize);
         var cellIndices = PlacementGridCalculator.GetOccupiedCellIndices(centerPosition, gridSize);
         bool forbidTilledFarmland = ShouldBlockTilledFarmland(placementItem);
+        bool ignorePlayerObstacle = ShouldIgnorePlayerObstacle(placementItem);
         
         for (int i = 0; i < cellCenters.Count; i++)
         {
@@ -65,7 +68,7 @@ public class PlacementValidator
             Vector2Int cellIndex = cellIndices[i];
             
             // 验证单个格子
-            var state = ValidateSingleCell(cellCenter, cellIndex, playerTransform, forbidTilledFarmland);
+            var state = ValidateSingleCell(cellCenter, cellIndex, playerTransform, forbidTilledFarmland, ignorePlayerObstacle);
             cellStates.Add(state);
             
             if (showDebugInfo && !state.isValid)
@@ -80,7 +83,12 @@ public class PlacementValidator
     /// <summary>
     /// 验证单个格子
     /// </summary>
-    public CellState ValidateSingleCell(Vector3 cellCenter, Vector2Int cellIndex, Transform playerTransform, bool forbidTilledFarmland = false)
+    public CellState ValidateSingleCell(
+        Vector3 cellCenter,
+        Vector2Int cellIndex,
+        Transform playerTransform,
+        bool forbidTilledFarmland = false,
+        bool ignorePlayerObstacle = false)
     {
         // 检查 1：Layer 是否一致
         if (enableLayerCheck && IsLayerMismatch(cellCenter, playerTransform))
@@ -94,7 +102,7 @@ public class PlacementValidator
         }
         
         // 检查 2：是否有障碍物
-        if (HasObstacle(cellCenter))
+        if (HasObstacle(cellCenter, ignorePlayerObstacle))
         {
             return new CellState(cellIndex, false, InvalidReason.HasObstacle);
         }
@@ -145,7 +153,7 @@ public class PlacementValidator
     /// 红色情况 2：有 Tree、Rock、Building、Player 或水域
     /// 增强：同时检测无碰撞体的树苗和箱子
     /// </summary>
-    public bool HasObstacle(Vector3 cellCenter)
+    public bool HasObstacle(Vector3 cellCenter, bool ignorePlayerObstacle = false)
     {
         // 1. 原有的碰撞体检测
         if (obstacleTags != null && obstacleTags.Length > 0)
@@ -156,6 +164,11 @@ public class PlacementValidator
             
             foreach (var hit in hits)
             {
+                if (ignorePlayerObstacle && HasTagInHierarchy(hit.transform, PlayerTag))
+                {
+                    continue;
+                }
+
                 if (HasAnyTag(hit.transform, obstacleTags))
                 {
                     return true;
@@ -366,7 +379,7 @@ public class PlacementValidator
             return new CellState(Vector2Int.zero, false, InvalidReason.OnFarmland);
         }
 
-        if (HasObstacle(position))
+        if (HasObstacle(position, ShouldIgnorePlayerObstacle(sapling)))
         {
             return new CellState(Vector2Int.zero, false, InvalidReason.HasObstacle);
         }
@@ -603,6 +616,22 @@ public class PlacementValidator
         return false;
     }
 
+    private bool HasTagInHierarchy(Transform t, string tag)
+    {
+        Transform current = t;
+        while (current != null)
+        {
+            if (current.CompareTag(tag))
+            {
+                return true;
+            }
+
+            current = current.parent;
+        }
+
+        return false;
+    }
+
     private static float GetFarmingFootprintHalfExtent()
     {
         float footprintSize = FarmTileManager.FarmingObstacleCheckRadius;
@@ -656,6 +685,61 @@ public class PlacementValidator
         return placementItem is PlaceableItemData && placementItem is not SaplingData;
     }
 
+    private bool ShouldIgnorePlayerObstacle(ItemData placementItem)
+    {
+        if (placementItem == null)
+        {
+            return false;
+        }
+
+        if (placementItem is SeedData)
+        {
+            return true;
+        }
+
+        if (placementItem is SaplingData saplingData)
+        {
+            return !SaplingHasBlockingColliderAtPlacement(saplingData);
+        }
+
+        return !HasBlockingColliderAtPlacement(placementItem);
+    }
+
+    private bool HasBlockingColliderAtPlacement(ItemData placementItem)
+    {
+        if (placementItem == null || placementItem.placementPrefab == null)
+        {
+            return false;
+        }
+
+        var colliders = placementItem.placementPrefab.GetComponentsInChildren<Collider2D>(true);
+        foreach (var collider in colliders)
+        {
+            if (collider != null && collider.enabled && !collider.isTrigger)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool SaplingHasBlockingColliderAtPlacement(SaplingData saplingData)
+    {
+        if (saplingData == null)
+        {
+            return false;
+        }
+
+        TreeController treeController = saplingData.GetTreeController();
+        if (treeController != null && treeController.CurrentStageConfig != null)
+        {
+            return treeController.CurrentStageConfig.enableCollider;
+        }
+
+        return HasBlockingColliderAtPlacement(saplingData);
+    }
+
     #endregion
     
     #region 种子放置验证（补丁005 B.2.1）
@@ -670,6 +754,9 @@ public class PlacementValidator
         
         var farmTileManager = FarmTileManager.Instance;
         if (farmTileManager == null) return false;
+
+        // 种子本身没有放置碰撞体，占位事实完全由 farmland tile + crop occupant 决定；
+        // 因此播种允许发生在玩家脚下，不再额外把 Player 当作障碍物。
         
         // 获取楼层索引（与 FarmToolPreview.UpdateSeedPreview 同源）
         if (!farmTileManager.TryResolveTileAtWorld(worldPos, out int layerIndex, out Vector3Int cellPos, out FarmTileData tileData))

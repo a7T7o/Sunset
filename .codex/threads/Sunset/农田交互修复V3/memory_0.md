@@ -395,3 +395,48 @@
   - 最后一刀挥完即坏、下一刀起不来是否成立
   - hover 是否只按中心格触发透明
   - 玩家气泡样式是否已达到 NPC 气泡的质感线
+
+## 2026-03-27：用户新增“无碰撞体可脚下放置”规则，本轮已最小落到验证口径
+
+**用户目标**：
+- 用户要求修改当前放置规范：如果可放置物在真实放置态下没有碰撞体，就允许在玩家脚下放置。
+- 用户已明确点名：
+  - 树苗必须允许脚下放置
+  - 播种也必须允许脚下进行
+  - 其他没有碰撞体的可放置物同样允许
+
+**当前主线目标**：
+- 主线仍是农田 `V3`。
+- 本轮子任务是：不扩回 `013` live、不重开 placeable 主链其他热区，只把“无碰撞体 placeable 可脚下放置”这条新增规则固化到验证逻辑与需求入口。
+
+**本轮已完成事项**：
+1. 已按 `skills-governor + sunset-no-red-handoff` 做等价前置核查；`sunset-startup-guard` 当前会话未显式暴露，因此改走手工等价闸门。
+2. 已回读 `.kiro/steering/README.md`、`.kiro/steering/rules.md`、`.kiro/steering/placeable-items.md`、当前 `1.0.4` 子工作区 `memory.md`，以及 `PlacementValidator.cs / PlacementManager.cs / PlacementNavigator.cs / PlacementGridCalculator.cs / ItemData.cs / PlaceableItemData.cs / SaplingData.cs / SeedData.cs / TreeController.cs`，确认这轮真正的口径入口就是 `PlacementValidator` 的 `Player` 障碍判定。
+3. 已在 `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs` 完成最小实现补口：
+   - 普通 placeable 多格验证现在会先判断真实放置态是否存在启用中的非 Trigger 碰撞体；
+   - 若无碰撞体，则只忽略 `Player` 这一项障碍，其余 `Tree / Rock / Building / Water / crop occupant / farmland` 继续保持阻挡；
+   - 树苗不再简单用 `treePrefab` 上有没有 `Collider2D` 粗判，而是改用 `TreeController` Stage 0 的 `enableCollider` 作为事实源；
+   - 播种入口补上显式注释，写死“种子本身没有放置碰撞体，因此允许脚下播种”。
+4. 已在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\全面理解需求与分析.md` 追加新的规则块，把这条用户口径升级为正式需求总入口的一部分，不再依赖聊天记忆。
+5. 已完成最小 no-red 验证：
+   - `git diff --check -- PlacementValidator.cs + 全面理解需求与分析.md` 通过
+   - `sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread 农田交互修复V3 -IncludePaths ...` 通过
+   - preflight 结果为：`是否允许按当前模式继续=True`、`代码闸门通过=True`
+   - 代码闸门说明：已对 1 个 C# 文件完成 UTF-8、diff 和程序集级编译检查
+
+**关键决策**：
+- 这条放开只针对 `Player` 阻挡，不代表放宽其他障碍。
+- 箱子、家具、工作台等有实体碰撞体的 placeable 仍然不得压玩家放置。
+- 本轮没有进入 Unity / MCP live，也没有触碰 `Primary.unity`、`TagManager.asset`、`GameInputManager.cs` 或其他 foreign dirty。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementValidator.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\全面理解需求与分析.md`
+
+**恢复点 / 下一步**：
+- 当前“无碰撞体可脚下放置”的规则已经在代码验证层和需求文档层同时固化完成。
+- 下一步应由用户直接复测：
+  - 树苗是否已允许脚下放置
+  - 播种是否已允许脚下进行
+  - 其他无碰撞体 placeable 是否也不再被玩家自身挡红
+  - 箱子等有实体碰撞体的放置物是否仍继续阻挡
