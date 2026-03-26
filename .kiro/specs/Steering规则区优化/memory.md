@@ -366,3 +366,155 @@
   - `check-unity-mcp-baseline.ps1`
 - 父层恢复点：
   - 后续线程若再贴“我这条会话还是打旧端口”的报错，优先回到这条规则判断是旧线程缓存问题，还是服务端真的坏了。
+
+## 2026-03-25（父层补记：Unity Play Busy 第一刀已复测，不得误报“已解决”）
+- 当前父层主线仍是维护 Sunset 的活入口与治理口径；本轮继续处理的是 Unity Play Busy 这条支线的“证据收口”，不是业务开发换线。
+- 本轮补到父层的稳定事实：
+  - 已按 `2026-03-24-UnityPlayBusy续查prompt-01.md` 做了一次最小受控复测，实例为 `Sunset@21935cd3ad733705`，并确认复测后已退回 Edit Mode。
+  - `StaticObjectOrderAutoCalibrator.cs` 相关的进 Play 前扫描日志在新样本里已消失，说明第一刀确实移除了那条 Editor-only 前置扫描源。
+  - 但新的关键耗时仍然几乎贴着旧基线：
+    - `Domain Reload Profiling = 19053ms`
+    - `ProcessInitializeOnLoadAttributes = 6120ms`
+    - `AwakeInstancesAfterBackupRestoration = 7277ms`
+    - `Asset Pipeline Refresh = 19.599s`
+  - 因此当前父层准确口径必须是：
+    - “第一刀有效，但收益不足以宣布 Play 慢已解决”
+    - “当前新的第一责任点应继续锁在 `ProcessInitializeOnLoadAttributes` 及其项目自有 Editor-only 候选上”
+- 父层当前收缩出的下一组候选是：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1BedSceneBinder.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1WorkbenchSceneBinder.cs`
+  - 理由是它们同属 `[InitializeOnLoad]`，且含有面向 `Primary` 的全层级对象遍历路径，最贴近当前仍然很重的 Editor 装配段。
+- 父层恢复点：
+  - 后续如继续沿这条支线推进，必须坚持“再做一刀前先做更窄的取证”；
+  - 不得因为第一刀被证明确实打掉了一条重活，就把整体问题对外表述成“已经解决”。
+
+## 2026-03-25（父层补记：rg 默认搜索已提升为全局硬规则；Binder 续查被无关 compile red 卡住）
+- 当前父层主线仍是维护 Sunset 活入口与治理口径；本轮包含两个层级动作：
+  1. 把“搜索默认优先 `rg`”从 learning 提升为全局 `AGENTS.md` 的硬规则
+  2. 继续推进 Unity Play Busy prompt-02 的 Binder 取证
+- 新补到的稳定事实：
+  - `C:\Users\aTo\.codex\AGENTS.md` 已新增“搜索默认口径”，以后搜索类任务默认优先 `rg` / `rg --files`，系统对象查询继续优先 PowerShell。
+  - `SpringDay1BedSceneBinder.cs` / `SpringDay1WorkbenchSceneBinder.cs` 已加入默认关闭、可回退的 diagnostics 和 Auto Bind 短路开关。
+  - 两个 Binder 已通过单文件校验，当前没有新增脚本级错误。
+  - 但共享 Unity 现场当前已有无关 compile red：
+    - `NPCDialogueInteractable.cs`
+    - `CraftingStationInteractable.cs`
+    - `SpringDay1WorldHintBubble.cs`
+  - 因为这些不在本轮允许改动范围内，所以这轮未进入 `Play -> Stop` 复测，不能假装已经拿到 Binder 的 live 结论。
+- 父层恢复点：
+  - 后续如果无关 compile red 被清掉，这条支线就直接恢复到“启用 Binder diagnostics -> 默认样本 -> 短路对照样本 -> 立刻 Stop”的最小复测链；
+  - 当前不得把这轮阻断误写成“Binder 已被排除”。
+
+## 2026-03-25（父层补记：Unity / MCP live 新增 stop-early 与验收交接口径）
+- 当前父层主线仍是“维护 Sunset 活入口与规则口径”；本轮继续处理的不是业务功能，而是把用户对验收效率和 live 噪音的要求真正并进现行基线。
+- 本轮已同步更新：
+  - `Sunset当前规范快照_2026-03-22.md`
+- 父层新增稳定事实：
+  - 所有 Unity / MCP live 取证进入前都必须先写清：
+    - 需要什么证据
+    - 最多跑几轮
+    - 看到什么信号就 `Pause / Stop`
+    - 最后退回什么状态
+  - 一旦已拿到当前步骤所需证据，必须立刻 `Pause / Stop` 并退回 `Edit Mode`，不能继续刷日志洪水。
+  - MCP / 自动化默认只负责逻辑自验与辅助证据；凡是进入“需要用户最终判断”的阶段，线程必须先完成自己能做的自验，再交专业验收指南与回执单。
+- 父层恢复点：
+  - 后续若再遇到线程长时间跑 Play / MCP 只为“多看点日志”，应直接按新的 live 基线判为执行偏差，而不是继续容忍成默认做法。
+
+## 2026-03-25（父层补记：prompt-03 已完成 3 组最小样本，两个 Binder 已被实证排除为这一刀真核心）
+- 当前父层主线仍是 Unity Play Busy 的证据式收窄；本轮继续的不是泛排查，而是只对两个 `SpringDay1*SceneBinder` 做 live 对照闭环。
+- 新补到的稳定事实：
+  - compile red 解除后，已按 prompt-03 跑完 3 组最小 `Play -> Stop`：
+    - baseline
+    - 只短路 BedBinder
+    - 只短路 WorkbenchBinder
+  - 对照结果里，`ProcessInitializeOnLoadAttributes` 没有因短路任何一个 Binder 而下降：
+    - baseline：`7913ms`
+    - Bed short-circuit：`7928ms`
+    - Workbench short-circuit：`7963ms`
+  - Binder diagnostics 显示其执行体本身代价只有 `0~4ms`，且在多个实际 Play 进入窗口内都出现 `skipped=editor-busy`。
+- 因此父层准确口径已更新为：
+  - 这两个 Binder 不是这一刀的真核心
+  - 当前新的第一责任点应从“两处 Binder 候选”继续收窄为：
+    - `ProcessInitializeOnLoadAttributes` 段里的非 Binder 初始化链
+- 父层恢复点：
+  - 后续如果继续这条支线，不应再围绕这两个 Binder 重复做同类对照；
+  - 下一轮应直接从同一重段里的非 Binder 初始化链重新收窄。
+
+## 2026-03-25（父层补记：prompt-04 双线并查后，`SaveManager` 已被排除，包层 `unity-mcp` 升级为单一第一责任点）
+- 当前父层主线仍是 Unity Play Busy 的证据式收窄；本轮继续处理的不是泛排查，而是按 `prompt-04` 同时检验：
+  - `SaveManager` / `AwakeInstancesAfterBackupRestoration`
+  - 非 Binder `ProcessInitializeOnLoadAttributes`
+- 新补到的稳定事实：
+  - `SaveManager` 在 baseline 样本里稳定命中：
+    - `[SaveManager] 从 AssetDatabase 加载 PrefabDatabase: Assets/111_Data/Database/PrefabDatabase.asset`
+  - 但加上 editor-only diagnostics 后，`InitializeDynamicObjectFactory()` 自身耗时只有 `15~16ms`。
+  - 在“禁用 editor AssetDatabase fallback”对照样本里，`SaveManager` 已完全不走 fallback，且 `dynamicFactoryInitialized=False`，但关键重段变化极小：
+    - `ProcessInitializeOnLoadAttributes: 8906ms -> 9063ms`
+    - `AwakeInstancesAfterBackupRestoration: 10281ms -> 10209ms`
+    - `Asset Pipeline Refresh: 28.037s -> 28.012s`
+  - 因而 `SaveManager` 已可判定为“命中 suspect 行为，但不是这一刀主真凶”。
+  - 项目内剩余非 Binder 候选继续收缩后也明显偏弱：
+    - `PersistentIdAutomator.cs` 只注册 `sceneSaving`
+    - `DialogueChineseFontAssetCreator.cs` 更贴近 `ProcessInitializeOnLoadMethodAttributes`
+- 父层准确口径已更新为：
+  - 当前单一第一责任点不再是 `SaveManager`
+  - 包层 `com.coplaydev.unity-mcp` 的 `InitializeOnLoad` 集群已经从背景噪音升级为真 suspect
+  - 其中当前排在最前面的具体入口是：
+    - `Editor/Services/Transport/Transports/StdioBridgeHost.cs`
+- 父层恢复点：
+  - 后续若继续这条支线，应优先围绕 `unity-mcp` 包层 `InitializeOnLoad` 做更窄取证；
+  - 不应再回头重复 `SaveManager` 对照，也不应把项目内轻量非 Binder 入口误报成第一真凶。
+
+## 2026-03-25（父层补记：用户要求先补“禁用项的设计初衷与安全边界”复盘）
+- 当前父层主线仍是 Unity Play Busy 证据式收窄；本轮继续处理的不是新取证，而是用户对“我们到底动过什么、理解到什么深度”的追问。
+- 父层新增稳定事实：
+  - 当前这条线里真正被临时禁用过的，只有：
+    - 两个 Editor-only Binder 的 Auto Bind
+    - `SaveManager` 的 editor `AssetDatabase` fallback
+  - 它们都不等于“包层 suspect 已被禁用”：
+    - Binder 本质是编辑器内容补挂便利器
+    - `SaveManager` fallback 本质是编辑器里对非 `Resources` 资产路径的兜底装载
+    - `unity-mcp` 包层目前只做了设计级 suspect 排名，还没有动它的任何功能开关
+  - `SaveManager` fallback 不能被误解成“业务主路径”：
+    - 项目里还有 `PersistentManagers` 通过序列化 `prefabDatabase` 初始化 `DynamicObjectFactory`
+    - 所以这条 fallback 更像 editor rescue / compatibility path，而不是唯一初始化来源
+- 父层恢复点：
+- 后续若继续对包层 suspect 动手，必须先补更深的设计初衷审查；
+- 不能把这轮对本地 editor fallback 做过的取证方式，直接套到 `unity-mcp` 基础设施链上。
+
+## 2026-03-25（父层补记：典狱长模式已纳入当前规范快照）
+- 当前父层主线里，治理规则不再只靠聊天记忆维持。
+- 新补到的稳定事实：
+  - `Sunset当前规范快照_2026-03-22.md` 已新增 `6B. 典狱长模式`
+  - 当前快照已正式写明：
+    - 用户说出 `典狱长 / 典狱长上货 / 上货` 时，治理线程先审回执再判停发
+    - 线程必须先判成 `继续发 prompt / 停给用户验收 / 停给用户分析审核 / 无需继续发`
+    - 给用户的转发格式固定为 `对应文件在 + text 代码块`
+  - 同时，旧的“规则更新必须同步到批次 README / 通用前缀 prompt”口径已收紧为：
+    - `AGENTS.md`
+    - 当前规范快照
+    - 治理规范正文
+    - 相关 skill
+- 父层恢复点：
+  - 典狱长模式现在已经进入当前快照，后续不会再只是线程记忆层的临时偏好；
+  - 后续若继续治理 prompt 分发，应直接按这版快照执行。
+
+## 2026-03-26（父层补记：own-root 清尾责任已进入当前快照与项目总规则）
+- 当前父层主线仍是维护 Sunset 的活入口与现行基线；本轮继续处理的不是业务功能，而是把“不能再靠典狱长事后扫尾”压成当前 live 纪律。
+- 父层新增稳定事实：
+  - `AGENTS.md` 与 `Sunset当前规范快照_2026-03-22.md` 现已统一写明：
+    - `git-safe-sync.ps1` 在 `main-only` 的 `task` 模式下，虽然允许 unrelated dirty 保留，但如果白名单所属 `own roots` 下还有未纳入本轮的 remaining dirty / untracked，就必须直接阻断
+    - 线程回执现在必须带 `当前 own 路径是否 clean`
+    - 只要 `当前 own 路径是否 clean != yes`，就不能算本轮闭环，也不能直接进入下一轮 feature prompt
+    - 治理线程默认不再为常规 own dirty 尾账反复开 cleanup 批次
+  - 当前快照中的高危 / 强制报实口径也已扩为：
+    - `Primary.unity`
+    - `GameInputManager.cs`
+    - `TagManager.asset`
+    - `StaticObjectOrderAutoCalibrator.cs`
+  - 这轮还做了正反两组脚本样本验证：
+    - clean own path + unrelated dirty：允许继续
+    - 同根仍有 own docs tail：直接阻断
+- 父层恢复点：
+  - 之后再出现“线程自己的尾账没收，却想先拿下一轮 prompt”的情况，应该直接按当前快照视为执行偏差；
+  - 后续治理重心将回到 4 个 unresolved hot / mixed 目标与恢复开发后的高危陪跑，不再回到常规扫地模型。

@@ -4766,6 +4766,30 @@
   - `项目文档总览` 正式归入“无需继续发”
 - 下一步只需等待这些新线程的首轮回执。
 
+## 2026-03-26｜已为当前治理线程自身补交接前状态确认入口
+
+**当前主线目标**
+- 用户进一步要求：不仅要给其他线程发 handoff / V2 启动 prompt，也要给当前治理线程自己补一份“交接前状态确认委托”。
+
+**本轮完成**
+1. 已新增：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\2026-03-26_治理线程进入下一代交接前状态确认委托-01.md`
+
+**关键裁定**
+1. 当前治理线程的初判仍是：
+   - 还不适合立即 handoff；
+   - 因为它当前仍承担：
+     - 新线程首轮回执收件
+     - 典狱长四类裁定
+     - 视情况回拉后续 prompt
+2. 但后续如果真要把治理线程本身交给下一代：
+   - 现在已经有了固定确认入口；
+   - 不必再临时拼 prompt。
+
+**恢复点 / 下一步**
+- 这份自用确认委托当前只作为后续治理 handoff 的入口储备；
+- 眼下这条治理线程仍保持活跃，继续等待新线程首轮回执。
+
 ## 2026-03-26｜`导航检查` 最小回执已正式收件，V1 维持停发
 
 **当前主线目标**
@@ -4790,3 +4814,327 @@
 - 治理线程后续只等待 `导航检查V2` 的首轮回执；
 - 当前真正活跃的施工入口仍是：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2首轮启动委托-02.md`
+
+## 2026-03-26｜`典狱长-V2` 进入前状态确认结果：5 条新线程首轮证据已齐，但当前治理线程仍不能 handoff
+
+**当前主线目标**
+- 用户要求先不要机械 handoff，而是只判断这条治理线程现在能不能安全交给 `典狱长-V2`。
+
+**本轮完成**
+1. 已按 `2026-03-26_典狱长-V2进入前状态确认委托-02.md` 完整回读：
+   - 当前治理线程 `memory_0.md`
+   - `Codex规则落地/memory.md`
+   - `skill-trigger-log.md`
+   - 统一交接写作 prompt / 导入 prompt
+   - 5 份新线程首轮启动委托
+2. 已直接核对 5 条新线程自己的 `memory_0.md`，确认首轮结果都已真实落盘：
+   - `谁是卧底V2`：已把下一刀收紧到 `TransportCommandDispatcher` 的 `default-off diagnostics`
+   - `spring-day1V2`：已完成 live preflight，第一刀仍固定为 non-hot 正式面
+   - `NPCV2`：已确认 `Primary.unity` scene 写窗口仍不成立
+   - `导航检查V2`：已把 detour owner 最小保活闭环接上，并拿到 1 组有效执行窗口
+   - `农田交互修复V3`：已拿到至少 1 轮无 `NavValidation` 并发的 sapling-only 窗口，但 patched runner 仍未在新的干净窗口里稳定转绿
+3. 已确认“5 条新线程首轮回执是否收齐”这一项现在可以回答为：
+   - `yes`
+
+**关键裁定**
+1. 当前这条治理线程仍不能 handoff。
+2. 单一第一阻塞点不是“还有线程没回执”，而是：
+   - 这 5 条首轮结果还没有被当前治理线程统一收件成正式四类裁定，也还没完成必要的第二轮 `prompt` 回拉 / 停发。
+3. 因此现在如果直接交给 `典狱长-V2`，会把本波治理闭环切断，导致新线程后续去向悬空。
+
+**恢复点 / 下一步**
+- 下一步不是立刻生成 `典狱长-V2` 交接包；
+- 而是先把本波 5 条新线程首轮结果做完统一裁定闭环，再重新判断是否到 handoff 停点。
+
+## 2026-03-26｜5 条新线程首轮回执已全部收齐，治理线程已拿到第二轮裁定输入
+
+**当前主线目标**
+- 用户追问“齐了没有”，因此这轮只核“5 条新线程首轮回执是否全部齐全且可信”，不抢先写第二轮 prompt。
+
+**本轮完成**
+1. 已逐条核对以下 5 条新线程的首轮回执与对应记忆：
+   - `谁是卧底V2`
+   - `spring-day1V2`
+   - `NPCV2`
+   - `农田交互修复V3`
+   - `导航检查V2`
+2. 已确认它们的最小回执与线程 `memory_0.md` / 工作区 `memory.md` / `skill-trigger-log.md` 一致，不存在“聊天说有、文件没写”的假收件。
+3. 已确认导航的 `519d51bd` 真实存在，导航首轮“已白名单 sync 到 main”的说法成立。
+
+**关键裁定**
+1. 当前 5 条首轮回执现在可以正式判为：
+   - `已齐`
+2. 当前 5 条线的四类裁定预判为：
+   - `谁是卧底V2`：继续发 prompt
+   - `spring-day1V2`：继续发 prompt
+   - `NPCV2`：停给用户分析 / 审核（hot-file blocker 未解）
+   - `农田交互修复V3`：继续发 prompt
+   - `导航检查V2`：继续发 prompt
+3. 因此，上一个“治理线程还不能 handoff”的单一阻塞点已经被解除到下一阶段：
+   - 现在不再是“等回执”
+   - 而是“是否要继续由本代治理线程发第二轮 prompt，还是已到 `典狱长-V2` 的 handoff 停点”
+
+**恢复点 / 下一步**
+- 当前治理线程已经拿到完整第二轮裁定输入；
+- 如果用户要继续典狱长分发，下一步就按上面 5 条预判进入第二轮 prompt / 停发裁定；
+- 如果用户要直接评估 handoff，现在也已经比上一轮更接近可交接停点。
+
+## 2026-03-26｜第二轮典狱长分发已落稿：`谁是卧底V2 / spring-day1V2 / 导航检查V2 / 农田交互修复V3` 继续，`NPCV2` 停发
+
+**当前主线目标**
+- 用户明确要求“开始吧”，因此这轮不再只做审计，而是正式进入第二轮典狱长 prompt 分发。
+
+**本轮完成**
+1. 已按 `sunset-prompt-slice-guard` 重新压缩 4 条继续施工线程的第二轮硬切片：
+   - `谁是卧底V2`：`TransportCommandDispatcher` 初始化链 `default-off diagnostics` 落地
+   - `spring-day1V2`：两个 Day1 UI prefab 的 formal-face 基线审面与单刀对齐
+   - `导航检查V2`：同一 detour owner 闭环上的 1 组 NPC 侧 fresh
+   - `农田交互修复V3`：新的干净 sapling-only 窗口下的 patched runner 转绿验证
+2. 已新增对应 prompt 文件：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-26_谁是卧底V2第二轮续工委托-03.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.26-Day1V2第二轮续工委托-10.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2第二轮续工委托-03.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3第二轮续工委托-03.md`
+3. 已明确维持 `NPCV2` 停发，不生成第二轮施工 prompt。
+
+**关键裁定**
+1. 当前 second-wave 的治理结果是：
+   - `继续发 prompt`：`谁是卧底V2 / spring-day1V2 / 导航检查V2 / 农田交互修复V3`
+   - `停给用户分析 / 审核`：`NPCV2`
+2. `spring-day1V2` 这轮被进一步压成 prefab formal-face 切口，不再允许继续停在“non-hot 正式面”这类宽泛口号里。
+3. `导航检查V2` 这轮被限制为 NPC 侧 1 组 fresh，不允许把首轮 player 侧通过冒充成整条导航已过线。
+4. `农田交互修复V3` 这轮明确区分“干净窗口失败”和“并发污染窗口”，不允许再把两者混讲。
+
+**恢复点 / 下一步**
+- 当前 4 份第二轮 prompt 已可直接转发；
+- 后续按回执再判断是否继续第三轮，或是否已接近 `典狱长-V2` handoff 停点。
+
+## 2026-03-26｜用户裁定“后续治理属于 `典狱长-V2`”，当前治理线程已正式转入自身 handoff
+
+**当前主线目标**
+- 用户明确纠偏：当前这条治理线程不该再继续向下把控，后面的治理属于 `典狱长-V2`；
+- 因此这轮不再继续做典狱长分发，而是切到当前线程自己的重型交接。
+
+**本轮完成**
+1. 已回读：
+   - 当前线程 `memory_0.md`
+   - `Codex规则落地/memory.md`
+   - `2026-03-26_V1交接文档统一写作Prompt.md`
+   - `2026-03-26_典狱长-V2进入前状态确认委托-02.md`
+   - `skill-trigger-log.md`
+2. 已在：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\V2交接文档\`
+   下正式生成 7 份交接文件。
+3. 已把未来继任线程名固定写为：
+   - `典狱长-V2`
+
+**关键裁定**
+1. 当前治理线程的最新停点已经成立：
+   - second-wave prompt 已落稿
+   - 继续治理从这里开始属于 `典狱长-V2`
+2. 因此旧结论“还不能 handoff”被用户最新裁定覆盖，不再继续沿用。
+
+**恢复点 / 下一步**
+- 当前 `V1` 到此收口；
+- 后续典狱长治理默认由 `典狱长-V2` 接班，不再继续由本线程往下做第三轮分发。
+
+## 2026-03-26｜已补 `典狱长-V2` 首轮启动委托，当前 handoff 交付物已完整
+
+**当前主线目标**
+- 用户补充要求：仅有重型交接包还不够，必须再给 `典狱长-V2` 一份真正能开工的“开场白”。
+
+**本轮完成**
+1. 已新增：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\2026-03-26_典狱长-V2首轮启动委托-03.md`
+2. 已把新线程首轮动作压成：
+   - 接班后的 current-wave 基线复核与 inbox 建立
+3. 已明确禁止新线程在首轮就：
+   - 重写 second-wave prompt
+   - 抢先写 third-wave prompt
+   - 继续争论 `V1` 是否应该留场
+
+**关键裁定**
+1. 当前 handoff 交付物现在才算完整：
+   - 7 份重型交接文档
+   - 1 份 `典狱长-V2` 首轮启动委托
+2. 这份启动委托的作用不是继续治理，而是让 `V2` 能从稳定现场直接接班，不会开局尬住。
+
+**恢复点 / 下一步**
+- 当前 `V1` 的交接包与开场 prompt 都已具备；
+- 后续只需把首轮启动委托直接发给 `典狱长-V2`，即可开始新线程治理。
+
+## 2026-03-26｜`典狱长-V2` 已完成 current-wave 基线复核与 inbox 建立
+
+**当前主线目标**
+- 接住 `V1` 已交出的治理现场，只做 current-wave 基线复核与 inbox 建立，不抢写第三轮 prompt。
+
+**本轮完成**
+1. 已按 `2026-03-26_典狱长-V2首轮启动委托-03.md` 回读交接包核心、当前治理记忆、`STL-20260326-018/019/020` 与 4 份 second-wave prompt，确认 `V1` handoff 停点与 second-wave 事实一致。
+2. 已把当前 5 条线治理图重新钉死为：
+   - `谁是卧底V2`：继续施工，当前等待 second-wave 最小回执
+   - `spring-day1V2`：继续施工，当前等待 second-wave 最小回执
+   - `导航检查V2`：继续施工，当前等待 second-wave 最小回执
+   - `农田交互修复V3`：继续施工，当前等待 second-wave 最小回执
+   - `NPCV2`：停给用户分析 / 审核，不进入 second-wave 施工收件队列
+3. 已把接班后的 current-wave inbox 固定成两层：
+   - 施工 inbox：`谁是卧底V2 / spring-day1V2 / 导航检查V2 / 农田交互修复V3` 的 second-wave 最小回执
+   - 分析位：`NPCV2` 等待用户分析 / 审核结论，而不是等待第三轮施工 prompt
+4. 已明确从这一轮开始，后续典狱长治理由 `典狱长-V2` 承接；`V1` 不再继续留场复判、重写 second-wave 或抢先写 third-wave。
+
+**关键裁定**
+1. 当前是否已完成接班基线复核：
+   - `yes`
+2. 当前真正等待的治理输入应拆成两类：
+   - 若只看施工收件：当前只等 4 条继续施工线的 second-wave 回执
+   - 若看全量治理：另有 `NPCV2` 继续停在用户分析 / 审核等待位
+3. 因此当前 inbox 的最准口径不是“继续发 prompt”，而是“先收 4 条施工回执 + 保持 1 条用户分析位”。
+
+**恢复点 / 下一步**
+- 下一步只需继续收 `谁是卧底V2 / spring-day1V2 / 导航检查V2 / 农田交互修复V3` 的 second-wave 最小回执；
+- `NPCV2` 继续等待用户分析 / 审核结论；
+- 在这些输入回来之前，不重写 second-wave，不抢写 third-wave。
+
+## 2026-03-26｜shared-root 大扫除批次已发：6 条线只做 own dirty / untracked 认领与白名单收口
+
+**当前主线目标**
+- 用户基于 `NPCV2` 的最新只读阻塞反馈，明确改题：
+  - 当前第一任务不是继续业务续工；
+  - 而是先发一轮 shared-root cleanup，让所有相关线程各扫各的地、认领 own dirty、能白名单提交就提交、异常就汇报。
+
+**本轮完成**
+1. 已复核 cleanup 批次现场仍成立：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 519d51bd20d98e662eafb94cea0c5bbbeb314cec`
+   - `Primary.unity` 仍为 `M`，且 `git diff --stat -- Assets/000_Scenes/Primary.unity` 仍是 `76 insertions / 4 deletions`
+   - `shared-root-branch-occupancy = neutral-main-ready` 仍只表示 Git 入口中性，不等于热 scene 可写
+   - `GameInputManager.cs` 仍是 mixed hot-file dirty
+   - `TagManager.asset` owner 仍未明确
+2. 已在本工作区根层新增本轮批次入口：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-26_批次分发_11_shared-root大扫除认领与白名单收口_01.md`
+3. 已为 6 条线分别落 cleanup prompt：
+   - `spring-day1V2`
+   - `NPCV2`
+   - `导航检查V2`
+   - `农田交互修复V3`
+   - `谁是卧底V2`
+   - `项目文档总览`
+4. 已把本轮统一口径钉死为：
+   - 只认领 own dirty / untracked
+   - 能白名单 sync 到 `main` 的直接收口
+   - `Primary.unity` / `GameInputManager.cs` / `TagManager.asset` 等 mixed / hot 目标只报实，不乱吞
+   - 不准借 cleanup 名义恢复业务续工或扩成 third-wave
+
+**关键裁定**
+1. 当前 cleanup 分发不是只为 `NPCV2` 开路，而是一次 shared-root 全线收尾动作。
+2. `NPCV2` 的业务态仍保持“停给用户分析 / 审核”，但 cleanup 可以继续只收 own docs tail 与 owner 报实，不构成业务复工。
+3. `项目文档总览` 虽然不需要 `V2` 业务继任线程，但当前仍有 own 文档尾账，因此纳入本轮 cleanup。
+4. 治理线程自己仍保留一层 docs tail：
+   - `Codex规则落地 / Steering规则区优化 / 共享根执行模型与吞吐重构` 的治理文档 dirty
+   - 这些未外发给业务线程，后续由 `典狱长-V2` 自己单独收口
+
+**涉及文件**
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-26_批次分发_11_shared-root大扫除认领与白名单收口_01.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\26.03.26-Day1V2共享根大扫除与白名单收口-11.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2共享根大扫除与owner报实-03.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2共享根大扫除与白名单收口-04.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3共享根大扫除与白名单收口-04.md`
+- `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-26_谁是卧底V2共享根大扫除与AutoCalibrator收口-04.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-26_项目文档总览共享根大扫除与文档尾账收口-02.md`
+
+**恢复点 / 下一步**
+- 下一步不再继续争论 second-wave / third-wave；
+- 先等这 6 条线回 cleanup 最小回执；
+- 收件后再判断：
+  - 哪些已经对自己 clean
+  - 哪些已完成白名单 sync
+  - 哪些仍有 foreign dirty / mixed hot-file blocker 需要典狱长继续裁定。
+
+## 2026-03-26｜cleanup 批次收件复核：实际 active set 为 5/5 已回执通过，`谁是卧底V2` 不计入本轮
+
+**当前主线目标**
+- 用户贴回 5 条 cleanup 回执，要求先核票、再重新把 shared-root 当前盘面钉死；
+- 同时用户明确纠偏：
+  - `谁是卧底V2` 仍在执行原任务；
+  - 并未被实际投入本轮 cleanup 批次执行。
+
+**本轮完成**
+1. 已逐条核对 5 条已回执线程的提交与路径 clean 状态：
+   - `spring-day1V2`：`3b2c0f1e8b8da53b64e8e6545610d51238cafb31` 存在；其 own 路径当前 clean
+   - `NPCV2`：`eb6284fa / ddef0564 / 29e8db17` 存在；其 own 路径当前 clean
+   - `导航检查V2`：`12ce08149716c72e4c76c5fac805fcaa7fd315f7 / caa8bde3d706fe1234abc84062130d3e8eab236d` 存在；其 own 路径当前 clean
+   - `项目文档总览`：`1452bebb1171235b454d1d4fd961639caabdc930` 存在；其 own 路径当前 clean
+   - `农田交互修复V3`：`f5a2bf50 / 533974de` 存在；其 own 路径当前 clean
+2. 已复核这 5 条线当前都满足：
+   - own dirty / untracked 已认领
+   - 已完成白名单 sync 到 `main`
+   - 当前 shared root 不 clean 的原因都来自 foreign dirty / hot-file dirty，而不是它们自己的白名单残留
+3. 已根据用户纠偏重钉本轮统计口径：
+   - 本轮实际 active cleanup set = 5
+   - `谁是卧底V2` 不纳入本轮 cleanup 完成率与收件统计
+4. 已复核 shared root 剩余 dirty 主要集中在两组：
+   - mixed / hot-file：
+     - `Assets/000_Scenes/Primary.unity`
+     - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - `ProjectSettings/TagManager.asset`
+     - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+   - 治理 / 文档尾账：
+     - `Codex规则落地`
+     - `Steering规则区优化`
+     - `共享根执行模型与吞吐重构`
+     - 若干 `V1` 提示文档与 `tmp/`
+
+**关键裁定**
+1. 当前 5 条实际参批 cleanup 线程可全部判为：
+   - `cleanup 已完成，对自己 clean`
+2. 但这不等于 shared root 已 clean：
+   - 当前仓库仍被 4 个 unresolved hot / mixed target 与治理 docs tail 占着
+3. `NPCV2` 需要拆成双态理解：
+   - cleanup 线：已完成
+   - 业务线：仍停给用户分析 / 审核
+4. `导航检查V2` 与 `农田交互修复V3` 本轮虽然带了最小代码/ warning-cleanup，但仍在 own path 内，且代码闸门 / 编译闸门已通过，可接受为 cleanup 范围内的受控收口。
+5. `谁是卧底V2` 当前不应被误报成“cleanup 未回执”：
+   - 正确口径是“未进入本轮 cleanup 执行集合”
+
+**恢复点 / 下一步**
+- 当前 cleanup 队列已经收完应收的 5/5；
+- 下一步不要再继续催这 5 条线补 cleanup；
+- 现在真正要处理的是：
+  1. `Primary.unity / GameInputManager.cs / TagManager.asset / StaticObjectOrderAutoCalibrator.cs` 的 owner / 去向
+  2. 治理线程自己手上的 docs tail
+  3. `谁是卧底V2` 继续按用户原任务线推进，不并入本轮 cleanup 统计。
+
+## 2026-03-26｜治理收口已改成硬闸门：own-root 清尾责任下沉到脚本与 live 规则
+
+**当前主线目标**
+- 用户明确要求：不能以后每次都等典狱长临时发 cleanup prompt 才收垃圾；
+- 本轮要把“线程自己一刀一收、own dirty 不得拖到下一轮”的纪律真正压进 live 脚本与 live 规则。
+
+**本轮完成**
+1. 已验证 `scripts/git-safe-sync.ps1` 新增的 `own roots` 硬闸门：
+   - 正向样本：`项目文档总览` 只带自己一条路径做 `preflight` 时允许继续；
+   - 反向样本：治理线只带 `Codex规则落地` 中一小块 include path，但同根还有剩余 docs tail 时，被脚本直接阻断。
+2. 已把本轮新纪律同步到 live 规则层：
+   - `AGENTS.md`
+   - `Sunset当前规范快照_2026-03-22.md`
+   - `治理线程批次分发与回执规范.md`
+   - `典狱长模式_治理总闸与分发规范.md`
+   - 相关治理 skill 正文
+3. 已把当前统一口径钉死为：
+   - `git-safe-sync` 不只允许保留 unrelated dirty，也会阻断 `own roots` 下未纳入本轮的 remaining dirty / untracked
+   - 回执必须带 `当前 own 路径是否 clean`
+   - 只要 `当前 own 路径是否 clean != yes`，回执就不能算闭环，不能直接进入下一轮 feature prompt
+   - 治理线程默认不再为常规 own dirty 尾账重复开 cleanup 批次
+4. 已把当前强制报实的 unresolved hot / mixed 目标固定为：
+   - `Primary.unity`
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - `ProjectSettings/TagManager.asset`
+   - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+
+**关键裁定**
+1. cleanup 这轮的 5/5 完成并不代表 shared root clean，但它证明了“线程对白名单 clean”和“仓库整体 clean”已经能被分开治理。
+2. 今后常规尾账不能再外包给典狱长；线程必须在自己的 wave 内把 own dirty / untracked 自己收干净。
+3. 典狱长治理只保留给真正的 cross-thread mixed / hot-file incident，不再承担普通线程的默认扫尾。
+
+**恢复点 / 下一步**
+- 只要本轮治理 docs tail 白名单 sync 完成，接下来治理焦点就只剩：
+  1. 4 个 unresolved hot / mixed 目标的 owner 裁定
+  2. 恢复开发时对高危线程的陪跑与防串线检查

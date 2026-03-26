@@ -1672,6 +1672,83 @@ function Test-AllowedPath {
     return $false
 }
 
+function Get-OwnDirtyRoots {
+    param(
+        [string]$RepoRoot,
+        [string[]]$ScopeRoots,
+        [string[]]$IncludePaths
+    )
+
+    $inputs = @()
+    $inputs += Expand-PathList -Paths $ScopeRoots
+    $inputs += Expand-PathList -Paths $IncludePaths
+
+    $candidates = @()
+    foreach ($item in @($inputs | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+        $normalized = Normalize-InputPath -Path $item
+        if ([string]::IsNullOrWhiteSpace($normalized)) {
+            continue
+        }
+
+        $literalPath = Join-Path $RepoRoot ($normalized -replace '/', '\')
+        if (Test-Path -LiteralPath $literalPath -PathType Container) {
+            $candidates += $normalized.TrimEnd('/')
+            continue
+        }
+
+        $parent = Split-Path -Path $normalized -Parent
+        if ([string]::IsNullOrWhiteSpace($parent)) {
+            $candidates += $normalized
+        }
+        else {
+            $candidates += (Normalize-InputPath -Path $parent)
+        }
+    }
+
+    $sorted = @($candidates | Sort-Object -Unique | Sort-Object { $_.Length })
+    $roots = New-Object System.Collections.Generic.List[string]
+
+    foreach ($candidate in $sorted) {
+        $covered = $false
+        foreach ($existing in $roots) {
+            if (Test-PathMatch -Path $candidate -Rule $existing) {
+                $covered = $true
+                break
+            }
+        }
+
+        if (-not $covered) {
+            $roots.Add($candidate)
+        }
+    }
+
+    return @($roots)
+}
+
+function Get-OwnRemainingEntries {
+    param(
+        [object[]]$Entries,
+        [string[]]$OwnRoots
+    )
+
+    if ($null -eq $Entries -or @($Entries).Count -eq 0 -or $null -eq $OwnRoots -or @($OwnRoots).Count -eq 0) {
+        return @()
+    }
+
+    $filtered = @(
+        $Entries | Where-Object {
+            $entry = $_
+            $null -ne $entry -and
+            -not [string]::IsNullOrWhiteSpace($entry.Path) -and
+            $entry.Category -ne '已知本地噪音' -and
+            $entry.Category -ne 'shared root 租约运行态脏改' -and
+            (@($OwnRoots | Where-Object { Test-PathMatch -Path $entry.Path -Rule $_ }).Count -gt 0)
+        }
+    )
+
+    return @($filtered)
+}
+
 function Get-PathGroup {
     param([string]$Path)
 
@@ -1736,6 +1813,10 @@ function Test-DirtyHardBlockPath {
     $comparisonPath = $normalizedPath.ToLowerInvariant()
 
     if ($comparisonPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') {
+        return $true
+    }
+
+    if ($comparisonPath -eq 'assets/editor/staticobjectorderautocalibrator.cs') {
         return $true
     }
 
@@ -1804,6 +1885,8 @@ function Get-DirtyOwnerHint {
     if ($Category -eq '已知本地噪音') { return 'noise' }
     if ($Category -eq 'shared root 租约运行态脏改') { return 'shared-root-runtime' }
     if ($comparisonPath -eq 'assets/yyy_scripts/controller/input/gameinputmanager.cs') { return 'hotfile-owner-required' }
+    if ($comparisonPath -eq 'assets/editor/staticobjectorderautocalibrator.cs') { return 'static-order-owner-required' }
+    if ($comparisonPath -eq 'projectsettings/tagmanager.asset') { return 'tagmanager-owner-required' }
     if ($comparisonPath.EndsWith('/primary.unity')) { return 'scene-hotfile-owner-required' }
     $threadMemoryOwnerHint = Get-ThreadMemoryOwnerHint -Path $Path
     if (-not [string]::IsNullOrWhiteSpace($threadMemoryOwnerHint)) { return $threadMemoryOwnerHint }
@@ -1955,6 +2038,24 @@ function Get-RemainingDirtyGateMessage {
     }
 
     return "FATAL: shared root 当前仍存在未纳入本轮白名单的 remaining dirty，task 模式禁止继续写入或同步。请先清尾、归属或隔离这些改动：$($preview -join '; ')$suffix"
+}
+
+function Get-OwnRemainingDirtyGateMessage {
+    param(
+        [string[]]$OwnRoots,
+        [object[]]$Entries
+    )
+
+    $rootSummary = if ($null -eq $OwnRoots -or @($OwnRoots).Count -eq 0) { 'none' } else { (@($OwnRoots) -join ', ') }
+    $preview = @($Entries | Select-Object -First 5 | ForEach-Object {
+            "$($_.Status) $($_.Path) <$($_.DirtyLevel)/$($_.OwnerHint)>"
+        })
+    $suffix = ''
+    if (@($Entries).Count -gt 5) {
+        $suffix = ' ...'
+    }
+
+    return "FATAL: 当前白名单所属 own roots 仍有未纳入本轮的 remaining dirty/untracked；这说明你还没把自己这刀收干净，不能继续 sync。请先清掉这些同根残留，或显式扩大 IncludePaths/ScopeRoots。own_roots=[$rootSummary]；remaining=$($preview -join '; ')$suffix"
 }
 
 function Get-SharedRootBranchRequestGate {
@@ -2395,6 +2496,7 @@ function New-PreflightReport {
     $upstream = Get-UpstreamCounts
     $occupancy = Get-SharedRootOccupancyRecord
     $entries = Get-StatusEntries
+    $ownDirtyRoots = Get-OwnDirtyRoots -RepoRoot $repoRoot -ScopeRoots $ScopeRoots -IncludePaths $IncludePaths
     $allowed = @()
     $remaining = @()
 
@@ -2420,6 +2522,7 @@ function New-PreflightReport {
     $canContinue = $true
     $reason = '允许继续'
     $codeGuard = New-EmptyCodeGuardReport -Reason '当前模式未运行代码闸门。'
+    $ownRemaining = Get-OwnRemainingEntries -Entries $remaining -OwnRoots $ownDirtyRoots
 
     $sharedRootLease = $null
     if ($Mode -eq 'task') {
@@ -2448,6 +2551,10 @@ function New-PreflightReport {
         $canContinue = $false
         $reason = "FATAL: OwnerThread '$OwnerThread' 在 task 模式下必须提供 ScopeRoots 或 IncludePaths，禁止无边界自动提交。"
     }
+    elseif (@($ownRemaining).Count -gt 0) {
+        $canContinue = $false
+        $reason = Get-OwnRemainingDirtyGateMessage -OwnRoots $ownDirtyRoots -Entries $ownRemaining
+    }
     elseif ($Mode -eq 'task' -and -not $sharedRootLease.CanUse) {
         $canContinue = $false
         $reason = $sharedRootLease.Reason
@@ -2467,6 +2574,8 @@ function New-PreflightReport {
         Branch          = $branch
         Head            = $head
         Upstream        = $upstream
+        OwnDirtyRoots   = @($ownDirtyRoots)
+        OwnRemaining    = @($ownRemaining)
         Allowed         = @($allowed)
         Remaining       = @($remaining)
         SharedRootLease = $sharedRootLease
@@ -2486,6 +2595,10 @@ function Write-PreflightReport {
     Write-Output "upstream 状态 ($($Report.Upstream.Label)): behind=$($Report.Upstream.Behind), ahead=$($Report.Upstream.Ahead)"
     Write-Output "是否允许按当前模式继续: $($Report.CanContinue)"
     Write-Output "判断原因: $($Report.Reason)"
+    if ($null -ne $Report.OwnDirtyRoots -and @($Report.OwnDirtyRoots).Count -gt 0) {
+        Write-Output "own roots: $((@($Report.OwnDirtyRoots) -join ', '))"
+        Write-Output "own roots remaining dirty 数量: $(@($Report.OwnRemaining).Count)"
+    }
 
     if ($null -ne $Report.CodeGuard) {
         Write-Output "代码闸门适用: $($Report.CodeGuard.Applies)"

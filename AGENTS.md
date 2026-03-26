@@ -4,18 +4,22 @@
 - 当前最高目标不是流程完美，而是尽快恢复真实开发、缩短等待、减少治理摩擦。
 - 当前唯一规范快照：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
-- 自 2026-03-23 起，以下 7 条补强项视为当前 live 口径的一部分：
+- 自 2026-03-23 起，以下补强项视为当前 live 口径的一部分：
   1. 规则变更必须同轮同步到 `AGENTS.md`、当前规范快照、治理规范正文（如 `治理线程批次分发与回执规范.md` / `典狱长模式_治理总闸与分发规范.md`）以及相关 skill；少一处都不算真正生效。
   2. 只要线程碰过 `Scene`、`Prefab`、`Primary.unity` 或其他热 Unity 资源，回执里必须显式说明“我留了什么、保留什么、清掉什么、当前是否已对我这条线 clean”。
   3. 只要白名单路径包含 `.unity`、`.prefab`、`.asset`，收口前必须把本轮改动分类为“有效内容 / 自动副产物 / 调试残留 / 他线脏改”；自动副产物默认不得混入 checkpoint。
   4. branch / worktree 只允许作为例外载体存在；一旦例外成果已可迁回 `main`，线程必须先迁最小 checkpoint，再移除旧 carrier blocker，再回到 `main` 语义继续。
   5. 任何 Unity / MCP live 写或 live 验证，都必须先说清 4 件事：需要什么实例、最多占多久、只做什么、做完退回什么状态。
-  6. 线程回执最小字段固定为：`当前在改什么 / changed_paths / 是否触碰高危目标 / 是否需要 Unity-MCP live 写 / code_self_check / pre_sync_validation / 当前是否可直接提交到 main / 提交 SHA / 当前 git status 是否 clean / blocker_or_checkpoint / 一句话摘要`。
+  6. 线程回执最小字段固定为：`当前在改什么 / changed_paths / 是否触碰高危目标 / 是否需要 Unity-MCP live 写 / code_self_check / pre_sync_validation / 当前是否可直接提交到 main / 提交 SHA / 当前 git status 是否 clean / 当前 own 路径是否 clean / blocker_or_checkpoint / 一句话摘要`。
   7. 默认执行纪律是“一刀一收”；除非同一逻辑尚未闭环、同一 live 窗口内必须连跑、或用户明确要求更大 checkpoint，否则不要顺手叠第二刀。
+  8. 普通线程的 own dirty / untracked 默认必须在当前这一刀内自己收口；不能再把自己的尾账拖到下一轮，再等治理线程专门开 cleanup 批次兜底。
+  9. `git-safe-sync.ps1` 在 `main-only` 的 `task` 模式下，虽然允许 unrelated dirty 留在 shared root，但如果本轮白名单所属 `own roots` 下仍有未纳入本轮的 remaining dirty / untracked，就必须直接阻断。
+  10. `Primary.unity`、`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`、`ProjectSettings/TagManager.asset`、`Assets/Editor/StaticObjectOrderAutoCalibrator.cs` 当前统一按“强制报实的 hot / mixed 目标”处理；owner 未明确前，任何线程都不得借 cleanup 名义静默吞并。
 - 即日起 Sunset 普通开发的真实基线默认只有一个：`main`。
 - 对普通开发，暂停把 `request-branch`、`grant-branch`、`ensure-branch`、`wake-next`、`return-main` 当成必经前置。
 - 不再为普通开发继续新增 `codex/*` 分支或新增 worktree。
 - 治理线程的角色改成“收烂摊子 + 高危打断 + 极简口径维护”，不再做重排队、重放行、重闸门。
+- 治理线程默认不再为“常规 own dirty 尾账”重复开 cleanup 批次；只有命中 cross-thread mixed / hot-file incident、owner 不清或 shared root 物理现场被卡死时，才升级治理收口。
 - 所有线程都可以直接开始开发；只有命中下面这些硬打断条件时才必须停下：
   1. 正在改同一个高危目标。
   2. 需要 Unity / MCP live 写入，但已经有别的线程在写。
@@ -27,6 +31,8 @@
   - `Primary.unity`
   - `Assets/000_Scenes/SceneBuild_01.unity`
   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - `ProjectSettings/TagManager.asset`
+  - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
   - 任何当前正被另一个线程 live 写入的 Unity 资源
 - 等待态不再强制先写 tracked memory、占用文档或治理回执；能用最小聊天回执解决的，就不要先制造治理脏改。
 - 已经存在的 branch / worktree 只视为过渡现场，不再扩张成长期模型；其有价值成果应尽快回到 `main`，然后继续只以 `main` 为准。
@@ -194,6 +200,7 @@
   - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 ...`
   这样即使 shared root 已切到旧任务分支，也不会退回执行该分支自带的旧版仓库脚本。
 - 如果 shared root 占用文档已经声明 `is_neutral = false`，则 `git-safe-sync.ps1` 的 `task` 模式仍会额外核对 `owner_thread + current_branch`；但在 `main-only` 白名单 sync 下，脚本不再因 unrelated remaining dirty 一刀切阻断。
+- 同样从现在起，`git-safe-sync.ps1` 在 `main-only` 白名单 sync 下还会额外核：当前白名单所属 `own roots` 是否已经 clean；如果同根还有自己未纳入本轮的 remaining dirty / untracked，脚本会直接拒绝继续 sync。
 - 如果当前线程已经位于某个 `codex/` 分支，且本轮只是顺手修治理规则或治理文档，不必为了同步治理文件强行切回 `main`；此时改用 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...`，只白名单提交本轮治理文件。
 - 普通真实实现任务当前默认不再要求先 `ensure-branch`；完成一刀后，默认直接在 `main` 上执行 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread <线程名> -IncludePaths ...` 做白名单提交。
 - 自 2026-03-23 起，只要 `task` 模式白名单中包含 `.cs` 文件，`git-safe-sync.ps1` 会在收口前自动触发代码闸门：
@@ -204,6 +211,7 @@
 - 只有命中 branch carrier / worktree 例外场景时，才继续使用 `ensure-branch`、`return-main` 和 `task-active` 这套旧事务模型。
 - 无论在 `main` 还是 `codex/` 分支，真实实现任务完成后都必须使用显式白名单同步，不得使用无边界 `git add -A`。
 - 如果 `git-safe-sync.ps1` 判断当前不能安全同步，必须明确汇报阻塞点、当前分支、基线 hash 和剩余 dirty 分类；禁止硬提交、硬推送或偷偷跳过 Git 收尾。
+- 只要线程回执中的 `当前 own 路径是否 clean` 不是 `yes`，这条回执就不能当作“已完成当前这一刀”或“可进入下一轮 feature prompt”；最多只能当 blocker 报实或 cleanup 未闭环。
 - 旧的 `Codex迁移与规划`、旧全局 `tasks.md`、旧 `TD_*` 代办文件都只作为历史兼容入口，不再承接当前治理续办的新任务。
 - 评审任务先按 `code-reaper-review.md` 判路由；若落到需要出审视报告的路径，先出报告，不要抢先改文件。
 - 场景、预制体、检查器、ScriptableObject 任务先审视再修改；当序列化引用、挂载关系或场景影响范围不清晰时，先给证据和判断，再做改动。
