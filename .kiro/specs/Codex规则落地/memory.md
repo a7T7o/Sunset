@@ -5226,3 +5226,12 @@
   - 当前 own 路径是否 clean
   - 详细汇报是否足够用户验收 / 审读
   继续做下一轮典狱长裁定。
+
+**补记**
+- 上述批次文件与 3 份 prompt 已完成治理白名单 `sync` 到 `main`：
+  - 提交：`3f149b4d`（`2026.03.26_典狱长-V2_05`）
+- 当前 shared root 仍保留但未纳入本轮的 dirty 只剩：
+  - `.codex/threads/Sunset/项目文档总览/memory_0.md`
+  - `.kiro/specs/屎山修复/导航V2/000-gemini锐评-1.0.md`
+  - `.kiro/specs/屎山修复/导航V2/000-gemini锐评-1.1.md`
+- 它们都不是本轮 prompt 分发白名单的一部分，不应被误吞。
