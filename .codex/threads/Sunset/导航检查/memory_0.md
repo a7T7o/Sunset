@@ -1697,3 +1697,35 @@
 - 当前恢复点：
   - 这轮已经把 `导航V2` 建成“审核锐评 / 收口自省”的新工作区；
   - 后续如果再进导航实现裁定，不应把 `000-gemini锐评-1.1.md` 直接升格成施工蓝图。
+
+## 2026-03-26（典狱长审 `导航V2` 回执：暂不准开工实现）
+
+- 当前线程主线：
+  - 不继续改导航实现代码，而是站在治理/父线程视角审 `导航V2` 当前回执，决定它是否可进入下一步。
+- 本轮子任务：
+  - 复核 `导航V2` 的 `Path B/C` 判断、工作区记忆和线程记忆报实，并按典狱长模式决定是否继续发下一轮 prompt。
+- 本轮完成：
+  1. 重新核对：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\000-gemini锐评-1.1审视报告.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\memory_0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\006-Sunset专业导航系统需求与架构设计.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\007-Sunset专业导航底座后续开发路线图.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0审视报告.md`
+  2. 裁定：
+     - `1.1 -> Path C` 的方向判断基本成立；
+     - `1.0 -> Path B` 仍缺正式边界冻结；
+     - `导航V2` 上一轮回执把父线程记忆误报成“线程记忆已同步”，边界需要纠偏；
+     - 因此当前不是“允许开工实现”，而是“继续发一轮更窄的认知收口 prompt”。
+  3. 落盘：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\001-导航V2开工准入与边界收口-01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\000-gemini锐评-1.0边界补记.md`
+     - 同步更新 `导航V2/memory.md` 与父层 `屎山修复/memory.md`
+- 当前线程级结论：
+  1. `导航V2` 现在还不能直接进导航实现施工；
+  2. 更诚实的治理动作不是放它开工，而是先逼它把：
+     - `1.0` 的可吸收边界
+     - 线程记忆边界
+     - 开工准入条件
+     三件事说实；
+  3. 下一轮只等 `导航V2` 按新 prompt 交最小回执，再决定是否让它进入实现施工。
