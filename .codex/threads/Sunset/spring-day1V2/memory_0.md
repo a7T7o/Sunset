@@ -85,3 +85,41 @@
 **遗留问题**:
 - [ ] 当前 shared root 里的 foreign dirty 仍然很多，但它们不属于本轮 spring-day1 白名单。
 - [ ] `Primary.unity` 继续是 mixed hot-file blocker；本轮收口完成后，Day1 主线仍不从 scene 面恢复。
+
+### 会话 3 - 2026-03-26
+
+**用户需求**:
+> 检查一下和你 day1 家族相关的 dirty，去认领一下哪些是你的，开始。
+
+**完成任务**:
+1. 按 `skills-governor + sunset-workspace-router` 重新做了 Sunset 手工等价启动闸门，并把本轮范围锁死为“只审 Day1 家族当前 live dirty 的 owner”，不恢复 Day1 施工。
+2. 重新核实 live 现场为 `D:\Unity\Unity_learning\Sunset @ main @ 8c4e6ff7`，当前 `git status` 里仍然脏着的 Day1 家族可疑项只剩 3 个字体资产：
+   - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+   - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+   - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+3. 对这 3 个字体资产做了 file-level owner 复核，而不是继续沿用上一轮“全都算 Day1 own”的宽认领：
+   - `DialogueChinese V2 SDF.asset`：`definitely ours`
+     - GUID 只被 `DialogueFontLibrary_Default.asset`、`SpringDay1PromptOverlay.prefab`、`SpringDay1WorkbenchCraftingOverlay.prefab` 引用；
+     - diff 新增 glyph 已带出 `Day1 任务页`、`和 NPC001 完成首段对话`、`从 E 键接触开始` 这一组 Day1 专有文案。
+   - `DialogueChinese SDF.asset`：`Day1 强相关，但当前不安全吞并`
+     - 仓库 live 引用面只剩 `Primary.unity`；
+     - diff glyph 带出 `任意键继续对话`，说明它与 Day1 对话 UI 强相关；
+     - 但因为唯一 live 入口是 `Primary.unity`，当前仍应按 `mixed scene surface` 报实。
+   - `DialogueChinese Pixel SDF.asset`：`Day1 强相关，但当前不安全吞并`
+     - 当前被 `Primary.unity` 与 `NPC 001/002/003 prefab` 共用；
+     - diff 更像 live 运行时对白 / 提示文案缓存，不能在“不碰 NPC / 不碰 Primary”约束下直接吞并。
+4. 用 stable launcher 试探了“只对白名单 `DialogueChinese V2 SDF.asset + Day1 记忆` 做 `preflight`”：
+   - `V2` 自身被允许纳入；
+   - 但脚本仍以 `Assets/TextMesh Pro/Resources/Fonts & Materials` 这个 own root 下还有 `DialogueChinese Pixel SDF.asset / DialogueChinese SDF.asset` same-root remaining dirty 为由阻断继续 sync。
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md` - [追加]：记录当前 3 个 Day1 相关字体 dirty 的 owner 三分法与 same-root blocker。
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md` - [追加]：记录本轮 Day1 家族 dirty 认领复核与 preflight 阻断。
+
+**解决方案**:
+- 把这轮 Day1 家族 dirty 从“整个字体包一起认领”收紧为“只有 `DialogueChinese V2 SDF.asset` 可稳认领，`SDF/Pixel` 继续按 mixed surface 报实”，避免为了收口而把 `Primary.unity` / NPC 共用面的副产物一起吞掉。
+- 通过单文件 `preflight` 先把真正的阻断点钉死：当前不是 `V2` 自己不能收，而是 same-root 下还挂着两个不安全吞并的相关字体 dirty。
+
+**遗留问题**:
+- [ ] 如果后续仍要做 Day1 字体面白名单 sync，必须先对 `DialogueChinese SDF.asset / DialogueChinese Pixel SDF.asset` 的 mixed 归属再做一次明确裁定；否则 stable launcher 仍会因 same-root remaining dirty 拒绝继续。
+- [ ] `Primary.unity` 继续是 mixed hot-file blocker；只要 `DialogueChinese SDF.asset` 仍只挂在 scene live 面上，Day1 这边就不应把它静默吞并成“纯 own formal-face”。

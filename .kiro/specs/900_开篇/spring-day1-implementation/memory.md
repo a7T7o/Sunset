@@ -840,3 +840,27 @@
 - 当前恢复点：
   - 父工作区这轮的目标不是“把 shared root 弄 clean”，而是“只把 spring-day1 自己的尾账用白名单收进 main”
   - 若白名单同步成功，后续父层可恢复到“own 尾账已清、Day1 主线仍暂停”的中间稳定态
+
+## 2026-03-26 补记：spring-day1V2 已把 Day1 家族当前 live dirty 缩到 1 个可稳认领正式面
+- 当前父工作区主线没有改题，仍然是 spring-day1 / spring-day1V2 的 shared root 尾账治理；这轮只做“Day1 家族相关 dirty 的 owner 复核”，不恢复 Day1 业务施工。
+- 本轮 live 现场重新钉实为 `main@8c4e6ff7`，且当前 `git status` 里真正仍处于 dirty 的 Day1 家族可疑项只剩 3 个字体资产：
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+- 当前父层 owner 复核结果已从“5 个 `DialogueChinese*.asset` 一起吞并”收紧为三档：
+  - `definitely ours`：`DialogueChinese V2 SDF.asset`
+    - 证据是它的 GUID 当前只落在 `Assets/111_Data/UI/Fonts/Dialogue/DialogueFontLibrary_Default.asset`、`Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab` 与 `Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab` 这组 Day1 formal-face 上；
+    - 同时 diff 新增 glyph 已出现 `Day1 任务页`、`和 NPC001 完成首段对话`、`从 E 键接触开始` 这一组 Day1 专有文案。
+  - `Day1 强相关，但当前不安全吞并`：`DialogueChinese SDF.asset`
+    - 证据是它当前仓库引用面只剩 `Assets/000_Scenes/Primary.unity`；
+    - 虽然 diff glyph 明确出现了 `任意键继续对话`，仍说明它和 Day1 对话 UI 运行面强相关；
+    - 但因为唯一 live 引用挂在 `Primary.unity`，所以当前应按 `scene mixed surface` 对待，而不是直接当作可单吞正式面。
+  - `Day1 强相关，但当前不安全吞并`：`DialogueChinese Pixel SDF.asset`
+    - 证据是它当前同时被 `Assets/000_Scenes/Primary.unity` 与 `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 引用；
+    - diff 中的新增 glyph 更像 live 运行时对白 / 提示文案缓存，不能排除 NPC / shared-root 共用面的混入，因此当前不能在“不碰 NPC / 不碰 Primary”口径下静默吞并。
+- 本轮额外用 stable launcher 试探过“只对白名单 `DialogueChinese V2 SDF.asset + Day1 记忆` 做 preflight”，结果被脚本阻断：
+  - 直接原因不是 `V2` 自身不可收，而是 `Assets/TextMesh Pro/Resources/Fonts & Materials/` 这个 own root 下仍残留 `DialogueChinese Pixel SDF.asset` 与 `DialogueChinese SDF.asset` 两个未纳入本轮的 same-root dirty；
+  - 也就是说，当前父层最准确的 blocker 已经不是“Day1 还有一大团 own dirty 没拆”，而是“字体 formal-face 根目录里只剩 1 个可稳认领项 + 2 个 Day1 强相关但挂在 mixed surface 的阻断项”。
+- 当前恢复点：
+  - 如果后续继续做 Day1 自己的 dirty 收口，安全第一刀应优先保持这份三分法，不再回到“3 个字体一并吞掉”的宽口径；
+  - 若要真正放行 `DialogueChinese V2 SDF.asset` 白名单 sync，必须先对 `DialogueChinese SDF.asset / Pixel SDF.asset` 的 mixed 归属再做一次明确裁定，否则 stable launcher 仍会因为 same-root remaining dirty 阻断。
