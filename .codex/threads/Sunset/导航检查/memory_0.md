@@ -1364,3 +1364,286 @@
 - 当前恢复点：
   - 下一轮如果继续导航，应直接锁 NPC 运行场景的到达/停止语义；
   - 不需要再回头为 `TryRefreshPath` 或 `TrafficArbiter` 做口径辩论。
+
+## 2026-03-25（`002-prompt-16` 继续执行：保护罩热区继续收紧，但 same-round fresh live 被外部 compile blocker 卡住）
+
+- 当前线程主线仍是导航回归事故处理；本轮子任务没有换线，仍然只服务 `保护罩 / 很远就停 / 被围抽搐` 这条用户体验主线。
+- 本轮完成：
+  1. 手工等价执行 `sunset-startup-guard`，显式继续使用：
+     - `skills-governor`
+     - `sunset-workspace-router`
+     - `sunset-no-red-handoff`
+     - `sunset-unity-validation-loop`
+     - `unity-mcp-orchestrator`
+  2. 重新核对 `002-prompt-16.md`、导航工作区记忆、MCP live 基线和当前 Unity 实例状态。
+  3. 先尝试恢复 fresh live：
+     - 多次执行 `stop / clear console / play / execute_menu_item / read_console / editor_state`
+     - 确认菜单源码里新增的“排队进 Play 再自动起跑”逻辑当前还没被 Unity 编译采纳
+     - 菜单实际仍命中旧逻辑，只输出“请先进入 Play Mode”
+  4. 在 fresh live 取证未恢复前，继续直接修 runtime 热区：
+     - `NavigationAvoidanceRules.cs`
+       - `GetInteractionRadius(...)` 改为 collider-first，小壳层 cap
+     - `NavigationLocalAvoidanceSolver.cs`
+       - moving yield 的 clearance / slowdown / distance scale 收紧
+       - sleeping/stationary blocker 的 clearance / slowdown / repath 阈值大幅收紧
+     - `NavigationLiveValidationMenu.cs`
+       - 源码层补了 edit-mode queue -> play -> auto-run 逻辑，等待后续可编译窗口真正生效
+- 本轮验证：
+  1. `validate_script`
+     - `NavigationAvoidanceRules.cs / NavigationLocalAvoidanceSolver.cs / NavigationLiveValidationMenu.cs` 均 `errors=0`
+  2. `git diff --check`
+     - 当前导航热区通过
+  3. fresh live
+     - 当前没有 claim 成功
+     - 真实阻塞点是 shared root 外部 compile blocker
+- 当前外部阻塞与 owned 状态：
+  1. 当前 owned errors：
+     - 无
+  2. 当前 external blockers：
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` 的 `PageRefs` 缺失，阻断稳定 Play
+     - 刷新期还出现过 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs` 的外部缺类型错误
+  3. 当前 warnings：
+     - 无新的导航 owned warning
+  4. 当前 Unity / compile 是否可用：
+     - 当前 shared root 不适合 claim “fresh live 已完成”
+- 当前线程级结论：
+  1. 这轮不是拿 external blocker 停工，而是已经继续把“保护罩 / 很远就停”的阈值压回真实 footprint；
+  2. 但 `002-prompt-16` 要求的 same-round fresh live 结果还没拿到，不能用旧轮结果顶账；
+  3. 当前最直接的恢复点是：
+     - 拿到可进 Play 的编译窗口后，马上补跑 `RealInputPlayerAvoidsMovingNpc / RealInputPlayerSingleNpcNear / RealInputPlayerCrowdPass / NpcAvoidsPlayer / NpcNpcCrossing`
+
+## 2026-03-26（`002-prompt-17` 续工：same-round fresh live 补齐，责任点继续收窄到“shared detour 不落地”）
+
+- 当前线程主线未变，仍是导航真实点击体验回归事故处理；本轮子任务是：
+  1. 把 hygiene 报实
+  2. 同轮补齐 5 组 fresh live
+  3. 若仍失败，就把第一责任点继续压窄，不再拿 external blocker 停车
+- 本轮完成：
+  1. 手工等价执行 `skills-governor / sunset-workspace-router / sunset-unity-validation-loop / sunset-no-red-handoff / unity-mcp-orchestrator / sunset-scene-audit`
+  2. 重新读取 `002-prompt-17.md`
+  3. 核实 `DebugIssueAutoNavClick` 报错不是当前 shared root 事实：
+     - `GameInputManager.cs` 中方法仍在
+     - `validate_script(GameInputManager.cs / NavigationLiveValidationRunner.cs)` 均 `errors=0`
+  4. `NavigationAgentRegistry.cs` hygiene 已清：
+     - 未被调用的 registry 辅助 API 已回退
+     - 当前 diff 为空
+  5. `Primary.unity` 做了只读归属审计，没有继续写 scene：
+     - 导航 own residue 仍是 `PlayerAutoNavigator.enableDetailedDebug` 与 `001/002` NPC 的 debug override
+     - `StoryManager / workbench / transform` mixed dirty 已明确排除为非导航 own
+  6. same-round fresh live 首轮 5 组已跑实：
+     - `RealInputPlayerAvoidsMovingNpc`
+       - `pass=False / timeout=6.89 / minClearance=-0.006 / pushDisplacement=2.670 / playerReached=True / npcReached=False`
+     - `RealInputPlayerSingleNpcNear`
+       - `pass=False / timeout=6.52 / minEdgeClearance=-0.005 / blockOnsetEdgeDistance=0.197 / playerReached=False`
+     - `RealInputPlayerCrowdPass`
+       - `pass=False / timeout=6.50 / minEdgeClearance=-0.013 / directionFlips=19 / crowdStallDuration=5.190 / playerReached=False`
+     - `NpcAvoidsPlayer`
+       - `pass=False / timeout=6.51 / minClearance=0.542 / npcReached=False`
+     - `NpcNpcCrossing`
+       - `pass=False / timeout=6.52 / minClearance=0.038 / npcAReached=False / npcBReached=False`
+  7. 本轮继续修改代码热区：
+     - `NavigationLocalAvoidanceSolver.cs`
+       - predicted moving conflict 的 repath / blocking 计算改为用预测前向距离
+       - dynamic yield / sleeping blocker / peer awareness 再收紧
+     - `NavigationAvoidanceRulesTests.cs`
+       - 新增 predicted moving conflict repath 测试
+       - 当前 `17/17 passed`
+     - `PlayerAutoNavigator.cs`
+       - shared avoidance 触发时先尝试 `NavigationPathExecutor2D.TryCreateDetour(...)`
+       - detour candidate clearance 门槛下调
+     - `NPCAutoRoamController.cs`
+       - shared avoidance `ShouldRepath` 时先尝试 shared detour，再退回 rebuild
+  8. 本轮代码自检：
+     - `validate_script(NavigationLocalAvoidanceSolver.cs / PlayerAutoNavigator.cs / NPCAutoRoamController.cs / NavigationAvoidanceRulesTests.cs)` 均 `errors=0`
+     - `git diff --check` 通过
+     - `NavigationAvoidanceRulesTests` 再跑一次后 `17/17 passed`
+  9. 修后继续追 `RealInputPlayerAvoidsMovingNpc`：
+     - solver 收紧后：`pass=False / pushDisplacement=2.681`
+     - detour 接线与 clearance 放宽后：`pass=False / pushDisplacement=2.648`
+- 当前线程级结论：
+  1. “玩家推着 NPC 走”这条坏现象当前仍然成立，且已经有 fresh hard fact：
+     - `pushDisplacement` 稳定在 `2.64 ~ 2.68`
+  2. 当前新的第一责任点已继续收窄为：
+     - real-input 现场里 `shouldRepath=True` 会出现
+     - 但 shared detour 长期仍未真正落地，日志里仍是 `detour=False`
+     - 玩家 / NPC 继续落回 `重建路径` 或 `卡顿重建`，最终又回到直推 / 远停 / 抽搐
+  3. 当前最直接恢复点不是继续泛调 solver，而是：
+     - 直接锁 `PlayerAutoNavigator.TryCreateDynamicDetour / HandleSharedDynamicBlocker`
+     - `NPCAutoRoamController.TryHandleSharedAvoidance`
+     - `NavigationPathExecutor2D.TryCreateDetour`
+     - 查清为什么 real-input blocker 已触发 repath，但 `_hasDynamicDetour / HasOverrideWaypoint` 仍长期不起效
+
+## 2026-03-26（执行层握手链路彻查：案发现场回执）
+
+- 当前线程主线未变，仍是导航真实点击体验事故处理；本轮子任务不是修参数，而是把 `ShouldRepath -> Detour` 的执行层断点彻底交代清楚。
+- 本轮完成：
+  1. 重新逐行核对：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationLocalAvoidanceSolver.cs`
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationPathExecutor2D.cs`
+     - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+  2. 确认玩家接收 solver 结果的位置：
+     - `ExecuteNavigation()`：`402-403`
+     - `SolveSharedDynamicAvoidance()`：`744-755`
+     - `TryCreateDynamicDetour()` 真正消费 `SuggestedDetourDirection`：`823-845`
+  3. 确认 NPC 接收 solver 结果的位置：
+     - `TryHandleSharedAvoidance()`：`875`
+     - `TryCreateSharedAvoidanceDetour()` 真正消费 `SuggestedDetourDirection`：`981-989`
+  4. 确认执行层死亡回退链：
+     - 玩家：
+       - `778-786`：`!ShouldRepath` / cooldown 直接吞 detour
+       - `792-802`：detour 失败后直接 `BuildPath()`
+       - `760-765` + `NavigationPathExecutor2D.ClearOverrideWaypointIfChanged(864-875)`：solver 某一帧没再报 blocker 就会清 detour
+       - `637-673`：旧 `CheckAndHandleStuck()` 仍会继续触发 `BuildPath()`
+     - NPC：
+       - `926-945`：`!ShouldRepath` / cooldown 直接退出或 hard stop
+       - `950-959`：先停，再尝试 detour，失败就 `TryRebuildPath()`
+       - `749-799`：旧 `CheckAndHandleStuck()` 仍会继续触发 `TryRebuildPath()` / `TryBeginMove()`
+  5. 确认共享执行层还有一个结构性事实：
+     - `NavigationPathExecutor2D.TryClearDetourAndRecover()` 只存在于底座，当前 runtime controller 没有任何调用点
+     - 说明 detour clear/recover API 现在并不是现行执行链的一部分
+  6. 确认玩家物理真相：
+     - detour 未落地时，`PlayerAutoNavigator` 给 `PlayerMovement` 的输入是 `moveDir * moveScale`
+     - 若命中 `ShouldUseBlockedNavigationInput()`，则走 `SetBlockedNavigationInput()` -> `ApplyBlockedNavigationVelocity()`，本质只是限速/削前冲，不是 detour owner
+     - 若 repath 当帧触发但 detour 创建失败，则 `ForceImmediateMovementStop()` 直接把这一帧输入压成 `Vector2.zero`
+- 当前线程级结论：
+  1. 当前不是 solver 完全不会算，而是“算出来的 detour 意图在 controller 层被吞掉”；
+  2. 当前不该再继续泛调 solver 权重，真正的主刀应固定在：
+     - `PlayerAutoNavigator.HandleSharedDynamicBlocker / TryCreateDynamicDetour`
+     - `NPCAutoRoamController.TryHandleSharedAvoidance / TryCreateSharedAvoidanceDetour`
+     - `NavigationPathExecutor2D.TryCreateDetour / ClearOverrideWaypointIfChanged`
+  3. 当前恢复点：
+     - 下一轮若继续，应直接把 detour owner 的创建、保活、释放条件接成真正的 runtime 闭环
+
+## 2026-03-26（确认可进入下一代交接，并生成 `导航检查V2` 重型交接包）
+
+- 当前线程主线未变；本轮子任务不是继续业务施工，而是确认当前叙事是否已稳定到足以无失真交给下一代线程。
+- 本轮完成：
+  1. 读取并遵循：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航进入下一代交接前状态确认委托-01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+  2. 复核当前工作区记忆、父工作区记忆、线程记忆与最后一个有效续工入口 `002-prompt-17.md`
+  3. 判定“可以进入交接”，理由是：
+     - 当前主叙事已稳定收敛为：
+       - `ShouldRepath` 已出现
+       - detour owner 没有稳定接管执行层
+     - 当前 single first blocker 已固定在：
+       - `PlayerAutoNavigator / NPCAutoRoamController / NavigationPathExecutor2D` 的 detour owner 创建、保活、释放闭环
+     - 当前 own / non-own / hot-file 边界已足够清楚，不会让新线程一上来扫错文件
+     - 当前不存在一个“必须先由本线程补掉，否则交接会失真”的最小业务动作
+  4. 正式生成：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\00_交接总纲.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\01_线程身份与职责.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\02_主线与支线迁移编年.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\03_关键节点_分叉路_判废记录.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\04_用户习惯_长期偏好_协作禁忌.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\05_当前现场_高权重事项_风险与未竟问题.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\06_证据索引_必读顺序_接手建议.md`
+- 当前线程级结论：
+  1. `导航检查` 已可无失真进入下一代交接；
+  2. 未来继任线程名固定为 `导航检查V2`；
+  3. 推荐接手顺序是：
+     - 先读 `05 -> 03 -> 02 -> 01 -> 04 -> 06`
+     - 再读 `memory_0.md / 导航检查工作区 memory.md / 002-prompt-17.md`
+     - 最后再碰代码热区。
+
+## 2026-03-26（补报本轮真实遵守/执行的最新文档入口）
+
+- 当前线程主线未变；本轮子任务是按用户要求，把“我到底遵守并执行了哪些最新文档、它们都在哪”补报清楚。
+- 本轮确认的实际文档输入源：
+  1. 规则：
+     - `C:\Users\aTo\.codex\AGENTS.md`
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+  2. 当前导航线直接委托：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航进入下一代交接前状态确认委托-01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-17.md`
+  3. 当前记忆链：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\memory_0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\memory.md`
+  4. 当前交接写作规范：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+  5. 当前显式使用的 skill 正文：
+     - `C:\Users\aTo\.codex\skills\skills-governor\SKILL.md`
+     - `C:\Users\aTo\.codex\skills\sunset-workspace-router\SKILL.md`
+- 本轮输出落点：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\`
+
+## 2026-03-26（Gemini 架构锐评 4.0 审核：Path C + 自我纠偏）
+
+- 当前线程主线切到“审核锐评 + 自我审视”；本轮没有继续导航业务实现。
+- 本轮完成：
+  1. 读取：
+     - `005-genimi锐评-4.0.md`
+     - `code-reaper-review.md`
+     - `006-Sunset专业导航系统需求与架构设计.md`
+     - `007-Sunset专业导航底座后续开发路线图.md`
+     - `导航检查V2` 交接包关键文件
+     - 当前导航热区代码
+  2. 正式判定：
+     - `Path C`
+  3. 生成：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0审视报告.md`
+  4. 本轮自我纠正：
+     - 我上一轮把 `TryClearDetourAndRecover()` 说成“runtime 没有调用点”，当前代码事实已经不是这样；
+     - 玩家 `TryReleaseDynamicDetour()` 与 NPC `TryReleaseSharedAvoidanceDetour()` 已在 release 分支接入该 API；
+     - 更准确的当前问题是：detour create / keep / release 整体闭环仍没形成稳定 owner 统治。
+- 当前线程级结论：
+  1. Gemini 4.0 锐评的问题意识大体有价值，但落地处方过度绝对，不能直接执行；
+  2. 当前后续判断应以：
+     - `006`
+     - `007`
+     - `005-genimi锐评-4.0审视报告.md`
+     - `导航检查V2` 交接包
+     为准；
+  3. 这轮已经把“我自己的旧口径也有一处失真”明牌写出，后续不应再沿用那句旧说法。
+
+## 2026-03-26（补充自我审视：最新实际遵守与执行的文档入口清单）
+
+- 当前线程主线未变；本轮不是继续施工，而是补一份“我这几轮到底遵守了哪些最新文档、它们分别在哪里”的审计清单。
+- 本轮完成：
+  1. 重新核对当前实际遵守的现行入口：
+     - `C:\Users\aTo\.codex\AGENTS.md`
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+     - `C:\Users\aTo\.codex\skills\skills-governor\SKILL.md`
+     - `C:\Users\aTo\.codex\skills\sunset-workspace-router\SKILL.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航进入下一代交接前状态确认委托-01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-17.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\memory_0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\memory.md`
+  2. 重新核对当前实际生成并要求下一代线程遵守的最新正文：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\00_交接总纲.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\01_线程身份与职责.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\02_主线与支线迁移编年.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\03_关键节点_分叉路_判废记录.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\04_用户习惯_长期偏好_协作禁忌.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\05_当前现场_高权重事项_风险与未竟问题.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\06_证据索引_必读顺序_接手建议.md`
+- 当前线程级结论：
+  1. 这轮最新“被我实际遵守的文档”与“被我实际执行/落盘的文档”已经可以分层报实；
+  2. 下一次如果再做自我审视，不应只停留在代码热区，也应同时把治理入口、工作区记忆与交接正文一起列清。
+
+## 2026-03-26（Gemini 4.0 锐评并行复核补记：v1 一致性确认）
+
+- 当前线程主线：
+  - 继续 `005-genimi锐评-4.0.md` 审核线，不切回导航实现施工。
+- 本轮子任务：
+  - 在既有 `Path C` 结论基础上完成“和 v1 并行审查”的一致性复核，并把结果补进正式审视报告。
+- 本轮完成：
+  1. 回读：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2首轮启动委托-02.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\steering\code-reaper-review.md`
+  2. 并行审查：
+     - 让 v1 独立核对核心断言与代码事实；
+     - 并行结论与主审一致：继续判 `Path C`。
+  3. 更新：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0审视报告.md`
+     - 新增第 10 节“与 v1 并行审查一致性回执”。
+- 当前线程级结论：
+  1. 这次确认为“双视角同结论”，不是单一主观判断；
+  2. 当前仍应把该锐评当“问题意识输入”而非“直接施工蓝图”；
+  3. 后续恢复点不变：以 `006/007 + 审视报告 + V2交接包` 作为导航线继续判断依据。

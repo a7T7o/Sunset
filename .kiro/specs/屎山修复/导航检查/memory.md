@@ -2370,6 +2370,85 @@
   2. 这个收敛已经足以支撑下一代线程直接开工，不会失真；
   3. 因此当前工作区已满足进入 `导航检查V2` 的条件。
 
+## 2026-03-26（文档执行面回执补记：补报本轮真实遵守/执行的最新文档入口）
+
+- 当前主线目标：
+  - 不碰业务代码，只把本轮真实遵守并执行的最新文档、规则、记忆与交接落点报清。
+- 本轮子任务：
+  - 按用户要求，用上一轮同款最小格式补报“我到底遵守了哪些最新文档，它们都在哪”。
+- 本轮确认的实际输入源：
+  1. 全局与项目规则：
+     - `C:\Users\aTo\.codex\AGENTS.md`
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+  2. 当前导航线最新委托与续工入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航进入下一代交接前状态确认委托-01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-17.md`
+  3. 当前线程/工作区/父工作区记忆：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\memory_0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\memory.md`
+  4. 当前交接写作规范：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+  5. 本轮实际使用的 skill 正文：
+     - `C:\Users\aTo\.codex\skills\skills-governor\SKILL.md`
+     - `C:\Users\aTo\.codex\skills\sunset-workspace-router\SKILL.md`
+- 本轮实际输出落点：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\`
+
+## 2026-03-26（Gemini 架构锐评 4.0 审核：Path C）
+
+- 当前主线目标：
+  - 不继续导航实现，而是对 `005-genimi锐评-4.0.md` 做正式审核，并完成对当前导航线程自身问题的客观审视。
+- 本轮子任务：
+  - 按 `code-reaper-review` 审核路线，核对锐评声明与 `006/007`、当前代码、`导航检查V2` 交接包之间是否一致。
+- 本轮完成：
+  1. 读取：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\steering\code-reaper-review.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\006-Sunset专业导航系统需求与架构设计.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\007-Sunset专业导航底座后续开发路线图.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\00_交接总纲.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\05_当前现场_高权重事项_风险与未竟问题.md`
+     - 当前热区代码
+  2. 路径判断：
+     - `Path C`
+  3. 生成审视报告：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0审视报告.md`
+  4. 本轮新增一个必须承认的自我纠正：
+     - 我上一轮交接口径中把 `NavigationPathExecutor2D.TryClearDetourAndRecover()` 说成“runtime 没有调用点”，按当前代码已不成立；
+     - 当前更准确的事实是：release 分支已经部分接入该 API，但 detour owner 仍未稳定统治执行层。
+- 本轮新增稳定结论：
+  1. Gemini 锐评的“问题意识”有价值：
+     - God Class
+     - 交通裁决优先
+     - 状态惯性
+     - shape-aware
+  2. 但其“实现圣旨”与 `006/007` 有明确冲突：
+     - 绝对禁止临时中间目标
+     - 强制全部统一到 `linearVelocity`
+     - 立即单核化为 `DynamicNavigationAgent`
+  3. 因此当前不能直接照单执行，只能作为本地化吸收的审计输入。
+
+## 2026-03-26（补充审计：当前实际遵守与执行的最新文档路径已报实）
+
+- 当前主线目标：
+  - 不继续业务推进，只补报“这几轮实际遵守和执行的最新文档入口在哪些地方”。
+- 本轮子任务：
+  - 将治理入口、工作区记忆、线程记忆与 `导航检查V2` 交接正文分层列清。
+- 本轮完成：
+  1. 重新确认当前实际遵守的文档入口包括：
+     - 全局/项目 `AGENTS.md`
+     - `skills-governor` / `sunset-workspace-router` skill 正文
+     - 当前交接前状态确认委托
+     - 当前统一交接写作 prompt
+     - `002-prompt-17.md`
+     - 当前线程/工作区/父工作区记忆
+  2. 重新确认当前实际执行并落盘的最新正文包括：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\` 下 7 份重型交接文件
+- 本轮新增稳定结论：
+  1. 这一轮自我审视不再只有代码热区；
+  2. 当前导航线的现行文档边界与交接正文边界都已足够清楚。
+
 ## 2026-03-26（导航检查V2：detour owner 保活最小闭环首轮）
 
 - 当前主线目标：
@@ -2407,3 +2486,35 @@
 - 当前恢复点：
   - 如果导航继续，只应围绕同一闭环补更直接的 owner 命中证据或扩第二组 fresh live；
   - 当前不要回漂 solver 权重、`TrafficArbiter / MotionCommand`、`Primary.unity` 或大窗 live。
+
+## 2026-03-26（Gemini 4.0 锐评并行复核补记：Path C 维持，审视报告补齐双视角一致性）
+
+- 当前主线目标：
+  - 按审核路线继续处理 `005-genimi锐评-4.0.md`，并完成“和 v1 并行审查 + 自我审视补强”。
+- 本轮子任务：
+  - 不改导航业务代码，只在审查证据链上做并行复核与文档补记。
+- 本轮完成：
+  1. 读取并核对：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2首轮启动委托-02.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\steering\code-reaper-review.md`
+     - 当前热区实现：`PlayerAutoNavigator / NPCAutoRoamController / NavigationPathExecutor2D / PlayerMovement / NavigationLocalAvoidanceSolver`
+  2. 并行审查：
+     - 通过 v1 独立复核（explorer 子代理）对关键断言做二次判定；
+     - 主审与并行审查结论一致：该锐评应走 `Path C`。
+  3. 文档落盘：
+     - 更新 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\005-genimi锐评-4.0审视报告.md`
+     - 新增第 10 节“与 v1 并行审查一致性回执”。
+- 本轮新增稳定结论：
+  1. `Path C` 结论不变：问题意识可吸收，但“唯一化 DynamicNavigationAgent / 绝对禁 detour / 立即统一 linearVelocity”的落地处方不应直接执行；
+  2. 当前更客观的问题定义仍是：
+     - 共享骨架已存在；
+     - detour owner 最小闭环已起效；
+     - 控制器职责收口和最终运动语义统一仍需按 `006/007` 分阶段推进。
+- 当前恢复点：
+  - 后续若继续导航，应以：
+    - `005-genimi锐评-4.0审视报告.md`
+    - `006-Sunset专业导航系统需求与架构设计.md`
+    - `007-Sunset专业导航底座后续开发路线图.md`
+    - `导航检查V2` 交接包
+    为主依据推进，不把本锐评当成直接施工蓝图。

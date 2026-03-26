@@ -86,6 +86,25 @@ public static class NavigationLocalAvoidanceSolver
         float padding,
         AvoidanceResult avoidance)
     {
+        return ApplyCloseRangeConstraint(
+            currentPosition,
+            desiredDirection,
+            speedScale,
+            selfRadius,
+            padding,
+            avoidance,
+            null);
+    }
+
+    public static CloseRangeConstraintResult ApplyCloseRangeConstraint(
+        Vector2 currentPosition,
+        Vector2 desiredDirection,
+        float speedScale,
+        float selfRadius,
+        float padding,
+        AvoidanceResult avoidance,
+        float? measuredClearance)
+    {
         if (!avoidance.HasBlockingAgent || desiredDirection.sqrMagnitude < 0.0001f)
         {
             return new CloseRangeConstraintResult(desiredDirection, speedScale, false, false, float.PositiveInfinity, 0f);
@@ -93,9 +112,23 @@ public static class NavigationLocalAvoidanceSolver
 
         Vector2 toBlocker = avoidance.BlockingAgentPosition - currentPosition;
         float centerDistance = toBlocker.magnitude;
-        float minimumDistance = Mathf.Max(0.01f, selfRadius) + Mathf.Max(0.01f, avoidance.BlockingAgentRadius) + Mathf.Max(0f, padding);
+        float minimumDistance;
+        float clearance;
+        if (measuredClearance.HasValue && !float.IsNaN(measuredClearance.Value))
+        {
+            clearance = measuredClearance.Value;
+            minimumDistance = Mathf.Max(0.01f, centerDistance - clearance);
+        }
+        else
+        {
+            minimumDistance =
+                Mathf.Max(0.01f, selfRadius) +
+                Mathf.Max(0.01f, avoidance.BlockingAgentRadius) +
+                Mathf.Max(0f, padding);
+            clearance = centerDistance - minimumDistance;
+        }
+
         float engageDistance = minimumDistance + Mathf.Max(0.05f, padding);
-        float clearance = centerDistance - minimumDistance;
 
         if (centerDistance > engageDistance)
         {
@@ -140,27 +173,44 @@ public static class NavigationLocalAvoidanceSolver
 
         if (insideContactShell)
         {
-            Vector2 escapeDirection = separationDirection * Mathf.Lerp(0.9f, 1.35f, contactFactor);
+            float overlapDepth = Mathf.Max(0f, -clearance);
+            float overlapFactor = Mathf.Clamp01(overlapDepth / Mathf.Max(minimumDistance, 0.001f));
+
+            Vector2 escapeDirection = separationDirection * Mathf.Lerp(1.6f, 2.4f, overlapFactor);
             float desiredEscapeAlignment = Mathf.Max(0f, Vector2.Dot(desired, separationDirection));
             if (desiredEscapeAlignment > 0.0001f)
             {
-                escapeDirection += desired * Mathf.Lerp(0.25f, 0.55f, desiredEscapeAlignment);
+                escapeDirection += desired * Mathf.Lerp(0.18f, 0.4f, desiredEscapeAlignment);
             }
 
-            float tangentialWeight = avoidance.SuggestedDetourDirection.sqrMagnitude > 0.0001f ? 0.75f : 0.5f;
+            float tangentialWeight = avoidance.SuggestedDetourDirection.sqrMagnitude > 0.0001f
+                ? Mathf.Lerp(0.2f, 0.55f, 1f - overlapFactor)
+                : Mathf.Lerp(0.12f, 0.35f, 1f - overlapFactor);
             escapeDirection += tangential * tangentialWeight;
 
             Vector2 escapeConstrainedDirection = escapeDirection.sqrMagnitude > 0.0001f
                 ? escapeDirection.normalized
                 : separationDirection;
 
-            float escapeMinSpeed = Mathf.Lerp(0.18f, 0.3f, contactFactor);
-            float escapeMaxSpeed = Mathf.Lerp(0.35f, 0.5f, contactFactor);
-            float escapeConstrainedSpeedScale = Mathf.Clamp(Mathf.Max(speedScale, escapeMinSpeed), escapeMinSpeed, escapeMaxSpeed);
-            bool escapeHardBlocked = forwardIntoBlocker >= 0.85f;
+            float separationAlignment = Vector2.Dot(escapeConstrainedDirection, separationDirection);
+            if (separationAlignment < 0.72f)
+            {
+                escapeConstrainedDirection = (separationDirection * 2f + tangential * 0.35f).normalized;
+            }
+
+            float escapeMaxSpeed = Mathf.Lerp(0.18f, 0.08f, overlapFactor);
+            float escapeMinSpeed = Mathf.Lerp(0.06f, 0.02f, overlapFactor);
+            float escapeConstrainedSpeedScale = Mathf.Clamp(
+                Mathf.Min(speedScale, escapeMaxSpeed),
+                escapeMinSpeed,
+                escapeMaxSpeed);
+
+            bool escapeHardBlocked =
+                forwardIntoBlocker >= 0.32f &&
+                clearance <= -Mathf.Max(0.02f, padding * 0.25f);
             if (escapeHardBlocked)
             {
-                escapeConstrainedSpeedScale = Mathf.Min(escapeConstrainedSpeedScale, 0.15f);
+                escapeConstrainedSpeedScale = 0f;
             }
 
             return new CloseRangeConstraintResult(
@@ -229,60 +279,278 @@ public static class NavigationLocalAvoidanceSolver
                 continue;
             }
 
-            Vector2 offset = other.Position - self.Position;
-            float forwardDistance = Vector2.Dot(offset, desired);
-            if (forwardDistance < 0f || forwardDistance > lookAheadDistance)
-            {
-                continue;
-            }
-
-            Vector2 lateral = offset - desired * forwardDistance;
-            float lateralDistance = lateral.magnitude;
             float interactionRadius = NavigationAvoidanceRules.GetInteractionRadius(self, other);
-            if (lateralDistance > interactionRadius)
+            Vector2 offset = other.Position - self.Position;
+            float currentForwardDistance = Vector2.Dot(offset, desired);
+            float selfSpeed = Mathf.Max(self.Velocity.magnitude, 1.5f);
+            Vector2 otherVelocity =
+                other.IsCurrentlyMoving && other.Velocity.sqrMagnitude > 0.0001f
+                    ? other.Velocity
+                    : Vector2.zero;
+            float predictionHorizon = Mathf.Clamp(
+                lookAheadDistance / Mathf.Max(selfSpeed + otherVelocity.magnitude, 0.001f),
+                0.18f,
+                0.85f);
+            bool hasPredictedConflict = false;
+            float timeToClosest = 0f;
+            Vector2 steeringOffset = offset;
+            float steeringDistance = offset.magnitude;
+
+            if (otherVelocity.sqrMagnitude > 0.0001f)
+            {
+                Vector2 selfVelocityEstimate = desired * selfSpeed;
+                Vector2 relativeVelocity = otherVelocity - selfVelocityEstimate;
+                float relativeSpeedSqr = relativeVelocity.sqrMagnitude;
+                if (relativeSpeedSqr > 0.0001f)
+                {
+                    float rawTimeToClosest = -Vector2.Dot(offset, relativeVelocity) / relativeSpeedSqr;
+                    if (rawTimeToClosest > 0f)
+                    {
+                        timeToClosest = Mathf.Min(rawTimeToClosest, predictionHorizon);
+                        Vector2 futureOffset = offset + relativeVelocity * timeToClosest;
+                        float futureDistance = futureOffset.magnitude;
+                        float predictionRadius = interactionRadius * 1.08f;
+                        bool converging = Vector2.Dot(offset, relativeVelocity) < -0.01f;
+                        if (converging && rawTimeToClosest <= predictionHorizon && futureDistance <= predictionRadius)
+                        {
+                            hasPredictedConflict = true;
+                            steeringOffset = futureOffset;
+                            steeringDistance = futureDistance;
+                        }
+                    }
+                }
+            }
+
+            float forwardDistance = Vector2.Dot(steeringOffset, desired);
+            if (!hasPredictedConflict && (forwardDistance < 0f || forwardDistance > lookAheadDistance))
             {
                 continue;
             }
 
-            bool shouldYield = NavigationAvoidanceRules.ShouldYield(self, other);
+            if (hasPredictedConflict)
+            {
+                forwardDistance = Mathf.Clamp(forwardDistance, 0f, lookAheadDistance);
+            }
+
+            float lateralAllowance = interactionRadius * (hasPredictedConflict ? 1.15f : 1f);
+            Vector2 lateral = steeringOffset - desired * forwardDistance;
+            float lateralDistance = lateral.magnitude;
+            if (lateralDistance > lateralAllowance)
+            {
+                continue;
+            }
+
             bool treatAsBlockingObstacle = NavigationAvoidanceRules.ShouldTreatAsBlockingObstacle(other);
+            bool shouldYield = NavigationAvoidanceRules.ShouldYield(self, other);
+            bool yieldToDynamicAgent = shouldYield && !treatAsBlockingObstacle;
+            bool sleepingBlocker = treatAsBlockingObstacle && other.IsNavigationSleeping;
+            bool stationaryBlocker = treatAsBlockingObstacle && !other.IsCurrentlyMoving;
+
+            float centerDistance = steeringDistance;
+            float clearance = centerDistance - interactionRadius;
+            bool nearContact = clearance <= Mathf.Max(0.08f, interactionRadius * 0.15f);
+            bool predictedYieldConflict = hasPredictedConflict && yieldToDynamicAgent;
 
             float forwardFactor = 1f - Mathf.Clamp01(forwardDistance / Mathf.Max(lookAheadDistance, 0.001f));
-            float lateralFactor = 1f - Mathf.Clamp01(lateralDistance / Mathf.Max(interactionRadius, 0.001f));
+            float lateralFactor = 1f - Mathf.Clamp01(lateralDistance / Mathf.Max(lateralAllowance, 0.001f));
             float weight = forwardFactor * lateralFactor;
-
-            Vector2 sidestepAxis = Vector2.Perpendicular(desired).normalized;
-            float side = Mathf.Sign(Vector2.Dot(sidestepAxis, offset));
-            if (Mathf.Approximately(side, 0f))
+            if (hasPredictedConflict)
             {
-                side = (other.InstanceId & 1) == 0 ? 1f : -1f;
+                float timeFactor = 1f - Mathf.Clamp01(timeToClosest / Mathf.Max(predictionHorizon, 0.001f));
+                float predictionFactor =
+                    1f - Mathf.Clamp01(centerDistance / Mathf.Max(interactionRadius * 1.08f, 0.001f));
+                weight = Mathf.Max(weight, Mathf.Clamp01(0.35f + timeFactor * 0.65f + predictionFactor * 0.45f));
             }
 
-            Vector2 sidestep = sidestepAxis * -side;
-            float sidestepWeight = shouldYield ? 1.75f : 0.65f;
+            bool npcPeerCrossing =
+                self.UnitType == NavigationUnitType.NPC &&
+                other.UnitType == NavigationUnitType.NPC;
+            Vector2 otherHeading =
+                otherVelocity.sqrMagnitude > 0.0001f
+                    ? otherVelocity.normalized
+                    : Vector2.zero;
+            bool headOnPeerCrossing =
+                npcPeerCrossing &&
+                otherHeading.sqrMagnitude > 0.0001f &&
+                Vector2.Dot(desired, otherHeading) <= -0.45f;
+
+            bool peerHoldCourse = npcPeerCrossing && !shouldYield;
+            bool holdCoursePeerAwareness =
+                peerHoldCourse &&
+                currentForwardDistance >= 0f &&
+                currentForwardDistance <= interactionRadius * 1.45f &&
+                lateralDistance <= interactionRadius * 0.3f;
+            Vector2 sidestepAxis = Vector2.Perpendicular(desired).normalized;
+            Vector2 sidestep;
+            if (headOnPeerCrossing)
+            {
+                float pairSide = ((self.InstanceId ^ other.InstanceId) & 1) == 0 ? 1f : -1f;
+                sidestep = sidestepAxis * pairSide;
+            }
+            else
+            {
+                float side = Mathf.Sign(Vector2.Dot(sidestepAxis, steeringOffset));
+                if (Mathf.Approximately(side, 0f))
+                {
+                    side = (other.InstanceId & 1) == 0 ? 1f : -1f;
+                }
+
+                sidestep = sidestepAxis * -side;
+            }
+            float sidestepWeight;
+            if (yieldToDynamicAgent || treatAsBlockingObstacle)
+            {
+                sidestepWeight = predictedYieldConflict
+                    ? 2.25f
+                    : (headOnPeerCrossing
+                        ? 2.05f
+                        : (sleepingBlocker
+                            ? 2.55f
+                            : (treatAsBlockingObstacle ? 2.15f : 1.75f)));
+            }
+            else if (nearContact)
+            {
+                sidestepWeight = peerHoldCourse ? 0.08f : (headOnPeerCrossing ? 0.08f : (npcPeerCrossing ? 0.42f : 1.1f));
+            }
+            else
+            {
+                sidestepWeight = peerHoldCourse ? 0.02f : (headOnPeerCrossing ? 0.02f : (npcPeerCrossing ? 0.18f : 0.65f));
+            }
             avoidance += sidestep * weight * sidestepWeight;
 
             // 近距离动态阻挡时，除了侧绕还要主动减前冲，否则会继续把对方推走。
-            if (shouldYield)
+            if (yieldToDynamicAgent)
             {
-                float slowDownWeight = Mathf.Lerp(0.2f, 1f, lateralFactor);
+                float clearanceBuffer = Mathf.Max(
+                    predictedYieldConflict ? 0.22f : 0.12f,
+                    interactionRadius * (predictedYieldConflict ? 0.26f : 0.14f));
+                float clearanceRatio = Mathf.Clamp01(
+                    (clearance - clearanceBuffer) /
+                    Mathf.Max(interactionRadius * (predictedYieldConflict ? 0.95f : 0.8f), 0.001f));
+                float slowDownWeight = Mathf.Lerp(
+                    predictedYieldConflict ? 0.85f : 0.42f,
+                    predictedYieldConflict ? 1.55f : 1.05f,
+                    1f - clearanceRatio);
                 avoidance += (-desired) * weight * slowDownWeight;
-                float localSpeedScale = Mathf.Clamp01(forwardDistance / Mathf.Max(interactionRadius * 1.6f, 0.001f));
+                float distanceSpeedScale = Mathf.Clamp01(
+                    forwardDistance /
+                    Mathf.Max(interactionRadius * (predictedYieldConflict ? 1.9f : 1.45f), 0.001f));
+                float clearanceSpeedScale = Mathf.Lerp(predictedYieldConflict ? 0.02f : 0.08f, 1f, clearanceRatio);
+                float localSpeedScale = Mathf.Min(distanceSpeedScale, clearanceSpeedScale);
+                if (predictedYieldConflict)
+                {
+                    float timeSpeedScale = Mathf.Lerp(
+                        0.02f,
+                        1f,
+                        Mathf.Clamp01(timeToClosest / Mathf.Max(predictionHorizon, 0.001f)));
+                    localSpeedScale = Mathf.Min(localSpeedScale, timeSpeedScale);
+                }
+
                 speedScale = Mathf.Min(speedScale, localSpeedScale);
             }
-
-            if (treatAsBlockingObstacle || shouldYield)
+            else if (treatAsBlockingObstacle)
             {
-                if (forwardDistance < nearestBlockingDistance)
+                float blockerClearanceBuffer = Mathf.Max(
+                    sleepingBlocker ? 0.12f : 0.14f,
+                    interactionRadius * (sleepingBlocker ? 0.1f : 0.12f));
+                float blockerClearanceRatio = Mathf.Clamp01(
+                    (clearance - blockerClearanceBuffer) /
+                    Mathf.Max(interactionRadius * (sleepingBlocker ? 0.65f : 0.7f), 0.001f));
+                float blockerPressure = 1f - blockerClearanceRatio;
+                float blockerSlowDownWeight = Mathf.Lerp(
+                    sleepingBlocker ? 0.22f : 0.28f,
+                    sleepingBlocker ? 0.75f : 0.9f,
+                    blockerPressure);
+                avoidance += (-desired) * weight * blockerSlowDownWeight;
+
+                float blockerDistanceSpeedScale = Mathf.Clamp01(
+                    forwardDistance /
+                    Mathf.Max(interactionRadius * (sleepingBlocker ? 3f : 1.6f), 0.001f));
+                float blockerClearanceSpeedScale = Mathf.Lerp(
+                    sleepingBlocker ? 0.32f : 0.24f,
+                    1f,
+                    blockerClearanceRatio);
+                float blockerSpeedScale = Mathf.Min(blockerDistanceSpeedScale, blockerClearanceSpeedScale);
+                speedScale = Mathf.Min(speedScale, blockerSpeedScale);
+            }
+            else if (nearContact)
+            {
+                avoidance += (-desired) * weight * (peerHoldCourse ? 0.08f : (headOnPeerCrossing ? 0.08f : 0.35f));
+                float nonYieldSpeedScale = Mathf.Clamp01(Mathf.Max(clearance, 0f) / Mathf.Max(interactionRadius * 0.5f, 0.001f));
+                speedScale = Mathf.Min(
+                    speedScale,
+                    peerHoldCourse || headOnPeerCrossing
+                        ? Mathf.Lerp(0.75f, 0.95f, nonYieldSpeedScale)
+                        : Mathf.Lerp(0.18f, 0.45f, nonYieldSpeedScale));
+            }
+
+            bool trackAsBlockingAgent =
+                treatAsBlockingObstacle ||
+                shouldYield ||
+                nearContact ||
+                hasPredictedConflict ||
+                holdCoursePeerAwareness;
+            if (trackAsBlockingAgent)
+            {
+                float repathForwardDistance = hasPredictedConflict
+                    ? forwardDistance
+                    : currentForwardDistance;
+                float blockingMetric = repathForwardDistance >= 0f ? repathForwardDistance : centerDistance;
+                if (blockingMetric < nearestBlockingDistance)
                 {
-                    nearestBlockingDistance = forwardDistance;
+                    nearestBlockingDistance = blockingMetric;
                     blockingAgentId = other.InstanceId;
                     blockingAgentPosition = other.Position;
-                    blockingAgentRadius = other.AvoidanceRadius;
+                    blockingAgentRadius = Mathf.Max(other.ColliderRadius, interactionRadius - Mathf.Max(self.ColliderRadius, 0.01f));
                     detourDirection = sidestep;
                 }
 
-                if ((treatAsBlockingObstacle || shouldYield) && forwardDistance <= interactionRadius * 1.35f)
+                float repathLaneThreshold = interactionRadius *
+                    (yieldToDynamicAgent
+                        ? (predictedYieldConflict ? 0.92f : 0.78f)
+                        : (sleepingBlocker ? 0.62f : (stationaryBlocker ? 0.72f : (treatAsBlockingObstacle ? 0.76f : 0.55f))));
+                float repathClearanceThreshold = yieldToDynamicAgent
+                    ? Mathf.Max(
+                        predictedYieldConflict ? 0.32f : 0.22f,
+                        interactionRadius * (predictedYieldConflict ? 0.34f : 0.24f))
+                    : (treatAsBlockingObstacle
+                        ? (sleepingBlocker
+                            ? Mathf.Max(0.14f, interactionRadius * 0.14f)
+                            : Mathf.Max(0.2f, interactionRadius * 0.22f))
+                        : Mathf.Max(0.16f, interactionRadius * 0.2f));
+                bool blockerStillOnCorridor = lateralDistance <= repathLaneThreshold;
+                float blockerForwardReach = interactionRadius *
+                    (yieldToDynamicAgent
+                        ? (predictedYieldConflict ? 1.7f : 1.35f)
+                        : (sleepingBlocker ? 1.85f : (stationaryBlocker ? 1.6f : 1.2f)));
+
+                if (sleepingBlocker &&
+                    blockerStillOnCorridor &&
+                    repathForwardDistance >= 0f &&
+                    repathForwardDistance <= interactionRadius * 2.4f)
+                {
+                    shouldRepath = true;
+                }
+                else if ((treatAsBlockingObstacle || yieldToDynamicAgent) &&
+                    repathForwardDistance >= 0f &&
+                    repathForwardDistance <= blockerForwardReach &&
+                    blockerStillOnCorridor &&
+                    clearance <= repathClearanceThreshold)
+                {
+                    shouldRepath = true;
+                }
+                else if (treatAsBlockingObstacle &&
+                         blockerStillOnCorridor &&
+                         currentForwardDistance >= -interactionRadius * 0.05f &&
+                         speedScale <= (sleepingBlocker ? 0.72f : 0.58f) &&
+                         clearance <= (sleepingBlocker
+                            ? Mathf.Max(0.18f, interactionRadius * 0.18f)
+                            : Mathf.Max(0.24f, interactionRadius * 0.24f)))
+                {
+                    // 静止阻挡体不会自己让开；若仍被压成慢蹭，应尽快转入 detour/repath。
+                    shouldRepath = true;
+                }
+                else if (nearContact && !peerHoldCourse)
                 {
                     shouldRepath = true;
                 }

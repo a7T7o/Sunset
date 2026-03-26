@@ -23,7 +23,12 @@ public static class NavigationAvoidanceRules
 
     public static float GetInteractionRadius(in NavigationAgentSnapshot self, in NavigationAgentSnapshot other)
     {
-        return self.AvoidanceRadius + other.AvoidanceRadius;
+        float physicalRadius = self.ColliderRadius + other.ColliderRadius;
+        float selfShell = Mathf.Max(0f, self.AvoidanceRadius - self.ColliderRadius);
+        float otherShell = Mathf.Max(0f, other.AvoidanceRadius - other.ColliderRadius);
+        bool otherDynamic = other.ParticipatesInLocalAvoidance && other.IsCurrentlyMoving && !other.IsNavigationSleeping;
+        float shellCap = otherDynamic ? 0.05f : 0.02f;
+        return physicalRadius + Mathf.Min(selfShell + otherShell, shellCap);
     }
 
     public static bool ShouldTreatAsBlockingObstacle(in NavigationAgentSnapshot other)
