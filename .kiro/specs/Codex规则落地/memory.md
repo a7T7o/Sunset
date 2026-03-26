@@ -5138,3 +5138,43 @@
 - 只要本轮治理 docs tail 白名单 sync 完成，接下来治理焦点就只剩：
   1. 4 个 unresolved hot / mixed 目标的 owner 裁定
   2. 恢复开发时对高危线程的陪跑与防串线检查
+
+## 2026-03-26｜4 个 unresolved hot / mixed 目标已完成收口，shared root 只剩 foreign 文档脏改
+
+**当前主线目标**
+- 用户明确要求：在 own-root 硬闸门落地后，不要再停在“还有 4 个 unresolved target”的分析层；
+- 如果 target 无法继续完美拆纯，但当前 Unity 现场没有明显异常，就优先按可接受基线提交，先恢复开发吞吐。
+
+**本轮完成**
+1. 已按稳定 launcher + `main-only` 白名单口径，对 3 个窄 diff 先做正式 `preflight -> sync`：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - `ProjectSettings/TagManager.asset`
+   - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+   - 已提交并推送：`70d9c20c`（`2026.03.26_典狱长-V2_02`）
+2. 已对 `Primary.unity` 先做一刀最小 scene hygiene：
+   - 明确剥掉导航 residue：NPC 的 `showDebugLog / drawDebugPath` scene override
+   - 保留其余 Day1 正文与当前玩家 / 相机 integration 位移
+3. 已对 `Assets/000_Scenes/Primary.unity` 单独做 `preflight -> sync`：
+   - 已提交并推送：`3fc6c3a2`（`2026.03.26_典狱长-V2_03`）
+4. 当前 shared root 最新 `HEAD` 已为：
+   - `3fc6c3a2e6421722150f063ab6c29d33030163a8`
+5. 当前 `git status` 已只剩 1 条 foreign 文档脏改：
+   - `.codex/threads/Sunset/项目文档总览/memory_0.md`
+
+**关键裁定**
+1. 此前固定报实的 4 个 unresolved hot / mixed 目标，现已全部从 shared root 工作树中清空：
+   - `Primary.unity`
+   - `GameInputManager.cs`
+   - `TagManager.asset`
+   - `StaticObjectOrderAutoCalibrator.cs`
+2. `Primary.unity` 这次不是继续追求 owner 纯度到 100% 才允许落地，而是在用户明确授权“进度优先、可接受就先提”的前提下，按当前 integration baseline 收口。
+3. 这不等于以后这些目标可以自由混写：
+   - 只是说明这轮 shared root 的历史阻塞已经被治理线程吃掉；
+   - 后续任何线程再碰这 4 个目标，仍要按高危热区陪跑口径处理。
+4. 当前 shared root 不 clean 的原因，已不再是 hot / mixed target，而只剩一条明确 foreign 的文档脏改；它不属于本轮治理白名单，不应被误吞。
+
+**恢复点 / 下一步**
+- 当前治理焦点已从“先清 4 个 hot / mixed 目标”切到：
+  1. 恢复普通开发时，对 `Primary.unity / GameInputManager.cs / TagManager.asset / StaticObjectOrderAutoCalibrator.cs` 的高危陪跑
+  2. 继续执行“线程自己一刀一收”的 live 纪律，不再回退到常规 cleanup 批次
+  3. 对剩余 foreign 文档脏改保持 owner 隔离，不把它误判成 shared root 仍被热区卡死

@@ -518,3 +518,18 @@
 - 父层恢复点：
   - 之后再出现“线程自己的尾账没收，却想先拿下一轮 prompt”的情况，应该直接按当前快照视为执行偏差；
   - 后续治理重心将回到 4 个 unresolved hot / mixed 目标与恢复开发后的高危陪跑，不再回到常规扫地模型。
+
+## 2026-03-26（父层补记：4 个强制报实 hot / mixed 目标已清空，shared root 已从热区阻塞恢复为仅剩 foreign 文档）
+- 当前父层主线仍是维护 Sunset 的活入口与治理口径；本轮继续推进的不是新规则写作，而是把此前固定报实的 4 个 hot / mixed 目标真正从 working tree 收掉。
+- 父层新增稳定事实：
+  - `GameInputManager.cs / TagManager.asset / StaticObjectOrderAutoCalibrator.cs` 已经按 stable launcher 的 task 白名单 sync 收口，提交：`70d9c20c`
+  - `Primary.unity` 已先剥掉明确可判的导航 `NPC debug override` residue，再按当前 integration baseline 收口，提交：`3fc6c3a2`
+  - 当前 shared root `git status` 只剩：
+    - `.codex/threads/Sunset/项目文档总览/memory_0.md`
+  - 这说明 shared root 当前不 clean 的原因，已经不再是热文件 / mixed 文件现场，而是单条 foreign 文档脏改
+- 父层准确口径已更新为：
+  - 当前默认开发恢复的主要前提已经具备；
+  - 但后续若再碰 `Primary.unity / GameInputManager.cs / TagManager.asset / StaticObjectOrderAutoCalibrator.cs`，仍需按高危目标陪跑，不得把这次治理收口误读成“以后这些文件可随手混写”
+- 父层恢复点：
+  - 后续治理重点不再是追 4 个 unresolved target 的去向；
+  - 而是围绕恢复开发后的热区写入、线程交叉和 foreign dirty 隔离继续做现场把控
