@@ -172,3 +172,49 @@
 **恢复点 / 下一步**：
 - 当前主线仍是农田 `V3`，但本轮子任务已推进到“白名单可直接 sync”的阶段。
 - 下一步只剩真正执行农田白名单 sync 到 `main` 并拿提交 SHA；不需要、也不应该在这轮再扩回业务续工。
+
+## 2026-03-26：农田 `V3` cleanup 轮次已完成 whitelist sync，当前 own 面已清空
+
+**用户目标**：
+- 用户要求这轮只做农田线 own dirty / untracked 的认领、清扫和白名单收口，不继续 placeable / runner 业务推进，不吞并 `GameInputManager.cs`、`TagManager.asset` 或 `Primary.unity`。
+
+**当前主线目标**：
+- 主线仍是农田交互修复 `V3`，但这轮服务于 shared-root cleanup 子任务，目标是把农田线 own 面独立收口到 `main`。
+
+**本轮已完成事项**：
+1. 已按白名单执行 `git-safe-sync.ps1 -Action sync -Mode task -OwnerThread 农田交互修复V3 -IncludePaths ...`，成功把农田 own 路径提交并推送到 `main`。
+2. 当前业务/资源主提交 SHA 为：`f5a2bf5078be32f37f99f9599b47a99492fd7ec3`。
+3. sync 后已再次执行 `git status --short --untracked-files=all -- <农田白名单>`，结果为空，确认农田 own dirty / untracked 已清空。
+4. 当前 shared root 仍保留 foreign / mixed dirty，但本轮没有去吞并：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - `ProjectSettings/TagManager.asset`
+   - `Assets/000_Scenes/Primary.unity`
+   - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+   - 治理线文档与 `tmp/pdfs/resume_check/*`
+
+**关键决策**：
+- 本轮 cleanup 到此闭环完成，不能再借 shared-root 清扫名义顺手扩回 placeable / runner 业务。
+- 仓库整体仍非 clean，不代表农田 own 面未收；当前 remaining dirty 已明确属于 foreign / mixed 范围。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3共享根大扫除与白名单收口-04.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\Editor\PlacementSecondBladeLiveValidationMenu.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementSecondBladeLiveValidationRunner.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\Editor.meta`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\Editor\FarmRuntimeLiveValidationMenu.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\Editor\FarmRuntimeLiveValidationMenu.cs.meta`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmRuntimeLiveValidationRunner.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmRuntimeLiveValidationRunner.cs.meta`
+
+**验证结果**：
+- `git-safe-sync` sync 已通过，并成功推送 upstream。
+- 农田白名单路径复核后已无残留 dirty / untracked。
+- 仓库整体 `git status` 仍非 clean，但仅因 foreign / mixed dirty 仍在。
+
+**恢复点 / 下一步**：
+- 当前 cleanup 子任务已经完成；若继续农田 `V3`，下一步应等待新的明确业务委托。
+- 这轮不再继续 placeable / runner 业务推进。
