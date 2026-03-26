@@ -43,3 +43,31 @@
 - 当前恢复点：
   - 当前单一第一进展已收敛为“detour owner 保活最小闭环已接上并拿到首个有效执行窗口”；
   - 如果下一轮继续，只应围绕同一闭环补更直接的 owner 命中证据或扩第二组 fresh live，不回漂旧主线。
+
+### 2026-03-26 - 线程记忆边界纠偏与开工准入冻结
+
+- 当前主线目标：
+  - 本线程是 `导航检查V2` 的实现线程记忆，不是 `导航V2` 审核工作区记忆，也不是父线程 `导航检查` 的补充壳。
+- 本轮子任务：
+  - 响应 `导航V2` 的开工准入委托，只做线程边界纠偏与准入冻结；不做任何代码、验证或 live。
+- 本轮完成事项：
+  1. 明确钉死：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\memory_0.md`
+       是 `导航检查V2` 自己的线程记忆；
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\memory_0.md`
+       如被引用，只能表述为父线程补同步，不能再冒充本线程记忆。
+  2. 明确当前准入边界：
+     - `导航V2` 工作区仍停留在“锐评审核 / 认知收口 / 开工准入裁定”；
+     - 当前还不能因为锐评审核完成，就自动转入实现施工。
+- 关键决策：
+  1. `导航检查V2` 的实现续工入口，必须来自新的明确单切片委托；
+  2. 该委托应把入口从 `导航V2` 审核工作区重新切回本线程，而不是继续在 `导航V2` 里边审边开工。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\000-gemini锐评-1.0.md`
+- 验证结果：
+  - 本轮无代码、无 compile、无 tests、无 Unity / MCP / live；只完成文档边界冻结。
+- 当前恢复点：
+  - 本线程当前应保持暂停，等待新的实现委托；
+  - 在新的单切片实现委托到来前，不自行从锐评审核阶段跳回代码施工。
