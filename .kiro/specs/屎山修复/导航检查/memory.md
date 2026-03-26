@@ -2518,3 +2518,26 @@
     - `007-Sunset专业导航底座后续开发路线图.md`
     - `导航检查V2` 交接包
     为主依据推进，不把本锐评当成直接施工蓝图。
+
+## 2026-03-26（导航检查V2共享根大扫除与白名单收口-04：own dirty / untracked 收口）
+
+- 当前主线目标：
+  - 只做导航线 own dirty / untracked 的认领、清扫和白名单收口；不做导航业务验证。
+- 本轮子任务：
+  - 仅处理导航线 own 路径，明确 foreign dirty 不触碰，并完成一次 whitelist sync 到 `main`。
+- 本轮完成：
+  1. 按委托核对 own 范围并确认禁区不碰：
+     - 未触碰 `Primary.unity / GameInputManager.cs / TagManager.asset`
+     - 未吞并 `项目文档总览` 尾账
+  2. 先修一处会阻断收口的文档卫生：
+     - `008-给Codex与Gemini的导航验收审稿prompt.md` 去除尾随空格，使 `git diff --check` 可通过
+  3. 首次 whitelist sync 被代码闸门拦截后，最小修复 own 文件：
+     - `NavigationLiveValidationRunner.cs` 将 `DebugIssueAutoNavClick` 的强编译依赖改为反射调用 + fallback，避免依赖外部 `GameInputManager` 脏改
+  4. 二次 whitelist sync 成功：
+     - `scripts/git-safe-sync.ps1 -Action sync -Mode task -OwnerThread 导航检查 -IncludePaths ...`
+     - 提交并推送：`12ce0814`
+- 本轮新增稳定结论：
+  1. 导航线本轮 own 脚印已完成一轮白名单收口；
+  2. shared root 仍有大量 foreign dirty / untracked，当前仓库不为全局 clean，但导航线本轮目标已达成。
+- 当前恢复点：
+  - 后续若继续导航线 cleanup，应只在剩余被判定为导航 owner 的路径上继续白名单收口，不扩展到其他线程尾账。

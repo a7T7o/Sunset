@@ -1647,3 +1647,24 @@
   1. 这次确认为“双视角同结论”，不是单一主观判断；
   2. 当前仍应把该锐评当“问题意识输入”而非“直接施工蓝图”；
   3. 后续恢复点不变：以 `006/007 + 审视报告 + V2交接包` 作为导航线继续判断依据。
+
+## 2026-03-26（共享根大扫除与白名单收口-04：导航线 own 脚印收口）
+
+- 当前线程主线：
+  - 只做导航线 own dirty / untracked 认领、清扫、白名单收口；不继续导航业务验证。
+- 本轮子任务：
+  - 在不触碰禁区与 foreign 尾账的前提下，把导航 own 路径白名单提交到 `main`。
+- 本轮完成：
+  1. 归属核对：
+     - own：导航脚本 4 个 + 导航工作区文档尾账 + 导航线程记忆与 V2交接文档
+     - foreign：`spring-day1 / 农田 / NPC / 项目文档总览` 等残留路径未触碰
+  2. 清扫补口：
+     - 修复 `008-给Codex与Gemini的导航验收审稿prompt.md` 尾随空格，解除 `git diff --check` 阻塞
+  3. 代码闸门补口（仅 own 文件）：
+     - `NavigationLiveValidationRunner.cs` 去除对 `GameInputManager.DebugIssueAutoNavClick` 的强编译依赖，改为反射调用 + fallback
+  4. whitelist sync：
+     - 执行 `scripts/git-safe-sync.ps1 -Action sync -Mode task -OwnerThread 导航检查 -IncludePaths ...`
+     - 成功提交并推送：`12ce0814`
+- 当前线程级结论：
+  1. 导航线本轮 own 脚印已完成白名单收口；
+  2. 当前仓库仍非全局 clean（存在 foreign dirty / untracked），但不属于本线程本轮处理范围。
