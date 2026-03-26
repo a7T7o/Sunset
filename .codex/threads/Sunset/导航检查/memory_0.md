@@ -1668,3 +1668,32 @@
 - 当前线程级结论：
   1. 导航线本轮 own 脚印已完成白名单收口；
   2. 当前仓库仍非全局 clean（存在 foreign dirty / untracked），但不属于本线程本轮处理范围。
+
+## 2026-03-26（切到 `导航V2` 工作区：双锐评审核 + 自我审视）
+
+- 当前线程主线已切到：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2`
+  - 本轮子任务是审核 `000-gemini锐评-1.0.md` 与 `000-gemini锐评-1.1.md`，并把“我自己的问题”写实。
+- 本轮完成：
+  1. 读取：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\000-gemini锐评-1.0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\000-gemini锐评-1.1.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\steering\code-reaper-review.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\006-Sunset专业导航系统需求与架构设计.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\007-Sunset专业导航底座后续开发路线图.md`
+     - 当前导航代码热区
+  2. 审核结论：
+     - `000-gemini锐评-1.0.md` -> `Path B`
+     - `000-gemini锐评-1.1.md` -> `Path C`
+  3. 生成：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\000-gemini锐评-1.1审视报告.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\memory.md`
+- 本轮关键自省：
+  1. 我不能再把“很锋利的大架构诊断”直接偷换成“当前切片就该照做”；
+  2. 我过去确实容易高估结构线进展、低估真实点击体验；
+  3. 当前更诚实的口径应是：
+     - 吸收锐评的问题意识；
+     - 但施工处方仍服从 `006/007 + live 委托 + 当前代码热区`。
+- 当前恢复点：
+  - 这轮已经把 `导航V2` 建成“审核锐评 / 收口自省”的新工作区；
+  - 后续如果再进导航实现裁定，不应把 `000-gemini锐评-1.1.md` 直接升格成施工蓝图。
