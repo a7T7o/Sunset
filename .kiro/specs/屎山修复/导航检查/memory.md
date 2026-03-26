@@ -2541,3 +2541,34 @@
   2. shared root 仍有大量 foreign dirty / untracked，当前仓库不为全局 clean，但导航线本轮目标已达成。
 - 当前恢复点：
   - 后续若继续导航线 cleanup，应只在剩余被判定为导航 owner 的路径上继续白名单收口，不扩展到其他线程尾账。
+
+## 2026-03-26（导航V2 审核支线收口后：切回导航检查V2实现线程）
+
+- 当前主线目标：
+  - 不继续停留在 `导航V2` 审核工作区打转，而是由治理明确判断：审核支线是否已足够收口，并把入口切回 `导航检查V2` 实现线程。
+- 本轮子任务：
+  - 复核 `导航V2` 最新回执是否真的完成了：
+    - `000-gemini锐评-1.0.md` 的 `Path B` 边界冻结
+    - `导航检查V2` 的线程记忆边界纠偏
+    - 开工准入条件冻结
+    然后决定是否允许恢复实现施工。
+- 本轮完成：
+  1. 回读并核对：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\000-gemini锐评-1.0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V2\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\memory_0.md`
+     - 提交 `32cf69a9`
+  2. 治理裁定：
+     - 上述三件事已真实落盘；
+     - `导航V2` 当前阶段应判为“无需继续发”；
+     - 当前可以从审核工作区切回 `导航检查V2` 实现线程。
+  3. 新增实现入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2复工准入后续工委托-06.md`
+     - 唯一主刀固定为：只拿 `NpcAvoidsPlayer` 的 NPC 侧 fresh 结果，继续验证同一 detour owner 闭环。
+- 本轮新增稳定结论：
+  1. `导航V2` 的审核工作在当前阶段已经够了，继续待在那边不会再产生新的真实推进；
+  2. 下一刀不该再是“能不能开工”的讨论，而该回到实现线程拿 NPC 侧 fresh 证据；
+  3. 当前实现主线仍然只允许围绕 detour owner keepalive / release 闭环前进，不回漂 solver 泛调或大架构争论。
+- 当前恢复点：
+  - `导航V2` 当前先停；
+  - `导航检查V2` 下一轮按 `2026-03-26-导航检查V2复工准入后续工委托-06.md` 继续施工。
