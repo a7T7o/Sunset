@@ -62,3 +62,47 @@
 - 当前恢复点：
   - 本轮业务主线没有变化，仍是 blocker 态
   - 下一步只做最小 follow-up，把 `NPCV2/memory_0.md` 与本轮 cleanup 补记一起收口，然后继续待命
+
+## 2026-03-26｜恢复开工委托-04：Primary.unity 的 001/002/003 HomeAnchor 最小 scene 集成
+
+- 当前主线目标：
+  - 把 `Primary.unity` 里 `001 / 002 / 003` 的 `HomeAnchor` 最小 scene 集成真正落下，并把用户验收步骤写清楚。
+- 本轮子任务：
+  - 先复核 `Primary.unity` 的写窗口、A 类热文件锁、shared root / MCP 基线；
+  - 再只做三只 NPC 的 anchor 层级与 scene 引用补口；
+  - 最后补一份可直接给用户看的详细验收汇报。
+- 服务于什么：
+  - 把之前一直卡在 blocker 的 `HomeAnchor` 最小切片正式从“只读裁定”推进到“scene 里已有明确落点”。
+- 本轮完成：
+  - 已确认开工基线为 `D:\Unity\Unity_learning\Sunset @ main @ 18cf7427d97e749b0557f6d835124e44787c3e17`
+  - 已确认 `Check-Lock.ps1` 开工前返回 `Primary.unity = unlocked`
+  - 已用 `Acquire-Lock.ps1` 为 `NPCV2` 获取 `Primary.unity` 写锁
+  - 已确认 `unityMCP` 当前不可用：
+    - `list_mcp_resources / list_mcp_resource_templates` 握手失败
+    - `scripts/check-unity-mcp-baseline.ps1` 返回 `listener_missing`
+  - 已在 `Primary.unity` 中新增：
+    - `NPCs/001_HomeAnchor`
+    - `NPCs/002_HomeAnchor`
+    - `NPCs/003_HomeAnchor`
+  - 已把三只 NPC 的 `homeAnchor` scene 引用补上：
+    - `001 -> 001_HomeAnchor`
+    - `002 -> 002_HomeAnchor`
+    - `003 -> 003_HomeAnchor`
+  - 已固定最小基础位置：
+    - `001_HomeAnchor`：局部 `(1.86, 0.63, 0)`，世界 `(-6.19, 6.29, 0)`
+    - `002_HomeAnchor`：局部 `(-0.68, 0.49, 0)`，世界 `(-8.73, 6.15, 0)`
+    - `003_HomeAnchor`：局部 `(1.7, -1.83, 0)`，世界 `(-6.35, 3.83, 0)`
+  - 已完成离线 YAML 级自验：
+    - 三条 `homeAnchor` override 可回读
+    - 三个 anchor 节点可回读
+    - `git diff --check -- 'Assets/000_Scenes/Primary.unity'` 通过
+  - 已生成用户详细汇报：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2恢复开工详细汇报-04.md`
+- 当前是否把 live 验证也做完：
+  - `no`
+- 第一 blocker / 现存边界：
+  - 当前 blocker 已不再是 `Primary.unity` mixed dirty，而是 `unityMCP` 监听缺失导致无法做 MCP / Play 短窗 live 实证
+  - 所以这轮只能如实交付“scene 最小落点已完成 + 需用户在 Unity 里终验”，不能把 live 稳定误报为已确认
+- 当前恢复点：
+  - 主线已从“只读等待”恢复到“最小 scene 集成完成，待白名单收口与用户终验”
+  - 收口后若用户在 Unity 终验中发现运行态异常，下一步从 `HomeAnchor` 赋值链或运行态启动链排查，而不是重新怀疑这轮最小场景层级本身

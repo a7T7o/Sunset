@@ -334,3 +334,44 @@
 - 当前恢复点：
   - cleanup 没有被偷换成业务复工，`Primary.unity` owner 裁定口径不变
   - 下一步只做最小 follow-up，把 `NPCV2/memory_0.md` 与本轮 cleanup 记忆补记一起白名单收口
+
+## 2026-03-26｜NPCV2 恢复开工委托-04：Primary.unity 的 001/002/003 HomeAnchor 最小 scene 集成
+
+- 当前 live 基线：
+  - 开工前基线：`D:\Unity\Unity_learning\Sunset @ main @ 18cf7427d97e749b0557f6d835124e44787c3e17`
+  - `Check-Lock.ps1 -TargetPath 'Assets/000_Scenes/Primary.unity'` 开工前返回 `state = unlocked`
+  - 本轮已通过 `Acquire-Lock.ps1` 为 `NPCV2` 获取 `Primary.unity` 的 A 类热文件锁
+  - `shared-root-branch-occupancy.md` 仍是 `main + neutral`
+  - `scripts/check-unity-mcp-baseline.ps1` 返回 `baseline_status: fail`、`issues: listener_missing`
+- 当前主线目标：
+  - 只在 `Primary.unity` 内完成 `001 / 002 / 003` 的 `HomeAnchor` 最小 scene 集成，并给用户交付可直接验收的详细汇报。
+- 本轮子任务：
+  - 先按热区陪跑口径复核 `cwd / branch / HEAD`、锁状态、shared root / MCP / hot-zones；
+  - 再对 `001 / 002 / 003` 做 scene audit；
+  - 最后只补 anchor 层级、scene 引用和基础位置，不扩到路线、停留点、相遇节奏、气泡或导航核心。
+- 本轮完成：
+  - 已在 `Assets/000_Scenes/Primary.unity` 的根层级 `NPCs` 下新增：
+    - `NPCs/001_HomeAnchor`
+    - `NPCs/002_HomeAnchor`
+    - `NPCs/003_HomeAnchor`
+  - 已把三者 `NPCAutoRoamController.homeAnchor` 分别回填为 scene Transform：
+    - `001 -> {fileID: 910010002}`
+    - `002 -> {fileID: 920020002}`
+    - `003 -> {fileID: 930030002}`
+  - 已固定三者基础位置：
+    - `001_HomeAnchor`：局部 `(1.86, 0.63, 0)`，世界 `(-6.19, 6.29, 0)`
+    - `002_HomeAnchor`：局部 `(-0.68, 0.49, 0)`，世界 `(-8.73, 6.15, 0)`
+    - `003_HomeAnchor`：局部 `(1.7, -1.83, 0)`，世界 `(-6.35, 3.83, 0)`
+  - 已生成用户验收文档：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2恢复开工详细汇报-04.md`
+  - 已完成离线 scene 自验：
+    - `git diff --check -- 'Assets/000_Scenes/Primary.unity'` 通过
+    - scene 内可直接回读三条 `homeAnchor` override 与三个 anchor 节点
+- 本轮明确未做：
+  - 未改 `GameInputManager.cs`
+  - 未改导航核心、路线、停留点、相遇节奏、气泡、关系成长
+  - 未把 `Primary.unity` 扩成 NPC 全量 scene 化
+  - 未把 `unityMCP` 不可用时的离线回读误报成 live 验证通过
+- 当前恢复点：
+  - 结构层最小 scene 集成已落地；下一步是对白名单路径执行 `sync`，然后交给用户按详细汇报做 Unity 终验
+  - 若后续用户在 Editor / Play 下看到 `HomeAnchor` 丢失或起点异常，应优先回到 `NPCAutoRoamController` 的运行态赋值链排查，而不是回头重开这轮 scene 最小落点
