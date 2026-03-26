@@ -3127,3 +3127,254 @@
 **恢复点**
 - 后续如果要继续推进 `spring-day1`，直接让线程读取这份新 prompt 即可；
 - 我这边下一步只需要等它的回执，再继续审方向和验收。
+
+## 2026-03-24｜两份续工 prompt 已完成落盘核对，现可直接发线程
+**当前主线目标**
+- 当前治理主线没有变，仍是替用户把 `spring-day1` 和导航两条线收成“可直接发、不会漂移”的正式续工 prompt；
+- 本轮子任务则是做最后一层落盘核对，确认不是脑内完成，而是文件、memory、路径都真实存在。
+
+**本轮完成**
+1. 已核对 `spring-day1` 新 prompt 存在：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.24-Day1工作台UI与任务体验重收口委托-02.md`
+2. 已核对导航新 prompt 存在：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-10.md`
+3. 已确认相关工作区 `memory.md` 尾部都带上了这一轮续工委托的升级原因、硬约束与恢复点。
+
+**关键决策**
+- 这轮对用户最有价值的结论是：
+  - `spring-day1` 现在应执行的是 `委托-02`，不是旧 prompt；
+  - 导航现在应执行的是 `002-prompt-10`，且这次主刀已被固定到 `stuck / repath / 恢复入口` 的共享 owner 迁移。
+
+**恢复点**
+- 我现在已经可以直接把两段最简聊天 prompt 交给用户；
+- 下一步等线程回执，再继续做治理审稿与验收，不再补造额外中间文案。
+
+## 2026-03-24｜当前开发是否已进入高效正轨的线程侧判断
+**当前主线目标**
+- 用户直接追问“这套开发到底有没有步入正轨、瓶颈是什么、我这样的开发方式是不是有很大毛病”，因此需要从治理线程视角给出系统性判断。
+
+**本轮结论**
+- 我的判断是否定的：
+  - 现在还没进入真正高效开发；
+  - 但也不是纯无效瞎忙，而是处于“靠治理强行纠偏、尚未形成稳定高效节奏”的过渡态。
+
+**我认为最关键的瓶颈**
+1. `可见结果` 与 `线程自报完成` 长期错位。
+2. 架构迁移切得太细，内部 checkpoint 多，外部真实体验改善慢。
+3. Unity shared root + 多线程 live + hot file 并发，天然放大 blocker。
+4. 高审美 / 高体验要求没有一开始就落成足够可检的视觉与交互验收面。
+
+**对用户开发方式的判断**
+- 用户的方向不是问题，真正的问题是：
+  - 如果没有持续高强度审稿和回拉，AI 线程会天然往“局部完成 / blocker / 结构自洽”漂；
+  - 所以这套模式目前还依赖很强的人为治理，不算成熟流水线。
+- 用户最近几轮把 prompt 改成：
+  - 强制读原文
+  - 强制读最新回执
+  - 强制按固定格式回复
+  - 强制区分结构与体验
+  这是明显正确的收紧方向。
+
+**恢复点**
+- 后续治理不该再追求“更多轮 prompt”，而该追求：
+  - 更少轮次
+  - 更强的单轮可见交付
+  - 更严格的体验验收与 blocker 隔离。
+
+## 2026-03-24｜关于“为什么不能靠一个初始 prompt 直接做完”的线程侧理解
+**当前主线目标**
+- 用户继续追问：为什么这些线程总在反复修，不能从一个初始 prompt 直接完成所有任务。
+
+**本轮结论**
+- 我的判断是：
+  - 对 Sunset 当前这种任务，单个 prompt 一次打穿全部，本来就不现实；
+  - 但现在的问题又不只是“任务复杂”，而是线程没有把每一轮做成真正可验的垂直切片。
+
+**原因拆解**
+1. 需求本身跨层很深：功能、运行态、UX、美术、架构迁移、项目现有体系复用全混在一起。
+2. 很多错误只有进 live、看实际画面、摸实际手感后才会暴露，首 prompt 无法穷尽。
+3. 线程天然会倾向于：
+   - 先做自己容易做的部分；
+   - 用结构性进展替代完整交付；
+   - 这才导致“总像一直在返工”。
+
+**恢复点**
+- 真正应追求的不是“一个 prompt 全做完”，而是：
+  - 每个 prompt 都形成一刀清楚的完成面；
+  - 用户一验就知道这刀到底过没过；
+  - 没过就明确知道差在哪，而不是又回到泛修状态。
+
+## 2026-03-24｜对“编译红错频发”和“Unity Play 很慢改善”的线程侧结论
+**当前主线目标**
+- 用户继续追两个真实现场问题：
+  - 为什么线程改文件时经常把 Unity 带进临时不可用状态；
+  - Play 前很慢这条支线到底是不是已经抓到了第一责任点。
+
+**本轮结论**
+1. 我支持用户对共享现场的要求：
+   - “编辑过程中永不短暂红”不现实；
+   - 但“任何线程在离开自己这一刀时必须恢复到可编译可用”非常现实，而且本就该做到。
+2. 当前 `TreeController.cs:1059` 的 `energyCost` 红错就是典型不该放过的错误：
+   - 不是体系级难题；
+   - 更像一次普通改动后没把作用域和最小编译验证闭环。
+3. `PlayerThoughtBubblePresenter.cs:220` 的 TMP obsolete warning 不应被夸大；
+   - 它说明代码需要升级；
+   - 但不构成“Unity 不能用”。
+4. 对卡顿优化线，我认可这次改 `StaticObjectOrderAutoCalibrator.cs` 是真进展：
+   - 它原来在进 Play 前自动全扫场景，确实很像真凶；
+   - 默认关闭自动执行是合理第一刀。
+5. 但我不认为这条线已经结案：
+   - `EditorSettings.asset` 仍是完整 Enter Play Mode 重载；
+   - 还有别的编辑器期钩子与资产刷新链路值得继续查。
+
+**恢复点**
+- 后续治理对线程的最低要求应更清楚：
+  - 红错可以短暂存在于本地编辑事务里；
+  - 不能存在于 checkpoint、sync 前、交接前、共享 Unity 使用窗口里。
+- 对性能线则应按“已抓第一刀，不算彻底收口”继续跟。
+
+## 2026-03-24｜两条口头判断已落成真实 skill，并已接线
+**当前主线目标**
+- 用户要求我把前面两条口头判断彻底落地，不再停留在“以后我自己记得”。
+
+**本轮完成**
+1. 已新建：
+   - `C:\Users\aTo\.codex\skills\sunset-prompt-slice-guard\`
+   - `C:\Users\aTo\.codex\skills\sunset-no-red-handoff\`
+2. 已补：
+   - `SKILL.md`
+   - `agents/openai.yaml`
+3. 已把它们接入：
+   - [AGENTS.md](/D:/Unity/Unity_learning/Sunset/AGENTS.md)
+   - [global-skill-registry.md](/C:/Users/aTo/.codex/memories/global-skill-registry.md)
+
+**关键决策**
+- 以后 Sunset 续工 prompt 设计，不再只靠我口头记忆，而改由 `sunset-prompt-slice-guard` 兜住；
+- 以后 Sunset 代码任务的 compile/handoff 纪律，不再只靠我临时提醒，而改由 `sunset-no-red-handoff` 兜住。
+
+**恢复点**
+- 后续再做 prompt 分发或代码任务治理时，应把这两个新 skill 当作已经存在的正式护栏来用。
+
+## 2026-03-24｜性能支线 prompt 与导航 `002-prompt-11` 已补齐
+**当前主线目标**
+- 用户要求在 skill 落地之后，再分别处理：
+  - Unity Play Busy 支线的下一轮 prompt
+  - 导航基于最新回执的下一轮 prompt
+
+**本轮完成**
+1. 已新增性能支线 prompt：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-24-UnityPlayBusy续查prompt-01.md`
+2. 已新增导航 prompt：
+   - [002-prompt-11.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/屎山修复/导航检查/002-prompt-11.md)
+
+**关键决策**
+- 性能线这次被收紧成：
+  - 先验证第一刀
+  - 再锁第二刀
+  - 且不许越出 Editor-only、安全可回退边界
+- 导航线这次被收紧成：
+  - 接受第二个退壳 checkpoint
+  - 下一刀唯一主刀固定为 `detour lifecycle`
+
+**恢复点**
+- 这两条线现在都已经有可直接发送的新 prompt；
+- 农田这轮没有拿到真实新回执，因此我没有伪造农田 prompt，等待用户补贴真实内容。
+
+## 2026-03-25｜用户重贴完整 spring / farm 回执后，两份 prompt 已补齐
+**当前主线目标**
+- 用户提醒我“不是打断，是让你重新回忆你在做什么”，要求我严格回到这轮真正主线：基于他重贴的完整 spring / farm 回执继续生成新 prompt。
+
+**本轮完成**
+1. 已新增 spring prompt：
+   - [26.03.25-Day1工作台UI与任务体验重收口委托-03.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/26.03.25-Day1工作台UI与任务体验重收口委托-03.md)
+2. 已新增 farm prompt：
+   - [008-新增工具运行时与玩家反馈链进入live验收与补口.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.16/1.0.4交互全面检查/008-新增工具运行时与玩家反馈链进入live验收与补口.md)
+
+**关键决策**
+- spring 这轮收紧为：
+  - 图片 + 逻辑双验收回拉
+  - 不准再停在“等用户复测”
+  - 工作台 `0.5m` 统一收成“交互包络线”语义
+- farm 这轮收紧为：
+  - 不准再停在日志和脚本级闭环
+  - 先自己跑 4 组 live 验收
+  - 不准把第一轮逻辑验收继续甩给用户
+
+**恢复点**
+- 现在我已经可以直接把 spring 与 farm 的文件路径和聊天口径交给用户；
+- 后续再来回执时，应继续按 `sunset-prompt-slice-guard` 审“是不是单轮真刀”。
+
+## 2026-03-25｜验收交接与 stop-early 纪律已从口头判断落成治理底座
+
+- 当前主线目标：
+  - 用户要求我不要只继续“讨论 MCP 验收和用户手验”，而是把结论真正落地成技能、规范与可直接继续发给线程的 prompt。
+- 本轮已完成：
+  1. 新建：
+     - `C:\Users\aTo\.codex\skills\sunset-acceptance-handoff\`
+  2. 更新：
+     - `C:\Users\aTo\.codex\skills\sunset-unity-validation-loop\SKILL.md`
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+     - `C:\Users\aTo\.codex\memories\global-skill-registry.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\并发线程_当前版本更新前缀.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\22_恢复开发分发与回收\线程回收\README.md`
+  3. 新增 prompt：
+     - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-UnityPlayBusy续查prompt-02.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-12.md`
+- 本轮新增稳定事实：
+  - Sunset 现在已经把“线程必须先自验，再交专业验收包”和“live 取够证据就立刻停机”都并入了显式规则层；
+  - 我后续不需要再靠聊天临时提醒这些纪律。
+- 当前恢复点：
+  - 接下来如果用户继续贴任何线程回执，我应默认按这套新底座继续审：
+    1. 线程是不是先完成了自己能做的自验
+    2. 线程有没有把 live 跑成日志洪水
+    3. 线程有没有给出真正可填写的验收回执单
+
+## 2026-03-25｜`谁是卧底` 最新回执只接受“取证补丁已就位”，不接受“prompt-02 已完成”
+
+- 当前主线目标：
+  - 用户继续贴回性能线最新回执，并明确要求我只给可直接发回去的回应 prompt，不要再汇报无关内容。
+- 本轮裁定：
+  1. 接受的部分只有：
+     - 两个 `SpringDay1*SceneBinder` 的 diagnostics / auto-bind 短路开关已落地，且默认关闭、可回退
+  2. 不接受的部分是：
+     - 这轮没有完成 `Play -> Stop` 取证
+     - 新第一责任点没有继续收窄
+  3. 额外指出的偏差是：
+     - `C:\Users\aTo\.codex\AGENTS.md` 被混进这条性能线 changed_paths，属于 scope 漂移
+- 当前恢复点：
+  - 下一条回给性能线的 prompt 应继续钉死：
+    1. 当前只是中间 checkpoint
+    2. 不准继续夹带治理 / 工具侧任务
+    3. compile red 一旦解除，立刻执行既定的最小 `Play -> Stop` 证据链
+
+## 2026-03-25｜农田与 spring-day1 也已改回“文件承载正文 + 短消息分发”
+
+- 当前主线目标：
+  - 用户继续贴回两条业务线最新回执，并要求我用完全同样的方式回复，不要再在聊天里写长 prompt。
+- 本轮已完成：
+  - 新增：
+    - [009-hover遮挡链闭环与live收口.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.16/1.0.4交互全面检查/009-hover遮挡链闭环与live收口.md)
+    - [26.03.25-Day1工作台UI与任务体验重收口委托-04.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/26.03.25-Day1工作台UI与任务体验重收口委托-04.md)
+- 当前恢复点：
+  - 后续给这两条线分发时，我应继续只返回：
+    - 文件路径
+    - 一句极短转发语
+
+## 2026-03-26｜`导航检查` 最小回执已收件，V1 继续停发
+
+- 当前主线目标：
+  - 继续作为治理线程处理各条 V1->V2 交接后的收件裁定，不把已经完成 handoff 的线程继续机械发 prompt。
+- 本轮已确认：
+  1. 用户贴回的 `导航检查` 最小回执与现有治理判断一致：
+     - `V2交接文档` 已落盘；
+     - 线程 `memory_0.md` 已追加；
+     - 导航工作区 `memory.md` 已追加。
+  2. 线程摘要没有漂移：
+     - 当前导航线仍稳定收敛到 `ShouldRepath` 已出现，但 detour owner 没有稳定接管执行层。
+  3. 因此 `导航检查` V1 继续归类为 `无需继续发`；
+     - 治理侧不再给旧线程补 prompt。
+- 当前恢复点：
+  - 导航线后续只等待 `导航检查V2` 的首轮回执；
+  - 当前真正活跃入口仍是：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2首轮启动委托-02.md`

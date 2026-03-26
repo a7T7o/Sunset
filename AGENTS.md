@@ -5,7 +5,7 @@
 - 当前唯一规范快照：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
 - 自 2026-03-23 起，以下 7 条补强项视为当前 live 口径的一部分：
-  1. 规则变更必须同轮同步到 `AGENTS.md`、当前规范快照、批次 `README.md`、通用前缀 prompt；少一处都不算真正生效。
+  1. 规则变更必须同轮同步到 `AGENTS.md`、当前规范快照、治理规范正文（如 `治理线程批次分发与回执规范.md` / `典狱长模式_治理总闸与分发规范.md`）以及相关 skill；少一处都不算真正生效。
   2. 只要线程碰过 `Scene`、`Prefab`、`Primary.unity` 或其他热 Unity 资源，回执里必须显式说明“我留了什么、保留什么、清掉什么、当前是否已对我这条线 clean”。
   3. 只要白名单路径包含 `.unity`、`.prefab`、`.asset`，收口前必须把本轮改动分类为“有效内容 / 自动副产物 / 调试残留 / 他线脏改”；自动副产物默认不得混入 checkpoint。
   4. branch / worktree 只允许作为例外载体存在；一旦例外成果已可迁回 `main`，线程必须先迁最小 checkpoint，再移除旧 carrier blocker，再回到 `main` 语义继续。
@@ -83,10 +83,24 @@
   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-live-baseline.md`
   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
   - 必要时回看 `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-log.md`
+- 如果任务会使用 MCP / Play Mode 做 live 取证，进入前必须先说明：需要什么证据、最多跑几轮、拿到什么信号就 Pause / Stop、最后退回什么状态；禁止先长时间跑着再回头想怎么收。
 - 如果任务会进入 Play Mode 做取证、调试或验收，完成当前步骤后必须主动退回 Edit Mode，再允许继续后续操作、汇报或把现场交给其他线程；禁止把运行中的 Editor 留给别人收尾。
 - 如果任务涉及 DialogueUI、NPC 气泡、字体、UI 样式、布局、材质或其他直接影响观感的表现层资源，除相关业务文档外，还必须补读 `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`，并把“好看、合理、专业、可读”当成硬验收项，而不是只看功能是否可用。
 - 如果任务涉及工作区、记忆、交接、治理、报告、Claude 或 Codex 迁移、历史接手，优先使用 `sunset-workspace-router`。
-- 如果任务属于 `Codex规则落地` 治理线程，且涉及多线程 prompt 分发、统一领取入口、本轮批次文件、固定回收卡收件或最小回复格式约束，优先使用 `sunset-governance-dispatch-protocol`；如果当前会话未显式暴露该 skill，必须改读 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md` 并执行手工等价流程。
+- 如果任务涉及 Sunset 线程续工 prompt、回执后下一轮 prompt、验收失败后的 prompt 回拉、或需要把多轮返工收成“单轮可验硬切片”，优先使用 `sunset-prompt-slice-guard`。
+- 如果用户明确说出 `典狱长`、`典狱长上货`、`上货`，或当前任务本质上是在做治理总闸的“审回执 / 判停发 / 按需分发”，优先使用 `sunset-warden-mode`；如果当前会话未显式暴露该 skill，必须改读 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\典狱长模式_治理总闸与分发规范.md` 并执行手工等价流程。
+- 如果当前任务是“给我可直接发给线程的 prompt / 续工话术”，详细正文默认必须写进文件；聊天里固定改用复制友好格式：
+  1. `对应文件在：`
+  2. 平铺列出最新 prompt 文件路径
+  3. `你可以直接这样发给 XXX：`
+  4. 一个 `text` 代码块，里面直接写出可复制话术，并包含 `请先完整读取 [最新 prompt 路径]`
+- 不要再退回“文件路径 + 极短转发语”的旧格式，也不要让用户自己从长聊天里拼出到底该发哪段。
+- 如果任务涉及 Sunset 代码修改、编译可用性、checkpoint / sync / handoff 前的红错清理、warning 与 error 区分、或“不能把 Unity 留到不能用”的执行纪律，优先使用 `sunset-no-red-handoff`。
+- 如果任务进入“线程已完成自己能做的验证，接下来需要用户终验”的阶段，优先使用 `sunset-acceptance-handoff`，要求线程先交专业验收指南、预期结果、失败判读和回执单；禁止只说“等用户复测”。
+- 如果任务属于 `Codex规则落地` 治理线程，且涉及多线程 prompt 分发、统一领取入口、本轮批次文件、固定回收卡收件或最小回复格式约束，优先使用 `sunset-governance-dispatch-protocol`；典狱长模式下还必须先做“是否该停给用户”的总闸裁定；如果当前会话未显式暴露相关 skill，必须同时改读：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\典狱长模式_治理总闸与分发规范.md`
+  再执行手工等价流程。
 - 如果任务涉及场景、预制体、检查器、ScriptableObject、序列化引用或验证场景，优先使用 `sunset-scene-audit`。
 - 如果任务涉及锐评、审视报告、差异、纠正、是否采纳评审，优先使用 `sunset-review-router`。
 - 如果任务涉及 `.kiro/locks/`、A 类热文件、`Primary.unity`、`GameInputManager.cs`、`Acquire-Lock.ps1`、`Release-Lock.ps1`、或 `Committed/Parked/Abandoned` 交接判断，优先使用 `sunset-lock-steward`。

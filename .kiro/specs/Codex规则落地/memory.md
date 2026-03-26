@@ -3737,3 +3737,1056 @@
 **恢复点 / 下一步**
 - 现在可以直接把批次入口或两份线程专属 prompt 发给 spring 与 farm；
 - 下一步等它们各自回执，再判断 shared root 里还剩多少“可扫的他线 dirty”和多少“仍在活跃开发中的 dirty”。
+
+## 2026-03-24｜spring-day1 与导航两份续工 prompt 已核对落盘，可直接分发
+**当前主线目标**
+- 用户这一轮的治理主线是：先把 `spring-day1` 的新 prompt 做对，再把导航线程的督促 prompt 一并纳入，并确保最终给出的不是“口头说已写”，而是已经真实落盘、可直接发送的版本。
+
+**本轮完成**
+1. 已核对 `spring-day1` 新委托存在且可用：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.24-Day1工作台UI与任务体验重收口委托-02.md`
+2. 已核对导航新委托存在且可用：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-10.md`
+3. 已复核两侧工作区记忆尾部，确认这轮 prompt 升级原因、约束收紧点与恢复点都已追加，不是只落文件没补 memory。
+
+**关键决策**
+- 这轮对用户最重要的稳定事实不是“又生成了两份文档”，而是：
+  - `spring-day1` 新 prompt 已把“最初 7 点原文完整摘录 + 本轮新增复测反馈 + 审美硬要求 + 禁止自建平行 crafting 规范”一起收口；
+  - 导航新 prompt 已把主刀固定在 `CheckAndHandleStuck()` 往共享执行层退壳，不允许再靠 external blocker 停车，也不允许继续泛讲架构。
+
+**恢复点 / 下一步**
+- 现在已经可以直接把这两份 prompt 的最简聊天口径发给对应线程；
+- 后续治理只需要等它们回执，再继续做方向审稿或验收裁定，不需要再补造一轮中间文案。
+
+## 2026-03-24｜对当前 Sunset 开发瓶颈的治理诊断
+**当前主线目标**
+- 用户开始反问“现在的开发是不是已经步入正轨、高效开发”，因此需要对这段时间的多线程推进方式做一次系统性诊断，而不是只盯单个线程的快慢。
+
+**本轮核心结论**
+1. 当前开发**还没有进入真正高效的正轨**；它比最乱的时候更有治理，但仍处于“治理在补执行缺口”的阶段。
+2. 现在最大的瓶颈不是单点技术，而是 4 个问题叠加：
+   - `用户可感知验收` 与 `线程自报 checkpoint` 长期脱节；
+   - 架构迁移中间态过长，内部退壳很多、外部体感改善太少；
+   - shared root + Unity live + 多线程并发让 compile / scene / hot file 互相卡脖子；
+   - 美术 / UI / 交互体验要求很高，但早期缺少足够具体、可验证、可微调的承载方式。
+3. 用户当前这套开发方式**不是方向错**，但确实存在明显毛病：
+   - prompt 轮次很多；
+   - 线程容易用“部分完成”“结构 checkpoint”替代真实交付；
+   - 如果没有治理线程持续拽着，它们会自然漂向“讲方向、讲骨架、讲 blocker”，而不是直接交出你肉眼能验到的结果。
+
+**关键判断**
+- 真正的问题不是“分阶段开发”本身，而是过去一段时间的阶段定义更多按线程内部结构来切，而不是按用户最终可见结果来切。
+- 用户这几轮持续逼它们回到：
+  - 原始需求全文
+  - 真实 scene 体感
+  - 同轮 fresh live
+  - 不能拿 external blocker 停车
+  实际上是在把开发重新拉回正轨。
+
+**恢复点 / 下一步**
+- 后续治理应继续收紧为：
+  1. 每轮只认一两个用户可见目标；
+  2. 线程回执必须把“结构进展”和“体验进展”分开；
+  3. 不再接受“内部退壳很多，但用户眼里没变化”的假完成；
+  4. 对需要 fresh compile / live 的线，尽量缩短并发面，减少被他线 blocker 拖住的机会。
+
+## 2026-03-24｜“为什么一个初始 prompt 很难一次做完所有任务”的补充结论
+**当前主线目标**
+- 用户进一步指出：线程总在反复修，不能从一个初始 prompt 直接完成全部任务；需要明确这是不是执行者能力问题，还是任务建模方式本身就有结构性缺陷。
+
+**本轮补充判断**
+1. 这不只是“线程笨”，更是当前任务类型决定了**很难靠单个初始 prompt 一次闭环**：
+   - 需求里混着功能、体验、审美、架构、数据、运行态验证；
+   - 很多标准只有进 Unity live、看真实画面、摸真实手感后才会暴露；
+   - 用户自己也是边看结果边补精细要求，这很正常，但会天然打破“首 prompt 一次全中”的幻想。
+2. 真问题不在“不能一刀完成所有内容”，而在于：
+   - 线程没有把每一轮收成**真正可见、可验、可冻结**的一刀；
+   - 经常用“部分结构进展”冒充“整体完成”。
+3. 所以后续最合理的治理方向不是追求“一个 prompt 打穿全部”，而是：
+   - 一条主线拆成少数几个真正垂直切片；
+   - 每一刀都必须交出用户肉眼能验的结果；
+   - 未完成项要老老实实留在下一刀，不准口头吞并。
+
+**恢复点 / 下一步**
+- 后续 prompt 设计应继续避免“大而全一次打穿”的幻觉；
+- 但也不能退回无限碎片化，而应控制成“少轮次、强垂直、强验收”的开发节奏。
+
+## 2026-03-24｜关于“每次写入都不该把 Unity 改到不能用”与“Play 很慢改善”的治理判断
+**当前主线目标**
+- 用户继续追问两个实际痛点：
+  1. 为什么线程一改文件就容易把 Unity 带进编译报错、暂时不可用的状态；
+  2. 另一个线程对 Unity Play 前卡顿的改善，到底算不算抓到了真问题。
+
+**本轮判断**
+1. “每次写入都完全零报错”如果理解成**编辑过程一秒都不允许红**，不现实；
+   但如果理解成**任何 checkpoint / sync / 留场给别人之前都必须恢复到可编译可用**，这是完全合理、而且应该成为硬纪律。
+2. 当前出现的 `TreeController` 红错就属于**本不该长时间存在的低级可避免错误**：
+   - `TreeController.cs:1059` 使用了 `energyCost`，但当前方法作用域里并没有这个局部变量；
+   - 这类错误说明线程在共享现场里留下了未闭合的改动事务，而不是复杂技术难题。
+3. `PlayerThoughtBubblePresenter.cs:220` 的 `CS0618` 只是 obsolete warning，不该阻断使用；
+   - 它应列入“顺手清理”的体验债；
+   - 不应和真正让 Unity 不可编译的红错混在一起。
+4. 对 Play 很慢这条支线，我认可“抓到了第一刀真凶”：
+   - `StaticObjectOrderAutoCalibrator.cs` 原先在 `ExitingEditMode` 每次进 Play 前都自动全场景扫描；
+   - 现在改成默认关闭自动执行、保留手动菜单和开关，这是正确的降噪与减负。
+5. 但这还不能宣布“慢启动问题彻底解决”：
+   - `EditorSettings.asset` 显示当前仍是完整 Enter Play Mode 重载配置；
+   - `Assets/Editor` 里仍有其他编辑器期钩子，如 `PersistentIdAutomator.cs`；
+   - 日志里的 `Asset Pipeline Refresh` / `Domain Reload` 仍说明后面还有第二层瓶颈。
+
+**关键决策**
+- 后续治理对“编译可用性”的口径要改成三层：
+  1. 编辑中短暂红：允许，但应尽量缩短；
+  2. 离开本轮前仍红：不允许；
+  3. 白名单 sync / 交接 / 让别人接 Unity 时仍红：严重违规。
+- 对“Unity 很慢”这条线的口径则应改成：
+  - 当前第一刀有效；
+  - 但只算定位并削掉了一个明显的 Enter Play 前重活，不算总问题收完。
+
+**恢复点 / 下一步**
+- 后续线程若继续写共享现场代码，应更严格执行“最小事务窗口 + 最小编译闸门”；
+- 如果接着追 Play 慢，应优先继续审：
+  1. 完整 Domain Reload 是否可进一步收短；
+  2. 其他 `InitializeOnLoad` / `sceneSaving` 编辑器脚本；
+  3. `Asset Pipeline Refresh` 的资产刷新来源；
+  4. asmref / 原生扩展噪音是否在放大重载成本。
+
+## 2026-03-24｜两条口头支线已落成真实 skill，并已接入 Sunset 规则
+**当前主线目标**
+- 用户要求把前面我口头提出却未落盘的两条治理支线真正固化：
+  1. “单轮 prompt 必须形成可验硬切片”
+  2. “任何代码任务停手 / sync / handoff 前必须零 owned red”
+
+**本轮完成**
+1. 已新建本地 skill：
+   - `C:\Users\aTo\.codex\skills\sunset-prompt-slice-guard\`
+   - `C:\Users\aTo\.codex\skills\sunset-no-red-handoff\`
+2. 两个 skill 都已带上：
+   - `SKILL.md`
+   - `agents/openai.yaml`
+3. 已把它们接进：
+   - [AGENTS.md](/D:/Unity/Unity_learning/Sunset/AGENTS.md)
+   - [global-skill-registry.md](/C:/Users/aTo/.codex/memories/global-skill-registry.md)
+
+**关键决策**
+- `sunset-prompt-slice-guard`：
+  - 用来约束 Sunset 的续工 prompt、回执后回拉 prompt、验收失败后的单轮切片；
+  - 核心是“每轮只打一刀，且这刀必须用户可见、可验、可冻结”。
+- `sunset-no-red-handoff`：
+  - 用来约束 Sunset 代码任务；
+  - 允许编辑中短暂红，但不允许在停手、sync、交接 Unity 使用权时仍留 owned red。
+
+**恢复点 / 下一步**
+- 后续在 Sunset 里写续工 prompt，应默认按 `sunset-prompt-slice-guard` 口径执行；
+- 后续在 Sunset 里做代码修改，应默认把 `sunset-no-red-handoff` 当作常驻纪律，而不是等用户再提醒。
+
+## 2026-03-24｜Unity Play Busy 支线 prompt 与导航 `002-prompt-11` 已落盘
+**当前主线目标**
+- 用户要求在完成上面两条 skill 落地后，再补：
+  1. Unity Play Busy / 启动优化支线的下一轮 prompt
+  2. 导航基于最新回执的下一轮 prompt
+
+**本轮完成**
+1. 已在全局排障线程下新增：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-24-UnityPlayBusy续查prompt-01.md`
+   - 口径已收紧为：先验证第一刀真实收益，再继续查下一组 Editor-only 真责任点；严禁无证据乱动全局设置与业务代码。
+2. 已在导航工作区新增：
+   - [002-prompt-11.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/屎山修复/导航检查/002-prompt-11.md)
+   - 口径已收紧为：接受第二个退壳 checkpoint，但下一刀唯一主刀固定为 `detour lifecycle` 继续退壳。
+
+**关键决策**
+- 性能线这次不准再“自由散查”，而是必须：
+  - 先测第一刀有效性
+  - 再锁第二刀
+  - 且只允许发生在 Editor-only、可回退、可验证边界内
+- 导航线这次不准再在两个候选方向之间摇摆；
+  - 我已经替它把下一刀钉到 `detour create / clear / recover`
+
+**恢复点 / 下一步**
+- 性能线现在已经有可直接发送的受控 prompt；
+- 导航线现在已经有可直接发送的 `002-prompt-11`；
+- 农田这轮用户说“农田也回复了”，但实际贴出的仍是同一份导航回执，我没有伪造农田 prompt，等待真实农田回执再处理。
+
+## 2026-03-25｜基于用户重贴的真实 spring / farm 回执，已补齐两份新 prompt
+**当前主线目标**
+- 用户明确提醒我不要漂移，要按他重新完整粘贴的 spring / farm 回执继续当前 prompt 生成主线，而不是沿用我之前脑内摘要。
+
+**本轮完成**
+1. 已基于用户重贴后的完整 `spring-day1` 回执、旧委托链和图片验收，新增：
+   - [26.03.25-Day1工作台UI与任务体验重收口委托-03.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/26.03.25-Day1工作台UI与任务体验重收口委托-03.md)
+2. 已基于用户重贴后的真实农田回执、`001 / 006 / 当前续工计划与日志`，新增：
+   - [008-新增工具运行时与玩家反馈链进入live验收与补口.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.16/1.0.4交互全面检查/008-新增工具运行时与玩家反馈链进入live验收与补口.md)
+
+**关键决策**
+- `spring-day1` 这轮不再接受“代码侧收口，等用户复测”：
+  - 新 prompt 已把用户贴图、工作台 `0.5m` 交互包络线语义、任务逻辑死锁、任务页翻页体验、提示气泡双语义一起收进更硬的一刀。
+- 农田这轮不再接受“日志和脚本级闭环已完成”：
+  - 新 prompt 已把下一轮唯一主刀固定为 4 组 Unity / MCP live 行为验收；
+  - 若 live 不过，就同轮继续补口，不准再把第一轮逻辑验收甩给用户。
+
+**恢复点 / 下一步**
+- 现在 spring 与 farm 都已有可直接发送的新 prompt；
+- 后续如果用户继续贴回执，我应按 `sunset-prompt-slice-guard` 的口径继续审：
+  1. 这轮到底是不是单刀
+  2. 线程有没有把第一轮真实验收继续甩给用户
+  3. 结构线和体验线有没有继续混说
+
+## 2026-03-25｜验收交接 skill 与 Unity stop-early 纪律已真正落盘，并补齐性能/导航下一轮 prompt
+**当前主线目标**
+- 用户要求把前面讨论过却还没真正落地的两条治理结论做成真实规则：
+  1. 线程到“需要用户终验”时，不能只说“等用户复测”，必须交专业验收指南与回执单。
+  2. Unity / MCP live 一旦拿到当前步骤所需证据，就必须立刻 `Pause / Stop`，不能放任日志洪水继续刷。
+- 同时，用户补充了第五个任务：基于导航线程最新回执继续下达下一轮 prompt。
+
+**本轮完成**
+1. 已新建本地 skill：
+   - `C:\Users\aTo\.codex\skills\sunset-acceptance-handoff\`
+2. 已更新现有 skill：
+   - `C:\Users\aTo\.codex\skills\sunset-unity-validation-loop\SKILL.md`
+3. 已同步接线到：
+   - [AGENTS.md](/D:/Unity/Unity_learning/Sunset/AGENTS.md)
+   - [global-skill-registry.md](/C:/Users/aTo/.codex/memories/global-skill-registry.md)
+   - [Sunset当前规范快照_2026-03-22.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Steering规则区优化/当前运行基线与开发规则/Sunset当前规范快照_2026-03-22.md)
+   - [并发线程_当前版本更新前缀.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/共享根执行模型与吞吐重构/01_执行批次/2026.03.21_main-only极简并发开发_01/可分发Prompt/并发线程_当前版本更新前缀.md)
+   - [README.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/22_恢复开发分发与回收/线程回收/README.md)
+4. 已新增性能线下一轮 prompt：
+   - [2026-03-25-UnityPlayBusy续查prompt-02.md](/D:/迅雷下载/开始/.codex/threads/系统全局/谁是卧底/2026-03-25-UnityPlayBusy续查prompt-02.md)
+5. 已新增导航线下一轮 prompt：
+   - [002-prompt-12.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/屎山修复/导航检查/002-prompt-12.md)
+
+**关键决策**
+- `sunset-acceptance-handoff` 把“线程先自验，再交用户终验包”正式收成 skill；
+- `sunset-unity-validation-loop` 现在明确区分：
+  - MCP 擅长逻辑自验与短窗证据
+  - 人工终验擅长观感、手感、节奏与最终裁决
+- Sunset live 规则现在正式新增两条硬纪律：
+  - 取够证据立刻 `Pause / Stop`
+  - 进入用户终验阶段必须交验收指南 + 回执单
+- 性能线这轮被收紧成：
+  - 只验证 `SpringDay1BedSceneBinder.cs / SpringDay1WorkbenchSceneBinder.cs` 是否真拖慢 `ProcessInitializeOnLoadAttributes`
+- 导航线这轮被收紧成：
+  - 只打 shared detour `clear / recover` 过密问题，不再横跳别的责任簇
+
+**恢复点 / 下一步**
+- 后续所有 Sunset 线程若进入“等用户终验”阶段，应默认按 `sunset-acceptance-handoff` 组织回执；
+- 后续所有 Unity / MCP live 取证，都应默认按 stop-early 纪律先定义停机条件、拿到证据后立即退回 Edit Mode；
+- 性能线下一轮直接发 `prompt-02`；
+- 导航线下一轮直接发 `002-prompt-12`。
+
+## 2026-03-25｜性能线 `prompt-02` 回执裁定：只接受取证补丁 checkpoint，不接受任务完成
+**当前主线目标**
+- 用户贴回 `谁是卧底` 对 `prompt-02` 的最新回执，要求我继续给出可直接转发的回应 prompt，而不是泛泛汇报。
+
+**本轮新增稳定事实**
+1. 我接受它这轮只做到一个中间 checkpoint：
+   - `SpringDay1BedSceneBinder.cs / SpringDay1WorkbenchSceneBinder.cs`
+   - 默认关闭、可回退的 diagnostics 与 auto-bind 短路开关已落地
+2. 但我不接受它把这轮表述成已完成：
+   - 因为 `Play -> Stop = 0 次`
+   - 当前新的第一责任点还没有继续从“两个 Binder 候选”收窄到更硬证据
+3. 这轮还出现了 scope 漂移信号：
+   - `C:\Users\aTo\.codex\AGENTS.md` 被顺手纳入 changed_paths
+   - 这不属于当前 Unity Play Busy 主刀
+4. 当前 external blocker 是真实的，但它只能解释“为什么这轮没跑成 live”，不能被包装成“本轮目标已完成”。
+
+**恢复点 / 下一步**
+- 下一轮给性能线的回应 prompt 应继续钉死：
+  1. 当前只接受“Binder 取证补丁已就位”这个 checkpoint
+  2. 不接受继续做治理 / 工具侧支线
+  3. 一旦共享现场 compile red 清掉，立刻按既定方案跑最小 `Play -> Stop` 取证
+
+## 2026-03-25｜Unity Play Busy 续查：第一刀收益已复测，但总瓶颈未下降
+**当前主线目标**
+- 按 `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-24-UnityPlayBusy续查prompt-01.md` 的约束，先验证 `StaticObjectOrderAutoCalibrator.cs` 这一刀的真实收益；如果仍慢，只锁下一组 Editor-only 责任点，不越过高风险边界。
+
+**本轮完成**
+1. 手工等价执行了 Sunset 启动闸门：
+   - 复核 `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - 复核 `shared-root-branch-occupancy.md`、`mcp-single-instance-occupancy.md`、`mcp-live-baseline.md`、`mcp-hot-zones.md`
+   - 确认 shared root 仍在 `main`，MCP 基线是 `unityMCP @ http://127.0.0.1:8888/mcp`
+2. 对实例 `Sunset@21935cd3ad733705` 做了一次最小受控复测：
+   - `Play -> 等待进入 -> Stop -> 回到 Edit Mode`
+   - 没有改全局 Play 设置、没碰业务运行时代码、没开后台 watcher
+3. 从 `Editor.log` 新增片段中抽出本轮样本：
+   - 取证文件：`D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\unity-play-retest-2026-03-24.log`
+4. 完成了第一刀前后对比：
+   - 新样本 `Domain Reload Profiling = 19053ms`
+   - 新样本 `ProcessInitializeOnLoadAttributes = 6120ms`
+   - 新样本 `AwakeInstancesAfterBackupRestoration = 7277ms`
+   - 新样本 `Asset Pipeline Refresh = 19.599s`
+   - 对比上一轮已接受基线（约 `18.6~18.8s / 5.8~5.9s / 7.24s / 19.3~25.1s`），关键重段几乎没有下降
+5. 复核本轮新样本中已不再出现 `StaticObjectOrderAutoCalibrator` / `[AutoCalibrator]` 的进 Play 前扫描日志，说明第一刀确实把那条 Editor-only 前置扫描链打掉了；但这不足以解释当前整体慢的问题。
+6. 收缩了下一组项目自有 Editor-only 候选：
+   - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1BedSceneBinder.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1WorkbenchSceneBinder.cs`
+   - 它们都在 `[InitializeOnLoad]` 下注册，并且在 `Primary` 场景里存在全层级 `Transform` 扫描路径，最贴近当前仍然很重的 `ProcessInitializeOnLoadAttributes` 段
+
+**关键结论**
+- 第一刀“有效”，但有效性只体现在“移除了一个真实存在的进 Play 前扫描源”，没有换来可感知的整体耗时下降。
+- 当前不能把 Unity Play Busy 宣布为已解决。
+- 当前新的第一责任点已经从 `StaticObjectOrderAutoCalibrator.cs` 转移到：
+  - `Editor.log` 的 `Domain Reload Profiling -> SetupLoadedEditorAssemblies -> ProcessInitializeOnLoadAttributes (6120ms)` 段
+  - 在项目自有脚本里，最值得继续收缩的下一组是两个 `SpringDay1*SceneBinder` 的 `[InitializeOnLoad]` 绑定链
+- 本轮没有做第二刀：
+  - 因为“还有项目自有候选”这件事已经成立，但还没硬到足以安全改动单一文件并宣布它就是下一刀真凶
+  - 按 prompt 边界，本轮先停在“真实复测 + 锁下一组责任点”
+
+**恢复点 / 下一步**
+- 如果继续沿这条支线推进，下一轮最小动作应是：
+  1. 只针对 `SpringDay1BedSceneBinder.cs` / `SpringDay1WorkbenchSceneBinder.cs` 增加可回退、默认关闭的取证或开关；
+  2. 再做一次同规格最小复测；
+  3. 只要新证据仍指向 `ProcessInitializeOnLoadAttributes`，再决定是否做第二刀。
+
+## 2026-03-25｜Unity Play Busy prompt-02：Binder 取证补丁已落地，但 live 复测被无关 compile red 阻断
+**当前主线目标**
+- 按 `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-UnityPlayBusy续查prompt-02.md`，只验证：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1BedSceneBinder.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1WorkbenchSceneBinder.cs`
+  是否真的是 `ProcessInitializeOnLoadAttributes` 里的下一组责任点。
+
+**本轮完成**
+1. 先把用户上条工具支线真正落成硬规则：
+   - `C:\Users\aTo\.codex\AGENTS.md`
+   - 新增“搜索默认口径”：搜索类任务默认优先 `rg` / `rg --files`，系统对象查询继续优先 PowerShell。
+2. 在两个 Binder 内只加入了默认安全、可回退、Editor-only 的最小取证能力：
+   - 新增诊断日志开关（默认关闭）
+   - 新增 Auto Bind 短路开关（默认关闭，即默认行为不变）
+   - 新增日志字段：场景名、Transform 总数、候选数、实际创建数、单次执行耗时
+3. 单文件校验结果：
+   - 两个 Binder 通过 `validate_script`
+   - 仅有通用 warning：`Consider null checking GetComponent results`
+4. 现场 blocker 已明确：
+   - 当前 Unity Console 已有无关 compile red，来自：
+     - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+   - 这些都不在本轮允许改动范围内
+   - 因此本轮尚未进入任何一次 `Play -> Stop` 复测
+
+**关键结论**
+- 这轮没有漂移到别的 Editor 脚本，也没有碰场景、Prefab、全局 Play 设置或业务运行时代码。
+- 两个 Binder 的取证补丁已经就位，但当前还不能给出“它们是不是下一真责任点”的 live 结论，因为共享现场被无关 compile red 先行阻断。
+- 当前准确口径不是“Binder 被排除”或“Binder 已坐实”，而是：
+  - “这轮主刀仍只锁这两个 Binder”
+  - “取证手段已经就位”
+  - “下一步先清掉无关 compile red，才能合法执行 2~3 次最小复测”
+
+**恢复点 / 下一步**
+- 一旦无关 compile red 被别的责任线程清掉，后续可以直接继续：
+  1. 开启两个 Binder 的 diagnostics；
+  2. 先跑一轮默认行为样本；
+  3. 再用各自的短路开关做对照样本；
+  4. 每次取够证据立刻 Stop，并退回 Edit Mode。
+
+## 2026-03-25｜已按相同分发口径补齐农田与 spring-day1 的新文件版 prompt
+
+**当前主线目标**
+- 用户继续贴回农田与 `spring-day1` 的最新回执，并要求我完全按同样方式处理：
+  - 详细 prompt 写进文件
+  - 聊天里只保留一条极短的分发话术
+
+**本轮完成**
+1. 已新增农田详细文件：
+   - [009-hover遮挡链闭环与live收口.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.16/1.0.4交互全面检查/009-hover遮挡链闭环与live收口.md)
+2. 已新增 `spring-day1` 详细文件：
+   - [26.03.25-Day1工作台UI与任务体验重收口委托-04.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/26.03.25-Day1工作台UI与任务体验重收口委托-04.md)
+
+**关键决策**
+- 农田线当前不再泛跑 4 组 live，而是只锁：
+  - `hover-occlusion-chain`
+  - `previewBounds=null`
+  这一处精确剩余点
+- `spring-day1` 当前不再继续堆代码，而是：
+  - 等 shared root 的 farm 编译红字解除
+  - 立刻做 Play 自验
+  - 然后交正式验收指南与回执单
+
+**恢复点 / 下一步**
+- 后续如果用户要直接分发：
+  - 农田发 `009`
+  - `spring-day1` 发 `委托-04`
+- 聊天层继续只保留文件路径与一句短消息。
+
+## 2026-03-25｜Unity Play Busy prompt-03：已完成 3 组 Binder 对照样本，结论是“两个 Binder 不是这一刀真核心”
+**当前主线目标**
+- 按 `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-UnityPlayBusy续查prompt-03.md`，在 compile red 解除后立刻完成 3 组最小 `Play -> Stop` 对照样本，只验证：
+  - `SpringDay1BedSceneBinder.cs`
+  - `SpringDay1WorkbenchSceneBinder.cs`
+  是否真对 `ProcessInitializeOnLoadAttributes` 有关键影响。
+
+**本轮完成**
+1. 复核 compile red 已解除，MCP 基线仍为 `unityMCP @ 127.0.0.1:8888`，实例仍是 `Sunset@21935cd3ad733705`。
+2. 只使用已经存在的 Binder 取证补丁，未再新增实现，完成了 3 组最小样本：
+   - baseline：两个 Binder 正常启用
+   - 只短路 BedBinder
+   - 只短路 WorkbenchBinder
+3. 每组进入 Play 成功后都立即 Stop，并在结束后确认回到 Edit Mode。
+4. 保存的取证样本：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\binder-sample-1-baseline.log`
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\binder-sample-2-bed-disabled.log`
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\binder-sample-3-workbench-disabled.log`
+5. 取证结果统一采用各样本中明确 `Reloading assemblies for play mode` 后的那组 Domain Reload 数据做对照：
+   - baseline：
+     - `Domain Reload Profiling = 24058ms`
+     - `ProcessInitializeOnLoadAttributes = 7913ms`
+     - `AwakeInstancesAfterBackupRestoration = 9055ms`
+     - `Asset Pipeline Refresh = 24.705s`
+   - 只短路 BedBinder：
+     - `Domain Reload Profiling = 23901ms`
+     - `ProcessInitializeOnLoadAttributes = 7928ms`
+     - `AwakeInstancesAfterBackupRestoration = 9109ms`
+     - `Asset Pipeline Refresh = 24.568s`
+   - 只短路 WorkbenchBinder：
+     - `Domain Reload Profiling = 24124ms`
+     - `ProcessInitializeOnLoadAttributes = 7963ms`
+     - `AwakeInstancesAfterBackupRestoration = 9181ms`
+     - `Asset Pipeline Refresh = 24.797s`
+6. Binder diagnostics 关键信息：
+   - baseline 非 busy 样本：
+     - Bed：`scene=Primary transforms=471 candidates=0 created=0 elapsedMs=4`
+     - Workbench：`scene=Primary transforms=471 candidates=1 created=0 elapsedMs=0`
+   - 只短路 BedBinder：
+     - Bed：`skipped=disabled scene=Primary`
+     - Workbench：`scene=Primary transforms=855 candidates=1 created=0 elapsedMs=4`
+   - 多个实际 Play 进入窗口内，两者都重复出现：
+     - `skipped=editor-busy`
+7. 收口前已把现场恢复到默认安全状态：
+   - Bed / Workbench Auto Bind 都恢复为 enabled
+   - 两个 diagnostics 都恢复为 disabled
+
+**关键结论**
+- 这两个 Binder 不是这一刀的真核心，至少不足以解释当前 `ProcessInitializeOnLoadAttributes` 约 `7.9s` 的重段。
+- 证据链有两层：
+  1. 三组样本里，短路 Bed 或 Workbench 后，`ProcessInitializeOnLoadAttributes` 不降反升（`7913ms -> 7928ms / 7963ms`），没有出现明显下降；
+  2. Binder 自身 diagnostics 显示：
+     - 真正跑到其执行体时，扫描代价只有 `0~4ms`
+     - 实际 Play 进入窗口里更常见的是 `skipped=editor-busy`
+- 因此当前新的第一责任点已经从“两处 Binder 候选”继续收窄为：
+  - `ProcessInitializeOnLoadAttributes` 里的非 Binder 初始化链
+  - 也就是：这两个 Binder 的 auto-bind 执行体已基本被排除，不应再继续把下一刀押在它们身上
+
+**恢复点 / 下一步**
+- 这轮对 Binder 的证据已经闭环，后续不应再继续围绕这两个文件做同类对照；
+- 下一轮如果继续推进，应从 `ProcessInitializeOnLoadAttributes` 段里的非 Binder 初始化链重新收窄，而不是回头重复这两个 Binder。
+
+## 2026-03-25｜Unity Play Busy prompt-04：双线并查后，`SaveManager` 被排除，单一第一责任点继续收窄到 `unity-mcp` 包层 `InitializeOnLoad`
+
+**当前主线目标**
+- 按 `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-UnityPlayBusy续查prompt-04.md`，不再围着 Binder 打转，而是通过：
+  - `SaveManager` / `AwakeInstancesAfterBackupRestoration`
+  - 非 Binder `ProcessInitializeOnLoadAttributes`
+  两条证据线并查，继续收窄出单一第一责任点。
+
+**本轮完成**
+1. 已给 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\SaveManager.cs` 加入默认关闭、可回退、editor-only 的最小取证能力：
+   - Diagnostics 开关
+   - Disable Editor AssetDatabase Fallbacks 开关
+2. 已完成 2 次最小 `Play -> Stop`：
+   - baseline
+   - 禁用 `SaveManager` editor fallback
+   每次都在拿到 `ProcessInitializeOnLoadAttributes / AwakeInstancesAfterBackupRestoration / Asset Pipeline Refresh` 与 `[SaveManager][Diag]` 后立刻 `Stop`，最后退回 `Edit Mode`。
+3. 已保存样本：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\prompt04-sample-1-baseline.log`
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\prompt04-sample-2-saveManager-fallback-disabled.log`
+4. baseline 样本：
+   - `ProcessInitializeOnLoadAttributes = 8906ms`
+   - `AwakeInstancesAfterBackupRestoration = 10281ms`
+   - `Asset Pipeline Refresh = 28.037s`
+   - `[SaveManager][Diag] ... elapsedMs=15~16 ... prefabDbAssetDbFallbackHit=True ... dynamicFactoryInitialized=True`
+5. 禁用 `SaveManager` editor fallback 后：
+   - `ProcessInitializeOnLoadAttributes = 9063ms`
+   - `AwakeInstancesAfterBackupRestoration = 10209ms`
+   - `Asset Pipeline Refresh = 28.012s`
+   - `[SaveManager][Diag] ... elapsedMs=0 ... prefabDbAssetDbFallbackHit=False ... dynamicFactoryInitialized=False`
+
+**关键结论**
+- `SaveManager` 确实稳定命中 `AssetDatabase` fallback，但它自身的取证耗时只有 `15~16ms`，禁用 fallback 后也没有让重段出现能切下一刀的明显下降：
+  - `AwakeInstancesAfterBackupRestoration` 只下降约 `72ms`
+  - `Asset Pipeline Refresh` 只下降约 `25ms`
+  - `ProcessInitializeOnLoadAttributes` 反而上升约 `157ms`
+- 因此 `SaveManager` 已被排除为这一刀的主真凶。
+- 同时，项目内剩余非 Binder `InitializeOnLoad` 候选也明显偏弱：
+  - `PersistentIdAutomator.cs` 只在静态构造中注册 `sceneSaving`
+  - `DialogueChineseFontAssetCreator.cs` 属于 `InitializeOnLoadMethod`，且更贴近 `ProcessInitializeOnLoadMethodAttributes`
+- 当前新的单一第一责任点已经继续收窄到：
+  - `D:\Unity\Unity_learning\Sunset\Library\PackageCache\com.coplaydev.unity-mcp@e9de4c0341cf\Editor\Services\Transport\Transports\StdioBridgeHost.cs`
+  - 它代表的 `unity-mcp` 包层 `InitializeOnLoad` 集群
+
+**恢复点 / 下一步**
+- 这轮之后不应再继续把下一刀押在 `SaveManager` 或项目内剩余的轻量非 Binder 入口上；
+- 下一刀若继续推进，应优先围绕 `unity-mcp` 包层 `InitializeOnLoad` 集群，先从 `StdioBridgeHost.cs` 领跑取证，而不是回头重做 `SaveManager` 对照。
+
+## 2026-03-25｜Unity Play Busy 线补记：已补做“我到底临时禁用了什么、设计初衷是什么、哪些不能乱动”的安全性复盘
+
+**当前主线目标**
+- 用户在 `prompt-04` 收口后，明确要求我先停下，不继续下一刀，先回答：
+  - 我临时禁用过的东西到底来自哪里
+  - 它们分别做什么
+  - 设计初衷是什么
+  - 我是否真的做过足够深入的理解与边界判断
+
+**本轮补到的稳定事实**
+1. 我这条线里真正“临时禁用过”的内容，只有三类，而且都已恢复默认状态：
+   - `SpringDay1BedSceneBinder` 的 Auto Bind
+   - `SpringDay1WorkbenchSceneBinder` 的 Auto Bind
+   - `SaveManager` 的 editor `AssetDatabase` fallback
+2. 两个 Binder 都来自：
+   - `Assets/Editor/Story/*.cs`
+   - 都是 Editor-only 的 `[InitializeOnLoad]` 自动补挂器
+   - 设计初衷是：当 `Primary` 场景里出现目标对象但缺少交互组件时，自动补挂 `SpringDay1BedInteractable` / `CraftingStationInteractable`
+   - 所以它们本质是“编辑器便利与内容修复器”，不是运行时核心逻辑
+3. `SaveManager` 的 `AssetDatabase` fallback 来自：
+   - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+   - 设计初衷是：编辑器里如果 `PrefabDatabase.asset` 不在 `Resources`，仍能用 `AssetDatabase.FindAssets("t:PrefabDatabase")` 找到数据库并初始化 `DynamicObjectFactory`
+   - 因为真实资产在：
+     - `Assets/111_Data/Database/PrefabDatabase.asset`
+     - 而不在 `Assets/**/Resources`
+4. 同时项目内还存在第二条初始化链：
+   - `Assets/YYY_Scripts/Service/PersistentManagers.cs`
+   - 它通过序列化字段 `prefabDatabase` 再次初始化 `DynamicObjectFactory`
+   - 所以禁用 `SaveManager` fallback 不是“把整个动态对象工厂完全禁掉”，而只是切掉了 `SaveManager` 自己那条 editor 兜底路径
+5. 包层方面：
+   - 我没有禁用 `com.coplaydev.unity-mcp` 的任何 `InitializeOnLoad` 入口
+   - 目前只做到了读码、排序和 suspect 升级，还没有动包代码或包开关
+
+**关键纠偏**
+- 我前一轮对“能不能临时关掉”做到了受控取证级理解，但还没有做到“上游设计全景审查级”理解；用户这次追问是合理的。
+- 现在补完复盘后，当前准确口径应是：
+  - Binder 的 Auto Bind：可以短时关闭做 Editor-only 取证，因为它们是内容补挂便利器，关掉不会直接改运行时架构；但不能长期遗留 disabled
+  - `SaveManager` 的 editor fallback：只能作为短时测量开关，不能被误当成正式修法，因为它承担的是编辑器兜底职责，而且项目里还有 `PersistentManagers` 这条并行初始化链
+  - `unity-mcp` 包层：在没有更深入的设计级审查前，不应直接做“禁用式”试验；因为 `StdioBridgeHost / TransportCommandDispatcher` 的设计初衷就是编辑器启动桥接与命令泵，它们是工具基础设施本体，不是随手可关的小功能
+
+**恢复点 / 下一步**
+- 当前已把“临时取证开关”和“真实系统职责”区分清楚；
+- 后续若继续这条支线，在动 `unity-mcp` 包层前，必须先补一轮更深的设计级理解与更窄的安全边界评估，不能直接照搬 `SaveManager` 这类本地 editor fallback 的试法。
+
+## 2026-03-25｜四线程最新回执治理裁定：只判完成度，不误把 checkpoint 当总完成
+
+**当前主线目标**
+- 用户要求我不要再长篇转发 prompt，而是先正确判断 4 条线程最新回执各自处于：
+  - 本轮完成
+  - 仅 checkpoint
+  - 是否已经到用户落地验收
+  - 是否还需要继续下一轮 prompt
+
+**本轮完成**
+1. 已对照原文件完成定义，逐条复核：
+   - `spring-day1`：`26.03.25-Day1工作台UI与任务体验重收口委托-04.md`
+   - 农田：`009-hover遮挡链闭环与live收口.md`
+   - 导航：`002-prompt-13.md`
+   - `谁是卧底`：`2026-03-25-UnityPlayBusy续查prompt-03.md`
+2. 已形成治理裁定：
+   - `spring-day1`：仍只是 checkpoint，不可交用户终验；因为 `委托-04` 要求的是完整 Play 自验或正式验收包，它当前只拿到首段 live 证据，后半链路未跑穿，也未交验收指南/回执单。
+   - 农田：本轮完成；`009` 的 hover 单点已闭环，且线程明确给出 `1.0.4` 四组 live 现已全绿，不需要继续发 prompt。
+   - 导航：`002-prompt-13` 本轮完成；当前完成的是 `detour clear / recover` 节制簇“三场同轮 fresh 无回归”，但这不等于导航 `S0-S6` 全完成。
+   - `谁是卧底`：`prompt-03` 本轮完成；已用 3 组样本把两个 Binder 排除为这一刀真核心，但 Unity Play Busy 整体问题仍未解决。
+
+**关键决策**
+- 这轮不新增 prompt 文件，除非用户明确要求继续推进下一刀。
+- 当前没有哪条线程已经正式进入“可直接交用户终验包”的状态：
+  - `spring-day1` 还没到，因为线程自己都没完成 `委托-04` 要求的完整自验与验收包。
+  - 农田虽然可以让用户选做 spot-check，但按 `009` 完成定义已可收口，不需要我继续催线程。
+
+**恢复点 / 下一步**
+- 如果用户下一步只想做验收：
+  - 优先看农田是否需要做个人体验抽查；
+  - `spring-day1` 先不该交给用户终验，应先让线程把 `WorkbenchFlashback / FarmingTutorial` 自验跑穿并交正式验收包。
+- 如果用户下一步要继续压线程：
+  - `spring-day1` 需要新一轮文件版 prompt；
+  - `谁是卧底` 若继续，应进入非 Binder 初始化链的新 prompt；
+  - 导航是否继续，要先由用户决定是否现在就开下一责任簇。
+
+## 2026-03-25｜治理纠偏：导航这类强逻辑线，不能再把 synthetic probe 绿灯当成真实落地
+
+**当前主线目标**
+- 用户在真实手测里仍看到“玩家推着 NPC 走”，要求我停下来复盘：为什么导航线程说三场同轮 fresh 全绿，但实际体验仍然失败。
+
+**本轮完成**
+1. 已回读导航工作区主表、`002-prompt-10~13`、以及 runner / 输入 / 运动控制相关代码。
+2. 已确认前一轮治理裁定需要纠偏：
+   - 结构 checkpoint 仍成立；
+   - 但不能再把它外推成“导航现在不需要继续验收”。
+
+**关键决策**
+- 对导航这类“强逻辑 + 强体验耦合”的线，后续验收至少拆三层：
+  1. 结构 owner 迁移
+  2. synthetic probe 无回归
+  3. 真实入口驱动的 in-scene 行为验收
+- 只有前两层都过，不代表第三层自动过。
+- 对导航线程，后续默认由治理线程继续压验收，不再先交给用户背第一轮逻辑验收。
+
+**新增稳定事实**
+- 当前 `NavigationLiveValidationRunner` 的 probe 主要是：
+  - 摆位
+  - 直接 `SetDestination(...)`
+  - 直接 `DebugMoveTo(...)`
+  它没有完整覆盖 `GameInputManager` 的真实点击入口。
+- 当前 probe 的 pass 条件也偏宽，核心仍是：
+  - 到达
+  - `minClearance > -0.08f`
+  并未把“持续推挤 / 顶着走 / 体感违和”作为硬失败。
+- 导航主表中 `S6` 的“最终运动语义显式收口”仍是未完成项，不能再被当成旁支问题切走。
+
+**恢复点 / 下一步**
+- 导航线程如果继续，不该再只交“结构迁移 + 三场 probe 绿灯”；
+- 下一轮应直接升级为：
+  - 真实入口链路 probe
+  - push / overlap / displacement 更硬指标
+  - `S6` 最终运动语义收口审查
+
+## 2026-03-25｜三份新 prompt 已实际落盘：导航、`谁是卧底`、NPC
+
+**当前主线目标**
+- 用户在要求我先阅读并反思锐评后，重新回到治理主线，明确指出：
+  - 前面少了真正落地的回复 prompt
+  - 这轮必须给出 3 份文件版 prompt
+  - 不能只看线程自述，要由我作为总闸重新裁定后再写
+
+**本轮完成**
+1. 已新增导航新 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-14.md`
+   - 新唯一主刀固定为：
+     - 真实点击入口下，把“玩家推着 NPC 走”压成硬验收，只围绕最终运动语义收一刀
+2. 已新增 `谁是卧底` 新 prompt：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-UnityPlayBusy续查prompt-04.md`
+   - 新唯一主刀固定为：
+     - 双线并查，但目标只有一个：继续收窄出单一第一责任点
+3. 已新增 NPC 新开工 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\2026-03-25_NPC导航接入契约与联调验收规范起稿.md`
+   - 新唯一主刀固定为：
+     - 先做 `NPC-导航接入契约与联调验收规范`
+
+**关键裁定**
+1. 导航这轮不准再拿：
+   - 结构 owner 迁移
+   - synthetic probe 绿灯
+   冒充真实动态导航落地。
+2. `谁是卧底` 这轮不准再围绕两个 Binder 打转，也不准只盯一层 `InitializeOnLoad`；必须同时面对：
+   - 非 Binder 初始化链
+   - `SaveManager` 这类 editor fallback runtime 重活
+3. NPC 这轮不准误入导航代码主战场，只允许做 docs-only 的接入契约与验收规范。
+
+**恢复点 / 下一步**
+- 当前三份 prompt 都已具备可直接转发状态；
+- 聊天层后续只应给路径与极短转发语，不再把详细正文贴回聊天。
+
+## 2026-03-25｜治理总闸再纠偏：已新增导航 `002-prompt-15`、农田 `010`、`谁是卧底 prompt-05`
+
+**当前主线目标**
+- 用户在最新现场验收里同时否定了导航与农田的前一轮口径，并要求我不要沿用已经过时的 prompt，而是重新以总闸身份裁定后再落文件。
+
+**本轮完成**
+1. 已新增导航新 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-15.md`
+2. 已新增农田新 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\010-放置链事故回退与全局自治重建.md`
+3. 已新增 `谁是卧底` 新 prompt：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-UnityPlayBusy续查prompt-05.md`
+
+**关键裁定**
+1. 导航：
+   - 当前不再是“真实入口体验续收口”，而是“动态导航体感已比旧基线更差的回归事故处理”；
+   - 线程被明确允许在导航线内自主选择 `selective rollback / selective restore / forward fix`，但必须先恢复到至少不比旧基线更差。
+2. 农田：
+   - 当前不再是 `hover-only` 或“4 组 live 全绿即可总完成”；
+   - 主线被正式改判为“整条放置链事故回退与自治重建”。
+3. `谁是卧底`：
+   - 当前不再允许直接对 `unity-mcp` suspect 做 disable 类试验；
+   - 下一轮唯一主刀固定为包层启动链的设计级 / 风险级审查。
+
+**恢复点 / 下一步**
+- 当前这轮治理产物已经全部落成文件，不再依赖聊天长文；
+- 后续对线程的聊天分发仍继续只给：
+  - 文件路径
+  - 极短转发语
+- 不再把旧 prompt 或已经失效的口头结论继续外推。
+
+## 2026-03-25｜典狱长模式已正式落入规则源、治理规范与 skill 层
+
+**当前主线目标**
+- 用户要求把“审回执、判停发、按需分发”的治理总闸正式命名为“典狱长模式”，并强调这次不能只写进记忆，必须真正烙进规章和 skills。
+
+**本轮完成**
+1. 已新增治理规范正文：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\典狱长模式_治理总闸与分发规范.md`
+2. 已把典狱长模式同步进 live 规则源：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md`
+3. 已新增 project skill：
+   - `C:\Users\aTo\.codex\skills\sunset-warden-mode\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-warden-mode\agents\openai.yaml`
+4. 已同步改造相关治理 skill：
+   - `C:\Users\aTo\.codex\skills\sunset-governance-dispatch-protocol\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-prompt-slice-guard\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\skills-governor\SKILL.md`
+
+**关键决策**
+1. 典狱长模式的第一动作固定为：
+   - 先审回执
+   - 再把线程判入四类：
+     - `继续发 prompt`
+     - `停给用户验收`
+     - `停给用户分析 / 审核`
+     - `无需继续发`
+2. 只有第一类线程才继续写新的 prompt 文件；其余三类必须停下并把原因交代清楚。
+3. 给用户的转发格式正式固定为：
+   - `对应文件在：`
+   - 文件路径列表
+   - `你可以直接这样发给 XXX：`
+   - 一个直接包含 `请先完整读取 [最新 prompt 路径]` 的 `text` 代码块
+4. 旧的“路径 + 极短短句”格式已被正式废止，不再作为治理默认口径。
+
+**验证与阻塞**
+- 已通过全文检索确认：
+  - `典狱长模式`
+  - `对应文件在：`
+  - `sunset-warden-mode`
+  已同时出现在全局规则、Sunset 规则、治理规范、新 skill 与全局治理库存中。
+- 新 skill 的 `openai.yaml` 已手工补齐。
+- `skill-creator` 自带脚本验证存在环境阻塞：
+  - `generate_openai_yaml.py` / `quick_validate.py` 依赖本机缺失 `yaml` 模块，无法完成官方脚本式校验；
+  - 因此本轮改用手工补齐 `agents/openai.yaml` + 规则关键字全文检索做替代验证。
+
+**恢复点 / 下一步**
+- 后续用户只要说出 `典狱长`、`典狱长上货`、`上货`，治理线程就应默认进入这套先判后发的流程；
+- 当前下一步只剩把这轮结果同步到线程记忆、全局审计层，并给用户列出现行规范与 skills 清单。
+
+## 2026-03-26｜V1 交接文档统一写作 prompt 已落入 `.codex/threads` 根层
+
+**当前主线目标**
+- 用户要求为 Sunset 多个即将进入 `V2` 阶段的线程建立一套统一的“重型交接仪式”写作 prompt，不是快速摘要，而是面向未来接班线程的彻底就位式 handoff。
+
+**本轮完成**
+1. 已在 Sunset 项目 `.codex/threads` 根层新增统一写作 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+2. 已在 Sunset 项目 `.codex/threads` 根层新增极简导入 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档导入Prompt.md`
+3. 已创建交接产物统一落点目录：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\V1交接文档\`
+
+**关键裁定**
+1. 交接文档的正式落点固定为：
+   - `.codex/threads/V1交接文档/`
+   而不是 `.kiro/`
+2. 当前线程自己的 `memory_0.md` 功能不变：
+   - 仍然是线程记忆
+   - 只是要求未来接班人把 `memory` 也一并阅读和消化
+3. 未来继任线程的物理命名规则，按用户新规统一固定为：
+   - `当前线程名 + V2`
+4. 统一写作 prompt 已把交接包最少文件数固定为 7 份，并把以下内容列为强制项：
+   - 线程身份与职责
+   - 主线 / 支线迁移编年
+   - 关键节点、分叉路与判废记录
+   - 用户习惯、长期偏好与协作禁忌
+   - 当前高权重事项、风险与未竟问题
+   - 证据索引与接手建议
+5. 极简导入 prompt 的职责是：
+   - 只负责把线程引到统一写作 prompt
+   - 不在聊天层重复整套正文
+   - 保持治理分发时的复制友好与统一口径
+
+**恢复点 / 下一步**
+- 后续凡是需要进入 `V1 -> V2` 交接阶段的 Sunset 线程，治理层都可以直接分发：
+  - 根层统一写作 prompt
+  - 根层极简导入 prompt
+- 线程执行时，按统一 prompt 将交接包写入：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\V1交接文档\<当前线程名>\`
+- 下一步如果用户开始点名具体线程进入交接，治理层就应改做：
+  - 逐线程发导入 prompt
+  - 回收其交接包路径
+  - 检查是否命中了统一完成定义
+
+## 2026-03-26｜V1/V2 交接路径口径改判：统一 prompt 留根层，交接正文改回线程工作区内 `V2交接文档`
+
+**当前主线目标**
+- 用户明确纠正刚刚落盘的交接规范路径：统一写作 prompt 可以继续放在 `D:\Unity\Unity_learning\Sunset\.codex\threads\` 根层，但真正的交接正文不应集中写到根层共享目录，而应落在各自线程工作区下面。
+
+**本轮完成**
+1. 已修正统一写作 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+2. 已修正极简导入 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档导入Prompt.md`
+3. 已把两份 prompt 的正式落点统一改成：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\<分组>\<当前线程名>\V2交接文档\`
+4. 已在 prompt 中补明：根层文件只负责“统一规范入口”，不再承担交接正文目录语义。
+
+**关键裁定**
+1. `D:\Unity\Unity_learning\Sunset\.codex\threads\` 根层现在只保留：
+   - 统一写作 prompt
+   - 极简导入 prompt
+   - 其他治理入口文件
+2. 每条线程真正的交接正文，固定写到当前线程工作区内：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\<分组>\<当前线程名>\V2交接文档\`
+3. 用户给出的示例路径：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\`
+   已作为这轮正式口径写回 prompt。
+4. 旧的根层共享目录口径：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\V1交接文档\`
+   本轮明确改判为错误口径残留；当前没有删除物理目录，但后续不再把它当成交接正文落点继续分发。
+5. 未来继任线程命名规则不变，仍按用户新规保留为：
+   - `当前线程名 + V2`
+
+**恢复点 / 下一步**
+- 当前这条治理支线已经从“交接内容模板搭建”推进到“路径语义纠偏完成”。
+- 后续如果用户开始点名具体线程进入交接，治理层应直接分发根层导入 prompt，并要求各线程把交接包写回各自工作区下的：
+  - `V2交接文档`
+- 这轮无需再重写交接内容结构，也无需删除旧目录；下一步只需按新口径执行具体线程交接。
+
+## 2026-03-26｜交接 Prompt 最终版已按 Gemini 锐评完成二次收口
+
+**当前主线目标**
+- 继续完善 Sunset 的线程重型交接机制，把刚落盘的统一交接 prompt 收成可直接发放的最终版。
+
+**本轮完成**
+1. 已审核 Gemini 对两份交接 prompt 的锐评，并完成事实核查。
+2. 已再次回读 `谁是卧底` 线程记忆，确认它这轮实际完成的是：
+   - 两份根层 prompt 落盘
+   - 交接正文路径从根层共享目录纠偏回线程工作区内 `V2交接文档`
+3. 已进一步修改：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档导入Prompt.md`
+
+**关键裁定**
+1. Gemini 锐评整体走 `路径 B`：
+   - 问题基本成立；
+   - 但修法要按 Sunset 本地治理口径收紧，不原样照抄。
+2. 这轮实际采纳的 3 点：
+   - 补“单轮写不完时的分批续写 / 防截断机制”
+   - 把继任线程命名从 `当前线程名 + V2` 升级为“无版本号则补 `V2`，有 `V数字` 则数字递增”
+   - 把 `memory_0.md` 的模糊“回写”改成明确的“追加记录至”
+3. 这轮未原样采纳的 1 点：
+   - 不把“让用户手动去资源管理器删旧目录”当成最终方案
+   - 先由治理线程核残留身份，再决定是否清理
+4. 当前已钉死的新规则：
+   - `导航检查 -> 导航检查V2`
+   - `谁是卧底 -> 谁是卧底V2`
+   - `农田交互修复V2 -> 农田交互修复V3`
+   - 明确禁止 `V2V2 / V3V2`
+5. 防截断机制已写进最终版 prompt：
+   - 若一轮写不完 7 份交接文档，必须分批落盘
+   - 每次停下前先把已完成文件和剩余文件追加记进 `memory_0.md`
+   - 聊天里明确提示用户回复“继续”
+6. 现场残留复核结果：
+   - 根层 `D:\Unity\Unity_learning\Sunset\.codex\threads\V1交接文档\` 实际并不存在
+   - 当前只发现 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V1交接文档\` 这一处空目录残留
+   - 它属于旧口径残留，不再作为后续分发依据
+
+**恢复点 / 下一步**
+- 这套交接 prompt 现在已经完成二次审校，可视为当前可直接发放的最终版。
+- 后续如果用户开始点名具体线程进入代际交接，治理层默认直接使用这两份最终版 prompt，不再回退到第一版口径。
+
+## 2026-03-26｜第一波交接分发已细化为：`谁是卧底` 直接进，`NPC / spring-day1` 先做交接前确认
+
+**当前主线目标**
+- 用户已接受交接 prompt 最终版，下一步不再停留在治理讨论，而是开始第一波实际分发。
+
+**本轮完成**
+1. 已新增 `谁是卧底` 的正式交接委托：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-26_谁是卧底进入下一代重型交接委托-01.md`
+2. 已新增 `NPC` 的交接前状态确认委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPC进入下一代交接前状态确认委托-01.md`
+3. 已新增 `spring-day1` 的交接前状态确认委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.26-Day1进入下一代交接前状态确认委托-08.md`
+
+**关键裁定**
+1. `谁是卧底`：
+   - 当前适合直接进入代际交接；
+   - 原因是它这条线当前最稳定，且目标是把诊断链、证据链、prompt 链整体交给新线程，不依赖当前再补业务代码。
+2. `NPC`：
+   - 当前不直接替它判“能交接”或“不能交接”；
+   - 改为先发“交接前状态确认委托”，要求它自己基于最新 live 现场判断：
+     - 若可进入，就立即进入交接；
+     - 若不可进入，就交清晰 blocker 回执。
+3. `spring-day1`：
+   - 按最新纠偏回执，治理层当前初判它大概率已经满足进入交接条件；
+   - 但仍保留线程自己最终确认权，因此先发“交接前状态确认委托”，并明确：
+     - 若可进入，就直接进入交接；
+     - 若不可进入，就只回最小 blocker。
+
+**恢复点 / 下一步**
+- 当前第一波交接分发已经具备可直接转发的 3 份文件。
+- 后续若用户现在就开始发放：
+  - `谁是卧底` 直接按正式交接委托进入 handoff；
+  - `NPC / spring-day1` 先按确认委托回一轮，再决定是否立即进入交接。
+
+## 2026-03-26｜第二波交接分发已补齐：`导航 / 农田 / 项目文档总览` 先做状态确认，不抢先替它们判定 handoff
+
+**当前主线目标**
+- 用户继续推进“老线程交给新线程”的治理主线，这一轮要求我补齐：
+  - `导航检查`
+  - `农田交互修复V2`
+  - `项目文档总览`
+  这 3 条线的可转发文件。
+
+**本轮完成**
+1. 已回读并对齐：
+   - `导航检查` 最新线程记忆与工作区记忆
+   - `农田交互修复V2` 最新线程记忆与 `1.0.4` 工作区记忆
+   - `项目文档总览` 最新线程记忆与其“归档辅助线”身份判断
+2. 已新增 `导航` 交接前状态确认委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航进入下一代交接前状态确认委托-01.md`
+3. 已新增 `农田` 交接前状态确认委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田进入下一代交接前状态确认委托-01.md`
+4. 已新增 `项目文档总览` 交接前状态确认委托：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-26_项目文档总览进入下一代交接前状态确认委托-01.md`
+
+**关键裁定**
+1. `导航检查` 当前不直接替它判“进交接”或“继续施工”：
+   - 因为它虽然已经把责任点收窄到执行层 `detour owner` 不落地，
+   - 但仍需线程自己确认：这个叙事是否已经稳定到足以无失真交给 `导航检查V2`。
+2. `农田交互修复V2` 当前也不直接替它判“立即交接”：
+   - 因为它已经把 placeable 主链拉回至少不比 `124caccc` 更差，
+   - 但仍需线程自己确认：当前 handoff 口径是否应固定为“主链已恢复 + sapling runner 稳定性剩余 + 新增 6 条需求并入总入口”。
+3. `项目文档总览` 当前更不能机械替它造一个 `V2`：
+   - 因为这条线的最新身份更像“归档终态 + 历史辅助线”，
+   - 所以本轮要求它先回答“是否真的需要继任线程”，再决定要不要交接。
+
+**恢复点 / 下一步**
+- 当前第二波交接分发文件已经补齐。
+- 下一步如果用户开始发放：
+  - `导航 / 农田` 先回一轮“是否可进入交接”的确认回执；
+  - `项目文档总览` 先回一轮“是否真的需要继任线程”的确认回执；
+  - 再基于它们各自的回答决定是否进入正式 handoff。
+
+## 2026-03-26｜第一波交接回执已验收：`谁是卧底 / spring-day1 / NPC` 均可从当前批次收件
+
+**当前主线目标**
+- 用户开始回传第一波交接确认结果；
+- 这轮目标不是再发新 prompt，而是验收这些回执是否真的命中“交接包已完整落盘”的完成定义。
+
+**本轮完成**
+1. 已核验 `谁是卧底`：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\V2交接文档\` 已存在且 7 份文件齐全；
+   - `memory_0.md` 已追加交接目录、继任线程名与推荐阅读顺序；
+   - 当前可判定该线程本轮交接完成，后续归 `无需继续发`。
+2. 已核验 `spring-day1`：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\V2交接文档\` 已存在且 7 份文件齐全；
+   - `memory_0.md`、父工作区 `memory.md` 与子工作区 `003-进一步搭建\memory.md` 均有新补记；
+   - 当前可判定该线程本轮交接完成，后续归 `无需继续发`。
+3. 已核验 `NPC`：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\V2交接文档\` 已存在且 7 份文件齐全；
+   - `memory_0.md` 已明确写入“当前满足进入下一代交接条件”与 blocker 边界；
+   - 当前可判定该线程本轮交接完成，后续归 `无需继续发`。
+
+**关键裁定**
+1. `谁是卧底`：
+   - 收件通过；
+   - 当前状态转为“已完成交接，等待未来 `谁是卧底V2` 视需要唤醒”。
+2. `spring-day1`：
+   - 收件通过；
+   - 但仍保留一个审计提醒：
+     - `003-进一步搭建\memory.md` 历史编码污染并未根治；
+     - 后续真正接班时，主读入口仍应优先 `V2交接文档 + 线程 memory + 父工作区 memory`，不要回退依赖那段旧污染内容。
+3. `NPC`：
+   - 收件通过；
+   - 当前 blocker 口径稳定保留为：
+     - `Primary.unity` dirty 且无独占写归属；
+   - 这已被正常写入交接，而不是继续留给 V1 扩刀。
+
+**恢复点 / 下一步**
+- 当前第一波 3 条线都已经可以从本轮治理清单里划出，不再继续发 prompt。
+- 现在真正还在等待回执的是：
+  - `导航检查`
+  - `农田交互修复V2`
+  - `项目文档总览`
+
+## 2026-03-26｜已补第一波 3 条 V2 线程的首轮启动委托：`谁是卧底V2 / spring-day1V2 / NPCV2`
+
+**当前主线目标**
+- 用户指出：交接包收下之后，还需要给新线程一份真正能开工的“首轮开场 prompt”；
+- 这轮目标不是再做 handoff，而是给已收件的 3 条 V2 线程各补一份首轮启动委托。
+
+**本轮完成**
+1. 已新增 `谁是卧底V2` 首轮启动委托：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-26_谁是卧底V2首轮启动委托-02.md`
+2. 已新增 `spring-day1V2` 首轮启动委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.26-Day1V2首轮启动委托-09.md`
+3. 已新增 `NPCV2` 首轮启动委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2首轮启动委托-02.md`
+
+**关键裁定**
+1. `谁是卧底V2`：
+   - 首轮唯一主刀固定为：
+     - `TransportCommandDispatcher` 的下一刀开工前复核与 default-off diagnostics 最小实施切口定界
+   - 明确禁止回头扩到 `lag_monitor / popup / Binder / SaveManager / Sunset` 业务现场。
+2. `spring-day1V2`：
+   - 首轮唯一主刀固定为：
+     - `live preflight + 非热正式面首刀裁定`
+   - 先重新钉实 `ee318757` 基线与 `Primary.unity` mixed blocker，再决定 V2 第一实现切口。
+3. `NPCV2`：
+   - 首轮唯一主刀固定为：
+     - `Primary.unity` 安全写窗口只读复核 + `HomeAnchor` 最小 scene 切片准入裁定
+   - 不再让它回头微调气泡或抢导航核心。
+
+**恢复点 / 下一步**
+- 当前第一波 3 条 V2 线程都已经有可直接转发的首轮启动 prompt。
+- 后续如果 `导航 / 农田 / 项目文档总览` 也完成 handoff 或确认结果，按同样模式继续补它们的 V2 首轮启动 prompt。
+
+## 2026-03-26｜第二波回执已验收：`导航 / 农田` 进入 handoff，`项目文档总览` 正式停发；并补 `导航检查V2 / 农田交互修复V3` 首轮启动委托
+
+**当前主线目标**
+- 用户继续回传第二波交接确认结果；
+- 这轮目标是先收件、再决定是否继续发 V2 首轮启动 prompt。
+
+**本轮完成**
+1. 已核验 `导航检查`：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\` 已存在且 7 份文件齐全；
+   - 线程 `memory_0.md` 与导航工作区 `memory.md` 已追加；
+   - 当前可判定该线程 handoff 完成。
+2. 已核验 `农田交互修复V2`：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\` 已存在且 7 份文件齐全；
+   - 线程记忆、子工作区、父层、根层 `memory.md` 均已追加；
+   - 当前可判定该线程 handoff 完成。
+3. 已核验 `项目文档总览`：
+   - 当前明确回执为 `no`；
+   - 理由成立：它已是“归档终态 + 历史辅助线”，不存在需要继任线程继续承接的高权重事项；
+   - 当前正式裁定为 `无需继续发`，不生成 `项目文档总览V2`。
+4. 已新增 `导航检查V2` 首轮启动委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2首轮启动委托-02.md`
+5. 已新增 `农田交互修复V3` 首轮启动委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3首轮启动委托-02.md`
+
+**关键裁定**
+1. `导航检查V2`：
+   - 首轮唯一主刀固定为：
+     - detour owner 保活最小闭环
+   - 只允许锁 `PlayerAutoNavigator / NPCAutoRoamController / NavigationPathExecutor2D`，不再回漂 solver、仲裁器或场景。
+2. `农田交互修复V3`：
+   - 首轮唯一主刀固定为：
+     - `013` 的 sapling-only runner 稳定性收尾
+   - 先把验证层尾差收掉，再进入新增 6 条需求。
+3. `项目文档总览`：
+   - 当前正式停发；
+   - 未来若重启，直接按现有 `README + memory + 最终总结与验收报告` 作为最小阅读入口，不生成 V2 启动 prompt。
+
+**恢复点 / 下一步**
+- 当前 6 条线程裁定已全部落地：
+  - `谁是卧底 / spring-day1 / NPC / 导航 / 农田` 已收件并完成对应新线程首轮 prompt 分发
+  - `项目文档总览` 正式归入“无需继续发”
+- 下一步只需等待这些新线程的首轮回执。
+
+## 2026-03-26｜`导航检查` 最小回执已正式收件，V1 维持停发
+
+**当前主线目标**
+- 用户贴回 `导航检查` 的最小聊天回执；
+- 本轮只做治理收件确认，不把已经完成 handoff 的旧线程机械转成下一刀施工。
+
+**本轮完成**
+1. 复核用户回执与现有交接事实一致：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\` 已回写；
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\memory_0.md` 已追加；
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md` 已追加。
+2. 复核线程一句话摘要与现行裁定一致：
+   - 当前导航线稳定叙事仍是：
+     - `ShouldRepath` 已出现；
+     - detour owner 没有稳定接管执行层。
+3. 维持治理裁定不变：
+   - `导航检查` V1 继续归类为 `无需继续发`；
+   - 不再给旧线程补新的施工 prompt。
+
+**恢复点 / 下一步**
+- 这条回执只起到正式收件确认作用，不改变既有分发结果。
+- 治理线程后续只等待 `导航检查V2` 的首轮回执；
+- 当前真正活跃的施工入口仍是：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2首轮启动委托-02.md`
