@@ -5178,3 +5178,51 @@
   1. 恢复普通开发时，对 `Primary.unity / GameInputManager.cs / TagManager.asset / StaticObjectOrderAutoCalibrator.cs` 的高危陪跑
   2. 继续执行“线程自己一刀一收”的 live 纪律，不再回退到常规 cleanup 批次
   3. 对剩余 foreign 文档脏改保持 owner 隔离，不把它误判成 shared root 仍被热区卡死
+
+## 2026-03-26｜恢复开发与 docs-only 开工批次已落盘，三条线改用“最小回执 + 用户可读详细汇报”双层交付
+
+**当前主线目标**
+- 用户已经不再要继续治理分析，而是要直接放行：
+  - `NPCV2`
+  - `农田交互修复V3`
+  - `导航检查V2`
+- 同时用户明确要求：
+  - 后续回执不能只写给治理线程看
+  - 必须补一份用户也能直接读懂、能按功能点验收的详细汇报
+
+**本轮完成**
+1. 已在治理根层新建本轮批次入口：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-26_批次分发_12_恢复开发与文档开工_01.md`
+2. 已为 `NPCV2` 落下新一轮专属委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2恢复开工委托-04.md`
+   - 唯一主刀收紧为：`Primary.unity` 中 `001 / 002 / 003` 的 `HomeAnchor` 最小 scene 集成
+   - 同时强制它交出 scene audit 五段式分析和用户可验收的详细汇报
+3. 已为 `农田交互修复V3` 落下并行专属委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3恢复开工委托-05.md`
+   - 唯一主刀收紧为：`工具运行时资源链 -> 玩家反馈 -> 树木 / hover 遮挡口径`
+   - 明确禁止回开 `013`、placeable 主链、`Primary.unity` 和 `GameInputManager.cs`
+4. 已为 `导航检查V2` 落下 docs-only 专属委托：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2框架总审视委托-05.md`
+   - 唯一主刀收紧为：全面框架总审视 + 重构蓝图收束
+   - 明确禁止任何代码、live、solver patch、`GameInputManager.cs`、`Primary.unity`
+5. 已把本轮统一回执协议钉死为“双层交付”：
+   - 聊天只回最小字段
+   - 详细汇报必须单独落文件，且默认按功能点组织，写清用户怎么验 / 怎么读
+
+**关键裁定**
+1. `NPCV2` 现在正式从“只读 blocker 态”切回真实业务施工，但仍按高危热 scene 陪跑口径执行。
+2. `农田交互修复V3` 可以并行继续，但只能走 non-hot 代码线，不能再把自己拉回 placeable / runner / 热文件主战场。
+3. `导航检查V2` 这轮不再继续代码推进，先把蓝图和后续阶段顺序钉死给用户看。
+4. 从这轮开始，治理线程对外分发的默认交付已不再只是 prompt，而是：
+   - prompt 文件
+   - 用户可读详细汇报路径
+   二者一起固定下来。
+
+**恢复点 / 下一步**
+- 当前治理线程下一步不再自己继续扩业务；
+- 只需把这 3 条 prompt 交给用户转发；
+- 等它们回执后，再按：
+  - 是否命中本轮完成定义
+  - 当前 own 路径是否 clean
+  - 详细汇报是否足够用户验收 / 审读
+  继续做下一轮典狱长裁定。
