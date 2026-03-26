@@ -594,3 +594,16 @@
   - `Primary.unity` 内再次搜索 `HomeAnchor` 仍无命中
 - 当前恢复点：
   - `NPC` / `NPCV2` 这条线当前仍停在同一个 blocker：先把 `Primary.unity` 的 mixed dirty 归属说清，再进入 `scene audit -> HomeAnchor`
+
+## 2026-03-26｜NPCV2 共享根 cleanup：owner 报实与白名单收口
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 1452bebb1171235b454d1d4fd961639caabdc930`
+- 当前主线目标：
+  - 只收 NPC own 文档尾账，不重开 `Primary.unity / HomeAnchor`。
+- 本轮完成：
+  - 已把 NPC own dirty / untracked 与 foreign/hot dirty 明确分离。
+  - 已对白名单路径执行 `git-safe-sync`，首次形成提交 `eb6284fa` 并推送 `main`。
+  - `Primary.unity`、导航、农田、TMP 字体等 mixed hot-file 本轮均未触碰。
+- 当前恢复点：
+  - cleanup 主体已完成，但仍有一个 own 尾账 `.codex/threads/Sunset/NPCV2/memory_0.md` 未纳入；下一步只做最小 follow-up 收口，不进入业务续工。
