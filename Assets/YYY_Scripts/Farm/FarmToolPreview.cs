@@ -1143,12 +1143,11 @@ namespace FarmGame.Farm
         private bool TryGetHoverPreviewBounds(out Bounds previewBounds)
         {
             previewBounds = default;
-            bool hasBounds = false;
 
             if (TryGetCurrentPreviewTileBounds(out Bounds tileBounds))
             {
                 previewBounds = tileBounds;
-                hasBounds = true;
+                return true;
             }
 
             if (cursorRenderer != null &&
@@ -1156,18 +1155,11 @@ namespace FarmGame.Farm
                 cursorRenderer.sprite != null &&
                 cursorRenderer.gameObject.activeInHierarchy)
             {
-                if (!hasBounds)
-                {
-                    previewBounds = cursorRenderer.bounds;
-                    hasBounds = true;
-                }
-                else
-                {
-                    previewBounds.Encapsulate(cursorRenderer.bounds);
-                }
+                previewBounds = cursorRenderer.bounds;
+                return true;
             }
 
-            return hasBounds;
+            return false;
         }
 
         private bool TryGetCurrentPreviewTileBounds(out Bounds previewBounds)
@@ -1188,22 +1180,21 @@ namespace FarmGame.Farm
                 Mathf.Max(0.01f, Mathf.Abs(cellSize.y)),
                 0.01f);
 
-            bool hasBounds = false;
+            Vector3Int focusCellPos = currentPreviewPositions.Contains(CurrentCellPos)
+                ? CurrentCellPos
+                : GetAnyPreviewCell();
+            previewBounds = new Bounds(ghostTilemap.GetCellCenterWorld(focusCellPos), absCellSize);
+            return true;
+        }
+
+        private Vector3Int GetAnyPreviewCell()
+        {
             foreach (var cellPos in currentPreviewPositions)
             {
-                Bounds cellBounds = new Bounds(ghostTilemap.GetCellCenterWorld(cellPos), absCellSize);
-                if (!hasBounds)
-                {
-                    previewBounds = cellBounds;
-                    hasBounds = true;
-                }
-                else
-                {
-                    previewBounds.Encapsulate(cellBounds);
-                }
+                return cellPos;
             }
 
-            return hasBounds;
+            return CurrentCellPos;
         }
 
         private void LogDiagnosticsOnce()

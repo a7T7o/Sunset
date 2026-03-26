@@ -110,9 +110,16 @@ public class PlayerToolFeedbackService : MonoBehaviour
 
     public void HandleWateringCanEmpty(FarmGame.Data.ToolData toolData, int slotIndex)
     {
-        PlayRejectShake(slotIndex);
-        PlayFeedbackSound(toolData != null ? toolData.emptyUseSound : null);
-        SpawnBurst(new Color(0.36f, 0.74f, 1f, 1f), 14, 0.9f);
+        bool isRepeatedVisibleBubble = thoughtBubblePresenter != null &&
+                                       thoughtBubblePresenter.IsVisible &&
+                                       activeBubbleKey == BubbleKeyWaterEmpty;
+        if (!isRepeatedVisibleBubble)
+        {
+            PlayRejectShake(slotIndex);
+            PlayFeedbackSound(toolData != null ? toolData.emptyUseSound : null);
+            SpawnBurst(new Color(0.36f, 0.74f, 1f, 1f), 14, 0.9f);
+        }
+
         ShowBubble(BubbleKeyWaterEmpty, WaterEmptyLines[Random.Range(0, WaterEmptyLines.Length)], 3f, ignoreIfSameKey: true);
     }
 

@@ -10,6 +10,7 @@ namespace FarmGame.Data.Core
         SlotEmpty,
         SlotMismatch,
         InsufficientEnergy,
+        InsufficientDurability,
         EmptyWateringCan
     }
 
@@ -166,6 +167,123 @@ namespace FarmGame.Data.Core
             string context)
         {
             return TryConsumeHeldToolUseDetailed(inventory, hotbarSelection, database, toolData, context).Succeeded;
+        }
+
+        public static bool TryValidateHeldToolUse(
+            global::InventoryService inventory,
+            global::HotbarSelectionService hotbarSelection,
+            global::FarmGame.Data.ItemDatabase database,
+            global::FarmGame.Data.ToolData toolData,
+            string context,
+            bool emitFailureFeedback,
+            out ToolUseFailureReason failureReason)
+        {
+            failureReason = ToolUseFailureReason.None;
+
+            if (toolData == null)
+            {
+                failureReason = ToolUseFailureReason.ToolMissing;
+                return false;
+            }
+
+            inventory ??= Object.FindFirstObjectByType<global::InventoryService>();
+            hotbarSelection ??= Object.FindFirstObjectByType<global::HotbarSelectionService>();
+            database ??= inventory != null ? inventory.Database : null;
+
+            if (inventory == null || hotbarSelection == null)
+            {
+                Debug.LogWarning($"[ToolRuntime] {context}: 缺少 Inventory/Hotbar 服务，无法校验工具运行时消耗");
+                failureReason = ToolUseFailureReason.ServicesMissing;
+                return false;
+            }
+
+            int slotIndex = Mathf.Clamp(hotbarSelection.selectedIndex, 0, global::InventoryService.HotbarWidth - 1);
+            ItemStack slotStack = inventory.GetSlot(slotIndex);
+            if (slotStack.IsEmpty)
+            {
+                failureReason = ToolUseFailureReason.SlotEmpty;
+                return false;
+            }
+
+            if (slotStack.itemId != toolData.itemID)
+            {
+                Debug.LogWarning($"[ToolRuntime] {context}: 当前槽位物品({slotStack.itemId})与工具({toolData.itemID})不一致，跳过动作前校验");
+                failureReason = ToolUseFailureReason.SlotMismatch;
+                return false;
+            }
+
+            InventoryItem runtimeItem = inventory.GetInventoryItem(slotIndex);
+            bool slotStateChanged = false;
+            if (runtimeItem == null || runtimeItem.IsEmpty)
+            {
+                runtimeItem = CreateRuntimeItem(database, slotStack.itemId, slotStack.quality, slotStack.amount);
+                inventory.SetInventoryItem(slotIndex, runtimeItem);
+                slotStateChanged = true;
+            }
+
+            if (EnsureRuntimeState(runtimeItem, toolData))
+            {
+                slotStateChanged = true;
+            }
+
+            if (UsesWater(toolData))
+            {
+                int currentWater = GetCurrentWater(runtimeItem, toolData);
+                int waterCost = GetWaterUseCost(toolData);
+                if (currentWater < waterCost)
+                {
+                    if (slotStateChanged)
+                    {
+                        inventory.RefreshSlot(slotIndex);
+                    }
+
+                    if (emitFailureFeedback)
+                    {
+                        NotifyWateringCanEmpty(toolData, slotIndex);
+                    }
+
+                    Debug.LogWarning($"[ToolRuntime] {context}: {toolData.itemName} 没水了，动作前校验失败");
+                    failureReason = ToolUseFailureReason.EmptyWateringCan;
+                    return false;
+                }
+            }
+
+            int energyCost = Mathf.Max(0, toolData.energyCost);
+            global::EnergySystem energySystem = global::EnergySystem.Instance;
+            if (energySystem != null && !energySystem.HasEnoughEnergy(energyCost))
+            {
+                if (slotStateChanged)
+                {
+                    inventory.RefreshSlot(slotIndex);
+                }
+
+                Debug.LogWarning($"[ToolRuntime] {context}: 精力不足，动作前校验失败");
+                failureReason = ToolUseFailureReason.InsufficientEnergy;
+                return false;
+            }
+
+            if (UsesDurability(toolData) && runtimeItem != null && runtimeItem.HasDurability)
+            {
+                int durabilityCost = GetDurabilityCost(toolData);
+                if (runtimeItem.CurrentDurability < durabilityCost || runtimeItem.CurrentDurability <= 0)
+                {
+                    if (slotStateChanged)
+                    {
+                        inventory.RefreshSlot(slotIndex);
+                    }
+
+                    Debug.LogWarning($"[ToolRuntime] {context}: {toolData.itemName} 耐久不足，动作前校验失败");
+                    failureReason = ToolUseFailureReason.InsufficientDurability;
+                    return false;
+                }
+            }
+
+            if (slotStateChanged)
+            {
+                inventory.RefreshSlot(slotIndex);
+            }
+
+            return true;
         }
 
         public static ToolUseCommitResult TryConsumeHeldToolUseDetailed(

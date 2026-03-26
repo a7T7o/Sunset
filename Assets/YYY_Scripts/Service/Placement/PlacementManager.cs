@@ -1371,6 +1371,7 @@ public class PlacementManager : MonoBehaviour
     private bool TryPrepareSaplingPlacement(Vector3 position, GameObject treeObject, ItemData savedItemData, out SaplingPlantedEventData? saplingEvent)
     {
         saplingEvent = null;
+        Vector3 plantedCellCenter = PlacementGridCalculator.GetCellCenter(position);
 
         var saplingData = savedItemData as SaplingData;
         if (saplingData == null)
@@ -1390,14 +1391,14 @@ public class PlacementManager : MonoBehaviour
         treeController.SetStage(0);
 
         // 第二刀补强：树苗成功必须马上进入下一轮可识别占位，否则视为半提交。
-        if (!validator.HasTreeAtPosition(position, 0.5f))
+        if (!validator.HasTreeAtPosition(plantedCellCenter, 0.5f))
         {
-            LogPlacementTransaction($"树苗落地确认失败：下一轮验证链尚未识别位置 {position}");
+            LogPlacementTransaction($"树苗落地确认失败：下一轮验证链尚未识别位置 {plantedCellCenter}");
             return false;
         }
 
         saplingEvent = new SaplingPlantedEventData(
-            position,
+            plantedCellCenter,
             saplingData,
             treeObject,
             treeController

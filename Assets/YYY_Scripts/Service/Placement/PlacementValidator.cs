@@ -280,21 +280,13 @@ public class PlacementValidator
     /// </summary>
     private static bool HasTreeAtPositionStatic(Vector3 cellCenter)
     {
-        float checkRadius = GetFarmingFootprintHalfExtent();
+        Vector2Int targetCellIndex = PlacementGridCalculator.GetCellIndex(cellCenter);
 
         // 遍历场景中所有 TreeController
         var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
         foreach (var tree in allTrees)
         {
-            Vector3 treeRootPos = tree.transform.parent != null 
-                ? tree.transform.parent.position 
-                : tree.transform.position;
-
-            // 使用 AABB 正方形距离判断（与 OverlapBoxAll 一致）
-            float dx = Mathf.Abs(cellCenter.x - treeRootPos.x);
-            float dy = Mathf.Abs(cellCenter.y - treeRootPos.y);
-
-            if (dx <= checkRadius && dy <= checkRadius)
+            if (IsTreeOccupyingCell(tree, targetCellIndex))
                 return true;
         }
 
@@ -423,37 +415,22 @@ public class PlacementValidator
     /// </summary>
     public bool HasTreeAtPosition(Vector3 cellCenter, float checkRadius)
     {
-        // 方法1：使用 Physics2D 检测有碰撞体的树木（Stage 1+）
-        // 使用小范围检测，只检测格子内部
-        Vector2 boxSize = new Vector2(0.4f, 0.4f);
-        Collider2D[] hits = Physics2D.OverlapBoxAll(cellCenter, boxSize, 0f);
+        Vector2Int targetCellIndex = PlacementGridCalculator.GetCellIndex(cellCenter);
+        Vector3 targetCellCenter = PlacementGridCalculator.GetCellCenter(cellCenter);
+
+        Vector2 boxSize = Vector2.one * Mathf.Clamp(checkRadius * 2f, 0.1f, 0.98f);
+        Collider2D[] hits = Physics2D.OverlapBoxAll(targetCellCenter, boxSize, 0f);
         foreach (var hit in hits)
         {
             var treeController = hit.GetComponentInParent<TreeController>();
-            if (treeController != null)
-                return true;
-
-            // 兼容旧版 TreeController
-            var oldTreeController = hit.GetComponentInParent<TreeController>();
-            if (oldTreeController != null)
+            if (IsTreeOccupyingCell(treeController, targetCellIndex))
                 return true;
         }
 
-        // 方法2：遍历场景中所有 TreeController，使用 AABB 正方形检测
-        float aabbRadius = GetFarmingFootprintHalfExtent();
         var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
         foreach (var tree in allTrees)
         {
-            // 获取树木根位置
-            Vector3 treeRootPos = tree.transform.parent != null
-                ? tree.transform.parent.position
-                : tree.transform.position;
-
-            // 使用 AABB 正方形距离判断（与 OverlapBoxAll 一致）
-            float dx = Mathf.Abs(cellCenter.x - treeRootPos.x);
-            float dy = Mathf.Abs(cellCenter.y - treeRootPos.y);
-
-            if (dx <= aabbRadius && dy <= aabbRadius)
+            if (IsTreeOccupyingCell(tree, targetCellIndex))
                 return true;
         }
 
@@ -635,6 +612,20 @@ public class PlacementValidator
         }
 
         return footprintSize * 0.5f;
+    }
+
+    private static bool IsTreeOccupyingCell(TreeController tree, Vector2Int targetCellIndex)
+    {
+        if (tree == null)
+        {
+            return false;
+        }
+
+        Vector3 treeRootPos = tree.transform.parent != null
+            ? tree.transform.parent.position
+            : tree.transform.position;
+
+        return PlacementGridCalculator.GetCellIndex(treeRootPos) == targetCellIndex;
     }
     
     #endregion

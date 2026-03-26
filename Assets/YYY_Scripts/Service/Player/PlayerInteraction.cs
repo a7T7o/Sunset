@@ -87,20 +87,21 @@ public class PlayerInteraction : MonoBehaviour
     /// <summary>
     /// 执行动作（首次触发）
     /// </summary>
-    private void PerformAction(PlayerAnimController.AnimState action)
+    private bool PerformAction(PlayerAnimController.AnimState action)
     {
-        if (isPerformingAction) return;
-
-        pendingToolData = toolController?.CurrentToolData;
-
-        if (pendingToolData != null && energySystem != null)
+        if (isPerformingAction)
         {
-            if (!energySystem.HasEnoughEnergy(pendingToolData.energyCost))
+            return false;
+        }
+
+        if (!CanStartAction(action, emitFailureFeedback: true, out pendingToolData, out ToolUseFailureReason failureReason))
+        {
+            if (enableDebugLog)
             {
-                if (enableDebugLog)
-                    Debug.Log($"<color=yellow>[PlayerInteraction] 精力不足</color>");
-                return;
+                Debug.Log($"<color=yellow>[PlayerInteraction] 动作前校验失败: {action}, reason={failureReason}</color>");
             }
+
+            return false;
         }
 
         if (lockManager == null)
@@ -108,6 +109,7 @@ public class PlayerInteraction : MonoBehaviour
 
         // 首次动作：不应用缓存，使用当前朝向
         StartAction(action);
+        return true;
     }
 
     /// <summary>
@@ -156,9 +158,9 @@ public class PlayerInteraction : MonoBehaviour
         animController?.StartAnimationTracking();
     }
 
-    public void RequestAction(PlayerAnimController.AnimState action)
+    public bool RequestAction(PlayerAnimController.AnimState action)
     {
-        PerformAction(action);
+        return PerformAction(action);
     }
 
     public void OnToolActionSuccess()
@@ -219,6 +221,11 @@ public class PlayerInteraction : MonoBehaviour
         bool shouldContinue = isCurrentlyHolding && IsToolAction(currentAction);
         
         var actionToRepeat = currentAction;
+        if (shouldContinue &&
+            !CanStartAction(actionToRepeat, emitFailureFeedback: false, out pendingToolData, out _))
+        {
+            shouldContinue = false;
+        }
         
         if (shouldContinue)
         {
@@ -319,10 +326,41 @@ public class PlayerInteraction : MonoBehaviour
     
     private bool IsToolAction(PlayerAnimController.AnimState action)
     {
-        return action == PlayerAnimController.AnimState.Slice ||
+        return action == PlayerAnimController.AnimState.Hit ||
+               action == PlayerAnimController.AnimState.Slice ||
                action == PlayerAnimController.AnimState.Crush ||
                action == PlayerAnimController.AnimState.Pierce ||
                action == PlayerAnimController.AnimState.Watering;
+    }
+
+    private bool CanStartAction(
+        PlayerAnimController.AnimState action,
+        bool emitFailureFeedback,
+        out ToolData resolvedToolData,
+        out ToolUseFailureReason failureReason)
+    {
+        failureReason = ToolUseFailureReason.None;
+        resolvedToolData = null;
+
+        if (!IsToolAction(action))
+        {
+            return true;
+        }
+
+        resolvedToolData = toolController != null ? toolController.CurrentToolData : null;
+        if (resolvedToolData == null)
+        {
+            return true;
+        }
+
+        return ToolRuntimeUtility.TryValidateHeldToolUse(
+            null,
+            null,
+            null,
+            resolvedToolData,
+            $"PlayerInteraction/Precheck/{action}",
+            emitFailureFeedback,
+            out failureReason);
     }
 
     private ToolUseCommitResult CommitCurrentToolUseDetailed(ToolData tool, string context)

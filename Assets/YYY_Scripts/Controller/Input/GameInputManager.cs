@@ -2963,8 +2963,7 @@ public class GameInputManager : MonoBehaviour
             return true;
         }
 
-        playerInteraction.RequestAction(action);
-        return playerInteraction.IsPerformingAction();
+        return playerInteraction.RequestAction(action);
     }
 
     private ToolData GetCurrentHeldToolData()

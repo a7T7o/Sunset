@@ -351,3 +351,47 @@
 - 后续至少要在两条线里先选一条：
   - 先回到 `013` 只杀 sapling ghost
   - 或先按新口径统一“挥砍前检查 / 挥砍后扣耐久 + 中心格 hover + NPC 气泡样式”
+
+## 2026-03-26：用户已明确授权直修，本轮已把四条硬问题一起落码并通过 preflight
+
+**用户目标**：
+- 用户不再接受继续停在优先级/范围判断上，而是明确要求把 sapling ghost、耐久事务、hover 中心格和玩家气泡样式四条一起彻底做完。
+
+**当前主线目标**：
+- 主线仍是农田 `V3`。
+- 本轮子任务是：直接按用户最新四条硬要求修改代码，不再停在 blocker 讨论。
+
+**本轮已完成事项**：
+1. 已沿用 `skills-governor + sunset-workspace-router + sunset-no-red-handoff` 的等价前置核查流程继续推进；`sunset-startup-guard` 当前会话未暴露。
+2. 已在 `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs` 把树木占位判断收紧为“树根所在单格”，并在 `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs` 的 `TryPrepareSaplingPlacement(...)` 中改用格心 `plantedCellCenter` 做落地确认和事件位置，直接对准连续放置树苗后的幽灵占位问题。
+3. 已在 `Assets/YYY_Scripts/Data/Core/ToolRuntimeUtility.cs` 新增 `TryValidateHeldToolUse(...)`，并在 `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs` 中接入首次动作前检与长按续挥砍前检；`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` 的 `TryStartPlayerAction(...)` 现在直接尊重 `RequestAction(...)` 返回值，不再用 `IsPerformingAction()` 间接猜动作是否起播。当前语义已对齐到：能挥砍才起动作，最后一刀能挥完，挥完后坏，下一刀起不来。
+4. 已在 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 把 hover 透明判定收紧到中心格：tile preview 存在时只上报 `CurrentCellPos` 的单格 bounds，不再把整组 `currentPreviewPositions` 联合包络和 `cursorRenderer.bounds` 一起并进遮挡范围。
+5. 已将 `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs` 重写为向 `NPCBubblePresenter` 对齐的气泡表现，并在 `Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs` 增补空水壶重复前检时的反馈防抖，避免新前检口径导致反馈刷屏。
+6. 已完成 no-red 自检：
+   - `git diff --check` 通过
+   - `sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread 农田交互修复V3 -IncludePaths ...` 通过
+   - 代码闸门结论为：已对 8 个 C# 文件完成 UTF-8、diff 和程序集级编译检查
+
+**关键决策**：
+- 这轮确实按用户最新明确授权重开了 hot-file `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`。
+- 同时也重开了此前持续补过的 `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`，原因是 hover 已被用户明确升级为当前必须同步收口的硬问题。
+- 本轮仍未触碰 `Primary.unity`、`ProjectSettings/TagManager.asset` 或其他 foreign dirty。
+- 本轮没有进入新的 Unity / MCP live，也没有重跑 `013` runner；当前先以程序集级 preflight 作为 no-red 闸门。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementValidator.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerToolFeedbackService.cs`
+
+**恢复点 / 下一步**：
+- 当前这四条修复都已经真正落到代码里，并通过了程序集级 preflight。
+- 下一步不再是继续抽象分析，而是等用户基于这轮新实现直接复测四条：
+  - 连续放置树苗后是否仍有幽灵占位
+  - 最后一刀挥完即坏、下一刀起不来是否成立
+  - hover 是否只按中心格触发透明
+  - 玩家气泡样式是否已达到 NPC 气泡的质感线
