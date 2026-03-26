@@ -1,10 +1,14 @@
 using System.IO;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 
 [CustomEditor(typeof(NPCAutoRoamController))]
 public class NPCAutoRoamControllerEditor : Editor
 {
+    private static readonly string[] PrimaryHomeAnchorNpcNames = { "001", "002", "003" };
+    private const string PrimaryScenePath = "Assets/000_Scenes/Primary.unity";
+
     private bool showSetup = true;
     private bool showRuntimeStatus = true;
     private bool showRuntimeActions = true;
@@ -21,6 +25,8 @@ public class NPCAutoRoamControllerEditor : Editor
     public override void OnInspectorGUI()
     {
         serializedObject.Update();
+        TryAutoRepairPrimaryHomeAnchors();
+        serializedObject.Update();
         DrawDefaultInspector();
         serializedObject.ApplyModifiedProperties();
 
@@ -32,6 +38,83 @@ public class NPCAutoRoamControllerEditor : Editor
         DrawRuntimeStatus();
         EditorGUILayout.Space(8f);
         DrawRuntimeActions();
+    }
+
+    private void TryAutoRepairPrimaryHomeAnchors()
+    {
+        NPCAutoRoamController controller = (NPCAutoRoamController)target;
+        if (controller == null || controller.gameObject.scene.path != PrimaryScenePath)
+        {
+            return;
+        }
+
+        bool isPlayMode = Application.isPlaying;
+        bool touchedAny = false;
+        foreach (string npcName in PrimaryHomeAnchorNpcNames)
+        {
+            NPCAutoRoamController npcController = FindControllerInScene(controller.gameObject.scene, npcName);
+            if (npcController == null || npcController.HomeAnchor != null)
+            {
+                continue;
+            }
+
+            Transform parent = npcController.transform.parent;
+            if (parent == null)
+            {
+                continue;
+            }
+
+            string anchorName = $"{npcController.name}_HomeAnchor";
+            Transform anchor = parent.Find(anchorName);
+            if (anchor == null)
+            {
+                GameObject anchorObject = new GameObject(anchorName);
+                if (!isPlayMode)
+                {
+                    Undo.RegisterCreatedObjectUndo(anchorObject, "Auto Repair NPC Home Anchor");
+                    Undo.SetTransformParent(anchorObject.transform, parent, "Parent NPC Home Anchor");
+                }
+                else
+                {
+                    anchorObject.transform.SetParent(parent, worldPositionStays: true);
+                }
+
+                anchorObject.transform.position = npcController.transform.position;
+                anchorObject.transform.rotation = Quaternion.identity;
+                anchor = anchorObject.transform;
+                if (!isPlayMode)
+                {
+                    EditorUtility.SetDirty(anchorObject);
+                }
+            }
+
+            if (!isPlayMode)
+            {
+                Undo.RecordObject(npcController, "Assign NPC Home Anchor");
+            }
+
+            npcController.SetHomeAnchor(anchor);
+
+            if (!isPlayMode)
+            {
+                SerializedObject npcSerializedObject = new SerializedObject(npcController);
+                SerializedProperty npcHomeAnchorProperty = npcSerializedObject.FindProperty("homeAnchor");
+                if (npcHomeAnchorProperty != null)
+                {
+                    npcHomeAnchorProperty.objectReferenceValue = anchor;
+                    npcSerializedObject.ApplyModifiedPropertiesWithoutUndo();
+                }
+
+                EditorUtility.SetDirty(npcController);
+                EditorUtility.SetDirty(anchor);
+                touchedAny = true;
+            }
+        }
+
+        if (touchedAny && !isPlayMode)
+        {
+            EditorSceneManager.MarkSceneDirty(controller.gameObject.scene);
+        }
     }
 
     private void DrawSetupTools()
@@ -278,6 +361,25 @@ public class NPCAutoRoamControllerEditor : Editor
         EditorUtility.SetDirty(controller);
         EditorUtility.SetDirty(anchorObject);
         Selection.activeObject = anchorObject;
+    }
+
+    private static NPCAutoRoamController FindControllerInScene(UnityEngine.SceneManagement.Scene scene, string npcName)
+    {
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int rootIndex = 0; rootIndex < roots.Length; rootIndex++)
+        {
+            NPCAutoRoamController[] controllers = roots[rootIndex].GetComponentsInChildren<NPCAutoRoamController>(true);
+            for (int controllerIndex = 0; controllerIndex < controllers.Length; controllerIndex++)
+            {
+                NPCAutoRoamController controller = controllers[controllerIndex];
+                if (controller != null && string.Equals(controller.name, npcName, System.StringComparison.Ordinal))
+                {
+                    return controller;
+                }
+            }
+        }
+
+        return null;
     }
 
     private void DuplicateProfileCopy(NPCAutoRoamController controller)

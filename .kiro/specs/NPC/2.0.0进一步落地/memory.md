@@ -375,3 +375,20 @@
 - 当前恢复点：
   - 结构层最小 scene 集成已落地；下一步是对白名单路径执行 `sync`，然后交给用户按详细汇报做 Unity 终验
   - 若后续用户在 Editor / Play 下看到 `HomeAnchor` 丢失或起点异常，应优先回到 `NPCAutoRoamController` 的运行态赋值链排查，而不是回头重开这轮 scene 最小落点
+
+## 2026-03-26｜NPCV2 运行中 Inspector 补口回归修复
+
+- 当前主线目标：
+  - 保持 Unity 不停机的前提下，修掉 `NPCAutoRoamControllerEditor` 在运行中自动补 `HomeAnchor` 时抛出的 `InvalidOperationException`。
+- 本轮子任务：
+  - 只修编辑器侧的自动补口逻辑，不重开 scene 主刀，不改导航核心，不要求用户停 Unity。
+- 本轮问题：
+  - `TryAutoRepairPrimaryHomeAnchors()` 在 Play Mode 下仍走了 `Undo + EditorSceneManager.MarkSceneDirty` 持久化路径，导致：
+    - `InvalidOperationException: This cannot be used during play mode.`
+- 本轮修复：
+  - `Assets/Editor/NPCAutoRoamControllerEditor.cs` 已改成：
+    - `Edit Mode` 才走 `Undo / ApplyModifiedPropertiesWithoutUndo / MarkSceneDirty`
+    - `Play Mode` 只做运行时 anchor 创建与 `homeAnchor` 赋值，不再碰 scene dirty 持久化接口
+  - 这样当前正在运行的 Unity 不会再因为 Inspector 自动补口而报 `MarkSceneDirty` 异常
+- 当前恢复点：
+  - 用户现在只需要等待脚本重新编译，并重新点回 `001 / 002 / 003` 的 Inspector，看 `Home Anchor` 是否自动回正

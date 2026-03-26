@@ -106,3 +106,19 @@
 - 当前恢复点：
   - 主线已从“只读等待”恢复到“最小 scene 集成完成，待白名单收口与用户终验”
   - 收口后若用户在 Unity 终验中发现运行态异常，下一步从 `HomeAnchor` 赋值链或运行态启动链排查，而不是重新怀疑这轮最小场景层级本身
+
+## 2026-03-26｜运行中 Inspector 自动补口回归修复
+
+- 当前主线目标：
+  - 不停 Unity 的前提下，把 `HomeAnchor` 自动补口从“会炸 Play Mode”修回“运行中可继续用”。
+- 本轮子任务：
+  - 只修 `Assets/Editor/NPCAutoRoamControllerEditor.cs` 的运行态分支。
+- 本轮完成：
+  - 已定位异常源头：
+    - `TryAutoRepairPrimaryHomeAnchors()` 在 Play Mode 里调用了 `EditorSceneManager.MarkSceneDirty`
+  - 已改成双路径：
+    - `Play Mode`：只做运行时 anchor 创建/查找与 `controller.SetHomeAnchor(anchor)`，不碰 `Undo / MarkSceneDirty / 持久化`
+    - `Edit Mode`：保留 scene 持久化补口逻辑
+  - 这样用户当前运行中的 Unity 不需要停，也不会再因为 Inspector 自动补口而直接抛同一条 `InvalidOperationException`
+- 当前恢复点：
+  - 等 Unity 重新编译后，用户只要重新点回 `001 / 002 / 003` 的 Inspector，就可以看 `Home Anchor` 是否自动回正
