@@ -259,3 +259,47 @@
     - 同时共享表现层资源也在 dirty，继续写 scene 会放大串扰风险
 - 当前恢复点：
   - 若要正式进入 NPC scene 集成，下一步不是直接开工，而是先明确 `Primary.unity` 当前 dirty 归属，再建立独占写窗口。
+
+## 2026-03-26｜NPCV2 首轮启动委托-02：Primary / HomeAnchor 准入裁定
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ ee3187573b62891a5b0a8d974f43c192c4125a34`
+- 当前主线目标：
+  - `NPCV2` 接班后先判断 `Primary.unity` 的安全写窗口是否已经成立，只决定能否进入 `HomeAnchor` 最小 scene 切片。
+- 本轮子任务：
+  - 严格按 `2026-03-26-NPCV2首轮启动委托-02.md` 只读复核 `cwd / branch / HEAD`、`git status --short -- 'Assets/000_Scenes/Primary.unity'`、`git diff --stat -- 'Assets/000_Scenes/Primary.unity'`、`shared-root-branch-occupancy.md`、`mcp-single-instance-occupancy.md`、`mcp-hot-zones.md`，并只在 `Primary.unity` 内搜索 `HomeAnchor` 直接证据。
+- 本轮关键证据：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+  - `HEAD = ee3187573b62891a5b0a8d974f43c192c4125a34`
+  - `git status --short -- 'Assets/000_Scenes/Primary.unity'` 仍为 `M`
+  - `git diff --stat -- 'Assets/000_Scenes/Primary.unity'` 仍为 `80 lines / 76 insertions / 4 deletions`
+  - `shared-root-branch-occupancy.md` 仍写 `main + neutral`，但 `last_verified_head = 98cbb88b`，它只能说明 shared root 入口中性，不能当成 `Primary.unity` 写许可
+  - `mcp-single-instance-occupancy.md` 当前 `current_claim = none`，但默认口径仍是 `single-writer-only`
+  - `mcp-hot-zones.md` 仍将 `Primary.unity` 列为热区 B / C
+  - 在 `Primary.unity` 内直接搜索 `HomeAnchor` 无命中；当前 diff 片段读到的是 `StoryManager`、Workbench overlay、debug flag 与位置改动，不是 NPC `HomeAnchor` 半成品
+- 本轮裁定：
+  - 当前是否确认 scene 写窗口成立：`no`
+- V2 第一刀或第一 blocker：
+  - 第一 blocker 是 `Primary.unity` 已 mixed dirty 且归属未明；不能把 `shared-root-branch-occupancy = neutral` 误当成 `Primary.unity` 可直接写
+- 当前恢复点：
+  - `NPCV2` 这轮停在 blocker；只有在 `Primary.unity` 当前 dirty 归属说清、scene 热区拿到独占写窗口后，下一刀才回到 `scene audit -> HomeAnchor`
+
+## 2026-03-26｜NPCV2 再次只读复核：条件仍未满足
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 519d51bd20d98e662eafb94cea0c5bbbeb314cec`
+- 当前主线目标：
+  - 再次只读确认 `Primary.unity` 的 scene 写窗口是否已成立，判断 `NPCV2` 能否进入 `HomeAnchor` 最小 scene 切片。
+- 本轮关键证据：
+  - `git status --short -- 'Assets/000_Scenes/Primary.unity'` 仍为 `M`
+  - `git diff --stat -- 'Assets/000_Scenes/Primary.unity'` 仍为 `76 insertions / 4 deletions`
+  - `Check-Lock.ps1 -TargetPath 'Assets/000_Scenes/Primary.unity'` 返回 `state = unlocked`
+  - `shared-root-branch-occupancy.md` 仍是 `main + neutral`
+  - `mcp-single-instance-occupancy.md` 仍是 `single-writer-only` 且 `current_claim = none`
+  - `mcp-hot-zones.md` 仍将 `Primary.unity` 列为热区 B / C
+  - 在 `Primary.unity` 内再次搜索 `HomeAnchor` 仍无命中
+- 本轮裁定：
+  - 当前是否确认 scene 写窗口成立：`no`
+- 当前恢复点：
+  - 这轮与上一轮相比，`HEAD` 已变化，但决定准入的 blocker 没变化；仍需先明确 `Primary.unity` 当前 mixed dirty 的归属，再谈 `scene audit -> HomeAnchor`

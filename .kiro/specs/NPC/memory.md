@@ -561,3 +561,36 @@
     - `LiberationSans SDF - Fallback.asset`
 - 当前恢复点：
   - 后续如果要让我开始 scene 集成，应先把 `Primary.unity` 的 dirty 归属说清，并给这次写入建立独占窗口。
+
+## 2026-03-26｜NPCV2 接班首轮只读复核：暂不进入 Primary
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ ee3187573b62891a5b0a8d974f43c192c4125a34`
+- 当前主线目标：
+  - 由 `NPCV2` 接班后，只判断 `Primary.unity` 的 scene 写窗口是否已足够安全，以决定能否把第一刀钉到 `HomeAnchor` 最小 scene 切片。
+- 本轮只读结论：
+  - 当前 scene 写窗口仍未成立，`NPCV2` 不能直接进入 `Primary.unity` 开工。
+- 关键证据：
+  - `Assets/000_Scenes/Primary.unity` 当前仍为 `M`
+  - `git diff --stat -- 'Assets/000_Scenes/Primary.unity'` 仍为 `76 insertions / 4 deletions`
+  - `shared-root-branch-occupancy.md` 仍是 `main + neutral`，但 `last_verified_head` 已落后于当前 `HEAD`，只能作为 shared root 入口提示，不能外推成 scene 可写
+  - `mcp-single-instance-occupancy.md` 当前没有显式 claim，但默认策略仍是 `single-writer-only`
+  - `mcp-hot-zones.md` 继续把 `Primary.unity` 列为热区 B / C
+  - 在 `Primary.unity` 内直接搜索 `HomeAnchor` 无命中；当前 diff 片段主要是 `StoryManager`、Workbench overlay、debug flag 与位置漂移，不是 NPC 自己的 `HomeAnchor` 半成品
+- 当前恢复点：
+  - `NPC` 主线的下一步仍然是 `HomeAnchor` scene 落点，但恢复前提没有变化：先把 `Primary.unity` 当前 dirty 归属说清，再建立独占写窗口
+
+## 2026-03-26｜再次只读复核：Primary 准入条件未变化
+
+- 当前 live 基线：
+  - `D:\Unity\Unity_learning\Sunset @ main @ 519d51bd20d98e662eafb94cea0c5bbbeb314cec`
+- 当前只读结论：
+  - 现在仍不满足进入 `Primary.unity` 做 `HomeAnchor` 最小切片的条件。
+- 关键证据：
+  - `Primary.unity` 仍为 `M`
+  - scene diff 仍为 `76 insertions / 4 deletions`
+  - 物理锁状态仍是 `unlocked`，不是显式授予给 `NPCV2`
+  - `shared-root-branch-occupancy = neutral` 仍只代表 shared root 入口中性，不代表热 scene 可写
+  - `Primary.unity` 内再次搜索 `HomeAnchor` 仍无命中
+- 当前恢复点：
+  - `NPC` / `NPCV2` 这条线当前仍停在同一个 blocker：先把 `Primary.unity` 的 mixed dirty 归属说清，再进入 `scene audit -> HomeAnchor`
