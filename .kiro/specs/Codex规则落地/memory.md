@@ -5289,3 +5289,59 @@
   1. 收紧“只看 own roots，不看 overall dirty”的线程口径
   2. 把热文件与普通文件彻底分层
   3. 为未来的“统一收盘”单独设计 integrator 流程，而不是让 shared root 先长期混写
+
+## 2026-03-26｜复核 `NPCV2 / 导航检查V2` 自述后，当前总主线与子线优先级重新钉死
+
+**当前主线目标**
+- 用户贴回了父线程、`NPCV2`、`导航检查V2` 的多段自述，希望确认：
+  - 当前到底是不是“新分支”
+  - 谁才是现在真正的主线线程
+  - `NPCV2` 到底是继续并行主干，还是已经退到支持位
+
+**本轮复核事实**
+1. 当前 live dirty 现场里仍明确存在：
+   - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+   - `Assets/000_Scenes/Primary.unity`
+   - 3 份 `DialogueChinese*` 字体
+2. 当前 live dirty 里不包含：
+   - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+   说明 editor 热修已不再是当前 active collision face。
+3. `NPCV2` 工作区记忆已明确记录：
+   - `65e1ee35`：`Primary.unity` 中 `001 / 002 / 003` 的最小 `HomeAnchor` 集成已落地
+   - `24886aad`：`NPCAutoRoamControllerEditor.cs` 的 Play Mode `MarkSceneDirty` 报错已修复
+   - 当前恢复点已经切到：
+     - 守住 own / non-own 边界
+     - 等用户终验或做 owner 报实
+   - 不再是“继续沿 editor 链无上限往前修”
+4. `导航检查V2` 工作区与线程记忆已明确记录：
+   - 当前唯一有效实现主线仍是 `NpcAvoidsPlayer`
+   - 下一步先做只读责任点压缩：
+     - `TickMoving()`
+     - `TryHandleSharedAvoidance()`
+     - `TryReleaseSharedAvoidanceDetour()`
+   - 下下步才是 1 个最小 runtime 补口 + 1 条 fresh + own 收尾
+
+**关键裁定**
+1. 总主线没有变：
+   - 仍然只有一个：真实右键导航里“玩家不再推着 NPC 走，NPC 侧避让过线”
+2. 当前唯一主实现线程是：
+   - `导航检查V2`
+3. `NPCV2` 当前不是与导航并列的第二条主实现线：
+   - 它已经完成两刀有效工作；
+   - 现在更接近支持 / 验收 / owner 报实位；
+   - 只有当用户再次明确看到 `HomeAnchor` 仍为空或 Inspector 补口仍断时，它才重新回到 editor-only 修复位
+4. 因此“父线程分派执行阶段”这个说法只对一半：
+   - 对的是：总主线确实仍是同一条，且父线程在裁边界
+   - 不对的是：当前两条子线并不是同级并行主推进
+   - 更准确的层级应是：
+     - 总主线：导航 runtime 过线
+     - 主子线：`导航检查V2` 继续修 release / recover 执行链
+     - 辅子线：`NPCV2` 暂停主动扩刀，只保留验收 / owner 报实 / editor 复发时的窄补口
+5. cleanup、字体、`Primary.unity` mixed hot 面、Gemini 大架构讨论，当前都不是主线
+
+**恢复点 / 下一步**
+- 当前最重要的是先让 `导航检查V2` 给出：
+  - 责任点只读钉死结果
+  - 然后 1 条最小 runtime 结果
+- `NPCV2` 当前不应继续主动找新刀口；
+- 除非用户现场再次复现 `HomeAnchor` 空或 Inspector 补口失效，否则它应停在支持位，不再和导航线程并列抢主线。
