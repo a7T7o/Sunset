@@ -218,3 +218,74 @@
 **恢复点 / 下一步**：
 - 当前 cleanup 子任务已经完成；若继续农田 `V3`，下一步应等待新的明确业务委托。
 - 这轮不再继续 placeable / runner 业务推进。
+
+## 2026-03-26：恢复开工委托-05 已按硬边界停在 hot-file blocker
+
+**用户目标**：
+- 用户要求这轮只做“工具运行时资源链 -> 玩家反馈 -> 树木 / hover 遮挡口径”这一条 non-hot vertical slice。
+- 明确禁止：
+  - 不回头重跑 `013`
+  - 不回开 placeable / runner 主链
+  - 不碰 `Primary.unity`
+  - 不主动重开 `GameInputManager.cs`
+- 聊天只按最小回执格式回复，同时必须补 1 份给用户直接看的详细汇报文件。
+
+**当前主线目标**：
+- 主线已从 shared-root cleanup 返回农田 `V3` 业务续工，但本轮子任务边界非常窄：只验证并闭合“工具反馈链 / 树木等级不足气泡 / hover 遮挡”这条 non-hot slice。
+
+**本轮已完成事项**：
+1. 已完整读取：
+   - `2026-03-26-农田交互修复V3恢复开工委托-05.md`
+   - `当前续工计划与日志.md`
+   - 当前子工作区 `memory.md`
+   - 当前线程记忆
+   - `ToolRuntimeUtility.cs`
+   - `PlayerThoughtBubblePresenter.cs`
+   - `PlayerToolFeedbackService.cs`
+   - `TreeController.cs`
+   - `FarmToolPreview.cs`
+   - 只读参考 `GameInputManager.cs`
+2. 已确认当前主分支里这条 slice 不是“完全没写”，而是已有部分接入：
+   - `ToolRuntimeUtility` 已支持结构化工具提交结果、水壶水量、损坏/空壶反馈回调
+   - `PlayerToolFeedbackService` 已支持玩家气泡、音效、特效、shake
+   - `TreeController` 已支持不足等级不扣精力、30 秒冷却计时与“还是这把斧头锋利！”切换气泡
+   - `FarmToolPreview` 已有独立的 hover 遮挡上报入口
+3. 已核定本轮第一 blocker：
+   - `GameInputManager.cs` 的 `ExecuteTillSoil(...)` 仍是先 `CreateTile(...)` 后 `CommitCurrentToolUse(...)`
+   - `ExecuteWaterTile(...)` 仍是先 `SetWatered(...)` 后 `CommitCurrentToolUse(...)`
+   - 因此“工具运行时资源链”和“空壶不应浇水成功”当前不能在不重开 hot-file 的前提下 claim done
+4. 已补写详细汇报文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3恢复开工详细汇报-05.md`
+
+**关键决策**：
+- 由于委托-05 明确写死：如果要让这轮 slice 成立必须重新打开 `GameInputManager.cs` 等 hot 目标，就应立刻停在 blocker；因此本轮没有继续改任何业务代码。
+- `FarmToolPreview.cs` 虽然已有 non-hot 修正候选点（当前仍按整组 `currentPreviewPositions` 联合 bounds 上报 hover 范围），但这轮也没有擅自继续单独落这半刀。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3恢复开工委托-05.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\当前续工计划与日志.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-26-农田交互修复V3恢复开工详细汇报-05.md`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerToolFeedbackService.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- 只读证据：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+
+**验证结果**：
+- 本轮为 read-only blocker 核定，没有新增代码修改。
+- 当前没有新增 owned compile 红错，也没有进入 Unity Play / live。
+- 当前结论基于代码路径核对，不基于聊天臆测。
+
+**恢复点 / 下一步**：
+- 当前主线没有切走，仍是农田 `V3`。
+- 但这轮子任务应判定为：
+  - `工具运行时资源链`：被 `GameInputManager.cs` 热区阻断
+  - `水壶空壶闭环`：被 `GameInputManager.cs` 热区阻断
+  - `树木失败冷却 / 正向切换气泡`：已有部分实现，但输入层冷却拦截仍待进一步证明或补口
+  - `hover 遮挡范围收紧`：已定位 non-hot 切口，但本轮按委托硬停线没有继续落刀
+- 后续若继续，只能先由用户明确：
+  - 授权重开 `GameInputManager.cs`
+  - 或把范围切窄成只做 hover / 树木气泡单点
