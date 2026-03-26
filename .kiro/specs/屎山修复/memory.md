@@ -1089,3 +1089,22 @@
 - 父层当前恢复点：
   - `导航V2` 当前分类为“无需继续发”；
   - `导航检查V2` 下一轮只围绕 `NpcAvoidsPlayer` 的 NPC 侧 fresh 证据继续施工，不回漂大架构争论。
+
+### 会话 55 - 2026-03-26
+
+- 子工作区 `导航检查` 本轮继续做治理总闸，不改导航实现本体，只审 `导航检查V2` 的首条 NPC 侧失败回执。
+- 父层新增稳定事实：
+  1. `导航检查V2` 这条失败回执有效，但当前仍是 `own clean = no`，因此不能直接把它当“这一刀已闭环”往下跳；
+  2. 现场代码证据已把新的第一怀疑点继续收窄到：
+     - `NPCAutoRoamController.TickMoving()` 中新增的
+       `ClearedOverrideWaypoint -> StopMotion -> rb.linearVelocity = 0 -> return`
+       硬停 early-return 链；
+  3. 基于这个收窄，已新增续工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2-NpcAvoidsPlayer释放硬停收口-07.md`
+  4. 当前不另外给 `NPC/NPCV2` 发 cleanup prompt：
+     - `Primary.unity` 与 3 个 TMP 字体当前虽 dirty，但仍是 mixed hot 面；
+     - 用户刚有 Unity 使用，`Primary.unity` 也处于 `unlocked`；
+     - 在 owner 未清前，不把这几项硬判成 `NPC` 线程 own cleanup。
+- 父层当前恢复点：
+  - `导航检查V2` 下一轮继续打 NPC 侧 release 硬停链，并要求把 own dirty 一并自收口；
+  - 若后续 hot 面长期不消，再单独开 `NPC/NPCV2` 的 owner 报实 / hygiene 线程，不和导航主刀混做。

@@ -2572,3 +2572,63 @@
 - 当前恢复点：
   - `导航V2` 当前先停；
   - `导航检查V2` 下一轮按 `2026-03-26-导航检查V2复工准入后续工委托-06.md` 继续施工。
+
+## 2026-03-26（导航检查V2：NpcAvoidsPlayer 首次 fresh 失败后的硬停链收口委托）
+
+- 当前主线目标：
+  - 继续 `导航检查V2` 的同一 detour owner 闭环，不扩回大架构或别线 hygiene，只把 NPC 侧 `NpcAvoidsPlayer` 的失败形态继续压窄。
+- 本轮子任务：
+  - 审 `导航检查V2` 最新失败回执，决定它下一轮唯一该打哪一刀，并判断是否需要顺手给 `NPC/NPCV2` 发 cleanup prompt。
+- 本轮完成：
+  1. 核对现场工作树，确认 `导航检查V2` 当前 own dirty 确实仍包含：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `导航检查V2/memory_0.md`
+     - `导航检查/memory.md`
+  2. 读取 `NPCAutoRoamController.cs` 当前 diff，确认它上一轮新增了：
+     - `waypointState.ClearedOverrideWaypoint -> StopMotion() -> rb.linearVelocity = 0 -> return`
+  3. 与玩家侧对照后，确认当前第一怀疑点已继续收窄到：
+     - NPC 侧在 clear override 后被自己新增的硬停 early-return 链钉住，无法顺畅恢复主路径推进。
+  4. 新增续工委托：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2-NpcAvoidsPlayer释放硬停收口-07.md`
+  5. 同时明确不发 `NPC/NPCV2` cleanup prompt：
+     - 当前 `Primary.unity + TMP 字体` 虽然是 dirty，但属于 mixed hot 面；
+     - 用户刚刚也在开 Unity，且 `Primary.unity` 当前 `unlocked`；
+     - 在归属未清前，不应把这几项直接硬判成 `NPC` own cleanup。
+- 本轮新增稳定结论：
+  1. `导航检查V2` 这轮失败回执是有效失败，不因“用户刚开过 Unity”自动作废；
+  2. 但它当前 own 路径仍不 clean，所以不能假装已经收刀完毕再进新的 feature；
+  3. 当前最该打的不是 `NPC` 线程 cleanup，而是 `导航检查V2` 先把自己在 `NPCAutoRoamController` 里新增的 release 硬停链锁死并自收口。
+- 当前恢复点：
+  - `导航检查V2` 下一轮只按 `...释放硬停收口-07.md` 继续；
+  - 若后续 `Primary.unity / TMP 字体` 仍持续 dirty，再单独考虑给 `NPC/NPCV2` 发只读 owner 报实 prompt，而不是现在就混进导航主刀。
+
+## 2026-03-26（导航检查V2复工准入后续工-06：`NpcAvoidsPlayer` NPC 侧 fresh）
+
+- 当前主线目标：
+  - 审核支线已停，重新回到 `导航检查V2` 实现线程；这轮只围绕同一 detour owner 闭环，补 1 组 `NpcAvoidsPlayer` 的 NPC 侧 fresh 证据。
+- 本轮子任务：
+  - 如果 NPC 侧仍未过线，只允许在同一 owner keepalive / release 闭环里补 1 个最小口，然后最多再补 1 组同场景 fresh。
+- 本轮完成：
+  1. 复核 live 现场：
+     - shared root 仍在 `main`
+     - 当前只保留我自己的 `NPCAutoRoamController.cs` 改动
+     - MCP HTTP 桥虽可连，但 `unityMCP` 无实例注册，因此本轮 live 不走 MCP，改走 Win32 菜单 + `Editor.log`。
+  2. 在 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs` 内补上最小 NPC 侧 release 口：
+     - `TickMoving()` 在 `EvaluateWaypoint(...)` 后新增 `ClearedOverrideWaypoint` 分支
+     - detour override 被清掉时，立即 `StopMotion + linearVelocity = 0 + return`
+  3. 完成 1 组 fresh `NpcAvoidsPlayer`：
+     - `scenario_end=NpcAvoidsPlayer pass=False timeout=6.50 minClearance=-0.003 npcReached=False`
+     - `scenario=NpcAvoidsPlayer pass=False details=npcMoveIssued=True, npcReached=False, minClearance=-0.003, maxNpcLateralOffset=0.849, timeout=6.50`
+     - `all_completed=False scenario_count=1`
+  4. 按 stop-early 纪律清场并确认退回 `Edit Mode`：
+     - `runner_disabled`
+     - `runInBackground_restored value=False`
+     - `runner_destroyed`
+     - `Loaded scene 'Temp/__Backupscenes/0.backup'`
+- 本轮新增稳定结论：
+  1. `ClearedOverrideWaypoint` 的 NPC 侧补口虽然把 owner release 分支接住了，但 `NpcAvoidsPlayer` 仍未拿到有效执行窗口；
+  2. 当前 detour owner 只能判定为“玩家侧已过，NPC 侧未过”，不能把首轮玩家侧通过误写成双侧都过；
+  3. 本轮到此必须 Stop，不能继续顺手扩到 `NpcNpcCrossing`、solver 权重、`TrafficArbiter / MotionCommand / DynamicNavigationAgent` 或三场同轮。
+- 当前恢复点：
+  - 当前实现主线停在“同一 detour owner 闭环的 NPC 侧 fresh 仍失败”；
+  - 下一轮如继续，只能继续沿 `NPCAutoRoamController / NavigationPathExecutor2D / PlayerAutoNavigator` 这条 owner keepalive / release 链细查，不得借题漂回大架构讨论。

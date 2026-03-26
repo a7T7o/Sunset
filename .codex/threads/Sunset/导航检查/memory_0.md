@@ -1757,3 +1757,25 @@
   1. `导航V2` 当前审核任务已收口，可以先停；
   2. `导航检查V2` 现在可以恢复实现施工；
   3. 下一轮只等 `导航检查V2` 按新委托交 NPC 侧 fresh 回执。
+
+## 2026-03-26（典狱长审 `导航检查V2` 首条 NPC 侧失败回执：不先发 NPC cleanup）
+
+- 当前线程主线：
+  - 继续治理总闸；审 `导航检查V2` 的 NPC 侧失败回执，并判断是否需要把 `NPC/NPCV2` 一并拉进来做 cleanup。
+- 本轮子任务：
+  - 核 `导航检查V2` 的失败样本是否有效、它现在该继续打哪一刀，以及当前 `Primary.unity / TMP 字体` dirty 是否值得单独给 `NPC` 发 cleanup prompt。
+- 本轮完成：
+  1. 核对工作树，确认：
+     - `导航检查V2` 当前 own dirty 仍包括 `NPCAutoRoamController.cs`
+     - `Primary.unity + 3 个 TMP 字体` 仍 dirty，但不在 `导航检查V2` 这轮声明的 own 路径内
+  2. 读取 `NPCAutoRoamController.cs` 当前 diff，确认新增了：
+     - `ClearedOverrideWaypoint -> StopMotion() -> rb.linearVelocity = 0 -> return`
+  3. 新增续工委托：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2-NpcAvoidsPlayer释放硬停收口-07.md`
+  4. 裁定：
+     - 当前先不发 `NPC/NPCV2` cleanup prompt；
+     - 理由是 `Primary.unity / TMP 字体` 仍属 mixed hot 面，且用户刚有 Unity 使用，owner 还不够清。
+- 当前线程级结论：
+  1. `导航检查V2` 下一轮仍归“继续发 prompt”；
+  2. 但主刀必须锁在 `NPCAutoRoamController` 的 release 硬停链，且 own dirty 这轮要自收口；
+  3. `NPC/NPCV2` 当前不进 cleanup 主线，除非后续需要单独做 hot 面 owner 报实。
