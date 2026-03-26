@@ -734,3 +734,109 @@
 - 父层当前最准确定性：
   - spring-day1 现在已经不是“own dirty 一整团都没拆”；
   - 当前真正剩下的 blocker 只剩 `Primary.unity` 这一个 hot-file mixed 问题，其他 formal 面已可以继续尝试白名单收口。
+
+## 2026-03-26 补记：Day1 已完成“越权删证据”纠偏，当前恢复到正规续工口径
+- 当前父工作区主线没有变化，仍然是 spring-day1 的 Day1 工作台 / UI / 任务体验收口；本轮子任务不是回退 `ee318757`，而是把线程从“越权清扫治理证据”的错误动作拉回正规工作状态。
+- 这轮治理结论已明确钉死：
+  - 接受 `ee318757` 作为一次正式 checkpoint；
+  - 不接受把 `.kiro` 下的委托文档、卫生文档、样式快照当成 spring-day1 自行可删的临时证据；
+  - 不接受继续把 `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`、`Assets/YYY_Scripts/Service/Placement/PlacementManager.cs` 这类他线尾账挂到 spring-day1 名下。
+- 当前恢复后的正规边界是：
+  - spring-day1 own 的正式面仍以 `ee318757` 及其对应 formal dirty 为准；
+  - `Primary.unity` 继续按 `dirty + unlocked + mixed hot-file` 处理，只读阻塞，不再由 spring-day1 擅自续写；
+  - `GameInputManager.cs`、`StaticObjectOrderAutoCalibrator.cs`、`PlacementManager.cs`、`TagManager.asset` 都不在这轮 own 认领面里。
+- 额外审计结论：
+  - `003-进一步搭建/memory.md` 后半段当前存在编码污染 / 混合乱码；
+  - 它不能继续作为这轮纠偏后的唯一续工依据；
+  - 后续续工读取口径改为：先读 `26.03.26-Day1越权删证据纠偏与正规化续工委托-07.md`，再读本父层 `memory.md` 最新补记，再读线程记忆最新补记。
+- 当前恢复点：
+  - spring-day1 现在已经被拉回“只保留 own checkpoint、停止自发清扫治理证据、等待 hot-file blocker 后续裁决”的正规状态；
+  - 后续如果继续推进，必须从 `委托-07` 继续，而不是从“旧 hygiene 已合理完成”的错误口径继续扩写。
+
+## 2026-03-26 纠偏补记：撤回越权删证据与错认 owner 的旧判断
+- 当前父工作区主线没有换题，仍然是 Day1 工作台 / UI / 任务体验收口；这轮不继续写 Day1 新功能，也不继续做清扫，而是专门做越权删证据纠偏与正规化续工。
+- 父层明确撤回两类错误判断：
+  - 撤回“spring-day1 可以自行删除 .kiro 下的委托文档、卫生委托、样式快照”这一判断；这些治理证据不再由 spring-day1 自发清理。
+  - 撤回“Assets/Editor/StaticObjectOrderAutoCalibrator.cs、Assets/YYY_Scripts/Service/Placement/PlacementManager.cs 仍归 spring-day1 own”这一判断；它们不再属于当前 spring-day1 正式 checkpoint 边界。
+- 当前父层只接受 spring-day1 own 的正式 checkpoint 为：
+  - Assets/222_Prefabs/UI/Spring-day1/
+  - Assets/Resources/Story/SpringDay1Workbench/*.asset
+  - Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*.asset
+  - Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs
+  - 以及本线程 / 父工作区对应记忆
+- Primary.unity 继续保持 hot-file mixed blocker 口径：其中虽包含 Day1 自己的 StoryManager / startLanguageDecoded / Anvil_0 参数块，但同时混入相机位移、Player 位移与 NPC debug override，因此当前仍只能只读，不进入 scene 写入。
+- 当前父层明确不再由 spring-day1 认领的文件：
+  - Assets/Editor/StaticObjectOrderAutoCalibrator.cs
+  - Assets/YYY_Scripts/Service/Placement/PlacementManager.cs
+  - Assets/YYY_Scripts/Controller/Input/GameInputManager.cs
+  - ProjectSettings/TagManager.asset
+  - Assets/000_Scenes/Primary.unity（仅保留 mixed blocker 只读判断，不 claim scene owner）
+- 当前恢复点：
+  - spring-day1 已回到“只保留 own 正式 checkpoint、等待 hot-file blocker 处理”的正规状态；
+  - 后续若继续推进，应从 own checkpoint 继续，不再擅自删治理证据，也不再扩认别线历史尾账。
+
+## 2026-03-26 补记：父工作区已确认 spring-day1 可进入 `spring-day1V2` 代际交接
+- 当前父工作区主线本轮不再继续 Day1 新功能，也不再继续 hygiene；唯一目标是判断 `spring-day1` 是否已经满足进入下一代交接的条件。
+- 本轮读取口径严格按 `委托-08` 执行：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\2026-03-26_V1交接文档统一写作Prompt.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\26.03.26-Day1越权删证据纠偏与正规化续工委托-07.md`
+  - 当前线程 `memory_0.md`
+  - 本父工作区 `memory.md`
+- 当前父层裁定：
+  - `yes`，spring-day1 已满足进入 `spring-day1V2` 交接
+  - 理由不是“所有 live 风险都不存在”，而是：
+    1. own checkpoint 已被接受，且以 `ee318757` 为正式基线
+    2. 错认 owner 与越权删证据的旧判断已被撤回
+    3. `Primary.unity` 已被重新定性为 `mixed hot-file blocker`，它现在属于应写入交接的边界条件，而不是必须继续由 V1 施工解决的尾项
+- 本轮已正式写入线程交接目录：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\V2交接文档\`
+  - 并按统一写作 prompt 生成 7 份重型交接文件
+- 当前恢复点：
+  - 父工作区这条线现在已经从“V1 继续施工”切换到“等待 `spring-day1V2` 按交接包接班”
+  - 若后续继续推进，默认先读交接包，再重做 live preflight，不再从旧 hygiene 口径继续外推
+
+## 2026-03-26 补记：spring-day1V2 已完成首轮 live preflight，第一刀继续固定在非热正式面
+- 当前父工作区主线已进入 `spring-day1V2` 接班阶段；本轮子任务严格限定为 `委托-09` 要求的 live preflight 与非热正式面首刀裁定，不继续 Day1 新功能，也不进入 scene 写入。
+- 本轮 live 只读复核结果：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+  - `HEAD = 45e4e89baf6c75d8803c1458e08f28bf1b217a66`
+  - `shared-root-branch-occupancy.md` 当前仍记为 `neutral-main-ready`
+  - `ee318757` 仍存在且位于当前 `HEAD` 祖先链上，因此继续作为 Day1 已接受 checkpoint，不因 shared root 后续前进而失效。
+- 当前 own 正式面已重新钉实：
+  - `Assets/222_Prefabs/UI/Spring-day1/`
+  - `Assets/Resources/Story/SpringDay1Workbench/*.asset`
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*.asset`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+  - 上述正式面当前都仍存在，且本轮 `git status` 未显示它们处于 dirty。
+- `Primary.unity` 当前仍判为 `yes`：
+  - 锁状态是 `unlocked`
+  - 但当前 diff 同时包含 Day1 自己的 `StoryManager / startLanguageDecoded / preferStoryWorkbenchOverlay` 痕迹，以及 `Assets/222_Prefabs/NPC/001.prefab`、`Assets/222_Prefabs/NPC/002.prefab` 对应的 `showDebugLog / drawDebugPath` 现场改动，因此它仍是 `mixed hot-file blocker`，不是当前可安全接手的 scene 面。
+- 当前单一裁定：
+  - `spring-day1V2` 第一刀不申请进入 `Primary.unity`，而是继续固定为“先以 non-hot 正式面做基线审面与切口选择”，优先从两个 UI prefab、workbench recipe、DialogueChinese 字体资产与 Day1 test 这组正式面继续。
+- 当前恢复点：
+  - 只有在 `Primary.unity` 的 mixed dirty 归属被拆清、且热区写窗口转绿后，才值得单独申请 scene 刀；
+  - 在那之前，V2 默认继续从 non-hot 正式面进入，而不是从 shared root 清扫或 scene 续写开始。
+
+## 2026-03-26 补记：父工作区已切入 spring-day1 自有尾账清扫与白名单收口
+- 当前父工作区主线仍然属于 spring-day1 / spring-day1V2 接班链，但本轮唯一子任务已切换成 `委托-11` 要求的 shared root 尾账清扫；这轮不是恢复 Day1 主线施工。
+- 本轮 stable launcher 白名单 `preflight` 已确认：
+  - 当前执行现场为 `main@eb6284fa`
+  - spring-day1 own dirty / untracked 与 foreign dirty 可以清晰拆开
+  - 本轮白名单不触发 C# 代码闸门，因为仅涉及字体资产、线程文档、工作区 memory、交接文档、续工委托与样式快照
+- 当前父层认领为 spring-day1 自有尾账的范围：
+  - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*.asset`
+  - `.codex/threads/Sunset/spring-day1/`
+  - `.codex/threads/Sunset/spring-day1V2/`
+  - `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+  - `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/`
+  - `.kiro/specs/900_开篇/spring-day1-implementation/26.03.26-Day1V2共享根大扫除与白名单收口-11.md`
+- 当前父层明确不属于 spring-day1、因此本轮不碰的 dirty：
+  - `Assets/000_Scenes/Primary.unity`
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+  - 导航 / 农田 / `ProjectSettings/TagManager.asset` 等其它 shared root 脏改
+- 当前恢复点：
+  - 父工作区这轮的目标不是“把 shared root 弄 clean”，而是“只把 spring-day1 自己的尾账用白名单收进 main”
+  - 若白名单同步成功，后续父层可恢复到“own 尾账已清、Day1 主线仍暂停”的中间稳定态
