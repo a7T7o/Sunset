@@ -5235,3 +5235,57 @@
   - `.kiro/specs/屎山修复/导航V2/000-gemini锐评-1.0.md`
   - `.kiro/specs/屎山修复/导航V2/000-gemini锐评-1.1.md`
 - 它们都不是本轮 prompt 分发白名单的一部分，不应被误吞。
+
+## 2026-03-26｜关于“dirty 互相传染”的治理判断：不能彻底解除 Git 规约，应改成分层并发模型
+
+**当前主线目标**
+- 用户在恢复开发放行后继续指出一个真实痛点：
+  - 多线程并行时，线程容易把 shared root 的整体 dirty 错当成“我自己的现场”
+  - 于是经常出现“我明明只做了 A，回看却像 A+B，干脆先停”的心理与流程阻塞
+- 用户进一步追问：
+  - 是否要彻底放弃当前 Git 规约，默认接受冲突，最后再做一次大收盘
+
+**本轮分析结论**
+1. 当前主要问题不是“规约太多”，而是“规约粒度错了”：
+   - 把 `repo overall dirty` 当成了线程判断依据
+   - 没有把“普通并行代码”和“热文件 / scene / asset”分层处理
+2. 不建议彻底解除 Git 规约：
+   - 对普通代码文件，晚一点集成可以承受
+   - 但对 `Primary.unity`、Prefab、`.asset`、`TagManager.asset` 这类 Unity 序列化热文件，放任多人先写后冲突，最终成本通常更大
+3. 也不需要退回“全仓一次只能一个人写”：
+   - 正确模型应是“按文件类型分层并发”，而不是“全局单写”
+
+**建议口径**
+1. 普通代码 / 文档路径：
+   - 允许并行
+   - 线程不要再看全仓 `git status` 做归因
+   - 只看自己的 `own roots / changed_paths / include paths`
+2. 共享热文件：
+   - 只对热目标启用短窗独占
+   - 当前至少包括：
+     - `Primary.unity`
+     - `GameInputManager.cs`
+     - `TagManager.asset`
+     - `StaticObjectOrderAutoCalibrator.cs`
+3. 如果未来想提高吞吐，不该改成“shared root 放任混写后再收盘”，而应改成：
+   - 普通线程在 disjoint 路径并行
+   - 命中同一热文件时，用独占写窗口或 branch / worktree carrier
+   - 最后由单一 integrator 做明确收盘
+
+**关键裁定**
+1. `dirty 传染` 的根因是“归因视图”错了，不是 Git 本身不该存在。
+2. 下一步应该放宽的是：
+   - 线程对 foreign dirty 的心理负担
+   - 普通路径的并发准入
+3. 下一步不能放宽的是：
+   - 同一热 scene / prefab / asset 的多人同时 tracked 写入
+4. 之后若继续完善工具，最有价值的方向不是“取消所有闸门”，而是：
+   - 让脚本默认输出 `own diff / foreign diff / same-file contamination` 三层结果
+   - 避免线程再把 `A + B` 误读成“都是我的锅”
+
+**恢复点 / 下一步**
+- 当前先把这个判断作为治理分析结论保留；
+- 如用户确认要落规则，下一轮应优先做的是：
+  1. 收紧“只看 own roots，不看 overall dirty”的线程口径
+  2. 把热文件与普通文件彻底分层
+  3. 为未来的“统一收盘”单独设计 integrator 流程，而不是让 shared root 先长期混写
