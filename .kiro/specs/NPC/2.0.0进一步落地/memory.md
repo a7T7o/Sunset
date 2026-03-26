@@ -303,3 +303,34 @@
   - 当前是否确认 scene 写窗口成立：`no`
 - 当前恢复点：
   - 这轮与上一轮相比，`HEAD` 已变化，但决定准入的 blocker 没变化；仍需先明确 `Primary.unity` 当前 mixed dirty 的归属，再谈 `scene audit -> HomeAnchor`
+
+## 2026-03-26｜NPCV2 委托-03：共享根大扫除与 owner 报实
+
+- 当前 live 基线：
+  - 启动基线：`D:\Unity\Unity_learning\Sunset @ main @ 1452bebb1171235b454d1d4fd961639caabdc930`
+- 当前主线目标：
+  - 只做 NPC 线 own dirty / untracked 的卫生清扫、owner 报实与白名单收口；不进入 `Primary.unity` / `HomeAnchor` 施工。
+- 本轮 owner 报实：
+  - 已确认 NPC own 面：
+    - `.codex/threads/Sunset/NPC/memory_0.md`
+    - `.kiro/specs/NPC/memory.md`
+    - `.kiro/specs/NPC/2.0.0进一步落地/memory.md`
+    - `.codex/threads/Sunset/NPC/V2交接文档/*`
+    - `.kiro/specs/NPC/2.0.0进一步落地/2026-03-25_NPC工具链收口后卫生清扫与待命.md`
+    - `.kiro/specs/NPC/2.0.0进一步落地/2026-03-26-NPC进入下一代交接前状态确认委托-01.md`
+    - `.kiro/specs/NPC/2.0.0进一步落地/2026-03-26-NPCV2首轮启动委托-02.md`
+    - `.kiro/specs/NPC/2.0.0进一步落地/2026-03-26-NPCV2共享根大扫除与owner报实-03.md`
+  - 已明确不属于本轮可认领面：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - 导航线、农田线、TMP 字体与其他线程 memory / prompt 脏改
+- 本轮白名单收口：
+  - 已执行：
+    - `scripts/git-safe-sync.ps1 -Action sync -Mode task -OwnerThread NPCV2 -IncludePaths '.codex/threads/Sunset/NPC/' '.codex/threads/Sunset/NPCV2/' '.kiro/specs/NPC/'`
+  - 首次收口结果：
+    - 提交 `eb6284fa`（`2026.03.26_NPCV2_01`）已推送到 `main`
+    - NPC own 文档 / memory 大部分已收口
+    - 仍残留一个 own 尾账：`.codex/threads/Sunset/NPCV2/memory_0.md` 未纳入，需最小 follow-up
+- 当前恢复点：
+  - cleanup 没有被偷换成业务复工，`Primary.unity` owner 裁定口径不变
+  - 下一步只做最小 follow-up，把 `NPCV2/memory_0.md` 与本轮 cleanup 记忆补记一起白名单收口
