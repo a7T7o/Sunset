@@ -2106,3 +2106,304 @@
 - 当前恢复点：
   - 下一轮若继续导航，不应再重开 `TrafficArbiter` 或 solver 泛调；
   - 应直接围绕 NPC 运行场景的“提前停摆”继续收窄。
+
+## 2026-03-25（`002-prompt-16`：用户现场打回，当前仍是 real-input 体验失败，不接受“最坏回归已压掉”）
+
+- 当前主线目标：
+  - 导航线继续按“真实点击体验回归事故处理”推进，不让上一轮 runner 结果继续冒充用户现场已接受。
+- 本轮子任务：
+  - 基于用户最新复测结果，重判导航当前真实状态，并新增下一轮 prompt。
+- 本轮新增稳定事实：
+  1. 用户最新现场已经直接否定上一轮“最坏回归已压掉”的外推：
+     - 用户仍明确感知到 `保护罩 / 很远就停 / 被围抽搐`；
+     - 因此当前真实状态仍不能表述成“只剩 NPC 提前停摆”。
+  2. 上一轮真正可接受的 checkpoint 只保留为：
+     - runtime 已回到 `4613255c` 对应的旧 solver 直出链；
+     - `TrafficArbiter / MotionCommand` 已不在当前运行时基线。
+  3. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-16.md`
+  4. `002-prompt-16` 已把下一轮唯一主刀重新钉为：
+     - 只围绕真实右键入口下的近身包络、阻挡起效距离、以及多 NPC 围堵稳定性，真正压掉用户仍能肉眼看见的 `保护罩 / 很远就停 / 被围抽搐`。
+  5. 下一轮 fresh live 不再接受“旧轮结果保留”：
+     - 必须同轮 fresh 跑 `RealInputPlayerAvoidsMovingNpc`
+     - 单 NPC 近身接近 real-input
+     - 多 NPC 围堵 / 穿群 real-input
+     - `NpcAvoidsPlayer`
+     - `NpcNpcCrossing`
+- 当前恢复点：
+  - 导航线现在的诚实口径是：
+    - 结构上已撤回未收口新链；
+    - 但 real-input 体验仍未被用户接受。
+  - 后续若继续导航，不准再把问题过早缩成“只剩 NPC 提前停摆”；必须先把用户当前仍在骂的可见坏体验压掉。
+
+## 2026-03-25（`002-prompt-16` 续工：继续收缩保护罩/早停壳层，但 fresh live 被外部 compile blocker 卡住）
+
+- 当前主线目标：
+  - 继续只围绕真实右键入口下的 `保护罩 / 很远就停 / 被围抽搐` 推进，不回漂大架构。
+- 本轮子任务：
+  - 先让 fresh live 触发链重新可用；如果 live 仍拿不到结果，就继续直接收缩 solver 热区里仍在制造保护罩感的半径和 clearance 阈值。
+- 本轮完成：
+  1. 重新执行了导航线前置核查与 live 基线核查：
+     - 手工等价执行 `sunset-startup-guard`
+     - 读取 `002-prompt-16.md`
+     - 读取工作区 `memory.md`
+     - 读取 `mcp-single-instance-occupancy.md / mcp-live-baseline.md`
+     - 确认当前实例仍是 `Sunset@21935cd3ad733705`
+  2. MCP 现场重新校正：
+     - 先把 Unity 拉回 `Edit Mode`
+     - 清 Console
+     - 用 `execute_menu_item + read_console + editor_state` 复核当前 live 触发链
+  3. 确认当前 fresh live 的第一现场阻塞不是“导航结果已经好了”，而是：
+     - 新写的 `NavigationLiveValidationMenu.cs` 排队起跑逻辑没有被当前 Unity 编译截面采纳
+     - `execute_menu_item` 仍命中旧菜单逻辑，直接输出“请先进入 Play Mode”
+     - `manage_editor play` 后 editor state 仍回到 `is_playing=false`
+     - 当前 shared root 存在外部 compile blocker：
+       - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` 的 `PageRefs` 缺失
+       - 刷新时还出现过 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs` 对 NPC toolchain 类型的缺失引用
+  4. 在不回漂主线的前提下，继续直接收缩当前导航热区：
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationAvoidanceRules.cs`
+       - `GetInteractionRadius(...)` 改为 collider-first，只保留很小的 interaction shell
+       - moving agent 总壳层 cap 收到 `0.05`
+       - sleeping / 非动态 blocker 总壳层 cap 收到 `0.02`
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationLocalAvoidanceSolver.cs`
+       - 收缩 `yieldToDynamicAgent` 的 clearance buffer、slowDownWeight、distanceSpeedScale、timeSpeedScale
+       - 收缩 `sleeping/stationary blocker` 的 clearance buffer、slowDownWeight、distanceSpeedScale
+       - 大幅收缩 sleeping/stationary blocker 的 repath lane / clearance 阈值
+       - 目标就是把“很远就停”和“被围就先被巨大阻挡壳压死”继续往真实 footprint 收回
+     - `Assets/YYY_Scripts/Service/Navigation/Editor/NavigationLiveValidationMenu.cs`
+       - 源码层已补“从 Edit Mode 排队进 Play 再自动起跑”的逻辑
+       - 但当前尚未被 Unity 编译采纳，仍不能把它当成本轮 live 已可用
+- 本轮验证：
+  1. `validate_script`
+     - `NavigationAvoidanceRules.cs`：`errors=0`
+     - `NavigationLocalAvoidanceSolver.cs`：`errors=0`
+     - `NavigationLiveValidationMenu.cs`：`errors=0`
+  2. `git diff --check`
+     - 当前导航热区通过
+  3. MCP / live 取证
+     - 已多次短窗尝试：
+       - `stop -> clear console -> play`
+       - `execute_menu_item("Run Real Input Single NPC Near Validation")`
+       - `read_console / editor_state`
+     - 结论不是 fresh real-input 已过线，而是当前没能拿到可信的 same-round fresh live 结果
+- 本轮新增稳定结论：
+  1. 当前源码里真正还在制造“保护罩 / 很远就停”的第一责任点，至少包含两层：
+     - `interactionRadius` 之前仍然把 avoidance shell 叠进 solver 主判定
+     - `sleeping/stationary blocker` 的 clearance/repath 阈值此前明显大于真实 collider footprint
+  2. 这轮已把这两层继续收紧，但还不能拿旧轮 live 或用户旧体感冒充 fresh 结果
+  3. 当前 fresh live 的直接外部阻塞是：
+     - `SpringDay1PromptOverlay.cs` 的 `PageRefs` 编译错误导致当前 shared root 进不了稳定 Play
+     - 这不是导航代码自身的新红错，但它确实阻断了本轮 same-round fresh live
+- 当前恢复点：
+  - 下一轮若继续导航，应先在现有 shared root 里拿到一个可进 Play 的编译窗口，再立刻补跑：
+    - `RealInputPlayerAvoidsMovingNpc`
+    - `RealInputPlayerSingleNpcNear`
+    - `RealInputPlayerCrowdPass`
+    - `NpcAvoidsPlayer`
+    - `NpcNpcCrossing`
+  - 在此之前，导航线当前最诚实的状态是：
+    - hot zone 已继续收紧
+    - 但 `002-prompt-16` 要求的 same-round fresh live 还没拿到
+
+## 2026-03-26（`002-prompt-17` 续工：hygiene 报实 + same-round fresh live 跑实，但“玩家推着 NPC 走”仍未压掉）
+
+- 当前主线目标：
+  - 继续按 `002-prompt-17.md` 处理真实点击体验回归事故，不再允许用 external blocker、旧 runner 结果或骨架进展充当交付。
+- 本轮子任务：
+  - 先把 own hygiene 报实，再补齐 same-round fresh live；如果仍失败，就把第一责任点继续压窄。
+- 本轮完成：
+  1. 手工等价执行前置核查，显式使用：
+     - `skills-governor`
+     - `sunset-workspace-router`
+     - `sunset-unity-validation-loop`
+     - `sunset-no-red-handoff`
+     - `unity-mcp-orchestrator`
+     - `sunset-scene-audit`
+  2. 重新读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-17.md`，并先把 Unity 现场从中断态拉回 `Edit Mode`。
+  3. 核实用户贴出的 `DebugIssueAutoNavClick` 编译报错不是当前源码事实：
+     - `GameInputManager.cs` 仍有 `DebugIssueAutoNavClick(Vector2 world)`
+     - `validate_script(GameInputManager.cs / NavigationLiveValidationRunner.cs)` 均 `errors=0`
+  4. `NavigationAgentRegistry.cs` 纳入 hygiene 范围并收口：
+     - 本轮把未被调用消费的 `RegisteredUnitsById / TryGetUnit / TryGetCollider / TryGetInstanceId` 残留回退到 `HEAD`
+     - 当前该文件 diff 已清空
+  5. `Primary.unity` 做了只读归属审计，没有继续写 scene：
+     - 导航 own residue 确认包括：
+       - `PlayerAutoNavigator.enableDetailedDebug: 1`
+       - `001.prefab` scene override 的 `showDebugLog: 1`
+       - `001.prefab` scene override 的 `drawDebugPath: 0`
+       - `002.prefab` scene override 的 `showDebugLog: 0`（值等于 prefab 默认，但属于多余 override residue）
+     - `StoryManager`、workbench、transform 等 mixed dirty 已明确排除为非导航 own
+  6. same-round fresh live 已按“进 Play 4 秒 bootstrap -> 单场菜单触发 -> 拿到 `scenario_end` 立刻 Stop -> 回 Edit Mode”的纪律跑完 5 组首轮取证：
+     - `RealInputPlayerAvoidsMovingNpc`
+       - `pass=False / timeout=6.89 / minClearance=-0.006 / pushDisplacement=2.670 / playerReached=True / npcReached=False`
+     - `RealInputPlayerSingleNpcNear`
+       - `pass=False / timeout=6.52 / minEdgeClearance=-0.005 / blockOnsetEdgeDistance=0.197 / playerReached=False`
+     - `RealInputPlayerCrowdPass`
+       - `pass=False / timeout=6.50 / minEdgeClearance=-0.013 / directionFlips=19 / crowdStallDuration=5.190 / playerReached=False`
+     - `NpcAvoidsPlayer`
+       - `pass=False / timeout=6.51 / minClearance=0.542 / npcReached=False`
+     - `NpcNpcCrossing`
+       - `pass=False / timeout=6.52 / minClearance=0.038 / npcAReached=False / npcBReached=False`
+  7. 基于 fresh live 结果继续收窄导航热区：
+     - `NavigationLocalAvoidanceSolver.cs`
+       - predicted moving conflict 的 blocking/repath 计算改为使用预测前向距离，而不是继续拿当前前向距离误判
+       - 动态让行减速链与 sleeping blocker 提前升级链继续收紧
+       - 增加 non-yielding NPC peer awareness，避免 hold-course 语义被完全丢掉
+     - `NavigationAvoidanceRulesTests.cs`
+       - 新增 `Solver_ShouldRequestRepath_WhenMovingNpcPredictedConflictIsCloserThanCurrentForwardDistance`
+       - 当前 `NavigationAvoidanceRulesTests` 为 `17/17 passed`
+     - `PlayerAutoNavigator.cs`
+       - shared avoidance 触发时，先尝试 `NavigationPathExecutor2D.TryCreateDetour(...)`，再退回原有 rebuild fallback
+       - 下调 detour candidate clearance 门槛，避免 candidate 在现场被全部刷掉
+     - `NPCAutoRoamController.cs`
+       - shared avoidance `ShouldRepath` 时先尝试 shared detour，再退回原有 rebuild fallback
+  8. 本轮代码闸门：
+     - `validate_script(NavigationLocalAvoidanceSolver.cs / PlayerAutoNavigator.cs / NPCAutoRoamController.cs / NavigationAvoidanceRulesTests.cs)` 均 `errors=0`
+     - `git diff --check` 对本轮热区通过
+     - `NavigationAvoidanceRulesTests` 再跑一次后仍为 `17/17 passed`
+  9. 修后对 `RealInputPlayerAvoidsMovingNpc` 做两次短窗 fresh 追打：
+     - solver 收紧后：
+       - `pass=False / timeout=6.52 / minClearance=-0.005 / pushDisplacement=2.681`
+     - detour 接线与 clearance 放宽后：
+       - `pass=False / timeout=6.50 / minClearance=-0.005 / pushDisplacement=2.648`
+- 本轮新增稳定结论：
+  1. 当前 shared root 已不再有 compile blocker 借口：
+     - 代码闸门是绿的
+     - `NavigationAgentRegistry.cs` hygiene 已清
+     - `Primary.unity` 也已按“只读判归属”处理
+  2. 真实点击入口下，“玩家推着 NPC 走”这条坏现象仍然成立，而且是 hard fact：
+     - `pushDisplacement` 仍稳定在 `2.64 ~ 2.68`
+  3. 当前新的第一责任点已经继续收窄为：
+     - `PlayerAutoNavigator / NPCAutoRoamController` 的 shared detour 虽然已经接线，但在 real-input 现场几乎从未真正进入 active detour owner 状态
+     - 现场信号是：日志里 `shouldRepath=True` 会出现，但运行态长期仍是 `detour=False`，玩家/NPC继续落回 `重建路径` 或 `卡顿重建`
+  4. 因此当前最窄责任点不再是 compile、registry、runner 启动链，也不再只是 solver 参数，而是：
+     - “为什么 real-input blocker 已经触发 shared repath，却仍没有把 detour 真正占进执行层”
+- live 纪律执行结果：
+  - 每轮都只跑单场
+  - 拿到 `scenario_end` 后立刻 `Stop`
+  - Unity 均通过 `manage_editor stop` 退回 `Edit Mode`
+- 当前恢复点：
+  - 下一轮如果继续导航，主刀应直接锁：
+    - `PlayerAutoNavigator.TryCreateDynamicDetour / HandleSharedDynamicBlocker`
+    - `NPCAutoRoamController.TryHandleSharedAvoidance`
+    - `NavigationPathExecutor2D.TryCreateDetour`
+  - 目标不是再泛调 solver，而是查清：
+    - 为什么 `shouldRepath=True` 后 shared detour 仍不落地
+    - 为什么 `_hasDynamicDetour / HasOverrideWaypoint` 在 real-input 现场长期不起效
+    - 为什么失败最终总回到 `重建路径` 而不是稳定侧绕
+
+## 2026-03-26（执行层握手链路开颅审计：`ShouldRepath` 已产出，但 detour owner 没有稳定接管）
+
+- 当前主线目标：
+  - 不再继续泛调 `NavigationLocalAvoidanceSolver` 参数，而是直接交代“`ShouldRepath / SuggestedDetourDirection` 为什么在执行层掉链子”。
+- 本轮子任务：
+  - 只读核查玩家/NPC/共享执行层当前源码，按 4 个问题给出案发现场回执，并固定下一刀的真正责任点。
+- 本轮完成：
+  1. 重新核对当前热区源码：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationLocalAvoidanceSolver.cs`
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationPathExecutor2D.cs`
+     - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+  2. 锁定玩家侧接收点与死亡回退链：
+     - `ExecuteNavigation()` 在 `402-403` 先接 `AvoidanceResult` 再进 `HandleSharedDynamicBlocker()`
+     - `HandleSharedDynamicBlocker()` 的 `778-786` 会在 `!ShouldRepath` / cooldown 直接吞掉 detour
+     - `792-802` 在 detour 创建失败后直接 `BuildPath()`，并 `ForceImmediateMovementStop()`
+     - `760-765 + NavigationPathExecutor2D.ClearOverrideWaypointIfChanged(864-875)` 还会在 solver 某一帧不再报 blocker 时把已有 override waypoint 清掉
+  3. 锁定 NPC 侧接收点与死亡回退链：
+     - `TryHandleSharedAvoidance()` 在 `875` 接到 solver 结果
+     - `926-945` 会在 `!ShouldRepath` / cooldown 下直接退出或 hard stop
+     - `950-959` 先 `StopForSharedAvoidance()`，detour 创建失败就直接 `TryRebuildPath()`
+  4. 锁定共享执行层现状：
+     - `NavigationPathExecutor2D.TryCreateDetour()` 只有在候选点真正过 `TryResolveDetourCandidate()` 时才会让 `HasOverrideWaypoint=true`
+     - `TryClearDetourAndRecover()` 虽然存在，但当前 runtime controller 没有任何调用点；也就是说 detour clear/recover API 还没真正成为当前运行闭环的一部分
+  5. 锁定玩家物理真相：
+     - detour 未落地时，玩家这一帧最终拿到的不是 detour waypoint，而是 `moveDir * moveScale`
+     - 若 `ShouldUseBlockedNavigationInput()` 成立，则进入 `SetBlockedNavigationInput()` -> `ApplyBlockedNavigationVelocity()`，只是在刚体层削前冲/限速，不是稳定侧绕 owner
+- 本轮新增稳定结论：
+  1. 当前“推土机感”的第一责任点已经可明确表述为：
+     - solver 已经会产出 detour 意图
+     - 但 controller 没把它稳定保活成 override waypoint owner
+     - 运行态要么回退成 blocked steering，要么直接掉回 `BuildPath / TryRebuildPath / CheckAndHandleStuck`
+  2. 当前不该再把主刀放在 solver 权重：
+     - 真正的断点在 `PlayerAutoNavigator / NPCAutoRoamController / NavigationPathExecutor2D` 的执行层握手
+  3. 共享 detour 生命周期当前仍未完整闭环：
+     - 底座里已有 clear/recover API
+     - 但运行态 controller 并没有把它接成现行 owner 闭环
+- 当前恢复点：
+  - 下一轮若继续导航，优先主刀应留在：
+    - `PlayerAutoNavigator.HandleSharedDynamicBlocker / TryCreateDynamicDetour`
+    - `NPCAutoRoamController.TryHandleSharedAvoidance / TryCreateSharedAvoidanceDetour`
+    - `NavigationPathExecutor2D.TryCreateDetour / ClearOverrideWaypointIfChanged`
+  - 目标是让 detour 真正成为可持续 1 个有效窗口以上的 owner，而不是继续让意图在执行层被吞掉
+
+## 2026-03-26（交接前状态确认：已满足进入 `导航检查V2` 的条件）
+
+- 当前主线目标：
+  - 不再继续业务推进，只确认当前导航线是否已经足够稳定，可以无失真交给下一代线程。
+- 本轮子任务：
+  - 按交接前状态确认委托，只判断“是否可进入交接”，并在满足条件时直接生成交接包。
+- 本轮完成：
+  1. 读取：
+     - `2026-03-26-导航进入下一代交接前状态确认委托-01.md`
+     - `2026-03-26_V1交接文档统一写作Prompt.md`
+     - 当前线程/工作区/父工作区记忆
+     - `002-prompt-17.md`
+  2. 重新判定 5 件事：
+     - 当前主线已清楚到可直接交给新线程
+     - single first blocker 已稳定固定为 detour owner 执行层闭环
+     - own / non-own / hot-file 边界已够清楚
+     - 当前不存在必须由本线程先补的最小业务动作，否则交接会失真
+     - 新线程已能直接从执行层握手链路继续，而不是被迫重跑旧架构审计
+  3. 正式生成 `导航检查V2` 重型交接包：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\00_交接总纲.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\01_线程身份与职责.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\02_主线与支线迁移编年.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\03_关键节点_分叉路_判废记录.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\04_用户习惯_长期偏好_协作禁忌.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\05_当前现场_高权重事项_风险与未竟问题.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\06_证据索引_必读顺序_接手建议.md`
+- 本轮新增稳定结论：
+  1. 当前导航叙事已经稳定收敛为：
+     - `ShouldRepath` 已出现
+     - detour owner 没有稳定接管执行层
+  2. 这个收敛已经足以支撑下一代线程直接开工，不会失真；
+  3. 因此当前工作区已满足进入 `导航检查V2` 的条件。
+
+## 2026-03-26（导航检查V2：detour owner 保活最小闭环首轮）
+
+- 当前主线目标：
+  - 只做 detour owner 保活最小闭环，让 detour 一旦创建成功至少活过一个有效执行窗口，不回漂到 solver 权重、`TrafficArbiter / MotionCommand`、`Primary.unity` 或大窗 live。
+- 本轮子任务：
+  - 只锁 `PlayerAutoNavigator / NPCAutoRoamController / NavigationPathExecutor2D`，把 detour create -> protected window -> no-blocker release 接成最小闭环，并用 1 组 fresh live 复核 `RealInputPlayerAvoidsMovingNpc`。
+- 本轮完成：
+  1. `NavigationPathExecutor2D.SetOverrideWaypoint(...)` 现在会给 direct override 同步写 detour metadata：
+     - `LastDetourOwnerId`
+     - `LastDetourPoint`
+     - `LastDetourCreateTime`
+     - `LastDetourRecoverySucceeded=false`
+     从而补上玩家 fallback detour 的时间戳来源。
+  2. `PlayerAutoNavigator.cs` 新增 detour 最小保护窗口：
+     - detour 创建后的 `0.35s` 内跳过旧 stuck/rebuild 抢跑；
+     - `!HasBlockingAgent` 不再直接清掉 override，而是改走 `TryClearDetourAndRecover(..., rebuildPath:false)`；
+     - no-blocker 时只有保护窗结束后才释放 owner 并恢复主路径。
+  3. `NPCAutoRoamController.cs` 同步新增 detour 最小保护窗口与共享 release：
+     - active detour 的最初 `0.35s` 内不再让旧 stuck/rebuild 抢跑；
+     - `!HasBlockingAgent` 时改走 `TryClearDetourAndRecover(..., rebuildPath:false)`，把 release 也接回共享执行层。
+  4. `NavigationAvoidanceRulesTests.cs` 新增 direct override metadata 断言；当前 `NavigationAvoidanceRulesTests` 为 `18/18 passed`。
+  5. 本轮代码闸门：
+     - `git diff --check` 通过
+     - `validate_script(NavigationPathExecutor2D.cs / PlayerAutoNavigator.cs / NPCAutoRoamController.cs / NavigationAvoidanceRulesTests.cs)` 均 `errors=0`
+     - Console `0 error / 0 warning`
+  6. fresh live（最多 1 轮，拿到 `scenario_end` 即停）：
+     - 菜单：`Tools/Sunset/Navigation/Run Real Input Push Validation`
+     - 结果：`scenario_end=RealInputPlayerAvoidsMovingNpc pass=True minClearance=-0.005 pushDisplacement=0.000 playerReached=True npcReached=True`
+     - 现场已回到 `Edit Mode`
+- 本轮新增稳定结论：
+  1. detour create 后的“瞬时无 blocker / 旧 stuck rebuild / 直接 clear override”这条吞 owner 链已被最小保护窗切断。
+  2. direct fallback detour 现在也会打 detour create metadata，不再因为没有 `LastDetourCreateTime` 导致保护窗失效。
+  3. `RealInputPlayerAvoidsMovingNpc` fresh live 已从此前 fail / `pushDisplacement > 2.6` 收敛到 `pass=True / pushDisplacement=0.000`；结合本轮补口，可以把当前单一第一进展定为：
+     - detour owner 保活最小闭环已接上，并拿到首个有效执行窗口。
+- 当前恢复点：
+  - 如果导航继续，只应围绕同一闭环补更直接的 owner 命中证据或扩第二组 fresh live；
+  - 当前不要回漂 solver 权重、`TrafficArbiter / MotionCommand`、`Primary.unity` 或大窗 live。

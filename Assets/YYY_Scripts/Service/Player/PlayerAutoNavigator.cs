@@ -13,6 +13,14 @@ using UnityEngine;
 /// </summary>
 public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 {
+    private static readonly NavigationPathExecutor2D.DetourCandidateSpec[] SharedDynamicDetourCandidateSpecs =
+    {
+        new NavigationPathExecutor2D.DetourCandidateSpec(false, 1.25f, 0.45f),
+        new NavigationPathExecutor2D.DetourCandidateSpec(false, 1.5f, 0.8f),
+        new NavigationPathExecutor2D.DetourCandidateSpec(true, 1.4f, 0.7f),
+        new NavigationPathExecutor2D.DetourCandidateSpec(true, 1.65f, 1.0f),
+    };
+
     [Header("引用")]
     [SerializeField] private PlayerMovement movement;
     [SerializeField] private Transform player;
@@ -60,6 +68,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private const float STUCK_THRESHOLD = 0.1f;
     private const float STUCK_CHECK_INTERVAL = 0.3f;
     private const int MAX_STUCK_RETRIES = 3;
+    private const float DYNAMIC_DETOUR_MIN_ACTIVE_DURATION = 0.35f;
 
     // 到达回调
     private System.Action _onArrivedCallback;
@@ -105,7 +114,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         NavigationUnitType otherType = other.GetUnitType();
         return otherType == NavigationUnitType.NPC || otherType == NavigationUnitType.Enemy;
     }
-    public float GetAvoidanceRadius() => Mathf.Max(playerRadius + dynamicObstaclePadding, playerRadius);
+    public float GetAvoidanceRadius() => playerRadius + GetContactShellPadding();
 
     void Awake()
     {
@@ -405,8 +414,8 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
                 playerPos,
                 moveDir,
                 moveScale,
-                GetAvoidanceRadius(),
-                dynamicObstaclePadding,
+                GetColliderRadius(),
+                GetContactShellPadding(),
                 avoidance);
 
         if (closeRangeConstraint.Applied)
@@ -629,6 +638,11 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private bool CheckAndHandleStuck()
     {
         Vector2 currentPos = GetPlayerPosition();
+        if (IsDynamicDetourProtected(Time.time))
+        {
+            return false;
+        }
+
         NavigationPathExecutor2D.ProgressCheckResult progress = NavigationPathExecutor2D.EvaluateStuck(
             navigationExecution,
             currentPos,
@@ -753,8 +767,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         {
             _lastDynamicObstacleId = 0;
             _dynamicObstacleSightings = 0;
-            ClearDynamicDetourIfNeeded(avoidance.BlockingAgentId);
-            return false;
+            return TryReleaseDynamicDetour(playerPos, Time.time);
         }
 
         if (_lastDynamicObstacleId == avoidance.BlockingAgentId)
@@ -818,11 +831,30 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             : Vector2.Perpendicular(separationDirection).normalized;
 
         float contactShellDistance =
-            GetAvoidanceRadius() +
+            GetColliderRadius() +
             Mathf.Max(avoidance.BlockingAgentRadius, 0.35f) +
-            dynamicObstaclePadding +
-            0.25f;
-        float minimumClearanceSqr = contactShellDistance * contactShellDistance * 0.85f;
+            GetContactShellPadding() +
+            0.12f;
+
+        NavigationPathExecutor2D.DetourLifecycleResult sharedDetour = NavigationPathExecutor2D.TryCreateDetour(
+            navigationExecution,
+            navGrid,
+            playerPos,
+            avoidance.BlockingAgentId,
+            avoidance.BlockingAgentPosition,
+            avoidance.AdjustedDirection,
+            avoidance.SuggestedDetourDirection,
+            contactShellDistance,
+            0.55f,
+            SharedDynamicDetourCandidateSpecs,
+            Time.time);
+
+        if (sharedDetour.Created || sharedDetour.ShouldKeepCurrentDetour)
+        {
+            return true;
+        }
+
+        float minimumClearanceSqr = contactShellDistance * contactShellDistance * 0.55f;
 
         if (TrySetDynamicDetourCandidate(
                 playerPos + separationDirection * (contactShellDistance * 0.9f) + sidestepDirection * (contactShellDistance * 0.9f),
@@ -873,14 +905,49 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         return true;
     }
 
-    private void ClearDynamicDetour()
+    private bool TryReleaseDynamicDetour(Vector2 playerPos, float currentTime)
     {
-        NavigationPathExecutor2D.ClearOverrideWaypoint(navigationExecution);
+        if (!_hasDynamicDetour)
+        {
+            return false;
+        }
+
+        NavigationPathExecutor2D.DetourLifecycleResult detour = NavigationPathExecutor2D.TryClearDetourAndRecover(
+            navigationExecution,
+            navGrid,
+            playerPos,
+            GetResolvedPathDestination(),
+            0,
+            currentTime,
+            rebuildPath: false,
+            minimumDetourActiveDuration: DYNAMIC_DETOUR_MIN_ACTIVE_DURATION,
+            recoveryCooldown: 0f,
+            hasLineOfSight: null,
+            cleanupReferencePosition: null,
+            cleanupWaypointTolerance: 0f,
+            log: AddDebugLog,
+            ignoredCollider: playerCollider);
+
+        if (detour.ShouldKeepCurrentDetour || detour.HasActiveDetour)
+        {
+            return false;
+        }
+
+        if (detour.Cleared || detour.Recovered)
+        {
+            AddDebugLog("共享动态代理短暂消失，释放 detour owner 并恢复主路径");
+            ForceImmediateMovementStop();
+            return true;
+        }
+
+        return false;
     }
 
-    private void ClearDynamicDetourIfNeeded(int blockingAgentId)
+    private bool IsDynamicDetourProtected(float currentTime)
     {
-        NavigationPathExecutor2D.ClearOverrideWaypointIfChanged(navigationExecution, blockingAgentId);
+        return _hasDynamicDetour &&
+            navigationExecution.LastDetourCreateTime > float.NegativeInfinity &&
+            currentTime - navigationExecution.LastDetourCreateTime < DYNAMIC_DETOUR_MIN_ACTIVE_DURATION;
     }
 
     private float GetRequestedMoveSpeed()
@@ -909,10 +976,10 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         }
 
         float engageDistance =
-            GetAvoidanceRadius() +
+            GetColliderRadius() +
             Mathf.Max(avoidance.BlockingAgentRadius, 0.01f) +
-            dynamicObstaclePadding +
-            0.25f;
+            GetContactShellPadding() +
+            0.08f;
 
         return moveScale <= 0.35f && avoidance.BlockingDistance <= engageDistance;
     }
@@ -1010,7 +1077,17 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private Vector2 GetPlayerPosition()
     {
-        return playerCollider != null ? (Vector2)playerCollider.bounds.center : (Vector2)player.position;
+        if (playerRigidbody != null)
+        {
+            return playerRigidbody.position;
+        }
+
+        return player != null ? (Vector2)player.position : Vector2.zero;
+    }
+
+    private float GetContactShellPadding()
+    {
+        return Mathf.Min(dynamicObstaclePadding, 0.05f);
     }
 
     private float GetFinalStopDistance()

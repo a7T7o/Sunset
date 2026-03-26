@@ -10,9 +10,18 @@ using UnityEngine;
 [RequireComponent(typeof(NPCMotionController))]
 public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 {
+    private static readonly NavigationPathExecutor2D.DetourCandidateSpec[] SharedAvoidanceDetourCandidateSpecs =
+    {
+        new NavigationPathExecutor2D.DetourCandidateSpec(false, 1.2f, 0.4f),
+        new NavigationPathExecutor2D.DetourCandidateSpec(false, 1.45f, 0.75f),
+        new NavigationPathExecutor2D.DetourCandidateSpec(true, 1.35f, 0.65f),
+        new NavigationPathExecutor2D.DetourCandidateSpec(true, 1.6f, 0.95f),
+    };
+
     private const float AmbientChatRetryDelay = 0.9f;
     private const float AmbientChatRetryMinRemainingTime = 1.25f;
     private const int AmbientChatMaxRetryCount = 3;
+    private const float SHARED_DETOUR_MIN_ACTIVE_DURATION = 0.35f;
 
     private enum RoamState
     {
@@ -161,7 +170,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         return other != null && other.GetUnitType() != NavigationUnitType.StaticObstacle;
     }
-    public float GetAvoidanceRadius() => Mathf.Max(avoidanceRadius, GetColliderRadius());
+    public float GetAvoidanceRadius()
+    {
+        float colliderRadius = GetColliderRadius();
+        float cappedShell = Mathf.Min(avoidanceRadius, colliderRadius + 0.06f);
+        return Mathf.Max(colliderRadius, cappedShell);
+    }
     public Vector2 GetCurrentVelocity()
     {
         if (motionController != null)
@@ -740,6 +754,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return false;
         }
 
+        if (IsSharedAvoidanceDetourProtected(Time.time))
+        {
+            return false;
+        }
+
         NavigationPathExecutor2D.ProgressCheckResult progress = NavigationPathExecutor2D.EvaluateStuck(
             navigationExecution,
             currentPosition,
@@ -869,6 +888,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         {
             lastBlockingAgentId = 0;
             blockingAgentSightings = 0;
+            if (TryReleaseSharedAvoidanceDetour(navigationPosition, Time.time))
+            {
+                return true;
+            }
+
             adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
                 ? avoidance.AdjustedDirection
                 : desiredDirection;
@@ -896,8 +920,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 navigationPosition,
                 adjustedDirection,
                 speedScale,
-                GetAvoidanceRadius(),
-                0.05f,
+                GetColliderRadius(),
+                GetContactShellPadding(),
                 avoidance);
 
         if (closeRangeConstraint.Applied)
@@ -936,8 +960,91 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         blockingAgentSightings = 0;
         StopForSharedAvoidance(navigationPosition, avoidance, closeRangeConstraint, "Repath");
 
+        if (TryCreateSharedAvoidanceDetour(navigationPosition, adjustedDirection, avoidance))
+        {
+            return true;
+        }
+
         if (TryRebuildPath(movementPosition, resetRecoveryCounter: false))
         {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool TryCreateSharedAvoidanceDetour(
+        Vector2 navigationPosition,
+        Vector2 adjustedDirection,
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance)
+    {
+        if (navGrid == null)
+        {
+            return false;
+        }
+
+        float detourDistance =
+            GetColliderRadius() +
+            Mathf.Max(avoidance.BlockingAgentRadius, 0.3f) +
+            GetContactShellPadding() +
+            0.1f;
+
+        NavigationPathExecutor2D.DetourLifecycleResult detour = NavigationPathExecutor2D.TryCreateDetour(
+            navigationExecution,
+            navGrid,
+            navigationPosition,
+            avoidance.BlockingAgentId,
+            avoidance.BlockingAgentPosition,
+            adjustedDirection,
+            avoidance.SuggestedDetourDirection,
+            detourDistance,
+            0.5f,
+            SharedAvoidanceDetourCandidateSpecs,
+            Time.time);
+
+        return detour.Created || detour.ShouldKeepCurrentDetour;
+    }
+
+    private bool TryReleaseSharedAvoidanceDetour(Vector2 navigationPosition, float currentTime)
+    {
+        if (!hasDynamicDetour)
+        {
+            return false;
+        }
+
+        NavigationPathExecutor2D.DetourLifecycleResult detour = NavigationPathExecutor2D.TryClearDetourAndRecover(
+            navigationExecution,
+            navGrid,
+            navigationPosition,
+            GetRebuildRequestedDestination(),
+            0,
+            currentTime,
+            rebuildPath: false,
+            minimumDetourActiveDuration: SHARED_DETOUR_MIN_ACTIVE_DURATION,
+            recoveryCooldown: 0f,
+            hasLineOfSight: null,
+            cleanupReferencePosition: null,
+            cleanupWaypointTolerance: 0f,
+            log: null,
+            ignoredCollider: navigationCollider);
+
+        if (detour.ShouldKeepCurrentDetour || detour.HasActiveDetour)
+        {
+            return false;
+        }
+
+        if (detour.Cleared || detour.Recovered)
+        {
+            if (motionController != null)
+            {
+                motionController.StopMotion();
+            }
+
+            if (rb != null)
+            {
+                rb.linearVelocity = Vector2.zero;
+            }
+
             return true;
         }
 
@@ -993,9 +1100,19 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private Vector2 GetNavigationCenter()
     {
-        return navigationCollider != null
-            ? (Vector2)navigationCollider.bounds.center
-            : (rb != null ? rb.position : (Vector2)transform.position);
+        return rb != null ? rb.position : (Vector2)transform.position;
+    }
+
+    private float GetContactShellPadding()
+    {
+        return 0.05f;
+    }
+
+    private bool IsSharedAvoidanceDetourProtected(float currentTime)
+    {
+        return hasDynamicDetour &&
+            navigationExecution.LastDetourCreateTime > float.NegativeInfinity &&
+            currentTime - navigationExecution.LastDetourCreateTime < SHARED_DETOUR_MIN_ACTIVE_DURATION;
     }
 
     private bool TryResolveNavGrid()

@@ -835,6 +835,10 @@ public static class NavigationPathExecutor2D
         state.HasOverrideWaypoint = true;
         state.OverrideWaypoint = waypoint;
         state.OverrideWaypointOwnerId = ownerId;
+        state.LastDetourOwnerId = ownerId;
+        state.LastDetourPoint = waypoint;
+        state.LastDetourCreateTime = Time.time;
+        state.LastDetourRecoverySucceeded = false;
     }
 
     public static void ClearOverrideWaypoint(ExecutionState state)

@@ -867,3 +867,92 @@
 - 父层当前恢复点：
   - 若导航继续施工，下一刀必须继续留在 NPC 到达/停止语义；
   - 不需要再回头证明“是不是还在推着走”，也不需要再扩成新的结构迁移叙事。
+
+### 会话 44 - 2026-03-25
+
+- 子工作区 `导航检查` 这轮新增的不是顺着旧收口继续走，而是一次明确的“用户现场打回后重判”。
+- 父层新增稳定事实：
+  1. 用户最新复测已经推翻上一轮“最坏回归已压掉”的对外口径；
+  2. 当前导航线能保留的上一轮成果，只剩：
+     - runtime 已回到 `4613255c` 语义的旧 solver 直出链；
+     - `TrafficArbiter / MotionCommand` 已撤出运行时；
+  3. 子工作区已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\002-prompt-16.md`
+  4. `002-prompt-16` 已把下一刀从“NPC 提前停摆簇”重新拉回用户当前仍能肉眼看见的 real-input 坏体验：
+     - `保护罩`
+     - `很远就停`
+     - `被围抽搐`
+  5. 父层当前不再接受：
+     - 用旧轮结果顶 fresh 复跑
+     - 用 runner 数值单独封印用户体感
+- 父层当前恢复点：
+  - 导航这条线现在的诚实状态是：
+    - 基线已退回旧 solver 直出链；
+    - 但 real-input 体验仍被用户判定为失败。
+  - 后续导航治理应先压掉用户当前仍在骂的可见坏体验，再谈更窄的责任簇。
+
+### 会话 45 - 2026-03-25
+
+- 子工作区 `导航检查` 这轮没有回漂大架构，而是继续只打 `002-prompt-16` 指定的 runtime 热区。
+- 父层新增稳定事实：
+  1. 导航线程继续收缩了当前最像“保护罩”的运行时来源：
+     - `NavigationAvoidanceRules.GetInteractionRadius(...)` 已从 avoidance-radius 叠壳，改成 collider-first + 小壳层 cap；
+     - `NavigationLocalAvoidanceSolver` 里 sleeping/stationary blocker 与 moving yield 的 clearance / slowdown / repath 阈值被继续收紧。
+  2. 本轮没有拿旧 live 顶账，反而先把 fresh live 触发链重新核了一遍；
+     - 当前阻塞不是“导航线程又不肯跑”，而是 shared root 现有外部 compile blocker 让 fresh Play 窗口不可用。
+  3. 当前直接挡住 same-round fresh live 的外部错误是：
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` 的 `PageRefs` 缺失
+     - 刷新时还出现过 `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs` 的外部缺类型错误
+  4. 导航线程源码里新增的 `NavigationLiveValidationMenu` 排队起跑逻辑目前还没被 Unity 编译采纳；
+     - 从现场回读看，菜单仍命中旧逻辑，只会提示“请先进入 Play Mode”
+- 父层关键裁定：
+  - 这轮可以接受为“继续推进了热区修复，但 fresh live 证据仍未补齐”；
+  - 当前不能再把状态说成“只剩 NPC 提前停摆”，因为 `002-prompt-16` 这轮要求的 real-input fresh 结果还没拿到。
+- 父层当前恢复点：
+  - 若导航继续施工，下一步不是回漂架构，而是：
+    1. 在 shared root 拿到可进 Play 的编译窗口
+    2. 立即补齐 `002-prompt-16` 规定的 5 组 fresh live
+    3. 再判断“保护罩 / 很远就停 / 被围抽搐”是否真正被压掉
+
+### 会话 46 - 2026-03-26
+
+- 子工作区 `导航检查` 本轮没有再去泛调 solver，而是按用户要求做了一次“执行层握手链路开颅审计”。
+- 父层新增稳定事实：
+  1. `NavigationLocalAvoidanceSolver` 当前已经能产出 `ShouldRepath + SuggestedDetourDirection`，但玩家/NPC controller 并没有稳定把它保活成 detour owner；
+  2. 玩家侧当前最致命的吞意图点是：
+     - `HandleSharedDynamicBlocker()` 在 `!ShouldRepath`、cooldown、detour 创建失败这三处都会直接掉回普通执行或 `BuildPath()`；
+     - solver 某一帧失去 blocker 时，还会经 `ClearOverrideWaypointIfChanged()` 把刚有机会落地的 detour 清掉；
+  3. NPC 侧当前最致命的吞意图点是：
+     - `TryHandleSharedAvoidance()` 在真正创建 detour 前就 `StopForSharedAvoidance()`；
+     - detour 失败后立即 `TryRebuildPath()`，没有共享 owner 保活窗口；
+  4. `NavigationPathExecutor2D.TryClearDetourAndRecover()` 虽然存在，但当前 runtime controller 没有调用点，因此 detour clear/recover API 还没成为现行运行闭环。
+- 父层当前恢复点：
+  - 导航线下一刀不应再漂回“调 solver 参数”；
+  - 应直接留在 `PlayerAutoNavigator / NPCAutoRoamController / NavigationPathExecutor2D` 的 detour owner 接管与保活链。
+
+### 会话 47 - 2026-03-26
+
+- 子工作区 `导航检查` 这轮没有继续施工，而是按最新委托做了“能否进入下一代交接”的状态确认。
+- 父层新增稳定事实：
+  1. 当前导航线主叙事已经稳定收敛到：
+     - `ShouldRepath` 已出现
+     - detour owner 没有稳定接管执行层
+  2. 当前 single first blocker 已足够单一，不再是多路径怀疑并行；
+  3. 当前 own / non-own / hot-file 边界已足够清楚，可以无失真交给下一代线程；
+  4. 子工作区已正式生成：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\V2交接文档\`
+     下的 7 份 `导航检查V2` 重型交接文件。
+- 父层当前恢复点：
+  - 导航线当前可以从“本代收束”切换到“下一代接手”；
+  - 后续若继续导航，不应再要求当前线程回去补新的参数实验，而应让 `导航检查V2` 直接从执行层 detour owner 闭环继续。
+
+### 会话 48 - 2026-03-26
+
+- 子工作区 `导航检查`（V2 首轮）这轮没有回漂 solver / Scene，而是只在 `PlayerAutoNavigator / NPCAutoRoamController / NavigationPathExecutor2D` 上补了 detour owner 最小保活闭环。
+- 父层新增稳定事实：
+  1. direct fallback detour 现在也会写 `LastDetourCreateTime / LastDetourOwnerId / LastDetourPoint`，玩家侧 no-blocker release 与 NPC 侧 release 都已接到 `TryClearDetourAndRecover(..., rebuildPath:false)`；
+  2. 玩家/NPC 的旧 stuck/rebuild 在 detour 创建后 `0.35s` 保护窗内不再抢跑；
+  3. fresh live `RealInputPlayerAvoidsMovingNpc` 当前结果已到 `pass=True / pushDisplacement=0.000 / playerReached=True / npcReached=True`，且 Unity 已退回 `Edit Mode`。
+- 父层当前恢复点：
+  - 导航线当前单一第一进展已从“owner 被瞬时吞掉”前推到“owner 保活最小闭环已接上并拿到首个有效窗口”；
+  - 后续若继续，只应在同一 detour owner 闭环上补更直接的命中证据或扩第二组 fresh live，不要回漂旧 solver 泛调或 `Primary.unity`。

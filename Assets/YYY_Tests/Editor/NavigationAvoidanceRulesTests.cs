@@ -323,6 +323,58 @@ public class NavigationAvoidanceRulesTests
     }
 
     [Test]
+    public void Solver_ShouldRequestRepath_WhenMovingNpcPredictedConflictIsCloserThanCurrentForwardDistance()
+    {
+        Type snapshotType = ResolveTypeOrFail("NavigationAgentSnapshot");
+        Type unitType = ResolveTypeOrFail("NavigationUnitType");
+        Type solverType = ResolveTypeOrFail("NavigationLocalAvoidanceSolver");
+
+        object player = CreateSnapshot(
+            snapshotType,
+            unitType,
+            1,
+            "Player",
+            Vector2.zero,
+            Vector2.right,
+            0.3f,
+            0.35f,
+            100,
+            true,
+            false,
+            true);
+
+        object movingNpc = CreateSnapshot(
+            snapshotType,
+            unitType,
+            2,
+            "NPC",
+            new Vector2(0.9f, -0.05f),
+            new Vector2(0f, 1.8f),
+            0.3f,
+            0.35f,
+            50,
+            true,
+            false,
+            true);
+
+        Array nearbyAgents = Array.CreateInstance(snapshotType, 1);
+        nearbyAgents.SetValue(movingNpc, 0);
+
+        object result = InvokeStatic(solverType, "Solve", player, Vector2.right, 1.2f, nearbyAgents);
+        Assert.IsNotNull(result);
+
+        bool hasBlockingAgent = (bool)GetFieldOrProperty(result, "HasBlockingAgent");
+        bool shouldRepath = (bool)GetFieldOrProperty(result, "ShouldRepath");
+        float speedScale = (float)GetFieldOrProperty(result, "SpeedScale");
+        float blockingDistance = (float)GetFieldOrProperty(result, "BlockingDistance");
+
+        Assert.That(hasBlockingAgent, Is.True);
+        Assert.That(shouldRepath, Is.True);
+        Assert.That(speedScale, Is.LessThan(0.65f));
+        Assert.That(blockingDistance, Is.LessThan(0.9f));
+    }
+
+    [Test]
     public void Solver_ShouldKeepHoldCourse_ForNonYieldingNpcPeer_WhenOtherNpcTemporarilyStops()
     {
         Type snapshotType = ResolveTypeOrFail("NavigationAgentSnapshot");
@@ -659,6 +711,32 @@ public class NavigationAvoidanceRulesTests
         {
             UnityEngine.Object.DestroyImmediate(navGridGo);
         }
+    }
+
+    [Test]
+    public void NavigationPathExecutor_ShouldStampDetourMetadata_WhenOverrideWaypointIsSetDirectly()
+    {
+        Type executorType = ResolveTypeOrFail("NavigationPathExecutor2D");
+        Type executionStateType = ResolveTypeOrFail("NavigationPathExecutor2D+ExecutionState");
+
+        object state = Activator.CreateInstance(executionStateType);
+        Vector2 detourPoint = new Vector2(1.2f, 0.4f);
+        float beforeCreateTime = (float)GetFieldOrProperty(state, "LastDetourCreateTime");
+
+        InvokeStatic(
+            executorType,
+            "SetOverrideWaypoint",
+            state,
+            detourPoint,
+            9);
+
+        Assert.That((bool)GetFieldOrProperty(state, "HasOverrideWaypoint"), Is.True);
+        Assert.That((Vector2)GetFieldOrProperty(state, "OverrideWaypoint"), Is.EqualTo(detourPoint));
+        Assert.That((int)GetFieldOrProperty(state, "OverrideWaypointOwnerId"), Is.EqualTo(9));
+        Assert.That((int)GetFieldOrProperty(state, "LastDetourOwnerId"), Is.EqualTo(9));
+        Assert.That((Vector2)GetFieldOrProperty(state, "LastDetourPoint"), Is.EqualTo(detourPoint));
+        Assert.That((float)GetFieldOrProperty(state, "LastDetourCreateTime"), Is.GreaterThanOrEqualTo(beforeCreateTime));
+        Assert.That((bool)GetFieldOrProperty(state, "LastDetourRecoverySucceeded"), Is.False);
     }
 
     [Test]
