@@ -12,6 +12,7 @@ TagManager:
   - CLoudShadow
   - Buildings
   - Placed
+  - NPC
   layers:
   - Default
   - TransparentFX

@@ -1006,6 +1006,22 @@ public class GameInputManager : MonoBehaviour
         Vector3 world = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
         world.z = 0f;
 
+        TryHandleAutoNavWorldClick(world, boxOpen, respectClickRateLimit: true);
+    }
+
+    public bool DebugIssueAutoNavClick(Vector2 world)
+    {
+        bool boxOpen = BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen;
+        return TryHandleAutoNavWorldClick(world, boxOpen, respectClickRateLimit: false);
+    }
+
+    private bool TryHandleAutoNavWorldClick(Vector2 world, bool boxOpen, bool respectClickRateLimit)
+    {
+        if (autoNavigator == null)
+        {
+            return false;
+        }
+
         // 点击死区：靠近玩家的区域忽略导航（使用Collider中心）
         Vector2 playerCenter = Vector2.zero;
         if (playerMovement != null)
@@ -1015,20 +1031,25 @@ public class GameInputManager : MonoBehaviour
             playerCenter = col != null ? (Vector2)col.bounds.center : (Vector2)player.position;
             if (Vector2.Distance(playerCenter, world) <= navClickDeadzone)
             {
-                return;
+                return false;
             }
         }
 
         // 防止连续点击同一位置（鬼畜问题）
-        if (autoNavigator.IsActive && Vector3.Distance(world, lastNavClickPos) < minNavDistance)
+        if (respectClickRateLimit &&
+            autoNavigator.IsActive &&
+            Vector3.Distance(world, lastNavClickPos) < minNavDistance)
         {
             // 如果已在导航且点击位置过近，忽略
-            return;
+            return false;
         }
 
-        // 更新点击记录
-        lastNavClickTime = currentTime;
-        lastNavClickPos = world;
+        if (respectClickRateLimit)
+        {
+            // 更新点击记录
+            lastNavClickTime = Time.unscaledTime;
+            lastNavClickPos = world;
+        }
 
         // 🔥 C3：优先使用 Sprite Bounds 检测 IResourceNode（箱子、树木等）
         // 因为这些物体的 Collider 只覆盖底部，但交互应该基于整个 Sprite
@@ -1053,7 +1074,7 @@ public class GameInputManager : MonoBehaviour
                                 CloseBoxPanelIfOpen();
                             }
                             HandleInteractable(interactable, nodeGO.transform, playerCenter);
-                            return;
+                            return true;
                         }
                     }
                 }
@@ -1104,7 +1125,7 @@ public class GameInputManager : MonoBehaviour
                 CloseBoxPanelIfOpen();
             }
             HandleInteractable(best.interactable, best.tr, playerCenter);
-            return;
+            return true;
         }
         
         // 🔥 没有 IInteractable，检查是否有其他可跟随的目标（通过 Tag/Layer）
@@ -1131,15 +1152,17 @@ public class GameInputManager : MonoBehaviour
                 CloseBoxPanelIfOpen();
             }
             autoNavigator.FollowTarget(found, 0.6f);
+            return true;
         }
         else
         {
             // 🔥 P0-1：纯导航（无目标）时，如果 Box 打开则禁用
             if (boxOpen)
             {
-                return; // Box 打开时不允许纯导航
+                return false; // Box 打开时不允许纯导航
             }
             autoNavigator.SetDestination(world);
+            return true;
         }
     }
     
