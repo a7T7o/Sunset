@@ -222,3 +222,7 @@
 ## 2026-03-26：父层补记，农田 `V3` 恢复开工委托-05 当前已被 hot-file blocker 截停
 
 父层当前新增的稳定事实是：农田 `V3` 在 cleanup 收口后已按 `恢复开工委托-05` 尝试回到业务续工，但这轮没有继续写 placeable / runner 或其他热区，而是在允许范围内先做了 read-only 核查。父层现在可以把结论写死：当前主分支里的“工具运行时资源链 -> 玩家反馈 -> 树木 / hover 遮挡口径”并非纯待验证，而是只做到了部分接入，真正要把这条 vertical slice claim 成立，当前至少必须重新打开 `GameInputManager.cs`。关键证据有两条：`ExecuteTillSoil(...)` 仍是先 `CreateTile(...)` 后 `CommitCurrentToolUse(...)`，`ExecuteWaterTile(...)` 仍是先 `SetWatered(...)` 后 `CommitCurrentToolUse(...)`；这与当前工作区日志里写明的“先提交工具消耗，再真正锄地 / 浇水成功”目标口径相反，也使“空壶不应浇水成功”当前无法在不碰 hot-file 的前提下成立。与此同时，父层也已补实另外两条边界：`TreeController.cs` 已具备不足等级不扣精力、30 秒冷却计时与“还是这把斧头锋利！”切换气泡的部分实现，但仍缺输入层前置拦截再次挥砍动作的证据；`FarmToolPreview.cs` 当前仍按整组 `currentPreviewPositions` 的联合 bounds 向 `OcclusionManager` 上报 hover 范围，说明“中心块没被挡住也会触发隐藏”的现象来源尚未收紧。由于委托-05 明确写死“一旦要靠 `GameInputManager.cs` 才能成立就应立刻停在 blocker”，本轮没有继续改任何业务代码，而是把结论沉淀成 `2026-03-26-农田交互修复V3恢复开工详细汇报-05.md`、当前子工作区 `memory.md` 和线程记忆。父层恢复点因此更新为：这轮 vertical slice 当前应判定为 `no / blocker`，后续若继续，只能先由用户授权重开 `GameInputManager.cs`，或把范围重新切窄成只做 hover / 树木气泡这类 non-hot 单点。
+
+## 2026-03-26：父层补记，当前已切到“用户手测优先，线程给聊天内详细清单”
+
+父层当前新增的稳定事实是：用户已明确要求后续改成由用户自己快速手测，线程不再继续代跑测试，而是在聊天里直接列出详细测试清单。因此父层当前对这轮的执行口径进一步收紧为：保留前一条 blocker 结论不变，线程只负责把四个功能点拆成可执行验收步骤，并等待用户回填真实现象；在收到用户手测结果前，不新增代码、不改 blocker 归类、不扩到其他业务线。
