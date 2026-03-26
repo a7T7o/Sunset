@@ -1620,7 +1620,7 @@ Transform:
   m_GameObject: {fileID: 117803668}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -15.930819, y: -7.946512, z: -15}
+  m_LocalPosition: {x: -12.870819, y: -4.686512, z: -15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2889,6 +2889,52 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2244532948124785810, guid: c893194c364176c40845daccb41143e2, type: 3}
   m_PrefabInstance: {fileID: 546223653}
   m_PrefabAsset: {fileID: 0}
+--- !u!1 &560402479
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 560402481}
+  - component: {fileID: 560402480}
+  m_Layer: 0
+  m_Name: StoryManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &560402480
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 560402479}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f87b7c1a6d247778a835a4566d35dc2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  initialPhase: 10
+  startLanguageDecoded: 0
+--- !u!4 &560402481
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 560402479}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1001 &567952483
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -78225,7 +78271,7 @@ Transform:
   m_GameObject: {fileID: 1142188827}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -15.930819, y: -7.946512, z: -15}
+  m_LocalPosition: {x: -12.870819, y: -4.686512, z: -15}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -79174,11 +79220,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   station: 5
   interactionHint: "\u4F7F\u7528\u5DE5\u4F5C\u53F0"
-  interactionDistance: 1.8
+  interactionDistance: 0.5
   interactionPriority: 28
   createCraftingServiceIfMissing: 1
   notifySpringDay1Director: 1
   craftingPanel: {fileID: 0}
+  preferStoryWorkbenchOverlay: 1
+  workbenchOverlay: {fileID: 0}
+  overlayAutoCloseDistance: 1.5
+  enableProximityKeyInteraction: 1
+  proximityInteractionKey: 101
+  keyInteractionCooldown: 0.15
+  showFirstUseBubble: 1
+  bubbleRevealDistance: 0.95
+  bubbleCaption: "\u5DE5\u4F5C\u53F0"
 --- !u!21 &1361665652
 Material:
   serializedVersion: 8
@@ -84668,7 +84723,7 @@ Transform:
   m_GameObject: {fileID: 5802924700236509193}
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: -9.25, y: 3.03, z: 0}
+  m_LocalPosition: {x: -6.19, y: 6.29, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -84996,3 +85051,4 @@ SceneRoots:
   - {fileID: 2047835126}
   - {fileID: 1464857935}
   - {fileID: 1595135931}
+  - {fileID: 560402481}
