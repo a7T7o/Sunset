@@ -5290,6 +5290,92 @@
   2. 把热文件与普通文件彻底分层
   3. 为未来的“统一收盘”单独设计 integrator 流程，而不是让 shared root 先长期混写
 
+## 2026-03-26｜复核导航 / NPC 多段自述后，确认当前更深的问题不是 dirty 本身，而是“主线权威漂移 + 文件切片归属错位”
+
+**当前主线目标**
+- 用户贴回了父线程、`导航检查V2`、`NPCV2` 的多段自述与互相纠偏，希望确认：
+  - 当前问题是否真的只是 dirty 互相传染
+  - 还是现行规范本身已经让线程对“谁有权定义主线、谁该认领哪个文件切片”产生系统性错乱
+
+**本轮复核事实**
+1. 当前 live working tree 里真正还在 active dirty 的实现热面，主要是：
+   - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+   - `Assets/000_Scenes/Primary.unity`
+   - 3 份 `DialogueChinese*` 字体
+2. `Assets/Editor/NPCAutoRoamControllerEditor.cs` 当前并不在 active dirty 中；
+   - 与 `NPCV2` 记忆里的 `24886aad` 一致，说明 Editor 补口至少不是当前 live 主冲突面。
+3. `NPCV2` 记忆已明确写出：
+   - `65e1ee35`：`Primary.unity` 的 `001 / 002 / 003 HomeAnchor` 最小集成已做
+   - `24886aad`：`NPCAutoRoamControllerEditor.cs` 的 Play Mode 报错已修
+   - 当前更合理的恢复点是：等用户终验 / 做边界报实，而不是继续主动扩成 runtime 主线
+4. `导航检查V2` 记忆已明确写出：
+   - 当前唯一仍未过线的是 `NpcAvoidsPlayer`
+   - 下一步应先只读钉死 `TickMoving / TryHandleSharedAvoidance / TryReleaseSharedAvoidanceDetour` 里的第一责任点
+   - 下下步才是最小 runtime 补口 + 1 条 fresh + own 收尾
+5. 因此，`dirty 互相传染` 不是唯一问题；
+   - 当前更深的问题是：线程可以根据本地可见症状，自行把“我眼前最卡的点”升格成“当前总主线”
+
+**关键裁定**
+1. 我之前关于“按热文件分层并发”的判断仍然成立，但只说对了一半。
+2. 当前真正需要优先改的，不只是 Git 并发模型，而是两层更上游的治理口径：
+   - `主线权威`
+   - `文件切片归属`
+3. 当前更准确的现场层级应该是：
+   - 总主线：真实右键导航里“玩家不再推着 NPC 走，NPC 侧避让过线”
+   - 主实现线程：`导航检查V2`
+   - 支持线程：`NPCV2`，仅在 `HomeAnchor / Inspector` 重新成为当前验收 blocker 时被短窗唤醒
+   - 卫生 / owner 报实：后置层，不得再和 runtime 主刀并列抢主线
+4. 这意味着：
+   - `NPCV2` 可以有自己的“当前最卡的用户可见点”
+   - 但它没有权力单独把这个点升级成与导航 runtime 并列的总主线
+5. 同时，当前归属模型也有错位：
+   - `NPCAutoRoamController.cs` 虽然路径在 `NPC` 下，但当前 active slice 明显属于导航 runtime
+   - `NPCAutoRoamControllerEditor.cs` 才属于 NPC Editor / Inspector 支持 slice
+   - `Primary.unity` 与 `DialogueChinese*` 字体则属于 shared-hot / mixed 目标，不能再被任一线程按“同目录 / 同主题”自动吞并
+
+**规范调整方向**
+1. 先新增“总主线权威文件”：
+   - 只允许治理线程维护
+   - 固定写清：
+     - 当前唯一总主线
+     - 当前主实现线程
+     - 当前支持线程
+     - 当前后置卫生项
+     - 当前验收目标
+     - 当前非目标
+2. prompt 必须强制引用这份权威文件；
+   - 子线程不再允许在自述里重写总主线，只能写“我服务于哪条总主线、我是主实现/支持/卫生中的哪一类”
+3. 归属规则从“按文件路径 / 线程名猜”改成“按切片归属”：
+   - runtime slice
+   - editor / inspector slice
+   - scene / asset slice
+   - hygiene / report slice
+4. 其中只有 shared serialized 热目标继续按整文件独占；
+   - 普通代码允许按切片并行
+   - shared scene / prefab / asset 不允许“切片口头化后多人同写”
+5. 支持线程要增加“晋升条件”：
+   - 只有当它处理的症状被治理线程明确判定为“当前总验收 blocker”，它才允许升到 active 支持窗口
+   - 否则默认停在支持位，不主动扩刀
+6. hygiene / owner 报实要正式降级为 Phase 4：
+   - 不能再和 runtime 主刀并列发 prompt
+   - 只能在主刀 checkpoint 后或明确停工窗口再做
+7. 回执格式要增加两列硬字段：
+   - `我当前服务的总主线：`
+   - `我当前所属角色：主实现 / 支持 / 卫生`
+   - 这样一眼就能看出线程是不是在偷偷改题
+8. 对热文件并发的 Git 规则仍要保留，但要服务于上面的层级，而不是单独成为全部治理中心
+
+**恢复点 / 下一步**
+- 当前最值得落地的规范升级，不是继续争论“是不是全局单写”，而是：
+  1. 先把“谁能定义总主线”钉死
+  2. 再把“文件按什么切片归属”钉死
+  3. 最后才是按热文件 / 普通文件做并发分层
+- 若用户认可，下一轮应正式把这三层一起下压进：
+  - `AGENTS.md`
+  - 当前规范快照
+  - 治理分发规范
+  - prompt 模板
+
 ## 2026-03-26｜复核 `NPCV2 / 导航检查V2` 自述后，当前总主线与子线优先级重新钉死
 
 **当前主线目标**
