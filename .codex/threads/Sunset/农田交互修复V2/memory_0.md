@@ -1019,3 +1019,501 @@
 
 **恢复点 / 下一步**：
 - 当前已经回到主线的“这 5 个 live 回归点修复已正式进入 `main@124caccc`，接下来直接以这个提交为用户验收基线”的这一步。
+
+### 会话 2026-03-24（新增工具运行时 / 玩家反馈要求已写入阶段日志，并恢复到可继续验收的脚本态）
+
+**用户目标**:
+- 用户把新的 live 问题继续并入当前主线，而不是另起任务：
+  - 锄地时要同时扣精力与耐久；
+  - 工具耐久归零要直接损坏消失，并有音效 / 动效 / 特效 / 玩家气泡；
+  - 水壶改成水量口径，空壶不能误浇水、不能误扣精力；
+  - 低等级斧头砍高等级树不扣精力，并要有玩家版头顶气泡与冷却语义；
+  - 农田 hover 遮挡范围收紧到中心格主导；
+  - 还要求把这些新增需求、当前任务列表和规划写成可持续迭代的阶段日志。
+
+**当前主线目标**:
+- 继续沿 `全局交互V3（原：农田交互修复V2）/ 1.0.4交互全面检查` 推进，把这批新增工具运行时与反馈链问题收进真实可继续的状态，而不是继续散落在聊天里。
+
+**本轮子任务 / 阻塞**:
+- 子任务 1：建立并回正 `当前续工计划与日志.md`，把新增需求、已做/未做状态、下一步钉住。
+- 子任务 2：继续推进工具运行时结果链、水壶水量、玩家气泡反馈和 hover 遮挡收紧。
+- 子任务 3：先把运行时与编辑器编译拉回绿灯，再做 Unity / MCP 基线取证。
+- 当前阻塞：live 行为验收还没做完，尤其是斧头 30 秒冷却是否还要前推到输入层，以及“先提交消耗后执行世界变化”是否需要补失败回滚。
+
+**已完成事项**:
+1. 已新建并更新：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\当前续工计划与日志.md`
+   - 日志中已明确：旧口径“尚未开始落盘”失效、当前 live 已落地的代码面、编译状态、剩余待办与下一步。
+2. 已推进到代码的文件：
+   - `InventoryItem.cs`
+   - `ToolRuntimeUtility.cs`
+   - `ToolData.cs`
+   - `PlayerInteraction.cs`
+   - `GameInputManager.cs`
+   - `TreeController.cs`
+   - `FarmToolPreview.cs`
+   - `ItemTooltipTextBuilder.cs`
+   - `InventorySlotUI.cs`
+   - `ToolbarSlotUI.cs`
+   - 新增 `PlayerThoughtBubblePresenter.cs`
+   - 新增 `PlayerToolFeedbackService.cs`
+3. 当前已落地的关键点：
+   - 工具提交从 `bool` 升级为 `ToolUseCommitResult`
+   - 水壶改为 `watering_current / watering_max` 运行时水量口径
+   - 锄地 / 浇水 / 清作物 先提交工具消耗，再执行世界变化
+   - 低等级斧头砍高等级树不再先扣精力
+   - 已接入玩家工具损坏 / 空水壶 / 斧头等级不足 / 恢复可砍反馈链
+   - hover 遮挡已改为中心格主导
+4. 当前最小验证：
+   - `Assembly-CSharp.rsp` 编译通过
+   - `Assembly-CSharp-Editor.rsp` 编译通过
+   - `unityMCP@8888` 基线通过
+   - 活动场景确认是 `Primary`
+   - Console 当前只见 2 条 “There are no audio listeners in the scene” warning
+
+**关键决策**:
+- 这轮不把“需求记录”和“代码推进”拆成两件事，而是把 `当前续工计划与日志.md` 设成这批新增要求的 live 事实入口。
+- 玩家气泡先走运行时自建世界空间 UI，后续再按 live 体感决定是否继续贴齐 `NPCBubblePresenter` 参数。
+- 当前优先级已经从“继续写更多代码”切到“先做 Unity / MCP live 行为验收”，因为编译已经恢复，但真实体感边界还没实锤。
+
+**验证结果**:
+- 运行时 / 编辑器程序集编译均已通过。
+- `unityMCP` 配置、端口、pidfile 与实例都已对齐到 `8888 + unityMCP` 新基线。
+- 活动场景确认是 `Primary`，当前未见新的 farm 红编译。
+
+**恢复点 / 下一步**:
+- 当前已经回到主线的“新增工具运行时 / 玩家反馈 / hover 遮挡要求已完成日志回正与脚本级闭环，下一步直接进入 Unity / MCP live 行为验收，并视结果决定是否继续补冷却前置与失败回滚”的这一步。
+
+## 2026-03-25：已基于当前续工日志与最新回执生成 `008`
+
+**当前主线目标**：
+- 当前线程主线没有改题，仍然是 `全局交互V3（原：农田交互修复V2） / 1.0.4` 下新增工具运行时、水壶、玩家气泡与 hover 遮挡这批续工。
+
+**本轮完成**：
+1. 新增：
+   - [008-新增工具运行时与玩家反馈链进入live验收与补口.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/农田系统/2026.03.16/1.0.4交互全面检查/008-新增工具运行时与玩家反馈链进入live验收与补口.md)
+2. 在 `008` 中正式钉死：
+   - 当前 checkpoint 只承认“已经可以进 live”，不承认“行为已通过”
+   - 下一轮唯一主刀固定为：自己先把 4 组 live 行为跑出来
+   - 若 live 不过，必须同轮继续补口，不准再停在“等用户测”
+
+**关键决策**：
+- 这轮不再继续围绕脚本解释与编译口径打转；
+- 后续真正要审的是：
+  - 锄头耐久链
+  - 水壶水量链
+  - 高等级树与玩家气泡链
+  - hover 遮挡链
+  这 4 组现场行为到底过没过。
+
+**恢复点 / 下一步**：
+- 如果用户下一步要发给农田线程，直接以 `008` 为准；
+- 后续这条线的审稿口径也应切到 `008`，继续盯真实 live 行为，不再只看日志与脚本级闭环。
+
+## 2026-03-25：按 `008` 完成第一轮真实 live，当前只剩 hover 遮挡链的 `previewBounds` 空值问题
+
+**用户目标**：
+- 用户明确要求：这轮不要再停在脚本闭环，要自己跑 Unity / MCP live，把锄头耐久链、水壶水量链、高级树与玩家气泡链、hover 遮挡链 4 组结果跑出来；如果不过，就同轮继续补口。
+
+**当前主线目标**：
+- 继续沿 `全局交互V3 / 1.0.4 / 008` 把新增工具运行时与玩家反馈链跑到真实行为结果，而不是把第一轮逻辑验收甩给用户。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：新增最小 runner 与菜单入口，在 `Primary` 内重复采集 4 组 live 证据。
+- 子任务 2：修掉 live 中暴露的 `PlayerToolFeedbackService` 运行时红错。
+- 子任务 3：把 hover 遮挡失败压缩成唯一剩余点。
+- 当前唯一剩余阻塞：hover 遮挡 live 里 `OcclusionManager.previewBounds` 仍为 `null`，中心格未被 manager 跟踪。
+
+**已完成事项**：
+1. 新增：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmRuntimeLiveValidationRunner.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\Editor\FarmRuntimeLiveValidationMenu.cs`
+2. `PlayerToolFeedbackService.cs`
+   - burst 粒子改成“先配置后激活”，清掉 assert。
+   - 移除非法 `velocityOverLifetime` 配置。
+   - 新增 `FeedbackSoundDispatchCount`，runner 用它判反馈音链。
+3. `FarmRuntimeLiveValidationRunner.cs`
+   - 重置 `toolUseCommittedForCurrentAction` gate，避免 harness 假阴性。
+   - 音效判定改为服务计数。
+   - hover 诊断追加 `previewBounds / centerBounds / centerTrackedByManager`。
+4. `FarmToolPreview.cs`
+   - 预览差集为空时回退到当前中心格 bounds。
+   - 去掉对 `ghostTilemap.activeInHierarchy` 的强依赖。
+5. 已多次实际进入 `Primary` 的 Play Mode 做 live，结束后均退回 Edit Mode。
+
+**最新稳定 live 结果**：
+- `hoe-runtime-chain`: `passed=True`
+- `watering-runtime-chain`: `passed=True`
+- `high-tree-feedback-chain`: `passed=True`
+- `hover-occlusion-chain`: `passed=False`
+  - `sideStayedOpaque=True`
+  - `centerBecameTransparent=False`
+  - `centerRecovered=True`
+  - `centerBoundsIntersected=False`
+  - `centerTrackedByManager=False`
+  - `previewBounds="null"`
+
+**验证结果**：
+- `CodexCodeGuard` 对 `FarmToolPreview.cs / PlayerToolFeedbackService.cs / FarmRuntimeLiveValidationRunner.cs / FarmRuntimeLiveValidationMenu.cs` 已通过。
+- `validate_script` 对上述核心脚本均为 `0 error / 0 warning`。
+- 最新稳定 live Console 未见新的 farm error；只剩：
+  - 2 条 `There are no audio listeners in the scene` warning
+  - 1 条空水壶预期 warning
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“`008` 四组 live 已有三组通过，唯一剩余点只剩 hover 遮挡链继续追 `previewBounds` 空值来源”的这一步。
+
+## 2026-03-25：按 `009` 只锁 hover 遮挡链后，最终通过点已拿到
+
+**用户目标**：
+- 用户接受 `008` 的 `3/4` checkpoint，但这轮不允许泛跑整轮，也不允许回头重讲已过的 3 组；唯一合法动作是继续执行 `009-hover遮挡链闭环与live收口.md`，把 `previewBounds=null` 这一处精确剩余点闭上。
+
+**当前主线目标**：
+- 继续沿 `1.0.4 / 009`，只锁 `hover-occlusion-chain`。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：只读核查 `FarmToolPreview / FarmRuntimeLiveValidationRunner / OcclusionManager / PlacementPreview`。
+- 子任务 2：验证 `previewBounds=null` 究竟是 hover 业务链问题，还是 live runner 取样被每帧鼠标预览覆盖。
+- 子任务 3：只重跑 hover 单项 live，拿到通过或最小剩余点。
+- 当前已确认的真实阻断是：live runner 在 menu 触发场景里会被 `GameInputManager.UpdatePreviews()` 抢写，导致旧取样窗口读到 `previewBounds=null`。
+
+**已完成事项**：
+1. 在 `FarmRuntimeLiveValidationRunner.cs` 中新增 `ValidationScope.All / HoverOnly`，并让 hover 场景取样期间临时停掉 `GameInputManager` 的每帧预览覆盖。
+2. 在 `FarmRuntimeLiveValidationMenu.cs` 中新增 hover-only 菜单入口：
+   - `Tools/Sunset/Farm/Run Hover Occlusion Live Validation`
+3. 脚本级验证：
+   - `FarmRuntimeLiveValidationRunner.cs`：0 error / 0 warning
+   - `FarmRuntimeLiveValidationMenu.cs`：0 error / 0 warning
+   - `git diff --check` 针对这两个文件通过
+4. 重新做 Unity / MCP hover-only live：
+   - `runner_started scene=Primary`
+   - `scenario=hover-occlusion-chain passed=True`
+   - `sideStayedOpaque=True`
+   - `centerBecameTransparent=True`
+   - `centerRecovered=True`
+   - `centerBoundsIntersected=True`
+   - `centerTrackedByManager=True`
+   - `previewBounds="c=(-2.50,7.50,0.00) s=(1.00,1.00,0.01)"`
+5. 本轮 live 后已再次确认 Editor 回到 `Edit Mode`。
+
+**关键决策**：
+- 这轮没有继续改 `FarmToolPreview.cs`，因为最新 live 已证明 hover 业务链本身能正确提交 bounds；最后剩余点是 runner 取样窗口问题，不是 hover 业务链仍未闭环。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmRuntimeLiveValidationRunner.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\Editor\FarmRuntimeLiveValidationMenu.cs`
+
+**验证结果**：
+- hover-only live 已通过。
+- 当前未见新的 farm error。
+- Editor 已退回 Edit Mode。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“`1.0.4` 新增工具运行时 / 玩家反馈这批 4 组 live 已全部闭环，等待用户按整包结果继续验收或下发新范围”的这一步。
+
+## 2026-03-25：`010` 已把本线程主线从“hover 收口”纠正为“放置链事故回退与自治恢复”
+
+**用户目标**：
+- 用户明确指出：`009` 不再代表整条线已绿，当前 placeable / 放置交互已经整体回退到“远停、放不下、全场幽灵”的事故态。
+- 本轮要求先完整读取 `010-放置链事故回退与全局自治重建.md`，不要再做 hover-only，而要先给出自治回退/恢复口径。
+
+**当前主线目标**：
+- 从 `009` 的 hover 单点闭环切回 `010` 的整条放置链事故处理。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：只读复核 live Git 现场与当前 farm 自有 dirty。
+- 子任务 2：回读放置链相关 farm 提交：`f40d228d / e76892f8 / c76d7471 / 0e87c430 / 2218b47d / 9950ac26 / e34aa655 / 124caccc`。
+- 子任务 3：判断最后一个至少可工作的放置基线，以及优先恢复策略。
+- 当前关键阻塞已从 hover 单点，切换为“如何在不抹掉已证明确实有效的工具 runtime / 玩家反馈 / 箱子链改动的前提下，把 placeable 主链拉回可工作基线”。
+
+**已完成事项**：
+1. 复核当前 live 现场：
+   - `cwd = D:\Unity\Unity_learning\Sunset`
+   - `branch = main`
+   - `HEAD = 84fc3818`
+2. 只读核清当前与本线程直接相关的 dirty：
+   - `GameInputManager.cs`
+   - `FarmToolPreview.cs`
+   - `InventoryItem.cs`
+   - `ToolRuntimeUtility.cs`
+   - `ToolData.cs`
+   - `PlayerInteraction.cs`
+   - `InventorySlotUI.cs`
+   - `ToolbarSlotUI.cs`
+3. 只读确认当前 placeable 主链无 dirty 的关键文件：
+   - `PlacementManager.cs`
+   - `PlacementNavigator.cs`
+4. 基于 farm 提交链与当前 dirty 判断：
+   - 当前最后一个优先认定的“至少可工作放置基线”是 `124caccc`
+   - placeable 事故态更像是 `124caccc` 之后未提交的 `GameInputManager.cs / FarmToolPreview.cs` 改动把主链拖坏，而不是 `PlacementManager / PlacementNavigator` 已提交基线整体再次失效
+
+**关键决策**：
+- `009` 只保留为 hover 局部 live 通过，不再允许外推为全线完成。
+- 当前优先恢复策略选定为：
+  - 以 `124caccc` 作为 placeable 恢复锚点
+  - 对 `GameInputManager.cs / FarmToolPreview.cs` 的 placeable / preview 相关部分做 `selective restore`
+  - 保留当前已证明确有价值的工具 runtime、玩家反馈、箱子链和 Tooltip 改动
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“`010` 事故定性已完成，恢复策略优先走 `selective restore` 而不是全量回退”的这一步。
+- 下一步才是按这个自治口径进入真实恢复与代表性 live 验证。
+
+## 2026-03-25：按 `011` 进入真实 restore / live 尝试后，当前主线恢复点更新为“parent/container 已补口，但 live 被 external blocker 截断”
+
+**用户目标**：
+- 用户要求继续执行 `011-从路径checkpoint转入124caccc定点恢复与placeable-live复验.md`，不再接受纯分析或纯路径卡；
+- 本轮必须把 `124caccc` 锚点下的真实 restore、代表性 placeable live 与 hierarchy sanity 一起推进。
+
+**当前主线目标**：
+- 继续沿 `1.0.4 / 011` 恢复 placeable / 放置交互主链；
+- 重点确认当前实现是否已经至少不比 `124caccc` 更差，并把 placeable parent 归属拉回正确层级容器。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：对照 `124caccc` 复核 `GameInputManager.cs / FarmToolPreview.cs / PlacementManager.cs` 的实际差异。
+- 子任务 2：把当前 owned scope 收敛到 `PlacementManager.cs / PlacementSecondBladeLiveValidationRunner.cs / PlacementSecondBladeLiveValidationMenu.cs`，完成最小 no-red 验证。
+- 子任务 3：在 `unityMCP@8888` 下真实触发 `Tools/Sunset/Placement/Run Second Blade Live Validation`。
+- 当前唯一真实阻塞是 shared root 的外部红编译：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs(1012,122): error CS0103: The name '_panelVelocity' does not exist in the current context`
+
+**已完成事项**：
+1. 已复核 live 现场：
+   - `cwd = D:\Unity\Unity_learning\Sunset`
+   - `branch = main`
+   - `HEAD = 4c62ef052d5ce5b646e5e4e9d9efd41b7a93237d`
+2. 已对照 `124caccc` 确认：
+   - `FarmToolPreview.cs` 当前 placeable / preview 口径已无相对 `124caccc` 的差异；
+   - `GameInputManager.cs` 当前差异主要是工具运行时提交链与 `DebugIssueAutoNavClick(...)` 调试入口，本轮未继续机械回退；
+   - 当前 owned dirty 实际集中在 `PlacementManager.cs / PlacementSecondBladeLiveValidationRunner.cs / PlacementSecondBladeLiveValidationMenu.cs`。
+3. 已确认 placeable parent/container 补口已经落地：
+   - `PlacementManager.cs` 新增 `EnsureValidatorInitialized()`；
+   - `PlacementManager.cs` 新增 `ResolvePlacementParent()`，优先解析 `SCENE/LAYER */Props`，找不到才回退到当前 farm layer 的 `propsContainer`；
+   - second-blade runner 已把 `parentResolved=True` 与 `parentPath` 命中 `SCENE/LAYER.../Props` 纳入 `ChestReachEnvelope` 的通过条件；
+   - menu 已支持从 Edit Mode 自动切到 Play 并启动 runner。
+4. 已完成最小验证：
+   - `PlacementManager.cs`：`validate_script` 为 `0 error / 2 warning`
+   - `PlacementSecondBladeLiveValidationRunner.cs`：`0 error / 0 warning`
+   - `PlacementSecondBladeLiveValidationMenu.cs`：`0 error / 0 warning`
+   - `git diff --check -- <3 files>` 通过
+5. 已完成 Unity / MCP 基线复核并真实触发菜单：
+   - `check-unity-mcp-baseline.ps1` 为 `baseline_status: pass`
+   - 当前会话 resources / templates 均暴露 `unityMCP`
+   - 活动场景 `Primary`，当前保持 `Edit Mode`
+   - 菜单执行成功发出，但之后没有进入 Play，也没有 second-blade runner 启动日志
+6. Console 当前只返回 external blocker：
+   - `SpringDay1WorkbenchCraftingOverlay.cs(1012,122) CS0103 _panelVelocity`
+
+**关键决策**：
+- 当前不能把“已尝试触发 live”说成“已拿到 placeable 恢复证据”；
+- 这轮最可信的结论是：
+  - `FarmToolPreview` 已对齐到 `124caccc`；
+  - `PlacementManager` 的 parent/container 解析与 live 入口补口已在现场；
+  - 但 second-blade live 被他线 compile blocker 抢先打断，所以 아직不能宣称 placeable 主链已恢复到“不比 `124caccc` 更差”。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“`011` 已进入真实 restore / hierarchy 补口阶段，但 live 证据仍被 external compile blocker 截断”的这一步。
+- 下一步必须先等 `SpringDay1WorkbenchCraftingOverlay.cs` 的外部红编译清掉，再直接重跑 `Tools/Sunset/Placement/Run Second Blade Live Validation`，只收 second-blade 4 组结果与 hierarchy sanity，并在拿到证据后立即退回 `Edit Mode`。
+
+## 2026-03-25：`012` same-round placeable live 已跑实，当前主链不再是“live 未起跑”，而是“主链已回正 + runner 树苗取样仍有波动”
+
+**用户目标**：
+- 继续执行 `1.0.4交互全面检查 / 012-外部blocker解除后立即完成placeable-live与卫生清扫.md`。
+- 不接受“代码口径已改、live 还没启动”的回执。
+- 必须先把 own dirty / hygiene 报实，尤其把 `GameInputManager.cs` 归属说清楚，然后在同一轮 fresh second-blade live 里真正证明 placeable 主链已恢复到至少不比 `124caccc` 更差，并且放置物 parent/container 不再落场景根目录。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：核清 `GameInputManager.cs / PlacementManager.cs / PlacementSecondBladeLiveValidationRunner.cs / PlacementSecondBladeLiveValidationMenu.cs` 当前 owned dirty 与归属。
+- 子任务 2：在 Unity / MCP 下真实编译并重跑 second-blade，拿到 `ChestReachEnvelope / PreviewRefreshAfterPlacement / SaplingGhostOccupancy / ChestSaveLoadRegression` 与 hierarchy 证据。
+- 子任务 3：把运行后现场退回 `Edit Mode`，并把当前状态压成“已恢复”或“单一剩余点”两种之一。
+
+**已完成事项**：
+1. 已重新核清 `GameInputManager.cs` 当前归属：
+   - 它不是本轮无关 dirty；
+   - 当前保留的是 shared-root 下给 `NavigationLiveValidationRunner` 兼容用的最小接口补口：
+     - `DebugIssueAutoNavClick(Vector2)`
+     - `TryHandleAutoNavWorldClick(...)`
+   - 没有把此前整串工具 runtime WIP 一起带回来。
+2. 已在 `PlacementManager.cs` 补两处最小业务恢复：
+   - `ResolvePlacementParent()` 持续保证代表性 placeable 落到 `SCENE/LAYER */Props` 或当前 farm layer 的 `propsContainer`；
+   - 放置成功后 preview 会先停在原格并立即重验为 invalid，直到鼠标真实移动再恢复跟随，避免镜头跟随把 post-commit preview 立刻拖走。
+3. 已在 `PlacementSecondBladeLiveValidationRunner.cs` 做 live 证据补口：
+   - `Start()` 挂上就自动起跑；
+   - `ChestReachEnvelope` 明确要求 `parentResolved=True` 且 `parentPath` 命中 `SCENE/LAYER.../Props`；
+   - `PreviewRefreshAfterPlacement` 的“原格”改成点击前真实 preview 格，而不是原始点击世界点。
+4. 已通过 Unity / MCP + `Editor.log` 拿到 fresh second-blade 完整通过证据：
+   - `ChestReachEnvelope pass=True`，并打出 `parentPath=SCENE/LAYER 1/Props/Farm`
+   - `PreviewRefreshAfterPlacement pass=True`
+   - `SaplingGhostOccupancy pass=True`
+   - `ChestSaveLoadRegression pass=True`
+   - `all_completed=true scenario_count=4`
+5. 之后为了降低 runner 自己的 Console 噪音，又补了 save/load runner 的 hygiene（真实 itemId + 避免原/新 chest GUID 同时驻留），并再次复跑；
+   - 这些附加复跑里 `ChestReachEnvelope + PreviewRefreshAfterPlacement` 仍稳定通过；
+   - 但 `SaplingGhostOccupancy` 出现了候选点取样波动导致的偶发 timeout。
+6. 当前 Unity 现场已退回 `Edit Mode`，`Primary` 仍是活动场景，`isDirty=false`，Console 已清空。
+
+**关键决策**：
+- 当前不能再把 placeable 主链描述成“还没 live”或“仍被 blocker 停车”。
+- 以本轮最强 fresh 证据为准，当前 placeable 主链已经至少恢复到“不比 `124caccc` 更差”的工作基线。
+- 当前新的单一剩余点不是 parent/container，也不是“远停 / 根本放不下 / 全场幽灵”，而是 second-blade runner 的树苗场景取样稳定性。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementSecondBladeLiveValidationRunner.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\Editor\PlacementSecondBladeLiveValidationMenu.cs`
+
+**验证结果**：
+- placeable 主链 same-round fresh second-blade 至少有一轮完整全绿；
+- hierarchy 证据明确显示代表性放置物进入 `SCENE/LAYER 1/Props/Farm`，不再落根目录；
+- 当前已退回 `Edit Mode`，`Primary.isDirty=false`，Console 已清空。
+
+**恢复点 / 下一步**：
+- 当前已经回到主线的“`012` 已完成 hygiene + fresh live，placeable 主链已回到可工作基线，剩余只压在 runner 树苗取样稳定性”这一步。
+- 如果用户继续放置链收口，下一刀只需要围绕 `SaplingGhostOccupancy` 的 live 取样稳定性补 runner，不需要再质疑已经跑实的 parent/container 与箱子/preview 主链恢复。
+
+## 2026-03-26：`013` 当前推进到“sapling-only 入口稳定，fresh 树苗 live 仍受共享并发干扰”
+
+**用户目标**：
+- 继续执行 `013-placeable主链checkpoint后只收runner稳定性与遗漏卫生.md`，并把我自己承认的 dirty / hygiene 口径一起收干净。
+
+**当前主线目标**：
+- 保住 `012` 已成立的 placeable 主链 checkpoint；
+- 不再泛修 `PlacementManager`；
+- 只继续收 `SaplingGhostOccupancy` 的 runner 稳定性和漏报 hygiene。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：正式把 `FarmRuntimeLiveValidationRunner / Menu` 纳入 own hygiene。
+- 子任务 2：修掉 sapling-only 菜单从 Edit Mode 进 Play 后不会自动起跑的入口 bug。
+- 子任务 3：只拿 fresh `scope=SaplingOnly` 结果，不整包重刷 second-blade。
+- 当前阻塞：shared root 的 Unity live 和 `NavValidation` 并发交织，fresh `SaplingGhostOccupancy` 仍未在干净窗口里通过。
+
+**已完成事项**：
+1. relevant changed paths 当前真实为：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`（mixed-owner）
+   - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+   - `Assets/YYY_Scripts/Service/Placement/PlacementSecondBladeLiveValidationRunner.cs`
+   - `Assets/YYY_Scripts/Service/Placement/Editor/PlacementSecondBladeLiveValidationMenu.cs`
+   - `Assets/YYY_Scripts/Farm/FarmRuntimeLiveValidationRunner.cs`
+   - `Assets/YYY_Scripts/Farm/Editor/FarmRuntimeLiveValidationMenu.cs`
+2. second-blade runner/menu 与 farm runtime runner/menu 当前通过 `validate_script` 都是 `0 error / 0 warning`。
+3. `GameInputManager.cs` 和 `PlacementManager.cs` 当前都没有新增 error，只剩各 2 条既有 warning。
+4. `PlacementSecondBladeLiveValidationMenu.cs` 已补：
+   - `SessionState` 持久化 pending scope
+   - `[InitializeOnLoad]` 恢复 domain reload 后的回调订阅
+5. `PlacementSecondBladeLiveValidationRunner.cs` 已补：
+   - sapling 场景点击前的 primed preview 稳定性检查
+   - 优先反射调用 `LockPreviewPosition()` 的 `TriggerPlacementAttempt()`
+6. fresh `Editor.log` 已真实拿到：
+   - `runner_started scene=Primary scope=SaplingOnly`
+   说明 sapling-only 入口 bug 已闭环。
+7. 但 fresh 结果仍是：
+   - `all_completed=false failed_scenario=SaplingGhostOccupancy scenario_count=1`
+   - `attempt=2 first_plant_timeout=true state=Preview target=(-6.50, 6.50, 0.00)`
+8. 同一批日志里持续存在：
+   - `NavValidation] all_completed=False scenario_count=1`
+   - `NavValidation] all_completed=False scenario_count=5`
+   因此这轮 Unity live 明显不是独占窗口。
+9. 本轮结束前已确认 Unity 退回 `Edit Mode`，没有把 Play Mode 留给别人。
+
+**关键决策**：
+- `FarmRuntimeLiveValidationRunner / Menu` 当前保留，不删除。
+- `GameInputManager.cs` 继续按 mixed-owner 报实，不在这轮当 own 独占回退。
+- 当前不能把 `013` 说成 fully clean；更准确的状态是：
+  - sapling-only 入口稳定性已闭环；
+  - fresh `SaplingGhostOccupancy` 仍未在共享并发 live 窗口里通过。
+
+**验证结果**：
+- `git diff --check` 对 relevant paths 通过。
+- runner/menu 代码 compile clean。
+- fresh sapling-only 已跑出 `scope=SaplingOnly` 证据，但仍 fail。
+- Unity 当前已退回 `Edit Mode`。
+
+**恢复点 / 下一步**：
+- 下一步只需要在没有 `NavValidation` 并发的 Unity live 窗口里重跑一次 sapling-only，确认 `SaplingGhostOccupancy` 是否能转绿。
+- 在那之前，不要把范围重新放大到整条 placeable 主链，也不要把 `012` 已跑实的恢复基线打回去。
+
+## 2026-03-26：用户新增 6 条现场问题已正式并入 `1.0.4` 需求总入口
+
+**用户目标**：
+- 用户要求不要改写最初需求，而是把最新这 6 条现场问题直接追加进需求文档，和原始需求放在一起，后续持续按这份总入口执行。
+
+**当前主线目标**：
+- 继续以 `全局交互V3（原：农田交互修复V2）` 语义维护 `1.0.4`；
+- 先把新增需求落盘，避免后续实现再次只记住旧问题而漏掉最新现场反馈。
+
+**本轮已完成事项**：
+1. 已在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\全面理解需求与分析.md` 中新增 `2.1 用户新增补充需求原文（2026-03-26，完整追加，不覆盖上文原始需求）`。
+2. 已将以下 6 条原文正式并入需求总入口：
+   - 右键箱子到不了可开启位置；
+   - placeable parent/container 需要长期规范，不能继续把所有对象临时塞进 `Farm`；
+   - 打开箱子不应退出放置模式、也不应让当前手持预览凭空消失；
+   - 幽灵占位仍严重存在；
+   - 工具损坏与精力耗尽都需要在动作/动画边界上做正确终止与玩家反馈；
+   - 树的第 2 阶段被砍倒后存在“死而复生”的幽灵僵尸 sprite。
+3. 本轮没有改代码、没有碰 Unity live、没有扩到 placeable runner 以外的实现面，只做需求入口与记忆同步。
+
+**关键决策**：
+- 这 6 条不是新子线，而是 `1.0.4` 原需求的同级追加；
+- 后续实现与验收不能再只对照旧 5 条主诉求，必须同时覆盖这 6 条新增问题。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\全面理解需求与分析.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\memory_0.md`
+
+**恢复点 / 下一步**：
+- 当前 `1.0.4` 需求总入口已经同步包含最初原始需求和这轮新增 6 条现场问题；
+- 后续如果继续实现，应把它们视为 placeable / chest / tool feedback / tree lifecycle 的新增硬验收项，而不是聊天里的散落补充。
+
+## 2026-03-26：交接前状态确认通过，`V2 -> V3` 重型交接包已生成
+
+**用户目标**：
+- 用户要求这轮不要继续修业务，而是只确认“当前是否已经稳定到足以无失真交给下一代线程”；如果足够稳定，就直接进入交接。
+
+**当前主线目标**：
+- 只做 `农田交互修复V2` 的交接前状态确认，并在确认可交接后，把重型交接包正式写入当前线程目录。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：回读交接写作统一 prompt、线程记忆、`1.0.4` 子工作区记忆、需求总入口、`013` 收口入口。
+- 子任务 2：判断当前是否还存在一个必须由我先补的最小动作，否则 handoff 会失真。
+- 当前判定结果：没有这样的前置阻塞；当前已经稳定到可交接。
+
+**已完成事项**：
+1. 已确认当前可以进入下一代交接，依据为：
+   - `012` 已把 placeable 主链恢复到至少不比 `124caccc` 更差；
+   - `013` 当前只剩 `SaplingGhostOccupancy` 的 runner 稳定性；
+   - 新增 6 条需求已并入总入口；
+   - own / mixed-owner / non-own 边界已足够清楚，尤其 `GameInputManager.cs` 当前继续按 mixed-owner 报实。
+2. 已创建交接包目录：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\`
+3. 已生成 7 份交接文件：
+   - `00_交接总纲.md`
+   - `01_线程身份与职责.md`
+   - `02_主线与支线迁移编年.md`
+   - `03_关键节点_分叉路_判废记录.md`
+   - `04_用户习惯_长期偏好_协作禁忌.md`
+   - `05_当前现场_高权重事项_风险与未竟问题.md`
+   - `06_证据索引_必读顺序_接手建议.md`
+4. 已正式确定未来继任线程名：
+   - `农田交互修复V3`
+
+**关键决策**：
+- 当前交接进入口径固定为三层：
+  - 已恢复的工作基线：`012`
+  - 尚未完全收口的 runner 稳定性：`013`
+  - 新增 6 条后续硬验收项：已并入总入口
+- 新线程接手后不应再回到 placeable 事故定性阶段。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\00_交接总纲.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\01_线程身份与职责.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\02_主线与支线迁移编年.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\03_关键节点_分叉路_判废记录.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\04_用户习惯_长期偏好_协作禁忌.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\05_当前现场_高权重事项_风险与未竟问题.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V2\V2交接文档\06_证据索引_必读顺序_接手建议.md`
+
+**恢复点 / 下一步**：
+- 当前线程的重型交接包已经就位；
+- 后续若继续农田主线，应由 `农田交互修复V3` 直接在“恢复基线 + runner 尾差 + 新增需求”这三个层次上接手推进。

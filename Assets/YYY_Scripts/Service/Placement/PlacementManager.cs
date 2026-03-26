@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using FarmGame.Data;
 using FarmGame.Events;
 using FarmGame.Farm;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 放置管理器
@@ -60,13 +61,13 @@ public class PlacementManager : MonoBehaviour
     [SerializeField] private int sortingOrderOffset = 0;
     
     [Header("━━━━ 音效 ━━━━")]
-    [SerializeField] private AudioClip placeSuccessSound;
-    [SerializeField] private AudioClip placeFailSound;
+    [SerializeField] private AudioClip placeSuccessSound = null;
+    [SerializeField] private AudioClip placeFailSound = null;
     [Range(0f, 1f)]
     [SerializeField] private float soundVolume = 0.8f;
     
     [Header("━━━━ 特效 ━━━━")]
-    [SerializeField] private GameObject placeEffectPrefab;
+    [SerializeField] private GameObject placeEffectPrefab = null;
     
     [Header("━━━━ 调试 ━━━━")]
     [SerializeField] private bool showDebugInfo = true; // 开启调试以排查问题
@@ -81,6 +82,10 @@ public class PlacementManager : MonoBehaviour
     private PlacementState currentState = PlacementState.Idle;
     private Camera mainCamera;
     private List<CellState> currentCellStates = new List<CellState>();
+    private bool holdPreviewUntilMouseMoves;
+    private Vector3 holdPreviewWorldPosition;
+    private Vector3 holdPreviewMouseScreenPosition;
+    private const float ResumePreviewMouseMoveThreshold = 1f;
     
     // 放置历史
     private List<PlacementHistoryEntry> placementHistory = new List<PlacementHistoryEntry>();
@@ -314,6 +319,7 @@ public class PlacementManager : MonoBehaviour
         if (item == null || !item.isPlaceable)
             return;
         
+        ClearPostPlacementPreviewHold();
         currentPlacementItem = item;
         currentItemQuality = quality;
         ChangeState(PlacementState.Preview);
@@ -335,6 +341,7 @@ public class PlacementManager : MonoBehaviour
     /// </summary>
     public void ExitPlacementMode()
     {
+        ClearPostPlacementPreviewHold();
         currentPlacementItem = null;
         currentItemQuality = 0;
         currentSnapshot = PlacementSnapshot.Invalid; // ★ 清除快照
@@ -483,6 +490,8 @@ public class PlacementManager : MonoBehaviour
         if (showDebugInfo)
             Debug.Log($"<color=yellow>[PlacementManagerV3] HandleInterrupt 开始, 当前状态={currentState}</color>");
         
+        ClearPostPlacementPreviewHold();
+
         // 取消导航
         if (navigator != null && navigator.IsNavigating)
         {
@@ -610,8 +619,23 @@ public class PlacementManager : MonoBehaviour
     
     #region 预览更新
 
+    private void EnsureValidatorInitialized()
+    {
+        if (validator != null)
+        {
+            return;
+        }
+
+        validator = new PlacementValidator();
+        validator.SetObstacleTags(obstacleTags);
+        validator.SetEnableLayerCheck(enableLayerCheck);
+        validator.SetDebugMode(showDebugInfo);
+    }
+
     private List<CellState> ValidateCurrentPlacementAt(Vector3 previewPosition)
     {
+        EnsureValidatorInitialized();
+
         if (placementPreview == null || currentPlacementItem == null)
         {
             return new List<CellState>();
@@ -649,6 +673,8 @@ public class PlacementManager : MonoBehaviour
 
     private bool RefreshPlacementValidationAt(Vector3 worldPosition, bool updatePreviewPosition)
     {
+        EnsureValidatorInitialized();
+
         if (placementPreview == null)
         {
             currentCellStates = new List<CellState>();
@@ -693,11 +719,18 @@ public class PlacementManager : MonoBehaviour
     {
         if (placementPreview == null || currentPlacementItem == null) return;
         
-        // 获取鼠标世界坐标
-        Vector3 mousePos = GetMouseWorldPosition();
-        
-        // 更新预览位置（锁定状态下不会更新）
-        placementPreview.UpdatePosition(mousePos);
+        if (ShouldHoldPreviewAtLastPlacement())
+        {
+            placementPreview.ForceUpdatePosition(holdPreviewWorldPosition);
+        }
+        else
+        {
+            // 获取鼠标世界坐标
+            Vector3 mousePos = GetMouseWorldPosition();
+
+            // 更新预览位置（锁定状态下不会更新）
+            placementPreview.UpdatePosition(mousePos);
+        }
         
         // 同步 Sorting Layer
         if (playerTransform != null)
@@ -1269,6 +1302,7 @@ public class PlacementManager : MonoBehaviour
 
     private void ResumePreviewAfterSuccessfulPlacement()
     {
+        Vector3 lastPlacedPosition = placementPreview != null ? placementPreview.LockedPosition : Vector3.zero;
         currentSnapshot = PlacementSnapshot.Invalid;
 
         if (placementPreview != null)
@@ -1280,21 +1314,36 @@ public class PlacementManager : MonoBehaviour
 
         if (placementPreview == null)
         {
+            ClearPostPlacementPreviewHold();
             return;
         }
 
-        if (mainCamera == null)
+        holdPreviewUntilMouseMoves = true;
+        holdPreviewWorldPosition = lastPlacedPosition;
+        holdPreviewMouseScreenPosition = Input.mousePosition;
+        RefreshPlacementValidationAt(lastPlacedPosition, true);
+    }
+
+    private bool ShouldHoldPreviewAtLastPlacement()
+    {
+        if (!holdPreviewUntilMouseMoves)
         {
-            mainCamera = Camera.main;
+            return false;
         }
 
-        if (mainCamera != null)
+        if ((Input.mousePosition - holdPreviewMouseScreenPosition).sqrMagnitude >
+            ResumePreviewMouseMoveThreshold * ResumePreviewMouseMoveThreshold)
         {
-            RefreshPlacementValidationAt(GetMouseWorldPosition(), true);
-            return;
+            ClearPostPlacementPreviewHold();
+            return false;
         }
 
-        RefreshPlacementValidationAt(placementPreview.GetPreviewPosition(), false);
+        return true;
+    }
+
+    private void ClearPostPlacementPreviewHold()
+    {
+        holdPreviewUntilMouseMoves = false;
     }
     
     /// <summary>
@@ -1392,8 +1441,136 @@ public class PlacementManager : MonoBehaviour
                       $"  finalColliderCenter={finalColliderCenter}\n" +
                       $"  placementPos={placementPosition}");
         }
-        
-        return Instantiate(currentPlacementItem.placementPrefab, placementPosition, Quaternion.identity);
+
+        Transform parent = ResolvePlacementParent(position);
+        if (showDebugInfo)
+        {
+            Debug.Log($"<color=cyan>[PlacementManagerV3] 放置 parent 解析: {(parent != null ? GetHierarchyPath(parent) : "<scene-root>")}</color>");
+        }
+
+        return parent != null
+            ? Instantiate(currentPlacementItem.placementPrefab, placementPosition, Quaternion.identity, parent)
+            : Instantiate(currentPlacementItem.placementPrefab, placementPosition, Quaternion.identity);
+    }
+
+    private Transform ResolvePlacementParent(Vector3 worldPosition)
+    {
+        int targetLayer = PlacementLayerDetector.GetLayerAtPosition(worldPosition);
+        string layerName = LayerMask.LayerToName(targetLayer);
+
+        if (TryResolveSceneLayerPropsParent(layerName, out Transform scenePropsParent))
+        {
+            return scenePropsParent;
+        }
+
+        if (TryResolveFarmLayerPropsParent(worldPosition, out Transform farmPropsParent))
+        {
+            return farmPropsParent;
+        }
+
+        return null;
+    }
+
+    private bool TryResolveSceneLayerPropsParent(string layerName, out Transform propsParent)
+    {
+        propsParent = null;
+        if (string.IsNullOrWhiteSpace(layerName))
+        {
+            return false;
+        }
+
+        string upperLayerName = layerName.ToUpperInvariant();
+        string sceneRootName = upperLayerName.StartsWith("LAYER ", StringComparison.Ordinal)
+            ? upperLayerName
+            : layerName.Replace("Layer ", "LAYER ", StringComparison.OrdinalIgnoreCase).ToUpperInvariant();
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (!activeScene.IsValid())
+        {
+            return false;
+        }
+
+        foreach (GameObject rootObject in activeScene.GetRootGameObjects())
+        {
+            Transform layerRoot = FindChildByNameRecursive(rootObject.transform, sceneRootName);
+            if (layerRoot == null)
+            {
+                continue;
+            }
+
+            Transform propsTransform = FindChildByNameRecursive(layerRoot, "Props");
+            if (propsTransform != null)
+            {
+                propsParent = propsTransform;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryResolveFarmLayerPropsParent(Vector3 worldPosition, out Transform propsParent)
+    {
+        propsParent = null;
+
+        var farmTileManager = FarmTileManager.Instance;
+        if (farmTileManager == null)
+        {
+            return false;
+        }
+
+        int layerIndex = farmTileManager.GetCurrentLayerIndex(worldPosition);
+        LayerTilemaps tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
+        if (tilemaps == null || tilemaps.propsContainer == null)
+        {
+            return false;
+        }
+
+        propsParent = tilemaps.propsContainer;
+        return true;
+    }
+
+    private static Transform FindChildByNameRecursive(Transform root, string targetName)
+    {
+        if (root == null || string.IsNullOrWhiteSpace(targetName))
+        {
+            return null;
+        }
+
+        if (string.Equals(root.name, targetName, StringComparison.OrdinalIgnoreCase))
+        {
+            return root;
+        }
+
+        foreach (Transform child in root)
+        {
+            Transform match = FindChildByNameRecursive(child, targetName);
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static string GetHierarchyPath(Transform transform)
+    {
+        if (transform == null)
+        {
+            return string.Empty;
+        }
+
+        var segments = new List<string>();
+        Transform current = transform;
+        while (current != null)
+        {
+            segments.Add(current.name);
+            current = current.parent;
+        }
+
+        segments.Reverse();
+        return string.Join("/", segments);
     }
     
     /// <summary>

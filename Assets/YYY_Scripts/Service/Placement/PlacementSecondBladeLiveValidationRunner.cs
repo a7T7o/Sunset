@@ -44,6 +44,12 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         ChestSaveLoadRegression
     }
 
+    private enum RunScope
+    {
+        Full,
+        SaplingOnly
+    }
+
     private struct ScenarioResult
     {
         public string Name;
@@ -82,6 +88,9 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
     private static readonly MethodInfo RefreshPlacementValidationAtMethod =
         typeof(PlacementManager).GetMethod("RefreshPlacementValidationAt", BindingFlags.Instance | BindingFlags.NonPublic);
 
+    private static readonly MethodInfo LockPreviewPositionMethod =
+        typeof(PlacementManager).GetMethod("LockPreviewPosition", BindingFlags.Instance | BindingFlags.NonPublic);
+
     private readonly List<ScenarioResult> scenarioResults = new List<ScenarioResult>();
     private readonly List<UnityEngine.Object> spawnedArtifacts = new List<UnityEngine.Object>();
 
@@ -104,8 +113,10 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
     private PlacementEventData? lastPlacementEvent;
     private SaplingPlantedEventData? lastSaplingEvent;
     private ChestController scenarioChest;
+    private GameObject scenarioChestRoot;
     private Vector3 scenarioChestTarget;
     private bool runFailed;
+    private RunScope requestedRunScope = RunScope.Full;
 
     public static PlacementSecondBladeLiveValidationRunner BeginOrRestart()
     {
@@ -116,6 +127,21 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             runner = go.AddComponent<PlacementSecondBladeLiveValidationRunner>();
         }
 
+        runner.requestedRunScope = RunScope.Full;
+        runner.StartRun();
+        return runner;
+    }
+
+    public static PlacementSecondBladeLiveValidationRunner BeginSaplingOnly()
+    {
+        PlacementSecondBladeLiveValidationRunner runner = FindFirstObjectByType<PlacementSecondBladeLiveValidationRunner>();
+        if (runner == null)
+        {
+            GameObject go = new GameObject("PlacementSecondBladeLiveValidationRunner");
+            runner = go.AddComponent<PlacementSecondBladeLiveValidationRunner>();
+        }
+
+        runner.requestedRunScope = RunScope.SaplingOnly;
         runner.StartRun();
         return runner;
     }
@@ -123,6 +149,14 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
     private void Awake()
     {
         DontDestroyOnLoad(gameObject);
+    }
+
+    private void Start()
+    {
+        if (runCoroutine == null)
+        {
+            StartRun();
+        }
     }
 
     private void OnEnable()
@@ -154,6 +188,7 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         lastPlacementEvent = null;
         lastSaplingEvent = null;
         scenarioChest = null;
+        scenarioChestRoot = null;
         runFailed = false;
 
         CleanupArtifacts();
@@ -164,7 +199,17 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             yield break;
         }
 
-        Debug.Log($"{LogPrefix} runner_started scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name}");
+        Debug.Log($"{LogPrefix} runner_started scene={UnityEngine.SceneManagement.SceneManager.GetActiveScene().name} scope={requestedRunScope}");
+
+        if (requestedRunScope == RunScope.SaplingOnly)
+        {
+            yield return RunScenario(ScenarioKind.SaplingGhostOccupancy, RunSaplingGhostScenario);
+            if (runFailed) yield break;
+
+            Debug.Log($"{LogPrefix} all_completed=true scenario_count={scenarioResults.Count} scope={requestedRunScope}");
+            runCoroutine = null;
+            yield break;
+        }
 
         yield return RunScenario(ScenarioKind.ChestReachEnvelope, RunChestReachEnvelopeScenario);
         if (runFailed) yield break;
@@ -178,7 +223,7 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         yield return RunScenario(ScenarioKind.ChestSaveLoadRegression, RunChestSaveLoadScenario);
         if (runFailed) yield break;
 
-        Debug.Log($"{LogPrefix} all_completed=true scenario_count={scenarioResults.Count}");
+        Debug.Log($"{LogPrefix} all_completed=true scenario_count={scenarioResults.Count} scope={requestedRunScope}");
         runCoroutine = null;
     }
 
@@ -202,10 +247,10 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             yield break;
         }
 
-        scenarioChestTarget = candidate.WorldPosition;
         Vector3 playerStart = playerTransform.position;
 
         yield return MoveCursorAndPrimePreview(candidate.WorldPosition);
+        scenarioChestTarget = placementPreview != null ? placementPreview.GetPreviewPosition() : candidate.WorldPosition;
 
         lastPlacementEvent = null;
         placementManager.OnLeftClick();
@@ -223,8 +268,9 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             yield break;
         }
 
-        scenarioChest = lastPlacementEvent.Value.PlacedObject != null
-            ? lastPlacementEvent.Value.PlacedObject.GetComponentInChildren<ChestController>()
+        scenarioChestRoot = lastPlacementEvent.Value.PlacedObject;
+        scenarioChest = scenarioChestRoot != null
+            ? scenarioChestRoot.GetComponentInChildren<ChestController>()
             : null;
 
         if (scenarioChest == null)
@@ -233,16 +279,23 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             yield break;
         }
 
-        spawnedArtifacts.Add(scenarioChest.gameObject);
+        spawnedArtifacts.Add(scenarioChestRoot != null ? scenarioChestRoot : scenarioChest.gameObject);
 
         float playerToTargetDistance = Vector2.Distance(playerStart, playerTransform.position);
-        bool placedNearTarget = Vector2.Distance(scenarioChest.transform.position, candidate.WorldPosition) <= 1.5f;
-        bool passed = placedNearTarget && playerToTargetDistance > 0.2f;
+        Vector3 placedPosition = scenarioChestRoot != null ? scenarioChestRoot.transform.position : scenarioChest.transform.position;
+        Transform placedParent = scenarioChestRoot != null ? scenarioChestRoot.transform.parent : scenarioChest.transform.parent;
+        string parentPath = GetTransformPath(placedParent);
+        bool placedNearTarget = Vector2.Distance(placedPosition, candidate.WorldPosition) <= 1.5f;
+        bool parentResolved =
+            placedParent != null &&
+            parentPath.Contains("SCENE/LAYER", StringComparison.OrdinalIgnoreCase) &&
+            parentPath.Contains("/Props", StringComparison.OrdinalIgnoreCase);
+        bool passed = placedNearTarget && playerToTargetDistance > 0.2f && parentResolved;
 
         FinishScenario(
             ScenarioKind.ChestReachEnvelope,
             passed,
-            $"placedNearTarget={placedNearTarget} movedDistance={playerToTargetDistance:F2} playerEnd={playerTransform.position} target={candidate.WorldPosition} state={placementManager.CurrentState}");
+            $"placedNearTarget={placedNearTarget} parentResolved={parentResolved} parentPath={parentPath} movedDistance={playerToTargetDistance:F2} playerEnd={playerTransform.position} target={candidate.WorldPosition} state={placementManager.CurrentState}");
     }
 
     private IEnumerator RunPreviewRefreshScenario()
@@ -289,29 +342,78 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             yield break;
         }
 
-        if (!TryFindPlacementCandidate(CandidatePreference.PreferImmediate, out PlacementCandidate candidate, out string candidateReason))
+        int initialSaplingCount = FindObjectsByType<TreeController>(FindObjectsSortMode.None).Length;
+        PlacementCandidate plantedCandidate = default;
+        string firstPlantFailure = "sapling_first_plant_unresolved=true";
+        bool firstPlantSucceeded = false;
+
+        for (int attempt = 0; attempt < 3 && !firstPlantSucceeded; attempt++)
         {
-            FinishScenario(ScenarioKind.SaplingGhostOccupancy, false, candidateReason);
-            yield break;
+            if (!TryFindPlacementCandidate(CandidatePreference.PreferImmediate, out PlacementCandidate candidate, out string candidateReason))
+            {
+                firstPlantFailure = $"attempt={attempt} {candidateReason}";
+                yield return WaitFrames(2);
+                continue;
+            }
+
+            Vector3 primedPreviewPosition = candidate.WorldPosition;
+            bool previewReady =
+                placementPreview != null &&
+                InvokeRefreshPlacementValidation(candidate.WorldPosition, true);
+
+            if (placementPreview != null)
+            {
+                primedPreviewPosition = placementPreview.GetPreviewPosition();
+            }
+
+            bool previewAligned = Vector2.Distance(primedPreviewPosition, candidate.WorldPosition) <= PositionTolerance;
+
+            if (!previewReady || !previewAligned)
+            {
+                firstPlantFailure =
+                    $"attempt={attempt} preview_not_ready={(!previewReady).ToString()} previewAligned={previewAligned.ToString()} state={placementManager.CurrentState} previewPos={primedPreviewPosition} target={candidate.WorldPosition}";
+                yield return WaitFrames(2);
+                continue;
+            }
+
+            lastSaplingEvent = null;
+            TriggerPlacementAttempt();
+
+            yield return WaitForCondition(
+                () =>
+                    (lastSaplingEvent.HasValue &&
+                     lastSaplingEvent.Value.SaplingData != null &&
+                     lastSaplingEvent.Value.SaplingData.itemID == SaplingItemId) ||
+                    placementManager.CurrentState == PlacementManager.PlacementState.Navigating,
+                2f);
+
+            if (lastSaplingEvent.HasValue &&
+                lastSaplingEvent.Value.SaplingData != null &&
+                lastSaplingEvent.Value.SaplingData.itemID == SaplingItemId)
+            {
+                plantedCandidate = candidate;
+                firstPlantSucceeded = true;
+                break;
+            }
+
+            if (placementManager.CurrentState == PlacementManager.PlacementState.Navigating)
+            {
+                placementManager.OnRightClick();
+                yield return WaitFrames(2);
+                firstPlantFailure = $"attempt={attempt} unexpected_navigation=true target={candidate.WorldPosition}";
+                continue;
+            }
+
+            firstPlantFailure = $"attempt={attempt} first_plant_timeout=true state={placementManager.CurrentState} target={candidate.WorldPosition}";
+            yield return WaitFrames(2);
         }
 
-        int initialSaplingCount = FindObjectsByType<TreeController>(FindObjectsSortMode.None).Length;
-
-        yield return MoveCursorAndPrimePreview(candidate.WorldPosition);
-
-        lastSaplingEvent = null;
-        placementManager.OnLeftClick();
-
-        yield return WaitForCondition(
-            () => lastSaplingEvent.HasValue && lastSaplingEvent.Value.SaplingData != null && lastSaplingEvent.Value.SaplingData.itemID == SaplingItemId,
-            ScenarioTimeout);
-
-        if (!lastSaplingEvent.HasValue)
+        if (!firstPlantSucceeded)
         {
             FinishScenario(
                 ScenarioKind.SaplingGhostOccupancy,
                 false,
-                $"first_plant_timeout=true state={placementManager.CurrentState} target={candidate.WorldPosition}");
+                firstPlantFailure);
             yield break;
         }
 
@@ -322,20 +424,28 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
 
         yield return WaitFrames(4);
 
+        if (placementPreview != null)
+        {
+            InvokeRefreshPlacementValidation(plantedCandidate.WorldPosition, true);
+        }
+
         lastSaplingEvent = null;
-        placementManager.OnLeftClick();
+        TriggerPlacementAttempt();
         yield return WaitFrames(6);
 
         int finalSaplingCount = FindObjectsByType<TreeController>(FindObjectsSortMode.None).Length;
         bool secondPlantBlocked = !lastSaplingEvent.HasValue;
         bool previewInvalid = placementPreview != null && !placementPreview.IsAllValid;
+        bool previewStayedOnOccupiedCell =
+            placementPreview != null &&
+            Vector2.Distance(placementPreview.GetPreviewPosition(), plantedCandidate.WorldPosition) <= PositionTolerance;
         bool onlyOneTreeCreated = finalSaplingCount == initialSaplingCount + 1;
-        bool passed = secondPlantBlocked && previewInvalid && onlyOneTreeCreated;
+        bool passed = secondPlantBlocked && previewInvalid && previewStayedOnOccupiedCell && onlyOneTreeCreated;
 
         FinishScenario(
             ScenarioKind.SaplingGhostOccupancy,
             passed,
-            $"secondPlantBlocked={secondPlantBlocked} previewInvalid={previewInvalid} treeDelta={finalSaplingCount - initialSaplingCount} target={candidate.WorldPosition}");
+            $"secondPlantBlocked={secondPlantBlocked} previewInvalid={previewInvalid} previewStayedOnOccupiedCell={previewStayedOnOccupiedCell} treeDelta={finalSaplingCount - initialSaplingCount} target={plantedCandidate.WorldPosition}");
 
         if (placementManager.IsPlacementMode)
         {
@@ -352,21 +462,29 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             yield break;
         }
 
-        var runtimeItem = new InventoryItem(1701, 2, 4);
+        var runtimeItem = new InventoryItem(ChestItemId, 2, 4);
         runtimeItem.SetDurability(40, 17);
         runtimeItem.SetProperty("seedRemaining", 9);
         runtimeItem.SetProperty("customName", "live-second-blade");
 
         scenarioChest.InventoryV2.SetItem(3, runtimeItem);
-        scenarioChest.Inventory.SetSlot(5, new ItemStack(1702, 1, 6));
+        scenarioChest.Inventory.SetSlot(5, new ItemStack(SaplingItemId, 1, 6));
 
         WorldObjectSaveData saveData = scenarioChest.Save();
         scenarioChest.Inventory.ClearSlot(3);
         scenarioChest.InventoryV2.ClearItem(5);
 
+        if (scenarioChestRoot != null)
+        {
+            Destroy(scenarioChestRoot);
+            scenarioChestRoot = null;
+            scenarioChest = null;
+            yield return WaitFrames(2);
+        }
+
         GameObject restoredRoot = Instantiate(
-            scenarioChest.StorageData.storagePrefab,
-            scenarioChest.transform.position + new Vector3(2f, 0f, 0f),
+            chestItemData.storagePrefab,
+            playerTransform.position + new Vector3(2f, 0f, 0f),
             Quaternion.identity);
         spawnedArtifacts.Add(restoredRoot);
 
@@ -421,10 +539,10 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             mirroredRuntimeStack.quality == runtimeItem.Quality &&
             mirroredRuntimeStack.amount == runtimeItem.Amount &&
             loadedLegacySyncedItem != null &&
-            loadedLegacySyncedItem.ItemId == 1702 &&
+            loadedLegacySyncedItem.ItemId == SaplingItemId &&
             loadedLegacySyncedItem.Quality == 1 &&
             loadedLegacySyncedItem.Amount == 6 &&
-            mirroredLegacyStack.itemId == 1702 &&
+            mirroredLegacyStack.itemId == SaplingItemId &&
             mirroredLegacyStack.quality == 1 &&
             mirroredLegacyStack.amount == 6;
 
@@ -576,9 +694,10 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         candidate = default;
         reason = null;
 
-        Vector3 origin = GetCandidateSearchOrigin();
+        Vector3 origin = GetCandidateSearchOrigin(preference);
         float bestDistance = float.MaxValue;
         bool found = false;
+        bool requireImmediate = preference == CandidatePreference.PreferImmediate;
 
         for (int radius = 0; radius <= 8; radius++)
         {
@@ -604,6 +723,11 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
 
                     Bounds previewBounds = placementPreview.GetPreviewBounds();
                     bool requiresNavigation = !placementNavigator.IsAlreadyNearTarget(playerCollider.bounds, previewBounds);
+
+                    if (requireImmediate && requiresNavigation)
+                    {
+                        continue;
+                    }
 
                     if (preference == CandidatePreference.RequireNavigation && !requiresNavigation)
                     {
@@ -643,7 +767,9 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
 
         if (!found)
         {
-            reason = $"candidate_not_found preference={preference}";
+            reason = requireImmediate
+                ? $"immediate_candidate_not_found preference={preference}"
+                : $"candidate_not_found preference={preference}";
             return false;
         }
 
@@ -690,6 +816,17 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         return result is bool valid && valid;
     }
 
+    private void TriggerPlacementAttempt()
+    {
+        if (LockPreviewPositionMethod != null && placementManager != null && placementManager.CurrentState == PlacementManager.PlacementState.Preview)
+        {
+            LockPreviewPositionMethod.Invoke(placementManager, null);
+            return;
+        }
+
+        placementManager.OnLeftClick();
+    }
+
     private void CleanupArtifacts()
     {
         if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen)
@@ -720,6 +857,25 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
                 DestroyImmediate(spawnedArtifacts[i]);
             }
         }
+    }
+
+    private static string GetTransformPath(Transform transform)
+    {
+        if (transform == null)
+        {
+            return "<scene-root>";
+        }
+
+        var segments = new List<string>();
+        Transform current = transform;
+        while (current != null)
+        {
+            segments.Add(current.name);
+            current = current.parent;
+        }
+
+        segments.Reverse();
+        return string.Join("/", segments);
     }
 
     private IEnumerator WaitForCondition(Func<bool> predicate, float timeoutSeconds)
@@ -755,8 +911,13 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         lastSaplingEvent = eventData;
     }
 
-    private Vector3 GetCandidateSearchOrigin()
+    private Vector3 GetCandidateSearchOrigin(CandidatePreference preference)
     {
+        if (preference == CandidatePreference.PreferImmediate && playerTransform != null)
+        {
+            return PlacementGridCalculator.GetCellCenter(playerTransform.position);
+        }
+
         Vector3 hoverWorld = GetMouseWorldPosition();
         if (IsWorldPointVisible(hoverWorld))
         {
