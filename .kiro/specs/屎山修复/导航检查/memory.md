@@ -2632,3 +2632,31 @@
 - 当前恢复点：
   - 当前实现主线停在“同一 detour owner 闭环的 NPC 侧 fresh 仍失败”；
   - 下一轮如继续，只能继续沿 `NPCAutoRoamController / NavigationPathExecutor2D / PlayerAutoNavigator` 这条 owner keepalive / release 链细查，不得借题漂回大架构讨论。
+
+## 2026-03-26（治理复核 NPCV2 Inspector 报错修复：只认 Editor 修复，不外推 mixed hot 面）
+
+- 当前主线目标：
+  - 继续作为导航治理总闸，区分 `NPCV2` 已修掉的 Inspector 报错，与当前 `Primary.unity / TMP / 导航脚本` mixed dirty 的 owner 归属，避免把外部 hygiene 混进导航主刀。
+- 本轮子任务：
+  - 审核 `NPCV2` 关于提交 `24886aad` 的汇报是否成立，并决定是否需要给 `NPCV2` 下发新的 cleanup prompt。
+- 本轮完成：
+  1. 核实提交 `24886aad` 与 `Assets/Editor/NPCAutoRoamControllerEditor.cs`：
+     - `TryAutoRepairPrimaryHomeAnchors()` 已改成：
+       - `Play Mode` 只做运行态 `HomeAnchor` 补口；
+       - `Edit Mode` 才走 `Undo / SerializedObject / EditorSceneManager.MarkSceneDirty`。
+  2. 裁定这份汇报的有效边界：
+     - 可以确认：`NPCV2` 这轮确实修掉了 Inspector 侧 `MarkSceneDirty` 的 Play Mode 报错；
+     - 不能外推：当前 `Primary.unity`、3 个 TMP 字体、`NPCAutoRoamController.cs` 的 dirty 都归 `NPCV2`。
+  3. 补充 owner 证据：
+     - `Primary.unity` 最近一次提交触碰来自 `65e1ee35`（`NPCV2_04`），但当前 working tree 仍是 mixed hot 面；
+     - `NPCAutoRoamController.cs` 最近提交与当前 dirty 仍在导航线；
+     - 3 个 TMP 字体不是 `NPCV2` 本轮 editor 修复的直接产物。
+  4. 因此新增极窄治理委托，而不是 broad cleanup：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2-Primary归属报实与最小cleanup委托-06.md`
+- 本轮新增稳定结论：
+  1. `24886aad` 只证明 `NPCV2` 修了编辑器侧报错；
+  2. 当前 mixed hot 面不能因为这条汇报就整包判给 `NPCV2`；
+  3. 导航主线仍由 `导航检查V2` 继续收 `NPCAutoRoamController` 的 release / 执行链，`NPCV2` 最多只接 `Primary.unity` own residue 报实。
+- 当前恢复点：
+  - 如果用户要继续叫 `NPCV2` 收尾，只转发 `...Primary归属报实与最小cleanup委托-06.md`；
+  - 导航线本身不因此改刀口，仍停在 `导航检查V2` 的 NPC 侧执行语义收口。

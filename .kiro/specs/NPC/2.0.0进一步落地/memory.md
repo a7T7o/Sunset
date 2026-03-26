@@ -392,3 +392,26 @@
   - 这样当前正在运行的 Unity 不会再因为 Inspector 自动补口而报 `MarkSceneDirty` 异常
 - 当前恢复点：
   - 用户现在只需要等待脚本重新编译，并重新点回 `001 / 002 / 003` 的 Inspector，看 `Home Anchor` 是否自动回正
+
+## 2026-03-26｜治理补充：`24886aad` 之后只允许做 `Primary.unity` own residue 报实
+
+- 当前主线目标：
+  - 在承认 `NPCAutoRoamControllerEditor.cs` 的 Play Mode 报错已修复的前提下，避免把当前 mixed hot 面一口吞成 `NPCV2` own cleanup。
+- 治理新增事实：
+  1. `24886aad` 的有效范围只到：
+     - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+     - `NPCV2` 自己的记忆
+     - 本工作区记忆
+  2. 它不自动证明当前 `Primary.unity` 全部 dirty、TMP 字体 dirty、或导航线 `NPCAutoRoamController.cs` dirty 都归 `NPCV2`。
+- 治理新增委托：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2-Primary归属报实与最小cleanup委托-06.md`
+- 当前恢复点：
+  - 若 `NPCV2` 继续施工，只允许：
+    - 对 `Primary.unity` 做 own residue 报实；
+    - 能切出纯 `HomeAnchor / Inspector auto-repair` 残留时，做最小 cleanup；
+  - 不允许：
+    - 吞整张 `Primary.unity`
+    - 碰 `NPCAutoRoamController.cs`
+    - 碰导航线脚本
+    - 碰 TMP 字体
+    - 进 Unity / MCP / Play Mode 再做 live 写

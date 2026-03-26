@@ -1108,3 +1108,23 @@
 - 父层当前恢复点：
   - `导航检查V2` 下一轮继续打 NPC 侧 release 硬停链，并要求把 own dirty 一并自收口；
   - 若后续 hot 面长期不消，再单独开 `NPC/NPCV2` 的 owner 报实 / hygiene 线程，不和导航主刀混做。
+
+### 会话 56 - 2026-03-26
+
+- 子工作区 `导航检查` 本轮继续做治理总闸，插入式处理 `NPCV2` 的最新汇报，但不改导航实现本体。
+- 父层新增稳定事实：
+  1. `NPCV2` 在提交 `24886aad` 中修掉 `NPCAutoRoamControllerEditor.cs` 的 `Play Mode -> MarkSceneDirty` 报错，这条汇报成立；
+  2. 但这条提交只覆盖：
+     - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+     - `NPCV2` 自己的 memory
+     - `NPC` 工作区 memory
+     不能外推成“当前所有 dirty 都归 NPC 线”；
+  3. 当前 dirty 仍需拆 owner：
+     - `Assets/000_Scenes/Primary.unity` 最近一次提交触碰来自 `65e1ee35`，但 working tree 仍是 mixed hot 面；
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 当前 dirty 仍归导航线；
+     - 3 个 TMP 字体不归这轮 `NPCV2` editor 修复。
+  4. 因此这轮不让 `NPCV2` 吞 broad cleanup，只新增极窄委托：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2-Primary归属报实与最小cleanup委托-06.md`
+- 父层当前恢复点：
+  - `导航检查V2` 继续围绕 `NPCAutoRoamController` 的 release / 执行链收口；
+  - `NPCV2` 如需继续，只允许做 `Primary.unity` own residue 报实与最小 cleanup，不碰导航脚本、TMP 字体或 Unity live 写。

@@ -1779,3 +1779,28 @@
   1. `导航检查V2` 下一轮仍归“继续发 prompt”；
   2. 但主刀必须锁在 `NPCAutoRoamController` 的 release 硬停链，且 own dirty 这轮要自收口；
   3. `NPC/NPCV2` 当前不进 cleanup 主线，除非后续需要单独做 hot 面 owner 报实。
+
+## 2026-03-26（复核 NPCV2 最新汇报：它是子线程，不把 mixed dirty 整包甩给 NPC）
+
+- 当前线程主线：
+  - 继续治理总闸；这轮审 `NPCV2` 最新汇报，确认它修掉的到底是什么，以及要不要单独给它发 owner 报实 prompt。
+- 本轮子任务：
+  - 核 `24886aad` 是否真的修了 Inspector 报错，并判断这能否推导出当前 `Primary.unity` / 导航脚本 / 字体 dirty 都归 `NPCV2`。
+- 本轮完成：
+  1. 读取 `Assets/Editor/NPCAutoRoamControllerEditor.cs` 与提交 `24886aad`，确认：
+     - `Play Mode` 下已不再调用 `MarkSceneDirty`；
+     - `Edit Mode` 才走 scene 持久化接口。
+  2. 裁定：
+     - `NPCV2` 这份“Inspector 报错已经修了”的汇报成立；
+     - 但它只覆盖 editor 补口，不覆盖当前 mixed hot 面的全部 owner。
+  3. 结合当前工作树与历史提交，继续拆 owner：
+     - `Primary.unity` 最近一次提交触碰来自 `NPCV2_04`，但当前 working tree 仍是 mixed hot 面；
+     - `NPCAutoRoamController.cs` 当前 dirty 仍在导航线；
+     - 3 个 TMP 字体也不能判给 `NPCV2`。
+  4. 新增极窄 prompt 文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2-Primary归属报实与最小cleanup委托-06.md`
+- 当前线程级结论：
+  1. 这轮可以承认 `NPCV2` 修了 editor 报错；
+  2. 不能把它偷换成“现在所有 dirty 都是 NPC 干的”；
+  3. 如果继续叫 `NPCV2`，只允许它处理 `Primary.unity` own residue 报实；
+  4. 用户已纠正称呼语义，应继续把 `NPCV2` 视为子线程，不再把这类线程口径说乱。
