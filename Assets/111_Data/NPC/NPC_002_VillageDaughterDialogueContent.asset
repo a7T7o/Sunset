@@ -24,6 +24,23 @@ MonoBehaviour:
   - 慢一点没关系，这里风挺舒服的。
   - 要不要先歇一会儿？这边不吵。
   - 今天大家都忙，我倒想和你多说两句。
+  relationshipStageNearbyLines:
+  - relationshipStage: 0
+    playerNearbyLines:
+    - 你要是第一次来这边，可以先在亮一点的地方站站。
+    - 不用急着和大家搭话，这里先透透气也好。
+  - relationshipStage: 1
+    playerNearbyLines:
+    - 你是来这边透口气的吗？
+    - 慢一点没关系，这里风挺舒服的。
+  - relationshipStage: 2
+    playerNearbyLines:
+    - 你今天看起来没那么拘谨了，要不要再多陪我站一会儿？
+    - 你要是想躲会儿热闹，我给你留个安静位置。
+  - relationshipStage: 3
+    playerNearbyLines:
+    - 你来了我就想多说两句，别急着走开呀。
+    - 要是你累了，就跟我一起在这边偷会儿懒。
   defaultChatInitiatorLines:
   - 你也来这边透口气呀？
   - 刚才那边有点吃力，我还是更喜欢这儿。

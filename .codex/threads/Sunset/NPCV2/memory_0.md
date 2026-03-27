@@ -493,3 +493,62 @@
   - `T-P3-03` 可判 `done`
   - 下一步继续看：
     - `T-P3-04`
+
+## 2026-03-27｜`P3` 分轨完成，`P4` 关系成长最小底座已落地
+
+- 当前主线目标：
+  - 按“高速模式”继续沿非热区推进 NPCV2，不在 `Primary.unity` / `GameInputManager.cs` / 字体资产上原地空转。
+- 本轮子任务：
+  - 完成 `T-P3-04 / T-P3-05`
+  - 完成 `T-P4-01 ~ T-P4-04`
+- 本轮完成：
+  - `T-P3-04`
+    - `PlayerNpcNearbyFeedbackService` 现在会在正式对话开始时回收旧的日常 NPC 气泡
+    - 正式对话进行中，会停止继续探测和播放日常轻反馈
+  - `T-P3-05`
+    - 已补出：
+      - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P3-05-轻交互与双气泡验收包.md`
+  - `T-P4-01`
+    - 已新增：
+      - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\NPCRelationshipStage.cs`
+      - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcRelationshipService.cs`
+  - `T-P4-02`
+    - 已把 `001 / 002 / 003` 的玩家近身句扩成按关系阶段分流
+    - 玩家侧近身反馈会按当前关系阶段取句
+  - `T-P4-03`
+    - 当前关系阶段支持 `PlayerPrefs` 最小持久化
+  - `T-P4-04`
+    - 已新增：
+      - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPC\PlayerNpcRelationshipDebugMenu.cs`
+    - 已补出：
+      - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P4-04-关系成长首版验收包.md`
+- 本轮验证：
+  - `git diff --check` 已通过
+  - 已补最小静态断言：
+    - `SpringDay1DialogueProgressionTests`
+    - `NPCToolchainRegularizationTests`
+  - 当前还没有 claim live 体验终验
+- 当前 owned / external 边界：
+  - 当前 owned：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcRelationshipService.cs`
+    - `Assets/YYY_Scripts/Data/NPCRelationshipStage.cs`
+    - `Assets/YYY_Scripts/Data/NPCDialogueContentProfile.cs`
+    - `Assets/YYY_Scripts/Data/NPCRoamProfile.cs`
+    - `Assets/Editor/NPC/PlayerNpcRelationshipDebugMenu.cs`
+    - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+    - `Assets/YYY_Tests/Editor/NPCToolchainRegularizationTests.cs`
+    - `Assets/111_Data/NPC/NPC_001_VillageChiefDialogueContent.asset`
+    - `Assets/111_Data/NPC/NPC_002_VillageDaughterDialogueContent.asset`
+    - `Assets/111_Data/NPC/NPC_003_ResearchDialogueContent.asset`
+  - 当前 external / 暂不碰：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*.asset`
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - 导航 runtime 相关 mixed 现场
+- 当前恢复点：
+  - `P3 = done`
+  - `P4 = done`
+  - 下一步如继续推进，优先进入：
+    - `T-P5-01`
+  - 但如后续要重新碰 scene / live 热窗，必须重新做准入复核，不得因为 `shared-root-branch-occupancy = neutral` 就误判成 scene 可直接写。

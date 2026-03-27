@@ -28,6 +28,22 @@ public class NPCDialogueContentProfile : ScriptableObject
         }
     }
 
+    [Serializable]
+    public sealed class RelationshipStageNearbySet
+    {
+        [SerializeField] private NPCRelationshipStage relationshipStage = NPCRelationshipStage.Stranger;
+        [SerializeField] private string[] playerNearbyLines = Array.Empty<string>();
+
+        public NPCRelationshipStage RelationshipStage => NPCRelationshipStageUtility.Sanitize(relationshipStage);
+        public string[] PlayerNearbyLines => playerNearbyLines ?? Array.Empty<string>();
+
+        public void Sanitize()
+        {
+            relationshipStage = NPCRelationshipStageUtility.Sanitize(relationshipStage);
+            playerNearbyLines ??= Array.Empty<string>();
+        }
+    }
+
     [Header("身份标识")]
     [SerializeField] private string npcId = string.Empty;
 
@@ -36,6 +52,9 @@ public class NPCDialogueContentProfile : ScriptableObject
 
     [Header("玩家轻响应")]
     [SerializeField] private string[] playerNearbyLines = Array.Empty<string>();
+
+    [Header("按关系阶段分流的玩家轻响应")]
+    [SerializeField] private RelationshipStageNearbySet[] relationshipStageNearbyLines = Array.Empty<RelationshipStageNearbySet>();
 
     [Header("通用相遇发起")]
     [SerializeField] private string[] defaultChatInitiatorLines = Array.Empty<string>();
@@ -49,11 +68,12 @@ public class NPCDialogueContentProfile : ScriptableObject
     public string NpcId => ResolveNpcId();
     public string[] SelfTalkLines => selfTalkLines ?? Array.Empty<string>();
     public string[] PlayerNearbyLines => playerNearbyLines ?? Array.Empty<string>();
+    public RelationshipStageNearbySet[] RelationshipStageNearbyLines => relationshipStageNearbyLines ?? Array.Empty<RelationshipStageNearbySet>();
     public string[] DefaultChatInitiatorLines => defaultChatInitiatorLines ?? Array.Empty<string>();
     public string[] DefaultChatResponderLines => defaultChatResponderLines ?? Array.Empty<string>();
     public PairDialogueSet[] PairDialogueSets => pairDialogueSets ?? Array.Empty<PairDialogueSet>();
     public bool HasSelfTalkContent => HasAnyLines(SelfTalkLines);
-    public bool HasPlayerNearbyContent => HasAnyLines(PlayerNearbyLines);
+    public bool HasPlayerNearbyContent => HasAnyLines(PlayerNearbyLines) || HasAnyStageNearbyLines();
     public bool HasAmbientChatInitiatorContent => HasAnyLines(DefaultChatInitiatorLines) || HasAnyPairLines(initiator: true);
     public bool HasAmbientChatResponderContent => HasAnyLines(DefaultChatResponderLines) || HasAnyPairLines(initiator: false);
 
@@ -79,6 +99,20 @@ public class NPCDialogueContentProfile : ScriptableObject
         return initiator ? DefaultChatInitiatorLines : DefaultChatResponderLines;
     }
 
+    public string[] GetPlayerNearbyLines(NPCRelationshipStage relationshipStage)
+    {
+        if (TryGetRelationshipStageNearbySet(relationshipStage, out RelationshipStageNearbySet relationshipStageLineSet))
+        {
+            string[] stageSpecificLines = relationshipStageLineSet.PlayerNearbyLines;
+            if (HasAnyLines(stageSpecificLines))
+            {
+                return stageSpecificLines;
+            }
+        }
+
+        return PlayerNearbyLines;
+    }
+
     public bool TryGetPairDialogueSet(string partnerNpcId, out PairDialogueSet pairDialogueSet)
     {
         string normalizedPartnerId = NormalizeNpcId(partnerNpcId);
@@ -99,6 +133,29 @@ public class NPCDialogueContentProfile : ScriptableObject
         }
 
         pairDialogueSet = null;
+        return false;
+    }
+
+    public bool TryGetRelationshipStageNearbySet(NPCRelationshipStage relationshipStage, out RelationshipStageNearbySet relationshipStageLineSet)
+    {
+        NPCRelationshipStage sanitizedStage = NPCRelationshipStageUtility.Sanitize(relationshipStage);
+        RelationshipStageNearbySet[] stageSets = RelationshipStageNearbyLines;
+        for (int index = 0; index < stageSets.Length; index++)
+        {
+            RelationshipStageNearbySet candidate = stageSets[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (candidate.RelationshipStage == sanitizedStage)
+            {
+                relationshipStageLineSet = candidate;
+                return true;
+            }
+        }
+
+        relationshipStageLineSet = null;
         return false;
     }
 
@@ -143,14 +200,40 @@ public class NPCDialogueContentProfile : ScriptableObject
         npcId = NormalizeNpcId(npcId);
         selfTalkLines ??= Array.Empty<string>();
         playerNearbyLines ??= Array.Empty<string>();
+        relationshipStageNearbyLines ??= Array.Empty<RelationshipStageNearbySet>();
         defaultChatInitiatorLines ??= Array.Empty<string>();
         defaultChatResponderLines ??= Array.Empty<string>();
         pairDialogueSets ??= Array.Empty<PairDialogueSet>();
+
+        for (int index = 0; index < relationshipStageNearbyLines.Length; index++)
+        {
+            relationshipStageNearbyLines[index]?.Sanitize();
+        }
 
         for (int index = 0; index < pairDialogueSets.Length; index++)
         {
             pairDialogueSets[index]?.Sanitize();
         }
+    }
+
+    private bool HasAnyStageNearbyLines()
+    {
+        RelationshipStageNearbySet[] stageSets = RelationshipStageNearbyLines;
+        for (int index = 0; index < stageSets.Length; index++)
+        {
+            RelationshipStageNearbySet candidate = stageSets[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (HasAnyLines(candidate.PlayerNearbyLines))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool HasAnyPairLines(bool initiator)

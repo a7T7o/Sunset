@@ -1,3 +1,5 @@
+using Sunset.Events;
+using Sunset.Story;
 using UnityEngine;
 
 [DisallowMultipleComponent]
@@ -16,6 +18,8 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
     private int lastNpcInstanceId;
     private float lastNpcFeedbackTime = float.NegativeInfinity;
     private PlayerInteraction playerInteraction;
+    private bool suppressWhileDialogueActive;
+    private NPCBubblePresenter activeNearbyBubblePresenter;
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
@@ -28,9 +32,29 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
         playerInteraction = GetComponent<PlayerInteraction>();
     }
 
+    private void OnEnable()
+    {
+        EventBus.Subscribe<DialogueStartEvent>(HandleDialogueStarted, owner: this);
+        EventBus.Subscribe<DialogueEndEvent>(HandleDialogueEnded, owner: this);
+        SyncDialogueSuppressionState();
+    }
+
+    private void OnDisable()
+    {
+        HideActiveNearbyBubble();
+        EventBus.UnsubscribeAll(this);
+        suppressWhileDialogueActive = false;
+    }
+
     private void Update()
     {
         if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        SyncDialogueSuppressionState();
+        if (suppressWhileDialogueActive)
         {
             return;
         }
@@ -46,6 +70,11 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
 
     private bool TryPlayNearbyFeedback()
     {
+        if (suppressWhileDialogueActive)
+        {
+            return false;
+        }
+
         if (Time.time < nextAllowedFeedbackTime)
         {
             return false;
@@ -63,7 +92,15 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
         }
 
         NPCRoamProfile roamProfile = candidate.RoamProfile;
-        if (roamProfile == null || !HasAnyLines(roamProfile.PlayerNearbyLines))
+        if (roamProfile == null)
+        {
+            return false;
+        }
+
+        string npcId = roamProfile.ResolveNpcId(candidate.name);
+        NPCRelationshipStage relationshipStage = PlayerNpcRelationshipService.GetStage(npcId);
+        string[] lines = roamProfile.GetPlayerNearbyLines(relationshipStage);
+        if (!HasAnyLines(lines))
         {
             return false;
         }
@@ -80,7 +117,6 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
             return false;
         }
 
-        string[] lines = roamProfile.PlayerNearbyLines;
         string line = lines[Random.Range(0, lines.Length)];
         if (string.IsNullOrWhiteSpace(line))
         {
@@ -92,6 +128,7 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
             return false;
         }
 
+        activeNearbyBubblePresenter = bubblePresenter;
         lastNpcInstanceId = npcInstanceId;
         lastNpcFeedbackTime = Time.time;
         nextAllowedFeedbackTime = Time.time + globalCooldown;
@@ -170,5 +207,55 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
         }
 
         return null;
+    }
+
+    private void HandleDialogueStarted(DialogueStartEvent _)
+    {
+        SetDialogueSuppressed(true);
+    }
+
+    private void HandleDialogueEnded(DialogueEndEvent _)
+    {
+        SetDialogueSuppressed(false);
+    }
+
+    private void SyncDialogueSuppressionState()
+    {
+        bool shouldSuppress = DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive;
+        SetDialogueSuppressed(shouldSuppress);
+
+        if (!shouldSuppress && activeNearbyBubblePresenter != null && !activeNearbyBubblePresenter.IsBubbleVisible)
+        {
+            activeNearbyBubblePresenter = null;
+        }
+    }
+
+    private void SetDialogueSuppressed(bool shouldSuppress)
+    {
+        if (suppressWhileDialogueActive == shouldSuppress)
+        {
+            return;
+        }
+
+        suppressWhileDialogueActive = shouldSuppress;
+        if (suppressWhileDialogueActive)
+        {
+            HideActiveNearbyBubble();
+        }
+    }
+
+    private void HideActiveNearbyBubble()
+    {
+        if (activeNearbyBubblePresenter == null)
+        {
+            return;
+        }
+
+        if (activeNearbyBubblePresenter.IsBubbleVisible)
+        {
+            activeNearbyBubblePresenter.HideBubble();
+        }
+
+        activeNearbyBubblePresenter = null;
     }
 }

@@ -24,6 +24,23 @@ MonoBehaviour:
   - 村里今天不算乱，你先安心转转。
   - 要是哪里不顺手，记得直接和我说。
   - 看着脚下，别在忙的时候把自己绊着了。
+  relationshipStageNearbyLines:
+  - relationshipStage: 0
+    playerNearbyLines:
+    - 头一回来村里就别急着赶路，先认认路口。
+    - 你先顺着这边慢慢看，有事再来找我。
+  - relationshipStage: 1
+    playerNearbyLines:
+    - 回来了？路上慢一点，别在路口抢步子。
+    - 村里今天不算乱，你先安心转转。
+  - relationshipStage: 2
+    playerNearbyLines:
+    - 你这会儿脚步稳多了，我就放心些了。
+    - 要是想抄近一点的路，先跟我说一声。
+  - relationshipStage: 3
+    playerNearbyLines:
+    - 你一回来，这边我就不用总惦记着了。
+    - 累了就先来我这儿站站，别硬撑。
   defaultChatInitiatorLines:
   - 今早村里动静不大，倒是个做事的好时候。
   - 你那边忙完了？先把脚跟站稳再说。

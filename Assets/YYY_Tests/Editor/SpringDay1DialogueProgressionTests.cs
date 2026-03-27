@@ -13,6 +13,8 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string DialogueUiPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/DialogueUI.cs");
     private static readonly string DialogueManagerPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/DialogueManager.cs");
     private static readonly string DirectorPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs");
+    private static readonly string StatusOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs");
+    private static readonly string WorldHintBubblePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs");
     private static readonly string WorkbenchInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs");
     private static readonly string WorkbenchOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs");
     private static readonly string WorkbenchSceneBinderPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/SpringDay1WorkbenchSceneBinder.cs");
@@ -22,6 +24,7 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string BedInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/SpringDay1BedInteractable.cs");
     private static readonly string BedSceneBinderPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/SpringDay1BedSceneBinder.cs");
     private static readonly string PromptOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs");
+    private static readonly string NearbyFeedbackPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs");
     private static readonly string EnergySystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/EnergySystem.cs");
     private static readonly string HealthSystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/HealthSystem.cs");
     private static readonly string PlayerMovementPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/PlayerMovement.cs");
@@ -76,6 +79,7 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("SpringDay1WorldHintBubble", scriptText, "NPC 应复用统一的 E 提示气泡");
         StringAssert.Contains("autoRoamController.StopRoam()", scriptText, "对话开始时应冻结 NPC 漫游");
         StringAssert.Contains("autoRoamController.StartRoam()", scriptText, "对话结束后应恢复 NPC 漫游");
+        StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", scriptText, "连续对话时 NPC 不应因旧 End 事件提前恢复漫游");
     }
 
     [Test]
@@ -120,6 +124,8 @@ public class SpringDay1DialogueProgressionTests
     public void PromptOverlay_SuppressesItselfDuringDialogue()
     {
         string overlayText = File.ReadAllText(PromptOverlayPath);
+        string statusText = File.ReadAllText(StatusOverlayPath);
+        string hintBubbleText = File.ReadAllText(WorldHintBubblePath);
 
         StringAssert.Contains("EventBus.Subscribe<DialogueStartEvent>", overlayText, "PromptOverlay 应监听对话开始");
         StringAssert.Contains("EventBus.Subscribe<DialogueEndEvent>", overlayText, "PromptOverlay 应监听对话结束");
@@ -129,10 +135,27 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("WaitAndRevealQueuedPrompt", overlayText, "PromptOverlay 应在对话框完全收起后再恢复提示");
         StringAssert.Contains("SpringDay1UiLayerUtility.IsBlockingPageUiOpen()", overlayText, "PromptOverlay 应在页面级 UI 打开时主动降级隐藏");
         StringAssert.Contains("BuildCurrentViewState", overlayText, "PromptOverlay 应根据导演层任务状态构建正式任务页内容");
+        StringAssert.Contains("DisplaySignature", overlayText, "PromptOverlay 应区分结构变化与实时数值变化，避免任务页被高频进度刷新打抖");
+        StringAssert.Contains("ApplyPendingStateWithoutTransition", overlayText, "PromptOverlay 应支持实时进度原位刷新，而不是每次都走任务页转场");
         StringAssert.Contains("TransitionToPendingState", overlayText, "PromptOverlay 应在任务变化时执行逐条过渡");
         StringAssert.Contains("PlayPageFlip", overlayText, "PromptOverlay 应支持任务页翻页特效");
         StringAssert.Contains("completionStepDuration", overlayText, "PromptOverlay 应显式配置逐条完成动画时长");
         StringAssert.Contains("postDialogueResumeDelay", overlayText, "PromptOverlay 应支持对话结束后的缓冲淡入延迟");
+        StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", overlayText, "连续对话时 PromptOverlay 不应因旧 End 事件提前恢复");
+        StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", statusText, "连续对话时状态条不应因旧 End 事件提前恢复");
+        StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", hintBubbleText, "连续对话时世界提示气泡不应因旧 End 事件提前恢复");
+    }
+
+    [Test]
+    public void PlayerNpcNearbyFeedback_SuppressesAmbientNpcBubbleDuringDialogue()
+    {
+        string serviceText = File.ReadAllText(NearbyFeedbackPath);
+
+        StringAssert.Contains("EventBus.Subscribe<DialogueStartEvent>", serviceText, "玩家靠近 NPC 的轻反馈应监听正式对话开始");
+        StringAssert.Contains("EventBus.Subscribe<DialogueEndEvent>", serviceText, "玩家靠近 NPC 的轻反馈应监听正式对话结束");
+        StringAssert.Contains("DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive", serviceText, "轻反馈应主动复核正式对话占用态");
+        StringAssert.Contains("if (suppressWhileDialogueActive)", serviceText, "正式对话进行中时，日常气泡轨应停止继续探测");
+        StringAssert.Contains("HideActiveNearbyBubble();", serviceText, "正式对话接管时，应主动回收此前留下的日常 NPC 气泡");
     }
 
     [Test]
@@ -193,6 +216,17 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("GetWorldProjectionCamera()", overlayText, "Day1 工作台浮层应使用真实世界投影相机计算工作台屏幕位置");
         StringAssert.Contains("GetUiEventCamera()", overlayText, "Day1 工作台浮层应区分 UI 事件相机与世界投影相机");
         StringAssert.Contains("pointerRect", overlayText, "Day1 工作台浮层应带有指向工作台的悬浮指针");
+        StringAssert.Contains("dragHandleRect", overlayText, "Day1 工作台浮层应显式保留拖拽微调把手");
+        StringAssert.Contains("PanelDragHandle", overlayText, "Day1 工作台浮层应提供拖拽微调组件");
+        StringAssert.Contains("HandleManualPanelDrag", overlayText, "Day1 工作台浮层应支持运行态拖动微调位置");
+        StringAssert.Contains("ApplyManualOffsetDelta", overlayText, "Day1 工作台浮层应把拖拽偏移收口成面板位置微调量");
+        StringAssert.Contains("ResetManualPanelOffset", overlayText, "Day1 工作台浮层应在切换承载物时重置手调偏移");
+        StringAssert.Contains("BuildActiveCraftStageHint", overlayText, "Day1 工作台浮层应给制作中状态单独生成正式提示语");
+        StringAssert.Contains("BuildFloatingProgressLabel", overlayText, "Day1 工作台浮层应让离台小进度条与当前制作状态保持一致");
+        StringAssert.Contains("NotifyDirectorCraftProgress", overlayText, "Day1 工作台浮层应把制作进度同步回导演层提示系统");
+        StringAssert.Contains("BuildCraftCompletionMessage", overlayText, "Day1 工作台浮层应对完成与部分完成给出正式反馈");
+        StringAssert.Contains("制作中断", overlayText, "Day1 工作台浮层应明确提示制作中断原因");
+        StringAssert.Contains("PlayerAnimController.AnimState.Collect", overlayText, "Day1 工作台浮层应驱动玩家进入明确的工作动作姿态");
         StringAssert.Contains("RecipeColumn", overlayText, "Day1 工作台浮层应保留左侧滚动配方列");
         StringAssert.Contains("DetailColumn", overlayText, "Day1 工作台浮层应保留右侧详情列");
         StringAssert.Contains("QuantityControls", overlayText, "Day1 工作台浮层应保留底部数量调节区");
@@ -200,6 +234,9 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("recipe.craftingTime", overlayText, "Day1 工作台浮层应读取正式配方里的制作耗时");
         StringAssert.Contains("SetWorkbenchAnimating", overlayText, "Day1 工作台浮层应尝试驱动工作台动画状态");
         StringAssert.Contains("SpringDay1UiLayerUtility.IsBlockingPageUiOpen()", overlayText, "Day1 工作台浮层应在页面级 UI 打开时主动退场");
+        StringAssert.Contains("NotifyWorkbenchCraftProgress", directorText, "Day1 导演应接收工作台制作中的正式进度同步");
+        StringAssert.Contains("BuildWorkbenchCraftProgressText", directorText, "Day1 导演应能把制作中状态映射到任务页/任务进度");
+        StringAssert.Contains("工作台制作中", directorText, "Day1 导演的任务描述应在制作中明确体现工作态");
         StringAssert.DoesNotContain("E 打开，超出 1.5 米自动收起", overlayText, "正式工作台 UI 不应再出现测试说明文案");
         StringAssert.DoesNotContain("工作台 UI 只响应鼠标左键", overlayText, "正式工作台 UI 不应在面板里显示调试提示语");
         StringAssert.Contains("recipeID: 9100", axeRecipeText, "Axe_0 配方资源应存在且使用固定 recipeID");
@@ -247,5 +284,39 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("TimeManager.Instance.Sleep()", bedInteractableText, "床交互应能直接触发睡觉");
         StringAssert.Contains("InitializeOnLoad", bedBinderText, "床位编辑器恢复器应在 Unity 重新编译后自动生效");
         StringAssert.Contains("Undo.AddComponent<SpringDay1BedInteractable>", bedBinderText, "床位编辑器恢复器应能自动补挂床交互脚本");
+    }
+
+    [Test]
+    public void DialogueChain_AutoPlaysFollowupBeforeHealing()
+    {
+        string managerText = File.ReadAllText(DialogueManagerPath);
+        string directorText = File.ReadAllText(DirectorPath);
+
+        StringAssert.Contains("ResolveFollowupSequence", managerText, "DialogueManager 应把 follow-up 资源解析成正式自动续播链");
+        StringAssert.Contains("PlayDialogue(followupSequence)", managerText, "DialogueManager 应在首段完成后自动续播 follow-up");
+        StringAssert.Contains("FirstFollowupSequenceId", directorText, "导演层应显式识别首段 follow-up 的完成节点");
+        StringAssert.Contains("if (HasPlayableNodes(evt.FollowupSequence))", directorText, "首段完成时若还要续播 follow-up，导演层不应立刻抢跑疗伤");
+        StringAssert.Contains("evt.SequenceId == FirstFollowupSequenceId", directorText, "导演层应在 follow-up 收束后再进入疗伤");
+        StringAssert.Contains("if (!IsDialogueChainStillActive())", directorText, "EnterVillage 相位变化不应在连续对话仍占用时提前启动疗伤");
+        StringAssert.Contains("首段后续说明进行中", directorText, "导演层当前进度文案应区分首段和 follow-up");
+        StringAssert.Contains("听完村长后续说明", directorText, "导演层任务卡文案应明确 follow-up 阶段的目标");
+        StringAssert.Contains("等待首段后续说明收束；若未续播可再次触发 NPC001。", directorText, "运行态验收器应给出符合新推进链的推荐动作");
+    }
+
+    [Test]
+    public void HealingAndEnergyPacing_RemainsBoundToDay1FormalSequence()
+    {
+        string directorText = File.ReadAllText(DirectorPath);
+
+        StringAssert.Contains("healthSystem.SetHealthState(initialHealth, maxHealth);", directorText, "进入疗伤段时应先设定 Day1 初始 HP");
+        StringAssert.Contains("healthSystem.SetVisible(false);", directorText, "HP 条应在疗伤演出前保持隐藏");
+        StringAssert.Contains("EnergySystem.Instance.SetVisible(false);", directorText, "疗伤段开始时不应提前露出 EP");
+        StringAssert.Contains("HealthSystem.Instance.PlayRevealAndAnimateTo(", directorText, "疗伤段应通过正式渐显回血演出拉出 HP");
+        StringAssert.Contains("if (!_staminaRevealed && _tillObjectiveCompleted)", directorText, "EP 首次出现应绑定到第一格开垦完成");
+        StringAssert.Contains("EnergySystem.Instance.SetEnergyState(initialEnergy, maxEnergy);", directorText, "EP 首次出现时应写入 Day1 正式初值");
+        StringAssert.Contains("EnergySystem.Instance.PlayRevealAndAnimateTo(initialEnergy, initialEnergy, maxEnergy, energyRevealDuration, 0f);", directorText, "EP 应通过正式 reveal 动画出现");
+        StringAssert.Contains("EnergySystem.Instance.SetLowEnergyWarningVisual(shouldWarn);", directorText, "低精力 warning 应有正式视觉表现");
+        StringAssert.Contains("ApplyLowEnergyMovementPenalty(shouldWarn);", directorText, "低精力时应带移动惩罚");
+        StringAssert.Contains("精力过低，先休息或吃点东西。", directorText, "低精力 warning 应有明确提示文案");
     }
 }

@@ -143,6 +143,20 @@ public class NPCRoamProfile : ScriptableObject
         return initiator ? chatInitiatorLines : chatResponderLines;
     }
 
+    public string[] GetPlayerNearbyLines(NPCRelationshipStage relationshipStage)
+    {
+        if (dialogueContentProfile != null)
+        {
+            string[] contentLines = dialogueContentProfile.GetPlayerNearbyLines(relationshipStage);
+            if (HasAnyLines(contentLines))
+            {
+                return contentLines;
+            }
+        }
+
+        return PlayerNearbyLines;
+    }
+
     private void OnValidate()
     {
         moveSpeed = Mathf.Max(0f, moveSpeed);

@@ -911,3 +911,81 @@
   - 下一步应继续进入：
     - `T-P3-04`
   - 重点是把“正式对话轨 / 日常气泡轨”分工收成不撞热区的安全切片。
+
+## 2026-03-27｜P3 分轨与 P4 关系成长底座已连续收口
+
+- 当前主线目标：
+  - 在不碰 `Primary.unity`、不碰 `GameInputManager.cs`、不动导航 runtime 核心的前提下，继续沿非热区把 NPC 线往前推进，不在 scene 热窗前空转。
+- 本轮子任务：
+  - 完成 `T-P3-04`
+  - 完成 `T-P3-05`
+  - 完成 `T-P4-01 ~ T-P4-04`
+- 本轮完成：
+  - `T-P3-04`
+    - `PlayerNpcNearbyFeedbackService` 现在会监听：
+      - `DialogueStartEvent`
+      - `DialogueEndEvent`
+    - 同时也会主动复核：
+      - `DialogueManager.IsDialogueActive`
+    - 正式对话开始时，会主动回收此前的日常 NPC 轻反馈气泡
+    - 正式对话进行中，不再继续弹新的日常近身反馈
+  - `T-P3-05`
+    - 已补出：
+      - `2026-03-27-NPC-P3-05-轻交互与双气泡验收包.md`
+  - `T-P4-01`
+    - 已新增：
+      - `Assets/YYY_Scripts/Data/NPCRelationshipStage.cs`
+      - `Assets/YYY_Scripts/Service/Player/PlayerNpcRelationshipService.cs`
+    - 当前已具备：
+      - `陌生 / 认识 / 熟悉 / 亲近`
+      四档关系阶段
+  - `T-P4-02`
+    - 已把 `PlayerNpcNearbyFeedbackService` 改成：
+      - 先按 `npcId` 读取当前关系阶段
+      - 再按阶段从 `NPCDialogueContentProfile` 取近身句
+    - `001 / 002 / 003` 三份内容资产都已补出按阶段分流的玩家近身句
+  - `T-P4-03`
+    - 当前关系阶段已支持最小持久化：
+      - `PlayerPrefs`
+    - 内容层现在已可被关系阶段驱动
+  - `T-P4-04`
+    - 已新增最小验收入口：
+      - `Tools/NPC/Relationship/全部设为/陌生`
+      - `Tools/NPC/Relationship/全部设为/认识`
+      - `Tools/NPC/Relationship/全部设为/熟悉`
+      - `Tools/NPC/Relationship/全部设为/亲近`
+      - `Tools/NPC/Relationship/全部清除持久化`
+      - `Tools/NPC/Relationship/打印当前阶段`
+    - 已补出：
+      - `2026-03-27-NPC-P4-04-关系成长首版验收包.md`
+- 本轮验证：
+  - `git diff --check`
+    - 已通过
+  - 已补最小静态回归：
+    - `SpringDay1DialogueProgressionTests`
+      - 覆盖 `P3-04` 的对话占用抑制与气泡回收接线
+    - `NPCToolchainRegularizationTests`
+      - 覆盖关系阶段分流与阶段持久化
+  - 当前没有把 live 体验覆盖率包装成已拿到
+- 当前 owned / external 边界：
+  - 当前 owned：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcRelationshipService.cs`
+    - `Assets/YYY_Scripts/Data/NPCRelationshipStage.cs`
+    - `Assets/YYY_Scripts/Data/NPCDialogueContentProfile.cs`
+    - `Assets/YYY_Scripts/Data/NPCRoamProfile.cs`
+    - `Assets/Editor/NPC/PlayerNpcRelationshipDebugMenu.cs`
+    - `Assets/111_Data/NPC/NPC_001_VillageChiefDialogueContent.asset`
+    - `Assets/111_Data/NPC/NPC_002_VillageDaughterDialogueContent.asset`
+    - `Assets/111_Data/NPC/NPC_003_ResearchDialogueContent.asset`
+  - 当前 external / 暂不碰：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*.asset`
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - 导航 runtime 与 mixed hot-file 现场
+- 当前恢复点：
+  - `P3` 现已完整收口
+  - `P4` 现已具备“模型 + 内容分流 + 持久化 + 验收入口”
+  - 下一步如继续推进，优先进入：
+    - `T-P5-01`
+  - 但若后续需要回到 scene / live 热窗，仍必须重新做准入复核，不能把 `main + neutral` 误当成 `Primary.unity` 可直接写。

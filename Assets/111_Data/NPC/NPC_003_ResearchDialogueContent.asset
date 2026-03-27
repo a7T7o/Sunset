@@ -24,6 +24,23 @@ MonoBehaviour:
   - 你从这条路走过来的速度比我预想的快。
   - 等我把这个现象记完，再和你说。
   - 如果你愿意，我想再观察一下你的路线。
+  relationshipStageNearbyLines:
+  - relationshipStage: 0
+    playerNearbyLines:
+    - 先别动，我还在确认你走过来的路线。
+    - 如果你不介意，我想先记一下你经过这边的速度。
+  - relationshipStage: 1
+    playerNearbyLines:
+    - 别动，我刚好在看这边的变化。
+    - 你从这条路走过来的速度比我预想的快。
+  - relationshipStage: 2
+    playerNearbyLines:
+    - 你一靠近，我这边的数据就更好对照了。
+    - 你愿意的话，再陪我把这段变化看完整。
+  - relationshipStage: 3
+    playerNearbyLines:
+    - 你在旁边时，我连推测都会更有把握一点。
+    - 先别走，我想把这次观察和你说清楚。
   defaultChatInitiatorLines:
   - 我刚在记这边的通行节奏。
   - 你要是不急，我想再看一眼这里的变化。

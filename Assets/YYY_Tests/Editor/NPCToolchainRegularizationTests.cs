@@ -102,45 +102,111 @@ public class NPCToolchainRegularizationTests
     [Test]
     public void RoleProfiles_ShouldReferenceDedicatedDialogueContentAssets()
     {
-        NPCRoamProfile chiefProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(VillageChiefProfilePath);
-        NPCRoamProfile daughterProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(VillageDaughterProfilePath);
-        NPCRoamProfile researchProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(ResearchReviewProfilePath);
+        Type roamProfileType = ResolveTypeOrFail("NPCRoamProfile");
+        UnityEngine.Object chiefProfile = AssetDatabase.LoadAssetAtPath(VillageChiefProfilePath, roamProfileType);
+        UnityEngine.Object daughterProfile = AssetDatabase.LoadAssetAtPath(VillageDaughterProfilePath, roamProfileType);
+        UnityEngine.Object researchProfile = AssetDatabase.LoadAssetAtPath(ResearchReviewProfilePath, roamProfileType);
 
         Assert.That(chiefProfile, Is.Not.Null);
         Assert.That(daughterProfile, Is.Not.Null);
         Assert.That(researchProfile, Is.Not.Null);
 
-        Assert.That(AssetDatabase.GetAssetPath(chiefProfile.DialogueContentProfile), Is.EqualTo(VillageChiefContentPath));
-        Assert.That(AssetDatabase.GetAssetPath(daughterProfile.DialogueContentProfile), Is.EqualTo(VillageDaughterContentPath));
-        Assert.That(AssetDatabase.GetAssetPath(researchProfile.DialogueContentProfile), Is.EqualTo(ResearchDialogueContentPath));
+        Assert.That(
+            AssetDatabase.GetAssetPath((UnityEngine.Object)GetFieldOrProperty(chiefProfile, "DialogueContentProfile")),
+            Is.EqualTo(VillageChiefContentPath));
+        Assert.That(
+            AssetDatabase.GetAssetPath((UnityEngine.Object)GetFieldOrProperty(daughterProfile, "DialogueContentProfile")),
+            Is.EqualTo(VillageDaughterContentPath));
+        Assert.That(
+            AssetDatabase.GetAssetPath((UnityEngine.Object)GetFieldOrProperty(researchProfile, "DialogueContentProfile")),
+            Is.EqualTo(ResearchDialogueContentPath));
 
-        Assert.That(chiefProfile.PlayerNearbyLines.Length, Is.GreaterThan(0));
-        Assert.That(daughterProfile.PlayerNearbyLines.Length, Is.GreaterThan(0));
-        Assert.That(researchProfile.PlayerNearbyLines.Length, Is.GreaterThan(0));
+        Assert.That(((string[])GetFieldOrProperty(chiefProfile, "PlayerNearbyLines")).Length, Is.GreaterThan(0));
+        Assert.That(((string[])GetFieldOrProperty(daughterProfile, "PlayerNearbyLines")).Length, Is.GreaterThan(0));
+        Assert.That(((string[])GetFieldOrProperty(researchProfile, "PlayerNearbyLines")).Length, Is.GreaterThan(0));
     }
 
     [Test]
     public void DialogueContentProfiles_ShouldResolvePairSpecificAmbientChatLines()
     {
-        NPCDialogueContentProfile chiefContent = AssetDatabase.LoadAssetAtPath<NPCDialogueContentProfile>(VillageChiefContentPath);
-        NPCDialogueContentProfile daughterContent = AssetDatabase.LoadAssetAtPath<NPCDialogueContentProfile>(VillageDaughterContentPath);
-        NPCDialogueContentProfile researchContent = AssetDatabase.LoadAssetAtPath<NPCDialogueContentProfile>(ResearchDialogueContentPath);
+        Type dialogueContentType = ResolveTypeOrFail("NPCDialogueContentProfile");
+        UnityEngine.Object chiefContent = AssetDatabase.LoadAssetAtPath(VillageChiefContentPath, dialogueContentType);
+        UnityEngine.Object daughterContent = AssetDatabase.LoadAssetAtPath(VillageDaughterContentPath, dialogueContentType);
+        UnityEngine.Object researchContent = AssetDatabase.LoadAssetAtPath(ResearchDialogueContentPath, dialogueContentType);
 
         Assert.That(chiefContent, Is.Not.Null);
         Assert.That(daughterContent, Is.Not.Null);
         Assert.That(researchContent, Is.Not.Null);
 
-        string[] chiefToDaughter = chiefContent.GetAmbientChatLines("002", initiator: true);
-        string[] daughterToChief = daughterContent.GetAmbientChatLines("001", initiator: false);
-        string[] researchToChief = researchContent.GetAmbientChatLines("001", initiator: true);
+        string[] chiefToDaughter = (string[])InvokeInstance(chiefContent, "GetAmbientChatLines", "002", true);
+        string[] daughterToChief = (string[])InvokeInstance(daughterContent, "GetAmbientChatLines", "001", false);
+        string[] researchToChief = (string[])InvokeInstance(researchContent, "GetAmbientChatLines", "001", true);
 
         Assert.That(chiefToDaughter.Length, Is.GreaterThan(0));
         Assert.That(daughterToChief.Length, Is.GreaterThan(0));
         Assert.That(researchToChief.Length, Is.GreaterThan(0));
 
-        Assert.That(chiefToDaughter[0], Is.Not.EqualTo(chiefContent.DefaultChatInitiatorLines[0]));
-        Assert.That(daughterToChief[0], Is.Not.EqualTo(daughterContent.DefaultChatResponderLines[0]));
-        Assert.That(researchToChief[0], Is.Not.EqualTo(researchContent.DefaultChatInitiatorLines[0]));
+        Assert.That(chiefToDaughter[0], Is.Not.EqualTo(((string[])GetFieldOrProperty(chiefContent, "DefaultChatInitiatorLines"))[0]));
+        Assert.That(daughterToChief[0], Is.Not.EqualTo(((string[])GetFieldOrProperty(daughterContent, "DefaultChatResponderLines"))[0]));
+        Assert.That(researchToChief[0], Is.Not.EqualTo(((string[])GetFieldOrProperty(researchContent, "DefaultChatInitiatorLines"))[0]));
+    }
+
+    [Test]
+    public void DialogueContentProfiles_ShouldExposeRelationshipStageSpecificNearbyLines()
+    {
+        Type dialogueContentType = ResolveTypeOrFail("NPCDialogueContentProfile");
+        Type relationshipStageType = ResolveTypeOrFail("NPCRelationshipStage");
+        object strangerStage = Enum.Parse(relationshipStageType, "Stranger");
+        object closeStage = Enum.Parse(relationshipStageType, "Close");
+
+        UnityEngine.Object chiefContent = AssetDatabase.LoadAssetAtPath(VillageChiefContentPath, dialogueContentType);
+        UnityEngine.Object daughterContent = AssetDatabase.LoadAssetAtPath(VillageDaughterContentPath, dialogueContentType);
+        UnityEngine.Object researchContent = AssetDatabase.LoadAssetAtPath(ResearchDialogueContentPath, dialogueContentType);
+
+        Assert.That(chiefContent, Is.Not.Null);
+        Assert.That(daughterContent, Is.Not.Null);
+        Assert.That(researchContent, Is.Not.Null);
+
+        string[] chiefStranger = (string[])InvokeInstance(chiefContent, "GetPlayerNearbyLines", strangerStage);
+        string[] chiefClose = (string[])InvokeInstance(chiefContent, "GetPlayerNearbyLines", closeStage);
+        string[] daughterStranger = (string[])InvokeInstance(daughterContent, "GetPlayerNearbyLines", strangerStage);
+        string[] daughterClose = (string[])InvokeInstance(daughterContent, "GetPlayerNearbyLines", closeStage);
+        string[] researchStranger = (string[])InvokeInstance(researchContent, "GetPlayerNearbyLines", strangerStage);
+        string[] researchClose = (string[])InvokeInstance(researchContent, "GetPlayerNearbyLines", closeStage);
+
+        Assert.That(chiefStranger.Length, Is.GreaterThan(0));
+        Assert.That(chiefClose.Length, Is.GreaterThan(0));
+        Assert.That(daughterStranger.Length, Is.GreaterThan(0));
+        Assert.That(daughterClose.Length, Is.GreaterThan(0));
+        Assert.That(researchStranger.Length, Is.GreaterThan(0));
+        Assert.That(researchClose.Length, Is.GreaterThan(0));
+
+        Assert.That(chiefClose[0], Is.Not.EqualTo(chiefStranger[0]));
+        Assert.That(daughterClose[0], Is.Not.EqualTo(daughterStranger[0]));
+        Assert.That(researchClose[0], Is.Not.EqualTo(researchStranger[0]));
+    }
+
+    [Test]
+    public void RelationshipService_ShouldPersistPerNpcStage()
+    {
+        Type serviceType = ResolveTypeOrFail("PlayerNpcRelationshipService");
+        Type relationshipStageType = ResolveTypeOrFail("NPCRelationshipStage");
+        object familiarStage = Enum.Parse(relationshipStageType, "Familiar");
+        string key = (string)InvokeStatic(serviceType, "BuildPlayerPrefsKey", "001");
+
+        InvokeStatic(serviceType, "ResetStage", "001", true);
+
+        try
+        {
+            InvokeStatic(serviceType, "SetStage", "001", familiarStage, true);
+
+            Assert.That(PlayerPrefs.GetInt(key, -1), Is.EqualTo(Convert.ToInt32(familiarStage)));
+            Assert.That(InvokeStatic(serviceType, "GetStage", "001"), Is.EqualTo(familiarStage));
+        }
+        finally
+        {
+            InvokeStatic(serviceType, "ResetStage", "001", true);
+        }
     }
 
     private static Type ResolveNestedTypeOrFail(Type parentType, string nestedTypeName)
@@ -185,14 +251,14 @@ public class NPCToolchainRegularizationTests
 
     private static object InvokeStatic(Type type, string methodName, params object[] args)
     {
-        MethodInfo method = ResolveMethodByArguments(type, methodName, BindingFlags.NonPublic | BindingFlags.Static, args);
+        MethodInfo method = ResolveMethodByArguments(type, methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static, args);
         Assert.IsNotNull(method, $"未找到静态方法：{type.Name}.{methodName}");
         return method.Invoke(null, args);
     }
 
     private static object InvokeInstance(object target, string methodName, params object[] args)
     {
-        MethodInfo method = ResolveMethodByArguments(target.GetType(), methodName, BindingFlags.NonPublic | BindingFlags.Instance, args);
+        MethodInfo method = ResolveMethodByArguments(target.GetType(), methodName, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance, args);
         Assert.IsNotNull(method, $"未找到实例方法：{target.GetType().Name}.{methodName}");
         return method.Invoke(target, args);
     }
