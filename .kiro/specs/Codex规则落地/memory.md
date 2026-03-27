@@ -5743,3 +5743,107 @@
 - 后续只剩两层：
   1. 向用户明确解释为什么 mixed dirty 一锅端不能升格为日常 live 模型
   2. 继续观察业务线程与 hot / mixed 现场是否按新口径真正执行
+
+## 2026-03-27｜高速并发实盘复核：当前四线程可继续，但只按“自由切片 / 热点避让 / 最终收盘桶”三层执行
+
+**当前主线目标**
+- 用户已明确把 `导航 / NPC / 农田 / Day1` 四条线切到高速模式，并要求治理线程不要再空谈，而是直接按真实现场说明：
+  1. 谁现在还能继续做什么
+  2. 哪些面必须避让
+  3. 哪些 dirty 这轮不该硬管，而应留给最终 integrator 收盘
+
+**本轮实盘核查**
+1. 当前 live 基线：
+   - `D:\Unity\Unity_learning\Sunset @ main @ 477b3e7e`
+2. shared root 占用文档当前仍显示：
+   - `owner_mode = neutral-main-ready`
+   - `is_neutral = true`
+   - 但 `last_verified_head = 1401ae8c`
+   - 说明 shared root 入口中性成立，但占用文档 head 记账已经落后于真实现场
+3. 当前 working tree 已确认四条高速线程同时在写：
+   - `导航检查 / 导航检查V2`
+   - `NPC`
+   - `农田交互修复V3`
+   - `spring-day1V2`
+4. Unity MCP 当前事实：
+   - `mcpforunity://instances -> instance_count = 1`
+   - 但 `mcpforunity://editor/state` 返回 stale `playmode_transition`
+   - 因此“当前有 Unity 实例”成立，但“现在确实已回到 Edit Mode”不能靠这次 stale 快照外推
+
+**当前三层裁定**
+1. 自由切片，可继续并行：
+   - `导航`：
+     - 当前 own dirty 落在：
+       - `NavigationLiveValidationMenu.cs`
+       - `NavigationLiveValidationRunner.cs`
+       - 导航工作区 / 线程记忆
+     - 当前应继续只打 `NpcAvoidsPlayer` 的 detour `release / recover` 同链
+     - 不应借机转去 `Primary.unity`
+   - `NPC`：
+     - 当前 own dirty 已扩到非 scene 内容 / 反馈层：
+       - `Assets/111_Data/NPC/*.asset`
+       - `NPCDialogueContentProfile.cs`
+       - `NPCRoamProfile.cs`
+       - `PlayerNpcNearbyFeedbackService.cs`
+       - `NPCToolchainRegularizationTests.cs`
+       - 对应工作区 / 线程记忆
+     - 当前可继续推进 `P2 / P3` 这类不撞热 scene 的内容与玩家侧反馈切片
+   - `spring-day1`：
+     - 当前 own dirty 集中在：
+       - `NPCDialogueInteractable.cs`
+       - `DialogueManager.cs`
+       - `SpringDay1Director.cs`
+       - `SpringDay1PromptOverlay.cs`
+       - `SpringDay1WorkbenchCraftingOverlay.cs`
+       - `SpringDay1DialogueProgressionTests.cs`
+       - 对应工作区 / 线程记忆
+     - 当前仍是可继续的 non-hot story/UI 切片
+   - `农田`：
+     - 当前 own dirty 集中在：
+       - `TreeController.cs`
+       - `FarmToolPreview.cs`
+       - `PlacementManager.cs`
+       - `InventoryPanelUI.cs`
+       - `ChestController.cs`
+       - 对应工作区 / 线程记忆
+     - 这些文件仍可继续按当前大清盘任务书推进
+2. 热点避让，当前只允许单线持有：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - 当前是 `M`
+     - 且当前只有 `农田` 线正在围绕它做交互收口
+     - 因而这轮应视为“农田暂时持有的热代码面”
+     - 其他线程此时不应再顺手进去
+   - `Assets/000_Scenes/Primary.unity`
+     - 当前仍是 `M`
+     - 没有明确 owner
+     - 仍按 mixed hot 面处理
+     - 这轮四条高速线都不应把“shared root neutral”误读成“scene 可写”
+3. 最终 integrator 收盘桶候选：
+   - `Primary.unity`
+   - `DialogueChinese*.asset`
+   - 后续若继续证明确实跨线程缠死、又不适合再逐线清责的 Unity 自动副产物
+   - 这些面可以留给最终收官统一处理，但不应倒灌成当前每条线程的日常停工理由
+
+**关键结论**
+1. 当前最正确的治理动作不是再发 cleanup 批次，也不是重新排工所有线程。
+2. 更合适的做法是：
+   - 放行四条线继续各自自由切片
+   - 只把 `GameInputManager.cs` 和 `Primary.unity` 当作显式避让面
+   - 把 `Primary.unity + DialogueChinese*` 保留在最终 integrator 收盘桶
+3. 我当前的位置因此进一步收紧为：
+   - 不再替大家打扫 every dirty
+   - 只在以下三种情况出手：
+     - 有第二条线程试图进入 `GameInputManager.cs`
+     - 有线程想重新进入 `Primary.unity`
+     - 用户决定打开最终 integrator 收盘窗口
+
+**恢复点 / 下一步**
+- 现在可以直接按下面口径继续：
+  1. `导航` 继续 `release / recover`
+  2. `NPC` 继续非 scene 的内容 / 反馈 / 关系切片
+  3. `农田` 继续当前交互大清盘，但不再扩新的 hot target
+  4. `Day1` 继续 non-hot story/UI 正式面
+- 治理线程下一步默认只做：
+  - 热点冲突仲裁
+  - 最终 integrator 收盘前的总表维护
+  - 不再主动打断大家做常规卫生
