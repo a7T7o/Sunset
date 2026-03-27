@@ -415,3 +415,273 @@
     - 碰导航线脚本
     - 碰 TMP 字体
     - 进 Unity / MCP / Play Mode 再做 live 写
+
+## 2026-03-26｜治理补充：`24886aad` 之后的下一轮 prompt 改为“Primary + 字体 owner 复核”
+
+- 当前主线目标：
+  - 不把 `NPCV2` 刚修掉的 editor 报错偷换成 runtime 继续施工，而是把它下一轮动作进一步压成底盘 owner 报实。
+- 本轮新增事实：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 当前 dirty 仍在导航线，不属于 `NPCV2`。
+  2. 当前 working tree 里的 3 份 `DialogueChinese*` dirty 字体，最近提交历史来自：
+     - `3b2c0f1e`
+     - `ee318757`
+     也不是 `NPCV2` 的 `65e1ee35 / 24886aad`。
+  3. 因此 `NPCV2` 下一轮不能碰导航 runtime，也不能直接吞字体 cleanup。
+- 本轮新增委托：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2-Editor修复后Primary与字体owner复核-07.md`
+- 当前恢复点：
+  - `NPCV2` 若继续，只允许：
+    - 对 `Primary.unity` 剩余 mixed diff 做 own / non-own 复核；
+    - 对 3 份 `DialogueChinese*` 字体做只读排除归属；
+    - 仅在 `Primary.unity` 能切出纯 NPC own residue 时，做最小 cleanup。
+
+## 2026-03-26｜根据最新自述回切主线：当前先修运行中 `Home Anchor` 补口链
+
+- 当前主线目标：
+  - 按 `NPCV2` 自己最新自述回切主线：当前优先先把运行中的 Inspector 里 `Home Anchor` 从空修到非空。
+- 本轮新增事实：
+  1. 用户当前最直接看到的阻塞仍是：
+     - 运行中的 `Home Anchor` 可能还是空；
+  2. 这一步比 owner cleanup 更接近用户体验，也更窄；
+  3. 因此这轮不再让 `NPCV2` 先做 `Primary.unity + 字体` owner 报实主刀。
+- 本轮新增委托：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-26-NPCV2-HomeAnchor运行中补口链续工-08.md`
+- 当前恢复点：
+  - `NPCV2` 下一轮先继续窄修 `NPCAutoRoamControllerEditor.cs`；
+  - `Primary.unity` mixed owner 与字体归属问题先退回支撑位，不作为这轮唯一主刀。
+
+## 2026-03-26｜NPCV2 当前主线/支线与认领边界再确认
+
+- 当前现场基线：
+  - 当前仓库：`D:\Unity\Unity_learning\Sunset @ main @ 83d0a93319a365115f1d3354186e76693ac566e4`
+  - working tree 仍有 mixed dirty：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+    - 3 份 `DialogueChinese*` 字体
+- 我现在明确认领什么：
+  1. 已经落到 `main` 的两刀：
+     - `65e1ee35`：`Primary.unity` 的 `001 / 002 / 003` 最小 `HomeAnchor` scene 集成
+     - `24886aad`：`NPCAutoRoamControllerEditor.cs` 的 Play Mode 安全热修
+  2. `NPCV2` 自己的线程记忆、工作区记忆、以及围绕上述两刀的解释与用户验收承接
+- 我现在明确不认领什么：
+  1. 当前 working tree 中的 3 份 `DialogueChinese*` 字体 dirty
+  2. `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 的当前 runtime / 导航 diff
+  3. 当前整张 `Primary.unity` 的 mixed hot diff
+- 对 `Primary.unity` 的进一步判断：
+  - 当前 diff 中还能看到 `homeAnchor / *_HomeAnchor` 的痕迹，说明里面确实混有 NPC 这条线碰过的区域；
+  - 但整体 diff 已经远超纯 `HomeAnchor / Inspector auto-repair residue` 的量级，当前不能安全把整张 scene 当成 `NPCV2 own cleanup`
+- 当前该不该 cleanup：
+  - `no`
+- 当前主线：
+  - 不是继续清 scene，也不是去接导航 runtime；
+  - 而是把 `HomeAnchor` 最小集成 + Inspector 自动补口这两刀的责任边界守住，并等待用户对运行态结果做终验 / 继续反馈
+- 当前支线：
+  - 若治理侧需要收口，只做只读 owner 报实；
+  - 只有未来能把 `Primary.unity` 中的纯 NPC residue 单独切干净时，才进入最小 cleanup
+- 当前恢复点：
+  - 从执行上，`NPCV2` 现在应停在“别再吞 mixed hot 面，先把边界说清楚并等用户裁定”
+
+## 2026-03-26｜运行中 `Home Anchor` 显示链补口继续压窄
+
+- 当前主线目标：
+  - 继续只修 `Assets/Editor/NPCAutoRoamControllerEditor.cs`，让 Play Mode Inspector 里的 `Home Anchor` 从空变成可见非空；若还空，则把断点压成 Inspector 内直接可见的小点。
+- 本轮子任务：
+  - 不碰 `Primary.unity`、不碰 `DialogueChinese*`、不碰 `NPCAutoRoamController.cs` runtime，只补 Inspector 的 live 显示链。
+- 本轮完成：
+  1. 已复核 `Primary.unity` YAML：
+     - `001 / 002 / 003` 的 `homeAnchor` prefab override 都已存在；
+     - `001_HomeAnchor / 002_HomeAnchor / 003_HomeAnchor` 也都存在于 `NPCs` 根下；
+     - 所以当前主要断点不再是 scene 集成缺口，而是运行中 Inspector 的显示 / 刷新链。
+  2. 已在 `Assets/Editor/NPCAutoRoamControllerEditor.cs` 做最小补口：
+     - 不再直接 `DrawDefaultInspector()`，改成手工绘制序列化字段；
+     - `Home Anchor` 字段在 Play Mode 下优先显示 `controller.HomeAnchor` 的 live 引用；
+     - 若序列化缓存与 live 引用不一致，会先同步 `_homeAnchorProperty` 再重绘；
+     - 若运行中仍为空，会在 Inspector 里直接显示：
+       - 找到了 sibling `*_HomeAnchor` 但 runtime 绑定仍空；
+       - 或当前父节点下根本没找到可用 anchor。
+  3. `TryAutoRepairPrimaryHomeAnchors()` 里复用了同一套 `FindExistingPrimaryHomeAnchor(...)` 查找逻辑，确保“自动补口”和“Inspector 提示”看的是同一个锚点来源。
+- 本轮验证：
+  - `git diff --check -- 'Assets/Editor/NPCAutoRoamControllerEditor.cs'`：通过
+  - `unityMCP validate_script`：未通过，原因是当前会话拿不到 Unity session，属于外部验证阻塞，不是本轮已知脚本语法结论
+- 当前恢复点：
+  - 现在用户在不停 Unity 的前提下，重新选中 `Primary.unity` 的 `001 / 002 / 003` 时，应能直接看到：
+    - `Home Anchor` 显示 live 引用；
+    - 或最小 warning 文案，明确剩余断点已经压窄到“绑定没生效”而不是“scene 没 anchor”
+
+## 2026-03-26｜口径纠偏：`NPCV2` 最新回执只代表局部待办，不代表整条 NPC 线只剩这些
+
+- 当前主线目标：
+  - 防止后续接手者把 `NPCV2` 在 `委托-08` 下的局部剩余工作，误听成整个 NPC 主线或整个项目只剩这些尾项。
+- 本轮新增事实：
+  1. `2026-03-26-NPCV2-HomeAnchor运行中补口链续工-08.md` 明确把 `NPCV2` 当前唯一主刀压成：
+     - 只继续窄修 `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+     - 目标是把运行中的 `Home Anchor` 从空修到非空，或把断点继续压窄
+  2. 因此它后面报的“只剩这些”，准确含义是：
+     - 只剩这条 `Editor / Inspector` 局部刀口的尾项
+     - 不是整个 NPC 工作区、整个 NPC 系统、也不是整个 Sunset 的全量待办
+  3. 从 `NPC` 主工作区与本工作区已有记录看，NPC 更大层面的未完成项仍包括：
+     - `001 / 002 / 003` 的运行态最终实证
+     - 正式 roam 区域 / 路线 / 相遇节奏
+     - 导航线程交付后的 NPC 联调整体验收
+     - `NPCToolchainRegularizationTests` 的 Unity Test Runner 实跑
+  4. 另外还有一批当前明确不归 `NPCV2` 这轮吞并的内容：
+     - `Assets/000_Scenes/Primary.unity` 的 mixed cleanup
+     - 3 份 `DialogueChinese*` 字体
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 的 runtime / 导航 diff
+- 当前恢复点：
+  - 后续对用户汇报时，必须显式分成三层：
+    - 整条 NPC 主线还没做完什么
+    - `NPCV2` 当前这一刀还没做完什么
+    - 哪些东西当前明确不归 `NPCV2` 认领
+
+## 2026-03-26｜全需求回溯：补建 NPC 主线的完整需求底账
+
+- 当前主线目标：
+  - 不再只围绕 `NPCV2` 的局部尾项说话，而是把用户在 NPC 线上前后提出过的业务需求、设计诉求和工作流要求重新拉平成完整底账。
+- 本轮完成：
+  - 重新回读：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\需求拆分.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\NPC场景化真实落点与角色日常设计.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\NPC交互反应与关系成长设计.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\NPC系统实施主表.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\memory_0.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\V2交接文档\*.md`
+  - 确认当前需求应至少分成 4 个阶段理解：
+    1. 最早的 `4 向 3 帧 PNG -> 动画/控制器/Prefab/可运行 NPC` 生成器需求
+    2. NPC phase2 的气泡、碰撞、漫游、测试入口与工具链收口需求
+    3. 2.0.0 的角色化 / 场景化 / 双气泡 / 关系成长 / 命中反应需求
+    4. `Primary.unity` 中 `001/002/003` 的 `HomeAnchor` 最小 scene 集成与运行中 Inspector 补口链
+  - 纠偏结论：
+    - 以后任何人都不能再把 `NPCV2` 当前 `HomeAnchor` 局部尾项，当成整条 NPC 主线的全量待办。
+- 当前恢复点：
+  - 现在已经可以按“阶段需求总表”的方式向用户汇报，而不是继续被某一刀的局部回执带偏。
+
+## 2026-03-27｜文档回溯版总表落盘：把 NPC 全需求总表与时间线正式写进 `NPCV2` 目录
+
+- 当前主线目标：
+  - 用户要求不再依赖聊天残余记忆，而要完全基于历史 `memory`、交接文档、正式设计文档，把 NPC 线所有提出过的需求和设计要求重新拉平成一份可核查总表。
+- 本轮完成：
+  - 新建文档：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\2026-03-27_NPC全需求总表与时间线_文档回溯版.md`
+  - 文档内容同时包含：
+    1. 证据源清单
+    2. 业务需求总表
+    3. 协作 / 治理需求总表
+    4. 时间线回溯
+  - 每条需求都尽量按以下字段落盘：
+    - 原文
+    - 稳定转述
+    - 来源文件
+    - 当前状态
+    - 是否已完成
+  - 对找不到逐字聊天原话的部分，已明确标注为：
+    - 最早保留到文档中的稳定记录
+    - 或设计整理原文
+  - 另外把缺口也写清了：
+    - 旧 `npc规划001.md` 迁移指向的新路径在当前仓库中缺失，因此更早原话并不完整可回溯
+- 当前恢复点：
+  - 现在后续任何人如果要回答“你最早到底提了什么需求”“哪些是逐字原话、哪些是后续整理”“整条 NPC 线还剩什么”，都不应再只盯某一份尾部 `memory`，而应先读这份总表。
+
+## 2026-03-27｜当前线程已切换为“全盘交接模式”，不再把局部尾项误当总线
+
+- 当前新增结论：
+  - 本轮已重新完整读取：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\2026-03-27_NPC全需求总表与时间线_文档回溯版.md`
+  - 并据此确认：以后 `NPCV2` 的汇报与执行判断，必须固定分成 3 层：
+    1. 整条 NPC 总线的完整需求与阶段位置
+    2. `NPCV2` 当前这一刀的局部责任与尾项
+    3. 当前明确不归 `NPCV2` 认领的 mixed / runtime / cross-thread 内容
+- 当前三层口径重新钉死如下：
+  1. NPC 总线未完成项仍包括：
+     - `HomeAnchor` 运行态最终实证
+     - 正式 roam 区域 / 路线 / 相遇节奏
+     - 角色化日常内容大规模落地
+     - 玩家 / NPC 双气泡正式实现
+     - 好感度 / 关系成长实现
+     - 命中 / 工具反应兼容实现
+     - 导航线程交付后的 NPC 联调
+     - Unity Test Runner 中与 NPC 工具链相关的正式实跑
+  2. `NPCV2` 当前局部主刀仍只剩：
+     - `Assets/Editor/NPCAutoRoamControllerEditor.cs` 的运行中 `Home Anchor` live 实证 / 继续压窄断点
+     - own 记忆与白名单收口
+  3. 当前明确不归 `NPCV2` 吞并：
+     - `Primary.unity` mixed cleanup
+     - `DialogueChinese*` 字体
+     - `NPCAutoRoamController.cs` 当前 runtime / 导航 diff
+     - 导航核心中的动态占位 / 局部避障 / 会车 / 礼让框架
+- 当前恢复点：
+  - 后续如果用户再问“现在还剩什么”“下一步该干嘛”，必须先答这三层，再答当前最近一刀；不能再把 `委托-08` 的局部剩余项压扁成整条 NPC 主线只剩这些。
+
+## 2026-03-27｜基于历史总表输出正式“全盘清盘清单”
+
+- 当前主线目标：
+  - 用户要求把 NPC 历史需求总览、当前未完成项和后续合理优先级重新做一次全盘梳理，并直接落成可验收文档。
+- 本轮完成：
+  - 新建正式文档：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\2026-03-27-NPC全盘清盘清单与后续优先级方案.md`
+  - 文档没有重复历史总表，而是基于它完成了 4 件事：
+    1. 重新列出当前已可视为稳定基线的部分
+    2. 把全量未完成项按：
+       - 基线闭环
+       - 场景化真实落点
+       - 角色化内容
+       - 轻交互 / 双气泡 / 关系成长
+       - 受击 / 工具命中 / 反应
+       - 联调与外部依赖
+       重新归类
+    3. 明确写出当前不该做的事：
+       - `Primary.unity` mixed cleanup
+       - `DialogueChinese*` 字体
+       - 导航核心吞并
+       - 在 `HomeAnchor` 基线未闭环前乱扩 scene 行为
+    4. 给出正式优先级：
+       - `P0` 当前基线闭环
+       - `P1` 场景化真实落点最小可玩切片
+       - `P2` 角色化内容稳定
+       - `P3` 轻交互与双气泡
+       - `P4` 关系成长最小接线
+       - `P5` 命中 / 工具反应兼容
+       - `P6` 导航联调与正式测试
+- 当前恢复点：
+  - 后续 NPC 线如果要继续排刀，应优先以这份“清盘清单”作为施工顺序入口，而不是再靠单个委托或局部尾项临时判断。
+
+## 2026-03-27｜补建“可直接执行”的详细任务列表，作为后续唯一施工标准
+
+- 当前主线目标：
+  - 用户明确指出上一份“清盘清单”仍然偏宽，不足以直接作为后续逐条施工和验收的标准，因此本轮继续把它下钻成详细任务列表。
+- 本轮完成：
+  - 在：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\`
+    下新增：
+    - `2026-03-27-NPC全盘详细落地任务列表.md`
+  - 新文档相对上一份宽口径清单，新增了这些硬字段：
+    1. 任务编号
+    2. 当前状态
+    3. 任务类型
+    4. 责任归属
+    5. 前置条件
+    6. 可碰范围 / 禁碰范围
+    7. 具体动作
+    8. 产出物
+    9. 完成标准
+    10. 失败判定
+  - 任务已按 `P0 -> P6` 全量展开，覆盖：
+    - `HomeAnchor` 基线闭环
+    - 场景化真实落点最小可玩切片
+    - 角色化内容正式成型
+    - 轻交互 / 双气泡
+    - 关系成长最小接线
+    - 命中 / 工具反应兼容
+    - 导航联调与正式测试
+  - 同时显式把任务类型拆成：
+    - `可直接施工`
+    - `联合前置后施工`
+    - `外部阻塞项`
+    避免后续把不归当前 NPC 刀口直接吞并的内容误写成“我马上就能独立一条龙做完”
+- 当前恢复点：
+  - 后续如果继续推进，不能再只参考 `2026-03-27-NPC全盘清盘清单与后续优先级方案.md`；
+  - 必须改以：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘详细落地任务列表.md`
+    作为逐条施工与逐条验收的正式标准。
