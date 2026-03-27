@@ -5847,3 +5847,69 @@
   - 热点冲突仲裁
   - 最终 integrator 收盘前的总表维护
   - 不再主动打断大家做常规卫生
+
+## 2026-03-27｜用户批准新的 hot target 实战口径：`GameInputManager.cs` 放开触点并发，`Primary.unity` 改为 NPC 接盘后再转 spring-day1
+
+**当前主线目标**
+- 用户明确批准一条新的实际路线，并要求我先做路线审核：
+  1. `GameInputManager.cs` 不再按“谁先 dirty 谁独占”理解，而是改成可并发但必须记触点，最后可由 integrator 收盘
+  2. `Primary.unity` 不放成多人随便写，继续保持单 writer
+  3. 当前 `Primary.unity` 的 scene writer 顺序应改成：`NPC -> spring-day1`
+
+**本轮实盘核查**
+1. `GameInputManager.cs`
+   - 当前确实在 dirty
+   - 实际改动集中在输入主分发入口：
+     - `HandleUseCurrentTool`
+     - `HandleRightClickAutoNav`
+     - `ShouldPreservePlacementModeForCurrentRightClick`
+     - `TryBlockAxeActionAgainstHighTierTree`
+     - `TryGetTreeInteractableAtWorld`
+     - `TryGetChestInteractableAtWorld`
+   - 这再次证明它不是“不能碰”，而是“文件共享、语义容易串锅”
+2. `Primary.unity`
+   - 当前仍是 `M`
+   - `Check-Lock.ps1` 在发锁前返回 `unlocked`
+   - `shared-root-branch-occupancy.md` 当前 `owner_thread = none`
+   - 因此它的真实状态更准确是：
+     - `ownerless stale mixed scene`
+     - 不是“有人正在占着写”
+3. 路线兼容性
+   - `NPC` 当前确实仍有 scene 级主线未闭
+   - `spring-day1` 当前主要仍在 non-hot story/UI 面，可排在下一个 scene writer 窗口
+   - 因此用户提出的 `NPC -> spring-day1` 顺序与现现场一致，可执行
+
+**本轮已执行动作**
+1. 已把新口径同步进 live 规则层：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\典狱长模式_治理总闸与分发规范.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-hot-zones.md`
+2. 已同步修改相关 skill：
+   - `C:\Users\aTo\.codex\skills\sunset-lock-steward\SKILL.md`
+3. 已正式为 `NPC` 发出 `Primary.unity` 的物理写锁：
+   - 目标：`Assets/000_Scenes/Primary.unity`
+   - owner：`NPC`
+   - task：`primary-scene-takeover`
+   - checkpoint：`接盘当前 dirty scene；先完成 NPC scene 主线，再释放给 spring-day1`
+   - granted_by：`user-2026-03-27-route-review`
+
+**当前稳定结论**
+1. `GameInputManager.cs`
+   - 现在继续属于强制报实热点
+   - 但 live 口径已经从“默认单 writer 停工”改成“触点并发 + touched_touchpoints + integrator 收盘”
+2. `Primary.unity`
+   - 现在继续属于单 writer 场景面
+   - 但它不再被口头误判成“假活跃占用”
+   - 当前已正式进入 `NPC` 的接盘窗口
+3. 这轮不是只做文档判断，而是已经把项目现场状态一起推进到了：
+   - `GameInputManager.cs = unlocked`
+   - `Primary.unity = locked by NPC`
+
+**恢复点 / 下一步**
+- 接下来如果 `NPC` 完成本轮 scene checkpoint，应通过 `Release-Lock.ps1` 释放 `Primary.unity`
+- 下一个 scene writer 默认按本轮用户裁定交给 `spring-day1`
+- 治理线程之后对这两类文件的判断口径固定为：
+  - `GameInputManager.cs`：先问触点
+  - `Primary.unity`：先问当前 writer 是谁

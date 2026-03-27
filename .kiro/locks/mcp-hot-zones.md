@@ -26,6 +26,9 @@
 - `Primary.unity`
 - `GameInputManager.cs`
 - 以及 `.kiro/locks/active` 中当前被定义为 A 类热文件的对象
+- 当前补充口径：
+  - `Primary.unity`：继续按单 scene writer 处理；`dirty + unlocked + ownerless` 代表 stale mixed scene，当前指定接盘顺序为 `NPC -> spring-day1`
+  - `GameInputManager.cs`：继续视为共享热点，但当前允许按触点并发；只有撞到同一入口 / 方法 / 行为链时，才升级成真正单写者问题
 
 ## 热区 D：共享表现层资源
 - 字体资源

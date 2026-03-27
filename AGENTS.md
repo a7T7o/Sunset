@@ -21,13 +21,19 @@
   8. 普通线程的 own dirty / untracked 默认必须在当前这一刀内自己收口；不能再把自己的尾账拖到下一轮，再等治理线程专门开 cleanup 批次兜底。
   9. `git-safe-sync.ps1` 在 `main-only` 的 `task` 模式下，虽然允许 unrelated dirty 留在 shared root，但如果本轮白名单所属 `own roots` 下仍有未纳入本轮的 remaining dirty / untracked，就必须直接阻断。
   10. `Primary.unity`、`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`、`ProjectSettings/TagManager.asset`、`Assets/Editor/StaticObjectOrderAutoCalibrator.cs` 当前统一按“强制报实的 hot / mixed 目标”处理；owner 未明确前，任何线程都不得借 cleanup 名义静默吞并。
+  11. 两类 hot / mixed 目标从现在起按不同实战口径执行：
+      - `Primary.unity` = 单 scene writer 接盘面；`dirty + unlocked + ownerless` 表示“无人接盘的 stale mixed scene”，不等于永久不可写。当前批准的接盘顺序为：`NPC -> spring-day1`，直到用户改写。
+      - `GameInputManager.cs` = 可并发但必须记触点的共享热点；允许多个线程并行改，但必须显式报出自己触碰的入口/方法/行为链；若撞到同一触点或同一语义顺序，才升级治理 / integrator。
+  12. 如果 `changed_paths` 包含 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`，回执除固定最小字段外还必须额外补：
+      - `touched_touchpoints`
+      - 用来明确本轮到底改了哪些方法、入口链或行为判定点
 - 即日起 Sunset 普通开发的真实基线默认只有一个：`main`。
 - 对普通开发，暂停把 `request-branch`、`grant-branch`、`ensure-branch`、`wake-next`、`return-main` 当成必经前置。
 - 不再为普通开发继续新增 `codex/*` 分支或新增 worktree。
 - 治理线程的角色改成“收烂摊子 + 高危打断 + 极简口径维护”，不再做重排队、重放行、重闸门。
 - 治理线程默认不再为“常规 own dirty 尾账”重复开 cleanup 批次；只有命中 cross-thread mixed / hot-file incident、owner 不清或 shared root 物理现场被卡死时，才升级治理收口。
 - 所有线程都可以直接开始开发；只有命中下面这些硬打断条件时才必须停下：
-  1. 正在改同一个高危目标。
+  1. 正在改同一个高危目标；但 `GameInputManager.cs` 例外按“触点并发”处理，只有撞到同一触点 / 同一行为链时才硬打断。
   2. 需要 Unity / MCP live 写入，但已经有别的线程在写。
   3. 准备做破坏性 Git 动作，例如 `reset --hard`、`checkout --`、`clean`、强推、危险 rebase。
   4. 已经造成编译坏、场景坏、引用坏，需要先收烂摊子。
@@ -40,6 +46,9 @@
   - `ProjectSettings/TagManager.asset`
   - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
   - 任何当前正被另一个线程 live 写入的 Unity 资源
+- 其中当前补充口径固定为：
+  - `Primary.unity` 继续按单 writer 处理；没有 active lock 但文件仍 dirty 时，默认理解为“待接盘 scene”，不是“假活跃占用”
+  - `GameInputManager.cs` 虽仍属强制报实热点，但不再默认按单 writer 停工；优先按触点拆分，并接受最终 integrator 收盘
 - 等待态不再强制先写 tracked memory、占用文档或治理回执；能用最小聊天回执解决的，就不要先制造治理脏改。
 - 已经存在的 branch / worktree 只视为过渡现场，不再扩张成长期模型；其有价值成果应尽快回到 `main`，然后继续只以 `main` 为准。
 - 如果本节、当前规范快照与下文旧的 branch-only / grant-only / queue-only 规则冲突，以本节和当前规范快照为准。
