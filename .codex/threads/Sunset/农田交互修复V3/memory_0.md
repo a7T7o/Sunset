@@ -440,3 +440,144 @@
   - 播种是否已允许脚下进行
   - 其他无碰撞体 placeable 是否也不再被玩家自身挡红
   - 箱子等有实体碰撞体的放置物是否仍继续阻挡
+
+## 2026-03-27：交互大清盘已完成 docs-only 总账，当前主线从“继续补现象”收束为“先看事务边界”
+
+**用户目标**：
+- 用户这轮明确不要我直接继续落代码，而是要求把当前、历史、全局三层交互问题一起盘清。
+- 具体要求是：
+  - 对用户刚指出的 3 个问题给出彻底根因分析
+  - 用大白话讲清楚问题到底出在哪
+  - 说明我准备怎么修
+  - 把之前做过但没过线、没终验、或仍留在需求池里的交互项全部重新列账
+  - 把这次“大清盘”正式写入文档留档
+
+**当前主线目标**：
+- 主线仍是农田 `V3`。
+- 但本轮子任务不再是继续修代码，而是对 `1.0.4交互全面检查` 做一次 docs-only 审计收口，把整条交互线重新压成“哪些事务边界还没关门”。
+
+**本轮已完成事项**：
+1. 已沿用 `skills-governor + sunset-workspace-router` 做前置核查；`sunset-startup-guard` 当前会话未显式暴露，因此按 Sunset 规则走手工等价闸门。
+2. 已确认当前现场基线仍是：`D:\Unity\Unity_learning\Sunset @ main @ 8ada081dde5865969e24919a5bbd4074b24265ad`。
+3. 已完整回读：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\全面理解需求与分析.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\当前续工计划与日志.md`
+4. 已结合当前代码只读核查：
+   - `TreeController.cs / TreeEnums.cs`
+   - `PlacementManager.cs`
+   - `ToolRuntimeUtility.cs`
+   - `PlayerInteraction.cs`
+   - `PlayerAnimController.cs`
+   - `LayerAnimSync.cs`
+   - `GameInputManager.cs`
+   - `HotbarSelectionService.cs`
+   - `ChestController.cs`
+   - `IInteractable.cs`
+5. 已新增正式总账文档：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-27-交互大清盘_根因分析与全局总账.md`
+6. 已把 3 个当前硬问题压成明确根因：
+   - 树木 1/2 阶段“死后又立起来”来自无树桩路径没有单向死亡状态，原树对象在倒下期间仍保有活树身份和再次命中资格
+   - 连续放置时“鼠标不动不刷新”来自放置成功后的 hold 逻辑把“屏幕像素位移”误当成了“世界候选格变化”
+   - 工具坏掉后动画不停，来自工具运行时清槽链和动作计时链没有在“当前动作依赖的手持物已失效”这一事实点重新汇合
+7. 已把历史尾账重新分层：
+   - 当前仍不能算过线的项：sapling 连放主链、树木倒下事务、工具坏掉后的动作尾巴、箱子开启距离/开箱不退放置模式、Toolbar 双选中 / 错误锁槽、hover 遮挡、玩家气泡样式、低级斧头高树冷却输入层拦截、无碰撞体脚下放置终验
+   - 更适合继续观察的项：箱子双库存递归 / `StackOverflowException`、箱子 `Save/Load` 回归、Tooltip `0.6s` 与精力条 Tooltip
+8. 已同步更新当前子工作区 `memory.md` 与父层 `2026.03.16/memory.md`，把“大清盘”结论写回工作区体系，而不是只留在线程里。
+
+**关键决策**：
+- 这轮是 docs-only 审计，不是新的代码修复提交。
+- 本轮没有进入 Unity / MCP live，也没有冒充做了用户终验。
+- 当前整条线最大的共性问题已重新收束为 4 类事务缺口：
+  - 放置链缺统一成功事务
+  - 树生命周期缺单向死亡状态
+  - 工具链缺“动作前检 -> 动作提交 -> 物品失效 -> 强制收尾”闭环
+  - UI / 交互链缺“谁是事实源”的统一口径
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\2026-03-27-交互大清盘_根因分析与全局总账.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Trees\TreeController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+
+**验证结果**：
+- 本轮未做 Unity / MCP live 验证。
+- 本轮未修改业务代码，因此也没有新的程序集级 preflight。
+- 当前验证性质只有只读核查与文档落盘。
+
+**恢复点 / 下一步**：
+- 当前“大清盘”已经正式落盘完成，不再只是聊天分析。
+- 如果后续继续施工，优先级应按三条事务主刀推进：
+  - sapling 连续放置主链
+  - 树木倒下事务
+  - 工具坏掉后的强制收尾
+- 在这三条真正关门前，不应继续把局部结构 pass、runner pass 或单次日志 pass 过早包装成“用户已经通过”。
+
+## 2026-03-27：`0.0.1交互大清盘` 详细落地任务清单已落盘，后续一条龙施工默认以此为总标准
+
+**用户目标**：
+- 用户已把我上一轮写的总账移动到 `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\`。
+- 本轮用户明确要求我不要直接继续落代码，而是先基于那份总账，写一份“彻底详尽且专业”的详细落地任务清单。
+- 用户已明确说明：后续会要求我一条龙完成这里面的全部内容，再进入验收。
+
+**当前主线目标**：
+- 主线仍是农田 `V3 / 1.0.4交互全面检查`。
+- 本轮子任务是：把“交互大清盘”从根因总账推进成正式施工标准，供后续整条线按单执行与按单验收。
+
+**本轮已完成事项**：
+1. 已沿用 `skills-governor + sunset-workspace-router` 做前置核查，并补读 `sunset-prompt-slice-guard`；`sunset-startup-guard` 当前会话未显式暴露，因此继续按 Sunset 规则走手工等价闸门。
+2. 已确认当前现场仍是：`D:\Unity\Unity_learning\Sunset @ main @ 8ada081dde5865969e24919a5bbd4074b24265ad`。
+3. 已回读：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_根因分析与全局总账.md`
+   - 当前子工作区 `memory.md`
+   - 父层与根层 `memory.md`
+4. 已新增正式任务书：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_详细落地任务清单.md`
+5. 该任务书已把后续标准冻结成 4 层：
+   - 已接受与未接受边界
+   - 全局执行纪律
+   - `A/B/C/D` 四阶段顺序
+   - 逐项任务清单
+6. 已把后续顺序正式收口为：
+   - `A1` 树苗连续放置事务
+   - `A2` 树木倒下事务
+   - `A3` 工具失效强制收尾事务
+   - `B1~B5` 交互一致性与体验统一
+   - `C1~C3` 回归观察与兜底
+   - `D` 最终验收与交付
+7. 已把每条任务统一写成：
+   - 目标
+   - 当前问题范围
+   - 高概率涉及文件
+   - 必做改动
+   - 完成定义
+   - 必跑验证
+   - 禁止漂移
+
+**关键决策**：
+- 从这一刻起，后续整条线不再只靠总账和聊天摘要推进，而是以 `详细落地任务清单.md` 作为默认施工标准。
+- runner pass、`git diff --check` 通过、程序集级 preflight 通过，都已被正式降级为“可继续推进信号”，不能再单独充当完成定义。
+- A 阶段三条事务主刀必须先过闸，后面的 hover / chest / toolbar / bubble 才允许 claim 收口。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_根因分析与全局总账.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_详细落地任务清单.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\memory.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+
+**验证结果**：
+- 本轮仍是 docs-only。
+- 本轮未进入 Unity / MCP live。
+- 本轮未修改业务代码，因此没有新的程序集级 preflight。
+- 当前验证性质是文档结构核查与落盘。
+
+**恢复点 / 下一步**：
+- 当前“交互大清盘”已经从根因总账升级成正式落地任务书。
+- 后续如果继续一条龙施工，默认从 `A1树苗连续放置事务` 开始，按文档顺序逐项推进。
+- 直到 `A1 / A2 / A3` 三条事务真正过闸前，不应再把任何局部 pass 过早包装成“这条已经好了”。
