@@ -5913,3 +5913,152 @@
 - 治理线程之后对这两类文件的判断口径固定为：
   - `GameInputManager.cs`：先问触点
   - `Primary.unity`：先问当前 writer 是谁
+
+## 2026-03-27｜按用户最新裁定只向 `NPC` 下发一条 `Primary.unity` scene writer prompt，暂不生成 `spring-day1` prompt
+
+**当前主线目标**
+- 用户已明确裁定：这轮先不要给 `spring-day1` 写 prompt，只给 `NPC` 写一条新的 scene writer 委托；等 `NPC` 做完并由我复核后，再决定是否发下一棒。
+
+**本轮只读核查**
+1. `Primary.unity`
+   - 当前仍为 `M`
+   - 但物理锁已在：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+     里明确发给 `NPC`
+2. `NPC` 当前正式任务底账
+   - `P0 = done`
+   - `T-P1-01 = done`
+   - `T-P1-02` 在旧文档里仍写作 `blocked-hotfile`
+   - 但在用户已授予写窗之后，这个旧 blocker 口径不应继续阻止它进入 scene 最小切片
+3. 当前应发的不是泛泛“去接盘 Primary”，而是一条硬切片：
+   - 只做 `T-P1-02 -> T-P1-03 / T-P1-04 / T-P1-05`
+   - 只落三名 NPC 的最小点位对象
+   - 不进入 `T-P1-06`
+   - 不放锁给 `spring-day1`
+
+**本轮已落动作**
+1. 已新增 prompt 文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P1-02-Primary场景接盘与最小点位落地委托-01.md`
+2. prompt 内已明确钉死：
+   - 当前写窗已授予，不再反复论证旧 blocker
+   - 这轮只允许落以下最小对象集：
+     - `NPC_001_Stay_SquareWatch`
+     - `NPC_002_Stay_YardSun`
+     - `NPC_003_Stay_StudyBench`
+     - `NPC_SHARED_Meet_MainCrossing`
+     - `NPC_001_Solo_PathShoulder`
+     - `NPC_002_Solo_GardenEdge`
+     - `NPC_003_Solo_ObservationEdge`
+   - 不碰字体、不碰 `GameInputManager.cs`、不碰导航 runtime、不做 mixed cleanup
+   - 做完后只停在 `ready-for-warden-review`
+
+**恢复点 / 下一步**
+- 当前治理线程下一步不是继续群发，而是等 `NPC` 回执：
+  1. scene 最小切片是否真实落地
+  2. 当前 own 路径是否 clean
+  3. 是否已经到达 `ready_for_release`
+- 只有我复核通过后，才会决定是否给 `spring-day1` 写下一条 scene writer prompt
+
+## 2026-03-27｜根据用户补充现场，撤回“此刻先发 Primary scene prompt”的优先级，改为给 `NPC` 一条 `0.0.2` 中继续推提示
+
+**当前主线目标**
+- 用户补充了 `NPC` 当前真实现场截图与上一条长 prompt 后，要求我重新判断：
+  - 现在是不是应该继续让它沿 `0.0.2清盘002` 往前干
+  - 并只给一个中间引导提示，而不是把它打断去执行我刚写的 `Primary.unity` scene writer prompt
+
+**本轮复核结论**
+1. `NPC` 当前没有跑偏
+   - 它已经落出了：
+     - `2026-03-27-NPC-0.0.2清盘002-现状排查与验收回退矩阵.md`
+     - `2026-03-27-NPC-0.0.2清盘002-详细落地任务列表.md`
+   - 这说明它已经把用户刚刚的“非正式聊天并未成立、0.0.1 有误判完成”这一层重新钉死
+2. 当前更适合继续的，不是 `Primary.unity`
+   - 而是 `0.0.2` 主线里的：
+     - `002 / 003` 按 `E` 发起的 NPC 非正式聊天首个闭环
+3. 当前仓库现场也支持这个判断
+   - `NPC` 相关 active dirty 已经落在：
+     - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+   - 说明它已经进入真实聊天入口与表现层，不适合此刻硬切回 scene 写窗
+
+**本轮已落动作**
+1. 已新增中继提示文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-03-27-NPC-0.0.2清盘002-中继续推提示-非正式聊天首个闭环切片-01.md`
+2. 新提示已明确要求：
+   - 保留 `0.0.2` 两份主文档，不再继续扩解释文档
+   - 直接进入：
+     - `T-002-C01`
+     - `T-002-C02`
+     - `T-002-C03`
+     - `T-002-C04`
+   - 主刀固定为：
+     - `002 / 003` 的按 `E` 发起、玩家先说、NPC 延迟回复、可跳过动效、可中断的首个非正式聊天闭环
+   - 明确禁止：
+     - `Primary.unity`
+     - `GameInputManager.cs`
+     - 拆烂 `001` 的 `spring-day1` 正式剧情链
+     - 把工作台提示 UI 一起吞掉
+
+**恢复点 / 下一步**
+- 当前正确动作不是打断 `NPC` 切去 scene，而是继续让它沿 `0.0.2` 主线把第一个真实聊天闭环做出来
+- 等它把这刀做完，我再基于回执和现场决定：
+  - 是继续 `0.0.2` 下一刀
+  - 还是再回到 `Primary.unity` 的 writer 窗口
+
+## 2026-03-28｜已把“用户可读汇报层”升级成 Sunset live 硬规则
+
+**当前主线目标**
+- 用户明确指出：现在线程并不是都没做事，而是越来越不会把“实际产出 / 当前阶段 / 剩余内容 / 下一步”说成人话；现有规范虽然管住了治理回执，却没有管住“必须让用户一眼看懂”。
+
+**本轮分析结论**
+1. 当前 Sunset 现有规则主要解决的是：
+   - 治理可审计
+   - 白名单可收口
+   - hot target 可报实
+2. 但缺了一层真正强制的：
+   - `用户可读汇报契约`
+3. 因此现场会出现：
+   - 线程写的内容对治理有用
+   - 但用户仍然不知道：
+     - 这轮实际做成了什么
+     - 还剩什么
+     - 到哪个阶段了
+     - 下一步该怎么发令
+
+**本轮已落动作**
+1. 已新增分析与方案文档：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-28_线程用户可读汇报失真分析与强制规约方案.md`
+2. 已把新规则同步进 live 规则层：
+   - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\典狱长模式_治理总闸与分发规范.md`
+3. 已同步到相关 skill：
+   - `C:\Users\aTo\.codex\skills\sunset-governance-dispatch-protocol\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-prompt-slice-guard\SKILL.md`
+
+**当前固定新口径**
+1. 以后必须明确区分两种文本：
+   - `给治理看的最小回执`
+   - `给用户看的用户可读汇报`
+2. 只要对象是用户，或用户在问：
+   - 现在做到哪了
+   - 实际做了什么
+   - 还剩什么
+   - 下一步做什么
+   - 到哪个阶段了
+   线程就必须先回答：
+   - `当前主线`
+   - `这轮实际做成了什么`
+   - `现在还没做成什么`
+   - `当前阶段`
+   - `下一步只做什么`
+   - `需要用户现在做什么`
+3. `changed_paths / checkpoint / 参数名 / best-known stable / dirty / lock / owner 报实` 等技术信息，只能放在后面的技术审计层
+4. 如果线程只交技术 dump、不交用户可读层，治理线程应视为“汇报不合格”
+
+**恢复点 / 下一步**
+- 从这轮开始，治理线程后续写 prompt 和审回执时，都要把“用户可读汇报层”当成硬闸门
+- 下一步进入实盘观察：
+  - 谁继续交技术 dump
+  - 谁已经开始按新口径汇报

@@ -27,6 +27,12 @@
   12. 如果 `changed_paths` 包含 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`，回执除固定最小字段外还必须额外补：
       - `touched_touchpoints`
       - 用来明确本轮到底改了哪些方法、入口链或行为判定点
+  13. 从现在起，必须明确区分“给治理看的最小回执”和“给用户看的用户可读汇报”；两者不再视为同一种文本。
+  14. 只要汇报对象是用户，或用户问的是“现在做到了什么 / 还剩什么 / 下一步做什么 / 到哪个阶段了”，回复必须先交 `用户可读汇报层`，至少回答：`当前主线 / 这轮实际做成了什么（按功能点） / 现在还没做成什么 / 当前阶段 / 下一步只做什么 / 需要用户现在做什么（若无写无）`。
+  15. `changed_paths`、参数名、checkpoint、日志、dirty/lock/owner 报实等技术信息，只能放在 `技术审计层`，不得顶替前面的 `用户可读汇报层`。
+  16. 如果回复里使用了 `best-known stable checkpoint`、`detour`、`release / recover`、`blockOnsetEdgeDistance`、`HardStop`、`stuck cancel`、`blocked-hotfile` 这类工程术语，必须在同一段里立刻翻译成玩家可感知结果；不能只给工程术语。
+  17. 对用户宣称“已完成 / 已修好 / 已过线”时，必须显式标明验证状态：`用户已测 / 线程自测已过 / 静态推断成立 / 尚未验证`；不能把这几类状态混写成一句模糊结论。
+  18. 以后线程若只交技术 dump、不交 `用户可读汇报层`，即使工程事实没错，也视为汇报不合格；治理线程和当前执行线程都应主动拒绝这种回复。
 - 即日起 Sunset 普通开发的真实基线默认只有一个：`main`。
 - 对普通开发，暂停把 `request-branch`、`grant-branch`、`ensure-branch`、`wake-next`、`return-main` 当成必经前置。
 - 不再为普通开发继续新增 `codex/*` 分支或新增 worktree。
@@ -191,6 +197,7 @@
   - 线程活跃卷：`memory_0.md`
   - 线程历史卷：`memory_1.md`、`memory_2.md`...
 - 如果本轮只完成了阻塞处理而主线尚未完成，收尾时必须同时汇报“阻塞已解除”和“主线下一步”，不能只汇报修复动作本身。
+- 任何直接对用户的阶段汇报，都不能只报 `changed_paths / checkpoint / blocker`；至少要先把“做到什么 / 没做到什么 / 当前阶段 / 下一步”说成人话，再补技术层。
 - `900_开篇/spring-day1-implementation` 是落地参考样板：其 `memory.md` 体现追加式记录，其 `requirements.md` 与 `OUT_tasks.md` 体现需求驱动和任务拆解。新工作区可以借鉴这种信息密度，但不必机械复制文件数量。
 - `Codex规则落地` 是 Sunset 当前正式治理工作区样板：其根层 `memory.md` + 分阶段 `tasks.md` 体现“根层记忆、阶段承接、按需 design”的新治理结构。
 - `000_代办/codex` 只保留 TD 镜像与读取入口，不再承载工作区正文。
