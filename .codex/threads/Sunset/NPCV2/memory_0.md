@@ -422,3 +422,41 @@
   - 现在 `P2` 已经有正式验收包，`P3-01` 也有正式规范稿；
   - 下一步优先去评估 `T-P3-02` 有没有不吞 mixed hot-file 的安全代码切口；
   - 如果没有，就继续找下一项可独立推进的非 live 任务，不回去硬撞 `Primary.unity`。
+
+## 2026-03-27｜`T-P3-02` 已先用单文件样式刀落地
+
+- 当前主线目标：
+  - 不等输入 hot-file 解锁，先把玩家气泡样式层独立做完，继续保持高速推进。
+- 本轮子任务：
+  - 只修改：
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+- 本轮完成：
+  - 玩家气泡已从“直接照抄 NPC”改成正式玩家视觉：
+    - 晨雾青绿色填充
+    - 深青灰边框
+    - 深墨色文字
+    - 更轻一点的浮动和尾巴跳动
+  - 同时保留与 NPC 的统一骨架：
+    - `10` 字一行
+    - 同级边距
+    - 同级尾巴尺寸
+    - 同级 show / hide 节奏
+- 本轮验证：
+  - `git diff --check` 已通过该文件
+  - 当前没有 live 目测证据，因此这轮只 claim 样式层完成，不 claim 体验终验完成
+- 当前 owned / external 边界：
+  - 当前 owned：
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+  - 当前 same-root tail：
+    - `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+    - 白名单 sync 时被闸机点名为 remaining dirty
+    - 复核后确认它属于此前玩家失败反馈 / `ToolUseCommitResult` 链的 own tail
+    - 当前不再按外线 mixed 处理，而是准备一并收口
+  - 当前 external / 暂不碰：
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `Assets/000_Scenes/Primary.unity`
+- 当前恢复点：
+  - `T-P3-02` 可判 `done`
+  - 下一步继续看：
+    - `T-P3-03`
+  - 但先要把 `Service/Player` 根下当前 own tail 收干净，再继续找不碰 `GameInputManager.cs` 的轻响应接线方案。

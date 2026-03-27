@@ -782,3 +782,30 @@
 - 当前恢复点：
   - NPC 总线下一步应先看 `T-P3-02` 是否存在安全代码切口；
   - 如果玩家侧热文件仍不适合动，就继续沿“不撞热区的独立切片”推进，而不是回到 `Primary.unity` 原地等待。
+
+## 2026-03-27｜NPC 总线已把玩家气泡样式层推进到 `T-P3-02`
+
+- 当前新增结论：
+  - `T-P3-02` 不必等 `Primary.unity` 或输入 hot-file 解锁才开工；
+  - 先只做 `PlayerThoughtBubblePresenter.cs` 的样式层，也能形成一刀独立闭环。
+- 本轮完成：
+  - 玩家气泡已切到正式玩家视觉语言：
+    - 晨雾青绿色填充
+    - 深青灰边框
+    - 深墨色文字
+    - 更轻一点的动效
+  - 同时继续与 NPC 共用：
+    - `10` 字一行
+    - 边距骨架
+    - 尾巴骨架
+    - 显隐节奏
+- 当前边界：
+  - 这轮没有把轻响应接线偷扩到：
+    - `GameInputManager.cs`
+  - 但在准备白名单收口时，闸机指出：
+    - `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+    仍是同根 remaining dirty
+  - 复核后确认它属于此前 NPC 线玩家反馈 / `ToolUseCommitResult` 链的 own tail，不按外线 mixed 处理
+- 当前恢复点：
+  - `T-P3-02` 已 done；
+  - 先把 `Player` 根下这组 own tail 安全收口，再继续看 `T-P3-03` 是否能找到不撞 hot-file 的安全接线入口。

@@ -8,6 +8,18 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class PlayerThoughtBubblePresenter : MonoBehaviour
 {
+    private static readonly Vector3 NpcBubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
+    private static readonly Vector3 NpcBubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
+    private static readonly Vector2 NpcBubblePadding = new Vector2(82f, 42f);
+    private static readonly Vector2 NpcTextSafePadding = new Vector2(24f, 22f);
+    private static readonly Vector2 NpcTailSize = new Vector2(34f, 24f);
+    private static readonly Vector2 NpcShadowOffset = new Vector2(3f, -5f);
+    private static readonly Color PlayerBubbleBorderColor = new Color(0.35f, 0.46f, 0.42f, 1f);
+    private static readonly Color PlayerBubbleFillColor = new Color(0.87f, 0.91f, 0.88f, 0.96f);
+    private static readonly Color PlayerBubbleShadowColor = new Color(0.06f, 0.13f, 0.11f, 0.28f);
+    private static readonly Color PlayerTextColor = new Color(0.12f, 0.16f, 0.14f, 1f);
+    private static readonly Color PlayerTextOutlineColor = new Color(0.95f, 0.93f, 0.89f, 0.92f);
+
     private static readonly string[] PreferredFontResourcePaths =
     {
         "Fonts & Materials/DialogueChinese Pixel SDF",
@@ -25,10 +37,10 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     [SerializeField] private TMP_FontAsset fontAsset;
 
     [Header("气泡布局")]
-    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.52f, 0f);
+    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
     [SerializeField] private Vector3 bubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
     [SerializeField] private Vector2 bubblePadding = new Vector2(82f, 42f);
-    [SerializeField] private float maxTextWidth = 315f;
+    [SerializeField] private float maxTextWidth = 290f;
     [SerializeField] private float minAdaptiveTextWidth = 64f;
     [SerializeField] private int preferredCharactersPerLine = 10;
     [SerializeField] private Vector2 textSafePadding = new Vector2(24f, 22f);
@@ -37,20 +49,20 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     [SerializeField] private Vector2 tailSize = new Vector2(34f, 24f);
     [SerializeField] private float tailYOffset = -28f;
     [SerializeField] private Vector2 shadowOffset = new Vector2(3f, -5f);
-    [SerializeField] private int sortingOrderOffset = 30;
-    [SerializeField] private float minBubbleHeight = 1.28f;
-    [SerializeField] private float bubbleGapAboveRenderer = 0.03f;
-    [SerializeField] private float visibleFloatAmplitude = 0.004f;
+    [SerializeField] private int sortingOrderOffset = 20;
+    [SerializeField] private float minBubbleHeight = 1.24f;
+    [SerializeField] private float bubbleGapAboveRenderer = 0.02f;
+    [SerializeField] private float visibleFloatAmplitude = 0.0034f;
     [SerializeField] private float visibleFloatFrequency = 0.8f;
-    [SerializeField] private float tailBobAmplitude = 26f;
+    [SerializeField] private float tailBobAmplitude = 22f;
     [SerializeField] private float tailBobFrequency = 0.85f;
 
     [Header("气泡样式")]
-    [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
-    [SerializeField] private Color bubbleFillColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
-    [SerializeField] private Color bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
-    [SerializeField] private Color textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
-    [SerializeField] private Color textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
+    [SerializeField] private Color bubbleBorderColor = new Color(0.35f, 0.46f, 0.42f, 1f);
+    [SerializeField] private Color bubbleFillColor = new Color(0.87f, 0.91f, 0.88f, 0.96f);
+    [SerializeField] private Color bubbleShadowColor = new Color(0.06f, 0.13f, 0.11f, 0.28f);
+    [SerializeField] private Color textColor = new Color(0.12f, 0.16f, 0.14f, 1f);
+    [SerializeField] private Color textOutlineColor = new Color(0.95f, 0.93f, 0.89f, 0.92f);
     [SerializeField] private float fontSize = 32f;
     [SerializeField] private float textOutlineWidth = 0.18f;
     [SerializeField] private float showDuration = 0.14f;
@@ -84,9 +96,16 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     public bool IsVisible => canvasRoot != null && canvasRoot.gameObject.activeSelf;
     public event Action Hidden;
 
+    private void Reset()
+    {
+        CacheComponents();
+        ApplyPlayerBubbleStylePreset();
+    }
+
     private void Awake()
     {
         CacheComponents();
+        ApplyPlayerBubbleStylePreset();
         EnsureUi();
         HideImmediate();
     }
@@ -106,6 +125,12 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     private void OnDisable()
     {
         HideImmediate();
+    }
+
+    private void OnValidate()
+    {
+        CacheComponents();
+        ApplyPlayerBubbleStylePreset();
     }
 
     public void ShowText(string content, float totalDuration, bool restartFadeIn)
@@ -227,6 +252,39 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         {
             fontAsset = TryLoadPreferredFontAsset();
         }
+    }
+
+    private void ApplyPlayerBubbleStylePreset()
+    {
+        bubbleLocalOffset = NpcBubbleLocalOffset;
+        bubbleLocalScale = NpcBubbleLocalScale;
+        bubblePadding = NpcBubblePadding;
+        maxTextWidth = 290f;
+        minAdaptiveTextWidth = 64f;
+        preferredCharactersPerLine = 10;
+        textSafePadding = NpcTextSafePadding;
+        textVerticalOffset = -10f;
+        borderThickness = 6f;
+        tailSize = NpcTailSize;
+        tailYOffset = -28f;
+        shadowOffset = NpcShadowOffset;
+        sortingOrderOffset = 20;
+        minBubbleHeight = 1.24f;
+        bubbleGapAboveRenderer = 0.02f;
+        visibleFloatAmplitude = 0.0034f;
+        visibleFloatFrequency = 0.8f;
+        tailBobAmplitude = 22f;
+        tailBobFrequency = 0.85f;
+        bubbleBorderColor = PlayerBubbleBorderColor;
+        bubbleFillColor = PlayerBubbleFillColor;
+        bubbleShadowColor = PlayerBubbleShadowColor;
+        textColor = PlayerTextColor;
+        textOutlineColor = PlayerTextOutlineColor;
+        fontSize = 32f;
+        textOutlineWidth = 0.18f;
+        showDuration = 0.14f;
+        hideDuration = 0.1f;
+        showScaleOvershoot = 0.05f;
     }
 
     private void EnsureUi()

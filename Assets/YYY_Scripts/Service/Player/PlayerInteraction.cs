@@ -32,6 +32,9 @@ public class PlayerInteraction : MonoBehaviour
     public bool enableLegacyInput = false;
     private bool toolUseCommittedForCurrentAction = false;
     private ToolUseCommitResult lastToolUseCommitResult;
+    private bool pendingToolUseCommitRequested = false;
+    private ToolData pendingToolUseCommitToolData;
+    private string pendingToolUseCommitContext;
     
     // 当前操作的工具数据（用于精力消耗判定）
     private ToolData pendingToolData;
@@ -124,6 +127,9 @@ public class PlayerInteraction : MonoBehaviour
         actionStartTime = Time.time;
         toolUseCommittedForCurrentAction = false;
         lastToolUseCommitResult = default;
+        pendingToolUseCommitRequested = false;
+        pendingToolUseCommitToolData = null;
+        pendingToolUseCommitContext = null;
 
         lockManager?.BeginAction();
         
@@ -181,7 +187,27 @@ public class PlayerInteraction : MonoBehaviour
     public ToolUseCommitResult TryCommitCurrentToolActionSuccessDetailed(ToolData tool, string context = null)
     {
         string resolvedContext = string.IsNullOrEmpty(context) ? $"PlayerInteraction/{currentAction}" : context;
-        return CommitCurrentToolUseDetailed(tool, resolvedContext);
+        if (toolUseCommittedForCurrentAction)
+        {
+            return lastToolUseCommitResult;
+        }
+
+        if (tool == null)
+        {
+            lastToolUseCommitResult = ToolUseCommitResult.Failure(ToolUseFailureReason.ToolMissing, resolvedContext);
+            return lastToolUseCommitResult;
+        }
+
+        if (!isPerformingAction)
+        {
+            return CommitCurrentToolUseDetailed(tool, resolvedContext);
+        }
+
+        pendingToolUseCommitRequested = true;
+        pendingToolUseCommitToolData = tool;
+        pendingToolUseCommitContext = resolvedContext;
+        lastToolUseCommitResult = BuildDeferredToolUseCommitResult(tool, resolvedContext);
+        return lastToolUseCommitResult;
     }
 
     /// <summary>
@@ -213,6 +239,8 @@ public class PlayerInteraction : MonoBehaviour
         if (currentAction == PlayerAnimController.AnimState.Death)
             isCarrying = false;
 
+        ToolUseCommitResult finalizedCommitResult = FinalizePendingToolUseCommit();
+
         // ★ 关键：先应用缓存的方向（只更新朝向数据，不播放动画）
         ApplyCachedDirectionToFacing();
 
@@ -225,6 +253,12 @@ public class PlayerInteraction : MonoBehaviour
             !CanStartAction(actionToRepeat, emitFailureFeedback: false, out pendingToolData, out _))
         {
             shouldContinue = false;
+        }
+
+        if (finalizedCommitResult.ToolRemoved)
+        {
+            shouldContinue = false;
+            layerAnimSync?.ForceHideTool();
         }
         
         if (shouldContinue)
@@ -350,7 +384,8 @@ public class PlayerInteraction : MonoBehaviour
         resolvedToolData = toolController != null ? toolController.CurrentToolData : null;
         if (resolvedToolData == null)
         {
-            return true;
+            failureReason = ToolUseFailureReason.ToolMissing;
+            return false;
         }
 
         return ToolRuntimeUtility.TryValidateHeldToolUse(
@@ -383,6 +418,48 @@ public class PlayerInteraction : MonoBehaviour
         }
 
         return lastToolUseCommitResult;
+    }
+
+    private ToolUseCommitResult FinalizePendingToolUseCommit()
+    {
+        if (!pendingToolUseCommitRequested)
+        {
+            return lastToolUseCommitResult;
+        }
+
+        ToolData toolToCommit = pendingToolUseCommitToolData != null ? pendingToolUseCommitToolData : pendingToolData;
+        string context = string.IsNullOrEmpty(pendingToolUseCommitContext)
+            ? $"PlayerInteraction/{currentAction}"
+            : pendingToolUseCommitContext;
+
+        pendingToolUseCommitRequested = false;
+        pendingToolUseCommitToolData = null;
+        pendingToolUseCommitContext = null;
+
+        return CommitCurrentToolUseDetailed(toolToCommit, context);
+    }
+
+    private ToolUseCommitResult BuildDeferredToolUseCommitResult(ToolData tool, string context)
+    {
+        int energyCost = tool != null ? Mathf.Max(0, tool.energyCost) : 0;
+        int durabilityCost = ToolRuntimeUtility.UsesDurability(tool)
+            ? ToolRuntimeUtility.GetDurabilityCost(tool)
+            : 0;
+        int waterCost = ToolRuntimeUtility.UsesWater(tool)
+            ? ToolRuntimeUtility.GetWaterUseCost(tool)
+            : 0;
+
+        return ToolUseCommitResult.Success(
+            context,
+            -1,
+            energyCost,
+            durabilityCost,
+            -1,
+            false,
+            false,
+            waterCost,
+            -1,
+            ToolRuntimeUtility.UsesWater(tool) ? ToolRuntimeUtility.GetWaterCapacity(tool) : -1);
     }
 
     public bool IsCarrying() => isCarrying;

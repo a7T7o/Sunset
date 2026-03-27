@@ -840,3 +840,45 @@
     - `T-P3-02`
     是否存在不吞 mixed hot-file 的安全代码切口；
   - 如果没有，就继续按高速模式寻找下一项不撞热区的独立切片，而不是回去硬碰 `Primary.unity`。
+
+## 2026-03-27｜P3-02 已先完成玩家气泡样式层
+
+- 当前主线目标：
+  - 在 `P3-01` 规范已定的基础上，先把玩家气泡的正式样式层落到代码里，但不扩到输入、轻响应触发或 scene。
+- 本轮完成：
+  - 已只修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+  - 玩家气泡当前已经具备：
+    - 晨雾青绿色填充
+    - 深青灰边框
+    - 深墨色文字
+    - 更轻一点的浮动
+    - 更轻一点的尾巴跳动
+  - 同时继续共用当前 NPC 已锁定的：
+    - `10` 字一行
+    - 边距骨架
+    - 尾巴尺寸
+    - show / hide 节奏
+- 本轮边界：
+  - 没有碰：
+    - `GameInputManager.cs`
+    - `Primary.unity`
+    - `DialogueChinese*`
+  - 但在准备白名单 sync 时，闸机额外指出：
+    - `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+    仍是当前 same-root remaining dirty
+  - 经过复核，这份 `PlayerInteraction.cs` 未提交 diff 属于此前 NPC 线自己的：
+    - 玩家失败反馈 / `ToolUseCommitResult`
+    支撑链尾账
+  - 当前不再把它当作外线 mixed 文件，而是作为同根旧尾账一并纳入收口判断
+- 本轮验证：
+  - `git diff --check` 已通过：
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+  - 当前还没有 live 视觉实证，因此这轮只 claim 样式层实现完成
+- 当前恢复点：
+  - `T-P3-02` 可判 `done`
+  - 下一步应继续转入：
+    - `T-P3-03`
+  - 重点是：
+    1. 先把 `PlayerThoughtBubblePresenter.cs + PlayerInteraction.cs` 这组同根玩家侧改动安全收口
+    2. 再找一条不碰 `GameInputManager.cs` hot-file 的轻响应接线入口
