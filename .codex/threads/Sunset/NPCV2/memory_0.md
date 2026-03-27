@@ -383,3 +383,42 @@
   - `T-P1-01` 已 done
   - `T-P2-01 ~ T-P2-06` 的纯资产 / 代码层铺底已完成
   - 下一步先回看 `T-P1-02`；若热区仍未开，就继续转入 `T-P3-01`
+
+## 2026-03-27｜Primary 仍 blocked 时，继续收掉 `T-P2-07` 与 `T-P3-01`
+
+- 当前主线目标：
+  - 用户要求高速推进，不要因为 `Primary.unity` 暂时不能写就停下；因此本轮先把当前最稳的两份非 live 文档切片收掉。
+- 本轮子任务：
+  - 再次只读复核 `T-P1-02`
+  - 完成：
+    - `T-P2-07`
+    - `T-P3-01`
+- 本轮完成：
+  - 已确认：
+    - `Primary.unity` 仍是大体量 mixed diff
+    - `shared-root-branch-occupancy = neutral-main-ready` 不能当作 scene 直接写许可
+    - `T-P1-02` 当前继续保持 `blocked-hotfile`
+  - 已新增：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P2-07-角色化内容验收包.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P3-01-玩家与NPC双气泡视觉规范正式稿.md`
+  - 已更新：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘详细落地任务列表.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC高速推进与测试排队日志.md`
+- 本轮验证：
+  - `git diff --check` 已通过本轮文档和账本改动
+  - 当前没有新增 live 验收假证据
+  - `unityMCP` session 仍不稳，因此这轮只 claim 静态 / 规范层完成
+- 当前 owned / external 边界：
+  - 当前 owned：
+    - `0.0.1全面清盘` 下两份新文档
+    - 任务账本
+    - 高速日志
+  - 当前 external / blocked：
+    - `Primary.unity`
+    - `PlayerThoughtBubblePresenter.cs`
+    - `PlayerInteraction.cs`
+    - `GameInputManager.cs`
+- 当前恢复点：
+  - 现在 `P2` 已经有正式验收包，`P3-01` 也有正式规范稿；
+  - 下一步优先去评估 `T-P3-02` 有没有不吞 mixed hot-file 的安全代码切口；
+  - 如果没有，就继续找下一项可独立推进的非 live 任务，不回去硬撞 `Primary.unity`。

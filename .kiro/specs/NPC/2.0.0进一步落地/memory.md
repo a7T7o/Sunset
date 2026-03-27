@@ -802,3 +802,41 @@
   - `T-P1-01` 已完成；
   - `T-P2-01 ~ T-P2-06` 的纯资产 / 代码层内容铺底已完成；
   - 下一步优先先回看 `T-P1-02` 的 scene 准入；如果热区仍未开放，就继续做不依赖 live 写的 `T-P3-01 / T-P2-07`。
+
+## 2026-03-27｜Primary 继续 blocked 时，先把 P2 验收包与 P3-01 正式规范补齐
+
+- 当前主线目标：
+  - 用户已明确要求高速推进，因此在 `Primary.unity` 仍不能安全写的情况下，不在 scene 热区空转，而是继续完成不依赖 live 写的 `P2 / P3` 文档切片。
+- 本轮完成：
+  - 已再次只读复核：
+    - `T-P1-02`
+  - 当前结论仍是：
+    - `Primary.unity` 保持 `blocked-hotfile`
+  - 已新增：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P2-07-角色化内容验收包.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P3-01-玩家与NPC双气泡视觉规范正式稿.md`
+  - 已更新：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘详细落地任务列表.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC高速推进与测试排队日志.md`
+- 本轮关键结论：
+  - `T-P2-07`
+    - 当前已可判 `done`
+    - 因为角色内容资产、映射链和 pair-specific 内容验收方式都已落出正式文档
+  - `T-P3-01`
+    - 当前已可判 `done`
+    - 因为双气泡已经不再停留在口头方向，而是收成了正式视觉规范
+  - 这轮没有碰：
+    - `Primary.unity`
+    - `DialogueChinese*`
+    - `GameInputManager.cs`
+    - 玩家侧 mixed hot-file
+- 本轮验证：
+  - `git diff --check` 已通过本轮两份新文档、任务账本和高速日志
+  - 当前没有把 live 触发覆盖率包装成“已经拿到”
+  - `unityMCP` 会话层不稳仍按外部受阻记账
+- 当前恢复点：
+  - 现在 `P2` 已经具备正式验收包，`P3-01` 也已定稿；
+  - 下一步如果继续往前推，应优先评估：
+    - `T-P3-02`
+    是否存在不吞 mixed hot-file 的安全代码切口；
+  - 如果没有，就继续按高速模式寻找下一项不撞热区的独立切片，而不是回去硬碰 `Primary.unity`。
