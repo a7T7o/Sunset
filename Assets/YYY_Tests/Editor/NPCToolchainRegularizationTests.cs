@@ -12,6 +12,9 @@ public class NPCToolchainRegularizationTests
     private const string VillageChiefProfilePath = "Assets/111_Data/NPC/NPC_001_VillageChiefRoamProfile.asset";
     private const string VillageDaughterProfilePath = "Assets/111_Data/NPC/NPC_002_VillageDaughterRoamProfile.asset";
     private const string ResearchReviewProfilePath = "Assets/111_Data/NPC/NPC_003_ResearchReviewProfile.asset";
+    private const string VillageChiefContentPath = "Assets/111_Data/NPC/NPC_001_VillageChiefDialogueContent.asset";
+    private const string VillageDaughterContentPath = "Assets/111_Data/NPC/NPC_002_VillageDaughterDialogueContent.asset";
+    private const string ResearchDialogueContentPath = "Assets/111_Data/NPC/NPC_003_ResearchDialogueContent.asset";
 
     [Test]
     public void StressTalker_ShouldDefaultToManualStart_AndExposeExplicitModeConfiguration()
@@ -94,6 +97,50 @@ public class NPCToolchainRegularizationTests
         {
             UnityEngine.Object.DestroyImmediate(tool);
         }
+    }
+
+    [Test]
+    public void RoleProfiles_ShouldReferenceDedicatedDialogueContentAssets()
+    {
+        NPCRoamProfile chiefProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(VillageChiefProfilePath);
+        NPCRoamProfile daughterProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(VillageDaughterProfilePath);
+        NPCRoamProfile researchProfile = AssetDatabase.LoadAssetAtPath<NPCRoamProfile>(ResearchReviewProfilePath);
+
+        Assert.That(chiefProfile, Is.Not.Null);
+        Assert.That(daughterProfile, Is.Not.Null);
+        Assert.That(researchProfile, Is.Not.Null);
+
+        Assert.That(AssetDatabase.GetAssetPath(chiefProfile.DialogueContentProfile), Is.EqualTo(VillageChiefContentPath));
+        Assert.That(AssetDatabase.GetAssetPath(daughterProfile.DialogueContentProfile), Is.EqualTo(VillageDaughterContentPath));
+        Assert.That(AssetDatabase.GetAssetPath(researchProfile.DialogueContentProfile), Is.EqualTo(ResearchDialogueContentPath));
+
+        Assert.That(chiefProfile.PlayerNearbyLines.Length, Is.GreaterThan(0));
+        Assert.That(daughterProfile.PlayerNearbyLines.Length, Is.GreaterThan(0));
+        Assert.That(researchProfile.PlayerNearbyLines.Length, Is.GreaterThan(0));
+    }
+
+    [Test]
+    public void DialogueContentProfiles_ShouldResolvePairSpecificAmbientChatLines()
+    {
+        NPCDialogueContentProfile chiefContent = AssetDatabase.LoadAssetAtPath<NPCDialogueContentProfile>(VillageChiefContentPath);
+        NPCDialogueContentProfile daughterContent = AssetDatabase.LoadAssetAtPath<NPCDialogueContentProfile>(VillageDaughterContentPath);
+        NPCDialogueContentProfile researchContent = AssetDatabase.LoadAssetAtPath<NPCDialogueContentProfile>(ResearchDialogueContentPath);
+
+        Assert.That(chiefContent, Is.Not.Null);
+        Assert.That(daughterContent, Is.Not.Null);
+        Assert.That(researchContent, Is.Not.Null);
+
+        string[] chiefToDaughter = chiefContent.GetAmbientChatLines("002", initiator: true);
+        string[] daughterToChief = daughterContent.GetAmbientChatLines("001", initiator: false);
+        string[] researchToChief = researchContent.GetAmbientChatLines("001", initiator: true);
+
+        Assert.That(chiefToDaughter.Length, Is.GreaterThan(0));
+        Assert.That(daughterToChief.Length, Is.GreaterThan(0));
+        Assert.That(researchToChief.Length, Is.GreaterThan(0));
+
+        Assert.That(chiefToDaughter[0], Is.Not.EqualTo(chiefContent.DefaultChatInitiatorLines[0]));
+        Assert.That(daughterToChief[0], Is.Not.EqualTo(daughterContent.DefaultChatResponderLines[0]));
+        Assert.That(researchToChief[0], Is.Not.EqualTo(researchContent.DefaultChatInitiatorLines[0]));
     }
 
     private static Type ResolveNestedTypeOrFail(Type parentType, string nestedTypeName)

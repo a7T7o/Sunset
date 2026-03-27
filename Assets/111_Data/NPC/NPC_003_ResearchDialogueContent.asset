@@ -1,0 +1,49 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e1d8fd01cb8442eb570f1fd4d33ac41, type: 3}
+  m_Name: NPC_003_ResearchDialogueContent
+  m_EditorClassIdentifier: 
+  npcId: 003
+  selfTalkLines:
+  - 光照角度比我刚才估的更稳定。
+  - 如果从这里观察，路线变化会更清楚。
+  - 先把顺序记下来，免得等会儿又忘了。
+  - 嗯，这个距离说话和移动都比较合适。
+  - 我得再确认一遍节奏是不是还是太快了。
+  playerNearbyLines:
+  - 别动，我刚好在看这边的变化。
+  - 你从这条路走过来的速度比我预想的快。
+  - 等我把这个现象记完，再和你说。
+  - 如果你愿意，我想再观察一下你的路线。
+  defaultChatInitiatorLines:
+  - 我刚在记这边的通行节奏。
+  - 你要是不急，我想再看一眼这里的变化。
+  - 这条路的间距可能比我想的更敏感。
+  defaultChatResponderLines:
+  - 稍等，我想先把这个现象记完。
+  - 你这么一说，倒跟我刚才的推测对上了。
+  - 行，我再看两眼就换个位置。
+  pairDialogueSets:
+  - partnerNpcId: 001
+    initiatorLines:
+    - 我在记主路的人流节奏，你看这样站位合适吗？
+    - 如果按现在这个速度，路口会比早上更顺一些。
+    responderLines:
+    - 我记下了，你说的秩序感确实最明显。
+    - 有你盯着大方向，我这边判断会准很多。
+  - partnerNpcId: 002
+    initiatorLines:
+    - 你站在这儿的时候，周围节奏会慢下来一点。
+    - 这里的光线变化刚好适合我再看一遍。
+    responderLines:
+    - 你一过来，环境就没那么绷了。
+    - 好，我先不急着换位置，再观察一会儿。

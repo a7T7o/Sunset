@@ -347,3 +347,39 @@
 - 当前恢复点：
   - 这轮最正确的下一步是让用户按新文档复验 `001 / 002 / 003` 的 Inspector；
   - 只有拿到这组 live 读数后，才能决定我是继续补 `Editor` 这一小刀，还是把 `T-P0-02` 判成 done 并进入 `T-P0-05`。
+
+## 2026-03-27｜在高速模式下继续前推：先收 `P1-01`，再把 `P2` 内容层提前落盘
+
+- 当前主线目标：
+  - 用户已明确授权“做一部分、能测就测、测不了就记日志继续”，所以在 `Primary.unity` 热区未开的情况下，我这轮选择不空转等待，而是继续推进 NPC 自己能独立完成的下一批非 live 切片。
+- 本轮子任务：
+  - 正式收口 `T-P1-01`
+  - 新增 `P2` 的内容资产载体
+  - 为 `001 / 002 / 003` 建立正式角色内容资产，并接回当前相遇链
+- 本轮完成：
+  - 新增：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\NPCDialogueContentProfile.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_001_VillageChiefDialogueContent.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_002_VillageDaughterDialogueContent.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_003_ResearchDialogueContent.asset`
+  - 修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\NPCRoamProfile.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCToolchainRegularizationTests.cs`
+    - 三份角色 roam profile
+    - 高速日志 / 任务账本 / `P1-01` 方案卡
+- 本轮关键判断：
+  - 我没有去碰：
+    - `Primary.unity`
+    - `DialogueChinese*`
+    - 导航路径算法本体
+  - 我只把 NPC 自己的“内容怎么装、怎么按角色分、怎么按搭档分”这一层先做实。
+- 本轮验证：
+  - `git diff --check` 已过
+  - `Editor.log` 已看到脚本编译与程序集重载
+  - `refresh_unity` 超时、`read_console` 为 `no_unity_session`
+  - 因此本轮 live 验证仍视为外部受阻，而不是我 own 代码失败
+- 当前恢复点：
+  - `T-P1-01` 已 done
+  - `T-P2-01 ~ T-P2-06` 的纯资产 / 代码层铺底已完成
+  - 下一步先回看 `T-P1-02`；若热区仍未开，就继续转入 `T-P3-01`

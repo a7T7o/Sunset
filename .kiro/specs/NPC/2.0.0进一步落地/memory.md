@@ -757,3 +757,48 @@
 - 当前恢复点：
   - 下一步不是跳去 `P1`，而是先等这份新 Inspector 诊断在 Unity 里被用户复验；
   - 一旦拿到 `001 / 002 / 003` 的实际读数，再继续判断 `T-P0-02` 是否可判 `done`，以及 `T-P0-05` 是否能补成正式验证。
+
+## 2026-03-27｜P1 方案卡定稿，并前置铺开 P2 内容资产层
+
+- 当前主线目标：
+  - 在 `Primary.unity` 热区仍未开放的情况下，不空转等待 scene 写窗口，先把 `T-P1-01` 正式收口，再把 `P2` 的角色内容资产层和映射骨架提前落地。
+- 本轮子任务：
+  - 收口 `T-P1-01`
+  - 新增独立 `NPCDialogueContentProfile` 内容资产类型
+  - 为 `001 / 002 / 003` 落正式内容资产，并把两两相遇矩阵接到现有 ambient chat
+- 本轮完成：
+  - 新增：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\NPCDialogueContentProfile.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_001_VillageChiefDialogueContent.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_002_VillageDaughterDialogueContent.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_003_ResearchDialogueContent.asset`
+  - 修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\NPCRoamProfile.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_001_VillageChiefRoamProfile.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_002_VillageDaughterRoamProfile.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_003_ResearchReviewProfile.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCToolchainRegularizationTests.cs`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘详细落地任务列表.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC高速推进与测试排队日志.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P1-01-三名NPC场景点位方案卡.md`
+- 本轮关键实现：
+  - `NPCRoamProfile` 现在支持挂接独立 `dialogueContentProfile`，从而把“漫游参数”和“角色内容”拆成两层。
+  - 三名 NPC 现在各自拥有独立的：
+    - 单人环境气泡
+    - 玩家轻响应句池
+    - 两两相遇矩阵
+  - `NPCAutoRoamController` 当前相遇链已可按 partner `npcId` 取 pair-specific 句池，但没有改动导航路径算法本身。
+  - 现有 prefab / 生成器仍继续通过 `roamProfile` 进内容层，不需要新开一条并行挂载链。
+- 本轮验证：
+  - `git diff --check` 已通过本轮代码、资产与文档。
+  - `Editor.log` 已看到：
+    - `Requested script compilation`
+    - `CompileScripts`
+    - `Reloading assemblies`
+  - 当前未抓到与本轮文件直接对应的新 `error CS`。
+  - `refresh_unity` 等待 ready 超时，`read_console` 仍返回 `no_unity_session`，因此这轮 live 验收仍记为外部验证受阻。
+- 当前恢复点：
+  - `T-P1-01` 已完成；
+  - `T-P2-01 ~ T-P2-06` 的纯资产 / 代码层内容铺底已完成；
+  - 下一步优先先回看 `T-P1-02` 的 scene 准入；如果热区仍未开放，就继续做不依赖 live 写的 `T-P3-01 / T-P2-07`。

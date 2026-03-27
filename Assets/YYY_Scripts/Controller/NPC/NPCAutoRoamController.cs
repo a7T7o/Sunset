@@ -22,6 +22,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const float AmbientChatRetryMinRemainingTime = 1.25f;
     private const int AmbientChatMaxRetryCount = 3;
     private const float SHARED_DETOUR_MIN_ACTIVE_DURATION = 0.35f;
+    private const int SHARED_DETOUR_RELEASE_STABLE_FRAMES = 3;
 
     private enum RoamState
     {
@@ -134,6 +135,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private int lastBlockingAgentId;
     private int blockingAgentSightings;
     private int lastSharedAvoidanceDebugFrame = -999;
+    private int sharedAvoidanceNoBlockerFrames;
+    private int sharedAvoidanceBlockingFrames;
+    private int sharedAvoidanceDetourCreateCount;
+    private int sharedAvoidanceReleaseAttemptCount;
+    private int sharedAvoidanceReleaseSuccessCount;
     private Vector2 requestedDestination;
     private bool hasRequestedDestination;
 
@@ -158,6 +164,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public int CurrentStuckRecoveryCount => currentStuckRecoveryCount;
     public float DebugLastProgressDistance => lastProgressDistance;
     public NPCRoamProfile RoamProfile => roamProfile;
+    public bool DebugHasSharedAvoidanceDetour => navigationExecution.HasOverrideWaypoint;
+    public int DebugSharedAvoidanceNoBlockerFrames => sharedAvoidanceNoBlockerFrames;
+    public int DebugSharedAvoidanceBlockingFrames => sharedAvoidanceBlockingFrames;
+    public int DebugSharedAvoidanceDetourCreateCount => sharedAvoidanceDetourCreateCount;
+    public int DebugSharedAvoidanceReleaseAttemptCount => sharedAvoidanceReleaseAttemptCount;
+    public int DebugSharedAvoidanceReleaseSuccessCount => sharedAvoidanceReleaseSuccessCount;
+    public int DebugLastDetourOwnerId => navigationExecution.LastDetourOwnerId;
+    public int DebugOverrideWaypointOwnerId => navigationExecution.OverrideWaypointOwnerId;
+    public bool DebugLastDetourRecoverySucceeded => navigationExecution.LastDetourRecoverySucceeded;
     public NavigationUnitType GetUnitType() => NavigationUnitType.NPC;
     public Vector2 GetPosition() => GetNavigationCenter();
     public float GetColliderRadius()
@@ -212,13 +227,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private void Awake()
     {
         CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
 
         if (applyProfileOnAwake)
         {
             ApplyProfile();
         }
 
-        homePosition = transform.position;
+        homePosition = homeAnchor != null ? homeAnchor.position : transform.position;
     }
 
     private void OnEnable()
@@ -314,8 +330,10 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public void StartRoam()
     {
         CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
 
-        homePosition = transform.position;
+        homePosition = homeAnchor != null ? homeAnchor.position : transform.position;
+        ResetSharedAvoidanceDebugState();
         warnedMissingNavGrid = false;
         completedShortPauseCount = 0;
         lastAmbientDecision = string.Empty;
@@ -329,6 +347,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         BreakAmbientChatLink(hideBubble: true);
         debugMoveActive = false;
         ClearRequestedDestination();
+        ResetSharedAvoidanceDebugState();
         state = RoamState.Inactive;
         stateTimer = 0f;
         currentPathIndex = 0;
@@ -402,6 +421,96 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         homePosition = anchor != null ? anchor.position : transform.position;
     }
 
+    private void EnsureRuntimeHomeAnchorBound()
+    {
+        if (!Application.isPlaying || homeAnchor != null)
+        {
+            return;
+        }
+
+        Transform resolvedAnchor = FindRuntimeHomeAnchorCandidate();
+        if (resolvedAnchor == null)
+        {
+            resolvedAnchor = CreateRuntimeHomeAnchor();
+        }
+
+        if (resolvedAnchor != null)
+        {
+            SetHomeAnchor(resolvedAnchor);
+        }
+    }
+
+    private Transform FindRuntimeHomeAnchorCandidate()
+    {
+        string anchorName = $"{name}_HomeAnchor";
+        Transform parent = transform.parent;
+        if (parent != null)
+        {
+            Transform siblingAnchor = parent.Find(anchorName);
+            if (siblingAnchor != null)
+            {
+                return siblingAnchor;
+            }
+        }
+
+        Transform childAnchor = transform.Find(anchorName);
+        if (childAnchor != null)
+        {
+            return childAnchor;
+        }
+
+        if (!gameObject.scene.IsValid())
+        {
+            return null;
+        }
+
+        GameObject[] roots = gameObject.scene.GetRootGameObjects();
+        for (int index = 0; index < roots.Length; index++)
+        {
+            Transform sceneAnchor = FindNamedChildRecursive(roots[index].transform, anchorName);
+            if (sceneAnchor != null)
+            {
+                return sceneAnchor;
+            }
+        }
+
+        return null;
+    }
+
+    private Transform CreateRuntimeHomeAnchor()
+    {
+        GameObject anchorObject = new GameObject($"{name}_HomeAnchor");
+        Transform anchorParent = transform.parent != null ? transform.parent : transform;
+        anchorObject.transform.SetParent(anchorParent, worldPositionStays: true);
+        anchorObject.transform.position = transform.position;
+        anchorObject.transform.rotation = Quaternion.identity;
+        return anchorObject.transform;
+    }
+
+    private static Transform FindNamedChildRecursive(Transform root, string targetName)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        if (string.Equals(root.name, targetName, System.StringComparison.Ordinal))
+        {
+            return root;
+        }
+
+        for (int index = 0; index < root.childCount; index++)
+        {
+            Transform childMatch = FindNamedChildRecursive(root.GetChild(index), targetName);
+            if (childMatch != null)
+            {
+                return childMatch;
+            }
+        }
+
+        return null;
+    }
+
     public void SyncHomeAnchorToCurrentPosition()
     {
         if (homeAnchor != null)
@@ -451,6 +560,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public bool DebugMoveTo(Vector2 destination)
     {
         CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
         if (!TryResolveNavGrid())
         {
             return false;
@@ -480,6 +590,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         debugMoveActive = true;
         state = RoamState.Moving;
         stateTimer = 0f;
+        ResetSharedAvoidanceDebugState();
         ResetMovementRecovery(currentPosition, resetCounter: true);
 
         if (bubblePresenter != null)
@@ -576,6 +687,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             currentPosition,
             waypointTolerance,
             destinationTolerance);
+
+        if (waypointState.ClearedOverrideWaypoint)
+        {
+            TryReleaseSharedAvoidanceDetour(avoidancePosition, Time.time);
+            return;
+        }
 
         if (waypointState.ReachedPathEnd ||
             Vector2.Distance(currentPosition, currentDestination) <= destinationTolerance)
@@ -886,8 +1003,21 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (!avoidance.HasBlockingAgent)
         {
+            sharedAvoidanceNoBlockerFrames++;
+            sharedAvoidanceBlockingFrames = 0;
             lastBlockingAgentId = 0;
             blockingAgentSightings = 0;
+            bool shouldDelayDetourRelease = hasDynamicDetour &&
+                sharedAvoidanceNoBlockerFrames < SHARED_DETOUR_RELEASE_STABLE_FRAMES;
+            if (shouldDelayDetourRelease)
+            {
+                adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
+                    ? avoidance.AdjustedDirection
+                    : desiredDirection;
+                speedScale = Mathf.Clamp01(avoidance.SpeedScale);
+                return false;
+            }
+
             if (TryReleaseSharedAvoidanceDetour(navigationPosition, Time.time))
             {
                 return true;
@@ -900,6 +1030,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return false;
         }
 
+        sharedAvoidanceNoBlockerFrames = 0;
+        sharedAvoidanceBlockingFrames++;
         if (lastBlockingAgentId == avoidance.BlockingAgentId)
         {
             blockingAgentSightings++;
@@ -1002,16 +1134,24 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             SharedAvoidanceDetourCandidateSpecs,
             Time.time);
 
+        if (detour.Created)
+        {
+            sharedAvoidanceDetourCreateCount++;
+        }
+
         return detour.Created || detour.ShouldKeepCurrentDetour;
     }
 
     private bool TryReleaseSharedAvoidanceDetour(Vector2 navigationPosition, float currentTime)
     {
-        if (!hasDynamicDetour)
+        bool hasRecoverableDetourContext = hasDynamicDetour ||
+            (!navigationExecution.LastDetourRecoverySucceeded && navigationExecution.LastDetourOwnerId != 0);
+        if (!hasRecoverableDetourContext)
         {
             return false;
         }
 
+        sharedAvoidanceReleaseAttemptCount++;
         NavigationPathExecutor2D.DetourLifecycleResult detour = NavigationPathExecutor2D.TryClearDetourAndRecover(
             navigationExecution,
             navGrid,
@@ -1035,6 +1175,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (detour.Cleared || detour.Recovered)
         {
+            sharedAvoidanceReleaseSuccessCount++;
+            sharedAvoidanceNoBlockerFrames = 0;
             if (motionController != null)
             {
                 motionController.StopMotion();
@@ -1049,6 +1191,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         return false;
+    }
+
+    private void ResetSharedAvoidanceDebugState()
+    {
+        sharedAvoidanceNoBlockerFrames = 0;
+        sharedAvoidanceBlockingFrames = 0;
+        sharedAvoidanceDetourCreateCount = 0;
+        sharedAvoidanceReleaseAttemptCount = 0;
+        sharedAvoidanceReleaseSuccessCount = 0;
     }
 
     private void StopForSharedAvoidance(
@@ -1232,6 +1383,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private Vector2 GetRoamCenter()
     {
+        EnsureRuntimeHomeAnchorBound();
         return homeAnchor != null ? (Vector2)homeAnchor.position : homePosition;
     }
 
@@ -1257,7 +1409,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return false;
         }
 
-        if (!HasBubbleLines(chatInitiatorLines))
+        if (!HasAmbientChatInitiatorContent())
         {
             attemptResult = AmbientChatAttemptResult.InitiatorLinesMissing;
             lastAmbientDecision = "initiator lines missing";
@@ -1297,8 +1449,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         FaceToward(partner.transform.position - transform.position);
         partner.FaceToward(transform.position - partner.transform.position);
 
-        StartAmbientChatRoutine(chatInitiatorLines, delay: 0f, duration);
-        partner.StartAmbientChatRoutine(partner.chatResponderLines, ambientChatResponseDelay, duration);
+        string[] initiatorLines = ResolveAmbientChatLinesForPartner(partner, initiator: true);
+        string[] responderLines = partner.ResolveAmbientChatLinesForPartner(this, initiator: false);
+
+        StartAmbientChatRoutine(initiatorLines, delay: 0f, duration);
+        partner.StartAmbientChatRoutine(responderLines, ambientChatResponseDelay, duration);
 
         if (showDebugLog)
         {
@@ -1355,7 +1510,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (!enableAmbientChat ||
             bubblePresenter == null ||
-            !HasBubbleLines(chatResponderLines) ||
+            !HasAmbientChatResponderContent() ||
             chatPartner != null)
         {
             return false;
@@ -1477,6 +1632,42 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         return false;
+    }
+
+    private bool HasAmbientChatInitiatorContent()
+    {
+        return roamProfile != null
+            ? roamProfile.HasAmbientChatInitiatorContent
+            : HasBubbleLines(chatInitiatorLines);
+    }
+
+    private bool HasAmbientChatResponderContent()
+    {
+        return roamProfile != null
+            ? roamProfile.HasAmbientChatResponderContent
+            : HasBubbleLines(chatResponderLines);
+    }
+
+    private string[] ResolveAmbientChatLinesForPartner(NPCAutoRoamController partner, bool initiator)
+    {
+        if (roamProfile != null)
+        {
+            string partnerNpcId = partner != null ? partner.ResolveNpcId() : string.Empty;
+            string[] contentLines = roamProfile.GetAmbientChatLines(partnerNpcId, initiator);
+            if (HasBubbleLines(contentLines))
+            {
+                return CopyLines(contentLines);
+            }
+        }
+
+        return initiator ? CopyLines(chatInitiatorLines) : CopyLines(chatResponderLines);
+    }
+
+    private string ResolveNpcId()
+    {
+        return roamProfile != null
+            ? roamProfile.ResolveNpcId(name)
+            : NPCDialogueContentProfile.NormalizeNpcId(name);
     }
 
     private void ResetLongPauseTriggerCount()

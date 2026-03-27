@@ -31,6 +31,7 @@ MonoBehaviour:
   ambientChatRadius: 3.8
   ambientChatChance: 0.65
   ambientChatResponseDelay: 0.85
+  dialogueContentProfile: {fileID: 11400000, guid: 7e2b0033c7f84db9919d4b49c4ae3303, type: 2}
   selfTalkLines:
   - "\u5149\u7167\u89D2\u5EA6\u6BD4\u6211\u521A\u624D\u4F30\u7684\u66F4\u7A33\u5B9A\u3002"
   - "\u5982\u679C\u4ECE\u8FD9\u91CC\u89C2\u5BDF\uFF0C\u8DEF\u7EBF\u53D8\u5316\u4F1A\u66F4\u6E05\u695A\u3002"

@@ -1,8 +1,9 @@
+using System;
 using UnityEngine;
 
 /// <summary>
 /// NPC 漫游配置资产。
-/// 统一管理移动节奏、动画速度、卡住恢复和聊天文案。
+/// 统一管理移动节奏、动画速度、卡住恢复，以及 NPC 的内容资产映射。
 /// </summary>
 [CreateAssetMenu(fileName = "NPC_RoamProfile", menuName = "Sunset/NPC/Roam Profile", order = 220)]
 public class NPCRoamProfile : ScriptableObject
@@ -38,7 +39,10 @@ public class NPCRoamProfile : ScriptableObject
     [SerializeField, Range(0f, 1f)] private float ambientChatChance = 0.75f;
     [SerializeField] private float ambientChatResponseDelay = 0.85f;
 
-    [Header("自言自语文案")]
+    [Header("内容资产")]
+    [SerializeField] private NPCDialogueContentProfile dialogueContentProfile = null;
+
+    [Header("兼容旧自言自语文案")]
     [SerializeField] private string[] selfTalkLines =
     {
         "先在这边看看。",
@@ -48,7 +52,7 @@ public class NPCRoamProfile : ScriptableObject
         "不知道大家在忙什么。"
     };
 
-    [Header("发起聊天文案")]
+    [Header("兼容旧发起聊天文案")]
     [SerializeField] private string[] chatInitiatorLines =
     {
         "今天这边挺安静的。",
@@ -57,7 +61,7 @@ public class NPCRoamProfile : ScriptableObject
         "等会儿再继续忙吧。"
     };
 
-    [Header("回应聊天文案")]
+    [Header("兼容旧回应聊天文案")]
     [SerializeField] private string[] chatResponderLines =
     {
         "是啊，先缓一缓。",
@@ -91,9 +95,53 @@ public class NPCRoamProfile : ScriptableObject
     public float AmbientChatChance => ambientChatChance;
     public float AmbientChatResponseDelay => ambientChatResponseDelay;
 
-    public string[] SelfTalkLines => selfTalkLines;
-    public string[] ChatInitiatorLines => chatInitiatorLines;
-    public string[] ChatResponderLines => chatResponderLines;
+    public NPCDialogueContentProfile DialogueContentProfile => dialogueContentProfile;
+    public string NpcId => ResolveNpcId(name);
+    public string[] SelfTalkLines =>
+        dialogueContentProfile != null && dialogueContentProfile.HasSelfTalkContent
+            ? dialogueContentProfile.SelfTalkLines
+            : selfTalkLines;
+    public string[] PlayerNearbyLines =>
+        dialogueContentProfile != null
+            ? dialogueContentProfile.PlayerNearbyLines
+            : Array.Empty<string>();
+    public string[] ChatInitiatorLines =>
+        dialogueContentProfile != null && dialogueContentProfile.HasAmbientChatInitiatorContent
+            ? dialogueContentProfile.DefaultChatInitiatorLines
+            : chatInitiatorLines;
+    public string[] ChatResponderLines =>
+        dialogueContentProfile != null && dialogueContentProfile.HasAmbientChatResponderContent
+            ? dialogueContentProfile.DefaultChatResponderLines
+            : chatResponderLines;
+    public bool HasAmbientChatInitiatorContent =>
+        dialogueContentProfile != null
+            ? dialogueContentProfile.HasAmbientChatInitiatorContent
+            : HasAnyLines(chatInitiatorLines);
+    public bool HasAmbientChatResponderContent =>
+        dialogueContentProfile != null
+            ? dialogueContentProfile.HasAmbientChatResponderContent
+            : HasAnyLines(chatResponderLines);
+
+    public string ResolveNpcId(string fallbackName)
+    {
+        return dialogueContentProfile != null
+            ? dialogueContentProfile.ResolveNpcId(fallbackName)
+            : NPCDialogueContentProfile.NormalizeNpcId(fallbackName);
+    }
+
+    public string[] GetAmbientChatLines(string partnerNpcId, bool initiator)
+    {
+        if (dialogueContentProfile != null)
+        {
+            string[] contentLines = dialogueContentProfile.GetAmbientChatLines(partnerNpcId, initiator);
+            if (HasAnyLines(contentLines))
+            {
+                return contentLines;
+            }
+        }
+
+        return initiator ? chatInitiatorLines : chatResponderLines;
+    }
 
     private void OnValidate()
     {
@@ -120,8 +168,26 @@ public class NPCRoamProfile : ScriptableObject
         ambientChatRadius = Mathf.Max(0f, ambientChatRadius);
         ambientChatResponseDelay = Mathf.Max(0f, ambientChatResponseDelay);
 
-        selfTalkLines ??= System.Array.Empty<string>();
-        chatInitiatorLines ??= System.Array.Empty<string>();
-        chatResponderLines ??= System.Array.Empty<string>();
+        selfTalkLines ??= Array.Empty<string>();
+        chatInitiatorLines ??= Array.Empty<string>();
+        chatResponderLines ??= Array.Empty<string>();
+    }
+
+    private static bool HasAnyLines(string[] lines)
+    {
+        if (lines == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < lines.Length; index++)
+        {
+            if (!string.IsNullOrWhiteSpace(lines[index]))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

@@ -734,3 +734,29 @@
 - 当前恢复点：
   - 整条 NPC 总线下一步仍然先守 `P0`，不应跳去 `P1/P2`；
   - 一旦拿到 Unity 里 `001 / 002 / 003` 的新 Inspector 读数，就继续闭 `T-P0-01 / T-P0-02 / T-P0-05`。
+
+## 2026-03-27｜NPC 总线已在热区未开时提前铺好 P2 内容资产层
+
+- 当前主线目标：
+  - 用户已明确允许“高速模式”下在测试或热区受阻时继续推进后续能落的切片，因此本轮在不碰 `Primary.unity` 的前提下，先把 `P1-01` 收口，并把 `P2` 的角色内容层提前落地。
+- 本轮完成：
+  - `P1-01`
+    - 已正式收口为完成态
+  - `P2`
+    - 已新增独立 `NPCDialogueContentProfile`
+    - 已为 `001 / 002 / 003` 分别补齐：
+      - 单人环境句池
+      - 玩家轻响应句池
+      - 两两相遇矩阵
+    - 已把 `NPCAutoRoamController` 的现有 ambient chat 接到 partner-specific 内容解析
+    - 已把 content asset 映射通过 `roamProfile` 接回 prefab / 生成器 / 测试链
+- 本轮验证：
+  - `git diff --check` 通过
+  - `Editor.log` 已出现脚本编译与程序集重载迹象
+  - `unityMCP` 会话层仍是 `no_unity_session`，因此当前不把这轮内容层 claim 成 live 验收完成
+- 当前恢复点：
+  - NPC 总线现在不再只有 scene / HomeAnchor 这一条路可走；
+  - 即便 `Primary.unity` 仍 blocked，也可以继续沿：
+    - `P3-01`
+    - `P2-07`
+    这类非 live 切片继续推进。

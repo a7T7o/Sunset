@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e1d8fd01cb8442eb570f1fd4d33ac41, type: 3}
+  m_Name: NPC_001_VillageChiefDialogueContent
+  m_EditorClassIdentifier: 
+  npcId: 001
+  selfTalkLines:
+  - 村口今天还算稳当。
+  - 先在这儿站一会儿，看看大家都忙得怎么样。
+  - 地里的事、屋里的事，都得有人记着。
+  - 风向顺，今天做事会利索些。
+  - 慢一点不打紧，别先把节奏乱了。
+  playerNearbyLines:
+  - 回来了？路上慢一点，别在路口抢步子。
+  - 村里今天不算乱，你先安心转转。
+  - 要是哪里不顺手，记得直接和我说。
+  - 看着脚下，别在忙的时候把自己绊着了。
+  defaultChatInitiatorLines:
+  - 今早村里动静不大，倒是个做事的好时候。
+  - 你那边忙完了？先把脚跟站稳再说。
+  - 路口这会儿人来人往，咱们都让着点。
+  - 我刚看了一圈，大家今天精神都还不错。
+  defaultChatResponderLines:
+  - 嗯，先把眼前这点事稳住。
+  - 我也是这么想的，急不得。
+  - 行，等会儿我再去别处看看。
+  - 有你搭句话，倒是清楚多了。
+  pairDialogueSets:
+  - partnerNpcId: 002
+    initiatorLines:
+    - 这边太阳正好，你别在风口站太久。
+    - 你要是想歇会儿，就在这儿多站一会儿。
+    responderLines:
+    - 你挑的这地方是舒服，我看你也总爱往亮堂处站。
+    - 嗯，你先安心待着，我就在旁边看看村里的动静。
+  - partnerNpcId: 003
+    initiatorLines:
+    - 你又在看路口节奏？别光顾着记，也看看自己累不累。
+    - 这边人流我盯着，你把想记的现象慢慢看清楚。
+    responderLines:
+    - 你看得细是好事，别把自己绷太紧。
+    - 这事你记下来吧，大方向我替你盯着。

@@ -1,0 +1,51 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7e1d8fd01cb8442eb570f1fd4d33ac41, type: 3}
+  m_Name: NPC_002_VillageDaughterDialogueContent
+  m_EditorClassIdentifier: 
+  npcId: 002
+  selfTalkLines:
+  - 这边晒得刚刚好。
+  - 要是再安静一点，就更适合发呆了。
+  - 今天风有点轻，裙摆都不怎么乱。
+  - 大家各忙各的，看着也挺有趣。
+  - 先在这儿缓一小会儿吧。
+  playerNearbyLines:
+  - 你是来这边透口气的吗？
+  - 慢一点没关系，这里风挺舒服的。
+  - 要不要先歇一会儿？这边不吵。
+  - 今天大家都忙，我倒想和你多说两句。
+  defaultChatInitiatorLines:
+  - 你也来这边透口气呀？
+  - 刚才那边有点吃力，我还是更喜欢这儿。
+  - 今天大家都走得急，我倒想慢一点。
+  - 这会儿阳光正好，别急着走嘛。
+  defaultChatResponderLines:
+  - 是呀，这里待着心情会好一点。
+  - 我也正想找个人说两句。
+  - 你这么一说，我倒真不想急着走了。
+  - 那就先聊两句，再去忙别的。
+  pairDialogueSets:
+  - partnerNpcId: 001
+    initiatorLines:
+    - 爹，你今天又站在路口看大家呀？
+    - 这边风不大，你也该歇一会儿了。
+    responderLines:
+    - 我知道啦，我就在这儿晒一会儿，不乱跑。
+    - 你一提醒，我心里就安稳多了。
+  - partnerNpcId: 003
+    initiatorLines:
+    - 你又在记这些小现象呀？
+    - 这里光线好，你要不要在这儿多看一会儿？
+    responderLines:
+    - 你一认真起来，我都不太敢打断你。
+    - 好呀，那我陪你在这儿站一会儿。
