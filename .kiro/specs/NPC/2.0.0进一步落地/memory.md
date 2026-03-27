@@ -882,3 +882,32 @@
   - 重点是：
     1. 先把 `PlayerThoughtBubblePresenter.cs + PlayerInteraction.cs` 这组同根玩家侧改动安全收口
     2. 再找一条不碰 `GameInputManager.cs` hot-file 的轻响应接线入口
+
+## 2026-03-28｜`T-P3-03` 已以纯 player-side 邻近反馈服务接上
+
+- 当前主线目标：
+  - 在不碰 `GameInputManager.cs`、不碰 `Primary.unity`、不改 `NPCAutoRoamController.cs` 的前提下，把“玩家靠近时的短反馈”正式接起来。
+- 本轮完成：
+  - 已新增：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcNearbyFeedbackService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcNearbyFeedbackService.cs.meta`
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerToolFeedbackService.cs`
+  - 当前实现路径：
+    - 由 player-side service 自己扫描附近 `NPCAutoRoamController`
+    - 读取各自 `roamProfile.PlayerNearbyLines`
+    - 直接驱动对应 NPC 的 `NPCBubblePresenter` 播一句短反馈
+- 本轮边界：
+  - 没有碰：
+    - `GameInputManager.cs`
+    - `Primary.unity`
+    - `NPCAutoRoamController.cs`
+  - 所以这轮仍属于“安全非热区接线”
+- 本轮验证：
+  - `git diff --check` 已通过新增 service、`.meta` 与 `PlayerToolFeedbackService.cs`
+  - 当前还没有 live 场景覆盖率证据，因此这轮只 claim 接线层完成
+- 当前恢复点：
+  - `T-P3-03` 可判 `done`
+  - 下一步应继续进入：
+    - `T-P3-04`
+  - 重点是把“正式对话轨 / 日常气泡轨”分工收成不撞热区的安全切片。

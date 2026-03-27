@@ -74,6 +74,11 @@ public class PlayerToolFeedbackService : MonoBehaviour
             service = root.AddComponent<PlayerToolFeedbackService>();
         }
 
+        if (root.GetComponent<PlayerNpcNearbyFeedbackService>() == null)
+        {
+            root.AddComponent<PlayerNpcNearbyFeedbackService>();
+        }
+
         return service;
     }
 

@@ -809,3 +809,21 @@
 - 当前恢复点：
   - `T-P3-02` 已 done；
   - 先把 `Player` 根下这组 own tail 安全收口，再继续看 `T-P3-03` 是否能找到不撞 hot-file 的安全接线入口。
+
+## 2026-03-28｜NPC 总线已用 player-side 服务完成 `T-P3-03`
+
+- 当前新增结论：
+  - `T-P3-03` 不必碰输入 hot-file，也不必碰 `Primary.unity`；
+  - 只靠 player-side 邻近反馈服务，就能把“玩家靠近时的短反馈”先接到系统里。
+- 本轮完成：
+  - 新增：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs`
+  - 修改：
+    - `Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs`
+  - 当前实现为：
+    - 扫描附近 NPC
+    - 取 `roamProfile.PlayerNearbyLines`
+    - 驱动对应 NPC 冒一句短反馈
+- 当前恢复点：
+  - `T-P3-03` 已 done；
+  - 下一步继续看 `T-P3-04` 是否还能以非热区方式先完成轨道分工。

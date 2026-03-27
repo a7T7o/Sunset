@@ -460,3 +460,36 @@
   - 下一步继续看：
     - `T-P3-03`
   - 但先要把 `Service/Player` 根下当前 own tail 收干净，再继续找不碰 `GameInputManager.cs` 的轻响应接线方案。
+
+## 2026-03-28｜`T-P3-03` 已走出一条不碰输入热文件的安全接线
+
+- 当前主线目标：
+  - 继续在非热区推进 `P3`，把玩家靠近时的短反馈真正接上。
+- 本轮子任务：
+  - 新增纯 player-side 邻近反馈 service
+  - 只改 `Service/Player` 根
+- 本轮完成：
+  - 已新增：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs.meta`
+  - 已修改：
+    - `Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs`
+  - 接线方式：
+    - 新 service 扫描附近 `NPCAutoRoamController`
+    - 读取 `roamProfile.PlayerNearbyLines`
+    - 直接触发对应 NPC 的 `NPCBubblePresenter`
+- 本轮验证：
+  - `git diff --check` 已通过
+  - 当前没有 live 覆盖率证据，因此只 claim 接线层完成
+- 当前 owned / external 边界：
+  - 当前 owned：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs`
+  - 当前 external / 暂不碰：
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+- 当前恢复点：
+  - `T-P3-03` 可判 `done`
+  - 下一步继续看：
+    - `T-P3-04`
