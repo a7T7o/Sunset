@@ -8,6 +8,12 @@ lastUpdated: 2026-02-16
 
 # 工作区记忆规范
 
+## Sunset live 适用说明（2026-03-27）
+
+- 本文件定义的是工作区 / memory 的通用结构、更新顺序与追加式纪律。
+- 在 Sunset 当前 live 执行里，规则优先级以 `AGENTS.md -> 当前规范快照 -> 命中的治理规范正文` 为准。
+- 本文件不单独定义当前 shared-root / main-only / dispatch / startup-guard 的 live 默认。
+
 ## 核心原则
 
 每个开发专题都必须有独立的 specs 区域，用于记录开发过程中的所有重要信息。

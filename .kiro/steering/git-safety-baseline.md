@@ -18,9 +18,22 @@ lastUpdated: 2026-03-11
 - 可恢复
 - 可与当前主线任务清晰对应
 
+## 当前 Sunset live 说明（2026-03-27）
+
+- 本文件保留 Git 通用安全基线、branch / worktree 例外规则与历史 branch-carrier runbook。
+- 它不单独定义当前 Sunset 普通开发的 live 默认。
+- 当前 Sunset 的 live 默认以 `D:\Unity\Unity_learning\Sunset\AGENTS.md` 与 `Sunset当前规范快照_2026-03-22.md` 为准：
+  - `main-only + whitelist-sync + exception-escalation`
+- 因此，下面凡是写到“默认分支”“`codex/` 前缀”“`ensure-branch`”的条目，除非明确写成当前 Sunset live 默认，否则都应按：
+  - branch carrier
+  - worktree
+  - 高风险隔离
+  - 历史例外场景
+  理解。
+
 ## 1. 分支策略
 
-### 默认规则
+### 通用默认规则（非当前 Sunset live 普通开发默认）
 
 - 任何真实业务实现、代码修改、场景修改、Prefab 修改、ScriptableObject 修改、`Packages/` 修改、`ProjectSettings/` 修改，默认都必须在独立任务分支进行。
 - 任务分支统一使用 `codex/` 前缀。
@@ -177,6 +190,9 @@ lastUpdated: 2026-03-11
 
 ## 9. 进入实现前的最终闸门
 
+- 对当前 Sunset live 的 `main-only` 普通任务，请改以 `AGENTS.md + 当前规范快照` 里的白名单 sync 闸门理解。
+- 本节默认只用于 branch carrier / worktree / 高风险隔离场景。
+
 只有同时满足以下条件，才算达到“可安全进入实现”：
 
 - 当前任务已在独立 `codex/` 分支上
@@ -233,6 +249,8 @@ lastUpdated: 2026-03-11
 - 下一步最小动作是什么
 
 ## 12. 自动任务分支托管
+
+- 本节只适用于确实进入 branch carrier / worktree 例外的任务，不是当前 Sunset 普通开发的默认入口。
 
 - `git-safe-sync.ps1 -Action ensure-branch` 只允许在工作树干净时创建或切换任务分支。
 - `git-safe-sync.ps1` 现在必须显式接收 `-OwnerThread <线程名>`，并对 task 分支做线程语义校验。

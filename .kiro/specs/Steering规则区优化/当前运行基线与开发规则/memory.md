@@ -355,3 +355,49 @@
 
 **恢复点 / 下一步**：
 - 当前活入口已经补上这条根因口径；下一步只剩白名单收口与继续观察真实线程回执。
+
+### 会话 50 - 2026-03-27（live 规则源收敛与 startup-guard discovery gap 口径补齐）
+
+**用户需求**：
+> 直接去落地三件当前不符合预期的内容：
+> 1. 规范源仍有双源
+> 2. `sunset-startup-guard` 仍是设计在前、实盘缺位
+> 3. 治理线自己还有尾账
+
+**当前主线目标**：
+- 不再停留在“规则分析”，而是直接把 Sunset 当前 live 入口、通用 steering 边界与启动闸门 skill 的实盘口径改成单一事实入口。
+
+**本轮完成事项**：
+1. 重新收敛 live 入口层：
+   - `AGENTS.md`
+   - `Sunset当前规范快照_2026-03-22.md`
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `Sunset现行入口总索引_2026-03-17.md`
+   - `基础规则与执行口径.md`
+2. 在上述 live 入口中显式写死：
+   - 当前 Sunset live 规则层级是：`用户裁定 -> AGENTS.md -> 当前规范快照 -> 命中的治理规范正文 -> .kiro/steering`
+   - `.kiro/steering` 继续承担通用结构、领域细则与历史通用基线，但不再单独定义当前 shared-root / main-only / dispatch / startup-guard 的 live 默认。
+3. 给通用 steering 明确边界说明：
+   - `git-safety-baseline.md`
+   - `workspace-memory.md`
+   - `documentation.md`
+4. 回正 shared root 占用文档的实时政策字段：
+   - `shared-root-branch-occupancy.md`
+   - 其中 `daily_policy` 已改回 `main-only + whitelist-sync + exception-escalation`
+   - `last_verified_head` 已按本轮只读核验更新为 `1401ae8c`
+5. 同步补强 `Sunset强制技能闸门与线程回复规范_2026-03-17.md`：
+   - 明确 `sunset-startup-guard` 未显式暴露时属于 discovery gap
+   - 继续要求 manual-equivalent + trigger log
+
+**关键结论**：
+- 这轮没有去追历史 memory / design 的所有旧表述，而是只修“后续线程现在还会继续读到的 live 入口”。
+- 现在 live 口径不再允许出现：
+  - `AGENTS.md` 说一套
+  - `.kiro/steering` 被误当另一套 live 默认
+  的双源状态。
+
+**恢复点 / 下一步**：
+- 现行活入口已经收敛到同一层级说法；
+- 下一步转入：
+  1. 补 `sunset-startup-guard` skill / 注册表 / trigger-log 的审计层记录
+  2. 再对白名单治理路径尝试正式 sync

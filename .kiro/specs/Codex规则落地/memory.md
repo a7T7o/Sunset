@@ -5376,6 +5376,181 @@
   - 治理分发规范
   - prompt 模板
 
+## 2026-03-26｜已对 `典狱长-V2` 的首轮越界回复做 Path C 审视，纠偏为“只回答并发 dirty 归因问题”
+
+**当前主线目标**
+- 用户贴回了 `典狱长-V2` 的首轮回复，并明确指出其中“导航唯一总主线 / 导航唯一主实现 / NPCV2 支持线程 / cleanup 整体后置”属于胡言乱语，希望我直接替他审掉并纠偏。
+
+**本轮核查事实**
+1. `典狱长-V2` 的首轮启动委托 `2026-03-26_典狱长-V2首轮启动委托-03.md` 明确只允许它做：
+   - current-wave 基线复核
+   - inbox 建立
+   - 钉死 5 条线治理图
+   - 明确后续治理从这里开始归它承接
+2. 同一份启动委托还明确禁止：
+   - 重写 second-wave prompt
+   - 抢先写 third-wave prompt
+   - 重新争论 `V1` 是否继续治理
+   - 把 `NPCV2` 从停发态又硬拉回施工态
+3. 用户这轮原问题本身也不是“请重排当前总主线”，而是：
+   - `dirty` 互相传染怎么避免
+   - 是否要彻底解除 Git 规约
+4. 因此，它前半段“`own diff / foreign diff / same-file contamination` 三层归因 + hot target 独占 + integrator 收盘”的方向可以保留；
+   - 但后半段把问题偷换成“导航唯一总主线 / NPC 支持位 / 新治理权威文件体系”属于明显越界。
+
+**已完成事项**
+1. 已在治理工作区新增审视报告：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-26_典狱长-V2首轮越界判断审视报告-01.md`
+2. 已在当前治理线程目录新增纠偏委托：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\2026-03-26_典狱长-V2并发dirty问题纠偏委托-04.md`
+3. 已把纠偏刀口锁死为：
+   - 只回答用户的并发 dirty 原题
+   - 显式撤回 5 条错误判断
+   - 不准再改写 current-wave 治理图
+   - 不准再发明新的治理基础设施
+
+**关键判断**
+- 这次问题的优先级不是“交接不够”，而是：
+  - `典狱长-V2` 首轮没有 obey 自己的启动委托；
+  - 它把一个并发 dirty 归因问题偷换成了更大的治理改题问题。
+- 当前正确保留面只有：
+  - 普通路径并行
+  - hot target 独占
+  - `own / foreign / same-file contamination`
+  - integrator 收盘
+- 当前必须撤回面包括：
+  - 导航唯一总主线
+  - 导航唯一主实现
+  - `NPCV2` 支持线程化
+  - `Primary.unity` / 字体 / owner / cleanup blanket 后置
+  - 一整套新增治理文件体系
+
+**恢复点 / 下一步**
+- 当前先把 `典狱长-V2` 拉回“只回答并发 dirty 归因”的正确作用域；
+- 等它交回纠偏回执后，再决定是否需要把其中真正有效的并发口径同步进 live 规则。
+
+## 2026-03-26｜已核清“讨论性更新是否需要收口”的规范边界，并确认导航回执的阻断理由写偏了
+
+**当前主线目标**
+- 用户继续追问：导航相关线程把“这轮只是讨论和记忆回写，所以没有 git sync”当成正常口径，这是否符合 Sunset 规范，还是规范落地又漂了。
+
+**本轮核查事实**
+1. `Sunset/AGENTS.md:161-165` 已明确：
+   - 任何产生可复用结论的 Sunset 实质性工作，都不能只写在线程记忆里；
+   - 只读分析如果产生稳定治理结论、路由结论、风险判断，也要更新记忆。
+2. `workspace-memory.md:355-371` 也明确把：
+   - 架构决策
+   - 问题分析
+   - 设计变更
+   - 技术债务识别
+   - 锐评执行
+   统统列为“即使没有代码修改也必须触发 memory 记录”的讨论类场景。
+3. `Sunset/AGENTS.md:179-205` 已明确：
+   - 实质性工作在完成记忆更新后，只要达到可提交状态，就应继续 `git-safe-sync`
+   - `main-only` 白名单 sync 不再因 unrelated dirty 一刀切阻断
+   - 真正会阻断的是本轮白名单所属 `own roots` 下仍有未纳入的 remaining dirty / untracked。
+4. 当前导航 owner roots 现场并不干净，至少仍包含：
+   - 已修改：线程 / 父工作区 / 子工作区的多份 `memory.md`
+   - 未跟踪：`导航V2/002-导航V2开发宪法与阶段推进纲领.md`、`导航检查/...-08.md`、`导航检查/...-09.md` 等
+
+**关键判断**
+- “讨论性内容天然不用收口”不是现行规范，也不是我认可的落地形态。
+- 更准确的说法应是：
+  - 讨论性内容如果形成稳定结论，必须记忆；
+  - 若已达到可提交状态，应继续白名单 sync；
+  - 若不能 sync，必须把真实阻断写成：
+    - own roots 还有剩余 dirty / untracked
+    - 或 hot / mixed 目标阻断
+  - 不能笼统写成“shared root 里还有别的线程 dirty，所以这轮讨论不收口”。
+
+**恢复点 / 下一步**
+- 后续再审类似回执时，典狱长应直接追问：
+  1. 这轮是否已达到可提交状态
+  2. 若未 sync，阻断来自 own roots 还是 hot / mixed blocker
+  3. 当前 own 路径是否 clean
+- 不再接受“讨论性更新所以先不收口”的空泛说法。
+
+## 2026-03-26｜已为 `典狱长-V2` 重写整合版纠偏委托，统一吸收“并发 dirty + 讨论收口边界”两类误判
+
+**当前主线目标**
+- 用户尚未发出前一版纠偏委托，希望我先吸收最新新增的问题，再整理成最新可直接转发版本给 `典狱长-V2`。
+
+**本轮已完成**
+1. 新增整合版审视报告：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-26_典狱长-V2越界与讨论收口误判审视报告-02.md`
+2. 新增整合版纠偏委托：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\2026-03-26_典狱长-V2纠偏委托-05.md`
+3. 新版委托已把两组问题同时钉死：
+   - 并发 dirty 原题被偷换成 current-wave 改题
+   - 讨论性更新与 Git 收口条件被混成一句模糊挡箭牌
+
+**关键判断**
+- 当前最新可发送版本已经不是 `...并发dirty问题纠偏委托-04.md`，而是 `...纠偏委托-05.md`。
+- 这轮仍然不是让 `V1` 代替 `V2` 去改 live 规则；
+  - 只是先逼 `V2` 把自己的理解和口径纠正到位。
+
+**恢复点 / 下一步**
+- 现在可直接向用户提供：
+  - 新的审视报告路径
+  - 新的 `V2` 可转发话术
+- 等 `V2` 回执后，再决定是否值得进入规范层同步。
+
+## 2026-03-27｜`典狱长-V2` 已完成纠偏，下一步转入首个真实治理实操
+
+**当前主线目标**
+- `V2` 已交回合格纠偏回执；当前不应再停留在“认错”和“抽象讲解”层，而应立刻验证它能否把纠偏后的口径应用到真实治理对象。
+
+**本轮已完成**
+1. 已确认 `V2` 纠偏回执通过：
+   - 已撤回 7 条错误判断
+   - 已把并发 dirty 与讨论收口边界答回用户原题
+2. 已新增它的首个真实治理委托：
+   - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\2026-03-27_典狱长-V2首个实操治理委托-06.md`
+3. 首考对象已固定为：
+   - 一条真实导航回执
+   - 核心是审“讨论性更新不收口 / shared root 有别人 dirty 所以不 sync”是否成立
+   - 并要求它给出真实阻断与四类裁定
+
+**关键判断**
+- 从治理接班角度看，`V2` 现在已经过了“纠偏”阶段，下一步最该做的是实操验证，而不是继续让 `V1` 代劳。
+- 这轮仍然不该让它改 live 规范；只该让它在真实个案上做一次窄治理。
+
+**恢复点 / 下一步**
+- 现在可直接把 `...首个实操治理委托-06.md` 发给 `典狱长-V2`；
+- 等它交回第一份真实个案裁定后，再决定是否继续放权到更大的治理批次。
+
+## 2026-03-27｜`典狱长-V2` 首个真实治理实操已通过，当前不再需要 `V1` 继续考试式放题
+
+**当前主线目标**
+- 用户要求我以父线程身份验收 `典狱长-V2` 的首个真实治理实操是否合格，并判断下一步是继续考试，还是正式放权。
+
+**本轮核查事实**
+1. `典狱长-V2` 已把首个实操对象正确压成：
+   - 一条导航线程“讨论性更新不收口 / shared root 里还有别人 dirty 所以不 sync”的真实回执
+2. 它已正确给出：
+   - 四类裁定：`继续发 prompt`
+   - 核心审结论：讨论 / 文档新增仍属实质性工作，应记忆、应判断收口
+   - 真实阻断：`own roots` 未 clean，而非 foreign dirty 或 hot/mixed blocker
+3. 这份结论与当前导航 owner roots 现场一致：
+   - `.kiro/specs/屎山修复` 这条根下确实仍有 sibling dirty / untracked
+4. `skill-trigger-log.md` 已新增 `STL-20260327-051`，证明这不是口头补课，而是一次真实个案裁定
+
+**关键判断**
+- 这次 `V2` 已经通过“首个真实治理实操”：
+  - 不只是会讲规范
+  - 而是能把规范用在真实个案上
+- 当前没有必要继续让 `V1` 用考试式 prompt 代劳；
+  - 后续典狱长治理应优先交回 `V2`
+
+**恢复点 / 下一步**
+- 现在可以把 `V2` 视为“可放权但继续观察”的接班状态；
+- 下一步不是再给它出题，而是让它继续处理真实治理现场；
+- 只有当它再次出现：
+  - 改题
+  - 乱重排线程角色
+  - 把真实阻断写成空泛挡箭牌
+  时，`V1` 再重新介入纠偏。
+
 ## 2026-03-26｜复核 `NPCV2 / 导航检查V2` 自述后，当前总主线与子线优先级重新钉死
 
 **当前主线目标**
@@ -5431,3 +5606,116 @@
   - 然后 1 条最小 runtime 结果
 - `NPCV2` 当前不应继续主动找新刀口；
 - 除非用户现场再次复现 `HomeAnchor` 空或 Inspector 补口失效，否则它应停在支持位，不再和导航线程并列抢主线。
+
+## 2026-03-27｜全盘复核后，当前 Sunset 已进入“规则实盘期”，但规范栈仍是半收敛状态
+
+**当前主线目标**
+- 用户要求我不要再只围着单条线程或单份 prompt 讲话，而是从全局回看：
+  - 我当前到底扮演什么角色
+  - Sunset 全局现在处于什么阶段
+  - 当前实际生效的规范到底是什么
+  - 这些规范是否已经符合最初设计预期
+  - 各线程、skills、文档规约与 shared root 现场现在各自是什么状态
+
+**本轮复核事实**
+1. 当前 live 基线已推进到：
+   - `D:\Unity\Unity_learning\Sunset @ main @ ee7ba4c1`
+2. 当前 shared root 仍存在真实 active dirty，且不再只是单一线程：
+   - hot / mixed：`Assets/000_Scenes/Primary.unity`、`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - mixed shared resource：3 份 `DialogueChinese*.asset`
+   - 导航 runtime：`Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+   - 农田 / 交互实现面：`TreeController.cs`、`FarmToolPreview.cs`、`PlacementManager.cs`、`PlayerInteraction.cs`、`PlayerThoughtBubblePresenter.cs`、`InventoryPanelUI.cs`、`ChestController.cs`
+   - 多条治理 / 工作区 / 线程 `memory.md`
+3. 当前 Unity MCP 资源列表已恢复可见，但运行态仍是：
+   - `mcpforunity://instances -> instance_count = 0`
+   - `mcpforunity://editor/state -> no_unity_session`
+   说明“工具层可见”不等于“当前有可用 Unity live 会话”。
+4. 当前真正 live 生效的规范栈，已经不是单文件，而是分层覆盖：
+   - 用户当前裁定
+   - `Sunset/AGENTS.md`
+   - `Sunset当前规范快照_2026-03-22.md`
+   - `典狱长模式_治理总闸与分发规范.md`
+   - `治理线程批次分发与回执规范.md`
+5. 同时也确认了当前规范栈仍存在两类明显漂移：
+   - `git-safety-baseline.md` 前半段仍保留 branch-first 旧口径，不能再被直接当成 live 默认开发模型
+   - `workspace-memory.md` / `documentation.md` 仍是老一代通用规范，当前在 Sunset 中实际要受 `AGENTS.md + 当前规范快照` 重新约束
+6. 当前 skills 实际使用也与设计有一处稳定偏差：
+   - `skills-governor`、`sunset-workspace-router`、`sunset-warden-mode` 已进入真实执行链
+   - 但注册表中的 Sunset 主干 skill `sunset-startup-guard` 仍未在当前会话显式暴露，实盘上长期由 `skills-governor + 手工等价前置核查` 顶替
+
+**关键判断**
+1. 我当前的真实身份，不再是“继续替每条线程写 prompt 的普通治理线程”，而是：
+   - 全局治理总闸
+   - shared root 现场审计者
+   - 线程 owner / prompt / 回执 / 规范一致性的复核者
+2. Sunset 当前所处阶段，也不再是“设计治理体系”的阶段，而是：
+   - `main-only + whitelist-sync + exception-escalation` 已经进入实盘运行
+   - 现在真正的问题变成：这套规则有没有被 threads 和 shared root 现场真正执行到位
+3. 当前规范方向基本对，但还不能说“完全符合设计预期”：
+   - 对的部分是：并发普通路径已放开、hot target 独占、`own-path-clean` 已成硬闸、典狱长四类裁定已落地、skill 审计已真实运行
+   - 不对的部分是：规范源还没有完全收敛为单层清晰体系，旧 steering 文档与新 live 规则仍有双源；`sunset-startup-guard` 仍处于“设计要求存在、实盘长期手工等价”的状态；治理工作区自己也还带着未同步文档尾账
+4. 当前各线程真实分层已很清楚：
+   - 业务主刀：`导航检查V2`、`农田交互修复V3`
+   - 支持 / 基线 / 外部阻塞位：`NPCV2`
+   - 规划 / parked：`spring-day1V2`
+   - owner / 调度文档位：`导航V2`
+   - 归档辅助线：`项目文档总览`
+   - 治理本体：`Codex规则落地`
+
+**恢复点 / 下一步**
+- 当前最该做的不是再发明新治理体系，而是把已存在的 live 规范真正收敛成现场可执行现实：
+  1. 把仍处于 active dirty 的 hot / mixed 面继续压缩到可清楚归属的 owner 面
+  2. 停止让旧 steering 文档继续与 `AGENTS.md / 当前规范快照` 并列制造双源
+  3. 继续把 `sunset-startup-guard` 从长期手工等价，补回显式可触发状态
+  4. 让治理工作区自己先做到“文档层 / 审计层 clean”，再去要求业务线程进一步守规
+
+## 2026-03-27｜已把 live 规则源、startup-guard discovery gap 与治理线 own tail 一次性压回正文层
+
+**当前主线目标**
+- 用户明确要求不要再停在分析，而是直接把三件“不符合预期”的内容落地：
+  - 规范源仍有双源
+  - `sunset-startup-guard` 仍是设计在前、实盘缺位
+  - 治理线自己还有尾账
+
+**本轮完成事项**
+1. 直接回写 Sunset 的 live 入口层：
+   - `AGENTS.md`
+   - `Sunset当前规范快照_2026-03-22.md`
+   - `Sunset当前唯一状态说明_2026-03-17.md`
+   - `Sunset现行入口总索引_2026-03-17.md`
+   - `基础规则与执行口径.md`
+2. 在上述文件中写死当前 live 层级：
+   - `用户裁定 -> AGENTS.md -> 当前规范快照 -> 命中的治理规范正文 -> .kiro/steering`
+3. 给通用 steering 正文补边界说明：
+   - `git-safety-baseline.md`
+   - `workspace-memory.md`
+   - `documentation.md`
+   统一说明：它们提供通用结构 / 通用基线，不再单独定义当前 Sunset 的 live 默认开发模型。
+4. 回正 shared root 占用文档：
+   - `shared-root-branch-occupancy.md`
+   - `daily_policy` 改回 `main-only + whitelist-sync + exception-escalation`
+   - `last_verified_head` 更新为本轮实核的 `1401ae8c`
+5. 补强 `sunset-startup-guard` 的两套 skill 副本与注册表：
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\SKILL.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\references\checklist.md`
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\agents\openai.yaml`
+   - `C:\Users\aTo\.agents\skills\sunset-startup-guard\...`
+   - `C:\Users\aTo\.codex\memories\global-skill-registry.md`
+6. 其中当前固定化的新口径是：
+   - `sunset-startup-guard` 未显式暴露 = discovery gap
+   - discovery gap != 闸门失效
+   - 仍必须 manual-equivalent
+   - 仍必须写 trigger log
+
+**关键判断**
+- 这轮没有去追所有历史 memory / design 的旧句子，而是只修“现在还会继续误导线程进入现场的 live 入口”。
+- 治理线自己的 own tail 也不再只是“知道有尾账”，而是已经进入：
+  - repo 内 live 文档已改
+  - repo 内治理 memory 已补
+  - repo 外 skill / 注册表已补
+  的实收状态。
+
+**恢复点 / 下一步**
+- 现在治理线剩下的不是“还没动”，而是：
+  1. 再把本轮 repo 内治理白名单正式 sync 到 `main`
+  2. 再向用户交代：mixed dirty 一锅端只能是最终收官选项，不应成为日常 live 模型

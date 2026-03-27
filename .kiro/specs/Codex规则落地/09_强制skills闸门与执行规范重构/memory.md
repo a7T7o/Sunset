@@ -184,3 +184,40 @@
 - [ ] live 入口文档与 occupancy 口径尚未追上真实 Git
 - [ ] `git-safe-sync.ps1` / preflight 仍未具备“分支不匹配即 exit 1”的硬阻断
 - [ ] shared root 单写者 lease、checkout guard、Play Mode 离场归还，还没有形成真正的代码级闸门
+
+### 会话 6 - 2026-03-27（startup-guard discovery gap 口径已补成 live 事实）
+
+**用户需求**：
+> 直接去完善当前不符合预期的内容，尤其是：`sunset-startup-guard` 仍是设计在前、实盘缺位。
+
+**完成事项**：
+1. 只读复核 `sunset-startup-guard` 的两套磁盘副本：
+   - `C:\Users\aTo\.codex\skills\sunset-startup-guard\`
+   - `C:\Users\aTo\.agents\skills\sunset-startup-guard\`
+2. 确认当前真实问题不是 skill 不存在，而是：
+   - 磁盘本体存在
+   - `.agents` 暴露副本存在
+   - 但当前会话 skill inventory 显式暴露仍不稳定
+3. 直接补强以下正文：
+   - `SKILL.md`
+   - `references/checklist.md`
+   - `agents/openai.yaml`
+   - 两套镜像全部同步
+4. 把 discovery gap 正式写成 live 口径：
+   - 未显式暴露 `sunset-startup-guard` 时，不视为闸门失效
+   - 必须继续手工执行同级 startup preflight
+   - 必须写 `skill-trigger-log.md`
+5. 同步更新 `global-skill-registry.md`：
+   - 明确当前问题是显式暴露不稳定，不是 skill 缺失
+   - 明确在拿到新的显式 discovery 样本前，manual-equivalent 仍是批准态而不是例外口头约定
+
+**关键结论**：
+- `sunset-startup-guard` 现在不再是“只有设计，没有实盘口径”；
+- 当前更准确的状态已经变成：
+  - 文档层存在
+  - 审计层要求已写死
+  - 运行层显式 discovery 仍待继续补样本
+
+**恢复点 / 下一步**：
+- 后续只要再出现 `sunset-startup-guard` 未显式暴露，就不允许再把它讲成“skill 没生效”；
+- 正确说法已经固定为：`discovery gap -> manual-equivalent -> trigger log`。

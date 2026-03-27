@@ -2,8 +2,14 @@
 
 ## 0A. 2026-03-21 极简并发开发临时口径（高于下文旧流程，直到用户撤销）
 - 当前最高目标不是流程完美，而是尽快恢复真实开发、缩短等待、减少治理摩擦。
-- 当前唯一规范快照：
+- 当前唯一 live 规范快照文件：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+- 当前 live 执行优先级固定为：
+  1. 用户当前裁定
+  2. `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+  3. 当前规范快照
+  4. `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\` 下当前命中的治理规范正文
+  5. `.kiro/steering/` 中的通用结构、领域细则与历史通用基线
 - 自 2026-03-23 起，以下补强项视为当前 live 口径的一部分：
   1. 规则变更必须同轮同步到 `AGENTS.md`、当前规范快照、治理规范正文（如 `治理线程批次分发与回执规范.md` / `典狱长模式_治理总闸与分发规范.md`）以及相关 skill；少一处都不算真正生效。
   2. 只要线程碰过 `Scene`、`Prefab`、`Primary.unity` 或其他热 Unity 资源，回执里必须显式说明“我留了什么、保留什么、清掉什么、当前是否已对我这条线 clean”。
@@ -70,8 +76,14 @@
   - 或运行稳定 launcher 但显式带 `-SourceRef HEAD`
 
 ## 1. 文件定位
-- 本文件是 Sunset 项目的 Codex 路由层，不重复抄写 `.kiro/steering` 正文。
-- Sunset 的唯一正文规则源在 `.kiro/steering/`；本文件只负责告诉 Codex 先读什么、何时更新哪层记忆、哪些任务必须走哪条规则。
+- 本文件是 Sunset 项目的 live 路由与执行约束层，不重复抄写 `.kiro/steering` 的通用正文。
+- 当前 Sunset 的 live 规则层按以下顺序理解：
+  1. 用户当前裁定
+  2. 本文件
+  3. `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+  4. `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\` 下当前命中的治理规范正文
+  5. `.kiro/steering/` 中的通用结构、领域细则与历史通用基线
+- `.kiro/steering/` 仍然重要，但它不再单独定义当前 shared-root / main-only / dispatch / startup-guard 的 live 默认。
 - `C:\Users\aTo\.codex\AGENTS.md` 是 Codex 的全局规则文件位置，不是 Sunset 线程记忆文件的存储位置。
 - Sunset 项目全部 Codex 线程的记忆总根路径固定为 `D:\Unity\Unity_learning\Sunset\.codex\threads\`。
 - `CLAUDE.md`、Claude 迁移文档、History 交接稿可以吸收经验，但当前真正的唯一有效依据仍是 `.kiro/steering` 与活跃工作区文档。
