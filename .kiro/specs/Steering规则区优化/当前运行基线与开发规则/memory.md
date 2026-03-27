@@ -401,3 +401,18 @@
 - 下一步转入：
   1. 补 `sunset-startup-guard` skill / 注册表 / trigger-log 的审计层记录
   2. 再对白名单治理路径尝试正式 sync
+
+### 会话 51 - 2026-03-27（live 入口收敛白名单已正式 sync）
+
+**完成事项**：
+1. 已按 stable launcher + `governance` 白名单正式同步本工作区涉及的 live 入口改动。
+2. 本轮治理提交已进入 `main`：
+   - `101e160c`
+   - commit message：`2026.03.27_Codex规则落地_01`
+
+**关键结论**：
+- 这轮“live 规则源收敛”不是停在本地编辑，而是已经成为 shared root 的仓库历史事实。
+
+**恢复点**：
+- 当前本工作区本轮 own 路径已 clean；
+- 剩余 dirty 留给导航、农田、开篇与 hot / mixed 现场继续各自处理。

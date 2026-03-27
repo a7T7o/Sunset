@@ -221,3 +221,15 @@
 **恢复点 / 下一步**：
 - 后续只要再出现 `sunset-startup-guard` 未显式暴露，就不允许再把它讲成“skill 没生效”；
 - 正确说法已经固定为：`discovery gap -> manual-equivalent -> trigger log`。
+
+### 会话 7 - 2026-03-27（startup-guard discovery gap 修补已跟随治理白名单进入 main）
+
+**完成事项**：
+1. 本阶段本轮涉及的 repo 内记忆与 live 入口修补，已随治理白名单提交进入 `main`。
+2. 对应提交：
+   - `101e160c`
+   - `2026.03.27_Codex规则落地_01`
+
+**恢复点**：
+- 这轮关于 `sunset-startup-guard` 的 repo 内 live 事实已经收口；
+- 后续剩余工作只剩继续等待新的显式 discovery 命中样本。

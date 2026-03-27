@@ -5719,3 +5719,27 @@
 - 现在治理线剩下的不是“还没动”，而是：
   1. 再把本轮 repo 内治理白名单正式 sync 到 `main`
   2. 再向用户交代：mixed dirty 一锅端只能是最终收官选项，不应成为日常 live 模型
+
+## 2026-03-27｜repo 内治理白名单已正式同步到 `main`
+
+**本轮完成事项**
+1. 已通过 stable launcher 执行：
+   - `git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread Codex规则落地`
+2. 本轮治理提交：
+   - `101e160c`
+   - commit message：`2026.03.27_Codex规则落地_01`
+3. 已确认本轮白名单 own roots 为：
+   - `AGENTS.md`
+   - `.kiro/locks`
+   - `.kiro/steering`
+   - `.kiro/specs/Codex规则落地`
+   - `.kiro/specs/Steering规则区优化/当前运行基线与开发规则`
+   当前 `remaining dirty = 0`
+
+**关键结论**
+- “规范源双源收敛 + startup-guard discovery gap 口径补齐 + 治理线 own tail 收口”这三件事，repo 内部分已经正式落入仓库历史。
+
+**恢复点 / 下一步**
+- 后续只剩两层：
+  1. 向用户明确解释为什么 mixed dirty 一锅端不能升格为日常 live 模型
+  2. 继续观察业务线程与 hot / mixed 现场是否按新口径真正执行
