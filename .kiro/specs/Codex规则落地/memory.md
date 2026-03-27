@@ -6103,3 +6103,9 @@
 **恢复点 / 下一步**
 - 后续治理线程审用户向回复时，默认先看 `保底六点卡` 是否完整，再看技术审计层。
 - 之后如果再有线程继续交“参数 + checkpoint + changed_paths”式回复，就不再只口头提醒，而是直接按“不合格汇报”处理。
+
+**本轮治理同步结果**
+- 已用 `git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread Codex规则落地` 完成白名单同步。
+- 提交 SHA：`1fbf64d5`
+- 提交信息：`2026.03.27_Codex规则落地_06`
+- 当前这批 live 规则补强已正式进入 `main`。
