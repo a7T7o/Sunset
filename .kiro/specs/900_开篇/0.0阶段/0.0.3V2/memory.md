@@ -135,3 +135,59 @@
     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘清盘清单与后续优先级方案.md`
 - 恢复点 / 下一步：
   - 若用户继续要求我真正开始 Day1 下一刀，应先按本文 `G0` 重新钉实当前可动正式面与 hot/mixed blocker，再进入 `P0` 纵切，不应跳去 `P2/P3`。
+
+## 2026-03-27｜Day1 全盘详细落地任务列表
+
+- 当前主线目标：
+  - 在已有“文档证据版总表”与“清盘清单/优先级方案”基础上，把 Day1 后续施工进一步压实成可直接执行、可逐条验收、可逐条收口的正式任务账本，作为后续一条龙完成 Day1 的统一标准。
+- 本轮子任务：
+  - 只做文档，不恢复 Day1 业务实现；
+  - 把 `G0 / P0 / P1 / P2 / P3 / P4` 继续下钻成具体任务编号；
+  - 为每条任务补齐 `类型 / 当前状态 / 责任归属 / 前置条件 / 可碰范围 / 禁碰范围 / 具体动作 / 产出物 / 完成标准 / 失败判定`；
+  - 把当前已知 hot / mixed / blocker 面显式挂进账本，避免后续再靠口头记忆排刀。
+- 本轮已完成：
+  - 新建文档：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0.3V2\2026-03-27_Day1全盘详细落地任务列表.md`
+  - 在文档内正式固化：
+    - 使用规则、状态字段、任务类型、总体验收口径与总执行纪律；
+    - 当前稳定基线与 Day1 已知正式文件面；
+    - `T-G0-01` 至 `T-G0-04`；
+    - `T-P0-01` 至 `T-P0-13`；
+    - `T-P1-01` 至 `T-P1-07`；
+    - `T-P2-01` 至 `T-P2-06`；
+    - `T-P3-01` 至 `T-P3-06`；
+    - `T-P4-01` 至 `T-P4-05`。
+  - 明确把下列当前 live 风险面挂成正式 blocker/受限面：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+    - `Assets/YYY_Scripts/UI/Inventory/InventoryPanelUI.cs`
+    - `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+    - `Assets/YYY_Scripts/Controller/TreeController.cs`
+  - 明确裁定第一把真实业务刀必须是：
+    - `T-P0-01` 到 `T-P0-13`
+    - 即 `NPC001 首段对话 -> 乱码解码 -> HP/EP 节奏 -> Anvil_0 -> 任务卡 -> 木材 -> 制作完成`
+- 本轮关键决策：
+  - Day1 后续不再用“宽泛优先级清单”直接充当施工清单，而改用本账本逐条推进。
+  - 任何声称“开始下一刀”的动作，都必须先回答：
+    - 当前做的是哪条任务编号
+    - 当前状态是什么
+    - 前置条件是否满足
+    - 允许碰哪些文件、不能碰哪些文件
+    - 完成后交什么证据
+  - 在 `G0` 没完成前，不得把任何业务实现描述成“已经正式开刀”。
+- 当前状态判断：
+  - `0.0.3V2` 现在已经形成三层配套文档：
+    - 总需求与设计回顾总表
+    - 全盘清盘清单与优先级方案
+    - 全盘详细落地任务列表
+  - 这份详细任务列表已经可以作为后续 Day1 一条龙执行的标准对照表；
+  - 但它仍是文档级执行账本，不替代真正的 live preflight、白名单准入与 Unity 运行态验收。
+- 恢复点 / 下一步：
+  - 如果用户下一轮要求真正开始 Day1 实施，应先严格从 `T-G0-01` 到 `T-G0-04` 进入，先重新钉实 blocker、allowed surfaces、preflight 结果与最小回执模板，再开始 `T-P0-01`。
