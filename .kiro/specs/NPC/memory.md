@@ -712,3 +712,25 @@
      - `2026-03-27-NPC全盘详细落地任务列表.md`
 - 当前恢复点：
   - 以后如果再回答“下一刀做什么”，必须直接引用详细任务编号，而不是只说 `P0 / P1 / P2` 这种阶段名。
+
+## 2026-03-27｜NPC 总线正式进入 `P0` 实做，但仍停在 HomeAnchor live 外部阻塞前
+
+- 当前主线目标：
+  - 按 NPC 最新详细任务账本，真正从 `P0` 开始推进，而不再只停在总览文档。
+- 本轮完成：
+  - `NPCV2` 已在：
+    - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+    上继续只做 `HomeAnchor` Editor 诊断链补口；
+  - 已补出用户复验文档：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P0-HomeAnchor基线复验与失败判读.md`
+  - 已把详细任务列表中的 `P0` 当前状态更新为更贴近现场：
+    - `T-P0-01 -> blocked-external`
+    - `T-P0-03 -> done`
+- 当前关键结论：
+  - `Primary.unity` 内三只 NPC 的 `homeAnchor` scene override 与 `*_HomeAnchor` 节点仍在，scene 结构不是当前首要断点；
+  - 当前首要阻塞已经更明确地变成：
+    - `unityMCP` 基线层可达，但会话层 `no_unity_session`
+  - 所以 NPC 总线虽然已经正式开始 `P0` 实做，但还不能把 `HomeAnchor` live 现场复核和正式验证说成 done。
+- 当前恢复点：
+  - 整条 NPC 总线下一步仍然先守 `P0`，不应跳去 `P1/P2`；
+  - 一旦拿到 Unity 里 `001 / 002 / 003` 的新 Inspector 读数，就继续闭 `T-P0-01 / T-P0-02 / T-P0-05`。

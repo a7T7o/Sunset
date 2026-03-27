@@ -685,3 +685,75 @@
   - 必须改以：
     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘详细落地任务列表.md`
     作为逐条施工与逐条验收的正式标准。
+
+## 2026-03-27｜P0 首次实做：只推进 HomeAnchor Editor 诊断链与基线复验包
+
+- 当前主线目标：
+  - 按 `2026-03-27-NPC全盘详细落地任务列表.md` 从 `P0` 正式开工，但不跳 `P1/P2`，先把 `HomeAnchor` 运行态闭环所需的 Editor 断点和复验材料补齐。
+- 本轮子任务：
+  - 只推进：
+    - `T-P0-02`
+    - `T-P0-03`
+  - 同时如实复核：
+    - `T-P0-01`
+    - `T-P0-05`
+    当前为什么还没法闭环。
+- 本轮现场结论：
+  - `Primary.unity` 内 `001 / 002 / 003` 的 `homeAnchor` scene override 仍在；
+  - `001_HomeAnchor / 002_HomeAnchor / 003_HomeAnchor` 也仍在，且都挂在 `NPCs` 根下；
+  - 这说明当前更像运行中 Inspector / auto-repair 补口链问题，而不是 scene 自身丢了 `HomeAnchor`。
+  - `unityMCP` 当前是“基线 pass、会话层 no_unity_session”的混合状态：
+    - `check-unity-mcp-baseline.ps1 = pass`
+    - 但 `editor/state`、`project/info`、`manage_scene(get_active)` 仍返回 `no_unity_session`
+  - 因此：
+    - `T-P0-01` 当前应从 `pending` 改判为 `blocked-external`
+    - `T-P0-05` 仍是 `blocked-external`
+- 本轮完成：
+  - 修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCAutoRoamControllerEditor.cs`
+  - 新增：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P0-HomeAnchor基线复验与失败判读.md`
+  - 更新：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘详细落地任务列表.md`
+- 本轮 Editor 侧最小补口：
+  - `NPCAutoRoamControllerEditor` 现在会在 Play Mode 下输出更窄的 `Home Anchor` 诊断：
+    - `Runtime Home Anchor`
+    - `Serialized Home Anchor`
+    - `Detected Anchor Candidate`
+    - `Parent`
+    - `Auto-repair`
+  - 自动补口结果现在会记录并直接回显：
+    - 已绑定成功
+    - 调用了 `SetHomeAnchor(...)` 但 runtime 仍空
+    - 缺 parent
+    - 已存在 runtime 绑定
+  - `FindExistingPrimaryHomeAnchor(...)` 现在会按：
+    - `parent-sibling`
+    - `self-child`
+    - `scene-search`
+    三层查找来源返回结果，避免继续只说“可能没找到”。
+  - `Create Home Anchor` 现在与 scene 既有口径统一为“优先 parent sibling”，不再把新 anchor 挂成 child 后又让自动补口只找 sibling。
+- 本轮验证：
+  - `git diff --check` 已通过：
+    - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+    - `2026-03-27-NPC全盘详细落地任务列表.md`
+    - `2026-03-27-NPC-P0-HomeAnchor基线复验与失败判读.md`
+  - 从 `Editor.log` 可见脚本改动后发生了多轮：
+    - `Requested script compilation`
+    - `Reloading assemblies`
+    - `CompileScripts`
+  - 当前没抓到我这轮新增的 `error CS` 证据；
+  - 但由于 `unityMCP` 仍无 live session，本轮还不能把 Unity 运行态最终值声称为已确认。
+- 当前 owned / external 边界：
+  - 当前 owned 改动：
+    - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+    - `0.0.1全面清盘` 下两份文档
+  - 当前 external blocker：
+    - `unityMCP` 会话层 `no_unity_session`
+  - 当前明确未认领：
+    - `Primary.unity` mixed cleanup
+    - `NPCAutoRoamController.cs` runtime / 导航 diff
+    - `DialogueChinese*` 字体
+- 当前恢复点：
+  - 下一步不是跳去 `P1`，而是先等这份新 Inspector 诊断在 Unity 里被用户复验；
+  - 一旦拿到 `001 / 002 / 003` 的实际读数，再继续判断 `T-P0-02` 是否可判 `done`，以及 `T-P0-05` 是否能补成正式验证。

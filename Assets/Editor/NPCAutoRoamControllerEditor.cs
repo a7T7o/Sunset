@@ -1,12 +1,15 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 [CustomEditor(typeof(NPCAutoRoamController))]
 public class NPCAutoRoamControllerEditor : Editor
 {
     private static readonly string[] PrimaryHomeAnchorNpcNames = { "001", "002", "003" };
+    private static readonly Dictionary<int, string> AutoRepairDiagnostics = new Dictionary<int, string>();
     private const string PrimaryScenePath = "Assets/000_Scenes/Primary.unity";
 
     private bool showSetup = true;
@@ -24,10 +27,12 @@ public class NPCAutoRoamControllerEditor : Editor
 
     public override void OnInspectorGUI()
     {
+        NPCAutoRoamController controller = (NPCAutoRoamController)target;
         serializedObject.Update();
         TryAutoRepairPrimaryHomeAnchors();
-        serializedObject.Update();
-        DrawDefaultInspector();
+        serializedObject.UpdateIfRequiredOrScript();
+        SyncHomeAnchorPropertyFromRuntime(controller);
+        DrawControllerProperties(controller);
         serializedObject.ApplyModifiedProperties();
 
         EditorGUILayout.Space(8f);
@@ -38,6 +43,96 @@ public class NPCAutoRoamControllerEditor : Editor
         DrawRuntimeStatus();
         EditorGUILayout.Space(8f);
         DrawRuntimeActions();
+    }
+
+    private void DrawControllerProperties(NPCAutoRoamController controller)
+    {
+        SerializedProperty property = serializedObject.GetIterator();
+        bool enterChildren = true;
+
+        while (property.NextVisible(enterChildren))
+        {
+            enterChildren = false;
+
+            if (property.propertyPath == "m_Script")
+            {
+                using (new EditorGUI.DisabledScope(true))
+                {
+                    EditorGUILayout.PropertyField(property, includeChildren: true);
+                }
+
+                continue;
+            }
+
+            if (property.name == "homeAnchor")
+            {
+                DrawHomeAnchorProperty(controller);
+                continue;
+            }
+
+            EditorGUILayout.PropertyField(property, includeChildren: true);
+        }
+    }
+
+    private void DrawHomeAnchorProperty(NPCAutoRoamController controller)
+    {
+        Transform runtimeAnchor = controller != null ? controller.HomeAnchor : null;
+        Transform serializedAnchor = _homeAnchorProperty != null ? _homeAnchorProperty.objectReferenceValue as Transform : null;
+        if (Application.isPlaying && runtimeAnchor != null)
+        {
+            using (new EditorGUI.DisabledScope(true))
+            {
+                EditorGUILayout.ObjectField("Home Anchor", runtimeAnchor, typeof(Transform), true);
+            }
+
+            if (_homeAnchorProperty != null && _homeAnchorProperty.objectReferenceValue != runtimeAnchor)
+            {
+                EditorGUILayout.HelpBox(
+                    $"Play Mode live anchor is {runtimeAnchor.name}. The inspector is showing the runtime reference directly.",
+                    MessageType.None);
+            }
+
+            if (serializedAnchor == runtimeAnchor)
+            {
+                return;
+            }
+        }
+        else if (_homeAnchorProperty != null)
+        {
+            EditorGUILayout.PropertyField(_homeAnchorProperty, includeChildren: true);
+        }
+        else
+        {
+            using (new EditorGUI.DisabledScope(true))
+            {
+                EditorGUILayout.ObjectField("Home Anchor", runtimeAnchor, typeof(Transform), true);
+            }
+        }
+
+        if (Application.isPlaying && controller != null && controller.gameObject.scene.path == PrimaryScenePath)
+        {
+            string detail = BuildHomeAnchorDiagnostic(controller, runtimeAnchor, serializedAnchor);
+            EditorGUILayout.HelpBox(detail, runtimeAnchor == null ? MessageType.Warning : MessageType.Info);
+        }
+    }
+
+    private void SyncHomeAnchorPropertyFromRuntime(NPCAutoRoamController controller)
+    {
+        if (!Application.isPlaying || controller == null || _homeAnchorProperty == null)
+        {
+            return;
+        }
+
+        Transform runtimeAnchor = controller.HomeAnchor;
+        if (_homeAnchorProperty.objectReferenceValue == runtimeAnchor)
+        {
+            return;
+        }
+
+        _homeAnchorProperty.objectReferenceValue = runtimeAnchor;
+        serializedObject.ApplyModifiedPropertiesWithoutUndo();
+        serializedObject.UpdateIfRequiredOrScript();
+        Repaint();
     }
 
     private void TryAutoRepairPrimaryHomeAnchors()
@@ -53,21 +148,29 @@ public class NPCAutoRoamControllerEditor : Editor
         foreach (string npcName in PrimaryHomeAnchorNpcNames)
         {
             NPCAutoRoamController npcController = FindControllerInScene(controller.gameObject.scene, npcName);
-            if (npcController == null || npcController.HomeAnchor != null)
+            if (npcController == null)
             {
+                continue;
+            }
+
+            if (npcController.HomeAnchor != null)
+            {
+                SetAutoRepairDiagnostic(npcController, $"Runtime already bound to {npcController.HomeAnchor.name}.");
                 continue;
             }
 
             Transform parent = npcController.transform.parent;
             if (parent == null)
             {
+                SetAutoRepairDiagnostic(npcController, "Missing parent transform, auto-repair cannot search or create a Home Anchor.");
                 continue;
             }
 
-            string anchorName = $"{npcController.name}_HomeAnchor";
-            Transform anchor = parent.Find(anchorName);
+            string anchorSource;
+            Transform anchor = FindExistingPrimaryHomeAnchor(npcController, out anchorSource);
             if (anchor == null)
             {
+                string anchorName = $"{npcController.name}_HomeAnchor";
                 GameObject anchorObject = new GameObject(anchorName);
                 if (!isPlayMode)
                 {
@@ -82,6 +185,7 @@ public class NPCAutoRoamControllerEditor : Editor
                 anchorObject.transform.position = npcController.transform.position;
                 anchorObject.transform.rotation = Quaternion.identity;
                 anchor = anchorObject.transform;
+                anchorSource = isPlayMode ? "runtime-created-under-parent" : "editor-created-under-parent";
                 if (!isPlayMode)
                 {
                     EditorUtility.SetDirty(anchorObject);
@@ -94,6 +198,14 @@ public class NPCAutoRoamControllerEditor : Editor
             }
 
             npcController.SetHomeAnchor(anchor);
+            if (npcController.HomeAnchor == anchor)
+            {
+                SetAutoRepairDiagnostic(npcController, $"Bound runtime Home Anchor to {anchor.name} via {anchorSource}.");
+            }
+            else
+            {
+                SetAutoRepairDiagnostic(npcController, $"Called SetHomeAnchor({anchor.name}) via {anchorSource}, but HomeAnchor is still empty.");
+            }
 
             if (!isPlayMode)
             {
@@ -115,6 +227,144 @@ public class NPCAutoRoamControllerEditor : Editor
         {
             EditorSceneManager.MarkSceneDirty(controller.gameObject.scene);
         }
+    }
+
+    private static Transform FindExistingPrimaryHomeAnchor(NPCAutoRoamController controller)
+    {
+        return FindExistingPrimaryHomeAnchor(controller, out _);
+    }
+
+    private static Transform FindExistingPrimaryHomeAnchor(NPCAutoRoamController controller, out string source)
+    {
+        source = "not-found";
+        if (controller == null)
+        {
+            return null;
+        }
+
+        string anchorName = $"{controller.name}_HomeAnchor";
+        Transform parent = controller.transform.parent;
+        if (parent == null)
+        {
+            Transform selfChildAnchor = controller.transform.Find(anchorName);
+            if (selfChildAnchor != null)
+            {
+                source = $"self-child:{controller.name}";
+                return selfChildAnchor;
+            }
+
+            return FindSceneAnchorByName(controller.gameObject.scene, anchorName, out source);
+        }
+
+        Transform siblingAnchor = parent.Find(anchorName);
+        if (siblingAnchor != null)
+        {
+            source = $"parent-sibling:{parent.name}";
+            return siblingAnchor;
+        }
+
+        Transform childAnchor = controller.transform.Find(anchorName);
+        if (childAnchor != null)
+        {
+            source = $"self-child:{controller.name}";
+            return childAnchor;
+        }
+
+        return FindSceneAnchorByName(controller.gameObject.scene, anchorName, out source);
+    }
+
+    private static Transform FindSceneAnchorByName(Scene scene, string anchorName, out string source)
+    {
+        source = "not-found";
+        if (!scene.IsValid())
+        {
+            return null;
+        }
+
+        GameObject[] roots = scene.GetRootGameObjects();
+        for (int rootIndex = 0; rootIndex < roots.Length; rootIndex++)
+        {
+            Transform match = FindTransformRecursive(roots[rootIndex].transform, anchorName);
+            if (match != null)
+            {
+                source = $"scene-search:{roots[rootIndex].name}";
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static Transform FindTransformRecursive(Transform root, string targetName)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        if (string.Equals(root.name, targetName, System.StringComparison.Ordinal))
+        {
+            return root;
+        }
+
+        for (int childIndex = 0; childIndex < root.childCount; childIndex++)
+        {
+            Transform match = FindTransformRecursive(root.GetChild(childIndex), targetName);
+            if (match != null)
+            {
+                return match;
+            }
+        }
+
+        return null;
+    }
+
+    private static void SetAutoRepairDiagnostic(NPCAutoRoamController controller, string message)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+
+        AutoRepairDiagnostics[controller.GetInstanceID()] = message;
+    }
+
+    private static string GetAutoRepairDiagnostic(NPCAutoRoamController controller)
+    {
+        if (controller == null)
+        {
+            return "No controller.";
+        }
+
+        if (AutoRepairDiagnostics.TryGetValue(controller.GetInstanceID(), out string message))
+        {
+            return message;
+        }
+
+        return "No auto-repair attempt recorded for this inspector yet.";
+    }
+
+    private static string GetAnchorDisplayName(Transform anchor)
+    {
+        return anchor != null ? anchor.name : "None";
+    }
+
+    private static string BuildHomeAnchorDiagnostic(
+        NPCAutoRoamController controller,
+        Transform runtimeAnchor,
+        Transform serializedAnchor)
+    {
+        Transform detectedAnchor = FindExistingPrimaryHomeAnchor(controller, out string source);
+        string parentName = controller != null && controller.transform.parent != null
+            ? controller.transform.parent.name
+            : "None";
+
+        return
+            $"Runtime Home Anchor: {GetAnchorDisplayName(runtimeAnchor)}\n" +
+            $"Serialized Home Anchor: {GetAnchorDisplayName(serializedAnchor)}\n" +
+            $"Detected Anchor Candidate: {GetAnchorDisplayName(detectedAnchor)} ({source})\n" +
+            $"Parent: {parentName}\n" +
+            $"Auto-repair: {GetAutoRepairDiagnostic(controller)}";
     }
 
     private void DrawSetupTools()
@@ -351,8 +601,9 @@ public class NPCAutoRoamControllerEditor : Editor
     private void CreateHomeAnchor(NPCAutoRoamController controller)
     {
         GameObject anchorObject = new GameObject($"{controller.name}_HomeAnchor");
+        Transform anchorParent = controller.transform.parent != null ? controller.transform.parent : controller.transform;
         Undo.RegisterCreatedObjectUndo(anchorObject, "Create NPC Home Anchor");
-        Undo.SetTransformParent(anchorObject.transform, controller.transform, "Parent NPC Home Anchor");
+        Undo.SetTransformParent(anchorObject.transform, anchorParent, "Parent NPC Home Anchor");
         anchorObject.transform.position = controller.transform.position;
         anchorObject.transform.rotation = Quaternion.identity;
         controller.SetHomeAnchor(anchorObject.transform);

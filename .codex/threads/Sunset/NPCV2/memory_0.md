@@ -299,3 +299,51 @@
     这种级别的具体任务编号
 - 当前恢复点：
   - 后续真正的施工标准已经从“宽口径清盘清单”升级成“详细任务列表”；我下一轮如果继续推进，必须按这份列表逐条执行。
+
+## 2026-03-27｜正式回到 `P0` 开工：先补 Editor 诊断，不误跳 `P1`
+
+- 当前主线目标：
+  - 用户要求“做完 git 就直接开始彻底落盘所有任务”，我已按详细任务列表重新开工，但严格从 `T-P0-01 ~ T-P0-05` 开始，不跳到 `P1/P2`。
+- 本轮子任务：
+  - 用 `skills-governor + 手工 startup 闸门` 重新核现场；
+  - 只推进：
+    - `T-P0-02`
+    - `T-P0-03`
+  - 对：
+    - `T-P0-01`
+    - `T-P0-05`
+    做真实阻塞判定。
+- 本轮完成：
+  - 已确认：
+    - `Primary.unity` 里 `001 / 002 / 003` 的 `homeAnchor` scene override 仍在
+    - `001_HomeAnchor / 002_HomeAnchor / 003_HomeAnchor` 仍在，且父级结构一致
+  - 已确认：
+    - 当前并不是 scene 丢 anchor
+    - 更像运行中 Inspector / auto-repair 链问题
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCAutoRoamControllerEditor.cs`
+  - 这次修改新增了：
+    - `Runtime / Serialized / Detected / Parent / Auto-repair` 五段诊断
+    - 自动补口结果回显
+    - `parent-sibling / self-child / scene-search` 三层查找来源
+    - `Create Home Anchor` 与当前 scene sibling 口径统一
+  - 已新增用户复验文档：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC-P0-HomeAnchor基线复验与失败判读.md`
+  - 已同步更新详细任务账本中的实时状态。
+- 本轮验证：
+  - `git diff --check` 已通过上述代码与文档。
+  - `Editor.log` 可见脚本修改后触发了：
+    - `Requested script compilation`
+    - `Reloading assemblies`
+    - `CompileScripts`
+  - 当前未抓到我这轮新引入的 `error CS` 证据。
+- 当前 blocker：
+  - `unityMCP` 当前是“基线 pass、session missing”：
+    - `check-unity-mcp-baseline.ps1 = pass`
+    - 但 `editor/state`、`project/info`、`manage_scene(get_active)` 仍返回 `no_unity_session`
+  - 因此：
+    - `T-P0-01` 还不能 claim done
+    - `T-P0-05` 也还不能 claim done
+- 当前恢复点：
+  - 这轮最正确的下一步是让用户按新文档复验 `001 / 002 / 003` 的 Inspector；
+  - 只有拿到这组 live 读数后，才能决定我是继续补 `Editor` 这一小刀，还是把 `T-P0-02` 判成 done 并进入 `T-P0-05`。
