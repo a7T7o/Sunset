@@ -359,3 +359,90 @@
 - 当前恢复点：
   - 如果白名单 `sync` 成功，本子工作区将回到“文档/资产尾账已入 main、只剩 foreign dirty 留在 shared root”的状态；
   - Day1 主线施工本轮仍保持暂停，不从这里恢复。
+
+## 2026-03-28 补记：Day1 UI prefab 与运行时逻辑拆层关系已做只读复核
+- 当前子工作区主线：响应用户要求，只读分析 `Assets/222_Prefabs/UI/Spring-day1/` 里用户手动调出来的正式面，判断如何把这套 UI 模式推广到“所有工作台共用，只换内容”；本轮不进 Unity、不用 MCP、不改代码或 prefab。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- `sunset-startup-guard` 当前会话未显式暴露；已按 Sunset `AGENTS.md` 手工完成等价前置核查，确认：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+- 本轮已复核：
+  - `Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab`
+  - `Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+  - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs`
+  - `26.03.24-Day1工作台UI与任务体验重收口委托-01.md`
+  - `26.03.26-Day1V2首轮启动委托-09.md`
+  - `26.03.26-Day1V2第二轮续工委托-10.md`
+  - `V1.0_UI样式快照_2026-03-25/00_样式索引.md`
+  - `05_当前现场_高权重事项_风险与未竟问题.md`
+  - `06_证据索引_必读顺序_接手建议.md`
+- 本轮稳定结论：
+  1. `SpringDay1PromptOverlay.prefab` 与 `SpringDay1WorkbenchCraftingOverlay.prefab` 现在更像“视觉 formal-face / 手调样式基线”，不是当前运行时直接实例化的模板；它们自己的 prefab GUID 当前未被 scene 或其他业务资源直接引用。
+  2. 当前真实行为基线仍在代码：`SpringDay1PromptOverlay.EnsureRuntime()`、`SpringDay1WorkbenchCraftingOverlay.EnsureRuntime()` 都会 `new GameObject + AddComponent + BuildUi()` 自建 UI。
+  3. 当前语境里没有独立第三个“日志 prefab”；用户口中的“日志”更接近 `SpringDay1PromptOverlay` 这张任务/日志卡，以及文档与 DebugMenu 里的验证日志证据层。
+  4. `SpringDay1PromptOverlay` 是内容驱动的 Day1 任务卡：数据源来自 `SpringDay1Director.BuildPromptCardModel()`，支持阶段标题、subtitle、focus、footer、逐条完成动画、双页日历式翻页和自适应高度。
+  5. `SpringDay1WorkbenchCraftingOverlay` 是 spring-day1 专用工作台浮层：左列配方来自 `Resources/Story/SpringDay1Workbench`，交互入口受 `CraftingStationInteractable` 驱动，制作权限与进度又被 `SpringDay1Director.CanPerformWorkbenchCraft()` / `NotifyWorkbenchCraftProgress()` 约束。
+  6. 现有实现把“样式”“内容结构”“Day1 业务规则”揉在同一层脚本里；这对 Day1 单线闭环可用，但不适合原样横向复制给所有工作台。
+  7. `SpringDay1WorkbenchCraftingOverlay.prefab` 当前和脚本字段并未完全同步：`materialsViewportRect`、`materialsContentRect`、`progressRoot`、`progressBackgroundImage`、`floatingProgressRoot`、`floatingProgressIcon`、`floatingProgressFillImage`、`floatingProgressLabel` 仍为空，说明手调 prefab 正式面与后长出来的运行时功能面已经分叉。
+  8. 如果要推广成“所有工作台共用这套 UI 模式”，正确方向应是拆成三层：
+     - prefab 样式模板层
+     - 内容 / 行为 schema 层
+     - 站点特化规则层
+    而不是继续走“纯代码 BuildUi”或“只复制 spring-day1 prefab”两条路。
+- 当前恢复点：
+  - 只读分析与方案判断已完成；
+  - 下一步应等待用户决定：是先抽“通用工作台模板 + schema”，还是先把 spring-day1 这套正式面整理成可迁移的第一份模板规范。
+## 2026-03-28 补记：共享字体止血里 Day1 owner 的 6 文件已收成局部 checkpoint
+- 当前子工作区主线：不是继续扩 Day1 功能，也不是下潜共享字体底座，而是按 `2026-03-28_典狱长_spring-day1_共享字体止血owner接盘_01.md`，只把 6 个 Day1-facing 文件里的 owner 止血收清楚。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-no-red-handoff`
+- 当前 6 文件裁决结果：
+  - `A 必留`：
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+    - 三者都把默认字体链从 `DialogueChinese V2 / BitmapSong / Pixel / SoftPixel` 收束为单一 `DialogueChinese SDF`
+    - `Assets/111_Data/UI/Fonts/Dialogue/DialogueFontLibrary_Default.asset` 全部 key 暂时统一指向 `DialogueChinese SDF`
+    - `Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab`
+    - `Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab`
+    - 两份 prefab 中 Day1 文本节点全部改为 `DialogueChinese SDF`，并补清了 workbench prefab 内一处漏掉的 `V2` 序列化引用
+  - `B 本轮一起留的 Day1 行为改动`：无；为避免 same-file contamination，我没有借这轮吞额外 Day1 行为改动
+  - `C 本轮明确拆出的同文件污染`：
+    - `SpringDay1PromptOverlay.cs` 里的 prompt 刷新 / 对话结束忽略 / DisplaySignature 相关行为
+    - `SpringDay1WorldHintBubble.cs` 里的 `HideIfExists` 与对话结束忽略
+    - `SpringDay1WorkbenchCraftingOverlay.cs` 里的拖拽微调、制作进度提示、玩家动画、director 通知、离台小进度标签等行为
+    - 这些都已回退到 `HEAD`，不纳入这次共享字体止血 checkpoint
+- 本轮最小验证：
+  - `git diff --check`：无 whitespace/blocking error
+  - `mcp validate_script`：
+    - `SpringDay1PromptOverlay.cs` 0 error / 1 warning
+    - `SpringDay1WorldHintBubble.cs` 0 error / 1 warning
+    - `SpringDay1WorkbenchCraftingOverlay.cs` 0 error / 1 warning
+  - 说明：warning 为通用字符串拼接 GC 提示，不是本轮新引入 compile red
+  - 额外只读确认：这 6 文件内已无 `DialogueChinese V2 / BitmapSong / Pixel / SoftPixel` 默认引用残留
+- 当前恢复点：
+  - 这 6 文件已经形成可说明、可验证、可给用户判断的 Day1 owner 局部 checkpoint
+  - 但 `spring-day1` 同根 own roots 仍不 clean；下一步若要 sync，这一刀之后只该处理同根 remaining dirty，不该回头扩成共享字体底座治理
+## 2026-03-28 共享字体止血 owner 接盘回执补记（只读核查）
+- 按 `2026-03-28_典狱长_spring-day1_共享字体止血owner接盘_01.md` 回执格式完成 live 复核。
+- 当前 live Git：`main @ a0b3f0eb16e340fd5c2a3f20d4ac6644832690d1`。
+- Day1 owner 6 文件仍保持同一结论：只保留 Day1-facing 默认字体链止血，统一收束到 `DialogueChinese SDF`，不下潜共享字体底座，不碰 `Primary.unity`。
+- 通过 `git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1 -IncludePaths <6文件>` 再次确认：6 文件局部 checkpoint 成立，但 `Assets/YYY_Scripts/Story/UI` 同根仍有 remaining dirty/untracked（`SpringDay1StatusOverlay.cs`、`SpringDay1UiLayerUtility.cs`、`NpcWorldHintBubble.cs` 等），因此当前仍不能 sync。
+- 本轮面向用户的判断保持：这是一个“可说明、可验证的 Day1 字体止血 checkpoint”，不是“共享字体系统已彻底稳定”。
+- 下一步最小动作仍然只有两种：要么用户先按验收清单判断这刀视觉止血是否接受；要么后续单独清 `Assets/YYY_Scripts/Story/UI` 同根尾账，再谈 sync。
+
+## 2026-03-28 Day1 owner 字体止血 checkpoint 停刀
+- 用户已明确收下本轮 `Day1 owner 字体止血 checkpoint`，并裁定：这条线先停，不再继续由 `spring-day1` 往下施工。
+- 后续接棒线程改为 `spring-day1V2`；本线程当前职责到此暂停。
+- 当前冻结点保持不变：6 个 Day1-facing 文件的局部字体止血 checkpoint 已成形，但 `Assets/YYY_Scripts/Story/UI` 同根 remaining dirty/untracked 仍未 clean，因此本线程没有继续 sync，也不再自行开下一刀。
+- 后续如需续工，应由 `spring-day1V2` 继承当前 checkpoint、blocker 与验收口径继续处理；本线程只保留现状记忆，不再扩写。

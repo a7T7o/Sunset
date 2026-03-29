@@ -267,3 +267,1396 @@
 **遗留问题**:
 - [ ] 这份详细任务列表已经可以作为执行标准，但它仍不替代 live 准入；真做 Day1 下一刀前，仍需先按 `T-G0-01` 到 `T-G0-04` 重做现场准入。
 - [ ] 当前 shared root 里的 `Primary.unity`、`DialogueChinese*`、`GameInputManager.cs`、`PlacementManager.cs` 等 blocker 仍未消失，后续 `P0/P1/P2/P3` 中命中这些面的任务不能越过 `G0` 直接施工。
+
+### 会话 7 - 2026-03-27
+
+**用户需求**:
+> 文档审核通过后切换进入 Day1 “高速模式”：不再被 live 和额外测试卡住，先一路埋头做 non-hot 可推进部分；做完一段抬头看能不能测，能测就测，测不成也继续往后做；同时维护一份自己的高速执行与测试排队日志。
+
+**完成任务**:
+1. 按 `skills-governor + sunset-workspace-router + sunset-no-red-handoff` 重新执行 Sunset 手工等价启动闸门，把这轮主线锁定为：
+   - Day1 高速推进
+   - 先走 non-hot formal-face
+   - 不先碰 `Primary.unity`
+2. 在 `0.0.3V2` 下新建高速日志：
+   - `2026-03-27_Day1高速执行日志与测试排队.md`
+   并记录：
+   - `G0` blocker / allowed surface
+   - `P0` 文件闭包
+   - preflight 分流
+   - 执行日志
+   - 测试记录
+   - 待测队列
+3. 先完成 `T-P0-08` 首轮补口：
+   - `SpringDay1WorkbenchCraftingOverlay.cs`
+   - 新增拖拽微调把手 `DragHandle`
+   - 新增 `PanelDragHandle`
+   - 新增 `HandleManualPanelDrag / ApplyManualOffsetDelta / ResetManualPanelOffset`
+   - 工作台浮层从“纯自动锚定”升级为“自动锚定 + 手动偏移”
+4. 再完成 `T-P0-09` 首轮正式补口：
+   - `SpringDay1WorkbenchCraftingOverlay.cs`
+   - `SpringDay1Director.cs`
+   - `SpringDay1PromptOverlay.cs`
+   - `SpringDay1DialogueProgressionTests.cs`
+5. 本轮具体补强：
+   - 工作台制作中新增正式工作态提示文案
+   - 制作中驱动玩家进入明确工作动作姿态，并继续驱动工作台 animator 工作态
+   - 浮层隐藏后的工作台小进度条改为显示“配方名 + 件数/百分比”
+   - 导演层新增 `NotifyWorkbenchCraftProgress`
+   - 任务卡 / 任务页会同步显示“工作台制作中”
+   - 制作完成 / 部分完成后中断 / 失败中断三种反馈被显式区分
+6. 发现并处理一个新增稳定性风险：
+   - 因工作台实时百分比被接入导演层，`PromptOverlay` 若继续把实时数值纳入唯一签名，可能导致任务页高频状态重算
+   - 因此补了：
+     - `DisplaySignature`
+     - `ApplyPendingStateWithoutTransition`
+   - 结构变化才继续走 `TransitionToPendingState`，实时数值变化改为原位刷新
+7. 做了最小文本级自检：
+   - `git diff --check` 通过
+   - `rg` 已确认新增工作态 / 导演态 / 防抖签名相关钩子全部落入目标文件
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` - [追加]：补工作台制作中正式工作态、浮层/小进度条同步与完成/失败反馈
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs` - [追加]：补导演层工作台制作进度同步与任务页映射
+- `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` - [追加]：补任务卡结构签名 / 显示签名分离与原位刷新
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs` - [追加]：补工作台工作态与任务卡防抖相关文本型断言
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md` - [新增]：本轮高速执行日志与测试排队
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md` - [追加]：同步本轮高速模式推进与恢复点
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md` - [追加]：记录这轮高速模式首轮正式补口
+
+**解决方案**:
+- 把 Day1 第一把真实业务刀继续收紧在 non-hot formal-face：
+  - `WorkbenchOverlay`
+  - `PromptOverlay`
+  - `Director`
+  - `Day1 test`
+- 让“工作台人在干活”这件事不再只存在于局部浮层里，而是同时映射到：
+  - 浮层提示
+  - 小进度条
+  - 导演层
+  - 任务卡
+- 在补体验的同时，把由“实时进度进入任务页”带来的 UI 防抖问题顺手收口，避免后续 live 才发现新抖动
+
+**遗留问题**:
+- [ ] 当前仍未做 Unity live / MCP / PlayMode 实测；高速日志里已登记待测项：
+  - 工作台拖拽微调
+  - 工作台制作中人物 / 工作台 / 任务卡 / 小进度条状态一致性
+- [ ] `Primary.unity` 继续按 mixed hot-file blocker 处理；本轮没有进入 scene 热窗。
+- [ ] 下一步最自然的是继续扫 `T-P0-01 / T-P0-02 / T-P0-03` 的首段对话、解码与 follow-up 推进链，而不是现在跳去 `P1/P2`。
+
+## 2026-03-27 23:59｜Day1 高速模式第二轮：首段 follow-up / 疗伤顺序收口
+
+**用户目标**:
+- 继续按 Day1 高速模式往下做，不被 live 和额外测试卡住；先在 non-hot formal-face 上真正收 `T-P0-01 / T-P0-02 / T-P0-03`，把 `NPC001 首段 -> follow-up -> 疗伤` 的推进链钉实。
+
+**本轮完成**:
+1. 重新按 `skills-governor + sunset-workspace-router + sunset-no-red-handoff` 做了手工等价前置核查：
+   - 当前 shared root 仍是 `main + neutral`
+   - 当前工作区仍是 `900_开篇/0.0阶段/0.0.3V2`
+   - 本轮继续只做 `Story/* + Day1 test`，不碰 `Primary.unity / GameInputManager.cs / PlacementManager.cs`
+2. 在 `DialogueManager.cs` 正式接上资产 `followupSequence`：
+   - 新增 `ResolveFollowupSequence`
+   - `StopDialogueInternal` 完成首段后会自动 `PlayDialogue(followupSequence)`
+3. 在 `SpringDay1Director.cs` 收紧疗伤启动时机：
+   - 新增 `FirstFollowupSequenceId = "spring-day1-first-followup"`
+   - 首段完成但仍有 follow-up 时不再立即 `BeginHealingAndHp()`
+   - 改为 follow-up 收束后再进入疗伤
+   - `EnterVillage` 相位变化时先看 `IsDialogueChainStillActive()`，避免抢跑
+4. 在连续对话收尾面补“忽略旧 End 事件”：
+   - `NPCDialogueInteractable.cs`
+   - `SpringDay1PromptOverlay.cs`
+   - `SpringDay1StatusOverlay.cs`
+   - `SpringDay1WorldHintBubble.cs`
+   都补了 `ShouldIgnoreDialogueEndEvent()`
+5. 在 `SpringDay1DialogueProgressionTests.cs` 补了两组新锚点：
+   - `DialogueChain_AutoPlaysFollowupBeforeHealing`
+   - `HealingAndEnergyPacing_RemainsBoundToDay1FormalSequence`
+6. 已同步更新：
+   - `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+   - `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/Managers/DialogueManager.cs`
+- `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+- `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+- `Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs`
+- `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+
+**验证**:
+- `git diff --check` 通过：
+  - `DialogueManager.cs`
+  - `NPCDialogueInteractable.cs`
+  - `SpringDay1Director.cs`
+  - `SpringDay1PromptOverlay.cs`
+  - `SpringDay1StatusOverlay.cs`
+  - `SpringDay1WorldHintBubble.cs`
+  - `SpringDay1DialogueProgressionTests.cs`
+- `rg` 已确认以下钩子全部在目标文件落位：
+  - `ResolveFollowupSequence`
+  - `PlayDialogue(followupSequence)`
+  - `FirstFollowupSequenceId`
+  - `ShouldIgnoreDialogueEndEvent()`
+  - `HealingAndEnergyPacing_RemainsBoundToDay1FormalSequence`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 一条龙高速推进。
+- 本轮子任务是把首段对话、解码、follow-up、疗伤顺序从“资产存在但运行链未闭”修成正式推进链。
+- 当前恢复点：
+  - formal-face 上 `T-P0-01 / T-P0-02 / T-P0-03` 已明显收紧；
+  - 下一步优先检查 `T-P0-04 / T-P0-05 / T-P0-06` 在 non-hot 面上还有没有剩余缺口；
+  - 一旦有 live 窗口，先复跑 `NPC001 -> 首段 -> follow-up -> 疗伤 -> 工作台闪回` 整条链。
+
+## 2026-03-27 15:21｜Day1 高速模式第二轮补记：验收入口不再误导 / 反触
+
+**用户目标**:
+- 继续在高速模式下往前做，不停；把本轮刚修好的 follow-up / 疗伤顺序进一步落实到运行态验收入口和导演层文案上，避免后续 live 复跑时还被旧提示误导。
+
+**本轮完成**:
+1. 在 `SpringDay1Director.cs` 新增：
+   - `IsFirstFollowupPending()`
+   - `IsWorkbenchFlashbackAwaitingInteraction()`
+2. 收紧导演层用户可见文案：
+   - `EnterVillage` 标签改为 `0.0.2 首段后续说明`
+   - 工作台闪回文案细分为：
+     - `等待打开工作台`
+     - `工作台回忆进行中`
+     - `工作台已打开，等待回忆收束`
+     - `等待工作台回忆完整播完。`
+3. 收紧 `SpringDay1LiveValidationRunner`：
+   - 推荐动作会根据 `followupPending / workbenchAwaitingInteraction` 分流
+   - 单步触发不再在工作台已打开后继续反向触发工作台交互
+   - 快照中新增：
+     - `followupPending=`
+     - `workbenchAwaiting=`
+4. 在 `SpringDay1DialogueProgressionTests.cs` 补了对应文本级断言
+5. 已同步更新：
+   - `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+   - `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+
+**验证**:
+- `git diff --check` 通过：
+  - `SpringDay1Director.cs`
+  - `SpringDay1DialogueProgressionTests.cs`
+- 文本级自检已确认：
+  - `0.0.2 首段后续说明`
+  - `工作台回忆进行中`
+  - `工作台已打开，等待回忆收束`
+  - `等待工作台回忆完整播完。`
+  - `followupPending=`
+  - `workbenchAwaiting=`
+  都已落位
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是把运行态验收入口和导演层文案对齐到新的前半链顺序。
+- 当前恢复点：
+  - 如果后面有 live 窗口，先看快照里的 `followupPending` 和 `workbenchAwaiting` 是否与现场一致；
+  - 再继续判断 `T-P0-04 / T-P0-05 / T-P0-06` 还需不需要新的 non-hot 补口。
+
+## 2026-03-27｜Day1 高速模式第三轮：后半链验收旗标 + unityMCP 最小 live 取证
+
+**用户目标**:
+- 不要停，继续把 Day1 能做的部分一路做下去；能测就测，测不通也记日志后继续，不因为 live 阻断停工。
+
+**本轮完成**:
+1. 继续按 `skills-governor + sunset-workspace-router + sunset-no-red-handoff` 做 Sunset 手工等价启动闸门，并新增使用：
+   - `unity-mcp-orchestrator`
+   - `sunset-unity-validation-loop`
+2. 先完成 `unityMCP` 基线核查：
+   - `check-unity-mcp-baseline.ps1` 通过
+   - 当前会话 resources / templates 已回正到 `unityMCP`
+   - 当前实例确认是 `Sunset@21935cd3ad733705`
+3. 在 `SpringDay1Director.cs` 继续补后半链验收旗标：
+   - `IsDinnerDialoguePendingStart()`
+   - `IsReminderDialoguePendingStart()`
+   - `IsSleepInteractionAvailable()`
+   - `BuildSnapshot()` 追加：
+     - `dinnerPending=`
+     - `reminderPending=`
+     - `sleepReady=`
+   - 用户可见导演文案继续收紧为：
+     - `晚餐对白进行中`
+     - `等待晚餐对白接管`
+     - `归途提醒对白进行中`
+     - `等待归途提醒对白接管`
+     - `现在可以自由活动，也可以直接回住处睡觉。`
+4. 在 `SpringDay1DialogueProgressionTests.cs` 补了以上后半链旗标和文案的文本级锚点
+5. 执行最小 live 取证：
+   - 初始 Editor 卡在 `playmode_transition`
+   - 先 `stop` 把 Unity 恢复到 `Edit Mode`
+   - 清 Console
+   - 进入 Play
+   - 执行：
+     - `Bootstrap Spring Day1 Validation`
+     - `Log Spring Day1 Validation Snapshot`
+     - 有限次 `Step Spring Day1 Validation`
+6. live 结果已拿到：
+   - `SpringDay1LiveValidationRunner` 成功 bootstrap
+   - Snapshot 已真实输出：
+     - `followupPending`
+     - `workbenchAwaiting`
+     - `dinnerPending`
+     - `reminderPending`
+     - `sleepReady`
+   - 首次 `Step` 已实际触发 `NPC001` 首段对话
+   - 有限次 `Step` 后，流程已推进到：
+     - `Phase=WorkbenchFlashback`
+     - `Decoded=True`
+     - `HP=85/100|visible=True`
+     - `workbenchAwaiting=True`
+   - 说明 `NPC001 -> 首段 -> follow-up -> 疗伤 -> 工作台闪回` 已至少能推进到工作台闪回入口
+7. 当前 live 新暴露的继续推进阻断：
+   - `工作台 Anvil_0 当前不在交互包络线内。`
+   - 这意味着下一步若继续做 live，应优先收 `T-P0-06 / T-P0-11` 一侧
+8. 额外 runtime 噪音：
+   - Play 期间混入 `NavigationLiveValidationRunner` 自动日志
+   - 当前按 external runtime noise 报实，不算 Day1 own error
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- `validate_script` 覆盖本轮 owned 脚本，全部 `0 errors`
+- `check-unity-mcp-baseline.ps1` 通过
+- live Console 未见新增项目级 error
+- `editor_state` 虽持续给 `stale_status`，但 menu/tool 执行链可用，当前按 MCP 资源状态陈旧噪音报实
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 把后半链验收判位也纳入导演层快照
+  - 拿到最小 live 证据，确认前半链不再卡死在首段之后
+- 当前恢复点：
+  - 若继续 live，优先处理工作台交互距离 / 验收推进能力；
+  - 若暂不继续 live，就继续只在 non-hot formal-face 内补 `T-P0-06 / T-P0-11` 或相关 HP / EP / 后半链体验锚点；
+  - 仍不碰 `Primary.unity / DialogueChinese* / GameInputManager.cs / PlacementManager.cs`。
+
+## 2026-03-27｜Day1 高速模式第四轮：工作台验收兜底 + Play 退场 no-red 修复
+
+**用户目标**:
+- 继续做到底，不要因为 live 入口继续推进能力或 Play 退场红错而停住。
+
+**本轮完成**:
+1. 在 `SpringDay1Director.cs` 给 `WorkbenchFlashback` 阶段补了验收入口脚本兜底：
+   - 当前阶段若仍 `workbenchAwaiting=true`
+   - 但玩家不在工作台交互包络线内
+   - `TryTriggerWorkbenchInteraction()` 会走一次只服务验收入口的脚本交互兜底
+2. 做这条兜底的结构验证与编译刷新：
+   - `validate_script` 通过
+   - `git diff --check` 通过
+3. 在继续 live 过程中抓到真正的 owned no-red 红面：
+   - 退出 Play 时出现：
+     - `go.IsActive()` assert
+     - `Some objects were not cleaned up when closing the scene`
+4. 通过 `Editor.log` 定位到两条 owned 根因：
+   - `NPCDialogueInteractable.OnDisable()` 通过 `SpringDay1WorldHintBubble.Instance?.Hide(...)` 反向创建 UI
+   - `SpringDay1Director.ReleaseStoryTimePause()` 在 `OnDisable()` 里通过 `TimeManager.Instance` 反向创建 `TimeManager`
+5. 做了最小 no-red 修补：
+   - `SpringDay1WorldHintBubble.cs`
+     - 新增 `HideIfExists()`
+   - `NPCDialogueInteractable.cs`
+   - `CraftingStationInteractable.cs`
+     - hide-only 气泡回收全部改成 `HideIfExists(transform)`
+   - `SpringDay1Director.cs`
+     - `ReleaseStoryTimePause()` 改成只恢复已存在的 `TimeManager`
+   - `SpringDay1DialogueProgressionTests.cs`
+     - 新增对应文本锚点
+6. 重新跑最小 `Play -> Stop` 烟雾验证：
+   - 当前只剩 `There are no audio listeners in the scene` warning
+   - 之前的：
+     - `go.IsActive()` assert
+     - `Some objects were not cleaned up when closing the scene`
+     都已不再复现
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+- `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+- `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+- `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- `validate_script` 覆盖上述 owned 脚本全部 `0 errors`
+- `git diff --check` 通过
+- 编译刷新后 Console 无新增 error
+- 最小 `Play -> Stop` 烟雾验证只剩音频监听 warning
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 让工作台验收入口不再死在站位问题上
+  - 清掉自己在 live / Play 尾场引出的红错
+- 当前恢复点：
+  - shared root 当前已回到 Edit Mode，且没有我这轮 owned 红错残留；
+  - 若继续 live，应给疗伤自动段更长但受控的窗口，去实证工作台脚本兜底是否真正接住回忆段；
+  - 若继续 formal-face，则继续补 `T-P0-04 / T-P0-05 / T-P0-06 / T-P0-11` 的非热收口。
+
+## 2026-03-27｜Day1 高速模式第五轮：工作台闪回 live 已真实接住
+
+**用户目标**:
+- 继续一直往下做，不要因为 live 或测试小阻断就停住；能测就测，测完继续推进。
+
+**本轮完成**:
+1. 重新核实当前 `unityMCP` live 现场：
+   - server 资源正常暴露为 `unityMCP`
+   - 当前唯一实例是 `Sunset@21935cd3ad733705`
+   - 项目仍是 `D:/Unity/Unity_learning/Sunset`
+2. 按最小 live 边界跑了一次受控窗口：
+   - `compile refresh -> clear console -> Play -> Bootstrap -> Snapshot -> 有限次 Step -> Stop`
+3. 在真实运行态拿到 Day1 前半链继续推进证据：
+   - 首段对话已触发
+   - 疗伤段已进入
+   - `Decoded=True`
+   - `HP=85/100|visible=True`
+4. 在同一轮 live 中继续推进到工作台闪回入口：
+   - `Phase=WorkbenchFlashback`
+   - `workbenchAwaiting=True`
+5. 再执行一次 `Step` 后，Console 明确输出：
+   - `工作台 Anvil_0 当前不在交互包络线内，已通过验收入口脚本触发工作台回忆。`
+6. 同步快照已进入：
+   - `Dialogue=spring-day1-workbench[1/2]|typing=True`
+   - `Director=0.0.4 工作台闪回|工作台回忆进行中`
+   - `workbenchAwaiting=False`
+7. Play 期间出现一条非 own 字体 importer error：
+   - `DialogueChinese BitmapSong SDF.asset`
+   - Stop 后清 Console，并在 `Edit Mode` 空闲复核：
+     - `error=0`
+     - `warning=0`
+   - 当前按外来瞬时噪音 / 非本轮 own 面报实，不吞并处理
+
+**修改文件**:
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 进入 live 前 compile refresh 完成，Console 为 `0`
+- live 已真实证明工作台验收兜底能接住 `WorkbenchFlashback`
+- Stop 后再次确认 Unity 回到 `Edit Mode`
+- 清 Console 后 `error / warning` 均为 `0`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 把 `T-P0-06` 的工作台兜底从“代码已写”推进到“live 已证”
+  - 确认 Console 没有遗留我这轮 own 红错
+- 当前恢复点：
+  - `T-P0-06` 可以按 non-hot formal-face 已获证据处理；
+  - `T-P0-11` 仍是 hot/mixed blocker，不因本轮 live 兜底而自动解锁；
+  - 下一步优先回填任务列表状态，并继续看 `T-P0-05` 和 `T-P1-*` 哪些还能在不碰 hot 文件下补体验证据。
+
+## 2026-03-27｜Day1 高速模式第六轮：按用户裁定撤掉自定义 HP / EP 面
+
+**用户目标**:
+- 不打断 Day1 主线推进，但明确要求：
+  - 不再使用我后来补出来的那对 HP / EP 自定义视觉面；
+  - 改回项目最初已有的那两条；
+  - 自定义部分彻底删除，并做好重接。
+
+**本轮完成**:
+1. 识别出当前用户不接受的对象就是：
+   - `SpringDay1StatusOverlay.cs`
+   - 以及 `HealthSystem / EnergySystem` 对它的整套 runtime 接线
+2. 已从代码层彻底移除：
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs`
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs.meta`
+3. `HealthSystem.cs`
+   - 改回只依赖 `UI/State/HP`
+   - reveal / heal 改为直接驱动原 slider 与 `CanvasGroup`
+4. `EnergySystem.cs`
+   - 改回只依赖 `UI/State/EP`
+   - reveal / restore / low-energy pulse 改为直接驱动原 slider 与 fill image
+5. `SpringDay1DialogueProgressionTests.cs`
+   - 删除对 `SpringDay1StatusOverlay` 文件本体的引用
+6. 场景与代码残留复核：
+   - `UI/State/HP` 存在
+   - `UI/State/EP` 存在
+   - `SpringDay1StatusOverlay` 场景搜索为 `0`
+   - 代码搜索无残引用
+7. 最小 smoke：
+   - `Bootstrap -> Step* -> HealingAndHP -> WorkbenchFlashback`
+   - 无新增 error
+   - 删掉自定义面后 Day1 主链仍能正常推进
+
+**修改文件**:
+- `Assets/YYY_Scripts/Service/Player/HealthSystem.cs`
+- `Assets/YYY_Scripts/Service/Player/EnergySystem.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 删除：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs.meta`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- `validate_script`：
+  - `HealthSystem.cs` `0 errors`
+  - `EnergySystem.cs` `0 errors`
+  - `SpringDay1DialogueProgressionTests.cs` `0 errors`
+- `git diff --check` 通过
+- compile refresh 后 `error=0 / warning=0`
+- smoke live 到疗伤与工作台闪回无新增 error
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 按用户最新体验裁定，撤掉我自己补出来但用户不接受的 HP / EP 自定义面
+  - 把逻辑和运行态重新接回原始 slider
+- 当前恢复点：
+  - 后续 Day1 继续推进时，不再使用 `SpringDay1StatusOverlay`；
+  - 这次只回拉视觉承载，不等于把 Day1 其他 non-hot 逻辑推进一起回退；
+  - 下一步可以继续推进与这对视觉样式无关的 Day1 其他刀口。
+
+## 2026-03-27｜Day1 高速模式第七轮：live 稳定化补口并收掉 `T-P0-05`
+
+**用户目标**:
+- 继续 Day1 主线，不再碰 HP / EP 视觉审美层；把能做的非热主线继续往下做，并把“刚做了什么 / 还剩什么”说清楚。
+
+**本轮完成**:
+1. 继续追 `T-P0-05` 时，先把 Day1 own live 暴露出的两个真实阻断收掉：
+   - `SpringDay1LiveValidationRunner` 在 `BootstrapRuntime()` 临时接管 `Application.runInBackground`，允许失焦编辑器下自动段继续跑帧；
+   - `SpringDay1Director.PlayDialogueWhenReady()` 改成逐帧重新解析 `DialogueManager`，避免 workbench queue 的 `NullReferenceException`
+2. `SpringDay1DialogueProgressionTests.cs` 已补进上述两条 live 稳定化防回归锚点。
+3. 受控 live 重新跑通到 farming 段，并拿到 `T-P0-05` 的运行态硬证：
+   - `EP=80/200|visible=True|warn=False`
+   - `EP=45/200|visible=True|warn=False`
+   - `EP=20/200|visible=True|warn=True`
+   - `Move=runtimeMultiplier=0.80`
+4. `2026-03-27_Day1全盘详细落地任务列表.md` 已把 `T-P0-05` 回填为 `done`。
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1全盘详细落地任务列表.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- `validate_script`
+  - `SpringDay1Director.cs`：`0 errors`（仅既有性能 warning）
+  - `SpringDay1DialogueProgressionTests.cs`：`0 errors`
+- `git diff --check` 通过
+- live 已证明：
+  - 疗伤自动段在失焦编辑器下能继续推进到 `HP=85/100|visible=True`
+  - workbench queue 不再打 `NullReferenceException`
+  - farming 三步拿齐 `EP / warn / Move=0.80` 证据
+- 最终 explicit `Stop` + `clear console` 后：
+  - `error=0`
+  - `warning=0`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 用最小代码补口稳住 Day1 自己的 live 验收入口；
+  - 把 `T-P0-05` 从“还缺运行态证据”推进到“已经 done”。
+- 当前恢复点：
+  - `T-P0-05` 已 done；
+  - `T-P0-11` 仍 blocked-hotfile，不自动解锁；
+  - Day1 白名单 `preflight` 已补跑，但当前不能直接 sync：
+    - `Assets/YYY_Scripts/Service/Player` own root 下还有未纳入本轮白名单的历史尾账
+    - 脚本明确点名的 remaining dirty：
+      - `PlayerAutoNavigator.cs`
+      - `PlayerInteraction.cs`
+      - `PlayerNpcNearbyFeedbackService.cs`
+      - `PlayerNpcRelationshipService.cs`
+      - `PlayerThoughtBubblePresenter.cs`
+  - 下一步最值得继续推进的是 Day1 后半链：
+    - `T-P1-01`
+    - `T-P1-04`
+    - `T-P1-05`
+
+## 2026-03-27｜Day1 高速模式第八轮：晚餐入口 low-energy 状态重同步
+
+**用户目标**:
+- 继续 Day1 主线，不停在前一轮 live 新发现的问题上；把 Day1 自己已经暴露出的后半链 bug 直接往前修掉，然后继续推进。
+
+**本轮完成**:
+1. 钉实上一轮 live 新发现的 Day1 own 问题：
+   - 已真实推进到 `DinnerConflict`
+   - 但晚餐入口快照出现：
+     - `EP=20/200|warn=True`
+     - `Move=runtimeMultiplier=1.00`
+   - 说明 low-energy warning 与移速惩罚在 phase 切换时发生了脱节
+2. `SpringDay1Director.cs`
+   - `HandleStoryPhaseChanged(...)` 现在会在剧情阶段切换时执行 `ResyncLowEnergyState(false)`
+   - `HandleEnergyChanged(...)` 已统一收口为 `ResyncLowEnergyState(true)`
+   - 新增 `ResyncLowEnergyState(bool allowPrompt)`，直接按当前 `EnergySystem.CurrentEnergy` + `_staminaRevealed` 重新对齐：
+     - low-energy warning 视觉
+     - 低精力移速惩罚
+     - 是否重复弹提示
+3. `SpringDay1DialogueProgressionTests.cs`
+   - 已补上这条 phase 切换重同步的文本防回归锚点
+4. 最小闸门：
+   - `git diff --check` 通过
+   - `validate_script`
+     - `SpringDay1Director.cs`：`0 errors`（仅既有性能 warning）
+     - `SpringDay1DialogueProgressionTests.cs`：`0 errors`
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 代码闸门：
+  - `git diff --check` 通过
+  - `validate_script`
+    - `SpringDay1Director.cs`：`0 errors`
+    - `SpringDay1DialogueProgressionTests.cs`：`0 errors`
+- 短窗口 live：
+  - `Bootstrap` 成功
+  - `Step` 成功触发 `NPC001` 首段对话
+  - 但继续追到晚餐入口的过程中，`unityMCP` 一次返回：
+    - `plugin session ... disconnected while awaiting command_result`
+  - 随后同轮 console / 菜单日志回读表现不稳定
+  - 已显式 `Stop` 回 `Edit Mode`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 收掉 Day1 自己已经暴露出来的后半链 low-energy 状态一致性问题；
+  - 不碰 `Primary.unity / GameInputManager.cs / PlayerInteraction.cs / PlayerThoughtBubblePresenter.cs`
+- 当前恢复点：
+  - 这刀已经把最直接的 formal-face 根因补上：
+    - low-energy 状态不再只靠 `OnEnergyChanged`
+    - phase 切换也会重新对齐 warning 与移速惩罚
+- 当前未完成的是晚餐入口 live 复证，不是代码闸门
+  - 下一次只要 `unityMCP` 菜单会话稳定，优先复验：
+    - `DinnerConflict`
+    - `EP=20/200|warn=True`
+    - `Move=runtimeMultiplier=0.80`
+  - 若继续高速推进，仍优先沿：
+    - `T-P1-01`
+    - `T-P1-04`
+    - `T-P1-05`
+
+## 2026-03-27｜Day1 高速模式第九轮：账本纠偏与 `nightPressure` live blocker 精确报实
+
+**用户目标**:
+- 继续一直往下干，能推进就继续推进；如果 live 有噪音，不要停工，要把真相钉实后继续做 formal-face 或把 blocker 记清楚。
+
+**本轮完成**:
+1. 沿 `T-P1-04 / T-P1-05` 继续追短 live，但先把执行标准纠正到真实现场：
+   - `2026-03-27_Day1全盘详细落地任务列表.md`
+   - `2026-03-27_Day1高速执行日志与测试排队.md`
+   已移除现役文件闭包中的 `SpringDay1StatusOverlay.cs`
+   - `T-P0-04 / T-P0-05` 改回经 `HealthSystem.cs / EnergySystem.cs` 间接承载原始 `UI/State/HP / UI/State/EP`
+   - `T-P1-02` 状态改为 `in-progress`
+2. 在 `SpringDay1DialogueProgressionTests.cs` 新增：
+   - `UiLayerUtility_RemainsPublicForSharedEditorValidationMenus`
+   用来把 `SpringDay1UiLayerUtility` 的 `public static class` 访问级钉成防回归锚点，避免 Editor 菜单侧再次编译阻断。
+3. 重新跑最保守的 live 复证：
+   - `Stop -> Clear Console -> Play -> Bootstrap -> 小批量 Step`
+4. 新的 live 事实已明确：
+   - `Bootstrap` 能稳定输出 `CrashAndMeet` 快照
+   - 第一小批 `Step` 能真实推进首段对白到：
+     - `spring-day1-first[3/3]|typing=False`
+   - 但继续批推进后，菜单链直接报：
+     - `请先进入 PlayMode 再执行 spring-day1 验收步骤。`
+     - `请先进入 PlayMode 再记录 spring-day1 验收快照。`
+   - 说明当前 blocker 不是 Day1 own 逻辑红，而是工具级 Play 状态漂移
+   - `Stop -> Clear` 后若继续做 MCP 状态 / Console 读回，还会重新出现：
+     - `PlayerAutoNavigator` 导航卡顿 warning
+     - `GameObjectSerializer` playback 相关 error
+     这组按外部 / MCP 回读噪音报实，不并入 Day1 own 红面
+5. 已显式收尾：
+   - `Stop`
+   - `Clear Console`
+   - 当前 Unity 回到 `Edit Mode`
+
+**修改文件**:
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1全盘详细落地任务列表.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- `validate_script`
+  - `SpringDay1Director.cs`：`0 errors`
+  - `SpringDay1BedInteractable.cs`：`0 errors`
+  - `SpringDay1UiLayerUtility.cs`：`0 errors`
+  - `SpringDay1DialogueProgressionTests.cs`：`0 errors`
+- `git diff --check` 通过：
+  - `SpringDay1DialogueProgressionTests.cs`
+  - `2026-03-27_Day1全盘详细落地任务列表.md`
+  - `2026-03-27_Day1高速执行日志与测试排队.md`
+- live 结论：
+  - `Bootstrap` 可用
+  - 小批量 `Step` 可推进
+  - 但批推进中途会掉出 PlayMode
+  - 当前尚未拿到 `nightPressure=night / midnight / final-call` 与两点规则收束快照
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 把执行账本纠正到用户已裁定后的真实代码面
+  - 精确确认 `nightPressure` 当前为什么还缺 live 证据
+- 当前恢复点：
+  - 这轮已经把 `nightPressure` 缺证重新定性为工具级 blocker，而不是 Day1 逻辑回退；
+  - 在不碰 hot / mixed 面的前提下，本轮已没有更大的安全代码切口可以继续扩写；
+  - 若下一轮继续追 `T-P1-04 / T-P1-05`，应优先改用：
+    - `Play -> Bootstrap -> 小批量 Step -> 立刻 Snapshot`
+    这种更短窗口的 live 取证方式。
+
+## 2026-03-27｜Day1 高速模式第十轮：后半链 live 已推进到 `final-call`
+
+**用户目标**:
+- 继续 Day1 主线，不停在“工具可能会漂”这个层面；只要还能推进，就把后半链能拿到的证据继续往前拿。
+
+**本轮完成**:
+1. 继续按短窗口 live 复证后半链，真实推进并确认：
+   - `DinnerConflict`
+   - 晚餐回血
+   - `ReturnAndReminder`
+   - `FreeTime`
+   - `nightPressure=night`
+   - `nightPressure=midnight`
+   - `nightPressure=final-call`
+2. 这轮关键运行态证据包括：
+   - `DinnerConflict`
+     - `Dialogue=spring-day1-dinner[2/3]|typing=True`
+     - `EP=20/200|warn=True`
+     - `Move=runtimeMultiplier=0.80`
+   - `ReturnAndReminder`
+     - `Dialogue=spring-day1-reminder[2/2]|typing=False`
+     - `EP=50/200|warn=False`
+     - `Move=runtimeMultiplier=1.00`
+   - `FreeTime`
+     - `sleepReady=True`
+     - `nightPressure=settled`
+   - 夜压推进：
+     - `22:00 -> nightPressure=night`
+     - `00:00 -> nightPressure=midnight`
+   - `Editor.log` 追加硬证：
+     - `验收入口：已模拟推进到凌晨一点，最终催促应已触发。`
+     - `01:00 AM`
+     - `nightPressure=final-call`
+3. 已同步回填：
+   - `2026-03-27_Day1全盘详细落地任务列表.md`
+     - `T-P1-02` -> `done`
+     - `T-P1-03` -> `done`
+     - `T-P1-04 / T-P1-05` 保持 `in-progress`
+   - `SpringDay1DialogueProgressionTests.cs`
+     - 补进 `night / midnight / final-call / 两点规则入口` 文本防回归锚点
+
+**修改文件**:
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1全盘详细落地任务列表.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- live / log 证据：
+  - `DinnerConflict`
+  - `ReturnAndReminder`
+  - `FreeTime`
+  - `nightPressure=night / midnight / final-call`
+  已全部拿到真实运行态证据
+- `Unity` 当前已回到 `Edit Mode`
+- 当前没有新增我 own 的 C# compile red 证据
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速一条龙推进。
+- 本轮子任务是：
+  - 把后半链主体从“仍缺 live 证据”推进到“已经具备运行态硬证”；
+  - 同时把账本与测试锚点回填到真实现场。
+- 当前恢复点：
+  - `T-P1-02 / T-P1-03` 已可按 `done` 处理；
+  - `T-P1-04 / T-P1-05` 当前只剩：
+    - `两点规则触发 -> DayEnd`
+      这最后一拍尚未拿到运行态快照；
+  - 当前直接 blocker 不是 Day1 own 逻辑红，而是：
+    - `DialogueChinese V2 SDF.asset` importer inconsistent result
+      在 `final-call` 证据之后触发 domain reload / Play 退出。
+
+## 2026-03-27｜用户已重定后续直接汇报格式，当前线程强制改用“先人话层、后技术层”
+
+**用户目标**:
+- 用户明确要求：以后直接对他汇报时，必须先用固定 6 项的人话层说明，再补技术审计层；如果只交技术 dump，会被直接判定为不合格并要求重发。
+
+**本轮完成**:
+1. 已把这条汇报契约正式写入当前线程记忆，并同步到工作区记忆。
+2. 当前线程后续直接汇报固定顺序改为：
+   - 人话层 6 项：
+     - `当前主线`
+     - `这轮实际做成了什么`
+     - `现在还没做成什么`
+     - `当前阶段`
+     - `下一步只做什么`
+     - `需要我现在做什么（没有就写无）`
+   - 技术审计层 5 项：
+     - `changed_paths`
+     - `验证状态`
+     - `是否触碰高危目标`
+     - `blocker_or_checkpoint`
+     - `当前 own 路径是否 clean`
+
+**修改文件**:
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 当前为协作契约回写，无业务代码修改，无额外 Unity 验证需求。
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速推进。
+- 本轮子任务是：
+  - 把用户最新给出的汇报格式要求写成线程可持续沿用的硬规则。
+- 当前恢复点：
+  - 从下一次直接汇报开始，本线程默认先给人话层 6 项，再给技术审计层；
+  - 若我再次先交技术 dump，应直接自判为格式违规。
+
+## 2026-03-27｜Day1 最后缺口当前已改判为 external live blocker
+
+**用户目标**:
+- 继续把当前还能直接做完的内容全部做完；如果最后只剩 external blocker，就把能补的正式面全部补齐，并把 blocker 说准。
+
+**本轮完成**:
+1. 给 `DayEnd` 正式收束链补齐了最后一层文本防回归锚点：
+   - `StoryManager.Instance.SetPhase(StoryPhase.DayEnd);`
+   - `EnergySystem.Instance.FullRestore();`
+   - `ApplyLowEnergyMovementPenalty(false);`
+   - `SpringDay1PromptOverlay.Instance.Show("春1日结束。明天继续。")`
+2. 重新校准任务状态：
+   - `T-P1-04` -> `done`
+   - `T-P1-05` -> `blocked-external`
+3. 新一轮 live 复证后，当前 blocker 已进一步钉实为 external：
+   - `DialogueChinese V2 SDF.asset` importer inconsistent result / domain reload
+   - `NavigationLiveValidationRunner` 自动 `runtime_launch_request`
+
+**修改文件**:
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1全盘详细落地任务列表.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 文本防回归锚点已补齐；
+- 当前没有新增我 own 的 C# compile red 证据；
+- 最新 live 复证仍未拿到 `DayEnd` 快照，但 blocker 已从“可能是 Day1 own 未完成”收紧为“external live 现场打断”。
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速推进。
+- 本轮子任务是：
+  - 把 Day1 自己还能继续补的最后一层 formal-face 全部补齐；
+  - 把最后剩余缺口准确改判为 external blocker。
+- 当前恢复点：
+  - Day1 own 这边当前只剩一个未闭环项：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照
+  - 它当前被外部 live 现场打断，不再是 Day1 own 代码缺口。
+
+## 2026-03-27｜Day1 末段已补入独立运行时测试，且本轮自引 compile red 已清零
+
+**用户目标**:
+- 在 `final-call -> DayEnd` live 仍被外部现场打断时，把 Day1 自己还能直接做完的证明继续补满，但不能把 shared root 留成我 own 的编译红。
+
+**本轮完成**:
+1. 新增：
+   - `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+2. 新测试当前补上了两条独立的末段运行时证明：
+   - `FreeTimeValidationStep_AdvancesFromFinalCallToDayEnd`
+   - `BedBridge_EndsDayAndRestoresSystems`
+3. 首版测试曾因为直接引用项目类型引入 compile red；本轮已经同轮改为反射式写法并清红：
+   - `validate_script`：`0 errors`
+   - `git diff --check`：通过
+   - `refresh_unity(force + request)` 后 Console：`0 entries`
+4. 清红前的干净 live 窗口里，Day1 还能重新稳推进到：
+   - `HealingAndHP`
+   - `WorkbenchFlashback`
+   - `FarmingTutorial`
+   - `DinnerConflict`
+   并再次复到：
+   - `EP=80/200|visible=True`
+   - `EP=45/200|visible=True`
+   - `EP=20/200|warn=True`
+   - `Move=runtimeMultiplier=0.80`
+5. 但清红后的最后一轮最短 `Bootstrap` 复追，仍被外部现场打断：
+   - `Unity plugin session ... disconnected while awaiting command_result`
+   - `[WebSocket] Unexpected receive error: WebSocket is not initialised`
+6. 当前 Unity 已显式退回 `Edit Mode`。
+
+**修改文件**:
+- `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- `validate_script`
+  - `SpringDay1LateDayRuntimeTests.cs`：`0 errors`
+- `git diff --check`
+  - `SpringDay1LateDayRuntimeTests.cs`：通过
+- `refresh_unity(force + request)` 后 Console：`0 entries`
+- live：
+  - 一度可稳定重新推进到 `DinnerConflict`
+  - 最后一轮 `Bootstrap` 复追仍被 `unityMCP` 插件短断打断
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 高速推进。
+- 本轮子任务是：
+  - 把 `DayEnd` 最后一拍从“只有文本锚点”补成“文本锚点 + 运行时测试”；
+  - 同时确保我这轮没有留下 compile red。
+- 当前恢复点：
+  - Day1 own 当前仍只剩：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照
+  - 当前最准 blocker 已收紧为：
+    - `unityMCP` 插件级短断 / 会话重连
+  - 不是 Day1 逻辑未补，也不是我这轮还留着红错。
+
+## 2026-03-27｜PromptOverlay 空指针已修复；当前 live 被 shared-root 外部脚本刷新拍断
+
+**用户目标**:
+- 继续把 Day1 最后一拍直接做到底；如果 live 再出问题，也要先把 own 红点收掉，再把真正 blocker 说准。
+
+**本轮完成**:
+1. 先按 Sunset 启动闸门等价流程复核：
+   - shared root 在 `main@a0b3f0eb`
+   - `unityMCP` 会话存在，目标实例为 `Sunset@21935cd3ad733705`
+2. 新发现并收掉一条 own runtime red：
+   - `NullReferenceException`
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs:147`
+3. 最小修法：
+   - `if (!_hasDisplayedState || _displayedState == null)`
+   - 含义是显示态缓存丢失时首帧自愈重建，不扩 Day1 业务
+4. 新增对应运行时测试：
+   - `PromptOverlay_RecoversWhenDisplayedStateCacheIsMissing`
+5. no-red 复核：
+   - `validate_script`
+     - `SpringDay1PromptOverlay.cs`：`0 errors`（1 warning）
+     - `SpringDay1LateDayRuntimeTests.cs`：`0 errors`
+   - `git diff --check`：通过
+6. 清红后重新 `Play -> Bootstrap -> Step`：
+   - `Bootstrap Spring Day1 Validation` 成功
+   - live 再次稳定推进到：
+     - `CrashAndMeet`
+     - `HealingAndHP`
+     - `WorkbenchFlashback`
+   - `PromptOverlay` 本轮未再复现空指针
+7. 但 `WorkbenchFlashback` 后 Play 再次被打断：
+   - Console 回到：`请先进入 PlayMode 再执行 spring-day1 验收步骤。`
+   - `editor_state` 显示：`external_changes_dirty=true`
+   - `Editor.log` 新增更硬证据：
+     - `[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files`
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- `validate_script`
+  - `SpringDay1PromptOverlay.cs`：`0 errors`（1 warning）
+  - `SpringDay1LateDayRuntimeTests.cs`：`0 errors`
+- `git diff --check`
+  - 上述 2 个 C# 文件：通过
+- live：
+  - `Bootstrap` 成功
+  - 可重新稳定推进到 `WorkbenchFlashback`
+  - 当前仍未拿到 `DayEnd` 快照
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 最后一拍收口。
+- 本轮子任务是：
+  - 先收掉 PromptOverlay 空指针
+  - 再确认最新 live blocker 到底是什么
+- 当前恢复点：
+  - Day1 own 逻辑红点这轮已继续清掉
+  - 当前唯一未闭环项仍是：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照
+  - 当前最准 blocker 已从“插件短断”继续收紧为：
+    - shared root 外部脚本变更触发编译 / 域重载
+    - 从而拍断 `WorkbenchFlashback -> ... -> DayEnd` live 窗口
+
+## 2026-03-27｜按用户要求直接重试最终 live；最新 blocker 继续收紧为导航验证占窗
+
+**用户目标**:
+- 既然现在只剩最终测试，那就别停，直接去试；如果还能继续推进，就继续推进。
+
+**本轮完成**:
+1. 先等到了一个干净窗口：
+   - `external_changes_dirty=false`
+   - Unity=`Edit Mode`
+   - Console=`0 entries`
+2. 然后立刻重试最终 live：
+   - `Play`
+   - `Bootstrap Spring Day1 Validation`
+3. 新拿到的关键证据：
+   - 一进 Play，导航 live 会自动发车：
+     - `runtime_launch_request=RunRealInputSingleNpcNear`
+     - `scenario_start=RealInputPlayerSingleNpcNear`
+     - `scenario_end=RealInputPlayerSingleNpcNear pass=False ...`
+   - Day1 `Bootstrap` 不是没执行，而是在导航 live 之后才落：
+     - `[DialogueDebugMenu] 已确保 StoryManager / Day1Director / PromptOverlay / HP / EP / Time 运行时对象就位...`
+     - `[SpringDay1LiveValidation] Label=bootstrap ...`
+   - 但 `Bootstrap` 刚落，Play 就结束了：
+     - `FarmTileManager OnDisable`
+     - `runner_disabled`
+     - `runner_destroyed`
+     - `editor_state.is_playing=false`
+
+**修改文件**:
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- live：
+  - 成功确认 Day1 `Bootstrap` 仍可落日志
+  - 成功确认它会被导航 live 自动抢占到窗口尾部
+  - 当前仍未拿到 `DayEnd` 快照
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 最后一拍收口。
+- 本轮子任务是：
+  - 直接执行用户要求的最终测试
+  - 把“为什么还拿不到 `DayEnd`”说准
+- 当前恢复点：
+  - Day1 own 代码面没有新增未完成项
+  - 当前唯一未闭环项仍是：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照
+  - 当前最准 blocker 已继续收紧为：
+    - 导航验证线程的 pending / auto-launch 占掉了 shared Play 窗口
+    - Day1 `Bootstrap` 只能在窗口尾部落下，来不及继续推到 `DayEnd`
+
+## 2026-03-27｜Day1 最后一拍已闭环完成
+
+**用户目标**:
+- 导航停掉后，继续把 Day1 剩余所有内容直接做完。
+
+**本轮完成**:
+1. 先对 shared root 做了最小 `scripts refresh + compile request`
+   - 清到：
+     - `external_changes_dirty=false`
+     - Console=`0 entries`
+2. 然后重新 `Play -> Bootstrap -> 连续 Step`
+3. 这次 live 真实完整推进到：
+   - `CrashAndMeet`
+   - `HealingAndHP`
+   - `WorkbenchFlashback`
+   - `FarmingTutorial`
+   - `DinnerConflict`
+   - `ReturnAndReminder`
+   - `FreeTime`
+   - `DayEnd`
+4. 最终关键证据已拿到：
+   - `nightPressure=night`
+   - `nightPressure=midnight`
+   - `nightPressure=final-call`
+   - `验收入口：已模拟两点规则触发，Day1 应进入结束态。`
+   - `Label=after-step, Scene=Primary, Phase=DayEnd`
+   - `EP=200/200|visible=True|warn=False`
+   - `Move=runtimeMultiplier=1.00`
+   - `nightPressure=inactive`
+   - `clock=Year 1 Spring Day 2 06:00 AM`
+   - `Director=0.0.6 睡觉结束|春1日已结束`
+5. 取证后已显式 `Stop`
+   - Unity 当前回到 `Edit Mode`
+
+**修改文件**:
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/2026-03-27_Day1高速执行日志与测试排队.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- live：
+  - `Bootstrap` 成功
+  - 已真实推进并打通到 `DayEnd`
+  - 取证后已退回 `Edit Mode`
+- 当前残余 Console：
+  - `DialogueChinese V2 SDF.asset` importer inconsistent result
+  - `There are no audio listeners in the scene`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 收口。
+- 本轮子任务是：
+  - 借导航停掉后的窗口，把最后 live 快照真正拿到
+- 当前恢复点：
+  - Day1 最后一拍已完成
+  - 当前不再有“主线还差 `DayEnd` 快照”的未完成项
+  - 剩余只是一条独立残余风险：
+    - `DialogueChinese V2 SDF.asset` importer inconsistent result
+    - 它需要单独治理，但已不再阻断 Day1 主线闭环
+
+## 2026-03-27｜补记：已按用户要求完成 Day1 文档总巡检，后续下刀前要先分清“工作台”和“日志”语义
+
+**用户目标**:
+- 先把 `spring-day1` 与 `900_开篇` 里所有 UI 相关内容，尤其是工作台和日志部分，完整通读后再汇报理解与想法，不先写代码。
+
+**本轮完成**:
+1. 重新串读了：
+   - `0.0.1剧情初稿`
+   - `0.0.2初步落地`
+   - `spring-day1-implementation`
+   - `003-进一步搭建`
+   - `0.0.3V2`
+2. 确认 Day1 当前最该优先闭的不是更大的通用系统，也不是先补包装，而是：
+   - `P0：NPC001 首段 -> 解码 -> HP/EP 节奏 -> Anvil_0 -> 任务卡 -> 木材 -> 制作完成`
+3. 确认工作台是 Day1 前半链的体验枢纽，不只是制作菜单入口。
+4. 确认“日志”在现有文档里至少分 3 层：
+   - 玩家任务 / 规则日志
+   - 验收快照 / 高速执行日志
+   - 开发调试日志面板 / 日志查看器
+
+**修改文件**:
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 只读文档巡检完成
+- 未进入代码实现、Unity live 写、Scene / Prefab 改动
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线已切回“让用户先获得准确的 Day1 文档理解基线”。
+- 本轮子任务是：把工作台与日志相关内容读透并拆清语义。
+- 当前恢复点：
+  - 这轮理解整理已完成
+  - 后续等待用户按这份理解指定具体施工方向
+
+## 2026-03-28｜补记：已把 `DialogueChinese V2 SDF.asset importer` 风险重新钉实为共享字体稳定性问题
+
+**用户目标**:
+- 用户要求不要按固定框架回执，而是直接说明：`DialogueChinese V2 SDF.asset importer` 风险到底是什么，以及准备怎么处理。
+
+**本轮完成**:
+1. 只读复核了 `Editor.log`、`DialogueChineseFontAssetCreator.cs` 与当前字体资产 dirty diff。
+2. 确认 `V2` 当前由生成器按 `Dynamic + MultiAtlas` 方式生成，且当前 dirty diff 已表现为 atlas / glyph / character 大规模膨胀。
+3. 确认最新 `Editor.log` 里不仅 `DialogueChinese V2 SDF.asset` 继续报 `Importer(NativeFormatImporter) generated inconsistent result`，`DialogueChinese SDF.asset` 也出现了同类报错。
+4. 因此把问题口径从“V2 单文件有毒”收紧为“共享 `DialogueChinese*` 动态 TMP 中文字体资产稳定性问题”；Day1 只会被它影响 live，不该再把它误判成 Day1 业务未完成。
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.kiro/specs/900_开篇/0.0阶段/0.0.3V2/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 只读证据核查完成
+- 关键来源：
+  - `Editor.log`
+  - `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs`
+  - `git diff --stat` on `DialogueChinese* SDF.asset`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线仍是 Day1 相关收口与后续清盘判断。
+- 本轮子任务是：把 importer 风险从 Day1 业务主线里剥离并重新定类。
+- 当前恢复点：
+  - Day1 主线口径不变：已闭环
+  - 若后续继续，应另开共享字体稳定化切片，处理 `V2 / SDF / Pixel / Creator`
+
+## 2026-03-28｜补记：已按典狱长纠偏回到 same-root hygiene，当前结果为 B
+
+**用户目标**:
+- 不再把共享字体 importer 风险分析当回执；只继承老 `spring-day1` 已审的 6 文件字体止血 checkpoint，然后继续 `Assets/YYY_Scripts/Story/UI` 同根 hygiene。
+
+**本轮完成**:
+1. 重新读取典狱长续工文档、`spring-day1` 线程 memory 与 `spring-day1-implementation/memory.md`，把本轮唯一主刀重新锚定为“checkpoint 继承 + same-root hygiene”。
+2. 在 working tree 复核确认：
+   - 3 个 Day1 UI 脚本默认字体链仍收束到 `DialogueChinese SDF`
+   - `DialogueFontLibrary_Default.asset` 6 个 key 仍统一到 `DialogueChinese SDF`
+   - 两个 Day1 prefab 的 TMP 文本引用仍统一到 `DialogueChinese SDF`
+3. 对 prompt 指定的 5 个 same-root 项逐项判类：
+   - `SpringDay1StatusOverlay.cs`：`own，可在本轮最小收口`
+   - `SpringDay1StatusOverlay.cs.meta`：`own，可在本轮最小收口`
+   - `SpringDay1UiLayerUtility.cs`：`own，可在本轮最小收口`
+   - `NpcWorldHintBubble.cs`：`foreign`
+   - `NpcWorldHintBubble.cs.meta`：`foreign`
+4. 交叉读 NPC 线 memory 后，已把 `NpcWorldHintBubble` 的 foreign 证据钉实：它在 NPC 工作区里被明确记为 NPC 线 own 改动，不该由这条 Day1 字体止血链吞并。
+5. 用 stable launcher 跑了 `preflight`，结果确认本轮不能进入 `sync-ready`；阻断点不是旧 checkpoint，而是 own roots 下仍有未纳入本轮的 remaining dirty/untracked。
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- working tree diff 复核完成
+- `sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1V2` 已运行
+- 结论：
+  - checkpoint 仍成立
+  - same-root hygiene 仍被 foreign / remaining dirty 阻断
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：继承已审 Day1 字体止血 checkpoint，并只收 same-root hygiene。
+- 本轮子任务：判清 `Assets/YYY_Scripts/Story/UI` 同根 remaining dirty / untracked 的真实归属。
+- 当前恢复点：
+  - 本轮已得出合格 `B` 结果
+  - 当前不能 claim `sync-ready`
+  - 若继续，只该处理 `NpcWorldHintBubble` 与额外 remaining blocker 的 owner 剥离，不该再漂回共享字体底座
+
+## 2026-03-28｜字体止血链最终 blocker 矩阵已裁定为“停表 B”
+
+**用户目标**:
+- 读取 `2026-03-28_典狱长_spring-day1V2_字体止血链最终blocker矩阵与收盘裁定_03.md`，补齐准确 preflight 边界、最终 blocker stop-list，并明确这条线到底能不能进 `sync-ready`。
+
+**本轮完成**:
+1. 重新读取 `03.md`，并把本轮唯一主刀固定为“最终 blocker 矩阵 + 收盘裁定”，不再继续 same-root hygiene 实施。
+2. 以 stable launcher 跑了带精确白名单的 `preflight`，而不是再写缺参数口径：
+   - `IncludePaths = 6 文件继承 checkpoint + 3 个已接受 own same-root 项 + spring-day1-implementation/memory.md`
+3. 这次 launcher 第一真实阻断点已固定为：
+   - `当前白名单所属 own roots 仍有未纳入本轮的 remaining dirty/untracked`
+   - 不是“task 模式没边界”，也不是 shared root lease。
+4. 在该精确边界下，launcher 首批 remaining 已明确为：
+   - `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/memory.md`
+   - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs`
+   - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs.meta`
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1UiPrefabRegistry.cs`
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1UiPrefabRegistry.cs.meta`
+5. 继续补做文件现场核查后，把以下 companion blocker 一并钉入最终 stop-list：
+   - `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset`
+   - `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset.meta`
+6. 最终矩阵已固定：
+   - `A. own current-slice（已被纳入精确 preflight 边界）`
+     - `SpringDay1StatusOverlay.cs`
+     - `SpringDay1StatusOverlay.cs.meta`
+     - `SpringDay1UiLayerUtility.cs`
+   - `B. own but other-slice contamination`
+     - `SpringDay1UiPrefabRegistry.cs`
+     - `SpringDay1UiPrefabRegistry.cs.meta`
+     - `SpringDay1UiPrefabRegistry.asset`
+     - `SpringDay1UiPrefabRegistry.asset.meta`
+   - `C. foreign`
+     - `NpcWorldHintBubble.cs`
+     - `NpcWorldHintBubble.cs.meta`
+   - `D. doc / governance blocker`
+     - `003-进一步搭建/memory.md`
+7. 本轮最终裁定已经压死：
+   - `B｜最终停表`
+   - 这条字体止血链在我这里不再继续自转。
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 已运行精确边界 preflight：
+  - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1V2 -IncludePaths @(...)`
+- 核心返回：
+  - `当前 HEAD = a0b3f0eb`
+  - `own_roots = [Assets/YYY_Scripts/Story/UI, Assets/222_Prefabs/UI/Spring-day1, Assets/111_Data/UI/Fonts/Dialogue, .kiro/specs/900_开篇/spring-day1-implementation]`
+  - `own roots remaining dirty 数量 = 5`
+- 文件级补充核查已确认：
+  - `SpringDay1PromptOverlay.cs` / `SpringDay1WorkbenchCraftingOverlay.cs` 当前已显式调用 `SpringDay1UiPrefabRegistry.Load*Prefab()`
+  - 因此 registry script / asset 不能被当成“与这条 stop-list 无关的孤立噪音”
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 继承老 `spring-day1` 已审的 6 文件字体止血 checkpoint，并完成这条线的最终 blocker 裁定。
+- 本轮子任务：
+  - 把“还没 sync-ready”压成准确 preflight 边界 + 最终 stop-list + 唯一收盘结论。
+- 当前恢复点：
+  - 当前已经不是“还差一点 hygiene”的状态，而是“该线应停表交治理位拆 owner / 拆 slice”；
+  - 后续若再继续，不应命题为我自己继续磨，而应拆成：
+    - `NpcWorldHintBubble` foreign 剥离
+    - `SpringDay1UiPrefabRegistry` 另刀归并
+    - `003-进一步搭建/memory.md` 文档面拆账
+
+## 2026-03-28｜用户追问“你到底在干什么”，当前解释口径已重新收紧
+
+**用户目标**:
+- 用户明确追问：这几轮到底在做什么、当前情况是什么、为什么会如此煎熬，因为当前从外部看不出我究竟在做功能、治理还是空转。
+
+**本轮稳定结论**:
+1. 这几轮我做的核心，不是继续新增 Day1 业务功能，而是在 shared root 上替 Day1 做：
+   - owner 裁定
+   - blocker 切分
+   - same-root remaining 归类
+   - 白名单 `sync-ready` 判断
+2. 用户会觉得我像在空转，根因不是“完全没做事”，而是三层东西被混在一起：
+   - `Day1 功能主线`
+   - `shared root 治理收口`
+   - `用户向汇报`
+3. 当前真正的工程现状应该翻译成：
+   - Day1 主线业务面并不是没做，之前已经真实推进到 `DayEnd`
+   - 这几轮在处理的是“字体止血链能不能安全收口到 main”
+   - 之所以难受，是因为这条收口线下面又混进了：
+     - NPC foreign 文件
+     - Day1 另一刀的 UI 模板化残留
+     - 文档账本残留
+   - 所以我才会不断在讲 `preflight / remaining / contamination`
+4. 当前最该改进的不是继续堆技术词，而是每次先明确：
+   - 我现在是在做功能
+   - 还是在做治理收口
+   - 还是在做 owner 裁定
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 本轮为稳定结论回写，无业务代码改动，无 Unity live 写。
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 把 Day1 字体止血线停表后的真实状态向用户解释清楚。
+- 本轮子任务：
+  - 解释“我到底在干什么”和“为什么会这么煎熬”。
+- 当前恢复点：
+  - 这条线的工程结论没变，变的是对用户的说明口径必须更明确。
+
+## 2026-03-28｜补记：本轮对用户的最终说明口径继续固定
+
+**用户目标**:
+- 用户再次明确表示“我不知道你到底在干什么”，要求我不要再给技术回卡，而要把主线、现状与煎熬根因彻底说成人话。
+
+**本轮稳定结论**:
+1. 现在最该说明的不是新的 blocker 细节，而是三件事的边界：
+   - `Day1 业务功能`
+   - `shared root 收口治理`
+   - `我自己的汇报失真`
+2. 对用户最准确的话应该是：
+   - Day1 业务本体此前已经推进到 `DayEnd`
+   - 最近几轮主要不是继续写功能，而是在处理“字体止血链能不能作为单一切片诚实 sync”
+   - 之所以让人感觉煎熬，是因为我把“功能推进”和“治理收口”混着汇报，导致你看不出我是在开发，还是在扫 shared root 脏账
+3. 这轮不再新增工程裁定；价值在于把对用户的解释口径彻底压实，避免后续又退回只讲 `checkpoint / blocker / preflight`
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 本轮为解释口径固化，无代码改动、无 Unity live 写。
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 向用户清楚交代：这条线已经不是继续做功能，而是在做最终停表前的收口解释。
+- 本轮子任务：
+  - 把“为什么你会觉得我像在空转”翻译成可直接下令的说明。
+- 当前恢复点：
+  - 后续如果继续讨论这条线，应优先围绕“要不要拆 owner / 拆 slice”，而不是再默认我还能直接顺着做下去。
+
+## 2026-03-28｜补记：已回访 UI-V1 线程，UI owner 边界重新钉实
+
+**用户目标**:
+- 用户明确指出“UI 已外包给 UI-V1”，要求我不要再把 Day1 UI 算到自己头上；需要重新读取 UI-V1 的 memory、skill 日志和实际产出，检查我前面是否把两条线混了。
+
+**本轮稳定结论**:
+1. UI-V1 当前不是旁支，而是 Day1 UI 的正式 owner 线程：
+   - `SpringUI` 工作区 `memory.md` 已明确记录 `Phase 1 第一刀` 与 `Phase 2 第二步`
+   - `spring-day1` 线程 `memory_0.md` 也已把这两轮写成正式施工与运行验证闭环
+   - skill 日志历史卷中也已记录对应 `Phase 1 prefab-first` 与 `Phase 2 runtime closure`
+2. UI-V1 当前已明确 own 的 Day1 UI 主链包括：
+   - `SpringDay1PromptOverlay.cs`
+   - `SpringDay1WorkbenchCraftingOverlay.cs`
+   - `SpringDay1UiLayerUtility.cs`
+   - `SpringDay1UiPrefabRegistry.cs`
+   - `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset`
+   - `SpringDay1LateDayRuntimeTests.cs`
+3. 代码现场也印证了这点：
+   - `PromptOverlay` 与 `WorkbenchOverlay` 当前都已显式调用 `SpringDay1UiPrefabRegistry.Load*Prefab()`
+   - `SpringDay1UiLayerUtility` 当前承担 `SnapToCanvasPixel()` 与 `EnsureComponent<T>()` 这类 UI Phase 2 底层承载
+4. 因此我前面确实有“项目层叙事混线”的问题：
+   - 对 `spring-day1V2` 这条字体止血线来说，说“最近不是在继续做 Day1 UI，而是在做治理收口”是对的
+   - 但对 Day1 全局现状来说，这句话不完整，因为 UI-V1 同时正在推进 Day1 UI 的 `Phase 1 / Phase 2`
+5. 需要收紧后的正确口径是：
+   - `我这条线`：只负责字体止血链 blocker / owner / stop-list 裁定
+   - `UI-V1 那条线`：负责 Day1 UI prefab-first 与体验收口
+   - 不能再把两条线混成“整个 Day1 现在只剩治理”
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**验证**:
+- 已回读：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\memory_0.md`
+  - `C:\Users\aTo\.codex\memories\skill-trigger-log_20260325_to_20260328_pre_cleanup.md`
+- 已静态复核：
+  - `SpringDay1PromptOverlay.cs`
+  - `SpringDay1WorkbenchCraftingOverlay.cs`
+  - `SpringDay1UiPrefabRegistry.cs`
+  - `SpringDay1UiLayerUtility.cs`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 把 `spring-day1V2` 与 UI-V1 的真实 owner 边界重新说清。
+- 本轮子任务：
+  - 审核我自己前面的叙事是否把 UI 外包线混回了自己这条治理线。
+- 当前恢复点：
+  - 后续凡是对 Day1 全局状态的汇报，都必须显式拆成“UI-V1 正在做什么”与“spring-day1V2 正在做什么”两块。
+
+## 2026-03-28｜补记：已给典狱长落盘 04 完整回执，供其判断下一步拆分方向
+
+**用户目标**:
+- 用户要求我重新回顾典狱长上一条 prompt，并交一份“最新、最全面、融合讨论内容”的正式回执，让治理位能据此判断下一步方向。
+
+**本轮完成**:
+1. 已重新回读 `03` 委托原文，确认仍需遵守其 `A1 / A2 / B` 回执格式，不重打已接受矩阵。
+2. 已将最新完整回执落盘到：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1V2\2026-03-28_给典狱长的最新完整回执_04.md`
+3. 该回执在保留 `B｜最终停表` 结论不变的前提下，新增融合了：
+   - `UI-V1` 已正式 own Day1 UI `Phase 1 / Phase 2`
+   - `SpringDay1UiPrefabRegistry` 现已是 `UI-V1` 活跃主链，不应再回投给 `spring-day1V2`
+   - `NpcWorldHintBubble.cs` 与 `SpringDay1WorldHintBubble.cs` 必须分开治理
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - `spring-day1V2` 这条线本身已停表，当前只剩把真实状态完整交给治理位。
+- 本轮子任务：
+  - 把“停表结论 + UI-V1 并行 owner 事实 + 下一步拆分建议”压成一份可直接给典狱长的正式回执。
+- 当前恢复点：
+  - 后续若再继续，优先由治理位判断拆分方向，而不是继续由 `spring-day1V2` 自己写实现。
+
+## 2026-03-29｜字体止血 docs-tail 与 font 库归仓第二轮
+
+**用户目标**:
+- 只收字体止血 `docs-tail + font-stopgap`，不再继续 Day1 feature，不回到 `UI-V1 / SpringUI` 活跃实现链；本轮只做 `preflight -> sync` 或第一真实 blocker 报实。
+
+**本轮稳定结论**:
+1. 已按委托给出的 exact paths 跑真实 `preflight`，当前结果不是 blocker，而是可进入 `sync`。
+2. 本轮 `preflight` 的 own roots 为：
+   - `.kiro/specs/900_开篇/0.0阶段/0.0.3V2`
+   - `Assets/111_Data/UI/Fonts/Dialogue`
+   - `.codex/threads/Sunset/spring-day1V2`
+   - `.kiro/specs/900_开篇/spring-day1-implementation`
+3. 当前 `own roots remaining dirty 数量 = 0`，说明这轮 docs-tail + font-stopgap 已可作为独立白名单归仓面。
+4. 本轮继续保持边界：
+   - 不回到 `Prompt / Workbench`
+   - 不碰 `NpcWorldHintBubble.cs`
+   - 不碰 `SpringDay1UiPrefabRegistry.*`
+   - 不回到底层 `DialogueChinese*`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 收束 `spring-day1V2` 剩余的字体止血 docs-tail 与 font 库底账。
+- 本轮子任务：
+  - 以 exact whitelist 验证这组 docs/asset 是否已具备归仓条件。
+- 当前恢复点：
+  - 本轮已确认可以继续走最终白名单 `sync`。

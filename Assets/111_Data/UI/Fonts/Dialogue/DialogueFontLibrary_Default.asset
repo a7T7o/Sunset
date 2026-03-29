@@ -15,26 +15,26 @@ MonoBehaviour:
   defaultKey: default
   entries:
   - key: default
-    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: speaker_name
-    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: inner_monologue
-    fontAsset: {fileID: 11400000, guid: 42ed355674144c33aa14a3d5b28f48c8, type: 2}
+    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: garbled
-    fontAsset: {fileID: 11400000, guid: 755c320ea03a43b596917e389ec373ed, type: 2}
+    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: retro
-    fontAsset: {fileID: 11400000, guid: 755c320ea03a43b596917e389ec373ed, type: 2}
+    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: narration
-    fontAsset: {fileID: 11400000, guid: 42ed355674144c33aa14a3d5b28f48c8, type: 2}
+    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0

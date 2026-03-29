@@ -864,3 +864,664 @@
 - 当前恢复点：
   - 如果后续继续做 Day1 自己的 dirty 收口，安全第一刀应优先保持这份三分法，不再回到“3 个字体一并吞掉”的宽口径；
   - 若要真正放行 `DialogueChinese V2 SDF.asset` 白名单 sync，必须先对 `DialogueChinese SDF.asset / Pixel SDF.asset` 的 mixed 归属再做一次明确裁定，否则 stable launcher 仍会因为 same-root remaining dirty 阻断。
+
+## 2026-03-27 补记：spring-day1V2 已进入 Day1 高速推进，并开始修后半链状态一致性
+- 当前父工作区主线已经从 `03-26` 的接班 / hygiene / formal-face 认领，继续推进到 `03-27` 的 Day1 高速施工；但边界没有改题，仍然坚持：
+  - 不碰 `Primary.unity`
+  - 不扩认 `GameInputManager.cs / PlacementManager.cs / PlayerInteraction.cs / PlayerThoughtBubblePresenter.cs`
+  - 先做 Day1 自己的 non-hot formal-face
+- 这天的关键已完成进展包括：
+  - 撤掉我自己补出来但用户不接受的 `SpringDay1StatusOverlay`，让 HP / EP 重新接回原始 `UI/State/HP`、`UI/State/EP`
+  - 修掉 Day1 own live 验收入口的两个稳定性阻断：
+    - `Application.runInBackground`
+    - workbench queue 的 `DialogueManager` 空引用
+  - 真实拿到 `T-P0-05` 的运行态证据：
+    - `EP=80/200|visible=True`
+    - `EP=45/200|visible=True`
+    - `EP=20/200|warn=True`
+    - `Move=runtimeMultiplier=0.80`
+  - 继续把刀口推进到后半链，并对“晚餐入口 `warn=True` 但 `Move=1.00`”这个 Day1 own 一致性问题补了 formal-face 修复：
+    - phase 切换时也会 `ResyncLowEnergyState(false)`，不再只靠 `OnEnergyChanged`
+- 当前父层最准确定性：
+  - Day1 当前已经不只是前半链能跑；它此前 live 已真实推进到 `DinnerConflict`
+  - 最新未完全收束的点已经收窄为：
+    - 工具级 `unityMCP` 菜单会话在继续追晚餐入口快照时发生断连 / 回读不稳定
+    - 而不是 Day1 自己又回到编译红或前半链断开
+- 当前恢复点：
+  - 若继续推进，父层建议优先继续沿 `T-P1-01 / T-P1-04 / T-P1-05`
+  - 下一次 live 只需短复验：
+    - `DinnerConflict`
+    - `EP=20/200|warn=True`
+    - `Move=runtimeMultiplier=0.80`
+  - 在此之前，不必回头重做 HP / EP 审美层，也不应借机扩写 hot / mixed 面
+
+## 2026-03-27 补记：父层已把 `nightPressure` 缺证重新定性为工具级 Play 状态漂移
+- 当前父工作区主线仍是 Day1 高速推进，没有改题；本轮子任务只是继续追 `T-P1-04 / T-P1-05` 的短 live 复证，并把执行账本修正到真实现场。
+- 父层新增稳定事实：
+  - `SpringDay1UiLayerUtility` 当前必须保持 `public static class`，否则会重新引爆 Editor 验证菜单侧的访问级编译阻断；
+  - 当前执行账本里已经把已删除的 `SpringDay1StatusOverlay.cs` 从现役文件闭包中移除，`HP / EP` 正式承载面重新固定为原始 `UI/State/HP / UI/State/EP` 经 `HealthSystem.cs / EnergySystem.cs` 的间接链。
+- 本轮短 live 复证结论：
+  - `Bootstrap Spring Day1 Validation` 可以稳定打出 `CrashAndMeet` 快照；
+  - 第一小批 `Step` 也能真实推进首段对白；
+  - 但继续批推进时，菜单链会中途掉成：
+    - `请先进入 PlayMode 再执行 spring-day1 验收步骤。`
+    - `请先进入 PlayMode 再记录 spring-day1 验收快照。`
+  - 因而当前 `nightPressure / 两点规则` 的缺证，更准确应归类为“工具级 Play 状态漂移”，不是 Day1 own formal-face 又回退。
+- 当前恢复点：
+  - 父层后续仍建议优先继续沿 `T-P1-01 / T-P1-04 / T-P1-05`；
+  - 但 live 复证口径应改成“更短批次、更快取证”，不要再默认长批量菜单推进；
+  - 在工具窗口恢复稳定前，不应把 `nightPressure` 待复证误说成 Day1 逻辑红。
+
+## 2026-03-27 补记：父层已拿到后半链 `final-call` 运行态证据，当前只剩两点规则收束最后一拍
+- 当前父工作区主线仍是 Day1 高速推进，没有改题；这轮继续只做 Day1 自己的 non-hot formal-face 与短窗口 live 取证。
+- 父层新增稳定事实：
+  - 后半链这次已经不只是推进到 `DinnerConflict`；
+  - 本轮真实跑通并取到证据的阶段包括：
+    - `DinnerConflict`
+    - 晚餐回血后 `EP=50/200|warn=False|Move=1.00`
+    - `ReturnAndReminder`
+    - `FreeTime`
+    - `nightPressure=night`
+    - `nightPressure=midnight`
+    - `nightPressure=final-call`
+  - `sleepReady=True` 也已在自由时段运行态快照里出现。
+- 本轮父层特别补记的硬证来源：
+  - Console / live snapshot 已拿到：
+    - `22:00 -> nightPressure=night`
+    - `00:00 -> nightPressure=midnight`
+  - `Editor.log` 已补到：
+    - `验收入口：已模拟推进到凌晨一点，最终催促应已触发。`
+    - `01:00 AM`
+    - `nightPressure=final-call`
+- 当前父层最准确定性：
+  - `T-P1-02 / T-P1-03` 现在已可以按真实运行态证据视为 `done`；
+  - `T-P1-04 / T-P1-05` 不再缺夜压链主体证据，当前只剩：
+    - `两点规则触发 -> DayEnd`
+      最后一拍尚未拿到运行态快照。
+- 当前阻断已重新收窄为：
+  - 在 `final-call` 证据之后，Play 被：
+    - `DialogueChinese V2 SDF.asset` importer inconsistent result
+      引发的 domain reload / 退出打断；
+  - 因此当前不应把 `DayEnd` 最后一拍缺证误说成 Day1 own 逻辑红，更接近“字体 importer / Play 现场稳定性 blocker”。
+- 当前恢复点：
+  - 若继续推进，父层建议下一把 live 只追：
+    - `final-call -> 两点规则 -> DayEnd`
+  - 在此之前，不必回头重做晚餐 / 提醒 / 自由时段主体逻辑。
+
+## 2026-03-27 补记：父层已同步用户新的直接汇报契约
+- 当前父工作区主线没有改题，仍然是 Day1 高速推进；这轮不是业务施工，而是把用户刚刚明确给出的汇报格式要求收进记忆层。
+- 父层新增稳定协作约束：
+  - 后续对用户的直接汇报必须先给“人话层 6 项”：
+    - 当前主线
+    - 这轮实际做成了什么
+    - 现在还没做成什么
+    - 当前阶段
+    - 下一步只做什么
+    - 需要我现在做什么（没有就写无）
+  - 然后才允许补“技术审计层 5 项”：
+    - changed_paths
+    - 验证状态
+    - 是否触碰高危目标
+    - blocker_or_checkpoint
+    - 当前 own 路径是否 clean
+- 父层当前判定：
+  - 这条汇报契约已经是当前 Day1 线的硬格式要求；
+  - 如果后续再次先交技术 dump、后补一句人话，应直接视为回复不合格，而不是“只是表达风格问题”。
+- 当前恢复点：
+  - 后续父层与线程层的汇报都按这套格式先人话层、后技术层执行，直到用户再次改口。
+
+## 2026-03-27 补记：父层已把 Day1 最后缺口改判为 external live blocker
+- 当前父工作区主线仍是 Day1 高速推进；这轮继续不碰 `Primary.unity` 和其他 hot / mixed 正式面，只做当前最后一拍的精准收口。
+- 父层新增稳定事实：
+  - `DayEnd` 正式桥代码面已经继续补齐并被文本锚点钉住：
+    - `StoryManager.Instance.SetPhase(StoryPhase.DayEnd);`
+    - `EnergySystem.Instance.FullRestore();`
+    - `ApplyLowEnergyMovementPenalty(false);`
+    - `SpringDay1PromptOverlay.Instance.Show("春1日结束。明天继续。")`
+  - 当前任务账本已重新校准为：
+    - `T-P1-04 = done`
+    - `T-P1-05 = blocked-external`
+- 本轮父层对 blocker 的最新定性：
+  - 当前最终 `DayEnd` 快照之所以还没拿到，不是 Day1 own 逻辑缺口；
+  - `Editor.log` 已继续证明 shared live 现场还混有：
+    - `DialogueChinese V2 SDF.asset` importer inconsistent result / domain reload
+    - `NavigationLiveValidationRunner` 自动 launch request
+  - 这两组 external 信号会把最后一拍的 Play 稳定窗口打散。
+- 当前恢复点：
+  - 父层当前只剩的真实未闭环项，就是：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照；
+  - 若后续继续推进，应优先先清 external live 现场，再追这一拍。
+
+## 2026-03-27 补记：父层已补进 Day1 末段运行时测试，并清掉本轮自引编译红
+- 当前父工作区主线没有改题，仍然是 Day1 高速推进；本轮子任务是在最后 live 仍不稳的前提下，把 Day1 自己还能直接补的末段证明补满，并确保 shared root 不留我 own 红错。
+- 父层新增稳定事实：
+  - 新增：
+    - `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+  - 当前新增测试不再只是读文本，而是用反射式运行时组装补了两条末段证明：
+    - `FreeTimeValidationStep_AdvancesFromFinalCallToDayEnd`
+    - `BedBridge_EndsDayAndRestoresSystems`
+  - 本轮首版测试曾短暂引爆 compile red，但已同轮清掉：
+    - `validate_script`：`0 errors`
+    - `git diff --check`：通过
+    - `refresh_unity(force + request)` 后 Console：`0 entries`
+- 父层本轮新增 live 事实：
+  - 在清编前的那次干净窗口里，Day1 还能重新稳跑到：
+    - `HealingAndHP`
+    - `WorkbenchFlashback`
+    - `FarmingTutorial`
+    - `DinnerConflict`
+  - 并再次复到：
+    - `EP=80/200|visible=True`
+    - `EP=45/200|visible=True`
+    - `EP=20/200|warn=True`
+    - `Move=runtimeMultiplier=0.80`
+  - 但在清编后的最后一轮最短 `Bootstrap` 复追里，又重新出现：
+    - `Unity plugin session ... disconnected while awaiting command_result`
+    - `[WebSocket] Unexpected receive error: WebSocket is not initialised`
+- 当前父层最准确定性：
+  - Day1 这边现在已经不是“只剩文本锚点”；它有：
+    - 旧有 `final-call` live 证据
+    - `DayEnd` 正式桥文本锚点
+    - 新增末段运行时测试
+  - 但最后 `DayEnd` live 快照仍未拿到，当前最准 blocker 已收紧成：
+    - `unityMCP` 插件级短断 / 会话重连
+    而不是 Day1 自己重新回红。
+- 当前恢复点：
+  - 父层当前仍只剩：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照
+  - 若后续继续推进，优先先稳住 `unityMCP` live 会话，再重跑最短 DayEnd 取证；
+  - 当前 Unity 已回到 `Edit Mode`，父层本轮没有留下我 own compile red。
+
+## 2026-03-27 补记：父层已收掉 PromptOverlay 运行时空指针；最新 external blocker 改判为 shared-root 外部脚本刷新
+
+- 当前父工作区主线没有改题，仍然只做 Day1 最后一拍收口；本轮子任务是先收掉新冒出的 own runtime red，再判断 live 为什么在 `WorkbenchFlashback` 前后反复掉窗。
+- 父层新增稳定事实：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - 已加入最小自愈保护：`if (!_hasDisplayedState || _displayedState == null)`
+  - `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+    - 已新增：`PromptOverlay_RecoversWhenDisplayedStateCacheIsMissing`
+  - no-red 复核结果：
+    - `validate_script`
+      - `SpringDay1PromptOverlay.cs`：`0 errors`（1 warning）
+      - `SpringDay1LateDayRuntimeTests.cs`：`0 errors`
+    - `git diff --check`：通过
+- 父层新增 live 事实：
+  - 清红后重新 `Play -> Bootstrap -> Step`
+  - Day1 链路再次稳定推进到：
+    - `CrashAndMeet`
+    - `HealingAndHP`
+    - `WorkbenchFlashback`
+  - `PromptOverlay` 空指针没有再复现
+  - 但 `WorkbenchFlashback` 后 Play 仍被拍断，Console 回到：
+    - `请先进入 PlayMode 再执行 spring-day1 验收步骤。`
+- 父层最新 blocker 定性：
+  - 这次不再优先写成 `unityMCP` 插件短断；
+  - 更准确的新证据是：
+    - `editor_state.external_changes_dirty = true`
+    - `Editor.log` 连续出现
+      `[ScriptCompilation] Requested script compilation because: Assetdatabase observed changes in script compilation related files`
+  - 因此当前父层对最后 live 缺口的最准判断是：
+    - shared root 外部脚本变更触发编译 / 域重载
+    - 进而把 `WorkbenchFlashback -> ... -> DayEnd` 的 Play 窗口拍断
+- 当前恢复点：
+  - 父层 own 逻辑红点已继续收口；
+  - 父层真实未闭环项仍只有：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照
+  - 若后续继续推进，优先等 shared-root 外部脚本刷新停止，再重开最短 DayEnd 取证。
+
+## 2026-03-27 补记：父层已按用户要求直接重试最终 live；最新 blocker 继续收紧为导航验证占窗
+
+- 当前父工作区主线未改题，仍只追 Day1 最后一拍；本轮按用户要求直接去试，不再加新业务改动。
+- 父层新增稳定事实：
+  - 在 `external_changes_dirty=false`、Console 清零的窗口里重试 `Play -> Bootstrap`
+  - 结果发现导航 live 不是“偶尔干扰”，而是会自动在 Play 入口抢占：
+    - `runtime_launch_request=RunRealInputSingleNpcNear`
+    - `scenario_start=RealInputPlayerSingleNpcNear`
+    - `scenario_end=RealInputPlayerSingleNpcNear pass=False ...`
+  - Day1 `Bootstrap` 仍能成功落日志，但它被挤到了导航 live 收尾之后：
+    - `[DialogueDebugMenu] 已确保 StoryManager / Day1Director / PromptOverlay / HP / EP / Time 运行时对象就位...`
+    - `[SpringDay1LiveValidation] Label=bootstrap ...`
+  - 随后 Play 立刻退出，窗口结束，无法继续 `Step`
+- 父层最新 blocker 定性：
+  - 当前不能只写成“shared-root 外部脚本刷新”
+  - 更准确的是：
+    - 导航验证线程的 pending / auto-launch 会主动占掉 Play 窗口
+    - Day1 `Bootstrap` 只能落在窗口尾部，来不及推进到 `DayEnd`
+- 当前恢复点：
+  - 父层这轮已经把“只剩测试就直接去试”执行完毕；
+  - 父层真实未闭环项仍只有：
+    - `final-call -> 两点规则 -> DayEnd`
+      运行态快照
+  - 若后续继续推进，优先需要先停掉导航 live pending / auto-launch，再给 Day1 独占 Play 窗口。
+
+## 2026-03-27 补记：父层已拿到 Day1 最终 `DayEnd` 运行态快照
+
+- 当前父工作区主线仍是 Day1 高速推进；本轮在导航占窗解除后，继续把最后 live 主线直接做到底。
+- 父层新增稳定事实：
+  - 先对 shared root 做了最小 `scripts refresh + compile request`
+  - 清到：
+    - `external_changes_dirty=false`
+    - Console=`0 entries`
+  - 然后重新 `Play -> Bootstrap -> Step`，并真实推进到：
+    - `CrashAndMeet`
+    - `HealingAndHP`
+    - `WorkbenchFlashback`
+    - `FarmingTutorial`
+    - `DinnerConflict`
+    - `ReturnAndReminder`
+    - `FreeTime`
+    - `DayEnd`
+  - 最终关键 live 证据已到手：
+    - `nightPressure=night`
+    - `nightPressure=midnight`
+    - `nightPressure=final-call`
+    - `Label=after-step, Scene=Primary, Phase=DayEnd`
+    - `EP=200/200|visible=True|warn=False`
+    - `Move=runtimeMultiplier=1.00`
+    - `nightPressure=inactive`
+    - `clock=Year 1 Spring Day 2 06:00 AM`
+  - 取证后已显式 `Stop`，Unity 回到 `Edit Mode`
+- 父层最新定性：
+  - Day1 这条主线已完成，不再存在“最后一拍还没拿到”的未闭环项；
+  - 本轮仍出现 `DialogueChinese V2 SDF.asset` importer inconsistent result`
+  - 但它已不再阻断 Day1 的 `DayEnd` 闭环，应改判为独立残余风险，而不是 Day1 主线 blocker。
+- 当前恢复点：
+  - 父层当前主线可转入验收 / 收口；
+  - 后续若继续，只需单独处理字体 importer 风险，不再属于 Day1 主线续工。
+
+## 2026-03-27 补记：完成 spring-day1 × 900_开篇 文档通读，UI / 工作台 / 日志理解已收口
+- 当前主线：按用户要求先做只读通读，不改代码，先把 spring-day1 从 `0.0.1 -> 0.0.3V2` 的文档脉络读清，再向用户汇报理解与想法。
+- 本轮子任务 / 阻塞：用户特别要求重点找 UI、工作台、日志；同时确认 `003-进一步搭建/memory.md` 后半段存在历史编码污染，不能当唯一依据。
+- 本轮已覆盖的核心文档层：
+  - `0.0.1剧情初稿`：`初步规划文档.md`、`春1日_坠落_格式A_时间轴版.md`、`春1日_坠落_格式B_分镜脚本版.md`、`春1日_坠落_融合版.md`
+  - `0.0.2初步落地`：`requirements.md`、`design.md`、`memory.md`
+  - `spring-day1-implementation`：`requirements.md`、`OUT_design.md`、`OUT_tasks.md`、`memory.md`、`scene-build_handoff.md`
+  - `003-进一步搭建`：工作台 UI / 任务体验委托、样式索引
+  - `0.0.3V2`：需求回顾总表、执行日志、清盘方案
+  - 线程交接包：`03_关键节点_分叉路_判废记录.md`、`05_当前现场_高权重事项_风险与未竟问题.md`
+- 本轮稳定结论：
+  1. Day1 原始目标是完整第一天体验脚本；`0.0.2` 的真实职责是先把“剧情推进脊柱”钉进工程。
+  2. `spring-day1-implementation` 后期已经扩成“剧情 + Prompt/任务卡 + 工作台 + UI/体验 + 验收”的复合工作区，不再只是对话实现。
+  3. 工作台不是边角系统，而是 Day1 前半链的体验枢纽；视觉基线必须回到 `Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab` 与 `Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab`。
+  4. 日志 / 测试在这条线上不是 debug 附属，而是正式证据层：既证明阶段推进，也证明体感闭环是否真的成立。
+  5. 当前文档体系最一致的主线建议不是散补 UI，而是按 `0.0.3V2` 先闭 `P0：NPC001 首段 -> 解码 -> HP/EP 节奏 -> Anvil_0 -> 任务卡 -> 木材 -> 制作完成` 这条纵切。
+- 当前恢复点：本轮只读理解已完成；下一步等待用户基于这份理解下发具体施工任务。
+
+## 2026-03-28 补记：`DialogueChinese V2 SDF.asset` 已确认是共享 TMP 动态字体稳定性问题，不再混入 Day1 主线
+- 当前主线：用户要求重新判断 `DialogueChinese V2 SDF.asset` 到底是什么、为什么会持续像 Day1 blocker、以及应该怎么处理。
+- 本轮子任务 / 阻塞：对字体生成器、字体库、引用面、当前 diff 与 `Editor.log` 做只读核对，不改 Day1 业务代码、不碰 `Primary.unity`。
+- 本轮已确认的稳定事实：
+  1. 这个问题不是“Day1 剧情逻辑没做完”，而是共享 TMP 中文字体资产稳定性问题。
+  2. 生成器 `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs` 当前明确把 V2 生成为：
+     - `AtlasPopulationMode.Dynamic`
+     - `isMultiAtlasTexturesEnabled = true`
+     也就是会动态长 glyph / atlas 的运行型字体资产。
+  3. 当前 dirty 不是普通小配置差异；`git diff --stat` 显示：
+     - `DialogueChinese V2 SDF.asset` 单文件 `1531 insertions`
+     - 新长出额外 atlas 纹理对象
+     - `m_GlyphTable / m_CharacterTable` 大规模膨胀
+  4. 它不是边缘试验件，而是共享默认面：
+     - `DialogueFontLibrary_Default.asset` 的 `default / speaker_name` 直接指向它
+     - `SpringDay1PromptOverlay.prefab`
+     - `SpringDay1WorkbenchCraftingOverlay.prefab`
+     - 以及对应 runtime 脚本里的首选字体路径都把它放在第一顺位
+  5. `C:\Users\aTo\AppData\Local\Unity\Editor\Editor.log` 已多次实锤：
+     - `Importer(NativeFormatImporter) generated inconsistent result`
+     - 目标就是 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+- 本轮稳定结论：
+  - `DialogueChinese V2 SDF.asset` 现在应明确改判为“共享字体 importer / 动态资产稳定性风险”，不是 Day1 剧情主线 blocker。
+  - 它会影响 Day1 live，但它本身不等于 Day1 没做完。
+  - 当前最像真实根因的不是某段剧情逻辑，而是“一个被设成共享默认面的 Dynamic + MultiAtlas TMP 资产，在导入 / 编辑器更新 / 运行使用过程中反复生成不稳定产物”。
+- 当前恢复点：
+  - Day1 主线继续按已完成 / 验收口径理解；
+  - 后续若处理这个问题，应单独开“字体 importer 风险止血”切片：
+    1. 先把 V2 从默认高优先级链路里降权或冻结
+    2. 先回到稳定基线
+    3. 再隔离复现 importer inconsistent
+    4. 最后才决定是保守替换，还是重建确定性的 V2
+
+## 2026-03-28 补记：已只读澄清 Day1 UI prefab、运行时代码与“全工作台共用模式”之间的真实关系
+- 当前父工作区主线：不是继续细修 Day1 单点，而是响应用户要求，先把 `Assets/222_Prefabs/UI/Spring-day1/` 里的正式面、对应运行时代码、memory 与委托文档一起读透，再判断这套 UI 模式该怎么推广到所有工作台。
+- 本轮没有改任何业务文件，没有进入 Unity，没有使用 MCP。
+- 本轮稳定判断：
+  1. Day1 当前的两份 UI prefab 仍应视为视觉基线；多份委托、交接与样式索引都明确把它们当作 `formal-face` / `视觉基线`。
+  2. 但当前 live 行为基线不在 prefab，而在代码：`PromptOverlay` 与 `WorkbenchOverlay` 都通过 `EnsureRuntime() + BuildUi()` 在运行时自建。
+  3. 因此 spring-day1 现状不是“prefab 模板驱动系统”，而是“prefab 承担视觉基线，代码承担结构与行为基线”的双轨状态。
+  4. `PromptOverlay` 更接近 Day1 的任务/日志卡；当前没有单独第三份“日志 UI prefab”。
+  5. 若后续要让所有工作台共用这套模式，不能直接把 spring-day1 当前实现整份复制出去；必须先把样式模板、内容 schema、Day1 专属规则拆开，否则会把 `SpringDay1Director`、`CraftingStationInteractable`、`Resources/Story/SpringDay1Workbench` 这组 Day1 耦合一起扩散。
+  6. 当前最推荐的推广方向是：
+     - 用 prefab 固定可手调的正式样式与层级
+     - 用配置 / view model 承载配方列表、详情文案、材料区、按钮状态、进度展示
+     - 用站点规则层处理“哪些工作台能做什么、何时能做、做完如何回推任务”
+- 当前恢复点：
+  - 父层关于“Day1 这套 UI 到底该怎么抽象”的判断已经站稳；
+  - 下一步等待用户指定是要我继续输出通用化方案拆解，还是进入实际模板设计 / 重构任务。
+
+## 2026-03-28 补记：Spring-day1 手调 prefab 已确认是视觉基线，当前运行态仍是代码生成双源
+- 当前主线：用户要求只读分析 `Assets/222_Prefabs/UI/Spring-day1/` 这组手调 prefab 与当前 spring-day1 代码逻辑之间的真实关系，并判断如何把它升级成“所有工作台共用、内容不同”的统一 UI 模式；本轮明确禁止使用 Unity / MCP，不进入实现。
+- 本轮子任务 / 阻塞：只从代码、prefab YAML、工作区 memory、V2 交接文档与测试里收证，拆清“视觉基线”“运行时入口”“业务逻辑绑定”三层，不再泛读无关文档。
+- 本轮已确认的稳定事实：
+  1. `Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab` 与 `Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab` 仍是当前文档体系里唯一被明确接受的 Day1 正式视觉面；`V2交接文档/03_关键节点_分叉路_判废记录.md` 也已明确改判“视觉样式以 prefab 为准”。
+  2. 当前运行态并没有真正实例化这两个 prefab：`SpringDay1WorkbenchCraftingOverlay.cs` 与 `SpringDay1PromptOverlay.cs` 都在 `EnsureRuntime()` 里走 `new GameObject + AddComponent + BuildUi()`；`Primary.unity` 里只出现了 `CraftingStationInteractable` 脚本 GUID，没有这两个 overlay 脚本 GUID；两个 prefab 资产 GUID 在工程内也没有被其他资源引用。
+  3. 当前系统是典型双源：
+     - prefab 里保存了用户手调出来的层级、字号、默认文案、绑定槽位与局部正式内容；
+     - 代码又在 `BuildUi()` / `BuildPromptCardModel()` / 相关提示文案方法里重新手写一份运行态结构与文本。
+  4. Workbench overlay 已经部分数据驱动：
+     - 配方来源来自 `Assets/Resources/Story/SpringDay1Workbench/*.asset`
+     - 左列摘要、材料需求、数量、制作时间等部分内容确实由 `RecipeData` 驱动
+     但视觉骨架、标题文案、进行中提示、完成提示仍大量写死在 `SpringDay1WorkbenchCraftingOverlay.cs`。
+  5. Prompt overlay 已有“壳体可复用”的雏形：
+     - `PromptCardViewState`
+     - `DisplaySignature`
+     - 原位刷新与翻页过渡
+     但当前内容源仍强绑 `SpringDay1Director.BuildPromptCardModel()` 与 `StoryPhase`，因此它还不是可直接复用到别的工作台/系统的独立模板。
+  6. `CraftingStationInteractable.cs` 里的距离阈值、视觉包络、上下翻转判定、一次性 E 气泡与 `PlayerPrefs` 记忆，都属于业务 / 交互层，不应该继续和视觉模板混在一起。
+- 本轮稳定结论：
+  1. 现在不能再走“继续在 `BuildUi()` 里抄 prefab 参数”的路；那条路只会让 prefab 与运行态继续分叉。
+  2. 如果目标是“所有工作台都走同一套 UI 模式，只是内容不同”，正确方案必须收成三层：
+     - 模板 prefab 层：只负责层级、尺寸、字体、颜色、锚点、滚动区、按钮区、默认占位；
+     - 运行时绑定 / presenter 层：实例化 prefab，抓取引用，刷新列表、详情、数量、进度、状态；
+     - 业务适配层：Day1 导演、工作台剧情桥、不同站点的 recipe/source/progress/prompt provider。
+  3. 第一刀应该先把 Day1 自己从“代码造 UI”切回“prefab 模板 + 绑定刷新”，等这层站稳后，才有资格抽成多工作台共用模式。
+- 当前恢复点：这轮只读分析已完成；下一步等待用户决定是否把 Day1 两个 overlay 先做“去 `BuildUi()` 化、改 prefab 实例化 + presenter 绑定”的正式设计或实施切口。
+
+## 2026-03-28 补记：共享字体止血的直接业务落刀应回到 spring-day1 owner，不能再由典狱长位继续顺手深做
+- 当前主线：用户继续追问“这批字体止血相关改动到底是什么、场景里能不能看到、如果只是缓存可不可以留、以及是否该由典狱长线程直接做完”。
+- 本轮子任务 / 阻塞：继续只读核对当前相关 dirty 的真实性质，不新增业务改动。
+- 本轮已确认的稳定事实：
+  1. 当前这包相关文件不是同一性质：
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset` 最像不稳定动态字体副产物；
+     - `Assets/111_Data/UI/Fonts/Dialogue/DialogueFontLibrary_Default.asset`、`Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab`、`Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab` 属于正式配置 / 正式视觉面；
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`、`Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`、`Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` 属于真实运行时代码。
+  2. 上面 6 个 Day1-facing 文件都不是“无关缓存”：
+     - 改它们会直接改变字体选择、Prefab 引用或运行时行为；
+     - 有的能在 Prefab/Inspector 里直接看到，有的只能在 Play 时看到，但都属于真实产品面。
+  3. 当前相关 diff 也不是“纯字体止血包”：
+     - `SpringDay1PromptOverlay.cs` 与 `SpringDay1WorkbenchCraftingOverlay.cs` 同文件里混着大量 Day1 行为改动；
+     - 这意味着现场已经是 same-file contamination，不能把整包伪装成“只是我这一刀顺手换了字体”。
+  4. `DialogueChinese V2 SDF.asset` 虽然不是场景里的 GameObject，但它会影响所有引用它的文本显示；而且它现在的 `glyph / atlas` 膨胀不是 harmless cache，继续挂在默认链上会放大 importer inconsistent / domain reload 风险。
+- 本轮稳定结论：
+  - 我可以继续负责判性质、判 owner、判要不要拆线；
+  - 但不适合继续亲手把这 6 个 Day1-facing 文件深做到底；
+  - 这批直接业务落刀的 owner 应回到 `spring-day1`。
+  - 如果后续要处理更底层的 `DialogueChinese V2 SDF.asset`、`DialogueChineseFontAssetCreator.cs` 或整批 `DialogueChinese*` 动态字体稳定化，应另开“共享字体资产稳定化”切片，而不是继续假装这是 Day1 本地小补丁。
+- 当前恢复点：
+  - 现在最安全的动作不是让我继续顺手做完；
+  - 而是把当前判断交回 `spring-day1`：
+    1. 由它决定 6 个 Day1-facing 文件里的止血改动是否保留、如何验证；
+    2. 再把 `DialogueChinese V2 SDF.asset` 是否冻结、降权或重建，作为独立共享资产问题处理。
+
+## 2026-03-28 补记：用户已明确纠偏——Spring-day1 两个 UI 的第一阶段任务本来就是“先把运行时手调结果逐项抄回基线”
+- 当前主线：用户继续用乱序聊天回放纠偏，要求重新厘清“最初到底让我做什么”“prefab 是怎么来的”“先照抄还是先抽象”。
+- 本轮子任务 / 阻塞：只读重排聊天需求，不改代码。
+- 本轮已确认的稳定事实：
+  1. `Assets/222_Prefabs/UI/Spring-day1/` 里的两个 prefab 不是普通参考稿，而是用户在运行游戏时因为受不了当时排版/字号/字体/位置，亲自手调出来、再拖回项目里的视觉结果。
+  2. 因此用户当时给出的“首先你要做的肯定当然是先全部抄下来”，其真实含义不是“拿 prefab 当灵感”，而是：
+     - 先逐项复刻这两个 prefab 里的组件大小、位置、旋转、字体、字号、样式、层级与显示配置；
+     - 先把运行态拉回到“至少能入眼”的正式基线；
+     - 然后再在此基线上继续做自适应、翻页、滚动链、制作状态机、小进度与固定锚定。
+  3. 之前线程一度把需求理解成“以 prefab 为基线，但别无脑照抄，先做更稳的抽象正式版”，这在策略上有一定合理性，但顺序错了：它跳过了用户明确要求的第一阶段“参数级复刻”，导致用户看到的运行态仍然和亲手调好的 prefab 不是一回事。
+  4. 所以当前最准确的分阶段口径应改为：
+     - Phase 1：先 1:1 抄回手调 prefab 的视觉参数与布局结果；
+     - Phase 2：在不破坏 Phase 1 视觉结果的前提下，补自适应、双页日历撕页、滚动/遮罩链、按钮/进度状态机、离台小进度和固定锚定；
+     - Phase 3：等 Day1 这套跑稳后，再抽“通用工作台 UI 模式”。
+  5. 这也进一步说明：之前的根病不是“prefab 不重要”，而是“权威视觉源存在，但运行时没吃它；而且实现线程还把用户要求的 Phase 1 跳成了自己的抽象 Phase 2”。
+- 本轮稳定结论：
+  - 以后讨论 Day1 这两个 UI 时，必须先承认用户的手调 prefab 是第一阶段唯一真基线；
+  - “通用化 / presenter / provider”不是被否掉，而是必须排在“先把基线抄准”之后；
+  - 如果连 Phase 1 都没做对，后面的抽象只会继续建立在错误视觉面上。
+- 当前恢复点：这轮需求时间线已重新锚定；下一步继续围绕“运行时 UI / prefab / 复用代码三者该如何分层”做讨论和方案判断。
+
+## 2026-03-28 补记：已进一步钉死“当前运行时并没有把手调 prefab 1:1 抄下来”
+- 当前主线：用户继续要求只读分析，不进入实现；重点是直接裁定“现在运行时那两套 UI 和 `Assets/222_Prefabs/UI/Spring-day1/` 里的手调 prefab 到底是不是同一套东西”，并给出后续合理路线。
+- 本轮没有进入 Unity，没有使用 MCP，没有改业务代码或 prefab。
+- 本轮新增站稳的事实：
+  1. 当前运行时不是“实例化 prefab 后再绑定内容”，而是“代码自行造 UI”；`SpringDay1PromptOverlay.cs` 与 `SpringDay1WorkbenchCraftingOverlay.cs` 仍都走 `EnsureRuntime() -> new GameObject -> AddComponent -> BuildUi()`。
+  2. `CraftingStationInteractable.cs` 解析工作台 UI 时，实际入口也是 `SpringDay1WorkbenchCraftingOverlay.EnsureRuntime()`，进一步坐实了运行态来源不是 prefab。
+  3. 直接参数已发生分叉，而不是只差细枝末节：
+     - `SpringDay1PromptOverlay.prefab` 的 Canvas `m_RenderMode: 2`，但 `SpringDay1PromptOverlay.cs` 在 `BuildUi()` 中把 `overlayCanvas.renderMode` 设成 `ScreenSpaceOverlay`
+     - `SpringDay1WorkbenchCraftingOverlay.prefab` 的 Canvas 也是 `m_RenderMode: 2`，但 `SpringDay1WorkbenchCraftingOverlay.cs` 同样设成 `ScreenSpaceOverlay`
+     - `SpringDay1WorkbenchCraftingOverlay.prefab` 的 `PanelRoot` 位置/尺寸是 `{x: 87.79856, y: -126.66856}` / `{x: 428, y: 257.1085}`，而代码默认面板高为 `236`
+     - `SpringDay1PromptOverlay.prefab` 的 `TaskCardRoot` 高度也已和代码默认值分叉：prefab 为 `229.9346`，代码默认值为 `188`
+  4. 这两个 prefab 并非“纯视觉草图”，它们本身挂着 overlay 脚本和多组 serialized 引用；但同时又存在 `materialsViewportRect / progressRoot / floatingProgressRoot` 等空引用，说明 prefab 正式面和代码后续扩长出的能力没有重新合拢成单一权威源。
+- 本轮稳定结论：
+  1. 现在可以明确回答用户：前线程不是完全没参考 prefab，但绝对不是“先把手调 formal-face 原样抄准”。
+  2. 它真正做的是“半参考 prefab、半用代码重写一版”，这正是用户会觉得“你自己去看这俩东西像不像”的根因。
+  3. 后续如果目标是既修好 Day1，又为“所有工作台共用 UI 模式”打底，正确路线不是纯 prefab，也不是继续纯 `BuildUi()`，而是：
+     - prefab 模板层：位置、尺寸、字体、字号、颜色、滚动区、按钮区、默认占位
+     - binder / presenter 层：抓 prefab 引用并刷新列表、详情、数量、进度、状态
+     - 业务 schema / provider 层：不同工作台的 recipe、文案、进度、限制与任务回推
+  4. 但这个通用化路线必须排在“先把 Day1 的手调基线吃回运行态”之后，不能再跳过 Phase 1。
+- 当前恢复点：
+  - 这轮已经足以回答“当前运行时到底有没有照抄 prefab”；
+  - 下一步等待用户决定，是继续只讨论这套模板化方案，还是开始设计 Day1 的第一刀模板收拢切口。
+
+
+## 2026-03-28 补记：Day1 owner 已把共享字体止血里的 6 个 Day1-facing 文件收成局部 checkpoint
+- 当前父工作区主线本轮不是继续 Day1 新功能，也不是继续下潜字体底座，而是按典狱长委托只收 `spring-day1` own 的 6 个 Day1-facing 文件。
+- 父层当前接受的 slice 结论：
+  1. Day1 owner 这轮真正该留的，是“默认字体链与产品面序列化引用”这一层：
+     - 三份运行时代码默认字体链统一到 `DialogueChinese SDF`
+     - `DialogueFontLibrary_Default.asset` 的 6 个 key 全部统一到 `DialogueChinese SDF`
+     - 两份 Day1 prefab 文本节点统一到 `DialogueChinese SDF`
+  2. 同文件里原先混入的行为改动这轮不吞，已经从三份脚本回退掉，避免把“共享字体止血 + Day1 行为续写”继续混成一刀
+  3. 共享字体残余问题仍明确留在 out-of-scope：
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+     - `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs`
+     - 整批 `DialogueChinese*` 底层稳定化
+- 父层当前最准确定性：
+  - 这 6 文件已经足够形成一个用户可判断的 Day1 owner checkpoint；
+  - 但 `spring-day1` own roots 还残留同根 dirty，因此当前状态是“checkpoint 成立，但整条 owner 路径仍未 clean，暂不 claim sync-ready”
+- 当前恢复点：
+  - 如果用户接受“Day1 默认链暂时统一走 `DialogueChinese SDF`”这个止血结果，下一步只该清同根 remaining dirty 并白名单 sync；
+  - 如果用户不接受这种风格收敛，再单独开下一刀讨论 Day1-facing 字体策略，不回头扩成共享字体底座治理
+
+## 2026-03-28 共享字体止血 owner 接盘回执补记（只读核查）
+- 当前 live 结论未变：Day1 owner 只接 6 个 Day1-facing 文件，目标是把 Day1 默认字体链收成一个可交给用户判断的止血 checkpoint。
+- live 复核结果：`main @ a0b3f0eb16e340fd5c2a3f20d4ac6644832690d1`；6 文件仍指向 `DialogueChinese SDF`；共享字体底座与 `Primary.unity` 继续 out-of-scope。
+- 当前最大阻塞不是这 6 文件本身，而是 `Assets/YYY_Scripts/Story/UI` 同根 remaining dirty/untracked 仍未 clean，所以还不能把这刀 sync 成正式 checkpoint。
+
+## 2026-03-28 Day1 owner 字体止血 checkpoint 停刀
+- 用户已确认本轮 `spring-day1` 的 Day1 owner 字体止血 checkpoint 已收下。
+- 明确裁定：后续不再由本线程继续往下施工，改由 `spring-day1V2` 接棒。
+- 本线程当前状态：停止继续开发，不再开新刀；保留已形成的 checkpoint 与 blocker 结论，等待 V2 继承。
+
+## 2026-03-28 补记：最新 importer 风险已确认不是 `V2` 单点，而是共享动态 TMP 中文字体族问题
+- 当前主线：用户追问“`DialogueChinese V2 SDF.asset` importer 风险到底是什么、为什么它被说成不再属于 Day1 主线、以及后续准备怎么处理”；本轮只做本地证据核查，不进入实现。
+- 本轮子任务 / 阻塞：重新对 `Editor.log`、字体生成器、当前字体资产 dirty diff 做只读复核，避免继续把聊天记忆当事实。
+- 本轮新增站稳的事实：
+  1. `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs` 当前确实把 `DialogueChinese V2 SDF.asset` 生成为 `AtlasPopulationMode.Dynamic`，并显式开启 `isMultiAtlasTexturesEnabled = true`。
+  2. 当前 dirty 已不是单个 `V2` 小波动，而是同族动态字体资产一起膨胀：
+     - `DialogueChinese V2 SDF.asset`：`1541 insertions`
+     - `DialogueChinese SDF.asset`：`259` 行级差异
+     - `DialogueChinese Pixel SDF.asset`：`4875 insertions`
+  3. `DialogueChinese V2 SDF.asset` 当前 diff 直接表现为：
+     - 新长出额外 atlas `Texture2D`
+     - `m_GlyphTable / m_CharacterTable` 从空表膨胀为大段内容
+  4. 最新 `Editor.log` 里，`V2` 的报错仍是由 `TMP_EditorResourceManager:DoPostRenderUpdates()` 触发导入后出现的：
+     - `Importer(NativeFormatImporter) generated inconsistent result`
+     - 目标为 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset`
+  5. 最新 `Editor.log` 还新增确认：`DialogueChinese SDF.asset` 也出现了同类 `Importer(NativeFormatImporter) generated inconsistent result`，说明这不是只属于 `V2` 一个文件的孤点异常。
+  6. 同一批日志里还出现：
+     - `The character used for Ellipsis is not available in font asset [DialogueChinese V2 SDF] or any potential fallbacks. Switching Text Overflow mode to Truncate.`
+     说明 `V2` 当前连 `Ellipsis` 这种运行时常用字符都没有稳定覆盖。
+- 本轮稳定结论：
+  - `DialogueChinese V2 SDF.asset` 仍然是最显眼的触发点，但真正该处理的根因口径已经收紧为：共享 `DialogueChinese*` 动态 TMP 中文字体资产稳定性问题。
+  - 这类问题会影响 Day1 live 验证，但它本身不再等于“Day1 业务没做完”；因此不该再把它挂回 Day1 主线 blocker。
+  - 后续若继续，应单独开“共享字体资产稳定化”切片，且顺序应是：
+    1. 先把默认链路从不稳定动态字体上撤开或冻结
+    2. 先恢复到可重复的稳定基线
+    3. 再隔离复现 importer inconsistent / domain reload
+    4. 最后才决定是把 `V2` 重建为确定性静态字体，还是保留成非默认的实验动态字体
+- 当前恢复点：
+  - Day1 主线继续维持“已闭环 / 仅剩共享字体残余风险”口径；
+  - 如果下一步真要做，不应回头修 Day1 剧情逻辑或 `Primary.unity`，而应转到 `DialogueChinese V2 SDF.asset`、`DialogueChinese SDF.asset`、`DialogueChinese Pixel SDF.asset` 与 `DialogueChineseFontAssetCreator.cs` 这一组共享字体稳定化切片。
+
+## 2026-03-28 补记：spring-day1V2 已按典狱长纠偏回到 same-root hygiene，本轮结果为 B
+- 当前主线：不再扩写共享字体底座；只继承老 `spring-day1` 已审的 6 文件 Day1 字体止血 checkpoint，然后继续 `Assets/YYY_Scripts/Story/UI` 同根 hygiene。
+- 本轮只读复核与 preflight 已确认：
+  1. 6 文件 checkpoint 在 working tree 仍成立：
+     - `SpringDay1PromptOverlay.cs / SpringDay1WorldHintBubble.cs / SpringDay1WorkbenchCraftingOverlay.cs` 的默认字体链仍收束到 `DialogueChinese SDF`
+     - `DialogueFontLibrary_Default.asset` 的 6 个 key 仍统一指向 `DialogueChinese SDF`
+     - 两份 Day1 prefab 的 TMP 文本引用仍统一到 `DialogueChinese SDF`
+  2. `Assets/YYY_Scripts/Story/UI` 同根 5 项里，当前判定为：
+     - `SpringDay1StatusOverlay.cs`：`own，可在本轮最小收口`
+     - `SpringDay1StatusOverlay.cs.meta`：`own，可在本轮最小收口`
+     - `SpringDay1UiLayerUtility.cs`：`own，可在本轮最小收口`
+     - `NpcWorldHintBubble.cs`：`foreign / 不该由 Day1 字体止血链吞并`
+     - `NpcWorldHintBubble.cs.meta`：`foreign / 不该由 Day1 字体止血链吞并`
+  3. `NpcWorldHintBubble` 判为 foreign 的直接依据已站稳：
+     - NPC 工作区 `0.0.2清盘002/memory.md` 明确把它列为 NPC 线 own 改动
+     - NPC 根 memory 也明确写到 `001 / 002 / 003` 共用的 `NpcWorldHintBubble` 已完成首轮重做
+  4. stable launcher `preflight` 已实锤：当前白名单不能继续 sync，原因不是旧 6 文件 checkpoint，而是当前 own roots 还残留未纳入本轮的 same-root dirty/untracked；其中 `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs(.meta)` 明确仍在 remaining 集合里。
+  5. 除 prompt 指定的 5 项外，preflight 还额外点出：
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1UiPrefabRegistry.cs(.meta)`
+     - `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/memory.md`
+     这些也会阻断当前链路直接进入 `sync-ready`，但不属于这轮“只判 5 项 same-root hygiene”的最小主刀。
+- 本轮稳定结论：
+  - 这轮合格结果应记为 `B`：
+    - 已确认继承 checkpoint 仍成立
+    - 但 same-root hygiene 存在明确 foreign 项阻断
+    - 因此当前不能 claim `sync-ready`
+- 当前恢复点：
+  - 后续若还要继续，只该处理：
+    - `NpcWorldHintBubble.cs(.meta)` 的真实 owner 认领 / 剥离
+    - 以及 `SpringDay1UiPrefabRegistry.cs(.meta)`、`003-进一步搭建/memory.md` 这两个额外 remaining blocker
+  - 不该再回到底座字体分析，也不该重打 6 文件 checkpoint
+
+## 2026-03-28 补记：字体止血链最终 blocker 矩阵已收成“停表 B”
+- 当前主线：不再继续做 same-root hygiene 实施，而是把这条 Day1 字体止血链为什么仍不能收成 `sync-ready`，一次压成最终 blocker 矩阵与收盘裁定。
+- 本轮精确 preflight 采用 stable launcher 的 `task + IncludePaths` 白名单口径，而不是只写一个缺参数的伪命令：
+  - 白名单边界 = `6 文件继承 checkpoint + 3 个已接受 own same-root 项 + 父工作区 memory.md`
+  - 实际调用：
+    - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread spring-day1V2 -IncludePaths @(Assets/111_Data/UI/Fonts/Dialogue/DialogueFontLibrary_Default.asset, Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab, Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab, Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs, Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs, Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs, Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs, Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs.meta, Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs, .kiro/specs/900_开篇/spring-day1-implementation/memory.md)`
+- 本轮新增站稳的事实：
+  1. launcher 这次拦下的第一真实原因，已经不是“task 模式没给边界”，也不是 shared root lease，而是：
+     - `当前白名单所属 own roots 仍有未纳入本轮的 remaining dirty/untracked`
+  2. 上述精确边界下，launcher 返回的 5 个第一批 remaining 已固定为：
+     - `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/memory.md`
+     - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs`
+     - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs.meta`
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1UiPrefabRegistry.cs`
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1UiPrefabRegistry.cs.meta`
+  3. 继续做文件现场核查后，还必须把以下配套项补进最终 stop-list：
+     - `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset`
+     - `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset.meta`
+     原因是 `SpringDay1PromptOverlay.cs` 与 `SpringDay1WorkbenchCraftingOverlay.cs` 当前都已经显式调用 `SpringDay1UiPrefabRegistry.Load*Prefab()`；只报脚本、不把对应 registry asset 一并纳入 blocker，会形成假 `sync-ready`。
+  4. 最终矩阵当前可固定为：
+     - `A. own current-slice（已纳入精确 preflight 边界，不再构成新增 blocker）`
+       - `SpringDay1StatusOverlay.cs`
+       - `SpringDay1StatusOverlay.cs.meta`
+       - `SpringDay1UiLayerUtility.cs`
+     - `B. own but other-slice contamination`
+       - `SpringDay1UiPrefabRegistry.cs`
+       - `SpringDay1UiPrefabRegistry.cs.meta`
+       - `SpringDay1UiPrefabRegistry.asset`
+       - `SpringDay1UiPrefabRegistry.asset.meta`
+     - `C. foreign`
+       - `NpcWorldHintBubble.cs`
+       - `NpcWorldHintBubble.cs.meta`
+     - `D. doc / governance blocker`
+       - `003-进一步搭建/memory.md`
+- 本轮最终裁定：
+  - 这条字体止血链在 `spring-day1V2` 这里应正式记为：
+    - `B｜最终停表`
+  - 理由已经站稳：
+    1. 当前该线 own current-slice 已经被完整带入精确 preflight 边界，没有新的“我这条字体止血链还漏做的 own current-slice 动作”
+    2. 剩余阻断已经明确落在：
+       - `foreign`
+       - `same-thread other-slice contamination`
+       - `doc blocker`
+    3. 因此后续不应再由这条字体止血链自己继续自转，更不应回到 `DialogueChinese*` 底座线；应停在最终 blocker handoff，由治理位继续拆 owner / 拆 slice。
+- 当前恢复点：
+  - 这条线的最终口径已经从“合格 B，但未收盘”收成“合格 B，且应停表”；
+  - 后续若治理位还要继续发 prompt，不应再命题为“继续做一点 hygiene”，而应按：
+    - `NpcWorldHintBubble` owner 剥离
+    - `SpringDay1UiPrefabRegistry` 另刀归并
+    - `003-进一步搭建/memory.md` 文档面拆账
+    分开处理。
+
+## 2026-03-28 补记：当前真正让用户感到“你到底在干什么”的根因已明确
+- 当前主线：用户不再问单条技术裁定，而是直接追问“这几轮到底在做什么、当前情况是什么、为什么会这么煎熬”。
+- 本轮稳定结论：
+  1. 这几轮并不主要是在继续做 Day1 新功能，而是在做 Day1 进入 shared root `main` 白名单收口前的 owner / blocker / same-root remaining 裁定。
+  2. 这条线之所以显得反复、煎熬，不是因为一直在同一层写功能，而是因为主线被切成了三层混在一起：
+     - 真实业务成果：Day1 主线本体其实已经在更早轮次打到 `DayEnd`，6 文件字体止血 checkpoint 也已成立。
+     - shared root 治理收口：为了能安全 sync，需要继续判哪些 dirty 是 Day1 own，哪些是 foreign，哪些是 same-thread other-slice contamination。
+     - 用户沟通失真：我多轮用了过多“checkpoint / blocker / preflight”口径，导致用户看不出“现在是在做功能，还是在做治理收口”。
+  3. 当前最准现状应翻译成：
+     - `Day1 功能主线`：不是没做，也不是卡在核心玩法；主线业务面此前已经跑通到 `DayEnd`
+     - `当前卡住的`：不是 Day1 功能继续开发，而是字体止血这条线在 shared root 上无法被诚实地当成单一切片 sync
+     - `根因`：同根路径下混着 NPC foreign、Day1 另一刀的 UI 模板化残留、以及文档账本残留
+- 当前恢复点：
+  - 后续如果继续和用户沟通，必须先把“现在做的是功能开发、还是治理收口、还是 owner 裁定”讲清，再给技术细节；
+  - 否则即使技术结论对，用户仍会觉得“你到底在干什么”。
+
+## 2026-03-28 补记：对用户的最终解释口径继续收紧
+- 当前主线：用户再次要求我不要再只交技术 dump，而要直接说明“最近到底在干什么、当前是什么局面、为什么会这么折磨人”。
+- 本轮稳定结论：
+  1. 这条线当前最重要的不是再补一个工程结论，而是把边界说死：
+     - `Day1 功能主线` 之前已经推进到 `DayEnd`
+     - 最近几轮主要在做 `shared root` 上的收口裁定，不是继续扩 Day1 玩法
+     - 用户之所以会强烈感到空转，核心是我把功能推进、治理收口、沟通层三件事混在一起汇报
+  2. 因此这条线后续若继续对用户汇报，第一句必须先说清：
+     - 现在是在做功能
+     - 还是在做收口
+     - 还是在做 owner / blocker 裁定
+  3. 当前这条字体止血链的工程结论不变，仍是：
+     - `B｜最终停表`
+     - 不应再由当前线程自己继续磨成“仿佛还能顺着做下去”的状态
+- 当前恢复点：
+  - 后续若继续推进，用户应看到的是“拆 owner / 拆 slice 的后续动作”，而不是继续把当前线程理解为在补 Day1 新功能。
+
+## 2026-03-28 补记：已重新对齐 UI-V1 与 spring-day1V2 的边界，防止再把 Day1 全局状态讲错
+- 当前主线：用户明确提醒“Day1 UI 已外包给 UI-V1”，要求重新审视我是否把 UI-V1 正在推进的内容混入了 `spring-day1V2` 的治理叙事。
+- 本轮稳定结论：
+  1. `SpringUI` 工作区与 `spring-day1` 线程当前都已明确进入 Day1 UI 正式实施：
+     - `Phase 1` = `prefab-first` 接回 runtime
+     - `Phase 2` = 6 条体验问题的主实现补稳与最小 runtime 证据
+  2. 当前应把这些文件明确视为 UI-V1 主链：
+     - `SpringDay1PromptOverlay.cs`
+     - `SpringDay1WorkbenchCraftingOverlay.cs`
+     - `SpringDay1UiLayerUtility.cs`
+     - `SpringDay1UiPrefabRegistry.cs`
+     - `SpringDay1UiPrefabRegistry.asset`
+     - `SpringDay1LateDayRuntimeTests.cs`
+  3. `spring-day1V2` 这条线的真实职责应重新收紧为：
+     - Day1 字体止血 checkpoint 的 blocker / owner / stop-list 裁定
+     - 而不是再把 Day1 UI 正式施工也概括成“最近没有继续做功能”
+  4. 因此以后对用户讲 Day1 全局现状时，必须分成两块：
+     - `UI-V1`：在做什么、做到哪
+     - `spring-day1V2`：在做什么、为什么停表
+- 当前恢复点：
+  - 当前最重要的不是继续扩写 `spring-day1V2` 的说明，而是避免再用单线程口径误代整个 Day1 项目现状。
+
+## 2026-03-28 补记：已产出给典狱长的 04 完整回执
+- 当前主线：用户要求把 `spring-day1V2` 的最新真实状态重新回执给典狱长，让治理位据此决定下一步该怎么拆 owner / 拆 slice。
+- 本轮完成：
+  1. 已基于 `03` 委托与最新跨线程边界，落盘正式回执：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1V2\2026-03-28_给典狱长的最新完整回执_04.md`
+  2. 回执保留：
+     - `spring-day1V2 = B｜最终停表`
+  3. 回执新增明确对治理位有用的补充：
+     - `UI-V1` 正在推进 Day1 UI `Phase 1 / Phase 2`
+     - `SpringDay1UiPrefabRegistry` 现已是 `UI-V1` 活跃链路，应按该方向路由，不应再回投给 `spring-day1V2`
+     - `NpcWorldHintBubble.cs` 与 `SpringDay1WorldHintBubble.cs` 需分开看待
+- 当前恢复点：
+  - Day1 全局后续更适合由治理位基于这份 `04` 回执做拆分，而不是再让 `spring-day1V2` 继续泛化续工。
+
+## 2026-03-29 补记：字体止血 docs-tail 与 font-stopgap 已通过第二轮归仓 preflight
+- 当前主线：只收字体止血相关 docs-tail 与 `DialogueFontLibrary_Default.asset`，不再继续 Day1 feature，也不回到 `UI-V1` 活跃实现链。
+- 本轮稳定结论：
+  1. 已按治理位给出的 exact whitelist 跑真实 `preflight`。
+  2. 当前 own roots 为：
+     - `.kiro/specs/900_开篇/0.0阶段/0.0.3V2`
+     - `.kiro/specs/900_开篇/spring-day1-implementation`
+     - `.codex/threads/Sunset/spring-day1V2`
+     - `Assets/111_Data/UI/Fonts/Dialogue`
+  3. `own roots remaining dirty = 0`，当前这组 docs-tail + font-stopgap 具备白名单归仓条件。
+- 当前恢复点：
+  - 本轮不再继续扩面；只等最终 `sync` 成功或新的第一真实 blocker 出现。
