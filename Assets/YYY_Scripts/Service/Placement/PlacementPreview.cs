@@ -391,6 +391,11 @@ public class PlacementPreview : MonoBehaviour
     /// </summary>
     public Bounds GetVisualPreviewBounds()
     {
+        if (itemPreviewRenderer != null && itemPreviewRenderer.sprite != null)
+        {
+            return itemPreviewRenderer.bounds;
+        }
+
         return GetGridPreviewBounds();
     }
 
@@ -543,17 +548,13 @@ public class PlacementPreview : MonoBehaviour
         if (OcclusionManager.Instance == null) return;
         if (!gameObject.activeSelf) return;
         
-        // 遮挡系统仍以可视预览为准，避免把交互包络误当成 hover 可见范围。
-        Bounds previewBounds = GetVisualPreviewBounds();
-        
-        // 如果有物品预览 Sprite，扩展 Bounds 以包含 Sprite
-        if (itemPreviewRenderer != null && itemPreviewRenderer.sprite != null)
-        {
-            Bounds spriteBounds = itemPreviewRenderer.bounds;
-            previewBounds.Encapsulate(spriteBounds);
-        }
-        
+        Bounds previewBounds = GetOcclusionPreviewBounds();
         OcclusionManager.Instance.SetPreviewBounds(previewBounds);
+    }
+
+    private Bounds GetOcclusionPreviewBounds()
+    {
+        return GetGridPreviewBounds();
     }
     
     #endregion

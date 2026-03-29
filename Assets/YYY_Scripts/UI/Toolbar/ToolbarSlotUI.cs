@@ -24,6 +24,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     private ItemDatabase database;
     private HotbarSelectionService selection;
     private int index = -1;
+    private bool isHovered;
     private RectTransform _rectTransform;
     private Vector2 _restAnchoredPosition;
     private Coroutine _rejectShakeCoroutine;
@@ -294,22 +295,20 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     {
         if (_durabilityBar == null || _durabilityBarBg == null) return;
         
-        // 如果物品为空或没有耐久度，隐藏耐久度条
-        if (item == null ||
-            !item.HasDurability ||
-            (itemData is ToolData toolData && ToolRuntimeUtility.UsesWater(toolData)))
+        if (!ToolRuntimeUtility.TryGetToolStatusRatio(item, itemData, out float percent, out bool usesWater))
         {
             _durabilityBarBg.enabled = false;
             _durabilityBar.enabled = false;
             return;
         }
-        
-        // 显示耐久度条
-        _durabilityBarBg.enabled = true;
-        _durabilityBar.enabled = true;
-        
-        // 计算耐久度百分比
-        float percent = item.DurabilityPercent;
+
+        bool shouldShow = ShouldShowStatusBar();
+        _durabilityBarBg.enabled = shouldShow;
+        _durabilityBar.enabled = shouldShow;
+        if (!shouldShow)
+        {
+            return;
+        }
         
         // 🔥 P2-1：使用像素偏移控制宽度
         var rt = (RectTransform)_durabilityBar.transform;
@@ -324,7 +323,11 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         
         // 根据耐久度百分比改变颜色
         Color barColor;
-        if (percent > 0.5f)
+        if (usesWater)
+        {
+            barColor = Color.Lerp(new Color(0.06f, 0.42f, 0.92f, 1f), new Color(0.30f, 0.86f, 0.98f, 1f), percent);
+        }
+        else if (percent > 0.5f)
         {
             float t = (percent - 0.5f) * 2f;
             barColor = Color.Lerp(Color.yellow, new Color(0.2f, 0.8f, 0.2f), t);
@@ -355,6 +358,8 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
             // 低版本无SetIsOnWithoutNotify，需要手动避免事件（但ToggleGroup会处理）
 #endif
         }
+
+        UpdateStatusBarVisibility();
     }
 
     public void OnPointerClick(PointerEventData eventData)
@@ -405,6 +410,8 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        isHovered = true;
+        UpdateStatusBarVisibility();
         if (SlotDragContext.IsDragging || (InventoryInteractionManager.Instance != null && InventoryInteractionManager.Instance.IsHolding))
         {
             return;
@@ -434,7 +441,32 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        isHovered = false;
+        UpdateStatusBarVisibility();
         ItemTooltip.Instance?.Hide();
+    }
+
+    private void UpdateStatusBarVisibility()
+    {
+        if (inventory == null || database == null || index < 0)
+        {
+            return;
+        }
+
+        var stack = inventory.GetSlot(index);
+        ItemData itemData = stack.IsEmpty ? null : database.GetItemByID(stack.itemId);
+        UpdateDurabilityBar(stack.IsEmpty ? null : inventory.GetInventoryItem(index), itemData);
+    }
+
+    private bool ShouldShowStatusBar()
+    {
+        if (isHovered)
+        {
+            return true;
+        }
+
+        return selection != null &&
+               (selection.selectedIndex == index || ToolRuntimeUtility.WasSlotUsedRecently(index));
     }
     
     /// <summary>

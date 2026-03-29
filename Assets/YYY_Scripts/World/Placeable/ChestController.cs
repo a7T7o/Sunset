@@ -22,7 +22,7 @@ namespace FarmGame.World
         [Header("=== 持久化配置 ===")]
         [SerializeField, Tooltip("对象唯一 ID（自动生成，勿手动修改）")]
         private string _persistentId;
-        
+
         [SerializeField, Tooltip("是否在编辑器中预生成 ID")]
         private bool _preGenerateId = true;
 
@@ -42,6 +42,10 @@ namespace FarmGame.World
 
         [Tooltip("上锁打开状态的 Sprite")]
         [SerializeField] private Sprite spriteLockedOpen;
+
+        [Header("=== 交互设置 ===")]
+        [Tooltip("玩家到箱子边界的允许开启距离")]
+        [SerializeField, Min(0.35f)] private float interactionDistance = 0.9f;
 
         [Header("=== 来源与归属 ===")]
         [Tooltip("箱子来源（玩家制作/野外生成）")]
@@ -83,13 +87,13 @@ namespace FarmGame.World
         #region 私有字段
 
         private ChestInventory _inventory;
-        
+
         /// <summary>
         /// V2 库存（支持 InventoryItem）
         /// </summary>
         private ChestInventoryV2 _inventoryV2;
         private bool _isSyncingInventoryBridge;
-        
+
         private bool _isPushing = false;
         private bool _isShaking = false;
         private bool _isOpen = false;
@@ -97,11 +101,11 @@ namespace FarmGame.World
         private PolygonCollider2D _polyCollider;
         private SpriteRenderer _spriteRenderer;
         private Vector3 _originalPosition;
-        
+
         // 🔥 修正 Ⅲ：底部对齐锚点
         private Vector3 _anchorWorldPos;
         private bool _anchorInitialized = false;
-        
+
         // 🔥 缓存引用（性能优化）
         private PackagePanelTabsUI _cachedPackagePanel;
         private Canvas _cachedCanvas;
@@ -114,7 +118,7 @@ namespace FarmGame.World
         public int CurrentHealth => currentHealth;
         public ChestOwnership Ownership => ownership;
         public bool IsLocked => isLocked;
-        
+
         /// <summary>
         /// 箱子库存（新接口，推荐使用）
         /// </summary>
@@ -124,17 +128,17 @@ namespace FarmGame.World
         /// 当前运行时优先使用的箱子容器。
         /// </summary>
         public IItemContainer RuntimeInventory => (IItemContainer)_inventoryV2 ?? _inventory;
-        
+
         /// <summary>
         /// V2 库存（支持 InventoryItem，用于存档）
         /// </summary>
         public ChestInventoryV2 InventoryV2 => _inventoryV2;
-        
+
         /// <summary>
         /// 兼容旧接口：获取所有内容物
         /// </summary>
         public ItemStack[] Contents => _inventoryV2?.GetAllSlots() ?? _inventory?.GetAllSlots() ?? System.Array.Empty<ItemStack>();
-        
+
         public bool IsPushing => _isPushing;
         public bool IsOpen => _isOpen;
         public ChestOrigin Origin => origin;
@@ -147,9 +151,9 @@ namespace FarmGame.World
         public bool IsEmpty => _inventoryV2?.IsEmpty ?? _inventory?.IsEmpty ?? true;
 
         #endregion
-        
+
         #region 数据同步
-        
+
         /// <summary>
         /// 将 legacy `ChestInventory` 的变更桥接到 authoritative `ChestInventoryV2`。
         /// 旧库存只作为兼容入口保留，bridge 时必须静默写入，避免事件互相反写。
@@ -193,7 +197,7 @@ namespace FarmGame.World
             if (showDebugInfo)
                 Debug.Log($"[ChestController] SyncInventoryToV2: 已将 legacy mirror 同步到 authoritative V2，变更槽位数={changedSlots.Count}");
         }
-        
+
         /// <summary>
         /// 将 authoritative `ChestInventoryV2` 同步回 legacy `ChestInventory` 兼容镜像。
         /// 仅用于旧接口读取，不允许再次触发双向事件回写。
@@ -273,7 +277,7 @@ namespace FarmGame.World
                    runtimeItem.Quality == legacyStack.quality &&
                    runtimeItem.Amount == legacyStack.amount;
         }
-        
+
         #endregion
 
         #region IPersistentObject 接口实现
@@ -292,7 +296,7 @@ namespace FarmGame.World
                 return _persistentId;
             }
         }
-        
+
         /// <summary>
         /// 🔥 P1 任务 9.2：设置持久化 ID（仅供 DynamicObjectFactory 加载时使用）
         /// </summary>
@@ -332,11 +336,11 @@ namespace FarmGame.World
                 // 🔥 3.7.5：使用世界预制体名称
                 prefabId = GetWorldPrefabName()
             };
-            
+
             // 设置位置
             data.SetPosition(transform.position);
             data.rotationZ = transform.eulerAngles.z;
-            
+
             // 创建箱子特有数据
             var chestData = new ChestSaveData
             {
@@ -344,7 +348,7 @@ namespace FarmGame.World
                 isLocked = isLocked,
                 customName = storageData?.itemName
             };
-            
+
             // 保存库存数据（优先使用 V2）
             if (_inventoryV2 != null)
             {
@@ -366,22 +370,22 @@ namespace FarmGame.World
                     });
                 }
             }
-            
+
             // 序列化为 JSON
             data.genericData = JsonUtility.ToJson(chestData);
-            
+
             // 🔴 保存渲染层级参数（Sorting Layer + Order in Layer）
             if (_spriteRenderer != null)
             {
                 data.SetSortingLayer(_spriteRenderer);
             }
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] Save: GUID={PersistentId}, prefabId={data.prefabId}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}");
-            
+
             return data;
         }
-        
+
         /// <summary>
         /// 🔥 3.7.5：获取世界预制体名称
         /// 优先使用 StorageData 中配置的世界预制体名称
@@ -393,25 +397,25 @@ namespace FarmGame.World
             {
                 return storageData.storagePrefab.name;
             }
-            
+
             // 2. 回退：使用当前 GameObject 名称（清洗后）
             return CleanGameObjectName(gameObject.name);
         }
-        
+
         /// <summary>
         /// 🔥 3.7.5：清理 GameObject 名称（去掉 Clone 等后缀）
         /// </summary>
         private string CleanGameObjectName(string name)
         {
             if (string.IsNullOrEmpty(name)) return name;
-            
+
             // 去掉 "(Clone)" 后缀
             if (name.EndsWith("(Clone)"))
                 name = name.Substring(0, name.Length - 7).Trim();
-            
+
             // 去掉 " (1)", " (2)" 等后缀
             name = System.Text.RegularExpressions.Regex.Replace(name, @"\s\(\d+\)$", "");
-            
+
             return name;
         }
 
@@ -424,11 +428,11 @@ namespace FarmGame.World
         public void Load(WorldObjectSaveData data)
         {
             if (data == null) return;
-            
+
             // 恢复位置
             transform.position = data.GetPosition();
             transform.rotation = Quaternion.Euler(0, 0, data.rotationZ);
-            
+
             // 解析箱子特有数据
             if (!string.IsNullOrEmpty(data.genericData))
             {
@@ -436,13 +440,13 @@ namespace FarmGame.World
                 if (chestData != null)
                 {
                     isLocked = chestData.isLocked;
-                    
+
                     // 🔥 修复：确保 _inventory 和 _inventoryV2 已初始化
                     int capacity = chestData.capacity > 0 ? chestData.capacity : (storageData?.storageCapacity ?? 20);
-                    
+
                     // 🔥 锐评010 指令：添加调试日志验证 capacity
                     Debug.Log($"[Chest] Load Capacity: {capacity} (chestData.capacity={chestData.capacity}, storageData?.storageCapacity={storageData?.storageCapacity})");
-                    
+
                     if (_inventory == null)
                     {
                         _inventory = new ChestInventory(capacity);
@@ -455,14 +459,14 @@ namespace FarmGame.World
                         if (showDebugInfo)
                             Debug.Log($"[ChestController] Load: 初始化 _inventoryV2, capacity={capacity}");
                     }
-                    
+
                     // 恢复库存数据
                     if (chestData.slots != null && chestData.slots.Count > 0)
                     {
                         _inventoryV2.LoadFromSaveData(chestData.slots);
                         // 🔥 P0-1 修复：同步到 _inventory，确保 UI 显示正确
                         SyncV2ToInventory();
-                        
+
                         if (showDebugInfo)
                             Debug.Log($"[ChestController] Load: 恢复了 {chestData.slots.Count} 个槽位数据");
                     }
@@ -478,22 +482,22 @@ namespace FarmGame.World
                         {
                             _inventory.ClearSlotSilently(i);
                         }
-                        
+
                         if (showDebugInfo)
                             Debug.Log($"[ChestController] Load: 存档中无槽位数据，已清空两个库存系统");
                     }
                 }
             }
-            
+
             // 更新视觉状态
             UpdateSprite();
-            
+
             // 🔴 恢复渲染层级参数（Sorting Layer + Order in Layer）
             if (_spriteRenderer != null)
             {
                 data.RestoreSortingLayer(_spriteRenderer);
             }
-            
+
             // 🔥 P0-2 修复：强制状态检查，验证 IsEmpty 属性返回正确值
             if (showDebugInfo)
             {
@@ -578,7 +582,7 @@ namespace FarmGame.World
             _spriteRenderer = GetComponent<SpriteRenderer>();
             if (_spriteRenderer == null)
                 _spriteRenderer = GetComponentInChildren<SpriteRenderer>();
-            
+
             // 🔥 修正 Ⅲ：初始化底部对齐锚点
             if (!_anchorInitialized && _spriteRenderer != null)
             {
@@ -597,7 +601,7 @@ namespace FarmGame.World
                 if (showDebugInfo)
                     Debug.Log($"[ChestController] 已注册到 ResourceNodeRegistry: {gameObject.name}");
             }
-            
+
             // 🔥 注册到持久化对象注册中心
             if (PersistentObjectRegistry.Instance != null)
             {
@@ -605,12 +609,12 @@ namespace FarmGame.World
                 if (showDebugInfo)
                     Debug.Log($"[ChestController] 已注册到 PersistentObjectRegistry: GUID={PersistentId}");
             }
-            
+
             // 🔥 关键修复：箱子放置后通知 NavGrid 刷新
             // 延迟一帧确保碰撞体已完全初始化
             StartCoroutine(RequestNavGridRefreshDelayed());
         }
-        
+
         /// <summary>
         /// 延迟请求 NavGrid 刷新（确保碰撞体已初始化）
         /// </summary>
@@ -619,7 +623,7 @@ namespace FarmGame.World
             yield return null; // 等待一帧
             RequestNavGridRefresh();
         }
-        
+
         /// <summary>
         /// 请求 NavGrid 刷新（供外部调用）
         /// </summary>
@@ -634,11 +638,11 @@ namespace FarmGame.World
         {
             if (ResourceNodeRegistry.Instance != null)
                 ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
-            
+
             // 🔥 从持久化对象注册中心注销
             if (PersistentObjectRegistry.Instance != null)
                 PersistentObjectRegistry.Instance.Unregister(this);
-            
+
             // 🔥 P1 任务 4：取消订阅事件，避免内存泄漏
             if (_inventory != null)
                 _inventory.OnInventoryChanged -= OnInventoryChangedHandler;
@@ -665,7 +669,7 @@ namespace FarmGame.World
                     _inventory = new ChestInventory(storageData.storageCapacity);
                     // 🔥 P1 任务 4：订阅库存变化事件，实时同步到 V2
                     _inventory.OnInventoryChanged += OnInventoryChangedHandler;
-                    
+
                     if (showDebugInfo)
                         Debug.Log($"[ChestController] Initialize: 创建新的 _inventory, capacity={storageData.storageCapacity}");
                 }
@@ -674,16 +678,16 @@ namespace FarmGame.World
                     // 🔥 确保事件订阅（Load() 中创建的 _inventory 可能没有订阅事件）
                     _inventory.OnInventoryChanged -= OnInventoryChangedHandler; // 先移除，避免重复订阅
                     _inventory.OnInventoryChanged += OnInventoryChangedHandler;
-                    
+
                     if (showDebugInfo)
                         Debug.Log($"[ChestController] Initialize: _inventory 已存在（来自 Load），跳过重建");
                 }
-                
+
                 // 🔥 3.7.6 修复：同样检查 _inventoryV2
                 if (_inventoryV2 == null)
                 {
                     _inventoryV2 = new ChestInventoryV2(storageData.storageCapacity);
-                    
+
                     if (showDebugInfo)
                         Debug.Log($"[ChestController] Initialize: 创建新的 _inventoryV2, capacity={storageData.storageCapacity}");
                 }
@@ -706,7 +710,7 @@ namespace FarmGame.World
             UpdateColliderShape();
             // NavGrid 刷新由 Start 中的延迟调用处理
         }
-        
+
         /// <summary>
         /// 🔥 P1 任务 4：库存变化事件处理器
         /// 当 _inventory 发生变化时，自动同步到 _inventoryV2
@@ -725,7 +729,7 @@ namespace FarmGame.World
             {
                 _isSyncingInventoryBridge = false;
             }
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] OnInventoryChanged: 已同步到 V2");
         }
@@ -768,7 +772,7 @@ namespace FarmGame.World
             hasBeenLocked = initialLocked;
             Initialize();
         }
-        
+
         /// <summary>
         /// 设置物品数据库引用（供 BoxPanelUI 调用）
         /// </summary>
@@ -786,11 +790,11 @@ namespace FarmGame.World
         {
             _isOpen = open;
             UpdateSpriteForState();
-            
+
             // 🔥 修正 Ⅳ：状态切换后更新 Collider 和 NavGrid
             UpdateColliderShape();
             RequestNavGridRefresh();
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] 设置打开状态: {open}, ownership={ownership}, isLocked={isLocked}");
         }
@@ -803,9 +807,9 @@ namespace FarmGame.World
         public void UpdateSpriteForState()
         {
             if (_spriteRenderer == null) return;
-            
+
             Sprite targetSprite = null;
-            
+
             // 野外箱子且曾经被解锁过：常驻"上锁打开"样式
             if (origin == ChestOrigin.WorldSpawned && hasBeenLocked && !isLocked)
             {
@@ -816,7 +820,7 @@ namespace FarmGame.World
             {
                 targetSprite = GetCurrentSprite();
             }
-            
+
             if (targetSprite != null)
             {
                 // 🔥 修正：先更新 Sprite，再执行底部对齐
@@ -837,9 +841,9 @@ namespace FarmGame.World
             else
                 return _isOpen ? spriteUnlockedOpen : spriteUnlockedClosed;
         }
-        
+
         #region 底部对齐（修正 Ⅲ）
-        
+
         /// <summary>
         /// 获取当前 Sprite 底部中心的世界坐标
         /// </summary>
@@ -847,11 +851,11 @@ namespace FarmGame.World
         {
             if (_spriteRenderer == null || _spriteRenderer.sprite == null)
                 return transform.position;
-            
+
             var bounds = _spriteRenderer.bounds; // 世界空间 bounds
             return new Vector3(bounds.center.x, bounds.min.y, transform.position.z);
         }
-        
+
         /// <summary>
         /// 底部对齐 - 与 TreeController 保持一致
         /// 修改子物体的 localPosition.y，使 Sprite 底部对齐到父物体位置
@@ -859,23 +863,23 @@ namespace FarmGame.World
         private void AlignSpriteBottom()
         {
             if (_spriteRenderer == null || _spriteRenderer.sprite == null) return;
-            
+
             // 使用与 TreeController 完全一致的逻辑
             Bounds spriteBounds = _spriteRenderer.sprite.bounds;
             float spriteBottomOffset = spriteBounds.min.y;
-            
+
             Vector3 localPos = transform.localPosition;
             localPos.y = -spriteBottomOffset;
             transform.localPosition = localPos;
-            
+
             // 更新锚点（用于后续 Sprite 切换时的相对对齐）
             _anchorWorldPos = GetCurrentBottomCenterWorld();
             _anchorInitialized = true;
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] AlignSpriteBottom: spriteBottomOffset={spriteBottomOffset}, localPos.y={localPos.y}");
         }
-        
+
         /// <summary>
         /// 应用 Sprite 并保持底部对齐（旧方法，保留兼容）
         /// </summary>
@@ -883,37 +887,37 @@ namespace FarmGame.World
         private void ApplySpriteWithBottomAlign(Sprite newSprite)
         {
             if (_spriteRenderer == null || newSprite == null) return;
-            
+
             // 应用新 Sprite
             _spriteRenderer.sprite = newSprite;
-            
+
             // 使用统一的底部对齐方法
             AlignSpriteBottom();
         }
-        
+
         #endregion
-        
+
         #region Collider 更新（修正 Ⅳ）
-        
+
         /// <summary>
         /// 更新 PolygonCollider2D 形状以匹配当前 Sprite
         /// </summary>
         private void UpdateColliderShape()
         {
-            if (_polyCollider == null || _spriteRenderer == null || _spriteRenderer.sprite == null) 
+            if (_polyCollider == null || _spriteRenderer == null || _spriteRenderer.sprite == null)
                 return;
-            
+
             var sprite = _spriteRenderer.sprite;
             int shapeCount = sprite.GetPhysicsShapeCount();
-            
+
             if (shapeCount == 0)
             {
                 _polyCollider.pathCount = 0;
                 return;
             }
-            
+
             _polyCollider.pathCount = shapeCount;
-            
+
             var physicsShape = new System.Collections.Generic.List<Vector2>();
             for (int i = 0; i < shapeCount; i++)
             {
@@ -921,14 +925,14 @@ namespace FarmGame.World
                 sprite.GetPhysicsShape(i, physicsShape);
                 _polyCollider.SetPath(i, physicsShape);
             }
-            
+
             // 🔥 确保物理系统同步
             Physics2D.SyncTransforms();
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] UpdateColliderShape: shapeCount={shapeCount}");
         }
-        
+
         #endregion
 
         #endregion
@@ -972,14 +976,14 @@ namespace FarmGame.World
         private void TryPush(Vector2 direction)
         {
             if (_isPushing) return;
-            
+
             // 标准化方向
             Vector2 pushDir = direction.normalized;
             if (pushDir.sqrMagnitude < 0.01f) return;
-            
+
             // 计算目标位置
             Vector3 targetPos = transform.position + (Vector3)(pushDir * pushDistance);
-            
+
             // 碰撞检测
             var hits = Physics2D.OverlapCircleAll(targetPos, collisionCheckRadius);
             foreach (var hit in hits)
@@ -991,43 +995,43 @@ namespace FarmGame.World
                     return;
                 }
             }
-            
+
             StartCoroutine(PushCoroutine(targetPos));
         }
-        
+
         private IEnumerator PushCoroutine(Vector3 targetPos)
         {
             _isPushing = true;
             Vector3 startPos = transform.position;
             float elapsed = 0f;
-            
+
             while (elapsed < pushDuration)
             {
                 elapsed += Time.deltaTime;
                 float t = elapsed / pushDuration;
-                
+
                 // 水平移动
                 Vector3 pos = Vector3.Lerp(startPos, targetPos, t);
-                
+
                 // 添加跳跃效果
                 float jumpT = Mathf.Sin(t * Mathf.PI);
                 pos.y += jumpT * pushJumpHeight;
-                
+
                 transform.position = pos;
                 yield return null;
             }
-            
+
             transform.position = targetPos;
             _isPushing = false;
-            
+
             // 🔥 关键修复：推动完成后刷新 NavGrid
             RequestNavGridRefresh();
         }
-        
+
         #endregion
-        
+
         #region 锁定系统
-        
+
         /// <summary>
         /// 判断箱子是否可以被挖取或移动
         /// 野外上锁箱子（无论是否已开锁）不能被挖取或移动
@@ -1052,7 +1056,7 @@ namespace FarmGame.World
                     Debug.Log("[ChestController] 箱子已上过锁，不能再次上锁");
                 return LockResult.AlreadyLocked;
             }
-            
+
             // 野外上锁箱子不能被玩家上锁
             if (origin == ChestOrigin.WorldSpawned && isLocked)
             {
@@ -1060,19 +1064,19 @@ namespace FarmGame.World
                     Debug.Log("[ChestController] 野外上锁箱子不能被玩家上锁");
                 return LockResult.AlreadyLocked;
             }
-            
+
             isLocked = true;
             hasBeenLocked = true;
-            
+
             // 野外未锁箱子上锁后变为玩家归属
             if (origin == ChestOrigin.WorldSpawned)
                 ownership = ChestOwnership.Player;
-            
+
             UpdateSprite();
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] 玩家上锁成功");
-            
+
             return LockResult.Success;
         }
 
@@ -1100,19 +1104,19 @@ namespace FarmGame.World
 
             if (!isLocked)
                 return UnlockResult.NotLocked;
-            
+
             // 玩家自己的箱子不需要钥匙
             if (ownership == ChestOwnership.Player)
                 return UnlockResult.AlreadyOwned;
-            
+
             // 计算开锁概率
             float chestChance = storageData != null ? storageData.baseUnlockChance : 0.5f;
             float totalChance = keyData.unlockChance + chestChance;
             bool success = Random.value <= totalChance;
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] 开锁尝试: 钥匙概率={keyData.unlockChance}, 箱子概率={chestChance}, 总概率={totalChance}, 结果={success}");
-            
+
             if (success)
             {
                 isLocked = false;
@@ -1120,7 +1124,7 @@ namespace FarmGame.World
                 UpdateSprite();
                 return UnlockResult.Success;
             }
-            
+
             // 失败时钥匙会被消耗（由调用方处理）
             return UnlockResult.MaterialMismatch; // 复用枚举表示失败
         }
@@ -1132,21 +1136,21 @@ namespace FarmGame.World
         {
             if (hasBeenLocked) return LockResult.AlreadyLocked;
             if (isLocked) return LockResult.AlreadyLocked;
-            
+
             if (storageData != null && storageData.chestMaterial != lockMaterial)
                 return LockResult.MaterialMismatch;
-            
+
             isLocked = true;
             hasBeenLocked = true;
             ownership = ChestOwnership.Locked;
             UpdateSprite();
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] 上锁成功");
-            
+
             return LockResult.Success;
         }
-        
+
         /// <summary>
         /// 尝试解锁（旧接口，保留兼容）
         /// </summary>
@@ -1154,22 +1158,22 @@ namespace FarmGame.World
         {
             if (!isLocked) return UnlockResult.NotLocked;
             if (ownership == ChestOwnership.Player) return UnlockResult.AlreadyOwned;
-            
+
             if (storageData != null && storageData.chestMaterial != keyMaterial)
                 return UnlockResult.MaterialMismatch;
-            
+
             isLocked = false;
             // 野外箱子开锁后保持 World 归属
             if (origin != ChestOrigin.WorldSpawned)
                 ownership = ChestOwnership.Player;
             UpdateSprite();
-            
+
             if (showDebugInfo)
                 Debug.Log($"[ChestController] 解锁成功");
-            
+
             return UnlockResult.Success;
         }
-        
+
         /// <summary>
         /// 尝试打开箱子
         /// 🔥 修正：玩家自己的箱子即使上锁也可以直接打开，不需要钥匙
@@ -1182,14 +1186,14 @@ namespace FarmGame.World
                 SetOpen(true);
                 return OpenResult.Success;
             }
-            
+
             // 非玩家箱子：检查锁定状态
             if (isLocked) return OpenResult.Locked;
-            
+
             SetOpen(true);
             return OpenResult.Success;
         }
-        
+
         /// <summary>
         /// 设置指定槽位的物品（委托给 ChestInventory）
         /// </summary>
@@ -1197,7 +1201,7 @@ namespace FarmGame.World
         {
             _inventory?.SetSlot(index, stack);
         }
-        
+
         /// <summary>
         /// 获取指定槽位的物品（委托给 ChestInventory）
         /// </summary>
@@ -1205,9 +1209,9 @@ namespace FarmGame.World
         {
             return _inventory?.GetSlot(index) ?? ItemStack.Empty;
         }
-        
+
         #endregion
-        
+
         #region IInteractable 接口实现
 
         /// <summary>
@@ -1218,7 +1222,7 @@ namespace FarmGame.World
         /// <summary>
         /// 交互距离
         /// </summary>
-        public float InteractionDistance => 1.5f;
+        public float InteractionDistance => Mathf.Max(0.35f, interactionDistance);
 
         /// <summary>
         /// 是否可以交互
@@ -1348,7 +1352,7 @@ namespace FarmGame.World
             if (_cachedPackagePanel == null)
                 _cachedPackagePanel = FindFirstObjectByType<PackagePanelTabsUI>(FindObjectsInactive.Include);
             var packageTabs = _cachedPackagePanel;
-            
+
             if (packageTabs != null)
             {
                 var boxPanelUI = packageTabs.OpenBoxUI(storageData.boxUiPrefab);
@@ -1364,7 +1368,7 @@ namespace FarmGame.World
             // 🔥 备用方案：直接在 Canvas 下实例化（不推荐）
             if (_cachedCanvas == null)
                 _cachedCanvas = FindFirstObjectByType<Canvas>();
-            
+
             if (_cachedCanvas == null)
             {
                 Debug.LogError("[ChestController] 场景中没有 Canvas！");
@@ -1449,7 +1453,7 @@ namespace FarmGame.World
         }
 
         #endregion
-        
+
         #region 编辑器支持
 
 #if UNITY_EDITOR
@@ -1464,7 +1468,7 @@ namespace FarmGame.World
                 UnityEditor.EditorUtility.SetDirty(this);
             }
         }
-        
+
         /// <summary>
         /// 重新生成持久化 ID
         /// </summary>

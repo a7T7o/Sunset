@@ -86,6 +86,7 @@ public static class SlotDragContext
         DraggedItem = item;
         DraggedRuntimeItem = runtimeItem;
         SourceSlotUI = slotUI;
+        SourceSlotUI?.Select();
         // 🔥 P1：移除日志输出（符合日志规范）
     }
 

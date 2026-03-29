@@ -79,7 +79,13 @@ public static class ItemTooltipTextBuilder
 
     private static string BuildRuntimeSection(ItemData itemData, InventoryItem runtimeItem)
     {
-        if (runtimeItem == null || runtimeItem.IsEmpty)
+        InventoryItem displayRuntimeItem = runtimeItem;
+        if ((displayRuntimeItem == null || displayRuntimeItem.IsEmpty) && itemData is ToolData fallbackToolData)
+        {
+            displayRuntimeItem = ToolRuntimeUtility.CreateRuntimeItem(fallbackToolData, 0, 1);
+        }
+
+        if (displayRuntimeItem == null || displayRuntimeItem.IsEmpty)
         {
             return string.Empty;
         }
@@ -88,7 +94,7 @@ public static class ItemTooltipTextBuilder
 
         if (itemData is ToolData toolData && ToolRuntimeUtility.UsesWater(toolData))
         {
-            int currentWater = ToolRuntimeUtility.GetCurrentWater(runtimeItem, toolData);
+            int currentWater = ToolRuntimeUtility.GetCurrentWater(displayRuntimeItem, toolData);
             int maxWater = ToolRuntimeUtility.GetWaterCapacity(toolData);
             sb.Append("<color=cyan>当前水量: ");
             sb.Append(currentWater);
@@ -96,35 +102,35 @@ public static class ItemTooltipTextBuilder
             sb.Append(maxWater);
             sb.Append("</color>");
         }
-        else if (runtimeItem.HasDurability)
+        else if (displayRuntimeItem.HasDurability)
         {
             sb.Append("<color=orange>当前耐久: ");
-            sb.Append(runtimeItem.CurrentDurability);
+            sb.Append(displayRuntimeItem.CurrentDurability);
             sb.Append('/');
-            sb.Append(runtimeItem.MaxDurability);
+            sb.Append(displayRuntimeItem.MaxDurability);
             sb.Append("</color>");
         }
 
-        if (itemData is SeedData seedData && SeedBagHelper.IsSeedBag(runtimeItem))
+        if (itemData is SeedData seedData && SeedBagHelper.IsSeedBag(displayRuntimeItem))
         {
             AppendLineBreak(sb);
-            sb.Append(SeedBagHelper.IsOpened(runtimeItem)
+            sb.Append(SeedBagHelper.IsOpened(displayRuntimeItem)
                 ? "<color=cyan>种袋状态: 已开袋</color>"
                 : "<color=cyan>种袋状态: 未开袋</color>");
 
             AppendLineBreak(sb);
             sb.Append("<color=green>剩余种子: ");
-            sb.Append(SeedBagHelper.GetRemaining(runtimeItem));
+            sb.Append(SeedBagHelper.GetRemaining(displayRuntimeItem));
             sb.Append('/');
             sb.Append(seedData.seedsPerBag);
             sb.Append("</color>");
 
             int currentTotalDays = TimeManager.Instance != null ? TimeManager.Instance.GetTotalDaysPassed() : -1;
-            int expireDay = runtimeItem.GetPropertyInt(SeedBagHelper.KEY_EXPIRE_DAY, -1);
+            int expireDay = displayRuntimeItem.GetPropertyInt(SeedBagHelper.KEY_EXPIRE_DAY, -1);
             if (currentTotalDays >= 0 && expireDay >= 0)
             {
                 AppendLineBreak(sb);
-                if (SeedBagHelper.IsExpired(runtimeItem, currentTotalDays))
+                if (SeedBagHelper.IsExpired(displayRuntimeItem, currentTotalDays))
                 {
                     sb.Append("<color=red>保质期: 已过期</color>");
                 }

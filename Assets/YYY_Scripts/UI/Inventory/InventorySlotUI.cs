@@ -32,8 +32,10 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     private EquipmentService equipment;
     private ItemDatabase database;
     private HotbarSelectionService hotbarSelection;
+    private InventoryPanelUI inventoryPanel;
     private int index;
     private bool isHotbar;
+    private bool isHovered;
     private RectTransform _rectTransform;
     private Vector2 _restAnchoredPosition;
     private Coroutine _rejectShakeCoroutine;
@@ -123,6 +125,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         }
 
         hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+        inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
 
         // 🔥 V2 新增：创建耐久度条
         CreateDurabilityBar();
@@ -194,6 +197,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         equipment = equip;
         database = db;
         if (hotbarSelection == null) hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+        inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
         index = slotIndex;
         isHotbar = hotbar;
 
@@ -238,6 +242,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         inventory = cont as InventoryService; // 如果是 InventoryService，保留引用
         equipment = null;
         database = cont?.Database;
+        inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
         index = slotIndex;
         isHotbar = false;
 
@@ -288,18 +293,32 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
     public void RefreshSelection()
     {
-        if (!isHotbar || hotbarSelection == null || toggle == null)
+        bool isSelected = false;
+
+        if (inventoryPanel != null && inventoryPanel.gameObject.activeInHierarchy)
         {
-            return;
+            isSelected = inventoryPanel.IsInventorySlotSelected(index);
+        }
+        else if (isHotbar && hotbarSelection != null)
+        {
+            isSelected = hotbarSelection.selectedIndex == index;
+        }
+        else if (toggle != null)
+        {
+            isSelected = toggle.isOn;
         }
 
-        bool isSelected = hotbarSelection.selectedIndex == index;
+        if (toggle != null)
+        {
 #if UNITY_2021_2_OR_NEWER
-        toggle.SetIsOnWithoutNotify(isSelected);
+            toggle.SetIsOnWithoutNotify(isSelected);
 #else
-        toggle.isOn = isSelected;
+            toggle.isOn = isSelected;
 #endif
+        }
+
         ApplySelectionVisual(isSelected);
+        UpdateStatusBarVisibility();
     }
 
     public void Refresh()
@@ -339,6 +358,17 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             }
             UpdateDurabilityBar(invItem, data);
         }
+    }
+
+    public void SetHovered(bool hovered)
+    {
+        if (isHovered == hovered)
+        {
+            return;
+        }
+
+        isHovered = hovered;
+        UpdateStatusBarVisibility();
     }
 
     #region 耐久度条
@@ -427,22 +457,20 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             }
         }
 
-        // 如果物品为空或没有耐久度，隐藏耐久度条
-        if (item == null ||
-            !item.HasDurability ||
-            (itemData is ToolData toolData && ToolRuntimeUtility.UsesWater(toolData)))
+        if (!ToolRuntimeUtility.TryGetToolStatusRatio(item, itemData, out float percent, out bool usesWater))
         {
             _durabilityBarBg.enabled = false;
             _durabilityBar.enabled = false;
             return;
         }
 
-        // 显示耐久度条
-        _durabilityBarBg.enabled = true;
-        _durabilityBar.enabled = true;
-
-        // 计算耐久度百分比
-        float percent = item.DurabilityPercent;
+        bool shouldShow = ShouldShowStatusBar();
+        _durabilityBarBg.enabled = shouldShow;
+        _durabilityBar.enabled = shouldShow;
+        if (!shouldShow)
+        {
+            return;
+        }
 
         // 🔥 P2-1：使用像素偏移控制宽度
         var rt = (RectTransform)_durabilityBar.transform;
@@ -462,7 +490,11 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         // 100%-50%: 绿色 -> 黄色
         // 50%-0%: 黄色 -> 红色
         Color barColor;
-        if (percent > 0.5f)
+        if (usesWater)
+        {
+            barColor = Color.Lerp(new Color(0.06f, 0.42f, 0.92f, 1f), new Color(0.30f, 0.86f, 0.98f, 1f), percent);
+        }
+        else if (percent > 0.5f)
         {
             // 绿色到黄色
             float t = (percent - 0.5f) * 2f;
@@ -475,6 +507,50 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             barColor = Color.Lerp(Color.red, Color.yellow, t);
         }
         _durabilityBar.color = barColor;
+    }
+
+    private void UpdateStatusBarVisibility()
+    {
+        if (container == null || database == null)
+        {
+            return;
+        }
+
+        ItemData itemData = null;
+        InventoryItem runtimeItem = null;
+
+        var stack = container.GetSlot(index);
+        if (!stack.IsEmpty)
+        {
+            itemData = database.GetItemByID(stack.itemId);
+            if (container is InventoryService invService)
+            {
+                runtimeItem = invService.GetInventoryItem(index);
+            }
+            else if (container is ChestInventoryV2 chestInventory)
+            {
+                runtimeItem = chestInventory.GetItem(index);
+            }
+        }
+
+        UpdateDurabilityBar(runtimeItem, itemData);
+    }
+
+    private bool ShouldShowStatusBar()
+    {
+        if (inventoryPanel != null && inventoryPanel.gameObject.activeInHierarchy)
+        {
+            return true;
+        }
+
+        if (isHovered)
+        {
+            return true;
+        }
+
+        return isHotbar &&
+               hotbarSelection != null &&
+               (hotbarSelection.selectedIndex == index || ToolRuntimeUtility.WasSlotUsedRecently(index));
     }
 
     #endregion
@@ -502,6 +578,14 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     /// </summary>
     public void Select()
     {
+        if (container is InventoryService &&
+            inventoryPanel != null &&
+            inventoryPanel.gameObject.activeInHierarchy)
+        {
+            inventoryPanel.SetSelectedInventoryIndex(index, isHotbar);
+            return;
+        }
+
         if (toggle != null)
         {
             toggle.isOn = true;

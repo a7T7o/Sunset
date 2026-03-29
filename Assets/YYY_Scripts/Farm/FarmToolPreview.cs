@@ -16,6 +16,8 @@ namespace FarmGame.Farm
     /// </summary>
     public class FarmToolPreview : MonoBehaviour
     {
+        private const float HoverOcclusionFocusFootprintScale = 0.05f;
+
         #region 单例（Lazy Singleton）
         
         private static FarmToolPreview _instance;
@@ -100,7 +102,7 @@ namespace FarmGame.Farm
         
         [Header("光标配置")]
         [Tooltip("光标 Sprite（方形框）")]
-        [SerializeField] private Sprite cursorSprite;
+        [SerializeField] private Sprite cursorSprite = null;
         
         [Tooltip("有效时的颜色（绿色）")]
         [SerializeField] private Color validColor = new Color(0f, 1f, 0f, 0.5f);
@@ -1150,15 +1152,6 @@ namespace FarmGame.Farm
                 return true;
             }
 
-            if (cursorRenderer != null &&
-                cursorRenderer.enabled &&
-                cursorRenderer.sprite != null &&
-                cursorRenderer.gameObject.activeInHierarchy)
-            {
-                previewBounds = cursorRenderer.bounds;
-                return true;
-            }
-
             return false;
         }
 
@@ -1175,15 +1168,15 @@ namespace FarmGame.Farm
             }
 
             Vector3 cellSize = ghostTilemap.layoutGrid.cellSize;
-            Vector3 absCellSize = new Vector3(
-                Mathf.Max(0.01f, Mathf.Abs(cellSize.x)),
-                Mathf.Max(0.01f, Mathf.Abs(cellSize.y)),
+            Vector3 focusCellSize = new Vector3(
+                Mathf.Max(0.05f, Mathf.Abs(cellSize.x) * HoverOcclusionFocusFootprintScale),
+                Mathf.Max(0.05f, Mathf.Abs(cellSize.y) * HoverOcclusionFocusFootprintScale),
                 0.01f);
 
             Vector3Int focusCellPos = currentPreviewPositions.Contains(CurrentCellPos)
                 ? CurrentCellPos
                 : GetAnyPreviewCell();
-            previewBounds = new Bounds(ghostTilemap.GetCellCenterWorld(focusCellPos), absCellSize);
+            previewBounds = new Bounds(ghostTilemap.GetCellCenterWorld(focusCellPos), focusCellSize);
             return true;
         }
 

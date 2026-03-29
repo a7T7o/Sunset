@@ -192,6 +192,8 @@ public class InventoryInteractionManager : MonoBehaviour
         
         ItemStack slot = GetSlot(index, isEquip);
         if (slot.IsEmpty) return;
+
+        SelectSlot(index, isEquip);
         
         sourceIndex = index;
         sourceIsEquip = isEquip;
@@ -893,11 +895,22 @@ public class InventoryInteractionManager : MonoBehaviour
     /// </summary>
     private void SelectSlot(int index, bool isEquip)
     {
-        if (!isEquip && inventorySlots != null && index >= 0 && index < inventorySlots.Length)
+        if (isEquip)
+        {
+            return;
+        }
+
+        var inventoryPanel = FindFirstObjectByType<InventoryPanelUI>(FindObjectsInactive.Include);
+        if (inventoryPanel != null)
+        {
+            inventoryPanel.SetSelectedInventoryIndex(index, index < InventoryService.HotbarWidth);
+            return;
+        }
+
+        if (inventorySlots != null && index >= 0 && index < inventorySlots.Length)
         {
             inventorySlots[index]?.Select();
         }
-        // 装备槽位暂不处理选中（没有 Toggle）
     }
     
     private void QuickEquip(int srcIndex, ItemStack item, ItemData itemData)

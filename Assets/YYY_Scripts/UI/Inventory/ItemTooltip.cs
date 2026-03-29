@@ -1,8 +1,8 @@
 using System.Collections;
-using UnityEngine;
-using UnityEngine.UI;
 using FarmGame.Data;
 using FarmGame.Data.Core;
+using UnityEngine;
+using UnityEngine.UI;
 
 /// <summary>
 /// 物品详情悬浮框
@@ -11,10 +11,11 @@ using FarmGame.Data.Core;
 public class ItemTooltip : MonoBehaviour
 {
     private const float MinimumShowDelay = 0.6f;
+    private static ItemTooltip _instance;
 
     #region 单例
 
-    public static ItemTooltip Instance { get; private set; }
+    public static ItemTooltip Instance => EnsureInstance();
 
     #endregion
 
@@ -64,35 +65,22 @@ public class ItemTooltip : MonoBehaviour
 
     void Awake()
     {
-        if (Instance != null && Instance != this)
+        if (_instance != null && _instance != this)
         {
             Destroy(gameObject);
             return;
         }
-        Instance = this;
 
-        if (tooltipRect == null)
-            tooltipRect = GetComponent<RectTransform>();
-
-        if (canvasGroup == null)
-            canvasGroup = GetComponent<CanvasGroup>();
-
-        _parentCanvas = GetComponentInParent<Canvas>();
-        if (_parentCanvas != null && _parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
-        {
-            _uiCamera = _parentCanvas.worldCamera;
-        }
-
-        if (canvasGroup != null)
-            canvasGroup.alpha = 0f;
-
-        gameObject.SetActive(false);
+        _instance = this;
+        InitializeRuntimeReferences();
     }
 
     void OnDestroy()
     {
-        if (Instance == this)
-            Instance = null;
+        if (_instance == this)
+        {
+            _instance = null;
+        }
     }
 
     void Update()
@@ -124,7 +112,14 @@ public class ItemTooltip : MonoBehaviour
 
     public void Show(ItemStack item, InventoryItem runtimeItem, int amount = 1)
     {
-        if (item.IsEmpty || _database == null)
+        if (item.IsEmpty)
+        {
+            Hide();
+            return;
+        }
+
+        EnsureDatabaseReference();
+        if (_database == null)
         {
             Hide();
             return;
@@ -154,7 +149,7 @@ public class ItemTooltip : MonoBehaviour
             description = ItemTooltipTextBuilder.Build(itemData, runtimeItem),
             price = amount > 1 ? $"总价值: {totalPrice} 金币 ({amount}个)" : $"价值: {totalPrice} 金币",
             showPrice = totalPrice > 0,
-            showQualityIcon = item.quality > 0,
+            showQualityIcon = qualityIcon != null && item.quality > 0,
             qualityColor = itemData.GetQualityStarColor((ItemQuality)item.quality)
         });
     }
@@ -188,7 +183,9 @@ public class ItemTooltip : MonoBehaviour
         gameObject.SetActive(false);
 
         if (canvasGroup != null)
+        {
             canvasGroup.alpha = 0f;
+        }
     }
 
     public void FollowMouse()
@@ -218,9 +215,242 @@ public class ItemTooltip : MonoBehaviour
         tooltipRect.anchoredPosition = targetPos;
     }
 
+    public static ItemTooltip EnsureInstance()
+    {
+        if (_instance != null)
+        {
+            return _instance;
+        }
+
+        _instance = FindFirstObjectByType<ItemTooltip>(FindObjectsInactive.Include);
+        if (_instance != null)
+        {
+            _instance.InitializeRuntimeReferences();
+            return _instance;
+        }
+
+        return CreateRuntimeInstance();
+    }
+
     #endregion
 
     #region 辅助方法
+
+    private void InitializeRuntimeReferences()
+    {
+        if (tooltipRect == null)
+        {
+            tooltipRect = GetComponent<RectTransform>();
+        }
+
+        if (canvasGroup == null)
+        {
+            canvasGroup = GetComponent<CanvasGroup>();
+        }
+
+        _parentCanvas = GetComponentInParent<Canvas>();
+        if (_parentCanvas != null && _parentCanvas.renderMode != RenderMode.ScreenSpaceOverlay)
+        {
+            _uiCamera = _parentCanvas.worldCamera;
+        }
+
+        TryFindUiReferences();
+        if (!HasUsableUi())
+        {
+            BuildRuntimeUi();
+            TryFindUiReferences();
+        }
+
+        EnsureDatabaseReference();
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+        }
+
+        gameObject.SetActive(false);
+    }
+
+    private bool HasUsableUi()
+    {
+        return itemNameText != null &&
+               descriptionText != null &&
+               priceText != null;
+    }
+
+    private void TryFindUiReferences()
+    {
+        if (itemNameText == null)
+        {
+            Transform titleTransform = transform.Find("HeaderRow/ItemName");
+            if (titleTransform != null)
+            {
+                itemNameText = titleTransform.GetComponent<Text>();
+            }
+        }
+
+        if (descriptionText == null)
+        {
+            Transform descriptionTransform = transform.Find("Description");
+            if (descriptionTransform != null)
+            {
+                descriptionText = descriptionTransform.GetComponent<Text>();
+            }
+        }
+
+        if (priceText == null)
+        {
+            Transform priceTransform = transform.Find("Price");
+            if (priceTransform != null)
+            {
+                priceText = priceTransform.GetComponent<Text>();
+            }
+        }
+
+        if (qualityIcon == null)
+        {
+            Transform qualityTransform = transform.Find("HeaderRow/QualityIcon");
+            if (qualityTransform != null)
+            {
+                qualityIcon = qualityTransform.GetComponent<Image>();
+            }
+        }
+    }
+
+    private void EnsureDatabaseReference()
+    {
+        if (_database != null)
+        {
+            return;
+        }
+
+        InventoryService inventory = FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+        if (inventory != null)
+        {
+            _database = inventory.Database;
+        }
+    }
+
+    private static ItemTooltip CreateRuntimeInstance()
+    {
+        Canvas parentCanvas = FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+        if (parentCanvas == null)
+        {
+            Debug.LogWarning("[ItemTooltip] 场景里没有 Canvas，无法创建运行时 Tooltip。");
+            return null;
+        }
+
+        GameObject root = new GameObject(
+            "RuntimeItemTooltip",
+            typeof(RectTransform),
+            typeof(CanvasGroup),
+            typeof(Image),
+            typeof(VerticalLayoutGroup),
+            typeof(ContentSizeFitter));
+        RectTransform rootRect = root.GetComponent<RectTransform>();
+        rootRect.SetParent(parentCanvas.transform, false);
+        rootRect.anchorMin = new Vector2(0.5f, 0.5f);
+        rootRect.anchorMax = new Vector2(0.5f, 0.5f);
+        rootRect.pivot = new Vector2(0.5f, 0.5f);
+        rootRect.sizeDelta = new Vector2(280f, 100f);
+
+        Image background = root.GetComponent<Image>();
+        background.color = new Color(0.08f, 0.10f, 0.12f, 0.96f);
+        background.raycastTarget = false;
+
+        VerticalLayoutGroup layout = root.GetComponent<VerticalLayoutGroup>();
+        layout.padding = new RectOffset(18, 18, 14, 14);
+        layout.spacing = 8f;
+        layout.childAlignment = TextAnchor.UpperLeft;
+        layout.childControlWidth = true;
+        layout.childControlHeight = true;
+        layout.childForceExpandWidth = true;
+        layout.childForceExpandHeight = false;
+
+        ContentSizeFitter fitter = root.GetComponent<ContentSizeFitter>();
+        fitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        fitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        ItemTooltip tooltip = root.AddComponent<ItemTooltip>();
+        tooltip.tooltipRect = rootRect;
+        tooltip.canvasGroup = root.GetComponent<CanvasGroup>();
+        tooltip.BuildRuntimeUi();
+        tooltip.InitializeRuntimeReferences();
+        return tooltip;
+    }
+
+    private void BuildRuntimeUi()
+    {
+        if (HasUsableUi())
+        {
+            return;
+        }
+
+        Font builtinFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+
+        RectTransform headerRow = CreateUiChild("HeaderRow", transform, typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+        HorizontalLayoutGroup headerLayout = headerRow.GetComponent<HorizontalLayoutGroup>();
+        headerLayout.spacing = 8f;
+        headerLayout.childAlignment = TextAnchor.MiddleLeft;
+        headerLayout.childControlHeight = true;
+        headerLayout.childControlWidth = false;
+        headerLayout.childForceExpandHeight = false;
+        headerLayout.childForceExpandWidth = false;
+
+        ContentSizeFitter headerFitter = headerRow.GetComponent<ContentSizeFitter>();
+        headerFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+        headerFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+        itemNameText = CreateText("ItemName", builtinFont, 22, FontStyle.Bold, TextAnchor.MiddleLeft, new Color(0.98f, 0.98f, 0.95f, 1f), headerRow);
+        descriptionText = CreateText("Description", builtinFont, 18, FontStyle.Normal, TextAnchor.UpperLeft, new Color(0.83f, 0.88f, 0.90f, 0.98f), transform);
+        priceText = CreateText("Price", builtinFont, 17, FontStyle.Bold, TextAnchor.MiddleLeft, new Color(0.94f, 0.84f, 0.48f, 1f), transform);
+
+        descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
+        LayoutElement descriptionLayout = descriptionText.gameObject.AddComponent<LayoutElement>();
+        descriptionLayout.preferredWidth = 280f;
+
+        Outline outline = gameObject.AddComponent<Outline>();
+        outline.effectColor = new Color(0f, 0f, 0f, 0.42f);
+        outline.effectDistance = new Vector2(1f, -1f);
+
+        Shadow shadow = gameObject.AddComponent<Shadow>();
+        shadow.effectColor = new Color(0f, 0f, 0f, 0.22f);
+        shadow.effectDistance = new Vector2(3f, -3f);
+    }
+
+    private static RectTransform CreateUiChild(string name, Transform parent, params System.Type[] extraComponents)
+    {
+        var componentTypes = new System.Type[extraComponents.Length + 1];
+        componentTypes[0] = typeof(RectTransform);
+        for (int i = 0; i < extraComponents.Length; i++)
+        {
+            componentTypes[i + 1] = extraComponents[i];
+        }
+
+        GameObject child = new GameObject(name, componentTypes);
+        RectTransform rect = child.GetComponent<RectTransform>();
+        rect.SetParent(parent, false);
+        rect.anchorMin = new Vector2(0f, 1f);
+        rect.anchorMax = new Vector2(1f, 1f);
+        rect.pivot = new Vector2(0.5f, 1f);
+        return rect;
+    }
+
+    private static Text CreateText(string name, Font font, int size, FontStyle style, TextAnchor anchor, Color color, Transform parent)
+    {
+        RectTransform rect = CreateUiChild(name, parent);
+        Text text = rect.gameObject.AddComponent<Text>();
+        text.font = font;
+        text.fontSize = size;
+        text.fontStyle = style;
+        text.alignment = anchor;
+        text.color = color;
+        text.horizontalOverflow = HorizontalWrapMode.Wrap;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
+        text.raycastTarget = false;
+        return text;
+    }
 
     private Color GetQualityColor(ItemQuality quality)
     {
@@ -244,10 +474,15 @@ public class ItemTooltip : MonoBehaviour
 
         _pendingVisualData = visualData;
         _isShowing = false;
-        gameObject.SetActive(false);
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
 
         if (canvasGroup != null)
+        {
             canvasGroup.alpha = 0f;
+        }
 
         _pendingShowCoroutine = StartCoroutine(ShowAfterDelayRoutine());
     }
@@ -266,7 +501,9 @@ public class ItemTooltip : MonoBehaviour
         FollowMouse();
 
         if (canvasGroup != null)
+        {
             canvasGroup.alpha = 0f;
+        }
 
         _pendingShowCoroutine = null;
     }
@@ -294,6 +531,11 @@ public class ItemTooltip : MonoBehaviour
         {
             qualityIcon.color = visualData.qualityColor;
             qualityIcon.gameObject.SetActive(visualData.showQualityIcon);
+        }
+
+        if (tooltipRect != null)
+        {
+            LayoutRebuilder.ForceRebuildLayoutImmediate(tooltipRect);
         }
     }
 

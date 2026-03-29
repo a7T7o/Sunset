@@ -366,11 +366,13 @@ public class InventorySlotInteraction : MonoBehaviour,
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        inventorySlotUI?.SetHovered(true);
         TryShowTooltip();
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        inventorySlotUI?.SetHovered(false);
         ItemTooltip.Instance?.Hide();
     }
     

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace FarmGame.Data.Core
@@ -86,6 +87,8 @@ namespace FarmGame.Data.Core
         private const int DefaultDurabilityCost = 1;
         private const int DefaultWaterCapacity = 100;
         private const int DefaultWaterUseCost = 1;
+        private const float RecentToolUseWindowSeconds = 5f;
+        private static readonly Dictionary<int, float> RecentToolUseTimestamps = new Dictionary<int, float>();
 
         public const string WaterCurrentPropertyKey = "watering_current";
         public const string WaterMaxPropertyKey = "watering_max";
@@ -399,6 +402,8 @@ namespace FarmGame.Data.Core
                 inventory.RefreshSlot(slotIndex);
             }
 
+            RecentToolUseTimestamps[slotIndex] = Time.unscaledTime;
+
             LogCommit(toolData, context, energySystem, energyCost, durabilityCost, remainingDurability, waterCost, currentWater, maxWater, toolBroken);
 
             return ToolUseCommitResult.Success(
@@ -487,6 +492,71 @@ namespace FarmGame.Data.Core
             int maxWater = GetWaterCapacity(toolData);
             int current = item.GetPropertyInt(WaterCurrentPropertyKey, maxWater);
             return Mathf.Clamp(current, 0, maxWater);
+        }
+
+        public static bool TryGetToolStatusRatio(
+            InventoryItem item,
+            global::FarmGame.Data.ItemData itemData,
+            out float ratio,
+            out bool usesWater)
+        {
+            ratio = 0f;
+            usesWater = false;
+
+            if (itemData is not global::FarmGame.Data.ToolData toolData)
+            {
+                return false;
+            }
+
+            if (UsesWater(toolData))
+            {
+                int maxWater = GetWaterCapacity(toolData);
+                if (maxWater <= 0)
+                {
+                    return false;
+                }
+
+                int currentWater = item == null || item.IsEmpty
+                    ? maxWater
+                    : GetCurrentWater(item, toolData);
+                ratio = Mathf.Clamp01((float)currentWater / maxWater);
+                usesWater = true;
+                return true;
+            }
+
+            if (item == null || item.IsEmpty)
+            {
+                if (!UsesDurability(toolData))
+                {
+                    return false;
+                }
+
+                ratio = 1f;
+                return true;
+            }
+
+            if (!item.HasDurability)
+            {
+                return false;
+            }
+
+            ratio = Mathf.Clamp01(item.DurabilityPercent);
+            return true;
+        }
+
+        public static bool WasSlotUsedRecently(int slotIndex, float windowSeconds = RecentToolUseWindowSeconds)
+        {
+            if (slotIndex < 0)
+            {
+                return false;
+            }
+
+            if (!RecentToolUseTimestamps.TryGetValue(slotIndex, out float lastUseTime))
+            {
+                return false;
+            }
+
+            return Time.unscaledTime - lastUseTime <= Mathf.Max(0.1f, windowSeconds);
         }
 
         private static InventoryItem CreateRuntimeItem(global::FarmGame.Data.ItemData itemData, int itemId, int quality, int amount)

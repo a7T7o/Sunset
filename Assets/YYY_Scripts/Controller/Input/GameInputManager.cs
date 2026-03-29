@@ -99,6 +99,10 @@ public class GameInputManager : MonoBehaviour
     public static GameInputManager Instance => s_instance;
     private float lastNavClickTime = -1f;
     private Vector3 lastNavClickPos = Vector3.zero;
+    private IInteractable _pendingAutoInteractable;
+    private Transform _pendingAutoInteractTarget;
+    private float _pendingAutoInteractDistance;
+    private int _pendingAutoInteractRetryCount;
     
     // 🔥 9.0.5 扩展：农田导航状态机
     private enum FarmNavState 
@@ -251,6 +255,7 @@ public class GameInputManager : MonoBehaviour
         HandlePanelHotkeys();
         HandleRunToggleWhileNav();
         HandleMovement();
+        UpdatePendingAutoInteraction();
         HandleHotbarSelection();
         
         // 🔥 10.1.1补丁002 任务5.3：面板暂停/恢复机制
@@ -938,6 +943,12 @@ public class GameInputManager : MonoBehaviour
                 return;
             }
 
+            if (tool.toolType == ToolType.Axe &&
+                TryBlockAxeActionAgainstHighTierTree(tool))
+            {
+                return;
+            }
+
             // 其他工具正常处理（CP-19：镐子/斧头/武器保持原有逻辑不变）
             var toolAction = ResolveAction(tool.toolType);
             playerInteraction?.RequestAction(toolAction);
@@ -967,7 +978,8 @@ public class GameInputManager : MonoBehaviour
             return;
         }
 
-        if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
+        bool placementModeActive = PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode;
+        if (placementModeActive && !ShouldPreservePlacementModeForCurrentRightClick())
         {
             return;
         }
@@ -1015,6 +1027,21 @@ public class GameInputManager : MonoBehaviour
         return TryHandleAutoNavWorldClick(world, boxOpen, respectClickRateLimit: false);
     }
 
+    public bool ShouldPreservePlacementModeForCurrentRightClick()
+    {
+        if (!Input.GetMouseButtonDown(1))
+        {
+            return false;
+        }
+
+        if (PlacementManager.Instance == null || !PlacementManager.Instance.IsPlacementMode)
+        {
+            return false;
+        }
+
+        return TryGetChestInteractableAtWorld(GetMouseWorldPosition(), out _);
+    }
+
     private bool TryHandleAutoNavWorldClick(Vector2 world, bool boxOpen, bool respectClickRateLimit)
     {
         if (autoNavigator == null)
@@ -1051,6 +1078,8 @@ public class GameInputManager : MonoBehaviour
             lastNavClickPos = world;
         }
 
+        ClearPendingAutoInteraction();
+
         // 🔥 C3：优先使用 Sprite Bounds 检测 IResourceNode（箱子、树木等）
         // 因为这些物体的 Collider 只覆盖底部，但交互应该基于整个 Sprite
         var resourceNodes = ResourceNodeRegistry.Instance?.GetNodesInRange(world, 2f);
@@ -1058,7 +1087,9 @@ public class GameInputManager : MonoBehaviour
         {
             foreach (var node in resourceNodes)
             {
-                var bounds = node.GetBounds(); // SpriteRenderer.bounds
+                Bounds bounds = node is ChestController chestNode
+                    ? chestNode.GetColliderBounds()
+                    : node.GetBounds();
                 if (bounds.Contains(world))
                 {
                     // 点击在 Sprite 范围内，检查是否实现 IInteractable
@@ -1172,6 +1203,8 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private void HandleInteractable(IInteractable interactable, Transform target, Vector2 playerCenter)
     {
+        Transform interactionTarget = ResolveInteractionTarget(interactable, target);
+
         // 导航开始前取消 Held 状态
         var manager = InventoryInteractionManager.Instance;
         if (manager != null && manager.IsHolding)
@@ -1180,7 +1213,7 @@ public class GameInputManager : MonoBehaviour
         }
         
         // 🔥 v4.0：使用 ClosestPoint 计算玩家到目标的最近距离
-        Vector2 targetPos = GetTargetAnchor(target, playerCenter);
+        Vector2 targetPos = GetTargetAnchor(interactionTarget, playerCenter);
         float distance = Vector2.Distance(playerCenter, targetPos);
         float interactDist = interactable.InteractionDistance;
         
@@ -1192,6 +1225,7 @@ public class GameInputManager : MonoBehaviour
         if (distance <= interactDist)
         {
             // 在交互距离内，直接交互
+            ClearPendingAutoInteraction();
             TryInteract(interactable);
         }
         else
@@ -1200,14 +1234,24 @@ public class GameInputManager : MonoBehaviour
             if (autoNavigator != null)
             {
                 autoNavigator.ForceCancel();
-                
-                autoNavigator.FollowTarget(target, interactDist * 0.8f, () =>
+
+                BeginPendingAutoInteraction(interactable, interactionTarget, interactDist);
+                autoNavigator.FollowTarget(interactionTarget, interactDist, () =>
                 {
-                    // 到达后距离复核
-                    TryInteractWithDistanceCheck(interactable, target);
+                    TryCompletePendingAutoInteraction();
                 });
             }
         }
+    }
+
+    private Transform ResolveInteractionTarget(IInteractable interactable, Transform fallbackTarget)
+    {
+        if (interactable is MonoBehaviour behaviour && behaviour != null)
+        {
+            return behaviour.transform;
+        }
+
+        return fallbackTarget;
     }
     
     /// <summary>
@@ -1247,16 +1291,130 @@ public class GameInputManager : MonoBehaviour
         // 🔥 v4.0：使用 ClosestPoint 计算距离
         Vector2 targetPos = GetTargetAnchor(target, playerPos);
         float distance = Vector2.Distance(playerPos, targetPos);
-        float interactDist = interactable.InteractionDistance;
-        
-        // 允许 20% 容差
-        if (distance > interactDist * 1.2f)
+        float interactDist = GetInteractionDistanceThreshold(interactable, interactable.InteractionDistance);
+
+        if (distance > interactDist)
         {
-            LogWarningOnce("DistanceTooFar", $"[GameInputManager] 距离过远，取消交互: {distance:F2} > {interactDist * 1.2f:F2}");
+            LogWarningOnce("DistanceTooFar", $"[GameInputManager] 距离过远，取消交互: {distance:F2} > {interactDist:F2}");
             return;
         }
         
         TryInteract(interactable);
+    }
+
+    private void BeginPendingAutoInteraction(IInteractable interactable, Transform target, float interactDistance)
+    {
+        _pendingAutoInteractable = interactable;
+        _pendingAutoInteractTarget = target;
+        _pendingAutoInteractDistance = interactDistance;
+        _pendingAutoInteractRetryCount = 0;
+    }
+
+    private void ClearPendingAutoInteraction()
+    {
+        _pendingAutoInteractable = null;
+        _pendingAutoInteractTarget = null;
+        _pendingAutoInteractDistance = 0f;
+        _pendingAutoInteractRetryCount = 0;
+    }
+
+    private void UpdatePendingAutoInteraction()
+    {
+        if (_pendingAutoInteractable == null || _pendingAutoInteractTarget == null)
+        {
+            ClearPendingAutoInteraction();
+            return;
+        }
+
+        if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen)
+        {
+            ClearPendingAutoInteraction();
+            return;
+        }
+
+        if (IsPendingAutoInteractionInRange())
+        {
+            autoNavigator?.ForceCancel();
+            CompletePendingAutoInteraction();
+        }
+    }
+
+    private void TryCompletePendingAutoInteraction()
+    {
+        if (_pendingAutoInteractable == null || _pendingAutoInteractTarget == null)
+        {
+            ClearPendingAutoInteraction();
+            return;
+        }
+
+        if (IsPendingAutoInteractionInRange())
+        {
+            CompletePendingAutoInteraction();
+            return;
+        }
+
+        if (_pendingAutoInteractRetryCount >= 1 || autoNavigator == null)
+        {
+            ClearPendingAutoInteraction();
+            return;
+        }
+
+        _pendingAutoInteractRetryCount++;
+        autoNavigator.FollowTarget(_pendingAutoInteractTarget, _pendingAutoInteractDistance, TryCompletePendingAutoInteraction);
+    }
+
+    private void CompletePendingAutoInteraction()
+    {
+        autoNavigator?.ForceCancel();
+        IInteractable interactable = _pendingAutoInteractable;
+        Transform target = _pendingAutoInteractTarget;
+        ClearPendingAutoInteraction();
+
+        if (interactable != null)
+        {
+            TryInteractWithDistanceCheck(interactable, ResolveInteractionTarget(interactable, target));
+        }
+    }
+
+    private bool IsPendingAutoInteractionInRange()
+    {
+        if (_pendingAutoInteractable == null || _pendingAutoInteractTarget == null)
+        {
+            return false;
+        }
+
+        Vector2 playerCenter = GetPlayerCenter();
+        Vector2 targetPos = GetTargetAnchor(_pendingAutoInteractTarget, playerCenter);
+        return Vector2.Distance(playerCenter, targetPos) <= GetPendingAutoInteractionCompletionDistance();
+    }
+
+    private float GetPendingAutoInteractionCompletionDistance()
+    {
+        if (_pendingAutoInteractable == null)
+        {
+            return 0f;
+        }
+
+        float interactDistance = _pendingAutoInteractDistance > 0f
+            ? _pendingAutoInteractDistance
+            : _pendingAutoInteractable.InteractionDistance;
+        return GetInteractionDistanceThreshold(_pendingAutoInteractable, interactDistance);
+    }
+
+    private float GetInteractionDistanceThreshold(IInteractable interactable, float baseDistance)
+    {
+        if (interactable == null)
+        {
+            return Mathf.Max(0f, baseDistance);
+        }
+
+        float clampedDistance = Mathf.Max(0.35f, baseDistance);
+        if (interactable is ChestController)
+        {
+            return clampedDistance;
+        }
+
+        return clampedDistance * 1.2f;
     }
     
     /// <summary>
@@ -2504,7 +2662,15 @@ public class GameInputManager : MonoBehaviour
                 FaceTarget(request.worldPos);
                 if (!TryStartPlayerAction(PlayerAnimController.AnimState.Crush))
                 {
-                    AbortCurrentQueuedFarmAction("锄地动画未开始");
+                    ToolUseFailureReason failureReason = GetLastActionFailureReasonCompat();
+                    if (ShouldInterruptFarmToolOperationForFailure(failureReason))
+                    {
+                        AbortFarmToolOperationImmediately($"锄地动作前校验失败: {failureReason}");
+                    }
+                    else
+                    {
+                        AbortCurrentQueuedFarmAction("锄地动画未开始");
+                    }
                     break;
                 }
                 // 🔴 补丁003 模块C：不再同帧执行，改为延迟到动画中期
@@ -2517,7 +2683,15 @@ public class GameInputManager : MonoBehaviour
                 FaceTarget(request.worldPos);
                 if (!TryStartPlayerAction(PlayerAnimController.AnimState.Watering))
                 {
-                    AbortCurrentQueuedFarmAction("浇水动画未开始");
+                    ToolUseFailureReason failureReason = GetLastActionFailureReasonCompat();
+                    if (ShouldInterruptFarmToolOperationForFailure(failureReason))
+                    {
+                        AbortFarmToolOperationImmediately($"浇水动作前校验失败: {failureReason}");
+                    }
+                    else
+                    {
+                        AbortCurrentQueuedFarmAction("浇水动画未开始");
+                    }
                     break;
                 }
                 // 🔴 补丁003 模块C：不再同帧执行，改为延迟到动画中期
@@ -2540,7 +2714,15 @@ public class GameInputManager : MonoBehaviour
                 FaceTarget(request.worldPos);
                 if (!TryStartPlayerAction(PlayerAnimController.AnimState.Crush))
                 {
-                    AbortCurrentQueuedFarmAction("清除农作物动画未开始");
+                    ToolUseFailureReason failureReason = GetLastActionFailureReasonCompat();
+                    if (ShouldInterruptFarmToolOperationForFailure(failureReason))
+                    {
+                        AbortFarmToolOperationImmediately($"清除农作物动作前校验失败: {failureReason}");
+                    }
+                    else
+                    {
+                        AbortCurrentQueuedFarmAction("清除农作物动画未开始");
+                    }
                     break;
                 }
                 _pendingTileUpdate = request;
@@ -2944,6 +3126,75 @@ public class GameInputManager : MonoBehaviour
         }
     }
 
+    public void NotifyFarmToolAutomationTailInterrupted(ToolUseFailureReason failureReason)
+    {
+        if (!ShouldInterruptFarmToolOperationForFailure(failureReason))
+        {
+            return;
+        }
+
+        HideFarmToolPreview();
+        ClearActionQueue();
+
+        var lockManager = ToolActionLockManager.Instance;
+        lockManager?.ClearHotbarCache();
+    }
+
+    private void AbortFarmToolOperationImmediately(string reason)
+    {
+        if (showDebugInfo)
+        {
+            Debug.Log($"[FarmQueue] 彻底中断自动农具链: {reason}");
+        }
+
+        HideFarmToolPreview();
+
+        if (_farmingNavigationCoroutine != null)
+        {
+            StopCoroutine(_farmingNavigationCoroutine);
+            _farmingNavigationCoroutine = null;
+        }
+
+        if (autoNavigator != null && autoNavigator.IsActive)
+        {
+            autoNavigator.ForceCancel();
+        }
+
+        _farmActionQueue.Clear();
+        _queuedPositions.Clear();
+        _isProcessingQueue = false;
+        _isQueuePaused = false;
+        _isExecutingFarming = false;
+        _currentHarvestTarget = null;
+        _currentProcessingRequest = default;
+        _pendingTileUpdate = null;
+        _tileUpdateTriggered = false;
+        _farmNavigationTarget = Vector3.zero;
+        _farmNavigationAction = null;
+        _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
+
+        FarmToolPreview.Instance?.ClearAllQueuePreviews(clearExecutingPreviews: true);
+        ClearPausedFarmingNavigation();
+        ClearSnapshot();
+
+        var lockManager = ToolActionLockManager.Instance;
+        lockManager?.ClearHotbarCache();
+        if (lockManager != null && lockManager.IsLocked)
+        {
+            lockManager.ForceUnlock();
+        }
+    }
+
+    private static bool ShouldInterruptFarmToolOperationForFailure(ToolUseFailureReason failureReason)
+    {
+        return failureReason == ToolUseFailureReason.ToolMissing ||
+               failureReason == ToolUseFailureReason.SlotEmpty ||
+               failureReason == ToolUseFailureReason.SlotMismatch ||
+               failureReason == ToolUseFailureReason.InsufficientEnergy ||
+               failureReason == ToolUseFailureReason.InsufficientDurability ||
+               failureReason == ToolUseFailureReason.EmptyWateringCan;
+    }
+
     private void PlayAutomatedFarmToolRejectSound()
     {
         PlacementManager.Instance?.PlayFailFeedbackSound();
@@ -2966,6 +3217,41 @@ public class GameInputManager : MonoBehaviour
         return playerInteraction.RequestAction(action);
     }
 
+    private ToolUseFailureReason GetLastActionFailureReasonCompat()
+    {
+        if (playerInteraction == null)
+        {
+            return ToolUseFailureReason.None;
+        }
+
+        var flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic;
+        System.Type interactionType = playerInteraction.GetType();
+
+        var property = interactionType.GetProperty("LastActionFailureReason", flags);
+        if (property != null && typeof(ToolUseFailureReason).IsAssignableFrom(property.PropertyType))
+        {
+            object value = property.GetValue(playerInteraction, null);
+            if (value is ToolUseFailureReason propertyReason)
+            {
+                return propertyReason;
+            }
+        }
+
+        var field = interactionType.GetField("LastActionFailureReason", flags);
+        if (field != null && typeof(ToolUseFailureReason).IsAssignableFrom(field.FieldType))
+        {
+            object value = field.GetValue(playerInteraction);
+            if (value is ToolUseFailureReason fieldReason)
+            {
+                return fieldReason;
+            }
+        }
+
+        return ToolUseFailureReason.None;
+    }
+
     private ToolData GetCurrentHeldToolData()
     {
         if (!TryGetCurrentHotbarItem(out _, out var itemData))
@@ -2974,6 +3260,201 @@ public class GameInputManager : MonoBehaviour
         }
 
         return itemData as ToolData;
+    }
+
+    private bool TryBlockAxeActionAgainstHighTierTree(ToolData tool)
+    {
+        if (tool == null || tool.toolType != ToolType.Axe)
+        {
+            return false;
+        }
+
+        if (!TryGetTreeInteractableAtWorld(GetMouseWorldPosition(), out TreeController targetTree))
+        {
+            return false;
+        }
+
+        GameObject attacker = playerInteraction != null ? playerInteraction.gameObject : gameObject;
+        return ShouldBlockAxeActionBeforeAnimationCompat(targetTree, attacker, tool);
+    }
+
+    private bool ShouldBlockAxeActionBeforeAnimationCompat(TreeController targetTree, GameObject attacker, ToolData tool)
+    {
+        if (targetTree == null)
+        {
+            return false;
+        }
+
+        var flags = System.Reflection.BindingFlags.Instance |
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.NonPublic;
+        System.Type treeType = targetTree.GetType();
+
+        foreach (var method in treeType.GetMethods(flags))
+        {
+            if (method.Name != "ShouldBlockAxeActionBeforeAnimation")
+            {
+                continue;
+            }
+
+            var parameters = method.GetParameters();
+            if (parameters.Length != 2)
+            {
+                continue;
+            }
+
+            if (!parameters[0].ParameterType.IsAssignableFrom(typeof(GameObject)) ||
+                !parameters[1].ParameterType.IsAssignableFrom(typeof(ToolData)))
+            {
+                continue;
+            }
+
+            object result = method.Invoke(targetTree, new object[] { attacker, tool });
+            return result is bool shouldBlock && shouldBlock;
+        }
+
+        return false;
+    }
+
+    public bool ShouldBlockToolActionBeforeAnimation(PlayerAnimController.AnimState action, ToolData tool)
+    {
+        if (action == PlayerAnimController.AnimState.Slice ||
+            action == PlayerAnimController.AnimState.Hit)
+        {
+            return TryBlockAxeActionAgainstHighTierTree(tool);
+        }
+
+        return false;
+    }
+
+    private bool TryGetTreeInteractableAtWorld(Vector2 world, out TreeController tree)
+    {
+        tree = null;
+        float bestDistanceSqr = float.MaxValue;
+
+        var resourceNodes = ResourceNodeRegistry.Instance?.GetNodesInRange(world, 2f);
+        if (resourceNodes != null)
+        {
+            foreach (var node in resourceNodes)
+            {
+                if (node is not TreeController candidate)
+                {
+                    continue;
+                }
+
+                Bounds bounds = candidate.GetBounds();
+                if (!bounds.Contains(world))
+                {
+                    continue;
+                }
+
+                float distanceSqr = ((Vector2)bounds.center - world).sqrMagnitude;
+                if (distanceSqr >= bestDistanceSqr)
+                {
+                    continue;
+                }
+
+                bestDistanceSqr = distanceSqr;
+                tree = candidate;
+            }
+        }
+
+        if (tree != null)
+        {
+            return true;
+        }
+
+        var hits = Physics2D.OverlapPointAll(world);
+        foreach (var hit in hits)
+        {
+            if (hit == null)
+            {
+                continue;
+            }
+
+            TreeController candidate = hit.GetComponent<TreeController>() ?? hit.GetComponentInParent<TreeController>();
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            Bounds bounds = candidate.GetBounds();
+            float distanceSqr = ((Vector2)bounds.center - world).sqrMagnitude;
+            if (distanceSqr >= bestDistanceSqr)
+            {
+                continue;
+            }
+
+            bestDistanceSqr = distanceSqr;
+            tree = candidate;
+        }
+
+        return tree != null;
+    }
+
+    private bool TryGetChestInteractableAtWorld(Vector2 world, out ChestController chest)
+    {
+        chest = null;
+        float bestDistanceSqr = float.MaxValue;
+
+        var resourceNodes = ResourceNodeRegistry.Instance?.GetNodesInRange(world, 2f);
+        if (resourceNodes != null)
+        {
+            foreach (var node in resourceNodes)
+            {
+                if (node is not ChestController candidate)
+                {
+                    continue;
+                }
+
+                Bounds bounds = candidate.GetColliderBounds();
+                if (!bounds.Contains(world))
+                {
+                    continue;
+                }
+
+                float distanceSqr = ((Vector2)bounds.center - world).sqrMagnitude;
+                if (distanceSqr >= bestDistanceSqr)
+                {
+                    continue;
+                }
+
+                bestDistanceSqr = distanceSqr;
+                chest = candidate;
+            }
+        }
+
+        if (chest != null)
+        {
+            return true;
+        }
+
+        var hits = Physics2D.OverlapPointAll(world);
+        foreach (var hit in hits)
+        {
+            if (hit == null)
+            {
+                continue;
+            }
+
+            ChestController candidate = hit.GetComponent<ChestController>() ?? hit.GetComponentInParent<ChestController>();
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            Bounds bounds = candidate.GetColliderBounds();
+            float distanceSqr = ((Vector2)bounds.center - world).sqrMagnitude;
+            if (distanceSqr >= bestDistanceSqr)
+            {
+                continue;
+            }
+
+            bestDistanceSqr = distanceSqr;
+            chest = candidate;
+        }
+
+        return chest != null;
     }
 
     private void CommitCurrentToolUse(ToolData toolData, string context)

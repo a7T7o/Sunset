@@ -21,6 +21,8 @@ public class InventoryPanelUI : MonoBehaviour
     [SerializeField] private int upCount = 36;  // ★ 背包有 36 格（0-35）
     [SerializeField] private int downCount = 6;
 
+    private int selectedInventoryIndex = -1;
+
     void Awake()
     {
         if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
@@ -44,7 +46,21 @@ public class InventoryPanelUI : MonoBehaviour
     {
         // 🔥 P1-1 修复：每次面板激活时强制刷新
         // 确保从 BoxUI 切换回来时数据是最新的
+        if (selection != null)
+        {
+            selection.OnSelectedChanged -= HandleHotbarSelectionChanged;
+            selection.OnSelectedChanged += HandleHotbarSelectionChanged;
+        }
+        SyncSelectionFromHotbar();
         RefreshAll();
+    }
+
+    void OnDisable()
+    {
+        if (selection != null)
+        {
+            selection.OnSelectedChanged -= HandleHotbarSelectionChanged;
+        }
     }
 
     public void BuildUpSlots()
@@ -130,13 +146,7 @@ public class InventoryPanelUI : MonoBehaviour
 
     private void TryApplyHotbarSelectionToUp()
     {
-        if (selection == null || upParent == null) return;
-        int idx = Mathf.Clamp(selection.selectedIndex, 0, Mathf.Min(InventoryService.HotbarWidth, upParent.childCount) - 1);
-        for (int i = 0; i < Mathf.Min(upCount, upParent.childCount); i++)
-        {
-            var tg = upParent.GetChild(i).GetComponent<Toggle>();
-            if (tg != null) tg.isOn = (i == idx);
-        }
+        RefreshUpSelectionVisuals();
     }
 
     private void ClearDownSelection()
@@ -145,13 +155,20 @@ public class InventoryPanelUI : MonoBehaviour
         for (int i = 0; i < Mathf.Min(downCount, downParent.childCount); i++)
         {
             var tg = downParent.GetChild(i).GetComponent<Toggle>();
-            if (tg != null) tg.isOn = false;
+            if (tg == null) continue;
+
+#if UNITY_2021_2_OR_NEWER
+            tg.SetIsOnWithoutNotify(false);
+#else
+            tg.isOn = false;
+#endif
         }
     }
 
     // 由 PackagePanelTabsUI 在"主面板从关闭→打开"时调用
     public void ResetSelectionsOnPanelOpen()
     {
+        SyncSelectionFromHotbar();
         TryApplyHotbarSelectionToUp();
         ClearDownSelection();
     }
@@ -162,22 +179,91 @@ public class InventoryPanelUI : MonoBehaviour
     /// </summary>
     public void ClearUpSelection()
     {
-        if (upParent == null) return;
-        
-        // 方案 1：通过 ToggleGroup 清空
-        var toggleGroup = upParent.GetComponent<ToggleGroup>();
-        if (toggleGroup != null)
+        selectedInventoryIndex = -1;
+        RefreshUpSelectionVisuals();
+    }
+
+    public bool IsInventorySlotSelected(int slotIndex)
+    {
+        return slotIndex >= 0 && slotIndex == selectedInventoryIndex;
+    }
+
+    public void SetSelectedInventoryIndex(int slotIndex, bool syncHotbarSelection)
+    {
+        if (slotIndex < 0 || slotIndex >= upCount)
         {
-            toggleGroup.SetAllTogglesOff();
             return;
         }
-        
-        // 方案 2：回退到遍历槽位
+
+        selectedInventoryIndex = slotIndex;
+
+        if (syncHotbarSelection &&
+            selection != null &&
+            slotIndex < InventoryService.HotbarWidth &&
+            selection.selectedIndex != slotIndex)
+        {
+            selection.SelectIndex(slotIndex);
+        }
+
+        RefreshUpSelectionVisuals();
+    }
+
+    private void SyncSelectionFromHotbar()
+    {
+        if (selection == null)
+        {
+            selectedInventoryIndex = selectedInventoryIndex >= 0 ? selectedInventoryIndex : 0;
+            return;
+        }
+
+        selectedInventoryIndex = Mathf.Clamp(selection.selectedIndex, 0, Mathf.Max(0, upCount - 1));
+    }
+
+    private void HandleHotbarSelectionChanged(int selectedIndex)
+    {
+        if (!gameObject.activeInHierarchy)
+        {
+            return;
+        }
+
+        bool shouldFollowHotbar = selectedInventoryIndex < 0 || selectedInventoryIndex < InventoryService.HotbarWidth;
+        if (shouldFollowHotbar)
+        {
+            SyncSelectionFromHotbar();
+        }
+
+        RefreshUpSelectionVisuals();
+    }
+
+    private void RefreshUpSelectionVisuals()
+    {
+        if (upParent == null)
+        {
+            return;
+        }
+
         int n = Mathf.Min(upCount, upParent.childCount);
         for (int i = 0; i < n; i++)
         {
+            var slot = upParent.GetChild(i).GetComponent<InventorySlotUI>();
+            if (slot != null)
+            {
+                slot.RefreshSelection();
+                continue;
+            }
+
             var tg = upParent.GetChild(i).GetComponent<Toggle>();
-            if (tg != null) tg.isOn = false;
+            if (tg == null)
+            {
+                continue;
+            }
+
+            bool isSelected = i == selectedInventoryIndex;
+#if UNITY_2021_2_OR_NEWER
+            tg.SetIsOnWithoutNotify(isSelected);
+#else
+            tg.isOn = isSelected;
+#endif
         }
     }
 }

@@ -86,6 +86,8 @@ public class PlacementManager : MonoBehaviour
     private Vector3 holdPreviewWorldPosition;
     private Vector3 holdPreviewMouseScreenPosition;
     private const float ResumePreviewMouseMoveThreshold = 1f;
+    private const float AdjacentIntentBiasThreshold = 0.14f;
+    private const float DirectPlacementDominantCellThreshold = 0.6f;
     
     // 放置历史
     private List<PlacementHistoryEntry> placementHistory = new List<PlacementHistoryEntry>();
@@ -278,7 +280,10 @@ public class PlacementManager : MonoBehaviour
         }
         
         // 检查取消
-        if (Input.GetKeyDown(KeyCode.Escape) || Input.GetMouseButtonDown(1))
+        bool rightClickCancel = Input.GetMouseButtonDown(1) &&
+                                !(GameInputManager.Instance != null &&
+                                  GameInputManager.Instance.ShouldPreservePlacementModeForCurrentRightClick());
+        if (Input.GetKeyDown(KeyCode.Escape) || rightClickCancel)
         {
             OnRightClick();
         }
@@ -719,17 +724,17 @@ public class PlacementManager : MonoBehaviour
     {
         if (placementPreview == null || currentPlacementItem == null) return;
         
-        if (ShouldHoldPreviewAtLastPlacement())
+        Vector3 mousePos = GetMouseWorldPosition();
+        Vector3 candidatePreviewPosition = ResolvePreviewCandidatePosition(mousePos);
+
+        if (ShouldHoldPreviewAtLastPlacement(candidatePreviewPosition))
         {
             placementPreview.ForceUpdatePosition(holdPreviewWorldPosition);
         }
         else
         {
-            // 获取鼠标世界坐标
-            Vector3 mousePos = GetMouseWorldPosition();
-
             // 更新预览位置（锁定状态下不会更新）
-            placementPreview.UpdatePosition(mousePos);
+            placementPreview.UpdatePosition(candidatePreviewPosition);
         }
         
         // 同步 Sorting Layer
@@ -783,6 +788,7 @@ public class PlacementManager : MonoBehaviour
         {
             // Navigating 状态：点击新位置，需要先验证新位置
             Vector3 mousePos = GetMouseWorldPosition();
+            Vector3 candidatePosition = ResolvePreviewCandidatePosition(mousePos);
             
             // 取消当前导航
             navigator.CancelNavigation();
@@ -793,7 +799,7 @@ public class PlacementManager : MonoBehaviour
             // 解锁并更新到新位置
             placementPreview.UnlockPosition();
 
-            if (RefreshPlacementValidationAt(mousePos, true))
+            if (RefreshPlacementValidationAt(candidatePosition, true))
             {
                 if (showDebugInfo)
                     Debug.Log($"<color=cyan>[PlacementManagerV3] 导航中点击新位置，重新导航</color>");
@@ -877,6 +883,17 @@ public class PlacementManager : MonoBehaviour
         if (showDebugInfo)
         {
             Debug.Log($"<color=cyan>[PlacementManagerV3] LockPreviewPosition: playerBounds={playerBounds}, interactionBounds={previewBounds}, visualBounds={visualBounds}</color>");
+        }
+
+        if (ShouldDirectPlaceFromPlayerNeighborhood())
+        {
+            if (showDebugInfo)
+            {
+                Debug.Log("<color=green>[PlacementManagerV3] 当前目标位于玩家主占格 3x3 内，直接放置</color>");
+            }
+
+            TryExecuteLockedPlacement();
+            return;
         }
         
         if (navigator.IsAlreadyNearTarget(playerBounds, previewBounds))
@@ -1321,13 +1338,27 @@ public class PlacementManager : MonoBehaviour
         holdPreviewUntilMouseMoves = true;
         holdPreviewWorldPosition = lastPlacedPosition;
         holdPreviewMouseScreenPosition = Input.mousePosition;
-        RefreshPlacementValidationAt(lastPlacedPosition, true);
+        Vector3 currentCandidatePosition = ResolvePreviewCandidatePosition(GetMouseWorldPosition());
+        if (IsSamePlacementCandidate(lastPlacedPosition, currentCandidatePosition))
+        {
+            RefreshPlacementValidationAt(lastPlacedPosition, true);
+            return;
+        }
+
+        ClearPostPlacementPreviewHold();
+        RefreshPlacementValidationAt(currentCandidatePosition, true);
     }
 
-    private bool ShouldHoldPreviewAtLastPlacement()
+    private bool ShouldHoldPreviewAtLastPlacement(Vector3 currentCandidatePosition)
     {
         if (!holdPreviewUntilMouseMoves)
         {
+            return false;
+        }
+
+        if (!IsSamePlacementCandidate(holdPreviewWorldPosition, currentCandidatePosition))
+        {
+            ClearPostPlacementPreviewHold();
             return false;
         }
 
@@ -1344,6 +1375,150 @@ public class PlacementManager : MonoBehaviour
     private void ClearPostPlacementPreviewHold()
     {
         holdPreviewUntilMouseMoves = false;
+    }
+
+    private Vector3 ResolvePreviewCandidatePosition(Vector3 mouseWorldPosition)
+    {
+        Vector3 baseCandidatePosition = PlacementGridCalculator.GetCellCenter(mouseWorldPosition);
+        if (!TryResolveAdjacentIntentBiasedCandidate(baseCandidatePosition, mouseWorldPosition, out Vector3 biasedCandidatePosition))
+        {
+            return baseCandidatePosition;
+        }
+
+        return biasedCandidatePosition;
+    }
+
+    private bool TryResolveAdjacentIntentBiasedCandidate(
+        Vector3 baseCandidatePosition,
+        Vector3 mouseWorldPosition,
+        out Vector3 biasedCandidatePosition)
+    {
+        biasedCandidatePosition = baseCandidatePosition;
+
+        if (currentPlacementItem == null ||
+            placementPreview == null ||
+            placementPreview.GridSize != Vector2Int.one ||
+            !AllowsAdjacentDirectPlacement(currentPlacementItem))
+        {
+            return false;
+        }
+
+        EnsureValidatorInitialized();
+        if (validator == null || !IsAdjacentIntentBiasSourceOccupied(baseCandidatePosition))
+        {
+            return false;
+        }
+
+        Vector2 offsetFromCellCenter = (Vector2)mouseWorldPosition - (Vector2)baseCandidatePosition;
+        if (Mathf.Abs(offsetFromCellCenter.x) < AdjacentIntentBiasThreshold &&
+            Mathf.Abs(offsetFromCellCenter.y) < AdjacentIntentBiasThreshold)
+        {
+            return false;
+        }
+
+        foreach (Vector2Int direction in BuildAdjacentIntentDirections(offsetFromCellCenter))
+        {
+            if (direction == Vector2Int.zero)
+            {
+                continue;
+            }
+
+            Vector3 candidate = new Vector3(
+                baseCandidatePosition.x + direction.x,
+                baseCandidatePosition.y + direction.y,
+                baseCandidatePosition.z);
+            if (!IsSamePlacementCandidate(candidate, baseCandidatePosition) &&
+                IsAdjacentIntentBiasCandidateValid(candidate))
+            {
+                biasedCandidatePosition = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool IsAdjacentIntentBiasSourceOccupied(Vector3 candidatePosition)
+    {
+        if (currentPlacementItem is SaplingData)
+        {
+            return validator.HasTreeAtPosition(candidatePosition, 0.5f);
+        }
+
+        if (currentPlacementItem is SeedData)
+        {
+            var farmTileManager = FarmTileManager.Instance;
+            return farmTileManager != null &&
+                   farmTileManager.TryResolveTileAtWorld(candidatePosition, out int layerIndex, out Vector3Int cellPos, out _) &&
+                   farmTileManager.HasCropOccupant(layerIndex, cellPos);
+        }
+
+        return false;
+    }
+
+    private bool IsAdjacentIntentBiasCandidateValid(Vector3 candidatePosition)
+    {
+        if (currentPlacementItem is SeedData seedData)
+        {
+            return PlacementValidator.ValidateSeedPlacement(seedData, candidatePosition);
+        }
+
+        if (currentPlacementItem is SaplingData)
+        {
+            var saplingCellState = validator.ValidateSaplingPlacement((SaplingData)currentPlacementItem, candidatePosition, playerTransform);
+            return saplingCellState.isValid;
+        }
+
+        return false;
+    }
+
+    private static List<Vector2Int> BuildAdjacentIntentDirections(Vector2 offsetFromCellCenter)
+    {
+        int primaryX = Mathf.Abs(offsetFromCellCenter.x) >= AdjacentIntentBiasThreshold
+            ? (offsetFromCellCenter.x > 0f ? 1 : -1)
+            : 0;
+        int primaryY = Mathf.Abs(offsetFromCellCenter.y) >= AdjacentIntentBiasThreshold
+            ? (offsetFromCellCenter.y > 0f ? 1 : -1)
+            : 0;
+
+        var directions = new List<Vector2Int>(8);
+        void AddDirection(int x, int y)
+        {
+            var direction = new Vector2Int(x, y);
+            if (direction != Vector2Int.zero && !directions.Contains(direction))
+            {
+                directions.Add(direction);
+            }
+        }
+
+        AddDirection(primaryX, primaryY);
+        if (Mathf.Abs(offsetFromCellCenter.x) >= Mathf.Abs(offsetFromCellCenter.y))
+        {
+            AddDirection(primaryX, 0);
+            AddDirection(primaryX, primaryY == 0 ? 1 : -primaryY);
+            AddDirection(0, primaryY);
+        }
+        else
+        {
+            AddDirection(0, primaryY);
+            AddDirection(primaryX == 0 ? 1 : -primaryX, primaryY);
+            AddDirection(primaryX, 0);
+        }
+
+        for (int x = -1; x <= 1; x++)
+        {
+            for (int y = -1; y <= 1; y++)
+            {
+                AddDirection(x, y);
+            }
+        }
+
+        return directions;
+    }
+
+    private static bool IsSamePlacementCandidate(Vector3 lhs, Vector3 rhs)
+    {
+        return PlacementGridCalculator.GetCellIndex(lhs) == PlacementGridCalculator.GetCellIndex(rhs);
     }
     
     /// <summary>
@@ -1731,6 +1906,119 @@ public class PlacementManager : MonoBehaviour
             return collider.bounds;
         
         return new Bounds(playerTransform.position, Vector3.one);
+    }
+
+    private bool ShouldDirectPlaceFromPlayerNeighborhood()
+    {
+        if (currentPlacementItem == null ||
+            placementPreview == null ||
+            placementPreview.GridSize != Vector2Int.one ||
+            !AllowsAdjacentDirectPlacement(currentPlacementItem))
+        {
+            return false;
+        }
+
+        if (!TryGetPlayerDominantCell(out Vector2Int playerCell))
+        {
+            return false;
+        }
+
+        Vector2Int targetCell = PlacementGridCalculator.GetCellIndex(placementPreview.GetPreviewPosition());
+        return Mathf.Abs(targetCell.x - playerCell.x) <= 1 &&
+               Mathf.Abs(targetCell.y - playerCell.y) <= 1;
+    }
+
+    private bool TryGetPlayerDominantCell(out Vector2Int dominantCell)
+    {
+        Bounds playerBounds = GetPlayerBounds();
+        float totalArea = playerBounds.size.x * playerBounds.size.y;
+        if (totalArea <= 0.0001f)
+        {
+            dominantCell = PlacementGridCalculator.GetCellIndex(playerBounds.center);
+            return true;
+        }
+
+        int minX = Mathf.FloorToInt(playerBounds.min.x);
+        int maxX = Mathf.FloorToInt(playerBounds.max.x - 0.0001f);
+        int minY = Mathf.FloorToInt(playerBounds.min.y);
+        int maxY = Mathf.FloorToInt(playerBounds.max.y - 0.0001f);
+
+        float bestArea = 0f;
+        dominantCell = PlacementGridCalculator.GetCellIndex(playerBounds.center);
+
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int y = minY; y <= maxY; y++)
+            {
+                float overlapWidth = Mathf.Max(0f, Mathf.Min(playerBounds.max.x, x + 1f) - Mathf.Max(playerBounds.min.x, x));
+                float overlapHeight = Mathf.Max(0f, Mathf.Min(playerBounds.max.y, y + 1f) - Mathf.Max(playerBounds.min.y, y));
+                float overlapArea = overlapWidth * overlapHeight;
+                if (overlapArea <= bestArea)
+                {
+                    continue;
+                }
+
+                bestArea = overlapArea;
+                dominantCell = new Vector2Int(x, y);
+            }
+        }
+
+        return bestArea / totalArea >= DirectPlacementDominantCellThreshold;
+    }
+
+    private bool AllowsAdjacentDirectPlacement(ItemData placementItem)
+    {
+        if (placementItem == null)
+        {
+            return false;
+        }
+
+        if (placementItem is SeedData)
+        {
+            return true;
+        }
+
+        if (placementItem is SaplingData saplingData)
+        {
+            return !SaplingHasBlockingColliderAtPlacement(saplingData);
+        }
+
+        return !HasBlockingColliderAtPlacement(placementItem);
+    }
+
+    private bool HasBlockingColliderAtPlacement(ItemData placementItem)
+    {
+        if (placementItem == null || placementItem.placementPrefab == null)
+        {
+            return false;
+        }
+
+        var colliders = placementItem.placementPrefab.GetComponentsInChildren<Collider2D>(true);
+        foreach (var collider in colliders)
+        {
+            if (collider != null && collider.enabled && !collider.isTrigger)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool SaplingHasBlockingColliderAtPlacement(SaplingData saplingData)
+    {
+        if (saplingData == null)
+        {
+            return false;
+        }
+
+        TreeController treeController = saplingData.GetTreeController();
+        if (treeController != null && treeController.CurrentStageConfig != null)
+        {
+            return treeController.CurrentStageConfig.enableCollider;
+        }
+
+        return HasBlockingColliderAtPlacement(saplingData);
     }
     
     private bool DeductItemFromInventory()
