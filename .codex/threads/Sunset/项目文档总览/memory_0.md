@@ -1175,3 +1175,55 @@
   1. 再把 `14` 压短一点，做成更像校招一页纸的版本
   2. 配一版 30 秒面试口述稿
   3. 把真实学校 / 专业 / 联系方式替换进去
+
+### 会话 22 - 2026-03-29（终轮 docs-tail 真实 preflight 与主归仓已完成）
+
+**用户最新要求**：
+- 用户要求我先完整读取：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫终轮_docs-tail认领归仓与git上传_01.md`
+- 这轮不是恢复业务线，只做 `项目文档总览` 线程 own 的 thread-doc tail 认领、真实 `preflight -> sync`、能上 git 就给 `SHA`，做完停表。
+
+**当前主线目标**：
+- 把 `项目文档总览` 这条线在 Sunset repo 内剩下的 same-root thread-doc 尾账自己收掉，不再继续 README / about / 简历 / 业务文档扩写。
+
+**完成任务**：
+1. 已按终轮执行书完整回读当前现场，并确认：
+   - 当前工作目录：`D:\Unity\Unity_learning\Sunset`
+   - 当前分支：`main`
+   - 起始 `HEAD`：`7c3798525c3407781cb465b1048c2cfd37d701c9`
+2. 已真实执行第一次 stable launcher `preflight`，拿到第一真实 blocker：
+   - 当前 own root 不是只剩原先口头认的 3 个文件
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫第一轮认定书_01.md` 也属于 same-root still-own
+3. 已按脚本结果把白名单纠正为：
+   - `ScopeRoots=.codex/threads/Sunset/项目文档总览`
+4. 已真实执行第二次 stable launcher `preflight`，结果通过。
+5. 已真实执行 stable launcher `sync`，完成主 docs-tail 归仓：
+   - 提交消息：`2026.03.29_项目文档总览_01`
+   - 提交 SHA：`736028b0fb0c1bea1dbf348dda1c4550d1745a21`
+6. 当前 thread 目录在主归仓后已暂时 clean；接下来只剩把终轮回执与本条最终记忆作为最小元提交补齐，然后停表。
+
+**关键结论**：
+- `项目文档总览` 在 Sunset repo 内的真实 still-own，已经被脚本压实为“整个线程目录当前 dirty 集”，不再允许只按口头缩写的 3 个文件自报。
+- 这条线的 repo 内责任已经彻底收缩为 thread-doc same-root 尾账，不再占任何业务 owner 位。
+- 主 docs-tail 已经真实上 git；这轮后续只允许做最终元收口，不允许再漂回业务或内容生产。
+
+**涉及文件**：
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\memory_0.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫第一轮回执_01.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫终轮_docs-tail认领归仓与git上传_01.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫终轮回执_01.md`
+
+**验证结果**：
+- stable launcher `preflight`：
+  - 首轮失败，真实 blocker 已被压实
+  - 扩为 same-root still-own 后再次通过
+- stable launcher `sync`：
+  - 已通过并推送
+- 当前主归仓提交基线：
+  - `736028b0fb0c1bea1dbf348dda1c4550d1745a21`
+
+**遗留问题 / 下一步**：
+- 只剩把终轮回执与最终记忆作为最小元提交再归一次仓。
+- 做完这一步，这条线在 Sunset repo 内即转为：
+  - `docs-only / 已停表`
