@@ -6104,8 +6104,1335 @@
 - 后续治理线程审用户向回复时，默认先看 `保底六点卡` 是否完整，再看技术审计层。
 - 之后如果再有线程继续交“参数 + checkpoint + changed_paths”式回复，就不再只口头提醒，而是直接按“不合格汇报”处理。
 
+## 2026-03-28｜典狱长分发：共享字体止血 owner 已明确回到 spring-day1，允许继续发 prompt
+
+**当前主线目标**
+- 用户要求把“共享字体止血”里属于 Day1 owner 的那一半正式交回 `spring-day1`，并明确要求典狱长模式继续分发，不再由治理线程顺手深做。
+
+**本轮裁定**
+1. 当前这条不是“停给用户验收”，也不是“停给用户分析 / 审核”。
+2. 当前应判为：`继续发 prompt`
+3. 原因已经站稳：
+   - `DialogueChinese V2 SDF.asset` 属于共享 TMP 动态字体稳定性风险；
+   - 但当前相关现场里另外 6 个 Day1-facing 文件是 Day1 正式产品面，不是无关缓存；
+   - 这 6 个文件里的 owner-side keep / rework / revert，确实应由 `spring-day1` 线程继续施工。
+
+**本轮已落动作**
+1. 新建单条可分发 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-28_典狱长_spring-day1_共享字体止血owner接盘_01.md`
+2. Prompt 已固定：
+   - 当前唯一主刀 = 只接盘 6 个 Day1-facing 文件
+   - 禁止漂移到共享字体底座重建
+   - 强制最终回执按：
+     - `A1 保底六点卡`
+     - `A2 用户补充层（功能点验收 + 停步自省）`
+     - `B 技术审计层`
+
+**恢复点 / 下一步**
+- 这轮典狱长位已经完成“先审回执、再做继续发 prompt 裁定、再落单切片 prompt”。
+- 下一步就是由用户把这份 prompt 转给 `spring-day1` 开工，不再由治理线程代做这 6 个 Day1-facing 文件。
+
+## 2026-03-28｜典狱长审核：spring-day1 共享字体止血 owner 接盘回执已达 checkpoint 预期，但未到收盘态
+
+**当前主线目标**
+- 用户要求我审核 `spring-day1` 刚回来的这份 owner 接盘回执，到底有没有完成上一轮 prompt 预期。
+
+**本轮审结论**
+1. 结论不是“未达标”，而是：
+   - `已达标`
+   - 但只达到了 `owner checkpoint`
+   - 还没有达到 `收盘完成`
+2. 现场核对后确认：
+   - 3 个脚本当前 diff 只剩默认字体候选链收窄到 `DialogueChinese SDF`
+   - `DialogueFontLibrary_Default.asset` 的 6 个 key 已全部统一到 `DialogueChinese SDF`
+   - 两个 Day1 prefab 当前引用也已统一到 `DialogueChinese SDF`
+   - 上一轮 prompt 明确要求剥掉的同文件行为续写，当前确实已被回退，没有继续混留在这刀里
+3. 同时也确认：
+   - `DialogueChinese V2 SDF.asset` 仍留在共享风险线，没有被它这轮顺手吞进 owner 成果
+   - `Assets/YYY_Scripts/Story/UI` 同根仍有 5 个 remaining dirty/untracked，故当前不能 claim `own path clean = yes`
+
+**治理裁定**
+- 这轮应认定为：
+  - `核心预期已命中`
+  - `允许继续下一刀`
+- 不应认定为：
+  - `整条任务已完工`
+  - `可直接当最终提交态`
+
+**恢复点 / 下一步**
+- 当前下一刀应继续只做：
+  - `Assets/YYY_Scripts/Story/UI` 同根 hygiene / own-tail 收口
+- 不应回漂到底座线：
+  - `DialogueChinese V2 SDF.asset`
+  - `DialogueChineseFontAssetCreator.cs`
+  - `DialogueChinese*` 整批稳定化
+
+## 2026-03-28｜典狱长纠偏：共享字体止血这刀误发给老 `spring-day1` 后，正式改由 `spring-day1V2` 接棒
+
+**当前主线目标**
+- 用户反馈上一条典狱长 prompt 实际发给了老 `spring-day1`，要求我重新判断后续到底该继续跟老线程对话，还是把前情提要与后续工作正式交给 `spring-day1V2`。
+
+**本轮裁定**
+1. 当前最稳口径不是继续让老 `spring-day1` 往前滚。
+2. 当前也不是让 `spring-day1V2` 重做老线程已经完成的 owner checkpoint。
+3. 正确分工应改成：
+   - 老 `spring-day1`：这刀到此为止，保留其已产出的 owner checkpoint
+   - `spring-day1V2`：继承这个已审 checkpoint，继续做后半刀 same-root hygiene / 收盘
+
+**为什么这样判**
+1. 老 `spring-day1` 已经真实完成并交回了“6 个 Day1-facing 文件的字体止血 checkpoint”，且治理审结论为：
+   - checkpoint 达标
+   - 但尚未到 sync-ready
+2. 继续让老 `spring-day1` 往前推，只会把老线程和 `V2` 的 owner 边界重新搅混。
+3. 直接让 `V2` 重打一遍，也会制造重复施工和 same-file 并发风险。
+4. 因此最稳的接棒方式是：
+   - `继承，不重打`
+   - `只继续后半刀`
+
+**本轮已落动作**
+1. 已新增 `spring-day1V2` 接棒 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-28_典狱长_spring-day1V2_继承v1字体止血checkpoint并接棒_01.md`
+2. Prompt 已明确压死：
+   - 先读老 `v1` 的 prompt + 线程记忆 + 父工作区记忆
+   - 把老 `v1` 的 6 文件 checkpoint 当继承基线
+   - 不重做旧刀
+   - 当前唯一新增主刀 = `Assets/YYY_Scripts/Story/UI` 同根 hygiene
+
+**恢复点 / 下一步**
+- 现在最合理的用户动作是：
+  1. 不再给老 `spring-day1` 新任务
+  2. 把接棒 prompt 发给 `spring-day1V2`
+- 后续治理位只按 `spring-day1V2` 的回执继续裁定，不再双线并行推进这条 Day1 字体止血链。
+
+## 2026-03-28｜审 `spring-day1V2` 最新回复：技术事实并非全错，但对当前委托属于明显跑题
+
+**当前主线目标**
+- 用户贴出 `spring-day1V2` 的最新回复，要求我判断“它到底在说什么、为什么会这样回复、这条回复算不算完成当前委托”。
+
+**本轮审结论**
+1. 这条回复里有一部分技术事实是成立的，不是纯胡说：
+   - `DialogueChineseFontAssetCreator.cs` 当前确实按 `AtlasPopulationMode.Dynamic + isMultiAtlasTexturesEnabled = true` 生成字体；
+   - `Editor.log` 里也确实反复出现：
+     - `DialogueChinese V2 SDF.asset`
+     - `DialogueChinese Pixel SDF.asset`
+     - `DialogueChinese BitmapSong SDF.asset`
+     - 以及更晚出现的 `DialogueChinese SDF.asset`
+     的 `Importer(NativeFormatImporter) generated inconsistent result`
+   - `Ellipsis` 缺字也确实存在。
+2. 但对当前这轮 `spring-day1V2` 接棒 prompt 来说，这条回复是明显跑题的：
+   - Prompt 明确要求它：
+     - 继承老 `v1` 已审 checkpoint
+     - 不重打 6 文件 owner 裁决
+     - 只继续 `Assets/YYY_Scripts/Story/UI` 同根 hygiene
+   - 它却回到了“共享动态中文字体底座稳定性分析”这条更大题上。
+3. 所以这条回复不能算完成当前委托，准确裁定应是：
+   - `技术判断层部分有效`
+   - `但任务执行层未命中`
+4. 用户看不懂它在说什么的根因也已经清楚：
+   - 它回答的是“更大的真实根因是什么”
+   - 而不是“我这轮接棒后实际做了什么、还剩什么、下一步为什么只做 same-root hygiene”
+
+**恢复点 / 下一步**
+- 现在不该跟着它的回复重新回到底座线讨论；
+- 正确动作仍是把 `spring-day1V2` 拉回接棒 prompt 的唯一主刀：
+  - 继承 `v1` checkpoint
+  - 只做 `Assets/YYY_Scripts/Story/UI` 同根 hygiene
+- 这条回复最多只能算“补充背景判断”，不能算当前委托的完成回执。
+
 **本轮治理同步结果**
 - 已用 `git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread Codex规则落地` 完成白名单同步。
 - 提交 SHA：`1fbf64d5`
 - 提交信息：`2026.03.27_Codex规则落地_06`
 - 当前这批 live 规则补强已正式进入 `main`。
+
+## 2026-03-28｜复审 `spring-day1V2` 跑题回复：用户向审结论进一步压成人话
+
+**当前主线目标**
+- 用户继续追问 `spring-day1V2` 为什么会那样回复，并要求我直接审核这段话到底算什么、问题出在哪。
+
+**本轮稳定结论**
+1. 这段回复翻成人话，核心是在说：
+   - “现在炸的不是 Day1 剧情逻辑，而是共享 TMP 中文字体资产自己不稳定，导入一次一个样，还会触发 domain reload。”
+2. 这层技术判断本身大体成立，所以它不是在胡编。
+3. 但它这轮真正错的地方不是技术，而是答题范围：
+   - 当前委托要它做的是 `继承 v1 已审 checkpoint + 只继续 Assets/YYY_Scripts/Story/UI 同根 hygiene`
+   - 它却把题目重新抬回“共享字体底座到底怎么治”
+4. 所以这条回复的准确裁定应当固定为：
+   - `背景分析可参考`
+   - `当前委托不合格`
+   - `不能据此改写当前主刀`
+5. 用户之所以会觉得“完全不知道它在说什么”，根因不是用户没看懂技术，而是它没有回答用户当前最需要的 4 件事：
+   - 它这轮实际做了什么
+   - 还剩什么
+   - 当前阶段到哪
+   - 下一步为什么只该做 same-root hygiene
+
+**恢复点 / 下一步**
+- 这条回复不能作为 `spring-day1V2` 当前接棒任务的完工回执；
+- 后续如果继续推进，必须把它硬拉回：
+  - `继承，不重打`
+  - `只做 same-root hygiene`
+  - `按 A1/A2/B 用户可读结构回执`
+
+## 2026-03-28｜已生成 `spring-day1V2` 二次纠偏 prompt：从“背景分析”硬拉回“same-root hygiene 续工”
+
+**当前主线目标**
+- 用户要求我直接给出下一条要发给 `spring-day1V2` 的 prompt，并说明为什么要这样写。
+
+**本轮已落动作**
+1. 已新增 prompt 文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-28_典狱长_spring-day1V2_拉回same-root-hygiene纠偏续工_02.md`
+2. 这条 prompt 明确做了 4 个收紧：
+   - 先显式判死上一条长回复：`不是乱说，但不算当前委托完成`
+   - 强制把主刀重新锁回：`继承 v1 checkpoint + 只做 Assets/YYY_Scripts/Story/UI 同根 hygiene`
+   - 要求它把 5 条 same-root remaining dirty 逐项判成 `own / same-file contamination / foreign`
+   - 要求最终回执必须同时带 `A1 保底六点卡 + A2 继承说明/停步自省 + B 技术审计层`
+
+**为什么这样写**
+1. 上一条 prompt 其实已经写了“不要重打、只继续后半刀”，但它仍然被更大的共享字体根因吸走，说明这次不是信息不够，而是纠偏力度还不够。
+2. 所以下一条不能再只是重复“别漂移”，而必须先把上一条回复的法律地位说死：
+   - 可参考
+   - 但不算交卷
+3. 同时用户现在最需要的是：
+   - 它这轮实际新增做了什么
+   - 还剩什么
+   - same-root 到底能不能收
+   - 为什么下一步还是这一刀
+4. 因此这条 prompt 没有让它少思考，反而是把思考位置摆正：
+   - 不是继续想“更大的根因”
+   - 而是先思考“我这轮到底该交什么、为什么只该交这个”
+
+**恢复点 / 下一步**
+- 现在可以直接把这条新 prompt 发给 `spring-day1V2`；
+- 后续再审时，只看它是否真的命中 same-root hygiene 与用户可读回执，不再接受“共享字体底座分析”顶替当前委托。
+
+## 2026-03-28｜复审 `spring-day1V2` same-root hygiene 回执：已从跑题进入合格 B，但还差最终 blocker 停表
+
+**当前主线目标**
+- 用户贴出 `spring-day1V2` 第二次 same-root hygiene 回执，要求我一步到位完成详细审核、判断和下一条 prompt。
+
+**本轮审结论**
+1. 这次回执已经第一次真正命中当前委托主刀：
+   - 继承了老 `v1` 已审 checkpoint
+   - 没再回到底座线
+   - 对 prompt 指定的 5 个 same-root 项做了判类
+2. 所以这次不能再判它“答非所问”；当前应判为 `合格 B`。
+3. 但这条线仍未收盘，还差两个精度缺口：
+   - preflight 命令口径不精确；`task` 模式下若无 `ScopeRoots / IncludePaths`，launcher 会先因“无边界自动提交被禁止”拦下；
+   - 最终 blocker stop-list 尚未补全；当前现场还应继续纳入：
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1UiPrefabRegistry.cs(.meta)`
+     - `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset(.meta)`
+     - `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/memory.md`
+4. 因此下一条 prompt 不应再写成“继续做一点 hygiene”，而应升级成：
+   - `最终 blocker 矩阵`
+   - `准确 preflight 口径`
+   - `收盘还是停表`
+
+**本轮已落动作**
+1. 已新增 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-28_典狱长_spring-day1V2_字体止血链最终blocker矩阵与收盘裁定_03.md`
+2. 这条 prompt 的唯一主刀是：
+   - 把这条字体止血链到底还能不能在它这里收盘，一次裁死
+
+**恢复点 / 下一步**
+- 这条线当前仍属于 `继续发 prompt`；
+- 但下一轮必须是“最终 blocker 停表 prompt”，不再允许模糊续工。
+
+## 2026-03-28｜复审 `spring-day1V2` 最新 04 完整回执：这条线应正式停发，后续改走三拆
+
+**当前主线目标**
+- 用户贴来 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1V2\2026-03-28_给典狱长的最新完整回执_04.md`，要求我基于最新并行事实判断：
+  - `spring-day1V2` 是否应正式停发
+  - 后续是否拆成 `NPC foreign 剥离 / UI-V1 registry 链路归并 / 文档 blocker 拆账`
+
+**本轮审结论**
+1. `04` 已经真正补齐 `03` 委托要求的收盘条件：
+   - 准确 `preflight` 边界已给出
+   - 第一真实阻断原因已钉死
+   - 最终 blocker 矩阵与 stop-list 已补全
+   - `spring-day1V2` 的唯一裁定保持为 `B｜最终停表`
+2. 这条线现在应正式停发，不再继续给 `spring-day1V2` 发“再做一点 hygiene / 字体止血链续工”的 prompt。
+3. 这里的“停发”不是因为它已经 `sync-ready`，而是因为：
+   - `当前 own 路径是否 clean = no`
+   - 但剩余阻断已不再属于它的 `own current-slice`
+   - 继续让它往下磨，只会继续把字体止血、UI 正式施工、NPC foreign 与文档账本混成一团
+4. `UI-V1 / SpringUI` 已经足够站稳为 Day1 UI 正式 owner：
+   - `SpringDay1PromptOverlay.cs` 与 `SpringDay1WorkbenchCraftingOverlay.cs` 当前都显式调用 `SpringDay1UiPrefabRegistry.Load*Prefab()`
+   - `SpringUI` 工作区 memory 已把 `SpringDay1UiPrefabRegistry.cs` 和 `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset` 记入 `Phase 1 prefab-first` 主链
+5. `NpcWorldHintBubble.cs(.meta)` 继续判为 `foreign` 的依据仍成立：
+   - NPC 工作区 memory 明确把它记为 `001 / 002 / 003` 共用的 NPC 线文件
+6. 因此后续最合理的不是继续单线自转，而是改走三拆：
+   - `NPC foreign 剥离`
+   - `UI-V1 / SpringUI registry 链路归并`
+   - `003-进一步搭建/memory.md` 文档 blocker 拆账
+
+**路由细化**
+1. `NpcWorldHintBubble.cs(.meta)`
+   - 继续按 `foreign` 路由给 NPC 线，不回投 `spring-day1V2`
+2. `SpringDay1UiPrefabRegistry.cs(.meta/.asset/.meta)`
+   - 对 `spring-day1V2` 来说仍是 `other-slice contamination`
+   - 但对治理位下一步路由，应直接视为 `UI-V1 / SpringUI` 活跃主链，或在 UI 线当前处于用户终验窗口时交给 integrator 收盘
+3. `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/memory.md`
+   - 独立作为文档 / 治理 blocker 处理，不再和字体止血或 UI owner 混成一刀
+
+**恢复点 / 下一步**
+- `spring-day1V2` 这条线当前应从典狱长模式下的“继续发 prompt”改判为：
+  - `无需继续发`
+- 后续治理若继续推进 Day1，只应围绕三拆对象发新 prompt，而不是再对 `spring-day1V2` 本体续工。
+
+**补充校验**
+- 我在这轮审结论后，直接按 `04` 里给出的 `IncludePaths` 重新跑了 stable launcher 的 `preflight`。
+- 复核结果没有推翻“正式停发 + 三拆”，但新增暴露出一个比 `04` 更晚的 same-root 现场项：
+  - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity`
+  - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity.meta`
+- 因此现在最准确的话不该再说成“`04` 已把 stop-list 永久补全”，而应说：
+  - `04` 的停发表述方向成立
+  - 但 live 现场又新长出一个 UI / scene contamination 子项
+  - 它不属于 `spring-day1V2` 该继续自转解决的理由，反而更强化了“别再给它续工”的裁定
+
+## 2026-03-28｜按用户要求完成 Sunset 仓库总盘点：当前不宜一锅提交，但也不是整体失控
+
+**当前主线目标**
+- 用户要求我不要被“几百个更改、二十多万增删”这种表象带节奏，而是实际调研工作区 memory、线程 memory 与真实 git 现场，判断当前是否适合直接整体提交。
+
+**本轮盘点事实**
+1. 当前 `git status` 可见条目约 `178`：
+   - `modified = 75`
+   - `deleted = 53`
+   - `untracked = 50`
+2. 当前 `git diff --stat`（只算已跟踪差异）为：
+   - `128 files changed`
+   - `+32772 / -101123`
+3. 当前体量被 3 类东西显著放大：
+   - `Assets/000_Scenes/Primary.unity` 删除单文件就占 `-85162`
+   - `UI系统` 旧目录批量删除，同时 `Before03.28` / `0.0.1 SpringUI` 新目录仍未跟踪，形成迁移型大体量
+   - `DialogueChinese*` 字体资产本身是大 YAML 资源，单文件 diff 就是几千行级
+4. 当前活跃线程 / 工作区 memory 指向的并行主线至少有：
+   - `UI / Day1`
+   - `NPC`
+   - `导航`
+   - `农田 / 背包 / Tooltip`
+   - `治理 / 文档 / 记忆`
+5. 所以现在不是“一坨内容全都在无序互踩”，而是“多条主线并行 + 文档迁移与大资源把数字抬很高”。
+
+**最值得警惕的真实风险**
+1. `Assets/000_Scenes/Primary.unity`
+   - 当前不是普通修改，而是老路径真实消失
+   - 同时在 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 冒出一个未跟踪同名 scene
+   - 这是当前最危险的异常面
+2. `DialogueChinese*` 字体资产
+   - 仍属于高体量、高不确定性的共享资源 diff
+3. `GameInputManager.cs`
+   - 仍是共享热点文件，不适合无触点对账就混进整仓提交
+
+**当前治理建议**
+1. 现在不建议直接“一锅端提交”
+2. 但也不需要把整个仓库理解成“已经失控到不能动”
+3. 更合理的顺序是：
+   - 先核清 `Primary.unity` 异常迁移面
+   - 再把 `UI系统` 目录迁移 / 归档和业务代码提交拆开
+   - 再按 `UI-Day1 / NPC / 导航 / 农田-背包 / 治理文档` 各自切 checkpoint
+
+**恢复点 / 下一步**
+- 如果后续继续推进仓库收口，当前最值钱的一步不是提交，而是先把 `Primary.unity` 删除与新位置同名 scene 的关系判清。
+
+## 2026-03-28｜继续只读深挖仓库总审：`Primary.unity` 不是“小 UI scene 误放”，而是 owner 不明的高风险迁移异常
+
+- 当前主线目标：
+  - 用户要求继续做“只读全盘清扫”，不要改代码、不要提交，而是把仓库现场再钉细一层，尤其要判断 `Primary.unity` 异常迁移和 `untracked` 孤儿项到底是什么结构。
+- 本轮新增核到的硬事实：
+  1. `Assets/000_Scenes/Primary.unity` 与 `.meta` 当前仍是 tracked delete，而 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)` 仍是 untracked。
+  2. 新旧 `Primary.unity.meta` 的 GUID 完全相同，都是：
+     - `a84e2b409be801a498002965a6093c05`
+  3. `ProjectSettings/EditorBuildSettings.asset` 仍只指向旧路径：
+     - `Assets/000_Scenes/Primary.unity`
+  4. 新 scene 不是一个“小 UI 专用 scene 壳”：
+     - 行数仍有 `83705`
+     - 且仍直接包含 `001_HomeAnchor / 002_HomeAnchor / 003_HomeAnchor`
+     - `SaveManager`
+     - `PersistentManagers`
+     - `NavGrid2DStressTest`
+  5. 目前在工作区 memory / 线程 memory 里，除了我这条治理审计记忆外，没有找到任何线程明确解释“为什么 `Primary.unity` 会出现在 `Assets/222_Prefabs/UI/Spring-day1/`”。
+- 这轮站稳的判断：
+  1. `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 不能被理解成“Day1/UI 合理生成的一个独立子 scene”。
+  2. 当前更准确的口径是：
+     - 旧主场景路径被删
+     - 同 GUID scene 出现在错误目录
+     - 内容又不是与旧 `HEAD` 完全一致
+     - 且没有线程正式认领
+  3. 所以它仍是当前仓库里最危险的 ownerless mixed 异常面，不适合混进任何业务 checkpoint，更不适合整仓一锅提交。
+- 对 untracked 的进一步裁定：
+  1. 大部分 untracked 并不是孤儿：
+     - `UI系统/0.0.1 SpringUI`、`Before03.28`
+     - `NPC/0.0.2清盘002`
+     - `场景搭建（外包）` 线程文档
+     - `SpringDay1UiPrefabRegistry.cs/.asset`
+     - `PlayerNpcChatSessionService.cs`
+     - `NPCInformalChatInteractable.cs`
+     - `NpcWorldHintBubble.cs`
+     - `NPCInformalChatInterruptMatrixTests.cs`
+     - `SpringDay1LateDayRuntimeTests.cs`
+     这些都能在对应工作区或线程 memory 里找到活跃主线解释。
+  2. 但有 3 类 under-documented 项需要单独盯：
+     - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)`：高风险、owner 不明、不能按 UI 正常副产物处理
+     - `Assets/Screenshots/*`：当前命名明显是 `spring-day1` / UI 现场截图，但没有对应 memory 解释，而且与新写下的 `.codex/artifacts/ui-captures/` 证据口径冲突
+     - `NPCInformalChatExitModel.cs`：代码与测试已真实使用，但当前工作区记忆里还没显式点名，属于文档补记滞后，不是纯孤儿
+  3. `Assets/Editor/NPC.meta` 目前更像低风险目录副产物：
+     - 同目录下已有 `PlayerNpcRelationshipDebugMenu.cs`
+     - 且该调试菜单已在 `NPCV2` memory 里出现
+- 当前恢复点：
+  - 这轮总审已经从“不要一锅提交”推进到“哪些东西真的危险、哪些东西只是有主线但还没收口”。
+  - 若继续只读推进，最值钱的下一步不再是泛看数字，而是：
+    1. 先把 `Primary.unity` 异常 scene 的 owner / 去留判死
+    2. 再把 `Assets/Screenshots/*` 按“仓库运行时资产 vs UI 证据泄漏”单独裁定
+    3. 之后才谈各主线 checkpoint 切分
+
+## 2026-03-29｜治理基础设施补一刀：`next-skill-trigger-id.ps1` 已从“规则先行、执行断链”推进到可运行
+
+- 当前主线目标：
+  - 用户要求我继续把全局治理支线里还没做完的内容往前推，重点是优化真实执行质量，而不是继续堆规则文本。
+- 本轮子任务：
+  - 修复 `C:\Users\aTo\.codex\tools\next-skill-trigger-id.ps1`；
+  - 验证 `skill-trigger-log` 活跃卷的当前健康度；
+  - 收紧 live 文案里仍会把 helper 说成“只扫描最大值 + 1”的残留表述。
+- 本轮已站稳的事实：
+  1. helper 之前的真实坏点是 PowerShell 语法层断裂：`foreach` / `ForEach-Object` 块缺少闭括号，导致 parser error。
+  2. 修完后，`powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\next-skill-trigger-id.ps1` 已成功返回：
+     - `STL-20260329-002`
+  3. 原子保留状态文件已经真实落出：
+     - `C:\Users\aTo\.codex\memories\skill-trigger-id-state.txt`
+     - 当前内容：`20260329=2`
+  4. `C:\Users\aTo\.codex\memories\skill-trigger-log.md` 活跃卷已确认没有重复 `STL-ID`。
+  5. `sunset-ui-evidence-capture` 仍然挂在正式入口链上，不是“只有 skill 文件但没接线”的假落地。
+- 当前判断：
+  - 这轮真正被拔掉的是执行层 blocker，因为现在不是只“规定要原子分配”，而是 helper 已经能返回并保留编号。
+  - 审计层当前更准确的状态是：
+    - 活跃链已止血
+    - 历史 raw 归档卷仍保留旧重号
+  - 所以不能把现状吹成“全部历史卷都已 canonical clean”，但也不再是“规则都写了、工具却不能跑”。
+- 当前恢复点：
+  - 如果后续继续这条治理支线，最自然的下一步不是新增规则，而是决定是否把 `legacy_pre / pre_cleanup` raw 归档与 canonical 审计口径进一步分层。
+
+## 2026-03-29｜治理支线再推进一刀：`skill-trigger-log` 已完成 raw / canonical 分层
+
+- 当前主线目标：
+  - 用户明确要求我继续执行上一轮说好的下一步，只做“把历史 raw 归档卷和 canonical 审计口径分层”，不再扩别的治理话题。
+- 本轮子任务：
+  - 调整 `next-skill-trigger-id.ps1` 的扫描范围；
+  - 把全局规则文案统一改成 canonical 口径；
+  - 明确 grandfathered raw 历史卷的边界。
+- 本轮已站稳的事实：
+  1. helper 现在只扫描 canonical 审计卷：
+     - 活跃卷 `skill-trigger-log.md`
+     - 未来 canonical 历史卷 `skill-trigger-log_canonical_*.md`
+  2. grandfathered raw 历史卷已正式降为“只保留原始历史证据”：
+     - `skill-trigger-log_legacy_pre_20260325.md`
+     - `skill-trigger-log_20260325_to_20260328_pre_cleanup.md`
+  3. 这条分层已同步进：
+     - `C:\Users\aTo\.codex\AGENTS.md`
+     - `C:\Users\aTo\.codex\memories\global-learning-system.md`
+     - `C:\Users\aTo\.codex\skills\skills-governor\SKILL.md`
+     - `C:\Users\aTo\.codex\memories\skill-trigger-log.md`
+     - 两个 grandfathered raw 历史卷头部说明
+  4. helper 实测仍可运行，当前已返回：
+     - `STL-20260329-014`
+  5. 分层后的口径差异已经钉死：
+     - 若把所有匹配 `skill-trigger-log*.md` 的卷一起混扫，重复组为 `84`
+     - 若只按 canonical 审计卷统计，重复组为 `3`
+- 当前判断：
+  - 这刀已经把“历史 raw 噪音一直污染当前判断”的问题收窄了。
+  - 现在剩下的 duplicate 已不再是 old raw 噪音，而是当前 canonical 面自己的真实问题。
+  - 所以这轮之后，治理判断应该从“历史和当前混成一团”改成“raw 已分层，当前 canonical 还剩 3 组活跃重号待清”。
+- 当前恢复点：
+  - 如果后续继续这条治理支线，下一步最自然的就不再是“继续谈 raw 分层”，而是只处理当前 canonical 活跃卷自己的 3 组重号。
+
+## 2026-03-29｜canonical 活跃卷重号已清零：实际不是 3 组，而是顺藤摸出了 5 组
+
+- 当前主线目标：
+  - 用户要求我继续自己的治理主线，把当前 canonical 活跃卷自己的重号清掉，不再回头谈 raw 分层。
+- 本轮子任务：
+  - 只清 `C:\Users\aTo\.codex\memories\skill-trigger-log.md` 的 canonical 重号；
+  - 保留先出现的原号，把后出现的晚条目重编号到新的预留号位；
+  - 不改 raw 历史卷，不扩别的治理主题。
+- 本轮已站稳的事实：
+  1. 原先按第一层扫描看见的是 `3` 组重号：
+     - `007`
+     - `009`
+     - `010`
+  2. 实际继续往下清时，又顺藤摸出了更深一层的 `2` 组：
+     - `011`
+     - `018`
+  3. 这轮最终共清了 `5` 组重号，并把后写入的晚条目重编号为：
+     - `007 -> 019`
+     - `009 -> 020`
+     - `010 -> 021`
+     - `011 -> 022`
+     - `018 -> 023`
+  4. helper 为这次 canonicalization 真实预留过：
+     - `019`
+     - `020`
+     - `021`
+     - `022`
+     - `023`
+  5. 当前 canonical 审计卷复核结果已经变成：
+     - `CANONICAL_DUP_GROUPS=0`
+- 当前判断：
+  - 这条治理主线已经从“raw / canonical 分层”推进到了“canonical 活跃卷自身 clean”。
+  - 也就是说，这轮之后 `skill-trigger-log` 当前 canonical 面已经不再被历史 raw 噪音拖，也不再被活跃卷重号拖。
+- 当前恢复点：
+  - 如果后续还要继续这条治理线，下一步就不该再围着 duplicate cleanup 打转，而应转去看更高一层的问题，例如会话级显式 skill 暴露一致性，或后续新增记录是否会再次撞号。
+
+## 2026-03-29｜审计闭环补齐：`check-skill-trigger-log-health.ps1` 已接到收尾口径
+
+- 当前主线目标：
+  - 继续这条全局治理支线，但这轮不再新增规则，只把 canonical 活跃卷清零后的“防再发”真正接成执行闭环。
+- 本轮子任务：
+  - 复核 `check-skill-trigger-log-health.ps1` 的当前输出；
+  - 用新的预留 `STL-ID` 补齐这轮审计落盘；
+  - 把“追加后立刻验 canonical health”正式补进工作区记忆和线程记忆。
+- 本轮已站稳的事实：
+  1. `C:\Users\aTo\.codex\tools\check-skill-trigger-log-health.ps1` 已在盘上且可运行，不是只停在规则文本里。
+  2. 本轮先预留到了 `STL-20260329-028`，但离场复核时又发现另一条活跃记录已经占用了 `028`；因此按“保留先出现原号、晚条目改到新预留号位”的 canonical 口径，把这轮条目最终收到了：
+     - `STL-20260329-029`
+  3. 当前状态文件也已同步推进到：
+     - `C:\Users\aTo\.codex\memories\skill-trigger-id-state.txt`
+     - 当前值：`20260329=29`
+  4. health helper 当前输出已经明确：
+     - `Health: ok`
+     - `Canonical-Duplicate-Groups: 0`
+     - `All-Matching-Duplicate-Groups: 82`
+     - `Raw-Only-File-Count: 2`
+  5. 这说明当前 canonical 面已经把这次新冒出的 `028` 撞号也收回到了 clean；`82` 组重复仍然只是 grandfathered raw 历史卷旧账，不应再被误判成当前活跃卷回退。
+- 当前判断：
+  - 这轮真正往前推的一步，不是继续清 duplicate，也不是再发明一层治理口号，而是把“追加后必须自验 canonical clean”这件事补成了执行闭环。
+  - 到这里为止，这条治理主线已经从“把活跃卷清干净”推进到“离场前必须再证明确实没被自己写脏”。
+- 当前恢复点：
+  - 如果后续还要继续这条治理线，下一步不该再写新规则，而应只抽检后续真实新增记录是否都走了：
+    1. 先原子取号
+    2. 再追加活跃卷
+    3. 最后立刻跑 health helper
+
+## 2026-03-29｜典狱长续发 `全局skills`：只证明 `preference-preflight-gate` 的自动前置半步
+
+- 当前主线目标：
+  - 用户要求我主线优先，不再继续 `skill-trigger-log` 支线施工，而是直接给 `全局skills` 线程发下一轮 prompt。
+- 本轮子任务：
+  - 先按最新本地事实重判这条线是否还该继续发 prompt；
+  - 再把下一轮唯一主刀压成单刀文件，不让它回漂去讲旧 B、旧 canonical 争论或继续堆偏好材料。
+- 本轮已站稳的事实：
+  1. 当前 canonical 审计面仍是 clean：
+     - `Canonical-Duplicate-Groups = 0`
+  2. `preference-preflight-gate` 在我当前这条 fresh session 里已经显式暴露，所以“fresh session 会不会显式暴露它”不再是未知。
+  3. 当前唯一还没证明的，只剩 `A` 的后一半：
+     - 面对真实 UI / 场景 / 体验判断任务时，它会不会不靠手工 helper 自动前置命中。
+  4. 我已把下一轮 prompt 正文落到：
+     - `D:\迅雷下载\开始\.codex\threads\系统全局\全局skills\2026-03-29_preference-preflight-gate_auto-frontload-proof_01.md`
+- 当前判断：
+  - 这条线还值得继续，但只值得再做这一刀。
+  - 继续发 prompt 是合理的，因为主线还差最后半步证据；不合理的是让它再回去补 profile、补 learning、补 helper 或回讲旧 B。
+- 支线代办：
+  - `skill-trigger-log` health helper 这条线先停在代办，只保留后续抽检新增记录的健康度，不再继续扩主题。
+- 当前恢复点：
+  - 如果用户转发这份 prompt，`全局skills` 下一轮就只该回答：
+    1. 当前 fresh session 是否显式暴露
+    2. 真实任务是否自动前置命中
+    3. 因此现在到底还是 `B`，还是能升到 `A`
+
+## 2026-03-29｜执行层抽检完成：强回执已出现，但默认输出还没天然切到用户模式
+
+- 当前主线目标：
+  - 用户让我继续我的治理主线；这轮不新增规则，只抽检最近真实线程产出，判断“用户可读汇报 + 停步自省”到底落到什么程度。
+- 本轮子任务：
+  - 深审 4 条近期样本：
+    1. `spring-day1V2` 正式回执 04
+    2. UI 线程 `2026-03-29_进度快照.md`
+    3. `导航检查V2` 最近 `memory_0.md` 条目
+    4. `NPCV2` 最近 `memory_0.md` 条目
+  - 并把结果收成一份不加规则的执行层抽检文档。
+- 本轮已站稳的事实：
+  1. `spring-day1V2` 的 `04` 是当前最强落地样本：
+     - `A1 保底六点卡`
+     - `A2 用户补充层`
+     - `停步自省`
+     - `B 技术审计层`
+     都已经出现，而且顺序正确。
+  2. UI 线程 `2026-03-29_进度快照.md` 是强内部快照：
+     - 主线、支线、优先级、恢复顺序都很清楚
+     - 但它不是用户回执，不能拿它冒充“已经对用户说明白”
+  3. 导航与 NPC 最近 memory 都显示：
+     - 工程 continuity 已明显变强
+     - 但如果直接端给用户，仍会回到“技术层偏重、自评与用户动作缺失”的老问题
+  4. 本轮抽检结论已落盘到：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_执行层落地抽检_01.md`
+- 当前判断：
+  - 现在已经不是“规范完全没落地”
+  - 更准确的现实是：
+    - 正式回执层开始像样
+    - 内部快照层已经很强
+    - 但线程还没有稳定做到“只要面对用户，就自动切到用户回执模式”
+  - 当前最大的执行层问题不再是规则缺位，而是：
+    - channel mismatch
+    - 自评仍然稀缺
+- 当前恢复点：
+  - 如果继续这条治理主线，下一步不该加规则；
+  - 只该继续抽检真实样本，盯两件事：
+    1. 面向用户时，线程会不会真的切到正式回执模式
+    2. 自评 / 薄弱点 / 最可能看错处，是否开始变成常规输出
+
+## 2026-03-29｜审核 `全局skills` 的 A 回执：当前不予放行，原因是 proof 被 prompt 本身污染
+
+- 当前主线目标：
+  - 用户把 `全局skills` 新回执贴回来了，要求我审核并给出下一步 prompt。
+- 本轮子任务：
+  - 不是再争论结论，而是核这次 `A` 证明的方法本身是否成立；
+  - 如果不成立，就把不通过原因讲死，并改发一份不污染证据的 blind proof 纠偏 prompt。
+- 本轮已站稳的事实：
+  1. `全局skills` 这次 claim `A` 的核心证据，来自：
+     - `D:\迅雷下载\开始\.codex\threads\系统全局\全局skills\2026-03-29_preference-preflight-gate_auto-frontload-proof_01.md`
+     - 以及它后续在 `memory_0.md` / `skill-trigger-log.md` 里的自述
+  2. 但旧 proof 文件本身在最前面就要求先读：
+     - `C:\Users\aTo\.codex\skills\preference-preflight-gate\SKILL.md`
+  3. 同一个 proof 文件后面又要求去证明：
+     - “面对真实任务时，它会不会不靠手工 helper 自动前置命中”
+  4. 这会直接污染因果链：
+     - 因为 session 已被 skill 名称、skill 正文和 proof 目标预先 priming
+     - 后面再说“我自动做出了这些前置动作”，已经无法区分到底是自动触发，还是照 proof 委托执行
+  5. 我已据此生成新的纠偏 prompt：
+     - `D:\迅雷下载\开始\.codex\threads\系统全局\全局skills\2026-03-29_preference-preflight-gate_blind-proof_retry_02.md`
+- 当前判断：
+  - 这次 `A` 结论当前不予放行。
+  - 不是因为它完全没价值，而是因为 proof 设计本身已经污染了证据，所以只能回退成：
+    - `B`
+    - 或更细口径下的 `B+（显式暴露已有，但自动命中的干净证明仍缺）`
+  - 下一步也不该继续争辩“这次其实算不算 A”，而应改做真正不污染证据的 blind proof。
+- 当前恢复点：
+  - 如果用户转发新的 blind proof prompt，`全局skills` 下一轮只该回答：
+    1. 为什么这次 proof 不能算干净的 `A`
+    2. 现在最诚实等级是什么
+    3. 真正能证明 `A` 的下一次实验应怎样设计
+
+## 2026-03-29｜假合规案例已沉淀：这次不是“内容不够”，而是“证明方法已坏”
+
+- 当前主线目标：
+  - 继续治理主线，但这轮不扩规则，只把刚抓到的 `A` 误判收成一份可复用的假合规案例。
+- 本轮子任务：
+  - 不是重复说“这次不通过”，而是把“为什么它看起来很像成功、实际上却不能放行”写成一套可复用的识别法。
+- 本轮已站稳的事实：
+  1. 这次问题的危险点，不在输出太差，而在：
+     - 输出很完整
+     - 术语都对
+     - 审计层也像回事
+     - 但 proof 文件本身已经预埋 skill 与 proof 目标
+  2. 我已把这次案例收成：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_执行层假合规案例_01.md`
+  3. 这份案例已经明确整理出 4 个后续复用检查点：
+     - proof 文件是否先点名 skill
+     - 任务是否自然来活
+     - 当前 session 是否已被 priming
+     - 回执是在证明结果，还是在证明方法
+- 当前判断：
+  - 这一步的价值不在于再打一条规则，而在于把“看起来像合规、其实证据链已坏”的模式钉出来。
+  - 这会直接提高后续审回执的效率，因为以后遇到类似 `A` claim，不需要再从头猜它哪里怪。
+- 当前恢复点：
+  - 如果继续治理主线，下一步仍然不该加规则；
+  - 只该继续积累这类高价值的真实审计案例，尤其是：
+    - 假合规
+    - channel mismatch
+    - 自评缺席
+
+## 2026-03-29｜`全局skills` 最新回执纠偏成立，但不允许停在“等 fresh session”
+
+- 当前主线目标：
+  - 用户指出 `全局skills` 又停住了，要我审这份最新回执，并直接给出能继续开工的 prompt。
+- 本轮子任务：
+  - 只审两件事：
+    1. 这份最新回执是否已经达到“可以停发”的程度；
+    2. 如果不能停，下一刀到底该让它做什么。
+- 本轮已站稳的事实：
+  1. 这份回执在纠偏判断上是成立的：
+     - 它已经老实撤回旧 `A`；
+     - 也已经把旧 proof 被 prompt / skill 名称 / proof 目标污染的原因拆清。
+  2. 但它当前停表方式不通过：
+     - 它把结论停在“需要用户提供 fresh session / 新入口”；
+     - 这等于只完成了判错，没有把主线继续推进。
+  3. 这条线现在真正还能继续做的一刀，不是再争 `A / B`，而是把“下一次真正能证明 A 的 blind proof”准备成可直接执行的资产包。
+  4. 对应的续工 prompt 已经有可用正文：
+     - `D:\迅雷下载\开始\.codex\threads\系统全局\全局skills\2026-03-29_preference-preflight-gate_blind-proof-package_03.md`
+- 当前判断：
+  - 这份回执应判为：
+    - `继续发 prompt`
+  - 不应判成：
+    - `停给用户分析`
+    - 也不应继续让它停在“等条件成熟”
+  - 原因很简单：
+    - 它已经完成“为什么这次不能算 A”的纠偏；
+    - 但还没完成“把下一次干净实验准备到可直接开跑”。
+- 当前恢复点：
+  - 如果继续这条治理主线，唯一正确下一步就是把 `blind-proof-package_03` 发给 `全局skills`；
+  - 让它这轮只交 3 个执行资产：
+    1. `blind-proof_raw_task_seed_01.md`
+    2. `blind-proof_governance_rubric_01.md`
+    3. `blind-proof_execution_protocol_01.md`
+  - 在这 3 个文件落出来前，这条线不算真的恢复推进。
+
+## 2026-03-29｜当前治理主线的未完项盘点：除等 `全局skills` 回执外，无新的必须立刻执行项
+
+- 当前主线目标：
+  - 用户追问：除了等待 `全局skills` 的新回执，这边还有没有别的未完成内容。
+- 本轮子任务：
+  - 只做当前主线的收口盘点，不扩新规则，也不切去别的支线。
+- 已完成判断：
+  1. 当前主线上的必须动作已经做完：
+     - 最新回执已审；
+     - 下一条续工 prompt 已给；
+     - 项目记忆、线程记忆、审计日志也已补齐。
+  2. 因此就这条 `preference-preflight-gate / blind proof` 主线来说，当前没有我这边还欠着但没做的立即执行项。
+  3. 现在剩下的真正下一步，已经完全落到对方回执：
+     - 等 `全局skills` 交出 blind proof 三件套；
+     - 我再回来审它是否真的把主线从“等条件”推进成“可直接开跑”。
+  4. 仍然存在的东西只是 parked backlog，不属于这条主线当前必须继续做的内容：
+     - 后续继续做执行层样本抽检；
+     - 后续继续积累假合规 / channel mismatch 案例；
+     - Codex 本地双源线程标题不同步的系统性病灶。
+- 当前判断：
+  - 这轮最诚实结论是：
+    - `当前主线已收口到等待回执`
+    - `无新的必须立刻执行项`
+- 当前恢复点：
+  - 现在不该为了“看起来在动”而再补别的治理动作；
+  - 正确恢复点就是等 `全局skills` 回来，再按新口径审它的 blind proof 执行包。
+
+## 2026-03-29｜已切回 Sunset 原主线，并落地“全局警匪定责清扫”第一轮摸底与认定书分发
+
+- 当前主线目标：
+  - 用户要求回到 Sunset 最初主线，不再围着 `全局skills` 的 blind proof 支线停留；
+  - 先对当前整个 shared root 的新内容做一次全局警匪定责清扫；
+  - 第一轮先只读摸底并发出认定书；
+  - 第二轮再正式定责、分配清扫、处理剩余项。
+- 本轮子任务：
+  - 不直接拍最终责任；
+  - 只完成第一轮治理资产：
+    - 摸底报告
+    - 批次分发入口
+    - 各线程认定书
+- 本轮已完成事项：
+  1. 重新只读摸底了当前 Sunset 现场：
+     - `git status --short`
+     - `git diff --stat`
+     - 活跃线程 `memory_0.md`
+     - 关键工作区 `memory.md`
+     - 关键归属 `rg` 搜索
+  2. 已落盘治理总报告：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫摸底_01.md`
+  3. 已落盘第一轮批次分发入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_批次分发_13_全局警匪定责清扫第一轮_01.md`
+  4. 已给以下 8 条活跃线程各落一份第一轮认定书：
+     - `spring-day1`
+     - `场景搭建（外包）`
+     - `spring-day1V2`
+     - `NPCV2`
+     - `导航检查V2`
+     - `导航检查`
+     - `农田交互修复V3`
+     - `项目文档总览`
+  5. 已明确把 `NPC`、`Skills和MCP`、`遮挡检查` 暂时排除在第一轮单独发书集合之外：
+     - 先并入 successor / 主责任线核对；
+     - 若第一轮回执仍显示它们有独立 repo 责任，再第二轮补发。
+- 本轮站稳的关键判断：
+  1. 当前 working tree 不是“几条线程各自留点小脏改”，而是明显进入 `mixed incident` 状态。
+  2. `Assets/000_Scenes/Primary.unity -> Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 这组 delete / untracked 不能直接拍给单一线程；
+     - 更像 same-GUID 主场景搬家或现场分裂事故面。
+  3. UI 侧的 `旧目录删除 + 0.0.1 SpringUI / Before03.28 新目录建立` 说明父线程和实施线程之间至少发生过一次真实迁移，必须各自举证。
+  4. 第一轮最值钱的推进不是继续改代码，而是先逼线程把：
+     - 聊天叙事
+     - memory / 工作区文档
+     - working tree 真实路径
+     重新对齐。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫摸底_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_批次分发_13_全局警匪定责清扫第一轮_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1V2\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫第一轮认定书_01.md`
+- 验证结果：
+  - 已回读摸底报告与批次分发文件，结构正确、路径可用；
+  - `git status --short` 已确认新增治理文件全部进入 working tree；
+  - 本轮未继续业务实现、未触碰 runtime 代码。
+- 当前恢复点：
+  - 当前治理主线已从“只读摸底”推进到“第一轮认定书已就位”；
+  - 下一步不再自行扩题；
+  - 只等各线程按这批认定书回第一轮自查，再进入第二轮正式定责与清扫分配。
+
+## 2026-03-29｜第一轮补丁：已为用户侧 `UI-V1` 聊天线程补发自查认定书，不推翻已发批次
+
+- 当前主线目标：
+  - 用户补充现场事实：前一轮 prompt 里，只有 `spring-day1` 这条没有实际发出；
+  - 且用户当前手上的实施线程标题不是 `spring-day1`，而是 `UI-V1`；
+  - 因此需要补一份能直接发给 `UI-V1` 的自查 prompt，并判断第一轮整体是否需要重排。
+- 本轮子任务：
+  - 不重发整个第一轮；
+  - 只补 `UI-V1` 这一条缺口；
+  - 同时把 `UI-V1` 与 repo 内真实实施线之间的映射关系重新说清。
+- 本轮已完成事项：
+  1. 已重新核实当前 repo 里的真实映射：
+     - 没有独立名为 `UI-V1` 的线程目录；
+     - Day1 UI 的实施线仍落在
+       - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1`
+       - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI`
+     - `场景搭建（外包）` 仍是父线程 / 审核线，而不是实施线本体。
+  2. 已补发专供用户当前聊天线程标题使用的认定书：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\2026-03-29_UI-V1_全局警匪定责清扫第一轮认定书_01.md`
+  3. 这份补发认定书已显式写死：
+     - `UI-V1 = spring-day1 / SpringUI`
+     - 本轮不是继续实现，而是替这条实施线做 owner / foreign / mixed / stale narrative 的第一轮自查。
+- 当前关键判断：
+  1. 第一轮整体不需要重排；
+     - 已发出去的其他线程 prompt 仍然成立。
+  2. 当前只需要把 `UI-V1` 当成“用户侧线程标题”，而不是再额外创造一条新的 repo 责任线。
+  3. 因此治理上的正确补法是：
+     - 保留 `场景搭建（外包）` 作为已发出的 UI 父线程自查；
+     - 再补 `UI-V1` 这一条实施线自查；
+     - 不撤回、不改写其他第一轮线程入口。
+- 当前恢复点：
+  - 第一轮现在不是“漏了一个大块”，而是“已补齐 UI 实施线缺口”；
+  - 下一步继续等第一轮回执，不额外扩发新线程。
+
+## 2026-03-29｜第一轮回执已审，第二轮只放行 4 条清扫线，其余停发或继续等 `UI-V1`
+
+- 当前主线目标：
+  - 用户要求我先看一轮当前已回来的“全局警匪定责清扫”回执；
+  - 判断当前这一轮是否已经可以给率先完成的线程下达下一步指令；
+  - 要求我不能只听线程自报，还要结合 working tree 和 memory 现场做典狱长裁定。
+- 本轮子任务：
+  - 回读已回执线程：
+    - `项目文档总览`
+    - `导航检查`
+    - `导航检查V2`
+    - `农田交互修复V3`
+    - `场景搭建（外包）`
+    - `NPCV2`
+    - `spring-day1V2` 的 `04` 完整回执
+  - 结合 shared root 现状和关键混线路径，判断谁能先进入第二轮“清扫认领”；
+  - 只给真正边界已经站稳的线程落第二轮执行书。
+- 本轮已完成：
+  1. 已重新核对当前 shared root 的关键现场：
+     - `GameInputManager.cs` 仍为 `M`
+     - `PlayerAutoNavigator.cs` 仍为 `M`
+     - `NPCDialogueInteractable.cs` / `DialogueManager.cs` 仍在 mixed 现场中
+     - `NpcWorldHintBubble.cs`、`SpringDay1UiPrefabRegistry.cs/.asset`、`NavigationStaticPointValidationRunner.cs/.Menu.cs` 都仍在 working tree 中
+  2. 已形成第一份正式裁定总表：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫第一轮裁定与第二轮放行_01.md`
+  3. 已裁定这轮可以先放行第二轮执行书的线程只有 4 条：
+     - `导航检查`
+     - `导航检查V2`
+     - `NPCV2`
+     - `农田交互修复V3`
+  4. 已给上述 4 条线程各落一份第二轮执行书：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查\2026-03-29_全局警匪定责清扫第二轮执行书_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\2026-03-29_全局警匪定责清扫第二轮执行书_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\2026-03-29_全局警匪定责清扫第二轮执行书_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第二轮执行书_01.md`
+  5. 已明确这轮不继续放行的线程：
+     - `项目文档总览` = `无需继续发`
+     - `spring-day1V2` = `无需继续发 / 最终停表`
+     - `场景搭建（外包）` = 继续等 `UI-V1` 第一轮回执后再裁
+- 当前关键判断：
+  1. 现在已经可以发第二轮，但只能发“清自己、认自己、退 foreign、报 mixed”的治理执行书，不能恢复业务实现。
+  2. `场景搭建（外包）` 现在不能往下推，不是因为它没回，而是因为 `UI-V1` 第一轮回执还没回来，UI 父线程 / 实施线程还不能单边定责。
+  3. `项目文档总览` 和 `spring-day1V2` 这轮都已经不值得再继续发执行 prompt；前者 repo 内只剩最小 docs 尾账，后者已到 `B｜最终停表`。
+- 当前恢复点：
+  - 现在治理主线已从“等第一轮回执”推进到“第二轮首批执行书已发给 4 条线程”；
+  - 下一次恢复时：
+    - 若这 4 条线程回第二轮回执，就继续审“谁已清掉 own / 谁仍卡 mixed”
+    - 若 `UI-V1` 第一轮回执先回来，就优先补裁 UI 线
+    - `项目文档总览`、`spring-day1V2` 默认不再进入新一轮 prompt 分发
+
+## 2026-03-29｜`UI-V1` 第一轮已审，UI 实施线进入第二轮，父线程继续停在治理位
+
+- 当前主线目标：
+  - 用户反馈“其他的也写完了”，要求我继续做全局把控；
+  - 当前新增的关键缺口就是审 `UI-V1` 第一轮回执，并决定 UI 线现在能不能进入第二轮。
+- 本轮子任务：
+  - 审 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\2026-03-29_UI-V1_全局警匪定责清扫第一轮回执_01.md`
+  - 结合 `SpringUI / 场景搭建（外包） / spring-day1-implementation` memory 与 shared root UI 现场，判断 UI 实施线与父线程治理线的分工
+  - 若边界足够稳，则给 `UI-V1` 单独落第二轮执行书
+- 本轮已完成：
+  1. 已确认 `UI-V1 = spring-day1 / SpringUI` 的映射成立，且不是新线程，只是用户侧标题与 repo 内实施线的映射补齐。
+  2. 已确认 `UI-V1` 第一轮边界基本成立：
+     - still-own = `Prompt / Workbench + prefab-first + registry + evidence + runtime test`
+     - mixed = 两个手调 prefab、`SpringDay1WorldHintBubble.cs`、`Assets/222_Prefabs/UI/Spring-day1/Primary.unity`
+     - foreign = `NpcWorldHintBubble.cs`、same-GUID `Primary.unity` 事故整面、父线程治理 / 审核 / 分发面、目录迁移本身
+  3. 已新增 `UI-V1` 第二轮执行书：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\2026-03-29_UI-V1_全局警匪定责清扫第二轮执行书_01.md`
+  4. 已把治理总裁定补更新：
+     - `UI-V1` 现在加入“可继续发 prompt”集合
+     - `场景搭建（外包）` 继续停在治理位，不进入实施清扫第二轮
+- 当前关键判断：
+  1. `UI-V1` 现在已经够资格进入第二轮，但它拿到的也只能是 owner cleanup，不是继续自由推进 UI 体验。
+  2. `场景搭建（外包）` 现在更应该停在父线程治理位；如果之后要做，也应是 docs / governance 收口，而不是继续吞实施清扫。
+  3. 这样处理后，UI 线终于也从“等缺口补齐”进到了“实施线可清自己、父线程只保留治理”的稳定形态。
+- 当前恢复点：
+  - 现在第二轮在跑的实施线变成 5 条：
+    - `导航检查`
+    - `导航检查V2`
+    - `NPCV2`
+    - `农田交互修复V3`
+    - `UI-V1`
+  - 继续停发：
+    - `项目文档总览`
+    - `spring-day1V2`
+    - `场景搭建（外包）` 的实施清扫
+
+## 2026-03-29｜第三轮改题：从“清扫定责”切到“认领归仓与 git 上传”
+
+- 当前主线目标：
+  - 用户看到 shared root 总改动量继续升高，明确要求不要再停在“谁是谁”的回执层；
+  - 用户要的是：各线程自己认领自己做的事情，并且自己去上传 git。
+- 本轮子任务：
+  - 回读四条已回的第二轮回执：
+    - `导航检查`
+    - `导航检查V2`
+    - `NPCV2`
+    - `农田交互修复V3`
+  - 复核 `UI-V1` 当前 repo 侧状态；
+  - 基于当前现场，把治理主线从“第二轮清扫认领”切到“第三轮认领归仓与 git 上传”。
+- 本轮已完成：
+  1. 已确认四条第二轮回执都还停在“边界更准了，但还没真的上 git”的阶段；它们大多只把 still-own 包收窄、把 remaining path 说清，没有进入真实归仓。
+  2. 已确认 `UI-V1` 当前 repo 里只有第二轮执行书，没有第二轮回执文件；因此治理位不能把它按“已收件”处理。
+  3. 已新增第三轮总分流文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫第三轮_认领归仓与git上传分流_01.md`
+  4. 已给以下线程新增第三轮 prompt：
+     - `导航检查`：`2026-03-29_全局警匪定责清扫第三轮_认领归仓与git上传_01.md`
+     - `导航检查V2`：`2026-03-29_全局警匪定责清扫第三轮_认领归仓与git上传_01.md`
+     - `NPCV2`：`2026-03-29_全局警匪定责清扫第三轮_认领归仓与git上传_01.md`
+     - `农田交互修复V3`：`2026-03-29_全局警匪定责清扫第三轮_认领归仓与git上传_01.md`
+     - `项目文档总览`：`2026-03-29_全局警匪定责清扫终轮_docs-tail认领归仓与git上传_01.md`
+     - `UI-V1`：`2026-03-29_UI-V1_补第二轮回执并进入第三轮认领归仓与git上传_01.md`
+  5. 已明确本轮暂不放行第三轮的线程：
+     - `spring-day1V2`
+     - `场景搭建（外包）`
+- 当前关键判断：
+  1. 第三轮不再接受“我这里还不 clean”的解释型回执；只认两类结果：
+     - `已按 still-own 白名单真实 preflight + sync，并给出 SHA`
+     - `已真实尝试归仓，但被第一真实 blocker 拦下，并给出 exact blocker`
+  2. `项目文档总览` 现在可以被重新唤醒一次，但只允许做 terminal docs-tail 归仓；这不是恢复业务线程，而是让它自己认掉自己的 thread-doc 尾账。
+  3. `spring-day1V2` 这轮仍不放行，因为它剩下的不是纯 thread-doc，而是 shared Day1 父 docs / blocker 语义；现在贸然下“自己去上传”只会再把 UI / NPC / docs 三条线搅混。
+  4. `UI-V1` 当前缺的是固定回收链闭环，不是 owner 边界；所以这轮给它的是“先补第二轮回执，再进第三轮归仓”。
+- 当前恢复点：
+  - 治理主线现在已从 second-wave cleanup 进入 third-wave commit-readiness；
+  - 下一次恢复时，优先看第三轮回执里的两类硬结果：
+    - `A｜已上 git`
+    - `B｜第一真实阻断已钉死`
+  - `spring-day1V2` 与 `场景搭建（外包）` 暂不进入这一轮。
+
+## 2026-03-29｜第四轮改题：clean subroot 先归仓，mixed-root 停给治理位
+
+- 当前主线目标：
+  - 用户要求我在全部回执后继续推进，不能再停在“谁是谁”的解释层；
+  - 当前治理位必须把第三轮回执真正转成下一步动作，让线程自己去上传能独立归仓的部分，其余 mixed-root 由治理位接盘。
+- 本轮子任务：
+  - 回读 `项目文档总览`、`spring-day1V2`、`导航检查`、`导航检查V2`、`农田交互修复V3`、`NPCV2`、`UI-V1` 的最新落盘回执；
+  - 对照 `D:\Unity\Unity_learning\Sunset` 当前 working tree；
+  - 重新做第四轮四类裁定，并只给仍有 clean subroot 的线程发新 prompt。
+- 本轮已完成：
+  1. 已重新核实 `项目文档总览` 真完成、真停发：
+     - `736028b0fb0c1bea1dbf348dda1c4550d1745a21`
+     - `6aaf4e9327b020994058a597a46d86ea08b5eb69`
+     - 当前 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览` 已 clean。
+  2. 已重新核实 `spring-day1V2` 继续停发表成立，而且理由已经不是抽象 blocker，而是 owner-routing 已定型：
+     - `NpcWorldHintBubble*` = NPC foreign
+     - `SpringDay1UiPrefabRegistry*` = `UI-V1 / SpringUI` 活跃主链
+     - `003-进一步搭建/memory.md` = docs / governance blocker
+  3. 已新增第四轮总裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫第四轮_可自归仓子根与mixed-root停发表_01.md`
+  4. 已给 3 条线程落第四轮 prompt，只准冲 clean subroot：
+     - `导航检查`
+     - `农田交互修复V3`
+     - `NPCV2`
+  5. 已明确本轮不再继续自转的线程：
+     - `项目文档总览` = `无需继续发`
+     - `spring-day1V2` = `继续默认停发`
+     - `导航检查V2` = `停给治理位接盘 mixed-root`
+     - `UI-V1` = `停给治理位接盘 mixed-root`
+     - `场景搭建（外包）` = `继续默认停发`
+  6. 已把当前真正需要治理位接盘的 mixed-root backlog 压成 3 个核心根：
+     - `Assets/Editor`
+     - `Assets/YYY_Scripts/Service/Player`
+     - `Assets/YYY_Scripts/Story/UI`
+- 当前关键判断：
+  1. 第三轮已经把“same-root blocker 存在”证明完了；继续让线程重复撞 still-own 整包，只会空转。
+  2. 当前最有效的推进不是再发“解释为什么 blocked”，而是把能切出来的 clean subroot 先真的上 git。
+  3. `导航检查V2` 与 `UI-V1` 现在都已经不适合继续按普通线程自转；它们剩下的是治理位 mixed-root backlog。
+  4. 这轮之后，治理主线从“继续审 blocker 解释”升级成“线程先归仓 clean subroot，治理位自己处理 mixed-root 总账”。
+- 当前恢复点：
+  - 现在等待的不是新一轮 owner 说明，而是 3 条第四轮 clean-subroot 回执：
+    - `导航检查`
+    - `农田交互修复V3`
+    - `NPCV2`
+  - 如果这 3 条拿到 SHA，就继续剥离 shared root；
+  - 如果仍失败，就按新的 first blocker 继续切更小子根；
+  - `导航检查V2 / UI-V1 / spring-day1V2 / 场景搭建（外包） / 项目文档总览` 本轮都不再进入活跃继续施工池。
+
+## 2026-03-29｜第五轮分流：`NPCV2` 退出活跃池，导航与农田按两种代码闸门分别推进
+
+- 当前主线目标：
+  - 用户确认“他们完全回复完毕了”，要求我基于最新回执继续往下裁定，而不是停在第四轮结果摘要；
+  - 当前必须判断：`NPCV2` 是否彻底停表，`导航检查` 与 `农田交互修复V3` 该不该继续，以及继续时各自该走什么刀口。
+- 本轮子任务：
+  - 回读 3 条第四轮回执；
+  - 结合 live Git 提交、working tree 和源码依赖，判断它们属于：
+    - 已完成停表
+    - 继续施工，但刀口不同
+- 本轮已完成：
+  1. 已确认 `NPCV2` 第四轮真实完成：
+     - 回执自报 `preflight=yes / sync=yes / SHA=70fdd44f / own path=yes`
+     - live Git 继续可见：
+       - `70fdd44f 2026.03.29_NPCV2_01`
+       - `a08a9b26 2026.03.29_NPCV2_02`
+     - 当前 `HEAD` 下再看 `Assets/111_Data/NPC + own docs/thread` 已无剩余 diff
+  2. 已确认 `导航检查` 第四轮没有再卡 same-root，而是卡在代码闸门：
+     - `NavigationLiveValidationRunner.cs` 硬依赖 `PlayerAutoNavigator.Debug*`
+     - `NavigationLiveValidationMenu.cs` 硬依赖 `NPCInformalChatValidationMenu.ExclusiveValidationLockKey`
+     - 这说明第五轮该做的是“去 mixed 依赖”，不是再缩白名单
+  3. 已确认 `农田交互修复V3` 第四轮也不再卡 same-root，而是卡在最小依赖缺口：
+     - `PlacementManager.cs` 需要 `GameInputManager.ShouldPreservePlacementModeForCurrentRightClick(...)`
+     - `InventorySlotUI.cs / ToolbarSlotUI.cs` 需要 `ToolRuntimeUtility.*`
+     - 同时 live 仓库显示：
+       - `Assets/YYY_Scripts/Controller/Input` 当前只脏 `GameInputManager.cs`
+       - `Assets/YYY_Scripts/Data/Core` 当前只脏 `ToolRuntimeUtility.cs`
+     - 所以第五轮对农田不该停发表，而应走“最小共享依赖扩包”
+  4. 已新增第五轮总分流文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫第五轮_代码闸门分流与停发表_01.md`
+  5. 已新增 2 条第五轮 prompt：
+     - `导航检查`：`2026-03-29_全局警匪定责清扫第五轮_去除mixed依赖并重新归仓_01.md`
+     - `农田交互修复V3`：`2026-03-29_全局警匪定责清扫第五轮_最小共享依赖扩包归仓_01.md`
+  6. 已明确这轮不再继续发的线程：
+     - `NPCV2` = `无需继续发 / 已退出活跃施工池`
+- 当前关键判断：
+  1. `NPCV2` 不该再继续发 cleanup prompt；它当前已经完成自己那块可自归仓子根，后续剩余 mixed-root 不是这条线再自转能解决的。
+  2. `导航检查` 还能继续，但下一刀必须是“让 `Service/Navigation` 脱离 mixed-root 也能编译”，不是再去碰 `Service/Player` 或 `Assets/Editor`。
+  3. `农田交互修复V3` 也还能继续，而且比导航更适合继续，因为它现在缺的是 2 个隔离得足够小的共享依赖，不是 broad mixed-root。
+  4. 这轮之后，活跃继续施工线程从 `3` 条变成 `2` 条：
+     - `导航检查`
+     - `农田交互修复V3`
+- 当前恢复点：
+  - 先等 2 条第五轮回执：
+    - `导航检查`
+    - `农田交互修复V3`
+  - `NPCV2` 默认退出活跃施工池，不再进入新一轮 prompt；
+  - 后续治理位自己再处理 mixed-root backlog。
+
+## 2026-03-29｜live 未提交现场复核：不是“什么都没提交”，但绝不能暴力全提
+
+- 当前主线目标：
+  - 用户在第五轮 prompt 已发、线程仍未回执时，直接追问“现在到底还有多少没提交、为什么这么难提、是不是已经解决不了了、要不要直接暴力全部提交”；
+  - 我需要基于 `D:\Unity\Unity_learning\Sunset` 的 live Git 现场给出可下判断的人话结论，而不是继续复读前一轮裁定。
+- 本轮子任务：
+  - 复查仓库当前未提交总量、已提交的真实线程、最大脏改来源和当前活跃施工池；
+  - 判断现在最该避免的误判是不是“其实什么都没提交”和“直接 `git add -A` 全提最快”。
+- 本轮已完成：
+  1. 已重查 live Git 现场：
+     - `git status --porcelain=v1` = `231` 条
+     - 其中 `Tracked = 122`
+     - `Untracked = 109`
+     - `Deleted = 51`
+  2. 已重查当前总体 diff 量级：
+     - `git diff --shortstat` = `122 files changed, 35733 insertions(+), 100920 deletions(-)`
+  3. 已再次确认“不是一条都没提交”：
+     - `NPCV2` 已在 `main` 上有：
+       - `70fdd44f 2026.03.29_NPCV2_01`
+       - `a08a9b26 2026.03.29_NPCV2_02`
+     - `项目文档总览` 已在 `main` 上有：
+       - `736028b0 2026.03.29_项目文档总览_01`
+       - `6aaf4e93 2026.03.29_项目文档总览_02`
+  4. 已确认“看起来像世界毁灭”的最大头不是单一线程，而是 4 类混线一起叠加：
+     - `.kiro/specs/UI系统`：`50 files changed, 157 insertions(+), 14036 deletions(-)`，主要是旧 UI 文档树删改和迁移
+     - `Assets/000_Scenes/Primary.unity`：`85162 deletions(-)`，属于高风险现场，绝不该跟文档尾账一起吞
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials`：`6 files changed, 15133 insertions(+), 410 deletions(-)`，属于共享字体资产 churn
+     - `Assets/YYY_Scripts/Service / Story / UI`：仍有热代码 mixed-root 脏改
+  5. 已确认当前活跃施工池仍只有两条，不是所有线程都还在乱跑：
+     - `导航检查`
+     - `农田交互修复V3`
+- 当前关键判断：
+  1. 现在不是“根本解决不了了”，而是“已经切掉一部分能独立归仓的线，但剩下的大头刚好都是最不适合粗暴吞并的混合现场”。
+  2. `暴力全部提交` 当前不是最佳方案；它会把：
+     - UI 文档迁移尾账
+     - `Primary.unity` 巨量删除
+     - 共享字体资产 churn
+     - mixed-root 热代码
+     一起固化进同一刀，等于把 stale / foreign / 未验证 / 潜在误删全部锁死。
+  3. 真正拖慢速度的不是“大家都没干活”，而是剩下的现场已经从“有没有做”进入“怎么不误吞别人和高风险资产”的阶段。
+  4. 当前最值得继续快推的路仍然是：等两条第五轮回执先把还能切出的代码子根提掉，再由治理位接盘剩余 mixed-root 总账。
+- 当前恢复点：
+  - 现在还在等待的活跃回执仍只有两条：
+    - `导航检查`
+    - `农田交互修复V3`
+  - 若两条第五轮成功归仓，未提交总量会先明显下去；
+  - 若仍失败，下一步治理位就不再等“自转奇迹”，而是开始单独清点：
+    - `.kiro/specs/UI系统` 旧文档删改
+    - `Primary.unity` 删除面
+    - 字体资产 churn
+    - `Assets/YYY_Scripts/Service/Player` / `Assets/YYY_Scripts/Story/UI` mixed-root 总账
+
+## 2026-03-29｜用户新裁定更新：`UI系统` 旧文档迁移与 TMP 字体 churn 可视为可归仓基线，但 `Primary.unity` 仍需明确“是否接受删除”
+
+- 当前主线目标：
+  - 用户进一步说明：`.kiro/specs/UI系统` 大规模旧文档迁移/删除、`TMP 中文字体资产那一组 churn`，他现在都认可可以直接提交；
+  - 但我必须先钉死 `Primary.unity` 当前现场到底是什么，再决定是否也能一起从 blocker 清单移除。
+- 本轮子任务：
+  - 核实 `Primary.unity` 在 `2026-03-29` 当前 live working tree 里的真实状态；
+  - 判断用户这句“现在的场景和内容我认可了”能不能直接等价为“接受当前 `Primary.unity` 这一项随下次治理提交一起归仓”。
+- 本轮已完成：
+  1. 已确认 `.kiro/specs/UI系统` 与 `Assets/TextMesh Pro/Resources/Fonts & Materials` 用户裁定可以直接视为“已接受可归仓基线”。
+  2. 已重新核实 `Primary.unity` 当前不是普通 scene dirty，而是：
+     - `git status --short -- Assets/000_Scenes/Primary.unity` = `D`
+     - `Test-Path D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity` = `False`
+  3. 已确认这意味着当前现场里的 `Primary.unity` 是“整文件删除”，不是“场景内容改了一些待提交”。
+- 当前关键判断：
+  1. `UI系统` 旧文档迁移和 TMP 字体 churn 现在已经不该再作为“用户未拍板的风险项”卡在治理口径里。
+  2. 但 `Primary.unity` 不能被我自动脑补成“用户接受当前场景改动”；因为当前 live 事实是“文件已不存在”。
+  3. 所以 `Primary.unity` 这一项还需要用户再给一句更明确的裁定：
+     - 是接受“当前这份 scene 文件直接作为删除提交”
+     - 还是只接受“场景内容基线”，但不接受“删掉 `Primary.unity`”
+- 当前恢复点：
+  - 后续治理位可以先把：
+    - `.kiro/specs/UI系统`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials`
+    从高风险未知项改判成“已获用户接受的接盘面”
+  - `Primary.unity` 则在拿到用户对“删除是否接受”的一句明示前，继续单独保留，不跟前两类混成同一口径。
+
+## 2026-03-29｜第六轮裁定：导航真停表，农田继续一刀，Primary 改判为迁移态而非裸删除
+
+- 当前主线目标：
+  - 用户提醒我不要被他的口头参考牵着走，而是要先看完最新回执、再独立判断下一步；
+  - 我需要基于 live 回执和 working tree，重新做第六轮四类裁定。
+- 本轮子任务：
+  - 复审 `导航检查` 与 `农田交互修复V3` 的第五轮回执；
+  - 核实 `Primary.unity` 相关现场是否是迁移，而不是单纯删除；
+  - 只给仍该继续施工的线程生成下一步 prompt。
+- 本轮已完成：
+  1. 已确认 `导航检查` 当前应正式停表：
+     - live Git 已有：
+       - `acfc7f27 2026.03.29_导航检查_01`
+       - `3f6e445b 2026.03.29_导航检查_02`
+     - 当前再看：
+       - `Assets/YYY_Scripts/Service/Navigation`
+       - `.codex/threads/Sunset/导航检查`
+       - `.kiro/specs/屎山修复/导航检查`
+       已无相对 `HEAD` 的剩余 diff
+  2. 已确认 `农田交互修复V3` 第五轮 blocker 继续成立，但下一步不该再扩包：
+     - 当前 first blocker 仍是 `GameInputManager.cs`
+     - exact lines：
+       - `2666 -> playerInteraction.LastActionFailureReason`
+       - `3249 -> targetTree.ShouldBlockAxeActionBeforeAnimation(...)`
+     - 同时 live dirty 还显示：
+       - `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+       - `Assets/YYY_Scripts/Controller/TreeController.cs`
+       都处于 mixed 状态
+     - 因而第六轮不允许继续把这两个文件带回白名单，只允许在 `GameInputManager.cs` 内做 compat 切口
+  3. 已确认我上一轮对 `Primary.unity` 的口径需要纠正：
+     - 旧位置：
+       - `Assets/000_Scenes/Primary.unity` = deleted
+     - 新位置：
+       - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` = untracked
+       - 文件实际存在，约 `2.37 MB`
+     - 这应改判成“迁移态”，不是“裸删除”
+  4. 已新增第六轮总裁定：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫第六轮_导航停表农田继续与Primary迁移改判_01.md`
+  5. 已新增唯一继续施工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第六轮_在GameInputManager内切断更深mixed依赖并重新归仓_01.md`
+- 当前关键判断：
+  1. 这轮最重要的变化是：`导航检查` 不再继续占用活跃施工位，它已经从“第五轮代码包归仓”走到“代码包 + 审计尾账也已提交”。
+  2. `农田交互修复V3` 还能继续，但只能走“在 `GameInputManager.cs` 内本地兼容切口”这条路，不能再用扩包硬顶。
+  3. `Primary.unity` 当前不该再被口头描述成单纯高风险删除；更准确的说法是“旧 scene 删除 + 新 scene 落到 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 的迁移态”。
+  4. `UI系统` 旧文档迁移与 TMP 字体 churn 维持“已获用户接受的接盘面”判定，但 `UI-V1 / spring-day1` 这条线本轮仍不重新唤醒。
+- 当前恢复点：
+  - 现在活跃继续施工线程只剩：
+    - `农田交互修复V3`
+  - `导航检查` 退出活跃池；
+  - 后续治理位处理 UI 相关 backlog 时，要把两个 `Primary.unity` 一起按迁移包审，不再把旧路径删除单独当成“是否丢文件”的结论。
+
+## 2026-03-29｜非活跃线程再分层：不是都不用管 git，而是要区分“已完结”“零星尾账”和“治理接盘包”
+
+- 当前主线目标：
+  - 用户追问：非活跃施工现场是不是就都不用继续收 prompt、也不用管 git 提交了；
+  - 我需要把“非活跃”再拆层，而不是用一句“都停了”糊过去。
+- 本轮子任务：
+  - 逐组回看非活跃线程在 live working tree 里的实际残留；
+  - 判断它们分别属于：
+    - 已完结且 git 已到位
+    - 不该再发施工 prompt，但还有零星尾账
+    - 不该再发旧 prompt，但必须由治理位 / integrator 接盘提交
+- 本轮已完成：
+  1. 已确认真完结、git 已到位的非活跃线程：
+     - `NPCV2` = `0`
+     - `导航检查` = `0`
+     这里的 `0` 指我刚刚按其线程目录 + 工作区 + 代码根复查到的当前 `git status` 条目数
+  2. 已确认“功能上完成，但还有极小尾账”的线程：
+     - `项目文档总览` = `1`
+     - `场景搭建（外包）` = `1`
+     当前都不像需要继续发功能 prompt，更像单条 thread-doc 尾账，可由治理位顺手收掉
+  3. 已确认“不应继续沿旧线程自转，但仍有成包 git backlog”的线程：
+     - `spring-day1(UI-V1)` = `74`
+     - `spring-day1V2` = `8`
+     - `导航检查V2` = `18`
+  4. 其中最重的一包仍是 `spring-day1(UI-V1)`：
+     - `.kiro/specs/UI系统` 大量旧文档迁移 / 删除
+     - `Assets/YYY_Scripts/Story/UI/*`
+     - `Assets/222_Prefabs/UI/Spring-day1/*`
+     - `Assets/111_Data/UI/Fonts/Dialogue/DialogueFontLibrary_Default.asset`
+     - `Assets/000_Scenes/Primary.unity` 删除 + `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 新增
+- 当前关键判断：
+  1. “非活跃”不等于“全部不用再管 git”。
+  2. 更准确的分法应该是：
+     - 已完成且已提交：不再发 prompt，也不用再追 git
+     - 只剩极小尾账：不发功能 prompt，但需要一个很小的治理收口动作
+     - mixed-root / 迁移包 backlog：不能再沿旧线程继续施工 prompt，但仍然要提交，只是提交责任要转给治理位 / integrator，而不是让旧线程继续自转
+  3. 所以当前最不该做的事，是把 `spring-day1(UI-V1)`、`spring-day1V2`、`导航检查V2` 这种 backlog 误判成“既然停发，就等于以后不用提交”。
+- 当前恢复点：
+  - 目前真正还需要新的施工 prompt 的，仍只有 `农田交互修复V3`
+  - 非活跃线程里的 git 总账，下一阶段要按 3 类分别收：
+    - `项目文档总览` / `场景搭建（外包）`：治理位小尾账收口
+    - `spring-day1(UI-V1)`：迁移包 / mixed-root 接盘提交
+    - `spring-day1V2` / `导航检查V2`：先判是治理位 absorb 其 docs tail，还是重新指定 one-shot owner 收掉
+
+## 2026-03-29｜第七轮第一波已发：先清 NPC 老残包与小尾账，`UI-V1 / 导航检查V2` 暂缓到第二波
+
+- 当前主线目标：
+  - `农田交互修复V3` 已归仓后，活跃功能施工线程已清空；
+  - 当前正式转入 `非活跃线程 git 收口波次`；
+  - 这一波不再发功能 prompt，而是优先清掉最容易独立归仓、且能替后续 mixed-root 去 foreign 的几包尾账。
+- 本轮子任务：
+  - 复核非活跃 backlog 的 live working tree；
+  - 判断哪些线程适合立刻做 one-shot git 收口，哪些必须延后到第二波；
+  - 生成第七轮第一波总裁定与 thread-specific prompt。
+- 本轮已完成：
+  1. 已新增第七轮第一波总文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫第七轮_非活跃线程git收口第一波_01.md`
+  2. 已新增 4 条 thread-specific prompt：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\2026-03-29_全局警匪定责清扫第一轮_NPC非正式聊天残包认领归仓_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1V2\2026-03-29_全局警匪定责清扫第二轮_字体止血docs-tail与font库归仓_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\项目文档总览\2026-03-29_全局警匪定责清扫终补轮_thread-memory尾账归仓_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-29_全局警匪定责清扫第二轮_thread-memory尾账归仓_01.md`
+  3. 已明确本波四类裁定：
+     - `继续发 prompt`：
+       - `NPC`
+       - `spring-day1V2`
+       - `项目文档总览`
+       - `场景搭建（外包）`
+     - `暂缓到第二波`：
+       - `spring-day1(UI-V1)`
+       - `导航检查V2`
+     - `无需继续发`：
+       - `NPCV2`
+       - `导航检查`
+       - `农田交互修复V3`
+  4. 已把暂缓理由钉死：
+     - `UI-V1` 当前同根仍夹着 `NpcWorldHintBubble.cs`，现在强发只会继续卡在 NPC foreign / same-root gate
+     - `导航检查V2` 当前同根仍夹着 `PlayerNpcChatSessionService.cs`，现在强发只会继续把 NPC 残包和玩家导航残包混成一坨
+- 当前关键判断：
+  1. 第七轮第一波最值钱的动作不是先碰 `UI-V1` 大迁移包，而是先让 `NPC` 把 `NpcWorldHintBubble.cs` 和 `PlayerNpcChatSessionService.cs` 这一组老残包认走；
+  2. 这样第二波再打 `UI-V1` 和 `导航检查V2`，同根 foreign / mixed 噪音会先少一层；
+  3. `项目文档总览` 和 `场景搭建（外包）` 当前都只剩 thread-memory 尾账，不值得再拖进大的治理轮次。
+- 当前恢复点：
+  - 先等第七轮第一波的 4 条回执；
+  - 若 `NPC` 成功剥走老残包，下一波就优先唤醒：
+    - `spring-day1(UI-V1)`
+    - `导航检查V2`
+  - 若第一波仍有人失败，则下一步继续按“第一真实 blocker”拆，而不回头发功能 prompt。
+
+## 2026-03-29｜第七轮第一波复审：`spring-day1V2 / 项目文档总览` 已提掉，`场景搭建（外包）` 继续一刀，`NPC` 转治理 mixed-root 池
+
+- 当前主线目标：
+  - 审第七轮第一波 4 条回执；
+  - 判断谁已经完成、谁还能再自提一刀、谁已经不适合继续在线程内自转。
+- 本轮子任务：
+  - 复核 `spring-day1V2`、`项目文档总览`、`NPC`、`场景搭建（外包）` 的最新回执与 live Git 现场；
+  - 决定下一步还给不给线程 prompt。
+- 本轮已完成：
+  1. 已确认 `spring-day1V2` 已完成归仓：
+     - live commit：`cd42f0bf 2026.03.29_spring-day1V2_01`
+     - 当前：
+       - `.codex/threads/Sunset/spring-day1V2 = 0`
+       - `.kiro/specs/900_开篇/0.0阶段/0.0.3V2 = 0`
+       - `.kiro/specs/900_开篇/spring-day1-implementation = 0`
+  2. 已确认 `项目文档总览` 已完成 thread-tail 归仓：
+     - live commit：`dc4d68ee 2026.03.29_项目文档总览_03`
+     - 当前：
+       - `.codex/threads/Sunset/项目文档总览 = 0`
+  3. 已确认 `NPC` 第一波没有过：
+     - 回执结果：`B`
+     - first blocker：`Assets/Editor/Story/DialogueDebugMenu.cs`
+     - 本质原因不是“还差一点”，而是它想归仓的残包横跨：
+       - `Assets/Editor`
+       - `Assets/YYY_Scripts/Service/Player`
+       - `Assets/YYY_Scripts/Story/UI`
+       这三根当前都已经是 mixed-root
+  4. 已确认 `场景搭建（外包）` 第二轮也没有过，但性质不同：
+     - 回执结果：`B`
+     - 它卡的是“只带 `memory_0.md` 太窄”
+     - 当前 live 对这条线的可见状态更像“整线程目录 docs-tail 还没一起收”
+  5. 已新增 `场景搭建（外包）` 第三轮 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-29_全局警匪定责清扫第三轮_整线程目录docs-tail归仓_01.md`
+- 当前关键判断：
+  1. `spring-day1V2` 和 `项目文档总览` 现在都应退出活跃治理池，不再继续发 prompt。
+  2. `场景搭建（外包）` 还可以再给最后一刀，因为它当前仍是 docs-only thread-tail，不是 mixed-root 功能包。
+  3. `NPC` 则不该继续在线程里自转；它这组残留已经证明自己是治理 mixed-root 池问题，不再是“线程自己再收一下”的问题。
+  4. 因此在 `NPC` 这组 residual 还挂在：
+     - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+     - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs`
+     时，`UI-V1` 与 `导航检查V2` 仍然不适合直接开第二波施工 prompt。
+- 当前恢复点：
+  - 现在只继续等：
+    - `场景搭建（外包）` 第三轮
+  - `NPC` 及其 residual 改由治理 mixed-root 总账接盘；
+  - 等 `场景搭建（外包）` 结果回来后，再决定是直接进入 mixed-root 治理接盘波，还是继续对 `UI-V1 / 导航检查V2` 做二次裁定。
+
+## 2026-03-29｜第八轮已切入：`场景搭建（外包）` 验收通过，旧线程自提阶段正式结束，主线转入 mixed-root 治理接盘波
+
+- 当前主线目标：
+  - 验收 `场景搭建（外包）` 第三轮是否真实完成；
+  - 若完成，则把“旧线程自提阶段结束、转入 mixed-root 治理接盘波”正式落盘。
+- 本轮子任务：
+  - 复核最新提交头与 live working tree；
+  - 确认 `场景搭建（外包）` 已不再属于继续发 prompt 的对象；
+  - 对剩余 `NPC / spring-day1(UI-V1) / 导航检查V2` 做阶段改判。
+- 本轮已完成：
+  1. 已确认 `场景搭建（外包）` 第三轮真实归仓：
+     - live commits：
+       - `58ebf240 2026.03.29_场景搭建（外包）_01`
+       - `a300f331 2026.03.29_场景搭建（外包）_02`
+  2. 已正式确认旧线程自提阶段到此结束：
+     - 已真实归仓：
+       - `spring-day1V2`
+       - `项目文档总览`
+       - `场景搭建（外包）`
+     - 已无需继续发：
+       - `NPCV2`
+       - `导航检查`
+       - `农田交互修复V3`
+  3. 已把 3 条 mixed-root 线统一改判为“停止旧线程自提，转治理接盘池”：
+     - `NPC`
+     - `spring-day1(UI-V1)`
+     - `导航检查V2`
+  4. 已新增第八轮阶段文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-29_全局警匪定责清扫第八轮_转入mixed-root治理接盘波_01.md`
+- 当前关键判断：
+  1. 当前 live 剩余已经不是“再多等几个旧线程就会自然归仓”的结构，而是明显的交叉根 mixed-root 总账。
+  2. 继续给 `NPC / UI-V1 / 导航检查V2` 发旧式 `preflight -> sync` prompt，只会重复 same-root / foreign / mixed blocker。
+  3. 下一阶段应该由治理位先拆根、拆包、拆责任，再决定 one-shot owner 或 integrator 上传顺序。
+- 当前恢复点：
+  - 接下来不再继续审“旧线程还能不能自己提”；
+  - 直接进入 mixed-root 治理接盘波，优先面对：
+    - `Assets/Editor`
+    - `Assets/YYY_Scripts/Service/Player`
+    - `Assets/YYY_Scripts/Story/UI`
+    - `Assets/222_Prefabs/UI/Spring-day1`
+    - `Assets/000_Scenes`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials`
+    - `.kiro/specs/UI系统`
