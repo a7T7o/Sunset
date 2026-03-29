@@ -76,6 +76,7 @@
 2. 回读本工作区现有评估正文与 `memory.md` / 线程 `memory_0.md`，确认第一轮结论已经完整迁入新位置。
 3. 补读 `global-preference-profile.md`、`user-readable-progress-report`、`delivery-self-review-gate`，把本轮回答压回“用户可直接决策”的口径。
 4. 由于 `C:\Users\aTo\.codex\skills\preference-preflight-gate\scripts\invoke-preference-preflight.ps1` 当前出现 PowerShell 解析失败，本轮改为手工等价完成偏好前置核查：直接读取偏好基线并明确“当前只站住结构/流程判断，不冒充审美结果已成立”。
+   - **Superseded 提示（会话 3 / 会话 4 已纠正）**：上面这句只代表会话 2 当时现场，不能再当当前 blocker 使用；当前最新口径已经改为：helper 可用于 `manual-equivalent`，不再按“损坏不可用”表述。
 5. 准备最终对用户的收口结论：这条线可行，但 V1 只能承诺“基础资产自动化管线”，不承诺“自动产出真正过线的终版像素美术”。
 
 **关键决策**：
@@ -89,6 +90,7 @@
 - 已确认 `美术生` 工作区中的评估正文、工作区记忆与线程记忆都在正确位置。
 - 已完成偏好前置的手工等价流程。
 - 已发现 `preference-preflight-gate` helper 脚本当前存在解析错误，不能直接运行。
+- **Superseded 提示（会话 3 / 会话 4 已纠正）**：上面这条“解析错误 / 不能直接运行”只代表会话 2 当时现场；当前最新口径是 helper 可用于 `manual-equivalent`，不再按损坏不可用表述，因此不能再把此段当当前 blocker。
 - 已尝试对白名单路径执行 `sunset-git-safe-sync.ps1 -Action sync`；当前首先被 `OwnerThread` 与分支语义归一化不匹配拦下，而不是被 `美术生` 自身文件范围拦下。
 
 **遗留问题 / 下一步**：
@@ -176,9 +178,11 @@
 - 因此当前主线仍停留在“边界/契约批次”，没有进入实现。
 
 **涉及文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\美术生\2026-03-29_接收全局调研后的Aseprite与外部工具路线校正委托-01.md`
 - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\2026-03-29_像素美术V1工具路线裁定与Aseprite边界重写-01.md`
 - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\memory.md`
 - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\美术生\memory_0.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\像素美术暴君大闸_架构评估_2026-03-29.md`
 
 **验证结果**：
 - 正文、工作区 memory、线程 memory 的“下一步”口径已统一到同一批准批次。

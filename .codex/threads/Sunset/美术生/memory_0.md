@@ -81,6 +81,7 @@
 2. 回读 `美术生` 工作区中的架构评估正文和两层 memory，确认第一轮分析已在新位置落盘。
 3. 补读 `global-preference-profile.md`，并结合 `user-readable-progress-report`、`delivery-self-review-gate` 重新组织最终答复。
 4. 尝试运行 `preference-preflight-gate` helper 时发现脚本解析错误，因此本轮以手工等价方式完成偏好前置核查。
+   - **Superseded 提示（会话 3 / 会话 4 已纠正）**：上面这句只代表会话 2 当时现场，不能再当当前 blocker 使用；当前最新口径已经改为：helper 可用于 `manual-equivalent`，不再按“损坏不可用”表述。
 
 **关键决策**：
 - 当前结论不变：这条线值得做，但只能先定义成“基础资产自动化支线”。
@@ -97,6 +98,7 @@
 - 新工作区挂载已确认无误。
 - 偏好前置已通过手工等价流程完成。
 - `preference-preflight-gate` helper 当前不可直接运行。
+- **Superseded 提示（会话 3 / 会话 4 已纠正）**：上面这条“当前不可直接运行”只代表会话 2 当时现场；当前最新口径是 helper 可用于 `manual-equivalent`，不再按损坏不可用表述，因此不能再把此段当当前 blocker。
 - 尝试最小白名单 Git sync 时，脚本先因 `OwnerThread` 与 `codex/scene-build-5.0.0-001` 的语义归一化不匹配而阻断；`美术生` own roots 本身未出现 remaining dirty。
 
 **恢复点 / 下一步**：
@@ -180,9 +182,11 @@
 - 这是一批“边界/契约”工作，不是实现批次。
 
 **涉及文件 / 产物**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\美术生\2026-03-29_接收全局调研后的Aseprite与外部工具路线校正委托-01.md`
 - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\2026-03-29_像素美术V1工具路线裁定与Aseprite边界重写-01.md`
 - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\memory.md`
 - `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\美术生\memory_0.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\像素美术暴君大闸_架构评估_2026-03-29.md`
 
 **验证结果**：
 - 三处“下一步”口径已统一。
