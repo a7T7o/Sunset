@@ -132,6 +132,7 @@
   4. 一个 `text` 代码块，里面直接写出可复制话术，并包含 `请先完整读取 [最新 prompt 路径]`
 - 不要再退回“文件路径 + 极短转发语”的旧格式，也不要让用户自己从长聊天里拼出到底该发哪段。
 - 如果任务涉及 Sunset 代码修改、编译可用性、checkpoint / sync / handoff 前的红错清理、warning 与 error 区分、或“不能把 Unity 留到不能用”的执行纪律，优先使用 `sunset-no-red-handoff`。
+- 如果任务涉及 `ScreenSpaceOverlay` UI、GameView 最终合成屏、Prompt / Workbench 的最终观感验收，或 Main Camera 截图天然无法证明 UI 是否正确，优先使用 `sunset-ui-evidence-capture`；如果当前会话未显式暴露该 skill，也必须手工沿用 `.codex/artifacts/ui-captures/spring-ui` 与 `scripts/SpringUiEvidence.ps1` 的同等流程。
 - 如果任务进入“线程已完成自己能做的验证，接下来需要用户终验”的阶段，优先使用 `sunset-acceptance-handoff`，要求线程先交专业验收指南、预期结果、失败判读和回执单；禁止只说“等用户复测”。
 - 如果任务属于 `Codex规则落地` 治理线程，且涉及多线程 prompt 分发、统一领取入口、本轮批次文件、固定回收卡收件或最小回复格式约束，优先使用 `sunset-governance-dispatch-protocol`；典狱长模式下还必须先做“是否该停给用户”的总闸裁定；如果当前会话未显式暴露相关 skill，必须同时改读：
   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\治理线程批次分发与回执规范.md`
