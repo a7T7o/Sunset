@@ -1470,3 +1470,20 @@
 - 当前恢复点：
   - `NPCV2` 已从“第三轮 same-root blocker”推进到“第四轮可自归仓子根先独立收口完成”
   - 后续若继续，应把 mixed-root 大根作为独立 cleanup 处理，不再重新污染这组已可归仓子根
+
+## 2026-03-29｜`NPCV2` 线程停表：mixed-root backlog 转治理位
+
+- 当前主线目标：
+  - 把 `NPCV2` 在“全局警匪定责清扫”里的收口状态正式定格，避免后续继续沿旧 prompt 自转。
+- 本轮完成：
+  - 用户已明确裁定：
+    - `NPCV2` 当前停表
+    - 不再继续发新 prompt
+    - 第四轮已完成 `Assets/111_Data/NPC + own docs/thread` 真实上 git
+    - `NPCV2 current own path = yes`
+    - 剩余 mixed-root backlog 由治理位接盘，不再继续分给 `NPCV2`
+- 当前恢复点：
+  - `NPCV2` 当前状态应视为：
+    - `clean-subroot 已收口`
+    - `mixed-root backlog 已外转治理位`
+    - `线程停表，等待明确新裁定后再唤醒`

@@ -1234,3 +1234,18 @@
 - 当前恢复点：
   - 这轮已完成“可自归仓子根先上 git”
   - 若后续继续，不该再把 mixed-root 大根塞回这组子根包；应另开 mixed-root cleanup
+
+## 2026-03-29｜线程停表裁定：`NPCV2` 不再继续发新 prompt
+
+- 当前主线目标：
+  - 把这条线的最终停表状态固定下来，避免后续又把 mixed-root backlog 继续压回 `NPCV2` 自转。
+- 本轮完成：
+  - 用户已明确裁定：
+    - `NPCV2` 这条线当前停表
+    - 不再继续发新 prompt
+    - 第四轮已经完成 `Assets/111_Data/NPC + own docs/thread` 真实上 git
+    - 当前 `own path clean = yes`
+    - 后续 mixed-root backlog 改由治理位接盘
+- 当前恢复点：
+  - `NPCV2` 现在不再继续施工、不再继续自清 mixed-root
+  - 若后续还出现新动作，必须由用户或治理位重新明确唤醒，而不是沿旧第四轮继续滚
