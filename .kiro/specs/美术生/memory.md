@@ -6,9 +6,9 @@
 - 当前阶段目标：把“AI 美术自由发挥”压回参考图、调色板、像素导入规则和人工阅兵可控的工程边界
 
 ## 当前状态
-- **完成度**：20%
+- **完成度**：35%
 - **最后更新**：2026-03-29
-- **状态**：已完成第一轮可行性评估；还未进入真实原型实现
+- **状态**：已完成第一批准批次设计契约包；仍未进入真实原型实现
 
 ## 会话记录
 
@@ -192,3 +192,44 @@
 **遗留问题 / 下一步**：
 - [ ] 若用户批准，下一步只做：`Gold_Standard` 目录规范 + `ArtBatch` schema + DNA extractor 输入/输出字段草案
 - [ ] Python DNA extractor 原型实现明确延后到下一刀
+
+### 会话 5 - 2026-03-29（第一批准批次设计契约包落盘）
+
+**用户需求**：
+> 用户要求我停止继续做清洁收口，直接进入已批准的第一批准批次，但 scope 必须卡死：只产出 `Gold_Standard` 目录规范、`ArtBatch` schema、DNA extractor 输入/输出字段草案，并同步 `美术生` 工作区与线程记忆。
+
+**完成任务**：
+1. 新建第一批准批次总设计包：
+   - `2026-03-29_美术生V1第一批准批次设计契约包-01.md`
+2. 在总设计包中明确写出：
+   - `Gold_Standard` 根目录、分层、允许类型、入库标准、命名规则、拒收条件
+   - `ArtBatch` 生命周期、最小字段集、source / outputs / review / cleanup 挂接关系
+   - DNA extractor 输入 / 输出字段草案、authoritative / candidate 分层、写回 `ArtBatch` 的位置
+   - 三部分如何形成闭环
+3. 新建机器可读 schema：
+   - `ArtBatch.schema.json`
+4. 保持边界不变：
+   - 当前批次仍是 `B`
+   - 当前批次仍不包含 Python DNA extractor 原型实现
+   - 当前批次未进入 Unity 资源改动或外部工具安装
+
+**关键决策**：
+- 当前第一批准批次已从“边界描述”推进到“设计契约包已落盘”。
+- `Gold_Standard` 定义“能吃什么”。
+- `ArtBatch` 定义“一整批如何挂接、Review、Reject 和 cleanup”。
+- DNA extractor I/O 定义“中间数据怎么流以及哪些字段是硬约束 / 候选值”。
+
+**涉及文件**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\2026-03-29_美术生V1第一批准批次设计契约包-01.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\ArtBatch.schema.json`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\memory.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\美术生\memory_0.md`
+
+**验证结果**：
+- 已形成一份总契约文档和一份机器可读 schema。
+- 三部分之间已按“Gold_Standard -> ArtBatch -> DNA I/O -> Review / Reject”闭环写死。
+- 本轮未进入实现、未创建 Unity 资源、未安装外部工具。
+
+**遗留问题 / 下一步**：
+- [ ] 若用户批准，下一步只做 Python DNA extractor 原型实现
+- [ ] Unity Review 链、Importer 规则和场景接入仍在后续批次

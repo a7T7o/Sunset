@@ -6,9 +6,9 @@
 - 当前主题：像素美术自动化、受限生成、导入合规与阅兵审核
 
 ## 当前状态
-- **完成度**：20%
+- **完成度**：35%
 - **最后更新**：2026-03-29
-- **状态**：已完成第一轮架构评估，等待是否立项 V1 原型
+- **状态**：已完成第一批准批次设计契约包，等待是否进入 Python DNA extractor 原型实现
 
 ## 会话记录
 
@@ -196,3 +196,46 @@
 **恢复点 / 下一步**：
 - 若用户批准，下一步只做：`Gold_Standard` 目录规范 + `ArtBatch` schema + DNA extractor 输入/输出字段草案
 - Python DNA extractor 原型实现明确留到下一刀
+
+### 会话 5 - 2026-03-29（第一批准批次设计契约包落盘）
+**用户需求**：
+> 用户要求我停止做路线与清洁讨论，直接把已批准的第一批准批次三件东西真正产出来：`Gold_Standard` 目录规范、`ArtBatch` schema、DNA extractor 输入/输出字段草案；但仍禁止进入实现。
+
+**当前主线目标**：
+- 主线仍是把 `美术生` 这条线推进到“可接手、可拍板、可进入下一刀实现前置”的设计契约包状态，而不是写代码。
+
+**本轮子任务 / 服务对象**：
+- 子任务：把第一批准批次的三件设计物落盘，并让它们形成闭环。
+- 服务于：后续真正进入 Python DNA extractor 实现前，不再需要先补目录规则、批次契约和 I/O 字段定义。
+
+**已完成事项**：
+1. 新建总设计包：
+   - `2026-03-29_美术生V1第一批准批次设计契约包-01.md`
+2. 在总设计包里写清：
+   - `Gold_Standard` 目录位置、接受源资产类型、入库标准、命名和拒收条件
+   - `ArtBatch` 生命周期、最小字段集、review / cleanup / outputs 挂接
+   - DNA extractor 输入 / 输出最小字段、authoritative / candidate 分层、写回位置
+3. 新建机器可读 schema：
+   - `ArtBatch.schema.json`
+4. 保持边界不变：
+   - 第一批准批次仍是 `B`
+   - Python DNA extractor 原型实现仍不在当前批次
+   - 本轮未进入实现
+
+**关键决策**：
+- `Gold_Standard`、`ArtBatch`、DNA I/O 三者现在已经被收成一个闭环契约包，而不是三段独立散文。
+- 后续真正进入实现时，优先消费这批契约，而不是重新发明字段。
+
+**涉及文件 / 产物**：
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\2026-03-29_美术生V1第一批准批次设计契约包-01.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\ArtBatch.schema.json`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.kiro\specs\美术生\memory.md`
+- `D:\Unity\Unity_learning\Sunset_worktrees\scene-build-5.0.0-001\.codex\threads\Sunset\美术生\memory_0.md`
+
+**验证结果**：
+- 第一批准批次的三件设计物已落盘。
+- 本轮未进入 Python DNA extractor 实现、未创建 Unity 资源、未安装外部工具。
+
+**恢复点 / 下一步**：
+- 若用户批准，下一步只进入 Python DNA extractor 原型实现
+- 之后再接 Unity Review / Importer / Scene 接线

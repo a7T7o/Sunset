@@ -1,0 +1,369 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sunset.local/schemas/ArtBatch.schema.json",
+  "title": "Sunset ArtBatch Manifest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "batchId",
+    "batchType",
+    "status",
+    "source",
+    "dna",
+    "outputs",
+    "review",
+    "cleanup"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "batchId": {
+      "type": "string",
+      "pattern": "^artbatch_[a-z0-9_]+$"
+    },
+    "batchType": {
+      "type": "string",
+      "enum": [
+        "ui_frame",
+        "ui_panel",
+        "button_base",
+        "building_base",
+        "tile_base",
+        "prop_small"
+      ]
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "planned",
+        "dna_contract_ready",
+        "review_pending",
+        "approved",
+        "rejected",
+        "cleaned"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "goldStandardRefs",
+        "requestSummary"
+      ],
+      "properties": {
+        "goldStandardRefs": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "requestSummary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notesPath": {
+          "type": "string"
+        }
+      }
+    },
+    "dna": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "inputProfile",
+        "authoritative",
+        "candidates"
+      ],
+      "properties": {
+        "contractVersion": {
+          "type": "string",
+          "const": "1.0.0-draft"
+        },
+        "inputProfile": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "expectedPPU",
+            "expectedGridSize",
+            "analysisTargets"
+          ],
+          "properties": {
+            "expectedPPU": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "expectedGridSize": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "analysisTargets": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "enum": [
+                  "palette",
+                  "alpha_policy",
+                  "border_candidates",
+                  "ramp_groups",
+                  "component_stats"
+                ]
+              }
+            }
+          }
+        },
+        "authoritative": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strictPalette": {
+              "$ref": "#/$defs/strictPalette"
+            },
+            "alphaPolicy": {
+              "$ref": "#/$defs/alphaPolicy"
+            },
+            "sourceMetrics": {
+              "$ref": "#/$defs/sourceMetrics"
+            }
+          }
+        },
+        "candidates": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "ppuCandidate": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "gridSizeCandidate": {
+              "type": "array",
+              "minItems": 2,
+              "maxItems": 2,
+              "items": {
+                "type": "integer",
+                "minimum": 1
+              }
+            },
+            "borderCandidates": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/borderCandidate"
+              }
+            },
+            "rampGroups": {
+              "type": "array",
+              "items": {
+                "$ref": "#/$defs/rampGroup"
+              }
+            },
+            "componentStats": {
+              "type": "object"
+            }
+          }
+        }
+      }
+    },
+    "outputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "reviewRoot",
+        "approvedRoot",
+        "plannedFiles"
+      ],
+      "properties": {
+        "reviewRoot": {
+          "type": "string"
+        },
+        "approvedRoot": {
+          "type": "string"
+        },
+        "plannedFiles": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "scenePath",
+        "layoutProfile",
+        "status"
+      ],
+      "properties": {
+        "scenePath": {
+          "type": "string"
+        },
+        "layoutProfile": {
+          "type": "string",
+          "enum": [
+            "ui_canvas_grid",
+            "world_grid",
+            "sprite_sheet_strip"
+          ]
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "pending",
+            "staged",
+            "approved",
+            "rejected"
+          ]
+        }
+      }
+    },
+    "cleanup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "rejectPolicy",
+        "deleteTargets",
+        "keepEvidence"
+      ],
+      "properties": {
+        "rejectPolicy": {
+          "type": "string",
+          "const": "manifest_driven_delete"
+        },
+        "deleteTargets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "keepEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "strictPalette": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "colors"
+      ],
+      "properties": {
+        "colors": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": {
+            "type": "string",
+            "pattern": "^#[0-9A-Fa-f]{6}$"
+          }
+        }
+      }
+    },
+    "alphaPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowedAlpha"
+      ],
+      "properties": {
+        "allowedAlpha": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 255
+          }
+        }
+      }
+    },
+    "sourceMetrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "primarySizes"
+      ],
+      "properties": {
+        "primarySizes": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/imageSize"
+          }
+        }
+      }
+    },
+    "imageSize": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "width",
+        "height"
+      ],
+      "properties": {
+        "width": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "height": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "borderCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "left",
+        "right",
+        "top",
+        "bottom"
+      ],
+      "properties": {
+        "left": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "right": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "top": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "bottom": {
+          "type": "integer",
+          "minimum": 0
+        }
+      }
+    },
+    "rampGroup": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^#[0-9A-Fa-f]{6}$"
+      }
+    }
+  }
+}
