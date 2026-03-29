@@ -581,3 +581,846 @@
 - 当前“交互大清盘”已经从根因总账升级成正式落地任务书。
 - 后续如果继续一条龙施工，默认从 `A1树苗连续放置事务` 开始，按文档顺序逐项推进。
 - 直到 `A1 / A2 / A3` 三条事务真正过闸前，不应再把任何局部 pass 过早包装成“这条已经好了”。
+
+## 2026-03-27：按 `0.0.1` 任务书完成 `A1~B5` 代码闭环、自验与最终验收包，但当前 safe sync 仍被 `NPCAutoRoamController.cs` 同根 foreign dirty 阻断
+
+**用户目标**：
+- 用户要求我先提交前面已做好的文档内容，然后不要再停在计划层，而是直接根据 `2026-03-27-交互大清盘_详细落地任务清单.md` 一条龙推进整条交互线，强调“不要追求速度，只追求高质量和彻底”。
+
+**当前主线目标**：
+- 继续服务农田 `V3 / 1.0.4交互全面检查` 主线；
+- 本轮子任务是：把 `0.0.1` 任务书中的 `A1 / A2 / A3 / B1 / B2 / B3 / B4 / B5` 主体真正落到代码、自验、验收文档和记忆链里，再诚实判断当前能否安全做 git 收口。
+
+**本轮已完成事项**：
+1. 已确认前一轮 docs-only 成果已提交为 `92bf811f`（`2026.03.27_农田交互修复V3_02`）；当前继续施工时 shared root 基线为 `main @ ee7ba4c1540e6cddb8c398f0762b36eb50c61516`。
+2. 已按任务书把主体实现收进 8 个 owned C# 文件：
+   - `PlacementManager.cs`：连续放置 preview 改为按世界候选格刷新，补 `ResumePreviewAfterSuccessfulPlacement()`、`ShouldHoldPreviewAtLastPlacement(...)`、`IsSamePlacementCandidate(...)`
+   - `TreeController.cs`：补单向死亡事务、倒下期间拒绝再次命中，并补高树不足等级的动作前阻断辅助判断
+   - `PlayerInteraction.cs`：改成动作前检查、动作完成后提交，并在提交导致工具移除时统一强制收尾
+   - `FarmToolPreview.cs`：hover 遮挡只上报中心格单格 bounds
+   - `GameInputManager.cs + PlacementManager.cs + ChestController.cs`：补 placement mode 下右键开箱不退放置模式，箱子距离收口
+   - `InventoryPanelUI.cs`：热槽选中态回到单一事实源
+   - `GameInputManager.cs + TreeController.cs`：低级斧头砍高树改为输入层前置拦截
+   - `PlayerThoughtBubblePresenter.cs`：玩家气泡样式拉回 NPC 同源语言
+3. 已再次完成最小代码自验：
+   - `git diff --check` 对上述 8 个 C# 文件通过
+   - `CodexCodeGuard` 对上述 8 个 C# 文件通过
+   - 程序集检查结果为 `Assembly-CSharp`
+4. 已重新核对当前 Unity live 现场：
+   - `mcpforunity://instances -> instance_count = 0`
+   - `mcpforunity://editor/state -> reason = no_unity_session`
+   - 因此本轮没有新的 Unity live / PlayMode 终验证据
+5. 已新增最终用户验收文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_最终验收手册.md`
+   - 其中已把 `A1~B5` 与 `C1~C3` 的测试前提、入口、步骤、预期结果、失败判读与回执单补齐
+6. 已尝试按 stable launcher 做正式 `git-safe-sync preflight`，当前阻塞已被压实为：
+   - 当前白名单命中的 `Assets/YYY_Scripts/Controller` 同根下仍有 foreign dirty `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+   - 结果为 `CanContinue=False`
+   - 这说明当前不能诚实 claim “白名单可直接 sync”
+
+**关键决策**：
+- 本轮确实按用户授权重开了 `GameInputManager.cs`，但仍然没有碰 `Primary.unity`、`ProjectSettings/TagManager.asset` 或其他 shared-root foreign dirty。
+- 本轮能 claim 的只有：
+  - 代码层已按任务书完成当前主体闭环
+  - 最小 no-red 闸门已通过
+  - 最终验收手册已补齐
+- 本轮不能 claim 的有两件：
+  - 新的 Unity live 通过
+  - Git 已安全白名单收口
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_最终验收手册.md`
+
+**验证结果**：
+- `git diff --check`：通过
+- `CodexCodeGuard`：通过
+- Unity live：不可用，原因是 `instance_count=0 / no_unity_session`
+- `git-safe-sync preflight`：未通过，阻塞点为 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+
+**恢复点 / 下一步**：
+- 当前主线没有切走，仍然是农田 `V3 / 1.0.4 / 0.0.1交互大清盘`；
+- 当前我这条线已经把“代码层闭环 + 验收包 + 记忆链”补完；
+- 下一步分两件事：
+  - 用户按最终验收手册做人工终验
+  - 等 `NPCAutoRoamController.cs` 同根 foreign dirty 清理或完成 owner 协调后，再继续 safe sync
+
+## 2026-03-27：用户改要聊天内验收回执模板，不再额外落文档
+
+**用户目标**：
+- 用户认可我给出的最终验收手册，但明确要求再补一份“专门写给我的回执清单模板”，直接输出在聊天里，方便他逐项填写结果。
+
+**当前主线目标**：
+- 主线不变，仍是农田 `V3 / 1.0.4 / 0.0.1交互大清盘` 的终验阶段；
+- 本轮子任务只做聊天内回执模板，不新增文件，不改代码。
+
+**本轮已完成事项**：
+1. 已决定按 `A1 / A2 / A3 / B1 / B2 / B3 / B4 / B5 / C1 / C2 / C3` 这 11 项输出回执模板。
+2. 已保持“代码闭环已完成、当前等待用户终验”的主状态不变。
+
+**恢复点 / 下一步**：
+- 用户下一步直接按聊天模板回填验收结果；
+- 我收到后按同一编号体系继续判断通过项、未通过项和返工清单。
+
+## 2026-03-27：用户回执后的二次返工已完成直改项补刀，当前准备向用户一次性汇报“已改结果 + 方案项 + 术语解释”
+
+**用户目标**：
+- 用户在验收回执里要求：别再给优先级，能直接改的就全部继续改掉；他说过暂时不要直接改的项，只输出他要的分析与方案。
+
+**当前主线目标**：
+- 主线仍是农田 `V3 / 1.0.4 / 0.0.1交互大清盘` 的返工收口；
+- 本轮子任务是把用户回执里允许直改的项继续落到代码，并把不允许直改的项收成可直接交付的分析口径。
+
+**本轮已完成事项**：
+1. 已继续落地 `A1 / A3 / B1 / B2 / B5`：
+   - `PlacementManager.cs`：补已占树苗格边缘意图偏向，让 preview / 点击判定同源；
+   - `GameInputManager.cs + PlayerInteraction.cs`：补农具自动链尾部的彻底中断；
+   - `FarmToolPreview.cs`：维持中心焦点遮挡口径；
+   - `ChestController.cs + GameInputManager.cs`：保持 collider bounds 判点与更近的开箱距离；
+   - `PlayerThoughtBubblePresenter.cs`：取消硬换行，并改成按自然文本宽度排版后再限宽。
+2. 已额外按用户允许范围只优化 `A2` 的表现层：
+   - `TreeController.cs` 两个倒下协程新增预备反压、主摔、落地回弹、压扁和更晚淡出；
+   - 没有重动树倒下判定、掉落、经验和树桩逻辑。
+3. 已明确保留为“只分析 / 只方案”的项：
+   - `B3` 背包点击手感
+   - `B4` 高树冷却输入层
+4. 已重新跑完本轮最小 no-red 闸门：
+   - `git diff --check`：通过
+   - `CodexCodeGuard`：通过，`Assembly-CSharp`，`Diagnostics=[]`
+5. 已重新核 scoped preflight：
+   - 当前 safe sync 仍被 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 卡住；
+   - 当前没有新的 Unity live 会话，不能 claim 新的运行态通过。
+
+**关键决策**：
+- 不碰 `Primary.unity`、`ProjectSettings/TagManager.asset`、`NPCAutoRoamController.cs`。
+- 最终对用户的回复必须同时覆盖三层：
+  - 已直接落地的项
+  - `B3 / B4` 的大白话根因与修法方案
+  - `C1 / C2 / C3` 的大白话解释
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+
+**验证结果**：
+- `git diff --check`：通过
+- `CodexCodeGuard`：通过
+- Unity live：未跑；当前仍无新实例 / 无新 PlayMode 证据
+- scoped `git-safe-sync preflight`：未通过，blocker 仍是 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+
+**恢复点 / 下一步**：
+- 线程当前已把可直改项继续压到代码层并恢复 compile-clean；
+- 下一步直接给用户最终汇报，不再新开文档；
+- 汇报后等待用户基于新实现继续人工验收，或拍板 `B3/B4` 方案后再开下一刀。
+
+## 2026-03-27：网络恢复后继续施工，`B3` 拖拽选中真源已补完，当前编译闭环与 Git 阻塞边界同时重测
+
+**用户目标**：
+- 用户在网络恢复后要求继续，不切主线；当前仍然是农田 `V3 / 1.0.4 / 0.0.1交互大清盘` 的返工收口。
+
+**当前主线目标**：
+- 把这轮已经落到代码里的交互返工继续收实到用户最近点名的背包拖拽选中手感，同时重新测准当前 no-red 与 safe sync 的真实边界。
+
+**本轮已完成事项**：
+1. 已把 `B3` 当前最明显的剩余漏口直接落码：
+   - `InventoryInteractionManager.cs`：`OnSlotBeginDrag(...)` 现在在清空源槽位前会先选中起始格；
+   - `SlotDragContext.cs`：`Begin(...)` 现在会同步选中拖拽源槽位；
+   - `InventorySlotUI.cs`：`Select()` 现在优先回写 `InventoryPanelUI.SetSelectedInventoryIndex(...)`，因此拖拽起始格和最终落点格都会走背包内部真源，不再只是 Toggle 表皮亮灭。
+2. 已重新核对真实编译闭环：
+   - 首次只对白名单 13 文件跑 `CodexCodeGuard` 时，`GameInputManager.cs` 暴露出对 working tree `PlayerInteraction.LastActionFailureReason` 的真实依赖；
+   - 因此当前 no-red 闭环不能排除 `PlayerInteraction.cs`；
+   - 已把核验范围扩到 15 个 C# 文件，重跑 `CodexCodeGuard` 后 `Diagnostics=[]`，程序集为 `Assembly-CSharp`。
+3. 已重新跑 `git diff --check`：
+   - 当前 15 文件范围内无新的 diff 格式错误；
+   - 仅剩 `InventorySlotInteraction.cs / InventorySlotUI.cs / SlotDragContext.cs / ToolbarSlotUI.cs` 的 LF 归一化提示。
+4. 已重新跑 stable launcher scoped `preflight`：
+   - 当前 safe sync 仍无法继续；
+   - 当前白名单 own roots 下 remaining dirty/untracked 数量为 9；
+   - 其中既包含 foreign dirty：`Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`、`NPCBubblePresenter.cs`；
+   - 也包含当前线程 own 同根残留：`Assets/YYY_Scripts/Service/Player/EnergySystem.cs`、`HealthSystem.cs`、`PlayerAutoNavigator.cs` 等。
+
+**关键决策**：
+- `B3` 不再继续按“只方案项”处理；至少用户最近点名的拖拽选中真源漏口已经真实落码。
+- 当前能诚实 claim 的是：
+  - `B3` 又补掉一块真实手感缺口；
+  - 当前 15 文件编译闭环成立。
+- 当前不能 claim 的仍是：
+  - 新的 Unity live 通过；
+  - Git safe sync 已可继续。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+
+**验证结果**：
+- `git diff --check`：通过，仅有 4 条 LF 归一化提示
+- `CodexCodeGuard`：通过，当前闭环已扩到 15 个 C# 文件
+- `git-safe-sync preflight`：未通过；own roots remaining dirty 数量为 9
+- Unity live：未进入；当前没有新的运行态证据
+
+**恢复点 / 下一步**：
+- 当前对用户的真实汇报口径应更新为：
+  - `B3` 选中真源已经继续落码；
+  - 当前代码编译是干净的；
+  - 但 shared root 收口现场并不干净。
+- 下一步应等待用户继续按新实现做人手体验验收，同时单独面对 same-root remaining dirty 的 Git 收口问题。
+
+## 2026-03-27：用户已明确要求后续直接汇报必须先给 6 条人话层，再给技术审计层
+
+**用户目标**：
+- 用户明确要求：以后直接对他汇报时，不能再先讲参数、checkpoint、`changed_paths` 等技术 dump；
+- 必须先按固定 6 条格式说人话，再补技术审计层。
+
+**当前主线目标**：
+- 主线不变，仍是农田 `V3 / 1.0.4 / 0.0.1交互大清盘`；
+- 本轮子任务仅把这条新的汇报合同记住，确保后续不再用旧顺序回报。
+
+**本轮已完成事项**：
+1. 已确认新的直接汇报顺序固定为：
+   - 当前主线
+   - 这轮实际做成了什么
+   - 现在还没做成什么
+   - 当前阶段
+   - 下一步只做什么
+   - 需要我现在做什么（没有就写无）
+2. 已确认技术审计层只能放在后面补：
+   - `changed_paths`
+   - `验证状态`
+   - `是否触碰高危目标`
+   - `blocker_or_checkpoint`
+   - `当前 own 路径是否 clean`
+
+**关键决策**：
+- 以后如果先交技术 dump、不先说成人话，用户会直接判定汇报不合格；
+- 这条要求属于当前线程的稳定协作口径，后续默认强制遵守。
+
+**恢复点 / 下一步**：
+- 下一次直接对用户汇报时，统一改用这套顺序；
+- 当前无需为这条要求额外改业务代码。
+
+## 2026-03-27：主线状态审计结论已定，当前停在“二次返工后待终验 + live/Git 双阻塞”
+
+**用户目标**：
+- 用户直接追问：主线现在到哪一步了、还有什么没做完，并要求这次不要按前一轮 6 条模板回。
+
+**当前主线目标**：
+- 主线不变，仍是农田 `V3 / 1.0.4 / 0.0.1交互大清盘`；
+- 但本轮结论必须纠偏为：当前不是“全部做完只剩测试”，而是“已经做到二次返工后的收口口，但还没过最终用户验收，也没完成 live 和 Git 收口”。
+
+**本轮已确认事项**：
+1. 当前代码推进面已经超出最早那版任务书：
+   - `A1 / A2(表现层) / A3 / B1 / B2 / B3 / B5` 都已经有至少一轮返工；
+   - `B3` 在网络恢复后又补了一刀拖拽选中真源。
+2. 当前 no-red 闭环已经扩到 15 个 C# 文件：
+   - `git diff --check` 通过；
+   - `CodexCodeGuard` 通过；
+   - 这说明代码当前能继续走，但不代表用户已经验过。
+3. 当前 own roots 里仍有一组农田线 same-root dirty 没收干净：
+   - `ToolRuntimeUtility.cs`
+   - `EnergySystem.cs`
+   - `HealthSystem.cs`
+   - `PlayerAutoNavigator.cs`
+   - `ItemTooltip.cs`
+   - 以及背包/状态条相关 UI 文件
+4. 当前仍没有新的 Unity live 证据，也没有新的 `safe sync` 通过结果。
+
+**当前仍未完成 / 未过线项**：
+1. `A1` 树苗连续放置还没拿到你按最新“近身 9 宫格 / 相邻格直接放置”口径的通过。
+2. `A3` 的动作前检/强制收尾主链虽然已补，但水壶水量 UI、耐久/水量显示策略、Tooltip 入口这组还没有被我收成正式通过 checkpoint。
+3. `B1` hover 遮挡按你最后回执不能算过，尤其 placeable hover 触发口径仍有剩余。
+4. `B2` 箱子不同角度/方向的走近与开启时机还没过线。
+5. `B3` 拖拽选中真源已补，但整包背包点击/拖拽手感还没拿到你的重新通过。
+6. `B4` 高树冷却输入层按你最新语义仍未收尾。
+7. `B5` 气泡换行虽已优化，但配色与整体观感仍没拿到最终通过。
+8. `C1 / C2 / C3` 观察项还没做整包终验闭环，尤其 `C2` Tooltip 你后面明确反馈成“现在根本没有”。
+
+**关键决策**：
+- 以后回答“主线做到哪一步 / 还剩什么”时，不能再偷懒说“基本都做完了只剩测试”；
+- 必须明确区分：
+  - 已经落到代码里的返工；
+  - 还没被用户重新验过的体验项；
+  - 还在 same-root dirty 里、尚未收成 checkpoint 的 UI / Tooltip / 水量显示链；
+  - 仍未闭环的 live / Git 现场。
+
+**恢复点 / 下一步**：
+- 这次对用户的直接回答应明确为：
+  - 主线当前在“二次返工后待终验”的阶段；
+  - 还没做完的不只是测试，还包括若干体验项、UI/Tooltip 收口项，以及 live/Git 收口。
+
+## 2026-03-27：全面整改继续落地，已补连放意图偏向、hover 分流、箱子到位开启、水量/Tooltip 自愈和高树续挥砍拦截
+
+**用户目标**：
+- 用户在听完主线阶段说明后，明确要求不要停在分析，而是直接根据前面那组全面调整要求继续做全面整改。
+
+**当前主线目标**：
+- 主线仍是农田 `V3 / 1.0.4 / 0.0.1交互大清盘`；
+- 本轮子任务是把当前最明显还没过线的几组缺口继续压到代码里，不再只停在“待你测”的旧状态。
+
+**本轮已完成事项**：
+1. `PlacementManager.cs`：
+   - 把已占格内边缘点击的候选格逻辑补成真正的相邻格意图偏向；
+   - 树苗/播种这类允许近身直放的对象，当前占格卡住时会优先尝试邻格，而不是继续死锁当前格。
+2. `PlacementPreview.cs + FarmToolPreview.cs`：
+   - placeable hover 改回占格 footprint；
+   - 农田 hover 的中心格 footprint 继续缩小。
+3. `PlayerAutoNavigator.cs + GameInputManager.cs`：
+   - 箱子 stop radius 再收紧；
+   - pending auto interaction 完成时先停导航，再按统一距离复核交互。
+4. `PlayerInteraction.cs + GameInputManager.cs`：
+   - 高树冷却前置拦截扩到长按续挥砍前的动作前校验。
+5. `ToolRuntimeUtility.cs + ItemTooltipTextBuilder.cs + ItemTooltip.cs`：
+   - 工具状态条在 runtime item 缺失时也能按默认满值正常显示；
+   - Tooltip 会补工具默认 runtime 展示，并对不完整旧实例做自愈。
+6. `PlayerThoughtBubblePresenter.cs`：
+   - 继续收玩家气泡配色与字距，提高可读性。
+7. `CodexCodeGuard`：
+   - 对 11 个文件重跑后通过，当前代码闸门为绿。
+
+**关键决策**：
+- 这轮没有碰 `Primary.unity`；
+- `GameInputManager.cs` 继续作为 hot file 被命中，但只服务当前主刀；
+- 当前仍然没有新的 Unity live；
+- 当前仍然不能 safe sync，因为 same-root remaining dirty 还在。
+
+**恢复点 / 下一步**：
+- 下一步最合理的是让用户直接按这轮新增重点重验：
+  - 树苗/播种相邻格直放手感
+  - 农田与 placeable hover
+  - 箱子走近即开
+  - 水壶/耐久条与 Tooltip
+  - 高树冷却期长按续挥砍
+  - 玩家气泡可读性
+
+## 2026-03-28：用户要求改为纯代码全盘审核，本轮已完成最终审计文档与剩余问题总表，不再把当前阶段说成“只剩测试”
+
+**用户目标**：
+- 用户明确要求：这轮不要使用 `UnityMCP`、不要跑运行态；
+- 只做一轮从头到尾的纯代码审核，把最近几轮待验项和历史返工代码一起重审，给出一份最终验收报告，并重新扫出所有剩余问题。
+
+**当前主线目标**：
+- 主线仍是 `农田系统 / 2026.03.16 / 1.0.4交互全面检查 / 0.0.1交互大清盘`；
+- 本轮子任务是把整条交互线按纯代码事实重新定级，而不是继续写实现。
+
+**本轮已完成事项**：
+1. 已按前置核查重新使用并显式点名：
+   - `skills-governor`
+   - `sunset-workspace-router`
+   - 手工等价执行：
+     - `sunset-startup-guard`
+     - `user-readable-progress-report`
+     - `delivery-self-review-gate`
+2. 已回读当前子工作区任务书、子工作区记忆、父工作区记忆、线程记忆，并重新复核当前主代码链：
+   - `PlacementManager.cs`
+   - `PlacementValidator.cs`
+   - `PlacementPreview.cs`
+   - `TreeController.cs`
+   - `PlayerInteraction.cs`
+   - `ToolRuntimeUtility.cs`
+   - `FarmToolPreview.cs`
+   - `OcclusionManager.cs`
+   - `OcclusionTransparency.cs`
+   - `PlayerAutoNavigator.cs`
+   - `ChestController.cs`
+   - `ChestInventoryV2.cs`
+   - `InventoryPanelUI.cs`
+   - `InventoryInteractionManager.cs`
+   - `InventorySlotUI.cs`
+   - `SlotDragContext.cs`
+   - `ToolbarSlotUI.cs`
+   - `ItemTooltip.cs`
+   - `ItemTooltipTextBuilder.cs`
+   - `EnergyBarTooltipWatcher.cs`
+3. 已新增最终审计文档：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_纯代码最终验收报告.md`
+4. 已把当前纯代码结论正式收成：
+   - 代码层已补出骨架、待真人终验：`A1 / A2 / A3 / B4 / C3`
+   - 代码层仍明显未过：`B1 / B2 / B3 / B5 / C2`
+   - 继续观察：`C1`
+5. 已把当前最硬 blocker 明确压实为 `C2 Tooltip`：
+   - `ItemTooltip.QueueShow(...)` 当前顺序是先 `SetActive(false)`，再起延迟显示协程；
+   - `EnergyBarTooltipWatcher` 走同一条 `ItemTooltip.ShowCustom(...)` 链；
+   - 因此 `Tooltip` 不只是背包 hover 边角问题，而是整条 tooltip 总入口都可能一起失效。
+
+**关键决策**：
+- 当前绝不能再对用户说“只剩测试”；
+- 更准确的总判断应更新为：
+  - 核心事务骨架已经补出来了；
+  - 但 `Tooltip / hover / chest / inventory 真源 / 玩家气泡终线` 还没有全部关门。
+- 如果下一轮继续恢复实现，建议顺序固定为：
+  - `C2 Tooltip`
+  - `B1 hover`
+  - `B2 箱子交互链`
+  - `B3 选中态真源`
+  - `B5 玩家气泡`
+  - 然后再回到真人终验包重验 `A1 / A2 / A3 / B4 / C3`
+
+**涉及文件 / 路径**：
+- 审计文档：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-03-27-交互大清盘_纯代码最终验收报告.md`
+- 重点证据文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionTransparency.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+
+**验证结果**：
+- 本轮只做纯代码只读审核；
+- 未使用 `UnityMCP`；
+- 未进入 `Play Mode`；
+- 未新增业务代码改动，只新增审计文档与记忆回写。
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “不是只剩测试，而是主链有骨架、仍有纯代码 blocker 待扫”
+- 如果继续这条线，下一步不要散打，应先按新报告的 blocker 顺序推进。
+
+## 2026-03-28：用户要求把非测试剩余全部做完，本轮已继续补齐代码侧缺口并改口为“待用户终验”
+
+**用户目标**：
+- 用户最新要求是不再使用 `UnityMCP`、不做运行态测试；
+- 直接把除测试外的剩余必要工作全部落地，最后只给一份全面验收测试清单。
+
+**当前主线目标**：
+- 主线仍是 `农田系统 / 2026.03.16 / 1.0.4交互全面检查 / 0.0.1交互大清盘`；
+- 本轮子任务是把上轮纯代码总审里还判未过的 `C2 / B1 / B2 / B3 / B5` 继续收口，并补完整条交互线的 no-red 自检。
+
+**本轮已完成事项**：
+1. 重新显式使用并补充了当前轮次需要的 skill：
+   - `skills-governor`
+   - `sunset-workspace-router`
+   - `sunset-no-red-handoff`
+   - `sunset-acceptance-handoff`
+   - `delivery-self-review-gate`
+   - `user-readable-progress-report`
+   - 手工等价：`sunset-startup-guard`
+2. 已继续落码：
+   - `ItemTooltip.cs`：修复 `QueueShow(...)` 的先失活后起协程断链，并补旧实例自愈 / 运行时兜底实例；
+   - `InventoryPanelUI.cs`：改成持续订阅 hotbar 选中变化，背包与 Toolbar 不再只做一次同步；
+   - `OcclusionManager.cs`：preview 遮挡改按 `GetColliderBounds()`；
+   - `GameInputManager.cs + PlayerAutoNavigator.cs`：箱子交互改为精确距离尺子 + pending auto interaction 到距补交互 + 更近停下；
+   - `PlayerThoughtBubblePresenter.cs`：继续向 NPC 样式语言收拢，放宽文本宽度并重调配色与尾巴偏置。
+3. 已完成两轮代码闸门：
+   - 第一轮 9 文件 `CodexCodeGuard` 暴露 `GameInputManager.cs` 对 `PlayerInteraction.cs / TreeController.cs` 既有事务补丁的依赖；
+   - 第二轮扩大到 19 个交互相关文件后，`CodexCodeGuard` 返回 `Diagnostics=[]`，程序集 `Assembly-CSharp`。
+4. 已补更宽范围 `git diff --check`，覆盖放置、树木、工具、箱子、背包、Tooltip、气泡、hover 链，结果通过。
+
+**关键决策**：
+- 这轮之后不能再沿用“还有纯代码 blocker”的旧口径；
+- 当前更准确阶段已经变成：
+  - 代码侧该补的非测试项已经补完；
+  - 仍待闭环的是用户终验、Unity live 证据和 Git 收口。
+- 自评：
+  - 这轮代码层推进是实的，不是包装；
+  - 我这轮最薄弱的地方不是编译，而是仍然无法替代你对 `A1 / B1 / B2 / B5` 这类手感与观感项的最终裁判。
+- 最可能看错的地方：
+  - `hover` 与 `箱子` 现在从代码看已经统一到更合理的事实源，但到底有没有彻底贴合你的屏幕观感，仍然只能靠你终验。
+
+**涉及文件 / 路径**：
+- 本轮核心新增或继续补口文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+- 更宽 no-red 闭环覆盖文件还包括：
+  - `PlacementManager.cs / PlacementPreview.cs / FarmToolPreview.cs / TreeController.cs / PlayerInteraction.cs / ToolRuntimeUtility.cs / ChestController.cs / InventoryInteractionManager.cs / InventorySlotUI.cs / SlotDragContext.cs / ToolbarSlotUI.cs / ItemTooltipTextBuilder.cs / EnergyBarTooltipWatcher.cs`
+
+**验证结果**：
+- `git diff --check`：通过
+- `CodexCodeGuard`：
+  - 9 文件轮次：发现依赖缺口，未 claim done
+  - 19 文件轮次：通过，`Diagnostics=[]`
+- 本轮未使用 `UnityMCP`
+- 本轮未进入 `Play Mode`
+- 当前没有新的 Unity live 证据
+
+**遗留问题 / 下一步**：
+- 当前不是“代码还没补完”，而是等待你按最终验收清单重新终验；
+- Git 侧当前仍未 safe sync，因为 shared root 还有 same-root / unrelated dirty，不适合在这轮偷做无边界收口；
+- 下一步只应做两件事：
+  1. 把全面验收清单交给你；
+  2. 根据你回执里未通过的项做下一刀，不再自由扩题。
+
+## 2026-03-29：全局警匪定责清扫第二轮已把 true own 面稳定收窄到 19 文件，`GameInputManager.cs` 收成 touchpoint 账，`PlayerAutoNavigator.cs` 维持 dependency
+
+**用户目标**：
+- 用户当前不是让我继续补交互，而是要求按 `2026-03-29_全局警匪定责清扫第二轮执行书_01.md` 做第二轮定责清扫；
+- 当前唯一主刀是：只清 `true own` 的 19 文件交互面，并把 `GameInputManager.cs` 收成 touchpoint 账；
+- 明确不准再把整份 `GameInputManager.cs` 或 `PlayerAutoNavigator.cs` 吞成 current own，也不准扩成新的交互功能。
+
+**当前主线目标**：
+- 主线仍然服务 `农田交互修复V3`，但本轮子任务不是业务实现，而是第二轮 own 边界收窄与清扫账面整理；
+- 目标是把第一轮已经站住的 `true own / mixed hot-file / dependency only / foreign` 边界收成一个可继续执行的 clean-up 包。
+
+**本轮已完成事项**：
+1. 已完整回读第二轮执行书、第一轮回执和当前 shared root `git status`；
+2. 已把 true own 面稳定收窄为 19 个文件，不再回流为“更大一圈编得过的文件都归我”；
+3. 已把 `GameInputManager.cs` 收成 exact touchpoint ledger，当前只保留 4 组触点：
+   - 高树冷却前置拦截；
+   - 放置模式右键开箱不退模式；
+   - 箱子 auto-interaction 更近停下与距离复核；
+   - 农具自动链在前检失败 / 工具失效时的彻底中断；
+4. 已继续维持 `PlayerAutoNavigator.cs = dependency only / mixed-by-history`，没有再整文件 claim；
+5. 已按 second-round 口径把当前 true own remaining dirty 重新报实，确认这 19 个文件当前全部仍是 dirty。
+
+**关键决策**：
+- 第二轮的核心不是“继续扩大 own 面”，而是把边界讲硬：
+  - `GameInputManager.cs` 只认 touchpoints，不认整文件；
+  - `PlayerAutoNavigator.cs` 继续退回 dependency，不认整文件；
+  - current own 只保留 19 个 true own 文件。
+- 自评：
+  - 这轮把边界又收紧了一层，已经比第一轮更像能往下执行的清扫包；
+  - 但这轮不是现场收干净，只是把账面收真。
+- 最薄弱点：
+  - 当前 clean 状态没有改善，own 面仍未收口；
+  - `EnergySystem.cs / HealthSystem.cs` 后续是否会被别的状态条线程接盘，仍有少量不确定性。
+
+**涉及文件 / 路径**：
+- 当前 true own 19 文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltipTextBuilder.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementPreview.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergySystem.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\HealthSystem.cs`
+- mixed hot-file：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- dependency only：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- 本轮回执：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第二轮回执_01.md`
+
+**验证结果**：
+- 本轮为 docs-only 第二轮执行回执；
+- 未使用 `UnityMCP`；
+- 未进入 `Play Mode`；
+- 未修改 `GameInputManager.cs`；
+- 未修改 `PlayerAutoNavigator.cs`；
+- 通过第二轮执行书 / 第一轮回执 / 当前 `git status` / 当前 diff 形状做静态核对。
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “第二轮 own 面已收窄成 19 文件，`GameInputManager.cs` 已收成 touchpoint 账，`PlayerAutoNavigator.cs` 已稳定维持 dependency，但当前 own 路径仍不 clean”
+- 如果继续这条线，下一步不要再重判边界，而应只沿 19 个 true own 文件逐项收 exact remaining dirty。
+
+## 2026-03-29：全局警匪定责清扫第三轮已真实跑 preflight，当前 first blocker 为 same-root remaining dirty
+
+**用户目标**：
+- 用户本轮不再让我继续讲 19 文件边界或 `GameInputManager.cs` touchpoint 账；
+- 当前唯一目标是：只对 `true own 19 文件 + own docs` 真实执行一次 `preflight -> sync`，能上 git 就给 SHA，上不去就给第一真实 blocker。
+
+**当前主线目标**：
+- 主线仍是 `农田交互修复V3` 的全局警匪定责清扫；
+- 本轮子任务从“第二轮边界收窄”切到“第三轮真实归仓尝试”。
+
+**本轮已完成事项**：
+1. 已按第三轮执行书列出 true own 19 文件和当前 own docs 白名单；
+2. 已真实运行 stable launcher：
+   - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+   - `-Action preflight`
+   - `-Mode task`
+   - `-OwnerThread 农田交互修复V3`
+   - `-IncludePaths <19 文件 + own docs>`
+3. 已拿到真实 preflight 结果：
+   - `是否允许按当前模式继续: False`
+4. 已把第一真实 blocker 钉死到：
+   - blocker 类型：`same-root remaining dirty/untracked`
+   - first exact path：`Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+5. 已确认本轮没有继续执行 `sync`，因此也没有新的提交 SHA。
+
+**关键决策**：
+- 这轮不能 claim “已上 git”；
+- 当前真实阻断不是代码闸门，而是 same-root remaining dirty：
+  - 白名单里包含 `TreeController.cs`，因此 own root 覆盖 `Assets/YYY_Scripts/Controller`
+  - 该同根下仍残留未纳入本轮白名单的 `GameInputManager.cs / NPCAutoRoamController.cs / NPCBubblePresenter.cs`
+  - `Service/Player` 同根和线程根下也各自还挂着未纳入本轮的 remaining dirty / untracked
+- 自评：
+  - 这轮价值在于把“到底能不能归仓”真正跑实了；
+  - 虽然没上 git，但不是没尝试，而是第一真实 blocker 已明确出现。
+
+**涉及文件 / 路径**：
+- 真实纳入 preflight 白名单的 true own 19 文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltipTextBuilder.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementPreview.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\EnergySystem.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\HealthSystem.cs`
+- 真实纳入 preflight 的 own docs：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第一轮回执_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第二轮回执_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第三轮_认领归仓与git上传_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第三轮回执_01.md`
+- 当前 first blocker 路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+
+**验证结果**：
+- `preflight`：已真实运行
+- `sync`：未运行
+- `提交 SHA`：无
+- `第一真实 blocker`：已钉死为 same-root remaining dirty / untracked
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “第三轮真实 preflight 已跑，但归仓被 same-root blocker 卡住，当前不能继续 claim 已上 git”
+- 如果继续这条线，下一步不要再重复跑同一套 sync，而应先处理这次 preflight 钉死的 same-root remaining dirty。
+
+## 2026-03-29：全局警匪定责清扫第四轮已真实跑 clean subroots `preflight`，same-root 已清零但 first blocker 更新为代码闸门
+
+**用户目标**：
+- 用户当前不是让我继续补交互，而是要求按 `2026-03-29_全局警匪定责清扫第四轮_可自归仓子根收口_01.md` 只把 clean subroots 真实尝试上 git。
+- 这轮唯一允许的代码范围是：
+  - `Assets/YYY_Scripts/Service/Placement/*`
+  - `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+  - `Assets/YYY_Scripts/UI/Inventory/*`
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+  - `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+  - 加 own docs / thread / memory
+- 明确禁止再把这些 mixed-root 路径带回白名单：
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - `Assets/YYY_Scripts/Controller/TreeController.cs`
+  - `Assets/YYY_Scripts/Data/Core/ToolRuntimeUtility.cs`
+  - `Assets/YYY_Scripts/Service/Player/*`
+
+**当前主线目标**：
+- 主线仍然服务 `农田交互修复V3` 的全局警匪定责清扫；
+- 但本轮子任务已经从第三轮“true own 19 文件整包归仓尝试”切换成第四轮“只冲 clean subroots，验证它们能否独立归仓”。
+
+**本轮已完成事项**：
+1. 已完整读取第四轮执行书，并按其允许范围重新组白名单。
+2. 已真实运行 stable launcher：
+   - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+   - `-Action preflight`
+   - `-Mode task`
+   - `-OwnerThread 农田交互修复V3`
+   - `-IncludePaths <12 个 clean subroots 文件 + own docs / memory>`
+3. 已拿到真实 `preflight` 结果：
+   - `是否允许按当前模式继续: False`
+   - `判断原因: FATAL: 代码闸门未通过：检测到 5 条错误、0 条警告`
+4. 已确认 clean subroots 这轮最有价值的新事实：
+   - `own roots remaining dirty 数量: 0`
+   - 第四轮已经不再被 third-round 的 `same-root remaining dirty` 口径阻断。
+5. 已把第一真实 blocker 更新钉死为代码闸门，而不是 same-root：
+   - first exact blocker path：
+     - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs:285`
+   - first exact reason：
+     - `PlacementManager.cs` 仍调用 `GameInputManager.ShouldPreservePlacementModeForCurrentRightClick(...)`
+     - `InventorySlotUI.cs / ToolbarSlotUI.cs` 仍调用 `ToolRuntimeUtility.TryGetToolStatusRatio(...)` 与 `WasSlotUsedRecently(...)`
+     - 但第四轮执行书明确禁止把 `GameInputManager.cs` 与 `ToolRuntimeUtility.cs` 带回白名单，因此这组 clean subroots 当前仍不是可独立编译的包。
+6. 本轮没有继续执行 `sync`，因此没有新的提交 SHA。
+7. 本轮已新增回执文件：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第四轮回执_01.md`
+
+**关键决策**：
+- 第四轮不能再沿用第三轮的 `same-root blocker` 口径。
+- 当前真正需要报给治理层和用户的第一真实 blocker，已经变成：
+  - `代码闸门未通过`
+- 这轮不应继续擅自改代码去解耦，也不应把 mixed-root 文件重新塞回白名单，因为那会直接违反第四轮执行书边界。
+
+**涉及文件 / 路径**：
+- clean subroots 代码文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementPreview.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltipTextBuilder.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- 第一真实 blocker 路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- 本轮回执：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第四轮回执_01.md`
+
+**验证结果**：
+- `preflight`：已真实运行
+- `sync`：未运行
+- `提交 SHA`：无
+- `own roots remaining dirty 数量`：`0`
+- `第一真实 blocker`：`代码闸门未通过`
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “第四轮 clean subroots 真实 preflight 已跑，same-root 阻断已排除，但 clean subroots 仍被代码闸门阻断，当前不能 claim 已上 git。”
+- 如果继续这条线，下一步不应再重复撞同一套 `preflight`；
+- 应等待新的明确裁定，决定是允许做最小解耦修补，还是改由 mixed-root 治理切刀继续接盘。
+
+## 2026-03-29：全局警匪定责清扫第五轮已真实跑最小共享依赖扩包 `preflight`，当前 first blocker 更新为 `GameInputManager.cs` 对 `PlayerInteraction / TreeController` 的依赖
+
+**用户目标**：
+- 用户当前不是让我继续补交互，而是要求按 `2026-03-29_全局警匪定责清扫第五轮_最小共享依赖扩包归仓_01.md`，在第四轮 clean subroots 基础上，只最小扩包引入 `GameInputManager.cs` 和 `ToolRuntimeUtility.cs`，然后重新真实做 `preflight -> sync`。
+- 明确禁止：
+  - 不准回到 broad mixed 包
+  - 不准重新带回 `Controller/NPC/*`
+  - 不准重新带回 `TreeController.cs`
+  - 不准重新带回 `Service/Player/*`
+  - 不准 broad 带回 `Assets/YYY_Scripts/Data/*`
+
+**当前主线目标**：
+- 主线仍然服务 `农田交互修复V3` 的全局警匪定责清扫；
+- 但本轮子任务已经从第四轮“clean subroots 缺 2 个依赖”切换成第五轮“最小共享依赖扩包后，再看是否能独立归仓”。
+
+**本轮已完成事项**：
+1. 已完整读取第五轮执行书，并按其允许范围重新组白名单。
+2. 已真实运行 stable launcher：
+   - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+   - `-Action preflight`
+   - `-Mode task`
+   - `-OwnerThread 农田交互修复V3`
+   - `-IncludePaths <12 个 clean subroots + GameInputManager.cs + ToolRuntimeUtility.cs + own docs / memory>`
+3. 已拿到真实 `preflight` 结果：
+   - `是否允许按当前模式继续: False`
+   - `判断原因: FATAL: 代码闸门未通过：检测到 4 条错误、0 条警告`
+4. 已确认第五轮的 same-root 状态没有回退：
+   - `own roots remaining dirty 数量: 0`
+5. 已确认第四轮暴露的浅层缺依赖已被补平：
+   - 不再出现 `PlacementManager.cs:285 -> GameInputManager.ShouldPreservePlacementModeForCurrentRightClick(...)`
+   - 不再出现 `InventorySlotUI / ToolbarSlotUI -> ToolRuntimeUtility.*`
+6. 已把第五轮新的第一真实 blocker 钉死为：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs:2666`
+   - 原因：`GameInputManager.cs` 当前读取 `PlayerInteraction.LastActionFailureReason`
+7. 同轮还继续暴露：
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs:3249`
+   - 原因：`GameInputManager.cs` 当前又调用 `TreeController.ShouldBlockAxeActionBeforeAnimation(...)`
+8. 本轮没有继续执行 `sync`，因此没有新的提交 SHA。
+9. 本轮已新增回执文件：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第五轮回执_01.md`
+
+**关键决策**：
+- 第五轮不能再沿用第四轮的“缺 `GameInputManager / ToolRuntimeUtility`”口径。
+- 当前真正需要报给治理层和用户的第一真实 blocker，已经进一步更新成：
+  - `GameInputManager.cs` 自身仍在跨根依赖 `PlayerInteraction.cs / TreeController.cs`
+- 这轮不应擅自继续把 `Service/Player/*` 或 `TreeController.cs` 一起塞回白名单，因为那会直接违反第五轮执行书边界。
+
+**涉及文件 / 路径**：
+- 第五轮实际纳入 preflight 的新增最小共享依赖：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\ToolRuntimeUtility.cs`
+- 第一真实 blocker 路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- 本轮回执：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第五轮回执_01.md`
+
+**验证结果**：
+- `preflight`：已真实运行
+- `sync`：未运行
+- `提交 SHA`：无
+- `own roots remaining dirty 数量`：`0`
+- `第一真实 blocker`：`GameInputManager.cs` 对 `PlayerInteraction / TreeController` 的跨根依赖
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “第五轮最小共享依赖扩包真实 preflight 已跑，same-root 仍为 0，但最小扩包后的包仍被 `GameInputManager.cs` 自身的跨根依赖阻断，当前不能 claim 已上 git。”
+- 如果继续这条线，下一步不应再重复撞同一套 `preflight`；
+- 应等待新的明确裁定，决定是继续最小扩包把 `PlayerInteraction.cs / TreeController.cs` 一并纳回，还是改走更严格的解耦修补。
+
+## 2026-03-29：全局警匪定责清扫第六轮已在 `GameInputManager.cs` 内切断更深 mixed 依赖并完成归仓
+
+**用户目标**：
+- 用户本轮明确要求：不要继续扩白名单，不要把 `PlayerInteraction.cs` 或 `TreeController.cs` 带回；
+- 只在 `GameInputManager.cs` 内把更深 mixed 依赖切成本地 compat / fallback，然后保持第五轮同一组白名单重新真实跑 `preflight -> sync`。
+
+**当前主线目标**：
+- 主线仍是 `农田交互修复V3` 的全局警匪定责清扫；
+- 第六轮子任务已经从“第五轮被 `PlayerInteraction / TreeController` 继续阻断”推进到“只靠 `GameInputManager.cs` 本地兼容口把更深 mixed 依赖切断，并重新归仓”。
+
+**本轮已完成事项**：
+1. 已完整读取第六轮执行书，并确认本轮唯一新增代码改动只能落在 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`。
+2. 已在 `GameInputManager.cs` 内新增两个本地 compat helper：
+   - `GetLastActionFailureReasonCompat()`：反射读取 `LastActionFailureReason` 属性 / 字段，缺失时 fallback 到 `ToolUseFailureReason.None`
+   - `ShouldBlockAxeActionBeforeAnimationCompat(...)`：反射调用 `ShouldBlockAxeActionBeforeAnimation(...)`，缺失时 fallback 到 `false`
+3. 已把 compile-time 直连替换为 compat 调用：
+   - `ExecuteFarmAction(...)` 中 3 处 `LastActionFailureReason`
+   - `TryBlockAxeActionAgainstHighTierTree(...)` 中 1 处 `ShouldBlockAxeActionBeforeAnimation(...)`
+4. 已重新执行 `git diff --check -- Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`，通过。
+5. 已对第五轮同组 14 个代码文件真实运行 stable launcher：
+   - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+   - `-Action preflight`
+   - `-Mode task`
+   - `-OwnerThread 农田交互修复V3`
+   - `-IncludePaths <第五轮同组 14 个代码文件>`
+6. 已拿到真实 `preflight` 结果：
+   - `是否允许按当前模式继续: True`
+   - `代码闸门通过: True`
+   - `own roots remaining dirty 数量: 0`
+7. 已继续对同组 14 个代码文件真实执行 `sync`，代码归仓提交 SHA：
+   - `5e3fe6097ead976df3ebd967e044edf7cd031637`
+8. 本轮 own docs / memory 也已补记归仓，当前这条线 own 路径已 clean。
+9. 本轮新增回执文件：
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第六轮回执_01.md`
+
+**关键决策**：
+- 第六轮不再继续扩包带回 `PlayerInteraction.cs` 或 `TreeController.cs`；
+- 这轮最关键的治理结果不是“继续拉大 mixed 包”，而是已经证明：
+  - 只靠 `GameInputManager.cs` 内的 compat / fallback，就能把第五轮 first blocker 切断；
+  - 且新的 first blocker 没有回退到 `PlayerInteraction / TreeController`。
+
+**涉及文件 / 路径**：
+- 本轮唯一新增代码改动：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- 代码归仓 SHA：
+  - `5e3fe6097ead976df3ebd967e044edf7cd031637`
+- 本轮回执：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-03-29_全局警匪定责清扫第六轮回执_01.md`
+
+**验证结果**：
+- `git diff --check`：通过
+- `preflight`：已真实运行并通过
+- `sync`：已真实运行并通过
+- `代码归仓 SHA`：`5e3fe6097ead976df3ebd967e044edf7cd031637`
+- `当前 own 路径是否 clean`：`yes`
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “第六轮已经在 `GameInputManager.cs` 内切断更深 mixed 依赖，并按第五轮同组白名单完成真实归仓；这条警匪定责子任务已闭环。”
+- 如果继续后续治理，只能基于新的用户委托再开下一刀；当前不应再在这轮里继续扩白名单或顺手补业务交互。
