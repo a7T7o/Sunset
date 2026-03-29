@@ -345,11 +345,24 @@ public static class NavigationLocalAvoidanceSolver
             bool yieldToDynamicAgent = shouldYield && !treatAsBlockingObstacle;
             bool sleepingBlocker = treatAsBlockingObstacle && other.IsNavigationSleeping;
             bool stationaryBlocker = treatAsBlockingObstacle && !other.IsCurrentlyMoving;
+            bool playerAgainstPassiveNpcBlocker =
+                self.UnitType == NavigationUnitType.Player &&
+                other.UnitType == NavigationUnitType.NPC &&
+                !other.IsCurrentlyMoving;
 
             float centerDistance = steeringDistance;
             float clearance = centerDistance - interactionRadius;
             bool nearContact = clearance <= Mathf.Max(0.08f, interactionRadius * 0.15f);
             bool predictedYieldConflict = hasPredictedConflict && yieldToDynamicAgent;
+            float passiveNpcApproachFactor = 1f;
+            if (playerAgainstPassiveNpcBlocker)
+            {
+                const float PassiveNpcSoftAvoidanceStartClearance = 0.24f;
+                const float PassiveNpcSoftAvoidanceRamp = 0.14f;
+                passiveNpcApproachFactor = Mathf.Clamp01(
+                    (PassiveNpcSoftAvoidanceStartClearance - clearance) /
+                    PassiveNpcSoftAvoidanceRamp);
+            }
 
             float forwardFactor = 1f - Mathf.Clamp01(forwardDistance / Mathf.Max(lookAheadDistance, 0.001f));
             float lateralFactor = 1f - Mathf.Clamp01(lateralDistance / Mathf.Max(lateralAllowance, 0.001f));
@@ -402,11 +415,13 @@ public static class NavigationLocalAvoidanceSolver
             {
                 sidestepWeight = predictedYieldConflict
                     ? 2.25f
-                    : (headOnPeerCrossing
-                        ? 2.05f
-                        : (sleepingBlocker
-                            ? 2.55f
-                            : (treatAsBlockingObstacle ? 2.15f : 1.75f)));
+                        : (headOnPeerCrossing
+                            ? 2.05f
+                            : (playerAgainstPassiveNpcBlocker
+                                ? 1.45f
+                                : (sleepingBlocker
+                                    ? 2.55f
+                                    : (treatAsBlockingObstacle ? 2.15f : 1.75f))));
             }
             else if (nearContact)
             {
@@ -416,6 +431,12 @@ public static class NavigationLocalAvoidanceSolver
             {
                 sidestepWeight = peerHoldCourse ? 0.02f : (headOnPeerCrossing ? 0.02f : (npcPeerCrossing ? 0.18f : 0.65f));
             }
+
+            if (playerAgainstPassiveNpcBlocker)
+            {
+                sidestepWeight *= passiveNpcApproachFactor;
+            }
+
             avoidance += sidestep * weight * sidestepWeight;
 
             // 近距离动态阻挡时，除了侧绕还要主动减前冲，否则会继续把对方推走。
@@ -458,19 +479,27 @@ public static class NavigationLocalAvoidanceSolver
                     Mathf.Max(interactionRadius * (sleepingBlocker ? 0.65f : 0.7f), 0.001f));
                 float blockerPressure = 1f - blockerClearanceRatio;
                 float blockerSlowDownWeight = Mathf.Lerp(
-                    sleepingBlocker ? 0.22f : 0.28f,
-                    sleepingBlocker ? 0.75f : 0.9f,
+                    playerAgainstPassiveNpcBlocker ? 0.16f : (sleepingBlocker ? 0.22f : 0.28f),
+                    playerAgainstPassiveNpcBlocker ? 0.5f : (sleepingBlocker ? 0.75f : 0.9f),
                     blockerPressure);
+                blockerSlowDownWeight *= passiveNpcApproachFactor;
                 avoidance += (-desired) * weight * blockerSlowDownWeight;
 
                 float blockerDistanceSpeedScale = Mathf.Clamp01(
                     forwardDistance /
-                    Mathf.Max(interactionRadius * (sleepingBlocker ? 3f : 1.6f), 0.001f));
+                    Mathf.Max(
+                        interactionRadius * (playerAgainstPassiveNpcBlocker ? 2.35f : (sleepingBlocker ? 3f : 1.6f)),
+                        0.001f));
                 float blockerClearanceSpeedScale = Mathf.Lerp(
-                    sleepingBlocker ? 0.32f : 0.24f,
+                    playerAgainstPassiveNpcBlocker ? 0.42f : (sleepingBlocker ? 0.32f : 0.24f),
                     1f,
                     blockerClearanceRatio);
                 float blockerSpeedScale = Mathf.Min(blockerDistanceSpeedScale, blockerClearanceSpeedScale);
+                if (playerAgainstPassiveNpcBlocker)
+                {
+                    blockerSpeedScale = Mathf.Lerp(1f, blockerSpeedScale, passiveNpcApproachFactor);
+                }
+
                 speedScale = Mathf.Min(speedScale, blockerSpeedScale);
             }
             else if (nearContact)
@@ -508,23 +537,28 @@ public static class NavigationLocalAvoidanceSolver
                 float repathLaneThreshold = interactionRadius *
                     (yieldToDynamicAgent
                         ? (predictedYieldConflict ? 0.92f : 0.78f)
-                        : (sleepingBlocker ? 0.62f : (stationaryBlocker ? 0.72f : (treatAsBlockingObstacle ? 0.76f : 0.55f))));
+                        : (playerAgainstPassiveNpcBlocker
+                            ? 0.56f
+                            : (sleepingBlocker ? 0.62f : (stationaryBlocker ? 0.72f : (treatAsBlockingObstacle ? 0.76f : 0.55f)))));
                 float repathClearanceThreshold = yieldToDynamicAgent
                     ? Mathf.Max(
                         predictedYieldConflict ? 0.32f : 0.22f,
                         interactionRadius * (predictedYieldConflict ? 0.34f : 0.24f))
                     : (treatAsBlockingObstacle
-                        ? (sleepingBlocker
-                            ? Mathf.Max(0.14f, interactionRadius * 0.14f)
-                            : Mathf.Max(0.2f, interactionRadius * 0.22f))
+                        ? (playerAgainstPassiveNpcBlocker
+                            ? Mathf.Max(0.08f, interactionRadius * 0.12f)
+                            : (sleepingBlocker
+                                ? Mathf.Max(0.14f, interactionRadius * 0.14f)
+                                : Mathf.Max(0.2f, interactionRadius * 0.22f)))
                         : Mathf.Max(0.16f, interactionRadius * 0.2f));
                 bool blockerStillOnCorridor = lateralDistance <= repathLaneThreshold;
                 float blockerForwardReach = interactionRadius *
                     (yieldToDynamicAgent
                         ? (predictedYieldConflict ? 1.7f : 1.35f)
-                        : (sleepingBlocker ? 1.85f : (stationaryBlocker ? 1.6f : 1.2f)));
+                        : (playerAgainstPassiveNpcBlocker ? 1.1f : (sleepingBlocker ? 1.85f : (stationaryBlocker ? 1.6f : 1.2f))));
 
                 if (sleepingBlocker &&
+                    !playerAgainstPassiveNpcBlocker &&
                     blockerStillOnCorridor &&
                     repathForwardDistance >= 0f &&
                     repathForwardDistance <= interactionRadius * 2.4f)
@@ -542,10 +576,10 @@ public static class NavigationLocalAvoidanceSolver
                 else if (treatAsBlockingObstacle &&
                          blockerStillOnCorridor &&
                          currentForwardDistance >= -interactionRadius * 0.05f &&
-                         speedScale <= (sleepingBlocker ? 0.72f : 0.58f) &&
-                         clearance <= (sleepingBlocker
-                            ? Mathf.Max(0.18f, interactionRadius * 0.18f)
-                            : Mathf.Max(0.24f, interactionRadius * 0.24f)))
+                         speedScale <= (playerAgainstPassiveNpcBlocker ? 0.44f : (sleepingBlocker ? 0.72f : 0.58f)) &&
+                         clearance <= (playerAgainstPassiveNpcBlocker
+                            ? Mathf.Max(0.12f, interactionRadius * 0.14f)
+                            : (sleepingBlocker ? Mathf.Max(0.18f, interactionRadius * 0.18f) : Mathf.Max(0.24f, interactionRadius * 0.24f))))
                 {
                     // 静止阻挡体不会自己让开；若仍被压成慢蹭，应尽快转入 detour/repath。
                     shouldRepath = true;
