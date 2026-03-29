@@ -378,6 +378,32 @@
   - 如果还有下一轮 cleanup，继续只围绕这条线程目录的 remaining dirty / untracked 做 split
   - 不恢复 UI 实现 owner，不扩大到 `UI系统` 结构迁移，不吞 `spring-day1` 实现面
 
+## 2026-03-29：第三轮已按整线程目录 docs-tail 完成真实 `preflight -> sync`
+
+- 当前主线：严格按 `2026-03-29_全局警匪定责清扫第三轮_整线程目录docs-tail归仓_01.md` 执行；这轮不再只带 `memory_0.md`，而是把整个 `.codex/threads/Sunset/场景搭建（外包）` 当成唯一 docs-tail 包做真实归仓。
+- 本轮子任务：对整线程目录运行治理模式 `preflight`，通过后立即运行同口径 `sync`；同时不恢复 UI 实现 owner，不碰 `UI系统`，不碰 `spring-day1` 实现面。
+- 本轮新增回执：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-29_全局警匪定责清扫第三轮回执_01.md`
+- 本轮真实执行：
+  1. 已运行：
+     - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -Mode governance -OwnerThread "场景搭建（外包）" -IncludePaths ".codex/threads/Sunset/场景搭建（外包）"`
+  2. `preflight` 结果：
+     - `是否允许按当前模式继续: True`
+     - `own roots remaining dirty 数量: 0`
+  3. 随后已运行：
+     - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action sync -Mode governance -OwnerThread "场景搭建（外包）" -IncludePaths ".codex/threads/Sunset/场景搭建（外包）"`
+  4. `sync` 结果：
+     - 已成功提交并推送
+     - 提交 `SHA = 58ebf240`
+- 本轮结论：
+  - `A｜整线程目录 docs-tail 已真实归仓`
+- 当前恢复点：
+  - 后续如果再恢复这条线程，先读：
+    - `2026-03-29_进度快照.md`
+    - `2026-03-29_全局警匪定责清扫第一轮回执_01.md`
+    - `2026-03-29_全局警匪定责清扫第三轮回执_01.md`
+  - 并继续守住：只保留 docs / governance / 审核分发边界，不恢复 UI 实现 owner
+
 ## 2026-03-29：Workbench 整面与 Prompt formal-face 已补齐 accepted 屏证，当前应停给用户裁定
 
 - 当前主线目标：继续服务 `2026-03-28_UI线程Phase2-Workbench显示链与Prompt正式面收口任务书.md` 这条硬切片，但这轮不再扩实现，而是把现有修正结果收成真正可交的最终屏证据。
