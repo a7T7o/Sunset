@@ -552,3 +552,663 @@
   - 下一步如继续推进，优先进入：
     - `T-P5-01`
   - 但如后续要重新碰 scene / live 热窗，必须重新做准入复核，不得因为 `shared-root-branch-occupancy = neutral` 就误判成 scene 可直接写。
+
+## 2026-03-27｜`0.0.2清盘002` 已拿到 `002` 首轮双向闲聊 live 证据
+
+- 当前主线目标：
+  - 从 `0.0.1全面清盘` 正式转入 `0.0.2清盘002`，先把 `002 / 003` 的 NPC 非正式聊天首个闭环做实，不切去 `Primary.unity`。
+- 本轮子任务：
+  - 先确认 Unity 当前是否卡在 `Play + Pause`。
+  - 再补最小 Editor 验证入口，直接拿 `002` 的非正式聊天 live 证据。
+- 本轮完成：
+  - 已手工执行 `sunset-startup-guard` 等价核查，并显式使用：
+    - `skills-governor`
+    - `sunset-workspace-router`
+    - `sunset-no-red-handoff`
+    - `sunset-unity-validation-loop`
+    - `unity-mcp-orchestrator`
+  - 已确认 Unity 曾处在：
+    - `is_playing = true`
+    - `is_paused = true`
+    - `is_changing = true`
+    的混合态，并已恢复时间流动。
+  - 已新增并持续扩展：
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+  - 当前验证菜单已具备：
+    - 直接触发 `002 / 003` 的非正式聊天
+    - 将玩家移出当前闲聊范围，触发跑开中断
+    - 触发前清掉导航 live validation 的 pending key 与 runner 干扰
+    - 自动 trace 的第一版骨架
+- 本轮关键证据：
+  - Console 已打印：
+    - `[NPCValidation] 已触发 002 的非正式聊天，source=002, boundaryDistance=0.400`
+  - Unity MCP 回读到：
+    - `PlayerNpcChatSessionService.HasActiveConversation = true`
+    - `PlayerThoughtBubblePresenter.IsVisible = true`
+    - `PlayerThoughtBubblePresenter.CurrentBubbleText = "你好，我能在这儿和你说两句吗？"`
+    - `002 -> NPCBubblePresenter.IsBubbleVisible = true`
+    - `002 -> NPCBubblePresenter.CurrentBubbleText = "可以呀，这边正好不吵，你慢慢说。"`
+  - 这说明当前至少已经成立：
+    - 玩家先说
+    - NPC 延迟回复
+    - `002` 可以进入 NPC 非正式聊天
+    - 双气泡同场出现
+- 本轮判断：
+  - `NPC_002_VillageDaughterDialogueContent.asset`
+  - `NPC_003_ResearchDialogueContent.asset`
+    当前都保有 2 条 `exchanges`，所以第二轮 / 跑开中断没拿稳，更像是 live 取证链还不稳定，不是内容资产只剩 1 轮。
+  - 本轮中途已清掉 1 个 own 编译红：
+    - `NPCInformalChatValidationMenu.cs` 误调 `SpringDay1UiLayerUtility`
+    - 已改为本地 bounds 解析
+- 本轮验证：
+  - `validate_script` 已通过：
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+  - `git diff --check` 已通过：
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+  - 项目 compile 当前没有留下本轮 own 红错。
+- 本轮边界：
+  - 没有碰：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*.asset`
+- 当前恢复点：
+  - 下一步优先继续压：
+    - `002` 第二轮推进为什么还没在 live 里稳定拿到
+    - `Break Active Informal Chat` 是否已真正打到玩家退出句 / NPC 反应句
+  - 如果 `002` 仍不稳，再切到 `003` 做同路径复核。
+
+## 2026-03-27｜`0.0.2清盘002` trace 第二刀：代码面继续前进，但 live 窗口被别线 spring-day1 / navigation 验证反复抢占
+
+- 当前主线目标：
+  - 继续只做 `002 / 003` 的 NPC 非正式聊天首个闭环，不切 `Primary.unity`，不碰 `GameInputManager.cs`。
+- 本轮子任务：
+  - 把闭环 trace 改成按真实会话状态推进，拿稳第二轮证据，并把“假装触发成功”的验证噪音收掉。
+- 本轮完成：
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCInformalChatInteractable.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCInformalChatValidationMenu.cs`
+  - 会话服务现已补出最小调试快照与验证专用入口：
+    - `CompletedExchangeCount`
+    - `LastCompletedPlayerLine / LastCompletedNpcLine`
+    - `LastInterruptedPlayerLine / LastInterruptedNpcLine`
+    - `LastConversationEndReason`
+    - `RequestAdvanceOrSkipActiveConversation()`
+    - `TryStartWalkAwayInterruptForValidation()`
+  - 交互外壳已补：
+    - `TryHandleInteract(context)`，验证菜单不再把失败路由记成成功
+  - 验证菜单已升级为：
+    - `002 / 003` closure trace
+    - `002 / 003` interrupt trace
+    - 在 trace 中清导航 pending key / runner
+    - 在 trace 中尝试补完活跃正式对白，降低 spring-day1 干扰
+    - 失败时输出真实 blocker，不再假阳性
+- 本轮验证：
+  - `validate_script` 已通过：
+    - `PlayerNpcChatSessionService.cs`
+    - `NPCInformalChatInteractable.cs`
+    - `NPCInformalChatValidationMenu.cs`
+  - `git diff --check` 已通过
+  - 已拿到更强的 `002` 两轮 live 证据：
+    - 首轮完成日志
+    - 第二轮完成日志
+- 当前 blocker：
+  - Play 现场仍会被外部自动验证抢占：
+    - `SpringDay1LiveValidation`
+    - `DialogueDebugMenu`
+    - `[NavValidation]`
+  - 它们会在同一轮 Play 内自动拉起 `001` 正式对白 / 工作台闪回 / 导航实跑，导致：
+    - `002 interrupt` 仍未拿到稳定 live 通过
+    - `003 closure / interrupt` 仍未拿到干净 live 窗口
+- 当前边界：
+  - 本轮没碰：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese*.asset`
+- 当前恢复点：
+  - 代码和验证链已继续前进，不需要回退到“只写文档解释”
+  - 下一步只要 Play 窗口安静，就优先补：
+    - `002 interrupt`
+    - `003 closure`
+    - `003 interrupt`
+
+## 2026-03-27｜`0.0.2清盘002` 剩余三证补齐，当前恢复到“待白名单收口”
+
+- 当前主线目标：
+  - 继续只做 `002 / 003` 的 NPC 非正式聊天首个闭环，不切 `Primary.unity`，不碰 `GameInputManager.cs`。
+- 本轮子任务：
+  - 直接在真实 Play 现场里补完此前还没放行的 3 条 live 证据。
+- 本轮完成：
+  - 已在被 `NavValidation` 抢跑的窗口里拿到：
+    - `002 interrupt`
+    - `003 closure`
+    - `003 interrupt`
+  - `002 interrupt` 已确认：
+    - 玩家退出句
+    - NPC 反应句
+    - `endReason=WalkAwayInterrupt`
+  - `003 closure` 已确认：
+    - 首轮玩家句 / NPC 句
+    - 第二轮玩家句 / NPC 句
+  - `003 interrupt` 已确认：
+    - 玩家退出句
+    - NPC 反应句
+    - `endReason=WalkAwayInterrupt`
+  - trace 中已明确看到：
+    - `NavValidation runner_disabled`
+    - `NavValidation runner_destroyed`
+    说明当前 NPC trace 至少能在自己的验证窗口里把导航 runner 让开。
+- 本轮验证：
+  - Unity 已退回 Edit Mode。
+  - `validate_script` 已通过 5 份相关脚本。
+  - `git diff --check` 已通过当前 own 代码与文档范围。
+  - 当前仅剩 2 条非阻断 warning：
+    - `PlayerNpcChatSessionService.cs`
+    - `NPCInformalChatInteractable.cs`
+    - `String concatenation in Update() can cause garbage collection issues`
+- 当前边界：
+  - 仍未碰：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+    - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*.asset`
+- 当前恢复点：
+  - `0.0.2清盘002` 当前业务面可判 `done`。
+  - 已尝试执行白名单 sync，但被 same-root own tail 阻断：
+    - `Assets/YYY_Scripts/Service/Player`
+    - `Assets/YYY_Scripts/Story/Interaction`
+    - `.kiro/specs/NPC/2.0.0进一步落地`
+    仍有此前 NPCV2 更早留下的 dirty / untracked
+  - 当前不再卡在 live blocker，而是卡在 Git 收口 blocker：
+    - 需先清掉同根旧尾账
+    - 再做正式 sync
+
+## 2026-03-27｜用户把主线重锚回原始总 prompt 后，已补完自动续聊矩阵、双气泡分型与 `001` NPC 提示卡首轮美化
+
+- 当前主线目标：
+  - 继续服务 `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002`
+  - 但目标已不再只是“`002 / 003` 能跑”，而是按用户原始总 prompt 一起收：
+    - `001` NPC 悬浮提示 UI 首轮美化
+    - `002 / 003` 非正式聊天自动续聊矩阵
+    - 玩家 / NPC 气泡区分、防重叠
+    - 跑开情绪 cue 的最小表现补口
+- 本轮完成：
+  - 已修改：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+    - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs`
+  - 现在的行为变化：
+    - 第二轮自动进入，不再靠再按一次 `E`
+    - `E` 只保留发起 / 跳过当前动效 / 催答
+    - 玩家 / NPC 气泡会在会话期间自动错位
+    - 玩家气泡改成亮色冷调，NPC 保持暖暗调
+    - `reactionCue` 走紧凑情绪 cue 入口
+    - `001` 正式对话的悬浮提示卡已做首轮重构
+- 本轮验证：
+  - `validate_script`
+    - 上述 5 份脚本全部通过
+  - `git diff --check`
+    - 已通过
+  - `live`
+    - `002 interrupt`
+      - `已进入自动续聊观察`
+      - `已在第二轮等待回复阶段直接触发跑开中断`
+    - `003 interrupt`
+      - `已进入自动续聊观察`
+      - `已在第二轮等待回复阶段直接触发跑开中断`
+  - Unity 已退回 Edit Mode
+- 当前还没放行：
+  - `001` 提示卡审美是否过关
+  - `002 / 003` 双气泡画面级是否仍重叠
+  - 玩家真实手按 `E` 的手感
+  - 跑开情绪 cue 目前仍是首版，不是完整表情系统
+- 当前边界：
+  - 本轮未碰：
+    - `Primary.unity` scene 内容
+    - `GameInputManager.cs`
+    - `NPCAutoRoamController.cs`
+    - `DialogueChinese*`
+    - 工作台提示 `SpringDay1WorldHintBubble`
+- 下一步恢复点：
+  - 若用户先验收，则先让用户看：
+    - `001` 提示卡
+    - `002 / 003` 双气泡重叠与风格
+  - 若继续埋头推进，则优先：
+    - same-root 旧尾账清理
+    - 玩家真实 `E` 手感细修
+    - 跑开情绪 cue 继续扩
+
+## 2026-03-27｜用户要求输出“玩家离开的所有情况矩阵”，已按当前真实代码完成归类
+
+- 当前主线目标：
+  - 继续服务 `0.0.2清盘002`，并把 NPC 非正式聊天中“玩家离开”的全部情况用可执行矩阵说清楚。
+- 本轮完成：
+  - 已基于当前真实代码复核：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+  - 已确认当前离开被分成两大类：
+    - `WalkAwayInterrupt`
+    - `Cancelled`
+  - 已确认当前真正有内容分流的只有：
+    - 按关系阶段分流的 `walkAwayReaction`
+  - 已确认当前还没有独立 cause 分类：
+    - 不是“有事先走 / 故意敷衍 / 撩完就跑 / 温柔告辞 / 生气离开”分别走不同流程
+    - 目前只是每个关系阶段里从 `playerExitLines / npcReactionLines / reactionCue / relationshipDelta` 取一套内容
+- 当前恢复点：
+  - 后续如果继续扩“玩家离开矩阵”，正确方向不是再加一堆 if，而是把：
+    - `离开原因`
+    - `离开发生时机`
+    - `关系阶段`
+    - `是否降好感 / 升好感`
+    做成正交维度
+
+## 2026-03-27｜完整交互矩阵文档已落地，后续施工标准已固定
+
+- 当前主线目标：
+  - 把用户口中的“最佳最完美最理想矩阵”落成可执行文档，而不是继续停留在聊天分析。
+- 本轮完成：
+  - 已新增：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-03-27-NPC-非正式聊天完整交互矩阵与查漏补缺方案-01.md`
+  - 文档中已经明确：
+    - 当前真实代码矩阵
+    - 当前已知漏洞
+    - 理想 `LeaveCause / LeavePhase / ExitOutcome`
+    - 具体改文件方向
+    - 后续施工顺序
+- 当前恢复点：
+  - 后续若继续施工，应直接以这份文档为标准推进，不再靠聊天临时回忆需求
+
+## 2026-03-28｜主线继续：先补真未测项，再把离开矩阵 P0 压进代码和 live
+
+- 当前主线目标：
+  - 继续服务 `.kiro/specs/NPC/2.0.0进一步落地/0.0.2清盘002`，按矩阵文档推进 NPC 非正式聊天查漏补缺。
+- 本轮子任务：
+  - 先补此前真正没测到的 NPC 项。
+  - 再实现矩阵 P0：
+    - `PlayerTyping -> 跑开` 卡字
+    - leave grace
+    - cancel cause 拆分
+    - `LeavePhase` 快照
+- 本轮完成：
+  - 已修改：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+  - 已拿到新的 live 证据：
+    - `002 PlayerTyping Interrupt`
+      - `endReason=WalkAwayInterrupt`
+      - `abortCause=DistanceGraceExceeded`
+      - `leavePhase=PlayerSpeaking`
+    - `003 PlayerTyping Interrupt`
+      - `endReason=WalkAwayInterrupt`
+      - `abortCause=DistanceGraceExceeded`
+      - `leavePhase=PlayerSpeaking`
+    - `003` 二轮等待中断回归
+      - `leavePhase=NpcThinking`
+    - `002` 闭环回归
+      - `闭环收尾完成`
+      - `endReason=Completed`
+- 本轮验证：
+  - Unity 多次短 Play 后已退回 Edit Mode。
+  - `validate_script`
+    - 两个改动脚本均通过
+  - `git diff --check`
+    - 通过
+  - Console 当前无新增 own error；仅见旧的 `There are no audio listeners in the scene` warning。
+- 本轮主线判断：
+  - 当前不是“还在猜离开矩阵”，而是 P0 已经真正落地。
+  - 但还没有到全盘完工；下一层仍是：
+    - `LeaveCause` 数据驱动化
+    - `SystemTakeover / TargetInvalid` 专门 trace
+    - 视觉 / 手感终验
+- 恢复点：
+  - 如果下一轮继续写代码，不应再回头修 P0，而是直接进 P1。
+
+## 2026-03-28｜用户临时要求先停测试，已整理出后续无测试推进清单
+
+- 当前主线目标：
+  - 继续完成 NPC `0.0.2清盘002`，但当前先不再占 Unity 做测试。
+- 本轮子任务：
+  - 盘清“现在不需要测试就能继续做的事”和“全部未完成项”。
+- 本轮结论：
+  - 当前最适合继续推进的是 P1/P2 代码层，而不是继续做体验验收。
+  - 最高优先级的无测试任务包括：
+    - `LeaveCause` 数据驱动化
+    - `SystemTakeover / TargetInvalid` 收束实现
+    - 数据结构扩展
+    - 验证菜单静态入口扩充
+    - own 路径收口准备
+- 当前仍需保留到后续测试的项：
+  - `001` 提示卡审美
+  - `002 / 003` 双气泡画面级重叠与风格
+  - 玩家真实 `E` 体感
+
+## 2026-03-28｜继续埋头推进：P1 续接底座与 phase-aware fallback 已落盘
+
+- 当前主线目标：
+  - 继续服务 `.kiro/specs/NPC/2.0.0进一步落地/0.0.2清盘002`，把非正式聊天底层做壮，不去抢用户最终的画面/手感终验。
+- 本轮子任务：
+  - 补“中断后还能接上”的运行时底座。
+  - 给无资产规则时的中断链补 fallback 矩阵，避免逻辑空窗。
+- 本轮完成：
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCInformalChatInterruptMatrixTests.cs`
+  - 服务层已新增：
+    - pending resume snapshot
+    - resumable cause / phase 白名单
+    - 同 NPC 续接当前 bundle / exchange 的逻辑
+    - `DistanceGraceExceeded / BlockingUi / DialogueTakeover` 的 phase-aware fallback reaction
+  - 测试层已新增：
+    - 续接轮次计算
+    - 过期失效
+    - 跨 NPC 不串线
+    - `NpcSpeaking` fallback reaction
+- 本轮验证：
+  - `validate_script`
+    - 上述 2 个脚本通过
+  - `git diff --check`
+    - 通过
+  - Console 当前 external blocker 仍是：
+    - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+    - `SpringDay1WorldHintBubble.HideIfExists` 缺失
+  - 本轮 own warning：
+    - `PlayerNpcChatSessionService.cs`
+    - `String concatenation in Update() can cause garbage collection issues`
+- 当前恢复点：
+  - 下一步优先继续补：
+    - `SystemTakeover / TargetInvalid` 的验证入口
+    - continuity 从“续轮次”到“续语义”的进一步设计
+  - 当前 own 路径仍未 clean：
+    - `PlayerNpcChatSessionService.cs`
+    - `NPCInformalChatInterruptMatrixTests.cs`
+    - 及其 `.meta`
+
+## 2026-03-28｜继续埋头推进：resume 规则数据化与续聊 trace 工具链已补齐
+
+- 当前主线目标：
+  - 继续服务 `0.0.2清盘002`，在不做用户终验的前提下，把 NPC continuity 做成可配置、可验证的底层系统。
+- 本轮子任务：
+  - 把续聊补口接进数据层。
+  - 把 `BlockingUi / DialogueTakeover` 的续聊 trace 做进 Editor 验证菜单。
+- 本轮完成：
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\NPCDialogueContentProfile.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\NPCRoamProfile.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCInformalChatInteractable.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCInformalChatValidationMenu.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCInformalChatInterruptMatrixTests.cs`
+  - 当前 continuity 已具备：
+    - 配置化 resume rule
+    - fallback resume intro
+    - 续聊 trace 入口
+    - resume rule Editor 测试
+- 本轮验证：
+  - 上述 6 个脚本 `validate_script` 通过
+  - `git diff --check` 通过
+  - own warning：
+    - `NPCInformalChatInteractable.cs`
+    - `PlayerNpcChatSessionService.cs`
+    - 均为 `String concatenation in Update() can cause garbage collection issues`
+  - external blocker 未变：
+    - `NPCDialogueInteractable.cs`
+    - `CraftingStationInteractable.cs`
+    - `SpringDay1WorldHintBubble.HideIfExists`
+- 当前恢复点：
+  - 仍未到“只能等测试”的阶段
+  - 还可以继续做：
+    - `TargetInvalid` 独立验证入口
+    - continuity outcome / cooldown 的进一步拆分
+
+## 2026-03-28｜用户临时贴出编译错后，本轮已清错并继续补底层
+
+- 当前主线目标：
+  - 先修掉 `NPCInformalChatValidationMenu.cs` 的 `CS7036`，再继续纯底层推进，不停在“只修错不做事”。
+- 本轮完成：
+  - 已清掉：
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+    - `StartValidationTrace(...)` 漏 `interruptOnly` 的 4 条 `CS7036`
+  - 已继续补：
+    - `TargetInvalid` trace 入口
+    - `TargetInvalid / PlayerUnavailable / ServiceDisabled` fallback snapshot
+    - resume intro cooldown
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCInformalChatValidationMenu.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCInformalChatInterruptMatrixTests.cs`
+- 本轮验证：
+  - `validate_script`
+    - 上述 3 个脚本通过
+  - `git diff --check`
+    - 通过
+  - 编译刷新后，Console 已不再出现这轮 own `CS7036`
+- 当前恢复点：
+  - 仍未到“必须停给用户测”的阶段
+  - 还剩更小的纯底层优化可继续做
+
+## 2026-03-28｜继续埋头推进：resume outcome 已落地，trace 现在能看懂续接结果
+
+- 当前主线目标：
+  - 继续服务 `0.0.2清盘002`，把 NPC 非正式聊天底层从“可续接”推进到“可解释、可验证”。
+- 本轮完成：
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPCInformalChatValidationMenu.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NPCInformalChatInterruptMatrixTests.cs`
+  - 已新增：
+    - `ConversationResumeOutcome`
+    - `LastResumeOutcomeName`
+    - `LastResumeNpcId`
+  - 续聊 trace 现在会显式告诉我们：
+    - 是正常补口续上
+    - 还是被 cooldown 压掉
+    - 还是 pending snapshot 过期 / 无效 / 换 NPC 失效
+- 本轮验证：
+  - 3 个脚本 `validate_script` 通过
+  - `git diff --check` 通过
+  - 编译刷新后，这轮 own 代码没有新增红
+  - 当前 Console 新可见项是外部现场信号：
+    - missing script
+    - font ellipsis 缺失
+    - `OcclusionManager` 超时
+- 当前恢复点：
+  - 仍未到“只能等测试”的阶段
+  - 纯底层后续更像是 warning / 细分结果语义优化，而不是大结构缺失
+
+## 2026-03-28｜用户放开 Unity 后的复测结果
+
+- 当前主线目标：
+  - 趁用户不再占窗口，补新能力的 live 证据，而不是只停在脚本通过。
+- 本轮完成：
+  - 已成功跑通：
+    - `002 BlockingUi Resume`
+  - 已拿到：
+    - `pending resume snapshot`
+    - `resume intro`
+    - `resumeOutcome=ResumedWithIntro`
+    - 第二轮继续完成
+- 当前 blocker：
+  - `002 TargetInvalid Abort`
+    - 两次尝试都被导航自动验证抢跑
+    - 当前判定为外部 live blocker，不是 NPC own red
+- 现场：
+  - 已退回 Edit Mode
+  - Unity 未关闭
+- 当前恢复点：
+  - 下一轮如果继续测，优先还原一个不被 `[NavValidation]` 抢跑的窗口，再补 `TargetInvalid / DialogueTakeover`
+
+## 2026-03-28｜补记现场断点：`002 DialogueTakeover Resume` 一次卡在首字后，Unity 已回到非 Play
+
+- 当前主线目标：
+  - 继续把 NPC 非正式聊天底层压到只剩 live/体验项，并把真正的 live 异常点钉清楚。
+- 本轮补记事实：
+  - 跑 `002 DialogueTakeover Resume` 时，trace 曾超时停在：
+    - `state=PlayerTyping`
+    - `playerText="我"`
+    - `npcText=""`
+  - 这更像“玩家首句打字被卡住”的异常，不是已证实的 resume 后半段逻辑坏死。
+  - 之后想补跑 `002 closure` 做基线对照，但当时 Play 现场已不稳，因此没有形成可复用结论。
+  - 随后 stop 返回：
+    - `Already stopped (not in play mode)`
+  - Console 已清。
+- 当前恢复点：
+  - 当前应按“Unity 已在 Edit Mode，需重新进 fresh Play”理解。
+  - 下一步最优先：
+    - 先重建稳定 Play
+    - 先跑 `002 closure`
+    - 再跑 `002 DialogueTakeover Resume`
+    - 若仍卡首字，直接转代码排查 `PlayerTyping` 链。
+
+## 2026-03-28｜fresh Play 补测完成：`resume / target-invalid` 关键 live 证据已补齐
+
+- 当前主线目标：
+  - 继续把 NPC 非正式聊天底层压到“只剩用户终验项”，不让上一轮的半截 live 误导后续判断。
+- 本轮完成：
+  - 已重跑并拿证：
+    - `002 closure`
+    - `002 DialogueTakeover Resume`
+    - `003 BlockingUi Resume`
+    - `003 DialogueTakeover Resume`
+    - `002 TargetInvalid Abort`
+    - `003 TargetInvalid Abort`
+  - `002 closure` 已再次明确：
+    - `endReason=Completed`
+  - `002 / 003 DialogueTakeover Resume`
+    - 都已打到 `resumeOutcome=ResumedWithIntro`
+    - `002` 在验证菜单补口后已进一步打到 `endReason=Completed`
+  - `002 / 003 TargetInvalid Abort`
+    - 都已打到：
+      - `abortCause=TargetInvalid`
+      - `endReason=TargetInvalid`
+      - `leavePhase=BetweenTurns`
+  - `NPCInformalChatValidationMenu.cs`
+    - 已顺手修正续聊 trace 过早打印成功日志的问题
+    - 现在不会再把 `endReason=None` 当最终成功记录
+- 本轮判断：
+  - 之前那次 `PlayerTyping / "我"` 卡首字，当前应归因成不稳定 Play 现场，而不是主逻辑红。
+  - 这轮还观察到：
+    - `[NavValidation] pending_action_suppressed_by_npc_validation`
+    - `[NavValidation] dispatch_suppressed_by_npc_validation source=entered_play_mode`
+    说明导航抢跑这条线上已有显式压制。
+- 本轮验证：
+  - `validate_script`
+    - `NPCInformalChatValidationMenu.cs` 通过
+    - 关键 5 个 NPC own 脚本通过
+  - `git diff --check`
+    - own 代码与本轮 memory/doc 通过
+  - Unity 已主动退回 Edit Mode
+- 当前恢复点：
+  - 这条线离“只剩用户体验终验”更近了。
+  - 真正仍待人工验收的还是：
+    - `001` 提示卡审美
+    - `002 / 003` 双气泡真实镜头与重叠
+    - 玩家真实 `E` 体感
+
+## 2026-03-29｜全局警匪定责清扫第一轮自查已完成
+
+- 当前主线目标：
+  - 这轮不是继续补 NPC 功能，而是完成 `NPCV2` 在“全局警匪定责清扫”里的第一轮自查，重新认死当前 own / mixed / foreign / historical residue。
+- 本轮子任务：
+  - 完整回读 `2026-03-29_全局警匪定责清扫第一轮认定书_01.md`、`NPCV2 / NPC` 线程记忆、`2.0.0进一步落地` 根记忆、`0.0.2清盘002` 材料与 `spring-day1V2` 最新回执；
+  - 对 `NpcWorldHintBubble.cs`、`NPCBubblePresenter.cs`、`NPCDialogueInteractable.cs`、`DialogueManager.cs`、旧 `NPC` 残留与 `Primary.unity` 事故面逐项拍板；
+  - 按最终认定的 own file set 回答当前是否 clean。
+- 本轮完成：
+  - 已把 `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs` 正式认定为 `NPCV2 current own`
+  - 已把 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 认定为旧 `NPC` 历史 own 延续到 `NPCV2` 的 active bubble face
+  - 已把 `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs` 认定为 `mixed`
+  - 已把 `Assets/YYY_Scripts/Story/Managers/DialogueManager.cs` 认定为 `foreign`
+  - 已确认旧 `NPC` 线程不再保留 active repo-side owner 身份，只保留历史责任证据
+  - 已确认当前整张 `Assets/000_Scenes/Primary.unity` 不再挂 `NPCV2`，我只认历史 `HomeAnchor / Inspector auto-repair` residue
+  - 已回写正式回执：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\2026-03-29_全局警匪定责清扫第一轮回执_01.md`
+  - 当前 own 路径判断为：
+    - `no`
+- 当前恢复点：
+  - 第一轮自查已结束；若后续继续第二轮清扫，只应继续分给我 NPC 非正式聊天、NPC 气泡 / 提示壳、NPC 关系 / 内容这组 own 面
+  - 不应再把整张 `Primary.unity`、`DialogueManager.cs` 或整份 mixed `NPCDialogueInteractable.cs` 继续拨给我
+
+## 2026-03-29｜全局警匪定责清扫第二轮执行：still-own cleanup set 已固定，但当前 own 仍不 clean
+
+- 当前主线目标：
+  - 这轮不是继续补 NPC 功能，也不是继续跑 live，而是把 `NPCV2` 已认死的 still-own 面收成第二轮 cleanup 包，并把 exact remaining 压到文件级。
+- 本轮子任务：
+  - 严格只复核执行书允许的 still-own file set；
+  - 明确 mixed / foreign / scene 面我没有再吞；
+  - 只对 `NPCDialogueInteractable.cs` 报 exact residue，不整份 claim。
+- 本轮完成：
+  - 已把第二轮 cleanup set 固定为：
+    - NPC 非正式聊天链
+    - `NpcWorldHintBubble.cs`
+    - `NPCBubblePresenter.cs`
+    - NPC 关系 / 内容 / 近身反馈
+    - 我自己的线程 / 工作区 docs 与 memory
+  - 已明确没有再吞：
+    - `DialogueManager.cs`
+    - 整份 `NPCDialogueInteractable.cs`
+    - 整张 `Primary.unity`
+  - 已把 `NPCDialogueInteractable.cs` 的 exact residue 压到：
+    - `NpcWorldHintBubble.HideIfExists(transform)` in `OnDisable()`
+    - `NpcWorldHintBubble.HideIfExists(transform)` in `OnInteract()`
+    - `UpdateHintBubble()` 里整段 `NpcWorldHintBubble.HideIfExists/EnsureRuntime/Instance.Show(..., "按 E 交谈")`
+  - 已按文件级重算 still-own dirty / untracked，结论：
+    - `current own path = no`
+  - 已回写正式回执：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\2026-03-29_全局警匪定责清扫第二轮回执_01.md`
+- 当前恢复点：
+  - 第二轮 cleanup execution 已完成“范围收窄 + exact remaining 报实”
+  - 下一步若继续，只能顺着这份 still-own cleanup set 清自己的 `M / ??`，不能再漂回 Day1 / scene / mixed 面
+
+## 2026-03-29｜全局警匪定责清扫第三轮：真实 preflight 已跑，first real blocker 已钉死
+
+- 当前主线目标：
+  - 这轮不是继续扩 mixed / foreign，而是把 second-round still-own 包真的拿去跑 `preflight -> sync`。
+- 本轮子任务：
+  - 按 third-round 执行书把 still-own 文件和 own docs 收成白名单；
+  - 真实运行 `preflight`；
+  - 只有在 `preflight` 通过时才继续 `sync`。
+- 本轮完成：
+  - 已使用稳定 launcher 真实运行：
+    - `sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread NPCV2 -IncludePaths <still-own package>`
+  - `preflight` 结果：
+    - `False`
+  - 本轮未进入 `sync`
+  - 第一真实 blocker 已钉死为：
+    - `same-root remaining dirty/untracked`
+    - first preview path = `Assets/Editor/Story/DialogueDebugMenu.cs`
+  - 当前 own 路径结论仍为：
+    - `no`
+- 当前恢复点：
+  - 这轮已经满足“真实尝试归仓 + 第一真实 blocker 已钉死”
+  - 若后续继续，不是重讲 mixed / foreign，而是先处理 still-own 白名单所属同根残留，再重新跑 `preflight`
+
+## 2026-03-29｜全局警匪定责清扫第三轮复跑：`main@6aaf4e93` 仍卡在 same-root
+
+- 当前主线目标：
+  - 用户再次要求只做 second-round still-own 包的真实 `preflight -> sync`，不要再扩 mixed / foreign 说明。
+- 本轮子任务：
+  - 完整回读第三轮执行书；
+  - 用稳定 launcher 在当前 live 现场重跑 still-own 白名单 `preflight`；
+  - 若放行才继续 `sync`，否则只钉第一真实 blocker。
+- 本轮完成：
+  - 已在 `main @ 6aaf4e93` 真实运行：
+    - `sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread NPCV2 -IncludePaths <second-round still-own package>`
+  - `preflight` 结果仍为：
+    - `False`
+  - 本轮未进入 `sync`
+  - 第一真实 blocker 仍为：
+    - `same-root remaining dirty/untracked`
+    - `first exact path = Assets/Editor/Story/DialogueDebugMenu.cs`
+    - `exact reason = 位于本轮白名单所属 own root Assets/Editor 下，但未纳入 IncludePaths`
+  - 脚本同时给出：
+    - `own roots remaining dirty 数量 = 27`
+  - 当前 own 路径结论仍为：
+    - `no`
+- 当前恢复点：
+  - 这轮已经再次满足“真实 preflight 已跑 + 第一真实 blocker 已钉死”
+  - 若后续继续，不该重讲 mixed / foreign，也不该假装进入 `sync`；只能先清 third-round still-own 所属同根残留，再重跑 `preflight`

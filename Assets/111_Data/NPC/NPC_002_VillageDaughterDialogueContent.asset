@@ -41,6 +41,148 @@ MonoBehaviour:
     playerNearbyLines:
     - 你来了我就想多说两句，别急着走开呀。
     - 要是你累了，就跟我一起在这边偷会儿懒。
+  defaultInformalConversationBundles: []
+  relationshipStageInformalChatSets:
+  - relationshipStage: 0
+    conversationBundles:
+    - bundleId: 002-stranger-sun-corner
+      exchanges:
+      - exchangeId: intro
+        playerLines:
+        - 你好，我能在这儿和你说两句吗？
+        - 我刚走到这边，想先和你打个招呼。
+        npcReplyLines:
+        - 可以呀，这边正好不吵，你慢慢说。
+        - 当然可以，你先别紧张，这里挺舒服的。
+        npcReplyDelayMin: 0.62
+        npcReplyDelayMax: 0.92
+      - exchangeId: weather
+        playerLines:
+        - 这边的太阳真好，站一下就没那么累了。
+        - 我刚才还在想，要不要先在这里透口气。
+        npcReplyLines:
+        - 嗯，我也喜欢这一块，像是能把心情晒松一点。
+        - 你要是愿意，就多待一会儿，我不嫌你占地方。
+        npcReplyDelayMin: 0.58
+        npcReplyDelayMax: 0.86
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: ？
+      playerExitLines:
+      - 我先去别处看看，回头再来。
+      - 先不打扰你了，我走啦。
+      npcReactionLines:
+      - 欸？才刚开口就走啦。
+      - 好吧，那你路上慢一点。
+      relationshipDelta: 0
+      npcReactionDelay: 0.36
+  - relationshipStage: 1
+    conversationBundles:
+    - bundleId: 002-acquainted-rest
+      exchanges:
+      - exchangeId: greet
+        playerLines:
+        - 我又来你这边躲会儿热闹了。
+        - 我刚绕了一圈，还是觉得你这边最舒服。
+        npcReplyLines:
+        - 那你算找对地方了，我本来就想留个安静角落给你。
+        - 我就知道你会往这边来，风一吹人都没那么急了。
+        npcReplyDelayMin: 0.58
+        npcReplyDelayMax: 0.88
+      - exchangeId: stay
+        playerLines:
+        - 你今天看起来心情不错。
+        - 你站在这儿的时候，连阳光都显得慢一点。
+        npcReplyLines:
+        - 被你这么一说，我真想再偷懒一会儿。
+        - 那你可别急着走，我刚好也想多跟你说两句。
+        npcReplyDelayMin: 0.54
+        npcReplyDelayMax: 0.82
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: ……
+      playerExitLines:
+      - 我先去办点事，等会儿再来陪你。
+      - 先记着，我待会儿再回来。
+      npcReactionLines:
+      - 诶？你跑得也太快了吧。
+      - 那你可别让我等太久呀。
+      relationshipDelta: 0
+      npcReactionDelay: 0.38
+  - relationshipStage: 2
+    conversationBundles:
+    - bundleId: 002-familiar-sunbeam
+      exchanges:
+      - exchangeId: open
+        playerLines:
+        - 我一过来就觉得这边安静多了。
+        - 还是你这边好，能让人先把气喘匀。
+        npcReplyLines:
+        - 你要是愿意，我以后都给你留这个位置。
+        - 你每次这么说，我就觉得这里真成了我们的偷闲角落。
+        npcReplyDelayMin: 0.56
+        npcReplyDelayMax: 0.82
+      - exchangeId: linger
+        playerLines:
+        - 我本来只想站一下，结果又想继续听你说话了。
+        - 你一开口，我就不想那么快走了。
+        npcReplyLines:
+        - 那就别急呀，我正好也舍不得你一下就走。
+        - 你肯多待一会儿，我心里会亮堂很多。
+        npcReplyDelayMin: 0.52
+        npcReplyDelayMax: 0.76
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: 欸？
+      playerExitLines:
+      - 我先跑一趟，回来再接着听你说。
+      - 等我一下，我很快就回来。
+      npcReactionLines:
+      - 你又突然跑掉，我话还没说完呢。
+      - 好吧，那你回来时记得先来找我。
+      relationshipDelta: -1
+      npcReactionDelay: 0.42
+  - relationshipStage: 3
+    conversationBundles:
+    - bundleId: 002-close-sunbeam
+      exchanges:
+      - exchangeId: warm-open
+        playerLines:
+        - 我一看见你，就想先过来和你说两句。
+        - 今天不先来找你，我总觉得少了点什么。
+        npcReplyLines:
+        - 你这么说，我这边一下就暖起来了。
+        - 那你可得多待一会儿，我刚才还在想你会不会过来。
+        npcReplyDelayMin: 0.54
+        npcReplyDelayMax: 0.78
+      - exchangeId: warm-close
+        playerLines:
+        - 只要你还在这儿站着，我就会想再靠近一点。
+        - 跟你说几句，我今天的疲惫就轻了一半。
+        npcReplyLines:
+        - 你别这样，我会真的舍不得你走开的。
+        - 那你以后累了就直接来，我这边永远给你留位置。
+        npcReplyDelayMin: 0.5
+        npcReplyDelayMax: 0.72
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: 唉
+      playerExitLines:
+      - 我先走一步，等会儿一定回来找你。
+      - 我得先去办事，你可别偷偷走开。
+      npcReactionLines:
+      - 你又这样突然跑掉，我会想你的。
+      - 那你快点回来，不然我真的要去找你了。
+      relationshipDelta: 0
+      npcReactionDelay: 0.46
+  defaultWalkAwayReaction:
+    reactionCue: ……
+    playerExitLines:
+    - 我先走一步，晚点再来找你。
+    npcReactionLines:
+    - 好吧，那你记得回来和我说一声。
+    relationshipDelta: 0
+    npcReactionDelay: 0.4
   defaultChatInitiatorLines:
   - 你也来这边透口气呀？
   - 刚才那边有点吃力，我还是更喜欢这儿。

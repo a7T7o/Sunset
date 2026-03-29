@@ -41,6 +41,148 @@ MonoBehaviour:
     playerNearbyLines:
     - 你在旁边时，我连推测都会更有把握一点。
     - 先别走，我想把这次观察和你说清楚。
+  defaultInformalConversationBundles: []
+  relationshipStageInformalChatSets:
+  - relationshipStage: 0
+    conversationBundles:
+    - bundleId: 003-stranger-observe
+      exchanges:
+      - exchangeId: opening
+        playerLines:
+        - 我可以在这儿和你说几句吗？
+        - 你刚刚一直在看这边，我有点好奇你在记什么。
+        npcReplyLines:
+        - 可以，但你先别乱动，我想把这个观察收完整。
+        - 当然，不过你站在这儿时，最好先保持现在这个位置。
+        npcReplyDelayMin: 0.68
+        npcReplyDelayMax: 0.98
+      - exchangeId: curiosity
+        playerLines:
+        - 原来你真的会把这些路线变化都记下来。
+        - 你看得这么认真，我都不敢大声说话了。
+        npcReplyLines:
+        - 因为一点小变化都会让结果偏掉，所以我得再确认一遍。
+        - 你要是不介意，我想把你刚才的反应也记进去。
+        npcReplyDelayMin: 0.62
+        npcReplyDelayMax: 0.9
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: ？
+      playerExitLines:
+      - 我先去别处转一圈，等会儿再来。
+      - 你先继续观察，我回头再找你。
+      npcReactionLines:
+      - 欸？我这边的记录才刚开始。
+      - 好吧，那我先把目前看到的记下来。
+      relationshipDelta: 0
+      npcReactionDelay: 0.4
+  - relationshipStage: 1
+    conversationBundles:
+    - bundleId: 003-acquainted-check
+      exchanges:
+      - exchangeId: reopen
+        playerLines:
+        - 我又绕回来了，你这边还有新发现吗？
+        - 我刚经过这里，就想听听你又观察到了什么。
+        npcReplyLines:
+        - 有，而且你回来得正好，我刚想对一下前后的差别。
+        - 嗯，你这一趟回来，正好能补上我刚才缺的那段对照。
+        npcReplyDelayMin: 0.62
+        npcReplyDelayMax: 0.9
+      - exchangeId: listen
+        playerLines:
+        - 那你慢慢说，我这次尽量不打断你。
+        - 你要是愿意，我可以再配合你站一会儿。
+        npcReplyLines:
+        - 这样就很好，你一配合，我很多判断都会更清楚。
+        - 谢谢，你肯留下来，我的记录会准不少。
+        npcReplyDelayMin: 0.58
+        npcReplyDelayMax: 0.84
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: ……
+      playerExitLines:
+      - 我先走一下，待会儿再回来让你继续看。
+      - 先记着，我很快回来。
+      npcReactionLines:
+      - 好吧，我先把这一段停在这里。
+      - 你回来时记得告诉我一声，我好把记录续上。
+      relationshipDelta: 0
+      npcReactionDelay: 0.42
+  - relationshipStage: 2
+    conversationBundles:
+    - bundleId: 003-familiar-sync
+      exchanges:
+      - exchangeId: trust-open
+        playerLines:
+        - 我一靠近，你是不是又有新数据了？
+        - 你看我这一趟走过来，有没有和你刚才的推测对上？
+        npcReplyLines:
+        - 有，而且比我预估的还要贴近，你来得正是时候。
+        - 对上了，你一出现，我刚才那串结论一下就稳住了。
+        npcReplyDelayMin: 0.56
+        npcReplyDelayMax: 0.8
+      - exchangeId: partner
+        playerLines:
+        - 那我再多站一会儿，让你把这次看完整。
+        - 你要是还想继续看，我可以先不走。
+        npcReplyLines:
+        - 太好了，你肯留着，我就能把剩下那部分也核完。
+        - 嗯，你这样配合，我会安心很多。
+        npcReplyDelayMin: 0.52
+        npcReplyDelayMax: 0.78
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: 欸？
+      playerExitLines:
+      - 我先跑一趟，等会儿回来继续给你当样本。
+      - 先记住这里，我回来再让你对照。
+      npcReactionLines:
+      - 你又突然跑掉，我这边差一点就能对完了。
+      - 好吧，那你回来时别忘了走同一条线。
+      relationshipDelta: -1
+      npcReactionDelay: 0.44
+  - relationshipStage: 3
+    conversationBundles:
+    - bundleId: 003-close-anchor
+      exchanges:
+      - exchangeId: close-open
+        playerLines:
+        - 我先来找你，不然你又要一个人盯着这些变化了。
+        - 你一认真起来就会忘时间，所以我先来陪你说两句。
+        npcReplyLines:
+        - 你来了就好，我刚才还在想要不要去找你做最后一次对照。
+        - 嗯，你在旁边时，我连心里的噪声都会小很多。
+        npcReplyDelayMin: 0.54
+        npcReplyDelayMax: 0.76
+      - exchangeId: close-follow
+        playerLines:
+        - 那我就继续站在这儿，你慢慢把想说的说完。
+        - 你别急，我会听到最后的。
+        npcReplyLines:
+        - 谢谢，你这么一说，我整个人都稳下来了。
+        - 好，那你先别走，我想把这次观察第一个告诉你。
+        npcReplyDelayMin: 0.5
+        npcReplyDelayMax: 0.7
+      completionRelationshipDelta: 1
+    walkAwayReaction:
+      reactionCue: 唉
+      playerExitLines:
+      - 我先走一步，等会儿一定回来听你说完。
+      - 先让我去处理点事，你别把结论一个人憋着。
+      npcReactionLines:
+      - 你这样突然离开，我会一下子没法把注意力收回来。
+      - 那你快点回来，我想第一个把结果告诉你。
+      relationshipDelta: 0
+      npcReactionDelay: 0.48
+  defaultWalkAwayReaction:
+    reactionCue: ……
+    playerExitLines:
+    - 我先走一步，等会儿再回来找你。
+    npcReactionLines:
+    - 好吧，那我先把现在这一段记住。
+    relationshipDelta: 0
+    npcReactionDelay: 0.42
   defaultChatInitiatorLines:
   - 我刚在记这边的通行节奏。
   - 你要是不急，我想再看一眼这里的变化。
