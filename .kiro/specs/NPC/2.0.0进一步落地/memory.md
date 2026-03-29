@@ -1450,3 +1450,23 @@
 - 当前恢复点：
   - `NPCV2` 这轮依旧停在 `B｜第一真实阻断已钉死`
   - 若后续还要推进，不是继续解释边界，而是先把 still-own 所属同根残留收干净，再重跑 `preflight`
+
+## 2026-03-29｜`NPCV2` 第四轮：`Assets/111_Data/NPC + own docs/thread` 已先独立上 git
+
+- 当前主线目标：
+  - 不再继续拿 mixed-root 大根撞 preflight，而是只把 `Assets/111_Data/NPC + own docs/thread` 这组可自归仓子根先独立收口。
+- 本轮完成：
+  - 已完整回读第四轮执行书
+  - 已在 `main @ 6aaf4e93` 真实运行这组子根白名单 `preflight`
+  - `preflight = True`
+  - 脚本关键信号：
+    - `own roots = Assets/111_Data/NPC, .kiro/specs/NPC/2.0.0进一步落地, .codex/threads/Sunset/NPCV2`
+    - `own roots remaining dirty 数量 = 0`
+  - 已继续真实运行 `sync`
+  - 当前这组可自归仓子根首次上 git 提交 SHA：
+    - `70fdd44f`
+  - 当前 own 路径结论：
+    - `yes`
+- 当前恢复点：
+  - `NPCV2` 已从“第三轮 same-root blocker”推进到“第四轮可自归仓子根先独立收口完成”
+  - 后续若继续，应把 mixed-root 大根作为独立 cleanup 处理，不再重新污染这组已可归仓子根

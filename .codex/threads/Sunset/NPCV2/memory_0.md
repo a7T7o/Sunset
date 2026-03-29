@@ -1212,3 +1212,25 @@
 - 当前恢复点：
   - 这轮已经再次满足“真实 preflight 已跑 + 第一真实 blocker 已钉死”
   - 若后续继续，不该重讲 mixed / foreign，也不该假装进入 `sync`；只能先清 third-round still-own 所属同根残留，再重跑 `preflight`
+
+## 2026-03-29｜全局警匪定责清扫第四轮：可自归仓子根已独立上 git
+
+- 当前主线目标：
+  - 只把 `Assets/111_Data/NPC + own docs/thread` 这组可自归仓子根真实上 git，不再带 `Assets/Editor`、`Controller/NPC`、`Service/Player`、`Story/UI`、`Story/Interaction`、`Data`、`YYY_Tests/Editor`。
+- 本轮子任务：
+  - 完整回读第四轮执行书；
+  - 只用可自归仓子根白名单运行真实 `preflight -> sync`；
+  - 把结果回写到第四轮回执。
+- 本轮完成：
+  - 已在 `main @ 6aaf4e93` 真实运行第四轮子根白名单 `preflight`
+  - `preflight` 结果：
+    - `True`
+    - `own roots remaining dirty 数量 = 0`
+  - 已继续真实运行 `sync`
+  - 可自归仓子根首次上 git 提交 SHA：
+    - `70fdd44f`
+  - 当前 own 路径结论：
+    - `yes`
+- 当前恢复点：
+  - 这轮已完成“可自归仓子根先上 git”
+  - 若后续继续，不该再把 mixed-root 大根塞回这组子根包；应另开 mixed-root cleanup
