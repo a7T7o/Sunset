@@ -4738,3 +4738,25 @@
 - 当前恢复点：
   - 在 `NavigationLiveValidationRunner.cs` / `NavigationLiveValidationMenu.cs` 的代码闸门恢复通过前，这组 `Service/Navigation + own docs/thread` 子根仍不能 safe sync；
   - 本轮按“第一真实阻断已钉死”收口，不 claim `已上 git`。
+
+## 2026-03-29（全局警匪定责清扫第五轮：已去掉 mixed 硬依赖，`Service/Navigation` 实现包真实归仓）
+
+- 当前主线目标：
+  - 只在 `Service/Navigation + own docs/thread` 里剥掉 mixed-root 硬编译依赖，然后真实跑第五轮 `preflight -> sync`。
+- 本轮已完成事项：
+  1. 在 `Assets/YYY_Scripts/Service/Navigation/Editor/NavigationLiveValidationMenu.cs` 内，把 `NPCInformalChatValidationMenu.ExclusiveValidationLockKey` 改成本地常量 `Sunset.NpcInformalChatValidation.Active`。
+  2. 在 `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs` 内新增 `PlayerAutoNavigatorDebugCompat / PlayerAutoNavigatorDebugSnapshot`，把所有 `PlayerAutoNavigator.Debug*` 直接访问改成兼容快照读取。
+  3. 在 `Assets/YYY_Scripts/Service/Navigation/NavigationStaticPointValidationRunner.cs` 内同步改用同一兼容快照，不再直接依赖 `PlayerAutoNavigator` mixed debug API。
+  4. 用 still-own 白名单真实运行了第五轮 `preflight`：
+     - `own roots remaining dirty = 0`
+     - `代码闸门通过 = True`
+     - `Assembly-CSharp / Assembly-CSharp-Editor` 均通过
+  5. 随后对同一白名单真实运行了 `sync`，实现包已上 git：
+     - `acfc7f27`
+- 关键结论：
+  1. 第五轮已把 blocker 从“`Service/Navigation` 编译红”推进成“实现包可独立归仓”；
+  2. 当前 `Service/Navigation` 不再对 `PlayerAutoNavigator.cs` mixed diff 存在硬编译依赖；
+  3. 当前 `NavigationLiveValidationMenu.cs` 不再对 `NPCInformalChatValidationMenu.cs` 存在硬编译依赖。
+- 当前恢复点：
+  - 实现面已经归仓完成；
+  - 剩余只该补第五轮回执、child memory、thread memory 和 `skill-trigger-log` 的审计收口，不再继续改导航代码。

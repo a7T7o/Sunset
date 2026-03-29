@@ -2810,3 +2810,30 @@
 - 当前线程恢复点：
   - 如果继续放行 `导航检查V2`，直接转发 `-15`；
   - 父线程下一轮先审 blocker truth，再审 fresh compile/live，最后才审 still fail 的责任点。
+
+## 2026-03-29（全局警匪定责清扫第五轮：只靠 `Service/Navigation + own docs/thread` 已真实过 `preflight -> sync`）
+
+- 当前主线目标：
+  - 用户要求第五轮只在 `Service/Navigation + own docs/thread` 里去掉 mixed-root 硬编译依赖，并重新跑真实 `preflight -> sync`。
+- 本轮已完成事项：
+  1. 显式使用：
+     - `skills-governor`
+     - `sunset-workspace-router`
+     - `sunset-no-red-handoff`
+     并继续对 `sunset-startup-guard` 执行手工等价前置核查。
+  2. 已完整重读第五轮执行书与第四轮回执，并把热区收缩到：
+     - `NavigationLiveValidationMenu.cs` 对 `NPCInformalChatValidationMenu.ExclusiveValidationLockKey` 的直接引用
+     - `NavigationLiveValidationRunner.cs / NavigationStaticPointValidationRunner.cs` 对 `PlayerAutoNavigator.Debug*` 的直接编译访问
+  3. 已在 `NavigationLiveValidationMenu.cs` 内改成本地常量锁 key。
+  4. 已在 `NavigationLiveValidationRunner.cs` 内新增 `PlayerAutoNavigatorDebugCompat / PlayerAutoNavigatorDebugSnapshot`，并把相关 direct access 全部改成兼容快照读取。
+  5. 已在 `NavigationStaticPointValidationRunner.cs` 内同步切到同一兼容快照。
+  6. 已用 still-own 白名单真实运行第五轮 `preflight`，结果通过。
+  7. 已对同一白名单真实运行 `sync`，得到提交：
+     - `acfc7f27`
+- 关键结论：
+  1. 第五轮已经把 `Service/Navigation` 从 mixed-root 编译依赖里剥出来了；
+  2. 这轮最值钱的结果不是“又解释了一次 blocker”，而是实现包真的已经能在不带 `Assets/Editor` / `Service/Player` 的情况下独立归仓；
+  3. 当前动态 runtime、`PlayerAutoNavigator.cs`、`Assets/Editor` 都不该再回到这条清扫线里。
+- 当前恢复点：
+  - 下一步只剩第五轮回执、child memory、thread memory 与 `skill-trigger-log` 的审计收口；
+  - 不再继续碰 `Service/Navigation` 实现代码。
