@@ -7847,3 +7847,38 @@
 - 当前恢复点：
   - 当前治理主线仍先等 `NPC` 这轮 03 prompt 回执
   - 若 `NPC` 过线，这波 mixed-root 清扫就应宣布阶段收口，并转入“热根另案 + 正常开发恢复”
+
+## 2026-03-30｜NPC 已真实 sync：mixed-root 清扫主线正式收口，后续切回“热根单 owner + 正常开发”
+
+- 当前主线目标：
+  - 在 `NPC` 03 回执交回真实 `sync` 后，判断这波 mixed-root 清扫是否可以正式结束，并给出清扫后的开发模式切换建议。
+- 本轮子任务：
+  - 复核 `NPC` 最终回执、提交与当前工作树
+  - 判断当前是否还存在需要继续按典狱长模式扩线的线程
+  - 明确清扫结束后的下一阶段主矛盾
+- 本轮已完成：
+  1. 已确认 `NPC` 最终提交 `cc0bc7f8` 已在 `main`，且这次真实过线的口径成立：
+     - `NavigationStaticPointValidationMenu.cs(.meta)` 只是 `carried foreign editor leaf`
+     - 不代表导航 owner 语义转移
+     - 当前这组 own paths 已 clean
+  2. 已重新核当前工作树，确认 `NPC` 相关实现与文档残面已经退出活跃清扫主线；当前剩余 path entry 已压到 12 条，且不再属于这波 multi-thread peeling 的同一类问题
+  3. 已据此把 mixed-root 清扫主线改判为：
+     - `已完成`
+     - 不再继续唤回 `UI-V1`、`导航检查V2`、`spring-day1V2`、`NPC`
+  4. 已明确清扫后剩余问题改由“热根另案”承接，当前最值得单独立案的就是：
+     - `Assets/000_Scenes/Primary.unity` 真实删除面
+     - `DialogueChinese*` / TMP 中文字体资产 churn
+     - 少量 shared runtime 根：`TreeController.cs`、`OcclusionManager.cs`
+- 当前关键判断：
+  1. 这波清扫模式已经完成它该做的事了，再继续沿用，只会让治理成本继续膨胀
+  2. 现在真正的最大问题，已经从“多线程 mixed-root 互卡”转移成“少数共享热根仍未单独定责”
+  3. 所以后续开发模式不应再是“继续四处发 integrator prompt”，而应切回：
+     - 热根单 owner
+     - 正常功能线程
+     - 只有再次出现 mixed-root incident 时才重新启用典狱长模式
+- 当前恢复点：
+  - mixed-root 清扫主线到此收口
+  - 下一阶段建议顺序：
+    1. 先为 `Primary.unity` 真实删除面单独立案
+    2. 再为 TMP 中文字体稳定性单独立案
+    3. 最后把 `TreeController.cs` / `OcclusionManager.cs` 这类 shared runtime 残面分配 owner 后恢复正常开发
