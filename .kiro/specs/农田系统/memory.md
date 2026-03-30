@@ -454,3 +454,7 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-31：农田总层补记，`OcclusionManager.cs` preview 遮挡单刀现已真实归仓
 
 当前农田总层新增的最终稳定事实是：上条记录里被重新切回单刀的 preview 遮挡尾差，已经在同轮被真实收口，而不是继续停在“能过 preflight”阶段。线程随后保持原样白名单继续执行 stable launcher `sync`，最终只提交了 `OcclusionManager.cs + 农田相关 memory + 当前线程 memory` 这一组最小面，代码归仓提交 SHA 为 `6ae80182`，推送后 upstream 已回到 `behind=0, ahead=0`。同时，本轮 own roots 仍然保持 `0` remaining dirty，说明这刀收口没有把新的 same-root 尾账重新带回来。总层恢复点因此更新为：农田方向当前关于 preview 遮挡的 shared-runtime 小尾差已经正式出仓；此后若继续清剩余 runtime，只应继续围绕 `TreeController.cs` 这类另案，而不再把 `OcclusionManager.cs` 当成未归仓项挂着。
+
+## 2026-03-31：农田总层补记，`TreeController.cs` 当前整包 diff 已按完整包真实出仓
+
+当前农田总层新增的最终稳定事实是：继 preview 遮挡小尾差已经出仓后，用户要求的第二刀也没有停在“先讲边界”，而是直接按完整包推进。线程本轮没有把 `TreeController.cs` 再说成 shared runtime 小尾账，而是按执行书把它当作“农田 / 砍树表现包”处理：先只对白名单里的 `TreeController.cs` 本身做最窄白名单 `preflight`，确认 `代码闸门通过=True`、`own roots remaining dirty 数量=0`；随后继续真实执行 `sync`，代码归仓提交 SHA 为 `d28d9302`，推送后 upstream 已恢复到 `behind=0, ahead=0`。与此同时，这轮也真实守住了范围边界：`OcclusionManager.cs`、`GameInputManager.cs`、`Primary.unity` 与 TMP 字体都没有被拖回白名单。总层恢复点因此更新为：农田方向当前两条被单独切开的 runtime 归仓刀都已完成，其中 `TreeController.cs` 已按完整包出仓；后续若继续治理，不该再回到“它算不算完整包”这类旧判断，而应直接转向新的剩余热根或业务委托。

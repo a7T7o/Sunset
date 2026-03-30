@@ -1269,3 +1269,7 @@
 ## 2026-03-31：父层补记，`OcclusionManager.cs` 小尾差已完成真实 sync，当前该刀 own 路径已 clean
 
 父层当前新增的最终稳定事实是：在上条记录把这刀重新压成单文件归仓面之后，线程没有再扩 scope，而是保持同一组白名单继续完成了最终 `preflight -> sync`。这轮实际纳入的只有 4 个 path：`Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`、当前父层 `memory.md`、农田根层 `memory.md` 与 `农田交互修复V3` 线程记忆。最终 stable launcher 结果再次明确返回 `是否允许按当前模式继续: True`、`代码闸门通过: True`、`own roots remaining dirty 数量: 0`，随后已创建并推送代码归仓提交 `6ae80182`。这说明 preview 遮挡这刀当前已经不是“还要再审一次能不能收”的半状态，而是完成了真实归仓；同时 `TreeController.cs` 仍继续留在 working tree 里，没有被顺手吞并。父层恢复点因此更新为：当前 preview 遮挡 shared-runtime 尾差已经正式闭环，后续若再谈农田 runtime 剩余项，应只剩 `TreeController.cs` 等另案，而不再把 `OcclusionManager.cs` 继续挂在 mixed 残面列表里。
+
+## 2026-03-31：父层补记，`TreeController.cs` 完整包已作为农田 / 砍树表现包完成真实归仓
+
+父层当前新增的最终稳定事实是：用户这轮明确要求不要再讨论 `TreeController.cs` 是不是自己的，也不要再把它叫 shared runtime 小尾账，而是要把当前这整包 diff 当成完整包推进到真实 `preflight -> sync`。线程本轮先按执行书回读了定责文档、治理根层记忆和当前线程记忆，再用最窄白名单只对白名单内的 `Assets/YYY_Scripts/Controller/TreeController.cs` 做了一次真实 `preflight`，结果明确返回 `是否允许按当前模式继续: True`、`代码闸门通过: True`、`own roots remaining dirty 数量: 0`，说明这整包当前已经具备独立归仓条件，不再被 Controller 同根 remaining dirty 或代码闸门卡住。随后线程保持同一组白名单继续真实执行 `sync`，最终已创建并推送代码归仓提交 `d28d9302`。这轮最重要的边界事实也已被守住：`OcclusionManager.cs`、`GameInputManager.cs`、`Primary.unity` 和 TMP 字体都没有被带回白名单。父层恢复点因此更新为：当前农田 / 砍树表现这一整包已经完成真实归仓，后续不应再把 `TreeController.cs` 继续挂成未收口 mixed 包；如果还要继续农田 runtime 方向，应转向新的明确委托，而不是回头重跑这刀。

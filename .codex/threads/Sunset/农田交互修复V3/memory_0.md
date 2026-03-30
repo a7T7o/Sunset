@@ -1547,3 +1547,63 @@
 - 当前主线恢复点更新为：
   - “`OcclusionManager.cs` preview 遮挡小尾差已按单文件白名单完成真实归仓，当前 own 路径 clean。”
 - 如果继续这条治理线，下一步不该再回头讲 `OcclusionManager` 边界，而应转向新的明确委托；当前这刀已闭环。
+
+## 2026-03-31：`TreeController.cs` 当前整包农田 / 砍树表现 diff 已完成真实 `preflight -> sync`
+
+**用户目标**：
+- 用户这轮明确要求先完整读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_farm_TreeController完整包归仓_01.md`。
+- 本轮不是继续讨论归属，也不是继续把 `TreeController.cs` 叫成 shared runtime 小尾账。
+- 当前唯一主刀只有一个：把 `Assets/YYY_Scripts/Controller/TreeController.cs` 当前这整包农田 / 砍树表现 diff，作为一个完整包推进到真实 `preflight -> sync`。
+
+**当前主线目标**：
+- 主线仍然服务 `农田交互修复V3` 的 shared-root / runtime 残面收口；
+- 但这一刀现在已经从“完整包归仓尝试”推进到“完整包归仓完成”。
+
+**本轮已完成事项**：
+1. 已完整读取：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_farm_TreeController完整包归仓_01.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_shared-runtime残面定责_01.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\memory.md`
+   - 当前线程记忆
+2. 已重新核当前 working tree 现场：
+   - `TreeController.cs` 当前 diff 规模仍是完整包量级
+   - `git diff --stat -- Assets/YYY_Scripts/Controller/TreeController.cs` 结果为：
+     - `1055` 行级 diff
+     - `631 insertions / 424 deletions`
+3. 已对 `TreeController.cs` 单文件白名单真实运行最窄 `preflight`：
+   - `是否允许按当前模式继续: True`
+   - `代码闸门通过: True`
+   - `own roots remaining dirty 数量: 0`
+   - `代码闸门程序集: Assembly-CSharp`
+4. 已保持同一组白名单继续真实执行 `sync`：
+   - 当前代码归仓提交 SHA：
+     - `d28d9302d35f740176ad8bfc22fef18d94a5500f`
+5. 已确认本轮没有把以下文件带进提交：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+   - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\*`
+
+**关键决策**：
+- 这轮已经不是“只确认它可不可以收”，而是已经把完整包真实收上 git。
+- 当前最重要的治理结论是：
+  - `TreeController.cs` 当前应继续被视为农田 / 砍树表现完整包；
+  - 而且它已经能独立完成真实 `preflight -> sync`；
+  - 不需要、也不应该再拖回 `OcclusionManager.cs` 或 `GameInputManager.cs` 才能归仓。
+
+**涉及文件 / 路径**：
+- 本轮代码归仓文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- 本轮线程记忆：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\memory_0.md`
+
+**验证结果**：
+- `preflight`：已真实运行并通过
+- `sync`：已真实运行并通过
+- `提交 SHA`：`d28d9302d35f740176ad8bfc22fef18d94a5500f`
+- `当前 own 路径是否 clean`：`yes`
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “`TreeController.cs` 当前整包农田 / 砍树表现 diff 已按完整包完成真实归仓，当前 own 路径 clean。”
+- 如果继续这条治理线，下一步不该再回头审这刀是否属于 farm，而应转向新的明确委托；当前这刀已闭环。
