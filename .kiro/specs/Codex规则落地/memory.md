@@ -7436,3 +7436,51 @@
     - `Assets/000_Scenes`
     - `Assets/TextMesh Pro/Resources/Fonts & Materials`
     - `.kiro/specs/UI系统`
+
+## 2026-03-30｜第九轮第一批已开：治理位先吸 `UI系统 + 屎山修复` docs 迁移包，再只放行 `导航检查V2 -> Service/Player` 首开线
+
+- 当前主线目标：
+  - 在 mixed-root 接盘阶段里，不再虚开多条线；
+  - 先拿掉纯 docs 迁移噪音，再明确今天真正能开的第一条代码线。
+- 本轮子任务：
+  - 复核 `.kiro/specs/UI系统` 与 `.kiro/specs/屎山修复` 是否已经形成纯 docs 迁移包；
+  - 若成立，由治理位直接吸收；
+  - 然后对剩余代码根做第一批“开工 / 冻结”裁定。
+- 本轮已完成：
+  1. 已确认并吸收 docs 迁移大包：
+     - roots：
+       - `.kiro/specs/UI系统`
+       - `.kiro/specs/屎山修复`
+     - live commit：
+       - `463d46ac 2026.03.30_对话丢失修复_01`
+  2. docs 吸收后，live 总量已降到：
+     - `TOTAL = 82`
+     - `TRACKED = 39`
+     - `UNTRACKED = 43`
+     - `DELETED = 2`
+  3. 已新增第九轮第一批裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_全局警匪定责清扫第九轮_第一批开工线与冻结线_01.md`
+  4. 已明确第一条真正能开的代码线：
+     - `导航检查V2 -> Assets/YYY_Scripts/Service/Player` root-integrator 首开线
+  5. 已新增 thread prompt 文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_导航检查V2_Service-Player根接盘开工_01.md`
+  6. 已明确这轮不该虚开的两条：
+     - `spring-day1(UI-V1)`
+     - `NPC`
+     因为它们当前物理上还缠在：
+       - `Assets/YYY_Scripts/Story/Interaction`
+       - `Assets/YYY_Scripts/Story/Managers`
+       - `Assets/YYY_Scripts/Story/UI`
+       - `Assets/YYY_Tests/Editor`
+       - `Assets/Editor`
+     这一批 shared story roots 里
+- 当前关键判断：
+  1. 现在真正能先开的，不是 `UI`，也不是 `NPC`，而是 `Service/Player` 这整根。
+  2. `UI` 与 `NPC` 今天如果硬开，只会继续撞 same-root，属于假开工。
+  3. 所以正确顺序是：
+     - 治理位先吸纯 docs
+     - 再只放行一条最稳的代码根
+     - 同时继续拆 `Story` 大根
+- 当前恢复点：
+  - 现在等待 `导航检查V2` 按整根 `Service/Player` 做 integrator 口径回执；
+  - 治理位下一刀继续拆 `Assets/YYY_Scripts/Story/**`，再决定 `spring-day1(UI-V1)` 与 `NPC` 的开工顺序。
