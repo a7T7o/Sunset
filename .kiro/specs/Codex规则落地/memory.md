@@ -7542,3 +7542,41 @@
 - 当前恢复点：
   - 现在等待用户把 `UI-V1 Story/UI` prompt 发出；
   - 等 `UI-V1` 回来后，再决定下一波是否重唤 `spring-day1V2` 吃剩余 Spring roots，或先接 `导航检查V2` 的回执再拆 `Assets/Editor` 直系根。
+
+## 2026-03-30｜导航回执复核完成：继续发 prompt，但只准做 `Service/Player` 根内兼容回退，不准借 compile gate 扩到 `Data`
+
+- 当前主线目标：
+  - 在 mixed-root 治理接盘波里，继续处理 `导航检查V2 -> Assets/YYY_Scripts/Service/Player` 这一条已开工线；
+  - 这轮不再重复 Story 拆包，而是把导航回执里的 compile gate 定性彻底钉死，并给出下一轮唯一施工切片。
+- 本轮子任务：
+  - 复核导航回执、stable launcher `preflight`、相关代码 diff 与 `HEAD` 基线；
+  - 判断这两条 compile error 到底是“纯根内可修”，还是“根内文件正在依赖别的根尚未归仓的新 API”。
+- 本轮已完成：
+  1. 已真实复跑 `导航检查V2` 的 stable launcher `preflight`，结果与回执一致：
+     - `CanContinue=False`
+     - `own roots remaining dirty 数量: 0`
+     - blocker 仍是 2 条代码闸门错误
+  2. 已进一步钉死关键事实：
+     - `PlayerNpcNearbyFeedbackService.cs` 当前新增了对 `NPCRoamProfile.HasInformalConversationContent` 的依赖
+     - `PlayerNpcRelationshipService.cs` 当前新增了 `AdjustStage(...)`，内部依赖 `NPCRelationshipStageUtility.Shift(...)`
+  3. 已对照 `HEAD` 基线确认：
+     - `Assets/YYY_Scripts/Data/NPCRoamProfile.cs` 在 current working tree 里有 `HasInformalConversationContent`，但 `HEAD` 没有
+     - `Assets/YYY_Scripts/Data/NPCRelationshipStage.cs` 在 current working tree 里有 `Shift`，但 `HEAD` 没有
+  4. 已把导航这轮准确改判为：
+     - 不是“纯根内两条普通 compile error”
+     - 而是 `Service/Player -> Data` 的未归仓 API 依赖漂移
+  5. 已新增下一轮专属 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_导航检查V2_Service-Player兼容回退清compilegate_02.md`
+- 当前关键判断：
+  1. `导航检查V2` 现在仍属于“继续发 prompt”，不是停发。
+  2. 但不能按它回执里的旧话术继续发“留在根内清 compile gate”这种宽口径 prompt，因为那会默认接受 `Data` 根的 current dirty 当基线。
+  3. 正确下一刀必须是：
+     - 只在 `Assets/YYY_Scripts/Service/Player/**` 内做 compatibility rollback
+     - 先证明这整根能不能不扩 `Assets/YYY_Scripts/Data/**` 就自愈
+  4. 因为当前两条新增依赖都很薄，治理位优先判：
+     - 先做根内兼容回退，比直接升级成 cross-root integrator 更合理
+- 当前恢复点：
+  - 现在等待用户把 `导航检查V2` 的 compat prompt 发出；
+  - 等它回执后，再判断：
+    - 是 `A｜根内兼容回退成功并 sync`
+    - 还是 `B｜已证明不扩 Data 根就过不去`。
