@@ -7925,3 +7925,34 @@
     2. TMP 中文字体稳定化另案
     3. 农田方向按 `OcclusionManager` 小尾差 / `TreeController` 大包分刀
     4. 文档尾账与 artifact README 直接 docs-only 收口
+
+## 2026-03-30｜热根定责口径再修正：历史触碰者与当前可提交 owner 不是一回事
+
+- 当前主线目标：
+  - 用户质疑我上一轮把“这些残面到底是谁干的”和“现在该由谁来提提交”混在了一起，要求我重新按线程记忆和实际材料把责任链理清，不要再糊涂下判断。
+- 本轮子任务：
+  - 回查 `spring-day1`、`spring-day1V2`、`农田交互修复V3` 等线程记忆
+  - 重新区分：
+    - 历史上谁留下了这些改动
+    - 现在谁适合继续提交
+- 本轮已完成：
+  1. 已确认 `Primary.unity` 这案子里，`Spring/UI` 的历史触碰证据比我上一轮说得更强：
+     - `UI-V1` 接盘 `Story/UI` 整根时，明确把 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)` 当作迁移 sibling 一起带走
+     - `spring-day1` / `spring-day1-implementation` 历史记忆里多次明确提到 `Primary.unity` 与 Day1 / Spring UI 现场绑定
+  2. 已确认 `OcclusionManager.cs` 与 `TreeController.cs` 当前更像 `farm` 线残面，而不是漂浮 shared runtime：
+     - `农田交互修复V3` 的记忆里直接把两者带入过真实 preflight 白名单
+     - `OcclusionManager.cs` 的 preview `GetColliderBounds()` 证据链也直接落在农田工作区
+  3. 已确认 TMP 这组字体资产虽然被 `spring-day1` / UI 线频繁提到，但那些回执更多是在“绕开 / 降权 / 不混入本轮提交”，而不是形成一个干净 owner：
+     - 这组资产当前仍更像共享 importer / 动态字体 churn
+     - 不是靠再问 `UI / Spring / NPC` 三家一遍，就会自然得到一个唯一 owner
+- 当前关键判断：
+  1. 我上一轮真正说糊涂的地方，不是“风险判断错了”，而是把“历史触碰者”直接说成了“当前提交 owner”。
+  2. 修正后更准确的口径应该是：
+     - `Primary.unity`：历史上大概率就是 `Spring/UI` 迁移出来的；但当前删除旧 canonical path 这一步，仍不能在未确认迁移意图前直接提交
+     - `TreeController.cs / OcclusionManager.cs`：当前应优先回到 `farm` 线认领
+     - TMP 字体：继续按共享稳定性案处理，不再伪装成某一条业务线的普通尾账
+- 当前恢复点：
+  - 后续若继续问线程，不该群发乱问；
+  - 真正有价值的只剩两种问法：
+    1. 向 `Spring/UI` 问 `Primary.unity` 迁移意图
+    2. 向 `farm` 问 `TreeController.cs / OcclusionManager.cs` 是否按当前 working tree 直接收口
