@@ -1,0 +1,16 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dbf197dc08cf435a93800dff587def46, type: 3}
+  m_Name: SpringDay1UiPrefabRegistry
+  m_EditorClassIdentifier: 
+  promptOverlayPrefab: {fileID: 5448419941745465367, guid: da0d9a5fe0b0f4e418d5cb9af1f4ab49, type: 3}
+  workbenchOverlayPrefab: {fileID: 420268355022801617, guid: c658bf91bfae0e848a4421c7eacc3501, type: 3}

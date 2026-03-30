@@ -497,3 +497,28 @@
     1. 另起 cleanup 刀，专收 same-root remaining
     2. 治理位明确扩大白名单 / 改裁定
   - 在新的 cleanup 指令前，不进入新的 UI 实现或 live 验证。
+
+## 2026-03-30 Story/UI 整根接盘补记：白名单已改成整根接盘，第一次真实 preflight 已通过
+
+- 当前工作区主线已从“第二轮回执补落盘 + 第三轮 blocker 报实”改成新的治理裁定：按 `2026-03-30_典狱长_UI-V1_StoryUI整根接盘开工_01.md`，把 `Assets/YYY_Scripts/Story/UI` 整根连同 `Assets/222_Prefabs/UI/Spring-day1` 与 `SpringDay1UiPrefabRegistry.asset(.meta)` 一起推进到真实 `preflight -> sync`。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-no-red-handoff`
+- 本轮手工等价执行：
+  - `sunset-startup-guard`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- 本轮新的边界判断：
+  1. `SpringDay1WorldHintBubble.cs` 不再停成 mixed 噪音，而是正式并入 `Story/UI` 接盘面。
+  2. `NpcWorldHintBubble.cs(.meta)` 仍不是我的语义 own，但本轮被批准按 `carried foreign leaf` 随 `Story/UI` 整根带走。
+  3. `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)` 这轮已按迁移 sibling 一起处理，不再退回事故口径。
+  4. `Assets/Editor/Story`、`Assets/YYY_Tests/Editor`、`Assets/YYY_Scripts/Story/Interaction`、`Assets/YYY_Scripts/Story/Managers` 和字体底座继续留在范围外。
+- 本轮第一次真实 `preflight`：
+  - `是否允许按当前模式继续: True`
+  - `own roots remaining dirty 数量: 0`
+  - `代码闸门通过: True`
+- 当前恢复点：
+  - `Story/UI` 整根白名单已经成型，而且第一次真实 `preflight` 已经过线；
+  - 下一步只剩带上本轮回执与 memory，同白名单再做收口前确认并执行 `sync`；
+  - 在 `sync` 结果出来前，不扩到 `Editor/Story`、`Tests/Editor`、`Interaction`、`Managers` 或字体底座。

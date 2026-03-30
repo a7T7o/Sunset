@@ -316,7 +316,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "0.0.2 \u9996\u6BB5\u63A8\u8FDB\u94FE"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
   m_sharedMaterial: {fileID: 0}
   m_fontSharedMaterials:
   - {fileID: 0}
@@ -532,7 +532,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5148\u548C\u6751\u91CC\u7B2C\u4E00\u4E2A\u5173\u952E\u89D2\u8272\u5B8C\u6210\u63A5\u89E6\u3002"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
   m_sharedMaterial: {fileID: 0}
   m_fontSharedMaterials:
   - {fileID: 0}
@@ -776,7 +776,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u548C NPC001 \u5B8C\u6210\u9996\u6BB5\u5BF9\u8BDD"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
   m_sharedMaterial: {fileID: 0}
   m_fontSharedMaterials:
   - {fileID: 0}
@@ -1145,7 +1145,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u9996\u6BB5\u5BF9\u8BDD\u8FDB\u884C\u4E2D"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
   m_sharedMaterial: {fileID: 0}
   m_fontSharedMaterials:
   - {fileID: 0}
@@ -1283,7 +1283,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u5148\u7528\u9504\u5934\u5F00\u57A6\u4E00\u683C\u571F\u5730\u3002"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
   m_sharedMaterial: {fileID: 0}
   m_fontSharedMaterials:
   - {fileID: 0}
@@ -1577,7 +1577,7 @@ MonoBehaviour:
       m_Calls: []
   m_text: "\u4ECE E \u952E\u63A5\u89E6\u5F00\u59CB\uFF0C\u76F4\u5230\u9996\u6BB5\u5BF9\u767D\u5B8C\u6574\u7ED3\u675F\u3002"
   m_isRightToLeft: 0
-  m_fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
+  m_fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
   m_sharedMaterial: {fileID: 0}
   m_fontSharedMaterials:
   - {fileID: 0}

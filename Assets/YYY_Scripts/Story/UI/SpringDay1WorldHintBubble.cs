@@ -16,10 +16,6 @@ namespace Sunset.Story
 
         private static readonly string[] PreferredFontResourcePaths =
         {
-            "Fonts & Materials/DialogueChinese V2 SDF",
-            "Fonts & Materials/DialogueChinese BitmapSong SDF",
-            "Fonts & Materials/DialogueChinese Pixel SDF",
-            "Fonts & Materials/DialogueChinese SoftPixel SDF",
             "Fonts & Materials/DialogueChinese SDF"
         };
 
@@ -80,6 +76,19 @@ namespace Sunset.Story
             _instance = root.AddComponent<SpringDay1WorldHintBubble>();
             _instance.BuildUi();
             _instance.Hide();
+        }
+
+        public static void HideIfExists(Transform anchorTarget = null)
+        {
+            if (_instance == null)
+            {
+                return;
+            }
+
+            if (anchorTarget == null || _instance._anchorTarget == anchorTarget)
+            {
+                _instance.Hide();
+            }
         }
 
         private void Awake()

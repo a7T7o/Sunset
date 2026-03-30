@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Sunset.Story
 {
-    internal static class SpringDay1UiLayerUtility
+    public static class SpringDay1UiLayerUtility
     {
         public static bool IsBlockingPageUiOpen()
         {
@@ -54,6 +54,34 @@ namespace Sunset.Story
 
             Canvas rootCanvas = canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
             return rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : rootCanvas.worldCamera;
+        }
+
+        public static Vector2 SnapToCanvasPixel(Canvas canvas, Vector2 localPoint)
+        {
+            Canvas rootCanvas = canvas != null && canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
+            float scaleFactor = rootCanvas != null && rootCanvas.scaleFactor > 0.001f
+                ? rootCanvas.scaleFactor
+                : 1f;
+
+            return new Vector2(
+                Mathf.Round(localPoint.x * scaleFactor) / scaleFactor,
+                Mathf.Round(localPoint.y * scaleFactor) / scaleFactor);
+        }
+
+        public static T EnsureComponent<T>(GameObject gameObject) where T : Component
+        {
+            if (gameObject == null)
+            {
+                return null;
+            }
+
+            T component = gameObject.GetComponent<T>();
+            if (component == null)
+            {
+                component = gameObject.AddComponent<T>();
+            }
+
+            return component;
         }
 
         public static bool TryGetPresentationBounds(Transform target, out Bounds bounds)

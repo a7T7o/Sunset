@@ -1021,3 +1021,391 @@
 - 当前恢复点：
   - `spring-day1` 的 V1 阶段到这里应视为已完成正式交接
   - 后续若继续推进，应由 `spring-day1V2` 基于交接包重新做 live preflight 与边界确认，而不是继续沿用我这条 V1 线程的隐式上下文
+
+## 2026-03-27 线程补记：已完成 spring-day1 全系文档通读，先交理解不改代码
+- 当前线程主线：响应用户要求，先把 `spring-day1` 与 `900_开篇` 下所有相关文档读透，尤其聚焦 UI、工作台、日志，再汇报理解与想法，不提前进实现。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-doc-encoding-auditor`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 手工完成等价前置核查，确认共享根现场为：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+- 我本轮形成的稳定判断：
+  1. Day1 现在真正的主线不是“继续散修某个 UI 点”，而是把前半链 + 工作台 / 任务体验做成一条可验纵切。
+  2. 工作台是 Day1 前半链体验核心，不是普通附属系统；视觉样式应以正式 prefab 为基线，而不是只看运行时临时结构。
+  3. 日志 / 测试已从调试附属升级成正式证据层，后续实现必须同时回答“代码过线”和“体感过线”。
+  4. `003-进一步搭建/memory.md` 后半段存在编码污染；后续若再恢复上下文，不能把它当唯一依据，必须和 `0.0.3V2` 总表 / 清盘方案 / V2交接文档交叉确认。
+- 当前恢复点：
+  - 本轮阅读与理解阶段已完成；
+  - 下一步只等用户基于这份理解指定具体施工切口，再决定是否进入 `P0` 纵切实施。
+
+## 2026-03-28 线程补记：已把 Day1 两份 UI prefab、运行时代码与“全工作台共用 UI 模式”问题拆清
+- 当前线程主线：用户要求我不要实现，只读分析 `Assets/222_Prefabs/UI/Spring-day1/` 里手调出来的正式面，结合代码、memory 和委托原文，判断这套模式如何推广到所有工作台。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 手工完成等价 preflight，确认：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+- 我本轮只读确认的关键事实：
+  1. `SpringDay1PromptOverlay.prefab` 与 `SpringDay1WorkbenchCraftingOverlay.prefab` 的 prefab 资产 GUID 当前没有被 scene / 业务资源直接引用；运行时不是“实例化这两份 prefab”。
+  2. 当前真实链路是代码自建：`SpringDay1PromptOverlay.EnsureRuntime()`、`SpringDay1WorkbenchCraftingOverlay.EnsureRuntime()` 都会直接 `new GameObject + AddComponent + BuildUi()`。
+  3. `SpringDay1PromptOverlay` 本质是 Day1 的任务/日志卡，不是单纯提示字条；它由 `SpringDay1Director.BuildPromptCardModel()` 驱动，支持逐条完成动画、双页日历式翻页和自适应布局。
+  4. `SpringDay1WorkbenchCraftingOverlay` 本质是 Day1 专用工作台浮层，不是通用 crafting panel；它和 `CraftingStationInteractable`、`SpringDay1Director`、`Resources/Story/SpringDay1Workbench/*.asset` 强耦合。
+  5. `SpringDay1WorkbenchCraftingOverlay.prefab` 当前只适合作视觉基线参考，不能被视为完整的功能模板；其序列化字段里仍有一批和后续代码能力不一致的空引用。
+  6. 所以“把 spring-day1 当前内容照抄给所有工作台”的正确做法，不是继续复制脚本或 prefab 本体，而是先抽：
+     - 样式模板层
+     - 内容 / 行为 schema 层
+     - 工作台特化规则层
+- 我这轮的恢复点：
+  - 理解与路线判断已经完成；
+  - 下一步等待用户决定，是让我把“通用工作台 UI 模式”的方案再细化成结构草案，还是直接指定某个后续施工切口。
+
+## 2026-03-28 线程补记：已完成 Spring-day1 prefab 基线 vs 运行时入口只读拆解
+- 当前线程主线：用户不是要我立即抄 UI，而是先只读判断 `Assets/222_Prefabs/UI/Spring-day1/` 这组手调 prefab 到底是不是权威样式基线、当前 spring-day1 实际是怎么跑起来的、以及如果要推广到“所有工作台共用模式”应该怎么设计。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `delivery-self-review-gate`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 手工完成等价前置核查，并继续以 shared root `D:\Unity\Unity_learning\Sunset`、`branch = main` 作为只读基线。
+- 我本轮形成的稳定判断：
+  1. 两个 Spring-day1 UI prefab 的确是当前文档口径里的正式视觉基线，不是“可有可无的旧样板”。
+  2. 当前运行态没有真正使用这两个 prefab；overlay/prompt 入口都还是 `EnsureRuntime -> new GameObject -> BuildUi()` 的代码生成路线。
+  3. 现在不是“prefab 已接上、只差细节”，而是“prefab 与运行时代码双源并存”；后续继续硬抄参数只会把分叉越抄越深。
+  4. Workbench 已有一部分数据驱动雏形，Prompt 已有一部分 view-state 壳体雏形；真正该抽的是“模板层 / presenter 层 / 业务适配层”，而不是继续把 Day1 文案和结构缝死在 overlay 脚本里。
+- 当前恢复点：
+  - 本轮只读分析已完成，已经能回答“为什么现在不能继续靠硬编码复刻”；
+  - 下一步只等用户决定是否把这份判断落成正式设计稿，或者直接进入第一刀实施。
+
+## 2026-03-28 线程补记：聊天回放已重新锚定“先照抄手调 prefab，再做抽象增强”的正确顺序
+- 当前线程主线：用户要求我不要只讲架构，还要把乱序聊天记录重新分清，尤其澄清最初的第一阶段诉求到底是什么。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `delivery-self-review-gate`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 手工完成等价前置核查。
+- 我本轮新增确认的稳定判断：
+  1. 这两个 Spring-day1 prefab 是用户在运行态亲手精修出来、再拖回项目的视觉成品，不是我方后期随手存的草稿。
+  2. 用户最初的“快抄”是真正的 Phase 1 任务：先把运行时 UI 拉回到与手调 prefab 一致，而不是先做我自认为更高级的抽象。
+  3. 之前线程把“不要无脑抄”理解得过头了：本来应该是“先抄准，再增强”，却被执行成了“跳过抄准，直接增强”。
+  4. 因此现在讨论“运行时 UI 合理、预制体合理、还是一套复用代码合理”，正确答案不能是三选一，而应该是分层与分阶段：
+     - 第一阶段先对齐 prefab 基线；
+     - 第二阶段补自适应与交互增强；
+     - 第三阶段再抽复用代码。
+- 当前恢复点：
+  - 需求时间线和优先顺序已经重新锚定；
+  - 下一步我会继续把“prefab 能否承载自适应、哪些层适合 prefab、哪些层必须代码驱动”详细讲透给用户。
+
+## 2026-03-28 线程补记：已进一步判死“当前运行时 UI 并没有把手调 prefab 1:1 抄下来”
+- 当前线程主线：用户继续要求我只读判断“现在场上运行出来的两套 UI 和 `Assets/222_Prefabs/UI/Spring-day1/` 里的两个手调 prefab 到底一不一样”，并顺带判断后续最合理的工程路线。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `delivery-self-review-gate`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 手工完成等价前置核查，并继续以 `D:\Unity\Unity_learning\Sunset`、`branch = main` 作为只读基线。
+- 我本轮新增确认的稳定判断：
+  1. 当前运行态并不是在实例化 Day1 那两个 prefab，而是继续走 `EnsureRuntime() -> new GameObject -> BuildUi()` 的代码生成路线。
+  2. 因此现在不是“已经接上 prefab，只差细调”，而是“prefab 正式面”和“代码运行面”仍然双源并存。
+  3. 两者已经出现直接参数分叉，不是只差体感：
+     - Prompt prefab 的 Canvas `m_RenderMode: 2`，代码却是 `ScreenSpaceOverlay`
+     - Workbench prefab 的 Canvas 也是 `m_RenderMode: 2`，代码却是 `ScreenSpaceOverlay`
+     - Workbench prefab `PanelRoot` 为 `{x: 87.79856, y: -126.66856}` / `{x: 428, y: 257.1085}`，代码默认高度却是 `236`
+     - Prompt prefab `TaskCardRoot` 高度也和代码默认值分叉：prefab `229.9346`，代码 `188`
+  4. 所以前线程的问题不是“完全没抄”，而是“没有先把 formal-face 抄准，而是半参考 half rewrite”。
+  5. 后续合理路线不是三选一，而是分阶段：
+     - 先让 Day1 运行态真正吃回手调 prefab 基线
+     - 再补自适应 / 撕页 / 滚动链 / 状态机 / 离台进度 / 固定锚定
+     - 最后再抽成 `prefab 模板层 + binder/presenter 层 + 业务 schema 层`
+- 当前恢复点：
+  - 这轮已经能直接回答用户“我判不判得出来、为什么判得出来”；
+  - 下一步只等我把这份判断以用户可决策的方式完整交付出去。
+
+## 2026-03-28 线程补记：已按外包审核纠偏，改在 SpringUI 工作区落盘总方案，不进入实现
+- 当前线程主线：用户明确指定先完整读取外包线程给 UI 线程的重新对齐任务书与审核报告，然后只进入 `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI`，交付一份总方案和该工作区 `memory.md`，本轮禁止进入实现。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `delivery-self-review-gate`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 手工完成等价前置核查，并保持只读边界。
+- 我本轮新增完成的工作：
+  1. 已读取：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-28_给UI线程的重新对齐任务书.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-28_spring-day1_UI线程审核报告.md`
+  2. 已在唯一允许工作区落盘：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\SpringUI-Day1基线复刻与长期技术路线总方案.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+  3. 总方案已明确写死：
+     - 这次问题本体是“手调 prefab 真视觉基线没有接回 runtime”
+     - 当前 runtime UI 与手调 prefab 的双源并存为什么成立
+     - 为什么不能先抽象，必须先把 prefab 接回运行时
+     - 为什么长期答案是“视觉 prefab / 行为代码 / 差异数据”
+     - 为什么顺序必须是“先抄 -> 再稳 -> 再抽”
+     - 用户那 6 条需求各自属于哪一层、哪个阶段
+     - 哪些路线当前明确不能走
+- 当前验证状态：
+  - `静态推断成立`
+  - `已对齐指定任务书与审核报告`
+  - `尚未进入实现`
+- 当前恢复点：
+  - `SpringUI` 工作区总方案已经建立；
+  - 下一步等待用户/审核方审这份总方案；
+  - 在过审前，不进入 Day1 UI 实现。
+
+## 2026-03-28 线程补记：共享字体止血里属于 Day1 owner 的 6 文件已收成局部 checkpoint
+- 当前线程主线：按 `2026-03-28_典狱长_spring-day1_共享字体止血owner接盘_01.md`，只接盘 6 个 Day1-facing 文件，不碰 `Primary.unity`，不继续下潜 `DialogueChinese V2 SDF.asset / DialogueChineseFontAssetCreator.cs / DialogueChinese*` 底座稳定化。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-no-red-handoff`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 做手工等价 preflight，确认：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+  - `HEAD = a0b3f0eb16e340fd5c2a3f20d4ac6644832690d1`
+  - `shared-root-branch-occupancy = neutral-main-ready`
+- 我本轮最终裁决：
+  - `A 必留`：三份脚本默认字体链统一到 `DialogueChinese SDF`；字体库 6 个 key 统一到 `DialogueChinese SDF`；两份 Day1 prefab 文本节点统一到 `DialogueChinese SDF`，并补清 workbench prefab 一处漏掉的 `V2` 引用
+  - `B 一起留的 Day1 行为改动`：无
+  - `C 已明确拆出的同文件污染`：prompt 刷新/DisplaySignature、world hint 的 hide helper、workbench 的拖拽/进度/动画/提示等行为续写，这些都已回退到 `HEAD`
+- 我本轮验证：
+  - `git diff --check` 通过（仅有 git EOL warning，不是 whitespace/blocking error）
+  - `mcp validate_script`：3 脚本均 `0 error / 1 warning`
+  - `git-safe-sync.ps1 -Action preflight` 结论：这 6 文件本身可作为本轮 owner 面，但 `spring-day1` 同根 own roots 还残留 `SpringDay1StatusOverlay.cs` 删除、`SpringDay1UiLayerUtility.cs` 修改、`NpcWorldHintBubble.cs` 未跟收等 remaining dirty，所以当前不能 claim 整条 owner 路径 clean
+- 当前恢复点：
+  - 这 6 文件现在已经是一个用户可判断的 Day1 owner 字体止血 checkpoint
+  - 下一步只该二选一：
+    1. 若用户接受单一 `DialogueChinese SDF` 止血，继续清同根 remaining dirty 后 sync
+    2. 若用户不接受这次视觉收敛，再开下一刀只讨论 Day1-facing 字体策略
+## 2026-03-28 共享字体止血 owner 接盘回执补记（只读核查）
+- 本轮在 shared root `main @ a0b3f0eb16e340fd5c2a3f20d4ac6644832690d1` 完成只读复核，并按典狱长委托准备用户向正式回执。
+- 6 个 Day1-facing 文件的 owner 判断保持成立：这刀只收 Day1 默认字体链止血，统一走 `DialogueChinese SDF`，不继续吞共享字体底座，不碰 `Primary.unity`。
+- `git-safe-sync.ps1 preflight` 再次确认：这 6 文件本身可以作为局部 owner checkpoint，但 `Assets/YYY_Scripts/Story/UI` 同根仍有 `SpringDay1StatusOverlay.cs` / `SpringDay1UiLayerUtility.cs` / `NpcWorldHintBubble.cs` 等 remaining dirty/untracked，导致当前仍非 sync-ready。
+- 对用户的稳定口径：Day1 这轮已经形成一个可检查、可决定去留的字体止血 checkpoint；真正未完成的是 same-root hygiene，不是 Day1 业务面再次失焦。
+
+## 2026-03-28 停刀与接棒裁定
+- 用户已收下本轮 `Day1 owner 字体止血 checkpoint`，并明确要求本线程先停，不再继续由 `spring-day1` 往下施工。
+- 后续继承线程：`spring-day1V2`。
+- 本线程当前收束状态：停止继续开发，不开新刀；保留既有 checkpoint / blocker / 验收口径，供 `spring-day1V2` 接棒。
+
+## 2026-03-28 线程补记：按 SpringUI 工作区重新唤起，只完成 Day1 prefab-first Phase 1 第一刀
+- 当前线程主线：用户已把本线程重新拉回 Day1 UI 线，但这次主线不再是泛化的 Day1 施工，而是严格执行 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-28_UI线程Phase1第一刀放行任务书.md`，只做“把 Day1 两个 overlay 的 runtime 创建链切到 prefab-first”。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `sunset-no-red-handoff`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 做手工等价 preflight，确认：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+- 我本轮已完成的唯一主刀：
+  1. `SpringDay1PromptOverlay.cs` 与 `SpringDay1WorkbenchCraftingOverlay.cs` 的 `EnsureRuntime()` 已改成：
+     - 先复用已有实例
+     - 再从 Day1 prefab 进入 runtime
+     - 最后才 fallback 到旧 `BuildUi()`
+  2. 新增 `SpringDay1UiPrefabRegistry.cs` 与 `Assets/Resources/Story/SpringDay1UiPrefabRegistry.asset`，把用户手调的两个 prefab 真正接进 runtime 主链，而不是继续只靠 editor-only `AssetDatabase`
+  3. 代码职责收窄到“绑定 prefab 现有节点 / 保留行为入口”；本轮没有改 prefab 视觉参数，也没有改 `CraftingStationInteractable.cs`
+- 我本轮明确没做：
+  - 自适应
+  - 撕页
+  - ScrollRect / Viewport / Mask 体验修复
+  - 按钮 / 进度条状态机
+  - 离台小进度
+  - 固定锚定
+  - binder / provider / 模板化
+- 验证结果：
+  - `git diff --check` 通过
+  - `CodexCodeGuard` 对本轮 3 个 C# 文件的 UTF-8 / diff / Roslyn 程序集级编译检查通过
+  - 当前验证状态：`静态编译闸门已过，尚未做 Unity 运行态验收`
+- Git 收口状态：
+  - 我已按 Sunset 规则尝试 `sunset-git-safe-sync.ps1 -Action sync -Mode task -OwnerThread spring-day1`
+  - 当前未能 sync，不是因为本轮代码错误，而是因为 `spring-day1` 在以下 own roots 下仍有大量历史 remaining dirty / untracked：
+    - `.kiro/specs/UI系统`
+    - `Assets/Resources/Story`
+    - `Assets/YYY_Scripts/Story/UI`
+    - `.codex/threads/Sunset/spring-day1`
+  - 当前这刀已形成可审实现和可审 blocker，但还不能宣称“仓库收口完成”
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1PromptOverlay.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1UiPrefabRegistry.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Resources\Story\SpringDay1UiPrefabRegistry.asset`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+- 当前恢复点：
+  - `Phase 1 第一刀` 已完成到“runtime 先长对脸”的层级；
+  - 后续若继续，只能在用户确认后进入 Phase 2 体验增强，不能再回头把 Phase 1 与长期模板化混做。
+
+## 2026-03-28 线程补记：已完成 SpringUI Phase 2 的 Day1 UI 主实现补稳，并拿到两条直接命中的 runtime 证据
+- 当前线程主线：执行 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-28_UI线程Phase2放行任务书.md`，只做 Day1 UI 第二步，不进入模板化，不打开第三步。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-no-red-handoff`
+  - `sunset-unity-validation-loop`
+- `sunset-startup-guard` 当前会话未显式暴露；我已按 Sunset `AGENTS.md` 做手工等价 preflight，确认当前仍在 shared root `D:\Unity\Unity_learning\Sunset`、`branch = main` 下推进。
+- 我本轮实际做成了什么：
+  1. `SpringDay1PromptOverlay.cs`：
+     - 补稳 prefab-first legacy 绑定链上的 `CanvasGroup` / 行项组件兜底
+     - 修复显示态缓存缺失时的自愈
+     - 增加 `DisplaySignature` 与 `ApplyPendingStateWithoutTransition`，让同页实时刷新不再高频触发整页转场
+     - 补上 `ShouldIgnoreDialogueEndEvent()`，避免连续对话时旧 End 事件把 Prompt 提前放出来
+  2. `SpringDay1WorkbenchCraftingOverlay.cs`：
+     - 把 recipe/materials/floating-progress 的 runtime 兼容承载层彻底显式化
+     - 统一改为显式 `EnsureComponent` 兜底，规避 Unity `?? AddComponent` 的假 null / missing component 坑
+     - 保留并接稳右侧详情自适应、离台小进度与像素对齐锚定
+  3. `SpringDay1UiLayerUtility.cs`：
+     - 新增 `EnsureComponent<T>()`
+     - 保留 `SnapToCanvasPixel()` 作为固定锚定不漂的底层像素对齐工具
+  4. `SpringDay1LateDayRuntimeTests.cs`：
+     - 新增 `WorkbenchOverlay_RecoversCompatibilityNodesFromPrefabShell()`，直接验证 Workbench prefab-first 壳在 runtime 下能补齐 `Viewport/Content/Mask/ScrollRect/FloatingProgress`
+- 我本轮验证结果：
+  - `git diff --check` 通过（仅剩 EOL warning）
+  - `CodexCodeGuard` 通过，`CanContinue = true`
+  - `mcp validate_script`：本轮 3 个脚本 `0 error`
+  - 直接命中的 EditMode runtime 测试通过：
+    - `PromptOverlay_RecoversWhenDisplayedStateCacheIsMissing`
+    - `WorkbenchOverlay_RecoversCompatibilityNodesFromPrefabShell`
+- 我本轮明确判定为范围外 / 旧噪音的项：
+  1. `SpringDay1DialogueProgressionTests.PromptOverlay_SuppressesItselfDuringDialogue` 现在只剩 `SpringDay1WorldHintBubble.cs` 缺 `ShouldIgnoreDialogueEndEvent()`；这是 Day1 相关，但不在这轮主刀 write set 内
+  2. `SpringDay1LateDayRuntimeTests.FreeTimeValidationStep_AdvancesFromFinalCallToDayEnd` 仍有 `IsLowEnergyWarningActive` 未归零的旧失败，和本轮 UI 脚本无关
+  3. 清空后再读 Unity Console，仍有 `AudioListener` / `NPCValidation` / 场景 assertion 噪音；未观察到直接指向 `PromptOverlay` / `WorkbenchOverlay` 的新堆栈
+- 当前恢复点：
+  - Day1 UI 的 `Phase 2` 已经到可以交用户做体验终验的阶段；
+  - 如果用户下一步继续让我做，只应该是：
+    1. 根据终验结果做精修
+    2. 或明确授权我把 `SpringDay1WorldHintBubble.cs` 这类范围外旧噪音一起补齐
+  - 当前不应跳入 Step 3，也不应回头重写 prefab-first 主链。
+
+## 2026-03-28 线程补记：Phase 2 已从“可终验”收紧为“几何漂移纠偏”，并已用 live 证据收掉 Workbench 最后一处默认块
+
+- 当前线程主线：执行 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-03-28_UI线程Phase2几何漂移纠偏任务书.md`，不再沿旧的“Phase 2 已可终验”口径往前走，只收 Prompt / Workbench 的几何越权。
+- 我本轮显式使用：
+  - `skills-governor`
+  - `sunset-no-red-handoff`
+  - `sunset-unity-validation-loop`
+- 我本轮手工等价执行：
+  - `sunset-startup-guard`
+  - `sunset-workspace-router`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- 我本轮唯一代码改动：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs`
+- 我本轮新增查穿的根因：
+  1. `MaterialsViewport` 在 prefab 真层级里并不存在，旧兼容层运行时用 `CreateRect()` 新建后直接落成默认 `100x100`
+  2. `RefreshCompatibilityLayout()` 把 `QuantityTitle` 错判成 `DetailColumn` 直系子节点；但 prefab 里它实际上挂在 `QuantityControls` 下，所以这段内容层纵向布局逻辑一直没有命中
+- 我本轮具体收掉的东西：
+  1. `EnsureMaterialsViewportCompatibility()` 改成：如果是从 `SelectedMaterials` 现地包一层 viewport，就复制 `SelectedMaterials` 在 prefab 里的几何和 sibling 顺序，再补 `Mask / ScrollRect / Content`
+  2. `RefreshCompatibilityLayout()` 改成：只对 `SelectedName / SelectedDescription / MaterialsTitle / MaterialsViewport` 做纵向下推，下边界改用 `QuantityControls / ProgressBackground / CraftButton`
+  3. 因此这轮实际结果是：内容层继续允许纵向让位，但 `PanelRoot`、左右栏比例和底部按钮/进度区没有再被 runtime 重新算壳
+- 我本轮静态验证：
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` 通过（仅剩 EOL warning）
+  - `validate_script(SpringDay1WorkbenchCraftingOverlay.cs)`：`0 error / 1 warning`
+  - `CodexCodeGuard` 对以下 4 文件跑程序集级编译，结果 `CanContinue = true`
+    - `SpringDay1PromptOverlay.cs`
+    - `SpringDay1WorkbenchCraftingOverlay.cs`
+    - `SpringDay1UiLayerUtility.cs`
+    - `SpringDay1UiPrefabRegistry.cs`
+- 我本轮 live 取证：
+  - 进入 Play
+  - 执行 `Sunset/Story/Debug/Bootstrap Spring Day1 Validation`
+  - 用 `Step Spring Day1 Validation` 把现场推进到工作台相关阶段
+  - 执行 `Sunset/Story/Debug/Capture Spring UI Evidence`
+  - 读取：
+    - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-captures\spring-ui\pending\20260328-232925-346_manual.json`
+    - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-captures\spring-ui\pending\20260328-232925-346_manual.png`
+  - 最终已退出 Play，回到 EditMode
+- 我本轮最关键的 live 实值：
+  - Prompt：
+    - `Canvas.renderMode = ScreenSpaceOverlay`
+    - `CanvasGroup.alpha = 1.0`
+    - `TaskCardRoot = anchoredPosition(11.900024, -12.9672003), sizeDelta(328, 229.9346008)`
+    - `Page = anchoredPosition(0,0), sizeDelta(0,0), rectSize(328,229.9346008)`
+    - `BackPage = anchoredPosition(0,0), sizeDelta(0,0), rectSize(328,229.9346008)`
+  - Workbench：
+    - `PanelRoot = anchoredPosition(349.5, 264.75), sizeDelta(428, 257.10849)`
+    - `Recipe Viewport = anchoredPosition(0, -14), sizeDelta(-16, -48)`
+    - `MaterialsViewport = anchoredPosition(17.6, -108.00001), sizeDelta(-27.6, 41.800003)`，已不再是默认 `100x100`
+    - `ProgressBackground = anchoredPosition(-0.0000153, 14.999001), sizeDelta(-10.258, 20.798)`
+    - `CraftButton = anchoredPosition(0, 14.999496), sizeDelta(-10.2577, 20.7989)`
+- 我本轮对截图价值的判断：
+  - 自动 GameView 截图已经拿到，但抓图时刻 Workbench 仍处在 flashback 切段内，所以图上主要能直接看见 Prompt；Workbench 更适合作为 `.json sidecar + live RectTransform` 证据来交
+- 当前恢复点：
+  - 这轮已经不是“泛体验项进度汇报”，而是可以直接按任务书 4 类证据回执
+  - 下一步只等用户审这组几何纠偏是否过线；在用户过审前，不进入新的体验扩张或模板化
+  - 已尝试执行 `sunset-git-safe-sync.ps1 -Action sync -Mode task -OwnerThread spring-day1`
+  - 当前仍被 same-root hygiene 阻断：`.kiro/specs/UI系统`、`Assets/YYY_Scripts/Story/UI`、`.codex/threads/Sunset/spring-day1` 这几根 own roots 下还有 `109` 条历史 remaining dirty / untracked，所以这刀只能 claim“证据与实现已完成”，不能 claim“仓库已 clean 收口”
+
+## 2026-03-29 线程补记：已补第二轮回执，并把第三轮第一真实 blocker 钉死
+
+- 当前线程主线：
+  - 不是继续实现 SpringUI，也不是继续跑新的 live；
+  - 当前主线改为执行 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\2026-03-29_UI-V1_补第二轮回执并进入第三轮认领归仓与git上传_01.md`
+  - 目标只有两个：补第二轮回执落盘，然后让 still-own 包真实走一次 `preflight -> sync`
+- 本轮子任务：
+  1. 核第二轮回执文件是否已存在且内容完整
+  2. 只对已接受的 still-own 集合跑 stable launcher `preflight`
+  3. 若不能 `sync`，把第一真实 blocker 回写到第三轮回执
+- 本轮实际完成：
+  - 已确认第二轮回执存在：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\2026-03-29_UI-V1_全局警匪定责清扫第二轮回执_01.md`
+  - 已真实运行 `preflight`
+  - 已新增第三轮回执：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1\2026-03-29_UI-V1_全局警匪定责清扫第三轮回执_01.md`
+  - 未运行 `sync`，因为 `preflight` 已明确返回 `False`
+- 本轮关键判断：
+  - 第一真实 blocker 已经足够明确，不能再把“shared root 很脏”当成含混理由；
+  - 这轮真正挡住 `sync` 的，是 still-own 白名单所属 own roots 下仍有未纳入的 same-root remaining；
+  - 当前绝不能为了上 git 去吞：
+    - `SpringDay1WorldHintBubble.cs`
+    - 两个手调 prefab
+    - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity`
+    - `NpcWorldHintBubble.cs`
+    - 父线程治理 / 审核 / 分发
+- 本轮第一真实 blocker：
+  - `Assets/Editor/Story/DialogueDebugMenu.cs`
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+  - `.codex/threads/Sunset/spring-day1/2026-03-29_UI-V1_全局警匪定责清扫第一轮回执_01.md`
+  - `.codex/threads/Sunset/spring-day1/2026-03-29_UI-V1_全局警匪定责清扫第一轮认定书_01.md`
+- 验证结果：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+  - `HEAD = 7c379852`
+  - `preflight = false`
+  - `sync = 未执行`
+  - 当前 own 路径是否 clean：`no`
+- 当前恢复点：
+  - 当前这条线已经完成用户本轮要求的 `B` 路径：`已补二轮回执，且第一真实阻断已钉死`
+  - 下一步不是回去继续写 UI，而是等待治理位决定：
+    1. 是否另开 cleanup 刀处理 same-root remaining
+    2. 是否重裁 white list / own roots
+
+## 2026-03-30 线程补记：治理位已改判为 Story/UI 整根接盘，第一次真实 preflight 已放行
+
+- 当前线程主线：
+  - 不再继续第二轮 / 第三轮 blocker 口径；
+  - 当前唯一主线改为执行 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_UI-V1_StoryUI整根接盘开工_01.md`
+  - 目标是把 `Assets/YYY_Scripts/Story/UI` 整根，连同 prefab / registry sibling roots，一次推进到真实 `preflight -> sync`
+- 本轮子任务：
+  1. 先补读 `2026-03-30_全局警匪定责清扫第十轮_Story大根拆包与NPC-Spring-UI分责_01.md`
+  2. 按新裁定把白名单从“只带 Prompt / Workbench”改成“Story/UI 整根 + prefab sibling + registry asset + thread dir”
+  3. 对这组新白名单真实运行 `preflight`
+- 本轮关键决策：
+  - 我这轮身份是 `root-integrator`，不是单纯 exact-file 语义 owner
+  - `SpringDay1WorldHintBubble.cs` 已正式并入接盘面
+  - `NpcWorldHintBubble.cs(.meta)` 仍是 `NPC` 语义 own，但这轮按 `carried foreign leaf` 被批准随根带走
+  - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)` 这轮已按迁移 sibling 一起处理
+  - 继续明确不碰：
+    - `Assets/Editor/Story/*`
+    - `Assets/YYY_Tests/Editor/*`
+    - `Assets/YYY_Scripts/Story/Interaction/*`
+    - `Assets/YYY_Scripts/Story/Managers/*`
+    - `DialogueChinese*` 字体底座
+- 本轮第一次真实 `preflight` 结果：
+  - `cwd = D:\Unity\Unity_learning\Sunset`
+  - `branch = main`
+  - `HEAD = 3ec79230`
+  - `preflight = true`
+  - `own roots remaining dirty = 0`
+  - `代码闸门 = true`
+- 当前恢复点：
+  - 这轮已经不再是 blocker 报实，而是进入可直接 `sync` 的收口前状态
+  - 下一步只做同组白名单 `sync`
+  - 如果 `sync` 仍失败，才改回“第一真实 blocker”口径

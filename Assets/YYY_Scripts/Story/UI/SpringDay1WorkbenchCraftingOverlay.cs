@@ -14,12 +14,10 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public class SpringDay1WorkbenchCraftingOverlay : MonoBehaviour
     {
+        private const string PrefabAssetPath = "Assets/222_Prefabs/UI/Spring-day1/SpringDay1WorkbenchCraftingOverlay.prefab";
+
         private static readonly string[] PreferredFontResourcePaths =
         {
-            "Fonts & Materials/DialogueChinese V2 SDF",
-            "Fonts & Materials/DialogueChinese BitmapSong SDF",
-            "Fonts & Materials/DialogueChinese Pixel SDF",
-            "Fonts & Materials/DialogueChinese SoftPixel SDF",
             "Fonts & Materials/DialogueChinese SDF"
         };
 
@@ -100,6 +98,23 @@ namespace Sunset.Story
         private bool _craftButtonHovered;
         private Animator _workbenchAnimator;
         private string _workbenchAnimatorBoolName;
+        private RectTransform _detailColumnRect;
+        private RectTransform _materialsTitleRect;
+        private RectTransform _quantityTitleRect;
+        private RectTransform _quantityControlsRect;
+        private RectTransform _iconCardRect;
+        private RectBaseline _nameBaseline;
+        private RectBaseline _descriptionBaseline;
+        private RectBaseline _materialsTitleBaseline;
+        private RectBaseline _materialsViewportBaseline;
+        private RectBaseline _quantityTitleBaseline;
+        private RectBaseline _quantityControlsBaseline;
+        private RectBaseline _stageHintBaseline;
+        private RectBaseline _progressLabelBaseline;
+        private RectBaseline _progressBaseline;
+        private RectBaseline _craftButtonBaseline;
+        private RectBaseline _iconCardBaseline;
+        private float _materialsTextBaselineHeight;
 
         public static SpringDay1WorkbenchCraftingOverlay Instance
         {
@@ -120,6 +135,24 @@ namespace Sunset.Story
         {
             if (_instance != null)
             {
+                return;
+            }
+
+            SpringDay1WorkbenchCraftingOverlay existing = FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            if (existing != null)
+            {
+                _instance = existing;
+                _instance.EnsureBuilt();
+                _instance.HideImmediate();
+                return;
+            }
+
+            SpringDay1WorkbenchCraftingOverlay prefabInstance = InstantiateRuntimePrefab();
+            if (prefabInstance != null)
+            {
+                _instance = prefabInstance;
+                _instance.EnsureBuilt();
+                _instance.HideImmediate();
                 return;
             }
 
@@ -598,10 +631,999 @@ namespace Sunset.Story
 
         private void EnsureBuilt()
         {
+            if (TryBindRuntimeShell())
+            {
+                return;
+            }
+
             if (panelRect == null || quantitySlider == null || craftButton == null)
             {
                 BuildUi();
             }
+        }
+
+        private bool TryBindRuntimeShell()
+        {
+            if (rootRect == null)
+            {
+                rootRect = transform as RectTransform;
+            }
+
+            if (overlayCanvas == null)
+            {
+                overlayCanvas = GetComponent<Canvas>();
+            }
+
+            if (canvasGroup == null)
+            {
+                canvasGroup = GetComponent<CanvasGroup>();
+            }
+
+            if (_fontAsset == null)
+            {
+                _fontAsset = ResolveFont();
+            }
+
+            if (rootRect == null || overlayCanvas == null || canvasGroup == null)
+            {
+                return false;
+            }
+
+            if (panelRect == null)
+            {
+                panelRect = FindDirectChildRect(rootRect, "PanelRoot");
+            }
+
+            if (pointerRect == null && panelRect != null)
+            {
+                pointerRect = FindDirectChildRect(panelRect, "Pointer");
+            }
+
+            if (recipeViewportRect == null)
+            {
+                recipeViewportRect = FindDescendantRect(panelRect, "Viewport");
+            }
+
+            if (recipeContentRect == null && recipeViewportRect != null)
+            {
+                recipeContentRect = FindDirectChildRect(recipeViewportRect, "Content");
+            }
+
+            if (selectedIcon == null)
+            {
+                selectedIcon = FindDescendantComponent<Image>(panelRect, "SelectedIcon");
+            }
+
+            if (selectedNameText == null)
+            {
+                selectedNameText = FindDescendantComponent<TextMeshProUGUI>(panelRect, "SelectedName");
+            }
+
+            if (selectedDescriptionText == null)
+            {
+                selectedDescriptionText = FindDescendantComponent<TextMeshProUGUI>(panelRect, "SelectedDescription");
+            }
+
+            if (selectedMaterialsText == null)
+            {
+                selectedMaterialsText = FindDescendantComponent<TextMeshProUGUI>(panelRect, "SelectedMaterials");
+            }
+
+            if (stageHintText == null)
+            {
+                stageHintText = FindDescendantComponent<TextMeshProUGUI>(panelRect, "StageHint");
+            }
+
+            if (progressLabelText == null)
+            {
+                progressLabelText = FindDescendantComponent<TextMeshProUGUI>(panelRect, "ProgressLabel");
+            }
+
+            if (progressRoot == null)
+            {
+                progressRoot = FindDescendantRect(panelRect, "ProgressBackground");
+            }
+
+            if (progressBackgroundImage == null && progressRoot != null)
+            {
+                progressBackgroundImage = progressRoot.GetComponent<Image>();
+            }
+
+            if (progressFillImage == null)
+            {
+                progressFillImage = FindDescendantComponent<Image>(progressRoot, "ProgressFill");
+            }
+
+            if (quantitySlider == null)
+            {
+                quantitySlider = FindDescendantComponent<Slider>(panelRect, "Slider");
+            }
+
+            if (quantityValueText == null)
+            {
+                quantityValueText = FindDescendantComponent<TextMeshProUGUI>(panelRect, "QuantityValue");
+            }
+
+            if (decreaseButton == null)
+            {
+                decreaseButton = FindDescendantComponent<Button>(panelRect, "Decrease");
+            }
+
+            if (increaseButton == null)
+            {
+                increaseButton = FindDescendantComponent<Button>(panelRect, "Increase");
+            }
+
+            if (craftButton == null)
+            {
+                craftButton = FindDescendantComponent<Button>(panelRect, "CraftButton");
+            }
+
+            if (craftButtonBackground == null && craftButton != null)
+            {
+                craftButtonBackground = craftButton.targetGraphic as Image;
+                if (craftButtonBackground == null)
+                {
+                    craftButtonBackground = craftButton.GetComponent<Image>();
+                }
+            }
+
+            if (craftButtonLabel == null && craftButton != null)
+            {
+                craftButtonLabel = craftButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            }
+
+            if (selectedMaterialsText != null)
+            {
+                if (materialsContentRect == null)
+                {
+                    materialsContentRect = selectedMaterialsText.rectTransform.parent as RectTransform;
+                }
+
+                if (materialsViewportRect == null)
+                {
+                    materialsViewportRect = materialsContentRect;
+                }
+            }
+
+            if (_recipeScrollRect == null && recipeViewportRect != null)
+            {
+                _recipeScrollRect = recipeViewportRect.GetComponent<ScrollRect>();
+            }
+
+            if (_materialsScrollRect == null && materialsViewportRect != null)
+            {
+                _materialsScrollRect = materialsViewportRect.GetComponent<ScrollRect>();
+            }
+
+            if (_detailColumnRect == null)
+            {
+                _detailColumnRect = FindDescendantRect(panelRect, "DetailColumn");
+            }
+
+            if (_materialsTitleRect == null)
+            {
+                _materialsTitleRect = FindDescendantRect(_detailColumnRect, "MaterialsTitle");
+            }
+
+            if (_quantityTitleRect == null)
+            {
+                _quantityTitleRect = FindDescendantRect(_detailColumnRect, "QuantityTitle");
+            }
+
+            if (_quantityControlsRect == null)
+            {
+                _quantityControlsRect = FindDescendantRect(_detailColumnRect, "QuantityControls");
+            }
+
+            if (_iconCardRect == null && selectedIcon != null)
+            {
+                _iconCardRect = selectedIcon.rectTransform.parent as RectTransform;
+            }
+
+            EnsureRecipeViewportCompatibility();
+            EnsureMaterialsViewportCompatibility();
+            EnsureFloatingProgressCompatibility();
+            CaptureDetailLayoutBaselines();
+
+            if (panelRect == null || pointerRect == null || recipeContentRect == null || selectedIcon == null || selectedNameText == null
+                || selectedDescriptionText == null || selectedMaterialsText == null || stageHintText == null || progressLabelText == null
+                || progressFillImage == null || quantitySlider == null || quantityValueText == null || decreaseButton == null
+                || increaseButton == null || craftButton == null || craftButtonBackground == null || craftButtonLabel == null)
+            {
+                return false;
+            }
+
+            panelWidth = panelRect.rect.width;
+            panelHeight = panelRect.rect.height;
+
+            BindExistingRows();
+            if (_rows.Count == 0)
+            {
+                return false;
+            }
+
+            decreaseButton.onClick.RemoveAllListeners();
+            increaseButton.onClick.RemoveAllListeners();
+            quantitySlider.onValueChanged.RemoveAllListeners();
+            craftButton.onClick.RemoveAllListeners();
+            decreaseButton.onClick.AddListener(() => ChangeQuantity(-1));
+            increaseButton.onClick.AddListener(() => ChangeQuantity(1));
+            quantitySlider.onValueChanged.AddListener(v => SetQuantity(Mathf.RoundToInt(v), false));
+            craftButton.onClick.AddListener(OnCraftButtonClicked);
+            AddHoverRelay(craftButton.gameObject);
+            RefreshCompatibilityLayout();
+            return true;
+        }
+
+        private void BindExistingRows()
+        {
+            _rows.Clear();
+            if (recipeContentRect == null)
+            {
+                return;
+            }
+
+            List<RowRefs> boundRows = new();
+            for (int index = 0; index < recipeContentRect.childCount; index++)
+            {
+                RectTransform rowRect = recipeContentRect.GetChild(index) as RectTransform;
+                if (rowRect == null || !rowRect.name.StartsWith("RecipeRow_"))
+                {
+                    continue;
+                }
+
+                RowRefs row = BindRecipeRow(rowRect, ParseTrailingIndex(rowRect.name));
+                if (row != null)
+                {
+                    boundRows.Add(row);
+                }
+            }
+
+            boundRows.Sort((left, right) => ParseTrailingIndex(left.rect.name).CompareTo(ParseTrailingIndex(right.rect.name)));
+            _rows.AddRange(boundRows);
+        }
+
+        private RowRefs BindRecipeRow(RectTransform rowRect, int rowIndex)
+        {
+            if (rowRect == null)
+            {
+                return null;
+            }
+
+            Image background = rowRect.GetComponent<Image>();
+            Image accent = FindDescendantComponent<Image>(rowRect, "Accent");
+            Image icon = FindDescendantComponent<Image>(rowRect, "Icon");
+            TextMeshProUGUI name = FindDescendantComponent<TextMeshProUGUI>(rowRect, "Name");
+            TextMeshProUGUI summary = FindDescendantComponent<TextMeshProUGUI>(rowRect, "Summary");
+            Button button = rowRect.GetComponent<Button>();
+            if (background == null || accent == null || icon == null || name == null || summary == null || button == null)
+            {
+                return null;
+            }
+
+            int capturedIndex = rowIndex;
+            button.onClick.RemoveAllListeners();
+            button.onClick.AddListener(() => SelectRecipe(capturedIndex));
+            return new RowRefs
+            {
+                rect = rowRect,
+                background = background,
+                accent = accent,
+                icon = icon,
+                name = name,
+                summary = summary,
+                button = button,
+                preferredHeight = GetCurrentHeight(rowRect, rowHeight)
+            };
+        }
+
+        private void EnsureRecipeViewportCompatibility()
+        {
+            if (recipeViewportRect == null || recipeContentRect == null)
+            {
+                return;
+            }
+
+            Image viewportImage = SpringDay1UiLayerUtility.EnsureComponent<Image>(recipeViewportRect.gameObject);
+            viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+            viewportImage.raycastTarget = true;
+
+            Mask mask = SpringDay1UiLayerUtility.EnsureComponent<Mask>(recipeViewportRect.gameObject);
+            mask.showMaskGraphic = false;
+
+            _recipeScrollRect = SpringDay1UiLayerUtility.EnsureComponent<ScrollRect>(recipeViewportRect.gameObject);
+            _recipeScrollRect.horizontal = false;
+            _recipeScrollRect.vertical = true;
+            _recipeScrollRect.inertia = false;
+            _recipeScrollRect.movementType = ScrollRect.MovementType.Clamped;
+            _recipeScrollRect.scrollSensitivity = 18f;
+            _recipeScrollRect.viewport = recipeViewportRect;
+            _recipeScrollRect.content = recipeContentRect;
+
+            if (UsesManualRecipeShell())
+            {
+                if (recipeContentRect.TryGetComponent(out VerticalLayoutGroup existingLayout))
+                {
+                    existingLayout.enabled = false;
+                }
+
+                if (recipeContentRect.TryGetComponent(out ContentSizeFitter existingFitter))
+                {
+                    existingFitter.enabled = false;
+                }
+
+                return;
+            }
+
+            VerticalLayoutGroup recipeLayout = SpringDay1UiLayerUtility.EnsureComponent<VerticalLayoutGroup>(recipeContentRect.gameObject);
+            recipeLayout.enabled = true;
+            recipeLayout.padding = new RectOffset(0, 0, 0, 0);
+            recipeLayout.spacing = rowSpacing;
+            recipeLayout.childAlignment = TextAnchor.UpperLeft;
+            recipeLayout.childControlWidth = true;
+            recipeLayout.childControlHeight = false;
+            recipeLayout.childForceExpandWidth = true;
+            recipeLayout.childForceExpandHeight = false;
+
+            ContentSizeFitter recipeFitter = SpringDay1UiLayerUtility.EnsureComponent<ContentSizeFitter>(recipeContentRect.gameObject);
+            recipeFitter.enabled = true;
+            recipeFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+            recipeFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            for (int index = 0; index < recipeContentRect.childCount; index++)
+            {
+                if (recipeContentRect.GetChild(index) is RectTransform rowRect && rowRect.name.StartsWith("RecipeRow_"))
+                {
+                    EnsureRecipeRowCompatibility(rowRect);
+                }
+            }
+        }
+
+        private void EnsureRecipeRowCompatibility(RectTransform rowRect)
+        {
+            if (rowRect == null)
+            {
+                return;
+            }
+
+            bool usesGeneratedLayout = rowRect.GetComponent<HorizontalLayoutGroup>() != null;
+            LayoutElement layoutElement = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(rowRect.gameObject);
+            layoutElement.preferredHeight = rowHeight;
+            layoutElement.minHeight = rowHeight;
+            layoutElement.flexibleHeight = 0f;
+
+            if (usesGeneratedLayout)
+            {
+                rowRect.anchorMin = new Vector2(0f, 1f);
+                rowRect.anchorMax = new Vector2(1f, 1f);
+                rowRect.pivot = new Vector2(0.5f, 1f);
+                rowRect.sizeDelta = new Vector2(0f, rowHeight);
+            }
+            else if (rowRect.sizeDelta.y <= 0.01f)
+            {
+                rowRect.sizeDelta = new Vector2(rowRect.sizeDelta.x, rowHeight);
+            }
+
+            TextMeshProUGUI name = FindDescendantComponent<TextMeshProUGUI>(rowRect, "Name");
+            if (name != null)
+            {
+                RectTransform nameRect = name.rectTransform;
+                name.enableAutoSizing = false;
+                name.textWrappingMode = TextWrappingModes.NoWrap;
+                name.overflowMode = TextOverflowModes.Ellipsis;
+                if (usesGeneratedLayout && nameRect.sizeDelta.y <= 0.01f)
+                {
+                    nameRect.sizeDelta = new Vector2(nameRect.sizeDelta.x, 18f);
+                }
+            }
+
+            TextMeshProUGUI summary = FindDescendantComponent<TextMeshProUGUI>(rowRect, "Summary");
+            if (summary != null)
+            {
+                RectTransform summaryRect = summary.rectTransform;
+                summary.enableAutoSizing = false;
+                summary.textWrappingMode = TextWrappingModes.Normal;
+                summary.overflowMode = TextOverflowModes.Overflow;
+                if (usesGeneratedLayout && summaryRect.sizeDelta.y <= 0.01f)
+                {
+                    summaryRect.sizeDelta = new Vector2(summaryRect.sizeDelta.x, 12f);
+                }
+            }
+
+            if (!usesGeneratedLayout && name != null && summary != null)
+            {
+                RectTransform nameRect = name.rectTransform;
+                RectTransform summaryRect = summary.rectTransform;
+                float textWidth = Mathf.Max(72f, GetCurrentWidth(summaryRect, rowRect.rect.width - 66f));
+                float nameHeight = Mathf.Max(18f, MeasureTextHeight(name, textWidth, 18f));
+                float summaryHeight = Mathf.Max(12f, MeasureTextHeight(summary, textWidth, 12f));
+                float nameTop = 8f;
+                float summaryTop = nameTop + nameHeight + 2f;
+                float dynamicRowHeight = Mathf.Max(rowHeight, summaryTop + summaryHeight + 8f);
+
+                SetTopKeepingHorizontal(nameRect, nameTop, nameHeight);
+                SetTopKeepingHorizontal(summaryRect, summaryTop, summaryHeight);
+
+                rowRect.anchorMin = new Vector2(0f, 1f);
+                rowRect.anchorMax = new Vector2(1f, 1f);
+                rowRect.pivot = new Vector2(0.5f, 1f);
+                rowRect.sizeDelta = new Vector2(0f, dynamicRowHeight);
+                layoutElement.preferredHeight = dynamicRowHeight;
+                layoutElement.minHeight = dynamicRowHeight;
+
+                RectTransform accentRect = FindDescendantRect(rowRect, "Accent");
+                if (accentRect != null)
+                {
+                    accentRect.sizeDelta = new Vector2(accentRect.sizeDelta.x, Mathf.Max(32f, dynamicRowHeight - 10f));
+                }
+            }
+        }
+
+        private void EnsureMaterialsViewportCompatibility()
+        {
+            if (_detailColumnRect == null || selectedMaterialsText == null)
+            {
+                return;
+            }
+
+            RectTransform materialsTextRect = selectedMaterialsText.rectTransform;
+            RectTransform currentParent = materialsTextRect.parent as RectTransform;
+            bool textWasDirectChild = currentParent == _detailColumnRect;
+            int textSiblingIndex = materialsTextRect.GetSiblingIndex();
+            _materialsTextBaselineHeight = Mathf.Max(20f, _materialsTextBaselineHeight);
+
+            bool needsViewport = materialsViewportRect == null
+                || materialsViewportRect == _detailColumnRect
+                || materialsViewportRect == currentParent;
+
+            if (needsViewport)
+            {
+                materialsViewportRect = FindDirectChildRect(_detailColumnRect, "MaterialsViewport");
+                if (materialsViewportRect == null)
+                {
+                    materialsViewportRect = CreateRect(_detailColumnRect, "MaterialsViewport");
+                    if (textWasDirectChild)
+                    {
+                        CopyRectGeometry(materialsTextRect, materialsViewportRect);
+                        materialsViewportRect.SetSiblingIndex(textSiblingIndex);
+                    }
+                }
+            }
+
+            Image viewportImage = SpringDay1UiLayerUtility.EnsureComponent<Image>(materialsViewportRect.gameObject);
+            viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+            viewportImage.raycastTarget = true;
+
+            Mask viewportMask = SpringDay1UiLayerUtility.EnsureComponent<Mask>(materialsViewportRect.gameObject);
+            viewportMask.showMaskGraphic = false;
+
+            _materialsScrollRect = SpringDay1UiLayerUtility.EnsureComponent<ScrollRect>(materialsViewportRect.gameObject);
+            _materialsScrollRect.horizontal = false;
+            _materialsScrollRect.vertical = true;
+            _materialsScrollRect.inertia = false;
+            _materialsScrollRect.movementType = ScrollRect.MovementType.Clamped;
+            _materialsScrollRect.scrollSensitivity = 18f;
+
+            bool needsContent = materialsContentRect == null
+                || materialsContentRect == _detailColumnRect
+                || materialsContentRect == materialsViewportRect
+                || materialsContentRect == currentParent;
+
+            if (needsContent)
+            {
+                materialsContentRect = FindDirectChildRect(materialsViewportRect, "Content");
+                if (materialsContentRect == null)
+                {
+                    materialsContentRect = CreateRect(materialsViewportRect, "Content");
+                }
+            }
+
+            materialsContentRect.anchorMin = new Vector2(0f, 1f);
+            materialsContentRect.anchorMax = new Vector2(1f, 1f);
+            materialsContentRect.pivot = new Vector2(0.5f, 1f);
+            materialsContentRect.anchoredPosition = Vector2.zero;
+            materialsContentRect.sizeDelta = new Vector2(0f, Mathf.Max(20f, GetCurrentHeight(materialsContentRect, 20f)));
+
+            if (materialsContentRect.TryGetComponent(out VerticalLayoutGroup materialsLayout))
+            {
+                materialsLayout.enabled = false;
+            }
+
+            if (materialsContentRect.TryGetComponent(out ContentSizeFitter materialsFitter))
+            {
+                materialsFitter.enabled = false;
+            }
+
+            if (materialsTextRect.parent != materialsContentRect)
+            {
+                materialsTextRect.SetParent(materialsContentRect, false);
+            }
+
+            materialsTextRect.anchorMin = new Vector2(0f, 1f);
+            materialsTextRect.anchorMax = new Vector2(1f, 1f);
+            materialsTextRect.pivot = new Vector2(0f, 1f);
+            materialsTextRect.anchoredPosition = Vector2.zero;
+            materialsTextRect.sizeDelta = new Vector2(0f, 20f);
+            selectedMaterialsText.textWrappingMode = TextWrappingModes.Normal;
+            selectedMaterialsText.overflowMode = TextOverflowModes.Overflow;
+            LayoutElement materialsLabelLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(selectedMaterialsText.gameObject);
+            materialsLabelLayout.minHeight = 20f;
+            materialsLabelLayout.preferredHeight = 20f;
+            materialsLabelLayout.flexibleHeight = 0f;
+
+            _materialsScrollRect.viewport = materialsViewportRect;
+            _materialsScrollRect.content = materialsContentRect;
+            RefreshMaterialsContentGeometry();
+        }
+
+        private void EnsureFloatingProgressCompatibility()
+        {
+            if (floatingProgressRoot != null && floatingProgressIcon != null && floatingProgressFillImage != null && floatingProgressLabel != null)
+            {
+                return;
+            }
+
+            if (floatingProgressRoot == null)
+            {
+                floatingProgressRoot = FindDirectChildRect(rootRect, "FloatingProgressRoot");
+            }
+
+            if (floatingProgressRoot == null)
+            {
+                floatingProgressRoot = CreateRect(transform, "FloatingProgressRoot");
+                floatingProgressRoot.anchorMin = new Vector2(0.5f, 0.5f);
+                floatingProgressRoot.anchorMax = new Vector2(0.5f, 0.5f);
+                floatingProgressRoot.pivot = new Vector2(0.5f, 0f);
+                floatingProgressRoot.sizeDelta = new Vector2(54f, 46f);
+                floatingProgressRoot.gameObject.SetActive(false);
+                Image floatingCard = floatingProgressRoot.gameObject.AddComponent<Image>();
+                floatingCard.color = new Color(0.07f, 0.09f, 0.13f, 0.92f);
+                floatingCard.raycastTarget = false;
+                ApplyOutline(floatingProgressRoot.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.08f), new Vector2(1f, -1f));
+                ApplyShadow(floatingProgressRoot.gameObject.AddComponent<Shadow>(), new Color(0f, 0f, 0f, 0.24f), new Vector2(0f, -3f));
+
+                RectTransform floatingIconCard = CreateRect(floatingProgressRoot, "IconCard");
+                floatingIconCard.anchorMin = new Vector2(0.5f, 1f);
+                floatingIconCard.anchorMax = new Vector2(0.5f, 1f);
+                floatingIconCard.pivot = new Vector2(0.5f, 1f);
+                floatingIconCard.anchoredPosition = new Vector2(0f, -5f);
+                floatingIconCard.sizeDelta = new Vector2(30f, 30f);
+                floatingIconCard.gameObject.AddComponent<Image>().color = new Color(0.18f, 0.22f, 0.31f, 0.96f);
+                floatingProgressIcon = CreateIcon(floatingIconCard, "Icon", 18f);
+                Center(floatingProgressIcon.rectTransform);
+
+                RectTransform fillBackground = CreateRect(floatingProgressRoot, "ProgressBackground");
+                fillBackground.anchorMin = new Vector2(0f, 0f);
+                fillBackground.anchorMax = new Vector2(1f, 0f);
+                fillBackground.offsetMin = new Vector2(4f, 6f);
+                fillBackground.offsetMax = new Vector2(-4f, 14f);
+                fillBackground.gameObject.AddComponent<Image>().color = new Color(0.04f, 0.05f, 0.08f, 0.94f);
+
+                RectTransform fill = CreateRect(fillBackground, "ProgressFill");
+                Stretch(fill, new Vector2(1f, 1f), new Vector2(-1f, -1f));
+                floatingProgressFillImage = fill.gameObject.AddComponent<Image>();
+                floatingProgressFillImage.type = Image.Type.Filled;
+                floatingProgressFillImage.fillMethod = Image.FillMethod.Horizontal;
+                floatingProgressFillImage.fillAmount = 0f;
+                floatingProgressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.96f);
+
+                floatingProgressLabel = CreateText(floatingProgressRoot, "Label", string.Empty, 8f, Color.white, TextAlignmentOptions.Center);
+                floatingProgressLabel.rectTransform.anchorMin = new Vector2(0f, 0f);
+                floatingProgressLabel.rectTransform.anchorMax = new Vector2(1f, 0f);
+                floatingProgressLabel.rectTransform.offsetMin = new Vector2(2f, 16f);
+                floatingProgressLabel.rectTransform.offsetMax = new Vector2(-2f, 28f);
+                floatingProgressLabel.raycastTarget = false;
+                return;
+            }
+
+            if (floatingProgressIcon == null)
+            {
+                floatingProgressIcon = FindDescendantComponent<Image>(floatingProgressRoot, "Icon");
+            }
+
+            if (floatingProgressFillImage == null)
+            {
+                floatingProgressFillImage = FindDescendantComponent<Image>(floatingProgressRoot, "ProgressFill");
+            }
+
+            if (floatingProgressLabel == null)
+            {
+                floatingProgressLabel = FindDescendantComponent<TextMeshProUGUI>(floatingProgressRoot, "Label");
+            }
+        }
+
+        private void RefreshCompatibilityLayout()
+        {
+            if (_detailColumnRect == null || _materialsTitleRect == null || _quantityControlsRect == null
+                || selectedNameText == null || selectedDescriptionText == null || stageHintText == null || progressLabelText == null
+                || progressRoot == null || craftButton == null || materialsViewportRect == null)
+            {
+                return;
+            }
+
+            RefreshMaterialsContentGeometry();
+
+            if (!UsesLegacyDetailManualLayout())
+            {
+                return;
+            }
+
+            NormalizeToTopFlowRect(selectedNameText.rectTransform);
+            NormalizeToTopFlowRect(selectedDescriptionText.rectTransform);
+            NormalizeToTopFlowRect(_materialsTitleRect);
+            NormalizeToTopFlowRect(materialsViewportRect);
+            NormalizeToTopFlowRect(progressLabelText.rectTransform);
+            NormalizeToTopFlowRect(_quantityControlsRect);
+            NormalizeToTopFlowRect(stageHintText.rectTransform);
+
+            float nameWidth = GetCurrentWidth(selectedNameText.rectTransform, 120f);
+            float descriptionWidth = GetCurrentWidth(selectedDescriptionText.rectTransform, nameWidth);
+            float materialsWidth = GetCurrentWidth(materialsViewportRect, descriptionWidth);
+            float progressLabelWidth = GetCurrentWidth(progressLabelText.rectTransform, materialsWidth);
+            float stageHintWidth = GetCurrentWidth(stageHintText.rectTransform, progressLabelWidth);
+            float nameHeight = MeasureTextHeight(selectedNameText, nameWidth, Mathf.Max(18f, _nameBaseline.HeightOr(18f)));
+            float descriptionHeight = Mathf.Min(
+                MeasureTextHeight(selectedDescriptionText, descriptionWidth, Mathf.Max(26f, _descriptionBaseline.HeightOr(26f))),
+                60f);
+            float materialsTextHeight = Mathf.Max(_materialsTextBaselineHeight, MeasureTextHeight(selectedMaterialsText, materialsWidth, Mathf.Max(_materialsTextBaselineHeight, 20f)));
+            float progressLabelHeight = MeasureTextHeight(progressLabelText, progressLabelWidth, Mathf.Max(18f, _progressLabelBaseline.HeightOr(18f)));
+            float quantityControlsHeight = Mathf.Max(_quantityControlsBaseline.HeightOr(GetCurrentHeight(_quantityControlsRect, 20f)), 20f);
+            float stageHintHeight = MeasureTextHeight(stageHintText, stageHintWidth, Mathf.Max(18f, _stageHintBaseline.HeightOr(18f)));
+
+            float nameTop = _nameBaseline.TopOr(GetTopInParent(selectedNameText.rectTransform));
+            float descriptionTop = nameTop + nameHeight + 4f;
+
+            float iconBottom = _iconCardBaseline.IsCaptured
+                ? _iconCardBaseline.top + _iconCardBaseline.height
+                : descriptionTop;
+            float headerBottom = Mathf.Max(iconBottom, descriptionTop + descriptionHeight);
+
+            float materialsTitleTop = Mathf.Max(
+                _materialsTitleBaseline.TopOr(GetTopInParent(_materialsTitleRect)),
+                headerBottom + 6f);
+            float materialsTitleHeight = Mathf.Max(14f, _materialsTitleBaseline.HeightOr(14f));
+            float materialsViewportTop = materialsTitleTop + materialsTitleHeight + 4f;
+            float detailFloorTop = GetActionAreaFloorTop();
+            const float materialsToProgressGap = 6f;
+            const float progressToQuantityGap = 8f;
+            const float quantityToHintGap = 8f;
+            const float hintToActionGap = 6f;
+            float reservedAfterViewport = materialsToProgressGap + progressLabelHeight + progressToQuantityGap + quantityControlsHeight + quantityToHintGap + stageHintHeight + hintToActionGap;
+            float maxViewportHeight = Mathf.Max(20f, detailFloorTop - materialsViewportTop - reservedAfterViewport);
+            float materialsViewportHeight = Mathf.Clamp(Mathf.Max(20f, materialsTextHeight), 20f, maxViewportHeight);
+            float progressLabelTop = materialsViewportTop + materialsViewportHeight + materialsToProgressGap;
+            float quantityControlsTop = progressLabelTop + progressLabelHeight + progressToQuantityGap;
+            float stageHintTop = quantityControlsTop + quantityControlsHeight + quantityToHintGap;
+
+            SetTopFlowRect(selectedNameText.rectTransform, nameTop, nameHeight);
+            SetTopFlowRect(selectedDescriptionText.rectTransform, descriptionTop, descriptionHeight);
+            SetTopFlowRect(_materialsTitleRect, materialsTitleTop, materialsTitleHeight);
+            SetTopFlowRect(materialsViewportRect, materialsViewportTop, materialsViewportHeight);
+            SetTopFlowRect(progressLabelText.rectTransform, progressLabelTop, progressLabelHeight);
+            SetTopFlowRect(_quantityControlsRect, quantityControlsTop, quantityControlsHeight);
+            SetTopFlowRect(stageHintText.rectTransform, stageHintTop, stageHintHeight);
+
+            RefreshMaterialsContentGeometry();
+        }
+
+        private bool UsesManualRecipeShell()
+        {
+            if (recipeContentRect == null)
+            {
+                return false;
+            }
+
+            int manualRowCount = 0;
+            for (int index = 0; index < recipeContentRect.childCount; index++)
+            {
+                if (recipeContentRect.GetChild(index) is not RectTransform rowRect || !rowRect.name.StartsWith("RecipeRow_"))
+                {
+                    continue;
+                }
+
+                manualRowCount++;
+                if (rowRect.GetComponent<HorizontalLayoutGroup>() != null)
+                {
+                    return false;
+                }
+            }
+
+            return manualRowCount > 0;
+        }
+
+        private void RefreshRecipeContentGeometry()
+        {
+            if (recipeContentRect == null)
+            {
+                return;
+            }
+
+            if (!UsesManualRecipeShell())
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(recipeContentRect);
+                Canvas.ForceUpdateCanvases();
+                if (_recipeScrollRect != null)
+                {
+                    _recipeScrollRect.verticalNormalizedPosition = 1f;
+                }
+
+                return;
+            }
+
+            int visibleIndex = 0;
+            float currentTop = 0f;
+            for (int index = 0; index < _rows.Count; index++)
+            {
+                RectTransform rowRect = _rows[index].rect;
+                if (rowRect == null || !rowRect.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                float currentRowHeight = Mathf.Max(
+                    rowHeight,
+                    _rows[index].preferredHeight > 0.01f ? _rows[index].preferredHeight : GetCurrentHeight(rowRect, rowHeight));
+                rowRect.anchorMin = new Vector2(0f, 1f);
+                rowRect.anchorMax = new Vector2(1f, 1f);
+                rowRect.pivot = new Vector2(0.5f, 1f);
+                rowRect.anchoredPosition = new Vector2(0f, -currentTop);
+                rowRect.sizeDelta = new Vector2(0f, currentRowHeight);
+                currentTop += currentRowHeight + rowSpacing;
+                visibleIndex++;
+            }
+
+            float totalHeight = visibleIndex > 0 ? currentTop - rowSpacing : 0f;
+            recipeContentRect.anchorMin = new Vector2(0f, 1f);
+            recipeContentRect.anchorMax = new Vector2(1f, 1f);
+            recipeContentRect.pivot = new Vector2(0.5f, 1f);
+            recipeContentRect.anchoredPosition = Vector2.zero;
+            recipeContentRect.sizeDelta = new Vector2(recipeContentRect.sizeDelta.x, totalHeight);
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(recipeContentRect);
+            UpdateViewportMask(recipeViewportRect, totalHeight);
+            Canvas.ForceUpdateCanvases();
+            if (_recipeScrollRect != null)
+            {
+                _recipeScrollRect.verticalNormalizedPosition = 1f;
+            }
+        }
+
+        private void RefreshMaterialsContentGeometry()
+        {
+            if (selectedMaterialsText == null || materialsContentRect == null)
+            {
+                return;
+            }
+
+            float baselineHeight = 20f;
+            float width = materialsViewportRect != null
+                ? Mathf.Max(1f, materialsViewportRect.rect.width)
+                : Mathf.Max(1f, selectedMaterialsText.rectTransform.rect.width);
+            float textHeight = MeasureTextHeight(selectedMaterialsText, width, baselineHeight);
+
+            RectTransform materialsTextRect = selectedMaterialsText.rectTransform;
+            materialsTextRect.sizeDelta = new Vector2(materialsTextRect.sizeDelta.x, textHeight);
+            materialsContentRect.sizeDelta = new Vector2(materialsContentRect.sizeDelta.x, textHeight);
+
+            LayoutElement materialsLabelLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(selectedMaterialsText.gameObject);
+            materialsLabelLayout.minHeight = baselineHeight;
+            materialsLabelLayout.preferredHeight = textHeight;
+            materialsLabelLayout.flexibleHeight = 0f;
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(materialsTextRect);
+            LayoutRebuilder.ForceRebuildLayoutImmediate(materialsContentRect);
+            UpdateViewportMask(materialsViewportRect, textHeight);
+            Canvas.ForceUpdateCanvases();
+        }
+
+        private static float MeasureTextHeight(TextMeshProUGUI text, float width, float minHeight)
+        {
+            if (text == null)
+            {
+                return minHeight;
+            }
+
+            Vector2 preferred = text.GetPreferredValues(text.text, Mathf.Max(1f, width), 0f);
+            return Mathf.Max(minHeight, Mathf.Ceil(preferred.y));
+        }
+
+        private static void UpdateViewportMask(RectTransform viewportRect, float contentHeight)
+        {
+            if (viewportRect == null)
+            {
+                return;
+            }
+
+            Image viewportImage = viewportRect.GetComponent<Image>();
+            if (viewportImage != null)
+            {
+                viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+            }
+
+            Mask mask = viewportRect.GetComponent<Mask>();
+            if (mask == null)
+            {
+                return;
+            }
+
+            float viewportHeight = viewportRect.rect.height;
+            bool shouldMask = viewportHeight > 0.01f && contentHeight > viewportHeight + 0.5f;
+            mask.enabled = shouldMask;
+        }
+
+        private void CaptureDetailLayoutBaselines()
+        {
+            CaptureBaseline(ref _nameBaseline, selectedNameText != null ? selectedNameText.rectTransform : null);
+            CaptureBaseline(ref _descriptionBaseline, selectedDescriptionText != null ? selectedDescriptionText.rectTransform : null);
+            CaptureBaseline(ref _materialsTitleBaseline, _materialsTitleRect);
+            CaptureBaseline(ref _materialsViewportBaseline, materialsViewportRect);
+            CaptureBaseline(ref _quantityTitleBaseline, _quantityTitleRect);
+            CaptureBaseline(ref _quantityControlsBaseline, _quantityControlsRect);
+            CaptureBaseline(ref _stageHintBaseline, stageHintText != null ? stageHintText.rectTransform : null);
+            CaptureBaseline(ref _progressLabelBaseline, progressLabelText != null ? progressLabelText.rectTransform : null);
+            CaptureBaseline(ref _progressBaseline, progressRoot);
+            CaptureBaseline(ref _craftButtonBaseline, craftButton != null ? craftButton.transform as RectTransform : null);
+            CaptureBaseline(ref _iconCardBaseline, _iconCardRect);
+        }
+
+        private bool UsesLegacyDetailManualLayout()
+        {
+            return selectedNameText != null
+                && selectedDescriptionText != null
+                && _materialsTitleRect != null
+                && materialsViewportRect != null
+                && _quantityControlsRect != null
+                && _detailColumnRect != null
+                && selectedNameText.rectTransform.parent == _detailColumnRect
+                && selectedDescriptionText.rectTransform.parent == _detailColumnRect
+                && _materialsTitleRect.parent == _detailColumnRect
+                && materialsViewportRect.parent == _detailColumnRect
+                && _quantityControlsRect.parent == _detailColumnRect;
+        }
+
+        private float GetActionAreaFloorTop()
+        {
+            float floorTop = float.MaxValue;
+
+            RectTransform craftButtonRect = craftButton != null ? craftButton.transform as RectTransform : null;
+            if (craftButtonRect != null && craftButtonRect.parent == _detailColumnRect)
+            {
+                floorTop = Mathf.Min(floorTop, _craftButtonBaseline.TopOr(GetTopInParent(craftButtonRect)));
+            }
+
+            if (progressRoot != null && progressRoot.parent == _detailColumnRect)
+            {
+                floorTop = Mathf.Min(floorTop, _progressBaseline.TopOr(GetTopInParent(progressRoot)));
+            }
+
+            return floorTop < float.MaxValue
+                ? floorTop
+                : (_stageHintBaseline.TopOr(GetTopInParent(_quantityControlsRect)) + _stageHintBaseline.HeightOr(18f) + 8f);
+        }
+
+        private static void CaptureBaseline(ref RectBaseline baseline, RectTransform rect)
+        {
+            if (baseline.IsCaptured || rect == null || rect.parent == null)
+            {
+                return;
+            }
+
+            baseline = new RectBaseline
+            {
+                top = GetTopInParent(rect),
+                height = GetCurrentHeight(rect, 0f),
+                captured = true
+            };
+        }
+
+        private static float GetTopInParent(RectTransform rect)
+        {
+            RectTransform parent = rect != null ? rect.parent as RectTransform : null;
+            if (rect == null || parent == null)
+            {
+                return 0f;
+            }
+
+            Vector3[] corners = new Vector3[4];
+            rect.GetWorldCorners(corners);
+            Vector3 topLeft = parent.InverseTransformPoint(corners[1]);
+            return parent.rect.yMax - topLeft.y;
+        }
+
+        private static float GetCurrentHeight(RectTransform rect, float fallback)
+        {
+            return rect != null && rect.rect.height > 0.01f ? rect.rect.height : fallback;
+        }
+
+        private static float GetCurrentWidth(RectTransform rect, float fallback)
+        {
+            return rect != null && rect.rect.width > 0.01f ? rect.rect.width : fallback;
+        }
+
+        private static void NormalizeToTopFlowRect(RectTransform rect)
+        {
+            if (rect == null || rect.parent == null)
+            {
+                return;
+            }
+
+            bool alreadyTopAnchored = Mathf.Abs(rect.anchorMin.y - 1f) < 0.001f
+                && Mathf.Abs(rect.anchorMax.y - 1f) < 0.001f
+                && Mathf.Abs(rect.pivot.y - 1f) < 0.001f;
+            if (alreadyTopAnchored)
+            {
+                return;
+            }
+
+            float top = GetTopInParent(rect);
+            float height = Mathf.Max(1f, GetCurrentHeight(rect, Mathf.Abs(rect.sizeDelta.y)));
+
+            if (Mathf.Abs(rect.anchorMin.x - rect.anchorMax.x) > 0.001f)
+            {
+                Vector2 offsetMin = rect.offsetMin;
+                Vector2 offsetMax = rect.offsetMax;
+                rect.anchorMin = new Vector2(rect.anchorMin.x, 1f);
+                rect.anchorMax = new Vector2(rect.anchorMax.x, 1f);
+                rect.pivot = new Vector2(rect.pivot.x, 1f);
+                rect.offsetMin = new Vector2(offsetMin.x, -top - height);
+                rect.offsetMax = new Vector2(offsetMax.x, -top);
+                return;
+            }
+
+            Vector2 anchoredPosition = rect.anchoredPosition;
+            Vector2 sizeDelta = rect.sizeDelta;
+            rect.anchorMin = new Vector2(rect.anchorMin.x, 1f);
+            rect.anchorMax = new Vector2(rect.anchorMax.x, 1f);
+            rect.pivot = new Vector2(rect.pivot.x, 1f);
+            rect.anchoredPosition = new Vector2(anchoredPosition.x, -top);
+            rect.sizeDelta = new Vector2(sizeDelta.x, height);
+        }
+
+        private static void SetTopFlowRect(RectTransform rect, float top, float height)
+        {
+            NormalizeToTopFlowRect(rect);
+            SetTopKeepingHorizontal(rect, top, height);
+        }
+
+        private static void SetTopKeepingHorizontal(RectTransform rect, float top, float height)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            if (Mathf.Abs(rect.anchorMin.x - rect.anchorMax.x) > 0.001f)
+            {
+                Vector2 offsetMin = rect.offsetMin;
+                Vector2 offsetMax = rect.offsetMax;
+                rect.offsetMin = new Vector2(offsetMin.x, -top - height);
+                rect.offsetMax = new Vector2(offsetMax.x, -top);
+                return;
+            }
+
+            Vector2 anchoredPosition = rect.anchoredPosition;
+            Vector2 sizeDelta = rect.sizeDelta;
+            rect.anchoredPosition = new Vector2(anchoredPosition.x, -top);
+            rect.sizeDelta = new Vector2(sizeDelta.x, height);
+        }
+
+        private static void CopyRectGeometry(RectTransform source, RectTransform target)
+        {
+            if (source == null || target == null)
+            {
+                return;
+            }
+
+            target.anchorMin = source.anchorMin;
+            target.anchorMax = source.anchorMax;
+            target.pivot = source.pivot;
+            target.anchoredPosition = source.anchoredPosition;
+            target.sizeDelta = source.sizeDelta;
+            target.offsetMin = source.offsetMin;
+            target.offsetMax = source.offsetMax;
+            target.localRotation = source.localRotation;
+            target.localScale = source.localScale;
         }
 
         private bool EnsureRecipesLoaded()
@@ -636,8 +1658,26 @@ namespace Sunset.Story
 
         private void EnsureRows()
         {
+            if (_rows.Count == 0)
+            {
+                BindExistingRows();
+            }
+
             while (_rows.Count < _recipes.Count)
             {
+                if (_rows.Count > 0)
+                {
+                    RectTransform clone = Instantiate(_rows[0].rect, recipeContentRect);
+                    clone.name = $"RecipeRow_{_rows.Count}";
+                    EnsureRecipeRowCompatibility(clone);
+                    RowRefs boundClone = BindRecipeRow(clone, _rows.Count);
+                    if (boundClone != null)
+                    {
+                        _rows.Add(boundClone);
+                        continue;
+                    }
+                }
+
                 int rowIndex = _rows.Count;
                 RectTransform rowRect = CreateRect(recipeContentRect, $"RecipeRow_{rowIndex}");
                 LayoutElement rowLayoutElement = rowRect.gameObject.AddComponent<LayoutElement>();
@@ -687,6 +1727,7 @@ namespace Sunset.Story
                 Button button = rowRect.gameObject.AddComponent<Button>();
                 button.targetGraphic = background;
                 button.onClick.AddListener(() => SelectRecipe(rowIndex));
+                EnsureRecipeRowCompatibility(rowRect);
                 _rows.Add(new RowRefs { rect = rowRect, background = background, accent = accentImage, icon = icon, name = name, summary = summary, button = button });
             }
 
@@ -699,12 +1740,20 @@ namespace Sunset.Story
             RefreshRows();
             RefreshSelection();
             UpdateQuantityUi();
+            RefreshCompatibilityLayout();
         }
 
         private void RefreshRows()
         {
             for (int i = 0; i < _rows.Count; i++)
             {
+                bool hasRecipe = i < _recipes.Count;
+                _rows[i].rect.gameObject.SetActive(hasRecipe);
+                if (!hasRecipe)
+                {
+                    continue;
+                }
+
                 RecipeData recipe = _recipes[i];
                 ItemData item = ResolveItem(recipe.resultItemID);
                 bool selected = i == _selectedIndex;
@@ -713,9 +1762,15 @@ namespace Sunset.Story
                 _rows[i].icon.color = _rows[i].icon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
                 _rows[i].name.text = GetRecipeDisplayName(recipe, item);
                 _rows[i].summary.text = BuildRowSummary(recipe);
+                _rows[i].name.ForceMeshUpdate();
+                _rows[i].summary.ForceMeshUpdate();
+                EnsureRecipeRowCompatibility(_rows[i].rect);
+                _rows[i].preferredHeight = GetCurrentHeight(_rows[i].rect, rowHeight);
                 _rows[i].background.color = selected ? new Color(0.31f, 0.23f, 0.14f, 0.98f) : craftable ? new Color(0.18f, 0.22f, 0.31f, 0.94f) : new Color(0.24f, 0.16f, 0.16f, 0.94f);
                 _rows[i].accent.color = selected ? new Color(0.97f, 0.8f, 0.42f, 1f) : new Color(1f, 1f, 1f, 0f);
             }
+
+            RefreshRecipeContentGeometry();
         }
 
         private void SelectRecipe(int index)
@@ -744,9 +1799,10 @@ namespace Sunset.Story
             selectedNameText.text = GetRecipeDisplayName(recipe, item);
             selectedDescriptionText.text = string.IsNullOrWhiteSpace(recipe.description) ? (item != null ? item.description : "这件工具还没有额外说明。") : recipe.description;
             selectedMaterialsText.text = BuildMaterialsText(recipe, _selectedQuantity);
-            if (materialsContentRect != null)
+            RefreshMaterialsContentGeometry();
+            if (_materialsScrollRect != null)
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(materialsContentRect);
+                _materialsScrollRect.verticalNormalizedPosition = 1f;
             }
             stageHintText.text = BuildStageHint(recipe);
             UpdateProgressLabel(recipe);
@@ -819,6 +1875,7 @@ namespace Sunset.Story
 
             RefreshSelection();
             UpdateQuantityUi();
+            RefreshCompatibilityLayout();
         }
 
         private void OnCraftButtonClicked()
@@ -1028,9 +2085,9 @@ namespace Sunset.Story
         {
             float previewDuration = Mathf.Max(0.25f, recipe.craftingTime > 0f ? recipe.craftingTime : defaultCraftDuration);
             string materialSummary = recipe.ingredients == null || recipe.ingredients.Count == 0
-                ? "无需材料"
-                : $"{recipe.ingredients.Count} 项材料";
-            return $"制作 {previewDuration:0.0}s · {materialSummary}";
+                ? "免材料"
+                : $"{recipe.ingredients.Count}项材料";
+            return $"{previewDuration:0.0}s · {materialSummary}";
         }
 
         private string BuildMaterialsText(RecipeData recipe, int quantity)
@@ -1218,7 +2275,7 @@ namespace Sunset.Story
             float minY = rect.yMin + panelHeight * panelRect.pivot.y + screenMargin.y;
             float maxY = rect.yMax - panelHeight * (1f - panelRect.pivot.y) - screenMargin.y;
             Vector2 target = new(Mathf.Clamp(localPoint.x, minX, maxX), Mathf.Clamp(localPoint.y, minY, maxY));
-            panelRect.anchoredPosition = target;
+            panelRect.anchoredPosition = SpringDay1UiLayerUtility.SnapToCanvasPixel(overlayCanvas, target);
         }
 
         private void UpdateFloatingProgressVisibility()
@@ -1269,7 +2326,7 @@ namespace Sunset.Story
                 return;
             }
 
-            floatingProgressRoot.anchoredPosition = localPoint;
+            floatingProgressRoot.anchoredPosition = SpringDay1UiLayerUtility.SnapToCanvasPixel(overlayCanvas, localPoint);
         }
 
         private string GetCraftHoverLabel()
@@ -1380,6 +2437,35 @@ namespace Sunset.Story
             return SpringDay1UiLayerUtility.ResolveUiParent();
         }
 
+        private static SpringDay1WorkbenchCraftingOverlay InstantiateRuntimePrefab()
+        {
+            GameObject prefab = LoadRuntimePrefabAsset();
+            if (prefab == null)
+            {
+                return null;
+            }
+
+            Transform parent = ResolveParent();
+            GameObject instance = parent != null ? Instantiate(prefab, parent, false) : Instantiate(prefab);
+            instance.name = prefab.name;
+            return instance.GetComponent<SpringDay1WorkbenchCraftingOverlay>();
+        }
+
+        private static GameObject LoadRuntimePrefabAsset()
+        {
+            GameObject prefab = SpringDay1UiPrefabRegistry.LoadWorkbenchOverlayPrefab();
+            if (prefab != null)
+            {
+                return prefab;
+            }
+
+#if UNITY_EDITOR
+            return UnityEditor.AssetDatabase.LoadAssetAtPath<GameObject>(PrefabAssetPath);
+#else
+            return null;
+#endif
+        }
+
         private static Transform ResolvePlayerTransform()
         {
             PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
@@ -1387,6 +2473,71 @@ namespace Sunset.Story
         }
 
         private static PlayerMovement ResolvePlayerMovement() => FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+
+        private static RectTransform FindDirectChildRect(Transform parent, string childName)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            Transform child = parent.Find(childName);
+            return child as RectTransform;
+        }
+
+        private static RectTransform FindDescendantRect(Transform parent, string childName)
+        {
+            Transform child = FindDescendant(parent, childName);
+            return child as RectTransform;
+        }
+
+        private static T FindDescendantComponent<T>(Transform parent, string childName) where T : Component
+        {
+            Transform child = FindDescendant(parent, childName);
+            return child != null ? child.GetComponent<T>() : null;
+        }
+
+        private static Transform FindDescendant(Transform parent, string childName)
+        {
+            if (parent == null)
+            {
+                return null;
+            }
+
+            for (int index = 0; index < parent.childCount; index++)
+            {
+                Transform child = parent.GetChild(index);
+                if (child.name == childName)
+                {
+                    return child;
+                }
+
+                Transform nested = FindDescendant(child, childName);
+                if (nested != null)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
+        }
+
+        private static int ParseTrailingIndex(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+            {
+                return int.MaxValue;
+            }
+
+            int underscoreIndex = name.LastIndexOf('_');
+            if (underscoreIndex < 0 || underscoreIndex >= name.Length - 1)
+            {
+                return int.MaxValue;
+            }
+
+            int value;
+            return int.TryParse(name.Substring(underscoreIndex + 1), out value) ? value : int.MaxValue;
+        }
 
         private RectTransform CreateSection(Transform parent, string name)
         {
@@ -1558,6 +2709,19 @@ namespace Sunset.Story
             canvasGroup.blocksRaycasts = false;
         }
 
+        private struct RectBaseline
+        {
+            public float top;
+            public float height;
+            public bool captured;
+
+            public bool IsCaptured => captured;
+
+            public float TopOr(float fallback) => captured ? top : fallback;
+
+            public float HeightOr(float fallback) => captured ? height : fallback;
+        }
+
         private sealed class RowRefs
         {
             public RectTransform rect;
@@ -1567,6 +2731,7 @@ namespace Sunset.Story
             public TextMeshProUGUI name;
             public TextMeshProUGUI summary;
             public Button button;
+            public float preferredHeight;
         }
 
         private sealed class HoverRelay : MonoBehaviour, IPointerEnterHandler, IPointerExitHandler
