@@ -747,5 +747,48 @@
     - `own roots = Assets/Editor, Assets/YYY_Scripts/Data, .codex/threads/Sunset/NPC, Assets/YYY_Scripts/Controller/NPC`
     - `own roots remaining dirty 数量 = 0`
     - `代码闸门通过 = True`
+- 当前恢复点：
+  - 当前切片已满足进入同白名单 `sync` 的条件；本轮不再继续扩题，只按同组白名单推进 `sync`
+
+## 2026-03-31｜Primary 过期锁善后：恢复旧 canonical path 并释放 stale NPC active lock
+
+- 当前主线目标：
+  - 这轮不是继续 NPC 功能、不是继续 scene 主线、也不是吞 `Primary` 整案；唯一目标是把我名下这把 `Primary.unity` 过期 active lock 做合法善后，并把旧 canonical path `Assets/000_Scenes/Primary.unity` 恢复回 `HEAD` 基线。
+- 本轮子任务：
+  - 完整回读：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_NPC_Primary过期锁善后与旧canonical恢复_01.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_单独立案_Primary.unity删除面_01.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+  - 按执行书顺序执行：
+    1. 确认旧 canonical path 是删除面
+    2. 从 `HEAD` 恢复 `Assets/000_Scenes/Primary.unity(.meta)`
+    3. 以 `NPC` owner 身份运行 `Release-Lock.ps1`
+    4. 再对白名单跑 `preflight -> sync`
+- 本轮完成：
+  - 已确认旧 canonical path 删除面存在：
+    - `git status --short -- Assets/000_Scenes/Primary.unity Assets/000_Scenes/Primary.unity.meta`
+    - 返回 `D`
+  - 已从 `HEAD` 原样恢复：
+    - `Assets/000_Scenes/Primary.unity`
+    - `Assets/000_Scenes/Primary.unity.meta`
+  - 已核对恢复后现场：
+    - `git diff --name-status -- Assets/000_Scenes/Primary.unity Assets/000_Scenes/Primary.unity.meta`
+    - 返回空结果，说明旧 canonical path 已回到 `HEAD` 基线
+  - 已在恢复后先查锁，再以 `NPC` owner 身份合法释放：
+    - `Check-Lock.ps1 -TargetPath 'Assets/000_Scenes/Primary.unity'`
+      - 返回 `state = locked`
+    - `Release-Lock.ps1 -TargetPath 'Assets/000_Scenes/Primary.unity' -OwnerThread 'NPC' ...`
+      - 返回 `state = released`
+      - 新 history：
+        - `.kiro/locks/history/A__Assets__000_Scenes__Primary.unity.lock.20260331-011357.released.json`
+    - 再次 `Check-Lock.ps1`
+      - 返回 `state = unlocked`
+  - 本轮确认：
+    - 未触碰 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)`
+    - 未改 `ProjectSettings/EditorBuildSettings.asset`
+    - 未改 `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+    - 未顺手改任何 `Primary.unity` 场景内容
   - 当前恢复点：
-    - 当前切片已满足进入同白名单 `sync` 的条件；本轮不再继续扩题，只按同组白名单推进 `sync`
+    - 旧 canonical path 和 stale lock 的物理现场都已经回到合法状态
+    - 接下来只需按最小白名单 `preflight -> sync` 收口本轮回执
