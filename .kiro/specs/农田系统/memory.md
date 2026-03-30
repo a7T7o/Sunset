@@ -446,3 +446,7 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-29：农田总层补记，第六轮已完成 `GameInputManager` 深层 mixed 依赖切口与真实归仓
 
 当前农田总层新增的稳定事实是：`全局警匪定责清扫` 第六轮没有把农田线重新拉回 broad mixed 包，而是只靠 `GameInputManager.cs` 本地 compat/fallback 把第五轮继续前推的 first blocker 切断，并完成了真实归仓。这轮唯一新增代码改动只在 `GameInputManager.cs`，通过反射兼容口替代了 `LastActionFailureReason` 和 `ShouldBlockAxeActionBeforeAnimation(...)` 的 compile-time 直连；随后真实 `preflight` 已返回通过，同组 14 个代码文件也已完成 `sync`，代码归仓 SHA 为 `5e3fe6097ead976df3ebd967e044edf7cd031637`。这意味着农田总层当前又新增了一条可以稳定复用的治理事实：面对 `GameInputManager` 这种共享热点继续咬 deeper mixed-root 时，优先尝试本地 compat/fallback，有机会在不扩大白名单的前提下把整组包收上 git。总层恢复点因此更新为：这条警匪定责子线当前已经闭环，后续农田主线若继续，应回到新的用户委托，而不是继续在本轮里反复扩 mixed-root。
+
+## 2026-03-31：农田总层补记，preview 遮挡 shared-runtime 尾差现已重新切回 `OcclusionManager.cs` 单刀
+
+当前农田总层新增的稳定事实是：继 `TreeController.cs / OcclusionManager.cs` 的认领语义被问清后，这轮农田方向没有继续泛讲 shared-runtime，也没有再把 preview 遮挡和砍树表现混写成一包。用户当前唯一批准的主刀只有一个，就是把 `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs` 当前这份 preview 遮挡小尾差单独归仓。线程本轮先按治理执行书完整回读定责文档、治理根层记忆与本线程记忆，然后重新核了 working tree：`OcclusionManager.cs` 仍然只有 4 行量级 diff，核心是把预览遮挡判定从 `GetBounds()` 切到 `GetColliderBounds()`；相对地，`TreeController.cs` 仍是大体量砍树表现包，因此继续被明确留在白名单外。最关键的新验证结论是：只含 `OcclusionManager.cs` 的最窄白名单已经真实跑过 `preflight`，结果明确显示 `是否允许按当前模式继续: True`、`代码闸门通过: True`、`own roots remaining dirty 数量: 0`。这说明当前农田总层关于 preview 遮挡的 shared-runtime 残面，已经不是“还得等别的 runtime 一起收”的混合 blocker，而是可按单文件小尾差独立处理的真实提交面。总层恢复点因此更新为：这轮关于 preview 遮挡的正确叙事，已经被重新压回 `OcclusionManager.cs` 单刀；后续若继续治理，只能继续问这刀是否成功归仓，不再把 `TreeController.cs` 拿回来混成同一轮。

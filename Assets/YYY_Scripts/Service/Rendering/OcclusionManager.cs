@@ -390,8 +390,8 @@ public class OcclusionManager : MonoBehaviour
                 continue;
             }
             
-            // 获取遮挡物的 Bounds
-            Bounds occluderBounds = occluder.GetBounds();
+            // 预览遮挡只看物理 footprint，避免 sprite 外扩把周边整片压透明。
+            Bounds occluderBounds = occluder.GetColliderBounds();
             
             // ★ 预览遮挡检测：只要 Bounds 有重叠就触发透明
             // 对于预览，minOcclusionRatio = 0（任何遮挡都触发）

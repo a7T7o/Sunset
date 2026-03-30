@@ -1424,3 +1424,71 @@
 - 当前主线恢复点更新为：
   - “第六轮已经在 `GameInputManager.cs` 内切断更深 mixed 依赖，并按第五轮同组白名单完成真实归仓；这条警匪定责子任务已闭环。”
 - 如果继续后续治理，只能基于新的用户委托再开下一刀；当前不应再在这轮里继续扩白名单或顺手补业务交互。
+
+## 2026-03-31：`OcclusionManager.cs` preview 遮挡小尾差已被重新收成单文件归仓面
+
+**用户目标**：
+- 用户这轮明确要求先完整读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_farm_OcclusionManager小尾差归仓_01.md`。
+- 本轮不是继续补农田大包，也不是顺手动 `TreeController.cs`。
+- 当前唯一主刀只有一个：把 `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs` 当前这份 preview 遮挡小尾差，单独收成一个真实 `preflight -> sync` 的小提交面。
+
+**当前主线目标**：
+- 主线仍然服务 `农田交互修复V3` 的 shared-runtime / mixed-root 后续清扫；
+- 但本轮已经从“继续讲认领边界”切到“只对 `OcclusionManager.cs` 单刀做真实归仓尝试”。
+
+**本轮已完成事项**：
+1. 已完整读取：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_farm_OcclusionManager小尾差归仓_01.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_shared-runtime残面定责_01.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\memory.md`
+   - 当前线程记忆
+2. 已重新核当前 working tree 现场：
+   - `branch = main`
+   - `HEAD = 4a733793ff2dcf7f771c7dbace76f56f71365846`
+   - 当前与本轮最相关的代码 dirty 只有：
+     - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+     - `Assets/YYY_Scripts/Controller/TreeController.cs`
+3. 已重新确认本轮唯一允许带走的代码 diff 只有：
+   - `OcclusionManager.cs` 中把 preview 遮挡用的 `occluder.GetBounds()` 改成 `occluder.GetColliderBounds()`
+   - 注释也已同步写死“预览遮挡只看物理 footprint，避免 sprite 外扩把周边整片压透明”
+4. 已把 `TreeController.cs` 继续明确留在白名单外：
+   - 当前它仍是 1000+ 行量级的大包
+   - 本轮没有读取它来继续补逻辑
+   - 本轮也没有把它带进 `preflight`
+5. 已真实运行最窄白名单 preflight：
+   - `powershell -ExecutionPolicy Bypass -File C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread 农田交互修复V3 -IncludePaths Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+6. 已拿到真实 preflight 结果：
+   - `是否允许按当前模式继续: True`
+   - `代码闸门通过: True`
+   - `own roots remaining dirty 数量: 0`
+   - `代码闸门程序集: Assembly-CSharp`
+
+**关键决策**：
+- 这轮不能再把 `TreeController.cs` 包装成“顺手一起收更划算”。
+- 当前第一关键判断已经重新站稳：
+  - `OcclusionManager.cs` 这刀本身是独立可归仓面，不再被 same-root remaining dirty 或代码闸门阻断。
+- 因此本轮唯一正确后续动作只能是：
+  - 在补完 own memory 后，继续按同组白名单跑最终 `preflight -> sync`
+  - 不再扩包到任何其他 runtime 文件
+
+**涉及文件 / 路径**：
+- 当前唯一代码面：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+- 当前保持白名单外的 mixed / foreign dirty：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- 本轮线程记忆：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\memory_0.md`
+
+**验证结果**：
+- `preflight`：已真实运行并通过
+- `sync`：待本轮同组白名单继续执行
+- `提交 SHA`：待本轮最终 `sync`
+- `当前 own 路径是否 clean`：当前仅对 `OcclusionManager.cs` 单文件白名单视角为 `yes`；整轮最终结论以本轮 `sync` 结果为准
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “`OcclusionManager.cs` 当前已被重新收成 preview 遮挡单文件尾差，并且这刀自身已经真实过了最窄白名单 preflight。”
+- 如果继续本轮，下一步只允许：
+  - 把当前线程 / 农田相关 memory 一并纳入同组白名单
+  - 真实执行最终 `preflight -> sync`
+  - 成功则回 SHA；失败则只回第一真实 blocker
