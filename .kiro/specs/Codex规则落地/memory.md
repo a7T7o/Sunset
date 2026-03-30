@@ -7580,3 +7580,54 @@
   - 等它回执后，再判断：
     - 是 `A｜根内兼容回退成功并 sync`
     - 还是 `B｜已证明不扩 Data 根就过不去`。
+
+## 2026-03-30｜UI-V1 接盘已真 sync：当前应停发 UI-V1，并正式重唤 `spring-day1V2` 接剩余 Spring Story 包
+
+- 当前主线目标：
+  - 在 Story 大根 mixed-root 接盘波里，把已经 peeled 完的 UI roots 与尚未接盘的剩余 Spring-dominant roots 明确切开，并决定下一条真正该继续施工的 Story 线程。
+- 本轮子任务：
+  - 复核 `UI-V1` 的最新回执、对应提交与当前 own roots 状态；
+  - 判断 `UI-V1` 这条线是否应停发；
+  - 再根据 UI peel 后的现场，决定是否可以正式重唤 `spring-day1V2`。
+- 本轮已完成：
+  1. 已回读 `UI-V1` 回执文件并与 Git 现实交叉核对：
+     - 回执正文本身停在 `preflight 已过、sync 待执行` 的中间态
+     - 但用户转来的最新补充“已 sync、SHA=2c6276eb”与 Git 现实一致
+  2. 已确认 `2c6276eb` 真正在 `main`，且提交内容命中原 prompt 允许范围：
+     - `Assets/YYY_Scripts/Story/UI/**`
+     - `Assets/222_Prefabs/UI/Spring-day1/**`
+     - `Assets/Resources/Story/**`
+     - `.codex/threads/Sunset/spring-day1/**`
+     - `.kiro/specs/UI系统/0.0.1 SpringUI/memory.md`
+  3. 已真实复核当前 own roots 状态：
+     - `Assets/YYY_Scripts/Story/UI`
+     - `Assets/222_Prefabs/UI/Spring-day1`
+     - `Assets/Resources/Story`
+     - `.codex/threads/Sunset/spring-day1`
+     - `.kiro/specs/UI系统/0.0.1 SpringUI`
+     当前都已 `remaining dirty = 0`
+  4. 已据此把 `UI-V1` 裁定为：
+     - 当前这条切片 `A｜已真实 sync`
+     - 本波 Story 接盘里应 `无需继续发`，不是再补下一刀
+  5. 已进一步复核 UI peel 后剩余 Story roots：
+     - `Assets/YYY_Scripts/Story/Interaction`
+     - `Assets/YYY_Scripts/Story/Managers`
+     - `Assets/Editor/Story`
+     - `Assets/YYY_Tests/Editor`
+     现在已明显变成 `Spring-dominant` 剩余包
+  6. 已新增下一条唯一继续施工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_spring-day1V2_剩余SpringStory根接盘开工_01.md`
+- 当前关键判断：
+  1. `UI-V1` 这轮不是 checkpoint 冒充完成，而是真正完成了原本派给它的 `Story/UI` 整根接盘切片。
+  2. 所以它现在应停发；继续给它发 prompt，只会重新把已经 peeled 完的 UI roots 拉回混战。
+  3. `NPC` 现在仍不该先开，因为：
+     - `NPCInformalChatInteractable.cs(.meta)` 还长在 `Assets/YYY_Scripts/Story/Interaction`
+     - `NPCInformalChatInterruptMatrixTests.cs(.meta)` 还长在 `Assets/YYY_Tests/Editor`
+     - `Assets/Editor` 直系根也仍混着 `NPCInformalChatValidationMenu.cs` 与 `NavigationStaticPointValidationMenu.cs`
+  4. 当前最合理的下一条 Story 施工线，已经从“等 UI peel 完再看”推进成：
+     - 正式重唤 `spring-day1V2`
+     - 由它作为 `Spring integrator` 接剩余的 Spring-dominant Story 包
+- 当前恢复点：
+  - 现在等待用户把 `spring-day1V2` 新 prompt 发出；
+  - 同时 `导航检查V2` 继续走它那条 `Service/Player` compat rollback；
+  - 后续再根据这两条回执，决定 `NPC` 是否终于具备真实开工条件。
