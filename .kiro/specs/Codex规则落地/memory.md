@@ -7706,3 +7706,78 @@
   - 现在等待用户把 `spring-day1V2` 的 decouple prompt 发出；
   - 若它下一轮通过 `preflight -> sync`，剩余 Story 包会再往前收一大步；
   - `NPC` 仍等这包继续 peeled 后再看。
+
+## 2026-03-30｜spring-day1V2 已完成剩余 Spring Story 包，当前唯一继续施工线改判为 `NPC -> 剩余NPC package`
+
+- 当前主线目标：
+  - 在 `UI-V1`、`导航检查V2`、`spring-day1V2` 三条切片都已各自收住后，把下一条真正还能继续推进的线明确切给 `NPC`。
+- 本轮子任务：
+  - 复核 `spring-day1V2` 最新提交与当前 clean 状态；
+  - 判断它现在是否应停发；
+  - 同时把 `NPC` 当前剩余包压成一个真实可跑的切片。
+- 本轮已完成：
+  1. 已确认 `spring-day1V2` 最新提交 `97dc123` 已在 `main`，且当前同组 include paths 再跑 `preflight` 时：
+     - `CanContinue=True`
+     - `own roots remaining dirty = 0`
+  2. 已据此把 `spring-day1V2` 当前切片裁定为：
+     - `A｜已真实 sync`
+     - 当前应停发
+  3. 已复核当前剩余 dirty 分布，确认 NPC 现在真正剩下的主包已经收缩为：
+     - `Assets/YYY_Scripts/Controller/NPC/**`
+     - `Assets/YYY_Scripts/Data/NPCDialogueContentProfile.cs`
+     - `Assets/YYY_Scripts/Data/NPCRelationshipStage.cs`
+     - `Assets/YYY_Scripts/Data/NPCRoamProfile.cs`
+     - `Assets/YYY_Scripts/Data/NPCInformalChatExitModel.cs(.meta)`
+     - `Assets/Editor/NPCInformalChatValidationMenu.cs(.meta)`
+     - `Assets/Editor/NPC.meta`
+     - `.codex/threads/Sunset/NPC/**`
+  4. 已进一步确认：
+     - `Assets/Editor` 直系根当前仍混着 `NavigationStaticPointValidationMenu.cs(.meta)`
+     - 所以 NPC 这轮正确动作不是继续碰 `Assets/Editor` 直系根，而是先把自己的 validation 菜单迁入 `Assets/Editor/NPC/`
+  5. 已新增唯一继续施工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_剩余NPC包接盘开工_02.md`
+- 当前关键判断：
+  1. 现在不再是“我只能等回执”。
+  2. 当前已应停发的线程切片有：
+     - `UI-V1`
+     - `导航检查V2`
+     - `spring-day1V2`
+  3. 当前唯一新的继续施工线是：
+     - `NPC`
+  4. 这条 `NPC` 新切片不是旧的“非正式聊天残包 exact 回补”，而是：
+     - `NPC integrator`
+     - 以“迁入 `Assets/Editor/NPC/` + 收 Controller/NPC + 收 Data/NPC* + 收 thread dir”为唯一主刀
+- 当前恢复点：
+  - 现在等待用户把 `NPC` 新 prompt 发出；
+  - 若 `NPC` 这轮通过 `preflight -> sync`，当前 mixed-root 接盘波会再往前收一大步。
+
+## 2026-03-30｜day1 最终 sync 回执已核实，当前 mixed-root 接盘波收束为“三停一继续”
+
+- 当前主线目标：
+  - 在 `spring-day1V2` 交出最终 `sync` 回执后，把这波 mixed-root 接盘的活线重新收束成最新可执行状态，避免继续对已闭环线程误发 prompt。
+- 本轮子任务：
+  - 复核 `spring-day1V2` 最终回执与 Git 现实是否一致
+  - 复核现成 `NPC` prompt 是否仍与当前工作树相符
+  - 补跑一次 `skill-trigger-log` 健康检查，确认治理审计层仍 clean
+- 本轮已完成：
+  1. 已确认 `spring-day1V2` 最终提交 `97dc123a` 已在 `main`，且用户转来的最新回执与 Git 现实一致：
+     - `DialogueDebugMenu.cs` 根内最小 decouple 已归仓
+     - 该包 own roots 当前已 clean
+  2. 已再次交叉核对当前工作树，确认现在仍应继续施工的只剩 `NPC` 包；
+     `UI-V1`、`导航检查V2`、`spring-day1V2` 三条都不应再被唤回
+  3. 已复核 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_剩余NPC包接盘开工_02.md` 仍与最新现场一致，不需要改写：
+     - `NPC` 这轮仍应以 `NPC integrator` 身份接 `Controller/NPC + Data/NPC* + Editor/NPC + thread dir`
+     - 第一步仍是把 `NPCInformalChatValidationMenu.cs` 迁入 `Assets/Editor/NPC/`，避开 `Assets/Editor` 直系根里的导航菜单残面
+  4. 已补跑 `check-skill-trigger-log-health.ps1`，结果：
+     - `Canonical-Duplicate-Groups = 0`
+     - 审计层当前健康
+- 当前关键判断：
+  1. 这波治理现在不是“很多线程都半开着”，而是已经收束成：
+     - `无需继续发`：`UI-V1`、`导航检查V2`、`spring-day1V2`
+     - `继续发 prompt`：`NPC`
+  2. 当前仓库里仍可见的大脏面，例如 `Primary.unity` 删除面、TMP 中文字体资产 churn、`OcclusionManager.cs`，都不属于这轮 mixed-root 接盘波允许顺手吞并的范围
+  3. 所以下一步不该再回头重开已 sync 的三条线，也不该临时扩题，而应只把现成 NPC prompt 发出去，等它交回 `A｜真实 sync` 或 `B｜第一真实 blocker`
+- 当前恢复点：
+  - 当前唯一继续施工入口保持为：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_剩余NPC包接盘开工_02.md`
+  - 在 `NPC` 回执回来前，这波 mixed-root 接盘不再新增别的活线
