@@ -57,6 +57,19 @@ public static class PlayerNpcRelationshipService
         return true;
     }
 
+    public static NPCRelationshipStage AdjustStage(string npcId, int delta, bool persist = true)
+    {
+        string normalizedNpcId = NPCDialogueContentProfile.NormalizeNpcId(npcId);
+        if (string.IsNullOrEmpty(normalizedNpcId) || delta == 0)
+        {
+            return GetStage(normalizedNpcId);
+        }
+
+        NPCRelationshipStage shiftedStage = ShiftStageWithinBounds(GetStage(normalizedNpcId), delta);
+        SetStage(normalizedNpcId, shiftedStage, persist);
+        return shiftedStage;
+    }
+
     public static void ResetStage(string npcId, bool deletePersisted = true)
     {
         string normalizedNpcId = NPCDialogueContentProfile.NormalizeNpcId(npcId);
@@ -81,5 +94,14 @@ public static class PlayerNpcRelationshipService
         return string.IsNullOrEmpty(normalizedNpcId)
             ? string.Empty
             : PlayerPrefsKeyPrefix + normalizedNpcId;
+    }
+
+    private static NPCRelationshipStage ShiftStageWithinBounds(NPCRelationshipStage stage, int delta)
+    {
+        int clampedValue = Mathf.Clamp(
+            (int)NPCRelationshipStageUtility.Sanitize(stage) + delta,
+            (int)NPCRelationshipStage.Stranger,
+            (int)NPCRelationshipStage.Close);
+        return NPCRelationshipStageUtility.FromStoredValue(clampedValue);
     }
 }

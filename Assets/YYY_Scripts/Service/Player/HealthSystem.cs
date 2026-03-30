@@ -1,6 +1,5 @@
 using System.Collections;
 using System;
-using Sunset.Story;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -55,7 +54,6 @@ public class HealthSystem : MonoBehaviour
 
     private Coroutine _presentationCoroutine;
     private CanvasGroup _healthCanvasGroup;
-    private SpringDay1StatusOverlay _statusOverlay;
     private bool _overlayVisible;
 
     private void Awake()
@@ -77,7 +75,7 @@ public class HealthSystem : MonoBehaviour
             TryFindHealthSlider();
         }
 
-        HideLegacySlider();
+        EnsureHealthUi();
         UpdateUI();
     }
 
@@ -114,12 +112,13 @@ public class HealthSystem : MonoBehaviour
     public void SetVisible(bool visible)
     {
         _overlayVisible = visible;
-        HideLegacySlider();
-        if (EnsureOverlay())
+        if (EnsureHealthUi())
         {
-            _statusOverlay.SetSectionVisible(SpringDay1StatusOverlay.Channel.Health, visible);
-            _statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Health, visible ? 1f : 0f);
-            _statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Health, currentHealth, maxHealth);
+            healthSlider.gameObject.SetActive(visible);
+            if (_healthCanvasGroup != null)
+            {
+                _healthCanvasGroup.alpha = visible ? 1f : 0f;
+            }
         }
     }
 
@@ -135,9 +134,9 @@ public class HealthSystem : MonoBehaviour
         maxHealth = Mathf.Max(1, max);
         currentHealth = Mathf.Clamp(start, 0, maxHealth);
         _overlayVisible = true;
-        HideLegacySlider();
+        EnsureHealthUi();
 
-        if (!EnsureOverlay())
+        if (!EnsureHealthUi())
         {
             currentHealth = Mathf.Clamp(target, 0, maxHealth);
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
@@ -145,13 +144,17 @@ public class HealthSystem : MonoBehaviour
             yield break;
         }
 
-        _statusOverlay.SetSectionVisible(SpringDay1StatusOverlay.Channel.Health, true);
+        healthSlider.gameObject.SetActive(true);
 
         float revealSeconds = Mathf.Max(0f, customRevealDuration ?? revealDuration);
         float fillSeconds = Mathf.Max(0f, customFillDuration ?? healFillDuration);
         float clampedTarget = Mathf.Clamp(target, 0, maxHealth);
-        _statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Health, currentHealth, maxHealth);
-        _statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Health, revealSeconds > 0f ? 0f : 1f);
+        healthSlider.maxValue = maxHealth;
+        healthSlider.value = currentHealth;
+        if (_healthCanvasGroup != null)
+        {
+            _healthCanvasGroup.alpha = revealSeconds > 0f ? 0f : 1f;
+        }
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
         if (revealSeconds > 0f)
@@ -160,17 +163,23 @@ public class HealthSystem : MonoBehaviour
             while (revealElapsed < revealSeconds)
             {
                 revealElapsed += Time.unscaledDeltaTime;
-                _statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Health, Mathf.Clamp01(revealElapsed / revealSeconds));
+                if (_healthCanvasGroup != null)
+                {
+                    _healthCanvasGroup.alpha = Mathf.Clamp01(revealElapsed / revealSeconds);
+                }
                 yield return null;
             }
         }
 
-        _statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Health, 1f);
+        if (_healthCanvasGroup != null)
+        {
+            _healthCanvasGroup.alpha = 1f;
+        }
 
         if (fillSeconds <= 0f)
         {
             currentHealth = Mathf.RoundToInt(clampedTarget);
-            _statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Health, currentHealth, maxHealth);
+            healthSlider.value = currentHealth;
             OnHealthChanged?.Invoke(currentHealth, maxHealth);
             _presentationCoroutine = null;
             yield break;
@@ -187,7 +196,7 @@ public class HealthSystem : MonoBehaviour
             float currentValue = Mathf.Lerp(startValue, clampedTarget, eased);
             int roundedValue = Mathf.RoundToInt(currentValue);
 
-            _statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Health, roundedValue, maxHealth);
+            healthSlider.value = roundedValue;
             if (roundedValue != lastReportedHealth)
             {
                 currentHealth = roundedValue;
@@ -199,18 +208,22 @@ public class HealthSystem : MonoBehaviour
         }
 
         currentHealth = Mathf.RoundToInt(clampedTarget);
-        _statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Health, currentHealth, maxHealth);
+        healthSlider.value = currentHealth;
         OnHealthChanged?.Invoke(currentHealth, maxHealth);
         _presentationCoroutine = null;
     }
 
     private void UpdateUI()
     {
-        if (EnsureOverlay())
+        if (EnsureHealthUi())
         {
-            _statusOverlay.SetValues(SpringDay1StatusOverlay.Channel.Health, currentHealth, maxHealth);
-            _statusOverlay.SetSectionVisible(SpringDay1StatusOverlay.Channel.Health, _overlayVisible);
-            _statusOverlay.SetSectionAlpha(SpringDay1StatusOverlay.Channel.Health, _overlayVisible ? 1f : 0f);
+            healthSlider.maxValue = maxHealth;
+            healthSlider.value = currentHealth;
+            healthSlider.gameObject.SetActive(_overlayVisible);
+            if (_healthCanvasGroup != null)
+            {
+                _healthCanvasGroup.alpha = _overlayVisible ? 1f : 0f;
+            }
         }
     }
 
@@ -273,27 +286,20 @@ public class HealthSystem : MonoBehaviour
         }
     }
 
-    private bool EnsureOverlay()
-    {
-        if (_statusOverlay == null)
-        {
-            SpringDay1StatusOverlay.EnsureRuntime();
-            _statusOverlay = SpringDay1StatusOverlay.Instance;
-        }
-
-        return _statusOverlay != null;
-    }
-
-    private void HideLegacySlider()
+    private bool EnsureHealthUi()
     {
         if (healthSlider == null)
         {
             TryFindHealthSlider();
         }
 
-        if (healthSlider != null)
+        if (healthSlider == null)
         {
-            healthSlider.gameObject.SetActive(false);
+            return false;
         }
+
+        EnsureCanvasGroup();
+        healthSlider.maxValue = Mathf.Max(1, maxHealth);
+        return true;
     }
 }

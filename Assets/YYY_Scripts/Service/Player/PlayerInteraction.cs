@@ -22,6 +22,7 @@ public class PlayerInteraction : MonoBehaviour
     private EnergySystem energySystem;
     private ToolActionLockManager lockManager;
     private LayerAnimSync layerAnimSync;
+    private ToolUseFailureReason lastActionFailureReason;
     #endregion
 
     #region 动画状态
@@ -92,6 +93,7 @@ public class PlayerInteraction : MonoBehaviour
     /// </summary>
     private bool PerformAction(PlayerAnimController.AnimState action)
     {
+        lastActionFailureReason = ToolUseFailureReason.None;
         if (isPerformingAction)
         {
             return false;
@@ -99,6 +101,7 @@ public class PlayerInteraction : MonoBehaviour
 
         if (!CanStartAction(action, emitFailureFeedback: true, out pendingToolData, out ToolUseFailureReason failureReason))
         {
+            lastActionFailureReason = failureReason;
             if (enableDebugLog)
             {
                 Debug.Log($"<color=yellow>[PlayerInteraction] 动作前校验失败: {action}, reason={failureReason}</color>");
@@ -247,10 +250,11 @@ public class PlayerInteraction : MonoBehaviour
         // 检查是否继续长按
         bool isCurrentlyHolding = Input.GetMouseButton(0);
         bool shouldContinue = isCurrentlyHolding && IsToolAction(currentAction);
+        ToolUseFailureReason continuationFailureReason = ToolUseFailureReason.None;
         
         var actionToRepeat = currentAction;
         if (shouldContinue &&
-            !CanStartAction(actionToRepeat, emitFailureFeedback: false, out pendingToolData, out _))
+            !CanStartAction(actionToRepeat, emitFailureFeedback: false, out pendingToolData, out continuationFailureReason))
         {
             shouldContinue = false;
         }
@@ -309,6 +313,18 @@ public class PlayerInteraction : MonoBehaviour
             var gimRelease = GameInputManager.Instance;
             if (gimRelease != null)
             {
+                if (IsFarmToolAction(currentAction))
+                {
+                    if (finalizedCommitResult.ToolRemoved)
+                    {
+                        gimRelease.NotifyFarmToolAutomationTailInterrupted(ToolUseFailureReason.InsufficientDurability);
+                    }
+                    else if (continuationFailureReason != ToolUseFailureReason.None)
+                    {
+                        gimRelease.NotifyFarmToolAutomationTailInterrupted(continuationFailureReason);
+                    }
+                }
+
                 if (lockManager != null && lockManager.HasCachedHotbarInput)
                 {
                     // 动画期间切换了工具栏 → 清空整个队列（CP-3）
@@ -367,6 +383,12 @@ public class PlayerInteraction : MonoBehaviour
                action == PlayerAnimController.AnimState.Watering;
     }
 
+    private static bool IsFarmToolAction(PlayerAnimController.AnimState action)
+    {
+        return action == PlayerAnimController.AnimState.Crush ||
+               action == PlayerAnimController.AnimState.Watering;
+    }
+
     private bool CanStartAction(
         PlayerAnimController.AnimState action,
         bool emitFailureFeedback,
@@ -388,14 +410,27 @@ public class PlayerInteraction : MonoBehaviour
             return false;
         }
 
-        return ToolRuntimeUtility.TryValidateHeldToolUse(
+        if (!ToolRuntimeUtility.TryValidateHeldToolUse(
             null,
             null,
             null,
             resolvedToolData,
             $"PlayerInteraction/Precheck/{action}",
             emitFailureFeedback,
-            out failureReason);
+            out failureReason))
+        {
+            return false;
+        }
+
+        var inputManager = GameInputManager.Instance;
+        if (inputManager != null &&
+            inputManager.ShouldBlockToolActionBeforeAnimation(action, resolvedToolData))
+        {
+            failureReason = ToolUseFailureReason.None;
+            return false;
+        }
+
+        return true;
     }
 
     private ToolUseCommitResult CommitCurrentToolUseDetailed(ToolData tool, string context)
@@ -465,6 +500,7 @@ public class PlayerInteraction : MonoBehaviour
     public bool IsCarrying() => isCarrying;
     public bool IsPerformingAction() => isPerformingAction;
     public PlayerAnimController.AnimState GetCurrentAction() => currentAction;
+    public ToolUseFailureReason LastActionFailureReason => lastActionFailureReason;
     
     /// <summary>
     /// 获取当前动画进度 (0-1)。转发到 PlayerAnimController。

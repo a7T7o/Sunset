@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Text;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,17 +7,17 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class PlayerThoughtBubblePresenter : MonoBehaviour
 {
-    private static readonly Vector3 NpcBubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
-    private static readonly Vector3 NpcBubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
-    private static readonly Vector2 NpcBubblePadding = new Vector2(82f, 42f);
-    private static readonly Vector2 NpcTextSafePadding = new Vector2(24f, 22f);
-    private static readonly Vector2 NpcTailSize = new Vector2(34f, 24f);
-    private static readonly Vector2 NpcShadowOffset = new Vector2(3f, -5f);
-    private static readonly Color PlayerBubbleBorderColor = new Color(0.35f, 0.46f, 0.42f, 1f);
-    private static readonly Color PlayerBubbleFillColor = new Color(0.87f, 0.91f, 0.88f, 0.96f);
-    private static readonly Color PlayerBubbleShadowColor = new Color(0.06f, 0.13f, 0.11f, 0.28f);
-    private static readonly Color PlayerTextColor = new Color(0.12f, 0.16f, 0.14f, 1f);
-    private static readonly Color PlayerTextOutlineColor = new Color(0.95f, 0.93f, 0.89f, 0.92f);
+    private static readonly Vector3 PlayerBubbleLocalOffset = new Vector3(-0.16f, 1.68f, 0f);
+    private static readonly Vector3 PlayerBubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
+    private static readonly Vector2 PlayerBubblePadding = new Vector2(68f, 34f);
+    private static readonly Vector2 PlayerTextSafePadding = new Vector2(24f, 22f);
+    private static readonly Vector2 PlayerTailSize = new Vector2(30f, 20f);
+    private static readonly Vector2 PlayerShadowOffset = new Vector2(3f, -5f);
+    private static readonly Color PlayerBubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
+    private static readonly Color PlayerBubbleFillColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
+    private static readonly Color PlayerBubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
+    private static readonly Color PlayerTextColor = new Color(0.98f, 0.95f, 0.90f, 1f);
+    private static readonly Color PlayerTextOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
 
     private static readonly string[] PreferredFontResourcePaths =
     {
@@ -40,13 +39,14 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
     [SerializeField] private Vector3 bubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
     [SerializeField] private Vector2 bubblePadding = new Vector2(82f, 42f);
-    [SerializeField] private float maxTextWidth = 290f;
-    [SerializeField] private float minAdaptiveTextWidth = 64f;
-    [SerializeField] private int preferredCharactersPerLine = 10;
+    [SerializeField] private float maxTextWidth = 315f;
+    [SerializeField] private float minAdaptiveTextWidth = 92f;
+    [SerializeField] private int preferredCharactersPerLine = 12;
     [SerializeField] private Vector2 textSafePadding = new Vector2(24f, 22f);
     [SerializeField] private float textVerticalOffset = -10f;
     [SerializeField] private float borderThickness = 6f;
     [SerializeField] private Vector2 tailSize = new Vector2(34f, 24f);
+    [SerializeField] private float tailHorizontalBias = -24f;
     [SerializeField] private float tailYOffset = -28f;
     [SerializeField] private Vector2 shadowOffset = new Vector2(3f, -5f);
     [SerializeField] private int sortingOrderOffset = 20;
@@ -58,11 +58,11 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     [SerializeField] private float tailBobFrequency = 0.85f;
 
     [Header("气泡样式")]
-    [SerializeField] private Color bubbleBorderColor = new Color(0.35f, 0.46f, 0.42f, 1f);
-    [SerializeField] private Color bubbleFillColor = new Color(0.87f, 0.91f, 0.88f, 0.96f);
-    [SerializeField] private Color bubbleShadowColor = new Color(0.06f, 0.13f, 0.11f, 0.28f);
-    [SerializeField] private Color textColor = new Color(0.12f, 0.16f, 0.14f, 1f);
-    [SerializeField] private Color textOutlineColor = new Color(0.95f, 0.93f, 0.89f, 0.92f);
+    [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.81f, 0.62f, 1f);
+    [SerializeField] private Color bubbleFillColor = new Color(0.15f, 0.18f, 0.20f, 0.97f);
+    [SerializeField] private Color bubbleShadowColor = new Color(0.02f, 0.03f, 0.06f, 0.34f);
+    [SerializeField] private Color textColor = new Color(0.97f, 0.97f, 0.94f, 1f);
+    [SerializeField] private Color textOutlineColor = new Color(0.07f, 0.09f, 0.12f, 0.88f);
     [SerializeField] private float fontSize = 32f;
     [SerializeField] private float textOutlineWidth = 0.18f;
     [SerializeField] private float showDuration = 0.14f;
@@ -92,8 +92,11 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     private Vector2 shadowTailBasePosition;
     private Vector2 borderTailBasePosition;
     private Vector2 fillTailBasePosition;
+    private Vector3 conversationLayoutShift;
+    private bool hasConversationLayoutShift;
 
     public bool IsVisible => canvasRoot != null && canvasRoot.gameObject.activeSelf;
+    public string CurrentBubbleText => IsVisible && bubbleText != null ? bubbleText.text : string.Empty;
     public event Action Hidden;
 
     private void Reset()
@@ -230,6 +233,25 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         Hidden?.Invoke();
     }
 
+    public void SetConversationLayoutShift(Vector3 localOffsetShift)
+    {
+        conversationLayoutShift = localOffsetShift;
+        hasConversationLayoutShift = true;
+        SyncCanvasTransform();
+    }
+
+    public void ClearConversationLayoutShift()
+    {
+        if (!hasConversationLayoutShift && conversationLayoutShift == Vector3.zero)
+        {
+            return;
+        }
+
+        conversationLayoutShift = Vector3.zero;
+        hasConversationLayoutShift = false;
+        SyncCanvasTransform();
+    }
+
     private void HideBubble()
     {
         if (!Application.isPlaying || canvasRoot == null || !canvasRoot.gameObject.activeSelf)
@@ -256,24 +278,25 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
 
     private void ApplyPlayerBubbleStylePreset()
     {
-        bubbleLocalOffset = NpcBubbleLocalOffset;
-        bubbleLocalScale = NpcBubbleLocalScale;
-        bubblePadding = NpcBubblePadding;
-        maxTextWidth = 290f;
+        bubbleLocalOffset = PlayerBubbleLocalOffset;
+        bubbleLocalScale = PlayerBubbleLocalScale;
+        bubblePadding = PlayerBubblePadding;
+        maxTextWidth = 315f;
         minAdaptiveTextWidth = 64f;
         preferredCharactersPerLine = 10;
-        textSafePadding = NpcTextSafePadding;
+        textSafePadding = PlayerTextSafePadding;
         textVerticalOffset = -10f;
         borderThickness = 6f;
-        tailSize = NpcTailSize;
+        tailSize = PlayerTailSize;
+        tailHorizontalBias = -18f;
         tailYOffset = -28f;
-        shadowOffset = NpcShadowOffset;
-        sortingOrderOffset = 20;
+        shadowOffset = PlayerShadowOffset;
+        sortingOrderOffset = 24;
         minBubbleHeight = 1.24f;
         bubbleGapAboveRenderer = 0.02f;
-        visibleFloatAmplitude = 0.0034f;
+        visibleFloatAmplitude = 0.004f;
         visibleFloatFrequency = 0.8f;
-        tailBobAmplitude = 22f;
+        tailBobAmplitude = 26f;
         tailBobFrequency = 0.85f;
         bubbleBorderColor = PlayerBubbleBorderColor;
         bubbleFillColor = PlayerBubbleFillColor;
@@ -431,9 +454,8 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         string content = bubbleText.text ?? string.Empty;
         AnalyzeBubbleText(content, out int visibleCharacterCount, out int longestLineCharacterCount);
 
-        float constrainedTextWidth = EstimateAdaptiveTextWidth(longestLineCharacterCount);
-        Vector2 preferredSize = bubbleText.GetPreferredValues(content, constrainedTextWidth, 0f);
-        preferredSize.x = Mathf.Max(minAdaptiveTextWidth, preferredSize.x);
+        Vector2 preferredSize = bubbleText.GetPreferredValues(content, 10000f, 0f);
+        preferredSize.x = Mathf.Clamp(preferredSize.x, minAdaptiveTextWidth, maxTextWidth);
         preferredSize.y = Mathf.Max(fontSize + 16f, preferredSize.y);
 
         Vector2 textBoxSize = preferredSize + textSafePadding;
@@ -456,10 +478,10 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         float tailCenterY = bodyCenterY - (bodySize.y * 0.54f) - (tailSize.y * 0.06f) + tailYOffset;
 
         Vector2 bodyPosition = new Vector2(0f, bodyCenterY);
-        Vector2 tailPosition = new Vector2(0f, tailCenterY);
+        Vector2 tailPosition = new Vector2(tailHorizontalBias, tailCenterY);
         Vector2 shadowBodyPosition = bodyPosition + shadowOffset;
         Vector2 shadowTailPosition = tailPosition + shadowOffset;
-        Vector2 fillTailPosition = tailPosition + (Vector2.up * 0.75f);
+        Vector2 fillTailPosition = tailPosition + (Vector2.up * 0.6f);
 
         shadowTailBasePosition = shadowTailPosition;
         borderTailBasePosition = tailPosition;
@@ -618,6 +640,11 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
             resolvedOffset.y += floatOffset;
         }
 
+        if (hasConversationLayoutShift)
+        {
+            resolvedOffset += conversationLayoutShift;
+        }
+
         return resolvedOffset;
     }
 
@@ -659,42 +686,7 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
             return string.Empty;
         }
 
-        StringBuilder builder = new StringBuilder(content.Length + 8);
-        int lineCharacterCount = 0;
-
-        for (int index = 0; index < content.Length; index++)
-        {
-            char current = content[index];
-            if (current == '\r')
-            {
-                continue;
-            }
-
-            if (current == '\n')
-            {
-                if (builder.Length > 0 && builder[builder.Length - 1] != '\n')
-                {
-                    builder.Append('\n');
-                }
-
-                lineCharacterCount = 0;
-                continue;
-            }
-
-            if (lineCharacterCount >= preferredCharactersPerLine)
-            {
-                builder.Append('\n');
-                lineCharacterCount = 0;
-            }
-
-            builder.Append(current);
-            if (!char.IsWhiteSpace(current))
-            {
-                lineCharacterCount++;
-            }
-        }
-
-        return builder.ToString();
+        return content.Replace("\r", string.Empty);
     }
 
     private TMP_FontAsset ResolveFontAsset()
