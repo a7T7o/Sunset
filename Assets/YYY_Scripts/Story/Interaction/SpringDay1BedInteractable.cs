@@ -47,7 +47,18 @@ namespace Sunset.Story
 
         public string GetInteractionHint(InteractionContext context)
         {
-            return CanInteract(context) ? interactionHint : string.Empty;
+            if (!CanInteract(context))
+            {
+                return string.Empty;
+            }
+
+            SpringDay1Director director = SpringDay1Director.Instance;
+            if (director == null)
+            {
+                return interactionHint;
+            }
+
+            return director.GetRestInteractionHint(interactionHint);
         }
 
         public void ConfigureRuntimeDefaults(string hint, float distance, int priority)

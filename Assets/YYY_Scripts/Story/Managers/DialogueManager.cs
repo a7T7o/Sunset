@@ -246,19 +246,28 @@ namespace Sunset.Story
                 TimeManager.Instance.ResumeTime(DialoguePauseSource);
             }
 
+            DialogueSequenceSO followupSequence = wasCompleted
+                ? ResolveFollowupSequence(endingSequence)
+                : null;
+
             if (wasCompleted && endingSequence != null)
             {
                 EventBus.Publish(new DialogueSequenceCompletedEvent
                 {
                     SequenceId = endingSequenceId,
                     Sequence = endingSequence,
-                    FollowupSequence = endingSequence.followupSequence,
+                    FollowupSequence = followupSequence,
                     LanguageDecoded = StoryManager.Instance.IsLanguageDecoded,
                     LanguageDecodedChanged = languageDecodedChanged,
                     PreviousPhase = previousPhase,
                     CurrentPhase = currentPhase,
                     StoryPhaseChanged = storyPhaseChanged
                 });
+            }
+
+            if (followupSequence != null)
+            {
+                PlayDialogue(followupSequence);
             }
 
             EventBus.Publish(new DialogueEndEvent
@@ -315,6 +324,13 @@ namespace Sunset.Story
             }
 
             return _currentSequence != null ? _currentSequence.defaultTypingSpeed : 30f;
+        }
+
+        private static DialogueSequenceSO ResolveFollowupSequence(DialogueSequenceSO sequence)
+        {
+            return HasPlayableNodes(sequence?.followupSequence)
+                ? sequence.followupSequence
+                : null;
         }
 
         private void StopTyping()
@@ -384,6 +400,11 @@ namespace Sunset.Story
 
             _isNodeTyping = false;
             _typingCoroutine = null;
+        }
+
+        private static bool HasPlayableNodes(DialogueSequenceSO sequence)
+        {
+            return sequence != null && sequence.nodes != null && sequence.nodes.Count > 0;
         }
         #endregion
     }

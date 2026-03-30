@@ -1660,3 +1660,66 @@
   - 以 exact whitelist 验证这组 docs/asset 是否已具备归仓条件。
 - 当前恢复点：
   - 本轮已确认可以继续走最终白名单 `sync`。
+
+## 2026-03-30｜剩余 Spring Story 根接盘开工：首轮整包 preflight 命中代码闸门 blocker
+
+**用户目标**:
+- 典狱长正式重唤本线程，要求我不再沿用旧的字体止血停表叙事，而是以 `Spring integrator` 身份接 `UI-V1` peel 之后剩余的 `Story/Interaction + Story/Managers + Editor/Story + Tests/Editor`，先 `preflight`，过了再 `sync`。
+
+**本轮稳定结论**:
+1. 我这轮的身份已经切换为：
+   - `Spring integrator`
+   - 不是旧的“字体止血停表线”
+2. 已真实运行整包 `preflight`，白名单为：
+   - `Assets/YYY_Scripts/Story/Interaction`
+   - `Assets/YYY_Scripts/Story/Managers`
+   - `Assets/Editor/Story`
+   - `Assets/YYY_Tests/Editor`
+   - `.codex/threads/Sunset/spring-day1V2`
+   - `.kiro/specs/900_开篇/spring-day1-implementation`
+3. 当前不是 same-root remaining dirty 挡住：
+   - `own roots remaining dirty = 0`
+4. 第一真实 blocker 已钉死为代码闸门：
+   - `Assets/Editor/Story/DialogueDebugMenu.cs:23:34`
+   - `CS0103`
+   - 当前上下文不存在 `NPCInformalChatValidationMenu`
+5. 这条 blocker 的本质是：
+   - `DialogueDebugMenu.cs` 直接引用了 `Assets/Editor/NPCInformalChatValidationMenu.cs`
+   - 而 `Assets/Editor` 直系根本轮仍属禁触区
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 接 UI peeled 后剩余的 Spring-dominant Story 包。
+- 本轮子任务：
+  - 跑首轮整包 `preflight`，判定这包能否直接进入 `sync`。
+- 当前恢复点：
+  - 当前不能进入 `sync`；
+  - 后续若继续，应由治理位先判断如何处理 `DialogueDebugMenu -> NPCInformalChatValidationMenu` 这条跨根编译依赖。
+
+## 2026-03-30｜DialogueDebugMenu 编译耦合已在 Editor/Story 根内断开
+
+**用户目标**:
+- 典狱长改判当前 blocker 不必交治理位拆根，而应由我在 `Assets/Editor/Story/**` 根内做最小 decouple：只断开 `DialogueDebugMenu.cs` 对 `NPCInformalChatValidationMenu.ExclusiveValidationLockKey` 的编译期直接引用，修完立刻重跑同一组 `preflight`。
+
+**本轮稳定结论**:
+1. 我已接受这次改判，并只改了：
+   - `Assets/Editor/Story/DialogueDebugMenu.cs`
+2. 具体修法是：
+   - 在文件内声明本地常量 `NpcInformalChatValidationLockKey = "Sunset.NpcInformalChatValidation.Active"`
+   - 用本地常量替换 `NPCInformalChatValidationMenu.ExclusiveValidationLockKey`
+3. 本轮没有碰：
+   - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+   - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+   - 任何 UI peeled roots / Service / Data / 字体 / scene
+4. 修后已真实重跑同一组 `preflight`，结果恢复为：
+   - `CanContinue = True`
+   - `own roots remaining dirty = 0`
+   - `代码闸门通过 = True`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 继续推进剩余 Spring Story 根，不再停在旧 blocker。
+- 本轮子任务：
+  - 只切断 `DialogueDebugMenu.cs` 对 NPC 菜单锁 key 的编译期直接依赖。
+- 当前恢复点：
+  - 当前已具备进入同白名单 `sync` 的条件。

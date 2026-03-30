@@ -1525,3 +1525,36 @@
   3. `own roots remaining dirty = 0`，当前这组 docs-tail + font-stopgap 具备白名单归仓条件。
 - 当前恢复点：
   - 本轮不再继续扩面；只等最终 `sync` 成功或新的第一真实 blocker 出现。
+
+## 2026-03-30 补记：Spring Story 剩余根已从“旧停表线”切换到 `Spring integrator` 首轮开工
+- 当前主线：`UI-V1` 已完成 `Story/UI + prefab + registry` peel 并 sync 后，本线程被重新唤醒，接手剩余的 `Spring-dominant Story` 包，而不再继续字体止血停表叙事。
+- 本轮稳定结论：
+  1. 已真实运行剩余 Story 包首轮 `preflight`，白名单为：
+     - `Assets/YYY_Scripts/Story/Interaction`
+     - `Assets/YYY_Scripts/Story/Managers`
+     - `Assets/Editor/Story`
+     - `Assets/YYY_Tests/Editor`
+     - `.codex/threads/Sunset/spring-day1V2`
+     - `.kiro/specs/900_开篇/spring-day1-implementation`
+  2. 当前 `own roots remaining dirty = 0`，但代码闸门未过。
+  3. 第一真实 blocker 已固定为：
+     - `Assets/Editor/Story/DialogueDebugMenu.cs:23:34`
+     - `CS0103`
+     - 当前上下文不存在 `NPCInformalChatValidationMenu`
+  4. 因此当前这轮结果应记为：
+     - `B｜第一真实 blocker 已钉死`
+     - 不是 `sync-ready`
+- 当前恢复点：
+  - 后续若继续，应先处理 `DialogueDebugMenu -> NPCInformalChatValidationMenu` 的跨根编译依赖，再重跑整包 `preflight`。
+
+## 2026-03-30 补记：DialogueDebugMenu 细编译耦合已断开，整包 preflight 恢复通过
+- 当前主线：继续以 `Spring integrator` 处理 UI peeled 后的剩余 Story 包；不再把当前 blocker 交还治理位。
+- 本轮稳定结论：
+  1. 已在 `Assets/Editor/Story/DialogueDebugMenu.cs` 内用本地 `EditorPrefs` 锁 key 常量，替换掉对 `NPCInformalChatValidationMenu.ExclusiveValidationLockKey` 的编译期直接引用。
+  2. 本轮未碰 `Assets/Editor` 直系根文件本体。
+  3. 修后同组整包 `preflight` 已恢复：
+     - `CanContinue = True`
+     - `own roots remaining dirty = 0`
+     - `代码闸门通过 = True`
+- 当前恢复点：
+  - 当前剩余 Spring Story 包已重新回到可 `sync` 状态；下一步只剩同白名单 `sync`。

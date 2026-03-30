@@ -5,6 +5,7 @@ using System.Text;
 using UnityEngine.Serialization;
 using FarmGame.Data;
 using FarmGame.Farm;
+using FarmGame.UI;
 using Sunset.Events;
 using TMPro;
 using UnityEngine;
@@ -45,6 +46,7 @@ namespace Sunset.Story
         private const string PrimarySceneName = "Primary";
         private const string StoryTimePauseSource = "SpringDay1Director";
         private const string FirstSequenceId = "spring-day1-first";
+        private const string FirstFollowupSequenceId = "spring-day1-first-followup";
         private const string HealingSequenceId = "spring-day1-healing";
         private const string WorkbenchSequenceId = "spring-day1-workbench";
         private const string DinnerSequenceId = "spring-day1-dinner";
@@ -57,6 +59,14 @@ namespace Sunset.Story
         private const string RestProxyInteractionHint = "回屋休息";
         private const string FreeTimePromptText = "今晚可以自由活动，记得回住处休息。";
         private const string FreeTimeProgressText = "自由活动中，回住处休息即可结束";
+        private const string DinnerBridgePromptText = "天已经晚了，先回去吃点东西。";
+        private const string ReturnReminderBridgePromptText = "夜色越来越深了，别在外面逗留太久。";
+        private const string FreeTimeNightPromptText = "夜深了，别在外面逗留太久，记得回住处休息。";
+        private const string FreeTimeMidnightPromptText = "已经过了午夜，尽快回住处。再拖下去今晚会更难熬。";
+        private const string FreeTimeFinalPromptText = "快到凌晨两点了，再不睡就会直接昏睡过去。";
+        private const int FreeTimeNightWarningHour = 22;
+        private const int FreeTimeMidnightWarningHour = 24;
+        private const int FreeTimeFinalWarningHour = 25;
 
         private static SpringDay1Director _instance;
         private static FieldInfo _farmTilesField;
@@ -119,6 +129,14 @@ namespace Sunset.Story
         private bool _woodTrackingArmed;
         private int _trackedWoodCountSnapshot = -1;
         private int _collectedWoodSinceWoodStepStart;
+        private bool _workbenchCraftingActive;
+        private float _workbenchCraftProgress;
+        private int _workbenchCraftQueueTotal;
+        private int _workbenchCraftQueueCompleted;
+        private string _workbenchCraftRecipeName = string.Empty;
+        private bool _freeTimeNightWarningShown;
+        private bool _freeTimeMidnightWarningShown;
+        private bool _freeTimeFinalWarningShown;
 
         public static SpringDay1Director Instance => _instance;
         private const int WoodItemId = 3200;
@@ -159,6 +177,7 @@ namespace Sunset.Story
             EventBus.Subscribe<DialogueSequenceCompletedEvent>(HandleDialogueSequenceCompleted, owner: this);
             EventBus.Subscribe<StoryPhaseChangedEvent>(HandleStoryPhaseChanged, owner: this);
             EnergySystem.OnEnergyChanged += HandleEnergyChanged;
+            TimeManager.OnHourChanged += HandleHourChanged;
             TimeManager.OnSleep += HandleSleep;
             RefreshCraftingServiceSubscription();
             RefreshInventoryTrackingSubscription();
@@ -168,6 +187,7 @@ namespace Sunset.Story
         {
             EventBus.UnsubscribeAll(this);
             EnergySystem.OnEnergyChanged -= HandleEnergyChanged;
+            TimeManager.OnHourChanged -= HandleHourChanged;
             TimeManager.OnSleep -= HandleSleep;
             RefreshCraftingServiceSubscription(null);
             RefreshInventoryTrackingSubscription(null);
@@ -203,7 +223,7 @@ namespace Sunset.Story
             return StoryManager.Instance.CurrentPhase switch
             {
                 StoryPhase.CrashAndMeet => "0.0.2 首段推进链",
-                StoryPhase.EnterVillage => "0.0.2 首段推进链",
+                StoryPhase.EnterVillage => "0.0.2 首段后续说明",
                 StoryPhase.HealingAndHP => "0.0.3 疗伤/血条",
                 StoryPhase.WorkbenchFlashback => "0.0.4 工作台闪回",
                 StoryPhase.FarmingTutorial => "0.0.5 农田/砍树教学",
@@ -218,9 +238,14 @@ namespace Sunset.Story
         public string GetCurrentProgressLabel()
         {
             StoryPhase phase = StoryManager.Instance.CurrentPhase;
-            if (phase == StoryPhase.CrashAndMeet || phase == StoryPhase.EnterVillage)
+            if (phase == StoryPhase.CrashAndMeet)
             {
                 return "首段对话进行中";
+            }
+
+            if (phase == StoryPhase.EnterVillage)
+            {
+                return "首段后续说明进行中";
             }
 
             if (phase == StoryPhase.HealingAndHP)
@@ -230,27 +255,65 @@ namespace Sunset.Story
 
             if (phase == StoryPhase.WorkbenchFlashback)
             {
-                return _workbenchOpened ? "已打开工作台" : "等待打开工作台";
+                if (!_workbenchOpened)
+                {
+                    return "等待打开工作台";
+                }
+
+                DialogueManager dialogueManager = DialogueManager.Instance;
+                if (dialogueManager != null
+                    && dialogueManager.IsDialogueActive
+                    && dialogueManager.CurrentSequenceId == WorkbenchSequenceId)
+                {
+                    return "工作台回忆进行中";
+                }
+
+                return "工作台已打开，等待回忆收束";
             }
 
             if (phase == StoryPhase.FarmingTutorial)
             {
+                if (_workbenchCraftingActive)
+                {
+                    return BuildWorkbenchCraftProgressText();
+                }
+
                 return $"教学进度 {GetCompletedTutorialObjectiveCount()}/5";
             }
 
             if (phase == StoryPhase.DinnerConflict)
             {
+                if (IsDialogueSequenceCurrentlyActive(DinnerSequenceId))
+                {
+                    return "晚餐对白进行中";
+                }
+
+                if (_dinnerSequencePlayed)
+                {
+                    return "等待晚餐对白接管";
+                }
+
                 return "晚餐事件进行中";
             }
 
             if (phase == StoryPhase.ReturnAndReminder)
             {
+                if (IsDialogueSequenceCurrentlyActive(ReminderSequenceId))
+                {
+                    return "归途提醒对白进行中";
+                }
+
+                if (_returnSequencePlayed)
+                {
+                    return "等待归途提醒对白接管";
+                }
+
                 return "归途提醒进行中";
             }
 
             if (phase == StoryPhase.FreeTime)
             {
-                return FreeTimeProgressText;
+                return BuildFreeTimeProgressText();
             }
 
             if (phase == StoryPhase.DayEnd)
@@ -279,7 +342,8 @@ namespace Sunset.Story
         {
             return phase switch
             {
-                StoryPhase.CrashAndMeet or StoryPhase.EnterVillage => "先和村里第一个关键角色完成接触。",
+                StoryPhase.CrashAndMeet => "先和村里第一个关键角色完成接触。",
+                StoryPhase.EnterVillage => "先听完村长的后续说明，再进入疗伤。",
                 StoryPhase.HealingAndHP => "疗伤演出与血量显现会在这里完成。",
                 StoryPhase.WorkbenchFlashback => "工作台需要先触发一次正式回忆，再进入教学链。",
                 StoryPhase.FarmingTutorial => "今天的教学链会逐条锁定并逐条完成。",
@@ -295,18 +359,21 @@ namespace Sunset.Story
         {
             return phase switch
             {
-                StoryPhase.CrashAndMeet or StoryPhase.EnterVillage => "靠近 NPC 并按 E 开始首段对话。",
+                StoryPhase.CrashAndMeet => "靠近 NPC 并按 E 开始首段对话。",
+                StoryPhase.EnterVillage => "等待首段后续说明收束，然后进入疗伤。",
                 StoryPhase.HealingAndHP => "等待疗伤对白与 HP 卡片完整播完。",
+                StoryPhase.WorkbenchFlashback when _workbenchOpened => "等待工作台回忆完整播完。",
                 StoryPhase.WorkbenchFlashback => "靠近 Anvil_0，按 E 打开工作台。",
                 StoryPhase.FarmingTutorial when !_tillObjectiveCompleted => "先用锄头开垦一格土地。",
                 StoryPhase.FarmingTutorial when !_plantObjectiveCompleted => "把花椰菜种子种进刚开垦的土地。",
                 StoryPhase.FarmingTutorial when !_waterObjectiveCompleted => "完成一次浇水，让作物稳稳进入下一步。",
                 StoryPhase.FarmingTutorial when !_woodObjectiveCompleted => $"继续收木材，还差 {Mathf.Max(0, requiredWoodCollectedCount - GetCollectedWoodProgress())} 份。",
+                StoryPhase.FarmingTutorial when _workbenchCraftingActive => "守在工作台旁，等当前制作完成。",
                 StoryPhase.FarmingTutorial when _craftedCount < requiredCraftedCount => "回到工作台，完成一次真正的基础制作。",
                 StoryPhase.FarmingTutorial => "农田与制作目标都已完成，等待晚餐事件推进。",
                 StoryPhase.DinnerConflict => "看完晚餐事件，准备进入归途提醒。",
                 StoryPhase.ReturnAndReminder => "听完提醒，接住今天最后一段过渡。",
-                StoryPhase.FreeTime => FreeTimePromptText,
+                StoryPhase.FreeTime => GetFreeTimeFocusText(),
                 StoryPhase.DayEnd => "春1日结束，可以进入下一阶段开发或验收。",
                 _ => "等待推进。"
             };
@@ -314,11 +381,19 @@ namespace Sunset.Story
 
         private PromptTaskItem[] BuildPromptItems(StoryPhase phase)
         {
-            if (phase == StoryPhase.CrashAndMeet || phase == StoryPhase.EnterVillage)
+            if (phase == StoryPhase.CrashAndMeet)
             {
                 return new[]
                 {
                     new PromptTaskItem("和 NPC001 完成首段对话", "从 E 键接触开始，直到首段对白完整结束。", false)
+                };
+            }
+
+            if (phase == StoryPhase.EnterVillage)
+            {
+                return new[]
+                {
+                    new PromptTaskItem("听完村长后续说明", "首段结束后会自动续播 follow-up，结束后才进入疗伤。", false)
                 };
             }
 
@@ -358,7 +433,12 @@ namespace Sunset.Story
                                 : !_woodObjectiveCompleted
                                     ? new PromptTaskItem("收集木材", $"{GetCollectedWoodProgress()}/{requiredWoodCollectedCount}", false)
                                     : _craftedCount < requiredCraftedCount
-                                        ? new PromptTaskItem("完成基础制作", $"{Mathf.Min(_craftedCount, requiredCraftedCount)}/{requiredCraftedCount}", false)
+                                        ? new PromptTaskItem(
+                                            "完成基础制作",
+                                            _workbenchCraftingActive
+                                                ? BuildWorkbenchCraftProgressText()
+                                                : $"{Mathf.Min(_craftedCount, requiredCraftedCount)}/{requiredCraftedCount}",
+                                            false)
                                         : new PromptTaskItem("完成农田教学", "当前教学目标已全部完成，等待下一段剧情。", true)
                 };
             }
@@ -367,7 +447,14 @@ namespace Sunset.Story
             {
                 return new[]
                 {
-                    new PromptTaskItem("观看晚餐事件", _dinnerSequencePlayed ? "晚餐对白正在或已经播放。" : "等待晚餐剧情开始。", _dinnerSequencePlayed)
+                    new PromptTaskItem(
+                        "观看晚餐事件",
+                        IsDialogueSequenceCurrentlyActive(DinnerSequenceId)
+                            ? "晚餐对白进行中。"
+                            : _dinnerSequencePlayed
+                                ? "晚餐对白已排队，等待接管。"
+                                : "等待晚餐剧情开始。",
+                        false)
                 };
             }
 
@@ -375,7 +462,14 @@ namespace Sunset.Story
             {
                 return new[]
                 {
-                    new PromptTaskItem("接住归途提醒", _returnSequencePlayed ? "归途提醒已经开始。" : "等待提醒对白开始。", _returnSequencePlayed)
+                    new PromptTaskItem(
+                        "接住归途提醒",
+                        IsDialogueSequenceCurrentlyActive(ReminderSequenceId)
+                            ? "归途提醒对白进行中。"
+                            : _returnSequencePlayed
+                                ? "归途提醒已排队，等待接管。"
+                                : "等待提醒对白开始。",
+                        false)
                 };
             }
 
@@ -383,7 +477,14 @@ namespace Sunset.Story
             {
                 return new[]
                 {
-                    new PromptTaskItem("回住处睡觉", _dayEnded ? "已完成。" : "靠近床或住处入口并按 E。", _dayEnded)
+                    new PromptTaskItem(
+                        "回住处睡觉",
+                        _dayEnded
+                            ? "已完成。"
+                            : IsSleepInteractionAvailable()
+                                ? BuildFreeTimeTaskDetail()
+                                : "等待自由时段正式开放。",
+                        _dayEnded)
                 };
             }
 
@@ -409,6 +510,7 @@ namespace Sunset.Story
             }
 
             SyncStoryTimePauseState();
+            ResyncLowEnergyState(false);
 
             if (showDebugLog)
             {
@@ -417,7 +519,11 @@ namespace Sunset.Story
 
             if (evt.CurrentPhase == StoryPhase.EnterVillage)
             {
-                BeginHealingAndHp();
+                if (!IsDialogueChainStillActive())
+                {
+                    BeginHealingAndHp();
+                }
+
                 return;
             }
 
@@ -435,6 +541,17 @@ namespace Sunset.Story
             }
 
             if (evt.SequenceId == FirstSequenceId)
+            {
+                if (HasPlayableNodes(evt.FollowupSequence))
+                {
+                    return;
+                }
+
+                BeginHealingAndHp();
+                return;
+            }
+
+            if (evt.SequenceId == FirstFollowupSequenceId)
             {
                 BeginHealingAndHp();
                 return;
@@ -554,19 +671,17 @@ namespace Sunset.Story
 
         private void HandleEnergyChanged(int current, int max)
         {
-            bool shouldWarn = _staminaRevealed && current > 0 && current <= lowEnergyWarningThreshold;
-            EnergySystem.Instance.SetLowEnergyWarningVisual(shouldWarn);
-            ApplyLowEnergyMovementPenalty(shouldWarn);
+            ResyncLowEnergyState(true);
+        }
 
-            if (shouldWarn && !_lowEnergyWarned)
+        private void HandleHourChanged(int hour)
+        {
+            if (_dayEnded || StoryManager.Instance == null || StoryManager.Instance.CurrentPhase != StoryPhase.FreeTime)
             {
-                _lowEnergyWarned = true;
-                SpringDay1PromptOverlay.Instance.Show("精力过低，先休息或吃点东西。");
+                return;
             }
-            else if (!shouldWarn)
-            {
-                _lowEnergyWarned = false;
-            }
+
+            ShowFreeTimePressurePromptForHour(hour);
         }
 
         private void HandleSleep()
@@ -764,6 +879,25 @@ namespace Sunset.Story
             }
         }
 
+        private static bool IsDialogueChainStillActive()
+        {
+            DialogueManager manager = DialogueManager.Instance;
+            return manager != null && manager.IsDialogueActive;
+        }
+
+        private static bool HasPlayableNodes(DialogueSequenceSO sequence)
+        {
+            return sequence != null && sequence.nodes != null && sequence.nodes.Count > 0;
+        }
+
+        private static bool IsDialogueSequenceCurrentlyActive(string sequenceId)
+        {
+            DialogueManager manager = DialogueManager.Instance;
+            return manager != null
+                && manager.IsDialogueActive
+                && manager.CurrentSequenceId == sequenceId;
+        }
+
         private void TickFarmingTutorial()
         {
             InitializeFarmingTutorialTracking();
@@ -836,6 +970,7 @@ namespace Sunset.Story
             }
 
             SpringDay1PromptOverlay.Instance.Hide();
+            SpringDay1PromptOverlay.Instance.Show(DinnerBridgePromptText);
             StoryManager.Instance.SetPhase(StoryPhase.DinnerConflict);
         }
 
@@ -886,6 +1021,191 @@ namespace Sunset.Story
 
             _craftedCount = requiredCraftedCount;
             return "测试用工作台交互：已记作一次基础制作。";
+        }
+
+        public string GetValidationFarmingNextAction()
+        {
+            InitializeFarmingTutorialTracking();
+
+            if (!_tillObjectiveCompleted)
+            {
+                return "执行 Step，模拟第一格开垦并验证 EP 首次出现。";
+            }
+
+            if (!_plantObjectiveCompleted)
+            {
+                return "执行 Step，模拟完成播种并继续压测 EP 消耗。";
+            }
+
+            if (!_waterObjectiveCompleted)
+            {
+                return "执行 Step，模拟完成浇水并压到 low-energy warning 阈值。";
+            }
+
+            if (!_woodObjectiveCompleted)
+            {
+                return $"执行 Step，模拟收齐 {requiredWoodCollectedCount} 份木材。";
+            }
+
+            if (_craftedCount < requiredCraftedCount)
+            {
+                return "执行 Step，模拟一次基础制作并推进到晚餐。";
+            }
+
+            return "农田教学目标已齐，等待晚餐事件接管。";
+        }
+
+        public string TryAdvanceFarmingTutorialValidationStep()
+        {
+            InitializeFarmingTutorialTracking();
+
+            if (!_tillObjectiveCompleted)
+            {
+                _tillObjectiveCompleted = true;
+                TickFarmingTutorial();
+                return "验收入口：已模拟完成第一格开垦，EP 正式出现。";
+            }
+
+            if (!_plantObjectiveCompleted)
+            {
+                _plantObjectiveCompleted = true;
+                ApplyValidationEnergyState(Mathf.Max(lowEnergyWarningThreshold + 25, lowEnergyWarningThreshold + 1));
+                TickFarmingTutorial();
+                return "验收入口：已模拟完成播种，并压入一段正式 EP 消耗。";
+            }
+
+            if (!_waterObjectiveCompleted)
+            {
+                _waterObjectiveCompleted = true;
+                ApplyValidationEnergyState(lowEnergyWarningThreshold);
+                TickFarmingTutorial();
+                return "验收入口：已模拟完成浇水，低精力 warning 与减速应已生效。";
+            }
+
+            if (!_woodObjectiveCompleted)
+            {
+                _woodObjectiveCompleted = true;
+                _collectedWoodSinceWoodStepStart = requiredWoodCollectedCount;
+                TickFarmingTutorial();
+                return $"验收入口：已模拟收齐 {requiredWoodCollectedCount} 份木材。";
+            }
+
+            if (_craftedCount < requiredCraftedCount)
+            {
+                _craftedCount = requiredCraftedCount;
+                TickFarmingTutorial();
+                return "验收入口：已模拟完成一次基础制作，等待晚餐事件接管。";
+            }
+
+            TickFarmingTutorial();
+            return "农田教学验证目标已全部完成；继续执行 Step 推进晚餐链。";
+        }
+
+        public string GetValidationFreeTimeNextAction()
+        {
+            if (!IsSleepInteractionAvailable())
+            {
+                return "自由时段尚未开放睡觉收束。";
+            }
+
+            TimeManager timeManager = TimeManager.Instance;
+            if (timeManager == null)
+            {
+                return "缺少 TimeManager，无法推进夜间验收入口。";
+            }
+
+            int currentHour = timeManager.GetHour();
+            if (currentHour < FreeTimeNightWarningHour)
+            {
+                return "执行 Step，模拟推进到夜里 10 点并验证回住处压力。";
+            }
+
+            if (currentHour < FreeTimeMidnightWarningHour)
+            {
+                return "执行 Step，模拟推进到午夜并验证夜深提醒。";
+            }
+
+            if (currentHour < FreeTimeFinalWarningHour)
+            {
+                return "执行 Step，模拟推进到凌晨一点并验证最终催促。";
+            }
+
+            return "回住处休息，或继续执行 Step 验证两点规则收束。";
+        }
+
+        public string TryAdvanceFreeTimeValidationStep()
+        {
+            if (!IsSleepInteractionAvailable())
+            {
+                return "自由时段尚未开放，不能推进夜间验收入口。";
+            }
+
+            TimeManager timeManager = TimeManager.Instance;
+            if (timeManager == null)
+            {
+                return "当前缺少 TimeManager，无法推进夜间验收入口。";
+            }
+
+            int currentHour = timeManager.GetHour();
+            if (currentHour < FreeTimeNightWarningHour)
+            {
+                timeManager.SetTime(timeManager.GetYear(), timeManager.GetSeason(), timeManager.GetDay(), FreeTimeNightWarningHour, 0);
+                return "验收入口：已模拟推进到夜里 10 点，回住处压力应已增强。";
+            }
+
+            if (currentHour < FreeTimeMidnightWarningHour)
+            {
+                timeManager.SetTime(timeManager.GetYear(), timeManager.GetSeason(), timeManager.GetDay(), FreeTimeMidnightWarningHour, 0);
+                return "验收入口：已模拟推进到午夜，夜深提醒应已触发。";
+            }
+
+            if (currentHour < FreeTimeFinalWarningHour)
+            {
+                timeManager.SetTime(timeManager.GetYear(), timeManager.GetSeason(), timeManager.GetDay(), FreeTimeFinalWarningHour, 0);
+                return "验收入口：已模拟推进到凌晨一点，最终催促应已触发。";
+            }
+
+            timeManager.Sleep();
+            return "验收入口：已模拟两点规则触发，Day1 应进入结束态。";
+        }
+
+        private void ApplyValidationEnergyState(int targetCurrent)
+        {
+            EnergySystem energySystem = EnergySystem.Instance;
+            if (energySystem == null)
+            {
+                return;
+            }
+
+            int clampedTarget = Mathf.Clamp(targetCurrent, 0, energySystem.MaxEnergy);
+            if (energySystem.CurrentEnergy > clampedTarget)
+            {
+                energySystem.TryConsumeEnergy(energySystem.CurrentEnergy - clampedTarget);
+                return;
+            }
+
+            energySystem.SetEnergyState(clampedTarget, energySystem.MaxEnergy);
+        }
+
+        public void NotifyWorkbenchCraftProgress(RecipeData recipe, int queueTotal, int queueCompleted, float progress, bool active)
+        {
+            if (!active || recipe == null)
+            {
+                _workbenchCraftingActive = false;
+                _workbenchCraftProgress = 0f;
+                _workbenchCraftQueueTotal = 0;
+                _workbenchCraftQueueCompleted = 0;
+                _workbenchCraftRecipeName = string.Empty;
+                return;
+            }
+
+            _workbenchCraftingActive = true;
+            _workbenchCraftProgress = Mathf.Clamp01(progress);
+            _workbenchCraftQueueTotal = Mathf.Max(1, queueTotal);
+            _workbenchCraftQueueCompleted = Mathf.Clamp(queueCompleted, 0, _workbenchCraftQueueTotal);
+            _workbenchCraftRecipeName = string.IsNullOrWhiteSpace(recipe.recipeName)
+                ? $"配方 {recipe.recipeID}"
+                : recipe.recipeName;
         }
 
         public bool CanPerformWorkbenchCraft(out string blockerMessage)
@@ -939,11 +1259,64 @@ namespace Sunset.Story
             return currentPhase == StoryPhase.WorkbenchFlashback && !_workbenchOpened;
         }
 
+        public bool IsFirstFollowupPending()
+        {
+            if (StoryManager.Instance.CurrentPhase != StoryPhase.EnterVillage)
+            {
+                return false;
+            }
+
+            DialogueManager manager = DialogueManager.Instance;
+            return manager == null || !manager.HasCompletedSequence(FirstFollowupSequenceId);
+        }
+
+        public bool IsWorkbenchFlashbackAwaitingInteraction()
+        {
+            return StoryManager.Instance.CurrentPhase == StoryPhase.WorkbenchFlashback && !_workbenchOpened;
+        }
+
+        public bool IsDinnerDialoguePendingStart()
+        {
+            return StoryManager.Instance.CurrentPhase == StoryPhase.DinnerConflict
+                && _dinnerSequencePlayed
+                && !IsDialogueSequenceCurrentlyActive(DinnerSequenceId);
+        }
+
+        public bool IsReminderDialoguePendingStart()
+        {
+            return StoryManager.Instance.CurrentPhase == StoryPhase.ReturnAndReminder
+                && _returnSequencePlayed
+                && !IsDialogueSequenceCurrentlyActive(ReminderSequenceId);
+        }
+
+        public bool IsSleepInteractionAvailable()
+        {
+            return StoryManager.Instance.CurrentPhase == StoryPhase.FreeTime && !_dayEnded;
+        }
+
+        public string GetFreeTimePressureState()
+        {
+            if (!IsSleepInteractionAvailable())
+            {
+                return "inactive";
+            }
+
+            return GetFreeTimePressureTier() switch
+            {
+                FreeTimePressureTier.Relaxed => "settled",
+                FreeTimePressureTier.NightWarning => "night",
+                FreeTimePressureTier.AfterMidnight => "midnight",
+                FreeTimePressureTier.FinalCall => "final-call",
+                _ => "inactive"
+            };
+        }
+
         private void BeginReturnReminder()
         {
             StoryManager.Instance.SetPhase(StoryPhase.ReturnAndReminder);
             EnergySystem.Instance.PlayRestoreAnimation(dinnerRestoreEnergy, dinnerRestoreDuration);
             SyncStoryTimePauseState();
+            SpringDay1PromptOverlay.Instance.Show(ReturnReminderBridgePromptText);
 
             if (!_returnSequencePlayed)
             {
@@ -960,9 +1333,18 @@ namespace Sunset.Story
             }
 
             _freeTimeEntered = true;
+            _freeTimeNightWarningShown = false;
+            _freeTimeMidnightWarningShown = false;
+            _freeTimeFinalWarningShown = false;
             StoryManager.Instance.SetPhase(StoryPhase.FreeTime);
             SyncStoryTimePauseState();
-            SpringDay1PromptOverlay.Instance.Show(FreeTimePromptText);
+            SpringDay1PromptOverlay.Instance.Show(GetFreeTimePromptTextForCurrentTime());
+
+            TimeManager timeManager = TimeManager.Instance;
+            if (timeManager != null)
+            {
+                ShowFreeTimePressurePromptForHour(timeManager.GetHour());
+            }
         }
 
         public bool TryTriggerSleepFromBed()
@@ -974,6 +1356,22 @@ namespace Sunset.Story
 
             TimeManager.Instance.Sleep();
             return true;
+        }
+
+        public string GetRestInteractionHint(string fallbackHint)
+        {
+            if (!IsSleepInteractionAvailable())
+            {
+                return fallbackHint;
+            }
+
+            return GetFreeTimePressureTier() switch
+            {
+                FreeTimePressureTier.FinalCall => "赶紧睡觉",
+                FreeTimePressureTier.AfterMidnight => "尽快回屋睡觉",
+                FreeTimePressureTier.NightWarning => "回屋休息",
+                _ => fallbackHint
+            };
         }
 
         private void QueueDialogue(DialogueSequenceSO sequence)
@@ -988,12 +1386,23 @@ namespace Sunset.Story
 
         private IEnumerator PlayDialogueWhenReady(DialogueSequenceSO sequence)
         {
-            while (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+            while (true)
             {
+                DialogueManager dialogueManager = DialogueManager.Instance;
+                if (dialogueManager == null)
+                {
+                    yield return null;
+                    continue;
+                }
+
+                if (!dialogueManager.IsDialogueActive)
+                {
+                    dialogueManager.PlayDialogue(sequence);
+                    yield break;
+                }
+
                 yield return null;
             }
-
-            DialogueManager.Instance.PlayDialogue(sequence);
         }
 
         private DialogueSequenceSO BuildHealingSequence()
@@ -1253,6 +1662,87 @@ namespace Sunset.Story
             return completedCount;
         }
 
+        private string BuildWorkbenchCraftProgressText()
+        {
+            if (!_workbenchCraftingActive || string.IsNullOrWhiteSpace(_workbenchCraftRecipeName))
+            {
+                return $"教学进度 {GetCompletedTutorialObjectiveCount()}/5";
+            }
+
+            int currentItemIndex = Mathf.Clamp(_workbenchCraftQueueCompleted + 1, 1, Mathf.Max(1, _workbenchCraftQueueTotal));
+            int percent = Mathf.RoundToInt(_workbenchCraftProgress * 100f);
+            return _workbenchCraftQueueTotal > 1
+                ? $"工作台制作中 · {_workbenchCraftRecipeName} · {currentItemIndex}/{_workbenchCraftQueueTotal} · {percent}%"
+                : $"工作台制作中 · {_workbenchCraftRecipeName} · {percent}%";
+        }
+
+        private string BuildFreeTimeProgressText()
+        {
+            return GetFreeTimePressureTier() switch
+            {
+                FreeTimePressureTier.FinalCall => "快到凌晨两点了，必须立刻回去睡觉",
+                FreeTimePressureTier.AfterMidnight => "已经过了午夜，尽快回住处结束今天",
+                FreeTimePressureTier.NightWarning => "夜深了，最好尽快回住处休息",
+                _ => FreeTimeProgressText
+            };
+        }
+
+        private string GetFreeTimeFocusText()
+        {
+            return GetFreeTimePressureTier() switch
+            {
+                FreeTimePressureTier.FinalCall => "现在不要再逗留，立刻回住处睡觉。",
+                FreeTimePressureTier.AfterMidnight => "已经过了午夜，先回住处睡觉再说。",
+                FreeTimePressureTier.NightWarning => "夜色已经深了，别走太远，记得回住处休息。",
+                _ => FreeTimePromptText
+            };
+        }
+
+        private string BuildFreeTimeTaskDetail()
+        {
+            return GetFreeTimePressureTier() switch
+            {
+                FreeTimePressureTier.FinalCall => "快到凌晨两点了，再拖会直接昏睡过去。",
+                FreeTimePressureTier.AfterMidnight => "已经过了午夜，今晚该尽快收尾回去睡觉。",
+                FreeTimePressureTier.NightWarning => "天已经黑透了，别在外面逗留太久。",
+                _ => "现在可以自由活动，也可以直接回住处睡觉。"
+            };
+        }
+
+        private string GetFreeTimePromptTextForCurrentTime()
+        {
+            return GetFreeTimePressureTier() switch
+            {
+                FreeTimePressureTier.FinalCall => FreeTimeFinalPromptText,
+                FreeTimePressureTier.AfterMidnight => FreeTimeMidnightPromptText,
+                FreeTimePressureTier.NightWarning => FreeTimeNightPromptText,
+                _ => FreeTimePromptText
+            };
+        }
+
+        private void ShowFreeTimePressurePromptForHour(int hour)
+        {
+            if (hour >= FreeTimeFinalWarningHour && !_freeTimeFinalWarningShown)
+            {
+                _freeTimeFinalWarningShown = true;
+                SpringDay1PromptOverlay.Instance.Show(FreeTimeFinalPromptText);
+                return;
+            }
+
+            if (hour >= FreeTimeMidnightWarningHour && !_freeTimeMidnightWarningShown)
+            {
+                _freeTimeMidnightWarningShown = true;
+                SpringDay1PromptOverlay.Instance.Show(FreeTimeMidnightPromptText);
+                return;
+            }
+
+            if (hour >= FreeTimeNightWarningHour && !_freeTimeNightWarningShown)
+            {
+                _freeTimeNightWarningShown = true;
+                SpringDay1PromptOverlay.Instance.Show(FreeTimeNightPromptText);
+            }
+        }
+
         private static int GetLatchedProgress(bool completed, int requiredCount)
         {
             if (requiredCount <= 0)
@@ -1465,6 +1955,72 @@ namespace Sunset.Story
             _playerMovement.ResetRuntimeSpeedMultiplier();
         }
 
+        private void ResyncLowEnergyState(bool allowPrompt)
+        {
+            EnergySystem energySystem = EnergySystem.Instance;
+            if (energySystem == null)
+            {
+                ApplyLowEnergyMovementPenalty(false);
+                _lowEnergyWarned = false;
+                return;
+            }
+
+            bool shouldWarn = _staminaRevealed
+                && energySystem.CurrentEnergy > 0
+                && energySystem.CurrentEnergy <= lowEnergyWarningThreshold;
+
+            energySystem.SetLowEnergyWarningVisual(shouldWarn);
+            ApplyLowEnergyMovementPenalty(shouldWarn);
+
+            if (!allowPrompt)
+            {
+                _lowEnergyWarned = shouldWarn;
+                return;
+            }
+
+            if (shouldWarn && !_lowEnergyWarned)
+            {
+                _lowEnergyWarned = true;
+                SpringDay1PromptOverlay.Instance.Show("精力过低，先休息或吃点东西。");
+            }
+            else if (!shouldWarn)
+            {
+                _lowEnergyWarned = false;
+            }
+        }
+
+        private FreeTimePressureTier GetFreeTimePressureTier()
+        {
+            if (!IsSleepInteractionAvailable())
+            {
+                return FreeTimePressureTier.Inactive;
+            }
+
+            TimeManager timeManager = TimeManager.Instance;
+            if (timeManager == null)
+            {
+                return FreeTimePressureTier.Relaxed;
+            }
+
+            int currentHour = timeManager.GetHour();
+            if (currentHour >= FreeTimeFinalWarningHour)
+            {
+                return FreeTimePressureTier.FinalCall;
+            }
+
+            if (currentHour >= FreeTimeMidnightWarningHour)
+            {
+                return FreeTimePressureTier.AfterMidnight;
+            }
+
+            if (currentHour >= FreeTimeNightWarningHour)
+            {
+                return FreeTimePressureTier.NightWarning;
+            }
+
+            return FreeTimePressureTier.Relaxed;
+        }
+
         private void SyncStoryTimePauseState()
         {
             TimeManager timeManager = TimeManager.Instance;
@@ -1495,8 +2051,22 @@ namespace Sunset.Story
                 return;
             }
 
-            TimeManager.Instance.ResumeTime(StoryTimePauseSource);
+            TimeManager timeManager = FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
+            if (timeManager != null)
+            {
+                timeManager.ResumeTime(StoryTimePauseSource);
+            }
+
             _storyTimePauseApplied = false;
+        }
+
+        private enum FreeTimePressureTier
+        {
+            Inactive,
+            Relaxed,
+            NightWarning,
+            AfterMidnight,
+            FinalCall
         }
     }
 
@@ -1514,6 +2084,8 @@ namespace Sunset.Story
         private static SpringDay1LiveValidationRunner _instance;
 
         private readonly StringBuilder _builder = new StringBuilder(512);
+        private bool _validationBorrowedRunInBackground;
+        private bool _previousRunInBackground;
 
         public static SpringDay1LiveValidationRunner Instance => EnsureRuntime();
 
@@ -1550,8 +2122,19 @@ namespace Sunset.Story
             DontDestroyOnLoad(gameObject);
         }
 
+        private void OnDestroy()
+        {
+            RestoreValidationRunInBackground();
+
+            if (_instance == this)
+            {
+                _instance = null;
+            }
+        }
+
         public string BootstrapRuntime()
         {
+            EnsureValidationRunInBackground();
             _ = StoryManager.Instance;
             SpringDay1Director.EnsureRuntime();
             SpringDay1PromptOverlay.EnsureRuntime();
@@ -1559,7 +2142,7 @@ namespace Sunset.Story
             _ = EnergySystem.Instance;
             _ = TimeManager.Instance;
 
-            return SetActionResult("已确保 StoryManager / Day1Director / PromptOverlay / HP / EP / Time 运行时对象就位。");
+            return SetActionResult("已确保 StoryManager / Day1Director / PromptOverlay / HP / EP / Time 运行时对象就位，并允许失焦时继续推进自动演出。");
         }
 
         public string BuildSnapshot(string label = null)
@@ -1573,6 +2156,7 @@ namespace Sunset.Story
             EnergySystem energySystem = FindFirstObjectByType<EnergySystem>(FindObjectsInactive.Include);
             TimeManager timeManager = FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
             GameInputManager inputManager = FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
+            PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
             NPCDialogueInteractable npcInteractable = FindPreferredComponent<NPCDialogueInteractable>(PreferredNpcObjectNames);
             NPCAutoRoamController npcRoam = npcInteractable != null ? npcInteractable.GetComponent<NPCAutoRoamController>() : null;
             CraftingStationInteractable workbenchInteractable = FindPreferredComponent<CraftingStationInteractable>(PreferredWorkbenchObjectNames);
@@ -1587,10 +2171,15 @@ namespace Sunset.Story
             AppendPair("DialogueUI", BuildDialogueUiSummary(dialogueUi));
             AppendPair("Prompt", BuildPromptSummary(promptOverlay));
             AppendPair("HP", healthSystem != null ? $"{healthSystem.CurrentHealth}/{healthSystem.MaxHealth}|visible={healthSystem.IsVisible}" : "n/a");
-            AppendPair("EP", energySystem != null ? $"{energySystem.CurrentEnergy}/{energySystem.MaxEnergy}|visible={energySystem.IsVisible}" : "n/a");
+            AppendPair("EP", energySystem != null ? $"{energySystem.CurrentEnergy}/{energySystem.MaxEnergy}|visible={energySystem.IsVisible}|warn={energySystem.IsLowEnergyWarningActive}" : "n/a");
+            AppendPair("Move", BuildMovementSummary(playerMovement));
             AppendPair("Time", timeManager != null ? $"paused={timeManager.IsTimePaused()}|depth={timeManager.GetPauseStackDepth()}|clock={timeManager.GetFormattedTime()}" : "n/a");
             AppendPair("Input", inputManager != null ? inputManager.IsInputEnabledForDebug.ToString() : "n/a");
-            AppendPair("Director", director != null ? $"{director.GetCurrentTaskLabel()}|{director.GetCurrentProgressLabel()}" : "n/a");
+            AppendPair(
+                "Director",
+                director != null
+                    ? $"{director.GetCurrentTaskLabel()}|{director.GetCurrentProgressLabel()}|followupPending={director.IsFirstFollowupPending()}|workbenchAwaiting={director.IsWorkbenchFlashbackAwaitingInteraction()}|dinnerPending={director.IsDinnerDialoguePendingStart()}|reminderPending={director.IsReminderDialoguePendingStart()}|sleepReady={director.IsSleepInteractionAvailable()}|nightPressure={director.GetFreeTimePressureState()}"
+                    : "n/a");
             AppendPair("NPC", npcInteractable != null ? $"{npcInteractable.name}|roam={(npcRoam != null ? npcRoam.IsRoaming.ToString() : "n/a")}|state={(npcRoam != null ? npcRoam.DebugState : "n/a")}" : "n/a");
             AppendPair("Workbench", workbenchInteractable != null ? workbenchInteractable.name : "n/a");
             AppendPair("Rest", restInteractable != null ? restInteractable.name : "n/a");
@@ -1619,16 +2208,30 @@ namespace Sunset.Story
                 return "缺少 StoryManager，先执行 Bootstrap。";
             }
 
+            SpringDay1Director director = FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
+
             return storyManager.CurrentPhase switch
             {
                 StoryPhase.CrashAndMeet => "触发 NPC001 首段对话。",
-                StoryPhase.EnterVillage => "等待疗伤段启动，若未启动可再次触发 NPC001。",
+                StoryPhase.EnterVillage => director != null && director.IsFirstFollowupPending()
+                    ? "等待首段后续说明收束；若未续播可再次触发 NPC001。"
+                    : "首段后续说明已收束，等待疗伤段启动。",
                 StoryPhase.HealingAndHP => "等待血条渐显与疗伤对话自动播出。",
-                StoryPhase.WorkbenchFlashback => "交互 Anvil_0 / Workbench，触发工作台闪回。",
-                StoryPhase.FarmingTutorial => "人工完成开垦、播种、浇水、砍树与一次制作。",
-                StoryPhase.DinnerConflict => "等待晚餐对话自动排队；若已播出则继续推进。",
-                StoryPhase.ReturnAndReminder => "推进归途提醒对话，准备进入自由时段。",
-                StoryPhase.FreeTime => "回住处休息，验证 DayEnd。",
+                StoryPhase.WorkbenchFlashback => director != null && director.IsWorkbenchFlashbackAwaitingInteraction()
+                    ? "交互 Anvil_0 / Workbench，触发工作台闪回。"
+                    : "工作台已打开，等待工作台回忆自动播出。",
+                StoryPhase.FarmingTutorial => director != null
+                    ? director.GetValidationFarmingNextAction()
+                    : "执行 Step，模拟农田教学的最小推进。",
+                StoryPhase.DinnerConflict => director != null && director.IsDinnerDialoguePendingStart()
+                    ? "晚餐对白已排队，等待接管。"
+                    : "晚餐对白进行中，继续推进即可。",
+                StoryPhase.ReturnAndReminder => director != null && director.IsReminderDialoguePendingStart()
+                    ? "归途提醒对白已排队，等待接管。"
+                    : "归途提醒对白进行中，继续推进即可。",
+                StoryPhase.FreeTime => director != null && director.IsSleepInteractionAvailable()
+                    ? director.GetValidationFreeTimeNextAction()
+                    : "自由时段尚未开放睡觉收束。",
                 StoryPhase.DayEnd => "春1日已结束，可开始下一轮复测。",
                 _ => "当前阶段暂无推荐动作。"
             };
@@ -1649,16 +2252,30 @@ namespace Sunset.Story
                 return SetActionResult("未找到 StoryManager；请先执行 Bootstrap。");
             }
 
+            SpringDay1Director director = FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
+
             return storyManager.CurrentPhase switch
             {
                 StoryPhase.CrashAndMeet => SetActionResult(TryTriggerNpcDialogue()),
-                StoryPhase.EnterVillage => SetActionResult(TryTriggerNpcDialogue()),
+                StoryPhase.EnterVillage => SetActionResult(director != null && director.IsFirstFollowupPending()
+                    ? TryTriggerNpcDialogue()
+                    : "首段后续说明已收束，等待疗伤段自动启动。"),
                 StoryPhase.HealingAndHP => SetActionResult("疗伤阶段主要由导演自动推进；当前无需额外手动触发。"),
-                StoryPhase.WorkbenchFlashback => SetActionResult(TryTriggerWorkbenchInteraction()),
-                StoryPhase.FarmingTutorial => SetActionResult("农田教学阶段需要人工完成真实操作，当前不做脚本代跑。"),
-                StoryPhase.DinnerConflict => SetActionResult("晚餐阶段等待导演自动排队对话；若对话已开始，再次执行 Step 即可推进。"),
-                StoryPhase.ReturnAndReminder => SetActionResult("归途提醒阶段等待对话播出；若对话已开始，再次执行 Step 即可推进。"),
-                StoryPhase.FreeTime => SetActionResult(TryTriggerRestInteraction()),
+                StoryPhase.WorkbenchFlashback => SetActionResult(director != null && director.IsWorkbenchFlashbackAwaitingInteraction()
+                    ? TryTriggerWorkbenchInteraction()
+                    : "工作台已打开，等待工作台回忆自动播出。"),
+                StoryPhase.FarmingTutorial => SetActionResult(director != null
+                    ? director.TryAdvanceFarmingTutorialValidationStep()
+                    : "当前缺少 Day1 导演层，无法推进农田教学验收入口。"),
+                StoryPhase.DinnerConflict => SetActionResult(director != null && director.IsDinnerDialoguePendingStart()
+                    ? "晚餐对白已排队，等待自动接管。"
+                    : "晚餐对白进行中；继续执行 Step 即可推进。"),
+                StoryPhase.ReturnAndReminder => SetActionResult(director != null && director.IsReminderDialoguePendingStart()
+                    ? "归途提醒对白已排队，等待自动接管。"
+                    : "归途提醒对白进行中；继续执行 Step 即可推进。"),
+                StoryPhase.FreeTime => SetActionResult(director != null && director.IsSleepInteractionAvailable()
+                    ? director.TryAdvanceFreeTimeValidationStep()
+                    : "自由时段尚未开放睡觉收束。"),
                 StoryPhase.DayEnd => SetActionResult("春1日已结束，无需继续推进。"),
                 _ => SetActionResult("当前阶段暂无可脚本触发的推荐动作。")
             };
@@ -1666,6 +2283,7 @@ namespace Sunset.Story
 
         private string TryTriggerNpcDialogue()
         {
+            CloseBlockingPageUiForValidation();
             NPCDialogueInteractable interactable = FindPreferredComponent<NPCDialogueInteractable>(PreferredNpcObjectNames);
             if (interactable == null)
             {
@@ -1678,9 +2296,20 @@ namespace Sunset.Story
                 return $"NPC {interactable.name} 当前不可交互。";
             }
 
-            if (context == null || interactable.GetBoundaryDistance(context.PlayerPosition) > interactable.InteractionDistance)
+            if (context == null)
             {
-                return $"NPC {interactable.name} 当前不在有效交互距离内。";
+                return $"NPC {interactable.name} 当前缺少玩家交互上下文。";
+            }
+
+            if (interactable.GetBoundaryDistance(context.PlayerPosition) > interactable.InteractionDistance)
+            {
+                if (!ShouldAllowNpcValidationFallback())
+                {
+                    return $"NPC {interactable.name} 当前不在有效交互距离内。";
+                }
+
+                interactable.OnInteract(context);
+                return $"NPC {interactable.name} 当前不在有效交互距离内，已通过验收入口脚本触发 NPC 对话。";
             }
 
             interactable.OnInteract(context);
@@ -1689,21 +2318,41 @@ namespace Sunset.Story
 
         private string TryTriggerWorkbenchInteraction()
         {
+            CloseBlockingPageUiForValidation();
             CraftingStationInteractable interactable = FindPreferredComponent<CraftingStationInteractable>(PreferredWorkbenchObjectNames);
             if (interactable == null)
             {
                 return "未找到工作台交互脚本（优先查找 Anvil_0 / Workbench / Anvil）。";
             }
 
+            SpringDay1Director director = FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
+            bool allowValidationFallback = director != null && director.IsWorkbenchFlashbackAwaitingInteraction();
             InteractionContext context = BuildInteractionContext();
             if (!interactable.CanInteract(context))
             {
                 return $"工作台 {interactable.name} 当前不可交互。";
             }
 
-            if (context == null || interactable.GetBoundaryDistance(context.PlayerPosition) > interactable.InteractionDistance)
+            if (context == null)
             {
-                return $"工作台 {interactable.name} 当前不在交互包络线内。";
+                if (!allowValidationFallback)
+                {
+                    return $"工作台 {interactable.name} 当前缺少玩家交互上下文。";
+                }
+
+                interactable.OnInteract(null);
+                return $"工作台 {interactable.name} 缺少玩家上下文，已通过验收入口脚本触发工作台回忆。";
+            }
+
+            if (interactable.GetBoundaryDistance(context.PlayerPosition) > interactable.InteractionDistance)
+            {
+                if (!allowValidationFallback)
+                {
+                    return $"工作台 {interactable.name} 当前不在交互包络线内。";
+                }
+
+                interactable.OnInteract(context);
+                return $"工作台 {interactable.name} 当前不在交互包络线内，已通过验收入口脚本触发工作台回忆。";
             }
 
             interactable.OnInteract(context);
@@ -1712,6 +2361,7 @@ namespace Sunset.Story
 
         private string TryTriggerRestInteraction()
         {
+            CloseBlockingPageUiForValidation();
             SpringDay1BedInteractable interactable = FindPreferredComponent<SpringDay1BedInteractable>(PreferredRestObjectNames);
             if (interactable == null)
             {
@@ -1726,6 +2376,32 @@ namespace Sunset.Story
 
             interactable.OnInteract(context);
             return $"已触发休息交互：{interactable.name}";
+        }
+
+        private static bool ShouldAllowNpcValidationFallback()
+        {
+            StoryManager storyManager = FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
+            if (storyManager == null)
+            {
+                return false;
+            }
+
+            return storyManager.CurrentPhase == StoryPhase.CrashAndMeet
+                || storyManager.CurrentPhase == StoryPhase.EnterVillage;
+        }
+
+        private static void CloseBlockingPageUiForValidation()
+        {
+            if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen)
+            {
+                BoxPanelUI.ActiveInstance.Close();
+            }
+
+            PackagePanelTabsUI packageTabs = FindFirstObjectByType<PackagePanelTabsUI>(FindObjectsInactive.Include);
+            if (packageTabs != null && packageTabs.IsPanelOpen())
+            {
+                packageTabs.ShowPanel(false);
+            }
         }
 
         private static InteractionContext BuildInteractionContext()
@@ -1781,6 +2457,16 @@ namespace Sunset.Story
             return $"alpha={alpha:F2}|text={prompt}";
         }
 
+        private string BuildMovementSummary(PlayerMovement playerMovement)
+        {
+            if (playerMovement == null)
+            {
+                return "n/a";
+            }
+
+            return $"runtimeMultiplier={playerMovement.GetRuntimeSpeedMultiplier():F2}";
+        }
+
         private void AppendPair(string key, string value)
         {
             if (_builder.Length > 0)
@@ -1797,6 +2483,34 @@ namespace Sunset.Story
         {
             LastActionResult = result;
             return LastActionResult;
+        }
+
+        private void EnsureValidationRunInBackground()
+        {
+            if (_validationBorrowedRunInBackground)
+            {
+                return;
+            }
+
+            _previousRunInBackground = Application.runInBackground;
+            if (_previousRunInBackground)
+            {
+                return;
+            }
+
+            Application.runInBackground = true;
+            _validationBorrowedRunInBackground = true;
+        }
+
+        private void RestoreValidationRunInBackground()
+        {
+            if (!_validationBorrowedRunInBackground)
+            {
+                return;
+            }
+
+            Application.runInBackground = _previousRunInBackground;
+            _validationBorrowedRunInBackground = false;
         }
 
         private static string Sanitize(string value)
@@ -1837,5 +2551,6 @@ namespace Sunset.Story
 
             return FindFirstObjectByType<T>(FindObjectsInactive.Include);
         }
+
     }
 }

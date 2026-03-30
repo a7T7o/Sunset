@@ -13,7 +13,6 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string DialogueUiPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/DialogueUI.cs");
     private static readonly string DialogueManagerPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/DialogueManager.cs");
     private static readonly string DirectorPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs");
-    private static readonly string StatusOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs");
     private static readonly string WorldHintBubblePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs");
     private static readonly string WorkbenchInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs");
     private static readonly string WorkbenchOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs");
@@ -24,6 +23,7 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string BedInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/SpringDay1BedInteractable.cs");
     private static readonly string BedSceneBinderPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/SpringDay1BedSceneBinder.cs");
     private static readonly string PromptOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs");
+    private static readonly string UiLayerUtilityPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs");
     private static readonly string NearbyFeedbackPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs");
     private static readonly string EnergySystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/EnergySystem.cs");
     private static readonly string HealthSystemPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Player/HealthSystem.cs");
@@ -77,6 +77,7 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("enableProximityKeyInteraction", scriptText, "NPC 应支持近距 E 键交互");
         StringAssert.Contains("Input.GetKeyDown(proximityInteractionKey)", scriptText, "NPC 应自行检测 E 键触发");
         StringAssert.Contains("SpringDay1WorldHintBubble", scriptText, "NPC 应复用统一的 E 提示气泡");
+        StringAssert.Contains("HideIfExists(transform)", scriptText, "NPC 退场时回收提示气泡不应反向创建新的运行时 UI");
         StringAssert.Contains("autoRoamController.StopRoam()", scriptText, "对话开始时应冻结 NPC 漫游");
         StringAssert.Contains("autoRoamController.StartRoam()", scriptText, "对话结束后应恢复 NPC 漫游");
         StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", scriptText, "连续对话时 NPC 不应因旧 End 事件提前恢复漫游");
@@ -99,6 +100,16 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("CurrentSequenceId", managerText, "DialogueManager 应暴露当前对话编号");
         StringAssert.Contains("GetCurrentTaskLabel()", directorText, "导演层应提供当前任务标签");
         StringAssert.Contains("GetCurrentProgressLabel()", directorText, "导演层应提供当前任务进度");
+        StringAssert.Contains("0.0.2 首段后续说明", directorText, "导演层任务标签应把 EnterVillage 区分为首段后续说明阶段");
+    }
+
+    [Test]
+    public void UiLayerUtility_RemainsPublicForSharedEditorValidationMenus()
+    {
+        string utilityText = File.ReadAllText(UiLayerUtilityPath);
+
+        StringAssert.Contains("public static class SpringDay1UiLayerUtility", utilityText, "UiLayerUtility 应保持 public，避免 Editor 验证菜单访问时再引入编译阻断");
+        StringAssert.Contains("IsBlockingPageUiOpen()", utilityText, "UiLayerUtility 应继续暴露页面级 UI 阻挡判断");
     }
 
     [Test]
@@ -112,6 +123,7 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("SetEnergyState(int current, int max)", energyText, "EnergySystem 应支持剧情设定精力值");
         StringAssert.Contains("PlayRestoreAnimation", energyText, "EnergySystem 应支持晚餐回血动画");
         StringAssert.Contains("SetLowEnergyWarningVisual", energyText, "EnergySystem 应支持低精力红色警示表现");
+        StringAssert.Contains("IsLowEnergyWarningActive", energyText, "EnergySystem 应暴露当前低精力 warning 状态，便于 Day1 live 快照验收");
         StringAssert.Contains("SetHealthState(int current, int max)", healthText, "HealthSystem 应支持剧情设定生命值");
         StringAssert.Contains("PlayRevealAndAnimateTo", healthText, "HealthSystem 应支持血条渐显并缓慢回血");
         StringAssert.Contains("CanvasGroup", healthText, "HealthSystem 应通过 CanvasGroup 做显隐过渡");
@@ -124,7 +136,6 @@ public class SpringDay1DialogueProgressionTests
     public void PromptOverlay_SuppressesItselfDuringDialogue()
     {
         string overlayText = File.ReadAllText(PromptOverlayPath);
-        string statusText = File.ReadAllText(StatusOverlayPath);
         string hintBubbleText = File.ReadAllText(WorldHintBubblePath);
 
         StringAssert.Contains("EventBus.Subscribe<DialogueStartEvent>", overlayText, "PromptOverlay 应监听对话开始");
@@ -142,7 +153,6 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("completionStepDuration", overlayText, "PromptOverlay 应显式配置逐条完成动画时长");
         StringAssert.Contains("postDialogueResumeDelay", overlayText, "PromptOverlay 应支持对话结束后的缓冲淡入延迟");
         StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", overlayText, "连续对话时 PromptOverlay 不应因旧 End 事件提前恢复");
-        StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", statusText, "连续对话时状态条不应因旧 End 事件提前恢复");
         StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", hintBubbleText, "连续对话时世界提示气泡不应因旧 End 事件提前恢复");
     }
 
@@ -170,7 +180,36 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("TriggerRecommendedAction()", runnerText, "运行态验收器应能触发最小验收动作");
         StringAssert.Contains("TryTriggerNpcDialogue()", runnerText, "运行态验收器应支持触发 NPC001 对话");
         StringAssert.Contains("TryTriggerWorkbenchInteraction()", runnerText, "运行态验收器应支持触发工作台交互");
+        StringAssert.Contains("TryAdvanceFarmingTutorialValidationStep()", runnerText, "运行态验收器应支持模拟农田教学最小推进，便于继续验证 EP 与 low-energy warning");
         StringAssert.Contains("TryTriggerRestInteraction()", runnerText, "运行态验收器应支持触发回住处休息");
+        StringAssert.Contains("CloseBlockingPageUiForValidation()", runnerText, "运行态验收器在触发 NPC / 工作台 / 休息交互前应先收掉挡路的页面级 UI");
+        StringAssert.Contains("packageTabs.ShowPanel(false);", runnerText, "运行态验收器应能在验证入口自动收起 PackagePanel，避免开场交互被页面 UI 挡死");
+        StringAssert.Contains("BoxPanelUI.ActiveInstance.Close();", runnerText, "运行态验收器应能在验证入口自动关闭箱子 UI，避免回住处或工作台验收被旧页面状态挡住");
+        StringAssert.Contains("ShouldAllowNpcValidationFallback()", runnerText, "运行态验收器应对开场 NPC 交互保留验证专用距离兜底");
+        StringAssert.Contains("已通过验收入口脚本触发 NPC 对话", runnerText, "当玩家初始站位不够近时，开场 NPC 验收入口应允许一次仅验证用的脚本触发");
+        StringAssert.Contains("GetValidationFreeTimeNextAction()", runnerText, "运行态验收器应支持给出自由时段的夜间推进建议");
+        StringAssert.Contains("TryAdvanceFreeTimeValidationStep()", runnerText, "运行态验收器应支持模拟夜间推进与两点规则收束");
+        StringAssert.Contains("EnsureValidationRunInBackground()", runnerText, "运行态验收器初始化时应主动接管后台运行，避免失焦时自动演出停摆");
+        StringAssert.Contains("Application.runInBackground = true;", runnerText, "运行态验收器应在需要时临时开启后台运行");
+        StringAssert.Contains("RestoreValidationRunInBackground()", runnerText, "运行态验收器销毁时应恢复原始后台运行配置");
+        StringAssert.Contains("DialogueManager dialogueManager = DialogueManager.Instance;", runnerText, "运行态排队播对白时应每帧重新解析 DialogueManager，避免 live 切换瞬间空引用");
+        StringAssert.Contains("if (dialogueManager == null)", runnerText, "运行态排队播对白时应容忍 DialogueManager 短暂缺席");
+        StringAssert.Contains("已通过验收入口脚本触发工作台回忆", runnerText, "运行态验收器在工作台闪回阶段应支持一次脚本交互兜底，避免因玩家站位影响继续验收");
+        StringAssert.Contains("执行 Step，模拟第一格开垦并验证 EP 首次出现。", runnerText, "运行态验收器应给出 FarmingTutorial 的最小验收推进提示");
+        StringAssert.Contains("执行 Step，模拟完成浇水并压到 low-energy warning 阈值。", runnerText, "运行态验收器应把 low-energy warning 也纳入 farming validation 提示");
+        StringAssert.Contains("followupPending=", runnerText, "运行态验收快照应显式记录首段 follow-up 是否仍待完成");
+        StringAssert.Contains("workbenchAwaiting=", runnerText, "运行态验收快照应显式记录工作台闪回是否仍等待首次交互");
+        StringAssert.Contains("dinnerPending=", runnerText, "运行态验收快照应显式记录晚餐对白是否仍待接管");
+        StringAssert.Contains("reminderPending=", runnerText, "运行态验收快照应显式记录归途提醒对白是否仍待接管");
+        StringAssert.Contains("sleepReady=", runnerText, "运行态验收快照应显式记录自由时段是否已允许睡觉收束");
+        StringAssert.Contains("nightPressure=", runnerText, "运行态验收快照应显式记录自由时段当前的夜间压力等级");
+        StringAssert.Contains("已模拟推进到夜里 10 点", runnerText, "运行态验收器应支持把自由时段直接推进到 22:00，并验证回住处压力开始增强");
+        StringAssert.Contains("已模拟推进到午夜", runnerText, "运行态验收器应支持把自由时段继续推进到午夜，验证夜深提醒升级");
+        StringAssert.Contains("已模拟推进到凌晨一点", runnerText, "运行态验收器应支持把自由时段继续推进到凌晨一点，验证最终催促");
+        StringAssert.Contains("验收入口：已模拟两点规则触发，Day1 应进入结束态。", runnerText, "运行态验收器应保留两点规则的最终收束入口，便于继续验证 DayEnd");
+        StringAssert.Contains("nightPressure=final-call", runnerText, "运行态验收快照应能显式记录凌晨一点的 final-call 压力态");
+        StringAssert.Contains("warn=", runnerText, "运行态验收快照应显式记录当前低精力 warning 是否生效");
+        StringAssert.Contains("AppendPair(\"Move\"", runnerText, "运行态验收快照应显式记录当前移动倍率，便于验证低精力减速");
         StringAssert.Contains("Bootstrap Spring Day1 Validation", debugMenuText, "调试菜单应暴露 Day1 验收入口初始化命令");
         StringAssert.Contains("Log Spring Day1 Validation Snapshot", debugMenuText, "调试菜单应暴露 Day1 验收快照命令");
         StringAssert.Contains("Step Spring Day1 Validation", debugMenuText, "调试菜单应暴露 Day1 验收单步推进命令");
@@ -197,6 +236,7 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("KeyCode.E", interactableText, "工作台应支持测试用 E 键近距交互");
         StringAssert.Contains("Input.GetKeyDown(proximityInteractionKey)", interactableText, "工作台测试交互应由脚本自行检测 E 键");
         StringAssert.Contains("TryHandleWorkbenchTestInteraction", interactableText, "工作台在没有正式制作面板时应走 Day1 测试兜底");
+        StringAssert.Contains("HideIfExists(transform)", interactableText, "工作台回收世界提示气泡时不应为了 Hide 反向创建新的运行时 UI");
         StringAssert.Contains("preferStoryWorkbenchOverlay", interactableText, "工作台交互应支持优先打开 Day1 专用制作浮层");
         StringAssert.Contains("ResolveWorkbenchOverlay", interactableText, "工作台交互应自动解析 Day1 工作台浮层");
         StringAssert.Contains("overlay.Toggle(transform, context?.PlayerTransform, craftingService, station, overlayAutoCloseDistance)", interactableText, "工作台交互应把玩家位置和自动关闭距离传给 Day1 浮层");
@@ -265,11 +305,14 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("SyncStoryTimePauseState", directorText, "导演层应在阶段切换时同步时间暂停状态");
         StringAssert.Contains("lowEnergyMoveSpeedMultiplier", directorText, "导演层应支持低精力减速");
         StringAssert.Contains("TryTriggerSleepFromBed", directorText, "导演层应提供床交互的 DayEnd 桥接入口");
+        StringAssert.Contains("TimeManager.OnHourChanged += HandleHourChanged;", directorText, "导演层应监听小时变化，把自由时段压力做成渐进式状态");
+        StringAssert.Contains("TimeManager.OnHourChanged -= HandleHourChanged;", directorText, "导演层停用时应解除小时监听");
         StringAssert.Contains("PreferredBedObjectNames", directorText, "导演层应保留床对象候选名");
         StringAssert.Contains("PreferredRestProxyObjectNames", directorText, "导演层应支持住处入口作为睡觉兜底承载物");
         StringAssert.Contains("House 1_2", directorText, "导演层应优先识别当前主场景里的住处入口对象");
         StringAssert.Contains("EnsureRestInteractableCollider", directorText, "导演层应在缺少碰撞器时自动补交互碰撞体");
         StringAssert.Contains("runtimeCollider.isTrigger = true", directorText, "住处入口兜底碰撞器应使用 Trigger，避免阻挡玩家");
+        StringAssert.Contains("FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include)", directorText, "导演层在退场释放时间暂停时不应反向创建新的 TimeManager");
         StringAssert.Contains("PlayRestoreAnimation", directorText, "导演层应在晚餐阶段触发精力恢复动画");
         StringAssert.Contains("回住处休息即可结束", directorText, "自由时段提示应兼容没有床对象的场景");
         StringAssert.Contains("_tillObjectiveCompleted", directorText, "农田教学应记录开垦完成状态，避免后续回退");
@@ -280,8 +323,21 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("WoodItemId = 3200", directorText, "导演层应基于木材物品 ID 统计收集进度");
         StringAssert.Contains("GetCurrentWoodCount()", directorText, "导演层应从背包读取当前木材数量");
         StringAssert.Contains("TryHandleWorkbenchTestInteraction", directorText, "导演层应支持工作台测试交互兜底");
+        StringAssert.Contains("IsFirstFollowupPending()", directorText, "导演层应暴露首段 follow-up 是否仍待完成的判断，供运行态验收入口复用");
+        StringAssert.Contains("IsWorkbenchFlashbackAwaitingInteraction()", directorText, "导演层应暴露工作台闪回是否仍等待首次交互，避免验收入口误反触");
+        StringAssert.Contains("IsDinnerDialoguePendingStart()", directorText, "导演层应暴露晚餐对白是否仍待接管，供运行态验收入口复用");
+        StringAssert.Contains("IsReminderDialoguePendingStart()", directorText, "导演层应暴露归途提醒对白是否仍待接管，供运行态验收入口复用");
+        StringAssert.Contains("IsSleepInteractionAvailable()", directorText, "导演层应暴露自由时段是否已允许睡觉收束");
+        StringAssert.Contains("GetRestInteractionHint", directorText, "导演层应能根据夜间压力动态收紧回住处/睡觉交互提示");
+        StringAssert.Contains("GetFreeTimePressureState()", directorText, "导演层应暴露自由时段当前夜间压力等级");
+        StringAssert.Contains("if (_freeTimeEntered && !_dayEnded)", directorText, "导演层应只在 Day1 自由时段真正结束时接管睡眠收束");
+        StringAssert.Contains("StoryManager.Instance.SetPhase(StoryPhase.DayEnd);", directorText, "导演层在接到睡眠事件后应显式把 Day1 切到 DayEnd");
+        StringAssert.Contains("EnergySystem.Instance.FullRestore();", directorText, "DayEnd 收束时应恢复精力，避免次日承接脏状态");
+        StringAssert.Contains("ApplyLowEnergyMovementPenalty(false);", directorText, "DayEnd 收束时应撤销低精力减速");
+        StringAssert.Contains("SpringDay1PromptOverlay.Instance.Show(\"春1日结束。明天继续。\")", directorText, "DayEnd 收束时应给出明确的日终提示");
         StringAssert.Contains("StoryPhase.FreeTime", bedInteractableText, "床交互应只在自由时段开放");
         StringAssert.Contains("TimeManager.Instance.Sleep()", bedInteractableText, "床交互应能直接触发睡觉");
+        StringAssert.Contains("director.GetRestInteractionHint(interactionHint)", bedInteractableText, "床交互提示应随夜间压力动态收紧");
         StringAssert.Contains("InitializeOnLoad", bedBinderText, "床位编辑器恢复器应在 Unity 重新编译后自动生效");
         StringAssert.Contains("Undo.AddComponent<SpringDay1BedInteractable>", bedBinderText, "床位编辑器恢复器应能自动补挂床交互脚本");
     }
@@ -301,6 +357,28 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("首段后续说明进行中", directorText, "导演层当前进度文案应区分首段和 follow-up");
         StringAssert.Contains("听完村长后续说明", directorText, "导演层任务卡文案应明确 follow-up 阶段的目标");
         StringAssert.Contains("等待首段后续说明收束；若未续播可再次触发 NPC001。", directorText, "运行态验收器应给出符合新推进链的推荐动作");
+        StringAssert.Contains("首段后续说明已收束，等待疗伤段启动。", directorText, "运行态验收器在 follow-up 已完成后不应继续建议反复触发 NPC001");
+        StringAssert.Contains("工作台回忆进行中", directorText, "导演层当前进度文案应能识别工作台回忆正在播出");
+        StringAssert.Contains("工作台已打开，等待回忆收束", directorText, "导演层当前进度文案应区分工作台已打开但回忆未完全结束");
+        StringAssert.Contains("等待工作台回忆完整播完。", directorText, "导演层焦点提示应区分工作台已打开后的等待态");
+        StringAssert.Contains("工作台已打开，等待工作台回忆自动播出。", directorText, "运行态验收器不应在工作台已打开后继续反向触发工作台交互");
+        StringAssert.Contains("晚餐对白进行中", directorText, "导演层当前进度文案应能识别晚餐对白正在播出");
+        StringAssert.Contains("等待晚餐对白接管", directorText, "导演层当前进度文案应能识别晚餐对白已排队但尚未接管");
+        StringAssert.Contains("天已经晚了，先回去吃点东西。", directorText, "白天教学收束后应给出进入晚餐的正式桥接提示");
+        StringAssert.Contains("归途提醒对白进行中", directorText, "导演层当前进度文案应能识别归途提醒对白正在播出");
+        StringAssert.Contains("等待归途提醒对白接管", directorText, "导演层当前进度文案应能识别归途提醒对白已排队但尚未接管");
+        StringAssert.Contains("夜色越来越深了，别在外面逗留太久。", directorText, "晚餐收束后应给出归途提醒的桥接提示");
+        StringAssert.Contains("现在可以自由活动，也可以直接回住处睡觉。", directorText, "自由时段任务卡应明确当前既可自由活动也可直接收束");
+        StringAssert.Contains("夜深了，最好尽快回住处休息", directorText, "自由时段进度文案应随着夜深程度逐步收紧");
+        StringAssert.Contains("快到凌晨两点了，必须立刻回去睡觉", directorText, "自由时段最终阶段应明确给出两点规则压力");
+        StringAssert.Contains("已经过了午夜，先回住处睡觉再说。", directorText, "自由时段焦点提示应在午夜后进一步收紧");
+        StringAssert.Contains("快到凌晨两点了，再不睡就会直接昏睡过去。", directorText, "自由时段应在最终阶段给出明确的两点规则催促");
+        StringAssert.Contains("晚餐对白已排队，等待接管。", directorText, "运行态验收器应区分晚餐对白待接管状态");
+        StringAssert.Contains("归途提醒对白已排队，等待接管。", directorText, "运行态验收器应区分归途提醒对白待接管状态");
+        StringAssert.Contains("执行 Step，模拟推进到夜里 10 点并验证回住处压力。", directorText, "自由时段验收入口应支持先推进到夜里 10 点");
+        StringAssert.Contains("执行 Step，模拟推进到凌晨一点并验证最终催促。", directorText, "自由时段验收入口应支持推进到凌晨一点验证最终催促");
+        StringAssert.Contains("验收入口：已模拟两点规则触发，Day1 应进入结束态。", directorText, "自由时段验收入口应支持直接验证两点规则收束");
+        StringAssert.Contains("return \"回住处休息，或继续执行 Step 验证两点规则收束。\";", directorText, "free-time 验收入口在 final-call 后应明确只剩回屋睡觉或继续验证两点规则收束");
     }
 
     [Test]
@@ -315,8 +393,12 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("if (!_staminaRevealed && _tillObjectiveCompleted)", directorText, "EP 首次出现应绑定到第一格开垦完成");
         StringAssert.Contains("EnergySystem.Instance.SetEnergyState(initialEnergy, maxEnergy);", directorText, "EP 首次出现时应写入 Day1 正式初值");
         StringAssert.Contains("EnergySystem.Instance.PlayRevealAndAnimateTo(initialEnergy, initialEnergy, maxEnergy, energyRevealDuration, 0f);", directorText, "EP 应通过正式 reveal 动画出现");
+        StringAssert.Contains("ResyncLowEnergyState(false);", directorText, "剧情 phase 切换时应重新对齐 low-energy warning 与移动惩罚，避免晚餐入口状态脱节");
+        StringAssert.Contains("private void ResyncLowEnergyState(bool allowPrompt)", directorText, "导演层应提供当前精力状态的显式重同步入口");
         StringAssert.Contains("EnergySystem.Instance.SetLowEnergyWarningVisual(shouldWarn);", directorText, "低精力 warning 应有正式视觉表现");
         StringAssert.Contains("ApplyLowEnergyMovementPenalty(shouldWarn);", directorText, "低精力时应带移动惩罚");
         StringAssert.Contains("精力过低，先休息或吃点东西。", directorText, "低精力 warning 应有明确提示文案");
+        StringAssert.Contains("TryAdvanceFarmingTutorialValidationStep()", directorText, "Day1 导演应支持在验收入口里模拟 farming tutorial 最小推进");
+        StringAssert.Contains("ApplyValidationEnergyState(lowEnergyWarningThreshold);", directorText, "验收入口应能把 EP 精确压到 low-energy warning 阈值，便于 live 取证");
     }
 }

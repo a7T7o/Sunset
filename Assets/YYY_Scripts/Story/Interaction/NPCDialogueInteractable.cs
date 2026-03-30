@@ -68,7 +68,7 @@ namespace Sunset.Story
         private void OnDisable()
         {
             EventBus.UnsubscribeAll(this);
-            SpringDay1WorldHintBubble.Instance?.Hide(transform);
+            NpcWorldHintBubble.HideIfExists(transform);
             _ownsActiveDialogue = false;
             _resumeRoamAfterDialogue = false;
         }
@@ -161,7 +161,8 @@ namespace Sunset.Story
                 return;
             }
 
-            SpringDay1WorldHintBubble.Instance?.Hide(transform);
+            SpringDay1WorldHintBubble.HideIfExists(transform);
+            NpcWorldHintBubble.HideIfExists(transform);
             EnterDialogueOccupation(context);
 
             _hasPlayed = true;
@@ -217,7 +218,7 @@ namespace Sunset.Story
 
         private void HandleDialogueEnded(DialogueEndEvent _)
         {
-            if (!_ownsActiveDialogue)
+            if (!_ownsActiveDialogue || ShouldIgnoreDialogueEndEvent())
             {
                 return;
             }
@@ -235,29 +236,28 @@ namespace Sunset.Story
         {
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
             {
-                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             if (!CanInteract(context))
             {
-                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             if (GetBoundaryDistance(context.PlayerPosition) > bubbleRevealDistance)
             {
-                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
-            SpringDay1WorldHintBubble.EnsureRuntime();
-            SpringDay1WorldHintBubble.Instance.Show(
+            NpcWorldHintBubble.EnsureRuntime();
+            NpcWorldHintBubble.Instance.Show(
                 transform,
                 proximityInteractionKey.ToString(),
                 bubbleCaption,
-                string.Empty,
-                SpringDay1WorldHintBubble.HintVisualKind.Interaction);
+                "按 E 交谈");
         }
 
         private InteractionContext BuildInteractionContext()
@@ -317,6 +317,12 @@ namespace Sunset.Story
         private static bool HasPlayableNodes(DialogueSequenceSO sequence)
         {
             return sequence != null && sequence.nodes != null && sequence.nodes.Count > 0;
+        }
+
+        private static bool ShouldIgnoreDialogueEndEvent()
+        {
+            DialogueManager manager = DialogueManager.Instance;
+            return manager != null && manager.IsDialogueActive;
         }
         #endregion
     }

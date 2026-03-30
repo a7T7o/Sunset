@@ -318,7 +318,7 @@ namespace Sunset.Story
 
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
             {
-                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
@@ -332,14 +332,14 @@ namespace Sunset.Story
                 : FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
             if (overlay != null && overlay.IsVisible)
             {
-                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             float distance = GetBoundaryDistance(context.PlayerPosition);
             if (distance > bubbleRevealDistance)
             {
-                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
@@ -362,7 +362,7 @@ namespace Sunset.Story
 
             if (!CanInteract(context))
             {
-                SpringDay1WorldHintBubble.Instance?.Hide(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
@@ -397,7 +397,7 @@ namespace Sunset.Story
                 return;
             }
 
-            SpringDay1WorldHintBubble.Instance?.Hide(transform);
+            SpringDay1WorldHintBubble.HideIfExists(transform);
             _bubbleAlreadyAppeared = true;
             PersistWorkbenchHintConsumed();
         }

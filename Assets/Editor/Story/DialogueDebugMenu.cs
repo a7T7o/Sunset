@@ -7,6 +7,7 @@ using UnityEngine.UI;
 
 public static class DialogueDebugMenu
 {
+    private const string NpcInformalChatValidationLockKey = "Sunset.NpcInformalChatValidation.Active";
     private const string PlayMenuPath = "Sunset/Story/Debug/Play Spring Day1 Dialogue";
     private const string AdvanceMenuPath = "Sunset/Story/Debug/Advance Active Dialogue";
     private const string ForceAdvanceMenuPath = "Sunset/Story/Debug/Force Complete Or Advance Dialogue";
@@ -18,9 +19,25 @@ public static class DialogueDebugMenu
     private const string StepValidationMenuPath = "Sunset/Story/Debug/Step Spring Day1 Validation";
     private const string SequencePath = "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset";
 
+    private static bool IsSuppressedByNpcValidation(string source)
+    {
+        if (!EditorPrefs.GetBool(NpcInformalChatValidationLockKey, false))
+        {
+            return false;
+        }
+
+        Debug.Log($"[DialogueDebugMenu] 已让出 {source}，当前由 NPC 非正式聊天 trace 独占验证窗口。");
+        return true;
+    }
+
     [MenuItem(PlayMenuPath)]
     private static void PlaySpringDay1Dialogue()
     {
+        if (IsSuppressedByNpcValidation(nameof(PlaySpringDay1Dialogue)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再触发对话。");
@@ -47,6 +64,11 @@ public static class DialogueDebugMenu
     [MenuItem(AdvanceMenuPath)]
     private static void AdvanceActiveDialogue()
     {
+        if (IsSuppressedByNpcValidation(nameof(AdvanceActiveDialogue)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再推进对话。");
@@ -66,6 +88,11 @@ public static class DialogueDebugMenu
     [MenuItem(ForceAdvanceMenuPath)]
     private static void ForceCompleteOrAdvanceDialogue()
     {
+        if (IsSuppressedByNpcValidation(nameof(ForceCompleteOrAdvanceDialogue)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再强制推进对话。");
@@ -85,6 +112,11 @@ public static class DialogueDebugMenu
     [MenuItem(InteractNpcMenuPath)]
     private static void TriggerDialogueTestNpc()
     {
+        if (IsSuppressedByNpcValidation(nameof(TriggerDialogueTestNpc)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再触发 NPC 对话。");
@@ -104,6 +136,11 @@ public static class DialogueDebugMenu
     [MenuItem(ClickButtonMenuPath)]
     private static void InvokeContinueButton()
     {
+        if (IsSuppressedByNpcValidation(nameof(InvokeContinueButton)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再触发继续按钮。");
@@ -175,6 +212,11 @@ public static class DialogueDebugMenu
     [MenuItem(BootstrapValidationMenuPath)]
     private static void BootstrapSpringDay1Validation()
     {
+        if (IsSuppressedByNpcValidation(nameof(BootstrapSpringDay1Validation)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再初始化 spring-day1 验收入口。");
@@ -189,6 +231,11 @@ public static class DialogueDebugMenu
     [MenuItem(LogValidationSnapshotMenuPath)]
     private static void LogSpringDay1ValidationSnapshot()
     {
+        if (IsSuppressedByNpcValidation(nameof(LogSpringDay1ValidationSnapshot)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再记录 spring-day1 验收快照。");
@@ -202,6 +249,11 @@ public static class DialogueDebugMenu
     [MenuItem(StepValidationMenuPath)]
     private static void StepSpringDay1Validation()
     {
+        if (IsSuppressedByNpcValidation(nameof(StepSpringDay1Validation)))
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
             Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode 再执行 spring-day1 验收步骤。");
