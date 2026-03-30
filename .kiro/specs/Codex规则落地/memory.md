@@ -7956,3 +7956,32 @@
   - 真正有价值的只剩两种问法：
     1. 向 `Spring/UI` 问 `Primary.unity` 迁移意图
     2. 向 `farm` 问 `TreeController.cs / OcclusionManager.cs` 是否按当前 working tree 直接收口
+
+## 2026-03-30｜已生成两条精准追问 prompt：只问 `Primary` 迁移意图与 `farm` 认领边界
+
+- 当前主线目标：
+  - 用户已明确要求我不要再群发乱问，而是直接进入下一步；
+  - 这轮主线因此收紧成“热根单 owner + 精准追问”。
+- 本轮子任务：
+  - 只生成两份新的典狱长 prompt 文件：
+    1. 给 `UI-V1 / Spring UI`，只问 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 到底是不是最终 canonical path
+    2. 给 `farm`，只问 `TreeController.cs / OcclusionManager.cs` 现在能不能直接回到 `farm` 线收口
+- 本轮已完成：
+  1. 已新增 `UI-V1` 窄刀 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_UI-V1_确认Primary迁移意图_01.md`
+  2. 已新增 `farm` 窄刀 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_farm_确认TreeController与OcclusionManager认领_01.md`
+  3. 两份 prompt 都已按最新纠偏口径写死：
+     - `UI-V1` 这轮只做 `Primary` 迁移语义裁定，不准开改 scene
+     - `farm` 这轮只做 `TreeController / OcclusionManager` 认领边界裁定，不准顺手改代码
+- 当前关键判断：
+  1. 这轮最重要的不是再做一次“所有剩余项总分析”，而是把真正有价值的两条追问打出去。
+  2. 这两条 prompt 都是 `只读认定`，不是开工令：
+     - 先把语义和认领边界问清
+     - 再决定是否进入后续 single-writer / owner 收口
+  3. TMP 中文字体稳定性案这轮继续不群问，因为目前仍没有一个干净单一 owner 候选。
+- 当前恢复点：
+  - 下一步不是我继续扩分析，而是把这两份 prompt 转给用户发出；
+  - 等 `UI-V1` 和 `farm` 回执后，再决定：
+    1. `Primary.unity` 是走恢复旧 canonical path，还是承认迁移目标并开成套迁移案
+    2. `TreeController / OcclusionManager` 是一起回 `farm`，还是拆成轻尾差 + 大包两刀
