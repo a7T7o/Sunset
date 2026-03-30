@@ -7631,3 +7631,78 @@
   - 现在等待用户把 `spring-day1V2` 新 prompt 发出；
   - 同时 `导航检查V2` 继续走它那条 `Service/Player` compat rollback；
   - 后续再根据这两条回执，决定 `NPC` 是否终于具备真实开工条件。
+
+## 2026-03-30｜再复核当前可动面：导航这条已可停发，NPC 仍未到真实开工点；我当前还能主动做的是 `Assets/Editor` 直系根拆包
+
+- 当前主线目标：
+  - 用户明确追问“我是不是只能等回执”，因此这轮不再只说线程状态，而是要把当前哪些线已经可以停、哪些线还不能开、以及治理位现在还能主动做什么，讲成可直接下令的话。
+- 本轮子任务：
+  - 复核导航是否真的完成当前切片；
+  - 重新判断 NPC 现在到底是否已具备真实开工条件；
+  - 给出“除了等待之外，我当前还能主动推进的下一刀”。
+- 本轮已完成：
+  1. 已再次复核导航这条线：
+     - `6a6db43e` 已在 `main`
+     - 当前同一组 include paths 再跑 `preflight` 时，`own roots remaining dirty = 0`
+     - 说明 `Service/Player` compat rollback 这刀已真实收住
+  2. 已据此把 `导航检查V2` 当前切片裁定为：
+     - `A｜已真实 sync`
+     - 当前应停发，而不是继续顺手扩到 `Data/**` 或别的根
+  3. 已重新审 `NPC` 当前现场：
+     - `NPCInformalChatValidationMenu.cs(.meta)` 仍卡在 `Assets/Editor` 直系根
+     - `NPCInformalChatInteractable.cs(.meta)` 仍卡在 `Assets/YYY_Scripts/Story/Interaction`
+     - `NPCInformalChatInterruptMatrixTests.cs(.meta)` 仍卡在 `Assets/YYY_Tests/Editor`
+     - 与此同时，这些根里仍混着 `Spring` 或 `导航` 的剩余文件
+  4. 已据此确认：
+     - `NPC` 现在仍不该先开
+     - 原因不是 NPC 自己没活，而是物理 roots 还没剥到足够干净
+  5. 已进一步把“除了等待还能做什么”收缩成一个明确候选：
+     - 当前治理位还能主动做的下一刀，是拆 `Assets/Editor` 直系根
+     - 因为现在这根里已经能清楚区分：
+       - `NPCInformalChatValidationMenu.cs` = NPC validation 菜单
+       - `NavigationStaticPointValidationMenu.cs` = 导航静态验证菜单
+       - 这不是 owner 不清，而是物理落点还没被治理剥开
+- 当前关键判断：
+  1. 我现在不是“只能等”。
+  2. 当前已经可以直接停掉两条已完成切片：
+     - `UI-V1`
+     - `导航检查V2`
+  3. 当前 Story 主线仍应由 `spring-day1V2` 继续接剩余 Spring 包，这条不能被跳过。
+  4. `NPC` 现在仍不该虚开；但治理位现在还能主动推进的，不是瞎等，而是下一步继续拆 `Assets/Editor` 直系根，为 NPC 后续开工减掉一个真实 blocker。
+- 当前恢复点：
+  - 现在一条在建主线仍是 `spring-day1V2 -> 剩余 Spring Story 包`
+  - `导航检查V2` 当前切片可停发
+  - `NPC` 仍待 `Story/Interaction / Tests/Editor / Assets/Editor` 进一步剥包后再开
+  - 如果用户要我不等，我下一刀最值得主动做的是：`Assets/Editor` 直系根拆包治理
+
+## 2026-03-30｜spring-day1V2 新 blocker 已复核：不是该退回治理位的大跨根问题，而是 `DialogueDebugMenu.cs` 根内可切的编译耦合
+
+- 当前主线目标：
+  - 继续推进 `spring-day1V2 -> 剩余 Spring Story 包`；
+  - 用户转来最新回执后，这轮要判断它是该停给治理位重拆，还是还能继续在当前根内往前推。
+- 本轮子任务：
+  - 复核 `spring-day1V2` 最新 `preflight` blocker
+  - 判断 `DialogueDebugMenu.cs -> NPCInformalChatValidationMenu` 这条依赖到底是什么级别的问题
+  - 决定是否继续给 `spring-day1V2` 发下一轮 prompt
+- 本轮已完成：
+  1. 已真实复跑 `spring-day1V2` 当前整包 `preflight`，结果与回执一致：
+     - `own roots remaining dirty = 0`
+     - 第一真实 blocker = `Assets/Editor/Story/DialogueDebugMenu.cs:23`
+     - `CS0103`：当前上下文不存在 `NPCInformalChatValidationMenu`
+  2. 已直接回读代码，确认阻断点只是一条编译时常量引用：
+     - `DialogueDebugMenu.IsSuppressedByNpcValidation()` 里读取 `NPCInformalChatValidationMenu.ExclusiveValidationLockKey`
+     - `NPCInformalChatValidationMenu.cs` 本体里暴露的只是 `EditorPrefs` 锁 key 常量：`Sunset.NpcInformalChatValidation.Active`
+  3. 已据此改判：
+     - 这不是需要先交给 `NPC` 或治理位去搬 `Assets/Editor` 直系根的 blocker
+     - 而是 `spring-day1V2` 当前仍可在 `Assets/Editor/Story/**` 根内完成的最小 decouple
+  4. 已新增下一轮唯一施工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_spring-day1V2_断开DialogueDebugMenu对NPC菜单编译耦合_02.md`
+- 当前关键判断：
+  1. `spring-day1V2` 现在不该停发。
+  2. 但下一轮不该再让它讲“交给治理位拆”，而是继续留在当前白名单根里，先把 `DialogueDebugMenu.cs` 对 NPC 菜单常量的编译耦合切掉。
+  3. 这比现在就升级成 `Assets/Editor` 根搬家更窄、更快，也更符合这一波 `Spring integrator` 的 slice。
+  4. `NPC` 当前仍不该开；这条新 blocker 也不构成提前重唤 NPC 的理由。
+- 当前恢复点：
+  - 现在等待用户把 `spring-day1V2` 的 decouple prompt 发出；
+  - 若它下一轮通过 `preflight -> sync`，剩余 Story 包会再往前收一大步；
+  - `NPC` 仍等这包继续 peeled 后再看。
