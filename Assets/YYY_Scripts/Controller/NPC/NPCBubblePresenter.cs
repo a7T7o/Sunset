@@ -10,7 +10,13 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class NPCBubblePresenter : MonoBehaviour
 {
-    private const int CurrentStyleVersion = 7;
+    private const int CurrentStyleVersion = 8;
+
+    private enum BubbleDisplayMode
+    {
+        Default = 0,
+        ReactionCue = 1
+    }
 
     private static readonly string[] PreferredFontResourcePaths =
     {
@@ -43,6 +49,7 @@ public class NPCBubblePresenter : MonoBehaviour
     [SerializeField] private float textVerticalOffset = -10f;
     [SerializeField] private float borderThickness = 6f;
     [SerializeField] private Vector2 tailSize = new Vector2(34f, 24f);
+    [SerializeField] private float tailHorizontalBias = 18f;
     [SerializeField] private float tailYOffset = -28f;
     [SerializeField] private Vector2 shadowOffset = new Vector2(3f, -5f);
     [SerializeField] private int sortingOrderOffset = 20;
@@ -102,6 +109,9 @@ public class NPCBubblePresenter : MonoBehaviour
     private Vector2 _shadowTailBasePosition;
     private Vector2 _borderTailBasePosition;
     private Vector2 _fillTailBasePosition;
+    private Vector3 _conversationLayoutShift;
+    private bool _hasConversationLayoutShift;
+    private BubbleDisplayMode _displayMode;
 
     public bool IsBubbleVisible => _canvas != null && _canvas.gameObject.activeSelf;
     public string CurrentBubbleText => IsBubbleVisible && _bubbleText != null ? _bubbleText.text : string.Empty;
@@ -194,13 +204,28 @@ public class NPCBubblePresenter : MonoBehaviour
         return ShowText(content, duration);
     }
 
-    public bool ShowText(string content, float duration = -1f)
+    public bool ShowText(string content, float duration = -1f, bool restartFadeIn = true)
+    {
+        return ShowTextInternal(content, duration, restartFadeIn, BubbleDisplayMode.Default);
+    }
+
+    public bool ShowReactionCue(string content, float duration = -1f, bool restartFadeIn = true)
+    {
+        return ShowTextInternal(content, duration, restartFadeIn, BubbleDisplayMode.ReactionCue);
+    }
+
+    private bool ShowTextInternal(
+        string content,
+        float duration,
+        bool restartFadeIn,
+        BubbleDisplayMode displayMode)
     {
         if (string.IsNullOrWhiteSpace(content))
         {
             return false;
         }
 
+        _displayMode = displayMode;
         EnsureBubbleUi();
         if (_canvas == null || _bubbleText == null || _fillBodyRect == null)
         {
@@ -221,7 +246,33 @@ public class NPCBubblePresenter : MonoBehaviour
         UpdateStyleVisuals();
         UpdateLayout();
         SyncCanvasTransform();
-        StartVisibilityAnimation(visible: true, deactivateAfter: false);
+
+        if (restartFadeIn || _canvasGroup == null || _canvasGroup.alpha < 0.99f)
+        {
+            if (_canvasGroup != null)
+            {
+                _canvasGroup.alpha = 0f;
+            }
+
+            if (_bubbleRoot != null)
+            {
+                _bubbleRoot.localScale = GetHiddenScale();
+            }
+
+            StartVisibilityAnimation(visible: true, deactivateAfter: false);
+        }
+        else
+        {
+            if (_canvasGroup != null)
+            {
+                _canvasGroup.alpha = 1f;
+            }
+
+            if (_bubbleRoot != null)
+            {
+                _bubbleRoot.localScale = Vector3.one;
+            }
+        }
 
         if (duration > 0f)
         {
@@ -251,6 +302,25 @@ public class NPCBubblePresenter : MonoBehaviour
         }
 
         StartVisibilityAnimation(visible: false, deactivateAfter: true);
+    }
+
+    public void SetConversationLayoutShift(Vector3 localOffsetShift)
+    {
+        _conversationLayoutShift = localOffsetShift;
+        _hasConversationLayoutShift = true;
+        SyncCanvasTransform();
+    }
+
+    public void ClearConversationLayoutShift()
+    {
+        if (!_hasConversationLayoutShift && _conversationLayoutShift == Vector3.zero)
+        {
+            return;
+        }
+
+        _conversationLayoutShift = Vector3.zero;
+        _hasConversationLayoutShift = false;
+        SyncCanvasTransform();
     }
 
     [ContextMenu("调试/显示随机自言自语")]
@@ -306,7 +376,7 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private void ApplyCurrentStylePreset()
     {
-        bubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
+        bubbleLocalOffset = new Vector3(0.08f, 1.46f, 0f);
         bubblePadding = new Vector2(82f, 42f);
         bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
         bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
@@ -322,6 +392,7 @@ public class NPCBubblePresenter : MonoBehaviour
         textVerticalOffset = -10f;
         borderThickness = 6f;
         tailSize = new Vector2(34f, 24f);
+        tailHorizontalBias = 18f;
         tailYOffset = -28f;
         shadowOffset = new Vector2(3f, -5f);
         minBubbleHeight = 1.24f;
@@ -456,17 +527,34 @@ public class NPCBubblePresenter : MonoBehaviour
             return;
         }
 
-        _shadowBodyImage.color = bubbleShadowColor;
-        _shadowTailImage.color = bubbleShadowColor;
-        _borderBodyImage.color = bubbleBorderColor;
-        _borderTailImage.color = bubbleBorderColor;
-        _fillBodyImage.color = bubbleColor;
-        _fillTailImage.color = bubbleColor;
+        bool isReactionCue = _displayMode == BubbleDisplayMode.ReactionCue;
+        Color resolvedShadowColor = isReactionCue
+            ? new Color(0.02f, 0.01f, 0.03f, 0.24f)
+            : bubbleShadowColor;
+        Color resolvedBorderColor = isReactionCue
+            ? new Color(1f, 0.84f, 0.58f, 1f)
+            : bubbleBorderColor;
+        Color resolvedBubbleColor = isReactionCue
+            ? new Color(0.18f, 0.13f, 0.18f, 0.96f)
+            : bubbleColor;
+        Color resolvedTextColor = isReactionCue
+            ? new Color(0.99f, 0.92f, 0.84f, 1f)
+            : textColor;
+        Color resolvedOutlineColor = isReactionCue
+            ? new Color(0.17f, 0.10f, 0.08f, 0.94f)
+            : textOutlineColor;
 
-        _bubbleText.fontSize = fontSize;
-        _bubbleText.color = textColor;
-        _bubbleText.outlineColor = textOutlineColor;
-        _bubbleText.outlineWidth = textOutlineWidth;
+        _shadowBodyImage.color = resolvedShadowColor;
+        _shadowTailImage.color = resolvedShadowColor;
+        _borderBodyImage.color = resolvedBorderColor;
+        _borderTailImage.color = resolvedBorderColor;
+        _fillBodyImage.color = resolvedBubbleColor;
+        _fillTailImage.color = resolvedBubbleColor;
+
+        _bubbleText.fontSize = isReactionCue ? fontSize - 2f : fontSize;
+        _bubbleText.color = resolvedTextColor;
+        _bubbleText.outlineColor = resolvedOutlineColor;
+        _bubbleText.outlineWidth = isReactionCue ? textOutlineWidth * 0.82f : textOutlineWidth;
     }
 
     private void UpdateLayout()
@@ -478,54 +566,64 @@ public class NPCBubblePresenter : MonoBehaviour
 
         string bubbleText = _bubbleText.text ?? string.Empty;
         AnalyzeBubbleText(bubbleText, out int visibleCharacterCount, out int longestLineCharacterCount);
+        bool isReactionCue = _displayMode == BubbleDisplayMode.ReactionCue;
+        Vector2 effectiveBubblePadding = isReactionCue ? new Vector2(44f, 18f) : bubblePadding;
+        Vector2 effectiveTextSafePadding = isReactionCue ? new Vector2(18f, 14f) : textSafePadding;
+        float effectiveFontSize = isReactionCue ? fontSize - 2f : fontSize;
+        float effectiveBorderThickness = isReactionCue ? Mathf.Max(4f, borderThickness - 1f) : borderThickness;
+        Vector2 effectiveTailSize = isReactionCue ? Vector2.zero : tailSize;
+        float effectiveTailYOffset = isReactionCue ? 0f : tailYOffset;
+        float effectiveTailHorizontalBias = isReactionCue ? 0f : tailHorizontalBias;
+        Vector2 effectiveShadowOffset = isReactionCue ? new Vector2(2f, -3f) : shadowOffset;
+        float effectiveTextVerticalOffset = isReactionCue ? -4f : textVerticalOffset;
 
         Vector2 preferredSize = _bubbleText.GetPreferredValues(bubbleText, 10000f, 0f);
         preferredSize.x = Mathf.Max(92f, preferredSize.x);
-        preferredSize.y = Mathf.Max(fontSize + 16f, preferredSize.y);
+        preferredSize.y = Mathf.Max(effectiveFontSize + 16f, preferredSize.y);
 
-        Vector2 textBoxSize = preferredSize + textSafePadding;
+        Vector2 textBoxSize = preferredSize + effectiveTextSafePadding;
         float shapeBias = Mathf.InverseLerp(preferredCharactersPerLine, preferredCharactersPerLine * 5f, visibleCharacterCount);
         float lineWidthBias = Mathf.InverseLerp(1f, preferredCharactersPerLine, longestLineCharacterCount);
-        float horizontalPadding = Mathf.Lerp(42f, bubblePadding.x, shapeBias);
-        float verticalPadding = bubblePadding.y + Mathf.Lerp(0f, 12f, shapeBias);
+        float horizontalPadding = Mathf.Lerp(isReactionCue ? 26f : 42f, effectiveBubblePadding.x, shapeBias);
+        float verticalPadding = effectiveBubblePadding.y + Mathf.Lerp(0f, isReactionCue ? 6f : 12f, shapeBias);
         Vector2 bodySize = textBoxSize + new Vector2(horizontalPadding, verticalPadding) + new Vector2(lineWidthBias * 10f, shapeBias * 18f);
         Vector2 fillBodySize = new Vector2(
-            Mathf.Max(60f, bodySize.x - (borderThickness * 2f)),
-            Mathf.Max(fontSize + 18f, bodySize.y - (borderThickness * 2f)));
+            Mathf.Max(60f, bodySize.x - (effectiveBorderThickness * 2f)),
+            Mathf.Max(effectiveFontSize + 18f, bodySize.y - (effectiveBorderThickness * 2f)));
         Vector2 fillTailSize = new Vector2(
-            Mathf.Max(8f, tailSize.x - (borderThickness * 1.6f)),
-            Mathf.Max(6f, tailSize.y - (borderThickness * 1.2f)));
+            Mathf.Max(0f, effectiveTailSize.x - (effectiveBorderThickness * 1.6f)),
+            Mathf.Max(0f, effectiveTailSize.y - (effectiveBorderThickness * 1.2f)));
         Vector2 textRectSize = new Vector2(
-            Mathf.Max(68f, fillBodySize.x - (textSafePadding.x * 2f)),
-            Mathf.Max(fontSize + 14f, fillBodySize.y - (textSafePadding.y * 2f)));
+            Mathf.Max(68f, fillBodySize.x - (effectiveTextSafePadding.x * 2f)),
+            Mathf.Max(effectiveFontSize + 14f, fillBodySize.y - (effectiveTextSafePadding.y * 2f)));
 
-        float bodyCenterY = Mathf.Max(tailSize.y * 0.72f, 10f);
-        float tailCenterY = bodyCenterY - (bodySize.y * 0.54f) - (tailSize.y * 0.06f) + tailYOffset;
+        float bodyCenterY = isReactionCue ? 0f : Mathf.Max(effectiveTailSize.y * 0.72f, 10f);
+        float tailCenterY = bodyCenterY - (bodySize.y * 0.54f) - (effectiveTailSize.y * 0.06f) + effectiveTailYOffset;
 
         Vector2 bodyPosition = new Vector2(0f, bodyCenterY);
-        Vector2 tailPosition = new Vector2(0f, tailCenterY);
-        Vector2 shadowBodyPosition = bodyPosition + shadowOffset;
-        Vector2 shadowTailPosition = tailPosition + shadowOffset;
-        Vector2 fillTailPosition = tailPosition + (Vector2.up * 0.75f);
+        Vector2 tailPosition = new Vector2(effectiveTailHorizontalBias, tailCenterY);
+        Vector2 shadowBodyPosition = bodyPosition + effectiveShadowOffset;
+        Vector2 shadowTailPosition = tailPosition + effectiveShadowOffset;
+        Vector2 fillTailPosition = tailPosition + (Vector2.up * (isReactionCue ? 0f : 0.75f));
 
         _shadowTailBasePosition = shadowTailPosition;
         _borderTailBasePosition = tailPosition;
         _fillTailBasePosition = fillTailPosition;
 
         SetRect(_shadowBodyRect, bodySize, shadowBodyPosition);
-        SetRect(_shadowTailRect, tailSize, _shadowTailBasePosition);
+        SetRect(_shadowTailRect, effectiveTailSize, _shadowTailBasePosition);
         SetRect(_borderBodyRect, bodySize, bodyPosition);
-        SetRect(_borderTailRect, tailSize, _borderTailBasePosition);
+        SetRect(_borderTailRect, effectiveTailSize, _borderTailBasePosition);
         SetRect(_fillBodyRect, fillBodySize, bodyPosition);
         SetRect(_fillTailRect, fillTailSize, _fillTailBasePosition);
-        SetRect(_bubbleText.rectTransform, textRectSize, bodyPosition + (Vector2.up * textVerticalOffset));
+        SetRect(_bubbleText.rectTransform, textRectSize, bodyPosition + (Vector2.up * effectiveTextVerticalOffset));
 
         _lowestVisibleLocalY = Mathf.Min(
             bodyPosition.y - (bodySize.y * 0.5f),
-            tailPosition.y - (tailSize.y * 0.5f));
+            tailPosition.y - (effectiveTailSize.y * 0.5f));
 
         float canvasWidth = bodySize.x + Mathf.Abs(shadowOffset.x) + 18f;
-        float canvasHeight = bodySize.y + tailSize.y + Mathf.Abs(tailYOffset) + Mathf.Abs(shadowOffset.y) + 20f;
+        float canvasHeight = bodySize.y + effectiveTailSize.y + Mathf.Abs(effectiveTailYOffset) + Mathf.Abs(effectiveShadowOffset.y) + 20f;
         Vector2 canvasSize = new Vector2(canvasWidth, canvasHeight);
 
         _canvasRect.sizeDelta = canvasSize;
@@ -586,6 +684,8 @@ public class NPCBubblePresenter : MonoBehaviour
         {
             _canvas.gameObject.SetActive(false);
         }
+
+        _displayMode = BubbleDisplayMode.Default;
     }
 
     private void StartVisibilityAnimation(bool visible, bool deactivateAfter)
@@ -685,6 +785,16 @@ public class NPCBubblePresenter : MonoBehaviour
             resolvedOffset.y += floatOffset;
         }
 
+        if (_displayMode == BubbleDisplayMode.ReactionCue)
+        {
+            resolvedOffset.y += 0.16f;
+        }
+
+        if (_hasConversationLayoutShift)
+        {
+            resolvedOffset += _conversationLayoutShift;
+        }
+
         return resolvedOffset;
     }
 
@@ -697,6 +807,14 @@ public class NPCBubblePresenter : MonoBehaviour
     {
         if (_shadowTailRect == null || _borderTailRect == null || _fillTailRect == null)
         {
+            return;
+        }
+
+        if (_displayMode == BubbleDisplayMode.ReactionCue)
+        {
+            _shadowTailRect.anchoredPosition = _shadowTailBasePosition;
+            _borderTailRect.anchoredPosition = _borderTailBasePosition;
+            _fillTailRect.anchoredPosition = _fillTailBasePosition;
             return;
         }
 

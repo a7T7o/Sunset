@@ -595,3 +595,157 @@
 - 当前恢复点：
   - `NPC` 这条 V1 线程已经完成“恢复、返工、定边界、写 blocker、准备 scene 集成入口”的职责。
   - 后续更适合由 `NPCV2` 在新的线程语义下继续推进 scene 集成与联调，而不是继续让当前 V1 线程留在 shared root 等热区机会。
+
+## 2026-03-26｜全需求回溯：重新钉死用户在 NPC 线前后提过的完整要求
+
+- 当前主线目标：
+  - 因用户明确要求“回顾所有前置需求原文与设计诉求”，本轮重新把 NPC 线从最早生成器需求到 2.0.0 设计、再到 `HomeAnchor` scene 集成与运行中补口链全部回看一遍。
+- 本轮完成：
+  - 已从以下来源重建需求底账：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\1.0.0初步规划\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\需求拆分.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\NPC场景化真实落点与角色日常设计.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\NPC交互反应与关系成长设计.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\memory_0.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\V2交接文档\*.md`
+  - 已确认后续对用户汇报时必须分阶段说明：
+    1. 最早 `PNG -> 动画/控制器/Prefab` 的生成器主线
+    2. phase2 的气泡 / 碰撞 / 漫游 / 测试入口 / 工具链主线
+    3. 2.0.0 的角色化 / 场景化 / 双气泡 / 好感度 / 命中反应主线
+    4. 当前 `HomeAnchor` scene 集成与 Inspector 补口链
+- 当前恢复点：
+  - 后续若再有人问“到底还剩什么”，不能再只报最后一刀；必须把整条 NPC 线的完整需求层级一起带上。
+
+## 2026-03-29｜全局警匪定责清扫第一轮：NPC 非正式聊天残包认领归仓尝试
+
+- 当前主线目标：
+  - 这轮不是继续做 NPC 新功能，而是只对指定的 NPC 非正式聊天残包 exact paths 做真实 `preflight -> sync`。
+- 本轮子任务：
+  - 完整回读 `2026-03-29_全局警匪定责清扫第一轮_NPC非正式聊天残包认领归仓_01.md`
+  - 只用执行书里列出的 exact paths 组白名单
+  - 真实运行 `preflight`
+  - 若放行才继续 `sync`，否则只钉第一真实 blocker
+- 本轮完成：
+  - 已在 `main @ d82d15cc` 真实运行：
+    - `sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread NPC -IncludePaths <exact package>`
+  - 本轮实际纳入白名单的 exact paths：
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs`
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs.meta`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs.meta`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs.meta`
+    - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs`
+    - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs.meta`
+    - `Assets/YYY_Tests/Editor/NPCInformalChatInterruptMatrixTests.cs`
+    - `Assets/YYY_Tests/Editor/NPCInformalChatInterruptMatrixTests.cs.meta`
+    - `.codex/threads/Sunset/NPC/memory_0.md`
+    - `.codex/threads/Sunset/NPC/2026-03-29_全局警匪定责清扫第一轮_NPC非正式聊天残包认领归仓_01.md`
+  - `preflight` 结果：
+    - `False`
+  - 本轮未进入 `sync`
+  - 第一真实 blocker 已钉死为：
+    - `type = same-root remaining dirty/untracked`
+    - `first exact path = Assets/Editor/Story/DialogueDebugMenu.cs`
+    - `exact reason = 位于本轮白名单所属 own root Assets/Editor 下，但未纳入 IncludePaths`
+  - 当前脚本同时给出：
+    - `own roots remaining dirty 数量 = 27`
+  - 当前 own 路径结论：
+    - `no`
+- 当前恢复点：
+  - 这轮已满足 `B｜第一真实 blocker 已钉死`
+  - 若后续继续，不该扩题，不该转去做新功能；只能先处理本轮 exact package 所在 same-root 残留，再重跑 `preflight`
+
+## 2026-03-29｜补记：skill-trigger-log 审计层健康复核
+
+- 当前主线目标：
+  - 不改动本轮 `NPC` 残包归仓结论，只补核前面已追加的 `STL-20260329-110` 是否让审计层失健康。
+- 本轮完成：
+  - 已真实运行：
+    - `C:\Users\aTo\.codex\tools\check-skill-trigger-log-health.ps1`
+  - 返回结果：
+    - `Health: ok`
+    - `Canonical-Duplicate-Groups: 0`
+- 结论：
+  - 审计层健康，且不影响本轮既有业务判断；当前对用户仍只应回 `B｜第一真实 blocker 已钉死`。
+
+## 2026-03-30｜剩余 NPC package 接盘开工：integrator 认定与 preflight
+
+- 当前主线目标：
+  - 接受当前身份已经改成 `NPC integrator`，不再沿用旧的“非正式聊天残包 exact 回补”叙事，只对剩余 `NPC-dominant package` 做 integrator 认定并真实运行 `preflight`。
+- 本轮子任务：
+  - 完整回读：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_剩余NPC包接盘开工_02.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\2026-03-29_全局警匪定责清扫第一轮回执_01.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\spring-day1V2\2026-03-30_断开DialogueDebugMenu对NPC菜单编译耦合回执_02.md`
+  - 先把 `NPCInformalChatValidationMenu.cs` 从 `Assets/Editor` 直系根迁入 `Assets/Editor/NPC/`
+  - 再按执行书允许范围，对 `Controller/NPC + Data/NPC* + Editor/NPC + .codex/threads/Sunset/NPC` 做 integrator 分层并运行 `preflight`
+- 本轮完成：
+  - 已真实迁移：
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs -> Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+    - `Assets/Editor/NPCInformalChatValidationMenu.cs.meta -> Assets/Editor/NPC/NPCInformalChatValidationMenu.cs.meta`
+  - 已确认：
+    - `Assets/Editor/NavigationStaticPointValidationMenu.cs` 本轮未触碰
+    - 未回漂到 `Story/UI`、`Story/Interaction`、`Story/Managers`、`Editor/Story`、`Tests/Editor`、`Service/Player`、`Primary.unity`、字体资产、`OcclusionManager`
+  - 本轮 integrator 认定：
+    - `NPC still-own core`
+      - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+      - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+      - `Assets/YYY_Scripts/Data/NPCInformalChatExitModel.cs`
+      - `Assets/YYY_Scripts/Data/NPCInformalChatExitModel.cs.meta`
+      - `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+      - `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs.meta`
+      - `Assets/Editor/NPC.meta`
+      - `.codex/threads/Sunset/NPC/**`
+    - `carried foreign but can ride with this package`
+      - `Assets/YYY_Scripts/Data/NPCDialogueContentProfile.cs`
+      - `Assets/YYY_Scripts/Data/NPCRelationshipStage.cs`
+      - `Assets/YYY_Scripts/Data/NPCRoamProfile.cs`
+  - 已在 `main @ 72e52a51` 真实运行：
+    - `sunset-git-safe-sync.ps1 -Action preflight -Mode task -OwnerThread NPC -IncludePaths <Controller/NPC + Data/NPC* + Editor/NPC + thread dir>`
+  - `preflight` 结果：
+    - `False`
+  - 本轮未进入 `sync`
+  - 第一真实 blocker 已变更为：
+    - `type = same-root remaining dirty/untracked`
+    - `first exact path = Assets/Editor/NavigationStaticPointValidationMenu.cs`
+    - `exact reason = 位于本轮白名单所属 own root Assets/Editor 下，但未纳入 IncludePaths`
+  - 当前脚本同时给出：
+    - `own roots = Assets/Editor, Assets/YYY_Scripts/Data, .codex/threads/Sunset/NPC, Assets/YYY_Scripts/Controller/NPC`
+    - `own roots remaining dirty 数量 = 2`
+  - 当前 own 路径结论：
+    - `no`
+- 当前恢复点：
+  - 这轮已满足 `B｜第一真实 blocker 已钉死`
+  - 旧的 `DialogueDebugMenu` blocker 不再成立；当前真正挡住本轮归仓的是 `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+  - 按本轮执行书，后续若继续只能围绕这个首 blocker 裁定，不能越过脚本，也不能擅自吞导航菜单本体
+
+## 2026-03-30｜补带 Navigation editor leaf：剩余 NPC package 通过 preflight 并进入 sync
+
+- 当前主线目标：
+  - 在不重开导航、不扩到运行时/scene/字体/渲染禁区的前提下，把 `Assets/Editor/NavigationStaticPointValidationMenu.cs(.meta)` 作为 `carried foreign editor leaf` 纳入当前 `NPC package`，并真实重跑 `preflight -> sync`。
+- 本轮子任务：
+  - 完整回读：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_补带NavigationEditorLeaf完成剩余NPC包sync_03.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\2026-03-30_典狱长_NPC_剩余NPC包接盘开工回执_02.md`
+  - 接受这次改判：
+    - 当前脚本聚合下，真实 own root 仍会落到 `Assets/Editor`
+    - `NavigationStaticPointValidationMenu.cs(.meta)` 这轮只按 `carried foreign editor leaf` 带走，不代表导航 owner 语义转移
+  - 真实重跑扩过的白名单 `preflight`
+- 本轮完成：
+  - 已确认：
+    - 本轮未触碰 `Assets/Editor/NavigationStaticPointValidationRunner.cs`
+    - 未扩到导航运行时、`Story` peeled roots、`Primary.unity`、字体资产或 `OcclusionManager`
+  - 本轮白名单在上一轮基础上新增：
+    - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+    - `Assets/Editor/NavigationStaticPointValidationMenu.cs.meta`
+  - 已在 `main @ 158a4a02` 真实运行扩过白名单的 `preflight`
+  - `preflight` 结果：
+    - `True`
+  - 脚本关键信号：
+    - `own roots = Assets/Editor, Assets/YYY_Scripts/Data, .codex/threads/Sunset/NPC, Assets/YYY_Scripts/Controller/NPC`
+    - `own roots remaining dirty 数量 = 0`
+    - `代码闸门通过 = True`
+  - 当前恢复点：
+    - 当前切片已满足进入同白名单 `sync` 的条件；本轮不再继续扩题，只按同组白名单推进 `sync`

@@ -23,6 +23,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const int AmbientChatMaxRetryCount = 3;
     private const float SHARED_DETOUR_MIN_ACTIVE_DURATION = 0.35f;
     private const int SHARED_DETOUR_RELEASE_STABLE_FRAMES = 3;
+    private const float SHARED_DETOUR_POST_RELEASE_RECOVERY_WINDOW = 0.22f;
 
     private enum RoamState
     {
@@ -135,6 +136,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private int lastBlockingAgentId;
     private int blockingAgentSightings;
     private int lastSharedAvoidanceDebugFrame = -999;
+    private float lastSharedAvoidanceReleaseTime = float.NegativeInfinity;
     private int sharedAvoidanceNoBlockerFrames;
     private int sharedAvoidanceBlockingFrames;
     private int sharedAvoidanceDetourCreateCount;
@@ -691,7 +693,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (waypointState.ClearedOverrideWaypoint)
         {
             TryReleaseSharedAvoidanceDetour(avoidancePosition, Time.time);
-            return;
+            waypointState = NavigationPathExecutor2D.EvaluateWaypoint(
+                navigationExecution,
+                currentPosition,
+                waypointTolerance,
+                destinationTolerance);
         }
 
         if (waypointState.ReachedPathEnd ||
@@ -1000,6 +1006,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             desiredDirection,
             lookAhead,
             nearbyNavigationAgents);
+        bool isInReleaseRecoveryWindow = IsSharedAvoidanceInReleaseRecoveryWindow(Time.time);
 
         if (!avoidance.HasBlockingAgent)
         {
@@ -1020,7 +1027,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
             if (TryReleaseSharedAvoidanceDetour(navigationPosition, Time.time))
             {
-                return true;
+                adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
+                    ? avoidance.AdjustedDirection
+                    : desiredDirection;
+                speedScale = Mathf.Clamp01(avoidance.SpeedScale);
+                return false;
             }
 
             adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
@@ -1062,6 +1073,18 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 ? closeRangeConstraint.ConstrainedDirection
                 : adjustedDirection;
             speedScale = Mathf.Clamp01(closeRangeConstraint.SpeedScale);
+        }
+
+        if (isInReleaseRecoveryWindow)
+        {
+            MaybeLogSharedAvoidance(navigationPosition, waypoint, avoidance, closeRangeConstraint, speedScale, "RecoverWindowMove");
+            if (closeRangeConstraint.HardBlocked && speedScale <= 0.025f)
+            {
+                StopForSharedAvoidance(navigationPosition, avoidance, closeRangeConstraint, "RecoverWindowHardStop");
+                return true;
+            }
+
+            return false;
         }
 
         MaybeLogSharedAvoidance(navigationPosition, waypoint, avoidance, closeRangeConstraint, speedScale, "Move");
@@ -1176,7 +1199,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (detour.Cleared || detour.Recovered)
         {
             sharedAvoidanceReleaseSuccessCount++;
+            lastSharedAvoidanceReleaseTime = currentTime;
             sharedAvoidanceNoBlockerFrames = 0;
+            sharedAvoidanceBlockingFrames = 0;
+            lastBlockingAgentId = 0;
+            blockingAgentSightings = 0;
+            lastSharedAvoidanceRepathTime = currentTime;
             if (motionController != null)
             {
                 motionController.StopMotion();
@@ -1187,6 +1215,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 rb.linearVelocity = Vector2.zero;
             }
 
+            TryRebuildPath(
+                navigationPosition,
+                resetRecoveryCounter: false,
+                reason: "SharedAvoidanceRecover",
+                preserveTrafficState: true);
+
             return true;
         }
 
@@ -1195,6 +1229,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void ResetSharedAvoidanceDebugState()
     {
+        lastSharedAvoidanceReleaseTime = float.NegativeInfinity;
         sharedAvoidanceNoBlockerFrames = 0;
         sharedAvoidanceBlockingFrames = 0;
         sharedAvoidanceDetourCreateCount = 0;
@@ -1264,6 +1299,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         return hasDynamicDetour &&
             navigationExecution.LastDetourCreateTime > float.NegativeInfinity &&
             currentTime - navigationExecution.LastDetourCreateTime < SHARED_DETOUR_MIN_ACTIVE_DURATION;
+    }
+
+    private bool IsSharedAvoidanceInReleaseRecoveryWindow(float currentTime)
+    {
+        return !hasDynamicDetour &&
+            lastSharedAvoidanceReleaseTime > float.NegativeInfinity &&
+            currentTime - lastSharedAvoidanceReleaseTime < SHARED_DETOUR_POST_RELEASE_RECOVERY_WINDOW;
     }
 
     private bool TryResolveNavGrid()

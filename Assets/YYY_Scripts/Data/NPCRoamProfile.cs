@@ -121,6 +121,8 @@ public class NPCRoamProfile : ScriptableObject
         dialogueContentProfile != null
             ? dialogueContentProfile.HasAmbientChatResponderContent
             : HasAnyLines(chatResponderLines);
+    public bool HasInformalConversationContent =>
+        dialogueContentProfile != null && dialogueContentProfile.HasInformalConversationContent;
 
     public string ResolveNpcId(string fallbackName)
     {
@@ -155,6 +157,40 @@ public class NPCRoamProfile : ScriptableObject
         }
 
         return PlayerNearbyLines;
+    }
+
+    public NPCDialogueContentProfile.InformalConversationBundle[] GetInformalConversationBundles(NPCRelationshipStage relationshipStage)
+    {
+        return dialogueContentProfile != null
+            ? dialogueContentProfile.GetInformalConversationBundles(relationshipStage)
+            : Array.Empty<NPCDialogueContentProfile.InformalConversationBundle>();
+    }
+
+    public NPCDialogueContentProfile.InformalChatInterruptReaction GetWalkAwayReaction(NPCRelationshipStage relationshipStage)
+    {
+        return dialogueContentProfile != null
+            ? dialogueContentProfile.GetWalkAwayReaction(relationshipStage)
+            : null;
+    }
+
+    public NPCDialogueContentProfile.InformalChatInterruptReaction GetInterruptReaction(
+        NPCRelationshipStage relationshipStage,
+        NPCInformalChatLeaveCause leaveCause,
+        NPCInformalChatLeavePhase leavePhase)
+    {
+        return dialogueContentProfile != null
+            ? dialogueContentProfile.GetInterruptReaction(relationshipStage, leaveCause, leavePhase)
+            : null;
+    }
+
+    public NPCDialogueContentProfile.InformalChatResumeIntro GetResumeIntro(
+        NPCRelationshipStage relationshipStage,
+        NPCInformalChatLeaveCause leaveCause,
+        NPCInformalChatLeavePhase leavePhase)
+    {
+        return dialogueContentProfile != null
+            ? dialogueContentProfile.GetResumeIntro(relationshipStage, leaveCause, leavePhase)
+            : null;
     }
 
     private void OnValidate()
