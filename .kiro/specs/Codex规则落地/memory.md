@@ -7882,3 +7882,46 @@
     1. 先为 `Primary.unity` 真实删除面单独立案
     2. 再为 TMP 中文字体稳定性单独立案
     3. 最后把 `TreeController.cs` / `OcclusionManager.cs` 这类 shared runtime 残面分配 owner 后恢复正常开发
+
+## 2026-03-30｜热根另案已落盘，当前剩余从“乱根清扫”收缩为“少数热根 + 轻量尾账”
+
+- 当前主线目标：
+  - 用户要求我直接把 mixed-root 清扫之后剩下的四类尾项收成明确裁定，不再继续发散：
+    - `Primary.unity`
+    - TMP 中文字体稳定性
+    - shared runtime 残面
+    - 文档尾账与 `.codex/artifacts`
+- 本轮子任务：
+  - 对上述 4 类剩余项做只读实查
+  - 形成新的治理案文件
+  - 把当前真正能直接收的轻量项压进本轮 docs-only 收口范围
+- 本轮已完成：
+  1. 已新增 `Primary.unity` 删除面立案：
+     - `2026-03-30_单独立案_Primary.unity删除面_01.md`
+  2. 已新增 TMP 中文字体稳定性立案：
+     - `2026-03-30_单独立案_TMP中文字体稳定性_01.md`
+  3. 已新增 shared runtime 残面定责：
+     - `2026-03-30_shared-runtime残面定责_01.md`
+  4. 已新增轻量尾账收口说明：
+     - `2026-03-30_轻量尾账收口_01.md`
+  5. 已把四类剩余项重新压成当前唯一可靠判断：
+     - `Primary.unity` = 应恢复旧 canonical path，不是确认删除
+     - TMP 中文字体 = 独立共享 importer 稳定性案，不再混进业务线
+     - `OcclusionManager.cs` = 农田 preview 遮挡尾差
+     - `TreeController.cs` = 农田/砍树表现包，不是 shared runtime 小尾账
+     - 轻量可直接收的只剩：
+       - `.codex/artifacts/README.md`
+       - `.codex/threads/Sunset/项目文档总览/memory_0.md`
+- 当前关键判断：
+  1. mixed-root 清扫波已经结束，这轮不该再继续用 integrator / 典狱长模式扩面。
+  2. 当前剩余问题已经收束成两种：
+     - 需要单独 owner 的热根
+     - 可以直接 docs-only 收掉的轻量尾账
+  3. 其中最重要的新改判是：
+     - `TreeController.cs` 不能再被说成“小范围 shared runtime 残面”，否则会再次低估实际工作量和验证面。
+- 当前恢复点：
+  - 这轮之后，仓库剩余问题的主叙事应改成：
+    1. `Primary.unity` 单 writer 另案
+    2. TMP 中文字体稳定化另案
+    3. 农田方向按 `OcclusionManager` 小尾差 / `TreeController` 大包分刀
+    4. 文档尾账与 artifact README 直接 docs-only 收口
