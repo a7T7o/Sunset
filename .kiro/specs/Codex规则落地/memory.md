@@ -8021,3 +8021,40 @@
   - 等回执回来后，再看：
     1. `Primary` 是直接恢复旧 canonical path 过线，还是先卡在 stale lock blocker
     2. `farm` 两刀能否分别真实 `preflight -> sync`
+
+## 2026-03-31｜`spring-day1` 已撞到 stale NPC lock，现已补发 NPC 善后 prompt
+
+- 当前主线目标：
+  - 用户反馈两件新事实：
+    1. `farm/OcclusionManager` 已真实归仓
+    2. `spring-day1` 在 `Primary` single-writer 第一刀里，已把 first blocker 查穿成 stale NPC active lock
+  - 主线因此不再是继续催 `spring-day1`，而是先把这把过期锁合法收口。
+- 本轮子任务：
+  - 评估用户误把 `Primary` 语义 prompt 发给 `UI` 是否会伤主线
+  - 基于 `spring-day1` 的 blocker 回执，决定下一条应该发给谁
+  - 把真正该发的补救 prompt 落成文件
+- 本轮已完成：
+  1. 已确认误发给 `UI` 这件事本身问题不大：
+     - 因为 `UI` 这边做的是只读语义裁定
+     - 它不会直接改 scene 或改变当前热根 owner
+  2. 已确认现在不该继续催 `spring-day1`：
+     - 因为它已经把 blocker 查穿
+     - 再发给它，只会继续撞同一把 stale NPC lock
+  3. 已新增真正该发的补救 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_NPC_Primary过期锁善后与旧canonical恢复_01.md`
+  4. 这份 prompt 已把唯一主刀写死为：
+     - 由 `NPC` 以当前 lock owner 身份
+     - 先把 `Assets/000_Scenes/Primary.unity(.meta)` 从 `HEAD` 恢复
+     - 再合法释放这把 stale active lock
+- 当前关键判断：
+  1. 现在不能继续把 `Primary` 这条线挂在 `spring-day1` 身上空等。
+  2. 真正该先做的是让 `NPC` 结束自己留下的 hot-lock 现场。
+  3. `farm` 这边现在可以继续按顺序推进：
+     - `OcclusionManager` 已闭环
+     - 再继续 `TreeController` 即可
+- 当前恢复点：
+  - 下一步转发顺序应变成：
+    1. 不管 `UI` 那条误发
+    2. 立刻把 `NPC` 这份 stale lock 善后 prompt 发出去
+    3. `farm` 继续跑 `TreeController` 那条第二刀
+    4. 等 `NPC` 回来后，再决定是否还需要重发 `spring-day1` 的 `Primary` prompt
