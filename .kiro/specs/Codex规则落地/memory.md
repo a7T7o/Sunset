@@ -7781,3 +7781,39 @@
   - 当前唯一继续施工入口保持为：
     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_剩余NPC包接盘开工_02.md`
   - 在 `NPC` 回执回来前，这波 mixed-root 接盘不再新增别的活线
+
+## 2026-03-30｜NPC 新 blocker 已复核：不是停发，而是最小补带 `Navigation` 的 Editor leaf
+
+- 当前主线目标：
+  - 继续推进当前唯一活线 `NPC`；
+  - 在它交回 `B｜第一真实 blocker 已钉死` 后，判断这是不是应停给别的线程，还是仍属于 NPC 当前 package 内可继续收口的最小补带。
+- 本轮子任务：
+  - 复核 `NPC` 最新回执、工作树与 `Assets/Editor` 现场
+  - 判断 `NavigationStaticPointValidationMenu.cs(.meta)` 这对文件应该怎么处理
+  - 给出下一轮唯一继续施工 prompt
+- 本轮已完成：
+  1. 已确认 `NPC` 上一轮做的迁根动作属实：
+     - `NPCInformalChatValidationMenu.cs(.meta)` 已迁到 `Assets/Editor/NPC/`
+  2. 已确认它这轮新的第一真实 blocker 也属实：
+     - `Assets/Editor/NavigationStaticPointValidationMenu.cs(.meta)` 仍落在脚本聚合出来的 own root `Assets/Editor` 下
+  3. 已只读核对 `Assets/Editor` 现场，当前与这次 blocker 直接相关的未归仓 Editor 残面已经收缩成：
+     - `Assets/Editor/NPC.meta`
+     - `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs(.meta)`
+     - `Assets/Editor/NavigationStaticPointValidationMenu.cs(.meta)`
+  4. 已据此改判：
+     - 这不是需要重唤 `导航检查V2` 的新施工线
+     - 而是 `NPC` 当前 package 还差一个最小的 `carried foreign editor leaf`
+  5. 已新增下一轮唯一 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_补带NavigationEditorLeaf完成剩余NPC包sync_03.md`
+- 当前关键判断：
+  1. 上一轮 prompt 的错误不在“让 NPC 迁根”，而在“把迁到子目录”误当成“足以躲开 `Assets/Editor` 父根”
+  2. 当前最快、最窄、最不打断别人的做法，是让 `NPC` 在本包里补带：
+     - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+     - `Assets/Editor/NavigationStaticPointValidationMenu.cs.meta`
+     作为 `carried foreign editor leaf`
+  3. 这不等于把导航语义 owner 转给 NPC；只是为了把当前真实 own root `Assets/Editor` 收干净
+  4. 所以下一步不是停发，也不是重开导航，而是继续给 `NPC` 发一轮更窄的 follow-up prompt
+- 当前恢复点：
+  - 当前唯一继续施工入口更新为：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_NPC_补带NavigationEditorLeaf完成剩余NPC包sync_03.md`
+  - 若这轮再过不了，再按新的第一真实 blocker 重新裁定
