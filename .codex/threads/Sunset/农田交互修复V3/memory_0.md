@@ -1492,3 +1492,58 @@
   - 把当前线程 / 农田相关 memory 一并纳入同组白名单
   - 真实执行最终 `preflight -> sync`
   - 成功则回 SHA；失败则只回第一真实 blocker
+
+## 2026-03-31：`OcclusionManager.cs` preview 遮挡小尾差已完成真实 `preflight -> sync`
+
+**用户目标**：
+- 用户这轮唯一批准的主刀就是把 `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs` 当前这份 preview 遮挡小尾差单独归仓。
+- 明确禁止：不继续补农田大包、不顺手动 `TreeController.cs`、不扩到其他 runtime 包。
+
+**当前主线目标**：
+- 主线仍然服务 `农田交互修复V3` 的 shared-runtime / mixed-root 后续清扫；
+- 但这一刀现在已经从“单文件归仓尝试”推进到“单文件归仓完成”。
+
+**本轮已完成事项**：
+1. 已在最窄白名单 preflight 通过后，继续补齐本轮 own memory：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\memory_0.md`
+2. 已对最终同组白名单真实重新运行 stable launcher `preflight`：
+   - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+   - 上述 3 份 own memory
+3. 已拿到最终 preflight 结果：
+   - `是否允许按当前模式继续: True`
+   - `代码闸门通过: True`
+   - `own roots remaining dirty 数量: 0`
+4. 已继续对同组白名单真实执行 `sync`，并成功推送到 `main`
+5. 已拿到代码归仓提交 SHA：
+   - `6ae8018205440ee812b8adbb7856d54778d40ce6`
+6. 已确认本轮没有把以下文件带进提交：
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+
+**关键决策**：
+- 这轮已经不是“只证明它能过 preflight”，而是已经把这刀真实收上 git。
+- 当前最重要的治理结论是：
+  - `OcclusionManager.cs` 这份 preview 遮挡改动确实可以独立归仓；
+  - `TreeController.cs` 不需要、也不应该被顺手带进来。
+
+**涉及文件 / 路径**：
+- 代码归仓文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+- 同轮 own memory：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\memory_0.md`
+
+**验证结果**：
+- `preflight`：已真实运行并通过
+- `sync`：已真实运行并通过
+- `提交 SHA`：`6ae8018205440ee812b8adbb7856d54778d40ce6`
+- `当前 own 路径是否 clean`：`yes`
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “`OcclusionManager.cs` preview 遮挡小尾差已按单文件白名单完成真实归仓，当前 own 路径 clean。”
+- 如果继续这条治理线，下一步不该再回头讲 `OcclusionManager` 边界，而应转向新的明确委托；当前这刀已闭环。

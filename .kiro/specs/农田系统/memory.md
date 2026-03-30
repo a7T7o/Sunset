@@ -450,3 +450,7 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-31：农田总层补记，preview 遮挡 shared-runtime 尾差现已重新切回 `OcclusionManager.cs` 单刀
 
 当前农田总层新增的稳定事实是：继 `TreeController.cs / OcclusionManager.cs` 的认领语义被问清后，这轮农田方向没有继续泛讲 shared-runtime，也没有再把 preview 遮挡和砍树表现混写成一包。用户当前唯一批准的主刀只有一个，就是把 `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs` 当前这份 preview 遮挡小尾差单独归仓。线程本轮先按治理执行书完整回读定责文档、治理根层记忆与本线程记忆，然后重新核了 working tree：`OcclusionManager.cs` 仍然只有 4 行量级 diff，核心是把预览遮挡判定从 `GetBounds()` 切到 `GetColliderBounds()`；相对地，`TreeController.cs` 仍是大体量砍树表现包，因此继续被明确留在白名单外。最关键的新验证结论是：只含 `OcclusionManager.cs` 的最窄白名单已经真实跑过 `preflight`，结果明确显示 `是否允许按当前模式继续: True`、`代码闸门通过: True`、`own roots remaining dirty 数量: 0`。这说明当前农田总层关于 preview 遮挡的 shared-runtime 残面，已经不是“还得等别的 runtime 一起收”的混合 blocker，而是可按单文件小尾差独立处理的真实提交面。总层恢复点因此更新为：这轮关于 preview 遮挡的正确叙事，已经被重新压回 `OcclusionManager.cs` 单刀；后续若继续治理，只能继续问这刀是否成功归仓，不再把 `TreeController.cs` 拿回来混成同一轮。
+
+## 2026-03-31：农田总层补记，`OcclusionManager.cs` preview 遮挡单刀现已真实归仓
+
+当前农田总层新增的最终稳定事实是：上条记录里被重新切回单刀的 preview 遮挡尾差，已经在同轮被真实收口，而不是继续停在“能过 preflight”阶段。线程随后保持原样白名单继续执行 stable launcher `sync`，最终只提交了 `OcclusionManager.cs + 农田相关 memory + 当前线程 memory` 这一组最小面，代码归仓提交 SHA 为 `6ae80182`，推送后 upstream 已回到 `behind=0, ahead=0`。同时，本轮 own roots 仍然保持 `0` remaining dirty，说明这刀收口没有把新的 same-root 尾账重新带回来。总层恢复点因此更新为：农田方向当前关于 preview 遮挡的 shared-runtime 小尾差已经正式出仓；此后若继续清剩余 runtime，只应继续围绕 `TreeController.cs` 这类另案，而不再把 `OcclusionManager.cs` 当成未归仓项挂着。
