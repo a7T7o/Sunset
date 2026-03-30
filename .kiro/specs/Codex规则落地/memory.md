@@ -7985,3 +7985,39 @@
   - 等 `UI-V1` 和 `farm` 回执后，再决定：
     1. `Primary.unity` 是走恢复旧 canonical path，还是承认迁移目标并开成套迁移案
     2. `TreeController / OcclusionManager` 是一起回 `farm`，还是拆成轻尾差 + 大包两刀
+
+## 2026-03-31｜两条追问回执已通过，现已切到 3 条开工 prompt
+
+- 当前主线目标：
+  - 用户要求我不要再停留在问责和分析，而是直接开始落地；
+  - 这轮主线因此正式从“追问 owner”切到“发开工 prompt”。
+- 本轮子任务：
+  - 根据 `UI-V1` 与 `farm` 的已审回执，把下一阶段真正要开的 3 刀直接写成施工 prompt：
+    1. `spring-day1`：`Primary.unity` single-writer 恢复旧 canonical path
+    2. `farm`：`OcclusionManager.cs` 小尾差归仓
+    3. `farm`：`TreeController.cs` 完整包归仓
+- 本轮已完成：
+  1. 已新增 `Primary` 开工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_spring-day1_Primary单writer恢复旧canonical_01.md`
+  2. 已新增 `farm/OcclusionManager` 开工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_farm_OcclusionManager小尾差归仓_01.md`
+  3. 已新增 `farm/TreeController` 开工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_farm_TreeController完整包归仓_01.md`
+  4. 额外新发现的真实热区事实也已写进 `Primary` prompt：
+     - 当前 `.kiro/locks/active/A__Assets__000_Scenes__Primary.unity.lock.json` 仍存在
+     - `owner_thread = NPC`
+     - 但旧路径 scene 已被删，所以 `Check-Lock.ps1` 对这个删除面会直接报“目标不存在”
+     - 这意味着 `Primary` 目前不是简单的“无锁可写”，而是 `deleted canonical path + stale NPC lock`
+- 当前关键判断：
+  1. `UI-V1` 与 `farm` 的追问都已经问完了，不该再发解释题。
+  2. `Primary` 这条线虽然可以开工，但它现在真实存在一个 stale hot-lock 现实，所以 prompt 已明确要求：
+     - 不准装作无锁
+     - 如果锁仍阻断，就老实回第一真实 blocker
+  3. `farm` 这边现在可以并行开两刀：
+     - `OcclusionManager` 小刀
+     - `TreeController` 大刀
+- 当前恢复点：
+  - 下一步就是把这 3 份开工 prompt 发给用户转发；
+  - 等回执回来后，再看：
+    1. `Primary` 是直接恢复旧 canonical path 过线，还是先卡在 stale lock blocker
+    2. `farm` 两刀能否分别真实 `preflight -> sync`
