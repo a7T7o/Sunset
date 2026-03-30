@@ -7484,3 +7484,61 @@
 - 当前恢复点：
   - 现在等待 `导航检查V2` 按整根 `Service/Player` 做 integrator 口径回执；
   - 治理位下一刀继续拆 `Assets/YYY_Scripts/Story/**`，再决定 `spring-day1(UI-V1)` 与 `NPC` 的开工顺序。
+
+## 2026-03-30｜第十轮已落：Story 大根已拆成语义 owner + 物理 root carrier，当前唯一首开线改判为 `spring-day1(UI-V1) -> Story/UI`
+
+- 当前主线目标：
+  - 用户明确要求我停止抽象分析，直接拆 `Story` 大根，把 `NPC / Spring / UI` 三条线在 `Story / Editor / Tests` 里的责任边界彻底钉死。
+- 本轮子任务：
+  - 只读复核 live dirty、线程回执、线程 memory 与实际代码内容；
+  - 不能再只按线程自报认领，而要同时给出：
+    - 语义 owner
+    - 物理 root carrier
+    - 当前到底哪条线能真开工
+- 本轮已完成：
+  1. 已新增第十轮总裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_全局警匪定责清扫第十轮_Story大根拆包与NPC-Spring-UI分责_01.md`
+  2. 已把 `Story / Editor / Tests` 当前 mixed 面拆成 3 层结论：
+     - `NPC` 语义 own：
+       - `NPCInformalChatValidationMenu.cs`
+       - `PlayerNpcChatSessionService.cs`
+       - `NPCInformalChatInteractable.cs`
+       - `NpcWorldHintBubble.cs`
+       - `NPCInformalChatInterruptMatrixTests.cs`
+     - `UI-V1` 语义 own：
+       - `Prompt / Workbench / UiLayerUtility`
+       - `SpringDay1WorldHintBubble.cs`
+       - `SpringDay1UiPrefabRegistry.*`
+       - `SpringUiEvidenceCaptureRuntime.cs`
+       - `SpringUiEvidenceMenu.cs`
+       - `Prompt / Workbench` prefab
+     - `Spring` 语义 own：
+       - `DialogueDebugMenu.cs`
+       - `CraftingStationInteractable.cs`
+       - `NPCDialogueInteractable.cs`
+       - `SpringDay1BedInteractable.cs`
+       - `DialogueManager.cs`
+       - `SpringDay1Director.cs`
+       - `SpringDay1DialogueProgressionTests.cs`
+  3. 已额外改判：
+     - `SpringDay1LateDayRuntimeTests.cs` 不再按 UI-only 处理，而是 `Spring / UI` 交叉支撑测试
+  4. 已明确物理 root carrier：
+     - `Assets/YYY_Scripts/Story/UI` 这整根当前由 `spring-day1(UI-V1)` 接盘最合理
+     - `Assets/YYY_Scripts/Story/Interaction` / `Assets/YYY_Scripts/Story/Managers` / `Assets/Editor/Story` / `Assets/YYY_Tests/Editor` 仍不该先放 `NPC`
+     - `Assets/Editor` 直系根还混着 `NPCInformalChatValidationMenu.cs` 与 `NavigationStaticPointValidationMenu.cs`，这不是本轮 Story 首开线
+  5. 已新增唯一继续施工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_UI-V1_StoryUI整根接盘开工_01.md`
+- 当前关键判断：
+  1. 当前真正能先开的，不是 `NPC`，也不是 `spring-day1V2`，而是 `spring-day1(UI-V1)`。
+  2. 原因不是 UI 更重要，而是 `Story/UI` 是这批 Story roots 里唯一一条：
+     - foreign 最少
+     - 物理边界最清楚
+     - 可以通过“整根接盘 + 批准 carry 一个 NPC presentation leaf”形成真实 `preflight -> sync` 尝试
+  3. `spring-day1V2` 现在仍保持停发，不是永久作废，而是本波若先重唤，会被迫吞 `Interaction / Editor/Story / Tests/Editor` 里过量 foreign，时机还不对
+  4. `NPC` 现在也不能先开，因为：
+     - `Story/Interaction` 还没从 Spring mixed 根里剥开
+     - `Assets/Editor` 直系根还被导航菜单文件一起卡着
+     - `Service/Player` 又已经先交给 `导航检查V2`
+- 当前恢复点：
+  - 现在等待用户把 `UI-V1 Story/UI` prompt 发出；
+  - 等 `UI-V1` 回来后，再决定下一波是否重唤 `spring-day1V2` 吃剩余 Spring roots，或先接 `导航检查V2` 的回执再拆 `Assets/Editor` 直系根。
