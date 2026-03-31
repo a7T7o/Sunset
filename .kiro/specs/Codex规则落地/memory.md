@@ -8240,3 +8240,31 @@
   - 应只做两类落地：
     1. 把这套 thread-state 脚本接进线程开工 / 收口 prompt 与 runbook
     2. 再补一轮 A 类热文件真实锁链 smoke 或受控接线验证
+
+## 2026-03-31｜thread-state 第一版已真实 sync 到 `main`
+
+- 当前主线目标：
+  - 在脚本与 smoke 通过后，不停在“本地实现”，而是判断这刀是否能作为独立白名单真实归仓。
+- 本轮子任务：
+  1. 对 `.gitignore + .kiro/state + .kiro/scripts/thread-state + Codex规则落地/memory.md` 跑最小 `preflight`
+  2. 如果 own roots clean 且共享根允许，则直接 `sync`
+- 本轮已完成：
+  1. 已真实运行：
+     - `preflight`
+     - `sync`
+  2. 已提交并推送：
+     - `SHA = 5db71c57`
+  3. 当前这刀 own roots 已 clean：
+     - `.gitignore`
+     - `.kiro/state`
+     - `.kiro/scripts/thread-state`
+     - `.kiro/specs/Codex规则落地`
+- 当前关键判断：
+  1. 这轮 claim 的不是“整仓 clean”，而是“并发状态层第一版已独立归仓成功”。
+  2. 仓库里仍有剩余 dirty，但都不在这刀 own roots 内：
+     - `NPC / 导航检查 / 导航检查V2 / 项目文档总览` 线程记忆
+     - `.kiro/specs/屎山修复/**`
+  3. 也就是说，这轮已经把“脚本本体能不能上基线”这件事单独做完了，不需要再等全仓清空才承认它成立。
+- 当前恢复点：
+  - 后续如果继续推进这套并发系统，应直接基于 `5db71c57` 这版已提交脚本继续；
+  - 不再回到“还只是本地实验”的叙事。
