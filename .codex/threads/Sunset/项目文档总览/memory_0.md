@@ -3174,3 +3174,58 @@
 
 **恢复点**：
 - 若用户认可这版高密度装修方向，下一步即可对第 4 点和第 5 点分别做 1 到 2 轮压缩，逐步压到一页纸简历可用长度。
+
+### 会话 72 - 2026-03-31（重查第3点 Unity 实操线的真实工作内容）
+
+**用户最新要求**：
+- 用户明确指出《核心策划能力》第 3 条当前写法严重失真，尤其不认可“具备 ScriptableObject 配置、Prefab 调试、Tilemap 分层搭建、Sprite / Animator 调整及基础素材处理能力”这类过度轻量、像学生作业的概括；
+- 要求我重新回到项目实际情况，先把其在 Unity 策划侧到底真实做过什么查清楚，再像前面处理第 4 / 5 点那样先做认知整理，不急着立刻改成一句简历终稿；
+- 用户特别点明需要重查：`Editor` 工具链、`Tilemap` 导入与多层级场景绘制、玩家与工具动画控制器、动画分层 / 同步、Aseprite 与 Photoshop 素材处理链。
+
+**当前主线目标**：
+- 基于仓库中的真实脚本、控制器、动画资源、数据资产与说明文档，重建第 3 条真正应该承载的能力范围，避免继续把其写成“会点 Inspector”的泛化表述。
+
+**本轮完成任务**：
+1. 先按 Sunset live 规则完成只读前置核查：
+   - 当前 shared root 为 `main @ ee5f397e`；
+   - 仓库中存在其他线程 memory 脏改，因此本轮仅做只读排查与自己的线程记忆更新，不碰他线现场；
+   - Unity MCP 资源当前会话未暴露，改用项目内真实资产与脚本直接核对。
+2. 抽出了第 3 条最关键的真实证据层：
+   - `Assets/Editor/Tool_BatchItemSOGenerator.cs`
+   - `Assets/Editor/Tool_BatchItemSOModifier.cs`
+   - `Assets/Editor/Tool_BatchRecipeCreator.cs`
+   - `Assets/Editor/WorldPrefabGeneratorTool.cs`
+   - `Assets/Editor/TilemapToSprite.cs`
+   - `Assets/Editor/ToolAnimationPipeline.cs`
+   - `Assets/Editor/ToolAnimationGeneratorTool.cs`
+   - `Assets/Editor/LayerAnimSetupTool.cs`
+   - `Assets/Editor/Tool_001_BatchProject.cs`
+   - `Assets/Editor/Tool_002_BatchHierarchy.cs`
+   - `Assets/Editor/Tool_003_BatchAnimTransitions.cs`
+   - `Assets/Editor/SliceAnimControllerTool.cs`
+   - `Assets/YYY_Scripts/Anim/Player/PlayerAnimController.cs`
+   - `Assets/YYY_Scripts/Anim/Player/PlayerToolController.cs`
+   - `Assets/YYY_Scripts/Anim/_...._/LayerAnimSync.cs`
+   - `Assets/YYY_Scripts/Combat/PlayerToolHitEmitter.cs`
+   - `Assets/YYY_Scripts/Data/Items/ToolData.cs`
+   - `Assets/YYY_Scripts/Farm/Data/LayerTilemaps.cs`
+3. 通过文件与资产结构确认了第 3 条不该再写成“基础配置”的几个事实：
+   - 项目内 `Assets/Editor` 共有 `53` 个 Editor 脚本，不是零散操作，而是明显存在一套批量化生产与配置工具链；
+   - 当前已有 `71` 个 ItemData 资产与 `71` 个 WorldItem prefab 形成对应，说明数据到世界物品的批量生成链路已经跑通；
+   - 当前已有 `6` 个工具控制器、`90` 个工具动画剪辑、`45` 个玩家动作剪辑、`48` 个 Aseprite 源文件、`90` 张工具动作 PNG 资源，说明动画不是手点几下，而是完整成体系的三向动作资产链。
+4. 重新钉死了用户在 Unity 实操线上的真实工作范围：
+   - 不是“Prefab 调试”，而是主导并应用了从 Sprite / SO 到 WorldPrefab 的批量生成与路径镜像链；
+   - 不是“Animator 调整”，而是围绕玩家三向动作、手持工具三向动作、Mask / Pivot / 帧同步 / 命中窗口建立了动作控制与同步链路；
+   - 不是“基础素材处理”，而是基于 Aseprite 源文件、Pivot 继承、Sprite Sheet 切片、PS 辅助处理完成工具与角色动画资源落地；
+   - 不是“会用 Tilemap”，而是从 PNG / Sprite 导入、Tilemap 分层搭建、楼层 Tilemap 结构、场景绘制到 Tilemap 转 Sprite 资产化的完整场景生产链。
+
+**关键结论**：
+- 第 3 条当前最致命的问题不是措辞土，而是把“生产链能力”写成了“零散基础操作”。
+- 用户真实具备的不是普通学生常见的 Inspector 操作，而是“数据批量化 + 资源资产化 + Tilemap 场景搭建 + 三向动作与工具同步 + Aseprite / PS 动画处理”的 Unity 策划侧落地能力。
+
+**边界与验证**：
+- 本轮只做仓库只读排查、认知整理与线程记忆更新，不改业务代码、场景、Prefab 或外部简历文件。
+- Unity MCP 当前会话未提供资源，本轮验证主要基于项目资产结构、Editor 工具脚本、运行时动画脚本和控制器文件的静态事实。
+
+**恢复点**：
+- 若用户继续这条线，下一步应先交付“第 3 条真实工作清单与结构化亮点池”，再决定怎么压成 200+ 装修版或简历终稿。
