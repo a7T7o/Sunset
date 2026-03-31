@@ -8058,3 +8058,72 @@
     2. 立刻把 `NPC` 这份 stale lock 善后 prompt 发出去
     3. `farm` 继续跑 `TreeController` 那条第二刀
     4. 等 `NPC` 回来后，再决定是否还需要重发 `spring-day1` 的 `Primary` prompt
+
+## 2026-03-31｜`Primary` 新路径 duplicate sibling 已按 `A` 删除并归仓
+
+- 当前主线目标：
+  - 不再处理旧 canonical path，也不再讨论迁移意图；
+  - 当前唯一主线是按 `2026-03-31_典狱长_spring-day1_Primary新路径duplicate处置_02.md`，只把 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)` 这份 same-GUID duplicate sibling 做最小处置。
+- 本轮子任务：
+  1. 复核治理 prompt、线程 memory、父工作区 memory 与 `Primary` 删除面立案
+  2. 核实 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity.meta` 与 `Assets/000_Scenes/Primary.unity.meta` 当前确实同 GUID：`a84e2b409be801a498002965a6093c05`
+  3. 在 `A 删除 duplicate sibling` 与 `B 保留但改独立 GUID` 之间做最小裁定，并真实跑同组 `preflight -> sync`
+- 本轮已完成：
+  1. 已确认新路径 `Primary` 当前没有 live canonical 身份，现行引用只剩历史文档 / memory 证据，不再被 `Build Settings`、`NPCAutoRoamControllerEditor.cs` 或其他 live 入口使用
+  2. 已按 `A` 删除：
+     - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity`
+     - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity.meta`
+  3. 删除后已复核 `Assets` 根内只剩旧 canonical 的 `Primary` GUID：
+     - `Assets/000_Scenes/Primary.unity.meta`
+  4. 已真实跑过最小白名单：
+     - `preflight = pass`
+     - `sync = pass`
+     - 提交 `1e07d04039669a445b3697da05aefe43e48aca0a`
+- 当前关键判断：
+  1. 这轮应选 `A`，不是 `B`，因为 `UI-V1` 已经完成只读裁定：新路径 scene 不是最终 canonical path，只是迁移 sibling / 临时复制面
+  2. 这轮成功的关键不在“重整 `Primary` 整案”，而在“只删 duplicate 身份本身”，因此没有顺手触碰旧 canonical path、`EditorBuildSettings.asset`、`NPCAutoRoamControllerEditor.cs` 或任何 scene 内容
+  3. 当前 broader working tree 仍保留其他 unrelated dirty，但这刀自己的最小白名单已经独立归仓
+- 当前恢复点：
+  - `Primary` 这案子的 duplicate sibling 已经收掉；
+  - 后续若再讨论 `Primary`，不该回头重问“新路径是不是 canonical”，而应只围绕剩余真实业务问题继续。
+
+## 2026-03-31｜`Primary` 已彻底退场，下一刀正式切到共享 TMP 中文字体稳定性
+
+- 当前主线目标：
+  - 用户要求我不要停在“这刀认不认”的分析层，而是直接开始下一步；
+  - 在 `Primary` 旧路恢复、stale lock 善后、新路径 duplicate 删除都已完成后，当前仓库里剩下最大的真实脏面已经切换成 `DialogueChinese* / LiberationSans Fallback` 这组共享 TMP 中文字体 churn。
+- 本轮子任务：
+  1. 回读 `2026-03-30_单独立案_TMP中文字体稳定性_01.md`
+  2. 重新核当前 dirty 规模与相关硬证据
+  3. 把下一轮真正可发的施工 prompt 压成单刀
+- 本轮已完成：
+  1. 已确认当前 TMP 脏面仍只落在 6 份资产：
+     - `DialogueChinese BitmapSong SDF.asset`
+     - `DialogueChinese Pixel SDF.asset`
+     - `DialogueChinese SDF.asset`
+     - `DialogueChinese SoftPixel SDF.asset`
+     - `DialogueChinese V2 SDF.asset`
+     - `LiberationSans SDF - Fallback.asset`
+  2. 已确认当前 diff 量级没有变小：
+     - `15133 insertions`
+     - `410 deletions`
+  3. 已确认当前生成器硬证仍成立：
+     - `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs`
+     - `AtlasPopulationMode.Dynamic`
+     - `isMultiAtlasTexturesEnabled = true`
+  4. 已新增下一条正式施工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_spring-day1_TMP中文字体稳定性回到已提交基线判定_02.md`
+- 当前关键判断：
+  1. `spring-day1` 在 `Primary` 题上应正式停发，不再继续回头碰 scene。
+  2. 这组字体 dirty 当前更像共享 importer / atlas / glyph churn，而不是业务成果；因此下一刀最合理的不是“继续重建字体方案”，而是先判清：
+     - 它们能不能整根安全回到 `HEAD`
+  3. 我这轮仍然把执行线程落在 `spring-day1`，不是因为这题又变回 Day1 业务，而是因为：
+     - 它对这批字体的历史证据最多
+     - 当前 working tree 脏面也仍与这条线纠缠最深
+     - 但这只是临时 integrator 选择，不等于长期 owner 已经改判
+- 当前恢复点：
+  - 下一步不再给 `spring-day1` 发任何 `Primary` prompt；
+  - 只发这条新的共享字体稳定性 prompt；
+  - 等回执回来后，再判断：
+    1. 能否整根回到 `HEAD`
+    2. 还是必须单独继续做 importer 稳定化 deeper slice。

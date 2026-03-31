@@ -3378,3 +3378,26 @@
   - 导航线后续只等待 `导航检查V2` 的首轮回执；
   - 当前真正活跃入口仍是：
     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-26-导航检查V2首轮启动委托-02.md`
+
+## 2026-03-31｜`Primary` 已收口，下一阶段正式切到共享 TMP 中文字体稳定性首刀
+
+- 当前主线目标：
+  - 用户要求我不要停在“审核通过”层，而是直接开始下一步；
+  - 在 `Primary` 旧 canonical 恢复、stale lock 释放、新路径 duplicate 删除都完成后，当前治理主线已从 `Primary` 正式切到共享 TMP 中文字体稳定性。
+- 本轮已完成：
+  1. 重新核实当前仓库剩余最大 dirty 面只剩：
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese*`
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`
+  2. 回读 `2026-03-30_单独立案_TMP中文字体稳定性_01.md`，确认这条线仍是独立共享 importer 稳定性案，而不是 `Primary / Day1 / UI / NPC` 任一业务线尾账。
+  3. 已新增下一条可直接发给 `spring-day1` 的硬切片 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_spring-day1_TMP中文字体稳定性回到已提交基线判定_02.md`
+- 本轮新增稳定结论：
+  1. `spring-day1` 在 `Primary` 题上应正式停发；
+  2. 共享 TMP 中文字体这轮先不做“重建方案”，而是先只判：
+     - 这 6 份字体 dirty 能不能整根安全回到 `HEAD`
+  3. 这次继续落给 `spring-day1`，只是临时 integrator 选择，不等于把共享字体长期 owner 改判回 Day1 业务线。
+- 当前恢复点：
+  - 下一步应把这条 `TMP` prompt 交给用户转发；
+  - 回执回来后，再决定是：
+    1. 直接清掉 6 份 churn
+    2. 还是继续开 importer 稳定化 deeper slice。
