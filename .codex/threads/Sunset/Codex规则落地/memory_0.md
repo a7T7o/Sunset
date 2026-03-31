@@ -3420,3 +3420,29 @@
 - 当前恢复点：
   - 下一步只需把这条 docs-only prompt 交给用户转发；
   - 然后等回执，再做最后一次仓库 clean 验收。
+
+## 2026-04-01｜`thread-state` 已补“统一尾巴”并接进治理 prompt 生成挂点
+
+- 当前主线目标：
+  - 用户继续追问一个更落地的问题：既然 `thread-state` 已经是 live 规范，那老线程能不能有一段通用尾巴直接贴到 prompt 末尾，新线程又如何默认遵守，而不是继续靠临时口头提醒。
+- 本轮已完成：
+  1. 新增统一尾巴正文：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\线程续工统一尾巴_thread-state补登记_2026-04-01.md`
+  2. 已在：
+     - `并发thread-state开工与收口规范_2026-03-31.md`
+     中补入“过渡期统一 prompt 尾巴”一节，明确这份尾巴的定位是：
+     - 不替代业务正文
+     - 默认追加在业务 prompt 末尾
+     - 专门负责把旧线程补接到 `Begin-Slice / Ready-To-Sync / Park-Slice`
+  3. 已把同样口径接进本机治理 skill 挂点：
+     - `sunset-governance-dispatch-protocol`
+     - `sunset-warden-mode`
+     - `sunset-thread-wakeup-coordinator`
+- 当前关键判断：
+  1. 用户这次纠偏是对的：过渡期不能继续只靠我解释“记得登记”。
+  2. 对老线程，最低摩擦的做法不是重写所有业务 prompt，而是统一在正文末尾补一段固定尾巴。
+  3. 对新线程，正确口径不是“以后想起来再加”，而是从第一轮真实施工 prompt 开始默认带同样要求。
+  4. 这仍然不等于“后台自动强制注入”；它是当前比纯口头提醒更强、但比 launcher 自动化更轻的一层桥接。
+- 当前恢复点：
+  - 后续治理位如果继续给线程发续工 / 唤醒 / 继续施工 prompt，默认应在业务正文末尾追加这份统一尾巴；
+  - 如果后面用户仍嫌人工追加麻烦，再继续往 launcher / 固定模板自动注入推进。
