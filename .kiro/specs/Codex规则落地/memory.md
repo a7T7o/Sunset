@@ -8193,3 +8193,50 @@
 - 当前恢复点：
   - 共享 TMP 中文字体这 6 资产当前已回到已提交基线；
   - 如果后续还要继续这个案子，不该再从“带着当前 churn 继续业务 sync”进入，而应在独立稳定化切片里重新判断 importer 风险。
+
+## 2026-03-31｜高并发 live 状态层第一版已物理落地并通过 smoke
+
+- 当前主线目标：
+  - 用户不再接受“继续讨论方案”，要求把 `A 类热文件硬锁 + B 类共享触点声明 + C 类 own slice 自由施工 + 退出窗口 sync/park` 真正落成可执行脚本。
+- 本轮子任务：
+  1. 在仓库内新增 thread-state 脚本与 schema
+  2. 让这套脚本至少完成第一轮真实 smoke，而不是停留在 Markdown 规则
+  3. 把会导致假阳性/假 blocker 的脚本级问题一并修掉
+- 本轮已完成：
+  1. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads.schema.json`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\StateCommon.ps1`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Begin-Slice.ps1`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Ready-To-Sync.ps1`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Park-Slice.ps1`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Show-Active-Ownership.ps1`
+  2. 已更新 `.gitignore`，忽略：
+     - `.kiro/state/active-threads/`
+     - `.kiro/state/*.lock`
+  3. 已修掉首轮真实执行里暴露出的 3 类脚本问题：
+     - `UTF-8 无 BOM` 导致 `powershell -File` 误解码、中文字符串触发假性 parser error
+     - 数组返回值在严格模式下被塌缩成 `$null / 单字符串`，继续读 `.Count` 会炸
+     - `Show-Active-Ownership -AsJson` 在零线程时静默空输出，而不是稳定返回空数组
+  4. 已完成最小 smoke：
+     - `Show-Active-Ownership.ps1`：空状态可正常输出
+     - `Begin-Slice.ps1`：C 类切片可正常登记
+     - `Ready-To-Sync.ps1`：对测试切片可稳定进入 `READY_TO_SYNC`
+     - `Park-Slice.ps1`：可正常停车且不再写出 `[null] blockers`
+     - B 类共享热点验证通过：
+       - `GameInputManager.cs` 上不同 touchpoint 可并行登记
+       - 同 touchpoint 会在 `Begin-Slice` 阶段直接阻断
+  5. smoke 现场已清理：
+     - `.kiro/state/active-threads/` 当前无测试残留
+- 当前关键判断：
+  1. 这轮已经不是“方案草案”，而是第一版可执行底座。
+  2. 当前最重要的跃迁，不是脚本文件数增加，而是：
+     - dirty 归属首次进入 live 状态层
+     - 冲突从“7 天后治理清扫”前移到了 `Begin-Slice / Ready-To-Sync`
+  3. 这轮还没有覆盖到 A 类真实锁烟测：
+     - 原因不是脚本没接好，而是我刻意不在当前收口轮里制造新的 hot-file 锁历史噪音
+     - 现阶段更重要的是先把状态层与 B 类并发判定跑稳
+- 当前恢复点：
+  - 下一步如果继续推进，不该再回到宏观争论；
+  - 应只做两类落地：
+    1. 把这套 thread-state 脚本接进线程开工 / 收口 prompt 与 runbook
+    2. 再补一轮 A 类热文件真实锁链 smoke 或受控接线验证

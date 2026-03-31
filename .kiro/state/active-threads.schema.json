@@ -1,0 +1,120 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "sunset/active-threads.schema.json",
+  "title": "Sunset Active Thread State",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "thread",
+    "status",
+    "workdir",
+    "current_branch",
+    "base_head",
+    "current_slice",
+    "owned_paths",
+    "carried_foreign_paths",
+    "shared_files",
+    "touched_touchpoints",
+    "expected_sync_paths",
+    "a_class_locked_paths",
+    "blockers",
+    "updated_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "integer",
+      "const": 1
+    },
+    "thread": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ACTIVE",
+        "BLOCKED",
+        "READY_TO_SYNC",
+        "PARKED",
+        "HANDED_OFF"
+      ]
+    },
+    "workdir": {
+      "type": "string",
+      "minLength": 1
+    },
+    "current_branch": {
+      "type": "string",
+      "minLength": 1
+    },
+    "base_head": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{7,40}$"
+    },
+    "current_slice": {
+      "type": "string",
+      "minLength": 1
+    },
+    "owned_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "carried_foreign_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "shared_files": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "touched_touchpoints": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "expected_sync_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "a_class_locked_paths": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "blockers": {
+      "type": "array",
+      "uniqueItems": false,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "updated_at": {
+      "type": "string",
+      "format": "date-time"
+    }
+  }
+}
