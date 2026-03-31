@@ -522,3 +522,32 @@
   - `Story/UI` 整根白名单已经成型，而且第一次真实 `preflight` 已经过线；
   - 下一步只剩带上本轮回执与 memory，同白名单再做收口前确认并执行 `sync`；
   - 在 `sync` 结果出来前，不扩到 `Editor/Story`、`Tests/Editor`、`Interaction`、`Managers` 或字体底座。
+
+## 2026-03-31 Primary 迁移意图只读裁定补记：`Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 不是最终 canonical path
+
+- 当前工作区主线不是继续做 UI，也不是继续跑 `preflight/sync`；这轮主线是按 `2026-03-30_典狱长_UI-V1_确认Primary迁移意图_01.md`，只回答 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 到底是不是当初想保留的最终 canonical path。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+- 本轮手工等价执行：
+  - `sunset-startup-guard`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- 本轮最终裁定：`B｜迁移 sibling / 临时复制面`
+- 直接证据：
+  1. 当前线程自己在 `2026-03-29_UI-V1_全局警匪定责清扫第一轮回执_01.md` 明确写过：
+     - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 是否 scene owner：`否`
+     - 当前定位：`UI evidence-only / mixed incident`
+  2. `2026-03-30_UI-V1_StoryUI整根接盘开工回执_01.md` 与本工作区 memory 都只把它写成：
+     - `按迁移 sibling 一起处理`
+     - 不是“正式迁移成功后的 canonical path”
+  3. `ProjectSettings/EditorBuildSettings.asset` 仍指向 `Assets/000_Scenes/Primary.unity`
+  4. `Assets/Editor/NPCAutoRoamControllerEditor.cs` 仍硬编码旧路径
+  5. `HEAD` 里旧路径与新路径 scene 的 `.meta` 当前同 GUID：`a84e2b409be801a498002965a6093c05`
+- 当前关键判断：
+  - 我这条 UI 线之所以在 2026-03-30 把它带进白名单，只能证明“为了整根 `Story/UI` 收口，我批准把它当 sibling 一起带走”，不能反推成“它本来就是最终 canonical `Primary`”。
+  - 在 `Build Settings`、编辑器硬编码和旧路径 canonical 面都还没迁完之前，旧路径不能直接删掉提交。
+- 当前恢复点：
+  - 这轮语义裁定已经完成；
+  - 若后续真要做这案子，应先由单独 single-writer 恢复旧 canonical path，再把新路径 scene 按 duplicate / sibling 另案处理；
+  - UI-V1 / SpringUI 最多只应补“它当初为什么会出现在 UI 根旁边”的语义说明，不应直接接整张 scene 修复案。

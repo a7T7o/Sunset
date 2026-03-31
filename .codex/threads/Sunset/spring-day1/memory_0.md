@@ -1554,3 +1554,24 @@
 - 当前恢复点：
   - 这轮只完成了“把 6 份共享字体 churn 清回已提交基线”；
   - 不应误说成整条 `spring-day1` 已 clean，也不应误说成共享字体稳定性根因已经被彻底修好。
+
+## 2026-03-31 线程补记：当前只剩 `SpringUI` memory 尾账，按 docs-only 最小白名单收口
+
+- 当前线程主线：
+  - 不再继续 UI 业务
+  - 不再继续 `Primary`
+  - 不再继续字体或 `Story/UI` 实现
+  - 当前唯一主线改为执行 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_UI-V1_SpringUI记忆尾账docs-only归仓_02.md`
+- 本轮子任务：
+  1. 确认当前仓库剩余 dirty 是否真的只剩 `SpringUI` 工作区 memory 尾账
+  2. 若按项目规则需要补线程记忆，则最小补 1 条线程记忆
+  3. 只以 docs-only 最小白名单做 `preflight -> sync`
+- 当前已确认的现场：
+  - `git status --short` 当前只剩：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+  - 这条 dirty 的内容只是：
+    - 2026-03-31 那条 `Primary` 迁移意图只读裁定补记
+    - 不是新的业务实现
+- 当前恢复点：
+  - 下一步只做 docs-only `preflight -> sync`
+  - 不补任何业务文件，不扩任何别的 memory。
