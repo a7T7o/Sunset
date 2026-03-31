@@ -4760,3 +4760,276 @@
 - 当前恢复点：
   - 实现面已经归仓完成；
   - 剩余只该补第五轮回执、child memory、thread memory 和 `skill-trigger-log` 的审计收口，不再继续改导航代码。
+
+## 2026-03-31（父线程重建“清扫轮次开始前”的真实全局阶段，用于后续统一口径）
+
+- 当前主线目标：
+  - 用户要求重新讲清“全局警匪定责清扫”开始前，导航线到底已经推进到什么真实阶段；
+  - 这轮不是继续改代码，而是把历史叙事从“是不是已经只差 cleanup”重新压回可核对的真实全局进度。
+- 本轮已完成事项：
+  1. 重新交叉核对：
+     - `导航检查/memory.md`
+     - `屎山修复/memory.md`
+     - `导航V2/memory.md`
+     - `导航检查` 线程 `memory_0.md`
+  2. 正式钉死：清扫轮次开始前的真实阶段不是“两极化”的任一端：
+     - 不是“前面几轮几乎没成果”
+     - 也不是“导航已经收口，只差 cleanup”
+  3. 运行时真实进展已确认包括：
+     - 一批常规 probe 与整包 `RunAll` 曾连续两轮全绿；
+     - `single 0.462` 已被证实是 validation false positive，而不是导航本体回退；
+     - 玩家侧 single 的 `hardStopFrames` 曾被压到 `2` 量级；
+     - passive/static NPC 的纯 `PathMove` 推土机签名后来也已被打破，`npcPushDisplacement` 从约 `2.29` 压到 `0.077 / 0 / 0`。
+  4. 真实体验未过线的部分也已重新确认：
+     - 普通地面点导航的 `Collider.center` 与 `Transform/Rigidbody` 语义仍错层，存在约 `1.1 ~ 1.2` 的稳定偏差；
+     - `SingleNpcNear raw` 曾稳定表现为推土机；
+     - `MovingNpc raw` 是过早 onset + 大侧偏 + 常不到点；
+     - `Crowd raw` 是拖尾、蹭行、仍不到点；
+     - 用户后续真实手测虽确认“好了非常多、已经到可用地步”，但 crowd 挤住与终点有 NPC 停留时反复避让/顶撞仍明显存在。
+  5. 第一责任点的演化已重新压实：
+     - 先从 solver 参数幻想，收束到 `detour owner` 没有稳定接管执行层；
+     - 再经高保真矩阵，把玩家 runtime 第一责任点改判为 `PlayerAutoNavigator` 对 passive/static NPC blocker 的响应失效链；
+     - 再往后推进到：detour / rebuild 已进入，但会在未到点时过早掉成 `Inactive/pathCount=0`。
+  6. 工程面为什么会转入清扫也已重建：
+     - 当时不仅 runtime 没完全竣工，same-root dirty 与 mixed-root 编译依赖也确实在阻断安全归仓；
+     - 所以后续出现“runtime 继续窄修”和“全局警匪定责清扫”并行分流，不是方向漂移，而是功能残差与工程收口同时存在。
+- 当前稳定结论：
+  1. 清扫开始前的真实全局状态应表述为：
+     - 导航已经从明显失控推进到“部分可用、局部 probe 能过、玩家能感到比之前好很多”的阶段；
+     - 但真实玩家体验并未过线，尤其是静止 NPC、crowd、终点 blocker 与普通地面点契约仍有硬伤；
+     - 同时工程现场也还不具备直接安全收口条件。
+  2. 后续任何口径如果把那一阶段说成“没成果”或“只剩 cleanup”，都属于失真。
+- 当前恢复点：
+  - 后续父线程若再需要向用户或子线程解释这段历史，应以这轮重建结论为准；
+  - 不再把局部 `pass=True` 直接翻译成“体验自然”，也不再把 cleanup 轮次误写成“导航已经做完后的纯尾账”。
+
+## 2026-03-31（用户要求只看具体开发进度；父线程已把“我自己 vs 导航检查V2”两条线的 pre-cleanup 落点重新拆清）
+
+- 当前主线目标：
+  - 用户不要再看抽象阶段论，而是要看清扫前的实打实开发内容：我自己做到哪、`导航检查V2` 到哪、各自还剩什么、原本下一步和下下步分别是什么。
+- 本轮已完成事项：
+  1. 正式把两条线重新拆开：
+     - 父线程我自己 = 静态点导航 / 普通点契约 / static validation runner 线
+     - `导航检查V2` = 动态 `PlayerAutoNavigator` runtime 收口线
+  2. 父线程我自己的 pre-cleanup 实际进度重新钉死为：
+     - 已把普通点导航契约改成“普通地面点使用玩家实际占位中心语义”，不再沿用旧 offset 口径；
+     - 已单独建出 `NavigationStaticPointValidationRunner/Menu`；
+     - 已把 static runner 的 case 漂移、timeout/settle、conflict 判定、固定起点这些验证链问题持续收口；
+     - 已进一步把剩余问题压到 `EnsureBindings()` 可能造成的新 `navigator` 搭旧 `rigidbody/collider` 的绑定一致性问题；
+     - 这一刀补口也已经落到代码，但 fresh live 被外部 compile blocker 截断，所以停在“补丁已落、未拿到 compile-clean fresh 复核”。
+  3. `导航检查V2` 的 pre-cleanup 实际进度重新钉死为：
+     - 已先打破 passive/static NPC 的纯推土机坏相；
+     - 已把 single 从 `npcPush≈2.29 + detour=0 + actionChanges=1` 推进到 `npcPush≈0 + detour=14~15 + actionChanges=3`；
+     - 之后剩余责任点已改判为：`detour/rebuild` 已进入，但未到点时过早掉成 `Inactive/pathCount=0`；
+     - 父线程已为它连续写出 `-14`、`-15`、`-16` 三轮同链 prompt，把主刀固定在 `PlayerAutoNavigator` 完成语义链。
+  4. 正式确认用户这次追问中的关键判断：
+     - 是的，`-16` 这类后续 prompt 我已经写好；
+     - 但在你真正转发前，2026-03-29 的全局警匪定责清扫就切进来了；
+     - 所以后面没有继续沿开发链往下跑，而是被治理批次打断去做 own / mixed / blocker 清扫。
+- 当前稳定结论：
+  1. 清扫前我的开发并没有停在“还没找到问题”，而是已经分别收缩到：
+     - 父线程：静态 validation runner 绑定一致性 + compile-clean fresh 复核
+     - `导航检查V2`：`PlayerAutoNavigator` 完成语义 / 终点前过早失活链
+  2. 两条线当时其实都已经有明确下一步；只是下一步还没执行完，就被 cleanup 批次插入。
+- 当前恢复点：
+  - 后续若用户再问“清扫前原本下一步是什么”，直接按本轮这套双线拆法回答；
+  - 不再把“清扫前已写好的 prompt”和“清扫后实际做掉的治理动作”混成一条线。
+
+## 2026-03-31（父线程审 `导航检查V2` 新反省：接受责任点，不接受继续拿工程线吞掉开发线；已下发双线 `-17`）
+
+- 当前主线目标：
+  - 用户要求基于 `导航检查V2` 最新反省对症下药：先审这份反省哪些成立、哪些仍在偷换，再分别给 `导航检查V2` 和父线程自己落下一份新的下一步 prompt。
+- 本轮已完成事项：
+  1. 正式接受 `导航检查V2` 反省里的 3 个核心点：
+     - pure bulldoze 已被打破；
+     - 第一责任点已压到 `PlayerAutoNavigator.cs` 完成语义链；
+     - cleanup 插入前，工程归仓问题确实已经抬头。
+  2. 同时正式纠正它仍残留的偷换：
+     - 不允许把“工程线已经抬头”继续外推成“所以下一步就该自然切去 `Service/Player` 根接盘”；
+     - 对它这条线程来说，被 cleanup 打断时真正没续完的，仍是 `PlayerAutoNavigator.cs` 的完成语义 fresh 闭环，不是根接盘施工本身。
+  3. 已新建给 `导航检查V2` 的下一轮 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-31-导航检查V2-PlayerAutoNavigator-完成语义续工与fresh闭环-17.md`
+     - 这轮唯一主刀重新钉回：
+       - `PlayerAutoNavigator.cs`
+       - fresh compile + fresh live
+       - 必要时只在同链补 1 刀
+  4. 已新建父线程自己的下一轮自工单：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-31-父线程自工单-静态点导航fresh复核与runner绑定闭环-17.md`
+     - 这轮唯一主刀重新钉回：
+       - static runner
+       - 最新 compile truth
+       - compile-clean 条件下的 1 次 fresh static menu
+- 当前稳定结论：
+  1. 这次 `V2` 反省终于把开发线主锅说对了，但它仍有把工程线上移成“自然下一阶段”的倾向；
+  2. 父线程这轮已经把这个偏差纠正回：
+     - `导航检查V2` 继续只做动态完成语义续工
+     - 父线程自己继续只做静态 fresh 复核
+  3. 也就是说，下一步不再是“继续讨论清扫前的历史阶段”，而是双线各自回到被 cleanup 打断前的那半刀。
+- 当前恢复点：
+  - 若继续放行 `导航检查V2`，直接转发 `-17`；
+  - 父线程自己若继续，不再做阶段分析，直接按自己的 `-17` 自工单执行。
+
+## 2026-03-31（父线程按自工单执行静态线 `-17`：服务层已恢复，但当前 external blocker 是 Unity 实例未接入）
+
+- 当前主线目标：
+  - 按 `2026-03-31-父线程自工单-静态点导航fresh复核与runner绑定闭环-17.md`，只推进父线程自己的静态线：先拿最新 compile truth，若 compile clean 再跑 1 次 static menu。
+- 本轮已完成事项：
+  1. 手工等价执行了 `mcp-live-baseline` 核查：
+     - 初始状态为 `listener missing`
+     - shared root 的 Unity Editor 进程实际存在
+     - pidfile 先是 stale，不对应存活进程
+  2. 为了只恢复 live 桥、不改代码，我只做了一个最小环境动作：
+     - 启动 `Library/MCPForUnity/TerminalScripts/mcp-terminal.cmd`
+  3. 结果不是 `uvx` 缺失，也不是脚本损坏，而是第一次启动直接报：
+     - `127.0.0.1:8888` 端口占用冲突
+     - 随后端口进入稳定监听，listener 进程为 `python`
+  4. 再次跑 `scripts/check-unity-mcp-baseline.ps1` 后，服务层已经恢复为 `baseline_status: pass`
+  5. 继续绕过当前 Codex 客户端对 `unityMCP` 的握手缺陷，改走原始 HTTP MCP：
+     - `initialize` 成功
+     - `tools/list` 成功
+     - `resources/list` 成功
+  6. 关键 fresh 事实已钉死：
+     - `resources/read(mcpforunity://instances)` 返回：
+       - `instance_count = 0`
+       - `instances = []`
+     - 也就是：
+       - MCP 服务层已恢复
+       - 但当前没有任何 Unity 实例真正接入这个 server
+  7. 因为 `instances=0`，本轮没有继续 claim：
+     - `editor_state`
+     - `read_console`
+     - `execute_menu_item`
+     - `static menu fresh`
+     这些都还不具备可信前提
+- 当前稳定结论：
+  1. 这轮静态线的当前第一 blocker 不是代码，也不是 compile red；
+  2. 当前第一 blocker 是：
+     - `unityMCP` 服务层已活
+     - 但 Unity 实例接入层仍断开
+     - 因此当前拿不到可信的 compile truth / static fresh
+  3. 所以这轮不能 claim：
+     - compile clean
+     - static menu 已 fresh 复核
+     - 静态线已闭环
+- 当前恢复点：
+  - 下一步若继续静态线，先只做“让 Unity 实例重新接回当前 `unityMCP` server”这一层；
+  - 只有 `mcpforunity://instances` 不再是 `0` 以后，才继续：
+    - `editor_state`
+    - `read_console`
+    - `execute_menu_item(Tools/Sunset/Navigation/Run Static Point Accuracy Validation)`
+  - 在实例接回前，静态线本轮应停在 external blocker 报实，不继续做 runtime 推断。
+
+## 2026-03-31（`导航检查V2 -17` 已续完完成语义一刀：premature inactive 链 fresh 过关，crowd 残留改判为独立后续）
+
+- 当前新增结论：
+  1. `导航检查V2` 这轮没有再回漂 `Service/Player` 根接盘、cleanup 或 solver，而是按 `-17` 真正把 `PlayerAutoNavigator.cs` 的完成语义续工做完：
+     - 先 fresh compile
+     - 再 fresh live
+     - 只在同链补 1 刀
+     - 再跑同矩阵复核
+  2. 由于当前 `unityMCP` 仍是 `instances=0`，它这轮 live 取证走的是已验证过的备用链：
+     - Win32 `WM_COMMAND`
+     - Unity 原生菜单
+     - `Editor.log` 增量取证
+  3. 首轮 fresh 证据已把责任点钉死到：
+     - 普通点导航仍按 `GetPlayerPosition() => Collider.center` 判完成
+     - `scenario_end` 已掉成 `pass=False / playerReached=False`
+     - 同时 `Editor.log` 的 `[Nav] 导航完成` 已显示：
+       - `Collider` 距终点约 `0.12 ~ 0.18`
+       - 但 `Transform` 仍比点击点低约 `1.0+`
+       - 并伴随 `pathCount=0 + action=Inactive`
+  4. 它随后只在 `PlayerAutoNavigator.cs:GetPlayerPosition()` 补了 1 刀：
+     - 普通点导航（`targetTransform == null`）改用 `Rigidbody/Transform` 位置收口
+     - 跟随目标仍保留 `Collider.center` 语义
+  5. 同矩阵复核结果：
+     - `SingleNpcNear raw ×2`：由 fail 翻为 pass
+     - `MovingNpc raw ×1`：由 fail 翻为 pass
+     - “终点有 NPC 停留的最接近场景”代理跑 `SingleNpcNear raw ×1`：翻为 pass
+     - `NpcAvoidsPlayer ×1 / NpcNpcCrossing ×1`：继续 pass
+     - `Crowd raw ×1`：仍 fail，但 failure 已改成 `crowdStallDuration=0.937 / playerReached=True`
+  6. 也就是说：
+     - `未到点先 Inactive/pathCount=0` 这条完成语义链这轮已被 fresh 收掉
+     - crowd 残留不再是同一条 premature inactive 链
+- 当前恢复点：
+  - 后续若继续 `导航检查V2`，下一步不该再回头重打这条完成语义链；
+  - 新的最窄残留应改判为 crowd / passive blocker 侧的拥挤拖尾与推挤链，而不是“detour 后过早失活”。
+
+## 2026-03-31（父线程静态线 fresh 复核已闭环：runner 起点与 ErrorPause 护栏收口，当前第一责任点改判回普通点 runtime 语义）
+
+- 当前主线目标：
+  - 继续父线程自己的静态点导航切片，把 `-17` 从“实例接入 blocker”推进到一次真实 fresh static menu 裁定。
+- 本轮已完成事项：
+  1. 先用原始 HTTP MCP + WebSocket probe 钉死：
+     - server 自己能正常 `welcome -> register -> registered`
+     - `mcpforunity://instances` 当前已能稳定看到真实 Unity 实例 `Sunset@21935cd3ad733705`
+     - 因而静态线已恢复到可跑 fresh 的状态，不再停在 `instances=0`
+  2. 在 `Assets/Editor/NavigationStaticPointValidationMenu.cs` 增加 static validation 专用 editor 护栏：
+     - 运行前临时关闭 `Console Error Pause`
+     - 运行结束恢复原值
+     - 这样 `GridEditorUtility.cs` 的 editor-only frustum error 不再把 Play 直接暂停卡死
+  3. 在 `Assets/YYY_Scripts/Service/Navigation/NavigationStaticPointValidationRunner.cs` 把：
+     - `runStartActorPosition`
+     从 `StartRun()` 冻结一次，改成每次 `ResetPlayerToRunStart()` 都按当前 offset 现算
+  4. 经过 refresh + fresh static menu 后，静态线已真实走完：
+     - `runtime_launch_request`
+     - `runner_started`
+     - `case_start`
+     - `case_end`
+     - `all_completed`
+  5. 最新 fresh 关键值：
+     - `case_start origin` 已恢复正常：
+       - `StaticPointCase1 origin=(-8.16, 7.38)`
+       - `StaticPointCase2 origin=(-8.16, 7.38)`
+     - `StaticPointCase1`
+       - `pass=False`
+       - `centerDistance=1.116`
+       - `rigidbodyDistance=0.155`
+       - `transformDistance=0.155`
+     - `StaticPointCase2`
+       - `pass=False`
+       - `centerDistance=1.040`
+       - `rigidbodyDistance=0.161`
+       - `transformDistance=0.161`
+     - 两个 case 的 `resolved target` 都正确，说明路点与终点解析本身没飘
+  6. 已新建给 `导航检查V2` 的下一轮 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-03-31-导航检查V2-普通地面点中心语义与static-fresh闭环-18.md`
+- 当前稳定结论：
+  1. static runner 现在已经不是第一责任点：
+     - 起点异常 `origin=-16.33,15.96` 已被收掉
+     - editor-only frustum error 也不再阻断流程
+  2. 当前普通地面点导航的第一责任点重新改判为 runtime 本体：
+     - `PlayerAutoNavigator.cs` 对普通点导航的到点语义仍更像按 `Transform / Rigidbody` 收口
+     - 而不是按玩家实际占位中心收口
+  3. 这轮 static fresh 最值钱的结论不是“静态线过了”，而是：
+     - 父线程已经把验证工具链从“跑不起来”推进到“跑完并给出 fresh verdict”
+     - 现在可以把主刀明确交还给 `PlayerAutoNavigator.cs`
+- 当前恢复点：
+  - 父线程若继续，不再碰 static runner / menu，等待 runtime 修正后再复跑同一条 static fresh；
+  - `导航检查V2` 若继续，直接转发 `-18`，只收普通地面点中心语义，不再回漂 crowd / static runner。
+
+## 2026-03-31（父线程重试复核：`-18` 仍是当前有效下一刀，`导航检查V2` 尚未越过它）
+
+- 当前主线目标：
+  - 用户要求我重试并继续父线程切片；这轮我没有再改代码，而是重新核对父线程静态线结论与 `导航检查V2` 当前线程状态，确认下一轮到底该不该继续发 `-18`。
+- 本轮已完成事项：
+  1. 重新核读：
+     - `导航检查/memory.md`
+     - `屎山修复/memory.md`
+     - 父线程 `memory_0.md`
+     - `导航检查V2` 线程 `memory_0.md`
+     - `2026-03-31-导航检查V2-普通地面点中心语义与static-fresh闭环-18.md`
+  2. 重新确认父线程自己的 static fresh verdict 仍成立：
+     - `case_start origin` 已恢复正常
+     - `centerDistance` 仍稳定高出 `rigidbodyDistance / transformDistance`
+     - static runner 已不是当前第一责任点
+  3. 继续核到 `导航检查V2` 当前线程记忆尾部仍停在：
+     - `-17` 已收掉 premature inactive
+     - 但尚未执行 `-18`
+     - 因而它还没有把“普通地面点导航中心语义”这条新 runtime 主刀真正吃掉
+- 当前稳定结论：
+  1. `-18` 没有过期；
+  2. 父线程当前不需要继续改 static runner / menu；
+  3. 当前最正确的下一步仍是把 `-18` 直接转发给 `导航检查V2`，让它只收普通地面点中心语义。
+- 当前恢复点：
+  - 父线程保持在验证位；
+  - 等 `导航检查V2` 执行完 `-18` 后，再复跑同一条 static fresh 做闭环裁定。

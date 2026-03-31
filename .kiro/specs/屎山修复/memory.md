@@ -2389,3 +2389,129 @@
      - 把 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 继续当成自己 fresh proof 现场
 - 当前恢复点：
   - 第二轮若继续清扫，应先按这轮定责结果分发，而不是继续让 `导航检查V2` 凭历史范围顺手吞 runner / static / scene / GameInput。
+
+## 2026-03-31（父层补记：清扫轮次开始前的导航全局阶段已重新统一口径）
+
+- 当前新增结论：
+  1. 清扫轮次开始前，导航线的真实阶段不是“已经只差 cleanup”，也不是“前面都白做”；
+  2. 更准确的父层口径应是：
+     - 运行时功能已经从失控态推进到部分可用；
+     - 一些常规 probe 与整包 `RunAll` 曾连续拿到绿态；
+     - `single 0.462` 也已被确认是 validation false positive；
+     - 但高保真矩阵与用户真实手测共同证明，ground 契约、静止 NPC、moving NPC、crowd、终点前 blocker 这些体验层问题仍未过线；
+     - 同时 same-root dirty 与 mixed-root 依赖仍在阻断安全归仓。
+  3. 因而后续之所以同时出现：
+     - `导航检查V2` 继续窄修 `PlayerAutoNavigator`
+     - 父线程 / 子线程进入全局警匪定责清扫
+     不是主线漂移，而是功能残差与工程收口在同一阶段并存。
+- 当前恢复点：
+  - 后续父层对外汇报“清扫前全局进度”时，统一使用上述三段式表述：
+    - 有进展
+    - 未过线
+    - 也未具备安全收口条件
+
+## 2026-03-31（父层补记：清扫前双线开发落点已拆清）
+
+- 当前新增结论：
+  1. 清扫前的导航开发实际上分成两条真实 active 线：
+     - 父线程自己的静态点导航 / static validation runner 线
+     - `导航检查V2` 的动态 `PlayerAutoNavigator` runtime 线
+  2. 父线程线当时已推进到：
+     - 普通点契约改到中心语义
+     - static runner 多轮收口
+     - `EnsureBindings()` 绑定一致性补丁已落
+     - 只差 compile-clean 条件下重跑 static menu 做 fresh 复核
+  3. `导航检查V2` 线当时已推进到：
+     - pure bulldoze 被打破
+     - 剩余责任点改判为 `detour/rebuild` 后未到点先 `Inactive/pathCount=0`
+     - 父线程已连续准备好 `-14/-15/-16` 这一串同链 prompt
+  4. 2026-03-29 的 cleanup 插入点，发生在“下一轮开发 prompt 已准备好、但用户尚未转发完”的时刻；因此后续看起来像“突然改做清扫”，本质上是开发链被治理批次中断，不是没有下一步。
+
+## 2026-03-31（父层补记：基于 `导航检查V2` 新反省，已重新把下一步收成双线 `-17`）
+
+- 当前新增结论：
+  1. `导航检查V2` 的最新反省，父层可接受的部分是：
+     - 它终于承认清扫前没做完的是 `PlayerAutoNavigator` 完成语义闭环，而不是“整条导航已经做完”
+  2. 父层不接受的部分是：
+     - 它仍有把“工程线已抬头”偷换成“对它来说下一步自然应切根接盘”的倾向
+  3. 因而父层这轮已正式把下一步重拆成两份硬切片 prompt：
+     - `导航检查V2`：`2026-03-31-导航检查V2-PlayerAutoNavigator-完成语义续工与fresh闭环-17.md`
+     - 父线程自己：`2026-03-31-父线程自工单-静态点导航fresh复核与runner绑定闭环-17.md`
+  4. 当前正式口径变为：
+     - `导航检查V2` 继续只做动态完成语义闭环
+     - 父线程继续只做静态 fresh 复核
+     - 两边都不再拿“历史阶段分析”替代当前施工刀口
+
+## 2026-03-31（父层补记：父线程静态线第一次执行 `-17` 停在 Unity 实例接入层 blocker）
+
+- 当前新增结论：
+  1. 父线程已真实开始执行自己的 `-17` 自工单，而不是继续停留在 prompt / 历史讨论；
+  2. 当前静态线第一 blocker 不是 `NavigationStaticPointValidationRunner.cs` 代码本身，也不是 compile red；
+  3. 最新现场是：
+     - `unityMCP` 服务层已恢复可握手
+     - 但 `mcpforunity://instances` 返回 `instance_count=0`
+     - 所以当前没有 Unity 实例真正接入 server
+  4. 因而父线程静态线当前准确状态应写成：
+     - compile truth / static fresh 暂不可取
+     - 外部 blocker 在 Unity 实例接入层
+
+## 2026-03-31（父层补记：`导航检查V2` 已用 `-17` 收掉玩家点导航 premature inactive 链）
+
+- 当前新增结论：
+  1. `导航检查V2` 这轮已经把被 cleanup 打断的 `PlayerAutoNavigator.cs` 完成语义一刀真实续完；
+  2. 首轮 fresh 已证实：
+     - 玩家点导航会在 `Collider.center` 靠近终点后提前 `CompleteArrival()`
+     - 当时 `Transform` 仍明显未到点
+     - 并带出 `Inactive/pathCount=0`
+  3. 它随后只在 `GetPlayerPosition()` 做了普通点导航 vs 跟随目标的语义拆分：
+     - 点导航走 `Rigidbody/Transform`
+     - 跟随目标仍走 `Collider.center`
+  4. 同矩阵复核后：
+     - `SingleNpcNear / MovingNpc / 终点 NPC 代理` 全部翻到 `playerReached=True`
+     - `Inactive/pathCount=0` 签名消失
+     - `Crowd raw` 仍 fail，但已改成独立的 crowd stall 残留
+- 当前恢复点：
+  - 从父层视角看，`导航检查V2` 的当前第一未完项已不再是完成语义，而是 crowd / passive blocker 的后续体验链；
+  - 后续任何续工 prompt 都不应再把 `PlayerAutoNavigator` 的 premature inactive 旧锅写成当前主锅。
+
+## 2026-03-31（父层补记：父线程静态线已把 fresh verdict 跑出来，普通点中心语义重新成为动态线当前主刀）
+
+- 当前新增结论：
+  1. 父线程自己的静态点导航切片，已经从“Unity 实例未接入，fresh 暂不可取”推进到“fresh static menu 已真实跑完并给出裁定”；
+  2. 父线程这轮在 own scope 内补了两刀：
+     - `NavigationStaticPointValidationMenu.cs`：validation 期间临时关闭并恢复 `Console Error Pause`
+     - `NavigationStaticPointValidationRunner.cs`：每次 reset 时现算 `runStartActorPosition`
+  3. 这两刀之后：
+     - `case_start origin` 已恢复到 `(-8.16, 7.38)`
+     - static runner 不再停在 `case_start`
+     - `all_completed` 已能正常打出
+  4. 最新 fresh 同时也把新的 runtime 责任点钉死了：
+     - `StaticPointCase1 / 2` 都仍 `pass=False`
+     - 但失败签名已经稳定变成：
+       - `centerDistance≈1.04~1.12`
+       - `rigidbodyDistance≈0.155~0.161`
+       - `transformDistance≈0.155~0.161`
+     - 且 `resolved target` 正确
+  5. 这说明当前普通地面点导航的核心残差，不再是 static runner 或 fresh 工具链，而是：
+     - `PlayerAutoNavigator.cs` 对普通点导航仍按 `Transform / Rigidbody` 收口
+     - 没有按玩家实际占位中心收口
+  6. 父线程已据此新建 `导航检查V2` 下一轮 prompt：
+     - `2026-03-31-导航检查V2-普通地面点中心语义与static-fresh闭环-18.md`
+- 当前恢复点：
+  - 父线程静态线接下来不该继续扩题，保持为“runtime 修后再复跑 static fresh”的验证位；
+  - `导航检查V2` 的当前主刀应从 crowd 暂时收窄回：
+    - `PlayerAutoNavigator.cs`
+    - 普通地面点导航中心语义
+    - 用 static fresh 直接验。
+
+## 2026-03-31（父层补记：重试复核后确认 `-18` 仍是 live 入口）
+
+- 当前新增结论：
+  1. 父线程已重新核对 `导航检查V2` 当前线程记忆，确认它最新已完成的是 `-17`，尚未越过 `-18`；
+  2. 因而父层此前写出的
+     `2026-03-31-导航检查V2-普通地面点中心语义与static-fresh闭环-18.md`
+     仍是当前有效 live 入口，而不是过期 prompt；
+  3. 当前这条线不需要再生新 prompt，也不需要父线程继续改 static runner；最正确的动作仍是把 `-18` 直接发给 `导航检查V2`。
+- 当前恢复点：
+  - 父线程继续保持静态验证位；
+  - 动态线继续只收 `PlayerAutoNavigator.cs` 的普通点中心语义，修后再回父线程复跑 static fresh。
