@@ -3401,3 +3401,22 @@
   - 回执回来后，再决定是：
     1. 直接清掉 6 份 churn
     2. 还是继续开 importer 稳定化 deeper slice。
+
+## 2026-03-31｜共享 TMP 字体已 clean，最后一刀改成 `SpringUI` memory docs-only 收口
+
+- 当前主线目标：
+  - 用户继续要求我直接推进；
+  - 共享 TMP 中文字体 6 资产已回到 `HEAD` 后，当前治理主线只剩最后一条工作区记忆尾账。
+- 本轮已完成：
+  1. 已确认当前仓库只剩 1 条 dirty：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+  2. 已确认这不是业务实现残面，而是 `2026-03-31` 的 `Primary` 迁移意图只读裁定补记尚未 docs-only sync。
+  3. 已新增最后一条可直接发出的 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_UI-V1_SpringUI记忆尾账docs-only归仓_02.md`
+- 本轮新增稳定结论：
+  1. 当前最合理的接收线程是 `UI-V1 / SpringUI`；
+  2. 这条 prompt 不是 UI 业务续工，而只是最后一条工作区 memory docs-only 收口；
+  3. 如果这条也过线，当前仓库就应进入整仓 clean。
+- 当前恢复点：
+  - 下一步只需把这条 docs-only prompt 交给用户转发；
+  - 然后等回执，再做最后一次仓库 clean 验收。

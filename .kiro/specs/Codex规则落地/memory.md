@@ -8128,6 +8128,30 @@
     1. 能否整根回到 `HEAD`
     2. 还是必须单独继续做 importer 稳定化 deeper slice。
 
+## 2026-03-31｜共享 TMP 字体 churn 已回到 `HEAD`，当前仓库只剩 `SpringUI` memory 尾账
+
+- 当前主线目标：
+  - 用户继续要求我“直接开始下一步”；
+  - 在共享 TMP 中文字体 6 资产也已回到 `HEAD` 后，当前仓库现场只剩最后一条 dirty：`SpringUI` 工作区 memory。
+- 本轮子任务：
+  1. 核当前剩余 dirty 是否真的只剩 `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+  2. 把这最后一条 docs-only 尾账压成可直接发出的硬切片 prompt
+- 本轮已完成：
+  1. 已确认当前仓库 `git status --short` 只剩：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+  2. 已确认这条 dirty 的内容只是：
+     - `2026-03-31` 那条 `Primary` 迁移意图只读裁定补记
+     - 不是新的业务实现
+  3. 已新增最后一条 docs-only prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_UI-V1_SpringUI记忆尾账docs-only归仓_02.md`
+- 当前关键判断：
+  1. 这轮已经不是业务收口，而是最后一条工作区记忆尾账收口。
+  2. 这条线应发给 `UI-V1 / SpringUI`，不是因为它又要继续做 UI，而是因为这份 memory 本来就属于它自己的工作区。
+  3. 如果这条 docs-only 也过线，那么当前 Sunset 仓库现场就会进入真正的整仓 clean。
+- 当前恢复点：
+  - 下一步只发这条 `SpringUI` memory docs-only prompt；
+  - 回执回来后，再做最后一次整仓 clean 复核。
+
 ## 2026-03-31｜共享 TMP 中文字体 6 资产已整根回到 `HEAD` 基线
 
 - 当前主线目标：
