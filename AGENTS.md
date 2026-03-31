@@ -27,6 +27,29 @@
   12. 如果 `changed_paths` 包含 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`，回执除固定最小字段外还必须额外补：
       - `touched_touchpoints`
       - 用来明确本轮到底改了哪些方法、入口链或行为判定点
+  12A. 从 2026-03-31 起，普通线程只要从“只读分析”进入“开始做一刀真实施工”，就必须先登记一次 `thread-state`：
+      - 入口脚本：`D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Begin-Slice.ps1`
+      - 这一步不是可选提示，而是当前 live 并发规则的一部分
+      - 不需要在纯只读分析阶段就登记；一旦准备真正改 tracked 内容、接盘 hot target、或开始形成本轮白名单切片，就必须登记
+  12B. `Begin-Slice` 至少要报实 4 件事：
+      - `ThreadName`
+      - `CurrentSlice`
+      - `TargetPaths`
+      - 如果命中共享热点文件，再额外报 `SharedTouchpoints`
+  12C. 从 2026-03-31 起，普通线程在准备执行白名单 `sync` 前，必须先跑：
+      - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Ready-To-Sync.ps1`
+      只有它通过后，才算进入真正可收口状态；如果它报 blocker，就先停在 blocker，不得跳过
+  12D. 线程如果中途暂停、卡住、让出现场、或本轮不再继续收口，必须跑：
+      - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Park-Slice.ps1`
+      不再允许“人已经停了，但 live 状态层还显示 ACTIVE”
+  12E. 治理位、典狱长位和 integrator 需要看当前谁在施工、谁卡住、谁 ready 时，默认先看：
+      - `D:\Unity\Unity_learning\Sunset\.kiro\scripts\thread-state\Show-Active-Ownership.ps1`
+      不再只靠 memory、回执和人脑追问还原现场
+  12F. 过渡规则：
+      - 已经在施工中的旧线程不要求废弃重开
+      - 但从现在起，最晚必须在“下一次真实继续施工前”补一次 `Begin-Slice`
+      - 最晚必须在“第一次准备 sync 前”补一次 `Ready-To-Sync`
+      - 如果当前这轮决定先停，则直接补 `Park-Slice`
   13. 从现在起，必须明确区分“给治理看的最小回执”和“给用户看的用户可读汇报”；两者不再视为同一种文本。
   14. 只要汇报对象是用户，或用户问的是“现在做到了什么 / 还剩什么 / 下一步做什么 / 到哪个阶段了”，回复必须先交 `用户可读汇报层`，并把下面 6 项作为 `保底六点卡` 逐项显式输出，顺序不得打乱、不得合并、不得省略：`当前主线 / 这轮实际做成了什么（按功能点） / 现在还没做成什么 / 当前阶段 / 下一步只做什么 / 需要用户现在做什么`。
   15. `保底六点卡` 的空项也不允许跳过；如果这轮某项没有内容，必须直接写明 `无 / 尚未 / 不需要 / 仍待验证` 之类的明确答案，不能留空、不能写“同上”、不能让用户自己从后文猜。
