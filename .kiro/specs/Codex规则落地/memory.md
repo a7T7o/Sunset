@@ -8127,3 +8127,45 @@
   - 等回执回来后，再判断：
     1. 能否整根回到 `HEAD`
     2. 还是必须单独继续做 importer 稳定化 deeper slice。
+
+## 2026-03-31｜共享 TMP 中文字体 6 资产已整根回到 `HEAD` 基线
+
+- 当前主线目标：
+  - 不再继续 `Day1 / UI / Primary`；
+  - 当前唯一主线是按 `2026-03-31_典狱长_spring-day1_TMP中文字体稳定性回到已提交基线判定_02.md`，只判并处理 6 份共享 TMP 中文字体 dirty 能不能整根安全回到已提交基线。
+- 本轮子任务：
+  1. 复核 `TMP 中文字体稳定性` 立案、治理 memory、线程 memory、父工作区 memory
+  2. 核对这 6 份资产当前 dirty 的结构是否符合 importer / atlas / glyph churn
+  3. 若可安全回基线，则只把这 6 份资产恢复到 `HEAD`
+- 本轮已完成：
+  1. 已确认当前 churn 的 6 份资产正是：
+     - `DialogueChinese BitmapSong SDF.asset`
+     - `DialogueChinese Pixel SDF.asset`
+     - `DialogueChinese SDF.asset`
+     - `DialogueChinese SoftPixel SDF.asset`
+     - `DialogueChinese V2 SDF.asset`
+     - `LiberationSans SDF - Fallback.asset`
+  2. 已确认当前 diff 仍是大规模 atlas / glyph / character 膨胀：
+     - `15133 insertions`
+     - `410 deletions`
+  3. 已确认 `HEAD` 中这 6 个文件本身全部存在，且外部 live 引用仍指向这些同路径、同 GUID 的资产身份，而不是依赖未提交 churn 的新文件身份
+  4. 已实际执行：
+     - 只把这 6 份资产恢复到 `HEAD`
+  5. 恢复后已复核：
+     - 这 6 份文件 `git status` 为空
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials` 下这批 dirty 已清空
+- 当前关键判断：
+  1. 这轮结果应记为 `A`
+  2. 当前可以安全回基线的根因，不是“这些字体不再被业务引用”，而是：
+     - 业务仍然引用的是这 6 个文件本身
+     - 恢复到 `HEAD` 不会改路径、不改 GUID、不改外部引用链
+     - 当前 dirty 主要表现为 importer / atlas / glyph 副产物膨胀，而不是未提交的业务成果
+  3. 这轮没有触碰：
+     - `Primary`
+     - `DialogueChineseFontAssetCreator.cs`
+     - 业务代码
+     - prefab
+     - scene
+- 当前恢复点：
+  - 共享 TMP 中文字体这 6 资产当前已回到已提交基线；
+  - 如果后续还要继续这个案子，不该再从“带着当前 churn 继续业务 sync”进入，而应在独立稳定化切片里重新判断 importer 风险。

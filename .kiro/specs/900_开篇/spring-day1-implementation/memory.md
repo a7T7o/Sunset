@@ -1558,3 +1558,83 @@
      - `代码闸门通过 = True`
 - 当前恢复点：
   - 当前剩余 Spring Story 包已重新回到可 `sync` 状态；下一步只剩同白名单 `sync`。
+
+## 2026-03-31 补记：Primary 单 writer 第一刀卡在 `deleted canonical path + stale NPC lock`
+
+- 当前父工作区主线不是继续 UI、不是继续 Day1 剧情，也不是继续讨论 `Primary` 迁移语义；这轮主线是按 `2026-03-31_典狱长_spring-day1_Primary单writer恢复旧canonical_01.md`，尝试把 `Assets/000_Scenes/Primary.unity` 旧 canonical path 恢复回来。
+- 本轮只读核查后的稳定事实：
+  1. `HEAD` 里旧 canonical path 仍存在：
+     - `Assets/000_Scenes/Primary.unity`
+     - `Assets/000_Scenes/Primary.unity.meta`
+  2. 当前 working tree 的确把旧 canonical path 删掉了：
+     - `D Assets/000_Scenes/Primary.unity`
+     - `D Assets/000_Scenes/Primary.unity.meta`
+  3. `.kiro/locks/active/A__Assets__000_Scenes__Primary.unity.lock.json` 仍存在，且内容仍显示：
+     - `owner_thread = NPC`
+     - `task = primary-scene-takeover`
+     - `expected_release_at = 2026-03-27T19:17:21+08:00`
+  4. 标准锁脚本当前对删除目标会直接失败：
+     - `Check-Lock.ps1 -TargetPath 'Assets/000_Scenes/Primary.unity'`
+     - 返回：`Target path does not exist`
+- 本轮第一真实 blocker：
+  - 不是“文件无法从 HEAD 恢复”
+  - 而是：**当前是 `deleted canonical path + stale NPC active lock` 的 hot-file 接盘面**
+- 为什么这轮不能继续写：
+  1. 旧路径 scene 本体被删，`Check-Lock.ps1` / `Acquire-Lock.ps1` 的目标解析都会先因目标不存在而失败；
+  2. active lock 文件又还在，不能诚实地把它报成“当前无锁可写”；
+  3. `Release-Lock.ps1` 只允许当前 owner 释放，而现有 owner 仍是 `NPC`，所以我这轮不能合法替别人解锁后再写。
+- 本轮实际做到哪一步：
+  1. 已确认旧 canonical path 内容仍在 `HEAD`
+  2. 已确认旧路径当前删除面属实
+  3. 已确认 stale NPC lock 仍在且是当前第一真实阻断
+  4. 未对任何 `scene / Build Settings / Editor` 业务文件落写
+- 当前恢复点：
+  - 后续若还要继续这条 single-writer 第一刀，下一步应先处理锁接盘现实，再恢复旧 canonical path；
+  - 在这之前，不应把这轮包装成“无锁可写”或“已开工成功”。
+
+## 2026-03-31 补记：`Primary` 新路径 duplicate sibling 已按 `A` 删除并完成最小归仓
+
+- 当前父工作区主线不再是恢复旧 canonical path，也不是继续 UI / Day1 feature；这轮主线是按 `2026-03-31_典狱长_spring-day1_Primary新路径duplicate处置_02.md`，只收 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)` 这份 same-GUID duplicate sibling。
+- 本轮稳定事实：
+  1. `Assets/222_Prefabs/UI/Spring-day1/Primary.unity.meta` 与 `Assets/000_Scenes/Primary.unity.meta` 在处置前确实同 GUID：
+     - `a84e2b409be801a498002965a6093c05`
+  2. `UI-V1` 的只读裁定已成立：
+     - 新路径 `Primary` 不是最终 canonical path
+     - 只是迁移 sibling / 临时复制面
+  3. 本轮没有发现任何仍要求保留它作为 live canonical scene 的现实入口：
+     - 未触碰 `Assets/000_Scenes/Primary.unity(.meta)`
+     - 未触碰 `ProjectSettings/EditorBuildSettings.asset`
+     - 未触碰 `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+- 本轮已完成：
+  1. 已按 `A` 删除：
+     - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity`
+     - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity.meta`
+  2. 已真实跑过同组最小白名单 `preflight -> sync`
+  3. 提交 SHA：
+     - `1e07d04039669a445b3697da05aefe43e48aca0a`
+- 当前恢复点：
+  - `Primary` 新路径 duplicate 这一步已经结束，仓库里不再同时存在两份同 GUID 的 `Primary`
+  - 后续若再继续 `Primary` 相关工作，不应再回头碰这份 duplicate sibling 的身份处置题。
+
+## 2026-03-31 补记：共享 TMP 中文字体 6 资产已回到 `HEAD` 基线
+
+- 当前父工作区主线不是继续 Day1 feature，也不是继续 UI / Primary；这轮主线是按 `2026-03-31_典狱长_spring-day1_TMP中文字体稳定性回到已提交基线判定_02.md`，只处理 `Assets/TextMesh Pro/Resources/Fonts & Materials` 下 6 份共享 TMP 中文字体 dirty。
+- 本轮稳定事实：
+  1. 当前目标资产仅限：
+     - `DialogueChinese BitmapSong SDF.asset`
+     - `DialogueChinese Pixel SDF.asset`
+     - `DialogueChinese SDF.asset`
+     - `DialogueChinese SoftPixel SDF.asset`
+     - `DialogueChinese V2 SDF.asset`
+     - `LiberationSans SDF - Fallback.asset`
+  2. 这批 dirty 的结构仍符合 importer / atlas / glyph / character 膨胀，而不是新增业务文件：
+     - `15133 insertions`
+     - `410 deletions`
+  3. `HEAD` 中这 6 个资产本身都已存在；外部引用仍通过原 GUID 指向这些同一资产身份，因此回到 `HEAD` 不会断 live 引用链
+- 本轮已完成：
+  1. 已只把这 6 份字体资产恢复到 `HEAD`
+  2. 恢复后已复核这 6 份文件 `git status` 为空
+  3. 未触碰生成器、`Primary`、业务代码、prefab、scene
+- 当前恢复点：
+  - 这轮共享 TMP 中文字体 churn 已清掉；
+  - 若后续还要继续该案，不应再把“未提交 churn”带回业务线，而应单独做 importer 稳定化分析。

@@ -1409,3 +1409,148 @@
   - 这轮已经不再是 blocker 报实，而是进入可直接 `sync` 的收口前状态
   - 下一步只做同组白名单 `sync`
   - 如果 `sync` 仍失败，才改回“第一真实 blocker”口径
+
+## 2026-03-31 线程补记：Primary 迁移意图已裁成 `B`，新路径只是迁移 sibling 不是最终 canonical path
+
+- 当前线程主线：
+  - 不是继续做 `Story/UI`
+  - 不是继续跑 `preflight -> sync`
+  - 当前唯一主线改为执行 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-30_典狱长_UI-V1_确认Primary迁移意图_01.md`
+- 本轮子任务：
+  1. 读取 `2026-03-30_单独立案_Primary.unity删除面_01.md`
+  2. 回看当前线程与 `SpringUI` 工作区 memory
+  3. 结合当前仓库现场，回答 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 到底是不是我们当初想保留的最终 canonical path
+- 本轮最终裁定：
+  - `B｜迁移 sibling / 临时复制面`
+- 我选 `B` 的直接证据：
+  1. 我自己在 `2026-03-29_UI-V1_全局警匪定责清扫第一轮回执_01.md` 已明确写过：
+     - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 是否 scene owner：`否`
+     - 当前定位：`UI evidence-only / mixed incident`
+  2. 2026-03-30 那轮把它纳入白名单时，我写死的口径也是：
+     - `按迁移 sibling 一起处理`
+     - 不是“确认它是新的 canonical Primary”
+  3. 当前仓库现场仍显示：
+     - `ProjectSettings/EditorBuildSettings.asset` 指向 `Assets/000_Scenes/Primary.unity`
+     - `Assets/Editor/NPCAutoRoamControllerEditor.cs` 仍硬编码旧路径
+     - `HEAD` 里旧路径和新路径 `.meta` 是同 GUID：`a84e2b409be801a498002965a6093c05`
+- 因此这轮稳定结论：
+  - 我之所以“带过它”，只代表我在 `Story/UI` 整根接盘时把它当 sibling 一起收口；
+  - 这不等于它已经完成 canonical 迁移；
+  - 旧路径 `Assets/000_Scenes/Primary.unity` 当前不能直接删掉提交。
+- 当前恢复点：
+  - 这轮只读语义裁定已经完成；
+  - 若后续真要做这案子，最合理动作不是继续让 UI-V1 直接修 scene，而是另开 `Primary.unity` single-writer 案：
+    1. 先恢复旧 canonical path
+    2. 再决定新路径 scene 是删、改 GUID，还是另立正式迁移
+
+## 2026-03-31 线程补记：Primary 单 writer 第一刀当前结果为 `B｜stale NPC lock blocker`
+
+- 当前线程主线：
+  - 不再继续 UI
+  - 不再继续 Day1 剧情
+  - 不再继续讨论迁移语义
+  - 当前唯一主线改为执行 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_spring-day1_Primary单writer恢复旧canonical_01.md`
+- 本轮子任务：
+  1. 读取 `Primary` 删除面立案、治理 memory、线程 memory、父工作区 memory
+  2. 核对 `.kiro/locks/active/A__Assets__000_Scenes__Primary.unity.lock.json`
+  3. 判断是否能在不触碰超白名单文件的前提下，先把 `Assets/000_Scenes/Primary.unity(.meta)` 恢复回 `HEAD`
+- 本轮稳定结论：
+  - 旧 canonical path 目前**没有恢复**
+  - 第一真实 blocker 不是 `git restore` 能力问题，而是：
+    - `Assets/000_Scenes/Primary.unity` 当前是删除面
+    - 同时 `.kiro/locks/active/A__Assets__000_Scenes__Primary.unity.lock.json` 仍是 active stale NPC lock
+  - 这意味着当前准确口径必须是：
+    - `deleted canonical path + stale NPC lock`
+    - 不能伪报成“当前无锁可写”
+- 本轮直接证据：
+  1. `HEAD` 仍跟踪：
+     - `Assets/000_Scenes/Primary.unity`
+     - `Assets/000_Scenes/Primary.unity.meta`
+  2. 当前 working tree：
+     - `D Assets/000_Scenes/Primary.unity`
+     - `D Assets/000_Scenes/Primary.unity.meta`
+  3. lock 文件内容：
+     - `owner_thread = NPC`
+     - `task = primary-scene-takeover`
+     - `expected_release_at = 2026-03-27T19:17:21+08:00`
+  4. 实跑：
+     - `Check-Lock.ps1 -TargetPath 'Assets/000_Scenes/Primary.unity'`
+     - 直接报：`Target path does not exist`
+- 为什么现在还不能写：
+  1. 目标文件不存在，标准锁脚本无法正常对目标做锁态判断或重新发锁；
+  2. active lock 文件又还在，所以不能诚实地把现场说成 unlocked；
+  3. `Release-Lock.ps1` 只允许当前 owner 释放，而当前 owner 仍是 `NPC`。
+- 本轮实际做到哪一步：
+  - 只读完成：
+    - HEAD 基线确认
+    - 删除面确认
+    - stale lock 确认
+    - 锁脚本失败模式确认
+  - 未触碰：
+    - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity(.meta)`
+    - `ProjectSettings/EditorBuildSettings.asset`
+    - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+    - 任何 scene 内容写入
+- 当前恢复点：
+  - 这轮结果应按 `B｜第一真实 blocker` 回执；
+  - 若后续继续，应先处理 stale NPC lock 的接盘现实，再回到“恢复旧 canonical path”这一步。
+
+## 2026-03-31 线程补记：`Primary` 新路径 duplicate sibling 已按 `A` 删除并真实 sync
+
+- 当前线程主线：
+  - 不再继续旧 canonical path 恢复，不再继续讨论迁移语义；
+  - 当前唯一主线改为执行 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_spring-day1_Primary新路径duplicate处置_02.md`
+- 本轮子任务：
+  1. 读取治理 prompt、`Primary` 删除面立案、治理 memory、线程 memory、父工作区 memory
+  2. 核实 `Assets/222_Prefabs/UI/Spring-day1/Primary.unity.meta` 与 `Assets/000_Scenes/Primary.unity.meta` 同 GUID
+  3. 只在 `A 删除 duplicate sibling` 与 `B 改独立 GUID sibling` 之间做最小裁定，并真实跑 `preflight -> sync`
+- 本轮稳定结论：
+  - 最终采用 `A`
+  - `Assets/222_Prefabs/UI/Spring-day1/Primary.unity` 没有继续保留为 tracked scene 的必要
+  - 这轮不需要走 `B` 改 GUID，也不需要回头碰旧 canonical path
+- 本轮直接证据：
+  1. 处置前两份 `.meta` 的 GUID 都是：
+     - `a84e2b409be801a498002965a6093c05`
+  2. 删除后对 `Assets` 根重新检索同 GUID，只剩：
+     - `Assets/000_Scenes/Primary.unity.meta`
+  3. 本轮最小白名单 `preflight` 已过，且 `sync` 已过：
+     - 提交 `1e07d04039669a445b3697da05aefe43e48aca0a`
+- 本轮未触碰：
+  - `Assets/000_Scenes/Primary.unity(.meta)`
+  - `ProjectSettings/EditorBuildSettings.asset`
+  - `Assets/Editor/NPCAutoRoamControllerEditor.cs`
+  - 任何 scene 内容写入
+- 当前恢复点：
+  - 这轮 duplicate sibling 处置已经闭环；
+  - 当前工作树里仍有其他 unrelated dirty / own dirty，不应误说成线程整体已 clean，但这刀本身已经真实归仓。
+
+## 2026-03-31 线程补记：共享 TMP 中文字体 6 资产已按 `A` 回到 `HEAD`
+
+- 当前线程主线：
+  - 不再继续 `Day1` 剧情、`Primary` 或 UI 终验；
+  - 当前唯一主线改为执行 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-03-31_典狱长_spring-day1_TMP中文字体稳定性回到已提交基线判定_02.md`
+- 本轮子任务：
+  1. 读取 `TMP 中文字体稳定性` 立案、治理 memory、线程 memory、父工作区 memory
+  2. 判断 6 份共享字体资产当前 dirty 是否可以整根安全回到 `HEAD`
+  3. 若可以，则实际恢复并复核
+- 本轮稳定结论：
+  - 最终采用 `A`
+  - 这 6 份资产当前可以整根安全回到 `HEAD`
+  - 当前 dirty 更像 importer / atlas / glyph 副产物，而不是必须保留的未提交业务成果
+- 本轮直接证据：
+  1. `HEAD` 中这 6 个资产都已存在
+  2. 外部引用仍指向相同 GUID 的资产身份：
+     - `Primary.unity`
+     - `DialogueFontLibrary_Default.asset`
+     - `SpringDay1PromptOverlay.prefab`
+     - `SpringDay1WorkbenchCraftingOverlay.prefab`
+     - `NPC 001/002/003.prefab`
+  3. 恢复后这 6 个文件的 `git status` 已为空
+- 本轮未触碰：
+  - `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs`
+  - `Assets/111_Data/UI/Fonts/Dialogue/DialogueFontLibrary_Default.asset`
+  - 任何业务代码
+  - 任何 prefab / scene / Build Settings / `Primary`
+- 当前恢复点：
+  - 这轮只完成了“把 6 份共享字体 churn 清回已提交基线”；
+  - 不应误说成整条 `spring-day1` 已 clean，也不应误说成共享字体稳定性根因已经被彻底修好。
