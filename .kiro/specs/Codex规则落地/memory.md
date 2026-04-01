@@ -76,6 +76,43 @@
   - 执行层吞吐、持槽压缩、等待态承载面问题统一转入新工作区
   - 后续若只是继续提速开发，不再回到这里追加“新阶段”
 
+### 会话 16 - 2026-04-01（UI 打断后改走 NPC / spring-day1V2 只读问卷，先重裁共享文件 owner）
+**用户目标**：
+> 不要继续靠我自己猜谁在干什么，也不要再只靠偷窥状态层；既然 `UI` 已经被打断并 `PARKED`，那就正大光明给相关线程发问卷，重新问清 `NPC` 和 `spring-day1V2` 到底谁还是这批 Story 共享文件的真实继续 owner。
+
+**已完成事项**：
+1. 重新核对 live 现场，而不是沿用上一轮旧判断：
+   - `UI` 当前没有 active-state 文件；
+   - `NPC.json` 与 `spring-day1V2.json` 当前都已是 `PARKED`；
+   - working tree 里与这刀直接相关的共享文件仍真实 dirty / untracked。
+2. 回读并吸收了 4 组关键依据：
+   - `UI` 最新回执（已改文件 + 已 `Park-Slice`）
+   - `场景搭建（外包）` 线程记忆
+   - `SpringUI` 工作区记忆与 `Story 向 UI/UE 集成 owner 边界与派工约定`
+   - `NPC / spring-day1V2` 当前 state 与 memory
+3. 基于这组新证据，改判当前最稳的治理动作不是继续追 `UI`，而是：
+   - `UI` 维持 `PARKED`
+   - 只给 `NPC` 与 `spring-day1V2` 发一轮只读 owner 审计问卷
+4. 已新建 3 份治理文件：
+   - `2026-04-01_批次分发_14_UI打断后Story-NPC-Day1边界重裁_01.md`
+   - `2026-04-01_典狱长_NPC_UI打断后共享文件收边界问卷_01.md`
+   - `2026-04-01_典狱长_spring-day1V2_UI打断后owner真伪复核问卷_01.md`
+
+**关键决策**：
+- 当前不能再把 `UI / NPC / spring-day1V2` 这组三方混改继续放着跑。
+- 但这轮也不该直接替它们拍板谁继续写代码；先做只读问卷，把 owner 真相和 stale state 问清楚，再决定谁继续施工。
+- 这轮 prompt 刻意不追加 `thread-state` 续工尾巴，因为它们本轮不应进入真实施工，只做 owner 审计。
+
+**涉及文件**：
+- [2026-04-01_批次分发_14_UI打断后Story-NPC-Day1边界重裁_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-01_批次分发_14_UI打断后Story-NPC-Day1边界重裁_01.md)
+- [2026-04-01_典狱长_NPC_UI打断后共享文件收边界问卷_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-01_典狱长_NPC_UI打断后共享文件收边界问卷_01.md)
+- [2026-04-01_典狱长_spring-day1V2_UI打断后owner真伪复核问卷_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-01_典狱长_spring-day1V2_UI打断后owner真伪复核问卷_01.md)
+
+**恢复点 / 下一步**：
+- 现在应由用户把这两份问卷分别转发给 `NPC` 与 `spring-day1V2`。
+- 收到回执后，下一轮治理只做一件事：
+  - 把共享文件裁成“谁继续 own / 谁释放 / 谁只是 stale state”，再决定是否继续发施工 prompt。
+
 ## 最近会话
 
 ### 会话 10 - 2026-03-19（跳出整个工作区后的方向重判）

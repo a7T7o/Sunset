@@ -3595,3 +3595,28 @@
   3. 如果不先处理这组 overlap，后面的 `Ready-To-Sync` 再健康，也只能在更晚阶段才把冲突暴露出来。
 - 当前恢复点：
   - 后续若继续治理，第一优先级不是再补规则，而是先给这两条 ACTIVE 做切根、停一条或显式 shared 化。
+
+## 2026-04-01｜UI 已被正面打断后，治理动作改为“只问 NPC / spring-day1V2，不再追 UI 继续实现”
+
+- 当前主线目标：
+  - 用户明确要求我不要只靠偷窥状态层，而是正大光明向相关线程发问卷，把 `UI` 打断后的 owner 真相问清楚。
+- 本轮子任务：
+  1. 重新核 `UI / NPC / spring-day1V2` 的最新状态
+  2. 只生成新的治理问卷，不越位写业务代码
+- 本轮已完成：
+  - 重新确认 `UI` 没有 active-state，且已回执：
+    - 自己这轮碰了 `NPCInformalChatInteractable.cs`、`SpringDay1WorldHintBubble.cs`、`SpringDay1DialogueProgressionTests.cs`
+    - 现场仍有未跟踪 `SpringDay1ProximityInteractionService.cs`、`SpringDay1InteractionPromptRuntimeTests.cs`
+    - 当前状态已 `PARKED`
+  - 重新确认 `NPC.json` 与 `spring-day1V2.json` 当前都已是 `PARKED`，说明现在最危险的不是“谁还在 ACTIVE 施工”，而是“谁的 owner 声明和后续继续意图仍不清”。
+  - 已新建 3 份治理文件：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_批次分发_14_UI打断后Story-NPC-Day1边界重裁_01.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_NPC_UI打断后共享文件收边界问卷_01.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_spring-day1V2_UI打断后owner真伪复核问卷_01.md`
+- 当前关键判断：
+  1. 这轮最稳的治理动作不是继续追 `UI`，而是先让 `NPC` 与 `spring-day1V2` 各自把“我到底还要不要继续拿这批文件”说清楚。
+  2. 这轮 prompt 必须收成只读 owner 审计，不能顺手继续让它们施工；否则边界没判清前只会再多一轮脏改。
+  3. 因为这轮不进入真实施工，所以正文里刻意不追加 `thread-state` 续工尾巴；真实施工要等 owner 裁定后再恢复。
+- 当前恢复点：
+  - 现在应由用户把两份问卷分别发给 `NPC` 与 `spring-day1V2`。
+  - 下一轮治理只等这两份回执，再做“谁继续 own / 谁释放 / 谁只是 stale state”的总裁定。
