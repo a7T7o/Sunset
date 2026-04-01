@@ -8463,3 +8463,49 @@
   - 更准确的说法应是：
     - `Begin-Slice / Park-Slice` 已有多线程实盘痕迹
     - `Ready-To-Sync` 进入了真实摩擦暴露期
+
+## 2026-04-01｜`Ready-To-Sync` 双层误判已修：既修 stable launcher 参数错位，也补上 preflight 文本 blocker 的硬失败
+
+- 当前主线目标：
+  - 用户要求我不要再停留在“规则解释”层，而是继续处理当前最真实的运行层摩擦；
+  - 这轮唯一主线因此改成：把 `Ready-To-Sync.ps1` 里最像真 bug 的多路径收口异常查穿并修掉。
+- 本轮子任务：
+  1. 复核 `Ready-To-Sync.ps1 / StateCommon.ps1 / sunset-git-safe-sync.ps1 / scripts/git-safe-sync.ps1`
+  2. 用临时 state 真复现 `spring-day1V2` 那组多路径
+  3. 只改 thread-state 白名单脚本，不碰业务线程业务刀
+- 本轮已完成：
+  1. 已先确认仓库内 canonical `git-safe-sync.ps1` 本身会拆 `IncludePaths` 的 `;` / `,` 列表，问题不在 repo script
+  2. 已用临时 state 真复现出第一个实际 bug：
+     - `StateCommon.ps1::Invoke-StableGitSafeSync`
+     - 把多条 `IncludePaths` / `ScopeRoots` 直接作为多个 CLI 参数发给 stable launcher
+     - 导致 `powershell -File` 参数绑定错位，真实样本里会把 include path 错绑到后续参数位
+  3. 已进一步钉出第二个实际 bug：
+     - stable `preflight` 在 `CanContinue=False` 时，进程退出码可能仍然是 `0`
+     - 旧版 `Ready-To-Sync` 只看 `ExitCode`，会把“真实 blocker”误判成 `READY_TO_SYNC`
+  4. 已只在 `thread-state` 白名单脚本内完成最小修复：
+     - `StateCommon.ps1`
+       - 新增 `Expand-DelimitedStringList`
+       - 所有 path list / touchpoint list 统一支持 `,` / `;` 输入
+       - 写 state 时会把列表重新清洗成真正数组
+       - `Get-TouchpointIntersection` / `Get-BClassConflicts` 读取旧式单字符串时也会先拆分
+       - 调 stable launcher 时，`IncludePaths` / `ScopeRoots` 现在统一先 join 成单个 `;` 分隔字符串，再交给 launcher
+       - 对 `preflight` 结果新增文本级失败判定：命中 `CanContinue=False` / `是否允许按当前模式继续: False` / `判断原因: FATAL:` 时，会强制转成非零退出
+     - `Begin-Slice.ps1`
+       - `SharedTouchpoints` 现在也支持 `,` / `;` 输入，不再把整串方法名写进一个数组格子
+  5. 已做最小 smoke：
+     - `Begin-Slice` 对逗号分隔的多路径输入，已能写成真实数组
+     - 用 `spring-day1V2` 的真实多路径复制 state 后再跑 `Ready-To-Sync`
+       - 现在不再报 stable launcher 参数错位
+       - 会稳定落到 `BLOCKED`
+       - 第一真实 blocker 也已回到 `own roots remaining dirty` 本体
+- 当前关键判断：
+  1. `spring-day1V2` 之前那条“Ready-To-Sync 卡在 IncludePaths 参数错位”的回执，方向只对了一半。
+  2. 真正的运行层问题其实是两层叠加：
+     - 第一层：stable launcher 参数转发错位
+     - 第二层：preflight 文本 blocker 没被升格成硬失败
+  3. 这轮修完后，`Ready-To-Sync` 才算回到“真 blocker 报真 blocker、真 ready 才报 ready”的健康口径。
+- 当前恢复点：
+  - 后续再看到线程说“Ready-To-Sync 卡住”，优先应怀疑：
+    1. 真实 same-root / compile / lock blocker
+    2. 或 state 本身声明面有问题
+  - 不应再默认把它先归咎成 stable launcher 多路径错位。

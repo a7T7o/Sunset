@@ -134,7 +134,7 @@ function Convert-ToNormalizedPathSet {
     $seen = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
     $result = [System.Collections.Generic.List[string]]::new()
 
-    foreach ($path in @($Paths)) {
+    foreach ($path in (Expand-DelimitedStringList -Values $Paths)) {
         if ([string]::IsNullOrWhiteSpace($path)) {
             continue
         }
@@ -146,6 +146,28 @@ function Convert-ToNormalizedPathSet {
     }
 
     return ,([string[]]@($result))
+}
+
+function Expand-DelimitedStringList {
+    param(
+        [string[]]$Values
+    )
+
+    $result = [System.Collections.Generic.List[string]]::new()
+
+    foreach ($value in @($Values)) {
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            continue
+        }
+
+        foreach ($part in ($value -split '[;,]')) {
+            if (-not [string]::IsNullOrWhiteSpace($part)) {
+                $result.Add($part.Trim())
+            }
+        }
+    }
+
+    return [string[]]@($result)
 }
 
 function Get-ThreadStatePath {
@@ -192,12 +214,12 @@ function Write-ThreadState {
 
     Ensure-StateDirectories -RepoRoot $RepoRoot
 
-    $cleanOwnedPaths = @($State.owned_paths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToString().Trim() })
-    $cleanCarriedForeignPaths = @($State.carried_foreign_paths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToString().Trim() })
-    $cleanSharedFiles = @($State.shared_files | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToString().Trim() })
-    $cleanTouchpoints = @($State.touched_touchpoints | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToString().Trim() })
-    $cleanExpectedSyncPaths = @($State.expected_sync_paths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToString().Trim() })
-    $cleanAClassLockedPaths = @($State.a_class_locked_paths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToString().Trim() })
+    $cleanOwnedPaths = Convert-ToNormalizedPathSet -Paths @($State.owned_paths) -RepoRoot $RepoRoot
+    $cleanCarriedForeignPaths = Convert-ToNormalizedPathSet -Paths @($State.carried_foreign_paths) -RepoRoot $RepoRoot
+    $cleanSharedFiles = Convert-ToNormalizedPathSet -Paths @($State.shared_files) -RepoRoot $RepoRoot
+    $cleanTouchpoints = @(Expand-DelimitedStringList -Values @($State.touched_touchpoints) | Select-Object -Unique)
+    $cleanExpectedSyncPaths = Convert-ToNormalizedPathSet -Paths @($State.expected_sync_paths) -RepoRoot $RepoRoot
+    $cleanAClassLockedPaths = Convert-ToNormalizedPathSet -Paths @($State.a_class_locked_paths) -RepoRoot $RepoRoot
     $cleanBlockers = @($State.blockers | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.ToString().Trim() })
 
     $stateObject = [ordered]@{
@@ -306,14 +328,14 @@ function Get-TouchpointIntersection {
     )
 
     $leftSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($item in @($Left)) {
+    foreach ($item in (Expand-DelimitedStringList -Values $Left)) {
         if (-not [string]::IsNullOrWhiteSpace($item)) {
             [void]$leftSet.Add($item.Trim())
         }
     }
 
     $intersection = [System.Collections.Generic.List[string]]::new()
-    foreach ($item in @($Right)) {
+    foreach ($item in (Expand-DelimitedStringList -Values $Right)) {
         if ([string]::IsNullOrWhiteSpace($item)) {
             continue
         }
@@ -339,7 +361,7 @@ function Get-BClassConflicts {
     )
 
     $sharedSet = [System.Collections.Generic.HashSet[string]]::new([System.StringComparer]::OrdinalIgnoreCase)
-    foreach ($path in @($SharedFiles)) {
+    foreach ($path in (Expand-DelimitedStringList -Values $SharedFiles)) {
         if (-not [string]::IsNullOrWhiteSpace($path)) {
             [void]$sharedSet.Add($path)
         }
@@ -355,7 +377,7 @@ function Get-BClassConflicts {
             continue
         }
 
-        $otherShared = @($state.shared_files)
+        $otherShared = @(Expand-DelimitedStringList -Values @($state.shared_files))
         foreach ($path in $otherShared) {
             if (-not $sharedSet.Contains($path)) {
                 continue
@@ -471,20 +493,38 @@ function Invoke-StableGitSafeSync {
         '-RepoRoot', $RepoRoot
     )
 
-    $normalizedIncludePaths = @($IncludePaths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $normalizedIncludePaths = @(Expand-DelimitedStringList -Values $IncludePaths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($normalizedIncludePaths.Count -gt 0) {
-        $arguments += @('-IncludePaths')
-        $arguments += $normalizedIncludePaths
+        $arguments += @('-IncludePaths', ($normalizedIncludePaths -join ';'))
     }
 
-    $normalizedScopeRoots = @($ScopeRoots | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $normalizedScopeRoots = @(Expand-DelimitedStringList -Values $ScopeRoots | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($normalizedScopeRoots.Count -gt 0) {
-        $arguments += @('-ScopeRoots')
-        $arguments += $normalizedScopeRoots
+        $arguments += @('-ScopeRoots', ($normalizedScopeRoots -join ';'))
     }
 
     $output = & powershell @arguments 2>&1
     $exitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+
+    if ($Action -eq 'preflight' -and $exitCode -eq 0) {
+        $reportedFailure = $false
+        foreach ($line in @($output | ForEach-Object { $_.ToString() })) {
+            if ([string]::IsNullOrWhiteSpace($line)) {
+                continue
+            }
+
+            if ($line -match 'CanContinue=False' -or
+                $line -match '是否允许按当前模式继续:\s*False' -or
+                $line -match '^判断原因:\s*FATAL:') {
+                $reportedFailure = $true
+                break
+            }
+        }
+
+        if ($reportedFailure) {
+            $exitCode = 2
+        }
+    }
 
     return [PSCustomObject]@{
         ExitCode = $exitCode

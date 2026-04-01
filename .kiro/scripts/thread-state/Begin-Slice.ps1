@@ -33,7 +33,7 @@ if ($null -ne $existing -and -not $ForceReplace) {
 
 $normalizedTargets = Convert-ToNormalizedPathSet -Paths $TargetPaths -RepoRoot $repoRoot
 $normalizedCarried = Convert-ToNormalizedPathSet -Paths $CarriedForeignPaths -RepoRoot $repoRoot
-$normalizedTouchpoints = @($SharedTouchpoints | Where-Object { -not [string]::IsNullOrWhiteSpace($_) } | ForEach-Object { $_.Trim() } | Select-Object -Unique)
+$normalizedTouchpoints = @(Expand-DelimitedStringList -Values $SharedTouchpoints | Select-Object -Unique)
 
 $ownedPaths = [System.Collections.Generic.List[string]]::new()
 $sharedFiles = [System.Collections.Generic.List[string]]::new()

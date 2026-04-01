@@ -3518,3 +3518,44 @@
   - 后续治理重点应从“继续解释 thread-state 是什么”转到：
     1. 继续抽样看业务线程是否自发执行
     2. 优先修 `Ready-To-Sync` 工具摩擦
+
+## 2026-04-01｜继续推进运行层：`Ready-To-Sync` 双层误判已查穿并修掉
+
+- 当前主线目标：
+  - 不再继续解释 `thread-state` 是什么，而是把当前最明确的运行层劝退点修掉。
+- 本轮子任务：
+  1. 读取并复核：
+     - `.kiro/scripts/thread-state/Ready-To-Sync.ps1`
+     - `.kiro/scripts/thread-state/StateCommon.ps1`
+     - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1`
+     - `scripts/git-safe-sync.ps1`
+  2. 用临时 smoke state 真复现 `spring-day1V2` 那组多路径
+  3. 只对白名单 thread-state 脚本动刀
+- 本轮已完成：
+  1. 已确认 canonical `git-safe-sync.ps1` 本身会拆 `,` / `;`，repo script 不是根因
+  2. 已复现第一个真 bug：
+     - `StateCommon.ps1::Invoke-StableGitSafeSync`
+     - 把多条 `IncludePaths` / `ScopeRoots` 直接当多个 CLI token 交给 stable launcher
+     - 造成 `powershell -File` 参数绑定错位
+  3. 已复现第二个真 bug：
+     - stable `preflight` 在 `CanContinue=False` 时仍可能返回 `ExitCode=0`
+     - 旧版 `Ready-To-Sync` 因只看进程退出码，会把真实 blocker 误判成 `READY_TO_SYNC`
+  4. 已完成修复：
+     - 新增 `Expand-DelimitedStringList`
+     - `Begin-Slice` / `Write-ThreadState` / B 类 touchpoint 读取统一支持 `,` / `;`
+     - stable launcher 调用前统一先把多路径 join 成单个 `;` 分隔字符串
+     - `preflight` 若文本里已明确 `CanContinue=False / 是否允许按当前模式继续: False / 判断原因: FATAL:`，thread-state 侧会强制转成非零失败
+  5. 已完成 smoke：
+     - 逗号分隔输入现在会写成真正数组
+     - 复制 `spring-day1V2` 的真实多路径 state 再跑 `Ready-To-Sync`
+       - 不再命中参数错位
+       - 现在稳定回到 `BLOCKED`
+       - 第一真实 blocker 重新落回 `own roots remaining dirty`
+- 关键决策：
+  1. 之前那条“IncludePaths 参数错位”只解释了前半段，不足以解释为什么线程还会被假绿灯放过。
+  2. 这轮最值钱的不是“多拆了一个字符串”，而是把 `Ready-To-Sync` 拉回了“不会把假 blocker 报成 ready”的真实闸门。
+- 当前恢复点：
+  - 后续如果继续推进 `thread-state`，下一刀不该再围着这条 old bug 争论；
+  - 更值得观察的是：
+    1. 业务线程下一轮是否开始更稳定地自发用 `Ready-To-Sync`
+    2. 是否还存在别的 state 输入容错缺口
