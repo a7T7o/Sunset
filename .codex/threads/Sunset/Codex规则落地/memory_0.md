@@ -3489,3 +3489,32 @@
 - 当前恢复点：
   - 后续我再看 Sunset 业务线程的回执，应该按这条新口径判；
   - 若它仍把“不是治理 prompt”当成不登记理由，应直接视为未按 live 规则执行。
+
+## 2026-04-01｜已查到多条真实 `thread-state` 痕迹，当前问题已从“要不要执行”转成“工具摩擦会不会劝退执行”
+
+- 当前主线目标：
+  - 用户要求我先看现场，确认业务线程这几轮里到底有没有真的跑 `thread-state`。
+- 本轮已完成：
+  1. 已在 `导航检查` 线程 memory 中确认：
+     - `Begin-Slice` 已跑
+     - `Park-Slice` 已跑
+     - 当前 `thread-state = PARKED`
+  2. 已在 `导航检查V2` 线程 memory 中确认：
+     - 已登记 `Begin-Slice`
+     - 因用户切到详细汇报已 `Park-Slice`
+     - 当前 `thread-state = PARKED`
+  3. 已在 `spring-day1V2` 线程 memory 中确认：
+     - `Begin-Slice` 已执行
+     - `Ready-To-Sync.ps1` 已真实尝试
+     - 先撞多路径 `IncludePaths` 参数错位
+     - 最终已 `Park-Slice`
+  4. 已在 `.kiro/state/active-threads/` 找到实时 JSON：
+     - `NPC`、`农田交互修复V3` 当前 `ACTIVE`
+     - `导航检查`、`导航检查V2`、`spring-day1V2` 当前 `PARKED`
+- 当前关键判断：
+  1. 现在已经不能再说“只是规则写了，还没人真的跑”。
+  2. 但也还不能说“运行层已经完全健康”，因为 `Ready-To-Sync` 真实工具摩擦已经暴露。
+- 当前恢复点：
+  - 后续治理重点应从“继续解释 thread-state 是什么”转到：
+    1. 继续抽样看业务线程是否自发执行
+    2. 优先修 `Ready-To-Sync` 工具摩擦

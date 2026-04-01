@@ -8422,3 +8422,44 @@
 - 当前恢复点：
   - 后续真正该观察的不是“我要不要继续教用户补尾巴”；
   - 而是业务线程在下一次真实施工时，是否已经开始自己主动报 `Begin-Slice / Ready-To-Sync / Park-Slice`。
+
+## 2026-04-01｜已找到多条真实运行痕迹，`thread-state` 不再只是纸面规则
+
+- 当前主线目标：
+  - 用户要求我先看现场，不要再只讲规则层；重点确认当前活跃线程这几轮里，是否已经出现真实 `thread-state` 执行痕迹。
+- 本轮已完成：
+  1. 已在线程 memory 中找到明确样本：
+     - `导航检查`
+       - `2026-04-01` 已补跑 `Begin-Slice`
+       - 同轮已执行 `Park-Slice`
+       - 当前记为 `PARKED`
+     - `导航检查V2`
+       - `2026-04-01` 已按 live 规则登记 `Begin-Slice`
+       - 用户中途切到详细汇报后已 `Park-Slice`
+       - 当前记为 `PARKED`
+     - `spring-day1V2`
+       - `2026-04-01` 已执行 `Begin-Slice`
+       - 已正式尝试 `Ready-To-Sync.ps1`
+       - 因多路径 `IncludePaths` 参数错位未能产出正式 `READY`
+       - 最终已 `Park-Slice`
+  2. 已在 `.kiro/state/active-threads/` 找到实时状态文件样本：
+     - `NPC.json` = `ACTIVE`
+     - `农田交互修复V3.json` = `ACTIVE`
+     - `导航检查.json` = `PARKED`
+     - `导航检查V2.json` = `PARKED`
+     - `spring-day1V2.json` = `PARKED`
+  3. 这说明当前现场已经不是“脚本进仓但没人碰”：
+     - 至少已有多条线程真实执行过 `Begin-Slice / Park-Slice`
+     - `spring-day1V2` 还真实撞到了 `Ready-To-Sync` 工具层 blocker
+- 当前关键判断：
+  1. `thread-state` 现在已经有运行层证据，不再只是规则文本。
+  2. 但运行层还没完全健康，因为：
+     - 目前最清晰的证据集中在 `Begin-Slice / Park-Slice`
+     - `Ready-To-Sync` 仍存在多路径参数错位工具摩擦
+     - 这会直接影响“线程愿不愿意自发执行到收口阶段”
+  3. 因此下一步最值钱的，不是继续造新规则，而是把 `Ready-To-Sync.ps1` 这类劝退点修掉。
+- 当前恢复点：
+  - 以后再判断“这套东西到底有没有跑起来”，不能再说“完全没有现场痕迹”；
+  - 更准确的说法应是：
+    - `Begin-Slice / Park-Slice` 已有多线程实盘痕迹
+    - `Ready-To-Sync` 进入了真实摩擦暴露期
