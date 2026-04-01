@@ -677,3 +677,48 @@
   - 下一步不该再直接把 UI 推进到这刀实现；
   - 应先把“NPC / spring-day1V2 / UI”三方在这组文件上的 owner 边界重新通气收死；
   - 收死之后，再决定要不要改发 prompt、改发给谁、或者让 UI 只做审稿/验收辅助。
+
+## 2026-04-01：UI 已按要求 PARKED，且现场已核到 NPC / spring-day1V2 也都处于 PARKED，当前进入“单主刀重裁”阶段
+
+- 当前主线目标：用户已实际把“立即停手”转发给 UI，UI 已回执 `PARKED`；本轮因此不再讨论要不要打断，而是转入：现在三条相关线程都停住后，下一步该恢复谁来主刀。
+- 本轮现场复核：
+  1. UI 回执已确认：
+     - 已改 tracked：
+       - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+       - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+       - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+     - 已有 untracked：
+       - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+       - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+     - 当前线程状态：`PARKED`
+  2. Git 现场复核与 UI 回执一致，上述 5 个文件当前仍在 shared root dirty / untracked。
+  3. `NPC` 当前 active-thread 状态已从先前的 `ACTIVE` 变为：
+     - `PARKED`
+     - `updated_at = 2026-04-01T13:38:04+08:00`
+     - block 说明是：
+       - `人工终验：闲聊进行中的左下角提示与头顶箭头最终观感`
+  4. `spring-day1V2` 当前 active-thread 状态也已从先前的 `ACTIVE` 变为：
+     - `PARKED`
+     - `updated_at = 2026-04-01T13:18:16+08:00`
+     - blocker 说明是：
+       - `与 NPC / spring-day1V2 active scope 撞车，等待用户重裁 owner 边界`
+- 当前稳定判断：
+  1. 风险已经被控制住：
+     - UI 没继续写
+     - NPC 没继续写
+     - spring-day1V2 也没继续写
+  2. 但这不等于问题解决；现在真正进入的是：
+     - `单主刀重裁`
+  3. 这组三方里，若要继续做“最近交互唯一提示 / 唯一 E / 视觉归属一致”，最合理的主实现 owner 仍优先应是：
+     - `spring-day1V2`
+     - 因为它的 slice、own 路径和 touched touchpoints 与这刀最对口
+  4. `NPC` 更适合退回：
+     - `NPC 非正式聊天体验约束 / 会话与气泡体验守门`
+  5. `UI` 更适合继续保持：
+     - `contract / 审稿 / formal-face 顾问位`
+- 当前恢复点：
+  - 下一步不该再问“谁先停手”，因为现在三方都已停；
+  - 下一步应该直接做：
+    1. 选定唯一主实现 owner
+    2. 另外两条线继续维持 `PARKED`
+    3. 再用一轮极窄 prompt 恢复主刀线程继续施工
