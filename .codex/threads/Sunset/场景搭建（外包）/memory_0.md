@@ -504,3 +504,63 @@
   - 如果用户要继续按真实开发顺序推进，默认先以“Prompt + Workbench 终验结果”为第一裁决点；
   - 若这一刀被判过线，下一步直接开交互提示统一仲裁；
   - 若这一刀仍不过线，就继续只围绕 Prompt / Workbench 做定点返修，不提前开模板化。
+
+## 2026-04-01：已完成对 UI 线程“Story 向 UI/UE 集成外包”定位回执的只读审核
+
+- 当前主线目标：不是恢复 UI 实现 owner，也不是替 UI 线程继续发实现任务；这轮只做一件事——基于 shared root 现有代码、`UI系统` 父子工作区记忆、`spring-day1` 线程记忆与用户最新贴出的回执，判断 `场景搭建（外包）` 这条线后续应如何陪跑、审 UI 回执、以及它自己的定位边界到底应该怎么说。
+- 本轮子任务：
+  1. 重新核 `Story/NPC/Day1` 玩家可见 UI 与交互链的真实代码地图；
+  2. 审 UI 线程“不能当全项目 UI 总包，只适合当 Story 向 UI/UE 集成外包”的说法是否站得住；
+  3. 把后续审核抓手和 owner 边界重新压成一版稳定口径。
+- 本轮显式使用：
+  - `skills-governor`
+  - `preference-preflight-gate`
+  - `sunset-workspace-router`
+- 本轮手工等价执行：
+  - `sunset-startup-guard`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- 本轮重新站稳的代码层判断：
+  1. `UI系统` 父工作区仍是 Sunset **通用 UI 系统主线**，不是这条外包线的默认承接面；见 `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\memory.md`。
+  2. `Story/NPC/Day1` 玩家面体验链当前更准确的四层结构是：
+     - `Story/UI 表现层`：`SpringDay1PromptOverlay`、`SpringDay1WorkbenchCraftingOverlay`、`SpringDay1WorldHintBubble`、`InteractionHintOverlay`、`SpringDay1StatusOverlay`
+     - `NPC / feedback 表现层`：`NPCBubblePresenter`、`PlayerThoughtBubblePresenter`、`PlayerNpcNearbyFeedbackService`、`PlayerNpcChatSessionService`
+     - `交互体层`：`NPCDialogueInteractable`、`NPCInformalChatInteractable`、`CraftingStationInteractable`、`SpringDay1BedInteractable`
+     - `调度 / 仲裁层`：`SpringDay1ProximityInteractionService`、`DialogueManager`、`SpringDay1Director`
+  3. 统一“最近目标 + 唯一提示 + 唯一 E 键仲裁”的骨架并不是空白，而是已经存在于 `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\SpringDay1ProximityInteractionService.cs`：
+     - 候选由各交互体上报；
+     - 选择顺序是 `forceFocus -> boundaryDistance -> priority -> instance id`；
+     - 当前提示链实际走的是 `SpringDay1WorldHintBubble + InteractionHintOverlay`。
+  4. `NPCDialogueInteractable` / `NPCInformalChatInteractable` / `CraftingStationInteractable` / `SpringDay1BedInteractable` 当前交互优先级分别已是 `30 / 29 / 28 / 24`，说明“剧情 NPC 高于闲聊，高于工作台”的语义在代码上已经有初始骨架，不该被重新从零设计。
+  5. `NpcWorldHintBubble.cs` 更像平行旧线 / 残留链，而不是当前玩家面主链；当前主链更明确地是 `SpringDay1ProximityInteractionService -> SpringDay1WorldHintBubble / InteractionHintOverlay`。
+- 对 UI 线程本轮回执的审核结论：
+  1. **大方向通过**：把自己定位成 `Story 向 UI/UE 集成外包`，而不是 `Sunset 全项目 UI 总包`，这个判断和当前代码地图是对齐的。
+  2. **边界还要再收紧一句**：它适合 owning 的不是“所有 UI”，而是 `Story/NPC/Day1` 这条玩家可见体验链里的 **formal-face 接回、提示/overlay/气泡/工作台/任务卡体验集成、交互收口与玩家面一致性**。
+  3. **不能默认吞掉的面** 也要继续写死：
+     - `Assets/YYY_Scripts/UI/**` 这条通用 UI 主系统
+     - `DialogueManager` 的完整剧情逻辑
+     - `SpringDay1Director` 的完整相位推进逻辑
+     - `GameInputManager` / 全局输入 / 场景热文件 / scene hot zones
+     - NPC 线程仍活跃时，NPC 专属体验线不应被它默认接管
+  4. UI 线程回执里最值得补强、但这轮还没主动说透的 2 个点：
+     - `SpringDay1ProximityInteractionService` 已经是统一仲裁中枢，后续应做 **polish / contract 收口**，不是重造一套仲裁系统；
+     - `NpcWorldHintBubble` 应优先视为旧链 / carried leaf，后续审回执时要看它有没有把“当前主链”和“旧并行链”分清。
+- 当前对 `场景搭建（外包）` 这条线程的稳定定位：
+  - 不是 UI 实现 owner；
+  - 也不是通用 UI 工作区 owner；
+  - 更像 **Story/NPC/Day1 玩家面体验与职责边界的陪跑审核位 / 集成审稿位**：
+    1. 先帮用户把分工说清；
+    2. 再审 UI 线程有没有沿正确 owner 边界推进；
+    3. 最后只在需要时继续发“单刀硬切片”的 prompt。
+- 当前后续审核抓手已固定为三条：
+  1. 它有没有分清 `通用 UI` 与 `Story/NPC/Day1 玩家面 UI`；
+  2. 它有没有识别 `SpringDay1ProximityInteractionService` 已是统一仲裁骨架；
+  3. 它有没有把 `NpcWorldHintBubble` 与当前主链区分成“旧并行链 / 非主链”。
+- 验证状态：
+  - 本轮仅为只读分析；
+  - 无业务代码改动；
+  - 结论主要站在 `结构 / checkpoint` 层与代码证据层，不涉及“观感已过线”宣称。
+- 当前恢复点：
+  - 下一步不是立刻给 UI 线程发新实现 prompt；
+  - 先等用户继续拍板，或等 UI 线程新的职责 / 方案回执；
+  - 届时只按这轮压实的 owner 边界与三条审核抓手继续审。
