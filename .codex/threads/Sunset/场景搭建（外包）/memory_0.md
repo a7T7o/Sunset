@@ -616,3 +616,64 @@
     2. 是否唯一 `E`
     3. 是否视觉归属一致
     4. 是否 NPC 剧情优先于闲聊
+
+## 2026-04-01：已核实 NPC 与 spring-day1V2 当前都在活跃施工，同根撞车已经发生，UI 这刀不能单边继续下发
+
+- 当前主线目标：用户提醒“NPC 也在干活，是否需要和 NPC、Spring 通气”；本轮因此暂停直接下发 UI 实现刀，先核实际 active-thread 现场，判断是不是已经发生 owner 撞车。
+- 本轮子任务：
+  1. 读取 `NPC`、`spring-day1V2` 的最新线程记忆与 active-thread 状态；
+  2. 核对当前 dirty 文件是否与我刚给 UI 准备的“唯一提示 / 唯一 E / 视觉归属一致”切片重叠；
+  3. 判断这刀现在还能不能继续按“UI 单边外包实现”推进。
+- 本轮现场核对结果：
+  1. `NPC` 当前是 **ACTIVE**，slice 为：
+     - `NPC非正式聊天快速自测-002003整轮复测`
+     - 见 `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\NPC.json:4`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\NPC.json:8`
+  2. `NPC` 当前 own 的文件里，已经包含：
+     - `PlayerNpcChatSessionService.cs`
+     - `NPCInformalChatInteractable.cs`
+     - `SpringDay1ProximityInteractionService.cs`
+     - `SpringDay1WorldHintBubble.cs`
+     - `NPCBubblePresenter.cs`
+     - `PlayerThoughtBubblePresenter.cs`
+     - 见 `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\NPC.json:9`
+  3. `spring-day1V2` 当前也是 **ACTIVE**，slice 为：
+     - `最近交互唯一提示与唯一E仲裁收口`
+     - 见 `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1V2.json:4`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1V2.json:8`
+  4. `spring-day1V2` 当前 own 的文件，已经正好覆盖我刚准备给 UI 的这刀核心面：
+     - `SpringDay1ProximityInteractionService.cs`
+     - `NPCDialogueInteractable.cs`
+     - `NPCInformalChatInteractable.cs`
+     - `CraftingStationInteractable.cs`
+     - `SpringDay1BedInteractable.cs`
+     - `SpringDay1WorldHintBubble.cs`
+     - `InteractionHintOverlay.cs`
+     - 见 `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1V2.json:9`
+  5. 当前 Git 现场也已经对应地出现这些文件的活跃 dirty：
+     - `NPCBubblePresenter.cs`
+     - `PlayerNpcChatSessionService.cs`
+     - `PlayerThoughtBubblePresenter.cs`
+     - `CraftingStationInteractable.cs`
+     - `NPCDialogueInteractable.cs`
+     - `NPCInformalChatInteractable.cs`
+     - `SpringDay1BedInteractable.cs`
+     - `SpringDay1WorldHintBubble.cs`
+     - `SpringDay1ProximityInteractionService.cs`
+     - `InteractionHintOverlay.cs`
+- 本轮稳定判断：
+  1. 现在不是“也许要通气”，而是**已经真实发生同根撞车**。
+  2. 用户口中的“Spring 确实歇了”在当前现场已经不成立；`spring-day1V2` 于 `2026-04-01 13:00:19 +08:00` 仍处于 ACTIVE，且正在线上做“最近交互唯一提示与唯一 E 仲裁收口”。
+  3. `UI` 线程当前没有出现在 active-thread 状态里；也就是说，`UI` 这条线现在更像 docs / contract / 审稿位，而不是当前实际持刀实现位。
+  4. 因此，我刚准备给 UI 的那份“唯一提示 / 唯一 E”实现任务书，**此刻不应继续作为单边实现令直接转发**；否则会同时撞 `NPC` 和 `spring-day1V2` 两条 ACTIVE 线程。
+- 当前建议动作：
+  1. **先不要把“唯一提示 / 唯一 E”实现刀直接发给 UI。**
+  2. 先做一次小范围通气 / 改判：
+     - `spring-day1V2` 继续做这刀的主实现 owner
+     - `NPC` 只保留 NPC 会话 / 气泡 / 非正式聊天体验面的 own 范围
+     - `UI` 保持 contract / 审稿 / formal-face 顾问位，不进这刀实现
+  3. 只有在这三条边界重新裁定后，才适合继续发下一轮 prompt。
+- 当前恢复点：
+  - 下一步不该再直接把 UI 推进到这刀实现；
+  - 应先把“NPC / spring-day1V2 / UI”三方在这组文件上的 owner 边界重新通气收死；
+  - 收死之后，再决定要不要改发 prompt、改发给谁、或者让 UI 只做审稿/验收辅助。
