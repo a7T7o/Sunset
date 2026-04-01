@@ -144,6 +144,49 @@
   - 要不要继续问 `NPC`
   - 要不要彻底撤销上一轮对 `spring-day1V2` 的问卷分发口径
 
+### 会话 18 - 2026-04-01（结合 `场景搭建` 最新判断，改成“V2 恢复主刀，NPC/UI 继续停位”）
+**用户目标**：
+> 用户补充了 `场景搭建（外包）` 的最新回执，要求我重新判断现在到底该怎么推进，是否该给主刀线程直接发恢复 prompt。
+
+**已完成事项**：
+1. 重新核对 live 现场与 `场景搭建` 这版判断是否一致：
+   - `spring-day1V2.json` 当前确实仍保留：
+     - `最近交互唯一提示与唯一E仲裁收口`
+     - 以及 7 个对口主链文件
+   - `NPC.json` 当前更偏：
+     - `PlayerNpcChatSessionService.cs`
+     - `NPCBubblePresenter.cs`
+     - `PlayerThoughtBubblePresenter.cs`
+     - 加上 3 个共享文件
+   - working tree 里这刀相关文件的 dirty / untracked 与上面两组职责分布基本一致。
+2. 结合 `场景搭建`、`SpringUI/memory.md`、`spring-day1V2/NPC` 当前 state，再次重判当前最稳的推进方式：
+   - `spring-day1V2` 恢复为这刀主刀实现 owner
+   - `NPC` 保持 `PARKED`，只守 NPC 闲聊 / 气泡体验边界
+   - `UI` 继续停在 `SpringUI` 审稿 / contract / formal-face 顾问位
+3. 已落盘 3 份续工 / 停位 prompt：
+   - `2026-04-01_典狱长_spring-day1V2_恢复最近交互唯一提示主刀_01.md`
+   - `2026-04-01_典狱长_NPC_继续PARKED只守NPC体验边界_01.md`
+   - `2026-04-01_典狱长_UI_继续停在SpringUI审稿位_02.md`
+
+**关键决策**：
+- 现在不该让三条线一起恢复。
+- 更不该让 `UI` 再次下场写这刀实现。
+- 这轮最合理的执行图就是：
+  - `spring-day1V2` 单主刀恢复
+  - `NPC` / `UI` 继续 `PARKED`
+- 我保留的唯一不确定性是：
+  - 如果 `UI` 那份身份 / 工作区自审问卷回执和这版分工发生正面冲突，后续还要再做一次二次裁定。
+
+**涉及文件**：
+- [2026-04-01_典狱长_spring-day1V2_恢复最近交互唯一提示主刀_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-01_典狱长_spring-day1V2_恢复最近交互唯一提示主刀_01.md)
+- [2026-04-01_典狱长_NPC_继续PARKED只守NPC体验边界_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-01_典狱长_NPC_继续PARKED只守NPC体验边界_01.md)
+- [2026-04-01_典狱长_UI_继续停在SpringUI审稿位_02.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-01_典狱长_UI_继续停在SpringUI审稿位_02.md)
+
+**恢复点 / 下一步**：
+- 现在应优先把主刀恢复 prompt 发给 `spring-day1V2`。
+- 同时给 `NPC` 和 `UI` 发停位提示，避免它们再误恢复施工。
+- 等 `spring-day1V2` 新回执回来后，再看是否需要第二轮细分 shared files。
+
 ## 最近会话
 
 ### 会话 10 - 2026-03-19（跳出整个工作区后的方向重判）
@@ -8639,3 +8682,38 @@
     1. `NPC` 和 `spring-day1V2` 的切根或停一条
     2. 再看 `导航检查V2` 是否需要继续跑 live
   - 若不先处理这组重叠，后面的 thread-state 再健康，也挡不住这次“声明本身就撞了”的现场风险。
+
+## 2026-04-01｜用户补充 `场景搭建` 最新口头回执后，治理位决定给它补一条“只读陪跑审核位”同步 prompt
+
+- 当前主线目标：
+  - 用户说明已经把我前一轮给出的 prompt 发给两条相关线程，但 `场景搭建（外包）` 没有同步到这轮新的执行图；
+  - 本轮因此不是再开第四轮 owner 重裁，而是把 `场景搭建` 明确同步成当前执行层里的只读陪跑审核位。
+- 本轮已完成：
+  1. 重新核对：
+     - `场景搭建（外包）/memory_0.md`
+     - `SpringUI/memory.md`
+     - `spring-day1V2.json`
+     - `NPC.json`
+     - 以及已落盘的 3 份执行 prompt
+  2. 站稳一个更窄的结论：
+     - `场景搭建` 前一轮职责判断已经被吸收，不需要它继续重复裁 `UI / spring-day1V2 / NPC` 谁是 owner
+     - 它当前最合适的位置是：
+       - 只读陪跑审核位
+       - 等 `spring-day1V2` 新回执回来后，再只审是否越界到 `NPC` 或 `UI / SpringUI` 的保留边界
+  3. 已新增同步 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_场景搭建_转入只读陪跑审核位_01.md`
+- 当前关键判断：
+  1. 这轮如果什么都不发给 `场景搭建`，它很容易继续按上一轮“我还在帮你重裁 owner”的惯性往前推。
+  2. 但如果再让它继续发明新 owner，也会把现场重新拖回 `UI / spring-day1V2 / NPC` 三方混判。
+  3. 所以最稳的做法不是让它闭嘴消失，而是给一条很窄的同步 prompt：
+     - 只读
+     - 不再重裁
+     - 只负责后续回执审核抓手
+- 当前恢复点：
+  - 现在这轮治理图已经完整收成 4 条：
+    1. `spring-day1V2` 恢复主刀
+    2. `NPC` 继续 `PARKED`
+    3. `UI` 继续 `PARKED`
+    4. `场景搭建` 转入只读陪跑审核位
+  - 下一步不再继续补新的 owner 分析；
+  - 只等主刀线程回新回执，再看是否真的需要第二轮细分 shared files。

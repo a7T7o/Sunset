@@ -3645,3 +3645,63 @@
 - 当前恢复点：
   - 现在应由用户先把新问卷发给 `UI`；
   - 我后续会把上一轮给 `spring-day1V2` 的问卷视为“暂缓发送，不建议执行”的过渡产物，直到 `UI` 回执回来。
+
+## 2026-04-01｜吸收 `场景搭建` 最新回执后，再次改判为“恢复 `spring-day1V2` 主刀，NPC/UI 继续停位”
+
+- 当前主线目标：
+  - 用户贴了 `场景搭建（外包）` 的最新口头裁定，要求我不要只抱着上一步问卷不放，而是重新判断现在应不应该直接恢复主刀线程。
+- 本轮已完成：
+  1. 再次核对 `spring-day1V2.json`、`NPC.json` 和当前 shared files working tree：
+     - `spring-day1V2` 的 7 个 own files 与“最近目标 / 唯一提示 / 唯一E / 视觉归属一致”这刀的主链高度对口；
+     - `NPC` 当前 own files 更明显偏向 NPC 闲聊 / 气泡 / 会话体验守门。
+  2. 结合 `场景搭建` 的最新判断，重新改判：
+     - 当前这刀最合理的主实现 owner 仍是 `spring-day1V2`
+     - `NPC` 不该继续当总实现 owner
+     - `UI` 更不该重新下场写实现
+  3. 已落盘 3 份新 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_spring-day1V2_恢复最近交互唯一提示主刀_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_NPC_继续PARKED只守NPC体验边界_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_UI_继续停在SpringUI审稿位_02.md`
+- 当前关键判断：
+  1. 上一轮“先只问 UI”的纠偏并不白做，它帮我排除了“UI 直接继续下场写实现”这条错路。
+  2. 但在拿到 `场景搭建` 最新职责判断后，更稳的执行层答案已经从“继续只问卷”推进到“可以恢复单主刀”。
+  3. 这轮真正该执行的是：
+     - `spring-day1V2` 恢复
+     - `NPC` / `UI` 继续 `PARKED`
+- 当前恢复点：
+  - 现在最该由用户转发的是 `spring-day1V2` 的恢复主刀 prompt；
+  - 同时把 `NPC` 和 `UI` 的停位 prompt 发出去，避免它们误恢复这刀。
+
+## 2026-04-01｜用户补充“场景搭建没同步到这轮执行图”后，我补了一条只读同步 prompt
+
+- 当前主线目标：
+  - 用户继续追问的不是 owner 还要不要再改判，而是：
+    - `场景搭建（外包）` 这条陪跑审核线现在要不要也收到一条同步 prompt；
+  - 本轮因此只解决这一个执行口问题。
+- 本轮已完成：
+  1. 重新核：
+     - `场景搭建（外包）/memory_0.md`
+     - `SpringUI/memory.md`
+     - `spring-day1V2.json`
+     - `NPC.json`
+     - 以及已落盘的 3 份 `spring-day1V2 / NPC / UI` prompt
+  2. 最终判断定格为：
+     - `场景搭建` 不该继续当这一刀的 owner 重裁者
+     - 但也不该无声消失
+     - 它现在最合适的角色是：
+       - 只读陪跑审核位
+       - 只盯 `spring-day1V2` 后续有没有越过 `NPC` 与 `UI / SpringUI` 的保留边界
+  3. 已新增 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_场景搭建_转入只读陪跑审核位_01.md`
+- 当前关键判断：
+  1. 这轮给 `场景搭建` 发 prompt 是有必要的，但不是让它继续出主意，而是让它停止继续重裁。
+  2. 这条 prompt 的价值在于把它和当前执行图接上：
+     - `spring-day1V2` 主刀
+     - `NPC` 守门
+     - `UI` 审稿位
+     - `场景搭建` 只读陪跑审核
+  3. 这样后面再回来审 `spring-day1V2` 回执时，就不会再次把 `UI / Spring / NPC` 混成一团。
+- 当前恢复点：
+  - 现在除了前面那 3 条 prompt 之外，治理位还应补发这条给 `场景搭建`；
+  - 发完后，这组线程的执行图就算完整同步；
+  - 下一步只等 `spring-day1V2` 的新回执。
