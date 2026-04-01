@@ -564,3 +564,23 @@
   - 下一步不是立刻给 UI 线程发新实现 prompt；
   - 先等用户继续拍板，或等 UI 线程新的职责 / 方案回执；
   - 届时只按这轮压实的 owner 边界与三条审核抓手继续审。
+
+## 2026-04-01：已向 UI 线程补发“Story 向 UI/UE 集成 owner 边界收口”单刀任务书
+
+- 当前主线目标：在完成对 UI 线程岗位定位回执的审核后，不直接恢复实现，不让它继续泛讲“我适合做什么”，而是要求它把这个定位真正收成一份可派工、可审回执的 owner contract。
+- 本轮子任务：基于上一条审核结论，向 UI 线程发出一份新的 docs-only 单刀任务书，只收 `Story 向 UI/UE 集成外包` 的职责边界、文件簇边界、派工约定和后续三步接盘顺序。
+- 本轮新增任务书：
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-04-01_UI线程_Story向UIUE集成owner边界收口任务书_01.md`
+- 这份任务书里已写死的硬要求：
+  1. 不是实现任务，不允许动代码 / prefab / runtime。
+  2. 不是再做一轮泛调研，而是只交一份主文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\2026-04-01_Story向UIUE集成owner边界与派工约定.md`
+  3. 必须正面回答 3 个硬问题：
+     - 是否识别 `SpringDay1ProximityInteractionService` 已是统一仲裁骨架
+     - 是否分清 `NpcWorldHintBubble` 与当前主链
+     - 默认该接 / 协作接 / 不该接 的边界到底是什么
+  4. 必须把结果落成可执行的 `owner contract`，而不是岗位感想。
+- 当前恢复点：
+  - 现在可以把这份任务书直接转发给 UI 线程；
+  - 下一步等待它交回 `owner 边界与派工约定` 主文档；
+  - 收到回执后，继续只按三条审核抓手审，不恢复实现 owner。
