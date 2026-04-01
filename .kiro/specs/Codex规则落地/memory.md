@@ -8717,3 +8717,85 @@
     4. `场景搭建` 转入只读陪跑审核位
   - 下一步不再继续补新的 owner 分析；
   - 只等主刀线程回新回执，再看是否真的需要第二轮细分 shared files。
+
+## 2026-04-01｜用户明确改判后，治理位正式把执行图改成“UI 接手后半段玩家面 UI/UE 整合，NPC / spring-day1V2 退回底座协作位”
+
+- 当前主线目标：
+  - 用户明确表示自己真正想要的是：
+    - `UI` 彻底独立出来
+    - 后续只作为 `NPC / Spring` 的 UI/UE 外包整合位
+    - 由 `NPC / spring-day1V2` 提供底座和现有 contract
+    - 再由 `UI` 去修玩家真正看到的交互和界面
+- 本轮已完成：
+  1. 重新核对：
+     - `SpringUI` 的 owner contract 主文档
+     - `SpringUI/memory.md` 最新身份自审
+     - `spring-day1V2.json`
+     - `NPC.json`
+     - 当前相关 working tree diff
+  2. 重新站稳的判断是：
+     - 从“职责设计”上，用户这个改判是成立的
+     - `UI` 最适合接的是：
+       - 后半段玩家面 UI/UE 交互整合
+       - 即唯一提示 / 唯一 E / 视觉归属一致 / 剧情优先闲聊这些结果，如何变成玩家真正看到的正式交互与界面
+     - `NPC` 和 `spring-day1V2` 更适合退回：
+       - 底座 / 现有行为骨架 / contract 澄清协作位
+  3. 已落盘新版 3 份 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_UI_接管玩家面UIUE整合主刀_03.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_NPC_退回底座协作位等待UI接手_02.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_spring-day1V2_退回Day1底座协作位等待UI接手_02.md`
+- 当前关键判断：
+  1. 我前一轮“恢复 `spring-day1V2` 主刀”更像是按文件分布推出来的最稳保守解，不是按你真正想要的开发组织方式推出来的解。
+  2. 你这次说清之后，真正更贴目标的执行图应该是：
+     - `UI` 主刀玩家面整合
+     - `NPC` / `spring-day1V2` 保留底座
+  3. 但这不是让 `UI` 吞掉所有逻辑 owner，而是只接后半段玩家面 UI/UE 交互整合；`NPCBubblePresenter / PlayerNpcChatSessionService / PlayerThoughtBubblePresenter` 这些仍不该吞。
+- 当前恢复点：
+  - 现在如果继续发 prompt，优先级应切成：
+    1. `UI` 恢复施工
+    2. `NPC` 保持 `PARKED`
+    3. `spring-day1V2` 保持 `PARKED`
+  - 后续只等 `UI` 的新回执，不再继续让三方混改。
+
+## 2026-04-01｜用户贴回 `NPC` 与 `UI` 的只读回执后，这个“UI 主刀、NPC / spring-day1V2 做底座”的执行图被进一步坐实
+
+- 当前主线目标：
+  - 用户把 `NPC` 的收边界回执和 `UI` 的身份 / exact-own 自审一起贴回；
+  - 这轮要判断的不是“要不要再想一遍 owner”，而是：
+    - 这两份回执到底支持哪种执行图
+    - 以及 `UI` 自己提的“只做表层小刀”是否已经过窄
+- 本轮重新站稳的事实：
+  1. `NPC` 回执明确把自己收窄到四件套：
+     - `PlayerNpcChatSessionService.cs`
+     - `NPCInformalChatInteractable.cs`
+     - `NPCBubblePresenter.cs`
+     - `PlayerThoughtBubblePresenter.cs`
+  2. `NPC` 同时显式释放：
+     - `SpringDay1ProximityInteractionService.cs`
+     - `SpringDay1WorldHintBubble.cs`
+     - `InteractionHintOverlay.cs`
+     - 以及两份 shared / Day1 测试
+  3. `UI` 回执也明确：
+     - 自己不是 `spring-day1V2`
+     - 唯一工作区仍是 `SpringUI`
+     - 当前希望只把 `SpringDay1WorldHintBubble.cs` 继续视作 exact-own，并把 `SpringDay1ProximityInteractionService.cs` 等 shared contract 面先释放
+- 当前关键判断：
+  1. `NPC` 这份回执强烈支持用户的最新裁定：
+     - shared prompt shell 和统一仲裁中枢不该继续挂在 `NPC` 名下
+  2. `UI` 这份回执也支持“UI 独立出来”这半件事；
+     - 但它把“身份回正”和“后续施工范围”收得太紧，已经开始把自己从真正需要接手的玩家面整合里抽出去
+  3. 所以当前最合理的治理裁定不是照抄 `UI` 的“只剩 `SpringDay1WorldHintBubble.cs`”，而是拆开看：
+     - 身份结论：接受
+     - exact-own 自审：可作为保守边界证据
+     - 下一刀施工范围：仍按更贴用户目标的新版 prompt 执行，也就是：
+       - `SpringDay1WorldHintBubble.cs`
+       - `InteractionHintOverlay.cs`
+       - `SpringDay1ProximityInteractionService.cs` 的玩家面 contract 收口
+       - 必要时最小带交互体接驳面
+- 当前恢复点：
+  - 现在不需要再犹豫“是不是还该把这刀交回 NPC / spring-day1V2”
+  - 真正该做的是：
+    1. 发新版 `UI` 主刀 prompt
+    2. 发新版 `NPC` 退回底座 prompt
+    3. 发新版 `spring-day1V2` 退回底座 prompt
+  - 后续再审 `UI` 回执时，要特别防止它把施工范围又缩回成“只碰一个表层壳文件”。
