@@ -3620,3 +3620,28 @@
 - 当前恢复点：
   - 现在应由用户把两份问卷分别发给 `NPC` 与 `spring-day1V2`。
   - 下一轮治理只等这两份回执，再做“谁继续 own / 谁释放 / 谁只是 stale state”的总裁定。
+
+## 2026-04-01｜用户纠偏后改判：当前第一问应该发给 UI，而不是先发给 `spring-day1V2`
+
+- 当前主线目标：
+  - 用户明确指出自己根本没有和 `spring-day1V2` 直聊，实际一直在和 `UI` 对话；
+  - 这轮因此不是继续沿用上一版问卷分发，而是先修正“对象选错了”。
+- 本轮已完成：
+  1. 重新核到 3 条关键事实：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\UI\` 并不存在；
+     - `场景搭建（外包）/memory_0.md` 明确多次把它叫 `UI 线程`，并指定唯一工作区是 `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI`；
+     - `SpringUI/memory.md` 里最新“最近交互唯一提示 / 唯一E”这刀，也是按 UI 线记的，并已写明当前 `PARKED`。
+  2. 因此当前更稳的解释是：
+     - `spring-day1V2` 至少在这刀上更像 stale state / 影子引用；
+     - 真正先要说清楚的是 `UI` 有没有把自己做成 Spring 的影子线程。
+  3. 已新增修正版问卷：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_UI_脱离Spring影子并回正到SpringUI工作区_01.md`
+- 当前关键判断：
+  1. 上一轮“先问 `spring-day1V2`”太快了，没把“用户实际交互对象”放到最高优先级。
+  2. 现在最合理的顺序是：
+     - 先问 `UI`
+     - 把它从 `spring-day1V2` 阴影里脱出来
+     - 再决定要不要继续追 `V2`
+- 当前恢复点：
+  - 现在应由用户先把新问卷发给 `UI`；
+  - 我后续会把上一轮给 `spring-day1V2` 的问卷视为“暂缓发送，不建议执行”的过渡产物，直到 `UI` 回执回来。
