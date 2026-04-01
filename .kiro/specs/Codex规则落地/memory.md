@@ -8509,3 +8509,65 @@
     1. 真实 same-root / compile / lock blocker
     2. 或 state 本身声明面有问题
   - 不应再默认把它先归咎成 stable launcher 多路径错位。
+
+## 2026-04-01｜live 状态层巡检：当前不是“很多线程全乱跑”，而是 3 条 ACTIVE，其中 NPC 与 spring-day1V2 已出现声明级撞车
+
+- 当前主线目标：
+  - 用户要求我“自己偷窥一下现在在跑的线程”，不是继续改规则，也不是代替业务线程施工；
+  - 这轮只做 live 状态层与线程记忆尾部巡检，回答“现在谁在跑、谁停着、哪里最危险”。
+- 本轮子任务：
+  1. 读取 `Show-Active-Ownership.ps1` 当前输出
+  2. 读取 `.kiro/state/active-threads/*.json`
+  3. 只回看 ACTIVE 线程的最新 memory 尾巴
+- 本轮已完成：
+  1. 当前 live 状态层显示：
+     - `ACTIVE`
+       - `NPC`
+       - `spring-day1V2`
+       - `导航检查V2`
+     - `PARKED`
+       - `导航检查`
+       - `美术生`
+       - `农田交互修复V3`
+  2. 当前没有 A 类 hot-file 锁在占用：
+     - `AClassLocked` 为空
+     - 没有 `Primary.unity` 之类的单 writer 现场被占住
+  3. 三条 ACTIVE 里，最重要的事实不是“都还活着”，而是：
+     - `NPC` 与 `spring-day1V2` 当前 state 已经在声明层面撞到同一批文件
+     - 已明确重叠的有：
+       - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+       - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+       - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+  4. 这次撞车尤其危险的原因是：
+     - 两边都把这些文件报成自己的 `owned_paths`
+     - 但没有任何一边把它们声明成 `shared_files`
+     - 也没有进入 B 类 touchpoint 并发口径
+     - 换句话说，这不是“已声明共享热点”，而是“未声明的 C 类重叠施工”
+  5. 其余线程现状：
+     - `导航检查V2`
+       - 当前只锁 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+       - 从状态层看仍是独立 slice，没有和上面两条 ACTIVE 撞到同一文件
+     - `导航检查`
+       - 当前 `PARKED`
+       - blocker 明写为：
+         - 等用户转发 `V2-25`
+         - 等 `unityMCP` listener 恢复
+     - `美术生`
+       - 当前 `PARKED`
+       - 不是业务实现卡住，而是 docs/contract 路径干跑已过，但 broader own roots dirty 仍阻断它诚实收口
+     - `农田交互修复V3`
+       - 当前 `PARKED`
+       - 这轮状态文件里没挂新 blocker
+- 当前关键判断：
+  1. 现在 Sunset 现场最大的风险，不是“线程太多”，而是：
+     - `NPC` 和 `spring-day1V2` 这两条 ACTIVE 已经在同一批 Story 文件上发生未声明重叠
+  2. 这比单纯看到多个 `ACTIVE` 更严重，因为：
+     - 如果继续各改各的
+     - 后面不管谁先 `Ready-To-Sync`
+     - 都会把对方的真实业务改动卷进同根 white-list 或直接在 working tree 里互踩
+  3. 所以当前最该警惕的不是 `导航检查V2`，而是这组 `NPC <-> spring-day1V2` 的交互/UI 集成撞车。
+- 当前恢复点：
+  - 后续如果继续做治理动作，最优先应先处理：
+    1. `NPC` 和 `spring-day1V2` 的切根或停一条
+    2. 再看 `导航检查V2` 是否需要继续跑 live
+  - 若不先处理这组重叠，后面的 thread-state 再健康，也挡不住这次“声明本身就撞了”的现场风险。

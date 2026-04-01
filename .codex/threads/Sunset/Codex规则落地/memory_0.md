@@ -3559,3 +3559,39 @@
   - 更值得观察的是：
     1. 业务线程下一轮是否开始更稳定地自发用 `Ready-To-Sync`
     2. 是否还存在别的 state 输入容错缺口
+
+## 2026-04-01｜只读巡检 live 线程：当前最大风险已改判为 `NPC` 与 `spring-day1V2` 的未声明重叠施工
+
+- 当前主线目标：
+  - 用户要求我直接看 live 现场，不再只讲规范；
+  - 这轮只做治理巡检，不进入真实施工。
+- 本轮子任务：
+  1. 跑 `Show-Active-Ownership.ps1`
+  2. 读取 `.kiro/state/active-threads/*.json`
+  3. 回看 ACTIVE 线程的最新 memory 尾巴
+- 本轮已完成：
+  1. 当前状态层为：
+     - `ACTIVE`：`NPC`、`spring-day1V2`、`导航检查V2`
+     - `PARKED`：`导航检查`、`美术生`、`农田交互修复V3`
+  2. 当前无 A 类锁占用；
+     - `Primary.unity` 不在活跃锁池里
+  3. 已钉出当前最大风险：
+     - `NPC` 与 `spring-day1V2` 同时把以下文件报成自己的 `owned_paths`
+       - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+       - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+       - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+     - 但双方都没把这些文件报成 `shared_files`
+     - 也没有走 B 类 touchpoint 共享口径
+  4. `导航检查V2` 当前仍是独立 slice：
+     - 只锁 `NPCAutoRoamController.cs`
+     - 没和前两条 ACTIVE 直接撞文件
+  5. 两条 `PARKED` 的关键现场：
+     - `导航检查`：等用户转发 `V2-25` + 等 `unityMCP` listener
+     - `美术生`：contract-path 干跑本身已过，但 broader own roots dirty 仍阻断收口
+- 关键决策：
+  1. 当前不该把“有 3 条 ACTIVE”误读成“3 条都同样危险”。
+  2. 现在最需要治理介入的是：
+     - `NPC <-> spring-day1V2` 这组未声明重叠施工
+  3. 如果不先处理这组 overlap，后面的 `Ready-To-Sync` 再健康，也只能在更晚阶段才把冲突暴露出来。
+- 当前恢复点：
+  - 后续若继续治理，第一优先级不是再补规则，而是先给这两条 ACTIVE 做切根、停一条或显式 shared 化。
