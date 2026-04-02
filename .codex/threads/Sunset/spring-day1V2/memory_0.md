@@ -1723,3 +1723,446 @@
   - 只切断 `DialogueDebugMenu.cs` 对 NPC 菜单锁 key 的编译期直接依赖。
 - 当前恢复点：
   - 当前已具备进入同白名单 `sync` 的条件。
+
+## 2026-04-01｜Day1 逻辑矩阵扫盘已推进到“近身仲裁 + 玩家面摘要 + compile-clean”，但同根 NPC 活跃脏改仍阻断诚实 sync
+
+**用户目标**:
+- 用户明确要求不要停在“等验收”，而是直接把 Day1 这条线当前还能继续做的内容尽量做完：
+  - 全盘检查 Day1 相关逻辑和边界情况
+  - 清扫同一个 `E` 键、最近目标、交互优先级、矩阵缺口
+  - 默认 UI 已过线，继续把我能推进的都推进
+  - 同时按 live 规则补上 `thread-state`
+
+**本轮完成**:
+1. 已先补跑 `Begin-Slice`，当前 slice 固定为：
+   - `2026-04-01_Day1逻辑矩阵扫盘与边界收口`
+2. 在不踩 `NPC` 活跃线和 `农田交互修复V3` 活跃线的前提下，把 Day1 自有可控链推进了一轮：
+   - 新增 `SpringDay1ProximityInteractionService.cs(.meta)`，承接 Day1 近身候选汇聚、唯一焦点、唯一按键消费和当前焦点摘要
+   - `CraftingStationInteractable.cs` 改为通过近身仲裁服务上报工作台候选，不再自己在 `Update()` 里直接抢 `E`
+   - `SpringDay1BedInteractable.cs` 新增回屋/睡觉近身提示、页面级 UI 阻挡、包络线距离判断和夜间压力动态提示
+   - `SpringDay1Director.cs` 新增：
+     - `GetRestInteractionDetail`
+     - `GetCurrentWorldHintSummary`
+     - `BuildPlayerFacingStatusSummary`
+     - `TryTriggerRestInteraction()` 的距离 / 上下文 fallback
+     - 并把多组对外摘要口补成空安全
+   - `SpringDay1WorldHintBubble.cs` 新增当前可见态 / 当前按键 / 标题 / 明细读取，并补静态实例销毁回收
+   - `SpringDay1DialogueProgressionTests.cs` 已同步补静态断言，覆盖近身仲裁、休息验收入口、玩家面摘要与空上下文兜底
+3. 本轮另外收掉了一个仓库形态尾巴：
+   - `SpringDay1ProximityInteractionService.cs` 现在已有 `.meta`
+4. 验证层：
+   - `git diff --check` 对当前 owned 代码文件通过（仅剩 Git `CRLF/LF` 提示）
+   - `CodexCodeGuard` 对 6 个 C# 文件通过，`CanContinue = true`
+5. 收口层：
+   - 正式尝试 `Ready-To-Sync.ps1` 时，先撞上 thread-state 工具层问题：它当前会把多路径 `IncludePaths` 误转发给 stable launcher，未能产出 `READY_TO_SYNC`
+   - 已用手工等价 `preflight` 继续拿真实 blocker
+   - 最终已按规则执行 `Park-Slice`
+
+**修改文件**:
+- `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+- `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs.meta`
+- `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+- `Assets/YYY_Scripts/Story/Interaction/SpringDay1BedInteractable.cs`
+- `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+- `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**解决方案**:
+- 这轮没有去碰 NPC 自己的交互脚本，也没有碰 `PlayerInteraction.cs`；而是先把 Day1 自己能独立落地的：
+  - `Workbench`
+  - `Rest / Bed`
+  - `世界提示气泡`
+  - `导演层快照 / 玩家面摘要`
+  这条链做实。
+- 同时把“唯一提示 / 唯一 E”先压成可复用底座，但不越权吞并当前 NPC 活跃改动。
+
+**验证**:
+- `Begin-Slice`：已执行
+- `CodexCodeGuard`：通过
+- `Ready-To-Sync.ps1`：已尝试，但先撞工具层参数错位
+- 手工等价 `preflight`：已执行，并拿到真实 blocker
+- `Park-Slice`：已执行
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - 继续把 Day1 非 UI 逻辑与交互矩阵往“可终验前的干净逻辑面”推进，而不是再回头做旧治理叙事。
+- 本轮子任务：
+  - 先把 Workbench + Rest 自有链的近身提示、唯一 `E`、运行态摘要和验收入口补稳。
+- 当前恢复点：
+  - 代码面已经是 compile-clean；
+  - 当前不能 sync 的第一真实原因，不是这轮代码仍红，而是：
+    1. `Ready-To-Sync.ps1` 当前会把多路径 `IncludePaths` 错转发给 stable launcher
+    2. `Assets/YYY_Scripts/Story/Interaction` 与 `Assets/YYY_Scripts/Story/UI` 同根仍混有 NPC 线程活跃 dirty，继续 sync 会越权吞并 `NpcWorldHintBubble.cs`、`NPCDialogueInteractable.cs`、`NPCInformalChatInteractable.cs`
+  - 后续若继续，应优先等待 NPC 同根活跃脏改拆开，或由治理位批准新的切根 / 并刀口径；在这之前，不应把这轮包装成“已经可以诚实归仓”。
+
+## 2026-04-01｜口径补记：本轮业务改动不包含 NPC UI 正式面，只包含 Day1 自有交互链
+
+**用户目标**:
+- 用户继续追问“你到底动了哪些业务，包不包括 NPC UI”，要求只讲大白话，不看代码文件名。
+
+**本轮稳定口径**:
+1. 本轮**不包括** NPC 的那套 UI 外观、NPC 提示气泡样式、NPC 正式/非正式聊天那两条提示系统。
+2. 本轮**包括** 的，是 Day1 自己可独立推进的业务：
+   - 工作台附近的近身提示和 `E` 键仲裁
+   - 回屋 / 睡觉交互的近身提示和 `E` 键
+   - 交互距离与边界判断
+   - 导演层对“当前玩家面提示焦点”和“玩家面阶段摘要”的输出
+   - 世界小提示气泡的状态读取、连续对话保护和静态实例回收
+3. 当前“为什么还不能 sync”也必须用业务口径解释：
+   - 不是因为我这轮做的 Day1 逻辑还没编过
+   - 而是因为同根目录里还挂着 NPC 线正在施工的文件，一旦收口就会把 NPC 那边一起卷进去
+
+**当前恢复点**:
+- 后续如果继续对用户汇报这条线，必须先说清“这轮动的是 Day1 自有交互链，不是 NPC UI 正式面”。
+
+## 2026-04-01｜定位补记：这条线程更适合承接 Story 向 UI/UE 集成，不适合被直接当成全项目 UI/UE 总包
+
+**用户需求**:
+> 重新厘清我和其他线程的关系；去扫当前仓库里所有 UI 相关交互代码，重点看 NPC 与 spring-day1，然后回答我后续能不能把你当成 UI/UE 外包总包来用。
+
+**完成任务**:
+1. 按 `skills-governor + sunset-workspace-router + preference-preflight-gate` 做了只读前置核查，并明确这轮只做分析，不进入施工，因此未跑 `Begin-Slice`。
+2. 重新读取并对齐了：
+   - `SpringUI` 工作区 memory
+   - `NPC` 工作区 memory
+   - `spring-day1-implementation` 父工作区 memory
+   - `NPC.json / spring-day1V2.json` 两份 active-thread 状态
+3. 对代码面做了 repo 级只读扫盘，重点覆盖：
+   - `Assets/YYY_Scripts/Story/UI`
+   - `Assets/YYY_Scripts/Story/Interaction`
+   - `Assets/YYY_Scripts/Service/Player`
+   - `Assets/YYY_Scripts/Controller/NPC`
+   - 以及 `Assets/YYY_Scripts/UI` 下的通用背包 / 工具栏 / tooltip / crafting 旧体系
+4. 本轮钉实了当前 Sunset 的 UI/UE 不是一条线，而是至少三层 owner 并存：
+   - `SpringUI / UI-V1`：更像 `Day1 formal-face / prefab-first 壳体 owner`
+   - `NPC`：更像 `NPC 玩家可见聊天 / 气泡 / 提示体验 owner`
+   - `spring-day1V2`：更像 `Story / Day1 交互矩阵 + overlay 串联 + 玩家面体验收口 owner`
+5. 最终岗位判断：
+   - 这条线程**适合**被当成：
+     - `Story 向 UI/UE 集成线程`
+     - `玩家可感知体验收口线程`
+     - `Day1 / Story 提示、overlay、交互边界与导演层桥接线程`
+   - 这条线程**不适合**被直接当成：
+     - `全项目所有 UI/UE 总包`
+     - `纯视觉 formal-face 专线`
+     - `NPC + Spring + 通用 HUD/背包/工具栏 + 剧情逻辑` 的单线程全包 owner
+
+**修改文件**:
+- `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+- `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+
+**解决方案**:
+- 后续如果用户要把我当“外包线程”来用，最稳的委托方式不是一句“UI/UE 全交给你”，而是先切清：
+  1. `formal-face / prefab 壳体`
+  2. `玩家面体验`
+  3. `剧情交互矩阵`
+- 我最适合承接的是第 2、3 类之间那条“让玩家真的感受到这套 Story 交互成立”的集成面。
+
+**验证**:
+- `只读结构判断成立`
+- `代码职责分布已复核`
+- `不属于 live 视觉终验`
+
+**当前主线 / 子任务 / 恢复点**:
+- 当前主线：
+  - Day1 这条线程后续到底该按“逻辑线”还是“UI/UE 外包线”来使用。
+- 本轮子任务：
+  - 只读扫盘并给出岗位判断。
+- 当前恢复点：
+  - 以后再给这条线程派工时，应优先按：
+    - `Story / Day1 / NPC 玩家面体验集成`
+    - 而不是 `整个项目 UI 全包`
+  - 如果用户真想扩大范围，也应先明确是吃 `formal-face`，还是吃 `体验集成`，不能再把两者混成一句话。
+
+## 2026-04-01｜docs-only 收口：`Story 向 UI/UE 集成外包` 已落成 owner contract
+
+**用户目标**:
+- 按 `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-04-01_UI线程_Story向UIUE集成owner边界收口任务书_01.md`，不要继续实现，不要继续修 `Prompt / Workbench`，只把这条线后续该接什么、不该接什么、怎么派工，收成一份可执行、可派工、可审回执的 owner contract。
+
+**本轮前置与边界**:
+1. 本轮显式使用：
+   - `skills-governor`
+   - `sunset-workspace-router`
+   - `preference-preflight-gate`
+   - `user-readable-progress-report`
+   - `delivery-self-review-gate`
+2. 本轮手工等价执行：
+   - `sunset-startup-guard`
+3. 本轮是 docs-only：
+   - 不进入真实施工
+   - 不跑 `Begin-Slice`
+   - 不改代码
+   - 不碰 runtime / prefab / 业务实现
+
+**本轮实际完成**:
+1. 新增主文档：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\2026-04-01_Story向UIUE集成owner边界与派工约定.md`
+2. 最小补写：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\memory.md`
+3. 把这条线的默认岗位正式压成：
+   - `Story / NPC / Day1 玩家面体验链的 UI/UE 集成 owner`
+4. 把当前主链与旧链区分钉死：
+   - 主链：`交互体 -> SpringDay1ProximityInteractionService -> SpringDay1WorldHintBubble + InteractionHintOverlay`
+   - `NpcWorldHintBubble`：`旧并行链 / carried legacy leaf`
+
+**本轮关键判断**:
+1. `SpringDay1ProximityInteractionService` 已经是当前 `Story/NPC/Day1` 玩家面交互链的统一仲裁骨架。
+2. 后续正确路线不是“重做统一交互系统”，而是沿现有骨架继续做：
+   - `contract 收口`
+   - `玩家面 polish`
+   - `一致性修正`
+3. 这条线默认该接的是：
+   - `Story/UI` 玩家面表层与接回层
+   - Day1 交互统一仲裁 contract
+   - `CraftingStation / Bed / Day1Director` 里的玩家面体验切片
+   - `NpcWorldHintBubble` 的旧链收口
+4. 这条线默认不该吞的是：
+   - 通用 UI 主系统
+   - 剧情主状态机完整 owner
+   - 全局输入 / `Primary` / scene hot-file
+   - `NPC active owner` 仍在线时的 NPC 专项体验线
+
+**验证**:
+- `只读结构判断成立`
+- `owner / contract 推断已明确落回文档`
+- `不属于 live 体验终验`
+- `preference-preflight-gate` helper 已明确这轮只能站在 `structure / checkpoint`
+
+**当前恢复点**:
+- 这条线程现在已经不只是“口头上更像 Story 向 UI/UE 集成”，而是有了一份可直接派工、可审回执的正式 contract；
+- 在用户基于这份 contract 再次划刀前，不进入新的 UI 实现，也不把自己扩成全项目 UI/UE 总包；
+- 下一步如果继续，只应基于这份 contract 决定：下一刀到底落在 `formal-face`、`玩家面体验`，还是 `剧情交互矩阵` 的哪一层。
+
+## 2026-04-01｜用户紧急叫停：最近交互唯一提示 / 唯一 E 切片已 PARKED，不继续实现
+
+**用户目标**:
+- 用户明确要求立即停手，不再继续这轮“最近交互唯一提示 / 唯一 E 仲裁”实现，不再改这刀相关代码 / prefab。
+- 在用户重新裁边界前，我只保留 docs / contract / 审稿位。
+
+**本轮前置与现场**:
+1. 本轮显式使用：
+   - `skills-governor`
+   - `preference-preflight-gate`
+2. 本轮手工等价执行：
+   - `sunset-startup-guard`
+   - `user-readable-progress-report`
+   - `delivery-self-review-gate`
+3. 本轮真实施工状态：
+   - 已跑 `Begin-Slice`
+   - 已进入过 `ACTIVE`
+   - 已做最小结构验证与代码闸门
+
+**本轮已留下的相关代码现场**:
+1. 当前这刀相关、仍在磁盘上可见的差异文件为：
+   - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+   - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+   - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+   - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+2. 最小验证已完成：
+   - `CodexCodeGuard` 对以上 5 个 C# 文件返回 `CanContinue = true`
+   - 说明当前至少没有把这刀对应程序集直接打红
+
+**本轮硬裁定**:
+1. 用户已明确指出：
+   - 当前这刀与 `spring-day1V2`、`NPC` 的 active scope 撞车
+2. 因此这轮不能继续：
+   - 不扩写
+   - 不 `sync`
+   - 不再继续拿 `ACTIVE` 口径占现场
+
+**本轮已执行动作**:
+1. 已跑：
+   - `Park-Slice`
+2. 当前线程状态：
+   - `PARKED`
+3. 当前 blocker：
+   - `与 NPC / spring-day1V2 active scope 撞车，等待用户重裁 owner 边界`
+
+**当前恢复点**:
+- 在用户重新裁边界前，这条线程只保留 docs / contract / 审稿位；
+- 不继续进入“最近交互唯一提示 / 唯一 E 仲裁”实现；
+- 若后续要恢复实现，必须等用户新的 owner 裁定后再重新起刀。
+
+## 2026-04-01｜身份自审补记：当前 UI / SpringUI 线不是 spring-day1V2，本线程名反而是混淆来源之一
+
+**用户目标**:
+- 用户要求只做身份 / 工作区 / owner 自审，正面回答：
+  1. 我到底是不是独立的 UI / SpringUI 线，而不是 `spring-day1V2` 的影子；
+  2. 唯一工作区是不是 `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI`；
+  3. 最近这 5 个文件里哪些真该算 UI own，哪些应释放。
+
+**本轮边界**:
+1. 本轮显式使用：
+   - `skills-governor`
+   - `sunset-workspace-router`
+2. 本轮手工等价执行：
+   - `sunset-startup-guard`
+   - `user-readable-progress-report`
+   - `delivery-self-review-gate`
+3. 本轮是只读分析：
+   - 不继续实现
+   - 不改业务文件
+   - 不跑 `Begin-Slice`
+
+**本轮最终判断**:
+1. 当前 UI 线的最准确身份不是 `spring-day1V2` 代工位，而是：
+   - `Story / NPC / Day1 玩家面体验链的 UI/UE 集成 owner`
+2. 它仍然是独立的 `SpringUI` 线，唯一工作区继续是：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI`
+3. 这轮之所以会“像 spring-day1V2 的影子”，真正出错的是：
+   - `thread-state`
+   - 当前线程记忆
+   被挂在了 `spring-day1V2` 这条旧线程名下；
+   这说明当前 thread label 已经不能再拿来等价代表 UI 身份。
+
+**5 文件自审结论**:
+1. 继续保留为 SpringUI 当前 exact own：
+   - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+2. 明确释放，不再继续算 SpringUI 当前 exact own：
+   - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+   - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+   - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+   - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+
+**当前恢复点**:
+- 在用户重新裁边界前，不能再把“UI 正在用 `spring-day1V2` 线程名施工”继续当成默认状态；
+- 后续如果继续，SpringUI 应只从真正玩家面表层的小刀恢复，而不是自动把交互体 / service / Day1 广义测试又卷回自己名下。
+
+## 2026-04-01｜继续 `PARKED`：退回 Day1 底座协作位，等待 UI 接手玩家面整合
+
+**用户目标**:
+- 用户最新裁定明确要求：
+  1. 这轮不要恢复“最近目标 / 唯一提示 / 唯一 E”主刀实现；
+  2. `spring-day1V2` 继续 `PARKED`；
+  3. 退回 Day1 底座协作位，等待 `UI` 接手后半段玩家面 `UI/UE` 整合。
+
+**本轮边界**:
+1. 本轮只读命中：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_spring-day1V2_退回Day1底座协作位等待UI接手_02.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-01_典狱长_UI_接管玩家面UIUE整合主刀_03.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1V2.json`
+2. 本轮不恢复施工，不改代码，不碰 `Primary.unity` / `GameInputManager.cs`。
+
+**本轮已执行动作**:
+1. 已确认 `spring-day1V2` 原状态本来就是：
+   - `PARKED`
+2. 已再次执行：
+   - `Park-Slice`
+3. 当前 thread-state blocker 已更新为：
+   - `等待 UI 接手玩家面 UI/UE 整合；spring-day1V2 退回 Day1 底座协作位，仅保留底座 contract / 行为顺序 / Day1 约束澄清权`
+
+**当前保留边界**:
+1. 保留：
+   - Day1 交互体与现有行为骨架的事实解释权
+   - 底座 contract、行为顺序、Day1 约束澄清
+2. 不再继续：
+   - “唯一提示 / 唯一 E / 最近目标仲裁”玩家面主刀实现
+   - 玩家面 UI/UE 体验整合
+
+**回叫条件**:
+- 只有在 `UI` 线程为了玩家面整合，需要我补：
+  - 底座 contract
+  - 现有行为顺序
+  - Day1 约束边界
+  时，这条线才应被重新叫回协作；否则继续 `PARKED`。
+
+## 2026-04-01｜误收 UI prompt 已撤回：当前继续作为 Spring / Day1 底座协作位 `PARKED`
+
+**用户目标**:
+- 用户明确撤回上一条把我临时切成 `UI / SpringUI` 的 prompt；
+- 当前身份重新说死：
+  1. 我不是 `UI` 线；
+  2. 我就是 `Spring` / `spring-day1V2`；
+  3. 继续 `PARKED`；
+  4. 只保留 Day1 底座协作位与解释权。
+
+**本轮已做的纠正**:
+1. 已复核：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\UI.json`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1V2.json`
+2. 已把上一条误 prompt 对 `UI` live state 的影响恢复回撤回前状态；
+3. 当前没有重新开 `Begin-Slice`，也没有恢复任何实现施工。
+
+**当前保留边界**:
+1. 保留：
+   - Day1 底座 contract
+   - 现有行为顺序
+   - Day1 约束边界
+   - Day1 交互体与行为骨架的事实解释权
+2. 不再继续承担：
+   - `唯一提示 / 唯一 E / 最近目标仲裁`
+   - `玩家面 UI/UE 整合`
+   - `SpringDay1ProximityInteractionService.cs` / `InteractionHintOverlay.cs` 这一刀的玩家面 owner 语义
+
+**唯一回叫条件**:
+- 只有当 `UI` 在线玩家面整合时，需要我补：
+  - Day1 底座 contract
+  - 现有行为顺序
+  - Day1 约束边界
+  我才会被重新叫回；否则继续 `PARKED`。
+
+**当前 live 状态**:
+- `PARKED`
+- 当前 blocker 继续是：
+  - `等待 UI 接手玩家面 UI/UE 整合；spring-day1V2 退回 Day1 底座协作位，仅保留底座 contract / 行为顺序 / Day1 约束澄清权`
+
+## 2026-04-03｜春一日新 NPC 群像：我方只做 Day1 integration，并已过 `Ready-To-Sync`
+
+**用户目标**:
+- 用户不再让我停在 prompt，而是直接按：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-本线程_春一日新NPC群像Day1整合并行任务单-03.md`
+  做实一轮 `spring-day1` / `Day1 integration` 落地。
+- 我当前边界被重新钉死为：
+  - 只做 crowd manifest / crowd director / `SpringDay1Director` 的 Day1 消费闭环
+  - 不回吞 `NPC-v` 的 prefab/dialogue/roam 生产链
+  - 不碰 `GameInputManager.cs`、UI/字体主线、`Primary.unity`
+
+**本轮显式使用**:
+1. `skills-governor`
+2. `sunset-no-red-handoff`
+
+**本轮手工等价执行**:
+1. `sunset-startup-guard`
+2. `sunset-workspace-router`
+
+**本轮 thread-state**:
+1. 已继承既有 `Begin-Slice`
+2. 途中因 `ready-to-sync.lock` stale 锁卡住过一次
+3. 当前已重新跑过：
+   - `Ready-To-Sync`
+4. 当前状态：
+   - `READY_TO_SYNC`
+
+**本轮完成**:
+1. `SpringDay1NpcCrowdDirector.cs`
+   - 新增 `CurrentRuntimeSummary`
+   - 把锚点解析从漂移的 `001/002/003` 拉回稳定的 `001_HomeAnchor/002_HomeAnchor/003_HomeAnchor`
+   - 加强 destroyed state 清理
+2. `SpringDay1Director.cs`
+   - snapshot 新增 `Crowd / WorldHint / PlayerFacing`
+   - 把对 `SpringDay1ProximityInteractionService`、`SpringDay1WorldHintBubble`、`SpringDay1BedInteractable` 的硬编译耦合改成反射/兜底桥接
+   - 补 `StoryManager == null` 保护
+   - 补 `using System;`，清掉 `AppDomain / Type` 编译错误
+3. 验证层
+   - `git diff --check` 通过
+   - `Ready-To-Sync.ps1 -ThreadName spring-day1V2` 通过
+
+**本轮最关键的稳定结论**:
+1. 旧 crowd 刷新逻辑确实会拿到 `001/002/003` 当前 NPC 位置，导致新群像实际出生点明显漂移。
+2. 改回 `*_HomeAnchor` 后，这不是“命名整理”，而是 Day1 integration 的真实止血：
+   - `102`：`003 -> (14.02, 2.68)` 改为 `003_HomeAnchor -> (3.85, -1.08)`
+   - `201`：`002 -> (10.39, 2.73)` 改为 `002_HomeAnchor -> (0.77, 1.29)`
+   - `301`：`003 -> (9.47, 0.73)` 改为 `003_HomeAnchor -> (-0.70, -3.03)`
+
+**当前阶段**:
+- 这条 slice 已经不再是 `BLOCKED` 分析态，而是准备白名单 sync 的收口态。
+
+**下一步恢复点**:
+- 现在只剩三件事：
+  1. 追加 skill 审计日志
+  2. 执行白名单 `sync`
+  3. 完成后 `Park-Slice`

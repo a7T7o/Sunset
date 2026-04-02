@@ -868,3 +868,285 @@
     - 不碰 `GameInputManager.cs`
     - 不吞 `DialogueChinese*`
     - 不把 `neutral-main-ready` 误判成 scene 可直接写。
+
+## 2026-04-01｜NPC 总线开发完成度重新校准：当前更像“底座厚，体验薄”
+
+- 当前主线目标：
+  - 用户要求我不要再拿治理清扫和 package 收口来描述 NPC 进度，而是直接回答“实际开发做到了哪里、还差哪里、下一步该做什么”。
+- 本轮完成：
+  - 已把 NPC 总线的当前状态重新分成两层：
+    1. `底层 / 中层`
+       - 完成度较高
+       - 已有生成、漫游、内容载体、玩家 / NPC 气泡底座、关系成长最小模型、非正式聊天状态机基础
+    2. `玩家体验 / 场景可玩层`
+       - 完成度明显不足
+       - 当前仍不能宣称 NPC 线已经接近最终完成
+  - 当前总线真实未收口点重新认定为：
+    - `P1`
+      - `Primary.unity` 中 `001 / 002 / 003` 的最小可玩 scene 集成仍未真正闭环
+    - `P3`
+      - 非正式聊天虽已有会话状态机，但体验层未过线
+      - 尤其是跑开中断、气泡重叠、提示可见性、玩家/NPC 样式区分
+    - `P5`
+      - 受击 / 工具命中 / 反应系统仍未完成
+    - `P6`
+      - 联调、正式测试、最终用户终验仍未收
+- 当前恢复点：
+  - NPC 总线之后的优先级不应再简单写成“继续做 P5”；
+  - 更准确的顺序应是：
+    1. 先把 `P1` 的最小可玩 scene 闭环补出来
+    2. 再把 `P3` 的非正式聊天体验闭环补严
+    3. 然后再进入 `P5`
+
+## 2026-04-01｜NPC 总线体验补口续记：交互提示改成“左下角为主，头顶小箭头为辅”
+
+- 当前主线目标：
+  - 把 `P3` 的 NPC 非正式聊天体验从“只有底层能力”继续推到“至少交互壳和中断链不再明显违和”。
+- 本轮完成：
+  - 交互提示层已继续往用户要求靠：
+    - 头顶不再允许挂大 `E`
+    - 头顶提示继续收窄成更小的倒三角
+    - 左下角统一提示区保留为主提示壳
+    - 非正式聊天进行中，头顶箭头已被压掉，避免和聊天气泡冲突
+  - 聊天体验层继续补口：
+    - 玩家 / NPC 打字机不再靠透明渐显开句
+    - 跑开中断不再复用旧 typed interrupt 链
+    - `E` 的职责进一步收紧到：
+      - 跳过打字机
+      - 跳过等待
+      - 跳过收尾
+      - 而不是驱动整段对话必须靠手动一轮轮推进
+  - 当前总线阶段判断更新为：
+    - `P3` 仍未验收通过
+    - 但这轮已经在真正往“体验修补”推进，不再只是底层补链
+- 本轮验证：
+  - Unity 已 fresh compile 成功
+  - 但运行态 live 复测和用户肉眼终验仍未完成
+- 当前恢复点：
+  - 下一次继续应优先补：
+    - `002 / 003` 运行态验证
+    - 跑开中断是否彻底止血
+    - 左下角提示与头顶箭头是否符合最终观感
+
+## 2026-04-01｜NPC 总线验证更新：非正式聊天四条 runtime trace 已过
+
+- 当前主线目标：
+  - 先把 `P3` 的 NPC 非正式聊天从“逻辑上能解释”推进到“运行态 trace 能自证”。
+- 本轮完成：
+  - `P3` 线新增一轮真正的 Unity 自测：
+    - `002 closure`
+    - `002 interrupt`
+    - `003 closure`
+    - `003 interrupt`
+    - 全部通过
+  - 顺手清掉了一个会阻断 Play 的 Editor compile blocker：
+    - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+  - 提示壳继续收紧：
+    - 会话服务现在会直接压头顶 world hint，并主动同步左下角提示。
+- 当前阶段：
+  - `P3`
+    - 逻辑自测层已明显前进
+    - 但玩家观感层仍未终验
+- 下一步恢复点：
+  - 优先做人工终验：
+    - 闲聊进行中的左下角提示
+    - 头顶 world hint / 小箭头是否彻底不打架
+    - 气泡与提示的最终观感是否还要再压
+
+## 2026-04-02｜NPC 总线补记：跑开中断二次修正后，`002 / 003` 的闭环与中断证据已经补到 6 条
+
+- 当前主线目标：
+  - 把 `P3` 里最反复的体验失败点从“靠描述解释”推进到“真实 trace 已补齐”的状态。
+- 本轮补记的稳定事实：
+  - 本次真正继续动到的 own 代码集中在：
+    - `PlayerNpcChatSessionService.cs`
+    - `NPCBubblePresenter.cs`
+    - `PlayerThoughtBubblePresenterStyleTests.cs`
+  - 关键修正是：
+    - 超距时不再推进整段正常聊天，只快进当前打字句。
+    - NPC 气泡样式回到先前认可的暖金基线。
+    - 玩家气泡样式测试护栏改成反射版并收掉编译红。
+  - 运行态硬证据现在是 6 条：
+    - `002 closure`
+    - `003 closure`
+    - `002 interrupt`
+    - `003 interrupt`
+    - `002 player-typing interrupt`
+    - `003 player-typing interrupt`
+    全部通过。
+- 当前阶段判断：
+  - NPC 总线现在更准确的状态是：
+    - 底层和 targeted probe 已进一步站住
+    - 玩家真实观感仍未完成最终放行
+  - 所以这条线依旧要守住旧口径：
+    - 不把 trace 全绿包装成体验全绿
+- 当前恢复点：
+  - 这轮补完审计层后，线程应继续 `PARKED`。
+  - 下一步仍以用户终验后留下的 `NPC own` 失败项为准，不再顺手扩到 shared/UI 壳。
+
+## 2026-04-02｜NPC 总线收尾补记：当前已重新 `PARKED`
+
+- 当前状态：
+  - `NPC` thread-state 已重新回到 `PARKED`
+- 审计补记：
+  - `skill-trigger-log` 已补到 `STL-20260402-036`
+  - 当前唯一额外审计尾账不是 NPC 线自己新造成的，而是全局 canonical skill log 里已有的旧重号：
+    - `STL-20260402-029`
+- 当前恢复点：
+  - NPC 总线当前应继续按“用户终验驱动的下一刀”推进。
+  - 不再因为这轮补记动作把自己误判成仍在 ACTIVE 施工。
+
+## 2026-04-02｜NPC/UI 边界与进度只读核对：理论边界基本清楚，但现场现实仍有交叉
+
+- 当前主线目标：
+  - 用户要求直接审我对 `UI` 线的认知是否清楚，重点不是再改代码，而是把：
+    - `UI` 实际做了什么
+    - `NPC` 与 `UI` 的边界该怎么切
+    - 当前现场哪里已经切清、哪里其实还没彻底切清
+    一次性说实。
+- 本轮只读核对来源：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\UI.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\NPC.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\UI\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-02-NPC给UI的左下角任务提示接管委托-01.md`
+- 当前对 `UI` 实际进度的核定：
+  - `UI` 已明确做过两组事：
+    1. shared/UI 提示链：
+       - `SpringDay1ProximityInteractionService.cs`
+       - `InteractionHintOverlay.cs`
+       - `SpringDay1WorldHintBubble.cs`
+       - `SpringDay1InteractionPromptRuntimeTests.cs`
+       目标是“左下角提示 / 头顶提示 / 任务优先文案”的玩家面整合。
+    2. 玩家气泡 formal-face：
+       - `PlayerThoughtBubblePresenter.cs`
+       - `PlayerThoughtBubblePresenterStyleTests.cs`
+       目标是把玩家气泡拉回与 NPC 正式面一致，并加厚测试护栏。
+  - `UI` 当前仍未真正 claim 完成的，主要是：
+    - 玩家真实观感终验
+    - 一部分 targeted test / live test
+- 当前边界判断：
+  - 理论上更合理的分界仍是：
+    - `NPC` 守：
+      - `NPCBubblePresenter.cs`
+      - `PlayerNpcChatSessionService.cs`
+      - `PlayerThoughtBubblePresenter.cs`
+      - `NPCInformalChatInteractable.cs`
+      - 自动续聊 / 跑开中断 / NPC 会话节奏 / 双气泡底座
+    - `UI` 守：
+      - `SpringDay1ProximityInteractionService.cs`
+      - `InteractionHintOverlay.cs`
+      - `SpringDay1WorldHintBubble.cs`
+      - 左下角 / 头顶提示 / 任务优先文案 / shared prompt shell
+  - 但现场现实并没有完全按这条线收干净：
+    - `UI.json` 当前仍把
+      - `PlayerThoughtBubblePresenter.cs`
+      - `PlayerNpcChatSessionService.cs`
+      - `NPCBubblePresenter.cs`
+      - `PlayerThoughtBubblePresenterStyleTests.cs`
+      挂在自己的 `ACTIVE` slice 名下
+    - working tree 里这些文件也确实仍是脏的
+  - 所以当前最准确的说法是：
+    - “我已经知道应该怎么切边界”
+    - 但“现场 state 与 dirty 归属”还残留历史交叉，没有彻底回正成干净两条线
+- 当前恢复点：
+  - 后续如果继续推进 NPC，本线应继续只认 NPC own 失败项。
+  - 若要把 NPC/UI 边界真正收干净，后面还需要治理或用户再裁一次“当前这组四文件到底由谁最终收口”。
+
+## 2026-04-03｜新主线切到“春一日新 NPC 群像”：已形成给 `NPC-v` 的联合完工 prompt
+
+- 当前主线目标：
+  - 把新增 8 个 NPC 资源真正接进 `spring-day1`，并明确区分：
+    - `NPC-v` 负责 NPC 本体层
+    - 我负责 `spring-day1` integration 层
+- 当前已确认的现场基线：
+  - 已真实生成：
+    - `Assets/222_Prefabs/NPC/101~301.prefab`
+    - `Assets/111_Data/NPC/SpringDay1Crowd/*.asset`
+    - `Assets/100_Anim/NPC/101~301/*`
+    - `Assets/Resources/Story/SpringDay1/SpringDay1NpcCrowdManifest.asset`
+  - 已新增：
+    - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdManifest.cs`
+    - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+- 本轮完成：
+  - 已新增联合完工续工 prompt：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-NPC-v_春一日新NPC群像联合完工续工prompt-02.md`
+  - 这份 prompt 已明确写清：
+    - 我已完成的部分
+    - 总需求盘点
+    - `NPC-v` 的 own 范围
+    - 我的 own 范围
+    - 还没闭掉的运行态与集成态项
+- 当前恢复点：
+  - 下一轮由 `NPC-v` 先补 NPC 本体层缺口。
+  - 我随后只接 `spring-day1` 的 phase / runtime integration 层，不再把两条线混做。
+
+## 2026-04-03｜NPC 总线补记：新群像 8 人的本体层 preflight 已落地，首个 own blocker 已被修掉
+
+- 当前主线目标：
+  - 按联合完工 prompt，先把“春一日新 NPC 群像”的 `NPC-v` 本体层收扎实，再把 Day1 integration 留给另一侧。
+- 本轮稳定事实：
+  - 8 套产物表面齐全这一点已经被只读 preflight 坐实：
+    - `8` 张 sprite
+    - `8` 套动画目录
+    - `8` 个 prefab
+    - `8` 份 roam profile
+    - `8` 份 dialogue content
+    - `1` 份 crowd manifest（`8` 条 entry）
+  - 8 个 crowd prefab 本体挂载也齐：
+    - `NPCAutoRoamController`
+    - `NPCInformalChatInteractable`
+    - `roamProfile` 引用
+    - `homeAnchor` 引用
+  - 但这轮真正抓到的 first blocker 不是 prefab 漏挂，而是：
+    - 8 份 `DialogueContent.asset` 开工前全部是空壳
+    - 因而“可聊”在本体层是假的
+- 本轮修复：
+  - 已修 `SpringDay1NpcCrowdBootstrap.cs`，把 content 资产写入链改成真实回填 `NPCDialogueContentProfile` 私有序列化字段。
+  - 已通过当前打开的 Unity 实例重跑：
+    - `Tools/NPC/Spring Day1/Bootstrap New Cast`
+  - 修后 8 份 content 资产都已具备：
+    - `npcId`
+    - `playerNearbyLines`
+    - `defaultInformalConversationBundles`
+    - `defaultWalkAwayReaction`
+    - `defaultChatInitiatorLines`
+    - `defaultChatResponderLines`
+- 当前阶段判断：
+  - `NPC-v` 这一层现在从“结构齐但 content 空壳”推进到了“本体层基础内容成立”
+  - 但还不能说整条新群像已经收口，因为：
+    - pair-specific 语义仍空
+    - runtime phase 消费仍是 integration 侧未闭项
+- 当前恢复点：
+  - 若继续 `NPC-v`，下一刀优先级应是：
+    - pair-specific 内容是否补
+    - 8 人逐个 runtime 的 roam/chat/facing 校验
+  - `Primary` 与 Day1 phase 消费，继续不由 NPC 线主拿。
+
+## 2026-04-03｜并行协作口径补齐：已补出本线程自用任务单
+
+- 用户补充裁定：
+  - 下一轮不是“只给 `NPC-v` 一个 prompt”，而是要明确“我和 `NPC-v` 并行，各自有自己的任务单”。
+- 本轮补齐：
+  - 已新增本线程自用任务单：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-本线程_春一日新NPC群像Day1整合并行任务单-03.md`
+  - `NPC-v` 的联合 prompt 也已回写引用这份任务单，形成双文件配对。
+- 当前恢复点：
+  - 下一轮的正确并行关系已经固定为：
+    - `NPC-v` 做 NPC 本体层
+    - 我做 Day1 integration 层
+  - 两边最后以同一组“春一日新 NPC 群像”闭环为目标，不再互相吞区。
+
+## 2026-04-03｜NPC 总线补记：Day1 integration 侧已 ready，群像不再只停在本体层
+
+- `spring-day1` 这侧已按并行任务单完成一轮真实 integration 收口：
+  - 稳定 anchor 解析已接回 `*_HomeAnchor`
+  - Day1 snapshot 已能带出 crowd / world-hint / player-facing 三组摘要
+  - `Ready-To-Sync` 已通过
+- 这意味着“春一日新 NPC 群像”当前不再只是资源和 prefab 已生成：
+  - Day1 integration 侧也已经进入可白名单提交状态
+- 当前总线恢复点：
+  - `NPC-v` 继续只盯本体层剩余问题
+  - `spring-day1V2` 这条 slice 下一步只剩白名单 sync 和收尾 state，不应再扩回 NPC 生产链

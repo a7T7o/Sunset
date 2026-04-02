@@ -829,3 +829,556 @@
     - `001` 提示卡审美
     - `002 / 003` 双气泡真实镜头是否还重叠
     - 玩家真实按 `E` 的体感
+
+## 2026-04-01｜0.0.2 第二轮体验补口：左下角统一提示壳 + 头顶小箭头 + 跑开中断止血
+
+- 当前主线目标：
+  - 把 NPC 非正式聊天从“底层状态机能跑”继续压到“交互壳和中断链至少不再明显违和”，优先修用户已明确指出的体验问题。
+- 本轮完成：
+  - 已继续真实改代码，不再停在文档层。
+  - 统一提示壳进一步收口：
+    - `SpringDay1ProximityInteractionService.cs`
+      - 新增 `showWorldIndicator`
+      - 允许“左下角提示还在，但头顶不再挂箭头”
+    - `NPCInformalChatInteractable.cs`
+      - 非正式聊天进行中改为：
+        - `showWorldIndicator = false`
+      - 结果是：
+        - 头顶小箭头只表示“当前可发起交互”
+        - 闲聊进行中不再和聊天气泡抢头顶位置
+    - `SpringDay1WorldHintBubble.cs`
+      - 头顶提示继续收窄成更小的倒三角
+      - 跳动幅度进一步减小
+      - 常态不再显示大 `E`
+      - 常态不再显示明显 backplate，只保留更轻的头顶指示
+    - `InteractionHintOverlay.cs` / `InteractionHintDisplaySettings.cs`
+      - 左下角统一提示区与可隐藏设置接口继续保留
+      - 当前口径仍是：
+        - 提示显示开关关掉时
+        - 头顶箭头与左下角提示会一起隐藏
+  - 会话与中断链补口：
+    - `PlayerNpcChatSessionService.cs`
+      - `GetPromptDetail()` 已改成：
+        - 默认说明“会自动续聊 / 按 E 只跳过动效或停顿”
+      - `HandleInteract()` 已补：
+        - `AutoContinuing`
+        - `Interrupting`
+        - `Completing`
+        这些阶段现在也能被 `E` 正常跳过等待/收尾，而不再只会卡着等
+      - 跑开中断链已改为：
+        - 先强清旧会话气泡
+        - 再直接显示玩家离场句 / NPC 反应
+        - 不再复用那条容易鬼畜的旧打字机链
+      - 正常收尾 `EndConversation()` 现改成：
+        - 玩家 / NPC 气泡都走正常隐藏
+        - 不再把玩家气泡一刀 `HideImmediate`
+      - 强制取消 `CancelConversationImmediate()` 仍保留：
+        - 立刻清场
+        - 但现在会先清布局偏移再收
+  - 气泡表现补口：
+    - `PlayerThoughtBubblePresenter.cs`
+      - `BeginTypedText()` 改为：
+        - 打字机更新文本
+        - 但不再每句重新做透明渐显
+      - 新增公开 `HideBubble()`
+        - 供正常会话结束时走平滑收起
+    - `NPCBubblePresenter.cs`
+      - `BeginTypedConversationText()` 同样改为：
+        - 不再每句重新透明渐显
+- 本轮验证：
+  - `git diff --check` 通过：
+    - 本轮 own 修改脚本范围无空白/补丁格式问题
+  - Unity fresh compile 已拿到：
+    - `Editor.log`
+    - `ExitCode: 0`
+    - `*** Tundra build success (4.34 seconds)`
+    - 本轮修改已被 Editor 重新编进项目
+  - 当前仍未拿到的证据：
+    - MCP / `127.0.0.1:8888`
+      - 仍不通
+    - 因此本轮还没有补到新的运行态 live 复测
+- 当前恢复点：
+  - 代码侧当前最关键的变化是：
+    1. 非正式聊天进行中不再把“交互箭头”和“聊天气泡”堆在 NPC 头顶
+    2. 打字机开始时不再让气泡透明渐显
+    3. 跑开中断不再复用容易鬼畜的 typed interrupt 链
+  - 下一次继续时，第一优先级应直接做运行态重测：
+    - `002 / 003`
+    - 开聊
+    - 自动续聊
+    - 跑开中断
+    - 头顶箭头 / 左下角提示同步
+
+## 2026-04-01｜0.0.2 自测续记：四条 NPCValidation 全绿，提示壳改由会话服务强收口
+
+- 当前主线目标：
+  - 把 `002 / 003` 的非正式聊天闭环从“代码看起来对”推进到“Unity 运行态自测能连续过线”，同时把闲聊进行中的提示壳逻辑再收紧一层。
+- 本轮完成：
+  - 验证器补口：
+    - `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+    - 新增 `Application.runInBackground` 临时接管与恢复，避免失焦时 validation trace 卡在第一两个字。
+  - 会话提示壳收口：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - 闲聊进行中改为由会话服务直接：
+      - 压掉 `SpringDay1WorldHintBubble`
+      - 刷新左下角 `InteractionHintOverlay`
+    - 不再只赌 proximity service 下一帧自己把 UI 切对。
+  - UI 只读暴露补口：
+    - `Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - 增加 `IsVisible / CurrentKeyLabel / CurrentCaptionText / CurrentDetailText`
+    - 便于后续直接读运行态提示状态。
+  - compile blocker 清红：
+    - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+    - 改成纯反射取 Sunset runtime 类型，不再直接编译依赖 NPC runtime 程序集与 `TMPro`
+    - 解决了它把 Play Mode 直接挡死的问题。
+- 本轮验证：
+  - `validate_script` 通过：
+    - `PlayerNpcChatSessionService.cs`
+    - `NPCInformalChatValidationMenu.cs`
+    - `InteractionHintOverlay.cs`
+    - `SpringDay1InteractionPromptRuntimeTests.cs`
+  - `git diff --check` 通过：
+    - 只有 LF/CRLF warning，无新增 whitespace error
+  - Unity 自测结果：
+    - `002 closure`
+      - `endReason=Completed`
+    - `002 interrupt`
+      - `endReason=WalkAwayInterrupt`
+      - `playerExitSeen=True`
+      - `npcReactionSeen=True`
+    - `003 closure`
+      - `endReason=Completed`
+    - `003 interrupt`
+      - `endReason=WalkAwayInterrupt`
+      - `playerExitSeen=True`
+      - `npcReactionSeen=True`
+  - 当前仍未完全闭环的证据：
+    - MCP 这轮对“闲聊进行中的中间帧 UI”取证不稳定，数次采样会落到已收尾帧
+    - 因此“左下角提示中途具体显示哪一句文案”的最终观感，仍建议保留给人工终验。
+- 当前恢复点：
+  - 逻辑自测层现在已经不再卡在“第一两个字”或“跑开没有回收”
+  - 下一次继续时，不应再回到补状态机；应直接做：
+    - 人工看感受的提示 UI 验收
+    - NPC 进行中提示文案是否完全符合最终体验预期
+
+## 2026-04-01｜共享提示壳边界复核：当前 blocker 不再允许 NPC 把 Day1/UI 壳整包吞下
+
+- 当前主线目标：
+  - 重新判断 `0.0.2` 当前 blocker 里，哪些文件仍属于 NPC 非正式聊天 own，哪些已进入 shared 提示壳范围。
+- 本轮只读结论：
+  - `NPC` 仍应继续 own：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+  - 不应继续作为 `NPC` own 维持的 shared 壳：
+    - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs`
+    - `Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - `Assets/YYY_Scripts/Story/UI/InteractionHintDisplaySettings.cs`
+    - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+    - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+  - 判断原因：
+    - 当前统一近身仲裁、头顶世界提示、左下角提示卡、提示显隐设置都已经是 shared prompt shell；
+    - 它们不仅服务 NPC 闲聊，还服务工作台、床、正式对话与 Day1 运行态摘要；
+    - 因此 NPC 后续若继续施工，必须把 slice 收窄回四件套，不能再把“共享提示壳最终观感”伪装成 NPC 单线可独立完工项。
+- 当前恢复点：
+  - `0.0.2` 后续如果恢复真实施工，NPC 的最小下一刀应改成：
+    - 只在四件套里继续压实自动续聊 / 跑开收束 / 双气泡占位
+  - shared 提示壳部分维持待 shared owner 接盘，不再继续扩 claim
+
+## 2026-04-01｜用户终验总包已落盘：0.0.2 这条线正式切到“等用户按矩阵回单”
+
+- 当前主线目标：
+  - 用户这轮不要我继续写新功能，而是要一份能直接拿去手测的总包：
+    - 现在做到哪一步
+    - 还剩什么要验
+    - 详细情况矩阵
+    - 详细测试矩阵
+    - 可直接回填的回执单
+- 本轮完成：
+  - 已新建：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-01-NPC当前阶段用户验收总包-01.md`
+  - 文档已明确拆开：
+    - `NPC own` 当前真正需要用户终验的项
+    - `shared/UI` 观察项
+  - 文档已写清：
+    - 当前 exact-own 边界
+    - 当前阶段是“线程自测已过，等待人工体验终验”
+    - `002 / 003` 闭环与跑开中断的当前实现状态
+    - 当前不能装成过线的体验项
+    - 用户建议验收顺序
+    - 长回执单与短回单模板
+- 本轮关键判断：
+  - `0.0.2` 当前最准确的阶段判断不再是“继续补状态机”，而是：
+    - 底层闭环已经够厚
+    - 接下来最需要的是用户按体验矩阵回单
+  - 同时必须继续守住边界：
+    - 左下角统一提示壳
+    - 头顶箭头最终观感
+    - `001` 正式提示卡审美
+    当前都只能作为 `shared/UI` 观察项，不再混成 `NPC own`
+- 当前恢复点：
+  - 这条线现在已经有一份正式的用户终验入口。
+  - 下一步不是继续扩题，而是等待用户按验收包回单；收到回单后，再只针对回单中仍属于 `NPC own` 的失败项继续开刀。
+
+## 2026-04-01｜验收总包落盘后已主动 Park：当前不继续扩做，等待用户回单
+
+- 当前 live 状态：
+  - 已执行：
+    - `Park-Slice`
+  - 当前线程状态为：
+    - `PARKED`
+- 当前 blocker：
+  - `等待用户按NPC验收总包回单；当前保持NPC底座协作位，不恢复shared prompt shell主刀`
+- 当前恢复点：
+  - 这条线后续恢复施工的前提已经改成：
+    - 先收到用户回单
+    - 再只针对回单里仍属于 `NPC own` 的失败项重新 `Begin-Slice`
+
+## 2026-04-02｜用户带图追加体验反馈：已拆成 UI prompt + NPC 自省清单
+
+- 当前主线目标：
+  - 用户这轮不是让我直接继续写实现，而是先根据最新截图和体验反馈：
+    - 给 `UI` 一份可直接转发的 prompt
+    - 再把 `NPC` 自己没做好的点和下一轮必修项讲清楚
+- 本轮新增被钉死的用户反馈：
+  - 当前 NPC 头顶提示仍会和闲聊气泡遮挡，问题严重
+  - 玩家 / NPC 对话气泡目前避让过头，距离太远
+  - 箭头必须跟着说话方头顶，不应跟着气泡 body 乱跑
+  - 自动跳过时间要改成硬公式：
+    - `1.0s + 字数 * 0.08s`
+  - 当前 NPC 气泡样式漂了，要回到用户最初认可的那版
+  - NPC 出生点 / 行动路线需要重排，不能继续扎堆
+  - 如果 NPC 互撞，要补 NPC-NPC 吵架 / 拌嘴内容包
+  - 左下角提示若当前是 `Spring` 任务语义，不能再写“闲聊”，这条外包给 `UI`
+- 本轮完成：
+  - 已新增 UI prompt：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-02-NPC给UI的左下角任务提示接管委托-01.md`
+  - 已新增自省与下一轮清单：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-02-NPC本轮自省与下一轮施工清单-01.md`
+- 当前关键判断：
+  - 这轮最新反馈说明：
+    - 我前面把一部分结构问题先做通了
+    - 但视觉归属、节奏、样式基线和 scene 反扎堆都还没守住
+  - 因此 `0.0.2` 下一轮真正的主刀，不应再回到“解释逻辑”，而应转成：
+    - 气泡观感回调
+    - 节奏公式化
+    - scene 层反扎堆
+- 当前恢复点：
+  - 这轮交付的重点已经不是继续实现，而是把：
+    - shared/UI contract
+    - NPC own 失败点
+    - 下一轮优先级
+    一次性钉清
+
+## 2026-04-02｜本轮文档交付后已重新 Park，等待用户裁定下一刀
+
+- 当前 live 状态：
+  - 已执行：
+    - `Park-Slice`
+  - 当前状态：
+    - `PARKED`
+- 当前 blocker：
+  - `等待用户决定：先转发UI prompt，还是直接让我按自省清单恢复NPC own施工`
+- 当前恢复点：
+  - 这轮已经把：
+    - UI prompt
+    - NPC 自省
+    - 新的体验硬要求
+    全部落盘
+  - 下一步不再由我自行外推，等用户裁定先走哪条
+
+## 2026-04-02｜NPC 体验全盘补口已继续落地，但 live 自测被外部编译红阻断
+
+- 当前主线目标：
+  - 按用户最新体验反馈直接收这条 `0.0.2`：
+    - 头顶只保留小箭头
+    - 左下角提示与可交互态严格同拍
+    - 漫游气泡不再和交互提示抢位
+    - 玩家/NPC 对话气泡只做适度避让
+    - 自动续聊停顿改成 `1.0s + 字数 * 0.08s`
+    - 跑开中断不再鬼畜
+    - `Primary` 里的 `001 / 002 / 003` 不再编辑态扎堆
+- 本轮真实施工：
+  - 沿用已存在的 `thread-state ACTIVE` 切片：
+    - `NPC非正式聊天体验全盘修复`
+  - 已修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCBubblePresenter.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\SpringDay1ProximityInteractionService.cs`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_002_VillageDaughterDialogueContent.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_003_ResearchDialogueContent.asset`
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+- 本轮完成：
+  - `SpringDay1ProximityInteractionService`
+    - 头顶世界提示改成只在 `CanTriggerNow` 时出现，和左下角提示重新同拍。
+    - 当前焦点 NPC 进入可交互态时，会强压它自己的 ambient bubble，避免箭头 / 闲聊气泡互相遮挡。
+  - `NPCBubblePresenter`
+    - 新增 `ShowConversationImmediate / ShowReactionCueImmediate`
+    - 新增 `SetInteractionPromptSuppressed`
+    - ambient bubble 在交互提示接管时不会继续抢头顶。
+  - `PlayerThoughtBubblePresenter`
+    - 暴露 `ShowImmediateText`
+    - 跑开中断时玩家离场句会直接实心显示，不再重新走透明淡入。
+  - `PlayerNpcChatSessionService`
+    - 跑开超距时每帧都会先快进当前打字/等待，再进入中断链，降低“首字鬼畜”概率。
+    - `sessionBreakGraceSeconds` 调回更稳的 `0.2s`。
+    - 自动续聊停顿现在按 `1.0s + 字数 * 0.08s` 走；`autoContinueDelayMax` 已改成 `0`，不再把长句硬截到 `1.8s`。
+    - 对话气泡横向和纵向避让进一步收窄，只保留适度错位。
+    - 跑开中断里的玩家句 / NPC 反应 / cue 改成直接实心接管，不再重新淡入。
+  - `NPC_002 / NPC_003` 对话内容包
+    - 旧的 `……` reaction cue 已改成 ASCII 版，避免字体缺字 warning。
+  - `Primary`
+    - 复核后确认 `001 / 002 / 003` 当前编辑态站位已回到各自 `HomeAnchor`：
+      - `001 = (-7.15, 6.55)`
+      - `002 = (-9.35, 6.00)`
+      - `003 = (-5.45, 4.45)`
+    - 当前 scene 读回不再是 `002 / 003` 扎在同一片。
+- 本轮验证：
+  - `validate_script` 通过：
+    - `NPCBubblePresenter.cs`
+    - `PlayerThoughtBubblePresenter.cs`
+    - `PlayerNpcChatSessionService.cs`
+    - `SpringDay1ProximityInteractionService.cs`
+  - `git diff --check` 通过：
+    - 上述 own 代码 + `Primary.unity` + 本轮 NPC 数据资产
+  - MCP 基线中途掉过一次：
+    - `listener_missing`
+    - 已通过 `Library/MCPForUnity/TerminalScripts/mcp-terminal.cmd` 拉回 `8888`
+    - `check-unity-mcp-baseline.ps1` 已重新 `pass`
+- 当前 blocker：
+  - Unity 当前无法进入本轮 `Play` 自测，不是因为本轮 own 文件编译红，而是外部 compile blocker：
+    - `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs`
+      - `TickStatusBarFade`
+      - `ApplyStatusBarAlpha`
+      缺失
+    - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+      - `TickStatusBarFade`
+      - `ApplyStatusBarAlpha`
+      缺失
+  - `Library/CodexEditorCommands/status.json` 一直报：
+    - `isCompiling=true`
+    - `lastCommand=waiting-editor-busy`
+  - 因此这轮没法继续跑：
+    - `002 / 003 closure`
+    - `002 / 003 interrupt`
+    - 头顶箭头 / 左下角提示 / 气泡距离的 fresh Play 复看
+- 当前 live 状态：
+  - 已执行：
+    - `Park-Slice`
+  - 当前状态：
+    - `PARKED`
+- 当前恢复点：
+  - 等外部 compile blocker 清掉后，下一步不要再回到大改代码，直接做：
+    - `002 closure`
+    - `002 interrupt`
+    - `003 closure`
+    - `003 interrupt`
+    - `001` 任务优先左下角提示复看
+    - 头顶箭头与闲聊气泡是否已经不再重叠的最终画面验收
+
+## 2026-04-02｜跑开中断链二次修正后已拿到 `closure / interrupt / player-typing interrupt` 全绿自验
+
+- 当前主线目标：
+  - 把用户反复点名的这组体验 blocker 真正压实：
+    - 跑开后玩家气泡鬼畜
+    - 玩家气泡卡首字/半透明残留
+    - NPC 留在等待态
+    - 正常对话在超距后还自己往下滚
+- 本轮真实代码触点只认 3 个：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCBubblePresenter.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\PlayerThoughtBubblePresenterStyleTests.cs`
+- 本轮完成：
+  - `PlayerNpcChatSessionService.cs`
+    - 把超距时的快进收窄成“只跳完当前正在打字的句子”，不再推进 `WaitingNpcReply / AutoContinuing`，避免玩家跑开后正常对话还继续自己往下走。
+    - 把双气泡避让压回更轻的区间，避免 body 偏移过重。
+  - `NPCBubblePresenter.cs`
+    - 把 NPC 气泡边框色恢复回更早认可的暖金风格，不再沿错误 runtime 样式继续漂。
+  - `PlayerThoughtBubblePresenterStyleTests.cs`
+    - 改成反射版测试，避免 `Tests.Editor` 直接绑默认运行时程序集类型。
+    - 顺手收掉 `Object` 二义性，保证这条护栏不再反咬编译面。
+- 本轮真实自验：
+  - 通过 `NPCInformalChatValidationMenu` + `CodexEditorCommandBridge` 拿到 6 条硬证据：
+    - `002 closure -> endReason=Completed`
+    - `003 closure -> endReason=Completed`
+    - `002 interrupt -> endReason=WalkAwayInterrupt`
+    - `003 interrupt -> endReason=WalkAwayInterrupt`
+    - `002 player-typing interrupt -> leavePhase=PlayerSpeaking + WalkAwayInterrupt`
+    - `003 player-typing interrupt -> leavePhase=PlayerSpeaking + WalkAwayInterrupt`
+  - 期间有一次 Play 自动掉回 Edit，导致一轮 trace 出现 `menu-fail`；重新 `PLAY` 后补跑成功，不再把这类现场波动误判成逻辑失败。
+- 当前判断：
+  - `0.0.2` 这条线现在最准确的状态是：
+    - 结构成立
+    - targeted probe 已全绿
+    - 真实观感仍待用户终验
+  - 也就是说，这轮可以诚实 claim：
+    - “跑开后继续自动滚对话”的主 bug 已经在 own service 层被压掉
+  - 但还不能偷换成：
+    - “NPC 非正式聊天体验已经全部过线”
+- 当前边界：
+  - 这轮没有继续重开：
+    - `Primary.unity`
+    - `GameInputManager.cs`
+    - 导航 runtime
+    - 字体资产
+    - shared prompt shell / UI 玩家面整合
+- 当前恢复点：
+  - 代码与自测证据已经补齐。
+  - 本轮收尾只差审计层落盘与重新 `Park-Slice`。
+  - 如果后续继续恢复 `0.0.2`，优先看用户真实观感回单里仍属于 `NPC own` 的失败项，不再回到 shared/UI 壳主刀。
+
+## 2026-04-02｜`0.0.2` 审计尾注：memory 已补齐并重新 `PARKED`
+
+- 本轮收尾动作：
+  - 已执行：
+    - `Begin-Slice`（收尾落盘专用）
+    - `Park-Slice`
+  - 当前 `thread-state`：
+    - `PARKED`
+- 审计结果：
+  - `skill-trigger-log.md` 已补记：
+    - `STL-20260402-036`
+  - `check-skill-trigger-log-health.ps1` 返回：
+    - `Canonical-Duplicate-Groups = 1`
+    - 现存 canonical 旧重号为：
+      - `STL-20260402-029`
+  - 这不是本轮新引入的重号，但意味着当前全局审计层不能 claim 完全 clean。
+- 当前恢复点：
+  - `0.0.2` 本线自己的代码自验、工作区记忆和线程记忆都已补齐。
+  - 后续继续仍只看用户终验里属于 `NPC own` 的失败项。
+
+## 2026-04-03｜春一日新 NPC 群像：`NPC-v` 本体层 preflight 已完成，8 份 content 空壳已被拉正
+
+- 当前主线目标：
+  - 不是继续补 `0.0.2` 旧闲聊体验，而是按新联合完工 prompt，先把“春一日新 NPC 群像”的 `NPC-v` 本体层收实：
+    - 8 套 sprite / anim / prefab / roam / content / manifest 是否齐
+    - prefab 本体是否真能聊、真能跑
+    - 哪些问题仍属于 `NPC-v own`
+- 本轮只认的 `NPC-v` own 范围：
+  - `Assets/Sprites/NPC`
+  - `Assets/100_Anim/NPC`
+  - `Assets/111_Data/NPC/SpringDay1Crowd`
+  - `Assets/222_Prefabs/NPC`
+  - `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+- 本轮 preflight 结论：
+  - 8 张 sprite：齐
+  - 8 套动画目录：齐；每个目录当前都有 `1` 个 controller 和 `6` 个 clip
+  - 8 个 prefab：齐
+  - 8 份 roam profile：齐
+  - `SpringDay1NpcCrowdManifest.asset`：齐；当前有 `8` 条 entry
+  - 8 个 crowd prefab 本体层挂载也齐：
+    - 全部存在 `NPCAutoRoamController`
+    - 全部存在 `NPCInformalChatInteractable`
+    - 全部存在 `roamProfile` 引用
+    - 全部存在 `homeAnchor` 引用
+- 本轮第一真实 blocker：
+  - 8 份 `Assets/111_Data/NPC/SpringDay1Crowd/*DialogueContent.asset` 在开工前全是空壳：
+    - `npcId` 为空
+    - `defaultInformalConversationBundles` 为空
+    - `playerNearbyLines` 为空
+    - `defaultWalkAwayReaction.reactionCue` 为空
+    - `defaultChatInitiatorLines / defaultChatResponderLines` 为空
+  - 这意味着 prefab 虽然挂了 `NPCInformalChatInteractable`，但本体层“可聊”其实不成立。
+- 本轮修复：
+  - 已修：
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+  - 根因不是 spec 没写，而是 bootstrap 原先用 `EditorJsonUtility.FromJsonOverwrite(...)` 没把 `NPCDialogueContentProfile` 的私有序列化字段真正写进去。
+  - 现在改成：
+    - 用实际 `NPCDialogueContentProfile` 嵌套类型逐层构造并回填私有字段
+    - 然后通过已开着的 Unity 实例重跑：
+      - `Tools/NPC/Spring Day1/Bootstrap New Cast`
+  - 顺手把 `101` 的 walk-away cue 从 `……` 改成 ASCII `...`，避免重吃旧的字体告警坑。
+- 本轮修后复核：
+  - 8 份 `DialogueContent.asset` 现在都已具备：
+    - `npcId`
+    - `playerNearbyLines`
+    - `defaultInformalConversationBundles`
+    - `defaultWalkAwayReaction`
+    - `defaultChatInitiatorLines`
+    - `defaultChatResponderLines`
+  - 当前可以诚实 claim：
+    - 这 8 人在 `NPC-v` 本体层已经不再是“有 prefab 但 content 空壳”的假成立状态
+- 当前仍未闭完的 `NPC-v` 项：
+  - 8 份 crowd `DialogueContent.asset` 的 `pairDialogueSets` 仍然都是空数组
+  - 也就是说：
+    - 单人闲聊 / 玩家靠近 / walk-away / ambient 默认语义已成立
+    - 但 pair-specific 语义还没真正 authored
+- 当前恢复点：
+  - `NPC-v` 本体层当前最硬的空壳问题已经补掉。
+  - 下一步如果继续由我做，只应围绕：
+    - pair-specific 内容是否要补
+    - 8 人 runtime 下各自 informal chat / roam / facing 是否逐个 live 过
+  - `StoryPhase` 消费、`Primary` phase 拉起与 Day1 时序判断，继续交给 integration 侧。
+
+## 2026-04-03｜春一日新 NPC 群像：Day1 integration 侧已过 `Ready-To-Sync`
+
+- 当前主线目标：
+  - 按 `2026-04-03-本线程_春一日新NPC群像Day1整合并行任务单-03.md`，只做 `spring-day1` / `Day1 integration` 侧的 crowd 接入闭环：
+    - 不重做 `NPC-v` 的 prefab / dialogue / roam 生产链
+    - 不碰 `GameInputManager.cs`、UI 主线、字体主线或 `Primary.unity`
+- 本轮只认的 own 范围：
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdManifest.cs`
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - `Assets/Resources/Story/SpringDay1/SpringDay1NpcCrowdManifest.asset`
+- 本轮完成：
+  - `SpringDay1NpcCrowdDirector.cs`
+    - 新增 `CurrentRuntimeSummary`
+    - `FindAnchor()` 改成优先解析稳定 home-anchor：
+      - `001 -> 001_HomeAnchor`
+      - `NPC001 -> 001_HomeAnchor`
+      - `002/003` 同理
+    - `PruneDestroyedStates()` 加强，避免 runtime 留半残 state
+  - `SpringDay1Director.cs`
+    - live snapshot 新增：
+      - `Crowd`
+      - `WorldHint`
+      - `PlayerFacing`
+    - 为了切断 slice 外硬编译耦合，把下面三处改成反射/兜底桥接：
+      - `SpringDay1ProximityInteractionService.CurrentFocusSummary`
+      - `SpringDay1WorldHintBubble` 的玩家面摘要字段
+      - `SpringDay1BedInteractable.GetBoundaryDistance`
+    - 同时补上 `StoryManager == null` 的空保护，避免 Day1 导演在未初始化窗口直接炸空引用
+  - `SpringDay1Director.cs` 已补 `using System;`，消除了 `AppDomain / Type` 这组编译错误
+  - `Ready-To-Sync` 过程中发现 `.kiro/state/ready-to-sync.lock` 是上次超时留下的 stale 锁：
+    - 没有碰业务根
+    - 只把 stale 锁改名让位后重跑
+    - 当前 `Ready-To-Sync` 已通过
+- 本轮稳定证据：
+  - manifest 当前 8 人都能解析到稳定锚点，无 unresolved：
+    - `101 -> 001_HomeAnchor`
+    - `102 -> 003_HomeAnchor`
+    - `103 -> 001_HomeAnchor`
+    - `104 -> 001_HomeAnchor`
+    - `201 -> 002_HomeAnchor`
+    - `202 -> 002_HomeAnchor`
+    - `203 -> 001_HomeAnchor`
+    - `301 -> 003_HomeAnchor`
+  - 已确认旧逻辑会按 `001/002/003` 这些 NPC 当下位置刷新 crowd，确实会把新群像刷偏；新逻辑改回 home-anchor 后，出生点差异是实质修复，不是空整理
+  - 例子：
+    - `102`
+      - old：`003 -> (14.02, 2.68)`
+      - new：`003_HomeAnchor -> (3.85, -1.08)`
+    - `201`
+      - old：`002 -> (10.39, 2.73)`
+      - new：`002_HomeAnchor -> (0.77, 1.29)`
+    - `301`
+      - old：`003 -> (9.47, 0.73)`
+      - new：`003_HomeAnchor -> (-0.70, -3.03)`
+- 本轮验证：
+  - `git diff --check` 已过
+  - `Ready-To-Sync.ps1 -ThreadName spring-day1V2` 已过，返回：
+    - `status = READY_TO_SYNC`
+  - 当前 `thread-state`：
+    - `Begin-Slice` 已执行
+    - `Ready-To-Sync` 已执行并通过
+    - 尚未 `Park-Slice`，因为正准备白名单 sync
+- 当前恢复点：
+  - 这条 Day1 integration slice 已不再卡编译闸门，也不再卡 thread-state preflight。
+  - 下一步只剩：
+    - 补完记忆/审计
+    - 按白名单 sync
+    - 然后把线程状态收回到非活跃态

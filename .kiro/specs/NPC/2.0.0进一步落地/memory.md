@@ -1487,3 +1487,360 @@
     - `clean-subroot 已收口`
     - `mixed-root backlog 已外转治理位`
     - `线程停表，等待明确新裁定后再唤醒`
+
+## 2026-04-01｜NPC 开发认知台账重新校准：底层完成度不等于体验闭环完成
+
+- 当前主线目标：
+  - 用户明确不要再听治理清扫叙事，而是要我重新钉死 NPC 线真正的开发完成度、未完成项和下一步顺序。
+- 本轮完成：
+  - 已重新回读并交叉核对：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPC\memory_0.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\NPCV2\2026-03-27_NPC全需求总表与时间线_文档回溯版.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.1全面清盘\2026-03-27-NPC全盘详细落地任务列表.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-03-27-NPC-非正式聊天完整交互矩阵与查漏补缺方案-01.md`
+  - 已再按当前真实代码复核：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs`
+  - 当前重新钉死的开发事实：
+    1. 底层和中层已做了不少：
+       - NPC 生成器 / prefab / profile / 漫游基础已成
+       - `HomeAnchor` 最小补口链做过
+       - 非正式聊天会话服务已经具备：
+         - 玩家先说
+         - NPC 延迟回复
+         - 自动续下一轮
+         - 距离越界中断
+         - resume snapshot
+       - 玩家 / NPC 双气泡底座和关系成长最小底座已经存在
+    2. 但这些不能等同于“玩家体验闭环完成”：
+       - `Primary.unity` 的 `001 / 002 / 003` 最小可玩 scene 仍没有收成真正可玩闭环
+       - 非正式聊天体验层明确未过线
+       - `P5` 受击 / 工具命中 / 反应系统仍基本未做
+       - 联调与最终终验未完成
+  - 当前必须按“明确未通过”处理的问题：
+    - 玩家聊到一半跑开时，玩家气泡会鬼畜式重复打字机
+    - 玩家气泡可能停在半透明残留态
+    - NPC 会停在等待态或保留对话框，收尾不干净
+    - 双气泡当前只做了左右偏移，不足以解决多 NPC / 遮挡 / 归属层级问题
+    - 玩家气泡与 NPC 气泡当前视觉差异不足，未达到正式体验要求
+    - NPC 交互提示当前还是世界空间提示壳，显眼度和正式感都不够
+- 当前恢复点：
+  - 后续再汇报 NPC 进度时，必须分开讲：
+    - “底层能力做到了哪里”
+    - “玩家真正能验收到的体验做到哪里”
+  - 不能再把底层已接线、日志跑通过、或清扫已收口，表述成“NPC 聊天已经基本做完”
+
+## 2026-04-01｜NPC 体验补口继续推进：提示壳统一到左下角，闲聊中断链不再复用鬼畜打字机
+
+- 当前主线目标：
+  - 继续收紧 NPC 非正式聊天体验层，而不是扩写治理、owner 或 cleanup 叙事。
+- 本轮完成：
+  - 提示壳继续统一：
+    - 头顶提示进一步收窄成更小的倒三角
+    - 左下角统一提示区继续作为主提示壳
+    - 非正式聊天进行中，头顶箭头已不再显示，只保留左下角提示
+  - 中断链继续收紧：
+    - 玩家跑开时，旧会话气泡会先被强清
+    - 离场句 / NPC 反应改为直接显示，不再复用容易鬼畜的 typed interrupt 链
+    - `E` 在 `AutoContinuing / Interrupting / Completing` 这些阶段已能正常跳过等待或收尾
+  - 气泡表现继续收紧：
+    - 玩家 / NPC 打字机开始时不再做透明渐显
+    - 正常聊天结束时，双方气泡都改回正常隐藏，不再只有玩家一侧硬切
+- 本轮验证：
+  - Unity `Editor.log` 已拿到 fresh compile 绿证：
+    - `ExitCode: 0`
+    - `*** Tundra build success (4.34 seconds)`
+  - `git diff --check` 通过
+  - 仍未完成：
+    - 运行态 live 复测
+    - 用户肉眼体验终验
+  - 当前主要 blocker：
+    - MCP / `127.0.0.1:8888` 仍不可用
+- 当前恢复点：
+  - NPC 线当前已从“只补会话状态机”继续推进到“提示壳和中断链也开始按真实体验收紧”
+  - 下一刀优先级不变：
+    - 直接做 `002 / 003` 的运行态复测和体验验收
+
+## 2026-04-01｜NPC 运行态自测补记：`002 / 003` 四条闭环 trace 已连续过线
+
+- 当前主线目标：
+  - 把 NPC 非正式聊天从“结构上接好了”推进到“Unity 自测链真能过”。
+- 本轮完成：
+  - `NPCInformalChatValidationMenu.cs`
+    - 补 `runInBackground` 兜底，validation trace 不再因为失焦卡死在首字。
+  - `PlayerNpcChatSessionService.cs`
+    - 会话进行中改为直接压掉头顶 world hint，并主动刷新左下角提示。
+  - `InteractionHintOverlay.cs`
+    - 增加只读状态暴露，便于后续继续做 UI 运行态取证。
+  - `SpringDay1InteractionPromptRuntimeTests.cs`
+    - 改成纯反射取 Sunset runtime 类型，顺手清掉这轮把 Play Mode 堵死的 Editor compile blocker。
+- 本轮验证：
+  - `002 closure` / `002 interrupt` / `003 closure` / `003 interrupt`
+    - 全部拿到成功日志
+    - closure = `endReason=Completed`
+    - interrupt = `endReason=WalkAwayInterrupt + playerExitSeen=True + npcReactionSeen=True`
+  - `validate_script` 通过
+  - `git diff --check` 通过（仅剩 CRLF warning）
+- 当前恢复点：
+  - NPC 非正式聊天当前已进入“逻辑自测全绿、等待人工体验终验”的阶段
+  - 下一刀不该再先补状态机，而应优先做：
+    - 人工看提示壳和气泡的最终体验验收
+
+## 2026-04-01｜owner 边界重裁：NPC 当前应从“共享提示壳”退回四件套 own
+
+- 当前主线目标：
+  - 在 `UI` 打断后，重新校准 NPC 这条线对“非正式聊天体验 blocker”的真实 owner 边界。
+- 本轮只读结论：
+  - `NPC` 当前最小 own 生产面应收窄为：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+  - 不应继续由 NPC 单线主拿的 shared 提示壳：
+    - `SpringDay1ProximityInteractionService.cs`
+    - `SpringDay1WorldHintBubble.cs`
+    - `InteractionHintOverlay.cs`
+    - `InteractionHintDisplaySettings.cs`
+    - `SpringDay1DialogueProgressionTests.cs`
+    - `SpringDay1InteractionPromptRuntimeTests.cs`
+  - 关键原因：
+    - 统一近身仲裁、头顶箭头、左下角提示卡与设置开关都已经跨出 NPC 闲聊，变成 Story / Day1 / UI 共用壳。
+    - 因此 NPC 不能再把“左下角提示与头顶箭头最终观感”整包当作自己单线必收项。
+- 当前恢复点：
+  - 当前 live 状态最准确仍是 `PARKED`
+  - 若后续恢复 NPC 真实施工，应先重新 `Begin-Slice`，并把 slice 严格收窄到四件套 own
+
+## 2026-04-01｜用户最新裁定后继续 PARKED：NPC 退回底座协作位
+
+- 当前主线目标：
+  - 按用户最新裁定，不继续主刀 shared prompt shell，而是让 `UI` 接后半段玩家面 UI/UE 整合。
+- 本轮只读结论：
+  - `NPC` 当前继续 `PARKED`
+  - 只保留 NPC 底座守门面：
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+  - shared prompt shell 与玩家面统一提示/唯一 E/视觉归属一致，转由 `UI` 主刀
+  - 只有 `UI` 越界吞到 NPC 会话状态机、自动续聊/中断行为或双气泡体验整包时，`NPC` 才重新报 blocker
+- 当前恢复点：
+  - `NPC` 不主动恢复这刀实现
+  - 继续等待 `UI` 接手后半段玩家面整合
+
+## 2026-04-01｜state 与卫生已收正：NPC live 边界正式退到 3 件底座文件
+
+- 当前主线目标：
+  - 在不恢复 shared prompt shell 实现的前提下，把 `NPC` 线程当前 live state 收回最新 exact-own。
+- 本轮完成：
+  - 已先执行 `Park-Slice`，继续保持合法 `PARKED`
+  - 已把 `NPC` 当前 active state 收窄为 3 件底座文件：
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+  - 已从当前 state 中释放：
+    - `SpringDay1ProximityInteractionService.cs`
+    - `SpringDay1WorldHintBubble.cs`
+    - `InteractionHintOverlay.cs`
+    - `InteractionHintDisplaySettings.cs`
+    - shared prompt tests
+    - 广义 Day1 提示壳
+- 当前恢复点：
+  - `NPC` 当前已经完成边界和卫生收正
+  - 后续除非用户直接重新授权，否则不再默认回拿 shared prompt shell / 玩家面 UI 壳主刀
+
+## 2026-04-01｜2.0.0 用户终验入口已建立：NPC 进入“底层已站住，等待体验回单”阶段
+
+- 当前主线目标：
+  - 用户当前要的不是继续施工，而是先把 `NPC` 这条线的真实开发进度、可测范围、待验范围和回单格式一次性说清楚。
+- 本轮完成：
+  - 已在 `0.0.2清盘002` 下落一份正式验收总包：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-01-NPC当前阶段用户验收总包-01.md`
+  - 总包已明确给出：
+    - 当前主线
+    - 当前阶段
+    - `NPC own` 可测矩阵
+    - `shared/UI` 观察矩阵
+    - 分步手测说明
+    - 可直接回填的回执单
+- 当前关键判断：
+  - `2.0.0` 这条线现在最准确的说法是：
+    - NPC 非正式聊天的底层闭环已经做到了“线程自测已过”
+    - 但真实入口体验仍未被用户正式放行
+  - 因此后续真正的判断基准，不该再是“我这边代码解释得通”，而应是：
+    - 用户按矩阵回单后，到底哪些体验项仍未过线
+- 当前恢复点：
+  - 下一步应等待用户按验收包给回单。
+  - 若后续恢复施工，应只对回单里仍属于 `NPC own` 的问题继续开刀，不再顺手吞 shared prompt shell。
+
+## 2026-04-01｜验收包交付后线程已回到 PARKED，等待用户终验回单
+
+- 当前 live 状态：
+  - 已执行：
+    - `Park-Slice`
+  - 当前状态：
+    - `PARKED`
+- 当前 blocker：
+  - `等待用户按NPC验收总包回单；当前保持NPC底座协作位，不恢复shared prompt shell主刀`
+- 当前恢复点：
+  - `2.0.0` 这条线现在不再主动继续扩做。
+  - 后续只有在用户回单指出 `NPC own` 失败项后，才重新开工。
+
+## 2026-04-02｜用户带图补充体验反馈后：2.0.0 已新增 UI prompt 与 NPC 自省清单
+
+- 当前主线目标：
+  - 用户当前要求我先把最新体验反馈拆成：
+    - 一份发给 `UI` 的明确 prompt
+    - 一份 `NPC` 自己的复盘与下一轮施工清单
+- 本轮完成：
+  - 已新增：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-02-NPC给UI的左下角任务提示接管委托-01.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-02-NPC本轮自省与下一轮施工清单-01.md`
+- 当前新增被钉死的体验要求：
+  - 气泡只做适度避让，不要飞得太远
+  - 箭头必须锚定说话方头顶
+  - 自动跳过时长改成：
+    - `1.0s + 字数 * 0.08s`
+  - NPC 气泡样式回到最初认可的基线
+  - scene 层要开始处理 NPC 扎堆与互撞后的内容反应
+  - 左下角任务优先提示外包给 `UI`
+- 当前恢复点：
+  - `2.0.0` 下一轮若恢复施工，最该优先做的已不再是“继续解释逻辑”，而是：
+    - 气泡观感回调
+    - 节奏公式化
+    - scene 反扎堆
+
+## 2026-04-02｜文档交付后线程已回到 PARKED，等待用户决定下一刀
+
+- 当前 live 状态：
+  - 已执行：
+    - `Park-Slice`
+  - 当前状态：
+    - `PARKED`
+- 当前 blocker：
+  - `等待用户决定：先转发UI prompt，还是直接让我按自省清单恢复NPC own施工`
+- 当前恢复点：
+  - `2.0.0` 这条线目前已把最新体验裁定和下一轮优先级讲清。
+  - 后续不再自行延长 scope，等用户决定先走 UI 合同链还是 NPC own 实装链。
+
+## 2026-04-02｜NPC 体验补口已继续落地：提示壳/气泡/scene 收窄完成，但 live 复测被外部编译红阻断
+
+- 当前主线目标：
+  - 把用户最新指出的 NPC 体验问题直接落地，而不是再停在文档层。
+- 本轮完成：
+  - 已继续真实施工：
+    - `NPCBubblePresenter.cs`
+    - `PlayerThoughtBubblePresenter.cs`
+    - `PlayerNpcChatSessionService.cs`
+    - `SpringDay1ProximityInteractionService.cs`
+    - `Primary.unity`
+    - `NPC_002 / NPC_003` 对话数据
+  - 关键结果：
+    - 头顶世界提示只在真正可交互时出现，并与左下角提示重新同拍。
+    - 当前焦点 NPC 进入可交互态时，会压掉自己的 ambient bubble，避免头顶冲突。
+    - 玩家 / NPC 跑开中断句改为直接实心接管，不再重新透明淡入。
+    - 自动续聊停顿改成 `1.0s + 字数 * 0.08s`，不再把长句硬截到 `1.8s`。
+    - 对话气泡避让进一步收窄。
+    - `Primary` 里 `001 / 002 / 003` 当前编辑态站位已回到各自 `HomeAnchor`，不再读回成 `002 / 003` 扎堆。
+    - `NPC_002 / NPC_003` 里的 `……` cue 已改成 ASCII，避免字体缺字 warning。
+- 本轮验证：
+  - `validate_script` 通过：
+    - `NPCBubblePresenter.cs`
+    - `PlayerThoughtBubblePresenter.cs`
+    - `PlayerNpcChatSessionService.cs`
+    - `SpringDay1ProximityInteractionService.cs`
+  - `git diff --check` 通过本轮 own 范围。
+  - MCP `8888` listener 中途掉过一次，已通过项目自带 `mcp-terminal.cmd` 拉回，基线脚本重新 `pass`。
+- 当前 blocker：
+  - 本轮没法继续做 `Play` 自测，不是 `NPC` own 代码红，而是外部 compile blocker：
+    - `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs`
+    - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+    缺失 `TickStatusBarFade / ApplyStatusBarAlpha`
+  - Unity 因此持续 `isCompiling=true`，当前 `002 / 003` validation trace 不能继续跑。
+- 当前 live 状态：
+  - 已执行：
+    - `Park-Slice`
+  - 当前状态：
+    - `PARKED`
+- 当前恢复点：
+  - 外部 compile blocker 清掉后，直接恢复 fresh Play 复测：
+    - `002 / 003 closure`
+    - `002 / 003 interrupt`
+    - `001` 任务优先提示
+    - 头顶箭头 / 左下角提示 / 气泡距离最终画面验收
+
+## 2026-04-02｜NPC 跑开中断主 bug 已在 own 层压实，6 条 runtime trace 补齐
+
+- 当前主线目标：
+  - 把用户最新指出的“跑开后鬼畜 / 卡首字 / NPC 还继续等 / 正常对话自己往下滚”压到真正可自证的状态，而不是停在日志解释。
+- 本轮真实完成：
+  - 实际继续落地的代码只集中在：
+    - `PlayerNpcChatSessionService.cs`
+    - `NPCBubblePresenter.cs`
+    - `PlayerThoughtBubblePresenterStyleTests.cs`
+  - 关键修正是：
+    - 超距快进现在只结束当前打字句，不再推进完整正常对话链。
+    - NPC 气泡样式回正到用户更早认可的暖金基线。
+    - 玩家气泡样式护栏测试改成反射版，并收掉 `Object` 二义性红错。
+- 本轮真实自验：
+  - 已连续拿到：
+    - `002 closure = Completed`
+    - `003 closure = Completed`
+    - `002 interrupt = WalkAwayInterrupt`
+    - `003 interrupt = WalkAwayInterrupt`
+    - `002 player-typing interrupt = PlayerSpeaking + WalkAwayInterrupt`
+    - `003 player-typing interrupt = PlayerSpeaking + WalkAwayInterrupt`
+- 当前阶段判断：
+  - `2.0.0` 这条线在 `P3` 上最新应判为：
+    - `结构 / checkpoint = 成立`
+    - `targeted probe / 自测 = 成立`
+    - `真实入口体验 = 仍待用户终验`
+  - 不能再把“底层已经修通 + trace 已过”偷换成“玩家体验已经过线”。
+- 当前边界：
+  - 这轮没有回拿：
+    - shared prompt shell
+    - `Primary.unity`
+    - 导航 runtime
+    - 字体资产
+    - `GameInputManager.cs`
+- 当前恢复点：
+  - `P3` 里最硬的运行态止血点已经站住。
+  - 这轮补完记忆和 state 后，线程应回到 `PARKED`。
+  - 下次继续时，只应对用户终验里仍属于 `NPC own` 的体验失败项开新 slice。
+
+## 2026-04-02｜2.0.0 收尾补记：线程已重新 `PARKED`，但全局 skill 审计层仍有旧重号
+
+- 本轮收尾动作：
+  - `NPC` 已重新执行 `Park-Slice`
+  - 当前 live 状态：
+    - `PARKED`
+- 审计层补记：
+  - `skill-trigger-log.md` 已追加 `STL-20260402-036`
+  - 健康检查仍报：
+    - `Canonical-Duplicate-Groups = 1`
+    - 旧重号：
+      - `STL-20260402-029`
+- 当前恢复点：
+  - `2.0.0` 这条线自己的自验与记忆已经闭合。
+  - 但如果后续要 claim 全局审计 clean，还需要治理层处理这条旧 skill-log 重号。
+
+## 2026-04-03｜并行闭环补记：spring-day1 integration 侧已过收口闸门
+
+- 并行关系当前稳定为：
+  - `NPC-v` 负责 NPC 本体层
+  - `spring-day1V2` 负责 Day1 integration / phase consumption / runtime summary
+- integration 侧这轮已完成：
+  - `SpringDay1NpcCrowdDirector` 改成优先消费 `001_HomeAnchor / 002_HomeAnchor / 003_HomeAnchor`
+  - `SpringDay1Director` 补上 crowd/world-hint/player-facing snapshot，并把对 slice 外底座的几处硬引用改成反射/兜底桥接
+  - 当前 crowd manifest 的 8 个 entry 都能解析到稳定锚点
+- integration 侧本轮验证：
+  - `git diff --check` 通过
+  - `Ready-To-Sync` 已通过
+- 当前合并判断：
+  - 新群像这条总线已经不再只有 `NPC-v` 本体层在动，`spring-day1` 侧的 phase/runtime integration 也已经进入可白名单 sync 状态
+  - 后续总账应继续拆成三类：
+    - `NPC-v` own 的内容/运行时问题
+    - `spring-day1` own 的 Day1 integration 问题
+    - shared root 的外部噪音

@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -215,12 +216,20 @@ namespace Sunset.Story
 
         public string GetDebugSummary()
         {
-            return $"Phase={StoryManager.Instance.CurrentPhase}, Tilled={GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}, Planted={GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}, Watered={GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}, Wood={GetCollectedWoodProgress()}/{requiredWoodCollectedCount}, Crafted={_craftedCount}, FreeTime={_freeTimeEntered}, DayEnd={_dayEnded}";
+            StoryManager storyManager = StoryManager.Instance;
+            string phaseText = storyManager != null ? storyManager.CurrentPhase.ToString() : "n/a";
+            return $"Phase={phaseText}, Tilled={GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}, Planted={GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}, Watered={GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}, Wood={GetCollectedWoodProgress()}/{requiredWoodCollectedCount}, Crafted={_craftedCount}, FreeTime={_freeTimeEntered}, DayEnd={_dayEnded}";
         }
 
         public string GetCurrentTaskLabel()
         {
-            return StoryManager.Instance.CurrentPhase switch
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return "未初始化";
+            }
+
+            return storyManager.CurrentPhase switch
             {
                 StoryPhase.CrashAndMeet => "0.0.2 首段推进链",
                 StoryPhase.EnterVillage => "0.0.2 首段后续说明",
@@ -237,7 +246,13 @@ namespace Sunset.Story
 
         public string GetCurrentProgressLabel()
         {
-            StoryPhase phase = StoryManager.Instance.CurrentPhase;
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return "等待 StoryManager 初始化";
+            }
+
+            StoryPhase phase = storyManager.CurrentPhase;
             if (phase == StoryPhase.CrashAndMeet)
             {
                 return "首段对话进行中";
@@ -326,7 +341,21 @@ namespace Sunset.Story
 
         public PromptCardModel BuildPromptCardModel()
         {
-            StoryPhase phase = StoryManager.Instance.CurrentPhase;
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return new PromptCardModel
+                {
+                    PhaseKey = "Uninitialized",
+                    StageLabel = "未初始化",
+                    Subtitle = "等待 Day1 运行时对象就位。",
+                    FocusText = "等待 StoryManager 初始化后再刷新正式任务摘要。",
+                    FooterText = "暂无正式阶段信息。",
+                    Items = System.Array.Empty<PromptTaskItem>()
+                };
+            }
+
+            StoryPhase phase = storyManager.CurrentPhase;
             return new PromptCardModel
             {
                 PhaseKey = phase.ToString(),
@@ -1261,7 +1290,8 @@ namespace Sunset.Story
 
         public bool IsFirstFollowupPending()
         {
-            if (StoryManager.Instance.CurrentPhase != StoryPhase.EnterVillage)
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null || storyManager.CurrentPhase != StoryPhase.EnterVillage)
             {
                 return false;
             }
@@ -1272,26 +1302,36 @@ namespace Sunset.Story
 
         public bool IsWorkbenchFlashbackAwaitingInteraction()
         {
-            return StoryManager.Instance.CurrentPhase == StoryPhase.WorkbenchFlashback && !_workbenchOpened;
+            StoryManager storyManager = StoryManager.Instance;
+            return storyManager != null
+                && storyManager.CurrentPhase == StoryPhase.WorkbenchFlashback
+                && !_workbenchOpened;
         }
 
         public bool IsDinnerDialoguePendingStart()
         {
-            return StoryManager.Instance.CurrentPhase == StoryPhase.DinnerConflict
+            StoryManager storyManager = StoryManager.Instance;
+            return storyManager != null
+                && storyManager.CurrentPhase == StoryPhase.DinnerConflict
                 && _dinnerSequencePlayed
                 && !IsDialogueSequenceCurrentlyActive(DinnerSequenceId);
         }
 
         public bool IsReminderDialoguePendingStart()
         {
-            return StoryManager.Instance.CurrentPhase == StoryPhase.ReturnAndReminder
+            StoryManager storyManager = StoryManager.Instance;
+            return storyManager != null
+                && storyManager.CurrentPhase == StoryPhase.ReturnAndReminder
                 && _returnSequencePlayed
                 && !IsDialogueSequenceCurrentlyActive(ReminderSequenceId);
         }
 
         public bool IsSleepInteractionAvailable()
         {
-            return StoryManager.Instance.CurrentPhase == StoryPhase.FreeTime && !_dayEnded;
+            StoryManager storyManager = StoryManager.Instance;
+            return storyManager != null
+                && storyManager.CurrentPhase == StoryPhase.FreeTime
+                && !_dayEnded;
         }
 
         public string GetFreeTimePressureState()
@@ -1349,7 +1389,13 @@ namespace Sunset.Story
 
         public bool TryTriggerSleepFromBed()
         {
-            if (_dayEnded || StoryManager.Instance.CurrentPhase != StoryPhase.FreeTime)
+            StoryManager storyManager = StoryManager.Instance;
+            if (_dayEnded || storyManager == null || storyManager.CurrentPhase != StoryPhase.FreeTime)
+            {
+                return false;
+            }
+
+            if (TimeManager.Instance == null)
             {
                 return false;
             }
@@ -1372,6 +1418,114 @@ namespace Sunset.Story
                 FreeTimePressureTier.NightWarning => "回屋休息",
                 _ => fallbackHint
             };
+        }
+
+        public string GetRestInteractionDetail(string fallbackDetail)
+        {
+            if (!IsSleepInteractionAvailable())
+            {
+                return fallbackDetail;
+            }
+
+            return GetFreeTimePressureTier() switch
+            {
+                FreeTimePressureTier.FinalCall => "按 E 立刻睡觉收束今天",
+                FreeTimePressureTier.AfterMidnight => "按 E 回屋睡觉，别再继续逗留",
+                FreeTimePressureTier.NightWarning => "按 E 回屋休息，今天随时可以收束",
+                _ => fallbackDetail
+            };
+        }
+
+        public string GetCurrentWorldHintSummary()
+        {
+            string focusSummary = TryGetCurrentFocusSummary();
+            if (!string.IsNullOrWhiteSpace(focusSummary) && focusSummary != "none")
+            {
+                return focusSummary;
+            }
+
+            SpringDay1WorldHintBubble worldHintBubble = FindFirstObjectByType<SpringDay1WorldHintBubble>(FindObjectsInactive.Include);
+            bool isVisible = TryGetPublicPropertyValue(worldHintBubble, "IsVisible", false);
+            if (worldHintBubble == null || !isVisible)
+            {
+                return "none";
+            }
+
+            Transform anchorTarget = TryGetPublicPropertyValue<Transform>(worldHintBubble, "CurrentAnchorTarget");
+            string anchorName = anchorTarget != null ? anchorTarget.name : "unknown";
+            string keyLabel = TryGetPublicPropertyValue(worldHintBubble, "CurrentKeyLabel", string.Empty);
+            string captionText = TryGetPublicPropertyValue(worldHintBubble, "CurrentCaptionText", string.Empty);
+            string detailText = TryGetPublicPropertyValue(worldHintBubble, "CurrentDetailText", string.Empty);
+            return $"{anchorName}|{SanitizePlayerFacingText(keyLabel)}|{SanitizePlayerFacingText(captionText)}|{SanitizePlayerFacingText(detailText)}";
+        }
+
+        public string BuildPlayerFacingStatusSummary()
+        {
+            PromptCardModel card = StoryManager.Instance != null
+                ? BuildPromptCardModel()
+                : new PromptCardModel
+                {
+                    StageLabel = "未初始化",
+                    FocusText = "等待 Day1 运行时对象就位。",
+                    FooterText = "暂无正式阶段信息。"
+                };
+            return $"{SanitizePlayerFacingText(card.StageLabel)}|focus={SanitizePlayerFacingText(card.FocusText)}|progress={SanitizePlayerFacingText(card.FooterText)}|hint={SanitizePlayerFacingText(GetCurrentWorldHintSummary())}";
+        }
+
+        private static string SanitizePlayerFacingText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            return value
+                .Replace('\n', ' ')
+                .Replace('\r', ' ')
+                .Replace('|', '/')
+                .Trim();
+        }
+
+        private static string TryGetCurrentFocusSummary()
+        {
+            const string proximityTypeName = "Sunset.Story.SpringDay1ProximityInteractionService";
+
+            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
+            for (int index = 0; index < assemblies.Length; index++)
+            {
+                Type type = assemblies[index].GetType(proximityTypeName);
+                if (type == null)
+                {
+                    continue;
+                }
+
+                PropertyInfo property = type.GetProperty("CurrentFocusSummary", BindingFlags.Static | BindingFlags.Public);
+                if (property == null)
+                {
+                    return string.Empty;
+                }
+
+                return property.GetValue(null) as string ?? string.Empty;
+            }
+
+            return string.Empty;
+        }
+
+        private static T TryGetPublicPropertyValue<T>(object target, string propertyName, T fallback = default)
+        {
+            if (target == null)
+            {
+                return fallback;
+            }
+
+            PropertyInfo property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public);
+            if (property == null)
+            {
+                return fallback;
+            }
+
+            object value = property.GetValue(target);
+            return value is T typed ? typed : fallback;
         }
 
         private void QueueDialogue(DialogueSequenceSO sequence)
@@ -2175,6 +2329,9 @@ namespace Sunset.Story
             AppendPair("Move", BuildMovementSummary(playerMovement));
             AppendPair("Time", timeManager != null ? $"paused={timeManager.IsTimePaused()}|depth={timeManager.GetPauseStackDepth()}|clock={timeManager.GetFormattedTime()}" : "n/a");
             AppendPair("Input", inputManager != null ? inputManager.IsInputEnabledForDebug.ToString() : "n/a");
+            AppendPair("Crowd", SpringDay1NpcCrowdDirector.CurrentRuntimeSummary);
+            AppendPair("WorldHint", director != null ? director.GetCurrentWorldHintSummary() : "n/a");
+            AppendPair("PlayerFacing", director != null ? director.BuildPlayerFacingStatusSummary() : "n/a");
             AppendPair(
                 "Director",
                 director != null
@@ -2374,6 +2531,29 @@ namespace Sunset.Story
                 return $"休息承载物 {interactable.name} 当前不可交互。";
             }
 
+            bool allowValidationFallback = ShouldAllowRestValidationFallback();
+            if (context == null)
+            {
+                if (!allowValidationFallback)
+                {
+                    return $"休息承载物 {interactable.name} 当前缺少玩家交互上下文。";
+                }
+
+                interactable.OnInteract(null);
+                return $"休息承载物 {interactable.name} 缺少玩家上下文，已通过验收入口脚本触发休息交互。";
+            }
+
+            if (GetRestBoundaryDistance(interactable, context.PlayerPosition) > interactable.InteractionDistance)
+            {
+                if (!allowValidationFallback)
+                {
+                    return $"休息承载物 {interactable.name} 当前不在交互包络线内。";
+                }
+
+                interactable.OnInteract(context);
+                return $"休息承载物 {interactable.name} 当前不在交互包络线内，已通过验收入口脚本触发休息交互。";
+            }
+
             interactable.OnInteract(context);
             return $"已触发休息交互：{interactable.name}";
         }
@@ -2388,6 +2568,35 @@ namespace Sunset.Story
 
             return storyManager.CurrentPhase == StoryPhase.CrashAndMeet
                 || storyManager.CurrentPhase == StoryPhase.EnterVillage;
+        }
+
+        private static bool ShouldAllowRestValidationFallback()
+        {
+            StoryManager storyManager = FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
+            return storyManager != null && storyManager.CurrentPhase == StoryPhase.FreeTime;
+        }
+
+        private static float GetRestBoundaryDistance(SpringDay1BedInteractable interactable, Vector2 playerPosition)
+        {
+            if (interactable == null)
+            {
+                return float.PositiveInfinity;
+            }
+
+            MethodInfo method = typeof(SpringDay1BedInteractable).GetMethod("GetBoundaryDistance", BindingFlags.Instance | BindingFlags.Public);
+            if (method != null)
+            {
+                object result = method.Invoke(interactable, new object[] { playerPosition });
+                if (result is float distance)
+                {
+                    return distance;
+                }
+            }
+
+            Bounds bounds = SpringDay1UiLayerUtility.TryGetPresentationBounds(interactable.transform, out Bounds presentationBounds)
+                ? presentationBounds
+                : new Bounds(interactable.transform.position, Vector3.one);
+            return Vector2.Distance(playerPosition, bounds.ClosestPoint(playerPosition));
         }
 
         private static void CloseBlockingPageUiForValidation()
@@ -2408,11 +2617,15 @@ namespace Sunset.Story
         {
             PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
             Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
+            if (playerTransform == null)
+            {
+                return null;
+            }
 
             return new InteractionContext
             {
                 PlayerTransform = playerTransform,
-                PlayerPosition = playerTransform != null ? SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform) : Vector2.zero
+                PlayerPosition = SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform)
             };
         }
 
