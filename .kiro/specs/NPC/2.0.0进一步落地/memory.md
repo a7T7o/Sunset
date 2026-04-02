@@ -1844,3 +1844,15 @@
     - `NPC-v` own 的内容/运行时问题
     - `spring-day1` own 的 Day1 integration 问题
     - shared root 的外部噪音
+
+## 2026-04-03｜收盘补记：spring-day1 integration 已进主分支并停车
+
+- `spring-day1` 这侧本轮白名单提交已完成：
+  - `03c0bf87`
+- 当前 live 状态：
+  - `PARKED`
+- 当前恢复点：
+  - 新群像总线现在同时具备：
+    - `NPC-v` 本体层基线
+    - `spring-day1` integration 提交基线
+  - 下一轮应基于这个合并基线继续判断剩余运行态问题，而不是回退到“只有资源生成”的旧口径。

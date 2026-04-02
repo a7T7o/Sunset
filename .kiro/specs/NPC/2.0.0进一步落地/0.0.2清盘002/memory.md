@@ -1382,3 +1382,16 @@
     - 补完记忆/审计
     - 按白名单 sync
     - 然后把线程状态收回到非活跃态
+
+## 2026-04-03｜收盘补记：Day1 integration slice 已提交并回到 `PARKED`
+
+- 本轮白名单 sync 已完成：
+  - 提交：`03c0bf87`
+  - 分支：`main`
+  - push：已成功
+- 当前 `thread-state`：
+  - 已执行 `Park-Slice`
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 这条 slice 的代码、记忆和白名单提交都已闭环。
+  - 后续如再被叫回，只需要从 `03c0bf87` 之后继续新的 Day1 integration 需求，不需要回头补本轮尾账。

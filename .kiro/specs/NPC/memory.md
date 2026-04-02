@@ -1150,3 +1150,15 @@
 - 当前总线恢复点：
   - `NPC-v` 继续只盯本体层剩余问题
   - `spring-day1V2` 这条 slice 下一步只剩白名单 sync 和收尾 state，不应再扩回 NPC 生产链
+
+## 2026-04-03｜总线收盘补记：Day1 integration 白名单提交已完成
+
+- `spring-day1V2` 这条并行 slice 已完成：
+  - white-list sync
+  - push
+  - `Park-Slice`
+- 提交基线：
+  - `03c0bf87`
+- 当前恢复点：
+  - “春一日新 NPC 群像”这件事现在已经不是未提交现场。
+  - 后续只需要围绕剩余运行态问题继续，不必再替这轮 integration 做 same-root hygiene 尾账。
