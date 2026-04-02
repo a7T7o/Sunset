@@ -3781,3 +3781,153 @@
     - 身份上你已经独立出来了
     - 但施工上你不是只碰一个壳文件
     - 你仍要接住 `InteractionHintOverlay + Proximity service 的玩家面 contract 收口`
+
+## 2026-04-01｜用户贴回最新三方回执后，我完成了治理审计：方向正确，但当前应停在“用户看方向 + UI 后补 tests”
+
+- 当前主线目标：
+  - 审核 `NPC`、`UI`、`spring-day1V2` 的最新回执，并向用户说明当前真实现场
+- 本轮已完成：
+  1. 核对了：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\UI.json`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\NPC.json`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1V2.json`
+     - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-captures\spring-ui\accepted\20260401-173354-243_manual.png`
+     - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-captures\spring-ui\accepted\20260401-173354-243_manual.json`
+     - 当前相关 working tree diff
+  2. 核后的事实是：
+     - `UI` 已经真实处于 `PARKED`，其 `current_slice` 已写成 `Story-NPC-Day1玩家面UIUE整合主刀`
+     - `spring-day1V2` 已经真实处于 `PARKED`，blocker 也写成“等待 UI 接手玩家面 UI/UE 整合”
+     - `NPC` 的回执口径是对的，但 `NPC.json` 仍是旧 own 边界，属于 stale state
+  3. 证据强度判断：
+     - `UI` 的 accepted 图与 sidecar 足以证明“玩家面方向已站住”
+     - 但 `targeted tests` 还没在干净窗口里补完，所以不能判成 `sync-ready`
+- 当前关键判断：
+  1. 现在不该再把这刀交回 `spring-day1V2`
+  2. 当前最合理的四类裁定其实是：
+     - `UI`：停给用户先看方向；若认可，再继续补 tests
+     - `NPC`：无需继续发实现 prompt，保持底座协作位
+     - `spring-day1V2`：无需继续发实现 prompt，保持底座协作位
+  3. 当前最该提醒用户的风险不是代码方向，而是治理视图：
+     - `NPC.json` 还没跟上最新裁定，下一轮若直接看 state，会继续误判 owner
+- 当前恢复点：
+  - 这轮对用户汇报时，应明确说：
+    - `UI` 已接住主刀
+    - `NPC / spring-day1V2` 已退回底座协作位
+    - 但这还不是最终完成，因为 tests 没补完、也还没 ready/sync
+  - 用户如果认可当前 `accepted` 图方向，下一步只给 `UI` 一个小 prompt：补 `targeted tests`，不扩 scope
+
+## 2026-04-01｜用户进一步纠偏：治理位只负责“别打架 + 收卫生”，不再替 `UI / NPC` 发业务下一刀
+
+- 当前主线目标：
+  - 用户已经把当前 Sunset 治理位的职责重新说死：
+    - `spring-day1V2` 现在可以歇着
+    - `UI` 和 `NPC` 的具体业务任务由用户自己安排
+    - 我只负责让它们别打架、边界清楚、卫生收好
+- 本轮已完成：
+  1. 重新核对了 `UI` 迁移是否已经真的回到自己的工作区：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md` 已在持续记录
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\UI\memory_0.md` 也已独立存在
+  2. 但也确认迁移还没完全干净：
+     - `UI.json` 仍挂着过宽 own 边界
+     - `spring-day1V2\memory_0.md` 里还留有早前 UI 身份自审污染痕迹
+     - `NPC.json` 仍是旧 own 边界，state 也未完全跟上最新裁定
+  3. 因此我这条治理线的当前职责应改成：
+     - 只发边界 / 卫生 / state / workspace 迁移类要求
+     - 不再代替用户给 `UI / NPC` 发 feature 任务
+- 当前关键判断：
+  1. 用户这个纠偏是成立的，我前面的确有越位倾向；
+  2. 当前更准确的角色是“交通警察 + 卫生督导”，不是“替用户排业务下一刀的导演”；
+  3. 所以后续看到 `UI` 或 `NPC` 还有没收口的部分，我也只该提醒：
+     - 哪些 dirty 还在
+     - 哪些 state 还 stale
+     - 哪些 owner / workspace 关系还没摆正
+- 当前恢复点：
+  - 之后若用户继续和 `UI / NPC` 直聊，我只在必要时插手：
+    - 打断撞车
+    - 要求 `Begin-Slice / Park-Slice / Ready-To-Sync`
+    - 要求缩边界 / 校 state / 收 own hygiene
+  - 不再主动把业务任务切片后代用户发给它们
+
+## 2026-04-01｜用户要求直接文本输出 prompt，我按“治理边界 + 卫生收口”起草了 `UI / NPC` 两段直发文本
+
+- 当前主线目标：
+  - 给用户一组可以直接复制发给 `UI / NPC` 的文本，但不替用户指定它们的具体业务功能刀口
+- 本轮已完成：
+  1. 基于最新 state、回执和用户裁定，起草了：
+     - `UI` 迁回 `UI系统`、校正 `UI.json`、清理与 `spring-day1V2` 的历史污染、再接用户业务任务
+     - `NPC` 收窄到底座边界、校正 stale `NPC.json`、释放 shared shell、再接用户业务任务
+  2. 还补了一段通用纪律尾巴，方便用户以后反复追加在类似直聊 prompt 末尾
+- 当前关键判断：
+  - 这轮 prompt 的价值不在“指定下一刀业务”，而在“让线程自发按新秩序开工”
+- 当前恢复点：
+  - 用户现在可以直接拿这两段 text 去发
+  - 后续若线程按这套做了，治理位就退回纯审计与打断位
+
+## 2026-04-01｜用户补充要求：`场景搭建` 与 `spring-day1V2` 也要一起收到统一认知文本
+
+- 当前主线目标：
+  - 不只是 `UI / NPC` 两条线知道新秩序；
+  - 还要把 `场景搭建` 与 `spring-day1V2` 一起校正到当前 live 口径
+- 本轮已完成：
+  1. 起草了 `场景搭建` 文本：
+     - 只保留只读审计 / 风险提醒 / 现场报实角色
+     - 不再继续替用户重裁 owner 或越位派工
+  2. 起草了 `spring-day1V2` 文本：
+     - 继续 `PARKED`
+     - 退回 Day1 底座协作位
+     - 仅在 `UI` 需要底座 contract / 行为顺序 / Day1 约束澄清时被回叫
+- 当前恢复点：
+  - 当前可直接给用户的统一认知文本已覆盖 4 个相关对象：
+    - `UI`
+    - `NPC`
+    - `场景搭建`
+    - `spring-day1V2`
+
+## 2026-04-01｜`UI` 最新回执审核结论：可直接转入用户直聊，但 `UI.json` 仍 stale，治理卫生未彻底收完
+
+- 当前主线目标：
+  - 审 `UI` 最新回执后，回答“能不能直接直聊业务”与“治理是否已彻底处理完毕”
+- 本轮已完成：
+  1. 核对了 `UI` 最新回执与 `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\UI.json`
+  2. 核后的结论是：
+     - 可以直接让用户与 `UI` 继续聊业务
+     - 但不能把这轮治理动作说成彻底 clean
+  3. 差的最后半步在于：
+     - `UI.json` 仍按旧口径把若干“协作切片”文件继续挂在 `owned_paths`
+     - 还没完全对齐它最新回执里的 `exact-own / 协作切片 / 明确释放` 三分法
+- 当前恢复点：
+  - 直聊业务：可以
+  - 治理完全收口：尚未
+  - 后续只需在合适时机补一次 `UI.json` 缩边界，不必因此阻断用户继续和 `UI` 直聊
+
+## 2026-04-02｜继续自检后，补齐看守长旧线程兜底与全局规范摘要漂移
+
+- 用户目标：
+  - 用户在甜甜圈支线后又把主线拉回“继续做你还没做完的事情”，要求我回顾历史、自我检测、自我纠偏，并把还能补完的治理尾账补完。
+- 已完成事项：
+  1. 重新核对 `看守长` 相关全局 / 项目 / skill / 模板现状，确认已有两轮补强后仍剩一个缺口：
+     - 旧线程如果不是紧贴着完成汇报喊 `看守长`，线程依然可能退回索要 `回执 / prompt / 线程名`
+     - 或者只回 `在 / 看守长到了 / 看守长到位` 这种空起手
+  2. 继续补强：
+     - `C:\Users\aTo\.codex\AGENTS.md`
+     - `C:\Users\aTo\.codex\skills\acceptance-warden-mode\SKILL.md`
+     - `C:\Users\aTo\.codex\skills\acceptance-warden-mode\references\acceptance-package-template.md`
+     - `C:\Users\aTo\.codex\skills\acceptance-warden-mode\references\receipt-template.md`
+     - `C:\Users\aTo\.codex\skills\acceptance-warden-mode\agents\openai.yaml`
+     - `C:\Users\aTo\.codex\skills\sunset-acceptance-handoff\SKILL.md`
+     - `C:\Users\aTo\.codex\skills\sunset-acceptance-handoff\agents\openai.yaml`
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\看守长模式_线程验收交接规范.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-02_看守长旧线程热修复补丁_01.md`
+  3. 顺手补掉一处全局规范摘要漂移：
+     - `C:\Users\aTo\.codex\memories\global-learning-system.md` 的全局场景链基线缺了 `preference-preflight-gate` 和 `acceptance-warden-mode`
+  4. 追加全局 learning：
+     - `GL-20260402-006`
+- 关键决策：
+  - `看守长` 现在的正确兜底不再只是“默认审自己、审上一轮刚汇报那一刀”，而是再加一层：
+    - 如果旧线程上下文里上一轮完成汇报不在眼前，也必须自己回看并选最近一次“已完成且已汇报”的切片
+    - 不能把这一步材料收集再丢回给用户
+- 恢复点 / 下一步：
+  - 这轮继续补文档和 skill 已经到头；
+  - 下一步若继续验证，应回到真实业务线程，看它们在被喊 `看守长` 时是否已经直接交出完整验收包，而不是再回旧口径。
