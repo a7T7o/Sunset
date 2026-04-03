@@ -2702,6 +2702,46 @@ function Get-NextCommitMessage {
     return ('{0}{1}' -f $messagePrefix, ('{0:D2}' -f [int]$next))
 }
 
+function Invoke-GitAddInChunks {
+    param(
+        [string[]]$PrefixArguments,
+        [string[]]$Paths,
+        [int]$MaxArgsPerChunk = 64,
+        [int]$MaxCommandChars = 6000
+    )
+
+    $normalizedPrefix = @($PrefixArguments | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $normalizedPaths = @($Paths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+    if ($normalizedPaths.Count -eq 0) {
+        return
+    }
+
+    $currentChunk = [System.Collections.Generic.List[string]]::new()
+    $currentLength = (($normalizedPrefix -join ' ').Length)
+
+    foreach ($path in $normalizedPaths) {
+        $estimatedLength = $currentLength + $path.Length + 3
+        $shouldFlush = $currentChunk.Count -gt 0 -and (
+            $currentChunk.Count -ge $MaxArgsPerChunk -or
+            $estimatedLength -gt $MaxCommandChars
+        )
+
+        if ($shouldFlush) {
+            Invoke-Git -Arguments ($normalizedPrefix + @($currentChunk)) | Out-Null
+            $currentChunk.Clear()
+            $currentLength = (($normalizedPrefix -join ' ').Length)
+        }
+
+        $currentChunk.Add($path)
+        $currentLength += $path.Length + 3
+    }
+
+    if ($currentChunk.Count -gt 0) {
+        Invoke-Git -Arguments ($normalizedPrefix + @($currentChunk)) | Out-Null
+    }
+}
+
 function Stage-Paths {
     param([string[]]$Paths)
 
@@ -2733,11 +2773,11 @@ function Stage-Paths {
     }
 
     if ($existingPaths.Count -gt 0) {
-        Invoke-Git -Arguments (@('add', '--') + $existingPaths) | Out-Null
+        Invoke-GitAddInChunks -PrefixArguments @('add', '--') -Paths $existingPaths
     }
 
     if ($missingPaths.Count -gt 0) {
-        Invoke-Git -Arguments (@('add', '-u', '--') + $missingPaths) | Out-Null
+        Invoke-GitAddInChunks -PrefixArguments @('add', '-u', '--') -Paths $missingPaths
     }
 }
 
