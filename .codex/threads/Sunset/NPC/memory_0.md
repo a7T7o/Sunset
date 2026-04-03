@@ -1722,3 +1722,55 @@
   - 如果后续继续重做，正确方向必须改成：
     - 基于角色设定重构真正的右向胸像
     - 而不是继续裁现成行走帧
+
+## 2026-04-03｜补记：NPC 静态大头照第三轮已按 bust 重组法重做
+
+- 当前主线目标：
+  - 把 `Assets/Sprites/NPC/*.png` 的 NPC 行走图，重做成真正可用于 RPG 对话框的静态大头照。
+- 本轮子任务：
+  - 只做外部头像产物，不碰 Sunset 内的 NPC 源图和运行时资源。
+  - 输出位置固定为：
+    - `D:\UUUnity\NPC`
+- 本轮实际完成：
+  - 清空旧的错误输出后，重新为 `11` 个角色各生成了 `10` 张 PNG。
+  - 当前目录结构为：
+    - `D:\UUUnity\NPC\001`
+    - `D:\UUUnity\NPC\002`
+    - `D:\UUUnity\NPC\003`
+    - `D:\UUUnity\NPC\101`
+    - `D:\UUUnity\NPC\102`
+    - `D:\UUUnity\NPC\103`
+    - `D:\UUUnity\NPC\104`
+    - `D:\UUUnity\NPC\201`
+    - `D:\UUUnity\NPC\202`
+    - `D:\UUUnity\NPC\203`
+    - `D:\UUUnity\NPC\301`
+  - 总产出为：
+    - `110` 张透明底静态大头照
+- 关键决策：
+  - 彻底放弃“把右向 walking frame 直接裁半截放大”的旧错误。
+  - 新方案改成：
+    - 从右向帧拆出头部层和肩胸层
+    - 重新组合成 bust 构图
+    - 通过不同裁框、缩放和落位生成 `10` 个可选版本
+- 已验证事实：
+  - 每个角色目录当前都有且只有 `10` 张 PNG。
+  - 抽查看到的新图已经不是 walking sprite 的半截裁图，而是静态 bust 构图。
+  - 本轮没有修改：
+    - `Assets/Sprites/NPC/*.png`
+    - `Assets/Sprites/NPC/*.png.meta`
+    - 任何 Sunset 运行时资源
+- 当前阶段：
+  - `targeted probe / 局部验证`
+  - 外部头像资产已具备可挑选性，但还没有在真实 DialogueUI 里做终验。
+- 当前风险：
+  - 强遮脸角色的侧脸可读性仍然受源帧限制，当前更适合先选默认图，再决定要不要做局部人工精修。
+- thread-state：
+  - 已跑：
+    - `Begin-Slice.ps1 -ThreadName NPC -CurrentSlice NPC静态大头照重做`
+- 当前恢复点：
+  - 用户可直接查看：
+    - `D:\UUUnity\NPC`
+  - 若继续下一刀，应先做：
+    - 每角色默认头像选型
+    - 少数角色的二次精修判定
