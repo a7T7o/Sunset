@@ -210,7 +210,7 @@ public class NavigationStaticPointValidationRunner : MonoBehaviour
         currentTarget = Vector2.zero;
         currentCaseName = string.Empty;
         runStartCenter = ValidationStartCenter;
-        runStartActorPosition = GetActorPositionForCenter(runStartCenter);
+        runStartActorPosition = Vector2.zero;
         acceptedCases.Clear();
         results.Clear();
 
@@ -356,6 +356,10 @@ public class NavigationStaticPointValidationRunner : MonoBehaviour
         {
             playerNavigator.ForceCancel();
         }
+
+        // Bootstrap systems can still shift the player's collider/rigidbody offset after StartRun().
+        // Recalculate the actor reset point per case so the reported origin stays anchored to ValidationStartCenter.
+        runStartActorPosition = GetActorPositionForCenter(runStartCenter);
 
         if (playerRigidbody != null)
         {

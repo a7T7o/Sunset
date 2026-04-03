@@ -11,6 +11,7 @@ public static class NavigationLiveValidationMenu
     {
         None = 0,
         RunAll = 1,
+        RunFinalAcceptancePack = 17,
         SetupPlayerAvoidsMovingNpc = 2,
         RunRealInputPush = 3,
         RunRealInputSingleNpcNear = 4,
@@ -21,7 +22,11 @@ public static class NavigationLiveValidationMenu
         RunRawRealInputSingleNpcNear = 9,
         RunRawRealInputCrowd = 10,
         RunRealInputGroundPointMatrix = 11,
-        RunRawRealInputGroundPointMatrix = 12
+        RunRawRealInputGroundPointMatrix = 12,
+        RunRealInputEndpointNpcOccupied = 13,
+        RunRawRealInputEndpointNpcOccupied = 14,
+        RunRealInputPassableCorridor = 15,
+        RunRealInputStaticNpcWall = 16
     }
 
     private const string LogPrefix = "[NavValidation]";
@@ -37,6 +42,12 @@ public static class NavigationLiveValidationMenu
     private static void RunLiveValidation()
     {
         RunOrQueue(PendingAction.RunAll);
+    }
+
+    [MenuItem("Tools/Sunset/Navigation/Run Final Player Navigation Acceptance Pack")]
+    private static void RunFinalPlayerNavigationAcceptancePack()
+    {
+        RunOrQueue(PendingAction.RunFinalAcceptancePack);
     }
 
     [MenuItem("Tools/Sunset/Navigation/Probe Setup/Player Avoids Moving NPC")]
@@ -57,7 +68,7 @@ public static class NavigationLiveValidationMenu
         RunOrQueue(PendingAction.RunRealInputSingleNpcNear);
     }
 
-    [MenuItem("Tools/Sunset/Navigation/Run Real Input Crowd Validation")]
+    [MenuItem("Tools/Sunset/Navigation/Legacy/Run Real Input Crowd Blocked-Wall Stress")]
     private static void RunRealInputCrowdValidation()
     {
         RunOrQueue(PendingAction.RunRealInputCrowd);
@@ -75,7 +86,7 @@ public static class NavigationLiveValidationMenu
         RunOrQueue(PendingAction.RunRawRealInputSingleNpcNear);
     }
 
-    [MenuItem("Tools/Sunset/Navigation/Run Raw Real Input Crowd Validation")]
+    [MenuItem("Tools/Sunset/Navigation/Legacy/Run Raw Real Input Crowd Blocked-Wall Stress")]
     private static void RunRawRealInputCrowdValidation()
     {
         RunOrQueue(PendingAction.RunRawRealInputCrowd);
@@ -91,6 +102,30 @@ public static class NavigationLiveValidationMenu
     private static void RunRawRealInputGroundPointMatrixValidation()
     {
         RunOrQueue(PendingAction.RunRawRealInputGroundPointMatrix);
+    }
+
+    [MenuItem("Tools/Sunset/Navigation/Run Real Input Endpoint NPC Occupied Validation")]
+    private static void RunRealInputEndpointNpcOccupiedValidation()
+    {
+        RunOrQueue(PendingAction.RunRealInputEndpointNpcOccupied);
+    }
+
+    [MenuItem("Tools/Sunset/Navigation/Run Raw Real Input Endpoint NPC Occupied Validation")]
+    private static void RunRawRealInputEndpointNpcOccupiedValidation()
+    {
+        RunOrQueue(PendingAction.RunRawRealInputEndpointNpcOccupied);
+    }
+
+    [MenuItem("Tools/Sunset/Navigation/Run Real Input Passable Corridor Validation")]
+    private static void RunRealInputPassableCorridorValidation()
+    {
+        RunOrQueue(PendingAction.RunRealInputPassableCorridor);
+    }
+
+    [MenuItem("Tools/Sunset/Navigation/Run Real Input Static NPC Wall Validation")]
+    private static void RunRealInputStaticNpcWallValidation()
+    {
+        RunOrQueue(PendingAction.RunRealInputStaticNpcWall);
     }
 
     [MenuItem("Tools/Sunset/Navigation/Probe Setup/NPC Avoids Player")]
@@ -228,6 +263,10 @@ public static class NavigationLiveValidationMenu
                 NavigationLiveValidationRunner.BeginOrRestart();
                 break;
 
+            case PendingAction.RunFinalAcceptancePack:
+                NavigationLiveValidationRunner.BeginFinalAcceptancePack();
+                break;
+
             case PendingAction.SetupPlayerAvoidsMovingNpc:
                 NavigationLiveValidationRunner.SetupPlayerAvoidsMovingNpcProbe();
                 break;
@@ -241,7 +280,7 @@ public static class NavigationLiveValidationMenu
                 break;
 
             case PendingAction.RunRealInputCrowd:
-                NavigationLiveValidationRunner.RunRealInputPlayerCrowdPassProbe();
+                NavigationLiveValidationRunner.RunLegacyRealInputPlayerCrowdBlockedWallStressProbe();
                 break;
 
             case PendingAction.RunRawRealInputPush:
@@ -253,7 +292,7 @@ public static class NavigationLiveValidationMenu
                 break;
 
             case PendingAction.RunRawRealInputCrowd:
-                NavigationLiveValidationRunner.RunRawRealInputPlayerCrowdPassProbe();
+                NavigationLiveValidationRunner.RunLegacyRawRealInputPlayerCrowdBlockedWallStressProbe();
                 break;
 
             case PendingAction.RunRealInputGroundPointMatrix:
@@ -262,6 +301,22 @@ public static class NavigationLiveValidationMenu
 
             case PendingAction.RunRawRealInputGroundPointMatrix:
                 NavigationLiveValidationRunner.RunRawRealInputGroundPointMatrixProbe();
+                break;
+
+            case PendingAction.RunRealInputEndpointNpcOccupied:
+                NavigationLiveValidationRunner.RunRealInputPlayerEndpointNpcOccupiedProbe();
+                break;
+
+            case PendingAction.RunRawRealInputEndpointNpcOccupied:
+                NavigationLiveValidationRunner.RunRawRealInputPlayerEndpointNpcOccupiedProbe();
+                break;
+
+            case PendingAction.RunRealInputPassableCorridor:
+                NavigationLiveValidationRunner.RunRealInputPlayerPassableCorridorProbe();
+                break;
+
+            case PendingAction.RunRealInputStaticNpcWall:
+                NavigationLiveValidationRunner.RunRealInputPlayerStaticNpcWallProbe();
                 break;
 
             case PendingAction.SetupNpcAvoidsPlayer:

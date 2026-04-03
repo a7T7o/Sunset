@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using UnityEngine;
 #if UNITY_EDITOR
@@ -14,6 +15,7 @@ public class NavigationLiveValidationRunner : MonoBehaviour
     private const string LogPrefix = "[NavValidation]";
 #if UNITY_EDITOR
     private const string PendingActionEditorPrefKey = "Sunset.NavigationLiveValidation.PendingAction";
+    private const string PendingActionFileRelativePath = "Library/NavigationLiveValidation/pending_action.txt";
     private const bool ForceFullPackAutorunForCurrentFix = false;
 #endif
     private const float ScenarioTimeout = 6.5f;
@@ -24,6 +26,23 @@ public class NavigationLiveValidationRunner : MonoBehaviour
     private const float PushContactBuffer = 0.04f;
     private const float PushForwardDotThreshold = 0.25f;
     private const float MaxAllowedNpcPushDisplacement = 0.08f;
+    private const float PlayerPointArrivalCenterTolerance = 0.35f;
+    private const float EndpointNpcArrivalTolerancePadding = 0.35f;
+    private const int EndpointNpcArrivalMaxActionChanges = 12;
+    private const int ManagedRoamSeedStart = 4101;
+    private const int ManagedRoamMaxSeedAttempts = 10;
+    private const float ManagedRoamShortPauseDuration = 0.05f;
+    private const float ManagedRoamMinimumMoveDistance = 1.4f;
+    private const float ManagedRoamAcceptEastDelta = 1.2f;
+    private const float ManagedRoamAcceptVerticalTolerance = 1.15f;
+    private const float ManagedRoamBlockerClearance = 0.06f;
+    private const float ManagedRoamBlockerSideOffset = 0.34f;
+    private const float ManagedRoamPersistentAnchorOffset = 0.18f;
+    private const float ManagedRoamReleaseHoldTime = 0.2f;
+    private const float ManagedRoamPersistentInterruptTimeout = 9.2f;
+    private const float ManagedRoamPersistentStuckCheckInterval = 0.18f;
+    private const float ManagedRoamPersistentStuckDistanceThreshold = 0.3f;
+    private const int ManagedRoamPersistentMaxStuckRecoveries = 1;
     private static bool s_previousRunInBackground;
     private static bool s_runInBackgroundOverridden;
 
@@ -36,7 +55,12 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         RealInputPlayerAvoidsMovingNpc = 4,
         RealInputPlayerSingleNpcNear = 5,
         RealInputPlayerCrowdPass = 6,
-        RealInputPlayerGroundPointMatrix = 7
+        RealInputPlayerGroundPointMatrix = 7,
+        RealInputPlayerEndpointNpcOccupied = 8,
+        NpcRoamRecoverWindow = 9,
+        NpcRoamPersistentBlockInterrupt = 10,
+        RealInputPlayerPassableCorridor = 11,
+        RealInputPlayerStaticNpcWall = 12
     }
 
     private enum ClickProbeMode
@@ -60,6 +84,20 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             DirectionLabel = directionLabel;
             Start = start;
             Target = target;
+        }
+    }
+
+    private readonly struct PackScenarioSpec
+    {
+        public readonly ScenarioKind Scenario;
+        public readonly ClickProbeMode ClickMode;
+        public readonly string ResultName;
+
+        public PackScenarioSpec(ScenarioKind scenario, ClickProbeMode clickMode, string resultName)
+        {
+            Scenario = scenario;
+            ClickMode = clickMode;
+            ResultName = resultName;
         }
     }
 
@@ -129,8 +167,24 @@ public class NavigationLiveValidationRunner : MonoBehaviour
     private ClickProbeMode currentClickProbeMode = ClickProbeMode.SuppressedNpcInteractions;
     private string clickPendingAutoInteractionTargetName = "none";
     private string lastObservedPlayerAction = string.Empty;
+    private bool roamSeedAccepted;
+    private bool roamDetourCreated;
+    private bool roamReleaseSucceeded;
+    private bool roamBlockerReleased;
+    private int roamSeedCursor;
+    private int roamSeedAttempts;
+    private int roamAcceptedSeed;
+    private float roamAcceptedAtTime;
+    private Vector2 roamNpcStartPosition;
+    private Vector2 roamAcceptedDestination;
+    private readonly Dictionary<int, NpcRoamControllerManagedTuningSnapshot> managedRoamControllerDefaults =
+        new Dictionary<int, NpcRoamControllerManagedTuningSnapshot>();
 
     private readonly List<ScenarioResult> scenarioResults = new List<ScenarioResult>();
+    private readonly List<PackScenarioSpec> activePackScenarios = new List<PackScenarioSpec>(12);
+    private string activePackName = string.Empty;
+    private string currentScenarioResultName = string.Empty;
+    private int activePackScenarioIndex = -1;
 
     private struct ScenarioResult
     {
@@ -143,6 +197,13 @@ public class NavigationLiveValidationRunner : MonoBehaviour
     {
         NavigationLiveValidationRunner runner = GetOrCreateRunner();
         runner.RunAll();
+        return runner;
+    }
+
+    public static NavigationLiveValidationRunner BeginFinalAcceptancePack()
+    {
+        NavigationLiveValidationRunner runner = GetOrCreateRunner();
+        runner.RunFinalAcceptancePack();
         return runner;
     }
 
@@ -181,16 +242,40 @@ public class NavigationLiveValidationRunner : MonoBehaviour
 
     public static void RunRealInputPlayerCrowdPassProbe()
     {
+        RunLegacyRealInputPlayerCrowdBlockedWallStressProbe();
+    }
+
+    public static void RunRawRealInputPlayerCrowdPassProbe()
+    {
+        RunLegacyRawRealInputPlayerCrowdBlockedWallStressProbe();
+    }
+
+    public static void RunLegacyRealInputPlayerCrowdBlockedWallStressProbe()
+    {
         GetOrCreateRunner().RunSingleSetup(
             ScenarioKind.RealInputPlayerCrowdPass,
             ClickProbeMode.SuppressedNpcInteractions);
     }
 
-    public static void RunRawRealInputPlayerCrowdPassProbe()
+    public static void RunLegacyRawRealInputPlayerCrowdBlockedWallStressProbe()
     {
         GetOrCreateRunner().RunSingleSetup(
             ScenarioKind.RealInputPlayerCrowdPass,
             ClickProbeMode.RawRightClick);
+    }
+
+    public static void RunRealInputPlayerPassableCorridorProbe()
+    {
+        GetOrCreateRunner().RunSingleSetup(
+            ScenarioKind.RealInputPlayerPassableCorridor,
+            ClickProbeMode.SuppressedNpcInteractions);
+    }
+
+    public static void RunRealInputPlayerStaticNpcWallProbe()
+    {
+        GetOrCreateRunner().RunSingleSetup(
+            ScenarioKind.RealInputPlayerStaticNpcWall,
+            ClickProbeMode.SuppressedNpcInteractions);
     }
 
     public static void RunRealInputGroundPointMatrixProbe()
@@ -207,6 +292,20 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             ClickProbeMode.RawRightClick);
     }
 
+    public static void RunRealInputPlayerEndpointNpcOccupiedProbe()
+    {
+        GetOrCreateRunner().RunSingleSetup(
+            ScenarioKind.RealInputPlayerEndpointNpcOccupied,
+            ClickProbeMode.SuppressedNpcInteractions);
+    }
+
+    public static void RunRawRealInputPlayerEndpointNpcOccupiedProbe()
+    {
+        GetOrCreateRunner().RunSingleSetup(
+            ScenarioKind.RealInputPlayerEndpointNpcOccupied,
+            ClickProbeMode.RawRightClick);
+    }
+
     public static void SetupNpcAvoidsPlayerProbe()
     {
         GetOrCreateRunner().RunSingleSetup(ScenarioKind.NpcAvoidsPlayer);
@@ -217,6 +316,16 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         GetOrCreateRunner().RunSingleSetup(ScenarioKind.NpcNpcCrossing);
     }
 
+    public static void RunNpcRoamRecoverWindowProbe()
+    {
+        GetOrCreateRunner().RunSingleSetup(ScenarioKind.NpcRoamRecoverWindow);
+    }
+
+    public static void RunNpcRoamPersistentBlockInterruptProbe()
+    {
+        GetOrCreateRunner().RunSingleSetup(ScenarioKind.NpcRoamPersistentBlockInterrupt);
+    }
+
 #if UNITY_EDITOR
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void AutoRunFromEditorLaunchRequest()
@@ -224,17 +333,26 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         if (ForceFullPackAutorunForCurrentFix && Application.isPlaying)
         {
             Debug.Log($"{LogPrefix} forced_autorun_full_pack");
-            BeginOrRestart();
+            BeginFinalAcceptancePack();
             return;
         }
 
-        if (!Application.isPlaying || !EditorPrefs.HasKey(PendingActionEditorPrefKey))
+        if (!Application.isPlaying)
         {
             return;
         }
 
-        string action = EditorPrefs.GetString(PendingActionEditorPrefKey, string.Empty);
-        EditorPrefs.DeleteKey(PendingActionEditorPrefKey);
+        string action = string.Empty;
+        if (EditorPrefs.HasKey(PendingActionEditorPrefKey))
+        {
+            action = EditorPrefs.GetString(PendingActionEditorPrefKey, string.Empty);
+            EditorPrefs.DeleteKey(PendingActionEditorPrefKey);
+        }
+        else
+        {
+            action = ConsumePendingActionFile();
+        }
+
         if (string.IsNullOrEmpty(action))
         {
             return;
@@ -246,6 +364,10 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         {
             case "RunAll":
                 BeginOrRestart();
+                break;
+
+            case "RunFinalAcceptancePack":
+                BeginFinalAcceptancePack();
                 break;
 
             case "SetupPlayerAvoidsMovingNpc":
@@ -269,11 +391,11 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 break;
 
             case "RunRealInputCrowd":
-                RunRealInputPlayerCrowdPassProbe();
+                RunLegacyRealInputPlayerCrowdBlockedWallStressProbe();
                 break;
 
             case "RunRawRealInputCrowd":
-                RunRawRealInputPlayerCrowdPassProbe();
+                RunLegacyRawRealInputPlayerCrowdBlockedWallStressProbe();
                 break;
 
             case "RunRealInputGroundPointMatrix":
@@ -284,6 +406,22 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 RunRawRealInputGroundPointMatrixProbe();
                 break;
 
+            case "RunRealInputEndpointNpcOccupied":
+                RunRealInputPlayerEndpointNpcOccupiedProbe();
+                break;
+
+            case "RunRawRealInputEndpointNpcOccupied":
+                RunRawRealInputPlayerEndpointNpcOccupiedProbe();
+                break;
+
+            case "RunRealInputPassableCorridor":
+                RunRealInputPlayerPassableCorridorProbe();
+                break;
+
+            case "RunRealInputStaticNpcWall":
+                RunRealInputPlayerStaticNpcWallProbe();
+                break;
+
             case "SetupNpcAvoidsPlayer":
                 SetupNpcAvoidsPlayerProbe();
                 break;
@@ -292,10 +430,41 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 SetupNpcNpcCrossingProbe();
                 break;
 
+            case "RunNpcRoamRecoverWindow":
+                RunNpcRoamRecoverWindowProbe();
+                break;
+
+            case "RunNpcRoamPersistentBlockInterrupt":
+                RunNpcRoamPersistentBlockInterruptProbe();
+                break;
+
             default:
                 Debug.LogWarning($"{LogPrefix} unknown_runtime_launch_request={action}");
                 break;
         }
+    }
+#endif
+
+#if UNITY_EDITOR
+    private static string ConsumePendingActionFile()
+    {
+        string path = GetPendingActionFilePath();
+        if (!File.Exists(path))
+        {
+            return string.Empty;
+        }
+
+        string action = File.ReadAllText(path).Trim();
+        File.Delete(path);
+        return action;
+    }
+
+    private static string GetPendingActionFilePath()
+    {
+        string projectRoot = Path.GetDirectoryName(Application.dataPath);
+        return string.IsNullOrEmpty(projectRoot)
+            ? PendingActionFileRelativePath
+            : Path.Combine(projectRoot, PendingActionFileRelativePath);
     }
 #endif
 
@@ -308,8 +477,29 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         currentClickProbeMode = ClickProbeMode.SuppressedNpcInteractions;
         scenarioResults.Clear();
         ResetObservationState();
+        ClearActivePackState();
         Debug.Log($"{LogPrefix} runner_started");
         QueueScenarioStart(ScenarioKind.RealInputPlayerAvoidsMovingNpc, InitialScenarioBootstrapFrames, "run_all");
+    }
+
+    private void RunFinalAcceptancePack()
+    {
+        EnsureRunInBackground();
+        Time.timeScale = 1f;
+        isRunning = true;
+        runSingleScenarioOnly = false;
+        scenarioResults.Clear();
+        ResetObservationState();
+        BuildFinalAcceptancePackScenarios();
+
+        Debug.Log(
+            $"{LogPrefix} final_acceptance_pack_started name={activePackName} " +
+            $"caseCount={activePackScenarios.Count}");
+
+        if (!QueueNextPackScenario("final_acceptance_pack"))
+        {
+            AbortRun("scenario=FinalAcceptancePack empty_pack");
+        }
     }
 
     private void Awake()
@@ -393,6 +583,26 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             case ScenarioKind.RealInputPlayerGroundPointMatrix:
                 TickRealInputGroundPointMatrix();
                 break;
+
+            case ScenarioKind.RealInputPlayerEndpointNpcOccupied:
+                TickRealInputPlayerEndpointNpcOccupied();
+                break;
+
+            case ScenarioKind.RealInputPlayerPassableCorridor:
+                TickRealInputPlayerPassableCorridor();
+                break;
+
+            case ScenarioKind.RealInputPlayerStaticNpcWall:
+                TickRealInputPlayerStaticNpcWall();
+                break;
+
+            case ScenarioKind.NpcRoamRecoverWindow:
+                TickNpcRoamRecoverWindow();
+                break;
+
+            case ScenarioKind.NpcRoamPersistentBlockInterrupt:
+                TickNpcRoamPersistentBlockInterrupt();
+                break;
         }
     }
 
@@ -442,6 +652,26 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             case ScenarioKind.RealInputPlayerGroundPointMatrix:
                 SetupRealInputGroundPointMatrix();
                 break;
+
+            case ScenarioKind.RealInputPlayerEndpointNpcOccupied:
+                SetupRealInputPlayerEndpointNpcOccupied();
+                break;
+
+            case ScenarioKind.RealInputPlayerPassableCorridor:
+                SetupRealInputPlayerPassableCorridor();
+                break;
+
+            case ScenarioKind.RealInputPlayerStaticNpcWall:
+                SetupRealInputPlayerStaticNpcWall();
+                break;
+
+            case ScenarioKind.NpcRoamRecoverWindow:
+                SetupNpcRoamRecoverWindow();
+                break;
+
+            case ScenarioKind.NpcRoamPersistentBlockInterrupt:
+                SetupNpcRoamPersistentBlockInterrupt();
+                break;
         }
     }
 
@@ -459,7 +689,75 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         currentClickProbeMode = clickProbeMode;
         scenarioResults.Clear();
         ResetObservationState();
+        ClearActivePackState();
         QueueScenarioStart(scenarioKind, InitialScenarioBootstrapFrames, "run_single");
+    }
+
+    private void BuildFinalAcceptancePackScenarios()
+    {
+        activePackScenarios.Clear();
+        activePackName = "FinalPlayerNavigationAcceptancePack";
+        activePackScenarioIndex = -1;
+
+        AddPackScenario(ScenarioKind.RealInputPlayerPassableCorridor, ClickProbeMode.SuppressedNpcInteractions, "PassableCorridor#1");
+        AddPackScenario(ScenarioKind.RealInputPlayerPassableCorridor, ClickProbeMode.SuppressedNpcInteractions, "PassableCorridor#2");
+        AddPackScenario(ScenarioKind.RealInputPlayerPassableCorridor, ClickProbeMode.SuppressedNpcInteractions, "PassableCorridor#3");
+
+        AddPackScenario(ScenarioKind.RealInputPlayerStaticNpcWall, ClickProbeMode.SuppressedNpcInteractions, "StaticNpcWall#1");
+        AddPackScenario(ScenarioKind.RealInputPlayerStaticNpcWall, ClickProbeMode.SuppressedNpcInteractions, "StaticNpcWall#2");
+        AddPackScenario(ScenarioKind.RealInputPlayerStaticNpcWall, ClickProbeMode.SuppressedNpcInteractions, "StaticNpcWall#3");
+
+        AddPackScenario(ScenarioKind.RealInputPlayerEndpointNpcOccupied, ClickProbeMode.SuppressedNpcInteractions, "EndpointNpcOccupied#1");
+        AddPackScenario(ScenarioKind.RealInputPlayerGroundPointMatrix, ClickProbeMode.RawRightClick, "GroundRawMatrix#1");
+        AddPackScenario(ScenarioKind.RealInputPlayerSingleNpcNear, ClickProbeMode.SuppressedNpcInteractions, "SingleNpcNear#1");
+        AddPackScenario(ScenarioKind.RealInputPlayerAvoidsMovingNpc, ClickProbeMode.SuppressedNpcInteractions, "MovingNpc#1");
+        AddPackScenario(ScenarioKind.NpcAvoidsPlayer, ClickProbeMode.SuppressedNpcInteractions, "NpcAvoidsPlayer#1");
+        AddPackScenario(ScenarioKind.NpcNpcCrossing, ClickProbeMode.SuppressedNpcInteractions, "NpcNpcCrossing#1");
+    }
+
+    private void AddPackScenario(ScenarioKind scenarioKind, ClickProbeMode clickProbeMode, string resultName)
+    {
+        activePackScenarios.Add(new PackScenarioSpec(scenarioKind, clickProbeMode, resultName));
+    }
+
+    private bool HasActivePack()
+    {
+        return activePackScenarios.Count > 0;
+    }
+
+    private bool QueueNextPackScenario(string source)
+    {
+        if (!HasActivePack())
+        {
+            return false;
+        }
+
+        int nextIndex = activePackScenarioIndex + 1;
+        if (nextIndex >= activePackScenarios.Count)
+        {
+            return false;
+        }
+
+        activePackScenarioIndex = nextIndex;
+        PackScenarioSpec spec = activePackScenarios[activePackScenarioIndex];
+        currentClickProbeMode = spec.ClickMode;
+        currentScenarioResultName = spec.ResultName;
+
+        Debug.Log(
+            $"{LogPrefix} final_acceptance_pack_case={spec.ResultName} scenario={spec.Scenario} " +
+            $"clickMode={spec.ClickMode} index={activePackScenarioIndex + 1}/{activePackScenarios.Count} " +
+            $"source={source}");
+
+        QueueScenarioStart(spec.Scenario, InitialScenarioBootstrapFrames, source);
+        return true;
+    }
+
+    private void ClearActivePackState()
+    {
+        activePackScenarios.Clear();
+        activePackName = string.Empty;
+        currentScenarioResultName = string.Empty;
+        activePackScenarioIndex = -1;
     }
 
     private void QueueScenarioStart(ScenarioKind scenarioKind, int delayFrames, string source)
@@ -537,8 +835,8 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         Collider2D playerCollider = activePlayerNavigator.GetComponent<Collider2D>();
         PlaceActor(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>(), playerStart);
         PlaceNpc(activeNpcA, npcStart);
-        PlaceNpc(activeNpcB, new Vector2(-3.5f, 8.0f));
-        PlaceNpc(activeNpcC, new Vector2(-1.5f, 8.5f));
+        PlaceNpc(activeNpcB, new Vector2(1.80f, 9.60f));
+        PlaceNpc(activeNpcC, new Vector2(3.80f, 9.95f));
 
         laneReferenceY = GetActorMeasurePosition(activePlayerNavigator.transform, playerCollider).y;
         combinedRadius = GetActorRadius(playerCollider) + GetActorRadius(activeNpcA.Collider);
@@ -571,8 +869,8 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         Collider2D playerCollider = activePlayerNavigator.GetComponent<Collider2D>();
         PlaceActor(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>(), playerStart);
         PlaceNpc(activeNpcA, npcStart);
-        PlaceNpc(activeNpcB, new Vector2(-3.5f, 8.0f));
-        PlaceNpc(activeNpcC, new Vector2(-1.5f, 8.5f));
+        PlaceNpc(activeNpcB, new Vector2(1.80f, 9.60f));
+        PlaceNpc(activeNpcC, new Vector2(3.80f, 9.95f));
 
         laneReferenceY = GetActorMeasurePosition(activeNpcA.Transform, activeNpcA.Collider).y;
         combinedRadius = GetActorRadius(playerCollider) + GetActorRadius(activeNpcA.Collider);
@@ -618,6 +916,44 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             $"npcAPos={(Vector2)activeNpcA.Transform.position} npcBPos={(Vector2)activeNpcB.Transform.position}");
     }
 
+    private void SetupNpcRoamRecoverWindow()
+    {
+        SetupManagedNpcRoamScenario(persistentBlockers: false, "NpcRoamRecoverWindow");
+    }
+
+    private void SetupNpcRoamPersistentBlockInterrupt()
+    {
+        SetupManagedNpcRoamScenario(persistentBlockers: true, "NpcRoamPersistentBlockInterrupt");
+    }
+
+    private void SetupManagedNpcRoamScenario(bool persistentBlockers, string scenarioName)
+    {
+        Debug.Log($"{LogPrefix} scenario_start={scenarioName}");
+        if (!TryResolveActors(out activePlayerNavigator, out activeNpcA, out activeNpcB, out activeNpcC))
+        {
+            AbortRun($"scenario={scenarioName} actors_missing");
+            return;
+        }
+
+        PrepareScene(activePlayerNavigator, activeNpcA, activeNpcB, activeNpcC);
+
+        const float laneY = 4.45f;
+        roamNpcStartPosition = new Vector2(-9.05f, laneY);
+
+        PlaceActor(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>(), new Vector2(-2.0f, 8.0f));
+        PlaceNpc(activeNpcA, roamNpcStartPosition);
+        StopAndParkNpc(activeNpcB, GetManagedRoamBlockerParkingPosition(1));
+        StopAndParkNpc(activeNpcC, GetManagedRoamBlockerParkingPosition(2));
+
+        ConfigureManagedRoamController(activeNpcA.Controller);
+        ConfigureManagedRoamController(activeNpcB.Controller);
+        ConfigureManagedRoamController(activeNpcC.Controller);
+        ConfigureManagedRoamPrimaryController(activeNpcA.Controller, persistentBlockers);
+
+        BeginNextManagedRoamAttempt();
+        settleFramesRemaining = SetupSettleFrames;
+    }
+
     private void SetupRealInputPlayerAvoidsMovingNpc()
     {
         Debug.Log($"{LogPrefix} scenario_start=RealInputPlayerAvoidsMovingNpc");
@@ -645,8 +981,8 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         Collider2D playerCollider = activePlayerNavigator.GetComponent<Collider2D>();
         PlaceActor(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>(), playerStart);
         PlaceNpc(activeNpcA, npcStart);
-        PlaceNpc(activeNpcB, new Vector2(-3.5f, 8.0f));
-        PlaceNpc(activeNpcC, new Vector2(-1.5f, 8.5f));
+        PlaceNpc(activeNpcB, new Vector2(1.80f, 9.60f));
+        PlaceNpc(activeNpcC, new Vector2(3.80f, 9.95f));
 
         laneReferenceY = GetActorFootPosition(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>()).y;
         combinedRadius = GetActorFootprintRadius(playerCollider) + GetActorFootprintRadius(activeNpcA.Collider);
@@ -720,29 +1056,31 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             $"npcPos={(Vector2)activeNpcA.Transform.position} {BuildClickDispatchSummary()}");
     }
 
-    private void SetupRealInputPlayerCrowdPass()
+    private bool TrySetupRealInputPlayerCrowdScenario(
+        string scenarioName,
+        Vector2 playerStart,
+        Vector2 target,
+        Vector2 npcAStart,
+        Vector2 npcBStart,
+        Vector2 npcCStart)
     {
-        Debug.Log($"{LogPrefix} scenario_start=RealInputPlayerCrowdPass");
+        Debug.Log($"{LogPrefix} scenario_start={scenarioName}");
         if (!TryResolveActors(out activePlayerNavigator, out activeNpcA, out activeNpcB, out activeNpcC))
         {
-            AbortRun("scenario=RealInputPlayerCrowdPass actors_missing");
-            return;
+            AbortRun($"scenario={scenarioName} actors_missing");
+            return false;
         }
 
         activeGameInputManager = FindFirstObjectByType<GameInputManager>();
         if (activeGameInputManager == null)
         {
-            AbortRun("scenario=RealInputPlayerCrowdPass game_input_missing");
-            return;
+            AbortRun($"scenario={scenarioName} game_input_missing");
+            return false;
         }
 
         PrepareScene(activePlayerNavigator, activeNpcA, activeNpcB, activeNpcC);
 
-        Vector2 playerStart = new Vector2(-9.15f, 4.45f);
-        playerTarget = new Vector2(-4.95f, 4.45f);
-        Vector2 npcAStart = new Vector2(-7.45f, 4.95f);
-        Vector2 npcBStart = new Vector2(-7.05f, 4.08f);
-        Vector2 npcCStart = new Vector2(-6.62f, 4.88f);
+        playerTarget = target;
 
         PlaceActor(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>(), playerStart);
         PlaceNpc(activeNpcA, npcAStart);
@@ -766,10 +1104,44 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         settleFramesRemaining = SetupSettleFrames;
 
         Debug.Log(
-            $"{LogPrefix} scenario_setup=RealInputPlayerCrowdPass playerClickIssued={playerClickIssued} " +
+            $"{LogPrefix} scenario_setup={scenarioName} playerClickIssued={playerClickIssued} " +
             $"playerPos={(Vector2)activePlayerNavigator.transform.position} npcAPos={(Vector2)activeNpcA.Transform.position} " +
             $"npcBPos={(Vector2)activeNpcB.Transform.position} npcCPos={(Vector2)activeNpcC.Transform.position} " +
             $"{BuildClickDispatchSummary()}");
+        return true;
+    }
+
+    private void SetupRealInputPlayerCrowdPass()
+    {
+        TrySetupRealInputPlayerCrowdScenario(
+            "LegacyRealInputCrowdBlockedWallStress",
+            new Vector2(-9.15f, 4.45f),
+            new Vector2(-4.95f, 4.45f),
+            new Vector2(-7.45f, 4.95f),
+            new Vector2(-7.05f, 4.08f),
+            new Vector2(-6.62f, 4.88f));
+    }
+
+    private void SetupRealInputPlayerPassableCorridor()
+    {
+        TrySetupRealInputPlayerCrowdScenario(
+            "RealInputPlayerPassableCorridor",
+            new Vector2(-9.15f, 4.45f),
+            new Vector2(-4.95f, 4.45f),
+            new Vector2(-7.45f, 5.08f),
+            new Vector2(-7.08f, 3.80f),
+            new Vector2(-5.95f, 5.16f));
+    }
+
+    private void SetupRealInputPlayerStaticNpcWall()
+    {
+        TrySetupRealInputPlayerCrowdScenario(
+            "RealInputPlayerStaticNpcWall",
+            new Vector2(-9.15f, 4.45f),
+            new Vector2(-4.95f, 4.45f),
+            new Vector2(-7.45f, 4.95f),
+            new Vector2(-7.05f, 4.08f),
+            new Vector2(-6.62f, 4.88f));
     }
 
     private void SetupRealInputGroundPointMatrix()
@@ -801,6 +1173,56 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         groundPointCaseDetails.Clear();
 
         StartNextGroundPointMatrixCase();
+    }
+
+    private void SetupRealInputPlayerEndpointNpcOccupied()
+    {
+        Debug.Log($"{LogPrefix} scenario_start=RealInputPlayerEndpointNpcOccupied");
+        if (!TryResolveActors(out activePlayerNavigator, out activeNpcA, out activeNpcB, out activeNpcC))
+        {
+            AbortRun("scenario=RealInputPlayerEndpointNpcOccupied actors_missing");
+            return;
+        }
+
+        activeGameInputManager = FindFirstObjectByType<GameInputManager>();
+        if (activeGameInputManager == null)
+        {
+            AbortRun("scenario=RealInputPlayerEndpointNpcOccupied game_input_missing");
+            return;
+        }
+
+        PrepareScene(activePlayerNavigator, activeNpcA, activeNpcB, activeNpcC);
+
+        Vector2 playerStart = new Vector2(-9.15f, 4.45f);
+        Vector2 npcStart = new Vector2(-5.92f, 4.45f);
+        playerTarget = new Vector2(-5.54f, 4.45f);
+
+        Collider2D playerCollider = activePlayerNavigator.GetComponent<Collider2D>();
+        PlaceActor(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>(), playerStart);
+        PlaceNpc(activeNpcA, npcStart);
+        PlaceNpc(activeNpcB, new Vector2(1.80f, 9.60f));
+        PlaceNpc(activeNpcC, new Vector2(3.80f, 9.95f));
+
+        laneReferenceY = playerStart.y;
+        combinedRadius = GetActorFootprintRadius(playerCollider) + GetActorFootprintRadius(activeNpcA.Collider);
+        playerClickIssued = TryIssueAutoNavClick(
+            activeGameInputManager,
+            playerTarget,
+            currentClickProbeMode,
+            activeNpcA,
+            activeNpcB,
+            activeNpcC);
+        CapturePendingAutoInteractionState(activeGameInputManager);
+        previousPlayerPos = GetActorFootPosition(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>());
+        previousNpcPos = GetActorFootPosition(activeNpcA.Transform, activeNpcA.Rigidbody);
+        previousPlayerMotion = Vector2.zero;
+        pushObservationInitialized = true;
+        settleFramesRemaining = SetupSettleFrames;
+
+        Debug.Log(
+            $"{LogPrefix} scenario_setup=RealInputPlayerEndpointNpcOccupied playerClickIssued={playerClickIssued} " +
+            $"playerPos={(Vector2)activePlayerNavigator.transform.position} npcPos={(Vector2)activeNpcA.Transform.position} " +
+            $"target={playerTarget} combinedRadius={combinedRadius:F3} {BuildClickDispatchSummary()}");
     }
 
     private bool TryIssueAutoNavClick(
@@ -1143,6 +1565,419 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         }
     }
 
+    private void TickNpcRoamRecoverWindow()
+    {
+        TickManagedNpcRoam(expectInterruption: false);
+    }
+
+    private void TickNpcRoamPersistentBlockInterrupt()
+    {
+        TickManagedNpcRoam(expectInterruption: true);
+    }
+
+    private void TickManagedNpcRoam(bool expectInterruption)
+    {
+        if (activeNpcA.Controller == null)
+        {
+            AbortRun($"scenario={currentScenario} npcA_missing");
+            return;
+        }
+
+        if (!roamSeedAccepted)
+        {
+            TryAcceptManagedRoamSeed();
+            if (!roamSeedAccepted)
+            {
+                if (scenarioTimer >= ScenarioTimeout)
+                {
+                    CompleteScenario(
+                        currentScenario.ToString(),
+                        false,
+                        $"seedAccepted={roamSeedAccepted}, seedAttempts={roamSeedAttempts}, timeout={scenarioTimer:F2}",
+                        $"seedAccepted={roamSeedAccepted} seedAttempts={roamSeedAttempts}");
+                }
+
+                return;
+            }
+        }
+
+        UpdateManagedRoamObservation(activeNpcA.Controller);
+        UpdateManagedRoamBlockers(expectInterruption);
+
+        if (expectInterruption)
+        {
+            if (GetManagedRoamInterruptionFlag())
+            {
+                CompleteScenario(
+                    "NpcRoamPersistentBlockInterrupt",
+                    true,
+                    BuildManagedRoamInterruptionDetails(),
+                    BuildManagedRoamInterruptionSummary());
+                return;
+            }
+
+            if (scenarioTimer >= ManagedRoamPersistentInterruptTimeout)
+            {
+                CompleteScenario(
+                    "NpcRoamPersistentBlockInterrupt",
+                    false,
+                    BuildManagedRoamTimeoutDetails(expectInterruption: true),
+                    $"timeout={scenarioTimer:F2} detourCreates={activeNpcA.Controller.DebugSharedAvoidanceDetourCreateCount} " +
+                    $"releaseSuccesses={activeNpcA.Controller.DebugSharedAvoidanceReleaseSuccessCount} interruption={GetManagedRoamInterruptionFlag()}");
+            }
+
+            return;
+        }
+
+        if (GetManagedRoamInterruptionFlag())
+        {
+            CompleteScenario(
+                "NpcRoamRecoverWindow",
+                false,
+                BuildManagedRoamInterruptionDetails(),
+                BuildManagedRoamInterruptionSummary());
+            return;
+        }
+
+        if (!activeNpcA.Controller.IsMoving && activeNpcA.Controller.CompletedShortPauseCount > 0)
+        {
+            bool passed = roamDetourCreated && roamReleaseSucceeded;
+            CompleteScenario(
+                "NpcRoamRecoverWindow",
+                passed,
+                BuildManagedRoamRecoveryDetails(),
+                $"detourCreates={activeNpcA.Controller.DebugSharedAvoidanceDetourCreateCount} " +
+                $"releaseSuccesses={activeNpcA.Controller.DebugSharedAvoidanceReleaseSuccessCount} " +
+                $"completedShortPauses={activeNpcA.Controller.CompletedShortPauseCount} interruption={GetManagedRoamInterruptionFlag()}");
+            return;
+        }
+
+        if (scenarioTimer >= ScenarioTimeout)
+        {
+            CompleteScenario(
+                "NpcRoamRecoverWindow",
+                false,
+                BuildManagedRoamTimeoutDetails(expectInterruption: false),
+                $"timeout={scenarioTimer:F2} detourCreates={activeNpcA.Controller.DebugSharedAvoidanceDetourCreateCount} " +
+                $"releaseSuccesses={activeNpcA.Controller.DebugSharedAvoidanceReleaseSuccessCount} " +
+                $"completedShortPauses={activeNpcA.Controller.CompletedShortPauseCount}");
+        }
+    }
+
+    private void TryAcceptManagedRoamSeed()
+    {
+        if (activeNpcA.Controller == null || !activeNpcA.Controller.IsMoving)
+        {
+            return;
+        }
+
+        Vector2 candidateDestination = NpcRoamControllerDebugCompat.GetVector2(
+            activeNpcA.Controller,
+            "currentDestination",
+            Vector2.zero);
+        if (IsManagedRoamTargetAccepted(candidateDestination))
+        {
+            roamSeedAccepted = true;
+            roamAcceptedSeed = roamSeedCursor - 1;
+            roamAcceptedAtTime = scenarioTimer;
+            roamAcceptedDestination = candidateDestination;
+            Debug.Log(
+                $"{LogPrefix} roam_target_accepted scenario={currentScenario} seed={roamAcceptedSeed} " +
+                $"target={roamAcceptedDestination} start={roamNpcStartPosition}");
+            return;
+        }
+
+        if (roamSeedAttempts >= ManagedRoamMaxSeedAttempts)
+        {
+            return;
+        }
+
+        BeginNextManagedRoamAttempt();
+    }
+
+    private bool IsManagedRoamTargetAccepted(Vector2 destination)
+    {
+        if (destination == Vector2.zero)
+        {
+            return false;
+        }
+
+        return destination.x - roamNpcStartPosition.x >= ManagedRoamAcceptEastDelta &&
+               Mathf.Abs(destination.y - roamNpcStartPosition.y) <= ManagedRoamAcceptVerticalTolerance;
+    }
+
+    private void BeginNextManagedRoamAttempt()
+    {
+        if (activeNpcA.Controller == null)
+        {
+            return;
+        }
+
+        StopAndParkNpc(activeNpcA, roamNpcStartPosition);
+        StopAndParkNpc(activeNpcB, GetManagedRoamBlockerParkingPosition(1));
+        StopAndParkNpc(activeNpcC, GetManagedRoamBlockerParkingPosition(2));
+        activeNpcA.Controller.SyncHomeAnchorToCurrentPosition();
+
+        roamDetourCreated = false;
+        roamReleaseSucceeded = false;
+        roamBlockerReleased = false;
+        Random.InitState(roamSeedCursor);
+        roamSeedAttempts++;
+        Debug.Log($"{LogPrefix} roam_seed_attempt scenario={currentScenario} seed={roamSeedCursor} attempt={roamSeedAttempts}");
+        roamSeedCursor++;
+        activeNpcA.Controller.StartRoam();
+    }
+
+    private void UpdateManagedRoamObservation(NPCAutoRoamController controller)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+
+        roamDetourCreated |= controller.DebugSharedAvoidanceDetourCreateCount > 0 || controller.DebugHasSharedAvoidanceDetour;
+        roamReleaseSucceeded |= controller.DebugSharedAvoidanceReleaseSuccessCount > 0;
+    }
+
+    private void UpdateManagedRoamBlockers(bool expectInterruption)
+    {
+        if (activeNpcA.Controller == null || activeNpcB.Controller == null)
+        {
+            return;
+        }
+
+        Vector2 npcPosition = GetActorFootPosition(activeNpcA.Transform, activeNpcA.Rigidbody);
+        Vector2 forward = roamAcceptedDestination - npcPosition;
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            forward = roamAcceptedDestination - roamNpcStartPosition;
+        }
+
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            forward = Vector2.right;
+        }
+
+        forward.Normalize();
+        Vector2 side = new Vector2(-forward.y, forward.x);
+
+        if (!expectInterruption && !roamBlockerReleased)
+        {
+            PositionManagedBlocker(
+                activeNpcB,
+                npcPosition + forward * GetManagedRoamBlockerAheadDistance(activeNpcB));
+            StopAndParkNpc(activeNpcC, GetManagedRoamBlockerParkingPosition(2));
+            if (roamDetourCreated && scenarioTimer - roamAcceptedAtTime >= ManagedRoamReleaseHoldTime)
+            {
+                roamBlockerReleased = true;
+                StopAndParkNpc(activeNpcB, GetManagedRoamBlockerParkingPosition(1));
+            }
+
+            return;
+        }
+
+        if (!expectInterruption)
+        {
+            StopAndParkNpc(activeNpcB, GetManagedRoamBlockerParkingPosition(1));
+            StopAndParkNpc(activeNpcC, GetManagedRoamBlockerParkingPosition(2));
+            return;
+        }
+
+        Vector2 persistentAnchor = GetManagedRoamPersistentAnchor();
+        PositionManagedBlocker(
+            activeNpcB,
+            persistentAnchor + side * ManagedRoamBlockerSideOffset);
+        PositionManagedBlocker(
+            activeNpcC,
+            persistentAnchor - side * ManagedRoamBlockerSideOffset);
+    }
+
+    private float GetManagedRoamBlockerAheadDistance(NPCMovementBundle blocker)
+    {
+        return
+            GetActorFootprintRadius(activeNpcA.Collider) +
+            GetActorFootprintRadius(blocker.Collider) +
+            ManagedRoamBlockerClearance;
+    }
+
+    private Vector2 GetManagedRoamPersistentAnchor()
+    {
+        Vector2 forward = roamAcceptedDestination - roamNpcStartPosition;
+        if (forward.sqrMagnitude < 0.0001f)
+        {
+            forward = Vector2.right;
+        }
+
+        return roamNpcStartPosition +
+               forward.normalized * (GetManagedRoamBlockerAheadDistance(activeNpcB) + ManagedRoamPersistentAnchorOffset);
+    }
+
+    private void PositionManagedBlocker(NPCMovementBundle npc, Vector2 position)
+    {
+        if (npc.Controller == null)
+        {
+            return;
+        }
+
+        StopAndParkNpc(npc, position);
+    }
+
+    private static void StopAndParkNpc(NPCMovementBundle npc, Vector2 position)
+    {
+        if (npc.Controller != null)
+        {
+            npc.Controller.StopRoam();
+        }
+
+        if (npc.Transform != null)
+        {
+            PlaceNpc(npc, position);
+        }
+    }
+
+    private static Vector2 GetManagedRoamBlockerParkingPosition(int blockerIndex)
+    {
+        return blockerIndex switch
+        {
+            1 => new Vector2(-3.5f, 8.0f),
+            2 => new Vector2(-1.5f, 8.5f),
+            _ => new Vector2(-0.5f, 9.0f)
+        };
+    }
+
+    private static void ConfigureManagedRoamController(NPCAutoRoamController controller)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "shortPauseMin", ManagedRoamShortPauseDuration);
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "shortPauseMax", ManagedRoamShortPauseDuration);
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "minimumMoveDistance", ManagedRoamMinimumMoveDistance);
+        NpcRoamControllerDebugCompat.TrySetBool(controller, "enableAmbientChat", false);
+        NpcRoamControllerDebugCompat.TrySetBool(controller, "showDebugLog", true);
+    }
+
+    private static void ConfigureManagedRoamPrimaryController(NPCAutoRoamController controller, bool persistentBlockers)
+    {
+        if (controller == null || !persistentBlockers)
+        {
+            return;
+        }
+
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "stuckCheckInterval", ManagedRoamPersistentStuckCheckInterval);
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "stuckDistanceThreshold", ManagedRoamPersistentStuckDistanceThreshold);
+        NpcRoamControllerDebugCompat.TrySetInt(controller, "maxStuckRecoveries", ManagedRoamPersistentMaxStuckRecoveries);
+    }
+
+    private bool GetManagedRoamInterruptionFlag()
+    {
+        return NpcRoamControllerDebugCompat.GetBool(activeNpcA.Controller, "DebugHasRoamInterruption", false);
+    }
+
+    private string GetManagedRoamInterruptionReason()
+    {
+        return NpcRoamControllerDebugCompat.GetString(activeNpcA.Controller, "DebugLastRoamInterruptionReason", "n/a");
+    }
+
+    private string GetManagedRoamInterruptionTrigger()
+    {
+        return NpcRoamControllerDebugCompat.GetString(activeNpcA.Controller, "DebugLastRoamInterruptionTrigger", "n/a");
+    }
+
+    private string GetManagedRoamInterruptionBlockerKind()
+    {
+        return NpcRoamControllerDebugCompat.GetString(activeNpcA.Controller, "DebugLastRoamInterruptionBlockerKind", "n/a");
+    }
+
+    private int GetManagedRoamInterruptionBlockerId()
+    {
+        return NpcRoamControllerDebugCompat.GetInt(activeNpcA.Controller, "DebugLastRoamInterruptionBlockerId", -1);
+    }
+
+    private Vector2 GetManagedRoamInterruptionRequestedDestination()
+    {
+        return NpcRoamControllerDebugCompat.GetVector2(activeNpcA.Controller, "DebugLastRoamInterruptionRequestedDestination", Vector2.zero);
+    }
+
+    private Vector2 GetManagedRoamInterruptionActiveDestination()
+    {
+        return NpcRoamControllerDebugCompat.GetVector2(activeNpcA.Controller, "DebugLastRoamInterruptionActiveDestination", Vector2.zero);
+    }
+
+    private Vector2 GetManagedRoamInterruptionCurrentPosition()
+    {
+        return NpcRoamControllerDebugCompat.GetVector2(activeNpcA.Controller, "DebugLastRoamInterruptionCurrentPosition", Vector2.zero);
+    }
+
+    private bool TryGetManagedRoamInterruptionBlockerPosition(out Vector2 blockerPosition)
+    {
+        blockerPosition = NpcRoamControllerDebugCompat.GetVector2(
+            activeNpcA.Controller,
+            "DebugLastRoamInterruptionBlockerPosition",
+            Vector2.zero);
+        return NpcRoamControllerDebugCompat.GetBool(
+            activeNpcA.Controller,
+            "DebugLastRoamInterruptionHasBlockerPosition",
+            false);
+    }
+
+    private string BuildManagedRoamRecoveryDetails()
+    {
+        return
+            $"seed={roamAcceptedSeed}, target={roamAcceptedDestination}, " +
+            $"detourCreates={activeNpcA.Controller.DebugSharedAvoidanceDetourCreateCount}, " +
+            $"releaseAttempts={activeNpcA.Controller.DebugSharedAvoidanceReleaseAttemptCount}, " +
+            $"releaseSuccesses={activeNpcA.Controller.DebugSharedAvoidanceReleaseSuccessCount}, " +
+            $"completedShortPauses={activeNpcA.Controller.CompletedShortPauseCount}, " +
+            $"interruption={GetManagedRoamInterruptionFlag()}, " +
+            $"state={activeNpcA.Controller.DebugState}, timeout={scenarioTimer:F2}";
+    }
+
+    private string BuildManagedRoamTimeoutDetails(bool expectInterruption)
+    {
+        return
+            $"seed={roamAcceptedSeed}, target={roamAcceptedDestination}, seedAccepted={roamSeedAccepted}, " +
+            $"detourCreates={activeNpcA.Controller.DebugSharedAvoidanceDetourCreateCount}, " +
+            $"releaseAttempts={activeNpcA.Controller.DebugSharedAvoidanceReleaseAttemptCount}, " +
+            $"releaseSuccesses={activeNpcA.Controller.DebugSharedAvoidanceReleaseSuccessCount}, " +
+            $"completedShortPauses={activeNpcA.Controller.CompletedShortPauseCount}, " +
+            $"interruption={GetManagedRoamInterruptionFlag()}, " +
+            $"expectInterruption={expectInterruption}, timeout={scenarioTimer:F2}";
+    }
+
+    private string BuildManagedRoamInterruptionDetails()
+    {
+        string blockerPosition = TryGetManagedRoamInterruptionBlockerPosition(out Vector2 blockerValue)
+            ? blockerValue.ToString()
+            : "n/a";
+
+        return
+            $"seed={roamAcceptedSeed}, target={roamAcceptedDestination}, " +
+            $"detourCreates={activeNpcA.Controller.DebugSharedAvoidanceDetourCreateCount}, " +
+            $"releaseAttempts={activeNpcA.Controller.DebugSharedAvoidanceReleaseAttemptCount}, " +
+            $"releaseSuccesses={activeNpcA.Controller.DebugSharedAvoidanceReleaseSuccessCount}, " +
+            $"reason={GetManagedRoamInterruptionReason()}, " +
+            $"trigger={GetManagedRoamInterruptionTrigger()}, " +
+            $"blockerKind={GetManagedRoamInterruptionBlockerKind()}, " +
+            $"blockerId={GetManagedRoamInterruptionBlockerId()}, " +
+            $"requested={GetManagedRoamInterruptionRequestedDestination()}, " +
+            $"active={GetManagedRoamInterruptionActiveDestination()}, " +
+            $"current={GetManagedRoamInterruptionCurrentPosition()}, " +
+            $"blocker={blockerPosition}, " +
+            $"timeout={scenarioTimer:F2}";
+    }
+
+    private string BuildManagedRoamInterruptionSummary()
+    {
+        return
+            $"reason={GetManagedRoamInterruptionReason()} " +
+            $"trigger={GetManagedRoamInterruptionTrigger()} " +
+            $"blockerKind={GetManagedRoamInterruptionBlockerKind()} " +
+            $"blockerId={GetManagedRoamInterruptionBlockerId()}";
+    }
+
     private void TickRealInputPlayerAvoidsMovingNpc()
     {
         Rigidbody2D playerRb = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Rigidbody2D>() : null;
@@ -1150,7 +1985,11 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         Vector2 playerPos = GetActorFootPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerRb);
         Vector2 npcPos = GetActorFootPosition(activeNpcA.Transform, activeNpcA.Rigidbody);
         Vector2 playerTransformPos = GetActorTransformPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null);
+        Vector2 playerCenterPos = GetActorMeasurePosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerCollider);
         Vector2 npcTransformPos = GetActorTransformPosition(activeNpcA.Transform);
+        float playerTransformDistance = Vector2.Distance(playerTransformPos, playerTarget);
+        float playerRigidbodyDistance = Vector2.Distance(playerPos, playerTarget);
+        float playerCenterDistance = Vector2.Distance(playerCenterPos, playerTarget);
         float clearance = GetActorEdgeClearance(
             activePlayerNavigator != null ? activePlayerNavigator.transform : null,
             playerRb,
@@ -1165,7 +2004,9 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         ObservePlayerNavigationAction();
         UpdateBlockOnsetMetric(playerPos, clearance, playerTarget);
 
-        playerReached = !activePlayerNavigator.IsActive && Vector2.Distance(playerTransformPos, playerTarget) <= 0.7f;
+        playerReached = activePlayerNavigator != null &&
+            !activePlayerNavigator.IsActive &&
+            playerCenterDistance <= PlayerPointArrivalCenterTolerance;
         npcReached = !activeNpcA.Controller.IsMoving && Vector2.Distance(npcTransformPos, npcTarget) <= 0.3f;
 
         if (playerReached && npcReached)
@@ -1181,11 +2022,12 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 passed,
                 $"playerClickIssued={playerClickIssued}, npcMoveIssued={npcMoveIssued}, " +
                 $"playerReached={playerReached}, npcReached={npcReached}, minClearance={minClearance:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, playerCenterDistance={playerCenterDistance:F3}, " +
                 $"blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))}, " +
                 $"maxPlayerLateralOffset={maxPlayerLateralOffset:F3}, npcPushDisplacement={npcPushDisplacement:F3}, " +
                 $"pushContactFrames={npcPushContactFrames}, timeout={scenarioTimer:F2}, " +
                 $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
-                $"minClearance={minClearance:F3} blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))} pushDisplacement={npcPushDisplacement:F3} " +
+                $"minClearance={minClearance:F3} playerCenterDistance={playerCenterDistance:F3} blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))} pushDisplacement={npcPushDisplacement:F3} " +
                 $"playerReached={playerReached} npcReached={npcReached}");
             return;
         }
@@ -1198,12 +2040,13 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 false,
                 $"playerClickIssued={playerClickIssued}, npcMoveIssued={npcMoveIssued}, " +
                 $"playerReached={playerReached}, npcReached={npcReached}, minClearance={minClearance:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, playerCenterDistance={playerCenterDistance:F3}, " +
                 $"blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))}, " +
                 $"maxPlayerLateralOffset={maxPlayerLateralOffset:F3}, npcPushDisplacement={npcPushDisplacement:F3}, " +
                 $"pushContactFrames={npcPushContactFrames}, timeout={scenarioTimer:F2}, " +
                 $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
                 $"timeout={scenarioTimer:F2} minClearance={minClearance:F3} blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))} " +
-                $"pushDisplacement={npcPushDisplacement:F3} playerReached={playerReached} npcReached={npcReached}");
+                $"playerCenterDistance={playerCenterDistance:F3} pushDisplacement={npcPushDisplacement:F3} playerReached={playerReached} npcReached={npcReached}");
         }
     }
 
@@ -1214,6 +2057,10 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         Vector2 playerPos = GetActorFootPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerRb);
         Vector2 npcPos = GetActorFootPosition(activeNpcA.Transform, activeNpcA.Rigidbody);
         Vector2 playerTransformPos = GetActorTransformPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null);
+        Vector2 playerCenterPos = GetActorMeasurePosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerCollider);
+        float playerTransformDistance = Vector2.Distance(playerTransformPos, playerTarget);
+        float playerRigidbodyDistance = Vector2.Distance(playerPos, playerTarget);
+        float playerCenterDistance = Vector2.Distance(playerCenterPos, playerTarget);
         float edgeClearance = GetActorEdgeClearance(
             activePlayerNavigator != null ? activePlayerNavigator.transform : null,
             playerRb,
@@ -1226,7 +2073,9 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         maxPlayerLateralOffset = Mathf.Max(maxPlayerLateralOffset, Mathf.Abs(playerPos.y - laneReferenceY));
         UpdateNpcPushMetrics(playerPos, npcPos, edgeClearance);
         ObservePlayerNavigationAction();
-        playerReached = !activePlayerNavigator.IsActive && Vector2.Distance(playerTransformPos, playerTarget) <= 0.7f;
+        playerReached = activePlayerNavigator != null &&
+            !activePlayerNavigator.IsActive &&
+            playerCenterDistance <= PlayerPointArrivalCenterTolerance;
 
         UpdateBlockOnsetMetric(playerPos, edgeClearance, playerTarget);
 
@@ -1241,10 +2090,11 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 "RealInputPlayerSingleNpcNear",
                 passed,
                 $"playerClickIssued={playerClickIssued}, playerReached={playerReached}, minEdgeClearance={minClearance:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, playerCenterDistance={playerCenterDistance:F3}, " +
                 $"blockOnsetEdgeDistance={onsetDistance:F3}, maxPlayerLateralOffset={maxPlayerLateralOffset:F3}, " +
                 $"npcPushDisplacement={npcPushDisplacement:F3}, pushContactFrames={npcPushContactFrames}, timeout={scenarioTimer:F2}, " +
                 $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
-                $"minEdgeClearance={minClearance:F3} blockOnsetEdgeDistance={onsetDistance:F3} " +
+                $"minEdgeClearance={minClearance:F3} playerCenterDistance={playerCenterDistance:F3} blockOnsetEdgeDistance={onsetDistance:F3} " +
                 $"npcPushDisplacement={npcPushDisplacement:F3} playerReached={playerReached}");
             return;
         }
@@ -1256,22 +2106,28 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 "RealInputPlayerSingleNpcNear",
                 false,
                 $"playerClickIssued={playerClickIssued}, playerReached={playerReached}, minEdgeClearance={minClearance:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, playerCenterDistance={playerCenterDistance:F3}, " +
                 $"blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))}, " +
                 $"maxPlayerLateralOffset={maxPlayerLateralOffset:F3}, npcPushDisplacement={npcPushDisplacement:F3}, " +
                 $"pushContactFrames={npcPushContactFrames}, timeout={scenarioTimer:F2}, " +
                 $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
                 $"timeout={scenarioTimer:F2} minEdgeClearance={minClearance:F3} " +
-                $"blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))} " +
+                $"playerCenterDistance={playerCenterDistance:F3} blockOnsetEdgeDistance={(float.IsPositiveInfinity(onsetDistance) ? "n/a" : onsetDistance.ToString("F3"))} " +
                 $"npcPushDisplacement={npcPushDisplacement:F3} playerReached={playerReached}");
         }
     }
 
     private void TickRealInputPlayerCrowdPass()
     {
+        const string scenarioName = "LegacyRealInputCrowdBlockedWallStress";
         Rigidbody2D playerRb = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Rigidbody2D>() : null;
         Collider2D playerCollider = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Collider2D>() : null;
         Vector2 playerPos = GetActorFootPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerRb);
         Vector2 playerTransformPos = GetActorTransformPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null);
+        Vector2 playerCenterPos = GetActorMeasurePosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerCollider);
+        float playerTransformDistance = Vector2.Distance(playerTransformPos, playerTarget);
+        float playerRigidbodyDistance = Vector2.Distance(playerPos, playerTarget);
+        float playerCenterDistance = Vector2.Distance(playerCenterPos, playerTarget);
         float nearestEdgeClearance = Mathf.Min(
             GetActorEdgeClearance(
                 activePlayerNavigator != null ? activePlayerNavigator.transform : null,
@@ -1298,7 +2154,9 @@ public class NavigationLiveValidationRunner : MonoBehaviour
 
         minClearance = Mathf.Min(minClearance, nearestEdgeClearance);
         ObservePlayerNavigationAction();
-        playerReached = !activePlayerNavigator.IsActive && Vector2.Distance(playerTransformPos, playerTarget) <= 0.7f;
+        playerReached = activePlayerNavigator != null &&
+            !activePlayerNavigator.IsActive &&
+            playerCenterDistance <= PlayerPointArrivalCenterTolerance;
 
         UpdateCrowdOscillationMetrics(playerPos, playerTarget);
 
@@ -1310,12 +2168,13 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 playerDirectionFlipCount <= 2 &&
                 crowdStallDuration <= 0.45f;
             CompleteScenario(
-                "RealInputPlayerCrowdPass",
+                scenarioName,
                 passed,
-                $"playerClickIssued={playerClickIssued}, playerReached={playerReached}, minEdgeClearance={minClearance:F3}, " +
+                $"category=legacy-blocked-wall-stress, playerClickIssued={playerClickIssued}, playerReached={playerReached}, minEdgeClearance={minClearance:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, playerCenterDistance={playerCenterDistance:F3}, " +
                 $"directionFlips={playerDirectionFlipCount}, crowdStallDuration={crowdStallDuration:F3}, timeout={scenarioTimer:F2}, " +
                 $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
-                $"minEdgeClearance={minClearance:F3} directionFlips={playerDirectionFlipCount} " +
+                $"category=legacy-blocked-wall-stress minEdgeClearance={minClearance:F3} playerCenterDistance={playerCenterDistance:F3} directionFlips={playerDirectionFlipCount} " +
                 $"crowdStallDuration={crowdStallDuration:F3} playerReached={playerReached}");
             return;
         }
@@ -1323,13 +2182,276 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         if (scenarioTimer >= ScenarioTimeout)
         {
             CompleteScenario(
-                "RealInputPlayerCrowdPass",
+                scenarioName,
                 false,
-                $"playerClickIssued={playerClickIssued}, playerReached={playerReached}, minEdgeClearance={minClearance:F3}, " +
+                $"category=legacy-blocked-wall-stress, playerClickIssued={playerClickIssued}, playerReached={playerReached}, minEdgeClearance={minClearance:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, playerCenterDistance={playerCenterDistance:F3}, " +
                 $"directionFlips={playerDirectionFlipCount}, crowdStallDuration={crowdStallDuration:F3}, timeout={scenarioTimer:F2}, " +
                 $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
-                $"timeout={scenarioTimer:F2} minEdgeClearance={minClearance:F3} " +
+                $"category=legacy-blocked-wall-stress timeout={scenarioTimer:F2} minEdgeClearance={minClearance:F3} playerCenterDistance={playerCenterDistance:F3} " +
                 $"directionFlips={playerDirectionFlipCount} crowdStallDuration={crowdStallDuration:F3} playerReached={playerReached}");
+        }
+    }
+
+    private static string ClassifyPassableCorridorOutcome(
+        bool interactionHijack,
+        bool reachedCorridorTarget,
+        bool bulldoze,
+        bool oscillation,
+        bool slowCrawl,
+        bool timedOut)
+    {
+        if (interactionHijack)
+        {
+            return "InteractionHijack";
+        }
+
+        if (bulldoze)
+        {
+            return "Bulldoze";
+        }
+
+        if (oscillation)
+        {
+            return "Oscillation";
+        }
+
+        if (slowCrawl)
+        {
+            return "SlowCrawl";
+        }
+
+        if (reachedCorridorTarget)
+        {
+            return "ReachedPassableCorridor";
+        }
+
+        return timedOut ? "TimedOutBeforeCorridorArrival" : "CorridorInProgress";
+    }
+
+    private void TickRealInputPlayerPassableCorridor()
+    {
+        const string scenarioName = "RealInputPlayerPassableCorridor";
+        const int passableCorridorMaxDirectionFlips = 2;
+        const int passableCorridorMaxActionChanges = 12;
+        const float passableCorridorMaxStallDuration = 0.45f;
+
+        Rigidbody2D playerRb = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Rigidbody2D>() : null;
+        Collider2D playerCollider = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Collider2D>() : null;
+        Vector2 playerPos = GetActorFootPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerRb);
+        Vector2 playerTransformPos = GetActorTransformPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null);
+        Vector2 playerCenterPos = GetActorMeasurePosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerCollider);
+        float playerTransformDistance = Vector2.Distance(playerTransformPos, playerTarget);
+        float playerRigidbodyDistance = Vector2.Distance(playerPos, playerTarget);
+        float playerCenterDistance = Vector2.Distance(playerCenterPos, playerTarget);
+        float nearestEdgeClearance = Mathf.Min(
+            GetActorEdgeClearance(
+                activePlayerNavigator != null ? activePlayerNavigator.transform : null,
+                playerRb,
+                playerCollider,
+                activeNpcA.Transform,
+                activeNpcA.Rigidbody,
+                activeNpcA.Collider),
+            Mathf.Min(
+                GetActorEdgeClearance(
+                    activePlayerNavigator != null ? activePlayerNavigator.transform : null,
+                    playerRb,
+                    playerCollider,
+                    activeNpcB.Transform,
+                    activeNpcB.Rigidbody,
+                    activeNpcB.Collider),
+                GetActorEdgeClearance(
+                    activePlayerNavigator != null ? activePlayerNavigator.transform : null,
+                    playerRb,
+                    playerCollider,
+                    activeNpcC.Transform,
+                    activeNpcC.Rigidbody,
+                    activeNpcC.Collider)));
+
+        minClearance = Mathf.Min(minClearance, nearestEdgeClearance);
+        ObservePlayerNavigationAction();
+        UpdateCrowdOscillationMetrics(playerPos, playerTarget);
+
+        bool navigatorInactive = activePlayerNavigator != null && !activePlayerNavigator.IsActive;
+        bool reachedCorridorTarget = navigatorInactive &&
+            playerCenterDistance <= PlayerPointArrivalCenterTolerance;
+        bool interactionHijack = clickPendingAutoInteractionAfterIssue;
+        bool caseValid = playerClickIssued && !interactionHijack;
+        bool bulldoze = minClearance <= -0.06f;
+        bool oscillation = playerDirectionFlipCount > passableCorridorMaxDirectionFlips ||
+            playerActionChangeCount > passableCorridorMaxActionChanges;
+        bool slowCrawl = crowdStallDuration > passableCorridorMaxStallDuration;
+        bool timedOut = scenarioTimer >= ScenarioTimeout;
+        string outcome = ClassifyPassableCorridorOutcome(
+            interactionHijack,
+            reachedCorridorTarget,
+            bulldoze,
+            oscillation,
+            slowCrawl,
+            timedOut);
+
+        if (reachedCorridorTarget || timedOut)
+        {
+            bool passed = caseValid && outcome == "ReachedPassableCorridor";
+            CompleteScenario(
+                scenarioName,
+                passed,
+                $"playerClickIssued={playerClickIssued}, caseValid={caseValid}, outcome={outcome}, " +
+                $"playerReached={reachedCorridorTarget}, minEdgeClearance={minClearance:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, " +
+                $"playerCenterDistance={playerCenterDistance:F3}, directionFlips={playerDirectionFlipCount}, " +
+                $"actionChanges={playerActionChangeCount}, crowdStallDuration={crowdStallDuration:F3}, timeout={scenarioTimer:F2}, " +
+                $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
+                $"pass={passed} caseValid={caseValid} outcome={outcome} minEdgeClearance={minClearance:F3} " +
+                $"playerCenterDistance={playerCenterDistance:F3} directionFlips={playerDirectionFlipCount} " +
+                $"actionChanges={playerActionChangeCount} crowdStallDuration={crowdStallDuration:F3}");
+        }
+    }
+
+    private static string ClassifyStaticNpcWallOutcome(
+        bool interactionHijack,
+        bool reachedBlockedTarget,
+        bool bulldoze,
+        bool oscillation,
+        bool stableHoldBeforeWall,
+        bool inactiveWithoutMeaningfulHold,
+        bool timedOut,
+        bool meaningfulProgress)
+    {
+        if (interactionHijack)
+        {
+            return "InteractionHijack";
+        }
+
+        if (reachedBlockedTarget)
+        {
+            return "ReachedBlockedTarget";
+        }
+
+        if (bulldoze)
+        {
+            return "Bulldoze";
+        }
+
+        if (oscillation)
+        {
+            return "Oscillation";
+        }
+
+        if (stableHoldBeforeWall)
+        {
+            return "StableHoldBeforeWall";
+        }
+
+        if (inactiveWithoutMeaningfulHold)
+        {
+            return meaningfulProgress ? "InactiveOutsideWallContract" : "NoMeaningfulBlockedResponse";
+        }
+
+        return timedOut ? "TimedOutActiveWallLinger" : "WallApproachInProgress";
+    }
+
+    private void TickRealInputPlayerStaticNpcWall()
+    {
+        const string scenarioName = "RealInputPlayerStaticNpcWall";
+        const float staticNpcWallStartX = -9.15f;
+        const float staticNpcWallMinForwardProgress = 0.85f;
+        const float staticNpcWallFrontBuffer = 0.10f;
+        const float staticNpcWallSafeMinClearance = -0.04f;
+        const float staticNpcWallMaxStallDuration = 0.65f;
+        const int staticNpcWallMaxDirectionFlips = 2;
+        const int staticNpcWallMaxActionChanges = 12;
+
+        Rigidbody2D playerRb = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Rigidbody2D>() : null;
+        Collider2D playerCollider = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Collider2D>() : null;
+        Vector2 playerPos = GetActorFootPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerRb);
+        Vector2 playerTransformPos = GetActorTransformPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null);
+        Vector2 playerCenterPos = GetActorMeasurePosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerCollider);
+        float playerTransformDistance = Vector2.Distance(playerTransformPos, playerTarget);
+        float playerRigidbodyDistance = Vector2.Distance(playerPos, playerTarget);
+        float playerCenterDistance = Vector2.Distance(playerCenterPos, playerTarget);
+        float nearestEdgeClearance = Mathf.Min(
+            GetActorEdgeClearance(
+                activePlayerNavigator != null ? activePlayerNavigator.transform : null,
+                playerRb,
+                playerCollider,
+                activeNpcA.Transform,
+                activeNpcA.Rigidbody,
+                activeNpcA.Collider),
+            Mathf.Min(
+                GetActorEdgeClearance(
+                    activePlayerNavigator != null ? activePlayerNavigator.transform : null,
+                    playerRb,
+                    playerCollider,
+                    activeNpcB.Transform,
+                    activeNpcB.Rigidbody,
+                    activeNpcB.Collider),
+                GetActorEdgeClearance(
+                    activePlayerNavigator != null ? activePlayerNavigator.transform : null,
+                    playerRb,
+                    playerCollider,
+                    activeNpcC.Transform,
+                    activeNpcC.Rigidbody,
+                    activeNpcC.Collider)));
+        float wallFrontX = Mathf.Min(
+            activeNpcA.Transform.position.x,
+            Mathf.Min(activeNpcB.Transform.position.x, activeNpcC.Transform.position.x));
+
+        minClearance = Mathf.Min(minClearance, nearestEdgeClearance);
+        ObservePlayerNavigationAction();
+        UpdateCrowdOscillationMetrics(playerPos, playerTarget);
+        UpdateBlockOnsetMetric(playerPos, nearestEdgeClearance, playerTarget);
+
+        bool navigatorInactive = activePlayerNavigator != null && !activePlayerNavigator.IsActive;
+        bool reachedBlockedTarget = navigatorInactive &&
+            playerCenterDistance <= PlayerPointArrivalCenterTolerance;
+        float forwardProgress = playerPos.x - staticNpcWallStartX;
+        bool meaningfulProgress = forwardProgress >= staticNpcWallMinForwardProgress;
+        bool stillBeforeWall = playerPos.x <= wallFrontX - staticNpcWallFrontBuffer;
+        bool interactionHijack = clickPendingAutoInteractionAfterIssue;
+        bool caseValid = playerClickIssued && !interactionHijack;
+        bool bulldoze = minClearance <= -0.06f;
+        bool oscillation = playerDirectionFlipCount > staticNpcWallMaxDirectionFlips ||
+            playerActionChangeCount > staticNpcWallMaxActionChanges ||
+            crowdStallDuration > staticNpcWallMaxStallDuration;
+        bool stableHoldBeforeWall = navigatorInactive &&
+            !reachedBlockedTarget &&
+            meaningfulProgress &&
+            stillBeforeWall &&
+            minClearance > staticNpcWallSafeMinClearance &&
+            !oscillation;
+        bool inactiveWithoutMeaningfulHold = navigatorInactive &&
+            !reachedBlockedTarget &&
+            !stableHoldBeforeWall;
+        bool timedOut = scenarioTimer >= ScenarioTimeout;
+        string outcome = ClassifyStaticNpcWallOutcome(
+            interactionHijack,
+            reachedBlockedTarget,
+            bulldoze,
+            oscillation,
+            stableHoldBeforeWall,
+            inactiveWithoutMeaningfulHold,
+            timedOut,
+            meaningfulProgress);
+
+        if (reachedBlockedTarget || stableHoldBeforeWall || inactiveWithoutMeaningfulHold || timedOut)
+        {
+            bool passed = caseValid && outcome == "StableHoldBeforeWall";
+            CompleteScenario(
+                scenarioName,
+                passed,
+                $"playerClickIssued={playerClickIssued}, caseValid={caseValid}, outcome={outcome}, " +
+                $"playerReached={reachedBlockedTarget}, stableHoldBeforeWall={stableHoldBeforeWall}, " +
+                $"meaningfulProgress={meaningfulProgress}, forwardProgress={forwardProgress:F3}, wallFrontX={wallFrontX:F3}, " +
+                $"playerTransformDistance={playerTransformDistance:F3}, playerRigidbodyDistance={playerRigidbodyDistance:F3}, " +
+                $"playerCenterDistance={playerCenterDistance:F3}, minEdgeClearance={minClearance:F3}, " +
+                $"directionFlips={playerDirectionFlipCount}, actionChanges={playerActionChangeCount}, " +
+                $"crowdStallDuration={crowdStallDuration:F3}, timeout={scenarioTimer:F2}, " +
+                $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
+                $"pass={passed} caseValid={caseValid} outcome={outcome} forwardProgress={forwardProgress:F3} " +
+                $"wallFrontX={wallFrontX:F3} playerCenterDistance={playerCenterDistance:F3} " +
+                $"minEdgeClearance={minClearance:F3} directionFlips={playerDirectionFlipCount} " +
+                $"actionChanges={playerActionChangeCount} crowdStallDuration={crowdStallDuration:F3}");
         }
     }
 
@@ -1353,19 +2475,189 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         }
     }
 
+    private static string ClassifyEndpointNpcOccupiedOutcome(
+        bool interactionHijack,
+        bool endpointContractSatisfied,
+        bool bulldoze,
+        bool oscillation,
+        bool stableHoldOutsideEndpoint)
+    {
+        if (interactionHijack)
+        {
+            return "InteractionHijack";
+        }
+
+        if (endpointContractSatisfied)
+        {
+            return "ReachedClickPoint";
+        }
+
+        if (bulldoze)
+        {
+            return "Bulldoze";
+        }
+
+        if (oscillation)
+        {
+            return "Oscillation";
+        }
+
+        if (stableHoldOutsideEndpoint)
+        {
+            return "StableHoldOutsideOccupiedEndpoint";
+        }
+
+        return "Linger";
+    }
+
+    private void CompleteEndpointNpcOccupiedScenario(
+        bool passed,
+        bool caseValid,
+        bool endpointContractSatisfied,
+        string outcome,
+        float playerTransformDistance,
+        float playerFootDistance,
+        float playerCenterDistance,
+        float endpointTolerance,
+        float minEdgeClearance)
+    {
+        CompleteScenario(
+            "RealInputPlayerEndpointNpcOccupied",
+            passed,
+            $"playerClickIssued={playerClickIssued}, caseValid={caseValid}, endpointContractSatisfied={endpointContractSatisfied}, outcome={outcome}, " +
+            $"playerReached={playerReached}, minEdgeClearance={minEdgeClearance:F3}, " +
+            $"playerTransformDistance={playerTransformDistance:F3}, playerFootDistance={playerFootDistance:F3}, " +
+            $"playerCenterDistance={playerCenterDistance:F3}, endpointTolerance={endpointTolerance:F3}, " +
+            $"directionFlips={playerDirectionFlipCount}, blockedInputFrames={playerBlockedInputFrames}, " +
+            $"detourMoveFrames={playerDetourMoveFrames}, actionChanges={playerActionChangeCount}, crowdStallDuration={crowdStallDuration:F3}, " +
+            $"npcPushDisplacement={npcPushDisplacement:F3}, pushContactFrames={npcPushContactFrames}, timeout={scenarioTimer:F2}, " +
+            $"{BuildClickDispatchSummary()}, {BuildPlayerActionSummary()}",
+            $"pass={passed} caseValid={caseValid} outcome={outcome} playerCenterDistance={playerCenterDistance:F3} " +
+            $"playerFootDistance={playerFootDistance:F3} endpointTolerance={endpointTolerance:F3} " +
+            $"pendingAutoInteractionAfterClick={clickPendingAutoInteractionAfterIssue} npcPushDisplacement={npcPushDisplacement:F3} " +
+            $"directionFlips={playerDirectionFlipCount} blockedInputFrames={playerBlockedInputFrames} " +
+            $"detourMoveFrames={playerDetourMoveFrames} actionChanges={playerActionChangeCount} " +
+            $"endpointContractSatisfied={endpointContractSatisfied}");
+    }
+
+    private void TickRealInputPlayerEndpointNpcOccupied()
+    {
+        const int endpointArrivalMaxDirectionFlips = 2;
+        Rigidbody2D playerRb = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Rigidbody2D>() : null;
+        Collider2D playerCollider = activePlayerNavigator != null ? activePlayerNavigator.GetComponent<Collider2D>() : null;
+        Vector2 playerPos = GetActorFootPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerRb);
+        Vector2 npcPos = GetActorFootPosition(activeNpcA.Transform, activeNpcA.Rigidbody);
+        Vector2 playerTransformPos = GetActorTransformPosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null);
+        Vector2 playerCenterPos = GetActorMeasurePosition(activePlayerNavigator != null ? activePlayerNavigator.transform : null, playerCollider);
+        float playerTransformDistance = Vector2.Distance(playerTransformPos, playerTarget);
+        float playerRigidbodyDistance = Vector2.Distance(playerPos, playerTarget);
+        float playerCenterDistance = Vector2.Distance(playerCenterPos, playerTarget);
+        float endpointArrivalTolerance = combinedRadius + EndpointNpcArrivalTolerancePadding;
+        float edgeClearance = GetActorEdgeClearance(
+            activePlayerNavigator != null ? activePlayerNavigator.transform : null,
+            playerRb,
+            playerCollider,
+            activeNpcA.Transform,
+            activeNpcA.Rigidbody,
+            activeNpcA.Collider);
+
+        minClearance = Mathf.Min(minClearance, edgeClearance);
+        maxPlayerLateralOffset = Mathf.Max(maxPlayerLateralOffset, Mathf.Abs(playerPos.y - laneReferenceY));
+        UpdateNpcPushMetrics(playerPos, npcPos, edgeClearance);
+        ObservePlayerNavigationAction();
+        UpdateCrowdOscillationMetrics(playerPos, playerTarget);
+        UpdateBlockOnsetMetric(playerPos, edgeClearance, playerTarget);
+
+        bool navigatorInactive = activePlayerNavigator != null && !activePlayerNavigator.IsActive;
+        bool endpointContractSatisfied = navigatorInactive &&
+            playerCenterDistance <= PlayerPointArrivalCenterTolerance;
+        bool stableHoldOutsideEndpoint = navigatorInactive &&
+            !endpointContractSatisfied &&
+            playerRigidbodyDistance <= endpointArrivalTolerance;
+        bool interactionHijack = clickPendingAutoInteractionAfterIssue;
+        bool caseValid = playerClickIssued && !interactionHijack;
+        bool bulldoze = minClearance <= -0.06f || npcPushDisplacement > MaxAllowedNpcPushDisplacement;
+        bool oscillation = playerDirectionFlipCount > endpointArrivalMaxDirectionFlips ||
+            playerActionChangeCount > EndpointNpcArrivalMaxActionChanges;
+        string outcome = ClassifyEndpointNpcOccupiedOutcome(
+            interactionHijack,
+            endpointContractSatisfied,
+            bulldoze,
+            oscillation,
+            stableHoldOutsideEndpoint);
+
+        playerReached = endpointContractSatisfied;
+
+        if (endpointContractSatisfied || stableHoldOutsideEndpoint)
+        {
+            bool passed = caseValid && outcome == "ReachedClickPoint";
+            CompleteEndpointNpcOccupiedScenario(
+                passed,
+                caseValid,
+                endpointContractSatisfied,
+                outcome,
+                playerTransformDistance,
+                playerRigidbodyDistance,
+                playerCenterDistance,
+                endpointArrivalTolerance,
+                minClearance);
+            return;
+        }
+
+        if (scenarioTimer >= ScenarioTimeout)
+        {
+            CompleteEndpointNpcOccupiedScenario(
+                false,
+                caseValid,
+                endpointContractSatisfied,
+                outcome,
+                playerTransformDistance,
+                playerRigidbodyDistance,
+                playerCenterDistance,
+                endpointArrivalTolerance,
+                minClearance);
+        }
+    }
+
     private void CompleteScenario(string scenarioName, bool passed, string details, string summary)
     {
+        string effectiveScenarioName = string.IsNullOrEmpty(currentScenarioResultName)
+            ? scenarioName
+            : currentScenarioResultName;
+
         scenarioResults.Add(new ScenarioResult
         {
-            Name = scenarioName,
+            Name = effectiveScenarioName,
             Passed = passed,
             Details = details
         });
 
-        Debug.Log($"{LogPrefix} scenario_end={scenarioName} pass={passed} {summary}");
+        if (effectiveScenarioName == scenarioName)
+        {
+            Debug.Log($"{LogPrefix} scenario_end={effectiveScenarioName} pass={passed} {summary}");
+        }
+        else
+        {
+            Debug.Log(
+                $"{LogPrefix} scenario_end={effectiveScenarioName} pass={passed} " +
+                $"baseScenario={scenarioName} {summary}");
+        }
+
+        currentScenarioResultName = string.Empty;
 
         if (runSingleScenarioOnly)
         {
+            FinishRun();
+            return;
+        }
+
+        if (HasActivePack())
+        {
+            if (QueueNextPackScenario("final_acceptance_pack_next"))
+            {
+                return;
+            }
+
             FinishRun();
             return;
         }
@@ -1377,10 +2669,15 @@ public class NavigationLiveValidationRunner : MonoBehaviour
                 break;
 
             case ScenarioKind.RealInputPlayerSingleNpcNear:
-                StartScenario(ScenarioKind.RealInputPlayerCrowdPass);
+                StartScenario(ScenarioKind.RealInputPlayerEndpointNpcOccupied);
+                break;
+
+            case ScenarioKind.RealInputPlayerEndpointNpcOccupied:
+                StartScenario(ScenarioKind.RealInputPlayerPassableCorridor);
                 break;
 
             case ScenarioKind.RealInputPlayerCrowdPass:
+            case ScenarioKind.RealInputPlayerPassableCorridor:
                 StartScenario(ScenarioKind.NpcAvoidsPlayer);
                 break;
 
@@ -1396,6 +2693,10 @@ public class NavigationLiveValidationRunner : MonoBehaviour
 
     private void FinishRun()
     {
+        RestoreManagedRoamController(activeNpcA.Controller);
+        RestoreManagedRoamController(activeNpcB.Controller);
+        RestoreManagedRoamController(activeNpcC.Controller);
+
         bool allPassed = true;
         for (int index = 0; index < scenarioResults.Count; index++)
         {
@@ -1404,22 +2705,35 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             Debug.Log($"{LogPrefix} scenario={result.Name} pass={result.Passed} details={result.Details}");
         }
 
+        if (!string.IsNullOrEmpty(activePackName))
+        {
+            Debug.Log(
+                $"{LogPrefix} final_acceptance_pack_completed name={activePackName} " +
+                $"allPassed={allPassed} caseCount={scenarioResults.Count}");
+        }
+
         Debug.Log($"{LogPrefix} all_completed={allPassed} scenario_count={scenarioResults.Count}");
         isRunning = false;
         runSingleScenarioOnly = false;
         currentScenario = ScenarioKind.None;
         queuedScenario = ScenarioKind.None;
         queuedScenarioStartFrames = 0;
+        ClearActivePackState();
     }
 
     private void AbortRun(string reason)
     {
+        RestoreManagedRoamController(activeNpcA.Controller);
+        RestoreManagedRoamController(activeNpcB.Controller);
+        RestoreManagedRoamController(activeNpcC.Controller);
+
         Debug.LogError($"{LogPrefix} abort reason={reason}");
         isRunning = false;
         runSingleScenarioOnly = false;
         currentScenario = ScenarioKind.None;
         queuedScenario = ScenarioKind.None;
         queuedScenarioStartFrames = 0;
+        ClearActivePackState();
     }
 
     private void ResetObservationState()
@@ -1475,16 +2789,35 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         groundPointCaseStartTimer = 0f;
         groundPointMaxColliderDistance = 0f;
         groundPointCaseDetails.Clear();
+        roamSeedAccepted = false;
+        roamDetourCreated = false;
+        roamReleaseSucceeded = false;
+        roamBlockerReleased = false;
+        roamSeedCursor = ManagedRoamSeedStart;
+        roamSeedAttempts = 0;
+        roamAcceptedSeed = 0;
+        roamAcceptedAtTime = 0f;
+        roamNpcStartPosition = Vector2.zero;
+        roamAcceptedDestination = Vector2.zero;
     }
 
     private bool EnsureScenarioRuntimeBindings()
     {
         bool needsPlayer = activePlayerNavigator == null;
         bool needsNpcA = activeNpcA.Controller == null;
-        bool needsNpcB = currentScenario == ScenarioKind.NpcNpcCrossing || currentScenario == ScenarioKind.RealInputPlayerCrowdPass
+        bool needsNpcB = currentScenario == ScenarioKind.NpcNpcCrossing ||
+            currentScenario == ScenarioKind.RealInputPlayerCrowdPass ||
+            currentScenario == ScenarioKind.RealInputPlayerPassableCorridor ||
+            currentScenario == ScenarioKind.RealInputPlayerStaticNpcWall ||
+            currentScenario == ScenarioKind.RealInputPlayerEndpointNpcOccupied ||
+            currentScenario == ScenarioKind.NpcRoamRecoverWindow ||
+            currentScenario == ScenarioKind.NpcRoamPersistentBlockInterrupt
             ? activeNpcB.Controller == null
             : false;
-        bool needsNpcC = currentScenario == ScenarioKind.RealInputPlayerCrowdPass
+        bool needsNpcC = currentScenario == ScenarioKind.RealInputPlayerCrowdPass ||
+            currentScenario == ScenarioKind.RealInputPlayerPassableCorridor ||
+            currentScenario == ScenarioKind.RealInputPlayerStaticNpcWall ||
+            currentScenario == ScenarioKind.NpcRoamPersistentBlockInterrupt
             ? activeNpcC.Controller == null
             : false;
 
@@ -1503,6 +2836,9 @@ public class NavigationLiveValidationRunner : MonoBehaviour
             (currentScenario == ScenarioKind.RealInputPlayerAvoidsMovingNpc ||
              currentScenario == ScenarioKind.RealInputPlayerSingleNpcNear ||
              currentScenario == ScenarioKind.RealInputPlayerCrowdPass ||
+             currentScenario == ScenarioKind.RealInputPlayerPassableCorridor ||
+             currentScenario == ScenarioKind.RealInputPlayerStaticNpcWall ||
+             currentScenario == ScenarioKind.RealInputPlayerEndpointNpcOccupied ||
              currentScenario == ScenarioKind.RealInputPlayerGroundPointMatrix) &&
             activeGameInputManager == null;
 
@@ -1536,7 +2872,10 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         Vector2 npcBPos = GetActorFootPosition(activeNpcB.Transform, activeNpcB.Rigidbody);
         string playerDebug = string.Empty;
         if ((currentScenario == ScenarioKind.RealInputPlayerSingleNpcNear ||
+             currentScenario == ScenarioKind.RealInputPlayerEndpointNpcOccupied ||
              currentScenario == ScenarioKind.RealInputPlayerCrowdPass ||
+             currentScenario == ScenarioKind.RealInputPlayerPassableCorridor ||
+             currentScenario == ScenarioKind.RealInputPlayerStaticNpcWall ||
              currentScenario == ScenarioKind.RealInputPlayerGroundPointMatrix) &&
             activePlayerNavigator != null)
         {
@@ -1620,12 +2959,30 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         NPCMovementBundle[] npcs = { npcA, npcB, npcC };
         for (int index = 0; index < npcs.Length; index++)
         {
+            RestoreManagedRoamController(npcs[index].Controller);
             npcs[index].Controller.StopRoam();
             if (npcs[index].Rigidbody != null)
             {
                 npcs[index].Rigidbody.linearVelocity = Vector2.zero;
             }
         }
+    }
+
+    private void RestoreManagedRoamController(NPCAutoRoamController controller)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+
+        int controllerId = controller.GetInstanceID();
+        if (!managedRoamControllerDefaults.TryGetValue(controllerId, out NpcRoamControllerManagedTuningSnapshot snapshot))
+        {
+            managedRoamControllerDefaults[controllerId] = NpcRoamControllerManagedTuningSnapshot.Capture(controller);
+            return;
+        }
+
+        snapshot.Apply(controller);
     }
 
     private static void PlaceNpc(NPCMovementBundle npc, Vector2 position)
@@ -2219,6 +3576,275 @@ internal static class PlayerAutoNavigatorDebugCompat
             try
             {
                 value = fieldInfo.GetValue(navigator);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        MissingMembers.Add(memberName);
+        return false;
+    }
+}
+
+internal readonly struct NpcRoamControllerManagedTuningSnapshot
+{
+    public readonly float ShortPauseMin;
+    public readonly float ShortPauseMax;
+    public readonly float MinimumMoveDistance;
+    public readonly float StuckCheckInterval;
+    public readonly float StuckDistanceThreshold;
+    public readonly int MaxStuckRecoveries;
+    public readonly bool EnableAmbientChat;
+    public readonly bool ShowDebugLog;
+
+    public NpcRoamControllerManagedTuningSnapshot(
+        float shortPauseMin,
+        float shortPauseMax,
+        float minimumMoveDistance,
+        float stuckCheckInterval,
+        float stuckDistanceThreshold,
+        int maxStuckRecoveries,
+        bool enableAmbientChat,
+        bool showDebugLog)
+    {
+        ShortPauseMin = shortPauseMin;
+        ShortPauseMax = shortPauseMax;
+        MinimumMoveDistance = minimumMoveDistance;
+        StuckCheckInterval = stuckCheckInterval;
+        StuckDistanceThreshold = stuckDistanceThreshold;
+        MaxStuckRecoveries = maxStuckRecoveries;
+        EnableAmbientChat = enableAmbientChat;
+        ShowDebugLog = showDebugLog;
+    }
+
+    public static NpcRoamControllerManagedTuningSnapshot Capture(NPCAutoRoamController controller)
+    {
+        return new NpcRoamControllerManagedTuningSnapshot(
+            NpcRoamControllerDebugCompat.GetFloat(controller, "shortPauseMin", 0.05f),
+            NpcRoamControllerDebugCompat.GetFloat(controller, "shortPauseMax", 0.05f),
+            NpcRoamControllerDebugCompat.GetFloat(controller, "minimumMoveDistance", 1.4f),
+            NpcRoamControllerDebugCompat.GetFloat(controller, "stuckCheckInterval", 0.18f),
+            NpcRoamControllerDebugCompat.GetFloat(controller, "stuckDistanceThreshold", 0.3f),
+            NpcRoamControllerDebugCompat.GetInt(controller, "maxStuckRecoveries", 1),
+            NpcRoamControllerDebugCompat.GetBool(controller, "enableAmbientChat", false),
+            NpcRoamControllerDebugCompat.GetBool(controller, "showDebugLog", false));
+    }
+
+    public void Apply(NPCAutoRoamController controller)
+    {
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "shortPauseMin", ShortPauseMin);
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "shortPauseMax", ShortPauseMax);
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "minimumMoveDistance", MinimumMoveDistance);
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "stuckCheckInterval", StuckCheckInterval);
+        NpcRoamControllerDebugCompat.TrySetFloat(controller, "stuckDistanceThreshold", StuckDistanceThreshold);
+        NpcRoamControllerDebugCompat.TrySetInt(controller, "maxStuckRecoveries", MaxStuckRecoveries);
+        NpcRoamControllerDebugCompat.TrySetBool(controller, "enableAmbientChat", EnableAmbientChat);
+        NpcRoamControllerDebugCompat.TrySetBool(controller, "showDebugLog", ShowDebugLog);
+    }
+}
+
+internal static class NpcRoamControllerDebugCompat
+{
+    private const BindingFlags InstanceMemberFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+    private static readonly Dictionary<string, PropertyInfo> PropertyCache = new Dictionary<string, PropertyInfo>();
+    private static readonly Dictionary<string, FieldInfo> FieldCache = new Dictionary<string, FieldInfo>();
+    private static readonly HashSet<string> MissingMembers = new HashSet<string>();
+
+    public static Vector2 GetVector2(NPCAutoRoamController controller, string memberName, Vector2 fallback)
+    {
+        object value;
+        return TryGetRawValue(controller, memberName, out value) && value is Vector2 vectorValue
+            ? vectorValue
+            : fallback;
+    }
+
+    public static float GetFloat(NPCAutoRoamController controller, string memberName, float fallback)
+    {
+        object value;
+        return TryGetRawValue(controller, memberName, out value) && value is float floatValue
+            ? floatValue
+            : fallback;
+    }
+
+    public static string GetString(NPCAutoRoamController controller, string memberName, string fallback)
+    {
+        object value;
+        return TryGetRawValue(controller, memberName, out value) && value != null
+            ? value.ToString()
+            : fallback;
+    }
+
+    public static bool GetBool(NPCAutoRoamController controller, string memberName, bool fallback)
+    {
+        object value;
+        return TryGetRawValue(controller, memberName, out value) && value is bool boolValue
+            ? boolValue
+            : fallback;
+    }
+
+    public static int GetInt(NPCAutoRoamController controller, string memberName, int fallback)
+    {
+        object value;
+        return TryGetRawValue(controller, memberName, out value) && value is int intValue
+            ? intValue
+            : fallback;
+    }
+
+    public static bool TrySetFloat(NPCAutoRoamController controller, string memberName, float value)
+    {
+        return TrySetRawValue(controller, memberName, value);
+    }
+
+    public static bool TrySetBool(NPCAutoRoamController controller, string memberName, bool value)
+    {
+        return TrySetRawValue(controller, memberName, value);
+    }
+
+    public static bool TrySetInt(NPCAutoRoamController controller, string memberName, int value)
+    {
+        return TrySetRawValue(controller, memberName, value);
+    }
+
+    private static bool TryGetRawValue(NPCAutoRoamController controller, string memberName, out object value)
+    {
+        value = null;
+        if (controller == null || string.IsNullOrEmpty(memberName))
+        {
+            return false;
+        }
+
+        PropertyInfo propertyInfo;
+        if (PropertyCache.TryGetValue(memberName, out propertyInfo))
+        {
+            try
+            {
+                value = propertyInfo.GetValue(controller, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        FieldInfo fieldInfo;
+        if (FieldCache.TryGetValue(memberName, out fieldInfo))
+        {
+            try
+            {
+                value = fieldInfo.GetValue(controller);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        if (MissingMembers.Contains(memberName))
+        {
+            return false;
+        }
+
+        propertyInfo = typeof(NPCAutoRoamController).GetProperty(memberName, InstanceMemberFlags);
+        if (propertyInfo != null)
+        {
+            PropertyCache[memberName] = propertyInfo;
+            try
+            {
+                value = propertyInfo.GetValue(controller, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        fieldInfo = typeof(NPCAutoRoamController).GetField(memberName, InstanceMemberFlags);
+        if (fieldInfo != null)
+        {
+            FieldCache[memberName] = fieldInfo;
+            try
+            {
+                value = fieldInfo.GetValue(controller);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        MissingMembers.Add(memberName);
+        return false;
+    }
+
+    private static bool TrySetRawValue(NPCAutoRoamController controller, string memberName, object value)
+    {
+        if (controller == null || string.IsNullOrEmpty(memberName))
+        {
+            return false;
+        }
+
+        FieldInfo fieldInfo;
+        if (FieldCache.TryGetValue(memberName, out fieldInfo))
+        {
+            try
+            {
+                fieldInfo.SetValue(controller, value);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        PropertyInfo propertyInfo;
+        if (PropertyCache.TryGetValue(memberName, out propertyInfo) && propertyInfo.CanWrite)
+        {
+            try
+            {
+                propertyInfo.SetValue(controller, value, null);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        if (MissingMembers.Contains(memberName))
+        {
+            return false;
+        }
+
+        fieldInfo = typeof(NPCAutoRoamController).GetField(memberName, InstanceMemberFlags);
+        if (fieldInfo != null)
+        {
+            FieldCache[memberName] = fieldInfo;
+            try
+            {
+                fieldInfo.SetValue(controller, value);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        propertyInfo = typeof(NPCAutoRoamController).GetProperty(memberName, InstanceMemberFlags);
+        if (propertyInfo != null && propertyInfo.CanWrite)
+        {
+            PropertyCache[memberName] = propertyInfo;
+            try
+            {
+                propertyInfo.SetValue(controller, value, null);
                 return true;
             }
             catch

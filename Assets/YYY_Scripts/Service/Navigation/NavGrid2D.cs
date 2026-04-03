@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Tilemaps;
 
 /// <summary>
 /// 轻量 2D 网格寻路（A*）
@@ -22,8 +23,20 @@ public class NavGrid2D : MonoBehaviour
     [SerializeField] private float boundsPadding = 5f;  // 边界扩展（留出余量）
     [Header("障碍物标签(可多选)")]
     [SerializeField] private string[] obstacleTags = new string[0];
+    [Header("显式障碍 Tilemap")]
+    [SerializeField] private bool autoDetectObstacleTilemapsByName = false;
+    [SerializeField] private string[] obstacleTilemapNameKeywords = new string[0];
+    [SerializeField] private Tilemap[] explicitObstacleTilemaps = new Tilemap[0];
+    [Header("显式障碍碰撞体")]
+    [SerializeField] private Collider2D[] explicitObstacleColliders = new Collider2D[0];
+    [Header("显式可走覆盖 Tilemap")]
+    [SerializeField] private Tilemap[] explicitWalkableOverrideTilemaps = new Tilemap[0];
+    [Header("显式可走覆盖碰撞体")]
+    [SerializeField] private Collider2D[] explicitWalkableOverrideColliders = new Collider2D[0];
     [Header("调试")]
+#pragma warning disable CS0414 // Used by editor gizmo drawing.
     [SerializeField] private bool showDebugGizmos = true;
+#pragma warning restore CS0414
     [SerializeField] private bool logObstacleDetection = false;
 
     private int gridW, gridH;
@@ -41,8 +54,9 @@ public class NavGrid2D : MonoBehaviour
     {
         s_instance = this;
         ValidateParameters();
+        RefreshExplicitObstacleSources();
         _obstacleFilter = new ContactFilter2D().NoFilter();
-        
+
         // 订阅外部刷新请求
         OnRequestGridRefresh += RefreshGrid;
     }
@@ -66,6 +80,7 @@ public class NavGrid2D : MonoBehaviour
 
     void OnEnable()
     {
+        RefreshExplicitObstacleSources();
         // 组件启用时立即重建网格
         RebuildGrid();
     }
@@ -74,6 +89,8 @@ public class NavGrid2D : MonoBehaviour
     {
         // 编辑器中修改参数时自动校验
         ValidateParameters();
+        obstacleTilemapNameKeywords = NormalizeKeywordArray(obstacleTilemapNameKeywords);
+        RefreshExplicitObstacleSources();
     }
 
     void Start()
@@ -93,7 +110,273 @@ public class NavGrid2D : MonoBehaviour
     /// </summary>
     public void RefreshGrid()
     {
+        RefreshExplicitObstacleSources();
         RebuildGrid();
+    }
+
+    public static bool TryRequestLocalRefresh(
+        Bounds worldBounds,
+        bool refreshExplicitSources = false,
+        float extraPadding = -1f)
+    {
+        if (s_instance == null || !s_instance.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        return s_instance.RefreshGrid(worldBounds, refreshExplicitSources, extraPadding);
+    }
+
+    public bool RefreshGrid(
+        Bounds worldBounds,
+        bool refreshExplicitSources = false,
+        float extraPadding = -1f)
+    {
+        if (!isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        if (refreshExplicitSources)
+        {
+            RefreshExplicitObstacleSources();
+        }
+
+        if (!TryNormalizeRuntimeRefreshBounds(worldBounds, extraPadding, out Bounds refreshBounds))
+        {
+            RebuildGrid();
+            return true;
+        }
+
+        Physics2D.SyncTransforms();
+
+        if (!CanRefreshBoundsInPlace(refreshBounds))
+        {
+            RebuildGrid();
+            return true;
+        }
+
+        RefreshGridRegion(refreshBounds);
+        return true;
+    }
+
+    public bool SetBoundsPadding(float padding, bool rebuildImmediately = false)
+    {
+        float sanitizedPadding = Mathf.Max(0f, padding);
+        if (Mathf.Approximately(boundsPadding, sanitizedPadding))
+        {
+            return false;
+        }
+
+        boundsPadding = sanitizedPadding;
+        if (rebuildImmediately && isActiveAndEnabled)
+        {
+            RebuildGrid();
+        }
+
+        return true;
+    }
+
+    public bool SetAutoDetectWorldBounds(bool enabled, bool rebuildImmediately = false)
+    {
+        if (autoDetectWorldBounds == enabled)
+        {
+            return false;
+        }
+
+        autoDetectWorldBounds = enabled;
+        if (rebuildImmediately && isActiveAndEnabled)
+        {
+            RebuildGrid();
+        }
+
+        return true;
+    }
+
+    public bool SetWorldBounds(Bounds bounds, bool rebuildImmediately = false)
+    {
+        Vector2 sanitizedOrigin = new Vector2(bounds.min.x, bounds.min.y);
+        Vector2 sanitizedSize = new Vector2(
+            Mathf.Max(bounds.size.x, cellSize),
+            Mathf.Max(bounds.size.y, cellSize));
+
+        bool originChanged =
+            !Mathf.Approximately(worldOrigin.x, sanitizedOrigin.x) ||
+            !Mathf.Approximately(worldOrigin.y, sanitizedOrigin.y);
+        bool sizeChanged =
+            !Mathf.Approximately(worldSize.x, sanitizedSize.x) ||
+            !Mathf.Approximately(worldSize.y, sanitizedSize.y);
+        bool autoDetectChanged = autoDetectWorldBounds;
+        if (!originChanged && !sizeChanged && !autoDetectChanged)
+        {
+            return false;
+        }
+
+        autoDetectWorldBounds = false;
+        worldOrigin = sanitizedOrigin;
+        worldSize = sanitizedSize;
+        if (rebuildImmediately && isActiveAndEnabled)
+        {
+            RebuildGrid();
+        }
+
+        return true;
+    }
+
+    public bool ConfigureExplicitObstacleSources(
+        Collider2D[] colliders,
+        Tilemap[] tilemaps,
+        bool rebuildImmediately = false)
+    {
+        Collider2D[] normalizedColliders = NormalizeObjectArray(colliders);
+        Tilemap[] normalizedTilemaps = NormalizeObjectArray(tilemaps);
+
+        bool collidersChanged = !AreReferenceArraysEqual(explicitObstacleColliders, normalizedColliders);
+        bool tilemapsChanged = !AreReferenceArraysEqual(explicitObstacleTilemaps, normalizedTilemaps);
+        if (!collidersChanged && !tilemapsChanged)
+        {
+            return false;
+        }
+
+        explicitObstacleColliders = normalizedColliders;
+        explicitObstacleTilemaps = normalizedTilemaps;
+
+        if (rebuildImmediately && isActiveAndEnabled)
+        {
+            RebuildGrid();
+        }
+
+        return true;
+    }
+
+    public bool ConfigureExplicitWalkableOverrideSources(
+        Collider2D[] colliders,
+        Tilemap[] tilemaps,
+        bool rebuildImmediately = false)
+    {
+        Collider2D[] normalizedColliders = NormalizeObjectArray(colliders);
+        Tilemap[] normalizedTilemaps = NormalizeObjectArray(tilemaps);
+
+        bool collidersChanged = !AreReferenceArraysEqual(explicitWalkableOverrideColliders, normalizedColliders);
+        bool tilemapsChanged = !AreReferenceArraysEqual(explicitWalkableOverrideTilemaps, normalizedTilemaps);
+        if (!collidersChanged && !tilemapsChanged)
+        {
+            return false;
+        }
+
+        explicitWalkableOverrideColliders = normalizedColliders;
+        explicitWalkableOverrideTilemaps = normalizedTilemaps;
+
+        if (rebuildImmediately && isActiveAndEnabled)
+        {
+            RebuildGrid();
+        }
+
+        return true;
+    }
+
+    public bool SetObstacleTilemapAutoDetection(
+        bool enabled,
+        string[] keywords = null,
+        bool rebuildImmediately = false)
+    {
+        string[] normalizedKeywords = keywords == null
+            ? NormalizeKeywordArray(obstacleTilemapNameKeywords)
+            : NormalizeKeywordArray(keywords);
+
+        bool autoDetectChanged = autoDetectObstacleTilemapsByName != enabled;
+        bool keywordsChanged = !AreStringArraysEqual(obstacleTilemapNameKeywords, normalizedKeywords);
+        if (!autoDetectChanged && !keywordsChanged)
+        {
+            return false;
+        }
+
+        autoDetectObstacleTilemapsByName = enabled;
+        obstacleTilemapNameKeywords = normalizedKeywords;
+        RefreshExplicitObstacleSources();
+
+        if (rebuildImmediately && isActiveAndEnabled)
+        {
+            RebuildGrid();
+        }
+
+        return true;
+    }
+
+    public Tilemap[] GetExplicitObstacleTilemaps()
+    {
+        return NormalizeObjectArray(explicitObstacleTilemaps);
+    }
+
+    public Collider2D[] GetExplicitObstacleColliders()
+    {
+        return NormalizeObjectArray(explicitObstacleColliders);
+    }
+
+    public Tilemap[] GetExplicitWalkableOverrideTilemaps()
+    {
+        return NormalizeObjectArray(explicitWalkableOverrideTilemaps);
+    }
+
+    public Collider2D[] GetExplicitWalkableOverrideColliders()
+    {
+        return NormalizeObjectArray(explicitWalkableOverrideColliders);
+    }
+
+    public bool HasWalkableOverrideAt(Vector2 worldPos, float radius = -1f)
+    {
+        float effectiveRadius = radius >= 0f
+            ? Mathf.Max(0.001f, radius)
+            : probeRadius;
+
+        if (HasExplicitWalkableOverrideTilemapHit(worldPos, effectiveRadius))
+        {
+            return true;
+        }
+
+        int hitCount = Physics2D.OverlapCircle(worldPos, effectiveRadius, _obstacleFilter, _colliderCache);
+        if (hitCount == _colliderCache.Length)
+        {
+            System.Array.Resize(ref _colliderCache, _colliderCache.Length * 2);
+            hitCount = Physics2D.OverlapCircle(worldPos, effectiveRadius, _obstacleFilter, _colliderCache);
+        }
+
+        return HasExplicitWalkableOverrideColliderHit(hitCount, null);
+    }
+
+    public Bounds GetWorldBounds()
+    {
+        return new Bounds(worldOrigin + worldSize * 0.5f, worldSize);
+    }
+
+    public bool IsWithinWorldBounds(Vector2 worldPos)
+    {
+        if (worldSize.x <= 0f || worldSize.y <= 0f)
+        {
+            return false;
+        }
+
+        float localX = worldPos.x - worldOrigin.x;
+        float localY = worldPos.y - worldOrigin.y;
+        return localX >= 0f &&
+               localY >= 0f &&
+               localX < worldSize.x &&
+               localY < worldSize.y;
+    }
+
+    public Vector2 ClampToWorldBounds(Vector2 worldPos)
+    {
+        if (worldSize.x <= 0f || worldSize.y <= 0f)
+        {
+            return worldPos;
+        }
+
+        float epsilon = Mathf.Min(cellSize * 0.1f, 0.001f);
+        float maxX = worldOrigin.x + Mathf.Max(0f, worldSize.x - epsilon);
+        float maxY = worldOrigin.y + Mathf.Max(0f, worldSize.y - epsilon);
+        return new Vector2(
+            Mathf.Clamp(worldPos.x, worldOrigin.x, maxX),
+            Mathf.Clamp(worldPos.y, worldOrigin.y, maxY));
     }
 
     private void ValidateParameters()
@@ -101,7 +384,7 @@ public class NavGrid2D : MonoBehaviour
         // 允许更小的探测半径以支持狭窄通道（与代理碰撞体等宽）
         const float MinProbe = 0.05f;
         const float MaxProbe = 100f;
-        
+
         if (probeRadius < MinProbe)
         {
             probeRadius = MinProbe;
@@ -110,7 +393,7 @@ public class NavGrid2D : MonoBehaviour
         {
             probeRadius = MaxProbe;
         }
-        
+
         if (cellSize < 0.05f)
         {
             Debug.LogWarning($"[NavGrid2D] cellSize={cellSize} 过小，已重置为 0.5");
@@ -139,20 +422,7 @@ public class NavGrid2D : MonoBehaviour
         {
             for (int y = 0; y < gridH; y++)
             {
-                Vector2 w = GridToWorldCenter(x, y);
-                
-                // 多点采样提高精度：中心 + 4角
-                bool blocked = IsPointBlocked(w, probeRadius);
-                if (!blocked && strictCornerCutting)
-                {
-                    // 额外检查格子四角，防止大型障碍物漏检
-                    float offset = cellSize * 0.35f;
-                    blocked = IsPointBlocked(w + new Vector2(offset, offset), probeRadius * 0.7f) ||
-                              IsPointBlocked(w + new Vector2(-offset, offset), probeRadius * 0.7f) ||
-                              IsPointBlocked(w + new Vector2(offset, -offset), probeRadius * 0.7f) ||
-                              IsPointBlocked(w + new Vector2(-offset, -offset), probeRadius * 0.7f);
-                }
-                
+                bool blocked = EvaluateBlockedStateForCell(x, y);
                 walkable[x, y] = !blocked;
                 if (blocked) obstacleCount++;
             }
@@ -264,13 +534,33 @@ public class NavGrid2D : MonoBehaviour
 
     private bool IsPointBlocked(Vector2 worldPos, float radius, Collider2D ignoredCollider = null)
     {
+        if (HasExplicitWalkableOverrideTilemapHit(worldPos, radius))
+        {
+            return false;
+        }
+
+        if (HasExplicitObstacleTilemapHit(worldPos, radius))
+        {
+            return true;
+        }
+
         int hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
         if (hitCount == _colliderCache.Length)
         {
             System.Array.Resize(ref _colliderCache, _colliderCache.Length * 2);
             hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
         }
-        
+
+        if (HasExplicitWalkableOverrideColliderHit(hitCount, ignoredCollider))
+        {
+            return false;
+        }
+
+        if (HasExplicitObstacleHit(hitCount, ignoredCollider))
+        {
+            return true;
+        }
+
         // 先检查标签
         if (obstacleTags != null && obstacleTags.Length > 0)
         {
@@ -287,7 +577,7 @@ public class NavGrid2D : MonoBehaviour
                 // 跳过生成的物体
                 if (hitTransform.name.Contains("(Clone)") || hitTransform.name.Contains("Pickup"))
                     continue;
-                
+
                 // 检查标签（包括父级）
                 if (HasAnyTag(hitTransform, obstacleTags))
                 {
@@ -295,7 +585,7 @@ public class NavGrid2D : MonoBehaviour
                 }
             }
         }
-        
+
         // 如果标签没检测到，再用LayerMask检测
         if (obstacleMask.value != 0)
         {
@@ -314,7 +604,279 @@ public class NavGrid2D : MonoBehaviour
                 }
             }
         }
-        
+
+        return false;
+    }
+
+    private bool EvaluateBlockedStateForCell(int x, int y)
+    {
+        Vector2 worldPos = GridToWorldCenter(x, y);
+
+        bool blocked = IsPointBlocked(worldPos, probeRadius);
+        if (!blocked && strictCornerCutting)
+        {
+            float offset = cellSize * 0.35f;
+            blocked = IsPointBlocked(worldPos + new Vector2(offset, offset), probeRadius * 0.7f) ||
+                      IsPointBlocked(worldPos + new Vector2(-offset, offset), probeRadius * 0.7f) ||
+                      IsPointBlocked(worldPos + new Vector2(offset, -offset), probeRadius * 0.7f) ||
+                      IsPointBlocked(worldPos + new Vector2(-offset, -offset), probeRadius * 0.7f);
+        }
+
+        return blocked;
+    }
+
+    private bool TryNormalizeRuntimeRefreshBounds(
+        Bounds worldBounds,
+        float extraPadding,
+        out Bounds normalizedBounds)
+    {
+        normalizedBounds = worldBounds;
+
+        if (worldBounds.size.x < 0f || worldBounds.size.y < 0f)
+        {
+            return false;
+        }
+
+        Vector3 size = normalizedBounds.size;
+        size.x = Mathf.Max(size.x, cellSize);
+        size.y = Mathf.Max(size.y, cellSize);
+        size.z = Mathf.Max(size.z, 0f);
+        normalizedBounds.size = size;
+
+        float padding = extraPadding >= 0f
+            ? extraPadding
+            : Mathf.Max(probeRadius + cellSize, cellSize * 1.5f);
+        normalizedBounds.Expand(new Vector3(padding * 2f, padding * 2f, 0f));
+        return normalizedBounds.size.x > 0f && normalizedBounds.size.y > 0f;
+    }
+
+    private bool CanRefreshBoundsInPlace(Bounds refreshBounds)
+    {
+        if (walkable == null ||
+            gridW <= 0 ||
+            gridH <= 0 ||
+            walkable.GetLength(0) != gridW ||
+            walkable.GetLength(1) != gridH)
+        {
+            return false;
+        }
+
+        if (worldSize.x <= 0f || worldSize.y <= 0f)
+        {
+            return false;
+        }
+
+        float maxX = worldOrigin.x + worldSize.x;
+        float maxY = worldOrigin.y + worldSize.y;
+        return refreshBounds.max.x >= worldOrigin.x &&
+               refreshBounds.max.y >= worldOrigin.y &&
+               refreshBounds.min.x <= maxX &&
+               refreshBounds.min.y <= maxY;
+    }
+
+    private void RefreshGridRegion(Bounds refreshBounds)
+    {
+        int minX = Mathf.Clamp(
+            Mathf.FloorToInt((refreshBounds.min.x - worldOrigin.x) / cellSize),
+            0,
+            gridW - 1);
+        int maxX = Mathf.Clamp(
+            Mathf.FloorToInt((refreshBounds.max.x - worldOrigin.x) / cellSize),
+            0,
+            gridW - 1);
+        int minY = Mathf.Clamp(
+            Mathf.FloorToInt((refreshBounds.min.y - worldOrigin.y) / cellSize),
+            0,
+            gridH - 1);
+        int maxY = Mathf.Clamp(
+            Mathf.FloorToInt((refreshBounds.max.y - worldOrigin.y) / cellSize),
+            0,
+            gridH - 1);
+
+        if (minX > maxX || minY > maxY)
+        {
+            return;
+        }
+
+        int refreshedCellCount = 0;
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int y = minY; y <= maxY; y++)
+            {
+                walkable[x, y] = !EvaluateBlockedStateForCell(x, y);
+                refreshedCellCount++;
+            }
+        }
+
+        if (logObstacleDetection)
+        {
+            Debug.Log(
+                $"[NavGrid2D] 局部刷新完成: x={minX}-{maxX}, y={minY}-{maxY}, cells={refreshedCellCount}");
+        }
+    }
+
+    private bool HasExplicitWalkableOverrideTilemapHit(Vector2 worldPos, float radius)
+    {
+        return HasAnyTileInArea(explicitWalkableOverrideTilemaps, worldPos, radius);
+    }
+
+    private bool HasAnyExplicitWalkableOverrideTileAt(Vector2 worldPos)
+    {
+        if (explicitWalkableOverrideTilemaps == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < explicitWalkableOverrideTilemaps.Length; i++)
+        {
+            Tilemap tilemap = explicitWalkableOverrideTilemaps[i];
+            if (tilemap == null || !tilemap.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (tilemap.HasTile(tilemap.WorldToCell(worldPos)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasExplicitObstacleTilemapHit(Vector2 worldPos, float radius)
+    {
+        return HasAnyTileInArea(explicitObstacleTilemaps, worldPos, radius);
+    }
+
+    private bool HasAnyExplicitObstacleTileAt(Vector2 worldPos)
+    {
+        if (explicitObstacleTilemaps == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < explicitObstacleTilemaps.Length; i++)
+        {
+            Tilemap tilemap = explicitObstacleTilemaps[i];
+            if (tilemap == null || !tilemap.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (tilemap.HasTile(tilemap.WorldToCell(worldPos)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasAnyTileInArea(Tilemap[] tilemaps, Vector2 worldPos, float radius)
+    {
+        if (tilemaps == null || tilemaps.Length == 0)
+        {
+            return false;
+        }
+
+        float extent = Mathf.Max(radius, cellSize * 0.2f);
+        for (int i = 0; i < tilemaps.Length; i++)
+        {
+            Tilemap tilemap = tilemaps[i];
+            if (tilemap == null || !tilemap.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            if (TilemapHasAnyTileInArea(tilemap, worldPos, extent))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TilemapHasAnyTileInArea(Tilemap tilemap, Vector2 worldPos, float extent)
+    {
+        Vector3Int minCell = tilemap.WorldToCell(new Vector3(worldPos.x - extent, worldPos.y - extent, 0f));
+        Vector3Int maxCell = tilemap.WorldToCell(new Vector3(worldPos.x + extent, worldPos.y + extent, 0f));
+
+        int minX = Mathf.Min(minCell.x, maxCell.x);
+        int maxX = Mathf.Max(minCell.x, maxCell.x);
+        int minY = Mathf.Min(minCell.y, maxCell.y);
+        int maxY = Mathf.Max(minCell.y, maxCell.y);
+
+        for (int x = minX; x <= maxX; x++)
+        {
+            for (int y = minY; y <= maxY; y++)
+            {
+                if (tilemap.HasTile(new Vector3Int(x, y, 0)))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasExplicitObstacleHit(int hitCount, Collider2D ignoredCollider)
+    {
+        if (explicitObstacleColliders == null || explicitObstacleColliders.Length == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hitCollider = _colliderCache[i];
+            if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
+            {
+                continue;
+            }
+
+            if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
+            {
+                continue;
+            }
+
+            if (MatchesExplicitObstacleCollider(hitCollider))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasExplicitWalkableOverrideColliderHit(int hitCount, Collider2D ignoredCollider)
+    {
+        if (explicitWalkableOverrideColliders == null || explicitWalkableOverrideColliders.Length == 0)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hitCollider = _colliderCache[i];
+            if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
+            {
+                continue;
+            }
+
+            if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
+            {
+                continue;
+            }
+
+            if (MatchesExplicitWalkableOverrideCollider(hitCollider))
+            {
+                return true;
+            }
+        }
+
         return false;
     }
 
@@ -821,6 +1383,324 @@ public class NavGrid2D : MonoBehaviour
             current = current.parent;
         }
         return false;
+    }
+
+    private bool MatchesExplicitObstacleCollider(Collider2D hitCollider)
+    {
+        if (hitCollider == null || explicitObstacleColliders == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < explicitObstacleColliders.Length; i++)
+        {
+            Collider2D explicitCollider = explicitObstacleColliders[i];
+            if (explicitCollider == null)
+            {
+                continue;
+            }
+
+            if (hitCollider == explicitCollider)
+            {
+                return true;
+            }
+
+            if (explicitCollider.attachedRigidbody != null &&
+                hitCollider.attachedRigidbody != null &&
+                explicitCollider.attachedRigidbody == hitCollider.attachedRigidbody)
+            {
+                return true;
+            }
+
+            if (hitCollider.transform.IsChildOf(explicitCollider.transform) ||
+                explicitCollider.transform.IsChildOf(hitCollider.transform))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool MatchesExplicitWalkableOverrideCollider(Collider2D hitCollider)
+    {
+        if (hitCollider == null || explicitWalkableOverrideColliders == null)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < explicitWalkableOverrideColliders.Length; i++)
+        {
+            Collider2D explicitCollider = explicitWalkableOverrideColliders[i];
+            if (explicitCollider == null)
+            {
+                continue;
+            }
+
+            if (hitCollider == explicitCollider)
+            {
+                return true;
+            }
+
+            if (explicitCollider.attachedRigidbody != null &&
+                hitCollider.attachedRigidbody != null &&
+                explicitCollider.attachedRigidbody == hitCollider.attachedRigidbody)
+            {
+                return true;
+            }
+
+            if (hitCollider.transform.IsChildOf(explicitCollider.transform) ||
+                explicitCollider.transform.IsChildOf(hitCollider.transform))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void RefreshExplicitObstacleSources()
+    {
+        List<Tilemap> tilemaps = new List<Tilemap>();
+        if (explicitObstacleTilemaps != null)
+        {
+            for (int i = 0; i < explicitObstacleTilemaps.Length; i++)
+            {
+                AddUniqueObject(tilemaps, explicitObstacleTilemaps[i]);
+            }
+        }
+
+        if (autoDetectObstacleTilemapsByName)
+        {
+            Tilemap[] discoveredTilemaps = FindObjectsByType<Tilemap>(FindObjectsSortMode.None);
+            for (int i = 0; i < discoveredTilemaps.Length; i++)
+            {
+                Tilemap tilemap = discoveredTilemaps[i];
+                if (tilemap == null || !IsInWorldLayers(tilemap.transform))
+                {
+                    continue;
+                }
+
+                if (IsExplicitObstacleTilemap(tilemap, obstacleTilemapNameKeywords))
+                {
+                    AddUniqueObject(tilemaps, tilemap);
+                }
+            }
+        }
+
+        explicitObstacleTilemaps = tilemaps.ToArray();
+
+        List<Collider2D> colliders = new List<Collider2D>();
+        if (explicitObstacleColliders != null)
+        {
+            for (int i = 0; i < explicitObstacleColliders.Length; i++)
+            {
+                AddUniqueObject(colliders, explicitObstacleColliders[i]);
+            }
+        }
+
+        for (int i = 0; i < explicitObstacleTilemaps.Length; i++)
+        {
+            Tilemap tilemap = explicitObstacleTilemaps[i];
+            if (tilemap == null)
+            {
+                continue;
+            }
+
+            AddUniqueObject(colliders, tilemap.GetComponent<Collider2D>());
+        }
+
+        explicitObstacleColliders = colliders.ToArray();
+
+        List<Tilemap> walkableOverrideTilemaps = new List<Tilemap>();
+        if (explicitWalkableOverrideTilemaps != null)
+        {
+            for (int i = 0; i < explicitWalkableOverrideTilemaps.Length; i++)
+            {
+                AddUniqueObject(walkableOverrideTilemaps, explicitWalkableOverrideTilemaps[i]);
+            }
+        }
+
+        explicitWalkableOverrideTilemaps = walkableOverrideTilemaps.ToArray();
+
+        List<Collider2D> walkableOverrideColliders = new List<Collider2D>();
+        if (explicitWalkableOverrideColliders != null)
+        {
+            for (int i = 0; i < explicitWalkableOverrideColliders.Length; i++)
+            {
+                AddUniqueObject(walkableOverrideColliders, explicitWalkableOverrideColliders[i]);
+            }
+        }
+
+        for (int i = 0; i < explicitWalkableOverrideTilemaps.Length; i++)
+        {
+            Tilemap tilemap = explicitWalkableOverrideTilemaps[i];
+            if (tilemap == null)
+            {
+                continue;
+            }
+
+            AddUniqueObject(walkableOverrideColliders, tilemap.GetComponent<Collider2D>());
+        }
+
+        explicitWalkableOverrideColliders = walkableOverrideColliders.ToArray();
+    }
+
+    private static bool IsExplicitObstacleTilemap(Tilemap tilemap, string[] keywords)
+    {
+        if (tilemap == null || !TilemapHasAnyTiles(tilemap))
+        {
+            return false;
+        }
+
+        if (keywords == null || keywords.Length == 0)
+        {
+            return false;
+        }
+
+        string lowered = tilemap.name.ToLowerInvariant();
+        for (int i = 0; i < keywords.Length; i++)
+        {
+            string keyword = keywords[i];
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                continue;
+            }
+
+            if (lowered.Contains(keyword))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TilemapHasAnyTiles(Tilemap tilemap)
+    {
+        if (tilemap == null)
+        {
+            return false;
+        }
+
+        BoundsInt bounds = tilemap.cellBounds;
+        foreach (Vector3Int position in bounds.allPositionsWithin)
+        {
+            if (tilemap.HasTile(position))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static T[] NormalizeObjectArray<T>(T[] source) where T : Object
+    {
+        List<T> results = new List<T>();
+        if (source == null)
+        {
+            return results.ToArray();
+        }
+
+        for (int i = 0; i < source.Length; i++)
+        {
+            AddUniqueObject(results, source[i]);
+        }
+
+        return results.ToArray();
+    }
+
+    private static string[] NormalizeKeywordArray(string[] source)
+    {
+        List<string> results = new List<string>();
+        if (source == null)
+        {
+            return results.ToArray();
+        }
+
+        for (int i = 0; i < source.Length; i++)
+        {
+            string keyword = source[i];
+            if (string.IsNullOrWhiteSpace(keyword))
+            {
+                continue;
+            }
+
+            string normalized = keyword.Trim().ToLowerInvariant();
+            if (results.Contains(normalized))
+            {
+                continue;
+            }
+
+            results.Add(normalized);
+        }
+
+        return results.ToArray();
+    }
+
+    private static void AddUniqueObject<T>(List<T> list, T item) where T : Object
+    {
+        if (item == null)
+        {
+            return;
+        }
+
+        for (int i = 0; i < list.Count; i++)
+        {
+            if (list[i] == item)
+            {
+                return;
+            }
+        }
+
+        list.Add(item);
+    }
+
+    private static bool AreReferenceArraysEqual<T>(T[] left, T[] right) where T : Object
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        if (left == null || right == null || left.Length != right.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < left.Length; i++)
+        {
+            if (left[i] != right[i])
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool AreStringArraysEqual(string[] left, string[] right)
+    {
+        if (ReferenceEquals(left, right))
+        {
+            return true;
+        }
+
+        if (left == null || right == null || left.Length != right.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < left.Length; i++)
+        {
+            if (!string.Equals(left[i], right[i], System.StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
 #if UNITY_EDITOR
