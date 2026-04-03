@@ -10367,3 +10367,31 @@
 **当前恢复点**：
 - 这轮的真正收口动作已从“脚本同步”切换成“手工精确白名单提交”；
 - 提交完成后再执行 `Park-Slice`，把 live 状态从 `BLOCKED` 合法收口到 `PARKED`。
+
+## 2026-04-03｜白名单大头已提交并推送，当前 slice 已停车
+
+**实际结果**：
+- 已通过精确白名单手工提交完成本轮大头归仓：
+  - commit: `33d265e7`
+  - message: `2026.04.03_Codex规则落地_14`
+- 已推送到 `origin/main`。
+- 本轮 `thread-state` 已执行：
+  - `Park-Slice`
+  - 当前 live 状态：`PARKED`
+
+**这次实际纳入提交的内容**：
+- `Assets/000_Scenes/Primary.unity`
+- `Assets/000_Scenes/Home.unity`
+- `Assets/000_Scenes/primary_backup_2026-04-02_20-46-54.unity`
+- `Assets/__CodexSceneSyncScratch` 整组及其 `.meta`
+- 当前治理工作区 / 线程记忆两份文件
+
+**明确未纳入**：
+- `Assets/000_Scenes/Town.unity`
+- `Assets/000_Scenes/Town.unity.meta`
+- `Assets/000_Scenes/SampleScene.unity` 删除残留
+- 其他脚本、Prefab、字体、测试和他线记忆脏改
+
+**当前恢复点**：
+- 用户本轮要求的 scene/scratch 大头已经完成提交并推送；
+- 后续若继续处理 `Town`、字体事故面或其他大量 dirty，应另开下一刀，不再回滚进本次白名单提交。
