@@ -9887,3 +9887,62 @@
   - `Assets/__CodexSceneSyncScratch/`
   - `Assets/Editor/CodexMcpHttpAutostart.cs`
   - `Assets/Editor/NPC/CodexEditorCommandBridge.cs`
+
+## 2026-04-03｜`Tools/Weapons + SpringDay1Workbench` 已本地归仓，字体组暂缓
+
+**用户目标**：
+- 用户当前只关心“哪些还能安全提交”，目的是尽快压低 shared root 的超大 diff，缓解 Codex / Sunset 打开线程时的严重卡顿；
+- 同时继续保持 `Assets/000_Scenes/Primary.unity` 由用户独占，其他线程不允许碰。
+
+**本轮已完成**：
+1. 复核 `Primary` 物理锁仍有效，当前唯一 owner 仍是 `用户Primary独占`。
+2. 先把上一刀 `docx-big-summary-whitelist-sync-01` 合法 `Park-Slice`，避免 `Codex规则落地` 挂着旧 `READY_TO_SYNC`。
+3. 针对下一刀候选做正式白名单预检：
+   - `Assets/111_Data/Items/Tools`
+   - `Assets/111_Data/Items/Weapons`
+   - `Assets/Resources/Story/SpringDay1Workbench`
+   - `Assets/Resources/Story/SpringDay1.meta`
+4. 上述工具/武器/工作台组：
+   - `preflight` 通过；
+   - `own roots remaining dirty = 0`；
+   - `git diff --check` clean；
+   - 因而判定为“现在就可以安全提交”的白名单组。
+5. 同轮也复核了字体组：
+   - `Assets/TextMesh Pro/Resources/Fonts & Materials`
+   - `Assets/111_Data/UI/Fonts/Dialogue`
+   - `preflight` 虽然通过，但 `git diff --check` 报大量 trailing whitespace；
+   - 结合用户刚给的 Unity/运行日志里 `DialogueChinese SDF / Pixel SDF` 缺 atlas、`m_AtlasTextures` 丢失等错误，这组当前不应作为“减卡优先”提交。
+6. 已新开并收口 slice：
+   - `tools-weapons-workbench-whitelist-sync-01`
+   - `Begin-Slice -> Ready-To-Sync -> sync -> Park-Slice` 全流程已跑完
+7. 白名单 `sync` 已创建本地提交：
+   - `132a810c`
+   - `2026.04.03_Codex规则落地_07`
+   - 共归仓 13 个文件，含新增 `Sword` / `Storage` 工作台配方与 `SpringDay1.meta`
+8. 远端同步现状：
+   - `safe-sync` 内置 push 仍会撞上全局代理；
+   - 随后两次手动禁代理推送也失败：
+     - 一次是 `Recv failure: Connection was reset`
+     - 一次是 `Could not connect to github.com:443`
+   - 因此当前状态是“本地提交已生效、远端暂未跟上”，而不是白名单提交失败。
+
+**关键判断**：
+- 现在真正已经安全切走的新一刀，是 `Tools/Weapons + SpringDay1Workbench` 这组；
+- 字体组不是“不能白名单”，而是当前质量状态本身就异常，不适合为了减 diff 把坏底座先提交；
+- 继续减卡时仍然要坚持三条边界：
+  1. 不碰 `Primary / Town / Home / backup / scratch`
+  2. 不吞 `CodexMcpHttpAutostart / CodexEditorCommandBridge`
+  3. 优先挑 `same-root clean + 资源/文档独立组 + 不夹热文件` 的白名单
+
+**恢复点 / 下一步**：
+- 当前 `main` 相对 `origin/main` 已 `ahead 3`：
+  - `847daa23` `2026.04.03_Codex规则落地_05`
+  - `fa8762f5` `2026.04.03_Codex规则落地_06`
+  - `132a810c` `2026.04.03_Codex规则落地_07`
+- `Codex规则落地` 当前 live 状态应保持 `PARKED`；
+- 网络一旦真实恢复，优先重试：
+  - `git -c http.proxy= -c https.proxy= push origin main`
+- 若继续做本地减卡收口，优先级上：
+  1. 已本地提交但未推远端的三刀先等待网络窗口；
+  2. 字体组先不提；
+  3. 再找下一组不碰 `Primary` 的独立白名单。

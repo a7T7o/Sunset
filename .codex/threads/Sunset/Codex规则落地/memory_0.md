@@ -4688,3 +4688,65 @@
   - `Codex规则落地` 当前 live 状态：`PARKED`
   - `Primary` 仍由用户独占；其他线程一律不允许再用
   - 若继续做减卡收口，下一步只应再找“same-root clean + 资产-only + 无热文件混线”的白名单候选，不要跨进当前用户正在 live 编辑的 scene 现场。
+
+## 2026-04-03｜继续以“可提交白名单”为主线，工具/武器/工作台配方已本地提交
+
+- 当前主线目标：
+  - 不讨论恢复/回退，只继续判断并执行“现在还能安全提交什么”，用本地提交尽快压低 shared root 的超大 diff；
+  - 同时必须继续保证用户独占编辑 `Assets/000_Scenes/Primary.unity`。
+- 本轮子任务：
+  1. 复核 `Primary` 用户独占锁仍有效；
+  2. 把 `Codex规则落地` 上一刀残留的 `READY_TO_SYNC` 状态收干净；
+  3. 继续筛下一组真正可以立即提交的白名单并执行提交。
+- 这轮实际做成了什么：
+  1. 已确认 `Primary` 锁仍是 `locked`，owner 仍为 `用户Primary独占`，到期时间仍在 2026-04-03 晚间窗口内。
+  2. 已把旧 slice `docx-big-summary-whitelist-sync-01` 合法 `Park-Slice`。
+  3. 已正式预检两组候选：
+     - 工具/武器/工作台配方组：通过
+     - 字体组：预检通过，但 `git diff --check` 不通过
+  4. 工具/武器/工作台配方组的具体白名单为：
+     - `Assets/111_Data/Items/Tools`
+     - `Assets/111_Data/Items/Weapons`
+     - `Assets/Resources/Story/SpringDay1Workbench`
+     - `Assets/Resources/Story/SpringDay1.meta`
+  5. 该组已完成：
+     - `Begin-Slice`
+     - `Ready-To-Sync`
+     - `sync`
+     - `Park-Slice`
+  6. 已生成本地提交：
+     - `132a810c`
+     - `2026.04.03_Codex规则落地_07`
+  7. 当前 `main` 相对远端已变为 `ahead 3`，其中第三刀就是本轮新提交。
+- 关键决策：
+  1. 这轮要的是“减卡优先”，不是“先把问题资产也提交掉”；因此字体组虽然可白名单，但由于 trailing whitespace 和运行日志暴露出的 atlas/纹理异常，当前应暂缓。
+  2. 网络不稳定时，本地提交本身也有价值，因为它已经能把这组文件从 working tree diff 里拿掉，直接减轻 Codex 载荷。
+  3. 继续白名单收口时，仍不能碰：
+     - `Assets/000_Scenes/Primary.unity`
+     - `Assets/000_Scenes/Town.unity`
+     - `Assets/000_Scenes/Home.unity`
+     - `Assets/000_Scenes/primary_backup_2026-04-02_20-46-54.unity`
+     - `Assets/__CodexSceneSyncScratch/`
+     - `Assets/Editor/CodexMcpHttpAutostart.cs`
+     - `Assets/Editor/NPC/CodexEditorCommandBridge.cs`
+- 验证结果：
+  - 工具/武器/工作台组 `preflight` 已过
+  - same-root remaining dirty = `0`
+  - `git diff --check` clean
+  - 远端推送两次失败：
+    - `Recv failure: Connection was reset`
+    - `Could not connect to github.com:443`
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\Codex规则落地.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+  - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Items\Tools\Tool_0_Axe_0.asset`
+  - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\Items\Weapons\Weapon_200_Sword_0.asset`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Resources\Story\SpringDay1Workbench\Recipe_9103_Sword_0.asset`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Resources\Story\SpringDay1Workbench\Recipe_9104_Storage_1400.asset`
+- 恢复点 / 下一步：
+  - 当前主线没有变化，仍是“继续找还能安全提交的白名单并尽量推远端”
+  - 这轮完成后应把 `Codex规则落地` 保持在 `PARKED`
+  - 下一个明确动作优先级：
+    1. 网络真实恢复后，先把 `ahead 3` 的三刀推到远端
+    2. 字体组先不提交
+    3. 再筛下一组 `same-root clean` 的独立白名单
