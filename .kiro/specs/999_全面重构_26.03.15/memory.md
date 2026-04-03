@@ -211,3 +211,23 @@
   - 3 个 live NPC 都真实存在，且当前都已是 `tag = NPC`，并继续保持 `BoxCollider2D.offset.y = 0.46 / Rigidbody2D.mass = 6 / linearDamping = 8 / collisionDetectionMode = 1`。
 - 父层当前判断：
   - 之后再提“MCP 没内容”时，必须区分到底是资源枚举异常，还是 scene/component 直连也坏了；这两者不能再混成一个结论。
+
+### 会话 10 - 2026-04-03（导航父层补记：桥阻挡已从旧双 manager 说法收紧到水层实体碰撞 + contract gap）
+
+- 子工作区 `导航检查` 本轮新增了一条当前更稳的 read-only 事实：
+  - `Primary.unity` 当前只剩 1 份 `TraversalBlockManager2D` 序列化挂载，早前“双 manager 竞争”不再是当前保存态里的首因。
+- 父层新增稳定事实：
+  - 当前唯一 manager 保存态是：
+    - `blockingTilemaps = [Layer 1 - Water, Layer 1 - 桥_物品0]`
+    - `walkableOverrideTilemaps = [Layer 1 - 桥_底座]`
+  - `Layer 1 - Water` 仍有非 trigger `TilemapCollider2D`，玩家仍是 `Rigidbody2D (Dynamic) + BoxCollider2D (non-trigger)` 的实体移动。
+  - `Layer 1 - 桥_地表` 当前是空 Tilemap；`桥_物品0` 当前没有 `TilemapCollider2D`，因此它不是当前最强真阻挡源。
+- 父层当前判断：
+  - 当前“桥还是过不去”更像是：
+    - 水层实体碰撞仍在桥下直接挡玩家
+    - 同时当前三脚本还缺少“桥上允许穿过水层实体”的 contract 表达
+  - 所以下一步若继续推进，优先级不该给 `PlayerAutoNavigator`，而该给：
+    - `TraversalBlockManager2D`
+    - `NavGrid2D`
+    - `PlayerMovement`
+    这一刀最小 contract 补口。

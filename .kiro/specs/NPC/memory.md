@@ -65,6 +65,71 @@
 - 已验证事实：`Primary.unity` 中 `001/002/003` 的 prefab GUID 现在都能反查到恢复后的 `Assets/222_Prefabs/NPC/*.prefab.meta`；prefab 内的 Sprite / Animator / roamProfile / AutoRoam / BubblePresenter 引用也都能在恢复后的资源上闭合；`Unity` Editor 日志显示本轮发生了脚本重编译与 Asset Refresh，且尾部未再出现新的 NPC missing 报错；MCP 桥本轮不可用，所以没有做 Inspector 侧二次读取。
 - 当前恢复点：下一步应把这批 NPC 运行时恢复文件与事故记忆一起最小提交到 `main`，并在治理层补一条验收口径：不能只验 `carrier` 在位，还必须验 `main` 是否已经拥有生产场景实际依赖的运行时资产。
 
+## 2026-04-03｜NPC 对话头像批量导出（外部产物）
+
+- 当前主线目标：
+  - 基于 `Assets/Sprites/NPC/*.png` 现有的 `3x4` 角色图集，为 RPG 对话框准备一批可直接消费的人物头像。
+- 本轮子任务：
+  - 不改 Sunset 内的 NPC 源图，不接 DialogueUI，只把每个角色各自导出 `10` 张透明底头像到外部目录：
+    - `D:\UUUnity\NPC`
+- 本轮实际完成：
+  - 核实当前源目录共有 `11` 张角色图：
+    - `001`
+    - `002`
+    - `003`
+    - `101`
+    - `102`
+    - `103`
+    - `104`
+    - `201`
+    - `202`
+    - `203`
+    - `301`
+  - 核实每张源图均为：
+    - `96x128`
+    - `3x4`
+    - 单帧 `32x32`
+  - 已按统一口径为每个角色导出 `10` 张头像：
+    - 正面 `3` 张
+    - 左侧 `3` 张
+    - 右侧 `3` 张
+    - 正面近景 `1` 张
+  - 统一输出到：
+    - `D:\UUUnity\NPC\<角色名>\*.png`
+  - 当前总产出为：
+    - `11` 个角色文件夹
+    - `110` 张头像 PNG
+- 当前导出规则：
+  - 不使用背面那一排做头像
+  - 头像统一为透明底
+  - 从原始帧中自动裁出“头 + 上半身”范围后，按像素风 nearest-neighbor 放大到统一尺寸
+  - 文件命名统一为：
+    - `01_front_left`
+    - `02_front_idle`
+    - `03_front_right`
+    - `04_left_step_a`
+    - `05_left_idle`
+    - `06_left_step_b`
+    - `07_right_step_a`
+    - `08_right_idle`
+    - `09_right_step_b`
+    - `10_front_closeup`
+- 验证结果：
+  - 已抽查：
+    - `001/10_front_closeup.png`
+    - `101/10_front_closeup.png`
+    的裁框与可读性
+  - 已核对每个角色文件夹均为 `10` 张 PNG
+  - 本轮没有修改：
+    - `Assets/Sprites/NPC/*.png`
+    - `Assets/Sprites/NPC/*.png.meta`
+    - 任何 Prefab / Animation / Scene / DialogueUI 资源
+- 当前恢复点：
+  - 这批头像现在已经可供外部对话框系统直接挑选和接入
+  - 如果后续继续，最合理的下一步是：
+    - 决定对话系统最终采用哪一张作为每个角色的默认头像
+    - 再决定是否需要第二轮“表情版 / 情绪版”头像，而不是重做这一轮基础导出
+
 ## 2026-03-22
 
 - 当前主线目标：在 `main-only` 新口径下，把 NPC 返工直接收口到 `main`，不再回到 `codex/npc-roam-phase2-003` 开发。

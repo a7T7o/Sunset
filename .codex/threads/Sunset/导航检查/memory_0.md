@@ -4378,3 +4378,52 @@
     - `primary-traversal-binder-now-wires-traversalblockmanager2d-but-no-fresh-play-evidence-yet`
     - `primary-live-verification-blocked-unity-editor-remains-busy-after-assets-refresh`
     - `primary-scene-remains-mixed-dirty-not-ready-for-sync`
+
+## 2026-04-03（只读审计：桥过不去已收敛到水层实体碰撞为主、桥覆盖 contract gap 为辅）
+
+- 当前主线目标：
+  - 在不改文件、不拿 `Primary.unity` 写锁的前提下，把“桥还是过不去”的当前真阻挡源查清楚，并判断下一步该把哪类工作先推进。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `sunset-workspace-router`
+    - `sunset-scene-audit`
+    - `delivery-self-review-gate`
+  - `sunset-startup-guard` 当前会话未显式暴露，已按 Sunset `AGENTS.md` 做手工等价前置核查。
+  - 本轮始终只读，未跑 `Begin-Slice`。
+- 本轮完成事项：
+  1. 只读确认 `Primary.unity` 当前只剩 1 份 `TraversalBlockManager2D` 序列化挂载，不再是早前的双 manager 竞争态。
+  2. 确认这份 manager 当前保存态是：
+     - `blockingTilemaps = [Layer 1 - Water, Layer 1 - 桥_物品0]`
+     - `walkableOverrideTilemaps = [Layer 1 - 桥_底座]`
+     - `useTilemapOccupancyFallback = 0`
+     - `useWalkableOverrideTilemapOccupancyFallback = 1`
+  3. 只读确认桥相关 scene truth：
+     - `桥_底座` 非空
+     - `桥_地表` 为空 Tilemap
+     - `Water` 仍有非 trigger `TilemapCollider2D`
+     - `桥_物品0` 当前没有 `TilemapCollider2D`，因此它虽然被填进 blocking tilemaps，但并不是当前最强真阻挡源
+  4. 只读确认脚本事实：
+     - `NavGrid2D.IsPointBlocked(...)` 先判 walkable override，再判 explicit obstacle
+     - `PlayerMovement` 仍是 `Rigidbody2D + BoxCollider2D` 的实体移动
+     - 玩家脚底仍是中心 + 左右脚三点 occupancy 硬判定
+- 关键判断：
+  1. 当前最可能的真实阻挡源，是 `Layer 1 - Water` 的实体 `TilemapCollider2D` 仍在桥下参与物理碰撞；
+  2. 这不是纯导航算法问题，而是：
+     - scene 侧桥覆盖 / 水 collider 现场
+     - 脚本侧“导航阻挡”和“实体阻挡”尚未分离
+     两者叠加。
+  3. 因此在拿不到 scene 锁时，最值得先推进的不是 `PlayerAutoNavigator`，而是 `TraversalBlockManager2D + NavGrid2D + PlayerMovement` 这一刀 contract 补口。
+- 最薄弱点 / 不确定性：
+  - 本轮没有 fresh Play / live collider 证据，所以我不能 100% 断言“先撞上的是水实体”还是“先被脚底采样判死”；
+  - 但二者里我更倾向前者，因为当前 scene 明确保留了水的非 trigger collider，而桥面当前没有任何“允许玩家穿过该实体层”的脚本表达。
+- 自评：
+  - `8/10`
+  - 强的地方是：已经把早前 stale 的“双 manager 竞争”从当前真因里剔掉，结论收敛到当前仍能被磁盘 scene 和脚本同时证实的阻挡链；
+  - 薄弱点是：缺少 live 复测，仍然属于高置信静态审计，不是最终体验验收。
+- 当前恢复点：
+  - 如果用户允许在无 scene 锁前继续推进，就新开只碰这三处的脚本 slice：
+    - `Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+    - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+  - 不要先 reopen `PlayerAutoNavigator` 或继续猜 `Primary` 拖拽。

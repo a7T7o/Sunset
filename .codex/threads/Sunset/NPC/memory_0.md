@@ -1613,3 +1613,47 @@
 - 修复后恢复点：
   - 如继续本线，要么先补更高权威的 cast 映射证据，
     要么显式授权把明显写偏槽位降级成匿名 / 次级群众口径，再做最小回正。
+
+## 2026-04-03｜补记：按用户直委托完成 NPC 对话头像外部批量导出
+
+- 当前主线目标：
+  - 不再让 `美术生` 接手，直接由当前线程基于 `Assets/Sprites/NPC/*.png` 的 `3x4` 源图批量导出对话头像。
+- 本轮子任务：
+  - 为每个 NPC 源图各自生成 `10` 张可用于 RPG 对话框的人物头像，输出到：
+    - `D:\UUUnity\NPC\<角色名>\`
+- 本轮实际完成：
+  - 核实 `Assets/Sprites/NPC/` 当前共有 `11` 张角色 PNG，且尺寸统一为 `96x128`，即单帧 `32x32`
+  - 已对每个角色导出：
+    - 正面 3 张
+    - 左侧 3 张
+    - 右侧 3 张
+    - 正面近景 1 张
+  - 已实际落盘：
+    - `11` 个角色目录
+    - `110` 张透明底头像 PNG
+  - 输出根目录：
+    - `D:\UUUnity\NPC`
+- 本轮没有做：
+  - 没改 `Assets/Sprites/NPC/*.png`
+  - 没改 `Assets/Sprites/NPC/*.png.meta`
+  - 没接 DialogueUI / 对话框配置
+  - 没进 Unity / Play Mode / MCP
+- 当前验证：
+  - 已核对每个角色文件夹都有且只有 `10` 张 PNG
+  - 已抽查：
+    - `001/10_front_closeup.png`
+    - `101/10_front_closeup.png`
+    的头像裁框
+- thread-state：
+  - 本轮前段对 Sunset tracked 资源保持只读，因此一开始未跑 `Begin-Slice`
+  - 在准备补 Sunset 侧 tracked `memory` 时，已补跑：
+    - `Begin-Slice.ps1 -ThreadName NPC -CurrentSlice npc-dialogue-portraits-batch-export-20260403`
+  - 本轮收尾时已补跑：
+    - `Park-Slice.ps1 -ThreadName NPC -Reason npc-dialogue-portraits-export-finished-no-sunset-sync`
+  - 当前状态：
+    - `PARKED`
+- 当前恢复点：
+  - 这批头像基础导出已完成，可直接给对话框系统消费
+  - 如果继续下一刀，最合理的不是重做基础导出，而是决定：
+    - 每个角色默认选哪一张
+    - 是否需要第二轮情绪 / 表情版头像

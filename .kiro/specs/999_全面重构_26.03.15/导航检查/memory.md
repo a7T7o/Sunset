@@ -380,3 +380,59 @@
 **当前恢复点**：
 - 现在可以明确对用户说：我已经拿到 MCP live 内容了，只是当前会话的 `resources` 和 `read_console` 这两条链路还不稳定。
 - 下一步若继续终验，优先继续用当前可用的 `unityMCP` scene / component 直连路径，不再退回截图驱动排查。
+
+### 会话 2 - 2026-04-03（桥仍过不去：只读审计收敛到水层实体碰撞 + 桥覆盖 contract gap）
+
+**用户需求**：
+> 在 `D:\Unity\Unity_learning\Sunset` 只读审计过桥问题，不改文件；重点检查 `Primary.unity`、`TraversalBlockManager2D.cs`、`NavGrid2D.cs`、`PlayerMovement.cs`，回答真实阻挡源、scene 还是脚本、以及在拿不到 `Primary.unity` 写锁时还能先修哪部分脚本。
+
+**当前主线目标**：
+- 把 `Primary traversal` 中“桥还是过不去”的当前真阻挡源，从 scene 配置、导航阻挡和玩家实体碰撞三层里拆清楚。
+
+**本轮子任务 / 阻塞**：
+- 子任务是只读核对当前磁盘保存态，不进入 `Primary.unity` 实写，也不改脚本。
+- 当前阻塞是：没有 `Primary.unity` 写锁，不能先用 scene 改法验证桥面 override / collider 方案。
+
+**完成任务**：
+1. 读取 `Primary.unity` 当前保存态中唯一一份 `TraversalBlockManager2D`：
+   - `blockingTilemaps = [Layer 1 - Water, Layer 1 - 桥_物品0]`
+   - `walkableOverrideTilemaps = [Layer 1 - 桥_底座]`
+   - `bindPlayerMovement = 1`
+   - `enforcePlayerNavGridBounds = 1`
+2. 读取 `NavGrid2D` 当前逻辑，确认 `IsPointBlocked(...)` 的判定顺序是：
+   - 先判 `explicit walkable override`
+   - 再判 `explicit obstacle`
+   - 最后才回落到 tags / layer / collider
+3. 读取 `PlayerMovement` 与场景中玩家真实组件，确认：
+   - 玩家仍是 `Rigidbody2D (Dynamic) + BoxCollider2D (non-trigger)` 的实体移动
+   - `navigationFootProbe` 仍是“中心 + 左右脚”三点硬判定
+4. 核对桥相关 scene truth：
+   - `Layer 1 - 桥_底座` 非空
+   - `Layer 1 - 桥_地表` 当前是空 Tilemap
+   - `Layer 1 - Water` 有非 trigger `TilemapCollider2D`
+   - `Layer 1 - 桥_物品0` 当前没有 `TilemapCollider2D`，且 manager 关闭了该 tilemap 的 occupancy fallback，因此它不是当前首要真阻挡源
+
+**关键结论**：
+1. 当前最可能的真实阻挡源，不是 `桥_物品0`，而是 `Layer 1 - Water` 的实体 `TilemapCollider2D` 仍在桥下参与真实物理碰撞；玩家仍是动态刚体实体，所以“导航允许但实体水层仍把人顶住”在当前保存态下完全可能同时成立。
+2. 这不是纯 scene 问题，也不是纯脚本问题，而是两者叠加：
+   - scene 侧：桥可走覆盖目前只落在 `桥_底座`，`桥_地表` 为空，水层实体碰撞也仍然存在；
+   - 脚本侧：当前 `TraversalBlockManager2D / NavGrid2D / PlayerMovement` 只能表达“桥面导航可走”，还不能表达“桥上允许穿过水层实体碰撞”。
+3. 在拿不到 `Primary.unity` 写锁时，仍然值得先推进的不是 `PlayerAutoNavigator`，而是 `TraversalBlockManager2D + NavGrid2D + PlayerMovement` 这三处 contract：
+   - 让 manager 把现有 blocking / walkable override 源继续绑定给玩家运行时
+   - 让 navGrid 暴露“当前脚底是否命中 walkable override”的半径查询
+   - 让 player 在命中 bridge walkable override 时，对配置来源里的水层实体碰撞做 ignore / soft-pass，而不是继续被水 collider 硬顶住
+
+**验证结果**：
+- `Primary.unity` 当前只剩 1 份 `TraversalBlockManager2D` 序列化挂载，不再是早前的双 manager 竞争态。
+- `Primary.unity` 当前 `NavGrid2D` 仍保存着显式 obstacle colliders，独立 manager 则在 `Awake` 时会再写一轮当前配置；因此 fresh 运行态和 stale 运行态都可能让“水仍挡桥”表现得像 scene 问题。
+- 本轮为静态推断成立，未做 fresh Play / live collider 复测。
+
+**遗留问题 / 下一步**：
+- [ ] 若用户允许在无 scene 锁前继续推进，优先新开一刀脚本 slice，只碰：
+  - `Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+  - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+- [ ] 若用户后续拿到 `Primary.unity` 写锁，再做 scene 侧复核：
+  - 桥面 override 实际覆盖范围
+  - 水层 collider 在桥下是否应保留
+  - current bridge source 是否仍只该用 `桥_底座`

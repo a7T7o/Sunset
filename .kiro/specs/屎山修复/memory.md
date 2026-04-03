@@ -4154,3 +4154,108 @@
 - 当前恢复点：
   - 后续优先回到“用户自己的 manager 配置 + 当前脚本 contract 是否足够”这条线；
   - 不再回头把 `PrimaryTraversalSceneBinder` 当作临时补丁器恢复。
+
+## 2026-04-03（屎山修复父层补记：放置成功卡顿已定性为精确 contract 问题，不升级导航父线程）
+
+- 当前新增事实：
+  1. 只读复核 `NavGrid2D / ChestController / TreeController` 后，当前“placeable 成功那一下卡顿”的最硬链路已压实为：
+     - `ChestController.Start()`
+     - `RequestNavGridRefreshDelayed()`
+     - `NavGrid2D.OnRequestGridRefresh`
+     - `RefreshGrid()`
+     - `RebuildGrid()`
+  2. `NavGrid2D` 当前没有区域刷新入口，运行时刷新 contract 仍是整图重建；
+  3. `TreeController` 这轮已不是主嫌疑，因为树苗 `Stage 0` 已通过当前展示/碰撞同步条件规避掉旧的误刷路径。
+- 当前阶段判断：
+  - 这件事与导航有关，但不是“导航父线程回来接大包”的级别；
+  - 更准确地说，它是：
+    - **当前三脚本精确响应位应接的 contract 粒度问题**
+    - 不是 `Primary traversal` 父线程主线问题。
+- 当前恢复点：
+  - 后续若要真修，优先以 `NavGrid2D contract + ChestController caller` 的最小 reopen 处理；
+  - 不把这件事再泛化成导航父线程整包返工。
+
+## 2026-04-03（屎山修复父层补记：放置卡顿已在三脚本线内直接落地局部刷新，不再等待导航父线程）
+
+- 当前新增事实：
+  1. 导航检查线没有再发导航父线程 prompt，而是直接在 own 路径里完成了最小代码修复：
+     - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+     - `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+     - `Assets/YYY_Scripts/Controller/TreeController.cs`
+  2. 当前修法不是“异步糊一下”或“删掉刷新”：
+     - 而是给 `NavGrid2D` 补了 bounds 级局部刷新 contract；
+     - 再把箱子/树的运行时 obstacle 变化切到这个局部入口。
+  3. 现在 placeable 成功后的卡顿责任边界更明确：
+     - 不是导航父线程整包问题；
+     - 也不是 scene/binder 问题；
+     - 是已被当前三脚本线精确收掉的一刀运行时 contract 修复。
+- 当前阶段判断：
+  - 这部分已经从“只读判责”进入“脚本侧已落地，待 Unity live 复测”的阶段；
+  - 还不能把它写成最终体验完成，因为没有 live 体感证据。
+- 当前恢复点：
+  - 后续优先做用户 Unity 复测；
+  - 如果 residual 卡顿仍在，再继续查是否还有别的 placeable caller 或 grid bounds 规模问题，而不是把父线程再次整包唤醒。
+
+## 2026-04-03（屎山修复父层补记：残余放置卡顿又压实到放置验证热路径，不再只归因导航）
+
+- 当前新增事实：
+  1. 用户复测后明确表示“放置还是卡”；
+  2. 导航检查线继续实查后发现，放置成功后 `PlacementManager` 会立刻恢复预览并重跑 `PlacementValidator`；
+  3. 而 `PlacementValidator` 之前在运行时会用 `FindObjectsByType<TreeController/ChestController>` 扫全场，这本身就是新的热路径嫌疑。
+  4. 当前这层也已经被直接改掉：
+     - `ChestController / TreeController` 维护活动实例表；
+     - `PlacementValidator` 改读活动实例表，不再每次放置验证全场扫描。
+- 当前阶段判断：
+  - 放置卡顿现在已经不是“只剩导航这一刀”；
+  - 更准确地说，当前线程已经连续收掉两段热路径：
+    - `NavGrid2D` 整图刷新
+    - `PlacementValidator` 全场扫描
+  - 但最终体验是否过线，仍要看用户 live 复测。
+- 当前恢复点：
+  - 先让用户再测一次体感；
+  - 如果仍卡，再继续查 `PlacementManager` 即时预览恢复或放置特效/实例化链，而不是把问题回退成“导航父线程没处理”。
+
+## 2026-04-03（屎山修复父层补记：桥面不可通行与树苗残余卡顿已继续在脚本侧补强）
+
+- 当前新增事实：
+  1. 只读审计 `Primary.unity` 后，桥面当前不是“配置完全没接”，而是：
+     - 水是阻挡源；
+     - `桥_底座` 已被挂进 walkable override；
+     - 但旧的 override 判定太窄，靠桥边时仍会被水边 collider 误吞。
+  2. 当前已直接在 `NavGrid2D.cs` 把 walkable override / obstacle tilemap 的命中从点采样改成面积查 tile，先用脚本侧把窄桥误判兜住。
+  3. 树苗残余卡顿继续被拆出第二段重复热路径：
+     - `PlacementManager` 在树苗落地时多做了一次 `SetStage(0)`；
+     - `TreeController` 在 `SeasonManager` 已存在时还会多跑一次延迟初始化显示。
+  4. 当前也已直接在脚本侧收掉：
+     - `InitializeAsNewTree()` 只保留唯一 ID 与树苗基态归一；
+     - 树苗放置链不再紧接着补一轮 `SetStage(0)`；
+     - `TreeController.Start()` 仅在 `SeasonManager` 缺席时才延迟补初始化。
+  5. `002批量-Hierarchy` 工具窗口失焦即关的根因，也已明确落到打开方式：
+     - 现在文件里已经改回普通 `GetWindow<T>() + Show() + Focus()` 常驻窗口路径。
+- 当前阶段判断：
+  - 这轮新增的是脚本侧补强，不是 scene 最终收口；
+  - 真实体验仍待用户 live 复测，不能写成最终完成。
+- 当前恢复点：
+  - 先让用户复测 3 件事：
+    - 树苗是否还明显卡顿
+    - 桥面是否能正常通过
+    - `002批量-Hierarchy` 是否还能失焦即关
+  - 如果桥仍然不过，再进入 scene 五段式审计，不直接扩成导航父线程整包返工。
+
+## 2026-04-03（屎山修复父层补记：桥面 contract 已继续补到玩家实体 soft-pass）
+
+- 当前新增事实：
+  1. 只读 scene 审计继续压实后，桥现在最像是“两层问题叠加”：
+     - 导航层需要 bridge override 更稳地命中；
+     - 实体层还需要让玩家在桥 override 命中时，不再被 `Water` 的实体 collider 硬顶住。
+  2. 当前这层也已经直接在脚本侧收掉：
+     - `NavGrid2D` 新增公开 `HasWalkableOverrideAt(...)`
+     - `PlayerMovement` 新增桥面命中时的 traversal soft-pass
+     - `TraversalBlockManager2D` 把当前 traversal blocking colliders 一并绑定给玩家运行时
+  3. 因此桥这条现在不再只是“理论上 A* 可走”，而是脚本 contract 上已经补到“玩家实体也应该能过桥”。
+- 当前阶段判断：
+  - 这仍然是脚本侧成立，不是 scene 最终完成；
+  - 用户 live 复测仍然是最后一层真值。
+- 当前恢复点：
+  - 让用户先直接进 Unity 过桥；
+  - 如果还被挡，再做 scene 五段式审计，不回退成“导航父线程整包缺席”的泛问题。

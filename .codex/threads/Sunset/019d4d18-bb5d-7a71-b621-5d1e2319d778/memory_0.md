@@ -912,3 +912,248 @@
 - 当前恢复点：
   - 现在回到用户自己的 `TraversalBlockManager2D` 配置现场继续测；
   - 若桥仍过不去，再按“placeable 轻量刷新 contract / 水逻辑阻挡与实体阻挡分离 contract”继续精确 reopen。
+
+## 2026-04-03｜只读复判：放置成功卡顿不需要导航父线程，应该收成当前三脚本线的最小 contract 修复
+
+- 当前主线目标：
+  - 只读判定“放置成功那一下明显卡顿”到底应不应该上抛导航父线程。
+- 本轮子任务：
+  - 重点复核：
+    - `NavGrid2D.cs`
+    - `ChestController.cs`
+    - `TreeController.cs`
+  - 输出：
+    - 根因是否为 `NavGrid2D` 当前 only-full-rebuild contract
+    - 最小安全修复边界
+    - 是否需要导航父线程介入
+- 这轮实际查实：
+  1. `NavGrid2D` 当前 runtime refresh 仍只有：
+     - `OnRequestGridRefresh -> RefreshGrid() -> RebuildGrid()`
+     - 且 `RebuildGrid()` 会整图重算 `walkable[,]`，不是局部 patch。
+  2. `ChestController` 的最硬触发点是 `Start()` 无条件下一帧刷新：
+     - 这会把“放置成功后出生的箱子”直接变成一次整图重建；
+     - `SetOpen()` 与推动完成后也仍走同一重型入口。
+  3. `TreeController` 现在只在碰撞语义真变化时才请求刷新；
+     - 树苗 `Stage 0` 这类旧误刷路径已经基本被当前条件收窄掉；
+     - 它不是这一轮“放置成功一下顿”的主嫌疑。
+- 关键判断：
+  1. 是，当前卡顿根因可以成立地归到：
+     - **业务侧把 placeable 成功后的运行时变化打进了 `NavGrid2D` 现有 only-full-rebuild contract。**
+  2. 但这不等于要把导航父线程整包叫回来；
+     - 正确归属仍是当前三脚本精确响应位；
+     - 这条线自己就能处理最小 contract gap。
+  3. 如果只是业务线程本地删掉 `ChestController` 的刷新，风险是：
+     - 放置后导航缓存陈旧；
+     - 路径仍可能短时间把新箱子当成可穿区域。
+- 当前恢复点：
+  - 若后续 reopen，最小安全修复应只收：
+    - `NavGrid2D.cs`
+    - `ChestController.cs`
+    - `TreeController.cs` 可选同步为统一接线，不是必改
+  - 目标是补一个 placeable runtime 局部刷新 contract，而不是重做导航父线程主线。
+
+## 2026-04-03｜实修收口：放置卡顿已改为 `NavGrid2D` 局部刷新，不再把箱子/树的运行时变化打成整图重建
+
+- 当前主线目标：
+  - 继续修 `Primary` traversal / blocking 相关现场里的放置卡顿问题；
+  - 这轮只收“放置成功一下顿”的最小脚本 contract，不扩回 scene、binder 或导航父线程大包。
+- 本轮子任务：
+  - 直接在当前线程 own 路径里落地：
+    - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+    - `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+    - `Assets/YYY_Scripts/Controller/TreeController.cs`
+- 这轮实际做成了什么：
+  1. `NavGrid2D` 新增局部刷新入口：
+     - `TryRequestLocalRefresh(Bounds ...)`
+     - `RefreshGrid(Bounds ...)`
+     - 不再只能 `OnRequestGridRefresh -> RefreshGrid() -> RebuildGrid()` 整图重算；
+     - 新增按 world bounds 只重算局部 `walkable[,]` 的逻辑。
+  2. `NavGrid2D` 把单格阻挡判定抽成 `EvaluateBlockedStateForCell()`：
+     - 全图 `RebuildGrid()` 和局部 `RefreshGridRegion()` 现在复用同一套阻挡判定；
+     - 避免局部刷新和整图刷新出现两套语义漂移。
+  3. `ChestController` 改成局部刷新调用：
+     - 放置出生后一帧刷新不再默认整图重建；
+     - 开关状态变化、推动完成、销毁前清障，也都改为基于“当前 bounds + 上一次 obstacle bounds”的局部刷新；
+     - 如果局部刷新不可用，才回退旧的全量刷新入口。
+  4. `TreeController` 的共享延迟刷新也改为聚合 bounds：
+     - 不再只是延迟后打一发整图刷新；
+     - 现在会把多棵树/多次形状变化的 obstacle bounds 合并后，走一次局部刷新；
+     - runner 在销毁时也会 flush 已聚合的 pending bounds，避免丢掉最后一次刷新。
+- 关键判断：
+  1. 这轮不需要导航父线程，也不需要再给导航系统发 prompt；
+  2. 根因确实落在当前三脚本自己的 contract 粒度上，所以本线程直接修是正确路径；
+  3. 这轮不是“彻底证明体验已过线”，而是“脚本侧最小 contract 已落地，等待 Unity live 复测”。
+- 验证结果：
+  - `git diff --check` 已过；
+  - 本机未发现可直接调用的 `Unity` / `Unity.exe` CLI 入口，因此未做 Unity compile / Play live 验证；
+  - 当前只能 claim：静态推断成立，Unity live 仍待用户复测。
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 下一步优先让用户在 Unity 里复测“放下箱子/树时是否还会明显卡一下”；
+  - 如果卡顿仍在，再继续沿 placeable caller 链或 grid bounds 规模做 live 定点，而不是回头泛化成导航父线程问题。
+
+## 2026-04-03｜追加实修：放置验证不再每次全场扫树/箱子，改成直接读活动实例表
+
+- 当前主线目标：
+  - 继续收口“放置成功仍然卡顿”的残余顿点；
+  - 这轮定位的是放置后立刻恢复预览时的 `PlacementValidator` 路径，不是导航刷新。
+- 本轮子任务：
+  - 只改：
+    - `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+    - `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+    - `Assets/YYY_Scripts/Controller/TreeController.cs`
+- 这轮实际做成了什么：
+  1. 查实 `PlacementManager.ResumePreviewAfterSuccessfulPlacement()` 会立刻重新跑 `RefreshPlacementValidationAt(...)`；
+  2. 查实 `PlacementValidator` 在运行时会通过：
+     - `FindObjectsByType<TreeController>()`
+     - `FindObjectsByType<ChestController>()`
+     每次验证重新扫场景；
+  3. 已让 `ChestController / TreeController` 维护自己的活动实例表：
+     - `OnEnable` 注册
+     - `OnDisable / OnDestroy` 注销
+  4. `PlacementValidator` 现在在 Play Mode 下直接读这些活动实例表，不再为了放置验证反复全场扫描；
+  5. 同时把箱子校验中的重复 `GetComponentInChildren<Collider2D>()` 也改成直接走 `ChestController.GetColliderBounds()`，再削掉一层热路径组件查找。
+- 关键判断：
+  1. 用户上一轮“还是卡”说明卡顿不止导航这一条；
+  2. 当前第二个高嫌疑链路已经被压实为“放置后立即预览校验时的全场对象扫描”；
+  3. 这轮修的是放置系统热路径缓存，不是 scene 或 traversal 配置问题。
+- 验证结果：
+  - `git diff --check` 已过（仅有 Git 行尾提示，不是 C# 红错）；
+  - 仍未做 Unity live 复测；
+  - 当前只能 claim：静态推断成立，用户 live 仍待验证。
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 让用户优先复测“放置箱子/树时的那一下卡顿是否明显减轻/消失”；
+  - 若仍卡，再继续追 `PlacementManager` 自身的即时预览恢复与特效/实例化链，不再回头把问题全甩给导航。
+
+## 2026-04-03｜实修：`002批量-Hierarchy` 窗口改回普通 `EditorWindow` 常驻打开
+
+- 当前主线目标：
+  - 处理用户直接报出的 `002批量-Hierarchy` 工具窗口“点别处就自动关闭”问题；
+  - 这轮是窄边界编辑器阻塞修复，只服务于用户继续使用该工具，不扩到 scene、navigation 或其他工具。
+- 本轮子任务：
+  - 只改 `Assets/Editor/Tool_002_BatchHierarchy.cs`
+  - 在同文件已有未提交改动基础上兼容修窗口生命周期/打开方式，不回退原有排序与调试逻辑补丁。
+- 这轮实际做成了什么：
+  1. 保留文件内已有 `WindowTitle`、`OnEnable()` 标题恢复和排序逻辑改动。
+  2. 把 `ShowWindow()` 从 `CreateInstance + ShowAuxWindow()` 改回普通 `GetWindow<Tool_002_BatchHierarchy>(false, WindowTitle, true) + Show() + Focus()` 打开路径。
+  3. 删掉不再需要的 `FindOpenWindow()` 辅助窗口检索逻辑，避免继续走 `AuxWindow` 生命周期。
+- 关键判断：
+  1. 自动关闭的直接根因就是当前菜单打开逻辑把这把工具开成了 `AuxWindow`；
+  2. `AuxWindow` 不是普通可常驻的 `EditorWindow`，失焦后会被 Unity 当成辅助浮窗处理；
+  3. 用户要的是“像普通 EditorWindow 一样可常驻”，所以最小正确修法就是回到普通 `GetWindow` 打开方式。
+- 验证结果：
+  - `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs` 已过；
+  - 未做 Unity live 编译或点击复测；
+  - 当前只能 claim：静态推断成立，用户终验仍待验证。
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 让用户在 Unity 里重新从 `Tools/002批量 (Hierarchy窗口)` 打开一次；
+  - 预期点击 `Hierarchy / Inspector / Scene` 后窗口不再自动关闭；
+  - 若仍异常，再继续查 Unity 布局缓存或版本级窗口行为差异，但不先扩到别的工具。
+
+## 2026-04-03｜追加实修：树苗残余卡顿与桥面不可通行继续在脚本侧补强，当前等待用户复测
+
+- 当前主线目标：
+  - 同时收口 3 件事：
+    1. 树苗放置残余卡顿
+    2. 桥面仍然过不去
+    3. `002批量-Hierarchy` 失焦即关
+- 本轮子任务：
+  - 继续只改脚本与工具，不碰 `Primary.unity` 实写；
+  - 目标文件：
+    - `Assets/YYY_Scripts/Controller/TreeController.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+    - `Assets/Editor/Tool_002_BatchHierarchy.cs`
+- 这轮实际做成了什么：
+  1. 只读审计 `Primary.unity`，查实当前桥面现场是：
+     - 水是阻挡源
+     - `桥_底座` 已接到 walkable override
+     - 真正的问题更像 override 命中太窄，不是桥物件自己在挡路
+  2. `NavGrid2D.cs`
+     - 把 walkable override / obstacle tilemap 的命中逻辑从点位采样改成“按半径覆盖区域查 tile”；
+     - 目的是避免玩家脚底靠近桥边时，override 漏判后被水 collider 提前拦掉。
+  3. `TreeController.cs`
+     - `InitializeAsNewTree()` 现在只做唯一 ID + 树苗基态归一；
+     - `Start()` 只有在 `SeasonManager` 尚未就绪时才补延迟初始化，避免场景里已经有 `SeasonManager` 时重复刷一轮显示/碰撞。
+  4. `PlacementManager.cs`
+     - 树苗放置链不再在 `InitializeAsNewTree()` 之后紧接着补一个多余的 `SetStage(0)`；
+     - 旧 `HandleSaplingPlacement()` 分支也改成同口径。
+  5. `Tool_002_BatchHierarchy.cs`
+     - 当前文件已是普通 `GetWindow<T>() + Show() + Focus()` 的常驻打开方式，工具窗口这条修法仍保留。
+- 关键判断：
+  1. 桥不过去的核心更像“override 判定太窄导致被水边误杀”，不是 scene 还完全没接；
+  2. 树苗残余卡顿当前最可疑的是“放置首帧重复初始化/重复刷表现”，而不是又回到了导航父线程大包；
+  3. 这轮仍然只站住脚本侧结构与 targeted probe，不能把它说成真实体验过线。
+- 验证结果：
+  - `git diff --check` 已过；
+  - 本机没有可直接调用的 Unity 方案级编译入口；
+  - 当前只能 claim：静态推断成立，Unity live 仍待用户复测。
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 请用户优先在 Unity 里复测：
+    - 连续放树苗时是否还会明显卡一下
+    - 过桥时是否还会被水边拦住
+    - `002批量-Hierarchy` 点击别处后是否仍常驻
+  - 如果桥仍不过，再继续做 scene 五段式审计；
+  - 如果树苗仍卡，再继续查 `TreeController` 运行时注册链或实例化/特效链，而不是重新泛化成导航父线程问题。
+
+## 2026-04-03｜追加实修：桥面 soft-pass contract 已补到 `TraversalBlockManager2D -> NavGrid2D -> PlayerMovement`
+
+- 当前主线目标：
+  - 把桥面问题从“导航层看起来可走”继续补到“玩家实体真的能过桥”；
+  - 不动 `Primary.unity`，继续只改脚本。
+- 本轮子任务：
+  - 只改：
+    - `Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+    - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+- 这轮实际做成了什么：
+  1. 只读 scene 审计补充压实：
+     - 当前主阻挡更像 `Water` 的实体 `TilemapCollider2D`
+     - 而不是桥 scene 根本没接，或双 manager 继续竞争
+  2. `NavGrid2D.cs`
+     - 新增公开 `HasWalkableOverrideAt(...)`，支持运行时判断脚底 probe 是否命中桥 override。
+  3. `PlayerMovement.cs`
+     - 新增 traversal soft-pass；
+     - 当脚底 probe 命中 walkable override 时，才临时对绑定进来的 traversal blocking colliders 执行 `Physics2D.IgnoreCollision(...)`；
+     - 离桥后自动恢复碰撞。
+  4. `TraversalBlockManager2D.cs`
+     - 绑定 `NavGrid2D` 给玩家时，也同步把当前解析出的 traversal blocking colliders 交给 `PlayerMovement`；
+     - 这样 bridge override 不只影响寻路，也影响玩家实体过桥。
+- 关键判断：
+  1. 桥这条之前没闭环，不是因为 scene 完全没配，而是“override 只影响导航，不影响玩家实体物理”；
+  2. 现在这条合同已经在脚本侧补上，但仍待 live 证据确认。
+- 验证结果：
+  - `git diff --check` 已过；
+  - 未做 fresh Play；
+  - 当前只能 claim：静态推断成立。
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 让用户优先做 3 个复测：
+    - 连续放树苗
+    - 直接过桥
+    - 打开 `002批量-Hierarchy` 后点击别处
+  - 若桥仍不过，再继续 scene 五段式审计；
+  - 若树苗仍卡，再继续查树实例化/注册链。
