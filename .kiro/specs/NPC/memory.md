@@ -1162,3 +1162,207 @@
 - 当前恢复点：
   - “春一日新 NPC 群像”这件事现在已经不是未提交现场。
   - 后续只需要围绕剩余运行态问题继续，不必再替这轮 integration 做 same-root hygiene 尾账。
+
+## 2026-04-03｜NPC 总线补记：`NPC-v` 的 preflight 已升级成工具护栏，`002 StuckCancel` 当前更像 scene 旧账
+
+- 当前主线目标：
+  - 在“春一日新 NPC 群像”这条总线上，继续把 `NPC-v` own 和 legacy scene blocker 分干净，不再把所有 NPC 异常揉成一团。
+- 本轮新增稳定事实：
+  - `NPC-v` 这轮继续只认了：
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+  - 当前新群像验证菜单已经扩成全链 preflight：
+    - sprite
+    - anim controller
+    - clip 数量
+    - prefab 组件挂载
+    - prefab 引用一致性
+    - `pairDialogueSets` 的 partner 合法性 / reciprocal 闭合
+  - 通过当前 Unity 再跑：
+    - `Tools/NPC/Spring Day1/Validate New Cast`
+    已再次拿到：
+    - `PASS`
+    - `npcCount=8`
+    - `totalPairLinks=16`
+- 本轮只读边界结论：
+  - 用户刚贴的 `002 roam interrupted => StuckCancel`，当前更像 `Primary.unity` 里旧 `001 / 002 / 003` 和各自 `HomeAnchor` 分离导致的 scene 旧账。
+  - 只读核对结果：
+    - `001`
+      - 轻度偏离
+    - `002`
+      - 大幅偏离
+    - `003`
+      - 大幅偏离
+  - 所以这组 warning 目前不应直接回灌成“`NPC-v` 的新 8 人本体层又写坏了”。
+- 当前恢复点：
+  - `NPC-v` 下次若继续，应优先做“新 8 人 runtime targeted probe”；
+  - 旧 `001 / 002 / 003` 的 `HomeAnchor` 漂移，应交回 `Primary / scene / Day1` 侧单独善后。
+
+## 2026-04-03｜NPC 总线最新收束：新群像当前以“运行态闭环”作为唯一剩余主线
+
+- 当前主线目标：
+  - 基于用户重新盘问“现在到底差多远、下一步到底是什么”，把 NPC 总线从旧 `002 / 003` 闲聊体验线和新 8 人群像线里彻底分清。
+- 本轮结论：
+  - 旧 `002 / 003` 非正式聊天验收包、自省单、UI 接管委托，当前都退为历史背景材料。
+  - NPC 总线当前对用户最重要的新主线只有一个：
+    - 春一日新 8 人群像要在 Day1 里真正活起来。
+  - 这条线现在的剩余项不是“继续想设定”，而是两段运行态闭环：
+    1. `NPC-v`
+       - 新 8 人本体 runtime probe
+       - own dirty / memory 归仓
+    2. `spring-day1V2`
+       - Day1 phase 消费矩阵
+       - integration 归因
+- 当前恢复点：
+  - 后续若继续看 NPC 总线进度，优先看：
+    - 新 8 人是否真能在 runtime 里实例化、聊天、成对说话、跑开收尾
+    - Day1 是否真的在 `CrashAndMeet -> DayEnd` 的各阶段消费了这批人
+  - 不再把“结构和 preflight 已成立”误表述成“群像已经扩完”。
+
+## 2026-04-03｜总线补记：Day1 probe 现场先被 `NPC-v` compile red 挡住，但 own 快照缺口已补
+
+- 当前主线目标：
+  - 继续推进“新 8 人在 Day1 里是否真的被消费”的运行态闭环。
+- 本轮新增事实：
+  - `spring-day1V2` 先在 own 范围补了最小 crowd probe 字段：
+    - active 列表
+    - anchor 命中名
+    - fallback 标记
+    - 当前位置
+  - 这说明 Day1 integration 这侧已经把“现有快照信息不够”的 own 缺口先补上了。
+- 当前 blocker：
+  - 真正挡住这轮 runtime 的不是 `spring-day1V2` 自己，而是 `NPC-v` 当前 own 文件：
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+    仍在 compile red
+  - 所以现在总线最准确的阻塞关系是：
+    - `NPC-v own compile red`
+    -> 挡住 Unity 退出 compiling
+    -> 挡住 Day1 runtime consumption probe
+- 当前恢复点：
+  - 等 `NPC-v` compile red 清掉后，下一步应直接回到：
+    - `CrashAndMeet -> DayEnd` 的 crowd 消费矩阵
+  - 不需要再为 Day1 侧额外扩新工具。
+
+## 2026-04-03｜NPC 总线现状重排：用户现在可验“单体成立”，未完项收敛为 pair + Day1 消费
+
+- 当前主线目标：
+  - 收到 `NPC-v` 最新 runtime probe 回执后，把 NPC 总线进度重新压成用户能直接判断的状态图。
+- 本轮结论：
+  - 新 8 人当前已经可以明确分成三层：
+    1. 单体本体层：
+       - 已基本站住
+    2. pair 群像层：
+       - 仍有局部失败
+    3. Day1 剧情消费层：
+       - 仍未拿 runtime 矩阵
+  - 现在用户已经能验收到的内容包括：
+    - 新 8 人是否会实例化
+    - 新 8 人是否能单体闲聊
+    - 新 8 人在跑开时是否能正常收尾
+  - 现在仍不能宣称完成的内容包括：
+    - 代表性 pair dialogue 是否真正亮起来
+    - `CrashAndMeet -> DayEnd` 是否按阶段消费了他们
+- 当前恢复点：
+  - NPC 总线当前最准确的一句话结论是：
+    - “人已经大体活了，但群像还没完全说起来，Day1 也还没把他们逐阶段验完。”
+
+## 2026-04-03｜总线补记：`NPC-v` runtime targeted probe 已拿到硬结果，pair 问题压缩到 ambient bubble 发射链
+
+- 当前主线目标：
+  - 把“春一日新 8 人群像”从结构完成推进到运行态结论完成。
+- 本轮真实完成：
+  - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+    - 修掉 own compile red
+    - 扩成可重复执行的 runtime targeted probe
+    - 增补 pair timeout 诊断，能直接回报决策、解析到的台词、bubble 状态与 conversation owner
+  - Unity 里再次稳定通过：
+    - `Tools/NPC/Spring Day1/Validate New Cast`
+    - `PASS | npcCount=8 | totalPairLinks=16`
+  - 已真实跑完新 8 人 runtime targeted probe，稳定结果为：
+    - `8/8 instance`
+    - `8/8 informal chat`
+    - `0/2 pair dialogue`
+    - `2/2 walk-away interrupt`
+- 当前最关键结论：
+  - 两组 pair：
+    - `101 <-> 103`
+    - `201 <-> 202`
+    都已经进入：
+    - `initiatorDecision = chatting with ...`
+    - `responderDecision = joined chat with ...`
+  - 且 pair 台词在运行时已能解析出来：
+    - `count = 2`
+    - 首句也能读到
+  - 但同一时刻：
+    - `NPCBubblePresenter.visible = false`
+    - `suppressed = false`
+    - `channel = Ambient`
+    - `conversationOwner = none`
+  - 所以当前 pair 问题已经压成：
+    - `ambient pair decision 已成立`
+    - 但 `ambient bubble` 没真正播出来
+  - 这不再像 Day1 integration 问题，也不再像玩家提示压制或旧 `Primary` scene 干扰。
+- 现场额外事实：
+  - 本轮 Unity 多次弹出：
+    - `打开场景已在外部被修改。`
+  - 这个模态框会直接冻结 `CodexEditorCommandBridge`。
+  - 为避免把外部 scene 改动吞进当前会话，本轮统一点：
+    - `忽略`
+    只恢复 probe 通道，不改 scene 主刀边界。
+- 当前恢复点：
+  - `NPC-v` 如果继续下一刀，不该再回旧 `002 / 003`，也不该再扩 prefab / asset 结构；
+  - 应直接盯：
+    - `NPCAutoRoamController` 的 ambient pair bubble 发射链
+    - 为什么台词已解析、决策已成立，但 `NPCBubblePresenter` 没亮起来。
+  - 当前收口还差：
+    - `Ready-To-Sync`
+    - own dirty / memory 是否能真实归仓
+
+## 2026-04-03｜总线补记：`Ready-To-Sync` 未过，当前不是 probe blocker，而是 NPC 历史 own roots 尾账 blocker
+
+- 本轮新增事实：
+  - `Ready-To-Sync.ps1 -ThreadName NPC`
+    已真实执行。
+  - 返回结果：
+    - `status = BLOCKED`
+  - 第一真实 blocker 不是新 8 人 runtime probe 本身，而是：
+    - `NPC` 线程 own roots 下仍有历史残包未收净
+- 当前最关键 blocker：
+  - 至少已报实包含：
+    - `M Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+    - 未归仓的 `0.0.2` prompt 文档
+    - `Assets/Editor/NPC/CodexEditorCommandBridge.cs(.meta)`
+  - 因此当前不能只带：
+    - `SpringDay1NpcCrowdValidationMenu.cs`
+    - 本轮 memory
+    直接 sync
+- 当前恢复点：
+  - 总线层面现在要明确区分两类未闭项：
+    1. 运行态未闭：
+       - pair ambient bubble 发射链
+    2. 收口未闭：
+       - NPC 历史 own roots 尾账清理 / scope 收口
+
+## 2026-04-03｜补记：春一日新群像线先回到原剧本人物核实，不再默认接受现编 8 人设
+
+- 当前主线目标：
+  - 继续推进“春一日新 NPC 群像”时，先把角色真相来源与当前实现现场分开，避免把现编 8 人设误写成原案。
+- 本轮查实：
+  - 用户原始 Day1 剧情与 `0.0.1剧情初稿` 已经明确存在：
+    - `马库斯`
+    - `艾拉`
+    - `卡尔 / 研究儿子`
+    - `老杰克`
+    - `老乔治 / 老铁匠`
+    - `老汤姆`
+    - `小米`
+    - `围观村民 / 饭馆村民 / 小孩`
+  - 当前工程中也已存在老 Day1 主角色底座：
+    - `NPC_001_VillageChief*`
+    - `NPC_002_VillageDaughter*`
+    - `NPC_003_Research*`
+  - 因此当前 crowd 新 8 人：
+    - `莱札 / 炎栎 / 阿澈 / 沈斧 / 白槿 / 桃羽 / 麦禾 / 朽钟`
+    不能继续默认 claim 为原 Day1 正式人物
+- 当前恢复点：
+  - `NPC-v` 下一轮先做“原案角色 -> 当前 `101~301` 槽位”映射与最小本体回正
+  - `spring-day1V2` 下一轮先做 Day1 角色消费矩阵与老角色 / 新 crowd 的整合分层

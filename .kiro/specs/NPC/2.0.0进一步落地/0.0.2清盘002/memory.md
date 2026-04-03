@@ -1383,6 +1383,70 @@
     - 按白名单 sync
     - 然后把线程状态收回到非活跃态
 
+## 2026-04-03｜NPC-v 本体层补强：验证菜单已扩到 sprite/anim/prefab/data/pair 全链，`002 StuckCancel` 更像 scene 旧锚点问题
+
+- 当前主线目标：
+  - 继续只做“春一日新 NPC 群像”的 `NPC-v` 本体层，不回漂到 Day1 integration、`Primary.unity` 大改或 shared UI。
+- 本轮实际做成了什么：
+  - 已继续修改：
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPC\SpringDay1NpcCrowdValidationMenu.cs`
+  - 当前验证菜单不再只查 `dialogue / roam / prefab / manifest` 是否存在，而是把以下护栏收进同一条 preflight：
+    - `Assets/Sprites/NPC/{id}.png` 是否存在
+    - `Assets/100_Anim/NPC/{id}/Controller/*` 是否存在且唯一
+    - `Assets/100_Anim/NPC/{id}/Clips/*` 是否正好 6 条
+    - prefab 是否挂了：
+      - `SpriteRenderer`
+      - `Animator`
+      - `NPCAnimController`
+      - `NPCMotionController`
+      - `NPCAutoRoamController`
+      - `NPCInformalChatInteractable`
+      - `NPCBubblePresenter`
+    - prefab 引用的 sprite / controller 是否和该 NPC 自己的产物一致
+    - `pairDialogueSets` 不只非空，还会检查：
+      - `partnerNpcId` 合法
+      - 无重复 / 无自指
+      - `initiatorLines / responderLines` 非空
+      - 配对是否有反向 reciprocal link
+  - 已通过当前 Unity 实例再次执行：
+    - `Tools/NPC/Spring Day1/Validate New Cast`
+  - 当前硬证据：
+    - `Library/CodexEditorCommands/status.json`
+      - `success = true`
+      - `lastCommand = menu:Tools/NPC/Spring Day1/Validate New Cast`
+    - `Editor.log`
+      - `[SpringDay1NpcCrowdValidation] PASS | npcCount=8 | totalPairLinks=16 | roots=Assets/111_Data/NPC/SpringDay1Crowd / Assets/222_Prefabs/NPC / Assets/Resources/Story/SpringDay1/SpringDay1NpcCrowdManifest.asset`
+- 本轮只读追加判断：
+  - 用户刚贴的 `002 roam interrupted => StuckCancel` 没有被我偷接成当前 `NPC-v` own 施工。
+  - 只读核对 `Assets/000_Scenes/Primary.unity` 后，旧 `001 / 002 / 003` 与各自 `HomeAnchor` 的 scene 现场为：
+    - `001`
+      - npc = `(-7.206, 5.094)`
+      - anchor = `(-6.190, 6.290)`
+      - delta = `(1.016, 1.196)`
+    - `002`
+      - npc = `(0.890, 7.594)`
+      - anchor = `(-8.730, 6.150)`
+      - delta = `(-9.620, -1.444)`
+    - `003`
+      - npc = `(3.816, 7.593)`
+      - anchor = `(-6.350, 3.830)`
+      - delta = `(-10.166, -3.763)`
+  - 且 scene 里当前仍明确绑着：
+    - `001 -> homeAnchor {fileID: 910010002}`
+    - `002 -> homeAnchor {fileID: 920020002}`
+    - `003 -> homeAnchor {fileID: 930030002}`
+- 当前关键判断：
+  - `002 StuckCancel` 现在更像 legacy scene 里“本体位置和 homeAnchor 分离”的旧账，不像我这轮 `NPC-v` 的 crowd pair/data 补口又把 roam 逻辑写坏了。
+  - 而且这不只 `002` 单点成立：
+    - `003` 同类漂移更严重
+    - `001` 也有轻度偏离
+- 当前恢复点：
+  - `NPC-v` 这轮 own 层当前已更接近“产物链和 preflight 都成立”的状态。
+  - 如果下一刀继续由我在 `NPC-v` 内施工，优先级应是：
+    - 新 8 人 runtime 的 roam/chat/facing targeted probe
+    - 而不是去吞旧 `001 / 002 / 003` 的 scene 位置善后
+  - `002 / 003` 的 `HomeAnchor` 漂移应作为 `Primary / scene / Day1` 侧 blocker 单独交接，不再混进本轮 own 完成定义。
+
 ## 2026-04-03｜收盘补记：Day1 integration slice 已提交并回到 `PARKED`
 
 - 本轮白名单 sync 已完成：
@@ -1395,3 +1459,245 @@
 - 当前恢复点：
   - 这条 slice 的代码、记忆和白名单提交都已闭环。
   - 后续如再被叫回，只需要从 `03c0bf87` 之后继续新的 Day1 integration 需求，不需要回头补本轮尾账。
+
+## 2026-04-03｜新群像总线再厘清：旧验收文档退为背景，下一步收束成两段 runtime 闭环
+
+- 当前主线目标：
+  - 用户要求基于 4 月 1 日到 4 月 3 日的 5 份 NPC 文档和 `NPC-v` 最新回执，一次说清当前到底该继续什么，并交付两份下一轮可直接发的 prompt。
+- 本轮子任务：
+  - 只读复核：
+    - `2026-04-01-NPC当前阶段用户验收总包-01.md`
+    - `2026-04-02-NPC本轮自省与下一轮施工清单-01.md`
+    - `2026-04-02-NPC给UI的左下角任务提示接管委托-01.md`
+    - `2026-04-03-NPC-v_春一日新NPC群像联合完工续工prompt-02.md`
+    - `2026-04-03-本线程_春一日新NPC群像Day1整合并行任务单-03.md`
+  - 同时对照 `NPC-v` 最新回执、`NPC.json`、`spring-day1V2.json` 和两份新 prompt 草稿，不进入真实施工。
+- 本轮稳定结论：
+  - `2026-04-01` 的验收总包与 `2026-04-02` 的 UI/体验自省文档，描述的是旧 `002 / 003` 非正式聊天体验线；这些文档仍可当背景，但已经不是当前唯一主线。
+  - 当前真正的主线已经收束为：
+    - 春一日新 8 人群像要在 Day1 里真正活起来。
+  - `NPC-v` 最新回执已经把当前阶段钉实为：
+    - 工具级 preflight 已站住
+    - `Validate New Cast = PASS`
+    - `npcCount=8`
+    - `totalPairLinks=16`
+    - 但 runtime targeted probe 还没开始跑
+    - 当前仍 `PARKED`
+    - 当前 own dirty / untracked 仍未归仓
+  - 我这边的 Day1 integration 则已经进主分支：
+    - `03c0bf87`
+    - `35144958`
+    - 当前 `spring-day1V2` 也处于 `PARKED`
+  - 因此现在不再差“结构设计”，而是只差两段运行态证据。
+- 本轮新增产物：
+  - 已确认并保留两份最新 prompt：
+    - `2026-04-03-NPC-v_春一日新NPC群像运行态probe与本体归仓续工prompt-03.md`
+    - `2026-04-03-本线程_春一日新NPC群像Day1剧情消费probe任务单-04.md`
+- 当前恢复点：
+  - 下一步只剩两段 runtime 闭环：
+    1. `NPC-v`
+       - 新 8 人 `instance / informal chat / pair dialogue / walk-away interrupt` targeted probe
+       - 做完后把 own dirty / memory 一起归仓
+    2. `spring-day1V2`
+       - 用 Day1 live/snapshot 入口拿 `CrashAndMeet -> DayEnd` 的 crowd phase 消费矩阵
+       - 必要时只在 own 范围补最小 probe 字段
+  - 旧 `001 / 002 / 003` 的 `HomeAnchor` 漂移继续只算 legacy `Primary / scene / Day1` 背景风险，不回灌成这轮新 8 人 own 完成定义。
+
+## 2026-04-03｜Day1 剧情消费 probe 首次续跑：own 最小 probe 已补，但 runtime 被 `NPC-v` compile red 挡住
+
+- 当前主线目标：
+  - 只做 `spring-day1` 这侧的 Day1 `phase/runtime consumption probe`，拿 `CrashAndMeet -> DayEnd` 的 crowd 消费矩阵，不回吞 `NPC-v` 本体层。
+- 本轮真实施工：
+  - 已执行：
+    - `Begin-Slice`
+  - 当前切片：
+    - `春一日新NPC群像-Day1剧情消费probe`
+  - 本轮只改：
+    - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+- 本轮完成：
+  - `SpringDay1NpcCrowdDirector.CurrentRuntimeSummary` 已补最小 probe 字段，不再只剩 `on/off`：
+    - 新增 active 列表
+    - 新增每个 runtime state 的 `anchorName`
+    - 新增 `fallback=0/1`
+    - 新增当前位置 `pos=x/y`
+  - 这次补口仍严格留在 own 范围内，没有新建 editor 工具，也没有回写 scene / UI / 字体 / `GameInputManager.cs`
+- 本轮第一真实 blocker：
+  - Unity 当前无法进入这刀的 runtime probe，不是因为我这轮 own 代码红，而是 `NPC-v` 当前 own 文件：
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+    仍有一组 `CS1061`
+  - 具体表现是：
+    - `NPCDialogueContentProfile.PairDialogueSet` 上访问了不存在的成员
+    - Unity 一直停在 `isCompiling = true`
+    - `CodexEditorCommandBridge` 也因此卡在：
+      - `lastCommand = menu:Assets/Refresh`
+  - 结果是：
+    - `Play -> Bootstrap -> Snapshot / Step`
+      这条现成 Day1 验收入口本轮还没能真正跑起来
+- 当前恢复点：
+  - 这轮已经把 own 侧“快照不够判 anchor/fallback”的缺口补掉。
+  - 但 `CrashAndMeet -> DayEnd` 的实际运行态矩阵仍未拿到；下一步必须先让 Unity 退出这条 `NPC-v` compile red，再继续 Day1 probe。
+  - 已执行：
+    - `Park-Slice`
+  - 当前状态：
+    - `PARKED`
+
+## 2026-04-03｜新 8 人 runtime targeted probe 已做实：pair 问题压成 `ambient bubble` 未点亮
+
+- 当前主线目标：
+  - 只做 `NPC-v` 本体层 runtime targeted probe，并把本轮 own dirty / memory 一起归仓。
+- 本轮真实施工：
+  - 已执行：
+    - `Begin-Slice`
+  - 本轮只改：
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+  - Unity 内已真实完成：
+    - `Tools/NPC/Spring Day1/Validate New Cast`
+      - `PASS | npcCount=8 | totalPairLinks=16`
+    - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+      - 多轮复跑后结论一致
+- 当前 runtime probe 稳定结果：
+  - `8/8 instance 基础运行态`
+    - PASS
+  - `8/8 informal chat`
+    - PASS
+  - `2 组 pair dialogue`
+    - FAIL
+    - 失败组：
+      - `101 <-> 103`
+      - `201 <-> 202`
+  - `2 个 walk-away interrupt`
+    - PASS
+- 当前 pair 失败已压窄到的可见小点：
+  - `initiatorDecision` / `responderDecision` 都已成立：
+    - `chatting with ...`
+    - `joined chat with ...`
+  - pair 台词数组在运行时解析正常：
+    - `count = 2`
+    - 首句可直接读到
+  - 但同时：
+    - `NPCBubblePresenter.visible = false`
+    - `suppressed = false`
+    - `channel = Ambient`
+    - `conversationOwner = none`
+  - 结论：
+    - 不是 pair 数据缺失
+    - 不是提示压制
+    - 不是会话残留
+    - 而是 `ambient pair decision -> bubble emission` 这段 own runtime 链没闭上
+- 本轮现场 blocker / 噪声：
+  - Unity 多次弹出：
+    - `打开场景已在外部被修改。`
+  - 这会直接卡死 `CodexEditorCommandBridge`。
+  - 本轮处理口径：
+    - 统一点 `忽略`
+    - 不把外部 scene 变更吞进当前 probe 会话
+  - 因此这个只算 shared live 环境噪声，不改写当前 pair 失败归因。
+- 当前恢复点：
+  - 下一刀如果继续 `NPC-v`，最该直接看：
+    - `NPCAutoRoamController.TryStartAmbientChat`
+    - `StartAmbientChatRoutine`
+    - `PlayAmbientChatBubble`
+    - `NPCBubblePresenter.ShowText`
+  - 本轮在真正收口前，还需要：
+    - 更新 memory
+    - 跑 `Ready-To-Sync`
+    - 判断 own 路径是否可真实归仓；如果不行，只报第一真实 blocker
+
+## 2026-04-03｜本轮收口结论：probe 已完成，但 `Ready-To-Sync` 被 NPC 历史 own roots 挡住
+
+- 本轮真实收口动作：
+  - 已执行：
+    - `Ready-To-Sync.ps1 -ThreadName NPC`
+  - 返回：
+    - `status = BLOCKED`
+  - 随后已执行：
+    - `Park-Slice.ps1 -ThreadName NPC`
+  - 当前 live 状态：
+    - `PARKED`
+- 当前第一真实 blocker：
+  - `NPC` own roots 仍有历史残包未纳入本轮
+  - 已明确报实至少包括：
+    - `M Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+    - `?? .kiro/specs/NPC/2.0.0进一步落地/0.0.2清盘002/2026-04-03-NPC-v_春一日新NPC群像运行态probe与本体归仓续工prompt-03.md`
+    - `?? .kiro/specs/NPC/2.0.0进一步落地/0.0.2清盘002/2026-04-03-本线程_春一日新NPC群像Day1剧情消费probe任务单-04.md`
+    - `?? Assets/Editor/NPC/CodexEditorCommandBridge.cs`
+    - `?? Assets/Editor/NPC/CodexEditorCommandBridge.cs.meta`
+- 本轮最终判断：
+  - 运行态 probe 结论已经有效：
+    - `8/8 instance`
+    - `8/8 informal`
+    - `0/2 pair`
+    - `2/2 walk-away`
+  - 但本轮 own 路径还不能 claim clean；
+  - 不是因为 probe 没跑，而是因为 NPC 历史 own roots 尾账没收完。
+
+## 2026-04-03｜收到 NPC 最新回执后的总线重判：新 8 人本体已大半站住，当前只剩 pair 与 Day1 消费未闭
+
+- 当前主线目标：
+  - 基于 `NPC-v` 最新 runtime targeted probe 回执，重新回答用户“这 8 个人现在到底是什么情况、能验到什么、还差什么”。
+- 本轮稳定结论：
+  - `NPC-v` 这边的新 8 人 runtime probe 已真实完成：
+    - `8/8 instance` 通过
+    - `8/8 informal` 通过
+    - `2/2 walk-away interrupt` 通过
+    - `2/2 pair dialogue` 未通过
+  - pair 失败现在已经被压窄到 `NPC-v own`：
+    - ambient pair 决策成立
+    - pair 台词解析成立
+    - 但 `NPCBubblePresenter` 没真正亮起来
+  - 因此当前最新判断应更新为：
+    - 这不再是 `spring-day1` / Day1 integration 当前主 blocker
+    - Day1 integration 不需要为了 pair 失败回改 phase 消费
+  - 同时 shared live 现场还有偶发：
+    - “打开场景已在外部被修改”
+    弹窗
+    - 这被明确归类为 shared 噪声，不是当前 pair 根因
+- 当前恢复点：
+  - 新群像总线现在最准确的剩余项已经收束成两块：
+    1. `NPC-v own`
+       - ambient pair bubble emission
+       - own roots 历史残包清扫 / 归仓
+    2. `spring-day1V2`
+       - `CrashAndMeet -> DayEnd` 的 Day1 crowd phase/runtime consumption 矩阵
+  - 用户现在已经可以验“单体出现、单体闲聊、跑开收尾”这三块；
+  - 但“成对群像真的说起来”和“Day1 各阶段真实消费矩阵”仍未闭环。
+
+## 2026-04-03｜原剧本核实补记：当前 `101~301` 不能再直接 claim 为 Day1 已确认正式角色
+
+- 当前主线目标：
+  - 在继续推进“春一日新 NPC 群像”前，先核实原剧本里真正已设计的人物，并把 `NPC-v` 与 `spring-day1V2` 的下一轮 prompt 改回基于原案的切片。
+- 本轮新查实的事实源：
+  - 用户原始 Day1 剧情原文可直接追溯到：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\002_事件编排重构\Deepseek聊天记录001.md`
+  - Day1 固化稿可追溯到：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0.1剧情初稿\春1日_坠落_融合版.md`
+  - 长线核心 NPC 表可追溯到：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\001_剧本篇章集\000_Deepseek-2\Deepseek-2-P1.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\001_剧本篇章集\000_Deepseek-2\省流版VIP8.md`
+- 已明确的原案角色链：
+  - `马库斯`
+  - `艾拉`
+  - `卡尔 / 研究儿子`
+  - `老杰克`
+  - `老乔治 / 老铁匠`
+  - `老汤姆`
+  - `小米`
+  - `围观村民 / 饭馆村民 / 小孩`
+- 当前工程里已存在的老 Day1 角色底座：
+  - `Assets/111_Data/NPC/NPC_001_VillageChief*`
+  - `Assets/111_Data/NPC/NPC_002_VillageDaughter*`
+  - `Assets/111_Data/NPC/NPC_003_Research*`
+- 因此当前判断更新为：
+  - `101~301` 这批新增 crowd 槽位只能先视为“当前实现现场”
+  - 不能继续默认当成“用户原剧本已经确认过的 Day1 正式人物表”
+  - 其中 `LedgerScribe / Seamstress / Florist / GraveWardenBone` 这类语义目前没有在原 Day1 剧本里找到直接来源
+- 本轮新增产出：
+  - `2026-04-03-NPC-v_春一日新NPC群像原剧本人设核实与NPC本体映射回正prompt-04.md`
+  - `2026-04-03-本线程_春一日原剧本角色消费矩阵与群像整合回正任务单-05.md`
+- 当前恢复点：
+  - 下一轮 `NPC-v` 不再先修 pair / 扩对白，而是先做：
+    - 原案角色 -> 当前 `101~301` 槽位映射
+    - 能回正的最小命名 / 文案 / 角色摘要回正
+  - 下一轮 `spring-day1V2` 不再先 claim 群像已扩完，而是先做：
+    - 原 Day1 角色消费矩阵
+    - 老 `NPC001/002/003` 与新 `101~301` 的承载分层判断

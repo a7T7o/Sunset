@@ -2182,3 +2182,230 @@
 **当前恢复点**:
 1. 本轮 own 代码、own memory、skill 审计和远端提交都已闭环。
 2. 如果下轮继续，只需要从 `03c0bf87` 之后接新的 Day1 integration 或运行态问题；本轮没有待补尾账。
+
+## 2026-04-03｜只读复盘：新群像当前下一步已收束成“NPC-v probe + Day1 消费 probe”双并行
+
+**用户目标**:
+- 用户要求我不要再混着讲旧 `002 / 003` 闲聊体验线和新 8 人群像线，而是基于 5 份 NPC 文档与 `NPC-v` 最新回执，彻底厘清：
+  1. 现在真正的下一步动作是什么
+  2. `NPC-v` 和我各自的分工是什么
+  3. 距离用户最初“把剧本真正扩上来”的目标还差多远
+  4. 要给 `NPC-v` 和我自己分别发什么 prompt
+
+**本轮显式使用**:
+1. `skills-governor`
+2. `sunset-workspace-router`
+3. `sunset-prompt-slice-guard`
+4. `user-readable-progress-report`
+
+**本轮手工等价执行**:
+1. `delivery-self-review-gate`
+
+**本轮 thread-state**:
+1. 本轮只做只读分析与 prompt 复核
+2. 没有进入真实施工
+3. 未跑新的 `Begin-Slice`
+4. 当前 live 状态保持：
+   - `PARKED`
+
+**本轮完成**:
+1. 已重新核定旧文档地位：
+   - `2026-04-01` 的验收总包
+   - `2026-04-02` 的自省清单与 UI 委托
+   现在都只作为旧 `002 / 003` 体验线背景材料，不再是当前唯一主线。
+2. 已重新钉死当前主线：
+   - 真正的 live 主线只有“春一日新 8 人群像”
+   - 而且剩余工作已经不再差结构，主要差两段运行态证据
+3. 已确认 `NPC-v` 最新现场：
+   - `Validate New Cast = PASS`
+   - `npcCount=8`
+   - `totalPairLinks=16`
+   - 但 runtime targeted probe 尚未开始
+   - 当前 `NPC` thread-state = `PARKED`
+4. 已确认我这边现场：
+   - `03c0bf87`
+   - `35144958`
+   都已在主分支
+   - 当前 `spring-day1V2` 也处于 `PARKED`
+5. 已确认并保留两份最新 prompt 文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-NPC-v_春一日新NPC群像运行态probe与本体归仓续工prompt-03.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-本线程_春一日新NPC群像Day1剧情消费probe任务单-04.md`
+
+**本轮最关键的稳定结论**:
+1. 用户原始目标已经可以压成一句话：
+   - 在现有 `spring-day1` 剧情上，把新增 8 名 NPC 真正扩进 Day1，让玩家在正确阶段看到他们、触发他们，并听到围绕“村长逃跑已发生”的群像对白。
+2. 当前最准确的进度判断是：
+   - 结构层约已到“可继续做运行态闭环”的阶段
+   - 真正还没闭的是运行态证据，而不是资源和代码骨架
+3. 下一步必须保持双并行且不混边界：
+   - `NPC-v`：
+     - 新 8 人 `instance / informal chat / pair dialogue / walk-away interrupt` runtime targeted probe
+     - 做完后 own dirty / memory 一起归仓
+   - `spring-day1V2`：
+     - 用 Day1 live/snapshot 入口拿 `CrashAndMeet -> DayEnd` 的 crowd phase 消费矩阵
+     - 必要时只在 own 范围补最小 probe 字段
+4. legacy `001 / 002 / 003` 的 `HomeAnchor` 漂移继续只算：
+   - `Primary / scene / Day1` 背景风险
+   - 不再混进这轮新 8 人 own 完成定义
+
+**当前阶段**:
+- 当前阶段最准确应判为：
+  - 新群像“结构层已基本站住”
+  - “运行态双闭环未完成”
+
+**下一步恢复点**:
+1. 如果叫 `NPC-v` 开工，就直接用 `...prompt-03.md`
+2. 如果叫我开工，就直接用 `...任务单-04.md`
+3. 两边都不要回到旧 `002 / 003` 体验线或继续扩结构清单
+
+## 2026-04-03｜Day1剧情消费probe 首刀：own 快照最小补口已落，但 runtime 被 foreign compile red 阻断
+
+**用户目标**:
+- 用户明确要求我按：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-本线程_春一日新NPC群像Day1剧情消费probe任务单-04.md`
+  只做 `spring-day1` 这侧的 Day1 `phase/runtime consumption probe`。
+
+**本轮显式使用**:
+1. `skills-governor`
+2. `sunset-no-red-handoff`
+
+**本轮手工等价执行**:
+1. `sunset-workspace-router`
+2. `user-readable-progress-report`
+3. `delivery-self-review-gate`
+
+**本轮 thread-state**:
+1. 已执行：
+   - `Begin-Slice`
+2. 当前切片：
+   - `春一日新NPC群像-Day1剧情消费probe`
+3. 因 blocker 未继续收口，已执行：
+   - `Park-Slice`
+4. 当前 live 状态：
+   - `PARKED`
+
+**本轮完成**:
+1. 只在 own 文件：
+   - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+   做了最小 probe 补口
+2. 当前 `CurrentRuntimeSummary` 已不再只给 `on/off`，而是会带：
+   - active 列表
+   - anchor 名
+   - fallback 标记
+   - runtime 位置
+3. `git diff --check -- Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+   已通过
+
+**本轮第一真实 blocker**:
+1. Unity 当前 runtime probe 无法开跑，不是我这轮 own 代码红。
+2. 真 blocker 是 `NPC-v` 当前 own 文件：
+   - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+   仍有一组 `CS1061`
+3. 当前外部现场表现为：
+   - `isCompiling = true`
+   - `lastCommand = menu:Assets/Refresh`
+   - `DialogueDebugMenu` 现成入口因此无法继续进入 `Play -> Bootstrap -> Snapshot / Step`
+
+**当前阶段**:
+- 当前不是“Day1 probe 已完成”，而是：
+  - own 快照缺口已补
+  - runtime consumption matrix 尚未拿到
+  - 当前停在明确 blocker
+
+**下一步恢复点**:
+1. 先等 `NPC-v` compile red 清掉
+2. 然后直接回到：
+   - `CrashAndMeet`
+   - `EnterVillage`
+   - `HealingAndHP`
+   - `WorkbenchFlashback`
+   - `FarmingTutorial`
+   - `DinnerConflict`
+   - `ReturnAndReminder`
+   - `FreeTime`
+   - `DayEnd`
+   的 crowd 消费矩阵
+3. 如果那时快照仍不够判定，再继续只在 own 范围补最小 probe，不扩工具
+
+## 2026-04-03｜收到 NPC 最新回执后：Day1 integration 当前不再被 pair 问题反向卡住
+
+**用户目标**:
+- 用户要求我在收到 `NPC-v` 最新回执后，用人话说清：
+  - 这 8 个人现在是什么情况
+  - 放在什么区域和阶段测试
+  - 现在可以验收到什么
+  - 还差什么没完成
+
+**本轮稳定结论**:
+1. `NPC-v` 最新 runtime probe 说明：
+   - `8/8 instance` 过
+   - `8/8 informal` 过
+   - `2/2 walk-away` 过
+   - `2/2 pair dialogue` 没过
+2. pair 失败已经压窄到 `NPC-v own`：
+   - ambient pair 决策成立
+   - pair 台词解析成立
+   - 但 bubble 没亮起来
+3. 这意味着：
+   - 当前 pair 问题不是我这边 Day1 integration 的第一 blocker
+   - 我不用为了这条失败回改 Day1 phase 消费
+4. 我这边当前仍只剩：
+   - `CrashAndMeet -> DayEnd` 的 Day1 crowd 消费矩阵未拿证
+
+**当前阶段**:
+- 当前总线最准确应判为：
+  - 单体本体层已大半站住
+  - pair 层有局部失败
+  - Day1 phase/runtime consumption 仍待我继续补证
+
+**下一步恢复点**:
+1. `NPC-v` 继续修 pair bubble emission 与 own roots 尾账
+2. 我继续只做 Day1 consumption probe，不回吞 NPC 本体链
+
+## 2026-04-03｜原剧本核实与双 prompt 重写：当前主问题不是“这 8 个人为什么没看到”，而是“这 8 个人现在未必是原案”
+
+**用户目标**：
+- 用户明确指出当前 `101~301` 的名字、人设和剧情语义很可能是我后补发挥，要求先从文档核实原剧本与原人物设计，再分别给 `NPC-v` 和我自己重写下一轮 prompt。
+
+**本轮真实完成**：
+1. 重新回读并对齐了三组真相来源：
+   - 用户原始 Day1 剧情原文：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\002_事件编排重构\Deepseek聊天记录001.md`
+   - Day1 固化稿：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0.1剧情初稿\春1日_坠落_融合版.md`
+   - 长线核心 NPC 表：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\001_剧本篇章集\000_Deepseek-2\Deepseek-2-P1.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\001_剧本篇章集\000_Deepseek-2\省流版VIP8.md`
+2. 已确认原案里稳定存在的角色链是：
+   - `马库斯`
+   - `艾拉`
+   - `卡尔 / 研究儿子`
+   - `老杰克`
+   - `老乔治 / 老铁匠`
+   - `老汤姆`
+   - `小米`
+   - `围观村民 / 饭馆村民 / 小孩`
+3. 已确认当前工程里已有老 Day1 主角色底座：
+   - `Assets/111_Data/NPC/NPC_001_VillageChief*`
+   - `Assets/111_Data/NPC/NPC_002_VillageDaughter*`
+   - `Assets/111_Data/NPC/NPC_003_Research*`
+4. 因而当前判断改为：
+   - `101~301` 这批 crowd 角色不是“已经确认的原 Day1 正式人物”
+   - 它们只能先视为当前实现现场里的新增 crowd 槽位
+   - 其中若干语义明显没有在原 Day1 剧本中找到直接来源
+5. 已新增两份下一轮正式 prompt：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-NPC-v_春一日新NPC群像原剧本人设核实与NPC本体映射回正prompt-04.md`
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-03-本线程_春一日原剧本角色消费矩阵与群像整合回正任务单-05.md`
+
+**关键决策**：
+- 下一轮 `NPC-v` 不再先修 pair / 扩对白，而是先做：
+  - 原案角色 -> 当前 `101~301` 槽位映射
+  - 能确认的最小命名 / 文案 / 角色摘要回正
+- 下一轮我不再先 claim “Day1 群像已经扩上来”，而是先做：
+  - 原 Day1 角色消费矩阵
+  - 老 `NPC001/002/003` 与新 `101~301` 的承载分层
+
+**当前恢复点**：
+- 用户当前最该知道的一句话是：
+  - 这 8 个人之所以“你没在场景里直接看到”，不是因为已经正式整完只是你没找对地方；
+  - 更真实的原因是：它们目前大多还停留在产物链、manifest 和 NPC-v 的 targeted runtime probe 层，而且角色语义本身也还没有和原剧本对齐。
