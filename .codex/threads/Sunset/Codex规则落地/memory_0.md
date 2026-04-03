@@ -4750,3 +4750,58 @@
     1. 网络真实恢复后，先把 `ahead 3` 的三刀推到远端
     2. 字体组先不提交
     3. 再筛下一组 `same-root clean` 的独立白名单
+
+## 2026-04-03｜继续只做减卡收口，Tree M2/M3 已推远端
+
+- 当前主线目标：
+  - 继续把 working tree 里“还能安全提交”的内容尽量切走，优先降低 shared root 超大 diff 对 Codex / Sunset 的卡顿影响；
+  - 同时必须继续保证 `Assets/000_Scenes/Primary.unity` 由用户独占，其他线程一律禁止写。
+- 本轮子任务：
+  1. 再次核查 `Primary` 用户独占锁与 `Codex规则落地` 自身 thread-state；
+  2. 判断树 prefab 这组是不是当前唯一仍可安全吞并的资产白名单；
+  3. 若成立，就完成一次最小 `Begin-Slice -> Ready-To-Sync -> sync -> Park-Slice`。
+- 这轮实际做成了什么：
+  1. 已确认 `Codex规则落地` 旧状态为 `PARKED`，`Primary` 锁仍为 `locked`，owner 仍是 `用户Primary独占`。
+  2. 已补查 active ownership，确认当前没有别的 active 线程把 `Assets/222_Prefabs/Tree/M2.prefab` / `M3.prefab` 作为 own 路径施工。
+  3. 已对白名单：
+     - `Assets/222_Prefabs/Tree/M2.prefab`
+     - `Assets/222_Prefabs/Tree/M3.prefab`
+     跑过正式 `preflight`，结果为：
+     - `own roots = Assets/222_Prefabs/Tree`
+     - `own roots remaining dirty = 0`
+     - 代码闸门不适用
+  4. 已新开 slice `tree-prefab-whitelist-sync-01`，并完成：
+     - `Begin-Slice`
+     - `Ready-To-Sync`
+     - `sync`
+     - `Park-Slice`
+  5. 这组已成功创建并推送提交：
+     - `efcf7339`
+     - `2026.04.03_Codex规则落地_11`
+  6. 当前重新压缩后的“还能直接吞”的剩余集合，只剩 3 份 `governance-white-listable` 线程记忆：
+     - `.codex/threads/Sunset/spring-day1/memory_0.md`
+     - `.codex/threads/Sunset/农田交互修复V3/memory_0.md`
+     - `.codex/threads/Sunset/项目文档总览/memory_0.md`
+- 关键判断：
+  - 树 prefab 是这轮最后一组明确过线的资产白名单；
+  - 字体组、热场景、共享代码大组虽然仍 dirty，但不属于“现在可以直接吞”的集合；
+  - 如果继续减卡收口，下一步只能优先看这 3 份治理白名单级记忆，而不能再误碰：
+    - `Primary / Town / Home / backup / __CodexSceneSyncScratch`
+    - `DialogueChinese*` 字体组
+    - `GameInputManager.cs`
+    - `CodexMcpHttpAutostart / CodexEditorCommandBridge`
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Tree\M2.prefab`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Tree\M3.prefab`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\Codex规则落地.json`
+- 验证结果：
+  - `preflight` 通过
+  - `Ready-To-Sync` 通过
+  - 提交 `efcf7339` 已推到 `origin/main`
+  - `Codex规则落地` 当前 live 状态已回到 `PARKED`
+  - `Primary` 用户独占锁仍保持有效
+- 当前恢复点：
+  - 这轮树 prefab 已从 working tree 大 diff 中切走；
+  - 若继续收口，下一步只应看那 3 份线程记忆能否白名单归仓；
+  - 若再往下，就已经不再是“直接提交”，而必须先修问题再谈提交。

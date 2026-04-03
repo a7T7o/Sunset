@@ -2526,3 +2526,49 @@
 - 当前恢复点：
   - 下一步如果要继续做 Git 收口，不能只盯这 3 份文档，必须先处理当前线程历史 own-root 残留；
   - 如果只看用户当前决策面，则本轮真正可用的交付物仍然是 `-60` 这份导航 prompt 和“先判 contract、不直接甩锅导航父线程”的结论。
+
+## 2026-04-03 14:23:44
+- 用户目标：
+  - 用户这轮把范围重新硬收成“只修箱子 UI 交互”，要求箱子 UI 必须复刻背包既有交互语义；
+  - 明确红线是不碰 `Primary.unity`、不改背包本体交互逻辑、也不扩回农田/runner/placeable 主链。
+- 当前主线目标：
+  - 主线仍然是 `农田交互修复V3`；
+  - 本轮子任务是把箱子 UI 里 `Shift` 拿半堆、同类叠加、跨容器放置/回源、关闭箱子 UI 归位这条语义链压回背包口径。
+- 前置核查与 skill：
+  - 本轮已显式使用 `skills-governor`、`sunset-no-red-handoff`；
+  - `sunset-startup-guard` 当前会话未显式暴露，因此按 Sunset `AGENTS.md`、工作区 memory、thread-state 规则做手工等价启动核查；
+  - 由于这是 UI/交互语义任务，本轮还补读了 `global-preference-profile.md`、`sunset-workspace-router` 与 `preference-preflight-gate`，并运行了 helper，结论固定为：当前证据只站在“结构 / targeted probe”，不能冒充“体验已过线”。
+- 真实施工与 thread-state：
+  - 已执行 `Begin-Slice`，切片名为“箱子UI交互对齐背包交互修复”，owned paths 只包括：
+    - `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`
+    - `Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs`
+    - `Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs`
+  - 收尾前已执行 `Park-Slice`，当前 live 状态为 `PARKED`。
+- 本轮已完成事项：
+  1. `InventorySlotInteraction.cs`
+     - 把 `HandleSameContainerDrop(...)`、`HandleChestToInventoryDrop(...)`、`HandleInventoryToChestDrop(...)`、`HandleManagerHeldToChest(...)`、`ReturnHeldToSourceContainer(...)` 全部收成背包式语义：
+       - 空槽直接放；
+       - 同类按 `itemId + quality` 叠加；
+       - 不同物品只有源槽已空时才交换；
+       - 源槽还留着东西时一律回源，不得乱动目标槽。
+     - 箱子 `Shift/Ctrl` held 现在支持“部分叠加后保留剩余”，并保住 runtime item 余量，不再出现满量回写导致的吞物/复制风险。
+  2. `InventoryInteractionManager.cs`
+     - 只新增两个桥接接口 `ReplaceHeldItem(...)` 与 `ReturnHeldToSourceAndClear()`；
+     - 没有重写背包自己的点击/拖拽状态机。
+  3. `BoxPanelUI.cs`
+     - 关闭箱子 UI 时的 held 回源改成优先走 `RuntimeInventory / ChestInventoryV2`；
+     - 回原槽、补空位、最后扔脚下都保住 runtime item，不再优先降回 legacy `ItemStack` 口径。
+- 验证结果：
+  - `git diff --check -- Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs`：通过，仅 CRLF 提示；
+  - `CodexCodeGuard`：对白名单 3 文件通过，`CanContinue=true`、`Diagnostics=[]`、程序集 `Assembly-CSharp`。
+- 关键判断：
+  - 这轮修的是“箱子 UI 语义漂移”，不是“背包本体坏了”；
+  - 当前可以诚实 claim 的只有代码结构与局部验证成立，不能 claim 体验已过线；
+  - 由于 `UI/Inventory` 同根仍有历史 dirty 文件，这轮没有尝试 `Ready-To-Sync`，也不适合包装成可直接归仓。
+- 当前恢复点 / 下一步：
+  - 当前恢复点更新为：箱子 UI 交互这刀已经收成独立静态完成面，下一步只等用户集中终验；
+  - 用户最该优先复测的是：
+    - 箱子内 `Shift` 拿半堆后再次放回；
+    - 箱子内同类物品正确叠加；
+    - 箱子 -> 背包、背包 -> 箱子的跨容器放置/回源；
+    - 关闭箱子 UI 时 held 物品是否正确归位。

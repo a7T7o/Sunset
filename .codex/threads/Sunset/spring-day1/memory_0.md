@@ -1596,3 +1596,52 @@
 - 当前恢复点：
   - 后续对用户汇报时，必须先说“开发做到哪了”，再说“清扫做到哪了”；
   - 不能再把两者混成一个含混 blocker 叙事。
+
+## 2026-04-03 NPC 气泡样式旧版回正
+
+- 当前线程主线：
+  - 用户把本轮直接收窄成 `NPC` 气泡样式恢复，不做别的 UI、不碰 `Primary`、不扩到工作台或正规对话链。
+- 本轮子任务：
+  1. 只读定位“旧 NPC 气泡样式到底是什么”
+  2. 只在 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 里做最小 patch
+  3. 不回滚他人无关改动，只修样式跑偏点
+- 本轮查实：
+  - `HEAD~1` 的 `NPCBubblePresenter` preset、现有 NPC prefab、以及 `Primary` 场景序列化值，都共同指向“金边暗底的大气泡”这套旧正式样式；
+  - 当前写偏的是 `ReactionCue / 打断` 分支，它把气泡切成了偏紫、无尾巴、紧缩版，和旧正式样式不一致。
+- 本轮已做：
+  - 保留现有 conversation/reaction channel 行为接口
+  - 仅把 `ReactionCue` 的视觉表现改回复用旧正式样式：颜色、尾巴、布局、额外上抬、尾巴停止 bob 这些特化全部撤掉
+  - 继续保留字体可用性筛选 `IsFontAssetUsable(...)`
+- 验证：
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 通过
+  - 尚未做 Unity live 终验；当前只到静态依据成立
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCBubblePresenter.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\NPC\001.prefab`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\NPC\002.prefab`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\NPC\003.prefab`
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+- 当前恢复点：
+  - 如需继续，只做一次 Unity 内普通 NPC 气泡 + 打断短气泡的观感确认；不再继续扩写新样式。
+
+## 2026-04-03 线程补记：工作台 overlay 三问题只读侦察
+
+- 当前线程主线：
+  - 这轮不是施工，而是按用户要求只读侦察 `SpringDay1WorkbenchCraftingOverlay` 的 3 个问题：制作时能否离开、离台悬浮进度为何不显示、上下切换为什么可能失效。
+- 本轮子任务：
+  1. 只读 `SpringDay1WorkbenchCraftingOverlay.cs`
+  2. 只读其自有辅助链 `CraftingStationInteractable.cs / SpringDay1UiLayerUtility.cs`
+  3. 给出“当前是否成立 + 根因位置 + 最小值得修的点”，不改文件
+- 本轮查实：
+  - 制作时允许离开：成立。`Hide()` 不会停 `_craftRoutine`，且会立刻释放 `blockNavOverUI`；`CraftRoutine()` 继续跑，`MaintainWorkbenchPose()` 只在贴近工作台时帮忙转向，不会锁定玩家位置。
+  - 离台悬浮进度不显示：主因已压实到同一根 `CanvasGroup`。`floatingProgressRoot` 是 overlay 根节点子物体，而 `HideImmediate()` 会把根 `canvasGroup.alpha=0`；所以 `UpdateFloatingProgressVisibility()` 即使把 floating 设成 active，也仍然透明。
+  - 上下切换可能不触发：主因在方向判定采样太脆。当前链路是“玩家脚底采样点 y”对“工作台 visual bounds.center.y”，并且只有 `0.04f` 窄死区；对宽体积、偏移 sprite、侧向绕行场景很容易长期卡在同一侧。再叠加 `_autoHideDistance=1.5f`，会出现还没明显翻面就先把面板收掉的体感。
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorkbenchCraftingOverlay.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\CraftingStationInteractable.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1UiLayerUtility.cs`
+- 当前恢复点：
+  - 如果下一轮要真修，优先顺序应是：
+    1. 先拆开 `HideImmediate()` 和 floating 的可见性控制
+    2. 再重做 `ShouldDisplayOverlayBelow()` 的判定基准
+    3. 最后再看 `_autoHideDistance` 与 hide 时机

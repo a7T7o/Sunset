@@ -258,6 +258,53 @@
 **恢复点 / 下一步**：
 - 现在应由用户直接转发上面两份 prompt；
 - 收到各自回执前，治理位不再继续白名单提交；
+
+### 会话 20 - 2026-04-03（继续只做“能安全提交的就立刻提交”，树 prefab 已归仓）
+**用户目标**：
+> 继续把当前 working tree 里还能安全提交的内容尽量提交掉，优先缓解 shared root 超大 diff 带来的 Codex / Sunset 卡顿；同时继续保证 `Assets/000_Scenes/Primary.unity` 由用户独占，其他线程一律不得碰。
+
+**已完成事项**：
+1. 先按 live 现场重新核查：
+   - `Codex规则落地` 旧状态已是 `PARKED`；
+   - `Primary.unity` 物理锁仍有效，owner 仍为 `用户Primary独占`；
+   - 当前 active 线程里没有人把 `Assets/222_Prefabs/Tree/M2.prefab` / `M3.prefab` 挂进自己的施工 slice。
+2. 将“还能安全提交”的候选再次压缩到最小白名单：
+   - `Assets/222_Prefabs/Tree/M2.prefab`
+   - `Assets/222_Prefabs/Tree/M3.prefab`
+3. 对这两个 prefab 完成正式收口流程：
+   - `Begin-Slice`：`tree-prefab-whitelist-sync-01`
+   - `Ready-To-Sync -Mode task`：通过
+   - `sync`：成功
+   - `Park-Slice`：已回到 `PARKED`
+4. 上述树 prefab 白名单已创建并推送提交：
+   - `efcf7339`
+   - `2026.04.03_Codex规则落地_11`
+5. 当前剩余 dirty 重新分层后，新的明确结论是：
+   - 还能直接白名单吞掉的，只剩 3 份 `governance-white-listable` 线程记忆：
+     - `.codex/threads/Sunset/spring-day1/memory_0.md`
+     - `.codex/threads/Sunset/农田交互修复V3/memory_0.md`
+     - `.codex/threads/Sunset/项目文档总览/memory_0.md`
+   - 其余大头当前都不适合继续吞：
+     - `Primary / Town / Home / backup / __CodexSceneSyncScratch`
+     - `DialogueChinese*` 字体组与 `DialogueFontLibrary_Default.asset`
+     - 大型 `Placement / Player / Story / UI` 代码组
+     - `GameInputManager.cs`
+     - `CodexMcpHttpAutostart / CodexEditorCommandBridge`
+
+**关键决策**：
+- 这轮主线仍然不是修功能，而是“只做减卡收口”；
+- 树 prefab 这组现在已经从 working tree 大 diff 里安全移除；
+- 接下来若继续收口，也只能优先处理“治理白名单级”的小文件，不应误把当前字体损坏、热场景、共享代码大组一起吞进去。
+
+**涉及文件**：
+- `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Tree\M2.prefab`
+- `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Tree\M3.prefab`
+- `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\Codex规则落地.json`
+- `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+
+**恢复点 / 下一步**：
+- 当前最稳的下一步不是继续碰实现大组，而是只看那 3 份 `governance-white-listable` 线程记忆是否也要一并收掉；
+- 若再往下，就必须回到“修问题后再提交”的路线，而不是继续盲吞。
 - 后续只需继续审两件事：
   1. `树石修复` 是否把 `Rock/C1/C2/C3` 真正修到稳定加载
   2. `spring-day1` 是否把共享字体底座修回可加载，而不是继续把业务消费者改脏
