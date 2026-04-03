@@ -10395,3 +10395,50 @@
 **当前恢复点**：
 - 用户本轮要求的 scene/scratch 大头已经完成提交并推送；
 - 后续若继续处理 `Town`、字体事故面或其他大量 dirty，应另开下一刀，不再回滚进本次白名单提交。
+
+## 2026-04-03｜继续收剩余可提交切片：已再提交 `spring-day1` 文档刀与 `导航检查` 文档刀
+
+**新增判断**：
+- 大头 scene/scratch 提完后，工作区剩余体量已降到约：
+  - `71 files changed, 23591 insertions(+), 2850 deletions(-)`
+- 这说明当前剩余不再是“几十万行的 scene YAML 主因”，而是多线程文档尾巴 + 一批脚本/Prefab/UI 改动混在一起。
+
+**本轮新增完成**：
+1. 用项目 `preflight` 逐刀复核剩余切片，确认当前真正可以直接提交的有两组文档类切片：
+   - `spring-day1` prompt / memory 切片
+   - `019d4d18-bb5d-7a71-b621-5d1e2319d778`（导航检查）prompt / memory / 复判文档切片
+2. 已提交并推送：
+   - `c20cdbac`
+   - `2026.04.03_spring-day1_05`
+3. 已提交并推送：
+   - `2277800e`
+   - `2026.04.03_导航检查_03`
+
+**当前最值钱的新结论**：
+- `spring-day1` 那刀现在是“可以直接提交”的；
+  - 它只涉及 prompt / memory 文档，
+  - `preflight` 通过，
+  - own roots remaining dirty = `0`。
+- `导航检查` 那刀在把自身两个 prompt 和一份复判文档一并纳入后，也已经可以直接提交；
+  - `preflight` 通过，
+  - own roots remaining dirty = `0`。
+- `UI` 那刀现在不是边界问题，而是只差一个代码闸门 warning：
+  - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs:41`
+  - `CS0414`
+  - `DialogueUI.fadeInDuration` 已赋值但未使用
+  - own roots remaining dirty 已经是 `0`，所以它距离可提交只差清掉这 1 条 warning。
+
+**当前仍不应混提**：
+- `Assets/000_Scenes/Town.unity`
+- `Assets/000_Scenes/Town.unity.meta`
+- `Assets/000_Scenes/SampleScene.unity` 删除残留
+- `Assets/000_Scenes/Primary.unity` 用户仍在 live 编辑
+- `GameInputManager.cs`
+- `StaticObjectOrderAutoCalibrator.cs`
+- 以及当前剩余的大批 UI / NPC / spring-day1 / 农田 / 导航脚本与 Prefab 混合改动
+
+**当前恢复点**：
+- 本轮又成功把两刀“已过 preflight 的文档切片”继续归仓；
+- 下一步若继续追求降载，最有价值的不是再盲提，而是：
+  1. 先决定要不要顺手清掉 `DialogueUI.fadeInDuration` warning，把 `UI` 那刀放行；
+  2. 再单独处理 `Town` / `Primary` / `SampleScene` / hotfile 这些真正不能混提的大头。

@@ -5154,3 +5154,33 @@
 - 当前恢复点：
   - 本线程这轮已完成目标并停车；
   - 若下一轮继续，优先回到“剩余未提交 dirty 的分类与后续切片”，而不是再重复分析这次大头提交是否应该发生。
+
+## 2026-04-03｜继续压降剩余变更：又收掉两刀文档切片，`UI` 只差一条 warning
+
+- 当前主线目标：
+  - 在 scene/scratch 大头已经归仓后，继续看剩余工作区里还有哪些切片能直接提交，优先进一步降低 Codex 里看到的剩余变更量。
+- 这轮实际做成了什么：
+  1. 重新对剩余切片跑了项目 `preflight`，不靠感觉判断。
+  2. 确认 `spring-day1` 的 prompt / memory 切片可直接提交后，已提交并推送：
+     - `c20cdbac`
+     - `2026.04.03_spring-day1_05`
+  3. 确认 `019d4d18-bb5d-7a71-b621-5d1e2319d778` 的 prompt / memory / 复判文档切片可直接提交后，已提交并推送：
+     - `2277800e`
+     - `2026.04.03_导航检查_03`
+  4. 重新测了 `UI` 切片，结论是：
+     - own roots remaining dirty 已经清成 `0`
+     - 现在真正阻断它的只剩 `DialogueUI.cs` 里的 1 条 `CS0414` warning
+- 这轮没做什么：
+  - 没有继续碰 `Town.unity`
+  - 没有动 `Primary.unity`
+  - 没有去碰 `GameInputManager.cs` 或 `StaticObjectOrderAutoCalibrator.cs`
+  - 没有把剩下那大批混在一起的脚本/Prefab 改动硬提
+- 当前最重要判断：
+  - 现在剩余的 2 万多行里，真正“还能立刻提”的最干净文档刀已经被我继续收掉了；
+  - 下一个最接近可提交的是 `UI`，但它不是白名单问题，而是编译闸门卡在一条很具体的 warning：
+    - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs:41`
+    - `CS0414`
+    - `DialogueUI.fadeInDuration` 已赋值但未使用
+- 当前恢复点：
+  - 如果下一轮继续，最值钱的动作是决定要不要顺手清掉这条 warning，把 `UI` 那刀放行；
+  - 再往后才是 `Town`、`Primary`、`SampleScene` 和各类 hot/mixed 脚本的大头处理。
