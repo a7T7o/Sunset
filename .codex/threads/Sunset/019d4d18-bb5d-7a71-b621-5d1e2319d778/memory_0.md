@@ -1157,3 +1157,161 @@
     - 打开 `002批量-Hierarchy` 后点击别处
   - 若桥仍不过，再继续 scene 五段式审计；
   - 若树苗仍卡，再继续查树实例化/注册链。
+
+## 2026-04-03｜prompt 收口：树苗卡顿交接给 farm，本线程下一轮只收桥/水/边缘错位
+
+- 用户目标：
+  - 这轮不要我继续修代码，而是只写两份 prompt：
+    1. 一份把 `树苗放置卡顿` 的历史修改、历史进度和当前责任判断完整交接给 `farm`
+    2. 一份给我自己下一轮续工，只允许继续处理 `桥 / 水 / 边缘` 的视觉与可走范围不一致
+- 当前主线目标：
+  - 从这一轮开始，`树苗放置卡顿` 正式从本线程释放；
+  - 本线程保留的唯一后续主线，只剩 `桥 / 水 / 边缘` 的 walkable/blocked 边界对齐。
+- 本轮已完成事项：
+  1. 已创建 `farm` 交接文件：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-03_farm_树苗放置卡顿交接prompt_04.md`
+  2. 已创建本线程续工文件：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-03_本线程续工prompt_04.md`
+  3. 两份 prompt 都已经明确写死：
+     - `farm` 只收树苗卡顿，不扩桥/水/边缘
+     - 我自己下一轮只收桥/水/边缘，不再碰树苗卡顿、Tool_002、camera、UI、town、scene sync、binder
+- 关键决策：
+  1. 用户最新 live 事实“箱子不卡、农作物不卡、只有树苗卡”足以支持把 tree stutter 从本线程剥离给 `farm`。
+  2. 本线程下一轮必须以 `PlayerMovement / NavGrid2D / TraversalBlockManager2D` 为主刀，优先找出桥边、水边、外边界和 tilemap props 的真实错位责任点。
+  3. 这轮没有新的 runtime 修复，只完成 prompt / handoff 收口；不能把它包装成体验推进。
+- 验证结果：
+  - `git diff --check` 已过（仅本轮新增 prompt 文件）；
+  - 本轮没有新的 Unity live、compile 或代码修复验证。
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 恢复点 / 下一步：
+  - 等用户转发两份 prompt；
+  - 若 `farm` 接手树苗卡顿，本线程后续只按 `2026-04-03_本线程续工prompt_04.md` 继续；
+  - 若用户没有新裁定，本线程不要再自行回碰 tree stutter。
+
+## 2026-04-03｜桥/水/边缘错位：桥面脚底判定与空 bounds 覆盖已收一刀，当前等用户复测
+
+- 用户目标：
+  - 按 `2026-04-03_本线程续工prompt_04.md`，这轮只收桥、水、地图边缘和相关 tilemap props 的视觉/可走范围错位；
+  - 不碰树苗卡顿、Tool_002、camera、UI、Town、scene sync、binder，也不擅改用户当前 traversal Inspector 配置。
+- 当前主线目标：
+  - 把桥面、水边和外边界的错位先压成真实责任点，再做最小脚本修复；
+  - 如果最后证据指向 scene 缺口，只报缺口，不直接写 scene。
+- 本轮已完成事项：
+  1. 只读审计 `Primary.unity`，压实当前 scene 现场：
+     - `TraversalBlockManager2D.blockingTilemaps` = `Layer 1 - Water` + `Layer 1 - 桥_物品0`
+     - `walkableOverrideTilemaps` = `Layer 1 - 桥_底座`
+     - `boundsTilemaps / boundsColliders` 为空
+  2. 只读审计玩家与导航参数：
+     - `PlayerMovement` 当前脚底参数仍是 `0.08 / 0.05 / 0.02`
+     - `NavGrid2D.probeRadius = 0.3915589`
+     - `NavGrid2D.walkableOverrideSupportRadius = 0.08`
+  3. 已修改 `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+     - `CanOccupyNavigationPoint()` 现在改成“中心脚底必须可走；如果中心真被桥支撑，则允许单侧临边，不再直接把整段桥边判死”
+     - `ShouldEnableTraversalSoftPass()` 现在改成“中心先支撑，再允许至少一侧支撑”
+     - 新增：
+       - `GetTraversalSupportProbePoints()`
+       - `GetTraversalSupportQueryRadius()`
+       - `IsTraversalBridgeCenterSupported()`
+  4. 已修改 `Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+     - 空 `boundsTilemaps / boundsColliders` 时，不再用 traversal 阻挡源去反推整张地图边界
+     - 现在会保留 `NavGrid2D` 当前已有的 world bounds
+- 关键决策：
+  1. 当前第一责任点更像：
+     - `PlayerMovement` 对窄桥的脚底判定过宽
+     - `TraversalBlockManager2D` 在空 bounds 配置下误覆盖边界
+     而不是 scene 完全没接或用户配错。
+  2. 当前这轮还不能 claim 真实体验过线，因为只有结构 / 局部验证证据，没有新的玩家 live 证据。
+  3. `桥_物品0` 这类 colliderless blocking tilemap 仍可能是后续 residual mismatch 的来源，但这轮先不盲动它，等复测再决定。
+- 验证结果：
+  - `git diff --check` 已过（本轮改动文件）
+  - `validate_script`：
+    - `PlayerMovement.cs` = 0 error / 2 warning
+    - `TraversalBlockManager2D.cs` = 0 error / 0 warning
+  - Console 当前只看到既有 warning / Editor 噪音，没有本轮新编译红错
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 恢复点 / 下一步：
+  - 先让用户复测桥边、水边和地图外边缘；
+  - 如果桥仍有明显空气墙或水边仍可踩深，再继续只盯：
+    - `桥_物品0` 的 fallback 阻挡语义
+    - 或 scene 的显式 bounds source 缺口
+  - 本线程下一步仍然只做桥/水/边缘，不回碰 tree stutter。
+
+## 2026-04-03｜审计尾巴补记：脚本验证与 thread-state 已重新对齐，当前仍停在“结构成立，体验待测”
+
+- 当前主线目标：
+  - 仍然只处理 `桥 / 水 / 边缘` 的视觉与可走范围错位；
+  - 本轮补的是审计尾巴，不是新一轮 runtime 修复。
+- 本轮子任务：
+  - 补做当前切片的脚本验证、skill 审计健康检查，以及 thread-state 现场纠正；
+  - 服务于把这轮真实状态交代干净，不把“旧 ACTIVE 脏状态”误当成还在施工。
+- 本轮实际完成：
+  1. 重新核验：
+     - `git diff --check -- Assets/YYY_Scripts/Service/Player/PlayerMovement.cs Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+     - 结果通过。
+  2. 重新跑脚本校验：
+     - `PlayerMovement.cs` = `0 error / 2 warning`
+     - `TraversalBlockManager2D.cs` = `0 error / 0 warning`
+  3. 补跑 `check-skill-trigger-log-health.ps1`
+     - `Canonical-Duplicate-Groups = 0`
+     - 当前 canonical skill 审计健康正常。
+  4. 查实并纠正 thread-state 漂移：
+     - 旧的 `sapling-placement-stutter-closure_2026-04-03` 状态文件仍残留 `ACTIVE`
+     - 已先 `Park-Slice` 清掉旧状态
+     - 再以 `bridge-water-edge-audit-tail-and-memory-closeout` 开短 slice 补记忆收尾
+- 当前判断：
+  1. 这轮现在能站住的是：
+     - `结构证据`
+     - `targeted probe`
+  2. 还不能站住的是：
+     - `真实 live 体验证据`
+  3. 所以当前不能把结果写成“已修好”，只能写成：
+     - `脚本侧已收一刀，用户复测待定`
+- 当前恢复点：
+  - 用户下一步只需要复测：
+    - 桥边是否还明显踩进水里
+    - 桥面是否还存在单侧贴边就被判死的空气墙
+    - 地图外边缘是否仍明显宽于/窄于绘制边框
+  - 若仍不对，下一刀仍只盯：
+    - `桥_物品0` 的 colliderless fallback 阻挡语义
+    - 或 scene 显式 bounds source 缺口
+
+## 2026-04-03：树苗残余卡顿续工，本轮改口为 PlacementValidator/PlacementManager 的树 prefab 画像缓存
+
+- 当前主线目标：
+  - 只按 `2026-04-03_farm_树苗放置卡顿交接prompt_04.md` 收口“只有树苗还卡”这一条线。
+- 本轮子任务：
+  1. 把 thread-state 从旧的桥面切片强制改成树苗卡顿切片
+  2. 继续在树苗专属运行时链里找第一责任点
+  3. 做最小可回退修法并补静态闸门
+- 本轮实际落地：
+  - 已执行 `Begin-Slice -ForceReplace`
+  - 新切片：`sapling-placement-stutter-closure_2026-04-03`
+  - 这轮只改：
+    - `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+  - 核心修法：
+    - 在 `PlacementValidator` 新增 `SaplingPlacementProfile` 缓存
+    - 把树苗阶段 0 的 margin / hasBlockingCollider 首次解析后缓存
+    - `PlacementManager.SaplingHasBlockingColliderAtPlacement(...)` 改为复用同一份缓存
+- 当前关键判断：
+  - 这轮第一责任点已从泛导航/TreeController 首帧改口为“树苗验证时反复解析 tree prefab 画像”；
+  - 因为这条链只对树苗存在，更符合“箱子和农作物基本不卡，只剩树苗还卡”的 live 事实。
+- 验证：
+  - `git diff --check -- PlacementValidator.cs PlacementManager.cs`：通过（仅 `PlacementValidator.cs` 既有 CRLF 提示）
+  - `CodexCodeGuard`：通过，`CanContinue=true`、`Diagnostics=[]`、`Assembly-CSharp`
+  - Unity `Assets/Refresh`：被外部 `Assets/Editor/Tool_005_BatchStoneState.cs` 的 editor 编译错误污染，不能当成 owned red
+  - 尝试跑 `Tools/Sunset/Placement/Run Sapling Ghost Validation`：未得到新的 scenario 日志，当前 live 证据不足
+- 当前恢复点：
+  - 结构层已继续推进，但体验层仍待验证；
+  - 若用户 live 仍报树苗卡，并且外部 `Tool_005_BatchStoneState.cs` 红错被清掉，下一轮再继续追 `TreeController.FinalizeDeferredRuntimePlacedSaplingInitialization()`。
+补记：本轮收尾前已执行 `Park-Slice`，当前 live 状态为 `PARKED`；当前两个真实尾项分别是：
+1. 外部 `Assets/Editor/Tool_005_BatchStoneState.cs` 编译红错挡住了干净的 sapling-only menu live 验证；
+2. 树苗体感是否真正变轻，仍待用户现场复测。

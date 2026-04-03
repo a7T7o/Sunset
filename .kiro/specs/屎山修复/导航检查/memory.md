@@ -8678,3 +8678,127 @@
 - 当前恢复点：
   - 优先让用户在 Unity 里直接过桥实测；
   - 如果仍被挡，再进入 scene 五段式审计，精确说明水层 collider / bridge override / 玩家 collider 的现场关系。
+
+## 2026-04-03｜prompt 交接：树苗卡顿转交 farm，本线程只保留桥/水/边缘视觉与可走范围对齐
+
+- 当前主线目标：
+  - 按用户最新分责，不再由本线程继续追 `树苗放置卡顿`；
+  - 本线程下一轮只保留 `桥 / 水 / 边缘` 的视觉与可走范围错位收口。
+- 本轮实际做成了什么：
+  1. 已把树苗卡顿这条线整理成可直接转发给 `farm` 的交接 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-03_farm_树苗放置卡顿交接prompt_04.md`
+  2. 已把本线程下一轮续工范围重新压成单一硬切片：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-03_本线程续工prompt_04.md`
+  3. 两份 prompt 都已显式写死：
+     - 树苗卡顿不再由本线程继续处理
+     - 本线程不再漂回 camera / UI / Tool_002 / town / scene sync / binder
+- 关键判断：
+  1. `树苗放置卡顿` 当前更适合交给 `farm`，因为用户已把现场压成“只有树苗还卡”，而箱子/农作物已基本不再明显卡。
+  2. 本线程下一轮最合理的唯一主刀，是继续把 `桥 / 水 / 边缘` 的视觉与可走范围错位压成真实责任点。
+  3. 这轮只是 prompt / handoff 收口，不是新的 runtime 修复；不能把它写成体验推进。
+- 验证结果：
+  - `git diff --check` 已过（仅覆盖本轮新增的两份 prompt 文件）；
+  - 本轮没有新的 Unity live 或代码修复验证。
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 等用户转发这两份 prompt；
+  - `farm` 接树苗卡顿；
+  - 本线程后续只按 `2026-04-03_本线程续工prompt_04.md` 的边界继续。
+
+## 2026-04-03｜桥/水/边缘错位定点补丁：桥面脚底判定改成“中心支撑优先”，空 bounds 配置不再误覆盖整张地图边界
+
+- 当前主线目标：
+  - 只处理 `桥 / 水 / 边缘` 的视觉与可走范围错位；
+  - 不再碰树苗卡顿、Tool_002、scene 实写、binder、camera、UI 或 town。
+- 本轮只读审计压实的现场事实：
+  1. `Primary.unity` 当前 `TraversalBlockManager2D` 配置为：
+     - `blockingTilemaps` = `Layer 1 - Water` + `Layer 1 - 桥_物品0`
+     - `walkableOverrideTilemaps` = `Layer 1 - 桥_底座`
+     - `boundsTilemaps / boundsColliders` 为空
+  2. `Player` 当前运行时参数为：
+     - `enforceNavGridBounds = 1`
+     - `allowTraversalOverridePhysicsSoftPass = 1`
+     - `navigationFootProbeVerticalInset = 0.08`
+     - `navigationFootProbeSideInset = 0.05`
+     - `navigationFootProbeExtraRadius = 0.02`
+  3. `NavGrid2D` 当前 scene 配置为：
+     - `probeRadius = 0.3915589`
+     - `walkableOverrideSupportRadius = 0.08`
+     - `strictCornerCutting = 1`
+- 本轮关键判断：
+  1. 当前最像的问题不是 scene 完全没接，而是：
+     - 玩家脚底三点判定对窄桥过宽
+     - bridge soft-pass 对“中心是否真在桥上”的要求不够明确
+     - `TraversalBlockManager2D` 在空 bounds 配置下，还会拿 traversal 阻挡源去反推整张地图边界
+  2. 当前能站住的是 `结构 / targeted probe`，还不能 claim 真实体验过线。
+- 本轮实际改动：
+  1. `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+     - `CanOccupyNavigationPoint()` 现在改成：
+       - 中心脚底必须先可走
+       - 如果中心脚底被 bridge override 真实支撑，则允许左右两侧只要有一侧仍可走，不再把单侧临水直接判成整段空气墙
+     - `ShouldEnableTraversalSoftPass()` 现在改成：
+       - 必须先由中心脚底命中 bridge override
+       - 再允许至少一侧支撑成立
+     - 新增桥面 support probe：
+       - `GetTraversalSupportProbePoints()`
+       - `GetTraversalSupportQueryRadius()`
+       - `IsTraversalBridgeCenterSupported()`
+  2. `Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+     - `overrideNavGridWorldBounds` 现在只有在显式配置了 `boundsTilemaps` 或 `boundsColliders` 时才真的覆盖 `NavGrid2D` world bounds
+     - 当 bounds 数组为空时，保留 `NavGrid2D` 当前已有 world bounds，不再拿 traversal 阻挡源反推整张地图边界
+- 验证结果：
+  - `git diff --check` 已过（本轮改动文件）
+  - `validate_script`：
+    - `PlayerMovement.cs` = 0 error / 2 warning
+    - `TraversalBlockManager2D.cs` = 0 error / 0 warning
+  - Unity Console 当前未见本轮新引入编译红错；
+  - 看到的仍是旧 warning 与既有 Editor 噪音：
+    - `PlacementValidator.cs` 的 obsolete warning
+    - `DialogueUI.cs` 的未使用字段 warning
+    - `Screen position out of view frustum` / `MCP-FOR-UNITY WebSocket` 噪音
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 先让用户重点复测：
+    - 走桥边时是否还明显踩进水里
+    - 桥面上是否还存在单侧临边就被判死的大块空气墙
+    - 地图外边缘是否还明显比绘制边框更宽或更窄
+  - 如果桥/边缘仍明显错位，再继续判断：
+    - 是 `桥_物品0` 这类 colliderless blocking tilemap 语义仍过粗
+    - 还是 scene 需要显式 bounds source
+  - 这轮没有动 `Primary.unity` 实写，所以若后续真发现是 scene 缺口，再单独报缺口，不偷改 scene。
+
+## 2026-04-03｜审计尾巴补记：桥/水/边缘切片当前验证完成到“脚本 clean + 体验待测”
+
+- 当前主线目标：
+  - 保持 `桥 / 水 / 边缘` 单切片，不扩回树苗卡顿、Tool_002、camera、UI、scene 实写或 binder。
+- 本轮补记的唯一目的：
+  - 把这轮切片的验证状态与 thread-state 现场补齐，防止后续误读成“还在 ACTIVE 施工”或“已经拿到 live 体验证据”。
+- 本轮补记内容：
+  1. 再次确认：
+     - `PlayerMovement.cs` 与 `TraversalBlockManager2D.cs` 的 `git diff --check` 通过。
+  2. 再次确认 `validate_script`：
+     - `PlayerMovement.cs` = `0 error / 2 warning`
+     - `TraversalBlockManager2D.cs` = `0 error / 0 warning`
+  3. skill 审计健康：
+     - `check-skill-trigger-log-health.ps1` = `Canonical-Duplicate-Groups: 0`
+  4. thread-state 现场：
+     - 查到旧的 `sapling-placement-stutter-closure_2026-04-03` 仍残留 `ACTIVE`
+     - 已先合法 `Park-Slice`
+     - 当前只开短 audit slice 结算 memory，随后继续停回 `PARKED`
+- 当前阶段判断：
+  - 现在这条桥/水/边缘线可以明确写成：
+    - `结构证据成立`
+    - `targeted probe 成立`
+    - `真实 live 体验仍待用户复测`
+- 当前恢复点：
+  - 用户后续若复测仍发现视觉/逻辑不对齐，优先继续排：
+    - `桥_物品0` 这类 colliderless blocking tilemap 的 fallback 语义是否仍过粗
+    - `TraversalBlockManager2D` 是否需要 scene owner 显式补 `boundsTilemaps / boundsColliders`
