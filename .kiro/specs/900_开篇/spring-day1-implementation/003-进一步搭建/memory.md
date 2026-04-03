@@ -446,3 +446,116 @@
 - 后续接棒线程改为 `spring-day1V2`；本线程当前职责到此暂停。
 - 当前冻结点保持不变：6 个 Day1-facing 文件的局部字体止血 checkpoint 已成形，但 `Assets/YYY_Scripts/Story/UI` 同根 remaining dirty/untracked 仍未 clean，因此本线程没有继续 sync，也不再自行开下一刀。
 - 后续如需续工，应由 `spring-day1V2` 继承当前 checkpoint、blocker 与验收口径继续处理；本线程只保留现状记忆，不再扩写。
+
+## 2026-04-03 补记：工作台 overlay 三问题只读侦察结论
+- 当前子工作区主线：不是继续 UI 大改，也不是继续 `Primary` / 字体 / scene；这轮只读排查 `SpringDay1WorkbenchCraftingOverlay` 的 3 个现象：
+  1. 制作时是否真的允许离开工作台
+  2. 离台悬浮进度为什么不显示
+  3. 玩家绕工作台移动时上下切换为什么可能不触发
+- 本轮显式使用：
+  - `skills-governor`
+- 本轮只读查实：
+  1. 代码层面“制作时允许离开”是成立的：
+     - `LateUpdate()` 在超出 `_autoHideDistance` 后只会 `Hide()` 面板；
+     - `Hide()` 不会停掉 `_craftRoutine`，而是仅把 `_isVisible=false`、解除 `blockNavOverUI`、再走 `HideImmediate()`；
+     - `CraftRoutine()` 继续跑，`MaintainWorkbenchPose()` 也只会在仍贴近工作台时帮玩家转向，不会锁住位置。
+  2. 离台悬浮进度当前真正的硬伤不在显示条件，而在可见性层级：
+     - `floatingProgressRoot` 是同一 overlay 根对象的子节点；
+     - `HideImmediate()` 直接把根 `CanvasGroup.alpha` 置 `0`；
+     - `UpdateFloatingProgressVisibility()` 虽然会在 `_isVisible=false && _craftRoutine!=null` 时激活 `floatingProgressRoot`，但它仍继承父级 `CanvasGroup` 的透明度，所以逻辑上“该显示”时也会肉眼不可见。
+  3. 上下切换的脆点主要在方向判定采样，而不是 `Reposition()` 本身：
+     - overlay 每帧用 `ShouldDisplayBelow(SpringDay1UiLayerUtility.GetInteractionSamplePoint(_playerTransform))` 决定上下；
+     - `CraftingStationInteractable.ShouldDisplayOverlayBelow()` 又先拿“玩家采样点 y”去和“工作台 visual bounds.center.y”做比较，只给 `0.04f` 的窄死区；
+     - `GetInteractionSamplePoint()` 默认取玩家 collider / presentation bounds 的 `min.y + 0.02f`，也就是更接近脚底而不是身体中心；
+     - 对宽 collider、偏移 sprite、绕侧边走位或脚底采样变化很小的情况，这套比较会长期卡在同一侧；再叠加 `_autoHideDistance=1.5f` 的提前收面板，就会表现成“怎么绕都不切”。
+- 当前恢复点：
+  - 如果后续真开修复切片，最小优先级应是：
+    1. 先拆开 `HideImmediate()` 与 `UpdateFloatingProgressVisibility()` 的可见性控制，不要再让 floating 继承整张面板的 `CanvasGroup.alpha=0`
+    2. 再收紧 `ShouldDisplayOverlayBelow()` 的判定基准，优先改成基于最近交互点 / 更稳定的人物采样，而不是单纯脚底 y 对 visual center
+    3. 若仍有“绕一圈就消失”的体验问题，再看 `_autoHideDistance` 与 `LateUpdate()` 的 hide 时机
+## 2026-04-03 补记：正规对话已恢复可见，工作台离台浮层已重新跑通
+
+- 当前子工作区主线：
+  - 用户这轮把 `spring-day1` 收窄成 4 个玩家可见问题：
+    1. `NPC` 打断短气泡回旧正式样式
+    2. 正规 `DialogueUI` 修复“有框没字 / 透明”
+    3. 工作台上下切换、制作中可离开、离台悬浮进度重新跑通
+    4. 工作台配方统一到 5 秒，并确认木剑 / 木箱已纳入
+- 本轮显式使用：
+  - `skills-governor`
+  - `preference-preflight-gate`
+  - `sunset-no-red-handoff`
+  - `sunset-unity-validation-loop`
+- 本轮实际落地：
+  1. `DialogueUI.cs`
+     - 把正规对话显现顺序改成“先让正规对话自己可见，再 fade 掉其他 UI”，不再把对话整块压在 `alpha=0` 等别的 UI 退场；
+     - `EnsureDialogueVisualComponentsReady()` 会把正文 `TextMeshProUGUI` 强制拉回 enabled，补掉 `Primary.unity` 里旧 disabled 值导致的“有框没字”。
+  2. `SpringDay1WorkbenchCraftingOverlay.cs`
+     - 把“大面板显示”和“离台 floating 显示”拆开，`UpdateFloatingProgressVisibility()` 现在会单独决定 root `CanvasGroup` 和 `PanelRoot` 的可见性，不再让 floating 跟着大面板一起透明；
+     - 离台判定改成两层兜底：既看采样点离交互/可视包络的距离，也看玩家根位置离工作台中心的距离，避免人物已经明显离开但面板不收；
+     - 维持制作时不锁玩家移动，只在仍贴近工作台时轻维持朝向；
+     - 已确认 `Recipe_9100~9104` 当前全部 `craftingTime = 5`，包含 `Sword_0` 与 `Storage_1400`。
+  3. `NPCBubblePresenter.cs`
+     - 继续保留 conversation / reaction channel 行为接口；
+     - 只把 `ReactionCue` 的紫色、无尾巴、紧缩版 special-case 全部撤掉，回到和普通 NPC 正式气泡同一张脸。
+- 本轮 live / 编译证据：
+  - `Assets/Refresh` 重新编译通过，最新 `Editor.log` 尾部为 `*** Tundra build success` + `Mono: successfully reloaded assembly`；
+  - 当前唯一新增 warning 仍是 `DialogueUI.fadeInDuration` 未使用；无 owned compile error；
+  - 正规对话 live：
+    - `Sunset/Story/Debug/Play Spring Day1 Dialogue`
+    - 连续两次 `Sunset/Story/Debug/Log Dialogue State`
+    - 最新两次都已稳定到：
+      - `DialogueFont='DialogueChinese Pixel SDF'`
+      - `CanvasAlpha=1.00`
+      - `CanvasInteractable=True`
+      - `CanvasBlocksRaycasts=True`
+    - 说明“正规对话整块透明”这一条已从玩家面恢复。
+  - 工作台 live：
+    - fresh Play 重新跑 `Sunset/Story/Debug/Run Spring Day1 Workbench Craft Exit Probe`
+    - 最新结果已变为：
+      - `belowSouth=False`
+      - `belowNorth=True`
+      - `switchOk=True`
+      - `floatingVisible=True`
+      - `floatingLabel='1'`
+      - `floatingFill=0.02`
+    - 新抓图：`.codex/artifacts/ui-captures/spring-ui/pending/20260403-144826-380_workbench-craft-exit-probe.png`
+    - 这说明工作台制作中离开后，大面板已收，离台浮层已真正接棒。
+- 当前仍未闭环：
+  - `NPC` 气泡这条我只拿到了静态结构回正证据，还没补一张新的 live/GameView 终验图；
+  - 所以这轮能诚实 claim：
+    - 正规对话：`线程自测已过`
+    - 工作台离台浮层：`线程自测已过`
+    - NPC 打断短气泡：`结构成立，live 待终验`
+- 当前恢复点：
+  - 若下一轮继续，只剩一个最小动作：补 `NPC` 普通气泡 + 打断短气泡的 live 观感确认；
+  - 不需要再回头重修正规对话或工作台离台浮层。
+## 2026-04-03 补记：按用户最新裁定拆成 UI 线程与 spring-day1 线程并行
+
+- 当前子工作区主线：
+  - 用户最新改判为“两线程并行”：
+    1. `UI / SpringUI` 线程正式接走 spring-day1 当前全部玩家面 `UI/UE` 问题；
+    2. `spring-day1` 自己只保留逻辑完善、剧情/行为顺序把控，以及 `NPCBubblePresenter.cs` 的旧正式气泡回正与 live 终验。
+- 本轮子任务：
+  - 不再继续修业务；
+  - 只把上面这次分工裁定收成两份可直接转发的续工 prompt，并把当前 slice 合法停到 `PARKED`。
+- 本轮已落地：
+  1. 新建 `2026-04-03_UI线程_接管spring-day1全部玩家面问题并行prompt_01.md`
+     - 明确把正规对话 UI、Prompt/Hint/WorldHint、Workbench 玩家面、overlay/prefab-first 壳体、字体引用与 GameView 体验收口整体转交给 `UI / SpringUI`；
+     - 同时明确排除 `NPCBubblePresenter.cs`、`Primary.unity`、`GameInputManager.cs`、NPC/Story 状态机本体。
+  2. 新建 `2026-04-03_spring-day1_逻辑剧情控制与NPC旧气泡续工prompt_02.md`
+     - 明确 spring-day1 后续只做非 UI 逻辑/剧情控制收口与 `NPC` 旧正式气泡 live 终验；
+     - 同时明确冻结 `town` 未就位前的剧情扩写，不回漂到玩家面 UI。
+  3. 当前 slice 已跑 `Park-Slice`
+     - 状态已从 `ACTIVE` 合法切到 `PARKED`
+     - 当前切片名：`并行分工prompt分发`
+- 当前稳定判断：
+  - 从这条子工作区往后看，玩家面问题不再由 spring-day1 继续主刀；
+  - 这里保留的唯一表现层例外只剩 `NPCBubblePresenter.cs` 这条旧正式气泡。
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-03_UI线程_接管spring-day1全部玩家面问题并行prompt_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-03_spring-day1_逻辑剧情控制与NPC旧气泡续工prompt_02.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1.json`
+- 当前恢复点：
+  - 等用户转发这两份 prompt；
+  - 若 spring-day1 后续继续，只按 `prompt_02` 收窄后的范围回来，不再把玩家面 UI 混回本线程。

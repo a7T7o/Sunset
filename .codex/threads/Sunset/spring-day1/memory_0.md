@@ -1645,3 +1645,71 @@
     1. 先拆开 `HideImmediate()` 和 floating 的可见性控制
     2. 再重做 `ShouldDisplayOverlayBelow()` 的判定基准
     3. 最后再看 `_autoHideDistance` 与 hide 时机
+## 2026-04-03 线程补记：正规对话与工作台离台浮层本轮已跑通，NPC 气泡留一个 live 尾点
+
+- 当前主线目标：
+  - 继续用户刚收窄的 4 件事：
+    1. 恢复 NPC 打断短气泡的旧正式样式
+    2. 修正规 `DialogueUI` 的“有框没字 / 透明”
+    3. 修工作台上下切换 + 制作中离开 + 离台悬浮进度
+    4. 确认工作台配方统一 5 秒并包含木剑 / 木箱
+- 本轮实际施工：
+  - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+    - 把正规对话显现顺序改成先显示自己，再 fade 其他 UI；
+    - `EnsureDialogueVisualComponentsReady()` 会强制拉起正文 `TextMeshProUGUI`。
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+    - 拆开大面板和离台 floating 的可见性；
+    - 离台判定新增“玩家根位置离工作台中心多远”的兜底，不再只信偏宽的交互包络；
+    - 继续允许制作中离开，不再锁玩家脚。
+  - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - 维持会话 / 通道逻辑，只清掉 `ReactionCue` 的紫色、无尾巴、紧缩 special-case，回旧正式脸。
+- 本轮验证结果：
+  - `Assets/Refresh` 编译通过，Unity 回到 Edit Mode；warning only：`DialogueUI.fadeInDuration` 未使用。
+  - 正规对话 live：
+    - fresh Play 后跑 `Sunset/Story/Debug/Play Spring Day1 Dialogue`
+    - 两次 `Log Dialogue State` 均为 `CanvasAlpha=1.00 / CanvasInteractable=True / CanvasBlocksRaycasts=True`
+    - 说明“正规对话透明 / 没字”已从玩家面恢复。
+  - 工作台 live：
+    - fresh Play 后跑 `Sunset/Story/Debug/Run Spring Day1 Workbench Craft Exit Probe`
+    - 最新 probe：`switchOk=True / floatingVisible=True / floatingLabel='1' / floatingFill=0.02`
+    - 最新抓图：`D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-captures\spring-ui\pending\20260403-144826-380_workbench-craft-exit-probe.png`
+  - 配方核实：
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9100_Axe_0.asset`
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9101_Hoe_0.asset`
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset`
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9103_Sword_0.asset`
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9104_Storage_1400.asset`
+    - 以上 `craftingTime` 现都为 `5`
+- 当前没闭环的只剩：
+  - `NPCBubblePresenter` 虽已移除 `ReactionCue` 的错误视觉分叉，但这轮还没拿到新的 live/GameView 终验；
+  - 正确口径是“代码回正，live 待终验”，不能往上冒充成体验已过线。
+- 当前恢复点：
+  - 这轮若停手，应 `Park-Slice`；
+  - 后续最小下一步只做 `NPC` 普通气泡 + 打断短气泡的 live 终验，不回头重修正规对话或工作台。
+## 2026-04-03 线程补记：已把后续工作正式拆成“UI 并行线程 + spring-day1 自身”两份 prompt
+
+- 当前主线目标：
+  - 按用户最新裁定，把 spring-day1 剩余工作分成两个并行线程，由用户转发执行。
+- 本轮子任务：
+  1. 写一份给 `UI / SpringUI` 的完整接盘 prompt
+  2. 写一份给 `spring-day1` 自己的续工 prompt
+  3. 把当前分发 slice 合法停车，不再假活跃
+- 本轮实际落地：
+  - 新建：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-03_UI线程_接管spring-day1全部玩家面问题并行prompt_01.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-03_spring-day1_逻辑剧情控制与NPC旧气泡续工prompt_02.md`
+  - 分工结论固定为：
+    - `UI / SpringUI`：接走正规对话 UI、Prompt/Hint/WorldHint、Workbench 玩家面、overlay/prefab-first、字体引用与 GameView 体验问题
+    - `spring-day1`：只保留逻辑完善、剧情/行为顺序/约束边界，以及 `NPCBubblePresenter.cs` 旧正式气泡回正与 live 终验
+  - 明确不再让 spring-day1 继续主刀玩家面 UI
+- thread-state：
+  - 本轮沿用既有 `Begin-Slice`
+  - 已执行 `Park-Slice`
+  - 当前状态：`PARKED`
+  - 当前切片：`并行分工prompt分发`
+- 当前判断：
+  - 这轮不是业务实现，而是边界回正；
+  - 从这一刻起，除了 `NPCBubblePresenter.cs` 这个例外，玩家面问题都不应再混回 spring-day1。
+- 当前恢复点：
+  - 等用户转发两份 prompt；
+  - 若 spring-day1 后续继续，只按 `prompt_02` 收窄后的逻辑/NPC 旧气泡范围推进。

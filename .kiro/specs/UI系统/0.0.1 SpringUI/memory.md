@@ -1175,3 +1175,53 @@
   - 这条气泡线作为 checkpoint 级完成物已经能诚实交接；
   - 下一次若要继续，不是再改体验，而是先处理 same-root remaining dirty 的归属 / 清理问题，之后才能重新判断是否允许 `sync`；
   - 真正的玩家视面终验仍待用户让出当前 Unity 实例后补做。
+
+## 2026-04-03：接管 spring-day1 玩家面后，先把提示链坏点与 DayEnd 玩家面残留收成 targeted probe 级 checkpoint
+
+- 当前主线目标：
+  - 按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-03_UI线程_接管spring-day1全部玩家面问题并行prompt_01.md`
+    接走 `spring-day1` 当前全部玩家面 `UI/UE` 残项，但不回漂到 `NPCBubblePresenter.cs`、`Primary.unity`、`GameInputManager.cs`。
+- 本轮子任务：
+  1. 重新审视 `Prompt / Hint / WorldHint / Workbench / DialogueUI` 当前代码现场，先分清“结构成立”和“玩家体验成立”。
+  2. 先收最明确的坏点：`SpringDay1WorldHintBubble` 被改成空壳，teaser 态世界提示被错误隐藏。
+  3. 额外处理一个真正玩家面尾巴：`DayEnd` 收束后低精力 warning 未清掉。
+- 本轮实际落地：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\SpringDay1ProximityInteractionService.cs`
+    - 恢复 teaser 态世界提示，不再因为 `CanTriggerNow == false` 就直接把头顶提示整块隐藏。
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1WorldHintBubble.cs`
+    - 收回错误的“把卡片、按键板、标题、细节全部关掉”的写法。
+    - 恢复正式卡面显示、可读尺寸、teaser/ready 两态布局和可用字体兜底。
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\InteractionHintOverlay.cs`
+    - 补成和其他 Spring UI 一致的“字体必须可渲染”判定，避免资源能 load 但文字实际空白。
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\NpcWorldHintBubble.cs`
+    - 同步补足字体可用性判定，防止玩家面提示进入“结构在、文本丢”的假过线。
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+    - 只切一个玩家面尾巴口：`HandleSleep()` 里在 `DayEnd` 收束时明确清掉低精力 warning，避免夜间结束后还残留红警示。
+- 本轮关键判断：
+  1. `SpringDay1WorldHintBubble` 当前不是“还可以调一调”的状态，而是功能上已经把正式提示面阉掉了；这必须先收。
+  2. 当前更适合先收“玩家能直接看见的提示链断面”，而不是继续回到模板化或抽象层。
+  3. `DayEnd` 的低精力 warning 残留虽然落在导演层方法里，但它本质是玩家面泄漏，所以允许用最小切口带走，不扩成导演层重做。
+- 本轮验证：
+  - Unity EditMode：
+    - `SpringDay1InteractionPromptRuntimeTests`：`5/5 Passed`
+    - `SpringDay1LateDayRuntimeTests`：`4/4 Passed`
+  - Unity Console：
+    - `error`：`0`
+  - 真实入口体验：
+    - 本轮未补 live GameView 证据
+    - 原因不是“忘了做”，而是当前项目现场仍有更高风险 live 干扰：
+      - `Primary.unity` 仍有用户独占锁
+      - 当前编辑器主 scene 现场不是这条线应接管的安全入口
+- completion layer：
+  - `结构 / checkpoint`：成立
+  - `targeted probe / 局部验证`：成立
+  - `真实入口体验`：尚未验证，不能假装已过线
+- 本轮 thread-state：
+  - `Begin-Slice`：已在本轮开工前补登记并沿用
+  - `Ready-To-Sync`：未跑
+    - 原因：本轮没有准备做白名单 sync，也还没有把这条线所有 own-root 旧脏改重新梳干净
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 这轮已经把 spring-day1 玩家面里最明显的提示链坏点收回到可读正式面，并把一个晚间收束残留一起清掉；
+  - 下一轮如果继续，应优先补“真实入口体验”层，而不是把当前 targeted probe 继续包装成全线过线。
