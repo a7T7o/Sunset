@@ -18,6 +18,8 @@ namespace FarmGame.Data.Core
     /// </summary>
     public class PersistentObjectRegistry : MonoBehaviour, IPersistentObjectRegistry
     {
+        private const string RegistryObjectName = "[PersistentObjectRegistry]";
+
         #region 单例
         
         private static PersistentObjectRegistry _instance;
@@ -36,14 +38,18 @@ namespace FarmGame.Data.Core
                 if (_instance == null)
                 {
                     // 尝试查找现有实例
-                    _instance = FindFirstObjectByType<PersistentObjectRegistry>();
+                    _instance = FindFirstObjectByType<PersistentObjectRegistry>(FindObjectsInactive.Include);
                     
                     // 如果没有，创建新实例
                     if (_instance == null)
                     {
-                        var go = new GameObject("[PersistentObjectRegistry]");
+                        var go = new GameObject(RegistryObjectName);
+                        AttachToPersistentRootIfAvailable(go.transform);
                         _instance = go.AddComponent<PersistentObjectRegistry>();
-                        DontDestroyOnLoad(go);
+                    }
+                    else
+                    {
+                        AttachToPersistentRootIfAvailable(_instance.transform);
                     }
                 }
                 return _instance;
@@ -90,6 +96,8 @@ namespace FarmGame.Data.Core
             }
             
             _instance = this;
+            gameObject.name = RegistryObjectName;
+            AttachToPersistentRootIfAvailable(transform);
             DontDestroyOnLoad(gameObject);
             
             if (showDebugInfo)
@@ -111,6 +119,22 @@ namespace FarmGame.Data.Core
         }
         
         #endregion
+
+        private static void AttachToPersistentRootIfAvailable(Transform target)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            Transform runtimeRoot = PersistentManagers.GetRuntimeRootTransform(createIfMissing: false);
+            if (runtimeRoot == null || runtimeRoot == target || target.parent == runtimeRoot)
+            {
+                return;
+            }
+
+            target.SetParent(runtimeRoot, false);
+        }
         
         #region IPersistentObjectRegistry 实现
         

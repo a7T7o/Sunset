@@ -19,11 +19,10 @@ public class TimeManager : MonoBehaviour
         {
             if (instance == null)
             {
-                instance = FindFirstObjectByType<TimeManager>();
+                instance = FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
                 if (instance == null)
                 {
-                    GameObject go = new GameObject("TimeManager");
-                    instance = go.AddComponent<TimeManager>();
+                    instance = PersistentManagers.EnsureManagedComponent<TimeManager>("TimeManager");
                 }
             }
             return instance;

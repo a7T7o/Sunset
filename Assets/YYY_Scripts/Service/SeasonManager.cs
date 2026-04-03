@@ -7,7 +7,25 @@ using System;
 /// </summary>
 public class SeasonManager : MonoBehaviour
 {
-    public static SeasonManager Instance { get; private set; }
+    private static SeasonManager instance;
+
+    public static SeasonManager Instance
+    {
+        get
+        {
+            if (instance == null)
+            {
+                instance = FindFirstObjectByType<SeasonManager>(FindObjectsInactive.Include);
+                if (instance == null)
+                {
+                    instance = PersistentManagers.EnsureManagedComponent<SeasonManager>("SeasonManager");
+                }
+            }
+
+            return instance;
+        }
+        private set => instance = value;
+    }
     
     /// <summary>
     /// 日历季节枚举（4个）
@@ -74,13 +92,13 @@ public class SeasonManager : MonoBehaviour
     private void Awake()
     {
         // 单例模式
-        if (Instance == null)
+        if (instance == null)
         {
             Instance = this;
             // ✅ DontDestroyOnLoad 由 PersistentManagers 统一处理
             // 不再在此调用，避免 "only works for root GameObjects" 警告
         }
-        else
+        else if (instance != this)
         {
             Destroy(gameObject);
         }
