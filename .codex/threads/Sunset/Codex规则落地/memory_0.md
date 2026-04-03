@@ -4805,3 +4805,268 @@
   - 这轮树 prefab 已从 working tree 大 diff 中切走；
   - 若继续收口，下一步只应看那 3 份线程记忆能否白名单归仓；
   - 若再往下，就已经不再是“直接提交”，而必须先修问题再谈提交。
+
+## 2026-04-03｜按“线程还在持续干活”口径重新从头复扫，当前暂无新可提白名单
+
+- 当前主线目标：
+  - 用户要求后续不要沿用上一轮判断，而是每一轮都把现场当成新的 shared root 重新检查；
+  - 目标仍然不变：继续找还能安全提交的内容，但必须以 fresh check 为准。
+- 本轮子任务：
+  1. 重新核查 `Primary` 独占锁、active ownership、最新 dirty 清单；
+  2. 对最容易误判的 3 组候选重跑 preflight；
+  3. 给出“这一轮从头看，当前还有没有新可提”的结论。
+- 这轮实际做成了什么：
+  1. 已确认 `Primary` 用户独占锁仍有效，`Codex规则落地` 当前仍是 `PARKED`。
+  2. 已确认 active 线程现场当前为：
+     - `019d4d18-bb5d-7a71-b621-5d1e2319d778`
+     - `spring-day1`
+     - `项目文档总览`
+  3. 最新 `git status` 显示现场确实已变化，`NavGrid2D.cs` 与 `TraversalBlockManager2D.cs` 已重新回到 dirty 集合；这证明之后必须轮轮重扫，不能用旧快照替代。
+  4. 已对 3 组候选做 fresh preflight：
+     - `spring-day1` 两份工作区 memory
+     - 字体组 `DialogueChinese* + DialogueFontLibrary_Default`
+     - `SampleScene` 删除组
+  5. fresh 结论：
+     - `spring-day1` memory 组：虽然 same-root clean，但 owner 仍是 active 的 `spring-day1`，治理位不能代提；
+     - 字体组：technical preflight 仍能过，但它依旧属于 atlas/m_AtlasTextures incident 面，不是“可直接吞”的减卡白名单；
+     - `SampleScene` 删除组：被 `Assets/000_Scenes` 同根 remaining dirty 直接阻断，因为同根里还挂着 `Primary / Home / Town / backup`。
+- 关键判断：
+  - 这一轮从头看完后，当前没有新的“我现在就能提交”的白名单；
+  - 再继续硬提，就会开始误吞 active 线程 own 文件、字体坏资产或 scene 同根混合现场；
+  - 所以后续若继续执行用户这条主线，固定策略应改成：
+    - 先 fresh check
+    - 有新 clean 组再提
+    - 没有就停在“暂无新可提”
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese SDF.asset`
+  - `D:\Unity\Unity_learning\Sunset\Assets\TextMesh Pro\Resources\Fonts & Materials\DialogueChinese Pixel SDF.asset`
+  - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\UI\Fonts\Dialogue\DialogueFontLibrary_Default.asset`
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\SampleScene.unity`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\active\A__Assets__000_Scenes__Primary.unity.lock.json`
+- 验证结果：
+  - `Primary` 锁：仍为 `locked`
+  - `spring-day1` memory 组 preflight：same-root clean，但 owner 非治理位
+  - 字体组 preflight：通过，但不改变“当前不该提交”的 incident 判断
+  - `SampleScene` 删除组 preflight：失败，`own roots remaining dirty = 7`
+- 当前恢复点：
+  - 这轮 fresh check 的直接产出就是：`暂无新可提白名单`
+  - 如果下一轮继续，第一动作仍然必须重新 fresh scan，而不是沿用本条结论。
+
+## 2026-04-03｜用户追问“如果我不听直接全提交会怎样”
+
+- 当前主线目标：
+  - 用户已经不再只问“还能提什么”，而是直接追问：如果现在不听治理口径、把当前工作树一股劲全提交，真实后果是什么。
+- 本轮子任务：
+  1. 基于最新 active ownership 和锁现场，把“强行全提”的后果说透；
+  2. 不再泛泛重复禁提名单，而是说明污染会怎样落到主线历史里。
+- 这轮实际做成了什么：
+  1. 已按最新 live 现场重新钉死：
+     - `Primary.unity` 仍是用户独占；
+     - `019d...` 当前仍 `ACTIVE`，own 路径覆盖 `NavGrid2D / TraversalBlockManager2D / PlayerMovement / CameraDeadZoneSync / PlacementManager / TreeController`；
+     - `spring-day1` 的 own 路径继续覆盖字体、对话 UI、工作台 overlay 与相关 prefab。
+  2. 据此把“你现在真全提”的结果收敛成 5 类后果：
+     - 他线施工中 WIP 会一起被固化进 `main`
+     - 已知坏字体资产会从本地事故面变成正式仓库基线
+     - `Primary / Home / Town / backup / scratch` 这些 scene 与副产物会一起进历史
+     - 当前还存在的按组回退能力会大幅丧失
+     - 后续 owner 边界、归责和 rollback 口径会整体失真
+  3. 已明确给自己的判断口径：
+     - 我拦不住用户提交
+     - 但如果用户这么做，后续就不能再把现场当成“可继续分账的临时 dirty”，而要按“主线已被混合提交污染”处理
+- 关键判断：
+  - 这轮最核心的结论不是“你不能按回车”，而是“按了之后会把临时脏现场升级成正式基线事故”；
+  - 从治理视角看，这比单纯多一个大提交更麻烦，因为它会同时污染 owner、质量和 rollback 三条线。
+- 当前恢复点：
+  - 如果用户仍决定强行提交，后续治理就要切到“事故收拾模式”；
+  - 如果用户没按下去，当前最佳策略仍是继续分组收口或先修问题再提交。
+
+## 2026-04-03｜Town 最终复核收口：当前已回到“可信历史基线 + 最小运行骨架已在”的状态
+
+- 当前主线目标：
+  - 用户已把这轮收窄成 `Town`：不要再用局部缝补去猜，而是先用历史备份恢复可信基线，再回到最初需求判断 `Town` 是否已经真正处理完。
+- 本轮子任务：
+  1. 不碰 `Primary`，继续尊重用户独占锁；
+  2. 回看 `Town` 最初需求到底是什么；
+  3. 判断当前恢复后的 `Town` 是否还需要继续补骨架，还是其实已经回到目标最低线。
+- 这轮实际做成了什么：
+  1. 重新核对 `Primary` 物理锁仍为 `locked`，owner 仍是 `用户Primary独占`，因此本轮不做任何 Unity live 切场景动作。
+  2. 从工作区/线程历史里重新钉死最初需求：
+     - `Town` 不是“能打开就算完”；
+     - 而是“保留原有美术内容、只增不删、补齐最小运行骨架”。
+  3. 重新核对当前 `Town` 与事故前备份：
+     - `Assets/000_Scenes/Town.unity`
+     - `.codex/artifacts/town-foundation/backups/Town_before_runtime_component_sync_2026-04-03_03-44-03.unity`
+     - SHA256 完全一致，说明整份历史备份覆盖已经真实落盘。
+  4. 继续把这份备份和当时骨架补齐 artifact 对齐：
+     - `2026-04-03_01-30-27_town-foundation.json`
+     - 里面的 `verifiedPaths` 覆盖：
+       - `Primary`
+       - `Primary/0_Core`
+       - `Primary/1_Managers`
+       - `Primary/2_World`
+       - `Primary/2_World/Systems`
+       - `Primary/2_World/NavigationRoot`
+       - `Player`
+       - `Camera`
+       - `Camera/CinemachineCamera`
+       - `_CameraBounds`
+       - `HealthSystem`
+       - `SprintStateManager`
+       - `Main Camera`
+       - `SCENE`
+  5. 只读扫当前恢复后的 `Town`，确认这些关键路径仍都命中，同时还能命中：
+     - `SpringDay1ProximityInteractionService`
+     - `SpringDay1PromptOverlay`
+     - `SpringDay1WorldHintBubble`
+     - `InteractionHintOverlay`
+     - `DialoguePanel`
+     - `PackagePanel`
+  6. 因此本轮没有再去改 `Town.unity`，也没有再重复跑 `TownFoundationBootstrapMenu`。
+- 关键判断：
+  - 现在最稳的结论不是“Town 还差一轮大修”，而是：
+    - 当前 `Town` 已回到那份可信历史基线；
+    - 而这份基线本身已经带着最初那次“只增不删”的基础骨架补齐结果；
+    - 所以我这边不再继续改 scene 文件。
+  - 当前仍没法在这轮内宣称“体验层绝对过线”：
+    - 因为用户正在独占 `Primary`；
+    - 同一 Unity 实例下不适合由我再切进 `Town` 做 live/GameView 验证；
+    - 所以这轮只能把结论站到“结构恢复成立，玩家视面待用户手开 Town 确认”。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity`
+  - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\town-foundation\backups\Town_before_runtime_component_sync_2026-04-03_03-44-03.unity`
+  - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\town-foundation\2026-04-03_01-30-27_town-foundation.json`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\TownFoundationBootstrapMenu.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\TownCameraRecoveryMenu.cs`
+- 验证结果：
+  - `Town` 当前 hash 与事故前备份一致；
+  - 骨架 artifact 记录的 `verifiedPaths` 仍可在当前 Town 对上；
+  - 本轮未做 Unity live 验证，原因是用户当前独占 `Primary`，不应打断。
+- 当前恢复点：
+  - `Town` 这条线我这边已收干净，不再继续写 `Town.unity`；
+  - 如果用户下一步要补最终确认，只需手开 `Town` 看：
+    1. 第一眼不再像空场景
+    2. Console 无新的 `Town` 级红错
+  - 技术上再记一条：
+    - 当前 `Town.unity` / `Town.unity.meta` 仍是 untracked；
+    - 且与 `Primary/Home/backup` 同属 `Assets/000_Scenes` 混合现场；
+    - 因此这轮不做 scene 根目录 sync。
+
+## 2026-04-03｜线程显示的百万级变更量根因：大头是 untracked `.unity` 和 scratch 副本，不是代码疯涨
+
+- 当前主线目标：
+  - 用户要求我查清为什么 Sunset 线程显示约 `+1,625,458 / -30,222` 的超大变更量，并导致 Codex 打开线程时内联刷新严重卡顿。
+- 本轮子任务：
+  1. 把当前现场拆成 `tracked diff` 与 `untracked` 文本大文件两层；
+  2. 找出真正把数字顶到百万级的前几名。
+- 这轮实际做成了什么：
+  1. 已钉死当前 `tracked diff` 的真实量：
+     - `66` 个文件
+     - `+216,743 / -30,240`
+  2. 已钉死 `tracked` 的绝对大头：
+     - `Assets/000_Scenes/Primary.unity`
+     - `+196,461 / -28,009`
+  3. 已钉死当前 `untracked` 文本文件总量：
+     - `71` 个文件
+     - 约 `1,409,132` 行
+     - 约 `39.02 MB`
+  4. 已钉死最大的两个目录组：
+     - `Assets/__CodexSceneSyncScratch`
+       - `16` 个文件
+       - 约 `992,492` 行
+     - `Assets/000_Scenes`
+       - `6` 个文件
+       - 约 `408,037` 行
+  5. 当前单文件前几名也几乎全是 `.unity`：
+     - `Assets/000_Scenes/Town.unity`：`198,710`
+     - `Assets/__CodexSceneSyncScratch/TownCameraRecoverySource.unity`：`198,710`
+     - `Assets/__CodexSceneSyncScratch/Town_offline_sync_validation.unity`：`198,710`
+     - `Assets/__CodexSceneSyncScratch/Primary_offline_sync_validation.unity`：`162,725`
+     - `Assets/__CodexSceneSyncScratch/PrimaryValidationTarget.unity`：`158,483`
+     - `Assets/__CodexSceneSyncScratch/TownBootstrapSource.unity`：`157,698`
+     - `Assets/000_Scenes/primary_backup_2026-04-02_20-46-54.unity`：`115,604`
+     - `Assets/__CodexSceneSyncScratch/PrimaryValidationSource.unity`：`115,604`
+     - `Assets/000_Scenes/Home.unity`：`93,702`
+  6. 结论已经足够解释用户截图里的 `+1.625M`：
+     - `tracked additions 216k`
+     - 加上 `untracked` 大 `.unity` 文本约 `1409k`
+     - 合起来就是当前线程窗口里看到的百万级新增量。
+- 关键判断：
+  - 这次把线程窗口卡爆的，不是“所有线程代码都改疯了”；
+  - 真正的大头是：
+    1. `Primary.unity` 的 tracked 超大 YAML diff
+    2. `Assets/__CodexSceneSyncScratch` 下多份 untracked 验证/恢复副本
+    3. `Assets/000_Scenes` 下的 `Town/Home/primary_backup` 等 untracked 大场景
+  - `Assets/Editor`、`Assets/YYY_Scripts`、`Assets/YYY_Tests` 虽然也有 untracked，但量级已经掉到几千行，不是卡顿主因。
+- 当前恢复点：
+  - 如果后续目标是先把 Codex 卡顿降下来，最值钱的不是先盯代码，而是优先处理这些大 `.unity` untracked 载荷；
+  - 当前最值得优先盯的异常组按体量排：
+    1. `Assets/__CodexSceneSyncScratch`
+    2. `Assets/000_Scenes`
+    3. `Assets/000_Scenes/Primary.unity`
+
+## 2026-04-03｜Town 结构收口已站住；百万级改动量的主因已数值钉死
+
+- 当前主线目标：
+  - `Town`：用户要求先用历史备份恢复可信基线，再回到最初“保留原有美术内容、只增不删、补齐最小运行骨架”的要求判断是否已经收住。
+- 本轮子任务 / 阻塞：
+  - 插入式阻塞任务是：调查 Codex 在 Sunset 项目里显示约 `+1,625,458 / -30,222` 的巨大改动量到底从哪里来，因为它正在把线程打开时的内联刷新拖到极卡。
+- 这轮实际做成了什么：
+  1. 继续复核 `Primary` 用户独占锁仍有效，因此本轮不做 Unity live 切场景动作。
+  2. 重新钉死 `Town` 的最初完成定义：
+     - 不是“能打开就行”；
+     - 而是“保留原有美术内容、只增不删、补齐最小运行骨架”。
+  3. 复核当前 `Town` 与事故前备份的 SHA256 完全一致，说明“直接用历史备份整份覆盖 Town”已经真实落盘。
+  4. 再把当前 `Town` 和 `.codex/artifacts/town-foundation/2026-04-03_01-30-27_town-foundation.json` 对齐：
+     - `verifiedPaths` 里的 `Primary / 0_Core / 1_Managers / 2_World / NavigationRoot / Player / Camera / Main Camera / _CameraBounds / HealthSystem / SprintStateManager / SCENE` 仍都能对上；
+     - 当前磁盘版 `Town` 还继续命中：
+       - `SpringDay1ProximityInteractionService`
+       - `SpringDay1PromptOverlay`
+       - `SpringDay1WorldHintBubble`
+       - `InteractionHintOverlay`
+       - `DialoguePanel`
+       - `PackagePanel`
+  5. 因此这轮没有再改 `Town.unity`：
+     - 当前最稳的判断是：恢复回来的这份 `Town` 已经是“可信历史基线 + 当时骨架补齐后的状态”。
+  6. 同轮把百万级改动量做成了数值级归因：
+     - 本地按 `tracked diff + untracked 文本行数近似` 算出的总量约：
+       - `+1,624,931 / -30,239`
+     - 与 Codex UI 看到的：
+       - `+1,625,458 / -30,222`
+       高度贴合。
+  7. 当前真正把数字抬爆的 3 个大头是：
+     - `Assets/__CodexSceneSyncScratch`
+       - 16 个 untracked 文件
+       - 约 `+992,492` 行
+       - 约 `28.6 MB`
+     - `Assets/000_Scenes`
+       - 6 个 untracked 文件
+       - 约 `+408,037` 行
+       - 约 `11.6 MB`
+     - `Assets/000_Scenes/Primary.unity`
+       - tracked 单文件 diff
+       - `+196,461 / -28,009`
+  8. 其余组都只是小头：
+     - `Assets/TextMesh Pro` tracked 约 `+12,084 / -586`
+     - `Assets/YYY_Scripts` tracked 约 `+7,083 / -1,328`，untracked 约 `+1,323`
+     - `Assets/Editor` untracked 约 `+5,501`
+     - `Assets/YYY_Tests` untracked 约 `+769`
+     - `Assets/Screenshots` 仅约 `+429` 行 `.meta` 与约 `339 KB` PNG
+- 关键判断：
+  - `Town` 这条线现在不该再继续写 scene 文件；
+  - 当前还缺的不是结构层，而是用户手开 `Town` 的 live 视面确认；
+  - Codex 卡顿的主因不是文档、截图或普通代码，而是 untracked Unity YAML 场景副本与当前热 scene。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity`
+  - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\town-foundation\backups\Town_before_runtime_component_sync_2026-04-03_03-44-03.unity`
+  - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\town-foundation\2026-04-03_01-30-27_town-foundation.json`
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+  - `D:\Unity\Unity_learning\Sunset\Assets\__CodexSceneSyncScratch\`
+- 验证结果：
+  - `Town` 当前 hash 与事故前备份一致；
+  - 骨架 artifact 中的关键路径可在当前 Town 对上；
+  - `+1.62M / -30k` 级数字已被 tracked diff + untracked 文本行数近似解释；
+  - 本轮未做 Unity live 验证，原因是用户当前独占 `Primary`，不应打断。
+- 当前恢复点：
+  - `Town` 现在停在“结构恢复成立，体验待用户手开 Town 确认”；
+  - 卡顿问题则已经钉死到“主要由 untracked Unity YAML 场景副本造成”；
+  - 若下一轮继续，我最先回到的主线不是再猜 `Town` 还差什么，而是基于这个归因结果继续收缩真正的大头。
