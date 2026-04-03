@@ -11,9 +11,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 
-DOC_SPLIT_RE = re.compile(r"(?m)^--- !u!(\d+) &(-?\d+)\n")
+DOC_SPLIT_RE = re.compile(r"(?m)^--- !u!(\d+) &(-?\d+)( stripped)?\n")
 FILE_ID_RE = re.compile(r"fileID: (-?\d+)")
-HEADER_RE = re.compile(r"^--- !u!(\d+) &(-?\d+)\n")
+HEADER_RE = re.compile(r"^--- !u!(\d+) &(-?\d+)( stripped)?\n")
 NAME_RE = re.compile(r"(?m)^  m_Name: (.*)$")
 GAME_OBJECT_RE = re.compile(r"(?m)^  m_GameObject: \{fileID: (-?\d+)\}$")
 PREFAB_INSTANCE_RE = re.compile(r"(?m)^  m_PrefabInstance: \{fileID: (-?\d+)\}$")
@@ -21,6 +21,12 @@ COMPONENT_RE = re.compile(r"(?m)^  - component: \{fileID: (-?\d+)\}$")
 FATHER_RE = re.compile(r"(?m)^  m_Father: \{fileID: (-?\d+)\}$")
 CHILDREN_BLOCK_RE = re.compile(r"(?ms)^  m_Children:\n(.*?)^  m_Father:")
 CHILD_RE = re.compile(r"(?m)^  - \{fileID: (-?\d+)\}$")
+ROOTS_BLOCK_RE = re.compile(r"(?ms)^  m_Roots:\n(.*)$")
+ROOT_RE = re.compile(r"(?m)^  - \{fileID: (-?\d+)\}$")
+LOCAL_PPTR_RE = re.compile(r"\{fileID: (-?\d+)(?:, guid: [^}]*)?\}")
+
+SCENE_ROOTS_CLASS_ID = 1660057539
+SCENE_ROOTS_FILE_ID = 9223372036854775807
 
 
 @dataclass
@@ -56,6 +62,9 @@ class SceneData:
         self.path_to_transform: Dict[str, int] = {}
         self.normalized_path_to_transform: Dict[str, int] = {}
         self.game_object_to_transform: Dict[int, int] = {}
+        self.stripped_transform_to_prefab_instance: Dict[int, int] = {}
+        self.scene_roots_doc_id: Optional[int] = None
+        self.scene_root_ids: List[int] = []
         self.reindex()
 
     @staticmethod
@@ -92,6 +101,10 @@ class SceneData:
             elif doc.class_id in (4, 224):
                 game_object_match = GAME_OBJECT_RE.search(doc.text)
                 if not game_object_match:
+                    prefab_instance_match = PREFAB_INSTANCE_RE.search(doc.text)
+                    if prefab_instance_match:
+                        self.stripped_transform_to_prefab_instance[file_id] = int(prefab_instance_match.group(1))
+                        continue
                     raise ValueError(f"Transform 文档缺少 m_GameObject: {file_id}")
                 game_object_id = int(game_object_match.group(1))
                 parent_match = FATHER_RE.search(doc.text)
@@ -105,6 +118,13 @@ class SceneData:
                     child_ids=child_ids,
                 )
                 self.game_object_to_transform[game_object_id] = file_id
+            elif doc.class_id == SCENE_ROOTS_CLASS_ID:
+                self.scene_roots_doc_id = file_id
+                roots_match = ROOTS_BLOCK_RE.search(doc.text)
+                self.scene_root_ids = [
+                    int(root_id)
+                    for root_id in ROOT_RE.findall(roots_match.group(1) if roots_match else "")
+                ]
 
         root_transforms = [transform.file_id for transform in self.transforms.values() if transform.parent_id == 0]
         for transform_id in root_transforms:
@@ -117,6 +137,9 @@ class SceneData:
         self.path_to_transform.clear()
         self.normalized_path_to_transform.clear()
         self.game_object_to_transform.clear()
+        self.stripped_transform_to_prefab_instance.clear()
+        self.scene_roots_doc_id = None
+        self.scene_root_ids = []
         self._build_index()
 
     def _index_path(self, transform_id: int, parent_path: str) -> None:
@@ -164,8 +187,13 @@ class SceneData:
                     f"{self.path} 中所选对象树包含 PrefabInstance（fileID={doc_id}），当前离线版只支持纯场景对象。"
                 )
 
-    def max_file_id(self) -> int:
-        return max(self.docs.keys())
+    def max_allocatable_file_id(self) -> int:
+        allocatable_ids = [
+            file_id
+            for file_id, doc in self.docs.items()
+            if doc.class_id != SCENE_ROOTS_CLASS_ID
+        ]
+        return max(allocatable_ids) if allocatable_ids else 0
 
     def replace_doc(self, file_id: int, text: str) -> None:
         if file_id not in self.docs:
@@ -173,9 +201,13 @@ class SceneData:
         self.docs[file_id] = Doc(class_id=self.docs[file_id].class_id, file_id=file_id, text=text)
 
     def append_docs(self, docs: List[Doc]) -> None:
+        insert_at = len(self.order)
+        if self.scene_roots_doc_id is not None and self.scene_roots_doc_id in self.order:
+            insert_at = self.order.index(self.scene_roots_doc_id)
         for doc in docs:
             self.docs[doc.file_id] = doc
-            self.order.append(doc.file_id)
+        new_ids = [doc.file_id for doc in docs]
+        self.order[insert_at:insert_at] = new_ids
 
     def remove_docs(self, file_ids: Set[int]) -> None:
         self.order = [file_id for file_id in self.order if file_id not in file_ids]
@@ -224,7 +256,12 @@ def rewrite_doc_ids(text: str, id_map: Dict[int, int]) -> str:
 
     old_file_id = int(header_match.group(2))
     new_file_id = id_map[old_file_id]
-    text = HEADER_RE.sub(lambda match: f"--- !u!{match.group(1)} &{new_file_id}\n", text, count=1)
+    stripped_suffix = header_match.group(3) or ""
+    text = HEADER_RE.sub(
+        lambda match: f"--- !u!{match.group(1)} &{new_file_id}{stripped_suffix}\n",
+        text,
+        count=1,
+    )
 
     def replace_file_id(match: re.Match[str]) -> str:
         file_id = int(match.group(1))
@@ -250,6 +287,17 @@ def update_children_block(text: str, child_ids: List[int]) -> str:
     if index < 0:
         raise ValueError("Transform 文档缺少 m_Father，无法更新 m_Children。")
     return text[:index] + new_block + text[index:]
+
+
+def update_scene_roots_block(text: str, root_ids: List[int]) -> str:
+    new_block = "  m_Roots:\n"
+    for root_id in root_ids:
+        new_block += f"  - {{fileID: {root_id}}}\n"
+
+    if ROOTS_BLOCK_RE.search(text):
+        return ROOTS_BLOCK_RE.sub(lambda _: new_block.rstrip("\n"), text, count=1)
+
+    raise ValueError("SceneRoots 文档缺少 m_Roots，无法更新。")
 
 
 def add_child_to_parent(scene: SceneData, parent_transform_id: int, child_transform_id: int) -> None:
@@ -278,6 +326,29 @@ def remove_child_from_parent(scene: SceneData, parent_transform_id: int, child_t
         parent_id=transform.parent_id,
         child_ids=child_ids,
     )
+
+
+def add_root_to_scene(scene: SceneData, transform_id: int) -> None:
+    if scene.scene_roots_doc_id is None:
+        raise ValueError(f"{scene.path} 缺少 SceneRoots 文档，无法新增根对象。")
+
+    root_ids = list(scene.scene_root_ids)
+    if transform_id not in root_ids:
+        root_ids.append(transform_id)
+
+    updated_text = update_scene_roots_block(scene.docs[scene.scene_roots_doc_id].text, root_ids)
+    scene.replace_doc(scene.scene_roots_doc_id, updated_text)
+    scene.scene_root_ids = root_ids
+
+
+def remove_root_from_scene(scene: SceneData, transform_id: int) -> None:
+    if scene.scene_roots_doc_id is None:
+        raise ValueError(f"{scene.path} 缺少 SceneRoots 文档，无法移除根对象。")
+
+    root_ids = [candidate for candidate in scene.scene_root_ids if candidate != transform_id]
+    updated_text = update_scene_roots_block(scene.docs[scene.scene_roots_doc_id].text, root_ids)
+    scene.replace_doc(scene.scene_roots_doc_id, updated_text)
+    scene.scene_root_ids = root_ids
 
 
 def clone_subtree_safe(
@@ -313,14 +384,20 @@ def clone_subtree_safe(
         existing_parent_id = target.transforms[existing_target_root_transform_id].parent_id
         if existing_parent_id != 0:
             remove_child_from_parent(target, existing_parent_id, existing_target_root_transform_id)
+        else:
+            remove_root_from_scene(target, existing_target_root_transform_id)
         target_doc_ids = target.collect_subtree_doc_ids(existing_target_root_transform_id)
         target.remove_docs(target_doc_ids)
         target.reindex()
 
-    max_target_id = target.max_file_id()
+    max_target_id = target.max_allocatable_file_id()
     id_map: Dict[int, int] = {}
     next_id = max_target_id + 1
     for old_id in sorted(source_doc_ids):
+        if next_id >= SCENE_ROOTS_FILE_ID:
+            raise ValueError(
+                f"目标场景可分配 fileID 已逼近 SceneRoots 保留值 {SCENE_ROOTS_FILE_ID}，已阻断离线同步。"
+            )
         id_map[old_id] = next_id
         next_id += 1
 
@@ -344,7 +421,9 @@ def clone_subtree_safe(
     target.reindex()
     if target_parent_transform_id != 0:
         add_child_to_parent(target, target_parent_transform_id, cloned_root_transform_id)
-        target.reindex()
+    else:
+        add_root_to_scene(target, cloned_root_transform_id)
+    target.reindex()
 
     return {
         "path": path,
@@ -368,6 +447,59 @@ def verify_paths(scene_path: Path, required_paths: Iterable[str]) -> Dict[str, b
 
 def verify_paths_in_memory(scene: SceneData, required_paths: Iterable[str]) -> Dict[str, bool]:
     return {path: scene.find_transform_by_path(path) is not None for path in required_paths}
+
+
+def validate_scene_integrity(scene: SceneData) -> Dict[str, object]:
+    doc_ids = set(scene.docs.keys())
+    missing_local_refs: Set[int] = set()
+    stripped_missing_prefab_instance: List[int] = []
+    transforms_missing_game_object: List[int] = []
+    transforms_missing_parent: List[int] = []
+    transforms_missing_children: List[int] = []
+
+    for file_id in scene.order:
+        doc = scene.docs[file_id]
+        for match in LOCAL_PPTR_RE.finditer(doc.text):
+            pointer_text = match.group(0)
+            target_id = int(match.group(1))
+            if target_id == 0 or "guid:" in pointer_text:
+                continue
+            if target_id not in doc_ids:
+                missing_local_refs.add(target_id)
+
+        if doc.class_id not in (4, 224):
+            continue
+
+        prefab_match = PREFAB_INSTANCE_RE.search(doc.text)
+        game_object_match = GAME_OBJECT_RE.search(doc.text)
+        if game_object_match:
+            game_object_id = int(game_object_match.group(1))
+            if game_object_id not in doc_ids:
+                transforms_missing_game_object.append(file_id)
+        elif prefab_match:
+            prefab_instance_id = int(prefab_match.group(1))
+            if prefab_instance_id != 0 and prefab_instance_id not in doc_ids:
+                stripped_missing_prefab_instance.append(file_id)
+
+        transform = scene.transforms.get(file_id)
+        if transform is None:
+            continue
+
+        if transform.parent_id != 0 and transform.parent_id not in scene.transforms:
+            transforms_missing_parent.append(file_id)
+
+        for child_id in transform.child_ids:
+            if child_id not in scene.transforms and child_id not in scene.stripped_transform_to_prefab_instance:
+                transforms_missing_children.append(file_id)
+                break
+
+    return {
+        "missing_local_refs": sorted(missing_local_refs),
+        "stripped_transforms_missing_prefab_instance": sorted(stripped_missing_prefab_instance),
+        "transforms_missing_game_object": sorted(transforms_missing_game_object),
+        "transforms_missing_parent": sorted(transforms_missing_parent),
+        "transforms_missing_children": sorted(transforms_missing_children),
+    }
 
 
 def main() -> int:
@@ -415,6 +547,7 @@ def main() -> int:
             if args.dry_run
             else verify_paths(target_path, args.paths)
         )
+        report["integrity"] = validate_scene_integrity(target)
         report["success"] = True
     except Exception as exception:
         report["success"] = False

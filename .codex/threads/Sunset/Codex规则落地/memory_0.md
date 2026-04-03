@@ -5184,3 +5184,396 @@
 - 当前恢复点：
   - 如果下一轮继续，最值钱的动作是决定要不要顺手清掉这条 warning，把 `UI` 那刀放行；
   - 再往后才是 `Town`、`Primary`、`SampleScene` 和各类 hot/mixed 脚本的大头处理。
+
+## 2026-04-03｜`Primary` 风险约束分析完成，已落只增修复 prompt，当前继续保持用户独占
+
+- 当前主线目标：
+  - 用户担心别的线程去修 `Primary.unity` 时，再次出现 Unity 提示重新加载后把现场打回古早版本；要求我先把风险判断清楚，并把后续修复动作规范死。
+- 本轮子任务 / 阻塞：
+  - 这是主线里的阻塞治理子任务，不是直接修 scene。
+  - 当前最大 blocker 不是“有没有方案”，而是：
+    - `Primary.unity` 仍由用户独占锁保护；
+    - 在用户没开放写窗前，任何业务线程都不该直接写这个 scene。
+- 这轮实际做成了什么：
+  1. 只读核实了 `Primary` 当前现场：
+     - 锁仍在；
+     - 当前磁盘版缺 `SeasonManager` / `TimeManagerDebugger` / `TimeManager `；
+     - 备份与老提交里仍能找到这条 manager/debugger 链。
+  2. 只读核实了这轮不该先碰 `GameInputManager`：
+     - 当前 scene 与备份里的 `timeDebugger` / `enableTimeDebugKeys` 都还是空值/关闭。
+  3. 写出了一份可直接转发的强约束 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-03_典狱长_Primary_只增恢复manager链并严禁回灌_01.md`
+  4. 这份 prompt 已经把下面几件事写成硬禁令：
+     - 不准整场景 restore / backup 覆盖
+     - 不准跑 `ScenePartialSyncTool` / scratch 回灌链
+     - 不准用 Git 把 `Primary` 拉回旧版本
+     - 不准顺手扩到树、字体、Town、Home、TMP、输入链
+     - 不准在没拿到写窗和锁转交前直接动手
+- 当前最核心判断：
+  - 这次问题是真的，但根因是 `Primary` 场景基线缺件，不是树脚本自己坏了。
+  - 后续即便进入修复，也不能宣称“绝对零风险”；最稳做法是：
+    - 只允许在当前磁盘版 `Primary` 上做 additive-only 恢复；
+    - 写前先做新的 gitignored 快照；
+    - 一旦出现 reload / revert / 异常大 diff 迹象，立即停手，不替用户做吞现场决策。
+- `thread-state` / 审计：
+  - 本轮已跑：
+    - `Begin-Slice`
+    - `Park-Slice`
+  - 当前 live 状态：
+    - `PARKED`
+  - skill trigger log：
+    - `STL-20260403-101`
+  - skill log 健康检查：
+    - `Canonical-Duplicate-Groups: 0`
+- 当前恢复点：
+  - 现在可以把这份 prompt 直接发给目标线程；
+  - 但在用户明确开放 `Primary` 写窗并转交锁之前，所有线程继续只读，不准写 `Primary.unity`。
+
+## 2026-04-03｜新增 Town 只读排查：基线分层与 duplicate identifier 起点
+
+- 用户目标：
+  - 只读查清 `Assets/000_Scenes/Town.unity` 当前坏掉前，最近哪些备份 / scratch / 提交可当基线，以及 duplicate identifier / merge 污染最早何时出现。
+- 已完成事项：
+  1. 核实 Town scene / Town 恢复菜单没有 Git 提交历史：
+     - `git rev-list --all -- Assets/000_Scenes/Town.unity Assets/Editor/TownFoundationBootstrapMenu.cs Assets/Editor/TownCameraRecoveryMenu.cs Assets/Editor/ScenePartialSyncTool.cs`
+       返回 `0`。
+  2. 对比 Town 相关备份与 scratch 的哈希后，确认两组关键基线：
+     - `470431c83d7452b4`
+       - `.codex/artifacts/town-foundation/backups/Town_before_bootstrap_2026-04-03_02-37-16.unity`
+       - `.codex/artifacts/town-foundation/backups/Town_before_offline_runtime_bootstrap_2026-04-03_0317.unity`
+       - `.codex/artifacts/town-foundation/backups/Town_offline_sync_validation_before.unity`
+       - 这组是最后一批 pre-duplicate baseline。
+     - `f2fd81d9ad9fb0d8`
+       - `Assets/000_Scenes/Town.unity`
+       - `Assets/__CodexSceneSyncScratch/Town_offline_sync_validation.unity`
+       - `Assets/__CodexSceneSyncScratch/TownCameraRecoverySource.unity`
+       - `.codex/artifacts/town-foundation/backups/Town_before_runtime_component_sync_2026-04-03_03-44-03.unity`
+       - `.codex/artifacts/town-foundation/backups/Town_corrupt_duplicate_identifier_2026-04-03_18-58-53.unity`
+       - 这组是同一条 duplicate-identifier 坏副本链。
+  3. 原始日志已坐实 duplicate identifier：
+     - `Logs/AssetImportWorker1.log`
+       首先在导入 `Assets/__CodexSceneSyncScratch/Town_offline_sync_validation.unity` 时反复报
+       `Duplicate identifier 9223372036854775807`
+     - `Logs/AssetImportWorker0.log`
+       随后对 `Assets/000_Scenes/Town.unity` 和 `Assets/__CodexSceneSyncScratch/TownCameraRecoverySource.unity` 报同一错误
+     - 当前统计命中：
+       - `Town_offline_sync_validation.unity`：`2424`
+       - `Town.unity`：`2424`
+       - `TownCameraRecoverySource.unity`：`2424`
+  4. 时间线已压实：
+     - `offline-write-validation_2026-04-03_0316.json`
+       先把内容写进 scratch `Town_offline_sync_validation.unity`
+     - `offline-runtime-bootstrap_2026-04-03_0317.json`
+       再把同一批内容写回 `Town.unity`
+     - `offline_runtime_component_sync_live_2026-04-03_03-44-03.json`
+       后续又做 `Main Camera=Camera` reparent 与 `Camera/Main Camera` 同步，叠加了“看起来像空场景”的镜头错位
+  5. 因此当前基线必须分两层说：
+     - `最后干净基线`：
+       `Town_before_bootstrap_2026-04-03_02-37-16.unity` 这一组
+     - `最后结构较全但已污染基线`：
+       `Town_before_runtime_component_sync_2026-04-03_03-44-03.unity`
+- 关键判断：
+  - 如果用户要的是“最近可恢复的 clean Town 基线”，不该选 `03:44`，而应回退到 `02:30/02:37` 那组 `470431...`。
+  - `03:44` 那份只能当“结构更完整的带病对照样本”，不能再叫 clean baseline。
+- 当前恢复点：
+  - 这轮只读结论已足够直接回答用户，不需要再动 `Town.unity`；
+  - 如果后续继续，下一步只可能是：
+    1. 用 `470431...` 那组当 clean 起点
+    2. 再把 `03:44` / `1a2552...` 两组当差异样本，逐层回填需要的对象链。
+## 2026-04-03｜Town duplicate identifier 事故已完成本地修复，当前只等 Unity 复验
+
+- 用户目标：
+  - 用户要求我别再靠零碎拼接去“修 Town”，而是直接从历史 clean 内容恢复 `Assets/000_Scenes/Town.unity`，把 duplicate identifier 事故尽快拉回可继续建设的稳定起点。
+- 当前主线 / 子任务关系：
+  - 主线仍是 `Town.unity` 事故收口。
+  - 本轮子任务是：查清坏链根因，恢复 clean baseline，修掉离线同步工具的结构性 bug，再把现场合法停到 `PARKED`。
+- 这轮实际做成了什么：
+  1. 已执行 `Begin-Slice`，并拿到 `Assets/000_Scenes/Town.unity` 的 A 类锁。
+  2. 已封存当前坏现场：
+     - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\town-foundation\backups\Town_corrupt_duplicate_identifier_2026-04-03_18-58-53.unity`
+  3. 已用最后干净基线覆盖恢复：
+     - 源：`D:\Unity\Unity_learning\Sunset\.codex\artifacts\town-foundation\backups\Town_before_bootstrap_2026-04-03_02-37-16.unity`
+     - 目标：`D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity`
+  4. 已修 `D:\Unity\Unity_learning\Sunset\scripts\scene_partial_sync_offline.py` 的 3 个结构性 bug：
+     - `max_file_id()` 错把 `SceneRoots` 保留 ID `9223372036854775807` 算成普通对象 ID，导致新增文档从 `9223372036854775808` 起跳
+     - 新文档直接 append 到 `SceneRoots` 后面，破坏 scene 文件尾结构
+     - 新增 root 时没有同步回写 `SceneRoots.m_Roots`
+  5. 已修 `D:\Unity\Unity_learning\Sunset\Assets\Editor\TownCameraRecoveryMenu.cs`，把 Town 相机恢复菜单从“默认可能吃坏 scratch 副本”改成更安全的恢复口径
+  6. 已在修过的离线脚本上重新安全补回 Town 最小运行骨架：
+     - `UI`
+     - `SpringDay1ProximityInteractionService`
+     - `Primary/2_World/SceneTransitionTrigger`
+- 当前已钉死的根因判断：
+  - `Duplicate identifier 9223372036854775807` 不是普通 merge 冲突，也不是文本里真的有两个同 anchor。
+  - 真相是：旧版 `scene_partial_sync_offline.py` 把 `SceneRoots` 保留 ID 处理坏了，又把新增对象块错误写到了 `SceneRoots` 后面，最后还漏写了 `m_Roots`，导致 Town 掉进一条同哈希坏副本链。
+  - 当前 clean baseline 只能认：
+     - `Town_before_bootstrap_2026-04-03_02-37-16.unity`
+     - `Town_before_offline_runtime_bootstrap_2026-04-03_0317.unity`
+     - `Town_offline_sync_validation_before.unity`
+  - 当前坏链统一认：
+     - `Assets/000_Scenes/Town.unity`（修复前）
+     - `Assets/__CodexSceneSyncScratch/Town_offline_sync_validation.unity`
+     - `Assets/__CodexSceneSyncScratch/TownCameraRecoverySource.unity`
+     - `Town_before_runtime_component_sync_2026-04-03_03-44-03.unity`
+- 这轮验证结果：
+  - 文本复核：
+     - `Town.unity` 当前 `198813` 行
+     - 无 `9223372036854775808+` 超界 fileID
+     - `SceneRoots` 仅 1 处
+     - 已包含 `Main Camera`、`UI`、`SpringDay1ProximityInteractionService`、`SceneTransitionTrigger`
+  - `python -m py_compile D:\Unity\Unity_learning\Sunset\scripts\scene_partial_sync_offline.py` 已通过
+  - `git diff --check -- Assets/000_Scenes/Town.unity Assets/Editor/TownCameraRecoveryMenu.cs scripts/scene_partial_sync_offline.py` 已通过
+  - 当前与本轮直接相关的工作树状态：
+     - `M scripts/scene_partial_sync_offline.py`
+     - `?? Assets/000_Scenes/Town.unity`
+     - `?? Assets/000_Scenes/Town.unity.meta`
+     - `?? Assets/Editor/TownCameraRecoveryMenu.cs`
+     - `?? Assets/Editor/TownCameraRecoveryMenu.cs.meta`
+- 当前还没做成什么：
+  - 尚未拿到 Unity 内人工终验，不能宣称“Town 已彻底修好”
+  - 尚未决定是否把这轮 Town 修复纳入提交
+- thread-state / 锁现场：
+  - 本轮已执行 `Park-Slice`
+  - 当前 live 状态 = `PARKED`
+  - blocker 已写成两条：
+     - `等待用户在Unity内重新打开Town.unity，确认不再报 Duplicate identifier / Error loading file`
+     - `等待用户决定是否把本轮Town修复纳入提交`
+  - `Town.unity` 的 A 类锁已释放
+- 当前恢复点：
+  - 下一步先等用户回 Unity 重新打开 `Town.unity`
+  - 若仍报错，只允许基于当前 clean+safe-bootstrap 的 Town 继续排查
+  - 绝对不要再把 `03:44` 那份或 scratch 坏副本链当 clean source 回灌
+## 2026-04-03｜按用户要求只交 `farm` 审核：当前不放行 `farm` 改 `Primary`
+
+- 用户目标：
+  - 用户明确纠正我不要再把 `Town` 和 `farm` 混答；本轮只要求我审 `farm` 的最新回执，并直接给出 `Primary` 是否允许它改动的判断；同时删除没有剩余价值的子智能体。
+- 当前主线 / 子任务关系：
+  - 主线仍是 Sunset 当前多事故并行治理；
+  - 本轮子任务收窄为：`farm/Primary` 审核与放行裁定，`Town` 只保留为已知 blocker，不继续在主答复里扩讲。
+- 本轮实际做成了什么：
+  1. 逐条核对了 `farm` 回执的核心事实：
+     - `Primary` 锁仍是 `用户Primary独占`
+     - 当前 `Primary.unity` 中依旧缺 `SeasonManager / TimeManager / TimeManagerDebugger`
+     - `farm` 线程当前 `status = PARKED`
+  2. 纠正了回执里一个容易混淆的字段判断：
+     - `enableDebugKeys: 1` 属于 `TimeManagerDebugger`
+     - 不是 `GameInputManager`
+     - `GameInputManager` 在当前版和备份版里都仍是 `timeDebugger: {fileID: 0}`、`enableTimeDebugKeys: 0`
+  3. 实查 `farm` 自身现场后，确认它不是 clean single-writer；当前仍挂着：
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavGrid2D.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementValidator.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+  4. 因此这轮已给出明确裁定：
+     - `farm` 的技术方向基本成立
+     - 但当前时点不放行它改 `Primary`
+  5. 已清理没有剩余价值的子智能体：
+     - `Peirce`
+     - `Gauss`
+     - `Kierkegaard`
+  6. 已执行 `Park-Slice`
+- 当前核心判断：
+  - 如果目标是完整收树域问题，后续确实迟早要有人改 `Primary`
+  - 但当前不能直接把 `Primary` 发给 `farm`，原因有三条：
+     1. `Primary` 仍是用户 live 独占 hot scene
+     2. 当前磁盘版 `Primary` 仍是大 diff 活现场
+     3. `farm` 自己不是 clean surgical writer，真实 dirty 面比它账面 state 大
+- 后续允许任何线程接 `Primary` 的硬条件：
+  1. 用户先停止对 `Primary` 的 live 编辑，并显式转交锁
+  2. 接刀线程先把自己现有 runtime dirty 收口或重新报实
+  3. 新开工前重新 `Begin-Slice`
+  4. 写前从当前磁盘版 `Primary` 另存新的 gitignored 快照，只做兜底证据
+  5. 写入范围严格限于 additive-only 恢复 `SeasonManager + TimeManager + TimeManagerDebugger`
+- 当前还没做成什么：
+  - 没有放行 `Primary`
+  - 没有推进 `farm` 进入阶段 B
+  - `Town` Broken PPtr / dangling Transform 这轮未继续真实修复
+- thread-state / blocker：
+  - 当前 live 状态 = `PARKED`
+  - blocker：
+     - `Town broken PPtr / dangling Transform 根因已定位，但本轮未继续真实修复`
+     - `如需让任何线程改 Primary，必须先由用户停止 live 编辑并转交锁`
+- 当前恢复点：
+  - 若用户继续追问 `farm/Primary`，默认继续维持“不放行”裁定
+  - 只有在用户亲自交出 `Primary` 写窗后，才再决定是 `farm` 接，还是换更干净的单 writer 接
+## 2026-04-03｜已按用户要求写出两份下一轮 prompt：`farm` 与治理主线程自续工
+
+- 用户目标：
+  - 用户要求我不要再继续泛分析，而是直接给出两份下一轮 prompt：
+    1. 给 `farm`
+    2. 给我自己
+  - 同时要求我在自己的 prompt 里明确约定：如何在一轮内使用子智能体并行完成
+    - `Primary` 全局化 / 持久层统一
+    - `Town` 修复
+    - 尽可能多的提交切片
+- 当前主线 / 子任务关系：
+  - 主线仍是 Sunset 当前治理续工；
+  - 本轮子任务是 prompt 生产，不进入新的业务施工。
+- 本轮实际做成了什么：
+  1. 已补跑 `Begin-Slice`
+     - `current_slice = Prompt pair for farm runtime split and governance self next round`
+  2. 已读取并按手工等价流程执行：
+     - `sunset-prompt-slice-guard`
+     - `sunset-governance-dispatch-protocol`
+     - `sunset-lock-steward`
+  3. 已写出 `farm` prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-03_典狱长_农田交互修复V3_树runtime续工且禁止触碰PrimaryTown_01.md`
+     - 核心约束：
+       - `farm` 不再碰 `Primary`
+       - 不再碰 `Town`
+       - 只收树 runtime / 树苗放置卡顿
+  4. 已写出治理主线程自续工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-03_Codex规则落地_自续工_Primary全局化_Town修复_提交切片并行执行_01.md`
+     - 核心约束：
+       - 主线程本地做 `Primary` 全局化 / 持久层统一
+       - `Town` 修复交给 1 个 `gpt-5.4` worker
+       - 提交切片审计交给另 1 个 `gpt-5.4` worker
+       - 最多 2 个子智能体，交卷即关
+  5. 两份 prompt 都已带上：
+     - 固定回执格式
+     - `保底六点卡`
+     - `thread-state` 尾巴
+- 当前核心判断：
+  - 这轮最关键的不是“把 prompt 写出来”，而是把 ownership 彻底切开：
+    - `farm` 只守树 runtime
+    - 我自己下一轮才接 `Primary` 全局化 / `Town` / 提交切片
+  - 这样能最大程度避免再次交叉污染。
+- 当前还没做成什么：
+  - 还没有把这两份 prompt 发给对方
+  - 也还没有进入 prompt 描述的下一轮真实施工
+- thread-state：
+  - 当前已跑 `Begin-Slice`
+  - 本轮完成后应 `Park-Slice`
+- 当前恢复点：
+  - 下一步就是把两份 prompt 交给用户：
+    - `farm` 那份用于转发
+    - 自续工那份作为我下一轮的执行底稿
+
+## 2026-04-04｜Town 硬切片静态复核：当前 scene YAML 已干净，新增补齐离线校验能力
+
+- 用户目标：
+  - 只做 `Town` 这一刀，不碰 `Primary` 或持久层；要求我把 `Town.unity` 至少修到静态上不再出现那批 `Broken text PPtr / dangling Transform`，最后只交“根因 / 改了哪些文件 / 静态验证结果 / 剩余风险”。
+- 当前主线：
+  - 仍属于 `Codex规则落地` 的 `Primary globalization plus Town repair plus commit slicing` 大 slice，但本轮实际只执行了其中的 `Town` 子切片。
+- 本轮子任务：
+  - 复核当前磁盘版 `Town.unity` 是否还残留旧 problem IDs；
+  - 如果 scene 本体已静态干净，就把离线工具补到能正确识别 `stripped Transform` 与 scene 完整性。
+- 已完成事项：
+  1. 重新核对 `Town.unity`，确认旧事故里那批 20 个孤儿 `Transform`、3 个旧系统引用，以及 6 个缺失 TMP material，在当前磁盘版里都已不再构成缺口。
+  2. 发现并修复 `scripts/scene_partial_sync_offline.py` 的 3 处结构问题：
+     - 文档头正则不识别 `stripped`
+     - `SceneData._build_index()` 遇到 stripped Transform 会直接崩
+     - 完整性校验会把合法 stripped 子节点误报成缺失 child
+  3. 新增 `validate_scene_integrity()`，可直接离线扫描：
+     - 缺失本地引用
+     - stripped Transform 指向缺失 PrefabInstance
+     - Transform 缺 GameObject / Parent / Child
+  4. 用新校验对当前 `Town.unity` 复核，结果全空：
+     - `missing_local_refs = []`
+     - `stripped_transforms_missing_prefab_instance = []`
+     - `transforms_missing_game_object = []`
+     - `transforms_missing_parent = []`
+     - `transforms_missing_children = []`
+  5. `python -m py_compile scripts/scene_partial_sync_offline.py` 通过；
+     `git diff --check` 通过，只有 CRLF 预警，不是结构错误。
+- 关键决策：
+  - 当前 Town 这刀最硬的结论不是“继续乱修 YAML”，而是：
+    - 现磁盘版 scene 本体静态上已经干净；
+    - 真正还缺的是 live 复验；
+    - 我这轮新增价值是把离线工具补成以后不会再把 Town 这类 scene 误判/漏判。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\scripts\scene_partial_sync_offline.py`
+  - 只读复核对象：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity`
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\TownCameraRecoveryMenu.cs`
+- 验证结果：
+  - 静态推断成立；
+  - 未做 Unity live 打开 / 转场复验。
+- thread-state：
+  - 承接上一轮已存在的 `ACTIVE` Town slice；
+  - 本轮结束后应补 `Park-Slice`，因为不准备继续在这条线里直接 sync。
+- 当前恢复点：
+  - 下一步若继续 Town，应先做 Unity 内 live 复验；
+  - 如果 live 仍报错，再基于当前干净 YAML 和新完整性校验追剩余问题，而不是回头相信旧 29 缺口清单。
+
+## 2026-04-04｜按自续工 prompt 完成一轮并行执行：主线程提交了 `Primary` 全局化代码切片，Town 与提交审计都已回卷
+
+- 用户目标：
+  - 不是再听我分析，而是按自续工 prompt 真做三件事：
+    1. 主线程本地把 `Primary` 真正该常驻的管理器/注册器抽到持久层
+    2. `Town` 交给 1 个 `gpt-5.4` worker 修 scene 损坏引用
+    3. 再交给另 1 个 `gpt-5.4` worker 审计当前还能提交哪些切片
+- 当前主线 / 子任务关系：
+  - 这轮主线是 `Primary globalization plus Town repair plus commit slicing`
+  - 子任务已按 ownership 完全切开：
+    - 我自己：持久层 / 注册器 / 最终提交
+    - worker A：Town
+    - worker B：提交切片审计
+- 这轮实际做成了什么：
+  1. 我本地亲自完成了脚本优先的常驻链全局化：
+     - `PersistentManagers.cs`
+     - `PersistentObjectRegistry.cs`
+     - `TimeManager.cs`
+     - `SeasonManager.cs`
+     把 `TimeManager / SeasonManager / WeatherSystem / PersistentObjectRegistry / TimeManagerDebugger` 接到运行时自举的 `PersistentManagers` 根上，不再要求 `Primary.unity` 场景本体提供这条链。
+  2. 这 4 个文件已用精确文件级手工白名单提交并推送：
+     - `e3dbda23`
+     - `2026.04.03_Codex规则落地_15`
+  3. `Town` worker 已交卷并被关闭：
+     - 当前 Town 静态层面已无旧 `Broken text PPtr / dangling Transform` 证据
+     - 当前 blocker 只剩 Unity live 打开 / 转场复验
+  4. 提交切片审计 worker 已交卷并被关闭：
+     - 给出一批“还能直接提”的候选
+     - 同时把 `Primary/Town`、字体整包、`GameInputManager.cs`、`StaticObjectOrderAutoCalibrator.cs` 等大头继续列为排除项
+  5. `Ready-To-Sync` 已跑，但被脚本按规则阻断：
+     - blocker 是 own roots 同根还有大量未纳入本轮的 Codex dirty
+     - 不是这 4 个全局化文件本身出错
+     - 所以我沿用项目既有兜底口径，改走手工精确白名单提交
+- 当前最核心判断：
+  - 这轮最重要的方向确认已经落成代码了：
+    - `Primary` 的 manager/debugger 问题，优先解法是“脚本自举的持久层常驻链”
+    - 不是“把旧 scene 再拷回来”
+  - `Town` 当前最好不要急着提交；静态虽然干净了，但 live 复验还没做
+  - 提交层目前已完成 1 刀真正值钱的主线程代码切片，剩余 James 白名单可留到下一轮继续压
+- 当前还没做成什么：
+  - 没做 Unity live 复验
+  - 没继续提交 James 给出的其他 parked 候选
+  - 还没补本轮收尾的 `memory / skill-trigger-log / Park-Slice`
+- 当前恢复点：
+  - 下一步应先补完收尾审计并 `Park-Slice`
+  - 然后再决定：
+    - 是继续提 parked 小刀
+    - 还是先回 Unity 验 Town 和运行时 manager 链
+
+## 2026-04-04｜补提 `NPC docs-only` 完成：旧 BLOCKED 已停车，新白名单切片已成功推送
+
+- 用户目标：
+  - 在前一刀 `Primary` 全局化提交完成后，继续尽量压掉一个不会碰热文件、不会重新搅乱 ownership 的 parked 小切片。
+- 当前主线 / 子任务关系：
+  - 主线仍是 `Primary globalization plus Town repair plus commit slicing`。
+  - 本轮子任务收窄为：从 James 候选里挑一刀最稳的小提交继续减载，并顺手把治理线程旧的 `BLOCKED` 状态层清掉。
+- 这轮实际做成了什么：
+  1. 已先对旧 slice 执行 `Park-Slice`，把 `persistent-runtime-bootstrap-without-primary-scene` 从过期 `BLOCKED` 收回。
+  2. 重新筛选候选后，选择了能正式过规则闸门的 `NPC docs-only`：
+     - `.kiro/specs/NPC/memory.md`
+     - `.codex/threads/Sunset/NPC/memory_0.md`
+  3. 已执行：
+     - `Begin-Slice: npc-docs-only-whitelist-sync`
+     - `Ready-To-Sync -Mode task`，通过
+     - `sync`，本地提交成功
+  4. 提交信息：
+     - `5a1f5088`
+     - `2026.04.04_Codex规则落地_01`
+  5. 推送时第一次遇到 `schannel / SSL/TLS connection failed`，第二次直接 `git push` 已成功。
+- 当前最核心判断：
+  - `NPC docs-only` 这刀是当前仓库里很少数还能完全按正式 `thread-state + sync` 跑通的 parked 小切片。
+  - `Assets/Editor` 根虽然还有可提候选，但因为同根仍非常脏，这轮不值得继续扩到手工例外提交流。
+- 当前还没做成什么：
+  - 没继续提 `Assets/Editor` 下的 `Tree/Stone tools`、`Cloud shadow`、`camera-blue-edge-trim`
+  - 没做 `Town` 的 Unity live 复验
+- 当前恢复点：
+  - 收尾顺序固定为：
+    1. 当前已补 `skill-trigger-log`
+    2. 当前已最终 `Park-Slice`
+    3. 接下来由用户决定下一轮是继续减载，还是转回 Unity 验 `Town` / manager 自举链
