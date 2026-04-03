@@ -100,7 +100,7 @@ MonoBehaviour:
         npcReplyDelayMax: 0.84
       completionRelationshipDelta: 1
     walkAwayReaction:
-      reactionCue: ……
+      reactionCue: ......
       playerExitLines:
       - 我先走一下，待会儿再回来让你继续看。
       - 先记着，我很快回来。
@@ -176,7 +176,7 @@ MonoBehaviour:
       relationshipDelta: 0
       npcReactionDelay: 0.48
   defaultWalkAwayReaction:
-    reactionCue: ……
+    reactionCue: ......
     playerExitLines:
     - 我先走一步，等会儿再回来找你。
     npcReactionLines:
@@ -196,13 +196,17 @@ MonoBehaviour:
     initiatorLines:
     - 我在记主路的人流节奏，你看这样站位合适吗？
     - 如果按现在这个速度，路口会比早上更顺一些。
+    - 你往前一站，我这边的观察线就被你挡住了。
     responderLines:
     - 我记下了，你说的秩序感确实最明显。
     - 有你盯着大方向，我这边判断会准很多。
+    - 好，我给你腾出一点观察位，你继续看。
   - partnerNpcId: 002
     initiatorLines:
     - 你站在这儿的时候，周围节奏会慢下来一点。
     - 这里的光线变化刚好适合我再看一遍。
+    - 你先别挤到我这条线里，我这边的角度会被你吃掉。
     responderLines:
     - 你一过来，环境就没那么绷了。
     - 好，我先不急着换位置，再观察一会儿。
+    - 好吧，我退开一点，你先把这段看完。

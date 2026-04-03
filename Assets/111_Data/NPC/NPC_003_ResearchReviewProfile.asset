@@ -15,8 +15,8 @@ MonoBehaviour:
   moveSpeed: 2.45
   idleAnimationSpeed: 1
   moveAnimationSpeed: 1
-  activityRadius: 1.2
-  minimumMoveDistance: 0.25
+  activityRadius: 1.55
+  minimumMoveDistance: 0.35
   pathSampleAttempts: 8
   shortPauseMin: 1.6
   shortPauseMax: 2.7
@@ -27,9 +27,9 @@ MonoBehaviour:
   stuckCheckInterval: 0.3
   stuckDistanceThreshold: 0.08
   maxStuckRecoveries: 3
-  enableAmbientChat: 0
-  ambientChatRadius: 3.8
-  ambientChatChance: 0.65
+  enableAmbientChat: 1
+  ambientChatRadius: 2.9
+  ambientChatChance: 0.58
   ambientChatResponseDelay: 0.85
   dialogueContentProfile: {fileID: 11400000, guid: 7e2b0033c7f84db9919d4b49c4ae3303, type: 2}
   selfTalkLines:

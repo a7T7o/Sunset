@@ -100,7 +100,7 @@ MonoBehaviour:
         npcReplyDelayMax: 0.82
       completionRelationshipDelta: 1
     walkAwayReaction:
-      reactionCue: ……
+      reactionCue: ......
       playerExitLines:
       - 我先去办点事，等会儿再来陪你。
       - 先记着，我待会儿再回来。
@@ -176,7 +176,7 @@ MonoBehaviour:
       relationshipDelta: 0
       npcReactionDelay: 0.46
   defaultWalkAwayReaction:
-    reactionCue: ……
+    reactionCue: ......
     playerExitLines:
     - 我先走一步，晚点再来找你。
     npcReactionLines:
@@ -198,13 +198,17 @@ MonoBehaviour:
     initiatorLines:
     - 爹，你今天又站在路口看大家呀？
     - 这边风不大，你也该歇一会儿了。
+    - 你别总站在最当中呀，我连晒太阳的位置都快没了。
     responderLines:
     - 我知道啦，我就在这儿晒一会儿，不乱跑。
     - 你一提醒，我心里就安稳多了。
+    - 好啦好啦，我给你让开一点，别又皱眉看我。
   - partnerNpcId: 003
     initiatorLines:
     - 你又在记这些小现象呀？
     - 这里光线好，你要不要在这儿多看一会儿？
+    - 你先别贴这么近，我晒太阳的角度都要被你挡住了。
     responderLines:
     - 你一认真起来，我都不太敢打断你。
     - 好呀，那我陪你在这儿站一会儿。
+    - 行，我退半步，你慢慢看，别又念我站位不对。
