@@ -4624,3 +4624,67 @@
   - 本轮未跑：`Begin-Slice`、`Ready-To-Sync`
   - 当前 live 状态：`PARKED`
   - 原因：这轮只做治理分析与 prompt 分发，不继续真实施工
+
+## 2026-04-03｜`Primary` 用户独占锁 + `TP Vegetation` 595 文件归仓推进完成
+
+- 当前主线目标：
+  - 在不碰 `Primary / Town / Home / backup / scratch / 本地桥接件` 的前提下，继续把 shared root 中能安全切走的大头尽快提交，缓解用户当前 Codex / Sunset 窗口因超大 diff 带来的卡顿；
+  - 同时必须保证用户对 `Assets/000_Scenes/Primary.unity` 的独占编辑权。
+- 本轮子任务：
+  1. 给 `Primary.unity` 发用户独占锁并确认其他线程全部禁止再碰；
+  2. 把上轮遗留的 `Codex规则落地` 假 `READY_TO_SYNC` 状态收干净；
+  3. 继续把最有希望安全切走的大头 `TP Vegetation` 真正归仓。
+- 这轮实际做成了什么：
+  1. 已发出并复核 `Primary` 用户独占锁：
+     - `owner_thread = 用户Primary独占`
+     - `task = user-live-edit-primary`
+     - `expected_release_at = 2026-04-03T21:09:55+08:00`
+  2. 已先把旧 slice `git-safe-sync-batched-add-fix-01` `Park-Slice`，避免 thread-state 挂旧 `READY_TO_SYNC`。
+  3. 已新开 slice `tp-vegetation-whitelist-sync-01`，并把目标精确缩到：
+     - `Vegetation.png.meta`
+     - `Wall 1.prefab`
+     - `TP Vegetation.meta`
+     - `TP Vegetation/`
+     - `TP Vegetation/植被.prefab`
+  4. 已显式补齐两把 prefab A 类锁：
+     - `TP Base/Wall 1.prefab`
+     - `TP Vegetation/植被.prefab`
+  5. `Ready-To-Sync -Mode task` 已通过，same-root remaining dirty 为 `0`。
+  6. 白名单 `sync` 已成功创建本地提交：
+     - `25dbe925`
+     - `2026.04.03_Codex规则落地_03`
+     - 归仓 `595` 个文件
+  7. `sunset-git-safe-sync` 内置 `push` 继续被全局 git 代理 `127.0.0.1:7897` 拦住；
+     - 但随后用单次禁代理命令：
+       - `git -c http.proxy= -c https.proxy= push origin main`
+       成功把本轮提交推到 `origin/main`
+  8. 已删掉两份临时文件：
+     - `.codex/tmp_docs_commit_paths.txt`
+     - `.codex/tmp_docs_commit_roots.txt`
+  9. 本轮收尾已再次 `Park-Slice`，两把 prefab 锁已释放。
+- 关键决策：
+  1. `TP Vegetation` 是当前已证明确实可以安全切走的大头，而且已经不只是“本地 checkpoint”，而是远端已同步；
+  2. 本轮之后不该为了追求数量继续贪吞第二个高风险混合组；
+  3. 当前最重要的秩序是：
+     - 继续保住 `Primary` 用户独占
+     - 不碰 `Town/Home/backup/scratch`
+     - 不吞 `CodexMcpHttpAutostart / CodexEditorCommandBridge`
+  4. 当前这台机器上的稳定 Git 执行口径补充为：
+     - canonical `safe-sync` 的 push 仍会吃到全局 localhost 代理；
+     - 需要远端同步时，可以追加一次：
+       - `git -c http.proxy= -c https.proxy= push origin main`
+- 涉及文件 / 路径：
+  - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Props/Static/Vegetation.png.meta`
+  - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Tile palette/TP Base/Wall 1.prefab`
+  - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Tile palette/TP Vegetation.meta`
+  - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Tile palette/TP Vegetation/`
+  - `.kiro/locks/active/A__Assets__000_Scenes__Primary.unity.lock.json`
+- 验证结果：
+  - `Ready-To-Sync` 已过
+  - `git diff --check` 对白名单路径已过
+  - 提交 `25dbe925` 已成功推到 `origin/main`
+  - `Primary` 用户独占锁仍保持 `locked`
+- 当前恢复点：
+  - `Codex规则落地` 当前 live 状态：`PARKED`
+  - `Primary` 仍由用户独占；其他线程一律不允许再用
+  - 若继续做减卡收口，下一步只应再找“same-root clean + 资产-only + 无热文件混线”的白名单候选，不要跨进当前用户正在 live 编辑的 scene 现场。

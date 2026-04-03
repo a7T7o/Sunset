@@ -9819,3 +9819,71 @@
 - 本轮收口状态额外补记：
   - `Ready-To-Sync` 已尝试，但被 `Codex规则落地` 根目录同根未归仓 prompt 文档阻断；
   - 因此当前正确 live 状态不是 `READY`，而是“incident 已修复、sync 被治理根 remaining dirty 卡住后合法 `PARKED`”。
+
+## 2026-04-03｜`Primary` 用户独占锁已生效，`TP Vegetation` 595 文件已安全归仓并推到 `origin/main`
+
+**用户目标**：
+- 用户明确要求继续独占编辑 `Assets/000_Scenes/Primary.unity`，并禁止所有线程再碰 `Primary`；
+- 同时要求我在不碰 `Primary / Town / Home / backup / scratch / 本地桥接件` 的前提下，继续把当前 shared root 里能安全切走的大头尽快提交，降低 Codex / Sunset 窗口卡顿。
+
+**本轮已完成**：
+1. 已用真实锁脚本为 `Assets/000_Scenes/Primary.unity` 发放用户独占锁：
+   - `owner_thread = 用户Primary独占`
+   - `task = user-live-edit-primary`
+   - `expected_release_at = 2026-04-03T21:09:55+08:00`
+2. 复核确认 `导航检查` 等旧线程虽然仍保留历史 own 记录，但当前都处于 `PARKED`，且没有 active `Primary` A 类锁；用户独占锁现在是唯一有效物理写权限。
+3. 将 `Codex规则落地` 旧 slice `git-safe-sync-batched-add-fix-01` 合法 `Park-Slice`，避免 thread-state 长挂假 `READY_TO_SYNC`。
+4. 新开并完成本轮真实施工 slice：
+   - `Begin-Slice`：`tp-vegetation-whitelist-sync-01`
+   - 显式目标：
+     - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Props/Static/Vegetation.png.meta`
+     - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Tile palette/TP Base/Wall 1.prefab`
+     - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Tile palette/TP Vegetation.meta`
+     - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Tile palette/TP Vegetation`
+     - `Assets/ZZZ_999_Package/Pixel Crawler/Environment/Tile palette/TP Vegetation/植被.prefab`
+5. `Begin-Slice` 后已自动拿到两把 prefab A 类锁：
+   - `TP Base/Wall 1.prefab`
+   - `TP Vegetation/植被.prefab`
+6. `Ready-To-Sync -Mode task` 已通过：
+   - same-root remaining dirty = `0`
+   - 代码闸门不适用
+   - 白名单路径 `git diff --check` clean
+7. 正式执行白名单 `sync` 后：
+   - `sunset-git-safe-sync.ps1` 成功创建本地提交 `25dbe925`
+   - 提交信息：`2026.04.03_Codex规则落地_03`
+   - 本轮共归仓 `595` 个文件，约 `23983 insertions / 1788 deletions`
+8. `sync` 内置 `git push` 再次被本机全局代理拦住：
+   - `http.proxy = http://127.0.0.1:7897`
+   - `https.proxy = https://127.0.0.1:7897`
+   - 报错为无法连接本地代理端口
+9. 随后补做单次禁用代理推送：
+   - `git -c http.proxy= -c https.proxy= push origin main`
+   - 已成功把 `25dbe925` 推到远端 `origin/main`
+10. 已删掉本线程留下的临时文件：
+    - `.codex/tmp_docs_commit_paths.txt`
+    - `.codex/tmp_docs_commit_roots.txt`
+11. 本轮结束后已补跑 `Park-Slice`：
+    - `Codex规则落地` 当前 live 状态已回到 `PARKED`
+    - 两把 prefab A 类锁已随停车释放
+
+**关键判断**：
+- 这轮最值钱的一刀已经落地，而且不是“只在本地保住”，而是已经真实推上 `origin/main`；
+- 当前最需要继续维持的不是再贪第二个高风险大包，而是：
+  1. 坚持 `Primary` 用户独占不被其他线程碰
+  2. 避免把 `Town / Home / backup / scratch / CodexEditorCommandBridge / CodexMcpHttpAutostart` 这类混杂现场误吞进提交
+  3. 只在下一个候选组同样满足“same-root clean + 不碰热文件 + 不夹本地桥接件”时，才继续切第二刀
+- 额外得到一个稳定执行事实：
+  - 当前这台机器上，`sunset-git-safe-sync` 的 canonical `push` 仍会继承全局 localhost 代理；
+  - 但单次禁用代理的 `git -c http.proxy= -c https.proxy= push origin main` 可以直接完成远端推送。
+
+**恢复点 / 下一步**：
+- `Primary` 继续保持用户独占编辑；
+- `Codex规则落地` 当前不再占用任何 prefab 锁，也不再处于 `ACTIVE/READY`；
+- 下一步若继续减卡，只应优先寻找下一组同等级安全的“资产-only / same-root clean / 无热文件混线”白名单，不应去吞：
+  - `Primary.unity`
+  - `Town.unity`
+  - `Home.unity`
+  - `primary_backup_2026-04-02_20-46-54.unity`
+  - `Assets/__CodexSceneSyncScratch/`
+  - `Assets/Editor/CodexMcpHttpAutostart.cs`
+  - `Assets/Editor/NPC/CodexEditorCommandBridge.cs`
