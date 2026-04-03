@@ -42,7 +42,7 @@ MonoBehaviour:
   effectRadius: 1
   efficiencyMultiplier: 1
   hasDurability: 0
-  maxDurability: 100
+  maxDurability: 1
   materialTier: 0
   canDealDamage: 0
   damageAmount: 5

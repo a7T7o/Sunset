@@ -22,7 +22,7 @@ MonoBehaviour:
     amount: 2
   requiredStation: 5
   requiredLevel: 1
-  craftingTime: 0.9
+  craftingTime: 5
   unlockedByDefault: 1
   requiredSkillType: 2
   requiredSkillLevel: 1
