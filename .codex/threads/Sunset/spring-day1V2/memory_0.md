@@ -2409,3 +2409,33 @@
 - 用户当前最该知道的一句话是：
   - 这 8 个人之所以“你没在场景里直接看到”，不是因为已经正式整完只是你没找对地方；
   - 更真实的原因是：它们目前大多还停留在产物链、manifest 和 NPC-v 的 targeted runtime probe 层，而且角色语义本身也还没有和原剧本对齐。
+
+## 2026-04-03｜收口补记：双 prompt 与 memory 已本地提交，远端推送失败后线程已 `PARKED`
+
+**本轮最终收口动作**：
+1. `Ready-To-Sync.ps1 -ThreadName spring-day1V2`
+   - 已通过，返回：
+   - `READY_TO_SYNC`
+2. 随后白名单 `sync` 已在本地成功创建提交：
+   - `e4ef0ad4`
+   - `2026.04.03_spring-day1V2_03`
+3. `git push` 失败：
+   - 失败点不是白名单或提交本身
+   - 而是代理 / 网络：
+     - `127.0.0.1:7897` 无法连接
+4. 随后已执行：
+   - `Park-Slice.ps1 -ThreadName spring-day1V2`
+
+**当前稳定状态**：
+- 仓库相对 upstream：
+  - `ahead 1`
+- 线程 live 状态：
+  - `PARKED`
+- 当前 first blocker：
+  - 外部网络 / 代理导致远端推送失败
+
+**下一步恢复点**：
+1. 若网络恢复，优先把本地提交 `e4ef0ad4` 推上远端
+2. 若继续业务主线，则按新 prompt 进入：
+   - `NPC-v`：原案角色映射与 NPC 本体回正
+   - `spring-day1V2`：原 Day1 角色消费矩阵与整合分层

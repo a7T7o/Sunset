@@ -1701,3 +1701,29 @@
   - 下一轮 `spring-day1V2` 不再先 claim 群像已扩完，而是先做：
     - 原 Day1 角色消费矩阵
     - 老 `NPC001/002/003` 与新 `101~301` 的承载分层判断
+
+## 2026-04-03｜收口补记：原剧本核实双 prompt 已本地提交，远端推送被代理网络阻断
+
+- 本轮白名单 sync 结果：
+  - `Ready-To-Sync.ps1 -ThreadName spring-day1V2`
+    已通过，返回：
+    - `READY_TO_SYNC`
+  - 随后白名单 `sync` 已在本地成功创建提交：
+    - `e4ef0ad4`
+    - `2026.04.03_spring-day1V2_03`
+- 本轮最终 blocker：
+  - 不是白名单范围错误
+  - 不是文档自身冲突
+  - 而是 `git push` 走到：
+    - `127.0.0.1:7897`
+    代理时连接失败
+  - 因此当前状态应判为：
+    - 本地提交已完成
+    - 远端未同步
+- 当前恢复点：
+  - 当前仓库相对 upstream 为：
+    - `ahead 1`
+  - 线程已执行：
+    - `Park-Slice.ps1 -ThreadName spring-day1V2`
+  - 当前 live 状态：
+    - `PARKED`
