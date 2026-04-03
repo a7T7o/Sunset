@@ -2439,3 +2439,215 @@
 2. 若继续业务主线，则按新 prompt 进入：
    - `NPC-v`：原案角色映射与 NPC 本体回正
    - `spring-day1V2`：原 Day1 角色消费矩阵与整合分层
+
+## 2026-04-03｜用户追问后的补记：新 8 人此前主要在 runtime probe 隔离区验证，不等于已经在正式 Day1 村景里被玩家看见
+
+**用户目标**：
+- 用户要求我把下面几件事一次说清：
+  - 这些人到底在哪测的
+  - 为什么在场景里没看到
+  - 现在还剩什么
+  - 我与 `NPC-v` 下一轮如何分工
+
+**本轮新查实的事实**：
+1. `NPC-v` 之前的核心运行态证据主要来自：
+   - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+2. 这条 probe 会在 Play Mode 下临时创建：
+   - `__SpringDay1NpcCrowdRuntimeProbeRoot`
+   - `Probe_101 ~ Probe_301`
+3. probe 坐标在隔离测试区，约：
+   - `120 / 120`
+   所以它证明的是“本体层能跑”，不是“玩家已经在正常 Day1 演出里看见他们”。
+4. 正式把 crowd 生到 `Primary` 的链路是：
+   - `SpringDay1NpcCrowdDirector`
+   - 且仅在各自 `StoryPhase` 区间内动态生成
+5. 但这条正式消费链目前仍没有完成：
+   - 原剧本人设映射回正
+   - Day1 phase/runtime consumption 闭环
+
+**关键决策**：
+- 我之前把 `101~301` 的现编名字和人设说得过满，这点已经判定为偏离原案；
+- 下一轮不能继续在这个基础上往前吹“群像已扩完”。
+
+**下一轮分工**：
+- `NPC-v`：
+  - 只做原案角色 -> `101~301` 槽位映射
+  - 如证据足够，只做最小命名 / 文案 / roleSummary 回正
+- `spring-day1V2`：
+  - 只做 `CrashAndMeet -> DayEnd` 的原 Day1 角色消费矩阵
+  - 只判老 `NPC001/002/003` 与新 `101~301` 的承载分层
+
+**本轮现场修正**：
+- 读 live state 后发现线程仍停在：
+  - `READY_TO_SYNC`
+- 但当前实际状态已是“解释现状 + 分发下一轮”，不是继续 sync；
+- 因此本轮已补执行：
+  - `Park-Slice.ps1 -ThreadName spring-day1V2`
+- 当前 live 状态重新回正为：
+  - `PARKED`
+
+## 2026-04-03｜执行 `-05` 任务单补记：原 Day1 角色消费矩阵与承载分层已判清，当前不应再把 101~301 当成正式角色完工
+
+**用户目标**：
+- 只按 `2026-04-03-本线程_春一日原剧本角色消费矩阵与群像整合回正任务单-05.md`
+  做两件事：
+  1. 原 Day1 角色消费矩阵
+  2. 老 `NPC001/002/003` 与新 `101~301` 的承载分层判断
+
+**本轮新查实的事实**：
+1. 原 Day1 九阶段中，真正的强必需角色链仍是：
+   - `马库斯`
+   - `艾拉`
+   - `卡尔 / 研究儿子`
+2. 其中：
+   - `CrashAndMeet / EnterVillage / FarmingTutorial / ReturnAndReminder`
+     以 `马库斯` 为主
+   - `HealingAndHP / WorkbenchFlashback`
+     以 `马库斯 + 艾拉` 为主
+   - `DinnerConflict`
+     以 `马库斯 + 卡尔` 为主
+   - `FreeTime`
+     才适合放宽到 `老杰克 / 老乔治 / 老汤姆 / 小米 / 未具名村民` 这一层
+3. 当前工程承载层里：
+   - `NPC001 / VillageChief`
+     是最稳的 `马库斯` 壳
+   - `NPC002 / VillageDaughter`
+     是最稳的 `艾拉` 壳
+   - `NPC003 / Research`
+     只是最接近 `卡尔` 的语义壳，还不是当前主线里真正绑定完成的 runtime 演出
+4. 新 `101~301` 的准确判断现在应改为：
+   - 它们仍然只是 crowd 槽位层
+   - 不是“原剧本正式角色已经扩完”
+5. 逐项判断里：
+   - `103 阿澈`
+     最接近 `围观少年 / 跑腿小孩` 一类群众层，可留作 crowd
+   - `203 麦禾`
+     最接近 `饭馆背景角色`，可留作晚餐背景 crowd
+   - `102 炎栎 / 104 沈斧 / 202 桃羽`
+     只能算次级氛围角色，不能直接转正
+   - `101 莱札 / 201 白槿 / 301 朽钟`
+     当前都没有足够原案依据，不应继续 claim 为正式角色
+6. 当前 manifest 的 phase 语义存在结构性漂移风险：
+   - `101 / 103`
+     从 `EnterVillage` 就开始
+   - `201`
+     从 `HealingAndHP` 就开始
+   - `104`
+     从 `WorkbenchFlashback` 就开始
+   - `301`
+     在 `ReturnAndReminder / FreeTime` 出现
+   - 这些都比原案对 crowd 的需求更早、更重
+
+**关键决策**：
+- 本轮不直接改 `SpringDay1NpcCrowdManifest.asset`。
+- 原因不是我看不出来，而是：
+  - 真正需要先落地的是 `NPC-v` 的“原案角色 -> 101~301 槽位”映射回正；
+  - `spring-day1V2` 这边当前先把：
+    - 主角色链
+    - crowd 槽位层
+    - 尚未承载的原案角色
+    说死，避免继续误 claim。
+
+**当前恢复点**：
+- `NPC-v`
+  - 下一轮只做原案映射与最小本体回正
+- `spring-day1V2`
+  - 等 `NPC-v` 回正后，再决定是否做最小 manifest phase / 语义收窄
+
+**本轮 thread-state**：
+- 已跑：
+  - `Begin-Slice`
+  - `Park-Slice`
+- 未跑：
+  - `Ready-To-Sync`
+  - 原因：本轮没有进入 sync 收口，只做判定并停车
+
+## 2026-04-03｜共享 TMP 中文字体缺 Atlas 事故已按 `HEAD` 基线恢复
+
+**用户目标**：
+- 按典狱长 `2026-04-03_典狱长_spring-day1_共享TMP中文字体缺Atlas稳定性修复_01.md`，只修共享 TMP 中文字体底座缺 `Atlas / m_AtlasTextures` 的 incident，不扩到 `Day1 / UI / NPC / Prefab / Scene / Library`。
+
+**本轮新查实的事实**：
+1. 当前 shared root 真正还在 incident 里的字体资产只有 3 份：
+   - `DialogueChinese SDF.asset`
+   - `DialogueChinese Pixel SDF.asset`
+   - `LiberationSans SDF - Fallback.asset`
+2. 其中真正坏到会炸运行时的是前两份中文字体：
+   - `m_Material: {fileID: 0}`
+   - `m_AtlasTextures: - {fileID: 0}`
+   - `Material` 子对象整段缺失
+   - `Texture2D atlas` 子对象整段缺失
+3. `HEAD` 基线里这两份字体仍有完整 `material + atlas + m_AtlasTextures` 链，所以这轮最安全路线是“回已提交基线”，不是先重建。
+
+**本轮已完成**：
+1. 只将以下 3 份资产恢复到 `HEAD`：
+   - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+   - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+   - `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`
+2. 未改：
+   - `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs`
+   - 任意业务 prefab / scene / font library
+   - 任意消费者脚本
+3. 磁盘级复核：
+   - 三份资产都已恢复有效 `m_Material` / `m_AtlasTextures`
+   - `git status --short -- 'Assets/TextMesh Pro/Resources/Fonts & Materials'` 已 clean
+4. 最小运行验证：
+   - 通过 `CodexEditorCommandBridge` 发送 `MENU=Assets/Refresh`
+   - 当前 Unity 返回：
+     - `menu:Assets/Refresh`
+     - 随后 `compilation-finished`
+   - 最新 `Editor.log` 尾部已不再出现 `Atlas missing / m_AtlasTextures missing / m_Material missing`
+
+**关键决策**：
+- 这轮正式采用的是：
+  - `安全回到 HEAD/已提交基线`
+- 不采用：
+  - 先改生成器
+  - 先改消费者
+  - 先改任何业务 prefab / scene
+
+**当前恢复点**：
+- 共享 TMP 中文字体这轮已重新回到可稳定加载、可被现有消费者使用的状态；
+- 如果之后同类错误再出现，下一步才应该单独回到 `DialogueChineseFontAssetCreator.cs` 或更底层生成链。
+
+**本轮 thread-state**：
+- 已跑：
+  - 早前 `Begin-Slice`
+- 待补：
+  - 这轮收口前应把 `Begin-Slice` scope 重钉到“字体资产 + memory”
+  - 然后补跑 `Ready-To-Sync`
+- 当前 live 状态：
+  - `ACTIVE`
+
+## 2026-04-03｜审计补记：字体事故已修复，但 `Ready-To-Sync` 被同根治理文档 remaining dirty 阻断
+
+**本轮新增事实**：
+1. 已用 `-ForceReplace` 重新补跑 `Begin-Slice`，把本轮真实 owned paths 收紧为：
+   - 3 份字体资产
+   - `.kiro/specs/Codex规则落地/memory.md`
+   - `.kiro/specs/900_开篇/spring-day1-implementation/memory.md`
+   - `.codex/threads/Sunset/spring-day1V2/memory_0.md`
+2. 已补跑 `Ready-To-Sync`，但结果不是字体资产仍坏，而是治理层 same-root blocker：
+   - `Codex规则落地` 根目录下仍有未归仓 prompt 文档
+   - 其中包括本轮 prompt 文件与两份别线 prompt
+   - stable launcher 因 `own roots remaining dirty/untracked` 阻断 sync
+3. 因此当前正确口径是：
+   - 共享 TMP 中文字体 incident：已修复并完成最小运行验证
+   - 本轮 sync：未完成，第一真实 blocker 是治理目录同根 remaining dirty
+
+**当前恢复点**：
+- 如果后续要继续收口：
+  1. 先由治理位处理 `Codex规则落地` 根目录的 untracked prompt 尾账
+  2. 然后再重跑 `Ready-To-Sync`
+- 在此之前，这条线程不应假装已经 `READY`
+
+**最终 live 结算**：
+- 已跑：
+  - `Begin-Slice`（重钉 scope 后）
+  - `Ready-To-Sync`（结果：BLOCKED）
+  - `Park-Slice`
+- 当前状态：
+  - `PARKED`
+- 当前唯一 blocker：
+  - 共享 TMP 中文字体 incident 已修复并通过最小运行验证；
+  - 但 `Codex规则落地` 根目录仍有未归仓 prompt 文档，导致 same-root remaining dirty 阻断白名单 sync。

@@ -1655,3 +1655,333 @@
 - 当前恢复点：
   - 后续若继续规划，不应再把 Day1 说成“还有很多主线功能没开发”；
   - 更准确的说法是：“功能主体已成，剩验收、精修和共享稳定性。” 
+
+## 2026-04-01 补记：`spring-day1V2` 按用户新裁定继续 `PARKED`，退回 Day1 底座协作位
+
+- 当前父工作区最新边界：
+  1. 不再让 `spring-day1V2` 恢复“最近目标 / 唯一提示 / 唯一 E”主刀实现。
+  2. 玩家面 `UI/UE` 整合主刀已切给 `UI` 线程处理。
+  3. `spring-day1V2` 当前只保留：
+     - Day1 交互体与行为骨架的事实解释权
+     - 底座 contract / 行为顺序 / Day1 约束澄清权
+- 本轮已完成：
+  1. 读取 `2026-04-01_典狱长_spring-day1V2_退回Day1底座协作位等待UI接手_02.md`
+  2. 复核 `spring-day1V2` 当前 live state
+  3. 重新执行 `Park-Slice`，把 blocker 收紧为：
+     - `等待 UI 接手玩家面 UI/UE 整合；spring-day1V2 退回 Day1 底座协作位，仅保留底座 contract / 行为顺序 / Day1 约束澄清权`
+- 本轮未做：
+  - 未恢复真实施工
+  - 未跑 `Begin-Slice`
+  - 未改任何业务代码
+- 当前恢复点：
+  - 后续只有在 `UI` 线程为玩家面整合需要澄清底座 contract、现有行为顺序、或 Day1 约束边界时，`spring-day1V2` 才应被回叫协作；
+  - 在那之前，这条线继续保持 `PARKED`，不再把旧的“唯一提示 / 唯一E”实现线当默认下一步。
+
+## 2026-04-01 补记：误收 `UI` prompt 已撤回，Spring 继续保持底座协作位 `PARKED`
+
+- 当前父工作区新增稳定事实：
+  1. 用户已明确撤回上一条把当前线程临时切成 `UI / SpringUI` 的 prompt；
+  2. 当前线程身份重新固定为：
+     - `spring-day1V2 / Spring`
+     - `Day1 底座协作位`
+     - `继续 PARKED`
+  3. `UI` 线继续是独立的 `UI / SpringUI` 玩家面整合线程；
+  4. `NPC` 只保留 NPC 自己的底座与自有体验线。
+- 本轮已做的纠正：
+  1. 已确认上一条误 prompt 真正造成的现场影响只落在：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\UI.json`
+  2. 该 `UI` live state 已恢复回撤回前版本；
+  3. `spring-day1V2` 当前没有恢复 `ACTIVE`，也没有重开实现施工。
+- 当前父层对 `spring-day1V2` 的固定边界：
+  1. 继续保留：
+     - Day1 底座 contract
+     - 现有行为顺序
+     - Day1 约束边界
+     - 底座事实解释权
+  2. 明确不再继续承担：
+     - `唯一提示 / 唯一 E / 最近目标仲裁`
+     - `玩家面 UI/UE 整合`
+     - `SpringDay1ProximityInteractionService.cs / InteractionHintOverlay.cs` 这一刀的玩家面 owner 语义
+- 当前恢复点：
+  - 后续只有在 `UI` 做玩家面整合时，需要 Day1 底座 contract、行为顺序或约束边界澄清，这条线才会被回叫；
+  - 在新的明确指令下来前，`spring-day1V2` 继续保持 `PARKED`，不自行恢复 `ACTIVE`。
+
+## 2026-04-01 补记：Day1 近身提示 / 唯一 E 仲裁已先在 Workbench + Rest 自有链落地，代码面 compile-clean，但 same-root 仍被 NPC 活跃脏改卡住
+
+- 当前父工作区主线不是回头重做 UI，也不是再开新治理方案；这轮主线是按用户“直接把 Day1 你能做的逻辑清盘尽量做完”的要求，只在我当前可合法触达的 Day1 自有链里，先把近身提示、唯一 `E`、交互边界、运行态摘要和自由时段休息验收入口往前推一轮。
+- 本轮真实落下的 Day1 代码面有 6 块：
+  1. 新增 `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs(.meta)`：
+     - 提供 Day1 自有的近身候选汇聚、唯一焦点、唯一按键消费与当前焦点摘要。
+     - 当前只先接 `Workbench + Bed/Rest`，没有越权去改 NPC 活跃线。
+  2. `CraftingStationInteractable.cs`：
+     - 工作台近身提示与 `E` 不再自己在 `Update()` 里抢键；
+     - 改为统一上报到 `SpringDay1ProximityInteractionService`；
+     - 同时保留首次教学提示、工作台包络线距离判断和 Day1 导演桥接。
+  3. `SpringDay1BedInteractable.cs`：
+     - 新增 Day1 自用的回屋/睡觉近身提示链；
+     - 近身判定改为明确读取表现包络线距离；
+     - 页面级 UI 打开时阻挡休息交互；
+     - 提示文案可随夜间压力动态收紧。
+  4. `SpringDay1Director.cs`：
+     - 新增 `GetRestInteractionDetail`、`GetCurrentWorldHintSummary`、`BuildPlayerFacingStatusSummary`；
+     - `BuildSnapshot()` 现在额外输出 `WorldHint` 与 `PlayerFacing`；
+     - `TryTriggerRestInteraction()` 允许在自由时段验收入口里做一次距离/上下文 fallback；
+     - 对 `GetDebugSummary / GetCurrentTaskLabel / GetCurrentProgressLabel / BuildPromptCardModel / IsSleepInteractionAvailable` 这组摘要与状态公开口补了空安全，避免验收入口、bootstrap 中途或脚本重载瞬间先空引用。
+  5. `SpringDay1WorldHintBubble.cs`：
+     - 暴露当前可见态、当前按键、标题、明细，供导演层和快照读取；
+     - 连续对话时忽略旧 `DialogueEndEvent`；
+     - 销毁时主动回收静态实例，避免切场景后残留旧引用。
+  6. `SpringDay1DialogueProgressionTests.cs`：
+     - 已把统一近身仲裁、休息验收入口、玩家视角摘要、空上下文兜底、静态实例回收等锚点补进静态断言。
+- 本轮额外收掉的两个工程尾巴：
+  1. `SpringDay1ProximityInteractionService.cs` 现在已有 `.meta`，仓库形态不再停在“脚本新建了但 Unity 资产身份没落盘”的半状态。
+  2. `SpringDay1ProximityInteractionService` 输出的当前焦点摘要已统一为：
+     - `anchor | key | caption | detail | distance | priority | ready`
+     并做了基础防脏处理，后续 `BuildSnapshot / PlayerFacing` 读取时不再只拿到一串不稳定的原始文本。
+- 本轮验证：
+  1. `git diff --check` 对当前 owned 代码文件通过；仅剩 Git 的 `CRLF/LF` 提示，不是阻断错误。
+  2. `CodexCodeGuard` 已对：
+     - `SpringDay1ProximityInteractionService.cs`
+     - `CraftingStationInteractable.cs`
+     - `SpringDay1BedInteractable.cs`
+     - `SpringDay1Director.cs`
+     - `SpringDay1WorldHintBubble.cs`
+     - `SpringDay1DialogueProgressionTests.cs`
+     执行 `utf8-strict + git-diff-check + roslyn-assembly-compile`，结果 `CanContinue = true`。
+  3. `Ready-To-Sync.ps1` 本轮未能产出正式 `READY_TO_SYNC`，第一层先撞到工具问题：
+     - 它当前会把多路径 `IncludePaths` 错误转发给 stable launcher，导致 canonical script 读取参数错位。
+  4. 我已做手工等价 `preflight`，拿到真实 Git blocker：
+     - `Assets/YYY_Scripts/Story/Interaction` 与 `Assets/YYY_Scripts/Story/UI` 这两个同根目录仍混有 NPC 活跃 dirty；
+     - 尤其 `NpcWorldHintBubble.cs` 仍在同根 remaining 里；
+     - 一旦继续 `sync`，同根还会把 `NPCDialogueInteractable.cs / NPCInformalChatInteractable.cs` 一并卷进白名单，因此当前不能诚实归仓。
+- 本轮关键判断：
+  1. Day1 自有的“唯一提示 / 唯一 E / Workbench + Rest 边界判断 / 玩家面摘要”这条链，当前已经不再停在想法或文档层，而是真实落到代码里了。
+  2. 这轮没法继续往 `sync` 走，不是因为我这轮 owned 代码还红，而是因为：
+     - `Ready-To-Sync.ps1` 现有参数转发有 bug；
+     - 更重要的是，`Story/Interaction` 与 `Story/UI` 当前和 NPC 活跃线物理同根，继续 sync 会越权吞并 NPC 文件。
+- 当前恢复点：
+  - Day1 这轮逻辑扫盘已经推进到“代码面 compile-clean + blocker 被钉实”的阶段；
+  - 若后续继续，最合理的下一步不是再加新逻辑，而是等 NPC 同根活跃脏改拆开，或由治理位批准新的切根/并刀口径后，再收这批 Day1 逻辑。
+
+## 2026-04-01 补记：Day1 / NPC / 通用 UI 全盘调研后，这条线更适合被定义为“Story 向 UI/UE 集成线程”，不适合直接升格成全项目 UI/UE 总包
+
+- 当前父工作区主线不是继续施工，而是按用户要求做一次只读全盘调研，回答“以后能不能把我这条线当成 UI/UE 外包总包来使用”。本轮没有进入真实施工，因此也没有跑 `Begin-Slice`。
+- 本轮实际读取与核查：
+  - 工作区 / 线程依据：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\memory.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\NPC.json`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\spring-day1V2.json`
+  - 代码面重点只读扫盘：
+    - `Assets/YYY_Scripts/Story/UI`
+    - `Assets/YYY_Scripts/Story/Interaction`
+    - `Assets/YYY_Scripts/Service/Player`
+    - `Assets/YYY_Scripts/Controller/NPC`
+    - 以及 `Assets/YYY_Scripts/UI` 下的通用背包 / 工具栏 / Tooltip / CraftingPanel 旧体系
+- 本轮先钉实的结构结论：
+  1. Sunset 当前不是“一套 UI 系统”，而是至少并存两套玩家面：
+     - 一套是旧的通用 UI：背包、工具栏、Tooltip、旧 CraftingPanel、状态条等；
+     - 另一套是 Story / NPC 玩家可见体验链：Prompt、Workbench、世界提示、NPC 气泡、玩家想法气泡、近身提示与对话面。
+  2. 这第二套 Story / NPC 玩家面，内部又至少拆成三层：
+     - `视觉正式面 / 壳体真源`
+     - `玩家可感知交互体验`
+     - `剧情 / 导演 / 交互矩阵集成`
+  3. 当前只有 `SpringDay1PromptOverlay` 与 `SpringDay1WorkbenchCraftingOverlay` 真正走到了 `prefab-first + formal-face`；其余大量提示 / 气泡 / 状态条仍然是代码运行时长 UI。
+- 结合现有线程与代码 owner 后，本轮稳定判断如下：
+  1. `SpringUI / UI-V1` 更像 `Day1 正式 UI 壳体 owner`：
+     - 它负责 `PromptOverlay / WorkbenchOverlay` 的 formal-face、prefab-first、GameView 证据与壳体几何纪律；
+     - 它更偏“视觉基线 + 运行时接回”，不是整条剧情交互链 owner。
+  2. `NPC` 线程已经不只是逻辑线程，而是实质承担了 `NPC 玩家面体验 owner`：
+     - NPC 世界提示壳
+     - NPC 气泡表现
+     - 玩家 / NPC 双气泡闲聊体验
+     - NPC 正式 / 非正式聊天过程中的提示与中断体验
+  3. `spring-day1V2` 这条线当前最像 `Story 向 UI/UE 集成 owner`：
+     - 工作台 / 床 / 回屋这些 Day1 自有交互的唯一提示与唯一 `E`
+     - 导演层怎样驱动 Prompt / 世界提示 / 任务摘要
+     - Day1 自有交互矩阵、边界中断、玩家面摘要与运行态验收口
+     - 也就是说，这条线的长板不在“纯画壳”，而在“让玩家真的觉得这套交互链成立”
+- 因此，本轮给用户的岗位结论是：
+  1. 这条线**适合**被当成：
+     - `Story 向 UI/UE 集成线程`
+     - `玩家可感知体验收口线程`
+     - `Day1 / Story 交互矩阵与 overlay 串联线程`
+  2. 这条线**不适合**被直接当成：
+     - `全项目所有 UI/UE 总包`
+     - `纯视觉 formal-face 专线`
+     - `NPC + Spring + 通用 HUD/背包/工具栏 + 剧情逻辑` 全部合一的单 owner
+- 具体到后续可承接范围，本轮建议这样切：
+  1. 可以交给这条线的：
+     - Story / Day1 的玩家可见提示、任务卡、工作台体验、休息点体验、交互唯一性、关闭逻辑、阻挡逻辑、玩家面摘要
+     - formal-face 已经存在后的“壳体接回运行时 + 行为链接驳 + 体验打磨”
+     - NPC / Day1 这类内容和导演层强耦合的 UI/UE 集成收口
+  2. 不该整包交给这条线的：
+     - `Assets/YYY_Scripts/UI` 下整套通用背包 / 工具栏 / 旧 crafting / tooltip 体系
+     - 当前已经有 active owner 的 NPC 聊天 / 气泡 / 提示整条线
+     - 纯视觉风格定稿、字体 / 排版 / prefab 壳体精修这类 formal-face 专项
+     - 导航 / 物理 / scene hot-file / 全局输入这类 shared root 核心底层
+- 本轮推荐的长期协作口径：
+  1. 其他线程先定业务基调、系统边界和剧情阶段；
+  2. `SpringUI` 负责把真正要给玩家看的 formal-face 壳体定住；
+  3. `NPC` 负责 NPC 自己的聊天 / 气泡 / 提示体验；
+  4. 我这条线负责把 Story / Day1 的逻辑、提示、overlay、交互矩阵与玩家可感知结果真正串起来。
+- 本轮额外强调的判断边界：
+  - 这次岗位判断主要站在：
+    - `结构 / checkpoint`
+    - `代码职责分布`
+    - `当前 active owner`
+    这三层证据上；
+  - 它不是一次 live GameView 美术终验，因此能判断“谁适合承接哪类工作”，但不能把这轮分析包装成“哪套视觉体验已经过线”。
+- 当前恢复点：
+  - 后续如果用户要把我当“外包”继续用，最稳的委托口径不是“你把所有 UI/UE 都包了”，而是明确写成：
+    - `Story / Day1 / NPC 玩家面体验集成`
+    - 或 `只做 formal-face`
+    - 或 `只做逻辑矩阵`
+  - 只有先把这三类切开，后续线程关系才不会再漂。
+
+## 2026-04-02 补记：002批量层级工具已修复父空节点 + 子 Collider 对象的排序误判
+
+- 当前主线没有切离 `spring-day1` 的工作台体验链；本轮子任务是排查用户直接反馈的 `Anvil_0` 静态排序工具误判，服务于工作台可正确落 `sortingOrder` 的基础现场。
+- 已定位根因：
+  - `Assets/Editor/Tool_002_BatchHierarchy.cs` 的 `CalculateSortingY()` 先做“父物体无 `SpriteRenderer` 就直接返回父 Y”；
+  - 对 `M1(2) -> Anvil_0` 这类结构，会吞掉 `Anvil_0` 自己的 `PolygonCollider2D.bounds.min.y`，因此控制台会显示处理成功，但 `Order in Layer` 仍可能落成父节点高度。
+- 已完成修复：
+  - `Tool_002_BatchHierarchy.cs` 改为先吃当前对象自己的 `Collider2D.bounds.min.y`，只有无 Collider 时才回退父空节点 / Sprite / Transform；
+  - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs` 同步修正同源逻辑，避免手动批量与自动校准口径再次分叉；
+  - 批量工具调试输出现在会明确标出 `Collider / Parent / Sprite / Transform` 来源，便于后续复核。
+- 验证状态：
+  - `git diff --check` 已过；
+  - 本轮未做 Unity live 复验，原因是 `unityMCP` 当前对 `http://127.0.0.1:8888/mcp` transport 失败；
+  - 因此这轮结论属于“静态推断成立，待 Unity 现场复核”。
+- 当前恢复点：
+  - 下一步若继续这条线，应在 Unity 里重新对 `Anvil_0` 运行一次 `002批量-Hierarchy` 的 Order 按钮，预期不再落成父节点 Y 的错误结果。
+
+## 2026-04-02 补记：已修正 002批量工具的局部变量重名编译错误
+
+- 用户复测后指出 `Tool_002_BatchHierarchy.cs` 新增调试逻辑引入了两个 `CS0136`：`Shadow` / `Glow` 分支里的局部 `parent` 与外层调试区新增的 `parent` 同名。
+- 本轮已做最小修补：将两个分支内部变量改名为 `effectParent`，不改排序计算逻辑本身。
+- 验证状态：
+  - `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs` 已过；
+  - 本轮仍未做 Unity live 复验，但这两个直接的编译级命名冲突已静态清除。
+
+## 2026-04-02 补记：002批量工具不再在 Play / reload 时复活坏窗口
+
+- 当前主线仍是给 `spring-day1` 工作台链恢复一个可用的 `002批量-Hierarchy` 工具；本轮子任务是止住用户反复遇到的 `Invalid editor window of type: Tool_002_BatchHierarchy`，避免进 Play 就被这张旧坏页签骚扰。
+- 结合 `Editor.log` 调用链，本轮稳定判断是：
+  - 之前编译失败留下的旧 `002批量-Hierarchy` 页签在 Play / domain reload / maximize 检查时被 Unity 继续恢复；
+  - 问题核心已经不是排序公式再次抛错，而是这张 EditorWindow 仍在参与布局恢复。
+- 已完成修复：
+  - `Assets/Editor/Tool_002_BatchHierarchy.cs`
+    - `ShowWindow()` 不再走 `GetWindow<T>()` 的可停靠布局页签路线，改为手动打开的独立辅助工具窗；
+    - 新增 `FindOpenWindow()`，避免重复开多份；
+    - `OnEnable()` 统一补写窗口标题。
+  - 同文件内的 `Tool002BatchHierarchyPlayModeGuard`
+    - 改为在 `AssemblyReloadEvents.beforeAssemblyReload`、`PlayModeStateChange.ExitingEditMode`、以及 reload 后首个 `delayCall` 三个时机主动关闭残留窗口；
+    - 删除“退出 Play 后自动重开窗口”的逻辑，避免旧坏页签再次被顶回来。
+- 验证状态：
+  - `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs Assets/Editor/StaticObjectOrderAutoCalibrator.cs` 已过；
+  - Unity 已完成一次 forced synchronous recompile，`Editor.log` 最新尾部显示 `Mono: successfully reloaded assembly`，且这次重编译后的尾部未再出现新的 `Invalid editor window of type: Tool_002_BatchHierarchy`；
+  - 仍未做“手动重新打开工具窗后再进 Play”这一轮最终用户侧复测，因此这轮属于“线程自测部分通过，最终进 Play 结果待用户复测”。
+- 当前恢复点：
+  - 用户下一步应重新从 `Tools/002批量 (Hierarchy窗口)` 打开这张工具窗，再进一次 Play；
+  - 预期结果是：旧报错不再出现；若仍出现，则继续沿“用户本机布局缓存里仍有更深层残留”路线追查，而不是回退排序公式本身。
+
+## 2026-04-02 补记：已确认报错只在 maximize 路径触发，并已清理当前 layout 缓存
+
+- 用户进一步明确了复现条件：不是“普通进 Play 就报”，而是“运行游戏后双击 `Game` 窗口进入全屏 / maximize 时才报”。
+- 结合 `Editor.log` 当前稳定结论更新为：
+  - 触发栈稳定落在 `UnityEditor.WindowLayout:CheckWindowConsistency() -> MaximizePresent() -> EditorWindow.maximized`；
+  - 因此这条报错的真正触发器是 Unity 的“窗口最大化布局检查”，不是运行时工作台逻辑，也不是 `SetOrderByY()` 本身。
+- 本轮做过的额外处理：
+  - 一度尝试用 `Tool002BatchHierarchyPlayModeGuard` 自动关闭残留窗口，但失效页签本身在 `EditorWindow.Close()` 阶段就会抛 `NullReferenceException`；
+  - 为避免继续制造新的 Editor 红错，已把这段自动清理钩子回退成 no-op，不再在坏布局现场上追加自动关闭逻辑；
+  - 已备份当前 layout 到：
+    `D:\Unity\Unity_learning\Sunset\.codex\artifacts\layout-backups\2026-04-02_tool002_invalid-window`
+  - 已清理的缓存文件：
+    - `C:\Users\aTo\AppData\Roaming\Unity\Editor-5.x\Preferences\Layouts\current\default-2022.dwlt`
+    - `C:\Users\aTo\AppData\Roaming\Unity\Editor-5.x\Preferences\Layouts\current\default-6000.dwlt`
+    - `D:\Unity\Unity_learning\Sunset\UserSettings\Layouts\CurrentMaximizeLayout.dwlt`
+- 验证状态：
+  - 代码侧 `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs Assets/Editor/StaticObjectOrderAutoCalibrator.cs` 已过；
+  - 当前会话的 `Editor.log` 里仍能看到先前自动清理钩子留下的旧 `NullReferenceException` 记录，但这些是回退前的历史日志，现代码已撤掉该自动关闭路径；
+  - layout 缓存文件已物理删除，下一次重开 Unity / 重新载入布局时会从干净状态重建。
+- 当前恢复点：
+  - 下一步不再继续猜 `Tool_002_BatchHierarchy` 业务逻辑，而是让用户重开 Unity 一次，再复测“进 Play 后双击 `Game` 窗口最大化”；
+  - 如果重开后报错消失，就回主线验工作台排序；
+  - 如果重开后依然报错，再继续查更深层的 session 内存态或其它自定义窗口残留。
+
+## 2026-04-02 补记：Props/Water 碰撞、NPC 导航阻挡、镜头边界、场景切换触发器快速落地
+
+- 当前主线目标：按用户要求一次落地 4 件事：
+  - `Props` Tilemap 整块不可穿越
+  - `Water` 不可进入，玩家和 NPC 都不能下水
+  - 镜头不能拍到场景外
+  - 给场景一个可调大小的空物体触发切场，目标场景由检查器拖入
+- 本轮子任务与服务关系：这是主线本体施工，不再是前面 `Tool_002_BatchHierarchy` / maximize 报错的阻塞排查；该阻塞已从主线上摘除，当前恢复点回到场景可玩性与镜头边界。
+- 已完成施工：
+  1. `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+     - 新增 `explicitObstacleColliders` 序列化字段；
+     - 网格阻挡判定先检查显式障碍碰撞体，再回退到 tag / layer；
+     - 这样 `TilemapCollider2D` 能直接成为 NPC 寻路障碍，不需要复用 `Building` 等高副作用 tag。
+  2. `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+     - 修正 `_CameraBounds` 自动创建逻辑；
+     - 自动把 `_CameraBounds` 放到世界根并归零变换，避免父节点偏移把 confiner 边界整体带偏；
+     - 运行时会给 `CinemachineCamera` 自动补 `CinemachineConfiner2D` 并刷新边界缓存。
+  3. `Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs`
+     - 新建通用 2D 切场触发器；
+     - Inspector 可拖 `SceneAsset`，同时缓存运行时 `targetSceneName`；
+     - 玩家进入 trigger 后执行简洁黑幕淡入/加载/淡出；
+     - 触发器本体要求 `Collider2D`，用户可直接调大小。
+  4. `Assets/000_Scenes/Primary.unity`
+     - 给 `Layer 1 - Props_Porps` 与 `Layer 1 - Farmland_Water` 各补了 `TilemapCollider2D`；
+     - `NavigationRoot` 上的 `NavGrid2D` 已显式引用这两个 tilemap collider；
+     - `CinemachineCamera` 已挂 `CameraDeadZoneSync`；
+     - `2_World` 下新增 `SceneTransitionTrigger` 空物体，默认 `BoxCollider2D` 为 trigger，大小可直接在 Inspector 调。
+- 验证结果：
+  - 离线脚本编译：
+    - `NavGrid2D.cs`、`CameraDeadZoneSync.cs`、`SceneTransitionTrigger2D.cs` 已用项目现有 `Library/ScriptAssemblies + ManagedStripped` 引用做 Roslyn 离线编译，结果 `ALL_OK`；
+    - 仅有已有程序集重名 / 未使用字段 warning，无新增 blocking error。
+  - `git diff --check`：
+    - 我本轮新增的 3 个脚本文件通过；
+    - `Primary.unity` 因工作树里本来就存在大量非本轮 scene 脏改，无法用 `diff --check` 当作本轮独占 clean 证据。
+  - Unity / Play 验证：
+    - 当前本机未定位到 Unity Editor 可执行程序；
+    - 因此本轮未完成真正 Unity 编译、Console 复核和 PlayMode 终验。
+- 当前阶段：
+  - `结构 / checkpoint`：成立；
+  - `targeted probe / 局部验证`：脚本级成立；
+  - `真实入口体验`：仍待用户在 Unity 内终验。
+- 当前恢复点：
+  - 如果后续继续这条线，直接在 Unity 里验证：玩家/NPC 是否都被 Props 与 Water 挡住、镜头是否仍能看到场景外、`SceneTransitionTrigger` 拖入目标场景后是否能正常切场。
+
+## 2026-04-03 补记：共享 TMP 中文字体缺 Atlas 事故已从 Day1 blocker 清回独立底座案
+- 当前父工作区这轮不是继续 `Day1` feature，也不是继续 UI / NPC；唯一任务是处理共享 TMP 中文字体底座缺 `Atlas / m_AtlasTextures` 的事故。
+- 本轮新查实：
+  1. 当前真正坏掉的是两份共享中文字体资产本体：
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+  2. 它们的坏态不是“某个 prefab 引错了字体”，而是资产自身被削空：
+     - `m_Material: {fileID: 0}`
+     - `m_AtlasTextures: - {fileID: 0}`
+     - 内嵌 `Material` 与 `Texture2D atlas` 子对象整段消失
+  3. `HEAD` 基线仍保留完整 `material + atlas + m_AtlasTextures` 链，因此这轮正确修法是回到已提交基线，而不是继续在 Day1 线里扩生成器或消费者止血。
+- 本轮已执行：
+  - 只将以下 3 份共享字体资产恢复到 `HEAD`：
+    - `DialogueChinese SDF.asset`
+    - `DialogueChinese Pixel SDF.asset`
+    - `LiberationSans SDF - Fallback.asset`
+  - 未改：
+    - `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs`
+    - 任意业务 prefab / scene / font library
+    - 任意 Day1 业务脚本
+- 最小验证结果：
+  - 用当前 Unity 的 `CodexEditorCommandBridge` 执行一次 `Assets/Refresh`
+  - 之后 `status.json` 进入 `compilation-finished`
+  - 最新 `Editor.log` 尾部已不再出现：
+    - `The Font Atlas Texture ... is missing`
+    - `m_AtlasTextures doesn't exist anymore`
+    - `m_Material doesn't exist anymore`
+- 当前父层恢复点更新为：
+  - 共享 TMP 中文字体这轮已经重新可加载，不再是当前 Day1 业务面的运行时 blocker；
+  - Day1 侧后续如果还有问题，应回到真实业务逻辑或外部别的 shared blocker，不要再把这组底座事故和 Day1 主线混在一起。

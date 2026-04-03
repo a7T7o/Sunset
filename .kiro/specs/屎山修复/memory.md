@@ -2515,3 +2515,1642 @@
 - 当前恢复点：
   - 父线程继续保持静态验证位；
   - 动态线继续只收 `PlayerAutoNavigator.cs` 的普通点中心语义，修后再回父线程复跑 static fresh。
+
+## 2026-04-01（父层补记：`-17` 不能被升格成体验主线完成；当前双线已重新改判）
+
+- 当前新增结论：
+  1. `导航检查V2` 最新回执里，真正成立的只有一层：
+     - premature inactive / `Inactive(pathCount=0)` 旧链已被 fresh 收掉；
+  2. 但它把下一步直接改判成 crowd-only，这个父层不接受；
+  3. 当前最新用户真实体验说明，仍更高优先的是：
+     - 普通点击点对齐仍可感知地不稳
+     - 静止 NPC 贴近路过时仍会被顶着走
+     - 两个近距 NPC 之间会摆动、卡顿、甚至无必要后撤
+  4. 因而父层当前已重新把主线拆成：
+     - `导航检查V2`：近距静止 NPC / 双 NPC 通道避让体验纠偏
+     - 父线程：静态点契约回归与点击点上偏复核
+  5. 对 `导航检查V2` 当前回执里两个说法的正式裁定：
+     - `npcPushDisplacement≈1.0` 的代理 pass 不得升格成体验 pass
+     - `targetTransform == null -> Rigidbody/Transform` 不得被默认为普通点导航最终口径
+- 当前恢复点：
+  - 后续父层不再接受“crowd-only 就是唯一主刀”的说法；
+  - 继续推进时，先发 2026-04-01 这组双线 `-19`。
+
+## 2026-04-01（父层补记：父线程并行 before-baseline 已经把 static / 点击点契约判成当前拒收）
+
+- 当前新增结论：
+  1. 父线程已在不改 runtime 的前提下，先跑出了一轮 `导航检查V2 -19` 开工前的 before-baseline；
+  2. 最新 static verdict 不是“勉强还能接受”，而是当前明确拒收：
+     - `StaticPointCase1 pass=False centerDistance=1.600 rigidbodyDistance=1.995 transformDistance=1.995`
+     - `StaticPointCase2 pass=False centerDistance=1.120 rigidbodyDistance=0.081 transformDistance=0.081`
+  3. 这说明两件事同时成立：
+     - 点击点上偏/错层没有被证明已经消失；
+     - 普通点契约甚至出现了比上一轮更坏的 case，当前不能放行
+  4. 因而父层当前统一口径应更新为：
+     - `导航检查V2` 继续修近距静止 NPC / 双 NPC 通道体验链
+     - 父线程已经拿到一份可直接做前后对照的拒收 baseline
+     - 等 `导航检查V2 -19` 回来后，父线程不再“重新理解”，而是直接对照裁定。
+- 当前恢复点：
+  - 父线程当前 thread-state 已合法 `PARKED`；
+  - 下一个最小动作就是等 `导航检查V2 -19` 回执回来后，直接做 acceptance / rejection。
+
+## 2026-04-01（父层补记：用户最新实机把动态主刀改判为 NPC 漫游异常中断；`导航检查V2` live 入口已升级到 `-20`）
+
+- 当前新增结论：
+  1. 用户最新截图和现场反馈表明，当前最灾难级坏相已经不再只是玩家近距 corridor 避让，而是：
+     - roam 语义下 NPC 与玩家 / NPC 与 NPC 在同一点附近互挤、互卡、鬼畜不止；
+  2. 用户给出的新设计裁定已明确：
+     - 当前漫游导航只要出现一次明确异常，就应取消本次漫游段；
+     - 并且必须把中断原因向上抛出，留给后续 NPC 逻辑接手；
+  3. 因而 `导航检查V2` 的当前 live 主刀已从 `-19` 的玩家近距体验纠偏，进一步升级成：
+     - `NPCAutoRoamController.cs`
+     - roam move 的异常即中断
+     - roam interruption reason / hook
+  4. 对整体盘面的统一口径同步更新：
+     - static / 点击点上偏：仍未解决，继续保持拒收
+     - 玩家 premature inactive 旧链：已收掉，但不能再当当前主刀
+     - 新第一主刀：NPC roam fail-fast interrupt
+- 当前恢复点：
+  - `导航检查V2` 若继续，直接转发：
+    - `2026-04-01-导航检查V2-NPC漫游异常中断与鬼畜止血-20.md`
+  - 父线程继续作为 acceptance / 拒收位，不参与这轮 runtime 写入。
+
+## 2026-04-01（父层补记：复审 `导航检查V2` 昨夜回执后，`-20` 已再升级成 `-21`）
+
+- 当前新增结论：
+  1. `导航检查V2` 昨夜那份回执不能按 `-20` 审，因为它实际还没收到 `-20`；
+  2. 所以父层对它昨夜回执的正式裁定应是：
+     - 承认 `-19` 上 single 静止 NPC 推挤有部分进展
+     - 但同时明确 `-19` 未闭环，不能继续拖成长窗主线
+  3. 因而父层把 live 入口进一步升级成：
+     - `2026-04-01-导航检查V2-冻结19并转NPC漫游异常中断-21.md`
+  4. `-21` 相比 `-20` 的关键新增，是：
+     - 明确要求先冻结 `-19` 当前 partial checkpoint
+     - 再切到 `NPCAutoRoamController.cs` 的 roam fail-fast interrupt
+     - 不再允许它一边承认 `-19` 未闭环，一边继续无限补 single/corridor 样本
+- 当前恢复点：
+  - 当前应转发 `V2 -21`；
+  - `V2 -20` 保留为阶段中间稿，不再视为最新 live 入口。
+
+## 2026-04-01（父层补记：static 拒收报告与 `V2 -21` 验收尺已经落成文档）
+
+- 当前新增结论：
+  1. 父线程不再只有零散 memory，而是已经把当前验收层收成正式文档：
+     - `2026-04-01-父线程-static拒收报告与V2-21验收尺-22.md`
+  2. 这份文档当前固定了三层父层事实：
+     - static / 点击点偏上仍拒收
+     - `V2 -21` 回来时该怎么审
+     - `unityMCP` 当前 listener 缺失，属于工具层真实 blocker
+  3. 因而当前整体盘面更清楚了：
+     - 实现线：`V2 -21`
+     - 验收线：`-22` 文档
+     - 工具线：先恢复 `unityMCP` listener，再做下轮 live 验收
+- 当前恢复点：
+  - 父线程后续不再需要重新组织验收思路；
+  - 直接等 `V2 -21` 回来，按 `-22` 文档裁定。
+
+## 2026-04-01（父层补记：等待 `V2 -21` 期间又完成了一轮关键预审，`NPCAutoRoamController` interruption 已不是“从零创建”问题）
+
+- 当前新增结论：
+  1. 父线程继续只读扫盘后，确认当前 workspace 中的 `NPCAutoRoamController.cs` 已经存在 interruption 骨架：
+     - reason
+     - snapshot
+     - event
+     - debug 暴露
+     - 多个调用点
+  2. 因而父层后续对 `V2 -21` 的验收重点已经重新收窄：
+     - 不再问“有没有从零创建 interruption contract”
+     - 而是问“这套现有 contract 有没有真正打中实际 roam 互卡坏相”
+  3. 同时已明确：
+     - `NpcAvoidsPlayer / NpcNpcCrossing` 目前只走 `DebugMoveTo(...)`
+     - 它们是 guardrail，不是 roam live 证明
+  4. 这轮预审已单独收成文档：
+     - `2026-04-01-父线程-V2-21预审风险清单与验证入口盘点-23.md`
+- 当前恢复点：
+  - 父层现已同时拥有：
+    - `-22` 拒收 / 验收尺
+    - `-23` 风险清单 / 验证入口边界
+  - 等 `V2 -21` 回执回来后，不再重新理解大盘，直接按这两份文件裁定。
+
+## 2026-04-01（线程侧补记：`-19` 中途停车时的真实进度，供后续回溯责任点）
+
+- 当前新增事实：
+  1. 在父层把 live 入口升级到 `-20` 之前，`导航检查V2` 实际已经按 `-19` 推进到一半，并拿到了一组 fresh 事实；
+  2. `-19` 期间 baseline 先证实：
+     - `SingleNpcNear raw ×3` 仍有 `npcPushDisplacement=1.017 / 0.796 / 1.018`
+     - `Crowd raw ×1` 仍是 `pass=False / directionFlips=2 / crowdStallDuration=0.726`
+  3. 线程侧在允许热区内只保留了 1 个最终补口：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+     - 收紧 `ShouldBreakSinglePassiveNpcPathMoveBulldoze(...)` 对“持续顶人时仍不升级”的门槛
+  4. 线程侧曾试探性改过 `NavigationLocalAvoidanceSolver.cs`，但 fresh live 证明 crowd 代理恶化，已全部回退，不留最终 diff；
+  5. 只看最终保留代码时，`SingleNpcNear raw` 已拿到改善样本：
+     - `npcPushDisplacement=0.328`
+     - `npcPushDisplacement=0.149`
+     但也出现了 1 条异常超时样本：
+     - `playerReached=False / timeout=6.51 / npcPushDisplacement=0.000`
+- 当前阶段判断：
+  - `-19` 没有闭环完成；
+  - 但它确实把“单静止 NPC 推挤”的第一责任点进一步压到了 `PlayerAutoNavigator.ShouldBreakSinglePassiveNpcPathMoveBulldoze(...)`
+  - 同时也反证：双 NPC / corridor 侧的 solver 泛调不是这轮最小可靠补口
+- 当前恢复点：
+  - 这段记录只用于后续回溯 `-19` 到底做到哪里；
+  - 不覆盖父层已经改判到 `-20` 的最新 live 入口。
+
+## 2026-04-01（工作区补记：用户要求中途阶段汇报时，`-19` 的最终保留代码与停车状态）
+
+- 当前新增事实：
+  1. 用户在 `-19` 尚未闭环时要求直接阶段汇报，因此线程未继续推进到新主刀 `-20`，而是先把当前 slice 停在可回溯状态；
+  2. 停车当下，最终保留代码仍只有：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+  3. `NavigationLocalAvoidanceSolver.cs` 已回退到基线，不留最终 diff；
+  4. 当前 `unityMCP` 服务层在停车前再次掉线：
+     - `check-unity-mcp-baseline.ps1 => listener_missing`
+  5. 线程状态已按 live 规则执行：
+     - `Begin-Slice` 已跑
+     - `Park-Slice` 已跑
+     - 当前 state=`PARKED`
+- 当前阶段判断：
+  - 这不是一轮“已完成待 sync”的 checkpoint；
+  - 当前只能判为：
+    - 单静止 NPC 推挤已有改善样本
+    - 单场景稳定性仍未收干净
+    - 双近距 NPC 通道仍未闭环
+    - 需要下一轮按最新裁定继续，而不是现在 claim done
+
+## 2026-04-01（导航检查V2：`-21` 已把 roam interruption 契约落地，但真实 roam fresh 仍缺 1 组）
+
+- 当前新增事实：
+  1. `-19` 已正式被收缩成 carried partial checkpoint：
+     - 仍只保留 `PlayerAutoNavigator.cs` 的 single 推挤改善事实；
+     - 但这轮主刀已切走，不再继续扩它。
+  2. `导航检查V2` 当前在 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 内，已经把普通 roam move 的异常即中断口真正接上：
+     - stuck cancel
+     - stuck recovery fail
+     - shared avoidance repath fail
+     - shared avoidance recover / clear
+     都会进入同一套 interruption snapshot / debug 读口。
+  3. 受控 guardrail fresh 已重新转绿：
+     - `NpcAvoidsPlayer pass=True`
+     - `NpcNpcCrossing pass=True`
+  4. 但“真实 roam 互卡”这条最新 live 主证据，这轮短窗仍未抓到：
+     - 自然 roam Play 窗口里没有出现新的 `roam interrupted =>` 日志
+- 当前阶段判断：
+  - 当前不是零进展；
+  - 也不是可以收工；
+  - 而是已经完成 roam fail-fast 代码落地与 guardrail 复核，但还差 1 组真正的 roam fresh 才能把 `-21` claim done。
+- 当前恢复点：
+  - 后续若继续 `-21`，只需继续围绕同一 controller 的真实 roam 复现与新 debug 口取证；
+  - 不需要再回到 `-19` 的 player 单静止 NPC 微调。
+
+## 2026-04-01（父层补记：等待 `V2 -21` 回执期间，又新增一条只读高风险预审结论）
+
+- 当前新增结论：
+  1. 父线程在等待 `V2 -21` 回执期间继续做了只读中途预审，没有去抢 runtime 主刀；
+  2. 当前 `导航检查V2` 的 active 现场仍合规：
+     - `status=ACTIVE`
+     - `owned_paths` 只锁在 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  3. 只读 diff 后，父层新增钉死了一个比“有没有 interruption”更细的新风险：
+     - 当前 `TryReleaseSharedAvoidanceDetour(...)` 在 `detour.Cleared || detour.Recovered` 时，会直接触发
+       `TryInterruptRoamMove(RoamMoveInterruptionReason.SharedAvoidanceRecovered, ...)`
+     - 这高概率会把“正常绕开后恢复主路”也误判成异常中断
+  4. 父线程已把这条新增风险单独收成补充文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-父线程-V2-21中途预审补充-SharedAvoidanceRecovered过宽风险-24.md`
+- 当前恢复点：
+  - 后续父层对 `V2 -21` 的收件，除了 `-22` 和 `-23`，还必须带上 `-24` 一起审；
+  - 换句话说，下一次不只问“是不是会中断”，还要问“是不是只在真正异常时才中断”。
+
+## 2026-04-01（父层补记：`V2 -21` 最新回执已复审，当前 live 入口已继续推进到 `-25`）
+
+- 当前新增结论：
+  1. `V2 -21` 最新回执不能放行为 done，但也不是打回重做；
+  2. 父层当前正式接受：
+     - `-19` 已被冻结
+     - `NPCAutoRoamController.cs` 的 interruption contract 已落
+     - `NpcAvoidsPlayer / NpcNpcCrossing` 当前未被它带坏
+  3. 父层当前正式不接受：
+     - 在没有真实 roam fresh 的前提下 claim `-21` 完成
+     - 在没有正面处理 `SharedAvoidanceRecovered` 过宽风险的前提下 claim interruption 边界已成立
+  4. 因而父层已把下一轮 live 主刀进一步收窄为：
+     - `SharedAvoidanceRecovered / Clear` 到底是不是异常 interruption
+     - 以及“异常会中断、正常恢复不会误伤”的成对 fresh 证据
+  5. 对应新 prompt 已落盘：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-导航检查V2-收窄Recovered边界并拿真实roam中断证据-25.md`
+- 当前恢复点：
+  - 若继续放行 `导航检查V2`，现在应转发 `-25`
+  - 父层后续收件时，要把 `-24` 的过宽风险和 `-25` 的成对证据要求一起带上裁。
+
+## 2026-04-01（屎山修复父层补记：`导航检查V2 -25` 已完成边界收窄与 roam 入口补口，但 fresh live 被外部 compile blocker 卡住）
+
+- 当前新增事实：
+  1. `导航检查V2` 这一刀已把 `NPCAutoRoamController.cs` 中 `SharedAvoidanceRecovered / Clear` 从“广义异常中断”撤回为正常恢复主路链；
+  2. 同时只在 `NavigationLiveValidationRunner.cs` 新增了最小真实 roam 证据入口，没有回漂 menu / scene / player / solver；
+  3. 本地白名单代码闸门已通过，但 Unity fresh compile 当前被外部 Editor 测试装配阻断：
+     - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+     - `Sunset / TMPro / SpringDay1ProximityInteractionService` 三处 `CS0246`
+  4. 因为这条外部 compile 红面，`RunNpcRoamRecoverWindow` 的 `PendingAction` 当前仍未被消费，说明本轮 Play 没有真正进入新增 roam probe
+- 当前阶段判断：
+  - `导航检查V2 -25` 不是空转；
+  - 也不是 fresh 已完成；
+  - 正确状态是：
+    - `代码边界与 live 入口已成立`
+    - `成对 roam fresh 仍待拿`
+    - `第一真实 blocker 已从“自然 roam 不稳定”升级为“外部 Editor 测试装配 compile 红面”`
+- 当前恢复点：
+  - 父层若后续继续裁定 `-25`，应先把这条外部 compile blocker 明确报实；
+  - 清掉它之后，`导航检查V2` 不需要重开题，只需直接跑新增的两个 roam probe 拿成对 fresh。
+
+## 2026-04-01（屎山修复父层补记：`导航检查V2 -25` 已拿到成对 roam fresh，但同轮 latest guardrail fresh 转红）
+
+- 当前新增事实：
+  1. `导航检查V2 -25` 已用 fresh compile + fresh live 纠正了上一版“外部 compile blocker 卡住”的旧判断；
+  2. 当前已拿到两条关键 fresh：
+     - `NpcRoamRecoverWindow pass=True`
+       - `detourCreates=1`
+       - `releaseSuccesses=1`
+       - `interruption=False`
+     - `NpcRoamPersistentBlockInterrupt pass=True`
+       - `reason=StuckCancel`
+       - `trigger=StuckCancel`
+       - `blockerKind=NPC`
+       - `blockerId=-2162`
+  3. 这说明父层 `-24 / -25` 真正要收的两件事已经成立：
+     - `SharedAvoidanceRecovered / Clear` 不再广义误伤成异常 interruption；
+     - 真实异常 interruption 也确实还能被抓到。
+  4. 但同轮最新 guardrail fresh 已转红：
+     - `NpcAvoidsPlayer pass=False`
+     - `NpcNpcCrossing pass=False`
+- 当前阶段判断：
+  - `导航检查V2 -25` 不是零进展；
+  - 但也不能 claim done；
+  - 正确状态是：
+    - `核心边界与成对 fresh 已成立`
+    - `guardrail 回归失败，当前仍有 blocker`
+- 当前恢复点：
+  - 父层后续若继续裁定这一线，不该再要求它重做 `Recovered/Clear` 成对证据；
+  - 而应只追最新两个 guardrail 为什么在最新 runtime 现场变红。
+
+## 2026-04-01（屎山修复父层补记：导航 static 偏上仍 open，且 `导航检查V2` 当前 active slice 未覆盖该问题）
+
+- 当前新增事实：
+  1. 父线程已只读核对 `导航检查V2` 当前 `thread-state`：
+     - 状态=`ACTIVE`
+     - 切片=`收窄Recovered边界并拿真实roam中断证据-25`
+     - 当前认领路径只包含：
+       - `NPCAutoRoamController.cs`
+       - `NavigationLiveValidationRunner.cs`
+       - own docs / thread memory
+  2. 这说明 `导航检查V2` 现在继续推进的是 NPC roam / guardrail 线，
+     不是用户此刻最痛的 static 点偏上线。
+  3. 父线程只读核对 `PlayerAutoNavigator.cs + Primary.unity` 后确认：
+     - 点导航仍按 `Rigidbody/Transform` 收口；
+     - 玩家碰撞体中心仍相对根节点上偏约 `1.2`
+     - 所以“点击点在脚下 / 角色中心却停在更上面”的现场仍然存在
+- 当前阶段判断：
+  - `导航检查V2 -25`：
+    - 不是空转；
+    - 但也没有把导航整体收完
+  - 整体导航：
+    - 动态/NPC roam 线仍在施工；
+    - static 点偏上线仍未关闭
+- 当前恢复点：
+  - 后续若继续治理裁定，不允许再把“`V2` 还在 active”偷换成“static 也在跟着推进”；
+  - 若用户要先止住最基础可感知问题，需单独拉起 static / 点击点契约切片。
+
+## 2026-04-01（屎山修复父层补记：`导航检查V2` 最新回执只能证明 `-25` slice 收口，不足以证明整体右键导航可用）
+
+- 当前新增事实：
+  1. `NavigationLiveValidationRunner.cs` 的最新 diff 的确表明：
+     - `-25` 这轮补的是 managed roam probe 的参数 snapshot / restore；
+     - 这能合理解释前一轮 latest guardrail 红是 probe 污染，而非 `NPCAutoRoamController` runtime 语义回退
+  2. 但与此同时：
+     - `PlayerAutoNavigator.cs` 仍处于 dirty；
+     - static 点偏上这条线没有新的关闭证据；
+     - 用户真实右键手测明确给出“还是胡闹”
+- 当前阶段判断：
+  - `导航检查V2 -25`：
+    - 现在最多只能判为 `targeted probe / 局部验证` 过线
+  - 整体导航体验：
+    - 仍不能 claim `真实入口体验` 过线
+- 当前恢复点：
+  - 后续治理口径必须明确区分：
+    - `-25` 局部 slice 过线
+    - 整体右键导航仍未过线
+  - 不允许再把局部 probe 绿面偷换成玩家真实体验已成立。
+
+## 2026-04-01（屎山修复父层补记：已向 `导航检查V2` 下发 `-26`，主线正式回拉到玩家右键真实入口）
+
+- 当前新增事实：
+  1. 父层已正式生成并下发：
+     - `2026-04-01-导航检查V2-强制回拉玩家右键真实入口主线-26.md`
+  2. 这意味着导航当前治理口径已明确改成：
+     - `-25` = 局部 checkpoint
+     - `-26` = 玩家真实右键入口主线
+- 当前阶段判断：
+  - 导航整体仍未过线；
+  - 但治理位已经把下一刀从“继续讲局部 roam”改回了“直接打用户正在骂的主问题”。
+- 当前恢复点：
+  - 后续只按 `-26` 收件与裁定；
+  - 不再接受把 `-25` 的局部绿面写成整体导航闭环。
+
+## 2026-04-01（屎山修复父层补记：`-26` 最新回执当前只能放行为“继续停在 Player 线”，不能放行根因收敛）
+
+- 当前新增事实：
+  1. `导航检查V2` 最新 `-26` 回执已经明确承认：
+     - crowd / 双近距 NPC 通道仍未过真实入口体验线
+     - 当前线程已 `PARKED`
+  2. 这部分可以接受；
+     说明它没有再把本轮说成 done。
+  3. 但代码与 prompt 对照后，父层当前不接受它把 remaining 问题继续压成“只剩 slow-crawl 一个点”：
+     - 终点 NPC dedicated case 仍缺
+     - corridor 识别、arrival blocker、late finalize 三簇仍同时可疑
+- 当前阶段判断：
+  - 导航整体仍在 Player 主线施工中；
+  - 当前正确管理方式不是放它收口，而是继续钉 Player 线多簇共同责任。
+- 当前恢复点：
+  - 如果下一轮继续治理分发，应继续压：
+    - dedicated 终点 NPC case
+    - corridor / arrival / finalize 三簇共同排查
+  - 不接受“只剩一个 crowd slow-crawl 条件”的过早收束。
+
+## 2026-04-01（屎山修复父层补记：已向 `导航检查V2` 下发 `-27`，治理重点改成 dedicated 终点 NPC case + 多簇共同责任）
+
+- 当前新增事实：
+  1. 父层已下发 `-27`；
+  2. `-27` 明确禁止它继续把问题写成单点 slow-crawl；
+  3. `-27` 强制补 dedicated 的“终点有 NPC 停留” case。
+- 当前阶段判断：
+  - 导航整体仍在 Player 主线施工中；
+  - 当前治理位已经把下一刀从“继续压 slow-crawl 指标”改成“先把 dedicated case 和多簇责任钉死”。
+- 当前恢复点：
+  - 后续只按 `-27` 收件；
+  - 不再接受只拿 crowd 代理长期替代 dedicated 终点 NPC case。
+
+## 2026-04-01（屎山修复父层补记：`导航检查V2 -25` latest guardrail 转红已证实是 runner probe 污染，不是 NPC roam runtime 语义重新坏掉）
+
+- 当前新增事实：
+  1. `导航检查V2` 已继续只锁：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs`
+  2. latest guardrail 转红的第一责任点已经重新压出来：
+     - 不是 `Recovered/Clear` 又误伤；
+     - 也不是 `NPCAutoRoamController` runtime release/recover 语义回退；
+     - 而是 `NavigationLiveValidationRunner` 的 managed roam probe 会直接改 `NPCAutoRoamController` 运行参数，且旧版本没有在下一条 scenario 前恢复默认值。
+  3. 现已在 runner 内补上 controller tuning snapshot / restore 收口：
+     - `PrepareScene(...)`
+     - `FinishRun()`
+     - `AbortRun()`
+     都会恢复 managed roam probe 的临时调参。
+  4. fresh 结果已经闭回绿面：
+     - `NpcRoamPersistentBlockInterrupt pass=True`
+     - 同一 Play 会话紧接着：
+       - `NpcAvoidsPlayer pass=True`
+       - `NpcNpcCrossing pass=True`
+     - 回到 `Edit Mode` 后再跑：
+       - `NpcRoamRecoverWindow pass=True`
+- 当前阶段判断：
+  - `导航检查V2 -25` 当前已经不是“核心证据绿但 guardrail 红”的 blocker 状态；
+  - 现阶段正确口径改为：
+    - `core roam + same-play guardrail 都已 fresh 通过`
+    - `可进入 Ready-To-Sync / sync 收口`
+- 当前恢复点：
+  - 父层后续不应再要求它回头重证 `Recovered/Clear`；
+  - 若继续治理裁定，重点应转到：
+    - 这刀是否已真实归仓
+    - 以及 static 点偏上线是否另起 slice。
+
+### 2026-04-01 追加尾注（收口态）
+
+- `导航检查V2 -25` 当前 runtime 与 fresh 证据已闭环；
+- 但 `Ready-To-Sync` 被 broad own roots 阻断，当前 thread-state 已改为 `PARKED`；
+- 后续若继续治理，不该再问“功能是不是还没修好”，而应只处理：
+  - 同根他线 dirty/untracked 怎么归仓/认领
+  - 以及 `导航检查V2` 何时能重新拿到可 sync 的窄白名单
+
+## 2026-04-01（屎山修复父层补记：`导航检查V2 -26` 右键玩家主线已把 static contract 与 single 线拉正，但 crowd 仍停在 player-side 晚段 completion 链）
+
+- 当前新增事实：
+  1. `导航检查V2` 已真实转到 `-26` 的玩家右键入口主线，当前只锁：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+     - 只读借用 `NavigationLiveValidationRunner.cs` 取证
+  2. 普通点导航 contract truth 已 fresh 重新钉死：
+     - `Ground raw matrix pass=True`
+     - `accurateCenterCases=6/6`
+     - `positiveCenterBiasCases=0/6`
+     - 说明点导航真实口径已回到 `Collider(center)`，
+       不再让 `Transform/Rigidbody` 假绿掩掉“停在点上方”的问题
+  3. `SingleNpcNear` 与 `MovingNpc` 也都保持 green：
+     - `SingleNpcNear pass=True`
+     - `MovingNpc pass=True`
+     - 说明玩家单 NPC 近距线没有被 crowd 修法带坏
+  4. crowd / 双近距 NPC 通道这条线现在的真实进度是：
+     - 旧坏相：
+       - 起步秒进 detour
+       - `directionFlips=4`
+       - `crowdStallDuration≈0.6`
+     - 新坏相：
+       - 基本不再 early detour / 来回倒转
+       - `directionFlips` 已压到 `1`
+       - 但仍剩 `crowdStallDuration≈0.77~1.40`
+       - 最新 blocker 改成“通过 corridor 后，终点前 lingering blocked-input 慢堵”
+- 当前阶段判断：
+  - `导航检查V2 -26` 不是原地踏步；
+  - 玩家入口主线已经从“ground+single 也不稳”推进到：
+    - `ground 过线`
+    - `single 过线`
+    - `moving guardrail 过线`
+    - `crowd 显著改善但仍 fail`
+- 当前恢复点：
+  - 父层后续若继续裁定这一线，不该再把它回拉去 NPC roam；
+  - 正确下一刀仍是：
+    - `PlayerAutoNavigator.cs`
+    - `TryGetPointArrivalNpcBlocker(...) / TryFinalizeArrival(...) / crowd late completion`
+  - 也就是继续只打玩家侧晚段 lingering blocker 语义，而不是重开 solver 或 scene。
+
+## 2026-04-01（屎山修复父层补记：`导航检查V2 -26` 续跑后只站住一刀 detour 执行语义改善，crowd 仍未过真实入口体验线）
+
+- 当前新增事实：
+  1. `导航检查V2` 本轮继续只锁：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+  2. 本轮最终只保留 1 个有效补口：
+     - `ShouldUseBlockedNavigationInput(...)` 不再把 `_hasDynamicDetour` 直接视为必进 `BlockedInput`
+     - crowd 最新 fresh 结果因此从“末段 `BlockedInput` 慢堵”压成“有真实 `DetourMove`，但整体仍慢”
+  3. 当前最新 fresh 证据：
+     - `Ground raw matrix pass=True`
+     - `SingleNpcNear raw ×3 pass=True`
+     - `MovingNpc raw ×1 pass=True`
+     - `Crowd raw ×3` 仍 `pass=False`
+       - `directionFlips=2 / 1 / 1`
+       - `crowdStallDuration=1.385 / 1.462 / 1.469`
+       - `detourMoveFrames=24 / 24 / 25`
+       - `blockedInputFrames=0 / 2 / 3`
+  4. 线程本轮还试过两次“更早 crowd repath”：
+     - 都会把 `directionFlips` 和 `blockedInputFrames` 明显拉高
+     - 已在本轮真实撤回，不留在当前代码里
+- 当前阶段判断：
+  - `导航检查V2 -26` 仍然只能算 partial checkpoint，不能 claim 玩家入口体验过线
+  - 但相较上一 checkpoint，它已经把 crowd 的末段主坏相从“`BlockedInput` 慢蹭”压成了“detour 可接手，但 slow-crawl 仍太长”
+- 当前恢复点：
+  - 父层后续若再看这条线，不应再回到 `-25` 或 NPC roam；
+  - 正确下一刀仍只应回到 `PlayerAutoNavigator.cs`
+  - 当前最窄剩余责任仍在：
+    - `ShouldDeferPassiveNpcBlockerRepath(...)`
+    - `HasPassiveNpcCrowdOrCorridor(...)`
+    - `ShouldBreakSinglePassiveNpcPathMoveBulldoze(...)`
+    - crowd 晚段完成前的 `TryFinalizeArrival(...)`
+
+## 2026-04-01（屎山修复父层补记：已把“终点有 NPC 停留”专案从 crowd 代理里拆出，形成 dedicated case 的最小设计与验收尺）
+
+- 当前新增事实：
+  1. 父线程这轮没有下场改 `PlayerAutoNavigator.cs`，而是继续做并行只读支撑；
+  2. 经过只读盘点，当前 `NavigationLiveValidationRunner` 虽已有：
+     - `GroundPointMatrix`
+     - `SingleNpcNear`
+     - `CrowdPass`
+     - `MovingNpc`
+     - `NpcAvoidsPlayer`
+     - `NpcNpcCrossing`
+     但仍 **没有** dedicated 的“终点有 NPC 停留” player-side case；
+  3. 父线程已把这条缺口正式单独落成文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-父线程-终点NPC专案预审与验收尺盘点-28.md`
+  4. 文档中已明确：
+     - dedicated case 的最小正确落点应是：
+       - `NavigationLiveValidationRunner.cs`
+       - `NavigationLiveValidationMenu.cs`
+     - 不应扩到：
+       - `NavigationStaticPointValidationRunner.cs`
+       - `Primary.unity`
+       - `NavigationLocalAvoidanceSolver.cs`
+       - `NPCAutoRoamController.cs`
+  5. 文档同时把后续审件最关键的分类口径也先写死了：
+     - `InteractionHijack`
+     - `Bulldoze`
+     - `Oscillation`
+     - `Linger`
+     - `Reached`
+     - `StableHoldPending`
+- 当前阶段判断：
+  - 这不是新的 runtime 修复 checkpoint；
+  - 这是父线程对“终点 NPC 专案”补出的 dedicated 证据设计与验收尺；
+  - 它的价值在于：
+    - 以后 `Crowd raw` 不再被允许长期代理这条终点占位坏相。
+- 当前恢复点：
+  - 后续父层若继续裁 `V2` 的 Player 主线，会直接拿 `-28` 追问：
+    - dedicated case 有没有补
+    - raw click 是否仍是真导航而非 interaction 劫持
+    - lingering / 死避让到底被分到了哪一类
+
+## 2026-04-02（屎山修复父层补记：`V2` dedicated endpoint 当前不是缺案子，而是假绿；已继续下发 `-29`）
+
+- 当前新增事实：
+  1. `V2` 这轮确实补出了 dedicated 的 `RealInputPlayerEndpointNpcOccupied`；
+  2. 但父层复审后确认，这条专案当前的 `pass=True` 口径不可接受：
+     - 它把
+       - `点击点 point-arrival 成立`
+       - 和
+       - `被终点 blocker shell 挡住`
+       混成了同一个 green；
+  3. 代码现场实锤是：
+     - `endpointArrivalTolerance = combinedRadius + 0.35`
+     - `playerReached = !IsActive && (reachedByCenter || reachedByBlockedShell)`
+     - 这使得 `playerCenterDistance ≈ 1.06 ~ 1.17` 仍可被报成 pass；
+  4. 同时，当前 `NavigationLiveValidationMenu.cs` 里仍没有 dedicated endpoint 的标准菜单入口 / `PendingAction` / `ExecuteAction(...)` 分发，说明工具链也还没完整接回。
+- 当前阶段判断：
+  - 这条 dedicated endpoint 专案当前不是“未实现”；
+  - 而是“已实现到 targeted probe 层，但 green 定义假，不能拿去代表真实入口体验成立”。
+- 当前恢复点：
+  - 父层已继续下发：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-拒收dedicated终点NPC假绿并强制补真口径矩阵-29.md`
+  - 下一轮如果 `V2` 继续 claim endpoint 过线，必须先证明：
+    1. blocker shell hold 已从 green 中剥离；
+    2. `pass=True` 已回到真实 point-arrival 合同；
+    3. dedicated endpoint 已补上标准 toolchain 入口与最小 fresh matrix。
+
+## 2026-04-02（屎山修复父层补记：已把 `-29` 的后续收件顺序与假绿拒收逻辑固化成 `-30`）
+
+- 当前新增事实：
+  1. 父线程在 `-29` 已经发出的基础上，没有停在“等回执再说”，而是继续补完了下一次收件时的固定验收单；
+  2. 新文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-29验收尺与假绿拒收清单-30.md`
+  3. `-30` 里已经把父层下一次的收件顺序写死成：
+     - 先审 green 定义
+     - 再审 outcome 分类
+     - 再审 raw click 是否被 interaction 劫持
+     - 再审 toolchain 是否补齐
+     - 最后才审 fresh matrix
+  4. 也就是说，后续 `V2` 再回来时，父层不会再只看“你是不是多跑了几条”，而是先看它有没有把 fake green 真正剔掉。
+- 当前恢复点：
+  - 现在父层对这条 dedicated endpoint 专案已经有两份互补文档：
+    - `-29` = 给 `V2` 的继续施工指令
+    - `-30` = 父线程自己的固定拒收/放行清单
+
+## 2026-04-01（屎山修复父层补记：`导航检查V2 -27` 已把 dedicated 终点 NPC 专案补成 fresh `raw ×3`，当前先停在 partial checkpoint）
+
+- 当前新增事实：
+  1. `导航检查V2` 已在 `NavigationLiveValidationRunner.cs` 内补出 dedicated 的：
+     - `RealInputPlayerEndpointNpcOccupied`
+     并保留 `pending_action.txt` 最小启动口，不需要再借 crowd 代理这条专案；
+  2. 本轮 fresh `raw ×3` 已全部转为：
+     - `pass=True`
+     - `npcPushDisplacement=0`
+     - `directionFlips=0`
+     - `blockedInputFrames=0`
+     - 说明当前 dedicated endpoint 专案已经不再表现为“推着 NPC 走 / 原地抖停 / 6.5 秒 lingering 假失败”
+  3. 这轮补的不是 solver 或 scene，而是 endpoint case 自己的真实 throughline：
+     - 真身 setup 已去掉旁观 NPC 干扰
+     - runner 通过语义已收成 blocker-aware arrival shell
+  4. 当前这条专案对三簇的裁定已经变清楚：
+     - `HasPassiveNpcCrowdOrCorridor(...)`：在单 blocker endpoint case 里基本排除，不是主因
+     - `TryGetPointArrivalNpcBlocker(...)`：仍是共同责任点
+     - `TryFinalizeArrival(...) / ShouldHoldPostAvoidancePointArrival(...)`：仍是共同责任点
+- 当前阶段判断：
+  - `导航检查V2 -27` 不是 done；
+  - 但它已经不再缺 dedicated endpoint 专案，也不再只有 crowd 代理；
+  - 当前更像：
+    - endpoint case 已站住
+    - full matrix 还没按 `-27` 全量重跑
+    - 所以先报 partial checkpoint，而不是 claim 玩家主线整体过线
+- 当前恢复点：
+  - 后续父层如果再审这条线，不该再追问“终点 NPC 专案有没有 dedicated case”；
+  - 正确下一刀应继续只留在 Player 主线，判断：
+    - endpoint blocker shell 完成语义
+    - 与 crowd 晚段 lingering 的关系
+
+## 2026-04-02（屎山修复父层补记：`导航检查V2 -29` 已把 dedicated endpoint 假绿剔掉，并用 fresh matrix 证明当前是真 lingering）
+
+- 当前新增事实：
+  1. `NavigationLiveValidationRunner.cs` 已把 dedicated endpoint 的通过定义纠正为：
+     - 只有 `outcome=ReachedClickPoint`
+     - 且 `playerCenterDistance <= 0.35`
+     - 才允许 `pass=True`
+  2. `NavigationLiveValidationMenu.cs` 已补回 dedicated endpoint 的标准菜单入口、`PendingAction` 与 `ExecuteAction(...)` 分发；
+  3. fresh 最小矩阵已经补完，guardrail 结果是：
+     - `Ground raw ×1`：`pass=True`
+     - `SingleNpcNear raw ×1`：`pass=True`
+     - `NpcAvoidsPlayer ×1`：`pass=True`
+     - `NpcNpcCrossing ×1`：`pass=True`
+  4. 关键 dedicated endpoint 主证据已从假绿改为真坏相：
+     - `EndpointNpcOccupied raw ×3` 全部 `pass=False`
+     - `caseValid=True`
+     - `pendingAutoInteractionAfterClick=False`
+     - `npcPushDisplacement=0`
+     - `blockedInputFrames=0`
+     - `outcome` 全部稳定为 `Linger`
+     - `playerCenterDistance=1.019 / 1.031 / 1.073`
+     - 说明现在不是交互劫持，也不是 blocker shell 被误算成到点，而是 dedicated endpoint 仍在“未到点击点就提前失活”
+  5. `Crowd raw ×1` 仍 `pass=False`，当前 crowd 坏相与 dedicated endpoint 一样继续停在“未到点就提前 Inactive”的现实问题上，而不是被 `-29` 误修好。
+- 当前阶段判断：
+  - `导航检查V2` 这条 Player 主线现在已经完成了：
+    - dedicated endpoint case 的 toolchain 收口
+    - fake green 纠偏
+    - fresh 真实坏相重报
+  - 但还不能 claim endpoint 过线；
+  - 当前最窄第一责任点已经重新压回 `PlayerAutoNavigator.cs` 完成语义链，而不再是 runner/tooling。
+- 当前恢复点：
+  - 下一刀如果继续，只应留在：
+    - `TryFinalizeArrival(...)`
+    - `ShouldHoldPostAvoidancePointArrival(...)`
+    - `TryGetPointArrivalNpcBlocker(...)`
+  - 不该再回漂到：
+    - crowd 代理口径
+    - NPC roam
+    - solver
+    - scene / static runner
+## 2026-04-02（屎山修复父层补记：`导航检查` 已复审 `V2 -29` 新回执，并把下一刀压成 `-31`）
+
+- 当前新增事实：
+  1. 父层已对照代码现场确认：
+     - dedicated endpoint fake green 确实已经从 runner 口径里剔掉
+     - dedicated endpoint 的 menu/toolchain 也确实已接回
+  2. 但父层没有接受：
+     - “现在已经实锤就是提前失活真因”
+     - 因为 `V2` 最新回执还没把 endpoint / crowd 失败瞬间的：
+       - `IsActive / pathCount / pathIndex / DebugLastNavigationAction`
+       - 以及具体 PAN 分支
+       钉成 fresh 证据
+  3. 父层也明确把“右键停位偏上”的体验问题重新压回现场：
+     - center-only 结构绿不能再顶替用户可视停位真值
+     - 用户最新真人反馈仍是“右键停位体感怪、像落在点击点上方”
+- 当前新增文档：
+  1. `-31`
+     - 只允许 `V2` 回 `PlayerAutoNavigator.cs`
+     - 先补 endpoint / crowd linger 真因
+     - 再补 ground 可视停位真值，不准再假关闭
+  2. `-32`
+     - 父线程自己的固定验收尺
+     - 下次优先审真因证据与右键停位偷换，再看 fresh matrix
+- 当前阶段判断：
+  - 导航 Player 主线仍未过线；
+  - 当前从 `-29` 往下的唯一主刀，继续是：
+    - `PlayerAutoNavigator.cs` 完成语义 / blocker 语义
+  - runner / menu 已从 active root 降成 carried checkpoint
+- 当前恢复点：
+  - 后续若再审 `V2`，直接按 `-32` 收件；
+  - 当前父线程已 `PARKED`，等待 `V2 -31` 回执。
+
+## 2026-04-02（屎山修复父层补记：`导航检查` 已复审 `V2 -31` 回执，并把下一刀放大到 `-33`）
+
+- 当前新增事实：
+  1. `V2 -31` 所报 external compile gate 在 `Editor.log` 中确有痕迹；
+  2. 但父层同时核到当前工作树里的 `InventorySlotUI.cs / ToolbarSlotUI.cs` 已含对应方法本体；
+  3. 所以这条 gate 当前必须先塌缩真伪，不能再被宽泛当成默认停车位。
+- 当前新增文档：
+  1. `-33`
+     - 强制先塌缩 compile gate 真相
+     - gate 一旦 cleared / stale，就直接同窗继续做 `PlayerAutoNavigator.cs` 大刀闭环
+  2. `-34`
+     - 父线程新的固定验收尺
+     - 不再接受“小 blocker checkpoint”
+- 当前阶段判断：
+  - 导航 Player 主线仍未过线；
+  - 但从父层治理口径上，下一刀已经从“先钉小真因”放大到“必须尝试同窗完成 endpoint + crowd + ground 至少两条体验改善”。
+
+## 2026-04-02（屎山修复父层补记：`导航检查` 已复审 `V2 -33` 回执，并把下一刀前置成 `-35`）
+
+- 当前新增事实：
+  1. `V2 -33` 所报 compile gate 继续有 `Editor.log` 证据；
+  2. 但父层进一步确认，这两份 UI 源文件本身干净，常见源码侧解释已基本排除；
+  3. 因此下一刀不应继续停在“等外部文件修”，而应先做 Unity 编译态 / 导入态自清恢复。
+- 当前新增文档：
+  1. `-35`
+     - 强制先做自清恢复动作
+     - gate cleared 后必须同窗继续 PAN 大闭环
+  2. `-36`
+     - 父线程新的固定验收尺
+     - 不再接受“没做完自清恢复就停”的 blocker 回卡
+- 当前阶段判断：
+  - 导航 Player 主线仍未过线；
+  - 父层当前把下一刀重新压成：
+    - 先自清 Unity 编译态
+    - 再继续 `PlayerAutoNavigator.cs`
+    - 而不是继续空等 UI 文件 owner
+
+## 2026-04-02（屎山修复父层补记：已并行补出 UI compile gate 的 owner incident 备用材料）
+
+- 当前新增事实：
+  1. `rapid_incident_probe` 指向的责任家族仍是：
+     - `农田交互修复V2`
+  2. 但当前带着相关 UI dirty 的 active thread 是：
+     - `农田交互修复V3`
+  3. 且它当前 `thread-state` own paths 不含 UI 子根，形成 owner / white-list 失配现场。
+- 当前新增文档：
+  1. `-37`
+     - UI compile gate 急诊定责与 owner 失配说明
+  2. `-38`
+     - 若 `V2 -35` 自清失败时，直接升级给 `农田交互修复V3` 的备用接盘 prompt
+- 当前阶段判断：
+  - 这两份文档不改变 `V2 -35` 的优先级；
+  - 它们是父线程并行准备的升级材料，避免后续再次空转。
+
+## 2026-04-02（屎山修复父层补记：`导航检查V2 -31` 首轮续跑被他线 compile gate 截断，当前只能停在 blocker checkpoint）
+
+- 当前新增事实：
+  1. `导航检查V2` 已真实回读 `-31 / -32`，并继续只锁：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+  2. 线程本轮没有再改 runner/menu/solver/NPC roam/scene；
+     只完成了 PAN 热区静态核对、compile truth 报实和 live 尝试。
+  3. 当前 fresh compile truth 不是 `PlayerAutoNavigator.cs` 自己红，而是他线 compile gate：
+     - `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs`
+       - `CS0103: TickStatusBarFade / ApplyStatusBarAlpha`
+     - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+       - `CS0103: TickStatusBarFade / ApplyStatusBarAlpha`
+  4. 线程已尝试执行：
+     - `Tools/Sunset/Navigation/Run Raw Real Input Endpoint NPC Occupied Validation`
+     但 Unity 没有进入 Play，也没有新的 scenario 日志；
+     因此 `-31` 要求的 fresh matrix 这轮没有真正启动。
+- 当前阶段判断：
+  - `导航检查V2 -31` 这轮不能算真因已钉实；
+  - 也不能把“没有新 live”偷换成“继续沿用旧 live 就行”；
+  - 当前最准确的定性是：
+    - `compile truth 已报实`
+    - `runtime slice 未漂移`
+    - `fresh live 被外部 compile gate 截断`
+    - `本轮只能算 blocker checkpoint`
+- 当前恢复点：
+  - 后续若继续，不是立刻追 PAN 第二刀，而是先等外部 compile gate 清掉；
+  - gate 清掉后，再按 `-31` 原顺序补：
+    - `EndpointNpcOccupied raw ×3`
+    - `Crowd raw ×1`
+    - `Ground raw ×1`
+    - `SingleNpcNear raw ×1`
+    - `NpcAvoidsPlayer ×1`
+    - `NpcNpcCrossing ×1`
+  - 当前 `thread-state` 已从原 `ACTIVE` 切片退回：
+    - `PARKED`
+
+## 2026-04-02（屎山修复父层补记：`导航检查V2 -33` 已把 compile gate 塌缩成 active 真 blocker，当前不是 stale 停车位）
+
+- 当前新增事实：
+  1. `导航检查V2` 已按 `-33` 先做 compile gate 真伪塌缩，而不是继续直接 claim runtime blocker；
+  2. 只读事实已确认：
+     - `InventorySlotUI.cs`
+     - `ToolbarSlotUI.cs`
+     当前工作树里都真实存在：
+     - `TickStatusBarFade()`
+     - `ApplyStatusBarAlpha()`
+     方法本体；
+     同时两份文件都处于 dirty 状态；
+     仓库内未发现第二份同名类在抢编译。
+  3. 但最新强制 recompile 后，`Editor.log` 仍稳定重现：
+     - `InventorySlotUI.cs(173/444/524) CS0103`
+     - `ToolbarSlotUI.cs(141/298/355) CS0103`
+     - 并伴随：
+       - `*** Tundra build failed (...)`
+       - `## Script Compilation Error for: ... Assembly-CSharp.dll`
+  4. 更关键的是：
+     - 在这次强制 recompile 后，
+       `editor_state` / `read_console` 持续 not ready，
+       `Run Raw Real Input Endpoint NPC Occupied Validation` 也直接 timeout，
+       说明 Unity 没恢复到可稳定进 Play 的状态。
+- 当前阶段判断：
+  - 这条 compile gate 现在已经被父层接受为：
+    - `active`
+    - `不是 stale`
+    - `当前活 blocker`
+  - 因此 `-33` 本轮合法收口落入第二种：
+    - “最新 recompile 仍稳定红，且 Unity 无法进入 Play”
+  - 不是线程偷停，也不是继续拿小 blocker 糊弄。
+- 当前恢复点：
+  - 后续若继续 `-33`，前提不再是“先回 PAN 第二刀”，而是：
+    - UI 线 compile gate 真正清掉
+    - Unity 恢复到可读 `editor_state / read_console / execute_menu_item`
+  - 只有那之后，`导航检查V2` 才能继续同窗大刀推进：
+    - endpoint
+    - crowd
+    - ground 可视停位真值
+
+## 2026-04-02（新增子工作区：树石修复，先完成 Tree/Stone controller 编辑态预览与运行态状态修复）
+
+- 当前主线目标：
+  - 新增 `树石修复` 子工作区，专门处理 `TreeController / StoneController` 的编辑态预览与运行态状态一致性问题；
+  - 这轮不是导航支线延续，而是 `屎山修复` 父层新增一条资源节点稳定性子线。
+- 本轮已完成事项：
+  1. 已在 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\树石修复\memory.md` 建立子工作区记忆；
+  2. 已修 `TreeController.cs`：
+     - 补上无 `SeasonManager` 时的编辑态季节回退；
+     - 把显示、碰撞体、派生状态拉成同一刷新入口；
+     - 进入 Play 首帧先同步可交互状态，不再等 `SeasonManager` 慢一拍；
+  3. 已补 `StoneController.cs` 的编辑态组件自动缓存和预览兜底；
+  4. 脚本级校验已过，当前未见 `TreeController / StoneController` 自身新编译红。
+- 当前稳定结论：
+  1. `TreeController` 这条线的真问题不是单点 bug，而是“预览链、碰撞链、派生状态链”过去各走各的；
+  2. `StoneController` 没有暴露出同等级 fatal runtime 链断，但确实存在编辑态组件引用依赖过强的问题，已顺手补稳。
+- 当前 blocker：
+  - Play 级终验仍被外部 Unity 编译红阻断：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `SetConversationBubbleFocus` 缺失
+- 当前恢复点：
+  - 父层后续若继续收这条子线，先看外部 compile blocker 是否 cleared；
+  - cleared 后，再看 `树石修复` 子线的 Play 级复测回执，而不是重新从脚本静态排查开始。
+
+## 2026-04-02（屎山修复父层补记：`导航检查V2 -35` 进行中现场已显示 compile gate 曾被清掉，当前争议重新收缩到“局部 runtime 改善 vs 用户可视停位仍未站住”）
+
+- 当前新增事实：
+  1. 从最新 `Editor.log` 看，`导航检查V2` 已经不再停在 compile gate：
+     - 日志里先后出现了多次 `*** Tundra build success (...)`
+     - 其后已继续跑起：
+       - `RealInputPlayerEndpointNpcOccupied`
+       - `RealInputPlayerGroundPointMatrix`
+       - `RealInputPlayerCrowdPass`
+       - `RealInputPlayerSingleNpcNear`
+       - `RealInputPlayerAvoidsMovingNpc`
+  2. 当前 fresh live 里已经能看到：
+     - dedicated endpoint 从一组 `Linger pass=False` 继续推进到一组 `ReachedClickPoint pass=True`
+     - `CrowdPass` 从 `crowdStallDuration=1.874 pass=False` 推进到 `0.268 pass=True`
+     - `SingleNpcNear / MovingNpc` 也都继续保持 `pass=True`
+  3. 但 `GroundPointMatrix` 最新仍只是：
+     - `accurateCenterCases=6/6`
+     - `positiveCenterBiasCases=0/6`
+     - 与此同时 `Transform/Rigidbody` 仍稳定比点击点低约 `1.09~1.24`
+     - 所以这条证据当前依旧只能证明 `center-only` 合同，不足以证明用户可视停位已经自然
+- 当前阶段判断：
+  - `导航检查V2 -35` 现在至少已越过：
+    - `compile blocker checkpoint`
+  - 当前真正该防的是另一种偷换：
+    - 把 live 局部转绿说成整体体验过线
+    - 把 `GroundPointMatrix pass=True` 说成“右键停位偏上已关闭”
+- 当前恢复点：
+  - 下次父层正式收 `V2` 回执时，不能再只问 compile gate；
+  - 必须继续追问：
+    1. gate 在哪一步 cleared
+    2. 哪些 live case 已重跑
+    3. 为什么 current ground truth 仍不能反驳用户的“停位偏上/停位怪”体感
+    4. endpoint / crowd 的局部转绿是否已足够代表真实右键入口体验
+
+## 2026-04-02（屎山修复父层补记：`V2 -35` 正式回执已被改判为“有真实推进，但旧新样本混算 + 新 blocker 未 fresh 钉实”，已继续下发 `-40`）
+
+- 当前新增事实：
+  1. `V2` 正式回执里已经明确承认：
+     - 原始 UI gate 已 `cleared`
+     - 也明确写了：
+       - `右键停位偏上 = 不能关闭`
+  2. 但它当前对 endpoint / crowd 的汇报口径仍有一个新问题：
+     - 用多轮改动过程中的 `fail -> pass` 累计样本，叙述成“当前最终代码已稳定转绿”
+  3. 同时它又拿：
+     - `PlayerNpcChatSessionService.cs / SetConversationBubbleFocus`
+     当最终停车理由；
+     但父层当前手上的最新现场并未把这条新 gate fresh 钉成稳定活 blocker
+- 当前阶段判断：
+  - 这条线现在不能再停在“runtime 中段 partial checkpoint”；
+  - 它下一轮更该做的是：
+    - 先塌缩新 blocker 真伪
+    - 再把 **当前最终代码** 的稳定矩阵从零开始补满
+  - 而不是继续用旧样本和新样本混讲一个“总体在变好”的故事。
+- 当前新增文档：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-禁止混算旧新样本并补满当前最终代码稳定矩阵-40.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-40验收尺与旧新样本混算拒收清单-41.md`
+- 当前恢复点：
+  - 后续父层若继续收件，先看：
+    1. 新 compile gate 是否 fresh 塌缩为 `cleared / stale / active`
+    2. 当前最终代码矩阵是否真的跑满
+    3. `Ground raw` 是否仍被偷换成“用户可视停位已关闭”
+
+## 2026-04-02（屎山修复父层补记：`导航检查V2 -35` 已把 PAN 玩家主线重新推进到 fresh matrix 过线，但当前被新的外部 Service/Player compile gate 截停）
+
+- 当前新增事实：
+  1. `导航检查V2` 这轮没有再停在旧的 compile gate checkpoint，而是真正回到 `PlayerAutoNavigator.cs` 继续施工与 live 取证；
+  2. 线程先完成了 Unity 编译态自清，并成功起跑玩家主线 fresh live；
+  3. 只改 `PlayerAutoNavigator.cs` 后，目前已经拿到同一批次 fresh player-side 样本：
+     - `EndpointNpcOccupied raw`：`pass=True`
+     - `Crowd raw`：`pass=True`
+     - `SingleNpcNear raw`：`pass=True`
+     - `MovingNpc raw`：`pass=True`
+     - `Ground Point Matrix raw`：`pass=True`
+  4. 其中最关键的实质推进有两条：
+     - endpoint 旧的 `BlockedInput/Linger` 坏链已翻绿；
+     - crowd 旧的慢爬/卡顿坏相已通过更早切 detour 被压到过线范围内（`crowdStallDuration` 已掉到 `0.268`）
+  5. 当前新的停车原因已不再是旧 UI gate，而是 fresh 编译中出现新的 unrelated blocker：
+     - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+     - `CS0103: SetConversationBubbleFocus`
+- 当前阶段判断：
+  - `导航检查V2` 玩家主线不是“完全没做成”，也不是“还停在 compile gate 原地”；
+  - 当前更准确的父层判断是：
+    - PAN 主线已拿到一批 fresh 过线证据
+    - 当前继续扩 live 被外部 `Service/Player` compile gate 截断
+    - 这条线本轮属于“有效推进后合法停车”
+- 当前恢复点：
+  - 后续恢复这条线时，不要再把第一步写成“重新猜 endpoint/crowd 真因”；
+  - 第一前提先看：
+    - `PlayerNpcChatSessionService.cs` 的 external compile gate 是否 cleared
+  - cleared 后，再回 `导航检查V2` 的玩家 PAN 矩阵稳定性复核，而不是重做上一轮已经过的责任点拆解
+
+## 2026-04-02（父层补记：`-35` 回看结果应按“部分完成但未整包收口”定性）
+
+- 当前新增结论：
+  1. `导航检查V2 -35` 不能再被回写成“只停在 UI compile gate checkpoint”；
+  2. 也不能被夸成“整个 `-35` 已完整完成”；
+  3. 父层当前最准确的定性应是：
+     - write scope 没漂
+     - 自清恢复做成了
+     - PAN 玩家主线已有实质推进和多条 fresh 过线样本
+     - 但 `SingleNpcNear ×2` 与 `NpcAvoidsPlayer / NpcNpcCrossing` 这部分没有收满，因此仍属于 `-35` 的 partial completion
+
+## 2026-04-02（屎山修复父层收尾补记：`V2 -40` 已发出，当前治理现场已结到等待回执）
+
+- 当前新增事实：
+  1. `V2 -40 / -41` 已形成父层最新治理闭环：
+     - `-40` = 下一轮唯一施工 prompt
+     - `-41` = 下一次收件固定验收尺
+  2. 本轮父层已补齐 skill 审计：
+     - `STL-20260402-054`
+     - canonical duplicate groups=`0`
+  3. `导航检查` thread-state 已重新 `Park-Slice`，当前不再保留 `ACTIVE` 假现场。
+- 当前阶段判断：
+  - 这条线目前不是继续由父线程追加新刀；
+  - 而是等待 `导航检查V2` 交回一份符合 `-40/-41` 的 fresh 回执。
+- 当前恢复点：
+  - 下次继续先看：
+    1. `PlayerNpcChatSessionService` 新 gate 是否 fresh 塌缩
+    2. 当前最终代码矩阵是否真的从零开始重跑补满
+    3. 用户可视停位偏上是否仍被偷换成 `center-only` 结构绿
+
+## 2026-04-02（屎山修复父层补记：`V2 -40` 被拒收，原因升级为“假 Tool_002 blocker + 假 queued-only blocker”）
+
+- 当前新增事实：
+  1. 父层已接受 `SetConversationBubbleFocus` 这条旧 blocker 现在是 `stale`；
+  2. 但 `V2` 新报的 `Tool_002_BatchHierarchy.cs` blocker 当前不能直接接受，因为：
+     - 同一份最新 `Editor.log` 里先有 `CS0136`
+     - 后面又已有 `Tundra build success`
+     - 且磁盘上的对应代码行已不是 `parent`
+  3. `queued_action-only` 这条 live 口径也不能接受，因为父层当前只读现场已看到：
+     - `scenario_start`
+     - `scenario_setup`
+     - `scenario_observe_start`
+     - heartbeat
+- 当前阶段判断：
+  - 这条线当前不该继续停在 blocker 解释层；
+  - 下一轮更该被逼回：
+    - 当前最终代码矩阵必须真正重新起跑
+- 当前新增文档：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-拒绝把已清Tool002与已dispatch探针继续当blocker并立刻补满当前最终代码矩阵-42.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-42验收尺与假Tool002阻塞拒收清单-43.md`
+- 当前治理现场：
+  - `导航检查` 已重新 `Park-Slice`
+  - 当前等待物已更新为：
+    - `waiting-for-v2-42-receipt`
+    - `awaiting-proof-that-current-final-code-matrix-has-really-restarted`
+
+## 2026-04-02（屎山修复父层补记：`V2` 当前已进入 crowd 单红面阶段，已继续下发 `-44`）
+
+- 当前新增事实：
+  1. `V2` 最新一轮已把“假 Tool_002 blocker / 假 queued-only blocker”都清掉；
+  2. 当前最终代码矩阵也已被 fresh 跑满；
+  3. 现在父层接受的最新 runtime 事实是：
+     - endpoint / ground / single / moving / npc guardrails 都绿
+     - 只剩 `Crowd raw ×3` 三连红
+- 当前阶段判断：
+  - 当前最合理的下一刀已被压成：
+    - 只收 `PlayerAutoNavigator.cs` 的 crowd 同簇三连红
+  - 但即使下一刀 crowd 绿了，也仍然不能把“右键停位偏上”写成已关闭。
+- 当前新增文档：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-只收PAN-crowd同簇三连红并维持其余矩阵绿面-44.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-44验收尺与crowd唯一红面拒收清单-45.md`
+- 当前治理现场：
+  - `导航检查` 已重新 `Park-Slice`
+  - 当前等待物已更新为：
+    - `waiting-for-v2-44-receipt`
+    - `awaiting-proof-that-pan-crowd-cluster-is-green-without-regressions`
+
+## 2026-04-02（屎山修复父层补记：`V2 -44` 再改判为“先纠偏 crowd 测试语义”，已继续下发 `-46`）
+
+- 当前新增事实：
+  1. `V2` 这次不只是报 crowd 仍红，还承认了更根本的问题：
+     - 旧 crowd case 本身就是错题
+  2. 这意味着父层不能再简单地下达“继续修 crowd runtime”；
+  3. 更合理的下一刀已经改成：
+     - 先纠偏 crowd 验证语义
+     - 再裁定最近两刀 PAN crowd 补口该留还是该回
+- 当前新增文档：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-先纠偏crowd测试语义再裁定PAN crowd补口留回-46.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-46验收尺与crowd语义纠偏拒收清单-47.md`
+- 当前治理现场：
+  - `导航检查` 已重新 `Park-Slice`
+  - 当前等待物已更新为：
+    - `waiting-for-v2-46-receipt`
+    - `awaiting-crowd-semantics-correction-before-any-more-pan-runtime-tuning`
+
+## 2026-04-02（屎山修复父层补记：树石修复子线已把树批量状态工具搭到可烟测态）
+
+- 当前新增事实：
+  1. `树石修复` 子线在上一刀 `TreeController / StoneController` 编辑态预览修复的基础上，又补了一把 Editor 工具刀；
+  2. 这轮新增了 `Assets/Editor/TreeBatchStateTool.cs`，目标是让用户在 `Hierarchy` 里选中树父物体后，直接批量修改：
+     - `treeID`
+     - `当前阶段`
+     - `当前状态`
+     - `当前季节`
+  3. 这把工具不是只写字段，而是走 `TreeController.ApplyBatchEditorState(...)`，批量应用时会一并刷新：
+     - Sprite 预览
+     - 派生血量
+     - 非法树桩状态修正
+     - `PolygonCollider2D`
+  4. 为了降低入口摩擦，`TreeControllerEditor` 的“当前状态”区也补了：
+     - `选中父物体并打开批量树工具`
+- 当前阶段判断：
+  - 这条子线当前不是“树工具还没写”，而是已经进入“代码可烟测、等待 Unity 实机点一下”的阶段；
+  - 现阶段最大 blocker 不是逻辑再次失焦，而是 `unityMCP` 仍无法连到 `http://127.0.0.1:8888/mcp`，导致这轮没有拿到脚本校验和编辑器烟测证据。
+- 当前恢复点：
+  - 下次恢复这条子线时，先不要重写工具；
+  - 第一动作应该是直接进 Unity 做四项烟测：
+    1. 工具能否正确抓取当前选择下的 `TreeController`
+    2. 批量改 `stage/state/season`
+    3. 批量改 `treeID`
+    4. 树的显示、碰撞体、可砍伐状态是否同步刷新
+
+## 2026-04-02（屎山修复父层补记：树批量工具已并到 `Tool_004` 菜单）
+
+- 当前新增事实：
+  1. `树石修复` 子线又补了一刀入口并轨，不再只把树工具挂在 `Tools/Sunset/Tree/...`；
+  2. 当前新的主菜单入口已经对齐到现有批量工具组：
+     - `Tools/004批量 (Tree状态)`
+  3. 工具脚本命名也已并轨为：
+     - `Assets/Editor/Tool_004_BatchTreeState.cs`
+- 当前阶段判断：
+  - 这条子线当前不再卡在“工具藏得太深、用户看不到菜单”的层面；
+  - 剩下的主要不确定性回到 Unity 编辑器里的真实打开与批量应用手感，而不是入口组织方式。
+
+## 2026-04-03（屎山修复父层补记：Rock/C1~C3 的真实问题是 prefab 本体仍为 NUL，当前已拉回 HEAD 止血版）
+
+- 当前新增事实：
+  1. `树石修复` 这轮没有扩回 Tree/Stone 系统逻辑，而是严格只做了 `Rock/C1/C2/C3.prefab`；
+  2. 真实根因不是 `StoneController` 配置链断，而是 working tree 里的 `C1/C2/C3.prefab` 文件内容仍是整文件 `NUL` 空字节；
+  3. 这 3 份文件当前已经被直接重写回 `HEAD` 的正常 YAML 文本；
+  4. `Assets/222_Prefabs/Rock/` 当前只有这 3 份 `.prefab`，最小同类体检未发现额外同类 prefab。
+- 当前阶段判断：
+  - 这轮属于“HEAD 止血版在本地真正落盘并被确认恢复正常文本结构”；
+  - 不是另起一轮 Rock 结构改造，更不是脚本层重写。
+- 当前恢复点：
+  - 后续只需在 Unity 当前现场确认一次：`C1/C2/C3` 是否不再继续报 `Unknown error occurred while loading ...`
+  - 如果已不再报，这条 incident 可以按 prefab 本体损坏已止血关闭。
+
+## 2026-04-02（屎山修复父层补记：导航检查V2 `-40` 当前合法停车位已改判为 external `Tool_002_BatchHierarchy` gate）
+
+- 当前新增事实：
+  1. `导航检查V2 -40` 已先 fresh 塌缩掉：
+     - `PlayerNpcChatSessionService.cs / SetConversationBubbleFocus`
+     - 当前不再能写成活 blocker，定性更接近 `stale`
+  2. 最新 fresh compile 里真正活着的 gate 已改判为：
+     - `Assets/Editor/Tool_002_BatchHierarchy.cs(387,27): error CS0136`
+     - `Assets/Editor/Tool_002_BatchHierarchy.cs(406,27): error CS0136`
+  3. `V2` 又做了 1 次受控 endpoint raw 起跑探针，但日志只到：
+     - `queued_action=RunRawRealInputEndpointNpcOccupied entering_play_mode`
+     - 没有 `editor_dispatch_pending_action / scenario_start / scenario_end`
+     - 最终状态回到 `EnteredEditMode`
+  4. 因此这轮没有形成任何“当前最终代码连续重跑”的新样本；
+     `-35` 历史样本不能被并入 `-40`
+- 当前阶段判断：
+  - `V2 -40` 目前符合 prompt 允许的第二种合法收口：
+    - 新 blocker 已 fresh 塌缩
+    - 但当前最终代码稳定矩阵被新的 external compile/live gate 截停
+  - 当前仍不能把：
+    - `右键停位偏上`
+    写成：
+    - `已关闭`
+- 当前恢复点：
+  - 下次继续这条线时，先看：
+    1. `Tool_002_BatchHierarchy.cs` gate 是否 cleared
+    2. cleared 后再从零开始重跑 `-40` 全矩阵
+
+## 2026-04-02（屎山修复父层补记：导航检查V2 `-42` 已把假 Tool002 / 假 queued blocker 清掉，并重跑出当前最终代码矩阵）
+
+- 当前新增事实：
+  1. `导航检查V2 -42` 已 fresh 证明：
+     - `Tool_002_BatchHierarchy` 当前是 `cleared`
+     - `queued_action-only` 口径已失效，最新干净 probe 已 `scenario_start/setup/observe`
+  2. `V2` 已按要求从零开始连续重跑当前最终代码矩阵：
+     - `EndpointNpcOccupied raw ×3`：全 `pass=True`
+     - `Crowd raw ×3`：全 `pass=False`
+     - `Ground raw matrix ×1`：`pass=True`
+     - `SingleNpcNear raw ×2`：全 `pass=True`
+     - `MovingNpc raw ×1`：`pass=True`
+     - `NpcAvoidsPlayer ×1 / NpcNpcCrossing ×1`：全 `pass=True`
+  3. 当前剩余第一责任点已重新压回：
+     - `PlayerAutoNavigator.cs` 的 crowd 同簇
+     - 而不再是 compile / dispatch blocker
+- 当前阶段判断：
+  - `导航检查V2` 现在已经越过 blocker 裁定阶段；
+  - 当前最准确的阶段是：
+    - “当前最终代码矩阵已报实，只剩 crowd raw ×3 三连红”
+- 当前恢复点：
+  - 下次继续这条线时，先不再发 blocker 塌缩 prompt；
+  - 直接围绕 `PlayerAutoNavigator.cs` 的 crowd 同簇补口与复测
+
+## 2026-04-02（屎山修复父层补记：`-44` 本轮不是“crowd 已绿”，而是被用户现场纠正为测试语义错位）
+
+- 当前新增事实：
+  1. `导航检查V2` 这轮确实只改了 `PlayerAutoNavigator.cs`，并且只留在 PAN crowd 同簇：
+     - 先补了跨 blocker 的 crowd 慢爬累计
+     - 又补了 crowd blocker 振荡计数
+  2. 线程拿到的 fresh crowd 样本并未稳定转绿；
+     目前仍存在：
+     - `directionFlips`
+     - `crowdStallDuration`
+     - 少量 `minEdgeClearance<0`
+     的混合红面
+  3. 更重要的是，用户已明确纠正当前 crowd case 的体验语义：
+     - 不能把“前面是一堵 NPC 墙，还继续硬撞/挤穿”当成正确测试目标
+- 当前阶段判断：
+  - 这条线现在不能再按“继续把 crowd raw 旧 probe 压绿”推进；
+  - 更准确的定性是：
+    - 代码层已有两刀 PAN crowd 最小补口
+    - 旧 crowd probe 仍未稳定过线
+    - probe 自身又被用户判定为体验口径错误
+- 当前恢复点：
+  - `导航检查V2` 已合法 `PARKED`
+  - 下一轮应先做 crowd 测试矩阵/玩家语义纠偏，再决定当前两刀代码如何取舍
+
+## 2026-04-02（屎山修复父层补记：`Primary.unity` 当前 dirty 现场不能继续误算给 `导航检查V2`）
+
+- 当前新增事实：
+  1. 用户在 crowd 线追问“是不是把 `Primary.unity` 撤回/清扫了”后，已完成一次只读热场景追责；
+  2. 结果显示：
+     - `Primary.unity` 当前仍是大 dirty
+     - `导航检查V2` 当前 `PARKED`，own path 只有 `PlayerAutoNavigator.cs`
+     - 另有 active 线程 `019d4d18-bb5d-7a71-b621-5d1e2319d778` 明确把 `Assets/000_Scenes/Primary.unity` 挂在 `a_class_locked_paths`
+- 当前阶段判断：
+  - `导航检查V2` 这条线当前真正要背的账，仍然只是 `PlayerAutoNavigator.cs` 的 crowd 线补口与测试语义错位；
+  - `Primary.unity` 的 active dirty 现场不能继续默认算作这条线刚刚清扫或回退造成
+- 当前恢复点：
+  - 后续若再追 `Primary.unity` 责任，应直接转向 active scene owner / root-integrator；
+  - `导航检查V2` 继续保持 `PARKED`，不写 scene，不做越权处置
+
+## 2026-04-02（屎山修复父层补记：`导航检查V2 -46` 已把 crowd 语义纠偏落到 runner/menu，但当前最终代码在新语义下仍双红）
+
+- 当前新增事实：
+  1. `导航检查V2 -46` 已完成 crowd 语义纠偏的结构动作：
+     - 旧 `Crowd raw` 已降级为 `legacy blocked-wall stress`
+     - 新建：
+       - `PassableCorridor`
+       - `StaticNpcWall`
+     - 本轮只动 runner/menu，没有再改 `PlayerAutoNavigator.cs`
+  2. 当前最终代码上的 fresh 结果：
+     - `PassableCorridor ×3`：全红，且 3 条全是 `Oscillation`
+     - `StaticNpcWall ×3`：全红，其中 2 条 `ReachedBlockedTarget`、1 条 `Oscillation`
+  3. 最小 raw 护栏仍绿：
+     - `EndpointNpcOccupied raw ×1`
+     - `Ground raw matrix ×1`
+     - `SingleNpcNear raw ×1`
+     - `MovingNpc raw ×1`
+  4. compile / Editor 可用性本轮 clean：
+     - 最新 `Editor.log` 尾段未见 runner/menu 新引入的 compile red
+     - Unity 已退回 `Edit Mode`
+- 当前阶段判断：
+  - 这条线已经不再是“旧 crowd probe 是否还算数”的口径争论；
+  - 当前更准确的阶段是：
+    - **新语义已落、fresh 已跑、但当前最终代码在 `PassableCorridor / StaticNpcWall` 两边都没站住**
+- 当前恢复点：
+  - 父层当前接受的裁定是：
+    - 下轮优先考虑回退最近两刀 `PlayerAutoNavigator.cs` crowd 补口
+  - 继续时不要再回旧 `Crowd raw` 主 acceptance，也不要再把 `Ground raw` 结构绿偷换成“右键停位偏上已关闭”
+
+## 2026-04-02（屎山修复父层补记：导航总进度已压到最后 2 个未闭环点）
+
+- 当前新增事实：
+  1. 用户要求直接回答“导航为什么还没完、现在到底还差多少”，因此父层重新把最新导航现场压成总图，而不再沿用长链回执口径。
+  2. 当前玩家导航这条线，题目已经纠正完成：
+     - 旧 `Crowd raw` 只算 `legacy blocked-wall stress`
+     - 新 crowd 主语义改为：
+       - `PassableCorridor`
+       - `StaticNpcWall`
+  3. 当前最终代码在新语义下仍未闭环：
+     - `PassableCorridor ×3`：全红，且 `3/3 = Oscillation`
+     - `StaticNpcWall ×3`：全红，其中 `2/3 = ReachedBlockedTarget`、`1/3 = Oscillation`
+  4. 其余 player-side 关键矩阵已站住：
+     - `EndpointNpcOccupied`
+     - `Ground raw matrix`
+     - `SingleNpcNear`
+     - `MovingNpc`
+     - `NpcAvoidsPlayer / NpcNpcCrossing`
+  5. 但 `Ground raw matrix` 当前仍只能证明：
+     - `center-only` 结构合同成立
+     - 不能证明“右键停位偏上已关闭”
+- 当前阶段判断：
+  - 导航主线已经不再是“到处都没做完”的状态；
+  - 更准确地说，现在只剩 2 个未闭环点：
+    1. `PlayerAutoNavigator.cs` crowd 同簇的 runtime 响应
+    2. 右键停位偏上的可视体验真值
+- 如果按“整个导航大盘”看，还应另外记 2 条尾账：
+  1. `Primary` 穿越/边界/切场这条线，代码侧已 compile-clean，但仍待用户回当前打开场景做真实入口复测；
+  2. 较早的 NPC roam probe / fail-fast 线仍是 carried partial checkpoint，不是当前主阻塞，但尚未被正式关案。
+- 当前恢复点：
+  - 若继续导航主线，父层下一刀不应再放大 scope；
+  - 仍应围绕：
+    - 回退最近两刀 `PlayerAutoNavigator.cs` crowd 补口
+    - 用新 `PassableCorridor / StaticNpcWall` 语义 fresh 复判
+    - 并继续诚实维持“stop-bias 未关闭”的口径
+
+## 2026-04-02（屎山修复父层补记：Primary traversal 快修不再手赌 scene YAML，而是转成 Editor 现场自动补齐）
+
+- 当前新增事实：
+  1. 用户继续追责 `Primary` 的 `Water/Props` 可穿越、可走出 tilemap、切场失败与现场找不到 `SceneTransitionTrigger`；
+  2. 这轮没有继续向 `Assets/000_Scenes/Primary.unity` 追加硬写，而是新增 Editor binder，把当前打开的 `Primary` 场景实例当成真实修复目标；
+  3. 运行时侧已补：
+     - `NavGrid2D` 显式障碍 tilemap 占位判定
+     - 玩家手动移动的导航边界硬拦截
+     - Editor PlayMode 按 scene path 切场 fallback
+  4. Editor 侧已补：
+     - `PrimaryTraversalSceneBinder`
+     - 负责把 `Water/Props` collider、`NavGrid2D` 阻挡源、`boundsPadding=0`、`CameraDeadZoneSync`、`SceneTransitionTrigger` 实时补进当前打开的 `Primary`
+- 当前阶段判断：
+  - 这条线现在已经从“磁盘 scene 修改”改成“运行时逻辑 + 当前打开 scene 实例自动修复”的组合口径；
+  - 更准确的阶段是：
+    - 代码与 editor auto-bind 已 compile-clean
+    - 等用户回到 Unity 现场做真实入口复测
+- 当前恢复点：
+  - 若用户反馈仍有未挡住的水域或 props 区块，下一轮应继续围绕 binder 实际命中的 tilemap / collider 现场收窄，不要重新回到泛 scene YAML 盲改。
+
+## 2026-04-02（屎山修复父层补记：Primary traversal 失效根因已压到“空层误命中 + 玩家中心探针过高”）
+
+- 当前新增事实：
+  1. 用户对 `Primary` 的最新复测明确否掉了：
+     - `Water` 仍可进
+     - `Props` 仍可穿
+     - tilemap 外边界仍可越
+  2. 这次重新压实后，已确认上轮 binder / auto-detect 命中的两个层：
+     - `Layer 1 - Props_Porps`
+     - `Layer 1 - Farmland_Water`
+     都是空 tilemap；
+     所以上轮“看起来接上 obstacle source”其实没有真正接到用户眼前的可见阻挡层。
+  3. 当前 `Primary` 里真实有 tile 且应参与 traversal obstacle 的层已收窄为：
+     - `Layer 1 - Wall`
+     - `Layer 2 - Base`
+     - `Layer 1 - Props_Ground`
+     - `Layer 1 - Props_Background`
+     - `Layer 1 - Props_Base`
+  4. 玩家手动拦截此前继续用碰撞盒中心点判定；
+     由于玩家 `BoxCollider2D` 中心明显偏上，导致“脚先踩进 water / props / map outside，但中心点还没进障碍”的漏判成立。
+- 本轮父层接受的修正：
+  - `PrimaryTraversalSceneBinder` 与 `NavGrid2D` 都已改成只收真实非空阻挡层；
+  - `PlayerMovement` 已改成脚底三点探针，不再用中心点做唯一拦截依据。
+- 当前阶段判断：
+  - 这条 `Primary traversal` 子线已不再停留在“也许现场没同步”；
+  - 当前更准确的阶段是：
+    - 真实根因已压实并已做代码返修
+    - 剩余只差 Unity 现场重测 3 个入口 case
+- 当前恢复点：
+  - 若用户继续反馈仍可穿越，下一步应直接进入 Unity scene instance 现场看上述 5 个 obstacle tilemap 的实际覆盖，而不是回退到旧的空层名义口径。
+
+## 2026-04-03（屎山修复父层补记：Primary traversal 这条线已按用户要求收窄为脚本契约 owner）
+
+- 当前新增事实：
+  1. 用户已明确重置分工：
+     - 通用工具线不再归这条线程
+     - `Town.unity` 基础内容转化不再归这条线程
+     - `Primary.unity` / `Town.unity` / `PrimaryTraversalSceneBinder` 都不再是这条线的 own
+  2. 这条线当前 exact-own 已收窄为：
+     - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+     - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs`
+  3. 当前脚本侧已完成的收口是：
+     - `NavGrid2D` 不再把 `Primary` 的 obstacle 命名硬编码进基础逻辑；
+     - `PlayerMovement` 现在有显式 `NavGrid2D` 接线入口和清楚的脚底采样参数；
+     - `SceneTransitionTrigger2D` 现在有稳定的 target scene 契约，不再依赖 binder 或 scene 自动补丁。
+- 当前阶段判断：
+  - 这条线现在不应再被理解成“Primary/Town 场景 owner”；
+  - 更准确的定位是：
+    - **traversal / blocking / scene transition 的基础脚本 owner**
+  - 场景 owner 后续需要自己把这些脚本接回 `Primary / Town`。
+- 当前恢复点：
+  - 后续若继续问这条线，先按“脚本逻辑 / 契约 / 接线说明”回答；
+  - 不再默认让这条线继续 claim scene 实写或通用工具维护。
+
+## 2026-04-03（屎山修复父层补记：导航检查V2并行验收侧已把 final acceptance pack 与当前红绿总图钉死）
+
+- 当前新增事实：
+  1. `导航检查V2` 这轮不是继续主刀 `PlayerAutoNavigator.cs`，而是只收：
+     - `NavigationLiveValidationRunner.cs`
+     - `NavigationLiveValidationMenu.cs`
+     - final acceptance pack
+     - 父线程最新 PAN 工作树上的 fresh live 复判
+  2. runner/menu 侧现在已经有固定入口：
+     - `Tools/Sunset/Navigation/Run Final Player Navigation Acceptance Pack`
+  3. final acceptance pack 已在当前工作树上 fresh 跑完 12 条，当前总图已压实为：
+     - 红：
+       - `PassableCorridor ×3`
+       - `StaticNpcWall ×3`
+     - 绿：
+       - `EndpointNpcOccupied ×1`
+       - `GroundRawMatrix ×1`
+       - `SingleNpcNear ×1`
+       - `MovingNpc ×1`
+       - `NpcAvoidsPlayer ×1`
+       - `NpcNpcCrossing ×1`
+  4. `导航检查V2` 这轮没有再碰：
+     - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+  5. 当前仍不能把：
+     - `右键停位偏上 / 玩家可视停位偏上`
+     写成：
+     - `已关闭`
+     因为 `GroundRawMatrix` 仍只算结构层绿，不等于玩家可视停位体验成立
+- 当前阶段判断：
+  - 导航父线现在已经不是“验收矩阵没跑真”；
+  - 更准确的状态是：
+    - **验收矩阵入口与 fresh 结果已齐**
+    - **剩余 PAN 主红面已被压到 `PassableCorridor / StaticNpcWall` 同簇**
+  - 但这轮并未直接 sync 成功；
+    - `Ready-To-Sync` 被同一 `Assets/YYY_Scripts/Service/Navigation` 根下的 foreign remaining dirty 截停
+    - 当前更准确的收口状态是：
+      - **验收事实已完成**
+      - **白名单归仓被 Navigation 同根残留阻断**
+- 当前恢复点：
+  - 父线程后续若继续玩家右键导航主线，应直接围绕 `PlayerAutoNavigator.cs` 里的 crowd / wall 同簇责任点继续收；
+  - 不需要再回到“是不是该先做 final pack / 是不是还缺 runner/menu 入口”的旧问题上。
+
+## 2026-04-03（屎山修复父层补记：导航验收分账已定稿，accepted navigation 与 Primary traversal 不再混报）
+
+- 当前新增事实：
+  1. `导航检查V2` 已按 `-54` 完成最终验收交接定性：
+     - 当前玩家导航版本：**用户已认可**
+     - `PassableCorridor / StaticNpcWall`：仍保留红面，但只算 targeted probe / 后续 polish 诊断项
+     - `FinalPlayerNavigationAcceptancePack`：结构与验收工具层已完成
+  2. 从现在起，导航父层必须把两件事彻底拆开：
+     - accepted player navigation version
+     - `Primary traversal` 剩余闭环
+     二者不再允许混成“导航整体还没做完/已经全做完”的单结论
+  3. `Primary traversal` 当前仍是父线程独立切片：
+     - 不属于 `导航检查V2` 这轮 handoff 已完成范围
+     - 也不能拿它去否掉“当前玩家导航版本已被认可”的顶层事实
+  4. 当前仍不能写成已关闭或已全线完成的点保持不变：
+     - `右键停位偏上已关闭`
+     - `final acceptance pack 全绿`
+     - `整个导航系统全线完成`
+- 当前阶段判断：
+  - 导航线现在的正确全局口径是：
+    - 玩家右键导航当前版本：可接受
+    - targeted probe：仍有两个诊断红面
+    - `Primary traversal`：父线程独立收口中
+  - 这比旧口径“导航还是一口大锅”更接近真实状态
+  - 当前归仓状态则要单独看：
+    - `导航检查V2` 的用户验收事实已完成
+    - 但白名单 sync 仍被 own-root remaining dirty 合法阻断
+- 当前恢复点：
+  - 父线程后续如果继续汇报，必须优先按这三层分账讲清；
+  - 不允许再把 `Primary traversal` 混进 `导航检查V2` 的 accepted navigation handoff 里。
+
+## 2026-04-03（屎山修复父层补记：`导航检查V2` 已按 `-58` 进入冻结停车态，不再自行 reopen）
+
+- 当前新增事实：
+  1. `导航检查V2` 已接受新的停车裁定：
+     - 不再重跑 live
+     - 不再碰 runtime
+     - 继续保持 `PARKED`
+     - 冻结 accepted navigation handoff truth
+  2. 从现在起，`导航检查V2` 只有在“专用 sync-cleanup slice”被明确下发时，才允许重新开工；
+     - 否则即使 same-root 还有尾账，也不得自己 reopen
+  3. 父层对导航三线的当前总判断进一步稳定为：
+     - accepted player navigation version：保持成立
+     - `导航检查V2`：冻结停车，等待专用 cleanup
+     - `Primary traversal`：继续是父线程独立业务主线
+- 当前阶段判断：
+  - 当前导航线已经不是“谁看见 blocker 就继续动一刀”的状态；
+  - 更准确的是：
+    - `导航检查V2` 进入冻结 truth 的停车态
+    - 业务主线只留给父线程 `Primary traversal`
+- 当前恢复点：
+  - 后续如果没有明确新的 cleanup slice，就不要再唤醒 `导航检查V2`
+
+## 2026-04-03（屎山修复父层补记：用户已认可当前导航版本；剩余 targeted probe 红面转为后续 polish 诊断项）
+
+- 当前新增事实：
+  1. 用户刚刚已明确认可当前导航版本：
+     - “避让有点走得太多，但完全可以接受”
+     - 当前版本被用户真实入口体验层接受
+  2. 父线程在此之前曾短暂尝试一刀更激进的 corridor crowd 判定扩张；
+     - 目标是更早触发 detour；
+     - 单样本 fresh 结果没有优于当前认可版本，反而重新落成 `Oscillation`；
+     - 这刀已撤回，没有保留。
+  3. `导航检查V2` 的 final acceptance pack 事实仍成立：
+     - 红面仍是：
+       - `PassableCorridor ×3`
+       - `StaticNpcWall ×3`
+     - 但它们现在只能继续被定性为：
+       - **targeted probe / 后续 polish 诊断项**
+     - 不再作为“当前导航版本不可接受”的证据。
+  4. 已为 `导航检查V2` 新建新的收口 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-导航检查V2-用户已认可当前导航版本仅收最终验收交接与可归仓判定-52.md`
+- 当前阶段判断：
+  - 导航主线当前已不再是“继续追红面直到 pack 全绿”；
+  - 更准确的总图是：
+    - **真实入口体验：用户已认可**
+    - **targeted probe：仍有两簇诊断红面**
+    - **工具/验收侧：final acceptance pack 已成型**
+- 当前恢复点：
+  - 父线程默认停止继续增加 runtime 风险；
+  - `导航检查V2` 下一刀只收最终验收交接与可归仓判定，不再继续修 PAN；
+  - 当前仍不能把“右键停位偏上”写成已关闭。
+
+- 当前父线程状态：
+  - `导航检查` 已合法 `PARKED`
+  - blockers：
+    - `user-accepted-current-navigation-version-as-baseline`
+    - `waiting-for-v2-final-acceptance-handoff-or-sync-ruling`
+
+## 2026-04-03（屎山修复父层补记：工具-V1新分工已接入，导航三方正式改成“父线程收 Primary traversal / V2收最终验收 / 工具-V1只保留脚本契约”）
+
+- 当前新增事实：
+  1. 工具-V1最新分工已经 fresh 压实：
+     - 只保留 3 个脚本契约 owner：
+       - `NavGrid2D.cs`
+       - `PlayerMovement.cs`
+       - `SceneTransitionTrigger2D.cs`
+     - 不再 own：
+       - `Primary.unity`
+       - `Town.unity`
+       - `PrimaryTraversalSceneBinder.cs`
+       - 通用工具 / scene live-apply
+  2. 导航父线程新的 prompt 已把剩余 `Primary traversal` 问题单独拆成独立切片：
+     - 只收：
+       - `Props` 阻挡
+       - `Water` 阻挡
+       - tilemap 外边界阻挡
+     - 并明确要求与：
+       - `PAN crowd runtime`
+       - `runner/menu final acceptance`
+       分账
+  3. `导航检查V2` 新的 prompt 已改判为：
+     - 不再继续修 runtime
+     - 只收最终验收交接、已认可版本的分层报实、以及 sync / own-root 判定
+  4. 用户已认可当前玩家导航版本，仍是本工作区当前最高层事实；
+     - `PassableCorridor / StaticNpcWall` 红面只能继续作为 targeted probe / 后续 polish 诊断项
+     - 不能再被写成当前版本不可用
+- 当前阶段判断：
+  - 当前导航工作区已经不再是“谁继续修 crowd runtime”；
+  - 更准确的最新分账是：
+    - 父线程 `导航检查`：收 `Primary traversal` 独立闭环
+    - `导航检查V2`：收最终验收交接与可归仓判定
+    - 工具-V1：只保留 3 个脚本 contract support
+- 当前恢复点：
+  - 后续所有导航汇报都必须把：
+    - 已认可的玩家导航版本
+    - `Primary traversal` 剩余闭环
+    - runner/menu 验收与归仓
+    分开报实；
+  - 当前仍不能把“右键停位偏上”写成已关闭。
+
+## 2026-04-03（屎山修复父层补记：这轮 prompt 重排已停车，等待父线程执行 `-53` 与 `导航检查V2 -54` 回执）
+
+- 当前新增事实：
+  1. `导航检查` 已对本轮 prompt 重排切片执行合法 `Park-Slice`
+  2. 当前 blockers 已切换为：
+     - `waiting-for-parent-primary-traversal-slice-execution`
+     - `waiting-for-v2-54-receipt-and-final-review`
+
+## 2026-04-03（屎山修复父层补记：工具-V1三脚本线被改判为“边界守住但已混入 runtime change”，当前不允许它自己清 same-root dirty）
+
+- 当前新增事实：
+  1. 工具-V1最新回执经抽查后，边界报实基本成立：
+     - 没碰 `Primary/Town` scene
+     - 没碰 binder
+     - 没碰通用工具
+  2. 但它当前修改并不等于纯 contract support：
+     - `NavGrid2D.cs` 已改到 obstacle / nearest-walkable 语义
+     - `PlayerMovement.cs` 已改到真实移动边界约束
+  3. 因此当前最准确的定性是：
+     - **三脚本边界守住**
+     - **same-root Ready-To-Sync blocker 为真**
+     - **但 slice 已经是 contract + runtime behavior change 混合态**
+  4. 已生成正式裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-工具V1-三脚本contract回执与停工裁定-55.md`
+- 当前阶段判断：
+  - 工具-V1这条线当前不是“继续自己收治理尾账”；
+  - 更准确的是：
+    - 先停在 `PARKED`
+    - 等父线程 / scene owner 消化这刀里哪些 runtime 变化该保、该 trim、或该继续点名
+- 当前恢复点：
+  - 后续如果再审工具-V1，优先检查它有没有继续把 runtime change 冒充成 pure contract support；
+  - 当前不允许把 same-root cleanup 继续压回工具-V1自己处理。
+
+## 2026-04-03（屎山修复父层补记：导航当前最终分账已压实，真正剩余只剩 Primary traversal）
+
+- 当前新增事实：
+  1. `导航检查V2` 回执已审完：
+     - 它当前成立的是：
+       - accepted navigation version 的最终验收交接
+       - 不是 legal-sync
+  2. 工具-V1最新 `prompt_03` 已确认与 `-55` 一致：
+     - 工具-V1继续 `PARKED`
+     - 不再自己清 same-root dirty
+  3. 当前总分账已正式落盘：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-导航最终分账与当前剩余总图-56.md`
+- 当前阶段判断：
+  - 当前导航不是“整体还没做完所以一锅红”；
+  - 更准确的是：
+    - 已认可玩家导航版本：成立
+    - `导航检查V2` 最终交接：成立但未归仓
+    - 工具-V1三脚本：成立但已停车
+    - 真正剩余业务主线：只剩父线程 `Primary traversal`
+- 当前恢复点：
+  - 以后继续对用户汇报时，默认直接按 `-56` 分账；
+  - 当前不要再把 targeted probe 红面和 `Primary traversal` 混成“整个导航没完”。
+
+## 2026-04-03（屎山修复父层补记：总分账已转成三线程下一轮 prompt，后续默认按 57/58/59 分发）
+
+- 当前新增事实：
+  1. `-56` 总分账已经被翻译成三份具体续工/停车 prompt：
+     - `-57` 父线程施工
+     - `-58` `导航检查V2` 停车
+     - `-59` 工具-V1停车
+  2. 后续默认分发基线已经不再是：
+     - “三条线程都继续看导航”
+     而是：
+     - 只有父线程继续业务施工
+     - 其余两条线只保留停车 truth
+- 当前恢复点：
+  - 如果用户继续要转发 prompt，默认直接给 `-57 / -58 / -59`；
+  - 如果以后还要开新 prompt，必须建立在这三条分工已经先被消费完的基础上。
+
+## 2026-04-03（屎山修复父层补记：用户直接重开工具-V1脚本侧新切片，目标改成 inspector-driven 接线底座）
+
+- 当前新增事实：
+  1. 用户没有让工具-V1回去清 same-root dirty，也没有让它碰 `Primary/Town` scene；
+  2. 用户新的直接裁定是：
+     - 做一个挂在空物体上的 manager；
+     - 由用户自己在 Inspector 里拖 Water / Props / Border / NavGrid / Player 等引用；
+     - 先解决 traversal blocking、场景外越界、以及转场黑屏卡顿掩蔽；
+     - 不再赌 scene 硬写。
+  3. 工具-V1已实际落下这套脚本底座：
+     - `Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+     - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+     - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs`
+- 当前阶段判断：
+  - 这不是 `导航检查V2` 的解冻，也不是 scene integration 完成；
+  - 更准确的是：
+    - **脚本接线底座已落地**
+    - **scene 仍待 owner 手动挂载 / 拖引用 / 实际验收**
+- 当前恢复点：
+  - 后续如果继续推进这一面，应该优先由 scene owner 把 manager 接回 `Primary` 或其他实际 scene；
+  - 当前不要再把“脚本底座落地”写成“玩家现在已经一定不能下水 / 一定不能出图”。
+
+## 2026-04-03（屎山修复父层补记：工具-V1新切片当前已停在“等 scene 接线 + 手测”）
+
+- 当前新增事实：
+  1. 工具-V1这轮脚本改动已经落地，但没有继续尝试 legal-sync；
+  2. 当前它已经重新 `Park-Slice`；
+  3. 它此刻真正等待的不是治理 cleanup，而是：
+     - scene owner / 用户把 manager 挂进 scene
+     - 然后做真实 Play 验证
+- 当前恢复点：
+  - 后续如果用户继续追这条线，优先先问：
+    - manager 有没有挂进 scene
+    - Water / Props / Border / NavGrid / PlayerMovement 有没有拖齐
+    - Play 复测结果是什么
+
+## 2026-04-03（屎山修复父层补记：桥面问题已被改判为“walkable override 缺口”，不再归因于水碰撞本身）
+
+- 当前新增事实：
+  1. 用户反馈的新问题不是“水没拦住”，而是：
+     - 水已经拦住了
+     - 但桥面没有把水上的这段重新判回可走
+  2. 工具-V1已补完脚本侧解法：
+     - `NavGrid2D` 新增显式可走覆盖源
+     - `TraversalBlockManager2D` 新增桥面 `walkable override` 拖拽槽位
+  3. 当前正确口径是：
+     - Water 仍然禁行
+     - Bridge 作为覆盖层单独声明为可走
+- 当前恢复点：
+  - 后续不要再从“排序层高低”推断能不能走；
+  - 统一改成：
+    - 阻挡源 = Water / Props / Border
+    - 可走覆盖源 = Bridge / 其它跨水通路
+
+## 2026-04-03（屎山修复父层补记：父线程已把工具-V1的 TraversalBlockManager2D 接回 Primary binder，但 live 又卡在 Unity busy）
+
+- 当前新增事实：
+  1. 父线程没有去改工具-V1 own 的三脚本，而是只改了：
+     - `Assets/Editor/Story/PrimaryTraversalSceneBinder.cs`
+  2. 这轮真正推进的是：
+     - 把工具-V1新补的 `TraversalBlockManager2D` 接回 `Primary` 的 scene/binder 侧；
+     - 正式把 `blocking tilemaps` 和 `bounds tilemaps` 分离，不再继续把 `Layer 2 - Base` 混成 obstacle。
+  3. 父线程当前只读压实的 `Primary` 结构真相：
+     - `Layer 1 - Farmland_Water` 与 `Layer 1 - Props_Porps` 当前都是空 tilemap；
+     - 非空 blocking tilemap 真实集中在 `Wall + Props_*`；
+     - 非空 bounds tilemap 真实集中在 `Layer 1 - Base + Layer 2 - Base`。
+  4. live 入口新结论：
+     - 命令桥不是死的，`Assets/Refresh` 请求能被 Unity 吃掉并归档；
+     - 但 Unity 随后又卡在 `isCompiling=true`，导致 fresh Play 验证窗口暂时拿不到。
+- 当前阶段判断：
+  - 当前 `Primary traversal` 没有漂回 crowd / runner / 工具 cleanup；
+  - 也没有再把球扔回工具-V1；
+  - 更准确的阶段是：
+    - **scene/binder 已前进到 manager-driven integration**
+    - **真实入口体验验证仍被 Unity busy/compiling 阻断**
+- 当前恢复点：
+  - 先等 Unity 从本轮 `Assets/Refresh` 后的 busy 状态恢复；
+  - 再由父线程继续 fresh 验 `Props / Water / tilemap 外边界 / NPC同语义`；
+  - 当前还不到把“Primary traversal 已闭环”写成完成的时候。
+
+## 2026-04-03（屎山修复父层补记：Primary 自动回写根因已从 Editor 侧切断）
+
+- 当前新增事实：
+  1. 用户最新现场已确认“TraversalBlockManager2D 参数总被改回去”的第一嫌疑不是手动误拖，而是 Editor 自动回写。
+  2. 导航检查线已只改两处：
+     - 删除 `Assets/Editor/Story/PrimaryTraversalSceneBinder.cs`
+     - 从 `Assets/000_Scenes/Primary.unity` 的 `NavigationRoot` 上移除旧 `TraversalBlockManager2D`
+  3. 这意味着：
+     - `Primary` 不再有自动 binder 在 `delayCall / hierarchyChanged / sceneOpened` 上偷偷重写 traversal 现场；
+     - 用户自己放在 `2_World` 下那份 manager，终于不再被旧 `NavigationRoot` manager 抢配置。
+- 当前阶段判断：
+  - `Primary traversal` 当前从“scene/binder 自动补丁持续搅局”推进到了“用户手动 manager 配置终于可稳定保存”的阶段；
+  - 但桥面与水体的最终可走语义仍待后续 live 验。
+- 当前恢复点：
+  - 后续优先回到“用户自己的 manager 配置 + 当前脚本 contract 是否足够”这条线；
+  - 不再回头把 `PrimaryTraversalSceneBinder` 当作临时补丁器恢复。

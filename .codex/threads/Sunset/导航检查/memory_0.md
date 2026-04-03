@@ -2837,3 +2837,1544 @@
 - 当前恢复点：
   - 下一步只剩第五轮回执、child memory、thread memory 与 `skill-trigger-log` 的审计收口；
   - 不再继续碰 `Service/Navigation` 实现代码。
+
+## 2026-03-31（用户追问清扫前真实全局进度；本线程已完成历史阶段重建）
+
+- 当前主线目标：
+  - 回答用户“这几轮进行前的实际全局进度到底是什么”，并把清扫开始前的真实阶段重新讲清。
+- 本轮已完成事项：
+  1. 按 `skills-governor + sunset-workspace-router + user-readable-progress-report + delivery-self-review-gate` 的口径，重读 `导航检查 / 屎山修复 / 导航V2` 三层记忆，重新拉直时间线。
+  2. 重新确认：
+     - 清扫前不是“导航已经收口，只差 cleanup”
+     - 也不是“之前的推进都没有价值”
+  3. 当前线程给用户的统一结论将固定为：
+     - 运行时功能已从明显失控推进到部分可用；
+     - 但高保真矩阵和用户手测都证明体验仍未过线；
+     - same-root dirty 与 mixed-root 编译依赖当时也确实存在，所以才进入 cleanup 分流。
+- 当前恢复点：
+  - 后续若再被问到“清扫前到底做到哪”，直接沿本轮统一口径回答；
+  - 不再被局部 `pass`、局部漂亮指标或 cleanup 后的归仓结果倒推篡改历史阶段。
+
+## 2026-03-31（用户继续追问“只要具体开发内容”；本线程已改用双线开发落点口径）
+
+- 当前主线目标：
+  - 用户不要抽象阶段判断，只要“我自己做到哪 / V2 做到哪 / 下一步和下下步是什么 / 为什么没继续做下去”的实开发口径。
+- 本轮已完成事项：
+  1. 已重新拆清：
+     - 我自己 = 静态导航与 static runner 线
+     - `导航检查V2` = 动态 `PlayerAutoNavigator` 完成语义线
+  2. 已确认：
+     - 我这边在清扫前最后停在 `EnsureBindings()` 绑定一致性补丁已落、但 fresh live 被外部 compile blocker 截断；
+     - `导航检查V2` 那边在清扫前最后停在 pure bulldoze 已破、责任点收窄到 `Inactive/pathCount=0` 的终点前过早失活；
+     - `-16` 这类下一轮开发 prompt 已经写出，但用户未完成转发前就进入了 cleanup 批次。
+- 当前恢复点：
+  - 以后若用户再问“你们原本下一步具体是什么”，直接按这次双线开发落点与原定 next/next-next 回答；
+  - 不再用“大阶段”词替代具体开发内容。
+
+## 2026-03-31（审 `V2` 新反省后，已落两份下一步 prompt）
+
+- 当前主线目标：
+  - 基于 `导航检查V2` 的新反省，对症下药：既要肯定它把责任点压对了，也要阻止它继续把工程线偷换成开发线；同时给它和我自己各落一份下一步 prompt。
+- 本轮已完成事项：
+  1. 已裁定：
+     - 接受 `V2` 对 `PlayerAutoNavigator` 完成语义链的重新锚定；
+     - 不接受它继续把 `Service/Player` 根接盘包装成自己这条开发线的自然下一步。
+  2. 已落盘给 `导航检查V2` 的下一轮 prompt：
+     - `2026-03-31-导航检查V2-PlayerAutoNavigator-完成语义续工与fresh闭环-17.md`
+  3. 已落盘给父线程自己的下一轮自工单：
+     - `2026-03-31-父线程自工单-静态点导航fresh复核与runner绑定闭环-17.md`
+- 当前恢复点：
+  - 后续若用户要继续放行子线程，直接转发 `V2 -17`；
+  - 若父线程继续，也不再做阶段分析，而是按自己的 `-17` 回到静态线施工。
+
+## 2026-03-31（父线程继续自己的静态线 `-17`：已停在 Unity 实例未接入的 external blocker）
+
+- 当前主线目标：
+  - 继续父线程自己的静态点导航切片，先拿 compile truth，再决定能否跑 1 次 static menu。
+- 本轮已完成事项：
+  1. 先把 `unityMCP` 服务层从 `listener missing` 恢复到了可握手状态；
+  2. 再通过原始 HTTP MCP 成功拿到：
+     - `initialize`
+     - `tools/list`
+     - `resources/list`
+  3. 同时也钉死了当前最新 blocker：
+     - `mcpforunity://instances` 返回 `instance_count=0`
+     - 当前没有 Unity 实例真正接入 server
+- 当前恢复点：
+  - 在 Unity 实例接回前，不能诚实 claim compile truth 或 static fresh；
+  - 后续若继续，只能先处理实例接入层 blocker，再回到 static menu。
+
+## 2026-03-31（重试后复核当前 live 入口：父线程不再动静态代码，`-18` 可直接转发）
+
+- 当前主线目标：
+  - 用户要求我重试；这轮子任务不是继续补代码，而是重新核对“父线程静态线当前到底停在哪、`导航检查V2` 有没有已经超过 `-18`”。
+- 本轮已完成事项：
+  1. 显式使用：
+     - `skills-governor`
+     - `sunset-workspace-router`
+     - `sunset-no-red-handoff`
+     - `sunset-unity-validation-loop`
+     并手工补读 `global-skill-registry.md`、`global-learning-system.md`、`global-preference-profile.md`。
+  2. 重新核读：
+     - `导航检查/memory.md`
+     - `屎山修复/memory.md`
+     - 当前线程 `memory_0.md`
+     - `导航检查V2` 线程 `memory_0.md`
+     - `2026-03-31-父线程自工单-静态点导航fresh复核与runner绑定闭环-17.md`
+     - `2026-03-31-导航检查V2-普通地面点中心语义与static-fresh闭环-18.md`
+  3. 复核 git diff 后确认：
+     - 父线程 own 改动确实只在 `NavigationStaticPointValidationMenu.cs` 与 `NavigationStaticPointValidationRunner.cs`
+     - 这两刀都已经服务于“让 static fresh 跑完并给出 verdict”
+  4. 继续读取 `导航检查V2` 线程尾部后确认：
+     - 它最新只到 `-17` 收掉 premature inactive
+     - 尚未吃掉 `-18`
+- 关键决策：
+  1. 父线程当前不再继续改 static runner / menu；
+  2. 不新写 prompt，直接沿用现有 `-18`；
+  3. 当前最正确的下一步就是把 `-18` 发给 `导航检查V2`，然后等它修 `PlayerAutoNavigator.cs` 的普通点中心语义后，我再复跑 static fresh。
+- 验证结果：
+  - `-18` 文件存在且是当前最新 live prompt；
+  - `导航检查V2` 当前线程记忆中没有任何已经越过 `-18` 的新 runtime 进展；
+  - 父线程现有结论与前一轮 static fresh verdict 一致，没有发现 prompt 过期。
+- 遗留问题 / 下一步：
+  - 下一步只做一件事：转发 `-18`；
+  - 转发后父线程不再扩题，等待动态 runtime 修正再回到 static fresh 验证位。
+
+## 2026-04-01（复审 `导航检查V2` 最新回执后，正式拒绝“crowd-only 即下一步”的改判；已下发双线 `-19`）
+
+- 当前主线目标：
+  - 用户带着新的真实手测和截图回来后，要求我重新分析：静态契约是不是被撤回了、点击点上偏是不是回来了、V2 下一步到底该打哪一刀；这轮子任务是先审回执，再重新下双线 prompt。
+- 本轮已完成事项：
+  1. 显式使用：
+     - `skills-governor`
+     - `sunset-workspace-router`
+     - `sunset-prompt-slice-guard`
+     并手工执行了 `preference-preflight-gate`、`user-readable-progress-report`、`delivery-self-review-gate` 的等价流程。
+  2. 重新核对：
+     - 用户最新文字反馈
+     - 用户最新截图
+     - `导航检查V2` 最新回执
+     - `-18` prompt
+     - `PlayerAutoNavigator.cs` 当前 `GetPlayerPosition()` diff
+  3. 我接受的部分：
+     - `-17` 确实收掉了 premature inactive 旧链；
+     - 这不是假进展。
+  4. 我不接受的部分：
+     - 普通点 `Rigidbody/Transform` 特判等于把前面的静态/中心契约偷换掉了；
+     - `npcPushDisplacement≈1.0` 仍叫 `pass` 不成立；
+     - 下一步直接转 crowd-only，不符合用户当前最强烈的体验痛点。
+  5. 已落两份新 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-导航检查V2-近距静止NPC与双NPC通道避让体验纠偏-19.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-父线程自工单-静态点契约回归与点击点上偏复核-19.md`
+- 关键决策：
+  1. `导航检查V2` 下一步不是继续 general crowd stall 优化，而是先收：
+     - 静止 NPC 被推着走
+     - 双近距 NPC 中间徘徊 / 卡顿 / 摆动 / 后撤
+  2. 父线程继续保持 acceptance 位，不去替它改 runtime；
+  3. 父线程自己的下一步是：在它回执后，重新裁定 static / 点击点上偏有没有被实质回退。
+- 验证结果：
+  - 当前判断所依据的证据层已经明确落在“真实入口体验”；
+  - 因而不能再把 `targeted probe` 的局部 pass 包装成总体体验过线。
+- 遗留问题 / 下一步：
+  - 若继续放行子线程，直接转发 `V2 -19`；
+  - 父线程随后只按 `父线程 -19` 做 acceptance / rejection，不再跟它一起改代码。
+
+## 2026-04-01（父线程并行执行自己的 `-19`：已接入 thread-state，拿到 before-baseline 后合法停车）
+
+- 当前主线目标：
+  - 用户明确要求我别等 `导航检查V2`，按自己的工单并行继续；本轮子任务就是按父线程 `-19` 先拿一份 before-baseline，而不是继续空谈下一步。
+- 本轮已完成事项：
+  1. 显式使用：
+     - `skills-governor`
+     - `sunset-workspace-router`
+     - `sunset-unity-validation-loop`
+     - `sunset-no-red-handoff`
+     - `unity-mcp-orchestrator`
+     并手工执行了 `preference-preflight-gate`、`user-readable-progress-report`、`delivery-self-review-gate` 的等价流程。
+  2. 已按用户刚补充的 live 规则接入 `thread-state`：
+     - 首次跑 `Begin-Slice.ps1` 因缺参数失败
+     - 随后读取脚本参数并正式补跑
+     - 第一次传 `TargetPaths` 时又误传成逗号字符串
+     - 立刻用 `-ForceReplace` 修正
+     - 当前 slice = `父线程静态点契约回归与点击点上偏复核-19-baseline`
+     - 当前状态先进入 `ACTIVE`
+  3. 在不改任何 runtime 代码的前提下，拿到当前 before-baseline：
+     - active scene = `Assets/000_Scenes/Primary.unity`
+     - 触发 `Tools/Sunset/Navigation/Run Static Point Accuracy Validation`
+     - `StaticPointCase1 pass=False centerDistance=1.600 rigidbodyDistance=1.995 transformDistance=1.995`
+     - `StaticPointCase2 pass=False centerDistance=1.120 rigidbodyDistance=0.081 transformDistance=0.081`
+     - `all_completed=False passCount=0 caseCount=2`
+     - Unity 已回到 `Edit Mode`
+     - 当前 console 仅剩 `There are no audio listeners in the scene` warning
+  4. 当前 baseline 结论已足够强，所以我没有继续空转第二轮 live，也没有越权去改 runtime
+  5. 因为本轮不准备 sync，已合法执行：
+     - `Park-Slice.ps1`
+     - 当前 `thread-state = PARKED`
+     - blockers：
+       - `waiting-for-导航检查V2-19-receipt`
+       - `static-point-contract-currently-rejected-by-before-baseline`
+- 关键决策：
+  1. 父线程这轮不是继续 ACTIVE 施工，而是先把 acceptance 基线立住；
+  2. 基线已经说明 static / 点击点契约当前不能放行，所以现在正确状态是 `PARKED` 等子线程回执；
+  3. 这轮没有跑 `Ready-To-Sync`，因为根本不进入 sync 阶段。
+- 验证结果：
+  - `Begin-Slice`：已跑，后经 `-ForceReplace` 修正为干净状态
+  - `Ready-To-Sync`：未跑，因为本轮没有收口 / sync 计划
+  - `Park-Slice`：已跑
+  - 当前 thread-state：`PARKED`
+- 遗留问题 / 下一步：
+  - 等 `导航检查V2 -19` 回来；
+  - 我下一步只做一件事：拿它的新结果和这次 before-baseline 做对照，直接 acceptance / rejection。
+
+## 2026-04-01（用户最新实机反馈后，主线临时从父线程 static 报告施工切到 `导航检查V2 -20` 分发）
+
+- 当前主线目标：
+  - 用户要求我先别继续父线程自己的 static / 点击点报告施工，先根据最新实机截图和设计裁定，重判 `导航检查V2` 现在真正该打哪一刀。
+- 本轮子任务：
+  - 吸收用户最新“NPC 与玩家 / NPC 与 NPC 共点互卡、鬼畜不止”的实机反馈；
+  - 重新检查 `NPCAutoRoamController.cs` 当前 roam / debugMove 边界与 stuck / avoidance / detour 恢复链；
+  - 生成给 `导航检查V2` 的新硬切片 prompt。
+- 本轮已完成事项：
+  1. 显式使用：
+     - `skills-governor`
+     - `preference-preflight-gate`
+     - `sunset-prompt-slice-guard`
+     并按用户图片 + 真实体验反馈，把这轮判断压回“真实入口体验”层，而不是结构 checkpoint。
+  2. 重新核代码后确认：
+     - 当前 `NPCAutoRoamController.cs` 的 roam move 仍缺少“异常即中断”契约；
+     - `CheckAndHandleStuck(...) / TryHandleSharedAvoidance(...) / TryReleaseSharedAvoidanceDetour(...)` 还会把 roam 异常现场继续当作恢复链；
+     - `DebugMoveTo(...)` 与真正 roam move 已有边界，这轮应优先只收 roam 语义，不误伤 probe 驱动移动。
+  3. 已新建新 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-导航检查V2-NPC漫游异常中断与鬼畜止血-20.md`
+  4. 已按 `thread-state` 合法切片：
+     - 先把之前父线程 static 报告 slice `Park`
+     - 再 `Begin-Slice` 新的 dispatch slice
+     - 文件落盘后再次 `Park-Slice`
+- 关键决策：
+  1. 当前 `导航检查V2` 的 runtime 第一主刀不再是玩家双 NPC corridor 微调，而是：
+     - NPC roam move 的异常即中断
+     - roam interruption reason / hook
+  2. static / 点击点偏上这条线仍未解决，但这轮不再抢 runtime 主刀；
+  3. 父线程自己的 static 拒收报告施工被用户优先级切走，暂不继续。
+- 验证结果：
+  - 本轮没有新增 Unity live；
+  - 本轮结论主要基于：
+    - 用户最新截图与现场描述
+    - `NPCAutoRoamController.cs` 当前实现链
+    - 以及现有 `导航检查V2 -19` 已经不足以覆盖新痛点的事实。
+- 当前恢复点：
+  - 如果继续推进，实现线直接转发 `V2 -20`；
+  - 父线程当前 thread-state 已 `PARKED`，blocker 实质是：
+    - `waiting-for-user-to-forward-v2-20`
+    - `static-report-paused-by-user-priority-shift`
+  - 等 `导航检查V2 -20` 回执回来后，再决定是否恢复父线程 static / 点击点 acceptance 施工。
+
+## 2026-04-01（复审 `导航检查V2` 昨夜回执：不是假装施工，但 `-19` 必须就地冻结；已新写 `V2 -21`）
+
+- 当前主线目标：
+  - 用户贴出 `导航检查V2` 最新长回执后，要求我先审它到底做到哪，再决定 prompt 怎么改；这轮子任务不是继续我自己的 static 线，而是重新做一次严格的收件审核和 prompt 改写。
+- 本轮子任务：
+  - 判断这份回执到底该按 `-19` 还是 `-20` 审
+  - 吸收它真实做成的部分
+  - 拒绝它继续把 `-19` 拖成长期 live 主线
+  - 落新的 prompt 文件
+- 本轮已完成事项：
+  1. 明确裁定：
+     - 它昨晚实际执行的是 `-19`
+     - 不是 `-20`
+     - 因为 `-20` 还没被用户转发过去
+  2. 我接受的部分：
+     - `ShouldBreakSinglePassiveNpcPathMoveBulldoze(...)` 这刀确实压低了 single 静止 NPC 推挤
+     - solver 试坏后的版本已回退
+     - 它也诚实承认了 `-19` 未闭环
+  3. 我不接受的部分：
+     - 再继续把 `-19` 拖成“再多跑一条样本”的 live 主线
+     - 用 single 的进展偷渡双 NPC corridor 快完成
+     - 用 `unityMCP listener_missing` 模糊化业务未完成
+  4. 已新写并落盘：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-导航检查V2-冻结19并转NPC漫游异常中断-21.md`
+- 关键决策：
+  1. `-20` 不再是最新 live 入口；
+  2. 当前最新入口已经变成 `-21`：
+     - 先冻结 `-19` 为 partial checkpoint
+     - 再切 `NPCAutoRoamController.cs` 的 roam 异常即中断
+  3. 父线程自己的 static / 点击点 acceptance 线继续暂停，不抢这轮 runtime。
+- 验证结果：
+  - 本轮无新增 Unity live；
+  - 主要证据来自：
+    - 用户贴出的完整回执
+    - 现有 `PlayerAutoNavigator.cs` / `NPCAutoRoamController.cs` 实现边界
+    - 以及“`-20` 尚未真正发出”这一治理事实。
+- 当前恢复点：
+  - 如果继续放行，实现线现在应转发 `V2 -21`；
+  - 我这条线程在完成 prompt 与记忆结算后重新 `Park-Slice`，等待下一份真正执行 `-21` 的回执。
+
+## 2026-04-01（父线程继续自工：已补完 static 拒收报告、`V2 -21` 验收尺和 `unityMCP` 基线核查）
+
+- 当前主线目标：
+  - 用户继续让我做父线程自己能做的内容；这轮子任务不是下场改 runtime，而是把父线程的验收层、拒收层和工具 blocker 说明补全。
+- 本轮子任务：
+  - 新建一份正式父线程文档，收 static 拒收报告
+  - 把 `V2 -21` 的验收尺提前写死
+  - 复核 `unityMCP` 当前 listener 现场
+- 本轮已完成事项：
+  1. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-父线程-static拒收报告与V2-21验收尺-22.md`
+  2. 文档里已固化：
+     - latest before-baseline 数值
+     - `GetPlayerPosition()` 当前普通点 `Rigidbody/Transform` 特判证据
+     - `Primary.unity` 中玩家 `BoxCollider2D` 的 `m_Offset: {x: -0.007229537, y: 1.2013028}` 证据
+     - `-19` 只能算 partial checkpoint 的正式裁定
+     - `V2 -21` 的下一次收件验收尺
+  3. 重新跑了：
+     - `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1`
+     当前结果：
+     - `baseline_status=fail`
+     - `issues=listener_missing`
+     - pidfile 存在但 8888 无监听，pid 对应进程不存在
+  4. 这轮没有继续 live，也没有碰任何 runtime 代码。
+- 关键决策：
+  1. 父线程这轮已经把自己能做的验收准备补得比较完整；
+  2. 当前之后不再需要临场想“回执回来我怎么审”，而是直接按 `-22` 文档裁；
+  3. 工具层也已钉死：恢复 `unityMCP` listener 是下一次 live 验收的前置，不再允许把工具断线和业务未完成混淆。
+- 验证结果：
+  - 本轮 `Begin-Slice` 已跑
+  - 本轮未跑 `Ready-To-Sync`，因为没有收口 / sync 计划
+  - 收尾后会 `Park-Slice`
+  - 当前仍不做 sync
+- 当前恢复点：
+  - 下一步只等两件事：
+    1. 用户转发 `V2 -21`
+    2. `导航检查V2` 回来真正执行 `-21` 的回执
+  - 然后父线程直接按 `-22` 文档做 acceptance / rejection。
+
+## 2026-04-01（等待 `V2 -21` 期间继续并行预审：已确认 `NPCAutoRoamController` 当前 interruption 骨架存在，`-23` 已落盘）
+
+- 当前主线目标：
+  - 用户要求我在等待 `导航检查V2` 干活时继续做并行操作；这轮子任务是把 `-21` 最容易被偷换的地方先审清，不等回执来了再临场判断。
+- 本轮子任务：
+  - 只读核查 `NPCAutoRoamController.cs` 当前 interruption 相关骨架
+  - 核查现有 validation 入口哪些只是 `DebugMoveTo` 护栏
+  - 把这些内容收成父线程文档
+- 本轮已完成事项：
+  1. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-父线程-V2-21预审风险清单与验证入口盘点-23.md`
+  2. 关键只读发现：
+     - 当前 workspace 的 `NPCAutoRoamController.cs` 已存在 `RoamMoveInterruptionReason / Snapshot / Event / Debug accessors`
+     - `TryInterruptRoamMove(...)` 已被接进：
+       - `StuckCancel`
+       - `StuckRecoveryFailed`
+       - `SharedAvoidanceRepathFailed`
+       - `SharedAvoidanceRecovered`
+     - 并且它开头就保护：
+       - `debugMoveActive || state != RoamState.Moving => return false`
+       - 说明当前语义上已经在区分 roam move 与 `DebugMoveTo(...)`
+  3. 同时核清了 validation 入口边界：
+     - `NavigationLiveValidationRunner` 里的 `NpcAvoidsPlayer / NpcNpcCrossing` 当前都通过 `DebugMoveTo(...)`
+     - 再加上 `PrepareScene(...)` 会先 `StopRoam()`
+     - 所以它们只能证明 guardrail，不足以证明真实 roam 互卡止血
+- 关键决策：
+  1. 后续我对 `V2 -21` 的验收重点已经调整：
+     - 不再先问“有没有创建 interruption contract”
+     - 而是先问“现有 contract 有没有在真实 roam 坏相里触发并结束当前 move”
+  2. 这也意味着，如果它回来只说“我已经有 reason/event 了”，那不够；
+  3. 还必须证明：
+     - 实际 roam 互卡 live
+     - `DebugMoveTo(...)` 未误伤
+     - 下游 NPC 反应系统目前仍只是 future hook，不准偷吹已做完
+- 验证结果：
+  - 本轮无新增 Unity live
+  - 属于纯只读预审与文档落盘
+  - 当前 thread-state 仍会按本轮结束后 `Park-Slice`
+- 当前恢复点：
+  - 父线程当前准备层已经从一份 `-22` 扩到：
+    - `-22` 正式拒收 / 验收尺
+    - `-23` 预审风险 / 验证入口边界
+  - 接下来继续等 `V2 -21` 回执，不再扩题。
+
+## 2026-04-01（等待 `V2 -21` 期间继续并行预审：已新增 `-24`，专门防“正常恢复主路也被误判成异常 interruption”）
+
+- 当前主线目标：
+  - `导航检查V2` 已收到 `-21` 并在 `NPCAutoRoamController.cs` 上施工；我这轮继续只做父线程能做的只读并行预审，不碰 runtime 主刀。
+- 本轮子任务：
+  - 看它当前 dirty 是否真的还锁在 `NPCAutoRoamController.cs`
+  - 提前审掉一个最容易被“有 interruption 了”掩盖的新副作用风险
+- 本轮已完成事项：
+  1. 读取：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\导航检查V2.json`
+     - 当前确认：
+       - `status=ACTIVE`
+       - `current_slice=冻结19并转NPC漫游异常中断-21`
+       - `owned_paths=[Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs]`
+  2. 只读查看：
+     - `git diff -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - 当前它确实仍在 `NPCAutoRoamController.cs` 上补 interruption 语义，没有明显飘回 `PlayerAutoNavigator.cs` / solver / static 线
+  3. 新增并落盘：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-父线程-V2-21中途预审补充-SharedAvoidanceRecovered过宽风险-24.md`
+  4. 当前最关键的新判断：
+     - `TryReleaseSharedAvoidanceDetour(...)` 现在在 `detour.Cleared || detour.Recovered` 时，会直接触发
+       `TryInterruptRoamMove(RoamMoveInterruptionReason.SharedAvoidanceRecovered, ...)`
+     - 这条链所处的上下文本身更像“前方已无 blocker、准备恢复主路”
+     - 所以它当前高概率存在“把正常恢复主路也误伤成异常 interruption”的过宽风险
+  5. 另一条只读事实也已继续钉死：
+     - `RoamMoveInterrupted` 目前仍只是 hook，本轮没看到明确订阅者
+     - 后续任何“下游 NPC 反应系统也已做完”的说法都不能放行
+- 当前稳定结论：
+  1. `V2 -21` 当前不是明显偏航，而是已经打在对的文件上；
+  2. 但下一次收件时，父线程不能只看“有没有 interruption”，还必须追问：
+     - `SharedAvoidanceRecovered` 为什么不算过宽
+     - 正常短暂避让恢复主路时，为什么不会也被切断
+- 当前 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑，本轮没有收口 / sync 计划
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 后续收 `V2 -21` 回执时，父线程要按：
+    - `-22` 正式验收尺
+    - `-23` 预审风险清单
+    - `-24` 中途过宽风险补充
+    三份一起裁；
+  - 当前继续等 `V2 -21` 的真实回执，不再扩题。
+
+## 2026-04-01（复审 `V2 -21` 最新回执后，父线程已继续发 `-25`：只收 Recovered 边界与成对 roam fresh 证据）
+
+- 当前主线目标：
+  - 用户贴出 `导航检查V2 -21` 最新回执后，我这轮的子任务是严格判断：
+    - 它现在该不该停
+    - 还要不要继续发 prompt
+    - 如果继续，唯一主刀该是什么
+- 本轮已完成事项：
+  1. 重新核对：
+     - `git diff -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\导航检查V2.json`
+     - 当前 relevant `git status`
+  2. 我接受的部分：
+     - `-19` 已被冻结为 carried partial checkpoint
+     - runtime 主刀确实切到了 `NPCAutoRoamController.cs`
+     - interruption contract 的代码面已落下
+     - 两条 NPC guardrail 当前仍绿
+  3. 我不接受的部分：
+     - 这轮还没有真实 roam 灾难现场 fresh
+     - 回执没有正面回答 `SharedAvoidanceRecovered` 当前为什么不会误伤正常恢复主路
+  4. 已据此继续下发新 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-导航检查V2-收窄Recovered边界并拿真实roam中断证据-25.md`
+  5. 新 prompt 的唯一主刀已改判为：
+     - 把 `SharedAvoidanceRecovered / Clear` 和真正异常 interruption 切开
+     - 拿成对 fresh 证据证明：
+       - 异常会中断
+       - 正常恢复不会误伤
+- 当前 thread-state：
+  - 这轮我已补跑自己的 `Begin-Slice`
+  - `Ready-To-Sync`：未跑，因为只是治理分发，不收口 sync
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 现在若用户继续放行 `导航检查V2`，直接转发 `-25`
+  - 我这条父线程继续保持验收位，不下场抢 `NPCAutoRoamController.cs`
+
+## 2026-04-01（只读偷窥 `导航检查V2` 进度：确认它当前不在修 static 点偏上，且该问题仍成立）
+
+- 当前主线目标：
+  - 用户要求我不要下场施工，只先“偷窥一下进度”，确认：
+    1. `导航检查V2` 现在实际在修什么；
+    2. 用户感知到的“静态点击点偏上”是不是还在。
+- 本轮子任务：
+  - 只读核对 `导航检查V2` 的 `thread-state / memory / 现场代码与 scene`
+- 已完成事项：
+  1. `导航检查V2` 当前 `thread-state` 已核对：
+     - `ACTIVE`
+     - slice=`收窄Recovered边界并拿真实roam中断证据-25`
+     - owned paths 只含：
+       - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+       - `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs`
+       - own docs / thread memory
+  2. 它的 latest 完整 checkpoint 已核对：
+     - `-25` 核心 roam 成对 fresh 已成立；
+     - 但 latest `NpcAvoidsPlayer / NpcNpcCrossing` guardrail 又红；
+     - 当时结论是 `PARKED / not done`
+  3. static 偏上现场已再次只读钉实：
+     - `PlayerAutoNavigator.GetPlayerPosition()` 对普通点导航仍走 `playerRigidbody.position / player.position`
+     - `Primary.unity` 中玩家 `BoxCollider2D.m_Offset.y = 1.2013028`
+     - 因而“角色可见占位中心停在点击点上方”的错层仍在
+- 关键决策：
+  1. 当前不能把 `导航检查V2` 说成“正在修 static”
+  2. 当前也不能把整体导航说成“已经接近收完”
+  3. static 偏上问题如果要优先止血，必须单独立题，不会随着 `-25` 自动变好
+- 验证结果：
+  - 只读核对：
+    - `导航检查V2.json`
+    - `导航检查V2/memory_0.md`
+    - `PlayerAutoNavigator.cs`
+    - `Primary.unity`
+  - 本轮无代码修改
+- 当前恢复点：
+  - 若用户下一步仍只要进度判断，就直接按这次偷窥结论回报；
+  - 若用户下一步要重新下令，则分两条：
+    1. 继续让 `导航检查V2` 收 `-25` guardrail 红；
+    2. 单独拉起 static / 点击点契约切片。
+
+## 2026-04-01（复审 `导航检查V2` 最新回执：局部 slice 可接受，但整体右键导航仍未成立）
+
+- 当前主线目标：
+  - 用户让我严格审这份新回执，并结合用户自己刚做完的真实右键导航手测，判断这份回执到底该不该放行
+- 本轮子任务：
+  - 只读核对：
+    - `导航检查V2` 最新 memory
+    - `NavigationLiveValidationRunner.cs` diff
+    - `PlayerAutoNavigator.cs` diff
+    - 当前 `thread-state / git status`
+- 已完成事项：
+  1. 我接受的部分：
+     - `NavigationLiveValidationRunner.cs` 确实补了 managed roam controller 参数 snapshot / restore；
+     - 因此“latest guardrail 红面来自 runner probe 污染”这个判断在 `-25` slice 内是可信的；
+     - `NpcRoamPersistentBlockInterrupt + same-play NpcAvoidsPlayer / NpcNpcCrossing + NpcRoamRecoverWindow` 这组 probe 回绿，可以接受为该 slice 的局部 closure
+  2. 我不接受的部分：
+     - 把它进一步上抬成“runtime 闭环已完成”
+     - 因为用户此刻最关心的是右键导航真实体验，而不是 `-25` 的 NPC roam probe
+  3. 右键链路现场继续显示：
+     - `PlayerAutoNavigator.cs` 仍 dirty
+     - static 点偏上没有新证据表明已经关闭
+     - 用户真实手测明确给出“右键导航简直就是胡闹”
+- 关键决策：
+  1. `-25` 现在最多只能判成：
+     - `结构 / targeted probe` 这两层已经重新站住
+  2. 整体右键导航只能判成：
+     - `真实入口体验未成立`
+  3. 后续如果继续给 `导航检查V2` 下指令，不能再让它围着 `-25` 自说自话，
+     必须强行回到用户真实右键入口与 static/player 契约上
+- 验证结果：
+  - 只读 diff / memory / state 核对完成
+  - 本轮无代码修改
+- 当前恢复点：
+  - 如果用户下一步要我继续治理分发，
+    我应给 `导航检查V2` 下一个新的强制回拉 prompt：
+    - 禁止再把 `-25` 的局部绿面包装成整体导航过线
+    - 回到真实右键导航玩家入口矩阵
+    - 重新收 player/static 这条主链
+
+## 2026-04-01（已生成并下发 `-26`：强制回拉 `导航检查V2` 到玩家右键真实入口主线）
+
+- 当前主线目标：
+  - 用户要求我“直接干死他”，也就是不要再让 `导航检查V2` 围着 `-25` 局部绿面自我验收，而是强制回到真正的玩家入口主线。
+- 本轮子任务：
+  - 生成一份新的强制回拉 prompt，并明确冻结 `-25` 的层级。
+- 已完成事项：
+  1. 已创建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-导航检查V2-强制回拉玩家右键真实入口主线-26.md`
+  2. `-26` 已明确写死：
+     - `-25` 只算 carried partial checkpoint
+     - 不再允许把它说成整体 runtime 闭环
+  3. `-26` 的唯一主刀已改判为：
+     - `PlayerAutoNavigator.cs`
+     - 必要时最小 player-side validation 入口
+  4. `-26` 明确要求它正面收：
+     - static 点偏上
+     - 普通点导航 contract truth
+     - 静止 NPC / 双 NPC 通道 / crowd 的玩家侧真实坏相
+- 关键决策：
+  - 这轮最重要的不是“再优化 prompt 文风”，而是把治理刀口真正从局部 slice 拉回用户正在骂的主问题。
+- 验证结果：
+  - 本轮产出的是治理 prompt 文件与记忆更新
+  - 无代码修改
+- 当前恢复点：
+  - 现在如果用户要继续推进，直接转发 `-26`
+  - 我这条父线程继续保持审件位，等 `导航检查V2` 回新的玩家入口矩阵证据
+
+## 2026-04-01（彻审 `-26` 最新回执：可接受其继续停在 Player 线，但不接受“只剩单一 slow-crawl 根因”的收束）
+
+- 当前主线目标：
+  - 用户要求我彻底审核 `导航检查V2` 最新回执，不要被“partial checkpoint + 一些绿结果”糊过去。
+- 本轮子任务：
+  - 只读对照：
+    - `-26` prompt 原始完成定义
+    - `PlayerAutoNavigator.cs` 当前 diff
+    - `导航检查V2` 最新 memory / state
+- 已完成事项：
+  1. 我接受：
+     - 它这轮没有再漂回 `-25`
+     - 也没有把当前 crowd fail 说成 done
+     - `PARKED` 和 `Ready-To-Sync` 未跑的停车状态是真实的
+  2. 我不接受：
+     - 它把根因继续压成“只剩 `ShouldUseBlockedNavigationInput(...)` 一刀后的 crowd slow-crawl”
+     - 因为当前 diff 里仍有多簇同步在起作用：
+       - `HasPassiveNpcCrowdOrCorridor(...)`
+       - `ShouldDeferPassiveNpcBlockerRepath(...)`
+       - `TryGetPointArrivalNpcBlocker(...)`
+       - `TryFinalizeArrival(...) / ShouldHoldPostAvoidancePointArrival(...)`
+  3. 另一条未完成要求也已钉死：
+     - `-26` 要求 dedicated 的“终点有 NPC 停留” case 或充分代理说明
+     - 当前仍无 dedicated case
+- 关键决策：
+  - 现在对 `导航检查V2` 的正确管理方式是：
+    - 继续留在 `PlayerAutoNavigator.cs`
+    - 但禁止它过早神话成“只剩一个点”
+    - 必须继续按多簇共同责任 + dedicated 终点 NPC case 去收
+- 验证结果：
+  - 本轮只读审计，无代码修改
+- 当前恢复点：
+  - 若用户要我继续下轮 prompt，我应继续围绕：
+    - dedicated 终点 NPC case
+    - corridor / arrival / finalize 三簇
+    下新的更窄追问，而不是放它自己定义收束边界。
+
+## 2026-04-01（已生成并下发 `-27`：继续追打 Player 主线多簇责任点与终点 NPC dedicated case）
+
+- 当前主线目标：
+  - 用户要求我别停在审核层，直接继续鞭策 `导航检查V2`。
+- 本轮子任务：
+  - 生成一份新的续工 prompt，继续压 Player 主线，但更硬地限制它的根因叙事。
+- 已完成事项：
+  1. 已创建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-导航检查V2-继续追打Player主线多簇责任点与终点NPC专案-27.md`
+  2. `-27` 明确写死：
+     - 不接受“只剩单一 slow-crawl 点”
+     - 强制审：
+       - `HasPassiveNpcCrowdOrCorridor(...)`
+       - `TryGetPointArrivalNpcBlocker(...)`
+       - `TryFinalizeArrival(...) / ShouldHoldPostAvoidancePointArrival(...)`
+     - 强制补 dedicated 的“终点有 NPC 停留” case
+- 关键决策：
+  - 这轮治理重点不是再重复“ground / single 还稳不稳”，
+    而是正面打掉它最容易过早收束的叙事。
+- 验证结果：
+  - 本轮产出的是治理 prompt 文件与记忆更新
+  - 无代码修改
+- 当前恢复点：
+  - 现在如果用户要继续推进，直接转发 `-27`
+  - 我这条父线程继续保持审件位，等 `导航检查V2` 回新的 dedicated case 与多簇裁定
+
+## 2026-04-01（父线程并行支撑补记：已把 dedicated 终点 NPC case 的最小设计、分类口径和验收尺落成 `-28`）
+
+- 当前主线目标：
+  - `导航检查V2` 仍在并行施工时，我继续做父线程自己还能推进的只读支撑，不碰 `PlayerAutoNavigator.cs`；本轮子任务是把 dedicated 的“终点有 NPC 停留” case 设计成一份后续可直接拿来审件/续工的文档。
+- 本轮已完成事项：
+  1. 只读核对了：
+     - `NavigationLiveValidationRunner.cs`
+     - `NavigationLiveValidationMenu.cs`
+     - `NavigationStaticPointValidationRunner.cs`
+     - `PlayerAutoNavigator.cs` 当前 arrival / crowd / finalize 热区
+  2. 明确钉死：
+     - 现有 live runner **没有** dedicated 的“终点有 NPC 停留” case；
+     - 这条缺口的最小正确落点应是：
+       - `NavigationLiveValidationRunner.cs`
+       - `NavigationLiveValidationMenu.cs`
+     - 不应再把它塞进 static runner，也不应回漂 solver / scene / NPC roam；
+  3. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-01-父线程-终点NPC专案预审与验收尺盘点-28.md`
+  4. 文档中已收死：
+     - 推荐 case 名：
+       - `RealInputPlayerGoalNpcOccupancy`
+     - 最小摆位建议
+     - raw click 有效性闸门：
+       - `playerClickIssued`
+       - `pendingAutoInteractionAfterClick`
+     - dedicated case 后续必须区分的失败分类：
+       - `InteractionHijack`
+       - `Bulldoze`
+       - `Oscillation`
+       - `Linger`
+       - `Reached`
+       - `StableHoldPending`
+- 关键决策：
+  1. 我这轮不再发新 prompt，因为 `V2` 还在跑；
+  2. 但后续一旦它回执里还想继续拿 `Crowd raw` 代理“终点 NPC lingering”，我会直接按 `-28` 拒收；
+  3. 这轮之后，父线程对 dedicated 终点 NPC 专案已经有了现成的预审尺，不需要再临场重想。
+- 验证结果：
+  - 本轮只读 + docs 落盘；
+  - 无 runtime 代码修改；
+  - 当前 `thread-state` 这条 slice 仍是：
+    - `终点NPC专案预审与验收尺盘点-28`
+- 当前恢复点：
+  - 这轮收尾后我会把自己的切片停到 `PARKED`；
+  - 下一次如果用户继续让我审 `V2` 或继续发 prompt，直接从 `-28` 这份 dedicated case 文档接着走。
+  - 当前已实际执行：
+    - `Park-Slice`
+    - state=`PARKED`
+    - blockers=
+      - `waiting-for-v2-runtime-receipt`
+      - `goal-npc-dedicated-case-awaits-v2-implementation`
+
+## 2026-04-02（彻审 `V2` dedicated endpoint 回执：当前最核心的问题不是没案子，而是 fake green；已继续下发 `-29`）
+
+- 当前主线目标：
+  - 用户要求我对 `V2` 最新回执做彻底审核并给出下一步指令；本轮子任务是判断 dedicated endpoint 专案当前到底该判成“继续施工”还是“停给用户验收”。
+- 本轮已完成事项：
+  1. 重新显式使用：
+     - `skills-governor`
+     - `sunset-warden-mode`
+     - `sunset-prompt-slice-guard`
+     - `preference-preflight-gate`
+  2. 只读核对：
+     - `NavigationLiveValidationRunner.cs`
+     - `NavigationLiveValidationMenu.cs`
+     - `PlayerAutoNavigator.cs`
+     - 上轮父线程文档 `-28`
+  3. 我接受的部分：
+     - `V2` 确实补出了 dedicated 的 `RealInputPlayerEndpointNpcOccupied`
+     - 这条专案已经从 crowd 代理里拆出来
+  4. 我明确拒收的部分：
+     - 当前 dedicated endpoint `raw ×3 pass=True`
+     - 因为代码现场已经把它钉死成：
+       - `endpointArrivalTolerance = combinedRadius + 0.35`
+       - `playerReached = !IsActive && (reachedByCenter || reachedByBlockedShell)`
+       - 结果是 `playerCenterDistance > 1` 仍能报 green
+     - 这属于把 blocker shell hold 偷换成 point-arrival 成立
+  5. 另一条新增拒收点：
+     - `NavigationLiveValidationMenu.cs` 当前仍没有 dedicated endpoint 的标准入口 / `PendingAction` / `ExecuteAction(...)`
+     - toolchain 还没完整接回
+  6. 已继续下发新 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-拒收dedicated终点NPC假绿并强制补真口径矩阵-29.md`
+- 关键决策：
+  1. 这轮仍然属于“继续发 prompt”，不能停给用户验收；
+  2. `-29` 的唯一主刀不是“再优化 endpoint 体验”，而是：
+     - 先把 fake green 从 dedicated endpoint 口径里剔掉；
+  3. 同时强制要求它补：
+     - outcome 分类
+     - 标准 menu/toolchain 入口
+     - 当前代码口径 fresh 最小矩阵
+- 当前验证结论：
+  - 当前 endpoint 专案最多只能算：
+    - `targeted probe / partial validation`
+  - 不能上抬成：
+    - `real entry experience`
+- 当前 thread-state：
+  - 本轮已重新执行：
+    - `Begin-Slice`
+    - state=`ACTIVE`
+    - slice=`复审V2-27终点NPC专案口径偷换并续发-29`
+- 当前恢复点：
+  - 这轮收尾后我会再次把自己停到 `PARKED`；
+  - 下一次如果用户继续让我审 `V2`，就直接按 `-29` 看：
+    1. green 是否回到真实合同
+    2. shell hold 是否已被降级成单独 outcome
+    3. menu/toolchain 和 fresh matrix 是否补齐
+  - 当前已实际执行：
+    - `Park-Slice`
+    - state=`PARKED`
+    - blockers=
+      - `waiting-for-v2-29-receipt`
+      - `dedicated-endpoint-pass-contract-still-false-green`
+
+## 2026-04-02（父线程继续做完自己能做的支线：已把 `-29` 的后续拒收逻辑固定成 `-30`）
+
+- 当前主线目标：
+  - 用户要求我把自己还没做完的主线/支线继续推进；本轮子任务是在 `-29` 之外，把父线程自己下一次如何收件、如何拒收假绿的逻辑写成固定验收单，避免后面重复靠临场判断。
+- 本轮已完成事项：
+  1. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-29验收尺与假绿拒收清单-30.md`
+  2. `-30` 里已经把我下次收 `V2 -29` 回执时的顺序写死：
+     - 先审 green 定义
+     - 再审 outcome 分类
+     - 再审 raw click 有效性
+     - 再审 toolchain
+     - 最后才审 fresh matrix
+  3. 这轮没有新发 prompt，也没有碰 runtime；它是父线程自己的验收逻辑补完。
+- 关键决策：
+  1. 从现在开始，我不会再只因为 `raw ×3 pass=True` 就默认 endpoint 站住；
+  2. 必须先看：
+     - fake green 是否已剔除
+     - `StableHoldOutsideOccupiedEndpoint` 是否已从 green 中拆出
+     - menu/toolchain 是否补齐
+     - fresh matrix 是否是当前代码口径
+- 当前 thread-state：
+  - 本轮已重新 `Begin-Slice`
+  - 收尾已再次 `Park-Slice`
+  - state=`PARKED`
+  - blockers=
+    - `waiting-for-v2-29-receipt`
+    - `false-green-endpoint-acceptance-checklist-ready`
+- 当前恢复点：
+  - 现在如果用户继续让我审 `V2`，我手里已有：
+    - `-29` 施工 prompt
+    - `-30` 父线程验收单
+  - 后续不再需要临场补这条 dedicated endpoint 的拒收逻辑。
+## 2026-04-02（线程补记：已完成 `V2 -29` 回执复审、`-31` 续工 prompt 和 `-32` 验收尺）
+
+- 当前主线目标：
+  - 用户要求我继续做完自己还没做完的父线程工作；本轮子任务是复审用户直接贴回的 `V2 -29` 新回执，并给出严格的下一轮续工 prompt。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `preference-preflight-gate`
+    - `sunset-warden-mode`
+    - `sunset-prompt-slice-guard`
+    - `sunset-governance-dispatch-protocol`
+  - `sunset-startup-guard`、`user-readable-progress-report`、`delivery-self-review-gate` 继续走手工等价流程
+  - 这轮先补跑了 `Begin-Slice`；中途还因 own paths 过窄用 `-ForceReplace` 重新登记了 `.kiro/specs/屎山修复` 根层
+- 本轮完成事项：
+  1. 严格对照代码现场复核 `V2` 回执：
+     - `NavigationLiveValidationRunner.cs`
+     - `NavigationLiveValidationMenu.cs`
+  2. 核实结论：
+     - fake green removal = 真
+     - menu/toolchain 接回 = 真
+     - 但“提前失活真因已实锤” = 证据仍不够
+     - “右键停位偏上已关闭” = 不接受，用户真人体验反馈仍否定
+  3. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-只锁PAN终点linger真因与可视停位不准再假关闭-31.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-31验收尺与右键停位假关闭拒收清单-32.md`
+- 关键决策：
+  1. `-29` 继续只按 `carried partial checkpoint` 定性
+  2. `-31` 的唯一主刀被我压回：
+     - `PlayerAutoNavigator.cs`
+     - 并强制它同时回答：
+       - endpoint / crowd 失败到底是哪条 PAN 分支在吃窗口
+       - 用户可视停位偏上是否仍未关闭
+  3. 父线程后续收件固定按 `-32`，不再临场发挥
+- 当前验证：
+  - `git diff --check` 对新建 `-31/-32` 文件已通过
+- 当前 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `waiting-for-v2-31-receipt`
+    - `v2-runtime-proof-must-show-pan-branch-and-user-visible-stop-truth`
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-31`
+    - `-32`
+  - 然后按 `-32` 的固定顺序裁：
+    1. 真因证据
+    2. 右键停位偏上是否继续偷换
+    3. scope 是否乱漂
+    4. fresh matrix 是否够
+
+## 2026-04-02（线程补记：已完成 `V2 -31` 回执复审、`-33` 大刀 prompt 和 `-34` 验收尺）
+
+- 当前主线目标：
+  - 用户明确要求“步伐迈大一点”，不要再让 `V2` 只停在 blocker checkpoint；本轮子任务是复审 `-31` 回执，并把下一刀放大成 compile gate 真伪塌缩 + PAN 大刀闭环。
+- 本轮新增核查：
+  1. 直接对读 `Editor.log`
+     - 已核到 `InventorySlotUI.cs / ToolbarSlotUI.cs` 对应 `CS0103`
+  2. 直接对读当前工作树
+     - 已核到这两个 UI 文件又真实存在 `TickStatusBarFade()` / `ApplyStatusBarAlpha()`
+  3. 因此当前最核心的新判断是：
+     - gate 不能再只按“外部红错”泛化报实
+     - 必须先塌缩成 `active / stale / cleared`
+     - 然后决定是否继续同窗推进 PAN
+- 本轮完成事项：
+  1. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-强制塌缩compile-gate并在同窗完成PAN大刀闭环-33.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-33验收尺与大刀闭环拒收清单-34.md`
+  2. `-33` 已把 completion 放大为：
+     - 先塌缩 gate
+     - 若 gate 不活，则不准停车
+     - 直接把 endpoint / crowd / ground 三条一起推进
+  3. `-34` 已把父线程下次拒收条件写死：
+     - 不再接受“小 blocker 回卡”
+     - 不再接受只交真因分析、不交 PAN 改刀
+- 当前 thread-state：
+  - 这轮已重新 `Begin-Slice`
+  - 收尾前会再次 `Park-Slice`
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-33`
+    - `-34`
+  - 然后按 `-34` 固定顺序裁定。
+
+## 2026-04-02（线程补记：已完成 `V2 -33` 回执复审、`-35` 自清恢复 prompt 和 `-36` 验收尺）
+
+- 当前主线目标：
+  - 用户要求“彻查”；本轮子任务是把 compile gate 从“真红”再往下压一层，判断它到底还是不是 `V2` 可以自己继续推进的现场。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `preference-preflight-gate`
+    - `sunset-warden-mode`
+    - `sunset-prompt-slice-guard`
+    - `sunset-governance-dispatch-protocol`
+  - `sunset-startup-guard`、`user-readable-progress-report`、`delivery-self-review-gate` 继续走手工等价流程
+  - 这轮已重新 `Begin-Slice`
+- 本轮新增核查：
+  1. 直接只读核了 UI 源文件：
+     - 方法本体存在
+     - 标识符字节一致
+     - 类唯一
+     - 括号结构正常
+     - 无 NUL 脏字节
+  2. 直接只读核了 `Editor.log`：
+     - 最新 forced recompile 仍有 `CS0103`
+- 关键决策：
+  1. `V2 -33` 不能继续停在“等外部修”
+  2. 下一刀必须先做 Unity 编译态 / 导入态自清恢复
+  3. gate 一旦 cleared，就必须同窗继续 PAN 大闭环
+- 本轮完成事项：
+  1. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-先自清Unity编译态再同窗完成PAN大闭环-35.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-35验收尺与自清恢复前置拒收清单-36.md`
+  2. `-35` 已把下一轮收紧成：
+     - 先自清恢复
+     - 再 gate 分类
+     - 再决定是否继续 PAN
+  3. `-36` 已把父线程下次收件顺序写死
+- 当前验证：
+  - `git diff --check` 对新增 `-35/-36` 通过
+- 当前 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：收尾前会跑
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-35`
+    - `-36`
+  - 然后按 `-36` 固定顺序裁：
+    1. 自清恢复动作
+    2. gate 分类
+    3. gate 清掉后是否继续 PAN
+
+## 2026-04-02（线程补记：已并行补出 UI compile gate owner 定责单与备用接盘 prompt）
+
+- 当前主线目标：
+  - 用户要求我“和 `V2` 并行做自己能做的一切”；本轮并行子任务是把当前 UI compile gate 的潜在接盘方和 owner 失配现场提前压清。
+- 本轮前置核查与 skill：
+  - 已继续使用：
+    - `skills-governor`
+    - `sunset-rapid-incident-triage`
+    - `sunset-prompt-slice-guard`
+    - `sunset-governance-dispatch-protocol`
+  - 其余治理/汇报类 skill 继续走手工等价流程
+- 本轮完成事项：
+  1. 已跑 rapid probe，得到：
+     - 历史 owner 家族 = `农田交互修复V2`
+  2. 已对读当前 active state，确认：
+     - `农田交互修复V3` 当前 ACTIVE
+     - 但 own paths 不含 UI/Inventory/Toolbar
+     - 工作树却真实带着这批 UI dirty
+  3. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-UI-compile-gate急诊定责与owner失配说明-37.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-农田交互修复V3-若V2自清失败则立即报实并接盘Inventory-UI-compile-gate-38.md`
+- 关键决策：
+  1. 当前 UI compile gate 不是单纯“外部红错”，也是 owner / white-list 失配 incident
+  2. 如果 `V2 -35` 自清失败，最该出来接盘的人更像：
+     - `农田交互修复V3`
+- 当前恢复点：
+  - 后续若用户要继续压这条 UI compile gate，可直接用：
+    - `-37` 做情况说明
+    - `-38` 做升级接盘 prompt
+
+## 2026-04-02（线程补记：`V2 -35` 进行中现场已越过 compile blocker，小心下一轮从“等 gate”误判成“体验已好”）
+
+- 当前主线目标：
+  - 用户让我在 `V2` 继续施工期间并行做自己能做的一切；本轮子任务不是再发新 prompt，而是把 `V2 -35` 的进行中现场真相先固化成父线程实时审计快照。
+- 本轮前置核查与 skill：
+  - 已继续使用：
+    - `skills-governor`
+    - `sunset-workspace-router`
+    - `preference-preflight-gate`
+  - `sunset-startup-guard`、`user-readable-progress-report`、`delivery-self-review-gate` 继续走手工等价流程
+- 本轮完成事项：
+  1. 读取最新 `Editor.log` 与当前工作树 diff，确认 compile gate 现场已经发生实质变化：
+     - 日志先有 endpoint `Linger pass=False`
+     - 随后出现多次 `Tundra build success`
+     - 之后 PAN live 大矩阵继续跑起
+  2. 父线程已实际看到的新鲜 live 结果包括：
+     - dedicated endpoint 后续出现一组 `pass=True / ReachedClickPoint`
+     - `CrowdPass` 后续出现一组 `pass=True / crowdStallDuration=0.268`
+     - `SingleNpcNear / MovingNpc` 继续 `pass=True`
+     - `GroundPointMatrix` 继续 `pass=True`
+  3. 同时也确认最危险的偷换仍在：
+     - `GroundPointMatrix` 里贴近点击点的仍是 `Collider.center`
+     - `Transform/Rigidbody` 仍比点击点低约 `1.09~1.24`
+     - 所以不能把这条绿面说成“用户可视停位偏上已关闭”
+  4. 已新建实时审计文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-35进行中实时审计快照与预裁定-39.md`
+- 关键决策：
+  1. 下次收 `V2` 回执时，父线程不能再围着 compile gate 审；
+  2. 正确顺序应变成：
+     - 先确认 gate 何时被清掉
+     - 再确认它何时继续跑 PAN 大矩阵
+     - 最后再防它把 `center-only` 结构绿偷换成用户可视体验已过线
+- 当前验证：
+  - 本轮仅改父线程 own 文档与记忆
+  - 无 runtime 代码修改
+- 当前 thread-state：
+  - `Begin-Slice`：沿用上一轮 ACTIVE 现场
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `waiting-for-v2-35-receipt`
+    - `v2-live-already-past-compile-gate-but-user-visible-stop-truth-still-unsettled`
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-35`
+    - `-36`
+    - `-39`
+  - 然后再根据 `V2` 正式回执决定是否需要：
+    - 继续追可视停位真值
+    - 或继续追 endpoint / crowd 过线是否被夸大
+
+## 2026-04-02（线程补记：已复审 `V2 -35` 正式回执，并下发 `-40 / -41`）
+
+- 当前主线目标：
+  - 用户要求我审核 `V2` 正式回执并给出下一步 prompt；本轮子任务是判断这份回执应该判成“继续发 prompt”还是“停给用户验收 / 分析”。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `sunset-warden-mode`
+    - `sunset-prompt-slice-guard`
+    - `sunset-governance-dispatch-protocol`
+    - `sunset-workspace-router`
+  - `sunset-startup-guard`、`preference-preflight-gate`、`user-readable-progress-report`、`delivery-self-review-gate` 继续走手工等价流程
+  - 这轮已重新执行：
+    - `Begin-Slice`
+- 本轮完成事项：
+  1. 接受：
+     - 原始 UI compile gate 已 `cleared`
+     - `V2` 确实继续跑到了 PAN live 大矩阵
+     - 它本次没有再把“右键停位偏上”写成已关闭
+  2. 拒收：
+     - 它把 endpoint / crowd 的旧样本和新样本混讲成“当前最终代码稳定转绿”
+     - 它又拿 `PlayerNpcChatSessionService.cs / SetConversationBubbleFocus` 当停车理由，但这条新 gate 父线程手上并无 fresh 稳定活 blocker 证据
+  3. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-禁止混算旧新样本并补满当前最终代码稳定矩阵-40.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-40验收尺与旧新样本混算拒收清单-41.md`
+- 关键决策：
+  1. 这轮继续发 prompt，不停给用户验收；
+  2. 下一轮唯一主刀被我压成：
+     - 先塌缩新的 `PlayerNpcChatSessionService` blocker 真伪
+     - 再在当前最终代码上把稳定矩阵补满
+  3. 从现在开始，父线程对 `V2` 的 runtime 绿面只接受：
+     - 当前最终代码连续 fresh 重跑出来的结果
+     - 不再接受“累计样本总体变好”这种叙事
+- 当前验证：
+  - `git diff --check` 对新增 `-40/-41` 和本轮记忆更新通过
+- 当前 thread-state：
+  - 这轮已重新 `Begin-Slice`
+  - 收尾前需要重新 `Park-Slice`
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-40`
+    - `-41`
+  - 再按 `-41` 固定顺序裁：
+    1. 新 blocker 是否 fresh 塌缩
+    2. 当前最终代码矩阵是否跑满
+    3. 是否还在混算旧新样本
+    4. 是否再次偷换用户可视停位真值
+
+## 2026-04-02（线程收尾补记：本轮 skill 审计已补，slice 已合法停到等待 `V2 -40` 回执）
+
+- 当前主线目标：
+  - 继续作为父线程审 `导航检查V2` 回执与续工 prompt；本轮最后子任务是补齐审计层并把 active slice 合法停到等待态。
+- 本轮完成事项：
+  1. 已追加：
+     - `C:\Users\aTo\.codex\memories\skill-trigger-log.md`
+     - `STL-20260402-054`
+  2. 已运行：
+     - `check-skill-trigger-log-health.ps1`
+     - 结果 `Canonical-Duplicate-Groups=0`
+  3. 已重新执行：
+     - `Park-Slice`
+     - 当前 `导航检查` thread-state=`PARKED`
+     - blockers=
+       - `waiting-for-v2-40-receipt`
+       - `awaiting-fresh-proof-or-current-final-code-matrix-from-v2`
+- 关键决策：
+  1. 这轮父线程到此不再继续追加 prompt；
+  2. 当前正确等待物不是新的口头解释，而是一份符合 `-40/-41` 的 `V2` fresh 回执。
+- 当前验证：
+  - `git diff --check`：
+    - `-40`
+    - `-41`
+    - `导航检查/memory.md`
+    - `屎山修复/memory.md`
+    - `导航检查/memory_0.md`
+    - `clean`
+- 当前恢复点：
+  - 下次接手先确认：
+    1. 用户是否已经把 `-40` 转发给 `V2`
+    2. `V2` 是否已回执
+    3. 若已回执，先按 `-41` 收件，不再回退到 `-35/-36` 口径
+
+## 2026-04-02（线程补记：已复审 `V2 -40`，并下发 `-42 / -43`）
+
+- 当前主线目标：
+  - 用户要求我继续审核 `V2 -40` 回执并决定下一步 prompt；本轮子任务是塌缩它新报的 `Tool_002` compile gate 与 `queued_action-only` live gate 是否成立。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `sunset-warden-mode`
+    - `sunset-prompt-slice-guard`
+  - `preference-preflight-gate`、`user-readable-progress-report`、`delivery-self-review-gate` 继续走手工等价流程
+  - 这轮已重新执行：
+    - `Begin-Slice`
+- 本轮完成事项：
+  1. 接受：
+     - `PlayerNpcChatSessionService / SetConversationBubbleFocus` 当前可按 `stale` 处理
+     - `V2` 这轮没有再混算旧样本
+  2. 拒收：
+     - 它把已被后续 `Tundra build success` 覆盖、且磁盘代码行已不匹配的 `Tool_002` 旧红继续写成活 blocker
+     - 它把父线程当前最新现场里已经 `scenario_start/setup/observe` 的 probe 继续写成 `queued_action-only`
+  3. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-拒绝把已清Tool002与已dispatch探针继续当blocker并立刻补满当前最终代码矩阵-42.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-42验收尺与假Tool002阻塞拒收清单-43.md`
+- 关键决策：
+  1. 这轮继续发 prompt，不停给用户验收；
+  2. 下一轮唯一主刀被压成：
+     - 先最后塌缩 `Tool_002` 与 `queued_action-only` 这两个 blocker 口径
+     - 如果站不住，就立刻回到当前最终代码矩阵起跑
+  3. 从现在开始，父线程不再接受：
+     - 已被后续成功编译覆盖的旧红 blocker
+     - 已经真正 dispatch 的 probe 继续被写成 `queued-only`
+- 当前验证：
+  - 只读核验基于：
+    - `Editor.log`
+    - `Tool_002_BatchHierarchy.cs` 当前磁盘内容
+    - `CodexEditorCommands` archive / status 现场
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-42`
+    - `-43`
+  - 再按 `-43` 固定顺序裁：
+    1. `Tool_002` 真伪
+    2. `queued_action-only` 真伪
+    3. 当前最终代码矩阵是否真的起跑
+
+## 2026-04-02（线程补记：已复审 `V2` 最新矩阵回执，并下发 crowd 单刀 `-44 / -45`）
+
+- 当前主线目标：
+  - 用户要求我继续审核 `V2` 最新矩阵回执并给出下一步 prompt；本轮子任务是判断矩阵是否真的 fresh 跑满，以及剩余问题是否已缩成单一 crowd 红面。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `sunset-warden-mode`
+    - `sunset-prompt-slice-guard`
+  - `preference-preflight-gate`、`user-readable-progress-report`、`delivery-self-review-gate` 继续走手工等价流程
+  - 这轮已重新执行：
+    - `Begin-Slice`
+- 本轮完成事项：
+  1. 接受：
+     - `Tool_002_BatchHierarchy` 当前可按 `cleared` 处理
+     - `queued_action-only` 已被最新 probe 推翻
+     - 当前最终代码矩阵已被 fresh 跑满
+  2. 继续压缩后的 runtime 真相：
+     - 只剩 `Crowd raw ×3` 三连红
+     - 其它矩阵已绿
+  3. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-只收PAN-crowd同簇三连红并维持其余矩阵绿面-44.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-44验收尺与crowd唯一红面拒收清单-45.md`
+- 关键决策：
+  1. 这轮继续发 prompt，不停给用户验收；
+  2. 下一轮唯一主刀被压成：
+     - 只收 `PlayerAutoNavigator.cs` 的 crowd 同簇三连红
+  3. 就算 crowd 后续过线，也不允许它顺手把“右键停位偏上”写成已关闭。
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-44`
+    - `-45`
+  - 再按 `-45` 固定顺序裁：
+    1. crowd 这轮到底几绿几红
+    2. 护栏是否仍绿
+    3. stop-bias 是否仍诚实报未关闭
+
+## 2026-04-02（线程补记：已复审 `V2 -44` 自纠回执，并下发 `-46 / -47`）
+
+- 当前主线目标：
+  - 用户要求我继续审核 `V2` 最新回执并决定下一步 prompt；本轮子任务是判断 crowd 问题现在究竟还是 runtime 问题，还是已经变成测试语义问题。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `sunset-warden-mode`
+    - `sunset-prompt-slice-guard`
+  - `preference-preflight-gate`、`user-readable-progress-report`、`delivery-self-review-gate` 继续走手工等价流程
+  - 这轮已重新执行：
+    - `Begin-Slice`
+- 本轮完成事项：
+  1. 接受：
+     - `V2` 不是在回避问题，而是明确承认“旧 crowd case 测的不是用户真正要的语义”
+  2. 改判：
+     - 下一轮不该继续先修 `PlayerAutoNavigator.cs`
+     - 而应先纠偏 crowd 验证语义
+  3. 已新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-导航检查V2-先纠偏crowd测试语义再裁定PAN crowd补口留回-46.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-02-父线程-V2-46验收尺与crowd语义纠偏拒收清单-47.md`
+- 关键决策：
+  1. 这轮继续发 prompt，不停给用户验收；
+  2. 下一轮唯一主刀被压成：
+     - 先纠偏 crowd 测试语义
+     - 再裁定 PAN crowd 两刀补口该留还是该回
+  3. 这轮默认不允许先继续新增 `PlayerAutoNavigator.cs` runtime 改动。
+- 当前恢复点：
+  - 下一次如果用户继续让我审 `V2`，先读：
+    - `-46`
+    - `-47`
+  - 再按 `-47` 固定顺序裁：
+    1. 旧 crowd case 是否已降级
+    2. 新语义 case 是否 fresh 跑起
+    3. runtime 是否先被冻结
+    4. PAN crowd 两刀补口该留还是该回
+
+## 2026-04-02（线程收尾补记：这轮已合法 `Park-Slice`，等待 `V2 -46` 回执）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `waiting-for-v2-46-receipt`
+    - `awaiting-crowd-semantics-correction-before-any-more-pan-runtime-tuning`
+- 当前恢复点：
+  - 下次不要再把 crowd 单红面直接当 runtime 题；
+  - 直接按 `-46 / -47` 收 crowd 语义纠偏回执。
+
+## 2026-04-02（线程补记：已按用户要求压实“导航离最终还差多少”的总图）
+
+- 当前主线目标：
+  - 用户不再要长链 prompt 裁定，而是要一份能直接回答“为什么这么久还没完、现在到底还差多少”的导航总进度汇报。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `user-readable-progress-report`
+    - `delivery-self-review-gate`
+  - `sunset-startup-guard` 当前会话未显式暴露，已按 Sunset 规则手工做等价前置核查：
+    - 读取项目 / 全局 `AGENTS.md`
+    - 读取工作区 memory、线程 memory、`导航检查V2.json`
+    - 读取 `global-preference-profile.md`
+  - 本轮进入了极窄文档 slice，并已执行：
+    - `Begin-Slice`
+    - `Park-Slice`
+- 本轮完成事项：
+  1. 把导航主线从一长串历史回执里重新压成当前总图：
+     - 旧 `Crowd raw` 语义已被纠正，不再当主 acceptance
+     - 当前真正剩余的 runtime 红面在新 `PassableCorridor / StaticNpcWall` 语义下
+  2. 明确确认：
+     - 除 crowd 外，player-side 关键矩阵已大体站住
+     - 但 `Ground raw matrix` 仍不能被偷换成“右键停位偏上已关闭”
+  3. 得出对用户最可执行的结论：
+     - 当前不是“导航系统整体还一团乱”
+     - 而是已经被压到最后 2 个未闭环点：
+       1. `PlayerAutoNavigator.cs` 的 crowd runtime 响应
+       2. 右键停位偏上的体验真值
+     - 如果按整个导航盘子一起算，还另有 2 条尾账：
+       1. `Primary` 穿越/边界/切场这条线仍待用户真实入口复测
+       2. 较早的 NPC roam fail-fast / probe 线仍是 carried partial checkpoint，但不是当前主阻塞
+- 关键决策：
+  1. 当前如果继续发给 `V2`，唯一合理下一刀仍应是：
+     - 先回退最近两刀 `PlayerAutoNavigator.cs` crowd 补口
+     - 再用新语义 fresh 复判
+  2. 在 crowd 新语义没站住前，不再接受旧 `Crowd raw` 被当主真值；
+  3. 在 stop-bias 有玩家可视真证据前，不再接受任何“右键停位偏上已关闭”的写法。
+- 当前恢复点：
+  - 线程这轮已重新 `PARKED`
+  - blockers=
+    - `pan-crowd-runtime-still-red-under-corrected-semantics`
+    - `right-click-stop-bias-still-not-closed`
+    - `awaiting-next-slice-for-pan-crowd-rollback-ruling`
+
+## 2026-04-02（线程收尾补记：这轮已合法 `Park-Slice`，等待 `V2 -44` 回执）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `waiting-for-v2-44-receipt`
+    - `awaiting-proof-that-pan-crowd-cluster-is-green-without-regressions`
+- 当前恢复点：
+  - 下次不要再回到矩阵真实性或旧 blocker 层；
+  - 直接按 `-44 / -45` 收 crowd 单红面回执。
+
+## 2026-04-02（线程收尾补记：这轮已合法 `Park-Slice`，等待 `V2 -42` 回执）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `waiting-for-v2-42-receipt`
+    - `awaiting-proof-that-current-final-code-matrix-has-really-restarted`
+- 当前恢复点：
+  - 下次不要再从 `-40` 开始争论旧 blocker；
+  - 直接按 `-42 / -43` 收 `V2` 新回执。
+
+## 2026-04-03（线程补记：用户已认可当前导航版本；父线程停止继续扩大 runtime 风险，并给 V2 下发最终验收交接 prompt）
+
+- 当前主线目标：
+  - 在用户已认可当前导航版本后，停止继续把 crowd/wall runtime 往更激进方向硬推；
+  - 本轮子任务转为：保住当前认可版本、撤回未站住的激进试刀、并给 `导航检查V2` 下发最终验收交接 prompt。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `preference-preflight-gate`
+    - `sunset-no-red-handoff`
+    - `sunset-unity-validation-loop`
+  - `user-readable-progress-report`、`delivery-self-review-gate` 本轮继续走手工等价流程
+  - 本轮沿用已有 `ACTIVE` slice，没有重开 `Begin-Slice`
+- 本轮完成事项：
+  1. 已对白名单 `PlayerAutoNavigator.cs` 两次通过：
+     - `git diff --check`
+     - `CodexCodeGuard = CanContinue=true`
+  2. 已基于最新 runtime 现场再次确认：
+     - `StaticNpcWall` 仍可站住 `StableHoldBeforeWall`
+     - `PassableCorridor` 的坏相已经从早前大抖动压成更窄的“detour 介入但最后仍有 slow/oscillation”
+  3. 我曾短暂试过一刀更激进的 corridor 判定扩张；
+     - 单样本表现没有优于当前版本；
+     - 因此这刀已经撤回，没有保留。
+  4. 用户随后明确给出新的顶层裁定：
+     - 当前导航版本可接受，并已认可
+  5. 已新建给 `导航检查V2` 的下一轮 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-导航检查V2-用户已认可当前导航版本仅收最终验收交接与可归仓判定-52.md`
+- 关键决策：
+  1. 父线程本轮不再继续追加更激进的 `PlayerAutoNavigator.cs` crowd runtime 试刀；
+  2. `PassableCorridor / StaticNpcWall` 当前 remaining red 从现在起只再保留为 targeted probe / 后续 polish 诊断项，不能继续凌驾于用户真实入口认可之上；
+  3. `导航检查V2` 下一刀不再继续修 PAN，而是只收最终验收交接与可归仓判定。
+- 当前验证：
+  - `git diff --check -- Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`：通过
+  - `CodexCodeGuard(PlayerAutoNavigator.cs)`：通过
+  - Unity 当前已回 `Edit Mode`
+- 当前恢复点：
+  - 下次如果继续这条线程，先以“用户已认可当前导航版本”为顶层事实；
+  - 只有在用户明确重新要求继续打磨 crowd 体验时，才重新打开 PAN runtime 调优。
+
+## 2026-04-03（线程收尾补记：本轮已合法 `Park-Slice`）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：沿用已有 ACTIVE slice
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `user-accepted-current-navigation-version-as-baseline`
+    - `waiting-for-v2-final-acceptance-handoff-or-sync-ruling`
+- 当前恢复点：
+  - 父线程当前不再继续扩大 runtime 风险；
+  - 下一次若继续，先看 `导航检查V2 -52` 回执，再决定是否只做最终收口。
+
+## 2026-04-03（线程补记：接入工具-V1新分工后，父线程与 V2 的主线被重新切开）
+
+- 当前主线目标：
+  - 这轮不是继续业务施工，而是把导航剩余工作按最新分工重新收刀；
+  - 本轮子任务是：读取工具-V1新 prompt，重写父线程与 `导航检查V2` 的后续续工 prompt，并把这次 prompt 重排切片收干净。
+- 本轮前置核查与 skill：
+  - 已使用：
+    - `skills-governor`
+    - `sunset-workspace-router`
+    - `sunset-prompt-slice-guard`
+    - `preference-preflight-gate`
+  - `sunset-startup-guard` 当前会话未显式暴露，本轮按 Sunset `AGENTS.md` 做手工等价前置核查；
+  - `user-readable-progress-report`、`delivery-self-review-gate` 本轮继续按手工等价流程执行。
+- 本轮完成事项：
+  1. 已完整核对工具-V1给父线程与给它自己的两份 prompt，确认：
+     - 工具-V1只保留：
+       - `NavGrid2D.cs`
+       - `PlayerMovement.cs`
+       - `SceneTransitionTrigger2D.cs`
+     - 不再 own scene / binder / tool
+  2. 已确认当前 thread-state：
+     - `导航检查 = ACTIVE`
+     - `导航检查V2 = PARKED`
+     - `019d4d18-bb5d-7a71-b621-5d1e2319d778 = ACTIVE`
+  3. 已新建父线程续工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-导航检查-把Primary-traversal剩余闭环从PAN主线拆出并独立收口-53.md`
+  4. 已新建 `导航检查V2` 续工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-导航检查V2-只收最终验收交接并与Primary-traversal独立分账-54.md`
+- 关键决策：
+  1. 父线程从现在起不再继续主刀 crowd/runtime 或 runner/menu；
+     - 唯一主刀改为：
+       - `Primary traversal` 剩余 scene integration / live closure
+  2. `导航检查V2` 不再继续修 runtime；
+     - 只收最终验收交接、已认可版本的分层报实、以及 sync / own-root 判定
+  3. 用户已认可当前导航版本仍是最高层事实；
+     - `PassableCorridor / StaticNpcWall` 红面只能继续作为后续 polish 诊断项
+  4. 只有 fresh 压实为 contract gap 时，才允许把 blocker 反抛给工具-V1的 3 个脚本
+- 当前恢复点：
+  - 给用户时只交复制友好的 prompt 壳，不再把长正文重贴回聊天；
+  - 这轮 prompt 重排结束后，父线程应合法 `Park-Slice`，等待用户转发或下游线程回执。
+
+## 2026-04-03（线程收尾补记：prompt 重排切片已合法 `Park-Slice`）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：沿用已有 ACTIVE slice
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `waiting-for-parent-primary-traversal-slice-execution`
+    - `waiting-for-v2-54-receipt-and-final-review`
+- 当前恢复点：
+  - 当前可以直接把 `-53` 发给父线程、把 `-54` 发给 `导航检查V2`；
+  - 下一次继续本线程时，不要再重做分工分析，直接先收 `V2 -54` 回执，再做整体审核与给工具-V1的回执。
+
+## 2026-04-03（线程补记：已审核工具-V1回执，并给出“先停不扩”的正式裁定）
+
+- 当前主线目标：
+  - 在新的导航三方分工下，审核工具-V1三脚本回执是否越界、是否夸大、以及 next step 应该停还是继续。
+- 本轮完成事项：
+  1. 已核对工具-V1当前 prompt、thread-state 与工作树：
+     - `status=PARKED`
+     - `Ready-To-Sync` blocker 为真
+  2. 已抽查 `NavGrid2D.cs / PlayerMovement.cs / SceneTransitionTrigger2D.cs` 实际改动；
+  3. 已形成核心判断：
+     - 工具-V1边界基本守住
+     - 但当前改动已经不是 pure contract-only，而是 contract + runtime behavior change
+  4. 已新建给工具-V1的正式裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-工具V1-三脚本contract回执与停工裁定-55.md`
+- 关键决策：
+  1. 不让工具-V1继续自己清 same-root dirty；
+  2. 不让工具-V1继续把这刀包装成“只补 contract API”；
+  3. 当前正确动作是让它继续 `PARKED`，等待父线程 / scene owner 消化它这刀里实际带入的 runtime 变化。
+- 当前恢复点：
+  - 这轮结束后可直接把 `-55` 转发给工具-V1；
+  - 下一次继续本线程时，优先收 `导航检查V2` 最新回执，再做整体审核。
+
+## 2026-04-03（线程收尾补记：工具-V1回执审核切片已合法 `Park-Slice`）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `waiting-for-v2-receipt-for-overall-navigation-final-review`
+    - `tool-v1-kept-parked-after-receipt-ruling`
+- 当前恢复点：
+  - 现在可以直接把 `-55` 转发给工具-V1；
+  - 后续这条线程优先等待 `导航检查V2` 回执，再做整体验收与最终导航分账。
+
+## 2026-04-03（线程补记：V2 回执 + 工具-V1 prompt_03 已全部审完，当前导航总分账已落盘）
+
+- 当前主线目标：
+  - 对 `导航检查V2` 回执和工具-V1最新 `prompt_03` 做最终审结，并给出当前导航总分账。
+- 本轮完成事项：
+  1. 已确认 `导航检查V2` 回执与 `-54` 一致，分账口径成立；
+  2. 已确认工具-V1最新 `prompt_03` 与 `-55` 一致，不会再自清 blocker；
+  3. 已新建总分账文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-03-导航最终分账与当前剩余总图-56.md`
+- 关键决策：
+  1. 当前“玩家导航版本可接受”已经可以视为 settled fact；
+  2. `导航检查V2` settled 的是 handoff，不是 sync；
+  3. 工具-V1 settled 的是停车边界，不是继续施工；
+  4. 当前真正剩余的业务问题只剩父线程 `Primary traversal`。
+- 当前恢复点：
+  - 这轮之后，对用户直接按 `-56` 做总分账即可；
+  - 如果继续施工，父线程下一步直接接 `Primary traversal` scene integration / live closure。
+
+## 2026-04-03（线程收尾补记：导航总分账切片已合法 `Park-Slice`）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `primary-traversal-remains-parent-only-open-business-slice`
+    - `v2-handoff-complete-but-sync-still-blocked`
+    - `tool-v1-remains-parked-until-precise-script-gap-callout`
+- 当前恢复点：
+  - 当前总分账已经定稿，用户向汇报默认直接按 `-56`；
+  - 继续施工时，父线程不再回头修 crowd / runner / 工具-V1，而是直接接 `Primary traversal`。
+
+## 2026-04-03（线程补记：已生成分账后的三线程下一轮 prompt）
+
+- 当前主线目标：
+  - 把 `-56` 总分账真正落成三份可转发的下一轮 prompt。
+- 本轮完成事项：
+  1. 已新建父线程 prompt：
+     - `-57`
+  2. 已新建 `导航检查V2` 停车 prompt：
+     - `-58`
+  3. 已新建工具-V1停车 prompt：
+     - `-59`
+- 关键决策：
+  1. 父线程继续施工；
+  2. `导航检查V2` 与工具-V1都继续 `PARKED`；
+  3. 不再让“还有尾账”变成三条线同时 reopen 的理由。
+- 当前恢复点：
+  - 现在可以直接把 `-57 / -58 / -59` 用复制友好格式交给用户转发；
+  - 这轮结束后，默认等待用户转发或新的回执。
+
+## 2026-04-03（线程收尾补记：三线程下一轮 prompt 分发切片已合法 `Park-Slice`）
+
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers=
+    - `parent-next-slice-is-primary-traversal-scene-closure-via-57`
+    - `v2-remains-parked-via-58`
+    - `tool-v1-remains-parked-via-59`
+- 当前恢复点：
+  - 直接按 `-57 / -58 / -59` 分发即可；
+  - 后续默认等待父线程 / V2 / 工具-V1的新回执。
+
+## 2026-04-03（线程补记：工具-V1 的 `-59` 已被正式下发）
+
+- 当前新增事实：
+  1. 用户已把 `-59` 正式发给工具-V1；
+  2. 这意味着工具-V1当前状态从“待分发停车 prompt”推进成：
+     - “停车 prompt 已生效，继续 `PARKED`”
+- 当前恢复点：
+  - 后续默认不再催工具-V1继续施工；
+  - 下一次如果还有新输入，优先看是否是父线程 `-57` 或 `导航检查V2 -58` 的回执。
+
+## 2026-04-03（Primary traversal 续工：我这轮已把工具-V1的 manager 接回 binder，但 live 停在 Unity busy blocker）
+
+- 当前主线目标：
+  - 继续只收 `Primary traversal` 的 scene integration / live closure；
+  - 这轮服务对象仍是：
+    - 玩家不能穿 `Props`
+    - 玩家和 NPC 不能进 `Water`
+    - 玩家不能走出 tilemap 外
+- 本轮子任务：
+  - 先核对工具-V1最新 prompt 与现场，判断它现在还能不能由我直接借力；
+  - 然后只动 `Assets/Editor/Story/PrimaryTraversalSceneBinder.cs`，把 `TraversalBlockManager2D` 真接进 `Primary`；
+  - 最后用最小 live 探针区分“桥死了”还是“Unity 自己忙住了”。
+- 本轮实际做成了什么：
+  1. 只读确认工具-V1当前为 `PARKED`，它 own：
+     - `NavGrid2D.cs`
+     - `PlayerMovement.cs`
+     - `TraversalBlockManager2D.cs`
+     - `SceneTransitionTrigger2D.cs`
+     我这轮没有去碰这些脚本。
+  2. 只读确认 `Primary` 当前 scene truth：
+     - `Farmland_Water` 和 `Props_Porps` YAML 上都是空 tilemap；
+     - 当前真正非空的 blocking tilemap 是 `Wall + Props_*`；
+     - 当前真正非空的 bounds tilemap 是 `Layer 1 - Base + Layer 2 - Base`。
+  3. 修改 `Assets/Editor/Story/PrimaryTraversalSceneBinder.cs`：
+     - 自动给 `NavigationRoot` 补 `TraversalBlockManager2D`；
+     - 用 `SerializedObject` 给 manager 写入 `navGrid / playerMovement / blockingTilemaps / boundsTilemaps` 等引用；
+     - 正式把 `blocking` 与 `bounds` 分离；
+     - 保留玩家 `navGrid/enforceNavGridBounds` 的场景侧兜底绑定。
+  4. 代码闸门：
+     - `git diff --check` 通过；
+     - `CodexCodeGuard pre-sync` 通过，`Diagnostics=[]`。
+  5. live 探针：
+     - `Assets/Refresh` 请求被 Unity 1 秒内吃掉并归档；
+     - `status.json` 时间戳推进到 `2026-04-03T03:21:42.6613310+08:00`；
+     - 随后状态固定在 `isCompiling=true`；
+     - 我补的 `STOP` 探针请求一直不被消费，后来已由我主动删除，没把悬挂请求留给别人。
+- 关键判断：
+  - 这轮我最核心的判断是：
+    - 工具-V1那把“脚本底座刀”现在已经被我接回 scene owner 这边了；
+    - 当前没法继续推进的第一责任点，不是 prompt 没分清，也不是 manager 还没接，而是 Unity 在 refresh 后重新卡到了 busy/compiling。
+  - 这个判断成立的依据：
+    - binder 的 editor 程序集静态编译已过；
+    - 命令桥请求能被消费并归档；
+    - 但后续请求不再被处理，`status.json` 长时间停在 `isCompiling=true`。
+- 我这轮最薄弱、最不满意的点：
+  - 没拿到 fresh Play 证据，所以当前还不能 claim `Primary traversal` 真闭环；
+  - `Water` 当前在磁盘 scene 上还是空 tilemap，也说明这条真值最后还得回到 live 现场而不是继续只看 YAML 猜。
+- 自评：
+  - `7.5/10`
+  - 好的地方是：我没有越界去改工具-V1 own 脚本，而是把它的新 manager 真接回了 binder，并把 live blocker 压得比之前更准；
+  - 最薄弱的地方是：这轮仍停在 fresh live 入口前，离“玩家真的不能穿 / 不能出图”的最终体验证据还差最后一段。
+- 当前恢复点：
+  - 等 Unity 从这次 refresh 的 busy 状态恢复；
+  - 下一手直接 fresh 验 `Props / Water / tilemap 外边界 / NPC同语义`；
+  - 只有当这些 fresh 证据表明 scene/binder 都对、但脚本仍缺口时，才精确回抛给工具-V1。
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - blockers：
+    - `primary-traversal-binder-now-wires-traversalblockmanager2d-but-no-fresh-play-evidence-yet`
+    - `primary-live-verification-blocked-unity-editor-remains-busy-after-assets-refresh`
+    - `primary-scene-remains-mixed-dirty-not-ready-for-sync`

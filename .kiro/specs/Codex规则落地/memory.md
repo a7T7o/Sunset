@@ -187,6 +187,81 @@
 - 同时给 `NPC` 和 `UI` 发停位提示，避免它们再误恢复施工。
 - 等 `spring-day1V2` 新回执回来后，再看是否需要第二轮细分 shared files。
 
+### 会话 19 - 2026-04-03（白名单提交被 Unity 红错打断，先改做 incident 归属判定与双 prompt 分发）
+**用户目标**：
+> 白名单提交先停。先把这波 Unity 红错拆成“哪些只是本地缓存坏，不该派线程”和“哪些是真正该派线程修”的归属判断，然后直接给出可转发 prompt。
+
+**已完成事项**：
+1. 先对 incident 做了只读归类，并把本地缓存层与真实业务资产层彻底拆开：
+   - 继续判为本地缓存/布局层，不派线程：
+     - `UserSettings/Layouts/default-6000.dwlt`
+     - `Library/EditorSnapSettings.asset`
+     - `Library/expandedItems`
+     - `Library/BuildProfileContext.asset`
+     - `Library/BuildProfiles/*`
+     - `Library/UIElements/EditorWindows/UnityEditor.InspectorWindow.pref`
+     - `Library/StateCache/*`
+   - 判为真实需要 owner 修复的业务/共享资产：
+     - `Assets/222_Prefabs/Rock/C1.prefab`
+     - `Assets/222_Prefabs/Rock/C2.prefab`
+     - `Assets/222_Prefabs/Rock/C3.prefab`
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`
+2. 钉死 Rock prefab 这组 incident 的真实证据：
+   - `C1/C2/C3.prefab` 当时曾在磁盘上变成整文件 `NUL` 空字节；
+   - 治理位已先做止血：
+     - 原始坏文件备份到 `.codex/artifacts/corruption-backups/rock-prefabs_2026-04-03_12-21-33`
+     - 当前 working tree 已把 `C1/C2/C3` 临时写回 `HEAD` 内容
+   - 但这一步只算仓库可读性止血，不算真正 owner 修复。
+3. 钉死共享 TMP 字体案已经从“importer 稳定性风险”升级为“资产本体损坏”：
+   - 当前 `git status` 仍脏：
+     - `DialogueChinese SDF.asset`
+     - `DialogueChinese Pixel SDF.asset`
+     - `LiberationSans SDF - Fallback.asset`
+   - `git diff --stat` 显示两份 `DialogueChinese*` 资产都发生大块删除；
+   - 资产 YAML 级证据已出现：
+     - `m_Material: {fileID: 0}`
+     - `m_AtlasTextures: - {fileID: 0}`
+     - `atlas: {fileID: 0}`
+   - 新运行时错误已直接报：
+     - `The Font Atlas Texture ... is missing`
+     - `MissingReferenceException: The variable m_AtlasTextures of TMP_FontAsset doesn't exist anymore`
+   - 受影响消费者横跨 `SpringDay1PromptOverlay / SpringDay1WorldHintBubble / NPCBubblePresenter / PlayerThoughtBubblePresenter`，进一步证明它不是单业务线尾账。
+4. 基于以上证据，完成当前归属裁定：
+   - `树石修复`：
+     - 当前 `PARKED`
+     - 与 `Tree/StoneController`、Rock prefab 历史上下文最贴近
+     - 适合发“Rock prefab 损坏与同类序列化体检修复”唤醒 prompt
+   - 共享 TMP 中文字体稳定性案：
+     - 严格说不是任何业务线程的业务 own
+     - 但若用户此刻要发给现成线程，最接近历史承接者的是 `spring-day1`
+     - 明确不建议把这刀塞给当前仍在别的 slice 上 `ACTIVE` 的 `spring-day1V2`
+5. 已把治理线程自己从误留的施工 slice 收回：
+   - `Codex规则落地` 已跑 `Park-Slice`
+   - 理由：白名单提交被 incident 打断，这轮只做归属判定与 prompt 分发，不继续真实施工。
+6. 已新建 2 份可直接转发的 prompt 文件：
+   - `2026-04-03_典狱长_树石修复_Rock-prefab损坏与同类序列化体检修复_01.md`
+   - `2026-04-03_典狱长_spring-day1_共享TMP中文字体缺Atlas稳定性修复_01.md`
+
+**关键决策**：
+- 这轮不继续白名单提交，不继续由治理位直接吞代码修复；
+- `Library/UserSettings` 继续只当本地坏缓存处理，不派线程；
+- `Rock/C1~C3` 交给 `树石修复`；
+- `DialogueChinese* / LiberationSans fallback` 继续按共享字体稳定性案处理，只建议投给 `spring-day1` 作为现成承接线程，不得偷换成 Day1 业务续工，更不得塞给 `spring-day1V2 / UI / NPC`。
+
+**涉及文件**：
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-03_典狱长_树石修复_Rock-prefab损坏与同类序列化体检修复_01.md`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-03_典狱长_spring-day1_共享TMP中文字体缺Atlas稳定性修复_01.md`
+- `D:\Unity\Unity_learning\Sunset\.codex\artifacts\corruption-backups\rock-prefabs_2026-04-03_12-21-33`
+
+**恢复点 / 下一步**：
+- 现在应由用户直接转发上面两份 prompt；
+- 收到各自回执前，治理位不再继续白名单提交；
+- 后续只需继续审两件事：
+  1. `树石修复` 是否把 `Rock/C1/C2/C3` 真正修到稳定加载
+  2. `spring-day1` 是否把共享字体底座修回可加载，而不是继续把业务消费者改脏
+
 ## 最近会话
 
 ### 会话 10 - 2026-03-19（跳出整个工作区后的方向重判）
@@ -9042,3 +9117,705 @@
   - 对旧线程，当前最新可发的热修复补丁仍是：
     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-02_看守长旧线程热修复补丁_01.md`
   - 下一步如果还要继续验证，不该再补文档，而应回到真实业务线程上看它们是否已经按新口径首屏直接交验收包。
+
+## 2026-04-02｜补齐看守长治理尾账：审计日志、memory 同步、以及甜甜圈提交请求的现场判定
+
+- 当前主线目标：
+  - 在上一轮规则与 skill 已补强并已 sync 后，把还欠着的最后审计尾巴补齐，不再停在“规则已经落地但日志没补、memory 没收口”的半完成状态；
+  - 同时回查用户前面提过的 `Primary.unity` 里甜甜圈删除是否适合直接提交，避免遗漏这个被中途岔开的支线。
+- 本轮已完成：
+  1. 追加了 `skill-trigger-log.md`：
+     - `STL-20260402-042`
+     - 记录本轮是 `看守长` 治理收尾审计，而不是继续扩写新规则
+  2. 继续同步本工作区 memory 与线程 memory，明确：
+     - 现在规则层该补的已补到位
+     - 下一步如果还要继续，不应再写规范，而应回到真实业务线程验证它们是否首屏直接交完整验收包
+  3. 核了 `Assets/000_Scenes/Primary.unity` 当前 diff：
+     - scene 现在确实 dirty
+     - 但 diff 混着大量 inventory / anchor / sprite / 其它现场改动，不是“只剩一个甜甜圈删除”这种可安全单独代提的状态
+- 当前关键判断：
+  - 这轮到这里为止，`看守长` 规则层已经从“写明白”推进到“规范、skill、模板、热修补丁、项目 sync、审计日志、memory 都齐”
+  - 但运行层是否真正稳定，还要靠业务线程被实际喊 `看守长` 时的首屏表现来证明
+  - `Primary.unity` 这条甜甜圈支线当前不能被我假装当成一个干净独立提交，因为现场差异明显大于用户单句描述的那一刀
+- 当前恢复点：
+  - 治理主线恢复到“等运行层验证”
+  - 甜甜圈支线恢复到“需要先切干净或明确只取哪一段 scene 变更”，在此之前不直接代提
+
+## 2026-04-02｜`Primary.unity` 丢现场追责：不是 git 回退，而是外部 scene writer 改盘触发 Unity 重载
+
+- 当前主线目标：
+  - 用户报告自己在 Unity 里改了很久的 `Primary.unity` 现场突然像被回退，并看到了“当前场景改变是否重新加载”；
+  - 本轮子任务是查清谁最近真的写了 `Primary`、为什么会把用户当前 Unity 里的现场顶掉，以及现在还有没有抢救线索。
+- 本轮已完成：
+  1. 核了 `git log --follow -- Assets/000_Scenes/Primary.unity`：
+     - 最近一次正式提交 `Primary.unity` 停在 `2026-03-26`
+     - `2026-04-02` 当天没有任何 commit 触碰 `Primary.unity`
+  2. 核了文件系统时间：
+     - `Assets/000_Scenes/Primary.unity` 的 `CreationTime=2026-04-02 18:24:47`
+     - `LastWriteTime=2026-04-02 20:52:51`
+     - 这更像今天被整份重建 / 重写过，而不是一直保持原文件只做少量编辑
+  3. 核了 active-thread：
+     - 当前最可疑线程是 `019d4d18-bb5d-7a71-b621-5d1e2319d778`
+     - 它的 state 文件仍把 `Assets/000_Scenes/Primary.unity` 挂在 `owned_paths`
+     - 其 thread memory 明确写到：这轮在 `Primary.unity` 里落了 `Props/Water TilemapCollider2D`、`NavGrid2D explicitObstacleColliders`、`CinemachineCamera -> CameraDeadZoneSync`、`SceneTransitionTrigger`
+  4. 核了锁：
+     - `.kiro/locks/active` 下当前没有 `Primary.unity` 的活动锁文件
+     - 说明这次 `Primary` 被写入时，没有看到一个健康的 A 类单 writer 锁正在拦截
+  5. 做了取证保全：
+     - `C:\Users\aTo\.codex\artifacts\sunset-primary-forensics\2026-04-02_21-25`
+     - 已备份当前 `Primary.unity`、Unity 临时备份 `Temp/__Backupscenes/0.backup`、UUID 线程 state 和 memory
+- 当前关键判断：
+  - 用户看到的那句“当前场景改变是否重新加载”，根因不是 git 回退，而是：
+    - `Primary.unity` 磁盘文件被外部线程/进程重写了
+    - Unity 检测到打开中的 scene 与磁盘版本冲突，才会弹 reload 提示
+  - 如果用户当时点了重载，Unity 内存里尚未落盘的那份场景改动，就会被磁盘上的新版本顶掉
+  - 当前最强责任链不指向 `导航检查V2` 或 `农田交互修复V3`，而是指向 UUID 线程 `019d4d18-bb5d-7a71-b621-5d1e2319d778`
+- 当前恢复点：
+  - 责任链已经从“谁执行了 reset/checkout”改判为“谁外部重写了 scene 文件”
+  - 下一步若继续，不该再泛泛问谁动了，而应让用户指出最想找回的对象/区域，再对当前 scene 与取证副本/Unity backup 做对象级比对
+
+## 2026-04-02｜`0.backup` 抢救线纠偏：当前 `Temp` 活文件已被覆盖，真正可救的是冻结在取证目录里的 `20:46:54` 备份
+
+- 当前主线目标：
+  - 用户追问 `Temp/__Backupscenes/0.backup` 能不能恢复 `Primary` 现场；
+  - 本轮子任务是确认这份 backup 现在还能不能作为可靠恢复源，并把真正可用的恢复候选重新钉死。
+- 本轮已完成：
+  1. 重新核了当前 live `0.backup`：
+     - `D:\Unity\Unity_learning\Sunset\Temp\__Backupscenes\0.backup`
+     - 当前长度 `966132`
+     - 当前时间 `2026-04-02 21:14:57`
+  2. 核了先前取证保全的冻结备份：
+     - `C:\Users\aTo\.codex\artifacts\sunset-primary-forensics\2026-04-02_21-25\Primary.temp__Backupscenes_0.backup`
+     - 长度 `1014820`
+     - 时间 `2026-04-02 20:46:54`
+  3. 做了哈希对比：
+     - 当前 live `0.backup` 的 SHA256 是 `B8120F551D4D5CCDAEE3D42A81D44798F93344EBA30F6E3AC9472C12FB72EE81`
+     - 冻结备份的 SHA256 是 `4CC58B2FDFFDFF3F0C473E0D1E85ED8544FD91DB80853FD46AF0044348A12D16`
+     - 两者不相同，说明 `Temp` 里的同名 `0.backup` 后来又被 Unity 覆盖过，不能再视为原始抢救源
+  4. 纠正了恢复候选：
+     - 之前的 `Primary.recovery-candidate.from-0backup.unity` 实际是从后续被覆盖的 live `0.backup` 复制出来的
+     - 本轮重新从冻结备份生成了真正可救的候选：
+       - `C:\Users\aTo\.codex\artifacts\sunset-primary-forensics\2026-04-02_21-25\Primary.recovery-candidate.from-frozen-204654-0backup.unity`
+       - 它与冻结备份哈希一致，长度 `1014820`
+  5. 用 `rg -a` 继续确认冻结候选内部仍能看到 `Player`、`PlayerAutoNavigator`、`Main Camera`、`targetSceneName` 等 `Primary` 真实对象/字段痕迹
+- 当前关键判断：
+  - `0.backup` 这条线不是没救，而是要分清“活文件”和“冻结证据”
+  - 当前 `Temp/__Backupscenes/0.backup` 已经被后续 Unity 进程覆盖，不能继续当成最可靠恢复源
+  - 真正值得尝试恢复的是取证目录里冻结住的 `20:46:54` 备份，以及由它生成的新候选 `Primary.recovery-candidate.from-frozen-204654-0backup.unity`
+  - 这说明用户仍有一条非 destructive 的 scene 抢救入口，但当前还没有把它直接覆盖回正式 `Primary.unity`
+- 当前恢复点：
+  - 现场抢救线从“信任 `Temp` 当前同名文件”纠偏为“只信任已冻结取证副本”
+  - 如果下一步继续，最安全动作应是把冻结候选作为独立 scene 打开/验证，而不是直接覆盖正式 `Assets/000_Scenes/Primary.unity`
+
+## 2026-04-02｜冻结恢复候选重命名：统一叫 `primary_backup_2026-04-02_20-46-54.unity`
+
+- 当前主线目标：
+  - 用户要求把真正可用的 `Primary` 恢复候选改成更直观的备份名。
+- 本轮已完成：
+  1. 将
+     - `C:\Users\aTo\.codex\artifacts\sunset-primary-forensics\2026-04-02_21-25\Primary.recovery-candidate.from-frozen-204654-0backup.unity`
+     - 重命名为
+     - `C:\Users\aTo\.codex\artifacts\sunset-primary-forensics\2026-04-02_21-25\primary_backup_2026-04-02_20-46-54.unity`
+  2. 保留原始冻结备份 `Primary.temp__Backupscenes_0.backup` 不动，避免丢失最原始证据
+- 当前关键判断：
+  - 用户口头里写的 `primary_backup_2026-04-02_20:46:54` 因为 Windows 文件名不能带 `:`
+  - 实际落地时已按同语义改成 `primary_backup_2026-04-02_20-46-54.unity`
+- 当前恢复点：
+  - 后续若继续做 Unity 打开验证，应优先使用这个新名字的 scene 候选，不再引用旧的长文件名
+
+## 2026-04-02｜新增 `Scene Partial Sync Tool`：按对象路径在两个 scene 之间做局部复制/覆盖
+
+- 当前主线目标：
+  - 用户希望不要再整份替换 `.unity`，而是能在两个场景之间，只把选中的一部分对象同步过去；
+  - 本轮子任务是先做一个安全版第一刀工具，支持“选两个 scene -> 选对象路径 -> 复制新增 / 按路径覆盖”。
+- 本轮已完成：
+  1. 新增 Editor 工具：
+     - `Assets/Editor/ScenePartialSyncTool.cs`
+  2. 新增最小编辑器测试：
+     - `Assets/YYY_Tests/Editor/ScenePartialSyncToolTests.cs`
+  3. 工具当前能力：
+     - 选择源场景与目标场景
+     - 扫描源场景对象路径
+     - 勾选要同步的根对象或子树
+     - 执行两种模式：
+       - `只复制目标缺失项`
+       - `按路径覆盖目标对象`
+  4. 当前安全护栏：
+     - 自动去掉“祖先已选中时的重复子路径”
+     - 如果目标缺少父路径，会直接阻断，不乱放对象
+     - 如果源场景或目标场景存在路径重名，会直接阻断，不冒险同步错对象
+  5. 基础校验：
+     - 已过 `git diff --check`
+     - 尚未做 Unity Editor 内实机点按验证
+- 当前关键判断：
+  - 这条工具线能做，而且用 Unity Editor 场景对象级同步，比直接做 `.unity` YAML 文本 merge 稳得多
+  - 当前最合理的第一版不是“字段级 merge”，而是“对象/子树级复制或覆盖”
+  - 这已经能覆盖用户最常见的恢复/迁移场景：把一个 scene 里的某个区域、某组节点、某个系统根对象迁到另一个 scene
+- 当前恢复点：
+  - 当前切片已 `PARKED`
+  - 当前 blocker 是：
+    - 尚未做 Unity 内实机验证
+    - 首版不支持字段级 merge
+    - 首版不会自动重映射外部场景引用
+  - 如果下一步继续，最稳的是进 Unity 先拿一组小样 scene 做真实复制/覆盖验证，再决定要不要补“外部引用扫描”或“组件级复制”
+
+## 2026-04-03｜纠偏 `工具-V1` 分工理解：不是新建 agent，而是按 Sunset 现有线程重划边界；并顺手修掉 `ScenePartialSyncToolTests` 编译口
+
+- 当前主线目标：
+  - 用户明确纠正：`工具-V1` 是 Sunset 里现成的外包线程，不是让我新建一个子 agent；
+  - 本轮子任务是先把我和 `工具-V1` 的分工重新钉死，再给出两份可直接转发的 prompt；
+  - 同时先修掉我上一轮新增测试的编译错误，避免工具线自己留下红错。
+- 本轮已完成：
+  1. 修复 `Assets/YYY_Tests/Editor/ScenePartialSyncToolTests.cs`：
+     - 原报错是 `Tests.Editor.asmdef` 不能直接引用默认 `Assembly-CSharp-Editor`，因此 `using Sunset.EditorTools.SceneSync;` 编译失败；
+     - 现已改成用反射调用真实 `ScenePartialSyncTool` 静态方法，继续测真逻辑，但不再走直接程序集引用。
+  2. 最小静态校验：
+     - `git diff --check -- Assets/YYY_Tests/Editor/ScenePartialSyncToolTests.cs` 通过。
+  3. 重新厘清 `工具-V1` 的现实对应关系：
+     - 当前最符合用户口中 `工具-V1` 最近回执的，是 UUID 线程
+       `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\019d4d18-bb5d-7a71-b621-5d1e2319d778.json`
+     - 它的当前 live 状态是 `PARKED`
+     - 当前 slice 是 `primary-traversal-real-blocking-root-cause-and-fix`
+     - 其 memory 里混着两类东西：
+       - `Tool_002_BatchHierarchy` / `StaticObjectOrderAutoCalibrator` 工具修补
+       - `NavGrid2D / PlayerMovement / SceneTransitionTrigger2D / PrimaryTraversalSceneBinder / Primary traversal` 逻辑与基础内容
+  4. 当前分工结论已收紧：
+     - 我负责：
+       - `ScenePartialSyncTool` 这类通用工具
+       - `Town.unity` 的基础内容增量转化
+     - `工具-V1` 负责：
+       - 继续承接脚本级“逻辑 / 基础内容”面
+     - `工具-V1` 不再继续 claim：
+       - `Primary.unity`
+       - `Town.unity`
+       - 通用 scene 同步工具线
+- 当前关键判断：
+  - 我这轮最核心的纠偏，不是“再去问一个新 agent”，而是承认我刚才理解错了协作对象；
+  - 现在真正需要的是：给现有 `工具-V1` 一份明确的“释放 scene / 工具面，只保留逻辑与基础内容面”的重划边界 prompt。
+- 当前恢复点：
+  - 下一步不是继续新建 agent，也不是继续混着 scene/tool/runtime 一起派；
+  - 而是直接把两份 prompt 发出去：
+    - 给我自己的：只做工具线 + `Town` 增量转化
+    - 给 `工具-V1` 的：只做逻辑 / 基础内容，不再碰 `Primary/Town` scene 实写与通用工具
+
+## 2026-04-03｜审 `工具-V1` 最新回执：边界判断成立，但还要补一条“3 脚本归仓 / Ready-To-Sync”收口 prompt
+
+- 当前主线目标：
+  - 用户贴来 `工具UI` 的最新回执，要求我判断：现在到底是什么状态，是否还要给 `工具-V1` 发下一步 prompt。
+- 本轮已完成：
+  1. 重新核对了：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\019d4d18-bb5d-7a71-b621-5d1e2319d778.json`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\memory_0.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-03_工具-V1三脚本归仓与Ready-To-Sync_01.md`
+     - 当前 3 个 own 脚本的真实 `git status`
+  2. 当前可站住的事实：
+     - `thread-state` 已经真实收窄到 3 个脚本：
+       - `NavGrid2D.cs`
+       - `PlayerMovement.cs`
+       - `SceneTransitionTrigger2D.cs`
+     - 它最新回执里关于“只保留脚本契约、不再 claim `Primary/Town/binder/tool`”的边界判断是成立的。
+     - 但 own 路径还不 clean：
+       - `NavGrid2D.cs` = modified
+       - `PlayerMovement.cs` = modified
+       - `SceneTransitionTrigger2D.cs` = untracked
+  3. 因此典狱长裁定不是“继续给新功能活”，也不是“完全无需再发”；
+     - 当前只应发一条非常窄的收口 prompt：
+       - 只做 3 脚本归仓 / `Ready-To-Sync`
+       - 或把不能归仓的 blocker 写死
+- 当前关键判断：
+  - 这条线已经不该再碰 scene / binder / tool / `Town`；
+  - 但也还没到可以直接散场的程度，因为它自己的 3 个 own 路径还没收干净。
+- 当前恢复点：
+  - 如果用户现在要发下一步 prompt，可以发；
+  - 但只能发：
+    - `2026-04-03_工具-V1三脚本归仓与Ready-To-Sync_01.md`
+  - 不能再发任何新功能 prompt。
+
+## 2026-04-03｜角色再钉死：我现在的任务是“工具线 + Town 增量转化 + 必要治理收口”，不是继续替用户做业务派工
+
+- 当前主线目标：
+  - 用户直接追问“那你的任务是什么”，要求我把自己的职责和边界一次说死，不再漂。
+- 本轮已完成：
+  1. 重新按用户最近几轮裁定收束我的角色：
+     - 我自己的真实施工主线只有两件：
+       1. `ScenePartialSyncTool` 工具线
+       2. `Town.unity` 的基础内容增量转化
+  2. 同时把治理位职责压回最小：
+     - 只在必要时做线程边界审计、撞车打断、own-path hygiene 提醒
+     - 不再代替用户给 `UI / NPC / Spring / 工具-V1` 派业务功能下一刀
+  3. 当前 `工具-V1` 这次之所以还收到一条 prompt，不是因为我要继续导演它干业务，而只是因为它 own 路径还没 clean，必须先把 3 个脚本收口干净，避免脏着散场。
+- 当前关键判断：
+  - 我的任务不是“总导演”
+  - 也不是“继续替用户排线程业务”
+  - 更不是“去碰 `工具-V1` 当前主拿的脚本逻辑面”
+  - 我该做的是：
+    - 把自己负责的工具做成可用
+    - 把 `Town` 基础骨架增量补齐
+    - 顺手把别人没收干净的边界/卫生拦一下
+- 当前恢复点：
+  - 这句说清之后，后续我应继续回到：
+    - `ScenePartialSyncTool` 的 Unity 内实机验证
+    - `Town.unity` 的“只增不删”基础骨架补齐
+
+## 2026-04-03｜`ScenePartialSyncTool` 真机副本验证全过，`Town` 已按“只增不删”补齐基础骨架
+
+- 当前主线目标：
+  - 用户要求这轮必须把两件事都真正落地：
+    1. `ScenePartialSyncTool` 做到可用、可验证、可安全操作
+    2. `Town.unity` 做“只增不删”的基础内容增量转化
+- 本轮已完成：
+  1. 先把 Unity 命令桥从“卡死但看不出为什么”拉回可用态：
+     - 只读排到了 `Assets/Editor/NPC/CodexEditorCommandBridge.cs`
+     - 发现真正卡住桥的不是桥本体，而是遗留请求触发的模态框
+     - 先后清掉：
+       - `Scene Partial Sync Validation`
+       - `NPC 生成器`
+     - 并把无关旧请求隔离到：
+       - `D:\Unity\Unity_learning\Sunset\Library\CodexEditorCommands\quarantine_20260403_0114`
+     - 最终确认 `status.json` 恢复更新，且 Unity 已退回 `EditMode`
+  2. 重新跑 `Tools/Sunset/Scene/运行局部同步工具副本自测`：
+     - 最新产物：
+       - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\scene-sync-validation\2026-04-03_01-17-02_scene-partial-sync-validation.json`
+     - 结果：
+       - `minimalCopySuccess = true`
+       - `minimalOverwriteSuccess = true`
+       - `realSceneCopySuccess = true`
+     - 这说明 `ScenePartialSyncTool` 现在不只是最小样本能过，真实 `Primary` 副本场景复制 `PersistentManagers / StoryManager` 也已经站住
+  3. `Town` 第一轮补骨架时没有硬写错 scene，而是被我们自己加的安全护栏正确挡下：
+     - blocker 明确是：
+       - 当前打开中的 `Primary.unity` 处于 dirty / unsaved 状态
+       - `TownFoundationBootstrapMenu` 还在直接拿 `Assets/000_Scenes/Primary.unity` 当同步源
+  4. 为此只补了一个很窄的工具修口：
+     - `Assets/Editor/TownFoundationBootstrapMenu.cs`
+     - 新增逻辑：
+       - 当 `Primary.unity` 当前已在编辑器打开且 dirty 时
+       - 自动复制一份磁盘副本到 `Assets/__CodexSceneSyncScratch/TownBootstrapSource.unity`
+       - 并改用这份副本做 `Town` 基础骨架同步源
+  5. 重新 `Assets/Refresh` 强制让 Unity 吃到新脚本后，再跑：
+     - `Tools/Sunset/Scene/Town基础骨架增量补齐（只增不删）`
+     - 最新产物：
+       - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\town-foundation\2026-04-03_01-30-27_town-foundation.json`
+     - 结果：
+       - `actualSourceScenePath = Assets/__CodexSceneSyncScratch/TownBootstrapSource.unity`
+       - `usedSourceSceneCopy = true`
+       - `CreatedCount = 9`
+       - `success = true`
+  6. 当前 `Town.unity` 已确认存在这些关键基础骨架对象，同时保留原有美术层：
+     - `Primary`
+     - `Primary/0_Core`
+     - `Primary/1_Managers`
+     - `Primary/2_World`
+     - `Primary/2_World/Systems`
+     - `Primary/2_World/NavigationRoot`
+     - `Player`
+     - `Camera`
+     - `Camera/CinemachineCamera`
+     - `_CameraBounds`
+     - `HealthSystem`
+     - `SprintStateManager`
+     - 以及原有的 `Main Camera`、`SCENE`
+- 当前关键判断：
+  - 这轮真正把“工具可用”和“Town 能跑”都落到了 Unity 真机结果，而不是停在代码推断
+  - `Town` 这刀最终成立的关键，不是放开安全护栏，而是保留护栏、改成安全副本源
+- 当前验证状态：
+  - `git diff --check`：本轮相关文件通过
+  - Unity 命令桥：已恢复
+  - `ScenePartialSyncTool`：副本验证全过
+  - `Town`：真实菜单执行成功，artifact 已落盘
+  - 当前 Unity：`isPlaying=false`、`isCompiling=false`
+- 当前恢复点：
+  - 这轮已经可以停给用户直接测试：
+    - 工具可按用户设想去做 `Primary backup -> 当前 Primary` 的局部同步试验
+    - `Town` 已具备最小基础运行骨架，不再是“只有美术壳”
+
+## 2026-04-03｜运行前最终只读筛查：`primary_backup_2026-04-02_20-46-54.unity` 不是可整根覆盖的升级版，当前最安全同步区只应落在 `SCENE` 且仍需 scratch 先行
+
+- 当前主线目标：
+  - 用户把 `Assets/000_Scenes/primary_backup_2026-04-02_20-46-54.unity` 放回 Sunset 后，要求我在真正跑同步前再做最后一次只读筛查：
+    - 看它和 `Assets/000_Scenes/Primary.unity` 到底差在哪
+    - 判断现在是否已经适合处理
+    - 以及“该同步什么 / 不该同步什么 / 怎么做最安全 / 出错怎么撤”
+- 本轮已完成：
+  1. 重新核了当前共享现场：
+     - `Primary.unity` 当前仍是 working tree dirty
+     - `Check-Lock.ps1` 显示 `Primary.unity = unlocked`
+     - `Show-Active-Ownership.ps1` 显示当前没有别的线程 active 挂着 `Primary.unity`
+  2. 只读比较了两张 scene 的根对象与主要子树结构，结论不是“backup 全面更新”，而是“两边各自带着不同内容”：
+     - 当前 `Primary` 根对象：
+       - `Camera`
+       - `HealthSystem`
+       - `NPCs`
+       - `NavGrid2DStressTest`
+       - `Player`
+       - `Primary`
+       - `SCENE`
+       - `SpringDay1ProximityInteractionService`
+       - `SprintStateManager`
+       - `_CameraBounds`
+     - 当前 `backup` 根对象：
+       - `Camera`
+       - `NPCs`
+       - `NavGrid2DStressTest`
+       - `PersistentManagers`
+       - `Player`
+       - `Primary`
+       - `SCENE`
+       - `StoryManager`
+  3. 结构级差异裁定：
+     - `backup` 独有根：
+       - `PersistentManagers`
+       - `StoryManager`
+     - 当前 `Primary` 独有根：
+       - `HealthSystem`
+       - `SpringDay1ProximityInteractionService`
+       - `SprintStateManager`
+       - `_CameraBounds`
+     - 这说明 `backup` 不是“当前 Primary 的 superset”，不能整根覆盖
+  4. 对共同根继续下钻后，当前最重要的判断是：
+     - `Primary` 根运行骨架大体同构，但 `backup` 比当前只多了一个：
+       - `Primary/1_Managers/SaveManager`
+     - 同时当前 `Primary` 额外带着：
+       - `Primary/2_World/SceneTransitionTrigger`
+       - 更完整的 `WorldItemPool / PlacementPreview / FarmToolPreview` 等运行期分支
+     - `NPCs` 当前 `Primary` 已有 `001 / 002 / 003` 真实对象，`backup` 只保留 `*_HomeAnchor`
+     - 所以：
+       - `PersistentManagers`
+       - `StoryManager`
+       - `NPCs`
+       - 整个 `Primary`
+       - `Player`
+       - `Camera`
+       当前都不应作为第一轮同步目标
+  5. 当前真正可能承接“美术场景内容迁移”的区域，只剩 `SCENE`，但这里也不是直接可整树同步：
+     - `backup` 的 `SCENE/LAYER 1/Tilemap` 采用的是分组层级：
+       - `“农田”`
+       - `“基础地皮”`
+       - `“桥”`
+       - `“植被”`
+     - 当前 `Primary` 的同区已经被扁平化成：
+       - `Layer 1 - Base`
+       - `Layer 1 - Grass`
+       - `Layer 1 - Farmland_Border`
+       - `Layer 1 - Farmland_Center`
+       - `Layer 1 - Farmland_Water`
+       - `Layer 1 - Wall`
+       - 多套 `Props_*`
+     - 这更像“同一批地表/农田/桥/植被被换了组织方式”，不是简单 missing subtree
+  6. 继续对 `SCENE` 的 props / tree / tilemap 分支做了只读筛查：
+     - `SCENE/LAYER 1/Props`：当前 `Primary` 内容更多，`backup` 并没有新增可直接抄进来的 props 根
+     - `SCENE/LAYER 2/Props` 与 `SCENE/LAYER 2/Tilemap`：两边几乎一致，不值得同步
+     - `SCENE/LAYER 1/Test Tree` / `Test Tree (1)` / `Test Rock`：当前 `Primary` 内容更多，`backup` 不是更完整版本
+- 当前关键判断：
+  - 现在已经可以处理，但不能直接进“把 backup 同步到母本 Primary”
+  - 当前最安全的结论是：
+    - 第一轮**禁止同步**：
+      - `PersistentManagers`
+      - `StoryManager`
+      - `NPCs`
+      - `Player`
+      - `Camera`
+      - 整个 `Primary`
+      - 整个 `SCENE`
+      - 整个 `SCENE/LAYER 1/Tilemap`
+    - 当前唯一仍可能有价值的同步域只剩：
+      - `SCENE` 下用户明确想保留的某一块美术子树
+      - 但必须先做 scratch dry-run，而不是直接打进母本
+  - 换句话说：
+    - 现在不是“已经知道该同步哪几棵，可以直接跑”
+    - 而是“已经知道哪些绝对不能碰，以及只剩哪个域值得继续做 dry-run”
+- 当前最安全执行建议：
+  1. 不直接写母本 `Primary.unity`
+  2. 先复制当前 `Primary.unity` 出一份本地临时 target 副本
+  3. 再把 `backup` 作为 source，只针对用户指定的 `SCENE` 美术子树做一次 scratch dry-run
+  4. 只有 dry-run 视觉与结构都成立，才考虑把完全相同的 path 集合打回母本
+  5. 真动母本前，先额外做一份：
+     - `Primary.pre_sync_<timestamp>.unity`
+     - 作为可直接撤回的回滚点
+- 当前恢复点：
+  - 这轮只读筛查已经把“禁止项”和“候选域”钉死
+  - 下一步如果继续，不应该是“直接同步”
+  - 而应该是：
+    - 先由用户或我指定一组明确的 `SCENE` 子树候选
+    - 再做 scratch dry-run
+
+## 2026-04-03｜运行前再缩一刀：`backup` 在 `SCENE` 里真正独有的只剩 Tilemap 分组层；第一轮 scratch 候选应收窄到 `桥` 和 `植被`
+
+- 当前主线目标：
+  - 在真正跑 `ScenePartialSyncTool` 前，再做最后一轮只读预检，直接回答：
+    - 现在到底该同步哪一些内容
+    - 哪些连 scratch 都不该先试
+    - 当前工具能不能直接覆盖“backup 美术并入当前 Primary”这个具体场景
+- 本轮已完成：
+  1. 不再停留在根对象和大分支级别，而是直接从两张 `.unity` 的 YAML 里抽取 `SCENE` 路径清单做对比。
+  2. 新结论比上一轮更窄：
+     - `backup` 在 `SCENE` 里“只它有、当前 Primary 没有”的路径，几乎全部都集中在：
+       - `SCENE/LAYER 1/Tilemap/农田/...`
+       - `SCENE/LAYER 1/Tilemap/基础地皮/...`
+       - `SCENE/LAYER 1/Tilemap/桥/...`
+       - `SCENE/LAYER 1/Tilemap/植被/...`
+     - 换句话说：
+       - `Props`
+       - `Test Tree`
+       - `Test Rock`
+       - `LAYER 2`
+       并不是这次从 backup 往当前 `Primary` 迁内容的主要价值区。
+  3. 继续按 `ScenePartialSyncTool` 当前规则做执行前体检后，候选被进一步压缩成三条：
+     - `SCENE/LAYER 1/Tilemap/桥`
+     - `SCENE/LAYER 1/Tilemap/植被`
+     - `SCENE/LAYER 1/Tilemap/基础地皮/Layer 1 - Water`
+  4. 其中只有前两条符合“第一轮 scratch 可安全试”的条件：
+     - `桥`：源里存在、目标里不存在、父路径 `SCENE/LAYER 1/Tilemap` 在目标里已存在，所以可以直接走 `CopyMissingOnly`
+     - `植被`：同上，也可以直接走 `CopyMissingOnly`
+     - `基础地皮/Layer 1 - Water`：虽然源里存在、目标里不存在，但它的父路径 `SCENE/LAYER 1/Tilemap/基础地皮` 在目标里不存在，因此当前工具会把它判成 parent blocker，第一轮不该拿它直接跑
+  5. 还补钉了一个工具层限制：
+     - `ScenePartialSyncTool` 当前只支持“按同一路径复制缺失项”或“按同一路径覆盖整棵子树”
+     - 它**不支持路径重映射**
+     - 所以像：
+       - `backup` 的 `SCENE/LAYER 1/Tilemap/农田/Layer 1 - Farmland_*`
+       - `backup` 的 `SCENE/LAYER 1/Tilemap/基础地皮/Layer 1 - Base / Grass / Wall`
+       这种“源场景带分组父节点、目标场景已经扁平化到上一层”的内容，当前工具没法直接把它们合到现有平铺 tilemap 上
+     - 如果硬跑，只会新增一层分组，不会真正并入当前扁平层级
+- 当前关键判断：
+  - 现在终于不是“只有模糊候选域”，而是可以明确说：
+    - 第一轮 scratch 最值得试的只有两棵：
+      - `SCENE/LAYER 1/Tilemap/桥`
+      - `SCENE/LAYER 1/Tilemap/植被`
+    - `农田 / 基础地皮` 这批需要的不是直接跑当前 V1，而是：
+      - 后续补路径重映射能力
+      - 或单独做更细的迁移方案
+  - 这也意味着：
+    - 当前 `ScenePartialSyncTool` 已经足够拿来做“新增型独立子树”的并入
+    - 但还不足以直接完成“hierarchy 变形后的 tilemap 真合并”
+- 当前最安全执行建议：
+  1. 继续保持母本 `Primary.unity` 不动
+  2. 如果下一步继续试，只先对 scratch target 跑：
+     - `SCENE/LAYER 1/Tilemap/桥`
+     - `SCENE/LAYER 1/Tilemap/植被`
+     模式固定：
+     - `CopyMissingOnly`
+  3. 观察结构是否正确新增、是否出现明显重复层/渲染语义冲突
+  4. 只有这一步过了，才谈是否把同样的 path 集合打回母本
+  5. `农田 / 基础地皮` 先不要进第一轮
+- 当前恢复点：
+  - 下一步如果继续，不再需要重新猜候选
+  - 直接按：
+    - 第一轮 `桥 + 植被`
+    - 第二轮再评估是否需要为 `农田 / 基础地皮` 补路径重映射
+
+## 2026-04-03｜`Town` “磁盘已改变 / 重新加载后像被清空”事故只读追责：不是磁盘空场景，而是我用离线脚本直写了已在 Unity 打开的 `Town.unity`
+
+**用户目标**：
+- 用户在 Unity 里收到“`Town.unity` 在磁盘上已被改变，是否重新加载”的弹窗，点了重新加载后，直观感受是 `Town` “清 0、啥都没了”，要求我立刻查清到底发生了什么。
+
+**已完成事项**：
+1. 第一时间停止继续施工，只做只读事故排查，并把 `Codex规则落地` 当前 live slice 重新 `Park-Slice`，避免 `Town` 继续被误判为正在 live 写。
+2. 钉死了磁盘事实：
+   - `Assets/000_Scenes/Town.unity` 当前并没有被清空；
+   - 文件最近写入时间是 `2026-04-03 03:44:24`；
+   - 当前体量约 `5.75 MB`；
+   - 场景文本里仍有约 `707` 个 `GameObject`、`711` 个 `Transform/RectTransform`。
+3. 钉死了这次弹窗的直接来源：
+   - 上述 `03:44:24` 的写盘时间与我上一轮运行 `scripts/scene_component_sync_offline.py` 把组件同步结果直接落回 `Assets/000_Scenes/Town.unity` 的时间完全对上；
+   - 所以这次“磁盘已改变”不是用户误操作，也不是未知线程暗改，而是我这条线的离线写盘动作触发了 Unity 的外部文件变更提示。
+4. 钉死了“不是空场景”的进一步证据：
+   - 当前磁盘版 `Town` 根对象仍有：
+     - `Camera`
+     - `HealthSystem`
+     - `Player`
+     - `Primary`
+     - `SCENE`
+     - `SpringDay1ProximityInteractionService`
+     - `SprintStateManager`
+     - `UI`
+     - `_CameraBounds`
+   - 这不是空壳 scene。
+5. 对比写盘前备份 `.codex/artifacts/town-foundation/backups/Town_before_runtime_component_sync_2026-04-03_03-44-03.unity` 后，钉出了最可疑的“看起来像清空”的真实来源：
+   - 这轮并没有大面积删 root；
+   - 最显眼的结构变化是：
+     - `Main Camera` 从根对象 `Main Camera`，被改成了 `Camera/Main Camera`
+     - 它的本地位置从备份里的 `(0, 0, -10)`，改成了与 `Primary` 对齐的 `(-12.347486, -7.667652, -15)`
+   - 也就是说，当前更像是“镜头链被我改成了 `Primary` 语义”，而不是“Town 对象被删没了”。
+6. 继续核了用户之前贴过的 UI / Package 报错在当前磁盘 scene 上的状态：
+   - `Town` 磁盘版里现在确实存在根对象 `UI`；
+   - `PackagePanelTabsUI` 组件也在，且 `GameInputManager.packageTabs` 当前已不是 `0`；
+   - 这说明那两条旧报错至少不能再直接被解释成“Town 里完全没有 UI / PackagePanel 物体”。
+
+**关键决策**：
+- 这次事故最核心的问题不是 `Town.unity` 被清空；
+- 而是我不该在 Unity 已打开 `Town` 的情况下，用离线脚本直接回写 live scene 文件；
+- 用户看到“重新加载后像清空”，当前最可疑的真实成因，是我把 `Main Camera` 的层级与位姿同步成了 `Primary` 版本，导致 Town 进入后镜头视角明显不对。
+
+**恢复点 / 下一步**：
+- 当前这轮只读事故结论已经够硬：
+  1. `Town` 磁盘文件没有被清空
+  2. 弹窗是我这条线的离线写盘触发的
+  3. 最需要优先回滚验证的，不是整张 `Town`，而是 `Main Camera` 的层级/位姿改写
+- 如果下一步继续，最稳的顺序应改成：
+  1. 不再离线直写已打开的 `Town.unity`
+  2. 先在 scratch 或备份副本上验证“只恢复 Town 自己的 `Main Camera` 层级/位姿，保留已补上的引用链”
+3. 只有视觉恢复成立，才回写正式 `Town`
+
+## 2026-04-03｜全仓救援提交风险盘点：`Primary` 可进快照，但不能把临时桥接件与事故恢复残留一锅端
+
+**用户目标**：
+- 用户明确表示当前 shared root 改动量已经把电脑拖慢，希望尽快把当前版本整体提交保住；
+- 同时要求我先分析“如果把现在 200+ 条变更直接整仓提交，最坏会发生什么”，并明确列出“绝对不能提交”的内容；
+- 另外要求并行开一个 `gpt-5.4` 子智能体继续只做 `Town` 恢复。
+
+**本轮已完成**：
+1. 已按用户要求启动并行子智能体 `Gauss`，任务只围绕 `Assets/000_Scenes/Town.unity` 恢复，不碰 `Assets/000_Scenes/Primary.unity`。
+2. 主线程这轮没有执行 `git add`、`git commit`、`git reset`、`git checkout --` 等任何 Git 写动作，只做只读盘点。
+3. 当前仓库现场重新钉死为：
+   - `246` 条变更入口
+   - `84` 条 tracked 修改
+   - `162` 条 untracked 新增
+   - `2` 条删除
+   - tracked diff 体量约 `240899 insertions / 27929 deletions`
+4. 当前最大变更面集中在：
+   - `.kiro/specs`
+   - `Assets/YYY_Scripts`
+   - `Assets/Editor`
+   - `Assets/000_Scenes`
+   - `Assets/100_Anim` / `Assets/222_Prefabs` / `Assets/Sprites`
+5. 这轮给出的最硬提交判断：
+   - 可以做“现场保全快照提交”
+   - 但不应无筛选地做“全部无脑进主线”
+   - `Primary.unity` 可以进入这次快照判断范围
+   - `Town.unity` 当前仍是坏现场，不应在“可用基线”语义下直接放行
+6. 当前证据最强、应列入“绝对别提”的内容：
+   - `Assets/Editor/CodexMcpHttpAutostart.cs`
+   - `Assets/Editor/NPC/CodexEditorCommandBridge.cs`
+   - `Assets/Editor/TownCameraRecoveryMenu.cs`
+   - `Assets/__CodexSceneSyncScratch/`
+7. 当前应列入“强烈建议不要跟主版本混提”的内容：
+   - `Assets/000_Scenes/Town.unity`
+   - `Assets/000_Scenes/primary_backup_2026-04-02_20-46-54.unity`
+   - `Assets/Screenshots/`
+   - `scripts/scene_partial_sync_offline.py`
+   - `scripts/scene_component_sync_offline.py`
+8. 额外风险证据：
+   - `git diff --check` 当前不是 clean；
+   - 既有大量 scene / meta 的 Unity YAML 尾随空格，也有 memory 文档尾随空格；
+   - 这不等于不能做救援快照，但说明当前不是“干净可发布基线”。
+
+**关键判断**：
+- 这次如果整仓无筛选直接提交，最坏情况不是“只是历史有点乱”，而是会把：
+  - 当前仍坏的 `Town` 场景
+  - 只服务本地 Codex / MCP 的桥接脚本
+  - 事故恢复用 scratch scene 与恢复菜单
+  - 截图、备份 scene、离线实验脚本
+  一起永久冻结进主线，后续回滚、追责、bisect 都会非常痛苦。
+
+**恢复点 / 下一步**：
+- 如果用户确认现在就要我代做提交，下一步应按三层口径执行：
+  1. 保住 `Primary` 和已认可业务改动
+  2. 排除“绝对别提”的本地桥接件 / scratch / 临时恢复器
+3. 对 `Town`、备份 scene、截图和离线脚本，再单独决定是进“救援快照”还是继续留在恢复线
+## 2026-04-03｜Town 根因只读裁定：当前“像空场景”首先是相机语义错位，不是内容清空
+
+- 用户本轮把任务收窄成只读结论：只查明为什么打开 `Town` 会像“啥都没有”，暂不继续修、不碰 `Primary`、不做提交分析。
+- 只读比对 `Assets/000_Scenes/Town.unity` 与事故前备份 `.codex/artifacts/town-foundation/backups/Town_before_runtime_component_sync_2026-04-03_03-44-03.unity` 后，当前最强证据是：
+  - `Town` 现在不是空场景，root 仍有 `8` 个：`_CameraBounds / Camera / HealthSystem / Player / Primary / SCENE / SpringDay1ProximityInteractionService / SprintStateManager`
+  - 与备份相比，唯一缺掉的 root 是 `Main Camera`
+  - 当前 `Main Camera` 被挪成了 `Camera/Main Camera`
+  - 其位置从备份的 `{x: 0, y: 0, z: -10}` 变成了 `{x: -12.347486, y: -7.667652, z: -15}`
+  - 当前还比备份多了一个额外组件，字段命中 `CinemachineBrain`
+- 结论：用户看到的“Town 啥都没有”，最可能是离线同步把 `Town` 的主相机同步成了 `Primary` 相机 rig 语义，导致打开时看向错误区域；不是 world 层级本体被清空。
+- 当前最小恢复刀应只落在 `Main Camera`：
+  - 恢复成根级 `Main Camera`
+  - 位置回 `{x: 0, y: 0, z: -10}`
+  - 去掉多出来的 `CinemachineBrain`
+  - 其余 root 与 `Camera/CinemachineCamera` 暂不动
+
+## 2026-04-03｜Town 最小恢复已执行：`Main Camera` 已回到事故前备份状态
+
+**用户目标**：
+- 用户认可“Town 看起来像空，最先是相机歪了”的判断，并要求我直接执行最小恢复，不再停留在只读分析。
+
+**本轮已完成**：
+1. 已先跑 `Begin-Slice`：
+   - slice=`town-main-camera-minimal-restore`
+   - target=`Assets/000_Scenes/Town.unity`
+2. 已先创建本轮前备份：
+   - `.codex/artifacts/town-foundation/backups/Town_before_main_camera_minimal_restore_2026-04-03_12-07-46.unity`
+3. 已只对 `Town.unity` 的 4 个精确触点做最小恢复：
+   - `Main Camera` 的 `GameObject`
+   - `Main Camera` 的 `Transform`
+   - `Main Camera` 的 `Camera` 组件
+   - 父物体 `Camera` 的 `Transform.m_Children`
+4. 已删除多出来的 `CinemachineBrain` 文档：
+   - `fileID=9223372036854778232`
+5. 已恢复成与事故前备份一致的状态：
+   - `Main Camera` 回到根级
+   - `m_Father` 回到 `0`
+   - 位置回 `{x: 0, y: 0, z: -10}`
+   - `Camera` 组件参数回到备份值
+6. 结构自查已过：
+   - 当前 `Main Camera` `Transform` parent=`0`
+   - 额外 `CinemachineBrain` 文档已不存在
+   - 4 个被修复文档与事故前备份逐字对齐
+7. 已补跑 `Park-Slice`：
+   - 当前 live 状态=`PARKED`
+   - reason=`Town Main Camera 最小恢复已完成，当前停在待用户打开Unity验证的状态`
+
+**关键判断**：
+- 这次最小恢复已经落到了真正的根因触点上；
+- 现在最值得先看的是 Unity 里打开 `Town` 后第一眼是否恢复正常；
+- 不是继续盲修第二层骨架。
+
+**恢复点 / 下一步**：
+- 让用户现在优先验证：
+  1. 打开 `Town` 后是否不再是“啥都没有”
+  2. `Town` 第一眼是否已经能看到世界内容
+  3. 如果还有问题，再继续沿“运行骨架缺口”往下补，而不是重新怀疑 scene 被清空
+
+## 2026-04-03｜共享 TMP 中文字体缺 Atlas incident 已按 `HEAD` 基线止血恢复
+
+**当前主线**：
+- 用户与典狱长把任务重新收紧为独立的“共享 TMP 中文字体稳定性事故”，明确禁止继续扩成 `Day1 / UI / NPC / Prefab / Scene / Library`。
+
+**本轮已完成**：
+1. 复核 `2026-04-03_典狱长_spring-day1_共享TMP中文字体缺Atlas稳定性修复_01.md`、此前 `2026-03-30` 立案、`2026-03-31` 回基线判定，以及当前线程 / 父工作区 memory。
+2. 把当前事故压实为“共享字体资产本体损坏”，不是消费者误引用：
+   - `DialogueChinese SDF.asset`
+   - `DialogueChinese Pixel SDF.asset`
+   这两份当前坏态都出现：
+   - `m_Material: {fileID: 0}`
+   - `m_AtlasTextures: - {fileID: 0}`
+   - 内嵌 `Material` 子对象整段缺失
+   - 内嵌 `Texture2D atlas` 子对象整段缺失
+3. 复核 `HEAD` 后确认：
+   - 上述两份字体在已提交基线中都仍带完整 `material + atlas + m_AtlasTextures` 链；
+   - `LiberationSans SDF - Fallback.asset` 当前更像序列化 churn，不是缺 atlas 主因。
+4. 本轮采取的唯一修法是：
+   - 只把以下 3 份共享字体资产安全恢复到 `HEAD`：
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese SDF.asset`
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+     - `Assets/TextMesh Pro/Resources/Fonts & Materials/LiberationSans SDF - Fallback.asset`
+   - 不改 `DialogueChineseFontAssetCreator.cs`
+   - 不改任何业务 prefab / scene / font library / consumer 脚本
+5. 磁盘级复核已过：
+   - 3 份资产当前都重新具备有效 `m_Material` 与 `m_AtlasTextures`
+   - 两份中文字体都重新带回 `Material` 与 `Texture2D atlas` 子对象
+   - `git status --short -- 'Assets/TextMesh Pro/Resources/Fonts & Materials'` 恢复为 clean
+6. 最小运行验证已过：
+   - 通过 `CodexEditorCommandBridge` 向当前 Unity 发送 `MENU=Assets/Refresh`
+   - `status.json` 返回：
+     - `lastCommand = menu:Assets/Refresh`
+     - 随后 `lastCommand = compilation-finished`
+   - 再读最新 `Editor.log` 尾部，已不再出现：
+     - `The Font Atlas Texture ... is missing`
+     - `MissingReferenceException: The variable m_AtlasTextures of TMP_FontAsset doesn't exist anymore`
+     - `MissingReferenceException: The variable m_Material of TMP_FontAsset doesn't exist anymore`
+
+**关键判断**：
+- 这轮正确路线是“安全回到 `HEAD / 已提交基线`”，不是先动生成器重建，更不是去改业务消费者绕过坏底座。
+- 共享字体事故在当前仓库现场已经从“运行时炸锅”回到“底座重新可加载”状态。
+
+**恢复点 / 下一步**：
+- 这轮共享 TMP 中文字体主刀已完成；
+- 如果后续同类错误再次出现，才应回到 `DialogueChineseFontAssetCreator.cs` 或更底层的生成链复盘；
+- 在此之前，不应再把这题挂回 `Day1 / UI / NPC` 任一业务尾账。
+- 本轮收口状态额外补记：
+  - `Ready-To-Sync` 已尝试，但被 `Codex规则落地` 根目录同根未归仓 prompt 文档阻断；
+  - 因此当前正确 live 状态不是 `READY`，而是“incident 已修复、sync 被治理根 remaining dirty 卡住后合法 `PARKED`”。

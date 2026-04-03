@@ -1727,3 +1727,231 @@
     - `Park-Slice.ps1 -ThreadName spring-day1V2`
   - 当前 live 状态：
     - `PARKED`
+
+## 2026-04-03｜补记：新 8 人当前“看不见”的直接原因已钉实，probe 位置不等于正式 Day1 演出
+
+- 当前主线目标：
+  - 回答用户“这些新 NPC 到底在哪测、为什么在场景里没看到、下一轮我和 NPC-v 应该怎么分工”。
+- 本轮新查实的运行态事实：
+  - `NPC-v` 之前拿到的 `8/8 instance / 8/8 informal / 2/2 walk-away` 通过，主要来自：
+    - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+  - 这条 probe 不是把人正式摆进 Day1 村里给玩家消费；
+  - 它会在 Play Mode 下临时创建：
+    - `__SpringDay1NpcCrowdRuntimeProbeRoot`
+  - 并把 `Probe_101 ~ Probe_301` 生在：
+    - 约 `x=120 / y=120` 一带的隔离测试区
+  - 所以用户在正常 `Primary` 体验里“没看到他们”，不是错觉。
+- 同时查实的正式消费链：
+  - 真正负责把 crowd 生进 `Primary` 的是：
+    - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+  - 它只会在：
+    - `Primary`
+    - 且故事 phase 落在各自 `minPhase ~ maxPhase`
+    时按 manifest 动态生成
+  - 但这条正式消费链目前还没有拿到“已对齐原剧本”的整体验收结论。
+- 当前总线判断更新为：
+  - 新 8 人现在已经有：
+    - prefab / data / manifest / targeted runtime probe
+  - 但还没有完成：
+    - 原剧本人设映射回正
+    - Day1 phase 消费矩阵闭环
+    - 玩家面正式演出验收
+- 当前恢复点：
+  - `NPC-v` 下一轮只做：
+    - 原案角色 -> `101~301` 槽位映射
+    - 如证据足够，最小命名 / 文案 / roleSummary 回正
+  - `spring-day1V2` 下一轮只做：
+    - `CrashAndMeet -> DayEnd` 的原 Day1 角色消费矩阵
+    - 老 `NPC001/002/003` 与新 `101~301` 的承载分层
+  - 本轮额外已执行：
+    - `Park-Slice.ps1 -ThreadName spring-day1V2`
+  - 原因：
+    - 现场此前仍停在 `READY_TO_SYNC`，与当前实际“解释现状并停车待下一轮”不符，现已纠正回 `PARKED`
+
+## 2026-04-03｜原 Day1 角色消费矩阵与群像承载分层判定：当前 101~301 仍只是 crowd 槽位，不等于原剧本已扩完
+
+- 当前主线目标：
+  - 按 `2026-04-03-本线程_春一日原剧本角色消费矩阵与群像整合回正任务单-05.md`
+    先做原 Day1 角色消费矩阵，再判老 `NPC001/002/003` 与新 `101~301` 的承载分层。
+- 本轮查实的原 Day1 角色消费矩阵：
+  - `CrashAndMeet`
+    - 原剧本必须角色：
+      - `马库斯`
+    - 原剧本群众层：
+      - 无
+  - `EnterVillage`
+    - 原剧本必须角色：
+      - `马库斯`
+    - 原剧本群众层：
+      - `围观村民 / 小孩`
+  - `HealingAndHP`
+    - 原剧本必须角色：
+      - `马库斯`
+      - `艾拉`
+    - 原剧本群众层：
+      - 无
+  - `WorkbenchFlashback`
+    - 原剧本必须角色：
+      - `马库斯`
+      - `艾拉`
+    - 原剧本群众层：
+      - 无
+    - 备注：
+      - `老铁匠 / 老乔治` 在这里是“村里只有他会做这些”的 lore，不是 Day1 当场必须出镜角色
+  - `FarmingTutorial`
+    - 原剧本必须角色：
+      - `马库斯`
+    - 原剧本群众层：
+      - 可有背景村民，但不要求具名
+  - `DinnerConflict`
+    - 原剧本必须角色：
+      - `马库斯`
+      - `卡尔 / 研究儿子`
+    - 原剧本群众层：
+      - `饭馆村民`
+  - `ReturnAndReminder`
+    - 原剧本必须角色：
+      - `马库斯`
+    - 原剧本群众层：
+      - 无
+  - `FreeTime`
+    - 原剧本必须角色：
+      - 无硬性必须角色
+    - 原剧本群众层：
+      - 可接触 `老杰克 / 老乔治 / 老汤姆 / 小米 / 未具名村民`
+  - `DayEnd`
+    - 原剧本必须角色：
+      - 无
+    - 原剧本群众层：
+      - 无
+- 本轮查实的现有工程承载矩阵：
+  - 老 Day1 主角色链：
+    - `NPC001 / VillageChief`
+      - 当前最稳的 `马库斯` 承载壳
+      - `CrashAndMeet -> EnterVillage` 的正式入口仍直接依赖它
+    - `NPC002 / VillageDaughter`
+      - 当前最接近 `艾拉` 的承载壳
+      - 但 `HealingAndHP` 当前主要由导演层直接播 `艾拉` 序列，还没有把 runtime 演出明确绑回 `NPC002`
+    - `NPC003 / Research`
+      - 当前最接近 `卡尔 / 研究儿子` 的语义壳
+      - 但 Day1 主线里的 `卡尔` 目前主要只作为晚餐序列 speaker 出现，还不是稳定的 `NPC003` runtime 演出
+  - 当前 crowd 新 8 人：
+    - `101 莱札 / LedgerScribe`
+      - 原案无直接来源
+      - 当前被放到 `EnterVillage -> DayEnd`
+      - 不应继续 claim 为正式角色
+    - `102 炎栎 / Hunter`
+      - 只与“大儿子在外打猎 / 猎户氛围”语义邻近
+      - 原 Day1 没有稳定在场角色依据
+    - `103 阿澈 / ErrandBoy`
+      - 最接近 `小孩 / 跑腿 / 围观少年` 这一类群众语义
+      - 可以保留为群众层，不应转正
+    - `104 沈斧 / Carpenter`
+      - 只能算村庄修缮氛围角色
+      - 不能替代 `老铁匠 / 老乔治`
+    - `201 白槿 / Seamstress`
+      - 原案无直接来源
+      - 被放到 `HealingAndHP -> DayEnd`，过早进入主链
+    - `202 桃羽 / Florist`
+      - 原案无直接来源
+      - 最多保留为一般群众层
+    - `203 麦禾 / CanteenKeeper`
+      - 最接近 `饭馆村民 / 饭馆背景角色`
+      - 可以保留为晚餐背景 crowd，但不是原案核心角色
+    - `301 朽钟 / GraveWardenBone`
+      - 原案无直接来源
+      - 与当前 Day1 主线气质冲突最大
+      - 不应继续 claim 为正式角色
+  - 尚无稳定承载的原案角色：
+    - `老杰克`
+    - `老乔治 / 老铁匠`
+    - `老汤姆`
+    - `小米`
+    - `卡尔` 的稳定 runtime 资产承载
+- 当前判断：
+  - `101~301` 这批内容仍然只能算：
+    - 已有 prefab / data / manifest / probe 的 crowd 槽位
+    - 不是“原 Day1 正式角色已经扩完”
+  - 当前 manifest 的 phase 配置存在明显语义漂移风险：
+    - `101 / 103` 提前从 `EnterVillage` 开始
+    - `201` 提前从 `HealingAndHP` 开始
+    - `104` 从 `WorkbenchFlashback` 开始
+    - `301` 在 `ReturnAndReminder / FreeTime` 出现
+    - 这些都比原案要求更早、更重
+  - 但本轮不直接改 `SpringDay1NpcCrowdManifest.asset`
+    - 第一真实 blocker 不是“改法不清楚”
+    - 而是 `NPC-v` 还没完成“原案角色 -> 101~301 槽位”的 own 映射回正
+    - `spring-day1` 这侧当前能先说死的是：
+      - 谁是主角色链
+      - 谁只是 crowd
+      - 哪些原案角色还没被承载
+- 当前恢复点：
+  - `NPC-v`
+    - 下一轮只做原案映射与最小 NPC 本体回正
+  - `spring-day1V2`
+    - 下一轮在 NPC-v 回正后，再决定是否需要最小收窄 manifest phase / 语义口径
+
+## 2026-04-03｜补记：原剧本人设核实完成第一轮钉实，当前停在“可判偏差，不可合法一对一回正”
+
+- 当前主线目标：
+  - 按 `2026-04-03-NPC-v_春一日新NPC群像原剧本人设核实与NPC本体映射回正prompt-04.md`
+    核实“原案角色 -> 当前 `101~301` 槽位”的真实关系，
+    不再把当前新 8 人的现编名字、人设和对白当成既定真相。
+- 本轮实际完成：
+  - 已完整读取并对齐：
+    - `Deepseek聊天记录001.md`
+    - `春1日_坠落_融合版.md`
+    - `初步规划文档.md`
+    - `Deepseek-2-P1.md`
+    - `省流版VIP8.md`
+    - `SpringDay1NpcCrowdBootstrap.cs`
+    - `SpringDay1NpcCrowdManifest.asset`
+    - `NPC_001/002/003` 三份老 Day1 角色底座
+  - 已查实原案真相源优先级：
+    - 用户原始 Day1 剧情原文
+    - `0.0.1剧情初稿`
+    - 长线 NPC 角色表
+    - 当前 `bootstrap / manifest`
+  - 已查实原案稳定主角色链：
+    - `马库斯`
+    - `艾拉`
+    - `卡尔 / 研究儿子`
+  - 已查实原案稳定重要人物：
+    - `老杰克`
+    - `老乔治 / 老铁匠`
+    - `老汤姆`
+    - `小米`
+    - `围观村民 / 饭馆村民 / 小孩`
+  - 已查实当前工程承载分层：
+    - `NPC_001_VillageChief*` = `马库斯` 主链壳
+    - `NPC_002_VillageDaughter*` = `艾拉` 主链壳
+    - `NPC_003_Research*` = `卡尔` 的最接近语义壳
+    - 当前 `101~301` = 新增 crowd 槽位层，不是原案正式角色表
+  - 已完成 `101~301` 第一轮归类判断：
+    - `102 Hunter`
+      - 只到“语义接近大儿子 / 猎户线索”，未到“直接可确认”
+    - `103 ErrandBoy`
+      - 只到“可降级为村中少年 / 目击型群众”
+    - `203 CanteenKeeper`
+      - 只到“语义接近饭馆背景群众”
+    - `101 / 104 / 201 / 202 / 301`
+      - 当前都没有原案直接来源，且 `301` 与 Day1 主线气质冲突最大
+- 本轮没有做的事：
+  - 没有改 `SpringDay1NpcCrowdBootstrap.cs`
+  - 没有改 `SpringDay1NpcCrowdManifest.asset`
+  - 没有改 `Assets/111_Data/NPC/SpringDay1Crowd/*`
+  - 没有进入真实施工，也没有跑 `Begin-Slice`
+- 第一真实 blocker：
+  - 当前证据足够判定“哪些写偏了”，
+    但不足以把 `101~301` 合法一对一改成另一套具名原案角色；
+    若现在直接改名，会继续引入新的自创映射，而不是完成回正。
+- 当前判断：
+  - 这轮已经能说死：
+    - 老 `001/002/003` 才是原 Day1 主角色底座
+    - 当前 `101~301` 大多只是 crowd 槽位，不应继续 claim 为原案正式角色
+  - 这轮还不能说死：
+    - `101~301` 每个槽位应该精确回成哪一个原案具名角色
+- 当前恢复点：
+  - 如继续本线，下一刀只能二选一：
+    - 补更高权威的 Day1 cast 证据后，再做最小 NPC-own 回正
+    - 或显式授权把明显写偏槽位降级成“匿名 / 次级群众”口径再收口

@@ -512,3 +512,650 @@
 ## 2026-03-29：子层补记，第六轮已在 `GameInputManager.cs` 内切断更深 mixed 依赖并完成归仓
 
 当前子层新增的稳定事实是：这轮不是继续补 `0.0.1` 业务交互，而是按 `全局警匪定责清扫` 第六轮执行书，只在 `GameInputManager.cs` 内把第五轮继续暴露出来的两条更深 mixed 依赖切成本地 compat / fallback。线程本轮唯一新增代码改动只落在 `GameInputManager.cs`：一条把 `LastActionFailureReason` 的 compile-time 读取改成 `GetLastActionFailureReasonCompat()` 反射兼容口，另一条把 `ShouldBlockAxeActionBeforeAnimation(...)` 的 compile-time 调用改成 `ShouldBlockAxeActionBeforeAnimationCompat(...)` 反射兼容口；两条链在缺失成员时分别 fallback 到 `ToolUseFailureReason.None` 和 `false`。这轮最关键的新结论已经不是“又多做了一层兼容”，而是 compat 口确实把第五轮 first blocker 切断了，因为真实 `preflight` 已返回 `是否允许按当前模式继续: True`、`代码闸门通过: True`，说明新的 first blocker 已不再是 `PlayerInteraction / TreeController`。随后线程又按第五轮同组 14 个代码文件真实执行了 `sync`，代码归仓 SHA 为 `5e3fe6097ead976df3ebd967e044edf7cd031637`；再加上本轮 own docs / memory 补记归仓后，当前这条子线 own 路径已 clean。子层恢复点因此更新为：`0.0.1` 当前不再只是“代码已补完待验”，还新增了一条治理层的稳定事实，即农田线这组最小共享依赖包已经能在不把 `PlayerInteraction.cs / TreeController.cs` 带回白名单的前提下真实归仓；后续若继续，应由新的用户委托重新决定业务线而不是继续在这轮扩题。
+
+## 2026-04-01：闭门纯代码整改补上收获回归、农具彻底中断、连放 hold、箱子距离、preview 遮挡、背包选中与玩家气泡尾差
+
+**用户目标**：
+- 用户这轮明确要求不要使用 `UnityMCP`、不要先做 live 测试，而是基于已有多轮反馈做一次真正的闭门纯代码大扫盘；同时又补充了新的真实回归：成熟作物收不起来、枯萎成熟作物也没法 collect，并强调不能为了修新问题把之前已存在的业务再打回去。
+
+**当前主线目标**：
+- 在 `0.0.1交互大清盘` 下继续完成“除测试外的剩余必要工作”，把当前最像真 blocker 的交互回归和状态机不统一问题继续压成代码闭环。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：恢复成熟 / 枯萎成熟作物的收获优先级，避免农具放置模式把收获链挡死。
+- 子任务 2：把农具自动链在“工具损坏 / 空水壶 / 精力不足”等失败原因下统一改成彻底中断，不再只清半套状态。
+- 子任务 3：补齐树苗连放 hold 只认鼠标、不认玩家主占格变化的问题。
+- 子任务 4：继续收箱子交互距离口径、preview 遮挡回归、背包选中真源和玩家气泡表现尾差。
+- 当前阻塞仍然不是编译，而是这轮仍没有新的 Unity live 证据，因此所有“已修好”都只能先停在纯代码层成立。
+
+**已完成事项**：
+1. `GameInputManager.cs`：
+   - 删除了 `ShouldSkipHarvestPriorityForPlacementTool()` 对锄头 / 水壶放置模式的收获跳过逻辑，恢复 `TryDetectAndEnqueueHarvest()` 对 `Mature / WitheredMature` 的真实优先级。
+   - `NotifyFarmToolAutomationTailInterrupted(...)` 现在直接走 `AbortFarmToolOperationImmediately(...)`，统一清理导航、执行 preview、queue、锁与 snapshot，解决“锄头碎了但耕地队列预览还留着”这一类半中断状态。
+   - `HandleInteractable(...)` 与 pending auto interaction 改成围绕同一套 `GetInteractionDistanceThreshold(...)` 尺子执行，箱子不再一套距离开走、另一套距离开箱。
+   - `GetPendingAutoInteractionCompletionDistance()` 改成优先使用已解析的 stop radius，避免 threshold 二次放大。
+2. `PlacementManager.cs`：
+   - 连放后的 preview hold 现在除了认鼠标是否移动，还会记录并比对玩家 `dominant cell`；只要玩家主占格发生变化，就会释放 hold，允许预览基于当前位置立即重判下一格。
+   - 这刀与之前已经在的“相邻格 3x3 直放 + 已占格边缘意图偏向”一起组成完整链路，不再只会盯着旧格死 hold。
+3. `OcclusionManager.cs`：
+   - preview 遮挡检测不再被 `Tree / Building / Rock` tag 白名单误杀，改成只要对象本身已经注册为 `OcclusionTransparency` 就参与 preview 遮挡判断；这用于修复“农田中心块要缩小，但箱子 / 树苗 / placeable preview 完全不触发遮挡”的回归。
+4. `InventoryPanelUI.cs`：
+   - 加回了更明确的 `followHotbarSelection` 状态，背包打开时仍以 hotbar 为初始映射，但一旦用户主动点到非第一行格子，背包选中就不再被 hotbar 变化轻易抢回。
+5. `PlayerThoughtBubblePresenter.cs`：
+   - 玩家气泡重新往 NPC 气泡的暖色高对比语言靠拢，去掉了上一版绿色低对比方案；
+   - 同时把最大宽度和每行偏好字符数拉宽，避免再次出现“气泡本身宽度够了却仍然显得挤和怪”的换行体验。
+
+**关键决策**：
+- 这轮严格保持纯代码整改：未使用 `UnityMCP`，未进入 `Play Mode`，也没有碰 `Primary.unity`、Prefab 或 Scene。
+- 箱子距离这轮继续只在 `GameInputManager.cs` 内统一尺子，没有顺手重开存在 foreign dirty 的 `PlayerAutoNavigator.cs`。
+- 当前结论必须继续写成“代码层收口成立，但真实体验仍待用户终验”，不能把这轮纯代码闭环包装成最终通过。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+
+**验证结果**：
+- `git diff --check` 已对上述 5 个文件通过。
+- `CodexCodeGuard` 已对白名单 5 文件重跑，结果 `Diagnostics=[]`，程序集 `Assembly-CSharp`，代码闸门通过。
+- 本轮没有新的 Unity live 证据，也没有新的用户手测回执。
+
+**恢复点 / 下一步**：
+- 当前主线恢复点更新为：
+  - “纯代码层剩余高频回归已继续压实，当前最需要的不是再猜实现，而是按最新验收清单回收用户对收获、农具中断、连放手感、箱子距离、preview 遮挡、背包选中和玩家气泡的现场回执。”
+- 下一步如果继续这条线，应该先停给用户做终验；仅当回执明确指出仍有未过项时，再按那张回执对未通过触点做下一刀。
+
+## 2026-04-01：纯代码回扫继续补 tooltip 挂载与 preview footprint 过大，当前仍停在待用户终验
+
+**本轮新增稳定事实**：
+- 这轮继续保持纯代码施工，没有使用 `UnityMCP`，也没有碰 scene / prefab / `Primary.unity`。
+- 在上一轮 5 文件整改基础上，又补了 2 个此前仍有明显风险的尾差：
+  1. `OcclusionTransparency.cs`
+     - `GetColliderBounds()` 不再优先吃父级 `CompositeCollider2D`；
+     - preview 遮挡现在优先取自身 / 子物体的局部碰撞 footprint，只有本地没有可用 collider 时才回退到父级 bounds；
+     - 这用于继续收紧“农田中心格 hover 仍被远处树体误透明”的结构性风险。
+  2. `ItemTooltip.cs`
+     - runtime tooltip 不再盲挂到“第一个找到的 Canvas”，而是优先挂到当前最合适的激活根 Canvas；
+     - 最小显示延迟从 `0.6s` 收紧到 `0.15s`；
+     - tooltip 已显示时，切换物品改成立即刷新内容并置顶，而不是每次重新吃一轮长延迟；
+     - 这用于修复“物品提示框看起来像根本没有”的高概率结构原因。
+- 成熟 / 枯萎成熟作物收获恢复、农具失败彻底中断、连放 hold 解锁、箱子距离统一、背包选中真源与玩家气泡样式这几条上一轮补口继续保留，没有被这轮新改动覆盖掉。
+
+**本轮验证**：
+- `git diff --check` 已对白名单 7 文件通过：
+  - `GameInputManager.cs`
+  - `PlacementManager.cs`
+  - `OcclusionManager.cs`
+  - `OcclusionTransparency.cs`
+  - `InventoryPanelUI.cs`
+  - `ItemTooltip.cs`
+  - `PlayerThoughtBubblePresenter.cs`
+- `CodexCodeGuard` 已对白名单 7 文件重跑，结果 `Diagnostics=[]`，程序集 `Assembly-CSharp`。
+- 这轮依旧没有新的 Unity live 证据，因此当前结论仍然只能停在“结构 / checkpoint 成立，真实体验待用户终验”。
+
+**下一步恢复点**：
+- 当前最准确状态更新为：
+  - “成熟 / 枯萎收获链已从代码层恢复；tooltip 可见性与 preview footprint 又各补了一刀；剩下不该再靠猜，而该回到用户现场回执。”
+- 若继续下一轮，应优先让用户重验：
+  - 成熟作物收获
+  - 枯萎成熟作物 collect
+  - 农具失败后的彻底中断
+  - 箱子 / 农田 / 树苗 preview 遮挡
+  - 物品 tooltip 显示
+
+## 2026-04-01：只读补记，连续放置边界模型仍不完整，当前已明确新的高风险漏项清单
+
+**本轮性质**：
+- 用户没有要求我这轮直接改代码，而是明确质疑“连续放置的边界情况想得还不够全面”，并点名树苗 / 播种连放手感仍会在边界细节上出错。
+- 这轮保持只读分析，没有进入真实施工，也没有使用 `UnityMCP`。
+
+**本轮新增稳定判断**：
+1. 当前 `PlacementManager.cs` 已经有“相邻格意图偏向”逻辑，但它仍然是偏数学阈值，不是玩家手感语义：
+   - 现状阈值为 `AdjacentIntentBiasThreshold = 0.14f`
+   - 代码位置：`ResolvePreviewCandidatePosition()` / `TryResolveAdjacentIntentBiasedCandidate()` / `BuildAdjacentIntentDirections()`
+2. 用户这次补充的“边界百分之10左右才往哪个方向延伸”，已经把正确语义说得更清楚了：
+   - 不是“鼠标离中心超过一点就偏向邻格”
+   - 而是“只有鼠标进入当前占格靠边缘那条很窄的意图区，才允许往该方向延伸”
+3. 结合当前代码结构，可明确识别出新的高风险漏项：
+   - 当前偏向触发带过宽，离边界还远时也可能过早偏向邻格
+   - 当前偏向来源只看“当前格是否被树/作物占用”，没区分是不是“本次连续放置链刚刚放下的那个格”
+   - 当前角落 / 对角 / 轴向 fallback 顺序虽已存在，但仍没有被定义成玩家可感知的稳定手感规则
+   - 玩家主占格 `60%` 阈值与边界偏向规则之间仍然是两套并列尺子，存在突变点风险
+
+**下一步恢复点**：
+- 如果继续做这条线，下一刀不该再只调一个常量，而应把“连续放置的边界语义”单独收成规则：
+  - 什么情况下允许从已占格延伸
+  - 只在多窄的边界带里延伸
+  - 对角时先走哪格
+  - 什么情况下必须回到原格而不是偷偷跳邻格
+
+## 2026-04-01：连续放置边界语义已改成“边缘窄带 + 连放链 owner”，当前停在代码层成立待用户复验
+
+**用户目标**：
+- 用户认可上一轮的判断，并要求我不要再停在分析上，而是直接把“连续放置边界语义重构”真正落进代码。
+- 当前唯一主刀仍然只限 `PlacementManager.cs` 这条树苗 / 播种高频连放手感链，不扩到其他交互面，也不使用 `UnityMCP`。
+
+**当前主线目标**：
+- 把连续放置从“离中心偏一点就乱跳邻格”的旧阈值模型，改成用户明确要求的“只有进入边界约 10% 窄带才顺延”的玩家意图模型。
+
+**本轮子任务 / 阻塞**：
+- 子任务 1：把旧的 `AdjacentIntentBiasThreshold` 口径替换成边缘窄带语义。
+- 子任务 2：把顺延来源从“任何已占格”收紧成“本轮连续放置刚刚落下的那个格”。
+- 子任务 3：把角落 / 对角 fallback 顺序固定下来，并继续保证 preview / click 同源。
+- 当前仍未跨过的边界是：这轮只有纯代码证据，没有新的 Unity live / 用户手感回执，所以不能把它写成体验已过线。
+
+**已完成事项**：
+1. `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+   - 连放顺延新增 `adjacentContinuationSourceValid / adjacentContinuationSourceCell`，现在只认“本轮刚放下的格子”作为连续放置源，不再把世界里原本已有的树苗 / 作物占位也误当成顺延触发源。
+   - `ResumePreviewAfterSuccessfulPlacement()` 现在会在成功放置后登记这枚连放源格，再立刻用同一套 `ResolvePreviewCandidatePosition(...)` 重算下一格；因此 preview 和点击仍然同源，没有拆成两套判定。
+   - `TryResolveAdjacentIntentBiasedCandidate(...)` 不再按“离中心偏一点就偏向”的旧阈值判断，而是要求当前鼠标先落在连放源格，且该格仍被真实占用，然后才允许顺延。
+   - `BuildAdjacentIntentDirections(...)` 已改成“边界 10% 窄带”模型：
+     - 不在窄带里时，返回空方向，保持原格；
+     - 只进单轴窄带时，只尝试对应轴邻格；
+     - 同时进角落窄带时，先尝试对角，再按更深穿透的轴优先，最后才试另一轴；
+     - 不再像旧实现那样把 8 个方向都扫一遍，避免手感漂移成“鼠标没碰边也乱跳格”。
+   - `EnterPlacementMode()`、`ExitPlacementMode()` 和 `HandleInterrupt()` 现在都会清掉连放链 owner，避免上一轮连放状态污染下一轮。
+2. `Assets/Editor/PlacementManagerAdjacentIntentTests.cs`
+   - 新增最小编辑器单测，只钉这轮的边界语义：
+     - 格子内部不应顺延
+     - 进入 10% 单轴窄带时只应偏向对应邻格
+     - 角落窄带时应先对角，再按更深边界轴 fallback
+
+**关键决策**：
+- 这轮明确把“边界 10%”做成结构语义，而不是继续靠调一个模糊阈值碰运气。
+- 顺延只认本轮连放链 owner，是为了修掉“普通世界占位也会误触发顺延”的结构错判；这不是参数问题，而是来源定义问题。
+- 当前可认的是“代码 / checkpoint 成立”，不是“体验已过线”。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\PlacementManagerAdjacentIntentTests.cs`
+
+**验证结果**：
+- `git diff --check`：已对白名单 2 文件通过。
+- `CodexCodeGuard`：已对白名单 2 文件通过，`Diagnostics=[]`，程序集覆盖 `Assembly-CSharp` 与 `Assembly-CSharp-Editor`。
+- 新增编辑器测试文件已通过程序集级编译，但本轮未进入 Unity Test Runner / PlayMode。
+- `thread-state`
+  - `Begin-Slice`：已在本轮继续真实施工前登记。
+  - `Ready-To-Sync`：未跑；原因是这轮不是归仓回合。
+  - `Park-Slice`：已在本轮停手前执行，当前状态已切回 `PARKED`。
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “连续放置边界语义已经从旧阈值模型切成了边缘窄带 + 连放链 owner 模型，下一步不该再靠猜，而该回到用户手上复验树苗 / 播种的真实手感。”
+- 下一步若继续，应优先让用户复验：
+  - 鼠标停在已放下格子的边界约 10% 位置时，是否能稳定顺延到用户倾向的下一格；
+  - 鼠标停在格子内部时，是否还会提前乱跳邻格；
+  - 静止鼠标 + 玩家缓慢过格时，preview 与点击是否仍保持同一候选格。
+
+## 2026-04-01：只读全面审计结论，当前不能诚实宣称“全部历史需求都已经没问题”
+
+**用户目标**：
+- 用户这轮不是要我继续改，而是要我把这条线从历史需求、历史返工和当前代码三个层面重新审一遍，并明确回答：我自己现在能不能诚实地说“除了用户验收外，看不到任何问题了”。
+
+**当前主线目标**：
+- 继续服务 `0.0.1交互大清盘`，但本轮子任务是只读审计与自省，不进入新的真实施工。
+
+**本轮新增稳定判断**：
+1. 当前绝不能宣称“全部历史需求都已经彻底没问题了”。
+   - 我能诚实说的是：这条线已经做了多轮代码返工，很多主链从“明显错误”推进到了“结构上更对了”。
+   - 但我不能诚实说“现在除了你验收外，我自己已经看不到任何问题”。
+2. 以历史任务书 `A1~C3` 为主轴，再叠加后续你新增的回归与口径修正，当前最准确状态应分成三类：
+   - **代码结构相对较强，但仍待用户终验**：
+     - `A2` 树木倒下事务
+     - `A3` 工具失效主语义
+     - `B4` 高树冷却输入层前置拦截
+     - `C1` 箱子双库存 / SaveLoad authoritative source
+     - `C3` 无碰撞体脚下放置
+     - 以及后续新增的“成熟 / 枯萎成熟作物收获恢复”
+   - **代码已多轮返工，但我从代码层仍能看到明显体验风险，不能 claim 过线**：
+     - `A1` 树苗 / 播种连续放置手感
+     - `B1` hover 遮挡最终口径
+     - `B2` 箱子走近与到位开启一致性
+     - `B3` 背包 / Toolbar 选中真源与点击拖拽手感
+     - `B5` 玩家气泡最终样式
+     - `C2` Tooltip / 状态条整包体验
+   - **已修逻辑但仍带主观或场景依赖不确定性**：
+     - `A2` 树倒下动画好不好看
+     - `B5` 气泡配色、换行和整体风格
+3. 我这轮从当前代码里仍能直接看见 4 组高风险交界：
+   - `A1` 连放现在同时受“边缘 10% 窄带顺延”和“玩家主占格 60% 直放”两套规则共同影响，结构上比以前对，但交界手感仍可能有突变。
+   - `B1` 遮挡链虽然已经朝“中心格 / 物理 footprint”收口，但农田 hover、placeable preview、occluder collider 仍然跨多个脚本协同，属于最容易出现“这边修了那边偏”的区域。
+   - `B2/B3` 仍然不是完全单点真源：箱子到位开启依赖 `GameInputManager + AutoNavigator + ChestController` 三段一致，背包选中依赖 `InventoryPanelUI + InventorySlotUI + InventoryInteractionManager + ToolbarSlotUI` 多段一致，所以从架构上就比单文件事务更容易残留边缘问题。
+   - `C2/B5` 本质上还带 scene / prefab / Canvas / 运行态表现依赖，只靠代码静态阅读无法诚实宣布“已经完全好看且完全稳定”。
+
+**本轮结论**：
+- 如果只问“代码有没有比之前更接近正确”，答案是有，而且不少主链已经明显前进。
+- 如果问“我现在能不能拍胸口说这条线除了你验收我看不到任何问题了”，答案是否。
+- 当前最诚实的总判断应写成：
+  - “这条线已经不是早期那种到处漏逻辑的状态了；
+  - 但也绝不是全部历史需求都已彻底消灭问题；
+  - 其中 `A1 / B1 / B2 / B3 / B5 / C2` 我现在仍不敢在没有你 live 回执的前提下说已经过线。”
+
+**恢复点 / 下一步**：
+- 如果后续继续，不该再用‘全部都差不多了’这种口径。
+- 更准确的下一步应是：
+  - 先按今天这轮审计的分类，把“结构较强但待验”和“我自己仍看见明显风险”的项分开；
+  - 然后只对你最新回执里的未通过项继续开刀，而不是把整条线假装已经全部没问题。
+
+## 2026-04-01：纯代码再收口一轮已落地到 `A1 / B1 / B2 / B3 / C2 / B5`，当前阶段仍是“结构成立、等待用户终验”
+
+**用户目标**：
+- 用户这轮明确要求继续把所有“还能靠代码继续收口”的剩余项再往前推一轮，并收成一个新的静态完成面。
+- 范围固定为：`A1` 连放边界与近身直放、`B1` 农田与 placeable hover 遮挡、`B2` 箱子走近停下与到位开启、`B3` 背包 / Toolbar 选中真源、`C2` Tooltip / 工具状态条、`B5` 玩家气泡。
+
+**当前主线目标**：
+- 继续服务 `0.0.1交互大清盘`，但这轮只做纯代码深化收口，不做 Unity live，不碰 scene / prefab / `Primary.unity`。
+
+**已完成事项**：
+1. `A1` 连放边界与近身直放
+   - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+   - 成功放置后的 preview hold 现在除了鼠标移动外，也会在玩家中心真实移动后自动释放，不再死等“鼠标必须抖一下”。
+   - 连放源格在 hold 期间允许直接作为顺延来源，补掉“刚放下时占位回写慢一帧导致预览仍卡旧格”的结构风险。
+2. `B1` hover 遮挡统一事实源
+   - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+   - `Assets/YYY_Scripts/Farm/FarmToolPreview.cs`
+   - `Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`
+   - 预览遮挡上报不再共用一个会互相清空的单槽位，而是拆成 `FarmTool` 与 `PlaceablePlacement` 两个来源；placeable preview 不会再被农田 preview 的 `Hide()` 顺手清空。
+   - 农田 hover 中心 footprint 又缩小一轮，继续逼近“只看中心格那一点”的口径。
+3. `B2` 箱子走近停下与到位开启
+   - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+   - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+   - 箱子自动交互改成 pending 轮询链：没到距离就继续走，到位立刻停并开箱，不再只吃一次到点回调。
+   - 箱子 stop radius 继续收紧，目标是“真的走近了再开”，不是靠放大交互距离冒充修好。
+4. `B3` 背包 / Toolbar 选中真源
+   - `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`
+   - `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs`
+   - 箱子槽位单击现在也会先进入选中态。
+   - 跨区域拖拽放下后，旧源格会显式回收选中状态，减少“真源已切走、源格还亮着”的残影。
+5. `C2` Tooltip / 工具状态条运行时入口
+   - `Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`
+   - `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`
+   - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+   - tooltip 现在会优先挂到当前槽位所在的正确 Canvas，再显示并置顶，减少“逻辑触发了但挂到错误画布里看不见”的风险。
+   - 同一轮 hover 切换不同物品时，tooltip 已显示状态会直接刷新，不再每次重新吃完整延迟。
+6. `B5` 玩家气泡
+   - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+   - 颜色、边框、阴影、气泡宽度和自然换行参数继续往 NPC 当前正式样式语言靠拢，至少先回到同一套视觉语法。
+7. 结构性测试与 no-red
+   - `Assets/Editor/PlacementManagerAdjacentIntentTests.cs`
+   - 新增“刚好压在 10% 边界时仍应顺延”的编辑器测试。
+   - scoped `git diff --check` 与 `CodexCodeGuard` 已通过，`Diagnostics=[]`。
+
+**仍未宣称完成的边界**：
+- 本轮没有新的 Unity live 证据。
+- 本轮没有新的用户手感回执。
+- 因此当前只能写成“结构 checkpoint 又推进了一轮”，不能写成“体验正式过线”。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\ItemTooltip.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerThoughtBubblePresenter.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\Editor\PlacementManagerAdjacentIntentTests.cs`
+- `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-04-01-交互大清盘_静态再收口验收清单.md`
+
+**验证结果**：
+- `git diff --check`：通过
+- `CodexCodeGuard`：通过，`Diagnostics=[]`
+- 本轮未做 Unity live / Test Runner / 用户手测
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “本轮所有还能靠代码继续收口的核心剩余项，已经又推进了一轮；下一步不该继续散修，而该按新的静态验收清单让用户只对 `A1 / B1 / B2 / B3 / C2 / B5` 做集中回执。”
+
+## 2026-04-01：静态再收口本轮已合法 `Park`，当前只剩用户终验回执，不得包装成体验已过线
+
+**用户目标**：
+- 用户要求我把还能靠代码继续推进的剩余项再往前收一轮，但也明确表示这轮不能诚实承诺“最终完成整条线”。
+
+**当前主线目标**：
+- 继续服务 `0.0.1交互大清盘`；
+- 当前这轮已经完成纯代码推进，并正式收成一个新的静态完成面与终验清单。
+
+**本轮最终结算**：
+1. 当前 slice 已执行 `Park-Slice`，线程 live 状态切回 `PARKED`，不再停留在 `ACTIVE`。
+2. 本轮用户终验入口已固定为：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\2026-04-01-交互大清盘_静态再收口验收清单.md`
+3. 当前这轮可以诚实 claim 的只有：
+   - `A1 / B1 / B2 / B3 / C2 / B5` 又完成了一轮纯代码深化收口；
+   - `git diff --check` 与 `CodexCodeGuard` 已过，代码层 compile-clean 仍成立。
+4. 当前这轮不能 claim 的仍然是：
+   - 新的 Unity live / 玩家体感已通过；
+   - 整条交互线已经彻底完成；
+   - Git 白名单 sync 已在本轮继续推进。
+
+**验证结果**：
+- `thread-state`
+  - `Begin-Slice`：已在本轮真实施工前完成
+  - `Ready-To-Sync`：未跑；原因是这轮不是归仓回合
+  - `Park-Slice`：已完成；当前状态为 `PARKED`
+- 代码自检
+  - `git diff --check`：通过
+  - `CodexCodeGuard`：通过，`Diagnostics=[]`
+- 本轮未做 Unity live / 用户手测
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “这轮能靠代码继续收口的核心剩余项已经又推进了一轮，线程已合法停车；下一步不该再继续自由散修，而应等待用户按静态再收口验收清单回填 `A1 / B1 / B2 / B3 / C2 / B5` 的真实结果，再只对未通过项继续开刀。”
+
+## 2026-04-01：用户要求改成人工执行的详细测试矩阵，本轮停止 live 自测并改交聊天内验收清单
+
+**用户目标**：
+- 用户在我准备继续 Unity live 自测时，明确要求“先别测了”，改为由他自己执行测试；
+- 要求我像前几轮一样，直接在聊天里给出一份非常详细、可直接照着走的测试清单，而且要覆盖完整情况矩阵。
+
+**当前主线目标**：
+- 主线仍是农田交互修复 `V3 / 1.0.4 / 0.0.1交互大清盘`；
+- 但本轮子任务已经从“线程自己继续 live 试跑”切换成“把所有需要用户手感终验的项，重新打包成更细的人工测试矩阵”。
+
+**本轮已完成事项**：
+1. 已停止继续进行 Unity live 自测，没有继续扩大本轮运行态写入或测试范围。
+2. 已把当前 slice 合法切回 `PARKED`：
+   - `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason user-requested-manual-test-checklist-instead-of-live-run`
+3. 已确定本轮对用户的交付物不再写入新的验收文档，而是改为聊天内直接给出更细的测试矩阵：
+   - 覆盖 `A1 / A2 / A3 / B1 / B2 / B3 / B4 / B5 / C1 / C2 / C3`
+   - 同时把最近静态再收口和 live 里暴露过的重点风险并回矩阵，例如：
+     - 连放边界 10% 顺延与近身 9 宫格直放
+     - 农田 hover 与 placeable preview 的遮挡分流
+     - 箱子多方向走近、停下、到位开启
+     - 工具状态条、水壶水量条与 tooltip 运行时入口
+4. 本轮没有新增代码修改、没有新增 Unity live 证据、没有新增 compile 结论；当前只是把测试职责切回用户侧，并补清晰的验收入口。
+
+**关键判断**：
+- 当前最合理的下一步不是我继续盲跑更多 live，而是先让用户按更细的矩阵去测；
+- 原因是这条线剩下的大头已经主要是“手感 / 观感 / 到位时机 / UI 可见性 / 角度差异”类问题，人工实操比我继续在同一轮里机械加 runner 更有价值。
+
+**thread-state**：
+- `Begin-Slice`：上一轮 live 自测前已执行
+- `Ready-To-Sync`：未执行；原因是本轮不是归仓回合
+- `Park-Slice`：本轮已补执行
+- 当前 live 状态：`PARKED`
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “线程已停止继续自测，改为等待用户按更细的聊天内测试矩阵做人工终验；收到回执后，再只对未通过项继续开刀，而不是继续无差别扩测。”
+
+## 2026-04-02：用户纠偏“看守长”交付对象，本轮改为直接接上一轮完成面并一次性交付完整验收包
+
+**用户目标**：
+- 用户明确指出：这次“看守长”的对象不是治理线程，也不是模式解释；
+- 默认就接我上一轮刚完成并已向他汇报的那一刀，直接交完整验收包，内容必须包括：
+  - 总判断
+  - 已自验
+  - 仍需用户终验的点
+  - 建议顺序
+  - 详细矩阵
+  - 最少必测包
+  - 快捷回执单
+  - 完整版回执单
+
+**当前主线目标**：
+- 主线仍是农田交互修复 `V3 / 1.0.4 / 0.0.1交互大清盘`；
+- 本轮子任务不是继续施工，而是把上一轮静态再收口 + live 自测暴露点，整理成一次性、可直接执行的完整人工验收包。
+
+**本轮已完成事项**：
+1. 已明确这次交付的基线应接在“上一轮已完成并已汇报的那一刀”上，而不是重新解释 `看守长 / 典狱长`。
+2. 已把验收包口径重新压实为：
+   - 既包含上一轮静态再收口的主验范围 `A1 / B1 / B2 / B3 / C2 / B5`
+   - 也并回最近 live 自测里真实暴露出的重点风险：
+     - `PreviewRefreshAfterPlacement` 不再是第一失败点
+     - `ChestReachEnvelope` 成为新的最高风险 live 失败点
+3. 已决定最终交付必须明确区分三层：
+   - 线程已自验通过的部分
+   - 线程已定位但尚未 live 过线的部分
+   - 必须交给用户亲手终验的部分
+
+**关键判断**：
+- 这轮最核心的判断是：
+  - “结构面比前一版更扎实了，但不能诚实包装成整条线已过线；
+     当前最大 live 风险已经从 `A1` 局部刷新，转移到 `B2` 箱子 reach / 到位开启链。”
+- 因此完整验收包必须重点把 `A1 / B1 / B2 / B3 / C2 / B5` 做成主矩阵，再把 `A2 / A3 / B4 / C1 / C3 / 收获回归` 作为回归组一起交给用户。
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “这轮对用户的正确交付不是再解释模式，而是直接给出完整验收包；等用户按包回填后，再只对未通过项继续开刀。”
+
+## 2026-04-02：用户 9 条直验问题后再推一轮纯代码返修，本轮已合法 `Park`
+
+**用户目标**：
+- 用户直接给出 9 条高压反馈，要求不要中断同步、不要再甩锅导航，而是把放置失败、边走边放、tooltip/状态条、Sword/水壶/木质工具状态、hover 遮挡、成熟/枯萎收获、玩家气泡和树倒下表现一起全盘清扫；
+- 同时要求木质 `0` 档工具、水壶与 `Weapon_200_Sword_0` 先改成“一次可用”的测试口径。
+
+**当前主线目标**：
+- 主线仍是农田交互修复 `V3 / 1.0.4 / 0.0.1交互大清盘`；
+- 本轮子任务是把用户刚点名的高频失败项尽量压回新的静态完成面，而不是继续扩题去碰 scene / prefab / `Primary.unity`。
+
+**本轮已完成事项**：
+1. 放置事务主链继续改口为“距离驱动提交，不再把导航完成回调当唯一提交门”：
+   - `PlacementManager.cs` 新增 `TryExecuteLockedPlacementWhenPlayerIsNear()`，Locked/Navigating 状态下只要玩家进入可放距离，就直接提交锁定放置；
+   - `GameInputManager.cs` 不再因为手动移动 + 放置流而直接吞掉左键，也不再在 WASD 时把放置事务整段打断。
+2. 收获入口回到“任何模式都能收”：
+   - `TryDetectAndEnqueueHarvest()` 已前置到放置/工具分发之前；
+   - 动画期入队链也不再因为有移动就直接跳过收获，因此成熟与 `WitheredMature` 的 collect 不再依赖当前手持物前提。
+3. `Tooltip / 状态条` 被拆回两条独立语义：
+   - `ItemTooltip.cs` 改成 `1s` 悬浮延迟、`0.3s` 渐显渐隐、拖拽/拿起/Shift/Ctrl suppress、像素字体优先加载、正式框体配色和更不挡视野的跟鼠定位；
+   - `InventorySlotInteraction.cs / InventorySlotUI.cs / ToolbarSlotUI.cs` 把 tooltip 触发条件重新收紧，并把底部状态条改成 `0.3s` 淡入淡出。
+4. `Sword / 工具 / 水壶` 运行时状态链补齐：
+   - `ToolRuntimeUtility.cs` 现在会把 `WeaponData` 也纳入运行时耐久初始化与状态条读取；
+   - `ItemTooltipTextBuilder.cs` 对武器补了 runtime fallback；
+   - 木质 `0` 档斧头 / 锄头 / 镐子、水壶和 `Weapon_200_Sword_0` 都已改成单次测试口径。
+5. hover 遮挡重新统一到“占格 footprint 是真源”：
+   - `PlacementPreview.cs` 的 preview 遮挡改看占格 footprint，而不是继续吃 sprite 外扩；
+   - `FarmToolPreview.cs` 的农田 hover footprint 调回接近整格，只认当前中心单元；
+   - `PreviewOcclusionSource.cs` 已拆成独立文件，补掉 preview 链对 shared runtime 文件本体的隐式编译依赖。
+6. 表现层继续补两刀：
+   - `PlayerThoughtBubblePresenter.cs` 放宽了玩家气泡自然排版宽度，减轻过早换行；
+   - `TreeController.cs` 收敛了倒下动画的过冲与回弹参数，先去掉明显卡通弹簧感。
+
+**验证结果**：
+- `git diff --check` 已重新通过（仅有 3 个现有文件的 CRLF 提示，不构成 blocker）；
+- `CodexCodeGuard` 已对白名单 14 个 C# 文件通过，`Diagnostics=[]`，程序集 `Assembly-CSharp`；
+- 本轮没有新的 Unity live 证据，也没有新的用户终验结果。
+
+**当前边界 / 阻塞**：
+- 本轮已执行 `Park-Slice`，当前 `thread-state = PARKED`；
+- 当前真正剩下的不是代码红错，而是用户按最新版终验清单做人工终验；
+- 仍不能诚实 claim “整条交互线已经最终过线”，因为 `A1 / B1 / C2 / 气泡 / 倒下表现` 仍然需要现场体感确认。
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “这轮纯代码可确认的问题已继续往前推一轮，并已合法停车；下一步先让用户按新的终验清单集中回填结果，再只对未通过项继续开刀。”
+
+## 2026-04-02：父层补记，用户喊“看守长”后当前阶段已切回完整人工终验交接
+
+父层当前新增的稳定事实是：用户随后没有要求我继续补代码，而是明确要求默认接“上一轮刚完成并已向他汇报的那一刀”，直接交完整验收包，不再讲模式切换，也不再索要 prompt 或额外回执材料。因此本轮父层没有重新进入真实施工，没有新增代码改动，也没有追加 Unity live 验证，而是把当前阶段重新压实为“线程停止补刀，转入完整人工终验交接”。这轮父层最重要的新增判断有三点。第一，验收对象已经重新锚定为上一轮最新完成面，而不是某个抽象的大包：主验应继续围绕 `A1` 连放与近身直放、收获与工具中断回归、`C2` Tooltip 与工具状态条、`B1` 农田 / placeable hover 遮挡、`B2 / B3` 箱子与背包 / Toolbar 交互链，以及 `B5 / A2` 玩家气泡与树倒下表现。第二，线程自验和用户终验的边界已重新分开：当前能诚实 claim 的仍然只是 `git diff --check` 与 `CodexCodeGuard` 已通过、代码结构推进了一轮；当前不能诚实 claim 的仍然是“体验已经过线”或“整条交互线已经正式完成”。第三，这轮交接必须把用户真正需要判断的风险再排序清楚：最该优先抓的仍是 `A1 / 收获回归 / C2 / B1` 这几条最容易影响继续验别的项的入口链。父层恢复点因此更新为：农田 `1.0.4 / 0.0.1` 当前最新阶段应写成“代码层保持 compile-clean，线程已合法 `PARKED`，当前转入完整人工终验交接”；后续只有在拿到用户集中回执后，才继续只对未通过项返工。
+
+## 2026-04-02：子层补记，放置 / 遮挡线在新的静态 checkpoint 内完成规则纠偏并恢复 compile-clean
+
+子层当前新增的稳定事实是：用户继续明确追责“放置失败不是导航问题，而是我自己的放置与遮挡规则被改歪了”，并特别指出 preview 遮挡已经退化成接近“碰撞体重叠才触发”的错误口径。线程因此重新进入真实施工，先按 live 规则执行了 `Begin-Slice`，随后只围绕 `PlacementGridCalculator.cs`、`PlacementPreview.cs`、`FarmToolPreview.cs`、`OcclusionManager.cs`、`OcclusionTransparency.cs` 这 5 个文件继续纯代码收口，不碰 scene / prefab / `Primary.unity`，也没有再扩题到别的业务链。当前子层这轮最重要的新变化有四块。第一块是 compile gate 纠偏：上一版把 `PreviewOcclusionSource` 单独拆成未归仓文件，导致 preview 链在代码闸门里出现“类型不可见”的硬断点；这轮已把该枚举收回 `OcclusionManager.cs` 这个已跟踪文件，并删除独立新文件，避免 preview 遮挡链再被 untracked 类型卡红。第二块是放置到位口径纠偏：`PlacementGridCalculator.TryGetPlacementReachEnvelopeBounds(...)` 不再只偷用格子几何中心，而是改为根据真实 `GetPlacementPosition(...)`、本地 collider 包络中心和底部对齐偏移推导 reach envelope 的世界中心，目的是把“导航/近距判定”重新对齐到真实放置后的 collider 包络，而不是继续把 reach 判定钉死在抽象格心。第三块是 preview 遮挡重新分事实源：`FarmToolPreview` 继续把 hover footprint 固定为中心格焦点，`PlacementPreview` 则只把占格 footprint 送给 preview 遮挡；`OcclusionManager` 现在按 `FarmTool / PlaceablePlacement / Generic` 三类来源分流，农田 hover 不再额外放大，placeable preview 则恢复小幅缓冲。第四块是 occluder 遮挡口径纠偏：`OcclusionTransparency` 对 `FarmTool` 重新走最小物理 footprint，对 placeable / generic 则改为优先聚合可见 sprite 包络并补 root collider，而不是继续退化成几乎只认物理重叠。验证层已再次写实：针对上述 5 个 C# 文件重新执行 `git diff --check` 与 `CodexCodeGuard`，结果 `Diagnostics=[]`、程序集 `Assembly-CSharp`，说明这轮结构纠偏后的代码面已经恢复 compile-clean；但本轮仍没有新的 Unity live 证据，也没有新的用户终验。当前子层恢复点因此更新为：放置 / 遮挡链当前已经回到“规则重新贴近真实需求、静态编译通过、线程已合法 `Park-Slice`”的状态；下一步不应再继续盲改，而应由用户优先重验 `A1` 连放 / 近身直放与 `B1` 农田 / placeable hover 遮挡，再只对现场仍未过线的点继续返工。
+
+## 2026-04-02：子层补记，看守长交接前完成最终静态复核，当前能诚实 claim 的只有“代码层成立”
+
+子层当前新增的稳定事实是：用户随后没有再要求继续扩题施工，而是要求我“再去检查代码，确保完全没有问题后走看守人模式”。线程因此本轮先保持只读复核，回看当前放置 / 遮挡切片的 5 个目标文件、相关测试以及最近 memory；在确认没有新的结构性问题后，只补了两个纯清洁尾差：一是删掉 `PlacementGridCalculator.TryGetPlacementReachEnvelopeBounds(...)` 里已无实际作用的旧格心临时量，二是删掉 `PlacementPreview.cs` 里已经不再使用的 `TryGetPreviewSpriteBounds(...)` 私有 helper。验证层随后再次重跑：`git diff --check` 通过（仍只有 `PlacementGridCalculator.cs` 的 CRLF 提示，不构成 blocker），`CodexCodeGuard` 继续对白名单 5 文件通过，`Diagnostics=[]`，程序集 `Assembly-CSharp`。当前子层必须明确保留的边界也更清楚了：这轮完成的是“最终静态复核 + 纯清洁收尾”，不是新的 Unity live 或用户手感结论，因此当前最准确的对外口径仍然只能是“代码层成立、体验待用户终验”，不能把静态 clean 包装成体验过线。子层恢复点因此更新为：当前这 5 文件切片已完成本轮能做的全部静态检查，线程已再次合法 `Park-Slice`，下一步直接进入看守长交接，优先让用户重验 `A1 / B1`，其余项目按验收矩阵顺序继续终验。
+
+## 2026-04-03：子层补记，放置卡顿与农田 hover 过紧已做最小纯代码修复，`placeable` 遮挡保持冻结
+
+**用户目标**：
+- 用户最新 live 反馈把范围重新收窄成两件事：
+  - 放置时“放一下就卡一下”，严重影响继续测试；
+  - 农田 preview 遮挡仍然过紧，只有接近碰撞体重合才触发。
+- 同时用户明确裁定：`placeable` 遮挡“现在完全正确，可以用了”，这条不要再动。
+
+**本轮子任务 / 主线关系**：
+- 主线仍是农田交互修复 `V3 / 1.0.4 / 0.0.1交互大清盘`。
+- 本轮子任务只收 `放置卡顿 + FarmTool hover 过紧` 这一刀，不扩回其它交互链，也不回头重做 `placeable` 遮挡。
+- 这条子任务服务于让用户先恢复可继续测试的最小现场，再决定后续未验部分怎么返工。
+
+**本轮已完成事项**：
+1. `PlacementManager.cs`
+   - `ResumePreviewAfterSuccessfulPlacement()` 现在在“刚放下后仍停在同一格”的场景里，先直接把树苗 / 种子的 hold 预览切成已占位红态，不再立刻重跑一轮完整占位验证；
+   - `TryPrepareSaplingPlacement(...)` 不再在树苗落地后马上再做一次 `validator.HasTreeAtPosition(...)` 全场找树重扫描，而是改成只确认新实例的本地占格根节点是否落在目标格。
+2. `PlacementValidator.cs`
+   - 树木 / 箱子的 `FindObjectsByType` 全场扫描已改成“同帧缓存一次”，避免树苗放下后的同一帧里被 preview 刷新、占位确认和后续验证链重复扫场。
+3. `OcclusionManager.cs`
+   - 只给 `PreviewOcclusionSource.FarmTool` 补了一圈很小的中心格 hover 缓冲（总 expand=`0.24f`），目的只是避免农田 preview 退化成“必须碰撞体真正重合才触发”；
+   - `PlaceablePlacement / Generic` 继续保持现有 `0.14f` 缓冲，不改用户已经确认正确的 `placeable` 遮挡口径。
+4. `OcclusionSystemTests.cs`
+   - 新增了两条反射式单测，分别钉住 `FarmTool` 的小缓冲和 `placeable` 的原缓冲；
+   - 同时把测试写法改回 `Tests.Editor.asmdef` 能合法编译的反射风格，避免测试程序集直接引用运行时类型导致新的编译红错。
+
+**验证结果**：
+- `git diff --check`：通过（仅 `PlacementValidator.cs / OcclusionSystemTests.cs` 的 CRLF 提示，不构成 blocker）。
+- `CodexCodeGuard`：已对白名单 5 文件通过，`Diagnostics=[]`，程序集覆盖 `Assembly-CSharp` 与 `Tests.Editor`。
+- Unity / live：本轮未跑，因此当前只能 claim 结构 / checkpoint 成立，不能 claim 体验已经过线。
+
+**thread-state**：
+- `Begin-Slice`：本轮继续沿用上一条真实施工 slice。
+- `Ready-To-Sync`：未执行；原因是本轮不是归仓回合。
+- `Park-Slice`：已执行。
+- 当前 live 状态：`PARKED`。
+
+**当前边界 / 下一步**：
+- 当前明确冻结不动的内容：`placeable` 遮挡链。
+- 当前最需要用户下一轮优先重验的只有两项：
+  - 放置时是否还会出现“每放一下就明显卡一下”的卡顿；
+  - 农田 preview 是否已经从“必须碰撞体重合”恢复成“中心格 + 很小 hover 缓冲”。
+
+## 2026-04-03：白名单静态闸门补记，`OcclusionTransparency.cs` 已被确认是这刀的真实依赖并最小扩包归入当前切片
+
+**用户目标**：
+- 用户这轮没有重新扩题，只是让我继续把当前缩窄到的 `放置卡顿 + 农田 hover 过紧` 这刀收干净。
+- 在结算前，我先重新钉死“这刀在最小白名单下到底能不能真正 compile-clean”。
+
+**本轮子任务 / 主线关系**：
+- 主线仍然是农田交互修复 `V3 / 1.0.4 / 0.0.1交互大清盘`。
+- 本轮子任务不是继续改业务逻辑，而是把这刀的真实静态依赖和白名单边界钉死，避免把 working tree 才成立的半成品误报成可交面。
+
+**本轮新增稳定事实**：
+1. `OcclusionSystemTests.cs` 里用户刚报的 `OcclusionManager / PreviewOcclusionSource` 类型找不到红错，现在已经不是 blocker：
+   - 测试文件当前已改回反射写法，`Tests.Editor` 不再直接直引运行时类型。
+2. 这轮真正暴露出的 blocker 是白名单依赖遗漏，而不是功能链再次写坏：
+   - 当只对白名单 4 文件跑 `CodexCodeGuard` 时，`OcclusionManager.cs` 新调用的 `OcclusionTransparency.GetPreviewOcclusionBounds(...)` 无法在白名单快照里被看到；
+   - 原因不是方法没写，而是 `Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs` 当前也带着这条 preview 遮挡事实源改动，却没有被纳入同一刀。
+3. 因此这轮已做最小扩包，而不是回退 placeable 遮挡逻辑：
+   - 当前切片已从 4 文件最小扩到 5 文件，把 `OcclusionTransparency.cs` 明确认领为本刀真实依赖；
+   - 之所以不回退调用，是因为用户已经明确裁定 `placeable` 遮挡“现在完全正确，可以用了”，硬回退会把刚冻结的正确口径重新打坏。
+4. 最小扩包后，这刀的静态闸门结果已经再次钉死：
+   - `git diff --check`：通过（仅 `PlacementValidator.cs / OcclusionSystemTests.cs` 的 CRLF 提示，不构成 blocker）；
+   - `CodexCodeGuard`：对白名单 5 文件通过，`Diagnostics=[]`，程序集覆盖 `Assembly-CSharp` 与 `Tests.Editor`。
+
+**thread-state**：
+- 本轮重新执行了 `Begin-Slice`，随后在静态闸门通过后执行了 `Park-Slice`。
+- `Ready-To-Sync`：未执行；原因仍然是这轮不是归仓回合。
+- 当前 live 状态：`PARKED`。
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “这刀现在的真实静态完成面是 5 文件，而不是之前误以为的 4 文件；placeable 遮挡链继续冻结不动，接下来只等用户重验放置卡顿与农田 hover 两项 live 结果。”
+
+## 2026-04-03：继续按用户追责只打两点，放置提交重活与 FarmTool 遮挡事实源已再次定点收口
+
+**用户目标**：
+- 用户明确追责上一轮“根本没有修到点上”，并再次把范围严格收窄成两项：
+  - 放置一个物品就会明显卡顿；
+  - 农田 preview 遮挡依然不存在。
+- 同时用户明确禁止我再动别的逻辑，只允许对这两项做定点爆破。
+
+**本轮子任务 / 主线关系**：
+- 主线仍然是农田交互修复 `V3 / 1.0.4 / 0.0.1交互大清盘`。
+- 本轮子任务是重新追查“放置提交瞬间到底还有什么重路径”和“FarmTool 预览遮挡为什么仍像没接上”，不扩回箱子 / tooltip / 工具 / 气泡。
+
+**本轮新增稳定事实**：
+1. 放置卡顿这次补到的不是导航，也不是控制台噪音：
+   - 我额外只读核了 `Primary.unity` 里 `PlacementManager.showDebugInfo`，当前序列化值是 `0`，所以这次 live 的明显卡顿不是因为 PlacementManager 把超密集 debug log 打开了。
+2. 放置提交瞬间当前最可疑、而且确实只会在“放下这一刻”触发的两条重路径，已经被直接削掉：
+   - `ResumePreviewAfterSuccessfulPlacement()` 现在不再只对树苗 / 种子做“同格立即占位红态”，而是对当前占格的整块 preview 一律直接切成已占位红态，不再在刚放下这一帧立刻重跑完整验证；
+   - `ResolvePlacementParent()` 不再每次放置都优先递归整棵 active scene 去找 `Props`，而是先走农田层 `propsContainer`，scene 层再走缓存命中，避免同一楼层名反复整场景 DFS。
+3. 农田 preview 遮挡失效的根因这次也被重新钉死：
+   - 之前 `FarmTool` 仍然走 `GetColliderBounds()` 这条脚印口径，本质上就是把遮挡判定退化成“几乎要和碰撞体重合才触发”；
+   - 现在 `OcclusionTransparency.GetPreviewOcclusionBounds(...)` 已改回按可见遮挡面返回 visual bounds。由于 FarmTool 的 preview 自身已经只收中心格，因此现在应当重新变成“中心格看可见遮挡”，而不是“中心格去撞碰撞体”。
+4. 为了防止 FarmTool 遮挡再回退，当前还补了一条编辑器测试：
+   - `OcclusionSystemTests.cs` 新增 `PreviewOcclusion_FarmToolSource_UsesVisualBoundsInsteadOfColliderFootprint()`，直接钉死 FarmTool 必须看可见遮挡范围，而不是退化成 collider footprint。
+
+**验证结果**：
+- `git diff --check`：通过（仍只有现有 CRLF 提示，不构成 blocker）；
+- `CodexCodeGuard`：对白名单 6 文件通过，`Diagnostics=[]`，程序集覆盖 `Assembly-CSharp` 与 `Tests.Editor`。
+
+**thread-state**：
+- 本轮已重新执行 `Begin-Slice`，并在代码闸门通过后再次执行 `Park-Slice`。
+- `Ready-To-Sync`：未执行；原因是这轮仍然不是归仓回合。
+- 当前 live 状态：`PARKED`。
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “这轮真正重新落下去的只有两枪：放置提交瞬间的重活削减、FarmTool 遮挡事实源回正；下一步只等用户重新验证这两项 live 结果，不再继续动别的逻辑。”
+
+## 2026-04-03：左键放置卡顿只读深查，当前已把“起步卡一下 / 落地再卡一下”拆成两段真实重路径
+
+**用户目标**：
+- 用户明确反馈：重启电脑、只开 Codex 和 Unity 后，运行时放置仍会卡顿，而且是两个时点都卡：
+  - 左键点下去、开始准备走过去时卡一次；
+  - 真正走到并完成放置时再卡一次；
+- 这轮要求我不要再泛泛甩锅给环境，而是继续彻查并给出分析详情与解决方案；输出在对话框，不落业务文档。
+
+**本轮子任务 / 主线关系**：
+- 主线仍然是农田交互修复 V3 最后尾差排障。
+- 本轮子任务是只读深查“放置起步卡顿 + 放置提交卡顿”的真实回归点，不继续扩题，也不先盲改代码。
+
+**本轮新增稳定事实**：
+1. 左键起步这一卡，当前最像“我最近把同一份放置验证在一次点击里重复跑了 2~3 次”，而不是单纯导航老本身：
+   - `PlacementManager.OnLeftClick()` 在 Preview 态先跑一次 `RefreshPlacementValidationAt(...)`；
+   - 通过后又进入 `LockPreviewPosition()`，里面对同一目标格再次 `RefreshPlacementValidationAt(...)`；
+   - 如果属于近身直放，还会直接走 `TryExecuteLockedPlacement()`，里面第三次 `RefreshPlacementValidationAt(...)`；
+   - 对树苗/种子/单格放置来说，这些重验还会连带触发 `HasTreeAtPosition / HasChestAtPosition / ValidateSeedPlacement` 这类 Physics 查询与场景对象查询。
+2. 左键起步时的第二层成本来自点导航本身的立即建路：
+   - `PlacementNavigator.StartNavigation(...)` 直接调用 `PlayerAutoNavigator.SetDestination(...)`；
+   - `SetDestination(...)` 里同帧执行 `BuildPath()`；
+   - `BuildPath()` 会进 `NavigationPathExecutor2D.TryRefreshPath(...)`，其内部不仅 A* 寻路，还会做 `SmoothPath(...)`；
+   - `SmoothPath(...)` 的每次视线检查又会走 `PlayerAutoNavigator.HasLineOfSight(...)`，里面既会采样 `navGrid.IsWalkable(...)`，也会做 `Physics2D.CircleCast(...)`。
+3. 放置落地这一卡，当前最重的真凶不是预览，而是“新实例提交后立刻触发的运行时重初始化”：
+   - 树苗分支里，`TryPrepareSaplingPlacement(...)` 会调用 `TreeController.InitializeAsNewTree()` 再 `SetStage(0)`；
+   - 但 `TreeController.SetStage(0)` 当前会直接走 `RefreshTreePresentation(syncColliderShape: true)`，随后马上 `RequestNavGridRefresh()`；
+   - `RequestNavGridRefresh()` 最终触发 `NavGrid2D.RefreshGrid()`；
+   - `NavGrid2D.RefreshGrid()` 内部是完整 `RebuildGrid()`，包括 `Physics2D.SyncTransforms()`、世界边界检测、全网格 walkable 重算、Tilemap / Collider 显式障碍刷新；
+   - 对树苗阶段 0 而言，默认配置本身就是 `enableCollider = false`，也就是说现在是在“没有阻挡碰撞体的阶段”照样整张 NavGrid 重建。
+4. 箱子链也有同类问题：
+   - `ChestController.Start()` 在初始化完成后会 `StartCoroutine(RequestNavGridRefreshDelayed())`；
+   - 下一帧 `RequestNavGridRefresh()` 同样直接触发整张 `NavGrid2D.RefreshGrid()`；
+   - 所以箱子类放置会天然在落地后一帧补一刀大刷新。
+5. `ResumePreviewAfterSuccessfulPlacement()` 仍然会在提交后立即决定是否再次 `RefreshPlacementValidationAt(...)`：
+   - 虽然当前已经补了 `TryApplyImmediateOccupiedHoldState(...)` 避免一部分“刚放下就立刻重验”；
+   - 但只要鼠标候选格已切到别的格，或 hold 条件不满足，提交完还是会在同一收尾链上再跑一次预览验证。
+6. 调试噪音仍是次级放大器，不是这轮主因，但确实还在：
+   - `Primary.unity` 里 `PlayerAutoNavigator.enableDetailedDebug = 1` 仍开着；
+   - 这不会解释整件事，但会放大建路/卡顿恢复的体感和 Console 成本。
+
+**当前判断**：
+- 我这轮最核心的判断是：当前卡顿不是一个神秘单点，而是两段真实回归叠在一起。
+- 第一段是“左键起步前的重复重验 + 同帧建路”；
+- 第二段是“放置提交后的对象初始化链，尤其树苗/箱子把整张 NavGrid 重建一遍”。
+- 其中第二段是当前最重、最该先砍掉的成本；第一段则是起步那一下的直接回归点。
+
+**恢复点 / 下一步**：
+- 当前恢复点更新为：
+  - “放置卡顿现在已经能明确分成两段：点击起步链的重复重验/建路成本，和落地提交链的 NavGrid 全量重建成本；后续如继续真修，应优先把这两段分别做最小去重与去全量化，而不是再泛泛调导航参数。”
+
+## 2026-04-03：左键放置卡顿按“可回退两小刀”继续收口，当前停在待用户复测
+
+本轮从只读分析进入了真实施工，并已先执行 `Begin-Slice`，切片固定为“左键放置卡顿双阶段回归分析与可回退修复”。这轮没有再扩回 hover、tooltip、箱子或工具链，只围绕此前已经钉死的两个回归点继续下刀：一是一次左键里同一目标格会被重复验证 2~3 次；二是树苗 `Stage 0` 虽然默认 `enableCollider = false`，但当前 `TreeController.SetStage(0)` 仍会走到碰撞体形状同步并请求整张 `NavGrid` 刷新。针对第一点，`PlacementManager.cs` 已改成“点击当帧已验证通过时，锁定与近身直放复用这次结果”，因此 `OnLeftClick -> LockPreviewPosition -> TryExecuteLockedPlacement` 这条链不再在同一点击里对同一格重复重验 2~3 次；但导航到位后的 `OnNavigationReached()` 与走近触发的 `TryExecuteLockedPlacementWhenPlayerIsNear()` 仍保留落地前重验，避免把真正跨帧的环境变化跳过去。针对第二点，`TreeController.cs` 新增 `ShouldSyncColliderShapeForCurrentPresentation()`，并把 `Start()`、`InitializeDisplay()`、`SetStage()` 三处原本无条件 `syncColliderShape: true` 的入口收成“只有当前展示态确实需要 collider 参与时才同步形状”。这意味着新放下的树苗 `Stage 0` 不再因为无碰撞阶段也去跑 `UpdatePolygonColliderShape() -> RequestNavGridRefresh()`，但阶段 1+、树桩态和真正有 collider 的展示态仍会保持旧的刷新契约。当前静态验证已再次跑过：`git diff --check -- Assets/YYY_Scripts/Service/Placement/PlacementManager.cs Assets/YYY_Scripts/Controller/TreeController.cs` 通过，没有新的 diff 结构错误。本轮未做 Unity live 测试，因此当前能诚实 claim 的阶段仍是“代码层针对双峰卡顿做了最小可回退修复，尚待用户复测体感”。线程收尾前已执行 `Park-Slice`，当前 live 状态回到 `PARKED`。下一步用户最该优先只重验两件事：左键起步那一下是否明显变轻，树苗/近身放置真正提交那一下是否还会再卡一次；如果仍有残留，再继续只沿这两段成本追，不重新扩题。
+
+## 2026-04-03：父层补记，最新只读排障已把“左键放置卡顿”更准确收敛成现场日志/Editor 负载问题
+
+父层当前新增的稳定事实是：用户在最新一轮把范围再次收窄成“所有内容都过线了，只剩放置左键点下去会大概率卡顿”，并且明确允许我只做“先测试再查找，再给结论”，如果最后发现问题不在业务代码也可以直接报实。线程因此这轮没有继续真实施工，没有再跑 `Begin-Slice`，而是保持只读调查，并把排查重点从放置主链本体进一步转向运行现场。当前这轮最重要的结论有四句。第一句，`PlacementManager.showDebugInfo` 虽然在 `Primary.unity` 里确实是 `0`，但这并不代表当前现场安静；`Editor.log` 在最近点击放置/耕地的时间段里清楚显示，单次点击会同时伴随 `FarmlandBorderManager`、`FarmVisualManager`、`FarmTileManager`、`ToolRuntimeUtility`、`PlayerAutoNavigator`、`NPCAutoRoamController` 等多条同步 `Debug.Log / Debug.LogWarning`，而且当前编辑器普通 log 也在写完整堆栈，这种日志风暴本身就足以造成 Editor 内的体感卡顿。第二句，场景和 prefab 序列化里还能直接看到几处关键 debug 面仍然开着：`Primary.unity` 里的 `FarmTileManager.showDebugInfo = 1`、`FarmlandBorderManager.showDebugInfo = 1`、`FarmVisualManager.showDebugInfo = 1`，而箱子 prefab 例如 `Assets/222_Prefabs/Box/Box_1.prefab` 这组 `ChestController` 默认也带着 `showDebugInfo = 1`。第三句，导航/NPC 这边还有两处会把左键放置放大成日志抖动的实现事实：`PlayerAutoNavigator` 在 `Primary.unity` 中 `enableDetailedDebug = 1`，而且“开始导航”这条 log 本身还是无条件输出；`NPCAutoRoamController` 虽然 `showDebugLog = 0`，但 `TryInterruptRoamMove(...)` 里的 `roam interrupted` warning 仍是无条件打印，所以点击后只要 NPC 同步触发 stuck cancel，也会额外往 Console 里塞 warning。第四句，环境侧负载也不是 clean baseline：当前机器上同时开着主项目 `Sunset` 和另一个 `scene-build` worktree 的 Unity Editor 进程，各自还带着 AssetImportWorker；`Library/CodexEditorCommands/requests` 当前虽然已经为空，说明后台桥现在没有继续执行新命令，但 `status.json` 仍显示最近一次执行过 `Town` 基础骨架菜单命令，因此这台 Editor 最近确实不是“只跑放置链”的干净实验现场。父层恢复点因此更新为：当前“左键放置卡顿”更像是“放置动作触发的日志/Editor 噪音叠加环境负载”，而不是我还能单靠继续改 `PlacementManager` 主链就诚实解决的纯逻辑 bug；如果后续要继续真修，最小正确方向应先是清掉这些 live debug 面和后台现场噪音，再在更干净的窗口里复测，而不是继续盲目重写放置算法。
+
+## 2026-04-03：放置成功卡顿与导航线程边界已重新分账，当前结论是“先判 contract，不直接甩锅导航父线程”
+
+用户这轮明确把问题再次收窄成“现在只存在放置成功的时候会卡”，并要求我必须去看导航工作区、厘清是否和导航系统有关，再决定是让导航去修、让导航补接口，还是继续由农田线自己收口，同时还要产出一份可直接发给导航的 prompt。基于这轮只读复盘，我把结论重新钉成四句。第一句，这一下卡顿和导航确实有关，但更像“placeable 成功后业务侧误打进了 `NavGrid2D.RefreshGrid()` 这条重型全量刷新入口”，而不是“导航走路主链又坏了”。最硬代码证据是：`ChestController` 在放置完成后的 `Start()` 延迟一帧就会 `RequestNavGridRefresh()`，最终直达 `NavGrid2D.OnRequestGridRefresh -> RefreshGrid -> RebuildGrid`；而 `NavGrid2D.RefreshGrid()` 当前仍是完整的显式障碍刷新加整图重建。第二句，农田线上一轮已经把树苗 `Stage 0` 这类明显不该刷整图的情况切掉，所以现在剩下的主嫌疑点更集中在 placeable 链，尤其是箱子这类成功生成后自动请求整图刷新的对象。第三句，导航父线程当前 own 边界并不在这件事上，它现在 `PARKED` 且唯一主线仍是 `Primary traversal` 场景闭环，不该把这一下卡顿泛化成“导航父线程回来接一包大修”；工具-V1 也仍按 `-59` 保持 `PARKED`，只保留 `NavGrid2D / PlayerMovement / SceneTransitionTrigger2D` 的精确响应权。第四句，因此当前最合理的协作方式不是直接把修复甩给导航，而是给工具-V1发一份精确只读 prompt：请它只判断当前是不是缺一个 `NavGrid` 轻量 runtime refresh contract；如果答案是否定的，就由农田线继续在 placeable 调用点收口；如果答案是肯定的，再按精确 contract gap 最小 reopen。为避免导航侧误判现场，我还在 prompt 里明确同步了农田线历史上对 `GameInputManager / PlayerAutoNavigator` 的触点修改，说明我们确实碰过箱子 pending auto interaction 与 stop radius，但本轮“放置成功才卡”不是在那组触点上新增出来的。本轮同时新增一份导航 prompt：`2026-04-03-工具V1-只判放置成功卡顿是否需要NavGrid轻量刷新contract-60.md`，后续如要跨线程协作，直接发这份即可。
+
+补记：以上分析与 prompt 落盘后，本线程已真实执行 `Park-Slice`，当前 live 状态重新回到 `PARKED`；当前 blocker 也已明确压成“等待用户决定：是现在就把 `-60` 转发给工具-V1，还是继续由农田线本地先收口”。
+
+进一步补记：我随后尝试把这三份文档做最小 `Ready-To-Sync`，但被真实 preflight 阻断。阻断原因不是本轮新增文档有红，而是这条线程历史上在 `.kiro/specs/屎山修复/导航检查`、`.kiro/specs/农田系统/.../0.0.1交互大清盘` 与线程目录同根下还残留大量旧 dirty / untracked，系统不允许把这轮文档单独假装 clean sync。当前因此再次执行了 `Park-Slice`，live 状态仍为 `PARKED`，第一真实 blocker 已更新为：`ready-to-sync-blocked-by-historical-own-root-dirty-under-farm-and-navigation-roots`。

@@ -722,3 +722,162 @@
     1. 选定唯一主实现 owner
     2. 另外两条线继续维持 `PARKED`
     3. 再用一轮极窄 prompt 恢复主刀线程继续施工
+
+## 2026-04-01：用户已重设本线程角色——只读陪跑 / 风险提醒 / 现场报实，不再主动重裁 owner
+
+- 当前主线目标：用户明确要求从这一条开始重设我的角色边界；本线程不再承担“这刀主实现 owner”或“替用户继续重裁 owner / 派业务活”的职责，只保留只读陪跑、风险提醒、现场报实，以及在用户点名时审回执。
+- 用户明确写死的新边界：
+  1. 我现在不是这刀的主实现 owner。
+  2. 我不是替用户继续重裁 owner、继续给别人派业务活的人。
+  3. 我的角色只保留为：
+     - 只读陪跑位
+     - 风险提醒位
+     - 现场报实位
+     - 用户点名时再审回执
+  4. 当前统一认知固定为：
+     - `UI`：独立 `UI / SpringUI` 线，负责玩家面 `UI/UE` 整合
+     - `NPC`：只做 `NPC` 自己的底座和自己的事
+     - `spring-day1V2`：先歇着，退回 Day1 底座协作位
+  5. 我不得再：
+     - 单独改判谁接业务主刀
+     - 把 `UI` 推回 `spring-day1V2` 影子位
+     - 替 `UI / NPC / spring-day1V2` 派具体功能活
+     - 把“分析最合理 owner”继续当默认职责
+- 当前恢复点：
+  - 从现在起，本线程默认只做：
+    - ACTIVE / PARKED / stale / own 边界 / dirty 卫生 的只读核对
+    - 真实撞车 / 越界 / state 不实 / shared root 混改 的风险提醒
+  - 若用户未点名让我审回执或查现场，我不再主动升级为业务导演。
+
+## 2026-04-02：跟随 UI 最新 checkpoint 做只读核对——当前不建议继续给 UI 发新 prompt
+
+- 当前主线目标：用户要我跟随 `UI` 的最新进度，核对它这轮到底做了什么，并判断此刻要不要继续给 `UI` 发新 prompt。
+- 本轮只读核对结果：
+  1. `UI` 当前状态文件是 `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\UI.json`，状态为 `PARKED`，当前 slice 为 `左下角InteractionHintOverlay任务语义仲裁`，blocker 为 `unity-targeted-test-disconnected-while-awaiting-command_result`。
+  2. shared root 当前仍在 `D:\Unity\Unity_learning\Sunset` 的 `main`，HEAD 为 `736be70d`。
+  3. `UI` 这刀的真实代码落点已核到：`Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs` 新增 `TaskPriorityOverlayCaption = 进入任务`、`TaskPriorityOverlayDetail = 按 E 开始任务相关对话`，并通过 `ResolveOverlayPromptContent(...)` 只覆写左下角 `InteractionHintOverlay` 文案，不顺手改头顶 `SpringDay1WorldHintBubble`。
+  4. `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs` 已包含“正式任务语义优先于闲聊语义”的定向测试，以及 ready/teaser、world hint 可读卡片、overlay 正式卡片等相关测试。
+- 关键判断：
+  1. 从代码链和测试意图看，`UI` 这轮回执基本属实；这刀已经到 checkpoint，不是空口描述。
+  2. 但这不是体验过线，只能算“结构与代码链成立，稳定 Unity 定向测试 / live 回执仍缺”。
+  3. 当前不建议继续给 `UI` 发新 prompt。原因不是它没做，而是：
+     - `UI` 已经明确 `PARKED + checkpoint`
+     - blocker 是测试会话断开，不是功能逻辑 blocker
+     - 更大的治理风险在于 `NPC` 当前仍是 `ACTIVE`，并且 own 路径与 `UI` / `spring-day1V2` 在 `SpringDay1ProximityInteractionService.cs`、`InteractionHintOverlay.cs`、`SpringDay1WorldHintBubble.cs` 上存在重叠
+- 风险提醒：
+  - 当前第一治理风险不是“UI 要不要再补一刀”，而是三方 own 边界在交互提示链上仍有重叠；如果现在再主动唤醒 `UI` 继续写，很容易和 `NPC` 的 active slice 撞车。
+- 当前恢复点：
+  - 维持只读陪跑位口径；
+  - 除非用户点名让我审新的 `UI` 回执，或要求我核 `NPC/UI/spring-day1V2` 的 active/dirty/stale 现场，否则我不主动继续派工。
+
+## 2026-04-02：继续做只读总自检——主动纠正过时判断，当前主风险已切到 UI active / 边界重叠 / 治理状态漂移
+
+- 当前主线目标：用户要求我把自己还没做完的主线 / 支线都按只读陪跑位继续做完；因此本轮聚焦在“现场总自检、自我纠偏、风险报实”，不进入业务实现。
+- 本轮只读核查结果：
+  1. shared root 当前仍在 `D:\Unity\Unity_learning\Sunset` 的 `main`，HEAD 为 `736be70d`。
+  2. 我前一轮“`UI` 是 `PARKED`、`NPC` 是 `ACTIVE`，因此不建议继续给 UI 发 prompt”的判断已经过时，必须主动纠正：
+     - `UI` 现已变为 `ACTIVE`，当前 slice 为 `玩家与NPC对话气泡层级分隔与边界闭环修复`
+     - `NPC` 现已变为 `PARKED`
+     - `spring-day1V2` 仍为 `PARKED`
+  3. 当前真正的 own 重叠是：
+     - `UI ∩ NPC`
+       - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+       - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+       - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+     - `NPC ∩ spring-day1V2`
+       - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+       - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+  4. 当前 dirty 也与这组重叠吻合：
+     - `NPCBubblePresenter.cs`
+     - `PlayerNpcChatSessionService.cs`
+     - `PlayerThoughtBubblePresenter.cs`
+     - `NPCInformalChatInteractable.cs`
+     - `SpringDay1WorldHintBubble.cs`
+     - `SpringDay1ProximityInteractionService.cs`（untracked）
+     - `InteractionHintOverlay.cs`（untracked）
+  5. `UI` 当前 active slice 的真实改动簇，已不再是我前面跟到的“左下角 overlay 任务语义仲裁”，而是玩家 / NPC 气泡分层与边界闭环；对应主改文件是：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+     - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+     - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+- 关键自我纠偏：
+  1. 我前一轮关于 `UI/NPC` 的 active / parked 判断已经失效，不能再沿用。
+  2. 现在最准确的现场判断不是“UI 该不该继续被叫醒”，而是：
+     - `UI` 已经在 active 做玩家 / NPC 气泡线
+     - `NPC` 已经 parked
+     - 真正需要盯的是 resume / sync 前的 own 边界与 dirty 卫生
+- 当前第一治理风险：
+  1. `UI` 与 `NPC` 在三份玩家 / NPC 气泡核心文件上存在直接 own 重叠；如果 `NPC` 恢复或报实不实，会立刻撞车。
+  2. `shared-root-branch-occupancy.md` 明显陈旧：`last_verified_head = 1401ae8c`、`last_updated = 2026-03-27`，与当前 HEAD `736be70d` 不一致；它还能表达“当前 main / neutral”，但不适合再被当作新鲜现场快照。
+  3. 我自己这条线程的 `scene-build-5.0.0-001.json` 仍停在 `aseprite-batch-flow-mature-20260402` 的旧 slice，和当前这轮只读陪跑任务不一致；这是我自己的 live state 漂移，需要后续单独归正。
+- 当前恢复点：
+  - 我这条线继续维持只读陪跑 / 风险提醒 / 现场报实；
+  - 除非用户点名让我审某条新回执、核某条线程是否 stale，或要求我专门清点治理卫生，否则不主动代替用户给 `UI / NPC / spring-day1V2` 发业务实现任务。
+
+## 2026-04-02：基于 UI 最新回执生成最终收尾 prompt——只允许 checkpoint 级收口，不再开新实现
+
+- 当前主线目标：用户要求我直接给 `UI` 一份最后的收尾 prompt；目的不是继续派新功能，而是把“玩家 / NPC 对话气泡”这刀作为 checkpoint 级完成物干净收口。
+- 我对最新 UI 回执的审计结论：
+  1. 主功能主张基本成立：
+     - 谁说话谁在上面 / 更高排序加权
+     - 双气泡横纵向分隔加大
+     - 玩家气泡回到玩家侧语义
+     - 结束 / 取消 / 中断时清掉额外位移、排序加权和焦点状态
+  2. 但这仍只站住：
+     - `结构 / checkpoint`
+     - `targeted probe / 局部验证`
+     - `真实入口体验` 尚未验证
+  3. 技术审计层存在一处必须纠偏的报账问题：
+     - `Assets/YYY_Tests/Editor/PlayerNpcConversationBubbleLayoutTests.cs` 已新增，但当前 `UI.json` 的 `owned_paths / expected_sync_paths` 未带上它
+- 本轮已产出：
+  - UI 最终收尾 prompt 文件：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\场景搭建（外包）\2026-04-02_UI最终收尾prompt_01.md`
+- 这份 prompt 的核心约束：
+  1. 不再开新实现
+  2. 只做最终收尾归仓
+  3. 把 `UI.json` own / expected sync 报账改真
+  4. 明确 completion layer 仍停在 checkpoint / targeted probe，而非真实体验过线
+  5. 强制判断本轮最终落在：
+     - `已 sync`
+     - 或 `未 sync，但 blocker 明确`
+- 当前恢复点：
+  - 如果用户继续转发这份 prompt 给 UI，下一步就应该只看 UI 的“最终收尾回执”；
+  - 不应再把这刀重新扩回新的体验改动或别的系统。
+
+## 2026-04-02：审 UI 最终收尾回执——可接受为“checkpoint 级诚实收口”，但不是完成态
+
+- 当前主线目标：用户转来了 `UI` 对最终收尾 prompt 的回执，要我判断这张回执是否成立。
+- 本轮只读审计结论：
+  1. 这张回执作为“最终收尾回执”基本成立，可以接受。
+  2. 它成立的前提是：
+     - 接受它在说的是“checkpoint 级诚实收口”
+     - 而不是“这条气泡线已经完整完成”
+- 已核到的事实：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\state\active-threads\UI.json` 当前确实为：
+     - `status = PARKED`
+     - `current_slice = 气泡线最终收尾与sync判定`
+  2. `UI.json` 当前 `owned_paths / expected_sync_paths` 已经补真，包含 10 条真实路径：
+     - 3 个业务脚本
+     - 4 个测试与 `.meta`
+     - 2 个工作区 memory
+     - 1 个线程 memory
+  3. 当前 `git status` 也与这 10 条路径一致；其中脚本和工作区 memory 为 modified，测试与线程 memory 为 untracked。
+  4. 它点名的 same-root blocker 也属实：
+     - `NPCAutoRoamController.cs`
+     - `PlayerAutoNavigator.cs`
+     - `PlayerToolFeedbackService.cs`
+     - `OcclusionSystemTests.cs`
+     - `SpringDay1DialogueProgressionTests.cs`
+     当前都确实处于 dirty 状态。
+  5. `UI thread memory` 与 `SpringUI memory` 尾部都已补上“未 sync，但 blocker 明确”的收口记录。
+- 关键判断：
+  1. 我认可它现在的口径：
+     - `结构 / checkpoint`：成立
+     - `targeted probe / 局部验证`：成立或基本成立
+     - `真实入口体验`：尚未验证
+  2. 我也认可它当前不 claim `已 sync`。
+  3. 因此这张回执可接受为：
+     - `checkpoint 级收尾回执`
+     - 不是 `完成态回执`
+- 当前恢复点：
+  - 这条 `UI` 线程现在可以继续保持 `PARKED`；
+  - 除非用户后续明确要求它处理 same-root dirty 归属 / 清理，或让出 Unity 实例去补真实终验，否则不需要再给它发新的实现 prompt。
