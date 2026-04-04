@@ -11739,3 +11739,46 @@
 - 恢复点：
   - 若用户要转发农田线，现在已有可直接发的 prompt 文件；
   - 若用户继续让我守 Town，总闸已可直接沿用这份 `03` 裁定。
+
+## 2026-04-05｜Town 重裁定与农田 compile-blocker prompt 已完成白名单 sync
+
+- 这轮收口状态：
+  - [2026-04-05_Town场景健康live复核与blocker重裁定_03.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_Town场景健康live复核与blocker重裁定_03.md)
+  - [2026-04-05_给农田交互修复V3_Town编译阻断之Placement红错_01.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_给农田交互修复V3_Town编译阻断之Placement红错_01.md)
+  - 当前子工作区 `memory.md`
+  - 当前线程记忆 `memory_6.md`
+- Git 收口：
+  - commit = `7ca38321`
+  - message = `2026.04.05_Codex规则落地_01`
+  - 已推送到 `main`
+- 当前判断：
+  - Town 主线现在已有最新治理入口与可直接转发的农田 prompt；
+  - 若用户继续 Town，总闸应从这份 `03` 文档继续，而不是退回 `02` 的旧 blocker 结构。
+- thread-state：
+  - 本轮 sync 后已再次 `Park-Slice`
+  - 当前状态 = `PARKED`
+
+## 2026-04-05｜工具-V1回执已复审：Town 相机链改判通过，工具线程正式停发
+
+- 当前主线目标：
+  - 继续守住 `Town` 的基础设施总闸，只把真正还没闭环的 blocker 留在外线 owner 手里。
+- 本轮子任务：
+  - 审核 `工具-V1` 最新回执，并判断它是否还需要继续领 Town 任务。
+- 这轮实际做成了什么：
+  1. 新增 [2026-04-05_Town外线回执复审_工具线程停发裁定_04.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_Town外线回执复审_工具线程停发裁定_04.md)。
+  2. 把 `工具-V1线程` 从 `03` 文档里的“继续发 prompt”改判成：
+     - `无需继续发`
+  3. 正式确认 `Town` 相机跟随这条线已按 `用户已测通过` 收口，不再继续挂成当前 Town 总闸 blocker。
+  4. Town 当前剩余 blocker 重新缩成两条：
+     - `UI` 的中文 `DialogueUI / 字体链`
+     - `农田交互修复V3` 的 `PlacementManager.cs` 编译红
+- 当前判断：
+  - `Town` 这条线现在不该再给 `工具-V1` 派活；它应继续 `PARKED`，只在新回归或新精确点名时 reopen。
+- 风险与薄弱点：
+  - `工具-V1` 这份回执没有显式单列 `当前 own 路径是否 clean`；因此若后续需要严格 cleanup/owner 报实闭环，仍应让它补这句。
+  - 但这不影响当前四类裁定，因为我这轮不是让它继续领 feature，只是决定停发。
+- 当前阶段：
+  - Town 总闸现在的活跃外线只剩 `UI + 农田`。
+- 当前恢复点：
+  - 若用户继续分发，后续只盯 `UI` 与 `农田交互修复V3`；
+  - `工具-V1` 默认不再进入下一轮 Town prompt。
