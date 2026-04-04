@@ -164,14 +164,19 @@
   - 必要时回看 `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-log.md`
 - 如果任务会使用 MCP / Play Mode 做 live 取证，进入前必须先说明：需要什么证据、最多跑几轮、拿到什么信号就 Pause / Stop、最后退回什么状态；禁止先长时间跑着再回头想怎么收。
 - 如果任务会进入 Play Mode 做取证、调试或验收，完成当前步骤后必须主动退回 Edit Mode，再允许继续后续操作、汇报或把现场交给其他线程；禁止把运行中的 Editor 留给别人收尾。
+- 从 2026-04-04 起，Sunset 爆红处理的默认顺序固定为：
+  - `CLI first, direct MCP last-resort`
+  - 默认先走 `D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py` 这类轻量 CLI 入口做 fresh compile / console / own-external 判断
+  - 只有 CLI 当前覆盖不到、明确落 `unity_validation_pending / blocked`、或任务进入 scene / play / inspector / runtime flow 这类低频高风险 live 取证时，才升级成 direct MCP
 - 只要本轮改动触及 `Assembly-CSharp` 运行时代码、`.unity/.prefab/.asset` 序列化体、UI/交互/剧情/输入/管理器链，且线程准备对外宣称“无红错 / 已验收 no-red / 可直接交接 / 可直接提交”，默认必须补一份 Unity/MCP 侧的最新证据，至少包括：
-  - fresh recompile 或等价程序集级编译证据
-  - fresh console 读取结果
+  - 默认先补 CLI 侧的 fresh recompile 或等价程序集级编译证据
+  - 默认先补 CLI 侧的 fresh console 读取结果
+  - 若 CLI 当前覆盖不到，再补 direct MCP / live 证据
   - 若任务本身涉及 scene/UI/runtime flow，再补最小 live 取证或明确写成“live 待验证”
-- 上面这条里，`validate_script`、`CodexCodeGuard`、`git diff --check` 这类代码闸门只算“代码层自检”，绝不等于 Unity 红错已经验收完毕。
-- 如果当前 MCP / Unity 基线不可用，正确口径只能是：
+- 上面这条里，`validate_script`、`CodexCodeGuard`、`git diff --check` 这类代码闸门只算“代码层自检”，绝不等于运行态红错已经验收完毕。
+- 如果当前 CLI 与 direct MCP / Unity 基线都拿不到结果，正确口径只能是：
   - `代码层检查已过，但 Unity 红错验证未完成`
-  - 或 `被 MCP / Unity blocker 卡住`
+  - 或 `被 CLI / MCP / Unity blocker 卡住`
   不允许把这种状态包装成“已无红错”或“可放心交接”。
 - 如果任务涉及 DialogueUI、NPC 气泡、字体、UI 样式、布局、材质或其他直接影响观感的表现层资源，除相关业务文档外，还必须补读 `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`，并把“好看、合理、专业、可读”当成硬验收项，而不是只看功能是否可用。
 - 如果任务涉及工作区、记忆、交接、治理、报告、Claude 或 Codex 迁移、历史接手，优先使用 `sunset-workspace-router`。
@@ -317,13 +322,14 @@
   - 程序集级编译检查
 - 代码闸门未通过时，禁止继续收口；不要再把“等用户贴编译报错后再修”当成默认流程。
 - 代码闸门通过也只代表“文本层 / 程序集层暂未见阻断”，不代表 Unity Console 已干净，更不代表运行时红错已经验收完成。
+- 线程准备补“运行态红错是否闭环”证据时，默认先跑 CLI；只有 CLI 明确覆盖不到或命中低频高风险 live 场景，才升级 direct MCP。
 - 从现在起，凡是线程在回执、聊天或 memory 里出现：
   - `无红错`
   - `红错已清`
   - `Unity 可直接交接`
   - `可直接提交`
-  且本轮改动实际触及运行时代码、scene、prefab、asset、UI、剧情或交互链，就必须同时给出 Unity/MCP 侧的 fresh compile + fresh console 证据；否则这类表述一律视为违规夸大。
-- 如果因为 MCP / Unity blocker 没拿到这份证据，允许提交本地 checkpoint，但只能报：
+  且本轮改动实际触及运行时代码、scene、prefab、asset、UI、剧情或交互链，就必须同时给出 CLI 侧的 fresh compile + fresh console 证据；CLI 覆盖不到时，再补 direct MCP / live 证据；否则这类表述一律视为违规夸大。
+- 如果因为 CLI / MCP / Unity blocker 没拿到这份证据，允许提交本地 checkpoint，但只能报：
   - `代码闸门通过`
   - `Unity 红错验证未闭环`
   - `live / console 待补`

@@ -11508,3 +11508,123 @@
 - 当前恢复点：
   - 下一步直接执行白名单 sync；
   - sync 后应立即合法停车，不再扩 scope。
+
+## 2026-04-04｜用户直聊追加：已生成 Town 基础设施完备总闸 prompt
+
+- 当前主线目标：
+  - 用户临时把主线程从 `spring-day1` 业务阻塞修复切到“给典狱长发 prompt”，要求由治理位接管 `Town` 基础设施完备总闸。
+- 本轮实际做成了什么：
+  1. 在 `Codex规则落地` 下新增了可直接转发给典狱长的 prompt 文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_给典狱长_Town基础设施完备总闸与续工分发_01.md`
+  2. prompt 已明确钉住：
+     - `Town` 当前 accepted baseline
+     - 当前未闭环的 live / manager / camera / scene-health 缺口
+     - Town 不得回漂到 `spring-day1` 前半段剧情源、UI、NPC 内容生产或 `Primary`
+     - 典狱长需要先做四类裁定，再只为仍需继续施工的线程发下一轮硬切 prompt
+  3. 清掉了并行子智能体生成的 duplicate prompt 文件，避免用户拿到两个版本。
+- 当前阶段：
+  - 文档层 prompt 已落成，可直接转发；
+  - 这轮没有新增 Town 代码或 scene 施工。
+- 当前恢复点：
+  - 若用户继续走治理线，直接转发该 prompt 给典狱长即可；
+  - 若回到业务线程，则继续接当前业务阻塞修复。
+
+## 2026-04-04｜UnityMCP转CLI 当前切片已完成，已生成给典狱长的停发裁定 prompt
+
+- 当前主线目标：
+  - 用户要求确认这条线是否已经“全部完成”，如果当前锁死切片已完成，则直接生成一份给典狱长的 prompt，而不是继续施工。
+- 这轮实际做成了什么：
+  1. 已在 `Codex规则落地` 根层新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_给典狱长_UnityMCP转CLI参数面对齐已完成请裁定收口_04.md`
+  2. 该 prompt 已明确写死：
+     - 当前切片完成定义已命中
+     - 推荐典狱长裁定为 `无需继续发`
+     - 最多也只应判到 `停给用户分析 / 审核`
+     - 明确禁止再把这条线拉回 `继续发 prompt`
+  3. 已在正文中额外报实：
+     - 提交 / 推送已完成于 `57bc2e08`
+     - `memory.md` 后续新 dirty 不应反向误判成这条线未收口
+- 当前阶段：
+  - 这条线的当前切片已完成；
+  - 现在进入治理裁定转发阶段，而不是继续施工阶段。
+
+## 2026-04-04｜Town 基础设施完备总闸已完成四类裁定并落盘续工文件
+
+- 当前主线目标：
+  - 不是再重复说 `Town` 很重要，而是把它从“结构与 checkpoint 已成立”推进到“剩余 blocker 已拆清 owner、可继续最小收口”的治理状态。
+- 这轮实际做成了什么：
+  1. 完整回读并落实了：
+     - `2026-04-04_给典狱长_Town基础设施完备总闸与续工分发_01.md`
+     - `spring-day1` 父/子层关于 `Town` 的 accepted baseline
+     - 当前 active-thread 现场与相关线程 memory
+  2. 新增 Town 总闸裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_Town基础设施完备总闸裁定与续工分发_02.md`
+  3. 已把 `Town` 当前结论收成：
+     - accepted baseline 成立
+     - 仍未 `sync-ready`
+     - 当前真 blocker 只剩 3 桶：
+       - `Town` 常驻链 / bootstrap / scene health
+       - `Town` 相机 / 输入 `frustum`
+       - `Town` 中文 `DialogueUI` 显示链
+  4. 已完成四类裁定：
+     - `继续发 prompt`：`UI`、`019d4d18-bb5d-7a71-b621-5d1e2319d778`、`Codex规则落地` 自续工
+     - `停给用户验收`：无
+     - `停给用户分析 / 审核`：无
+     - `无需继续发`：`spring-day1`、`NPC`、`导航检查`
+  5. 已新增 3 份硬切 prompt：
+     - `2026-04-04_给UI_Town中文Dialogue显示链闭环_01.md`
+     - `2026-04-04_给019d4d18-bb5d-7a71-b621-5d1e2319d778_Town相机输入frustum与切场闭环_01.md`
+     - `2026-04-04_Codex规则落地自续工_Town常驻链与场景健康闭环_01.md`
+- 当前判断：
+  - `Town` 现在不是“没人做”，而是“最后 3 个真 blocker 已拆清 owner”；
+  - 当前最不该做的事是再把它漂回 `spring-day1` 前半剧情、NPC 内容生产、UI 广义 polish 或 `Primary` 清扫。
+- 当前阶段：
+  - 典狱长总闸裁定已完成；
+  - 这轮文档层和分发层都已落盘；
+  - 下一轮如果继续，就是照这 3 个硬切 slice 收尾。
+- thread-state 报实：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑（本轮只做治理文档与 prompt 落盘，不进入 sync）
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 如果用户需要直接转发，我已经有 2 份对外 prompt 可直接发；
+  - 如果继续由治理线程自己做，下一轮只接 `Town` 常驻链与场景健康闭环。
+
+## 2026-04-04｜用户校正：UUID 线程 `019d4d18-bb5d-7a71-b621-5d1e2319d778` 统一按“工具-V1线程”称呼
+
+- 用户已明确指出：`019d4d18-bb5d-7a71-b621-5d1e2319d778` 就是“工具-V1线程”。
+- 后续治理汇报、Town 裁定和续工 prompt 对用户侧表述统一改用：`工具-V1线程`。
+- 技术审计层如需精确落盘，可在括号中保留 UUID，但不再把 UUID 当用户侧主称呼。
+
+## 2026-04-04｜Town 常驻链代码侧补口 + CLI 收口裁定已并入当前治理切片
+
+- 当前主线目标：
+  - 用户把这轮固定成 3 件并行任务：继续推进 `Town` 自己的基础设施闭环、按典狱长模式裁定 `UnityMCP转CLI` 是否停发、以及清扫当前能提交的内容。
+- 这轮实际做成了什么：
+  1. 在 `Assets/YYY_Scripts/Service/PersistentManagers.cs` 落了最小代码补口：
+     - `EnsureRuntime()` 不再只靠 `FindFirstObjectByType`，而是先用 `FindExistingInstance()` 把 scene-backed / 已加载实例找全，降低 `Primary` 里已有 `PersistentManagers` 时被误创建 duplicate runtime root 的概率。
+     - `TryResolvePrefabDatabase()` 新增：
+       - `Resources.FindObjectsOfTypeAll<PrefabDatabase>()`
+       - `AssetDatabase.FindAssets("t:PrefabDatabase")`
+       两层 fallback，尽量切掉 `PrefabDatabase 未配置` 的假阴性 warning。
+  2. 静态核实了 `Town.unity` 当前现场：
+     - `Main Camera` 存在且 `AudioListener.m_Enabled = 1`
+     - 因此 `There are no audio listeners in the scene` 当前不能再直接归咎于 `Town` scene 自己没挂监听器，更像切场/相机链副作用。
+  3. 新增 CLI 典狱长收口裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_UnityMCP转CLI典狱长收口裁定_05.md`
+     - 当前裁定已写死为：`无需继续发`
+  4. 结合只读提交审计结论，当前可提交顺序也已钉实：
+     - 先完成我这轮 `Town` 自己的切片
+     - 再做治理文档收口
+     - `UnityMCP转CLI` 不再开新施工 prompt
+- 当前判断：
+  - `Town` 自己这刀已经从“纯分析”推进到“代码侧补口已落”；
+  - 剩余更像 live 证据与外线 blocker，不再是继续盲加 manager / scene 结构。
+- 当前阶段：
+  - 准备进入 `Ready-To-Sync` 审核；
+  - 能不能立刻提交，还要看同根治理文件和 thread memory 的白名单闸门。
+- 当前恢复点：
+  - 下一步直接跑 `Ready-To-Sync`；
+  - 若通过，再做最小白名单提交；
+  - 若被挡住，就按 blocker 报实，不吞并别线脏改。
