@@ -8,6 +8,10 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string FirstDialoguePath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset");
     private static readonly string FollowupDialoguePath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset");
     private static readonly string FollowupMetaPath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset.meta");
+    private static readonly string VillageGateDialoguePath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_VillageGate.asset");
+    private static readonly string VillageGateMetaPath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_VillageGate.asset.meta");
+    private static readonly string HouseArrivalDialoguePath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_HouseArrival.asset");
+    private static readonly string HouseArrivalMetaPath = Path.Combine(ProjectRoot, "Assets/111_Data/Story/Dialogue/SpringDay1_HouseArrival.asset.meta");
     private static readonly string DebugMenuPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/DialogueDebugMenu.cs");
     private static readonly string InteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs");
     private static readonly string DialogueUiPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/DialogueUI.cs");
@@ -21,6 +25,7 @@ public class SpringDay1DialogueProgressionTests
     private static readonly string WorkbenchRecipeHoePath = Path.Combine(ProjectRoot, "Assets/Resources/Story/SpringDay1Workbench/Recipe_9101_Hoe_0.asset");
     private static readonly string WorkbenchRecipePickaxePath = Path.Combine(ProjectRoot, "Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset");
     private static readonly string BedInteractablePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/SpringDay1BedInteractable.cs");
+    private static readonly string ProximityServicePath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs");
     private static readonly string BedSceneBinderPath = Path.Combine(ProjectRoot, "Assets/Editor/Story/SpringDay1BedSceneBinder.cs");
     private static readonly string PromptOverlayPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs");
     private static readonly string UiLayerUtilityPath = Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs");
@@ -36,8 +41,8 @@ public class SpringDay1DialogueProgressionTests
 
         StringAssert.Contains("sequenceId: spring-day1-first", assetText, "首段对话 sequenceId 应稳定");
         StringAssert.Contains("markLanguageDecodedOnComplete: 1", assetText, "首段对话完成后应解码语言");
-        StringAssert.Contains("advanceStoryPhaseOnComplete: 1", assetText, "首段对话完成后应推进剧情阶段");
-        StringAssert.Contains("nextStoryPhase: 20", assetText, "首段对话完成后应推进到 EnterVillage");
+        StringAssert.Contains("advanceStoryPhaseOnComplete: 0", assetText, "矿洞口醒来段不应在第一拍就直接切进 EnterVillage");
+        StringAssert.Contains("nextStoryPhase: 0", assetText, "矿洞口醒来段不应在第一拍就推进到 EnterVillage");
         StringAssert.Contains("followupSequence: {fileID: 11400000, guid: c9dbc72325f747bbaf6250d6374ec586, type: 2}", assetText, "首段对话应指向 follow-up 资源");
     }
 
@@ -50,9 +55,33 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("sequenceId: spring-day1-first-followup", assetText, "后续对话 sequenceId 应稳定");
         StringAssert.Contains("speakerName: 村长", assetText, "后续对话应包含村长节点");
         StringAssert.Contains("speakerName: 旅人", assetText, "后续对话应包含旅人节点");
+        StringAssert.Contains("怪物", assetText, "后续对话应把矿洞口危险感补回当前主线");
         StringAssert.Contains("markLanguageDecodedOnComplete: 0", assetText, "后续对话不应重复触发语言解码");
-        StringAssert.Contains("advanceStoryPhaseOnComplete: 0", assetText, "后续对话不应重复推进剧情阶段");
+        StringAssert.Contains("advanceStoryPhaseOnComplete: 1", assetText, "撤离收束后应正式推进到 EnterVillage");
+        StringAssert.Contains("nextStoryPhase: 20", assetText, "撤离收束后应正式推进到 EnterVillage");
+        StringAssert.Contains("followupSequence: {fileID: 11400000, guid: 848b3d9bebdc4efebbafa3f500912bc4, type: 2}", assetText, "撤离段后应自动续播进村围观段");
         StringAssert.Contains("guid: c9dbc72325f747bbaf6250d6374ec586", metaText, "后续对话 meta GUID 应与首段引用一致");
+    }
+
+    [Test]
+    public void EnterVillageDialogueAssets_ExistAndChainIntoHouseArrival()
+    {
+        string villageGateText = File.ReadAllText(VillageGateDialoguePath);
+        string villageGateMetaText = File.ReadAllText(VillageGateMetaPath);
+        string houseArrivalText = File.ReadAllText(HouseArrivalDialoguePath);
+        string houseArrivalMetaText = File.ReadAllText(HouseArrivalMetaPath);
+
+        StringAssert.Contains("sequenceId: spring-day1-village-gate", villageGateText, "进村围观段 sequenceId 应稳定");
+        StringAssert.Contains("speakerName: 村民", villageGateText, "进村围观段应出现村民视线");
+        StringAssert.Contains("speakerName: 小孩", villageGateText, "进村围观段应出现小孩视线");
+        StringAssert.Contains("followupSequence: {fileID: 11400000, guid: 8ecb8bb90c564b2289fec30b42625533, type: 2}", villageGateText, "进村围观段后应自动续播闲置小屋安置段");
+        StringAssert.Contains("guid: 848b3d9bebdc4efebbafa3f500912bc4", villageGateMetaText, "进村围观段 meta GUID 应稳定");
+
+        StringAssert.Contains("sequenceId: spring-day1-house-arrival", houseArrivalText, "闲置小屋安置段 sequenceId 应稳定");
+        StringAssert.Contains("艾拉", houseArrivalText, "闲置小屋安置段应交代艾拉会接手疗伤");
+        StringAssert.Contains("空了很多年", houseArrivalText, "小屋语义应明确是闲置多年的旧屋");
+        StringAssert.Contains("followupSequence: {fileID: 0}", houseArrivalText, "闲置小屋安置段应成为进入疗伤前的最后一拍");
+        StringAssert.Contains("guid: 8ecb8bb90c564b2289fec30b42625533", houseArrivalMetaText, "闲置小屋安置段 meta GUID 应稳定");
     }
 
     [Test]
@@ -84,6 +113,18 @@ public class SpringDay1DialogueProgressionTests
     }
 
     [Test]
+    public void InformalChat_ExplicitlyYieldsToDialogueCandidateOnSameNpc()
+    {
+        string informalText = File.ReadAllText(Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs"));
+        string proximityServiceText = File.ReadAllText(ProximityServicePath);
+
+        StringAssert.Contains("dialogueInteractable", informalText, "闲聊交互应显式识别同体剧情对话组件，避免未来手挂双组件时又回到谁先抢到谁算。");
+        StringAssert.Contains("ShouldYieldToDialogueCandidate", informalText, "闲聊交互应把“同 NPC 上剧情对话优先”写成稳定规则，而不是只靠口头约定。");
+        StringAssert.Contains("dialogueInteractable.CanInteract(context)", informalText, "闲聊交互应在同体剧情对话已可成立时主动让位。");
+        StringAssert.Contains("candidate.CanTriggerNow != current.CanTriggerNow", proximityServiceText, "统一仲裁服务应优先保留当前真正可触发的目标，避免更近 teaser 挡住真正能按的交互。");
+    }
+
+    [Test]
     public void DialogueUi_ContainsBottomTestStatusText()
     {
         string uiText = File.ReadAllText(DialogueUiPath);
@@ -100,7 +141,7 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("CurrentSequenceId", managerText, "DialogueManager 应暴露当前对话编号");
         StringAssert.Contains("GetCurrentTaskLabel()", directorText, "导演层应提供当前任务标签");
         StringAssert.Contains("GetCurrentProgressLabel()", directorText, "导演层应提供当前任务进度");
-        StringAssert.Contains("0.0.2 首段后续说明", directorText, "导演层任务标签应把 EnterVillage 区分为首段后续说明阶段");
+        StringAssert.Contains("0.0.2 进村/安置", directorText, "导演层任务标签应把 EnterVillage 区分为进村与安置阶段");
     }
 
     [Test]
@@ -154,6 +195,9 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("postDialogueResumeDelay", overlayText, "PromptOverlay 应支持对话结束后的缓冲淡入延迟");
         StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", overlayText, "连续对话时 PromptOverlay 不应因旧 End 事件提前恢复");
         StringAssert.Contains("ShouldIgnoreDialogueEndEvent()", hintBubbleText, "连续对话时世界提示气泡不应因旧 End 事件提前恢复");
+        StringAssert.Contains("CurrentCaptionText", hintBubbleText, "世界提示气泡应暴露当前标题，便于 Day1 运行态快照读取正式提示内容");
+        StringAssert.Contains("CurrentDetailText", hintBubbleText, "世界提示气泡应暴露当前明细，便于 Day1 运行态快照读取正式提示内容");
+        StringAssert.Contains("IsVisible", hintBubbleText, "世界提示气泡应暴露当前可见态，避免运行态快照只能猜测提示是否正在显示");
     }
 
     [Test]
@@ -178,6 +222,7 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("BuildSnapshot(string label = null)", runnerText, "运行态验收器应能生成结构化快照");
         StringAssert.Contains("GetRecommendedNextAction()", runnerText, "运行态验收器应给出当前推荐下一步");
         StringAssert.Contains("TriggerRecommendedAction()", runnerText, "运行态验收器应能触发最小验收动作");
+        StringAssert.Contains("等待 StoryManager 初始化", runnerText, "运行态验收器的玩家面与技术面摘要在 StoryManager 尚未就位时也应给出稳定占位，不应先空引用");
         StringAssert.Contains("TryTriggerNpcDialogue()", runnerText, "运行态验收器应支持触发 NPC001 对话");
         StringAssert.Contains("TryTriggerWorkbenchInteraction()", runnerText, "运行态验收器应支持触发工作台交互");
         StringAssert.Contains("TryAdvanceFarmingTutorialValidationStep()", runnerText, "运行态验收器应支持模拟农田教学最小推进，便于继续验证 EP 与 low-energy warning");
@@ -203,6 +248,8 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("reminderPending=", runnerText, "运行态验收快照应显式记录归途提醒对白是否仍待接管");
         StringAssert.Contains("sleepReady=", runnerText, "运行态验收快照应显式记录自由时段是否已允许睡觉收束");
         StringAssert.Contains("nightPressure=", runnerText, "运行态验收快照应显式记录自由时段当前的夜间压力等级");
+        StringAssert.Contains("WorldHint", runnerText, "运行态验收快照应显式记录当前近身提示焦点，便于核对唯一提示与唯一 E 仲裁");
+        StringAssert.Contains("PlayerFacing", runnerText, "运行态验收快照应额外提供面向玩家的阶段摘要，而不只是技术状态拼接");
         StringAssert.Contains("已模拟推进到夜里 10 点", runnerText, "运行态验收器应支持把自由时段直接推进到 22:00，并验证回住处压力开始增强");
         StringAssert.Contains("已模拟推进到午夜", runnerText, "运行态验收器应支持把自由时段继续推进到午夜，验证夜深提醒升级");
         StringAssert.Contains("已模拟推进到凌晨一点", runnerText, "运行态验收器应支持把自由时段继续推进到凌晨一点，验证最终催促");
@@ -234,7 +281,7 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("panel.Open(station)", interactableText, "如果制作面板存在，工作台交互应尝试直接打开");
         StringAssert.Contains("NotifyCraftingStationOpened", interactableText, "工作台交互应把触发结果回传给 Day1 导演");
         StringAssert.Contains("KeyCode.E", interactableText, "工作台应支持测试用 E 键近距交互");
-        StringAssert.Contains("Input.GetKeyDown(proximityInteractionKey)", interactableText, "工作台测试交互应由脚本自行检测 E 键");
+        StringAssert.Contains("SpringDay1ProximityInteractionService.ReportCandidate", interactableText, "工作台近身提示与 E 触发应走 Day1 统一近身仲裁服务，而不是每个对象各自抢键");
         StringAssert.Contains("TryHandleWorkbenchTestInteraction", interactableText, "工作台在没有正式制作面板时应走 Day1 测试兜底");
         StringAssert.Contains("HideIfExists(transform)", interactableText, "工作台回收世界提示气泡时不应为了 Hide 反向创建新的运行时 UI");
         StringAssert.Contains("preferStoryWorkbenchOverlay", interactableText, "工作台交互应支持优先打开 Day1 专用制作浮层");
@@ -299,6 +346,7 @@ public class SpringDay1DialogueProgressionTests
     {
         string directorText = File.ReadAllText(DirectorPath);
         string bedInteractableText = File.ReadAllText(BedInteractablePath);
+        string proximityServiceText = File.ReadAllText(ProximityServicePath);
         string bedBinderText = File.ReadAllText(BedSceneBinderPath);
 
         StringAssert.Contains("StoryTimePauseSource", directorText, "导演层应显式接管脚本阶段的时间暂停来源");
@@ -329,7 +377,11 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("IsReminderDialoguePendingStart()", directorText, "导演层应暴露归途提醒对白是否仍待接管，供运行态验收入口复用");
         StringAssert.Contains("IsSleepInteractionAvailable()", directorText, "导演层应暴露自由时段是否已允许睡觉收束");
         StringAssert.Contains("GetRestInteractionHint", directorText, "导演层应能根据夜间压力动态收紧回住处/睡觉交互提示");
+        StringAssert.Contains("GetRestInteractionDetail", directorText, "导演层应能根据夜间压力动态收紧回屋休息的细节提示");
+        StringAssert.Contains("GetCurrentWorldHintSummary", directorText, "导演层应能输出当前世界提示焦点，便于继续做玩家视角整体验证");
+        StringAssert.Contains("BuildPlayerFacingStatusSummary", directorText, "导演层应能把当前阶段、当前焦点和当前任务摘要压成面向玩家的一句话总结");
         StringAssert.Contains("GetFreeTimePressureState()", directorText, "导演层应暴露自由时段当前夜间压力等级");
+        StringAssert.Contains("storyManager == null", directorText, "导演层对 Day1 状态公开口应先处理 StoryManager 尚未就位的空场景，避免验收入口或调试快照先空引用");
         StringAssert.Contains("if (_freeTimeEntered && !_dayEnded)", directorText, "导演层应只在 Day1 自由时段真正结束时接管睡眠收束");
         StringAssert.Contains("StoryManager.Instance.SetPhase(StoryPhase.DayEnd);", directorText, "导演层在接到睡眠事件后应显式把 Day1 切到 DayEnd");
         StringAssert.Contains("EnergySystem.Instance.FullRestore();", directorText, "DayEnd 收束时应恢复精力，避免次日承接脏状态");
@@ -338,6 +390,19 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("StoryPhase.FreeTime", bedInteractableText, "床交互应只在自由时段开放");
         StringAssert.Contains("TimeManager.Instance.Sleep()", bedInteractableText, "床交互应能直接触发睡觉");
         StringAssert.Contains("director.GetRestInteractionHint(interactionHint)", bedInteractableText, "床交互提示应随夜间压力动态收紧");
+        StringAssert.Contains("ResolveRestInteractionDetail", bedInteractableText, "床交互的近身提示细节应通过兼容桥接读取导演层的夜间压力文案，避免被底座签名漂移卡死整刀编译");
+        StringAssert.Contains("SpringDay1UiLayerUtility.IsBlockingPageUiOpen()", bedInteractableText, "床/回屋休息也应受页面级 UI 阻挡，不允许在背包或箱子打开时误触发");
+        StringAssert.Contains("SpringDay1ProximityInteractionService.ReportCandidate", bedInteractableText, "床/回屋休息的近身提示与 E 触发应接入 Day1 统一近身仲裁服务");
+        StringAssert.Contains("GetBoundaryDistance", bedInteractableText, "床/回屋休息应显式按包络线距离判断近身交互边界");
+        StringAssert.Contains("TryTriggerRestInteraction()", directorText, "导演层的验收入口应能主动触发休息承载物");
+        StringAssert.Contains("ShouldAllowRestValidationFallback()", directorText, "自由时段验收入口应允许一次休息交互的距离兜底，避免站位把验收卡死");
+        StringAssert.Contains("已通过验收入口脚本触发休息交互", directorText, "自由时段休息验收入口应明确报出距离兜底已经触发");
+        StringAssert.Contains("if (playerTransform == null)", directorText, "导演层构造验收交互上下文时应在玩家对象缺失时返回空上下文，而不是伪造 0,0 位置");
+        StringAssert.Contains("ShouldReplaceCandidate", proximityServiceText, "Day1 统一近身仲裁服务应显式定义候选替换规则，避免多个近身目标同时争抢提示和 E 键");
+        StringAssert.Contains("CurrentFocusSummary", proximityServiceText, "Day1 统一近身仲裁服务应暴露当前焦点摘要，便于导演层和验收入口读取");
+        StringAssert.Contains("BuildWorldHintDetail", proximityServiceText, "Day1 统一近身仲裁服务应在 teaser 态输出中性靠近提示，而不是继续冒充可立即按键。");
+        StringAssert.Contains("Input.GetKeyDown(_currentCandidate.InteractionKey)", proximityServiceText, "Day1 统一近身仲裁服务应只让当前焦点目标消费这次 E 键");
+        StringAssert.Contains("if (_instance == this)", proximityServiceText, "Day1 统一近身仲裁服务在销毁时应主动回收静态实例，避免切场景后残留旧引用");
         StringAssert.Contains("InitializeOnLoad", bedBinderText, "床位编辑器恢复器应在 Unity 重新编译后自动生效");
         StringAssert.Contains("Undo.AddComponent<SpringDay1BedInteractable>", bedBinderText, "床位编辑器恢复器应能自动补挂床交互脚本");
     }
@@ -352,12 +417,17 @@ public class SpringDay1DialogueProgressionTests
         StringAssert.Contains("PlayDialogue(followupSequence)", managerText, "DialogueManager 应在首段完成后自动续播 follow-up");
         StringAssert.Contains("FirstFollowupSequenceId", directorText, "导演层应显式识别首段 follow-up 的完成节点");
         StringAssert.Contains("if (HasPlayableNodes(evt.FollowupSequence))", directorText, "首段完成时若还要续播 follow-up，导演层不应立刻抢跑疗伤");
+        StringAssert.Contains("VillageGateSequenceId", directorText, "导演层应显式识别进村围观段的完成节点");
+        StringAssert.Contains("HouseArrivalSequenceId", directorText, "导演层应显式识别闲置小屋安置段的完成节点");
         StringAssert.Contains("evt.SequenceId == FirstFollowupSequenceId", directorText, "导演层应在 follow-up 收束后再进入疗伤");
-        StringAssert.Contains("if (!IsDialogueChainStillActive())", directorText, "EnterVillage 相位变化不应在连续对话仍占用时提前启动疗伤");
-        StringAssert.Contains("首段后续说明进行中", directorText, "导演层当前进度文案应区分首段和 follow-up");
-        StringAssert.Contains("听完村长后续说明", directorText, "导演层任务卡文案应明确 follow-up 阶段的目标");
-        StringAssert.Contains("等待首段后续说明收束；若未续播可再次触发 NPC001。", directorText, "运行态验收器应给出符合新推进链的推荐动作");
-        StringAssert.Contains("首段后续说明已收束，等待疗伤段启动。", directorText, "运行态验收器在 follow-up 已完成后不应继续建议反复触发 NPC001");
+        StringAssert.Contains("evt.SequenceId == VillageGateSequenceId", directorText, "导演层应在进村围观段收束时继续等待链路或进入疗伤");
+        StringAssert.Contains("evt.SequenceId == HouseArrivalSequenceId", directorText, "导演层应在闲置小屋安置段收束后再进入疗伤");
+        StringAssert.Contains("if (!IsDialogueChainStillActive() && !IsFirstFollowupPending())", directorText, "EnterVillage 相位变化不应在进村安置链仍待完成时提前启动疗伤");
+        StringAssert.Contains("进村围观进行中", directorText, "导演层当前进度文案应识别进村围观段");
+        StringAssert.Contains("闲置小屋安置进行中", directorText, "导演层当前进度文案应识别闲置小屋安置段");
+        StringAssert.Contains("在闲置小屋安顿下来", directorText, "导演层任务卡文案应明确安置旧屋这一拍");
+        StringAssert.Contains("等待进村围观与安置收束；若链路未续播可再次触发 NPC001。", directorText, "运行态验收器应给出符合新进村链的推荐动作");
+        StringAssert.Contains("进村安置已收束，等待疗伤段启动。", directorText, "运行态验收器在进村安置链已完成后不应继续建议反复触发 NPC001");
         StringAssert.Contains("工作台回忆进行中", directorText, "导演层当前进度文案应能识别工作台回忆正在播出");
         StringAssert.Contains("工作台已打开，等待回忆收束", directorText, "导演层当前进度文案应区分工作台已打开但回忆未完全结束");
         StringAssert.Contains("等待工作台回忆完整播完。", directorText, "导演层焦点提示应区分工作台已打开后的等待态");

@@ -1,4 +1,4 @@
-﻿%YAML 1.1
+%YAML 1.1
 %TAG !u! tag:unity3d.com,2011:
 --- !u!114 &11400000
 MonoBehaviour:
@@ -10,21 +10,30 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
-  m_Name: SpringDay1_FirstDialogue
-  m_EditorClassIdentifier: 
-  sequenceId: spring-day1-first
+  m_Name: SpringDay1_VillageGate
+  m_EditorClassIdentifier:
+  sequenceId: spring-day1-village-gate
   nodes:
-  - speakerName: 村长
-    text: 年轻人，你还好吗？从天上掉下来，居然还活着。
-    isGarbled: 1
-    garbledText: ▓▒……你……还……好……吗……
+  - speakerName: 村民
+    text: 村长，你怎么带了个外乡人回来？
+    isGarbled: 0
+    garbledText:
     speakerPortrait: {fileID: 0}
     isInnerMonologue: 0
     isBubble: 0
-    fontStyleKey: garbled
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 小孩
+    text: 他真的是从矿洞那边出来的吗？
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: ""
-    text: （这是什么语言？这些音节……我好像在哪里听过。）
+    text: （所有人的目光都落在我身上。这里没有一个人真正把我当成自己人。）
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -32,27 +41,18 @@ MonoBehaviour:
     isBubble: 0
     fontStyleKey: narration
     typingSpeedOverride: 0
-  - speakerName: ""
-    text: （脑海里有什么被重新接上了。下次再听他说话，我也许就能听懂。）
+  - speakerName: 村长
+    text: 先让路。人是我带回来的，今晚的事由我担着。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
-    isInnerMonologue: 1
+    isInnerMonologue: 0
     isBubble: 0
-    fontStyleKey: narration
-    typingSpeedOverride: 0
-  - speakerName: ""
-    text: （他像是在催我站起来。至少现在，他更像是在救我，而不是要害我。）
-    isGarbled: 0
-    garbledText:
-    speakerPortrait: {fileID: 0}
-    isInnerMonologue: 1
-    isBubble: 0
-    fontStyleKey: narration
+    fontStyleKey: default
     typingSpeedOverride: 0
   canSkip: 1
   defaultTypingSpeed: 45
-  markLanguageDecodedOnComplete: 1
+  markLanguageDecodedOnComplete: 0
   advanceStoryPhaseOnComplete: 0
   nextStoryPhase: 0
-  followupSequence: {fileID: 11400000, guid: c9dbc72325f747bbaf6250d6374ec586, type: 2}
+  followupSequence: {fileID: 11400000, guid: 8ecb8bb90c564b2289fec30b42625533, type: 2}

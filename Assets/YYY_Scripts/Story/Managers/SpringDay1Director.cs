@@ -48,6 +48,8 @@ namespace Sunset.Story
         private const string StoryTimePauseSource = "SpringDay1Director";
         private const string FirstSequenceId = "spring-day1-first";
         private const string FirstFollowupSequenceId = "spring-day1-first-followup";
+        private const string VillageGateSequenceId = "spring-day1-village-gate";
+        private const string HouseArrivalSequenceId = "spring-day1-house-arrival";
         private const string HealingSequenceId = "spring-day1-healing";
         private const string WorkbenchSequenceId = "spring-day1-workbench";
         private const string DinnerSequenceId = "spring-day1-dinner";
@@ -231,8 +233,8 @@ namespace Sunset.Story
 
             return storyManager.CurrentPhase switch
             {
-                StoryPhase.CrashAndMeet => "0.0.2 首段推进链",
-                StoryPhase.EnterVillage => "0.0.2 首段后续说明",
+                StoryPhase.CrashAndMeet => "0.0.2 矿洞首遇/撤离",
+                StoryPhase.EnterVillage => "0.0.2 进村/安置",
                 StoryPhase.HealingAndHP => "0.0.3 疗伤/血条",
                 StoryPhase.WorkbenchFlashback => "0.0.4 工作台闪回",
                 StoryPhase.FarmingTutorial => "0.0.5 农田/砍树教学",
@@ -255,12 +257,36 @@ namespace Sunset.Story
             StoryPhase phase = storyManager.CurrentPhase;
             if (phase == StoryPhase.CrashAndMeet)
             {
-                return "首段对话进行中";
+                if (IsDialogueSequenceCurrentlyActive(FirstSequenceId))
+                {
+                    return "矿洞口醒来与语言错位进行中";
+                }
+
+                if (IsDialogueSequenceCurrentlyActive(FirstFollowupSequenceId))
+                {
+                    return "怪物逼近与撤离进行中";
+                }
+
+                return HasCompletedDialogueSequence(FirstSequenceId)
+                    ? "等待跟村长离开矿洞口"
+                    : "等待触发矿洞口首遇";
             }
 
             if (phase == StoryPhase.EnterVillage)
             {
-                return "首段后续说明进行中";
+                if (IsDialogueSequenceCurrentlyActive(VillageGateSequenceId))
+                {
+                    return "进村围观进行中";
+                }
+
+                if (IsDialogueSequenceCurrentlyActive(HouseArrivalSequenceId))
+                {
+                    return "闲置小屋安置进行中";
+                }
+
+                return IsFirstFollowupPending()
+                    ? "进村安置链进行中"
+                    : "进村安置已收束，等待疗伤段启动";
             }
 
             if (phase == StoryPhase.HealingAndHP)
@@ -356,6 +382,7 @@ namespace Sunset.Story
             }
 
             StoryPhase phase = storyManager.CurrentPhase;
+            RefreshPromptModelTrackingState(phase);
             return new PromptCardModel
             {
                 PhaseKey = phase.ToString(),
@@ -367,12 +394,24 @@ namespace Sunset.Story
             };
         }
 
+        private void RefreshPromptModelTrackingState(StoryPhase phase)
+        {
+            if (phase != StoryPhase.FarmingTutorial)
+            {
+                return;
+            }
+
+            InitializeFarmingTutorialTracking();
+            RefreshInventoryTrackingSubscription();
+            HandleInventoryChanged();
+        }
+
         private string GetPromptSubtitle(StoryPhase phase)
         {
             return phase switch
             {
-                StoryPhase.CrashAndMeet => "先和村里第一个关键角色完成接触。",
-                StoryPhase.EnterVillage => "先听完村长的后续说明，再进入疗伤。",
+                StoryPhase.CrashAndMeet => "先稳住意识，接住陌生语言，再跟村长离开矿洞口。",
+                StoryPhase.EnterVillage => "进村后先撑过围观，再被安置到闲置小屋，随后才进入疗伤。",
                 StoryPhase.HealingAndHP => "疗伤演出与血量显现会在这里完成。",
                 StoryPhase.WorkbenchFlashback => "工作台需要先触发一次正式回忆，再进入教学链。",
                 StoryPhase.FarmingTutorial => "今天的教学链会逐条锁定并逐条完成。",
@@ -388,8 +427,10 @@ namespace Sunset.Story
         {
             return phase switch
             {
-                StoryPhase.CrashAndMeet => "靠近 NPC 并按 E 开始首段对话。",
-                StoryPhase.EnterVillage => "等待首段后续说明收束，然后进入疗伤。",
+                StoryPhase.CrashAndMeet when HasCompletedDialogueSequence(FirstSequenceId) => "跟住村长，别在矿洞口停留太久。",
+                StoryPhase.CrashAndMeet => "靠近村长并按 E，先弄清眼前到底发生了什么。",
+                StoryPhase.EnterVillage when HasCompletedDialogueSequence(VillageGateSequenceId) => "跟着村长进屋，先在闲置小屋安顿下来。",
+                StoryPhase.EnterVillage => "跟着村长进村，先撑过村口的围观和注视。",
                 StoryPhase.HealingAndHP => "等待疗伤对白与 HP 卡片完整播完。",
                 StoryPhase.WorkbenchFlashback when _workbenchOpened => "等待工作台回忆完整播完。",
                 StoryPhase.WorkbenchFlashback => "靠近 Anvil_0，按 E 打开工作台。",
@@ -414,7 +455,18 @@ namespace Sunset.Story
             {
                 return new[]
                 {
-                    new PromptTaskItem("和 NPC001 完成首段对话", "从 E 键接触开始，直到首段对白完整结束。", false)
+                    new PromptTaskItem(
+                        "先听懂村长的话",
+                        HasCompletedDialogueSequence(FirstSequenceId)
+                            ? "语言已经接上，先别在矿洞口继续停留。"
+                            : "在矿洞口醒来后，先弄清眼前这个人想做什么。",
+                        HasCompletedDialogueSequence(FirstSequenceId)),
+                    new PromptTaskItem(
+                        "跟村长离开矿洞口",
+                        HasCompletedDialogueSequence(FirstFollowupSequenceId)
+                            ? "已完成，正在进入村庄。"
+                            : "怪物正在逼近，先跟着他离开危险区域。",
+                        HasCompletedDialogueSequence(FirstFollowupSequenceId))
                 };
             }
 
@@ -422,7 +474,18 @@ namespace Sunset.Story
             {
                 return new[]
                 {
-                    new PromptTaskItem("听完村长后续说明", "首段结束后会自动续播 follow-up，结束后才进入疗伤。", false)
+                    new PromptTaskItem(
+                        "跟着村长进入村子",
+                        HasCompletedDialogueSequence(VillageGateSequenceId)
+                            ? "已撑过村口围观。"
+                            : "先让村长带路，别在陌生人的注视里乱跑。",
+                        HasCompletedDialogueSequence(VillageGateSequenceId)),
+                    new PromptTaskItem(
+                        "在闲置小屋安顿下来",
+                        HasCompletedDialogueSequence(HouseArrivalSequenceId)
+                            ? "已完成，等待艾拉接手疗伤。"
+                            : "村长会先把你安置进一间空置很久的旧屋。",
+                        HasCompletedDialogueSequence(HouseArrivalSequenceId))
                 };
             }
 
@@ -441,35 +504,12 @@ namespace Sunset.Story
 
             if (phase == StoryPhase.WorkbenchFlashback)
             {
-                return new[]
-                {
-                    !_workbenchOpened
-                        ? new PromptTaskItem("靠近工作台并按 E", "从交互包络线进入后按 E 打开。", false)
-                        : new PromptTaskItem("触发工作台回忆", _workbenchSequencePlayed ? "工作台回忆已播完。" : "打开后会自动推进这段对白。", _workbenchSequencePlayed)
-                };
+                return BuildWorkbenchFlashbackPromptItems();
             }
 
             if (phase == StoryPhase.FarmingTutorial)
             {
-                return new[]
-                {
-                    !_tillObjectiveCompleted
-                        ? new PromptTaskItem("开垦土地", $"{GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}/{requiredTilledCount}", false)
-                        : !_plantObjectiveCompleted
-                            ? new PromptTaskItem("完成播种", $"{GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}/{requiredPlantedCount}", false)
-                            : !_waterObjectiveCompleted
-                                ? new PromptTaskItem("完成浇水", $"{GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}/{requiredWateredCount}", false)
-                                : !_woodObjectiveCompleted
-                                    ? new PromptTaskItem("收集木材", $"{GetCollectedWoodProgress()}/{requiredWoodCollectedCount}", false)
-                                    : _craftedCount < requiredCraftedCount
-                                        ? new PromptTaskItem(
-                                            "完成基础制作",
-                                            _workbenchCraftingActive
-                                                ? BuildWorkbenchCraftProgressText()
-                                                : $"{Mathf.Min(_craftedCount, requiredCraftedCount)}/{requiredCraftedCount}",
-                                            false)
-                                        : new PromptTaskItem("完成农田教学", "当前教学目标已全部完成，等待下一段剧情。", true)
-                };
+                return BuildFarmingTutorialPromptItems();
             }
 
             if (phase == StoryPhase.DinnerConflict)
@@ -531,6 +571,72 @@ namespace Sunset.Story
             };
         }
 
+        private PromptTaskItem[] BuildWorkbenchFlashbackPromptItems()
+        {
+            return new[]
+            {
+                new PromptTaskItem(
+                    "靠近工作台并按 E",
+                    _workbenchOpened ? "工作台已经打开。" : "从交互包络线进入后按 E 打开。",
+                    _workbenchOpened),
+                new PromptTaskItem(
+                    "看完工作台回忆",
+                    _workbenchSequencePlayed ? "工作台回忆已播完。" : "打开后会自动推进这段对白。",
+                    _workbenchSequencePlayed)
+            };
+        }
+
+        private PromptTaskItem[] BuildFarmingTutorialPromptItems()
+        {
+            InitializeFarmingTutorialTracking();
+
+            string craftDetail = _workbenchCraftingActive
+                ? BuildWorkbenchCraftProgressText()
+                : $"{Mathf.Min(_craftedCount, requiredCraftedCount)}/{requiredCraftedCount}";
+
+            return new[]
+            {
+                new PromptTaskItem(
+                    "开垦土地",
+                    _tillObjectiveCompleted
+                        ? $"已完成 {requiredTilledCount}/{requiredTilledCount}"
+                        : $"先开垦出第一格教学土地 {GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}/{requiredTilledCount}",
+                    _tillObjectiveCompleted),
+                new PromptTaskItem(
+                    "完成播种",
+                    _plantObjectiveCompleted
+                        ? $"已完成 {requiredPlantedCount}/{requiredPlantedCount}"
+                        : !_tillObjectiveCompleted
+                            ? "先完成开垦，再把花椰菜种子种下。"
+                            : $"{GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}/{requiredPlantedCount}",
+                    _plantObjectiveCompleted),
+                new PromptTaskItem(
+                    "完成浇水",
+                    _waterObjectiveCompleted
+                        ? $"已完成 {requiredWateredCount}/{requiredWateredCount}"
+                        : !_plantObjectiveCompleted
+                            ? "播种后再用浇水壶推进下一步。"
+                            : $"{GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}/{requiredWateredCount}",
+                    _waterObjectiveCompleted),
+                new PromptTaskItem(
+                    "收集木材",
+                    _woodObjectiveCompleted
+                        ? $"已收齐 {requiredWoodCollectedCount}/{requiredWoodCollectedCount}"
+                        : !_waterObjectiveCompleted
+                            ? "先完成浇水，再开始收集木材。"
+                            : $"{GetCollectedWoodProgress()}/{requiredWoodCollectedCount}",
+                    _woodObjectiveCompleted),
+                new PromptTaskItem(
+                    "完成基础制作",
+                    _craftedCount >= requiredCraftedCount
+                        ? "基础制作已完成。"
+                        : !_woodObjectiveCompleted
+                            ? "先把木材收齐，再回工作台制作。"
+                            : craftDetail,
+                    _craftedCount >= requiredCraftedCount)
+            };
+        }
+
         private void HandleStoryPhaseChanged(StoryPhaseChangedEvent evt)
         {
             if (!IsPrimarySceneActive())
@@ -548,7 +654,7 @@ namespace Sunset.Story
 
             if (evt.CurrentPhase == StoryPhase.EnterVillage)
             {
-                if (!IsDialogueChainStillActive())
+                if (!IsDialogueChainStillActive() && !IsFirstFollowupPending())
                 {
                     BeginHealingAndHp();
                 }
@@ -576,11 +682,23 @@ namespace Sunset.Story
                     return;
                 }
 
+                StoryManager.Instance.SetPhase(StoryPhase.EnterVillage);
                 BeginHealingAndHp();
                 return;
             }
 
-            if (evt.SequenceId == FirstFollowupSequenceId)
+            if (evt.SequenceId == FirstFollowupSequenceId || evt.SequenceId == VillageGateSequenceId)
+            {
+                if (HasPlayableNodes(evt.FollowupSequence))
+                {
+                    return;
+                }
+
+                BeginHealingAndHp();
+                return;
+            }
+
+            if (evt.SequenceId == HouseArrivalSequenceId)
             {
                 BeginHealingAndHp();
                 return;
@@ -662,6 +780,7 @@ namespace Sunset.Story
             if (_observedInventoryService != null)
             {
                 _observedInventoryService.OnInventoryChanged += HandleInventoryChanged;
+                HandleInventoryChanged();
             }
         }
 
@@ -673,6 +792,16 @@ namespace Sunset.Story
             }
 
             int currentWoodCount = GetCurrentWoodCount();
+            if (currentWoodCount >= requiredWoodCollectedCount)
+            {
+                _baselineWoodCount = Mathf.Max(_baselineWoodCount, currentWoodCount);
+                _trackedWoodCountSnapshot = currentWoodCount;
+                _collectedWoodSinceWoodStepStart = requiredWoodCollectedCount;
+                _woodTrackingArmed = true;
+                _woodObjectiveCompleted = true;
+                return;
+            }
+
             if (_baselineWoodCount < 0)
             {
                 _baselineWoodCount = currentWoodCount;
@@ -720,7 +849,8 @@ namespace Sunset.Story
                 _dayEnded = true;
                 StoryManager.Instance.SetPhase(StoryPhase.DayEnd);
                 EnergySystem.Instance.FullRestore();
-                ApplyLowEnergyMovementPenalty(false);
+                EnergySystem.Instance.SetLowEnergyWarningVisual(false);
+                ResyncLowEnergyState(false);
                 SyncStoryTimePauseState();
                 SpringDay1PromptOverlay.Instance.Show("春1日结束。明天继续。");
             }
@@ -927,6 +1057,12 @@ namespace Sunset.Story
                 && manager.CurrentSequenceId == sequenceId;
         }
 
+        private static bool HasCompletedDialogueSequence(string sequenceId)
+        {
+            DialogueManager manager = DialogueManager.Instance;
+            return manager != null && manager.HasCompletedSequence(sequenceId);
+        }
+
         private void TickFarmingTutorial()
         {
             InitializeFarmingTutorialTracking();
@@ -1048,8 +1184,7 @@ namespace Sunset.Story
                 return "基础制作已经完成。";
             }
 
-            _craftedCount = requiredCraftedCount;
-            return "测试用工作台交互：已记作一次基础制作。";
+            return "工作台界面当前未接通，本次不会记作基础制作。等工作台真正打开后再完成这一步。";
         }
 
         public string GetValidationFarmingNextAction()
@@ -1282,6 +1417,23 @@ namespace Sunset.Story
             return true;
         }
 
+        public bool ShouldExposeWorkbenchInteraction()
+        {
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return true;
+            }
+
+            return storyManager.CurrentPhase switch
+            {
+                StoryPhase.CrashAndMeet => false,
+                StoryPhase.EnterVillage => false,
+                StoryPhase.HealingAndHP => false,
+                _ => true
+            };
+        }
+
         public bool ShouldShowWorkbenchEntryHint()
         {
             StoryPhase currentPhase = StoryManager.Instance.CurrentPhase;
@@ -1297,7 +1449,7 @@ namespace Sunset.Story
             }
 
             DialogueManager manager = DialogueManager.Instance;
-            return manager == null || !manager.HasCompletedSequence(FirstFollowupSequenceId);
+            return manager == null || !manager.HasCompletedSequence(HouseArrivalSequenceId);
         }
 
         public bool IsWorkbenchFlashbackAwaitingInteraction()
@@ -1671,6 +1823,13 @@ namespace Sunset.Story
             _woodTrackingArmed = false;
             _trackedWoodCountSnapshot = _baselineWoodCount;
             _collectedWoodSinceWoodStepStart = 0;
+
+            if (_baselineWoodCount >= requiredWoodCollectedCount)
+            {
+                _woodTrackingArmed = true;
+                _collectedWoodSinceWoodStepStart = requiredWoodCollectedCount;
+                _woodObjectiveCompleted = true;
+            }
         }
 
         private static void CacheReflection()
@@ -1740,7 +1899,62 @@ namespace Sunset.Story
 
         private int GetCurrentWoodCount()
         {
-            InventoryService inventoryService = FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+            InventoryService inventoryService = ResolvePreferredWoodInventoryService();
+            if (inventoryService == null)
+            {
+                return 0;
+            }
+
+            return CountWoodInInventory(inventoryService);
+        }
+
+        private InventoryService ResolvePreferredWoodInventoryService()
+        {
+            if (_observedInventoryService != null)
+            {
+                return _observedInventoryService;
+            }
+
+            InventoryService[] inventoryServices = FindObjectsByType<InventoryService>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            if (inventoryServices == null || inventoryServices.Length == 0)
+            {
+                return null;
+            }
+
+            InventoryService bestService = null;
+            int bestScore = int.MinValue;
+            for (int index = 0; index < inventoryServices.Length; index++)
+            {
+                InventoryService candidate = inventoryServices[index];
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                int woodCount = CountWoodInInventory(candidate);
+                int score = woodCount;
+                if (woodCount >= requiredWoodCollectedCount)
+                {
+                    score += 1000;
+                }
+
+                if (candidate.isActiveAndEnabled)
+                {
+                    score += 100;
+                }
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestService = candidate;
+                }
+            }
+
+            return bestService;
+        }
+
+        private static int CountWoodInInventory(InventoryService inventoryService)
+        {
             if (inventoryService == null)
             {
                 return 0;
@@ -2369,10 +2583,10 @@ namespace Sunset.Story
 
             return storyManager.CurrentPhase switch
             {
-                StoryPhase.CrashAndMeet => "触发 NPC001 首段对话。",
+                StoryPhase.CrashAndMeet => "触发 NPC001 首段对话，接住醒来与撤离链。",
                 StoryPhase.EnterVillage => director != null && director.IsFirstFollowupPending()
-                    ? "等待首段后续说明收束；若未续播可再次触发 NPC001。"
-                    : "首段后续说明已收束，等待疗伤段启动。",
+                    ? "等待进村围观与安置收束；若链路未续播可再次触发 NPC001。"
+                    : "进村安置已收束，等待疗伤段启动。",
                 StoryPhase.HealingAndHP => "等待血条渐显与疗伤对话自动播出。",
                 StoryPhase.WorkbenchFlashback => director != null && director.IsWorkbenchFlashbackAwaitingInteraction()
                     ? "交互 Anvil_0 / Workbench，触发工作台闪回。"
@@ -2416,7 +2630,7 @@ namespace Sunset.Story
                 StoryPhase.CrashAndMeet => SetActionResult(TryTriggerNpcDialogue()),
                 StoryPhase.EnterVillage => SetActionResult(director != null && director.IsFirstFollowupPending()
                     ? TryTriggerNpcDialogue()
-                    : "首段后续说明已收束，等待疗伤段自动启动。"),
+                    : "进村安置已收束，等待疗伤段自动启动。"),
                 StoryPhase.HealingAndHP => SetActionResult("疗伤阶段主要由导演自动推进；当前无需额外手动触发。"),
                 StoryPhase.WorkbenchFlashback => SetActionResult(director != null && director.IsWorkbenchFlashbackAwaitingInteraction()
                     ? TryTriggerWorkbenchInteraction()

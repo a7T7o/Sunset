@@ -1,4 +1,4 @@
-﻿# spring-day1 - 线程记忆
+# spring-day1 - 线程记忆
 
 ## 线程概述
 - 线程名称：spring-day1
@@ -1713,3 +1713,459 @@
 - 当前恢复点：
   - 等用户转发两份 prompt；
   - 若 spring-day1 后续继续，只按 `prompt_02` 收窄后的逻辑/NPC 旧气泡范围推进。
+
+## 2026-04-03 线程补记：Day1 非 UI 逻辑/剧情控制 5 文件只读结论
+
+- 当前主线目标：
+  - 用户要求我作为 `spring-day1` 代码探索子智能体，只读审 5 个非 UI 相关文件，判断：
+    1. 现在还真正属于 `spring-day1 own` 的逻辑/剧情控制残项
+    2. 哪些点已经是 `UI own` 或 foreign，别再碰
+    3. 如果只准最小修一刀，应该先切哪一刀
+- 本轮范围：
+  - 只读：
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - 不进 Unity，不改代码，不跑 `Begin-Slice`
+- 本轮关键结论：
+  1. 真正仍属 Day1 own 的逻辑底座：
+     - `PlayerNpcChatSessionService` 的闲聊中断/恢复状态机：
+       `StartConversation()`、`HandleSessionBreakDistance()`、`StartWalkAwayInterrupt()`、`CapturePendingResumeSnapshot()`、`ResolveResumeIntroPlan()`
+     - `NPCDialogueInteractable.ResolveDialogueSequence()` 的正式对话首段/后续切换
+     - `SpringDay1Director` 的 phase 顺序、工作台闸门、自由时段/睡觉收束、低精力惩罚、运行时自动补挂 workbench/bed
+  2. 当前最像真实残项、且仍该由 Day1 逻辑线自己收的点：
+     - `CraftingStationInteractable.OnInteract()` 在没真正打开 workbench overlay / panel 时，会掉到
+       `SpringDay1Director.TryHandleWorkbenchTestInteraction()`
+     - 这条 fallback 仍可能直接把 `_craftedCount` 记满，导致 Day1 教学链被“测试入口”伪推进
+  3. 明确不该再由本线程继续碰的玩家面结果层：
+     - `GetPromptCaption()` / `GetPromptDetail()` / `UpdateConversationBubbleLayout()` / `SyncConversationPromptOverlay()`
+     - `NPCDialogueInteractable.ReportProximityInteraction()`
+     - `NPCInformalChatInteractable.ReportProximityInteraction()`
+     - `CraftingStationInteractable.ReportWorkbenchProximityInteraction()` / `ShouldDisplayOverlayBelow()`
+     - `SpringDay1Director.BuildPromptCardModel()` / `GetCurrentTaskLabel()` / `GetCurrentProgressLabel()` / `GetCurrentWorldHintSummary()` / `BuildPlayerFacingStatusSummary()`
+- 验证结果：
+  - 纯静态只读分析成立；
+  - 尚未做 live 运行验证，因此对“fallback 是否已在现场误触”只下到“高价值风险点”级别，不冒充成已复现 bug。
+- 当前恢复点 / 下一步：
+  - 如果用户要我继续真实施工，最小切片应只修：
+    - 收掉 `CraftingStationInteractable -> SpringDay1Director.TryHandleWorkbenchTestInteraction` 这条 live fallback
+  - 如果仍停在分析，本线程保持 `PARKED` 语义，不回吞 UI 线工作。
+
+## 2026-04-03 线程补记：`NPCBubblePresenter` 旧正式气泡终验只读分析已完成
+
+- 当前主线目标：
+  - 用户把 `spring-day1` 当前主线固定为：`NPCBubblePresenter` 旧正式气泡的 live 终验；
+  - 明确不碰玩家面 UI、`Primary.unity`、`GameInputManager.cs`。
+- 本轮子任务：
+  - 只读分析 `NPCBubblePresenter` 本体、相关测试，以及工程里任何能直接触发或验证 NPC 气泡 / 打断短气泡的 Editor 菜单、debug 入口；
+  - 给出三件事：
+    1. 旧正式气泡代码结构现在到底回正到什么程度
+    2. 现成最小 live/GameView 终验抓手是什么
+    3. 若证据还不够，最小 probe 应落在哪个 own 范围文件
+- 本轮范围：
+  - 重点读取：
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs`
+    - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+    - `Assets/YYY_Tests/Editor/NPCInformalChatInterruptMatrixTests.cs`
+    - `Assets/YYY_Tests/Editor/PlayerNpcConversationBubbleLayoutTests.cs`
+    - `Assets/YYY_Tests/Editor/PlayerThoughtBubblePresenterStyleTests.cs`
+  - 本轮只读分析，不改业务文件，不跑 `Begin-Slice`
+- 本轮关键结论：
+  1. `NPCBubblePresenter` 的旧正式样式结构已基本回正：
+     - `CurrentStyleVersion = 13`
+     - `ApplyCurrentStylePreset()` 仍是旧正式金边暗底样式
+     - `UpgradeLegacyStyleIfNeeded()` 会把旧序列化样式补升到当前 preset
+     - `ReactionCue` 已不再保留紫色 / 无尾巴 / 紧缩版独立视觉分支，只剩通道语义差异
+  2. 打断短气泡的真实触发链仍是：
+     - `PlayerNpcChatSessionService.RunWalkAwayInterrupt()`
+     - `ShowInterruptReactionCue()`
+     - `BubblePresenter.ShowReactionCueImmediate(...)`
+     - 然后才可能进 `ShowInterruptNpcLine(...)`
+  3. 现成最小终验抓手已经够用：
+     - 普通气泡：`NPCBubblePresenter` / `NPCAutoRoamController` 的组件 ContextMenu
+     - 打断短气泡：`NPCInformalChatValidationMenu` 的 `Trace 002/003 ... Interrupt`
+     - 更完整 probe：`SpringDay1NpcCrowdValidationMenu` 的 `Run Runtime Targeted Probe`
+  4. 现有测试主要守结构与配置，不能代替 live/GameView 终验
+  5. 若还要补最小 probe，优先只补在：
+     - `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+     因为它已经直达当前 scene 的 interrupt 链，最适合加 `BubblePresenter` 瞬时状态日志或截图钩子
+- 验证状态：
+  - 结构判断：静态只读证据成立
+  - live 观感：尚未补最终 GameView 证据，不能冒充成已过线
+- 当前恢复点 / 下一步：
+  - 如果继续真实施工，最小动作应只做：
+    1. 先跑 `NPCInformalChatValidationMenu` 的 interrupt trace
+    2. 仍不够再只补 `NPCInformalChatValidationMenu.cs` 的最小 probe
+  - 本线程当前仍是只读分析语义，不回碰玩家面 UI、`Primary.unity`、`GameInputManager.cs`
+
+## 2026-04-03 线程补记：非 UI 逻辑收口与 NPC 旧正式气泡 live 终验已完成
+
+- 当前主线目标：
+  - 误发 prompt 已撤回后，本线程重新锚定到
+    `2026-04-03_spring-day1_逻辑剧情控制与NPC旧气泡续工prompt_02.md`
+  - 本轮只做：
+    - 非 UI 的逻辑 / 剧情控制收口
+    - `NPCBubblePresenter` 旧正式气泡 live 终验
+- 本轮实际动作：
+  1. 已重新跑 `Begin-Slice`，把 own 范围缩回：
+     - `NPCBubblePresenter.cs`
+     - `PlayerNpcChatSessionService.cs`
+     - `NPCDialogueInteractable.cs`
+     - `NPCInformalChatInteractable.cs`
+     - `CraftingStationInteractable.cs`
+     - `SpringDay1Director.cs`
+  2. 通过命令桥进入 Play，执行 `Bootstrap Spring Day1 Validation`，确认当前 temp scene 仍是 `Primary / CrashAndMeet` 基线。
+  3. 用 `Trigger 002 Informal Chat` + `Capture Spring UI Evidence` 拿到普通会话 live 图：
+     - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-captures\spring-ui\pending\20260403-184219-745_manual.png`
+  4. 用 `Trace 002 PlayerTyping Interrupt` + 单次 capture 拿到打断短气泡 live 图：
+     - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-captures\spring-ui\pending\20260403-184935-423_manual.png`
+     - 对应侧车 `json` 记录 `WorldHint=002|E|聊到一半|正在收束，按 E 跳过收尾`
+     - Editor.log 记录 `002 跑开中断完成 ... endReason=WalkAwayInterrupt`
+  5. 首次为抢短窗口而连续下发多次 capture 菜单，制造出一次
+     `跑开中断未在 5.5 秒内收尾`
+     的伪故障；复盘后确认是取证噪声，不是业务状态机真实红。改成单次 capture 后 trace 正常完成。
+  6. 已在 `SpringDay1Director.TryHandleWorkbenchTestInteraction()` 落最小逻辑补丁：
+     - 不再把 `_craftedCount` 直接记满
+     - 只返回阻断提示：
+       `工作台界面当前未接通，本次不会记作基础制作。等工作台真正打开后再完成这一步。`
+- 本轮关键判断：
+  1. `NPC` 旧正式气泡终验已闭环：
+     - 普通气泡成立
+     - 打断短气泡成立
+     - 打断收尾运行态也成立
+  2. 当前最值得守住的真逻辑，不是气泡长相，而是 Day1 的 phase / interrupt / workbench gating；
+     本轮已先把 workbench 的伪推进后门关掉。
+  3. `town` 未就位前，剧情扩写继续冻结；本线程不再往前置剧情漂。
+- 验证状态：
+  - `git diff --check -- Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs` 已过
+  - Unity 在补丁后再次成功打到 `Bootstrap` 快照
+  - Editor.log 仍有 foreign/shared 历史错误记录，但本轮没有新增 own 编译红
+- 当前恢复点：
+  - 本轮 own 目标已完成；
+  - 如果下一轮继续，只应继续 `spring-day1` 的非 UI 逻辑 / 剧情边界，不回吞玩家面 UI。
+
+## 2026-04-03 线程补记：workbench fallback 定向回归测试已在当前 Unity 现场通过
+
+- 当前主线目标没有改题：
+  - 仍是 `spring-day1` 的非 UI 逻辑 / 剧情控制收口；
+  - 这一步只是在补 `SpringDay1Director.TryHandleWorkbenchTestInteraction()` 那个逻辑口的最终 targeted probe。
+- 本轮子任务：
+  1. 不关当前打开的 Unity；
+  2. 在现有命令桥只支持菜单的前提下，给这条单测补一个最小可调用入口；
+  3. 在当前 Unity 现场把单测跑实，而不是停在“测试代码已写入”。
+- 本轮实际完成：
+  - 新增：
+    - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1TargetedEditModeTestMenu.cs`
+  - 菜单：
+    - `Sunset/Story/Validation/Run Workbench Fallback Guard Test`
+  - 结果文件：
+    - `D:\Unity\Unity_learning\Sunset\Library\CodexEditorCommands\spring-day1-workbench-fallback-test.json`
+  - 执行顺序：
+    1. `Assets/Refresh`
+    2. 菜单执行定向单测
+    3. 读取结果文件
+- 本轮查实：
+  - 批处理 `Unity.exe -runTests` 在当前项目已打开时会直接撞锁；这点已被历史
+    `D:\Unity\Unity_learning\Sunset\.codex\artifacts\ui-tests-20260403.log`
+    证实；
+  - 当前打开的 Unity 现场里，这个最小菜单编译通过，`Editor.log` 出现 `*** Tundra build success`；
+  - 最终结果文件显示：
+    - `status=completed`
+    - `success=true`
+    - `passCount=1`
+    - `failCount=0`
+    - `skipCount=0`
+- 这条新证据代表什么：
+  - `Director_WorkbenchFallback_ShouldNotMarkCraftObjectiveComplete` 现在不是“理论上会过”，而是已经在当前 Unity 现场真实通过；
+  - 因此我能更准确地说：
+    - `workbench fallback 防伪推进`：`线程自测已过（targeted probe）`
+    - 不是玩家体验终验
+- 当前恢复点：
+  - 这轮 logic slice 该补的核心验证已经补齐；
+  - 如果本轮停手，应及时 `Park-Slice`，不要继续假活跃。
+
+## 2026-04-03 线程补记：本轮审计层与 live 状态已闭环
+
+- `skill-trigger-log` 已追加：
+  - `STL-20260403-122`
+- `check-skill-trigger-log-health.ps1` 结果：
+  - `Health: ok`
+  - `Canonical-Duplicate-Groups: 0`
+- `thread-state`：
+  - 已执行 `Park-Slice -ThreadName spring-day1`
+  - `Show-Active-Ownership` 当前已显示 `spring-day1 = PARKED / logic-drama-control-hardening`
+- 当前恢复点：
+  - 这轮现场、memory、skill 审计和 thread-state 都已收口；
+  - 下一轮若继续真实施工，需要从 `PARKED` 状态重新接着非 UI 逻辑边界推进。
+
+## 2026-04-04 线程补记：PromptOverlay 左侧空白只读分析已收敛到 Overlay 绑定链与测试假阳性
+
+- 当前主线目标：
+  - 继续服务 `spring-day1` 的 Day1 运行时 / UI 交付链；
+  - 本轮子任务是只读判断“任务栏有壳没字 / 左侧空白”的最可能代码根因，并给出最小稳修建议。
+- 本轮实际完成：
+  - 只读检查了
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+    - `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+  - 额外核对了 `SpringDay1PromptOverlay.prefab` 的节点命名与默认文本，用来验证当前测试是否可能误判。
+- 当前关键判断：
+  1. `SpringDay1Director.BuildPromptCardModel()` 与 `BuildPromptItems()` 这条数据侧当前能稳定产出非空任务数据，不是首要嫌疑。
+  2. 最可能的代码主根因在 `SpringDay1PromptOverlay`：
+     - `CanBindPageRoot()` 的复用闸门只检查页级节点，不检查真正要显示的 row 文本链；
+     - `BindExistingRows()` / `BindRow()` 对旧壳 row 的要求更严格，但前面的复用判断没有同步收紧。
+  3. 当前测试 `PromptOverlay_RuntimeCanvas_ShouldBeScreenOverlayAndRenderFilledTaskTexts` 存在明显假阳性：
+     - 它只要在整棵层级里找到任意一个非空 `Label` 就会通过；
+     - 由于 prefab 壳自带默认文案，即使可见前台 row 空白，这条测试仍可能绿。
+- 当前建议的最小稳修点：
+  1. 先改 `SpringDay1PromptOverlay.CanBindPageRoot()` / `TryBindRuntimeShell()` 的健康判定；
+  2. 再在 `ApplyStateToPage()` / `EnsureRows()` 后补前台 row 非空校验与必要时的重建；
+  3. 测试优先补强，不先扩 `SpringDay1Director` 数据侧。
+- 验证状态：
+  - `静态推断成立`
+  - 本轮未改代码、未跑测试、未进入 Unity live。
+- 主线恢复点：
+  - 如果下一轮进入真实施工，直接回到
+    `PromptOverlay 前台 row 绑定健康判定 + 测试补强`
+  - 不需要先回到剧情文案或别的 UI 组件重查。
+
+## 2026-04-04 线程补记：Day1 原案回读已收束出 NPC/Town 证据基线
+
+- 当前主线目标：
+  - 继续服务 `spring-day1` 的 Day1 剧情 / NPC 落位判断；
+  - 本轮子任务是只读回读原案，回答 Day1 主链、分场景位置、正式具名角色层级，以及“NPC 应留在 Town、只有村长跟着走几段剧情”的支持与约束。
+- 本轮实际完成：
+  - 只读核对了：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\0.0阶段\0.0.1剧情初稿\春1日_坠落_融合版.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\002_事件编排重构\Deepseek聊天记录001.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\001_剧本篇章集\000_Deepseek-2\Deepseek-2-P1.md`
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_Gemini\1.0.0策划\001_剧本篇章集\000_Deepseek-2\省流版VIP8.md`
+  - 收束出稳定主链：
+    - `矿洞口/森林` 坠落与相遇
+    - `村庄入口` 围观
+    - `废弃小屋` 疗伤与工作台闪回
+    - `小屋外农田/树旁` 耕种与低精力
+    - `饭馆` 晚餐与卡尔冲突
+    - `村路→小屋` 睡前提醒与 DayEnd
+  - 收束出角色层级：
+    - `马库斯` = Day1 NPC 主承载 / 唯一持续 escort
+    - `艾拉` = 小屋段必到次承载
+    - `卡尔` = 饭馆单次冲突位
+    - `老杰克 / 老乔治 / 老汤姆 / 小米` = Town 内可选认脸
+    - `村民A/B/甲、小孩` = 群众/远景
+- 当前关键判断：
+  1. 原案整体支持“Town 内固定点位 + 马库斯少量 escort”的 Day1 结构。
+  2. 这个判断最稳的部分是 `马库斯` 的连续带路链和其他 NPC 的 Town 内固定行为。
+  3. 这个判断最需要保留的边界是：
+     - `艾拉` 不能被删出 Day1；
+     - `卡尔` 不能被扩成常驻陪跑；
+     - `废弃闲置房` 不能被改写成“大儿子的房子”。
+- 验证状态：
+  - `静态推断成立`
+  - 本轮保持只读分析，未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`。
+- 主线恢复点：
+  - 如果下一轮继续做 Day1/NPC 设计判断，直接沿用这轮证据基线，不必重新扫全套原案。
+
+## 2026-04-04 线程补记：原剧本回正与非 UI 剧情扩充框架文档已落地并收口
+
+- 当前主线目标：
+  - 用户已明确把主线切到：`spring-day1` 先做原剧本回正、剧情扩充设计、Town 承接和 NPC 走位方案；
+  - 不继续主刀 UI，不碰 `Primary.unity / GameInputManager.cs`，也不把当前 crowd 壳误认成原案正式角色。
+- 本轮实际完成：
+  1. 结合原案、当前 `SpringDay1Director`、现有 Day1 对话资产与 NPC 映射旧结论，确认：
+     - 当前最该补的是 `矿洞口危险 -> 跟随撤离 -> 进村围观 -> 闲置小屋安置`；
+     - `马库斯 / 艾拉 / 卡尔` 仍是 Day1 核心主承载；
+     - `101~301` 在重新映射前只能当匿名 crowd / 过桥壳。
+  2. 新建两份正式文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_原剧本回正与Town承接剧情扩充设计_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_非UI剧情扩充框架落地任务单_01.md`
+  3. 在文档里固定了后续唯一正确口径：
+     - 保留现有 9 个 `StoryPhase` 大骨架；
+     - phase 内补更细剧情步；
+     - 先补原案前半段与 Day1 夜间收束；
+     - NPC 主出现面最终收回 `Town`。
+- 本轮关键决策：
+  1. 不在这轮新增没人消费的空代码骨架类；
+  2. 先把剧情设计与施工顺序钉死，再进入真实实现；
+  3. 当前这刀结束时合法 `Park-Slice`，避免线程继续假活跃。
+- 验证状态：
+  - `设计文档已落盘`
+  - `静态结论成立`
+  - 本轮没有新增代码 / 资源逻辑红错，也没有进入 Unity live 写
+- thread-state：
+  - 已执行 `Park-Slice`
+  - 当前状态：`PARKED`
+- 下一步恢复点：
+  - 若下一轮继续真实施工，直接从文档规定的顺序开刀：
+    1. `CrashAndMeet / EnterVillage`
+    2. `HealingAndHP / WorkbenchFlashback`
+    3. `DinnerConflict / ReturnAndReminder / FreeTime`
+
+## 2026-04-04 线程补记：Prompt/任务列表链只读核查已收束到“view 只显示 1 条 + workbench gating 未接实”
+
+- 当前主线目标：
+  - 用户临时插入一个只读子任务，要我别改文件，只读排查 `spring-day1` 当前 Prompt/任务列表链里和用户那 8 条剩余需求最相关的未完项。
+- 本轮实际完成：
+  - 只读核对了：
+    - `SpringDay1PromptOverlay.cs`
+    - `SpringDay1Director.cs`
+    - `CraftingStationInteractable.cs`
+    - `SpringDay1WorkbenchCraftingOverlay.cs`
+    - `SpringDay1LateDayRuntimeTests.cs`
+    - `SpringDay1DialogueProgressionTests.cs`
+  - 收束出 4 个稳定结论：
+    1. `Director` 模型侧有 `5` 条农田教学任务，不是源头没给字。
+    2. 但 `PromptOverlay` 玩家面当前仍是有意只显示 `1` 条当前主任务：
+       - `BuildCurrentViewState(... maxVisibleItems: 1)`
+       - `PromptOverlay_FarmingTutorial_ShouldOnlyRenderCurrentPrimaryTask()`
+    3. “首屏空白/缺字”当前更像 view 层裁剪 + runtime 壳只重点保证前台第一条 row，而不是任务模型为空。
+    4. `木头已有 >=3` 时，导演层会自动把木材目标判完成并推进到制作；但真实制作链还没完全闭环：
+       - `SpringDay1WorkbenchCraftingOverlay.CanCraftSelected()` 没接 `SpringDay1Director.CanPerformWorkbenchCraft()`
+       - `SpringDay1Director.HandleCraftSuccess()` 仍对任意制作成功直接 `_craftedCount++`
+- 当前关键判断：
+  - 如果用户想要的是真正“首屏多任务可见 + Day1 教学 gating 严格闭环”，那现在最该补的不是继续改提示文案，而是：
+    1. `PromptOverlay` 首屏显示策略
+    2. `Workbench -> Director` 制作 gating 接线
+    3. 对应测试补强
+- 验证状态：
+  - `静态推断成立`
+  - 本轮未改代码、未跑 Unity live、未执行测试。
+- thread-state：
+  - 本轮保持只读分析，未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`。
+- 当前恢复点：
+  - 如果下一轮继续改这条链，优先切：
+    1. `SpringDay1PromptOverlay.BuildCurrentViewState()` / `PromptCardViewState.FromModel()`
+    2. `SpringDay1LateDayRuntimeTests` 的首屏条数断言
+    3. `SpringDay1WorkbenchCraftingOverlay.CanCraftSelected()`
+    4. `SpringDay1Director.HandleCraftSuccess()`
+
+## 2026-04-04 线程补记：Workbench/工作台 8 条残项只读排查已收束到 3 个硬缺口
+
+- 当前主线目标：
+  - 用户继续要求我停留在 `spring-day1` 运行时链路，只读排查当前 Workbench/工作台相关未完成项；
+  - 这轮仍是插入式子任务，不进入真实施工，不改文件。
+- 本轮实际完成：
+  - 只读核对了：
+    - `SpringDay1WorkbenchCraftingOverlay.cs`
+    - `CraftingStationInteractable.cs`
+    - `SpringDay1Director.cs`
+    - `SpringDay1ProximityInteractionService.cs`
+    - `SpringDay1WorldHintBubble.cs`
+    - `InteractionHintOverlay.cs`
+    - `SpringDay1UiLayerUtility.cs`
+    - `SpringDay1LateDayRuntimeTests.cs`
+    - `SpringDay1InteractionPromptRuntimeTests.cs`
+  - 把用户 8 条收束成 5 组稳定结论：
+    1. 左列 recipe 空白当前更像 overlay 自己的数据源/壳复用问题，而不是 `CraftingService` 没给数据：
+       - `EnsureRecipesLoaded()` 直接读 `Resources/Story/SpringDay1Workbench`
+       - `BindRecipeRow()` 对组件链缺失直接整行失效
+       - `CanReuseRuntimeInstance()` / `HasReusableRecipeRowChain()` 仍允许某些坏壳继续被复用
+    2. workbench 提示 detail 链代码上基本已补齐，但 `overlay.IsVisible` 时 `ReportWorkbenchProximityInteraction()` 会直接提前返回，所以“按 E 关闭工作台”这条 close detail 正常 proximity 链下基本打不到。
+    3. 队列数量 / 当前单件进度 / 追加制作语义在 overlay 本地是成立的：
+       - “剩余”包含当前正在制作的那一件
+       - 追加只允许同配方加队列
+       - 真缺口是 `SpringDay1Director.NotifyWorkbenchCraftProgress()` 没有任何调用点，导演层接不到 live 队列状态。
+    4. `E toggle`、大 UI、离台小框、静止锚定、翻面弹性这些代码不是没写：
+       - `OnInteract()` / `Toggle()` 已支持同锚点二次 `E` 关闭
+       - `UpdateFloatingProgressVisibility()` 已支持离台后保留小框
+       - `Reposition()` / `RepositionFloatingProgress()` 已做屏幕 clamp
+       - `ApplyDisplayDirection()` 有 hysteresis 和 `SmoothDamp`
+       - 但 `GetDisplayDecisionSamplePoint()` 还在用脚底 sample，`TryGetCenterSamplePoint()` 没用上
+    5. 最近边界点与提示范围常量本身已经放大：
+       - `interactionDistance >= 1.42`
+       - `overlayAutoCloseDistance >= 3.2`
+       - `bubbleRevealDistance >= 2.4`
+       - `GetClosestInteractionPoint()` 也已改为优先最近可见边缘
+       - 如果现场仍感觉范围偏小，更像是 sample point / boundaryDistance 联动残留
+- 当前关键判断：
+  - 这轮最核心的判断是：Workbench 当前不是“整体未做完”，而是已收窄成 3 个最硬缺口：
+    1. 导演层 live 进度没接线
+    2. 左列 recipe runtime 壳复用口子还在
+    3. 翻面仍沿用脚底采样
+- 验证状态：
+  - `静态推断成立`
+  - 本轮未改代码、未跑测试、未进 Unity。
+- thread-state：
+  - 本轮保持只读分析，未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`。
+- 当前恢复点：
+  - 如果下一轮继续真实施工，最值钱顺序应是：
+    1. 先接 `SpringDay1Director.NotifyWorkbenchCraftProgress()`
+    2. 再补 WorkbenchOverlay 左列真实可见文本测试
+    3. 最后收翻面 sample point
+
+## 2026-04-04 线程补记：已补齐 UI 协同提醒、UI 续工 prompt 与我自己的唯一执行任务单，线程已合法回到 `PARKED`
+
+- 当前主线目标：
+  - 继续保持 `spring-day1` 的“原剧本回正 + 后续剧情扩充设计”主线；
+  - 本轮子任务是先把和 `UI` 并行开发的协同边界、提醒和 prompt 收正，并把我自己的后续施工约束落成正式任务单。
+- 本轮实际完成：
+  1. 新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_UI线程_剧情源协同开发提醒_03.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_UI线程_玩家面续工与剧情源协同prompt_03.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_非UI剧情扩充执行约束与任务单_03.md`
+  2. 钉死了一个关键判断：
+     - 我不再主刀 UI 文件，但我接下来会改早期剧情源，所以仍会影响 UI 正在读取的文本与节奏；
+     - 因此必须先给 UI 一份“剧情源变化面提醒”，而不是只给一句继续做 UI。
+  3. 钉死了后续我自己的唯一执行口径：
+     - 只能按 `非UI剧情扩充执行约束与任务单_03` 去做 `CrashAndMeet / EnterVillage`
+     - 不准再靠聊天记忆自由扩写
+- 本轮关键决策：
+  1. 不在这轮继续扩成代码实现；
+  2. 先把协同合同和 own 任务单补实；
+  3. 完成后合法 `Park-Slice`，不继续假活跃。
+- 验证状态：
+  - `git diff --check` 对本轮 3 份新文档通过
+  - 本轮没有改代码、没有进 Unity、没有跑测试
+  - 当前证据层级：`结构 / checkpoint`
+- thread-state：
+  - 沿用本轮已开的 slice 完成文档补齐
+  - `Ready-To-Sync`：未跑，原因：本轮不是 sync 收口
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 如果下一轮继续真实施工，只能按：
+    - `2026-04-04_spring-day1_非UI剧情扩充执行约束与任务单_03.md`
+    的顺序继续
+  - 如果下一轮需要给 UI 转发，直接用：
+    - `2026-04-04_UI线程_玩家面续工与剧情源协同prompt_03.md`
+
+## 2026-04-04 线程补记：两份“继续施工引导 prompt”已补齐，后续发给 UI 和发给我自己都可直接使用
+
+- 当前主线目标：
+  - 主线不变，仍是 `spring-day1` 的 Day1 原剧本回正与后续剧情扩充；
+  - 本轮子任务是把“继续怎么发、继续怎么接”再收成两份复制即用的 prompt。
+- 本轮实际完成：
+  1. 新建：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_UI线程_继续施工引导prompt_04.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_继续施工引导prompt_04.md`
+  2. 给 UI 的这份 prompt 已明确：
+     - 不是停下来回提醒
+     - 而是吸收提醒后继续当前 UI 施工
+  3. 给我自己的这份 prompt 已明确：
+     - 下一轮继续时必须同时参照原案、设计文档、框架任务单和当前执行任务单
+     - 不再凭聊天记忆继续扩写
+- 本轮关键决策：
+  1. 不再新增新的边界正文文档；
+  2. 只补“拿去就能发”的引导壳；
+  3. 完成后再次合法 `Park-Slice`。
+- 验证状态：
+  - `git diff --check` 对两份新 prompt 文件通过
+  - 本轮没有改代码、没有进 Unity、没有跑测试
+  - 当前证据层级：`结构 / checkpoint`
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑，原因：本轮不是 sync 收口
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 给 UI 转发时，优先用：
+    - `2026-04-04_UI线程_继续施工引导prompt_04.md`
+  - 我自己下一轮继续时，优先用：
+    - `2026-04-04_spring-day1_继续施工引导prompt_04.md`

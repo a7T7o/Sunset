@@ -15,7 +15,7 @@ MonoBehaviour:
   sequenceId: spring-day1-first-followup
   nodes:
   - speakerName: 村长
-    text: 年轻人，你还好吗？从天上掉下来，居然还活着。
+    text: 能听懂了吗？先起来，矿洞口不安全。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -24,7 +24,7 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: 旅人
-    text: 我……我在哪？刚才那句话，我忽然能听懂了。
+    text: 我……我居然真的听懂了。这里到底是什么地方？
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -33,7 +33,25 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: 村长
-    text: 这里是落日村。先离开矿洞口，那边有怪物，不适合久留。
+    text: 这里是落日村的矿洞外缘。先别问了，那边的动静不对。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （矿洞深处传来骨头拖地的声响。那不是风声，也不像人。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 跟紧我。先离开这里，进村再说。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -53,6 +71,6 @@ MonoBehaviour:
   canSkip: 1
   defaultTypingSpeed: 45
   markLanguageDecodedOnComplete: 0
-  advanceStoryPhaseOnComplete: 0
-  nextStoryPhase: 0
-  followupSequence: {fileID: 0}
+  advanceStoryPhaseOnComplete: 1
+  nextStoryPhase: 20
+  followupSequence: {fileID: 11400000, guid: 848b3d9bebdc4efebbafa3f500912bc4, type: 2}

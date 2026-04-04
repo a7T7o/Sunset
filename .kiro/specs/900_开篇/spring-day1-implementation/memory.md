@@ -1,4 +1,4 @@
-﻿# Spring Day 1 Implementation - 工作记录（摘要续卷）
+# Spring Day 1 Implementation - 工作记录（摘要续卷）
 
 ## 模块概述
 - 模块目标：落地 Spring Day1 的剧情基础设施，并按工作区分阶段推进。
@@ -1985,3 +1985,425 @@
 - 当前父层恢复点更新为：
   - 共享 TMP 中文字体这轮已经重新可加载，不再是当前 Day1 业务面的运行时 blocker；
   - Day1 侧后续如果还有问题，应回到真实业务逻辑或外部别的 shared blocker，不要再把这组底座事故和 Day1 主线混在一起。
+
+## 2026-04-03 补记：`002批量-Hierarchy` 常驻问题已收成单文件编辑器修复
+- 当前父层这轮不是继续 Day1 内容施工，而是处理一个只影响工具可用性的窄边界编辑器阻塞：`002批量-Hierarchy` 窗口能打开，但一失焦就自动关闭。
+- 本轮实际落地：
+  1. 只改 `Assets/Editor/Tool_002_BatchHierarchy.cs`；
+  2. 保留该文件里已有未提交的排序/调试修补；
+  3. 把菜单打开逻辑从 `CreateInstance + ShowAuxWindow()` 改回普通 `GetWindow<Tool_002_BatchHierarchy>(false, WindowTitle, true) + Show() + Focus()`；
+  4. 删除不再需要的 `FindOpenWindow()` 辅助打开路径。
+- 当前判断：
+  - 自动关闭的根因不是业务逻辑、也不是 scene 或 navigation，而是窗口被开成了 `AuxWindow`；
+  - `AuxWindow` 在 Unity 里属于辅助浮窗，不是普通可常驻的 `EditorWindow`，失焦后就可能被收掉；
+  - 因此这轮的最小正确修法就是回到普通 `EditorWindow` 打开方式。
+- 最小验证结果：
+  - `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs` 已过；
+  - 尚未做 Unity live 点击复测；
+  - 当前状态只能算“结构修复已落地，用户终验待做”。
+- 当前恢复点：
+  - 用户下一步应直接在 Unity 里重开一次 `Tools/002批量 (Hierarchy窗口)`，确认点击别处后窗口仍常驻；
+  - 若通过，这个编辑器阻塞就从 Day1 工具链上摘除；若不通过，再继续查布局缓存或 Unity 版本差异。
+
+## 2026-04-03 补记：NPC 气泡样式按旧正式样式回正，只收窄到 `NPCBubblePresenter`
+- 当前父工作区这轮不是继续 Day1 新功能，也不是继续工作台 / 正规对话 / `Primary`；唯一子任务是把 `NPC` 头顶气泡从后来写偏的表现拉回旧正式样式。
+- 本轮先只读查实的旧样式依据：
+  1. `git show HEAD~1:Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 里的 `ApplyCurrentStylePreset()` 仍是同一套大尺寸金边暗底气泡参数；
+  2. `Assets/222_Prefabs/NPC/001.prefab`、`002.prefab`、`003.prefab` 以及 `101~301.prefab` 大多数序列化值仍落在 `bubblePadding=82x42 / bubbleBorderColor=(0.92,0.79,0.56,1) / fontSize=32` 这一套旧正式样式；
+  3. `Assets/000_Scenes/Primary.unity` 里现有 `NPCBubblePresenter` 序列化值也和上面同一套旧正式样式一致。
+- 本轮新判断：
+  - 当前真正把样式做偏的，不是默认正式气泡 preset，而是 `ReactionCue / 打断` 分支单独切出了一套偏紫、无尾巴、紧缩版布局；这套分支没有对应的旧正式样式依据，应按用户要求回到旧样式口径。
+- 本轮已修改：
+  - 只改 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+  - 保留会话通道 / immediate show / suppress / sort boost 等后续逻辑接口
+  - 仅把 `ReactionCue` 的颜色、尾巴、布局、额外上抬与停摆逻辑拉回复用旧正式样式
+- 最小验证：
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` 通过
+  - 当前未跑 Unity live / GameView 终验，因此这轮只能 claim“结构回正 + 静态依据成立”，不能 claim 玩家观感已终验
+- 当前恢复点：
+  - 如果后续继续这条子线，下一步只需要在 Unity 里看一次普通 NPC 气泡与打断短气泡，确认两者都回到旧正式样式，而不是再写新的样式分支。
+
+## 2026-04-03 补记：工作台制作离台 / 浮动进度 / 上下切换只读结论
+- 当前父层这轮没有继续做 Day1 新功能，只读复核了 `SpringDay1WorkbenchCraftingOverlay` 的 3 个用户可感知问题。
+- 父层稳定判断：
+  1. 当前代码确实允许“开始制作后离开工作台”，因为离台只会 `Hide()` 大面板，不会终止 `_craftRoutine`。
+  2. 当前“离台悬浮进度没出现”的主因不是 craft 被取消，而是 `floatingProgressRoot` 仍挂在同一根 `CanvasGroup` 下；`HideImmediate()` 把根 alpha 置 `0` 后，悬浮进度即使被 `SetActive(true)` 也看不见。
+  3. 当前“上下切换不触发”的主风险点在方向判定链：
+     - 玩家采样点来自 `GetInteractionSamplePoint()` 的脚底采样；
+     - 站位比较又是拿这个采样去对 `CraftingStationInteractable.GetVisualBounds().center.y`；
+     - 对宽或偏移的工作台表现不够稳，再叠加 `_autoHideDistance` 提前收面板，会被玩家感知为“绕着走也不翻到另一边”。
+- 当前父层恢复点：
+  - 若后续需要最小修复，优先顺序应是：
+    1. 先把面板隐藏和离台悬浮进度的可见性控制拆开
+    2. 再修方向判定采样
+    3. 最后才调整 `_autoHideDistance` 等体验阈值
+## 2026-04-03 补记：本轮玩家面修复已推进到“正规对话恢复 + 工作台离台浮层恢复”
+
+- 当前父层稳定判断：
+  1. 这轮最关键的玩家面问题已经不是“全线都坏”，而是被压回成三条分层状态：
+     - 正规对话：已恢复到线程自测通过
+     - 工作台离台制作：已恢复到线程自测通过
+     - NPC 打断短气泡：代码结构已回正，但 live 观感仍待补
+  2. 因此当前 `spring-day1` 剩余不再是大面积返工，而是：
+     - 一个最小 `NPCBubblePresenter` live 终验
+     - 然后才谈是否进一步 sync / 收尾
+- 当前父层新证据：
+  - `DialogueUI` 最新 live 状态已从此前的 `CanvasAlpha=0.00` 抬到连续两次 `CanvasAlpha=1.00 / CanvasInteractable=True / CanvasBlocksRaycasts=True`；
+  - `SpringDay1WorkbenchCraftingOverlay` 最新 live probe 已从此前的 `floatingVisible=False` 变成 `floatingVisible=True / floatingLabel='1' / floatingFill=0.02`，并有新的 GameView capture；
+  - 工作台配方 `9100~9104` 已核实全部是 `5` 秒。
+- 当前父层恢复点：
+  - 后续若继续，不要再把主线重拉回 TMP 底座或同根清扫；
+  - 最小下一步只剩：补 `NPC` 旧正式气泡的 live 终验，再决定是否收口。
+## 2026-04-03 补记：spring-day1 总线正式拆成“UI 线程 + 逻辑线程”并行口径
+
+- 当前父层稳定判断：
+  1. 用户已明确否决“spring-day1 继续主刀全部 UI”的方向；
+  2. 这条线从现在起必须拆开：
+     - `UI / SpringUI` 线程：接走当前 temp scene 下全部玩家面 `UI/UE` 问题与体验收口；
+     - `spring-day1`：只保留逻辑完善、剧情/行为顺序把控、约束边界，以及 `NPCBubblePresenter.cs` 的旧正式气泡回正。
+  3. 这不是理论分工，而是已经被收成两份可直接转发的 prompt 文件。
+- 本轮父层新增事实：
+  - 已在 `003-进一步搭建` 下落两份 prompt：
+    - `2026-04-03_UI线程_接管spring-day1全部玩家面问题并行prompt_01.md`
+    - `2026-04-03_spring-day1_逻辑剧情控制与NPC旧气泡续工prompt_02.md`
+  - 当前 `spring-day1` thread-state 已在 prompt 分发完成后合法 `Park-Slice`，状态为 `PARKED`。
+- 当前父层恢复点：
+  - 用户转发后，`UI` 线继续接玩家面；
+  - `spring-day1` 只按收窄后的逻辑/NPC 旧气泡范围续工，不再把 Prompt、Workbench、正规对话 UI 重新吞回。
+
+## 2026-04-03 补记：Day1 5 文件只读分析后，当前最像 spring-day1 真残项的是工作台逻辑 fallback
+
+- 当前父层主线没有改题：`spring-day1` 继续只保留非 UI 逻辑 / 剧情控制与窄边界例外，不再回吞玩家面 UI。
+- 本轮只读裁定 5 个文件后，父层稳定结论更新为：
+  1. `SpringDay1Director` 的阶段推进、工作台闸门、自由时段/睡觉收束、低精力惩罚、temp-scene 自动补挂交互入口，仍是 `spring-day1` 自己的逻辑底座。
+  2. `PlayerNpcChatSessionService` 的闲聊中断/恢复状态机，连同 `NPCDialogueInteractable.ResolveDialogueSequence()` 的正式对话 followup 切换，仍是 Day1 剧情控制 own，不是 UI 线程。
+  3. 当前最值得优先切的非 UI 残点，不是再修提示/气泡/overlay，而是：
+     - `CraftingStationInteractable.OnInteract()` 在真实 UI 没接住时仍会落到
+       `SpringDay1Director.TryHandleWorkbenchTestInteraction()`；
+     - 这条 fallback 仍可能直接把基础制作目标记完成，属于“用验证入口伪推进正式剧情”的逻辑口。
+  4. 与此相对，下面这些现在都不该再由 `spring-day1` 继续碰：
+     - `BuildPromptCardModel()` / `GetCurrentTaskLabel()` / `GetCurrentProgressLabel()` / `GetCurrentWorldHintSummary()` 等玩家面状态卡与提示文案；
+     - `ReportProximityInteraction()` / `ReportWorkbenchProximityInteraction()` / `UpdateConversationBubbleLayout()` / `SyncConversationPromptOverlay()` 这类 hint/overlay/bubble 结果层。
+- 当前父层恢复点：
+  - 如果后续只允许最小修一刀，优先把“工作台 UI 失手时仍可伪完成 craft 目标”的 fallback 收掉；
+  - 其余 prompt/hint/world-hint/bubble 摆位与文案继续维持 `UI own` 口径，不再混回 Day1 逻辑线。
+## 2026-04-03 补记：`002批量-Hierarchy` 选取逻辑改为“手动确认 + 持久化锁定”
+
+- 这轮不是继续 Day1 内容实现，而是处理一个用户马上要用的编辑器支线工具问题：`Assets/Editor/Tool_002_BatchHierarchy.cs` 当前会自动跟随 Hierarchy 选择，导致锁定对象不稳定，用户要求改成“层级里先选，再点按钮确认”，且重开窗口后保持不变。
+- 本轮只改：
+  - `Assets/Editor/Tool_002_BatchHierarchy.cs`
+- 本轮结果：
+  1. 002 窗口不再自动跟随 `Selection` 变化；
+  2. 选择区新增 `✅ 确认选取` 与 `🗑 清空`；
+  3. 工具实际处理的 `selectedObjs` 改为“已确认锁定对象”，而不是当前 Hierarchy 临时选择；
+  4. 已确认对象通过 `GlobalObjectId + EditorPrefs` 持久化，关闭再打开窗口后仍会恢复。
+- 本轮验证：
+  - `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs` 已过；
+  - 脚本级验证 `0 error / 2 warning`。
+- 当前恢复点：
+  - 用户下一步直接在 Unity 里复测 `002批量-Hierarchy` 的选取链；
+  - 如果后续继续这条线，再看是否需要补“显示当前锁定对象的完整层级路径 / 批量切换场景对象时的弱提示”，但这轮先不扩。
+
+## 2026-04-03 补记：`NPCBubblePresenter` 旧正式气泡终验已收窄到“用现成菜单补 live 证据”
+
+- 当前父层主线保持不变：
+  - `spring-day1` 在用户最新分工后，只保留非 UI 逻辑 / 剧情边界与 `NPCBubblePresenter` 旧正式气泡终验；
+  - 不再回吞玩家面 UI、`Primary.unity`、`GameInputManager.cs`。
+- 本轮父层只读结论：
+  1. `NPCBubblePresenter` 的结构性回正基本成立：
+     - 当前样式版本是 `13`
+     - 旧正式 preset 仍是金边暗底、带尾巴、带 bob 的正式脸
+     - `UpgradeLegacyStyleIfNeeded()` 会把旧资源补升到当前 preset
+     - `ReactionCue` 已经不再保留独立紫色 / 无尾巴 / 紧缩样式分支
+  2. 当前最小终验抓手不是再写新工具，而是直接用现成入口：
+     - 普通气泡可先走 `NPCBubblePresenter` / `NPCAutoRoamController` 的组件 ContextMenu
+     - 打断短气泡优先走 `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs` 下的
+       `Trace 002/003 Informal Chat Interrupt`
+       与
+       `Trace 002/003 PlayerTyping Interrupt`
+     - 若需要更完整 runtime 汇总，再补跑
+       `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+       的
+       `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+  3. 现有测试只能证明结构与配置没有明显跑偏，不能顶替 live/GameView 终验；所以这条线当前正确口径仍是：
+     - `结构已基本回正`
+     - `体验证据还差最后一手`
+  4. 若后续证据仍不足，最小 probe 不该落回业务脚本，而应只落在：
+     - `Assets/Editor/NPC/NPCInformalChatValidationMenu.cs`
+     因为它已经命中真实 interrupt 链，最适合补 `BubblePresenter` 命中瞬间的状态日志或截图钩子
+- 当前父层恢复点：
+  - `spring-day1` 后续若继续，最小下一步只剩“补 NPC 旧正式气泡的 live/GameView 终验证据”；
+  - 不要再把主线拉回玩家面 UI 或 `Primary` 现场大修。
+
+## 2026-04-03 补记：`spring-day1` 已完成本轮非 UI 逻辑收口与 NPC 旧正式气泡 live 终验
+
+- 当前父层主线状态：
+  - 这条线当前不再主刀玩家面 UI；
+  - 本轮按 prompt 只做了两件事：
+    1. 非 UI 的逻辑 / 剧情控制收口
+    2. `NPCBubblePresenter` 旧正式气泡 live 终验
+- 本轮父层新增稳定事实：
+  1. `NPC` 旧正式气泡的 live/GameView 证据已经拿到两张：
+     - 普通会话：`20260403-184219-745_manual.png`
+     - 打断短气泡：`20260403-184935-423_manual.png`
+     两张图都显示 NPC 气泡已回到暗底金边、带尾巴的旧正式样式，不再是之前那套新样式分叉脸。
+  2. 打断链运行态也已补到日志闭环：
+     - `Trace 002 PlayerTyping Interrupt` 最终出现
+       `endReason=WalkAwayInterrupt`
+     - 说明 `RunWalkAwayInterrupt -> ShowInterruptReactionCue -> ShowInterruptNpcLine` 这条链不仅结构成立，live 也能正常收尾
+  3. 当前最重要的非 UI 逻辑后门已被关掉：
+     - `CraftingStationInteractable` 在 workbench overlay / panel 没真正打开时，仍会落到 `SpringDay1Director.TryHandleWorkbenchTestInteraction()`
+     - 本轮已把这条 fallback 从“直接记作基础制作完成”改成“只报阻断提示、不推进 `_craftedCount`”
+     - 这样可防止 UI 失手时把 Day1 教学链偷偷伪推进
+  4. 这也意味着父层判断已更新：
+     - `NPC` 旧正式气泡这条例外收尾已完成
+     - 后续 `spring-day1` 继续要守的，仍是非 UI 的 phase / 剧情顺序 / 行为边界
+     - `town` 未就位前，前置剧情扩写继续冻结
+- 本轮父层验证状态：
+  - `git diff --check` 对本轮逻辑补丁已过
+  - Unity 在补丁后再次成功打到 `Bootstrap Spring Day1 Validation` 快照，说明本轮 own 改动没有把 Day1 runtime 打红
+  - 仍有 foreign/shared 历史红账混在 Editor.log 里，但不是本轮新增，也不是这轮主刀范围
+- 当前父层恢复点：
+  - 当前这条线可安全回到“只处理非 UI 逻辑 / 剧情边界”的口径；
+  - 若后续继续，只应再做 Day1 逻辑底座，不再把 NPC 气泡终验或玩家面 UI重新吞回。
+
+## 2026-04-03 补记：workbench fallback 防伪推进已拿到 Unity 内定向 EditMode 通过证据
+
+- 当前父层这一步不是继续扩功能，而是给刚落下的 `SpringDay1Director` 逻辑补丁补一手最小可信验证。
+- 当前新增稳定事实：
+  1. 之前那条新回归测试
+     `SpringDay1LateDayRuntimeTests.Director_WorkbenchFallback_ShouldNotMarkCraftObjectiveComplete`
+     不是只写进了测试文件，还已经在当前打开的 Unity 里真实跑过；
+  2. 因为项目现场已有打开中的 Unity，批处理 `-runTests` 会直接撞项目锁，所以本轮没有硬走另一实例；
+  3. 改为补一个最小 Editor 菜单：
+     `Assets/Editor/Story/SpringDay1TargetedEditModeTestMenu.cs`
+     用现有 `CodexEditorCommandBridge` 在当前 Unity 内执行这条单测，并把结果写到
+     `Library/CodexEditorCommands/spring-day1-workbench-fallback-test.json`；
+  4. 最新结果已经是：
+     - `status=completed`
+     - `success=true`
+     - `passCount=1`
+     - `failCount=0`
+- 父层结论更新：
+  - `TryHandleWorkbenchTestInteraction()` 这条“UI 没接住时不再伪推进基础制作”的逻辑补丁，现在已经站到 `targeted probe / 局部验证` 这一层；
+  - 因此 spring-day1 这边当前最关键的逻辑残点，已经不是“还没验证”，而是“已验证过线，但只过到逻辑层”。
+- 当前父层恢复点：
+  - 后续如果继续 `spring-day1`，仍应围绕非 UI 的 phase / interrupt / gating 边界；
+  - 不要因为这条逻辑测试已过，就把玩家面 UI 的体验结论重新混回本线程。
+
+## 2026-04-04 补记：PromptOverlay“有壳没字 / 左侧空白”只读根因分析
+
+- 当前父层主线没有改题：
+  - 仍在 `spring-day1` 范围内做 Day1 运行时链路收口；
+  - 本轮子任务是只读分析 PromptOverlay 左侧任务卡“有壳没字 / 左侧空白”的最可能代码根因，不做源码实现。
+- 本轮只读检查了：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+  - 并额外对照了 `Assets/222_Prefabs/UI/Spring-day1/SpringDay1PromptOverlay.prefab` 的壳结构，仅用于验证绑定假设。
+- 当前收敛结论：
+  1. `SpringDay1Director.BuildPromptCardModel()` / `BuildPromptItems()` 当前会稳定产出非空 `StageLabel / FocusText / Items`，所以“导演层没给字”不是最可能主根因。
+  2. 更高概率的问题在 `SpringDay1PromptOverlay` 的壳复用与行绑定判定过宽：
+     - `CanBindPageRoot()` 只验证 `TitleText / SubtitleText / FocusText / FooterText / TaskList` 是否存在；
+     - 但不验证“当前前台页是否真的有可绑定的 `TaskRow_/Label/Detail` 文本链”。
+  3. 当前测试也存在假阳性窗口：
+     - `PromptOverlay_RuntimeCanvas_ShouldBeScreenOverlayAndRenderFilledTaskTexts` 只是遍历整棵层级，找到任意名为 `Label` 且 `text` 非空的 `TextMeshProUGUI` 就算通过；
+     - 由于 prefab 壳本身就带默认占位文本，这条测试可能在“可见前台行仍然空白”时继续通过。
+- 当前建议的最小稳修方向：
+  1. 优先补 `SpringDay1PromptOverlay`，不要先改 `SpringDay1Director`；
+  2. 把 `CanBindPageRoot()` / `TryBindRuntimeShell()` 的健康判定收紧到“至少能确认前台页存在一条可绑定 row，或在 bind 后立即补建 row”；
+  3. 在 `ApplyStateToPage()` / `EnsureRows()` 之后加一层前台 row 结果校验，确保真正显示的 `page.rows[0].label/detail` 已拿到非空文本，否则直接重建该页 row 链，而不是继续带着空壳过关；
+  4. 暂时不建议扩大到 `SpringDay1Director` 数据结构重写，因为当前数据模型本身没有显示出“空 Items / 空 Label / 空 Detail”的同级证据。
+- 当前验证状态：
+  - `静态推断成立`
+  - 本轮没有改代码、没有跑 Unity live、没有执行测试。
+- 当前父层恢复点：
+  - 若下一轮继续这条线，最小真实施工应只打一刀：
+    `PromptOverlay 前台 row 绑定健康判定 + 对应测试补强`
+  - 不需要先回头重做 `Director` 阶段文案或扩大到别的 UI 系统。
+
+## 2026-04-04 补记：Day1 原剧本回正与 Town 承接设计已落成正式文档
+
+- 当前父层主线已从“继续补窄逻辑尾项”转入新的设计任务：
+  - 用户明确要求先回到春一日最初原案，重新设计 Day1 的完整剧情走向、NPC 出场与 Town 承接，不继续碰 UI。
+- 本轮父层新增稳定事实：
+  1. 当前 Day1 现有实现虽然能跑到 `DayEnd`，但仍缺少原案前半段最关键的 4 个桥：
+     - `矿洞口危险感`
+     - `怪物逼近与跟随撤离`
+     - `进村围观`
+     - `闲置小屋安置`
+  2. 原案正式主承载仍应守在：
+     - `马库斯`
+     - `艾拉`
+     - `卡尔`
+     以及 Town 内的 `老杰克 / 老乔治 / 老汤姆 / 小米 / 围观村民 / 饭馆村民 / 小孩`
+  3. 当前后补的 `101~301` crowd 资源不能再被当成原案正式具名角色真名；它们在重新映射前只适合作为匿名 crowd 壳或过桥位。
+  4. 后续最稳的框架路线不是推翻现有 `StoryPhase`，而是：
+     - 保留当前 9 个大 phase；
+     - 在每个大 phase 内补更细的剧情步；
+     - 先把前半段和夜间收束的原案语义补回；
+     - 再把 NPC 的主出现面逐步迁回 `Town`。
+- 本轮新增文档：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_原剧本回正与Town承接剧情扩充设计_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_非UI剧情扩充框架落地任务单_01.md`
+- 当前父层判断：
+  - 这轮最核心的产物不是代码，而是把 `spring-day1` 后续该怎么补剧情、怎么和 `Town` 接、怎么避免再次把 crowd 壳误写成正式原案角色，收成了统一基线；
+  - 这样后续不管是我继续做，还是等 UI 收口后再接，都不会再在语义上漂走。
+- 当前父层恢复点：
+  - 下一刀若进入真实施工，优先应回到：
+    1. `CrashAndMeet / EnterVillage` 内部剧情步扩充
+    2. `Healing / Workbench / Dinner / Reminder` 正式剧情资产化
+    3. `FreeTime` 的 Town 夜间见闻包
+
+## 2026-04-04 补记：Prompt/任务列表链只读核查确认当前真正卡在 view 裁剪与 workbench gating 接线
+
+- 当前父层主线没有换题：
+  - 仍在 `spring-day1` 范围内收 Day1 运行时链路；
+  - 本轮子任务是只读回答 Prompt/任务列表链里 4 个最关键的问题，不做源码实现。
+- 本轮父层新增稳定事实：
+  1. `SpringDay1Director.BuildFarmingTutorialPromptItems()` 仍会生成 `5` 条非空任务，说明任务模型本身并不空。
+  2. `SpringDay1PromptOverlay.BuildCurrentViewState()` 当前仍把 `PromptCardViewState.FromModel(..., maxVisibleItems: 1)` 写死，所以用户面仍是“一次只显示当前主任务 1 条”。
+  3. `SpringDay1LateDayRuntimeTests` 目前同时守着两件互相分层的事实：
+     - `Director_FarmingTutorialPromptCard_ShouldExposeFiveFilledObjectives()`：导演层有 `5` 条任务；
+     - `PromptOverlay_FarmingTutorial_ShouldOnlyRenderCurrentPrimaryTask()`：前台 UI 只亮 `1` 条任务。
+  4. `木头已有 >=3` 时，导演层与测试都已把“木材目标自动完成并推进到制作”视为当前实现语义；
+     - 但 `SpringDay1WorkbenchCraftingOverlay` 真实制作按钮没有接 `SpringDay1Director.CanPerformWorkbenchCraft()`；
+     - `SpringDay1Director.HandleCraftSuccess()` 也没有对 Day1 教学上下文做二次过滤，所以整条真实制作链还不是最硬闭环。
+- 当前父层判断：
+  - 这轮最核心的判断是：当前 Prompt/任务链最该先补的，不是 `Director` 文案，而是 `PromptOverlay` 的显示策略和 `Workbench -> Director` 的 gating 接线。
+  - 如果不先把这两层补齐，就会继续出现“模型里有 5 条、玩家面只看到 1 条”以及“导演层 gating 写了，但真实制作按钮没走”的错位。
+- 当前验证状态：
+  - `静态推断成立`
+  - 本轮没有改代码、没有跑 Unity live、没有执行测试。
+- 当前父层恢复点：
+  - 若下一轮继续这条线，最小真实施工优先应是：
+    1. `PromptOverlay` 首屏条数策略 + 对应测试
+    2. `Workbench` 真制作按钮接 `Director` gating
+    3. `HandleCraftSuccess()` 的 Day1 phase / recipe 过滤
+
+## 2026-04-04 补记：Workbench 相关 8 条未完项只读复核后，当前最硬缺口已收窄到“导演层 live 进度未接线 + 左列壳复用口子 + 翻面脚底采样残留”
+
+- 当前父层主线没有换题：
+  - 仍在 `spring-day1` 范围内做 Day1 运行时链路核查；
+  - 本轮子任务是只读回答 Workbench/工作台相关残项，不做源码实现。
+- 当前父层新增稳定事实：
+  1. `SpringDay1WorkbenchCraftingOverlay` 左列 recipe 当前并不是从 `CraftingService` 取“可用配方”，而是 `EnsureRecipesLoaded()` 自己去 `Resources/Story/SpringDay1Workbench` 拉 `RecipeData`，并过滤 `requiredStation == Workbench && resultItemID >= 0`；因此左列空白的首要嫌疑仍在 overlay 自己的数据源与 row 复用。
+  2. `BindRecipeRow()` / `CanReuseRuntimeInstance()` / `HasReusableRecipeRowChain()` / `ShouldRebuildRecipeRowsFromScratch()` 共同形成了一个“旧 runtime 壳可能被继续复用，但真实前台 row 不一定健康”的窗口；现有 `WorkbenchOverlay_RecoversCompatibilityNodesFromPrefabShell()`、`WorkbenchOverlay_ShouldReplaceIncompleteRecipeShellStaticInstance()` 更偏结构自愈，未直接守“前台可见行文字非空且可见”。
+  3. Workbench proximity detail 文案链当前代码上基本是通的：
+     - `BuildWorkbenchReadyDetail()` -> `ReportWorkbenchProximityInteraction()` -> `SpringDay1ProximityInteractionService.ReportCandidate()` -> `BuildWorldHintDetail()` / `ResolveOverlayPromptContent()`
+     - 相关测试也已守住“查看当前制作进度 / 继续追加”
+     - 但 `overlay.IsVisible` 时会在 `ReportWorkbenchProximityInteraction()` 直接提前 `return`，所以 `BuildWorkbenchReadyDetail()` 中“按 E 关闭工作台”这条分支并不会继续上报到 proximity 提示。
+  4. overlay 本地的队列 / 当前单件进度 / 追加制作语义并不空：
+     - `OnCraftButtonClicked()`、`CraftRoutine()`、`UpdateProgressLabel()`、`BuildCraftButtonLabel()` 已把“剩余包含当前件”“只允许同配方追加”这些语义写实
+     - 真正没接上的，是 `SpringDay1Director.NotifyWorkbenchCraftProgress()` 根本没有调用点，所以导演层的 `BuildWorkbenchCraftProgressText()` / `GetCurrentProgressLabel()` 接不到 live 队列状态。
+  5. `E toggle`、大 UI 开关、离台小框、静止锚定、翻面弹性这些玩家面行为并不是没写：
+     - `OnInteract()` / `Toggle()` 已支持同锚点二次按 `E` 关闭
+     - `UpdateFloatingProgressVisibility()` 已支持关闭大 UI 后保留小框
+     - `Reposition()` / `RepositionFloatingProgress()` 已带屏幕 clamp 与 pixel snap
+     - `ApplyDisplayDirection()` + `ShouldDisplayOverlayBelow()` 也已带 hysteresis / `SmoothDamp`
+     - 但 `GetDisplayDecisionSamplePoint()` 仍直接走 `SpringDay1UiLayerUtility.GetInteractionSamplePoint()` 的脚底采样，`TryGetCenterSamplePoint()` 还没进入正式判定。
+  6. 边界点与提示范围常量本身已比旧版本大：
+     - `interactionDistance >= 1.42`
+     - `overlayAutoCloseDistance >= 3.2`
+     - `bubbleRevealDistance >= 2.4`
+     - `GetClosestInteractionPoint()` 与对应测试也已把“优先最近可见边缘”守住
+     - 所以若现场仍觉得范围偏小，更像是 sample point / boundaryDistance 的联动残留，不像是 tuning 根本没加。
+- 当前父层判断：
+  - 这轮最核心的判断是：Workbench 相关残项已经不是“整条显示链都坏”，而是 3 个更窄的硬缺口：
+    1. 导演层 live 进度没接到 overlay 队列
+    2. 左列 recipe runtime 壳仍有复用口子
+    3. 翻面仍沿用脚底采样
+- 当前验证状态：
+  - `静态推断成立`
+  - 本轮没有改代码、没有跑 Unity live、没有执行测试。
+- 当前父层恢复点：
+  - 若下一轮继续这条线，优先顺序应是：
+    1. `NotifyWorkbenchCraftProgress()` 接线
+    2. WorkbenchOverlay 左列前台行文本测试补强
+    3. 翻面判定 sample 收紧
+
+## 2026-04-04 补记：spring-day1 与 UI 的并行协作文档已补齐，后续真实施工必须回到唯一任务单
+
+- 当前父层主线没有换题：
+  - 仍是 `spring-day1` 的 Day1 原剧本回正与后续剧情扩充；
+  - 但用户先要求把和 `UI` 并行开发的协作边界、提醒和 prompt 收正，避免双方继续靠聊天记忆协作。
+- 本轮父层新增文档：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_UI线程_剧情源协同开发提醒_03.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_UI线程_玩家面续工与剧情源协同prompt_03.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_非UI剧情扩充执行约束与任务单_03.md`
+- 当前父层新增稳定结论：
+  1. `spring-day1` 接下来补的是早期剧情源，这会真实影响 `UI` 线程正在处理的文本长度、任务节奏和对话节点数，因此必须先把变化面告知 `UI`。
+  2. `UI` 线程需要的是“你会改什么、不会改什么、哪些源头还会变化”的协同提醒，而不是一句泛泛的“你继续做 UI”。
+  3. `spring-day1` 自己后续继续施工时，也必须受一份固定任务单约束，不能再靠历史聊天记忆自由扩写。
+  4. 这轮新增的 3 份文档，已经把：
+     - 给 UI 的变化面提醒
+     - 给 UI 的正式续工 prompt
+     - 给 `spring-day1` 自己的唯一执行任务单
+     统一落盘。
+- 当前父层验证状态：
+  - `git diff --check` 对本轮新增文档通过
+  - 本轮没有改代码、没有跑 Unity live
+  - 当前仍只站住：`结构 / checkpoint`
+- 当前父层恢复点：
+  - 下一刀若进入真实施工，必须先回到：
+    - `2026-04-04_spring-day1_非UI剧情扩充执行约束与任务单_03.md`
+  - 对 UI 的协同入口则固定为：
+    - `2026-04-04_UI线程_剧情源协同开发提醒_03.md`
+    - `2026-04-04_UI线程_玩家面续工与剧情源协同prompt_03.md`
+
+## 2026-04-04 补记：继续施工的转发壳 prompt 已补齐，后续不用再从长聊天拼装
+
+- 当前父层主线没有换题：
+  - 仍是 `spring-day1` 的 Day1 原剧本回正与后续剧情扩充；
+  - 本轮只是继续把“怎样转发、怎样继续”收成更好用的 prompt 入口。
+- 本轮父层新增文档：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_UI线程_继续施工引导prompt_04.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_继续施工引导prompt_04.md`
+- 当前父层新增稳定结论：
+  1. 之前的正文文档已经够定义边界，但用户要的是“拿去就能发”的引导 prompt，因此又补了一层转发壳。
+  2. `UI` 那份 prompt 已明确要求：
+     - 不要停下来只回开发提醒
+     - 吸收提醒后继续当前 UI/UE 施工
+  3. `spring-day1` 自身那份 prompt 已明确要求：
+     - 继续施工时必须同时参照原案、设计文档、框架任务单与当前执行任务单
+     - 不再靠聊天记忆自由扩写
+- 当前父层验证状态：
+  - `git diff --check` 对两份新 prompt 文件通过
+  - 本轮没有改代码、没有跑 Unity live
+  - 当前仍只站住：`结构 / checkpoint`
+- 当前父层恢复点：
+  - 以后给 UI 转发，优先用：
+    - `2026-04-04_UI线程_继续施工引导prompt_04.md`
+  - 我自己下一轮继续，优先用：
+    - `2026-04-04_spring-day1_继续施工引导prompt_04.md`
+## 2026-04-04 补记：Town 在 spring-day1 扩充里的职责边界已按新文档重判
+
+- 当前父层主线没有换题：
+  - `spring-day1` 的当前真实主刀仍是前半段剧情源 `CrashAndMeet / EnterVillage`；
+  - `Town` 不应抢这刀的剧情 owner。
+- 本轮父层新增稳定结论：
+  1. `Town` 当前该承担的不是“先把 Day1 正式剧情写进 Town”，而是后续村庄存在感承接：
+     - 正式 NPC 日常站位
+     - 围观村民 / 饭馆村民 / 小孩常驻背景层
+     - `FreeTime` 的夜间见闻包
+     - Day1 之后的村庄生活面
+  2. 当前 `temp scene` 仍负责 Day1 的硬主线过桥：
+     - 受伤
+     - 被带走
+     - 被安置
+     - 被教会第一天怎么活下来
+  3. 正确迁移顺序已被写死：
+     - 先稳 temp 主承载
+     - 再迁群像主要出现面到 `Town`
+     - 最后收 temp crowd 代理
+  4. 对 `Town` 接盘位来说，当前最合理的后续不是抢剧情源，而是：
+     - 先修 `Town` 现场可用性
+     - 再准备村口围观、路边视线、饭馆背景、夜间见闻等承载结构
+     - 等剧情源和切场合同稳了再正式接主出现面
+- 当前父层验证状态：
+  - 本轮为新增文档只读复核
+  - 没有改代码、没有改 scene、没有新增 live 证据
+  - 当前只站住：`结构 / 责任边界判断`
+- 当前父层恢复点：
+  - `spring-day1` 继续主刀时，仍先做 `CrashAndMeet / EnterVillage`
+  - `Town` 相关工作若继续，应作为“村庄承载层准备”而不是“前半段剧情主刀”
