@@ -11067,3 +11067,444 @@
     1. 用这份新规则回扫当前活跃线程回执
     2. 把违反口径的线程改成 `Unity 红错验证未闭环`
     3. 必要时再补一轮典狱长纠偏 prompt
+
+## 2026-04-04｜红错规范纠偏尾巴已补齐：审计层闭环完成
+
+- 当前主线目标：
+  - 把“红错规范纠偏”从规则文本补丁，推进成“仓库规则 + 项目 skill + 正式报告 + 审计日志”四层一致的闭环。
+- 这轮实际做成了什么：
+  1. 复核 `Codex规则落地` 工作区当前正式报告，确认新硬结论已完整落盘：
+     - 代码闸门只算代码层
+     - Unity/MCP 红错验收必须独立给 fresh 证据
+     - 没有 Unity/MCP 证据时只能报 `Unity 红错验证未闭环`
+  2. 补齐这轮全局审计尾巴：
+     - 已把本轮触发的 `skills-governor / sunset-workspace-router / sunset-no-red-handoff / user-readable-progress-report / delivery-self-review-gate` 记录进 `C:\Users\aTo\.codex\memories\skill-trigger-log.md`
+  3. 已形成一个可直接引用的稳定 checkpoint：
+     - 仓库内规范提交：`08adfab9 2026.04.04_Codex规则落地_05`
+- 当前还没做成什么：
+  - 还没有开始按新规则回扫所有活跃线程旧回执；
+  - 还没有把违反新口径的线程逐条打回重报。
+- 当前阶段：
+  - 规则纠偏已完成；
+  - 执行层追责回扫尚未开始。
+- 当前恢复点：
+  - 下一步如果继续，不该再写新规则，而该直接进入“活跃线程回执回扫与改判”。
+
+## 2026-04-04｜审 `UnityMCP转CLI` 正式汇报：方向成立，而且现场已比汇报再向前一步
+
+- 当前主线目标：
+  - 用户要求先读取 `UnityMCP转CLI` 的正式阶段汇报，再给出一份不是复述、而是带判断的总结，重点判断它是否真正服务“爆红规范高频落地”。
+- 这轮实际做成了什么：
+  1. 已完整复核正式汇报文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_给典狱长_UnityMCP转CLI当前阶段与产出汇报_01.md`
+  2. 已结合工作区最新记忆，确认这条线的正式判断应分两层说：
+     - 汇报本体成立：它已经不是空研究，而是在做“每次改完代码后快速确认 fresh compile red 与 own/external 归属”的高频 CLI
+     - 现场实际已再向前一步：最新记忆显示 `validate_script`、资源护栏、超时、输出上限、失败回收都已经在本地补齐，当前状态已从“compile/no-red 原型”推进到“脚本级验证入口可日用的本地 P1（未 sync）”
+  3. 已确认这条线与红错规范纠偏是同方向的，不冲突：
+     - 这条 CLI 不是替代新规范，而是在执行层提供“每次改代码后做 fresh compile red 核对”的轻量入口
+- 当前核心判断：
+  - 这条线值得继续，而且优先级可以高；
+  - 但现在最重要的不是继续加控制命令数量，而是守住“轻量、高频、低负载、诚实分层”这 4 个价值。
+- 当前还没做成什么：
+  - 还没有 sync；
+  - 还没有补控制命令面；
+  - 还没有决定是否要把旧 `manage_script / validate_script` 参数面正式接回。
+- 当前恢复点：
+  - 如果继续裁这条线，正确口径应是：
+    1. 正式汇报靠谱
+    2. 现场已比汇报再进一刀
+    3. 下一步优先稳语义和资源护栏，不先追“大而全命令表”
+
+## 2026-04-04｜裁定 `UnityMCP转CLI` 可进入“窄边界持续续工”
+
+- 当前主线目标：
+  - 用户要求判断：`UnityMCP转CLI` 线程现在是否可以继续往下做，并尽量减少治理位对它的频繁干涉。
+- 这轮实际做成了什么：
+  1. 基于最新回执重新确认这条线当前状态：
+     - `validate_script` 已正式落地
+     - 资源护栏 / 超时 / 输出上限 / 失败回收已一起补进命令面
+     - `own_red / external_red / unity_validation_pending / blocked` 语义已站住
+  2. 正式给出治理裁定：
+     - 这条线现在可以继续
+     - 但继续方式必须是“窄边界持续续工”，不是开放式自主扩题
+  3. 已明确它的自治边界：
+     - 允许连续推进：`manage_script / validate_script` 参数面接回、资源护栏、失败回收、输出语义稳定、脚本级高频验证体验
+     - 不允许自行漂去：`play / stop / menu / route`、大而全控制面、低频 live 功能扩张
+- 当前核心判断：
+  - 这条线已经足够稳定，值得从“每刀都要再审”升级成“同一纵切片内连续推进”；
+  - 但它还没稳定到可以无限自主扩 scope，所以仍需用边界约束来防漂。
+- 当前还没做成什么：
+  - 还没有 sync；
+  - 还没有完成与 Unity 原生 `manage_script / validate_script` 参数面的最终对齐判断。
+- 当前恢复点：
+  - 如果继续分发，这条线后续可以减少治理位逐刀干涉；
+  - 只要它不越出上述边界，就允许它持续续工，直到形成下一个稳定 checkpoint 再回卡。
+
+## 2026-04-04｜已为 `UnityMCP转CLI` 生成“参数面对齐 + 窄边界持续续工”新 prompt
+
+- 当前主线目标：
+  - 用户已明确要求直接给 `UnityMCP转CLI` 发下一轮 prompt，不再停在裁定层。
+- 这轮实际做成了什么：
+  1. 已新增 prompt 文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_典狱长_UnityMCP转CLI_参数面对齐与窄边界持续续工_03.md`
+  2. 新 prompt 不只是“做下一刀”，而是正式授予：
+     - `窄边界持续续工许可`
+  3. 已把唯一主刀锁死为：
+     - Unity 原生 `manage_script / validate_script` 参数面与当前 CLI 的最小稳定对齐
+  4. 已把持续续工的硬边界写死：
+     - 允许：`validate_script / manage_script 参数面对齐 / 护栏 / 输出语义`
+     - 禁止：`play / stop / menu / route`、大而全控制面、业务代码 / Scene / Prefab
+  5. 已把完成定义压成二选一：
+     - `A. 成功接回最小必要参数面`
+     - `B. 明确裁定当前不该接回，并把结论做实`
+- 当前恢复点：
+  - 用户现在可以直接把这份新 prompt 转发给 `UnityMCP转CLI`；
+  - 只要该线程不越界，就可以按这份 prompt 连续推进，不需要治理位每个微步骤都再审一次。
+
+## 2026-04-04｜治理位当前剩余任务图
+
+- 当前主线目标：
+  - 不是继续亲自写业务代码，而是把 Sunset 的红错治理从“规则已改”推进到“执行层开始按新规则运行”。
+- 我现在要做的事：
+  1. 盯 `UnityMCP转CLI` 这条线是否按新 prompt 边界持续推进；
+  2. 决定是否进入“活跃线程回执回扫”，把仍在用旧 no-red 口径的线程逐条纠偏；
+  3. 在用户下一次点名具体线程或具体红错前，维持当前治理面不要再散成新的平行支线。
+- 当前还没做完什么：
+  1. 还没开始对活跃线程做系统性回扫；
+  2. 还没把新 no-red 规范真正压到所有执行线程的回执口径上；
+  3. 还没处理具体业务红错本身；我这边目前修的是治理口径和分发边界，不是逐条业务修 bug。
+- 当前阶段：
+  - 规则层、模板层、prompt 分发层已经补齐；
+  - 执行层追责与回扫尚未展开。
+- 当前恢复点：
+  - 下一步最值钱的选择只剩两个：
+    1. 让我开始回扫活跃线程旧回执；
+    2. 或继续只盯 `UnityMCP转CLI`，等它推进到下一个 checkpoint 再审。
+
+## 2026-04-04｜no-red 方向正式改判：CLI 主导，direct MCP 只作最终兜底
+
+- 当前主线目标：
+  - 用户明确要求把 Sunset 的爆红处理正式改成“CLI 全面主导，direct MCP 只作为最终兜底”，因为高频红错核查现在是最紧急的执行痛点。
+- 这轮实际做成了什么：
+  1. 已把 `sunset-no-red-handoff` 的核心口径改成：
+     - `CLI first, direct MCP last-resort`
+     - 默认高频爆红核查先走 CLI
+     - 只有 CLI 当前覆盖不到，或进入低频高风险 live 场景时，才升级 direct MCP
+  2. 已把这条新顺序同步进 Sunset 当前 live 规则层：
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\25_vibecoding场景规范与main收口\并发线程统一回执与main收口机制_2026-03-22.md`
+  3. 已把线程与收口模板一起改口，不再把 direct MCP 写成日常默认主入口：
+     - `线程完成后_白名单main收口模板.md`
+     - `并发线程_当前版本更新前缀.md`
+  4. 已把正式报告一起对齐，避免仍有人引用旧版“Unity/MCP 并列主入口”口径。
+- 当前核心判断：
+  - 这次改动不是在否定 direct MCP 的价值；
+  - 而是在 Sunset 当前机器负载、CLI 已经成形、爆红处理又是最高频动作的前提下，正式把 direct MCP 降成“CLI 不足时的最终兜底”。
+- 当前还没做成什么：
+  - 还没有开始按这套新口径回扫所有活跃线程；
+  - 还没有把已经在跑的执行线程逐条压回 `CLI first` 的日常动作。
+- 当前阶段：
+  - 规则层已完成改判；
+  - 执行层尚未统一切换。
+- 当前恢复点：
+  - 下一步如果继续，最值钱的不是再补规则，而是开始回扫活跃线程回执，要求它们按“CLI 主导、MCP 兜底”的新口径重报。
+
+## 2026-04-04｜关于“是否还需要强制提醒其他线程”的裁定
+
+- 当前主线目标：
+  - 用户要判断最新 no-red 规范现在到底属于哪种状态：
+    - 已经改到“其他线程不用提醒也会自动遵守”
+    - 还是仍需要一轮强制回扫与重报
+- 这轮实际做成了什么：
+  1. 已明确给出治理分层判断：
+     - 对新开工线程 / 新一轮实质性施工回合：原则上应直接遵守新规则，不该再需要逐条人工提醒
+     - 对当前已经在跑、已经 `PARKED`、或仍背着旧 prompt / 旧 memory 的线程：不会自动自愈，仍需要一轮强制回扫
+  2. 已结合当前现场确认：
+     - 新规则已经写进 live 规则层
+     - 但执行层 rollout 还没完成
+- 当前核心判断：
+  - 不能说“现在已经完全不需要强制提醒其他线程”；
+  - 更准确的说法是：
+    - `规则层已能要求新线程自动遵守`
+    - `现有活跃线程仍需要一次强制重对齐`
+- 当前还没做成什么：
+  - 还没开始那轮强制回扫；
+  - 所以还不能宣称“执行层已经全面切换到 CLI-first”。
+- 当前恢复点：
+  - 下一步如果继续，最值钱的动作就是：
+    - 直接开始回扫活跃线程，把旧口径线程逐条打回按新 no-red 规则重报。
+
+## 2026-04-04｜`sunset-mcp` compile-first P0 CLI 已落地（未 sync）
+
+- 当前主线目标：
+  - 把前面“`UnityMCP -> CLI` 值得做，但应先做 Sunset 内部 orchestration CLI”的研究结论，真正落成一版能直接服务高频开发的最小工具，而不是继续停在方案层。
+- 这轮实际做成了什么：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py`
+  2. 把：
+     - `D:\Unity\Unity_learning\Sunset\scripts\sunset-mcp.ps1`
+     收成极薄 Python 包装壳，运行后立刻退出，不再承载实际逻辑。
+  3. 这版 Python CLI 明确按“编译 / 红错 / 高频业务”优先，而不是先围着低频 live 验收设计；当前已落地命令：
+     - `baseline`
+     - `status`
+     - `doctor`
+     - `errors`
+     - `compile`
+     - `no-red`
+     - `recover-bridge`
+  4. `compile / no-red` 当前已能把 3 层证据串起来：
+     - `CodexCodeGuard`
+     - MCP `refresh_unity(mode=force, scope=scripts, compile=request)`
+     - MCP `read_console`
+  5. 已补一个关键可用性保护：
+     - 在 shared root 脏仓库里，如果用户不给明确脚本路径，而当前 changed `.cs` 过多，CLI 会直接阻断并要求显式传路径，避免把别的线程 compile gate 噪音一起吞进来。
+- 当前核心判断：
+  - 这版已经够资格作为 Sunset 当前“高频 compile gate truth 工具”使用；
+  - 真正值钱的地方不是“又有一个 CLI”，而是它已经能快速回答：
+    - 我这条目标脚本自己的代码闸门过没过
+    - Unity 当前 fresh compile 后还有没有红错
+    - 这些红错到底是我 own 的，还是外部 blocker
+- 当前还没做成什么：
+  - 还没有把此前研究里预留的控制类命令完整迁进 Python：
+    - `instance ensure`
+    - `play / stop / menu / route`
+  - 还没有把历史里的 `validate_script` 自定义工具参数面正式接回 CLI。
+- 当前验证状态：
+  - `python scripts/sunset_mcp.py baseline`：通过
+  - `python scripts/sunset_mcp.py errors --count 5 --include-warnings`：成功返回 fresh Console；当前仍有真实编译错误
+  - `python scripts/sunset_mcp.py compile`：当前会因 shared root 脏仓库 `.cs` 过宽而主动阻断，提示用户显式传路径
+  - `python scripts/sunset_mcp.py compile Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs --count 5`：已完整跑通 `CodeGuard + refresh_unity + wait + read_console`；结果显示该目标脚本自己的代码闸门通过，但 Unity 当前仍有 4 条 external red
+  - `python scripts/sunset_mcp.py no-red Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs --count 5`：返回 `external_red`
+  - `python -m py_compile scripts/sunset_mcp.py`：通过
+  - `git diff --check -- scripts/sunset_mcp.py scripts/sunset-mcp.ps1`：通过
+- 当前 thread-state：
+  - `Begin-Slice`：已在本轮前置完成
+  - `Ready-To-Sync`：未跑；这轮先停在可用 P0，不进 sync
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 如果下一轮继续这条线，最值钱的不是再扩搜，而是直接沿着这版可用 P0 往前补两块：
+    1. 把 `instance ensure / play / stop / menu / route` 迁进 Python
+    2. 研究 `manage_script / validate_script` 的当前参数面，决定是否把脚本级验证也接成一条显式命令
+
+## 2026-04-04｜快速 fresh compile 复测：当前 Console 红错为 14 条，集中在 `SpringDay1OpeningRuntimeBridgeTests.cs`
+
+- 当前主线目标：
+  - 用户要求快速确认“现在到底还有多少个红错”，不展开长分析，只要 fresh 结果。
+- 这轮实际做成了什么：
+  1. 以低负载方式通过新落地的 `sunset-mcp` 做了一次最小 fresh compile 链：
+     - `refresh_unity`
+     - 等待 `ready_for_tools`
+     - `read_console(error)`
+  2. 本轮用 `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` 作为显式目标脚本锚点，避免 shared root 全仓 changed `.cs` 噪音一起吞进来。
+- 当前 fresh 结果：
+  - Console 红错：`14` 条
+  - 当前工具判定：`external_red`
+  - 目标脚本 own 代码闸门：通过
+  - own 红错：`0`
+  - external 红错：`14`
+- 当前最集中问题文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1OpeningRuntimeBridgeTests.cs`
+- 当前恢复点：
+  - 如果继续，不要先回到 `PromptOverlay` 自己身上纠缠；更值钱的是直接处理 `SpringDay1OpeningRuntimeBridgeTests.cs` 这一组 compile red。
+
+## 2026-04-04｜给典狱长的当前阶段与产出汇报已落盘
+
+- 当前主线目标：
+  - 用户要求我不要继续扩功能，而是先把这条 `UnityMCP -> CLI` 线当前到底做成了什么、解决了什么需求、最终要做成什么，整理成一份可直接交给典狱长的正式汇报。
+- 这轮实际做成了什么：
+  1. 已新增正式汇报文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_给典狱长_UnityMCP转CLI当前阶段与产出汇报_01.md`
+  2. 汇报内容已明确压实 4 件事：
+     - 当前在做什么
+     - 已解决哪些高频需求
+     - 最终要做成什么样
+     - 现在已经交出的真实产出
+  3. 同时也已把下一刀的治理建议写清：
+     - 可以继续做
+     - 但不能只补 `play / stop / menu / route`
+     - 必须把 `validate_script + 资源护栏 + 超时/输出上限/失败回收` 一起做
+- 当前 thread-state：
+  - `Begin-Slice`：已跑（`report-to-warden`）
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 用户现在已经可以直接把这份汇报转给典狱长；
+  - 如果典狱长批继续，下一步就回到工具线本身继续施工，而不是再补一层说明文档。
+
+## 2026-04-04｜`validate_script` 高频 CLI 已补齐，资源护栏与失败回收已一起落地（未 sync）
+
+- 当前主线目标：
+  - 按典狱长续工要求，只做“爆红规范高频 CLI 落地”，把 `validate_script`（或等价单命令入口）+ 资源护栏 + 超时/输出上限/失败回收一起补完；不漂去控制命令面。
+- 这轮实际做成了什么：
+  1. 已在：
+     - `D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py`
+     正式补出命令：
+     - `validate_script`
+  2. `validate_script` 当前继承并压实了 5 层能力：
+     - 显式脚本路径验证
+     - shared-root changed `.cs` 过多时主动阻断
+     - `CodexCodeGuard`
+     - `refresh_unity + wait_for_ready + read_console`
+     - own / external 分类
+  3. 这轮同时补进了资源护栏：
+     - `timeout` 上限：`60s`
+     - `wait_for_ready` 上限：`90s`
+     - Console 条数上限：`200`
+     - 输出条目上限：`20`
+  4. 这轮同时补进了失败回收口径：
+     - subprocess timeout 会明确退出
+     - MCP / Unity 验证链拿不到结果时会落 `unity_validation_pending`
+     - 输入范围过宽时直接落 `blocked`
+     - 当前命令本身不会启动额外后台进程
+  5. 顺手修掉了一个会污染“爆红规范”的关键语义问题：
+     - `CodeGuard` warning 不再被当成 red
+     - 当前 `assessment` 只围绕：
+       - `no_red`
+       - `own_red`
+       - `external_red`
+       - `unity_validation_pending`
+       - `blocked`
+- 当前验证状态：
+  - 真实脚本级验证 1：
+    - `python D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs --count 100 --output-limit 5`
+    - 结果：
+      - own 代码闸门通过
+      - own red = `0`
+      - external red = `3`
+      - `assessment = external_red`
+      - 当前 Console 样本里还额外出现 1 条 `Exception`，但不计入 red 总数
+  - 真实脚本级验证 2：
+    - `python D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script --count 50`
+    - 结果：
+      - `assessment = blocked`
+      - 原因：当前 shared root changed `.cs` 为 `82` 条，命令拒绝退回全仓噪音模式
+  - 真实脚本级验证 3：
+    - `python D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs --skip-mcp --count 20 --output-limit 5`
+    - 结果：
+      - `assessment = unity_validation_pending`
+      - 证明在跳过 Unity/MCP 验证链时，不会假装 pass
+  - `python -m py_compile scripts/sunset_mcp.py`：通过
+  - `git diff --check -- scripts/sunset_mcp.py scripts/sunset-mcp.ps1`：通过
+- 当前还没做成什么：
+  - 还没有补 `play / stop / menu / route`
+  - 还没有去摸 `manage_script` 的原生参数面；当前这轮走的是“等价单命令入口”路线，而不是强依赖 Unity 侧旧 `validate_script`
+- 当前阶段：
+  - 这条线已经从“已有 compile/no-red 能凑合用”推进到“有正式脚本级验证入口可直接日用”的阶段；
+  - 但这轮仍未 sync，当前只算本地可用 P1。
+- 当前 thread-state：
+  - `Begin-Slice`：已跑（`validate-script-cli`）
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 如果继续，只做两件事里的一件：
+    1. 再补 `manage_script` / 旧原生 `validate_script` 参数面，决定是否需要双轨
+    2. 或在当前语义稳定前提下，再进入控制命令面
+
+## 2026-04-04｜`UnityMCP转CLI` 下一刀续工 prompt 已生成
+
+- 当前主线目标：
+  - 用户要求基于最新正式汇报，直接给 `UnityMCP转CLI` 线程生成一份“又快又好”的续工 prompt，不再停留在分析。
+- 这轮实际做成了什么：
+  1. 已新增 prompt 文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_典狱长_UnityMCP转CLI_爆红规范高频CLI落地_02.md`
+  2. 这份 prompt 已把下一刀锁成单纵切片：
+     - 只做“爆红规范高频 CLI 落地”
+     - 默认目标是 `validate_script`（或等价单命令入口）
+     - 必须同时补资源护栏、超时、输出上限、失败回收
+  3. prompt 已显式禁止漂移：
+     - 不准先做 `play / stop / menu / route`
+     - 不准回到大而全 CLI 平台化
+     - 不准把代码闸门重新包装成 Unity 红错验收
+  4. 已在 prompt 末尾追加 `thread-state` 接线要求
+- 当前恢复点：
+  - 用户现在可直接把这份 prompt 发给 `UnityMCP转CLI`
+  - 如果线程继续施工，下一刀默认只准扩 `validate_script + 资源护栏`，不准先漂控制面
+
+## 2026-04-04｜`manage_script / validate_script` 最小参数面对齐已落地（A 方案，本地未 sync）
+
+- 当前主线目标：
+  - 按 `2026-04-04_典狱长_UnityMCP转CLI_参数面对齐与窄边界持续续工_03.md`，只做 Unity 原生 `manage_script / validate_script` 与当前 CLI 的最小稳定参数面对齐，不扩控制命令面。
+- 这轮实际做成了什么：
+  1. 在 `D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py` 接回了最小必要兼容面：
+     - `validate_script` 新增 `--name / --path / --level`
+     - 新增窄边界 `manage_script` 兼容入口，只开放 `validate / get_sha`
+  2. `validate_script` 现在会把 Unity 原生 `manage_script(action=validate)` 的结果放进 `manage_script_compat`，但 red assessment 仍保持 compile-first：
+     - `strict` warning 不会偷改 `own_red / external_red / unity_validation_pending` 语义
+  3. `--skip-mcp` 场景的兼容状态也补齐了诚实输出：
+     - `assessment = unity_validation_pending`
+     - `manage_script_compat.validation.status = skipped`
+  4. 旧入口未回归：
+     - 直接传 `.cs` 路径的 `validate_script` 仍可用
+- 当前验证状态：
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py validate_script --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --count 20 --output-limit 5`
+    - `assessment = external_red`
+    - own red = `0`
+    - external red = `8`
+    - `native_validation = warning`
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py validate_script --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --skip-mcp --count 20 --output-limit 5`
+    - `assessment = unity_validation_pending`
+    - `native_validation = skipped`
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py manage_script validate --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --level strict --output-limit 5`
+    - native `status = failed_on_warnings`
+    - warnings = `4`
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py manage_script get_sha --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --output-limit 5`
+    - 返回 SHA：`27e0a8d1dd3f4b7d0d5adec1a26a761f866588f870d6debac4e09b14a85b827c`
+  - `py -3 -m py_compile D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py`
+    - 通过
+  - `git diff --check -- scripts/sunset_mcp.py scripts/sunset-mcp.ps1`
+    - 通过
+- 当前还没做成什么：
+  - 还没有扩 `play / stop / menu / route`
+  - 还没有把 `manage_script` 的 `create / update / apply_text_edits` 接进 CLI
+  - 当前 own 路径仍未 sync，仍处于本地 checkpoint
+- 当前 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 如果继续，只该在这条窄边界里二选一：
+    1. 补一层最小 help / 文档，把新旧参数口径写死
+    2. 继续收紧 `validate_script` 的输出摘要
+  - 不该现在扩控制命令面。
+
+## 2026-04-04｜参数面对齐收尾补强：help / doctor 口径已补齐，并已通过 Ready-To-Sync
+
+- 当前主线目标：
+  - 在不扩控制命令面的前提下，把 `manage_script / validate_script` 这条窄边界从“代码已能跑”推进到“第一次接手也能直接用、且可正式收口”。
+- 这轮实际做成了什么：
+  1. 已补齐 CLI 帮助口径：
+     - 顶层 `--help`
+     - `validate_script --help`
+     - `manage_script --help`
+     - 顶层 examples
+  2. 已把 `doctor` 改成当前真实口径：
+     - `validate_script` 已是高频单命令入口
+     - 原生兼容优先走 `--name / --path / --level`
+     - `manage_script` 只开放 `validate|get_sha`
+     - external red 不能因 native validate 通过而包装成 pass
+  3. `Ready-To-Sync` 首次被 own-root 同根残留阻断后，已按脚本提示把同根治理文件纳入 expected sync paths，并再次通过：
+     - 当前 thread-state 已从 `BLOCKED` 回正到 `READY_TO_SYNC`
+- 当前验证状态：
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py --help`
+    - 通过
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py validate_script --help`
+    - 通过
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py manage_script --help`
+    - 通过
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py doctor`
+    - 返回 4 条当前推荐口径
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py manage_script get_sha --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --output-limit 3`
+    - 通过
+  - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py validate_script --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --skip-mcp --count 5 --output-limit 3`
+    - `assessment = unity_validation_pending`
+    - `native_validation = skipped`
+- 当前阶段：
+  - 窄边界功能面与说明面都已完成；
+  - 当前只差白名单 sync 收口。
+- 当前恢复点：
+  - 下一步直接执行白名单 sync；
+  - sync 后应立即合法停车，不再扩 scope。
