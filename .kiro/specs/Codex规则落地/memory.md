@@ -11628,3 +11628,42 @@
   - 下一步直接跑 `Ready-To-Sync`；
   - 若通过，再做最小白名单提交；
   - 若被挡住，就按 blocker 报实，不吞并别线脏改。
+
+## 2026-04-04｜Town 窄代码切片已完成验证，但被 same-root remaining dirty 合法阻断提交
+
+- 当前主线目标：
+  - 继续推进 `Town` 自己的基础设施闭环，同时把“当前哪些东西真的能提交”与“哪些只能 blocker 报实”分清。
+- 这轮实际做成了什么：
+  1. 先把旧的治理文档 `READY_TO_SYNC` 现场合法 `Park-Slice`，避免和新的 Town 代码切片串账。
+  2. 新开窄切片：
+     - `town-runtime-bootstrap-scene-health-narrow`
+     - owned paths 只认：
+       - `Assets/YYY_Scripts/Service/PersistentManagers.cs`
+       - `Assets/YYY_Scripts/Data/Core/PersistentObjectRegistry.cs`
+  3. 重新核实 `PersistentObjectRegistry.cs`：
+     - 当前文件已经带有“优先挂到 `PersistentManagers` 根下，只有自己是 root 时才 `DontDestroyOnLoad`”的保护；
+     - 所以本轮没有再继续改第二个文件。
+  4. 拿到了比 `validate_script` 更轻、且当前确实能返回的 CLI 证据：
+     - `py -3 scripts/sunset_mcp.py --timeout-sec 5 --wait-sec 5 manage_script validate --name PersistentManagers --path Assets/YYY_Scripts/Service --level standard --output-limit 5`
+       - 返回：`status=clean errors=0 warnings=0`
+     - `py -3 scripts/sunset_mcp.py --timeout-sec 5 errors --count 10 --output-limit 5 --include-warnings`
+       - 返回：`errors=0 warnings=0`
+  5. 仍然诚实保留的事实：
+     - `validate_script` 与直接 `CodexCodeGuard` 在当前大脏仓里都超时，不能伪装成“fresh compile 全闭环”
+- 当前判断：
+  - `PersistentManagers.cs` 这一刀已经拿到轻量 CLI clean 证据；
+  - 但这不等于 `Town` live 健康已过线，更不等于当前代码切片已经能合法提交。
+- 当前阻断：
+  - `Ready-To-Sync` 被 same-root 剩余脏改拦下；
+  - own roots 被识别成：
+    - `Assets/YYY_Scripts/Service`
+    - `Assets/YYY_Scripts/Data/Core`
+  - 当前这两个根下仍有 `18` 个未纳入本轮的 remaining dirty，导致不能只白名单提交 `PersistentManagers.cs`。
+- 当前阶段：
+  - Town 自身这条线现在不是“代码没过”，而是“代码侧补口已完成、提交侧被 same-root hygiene 阻断”。
+- 当前恢复点：
+  1. 这轮已 `Park-Slice`
+  2. 如果以后要继续合法提交这刀，只能二选一：
+     - 清掉 / 拆走 `Assets/YYY_Scripts/Service` 与 `Assets/YYY_Scripts/Data/Core` 下剩余 `Codex规则落地` own dirty
+     - 或者另起更大的同根收口 slice，一次把同根 own 改动成组收完
+  3. 在此之前，这条 Town 代码线只能报 `blocker`，不能 claim `sync-ready`

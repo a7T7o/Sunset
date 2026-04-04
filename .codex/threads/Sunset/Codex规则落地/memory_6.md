@@ -1134,3 +1134,47 @@ Sunset 里大量改动都属于：
 - 恢复点：
   - 先跑 `Ready-To-Sync`
   - 再决定能否做最小白名单提交；若不能，就明确 blocker 并停车
+
+## 2026-04-04｜Town 窄代码切片真实收口：代码已拿轻量 CLI clean，提交被 same-root 阻断
+
+- 用户目标：
+  - 用户要我本轮把 3 件事一起做完：Town 自己的持续推进、CLI 线停发裁定、以及把当前能提交的尽量提交。
+- 已完成事项：
+  1. 先把上一条治理文档 slice 的 `READY_TO_SYNC` 现场合法停车，避免 thread-state 串账。
+  2. 新开窄代码 slice：
+     - `town-runtime-bootstrap-scene-health-narrow`
+     - owned paths 只含：
+       - `Assets/YYY_Scripts/Service/PersistentManagers.cs`
+       - `Assets/YYY_Scripts/Data/Core/PersistentObjectRegistry.cs`
+  3. 再次核实 `PersistentObjectRegistry.cs` 当前现场：
+     - `Awake()` 已先 `AttachToPersistentRootIfAvailable(transform)`，且只有 `transform.parent == null` 才会 `DontDestroyOnLoad(gameObject)`；
+     - 因此这轮没有继续改第二个文件。
+  4. 轻量 CLI 证据已拿到：
+     - `manage_script validate --name PersistentManagers --path Assets/YYY_Scripts/Service --level standard`
+       - 结果：`status=clean errors=0 warnings=0`
+     - `errors --count 10 --output-limit 5 --include-warnings`
+       - 结果：`errors=0 warnings=0`
+  5. 仍需诚实报实：
+     - `validate_script` 与直接 `CodexCodeGuard.dll` 在当前 shared-root 大脏仓里都超时，不能包装成完整 fresh compile 闭环。
+  6. `Ready-To-Sync` 已实际执行，并返回 `BLOCKED`：
+     - 原因不是 `PersistentManagers.cs` 新引入 red
+     - 而是 same-root own remaining dirty
+     - own roots = `Assets/YYY_Scripts/Service`, `Assets/YYY_Scripts/Data/Core`
+     - remaining dirty 数量 = `18`
+  7. 已按 Sunset 规则再次 `Park-Slice`，当前现场回到 `PARKED`。
+- 关键决策：
+  - 我没有越过 `Ready-To-Sync` 强行 git commit；
+  - 也没有把“manage_script clean + errors=0”偷换成“Town live 已无红错”。
+- 当前最核心的判断：
+  - 这条 Town 自刀现在是“代码侧向前推进了，但提交 hygiene 被同根旧账挡住”。
+- 最薄弱点：
+  - 还没有 fresh live 证明 Town 常驻链 warning 已真消失；
+  - 也还没有把 same-root 那 18 个 own dirty 拆干净，所以这刀当前仍不能 sync。
+- 自评：
+  - 这轮我给自己 `8.6/10`
+  - 加分项是 finally 找到了不会把机器拖死的 CLI 证据组合；
+  - 扣分点是提交面仍卡在 shared-root hygiene，而不是被我真正收干净。
+- 恢复点：
+  1. CLI 线已经停发，不再处理
+  2. Town 自刀若继续，必须先解决 `Assets/YYY_Scripts/Service` / `Assets/YYY_Scripts/Data/Core` 同根 own dirty 的收口方式
+  3. 在那之前，这条线只允许 blocker 报实，不允许 claim `可提交`
