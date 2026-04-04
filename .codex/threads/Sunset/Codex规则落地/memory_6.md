@@ -402,3 +402,94 @@
 - 然后向用户汇报：
   - 批次 02 已正式收件
   - 下一步应转向 NPC / 农田 的 carrier 去噪 / 合流批次
+
+## 会话 59 - 2026-04-04（live 控制台事故分桶与线程归属，只读）
+**用户目标**：
+> 用户要求把最新 live 控制台输出拆成可读事故名，说明每类事故的性质、该不该我接、以及分别属于哪个线程或现场层。
+
+**已完成事项**：
+1. 手工执行了 Sunset 启动闸门等价流程，并使用：
+   - `skills-governor`
+   - `sunset-workspace-router`
+   - `sunset-rapid-incident-triage`
+   - `user-readable-progress-report`
+   - `delivery-self-review-gate`
+2. 只读核对了：
+   - 当前 active / parked 线程现场
+   - `PersistentManagers.cs` / `PersistentObjectRegistry.cs` / `DialogueUI.cs` / `CameraDeadZoneSync.cs`
+   - `Town.unity` 文本现场与 Git 跟踪状态
+3. 形成了稳定事故桶：
+   - 治理线自接：`常驻链自举缺件`、`常驻根重复实例`、`注册器挂根错误`
+   - `UI` 接：`中文字体回退失效`
+   - `导航检查` / `云朵与光影` 当前只背信息提示，不背主故障
+   - 高嫌疑未钉死：`相机视口越界红屏`
+   - `Town` 另有独立现场事实：场景文件当前未被 Git 跟踪
+4. 钉死一个重要排误：
+   - `Town.unity` 里有启用中的 `Main Camera + AudioListener`
+   - 所以 “no audio listeners” 不能直接简化成“Town 场景没挂监听器”
+
+**关键决策**：
+- 这轮输出必须按事故桶交给用户，不能再贴原始日志。
+- `Town` 当前更像 shared root 上的实时磁盘现场事故，不应伪装成某条已提交线程的单点回归。
+- 当前最值得优先推进的修复顺序是：治理线 runtime 常驻链 -> UI 字体链 -> 相机/切场链 -> Town 现场清理。
+
+**涉及文件**：
+- [PersistentManagers.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/PersistentManagers.cs)
+- [PersistentObjectRegistry.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/PersistentObjectRegistry.cs)
+- [DialogueUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/DialogueUI.cs)
+- [CameraDeadZoneSync.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs)
+- [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity)
+
+**验证结果**：
+- `Show-Active-Ownership.ps1` 已核对
+- 代码调用点静态核对成立
+- `Town.unity` / `Town.unity.meta` 当前 `git ls-files --error-unmatch` 均失败，说明未被 Git 跟踪
+- 本轮未改代码，未进 Unity 二次 live 复现
+
+**恢复点 / 下一步**：
+- 直接把事故桶和线程归属交给用户
+- 如果用户批准进入修复，再按桶拆成最小切片，而不是一锅端
+## 会话 60 - 2026-04-04（回读 spring-day1 新增文档，重判 Town 在线职责，只读）
+**用户目标**：
+> 用户要求我完整回读 `003-进一步搭建` 里 2026-04-04 新增文档，并据此回答：我手上的 `Town` 在本次 spring 剧情扩展里还应该承担什么、又不该承担什么。
+
+**已完成事项**：
+1. 只读回看了 8 份新增件，重点包括：
+   - `原剧本回正与Town承接剧情扩充设计_01`
+   - `非UI剧情扩充框架落地任务单_01`
+   - `CrashAndMeet-EnterVillage剧情扩充任务单_02`
+   - `非UI剧情扩充执行约束与任务单_03`
+   - `UI线程_剧情源协同开发提醒_03`
+   - 两份 `继续施工引导prompt_04`
+2. 钉死了一个核心边界：
+   - 当前 `spring-day1` 主刀仍是前半段剧情源 `CrashAndMeet / EnterVillage`
+   - `Town` 这轮不该抢剧情源 owner，不该提前把 Day1 正式前半段写进 scene
+3. 收束了 `Town` 在这次 spring 扩充里真正该接的职责：
+   - 村庄存在感
+   - 正式 NPC 的主要生活面
+   - 围观村民 / 饭馆村民 / 小孩的背景层
+   - `FreeTime` 夜间见闻包
+   - 后续 Day1 之后的村庄承载
+4. 给出对 `Town` 接盘位最现实的下一步：
+   - 先把 `Town` 现场修到可用
+   - 再准备村口围观位、路边小孩视线位、饭馆背景位、夜间见闻点等承载结构
+   - 等剧情源与切场合同稳定后再正式接 NPC 主出现面
+
+**关键决策**：
+- 当前不能把 `Town` 当成“前半段剧情补丁场景”。
+- `Town` 的价值在这轮是承接“村庄本来就在运转”的语义，不是改写 `SpringDay1Director`。
+- 如果 `Town` 当前还坏着，第一优先级仍是把它修成可承接场景，否则后面的村庄承载讨论都是空的。
+
+**涉及文件**：
+- [2026-04-04_spring-day1_原剧本回正与Town承接剧情扩充设计_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/2026-04-04_spring-day1_原剧本回正与Town承接剧情扩充设计_01.md)
+- [2026-04-04_spring-day1_非UI剧情扩充框架落地任务单_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/2026-04-04_spring-day1_非UI剧情扩充框架落地任务单_01.md)
+- [2026-04-04_spring-day1_CrashAndMeet-EnterVillage剧情扩充任务单_02.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/2026-04-04_spring-day1_CrashAndMeet-EnterVillage剧情扩充任务单_02.md)
+- [2026-04-04_spring-day1_非UI剧情扩充执行约束与任务单_03.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/2026-04-04_spring-day1_非UI剧情扩充执行约束与任务单_03.md)
+
+**验证结果**：
+- 新增文档只读核对成立
+- 本轮未改代码、未改 scene、未进 Unity
+
+**恢复点 / 下一步**：
+- 先把这份边界判断交给用户
+- 如果用户要我继续，我对 `Town` 的正确切刀应是“场景修复 + 村庄承载层准备”，不是“先替剧情线程把前半段写进 Town”

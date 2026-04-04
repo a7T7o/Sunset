@@ -218,6 +218,50 @@
    - 当前 `git status` 仍脏：
      - `DialogueChinese SDF.asset`
      - `DialogueChinese Pixel SDF.asset`
+
+### 会话 20 - 2026-04-04（live 控制台事故二次分桶与线程定责，只读）
+**用户目标**：
+> 用户贴回最新 live 测试控制台，要求把报错按“看得懂的事故名”重新分桶，说明哪些是我该接、哪些该别的线程接、哪些只是信息提示或仍未钉死的嫌疑项。
+
+**已完成事项**：
+1. 以只读方式重新核对了 3 类证据，而不是只复述日志：
+   - 当前 active / parked 线程状态
+   - 报错对应的直接代码调用点
+   - `Town.unity` 当前磁盘现场与 Git 跟踪状态
+2. 钉死了 3 个可直接归到治理线自身的 runtime 问题：
+   - `PersistentManagers` 缺 `PrefabDatabase` 时会直接报 `DynamicObjectFactory` 未初始化 warning
+   - `PersistentManagers` 存在重复实例合并后销毁分支
+   - `PersistentObjectRegistry` 会先挂到 persistent root，再对非根对象调用 `DontDestroyOnLoad`
+3. 钉死了字体问题当前应归 `UI`：
+   - `DialogueUI` 会在 `Awake()` / 运行时字体稳定化里尝试选可用字体
+   - 当前脏文件也正落在 `DialogueUI.cs`
+4. 对 `Town` 现场做了两个关键排误：
+   - 场景文本里存在启用中的 `Main Camera + AudioListener`
+   - 但 `Town.unity` / `.meta` 当前都不在 Git 跟踪内，属于 live 磁盘现场而非已提交资产
+5. 把“视口越界红屏”保留为高嫌疑未钉死项：
+   - 当前最强嫌疑仍是 parked 相机线程 `019d4d18-bb5d-7a71-b621-5d1e2319d778`
+   - 证据来自 `CameraDeadZoneSync.cs` 现脏且包含 viewport rect clamp 逻辑
+
+**关键决策**：
+- 这波 incident 不能继续按“整个 live 都是同一线程锅”来讲；必须分桶定责。
+- `TraversalBlockManager2D` 与 `CloudShadowManager` 这两条当前只算信息提示，不应拿来当主故障。
+- `There are no audio listeners in the scene` 不能粗暴下结论成“Town 没挂监听器”；更像运行时切场 / 相机接管链里短暂失效。
+- `Town.unity` 当前属于 shared root 实时现场问题，不能伪装成“某个已提交版本回归”。
+
+**涉及文件**：
+- [PersistentManagers.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/PersistentManagers.cs)
+- [PersistentObjectRegistry.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/PersistentObjectRegistry.cs)
+- [DialogueUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/DialogueUI.cs)
+- [CameraDeadZoneSync.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs)
+- [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity)
+
+**恢复点 / 下一步**：
+- 如果下一轮继续治理分发，应直接按事故桶派发，而不是再发“统修 live”。
+- 当前最值得先开的真实修复顺序是：
+  1. 治理线接 `PersistentManagers / PersistentObjectRegistry`
+  2. `UI` 接字体回退失效
+  3. 相机线只针对视口越界与切场监听器瞬断做单独核查
+  4. `Town` 现场单独按“未跟踪场景文件修复”处理
      - `LiberationSans SDF - Fallback.asset`
    - `git diff --stat` 显示两份 `DialogueChinese*` 资产都发生大块删除；
    - 资产 YAML 级证据已出现：
@@ -10814,3 +10858,138 @@
   - 如果下一轮继续减载，优先级可保持为：
     1. 先挑还能正式过 `Ready-To-Sync` 的 parked 小刀
     2. `Assets/Editor` 根下的候选继续按更高谨慎级别处理
+
+## 2026-04-04｜外部生态深研：`UnityMCP -> CLI` 在 Sunset 的真实价值判断
+
+- 当前主线目标：
+  - 回答用户关于 `mcporter`、`CLI-Anything`、`opencli` 三个项目的真实定位、风评与 Unity 方向价值，并结合 Sunset 当前项目状态判断：现有 `unityMCP` 是否值得转成 CLI、应该转成什么类型、现在是否值得做。
+- 本轮子任务：
+  - 联网调研三项目的官方资料、GitHub 活跃度、issues/PR、论坛/文章风评；
+  - 同步核对 Sunset 本地 `unityMCP` 基线、单实例规则、桥接脚本与会话状态；
+  - 给出“研究判断”而不是直接改实现。
+- 这轮实际做成了什么：
+  1. 核实 Sunset 当前并不是“没装 MCP”，而是已经有一条可运行但会话一致性仍会抖的 live 基线：
+     - `C:\Users\aTo\.codex\config.toml` 只保留 `unityMCP = http://127.0.0.1:8888/mcp`
+     - `scripts/check-unity-mcp-baseline.ps1` 当前仍报 `baseline_status: pass`
+     - `Library/MCPForUnity/TerminalScripts/mcp-terminal.cmd` 实际通过 `uvx --from "mcpforunityserver==9.5.3"` 拉起 HTTP bridge
+  2. 核实 Sunset 本地其实已经出现“半 CLI 化 sidecar”：
+     - `Assets/Editor/CodexMcpHttpAutostart.cs` 会在编辑器启动后自动尝试恢复 HTTP bridge
+     - `Assets/Editor/NPC/CodexEditorCommandBridge.cs` 通过 `Library/CodexEditorCommands/requests/*.cmd` 接收 `PLAY / STOP / MENU=...`
+     - 这说明项目真实痛点已经从“有没有协议入口”转成“如何把 session / play mode / fallback / 状态证明收成稳定工作流”
+  3. 再次压实当前 live 不稳证据：
+     - `mcpforunity://editor/state` 当前仍显示 `play_mode.is_playing=true`、`is_changing=true`、`activity.phase=playmode_transition`、`advice.ready_for_tools=false`、`blocking_reasons=["stale_status"]`
+     - 但 `Library/CodexEditorCommands/status.json` 同时写的是 `isPlaying=false`、`lastCommand="initialized"`
+     - 说明 Sunset 当前问题不是“没有入口”，而是“入口和现场状态会分叉”
+  4. 联网调研结论已稳定成三条：
+     - `mcporter`：最接近 `MCP server -> CLI / typed wrapper`，适合做 PoC 或薄封装，但当前公开问题里仍能看到 `resources` 支持与 Windows OAuth 边角，因此更适合包“工具调用层”，不够支撑 Sunset 这种强依赖状态资源读取的控制面
+     - `CLI-Anything`：更像 `CLI-first, MCP-compatible` 的 agent-native harness 生态，方法论强，但复杂软件生成质量、安装兼容性、文档漂移都还明显；对 Sunset 当前不是最短收益路径
+     - `opencli`：更偏 browser bridge / agent runtime / CLI hub，不是把 UnityMCP 稳定产品化的主轴；更像旁路工具，不像核心底座
+- 当前核心判断：
+  - 对 Sunset 来说，`UnityMCP -> CLI` 不是“值不值钱”的问题，而是“该做哪一层”的问题：
+    1. 现在最值钱的是内部 orchestration CLI
+    2. 不是再包一层协议语法糖
+    3. 更不是直接跳到通用开源产品化
+  - 原因是 Sunset 当前真正卡人的点依次是：
+    1. 单实例 Unity / MCP 共享占用与现场仲裁
+    2. play mode / transition / stale status 的一致性证明
+    3. bridge 恢复、active instance 识别、失败降级到文件命令桥
+    4. 共享 root 脏现场下的“什么时候能调、什么时候只能只读”
+  - 因此，如果真要做 CLI，最合理形态应是类似 `sunset-mcp` 的本地编排入口，而不是“把所有 MCP 方法平铺成命令”：
+    - `doctor / baseline / status`
+    - `instance ensure`
+    - `play / stop / menu`
+    - `test targeted`
+    - `snapshot / evidence`
+    - `recover bridge`
+    - `route`（优先 MCP，失败时降级到文件命令桥）
+- 当前还没做成什么：
+  - 还没有把这套 CLI 真正实现出来；
+  - 还没有对 `mcporter` 或 `CLI-Anything` 做本地 smoke test；
+  - 还没有把 `editor/state` 与 `status.json` 的分叉做根因定位。
+- 关键决策：
+  - 这轮明确不把“资源能列出来”误判成“链路稳定可生产”；
+  - 这轮明确把研究结论压成“先内部收拢 sidecar / orchestration，再考虑产品化”，不建议现在从 shared-root 脏现场直接跳去做通用开源包装层。
+- 涉及文件或路径：
+  - `C:\Users\aTo\.codex\config.toml`
+  - `D:\Unity\Unity_learning\Sunset\scripts\check-unity-mcp-baseline.ps1`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\CodexMcpHttpAutostart.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPC\CodexEditorCommandBridge.cs`
+  - `D:\Unity\Unity_learning\Sunset\Library\MCPForUnity\TerminalScripts\mcp-terminal.cmd`
+  - `D:\Unity\Unity_learning\Sunset\Library\CodexEditorCommands\status.json`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-occupancy.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\locks\shared-root-branch-occupancy.md`
+- 验证结果：
+  - 联网取证已完成；
+  - 本地文件和当前 MCP `editor/state` 已核对；
+  - 本轮未做新的 Unity 写入，也未做 CLI 实装，故“路线判断成立”属于 `线程取证已过`，不属于“功能已验证”。
+- 当前恢复点：
+  - 如果下一轮继续这个方向，优先做一版内部 `sunset-mcp` orchestration CLI 的最小命令组，而不是直接尝试做通用 `unity-mcp-to-cli` 开源产品。
+
+## 2026-04-04｜横向补搜 `unitycli` 生态：现有样本存在，但没有直接覆盖 Sunset 痛点
+
+- 当前主线目标：
+  - 继续回答用户关于 Unity CLI 方向的可学样本与市场空白，而不是停在抽象判断。
+- 这轮实际做成了什么：
+  1. 确认现有 Unity CLI 生态真实存在，但高度分裂：
+     - 官方底座：Unity Editor 命令行参数、Unity Hub CLI、`com.unity.cli-project-setup`
+     - 外部包装器：`RageAgainstThePixel/unity-cli`、`UnityCommandLineLauncher`
+     - 构建/CI：`game-ci/unity-builder`、`SuperUnityBuild`
+     - 包管理：`openupm-cli`、`NuGetForUnity.Cli`
+     - 进程内解析：`UnityCommandLine`、`UnityCommandLineParser`
+  2. 横向学习后压实一个重要事实：
+     - 现有项目大多只解决安装、启动、构建、包恢复、参数解析中的一层；
+     - 没有一个成熟主流项目直接覆盖 Sunset 当前最痛的：
+       - `unityMCP` 会话一致性
+       - `playmode_transition / stale_status`
+       - bridge 恢复
+       - 文件命令桥降级
+       - 单实例 shared-editor 场景下的可调/不可调裁定
+  3. 因此本轮没有推翻上一条判断，反而增强它：
+     - `Sunset` 最值得做的仍是内部 `orchestration CLI`
+     - 不是再造一个普通 Unity 启动器
+- 当前核心判断：
+  - 市面上的 Unity CLI 样本可以学：
+    - 命令树设计
+    - JSON 输出
+    - Hub/Editor/version convenience
+    - build/test/restore 的脚本化接口
+  - 但 Sunset 当前真正需要补的是“Unity + MCP + 本地侧车 + 现场仲裁”的编排层。
+- 当前恢复点：
+  - 如果下一轮继续，直接进入 `sunset-mcp` 命令树设计会比继续搜更多 `unitycli` 项目更值钱。
+
+## 2026-04-04｜与用户同步需求理解：当前主线不是继续搜，而是对齐“真正要解决的问题”
+
+- 当前主线目标：
+  - 把前几轮研究结果翻译成用户视角的需求定义，确认我们理解的是不是同一件事。
+- 这轮实际做成了什么：
+  1. 明确用户真正要的不是“又一份工具调研”，而是：
+     - 一份能指导 Sunset 后续投入的路线裁定；
+     - 回答这条 UnityMCP/CLI 线是否值得做、该做哪一层、现在是否合算。
+  2. 明确用户隐含要求还包括：
+     - 不要被外部项目热度带跑；
+     - 不要停在概念层；
+     - 要把结论压回 Sunset 当前阶段、治理约束和 live 现场。
+  3. 明确这条主线下一步若继续，不应再优先扩搜，而应进入方案定义层。
+- 当前核心判断：
+  - 这轮对齐后，主线已经从“研究信息收集”进入“路线与方案定义”前夜。
+- 当前恢复点：
+  - 若用户认可这份需求理解，下一步应进入 `sunset-mcp` 命令树与最小原型范围定义，而不是继续横向搜项目。
+
+## 2026-04-04｜正式路线裁定：这条线值得做，但只按 Sunset 内部 orchestration CLI 做
+
+- 当前主线目标：
+  - 对 `UnityMCP -> CLI` 这条线给出最终可执行裁定。
+- 这轮实际做成了什么：
+  1. 正式裁定这条线对 Sunset 当前是值得认真投入的内部基础设施路线。
+  2. 同时明确裁定“值得做”不等于“现在就做通用产品”：
+     - 现在该做的是内部 `sunset-mcp` orchestration CLI
+     - 不该先做通用开源包装层
+     - 不该先做大而全接口平铺
+  3. 将实施层级压成三段：
+     - P0：`doctor / baseline / status / instance ensure / play / stop / menu / recover-bridge / route`
+     - P1：`test targeted / snapshot-evidence / scene-session health / stale status 仲裁`
+     - P2：内部稳定后再评估通用化与 `mcporter` PoC
+- 当前核心判断：
+  - 这条线真正的价值在“工作流编排与现场稳定”，不是“协议封装的新鲜感”。
+- 当前恢复点：
+  - 下一步若继续，应直接进入 `sunset-mcp` 命令树设计，而不是继续研究层扩搜。
