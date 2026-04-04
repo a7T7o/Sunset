@@ -1133,3 +1133,41 @@
 - 当前恢复点：
   - 如果下一轮继续，不再先扩写内容；
   - 直接从“拿 opening 链更真实的 Unity / EditMode 证据”开始。
+
+## 2026-04-04 补记：Town 已补成 spring-day1 可接的“村庄承载层壳”，但仍不是前半段剧情源
+
+- 当前子工作区主线没有换题：
+  - 仍是 `spring-day1` 的 Day1 扩充准备；
+  - 本轮子任务是把 `Town` 从“只读边界判断”推进到“可承接后续村庄生活面”的最小结构，而不是把 `CrashAndMeet / EnterVillage` 正式写进 `Town`。
+- 本轮实际落地：
+  1. `Town.unity` 已正式纳入仓库，并提交进 `8df1b4e0 2026.04.04_Codex规则落地_03`。
+  2. 在 `Town` 的 `SCENE` 根下新增 `Town_Day1Carriers`，只放空承载锚点：
+     - `EnterVillageCrowdRoot`
+     - `KidLook_01`
+     - `DinnerBackgroundRoot`
+     - `NightWitness_01`
+     - `DailyStand_01`
+     - `DailyStand_02`
+     - `DailyStand_03`
+  3. 没有把 `CrashAndMeet / EnterVillage` 的正式剧情源、对白资产或相位推进脚本直接写进 `Town`。
+  4. 同一刀里把 `Town` 相机链从“运行时猜测”收成“场景显式接线”：
+     - `CameraDeadZoneSync.mainCamera -> Main Camera`
+     - `CameraDeadZoneSync.boundingCollider -> _CameraBounds`
+     - `CinemachineConfiner2D.BoundingShape2D -> _CameraBounds`
+  5. 作为配套运行时兜底，本轮还一起提交了：
+     - `PersistentManagers.cs`
+     - `PersistentObjectRegistry.cs`
+     - `CameraDeadZoneSync.cs`
+     - `DialogueUI.cs`
+     用来收口 `Town` 承接时的常驻管理器、边界链和中文字体回退问题。
+- 当前子工作区判断：
+  - `Town` 现在已经有“村庄承载层壳”，可以继续承接围观村民、路边视线位、饭馆背景层、夜间见闻点这类后续扩充；
+  - 但它仍然不是 `CrashAndMeet / EnterVillage` 的剧情源 owner。
+- 当前验证状态：
+  - `git diff --check`：代码文件仅有 LF/CRLF 警告；
+  - `Town.unity` 静态结构与引用补线已核对；
+  - 本轮没有进 Unity、没有做 live 转场复验；
+  - 当前只能宣称：`结构与承载壳成立，live 待验证`。
+- 当前恢复点：
+  - `spring-day1` 后续若继续接 `Town`，应优先消费 `Town_Day1Carriers` 这批空锚点；
+  - 不要回头把 `CrashAndMeet / EnterVillage` 的正式剧情源塞进 `Town`。

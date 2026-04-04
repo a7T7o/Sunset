@@ -493,3 +493,77 @@
 **恢复点 / 下一步**：
 - 先把这份边界判断交给用户
 - 如果用户要我继续，我对 `Town` 的正确切刀应是“场景修复 + 村庄承载层准备”，不是“先替剧情线程把前半段写进 Town”
+
+## 会话 61 - 2026-04-04（继续未完成任务：提交 Town 承接稳定化 slice，并合法停车）
+**用户目标**：
+> 用户要求我继续之前未完成的所有任务；结合当前 slice，真实目标是把 `Town` 与其运行时兜底推进到一个可提交 checkpoint，同时不和 `spring-day1` 前半段剧情源交叉。
+
+**已完成事项**：
+1. 手工执行了 `sunset-startup-guard` 等价前置核查，并显式使用：
+   - `skills-governor`
+   - `sunset-workspace-router`
+   - `sunset-scene-audit`
+   - `sunset-no-red-handoff`
+2. 关闭了已完成的 2 个子智能体，避免悬挂：
+   - `019d56fd-b311-7de0-ace4-8d30fd3735c5`
+   - `019d56fd-a7d3-7093-a20c-72f80ec1e734`
+3. 在 `DialogueUI.cs` 里修正中文字体回退逻辑：
+   - 不再只判断字体资源“能不能用”
+   - 改成判断当前字体“能不能渲染当前文本”
+   - `继续` 按钮在 `ForceMeshUpdate()` 前会先切到可显示中文的字体
+4. 在 `Town.unity` 里补了最小显式接线：
+   - `CameraDeadZoneSync.mainCamera -> Main Camera`
+   - `CameraDeadZoneSync.boundingCollider -> _CameraBounds`
+   - `CinemachineConfiner2D.BoundingShape2D -> _CameraBounds`
+5. 在 `Town` 的 `SCENE` 根下新增 `Town_Day1Carriers`，只放空锚点：
+   - `EnterVillageCrowdRoot`
+   - `KidLook_01`
+   - `DinnerBackgroundRoot`
+   - `NightWitness_01`
+   - `DailyStand_01`
+   - `DailyStand_02`
+   - `DailyStand_03`
+6. 把以下 6 条路径精确提交为一个 slice：
+   - `Assets/000_Scenes/Town.unity`
+   - `Assets/000_Scenes/Town.unity.meta`
+   - `Assets/YYY_Scripts/Service/PersistentManagers.cs`
+   - `Assets/YYY_Scripts/Data/Core/PersistentObjectRegistry.cs`
+   - `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+   - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+7. 已形成本地 checkpoint：
+   - `8df1b4e0 2026.04.04_Codex规则落地_03`
+8. 本轮结束前已执行：
+   - `Park-Slice`
+   - 当前状态：`PARKED`
+
+**关键决策**：
+- 这轮 `Town` 只允许做“显式接线 + 空承载壳”，不允许把 `CrashAndMeet / EnterVillage` 正式剧情源写进 `Town`。
+- 当前最合理的提交边界是把 `Town` scene、本轮相机链、常驻链和中文字体链一起交，因为它们共同服务于“Town 承接稳定化”；拆开会留下半套现场。
+- 这轮仍然不能宣称 live 已过，只能宣称“结构与 checkpoint 成立”。
+
+**涉及文件**：
+- [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity)
+- [Town.unity.meta](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity.meta)
+- [PersistentManagers.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/PersistentManagers.cs)
+- [PersistentObjectRegistry.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/PersistentObjectRegistry.cs)
+- [CameraDeadZoneSync.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs)
+- [DialogueUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/DialogueUI.cs)
+
+**验证结果**：
+- `git diff --check`：
+  - 代码文件未见新的阻断格式问题
+  - `Town.unity` 新纳管后仍带 Unity 序列化 trailing whitespace 噪音，但 commit 已完成
+- `TMP_FontAsset.HasCharacters(...)` 包内签名已静态核对
+- `Town` 的新相机引用与 carrier anchors 已静态核对
+- 本轮未进 Unity、未跑 live、未做完整 compile
+
+**恢复点 / 下一步**：
+- 如果用户要继续这条线，下一步最值钱的是一次低负载 Unity live 复验：
+  1. `Primary -> Town` 切场
+  2. 相机是否稳定
+  3. `继续` 中文按钮是否不再报缺字
+  4. `PersistentManagers` / `PersistentObjectRegistry` warning 是否消失
+
+**审计尾注**：
+- `skill-trigger-log` 已于本轮施工后补记 `STL-20260404-035`
+- 当前线程记忆重新作为最后一层落盘，状态保持 `PARKED`

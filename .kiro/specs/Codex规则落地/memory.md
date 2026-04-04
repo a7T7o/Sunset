@@ -10993,3 +10993,42 @@
   - 这条线真正的价值在“工作流编排与现场稳定”，不是“协议封装的新鲜感”。
 - 当前恢复点：
   - 下一步若继续，应直接进入 `sunset-mcp` 命令树设计，而不是继续研究层扩搜。
+
+## 2026-04-04｜`Town` 承接稳定化 slice 已提交并合法停车
+
+- 当前主线目标：
+  - 延续 `town-stabilize-and-day1-carrier-prep`，把 `Town` 修到可承接、可进仓库，同时不越界去抢 `spring-day1` 前半段剧情源。
+- 这轮实际做成了什么：
+  1. 吸收并关闭了 2 个只读子智能体结论，明确 `Town` 只承担“村庄承载层”，不承担 `CrashAndMeet / EnterVillage` 正式剧情源。
+  2. 把 `PersistentManagers.cs` 与 `PersistentObjectRegistry.cs` 的运行时兜底收进同一刀：
+     - `PersistentManagers` 改为 `AfterSceneLoad` 自举；
+     - `PrefabDatabase` 增加 `Resources + Editor AssetPath` 解析兜底；
+     - 常驻根重复实例仅在有有效状态可合并时警告；
+     - `PersistentObjectRegistry` 只在根对象场景下再调用 `DontDestroyOnLoad`。
+  3. 把 `DialogueUI.cs` 的字体回退从“资源可用”升级成“当前字体必须能渲染当前文本”，专门收口 `继续` 按钮中文缺字 warning。
+  4. 把 `CameraDeadZoneSync.cs` 与 `Town.unity` 一起收成更稳的相机/边界链：
+     - `Town` 中显式绑定 `Main Camera`、`_CameraBounds`、`CinemachineConfiner2D`
+     - 新增 `Town_Day1Carriers` 及 7 个空锚点
+  5. 已形成并提交 1 个最小 checkpoint：
+     - `8df1b4e0 2026.04.04_Codex规则落地_03`
+- 当前还没做成什么：
+  - 还没有做 Unity live 转场复验；
+  - 还没有确认 `out of view frustum` 是否随这轮补线一起消失；
+  - 还没有继续开第二刀。
+- 当前验证状态：
+  - `git diff --check`：代码文件无阻断，仅有 LF/CRLF 提示；新纳管的 `Town.unity` 仍带 Unity 序列化自有的 trailing whitespace 噪音，但未阻断本次 commit；
+  - `DialogueUI` 的 `TMP_FontAsset.HasCharacters(...)` API 已做包内签名核对；
+  - `Town` 的新引用与 carrier anchors 已做静态 YAML 核对；
+  - 本轮没有进 Unity、没有跑 compile、没有跑 live；
+  - 当前只能宣称：`结构与提交成立，live 待验证`。
+- 当前 thread-state：
+  - `Begin-Slice`：沿用既有 active slice
+  - `Ready-To-Sync`：未跑；这轮直接走精确文件提交
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 如果下一轮继续这条线，最值钱的不是再改结构，而是去做一次低负载 Unity live 复验：
+    1. `Primary -> Town` 转场
+    2. 相机边界 / 视口
+    3. 对话中文按钮文案
+    4. `PersistentManagers` / `PersistentObjectRegistry` warning 是否消失
