@@ -8802,3 +8802,162 @@
   - 用户后续若复测仍发现视觉/逻辑不对齐，优先继续排：
     - `桥_物品0` 这类 colliderless blocking tilemap 的 fallback 语义是否仍过粗
     - `TraversalBlockManager2D` 是否需要 scene owner 显式补 `boundsTilemaps / boundsColliders`
+
+## 2026-04-03｜新增交接：玩家桥/水/边缘已获认可，剩余 gap 改为 NPC 接入同等 traversal contract
+
+- 当前主线目标：
+  - 本工作区在桥 / 水 / 边缘这条线上，当前已从“玩家与 NPC 都有问题”收窄到“玩家已认可，NPC 仍未完整接线”。
+- 用户最新裁定：
+  - `玩家现在这个版本我也认可了，我觉得没问题了，但是npc走不过去呀`
+- 本轮新增判断：
+  1. 这说明当前工作区下一刀不该再重修玩家桥面逻辑；
+  2. 下一刀应改成：
+     - **NPC 接入当前玩家已认可的 traversal contract**
+  3. 当前最硬代码事实是：
+     - `TraversalBlockManager2D` 只绑定 `playerMovement`
+     - `NPCAutoRoamController` 自己持有 `NavGrid2D` 并自行 `rb.MovePosition(...)`
+     - 但没有并行吃到玩家桥面 soft-pass / bounds enforcement / 中心支撑优先语义
+- 本轮实际动作：
+  - 已生成一份专门发给导航系统的续工 prompt：
+    - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-03_导航系统_NPC桥水边缘接线prompt_01.md`
+- 当前恢复点：
+  - 等导航系统接刀；
+  - 重点补 NPC，不要再把玩家已认可版本改坏。
+
+## 2026-04-03｜NPC 桥/水/边缘 traversal contract 接线：先收脚本等价，再留 live 真值
+
+- 当前主线目标：
+  - 不重修玩家版本，只把 NPC 接到当前玩家已认可的桥 / 水 / 边缘 traversal contract。
+- 本轮子任务与服务关系：
+  - 在不碰 scene/binder/Inspector 的前提下，先把 NPC 的脚本 contract 补成和玩家等价，再判断 live 还差什么。
+- 本轮实际完成：
+  1. 只读压实责任链：
+     - `NPCMotionController` 仍只是动画/速度桥接；
+     - 第一责任点收敛到 `NPCAutoRoamController` + `TraversalBlockManager2D`；
+     - `NavGrid2D` 当前已具备 bridge override / soft-pass source / world bounds 底座，不需要再改玩家或 scene。
+  2. `NPCAutoRoamController.cs` 新增 NPC 自己的 traversal contract 接口与逻辑：
+     - `SetNavGrid(...)`
+     - `SetNavGridBoundsEnforcement(...)`
+     - `SetTraversalSoftPassBlockers(...)`
+     - 桥面中心脚底 probe / 单侧贴边可走判定
+     - 基于 walkable override 的 water soft-pass
+     - 移动前的 bounds enforcement 约束
+     - 选点阶段改为先找“NPC 可占位”的目标，不再只看旧 `navGrid.IsWalkable(...)`
+  3. `TraversalBlockManager2D.cs` 现在会并行把：
+     - `NavGrid2D`
+     - traversal soft-pass blockers
+     - NPC nav bounds enforcement
+     绑定给场内 `NPCAutoRoamController`
+- 关键判断：
+  - NPC 当前更像不是纯 path planner 挂死，而是旧 roam controller 没吃到玩家这轮的“桥面中心占位 + soft-pass + bounds”组合 contract；
+  - 因此本轮最小稳解不是改 scene，而是先补 NPC 脚本接线。
+- 验证结果：
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs` 通过
+  - `validate_script`：
+    - `NPCAutoRoamController.cs` = `0 error / 1 warning`
+    - `TraversalBlockManager2D.cs` = `0 error / 0 warning`
+  - Unity 强制 compile 后，console 仅见既有 warning：
+    - `DialogueUI.fadeInDuration` 未使用
+  - 当前证据层级：
+    - `结构证据` = 已成立
+    - `工程 compile 证据` = 已成立
+    - `NPC 真实过桥 live 体验证据` = 尚未补到
+- changed_paths：
+  - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs`
+- 当前恢复点：
+  - 下一步若继续本线，应先补一个最小 live probe，验证：
+    - NPC 能否稳定过桥
+    - 是否不会下水
+    - 是否不会越出地图边缘
+  - 如果 live 仍不过，再按本轮新 contract 结果精确判断是：
+    - 脚本仍有 gap
+    - 还是 scene source 需要 owner 明确补哪一个 source
+
+## 2026-04-03｜NPC traversal contract 运行时 probe 补记
+
+- 本轮新增 targeted probe：
+  1. 已进入 Play Mode；
+  2. `TraversalBlockManager2D` 在 runtime 实际输出：
+     - `npcBindings=3`
+     - `npcBounds=on`
+  3. 随后已退回 `Edit Mode`。
+- 这条 probe 说明：
+  - 本轮 NPC 接线已经真实跑到运行时，不是只停在静态代码层；
+  - 但它仍然只证明“runtime 绑定已生效”，还不等于“NPC 过桥体验已完全验过”。
+
+## 2026-04-03｜历史需求与 ownership 再清账：当前导航检查线的 active 主问题已从玩家错位转成 NPC live 验证
+
+- 本轮只读复盘结论：
+  1. 桥 / 水 / 边缘这条线里，**玩家侧当前已被用户口头认可**；
+  2. 现在导航检查工作区还没真正终验完成的 active 主问题，已经改成：
+     - `NPC 是否真的能过桥`
+     - `NPC 是否不会下水`
+     - `NPC 是否不会越出地图边缘`
+  3. 因此本工作区下一刀如果还要继续，应该继续盯 NPC live 体验，而不是回头重修玩家桥面逻辑。
+- 同时复盘到的 ownership 结论：
+  1. `树苗放置卡顿` 已外移到 `farm`，不再是本工作区本线程的活跃主刀；
+  2. `camera confiner`、`scene transition`、`Tool_002` 虽然是历史上出现过的需求，但当前都不属于这条导航检查线的 active owner；
+  3. 如果后续用户重新点名这些内容，应新开切片，不要再混回当前导航 active 闭环。
+
+## 2026-04-03｜NPC bridge / water / edge targeted acceptance 已过
+
+- 本轮只继续 NPC 接线验收，不回头重修玩家版本，也没有 scene 实写。
+- 为了最快拿到可重复 runtime 证据，本轮把 `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 改成：
+  1. bridge / edge 都直接走 `NPCAutoRoamController.DebugMoveTo(...)`，不再让 `StartRoam -> ShortPause` 污染验收；
+  2. probe 起跑前先吸到最近可走格中心，避免桥边临界像素导致第一步迈不出去；
+  3. 额外打印 `NavGrid2D.GetWorldBounds()`，把 edge 裁定落到当前实际 bounds。
+- 本轮还补了一条最小 compile unblocker：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+  - 仅把 `Object.FindFirstObjectByType` 改成 `UnityEngine.Object.FindFirstObjectByType`
+  - 目的只是解开外部 `CS0104` 编译门，不涉及 UI 行为返工。
+- fresh Play 结果：
+  1. `TraversalBlockManager2D` runtime 仍报：
+     - `npcBindings=3`
+     - `npcBounds=on`
+  2. `world_bounds`：
+     - `center=(-13.50, 10.00, 0.00)`
+     - `size=(57.00, 78.00, 0.00)`
+  3. bridge probe：
+     - `requestedStart=(-13.60, 0.30)`
+     - `actualStart=(-13.75, 0.25)`
+     - `bridge_probe_pass final=(-9.10, 1.42) sawBridgeSupport=True inWater=False`
+  4. edge probe：
+     - `requestedStart=(6.50, 2.10)`
+     - `actualStart=(6.75, 2.25)`
+     - `edge_probe_pass position=(8.02, 2.25) inBounds=True`
+  5. 总结日志：
+     - `PASS bridge+water+edge`
+- 当前判断更新：
+  1. NPC 没过桥的第一责任点已经不再是“没吃到玩家 contract”；
+  2. 当前最强证据层级已推进到：
+     - `结构证据`
+     - `targeted probe`
+  3. 这仍不是完整自然 roam 体验闭环；如果后续还要更强证明，再补真实 roam / 场景体验验证。
+- 收尾状态：
+  - Unity 已退回 `Edit Mode`
+  - 本轮已跑 `Park-Slice`
+
+## 2026-04-03｜NPC 自然 StartRoam 过桥 fresh 复判已过
+
+- 在 targeted probe 已过之后，本轮继续补“自然 roam 终验里最值钱的一刀”：只验证 `StartRoam` 下 NPC 是否也能过桥。
+- 做法：
+  1. 在 `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 新增菜单：
+     - `Tools/Codex/NPC/Run Natural Roam Bridge Probe`
+  2. 复用稳定起跑位吸附，但这次不走 `DebugMoveTo`，而是：
+     - 把 `homeAnchor` 放到桥对岸 `BridgeTarget`
+     - 调 `NPCAutoRoamController.StartRoam()`
+  3. 中途 fresh 查明过一次假失败：
+     - 不是 `NPCAutoRoamController` 不会自然起步
+     - 而是 probe 自己把 `homeAnchor` 误写成了吸附后的起点，导致 roam center 回到了桥西侧
+  4. 修正后再次 fresh 重跑。
+- fresh 结果：
+  1. `bridge_natural_probe_start npc=002 requestedStart=(-13.60, 0.30) actualStart=(-13.75, 0.25) roamCenter=(-8.80, 1.70)`
+  2. `bridge_natural_probe_pass npc=002 final=(-9.13, 1.42) sawBridgeSupport=True inWater=False state=Moving`
+- 当前判断更新：
+  1. 现在不只是 `DebugMoveTo` targeted probe 能过桥；
+  2. `StartRoam` 这条更贴近自然漫游的启动链，也已经拿到 fresh 正样本；
+  3. 因此“NPC 还没完整吃到玩家 bridge contract”这层怀疑，当前可以继续下调。
+- 仍保留的边界：
+  - 这次只补了自然桥，不等于自然 roam 的整包 bridge/water/edge 长时间体验都已终验；
+  - edge 仍主要靠前一刀 targeted probe 证据。

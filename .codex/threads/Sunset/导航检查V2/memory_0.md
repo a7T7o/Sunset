@@ -3402,3 +3402,125 @@
 - 当前恢复点：
   - 以后若继续问到本线，只需复述冻结 truth 与停车边界
   - 真正需要动作时，必须先等专用 sync-cleanup slice
+
+## 2026-04-03｜NPC 桥/水/边缘 contract 接线 checkpoint
+
+- 用户目标：
+  - 只修 NPC 接入当前玩家已认可的桥 / 水 / 边缘 traversal contract；
+  - 不重修玩家，不碰 tree lag / Tool_002 / camera / UI / Town / scene sync / binder / Inspector 配置。
+- 当前主线目标：
+  - 先查清 NPC 卡在路径规划还是实体移动，再在允许范围内把 NPC 补到等价 contract。
+- 本轮子任务与服务关系：
+  - 子任务是 `NPCAutoRoamController` + `TraversalBlockManager2D` 的最小脚本接线；
+  - 服务于“NPC 也要吃到玩家已认可 traversal contract”这条新主线。
+- 已完成事项：
+  1. 已读 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-03_导航系统_NPC桥水边缘接线prompt_01.md`
+  2. 已跑 `Begin-Slice`：
+     - slice = `npc-traversal-contract-bridge-water-bounds`
+  3. 已压实判断：
+     - `NPCMotionController` 不是第一责任点
+     - 旧 `TraversalBlockManager2D` 只绑玩家，没绑 NPC
+     - `NPCAutoRoamController` 旧逻辑缺玩家等价的桥面中心占位 / soft-pass / bounds enforcement
+  4. 已落代码：
+     - `NPCAutoRoamController.cs`
+     - `TraversalBlockManager2D.cs`
+  5. 已完成验证：
+     - `git diff --check` 通过
+     - `validate_script` 两文件 `0 error`
+     - Unity compile 后 console 仅剩既有 `DialogueUI` warning
+  6. 已跑 `Park-Slice`
+- 关键决策：
+  - 这轮先收脚本等价 contract，不偷偷写 scene；
+  - 当前最真实的结论是“结构接线成立，但 NPC 真实过桥 live 仍待验证”。
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\TraversalBlockManager2D.cs`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\memory.md`
+- 遗留问题 / 下一步：
+  - 还没补最小 live probe，所以不能把 NPC 已修好写成最终完成；
+  - 如果继续，应优先补 targeted live，必要时再精确点名 scene source 缺口。
+
+## 2026-04-03｜NPC contract targeted probe 已补
+
+- 本轮新增验证：
+  - 进入 Play Mode 后，`TraversalBlockManager2D` 实际输出：
+    - `npcBindings=3`
+    - `npcBounds=on`
+  - 随后已退回 `Edit Mode`
+- 当前判断更新：
+  - 当前证据层级从“结构 + compile”推进到“结构 + compile + runtime 绑定 targeted probe”
+  - 但仍没有直接拿到“NPC 已稳定过桥”的真实体验证据
+
+## 2026-04-03｜NPC bridge / water / edge targeted acceptance 已收口
+
+- 当前主线目标：
+  - 只收 NPC 接入当前玩家已认可的桥 / 水 / 边缘 traversal contract；
+  - 不回头重修玩家版，不做 scene 实写 claim。
+- 本轮子任务：
+  - 把最小 acceptance driver 从 `StartRoam` 改成稳定可复跑的 `DebugMoveTo` probe；
+  - 用最快方式把 NPC bridge / water / edge 的 runtime 真值压实。
+- 已完成事项：
+  1. 已继续使用并补强：
+     - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPC\CodexNpcTraversalAcceptanceProbeMenu.cs`
+  2. probe 改动要点：
+     - bridge / edge 都改走 `NPCAutoRoamController.DebugMoveTo(...)`
+     - 起跑前先吸到最近可走格中心
+     - 记录 `NavGrid2D.GetWorldBounds()`
+  3. 为解开外部 compile gate，补了一条最小限定名：
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1PromptOverlay.cs`
+     - `Object.FindFirstObjectByType` -> `UnityEngine.Object.FindFirstObjectByType`
+  4. fresh live 结果：
+     - `world_bounds center=(-13.50, 10.00, 0.00) size=(57.00, 78.00, 0.00)`
+     - `bridge_probe_pass final=(-9.10, 1.42) sawBridgeSupport=True inWater=False`
+     - `edge_probe_pass position=(8.02, 2.25) inBounds=True`
+     - `PASS bridge+water+edge`
+  5. 最小静态校验：
+     - `validate_script Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs = 0 error / 0 warning`
+     - `validate_script Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs = 0 error / 1 warning`
+     - Unity compile 已恢复可用
+  6. 现场已退回 `Edit Mode`
+  7. 已跑 `Park-Slice`
+- 关键决策：
+  - 当前最值钱的是先拿 `targeted probe` 真值，而不是再回头动 NPC 业务代码；
+  - bridge 失败时先收 probe 驱动与起跑位，不把 `ShortPause` 或桥边临界像素误判成 contract 失败；
+  - 当前可以把“NPC 已吃到等价 traversal contract”写成成立，但不能把它偷写成“完整自然 roam 体验已终验”。
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPC\CodexNpcTraversalAcceptanceProbeMenu.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\UI\SpringDay1PromptOverlay.cs`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\memory.md`
+- 遗留问题 / 下一步：
+  - 如果用户后续还要更强证据，应补“自然 roam 下的桥 / 水 / 边缘体验验证”；
+  - 否则这条线当前已经可以按“NPC contract + targeted acceptance 成立”停在 PARKED。
+
+## 2026-04-03｜自然 StartRoam 过桥 fresh 正样本已补
+
+- 当前主线目标：
+  - 在不重修玩家版的前提下，把 NPC 接入玩家已认可 traversal contract 的证据再往前推一层；
+  - 本轮子任务只锁“自然 `StartRoam` 下 NPC 是否也能过桥”。
+- 已完成事项：
+  1. `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs`
+     - 新增 `Tools/Codex/NPC/Run Natural Roam Bridge Probe`
+     - 仍沿用稳定起跑位吸附
+     - 但真正调用 `NPCAutoRoamController.StartRoam()`
+  2. fresh 查明一处 probe 自己的真问题：
+     - 之前把 `homeAnchor` 误写成吸附后的起点
+     - 导致自然 roam 的 center 回到桥西侧，报出假 `ShortPause` 失败
+  3. 修正后再次 fresh 重跑，拿到：
+     - `bridge_natural_probe_start npc=002 requestedStart=(-13.60, 0.30) actualStart=(-13.75, 0.25) roamCenter=(-8.80, 1.70)`
+     - `bridge_natural_probe_pass npc=002 final=(-9.13, 1.42) sawBridgeSupport=True inWater=False state=Moving`
+  4. `validate_script Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs = 0 error / 0 warning`
+  5. Unity 已退回 `Edit Mode`
+  6. 本轮已跑 `Park-Slice`
+- 关键决策：
+  - 自然桥失败先不怀疑业务代码，而是先查 probe 自身有没有把 `homeAnchor / roamCenter` 接错；
+  - 当前最强结论已经从“targeted probe 成立”推进到“targeted probe + 自然 StartRoam 桥段正样本成立”。
+- 涉及路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\NPC\CodexNpcTraversalAcceptanceProbeMenu.cs`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\memory.md`
+- 遗留问题 / 下一步：
+  - 如果还要继续补强，最合理的下一步只剩“自然 roam 下 edge / 长时间体验验证”；
+  - 当前无需回头再修 NPC contract 主代码，也不该重修玩家版。
