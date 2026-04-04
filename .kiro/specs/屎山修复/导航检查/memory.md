@@ -8961,3 +8961,25 @@
 - 仍保留的边界：
   - 这次只补了自然桥，不等于自然 roam 的整包 bridge/water/edge 长时间体验都已终验；
   - edge 仍主要靠前一刀 targeted probe 证据。
+
+## 2026-04-04｜归仓分账：当前只先提交合法 memory 子集
+
+- 本轮用户要求先把“当前工作区里所有可以提交的内容”优先提交。
+- fresh 分账结果：
+  1. 当前真正能合法单独提交的是：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\memory_0.md`
+  2. 当前不能跟着一起提的，主要有两类：
+     - `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 所在 `Assets/Editor/NPC` 根下混有他线 dirty/untracked
+     - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` 本体混有 `spring-day1` 线程的更大改动，不适合由本线吞并
+- 本轮 git-safe-sync 结果：
+  1. `Ready-To-Sync` 对上述 memory 子集已通过
+  2. 已创建本地提交：
+     - `0fdd8a7c`
+     - `2026.04.04_导航检查V2_01`
+  3. push 未成功，原因不是代码闸门，而是远端网络 / 代理：
+     - 全局 git 配置仍指向 `127.0.0.1:7897`
+     - 临时绕过代理后，直接连 GitHub 也出现 `Recv failure: Connection was reset`
+- 当前结论：
+  - “能合法提交的内容”已经先做成本地 commit；
+  - 远端 push 仍是外部网络 blocker，不应据此回退本轮归仓判断。

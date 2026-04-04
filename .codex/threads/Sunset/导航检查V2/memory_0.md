@@ -3524,3 +3524,29 @@
 - 遗留问题 / 下一步：
   - 如果还要继续补强，最合理的下一步只剩“自然 roam 下 edge / 长时间体验验证”；
   - 当前无需回头再修 NPC contract 主代码，也不该重修玩家版。
+
+## 2026-04-04｜提交分账：本轮只先交合法 memory 子集
+
+- 当前主线目标：
+  - 用户要求“先提交当前工作区里所有可以提交的内容”；
+  - 因此本轮不再扩功能，先做归仓分账。
+- 已完成事项：
+  1. 已重新跑 `Begin-Slice`
+  2. 已把可提交范围收缩成：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\导航检查V2\memory_0.md`
+  3. `Ready-To-Sync` 对这两项已通过
+  4. 已用 `sunset-git-safe-sync.ps1` 创建本地提交：
+     - `0fdd8a7c`
+     - `2026.04.04_导航检查V2_01`
+- 关键分账判断：
+  - `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 当前不能跟着提，因为 `Assets/Editor/NPC` 根下混有他线 dirty / untracked
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs` 也不能由本线直接提交，因为当前文件内混有 `spring-day1` 更大改动
+  - 所以本轮“所有可以提交的内容”只成立到 memory 子集，不包括这些代码根
+- push 结果：
+  1. 默认 push 被全局 git proxy `127.0.0.1:7897` 挡住
+  2. 临时绕过 proxy 后，直接连 GitHub 仍报 `Recv failure: Connection was reset`
+  3. 结论：当前 blocker 是外部网络 / 代理，不是 repo 规则或代码闸门
+- 现场状态：
+  - 本轮已跑 `Park-Slice`
+  - 当前停在“本地 commit 已完成，远端 push 被网络挡住”的 checkpoint
