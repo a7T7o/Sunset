@@ -11667,3 +11667,75 @@
      - 清掉 / 拆走 `Assets/YYY_Scripts/Service` 与 `Assets/YYY_Scripts/Data/Core` 下剩余 `Codex规则落地` own dirty
      - 或者另起更大的同根收口 slice，一次把同根 own 改动成组收完
   3. 在此之前，这条 Town 代码线只能报 `blocker`，不能 claim `sync-ready`
+
+## 2026-04-05｜Town 场景健康 live 复核：Town 磁盘 scene 可开，真实新 blocker 缩成 CloudShadowManager 卸载态与外线编译红
+
+- 当前主线目标：
+  - 继续把 `Town` 这条线收成“可稳定承接后续消费”的基础设施基线，但不回漂到 `Primary`、`spring-day1`、广义 UI 或相机外线。
+- 这轮实际做成了什么：
+  1. 重新按 `CLI first` 取证，确认当前 Unity 现场反复处于 `PlayMode transition / stale status`，因此改用 direct MCP 只做最小读写，不碰 `Primary` 内容。
+  2. 纠正了上一轮一个关键误判：
+     - `Town.unity` 中脚本 GUID 并没有“缺 18 个脚本”；
+     - 把 `Library/PackageCache` 纳入后，场景里的 77 个 `m_Script guid` 全部都能解析到 `UGUI / TMP / 项目脚本`。
+  3. direct MCP 实测打开 `Town` 后，场景本体给出稳定 hierarchy：
+     - active scene = `Assets/000_Scenes/Town.unity`
+     - rootCount = `10`
+     - `Main Camera` 为 root，`AudioListener.enabled = true`
+     - `UI / DialogueCanvas / EventSystem / CinemachineCamera` 均能直接读取组件明细
+  4. fresh console 复核结果被重新压实：
+     - 在 `Edit Mode` 下清空 console，执行 `Primary -> Town` load 后，不再复现 `Broken PPtr / dangling Transform / no audio listener / frustum`；
+     - 初次 fresh console 只剩 `CloudShadowManager` 场景切换卸载时的 `MissingReferenceException`；
+     - 我已在 `Assets/YYY_Scripts/Service/Rendering/CloudShadowManager.cs` 补最小防守：`OnDisable` 先退订 editor update，再做清理；`ClearCloudsForInactiveState / DestroyEditorCloudObjects` 增加 destroyed-self guard。
+     - 补后再次 `Primary -> Town` fresh load，`CloudShadowManager` 的卸载态异常不再复现。
+  5. 当前 fresh console 剩余唯一可稳定复现的红错，已经不是 Town 本体，而是：
+     - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs(1694,23): error CS0034`
+     - 其 live owner 已对照 active-thread 状态钉到：`农田交互修复V3`
+  6. 只读确认 Town 编辑态里不存在：
+     - `PersistentManagers`
+     - `[PersistentObjectRegistry]`
+     - `PersistentObjectRegistry`
+     - `TimeManager / SeasonManager / WeatherSystem`
+     这说明用户此前在 play 中看到的 duplicate/runtime manager warning，不是 `Town.unity` 自带 scene wiring。
+- 当前判断：
+  - `Town.unity` 当前不能再被定性成“磁盘版 scene 自身损坏”；
+  - `audio listener` warning 也不能再归因到 Town scene wiring，因为 edit-mode 直开 Town 时 `Main Camera + AudioListener` 明确存在且启用；
+  - Town 自线现在更接近“场景承载基线已站住，剩余 blocker 主要是外线 runtime / compile / camera / UI”。
+- 这轮留下的风险与边界：
+  - 我这轮为了压实 Town 结论，临时触碰了 `CloudShadowManager.cs`；但 active-thread 状态显示它当前仍是 `云朵与光影` 线程 own 文件，因此这份改动必须按 cross-thread 风险报实，不能静默 claim 成 Town 独占收口。
+  - 当前 shared root 仍存在外线 compile red：`PlacementManager.cs`，因此这轮不能宣称 `Town` 已 no-red，也不能直接 `sync-ready`。
+- 当前阶段：
+  - `Town` 自己的 scene health 从“疑似磁盘坏场景”推进到了“live 可开且主故障已缩成外线 matrix”；
+  - 治理线程当前 slice 已 `PARKED`。
+- 当前恢复点：
+  1. 若后续继续按 Town 自线收尾，优先做的是 blocker 重新裁定，而不是再去删改 `Town.unity`。
+  2. 当前剩余应继续精确归属的外线：
+     - `PlacementManager.cs` compile red -> `农田交互修复V3`
+     - Town `frustum / camera follow` -> `工具-V1线程`
+     - Town 中文 DialogueUI/字体链 -> `UI`
+
+## 2026-04-05｜Town blocker matrix 已按最新 live 证据重裁，scene health 子线正式降级，农田 compile red prompt 已落盘
+
+- 当前主线目标：
+  - 把 `Town` 从“自己继续修自己”切到“自己基线已站住、剩余 blocker 精确交回外线 owner”的治理状态。
+- 这轮实际做成了什么：
+  1. 新增 Town 重裁定文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_Town场景健康live复核与blocker重裁定_03.md`
+  2. 新增农田线精确 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给农田交互修复V3_Town编译阻断之Placement红错_01.md`
+  3. Town 总闸结论正式更新为：
+     - `Town.unity` 自身场景健康不再是真 blocker
+     - `Main Camera + AudioListener` 的存在已被 live 证实
+     - 当前 Town 继续未过线的真 blocker 只剩：
+       - `工具-V1线程` 的 camera/runtime follow
+       - `UI` 的中文 DialogueUI / 字体链
+       - `农田交互修复V3` 的 `PlacementManager.cs` compile red
+  4. `Codex规则落地` 自续工的 `Town scene health` 子线现在已明确判入：
+     - `无需继续发`
+- 当前判断：
+  - Town 自线当前最值钱的工作已经从“继续盲改 scene / manager”切成“维护最新 blocker 裁定与精确交锅”。
+- 当前阶段：
+  - 当前 slice 已 `PARKED`
+  - 接下来若继续 Town 主线，应优先围绕外线回执继续裁定，不该再自行下场重改 `Town.unity`
+- 恢复点：
+  - 若用户要转发农田线，现在已有可直接发的 prompt 文件；
+  - 若用户继续让我守 Town，总闸已可直接沿用这份 `03` 裁定。

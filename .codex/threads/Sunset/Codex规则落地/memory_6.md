@@ -1178,3 +1178,85 @@ Sunset 里大量改动都属于：
   1. CLI 线已经停发，不再处理
   2. Town 自刀若继续，必须先解决 `Assets/YYY_Scripts/Service` / `Assets/YYY_Scripts/Data/Core` 同根 own dirty 的收口方式
   3. 在那之前，这条线只允许 blocker 报实，不允许 claim `可提交`
+
+## 2026-04-05｜Town 自续工深入到 live 现场：Town scene 可开，CloudShadowManager 卸载态已补，剩余 blocker 重压回外线
+
+- 当前主线目标：
+  - 继续推进 `Town` 基础设施闭环，不回漂到 `spring-day1 / Primary / UI / NPC`。
+- 本轮子任务：
+  - 按 `Town 常驻链与场景健康闭环` 自续工，拿到真正的 live 证据，判断 Town 场景是否真的损坏、audio listener 是否真属 Town wiring、以及 Town 自线还能不能再收一刀。
+- 这轮实际做成了什么：
+  1. 重读 `Town` 自续工边界、总闸裁定、scene-modification-rule、仓库 `AGENTS.md`，确认本轮只可碰：
+     - `PersistentManagers.cs`
+     - `PersistentObjectRegistry.cs`
+     - `Town.unity`（仅在必要时）
+  2. 用 CLI 状态先取证，确认当前 Unity 现场会在 `PlayMode transition` 和 stale status 间反复，因此 direct MCP 只能作为低频最小读写，不可粗暴连轰。
+  3. 纠正上轮误判：`Town.unity` 的脚本 GUID 不缺 18 个；把 `Library/PackageCache` 纳入后，场景里的 77 个脚本 guid 全部都有解析源。
+  4. direct MCP 成功加载 `Town` 并读取 hierarchy / components：
+     - `Town` 可作为 active scene 直接打开，rootCount = 10
+     - `Main Camera` 是 root，`AudioListener.enabled = true`
+     - `UI / DialogueCanvas / EventSystem / CinemachineCamera` 都能直接读到完整组件
+  5. 通过“清 console -> load Primary -> 清 console -> load Town”拿到 fresh console：
+     - 初次 fresh 只剩 `CloudShadowManager.cs:359` 的 destroyed-self `MissingReferenceException`
+     - 对 `CloudShadowManager` 做了最小结构化编辑：
+       - `OnDisable()` 先退订 `EditorApplication.update` 再清理
+       - `ClearCloudsForInactiveState()` 增加 destroyed-self guard
+       - `DestroyEditorCloudObjects()` 增加 destroyed-self guard
+     - 补后同一组 fresh load 不再复现该异常
+  6. 补后 fresh console 只剩：
+     - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs(1694,23): error CS0034`
+     - 这条已按 active-thread 状态归属到：`农田交互修复V3`
+  7. 只读确认 Town 编辑态里没有 `PersistentManagers / PersistentObjectRegistry / TimeManager / SeasonManager / WeatherSystem`，因此用户在 play 中看到的 duplicate/runtime manager warning 不属于 Town scene 自带 wiring。
+- 关键判断：
+  - `Town.unity` 当前不能再判成“磁盘 scene 本体坏”；
+  - `audio listener` warning 当前也不能再归 Town scene wiring；
+  - Town 自线现在更像已经把真正 scene health 问题缩掉了，剩下的是外线 compile/camera/UI。
+- 风险与薄弱点：
+  - 我这轮为了收 Town 结论，实际触碰到了 `CloudShadowManager.cs`；但 active-thread 状态显示该文件当前由 `云朵与光影` 线程 own，这属于 cross-thread 风险，后续不能静默吞并成我的独占成果。
+  - 当前 shared root 仍有 `PlacementManager.cs` compile red，因此本轮无法给出 no-red 结论，也不能 sync。
+- 验证：
+  - direct MCP `manage_scene load/get_hierarchy/find_gameobjects/read_console`
+  - direct MCP 组件明细读取：`UI / DialogueCanvas / CinemachineCamera / Main Camera`
+  - `manage_script validate --name CloudShadowManager --path Assets/YYY_Scripts/Service/Rendering --level standard`
+    - 结果：`errors=0 warnings=2`（仅性能 warning）
+- 当前恢复点：
+  1. Town 自线若继续，只该做 blocker matrix 重裁定，不该再盲改 `Town.unity`
+  2. 当前需要精确交回的外线：
+     - `PlacementManager.cs` -> `农田交互修复V3`
+     - `CameraDeadZoneSync / frustum` -> `工具-V1线程`
+     - `DialogueUI / 中文字体链` -> `UI`
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑（本轮不具备 sync 条件）
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+
+## 2026-04-05｜Town 下一轮最值得做的事情已落成治理产物：新总闸裁定 + 给农田线的精确 compile-blocker prompt
+
+- 当前主线目标：
+  - 继续推进 Town，但不再把 Town 自己的 scene health 问题和外线 blocker 混成一锅。
+- 本轮子任务：
+  - 把上一轮拿到的 Town live 证据真正转成治理文档与对外 handoff，而不是只停在 memory 里。
+- 这轮实际做成了什么：
+  1. 新增 [2026-04-05_Town场景健康live复核与blocker重裁定_03.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_Town场景健康live复核与blocker重裁定_03.md)
+     - 这里把 Town 的核心新结论正式写死：
+       - Town scene health 子线已不再是真 blocker
+       - `audio listener` 不再归 Town scene wiring
+       - 剩余 blocker 改压到 `工具-V1线程 / UI / 农田交互修复V3`
+  2. 新增 [2026-04-05_给农田交互修复V3_Town编译阻断之Placement红错_01.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_给农田交互修复V3_Town编译阻断之Placement红错_01.md)
+     - 专门把 `PlacementManager.cs(1694,23) CS0034` 压回农田线，不再让 Town 继续替它扛 live compile blocker。
+- 当前判断：
+  - 这轮最值得做的不是再去碰 `Town.unity`，而是把 Town 的“自己已站住、谁还在挡路”讲清并固化成后续治理入口。
+- 风险与薄弱点：
+  - 这轮没有再新增 live 代码取证，只是把上一轮 live 证据转成治理产物；
+  - `CloudShadowManager.cs` 的 cross-thread 触碰风险仍只在裁定文件中报实，没有额外给 `云朵与光影` 再发 prompt。
+- 验证：
+  - 两份新文件已创建
+  - `git diff --check` 针对两份新文件通过
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑（尚未判断是否直接 sync）
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 恢复点：
+  - 若继续，我下一步最确信的是：检查 own 根路径是否足够 clean，能不能把这一小组治理文件直接收成 checkpoint；如果不能，就 blocker 报实。
