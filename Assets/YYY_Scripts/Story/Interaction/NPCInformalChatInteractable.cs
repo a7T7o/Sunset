@@ -29,8 +29,8 @@ namespace Sunset.Story
         [SerializeField] private NPCAutoRoamController autoRoamController;
         [SerializeField] private NPCMotionController motionController;
         [SerializeField] private NPCBubblePresenter bubblePresenter;
+        [SerializeField] private NPCDialogueInteractable dialogueInteractable;
 
-        private float _lastKeyInteractionAt = -999f;
         private bool _resumeRoamAfterChat;
 
         public int InteractionPriority => interactionPriority;
@@ -91,6 +91,7 @@ namespace Sunset.Story
 
         private void OnDisable()
         {
+            SpringDay1WorldHintBubble.HideIfExists(transform);
             NpcWorldHintBubble.HideIfExists(transform);
         }
 
@@ -110,30 +111,7 @@ namespace Sunset.Story
                 return;
             }
 
-            UpdateHintBubble(context);
-
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() || !enableProximityKeyInteraction || !Input.GetKeyDown(proximityInteractionKey))
-            {
-                return;
-            }
-
-            if (Time.unscaledTime - _lastKeyInteractionAt < keyInteractionCooldown)
-            {
-                return;
-            }
-
-            if (GetBoundaryDistance(context.PlayerPosition) > interactionDistance)
-            {
-                return;
-            }
-
-            if (!CanInteract(context))
-            {
-                return;
-            }
-
-            _lastKeyInteractionAt = Time.unscaledTime;
-            OnInteract(context);
+            ReportProximityInteraction(context);
         }
 
         public bool CanInteract(InteractionContext context)
@@ -154,6 +132,12 @@ namespace Sunset.Story
             }
 
             Component sessionService = ResolveSessionService(context);
+            if (!InvokeSessionBool(sessionService, "IsConversationActiveWith", this)
+                && ShouldYieldToDialogueCandidate(context))
+            {
+                return false;
+            }
+
             return sessionService == null || InvokeSessionBool(sessionService, "CanRouteInteractable", this);
         }
 
@@ -271,39 +255,58 @@ namespace Sunset.Story
             autoRoamController ??= GetComponent<NPCAutoRoamController>();
             motionController ??= GetComponent<NPCMotionController>();
             bubblePresenter ??= GetComponent<NPCBubblePresenter>();
+            dialogueInteractable ??= GetComponent<NPCDialogueInteractable>();
         }
 
-        private void UpdateHintBubble(InteractionContext context)
+        private void ReportProximityInteraction(InteractionContext context)
         {
+            if (!enableProximityKeyInteraction)
+            {
+                SpringDay1WorldHintBubble.HideIfExists(transform);
+                return;
+            }
+
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() || (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive))
             {
-                NpcWorldHintBubble.HideIfExists(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             Component sessionService = ResolveSessionService(context);
             bool isActiveConversationTarget = InvokeSessionBool(sessionService, "IsConversationActiveWith", this);
-            if (!isActiveConversationTarget && !CanInteract(context))
+            bool canInteractNow = CanInteract(context);
+            if (!isActiveConversationTarget && !canInteractNow)
             {
-                NpcWorldHintBubble.HideIfExists(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
-            if (GetBoundaryDistance(context.PlayerPosition) > bubbleRevealDistance)
+            float boundaryDistance = GetBoundaryDistance(context.PlayerPosition);
+            float revealDistance = isActiveConversationTarget
+                ? Mathf.Max(bubbleRevealDistance, SessionBreakDistance)
+                : Mathf.Max(bubbleRevealDistance, interactionDistance);
+            if (boundaryDistance > revealDistance)
             {
-                NpcWorldHintBubble.HideIfExists(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             string caption = InvokeSessionString(sessionService, "GetPromptCaption", bubbleCaption, this);
             string detail = InvokeSessionString(sessionService, "GetPromptDetail", bubbleDetail, this);
 
-            NpcWorldHintBubble.EnsureRuntime();
-            NpcWorldHintBubble.Instance.Show(
+            SpringDay1ProximityInteractionService.ReportCandidate(
                 transform,
+                proximityInteractionKey,
                 proximityInteractionKey.ToString(),
                 caption,
-                detail);
+                detail,
+                boundaryDistance,
+                interactionPriority,
+                keyInteractionCooldown,
+                isActiveConversationTarget || (boundaryDistance <= interactionDistance && canInteractNow),
+                () => OnInteract(context),
+                forceFocus: isActiveConversationTarget,
+                showWorldIndicator: false);
         }
 
         private InteractionContext BuildInteractionContext()
@@ -327,6 +330,23 @@ namespace Sunset.Story
             return SpringDay1UiLayerUtility.TryGetPresentationBounds(transform, out Bounds bounds)
                 ? bounds
                 : new Bounds(transform.position, Vector3.one);
+        }
+
+        private bool ShouldYieldToDialogueCandidate(InteractionContext context)
+        {
+            if (context == null || dialogueInteractable == null || !dialogueInteractable.isActiveAndEnabled)
+            {
+                return false;
+            }
+
+            if (!dialogueInteractable.CanInteract(context))
+            {
+                return false;
+            }
+
+            float dialogueDistance = dialogueInteractable.GetBoundaryDistance(context.PlayerPosition);
+            float revealDistance = Mathf.Max(bubbleRevealDistance, dialogueInteractable.InteractionDistance);
+            return dialogueDistance <= revealDistance;
         }
 
         private static Component ResolveSessionService(InteractionContext context)

@@ -13,12 +13,20 @@ namespace Sunset.Story
 {
     public class DialogueUI : MonoBehaviour
     {
+        private static readonly string[] PreferredDialogueFontResourcePaths =
+        {
+            "Fonts & Materials/DialogueChinese Pixel SDF",
+            "Fonts & Materials/DialogueChinese SDF",
+            "Fonts & Materials/DialogueChinese SoftPixel SDF"
+        };
+
         #region Serialized Fields
         [Header("UI References")]
         [SerializeField] private GameObject root;
         [SerializeField] private TextMeshProUGUI speakerNameText;
         [SerializeField] private TextMeshProUGUI dialogueText;
         [SerializeField] private Button continueButton;
+        [SerializeField] private TextMeshProUGUI continueButtonLabel;
         [SerializeField] private Image portraitImage;
         [SerializeField] private Image backgroundImage;
         [SerializeField] private CanvasGroup canvasGroup;
@@ -63,8 +71,10 @@ namespace Sunset.Story
         private float _originalBackgroundAlpha = 1.0f;
         private float _dialogueBaseFontSize;
         private float _speakerBaseFontSize;
+        private float _continueButtonBaseFontSize;
         private float _dialogueBaseLineSpacing;
         private Color _dialogueBaseColor = Color.white;
+        private Color _continueButtonBaseColor = Color.white;
         private FontStyles _dialogueBaseFontStyle = FontStyles.Normal;
         private float _testStatusBaseFontSize;
         private RectTransform _testStatusContainer;
@@ -93,6 +103,7 @@ namespace Sunset.Story
             EnsureTestStatusText();
             ConfigureInteractionSurfaces();
             CacheBasePresentation();
+            EnsureUsableRuntimeFonts();
             InitializeHiddenState();
             _dialogueManager = DialogueManager.Instance;
         }
@@ -109,6 +120,8 @@ namespace Sunset.Story
             }
 
             InitializeHiddenState();
+            _dialogueManager = DialogueManager.Instance ?? _dialogueManager;
+            TryRecoverActiveDialogueVisibility(immediate: _dialogueManager != null && _dialogueManager.IsDialogueActive);
         }
 
         private void OnDisable()
@@ -146,13 +159,24 @@ namespace Sunset.Story
                 _dialogueManager = DialogueManager.Instance;
             }
 
+            if (_dialogueManager != null &&
+                _dialogueManager.IsDialogueActive &&
+                _fadeCoroutine == null &&
+                (!_isVisible || (canvasGroup != null && canvasGroup.alpha <= 0.001f)))
+            {
+                TryRecoverActiveDialogueVisibility(immediate: true);
+            }
+
             if (_isVisible && _dialogueManager != null && dialogueText != null)
             {
                 if (dialogueText.text != _dialogueManager.CurrentTypedText)
                 {
                     dialogueText.text = _dialogueManager.CurrentTypedText;
+                    dialogueText.ForceMeshUpdate();
                 }
 
+                StabilizeAssignedFont(dialogueText, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
+                StabilizeAssignedFont(speakerNameText, _speakerBaseFontSize, 0f);
                 UpdateTestStatusText();
             }
 
@@ -200,6 +224,8 @@ namespace Sunset.Story
         {
             _isVisible = true;
             _advanceInputReadyTime = Time.unscaledTime + Mathf.Max(0f, anyKeyAdvanceDebounce);
+            EnsureDialogueVisualComponentsReady();
+            EnsureUsableRuntimeFonts();
             StartVisibilityTransition(true);
         }
 
@@ -297,6 +323,11 @@ namespace Sunset.Story
                 {
                     continueButton = buttonTransform.GetComponent<Button>();
                 }
+            }
+
+            if (continueButtonLabel == null && continueButton != null)
+            {
+                continueButtonLabel = continueButton.GetComponentInChildren<TextMeshProUGUI>(true);
             }
 
             if (backgroundImage == null)
@@ -458,10 +489,14 @@ namespace Sunset.Story
                     continueButton.targetGraphic.raycastTarget = true;
                 }
 
-                TextMeshProUGUI buttonLabel = continueButton.GetComponentInChildren<TextMeshProUGUI>(true);
-                if (buttonLabel != null && buttonLabel.transform != continueButton.transform)
+                if (continueButtonLabel == null)
                 {
-                    buttonLabel.raycastTarget = false;
+                    continueButtonLabel = continueButton.GetComponentInChildren<TextMeshProUGUI>(true);
+                }
+
+                if (continueButtonLabel != null && continueButtonLabel.transform != continueButton.transform)
+                {
+                    continueButtonLabel.raycastTarget = false;
                 }
             }
         }
@@ -486,9 +521,91 @@ namespace Sunset.Story
                 _speakerBaseFontSize = speakerNameText.fontSize;
             }
 
+            if (continueButtonLabel != null)
+            {
+                _continueButtonBaseFontSize = continueButtonLabel.fontSize;
+                _continueButtonBaseColor = continueButtonLabel.color;
+            }
+
             if (testStatusText != null)
             {
                 _testStatusBaseFontSize = testStatusText.fontSize;
+            }
+        }
+
+        private void EnsureUsableRuntimeFonts()
+        {
+            EnsureDialogueVisualComponentsReady();
+            StabilizeAssignedFont(dialogueText, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
+            StabilizeAssignedFont(speakerNameText, _speakerBaseFontSize, 0f);
+            StabilizeAssignedFont(continueButtonLabel, _continueButtonBaseFontSize, 0f);
+            StabilizeAssignedFont(testStatusText, _testStatusBaseFontSize, 0f);
+            EnsureContinueButtonReadable();
+        }
+
+        private void EnsureDialogueVisualComponentsReady()
+        {
+            EnsureContinueButtonLabelReference();
+            EnsureTextComponentReady(dialogueText, forceActive: true);
+            EnsureTextComponentReady(speakerNameText, forceActive: false);
+            EnsureTextComponentReady(continueButtonLabel, forceActive: continueButton != null && continueButton.gameObject.activeInHierarchy);
+            EnsureTextComponentReady(testStatusText, forceActive: false);
+        }
+
+        private void EnsureContinueButtonLabelReference()
+        {
+            if (continueButton == null)
+            {
+                return;
+            }
+
+            if (continueButtonLabel == null)
+            {
+                continueButtonLabel = continueButton.GetComponentInChildren<TextMeshProUGUI>(true);
+            }
+
+            if (continueButtonLabel != null)
+            {
+                return;
+            }
+
+            GameObject labelObject = new GameObject("Label", typeof(RectTransform));
+            labelObject.transform.SetParent(continueButton.transform, false);
+
+            RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+            labelRect.anchorMin = Vector2.zero;
+            labelRect.anchorMax = Vector2.one;
+            labelRect.offsetMin = Vector2.zero;
+            labelRect.offsetMax = Vector2.zero;
+
+            continueButtonLabel = labelObject.AddComponent<TextMeshProUGUI>();
+            continueButtonLabel.alignment = TextAlignmentOptions.Center;
+            continueButtonLabel.raycastTarget = false;
+            continueButtonLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            continueButtonLabel.overflowMode = TextOverflowModes.Overflow;
+            continueButtonLabel.color = _continueButtonBaseColor.a > 0.01f
+                ? _continueButtonBaseColor
+                : Color.white;
+            continueButtonLabel.fontSize = _continueButtonBaseFontSize > 0.01f
+                ? _continueButtonBaseFontSize
+                : 16f;
+        }
+
+        private static void EnsureTextComponentReady(TextMeshProUGUI target, bool forceActive)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            if (forceActive && !target.gameObject.activeSelf)
+            {
+                target.gameObject.SetActive(true);
+            }
+
+            if (!target.enabled)
+            {
+                target.enabled = true;
             }
         }
 
@@ -497,6 +614,54 @@ namespace Sunset.Story
             SetCanvasState(0f, false, false);
             ClearContinueButtonSelection();
             ClearVisibleContent();
+        }
+
+        private void TryRecoverActiveDialogueVisibility(bool immediate)
+        {
+            if (_dialogueManager == null)
+            {
+                _dialogueManager = DialogueManager.Instance;
+            }
+
+            if (_dialogueManager == null || !_dialogueManager.IsDialogueActive)
+            {
+                return;
+            }
+
+            _isVisible = true;
+            _advanceInputReadyTime = Time.unscaledTime + Mathf.Max(0f, anyKeyAdvanceDebounce);
+
+            if (_dialogueManager.CurrentNode != null)
+            {
+                OnDialogueNodeChanged(new DialogueNodeChangedEvent
+                {
+                    Node = _dialogueManager.CurrentNode
+                });
+            }
+
+            if (dialogueText != null)
+            {
+                dialogueText.text = _dialogueManager.CurrentTypedText;
+                dialogueText.ForceMeshUpdate();
+            }
+
+            EnsureUsableRuntimeFonts();
+            UpdateTestStatusText();
+
+            if (immediate)
+            {
+                if (_fadeCoroutine != null)
+                {
+                    StopCoroutine(_fadeCoroutine);
+                    _fadeCoroutine = null;
+                }
+
+                SetCanvasState(1f, true, true);
+                UpdateContinueButtonSelection(true);
+                return;
+            }
+
+            StartVisibilityTransition(true);
         }
 
         private void RestoreDefaultPresentation()
@@ -580,8 +745,13 @@ namespace Sunset.Story
             if (visible)
             {
                 CaptureNonDialogueUiSnapshots();
+                EnsureDialogueVisualComponentsReady();
+                EnsureUsableRuntimeFonts();
+                float from = canvasGroup != null ? canvasGroup.alpha : 0f;
+                SetCanvasState(from, false, false);
+                UpdateContinueButtonSelection(false);
                 yield return FadeNonDialogueUi(false, Mathf.Max(0f, otherUiFadeOutDuration));
-                yield return FadeDialogueCanvas(0f, 1f, Mathf.Max(0f, fadeInDuration), true);
+                yield return FadeDialogueCanvas(from, 1f, Mathf.Max(0f, fadeInDuration), true);
             }
             else
             {
@@ -982,7 +1152,51 @@ namespace Sunset.Story
 
             ApplyFontToText(dialogueText, dialogueFontKey, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
             ApplyFontToText(speakerNameText, speakerFontKey, _speakerBaseFontSize, 0f);
+            ApplyFontToText(continueButtonLabel, defaultFontKey, _continueButtonBaseFontSize, 0f);
             ApplyFontToText(testStatusText, defaultFontKey, _testStatusBaseFontSize, 0f);
+        }
+
+        private void NormalizeContinueButtonCopy()
+        {
+            if (continueButtonLabel == null)
+            {
+                return;
+            }
+
+            string current = continueButtonLabel.text != null ? continueButtonLabel.text.Trim() : string.Empty;
+            if (string.IsNullOrWhiteSpace(current)
+                || string.Equals(current, "jixu", System.StringComparison.OrdinalIgnoreCase)
+                || string.Equals(current, "continue", System.StringComparison.OrdinalIgnoreCase))
+            {
+                continueButtonLabel.text = "继续";
+                continueButtonLabel.ForceMeshUpdate();
+            }
+        }
+
+        private void EnsureContinueButtonReadable()
+        {
+            EnsureContinueButtonLabelReference();
+            if (continueButtonLabel == null)
+            {
+                return;
+            }
+
+            EnsureTextComponentReady(continueButtonLabel, forceActive: continueButton != null && continueButton.gameObject.activeInHierarchy);
+            NormalizeContinueButtonCopy();
+            continueButtonLabel.raycastTarget = false;
+            continueButtonLabel.textWrappingMode = TextWrappingModes.NoWrap;
+            continueButtonLabel.overflowMode = TextOverflowModes.Overflow;
+
+            Color targetColor = _continueButtonBaseColor.a > 0.01f
+                ? _continueButtonBaseColor
+                : continueButtonLabel.color;
+            if (targetColor.a < 0.98f)
+            {
+                targetColor.a = 1f;
+            }
+
+            continueButtonLabel.color = targetColor;
+            continueButtonLabel.ForceMeshUpdate();
         }
 
         private void ApplyFontToText(TextMeshProUGUI target, string key, float baseFontSize, float baseLineSpacing)
@@ -992,22 +1206,106 @@ namespace Sunset.Story
                 return;
             }
 
-            if (!fontLibrary.TryGetEntry(key, out DialogueFontLibrarySO.FontEntry entry) || entry == null)
+            DialogueFontLibrarySO.FontEntry entry = null;
+            if (fontLibrary != null)
             {
-                return;
+                fontLibrary.TryGetEntry(key, out entry);
             }
 
-            if (entry.fontAsset != null)
+            TMP_FontAsset resolvedFont = ResolveUsableDialogueFont(entry, target.text);
+            if (resolvedFont != null)
             {
-                target.font = entry.fontAsset;
+                target.font = resolvedFont;
+                if (resolvedFont.material != null)
+                {
+                    target.fontSharedMaterial = resolvedFont.material;
+                }
             }
 
             if (baseFontSize > 0f)
             {
-                target.fontSize = baseFontSize + entry.fontSizeOffset;
+                target.fontSize = baseFontSize + (entry != null ? entry.fontSizeOffset : 0f);
             }
 
-            target.lineSpacing = baseLineSpacing + entry.lineSpacingOffset;
+            target.lineSpacing = baseLineSpacing + (entry != null ? entry.lineSpacingOffset : 0f);
+        }
+
+        private void StabilizeAssignedFont(TextMeshProUGUI target, float baseFontSize, float baseLineSpacing)
+        {
+            if (target == null || IsFontAssetUsable(target.font))
+            {
+                return;
+            }
+
+            TMP_FontAsset fallbackFont = ResolveUsableDialogueFont(null, target.text);
+            if (fallbackFont == null)
+            {
+                return;
+            }
+
+            target.font = fallbackFont;
+            if (fallbackFont.material != null)
+            {
+                target.fontSharedMaterial = fallbackFont.material;
+            }
+
+            if (baseFontSize > 0f)
+            {
+                target.fontSize = baseFontSize;
+            }
+
+            target.lineSpacing = baseLineSpacing;
+            target.ForceMeshUpdate();
+        }
+
+        private static TMP_FontAsset ResolveUsableDialogueFont(DialogueFontLibrarySO.FontEntry entry, string currentText)
+        {
+            if (entry != null && IsFontAssetUsable(entry.fontAsset))
+            {
+                return entry.fontAsset;
+            }
+
+            for (int index = 0; index < PreferredDialogueFontResourcePaths.Length; index++)
+            {
+                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredDialogueFontResourcePaths[index]);
+                if (IsFontAssetUsable(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            TMP_FontAsset defaultFont = TMP_Settings.defaultFontAsset;
+            if (IsFontAssetUsable(defaultFont))
+            {
+                return defaultFont;
+            }
+
+            return null;
+        }
+
+        private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)
+        {
+            if (fontAsset == null || fontAsset.material == null)
+            {
+                return false;
+            }
+
+            Texture[] atlasTextures = fontAsset.atlasTextures;
+            if (atlasTextures == null || atlasTextures.Length == 0)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < atlasTextures.Length; index++)
+            {
+                Texture atlasTexture = atlasTextures[index];
+                if (atlasTexture != null && atlasTexture.width > 1 && atlasTexture.height > 1)
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private void UpdateTestStatusText()

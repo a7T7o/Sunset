@@ -35,7 +35,6 @@ namespace Sunset.Story
         private bool _hasPlayed;
         private bool _ownsActiveDialogue;
         private bool _resumeRoamAfterDialogue;
-        private float _lastKeyInteractionAt = -999f;
         #endregion
 
         #region Public Properties
@@ -68,6 +67,7 @@ namespace Sunset.Story
         private void OnDisable()
         {
             EventBus.UnsubscribeAll(this);
+            SpringDay1WorldHintBubble.HideIfExists(transform);
             NpcWorldHintBubble.HideIfExists(transform);
             _ownsActiveDialogue = false;
             _resumeRoamAfterDialogue = false;
@@ -88,30 +88,7 @@ namespace Sunset.Story
                 return;
             }
 
-            UpdateHintBubble(context);
-
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() || !enableProximityKeyInteraction || !Input.GetKeyDown(proximityInteractionKey))
-            {
-                return;
-            }
-
-            if (Time.unscaledTime - _lastKeyInteractionAt < keyInteractionCooldown)
-            {
-                return;
-            }
-
-            if (GetBoundaryDistance(context.PlayerPosition) > interactionDistance)
-            {
-                return;
-            }
-
-            if (!CanInteract(context))
-            {
-                return;
-            }
-
-            _lastKeyInteractionAt = Time.unscaledTime;
-            OnInteract(context);
+            ReportProximityInteraction(context);
         }
         #endregion
 
@@ -232,32 +209,45 @@ namespace Sunset.Story
             _resumeRoamAfterDialogue = false;
         }
 
-        private void UpdateHintBubble(InteractionContext context)
+        private void ReportProximityInteraction(InteractionContext context)
         {
+            if (!enableProximityKeyInteraction)
+            {
+                SpringDay1WorldHintBubble.HideIfExists(transform);
+                return;
+            }
+
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
             {
-                NpcWorldHintBubble.HideIfExists(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
+                return;
+            }
+
+            float boundaryDistance = GetBoundaryDistance(context.PlayerPosition);
+            if (boundaryDistance > Mathf.Max(bubbleRevealDistance, interactionDistance))
+            {
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             if (!CanInteract(context))
             {
-                NpcWorldHintBubble.HideIfExists(transform);
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
-            if (GetBoundaryDistance(context.PlayerPosition) > bubbleRevealDistance)
-            {
-                NpcWorldHintBubble.HideIfExists(transform);
-                return;
-            }
-
-            NpcWorldHintBubble.EnsureRuntime();
-            NpcWorldHintBubble.Instance.Show(
+            SpringDay1ProximityInteractionService.ReportCandidate(
                 transform,
+                proximityInteractionKey,
                 proximityInteractionKey.ToString(),
                 bubbleCaption,
-                "按 E 交谈");
+                "按 E 开始对话",
+                boundaryDistance,
+                interactionPriority,
+                keyInteractionCooldown,
+                boundaryDistance <= interactionDistance,
+                () => OnInteract(context),
+                showWorldIndicator: false);
         }
 
         private InteractionContext BuildInteractionContext()

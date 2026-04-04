@@ -534,3 +534,232 @@
   - SpringUI 这条线现在已经有了一个诚实、可交接的停手点；
   - 之后若继续，应先处理 own-root 同根残留的归属 / 清理，再重新判断 sync；
   - 玩家真实视面终验仍待用户让出当前 Unity 实例后补做。
+
+## 2026-04-03：SpringUI 子工作区开始正式接管 spring-day1 玩家面，先收掉提示链坏点与 DayEnd 玩家面泄漏
+
+- 当前父工作区新增稳定事实：
+  1. `spring-day1` 当前玩家面 `UI/UE` 残项已经从原实现线整体转交给 SpringUI 线处理，口径不再是“只帮忙补某个局部脚本”。
+  2. 子工作区这轮先用 targeted probe 方式收了两个最明确的玩家面问题：
+     - `SpringDay1WorldHintBubble` 被改成空壳，ready / teaser 都看不成正式提示卡
+     - `DayEnd` 收束后低精力 warning 仍残留在玩家面
+  3. 子工作区这轮没有回漂到 `NPCBubblePresenter.cs`、`Primary.unity`、`GameInputManager.cs`，只做了提示链和一个导演层最小玩家面切口。
+- 父层验证结论：
+  - Unity EditMode：
+    - `SpringDay1InteractionPromptRuntimeTests`：通过
+    - `SpringDay1LateDayRuntimeTests`：通过
+  - Unity Console `error`：`0`
+  - 当前仍只能落在：
+    - `结构 / checkpoint`
+    - `targeted probe / 局部验证`
+  - `真实入口体验` 仍待补证据，不能误报完成
+- 当前父层恢复点：
+  - SpringUI 这条线已经不是只盯双气泡，而是开始真正收 `spring-day1` 当前玩家真正看到的结果层；
+  - 下一轮更值钱的是补安全 live 入口下的玩家视角证据，或者继续按玩家面优先级收 Prompt / DialogueUI / Workbench 的真实体验残项。
+
+## 2026-04-03：SpringUI 子工作区已完成 spring-day1 任务卡与提示缺字的只读诊断
+
+- 当前父工作区新增稳定事实：
+  1. `spring-day1` 当前“任务列表缺字”最核心的问题不在 `PromptOverlay` 壳体，而在 `SpringDay1Director.BuildPromptItems()` 的模型层：
+     - 每个 `StoryPhase` 只返回 `1` 条任务；
+     - 农田教学链没有把 `5` 条目标并列保留在卡面里。
+  2. 当前“玩家面提示缺字”不能再混成一个问题，必须拆成三类：
+     - `源头真空`：例如工作台普通态 detail 直接传空串
+     - `源头过泛 / 未阶段化`：例如多数 NPC prefab 仍是 `闲聊 / 按 E 开口`
+     - `显示链截断风险`：例如左下角 `InteractionHintOverlay` detail 单行省略、工作台左列 recipe 名称省略、描述高度被硬上限
+  3. `PromptOverlay` 还存在一条新的结构性风险：
+     - `manualPromptText` 会覆盖 `model.FocusText`
+     - 且不会按 phase 自动清空
+     - 因此“旧提醒长期顶着焦点条”的问题已经可以在代码层明确成立。
+- 父层当前判断：
+  - 这轮不是体验终验，而是一次足够具体的玩家面诊断；
+  - 它已经能为后续施工提供明确顺序：
+    1. 先补 `Prompt` 任务模型
+    2. 再补 prompt/hint 文案源头
+    3. 最后再修显示链截断
+- 当前父层恢复点：
+  - SpringUI 这条线现在对自己手里“到底是没填、没建模、还是被 UI 吞了”已经有了明确分类；
+  - 下一轮如果继续，就不该再泛讲“提示还不稳”，而应直接按这三类收具体切片。
+
+## 2026-04-03：SpringUI 子工作区已开始把“缺字是主矛盾”的修正真正落到 runtime 壳体与玩家面关键链路
+
+- 当前父工作区新增稳定事实：
+  1. 子工作区已经不再停留在只读诊断，而是按用户重新收窄后的主矛盾做了第一轮真实施工：
+     - Prompt / Workbench runtime 壳体必须真正回到 `ScreenSpaceOverlay`
+     - NPC 交互提示必须统一收回左下角
+     - 工作台交互距离必须按最近可见边界判
+     - 闲聊期间当前发言方必须稳定在上层
+  2. 子工作区没有去碰 `Primary.unity`、`NPCBubblePresenter.cs`、`GameInputManager.cs` 这类用户明确不让漂过去的面，而是继续守“玩家面整合切片”边界。
+  3. 子工作区这轮新增的测试护栏，已经开始直接覆盖：
+     - stale world-space static overlay 被 runtime 真正替换
+     - Prompt / Workbench runtime canvas 必须是 `ScreenSpaceOverlay`
+     - NPC 候选不得再走头顶交互提示
+     - 工作台最近交互点不能被偏上的 collider 包络线截胡
+- 父层当前判断：
+  - 这轮最有价值的不是“又改了几个 UI 细节”，而是把用户刚指出的 4 条主矛盾直接压回了代码结构层：
+    1. runtime 真源
+    2. 世界提示归属
+    3. 交互几何
+    4. 对话气泡前景焦点
+  - 但它依然还不能报成体验过线，因为 Unity batch 被用户当前打开的编辑器互斥挡住了，真实 GameView 也还没补。
+- 当前父层验证与 blocker：
+  - 子工作区自检：
+    - 本轮改动文件白名单 `git diff --check`：通过
+  - Unity batch EditMode：
+    - 未执行成功
+    - 第一真实 blocker：项目当前已在另一个 Unity 实例中打开，batchmode 被 `HandleProjectAlreadyOpenInAnotherInstance` 直接阻断
+  - 当前 completion layer 只能落到：
+    - `结构 / checkpoint`
+    - `targeted probe / 局部验证`
+    - `真实入口体验`：仍待补
+- 当前父层恢复点：
+  - SpringUI 这条线下一步最该做的不是再扩模板化，而是拿真实玩家画面确认：
+    1. Prompt 现在是否终于不再“有壳没字”
+    2. NPC 头顶提示是否真的退场
+    3. 工作台交互范围是否终于够大且贴边
+    4. 谁在说话谁在上面是否稳定成立
+
+## 2026-04-03：SpringUI 子工作区新增一轮只读链路勘察，重新把“做没做”和“做了但为什么体感还错”分开
+
+- 当前父工作区新增稳定事实：
+  1. 子工作区刚完成一轮只读勘察，结论是：
+     - 工作台最近点算法并不是没做
+     - 但阈值过紧、提示 detail 源头为空、上下翻转判据偏 `visual bounds center`，这三者一起更像当前真实主矛盾
+  2. Workbench 悬浮小进度这条链已经守住“只在大 UI 关闭时显示”，不应再被误判成当前首嫌。
+  3. 玩家 / NPC 气泡链不是完全没有“谁说话谁在上面”：
+     - `PlayerNpcChatSessionService` 已有会话布局与 sort boost
+     - `NPCBubblePresenter` / `PlayerThoughtBubblePresenter` 也各自有 foreground sort boost
+     - 但它们现在仍建立在 `WorldSpace` 与 `targetRenderer.sortingOrder` 的稳定偏差之上，所以 live 里仍可能出现遮挡或说话者没压过对方
+- 当前父层判断：
+  - 这轮最重要的新增判断不是“又多看了几段代码”，而是把责任重新分账：
+    1. 工作台范围问题：更像阈值和普通态提示源头
+    2. Workbench 翻转问题：更像判据与稳定性
+    3. 气泡问题：更像渲染承载层和排序优先级设计
+  - 当前仍不能把这类只读判断写成体验过线，因为本轮没有 live 入口证据
+- 当前父层恢复点：
+  - 下一次若继续真实施工，SpringUI 这条线应优先做“最小修法”而不是再重抽象：
+    1. 工作台距离 / 提示范围
+    2. 普通态 detail
+    3. 翻转判据稳定性
+    4. 气泡前景层与说话者置顶优先级
+
+## 2026-04-03：SpringUI 子工作区对 Prompt/任务列表缺字问题完成一轮只读定责，当前优先怀疑 runtime 复用链而非导演层数据为空
+
+- 当前父工作区新增稳定事实：
+  1. 子工作区已经只读核对 `SpringDay1PromptOverlay.cs`、`SpringDay1Director.cs` 与现有测试，确认 `Director` 在 `FarmingTutorial` 阶段会构建 5 条非空任务，数据面并不是首要嫌疑。
+  2. 当前最可疑的真实根因被收窄为 `PromptOverlay` 的运行时显示链：
+     - 半残 screen-overlay 实例被过宽的 `CanReuseRuntimeInstance()` 接纳；
+     - `TryBindRuntimeShell()` 真正要求的文本/列表节点远比复用判定更严；
+     - prefab 又可能被 `CanInstantiateRuntimePrefab()` 的字体可用性闸门整块打回 `BuildUi()`。
+  3. 子工作区已明确把 `manual prompt` 重新降级为次级问题：
+     - 它主要解释“焦点条被旧提醒顶住”，
+     - 但不足以解释“整个任务列表有壳没字”。
+- 父层当前判断：
+  - 这轮最核心的收获不是“又查到一个 UI 症状”，而是把主矛盾重新压成：
+    1. 数据是否存在
+    2. runtime 是否真的接到了完整壳体
+    3. prefab-first 是否在中途被回退链打断
+  - 这使后续实现顺序可以更明确：先收复用/回退链，再收行项容错，最后才碰桥接提示覆盖。
+- 当前父层恢复点：
+  - 如果下一轮继续进实现，不该先泛调文案或布局，而应先把 Prompt runtime 真源和复用判定收紧。
+
+## 2026-04-03：SpringUI 子工作区已从只读诊断切回真实施工，先做 runtime 真源收口和 owned 红错回收
+
+- 当前父工作区新增稳定事实：
+  1. 子工作区已经重新进入真实施工，但这轮仍是“先收硬阻塞”的阶段，不是体验终验阶段。
+  2. 子工作区已先把 `PromptOverlay` 与 `WorkbenchOverlay` 的 runtime 真源链继续收紧：
+     - 目标是减少旧 world-space/错误 runtime 实例继续截胡正式面的概率。
+  3. 子工作区已先压回本轮自己引入的测试红错：
+     - `SpringDay1LateDayRuntimeTests.cs` 不再直接依赖 `TMPro` 命名空间；
+     - `SpringDay1InteractionPromptRuntimeTests.cs` 补回了协程返回路径。
+- 当前父层判断：
+  - 这轮最有价值的不是“又改了两份 UI 文件”，而是把主线重新拉回正确顺序：
+    1. 先保证 shared root 不留我自己的红错
+    2. 再继续收玩家真的卡住的 UI/UE 问题
+  - 因此当前阶段应定义为：
+    - `结构 / 编译面恢复继续推进中`
+    - 不能写成 `玩家面体验已过线`
+- 当前父层恢复点：
+  - SpringUI 下一步仍应集中在玩家面四组主矛盾：
+    1. Prompt / 任务列表缺字
+    2. 工作台交互距离、提示范围、普通态 detail、上下翻转
+    3. NPC 头顶交互提示统一左下角
+    4. 玩家 / NPC 气泡遮挡与“谁说话谁在上面”
+
+## 2026-04-03：SpringUI 子工作区继续补收内容层排版与 Prompt row 链，当前确认 owned 脚本未新增编译红错
+
+- 当前父工作区新增稳定事实：
+  1. 子工作区这轮继续只在 `PromptOverlay / WorkbenchOverlay` 收内容层，不扩到模板化、全局输入或 `NPC` 底座。
+  2. `WorkbenchOverlay` 已把两个仍明显违背用户要求的硬伤收回内容层：
+     - 左列长名称不再继续被错误省略号截断；
+     - 右侧描述区不再被固定 `60f` 硬截断，而是按底部动作区剩余预算向下推。
+  3. `PromptOverlay` 已把“半残壳仍被复用”这条链再收紧一刀：
+     - 现在可复用页必须至少有可绑定的 `TaskRow_/Label/Detail`；
+     - 写前台页后还会自检 row 文本是否真匹配当前 state，不匹配就重建 row 链再刷。
+  4. 子工作区已重新核过本轮 own 脚本与相关测试文件，`validate_script` 全部 `0 error`；Unity Console 现存 error 仍是 `PersistentManagers / TreeController` 外部旧错，不是本轮 UI own 面。
+  5. `run_tests` 目前依旧只返回 `total=0`，父层应把它视作“测试调用没真正命中”，而不是通过证据。
+- 当前父层判断：
+  - 这轮最重要的新增判断是：
+    1. `Prompt` 主矛盾继续留在 runtime 壳复用与 row 链健康度
+    2. `Workbench` 主矛盾继续留在内容层排版与 live 交互矩阵
+  - 因此 SpringUI 当前阶段仍应写成：
+    - `结构/局部验证继续推进`
+    - 不能写成 `玩家体验已终验`
+- 当前父层恢复点：
+  - 如果下一轮继续，父层最该催的不是再开新抽象，而是：
+    1. 真实入口复核 Prompt 是否脱离“有壳没字”
+    2. 继续收工作台 live 手感
+    3. 再补 NPC 提示/气泡的真实体验证据
+
+## 2026-04-04：SpringUI 子工作区继续把 Workbench 的“常态静止 + 翻面弹性”收回正确语义，并把 Prompt/Workbench 护栏补进测试
+
+- 当前父工作区新增稳定事实：
+  1. 子工作区这轮继续只在 `Prompt / Workbench / 相关测试` 里推进，没有扩到模板化或全局输入。
+  2. `WorkbenchOverlay` 已把用户第 7、8 条里最典型的偏差收正：
+     - 常态定位不再持续 `Lerp`，避免 UI 和工作台相对漂
+     - 只有上下翻面时做竖向弹性过渡
+     - 悬浮小框也已改成直接贴锚点，不再平滑晃动
+  3. `WorkbenchOverlay` 重新打开时现在会优先落到当前正在制作的配方，用户能直接看到当前单件进度并继续追加。
+  4. `WorkbenchOverlay` 的 runtime 可复用壳判定已补强：
+     - 左列如果存在 `RecipeRow_` 但行项文本链不完整，不再允许继续复用该 screen-overlay 壳。
+  5. `PromptOverlay` 和 `WorkbenchOverlay` 的关键护栏已补进测试：
+     - Prompt 前台 row 文本不再用“全树任意 Label 非空”这种宽判据
+     - Workbench 左列坏壳误复用已有专门用例卡住
+  6. 当前最新 Console 读取为 `0 error`，父层可确认这轮没有把 shared root 留成新的编译红面。
+- 当前父层判断：
+  - 这轮最值钱的新增判断是：`Workbench` 剩余问题越来越像 live 手感和边界矩阵，而不是基础结构仍然没接上。
+  - 因此父层下一步应继续压：
+    1. `Prompt` 首屏任务栏真实入口复核
+    2. `Workbench` 剩余 live 手感
+    3. `NPC` 提示/气泡体验证据
+- 当前父层恢复点：
+  - 下一轮如果继续，不该回去重抽象，而应继续在真实入口和 live 手感层做最小收口。
+
+## 2026-04-04：SpringUI 子工作区已吸收剧情源协同边界，并准备先落一个 UI own checkpoint 再继续施工
+
+- 当前父工作区新增稳定事实：
+  1. 子工作区已经读取并吸收了：
+     - `2026-04-04_UI线程_继续施工引导prompt_04.md`
+     - `2026-04-04_UI线程_剧情源协同开发提醒_03.md`
+     - `2026-04-04_UI线程_玩家面续工与剧情源协同prompt_03.md`
+  2. 父层可确认新的 owner 边界已经再次收紧：
+     - `UI / SpringUI` 继续 own 玩家真正看到与按到的结果层；
+     - 不再向 `SpringDay1Director.cs` 和对白资产继续扩写。
+  3. 子工作区本轮在继续施工前，又先收了一刀代码层硬阻塞：
+     - `DialogueUI` 的 `StringComparison` 红错已经从源码层切断；
+     - `WorkbenchOverlay` 左列 row 文本链开始做 runtime 可见态修复，而不是只看字符串是否被赋值。
+  4. 子工作区当前正在先结算一个可提交 checkpoint；
+     - 目的不是宣称体验过线；
+     - 而是先把已经站住的 UI own 代码与记忆安全落盘，再继续剩余玩家面问题。
+- 当前父层判断：
+  - 这轮父层最核心的判断是：
+    1. SpringUI 不该再围当前字串打一轮一次性补丁
+    2. 也不该继续把剧情 owner 吞回来
+    3. 正确顺序是：先提一个站得住的 UI own checkpoint，再继续收 Prompt/Workbench 剩余体验面
+  - 因此当前父层阶段应继续写成：
+    - `结构 / targeted probe 推进中`
+    - 不能写成 `玩家面已全面终验`
+- 当前父层恢复点：
+  - 子工作区这次 checkpoint 提交后，父层下一步仍应催 3 件事：
+    1. Prompt / Dialogue 缺字链
+    2. Workbench 左列/正式面/状态机
+    3. 悬浮框与拾取/取消闭环

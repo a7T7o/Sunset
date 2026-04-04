@@ -8,9 +8,9 @@ namespace Sunset.Story
     public class CraftingStationInteractable : MonoBehaviour, IInteractable
     {
         private const string WorkbenchHintConsumedKey = "spring-day1.workbench-entry-hint-consumed";
-        private const float Day1WorkbenchInteractionDistance = 0.5f;
-        private const float Day1WorkbenchOverlayAutoHideDistance = 1.5f;
-        private const float Day1WorkbenchHintRevealDistance = 0.95f;
+        private const float Day1WorkbenchInteractionDistance = 1.42f;
+        private const float Day1WorkbenchOverlayAutoHideDistance = 3.2f;
+        private const float Day1WorkbenchHintRevealDistance = 2.4f;
 
         [Header("Crafting Station")]
         [SerializeField] private CraftingStation station = CraftingStation.Workbench;
@@ -33,8 +33,8 @@ namespace Sunset.Story
         [SerializeField] private bool showFirstUseBubble = true;
         [SerializeField] private float bubbleRevealDistance = 0.95f;
         [SerializeField] private string bubbleCaption = "工作台";
+        [SerializeField] private float overlayDirectionDeadZone = 0.18f;
 
-        private float _lastKeyInteractionAt = -999f;
         private Collider2D[] _cachedColliders;
         private SpriteRenderer[] _cachedSpriteRenderers;
         private bool _bubbleAlreadyAppeared;
@@ -44,6 +44,11 @@ namespace Sunset.Story
 
         public bool CanInteract(InteractionContext context)
         {
+            if (!ShouldExposeWorkbenchInteraction())
+            {
+                return false;
+            }
+
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
             {
                 return false;
@@ -62,6 +67,12 @@ namespace Sunset.Story
 
         public void OnInteract(InteractionContext context)
         {
+            if (!ShouldExposeWorkbenchInteraction())
+            {
+                SpringDay1WorldHintBubble.HideIfExists(transform);
+                return;
+            }
+
             DialogueManager dialogueManager = DialogueManager.Instance;
             if (dialogueManager != null && dialogueManager.IsDialogueActive)
             {
@@ -191,24 +202,32 @@ namespace Sunset.Story
 
         public Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
         {
+            float bestDistance = float.MaxValue;
+            Vector2 bestPoint = transform.position;
+            bool found = false;
+
+            void ConsiderCandidate(Vector2 candidate)
+            {
+                float distance = (candidate - playerPosition).sqrMagnitude;
+                if (distance < bestDistance)
+                {
+                    bestDistance = distance;
+                    bestPoint = candidate;
+                    found = true;
+                }
+            }
+
             if (TryGetClosestColliderEnvelopePoint(playerPosition, out Vector2 envelopePoint))
             {
-                return envelopePoint;
+                ConsiderCandidate(envelopePoint);
             }
 
             if (TryGetClosestVisualPoint(playerPosition, out Vector2 visualPoint))
             {
-                return visualPoint;
+                ConsiderCandidate(visualPoint);
             }
 
             Collider2D[] colliders = GetRelevantColliders();
-            if (colliders.Length == 0)
-            {
-                return transform.position;
-            }
-
-            float bestDistance = float.MaxValue;
-            Vector2 bestPoint = transform.position;
             for (int index = 0; index < colliders.Length; index++)
             {
                 Collider2D collider2D = colliders[index];
@@ -217,16 +236,10 @@ namespace Sunset.Story
                     continue;
                 }
 
-                Vector2 candidate = collider2D.ClosestPoint(playerPosition);
-                float distance = (candidate - playerPosition).sqrMagnitude;
-                if (distance < bestDistance)
-                {
-                    bestDistance = distance;
-                    bestPoint = candidate;
-                }
+                ConsiderCandidate(collider2D.ClosestPoint(playerPosition));
             }
 
-            return bestPoint;
+            return found ? bestPoint : (Vector2)transform.position;
         }
 
         public float GetBoundaryDistance(Vector2 playerPosition)
@@ -236,15 +249,21 @@ namespace Sunset.Story
 
         public bool ShouldDisplayOverlayBelow(Vector2 playerPosition)
         {
-            Bounds bounds = GetVisualBounds();
-            float verticalDelta = playerPosition.y - bounds.center.y;
-            if (Mathf.Abs(verticalDelta) > 0.04f)
+            Vector2 closestPoint = GetClosestInteractionPoint(playerPosition);
+            float closestDelta = playerPosition.y - closestPoint.y;
+            if (Mathf.Abs(closestDelta) > overlayDirectionDeadZone)
             {
-                return verticalDelta > 0f;
+                return closestDelta > 0f;
             }
 
-            Vector2 closestPoint = GetClosestInteractionPoint(playerPosition);
-            return playerPosition.y > closestPoint.y;
+            Bounds bounds = GetVisualBounds();
+            float visualDelta = playerPosition.y - bounds.center.y;
+            if (Mathf.Abs(visualDelta) > Mathf.Max(0.04f, overlayDirectionDeadZone * 0.45f))
+            {
+                return visualDelta > 0f;
+            }
+
+            return closestDelta > 0f;
         }
 
         private void OnValidate()
@@ -277,42 +296,19 @@ namespace Sunset.Story
                 return;
             }
 
-            UpdateWorkbenchHintBubble(context);
-
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
-            {
-                return;
-            }
-
-            if (!enableProximityKeyInteraction || !Input.GetKeyDown(proximityInteractionKey))
-            {
-                return;
-            }
-
-            if (Time.unscaledTime - _lastKeyInteractionAt < keyInteractionCooldown)
-            {
-                return;
-            }
-
-            float distance = GetBoundaryDistance(context.PlayerPosition);
-            if (distance > interactionDistance)
-            {
-                return;
-            }
-
-            if (!CanInteract(context))
-            {
-                return;
-            }
-
-            _lastKeyInteractionAt = Time.unscaledTime;
-            OnInteract(context);
+            ReportWorkbenchProximityInteraction(context);
         }
 
-        private void UpdateWorkbenchHintBubble(InteractionContext context)
+        private void ReportWorkbenchProximityInteraction(InteractionContext context)
         {
             if (station != CraftingStation.Workbench)
             {
+                return;
+            }
+
+            if (!ShouldExposeWorkbenchInteraction())
+            {
+                SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
 
@@ -337,7 +333,7 @@ namespace Sunset.Story
             }
 
             float distance = GetBoundaryDistance(context.PlayerPosition);
-            if (distance > bubbleRevealDistance)
+            if (distance > Mathf.Max(bubbleRevealDistance, interactionDistance))
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
@@ -348,14 +344,22 @@ namespace Sunset.Story
                 && !HasConsumedWorkbenchHint()
                 && SpringDay1WorldHintBubble.Instance.CurrentAnchorTarget == transform;
             bool shouldShowTutorial = showFirstUseBubble && (keepTutorialVisible || (!_bubbleAlreadyAppeared && ShouldShowWorkbenchHint()));
+            bool canInteractNow = distance <= interactionDistance && CanInteract(context);
             if (shouldShowTutorial)
             {
-                SpringDay1WorldHintBubble.Instance.Show(
+                SpringDay1ProximityInteractionService.ReportCandidate(
                     transform,
+                    proximityInteractionKey,
                     proximityInteractionKey.ToString(),
                     "工作台",
                     "按 E 打开",
-                    SpringDay1WorldHintBubble.HintVisualKind.Tutorial);
+                    distance,
+                    interactionPriority,
+                    keyInteractionCooldown,
+                    canInteractNow,
+                    () => OnInteract(context),
+                    SpringDay1WorldHintBubble.HintVisualKind.Tutorial,
+                    showWorldIndicator: false);
                 _bubbleAlreadyAppeared = true;
                 return;
             }
@@ -366,12 +370,23 @@ namespace Sunset.Story
                 return;
             }
 
-            SpringDay1WorldHintBubble.Instance.Show(
+            if (!enableProximityKeyInteraction)
+            {
+                return;
+            }
+
+            SpringDay1ProximityInteractionService.ReportCandidate(
                 transform,
+                proximityInteractionKey,
                 proximityInteractionKey.ToString(),
                 bubbleCaption,
-                string.Empty,
-                SpringDay1WorldHintBubble.HintVisualKind.Interaction);
+                BuildWorkbenchReadyDetail(),
+                distance,
+                interactionPriority,
+                keyInteractionCooldown,
+                canInteractNow,
+                () => OnInteract(context),
+                showWorldIndicator: false);
         }
 
         private bool ShouldShowWorkbenchHint()
@@ -753,14 +768,55 @@ namespace Sunset.Story
                 return;
             }
 
-            interactionDistance = Day1WorkbenchInteractionDistance;
-            overlayAutoCloseDistance = Day1WorkbenchOverlayAutoHideDistance;
-            bubbleRevealDistance = Day1WorkbenchHintRevealDistance;
+            interactionDistance = Mathf.Max(interactionDistance, Day1WorkbenchInteractionDistance);
+            overlayAutoCloseDistance = Mathf.Max(overlayAutoCloseDistance, Day1WorkbenchOverlayAutoHideDistance);
+            bubbleRevealDistance = Mathf.Max(bubbleRevealDistance, Day1WorkbenchHintRevealDistance);
             interactionPriority = Mathf.Max(interactionPriority, 28);
             if (string.IsNullOrWhiteSpace(interactionHint))
             {
                 interactionHint = "使用工作台";
             }
+        }
+
+        private string BuildWorkbenchReadyDetail()
+        {
+            SpringDay1WorkbenchCraftingOverlay overlay = workbenchOverlay != null
+                ? workbenchOverlay
+                : FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+
+            if (overlay != null && overlay.IsVisible)
+            {
+                return "按 E 关闭工作台。";
+            }
+
+            if (overlay != null && overlay.HasActiveCraftQueue)
+            {
+                return "按 E 打开工作台，查看制作进度、可领取产物和剩余队列。";
+            }
+
+            return "按 E 打开工作台，查看配方、材料并开始制作。";
+        }
+
+        private bool ShouldExposeWorkbenchInteraction()
+        {
+            if (station != CraftingStation.Workbench || !notifySpringDay1Director)
+            {
+                return true;
+            }
+
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return true;
+            }
+
+            return storyManager.CurrentPhase switch
+            {
+                StoryPhase.CrashAndMeet => false,
+                StoryPhase.EnterVillage => false,
+                StoryPhase.HealingAndHP => false,
+                _ => true
+            };
         }
     }
 }

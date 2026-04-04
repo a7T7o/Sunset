@@ -1225,3 +1225,485 @@
 - 当前恢复点：
   - 这轮已经把 spring-day1 玩家面里最明显的提示链坏点收回到可读正式面，并把一个晚间收束残留一起清掉；
   - 下一轮如果继续，应优先补“真实入口体验”层，而不是把当前 targeted probe 继续包装成全线过线。
+
+## 2026-04-03：只读彻查 spring-day1 任务列表与 UI 提示缺字现状，明确区分“源头没给 / 显示链隐藏 / 文案过泛”
+
+- 当前主线目标：
+  - 用户要求我不要直接实现，而是先把 `spring-day1` 当前任务列表、左下角提示、头顶提示、工作台提示、睡觉提示的所有状态彻底查清，尤其要回答“到底漏了多少文字没填”和“UI 自己哪里还会吞字”。
+- 本轮子任务：
+  1. 下钻 `SpringDay1Director -> SpringDay1PromptOverlay` 的任务卡文案来源与显示链。
+  2. 下钻 `NPCDialogueInteractable / NPCInformalChatInteractable / CraftingStationInteractable / SpringDay1BedInteractable -> SpringDay1ProximityInteractionService -> SpringDay1WorldHintBubble / InteractionHintOverlay` 的提示来源。
+  3. 额外检查序列化默认值与 UI 文本组件设置，确认哪些是源头空、哪些是泛化、哪些是显示策略导致的潜在截断。
+- 本轮稳定结论：
+  1. `PromptOverlay` 现阶段的主要问题不是“字段空了”，而是“任务列表模型只建了当前这一条”。
+     - `BuildPromptCardModel()` 的 `StageLabel / Subtitle / FocusText / FooterText` 在主要 `StoryPhase` 分支里基本都有值；
+     - 真正的问题在 `BuildPromptItems()`：
+       - `CrashAndMeet` 到 `DayEnd` 每个阶段都只返回 `1` 条任务；
+       - `FarmingTutorial` 不是并列保留 `开垦 / 播种 / 浇水 / 木材 / 制作` 五条链，而是只显示当前目标那一条；
+       - 因此如果按用户期望的“教学链完整挂在卡面上”理解，农田阶段同屏最多缺 `4` 条，不是 UI 吞掉，而是模型根本没建出来。
+  2. `PromptOverlay` 自己还会主动隐藏空块，但当前 Day1 主链里真正被它隐藏的不是主文案，而是空 detail / 空 footer / 空 focus 的块。
+     - `row.detail` 为空时该 detail 节点直接隐藏；
+     - `FocusRibbon` 在 `FocusText` 为空时隐藏；
+     - `FooterRoot` 在 `FooterText` 为空时隐藏；
+     - 当前主流程 phase 分支里，真正长期为空的不是这些字段，而是 `manual prompt` 模式下的 `FooterText`。
+  3. `PromptOverlay` 还存在一个结构性状态问题：`manualPromptText` 是粘性的。
+     - `SpringDay1Director` 和 `WorkbenchOverlay` 会多次调用 `SpringDay1PromptOverlay.Instance.Show(...)`；
+     - `BuildCurrentViewState()` 会用 `_manualPromptText` 覆盖 `model.FocusText`；
+     - 这个手动提示不会自动按 phase 清空，只会被下一次 `Show` 覆盖或显式 `Hide()` 清掉；
+     - 这意味着某些“桥接提醒 / 低精力提醒 / 工作台提醒”可能长期占据焦点条，造成“任务卡不是没字，而是焦点层被旧提醒顶掉”的感知。
+  4. 交互提示源头真正“明确空着没填”的，目前最确定的是工作台普通态 detail。
+     - `CraftingStationInteractable.ReportWorkbenchProximityInteraction()`：
+       - tutorial 首次提示：`caption = 工作台`，`detail = 按 E 打开`
+       - 普通工作台提示：`caption = bubbleCaption`，`detail = string.Empty`
+     - 也就是说，工作台普通近身提示没有 detail 不是显示 bug，而是代码就是故意空着。
+  5. 大量提示不是空，而是“过度泛化，没有 phase-sensitive 文案”。
+     - `NPCDialogueInteractable`：caption 走 `bubbleCaption`，detail 固定 `按 E 开始对话`；
+     - `NPCInformalChatInteractable`：
+       - 未进入会话时：`闲聊 / 按 E 开口`
+       - 进入会话后才会切成 `你在说话 / 对方在想 / 对方在回你 / 对话还在继续 / 聊到一半 / 聊完了` 等固定状态语；
+     - `Primary` / `Assets/222_Prefabs/NPC/*.prefab` 里当前能看到的闲聊 NPC prefab（`101 / 102 / 103 / 104 / 201 / 202 / 203 / 301`）序列化默认值全部还是：
+       - `interactionHint = 闲聊`
+       - `bubbleCaption = 闲聊`
+       - `bubbleDetail = 按 E 开口`
+     - 这说明很多 NPC 玩家面提示并不是“没显示”，而是源头目前只有通用占位语义。
+  6. `Bed` 提示是少数真正做了阶段化细分的提示链。
+     - 只有 `FreeTime` 可交互；
+     - caption / detail 会按 `NightWarning / AfterMidnight / FinalCall` 三档改写；
+     - 这条链不是缺字重点，反而是当前少数语义比较完整的链。
+  7. 左下角 `InteractionHintOverlay` 和头顶 `SpringDay1WorldHintBubble` 在显示能力上并不对称。
+     - `InteractionHintOverlay`：
+       - `captionText` 和 `detailText` 都是 `NoWrap + Ellipsis`
+       - 也就是左下角 detail 只能单行省略，不具备完整显示长句的能力
+       - 当前闲聊会话态 detail 像“会自动继续，按 E 只跳过这句动效”“对方会自动接话，按 E 跳过等待”这一类句子，结构上就有被截断风险
+     - `SpringDay1WorldHintBubble`：
+       - `caption` 是 `NoWrap + Ellipsis`
+       - `detail` 是 `Normal + Overflow`
+       - 所以头顶提示对长 detail 更宽容，但长 caption 仍可能省略
+  8. `WorkbenchOverlay` 本身也还有明确的“文字显示策略问题”，不只是数据问题。
+     - 左列 recipe 名称 `Name` 被强制 `NoWrap + Ellipsis`，长配方名天然会省略；
+     - 右侧 `SelectedDescription` 在兼容布局里被 `Mathf.Min(..., 60f)` 硬上限截住，描述过长时不是自适应无限下推，而是会被高度上限卡住；
+     - `SelectedMaterials` 已改成可换行 + 可滚动，不属于源头缺字，但仍受视口高度分配影响；
+     - `ProgressLabel / StageHint` 目前是内容驱动测高，不是主要缺字点。
+- 当前证据层级：
+  - 只做到 `结构 / checkpoint` + `targeted probe / 局部验证`
+  - 本轮没有进入 Unity live，也没有用截图冒充真实体验
+- 当前恢复点：
+  - 现在已经能把“缺字”分成三类：
+    1. 源头真空：例如工作台普通态 detail
+    2. 源头没建模：例如 `Prompt` 教学链只建当前 1 条任务
+    3. 源头有值但 UI 有截断/隐藏风险：例如左下角 overlay detail 单行省略、工作台左列名称省略、描述高度硬上限
+  - 如果下一轮继续，最值钱的不是盲修样式，而是先按这三类逐项收：先补任务模型，再收提示文案，再收显示链。
+
+## 2026-04-03：按“缺字是主矛盾”重新落地第一轮玩家面修正，先把 runtime 壳体、NPC 头顶提示兜底与工作台边界判距拉回正确方向
+
+- 当前主线目标：
+  - 用户已把主矛盾重新说死为：
+    1. 左侧任务列表和 Prompt 卡面出现“有壳没字”
+    2. NPC 不应再有头顶交互提示，统一收回左下角
+    3. 工作台交互距离和提示范围应按不规则可见边界来判
+    4. 闲聊期间谁在说话，谁的气泡必须稳定在上层
+- 本轮子任务：
+  1. 先把 `SpringDay1PromptOverlay / SpringDay1WorkbenchCraftingOverlay` 的 runtime 创建链改成“只复用真正可用的 screen-overlay 运行壳”，不再被场景里旧的 world-space 壳体截胡。
+  2. 修 `CraftingStationInteractable.GetClosestInteractionPoint()`，让 collider 包络线、sprite 可见边缘和 fallback 碰撞点一起参与“最近点”竞赛，而不是 collider 优先短路。
+  3. 在 `SpringDay1ProximityInteractionService` 增加 NPC 头顶提示兜底禁令：即便上报链误传了 `showWorldIndicator=true`，NPC 也只能走左下角。
+  4. 让左下角 `InteractionHintOverlay` 至少支持多行正文，不再默认单行省略吃字。
+  5. 给 `PlayerThoughtBubblePresenter / PlayerNpcChatSessionService` 补“玩家当前发言时的前景排序 boost”，把“谁在说话谁在上面”从仅靠轻量 sort boost，补成显式前景焦点。
+- 本轮实际改动：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - `EnsureRuntime()` 现在先筛“可复用的 screen-overlay 实例”，否则清掉 stale static 单例后再实例化 prefab。
+    - 对绑定成功的壳体统一执行 `ApplyRuntimeCanvasDefaults()`，强制回正成 `ScreenSpaceOverlay / worldCamera=null / 正确 sortingOrder / 全屏根锚点`。
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+    - 同样补了 stale static 清理、screen-overlay 复用筛选和运行态 Canvas 归一化，避免旧 world-space 工作台壳体继续截胡。
+  - `Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs`
+    - `GetClosestInteractionPoint()` 现在不再 collider 优先返回，而是比较：
+      - collider 外轮廓点
+      - sprite 可见边缘点
+      - collider `ClosestPoint`
+      最终取离玩家最近的那个。
+  - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+    - 新增 NPC world-indicator 兜底裁决，NPC 交互候选统一不再上头顶。
+  - `Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - `captionText / detailText` 改为多行可扩展，不再默认 `NoWrap + Ellipsis`。
+  - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+    - 新增玩家侧 `speakerForegroundSortBoost`，支持玩家说话时显式拿前景排序。
+  - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+    - 玩家开始说话时显式拿前景焦点；NPC 开始说话时清掉玩家前景焦点；所有结束/中断/重置路径同步清理玩家前景焦点。
+- 本轮新增测试护栏：
+  - `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+    - 新增 `PromptOverlay / WorkbenchOverlay` runtime canvas 必须是 `ScreenSpaceOverlay` 的断言。
+    - 新增 stale world-space static instance 必须被 runtime 真实例替换的断言。
+    - 新增 PromptOverlay 前台必须实际渲染出非空任务标题的断言。
+  - `Assets/YYY_Tests/Editor/SpringDay1InteractionPromptRuntimeTests.cs`
+    - 新增 NPC 候选即便误上报 world indicator，也必须只走左下角的断言。
+    - 新增工作台最近点应优先命中最近可见边缘，而不是偏上 collider 包络的断言。
+- 本轮验证：
+  - `git diff --check -- <本轮 9 个改动文件>`：通过
+  - Unity batch EditMode 指定测试：未能执行
+    - 第一真实 blocker：项目当前已被另一实例打开，batchmode 被 `HandleProjectAlreadyOpenInAnotherInstance` 直接拦截，未生成 test result xml
+  - 当前证据层：
+    - `结构 / checkpoint`：成立
+    - `targeted probe / 局部验证`：测试已补，但这轮没跑通 Unity batch
+    - `真实入口体验`：仍未验证
+- 本轮 thread-state：
+  - 沿用既有 `UI` 活跃 slice 继续施工
+  - `Ready-To-Sync`：未跑
+    - 原因：这轮没有准备做白名单 sync，且仓库仍有大量非本刀 dirty
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 现在最该先让用户复看的是：
+    1. Prompt 卡面是否终于回到“有字可读”
+    2. NPC 头顶是否已经不再冒交互提示
+    3. 工作台可交互范围是否明显变得更贴近可见边缘
+    4. 闲聊时当前发言方是否稳定压到上层
+  - 如果下一轮继续，我最确信的下一步是：
+    - 补真实 GameView 证据
+    - 再按玩家反馈继续收 Prompt 缺字和工作台矩阵剩余边界
+
+## 2026-04-03：只读勘察工作台范围 / 上下翻转 / 气泡遮挡与说话者置顶链，确认这轮主矛盾更像“阈值与排序优先级错位”，不是“代码完全没做”
+
+- 当前主线目标：
+  - 用户要求我不要实现，只读勘察 `spring-day1` 当前 5 条关键玩家面链路，聚焦：
+    1. 工作台交互范围 / 提示范围
+    2. Workbench UI 上下翻转
+    3. NPC / 玩家气泡遮挡
+    4. 谁说话谁在上面
+- 本轮子任务：
+  1. 复核 `CraftingStationInteractable.cs` 的最近点、距离阈值、普通态提示文案和上下翻转判据。
+  2. 复核 `SpringDay1WorkbenchCraftingOverlay.cs` 的上下翻转调用时机与悬浮进度显示条件。
+  3. 复核 `NPCBubblePresenter.cs`、`PlayerThoughtBubblePresenter.cs`、`PlayerNpcChatSessionService.cs` 的渲染层级、说话者前景加权和清理链。
+- 本轮稳定结论：
+  1. 工作台距离问题不像“最近点算法没做”，而更像“最近点已做，但阈值太紧且被常量强制写死”：
+     - `GetClosestInteractionPoint()` 已同时比较 collider 包络、visual edge 和 `ClosestPoint`
+     - 但 `Day1WorkbenchInteractionDistance = 0.95f`、`Day1WorkbenchHintRevealDistance = 1.65f`
+     - 且 `ApplyDay1WorkbenchTuningIfNeeded()` 会在运行时重写交互与提示距离
+  2. 工作台普通态提示没 detail 不是 UI 吞字，而是源头直接传了空串。
+  3. Workbench 上下翻转逻辑不是缺失：
+     - `LateUpdate()` 可见态每帧都会重算
+     - 真问题更像 `ShouldDisplayOverlayBelow()` 的判据过度依赖 `visual bounds center`
+     - 只有 `0.04f` 极小死区才退回最近交互点，因此对不规则工作台容易翻错或翻得不稳
+  4. 气泡遮挡的首嫌仍是两边都走 `WorldSpace + overrideSorting`，没有进入真正独立于场景精灵竞争的玩家面层。
+  5. “谁说话谁在上面”链路并非完全没做，但当前优先级设计仍有两个风险：
+     - conversation/speaker boost 只是加在 `targetRenderer.sortingOrder` 基础上的小增量，未必压得过稳定排序偏差
+     - 玩家即时句 `ShowInterruptPlayerLine()` 只切了 focus 和 layout，没有显式补 `SetSpeakerForegroundFocus()`
+  6. 悬浮小进度这条链本身已经符合“工作台大 UI 关闭时才显示”，不是这轮首嫌。
+- 当前证据层：
+  - `结构 / checkpoint`：成立
+  - `targeted probe / 局部验证`：成立
+  - `真实入口体验`：未验证
+- 本轮验证：
+  - 纯只读代码链排查
+  - 未跑 `Begin-Slice`
+    - 原因：本轮没有进入真实施工
+- 当前恢复点：
+  - 如果下一轮继续实现，最稳的顺序应是：
+    1. 先收工作台阈值与普通态 detail
+    2. 再收上下翻转判据稳定性
+    3. 再决定气泡是继续堆排序，还是提升到更硬的前景层方案
+
+## 2026-04-03：只读勘察 Prompt/任务列表“有壳没字”，当前最像运行时复用链过宽而不是导演层没给数据
+
+- 当前子工作区主线：
+  - 用户要求暂停实现，只读彻查 `spring-day1` 的 `Prompt / 任务列表` 为什么会出现“有壳没字”或部分任务文字不显示；重点限定在 `SpringDay1PromptOverlay.cs`、`SpringDay1Director.cs`、必要测试和少量相关 UI 工具代码。
+- 本轮显式使用：
+  - `skills-governor`
+  - `preference-preflight-gate`
+- 本轮手工等价执行：
+  - `sunset-startup-guard`
+  - `sunset-workspace-router`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- 本轮只读检查结果：
+  1. `SpringDay1Director.BuildPromptCardModel()` 和 `BuildFarmingTutorialPromptItems()` 本身能产出非空正式模型；尤其 `FarmingTutorial` 会明确构建 5 条非空任务，不像是“导演层压根没字”。
+  2. 当前最可疑的第一根因是 `PromptOverlay` 的 runtime 复用判定过宽：
+     - `CanReuseRuntimeInstance()` 只检查 `Canvas / CanvasGroup / TaskCardRoot`；
+     - 但 `TryUseExistingRuntimeInstance() -> EnsureBuilt() -> TryBindRuntimeShell()` 后续实际还要求 `Page / TitleText / SubtitleText / FocusText / FooterText / TaskList` 全链完整；
+     - 这意味着半残 screen-overlay 实例会先被接纳，再在同一 root 上 fallback `BuildUi()`，有机会留下“旧壳 + 新壳”或“壳体存在但文本链不完整”的现场。
+  3. 第二根因是 prefab/scene 壳绑定规则过脆：
+     - `BindExistingRows()` 只认 `TaskRow_` 前缀；
+     - `BindRow()` 强依赖 `Image + BulletFill + Label + Detail` 全齐；
+     - 一旦 live 实例不是正式 prefab 原样，任务行就可能不被真正接管。
+  4. 第三根因是 prefab-first 仍可能被字体可用性闸门整块打回 `BuildUi()`：
+     - `CanInstantiateRuntimePrefab()` 只要发现任意 `TMP` 节点字体“不好用”，就拒绝整个 prefab；
+     - 测试目前证明的是“最后屏上至少有一个非空 Label”，还没证明运行时一定真的走了 formal-face prefab 主链。
+  5. `manual prompt` 的真实影响更偏向“焦点条被旧提示顶住”，不是任务列表整块空白的第一根因；它应放在次级问题，而不是主矛盾。
+- 本轮新增稳定判断：
+  - 这次 `Prompt / 任务列表` 的“有壳没字”，最像：
+    1. 正式任务模型是有的
+    2. 但 runtime 可能先复用了不完整壳体
+    3. 或 prefab 被字体闸门拒掉后回退到了代码壳
+    4. 最终玩家看到的是“壳还在，文本链没真接上”
+- 当前恢复点：
+  - 下一轮如果进入实现，最值钱的顺序应是：
+    1. 收紧 `CanReuseRuntimeInstance()`
+    2. 拒绝半壳并在 fallback 前清理旧壳
+    3. 放宽 `BindRow()/EnsureRows()` 的容错
+    4. 最后再处理 `manual prompt` 覆盖范围
+
+## 2026-04-03：重新进入真实施工，先收 Prompt/Workbench runtime 真源链，并压回本轮新增测试红错
+
+- 当前主线目标：
+  - 用户要求回到 `spring-day1` 玩家面主线，先确保红错消失，再继续收 `Prompt/任务列表缺字`、`工作台提示链` 与 `玩家/NPC 气泡层级`。
+- 本轮子任务：
+  1. 继续把 `SpringDay1PromptOverlay`、`SpringDay1WorkbenchCraftingOverlay` 从“错误旧壳 / 旧 runtime 复用”收回到 `prefab-first` 真源链。
+  2. 先压回我本轮自己引入的测试编译红错，避免 shared root 留红。
+- 本轮真实施工已完成：
+  1. `SpringDay1PromptOverlay.cs`
+     - 去掉了会捡回不兼容旧实例的回退路径；
+     - `EnsureRuntime()` 现在会退休不兼容或重复实例，尽量只保留真正的 screen-overlay runtime 实例。
+  2. `SpringDay1WorkbenchCraftingOverlay.cs`
+     - 同步收紧 runtime 复用与实例选择；
+     - 避免错误 world-space/旧链路实例继续截胡 Workbench 正式面。
+  3. `SpringDay1LateDayRuntimeTests.cs`
+     - 去掉了测试文件对 `TMPro` 命名空间和 `TextMeshProUGUI` 强类型的直接依赖；
+     - 改成 `Component + 反射取 text`，从源码层消除 `CS0246: TMPro` 这条红错根因。
+  4. `SpringDay1InteractionPromptRuntimeTests.cs`
+     - 给 `CraftingStationInteractable_PrefersNearestVisualEdgeOverFarColliderEnvelope()` 补了 `yield break;`，压回 `CS0161 not all code paths return a value`。
+- 本轮关键判断：
+  1. `Prompt/任务列表有壳没字` 的主嫌仍更像 runtime 真源链和旧壳复用，而不是导演层完全没给任务数据。
+  2. 这轮先清测试红错是必须动作，因为用户当前明确要求“先确保红错消失”，而且这类 owned error 不能继续挂在现场。
+  3. 当前还不能声称“体验过线”：
+     - 这轮只站到源码链收紧和编译面自清红；
+     - 还没有新的 Unity Console / GameView 证据。
+- 本轮验证状态：
+  - `静态推断成立`
+  - `git diff --check`：通过
+  - Unity 现场重新编译：尚未重新取证
+- 当前恢复点：
+  - 下一步继续玩家面主线时，优先顺序仍应是：
+    1. Prompt / 任务列表缺字
+    2. 工作台距离 / 提示范围 / 普通态 detail / 上下翻转
+    3. NPC 头顶提示彻底左下角化
+    4. 玩家 / NPC 气泡遮挡与“谁说话谁在上面”
+
+## 2026-04-03：补收 Workbench 内容层排版与 Prompt row 链自愈，当前 owned 脚本已回到 0 error
+
+- 当前子工作区主线：
+  - 继续 `spring-day1` 玩家面 UI/UE 收口，但这轮只补最值钱的两处内容层问题：
+    1. `Workbench` 左列与右侧详情的旧排版硬伤
+    2. `PromptOverlay` “有壳但 row 链坏掉”时的误复用与空字自愈
+- 本轮显式使用：
+  - `skills-governor`
+  - `preference-preflight-gate`
+  - `sunset-no-red-handoff`
+- 本轮手工等价执行：
+  - `sunset-startup-guard`
+  - `sunset-workspace-router`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- 本轮真实施工：
+  1. `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+     - 左列 `RecipeRow` 名称不再强制 `NoWrap + Ellipsis`，改为可换行，避免长配方名继续被错误省略号截掉。
+     - 右侧 `SelectedName` 也改为可换行。
+     - `RefreshCompatibilityLayout()` 不再把 `SelectedDescription` 用固定 `60f` 硬截断；现在会在不改壳体宽度和左右比例的前提下，按底部动作区剩余预算给描述腾高度，再把材料区、进度区和提示区整体向下推。
+  2. `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+     - `CanBindPageRoot()` 现已从“只要有 `TaskList` 就算壳可复用”收紧为“至少存在一条可绑定的 `TaskRow_/BulletFill/Label/Detail` 链”。
+     - `ApplyStateToPage()` 现在在写完前台页后会校验 `page.rows[i].label/detail` 是否真的匹配当前 `PromptCardViewState`；如果仍是空壳或错链，会当场重建 row 链并重刷，不再继续带着坏页显示。
+- 本轮验证：
+  - `validate_script`
+    - `SpringDay1WorkbenchCraftingOverlay.cs`：`0 error / 1 warning`
+    - `SpringDay1PromptOverlay.cs`：`0 error / 1 warning`
+    - `CraftingStationInteractable.cs`：`0 error / 1 warning`
+    - `SpringDay1Director.cs`：`0 error / 2 warning`
+    - `SpringDay1InteractionPromptRuntimeTests.cs`：`0 error / 0 warning`
+    - `SpringDay1LateDayRuntimeTests.cs`：`0 error / 0 warning`
+  - `git diff --check` 对本轮 owned 代码未报阻断错误；仅有 Git 的 CRLF/LF 提示。
+  - Unity Console 最新读取中仍有 error，但都落在 `PersistentManagers.cs / TreeController.cs` 的旧现场，不指向本轮 UI own 文件。
+  - `run_tests` 两次都只返回 `total=0`，说明当前 MCP 这条测试调用没有真正命中目标用例，不能拿来当有效通过证据。
+- 本轮判断：
+  1. `Workbench` 这轮最值钱的修法不是再改壳，而是把“长名字不再错误省略、长描述不再被 60f 砍死”收回内容层。
+  2. `Prompt` 这轮最值钱的修法不是再改导演层任务数据，而是把“半残壳误复用”卡死，并给前台 row 链补自愈。
+  3. 当前只能站到：
+     - `结构 / checkpoint`
+     - `targeted probe / 局部验证`
+     还不能写成 `真实入口体验已过线`。
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑，原因：这轮没有准备白名单 sync
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 下一轮如果继续真实施工，优先级仍应是：
+    1. 真实入口下复核 `Prompt` 任务行是否已经彻底脱离“有壳没字”
+    2. 继续收工作台剩余的 live 交互矩阵
+    3. 再回到 NPC 提示与气泡层级的真实体验层验证
+
+## 2026-04-04：继续补收 Workbench 静止锚定/翻面弹性/当前配方回显，并把 Prompt 前台 row 护栏压进测试
+
+- 当前子工作区主线：
+  - 继续按用户那 8 条收 `spring-day1` 玩家面，且这轮明确把“不爆红”放到第一优先级，只在 `Prompt / Workbench / 必要测试` 内继续。
+- 本轮显式使用：
+  - `skills-governor`
+  - `preference-preflight-gate`
+  - `sunset-no-red-handoff`
+- 本轮手工等价执行：
+  - `sunset-startup-guard`
+  - `sunset-workspace-router`
+  - `user-readable-progress-report`
+  - `delivery-self-review-gate`
+- 本轮真实施工：
+  1. `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs`
+     - `Reposition()` 现已改成：
+       - 常态直接贴锚点，不再持续 `Lerp` 造成“工作台和 UI 相对漂移”
+       - 只有上下翻面时，才做竖向 `SmoothDamp` 弹性过渡
+     - `RepositionFloatingProgress()` 现已改为直接贴锚点，不再平滑跟随，避免小悬浮框继续晃。
+     - `Open()` 现在在已有制作队列时会优先选中当前正在制作的配方，重新打开工作台就能直接看到当前单件进度、剩余数量，并继续追加。
+     - `CanReuseRuntimeInstance()` 再收紧一层：recipe 壳如果存在 `RecipeRow_` 但行项文本链不完整，就不再继续复用。
+     - 悬浮小图标从 `24x24` 调到 `28x28`，仍保持 `45°`。
+  2. `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+     - 保持上轮的 row 链自愈逻辑，并继续作为 `Prompt` 首要根因修正面。
+  3. `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+     - `PromptOverlay_RuntimeCanvas_ShouldBeScreenOverlayAndRenderFilledTaskTexts` 不再扫全树任意 `Label`，而是直接断言前台 `_frontPage.rows[0]` 的 `label/detail` 非空。
+     - 新增 `WorkbenchOverlay_ShouldReplaceIncompleteRecipeShellStaticInstance`，防止“左列 recipe 行文本链坏掉的 screen-overlay 壳”被继续复用。
+- 本轮验证：
+  - `validate_script`
+    - `SpringDay1PromptOverlay.cs`：`0 error / 1 warning`
+    - `SpringDay1WorkbenchCraftingOverlay.cs`：`0 error / 1 warning`
+    - `CraftingStationInteractable.cs`：`0 error / 1 warning`
+    - `SpringDay1Director.cs`：`0 error / 2 warning`
+    - `SpringDay1InteractionPromptRuntimeTests.cs`：`0 error / 0 warning`
+    - `SpringDay1LateDayRuntimeTests.cs`：`0 error / 0 warning`
+  - `git diff --check` 对本轮 owned 文件未报阻断错误，仅剩 CRLF/LF 提示。
+  - Unity Console 最新读取：`0 error`
+  - `run_tests` 依然只返回 `total=0`，仍不能视作有效测试通过证据。
+- 本轮判断：
+  1. 这轮最核心的收口是把你第 7、8 条里最明显的偏差对齐了：
+     - UI / 小悬浮常态不再漂
+     - 上下翻面保留弹性，不再靠常态跟随假装“动画感”
+  2. `Workbench` 左列空白这条风险现在不只在 `EnsureBuilt()` 兜底，连 runtime 可复用壳判定也一起收紧了。
+  3. 当前仍然只能站到：
+     - `结构 / checkpoint`
+     - `targeted probe / 局部验证`
+     还没拿到真实入口体验层证据。
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑，原因：这轮没有进入 sync 收口
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前恢复点：
+  - 下一轮如果继续，最值钱的顺序仍应是：
+    1. 真实入口复核 `Prompt` 首屏任务栏与前台 row
+    2. 继续收 `Workbench` 交互矩阵剩余边界
+    3. 再回到 NPC 提示与气泡的真实体验层
+
+## 2026-04-04：spring-day1 玩家面本轮最新用户需求原文整理与施工拆解
+
+- 当前主线目标：
+  - 继续完成 `spring-day1` 玩家面体验链里所有仍未落地的 `Prompt / Dialogue / Workbench / 左下角提示 / 悬浮框 / 制作交互闭环`，并且把“不要爆红”当成本轮最高硬约束。
+- 用户重新钉死的原始 8 点需求：
+  1. 游戏刚开始运行时，左边任务栏就应该有内容，不能空。
+  2. 任务显示仍要维持“一次只显示一个当前主任务/当前小任务”，内容超出时要做纵向自适应或滚动，不能直接溢出。
+  3. 工作台提示不能退化成只剩左边一个 `E`，中间提示内容必须完整且专业。
+  4. 工作台左侧 recipe 栏不能再出现“有点击区但无文字”的老问题。
+  5. 工作台制作数量从 `0` 开始，`1` 就意味着单件制作已经开始推进；大 UI 和悬浮框都要按“单件进度条 + 队列剩余数量”来表现，并支持继续追加制作。
+  6. 如果背包里已经有 `3` 个及以上木头，木材任务应自动判完成，不能等玩家再去获取一次。
+  7. 工作台一旦激活，就应始终允许制作；`E` 是工作台 UI 的 toggle；有制作内容时，大 UI 和悬浮框要按打开/关闭切换；大 UI 和小框都必须和工作台相对静止。
+  8. 工作台 UI 的上下切换不是瞬间跳，而是保留弹性移动感。
+- 用户在原 8 点之外，再次明确的已测问题：
+  1. 任务列表仍有部分文字缺失。
+  2. 村长对话框右下角“继续对话”的提示文字仍会空白。
+  3. 工作台左侧栏目依旧可能空白但可点击。
+  4. `先选择数量再开始制作` 这类文案不需要，进度状态本身就应承担提示职责。
+  5. 进度与剩余数量需要常驻显示，而不是只在 hover 时才出现。
+  6. `正在打造……当前单件……` 这类 verbose 文案要删，给材料区腾空间。
+  7. 物品名称与简介要整体上移，但绝不能压到图标框以下并造成重叠。
+- 用户追加的制作条语义：
+  1. 制作条本身就是单件制作的增长条，背景条一直存在，进度随当前单件推进而增长。
+  2. 正在制作时：
+     - 若当前选择数量为 `0`，鼠标移入制作条/按钮区域表示“中断制作”。
+     - 若当前选择数量大于 `0`，鼠标移入表示“追加制作”。
+  3. 取消逻辑必须闭环：
+     - 取消时材料要返还。
+     - 若背包空间不够，溢出的返还材料要掉到背包外。
+- 用户追加的悬浮框样式语义：
+  1. 悬浮框里物品图片要尽量占满主区域。
+  2. 下方保留带背景色的进度条，进度色不变。
+  3. 进度条中间的文案统一改成：
+     - 制作中且已有产出时：`进度  已完成数/总队列数`
+     - 全部完成且未全部取走时：`制作完成 N个`
+  4. 制作完成态的进度条颜色要切到偏黄色的完成样式。
+  5. 如果未来存在多个不同物品并行制作，悬浮框期望是 `一行 3 个，最多 2 行`；相同物品追加时叠数量，不重复开新框。
+- 用户本轮新增并钉死的工作台交互规范：
+  1. 工作台头顶提示 UI 不再显示，只保留左下角提示卡。
+  2. 工作台始终允许打开，无论制作中还是已经有完成产物都可以 `E` 打开大 UI。
+  3. 但“拾取已完成产物”不走 `E` 键，不走世界提示，而是只允许点击工作台大 UI 内的制作条。
+  4. 制作条现在需要承担 3 组状态：
+     - `制作完成态`：
+       - 常态就是黄色完成样式。
+       - 点击制作条用于拾取全部已完成内容。
+     - `制作中且已有可取产物`：
+       - 常态显示进行中的单件进度条。
+       - 鼠标移入制作条时，切到黄色拾取态，隐藏当前进度表现，提示“点击拿取已完成产物”。
+       - 如果玩家把当前已完成产物拿完，但队列还在做后续内容，鼠标移出后恢复到进行中进度条。
+     - `制作中但当前无可取产物`：
+       - 鼠标移入制作条时，切到红色中断态，隐藏进行中进度表现。
+       - 点击制作条执行中断。
+       - 鼠标移出后，如果仍有制作进度，就恢复到进行中样式。
+- 我对这些需求的当前拆解：
+  1. `Prompt / Dialogue 缺字链`
+     - 要解决的是：任务栏首屏空壳、前台 row 缺字、manual prompt 仍需保留一条可读任务行、continue 文案稳定中文可见。
+  2. `Workbench 左列显示链`
+     - 要解决的是：prefab/runtime 壳混用导致的 row 绑定失效、可点击但无字、以及坏壳误复用。
+  3. `Workbench 正式面布局`
+     - 要解决的是：名称/简介/材料/数量/制作条的空间重新分配，只允许纵向下推，不允许横向改壳。
+  4. `Workbench 制作状态机`
+     - 要解决的是：未制作、制作中、制作中可取产物、完成待领取、追加、中断、取消返还、背包溢出掉落。
+  5. `Workbench 悬浮框`
+     - 要解决的是：图标占比、进度条文字、完成态配色、制作中与可领取态切换，以及将来多卡并列的可扩展性。
+  6. `左下角提示与世界提示分工`
+     - 要解决的是：工作台只保留左下角提示；NPC 也不再回到头顶交互提示；视觉归属与实际触发对象一致。
+- 当前阶段判断：
+  - 这份拆解已经把用户原始 8 点、后续补丁、以及这次新增的制作条/拾取/悬浮框规则收成了本轮唯一施工基线。
+  - 但它目前仍然只是 `结构 / 需求基线`，还不是实现完成，更不是体验过线。
+- 当前恢复点：
+  1. 先继续修 `Prompt / Dialogue` 的缺字链。
+  2. 再继续修 `Workbench` 左列显示链与正式面布局。
+  3. 最后进入制作条/拾取/取消/悬浮框这组状态机闭环。
+
+## 2026-04-04：吸收剧情源协同边界后继续施工，并先结算一个可提交 checkpoint
+
+- 当前主线目标：
+  - 继续收 `spring-day1` 玩家面 `Prompt / Dialogue / Workbench / 左下角提示 / 悬浮框 / 制作交互闭环`，但新的协同边界已经明确：
+    1. 不停工等剧情线程
+    2. 不回吞 `SpringDay1Director.cs`
+    3. 继续把 UI 做成能承受剧情源增长的稳结构
+- 这轮新增稳定事实：
+  1. `DialogueUI.cs`
+     - `continue` 文案比较条件已改成 `System.StringComparison.OrdinalIgnoreCase`，从源码层切断了 `StringComparison` 红错依赖链；
+     - 继续提示文本链仍按 runtime 自愈方向在收，不再只信 prefab 原值。
+  2. `SpringDay1WorkbenchCraftingOverlay.cs`
+     - 左列 `RecipeRow` 现在开始主动修复文本链：
+       - 绑定 row 时强制恢复 `Name / Summary` 可见态；
+       - 刷新 row 时再次强制恢复；
+       - “文本非空但组件失活/透明”的情况，已经纳入坏壳判定，不再只看字符串是否为空。
+  3. `Prompt / Workbench / 左下角提示` 当前仍只站在 `结构 / targeted probe` 层；
+     - 没有新的玩家可见 GameView 证据前，不得写成体验过线。
+  4. 已吸收 `2026-04-04_UI线程_继续施工引导prompt_04.md` 与两份剧情源协同文档；
+     - 后续继续 own：
+       - 任务栏缺字
+       - continue 空白
+       - Workbench 左列空白
+       - 正式面排版
+       - 制作条状态机
+       - 悬浮框
+     - 后续不再扩写：
+       - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+       - `Assets/111_Data/Story/Dialogue/*`
+- 当前验证状态：
+  1. `git diff --check` 在当前 UI own 代码范围内没有阻断错误，只有 CRLF/LF 提示。
+  2. `unityMCP validate_script` 本机这轮不可用，原因是本地 `http://127.0.0.1:8888/mcp` 连接失败；
+     - 所以这轮 checkpoint 的主证据仍是：
+       - own 白名单 diff 核查
+       - `git diff --check`
+       - `Ready-To-Sync` 预检
+- 当前阶段判断：
+  - 这轮已经从“继续泛分析”切回“继续真实施工 + 先落一个可提交 checkpoint”。
+  - 但仍然只是：
+    - `结构成立，局部验证继续推进`
+    - 不是 `真实入口体验已过线`
+- 当前恢复点：
+  1. 先完成当前 UI 白名单 checkpoint 提交。
+  2. 提交后继续往下收：
+     - `Prompt / Dialogue` 缺字
+     - `Workbench` 左列与正式面
+     - `制作条 / 悬浮框 / 拾取 / 取消` 状态机
