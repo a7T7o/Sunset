@@ -15,7 +15,7 @@ MonoBehaviour:
   sequenceId: spring-day1-house-arrival
   nodes:
   - speakerName: 村长
-    text: 这屋子空了很多年，先将就住下。等会儿我让艾拉过来看看你的伤。
+    text: 这屋子空了很多年，不是谁家的房间。先将就住下。等会儿我让艾拉过来看看你的伤。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}

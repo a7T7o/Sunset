@@ -1030,3 +1030,90 @@
 - 当前恢复点：
   - 若下一轮继续 `spring-day1` 主线，仍只能先做 `CrashAndMeet / EnterVillage`
   - 若下一轮轮到 `Town` 接盘，正确入口已不再是“补剧情源”，而是“修好 Town 现场并准备村庄承载层”
+
+## 2026-04-04 补记：CrashAndMeet / EnterVillage 当前补丁只读复核后，真实剩余缺口已收窄到“1 个提交阻断 + 1 个文案残留 + 1 个验证空洞”
+
+- 当前子工作区主线没有换题：
+  - 仍是 `CrashAndMeet / EnterVillage` 的内部剧情扩充；
+  - 本轮子任务是按用户点名文件做只读复核，不改代码、不改资产，只判断当前补丁相对任务单还差什么、有没有明显编译/逻辑/测试风险，以及提交后下一刀该切什么。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-workspace-router`
+  - `delivery-self-review-gate`
+- 本轮手工等价执行：
+  - `sunset-startup-guard`
+- 本轮只读核对文件：
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+  - `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset`
+  - `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue_Followup.asset`
+  - `Assets/111_Data/Story/Dialogue/SpringDay1_VillageGate.asset`
+  - `Assets/111_Data/Story/Dialogue/SpringDay1_HouseArrival.asset`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+- 本轮新增稳定结论：
+  1. 这批改动在结构上已经基本达到当前任务单对前半段的完成定义：
+     - `CrashAndMeet` 已补成“醒来 / 语言错位 / 危险逼近 / 撤离起点”
+     - `EnterVillage` 已补成“进村围观 / 闲置小屋安置 / 艾拉接手前置”
+     - `HealingAndHP` 的后续接点仍保留在导演层里。
+  2. 当前唯一明确的提交级红点不是编译错误，而是 `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset` 仍有 `git diff --check` 报的 trailing whitespace；不清掉，这一刀还不能算白名单 clean。
+  3. 当前唯一明确的用户面残留是 `SpringDay1Director.BuildPromptItems(StoryPhase.HealingAndHP)` 里仍写着“等待首段对话完成后触发”，和新链路“进村安置结束后进入疗伤”已经不一致。
+  4. 当前最大的真实风险不在脚本静态红错，而在验证空洞：
+     - `validate_script` 对 `SpringDay1Director.cs` 为 `0 error / 2 warning`
+     - `validate_script` 对 `SpringDay1DialogueProgressionTests.cs` 为 `0 error / 0 warning`
+     - 但这份测试类本质上仍是大量 `File.ReadAllText + StringAssert.Contains` 的静态文本断言，没有真正跑通 `FirstDialogue -> Followup -> VillageGate -> HouseArrival -> HealingAndHP` 的运行链。
+  5. `SpringDay1DialogueProgressionTests.cs` 不是这条刀的隔离测试类：
+     - 它从开场对白一路串到 UI、Workbench、Bed、PromptOverlay、自由时段等多根路径；
+     - 因此即便只验证这一刀，也可能被别的旧根噪音拖红，不适合作为“当前补丁是否真正闭环”的唯一绿灯。
+- 本轮验证：
+  - `git diff --check` 目标文件集报 1 个问题：
+    - `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset:47` trailing whitespace
+  - `validate_script`：
+    - `SpringDay1Director.cs`：`0 error / 2 warning`
+    - `SpringDay1DialogueProgressionTests.cs`：`0 error / 0 warning`
+  - 本轮没有改代码、没有进 Unity、没有跑 live、没有执行测试。
+- 当前证据层级：
+  - `结构成立，live 待验证`
+- 当前恢复点：
+  - 如果先收当前补丁，必须先清：
+    1. `SpringDay1_FirstDialogue.asset` 的 trailing whitespace
+    2. `SpringDay1Director.cs` 里 `HealingAndHP` 的旧说明文案
+  - 如果提交后继续下一刀，最值钱的不是马上扩后续剧情，而是补一个最小真实消费 probe：
+    - 专门验证 `FirstDialogue -> Followup -> VillageGate -> HouseArrival -> HealingAndHP`
+    - 最好从当前巨型 `SpringDay1DialogueProgressionTests.cs` 里拆出一条更隔离的早期链验证入口
+
+## 2026-04-04 补记：opening 扩充第二个小 checkpoint 已把尾账、旧文案和最小消费 probe 一起补上
+
+- 当前子工作区主线没有换题：
+  - 仍是 `CrashAndMeet / EnterVillage` 的内部剧情扩充；
+  - 本轮子任务是把上一轮只读复核点名的 3 个收口空洞直接补掉，而不是继续新增剧情段。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-no-red-handoff`
+- 本轮并行只读复核：
+  - 使用一个 `gpt-5.4` 子智能体只读复核当前 opening 补丁剩余缺口；
+  - 结论已吸收进本轮收口动作，后续应关闭该子线程，不再悬挂。
+- 本轮实际改动：
+  1. 清掉 `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset` 的尾部空白字符，解除当前提交阻断。
+  2. 把 `SpringDay1Director.GetCurrentProgressLabel()` 与 `GetPromptFocusText()` 的 opening 文案再压近当前链路状态：
+     - `CrashAndMeet` 可区分“已听懂村长的话，等待撤离矿洞口”
+     - `EnterVillage` 可区分“村口围观已过，等待进屋安置”
+     - 活动态下也能更准确给出“别回头撤离 / 先在闲置小屋落脚”等焦点提示。
+  3. 把 `BuildPromptItems(StoryPhase.HealingAndHP)` 的旧说明从“等待首段对话完成后触发”改成“等待进村安置链收束后触发”，消除 opening 扩充后的语义残留。
+  4. 把 `SpringDay1_HouseArrival.asset` 再钉实成“这不是谁家的房间”的闲置旧屋语义，避免回漂成家庭成员房间。
+  5. 新增隔离测试：
+     - `Assets/YYY_Tests/Editor/SpringDay1OpeningDialogueAssetGraphTests.cs`
+     - 用 `AssetDatabase.LoadAssetAtPath<DialogueSequenceSO>()` 真正加载 4 份对白资产，验证：
+       - followup 图谱是否是 `First -> Followup -> VillageGate -> HouseArrival`
+       - `HouseArrival` 是否真的是最后一拍
+       - 解码标志、相位推进和“矿洞危险 / 村民围观 / 小孩视线 / 不是谁家的房间 / 艾拉接手”这些 opening 语义是否都还在
+- 本轮验证：
+  - `git diff --check` 对本轮 owned 文件通过
+  - `CodexCodeGuard`：
+    - `SpringDay1Director.cs`
+    - `SpringDay1OpeningDialogueAssetGraphTests.cs`
+    - 结果 `CanContinue = true`
+  - 本轮没有进 Unity、没有跑 live
+  - 当前证据层级：`结构更稳 + 资产消费 probe 已补，live 仍待验证`
+- 当前恢复点：
+  - 如果继续这条线，下一步不该再往 `CrashAndMeet / EnterVillage` 里硬塞新段，而应优先看：
+    1. 是否需要一次 Unity / EditMode 真实跑证据
+    2. 或者在当前 slice 内停表，等待后续 live 验证再决定是否还要补导演层细节

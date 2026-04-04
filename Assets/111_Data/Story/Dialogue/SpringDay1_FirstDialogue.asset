@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
   m_Name: SpringDay1_FirstDialogue
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   sequenceId: spring-day1-first
   nodes:
   - speakerName: 村长

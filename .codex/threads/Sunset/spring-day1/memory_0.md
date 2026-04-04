@@ -2169,3 +2169,75 @@
     - `2026-04-04_UI线程_继续施工引导prompt_04.md`
   - 我自己下一轮继续时，优先用：
     - `2026-04-04_spring-day1_继续施工引导prompt_04.md`
+
+## 2026-04-04 线程补记：opening 扩充补丁只读复核已把当前刀内“可直补 / 别再动”的边界收窄
+
+- 当前主线目标：
+  - 仍是 `spring-day1` 的 opening 扩充；
+  - 本轮子任务是只读复核 `CrashAndMeet / EnterVillage` 当前补丁，按优先级给出：
+    1. 当前刀内还能直接补的剧情源/导演层细节
+    2. 不该再动的 UI/scene 越界点
+    3. 一个最多 5 条的排序清单
+- 本轮稳定结论：
+  1. 当前刀内还能直接补的，最值钱只剩两类：
+     - `SpringDay1_FirstDialogue.asset` 的 whitespace 尾账
+     - `SpringDay1Director.BuildPromptItems(StoryPhase.HealingAndHP)` 里仍残留的旧说明文案
+  2. 这条刀当前最大的真实空洞已经不是结构，而是验证：
+     - 现有 `SpringDay1DialogueProgressionTests.cs` 主要仍是静态字符串断言
+     - 还混了大量 UI / Workbench / Bed / FreeTime 检查
+     - 不能单独证明 opening 四段链已经真实跑通
+  3. 当前明确不该再动的，是任何会越过任务单边界的东西：
+     - `Assets/YYY_Scripts/Story/UI/*`
+     - `Assets/222_Prefabs/UI/Spring-day1/*`
+     - `Primary.unity`
+     - `GameInputManager.cs`
+     - 以及把早期开场继续扩到 `HealingAndHP` 之后的大段落
+- 本轮验证状态：
+  - `git diff --check` 目标文件集仍报：
+    - `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset:47` trailing whitespace
+  - `validate_script`：
+    - `SpringDay1Director.cs`：`0 error / 2 warning`
+    - `SpringDay1DialogueProgressionTests.cs`：`0 error / 0 warning`
+  - 本轮没有改业务文件、没有进 Unity、没有跑 live
+- thread-state：
+  - 本轮保持只读分析，未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+- 当前恢复点：
+  - 如果继续这条线，优先不是扩新剧情，而是先把 opening 链收成一个更隔离、更真实的最小消费 probe
+
+## 2026-04-04 线程补记：opening 扩充第二个可提交小 checkpoint 已落地
+
+- 当前主线目标：
+  - 继续 `spring-day1` 的非 UI opening 扩充；
+  - 本轮子任务是把上一轮复核提到的 3 个收口点直接做掉，然后先提交这批可提交内容。
+- 本轮实际完成：
+  1. 清了 `SpringDay1_FirstDialogue.asset` 的 whitespace 尾账。
+  2. 修了 `SpringDay1Director` 里 `HealingAndHP` 的旧说明文案，让它回到“进村安置链收束后触发”。
+  3. 顺手把 opening 的 `Progress / Focus` 提示再压近当前真实状态：
+     - `已听懂村长的话，等待撤离矿洞口`
+     - `村口围观已过，等待进屋安置`
+     - `跟住村长往村里撤，别在矿洞口回头`
+     - `先进闲置小屋落脚，等艾拉过来接手疗伤`
+  4. 把 `HouseArrival` 正式钉成“不是谁家的房间”的闲置旧屋。
+  5. 新增 `SpringDay1OpeningDialogueAssetGraphTests.cs`，把 4 份对白资产的 followup 图谱和关键语义收成更隔离的消费 probe。
+- 本轮显式使用：
+  - `skills-governor`
+  - `sunset-no-red-handoff`
+- 本轮并行辅助：
+  - 使用了 1 个 `gpt-5.4` 子智能体做只读复核；
+  - 它给出的 3 个点已全部吸收进本轮实现；
+  - 本轮结束前应关闭该子线程。
+- 本轮验证：
+  - `git diff --check` 对 owned 文件通过
+  - `CodexCodeGuard` 对：
+    - `SpringDay1Director.cs`
+    - `SpringDay1OpeningDialogueAssetGraphTests.cs`
+    通过，`CanContinue = true`
+  - 没有进 Unity，没有 live
+- thread-state：
+  - 本轮沿用已开的 `ACTIVE` slice 继续施工
+  - `Ready-To-Sync`：未跑，原因：当前还在继续做 slice，不是 sync 收口
+  - `Park-Slice`：未跑，原因：本轮尚未停表
+  - 当前 live 状态：`ACTIVE`
+- 当前恢复点：
+  - 先把这一批 own 改动提交掉
+  - 提交后再判断这条线是否还有不跨界、且真正值得继续做的非 live 内容

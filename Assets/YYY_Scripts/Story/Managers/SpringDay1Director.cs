@@ -267,9 +267,12 @@ namespace Sunset.Story
                     return "怪物逼近与撤离进行中";
                 }
 
-                return HasCompletedDialogueSequence(FirstSequenceId)
-                    ? "等待跟村长离开矿洞口"
-                    : "等待触发矿洞口首遇";
+                if (HasCompletedDialogueSequence(FirstSequenceId))
+                {
+                    return "已听懂村长的话，等待撤离矿洞口";
+                }
+
+                return "等待触发矿洞口首遇";
             }
 
             if (phase == StoryPhase.EnterVillage)
@@ -284,8 +287,13 @@ namespace Sunset.Story
                     return "闲置小屋安置进行中";
                 }
 
+                if (HasCompletedDialogueSequence(VillageGateSequenceId) && !HasCompletedDialogueSequence(HouseArrivalSequenceId))
+                {
+                    return "村口围观已过，等待进屋安置";
+                }
+
                 return IsFirstFollowupPending()
-                    ? "进村安置链进行中"
+                    ? "等待进村围观与安置链接管"
                     : "进村安置已收束，等待疗伤段启动";
             }
 
@@ -427,9 +435,12 @@ namespace Sunset.Story
         {
             return phase switch
             {
+                StoryPhase.CrashAndMeet when IsDialogueSequenceCurrentlyActive(FirstFollowupSequenceId) => "跟住村长往村里撤，别在矿洞口回头。",
                 StoryPhase.CrashAndMeet when HasCompletedDialogueSequence(FirstSequenceId) => "跟住村长，别在矿洞口停留太久。",
                 StoryPhase.CrashAndMeet => "靠近村长并按 E，先弄清眼前到底发生了什么。",
+                StoryPhase.EnterVillage when IsDialogueSequenceCurrentlyActive(HouseArrivalSequenceId) => "先进闲置小屋落脚，等艾拉过来接手疗伤。",
                 StoryPhase.EnterVillage when HasCompletedDialogueSequence(VillageGateSequenceId) => "跟着村长进屋，先在闲置小屋安顿下来。",
+                StoryPhase.EnterVillage when IsDialogueSequenceCurrentlyActive(VillageGateSequenceId) => "别在围观里停住，跟着村长穿过村口。",
                 StoryPhase.EnterVillage => "跟着村长进村，先撑过村口的围观和注视。",
                 StoryPhase.HealingAndHP => "等待疗伤对白与 HP 卡片完整播完。",
                 StoryPhase.WorkbenchFlashback when _workbenchOpened => "等待工作台回忆完整播完。",
@@ -495,7 +506,7 @@ namespace Sunset.Story
                 return new[]
                 {
                     !_healingStarted
-                        ? new PromptTaskItem("进入疗伤流程", "等待首段对话完成后触发。", false)
+                        ? new PromptTaskItem("进入疗伤流程", "等待进村安置链收束后触发。", false)
                         : !hpVisible
                             ? new PromptTaskItem("显示 HP 卡片", "先让血量条缓慢显现出来。", false)
                             : new PromptTaskItem("播完疗伤对白", _healingSequencePlayed ? "疗伤对白已完整结束。" : "等待疗伤对白真正播完。", _healingSequencePlayed)

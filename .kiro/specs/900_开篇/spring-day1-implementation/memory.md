@@ -2407,3 +2407,65 @@
 - 当前父层恢复点：
   - `spring-day1` 继续主刀时，仍先做 `CrashAndMeet / EnterVillage`
   - `Town` 相关工作若继续，应作为“村庄承载层准备”而不是“前半段剧情主刀”
+
+## 2026-04-04 补记：CrashAndMeet / EnterVillage 当前补丁已站住结构面，但还没有到“直接提后继续扩内容”那么稳
+
+- 当前父层主线没有换题：
+  - 仍是 `spring-day1` 的 Day1 原剧本回正与后续剧情扩充；
+  - 本轮父层子任务是对 `CrashAndMeet / EnterVillage` 当前补丁做只读复核，判断它距离本刀完成定义还差什么，以及提交后最值钱的下一步是什么。
+- 当前父层新增稳定结论：
+  1. 这批改动在结构上已经把前半段从“首段对话 -> 后续说明 -> 直接疗伤”补成了：
+     - `矿洞口醒来`
+     - `语言错位`
+     - `怪物逼近`
+     - `跟村长撤离`
+     - `进村围观`
+     - `闲置小屋安置`
+     并仍保持 `HealingAndHP` 可承接。
+  2. 当前没有看到新的明确编译级红错：
+     - `validate_script` 对 `SpringDay1Director.cs` 为 `0 error / 2 warning`
+     - `validate_script` 对 `SpringDay1DialogueProgressionTests.cs` 为 `0 error / 0 warning`
+  3. 当前最真实的提交阻断只剩一个很小但明确的现场问题：
+     - `Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset` 仍有 `git diff --check` 的 trailing whitespace。
+  4. 当前最真实的逻辑/语义残留也只剩一处明显旧文案：
+     - `SpringDay1Director.BuildPromptItems(StoryPhase.HealingAndHP)` 还写着“等待首段对话完成后触发”，没有同步成“进村安置结束后进入疗伤”。
+  5. 当前最大的风险已经不是“结构没补回”，而是“验证还不够真”：
+     - 现有 `SpringDay1DialogueProgressionTests.cs` 主要还是静态文本断言；
+     - 而且它还把 UI、Workbench、Bed、FreeTime 等别根检查混在同一类里；
+     - 所以它不能单独证明这条早期链已经真实跑通。
+- 当前父层判断：
+  - 这刀现在适合先补小尾账后提交；
+  - 但提交后最值钱的动作，不是马上开 `HealingAndHP / WorkbenchFlashback` 新内容，而是先补一个更真的 `CrashAndMeet -> EnterVillage -> HealingAndHP` 消费 probe，把这条链从“结构成立”推进到“运行链有证据”。
+- 当前父层验证状态：
+  - `git diff --check`：目标文件集仍有 1 个 whitespace blocker
+  - `validate_script`：`0 error`
+  - 本轮没有改代码、没有进 Unity、没有跑 live
+  - 当前只站住：`结构成立，live 待验证`
+- 当前父层恢复点：
+  - 如果先收当前补丁：
+    1. 清 `FirstDialogue.asset` 的 whitespace
+    2. 改掉 `HealingAndHP` 的旧说明文案
+  - 如果提交后继续：
+    1. 先补早期链最小真实消费 probe
+    2. 再决定是否按框架顺序进入 `HealingAndHP / WorkbenchFlashback`
+
+## 2026-04-04 补记：opening 扩充第二个小 checkpoint 已从“结构面”推进到“资产图谱消费 probe 站住”
+
+- 当前父层主线没有换题：
+  - 仍是 `spring-day1` 的 Day1 原剧本回正，且这轮只守 `CrashAndMeet / EnterVillage` 这一刀；
+  - 本轮父层子任务是把上一轮只读复核收窄出来的 3 个缺口直接补掉。
+- 当前父层新增稳定结论：
+  1. `FirstDialogue.asset` 的提交阻断已解除，opening 这批 own 资产不再被 whitespace 卡住。
+  2. `SpringDay1Director` 的 opening 提示源已更贴当前链路，而不是继续把“已听懂 / 已过村口 / 等待进屋安置”这些中间态压成一句模糊旧文案。
+  3. `HealingAndHP` 的等待说明已回正到“进村安置链收束后触发”，不再误导成“首段对话后直接疗伤”。
+  4. 新增的 `SpringDay1OpeningDialogueAssetGraphTests.cs` 比原来的大而杂静态字符串总测试更接近当前刀需要的证据：
+     - 它开始真正加载对白资产对象并检查 followup 图谱与关键 opening 语义；
+     - 虽然仍不是 live，但已经比单纯 `File.ReadAllText + Contains` 更像“消费链校验”。
+- 当前父层验证状态：
+  - `git diff --check`：本轮 owned 文件通过
+  - `CodexCodeGuard`：`SpringDay1Director.cs`、`SpringDay1OpeningDialogueAssetGraphTests.cs` 通过，`CanContinue = true`
+  - 本轮没有进 Unity、没有 live
+  - 当前只可宣称：`结构与资产图谱 probe 成立，live 待验证`
+- 当前父层恢复点：
+  - 如果继续这条线，下一步更值钱的是拿一次真实 Unity 证据去确认 opening 链如何进入 `HealingAndHP`
+  - 如果暂不跑 live，这一刀在代码/资产层已经不该继续无限加内容
