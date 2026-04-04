@@ -75,6 +75,21 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private const int PASSIVE_NPC_CROWD_REPATH_MIN_BLOCKERS = 2;
     private const float PASSIVE_NPC_CROWD_REPATH_BACKWARD_TOLERANCE = 0.05f;
     private const float PASSIVE_NPC_CROWD_REPATH_LATERAL_DISTANCE = 0.78f;
+    private const float PASSIVE_NPC_CROWD_DETOUR_KEEP_CENTER_DISTANCE = 2.35f;
+    private const float PASSIVE_NPC_CROWD_DETOUR_KEEP_DESTINATION_DISTANCE = 0.85f;
+    private const float PASSIVE_NPC_CROWD_DETOUR_KEEP_LATERAL_DISTANCE = 1.35f;
+    private const float PASSIVE_NPC_CROWD_FORWARD_DETOUR_BLOCKER_FORWARD_SCALE = 1.45f;
+    private const float PASSIVE_NPC_CROWD_FORWARD_DETOUR_BLOCKER_SIDESTEP_SCALE = 1.05f;
+    private const float PASSIVE_NPC_CROWD_FORWARD_DETOUR_PLAYER_FORWARD_SCALE = 1.7f;
+    private const float PASSIVE_NPC_CROWD_FORWARD_DETOUR_PLAYER_SIDESTEP_SCALE = 0.85f;
+    private const int PASSIVE_NPC_WALL_MIN_BLOCKERS = 3;
+    private const float PASSIVE_NPC_WALL_LOOKAHEAD_DISTANCE = 3.3f;
+    private const float PASSIVE_NPC_WALL_MAX_FORWARD_SPAN = 1.05f;
+    private const float PASSIVE_NPC_WALL_MAX_LATERAL_SPAN = 0.95f;
+    private const float PASSIVE_NPC_WALL_TARGET_MAX_LATERAL_DISTANCE = 0.7f;
+    private const int PASSIVE_NPC_WALL_CANCEL_MIN_SIGHTINGS = 4;
+    private const float PASSIVE_NPC_WALL_CANCEL_BLOCKING_DISTANCE = 1.15f;
+    private const float PASSIVE_NPC_WALL_CANCEL_MAX_MOVE_SCALE = 0.45f;
     private const int PASSIVE_NPC_SINGLE_STOP_JITTER_REPATH_MIN_SIGHTINGS = 4;
     private const float PASSIVE_NPC_SINGLE_STOP_JITTER_REPATH_DISTANCE = 0.52f;
     private const float PASSIVE_NPC_SINGLE_STOP_JITTER_CLEARANCE = -0.02f;
@@ -82,7 +97,9 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private const int PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_MIN_SIGHTINGS = 4;
     private const float PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_BLOCKING_DISTANCE = 1.08f;
     private const float PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_CENTER_DISTANCE = 1.02f;
-    private const float PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_MIN_MOVE_SCALE = 0.82f;
+    private const float PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_MIN_MOVE_SCALE = 0.72f;
+    private const float PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_EARLY_BLOCKING_DISTANCE = 1.8f;
+    private const float PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_EARLY_CENTER_DISTANCE = 1.95f;
     private const float PASSIVE_NPC_CLOSE_CONSTRAINT_EXTRA_RADIUS = 0.05f;
     private const float PASSIVE_NPC_CLOSE_CONSTRAINT_MIN_FORWARD = 0.38f;
     private const float PASSIVE_NPC_CLOSE_CONSTRAINT_RELAX_CLEARANCE = 0.04f;
@@ -93,9 +110,13 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private const float PASSIVE_NPC_CLOSE_CONSTRAINT_SOFT_OVERLAP_SPEED = 0.26f;
     private const float PASSIVE_NPC_CLOSE_CONSTRAINT_SOFT_OVERLAP_BLEND = 0.2f;
     private const float POINT_ARRIVAL_BLOCKER_RADIUS_PADDING = 0.08f;
+    private const float POINT_ARRIVAL_BLOCKER_SETTLE_PADDING = 0.08f;
+    private const float POINT_ARRIVAL_BLOCKER_REPATH_SUPPRESS_PADDING = 0.45f;
     private const float POST_DETOUR_POINT_ARRIVAL_SETTLE_DURATION = 0.2f;
     private const float POST_AVOIDANCE_POINT_ARRIVAL_HOLD_DURATION = 0.35f;
     private const float POST_AVOIDANCE_POINT_ARRIVAL_SETTLE_SPEED = 0.04f;
+    private const float SAME_FRAME_PATH_REBUILD_START_THRESHOLD = 0.02f;
+    private const float SAME_FRAME_PATH_REBUILD_DESTINATION_THRESHOLD = 0.02f;
 
     // 到达回调
     private System.Action _onArrivedCallback;
@@ -126,6 +147,11 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private float _pointArrivalCompletionHoldStartTime = float.NegativeInfinity;
     private Vector2 _pointArrivalCompletionHoldDestination;
     private int _lastPointArrivalGuardLogFrame = -999;
+    private bool _hasLastBuildSignature;
+    private int _lastBuildFrame = -1;
+    private Vector2 _lastBuildStartPosition;
+    private Vector2 _lastBuildRequestedDestination;
+    private Transform _lastBuildTargetTransform;
 
     private List<Vector2> path => navigationExecution.Path;
     private int pathIndex { get => navigationExecution.PathIndex; set => navigationExecution.PathIndex = value; }
@@ -294,17 +320,23 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         if (collider != null)
         {
             Bounds bounds = collider.bounds;
-            Debug.Log($"<color=green>[Nav] 开始导航: 目标={t.name}</color>\n" +
-                      $"  玩家起点: {playerStart}\n" +
-                      $"  目标最近点(ClosestPoint): {targetClosest}, Collider大小: {(Vector2)bounds.size}\n" +
-                      $"  当前距离: {distToTarget:F2}, 停止半径: {followStopRadius:F2}");
+            if (enableDetailedDebug)
+            {
+                Debug.Log($"<color=green>[Nav] 开始导航: 目标={t.name}</color>\n" +
+                          $"  玩家起点: {playerStart}\n" +
+                          $"  目标最近点(ClosestPoint): {targetClosest}, Collider大小: {(Vector2)bounds.size}\n" +
+                          $"  当前距离: {distToTarget:F2}, 停止半径: {followStopRadius:F2}");
+            }
         }
         else
         {
-            Debug.Log($"<color=green>[Nav] 开始导航: 目标={t.name}（无Collider）</color>\n" +
-                      $"  玩家起点: {playerStart}\n" +
-                      $"  目标位置: {(Vector2)t.position}\n" +
-                      $"  停止半径: {followStopRadius:F2}");
+            if (enableDetailedDebug)
+            {
+                Debug.Log($"<color=green>[Nav] 开始导航: 目标={t.name}（无Collider）</color>\n" +
+                          $"  玩家起点: {playerStart}\n" +
+                          $"  目标位置: {(Vector2)t.position}\n" +
+                          $"  停止半径: {followStopRadius:F2}");
+            }
         }
 
         BuildPath();
@@ -352,14 +384,17 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             distToTarget = Vector2.Distance(playerFinal, targetPoint);
         }
         
-        Debug.Log($"<color=cyan>[Nav] 导航完成: 目标={(targetTransform != null ? targetName : "点导航")}</color>\n" +
-                  $"  玩家最终位置: {playerFinal}\n" +
-                  $"  导航解析终点: {GetResolvedPathDestination()}\n" +
-                  $"  请求终点: {(Vector2)targetPoint}\n" +
-                  $"  Transform位置: {DebugTransformPosition}\n" +
-                  $"  Collider中心: {DebugColliderCenter}\n" +
-                  $"  到目标最近点距离: {distToTarget:F2}\n" +
-                  $"  停止半径: {followStopRadius:F2}");
+        if (enableDetailedDebug)
+        {
+            Debug.Log($"<color=cyan>[Nav] 导航完成: 目标={(targetTransform != null ? targetName : "点导航")}</color>\n" +
+                      $"  玩家最终位置: {playerFinal}\n" +
+                      $"  导航解析终点: {GetResolvedPathDestination()}\n" +
+                      $"  请求终点: {(Vector2)targetPoint}\n" +
+                      $"  Transform位置: {DebugTransformPosition}\n" +
+                      $"  Collider中心: {DebugColliderCenter}\n" +
+                      $"  到目标最近点距离: {distToTarget:F2}\n" +
+                      $"  停止半径: {followStopRadius:F2}");
+        }
         
         // 只有 token 匹配才执行回调
         if (_currentToken == _navToken && _onArrivedCallback != null)
@@ -384,8 +419,13 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         _cachedTargetTransform = null;
         _cachedTargetCollider = null;
         NavigationPathExecutor2D.Clear(navigationExecution);
+        _lastDynamicObstacleId = 0;
+        _dynamicObstacleSightings = 0;
         runWhileNavigating = false;
         _onArrivedCallback = null;
+        _hasLastBuildSignature = false;
+        _lastBuildFrame = -1;
+        _lastBuildTargetTransform = null;
         ResetAvoidanceDebugState("Inactive");
         ResetPointArrivalCompletionHold();
         if (movement != null) movement.SetMovementInput(Vector2.zero, false);
@@ -407,6 +447,10 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
                 if (HasReachedArrivalPoint(playerPos))
                 {
                     CompleteArrival();
+                }
+                else if (TryHoldBlockedPointArrival(playerPos, "BuildPath path=0"))
+                {
+                    return;
                 }
                 else
                 {
@@ -713,12 +757,18 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private void BuildPath()
     {
+        Vector2 playerPosition = GetPlayerPosition();
+        Vector2 requestedDestination = GetPathRequestDestination();
+        if (ShouldSkipSameFramePathRebuild(playerPosition, requestedDestination))
+        {
+            return;
+        }
+
         debugLogs.Clear();
-        string pathSummary = $"开始寻路: 起点={GetPlayerPosition()}, 终点={targetPoint}" +
+        string pathSummary = $"开始寻路: 起点={playerPosition}, 终点={targetPoint}" +
             (targetTransform != null ? $", 目标={targetTransform.name}" : string.Empty);
         AddDebugLog(pathSummary);
 
-        Vector2 requestedDestination = GetPathRequestDestination();
         if (targetTransform == null && Vector2.Distance(requestedDestination, (Vector2)targetPoint) > 0.01f)
         {
             AddDebugLog($"点导航目标换算: 点击点={(Vector2)targetPoint}, 导航中心终点={requestedDestination}");
@@ -727,10 +777,10 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
             navigationExecution,
             navGrid,
-            GetPlayerPosition(),
+            playerPosition,
             requestedDestination,
             HasLineOfSight,
-            GetPlayerPosition(),
+            playerPosition,
             waypointTolerance,
             AddDebugLog);
 
@@ -749,6 +799,12 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         {
             Debug.Log($"<color=green>[Nav] 路径构建成功：{path.Count} 个路径点</color>");
         }
+
+        _hasLastBuildSignature = true;
+        _lastBuildFrame = Time.frameCount;
+        _lastBuildStartPosition = playerPosition;
+        _lastBuildRequestedDestination = requestedDestination;
+        _lastBuildTargetTransform = targetTransform;
     }
 
     private bool CheckAndHandleStuck()
@@ -895,11 +951,6 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return false;
         }
 
-        if (TryHoldBlockedPointArrival(playerPos, "抵达终点判定"))
-        {
-            return true;
-        }
-
         if (TryHoldPostAvoidancePointArrival(playerPos))
         {
             return true;
@@ -923,7 +974,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private bool TryHoldBlockedPointArrival(Vector2 playerPos, string source)
     {
-        if (!ShouldHoldBlockedPointArrival(out NavigationAgentSnapshot blocker, out string reason))
+        if (!ShouldHoldBlockedPointArrival(playerPos, out NavigationAgentSnapshot blocker, out string reason))
         {
             return false;
         }
@@ -954,6 +1005,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     }
 
     private bool ShouldHoldBlockedPointArrival(
+        Vector2 playerPos,
         out NavigationAgentSnapshot blocker,
         out string reason)
     {
@@ -968,6 +1020,14 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         Vector2 resolvedDestination = GetResolvedPathDestination();
         if (TryGetPointArrivalNpcBlocker(resolvedDestination, out blocker))
         {
+            if (IsWithinPointArrivalBlockerSettleWindow(playerPos, blocker, resolvedDestination))
+            {
+                reason =
+                    $"点导航已进入终点 blocker keep 窗口，继续保持导航 => Blocker={blocker.InstanceId}, " +
+                    $"Dest={resolvedDestination}, Npc={blocker.Position}, Player={playerPos}";
+                return true;
+            }
+
             reason =
                 $"点导航终点附近仍有 NPC 占位，暂不完成/取消 => Blocker={blocker.InstanceId}, Dest={resolvedDestination}, Npc={blocker.Position}";
             return true;
@@ -1012,6 +1072,14 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return false;
         }
 
+        float latestAvoidanceEventTime = hasRecentDetourClear
+            ? navigationExecution.LastDetourClearTime
+            : float.NegativeInfinity;
+        if (hasRecentDetourRecovery)
+        {
+            latestAvoidanceEventTime = Mathf.Max(latestAvoidanceEventTime, navigationExecution.LastDetourRecoveryTime);
+        }
+
         Vector2 resolvedDestination = GetResolvedPathDestination();
         if (_pointArrivalCompletionHoldStartTime <= float.NegativeInfinity ||
             Vector2.Distance(_pointArrivalCompletionHoldDestination, resolvedDestination) > 0.05f)
@@ -1022,14 +1090,18 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
         float holdDuration = currentTime - _pointArrivalCompletionHoldStartTime;
         float currentSpeed = GetCurrentVelocity().magnitude;
-        if (holdDuration >= POST_AVOIDANCE_POINT_ARRIVAL_HOLD_DURATION &&
+        float avoidanceEventAge =
+            latestAvoidanceEventTime > float.NegativeInfinity
+                ? currentTime - latestAvoidanceEventTime
+                : holdDuration;
+        if (avoidanceEventAge >= POST_AVOIDANCE_POINT_ARRIVAL_HOLD_DURATION &&
             currentSpeed <= POST_AVOIDANCE_POINT_ARRIVAL_SETTLE_SPEED)
         {
             return false;
         }
 
         reason =
-            $"detour/recover 后延迟点导航完成，等待 settle => Hold={holdDuration:F2}, Speed={currentSpeed:F2}, " +
+            $"detour/recover 后延迟点导航完成，等待 settle => Hold={holdDuration:F2}, EventAge={avoidanceEventAge:F2}, Speed={currentSpeed:F2}, " +
             $"Resolved={resolvedDestination}, LastClear={navigationExecution.LastDetourClearTime:F2}, " +
             $"LastRecover={navigationExecution.LastDetourRecoveryTime:F2}, Player={playerPos}";
         return true;
@@ -1040,11 +1112,13 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         out NavigationAgentSnapshot blocker)
     {
         float queryRadius =
-            GetFinalStopDistance() +
             GetColliderRadius() +
+            GetPointArrivalBlockerRadiusUpperBound() +
             GetContactShellPadding() +
             POINT_ARRIVAL_BLOCKER_RADIUS_PADDING;
 
+        blocker = default;
+        float bestDestinationDistance = float.PositiveInfinity;
         NavigationAgentRegistry.GetNearbySnapshots(this, destination, queryRadius, _nearbyNavigationAgents);
         for (int i = 0; i < _nearbyNavigationAgents.Count; i++)
         {
@@ -1054,23 +1128,20 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
                 continue;
             }
 
-            float occupyDistance =
-                GetFinalStopDistance() +
-                GetColliderRadius() +
-                Mathf.Max(candidate.ColliderRadius, 0.01f) +
-                GetContactShellPadding() +
-                POINT_ARRIVAL_BLOCKER_RADIUS_PADDING;
-            if (Vector2.Distance(candidate.Position, destination) > occupyDistance)
+            float destinationDistance = Vector2.Distance(candidate.Position, destination);
+            if (destinationDistance > GetPointArrivalBlockerOccupyDistance(candidate))
             {
                 continue;
             }
 
-            blocker = candidate;
-            return true;
+            if (destinationDistance < bestDestinationDistance)
+            {
+                bestDestinationDistance = destinationDistance;
+                blocker = candidate;
+            }
         }
 
-        blocker = default;
-        return false;
+        return blocker.InstanceId != 0;
     }
 
     private float? TryMeasureBlockingClearance(
@@ -1201,6 +1272,14 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         {
             _lastDynamicObstacleId = 0;
             _dynamicObstacleSightings = 0;
+            if (ShouldCancelPassiveNpcWallPointNavigationWithoutActiveBlocker(playerPos))
+            {
+                AddDebugLog("静止 NPC 墙前取消点导航，detour 不再继续绕到被堵目标后方");
+                Cancel();
+                ForceImmediateMovementStop();
+                return true;
+            }
+
             if (TryReleaseDynamicDetour(playerPos, Time.time))
             {
                 ResetAvoidanceDebugState();
@@ -1224,6 +1303,16 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             _lastDynamicObstacleRepathTime = Time.time;
             ResetAvoidanceDebugState();
             return false;
+        }
+
+        if (ShouldCancelPassiveNpcWallPointNavigation(playerPos, desiredDirection, avoidance))
+        {
+            AddDebugLog(
+                $"静止 NPC 墙前取消点导航，避免继续绕/挤到被堵目标后方 => AgentId={avoidance.BlockingAgentId}, " +
+                $"BlockDist={Mathf.Min(avoidance.BlockingDistance, _debugLastBlockingDistance):F2}, Sightings={_dynamicObstacleSightings}");
+            Cancel();
+            ForceImmediateMovementStop();
+            return true;
         }
 
         bool shouldEscalatePassivePathMove = ShouldBreakSinglePassiveNpcPathMoveBulldoze(
@@ -1286,6 +1375,12 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return false;
         }
 
+        if (IsPassiveNpcBlocker(avoidance.BlockingAgentId, out _) &&
+            ShouldKeepPassiveNpcCrowdDetour(playerPos))
+        {
+            return false;
+        }
+
         NavigationPathExecutor2D.DetourLifecycleResult detour = NavigationPathExecutor2D.TryClearDetourAndRecover(
             navigationExecution,
             navGrid,
@@ -1329,6 +1424,16 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             blocker.IsCurrentlyMoving)
         {
             return false;
+        }
+
+        if (ShouldTreatPassiveNpcWallAsBlockedTarget(playerPos, blocker))
+        {
+            return true;
+        }
+
+        if (ShouldSuppressPassiveNpcArrivalRepath(playerPos, blocker))
+        {
+            return true;
         }
 
         if (CountNearbyPassiveNpcBlockers(
@@ -1420,11 +1525,20 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         }
 
         float centerDistance = Vector2.Distance(playerPos, blocker.Position);
+        float blockingDistance = Mathf.Min(avoidance.BlockingDistance, _debugLastBlockingDistance);
+        bool sustainedActivePush =
+            (_debugLastNavigationAction == "PathMove" || _debugLastNavigationAction == "DetourMove") &&
+            Mathf.Max(_debugLastMoveScale, avoidance.SpeedScale) >= PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_MIN_MOVE_SCALE;
+
         if (centerDistance > PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_CENTER_DISTANCE &&
-            Mathf.Min(avoidance.BlockingDistance, _debugLastBlockingDistance) >
-            PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_BLOCKING_DISTANCE)
+            blockingDistance > PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_BLOCKING_DISTANCE)
         {
-            return false;
+            if (!sustainedActivePush ||
+                centerDistance > PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_EARLY_CENTER_DISTANCE ||
+                blockingDistance > PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_EARLY_BLOCKING_DISTANCE)
+            {
+                return false;
+            }
         }
 
         if (_debugLastMoveScale < PASSIVE_NPC_SINGLE_PATHMOVE_REPATH_MIN_MOVE_SCALE &&
@@ -1440,6 +1554,19 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         Vector2 playerPos,
         Vector2 desiredDirection,
         float maxCenterDistance)
+    {
+        return CountNearbyPassiveNpcBlockers(
+            playerPos,
+            desiredDirection,
+            maxCenterDistance,
+            PASSIVE_NPC_CROWD_REPATH_LATERAL_DISTANCE);
+    }
+
+    private int CountNearbyPassiveNpcBlockers(
+        Vector2 playerPos,
+        Vector2 desiredDirection,
+        float maxCenterDistance,
+        float maxLateralDistance)
     {
         int count = 0;
         float maxCenterDistanceSqr = maxCenterDistance * maxCenterDistance;
@@ -1468,7 +1595,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             }
 
             Vector2 lateral = toCandidate - forward * forwardDistance;
-            if (lateral.magnitude > PASSIVE_NPC_CROWD_REPATH_LATERAL_DISTANCE)
+            if (lateral.magnitude > maxLateralDistance)
             {
                 continue;
             }
@@ -1477,6 +1604,97 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         }
 
         return count;
+    }
+
+    private bool IsPassiveNpcWallFormation(
+        Vector2 playerPos,
+        Vector2 desiredDirection,
+        NavigationAgentSnapshot primaryBlocker)
+    {
+        if (primaryBlocker.InstanceId == 0 ||
+            primaryBlocker.UnitType != NavigationUnitType.NPC ||
+            primaryBlocker.IsCurrentlyMoving)
+        {
+            return false;
+        }
+
+        int blockerCount = 0;
+        float minX = float.PositiveInfinity;
+        float maxX = float.NegativeInfinity;
+        float minY = float.PositiveInfinity;
+        float maxY = float.NegativeInfinity;
+        for (int i = 0; i < _nearbyNavigationAgents.Count; i++)
+        {
+            NavigationAgentSnapshot candidate = _nearbyNavigationAgents[i];
+            if (candidate.UnitType != NavigationUnitType.NPC ||
+                candidate.IsCurrentlyMoving)
+            {
+                continue;
+            }
+
+            if (Vector2.Distance(candidate.Position, primaryBlocker.Position) >
+                PASSIVE_NPC_WALL_LOOKAHEAD_DISTANCE)
+            {
+                continue;
+            }
+
+            blockerCount++;
+            minX = Mathf.Min(minX, candidate.Position.x);
+            maxX = Mathf.Max(maxX, candidate.Position.x);
+            minY = Mathf.Min(minY, candidate.Position.y);
+            maxY = Mathf.Max(maxY, candidate.Position.y);
+        }
+
+        if (blockerCount < PASSIVE_NPC_WALL_MIN_BLOCKERS)
+        {
+            return false;
+        }
+
+        return (maxX - minX) <= PASSIVE_NPC_WALL_MAX_FORWARD_SPAN &&
+            (maxY - minY) <= PASSIVE_NPC_WALL_MAX_LATERAL_SPAN;
+    }
+
+    private bool ShouldCancelPassiveNpcWallPointNavigation(
+        Vector2 playerPos,
+        Vector2 desiredDirection,
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance)
+    {
+        if (targetTransform != null ||
+            !IsPassiveNpcBlocker(avoidance.BlockingAgentId, out NavigationAgentSnapshot blocker) ||
+            !ShouldTreatPassiveNpcWallAsBlockedTarget(playerPos, blocker) ||
+            !IsPassiveNpcWallFormation(playerPos, desiredDirection, blocker) ||
+            _dynamicObstacleSightings < PASSIVE_NPC_WALL_CANCEL_MIN_SIGHTINGS)
+        {
+            return false;
+        }
+
+        float blockingDistance = Mathf.Min(avoidance.BlockingDistance, _debugLastBlockingDistance);
+        if (blockingDistance > PASSIVE_NPC_WALL_CANCEL_BLOCKING_DISTANCE)
+        {
+            return false;
+        }
+
+        return avoidance.ShouldRepath ||
+            _debugLastCloseConstraintHardBlocked ||
+            (_debugLastCloseConstraintApplied &&
+             _debugLastMoveScale <= PASSIVE_NPC_WALL_CANCEL_MAX_MOVE_SCALE);
+    }
+
+    private bool ShouldCancelPassiveNpcWallPointNavigationWithoutActiveBlocker(Vector2 playerPos)
+    {
+        if (!_hasDynamicDetour ||
+            targetTransform != null ||
+            !TryGetNearestPassiveNpcAheadTowardsDestination(
+                playerPos,
+                PASSIVE_NPC_WALL_LOOKAHEAD_DISTANCE,
+                out NavigationAgentSnapshot blocker) ||
+            !ShouldTreatPassiveNpcWallAsBlockedTarget(playerPos, blocker))
+        {
+            return false;
+        }
+
+        return Vector2.Distance(playerPos, blocker.Position) <=
+            PASSIVE_NPC_WALL_CANCEL_BLOCKING_DISTANCE;
     }
 
     private bool TryGetNearbyNavigationAgentSnapshot(int instanceId, out NavigationAgentSnapshot snapshot)
@@ -1633,6 +1851,13 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return false;
         }
 
+        if (IsPassiveNpcBlocker(avoidance.BlockingAgentId, out NavigationAgentSnapshot blocker) &&
+            (ShouldTreatPassiveNpcWallAsBlockedTarget(playerPos, blocker) ||
+             ShouldSuppressPassiveNpcArrivalRepath(playerPos, blocker)))
+        {
+            return false;
+        }
+
         Vector2 separationDirection = playerPos - avoidance.BlockingAgentPosition;
         if (separationDirection.sqrMagnitude < 0.0001f)
         {
@@ -1674,6 +1899,37 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         }
 
         float minimumClearanceSqr = contactShellDistance * contactShellDistance * 0.55f;
+
+        Vector2 destinationDirection = GetResolvedPathDestination() - playerPos;
+        if (destinationDirection.sqrMagnitude > 0.0001f &&
+            CountNearbyPassiveNpcBlockers(
+                playerPos,
+                destinationDirection,
+                PASSIVE_NPC_CROWD_DETOUR_KEEP_CENTER_DISTANCE,
+                PASSIVE_NPC_CROWD_DETOUR_KEEP_LATERAL_DISTANCE) >=
+            PASSIVE_NPC_CROWD_REPATH_MIN_BLOCKERS)
+        {
+            Vector2 forwardDirection = destinationDirection.normalized;
+            if (TrySetDynamicDetourCandidate(
+                    avoidance.BlockingAgentPosition +
+                    sidestepDirection * (contactShellDistance * PASSIVE_NPC_CROWD_FORWARD_DETOUR_BLOCKER_SIDESTEP_SCALE) +
+                    forwardDirection * (contactShellDistance * PASSIVE_NPC_CROWD_FORWARD_DETOUR_BLOCKER_FORWARD_SCALE),
+                    avoidance,
+                    minimumClearanceSqr))
+            {
+                return true;
+            }
+
+            if (TrySetDynamicDetourCandidate(
+                    playerPos +
+                    sidestepDirection * (contactShellDistance * PASSIVE_NPC_CROWD_FORWARD_DETOUR_PLAYER_SIDESTEP_SCALE) +
+                    forwardDirection * (contactShellDistance * PASSIVE_NPC_CROWD_FORWARD_DETOUR_PLAYER_FORWARD_SCALE),
+                    avoidance,
+                    minimumClearanceSqr))
+            {
+                return true;
+            }
+        }
 
         if (TrySetDynamicDetourCandidate(
                 playerPos + separationDirection * (contactShellDistance * 0.9f) + sidestepDirection * (contactShellDistance * 0.9f),
@@ -1727,6 +1983,11 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private bool TryReleaseDynamicDetour(Vector2 playerPos, float currentTime)
     {
         if (!_hasDynamicDetour)
+        {
+            return false;
+        }
+
+        if (ShouldKeepPassiveNpcCrowdDetour(playerPos))
         {
             return false;
         }
@@ -1817,7 +2078,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
                 closeRangeConstraint.ForwardIntoBlocker >= PASSIVE_NPC_BLOCKED_INPUT_FORWARD;
         }
 
-        if (closeRangeConstraint.Applied || avoidance.ShouldRepath || _hasDynamicDetour)
+        if (closeRangeConstraint.Applied || avoidance.ShouldRepath)
         {
             return true;
         }
@@ -1924,6 +2185,10 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private Vector2 GetPlayerPosition()
     {
+        // 普通地面点导航与交互跟随都统一以玩家真实占位中心作为导航位置真值；
+        // 两者的区别只在终点契约：
+        // 1. 点导航 = 占位中心对齐点击点
+        // 2. 跟随目标 = 占位中心接近 ClosestPoint + stopRadius
         if (playerCollider != null && playerCollider.enabled && playerCollider.gameObject.activeInHierarchy)
         {
             return playerCollider.bounds.center;
@@ -1966,12 +2231,188 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
             return IsCloseEnoughToInteract(playerPos);
         }
 
-        return Vector2.Distance(playerPos, GetResolvedPathDestination()) <= GetFinalStopDistance();
+        Vector2 resolvedDestination = GetResolvedPathDestination();
+        return Vector2.Distance(playerPos, resolvedDestination) <= GetFinalStopDistance();
     }
 
     private Vector2 GetResolvedPathDestination()
     {
         return NavigationPathExecutor2D.GetResolvedDestination(navigationExecution, targetPoint);
+    }
+
+    private float GetPointArrivalBlockerRadiusUpperBound()
+    {
+        return GetColliderRadius() + PASSIVE_NPC_CLOSE_CONSTRAINT_EXTRA_RADIUS;
+    }
+
+    private float GetPointArrivalBlockerOccupyDistance(NavigationAgentSnapshot blocker)
+    {
+        float candidateOccupyRadius =
+            Mathf.Min(
+                Mathf.Max(blocker.ColliderRadius, 0.01f),
+                GetPointArrivalBlockerRadiusUpperBound());
+        return
+            GetColliderRadius() +
+            candidateOccupyRadius +
+            GetContactShellPadding() +
+            POINT_ARRIVAL_BLOCKER_RADIUS_PADDING;
+    }
+
+    private bool IsPointArrivalPassiveNpcBlocker(
+        NavigationAgentSnapshot blocker,
+        Vector2 resolvedDestination)
+    {
+        return targetTransform == null &&
+            blocker.InstanceId != 0 &&
+            blocker.UnitType == NavigationUnitType.NPC &&
+            !blocker.IsCurrentlyMoving &&
+            Vector2.Distance(blocker.Position, resolvedDestination) <= GetPointArrivalBlockerOccupyDistance(blocker);
+    }
+
+    private bool IsWithinPointArrivalBlockerSettleWindow(
+        Vector2 playerPos,
+        NavigationAgentSnapshot blocker,
+        Vector2 resolvedDestination)
+    {
+        if (!IsPointArrivalPassiveNpcBlocker(blocker, resolvedDestination))
+        {
+            return false;
+        }
+
+        float settleDistance =
+            GetPointArrivalBlockerOccupyDistance(blocker) +
+            GetFinalStopDistance() +
+            POINT_ARRIVAL_BLOCKER_SETTLE_PADDING;
+        return Vector2.Distance(playerPos, resolvedDestination) <= settleDistance;
+    }
+
+    private bool ShouldSuppressPassiveNpcArrivalRepath(
+        Vector2 playerPos,
+        NavigationAgentSnapshot blocker)
+    {
+        Vector2 resolvedDestination = GetResolvedPathDestination();
+        if (!IsPointArrivalPassiveNpcBlocker(blocker, resolvedDestination))
+        {
+            return false;
+        }
+
+        float repathSuppressDistance =
+            GetPointArrivalBlockerOccupyDistance(blocker) +
+            GetFinalStopDistance() +
+            POINT_ARRIVAL_BLOCKER_REPATH_SUPPRESS_PADDING;
+        return Vector2.Distance(playerPos, resolvedDestination) <= repathSuppressDistance;
+    }
+
+    private bool ShouldTreatPassiveNpcWallAsBlockedTarget(
+        Vector2 playerPos,
+        NavigationAgentSnapshot blocker)
+    {
+        if (targetTransform != null ||
+            blocker.InstanceId == 0)
+        {
+            return false;
+        }
+
+        Vector2 resolvedDestination = GetResolvedPathDestination();
+        Vector2 destinationDirection = resolvedDestination - playerPos;
+        if (destinationDirection.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        if (!IsPassiveNpcWallFormation(playerPos, destinationDirection, blocker))
+        {
+            return false;
+        }
+
+        Vector2 forward = destinationDirection.normalized;
+        Vector2 lateralAxis = new Vector2(-forward.y, forward.x);
+        float blockerForwardDistance = Vector2.Dot(blocker.Position - playerPos, forward);
+        float destinationForwardDistance = Vector2.Dot(destinationDirection, forward);
+        float destinationLateralDistance = Mathf.Abs(Vector2.Dot(destinationDirection, lateralAxis));
+
+        return blockerForwardDistance > -PASSIVE_NPC_CROWD_REPATH_BACKWARD_TOLERANCE &&
+            destinationForwardDistance > blockerForwardDistance &&
+            destinationLateralDistance <= PASSIVE_NPC_WALL_TARGET_MAX_LATERAL_DISTANCE;
+    }
+
+    private bool TryGetNearestPassiveNpcAheadTowardsDestination(
+        Vector2 playerPos,
+        float maxCenterDistance,
+        out NavigationAgentSnapshot blocker)
+    {
+        return TryGetNearestPassiveNpcAhead(
+            playerPos,
+            GetResolvedPathDestination() - playerPos,
+            maxCenterDistance,
+            out blocker);
+    }
+
+    private bool TryGetNearestPassiveNpcAhead(
+        Vector2 playerPos,
+        Vector2 forwardDirection,
+        float maxCenterDistance,
+        out NavigationAgentSnapshot blocker)
+    {
+        blocker = default;
+        if (forwardDirection.sqrMagnitude < 0.0001f)
+        {
+            return false;
+        }
+
+        Vector2 forward = forwardDirection.normalized;
+        float bestForwardDistance = float.PositiveInfinity;
+        float maxCenterDistanceSqr = maxCenterDistance * maxCenterDistance;
+        for (int i = 0; i < _nearbyNavigationAgents.Count; i++)
+        {
+            NavigationAgentSnapshot candidate = _nearbyNavigationAgents[i];
+            if (candidate.UnitType != NavigationUnitType.NPC ||
+                candidate.IsCurrentlyMoving)
+            {
+                continue;
+            }
+
+            Vector2 toCandidate = candidate.Position - playerPos;
+            if (toCandidate.sqrMagnitude > maxCenterDistanceSqr)
+            {
+                continue;
+            }
+
+            float forwardDistance = Vector2.Dot(toCandidate, forward);
+            if (forwardDistance < -PASSIVE_NPC_CROWD_REPATH_BACKWARD_TOLERANCE ||
+                forwardDistance >= bestForwardDistance)
+            {
+                continue;
+            }
+
+            blocker = candidate;
+            bestForwardDistance = forwardDistance;
+        }
+
+        return blocker.InstanceId != 0;
+    }
+
+    private bool ShouldKeepPassiveNpcCrowdDetour(Vector2 playerPos)
+    {
+        if (!_hasDynamicDetour ||
+            targetTransform != null)
+        {
+            return false;
+        }
+
+        Vector2 resolvedDestination = GetResolvedPathDestination();
+        if (Vector2.Distance(playerPos, resolvedDestination) <=
+            GetFinalStopDistance() + PASSIVE_NPC_CROWD_DETOUR_KEEP_DESTINATION_DISTANCE)
+        {
+            return false;
+        }
+
+        return CountNearbyPassiveNpcBlockers(
+                playerPos,
+                resolvedDestination - playerPos,
+                PASSIVE_NPC_CROWD_DETOUR_KEEP_CENTER_DISTANCE,
+                PASSIVE_NPC_CROWD_DETOUR_KEEP_LATERAL_DISTANCE) >=
+            PASSIVE_NPC_CROWD_REPATH_MIN_BLOCKERS;
     }
 
     private void UpdateSprintState()
@@ -2106,8 +2547,8 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         if (interactable != null)
         {
             float interactDist = interactable.InteractionDistance;
-            float stopFactor = interactable is FarmGame.World.ChestController ? 0.45f : 0.78f;
-            float minStopRadius = interactable is FarmGame.World.ChestController ? 0.18f : 0.3f;
+            float stopFactor = interactable is FarmGame.World.ChestController ? 0.3f : 0.78f;
+            float minStopRadius = interactable is FarmGame.World.ChestController ? 0.12f : 0.3f;
             // 对交互目标保留更明显的“到位余量”，避免角色停得过早导致 UI 不开。
             return Mathf.Max(minStopRadius, interactDist * stopFactor);
         }
@@ -2136,7 +2577,37 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
 
     private void AddDebugLog(string message)
     {
+        if (!enableDetailedDebug)
+        {
+            return;
+        }
+
         debugLogs.Add($"[{Time.frameCount}] {message}");
+    }
+
+    private bool ShouldSkipSameFramePathRebuild(Vector2 startPosition, Vector2 requestedDestination)
+    {
+        if (!_hasLastBuildSignature || _lastBuildFrame != Time.frameCount)
+        {
+            return false;
+        }
+
+        if (_lastBuildTargetTransform != targetTransform)
+        {
+            return false;
+        }
+
+        if (Vector2.Distance(_lastBuildStartPosition, startPosition) > SAME_FRAME_PATH_REBUILD_START_THRESHOLD)
+        {
+            return false;
+        }
+
+        if (Vector2.Distance(_lastBuildRequestedDestination, requestedDestination) > SAME_FRAME_PATH_REBUILD_DESTINATION_THRESHOLD)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     /// <summary>

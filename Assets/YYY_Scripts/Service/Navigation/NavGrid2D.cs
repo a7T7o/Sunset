@@ -9,6 +9,9 @@ using UnityEngine.Tilemaps;
 /// </summary>
 public class NavGrid2D : MonoBehaviour
 {
+    private const bool EnableNavGridRefreshProfiling = false;
+    private const double RefreshProfileLogThresholdMs = 20d;
+
     [Header("网格设置")]
     [SerializeField] private Vector2 worldOrigin = Vector2.zero;
     [SerializeField] private Vector2 worldSize = new Vector2(50, 50);
@@ -29,10 +32,16 @@ public class NavGrid2D : MonoBehaviour
     [SerializeField] private Tilemap[] explicitObstacleTilemaps = new Tilemap[0];
     [Header("显式障碍碰撞体")]
     [SerializeField] private Collider2D[] explicitObstacleColliders = new Collider2D[0];
+    [Header("Traversal 软穿越障碍 Tilemap")]
+    [SerializeField] private Tilemap[] explicitSoftPassObstacleTilemaps = new Tilemap[0];
+    [Header("Traversal 软穿越障碍碰撞体")]
+    [SerializeField] private Collider2D[] explicitSoftPassObstacleColliders = new Collider2D[0];
     [Header("显式可走覆盖 Tilemap")]
     [SerializeField] private Tilemap[] explicitWalkableOverrideTilemaps = new Tilemap[0];
     [Header("显式可走覆盖碰撞体")]
     [SerializeField] private Collider2D[] explicitWalkableOverrideColliders = new Collider2D[0];
+    [Header("可走覆盖支撑检测")]
+    [SerializeField, Min(0.001f)] private float walkableOverrideSupportRadius = 0.08f;
     [Header("调试")]
 #pragma warning disable CS0414 // Used by editor gizmo drawing.
     [SerializeField] private bool showDebugGizmos = true;
@@ -42,13 +51,31 @@ public class NavGrid2D : MonoBehaviour
     private int gridW, gridH;
     private bool[,] walkable;
     private static NavGrid2D s_instance;
+    private static readonly Dictionary<int, TileSpriteGeometry> s_tileSpriteGeometryCache = new Dictionary<int, TileSpriteGeometry>();
 
     // 🔥 Unity 6 优化：预分配碰撞体缓存数组，避免 GC 分配
     private Collider2D[] _colliderCache = new Collider2D[10];
+    private Collider2D[] _walkableOverrideColliderCache = new Collider2D[6];
     private ContactFilter2D _obstacleFilter;
 
     // 公共事件：外部可调用以通知网格需要刷新
     public static System.Action OnRequestGridRefresh;
+
+    private sealed class TileSpriteGeometry
+    {
+        public TileSpriteGeometry(Vector2[][] paths, Vector2[] meshVertices, ushort[] meshTriangles)
+        {
+            Paths = paths ?? new Vector2[0][];
+            MeshVertices = meshVertices ?? new Vector2[0];
+            MeshTriangles = meshTriangles ?? new ushort[0];
+        }
+
+        public Vector2[][] Paths { get; }
+        public Vector2[] MeshVertices { get; }
+        public ushort[] MeshTriangles { get; }
+        public bool HasPaths => Paths.Length > 0;
+        public bool HasMesh => MeshVertices.Length >= 3 && MeshTriangles.Length >= 3;
+    }
 
     void Awake()
     {
@@ -110,8 +137,10 @@ public class NavGrid2D : MonoBehaviour
     /// </summary>
     public void RefreshGrid()
     {
+        double profileStart = Time.realtimeSinceStartupAsDouble;
         RefreshExplicitObstacleSources();
         RebuildGrid();
+        LogRefreshProfileIfSlow("RefreshGrid(full)", profileStart);
     }
 
     public static bool TryRequestLocalRefresh(
@@ -132,6 +161,7 @@ public class NavGrid2D : MonoBehaviour
         bool refreshExplicitSources = false,
         float extraPadding = -1f)
     {
+        double profileStart = Time.realtimeSinceStartupAsDouble;
         if (!isActiveAndEnabled)
         {
             return false;
@@ -145,6 +175,7 @@ public class NavGrid2D : MonoBehaviour
         if (!TryNormalizeRuntimeRefreshBounds(worldBounds, extraPadding, out Bounds refreshBounds))
         {
             RebuildGrid();
+            LogRefreshProfileIfSlow("RefreshGrid(fallback-rebuild)", profileStart);
             return true;
         }
 
@@ -153,10 +184,18 @@ public class NavGrid2D : MonoBehaviour
         if (!CanRefreshBoundsInPlace(refreshBounds))
         {
             RebuildGrid();
+            LogRefreshProfileIfSlow(
+                "RefreshGrid(rebuild-bounds)",
+                profileStart,
+                $"bounds={refreshBounds}");
             return true;
         }
 
         RefreshGridRegion(refreshBounds);
+        LogRefreshProfileIfSlow(
+            "RefreshGrid(local)",
+            profileStart,
+            $"bounds={refreshBounds}");
         return true;
     }
 
@@ -249,6 +288,32 @@ public class NavGrid2D : MonoBehaviour
         return true;
     }
 
+    public bool ConfigureTraversalSoftPassSources(
+        Collider2D[] colliders,
+        Tilemap[] tilemaps,
+        bool rebuildImmediately = false)
+    {
+        Collider2D[] normalizedColliders = NormalizeObjectArray(colliders);
+        Tilemap[] normalizedTilemaps = NormalizeObjectArray(tilemaps);
+
+        bool collidersChanged = !AreReferenceArraysEqual(explicitSoftPassObstacleColliders, normalizedColliders);
+        bool tilemapsChanged = !AreReferenceArraysEqual(explicitSoftPassObstacleTilemaps, normalizedTilemaps);
+        if (!collidersChanged && !tilemapsChanged)
+        {
+            return false;
+        }
+
+        explicitSoftPassObstacleColliders = normalizedColliders;
+        explicitSoftPassObstacleTilemaps = normalizedTilemaps;
+
+        if (rebuildImmediately && isActiveAndEnabled)
+        {
+            RebuildGrid();
+        }
+
+        return true;
+    }
+
     public bool ConfigureExplicitWalkableOverrideSources(
         Collider2D[] colliders,
         Tilemap[] tilemaps,
@@ -325,23 +390,14 @@ public class NavGrid2D : MonoBehaviour
 
     public bool HasWalkableOverrideAt(Vector2 worldPos, float radius = -1f)
     {
-        float effectiveRadius = radius >= 0f
-            ? Mathf.Max(0.001f, radius)
-            : probeRadius;
+        float effectiveRadius = GetWalkableOverrideSupportRadius(radius);
 
         if (HasExplicitWalkableOverrideTilemapHit(worldPos, effectiveRadius))
         {
             return true;
         }
 
-        int hitCount = Physics2D.OverlapCircle(worldPos, effectiveRadius, _obstacleFilter, _colliderCache);
-        if (hitCount == _colliderCache.Length)
-        {
-            System.Array.Resize(ref _colliderCache, _colliderCache.Length * 2);
-            hitCount = Physics2D.OverlapCircle(worldPos, effectiveRadius, _obstacleFilter, _colliderCache);
-        }
-
-        return HasExplicitWalkableOverrideColliderHit(hitCount, null);
+        return HasExplicitWalkableOverrideColliderHit(worldPos, effectiveRadius, null);
     }
 
     public Bounds GetWorldBounds()
@@ -403,6 +459,7 @@ public class NavGrid2D : MonoBehaviour
 
     public void RebuildGrid()
     {
+        double profileStart = Time.realtimeSinceStartupAsDouble;
         // 🔥 关键修复：同步物理系统的 Transform 变化
         // 动态障碍物（如树木成长、箱子放置）修改碰撞体后，
         // Physics2D 内部缓存可能未更新，导致 OverlapCircle 检测到旧数据
@@ -432,6 +489,11 @@ public class NavGrid2D : MonoBehaviour
         {
             Debug.Log($"[NavGrid2D] 网格重建完毕: {gridW}x{gridH}={gridW*gridH} 单元，障碍物={obstacleCount}");
         }
+
+        LogRefreshProfileIfSlow(
+            "RebuildGrid",
+            profileStart,
+            $"grid={gridW}x{gridH} cells={gridW * gridH}");
     }
 
     /// <summary>
@@ -534,12 +596,15 @@ public class NavGrid2D : MonoBehaviour
 
     private bool IsPointBlocked(Vector2 worldPos, float radius, Collider2D ignoredCollider = null)
     {
-        if (HasExplicitWalkableOverrideTilemapHit(worldPos, radius))
+        float walkableOverrideRadius = GetWalkableOverrideSupportRadius(radius);
+        bool hasWalkableOverrideTilemapHit = HasExplicitWalkableOverrideTilemapHit(worldPos, walkableOverrideRadius);
+        if (HasExplicitObstacleTilemapHit(worldPos, radius))
         {
-            return false;
+            return true;
         }
 
-        if (HasExplicitObstacleTilemapHit(worldPos, radius))
+        bool hasWalkableOverride = hasWalkableOverrideTilemapHit;
+        if (!hasWalkableOverride && HasExplicitSoftPassObstacleTilemapHit(worldPos, radius))
         {
             return true;
         }
@@ -551,12 +616,19 @@ public class NavGrid2D : MonoBehaviour
             hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
         }
 
-        if (HasExplicitWalkableOverrideColliderHit(hitCount, ignoredCollider))
-        {
-            return false;
-        }
+        bool hasWalkableOverrideColliderHit = HasExplicitWalkableOverrideColliderHit(
+            worldPos,
+            walkableOverrideRadius,
+            ignoredCollider);
+        hasWalkableOverride |= hasWalkableOverrideColliderHit;
 
         if (HasExplicitObstacleHit(hitCount, ignoredCollider))
+        {
+            return true;
+        }
+
+        if (!hasWalkableOverride &&
+            HasExplicitSoftPassObstacleHit(hitCount, ignoredCollider))
         {
             return true;
         }
@@ -676,6 +748,7 @@ public class NavGrid2D : MonoBehaviour
 
     private void RefreshGridRegion(Bounds refreshBounds)
     {
+        double profileStart = Time.realtimeSinceStartupAsDouble;
         int minX = Mathf.Clamp(
             Mathf.FloorToInt((refreshBounds.min.x - worldOrigin.x) / cellSize),
             0,
@@ -713,11 +786,41 @@ public class NavGrid2D : MonoBehaviour
             Debug.Log(
                 $"[NavGrid2D] 局部刷新完成: x={minX}-{maxX}, y={minY}-{maxY}, cells={refreshedCellCount}");
         }
+
+        LogRefreshProfileIfSlow(
+            "RefreshGridRegion",
+            profileStart,
+            $"cells={refreshedCellCount} bounds={refreshBounds}");
+    }
+
+    private static void LogRefreshProfileIfSlow(string stage, double startedAt, string extra = null)
+    {
+        if (!EnableNavGridRefreshProfiling)
+        {
+            return;
+        }
+
+        double elapsedMs = (Time.realtimeSinceStartupAsDouble - startedAt) * 1000d;
+        if (elapsedMs < RefreshProfileLogThresholdMs)
+        {
+            return;
+        }
+
+        string extraSuffix = string.IsNullOrEmpty(extra) ? string.Empty : $" {extra}";
+        Debug.LogWarning($"[NavGridProfile] {stage} took {elapsedMs:F2}ms{extraSuffix}");
     }
 
     private bool HasExplicitWalkableOverrideTilemapHit(Vector2 worldPos, float radius)
     {
-        return HasAnyTileInArea(explicitWalkableOverrideTilemaps, worldPos, radius);
+        return HasAnyTileGeometryHit(explicitWalkableOverrideTilemaps, worldPos, radius);
+    }
+
+    private float GetWalkableOverrideSupportRadius(float requestedRadius = -1f)
+    {
+        float fallbackRadius = requestedRadius >= 0f
+            ? Mathf.Max(0.001f, requestedRadius)
+            : Mathf.Max(0.001f, probeRadius);
+        return Mathf.Clamp(walkableOverrideSupportRadius, 0.001f, fallbackRadius);
     }
 
     private bool HasAnyExplicitWalkableOverrideTileAt(Vector2 worldPos)
@@ -746,7 +849,12 @@ public class NavGrid2D : MonoBehaviour
 
     private bool HasExplicitObstacleTilemapHit(Vector2 worldPos, float radius)
     {
-        return HasAnyTileInArea(explicitObstacleTilemaps, worldPos, radius);
+        return HasAnyTileGeometryHit(explicitObstacleTilemaps, worldPos, radius);
+    }
+
+    private bool HasExplicitSoftPassObstacleTilemapHit(Vector2 worldPos, float radius)
+    {
+        return HasAnyTileGeometryHit(explicitSoftPassObstacleTilemaps, worldPos, radius);
     }
 
     private bool HasAnyExplicitObstacleTileAt(Vector2 worldPos)
@@ -773,14 +881,13 @@ public class NavGrid2D : MonoBehaviour
         return false;
     }
 
-    private bool HasAnyTileInArea(Tilemap[] tilemaps, Vector2 worldPos, float radius)
+    private bool HasAnyTileGeometryHit(Tilemap[] tilemaps, Vector2 worldPos, float radius)
     {
         if (tilemaps == null || tilemaps.Length == 0)
         {
             return false;
         }
 
-        float extent = Mathf.Max(radius, cellSize * 0.2f);
         for (int i = 0; i < tilemaps.Length; i++)
         {
             Tilemap tilemap = tilemaps[i];
@@ -789,7 +896,7 @@ public class NavGrid2D : MonoBehaviour
                 continue;
             }
 
-            if (TilemapHasAnyTileInArea(tilemap, worldPos, extent))
+            if (TilemapHasAnyTileGeometryHit(tilemap, worldPos, radius, cellSize))
             {
                 return true;
             }
@@ -798,10 +905,11 @@ public class NavGrid2D : MonoBehaviour
         return false;
     }
 
-    private static bool TilemapHasAnyTileInArea(Tilemap tilemap, Vector2 worldPos, float extent)
+    private static bool TilemapHasAnyTileGeometryHit(Tilemap tilemap, Vector2 worldPos, float radius, float cellSize)
     {
-        Vector3Int minCell = tilemap.WorldToCell(new Vector3(worldPos.x - extent, worldPos.y - extent, 0f));
-        Vector3Int maxCell = tilemap.WorldToCell(new Vector3(worldPos.x + extent, worldPos.y + extent, 0f));
+        float searchExtent = Mathf.Max(radius, cellSize) + Mathf.Max(tilemap.cellSize.x, tilemap.cellSize.y);
+        Vector3Int minCell = tilemap.WorldToCell(new Vector3(worldPos.x - searchExtent, worldPos.y - searchExtent, 0f));
+        Vector3Int maxCell = tilemap.WorldToCell(new Vector3(worldPos.x + searchExtent, worldPos.y + searchExtent, 0f));
 
         int minX = Mathf.Min(minCell.x, maxCell.x);
         int maxX = Mathf.Max(minCell.x, maxCell.x);
@@ -812,7 +920,13 @@ public class NavGrid2D : MonoBehaviour
         {
             for (int y = minY; y <= maxY; y++)
             {
-                if (tilemap.HasTile(new Vector3Int(x, y, 0)))
+                Vector3Int cell = new Vector3Int(x, y, 0);
+                if (!tilemap.HasTile(cell))
+                {
+                    continue;
+                }
+
+                if (TileCellIntersectsCircle(tilemap, cell, worldPos, radius))
                 {
                     return true;
                 }
@@ -820,6 +934,244 @@ public class NavGrid2D : MonoBehaviour
         }
 
         return false;
+    }
+
+    private static bool TileCellIntersectsCircle(Tilemap tilemap, Vector3Int cell, Vector2 worldPos, float radius)
+    {
+        TileSpriteGeometry geometry = GetTileSpriteGeometry(tilemap.GetSprite(cell));
+        if (geometry.HasPaths)
+        {
+            Vector2[][] worldPaths = TransformTilePathsToWorld(tilemap, cell, geometry.Paths);
+            for (int index = 0; index < worldPaths.Length; index++)
+            {
+                if (PolygonIntersectsCircle(worldPaths[index], worldPos, radius))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        if (geometry.HasMesh)
+        {
+            return SpriteMeshIntersectsCircle(tilemap, cell, geometry, worldPos, radius);
+        }
+
+        Vector2[] worldRect = BuildTileFallbackRect(tilemap, cell);
+        return PolygonIntersectsCircle(worldRect, worldPos, radius);
+    }
+
+    private static TileSpriteGeometry GetTileSpriteGeometry(Sprite sprite)
+    {
+        if (sprite == null)
+        {
+            return new TileSpriteGeometry(new Vector2[0][], new Vector2[0], new ushort[0]);
+        }
+
+        int spriteId = sprite.GetInstanceID();
+        if (s_tileSpriteGeometryCache.TryGetValue(spriteId, out TileSpriteGeometry cachedGeometry))
+        {
+            return cachedGeometry;
+        }
+
+        List<Vector2[]> paths = new List<Vector2[]>();
+        int physicsShapeCount = sprite.GetPhysicsShapeCount();
+        if (physicsShapeCount > 0)
+        {
+            List<Vector2> points = new List<Vector2>(16);
+            for (int index = 0; index < physicsShapeCount; index++)
+            {
+                points.Clear();
+                sprite.GetPhysicsShape(index, points);
+                if (points.Count >= 3)
+                {
+                    paths.Add(points.ToArray());
+                }
+            }
+        }
+
+        Vector2[] meshVertices = sprite.vertices ?? new Vector2[0];
+        ushort[] meshTriangles = sprite.triangles ?? new ushort[0];
+
+        TileSpriteGeometry geometry = new TileSpriteGeometry(paths.ToArray(), meshVertices, meshTriangles);
+        s_tileSpriteGeometryCache[spriteId] = geometry;
+        return geometry;
+    }
+
+    private static bool SpriteMeshIntersectsCircle(
+        Tilemap tilemap,
+        Vector3Int cell,
+        TileSpriteGeometry geometry,
+        Vector2 worldPos,
+        float radius)
+    {
+        ushort[] triangles = geometry.MeshTriangles;
+        Vector2[] vertices = geometry.MeshVertices;
+        for (int triangleIndex = 0; triangleIndex + 2 < triangles.Length; triangleIndex += 3)
+        {
+            int aIndex = triangles[triangleIndex];
+            int bIndex = triangles[triangleIndex + 1];
+            int cIndex = triangles[triangleIndex + 2];
+            if (aIndex < 0 || aIndex >= vertices.Length ||
+                bIndex < 0 || bIndex >= vertices.Length ||
+                cIndex < 0 || cIndex >= vertices.Length)
+            {
+                continue;
+            }
+
+            Vector2 a = TransformTileLocalPointToWorld(tilemap, cell, vertices[aIndex]);
+            Vector2 b = TransformTileLocalPointToWorld(tilemap, cell, vertices[bIndex]);
+            Vector2 c = TransformTileLocalPointToWorld(tilemap, cell, vertices[cIndex]);
+            if (TriangleIntersectsCircle(a, b, c, worldPos, radius))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static Vector2[][] TransformTilePathsToWorld(Tilemap tilemap, Vector3Int cell, Vector2[][] localPaths)
+    {
+        Vector2[][] worldPaths = new Vector2[localPaths.Length][];
+        for (int pathIndex = 0; pathIndex < localPaths.Length; pathIndex++)
+        {
+            Vector2[] localPath = localPaths[pathIndex];
+            Vector2[] worldPath = new Vector2[localPath.Length];
+            for (int pointIndex = 0; pointIndex < localPath.Length; pointIndex++)
+            {
+                worldPath[pointIndex] = TransformTileLocalPointToWorld(tilemap, cell, localPath[pointIndex]);
+            }
+
+            worldPaths[pathIndex] = worldPath;
+        }
+
+        return worldPaths;
+    }
+
+    private static Vector2[] BuildTileFallbackRect(Tilemap tilemap, Vector3Int cell)
+    {
+        Sprite sprite = tilemap.GetSprite(cell);
+        if (sprite != null)
+        {
+            Bounds spriteBounds = sprite.bounds;
+            Vector2[] rect = new Vector2[4];
+            rect[0] = TransformTileLocalPointToWorld(tilemap, cell, new Vector2(spriteBounds.min.x, spriteBounds.min.y));
+            rect[1] = TransformTileLocalPointToWorld(tilemap, cell, new Vector2(spriteBounds.min.x, spriteBounds.max.y));
+            rect[2] = TransformTileLocalPointToWorld(tilemap, cell, new Vector2(spriteBounds.max.x, spriteBounds.max.y));
+            rect[3] = TransformTileLocalPointToWorld(tilemap, cell, new Vector2(spriteBounds.max.x, spriteBounds.min.y));
+            return rect;
+        }
+
+        Vector3 worldMin = tilemap.CellToWorld(cell);
+        Vector3 cellSize = tilemap.cellSize;
+        return new[]
+        {
+            (Vector2)worldMin,
+            (Vector2)(worldMin + new Vector3(0f, cellSize.y, 0f)),
+            (Vector2)(worldMin + new Vector3(cellSize.x, cellSize.y, 0f)),
+            (Vector2)(worldMin + new Vector3(cellSize.x, 0f, 0f))
+        };
+    }
+
+    private static Vector2 TransformTileLocalPointToWorld(Tilemap tilemap, Vector3Int cell, Vector2 localPoint)
+    {
+        Vector3 cellCenterLocal = tilemap.transform.InverseTransformPoint(tilemap.GetCellCenterWorld(cell));
+        Matrix4x4 tileTransform = tilemap.GetTransformMatrix(cell);
+        Vector3 tileLocalPoint = cellCenterLocal + tileTransform.MultiplyPoint3x4(localPoint);
+        return tilemap.transform.TransformPoint(tileLocalPoint);
+    }
+
+    private static bool PolygonIntersectsCircle(Vector2[] polygon, Vector2 point, float radius)
+    {
+        if (polygon == null || polygon.Length < 3)
+        {
+            return false;
+        }
+
+        if (IsPointInsidePolygon(point, polygon))
+        {
+            return true;
+        }
+
+        float radiusSqr = Mathf.Max(0.0001f, radius) * Mathf.Max(0.0001f, radius);
+        for (int index = 0; index < polygon.Length; index++)
+        {
+            Vector2 start = polygon[index];
+            Vector2 end = polygon[(index + 1) % polygon.Length];
+            if (DistancePointToSegmentSquared(point, start, end) <= radiusSqr)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TriangleIntersectsCircle(
+        Vector2 a,
+        Vector2 b,
+        Vector2 c,
+        Vector2 point,
+        float radius)
+    {
+        if (IsPointInsideTriangle(point, a, b, c))
+        {
+            return true;
+        }
+
+        float radiusSqr = Mathf.Max(0.0001f, radius) * Mathf.Max(0.0001f, radius);
+        return DistancePointToSegmentSquared(point, a, b) <= radiusSqr ||
+               DistancePointToSegmentSquared(point, b, c) <= radiusSqr ||
+               DistancePointToSegmentSquared(point, c, a) <= radiusSqr;
+    }
+
+    private static bool IsPointInsideTriangle(Vector2 point, Vector2 a, Vector2 b, Vector2 c)
+    {
+        float denominator = ((b.y - c.y) * (a.x - c.x)) + ((c.x - b.x) * (a.y - c.y));
+        if (Mathf.Abs(denominator) <= 0.00001f)
+        {
+            return false;
+        }
+
+        float alpha = (((b.y - c.y) * (point.x - c.x)) + ((c.x - b.x) * (point.y - c.y))) / denominator;
+        float beta = (((c.y - a.y) * (point.x - c.x)) + ((a.x - c.x) * (point.y - c.y))) / denominator;
+        float gamma = 1f - alpha - beta;
+        return alpha >= 0f && beta >= 0f && gamma >= 0f;
+    }
+
+    private static bool IsPointInsidePolygon(Vector2 point, Vector2[] polygon)
+    {
+        bool isInside = false;
+        for (int current = 0, previous = polygon.Length - 1; current < polygon.Length; previous = current++)
+        {
+            Vector2 currentPoint = polygon[current];
+            Vector2 previousPoint = polygon[previous];
+            bool intersects = ((currentPoint.y > point.y) != (previousPoint.y > point.y)) &&
+                              (point.x < (previousPoint.x - currentPoint.x) * (point.y - currentPoint.y) /
+                               Mathf.Max(previousPoint.y - currentPoint.y, 0.00001f) + currentPoint.x);
+            if (intersects)
+            {
+                isInside = !isInside;
+            }
+        }
+
+        return isInside;
+    }
+
+    private static float DistancePointToSegmentSquared(Vector2 point, Vector2 start, Vector2 end)
+    {
+        Vector2 segment = end - start;
+        float segmentLengthSqr = segment.sqrMagnitude;
+        if (segmentLengthSqr <= 0.000001f)
+        {
+            return (point - start).sqrMagnitude;
+        }
+
+        float t = Mathf.Clamp01(Vector2.Dot(point - start, segment) / segmentLengthSqr);
+        Vector2 closest = start + segment * t;
+        return (point - closest).sqrMagnitude;
     }
 
     private bool HasExplicitObstacleHit(int hitCount, Collider2D ignoredCollider)
@@ -851,9 +1203,9 @@ public class NavGrid2D : MonoBehaviour
         return false;
     }
 
-    private bool HasExplicitWalkableOverrideColliderHit(int hitCount, Collider2D ignoredCollider)
+    private bool HasExplicitSoftPassObstacleHit(int hitCount, Collider2D ignoredCollider)
     {
-        if (explicitWalkableOverrideColliders == null || explicitWalkableOverrideColliders.Length == 0)
+        if (explicitSoftPassObstacleColliders == null || explicitSoftPassObstacleColliders.Length == 0)
         {
             return false;
         }
@@ -861,6 +1213,45 @@ public class NavGrid2D : MonoBehaviour
         for (int i = 0; i < hitCount; i++)
         {
             Collider2D hitCollider = _colliderCache[i];
+            if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
+            {
+                continue;
+            }
+
+            if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
+            {
+                continue;
+            }
+
+            for (int obstacleIndex = 0; obstacleIndex < explicitSoftPassObstacleColliders.Length; obstacleIndex++)
+            {
+                if (explicitSoftPassObstacleColliders[obstacleIndex] == hitCollider)
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasExplicitWalkableOverrideColliderHit(Vector2 worldPos, float radius, Collider2D ignoredCollider)
+    {
+        if (explicitWalkableOverrideColliders == null || explicitWalkableOverrideColliders.Length == 0)
+        {
+            return false;
+        }
+
+        int hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _walkableOverrideColliderCache);
+        if (hitCount == _walkableOverrideColliderCache.Length)
+        {
+            System.Array.Resize(ref _walkableOverrideColliderCache, _walkableOverrideColliderCache.Length * 2);
+            hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _walkableOverrideColliderCache);
+        }
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hitCollider = _walkableOverrideColliderCache[i];
             if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
             {
                 continue;
@@ -970,14 +1361,25 @@ public class NavGrid2D : MonoBehaviour
     /// </summary>
     public bool IsWalkable(Vector2 worldPos, Collider2D ignoredCollider = null)
     {
-        if (!WorldToGrid(worldPos, out int gx, out int gy))
-            return false;
+        return IsWalkable(worldPos, probeRadius, ignoredCollider);
+    }
 
-        if (ignoredCollider != null)
+    public bool IsWalkable(Vector2 worldPos, float queryRadius, Collider2D ignoredCollider = null)
+    {
+        float effectiveRadius = queryRadius > 0f ? queryRadius : probeRadius;
+        if (!IsWithinWorldBounds(worldPos))
+        {
+            return false;
+        }
+
+        if (ignoredCollider != null || !Mathf.Approximately(effectiveRadius, probeRadius))
         {
             Physics2D.SyncTransforms();
-            return !IsPointBlocked(worldPos, probeRadius, ignoredCollider);
+            return !IsPointBlocked(worldPos, effectiveRadius, ignoredCollider);
         }
+
+        if (!WorldToGrid(worldPos, out int gx, out int gy))
+            return false;
 
         return IsWalkable(gx, gy);
     }

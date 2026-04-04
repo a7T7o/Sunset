@@ -45,6 +45,63 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         PartnerRejected = 7
     }
 
+    public enum RoamMoveInterruptionReason
+    {
+        None = 0,
+        SharedAvoidanceRecovered = 1,
+        SharedAvoidanceRepathFailed = 2,
+        StuckCancel = 3,
+        StuckRecoveryFailed = 4
+    }
+
+    public enum RoamMoveInterruptionBlockerKind
+    {
+        None = 0,
+        Player = 1,
+        NPC = 2,
+        Enemy = 3,
+        StaticObstacle = 4,
+        Unknown = 5
+    }
+
+    public readonly struct RoamMoveInterruptionSnapshot
+    {
+        public readonly RoamMoveInterruptionReason Reason;
+        public readonly RoamMoveInterruptionBlockerKind BlockerKind;
+        public readonly int BlockerId;
+        public readonly Vector2 RequestedDestination;
+        public readonly Vector2 ActiveDestination;
+        public readonly Vector2 CurrentPosition;
+        public readonly Vector2 BlockerPosition;
+        public readonly bool HasBlockerPosition;
+        public readonly float TriggerTime;
+        public readonly string Trigger;
+
+        public RoamMoveInterruptionSnapshot(
+            RoamMoveInterruptionReason reason,
+            RoamMoveInterruptionBlockerKind blockerKind,
+            int blockerId,
+            Vector2 requestedDestination,
+            Vector2 activeDestination,
+            Vector2 currentPosition,
+            Vector2 blockerPosition,
+            bool hasBlockerPosition,
+            float triggerTime,
+            string trigger)
+        {
+            Reason = reason;
+            BlockerKind = blockerKind;
+            BlockerId = blockerId;
+            RequestedDestination = requestedDestination;
+            ActiveDestination = activeDestination;
+            CurrentPosition = currentPosition;
+            BlockerPosition = blockerPosition;
+            HasBlockerPosition = hasBlockerPosition;
+            TriggerTime = triggerTime;
+            Trigger = trigger;
+        }
+    }
+
     [Header("组件引用")]
     [SerializeField] private NPCMotionController motionController;
     [SerializeField] private NPCBubblePresenter bubblePresenter;
@@ -98,6 +155,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     [SerializeField] private float waypointTolerance = 0.08f;
     [SerializeField] private float destinationTolerance = 0.12f;
 
+    [Header("Traversal 契约")]
+    [SerializeField] private bool enforceNavGridBounds = true;
+    [SerializeField] private bool allowTraversalOverridePhysicsSoftPass = true;
+    [SerializeField, Min(0f)] private float navigationFootProbeVerticalInset = 0.08f;
+    [SerializeField, Min(0f)] private float navigationFootProbeSideInset = 0.05f;
+    [SerializeField, Min(0f)] private float navigationFootProbeExtraRadius = 0.02f;
+
     [Header("卡住恢复")]
     [SerializeField] private float stuckCheckInterval = 0.3f;
     [SerializeField] private float stuckDistanceThreshold = 0.08f;
@@ -132,6 +196,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private int ambientChatRetryCount;
     private bool debugMoveActive;
     private Collider2D navigationCollider;
+    private Collider2D[] traversalSoftPassBlockers = new Collider2D[0];
+    private bool isTraversalSoftPassActive;
     private float lastSharedAvoidanceRepathTime = float.NegativeInfinity;
     private int lastBlockingAgentId;
     private int blockingAgentSightings;
@@ -144,6 +210,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private int sharedAvoidanceReleaseSuccessCount;
     private Vector2 requestedDestination;
     private bool hasRequestedDestination;
+    private bool hasRoamInterruption;
+    private RoamMoveInterruptionSnapshot lastRoamInterruption;
 
     private List<Vector2> path => navigationExecution.Path;
     private Vector2 currentDestination { get => navigationExecution.Destination; set => navigationExecution.Destination = value; }
@@ -175,6 +243,19 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public int DebugLastDetourOwnerId => navigationExecution.LastDetourOwnerId;
     public int DebugOverrideWaypointOwnerId => navigationExecution.OverrideWaypointOwnerId;
     public bool DebugLastDetourRecoverySucceeded => navigationExecution.LastDetourRecoverySucceeded;
+    public bool DebugHasRoamInterruption => hasRoamInterruption;
+    public string DebugLastRoamInterruptionReason => lastRoamInterruption.Reason.ToString();
+    public string DebugLastRoamInterruptionBlockerKind => lastRoamInterruption.BlockerKind.ToString();
+    public int DebugLastRoamInterruptionBlockerId => lastRoamInterruption.BlockerId;
+    public Vector2 DebugLastRoamInterruptionRequestedDestination => lastRoamInterruption.RequestedDestination;
+    public Vector2 DebugLastRoamInterruptionActiveDestination => lastRoamInterruption.ActiveDestination;
+    public Vector2 DebugLastRoamInterruptionCurrentPosition => lastRoamInterruption.CurrentPosition;
+    public Vector2 DebugLastRoamInterruptionBlockerPosition => lastRoamInterruption.BlockerPosition;
+    public bool DebugLastRoamInterruptionHasBlockerPosition => lastRoamInterruption.HasBlockerPosition;
+    public float DebugLastRoamInterruptionTime => lastRoamInterruption.TriggerTime;
+    public string DebugLastRoamInterruptionTrigger => lastRoamInterruption.Trigger;
+    public RoamMoveInterruptionSnapshot DebugLastRoamInterruption => lastRoamInterruption;
+    public event System.Action<RoamMoveInterruptionSnapshot> RoamMoveInterrupted;
     public NavigationUnitType GetUnitType() => NavigationUnitType.NPC;
     public Vector2 GetPosition() => GetNavigationCenter();
     public float GetColliderRadius()
@@ -261,6 +342,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void Update()
     {
+        UpdateTraversalSoftPassState(GetNavigationCenter());
+
         switch (state)
         {
             case RoamState.ShortPause:
@@ -292,6 +375,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         NavigationAgentRegistry.Unregister(this);
         StopRoam();
+        ClearTraversalSoftPassState();
+    }
+
+    private void OnDestroy()
+    {
+        ClearTraversalSoftPassState();
     }
 
     private void OnValidate()
@@ -313,6 +402,9 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         waypointTolerance = Mathf.Max(0.01f, waypointTolerance);
         destinationTolerance = Mathf.Max(waypointTolerance, destinationTolerance);
+        navigationFootProbeVerticalInset = Mathf.Max(0f, navigationFootProbeVerticalInset);
+        navigationFootProbeSideInset = Mathf.Max(0f, navigationFootProbeSideInset);
+        navigationFootProbeExtraRadius = Mathf.Max(0f, navigationFootProbeExtraRadius);
 
         stuckCheckInterval = Mathf.Max(0.1f, stuckCheckInterval);
         stuckDistanceThreshold = Mathf.Max(0.01f, stuckDistanceThreshold);
@@ -329,6 +421,54 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
+    public void SetNavGrid(NavGrid2D navigationGrid)
+    {
+        navGrid = navigationGrid;
+        warnedMissingNavGrid = false;
+    }
+
+    public void SetNavGridBoundsEnforcement(bool enabled)
+    {
+        enforceNavGridBounds = enabled;
+    }
+
+    public void SetTraversalSoftPassBlockers(Collider2D[] colliders, bool enabled = true)
+    {
+        if (isTraversalSoftPassActive)
+        {
+            ApplyTraversalSoftPass(traversalSoftPassBlockers, false);
+            isTraversalSoftPassActive = false;
+        }
+
+        allowTraversalOverridePhysicsSoftPass = enabled;
+        traversalSoftPassBlockers = NormalizeColliderArray(colliders);
+        UpdateTraversalSoftPassState(GetNavigationCenter());
+    }
+
+    public bool CanOccupyPosition(Vector2 worldCenter)
+    {
+        return CanOccupyNavigationPoint(worldCenter);
+    }
+
+    public void GetNavigationProbePoints(
+        Vector2 worldCenter,
+        out Vector2 centerProbe,
+        out Vector2 leftProbe,
+        out Vector2 rightProbe)
+    {
+        centerProbe = GetFootProbeCenter(worldCenter);
+        float lateralOffset = GetLateralFootProbeOffset();
+        if (lateralOffset <= 0.03f)
+        {
+            leftProbe = centerProbe;
+            rightProbe = centerProbe;
+            return;
+        }
+
+        leftProbe = centerProbe + Vector2.left * lateralOffset;
+        rightProbe = centerProbe + Vector2.right * lateralOffset;
+    }
+
     public void StartRoam()
     {
         CacheComponents();
@@ -336,6 +476,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         homePosition = homeAnchor != null ? homeAnchor.position : transform.position;
         ResetSharedAvoidanceDebugState();
+        ResetRoamInterruptionState();
         warnedMissingNavGrid = false;
         completedShortPauseCount = 0;
         lastAmbientDecision = string.Empty;
@@ -350,6 +491,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         debugMoveActive = false;
         ClearRequestedDestination();
         ResetSharedAvoidanceDebugState();
+        ResetRoamInterruptionState();
+        ClearTraversalSoftPassState();
         state = RoamState.Inactive;
         stateTimer = 0f;
         currentPathIndex = 0;
@@ -570,14 +713,20 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         BreakAmbientChatLink(hideBubble: true);
         ClearAmbientChatRetry();
-        RememberRequestedDestination(destination);
+        if (!TryResolveOccupiableDestination(destination, out Vector2 resolvedDestination))
+        {
+            return false;
+        }
+
+        RememberRequestedDestination(resolvedDestination);
+        ResetRoamInterruptionState();
 
         Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
         NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
             navigationExecution,
             navGrid,
             currentPosition,
-            destination,
+            resolvedDestination,
             null,
             null,
             0f,
@@ -682,6 +831,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
+        UpdateTraversalSoftPassState(currentPosition);
         Vector2 avoidancePosition = GetNavigationCenter();
 
         NavigationPathExecutor2D.WaypointResult waypointState = NavigationPathExecutor2D.EvaluateWaypoint(
@@ -692,7 +842,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (waypointState.ClearedOverrideWaypoint)
         {
-            TryReleaseSharedAvoidanceDetour(avoidancePosition, Time.time);
+            if (TryReleaseSharedAvoidanceDetour(avoidancePosition, Time.time) &&
+                state != RoamState.Moving)
+            {
+                return;
+            }
+
             waypointState = NavigationPathExecutor2D.EvaluateWaypoint(
                 navigationExecution,
                 currentPosition,
@@ -745,9 +900,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 nextPosition = distance <= step
             ? waypoint
             : currentPosition + adjustedDirection * step;
+        nextPosition = ConstrainNextPositionToNavigationBounds(currentPosition, nextPosition);
 
         float safeDeltaTime = Mathf.Max(deltaTime, 0.0001f);
         Vector2 velocity = (nextPosition - currentPosition) / safeDeltaTime;
+        if (velocity.sqrMagnitude <= 0.0001f)
+        {
+            motionController.StopMotion();
+            return;
+        }
 
         motionController.SetExternalVelocity(velocity);
         if (rb != null)
@@ -814,9 +975,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 continue;
             }
 
-            Vector2 walkableDestination = sampledDestination;
-            if (!navGrid.IsWalkable(sampledDestination) &&
-                !navGrid.TryFindNearestWalkable(sampledDestination, out walkableDestination))
+            if (!TryResolveOccupiableDestination(sampledDestination, out Vector2 walkableDestination))
             {
                 continue;
             }
@@ -843,6 +1002,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             }
 
             RememberRequestedDestination(walkableDestination);
+            ResetRoamInterruptionState();
             state = RoamState.Moving;
             stateTimer = 0f;
             ResetMovementRecovery(currentPosition, resetCounter: true);
@@ -904,6 +1064,17 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (progress.ShouldCancel)
         {
+            if (TryInterruptRoamMove(
+                RoamMoveInterruptionReason.StuckCancel,
+                currentPosition,
+                lastBlockingAgentId,
+                null,
+                RoamMoveInterruptionBlockerKind.None,
+                "StuckCancel"))
+            {
+                return true;
+            }
+
             FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
             return true;
         }
@@ -920,6 +1091,17 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         if (TryBeginMove())
+        {
+            return true;
+        }
+
+        if (TryInterruptRoamMove(
+            RoamMoveInterruptionReason.StuckRecoveryFailed,
+            currentPosition,
+            lastBlockingAgentId,
+            null,
+            RoamMoveInterruptionBlockerKind.None,
+            "StuckRecoveryFailed"))
         {
             return true;
         }
@@ -1027,6 +1209,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
             if (TryReleaseSharedAvoidanceDetour(navigationPosition, Time.time))
             {
+                if (state != RoamState.Moving)
+                {
+                    return true;
+                }
+
                 adjustedDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
                     ? avoidance.AdjustedDirection
                     : desiredDirection;
@@ -1125,7 +1312,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
-        return false;
+        return TryInterruptRoamMove(
+            RoamMoveInterruptionReason.SharedAvoidanceRepathFailed,
+            movementPosition,
+            avoidance.BlockingAgentId,
+            avoidance.BlockingAgentPosition,
+            RoamMoveInterruptionBlockerKind.None,
+            "SharedAvoidanceRepathFailed",
+            nearbyNavigationAgents);
     }
 
     private bool TryCreateSharedAvoidanceDetour(
@@ -1205,21 +1399,25 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             lastBlockingAgentId = 0;
             blockingAgentSightings = 0;
             lastSharedAvoidanceRepathTime = currentTime;
-            if (motionController != null)
-            {
-                motionController.StopMotion();
-            }
 
-            if (rb != null)
+            if (debugMoveActive)
             {
-                rb.linearVelocity = Vector2.zero;
-            }
+                if (motionController != null)
+                {
+                    motionController.StopMotion();
+                }
 
-            TryRebuildPath(
-                navigationPosition,
-                resetRecoveryCounter: false,
-                reason: "SharedAvoidanceRecover",
-                preserveTrafficState: true);
+                if (rb != null)
+                {
+                    rb.linearVelocity = Vector2.zero;
+                }
+
+                TryRebuildPath(
+                    navigationPosition,
+                    resetRecoveryCounter: false,
+                    reason: "SharedAvoidanceRecover",
+                    preserveTrafficState: true);
+            }
 
             return true;
         }
@@ -1308,7 +1506,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             currentTime - lastSharedAvoidanceReleaseTime < SHARED_DETOUR_POST_RELEASE_RECOVERY_WINDOW;
     }
 
-    private bool TryResolveNavGrid()
+    public bool TryResolveNavGrid(bool logIfMissing = true)
     {
         if (navGrid != null)
         {
@@ -1322,13 +1520,300 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
-        if (!warnedMissingNavGrid)
+        if (logIfMissing && !warnedMissingNavGrid)
         {
             warnedMissingNavGrid = true;
             Debug.LogWarning($"[NPCAutoRoamController] {name} 未找到 NavGrid2D，自动漫游暂时不会启动。", this);
         }
 
         return false;
+    }
+
+    private bool TryResolveOccupiableDestination(Vector2 sampledDestination, out Vector2 resolvedDestination)
+    {
+        resolvedDestination = sampledDestination;
+        if (CanOccupyNavigationPoint(sampledDestination))
+        {
+            return true;
+        }
+
+        if (!TryResolveNavGrid(logIfMissing: false))
+        {
+            return false;
+        }
+
+        if (!navGrid.TryFindNearestWalkable(sampledDestination, out Vector2 walkableDestination, navigationCollider))
+        {
+            return false;
+        }
+
+        if (!CanOccupyNavigationPoint(walkableDestination))
+        {
+            return false;
+        }
+
+        resolvedDestination = walkableDestination;
+        return true;
+    }
+
+    private Vector2 ConstrainNextPositionToNavigationBounds(Vector2 currentPosition, Vector2 desiredNextPosition)
+    {
+        if (!enforceNavGridBounds)
+        {
+            return desiredNextPosition;
+        }
+
+        Vector2 desiredOffset = desiredNextPosition - currentPosition;
+        if (desiredOffset.sqrMagnitude <= 0.0001f)
+        {
+            return currentPosition;
+        }
+
+        if (!TryResolveNavGrid(logIfMissing: false))
+        {
+            return desiredNextPosition;
+        }
+
+        if (CanOccupyNavigationPoint(desiredNextPosition))
+        {
+            return desiredNextPosition;
+        }
+
+        bool prioritizeX = Mathf.Abs(desiredOffset.x) >= Mathf.Abs(desiredOffset.y);
+        return prioritizeX
+            ? ConstrainNextPositionByAxes(currentPosition, desiredOffset, tryXFirst: true)
+            : ConstrainNextPositionByAxes(currentPosition, desiredOffset, tryXFirst: false);
+    }
+
+    private Vector2 ConstrainNextPositionByAxes(Vector2 currentPosition, Vector2 desiredOffset, bool tryXFirst)
+    {
+        Vector2 constrainedPosition = currentPosition;
+        TryApplyAxisOffset(ref constrainedPosition, currentPosition, desiredOffset, applyX: tryXFirst);
+        TryApplyAxisOffset(ref constrainedPosition, currentPosition, desiredOffset, applyX: !tryXFirst);
+        return constrainedPosition;
+    }
+
+    private void TryApplyAxisOffset(ref Vector2 constrainedPosition, Vector2 currentPosition, Vector2 desiredOffset, bool applyX)
+    {
+        float axisOffset = applyX ? desiredOffset.x : desiredOffset.y;
+        if (Mathf.Abs(axisOffset) <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector2 offset = applyX
+            ? new Vector2(axisOffset, 0f)
+            : new Vector2(0f, axisOffset);
+        Vector2 candidatePosition = constrainedPosition + offset;
+        if (!CanOccupyNavigationPoint(candidatePosition))
+        {
+            return;
+        }
+
+        constrainedPosition = candidatePosition;
+    }
+
+    private bool CanOccupyNavigationPoint(Vector2 worldCenter)
+    {
+        if (!TryResolveNavGrid(logIfMissing: false))
+        {
+            return true;
+        }
+
+        float queryRadius = GetNavigationPointQueryRadius();
+        GetNavigationProbePoints(worldCenter, out Vector2 footProbeCenter, out Vector2 leftProbe, out Vector2 rightProbe);
+        bool centerWalkable = navGrid.IsWalkable(footProbeCenter, queryRadius, navigationCollider);
+        if (!centerWalkable)
+        {
+            return false;
+        }
+
+        bool leftIsDistinct = (leftProbe - footProbeCenter).sqrMagnitude > 0.0009f;
+        bool rightIsDistinct = (rightProbe - footProbeCenter).sqrMagnitude > 0.0009f;
+        if (!leftIsDistinct && !rightIsDistinct)
+        {
+            return true;
+        }
+
+        bool leftWalkable = !leftIsDistinct || navGrid.IsWalkable(leftProbe, queryRadius, navigationCollider);
+        bool rightWalkable = !rightIsDistinct || navGrid.IsWalkable(rightProbe, queryRadius, navigationCollider);
+        if (IsTraversalBridgeCenterSupported(footProbeCenter, queryRadius))
+        {
+            return leftWalkable || rightWalkable;
+        }
+
+        return leftWalkable && rightWalkable;
+    }
+
+    private void UpdateTraversalSoftPassState(Vector2 worldCenter)
+    {
+        bool shouldSoftPass = ShouldEnableTraversalSoftPass(worldCenter);
+        if (shouldSoftPass == isTraversalSoftPassActive)
+        {
+            return;
+        }
+
+        ApplyTraversalSoftPass(traversalSoftPassBlockers, shouldSoftPass);
+        isTraversalSoftPassActive = shouldSoftPass;
+    }
+
+    private bool ShouldEnableTraversalSoftPass(Vector2 worldCenter)
+    {
+        if (!allowTraversalOverridePhysicsSoftPass ||
+            navigationCollider == null ||
+            traversalSoftPassBlockers == null ||
+            traversalSoftPassBlockers.Length == 0 ||
+            !TryResolveNavGrid(logIfMissing: false))
+        {
+            return false;
+        }
+
+        float queryRadius = GetTraversalSupportQueryRadius(GetNavigationPointQueryRadius());
+        GetTraversalSupportProbePoints(worldCenter, out Vector2 centerProbe, out Vector2 leftProbe, out Vector2 rightProbe);
+        bool leftIsDistinct = (leftProbe - centerProbe).sqrMagnitude > 0.0009f;
+        bool rightIsDistinct = (rightProbe - centerProbe).sqrMagnitude > 0.0009f;
+        if (!navGrid.HasWalkableOverrideAt(centerProbe, queryRadius))
+        {
+            return false;
+        }
+
+        bool leftSupported = !leftIsDistinct || navGrid.HasWalkableOverrideAt(leftProbe, queryRadius);
+        bool rightSupported = !rightIsDistinct || navGrid.HasWalkableOverrideAt(rightProbe, queryRadius);
+        if (!leftIsDistinct && !rightIsDistinct)
+        {
+            return true;
+        }
+
+        return leftSupported || rightSupported;
+    }
+
+    private void ApplyTraversalSoftPass(Collider2D[] colliders, bool shouldIgnore)
+    {
+        if (navigationCollider == null || colliders == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < colliders.Length; index++)
+        {
+            Collider2D blocker = colliders[index];
+            if (blocker == null || blocker == navigationCollider)
+            {
+                continue;
+            }
+
+            Physics2D.IgnoreCollision(navigationCollider, blocker, shouldIgnore);
+        }
+    }
+
+    private void ClearTraversalSoftPassState()
+    {
+        if (!isTraversalSoftPassActive)
+        {
+            return;
+        }
+
+        ApplyTraversalSoftPass(traversalSoftPassBlockers, false);
+        isTraversalSoftPassActive = false;
+    }
+
+    private static Collider2D[] NormalizeColliderArray(Collider2D[] source)
+    {
+        if (source == null || source.Length == 0)
+        {
+            return new Collider2D[0];
+        }
+
+        List<Collider2D> normalized = new List<Collider2D>(source.Length);
+        for (int index = 0; index < source.Length; index++)
+        {
+            Collider2D collider = source[index];
+            if (collider == null || normalized.Contains(collider))
+            {
+                continue;
+            }
+
+            normalized.Add(collider);
+        }
+
+        return normalized.ToArray();
+    }
+
+    private Vector2 GetFootProbeCenter(Vector2 worldCenter)
+    {
+        if (navigationCollider == null)
+        {
+            return worldCenter;
+        }
+
+        Bounds bounds = navigationCollider.bounds;
+        Vector2 currentCenter = bounds.center;
+        float footProbeInset = Mathf.Clamp(navigationFootProbeVerticalInset, 0f, bounds.size.y * 0.45f);
+        float footProbeY = bounds.min.y + footProbeInset;
+        return worldCenter + new Vector2(0f, footProbeY - currentCenter.y);
+    }
+
+    private float GetLateralFootProbeOffset()
+    {
+        if (navigationCollider == null)
+        {
+            return 0f;
+        }
+
+        Bounds bounds = navigationCollider.bounds;
+        float sideInset = Mathf.Clamp(navigationFootProbeSideInset, 0f, bounds.extents.x);
+        return Mathf.Max(0.02f, bounds.extents.x - sideInset);
+    }
+
+    private void GetTraversalSupportProbePoints(
+        Vector2 worldCenter,
+        out Vector2 centerProbe,
+        out Vector2 leftProbe,
+        out Vector2 rightProbe)
+    {
+        centerProbe = GetFootProbeCenter(worldCenter);
+        float lateralOffset = GetLateralFootProbeOffset() * 0.72f;
+        if (lateralOffset <= 0.03f)
+        {
+            leftProbe = centerProbe;
+            rightProbe = centerProbe;
+            return;
+        }
+
+        leftProbe = centerProbe + Vector2.left * lateralOffset;
+        rightProbe = centerProbe + Vector2.right * lateralOffset;
+    }
+
+    private float GetTraversalSupportQueryRadius(float navigationQueryRadius)
+    {
+        return Mathf.Max(0.03f, navigationQueryRadius * 0.85f);
+    }
+
+    private bool IsTraversalBridgeCenterSupported(Vector2 footProbeCenter, float navigationQueryRadius)
+    {
+        float supportRadius = GetTraversalSupportQueryRadius(navigationQueryRadius);
+        return navGrid != null && navGrid.HasWalkableOverrideAt(footProbeCenter, supportRadius);
+    }
+
+    private float GetNavigationPointQueryRadius()
+    {
+        float fallbackRadius = Mathf.Max(0.04f, navigationFootProbeSideInset + navigationFootProbeExtraRadius);
+        if (!TryResolveNavGrid(logIfMissing: false))
+        {
+            return fallbackRadius;
+        }
+
+        float maxRadius = navGrid.GetAgentRadius();
+        if (navigationCollider == null)
+        {
+            return Mathf.Min(maxRadius, fallbackRadius);
+        }
+
+        Bounds bounds = navigationCollider.bounds;
+        float sideRadius = Mathf.Max(0.03f, navigationFootProbeSideInset + navigationFootProbeExtraRadius);
+        float verticalRadius = Mathf.Max(0.03f, navigationFootProbeVerticalInset + navigationFootProbeExtraRadius);
+        float clampedRadius = Mathf.Min(Mathf.Min(bounds.extents.x, bounds.extents.y), Mathf.Max(sideRadius, verticalRadius));
+        return Mathf.Min(maxRadius, clampedRadius);
     }
 
     private void EnterShortPause(bool countTowardLongPause)
@@ -1811,6 +2296,157 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private Vector2 GetRebuildRequestedDestination()
     {
         return hasRequestedDestination ? requestedDestination : currentDestination;
+    }
+
+    private void ResetRoamInterruptionState()
+    {
+        hasRoamInterruption = false;
+        lastRoamInterruption = default;
+    }
+
+    private bool TryInterruptRoamMove(
+        RoamMoveInterruptionReason reason,
+        Vector2 currentPosition,
+        int blockerId,
+        Vector2? blockerPosition,
+        RoamMoveInterruptionBlockerKind blockerKind,
+        string trigger,
+        List<NavigationAgentSnapshot> blockingCandidates = null)
+    {
+        if (debugMoveActive || state != RoamState.Moving)
+        {
+            return false;
+        }
+
+        RoamMoveInterruptionBlockerKind resolvedBlockerKind = blockerKind;
+        Vector2 resolvedBlockerPosition = blockerPosition ?? Vector2.zero;
+        bool hasBlockerPosition = blockerPosition.HasValue;
+        if (blockerId != 0)
+        {
+            if (TryResolveBlockingSnapshot(blockerId, blockingCandidates, out NavigationAgentSnapshot snapshot) ||
+                TryResolveCurrentBlockingSnapshot(blockerId, out snapshot))
+            {
+                resolvedBlockerKind = ToRoamMoveInterruptionBlockerKind(snapshot.UnitType);
+                if (!hasBlockerPosition)
+                {
+                    resolvedBlockerPosition = snapshot.Position;
+                    hasBlockerPosition = true;
+                }
+            }
+            else if (resolvedBlockerKind == RoamMoveInterruptionBlockerKind.None)
+            {
+                resolvedBlockerKind = RoamMoveInterruptionBlockerKind.Unknown;
+            }
+        }
+        else
+        {
+            resolvedBlockerKind = RoamMoveInterruptionBlockerKind.None;
+        }
+
+        lastRoamInterruption = new RoamMoveInterruptionSnapshot(
+            reason,
+            resolvedBlockerKind,
+            blockerId,
+            hasRequestedDestination ? requestedDestination : currentDestination,
+            currentDestination,
+            currentPosition,
+            resolvedBlockerPosition,
+            hasBlockerPosition,
+            Time.time,
+            string.IsNullOrEmpty(trigger) ? reason.ToString() : trigger);
+        hasRoamInterruption = true;
+
+        Debug.LogWarning(
+            $"[NPCAutoRoamController] {name} roam interrupted => Reason={lastRoamInterruption.Reason}, Trigger={lastRoamInterruption.Trigger}, " +
+            $"BlockerKind={lastRoamInterruption.BlockerKind}, BlockerId={lastRoamInterruption.BlockerId}, " +
+            $"Requested={lastRoamInterruption.RequestedDestination}, Active={lastRoamInterruption.ActiveDestination}, " +
+            $"Current={lastRoamInterruption.CurrentPosition}, " +
+            $"Blocker={(lastRoamInterruption.HasBlockerPosition ? lastRoamInterruption.BlockerPosition.ToString() : "n/a")}",
+            this);
+
+        NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: true);
+        ResetSharedAvoidanceDebugState();
+
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+        }
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        EnterShortPause(false);
+        RoamMoveInterrupted?.Invoke(lastRoamInterruption);
+        return true;
+    }
+
+    private bool TryResolveCurrentBlockingSnapshot(int blockerId, out NavigationAgentSnapshot snapshot)
+    {
+        snapshot = default;
+        if (blockerId == 0)
+        {
+            return false;
+        }
+
+        NavigationAgentSnapshot self = NavigationAgentSnapshot.FromUnit(this);
+        if (!self.IsValid)
+        {
+            return false;
+        }
+
+        float referenceSpeed = motionController != null ? motionController.MoveSpeed : 0f;
+        float lookAhead = NavigationLocalAvoidanceSolver.GetRecommendedLookAhead(
+            self,
+            sharedAvoidanceLookAhead,
+            referenceSpeed);
+        NavigationAgentRegistry.GetNearbySnapshots(this, GetNavigationCenter(), lookAhead, nearbyNavigationAgents);
+        return TryResolveBlockingSnapshot(blockerId, nearbyNavigationAgents, out snapshot);
+    }
+
+    private static bool TryResolveBlockingSnapshot(
+        int blockerId,
+        List<NavigationAgentSnapshot> candidates,
+        out NavigationAgentSnapshot snapshot)
+    {
+        snapshot = default;
+        if (blockerId == 0 || candidates == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < candidates.Count; index++)
+        {
+            if (candidates[index].InstanceId == blockerId)
+            {
+                snapshot = candidates[index];
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static RoamMoveInterruptionBlockerKind ToRoamMoveInterruptionBlockerKind(NavigationUnitType unitType)
+    {
+        switch (unitType)
+        {
+            case NavigationUnitType.Player:
+                return RoamMoveInterruptionBlockerKind.Player;
+
+            case NavigationUnitType.NPC:
+                return RoamMoveInterruptionBlockerKind.NPC;
+
+            case NavigationUnitType.Enemy:
+                return RoamMoveInterruptionBlockerKind.Enemy;
+
+            case NavigationUnitType.StaticObstacle:
+                return RoamMoveInterruptionBlockerKind.StaticObstacle;
+
+            default:
+                return RoamMoveInterruptionBlockerKind.Unknown;
+        }
     }
 
     private static string[] CopyLines(string[] lines)

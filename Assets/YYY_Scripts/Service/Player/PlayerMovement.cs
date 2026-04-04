@@ -17,6 +17,17 @@ public class PlayerMovement : MonoBehaviour
     [Header("剧情运行时修正")]
     [SerializeField, Range(0.1f, 2f)] private float runtimeSpeedMultiplier = 1f;
 
+    [Header("导航边界约束")]
+    [SerializeField] private NavGrid2D navGrid;
+    [SerializeField] private bool autoFindNavGridIfMissing = true;
+    [SerializeField] private bool enforceNavGridBounds = false;
+    [SerializeField] private bool allowTraversalOverridePhysicsSoftPass = true;
+
+    [Header("脚底导航采样")]
+    [SerializeField, Min(0f)] private float navigationFootProbeVerticalInset = 0.08f;
+    [SerializeField, Min(0f)] private float navigationFootProbeSideInset = 0.05f;
+    [SerializeField, Min(0f)] private float navigationFootProbeExtraRadius = 0.02f;
+
     [Header("导航阻挡修正")]
     [SerializeField, Min(0f)] private float blockedNavigationDamping = 12f;
     [SerializeField, Range(0.05f, 0.6f)] private float blockedNavigationMaxSpeedFactor = 0.25f;
@@ -29,6 +40,9 @@ public class PlayerMovement : MonoBehaviour
     private bool hasBlockedNavigationConstraint = false;
     private Vector2 blockedNavigationBlockerPosition = Vector2.zero;
     private float blockedNavigationClearance = float.PositiveInfinity;
+    private bool hasLoggedMissingNavGridWarning = false;
+    private Collider2D[] traversalSoftPassBlockers = new Collider2D[0];
+    private bool isTraversalSoftPassActive = false;
     
     // 当前朝向（始终根据输入更新，不受动作影响）
     private PlayerAnimController.AnimDirection currentFacingDirection = PlayerAnimController.AnimDirection.Down;
@@ -44,6 +58,7 @@ public class PlayerMovement : MonoBehaviour
         animController = GetComponent<PlayerAnimController>();
         playerInteraction = GetComponent<PlayerInteraction>();
         defaultLinearDamping = rb != null ? rb.linearDamping : 0f;
+        EnsureNavGridReference(logIfMissing: false);
         
         // 获取疾跑状态管理器（如果不存在则创建）
         sprintManager = SprintStateManager.Instance;
@@ -73,6 +88,16 @@ public class PlayerMovement : MonoBehaviour
         UpdateMovement();
         UpdateAnimation();
     }
+
+    void OnDisable()
+    {
+        ClearTraversalSoftPassState();
+    }
+
+    void OnDestroy()
+    {
+        ClearTraversalSoftPassState();
+    }
     
     private void UpdateMovement()
     {
@@ -81,17 +106,25 @@ public class PlayerMovement : MonoBehaviour
             return;
         }
 
+        UpdateTraversalSoftPassState();
+
         float currentSpeed = (isShiftHeld ? RunSpeed : WalkSpeed) * runtimeSpeedMultiplier;
         Vector2 desiredVelocity = Vector2.ClampMagnitude(movementInput, 1f) * currentSpeed;
 
         if (hasBlockedNavigationConstraint)
         {
             ApplyBlockedNavigationVelocity(desiredVelocity, currentSpeed);
+            if (enforceNavGridBounds)
+            {
+                rb.linearVelocity = ConstrainVelocityToNavigationBounds(rb.linearVelocity);
+            }
             return;
         }
 
         ResetRuntimeMotionModifiers();
-        rb.linearVelocity = desiredVelocity;
+        rb.linearVelocity = enforceNavGridBounds
+            ? ConstrainVelocityToNavigationBounds(desiredVelocity)
+            : desiredVelocity;
     }
 
     private void UpdateAnimation()
@@ -282,6 +315,69 @@ public class PlayerMovement : MonoBehaviour
         return runtimeSpeedMultiplier;
     }
 
+    public void SetNavGrid(NavGrid2D navigationGrid)
+    {
+        navGrid = navigationGrid;
+        hasLoggedMissingNavGridWarning = false;
+    }
+
+    public void SetNavGridBoundsEnforcement(bool enabled)
+    {
+        enforceNavGridBounds = enabled;
+    }
+
+    public void SetTraversalSoftPassBlockers(Collider2D[] colliders, bool enabled = true)
+    {
+        if (isTraversalSoftPassActive)
+        {
+            ApplyTraversalSoftPass(traversalSoftPassBlockers, false);
+            isTraversalSoftPassActive = false;
+        }
+
+        allowTraversalOverridePhysicsSoftPass = enabled;
+        traversalSoftPassBlockers = NormalizeColliderArray(colliders);
+        UpdateTraversalSoftPassState();
+    }
+
+    public bool HasNavGridReference()
+    {
+        return navGrid != null;
+    }
+
+    public bool TryResolveNavGrid(bool logIfMissing = true)
+    {
+        return EnsureNavGridReference(logIfMissing);
+    }
+
+    public NavGrid2D GetNavGrid()
+    {
+        return navGrid;
+    }
+
+    public bool CanOccupyPosition(Vector2 worldCenter)
+    {
+        return CanOccupyNavigationPoint(worldCenter);
+    }
+
+    public void GetNavigationProbePoints(
+        Vector2 worldCenter,
+        out Vector2 centerProbe,
+        out Vector2 leftProbe,
+        out Vector2 rightProbe)
+    {
+        centerProbe = GetFootProbeCenter(worldCenter);
+        float lateralOffset = GetLateralFootProbeOffset();
+        if (lateralOffset <= 0.03f)
+        {
+            leftProbe = centerProbe;
+            rightProbe = centerProbe;
+            return;
+        }
+
+        leftProbe = centerProbe + Vector2.left * lateralOffset;
+        rightProbe = centerProbe + Vector2.right * lateralOffset;
+    }
+
     private void ApplyBlockedNavigationVelocity(Vector2 desiredVelocity, float currentSpeed)
     {
         Vector2 constrainedVelocity = desiredVelocity;
@@ -321,6 +417,305 @@ public class PlayerMovement : MonoBehaviour
 
         rb.linearDamping = Mathf.Max(defaultLinearDamping, blockedNavigationDamping);
         rb.linearVelocity = finalVelocity;
+    }
+
+    private Vector2 ConstrainVelocityToNavigationBounds(Vector2 desiredVelocity)
+    {
+        if (desiredVelocity.sqrMagnitude <= 0.0001f)
+        {
+            return Vector2.zero;
+        }
+
+        if (!EnsureNavGridReference(logIfMissing: true))
+        {
+            return desiredVelocity;
+        }
+
+        Vector2 currentCenter = GetCurrentCenter();
+        float stepDuration = Mathf.Max(Time.fixedDeltaTime, 0.02f);
+        Vector2 projectedOffset = desiredVelocity * stepDuration;
+
+        if (CanOccupyNavigationPoint(currentCenter + projectedOffset))
+        {
+            return desiredVelocity;
+        }
+
+        bool prioritizeX = Mathf.Abs(desiredVelocity.x) >= Mathf.Abs(desiredVelocity.y);
+        return prioritizeX
+            ? ConstrainVelocityByAxes(currentCenter, desiredVelocity, stepDuration, tryXFirst: true)
+            : ConstrainVelocityByAxes(currentCenter, desiredVelocity, stepDuration, tryXFirst: false);
+    }
+
+    private Vector2 ConstrainVelocityByAxes(Vector2 currentCenter, Vector2 desiredVelocity, float stepDuration, bool tryXFirst)
+    {
+        Vector2 constrainedVelocity = Vector2.zero;
+        Vector2 simulatedCenter = currentCenter;
+
+        TryApplyAxisVelocity(ref constrainedVelocity, ref simulatedCenter, desiredVelocity, stepDuration, applyX: tryXFirst);
+        TryApplyAxisVelocity(ref constrainedVelocity, ref simulatedCenter, desiredVelocity, stepDuration, applyX: !tryXFirst);
+
+        return constrainedVelocity;
+    }
+
+    private void TryApplyAxisVelocity(
+        ref Vector2 constrainedVelocity,
+        ref Vector2 simulatedCenter,
+        Vector2 desiredVelocity,
+        float stepDuration,
+        bool applyX)
+    {
+        float axisVelocity = applyX ? desiredVelocity.x : desiredVelocity.y;
+        if (Mathf.Abs(axisVelocity) <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector2 axisOffset = applyX
+            ? new Vector2(axisVelocity * stepDuration, 0f)
+            : new Vector2(0f, axisVelocity * stepDuration);
+
+        if (!CanOccupyNavigationPoint(simulatedCenter + axisOffset))
+        {
+            return;
+        }
+
+        simulatedCenter += axisOffset;
+        if (applyX)
+        {
+            constrainedVelocity.x = axisVelocity;
+        }
+        else
+        {
+            constrainedVelocity.y = axisVelocity;
+        }
+    }
+
+    private bool CanOccupyNavigationPoint(Vector2 worldCenter)
+    {
+        if (!EnsureNavGridReference(logIfMissing: false))
+        {
+            return true;
+        }
+
+        float queryRadius = GetNavigationPointQueryRadius();
+        GetNavigationProbePoints(worldCenter, out Vector2 footProbeCenter, out Vector2 leftProbe, out Vector2 rightProbe);
+        bool centerWalkable = navGrid.IsWalkable(footProbeCenter, queryRadius, playerCollider);
+        if (!centerWalkable)
+        {
+            return false;
+        }
+
+        bool leftIsDistinct = (leftProbe - footProbeCenter).sqrMagnitude > 0.0009f;
+        bool rightIsDistinct = (rightProbe - footProbeCenter).sqrMagnitude > 0.0009f;
+        if (!leftIsDistinct && !rightIsDistinct)
+        {
+            return true;
+        }
+
+        bool leftWalkable = !leftIsDistinct || navGrid.IsWalkable(leftProbe, queryRadius, playerCollider);
+        bool rightWalkable = !rightIsDistinct || navGrid.IsWalkable(rightProbe, queryRadius, playerCollider);
+        if (IsTraversalBridgeCenterSupported(footProbeCenter, queryRadius))
+        {
+            // 桥面本身通常比玩家整套碰撞宽度更窄。
+            // 只要中心脚底被桥面真实支撑，就允许单侧贴边，不再把一侧临水直接算成整段空气墙。
+            return leftWalkable || rightWalkable;
+        }
+
+        return leftWalkable && rightWalkable;
+    }
+
+    private void UpdateTraversalSoftPassState()
+    {
+        bool shouldSoftPass = ShouldEnableTraversalSoftPass();
+        if (shouldSoftPass == isTraversalSoftPassActive)
+        {
+            return;
+        }
+
+        ApplyTraversalSoftPass(traversalSoftPassBlockers, shouldSoftPass);
+        isTraversalSoftPassActive = shouldSoftPass;
+    }
+
+    private bool ShouldEnableTraversalSoftPass()
+    {
+        if (!allowTraversalOverridePhysicsSoftPass ||
+            playerCollider == null ||
+            traversalSoftPassBlockers == null ||
+            traversalSoftPassBlockers.Length == 0 ||
+            !EnsureNavGridReference(logIfMissing: false))
+        {
+            return false;
+        }
+
+        Vector2 currentCenter = GetCurrentCenter();
+        float queryRadius = GetTraversalSupportQueryRadius(GetNavigationPointQueryRadius());
+        GetTraversalSupportProbePoints(currentCenter, out Vector2 centerProbe, out Vector2 leftProbe, out Vector2 rightProbe);
+        bool leftIsDistinct = (leftProbe - centerProbe).sqrMagnitude > 0.0009f;
+        bool rightIsDistinct = (rightProbe - centerProbe).sqrMagnitude > 0.0009f;
+        if (!navGrid.HasWalkableOverrideAt(centerProbe, queryRadius))
+        {
+            return false;
+        }
+
+        bool leftSupported = !leftIsDistinct || navGrid.HasWalkableOverrideAt(leftProbe, queryRadius);
+        bool rightSupported = !rightIsDistinct || navGrid.HasWalkableOverrideAt(rightProbe, queryRadius);
+        if (!leftIsDistinct && !rightIsDistinct)
+        {
+            return true;
+        }
+
+        return leftSupported || rightSupported;
+    }
+
+    private void ApplyTraversalSoftPass(Collider2D[] colliders, bool shouldIgnore)
+    {
+        if (playerCollider == null || colliders == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < colliders.Length; index++)
+        {
+            Collider2D blocker = colliders[index];
+            if (blocker == null || blocker == playerCollider)
+            {
+                continue;
+            }
+
+            Physics2D.IgnoreCollision(playerCollider, blocker, shouldIgnore);
+        }
+    }
+
+    private void ClearTraversalSoftPassState()
+    {
+        if (!isTraversalSoftPassActive)
+        {
+            return;
+        }
+
+        ApplyTraversalSoftPass(traversalSoftPassBlockers, false);
+        isTraversalSoftPassActive = false;
+    }
+
+    private static Collider2D[] NormalizeColliderArray(Collider2D[] source)
+    {
+        if (source == null || source.Length == 0)
+        {
+            return new Collider2D[0];
+        }
+
+        var normalized = new System.Collections.Generic.List<Collider2D>(source.Length);
+        for (int index = 0; index < source.Length; index++)
+        {
+            Collider2D collider = source[index];
+            if (collider == null || normalized.Contains(collider))
+            {
+                continue;
+            }
+
+            normalized.Add(collider);
+        }
+
+        return normalized.ToArray();
+    }
+
+    private Vector2 GetFootProbeCenter(Vector2 worldCenter)
+    {
+        if (playerCollider == null)
+        {
+            return worldCenter;
+        }
+
+        Bounds bounds = playerCollider.bounds;
+        Vector2 currentCenter = bounds.center;
+        float footProbeInset = Mathf.Clamp(navigationFootProbeVerticalInset, 0f, bounds.size.y * 0.45f);
+        float footProbeY = bounds.min.y + footProbeInset;
+        return worldCenter + new Vector2(0f, footProbeY - currentCenter.y);
+    }
+
+    private float GetLateralFootProbeOffset()
+    {
+        if (playerCollider == null)
+        {
+            return 0f;
+        }
+
+        Bounds bounds = playerCollider.bounds;
+        float sideInset = Mathf.Clamp(navigationFootProbeSideInset, 0f, bounds.extents.x);
+        return Mathf.Max(0.02f, bounds.extents.x - sideInset);
+    }
+
+    private void GetTraversalSupportProbePoints(
+        Vector2 worldCenter,
+        out Vector2 centerProbe,
+        out Vector2 leftProbe,
+        out Vector2 rightProbe)
+    {
+        centerProbe = GetFootProbeCenter(worldCenter);
+        float lateralOffset = GetLateralFootProbeOffset() * 0.72f;
+        if (lateralOffset <= 0.03f)
+        {
+            leftProbe = centerProbe;
+            rightProbe = centerProbe;
+            return;
+        }
+
+        leftProbe = centerProbe + Vector2.left * lateralOffset;
+        rightProbe = centerProbe + Vector2.right * lateralOffset;
+    }
+
+    private float GetTraversalSupportQueryRadius(float navigationQueryRadius)
+    {
+        return Mathf.Max(0.03f, navigationQueryRadius * 0.85f);
+    }
+
+    private bool IsTraversalBridgeCenterSupported(Vector2 footProbeCenter, float navigationQueryRadius)
+    {
+        float supportRadius = GetTraversalSupportQueryRadius(navigationQueryRadius);
+        return navGrid != null && navGrid.HasWalkableOverrideAt(footProbeCenter, supportRadius);
+    }
+
+    private float GetNavigationPointQueryRadius()
+    {
+        float fallbackRadius = Mathf.Max(0.04f, navigationFootProbeSideInset + navigationFootProbeExtraRadius);
+        if (!EnsureNavGridReference(logIfMissing: false))
+        {
+            return fallbackRadius;
+        }
+
+        float maxRadius = navGrid.GetAgentRadius();
+        if (playerCollider == null)
+        {
+            return Mathf.Min(maxRadius, fallbackRadius);
+        }
+
+        Bounds bounds = playerCollider.bounds;
+        float sideRadius = Mathf.Max(0.03f, navigationFootProbeSideInset + navigationFootProbeExtraRadius);
+        float verticalRadius = Mathf.Max(0.03f, navigationFootProbeVerticalInset + navigationFootProbeExtraRadius);
+        float clampedRadius = Mathf.Min(Mathf.Min(bounds.extents.x, bounds.extents.y), Mathf.Max(sideRadius, verticalRadius));
+        return Mathf.Min(maxRadius, clampedRadius);
+    }
+
+    private bool EnsureNavGridReference(bool logIfMissing)
+    {
+        if (navGrid == null && autoFindNavGridIfMissing)
+        {
+            navGrid = FindFirstObjectByType<NavGrid2D>();
+        }
+
+        if (navGrid != null)
+        {
+            hasLoggedMissingNavGridWarning = false;
+            return true;
+        }
+
+        if (logIfMissing && !hasLoggedMissingNavGridWarning)
+        {
+            Debug.LogWarning($"[PlayerMovement] {name} 未接到 NavGrid2D，当前不会做 traversal / blocking 边界拦截。", this);
+            hasLoggedMissingNavGridWarning = true;
+        }
+
+        return false;
     }
 
     private void ClearBlockedNavigationConstraint()
