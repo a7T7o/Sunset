@@ -2469,3 +2469,16 @@
 - 当前父层恢复点：
   - 如果继续这条线，下一步更值钱的是拿一次真实 Unity 证据去确认 opening 链如何进入 `HealingAndHP`
   - 如果暂不跑 live，这一刀在代码/资产层已经不该继续无限加内容
+
+## 2026-04-04 补记：opening 扩充已在双 checkpoint 后停回 `PARKED`
+
+- 父层当前确认的 checkpoint：
+  1. `741abea6 Expand spring day1 opening dialogue chain`
+  2. `e8c56f98 Tighten spring day1 opening checkpoint`
+- 当前父层状态：
+  - 结构与资产图谱 probe 已站住
+  - live 证据仍待后续补
+  - 线程已合法 `PARKED`
+- 父层恢复点：
+  - 下次若继续 `spring-day1`，先补 opening 链真实验证
+  - 不再优先往后扩写 `HealingAndHP` 之后的新内容

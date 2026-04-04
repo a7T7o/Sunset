@@ -1117,3 +1117,19 @@
   - 如果继续这条线，下一步不该再往 `CrashAndMeet / EnterVillage` 里硬塞新段，而应优先看：
     1. 是否需要一次 Unity / EditMode 真实跑证据
     2. 或者在当前 slice 内停表，等待后续 live 验证再决定是否还要补导演层细节
+
+## 2026-04-04 补记：当前 slice 已在两次本地提交后合法停车
+
+- 本轮已形成 2 个本地 checkpoint：
+  1. `741abea6 Expand spring day1 opening dialogue chain`
+  2. `e8c56f98 Tighten spring day1 opening checkpoint`
+- 当前 thread-state：
+  - `Begin-Slice`：已跑并沿用
+  - `Ready-To-Sync`：未跑，原因：本轮没有进入 sync 收口
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前 blocker：
+  - `opening live validation pending`
+- 当前恢复点：
+  - 如果下一轮继续，不再先扩写内容；
+  - 直接从“拿 opening 链更真实的 Unity / EditMode 证据”开始。

@@ -2241,3 +2241,20 @@
 - 当前恢复点：
   - 先把这一批 own 改动提交掉
   - 提交后再判断这条线是否还有不跨界、且真正值得继续做的非 live 内容
+
+## 2026-04-04 线程补记：本轮已在双 checkpoint 后合法停车
+
+- 本轮最终提交：
+  1. `741abea6 Expand spring day1 opening dialogue chain`
+  2. `e8c56f98 Tighten spring day1 opening checkpoint`
+- 本轮最终判断：
+  1. `CrashAndMeet / EnterVillage` 的非 UI opening 扩充，在代码/对白资产/最小资产图谱 probe 这一层已经先站住；
+  2. 再往前就该拿更真的 Unity / EditMode 证据，而不是继续加字；
+  3. 所以这轮先停在 `PARKED`，blocker 明确为 `opening live validation pending`。
+- 本轮最终 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑，原因：没有进入 sync 收口
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 下轮恢复点：
+  - 若继续这条线，第一动作就是补 opening 链真实验证，而不是先扩剧情内容。
