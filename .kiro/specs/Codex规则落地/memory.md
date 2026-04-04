@@ -11032,3 +11032,38 @@
     2. 相机边界 / 视口
     3. 对话中文按钮文案
     4. `PersistentManagers` / `PersistentObjectRegistry` warning 是否消失
+
+## 2026-04-04｜红错规范纠偏：正式禁止把“代码闸门通过”冒充 Unity/MCP 红错验收
+
+- 当前主线目标：
+  - 回应用户对“红错到处蔓延、线程只拿代码闸门当验收”的追责，并把 Sunset 当前红错规范补成不会再偷换概念的硬规则。
+- 这轮实际做成了什么：
+  1. 复盘出当前失真的真实根因：
+     - 不是没有 `no-red` 规则；
+     - 而是旧口径把“代码闸门”和“Unity 红错验收”并列写了，却没有明确主次和替代边界。
+  2. 已同步补强 5 处规则源：
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+     - `C:\Users\aTo\.codex\skills\sunset-no-red-handoff\SKILL.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\25_vibecoding场景规范与main收口\并发线程统一回执与main收口机制_2026-03-22.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\线程完成后_白名单main收口模板.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\并发线程_当前版本更新前缀.md`
+  3. 已把新口径压成 3 条硬结论：
+     - `validate_script / CodexCodeGuard / git diff --check` 只算代码层自检
+     - 凡是运行态改动要宣称 `无红错 / 可交接 / 可直接提交`，必须同时给出 fresh Unity/MCP compile + fresh console 证据
+     - 如果 MCP / Unity 当前不可用，只能报 `代码闸门通过，但 Unity 红错验证未闭环`，不能再包装成“已无红错”
+  4. 已把回执模板补出显式字段：
+     - `unity_red_check: pass / blocked / live-pending / not-required`
+  5. 已补一份正式报告文件，方便后续直接压线程执行：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-04_红错规范彻底纠偏报告_01.md`
+- 当前核心判断：
+  - 当前最致命的问题不是“代码闸门弱”，而是“执行层把代码闸门误当成 Unity 红错闭环”；
+  - 这次纠偏的核心不是再造新检查器，而是强制拆开两层证据，并且禁止再用第一层冒充第二层。
+- 当前还没做成什么：
+  - 还没有把所有历史旧 prompt 全部改完；
+  - 还没有对现有活跃线程逐条清点哪些回执已经违反新口径。
+- 当前恢复点：
+  - 如果继续这条治理主线，下一步最值钱的是：
+    1. 用这份新规则回扫当前活跃线程回执
+    2. 把违反口径的线程改成 `Unity 红错验证未闭环`
+    3. 必要时再补一轮典狱长纠偏 prompt

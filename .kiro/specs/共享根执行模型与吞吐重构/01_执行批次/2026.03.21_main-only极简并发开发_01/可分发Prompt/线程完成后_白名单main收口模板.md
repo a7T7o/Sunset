@@ -31,6 +31,7 @@
   - `git diff --check`
   - 程序集级编译检查
 - 代码闸门不过，就不能继续收口
+- 代码闸门通过，也只代表“代码层 / 文本层暂未见阻断”，不等于 Unity 红错已经验收完成
 
 ## 如果你要做 Unity / MCP live 验证或 live 写
 - 先不要直接进，先说明：
@@ -38,6 +39,17 @@
   - 最多占多久
   - 只做什么
   - 做完退回什么状态
+
+## 如果你要对外说“无红错 / 可交接 / 可直接提交”
+- 只要本轮改动触及运行时代码、scene、prefab、asset、UI、剧情、交互、输入或管理器链，就必须同时补：
+  - fresh recompile
+  - fresh console
+  - 必要时最小 live 取证，或明确写 `live 待验证`
+- `validate_script`、`CodexCodeGuard`、`git diff --check` 不得单独充当“红错验收完成”
+- 如果 MCP / Unity 当前不可用，只能老实写：
+  - `代码闸门通过`
+  - `Unity / MCP 红错验证未闭环`
+  - `live / console 待补`
 
 ## 只有这些情况才不要自己直接收口
 - 撞到同一个高危目标
@@ -57,6 +69,7 @@
 - `asset_hygiene: pass / fail / not-applicable`
 - `code_self_check: pass / fail / not-applicable`
 - `pre_sync_validation: pass / fail / not-run`
+- `unity_red_check: pass / blocked / live-pending / not-required`
 - 当前 `git status` 是否 clean
 - blocker_or_checkpoint
 - 一句话摘要

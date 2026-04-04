@@ -164,6 +164,15 @@
   - 必要时回看 `D:\Unity\Unity_learning\Sunset\.kiro\locks\mcp-single-instance-log.md`
 - 如果任务会使用 MCP / Play Mode 做 live 取证，进入前必须先说明：需要什么证据、最多跑几轮、拿到什么信号就 Pause / Stop、最后退回什么状态；禁止先长时间跑着再回头想怎么收。
 - 如果任务会进入 Play Mode 做取证、调试或验收，完成当前步骤后必须主动退回 Edit Mode，再允许继续后续操作、汇报或把现场交给其他线程；禁止把运行中的 Editor 留给别人收尾。
+- 只要本轮改动触及 `Assembly-CSharp` 运行时代码、`.unity/.prefab/.asset` 序列化体、UI/交互/剧情/输入/管理器链，且线程准备对外宣称“无红错 / 已验收 no-red / 可直接交接 / 可直接提交”，默认必须补一份 Unity/MCP 侧的最新证据，至少包括：
+  - fresh recompile 或等价程序集级编译证据
+  - fresh console 读取结果
+  - 若任务本身涉及 scene/UI/runtime flow，再补最小 live 取证或明确写成“live 待验证”
+- 上面这条里，`validate_script`、`CodexCodeGuard`、`git diff --check` 这类代码闸门只算“代码层自检”，绝不等于 Unity 红错已经验收完毕。
+- 如果当前 MCP / Unity 基线不可用，正确口径只能是：
+  - `代码层检查已过，但 Unity 红错验证未完成`
+  - 或 `被 MCP / Unity blocker 卡住`
+  不允许把这种状态包装成“已无红错”或“可放心交接”。
 - 如果任务涉及 DialogueUI、NPC 气泡、字体、UI 样式、布局、材质或其他直接影响观感的表现层资源，除相关业务文档外，还必须补读 `D:\Unity\Unity_learning\Sunset\.kiro\steering\ui.md`，并把“好看、合理、专业、可读”当成硬验收项，而不是只看功能是否可用。
 - 如果任务涉及工作区、记忆、交接、治理、报告、Claude 或 Codex 迁移、历史接手，优先使用 `sunset-workspace-router`。
 - 如果任务涉及 Sunset 线程续工 prompt、回执后下一轮 prompt、验收失败后的 prompt 回拉、或需要把多轮返工收成“单轮可验硬切片”，优先使用 `sunset-prompt-slice-guard`。
@@ -307,6 +316,18 @@
   - `git diff --check`
   - 程序集级编译检查
 - 代码闸门未通过时，禁止继续收口；不要再把“等用户贴编译报错后再修”当成默认流程。
+- 代码闸门通过也只代表“文本层 / 程序集层暂未见阻断”，不代表 Unity Console 已干净，更不代表运行时红错已经验收完成。
+- 从现在起，凡是线程在回执、聊天或 memory 里出现：
+  - `无红错`
+  - `红错已清`
+  - `Unity 可直接交接`
+  - `可直接提交`
+  且本轮改动实际触及运行时代码、scene、prefab、asset、UI、剧情或交互链，就必须同时给出 Unity/MCP 侧的 fresh compile + fresh console 证据；否则这类表述一律视为违规夸大。
+- 如果因为 MCP / Unity blocker 没拿到这份证据，允许提交本地 checkpoint，但只能报：
+  - `代码闸门通过`
+  - `Unity 红错验证未闭环`
+  - `live / console 待补`
+  不允许把 checkpoint 说成完整 no-red 验收。
 - 只有命中 branch carrier / worktree 例外场景时，才继续使用 `ensure-branch`、`return-main` 和 `task-active` 这套旧事务模型。
 - 无论在 `main` 还是 `codex/` 分支，真实实现任务完成后都必须使用显式白名单同步，不得使用无边界 `git add -A`。
 - 如果 `git-safe-sync.ps1` 判断当前不能安全同步，必须明确汇报阻塞点、当前分支、基线 hash 和剩余 dirty 分类；禁止硬提交、硬推送或偷偷跳过 Git 收尾。
