@@ -177,6 +177,7 @@ namespace Sunset.Story
 
                 StabilizeAssignedFont(dialogueText, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
                 StabilizeAssignedFont(speakerNameText, _speakerBaseFontSize, 0f);
+                EnsureContinueButtonReadable();
                 UpdateTestStatusText();
             }
 
@@ -226,6 +227,7 @@ namespace Sunset.Story
             _advanceInputReadyTime = Time.unscaledTime + Mathf.Max(0f, anyKeyAdvanceDebounce);
             EnsureDialogueVisualComponentsReady();
             EnsureUsableRuntimeFonts();
+            EnsureContinueButtonReadable();
             StartVisibilityTransition(true);
         }
 
@@ -238,6 +240,7 @@ namespace Sunset.Story
 
             RestoreDefaultPresentation();
             ApplyFontPresetForNode(eventData.Node);
+            EnsureContinueButtonReadable();
 
             if (eventData.Node.isInnerMonologue)
             {
@@ -1183,6 +1186,7 @@ namespace Sunset.Story
 
             EnsureTextComponentReady(continueButtonLabel, forceActive: continueButton != null && continueButton.gameObject.activeInHierarchy);
             NormalizeContinueButtonCopy();
+            StabilizeAssignedFont(continueButtonLabel, _continueButtonBaseFontSize, 0f);
             continueButtonLabel.raycastTarget = false;
             continueButtonLabel.textWrappingMode = TextWrappingModes.NoWrap;
             continueButtonLabel.overflowMode = TextOverflowModes.Overflow;
@@ -1232,7 +1236,7 @@ namespace Sunset.Story
 
         private void StabilizeAssignedFont(TextMeshProUGUI target, float baseFontSize, float baseLineSpacing)
         {
-            if (target == null || IsFontAssetUsable(target.font))
+            if (target == null || !ShouldReplaceAssignedFont(target))
             {
                 return;
             }
@@ -1260,7 +1264,7 @@ namespace Sunset.Story
 
         private static TMP_FontAsset ResolveUsableDialogueFont(DialogueFontLibrarySO.FontEntry entry, string currentText)
         {
-            if (entry != null && IsFontAssetUsable(entry.fontAsset))
+            if (entry != null && CanFontRenderText(entry.fontAsset, currentText))
             {
                 return entry.fontAsset;
             }
@@ -1268,19 +1272,68 @@ namespace Sunset.Story
             for (int index = 0; index < PreferredDialogueFontResourcePaths.Length; index++)
             {
                 TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredDialogueFontResourcePaths[index]);
-                if (IsFontAssetUsable(candidate))
+                if (CanFontRenderText(candidate, currentText))
                 {
                     return candidate;
                 }
             }
 
             TMP_FontAsset defaultFont = TMP_Settings.defaultFontAsset;
-            if (IsFontAssetUsable(defaultFont))
+            if (CanFontRenderText(defaultFont, currentText))
             {
                 return defaultFont;
             }
 
             return null;
+        }
+
+        private static bool ShouldReplaceAssignedFont(TextMeshProUGUI target)
+        {
+            return !CanFontRenderText(target.font, target.text);
+        }
+
+        private static bool CanFontRenderText(TMP_FontAsset fontAsset, string currentText)
+        {
+            if (!IsFontAssetUsable(fontAsset))
+            {
+                return false;
+            }
+
+            string probeText = GetFontProbeText(currentText);
+            return string.IsNullOrEmpty(probeText) || fontAsset.HasCharacters(probeText);
+        }
+
+        private static string GetFontProbeText(string currentText)
+        {
+            if (string.IsNullOrWhiteSpace(currentText))
+            {
+                return string.Empty;
+            }
+
+            var builder = new System.Text.StringBuilder(currentText.Length);
+            bool insideTag = false;
+            for (int index = 0; index < currentText.Length; index++)
+            {
+                char current = currentText[index];
+                if (current == '<')
+                {
+                    insideTag = true;
+                    continue;
+                }
+
+                if (current == '>')
+                {
+                    insideTag = false;
+                    continue;
+                }
+
+                if (!insideTag && !char.IsControl(current))
+                {
+                    builder.Append(current);
+                }
+            }
+
+            return builder.ToString().Trim();
         }
 
         private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)

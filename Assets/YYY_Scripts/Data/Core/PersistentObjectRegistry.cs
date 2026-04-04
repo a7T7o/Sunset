@@ -98,7 +98,12 @@ namespace FarmGame.Data.Core
             _instance = this;
             gameObject.name = RegistryObjectName;
             AttachToPersistentRootIfAvailable(transform);
-            DontDestroyOnLoad(gameObject);
+
+            // 如果已挂到 PersistentManagers 根下，根对象本身已经负责跨场景保活。
+            if (transform.parent == null)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
             
             if (showDebugInfo)
                 Debug.Log("[PersistentObjectRegistry] 初始化完成");

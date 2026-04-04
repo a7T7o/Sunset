@@ -22,6 +22,10 @@ public class PersistentManagers : MonoBehaviour
     private const string SeasonManagerObjectName = "SeasonManager";
     private const string WeatherSystemObjectName = "WeatherSystem";
     private const string PersistentRegistryObjectName = "[PersistentObjectRegistry]";
+    private const string PrefabDatabaseResourcesPath = "Data/Database/PrefabDatabase";
+#if UNITY_EDITOR
+    private const string PrefabDatabaseEditorAssetPath = "Assets/111_Data/Database/PrefabDatabase.asset";
+#endif
 
     private static PersistentManagers instance;
     private static bool isBootstrapping;
@@ -36,7 +40,7 @@ public class PersistentManagers : MonoBehaviour
     [Header("调试")]
     [SerializeField] private bool showDebugInfo = false;
 
-    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void BootstrapRuntime()
     {
         EnsureRuntime();
@@ -99,7 +103,10 @@ public class PersistentManagers : MonoBehaviour
         else
         {
             MergeChildrenInto(instance.transform);
-            Debug.LogWarning("<color=yellow>[PersistentManagers] 检测到重复实例，销毁</color>");
+            if (HasMeaningfulStateToMerge())
+            {
+                Debug.LogWarning("<color=yellow>[PersistentManagers] 检测到重复实例，已合并有效状态后销毁</color>");
+            }
             Destroy(gameObject);
         }
     }
@@ -213,13 +220,18 @@ public class PersistentManagers : MonoBehaviour
             transform.GetChild(0).SetParent(targetRoot, false);
         }
     }
+
+    private bool HasMeaningfulStateToMerge()
+    {
+        return transform.childCount > 0 || prefabDatabase != null;
+    }
     
     /// <summary>
     /// 🔥 3.7.5：初始化 DynamicObjectFactory
     /// </summary>
     private void InitializeDynamicObjectFactory()
     {
-        if (prefabDatabase != null)
+        if (TryResolvePrefabDatabase())
         {
             DynamicObjectFactory.Initialize(prefabDatabase);
             if (showDebugInfo)
@@ -227,18 +239,33 @@ public class PersistentManagers : MonoBehaviour
         }
         else
         {
-            // 尝试从 Resources 加载
-            prefabDatabase = Resources.Load<PrefabDatabase>("PrefabDatabase");
-            if (prefabDatabase != null)
-            {
-                DynamicObjectFactory.Initialize(prefabDatabase);
-                if (showDebugInfo)
-                    Debug.Log($"<color=cyan>[PersistentManagers] DynamicObjectFactory 已初始化（从 Resources 加载）</color>");
-            }
-            else
-            {
-                Debug.LogWarning("<color=yellow>[PersistentManagers] PrefabDatabase 未配置，DynamicObjectFactory 未初始化</color>");
-            }
+            Debug.LogWarning("<color=yellow>[PersistentManagers] PrefabDatabase 未配置，DynamicObjectFactory 未初始化</color>");
         }
+    }
+
+    private bool TryResolvePrefabDatabase()
+    {
+        if (prefabDatabase != null)
+        {
+            return true;
+        }
+
+        prefabDatabase = Resources.Load<PrefabDatabase>(PrefabDatabaseResourcesPath);
+        if (prefabDatabase != null)
+        {
+            return true;
+        }
+
+        prefabDatabase = Resources.Load<PrefabDatabase>("PrefabDatabase");
+        if (prefabDatabase != null)
+        {
+            return true;
+        }
+
+#if UNITY_EDITOR
+        prefabDatabase = UnityEditor.AssetDatabase.LoadAssetAtPath<PrefabDatabase>(PrefabDatabaseEditorAssetPath);
+#endif
+
+        return prefabDatabase != null;
     }
 }
