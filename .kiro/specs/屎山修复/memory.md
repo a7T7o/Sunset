@@ -4963,3 +4963,18 @@
 - 当前判断：
   - 这条路现在不是“是否要统一”的问题，而是“按什么边界统一”的问题；
   - 正确边界已经明确，后续真正开工时不应该再回到“大重构 / 大合并”的错误路线。
+
+## 2026-04-06｜导航统一执行内核的安全归档已补齐
+
+- 子线：
+  - `导航检查V2`
+- 本轮新增事实：
+  1. 新增方向锚定提交：
+     - `1f10a107` `anchor navigation unified traversal direction`
+  2. 新增安全 tag：
+     - `nav-unification-anchor-20260406-01`
+  3. 新增可脱离工作区恢复的 bundle：
+     - `D:\Unity\Unity_learning\Sunset\.codex\archives\navigation\nav-unification-anchor-20260406-01.bundle`
+- 当前判断：
+  - 现在已经具备“方向已锚定 + Git 已提交 + 本地可离线恢复”的三层保险；
+  - 后续如果开始统一共享 traversal core，可以在这个锚点上放心开刀。

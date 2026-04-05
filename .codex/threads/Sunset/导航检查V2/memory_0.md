@@ -3932,3 +3932,22 @@
 - 当前恢复点：
   - 下一轮如果真的开始统一导航接口，第一刀只能是“抽窄 traversal core 并先让 NPC 接入”；
   - 任何一上来就碰玩家完成语义或 NPC 状态机的做法，都应该视为越界。
+
+## 2026-04-06｜方向锚定与安全归档已完成，可作为统一 traversal core 的唯一开刀基线
+
+- 本轮后续完成：
+  1. `Ready-To-Sync` 已通过。
+  2. 已提交：
+     - `1f10a107` `anchor navigation unified traversal direction`
+  3. 已创建安全 tag：
+     - `nav-unification-anchor-20260406-01`
+  4. 已创建 bundle：
+     - `D:\Unity\Unity_learning\Sunset\.codex\archives\navigation\nav-unification-anchor-20260406-01.bundle`
+- 当前结论：
+  - 现在已经不是“边想边改”的状态；
+  - 后续真正开始统一执行内核时，必须以：
+    - 方向文档
+    - commit `1f10a107`
+    - tag `nav-unification-anchor-20260406-01`
+    - bundle `nav-unification-anchor-20260406-01.bundle`
+    为唯一安全基线。

@@ -9260,3 +9260,14 @@
   - 不改导航业务逻辑；
   - 不重修玩家版本；
   - 不直接开启统一内核施工。
+
+## 2026-04-06｜导航统一执行内核安全锚点已创建
+
+- 本轮新增安全锚点：
+  - commit：`1f10a107` `anchor navigation unified traversal direction`
+  - tag：`nav-unification-anchor-20260406-01`
+  - bundle：
+    - `D:\Unity\Unity_learning\Sunset\.codex\archives\navigation\nav-unification-anchor-20260406-01.bundle`
+- 当前用途：
+  - 作为后续“抽共享 traversal core”之前的完整安全回退点；
+  - 如果后面第一刀统一执行内核走偏，应优先回到这组锚点，而不是回到更早的 NPC 红面现场。
