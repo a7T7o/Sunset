@@ -2,6 +2,7 @@
 using UnityEngine.UI;
 using System.Collections.Generic;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 using FarmGame.World;
 
 namespace FarmGame.UI
@@ -55,9 +56,13 @@ namespace FarmGame.UI
         // 🔥 缓存引用（性能优化）
         private InventorySortService _cachedSortService;
         private HeldItemDisplay _cachedHeldDisplay;
+        private HotbarSelectionService _hotbarSelection;
         
         // 🔥 日志去重标志（实例级别）
         private bool _hasLoggedBindFailure = false;
+        private int _selectedChestIndex = -1;
+        private int _selectedInventoryIndex = -1;
+        private bool _followHotbarSelection = true;
 
         // 当前活跃的 BoxPanelUI 实例（用于互斥管理）
         private static BoxPanelUI _activeInstance;
@@ -115,6 +120,7 @@ namespace FarmGame.UI
         {
             TryAutoLocate();
             CollectSlots();
+            EnsurePanelClickHandlers();
         }
 
         private void Start()
@@ -122,6 +128,7 @@ namespace FarmGame.UI
             // 获取服务引用
             _inventoryService = FindFirstObjectByType<InventoryService>();
             _equipmentService = FindFirstObjectByType<EquipmentService>();
+            _hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
             
             if (_inventoryService != null)
             {
@@ -271,9 +278,43 @@ namespace FarmGame.UI
             }
         }
 
+        internal void HandleHeldClickOutside(Vector2 screenPos, bool isDropZone)
+        {
+            var manager = InventoryInteractionManager.Instance;
+            if (manager != null && manager.IsHolding)
+            {
+                if (isDropZone)
+                {
+                    manager.OnTrashCanClick();
+                }
+                else
+                {
+                    manager.ReturnHeldItemToInventory();
+                }
+
+                return;
+            }
+
+            if (!SlotDragContext.IsDragging)
+            {
+                return;
+            }
+
+            if (isDropZone)
+            {
+                DropItemFromContext();
+                InventorySlotInteraction.ResetActiveChestHeldState();
+                return;
+            }
+
+            SlotDragContext.Cancel();
+            HideDragIcon();
+            InventorySlotInteraction.ResetActiveChestHeldState();
+        }
+
         private void OnSortUpClicked()
         {
-            if (_currentChest?.Inventory == null) return;
+            if (_currentChest?.RuntimeInventory == null) return;
             
             if (_currentChest.RuntimeInventory != null)
                 _currentChest.RuntimeInventory.Sort();
@@ -371,6 +412,30 @@ namespace FarmGame.UI
             }
         }
 
+        private void EnsurePanelClickHandlers()
+        {
+            AttachPanelClickHandler(transform, false);
+            AttachPanelClickHandler(upGridParent, false);
+            AttachPanelClickHandler(downGridParent, false);
+            AttachPanelClickHandler(btnTrashCan != null ? btnTrashCan.transform : null, true);
+        }
+
+        private void AttachPanelClickHandler(Transform target, bool isDropZone)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            BoxPanelClickHandler handler = target.GetComponent<BoxPanelClickHandler>();
+            if (handler == null)
+            {
+                handler = target.gameObject.AddComponent<BoxPanelClickHandler>();
+            }
+
+            handler.Configure(this, isDropZone);
+        }
+
         #endregion
 
         #region 公共方法
@@ -414,6 +479,9 @@ namespace FarmGame.UI
             // 显示面板
             gameObject.SetActive(true);
             _isOpen = true;
+            EnsurePanelClickHandlers();
+            SubscribeToHotbarSelection();
+            ResetSelectionStateOnOpen();
 
             // 🔥 订阅箱子库存事件
             SubscribeToChest();
@@ -448,6 +516,8 @@ namespace FarmGame.UI
             gameObject.SetActive(false);
             _isOpen = false;
             _currentChest = null;
+            UnsubscribeFromHotbarSelection();
+            ResetSelectionStateOnClose();
 
             if (_activeInstance == this)
             {
@@ -468,6 +538,7 @@ namespace FarmGame.UI
 
             RefreshChestSlots();
             RefreshInventorySlots();
+            RefreshSelectionVisuals();
         }
 
         #endregion
@@ -491,6 +562,32 @@ namespace FarmGame.UI
 
             if (showDebugInfo)
                 Debug.Log("[BoxPanelUI] 已订阅箱子库存事件和背包事件");
+        }
+
+        private void SubscribeToHotbarSelection()
+        {
+            if (_hotbarSelection == null)
+            {
+                _hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+            }
+
+            if (_hotbarSelection == null)
+            {
+                return;
+            }
+
+            _hotbarSelection.OnSelectedChanged -= HandleHotbarSelectionChanged;
+            _hotbarSelection.OnSelectedChanged += HandleHotbarSelectionChanged;
+        }
+
+        private void UnsubscribeFromHotbarSelection()
+        {
+            if (_hotbarSelection == null)
+            {
+                return;
+            }
+
+            _hotbarSelection.OnSelectedChanged -= HandleHotbarSelectionChanged;
         }
 
         private void UnsubscribeFromChest()
@@ -520,6 +617,7 @@ namespace FarmGame.UI
             if (showDebugInfo)
                 Debug.Log("[BoxPanelUI] OnInventoryServiceChanged - 刷新背包槽位");
             RefreshInventorySlots();
+            RefreshInventorySelectionVisuals();
         }
 
         private void OnChestSlotChanged(int slotIndex)
@@ -535,62 +633,141 @@ namespace FarmGame.UI
             if (showDebugInfo)
                 Debug.Log("[BoxPanelUI] OnChestInventoryChanged - 刷新箱子槽位");
             RefreshChestSlots();
+            RefreshChestSelectionVisuals();
         }
 
         #endregion
 
         #region 私有方法
 
-        /// <summary>
-        /// 🔥 选中状态优化：清空箱子区域（Up）的所有选中状态
-        /// </summary>
-        private void ClearUpSelections()
+        private void ResetSelectionStateOnOpen()
         {
-            // 方案 1：通过 ToggleGroup 清空
-            if (upGridParent != null)
+            _selectedChestIndex = -1;
+            _followHotbarSelection = true;
+            SyncInventorySelectionFromHotbar();
+        }
+
+        private void ResetSelectionStateOnClose()
+        {
+            _selectedChestIndex = -1;
+            _selectedInventoryIndex = -1;
+            _followHotbarSelection = true;
+        }
+
+        private void HandleHotbarSelectionChanged(int selectedIndex)
+        {
+            if (!_isOpen)
             {
-                var toggleGroup = upGridParent.GetComponent<ToggleGroup>();
-                if (toggleGroup != null)
-                {
-                    toggleGroup.SetAllTogglesOff();
-                    return;
-                }
+                return;
             }
-            
-            // 方案 2：遍历槽位调用 Deselect
+
+            if (_followHotbarSelection || _selectedInventoryIndex < 0)
+            {
+                SyncInventorySelectionFromHotbar();
+            }
+
+            RefreshInventorySelectionVisuals();
+        }
+
+        private void SyncInventorySelectionFromHotbar()
+        {
+            if (_hotbarSelection == null)
+            {
+                _selectedInventoryIndex = _selectedInventoryIndex >= 0 ? _selectedInventoryIndex : 0;
+                return;
+            }
+
+            _selectedInventoryIndex = Mathf.Clamp(_hotbarSelection.selectedIndex, 0, Mathf.Max(0, InventoryService.HotbarWidth - 1));
+        }
+
+        private void RefreshSelectionVisuals()
+        {
+            RefreshChestSelectionVisuals();
+            RefreshInventorySelectionVisuals();
+        }
+
+        private void RefreshChestSelectionVisuals()
+        {
             foreach (var slot in _chestSlots)
             {
                 if (slot != null)
                 {
-                    slot.Deselect();
+                    slot.RefreshSelection();
                 }
             }
+        }
+
+        private void RefreshInventorySelectionVisuals()
+        {
+            foreach (var slot in _inventorySlots)
+            {
+                if (slot != null)
+                {
+                    slot.RefreshSelection();
+                }
+            }
+        }
+
+        public bool IsChestSlotSelected(int slotIndex)
+        {
+            return slotIndex >= 0 && slotIndex == _selectedChestIndex;
+        }
+
+        public bool IsInventorySlotSelected(int slotIndex)
+        {
+            return slotIndex >= 0 && slotIndex == _selectedInventoryIndex;
+        }
+
+        public void SetSelectedChestIndex(int slotIndex)
+        {
+            if (slotIndex < 0)
+            {
+                return;
+            }
+
+            _selectedChestIndex = slotIndex;
+            RefreshChestSelectionVisuals();
+        }
+
+        public void SetSelectedInventoryIndex(int slotIndex, bool syncHotbarSelection)
+        {
+            int maxInventorySlots = _inventoryService != null ? _inventoryService.Capacity : InventoryService.DefaultInventorySize;
+            if (slotIndex < 0 || slotIndex >= maxInventorySlots)
+            {
+                return;
+            }
+
+            _selectedInventoryIndex = slotIndex;
+            _followHotbarSelection = syncHotbarSelection && slotIndex < InventoryService.HotbarWidth;
+
+            if (syncHotbarSelection &&
+                _hotbarSelection != null &&
+                slotIndex < InventoryService.HotbarWidth &&
+                _hotbarSelection.selectedIndex != slotIndex)
+            {
+                _hotbarSelection.SelectIndex(slotIndex);
+            }
+
+            RefreshInventorySelectionVisuals();
+        }
+
+        /// <summary>
+        /// 🔥 选中状态优化：清空箱子区域（Up）的所有选中状态
+        /// </summary>
+        public void ClearUpSelections()
+        {
+            _selectedChestIndex = -1;
+            RefreshChestSelectionVisuals();
         }
 
         /// <summary>
         /// 🔥 选中状态优化：清空背包区域（Down）的所有选中状态
         /// </summary>
-        private void ClearDownSelections()
+        public void ClearDownSelections()
         {
-            // 方案 1：通过 ToggleGroup 清空
-            if (downGridParent != null)
-            {
-                var toggleGroup = downGridParent.GetComponent<ToggleGroup>();
-                if (toggleGroup != null)
-                {
-                    toggleGroup.SetAllTogglesOff();
-                    return;
-                }
-            }
-            
-            // 方案 2：遍历槽位调用 Deselect
-            foreach (var slot in _inventorySlots)
-            {
-                if (slot != null)
-                {
-                    slot.Deselect();
-                }
-            }
+            _selectedInventoryIndex = -1;
+            _followHotbarSelection = false;
+            RefreshInventorySelectionVisuals();
         }
 
         /// <summary>
@@ -640,6 +817,7 @@ namespace FarmGame.UI
             if (slot == null) return;
 
             BindChestSlotData(slot, index);
+            slot.RefreshSelection();
         }
 
         /// <summary>
@@ -743,7 +921,7 @@ namespace FarmGame.UI
             // 情况 2：箱子物品在手上（SlotDragContext 管辖）
             if (SlotDragContext.IsDragging)
             {
-                ReturnChestItemToSource();
+                SlotDragContext.Cancel();
                 if (showDebugInfo)
                     Debug.Log("[BoxPanelUI] Close: 归位箱子物品");
             }
@@ -759,86 +937,137 @@ namespace FarmGame.UI
         private void ReturnChestItemToSource()
         {
             if (!SlotDragContext.IsDragging) return;
-            
-            var item = SlotDragContext.DraggedItem;
-            if (item.IsEmpty)
+            SlotDragContext.Cancel();
+            if (showDebugInfo)
+                Debug.Log("[BoxPanelUI] 箱子物品归位：委托统一 SlotDragContext.Cancel()");
+        }
+
+        private static InventoryItem CreateRuntimeItemForAmount(InventoryItem runtimeItem, int amount)
+        {
+            if (runtimeItem == null || runtimeItem.IsEmpty || amount <= 0)
             {
-                SlotDragContext.End();
+                return null;
+            }
+
+            if (runtimeItem.Amount == amount)
+            {
+                return runtimeItem;
+            }
+
+            var clone = runtimeItem.Clone();
+            clone.SetAmount(amount);
+            return clone;
+        }
+
+        private static void SetContainerSlotPreservingRuntime(IItemContainer container, int slotIndex, ItemStack stack, InventoryItem runtimeItem)
+        {
+            InventoryItem adjustedRuntimeItem = CreateRuntimeItemForAmount(runtimeItem, stack.amount);
+            if (container is InventoryService inventoryService && adjustedRuntimeItem != null && !adjustedRuntimeItem.IsEmpty)
+            {
+                inventoryService.SetInventoryItem(slotIndex, adjustedRuntimeItem);
                 return;
             }
-            
-            var sourceContainer = SlotDragContext.SourceContainer;
-            int sourceIndex = SlotDragContext.SourceSlotIndex;
-            
-            // 1. 尝试返回原槽位
-            if (sourceContainer != null)
+
+            if (container is ChestInventoryV2 chestInventory && adjustedRuntimeItem != null && !adjustedRuntimeItem.IsEmpty)
             {
-                var srcSlot = sourceContainer.GetSlot(sourceIndex);
-                if (srcSlot.IsEmpty)
-                {
-                    sourceContainer.SetSlot(sourceIndex, item);
-                    SlotDragContext.End();
-                    if (showDebugInfo)
-                        Debug.Log($"[BoxPanelUI] 箱子物品归位：返回原槽位 {sourceIndex}");
-                    return;
-                }
-                
-                // 尝试堆叠
-                if (srcSlot.CanStackWith(item))
-                {
-                    int maxStack = sourceContainer.GetMaxStack(item.itemId);
-                    int total = srcSlot.amount + item.amount;
-                    
-                    if (total <= maxStack)
-                    {
-                        srcSlot.amount = total;
-                        sourceContainer.SetSlot(sourceIndex, srcSlot);
-                        SlotDragContext.End();
-                        if (showDebugInfo)
-                            Debug.Log($"[BoxPanelUI] 箱子物品归位：堆叠到原槽位 {sourceIndex}");
-                        return;
-                    }
-                }
+                chestInventory.SetItem(slotIndex, adjustedRuntimeItem);
+                return;
             }
-            
-            // 2. 尝试放入箱子空位
-            if (_currentChest?.Inventory != null)
+
+            container.SetSlot(slotIndex, stack);
+        }
+
+        private static InventoryItem ResolveContainerRuntimeItem(IItemContainer container, int slotIndex)
+        {
+            if (container is InventoryService inventoryService)
             {
-                var chest = _currentChest.Inventory;
-                for (int i = 0; i < chest.Capacity; i++)
-                {
-                    if (chest.GetSlot(i).IsEmpty)
-                    {
-                        chest.SetSlot(i, item);
-                        SlotDragContext.End();
-                        if (showDebugInfo)
-                            Debug.Log($"[BoxPanelUI] 箱子物品归位：放入箱子空位 {i}");
-                        return;
-                    }
-                }
+                return inventoryService.GetInventoryItem(slotIndex);
             }
-            
-            // 3. 尝试放入背包空位
-            if (_inventoryService != null)
+
+            if (container is ChestInventoryV2 chestInventoryV2)
             {
-                for (int i = 0; i < 36; i++)
-                {
-                    if (_inventoryService.GetSlot(i).IsEmpty)
-                    {
-                        _inventoryService.SetSlot(i, item);
-                        SlotDragContext.End();
-                        if (showDebugInfo)
-                            Debug.Log($"[BoxPanelUI] 箱子物品归位：放入背包空位 {i}");
-                        return;
-                    }
-                }
+                return chestInventoryV2.GetItem(slotIndex);
             }
-            
-            // 4. 都满了，扔在脚下
-            if (SlotDragContext.DraggedRuntimeItem != null && !SlotDragContext.DraggedRuntimeItem.IsEmpty) ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem); else ItemDropHelper.DropAtPlayer(item);
-            SlotDragContext.End();
-            if (showDebugInfo)
-                Debug.Log("[BoxPanelUI] 箱子物品归位：扔在脚下");
+
+            return null;
+        }
+
+        private static void UpdateContainerStackAmountPreservingRuntime(
+            IItemContainer container,
+            int slotIndex,
+            ItemStack currentStack,
+            InventoryItem currentRuntimeItem,
+            int newAmount)
+        {
+            if (newAmount <= 0)
+            {
+                container.ClearSlot(slotIndex);
+                return;
+            }
+
+            ItemStack updatedStack = new ItemStack(currentStack.itemId, currentStack.quality, newAmount);
+            SetContainerSlotPreservingRuntime(container, slotIndex, updatedStack, currentRuntimeItem);
+        }
+
+        private static bool TryReturnToSpecificSlot(IItemContainer container, int slotIndex, ref ItemStack item, ref InventoryItem runtimeItem)
+        {
+            var sourceSlot = container.GetSlot(slotIndex);
+            var sourceRuntimeItem = ResolveContainerRuntimeItem(container, slotIndex);
+            if (sourceSlot.IsEmpty)
+            {
+                SetContainerSlotPreservingRuntime(container, slotIndex, item, runtimeItem);
+                item = ItemStack.Empty;
+                runtimeItem = null;
+                return true;
+            }
+
+            if (!sourceSlot.CanStackWith(item))
+            {
+                return false;
+            }
+
+            int acceptedAmount = Mathf.Min(item.amount, Mathf.Max(0, container.GetMaxStack(item.itemId) - sourceSlot.amount));
+            if (acceptedAmount > 0)
+            {
+                UpdateContainerStackAmountPreservingRuntime(
+                    container,
+                    slotIndex,
+                    sourceSlot,
+                    sourceRuntimeItem,
+                    sourceSlot.amount + acceptedAmount);
+            }
+
+            int remainingAmount = item.amount - acceptedAmount;
+            if (remainingAmount <= 0)
+            {
+                item = ItemStack.Empty;
+                runtimeItem = null;
+                return true;
+            }
+
+            item = new ItemStack(item.itemId, item.quality, remainingAmount);
+            runtimeItem = CreateRuntimeItemForAmount(runtimeItem, remainingAmount);
+            return false;
+        }
+
+        private static bool TryReturnToFirstEmptySlot(IItemContainer container, ref ItemStack item, ref InventoryItem runtimeItem, out int targetIndex)
+        {
+            for (int i = 0; i < container.Capacity; i++)
+            {
+                if (!container.GetSlot(i).IsEmpty)
+                {
+                    continue;
+                }
+
+                SetContainerSlotPreservingRuntime(container, i, item, runtimeItem);
+                item = ItemStack.Empty;
+                runtimeItem = null;
+                targetIndex = i;
+                return true;
+            }
+
+            targetIndex = -1;
+            return false;
         }
 
         /// <summary>

@@ -16,6 +16,13 @@ using FarmGame.Data.Core;
 /// </summary>
 public static class SlotDragContext
 {
+    public enum ModifierHoldMode
+    {
+        None = 0,
+        Shift = 1,
+        Ctrl = 2
+    }
+
     #region 拖拽状态
 
     /// <summary>
@@ -45,6 +52,17 @@ public static class SlotDragContext
     public static InventorySlotUI SourceSlotUI { get; private set; }
 
     /// <summary>
+    /// 当前修饰键 held 模式。
+    /// 仅箱子侧 Shift/Ctrl 连续拿取会写入该值。
+    /// </summary>
+    public static ModifierHoldMode HoldMode { get; private set; }
+
+    /// <summary>
+    /// 当前箱子 held 的 owner 槽位。
+    /// </summary>
+    public static InventorySlotInteraction ActiveOwner { get; private set; }
+
+    /// <summary>
     /// 源容器是否为箱子
     /// </summary>
     public static bool IsSourceChest => SourceContainer is ChestInventory || SourceContainer is ChestInventoryV2;
@@ -53,6 +71,10 @@ public static class SlotDragContext
     /// 源容器是否为背包
     /// </summary>
     public static bool IsSourceInventory => SourceContainer is InventoryService;
+
+    public static bool IsHeldByShift => IsDragging && HoldMode == ModifierHoldMode.Shift;
+    public static bool IsHeldByCtrl => IsDragging && HoldMode == ModifierHoldMode.Ctrl;
+    public static bool IsModifierHeld => IsHeldByShift || IsHeldByCtrl;
 
     #endregion
 
@@ -70,7 +92,9 @@ public static class SlotDragContext
         int slotIndex,
         ItemStack item,
         InventorySlotUI slotUI = null,
-        InventoryItem runtimeItem = null)
+        InventoryItem runtimeItem = null,
+        ModifierHoldMode holdMode = ModifierHoldMode.None,
+        InventorySlotInteraction owner = null)
     {
         // 🔥 互斥检查：如果 Manager 正在持有物品，拒绝开始拖拽
         if (InventoryInteractionManager.Instance != null && 
@@ -86,6 +110,8 @@ public static class SlotDragContext
         DraggedItem = item;
         DraggedRuntimeItem = runtimeItem;
         SourceSlotUI = slotUI;
+        HoldMode = holdMode;
+        ActiveOwner = owner;
         SourceSlotUI?.Select();
         // 🔥 P1：移除日志输出（符合日志规范）
     }
@@ -102,6 +128,8 @@ public static class SlotDragContext
         DraggedItem = ItemStack.Empty;
         DraggedRuntimeItem = null;
         SourceSlotUI = null;
+        HoldMode = ModifierHoldMode.None;
+        ActiveOwner = null;
     }
 
     /// <summary>
@@ -127,26 +155,28 @@ public static class SlotDragContext
     {
         if (!IsDragging || SourceContainer == null) return;
 
-        // 尝试返回物品到源槽位
-        var currentSlot = SourceContainer.GetSlot(SourceSlotIndex);
-        if (currentSlot.IsEmpty)
-        {
-            RestoreToSource();
-        }
-        else if (currentSlot.CanStackWith(DraggedItem))
-        {
-            var merged = currentSlot;
-            merged.amount += DraggedItem.amount;
-            SourceContainer.SetSlot(SourceSlotIndex, merged);
-        }
-        else
-        {
-            // 源槽位被占用且不能堆叠，物品丢失（理论上不应该发生）
-            Debug.LogWarning($"[SlotDragContext] Cancel: 无法返回物品到源槽位，物品丢失！");
-        }
+        ItemStack draggedItem = DraggedItem;
+        InventoryItem draggedRuntimeItem = DraggedRuntimeItem;
+        ReturnHeldToSourceContainer(SourceContainer, SourceSlotIndex, ref draggedItem, ref draggedRuntimeItem);
 
         // 🔥 P1：移除日志输出（符合日志规范）
         End();
+    }
+
+    public static bool IsOwnedBy(InventorySlotInteraction owner)
+    {
+        return owner != null && ActiveOwner == owner;
+    }
+
+    public static void ClearOwner(InventorySlotInteraction owner)
+    {
+        if (owner == null || ActiveOwner != owner)
+        {
+            return;
+        }
+
+        ActiveOwner = null;
+        HoldMode = ModifierHoldMode.None;
     }
 
     private static void RestoreToSource()
@@ -164,6 +194,151 @@ public static class SlotDragContext
         }
 
         SourceContainer.SetSlot(SourceSlotIndex, DraggedItem);
+    }
+
+    private static InventoryItem ResolveContainerRuntimeItem(IItemContainer container, int slotIndex)
+    {
+        if (container is InventoryService inventoryService)
+        {
+            return inventoryService.GetInventoryItem(slotIndex);
+        }
+
+        if (container is ChestInventoryV2 chestInventoryV2)
+        {
+            return chestInventoryV2.GetItem(slotIndex);
+        }
+
+        return null;
+    }
+
+    private static InventoryItem CreateRuntimeItemForAmount(InventoryItem runtimeItem, int amount)
+    {
+        if (runtimeItem == null || runtimeItem.IsEmpty || amount <= 0)
+        {
+            return null;
+        }
+
+        if (runtimeItem.Amount == amount)
+        {
+            return runtimeItem;
+        }
+
+        var clone = runtimeItem.Clone();
+        clone.SetAmount(amount);
+        return clone;
+    }
+
+    private static void SetContainerSlotPreservingRuntime(IItemContainer container, int slotIndex, ItemStack stack, InventoryItem runtimeItem)
+    {
+        InventoryItem adjustedRuntimeItem = CreateRuntimeItemForAmount(runtimeItem, stack.amount);
+        if (container is InventoryService inventoryService && adjustedRuntimeItem != null && !adjustedRuntimeItem.IsEmpty)
+        {
+            inventoryService.SetInventoryItem(slotIndex, adjustedRuntimeItem);
+            return;
+        }
+
+        if (container is ChestInventoryV2 chestInventoryV2 && adjustedRuntimeItem != null && !adjustedRuntimeItem.IsEmpty)
+        {
+            chestInventoryV2.SetItem(slotIndex, adjustedRuntimeItem);
+            return;
+        }
+
+        container.SetSlot(slotIndex, stack);
+    }
+
+    private static void UpdateContainerStackAmountPreservingRuntime(
+        IItemContainer container,
+        int slotIndex,
+        ItemStack currentStack,
+        InventoryItem currentRuntimeItem,
+        int newAmount)
+    {
+        if (newAmount <= 0)
+        {
+            container.ClearSlot(slotIndex);
+            return;
+        }
+
+        ItemStack updatedStack = new ItemStack(currentStack.itemId, currentStack.quality, newAmount);
+        SetContainerSlotPreservingRuntime(container, slotIndex, updatedStack, currentRuntimeItem);
+    }
+
+    private static void ReturnHeldToSourceContainer(
+        IItemContainer container,
+        int sourceIndex,
+        ref ItemStack draggedItem,
+        ref InventoryItem draggedRuntimeItem)
+    {
+        if (container == null || sourceIndex < 0 || draggedItem.IsEmpty)
+        {
+            return;
+        }
+
+        ItemStack sourceSlot = container.GetSlot(sourceIndex);
+        if (sourceSlot.IsEmpty)
+        {
+            SetContainerSlotPreservingRuntime(container, sourceIndex, draggedItem, draggedRuntimeItem);
+            draggedItem = ItemStack.Empty;
+            draggedRuntimeItem = null;
+            return;
+        }
+
+        if (sourceSlot.CanStackWith(draggedItem))
+        {
+            int maxStack = container.GetMaxStack(draggedItem.itemId);
+            int acceptedAmount = Mathf.Min(draggedItem.amount, Mathf.Max(0, maxStack - sourceSlot.amount));
+            if (acceptedAmount > 0)
+            {
+                InventoryItem sourceRuntimeItem = ResolveContainerRuntimeItem(container, sourceIndex);
+                UpdateContainerStackAmountPreservingRuntime(
+                    container,
+                    sourceIndex,
+                    sourceSlot,
+                    sourceRuntimeItem,
+                    sourceSlot.amount + acceptedAmount);
+            }
+
+            int remainingAmount = draggedItem.amount - acceptedAmount;
+            if (remainingAmount <= 0)
+            {
+                draggedItem = ItemStack.Empty;
+                draggedRuntimeItem = null;
+                return;
+            }
+
+            draggedItem = new ItemStack(draggedItem.itemId, draggedItem.quality, remainingAmount);
+            draggedRuntimeItem = CreateRuntimeItemForAmount(draggedRuntimeItem, remainingAmount);
+        }
+
+        for (int index = 0; index < container.Capacity; index++)
+        {
+            if (index == sourceIndex)
+            {
+                continue;
+            }
+
+            if (!container.GetSlot(index).IsEmpty)
+            {
+                continue;
+            }
+
+            SetContainerSlotPreservingRuntime(container, index, draggedItem, draggedRuntimeItem);
+            draggedItem = ItemStack.Empty;
+            draggedRuntimeItem = null;
+            return;
+        }
+
+        Debug.LogWarning($"[SlotDragContext] Cancel: 回源槽位 {sourceIndex} 已被占用且容器无空位，改为掉落到玩家脚下，避免覆盖现有物品。");
+        if (draggedRuntimeItem != null && !draggedRuntimeItem.IsEmpty)
+        {
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedRuntimeItem);
+        }
+        else
+        {
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedItem);
+        }
+        draggedItem = ItemStack.Empty;
+        draggedRuntimeItem = null;
     }
 
     #endregion

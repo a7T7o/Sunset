@@ -22,6 +22,7 @@ public class InventoryPanelUI : MonoBehaviour
     [SerializeField] private int downCount = 6;
 
     private int selectedInventoryIndex = -1;
+    private bool followHotbarSelection = true;
 
     void Awake()
     {
@@ -51,6 +52,7 @@ public class InventoryPanelUI : MonoBehaviour
             selection.OnSelectedChanged -= HandleHotbarSelectionChanged;
             selection.OnSelectedChanged += HandleHotbarSelectionChanged;
         }
+        followHotbarSelection = true;
         SyncSelectionFromHotbar();
         RefreshAll();
     }
@@ -180,6 +182,7 @@ public class InventoryPanelUI : MonoBehaviour
     public void ClearUpSelection()
     {
         selectedInventoryIndex = -1;
+        followHotbarSelection = false;
         RefreshUpSelectionVisuals();
     }
 
@@ -196,6 +199,7 @@ public class InventoryPanelUI : MonoBehaviour
         }
 
         selectedInventoryIndex = slotIndex;
+        followHotbarSelection = syncHotbarSelection && slotIndex < InventoryService.HotbarWidth;
 
         if (syncHotbarSelection &&
             selection != null &&
@@ -226,8 +230,7 @@ public class InventoryPanelUI : MonoBehaviour
             return;
         }
 
-        bool shouldFollowHotbar = selectedInventoryIndex < 0 || selectedInventoryIndex < InventoryService.HotbarWidth;
-        if (shouldFollowHotbar)
+        if (followHotbarSelection || selectedInventoryIndex < 0)
         {
             SyncSelectionFromHotbar();
         }

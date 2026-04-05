@@ -17,6 +17,8 @@ namespace FarmGame.World
     /// </summary>
     public class ChestController : MonoBehaviour, IResourceNode, IInteractable, IPersistentObject
     {
+        private static readonly List<ChestController> s_activeInstances = new List<ChestController>();
+
         #region 序列化字段
 
         [Header("=== 持久化配置 ===")]
@@ -101,6 +103,8 @@ namespace FarmGame.World
         private PolygonCollider2D _polyCollider;
         private SpriteRenderer _spriteRenderer;
         private Vector3 _originalPosition;
+        private Bounds _lastNavObstacleBounds;
+        private bool _hasLastNavObstacleBounds;
 
         // 🔥 修正 Ⅲ：底部对齐锚点
         private Vector3 _anchorWorldPos;
@@ -113,6 +117,8 @@ namespace FarmGame.World
         #endregion
 
         #region 属性
+
+        public static IReadOnlyList<ChestController> ActiveInstances => s_activeInstances;
 
         public StorageData StorageData => storageData;
         public int CurrentHealth => currentHealth;
@@ -591,6 +597,16 @@ namespace FarmGame.World
             }
         }
 
+        private void OnEnable()
+        {
+            RegisterActiveInstance(this);
+        }
+
+        private void OnDisable()
+        {
+            UnregisterActiveInstance(this);
+        }
+
         private void Start()
         {
             Initialize();
@@ -629,13 +645,22 @@ namespace FarmGame.World
         /// </summary>
         public void RequestNavGridRefresh()
         {
-            NavGrid2D.OnRequestGridRefresh?.Invoke();
+            bool hasRefreshBounds = TryBuildNavRefreshBounds(out Bounds refreshBounds);
+            bool requested = hasRefreshBounds && NavGrid2D.TryRequestLocalRefresh(refreshBounds);
+            if (!requested)
+            {
+                NavGrid2D.OnRequestGridRefresh?.Invoke();
+            }
+
+            UpdateLastNavObstacleBounds();
             if (showDebugInfo)
-                Debug.Log($"[ChestController] 已请求 NavGrid 刷新");
+                Debug.Log($"[ChestController] 已请求 NavGrid 刷新（局部={hasRefreshBounds}）");
         }
 
         private void OnDestroy()
         {
+            UnregisterActiveInstance(this);
+
             if (ResourceNodeRegistry.Instance != null)
                 ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
 
@@ -648,6 +673,26 @@ namespace FarmGame.World
                 _inventory.OnInventoryChanged -= OnInventoryChangedHandler;
             if (_inventoryV2 != null)
                 _inventoryV2.OnInventoryChanged -= OnInventoryV2ChangedHandler;
+        }
+
+        private static void RegisterActiveInstance(ChestController controller)
+        {
+            if (controller == null || s_activeInstances.Contains(controller))
+            {
+                return;
+            }
+
+            s_activeInstances.Add(controller);
+        }
+
+        private static void UnregisterActiveInstance(ChestController controller)
+        {
+            if (controller == null)
+            {
+                return;
+            }
+
+            s_activeInstances.Remove(controller);
         }
 
         #endregion
@@ -933,6 +978,42 @@ namespace FarmGame.World
                 Debug.Log($"[ChestController] UpdateColliderShape: shapeCount={shapeCount}");
         }
 
+        private bool TryGetCurrentNavObstacleBounds(out Bounds bounds)
+        {
+            if (_collider != null && _collider.enabled)
+            {
+                bounds = _collider.bounds;
+                return true;
+            }
+
+            bounds = default;
+            return false;
+        }
+
+        private bool TryBuildNavRefreshBounds(out Bounds bounds)
+        {
+            bool hasBounds = TryGetCurrentNavObstacleBounds(out bounds);
+            if (_hasLastNavObstacleBounds)
+            {
+                if (hasBounds)
+                {
+                    bounds.Encapsulate(_lastNavObstacleBounds);
+                }
+                else
+                {
+                    bounds = _lastNavObstacleBounds;
+                    hasBounds = true;
+                }
+            }
+
+            return hasBounds;
+        }
+
+        private void UpdateLastNavObstacleBounds()
+        {
+            _hasLastNavObstacleBounds = TryGetCurrentNavObstacleBounds(out _lastNavObstacleBounds);
+        }
+
         #endregion
 
         #endregion
@@ -1199,6 +1280,20 @@ namespace FarmGame.World
         /// </summary>
         public void SetSlot(int index, ItemStack stack)
         {
+            if (_inventoryV2 != null)
+            {
+                if (stack.IsEmpty)
+                {
+                    _inventoryV2.ClearSlot(index);
+                }
+                else
+                {
+                    _inventoryV2.SetSlot(index, stack);
+                }
+
+                return;
+            }
+
             _inventory?.SetSlot(index, stack);
         }
 
@@ -1207,7 +1302,7 @@ namespace FarmGame.World
         /// </summary>
         public ItemStack GetSlot(int index)
         {
-            return _inventory?.GetSlot(index) ?? ItemStack.Empty;
+            return _inventoryV2?.GetSlot(index) ?? _inventory?.GetSlot(index) ?? ItemStack.Empty;
         }
 
         #endregion
@@ -1444,6 +1539,13 @@ namespace FarmGame.World
                 WorldSpawnService.Instance.SpawnWithAnimation(
                     storageData, 0, 1, transform.position, Vector3.up);
             }
+
+            if (_collider != null)
+            {
+                _collider.enabled = false;
+            }
+
+            RequestNavGridRefresh();
 
             // 删除整个箱子物体（包括父物体）
             // 箱子结构：Box_1(Clone) 父物体 -> Box 子物体（ChestController 在子物体上）

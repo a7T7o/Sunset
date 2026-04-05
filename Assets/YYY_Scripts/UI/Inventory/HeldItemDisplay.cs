@@ -16,9 +16,23 @@ public class HeldItemDisplay : MonoBehaviour
     
     private Canvas parentCanvas;
     private RectTransform rectTransform;
+    private bool hasPinnedScreenPosition;
+    private Vector2 pinnedScreenPosition;
+    private bool isInitialized;
     
     void Awake()
     {
+        EnsureInitialized();
+        ApplyHiddenVisualState();
+    }
+
+    private void EnsureInitialized()
+    {
+        if (isInitialized)
+        {
+            return;
+        }
+
         rectTransform = GetComponent<RectTransform>();
         if (rectTransform == null)
             rectTransform = gameObject.AddComponent<RectTransform>();
@@ -80,24 +94,44 @@ public class HeldItemDisplay : MonoBehaviour
             if (canvasGroup == null)
                 canvasGroup = gameObject.AddComponent<CanvasGroup>();
         }
-        
-        // 初始隐藏
-        Hide();
+
+        isInitialized = true;
+    }
+
+    private void ApplyHiddenVisualState()
+    {
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 0f;
+            canvasGroup.blocksRaycasts = false;
+        }
+
+        hasPinnedScreenPosition = false;
     }
     
     void OnEnable()
     {
+        EnsureInitialized();
+
         // 确保有 Canvas 引用
         if (parentCanvas == null)
             parentCanvas = GetComponentInParent<Canvas>();
+
+        if (IsShowing)
+        {
+            FollowMouse();
+        }
     }
     
     /// <summary>
     /// 显示物品
     /// </summary>
-    public void Show(int itemId, int amount, Sprite icon)
+    public void Show(int itemId, int amount, Sprite icon, Vector2? initialScreenPosition = null)
     {
+        EnsureInitialized();
+
         gameObject.SetActive(true);
+        EnsureInitialized();
         
         if (iconImage != null)
         {
@@ -117,6 +151,17 @@ public class HeldItemDisplay : MonoBehaviour
         {
             canvasGroup.alpha = 1f;
             canvasGroup.blocksRaycasts = false; // 不阻挡射线
+        }
+
+        Canvas.ForceUpdateCanvases();
+        if (initialScreenPosition.HasValue)
+        {
+            SyncToScreenPosition(initialScreenPosition.Value, pinForNextFrame: true);
+        }
+        else
+        {
+            hasPinnedScreenPosition = false;
+            FollowMouse();
         }
         
         if (showDebugInfo)
@@ -139,16 +184,40 @@ public class HeldItemDisplay : MonoBehaviour
     /// </summary>
     public void Hide()
     {
-        if (canvasGroup != null)
-            canvasGroup.alpha = 0f;
-        
-        gameObject.SetActive(false);
+        EnsureInitialized();
+        ApplyHiddenVisualState();
+
+        if (gameObject.activeSelf)
+        {
+            gameObject.SetActive(false);
+        }
     }
     
     /// <summary>
     /// 是否正在显示
     /// </summary>
-    public bool IsShowing => gameObject.activeSelf && canvasGroup != null && canvasGroup.alpha > 0;
+    public bool IsShowing
+    {
+        get
+        {
+            EnsureInitialized();
+            return gameObject.activeInHierarchy && canvasGroup != null && canvasGroup.alpha > 0.001f;
+        }
+    }
+
+    public void SyncToScreenPosition(Vector2 screenPosition, bool pinForNextFrame = false)
+    {
+        EnsureInitialized();
+        pinnedScreenPosition = screenPosition;
+        hasPinnedScreenPosition = pinForNextFrame;
+
+        if (!IsShowing)
+        {
+            return;
+        }
+
+        FollowMouse();
+    }
     
     void Update()
     {
@@ -160,6 +229,8 @@ public class HeldItemDisplay : MonoBehaviour
     
     private void FollowMouse()
     {
+        EnsureInitialized();
+
         if (parentCanvas == null)
         {
             parentCanvas = GetComponentInParent<Canvas>();
@@ -167,17 +238,20 @@ public class HeldItemDisplay : MonoBehaviour
         }
         
         if (rectTransform == null) return;
+
+        Vector2 screenPosition = hasPinnedScreenPosition ? pinnedScreenPosition : (Vector2)Input.mousePosition;
+        hasPinnedScreenPosition = false;
         
         // 根据 Canvas 渲染模式处理
         if (parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
         {
-            rectTransform.position = Input.mousePosition;
+            rectTransform.position = screenPosition;
         }
         else
         {
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 parentCanvas.transform as RectTransform,
-                Input.mousePosition,
+                screenPosition,
                 parentCanvas.worldCamera,
                 out Vector2 localPoint
             );

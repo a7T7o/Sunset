@@ -3,6 +3,9 @@ using FarmGame.Data;
 using FarmGame.Data.Core;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// 物品详情悬浮框
@@ -10,7 +13,8 @@ using UnityEngine.UI;
 /// </summary>
 public class ItemTooltip : MonoBehaviour
 {
-    private const float MinimumShowDelay = 0.6f;
+    private const float MinimumShowDelay = 1f;
+    private const float FadeDurationSeconds = 0.3f;
     private static ItemTooltip _instance;
 
     #region 单例
@@ -30,9 +34,8 @@ public class ItemTooltip : MonoBehaviour
     [SerializeField] private Image qualityIcon = null;
 
     [Header("显示设置")]
-    [SerializeField] private Vector2 offset = new Vector2(15f, -15f);
-    [SerializeField] private float showDelay = 0.6f;
-    [SerializeField] private float fadeSpeed = 10f;
+    [SerializeField] private Vector2 offset = new Vector2(22f, -24f);
+    [SerializeField] private float showDelay = 1f;
 
     #endregion
 
@@ -52,11 +55,13 @@ public class ItemTooltip : MonoBehaviour
     private Canvas _parentCanvas;
     private Camera _uiCamera;
     private bool _isShowing;
+    private RectTransform _followBoundsRect;
     private ItemStack _currentItem;
     private ItemDatabase _database;
     private int _currentAmount;
     private InventoryItem _currentRuntimeItem;
     private Coroutine _pendingShowCoroutine;
+    private Coroutine _fadeCoroutine;
     private TooltipVisualData _pendingVisualData;
 
     #endregion
@@ -85,14 +90,19 @@ public class ItemTooltip : MonoBehaviour
 
     void Update()
     {
-        if (_isShowing)
+        if (_isShowing && gameObject.activeSelf && canvasGroup != null && canvasGroup.alpha > 0.001f)
         {
             FollowMouse();
+        }
 
-            if (canvasGroup != null && canvasGroup.alpha < 1f)
-            {
-                canvasGroup.alpha = Mathf.MoveTowards(canvasGroup.alpha, 1f, fadeSpeed * Time.unscaledDeltaTime);
-            }
+        if (_isShowing && ShouldSuppressBecauseOfInteraction())
+        {
+            Hide();
+        }
+
+        if (_isShowing && !IsPointerWithinFollowBounds())
+        {
+            Hide();
         }
     }
 
@@ -107,10 +117,15 @@ public class ItemTooltip : MonoBehaviour
 
     public void Show(ItemStack item, int amount = 1)
     {
-        Show(item, null, amount);
+        Show(item, null, amount, null);
     }
 
     public void Show(ItemStack item, InventoryItem runtimeItem, int amount = 1)
+    {
+        Show(item, runtimeItem, amount, null);
+    }
+
+    public void Show(ItemStack item, InventoryItem runtimeItem, int amount, Transform sourceTransform)
     {
         if (item.IsEmpty)
         {
@@ -126,10 +141,15 @@ public class ItemTooltip : MonoBehaviour
         }
 
         var itemData = _database.GetItemByID(item.itemId);
-        Show(itemData, item, runtimeItem, amount);
+        Show(itemData, item, runtimeItem, amount, sourceTransform);
     }
 
     public void Show(ItemData itemData, ItemStack item, InventoryItem runtimeItem = null, int amount = 1)
+    {
+        Show(itemData, item, runtimeItem, amount, null);
+    }
+
+    public void Show(ItemData itemData, ItemStack item, InventoryItem runtimeItem, int amount, Transform sourceTransform)
     {
         if (itemData == null || item.IsEmpty)
         {
@@ -140,6 +160,8 @@ public class ItemTooltip : MonoBehaviour
         _currentItem = item;
         _currentAmount = amount;
         _currentRuntimeItem = runtimeItem;
+        EnsureAttachedToPreferredCanvas(sourceTransform);
+        _followBoundsRect = ResolveFollowBoundsRect(sourceTransform);
 
         int totalPrice = itemData.GetSellPriceWithQuality((ItemQuality)item.quality) * amount;
         QueueShow(new TooltipVisualData
@@ -156,6 +178,13 @@ public class ItemTooltip : MonoBehaviour
 
     public void ShowCustom(string title, string body)
     {
+        ShowCustom(title, body, null);
+    }
+
+    public void ShowCustom(string title, string body, Transform sourceTransform)
+    {
+        EnsureAttachedToPreferredCanvas(sourceTransform);
+        _followBoundsRect = ResolveFollowBoundsRect(sourceTransform);
         QueueShow(new TooltipVisualData
         {
             title = title,
@@ -180,12 +209,18 @@ public class ItemTooltip : MonoBehaviour
         _currentItem = ItemStack.Empty;
         _currentAmount = 0;
         _currentRuntimeItem = null;
-        gameObject.SetActive(false);
+        _followBoundsRect = null;
 
-        if (canvasGroup != null)
+        if (!gameObject.activeSelf)
         {
-            canvasGroup.alpha = 0f;
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 0f;
+            }
+            return;
         }
+
+        StartFade(0f, true);
     }
 
     public void FollowMouse()
@@ -199,15 +234,35 @@ public class ItemTooltip : MonoBehaviour
             out Vector2 localPoint
         );
 
-        Vector2 targetPos = localPoint + offset;
+        if (_followBoundsRect != null)
+        {
+            localPoint = ClampLocalPointToFollowBounds(localPoint);
+        }
+
         RectTransform canvasRect = _parentCanvas.transform as RectTransform;
         float halfWidth = tooltipRect.rect.width * 0.5f;
         float halfHeight = tooltipRect.rect.height * 0.5f;
 
+        float rightX = localPoint.x + offset.x;
+        float leftX = localPoint.x - offset.x;
+        float downY = localPoint.y + offset.y;
+        float upY = localPoint.y - offset.y;
+
+        Vector2 targetPos = new Vector2(rightX, downY);
         float maxX = canvasRect.rect.width * 0.5f - halfWidth;
         float minX = -canvasRect.rect.width * 0.5f + halfWidth;
         float maxY = canvasRect.rect.height * 0.5f - halfHeight;
         float minY = -canvasRect.rect.height * 0.5f + halfHeight;
+
+        if (targetPos.x > maxX)
+        {
+            targetPos.x = leftX;
+        }
+
+        if (targetPos.y < minY)
+        {
+            targetPos.y = upY;
+        }
 
         targetPos.x = Mathf.Clamp(targetPos.x, minX, maxX);
         targetPos.y = Mathf.Clamp(targetPos.y, minY, maxY);
@@ -333,7 +388,7 @@ public class ItemTooltip : MonoBehaviour
 
     private static ItemTooltip CreateRuntimeInstance()
     {
-        Canvas parentCanvas = FindFirstObjectByType<Canvas>(FindObjectsInactive.Include);
+        Canvas parentCanvas = ResolvePreferredParentCanvas(null);
         if (parentCanvas == null)
         {
             Debug.LogWarning("[ItemTooltip] 场景里没有 Canvas，无法创建运行时 Tooltip。");
@@ -352,15 +407,15 @@ public class ItemTooltip : MonoBehaviour
         rootRect.anchorMin = new Vector2(0.5f, 0.5f);
         rootRect.anchorMax = new Vector2(0.5f, 0.5f);
         rootRect.pivot = new Vector2(0.5f, 0.5f);
-        rootRect.sizeDelta = new Vector2(280f, 100f);
+        rootRect.sizeDelta = new Vector2(168f, 64f);
 
         Image background = root.GetComponent<Image>();
-        background.color = new Color(0.08f, 0.10f, 0.12f, 0.96f);
+        background.color = new Color(0.25f, 0.18f, 0.09f, 0.96f);
         background.raycastTarget = false;
 
         VerticalLayoutGroup layout = root.GetComponent<VerticalLayoutGroup>();
-        layout.padding = new RectOffset(18, 18, 14, 14);
-        layout.spacing = 8f;
+        layout.padding = new RectOffset(8, 8, 7, 7);
+        layout.spacing = 3f;
         layout.childAlignment = TextAnchor.UpperLeft;
         layout.childControlWidth = true;
         layout.childControlHeight = true;
@@ -379,6 +434,140 @@ public class ItemTooltip : MonoBehaviour
         return tooltip;
     }
 
+    private void EnsureAttachedToPreferredCanvas(Transform sourceTransform)
+    {
+        Canvas preferredCanvas = ResolvePreferredParentCanvas(sourceTransform);
+        if (preferredCanvas == null)
+        {
+            return;
+        }
+
+        if (transform.parent != preferredCanvas.transform)
+        {
+            transform.SetParent(preferredCanvas.transform, false);
+        }
+
+        _parentCanvas = preferredCanvas;
+        _uiCamera = _parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+            ? null
+            : _parentCanvas.worldCamera;
+        transform.SetAsLastSibling();
+    }
+
+    private RectTransform ResolveFollowBoundsRect(Transform sourceTransform)
+    {
+        if (sourceTransform == null)
+        {
+            return null;
+        }
+
+        return sourceTransform as RectTransform ??
+               sourceTransform.GetComponent<RectTransform>();
+    }
+
+    private Vector2 ClampLocalPointToFollowBounds(Vector2 localPoint)
+    {
+        if (_followBoundsRect == null || _parentCanvas == null)
+        {
+            return localPoint;
+        }
+
+        RectTransform canvasRect = _parentCanvas.transform as RectTransform;
+        if (canvasRect == null)
+        {
+            return localPoint;
+        }
+
+        Vector3[] worldCorners = new Vector3[4];
+        _followBoundsRect.GetWorldCorners(worldCorners);
+
+        Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+        Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+
+        for (int index = 0; index < worldCorners.Length; index++)
+        {
+            RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRect,
+                RectTransformUtility.WorldToScreenPoint(_uiCamera, worldCorners[index]),
+                _uiCamera,
+                out Vector2 cornerLocalPoint);
+            min = Vector2.Min(min, cornerLocalPoint);
+            max = Vector2.Max(max, cornerLocalPoint);
+        }
+
+        localPoint.x = Mathf.Clamp(localPoint.x, min.x, max.x);
+        localPoint.y = Mathf.Clamp(localPoint.y, min.y, max.y);
+        return localPoint;
+    }
+
+    private bool IsPointerWithinFollowBounds()
+    {
+        if (_followBoundsRect == null)
+        {
+            return true;
+        }
+
+        return RectTransformUtility.RectangleContainsScreenPoint(_followBoundsRect, Input.mousePosition, _uiCamera);
+    }
+
+    private static Canvas ResolvePreferredParentCanvas(Transform preferredContext)
+    {
+        Canvas contextCanvas = preferredContext != null
+            ? preferredContext.GetComponentInParent<Canvas>(true)
+            : null;
+        if (contextCanvas != null && contextCanvas.isRootCanvas && contextCanvas.gameObject.activeInHierarchy && contextCanvas.enabled)
+        {
+            return contextCanvas;
+        }
+
+        Canvas[] canvases = UnityEngine.Object.FindObjectsByType<Canvas>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        Canvas bestCanvas = null;
+        int bestScore = int.MinValue;
+
+        for (int index = 0; index < canvases.Length; index++)
+        {
+            Canvas canvas = canvases[index];
+            if (canvas == null)
+            {
+                continue;
+            }
+
+            int score = 0;
+            if (canvas.gameObject.activeInHierarchy && canvas.enabled)
+            {
+                score += 1000;
+            }
+
+            if (canvas.isRootCanvas)
+            {
+                score += 100;
+            }
+
+            if (canvas == contextCanvas)
+            {
+                score += 500;
+            }
+
+            switch (canvas.renderMode)
+            {
+                case RenderMode.ScreenSpaceOverlay:
+                    score += 40;
+                    break;
+                case RenderMode.ScreenSpaceCamera:
+                    score += 20;
+                    break;
+            }
+
+            if (score > bestScore)
+            {
+                bestCanvas = canvas;
+                bestScore = score;
+            }
+        }
+
+        return bestCanvas;
+    }
+
     private void BuildRuntimeUi()
     {
         if (HasUsableUi())
@@ -386,11 +575,11 @@ public class ItemTooltip : MonoBehaviour
             return;
         }
 
-        Font builtinFont = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        Font tooltipFont = LoadPreferredFont();
 
         RectTransform headerRow = CreateUiChild("HeaderRow", transform, typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
         HorizontalLayoutGroup headerLayout = headerRow.GetComponent<HorizontalLayoutGroup>();
-        headerLayout.spacing = 8f;
+        headerLayout.spacing = 6f;
         headerLayout.childAlignment = TextAnchor.MiddleLeft;
         headerLayout.childControlHeight = true;
         headerLayout.childControlWidth = false;
@@ -401,22 +590,35 @@ public class ItemTooltip : MonoBehaviour
         headerFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
         headerFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-        itemNameText = CreateText("ItemName", builtinFont, 22, FontStyle.Bold, TextAnchor.MiddleLeft, new Color(0.98f, 0.98f, 0.95f, 1f), headerRow);
-        descriptionText = CreateText("Description", builtinFont, 18, FontStyle.Normal, TextAnchor.UpperLeft, new Color(0.83f, 0.88f, 0.90f, 0.98f), transform);
-        priceText = CreateText("Price", builtinFont, 17, FontStyle.Bold, TextAnchor.MiddleLeft, new Color(0.94f, 0.84f, 0.48f, 1f), transform);
+        RectTransform qualityRect = CreateUiChild("QualityIcon", headerRow);
+        qualityRect.anchorMin = new Vector2(0f, 0.5f);
+        qualityRect.anchorMax = new Vector2(0f, 0.5f);
+        qualityRect.pivot = new Vector2(0.5f, 0.5f);
+        qualityRect.sizeDelta = new Vector2(14f, 14f);
+        LayoutElement qualityLayout = qualityRect.gameObject.AddComponent<LayoutElement>();
+        qualityLayout.preferredWidth = 14f;
+        qualityLayout.preferredHeight = 14f;
+        qualityIcon = qualityRect.gameObject.AddComponent<Image>();
+        qualityIcon.raycastTarget = false;
+        qualityIcon.enabled = true;
+        qualityIcon.gameObject.SetActive(false);
+
+        itemNameText = CreateText("ItemName", tooltipFont, 14, FontStyle.Bold, TextAnchor.MiddleLeft, new Color(1f, 0.96f, 0.86f, 1f), headerRow);
+        descriptionText = CreateText("Description", tooltipFont, 11, FontStyle.Normal, TextAnchor.UpperLeft, new Color(0.97f, 0.92f, 0.84f, 1f), transform);
+        priceText = CreateText("Price", tooltipFont, 10, FontStyle.Bold, TextAnchor.MiddleLeft, new Color(1f, 0.82f, 0.38f, 1f), transform);
 
         descriptionText.horizontalOverflow = HorizontalWrapMode.Wrap;
         descriptionText.verticalOverflow = VerticalWrapMode.Overflow;
         LayoutElement descriptionLayout = descriptionText.gameObject.AddComponent<LayoutElement>();
-        descriptionLayout.preferredWidth = 280f;
+        descriptionLayout.preferredWidth = 144f;
 
         Outline outline = gameObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0f, 0f, 0f, 0.42f);
+        outline.effectColor = new Color(0.98f, 0.79f, 0.39f, 0.92f);
         outline.effectDistance = new Vector2(1f, -1f);
 
         Shadow shadow = gameObject.AddComponent<Shadow>();
-        shadow.effectColor = new Color(0f, 0f, 0f, 0.22f);
-        shadow.effectDistance = new Vector2(3f, -3f);
+        shadow.effectColor = new Color(0.09f, 0.05f, 0.02f, 0.24f);
+        shadow.effectDistance = new Vector2(2f, -2f);
     }
 
     private static RectTransform CreateUiChild(string name, Transform parent, params System.Type[] extraComponents)
@@ -472,6 +674,12 @@ public class ItemTooltip : MonoBehaviour
             _pendingShowCoroutine = null;
         }
 
+        if (_fadeCoroutine != null)
+        {
+            StopCoroutine(_fadeCoroutine);
+            _fadeCoroutine = null;
+        }
+
         _pendingVisualData = visualData;
         _isShowing = false;
         if (!gameObject.activeSelf)
@@ -484,6 +692,8 @@ public class ItemTooltip : MonoBehaviour
             canvasGroup.alpha = 0f;
         }
 
+        transform.SetAsLastSibling();
+
         _pendingShowCoroutine = StartCoroutine(ShowAfterDelayRoutine());
     }
 
@@ -495,17 +705,131 @@ public class ItemTooltip : MonoBehaviour
             yield return new WaitForSecondsRealtime(delay);
         }
 
+        if (ShouldSuppressBecauseOfInteraction())
+        {
+            _pendingShowCoroutine = null;
+            Hide();
+            yield break;
+        }
+
+        if (!IsPointerWithinFollowBounds())
+        {
+            _pendingShowCoroutine = null;
+            Hide();
+            yield break;
+        }
+
         ApplyVisual(_pendingVisualData);
         _isShowing = true;
         gameObject.SetActive(true);
         FollowMouse();
-
-        if (canvasGroup != null)
-        {
-            canvasGroup.alpha = 0f;
-        }
+        StartFade(1f, false);
 
         _pendingShowCoroutine = null;
+    }
+
+    private void StartFade(float targetAlpha, bool deactivateOnComplete)
+    {
+        if (canvasGroup == null)
+        {
+            if (deactivateOnComplete)
+            {
+                gameObject.SetActive(false);
+            }
+            return;
+        }
+
+        if (_fadeCoroutine != null)
+        {
+            StopCoroutine(_fadeCoroutine);
+        }
+
+        _fadeCoroutine = StartCoroutine(FadeRoutine(targetAlpha, deactivateOnComplete));
+    }
+
+    private IEnumerator FadeRoutine(float targetAlpha, bool deactivateOnComplete)
+    {
+        float startAlpha = canvasGroup.alpha;
+        if (!gameObject.activeSelf)
+        {
+            gameObject.SetActive(true);
+        }
+
+        if (Mathf.Approximately(startAlpha, targetAlpha))
+        {
+            canvasGroup.alpha = targetAlpha;
+            if (deactivateOnComplete && targetAlpha <= 0.001f)
+            {
+                gameObject.SetActive(false);
+            }
+
+            _fadeCoroutine = null;
+            yield break;
+        }
+
+        float elapsed = 0f;
+        while (elapsed < FadeDurationSeconds)
+        {
+            elapsed += Time.unscaledDeltaTime;
+            float t = Mathf.Clamp01(elapsed / FadeDurationSeconds);
+            canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, t);
+            yield return null;
+        }
+
+        canvasGroup.alpha = targetAlpha;
+        if (deactivateOnComplete && targetAlpha <= 0.001f)
+        {
+            gameObject.SetActive(false);
+        }
+
+        _fadeCoroutine = null;
+    }
+
+    private static bool ShouldSuppressBecauseOfInteraction()
+    {
+        if (SlotDragContext.IsDragging)
+        {
+            return true;
+        }
+
+        InventoryInteractionManager interactionManager = InventoryInteractionManager.Instance;
+        if (interactionManager != null && interactionManager.IsHolding)
+        {
+            return true;
+        }
+
+        if (Input.GetMouseButton(0) || Input.GetMouseButton(1))
+        {
+            return true;
+        }
+
+        return Input.GetKey(KeyCode.LeftShift) ||
+               Input.GetKey(KeyCode.RightShift) ||
+               Input.GetKey(KeyCode.LeftControl) ||
+               Input.GetKey(KeyCode.RightControl);
+    }
+
+    private static Font LoadPreferredFont()
+    {
+#if UNITY_EDITOR
+        string[] preferredPaths =
+        {
+            "Assets/111_Data/UI/Fonts/Dialogue/PixelAlt/WenQuanYi Bitmap Song 14px.ttf",
+            "Assets/111_Data/UI/Fonts/Dialogue/Pixel/fusion-pixel-10px-monospaced-zh_hans.ttf",
+            "Assets/111_Data/UI/Fonts/Dialogue/simhei.ttf"
+        };
+
+        for (int index = 0; index < preferredPaths.Length; index++)
+        {
+            Font editorFont = AssetDatabase.LoadAssetAtPath<Font>(preferredPaths[index]);
+            if (editorFont != null)
+            {
+                return editorFont;
+            }
+        }
+#endif
+
+        return Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
     }
 
     private void ApplyVisual(TooltipVisualData visualData)

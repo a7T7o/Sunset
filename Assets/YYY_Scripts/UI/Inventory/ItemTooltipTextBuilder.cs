@@ -84,6 +84,10 @@ public static class ItemTooltipTextBuilder
         {
             displayRuntimeItem = ToolRuntimeUtility.CreateRuntimeItem(fallbackToolData, 0, 1);
         }
+        else if ((displayRuntimeItem == null || displayRuntimeItem.IsEmpty) && itemData is WeaponData fallbackWeaponData)
+        {
+            displayRuntimeItem = ToolRuntimeUtility.CreateRuntimeItem(fallbackWeaponData, 0, 1);
+        }
 
         if (displayRuntimeItem == null || displayRuntimeItem.IsEmpty)
         {

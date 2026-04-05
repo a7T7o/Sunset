@@ -24,7 +24,11 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     // 🔥 V2 新增：耐久度条
     private Image _durabilityBar;
     private Image _durabilityBarBg;
-    private static readonly Dictionary<int, InventorySlotUI> RegisteredSlots = new Dictionary<int, InventorySlotUI>();
+    private float _statusBarAlpha;
+    private float _statusBarTargetAlpha;
+    private bool _statusBarHasData;
+    private const float StatusBarFadeDuration = 0.3f;
+    private static readonly Dictionary<int, List<InventorySlotUI>> RegisteredSlots = new Dictionary<int, List<InventorySlotUI>>();
 
     // 🔥 新增：支持 IItemContainer 接口
     private IItemContainer container;
@@ -33,6 +37,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     private ItemDatabase database;
     private HotbarSelectionService hotbarSelection;
     private InventoryPanelUI inventoryPanel;
+    private FarmGame.UI.BoxPanelUI boxPanel;
     private int index;
     private bool isHotbar;
     private bool isHovered;
@@ -126,6 +131,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
         hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
         inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
+        boxPanel = GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
 
         // 🔥 V2 新增：创建耐久度条
         CreateDurabilityBar();
@@ -163,6 +169,12 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         // 移除 Refresh()，避免使用旧绑定数据
     }
 
+    void Update()
+    {
+        UpdateStatusBarVisibility();
+        TickStatusBarFade();
+    }
+
     void OnDisable()
     {
         UnregisterSlot();
@@ -198,6 +210,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         database = db;
         if (hotbarSelection == null) hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
         inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
+        boxPanel = GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
         index = slotIndex;
         isHotbar = hotbar;
 
@@ -243,6 +256,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         equipment = null;
         database = cont?.Database;
         inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
+        boxPanel = GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
         index = slotIndex;
         isHotbar = false;
 
@@ -254,7 +268,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             }
             RegisterSlot();
             Refresh();
-            ApplySelectionVisual(toggle != null && toggle.isOn);
+            RefreshSelection();
         }
     }
 
@@ -295,7 +309,18 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     {
         bool isSelected = false;
 
-        if (inventoryPanel != null && inventoryPanel.gameObject.activeInHierarchy)
+        if (boxPanel != null && boxPanel.IsOpen)
+        {
+            if (container is ChestInventory || container is ChestInventoryV2)
+            {
+                isSelected = boxPanel.IsChestSlotSelected(index);
+            }
+            else if (container is InventoryService)
+            {
+                isSelected = boxPanel.IsInventorySlotSelected(index);
+            }
+        }
+        else if (inventoryPanel != null && inventoryPanel.gameObject.activeInHierarchy)
         {
             isSelected = inventoryPanel.IsInventorySlotSelected(index);
         }
@@ -431,6 +456,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         // 默认隐藏
         _durabilityBarBg.enabled = false;
         _durabilityBar.enabled = false;
+        ApplyStatusBarAlpha(0f);
     }
 
     /// <summary>
@@ -459,18 +485,21 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
         if (!ToolRuntimeUtility.TryGetToolStatusRatio(item, itemData, out float percent, out bool usesWater))
         {
-            _durabilityBarBg.enabled = false;
-            _durabilityBar.enabled = false;
+            _statusBarHasData = false;
+            _statusBarTargetAlpha = 0f;
+            if (_statusBarAlpha <= 0.001f)
+            {
+                _durabilityBarBg.enabled = false;
+                _durabilityBar.enabled = false;
+            }
             return;
         }
 
         bool shouldShow = ShouldShowStatusBar();
-        _durabilityBarBg.enabled = shouldShow;
-        _durabilityBar.enabled = shouldShow;
-        if (!shouldShow)
-        {
-            return;
-        }
+        _statusBarHasData = true;
+        _statusBarTargetAlpha = shouldShow ? 1f : 0f;
+        _durabilityBarBg.enabled = true;
+        _durabilityBar.enabled = true;
 
         // 🔥 P2-1：使用像素偏移控制宽度
         var rt = (RectTransform)_durabilityBar.transform;
@@ -507,6 +536,7 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             barColor = Color.Lerp(Color.red, Color.yellow, t);
         }
         _durabilityBar.color = barColor;
+        ApplyStatusBarAlpha(_statusBarAlpha);
     }
 
     private void UpdateStatusBarVisibility()
@@ -553,6 +583,53 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
                (hotbarSelection.selectedIndex == index || ToolRuntimeUtility.WasSlotUsedRecently(index));
     }
 
+    private void TickStatusBarFade()
+    {
+        if (_durabilityBar == null || _durabilityBarBg == null)
+        {
+            return;
+        }
+
+        float targetAlpha = _statusBarHasData ? _statusBarTargetAlpha : 0f;
+        if (Mathf.Approximately(_statusBarAlpha, targetAlpha))
+        {
+            if (targetAlpha <= 0.001f && !_statusBarHasData)
+            {
+                _durabilityBarBg.enabled = false;
+                _durabilityBar.enabled = false;
+            }
+            return;
+        }
+
+        float fadeStep = StatusBarFadeDuration <= 0.0001f
+            ? 1f
+            : Time.unscaledDeltaTime / StatusBarFadeDuration;
+        _statusBarAlpha = Mathf.MoveTowards(_statusBarAlpha, targetAlpha, fadeStep);
+        ApplyStatusBarAlpha(_statusBarAlpha);
+
+        if (_statusBarAlpha <= 0.001f && targetAlpha <= 0.001f)
+        {
+            _durabilityBarBg.enabled = false;
+            _durabilityBar.enabled = false;
+        }
+    }
+
+    private void ApplyStatusBarAlpha(float alpha)
+    {
+        if (_durabilityBarBg == null || _durabilityBar == null)
+        {
+            return;
+        }
+
+        Color backgroundColor = _durabilityBarBg.color;
+        backgroundColor.a = alpha;
+        _durabilityBarBg.color = backgroundColor;
+
+        Color barColor = _durabilityBar.color;
+        barColor.a = alpha;
+        _durabilityBar.color = barColor;
+    }
+
     #endregion
     #endregion
 
@@ -578,6 +655,21 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     /// </summary>
     public void Select()
     {
+        if (boxPanel != null && boxPanel.IsOpen)
+        {
+            if (container is ChestInventory || container is ChestInventoryV2)
+            {
+                boxPanel.SetSelectedChestIndex(index);
+                return;
+            }
+
+            if (container is InventoryService)
+            {
+                boxPanel.SetSelectedInventoryIndex(index, isHotbar);
+                return;
+            }
+        }
+
         if (container is InventoryService &&
             inventoryPanel != null &&
             inventoryPanel.gameObject.activeInHierarchy)
@@ -611,6 +703,34 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         }
     }
 
+    public void ClearSelectionState()
+    {
+        if (boxPanel != null && boxPanel.IsOpen)
+        {
+            if (container is ChestInventory || container is ChestInventoryV2)
+            {
+                boxPanel.ClearUpSelections();
+                return;
+            }
+
+            if (container is InventoryService)
+            {
+                boxPanel.ClearDownSelections();
+                return;
+            }
+        }
+
+        if (container is InventoryService &&
+            inventoryPanel != null &&
+            inventoryPanel.gameObject.activeInHierarchy)
+        {
+            inventoryPanel.ClearUpSelection();
+            return;
+        }
+
+        Deselect();
+    }
+
     public void PlayRejectShake()
     {
         CaptureRestAnchoredPosition();
@@ -630,9 +750,17 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
     public static void PlayRejectShakeAt(int slotIndex)
     {
-        if (RegisteredSlots.TryGetValue(slotIndex, out var slot) && slot != null && slot.isActiveAndEnabled)
+        if (!RegisteredSlots.TryGetValue(slotIndex, out var slots) || slots == null)
         {
-            slot.PlayRejectShake();
+            return;
+        }
+
+        foreach (var slot in slots)
+        {
+            if (slot != null && slot.isActiveAndEnabled)
+            {
+                slot.PlayRejectShake();
+            }
         }
     }
 
@@ -653,13 +781,28 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     {
         if (container is InventoryService && index >= 0)
         {
-            RegisteredSlots[index] = this;
+            if (!RegisteredSlots.TryGetValue(index, out var slots) || slots == null)
+            {
+                slots = new List<InventorySlotUI>();
+                RegisteredSlots[index] = slots;
+            }
+
+            if (!slots.Contains(this))
+            {
+                slots.Add(this);
+            }
         }
     }
 
     private void UnregisterSlot()
     {
-        if (index >= 0 && RegisteredSlots.TryGetValue(index, out var slot) && ReferenceEquals(slot, this))
+        if (index < 0 || !RegisteredSlots.TryGetValue(index, out var slots) || slots == null)
+        {
+            return;
+        }
+
+        slots.Remove(this);
+        if (slots.Count == 0)
         {
             RegisteredSlots.Remove(index);
         }
