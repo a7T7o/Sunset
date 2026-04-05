@@ -427,3 +427,33 @@
 - 下一步如果继续：
   - 先做用户真实植被 Tilemap 的定向验收
   - 再决定是否补 pattern / hint 规则
+## 2026-04-05｜共享根 Tilemap 工具第三刀：碰撞体生成已可选
+**当前主线目标**
+- 不改主方向，继续把 Tilemap 工具往“真实可用的植被对象化工作流”推进。
+- 本轮子任务是：把碰撞体从强制项改成可选项。
+
+**本轮完成**
+1. 已重新进入 shared root 施工态：
+   - `Begin-Slice.ps1 -ThreadName scene-build-5.0.0-001 -CurrentSlice sunset-collider-toggle`
+2. 已在高级窗口与框选面板同时补上：
+   - `生成碰撞体`
+3. 已把逻辑收紧为：
+   - 关掉碰撞体后不再生成任意 `Collider2D`
+   - `Rigidbody2D` 也自动跳过
+4. 已做最小脚本级验红：
+   - `git diff --check -- Assets/Editor/TilemapToColliderObjects.cs Assets/Editor/TilemapSelectionToColliderWorkflow.cs`
+   - `validate_script Assets/Editor/TilemapToColliderObjects.cs`
+   - `validate_script Assets/Editor/TilemapSelectionToColliderWorkflow.cs`
+5. 已执行：
+   - `Park-Slice.ps1 -ThreadName scene-build-5.0.0-001 -Reason collider-toggle-implemented`
+
+**关键判断**
+- 这轮虽然小，但很必要：
+  - 现在用户可以把工具用成“纯排序对象化”
+  - 也可以继续用成“带碰撞体对象化”
+- 这让工具不再把视觉分层需求和物理碰撞需求硬绑定。
+
+**验证状态**
+- `脚本静态验证已过`
+- `Unity 产出体验尚未验证`
+- `Ready-To-Sync 尚未尝试`

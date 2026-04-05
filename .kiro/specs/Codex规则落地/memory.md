@@ -12209,3 +12209,34 @@
 - 当前恢复点：
   - 如果后续继续这条线，最合理的下一步不是再补更多逐格选项
   - 而是拿用户真实植被 Tilemap 做一次定向验收，再判断哪些 cluster 需要模板 / hint 才能继续往“更准”推进
+## 2026-04-05｜scene-build 共享根 Tilemap 工具已补上“是否生成碰撞体”开关
+- 用户最新要求非常直接：
+  - 植被整体模式继续保留
+  - 但“要不要生成碰撞体”必须给用户自己选
+- 本轮已在 shared root 两个编辑器入口都补上同一开关：
+  - `Assets/Editor/TilemapToColliderObjects.cs`
+  - `Assets/Editor/TilemapSelectionToColliderWorkflow.cs`
+- 当前实际落地内容：
+  1. 新增 `生成碰撞体` 布尔开关
+  2. 关闭后：
+     - 不再创建 `Collider2D`
+     - 已勾选的 `Rigidbody2D` 也会自动跳过，避免生成“无碰撞体刚体”
+  3. 高级窗口与框选面板都已同步这套交互
+  4. 旧的碰撞体类型 / trigger / rigidbody 选项仍保留，但在关掉碰撞体时会被 UI 灰掉
+- 这轮最重要的稳定判断：
+  - 现在这套工具已经具备“只做排序对象，不做碰撞体”的轻量模式
+  - 因而更贴近真实场景搭建：视觉对象化和物理碰撞不再被绑死
+- No-Red 证据卡 v2：
+  - `cli_red_check_command`: `未执行 CLI；本轮改用 direct MCP validate_script + git diff --check 做脚本级静态验红`
+  - `cli_red_check_scope`: `Assets/Editor/TilemapToColliderObjects.cs` + `Assets/Editor/TilemapSelectionToColliderWorkflow.cs`
+  - `cli_red_check_assessment`: `unity_validation_pending`
+  - `unity_red_check`: `live-pending`
+  - `mcp_fallback`: `used`
+  - `mcp_fallback_reason`: `这轮仍按用户要求只做代码层落地，不做场景产出测试`
+  - `current_owned_errors`: `0（validate_script 两文件均 clean）`
+  - `current_external_blockers`: `无本轮 owned blocker；same-root 基线仍脏，但本轮未进入 Ready-To-Sync`
+  - `current_warnings`: `0（validate_script 两文件均 warnings=0）`
+- 本轮验证状态必须报实为：
+  - `脚本静态验证已过`
+  - `Unity 场景产出尚未验证`
+  - `legal sync 尚未尝试`
