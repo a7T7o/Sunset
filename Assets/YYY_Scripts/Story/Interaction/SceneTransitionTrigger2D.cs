@@ -176,6 +176,7 @@ namespace Sunset.Story
 
         private CanvasGroup _canvasGroup;
         private bool _isBusy;
+        private bool? _restoreInputEnabledState;
 
         public static bool IsBusy => _instance != null && _instance._isBusy;
 
@@ -260,39 +261,52 @@ namespace Sunset.Story
             int postActivationSettleFrames)
         {
             _isBusy = true;
+            CacheAndBlockGameplayInput();
             SetOverlayInputBlock(true);
-            yield return FadeTo(1f, fadeOutDuration);
-
-            AsyncOperation loadOperation = LoadScene(sceneName, scenePath, loadSceneMode);
-            if (loadOperation != null)
+            try
             {
-                // 把 scene activation 峰值尽量吞进黑屏里，减少切场时的可见卡顿。
-                loadOperation.allowSceneActivation = false;
-                while (loadOperation.progress < 0.9f)
+                yield return FadeTo(1f, fadeOutDuration);
+
+                AsyncOperation loadOperation = LoadScene(sceneName, scenePath, loadSceneMode);
+                if (loadOperation != null)
+                {
+                    // 把 scene activation 峰值尽量吞进黑屏里，减少切场时的可见卡顿。
+                    loadOperation.allowSceneActivation = false;
+                    while (loadOperation.progress < 0.9f)
+                    {
+                        yield return null;
+                    }
+
+                    loadOperation.allowSceneActivation = true;
+                    while (!loadOperation.isDone)
+                    {
+                        yield return null;
+                    }
+                }
+
+                for (int frameIndex = 0; frameIndex < postActivationSettleFrames; frameIndex++)
                 {
                     yield return null;
                 }
 
-                loadOperation.allowSceneActivation = true;
-                while (!loadOperation.isDone)
+                if (blackScreenHoldDuration > 0f)
                 {
-                    yield return null;
+                    yield return new WaitForSecondsRealtime(blackScreenHoldDuration);
                 }
-            }
 
-            for (int frameIndex = 0; frameIndex < postActivationSettleFrames; frameIndex++)
+                yield return FadeTo(0f, fadeInDuration);
+            }
+            finally
             {
-                yield return null;
-            }
+                if (_canvasGroup != null)
+                {
+                    _canvasGroup.alpha = 0f;
+                }
 
-            if (blackScreenHoldDuration > 0f)
-            {
-                yield return new WaitForSecondsRealtime(blackScreenHoldDuration);
+                SetOverlayInputBlock(false);
+                RestoreGameplayInput();
+                _isBusy = false;
             }
-
-            yield return FadeTo(0f, fadeInDuration);
-            SetOverlayInputBlock(false);
-            _isBusy = false;
         }
 
         private static AsyncOperation LoadScene(string sceneName, string scenePath, LoadSceneMode loadSceneMode)
@@ -366,6 +380,41 @@ namespace Sunset.Story
 
             _canvasGroup.blocksRaycasts = blocked;
             _canvasGroup.interactable = blocked;
+        }
+
+        private void CacheAndBlockGameplayInput()
+        {
+            GameInputManager inputManager = ResolveGameInputManager();
+            if (inputManager == null)
+            {
+                _restoreInputEnabledState = null;
+                return;
+            }
+
+            _restoreInputEnabledState = inputManager.IsInputEnabledForDebug;
+            inputManager.SetInputEnabled(false);
+        }
+
+        private void RestoreGameplayInput()
+        {
+            if (!_restoreInputEnabledState.HasValue)
+            {
+                return;
+            }
+
+            GameInputManager inputManager = ResolveGameInputManager();
+            if (inputManager != null)
+            {
+                inputManager.SetInputEnabled(_restoreInputEnabledState.Value);
+            }
+
+            _restoreInputEnabledState = null;
+        }
+
+        private static GameInputManager ResolveGameInputManager()
+        {
+            return GameInputManager.Instance ??
+                   UnityEngine.Object.FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
         }
 
         private static AsyncOperation LoadSceneFallbackByName(string sceneName, LoadSceneMode loadSceneMode)

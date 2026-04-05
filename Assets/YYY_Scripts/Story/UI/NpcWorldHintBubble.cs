@@ -30,6 +30,8 @@ namespace Sunset.Story
         private static NpcWorldHintBubble s_instance;
         private static Sprite s_backgroundSprite;
         private static Texture2D s_backgroundTexture;
+        private static Sprite s_indicatorSprite;
+        private static Texture2D s_indicatorTexture;
         private static HintRequest s_pendingRequest;
         private static bool s_hasPendingRequest;
         private static int s_pendingRequestFrame = -1;
@@ -339,14 +341,13 @@ namespace Sunset.Story
             arrowRect.anchorMin = new Vector2(0.5f, 0.5f);
             arrowRect.anchorMax = new Vector2(0.5f, 0.5f);
             arrowRect.pivot = new Vector2(0.5f, 1f);
-            arrowRect.sizeDelta = new Vector2(18f, 18f);
-            arrowRect.localRotation = Quaternion.Euler(0f, 0f, 45f);
+            arrowRect.sizeDelta = new Vector2(10f, 7f);
             arrowImage = arrowRect.gameObject.AddComponent<Image>();
-            arrowImage.sprite = GetOrCreateBackgroundSprite();
-            arrowImage.type = Image.Type.Sliced;
+            arrowImage.sprite = GetOrCreateIndicatorSprite();
+            arrowImage.type = Image.Type.Simple;
             arrowImage.color = bubbleBackground.color;
             arrowImage.raycastTarget = false;
-            ApplyOutline(arrowRect.gameObject.AddComponent<Outline>(), new Color(1f, 0.82f, 0.45f, 0.14f), new Vector2(1f, -1f));
+            ApplyShadow(arrowRect.gameObject.AddComponent<Shadow>(), new Color(0f, 0f, 0f, 0.18f), new Vector2(0f, -1f));
         }
 
         private void EnsureBuilt()
@@ -381,7 +382,7 @@ namespace Sunset.Story
 
             localPoint = SpringDay1UiLayerUtility.SnapToCanvasPixel(overlayCanvas, localPoint);
             bubbleRect.anchoredPosition = localPoint;
-            arrowRect.anchoredPosition = localPoint + new Vector2(0f, -8f);
+            arrowRect.anchoredPosition = localPoint + new Vector2(0f, -6f);
         }
 
         private Bounds ResolveBounds()
@@ -617,6 +618,47 @@ namespace Sunset.Story
             s_backgroundSprite.name = "NpcHintBubbleRuntimeSprite";
             s_backgroundSprite.hideFlags = HideFlags.HideAndDontSave;
             return s_backgroundSprite;
+        }
+
+        private static Sprite GetOrCreateIndicatorSprite()
+        {
+            if (s_indicatorSprite != null)
+            {
+                return s_indicatorSprite;
+            }
+
+            const int width = 20;
+            const int height = 14;
+
+            s_indicatorTexture = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false)
+            {
+                name = "NpcHintBubbleIndicatorRuntimeTexture",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            float centerX = (width - 1) * 0.5f;
+            for (int y = 0; y < height; y++)
+            {
+                float normalized = 1f - (y / Mathf.Max(1f, height - 1f));
+                float halfWidth = Mathf.Lerp(0f, centerX, normalized);
+                for (int x = 0; x < width; x++)
+                {
+                    bool inside = Mathf.Abs(x - centerX) <= halfWidth;
+                    s_indicatorTexture.SetPixel(x, y, inside ? Color.white : Color.clear);
+                }
+            }
+
+            s_indicatorTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+            s_indicatorSprite = Sprite.Create(
+                s_indicatorTexture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.5f, 0.5f),
+                24f);
+            s_indicatorSprite.name = "NpcHintBubbleIndicatorRuntimeSprite";
+            s_indicatorSprite.hideFlags = HideFlags.HideAndDontSave;
+            return s_indicatorSprite;
         }
 
         private static bool IsInsideRoundedRect(int x, int y, int width, int height, int radius)

@@ -21,6 +21,8 @@ namespace Sunset.Story
             "Fonts & Materials/DialogueChinese SDF"
         };
 
+        private const string FontCoverageProbeText = "工作台再靠近一些按E打开";
+
         private const float ActionableWidth = 194f;
         private const float PassiveWidth = 166f;
         private const float MinActionableHeight = 72f;
@@ -187,6 +189,9 @@ namespace Sunset.Story
             keyText.text = string.IsNullOrWhiteSpace(keyLabel) ? string.Empty : keyLabel.Trim();
             captionText.text = string.IsNullOrWhiteSpace(caption) ? "交互" : caption.Trim();
             detailText.text = detail ?? string.Empty;
+            EnsureTextReadable(keyText);
+            EnsureTextReadable(captionText);
+            EnsureTextReadable(detailText);
 
             ApplyContentLayout();
             ApplyVisualStyle();
@@ -389,13 +394,94 @@ namespace Sunset.Story
             for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
             {
                 TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
-                if (IsFontAssetUsable(candidate))
+                if (CanFontRenderText(candidate, FontCoverageProbeText))
                 {
                     return candidate;
                 }
             }
 
-            return TMP_Settings.defaultFontAsset;
+            TMP_FontAsset defaultFont = TMP_Settings.defaultFontAsset;
+            return CanFontRenderText(defaultFont, FontCoverageProbeText) ? defaultFont : null;
+        }
+
+        private void EnsureTextReadable(TextMeshProUGUI text)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            if (!text.enabled)
+            {
+                text.enabled = true;
+            }
+
+            if (!CanFontRenderText(text.font, text.text))
+            {
+                if (_fontAsset == null)
+                {
+                    _fontAsset = ResolveFont();
+                }
+
+                if (_fontAsset != null)
+                {
+                    text.font = _fontAsset;
+                    if (_fontAsset.material != null)
+                    {
+                        text.fontSharedMaterial = _fontAsset.material;
+                    }
+                }
+            }
+
+            text.ForceMeshUpdate();
+        }
+
+        private static bool CanFontRenderText(TMP_FontAsset fontAsset, string currentText)
+        {
+            if (!IsFontAssetUsable(fontAsset))
+            {
+                return false;
+            }
+
+            string probeText = GetFontProbeText(currentText);
+            return string.IsNullOrEmpty(probeText) || fontAsset.HasCharacters(probeText);
+        }
+
+        private static string GetFontProbeText(string currentText)
+        {
+            if (string.IsNullOrWhiteSpace(currentText))
+            {
+                return FontCoverageProbeText;
+            }
+
+            var builder = new System.Text.StringBuilder(currentText.Length);
+            bool insideTag = false;
+            for (int index = 0; index < currentText.Length; index++)
+            {
+                char current = currentText[index];
+                if (current == '<')
+                {
+                    insideTag = true;
+                    continue;
+                }
+
+                if (insideTag)
+                {
+                    if (current == '>')
+                    {
+                        insideTag = false;
+                    }
+
+                    continue;
+                }
+
+                if (!char.IsControl(current))
+                {
+                    builder.Append(current);
+                }
+            }
+
+            return builder.Length > 0 ? builder.ToString() : FontCoverageProbeText;
         }
 
         private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)
