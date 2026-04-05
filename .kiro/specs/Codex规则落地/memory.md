@@ -12162,6 +12162,34 @@
 - 当前恢复点：
   - 若后续继续 Town 总治理，直接从 `08` 文档继续，不再退回旧的 `03` blocker 表；
   - 下一轮应优先审 `scene-build` 与 `UI` 新回执，再决定 Town 是否能从“导演可消费”升级到“更接近 runtime 可承接”。
+
+## 2026-04-05｜Town 主线继续 + 子线提交：又新增两笔可复用提交结论
+
+- 当前主线目标：
+  - Town 继续推进，子线继续清可以安全提交的内容。
+- 本轮实际做成：
+  1. 核实提交清扫结果：
+     - `07108838`：scene-build Tilemap 工具批已提交
+     - `cea3eef5`：NPC crowd / bubble / priority 批已提交
+  2. 新增治理小批提交：
+     - `f1ef4bb8` `2026.04.05_Codex规则落地_10`
+     - 内容是 Town 续工转发壳与治理 memory
+  3. 新增 Town 相机脚本小批提交：
+     - `a26d9f16` `2026.04.05_town-camera-runtime-rebind-pass`
+     - 只提交了 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+- 当前判断：
+  - 到这一轮为止，Town 相关已安全摘出的提交至少有：
+    1. 治理真值与转发壳
+    2. Town 相机 runtime 自愈脚本
+  - 但 `Primary.unity / Town.unity` 仍是大混面，当前还不适合治理位直接整批提交。
+  - fresh console 又出现一条新的外部测试红：
+    - `Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs(84,32): error CS0103`
+    - 当前应视为新的外部提交阻断，不属于 Town 相机小批 own 红
+- 当前恢复点：
+  - 若继续提交线，下一手优先看：
+    1. scene 是否能拆成小批
+    2. UI / spring-day1 是否还能再摘一刀
+  - 若继续 Town 主线，则仍沿 `08` 文档的 blocker / anchor 真值继续。
 ## 2026-04-05｜scene-build 共享根 Tilemap 工具已新增“植被整体模式”，第一版开始按整丛植物而不是逐格碎片处理
 - 用户当前主线已从“能不能做”进入“直接开始实现植被处理”：
   - 目标不是继续强化“一格一个物体”
@@ -12206,6 +12234,86 @@
   - `脚本静态验证已过`
   - `Unity 场景产出尚未验证`
   - `legal sync 尚未尝试`
+## 2026-04-05｜Town 主线继续压深：Town / Primary 双边 scene 基础设施已拿到 fresh clean 现场
+
+- 当前主线目标：
+  - 只做我 own 的 `Town` 主线，把 `Town` scene 基础设施继续压到更深，不再回 UI / NPC / Primary 总历史。
+- 本轮子任务：
+  1. 复查 `Town.unity / Primary.unity` 当前 live scene 现场
+  2. 判清 `Town` 里哪些对象是正常场景管理层，哪些才是误泄漏的持久层 root
+  3. 用 fresh scene reopen + fresh console 证据确认 `Town` 基础设施是否已进入干净基线
+- 本轮实际做成：
+  1. 用 Unity MCP 重新读取 `Town` 根层与关键子树，确认：
+     - `Town` 当前 active scene = `Assets/000_Scenes/Town.unity`
+     - `rootCount = 10`
+     - `Main Camera` 现在确实带有 `Camera + AudioListener + CinemachineBrain`
+     - `Camera/CinemachineCamera` 现在确实带有 `CinemachineCamera + CameraDeadZoneSync + CinemachineConfiner2D`
+     - `Town` 场景里已找不到 `PersistentManagers`
+  2. 读取 `Town` 的 `Primary/1_Managers` 子树并对照 `Primary` scene，确认：
+     - `InventorySystem / EquipmentSystem / ResourceNodeRegistry / PlacementManager / FarmTileManager / DialogueManagerRoot` 这套对象在 `Primary` 场景本来就存在
+     - 因此 `Town` 中这套 `Primary/1_Managers` 不应再被误判成“误泄漏的持久层根”
+     - 真正此前异常混入 `Town` 的，是 `PersistentManagers`，而它现在已经不在 `Town` scene 里
+  3. 文本层复核：
+     - `Town.unity` 当前磁盘版含 `AudioListener`
+     - `Town.unity` 当前磁盘版含 `CinemachineCamera`
+     - `Town.unity` 当前磁盘版含 `ResourceNodeRegistry`
+     - `Town.unity` 当前磁盘版不再含 `PersistentManagers`
+     - `Primary.unity` 当前磁盘版仍含 `PersistentManagers`
+  4. fresh reopen 证据：
+     - 清 console 后重新打开 `Town`，fresh console = `0 warning / 0 error`
+     - 重新打开 `Primary`，fresh console = `0 warning / 0 error`
+     - 再切回 `Town` 后出现的日志只剩测试框架 / MCP 工具噪音，不是 `Town` own scene 基建报错
+- 当前关键判断：
+  - `Town` 这条线现在最值钱的基础设施结论已经升级成：
+    - `Town` 不再带 `PersistentManagers`
+    - `Town` 主相机静态链已补齐
+    - `Primary` 主相机也已补齐 `AudioListener`
+    - `Town / Primary` 作为编辑态 scene reopen，当前都能 fresh 打开且不再吐 own warning/error
+  - 因此 `Town` 当前不再卡在“scene 一打开就炸”的基础设施阶段
+  - 现在剩下的不是 `Town` own scene 崩坏，而是：
+    - 外部测试框架噪音
+    - shared root 下 `Town.unity / Primary.unity` 仍是历史混面大 diff
+- 技术证据：
+  - `git diff --stat -- Assets/000_Scenes/Town.unity Assets/000_Scenes/Primary.unity`
+    - `Town.unity = 174107 insertions / 47979 deletions`
+    - `Primary.unity = 18906 insertions / 15243 deletions`
+  - Unity MCP：
+    - `manage_scene get_hierarchy`
+    - `manage_scene load`
+    - `read_console`
+    - `read mcpforunity://editor/state`
+- 当前恢复点：
+  - 若后续继续 `Town` 主线，不要再回头把 `Primary/1_Managers` 当异常泄漏根处理
+  - 最稳的下一步应是：只在需要新的用户 live 问题时 reopen `Town` scene 刀口；否则当前这轮以“scene 基础设施已 clean 到 fresh reopen 层”为稳定基线
+
+## 2026-04-05｜Town 主线文档收尾：已把可提交治理收口与给 spring-day1 的协作回执补齐
+
+- 当前主线目标：
+  - 在 `Town` 基础设施真值已经压到 `fresh reopen clean` 之后，把我 own 的剩余收尾一次做完：只收可提交治理文档，不把 `Town.unity / Primary.unity` 历史混面误吞进提交。
+- 本轮子任务：
+  1. 给 `spring-day1` 输出一份同事口径的 `Town` 协作回执
+  2. 明确这轮可提交范围只到 `Codex规则落地` 与线程记忆
+  3. 把含 scene 的大 slice 合法停车，再切成 docs-only 收口窗
+- 本轮实际做成：
+  1. 新增协作回执：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_Town基础设施收口现状与后续协作回执_01.md`
+  2. 回执内容已明确告诉 `spring-day1`：
+     - `Town` 现在已经收稳了什么
+     - `10 / 11 / 12` 这些导演正文哪些可以继续放心依赖
+     - 哪些东西还不能默认成 `runtime 全闭环`
+     - 后面如果要继续吃 `Town`，建议按具体 anchor / 具体 live 现象来协作，而不是再用“整个 Town 行不行”这种大口径
+  3. 已明确这轮不吞 scene 的原因：
+     - `Town.unity / Primary.unity` 当前仍是历史混面大 diff
+     - 当前我 own 的稳定可提交面只有治理文档、线程记忆和协作回执
+  4. thread-state 已切换成：
+     - 先把含 scene 的宽 slice `Park`
+     - 再开 docs-only 窄 slice，准备独立 `Ready-To-Sync`
+- 当前关键判断：
+  - `Town` 现在不再缺“再讲一遍边界”的文件，而缺“把已稳定真值用协作口径交给真正会消费它的人”
+  - 对 `spring-day1` 最有价值的，不是命令它停手等 `Town`，而是告诉它：现在哪些前提已经稳，哪些 runtime 还不要假设
+- 当前恢复点：
+  - 下一步只做 docs-only 的 `Ready-To-Sync -> sync`；
+  - 若这一手过线，本轮我 own 的治理收尾就算完整闭环。
 - 当前恢复点：
   - 如果后续继续这条线，最合理的下一步不是再补更多逐格选项
   - 而是拿用户真实植被 Tilemap 做一次定向验收，再判断哪些 cluster 需要模板 / hint 才能继续往“更准”推进

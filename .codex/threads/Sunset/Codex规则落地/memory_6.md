@@ -1556,3 +1556,109 @@ Sunset 里大量改动都属于：
 - 当前恢复点：
   - 若用户继续推进，就直接按这份转发壳把两条 prompt 发出去；
   - 治理位下一手只审这两条线的回执，不再自己扩写 Town 业务面。
+
+## 2026-04-05｜Town 主线继续推进：已再摘两笔提交，Town 相机脚本已单独归仓
+
+- 当前主线目标：
+  - 主线仍是 `Town`，子线继续清可以安全提交的内容。
+- 本轮子任务：
+  1. 核实提交清扫线程给出的可提交批次
+  2. 在不混 scene 大批的前提下，继续摘干净小批
+- 本轮实际做成：
+  1. 已核实两笔新提交真实存在：
+     - `07108838` `2026.04.05_scene-build_tilemap-tools-and-vegetation-grouping`
+     - `cea3eef5` `2026.04.05_npc-crowd-bubble-and-priority-pass`
+  2. 我这边又补提了一笔治理小批：
+     - `f1ef4bb8` `2026.04.05_Codex规则落地_10`
+     - 内容是 Town 续工转发壳与治理 memory 收口
+  3. 在 fresh status 清掉前一轮 compile blocker 后，又把 Town 相机脚本小批单独提掉：
+     - `a26d9f16` `2026.04.05_town-camera-runtime-rebind-pass`
+     - 只含 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+- 本轮关键判断：
+  - `Town` 相关可安全摘的小批已经继续往前推进，但 `Primary.unity / Town.unity` 两个 scene 仍然是混面大批，当前不该整锅提交。
+  - fresh console 期间又出现新的外部红：
+    - `Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs(84,32): error CS0103`
+    - 这不是 `Town` 相机脚本 own 红，因此没有继续卡住相机小批归仓。
+- 当前恢复点：
+  - 下一轮若继续“Town 主线 + 子线提交”，优先审：
+    1. `Town / Primary` scene 是否能拆成更小的 scene 批次
+    2. `UI / spring-day1` 哪一块还能再摘干净小批
+  - 当前仍不建议直接整批吞 `Primary.unity / Town.unity`
+
+## 2026-04-05｜Town 主线继续压深到 fresh reopen clean：当前基础设施层已不再是 own blocker
+
+- 当前主线目标：
+  - 只做我 own 的 `Town` 主线，把 `Town` 负责的 scene 基础设施继续压深。
+- 本轮子任务：
+  1. 对照 `Town` 与 `Primary` 当前 live scene 结构
+  2. 判清哪些是正常场景管理层，哪些才是误泄漏的 persistent root
+  3. 用 fresh reopen + fresh console 证据确认 `Town` 当前是否已过 scene 基建层
+- 本轮实际做成：
+  1. 重新读取 `Town` live hierarchy：
+     - `Town` active scene `isDirty=false`
+     - `Main Camera` = `Camera + AudioListener + CinemachineBrain`
+     - `Camera/CinemachineCamera` = `CinemachineCamera + CameraDeadZoneSync + CinemachineConfiner2D`
+     - `PersistentManagers` 在 `Town` 里已查不到
+  2. 重新读取 `Primary` live hierarchy 并对照：
+     - `Primary` scene 自己就含 `Primary/1_Managers`
+     - `Town` 中那套 `Primary/1_Managers` 因此不能再误判成“异常复制”
+     - 真正此前异常混入 `Town` 的，是 `PersistentManagers`，而不是 `ResourceNodeRegistry / PlacementManager / FarmTileManager` 这类场景管理层
+  3. 文本层复核：
+     - `Town.unity` 有 `AudioListener`
+     - `Town.unity` 有 `CinemachineCamera`
+     - `Town.unity` 无 `PersistentManagers`
+     - `Primary.unity` 仍有 `PersistentManagers`
+  4. fresh reopen 验证：
+     - 清 console 后重新打开 `Town`，fresh console = 0
+     - 重新打开 `Primary`，fresh console = 0
+     - 再切回 `Town` 后看到的只有测试框架 / MCP 工具噪音，不是 Town own scene warning/error
+- 关键判断：
+  - `Town` 现在已经不再卡在“scene 一打开就爆红 / 管理器泄漏 / 主相机缺链”这类基础设施层
+  - 这轮把 `Town` own scene blocker 继续往下压后，当前最真实的剩余问题已经不是 Town 自己的基础场景，而是：
+    - shared root 下 `Town.unity / Primary.unity` 历史混面 diff 很大
+    - 外部测试框架偶发噪音会污染 console
+- 验证结果：
+  - Unity MCP `manage_scene load/get_hierarchy/read_console`
+  - `editor/state` 显示 `is_playing=false`
+  - `git diff --stat -- Assets/000_Scenes/Town.unity Assets/000_Scenes/Primary.unity`
+- thread-state：
+  - `Begin-Slice`：本轮继续沿既有 ACTIVE slice
+  - `Ready-To-Sync`：未跑；本轮没有进入 sync 收口
+  - `Park-Slice`：已跑，reason=`town-scene-basis-audit-complete`
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 如果用户下一轮继续让我只做 `Town`，最合理的继续方向不是再盲删 scene root，而是只在新的 live 问题出现时 reopen 相应 anchor / camera / transition 刀口
+  - 如果没有新的用户 live 现象，当前这轮可以把 `Town` scene 基础设施基线视为已推进到 fresh reopen clean
+
+## 2026-04-05｜Town 主线最后收尾：给 spring-day1 的协作回执已补齐，并切成 docs-only 提交窗
+
+- 当前主线目标：
+  - 在 `Town` 基础设施真值已经压到 `fresh reopen clean` 后，把这轮 own 收尾与协作交接做完整。
+- 本轮子任务：
+  1. 给 `spring-day1` 写一份协作回执，而不是治理命令单
+  2. 把可提交范围从广义 scene 切回 docs-only
+  3. 为本轮最小治理提交准备收口窗
+- 本轮实际做成：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_Town基础设施收口现状与后续协作回执_01.md`
+  2. 这份回执明确传达了 4 件事：
+     - `Town` 基础 scene reopen 已 clean
+     - `PersistentManagers` 才是此前异常混入的 root，而 `Primary/1_Managers` 不是
+     - `spring-day1` 现在可以继续放心把 `Town` 当 Day1 后半段导演承接层
+     - 如果以后要吃 runtime，请按具体 anchor 或 live 现象来找我，而不是再问“整个 Town 行不行”
+  3. 当前可提交判断已收窄：
+     - 可提交：`Codex规则落地` 文档、线程记忆、协作回执
+     - 不可贸然提交：`Town.unity / Primary.unity` 两个超大历史混面 scene
+  4. thread-state 已做切换：
+     - 先 `Park-Slice` 停掉含 scene 的宽 slice
+     - 再 `Begin-Slice` 开启 docs-only 收口窗
+- 当前关键判断：
+  - 这轮最值钱的收尾不是再写更多 Town 判断，而是把“已经稳定的 Town 真值”交给真正要消费它的 `spring-day1`
+  - 这样后续协作时，`spring-day1` 不需要再回头等我证明 `Town` 有没有基础资格，只需要在进入 runtime 时按窄口径对接
+- thread-state：
+  - 含 scene 宽 slice：已 `PARKED`
+  - docs-only 窄 slice：已重新 `Begin-Slice`
+  - `Ready-To-Sync`：下一步执行
+- 当前恢复点：
+  - 下一步只做 docs-only 的 `Ready-To-Sync -> sync`
+  - 如果这一手通过，本轮 own 内容就收完；后续 `Town` 再 reopen 时只按新的 live 现象开窄刀
