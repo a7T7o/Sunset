@@ -12,6 +12,7 @@ namespace Sunset.Service.Camera
     public class CameraDeadZoneSync : MonoBehaviour
     {
         private const string AutoBoundsObjectName = "_CameraBounds";
+        private const int SceneLoadTrackingTargetRetryFrames = 4;
         private static readonly string[] LegacyOvertightExcludedKeywords = { "water", "props", "farmland", "old" };
         private static readonly string[] SoftenedExcludedKeywords = { "old" };
 
@@ -54,12 +55,14 @@ namespace Sunset.Service.Camera
         #region 私有字段
         
         private CinemachineConfiner2D _confiner;
+        private CinemachineBrain _brain;
         private Bounds _worldBounds;
         private bool _isInitialized;
         private bool _capturedDefaultCameraRect;
         private Rect _defaultCameraRect = new Rect(0f, 0f, 1f, 1f);
         private int _lastScreenWidth;
         private int _lastScreenHeight;
+        private Coroutine _sceneLoadRecoveryCoroutine;
         
         #endregion
         
@@ -93,6 +96,7 @@ namespace Sunset.Service.Camera
             }
 
             CaptureDefaultCameraRect();
+            EnsureCinemachineBrain();
             
             // 获取或创建 Confiner2D
             SetupConfiner();
@@ -102,6 +106,8 @@ namespace Sunset.Service.Camera
         
         private void Start()
         {
+            RefreshSceneReferences(SceneManager.GetActiveScene());
+
             if (_isInitialized)
             {
                 RefreshBounds();
@@ -110,7 +116,17 @@ namespace Sunset.Service.Camera
 
         private void LateUpdate()
         {
-            if (!_isInitialized || mainCamera == null || !clampViewportOnWideScreens)
+            if (!_isInitialized)
+            {
+                return;
+            }
+
+            if (!HasUsableTrackingTarget())
+            {
+                TryBindTrackingTarget(SceneManager.GetActiveScene());
+            }
+
+            if (mainCamera == null || !clampViewportOnWideScreens)
             {
                 return;
             }
@@ -132,6 +148,7 @@ namespace Sunset.Service.Camera
         private void OnDisable()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
+            StopSceneLoadRecovery();
             RestoreDefaultCameraRect();
         }
         
@@ -256,15 +273,283 @@ namespace Sunset.Service.Camera
         {
             if (logDebugInfo)
                 Debug.Log($"[CameraConfiner] 场景加载: {scene.name}，刷新边界");
-            
-            // 延迟一帧刷新，确保场景物体已初始化
-            StartCoroutine(DelayedRefresh());
+
+            RefreshSceneReferences(scene);
+
+            StopSceneLoadRecovery();
+            _sceneLoadRecoveryCoroutine = StartCoroutine(DelayedRefresh(scene));
         }
         
-        private System.Collections.IEnumerator DelayedRefresh()
+        private System.Collections.IEnumerator DelayedRefresh(Scene scene)
         {
-            yield return null;
+            for (int attempt = 0; attempt < SceneLoadTrackingTargetRetryFrames; attempt++)
+            {
+                yield return null;
+                RefreshSceneReferences(scene);
+
+                if (HasUsableTrackingTarget())
+                {
+                    break;
+                }
+            }
+
             RefreshBounds();
+            _sceneLoadRecoveryCoroutine = null;
+        }
+
+        private void StopSceneLoadRecovery()
+        {
+            if (_sceneLoadRecoveryCoroutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_sceneLoadRecoveryCoroutine);
+            _sceneLoadRecoveryCoroutine = null;
+        }
+
+        private void RefreshSceneReferences()
+        {
+            RefreshSceneReferences(SceneManager.GetActiveScene());
+        }
+
+        private void RefreshSceneReferences(Scene preferredScene)
+        {
+            CinemachineCamera resolvedCinemachine = ResolveCinemachineCamera();
+            if (resolvedCinemachine != cinemachineCamera)
+            {
+                cinemachineCamera = resolvedCinemachine;
+            }
+
+            UnityEngine.Camera resolvedMainCamera = ResolveMainCamera();
+            if (resolvedMainCamera != mainCamera)
+            {
+                mainCamera = resolvedMainCamera;
+                _capturedDefaultCameraRect = false;
+            }
+
+            EnsureCinemachineBrain();
+            TryBindTrackingTarget(preferredScene);
+            CaptureDefaultCameraRect();
+            SetupConfiner();
+            ValidateReferences();
+        }
+
+        private void EnsureCinemachineBrain()
+        {
+            if (mainCamera == null)
+            {
+                _brain = null;
+                return;
+            }
+
+            _brain = mainCamera.GetComponent<CinemachineBrain>();
+            if (_brain == null)
+            {
+                _brain = mainCamera.gameObject.AddComponent<CinemachineBrain>();
+                if (logDebugInfo)
+                {
+                    Debug.Log($"[CameraConfiner] 已为主相机补挂 CinemachineBrain: {mainCamera.name}", mainCamera);
+                }
+            }
+
+            if (!_brain.enabled)
+            {
+                _brain.enabled = true;
+            }
+        }
+
+        private void TryBindTrackingTarget(Scene preferredScene)
+        {
+            if (cinemachineCamera == null)
+            {
+                return;
+            }
+
+            Transform resolvedTarget = ResolveTrackingTarget(preferredScene);
+            if (!IsUsableTrackingTarget(resolvedTarget))
+            {
+                return;
+            }
+
+            if (cinemachineCamera.Follow == resolvedTarget)
+            {
+                return;
+            }
+
+            cinemachineCamera.Follow = resolvedTarget;
+            cinemachineCamera.PreviousStateIsValid = false;
+
+            if (logDebugInfo)
+            {
+                Debug.Log($"[CameraConfiner] 已重绑跟随目标: {resolvedTarget.name}", resolvedTarget);
+            }
+        }
+
+        private Transform ResolveTrackingTarget(Scene preferredScene)
+        {
+            Transform bestCandidate = null;
+            int bestScore = int.MinValue;
+            var playerMovements = FindObjectsByType<global::PlayerMovement>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int index = 0; index < playerMovements.Length; index++)
+            {
+                Transform candidate = playerMovements[index] != null ? playerMovements[index].transform : null;
+                if (!IsUsableTrackingTarget(candidate))
+                {
+                    continue;
+                }
+
+                int score = ScoreTrackingTargetCandidate(candidate, preferredScene);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCandidate = candidate;
+                }
+            }
+
+            if (bestCandidate != null)
+            {
+                return bestCandidate;
+            }
+
+            GameObject[] taggedPlayers = GameObject.FindGameObjectsWithTag("Player");
+            for (int index = 0; index < taggedPlayers.Length; index++)
+            {
+                Transform candidate = taggedPlayers[index] != null ? taggedPlayers[index].transform : null;
+                if (!IsUsableTrackingTarget(candidate))
+                {
+                    continue;
+                }
+
+                if (candidate.TryGetComponent<Rigidbody2D>(out _))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private bool HasUsableTrackingTarget()
+        {
+            return cinemachineCamera != null && IsUsableTrackingTarget(cinemachineCamera.Follow);
+        }
+
+        private static bool IsUsableTrackingTarget(Transform candidate)
+        {
+            if (candidate == null)
+            {
+                return false;
+            }
+
+            GameObject gameObject = candidate.gameObject;
+            Scene scene = gameObject.scene;
+            return gameObject.activeInHierarchy && scene.IsValid() && scene.isLoaded;
+        }
+
+        private static int ScoreTrackingTargetCandidate(Transform candidate, Scene preferredScene)
+        {
+            if (candidate == null)
+            {
+                return int.MinValue;
+            }
+
+            int score = 0;
+            GameObject candidateObject = candidate.gameObject;
+            Scene activeScene = SceneManager.GetActiveScene();
+
+            if (candidateObject.TryGetComponent<global::PlayerMovement>(out _))
+            {
+                score += 100;
+            }
+
+            if (candidateObject.TryGetComponent<Rigidbody2D>(out _))
+            {
+                score += 40;
+            }
+
+            if (candidateObject.name == "Player")
+            {
+                score += 10;
+            }
+
+            if (preferredScene.IsValid() && candidateObject.scene == preferredScene)
+            {
+                score += 50;
+            }
+
+            if (activeScene.IsValid() && candidateObject.scene == activeScene)
+            {
+                score += 25;
+            }
+
+            return score;
+        }
+
+        private CinemachineCamera ResolveCinemachineCamera()
+        {
+            if (IsUsableSceneObject(cinemachineCamera))
+            {
+                return cinemachineCamera;
+            }
+
+            CinemachineCamera parentCamera = GetComponentInParent<CinemachineCamera>();
+            if (IsUsableSceneObject(parentCamera))
+            {
+                return parentCamera;
+            }
+
+            var cameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
+            for (int index = 0; index < cameras.Length; index++)
+            {
+                if (IsUsableSceneObject(cameras[index]))
+                {
+                    return cameras[index];
+                }
+            }
+
+            return null;
+        }
+
+        private UnityEngine.Camera ResolveMainCamera()
+        {
+            if (IsUsableSceneObject(mainCamera))
+            {
+                return mainCamera;
+            }
+
+            UnityEngine.Camera taggedMainCamera = UnityEngine.Camera.main;
+            if (IsUsableSceneObject(taggedMainCamera))
+            {
+                return taggedMainCamera;
+            }
+
+            var cameras = FindObjectsByType<UnityEngine.Camera>(FindObjectsSortMode.None);
+            for (int index = 0; index < cameras.Length; index++)
+            {
+                if (IsUsableSceneObject(cameras[index]))
+                {
+                    return cameras[index];
+                }
+            }
+
+            return null;
+        }
+
+        private static bool IsUsableSceneObject(UnityEngine.Object candidate)
+        {
+            if (candidate == null)
+            {
+                return false;
+            }
+
+            if (candidate is Component component)
+            {
+                Scene scene = component.gameObject.scene;
+                return component.gameObject.activeInHierarchy && scene.IsValid() && scene.isLoaded;
+            }
+
+            return true;
         }
 
         
@@ -360,7 +645,7 @@ namespace Sunset.Service.Camera
             bounds = default;
             bool hasBounds = false;
 
-            Tilemap[] autoTilemaps = SelectAutoBoundsTilemaps(out bool usingExactBaseTilemaps);
+            Tilemap[] autoTilemaps = SelectAutoBoundsTilemaps();
             for (int index = 0; index < autoTilemaps.Length; index++)
             {
                 if (TryGetTilemapWorldBounds(autoTilemaps[index], out Bounds tilemapBounds))
@@ -369,8 +654,8 @@ namespace Sunset.Service.Camera
                 }
             }
 
-            // 命中精确 Base Tilemap 时，边界就以 Base 为准，避免运行时 Sprite 把镜头外扩到场景外。
-            if (includeWorldSpriteRenderersInAutoBounds && !usingExactBaseTilemaps)
+            // world layer 下已有 Tilemap 并集时，以三层 Tilemap 的并集为准；Sprite 只作缺省 fallback。
+            if (includeWorldSpriteRenderersInAutoBounds && autoTilemaps.Length == 0)
             {
                 SpriteRenderer[] spriteRenderers = SelectAutoBoundsSpriteRenderers();
                 for (int index = 0; index < spriteRenderers.Length; index++)
@@ -415,12 +700,9 @@ namespace Sunset.Service.Camera
             return true;
         }
 
-        private Tilemap[] SelectAutoBoundsTilemaps(out bool usingExactBaseTilemaps)
+        private Tilemap[] SelectAutoBoundsTilemaps()
         {
-            usingExactBaseTilemaps = false;
-            var exactNameMatches = new System.Collections.Generic.List<Tilemap>();
-            var preferred = new System.Collections.Generic.List<Tilemap>();
-            var fallback = new System.Collections.Generic.List<Tilemap>();
+            var results = new System.Collections.Generic.List<Tilemap>();
             var tilemaps = FindObjectsByType<Tilemap>(FindObjectsSortMode.None);
             foreach (Tilemap tilemap in tilemaps)
             {
@@ -429,30 +711,10 @@ namespace Sunset.Service.Camera
                     continue;
                 }
 
-                if (MatchesAnyExactName(tilemap, preferredExactTilemapNames))
-                {
-                    exactNameMatches.Add(tilemap);
-                    continue;
-                }
-
-                if (MatchesAnyKeywordInHierarchy(tilemap.transform, preferredAutoBoundsKeywords))
-                {
-                    preferred.Add(tilemap);
-                }
-                else
-                {
-                    fallback.Add(tilemap);
-                }
+                results.Add(tilemap);
             }
 
-            if (exactNameMatches.Count > 0)
-            {
-                usingExactBaseTilemaps = true;
-                exactNameMatches.Sort(ComparePreferredTilemaps);
-                return exactNameMatches.ToArray();
-            }
-
-            return preferred.Count > 0 ? preferred.ToArray() : fallback.ToArray();
+            return results.ToArray();
         }
 
         private static bool MatchesAnyExactName(Tilemap tilemap, string[] names)
@@ -554,8 +816,7 @@ namespace Sunset.Service.Camera
         {
             if (tilemap == null ||
                 !tilemap.isActiveAndEnabled ||
-                !IsInWorldLayers(tilemap.transform) ||
-                ShouldExcludeFromAutoBounds(tilemap.transform))
+                !IsInWorldLayers(tilemap.transform))
             {
                 return false;
             }
