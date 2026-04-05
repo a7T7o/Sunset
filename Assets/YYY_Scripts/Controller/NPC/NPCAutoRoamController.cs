@@ -24,6 +24,16 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const float SHARED_DETOUR_MIN_ACTIVE_DURATION = 0.35f;
     private const int SHARED_DETOUR_RELEASE_STABLE_FRAMES = 3;
     private const float SHARED_DETOUR_POST_RELEASE_RECOVERY_WINDOW = 0.22f;
+    private const float BLOCKED_ADVANCE_RECOVERY_COOLDOWN = 0.18f;
+    private const float BLOCKED_ADVANCE_SAME_POSITION_RADIUS = 0.18f;
+    private const int BLOCKED_ADVANCE_REROUTE_MIN_FRAMES = 3;
+    private const int BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES = 6;
+    private const int TERMINAL_STUCK_LONG_PAUSE_MIN_COUNT = 2;
+    private const float TERMINAL_STUCK_SAME_POSITION_RADIUS = 0.2f;
+    private const float AVOIDANCE_STUCK_RESET_MAX_MOVE_SCALE = 0.32f;
+    private const int PASSIVE_NPC_BLOCKER_REROUTE_MIN_SIGHTINGS = 4;
+    private const float PASSIVE_NPC_BLOCKER_REROUTE_MAX_DISTANCE = 1.15f;
+    private const float PASSIVE_NPC_BLOCKER_REROUTE_MAX_CLEARANCE = 0.24f;
 
     private enum RoamState
     {
@@ -212,6 +222,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private bool hasRequestedDestination;
     private bool hasRoamInterruption;
     private RoamMoveInterruptionSnapshot lastRoamInterruption;
+    private float lastBlockedAdvanceRecoveryTime = float.NegativeInfinity;
+    private int blockedAdvanceFrames;
+    private Vector2 lastBlockedAdvancePosition;
+    private int consecutiveTerminalStuckCount;
+    private Vector2 lastTerminalStuckPosition;
 
     private List<Vector2> path => navigationExecution.Path;
     private Vector2 currentDestination { get => navigationExecution.Destination; set => navigationExecution.Destination = value; }
@@ -328,7 +343,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private void Start()
     {
         ResetLongPauseTriggerCount();
-        ResetMovementRecovery(transform.position, resetCounter: true);
+        ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
 
         if (autoStart)
         {
@@ -481,7 +496,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         completedShortPauseCount = 0;
         lastAmbientDecision = string.Empty;
         ResetLongPauseTriggerCount();
-        ResetMovementRecovery(transform.position, resetCounter: true);
+        ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
         EnterShortPause(false);
     }
 
@@ -497,7 +512,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         stateTimer = 0f;
         currentPathIndex = 0;
         path.Clear();
-        ResetMovementRecovery(transform.position, resetCounter: true);
+        ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
 
         if (motionController != null)
         {
@@ -893,7 +908,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         float step = moveSpeed * Mathf.Clamp01(moveScale) * Mathf.Max(deltaTime, 0.0001f);
         if (step <= 0.0001f)
         {
-            motionController.StopMotion();
+            TryHandleBlockedAdvance(currentPosition, "ZeroStep");
             return;
         }
 
@@ -906,10 +921,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 velocity = (nextPosition - currentPosition) / safeDeltaTime;
         if (velocity.sqrMagnitude <= 0.0001f)
         {
-            motionController.StopMotion();
+            TryHandleBlockedAdvance(currentPosition, "ConstrainedZeroAdvance");
             return;
         }
 
+        NoteSuccessfulAdvance(currentPosition);
         motionController.SetExternalVelocity(velocity);
         if (rb != null)
         {
@@ -962,13 +978,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         debugMoveActive = false;
         NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
 
-        Vector2 currentPosition = transform.position;
+        Vector2 currentPosition = GetNavigationCenter();
         Vector2 roamCenter = GetRoamCenter();
 
         for (int attempt = 0; attempt < pathSampleAttempts; attempt++)
         {
             Vector2 randomOffset = Random.insideUnitCircle * activityRadius;
-            Vector2 sampledDestination = roamCenter + randomOffset;
+            Vector2 sampledDestination = NormalizeDestinationToNavGridBounds(roamCenter + randomOffset);
 
             if (Vector2.Distance(currentPosition, sampledDestination) < minimumMoveDistance)
             {
@@ -1062,8 +1078,34 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 this);
         }
 
+        if (debugMoveActive)
+        {
+            EndDebugMove(reachedDestination: false);
+            return true;
+        }
+
+        bool preserveTrafficState = lastBlockingAgentId != 0 || sharedAvoidanceBlockingFrames > 0;
+        if (TryRebuildPath(
+                currentPosition,
+                resetRecoveryCounter: false,
+                reason: progress.ShouldCancel ? "StuckCancelRecover" : "StuckRecover",
+                preserveTrafficState: preserveTrafficState))
+        {
+            return false;
+        }
+
+        if (TryBeginMove())
+        {
+            return true;
+        }
+
         if (progress.ShouldCancel)
         {
+            if (TryHandleTerminalStuck(currentPosition))
+            {
+                return true;
+            }
+
             if (TryInterruptRoamMove(
                 RoamMoveInterruptionReason.StuckCancel,
                 currentPosition,
@@ -1076,22 +1118,6 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             }
 
             FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
-            return true;
-        }
-
-        if (debugMoveActive)
-        {
-            EndDebugMove(reachedDestination: false);
-            return true;
-        }
-
-        if (TryRebuildPath(currentPosition, resetRecoveryCounter: false))
-        {
-            return false;
-        }
-
-        if (TryBeginMove())
-        {
             return true;
         }
 
@@ -1121,7 +1147,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return false;
         }
 
-        Vector2 rebuildDestination = GetRebuildRequestedDestination();
+        Vector2 rebuildDestination = NormalizeDestinationToNavGridBounds(GetRebuildRequestedDestination());
         NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
             navigationExecution,
             navGrid,
@@ -1262,12 +1288,24 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             speedScale = Mathf.Clamp01(closeRangeConstraint.SpeedScale);
         }
 
+        bool dynamicAvoidanceBlocker = IsDynamicAvoidanceBlocker(avoidance);
+        if (dynamicAvoidanceBlocker &&
+            ShouldResetSharedAvoidanceStuckProgress(closeRangeConstraint, speedScale, avoidance.ShouldRepath))
+        {
+            RefreshProgressCheckpoint(movementPosition, resetCounter: true);
+        }
+
         if (isInReleaseRecoveryWindow)
         {
             MaybeLogSharedAvoidance(navigationPosition, waypoint, avoidance, closeRangeConstraint, speedScale, "RecoverWindowMove");
             if (closeRangeConstraint.HardBlocked && speedScale <= 0.025f)
             {
                 StopForSharedAvoidance(navigationPosition, avoidance, closeRangeConstraint, "RecoverWindowHardStop");
+                if (!dynamicAvoidanceBlocker)
+                {
+                    TryHandleBlockedAdvance(movementPosition, "SharedAvoidanceRecoverWindowHardStop");
+                }
+
                 return true;
             }
 
@@ -1281,6 +1319,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             if (closeRangeConstraint.HardBlocked && speedScale <= 0.025f)
             {
                 StopForSharedAvoidance(navigationPosition, avoidance, closeRangeConstraint, "HardStop");
+                if (!dynamicAvoidanceBlocker)
+                {
+                    TryHandleBlockedAdvance(movementPosition, "SharedAvoidanceHardStop");
+                }
+
                 return true;
             }
 
@@ -1292,6 +1335,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             if (closeRangeConstraint.HardBlocked && speedScale <= 0.025f)
             {
                 StopForSharedAvoidance(navigationPosition, avoidance, closeRangeConstraint, "HardStop");
+                if (!dynamicAvoidanceBlocker)
+                {
+                    TryHandleBlockedAdvance(movementPosition, "SharedAvoidanceHardStopCooldown");
+                }
+
                 return true;
             }
 
@@ -1307,7 +1355,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
-        if (TryRebuildPath(movementPosition, resetRecoveryCounter: false))
+        if (TryRebuildPath(movementPosition, resetRecoveryCounter: false, preserveTrafficState: true))
+        {
+            return true;
+        }
+
+        if (ShouldRerouteAroundPassiveNpcBlocker(avoidance, closeRangeConstraint) &&
+            TryBeginMove())
         {
             return true;
         }
@@ -1531,6 +1585,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private bool TryResolveOccupiableDestination(Vector2 sampledDestination, out Vector2 resolvedDestination)
     {
+        sampledDestination = NormalizeDestinationToNavGridBounds(sampledDestination);
         resolvedDestination = sampledDestination;
         if (CanOccupyNavigationPoint(sampledDestination))
         {
@@ -1554,6 +1609,49 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         resolvedDestination = walkableDestination;
         return true;
+    }
+
+    private Vector2 NormalizeDestinationToNavGridBounds(Vector2 destination)
+    {
+        if (!TryResolveNavGrid(logIfMissing: false))
+        {
+            return destination;
+        }
+
+        return navGrid.ClampToWorldBounds(destination);
+    }
+
+    private bool TryResolveAvoidanceBlockingSnapshot(
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        out NavigationAgentSnapshot snapshot)
+    {
+        return TryResolveBlockingSnapshot(avoidance.BlockingAgentId, nearbyNavigationAgents, out snapshot) ||
+               TryResolveCurrentBlockingSnapshot(avoidance.BlockingAgentId, out snapshot);
+    }
+
+    private bool ShouldRerouteAroundPassiveNpcBlocker(
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint)
+    {
+        if (!avoidance.HasBlockingAgent ||
+            !TryResolveAvoidanceBlockingSnapshot(avoidance, out NavigationAgentSnapshot blocker) ||
+            blocker.UnitType != NavigationUnitType.NPC ||
+            blocker.IsCurrentlyMoving ||
+            sharedAvoidanceBlockingFrames < PASSIVE_NPC_BLOCKER_REROUTE_MIN_SIGHTINGS)
+        {
+            return false;
+        }
+
+        if (closeRangeConstraint.HardBlocked)
+        {
+            return true;
+        }
+
+        float blockerDistance = Mathf.Min(
+            avoidance.BlockingDistance,
+            Vector2.Distance(GetNavigationCenter(), blocker.Position));
+        return blockerDistance <= PASSIVE_NPC_BLOCKER_REROUTE_MAX_DISTANCE &&
+            closeRangeConstraint.Clearance <= PASSIVE_NPC_BLOCKER_REROUTE_MAX_CLEARANCE;
     }
 
     private Vector2 ConstrainNextPositionToNavigationBounds(Vector2 currentPosition, Vector2 desiredNextPosition)
@@ -1825,7 +1923,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         stateTimer = Random.Range(shortPauseMin, shortPauseMax);
         path.Clear();
         currentPathIndex = 0;
-        ResetMovementRecovery(transform.position, resetCounter: true);
+        ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
 
         if (countTowardLongPause)
         {
@@ -1883,7 +1981,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         stateTimer = Random.Range(longPauseMin, longPauseMax);
         path.Clear();
         currentPathIndex = 0;
-        ResetMovementRecovery(transform.position, resetCounter: true);
+        ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
 
         if (motionController != null)
         {
@@ -2060,7 +2158,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         stateTimer = Mathf.Max(duration, ambientChatResponseDelay + 1f);
         path.Clear();
         currentPathIndex = 0;
-        ResetMovementRecovery(transform.position, resetCounter: true);
+        ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
 
         if (motionController != null)
         {
@@ -2268,22 +2366,146 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         ambientChatRetryCount = 0;
     }
 
+    private void NoteSuccessfulAdvance(Vector2 currentPosition)
+    {
+        blockedAdvanceFrames = 0;
+        lastBlockedAdvancePosition = currentPosition;
+        consecutiveTerminalStuckCount = 0;
+        lastTerminalStuckPosition = currentPosition;
+    }
+
+    private void RefreshProgressCheckpoint(Vector2 currentPosition, bool resetCounter)
+    {
+        lastProgressCheckPosition = currentPosition;
+        lastProgressCheckTime = Time.time;
+        lastProgressDistance = 0f;
+        if (resetCounter)
+        {
+            currentStuckRecoveryCount = 0;
+        }
+    }
+
+    private bool IsDynamicAvoidanceBlocker(NavigationLocalAvoidanceSolver.AvoidanceResult avoidance)
+    {
+        if (!avoidance.HasBlockingAgent ||
+            !TryResolveAvoidanceBlockingSnapshot(avoidance, out NavigationAgentSnapshot blocker))
+        {
+            return false;
+        }
+
+        return blocker.UnitType == NavigationUnitType.Player ||
+               blocker.UnitType == NavigationUnitType.Enemy ||
+               blocker.IsCurrentlyMoving;
+    }
+
+    private bool ShouldResetSharedAvoidanceStuckProgress(
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint,
+        float moveScale,
+        bool shouldRepath)
+    {
+        if (closeRangeConstraint.HardBlocked)
+        {
+            return true;
+        }
+
+        if (closeRangeConstraint.Applied && moveScale <= AVOIDANCE_STUCK_RESET_MAX_MOVE_SCALE)
+        {
+            return true;
+        }
+
+        return shouldRepath && moveScale <= 0.45f;
+    }
+
+    private bool TryHandleBlockedAdvance(Vector2 currentPosition, string reason)
+    {
+        if (Vector2.Distance(currentPosition, lastBlockedAdvancePosition) <= BLOCKED_ADVANCE_SAME_POSITION_RADIUS)
+        {
+            blockedAdvanceFrames++;
+        }
+        else
+        {
+            blockedAdvanceFrames = 1;
+        }
+
+        lastBlockedAdvancePosition = currentPosition;
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+        }
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        RefreshProgressCheckpoint(currentPosition, resetCounter: true);
+        if (Time.time - lastBlockedAdvanceRecoveryTime < BLOCKED_ADVANCE_RECOVERY_COOLDOWN)
+        {
+            return true;
+        }
+
+        lastBlockedAdvanceRecoveryTime = Time.time;
+        if (TryRebuildPath(currentPosition, resetRecoveryCounter: false, reason: $"BlockedAdvance:{reason}", preserveTrafficState: true))
+        {
+            return true;
+        }
+
+        if (blockedAdvanceFrames >= BLOCKED_ADVANCE_REROUTE_MIN_FRAMES &&
+            TryBeginMove())
+        {
+            return true;
+        }
+
+        if (blockedAdvanceFrames >= BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES)
+        {
+            EnterLongPause();
+            return true;
+        }
+
+        return true;
+    }
+
+    private bool TryHandleTerminalStuck(Vector2 currentPosition)
+    {
+        if (Vector2.Distance(currentPosition, lastTerminalStuckPosition) <= TERMINAL_STUCK_SAME_POSITION_RADIUS)
+        {
+            consecutiveTerminalStuckCount++;
+        }
+        else
+        {
+            consecutiveTerminalStuckCount = 1;
+        }
+
+        lastTerminalStuckPosition = currentPosition;
+        if (consecutiveTerminalStuckCount >= TERMINAL_STUCK_LONG_PAUSE_MIN_COUNT)
+        {
+            EnterLongPause();
+            return true;
+        }
+
+        return false;
+    }
+
     private void ResetMovementRecovery(
         Vector2 currentPosition,
         bool resetCounter,
         bool preserveTrafficState = false)
     {
         NavigationPathExecutor2D.ResetProgress(navigationExecution, currentPosition, resetCounter);
-        if (resetCounter)
+        lastBlockedAdvanceRecoveryTime = float.NegativeInfinity;
+        NoteSuccessfulAdvance(currentPosition);
+        if (resetCounter && !preserveTrafficState)
         {
             lastBlockingAgentId = 0;
             blockingAgentSightings = 0;
+            sharedAvoidanceBlockingFrames = 0;
+            sharedAvoidanceNoBlockerFrames = 0;
         }
     }
 
     private void RememberRequestedDestination(Vector2 destination)
     {
-        requestedDestination = destination;
+        requestedDestination = NormalizeDestinationToNavGridBounds(destination);
         hasRequestedDestination = true;
     }
 

@@ -9,7 +9,7 @@ using UnityEngine.Tilemaps;
 /// </summary>
 public class NavGrid2D : MonoBehaviour
 {
-    private const bool EnableNavGridRefreshProfiling = false;
+    private static readonly bool EnableNavGridRefreshProfiling = false;
     private const double RefreshProfileLogThresholdMs = 20d;
 
     [Header("网格设置")]
