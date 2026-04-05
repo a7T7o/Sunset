@@ -1381,3 +1381,31 @@ Sunset 里大量改动都属于：
 - 风险与薄弱点：
   - `Town.unity` 当前仍有 mixed dirty，不能把“无 own slice”偷换成“scene 可安全清扫”。
   - `Primary` 当前锁 owner 是 `农田交互修复V3`，但其最新主线并非 `Primary manager/debugger` 自刀；这意味着现场不是“治理可接盘”，而是“锁和 mixed dirty 仍未澄清到可安全 takeover”。
+
+## 2026-04-05｜`user-mapped section open` 不是持续硬锁，3 份旧规则文件已补齐
+
+- 当前主线目标：
+  - 继续完成 `CLI-first / no-red` 规则链的最后同步，不漂回 `Town / Primary` 实写。
+- 本轮子任务：
+  - 定位 `user-mapped section open`
+  - 能解就把最后 3 份旧文件补齐
+- 这轮实际做成了什么：
+  1. 用 `Restart Manager` 对 3 个目标文件做只读查询，结果均为 `NO_PROCESSES`
+  2. 判断之前的报错更像瞬时映射冲突，不是当前外部进程持续占用
+  3. 随后 `apply_patch` 成功，已补齐：
+     - `Sunset当前规范快照_2026-03-22.md`
+     - `并发线程_当前版本更新前缀.md`
+     - `线程完成后_白名单main收口模板.md`
+  4. 同步内容统一为：
+     - `No-Red 证据卡 v2`
+     - `cli_red_check_assessment` 固定值域
+     - `mcp_fallback_reason` 固定值域
+     - 缺卡即“日志不可判定”
+- 关键判断：
+  - 这轮之后，no-red 规则链的“老文件未同步”尾账已被真实清掉。
+  - 当前 `Town / Primary` 的治理停手边界不变；这轮只是规则层补强，不构成 reopen 理由。
+- 验证：
+  - `git diff --check -- <3 files>` 通过
+  - `git diff -- <3 files>` 仅见本轮规则补强
+- 当前恢复点：
+  - 下一步进入最小白名单提交，并在提交后 `Park-Slice`。

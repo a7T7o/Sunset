@@ -11874,3 +11874,42 @@
 - 当前恢复点：
   - 若用户继续 `Town`，总闸保持 `UI + 农田交互修复V3` 两条外线即可。
   - 若用户继续 `Primary`，先让当前 lock owner / 外线 owner 报实或释放，再重做 `TimeManagerDebugger` 缺失链的只读复核；治理线程不要提前接手。
+
+## 2026-04-05｜`user-mapped section open` 复核后已穿透，旧快照与老模板的 No-Red v2 同步补齐
+
+- 当前主线目标：
+  - 把 `CLI-first / no-red` 规则链补到“日志可直接判定”，并清掉最后 3 份旧文件未同步的尾账。
+- 本轮子任务：
+  - 定性 `The requested operation cannot be performed on a file with a user-mapped section open.`
+  - 判断它是否还是当前硬 blocker
+  - 若可继续，补齐：
+    - `Sunset当前规范快照_2026-03-22.md`
+    - `并发线程_当前版本更新前缀.md`
+    - `线程完成后_白名单main收口模板.md`
+- 这轮实际做成了什么：
+  1. 用 Windows `Restart Manager` 对 3 个目标文件做只读查询，结果均为 `NO_PROCESSES`
+  2. 由此确认：之前的 `user-mapped section open` 更像“覆盖写路径撞上的瞬时映射冲突”，不是当前仍持续存在的外部硬锁
+  3. 随后成功用 `apply_patch` 补齐 3 份旧文件，把 `No-Red 证据卡 v2` 的字段、值域和“日志不可判定”口径同步进去
+  4. 两份老模板的回执字段也已补到可直接要求线程交：
+     - `cli_red_check_command`
+     - `cli_red_check_scope`
+     - `cli_red_check_assessment`
+     - `mcp_fallback`
+     - `mcp_fallback_reason`
+     - `current_owned_errors`
+     - `current_external_blockers`
+     - `current_warnings`
+- 关键判断：
+  - 这轮之后，`CLI-first / No-Red 证据卡 v2` 已不再只落在 `AGENTS + 新正文 + CLI + skill`，而是连当前规范快照与老 prompt 模板也补齐了。
+  - `user-mapped section open` 当前不再构成持续 blocker；至少在这 3 个文件上，这个尾账已经真实收掉。
+- 验证 / 证据：
+  - `Restart Manager` 只读查询 3 个目标文件，结果均为 `NO_PROCESSES`
+  - `git diff --check -- <3 files>` 通过
+  - `git diff -- <3 files>` 已确认内容仅为 `No-Red 证据卡 v2` 补强
+- changed_paths：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Steering规则区优化\当前运行基线与开发规则\Sunset当前规范快照_2026-03-22.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\并发线程_当前版本更新前缀.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\共享根执行模型与吞吐重构\01_执行批次\2026.03.21_main-only极简并发开发_01\可分发Prompt\线程完成后_白名单main收口模板.md`
+- 当前恢复点：
+  - 下一步若继续收口，就进入最小白名单提交；
+  - `Town / Primary` 仍维持上一轮裁定，不因这次规则补强而 reopen 自刀。

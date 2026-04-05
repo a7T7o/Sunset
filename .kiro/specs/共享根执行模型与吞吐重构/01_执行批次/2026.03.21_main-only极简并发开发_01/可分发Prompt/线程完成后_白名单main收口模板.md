@@ -51,6 +51,30 @@
   - `代码闸门通过`
   - `Unity 红错验证未闭环`
   - `live / console 待补`
+- 如果你对外要写任何同义的 `无红错 / 可交接 / 可直接提交` 结论，技术审计层还必须原样补一张 `No-Red 证据卡 v2`，至少包含：
+  - `cli_red_check_command`
+  - `cli_red_check_scope`
+  - `cli_red_check_assessment`
+  - `unity_red_check`
+  - `mcp_fallback`
+  - `mcp_fallback_reason`
+  - `current_owned_errors`
+  - `current_external_blockers`
+  - `current_warnings`
+- `cli_red_check_assessment` 只能直接沿用 CLI 原值：
+  - `no_red`
+  - `own_red`
+  - `external_red`
+  - `unity_validation_pending`
+  - `blocked`
+- 如果 `mcp_fallback != not-needed`，`mcp_fallback_reason` 只允许：
+  - `baseline_fail`
+  - `unity_validation_pending`
+  - `blocked`
+  - `scene_live_flow_required`
+  - `playmode_required`
+  - `inspector_required`
+- 缺任一项 `No-Red 证据卡 v2`，或只写“通过 / 没问题”却不给命令和 assessment，就视为“日志不可判定”。
 
 ## 只有这些情况才不要自己直接收口
 - 撞到同一个高危目标
@@ -71,6 +95,14 @@
 - `code_self_check: pass / fail / not-applicable`
 - `pre_sync_validation: pass / fail / not-run`
 - `unity_red_check: pass / blocked / live-pending / not-required`
+- `cli_red_check_command`
+- `cli_red_check_scope`
+- `cli_red_check_assessment: no_red / own_red / external_red / unity_validation_pending / blocked`
+- `mcp_fallback: not-needed / used / unavailable`
+- `mcp_fallback_reason: baseline_fail / unity_validation_pending / blocked / scene_live_flow_required / playmode_required / inspector_required`
+- `current_owned_errors`
+- `current_external_blockers`
+- `current_warnings`
 - 当前 `git status` 是否 clean
 - blocker_or_checkpoint
 - 一句话摘要
