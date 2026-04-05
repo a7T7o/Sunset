@@ -1814,3 +1814,172 @@
   - 后续只能有两种走法：
     1. 如果用户认可这张方向，再继续局部精修或迁移
     2. 如果用户仍然否掉，就继续围绕 `001` 单样张重画，不回到批量线
+
+## 2026-04-04｜补记：NPC 当前正式续工口径已改成 `prompt_05`
+
+- 当前稳定认知：
+  - NPC 线最新续工目标已经改成：
+    - 原剧本角色回正
+    - NPC 本体 prefab/content/profile/roam 收口
+    - `pair bubble / 旧气泡样式` 的 runtime 收口
+  - 不再继续自创 `101~301` 人设来 claim “原剧本已扩完”
+  - 不再进入 `spring-day1` opening、UI、Town、字体等外域
+- 当前统一入口：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-04_NPC-v_春一日原剧本群像回正与NPC本体收口prompt_05.md`
+
+## 2026-04-05｜补记：NPC 当前最新正式入口已切到 `prompt_06`
+
+- 当前最新统一入口：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-05_NPC-v_Day1真值补线与NPC正式非正式优先级续工prompt_06.md`
+- 这份入口相对上一版新增：
+  - Day1 owner 明确给出的 `formal > casual > ambient` 真值
+  - `NPC001/002/003` 与 `101~301` 的承载分层真值
+  - “外部编译红只阻断 live，不阻断静态回正”的执行口径
+
+## 2026-04-04｜补记：结合 UI / Day1 最新 prompt 后，NPC 当前应先做分工矩阵，再开 NPC own 第一刀
+
+- 当前稳定认知：
+  - `NPC` 不是 UI 总包 owner，也不是 Day1 正式剧情 owner。
+  - `NPC` 现在最该守的是：
+    - 玩家面 NPC 气泡与会话语义
+    - `101~301` 的原剧本口径回正
+    - NPC own 的旧气泡样式 / pair bubble / runtime probe 收口
+- 当前不再默认吞：
+  - `PromptOverlay`
+  - `Workbench`
+  - `DialogueUI`
+  - `Primary.unity`
+  - `GameInputManager.cs`
+  - Town / 全局字体底座
+- 当前下一步：
+  - 先给用户交 `exact-own / 协作切片 / 明确不归我` 和第一刀排序；
+    用户认可后，再正式开 `NPC own bubble / speaking-owner / 正式-非正式闭环` 这一刀
+
+## 2026-04-05｜补记：NPC / 气泡提示代码归口只读盘点
+
+- 本轮主线：
+  - 只读盘点当前 `NPC own` 相关气泡/提示宿主，不进入实现。
+- 当前稳定结论：
+  1. [NPCBubblePresenter.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs) 仍是 NPC own 的主气泡宿主。
+     - 有显式 `BubbleDisplayMode`：`Default / ReactionCue`
+     - 也有 `BubbleChannelPriority`：`Ambient / Conversation / ReactionCue`
+     - 但 `UpdateStyleVisuals()` 只读取统一的一组颜色/字号字段，`ReactionCue` 目前只改变优先级与前景聚焦，不形成独立视觉 preset。
+  2. [NPCBubbleStressTalker.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs)、[NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)、[PlayerNpcNearbyFeedbackService.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs) 都还在直接调用 `NPCBubblePresenter.ShowText(...)`，说明 NPC 环境自言自语 / 路过反馈仍走 NPC own 气泡链。
+  3. [PlayerNpcChatSessionService.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs) 仍通过 `SetConversationChannelActive()`、`ShowConversationImmediate()`、`ShowReactionCueImmediate()`、`SetConversationLayoutShift()`、`SetConversationSortBoost()` 驱动 NPC 对话态气泡。
+  4. [NpcWorldHintBubble.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs) 从命名与宿主意图上仍偏 NPC old hint，但当前代码里只剩 `HideIfExists()` 调用，没有任何 `RequestShow()` / `Show()` 入口接到 live 运行链，属于“NPC 旧提示壳仍在，当前未上线”。
+  5. 结论上，NPC own 当前真正在线的视觉样式按壳算只有 1 套：`NPCBubblePresenter` 的 NPC 气泡 preset；`ReactionCue` 是行为模式，不是独立视觉壳。
+- 当前验证状态：
+  - `静态代码盘点成立`
+  - 未改代码、未跑 live。
+- 当前恢复点：
+  - 如果以后要继续收 NPC own 边界，优先处理两件事：
+    1. 明确 `NpcWorldHintBubble` 是删历史壳还是重新接线；
+    2. 若要做 `NPC pair bubble / speaking-owner` 样式扩展，先决定是否真的让 `ReactionCue` 落到独立视觉参数，而不是继续只当优先级模式。
+
+## 2026-04-05｜补记：NPC 线程已把样式盘点与 own 底座修复口径继续钉死，现因外部编译 blocker 停在 PARKED
+
+- 当前稳定认知：
+  - `NPC` 线程这轮继续做的是：
+    - 非正式聊天会话底座
+    - NPC 气泡 presenter
+    - 气泡布局 / speaking-owner / stale owner 护栏
+  - 没有继续吞：
+    - `Primary.unity`
+    - `GameInputManager.cs`
+    - `PromptOverlay / Workbench / UI shell`
+- 新增结论：
+  1. 当前代码盘点下：
+     - live 主样式 = `4`
+     - 工程总壳 = `7`
+  2. NPC 侧 own 脚本当前脚本级无红；
+     但项目级 Unity 编译被 `PlacementManager.cs` 外部错误挡住。
+  3. 因此正确阶段判断只能是：
+     - `结构 / checkpoint` 已继续站住
+     - `Unity 运行态验证` 暂被外部 blocker 卡住
+- 当前恢复点：
+  - 等 shared 外部编译错误解除后，再恢复 NPC 线 targeted probe 与用户终验准备。
+
+## 2026-04-05｜补记：NPC 线程已把本线测试编译红清掉，当前剩余 console 红已回到 foreign
+
+- 当前稳定判断：
+  1. 这轮用户指出的“大量报错”，在 NPC 线内真正属于我的，是 3 份 Editor tests 对 runtime 类型的强绑定编译红。
+  2. 这批红已经清掉。
+  3. 当前 console 剩余红不再属于这批 NPC own 测试：
+     - `SpringDay1PromptOverlay.cs` 运行态 coroutine/inactive 红
+     - `DialogueChinese Pixel SDF.asset` importer 红
+- 当前有效结果：
+  - `NpcAmbientBubblePriorityGuardTests.cs`
+  - `NpcInteractionPriorityPolicyTests.cs`
+  - `NpcCrowdDialogueTruthTests.cs`
+  已全部改成反射/非泛型资产加载口径，避免继续受 `Tests.Editor.asmdef` 与 runtime 预定义程序集边界影响。
+- 当前恢复点：
+  - NPC 线下一步可以直接继续本体收口，不必再为这组三份测试编译红绕路。
+
+## 2026-04-05｜补记：只读定位 NPC 撞墙静默卡死的吞没分支
+
+- 当前主线目标：
+  - 只读分析 NPC 撞墙 / 零推进时，哪些状态机会把现场吞成 pause，而不是留下显性 `RoamMoveInterrupted`。
+- 本轮子任务：
+  - 聚焦 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  - 必要时补读 `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+- 本轮已证实：
+  1. `CheckAndHandleStuck()` 命中 `progress.ShouldCancel` 后，会先走 `TryHandleTerminalStuck()`；而 `TryHandleTerminalStuck()` 在连续 terminal stuck 达到阈值时直接 `EnterLongPause()`，会绕过原本应走的 `TryInterruptRoamMove(StuckCancel)`。
+  2. `TickShortPause()` 与 `TickLongPause()` 在 `TryBeginMove()` 失败时，都只会重新 `EnterShortPause(false)`；这会把“贴墙后还是抽不到新可走点 / 新路径”的现场继续吞成 pause 循环。
+  3. 当前最危险的静默卡墙链，不只是 pause 分支本身，而是 `TickMoving()` 先 `NoteSuccessfulAdvance(currentPosition)`、再 `rb.MovePosition(nextPosition)`；如果物理碰撞实际挡住位移，`NPCMotionController.ResolveVelocity()` 仍优先返回 `_externalVelocity`，会继续把动画和 `IsMoving` 维持在“正在走”，而不是真实零推进。
+  4. shared avoidance 的动态 blocker 分支还会在 hard-stop 前主动 `RefreshProgressCheckpoint(...)`，容易把真实零推进长期伪装成“正常让行等待”。
+- 最小修复建议：
+  - 第一优先：`TryHandleTerminalStuck()`
+  - 第二优先：`TickMoving()` 或 `TryHandleSharedAvoidance()`
+- 本轮验证：
+  - 只读代码核查，无代码修改
+  - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+    - 原因：本轮始终停留在只读分析
+- 当前恢复点：
+  - 如果下一轮真的动手修，先把 terminal stuck 改成显性 interruption；
+  - 再把“实际没动但逻辑先记成功前进”的链条改掉。
+
+## 2026-04-05｜补记：NPC 自然漫游撞墙静默卡死修复已落双 checkpoint，现有 traversal probe fresh 转绿
+
+- 当前主线目标：
+  - 在不改玩家已认可 traversal 业务逻辑的前提下，修 NPC 自然漫游的撞墙/贴墙零推进静默吞没问题。
+- 本轮实际推进：
+  1. 只锁 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  2. 把“发了移动命令但实体没动”的情况补成真实 blocked-advance 检测
+  3. 把 blocked/stuck recover 成功时误清零 blocked/terminal 计数的问题收紧
+  4. 把 `Moving` 态下 `pathCount=0 / waypoint missing` 的静默短停改成显性 interruption
+  5. 已落两次代码 checkpoint：
+     - `263f4ed0` `npc-wall-stall-recovery-tighten`
+     - `bf386811` `npc-moving-path-loss-interrupt`
+- fresh 证据：
+  - `Tools/Codex/NPC/Run Natural Roam Bridge Probe` => `PASS natural-roam-bridge`
+  - `Tools/Codex/NPC/Run Traversal Acceptance Probe` => `PASS bridge+water+edge`
+  - `status.json` 结束态：`isPlaying=false`、`isCompiling=false`
+  - 最新 `Editor.log` 末段有 `Tundra build success`
+- 当前阶段判断：
+  - NPC traversal 的桥 / 水 / 边缘 contract 当前 fresh 站住；
+  - 之前“撞墙但 warning 被吞掉”的主漏洞已经修到代码和现有 probe 都能对上；
+  - remaining risk 已缩到“正式场景其他 choke point 是否还有新样本”，不再是当前已知恢复链本身没补上。
+- 当前恢复点：
+  - 若用户后续继续报正式场景个别 NPC 卡点，直接以新样本位置做 targeted probe；
+  - 若没有新反例，NPC 这条导航恢复链当前可以按“已修到可用”对外报实。
+## 2026-04-05｜补记：NPC 非正式聊天本线当前已把“002/003 起不了聊 + 跑开链不稳”压回到 live 可复现通过态
+- 当前稳定判断：
+  1. NPC own 这轮最关键的修正，是把 formal/casual 门禁从“按剧情 phase 全局禁 casual”改成了“same-object formal takeover only”。
+  2. 因此  02 / 003 已不再被 CrashAndMeet 这类 formal phase 整段误杀。
+  3. 当前 live 证据已覆盖：
+     -  02 两轮 casual 闭环
+     -  02 玩家首句打字时跑开中断
+     -  03 两轮 casual 闭环
+     -  03 玩家首句打字时跑开中断
+- 当前边界不变：
+  - 这不等于 shared prompt / 左下角提示 / 玩家面 UI 壳已经归我；
+  - 这轮仍只成立在 NPC own 的会话与气泡底座层。
+- 当前恢复点：
+  - 后续如用户继续让 NPC 线收口，优先进入“真实体验复核与细节补口”，而不是再回头排查  02 / 003 为何完全不起聊。
+
+## 2026-04-05｜更正：本层关于 002/003 的新增记录以本条为准
+
+- 正确结论只有三句：
+  1. 002/003 不再被 formal phase 整段误杀。
+  2. 002/003 的 casual 闭环都能 live 跑通。
+  3. 002/003 的玩家首句跑开中断都能 live 跑通。

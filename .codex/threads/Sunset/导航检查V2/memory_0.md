@@ -3657,3 +3657,44 @@
   - codeguard-timeout:600s
 - 下轮恢复点：
   - 等 external compile red 清掉后，直接回高频 NPC 热点 live 复测，重点看 StuckCancel warning 是否显著下降、静态 hard-stop 是否会转成 recover/改线/长停而不是反复 interrupt。
+
+## 2026-04-05｜NPC 静默撞墙恢复链二次收紧完成：双 checkpoint 已提交，现有 traversal live fresh 绿
+
+- 当前主线目标：
+  - 把用户指出的“NPC 明显撞墙卡住但不报错”从代码和现有 live probe 两层都真正压实。
+- 本轮子任务：
+  - 继续只改 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  - 不碰玩家导航业务语义，不碰 Town / binder / Tool_002 / UI
+- 本轮实际完成：
+  1. 先补 `MoveCommandNoProgress` 检测：
+     - 上一帧已经给了非微小位移命令、下一帧实体仍几乎原地时，直接回到 `TryHandleBlockedAdvance(...)`
+  2. 给 `TryBeginMove(...)` / `TryRebuildPath(...)` 加 `preserveBlockedRecoveryState`
+     - 避免“恢复成功但其实还在同一堵墙前”时把 blocked/terminal 计数洗掉
+  3. 再补 `Moving` 态异常路径丢失显性化：
+     - `PathClearedWhileMoving`
+     - `WaypointMissingWhileMoving`
+  4. 已落两次独立 commit，可直接回退：
+     - `263f4ed0` `2026.04.05_导航检查V2_npc-wall-stall-recovery-tighten`
+     - `bf386811` `2026.04.05_导航检查V2_npc-moving-path-loss-interrupt`
+- fresh 验证：
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs` 通过
+  - `Editor.log` 最新有 `*** Tundra build success (9.77 seconds), 9 items updated, 862 evaluated`
+  - `Tools/Codex/NPC/Run Natural Roam Bridge Probe` => `PASS natural-roam-bridge`
+  - `Tools/Codex/NPC/Run Traversal Acceptance Probe` => `PASS bridge+water+edge`
+  - 两次 probe 结束后 `status.json` 均回到：
+    - `isPlaying=false`
+    - `isCompiling=false`
+  - 本轮 probe 日志里未再出现新的 `roam interrupted` 样本
+- 当前判断：
+  - 这轮已经不只是“把 warning 关掉”，而是把静默卡死逻辑漏洞补上了；
+  - 当前已知 NPC traversal 合同在现有 bridge/water/edge live probe 下 fresh 为绿；
+  - 仍不能无限上纲为“所有正式场景 choke point 全穷尽”，但当前主坏相已经从已知代码漏洞收缩成“等待新反例”。
+- changed_paths：
+  - `D:\\Unity\\Unity_learning\\Sunset\\Assets\\YYY_Scripts\\Controller\\NPC\\NPCAutoRoamController.cs`
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑（本轮不收口 sync）
+  - `Park-Slice`：已跑
+- 当前恢复点：
+  - 如果继续，优先只在用户给出的新正式场景卡点上做 targeted live；
+  - 如果没有新反例，这条 NPC 导航恢复链可按“当前版本已修到可用”向用户报实。
