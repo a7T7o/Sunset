@@ -1662,3 +1662,36 @@ Sunset 里大量改动都属于：
 - 当前恢复点：
   - 下一步只做 docs-only 的 `Ready-To-Sync -> sync`
   - 如果这一手通过，本轮 own 内容就收完；后续 `Town` 再 reopen 时只按新的 live 现象开窄刀
+
+## 2026-04-05｜Town 主线继续压深：EnterVillageCrowdRoot 已从“泛锚点”收成 runtime contract 问题
+
+- 当前主线目标：
+  - 把 `Town` 当前第一优先 anchor `EnterVillageCrowdRoot` 压到最深，判断它现在到底缺的是什么。
+- 本轮子任务：
+  1. 只读复核 `Town.unity` 的 `EnterVillageCrowdRoot`
+  2. 只读复核 `spring-day1` 现有导演正文、JSON、Manifest、CrowdDirector 如何消费它
+  3. 给 `spring-day1` 输出一张比“Town 总边界”更窄的 `runtime contract` 卡
+- 本轮实际做成：
+  1. 证据已钉死：
+     - `EnterVillageCrowdRoot` 在 `SCENE/Town_Day1Carriers` 下真实存在
+     - 当前只有空 `Transform`
+     - 同级 anchor 组完整存在
+  2. 更深的 runtime 真相已钉死：
+     - `semanticAnchorId` 已进入正文、`StageBook` 与 `Manifest.semanticAnchorIds`
+     - 但 `SpringDay1NpcCrowdDirector` 仍只在 `Primary` 场景跑
+     - spawn 仍沿用 `Manifest.anchorObjectName` 的 `001/002/003` 这组 `Primary` 旧锚
+     - `Town` 里没有这组旧锚名
+  3. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_EnterVillageCrowdRoot_runtime-contract卡_01.md`
+- 当前关键判断：
+  - 如果按宽口径说，它是 `L3`：正式命名、正式父容器、正式同级锚点组都已成立
+  - 但如果按更窄的 runtime-readiness 口径说，它是 `R2`：语义和数据 cue 已成立，runtime 真落位还没接上
+  - 所以这轮把我 own 主线继续推进之后，最值钱的已经不是“再去看另一个 anchor”，而是把这个 contract 真相交给 `spring-day1`
+- 验证状态：
+  - `静态文本 / 代码 / scene YAML 交叉核对成立`
+  - `未修改 scene`
+  - `未碰 spring-day1 active 代码`
+- 当前恢复点：
+  - 若用户下一轮继续让我 own `Town`，只有两种值得继续：
+    1. 经确认后进入 `Town` 生产 scene 修改
+    2. `spring-day1` 真的开始吃 `EnterVillageCrowdRoot` runtime，再按窄口 reopen

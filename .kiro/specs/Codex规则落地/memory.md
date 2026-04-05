@@ -12234,6 +12234,99 @@
   - `脚本静态验证已过`
   - `Unity 场景产出尚未验证`
   - `legal sync 尚未尝试`
+
+## 2026-04-05｜纯 CLI Unity 路线已完成外部调研与 Sunset 适配判断
+
+- 用户目标：
+  - 用户明确要求不要再停在“CLI / MCP 哪个更好”的概念争论，而是要一份真正的纯 CLI Unity 方案，并结合前序参考：
+    - `steipete/mcporter`
+    - `HKUDS/CLI-Anything`
+    - `jackwener/opencli`
+- 本轮实际确认的外部事实：
+  1. 市面上确实存在“纯 CLI 使用 Unity”的公开路线，但大多聚焦：
+     - Unity 官方命令行
+     - Unity Hub CLI
+     - `-batchmode / -runTests / -executeMethod`
+     - 项目初始化 / build / test / setup
+  2. 可作为样板的公开项目包括：
+     - Unity 官方命令行与 batch build / test 文档
+     - `Unity-Technologies/com.unity.cli-project-setup`
+     - `devchan97/unity-cli`
+     - `CyberAgentGameEntertainment/SmartAddresser` 的 CLI 用法
+  3. 这些“纯 CLI”方案的共同点是：
+     - 都把 Unity 当成被新启动的 worker process
+     - 通过 Editor 启动参数和 `-executeMethod` 在进程启动后执行一次任务
+     - 不依赖常驻 MCP server
+  4. 这些方案没有天然解决“开着同一个 Unity Editor 时，做高频 live console / scene / inspector 查询”的问题；按照 Unity 官方 batchmode 口径，这类方案更适合 build/test/setup/headless task，而不是替代已打开 Editor 的 live bridge。
+- 结合三类参考后的架构判断：
+  1. 从 `mcporter` 借的，不是 Unity 控制面本身，而是：
+     - orchestrator / facade 与 backend 分层
+  2. 从 `CLI-Anything` 借的，是：
+     - 自描述命令面
+     - 结构化 JSON 输出
+     - agent-friendly CLI 体验
+  3. 从 `opencli` 借的，是：
+     - adapter/plugin 边界
+     - 前端 CLI 与后端执行器解耦
+  4. 但 Unity 的基础控制面若坚持“真纯 CLI”，最稳的底座仍应回到：
+     - Unity 官方 CLI
+     - `-executeMethod`
+     - 项目内 Editor command bus
+- 当前对 Sunset 的最准确判断：
+  - 可以做一套真正的“纯 CLI Unity 方案”；
+  - 但它更适合：
+    - CI
+    - build
+    - test
+    - setup
+    - editor-closed 的确定性任务
+  - 它不应被误判成当前最高频“开着 Editor 改代码时查 fresh red”的默认方案。
+- 当前最有价值的 Sunset 纯 CLI 方案轮廓：
+  1. 入口：`sunset-unity`
+  2. 底座：Unity Editor / Hub 官方 CLI
+  3. 项目内：`Assets/Editor/SunsetCli/EntryPoint.cs`
+  4. 调用方式：
+     - `Unity.exe -batchmode -quit -projectPath ... -executeMethod Sunset.Cli.EntryPoint.Run --sunset-cli ...`
+  5. 输出：
+     - stdout 短摘要 + `Library/SunsetCli/*.json`
+  6. 默认命令：
+     - `doctor`
+     - `compile`
+     - `errors`
+     - `validate-script`
+     - `test editmode`
+     - `build`
+     - `exec-method`
+- 当前判断：
+  - 如果目标是“找到纯 CLI 方案”，答案是：有，而且能做；
+  - 如果目标是“让它替代当前 live 高频 no-red 环”，答案是：不能直接替代，除非接受 editor-closed / batch-first 的工作方式，或者重新引入另一种本地 bridge。
+## 2026-04-05｜只读复盘：NpcAmbientBubblePriorityGuard 三条“失败”在当前 working tree 已不复现，真正需要盯的是 1 个 runtime contract 与 2 个 fixture seam
+- 用户当前主线目标：
+  - 只读分析 `NpcAmbientBubblePriorityGuardTests` 里 3 条定向失败，判断每条更像 runtime contract 真坏，还是测试夹具没有把当前 refactor 的桥接状态模拟完整。
+- 本轮实际做成了什么：
+  1. 读取并交叉核对了：
+     - `Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/NpcAmbientBubblePriorityGuard.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/NpcInteractionPriorityPolicy.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+     - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+  2. 只读复跑了整类 `NpcAmbientBubblePriorityGuardTests`，当前结果是 `4/4 passed`，包括用户点名的 3 条。
+  3. 钉实真正的行为修补点在 `NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubble()`：它已经从“formal 阶段一刀切压 ambient”改成“只有 active dialogue 或当前 focused formal prompt 真能接管时才压”。
+  4. 钉实如果用户看到的是更早一轮失败，最可疑的是两类夹具桥接没补全：
+     - `CreateDialogueManager()` 没把 `DialogueManager.Instance / IsDialogueActive` 模拟到位
+     - `SetCurrentFormalPromptFocus()` 没把 `SpringDay1ProximityInteractionService._instance + _currentCandidate + _hasCurrentCandidate` 注册完整
+- 关键判断：
+  - `ShouldAllowAmbientBubble_WhenNoFormalTakeoverIsActive` 更像 runtime contract 之前太粗，根因在 `NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubble()`。
+  - `ShouldHideVisibleAmbientBubble_WhenDialogueIsActive` 如果曾失败，更像是新 contract 下的 test fixture 没把“active dialogue”状态立起来，不像独立 runtime 漏洞。
+  - `ShouldHideVisibleAmbientBubble_WhenFormalPromptOwnsCurrentFocus` 如果曾失败，更像 focus/current-candidate 单例桥接没立起来；当前代码里这条 seam 已补齐。
+- 验证结果：
+  - `Unity EditMode 只读复跑成立`
+  - `NpcAmbientBubblePriorityGuardTests = 4/4 passed`
+  - `未改业务代码`
+- 下一步恢复点：
+  - 如果后续又报这 3 条失败，先看测试运行时是不是还在旧缓存 / 半改状态；
+  - 真要继续修，第一优先仍是守住 `NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubble()` 的条件抑制语义，不要回退成 formal 阶段 blanket suppression。
 ## 2026-04-05｜Town 主线继续压深：Town / Primary 双边 scene 基础设施已拿到 fresh clean 现场
 
 - 当前主线目标：
@@ -12314,6 +12407,40 @@
 - 当前恢复点：
   - 下一步只做 docs-only 的 `Ready-To-Sync -> sync`；
   - 若这一手过线，本轮我 own 的治理收尾就算完整闭环。
+## 2026-04-05｜Town 主线继续压深到 EnterVillageCrowdRoot：已拿到第一张 runtime contract 卡
+
+- 当前主线目标：
+  - 不再泛扫整个 `Town`，而是把 `EnterVillageCrowdRoot` 这个第一优先 anchor 压到更深，判断它到底卡在 scene、数据还是 runtime contract。
+- 本轮子任务：
+  1. 复核 `Town.unity` 里 `EnterVillageCrowdRoot` 的真实 scene 结构
+  2. 复核 `spring-day1` 当前对它的正文/数据/runtime 消费层级
+  3. 收成一张可直接给 `spring-day1` 吃的 `runtime contract` 卡
+- 本轮实际做成：
+  1. 读取 [Town.unity](/D:/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 后确认：
+     - `SCENE/Town_Day1Carriers/EnterVillageCrowdRoot` 真实存在
+     - 同级还有 `KidLook_01 / DinnerBackgroundRoot / NightWitness_01 / DailyStand_01~03`
+     - 这批当前都是纯 `Transform` 空锚点，位置仍是 `0,0,0`
+  2. 读取 [SpringDay1NpcCrowdManifest.asset](/D:/Unity_learning/Sunset/Assets/Resources/Story/SpringDay1/SpringDay1NpcCrowdManifest.asset)、[SpringDay1DirectorStageBook.json](/D:/Unity_learning/Sunset/Assets/Resources/Story/SpringDay1/Directing/SpringDay1DirectorStageBook.json)、[SpringDay1NpcCrowdDirector.cs](/D:/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs) 后确认：
+     - `EnterVillageCrowdRoot` 已进入导演正文与 `StageBook actorCues.semanticAnchorId`
+     - 但 runtime 真正的出生锚仍然沿用 `Manifest.anchorObjectName = 001|NPC001` 这一组 `Primary` 老锚
+     - `SpringDay1NpcCrowdDirector` 当前仍然写死只在 `Primary` 场景工作
+  3. 继续核对 scene 名称后确认：
+     - `001/002/003` 这组旧锚存在于 [Primary.unity](/D:/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity)
+     - 不存在于 [Town.unity](/D:/Unity_learning/Sunset/Assets/000_Scenes/Town.unity)
+     - 这意味着如果未来不先补 contract 就硬切到 `Town`，spawn 很可能直接回退到 `fallbackWorldPosition = 0,0`
+  4. 新增协作卡：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_EnterVillageCrowdRoot_runtime-contract卡_01.md`
+- 当前关键判断：
+  - 按较宽的治理等级，`EnterVillageCrowdRoot` 仍可视为有正式命名和正式父容器的 scene 锚点；
+  - 但按更窄的 `runtime-readiness` 口径，它当前只能算 `R2`：
+    - `导演语义 + 数据 cue` 已成立
+    - `scene anchor -> runtime 真落位` 还没接上
+  - 因此当前最值钱的协作物不是再给 `day1` 一份 Town 总边界，而是这张更窄的 `runtime contract` 卡
+- 当前恢复点：
+  - 如果继续 `Town` own 主线，下一步不该再泛扫全图；
+  - 应只在两种情况下 reopen：
+    1. 用户明确批准进入 `Town` 生产 scene 修改
+    2. `spring-day1` 明确要开始吃 `EnterVillageCrowdRoot` 的真实 runtime 承接
 - 当前恢复点：
   - 如果后续继续这条线，最合理的下一步不是再补更多逐格选项
   - 而是拿用户真实植被 Tilemap 做一次定向验收，再判断哪些 cluster 需要模板 / hint 才能继续往“更准”推进
