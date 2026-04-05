@@ -474,7 +474,9 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
             $"controllerEnabled={(context.Controller != null && context.Controller.enabled)} " +
             $"gameObjectActive={(context.Controller != null && context.Controller.gameObject.activeInHierarchy)} " +
             $"rbSimulated={rbSimulated} bodyType={bodyType} rbPos={rbPosition} rbVel={rbVelocity} " +
-            $"motionVel={motionVelocity} timeScale={Time.timeScale:F2}";
+            $"motionVel={motionVelocity} timeScale={Time.timeScale:F2} " +
+            $"skipReason={(context.Controller != null ? context.Controller.DebugLastMoveSkipReason : "n/a")} " +
+            $"pendingAge={(context.Controller != null ? context.Controller.DebugPendingMoveCommandAge.ToString("F3") : "n/a")}";
     }
 
     private static void SuppressInterferingControllers()

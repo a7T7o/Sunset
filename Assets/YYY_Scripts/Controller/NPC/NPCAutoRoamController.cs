@@ -32,9 +32,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const int BLOCKED_ADVANCE_REROUTE_MIN_FRAMES = 3;
     private const int BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES = 6;
     private const float MOVE_COMMAND_NO_PROGRESS_RADIUS = 0.015f;
+    private const float MOVE_COMMAND_NO_PROGRESS_GRACE_SECONDS = 0.06f;
     private const float MOVE_COMMAND_OSCILLATION_SAME_POSITION_RADIUS = 0.14f;
     private const float MOVE_COMMAND_OSCILLATION_FLIP_DOT_THRESHOLD = 0.15f;
     private const int MOVE_COMMAND_OSCILLATION_MIN_FLIPS = 2;
+    private const float CONSTRAINED_ADVANCE_FALLBACK_EXTRA_DISTANCE = 0.18f;
     private const int TERMINAL_STUCK_LONG_PAUSE_MIN_COUNT = 2;
     private const float TERMINAL_STUCK_SAME_POSITION_RADIUS = 0.2f;
     private const float AVOIDANCE_STUCK_RESET_MAX_MOVE_SCALE = 0.32f;
@@ -254,11 +256,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private Vector2 lastBlockedAdvancePosition;
     private bool hasPendingMoveCommandProgressCheck;
     private Vector2 pendingMoveCommandOrigin;
+    private float pendingMoveCommandIssuedAt = float.NegativeInfinity;
     private Vector2 lastIssuedMoveDirection;
     private Vector2 lastIssuedMovePosition;
     private int consecutiveMoveCommandDirectionFlips;
     private int consecutiveTerminalStuckCount;
     private Vector2 lastTerminalStuckPosition;
+    private string lastMoveSkipReason = "None";
 
     private List<Vector2> path => navigationExecution.Path;
     private Vector2 currentDestination { get => navigationExecution.Destination; set => navigationExecution.Destination = value; }
@@ -280,6 +284,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public int LongPauseTriggerCount => longPauseTriggerCount;
     public int CurrentStuckRecoveryCount => currentStuckRecoveryCount;
     public float DebugLastProgressDistance => lastProgressDistance;
+    public string DebugLastMoveSkipReason => lastMoveSkipReason;
+    public float DebugPendingMoveCommandAge =>
+        hasPendingMoveCommandProgressCheck && pendingMoveCommandIssuedAt > float.NegativeInfinity
+            ? Time.time - pendingMoveCommandIssuedAt
+            : -1f;
     public NPCRoamProfile RoamProfile => roamProfile;
     public bool DebugHasSharedAvoidanceDetour => navigationExecution.HasOverrideWaypoint;
     public int DebugSharedAvoidanceNoBlockerFrames => sharedAvoidanceNoBlockerFrames;
@@ -905,12 +914,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         if (motionController == null)
         {
+            lastMoveSkipReason = "MissingMotionController";
             return;
         }
 
         Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
         if (path.Count == 0)
         {
+            lastMoveSkipReason = "PathClearedWhileMoving";
             if (TryInterruptRoamMove(
                     RoamMoveInterruptionReason.StuckRecoveryFailed,
                     currentPosition,
@@ -931,6 +942,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (TryHandlePendingMoveCommandNoProgress(currentPosition))
         {
+            lastMoveSkipReason = "MoveCommandNoProgress";
             return;
         }
 
@@ -958,17 +970,20 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (waypointState.ReachedPathEnd ||
             Vector2.Distance(currentPosition, currentDestination) <= destinationTolerance)
         {
+            lastMoveSkipReason = "ReachedDestination";
             FinishMoveCycle(countTowardLongPause: true, reachedDestination: true);
             return;
         }
 
         if (CheckAndHandleStuck(currentPosition))
         {
+            lastMoveSkipReason = "Stuck";
             return;
         }
 
         if (!waypointState.HasWaypoint)
         {
+            lastMoveSkipReason = "MissingWaypoint";
             if (TryInterruptRoamMove(
                     RoamMoveInterruptionReason.StuckRecoveryFailed,
                     currentPosition,
@@ -991,6 +1006,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (distance <= 0.0001f || moveSpeed <= 0f)
         {
+            lastMoveSkipReason = distance <= 0.0001f ? "ZeroDistanceToWaypoint" : "ZeroMoveSpeed";
             motionController.StopMotion();
             return;
         }
@@ -998,12 +1014,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 moveDirection = toWaypoint / distance;
         if (TryHandleSharedAvoidance(currentPosition, avoidancePosition, waypoint, moveDirection, out Vector2 adjustedDirection, out float moveScale))
         {
+            lastMoveSkipReason = "SharedAvoidance";
             return;
         }
 
         float step = moveSpeed * Mathf.Clamp01(moveScale) * Mathf.Max(deltaTime, 0.0001f);
         if (step <= 0.0001f)
         {
+            lastMoveSkipReason = "ZeroStep";
             TryHandleBlockedAdvance(currentPosition, "ZeroStep");
             return;
         }
@@ -1017,16 +1035,19 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 velocity = (nextPosition - currentPosition) / safeDeltaTime;
         if (velocity.sqrMagnitude <= 0.0001f)
         {
+            lastMoveSkipReason = "ConstrainedZeroAdvance";
             TryHandleBlockedAdvance(currentPosition, "ConstrainedZeroAdvance");
             return;
         }
 
         if (ShouldTreatMoveCommandAsOscillation(currentPosition, velocity))
         {
+            lastMoveSkipReason = "MoveCommandOscillation";
             TryHandleBlockedAdvance(currentPosition, "MoveCommandOscillation");
             return;
         }
 
+        lastMoveSkipReason = "IssuingVelocity";
         MarkMoveCommandIssued(currentPosition, nextPosition);
         motionController.SetExternalVelocity(velocity);
         if (rb != null)
@@ -1821,9 +1842,53 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         bool prioritizeX = Mathf.Abs(desiredOffset.x) >= Mathf.Abs(desiredOffset.y);
-        return prioritizeX
+        Vector2 constrainedPosition = prioritizeX
             ? ConstrainNextPositionByAxes(currentPosition, desiredOffset, tryXFirst: true)
             : ConstrainNextPositionByAxes(currentPosition, desiredOffset, tryXFirst: false);
+        if ((constrainedPosition - currentPosition).sqrMagnitude > 0.0001f)
+        {
+            return constrainedPosition;
+        }
+
+        if (TryResolveConstrainedFallbackPosition(currentPosition, desiredNextPosition, desiredOffset, out Vector2 fallbackPosition))
+        {
+            return fallbackPosition;
+        }
+
+        return currentPosition;
+    }
+
+    private bool TryResolveConstrainedFallbackPosition(
+        Vector2 currentPosition,
+        Vector2 desiredNextPosition,
+        Vector2 desiredOffset,
+        out Vector2 fallbackPosition)
+    {
+        fallbackPosition = currentPosition;
+        if (!TryResolveNavGrid(logIfMissing: false))
+        {
+            return false;
+        }
+
+        if (!navGrid.TryFindNearestWalkable(desiredNextPosition, out Vector2 nearestWalkable, navigationCollider))
+        {
+            return false;
+        }
+
+        float fallbackDistance = Vector2.Distance(currentPosition, nearestWalkable);
+        float maxFallbackDistance = desiredOffset.magnitude + CONSTRAINED_ADVANCE_FALLBACK_EXTRA_DISTANCE;
+        if (fallbackDistance <= 0.0001f || fallbackDistance > maxFallbackDistance)
+        {
+            return false;
+        }
+
+        if (!CanOccupyNavigationPoint(nearestWalkable))
+        {
+            return false;
+        }
+
+        fallbackPosition = nearestWalkable;
+        return true;
     }
 
     private Vector2 ConstrainNextPositionByAxes(Vector2 currentPosition, Vector2 desiredOffset, bool tryXFirst)
@@ -2579,6 +2644,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         consecutiveTerminalStuckCount = 0;
         lastTerminalStuckPosition = currentPosition;
         ResetMoveCommandOscillationState(currentPosition);
+        lastMoveSkipReason = "AdvanceConfirmed";
     }
 
     private void RefreshProgressCheckpoint(Vector2 currentPosition, bool resetCounter)
@@ -2751,13 +2817,19 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return false;
         }
 
-        hasPendingMoveCommandProgressCheck = false;
         if (Vector2.Distance(currentPosition, pendingMoveCommandOrigin) > MOVE_COMMAND_NO_PROGRESS_RADIUS)
         {
+            ClearPendingMoveCommandProgressCheck();
             NoteSuccessfulAdvance(currentPosition);
             return false;
         }
 
+        if (Time.time - pendingMoveCommandIssuedAt < MOVE_COMMAND_NO_PROGRESS_GRACE_SECONDS)
+        {
+            return false;
+        }
+
+        ClearPendingMoveCommandProgressCheck();
         return TryHandleBlockedAdvance(currentPosition, "MoveCommandNoProgress");
     }
 
@@ -2771,12 +2843,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         hasPendingMoveCommandProgressCheck = true;
         pendingMoveCommandOrigin = currentPosition;
+        pendingMoveCommandIssuedAt = Time.time;
     }
 
     private void ClearPendingMoveCommandProgressCheck()
     {
         hasPendingMoveCommandProgressCheck = false;
         pendingMoveCommandOrigin = Vector2.zero;
+        pendingMoveCommandIssuedAt = float.NegativeInfinity;
     }
 
     private bool ShouldTreatMoveCommandAsOscillation(Vector2 currentPosition, Vector2 velocity)
