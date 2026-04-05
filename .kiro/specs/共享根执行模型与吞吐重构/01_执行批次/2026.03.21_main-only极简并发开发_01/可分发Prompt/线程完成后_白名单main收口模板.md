@@ -42,13 +42,14 @@
 
 ## 如果你要对外说“无红错 / 可交接 / 可直接提交”
 - 只要本轮改动触及运行时代码、scene、prefab、asset、UI、剧情、交互、输入或管理器链，就必须同时补：
-  - fresh recompile
-  - fresh console
-  - 必要时最小 live 取证，或明确写 `live 待验证`
+  - 默认先给 CLI 侧的 fresh recompile
+  - 默认先给 CLI 侧的 fresh console
+  - CLI 覆盖不到时，再补 direct MCP / live 取证，或明确写 `live 待验证`
 - `validate_script`、`CodexCodeGuard`、`git diff --check` 不得单独充当“红错验收完成”
-- 如果 MCP / Unity 当前不可用，只能老实写：
+- Sunset 当前默认顺序是：`CLI first, direct MCP last-resort`
+- 如果 CLI 与 direct MCP / Unity 当前不可用，只能老实写：
   - `代码闸门通过`
-  - `Unity / MCP 红错验证未闭环`
+  - `Unity 红错验证未闭环`
   - `live / console 待补`
 
 ## 只有这些情况才不要自己直接收口

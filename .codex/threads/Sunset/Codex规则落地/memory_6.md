@@ -1303,3 +1303,81 @@ Sunset 里大量改动都属于：
 - 当前恢复点：
   - 若用户下一步继续 Town 分发，我只需要继续盯 `UI` 与 `农田交互修复V3`；
   - `工具-V1` 只有在用户点名新回归或新 gap 时才 reopen。
+
+## 2026-04-05｜CLI-first no-red 进入“日志可判定”补强，Town/Primary 当前继续停手
+
+- 当前主线目标：
+  - 把 no-red 规则从“方向正确”推进到“日志可直接判定”，同时重新压实 Town/Primary 当前是否该由治理线程继续下场。
+- 本轮子任务：
+  - 补 `No-Red 证据卡 v2`
+  - 给 `sunset_mcp.py` 增加对应提示面
+  - 只读复核 Town/Primary
+- 这轮实际做成了什么：
+  1. 新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_CLI主导爆红规范_日志可判定补强_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_Town与Primary现状复核_治理停手边界_05.md`
+  2. 已实写：
+     - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+     - `D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py`
+     - `C:\Users\aTo\.codex\skills\sunset-no-red-handoff\SKILL.md`
+     - `C:\Users\aTo\.codex\memories\global-skill-registry.md`
+  3. `doctor` 现在已能直接给出 `no_red_receipt_v2` 所需字段清单和值域。
+  4. Town/Primary 当前结论：
+     - `Town` 没有新的治理自刀点，继续只剩 `UI + 农田`
+     - `Primary` 继续只读；当前 A 类锁 owner 已是 `农田交互修复V3`
+- 关键判断：
+  - 我现在最确信的判断是：Town/Primary 这轮都不该继续由治理线程实写，真正可做且该做的是先把 no-red 规则补成能从日志直接判责。
+- 薄弱点与 blocker：
+  - `Sunset当前规范快照_2026-03-22.md` 与两份老模板文件当前写入时报：
+    - `The requested operation cannot be performed on a file with a user-mapped section open.`
+  - 所以这轮“规则全链同步”还差快照层/老模板层的最后一跳，不能假装 100% 完整。
+- 当前阶段：
+  - 已进入真实施工并完成主要写面，但尚未到 sync。
+- 当前恢复点：
+  - 先检查 repo 内可收口路径与 same-root hygiene
+  - 若可行就白名单提交本轮治理内容
+
+## 2026-04-05｜只读复核补记：Town 不再有治理自刀，Primary 继续停在外线 owner
+
+- 当前主线目标：
+  - 继续守住 `Town / Primary` 的治理边界，不把已转成外线 owner 的问题重新吞回治理线程。
+- 本轮子任务：
+  - 用户要求我只读复核两件事：
+    1. `Town` 当前是否还存在可继续完善的 own 点
+    2. `Primary` 当前是否允许治理线程安全推进
+- 这轮实际做成了什么：
+  1. 重新压实 `Town` 当前结论：
+     - `Town scene health` 子线继续应判 `无需继续发`
+     - `工具-V1线程` 的相机链已按 `用户已测通过` 收口
+     - `Town` 当前剩余活跃外线继续只剩：
+       - `UI` 的 `DialogueUI / 字体链`
+       - `农田交互修复V3` 的 `PlacementManager.cs` compile red
+  2. 额外补出一个不能忽略的现场事实：
+     - `Town.unity` 当前 working tree 仍 dirty
+     - diff 里可见 `CloudShadow` 相关 scene 变动、TMP material instance churn，以及 `CinemachineCamera.Target.TrackingTarget = {fileID: 0}`
+     - 所以“Town 不再有 own slice”不等于“Town scene 现在 clean，可由治理位顺手吞并”
+  3. 重新核对 `Primary` 当前状态后，确认 2026-04-03 那份 prompt 里的基线已部分过时：
+     - 当前 `.kiro/locks/active/A__Assets__000_Scenes__Primary.unity.lock.json` owner 已是 `农田交互修复V3`
+     - `Show-Active-Ownership.ps1` 也显示该线程当前 `ACTIVE`
+     - `Primary.unity` 文本里现在已能找到 `SeasonManager` 与 `PersistentManagers`
+     - 但仍搜不到 `TimeManagerDebugger`
+  4. 因此当前最稳的治理判断更新为：
+     - `Town` 没有值得我继续 own 的必做 slice
+     - `Primary` 也绝不是治理线程现在可安全接手的 ownerless hotfile
+  5. 顺手收出了当前 `git status` 里和 `Town / Primary` 直接相关、但不应由治理线程静默吞并的路径：
+     - `Assets/000_Scenes/Primary.unity`
+     - `Assets/000_Scenes/Town.unity`
+     - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+     - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+     - `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+     - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - `Assets/YYY_Scripts/Service/Rendering/CloudShadowManager.cs`
+     - `Assets/YYY_Scripts/Service/PersistentManagers.cs`
+     - `Assets/YYY_Scripts/Service/TimeManager.cs`
+     - `Assets/YYY_Scripts/TimeManagerDebugger.cs`
+- 当前判断：
+  - 若用户继续 `Town`，我下一步只该继续盯 `UI + 农田交互修复V3` 的回执与 blocker 变化，不再 reopen `Town scene health` 自刀。
+  - 若用户继续 `Primary`，我必须继续停在只读 / 外线 owner；先等当前 lock owner 报实或释放，再重做 `TimeManagerDebugger` 缺失链复核。
+- 风险与薄弱点：
+  - `Town.unity` 当前仍有 mixed dirty，不能把“无 own slice”偷换成“scene 可安全清扫”。
+  - `Primary` 当前锁 owner 是 `农田交互修复V3`，但其最新主线并非 `Primary manager/debugger` 自刀；这意味着现场不是“治理可接盘”，而是“锁和 mixed dirty 仍未澄清到可安全 takeover”。

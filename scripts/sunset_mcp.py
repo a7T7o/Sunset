@@ -493,6 +493,26 @@ def manage_script_command(args: argparse.Namespace) -> dict[str, object]:
     return result("manage_script", bool(raw.get("success")), f"action=get_sha sha={sha or 'n/a'}", payload)
 
 
+def unity_red_check_value(args: argparse.Namespace, mcp_error: str | None, waited: dict[str, object] | None) -> str:
+    if args.skip_mcp:
+        return "live-pending"
+    if mcp_error is not None:
+        return "blocked"
+    if waited is None or not bool(waited.get("ready")):
+        return "blocked"
+    return "pass"
+
+
+def mcp_fallback_fields(args: argparse.Namespace, mcp_error: str | None, waited: dict[str, object] | None) -> tuple[str, str]:
+    if args.skip_mcp:
+        return ("required", "unity_validation_pending")
+    if mcp_error is not None:
+        return ("required", "baseline_fail")
+    if waited is None or not bool(waited.get("ready")):
+        return ("required", "blocked")
+    return ("not-needed", "none")
+
+
 def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object]:
     guards = build_guards(args)
     paths = resolve_code_paths(args.repo_root, args)
@@ -542,6 +562,9 @@ def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object
     elif unity_pending:
         assessment = "unity_validation_pending"
 
+    unity_red_check = unity_red_check_value(args, mcp_error, waited)
+    mcp_fallback, mcp_fallback_reason = mcp_fallback_fields(args, mcp_error, waited)
+
     payload = {
         "target_paths": paths,
         "resource_guards": guards,
@@ -554,6 +577,17 @@ def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object
         "classification": classified,
         "mcp_error": mcp_error,
         "assessment": assessment,
+        "no_red_receipt_v2": {
+            "cli_red_check_command": command,
+            "cli_red_check_scope": paths,
+            "cli_red_check_assessment": assessment,
+            "unity_red_check": unity_red_check,
+            "mcp_fallback": mcp_fallback,
+            "mcp_fallback_reason": mcp_fallback_reason,
+            "current_owned_errors": owned_errors,
+            "current_external_blockers": external_errors,
+            "current_warnings": int(classified["owned_counts"]["warnings"]) + int(classified["external_counts"]["warnings"]),
+        },
         "manage_script_compat": {
             "native_tool": "manage_script",
             "native_action": "validate",
@@ -695,7 +729,37 @@ def main() -> None:
             recs.append("validate_script 已是脚本级单命令入口；需要原生兼容时优先用 --name/--path/--level")
             recs.append("manage_script 只开放 validate|get_sha；不要把 create/update/edit 面重新搬回高频 CLI")
             recs.append("外部 red 仍然只能诚实报 external_red，不能因为 native validate 通过就包装成 pass")
-            payload = result("doctor", True, f"recommendations={len(recs)}", {"baseline": base, "recommendations": recs})
+            payload = result(
+                "doctor",
+                True,
+                f"recommendations={len(recs)}",
+                {
+                    "baseline": base,
+                    "recommendations": recs,
+                    "no_red_receipt_v2": {
+                        "required_fields": [
+                            "cli_red_check_command",
+                            "cli_red_check_scope",
+                            "cli_red_check_assessment",
+                            "unity_red_check",
+                            "mcp_fallback",
+                            "mcp_fallback_reason",
+                            "current_owned_errors",
+                            "current_external_blockers",
+                            "current_warnings",
+                        ],
+                        "assessment_values": ["no_red", "own_red", "external_red", "unity_validation_pending", "blocked"],
+                        "mcp_fallback_reason_values": [
+                            "baseline_fail",
+                            "unity_validation_pending",
+                            "blocked",
+                            "scene_live_flow_required",
+                            "playmode_required",
+                            "inspector_required",
+                        ],
+                    },
+                },
+            )
         elif args.cmd == "errors":
             guards = build_guards(args)
             mcp = Mcp(args.endpoint, int(guards["timeout_sec"]))

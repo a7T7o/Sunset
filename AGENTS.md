@@ -174,6 +174,36 @@
   - 若 CLI 当前覆盖不到，再补 direct MCP / live 证据
   - 若任务本身涉及 scene/UI/runtime flow，再补最小 live 取证或明确写成“live 待验证”
 - 上面这条里，`validate_script`、`CodexCodeGuard`、`git diff --check` 这类代码闸门只算“代码层自检”，绝不等于运行态红错已经验收完毕。
+- 从 2026-04-05 起，只要线程在回执、聊天或 memory 里对代码任务写出：
+  - `无红错`
+  - `红错已清`
+  - `Unity 可直接交接`
+  - `可直接提交`
+  - 或任何同义的 no-red / handoff 结论
+  技术审计层都必须额外原样补一张 `No-Red 证据卡 v2`，至少包含：
+  - `cli_red_check_command`
+  - `cli_red_check_scope`
+  - `cli_red_check_assessment`
+  - `unity_red_check`
+  - `mcp_fallback`
+  - `mcp_fallback_reason`
+  - `current_owned_errors`
+  - `current_external_blockers`
+  - `current_warnings`
+- `cli_red_check_assessment` 必须直接沿用 CLI 原值：
+  - `no_red`
+  - `own_red`
+  - `external_red`
+  - `unity_validation_pending`
+  - `blocked`
+- `mcp_fallback_reason` 也不允许自由发挥；如果 `mcp_fallback != not-needed`，必须精确落到：
+  - `baseline_fail`
+  - `unity_validation_pending`
+  - `blocked`
+  - `scene_live_flow_required`
+  - `playmode_required`
+  - `inspector_required`
+- 缺任一项 `No-Red 证据卡 v2`，或只写“通过/没问题”却不给命令和 assessment，一律视为“日志不可判定”，不能 claim no-red、不能 claim handoff-ready。
 - 如果当前 CLI 与 direct MCP / Unity 基线都拿不到结果，正确口径只能是：
   - `代码层检查已过，但 Unity 红错验证未完成`
   - 或 `被 CLI / MCP / Unity blocker 卡住`
@@ -329,6 +359,7 @@
   - `Unity 可直接交接`
   - `可直接提交`
   且本轮改动实际触及运行时代码、scene、prefab、asset、UI、剧情或交互链，就必须同时给出 CLI 侧的 fresh compile + fresh console 证据；CLI 覆盖不到时，再补 direct MCP / live 证据；否则这类表述一律视为违规夸大。
+- 上面这类回执如果缺少 `No-Red 证据卡 v2`，同样按违规夸大处理；治理线程和当前执行线程都不得再替它脑补“其实他应该是过了”。
 - 如果因为 CLI / MCP / Unity blocker 没拿到这份证据，允许提交本地 checkpoint，但只能报：
   - `代码闸门通过`
   - `Unity 红错验证未闭环`
