@@ -12235,6 +12235,40 @@
   - `Unity 场景产出尚未验证`
   - `legal sync 尚未尝试`
 
+## 2026-04-05｜Town 主线 docs-only 深推：first blocker 已从 compile red 改判为 runtime contract gap
+
+- 当前主线目标：
+  - 继续只做我 own 的 `Town` 治理线，在不擅自改 `Town/Primary` 生产 scene 与 `spring-day1` 活代码前，压到能做到的最深处。
+- 本轮子任务：
+  1. 复核 `06 / 07 / 10 / 11 / 12` 之后的最新导演消费面；
+  2. 用 fresh CLI 状态重判 `Town` 当前 blocker；
+  3. 把“下一次真升级的最小 runtime-contract 触点”写成正式正文，并给 `spring-day1` 一份同事口径回执。
+- 本轮实际做成：
+  1. 复核了：
+     - `SpringDay1DirectorStageBook.json`
+     - `SpringDay1NpcCrowdManifest.asset`
+     - `SpringDay1NpcCrowdDirector.cs`
+     - `Town.unity`
+     - `Primary.unity`
+  2. fresh CLI 证据表明：
+     - `py -3 scripts/sunset_mcp.py status` => `Town` 编辑态 `error_count=0 warning_count=0`
+     - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10` => `errors=0 warnings=0`
+     - 因此旧的 `scene-build compile red` 不再是 `Town` 当前 first blocker。
+  3. 新钉死的 first blocker：
+     - `SpringDay1NpcCrowdDirector.ResolveSpawnPoint()` 仍只按 `entry.anchorObjectName`
+     - `FindAnchor()` 仍只找旧 `Primary` 锚名
+     - `Manifest.semanticAnchorIds` 已写 `Town` 锚，但 runtime 还没吃进去
+  4. 新增两份正文：
+     - `2026-04-05_给典狱长_Town锚点升级条件复勘与最小runtime-contract触点_09.md`
+     - `2026-04-05_给spring-day1_Town最新升级前提与runtime承接触点回执_02.md`
+- 当前关键判断：
+  - `Town` 当前第一缺口已不是“基础设施炸不炸”或“边界说没说清”，而是导演层的 `semanticAnchorId` 和 runtime spawn 链之间还隔着一层旧 contract。
+  - 现在最值得升级的 anchor 仍然是 `EnterVillageCrowdRoot`，但真要动时，第一刀更该先落在 `CrowdDirector + Manifest` 的最小 contract 升级，而不是先去 scene 里补旧锚别名。
+- 当前恢复点：
+  - 如果后续继续这条线：
+    1. 未获授权前，只继续 docs / 协作层同步；
+    2. 一旦获准进入真实修改，第一优先就按本轮文档定义的最小 contract 触点开刀。
+
 ## 2026-04-05｜纯 CLI Unity 路线已完成外部调研与 Sunset 适配判断
 
 - 用户目标：

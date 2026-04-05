@@ -1695,3 +1695,30 @@ Sunset 里大量改动都属于：
   - 若用户下一轮继续让我 own `Town`，只有两种值得继续：
     1. 经确认后进入 `Town` 生产 scene 修改
     2. `spring-day1` 真的开始吃 `EnterVillageCrowdRoot` runtime，再按窄口 reopen
+
+## 2026-04-05｜Town 主线 docs-only 深推：最前面的 gap 已收敛到 crowd runtime contract
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，不回 UI / NPC / 农田 / Primary 总历史。
+- 本轮子任务：
+  1. 对照 `spring-day1` 最新 `10 / 11 / 12` 与 `06 / 07` 同步；
+  2. 用 fresh CLI 状态重判 `Town` 当前 blocker；
+  3. 把最小 runtime-contract 触点写成治理正文与同事回执。
+- 本轮实际做成：
+  1. fresh `status / errors` 表明：
+     - 当前 `Town` 编辑态无 fresh red / warning 计数；
+     - 旧 `scene-build compile red` 不再是 first blocker。
+  2. 当前真正 first blocker 已重写成：
+     - `SpringDay1NpcCrowdDirector.ResolveSpawnPoint()` 只用 `entry.anchorObjectName`
+     - `FindAnchor()` 只找旧 `Primary` 锚名链
+     - `Manifest.semanticAnchorIds` 虽已写 `Town` 锚，但 runtime 尚未消费
+  3. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给典狱长_Town锚点升级条件复勘与最小runtime-contract触点_09.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_Town最新升级前提与runtime承接触点回执_02.md`
+- 当前关键判断：
+  - 这轮把 `Town` own 治理推进到“下一次真升级改哪几个代码触点”的层级；
+  - 未经授权前，不该直接去改 `Town.unity / Primary.unity` 或 `spring-day1` 活代码。
+- 当前恢复点：
+  - 下一轮若继续：
+    1. 未授权时继续停在 docs / 协作层；
+    2. 获授权时，优先从 `CrowdDirector + Manifest` 的最小 contract 升级切入。
