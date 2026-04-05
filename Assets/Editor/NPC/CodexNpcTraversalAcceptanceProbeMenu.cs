@@ -1,14 +1,18 @@
 #if UNITY_EDITOR
 using System;
+using System.Collections.Generic;
 using System.Reflection;
+using Sunset.Story;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 
 internal static class CodexNpcTraversalAcceptanceProbeMenu
 {
     private const string MenuPath = "Tools/Codex/NPC/Run Traversal Acceptance Probe";
     private const string NaturalBridgeMenuPath = "Tools/Codex/NPC/Run Natural Roam Bridge Probe";
+    private const string RequiredSceneName = "Primary";
     private const double BridgeTimeoutSeconds = 12.0d;
     private const double EdgeTimeoutSeconds = 8.0d;
     private const float BridgeReachTolerance = 0.45f;
@@ -43,6 +47,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
     private static ProbeNpcContext s_edgeNpc;
     private static NavGrid2D s_navGrid;
     private static TilemapCollider2D s_waterCollider;
+    private static readonly List<Behaviour> s_temporarilyDisabledBehaviours = new List<Behaviour>();
 
     [MenuItem(MenuPath)]
     private static void RunProbe()
@@ -64,19 +69,30 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
             return;
         }
 
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (!string.Equals(activeScene.name, RequiredSceneName, StringComparison.Ordinal))
+        {
+            Debug.LogWarning(
+                $"[CodexNpcTraversalAcceptance] 当前场景={activeScene.name}；这条 probe 只在 {RequiredSceneName} 有效。");
+            return;
+        }
+
         Cleanup(logSummary: false);
         s_naturalRoamBridgeMode = naturalRoamBridgeMode;
 
         s_navGrid = UnityEngine.Object.FindFirstObjectByType<NavGrid2D>();
-        s_waterCollider = FindNamedComponent<TilemapCollider2D>("Layer 1 - Water");
+        s_waterCollider = FindWaterCollider();
         s_bridgeNpc = BuildContext("002");
-        s_edgeNpc = BuildContext("003");
-        if (s_navGrid == null || s_waterCollider == null || s_bridgeNpc == null || s_edgeNpc == null)
+        s_edgeNpc = naturalRoamBridgeMode ? null : BuildContext("003");
+        if (!TryValidateDependencies(naturalRoamBridgeMode, out string missingReason))
         {
-            Debug.LogError("[CodexNpcTraversalAcceptance] 缺少运行时依赖：NavGrid/Water/NPC 002/003。");
+            Debug.LogError($"[CodexNpcTraversalAcceptance] 缺少运行时依赖：{missingReason}。");
             Cleanup(logSummary: false);
             return;
         }
+
+        SuppressInterferingControllers();
+        StopActiveDialogueIfNeeded();
 
         Bounds worldBounds = s_navGrid.GetWorldBounds();
         Debug.Log($"[CodexNpcTraversalAcceptance] world_bounds center={worldBounds.center} size={worldBounds.size}");
@@ -113,8 +129,10 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         ConfigureNpcForProbe(s_bridgeNpc, BridgeStart, BridgeTarget);
         if (s_naturalRoamBridgeMode)
         {
-            SetMember(s_bridgeNpc.Controller, "activityRadius", 0.12f);
-            s_bridgeNpc.Controller.StartRoam();
+            if (!DispatchMoveTo(s_bridgeNpc, BridgeTarget, "bridge_natural"))
+            {
+                return;
+            }
         }
         else if (!DispatchMoveTo(s_bridgeNpc, BridgeTarget, "bridge"))
         {
@@ -172,9 +190,11 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
 
         if (EditorApplication.timeSinceStartup - s_phaseStartedAt >= BridgeTimeoutSeconds)
         {
+            Debug.Log($"[CodexNpcTraversalAcceptance] runtime {DescribeProbeRuntime(s_bridgeNpc)}");
             Fail(
                 $"{(s_naturalRoamBridgeMode ? "bridge_natural_probe_fail" : "bridge_probe_fail")} reason=timeout position={position} pathCount={s_bridgeNpc.Controller.DebugPathPointCount} " +
-                $"state={s_bridgeNpc.Controller.DebugState} sawBridgeSupport={s_bridgeSawWalkableOverride} progress={s_bridgeNpc.Controller.DebugLastProgressDistance:F3}");
+                $"state={s_bridgeNpc.Controller.DebugState} sawBridgeSupport={s_bridgeSawWalkableOverride} progress={s_bridgeNpc.Controller.DebugLastProgressDistance:F3} " +
+                $"{DescribeProbeRuntime(s_bridgeNpc)}");
         }
     }
 
@@ -244,6 +264,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         s_edgeNpc = null;
         s_navGrid = null;
         s_waterCollider = null;
+        RestoreSuppressedControllers();
         if (logSummary)
         {
             Debug.Log("[CodexNpcTraversalAcceptance] cleanup");
@@ -282,6 +303,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         }
 
         context.Controller.StopRoam();
+        context.Controller.enabled = true;
         Vector2 resolvedStartPosition = ResolveStableStartPosition(context, startPosition);
         if (context.Rigidbody != null)
         {
@@ -365,6 +387,163 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         return s_navGrid.HasWalkableOverrideAt(centerProbe, BridgeSupportRadius) ||
                s_navGrid.HasWalkableOverrideAt(leftProbe, BridgeSupportRadius) ||
                s_navGrid.HasWalkableOverrideAt(rightProbe, BridgeSupportRadius);
+    }
+
+    private static bool TryValidateDependencies(bool naturalRoamBridgeMode, out string missingReason)
+    {
+        System.Collections.Generic.List<string> missing = new System.Collections.Generic.List<string>();
+        if (s_navGrid == null)
+        {
+            missing.Add("NavGrid");
+        }
+
+        if (s_waterCollider == null)
+        {
+            missing.Add("Water");
+        }
+
+        if (s_bridgeNpc == null)
+        {
+            missing.Add("NPC 002");
+        }
+
+        if (!naturalRoamBridgeMode && s_edgeNpc == null)
+        {
+            missing.Add("NPC 003");
+        }
+
+        missingReason = string.Join("/", missing);
+        return missing.Count == 0;
+    }
+
+    private static TilemapCollider2D FindWaterCollider()
+    {
+        TilemapCollider2D exact = FindNamedComponent<TilemapCollider2D>("Layer 1 - Water");
+        if (exact != null)
+        {
+            return exact;
+        }
+
+        TilemapCollider2D[] colliders = UnityEngine.Object.FindObjectsByType<TilemapCollider2D>(FindObjectsSortMode.None);
+        for (int index = 0; index < colliders.Length; index++)
+        {
+            TilemapCollider2D collider = colliders[index];
+            if (collider == null)
+            {
+                continue;
+            }
+
+            string objectName = collider.name ?? string.Empty;
+            if (objectName.IndexOf("Water", StringComparison.OrdinalIgnoreCase) >= 0)
+            {
+                return collider;
+            }
+        }
+
+        return null;
+    }
+
+    private static void StopActiveDialogueIfNeeded()
+    {
+        DialogueManager manager = DialogueManager.Instance;
+        if (manager == null || !manager.IsDialogueActive)
+        {
+            return;
+        }
+
+        manager.StopDialogue();
+        Debug.Log("[CodexNpcTraversalAcceptance] 已停止活动对话，避免 NPC probe 被全局 dialogue freeze 冻住。");
+    }
+
+    private static string DescribeProbeRuntime(ProbeNpcContext context)
+    {
+        if (context == null)
+        {
+            return "runtime=n/a";
+        }
+
+        Vector2 rbPosition = context.Rigidbody != null ? context.Rigidbody.position : Vector2.zero;
+        Vector2 rbVelocity = context.Rigidbody != null ? context.Rigidbody.linearVelocity : Vector2.zero;
+        bool rbSimulated = context.Rigidbody != null && context.Rigidbody.simulated;
+        string bodyType = context.Rigidbody != null ? context.Rigidbody.bodyType.ToString() : "None";
+        Vector2 motionVelocity = context.Controller != null && context.Controller.GetComponent<NPCMotionController>() != null
+            ? context.Controller.GetComponent<NPCMotionController>().CurrentVelocity
+            : Vector2.zero;
+
+        return
+            $"controllerEnabled={(context.Controller != null && context.Controller.enabled)} " +
+            $"gameObjectActive={(context.Controller != null && context.Controller.gameObject.activeInHierarchy)} " +
+            $"rbSimulated={rbSimulated} bodyType={bodyType} rbPos={rbPosition} rbVel={rbVelocity} " +
+            $"motionVel={motionVelocity} timeScale={Time.timeScale:F2}";
+    }
+
+    private static void SuppressInterferingControllers()
+    {
+        RestoreSuppressedControllers();
+
+        SpringDay1NpcCrowdDirector[] crowdDirectors = UnityEngine.Object.FindObjectsByType<SpringDay1NpcCrowdDirector>(FindObjectsSortMode.None);
+        for (int index = 0; index < crowdDirectors.Length; index++)
+        {
+            DisableBehaviourForProbe(crowdDirectors[index]);
+        }
+
+        SuppressNpcInterferers(s_bridgeNpc);
+        SuppressNpcInterferers(s_edgeNpc);
+    }
+
+    private static void SuppressNpcInterferers(ProbeNpcContext context)
+    {
+        if (context?.Controller == null)
+        {
+            return;
+        }
+
+        GameObject npcObject = context.Controller.gameObject;
+        DisableBehaviourForProbe(npcObject.GetComponent<SpringDay1DirectorStagingPlayback>());
+        DisableBehaviourForProbe(npcObject.GetComponent<SpringDay1DirectorNpcTakeover>());
+        DisableBehaviourForProbe(npcObject.GetComponent<SpringDay1DirectorStagingRehearsalDriver>());
+
+        Behaviour[] behaviours = npcObject.GetComponents<Behaviour>();
+        for (int index = 0; index < behaviours.Length; index++)
+        {
+            Behaviour behaviour = behaviours[index];
+            if (behaviour == null ||
+                !behaviour.enabled ||
+                behaviour == context.Controller ||
+                behaviour is NPCMotionController ||
+                behaviour is NPCAnimController ||
+                behaviour is Animator)
+            {
+                continue;
+            }
+
+            DisableBehaviourForProbe(behaviour);
+        }
+    }
+
+    private static void DisableBehaviourForProbe(Behaviour behaviour)
+    {
+        if (behaviour == null || !behaviour.enabled)
+        {
+            return;
+        }
+
+        behaviour.enabled = false;
+        s_temporarilyDisabledBehaviours.Add(behaviour);
+    }
+
+    private static void RestoreSuppressedControllers()
+    {
+        for (int index = s_temporarilyDisabledBehaviours.Count - 1; index >= 0; index--)
+        {
+            Behaviour behaviour = s_temporarilyDisabledBehaviours[index];
+            if (behaviour != null)
+            {
+                behaviour.enabled = true;
+            }
+        }
+
+        s_temporarilyDisabledBehaviours.Clear();
     }
 
     private static T FindNamedComponent<T>(string objectName) where T : Component

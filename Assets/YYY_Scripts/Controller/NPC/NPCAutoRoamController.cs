@@ -1031,7 +1031,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         motionController.SetExternalVelocity(velocity);
         if (rb != null)
         {
-            rb.MovePosition(nextPosition);
+            if (rb.bodyType == RigidbodyType2D.Dynamic)
+            {
+                rb.linearVelocity = velocity;
+            }
+            else
+            {
+                rb.MovePosition(nextPosition);
+            }
         }
         else
         {
