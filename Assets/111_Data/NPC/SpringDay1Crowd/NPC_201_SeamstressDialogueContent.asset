@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e1d8fd01cb8442eb570f1fd4d33ac41, type: 3}
-  m_Name: NPC_201_SeamstressDialogueContent
+  m_Name: NPC_201_MendingCrowdDialogueContent
   m_EditorClassIdentifier: 
   npcId: 201
   selfTalkLines:
@@ -66,7 +66,7 @@ MonoBehaviour:
   pairDialogueSets:
   - partnerNpcId: 202
     initiatorLines:
-    - "\u6843\u7FBD\uFF0C\u628A\u5B89\u795E\u8349\u624E\u7D27\u4E9B\uFF0C\u4ECA\u665A\u6765\u627E\u6211\u7684\u624B\u90FD\u5728\u6296\u3002"
+    - "\u628A\u5B89\u795E\u8349\u624E\u7D27\u4E9B\uFF0C\u4ECA\u665A\u6765\u627E\u6211\u7684\u624B\u90FD\u5728\u6296\u3002"
     - "\u4F60\u90A3\u675F\u4EAE\u8272\u4E00\u6446\u4E0A\u53BB\uFF0C\u4EBA\u5750\u4E0B\u65F6\u6C14\u5C31\u987A\u591A\u4E86\u3002"
     responderLines:
     - "\u6211\u77E5\u9053\uFF0C\u6240\u4EE5\u6211\u624D\u4E0D\u80AF\u8BA9\u5E97\u91CC\u53EA\u5269\u7070\u6251\u6251\u7684\u5E03\u8272\u3002"

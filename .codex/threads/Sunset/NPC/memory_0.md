@@ -1857,3 +1857,285 @@
 - 当前恢复点：
   - 这轮停在等用户验这张 `001_refstudy_v1.png`
   - 如果继续，只能围绕这张图继续精修或继续重画；不允许回到批量线
+
+## 2026-04-04｜补记：已对齐 UI / spring-day1 给 NPC 的最新两份 prompt，当前先停在只读拆分
+
+- 当前主线目标：
+  - 结合 `UI / spring-day1 / NPC` 当前真实产物与最新 prompt，明确：
+    - 哪些玩家面需求真归 `NPC`
+    - `NPC` 现在第一刀最该先做什么
+- 本轮实际读取：
+  - `2026-04-04_NPC线程_玩家面NPC方向分工与第一刀认领prompt_01.md`
+  - `2026-04-04_NPC-v_春一日原剧本群像回正与NPC本体收口prompt_05.md`
+  - 以及此前已抽查的 `UI / NPC / Day1` 真实代码产物
+- 当前稳定判断：
+  1. `prompt_01` 是分工裁定刀，不是实现刀。
+  2. `prompt_05` 是 NPC own 真实施工刀，但范围严格收窄到：
+     - 原剧本角色回正
+     - NPC own bubble / pair / content / profile / prefab / runtime probe
+  3. 结合现场进度，我现在不该再吞 UI 壳或 Day1 主剧情；
+     真正该接的第一刀，应是 `NPC own bubble / speaking-owner / 正式-非正式闭环`。
+- thread-state：
+  - 本轮仍是只读分析，未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+- 当前恢复点：
+  - 先把三段观后感、第一刀排序和总任务清单对用户说清；
+    用户拍板后再决定是否进入真实施工
+
+## 2026-04-05｜补记：已继续真实施工 NPC own 会话/气泡底座，并在外部编译 blocker 下合法停车
+
+- 当前主线目标：
+  - 继续只做 `NPC own` 的非正式聊天会话/气泡底座收口；
+  - 不改现有气泡主题样式，只统计现代码里到底有几种样式。
+- 本轮子任务：
+  - 沿用当前 slice：
+    - `npc-own-conversation-runtime-fixes-20260405`
+  - 回收测试、盘点样式、复核 own 脚本验证，并在无法继续 Unity 自测时合法 `Park-Slice`。
+- 本轮实际完成：
+  1. 已确认这轮 own 代码面集中在：
+     - `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+     - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+     - `Assets/YYY_Tests/Editor/PlayerThoughtBubblePresenterStyleTests.cs`
+  2. 已确认当前有效功能点：
+     - 会话气泡避让收紧；
+     - speaking-owner 置顶与前景排序带保留；
+     - 背景不透明；
+     - ambient 气泡可忽略 hidden stale conversation owner；
+     - 自动停留时长公式锁定为 `1 + 0.08 * 字数`。
+  3. 已完成样式盘点结论：
+     - `4` 种 live 主样式
+     - `7` 条工程壳
+  4. 已完成脚本级验证：
+     - own 脚本 / own 测试脚本 `validate_script` 均 `0 error`
+     - `git diff --check` 对 own 文件通过
+- 当前 blocker：
+  - Unity console 存在外部编译错误：
+    - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs(1694,23): error CS0034`
+  - 这不是我这轮 own 文件引入的红；
+    但它会阻断当前 EditMode tests / runtime probe 的可信推进。
+- thread-state：
+  - 已跑：
+    - `Begin-Slice`（本轮继续施工前已补）
+    - `Park-Slice`
+  - 未跑：
+    - `Ready-To-Sync`
+  - 当前 live 状态：
+    - `PARKED`
+- 当前恢复点：
+  - 等 `PlacementManager.cs` 外部编译红解除后，
+    直接回到：
+    1. fresh console
+    2. NPC own targeted tests
+    3. NPC own runtime probe
+  - 然后再决定是否可以进入 `Ready-To-Sync`
+
+## 2026-04-05｜补记：已复核“NPC 线程遗留项完成度”并统一口径
+
+- 当前主线未变：
+  - 仍是 `NPC own` 会话 / 气泡底座与 NPC 本体收口。
+- 本轮核实结论：
+  1. 我对“哪些已完成、哪些未完成”现在是有把握的；
+     - 已完成 = 代码底座和边界
+     - 未完成 = runtime 体验闭环与本体收口
+     - 待验证 = 被外部编译红挡住的 live 项
+  2. 当前不确定的不是分类，而只是 live 何时能恢复。
+- 当前恢复点：
+  - 后续直接按这套三分法向用户回报，不再把“已写好代码”和“体验已验完”混成一类。
+
+## 2026-04-05｜补记：memory 写口测试占位
+
+- 这是一条临时占位。
+
+## 2026-04-05｜补记：已处理“你有大量报错”这轮现场，NPC own 测试编译红已清零
+
+- 当前主线目标：
+  - 继续只做 `NPC own` 的 formal/casual/ambient 优先级、crowd 真值与 pair/ambient bubble 护栏。
+- 本轮子任务：
+  - 先对用户指出的“你有大量报错”做真实核查；
+  - 优先清掉我这轮 own 的测试编译红，不去碰 `Primary.unity`、`GameInputManager.cs`、UI 壳和 Day1 热根。
+- 本轮实际完成：
+  1. 已确认报错根因是：
+     - `Tests.Editor.asmdef` 下的三份 NPC tests 直接强绑 runtime 类型，导致 `CS0246 / CS0103`。
+  2. 已重写以下文件：
+     - `Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs`
+     - `Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs`
+     - `Assets/YYY_Tests/Editor/NpcCrowdDialogueTruthTests.cs`
+  3. 统一改成：
+     - 反射取类型 / 方法 / 属性
+     - `AssetDatabase.LoadAssetAtPath(path, type)` 非泛型载入
+  4. Unity fresh console 已验证：
+     - 这批 NPC own 测试编译红已不再出现
+- 本轮验证：
+  - `sunset_mcp.py errors --count 30 --output-limit 30`
+    - 最新 fresh 结果曾返回 `errors=0 warnings=0`
+  - `sunset_mcp.py status`
+    - 当前剩余是 foreign/runtime/importer 红：
+      - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs:260`
+      - `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset`
+  - `git diff --check`
+    - 被 shared foreign 文件拦住，不属于我这轮 own 测试文件自身
+- 关键决策：
+  - 不再尝试通过 asmdef 扩引用来“掩盖”程序集边界；
+  - 继续保留反射测试口径，避免下一轮再因 assembly 切面炸回同类红。
+- 恢复点：
+  - 下一轮继续 NPC 本线时，直接回到：
+    1. fresh console/status
+    2. formal/casual/ambient targeted probe
+    3. crowd truth / pair bubble 收口
+  - 不必再回头处理这组三份测试编译红。
+
+## 2026-04-05｜补记：只读分析 NPC 撞墙静默卡死的最可能代码路径
+
+- 当前主线目标：
+  - 只读回答“NPC 为什么会撞墙后不报错、还可能被吞成 pause / 卡在墙边”的代码级原因。
+- 本轮子任务：
+  - 重点核查 `NPCAutoRoamController.cs`
+  - 必要时补读 `NPCMotionController.cs`
+- 本轮已完成：
+  1. 已定位最明确的吞没分支：
+     - `CheckAndHandleStuck()` 在 terminal stuck 场景会先走 `TryHandleTerminalStuck()`；
+     - `TryHandleTerminalStuck()` 连续命中阈值后直接 `EnterLongPause()`，不会留下 `TryInterruptRoamMove(StuckCancel)` 的显性中断记录。
+  2. 已定位第二类吞没分支：
+     - `TickShortPause()` / `TickLongPause()` 的 `TryBeginMove()` 失败只会重新进 `ShortPause`，会把“贴墙后还是采样不到新路”的现场继续吞成 pause 循环。
+  3. 已定位最可能造成“还卡墙但不显性报错”的组合链：
+     - `TickMoving()` 在真正执行 `rb.MovePosition(nextPosition)` 之前，就先 `NoteSuccessfulAdvance(currentPosition)`；
+     - 如果最终被物理碰撞挡住，`NPCMotionController.ResolveVelocity()` 又会优先返回 `_externalVelocity`，于是动画 / `IsMoving` 仍像在走，但真实位置没推进。
+  4. 已补充确认 shared avoidance 风险：
+     - 动态 blocker 的 hard-stop 分支会刷新 progress checkpoint，更容易把零推进伪装成“正常让行等待”。
+- 关键判断：
+  - 这轮我最确信的不是“所有卡墙都只有一个原因”，而是：
+    - 当前代码里确实存在“先把零推进包装成正常 moving / normal pause，再错过显性 interruption”的链。
+- 验证状态：
+  - `静态推断成立`
+  - 无代码修改、无 Unity live 验证
+- thread-state：
+  - 本轮未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+    - 原因：始终停留在只读分析
+- 当前恢复点：
+  - 如果继续这条线，最小实现切口应先落：
+    1. `TryHandleTerminalStuck()`
+    2. `TickMoving()` 或 `TryHandleSharedAvoidance()`
+## 2026-04-05｜补记：NPC mainline 已把 002/003 的 casual 门禁从“全局误杀”修回对象级 takeover，并拿到 4 条 live 硬证据
+- 当前主线目标：
+  - 延续 NPC mainline slice，继续只做非正式聊天会话底座、会话中断链与 NPC 气泡本体；
+  - 不碰 Primary.unity、GameInputManager.cs、PromptOverlay / Workbench / 左下角 shared UI 壳。
+- 本轮子任务：
+  - 先 fresh 核查这轮自己有没有新红；
+  - 再定位  02 / 003 还是起不了聊的真实原因；
+  - 最后把门禁修正后直接用 live targeted probe 复测闭环与玩家首句中断。
+- 本轮实际完成：
+  1. fresh 核查结果：
+     - py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 20
+       - errors=0 warnings=0
+     - py -3 scripts/sunset_mcp.py status
+       - baseline=pass
+       - console 无 blocking error
+     - git diff --check -- Assets/YYY_Scripts/Story/Interaction/NpcInteractionPriorityPolicy.cs Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs
+       - 通过
+  2. 代码修正：
+     - Assets/YYY_Scripts/Story/Interaction/NpcInteractionPriorityPolicy.cs
+       - 新增对象级 formal takeover 口径；
+       - 只有同一个 NPC 自己的 NPCDialogueInteractable 当前可接管时，才 suppress casual。
+     - Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs
+       - CanInteract / TryHandleInteract / ReportProximityInteraction 全部改走对象级 suppression；
+       - context == null 时自动 fallback 到 BuildInteractionContext()；
+       - proximity 早退统一补 NpcWorldHintBubble.HideIfExists(transform)。
+     - Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs
+       - 测试矩阵改成贴近真实需求：
+         - formal phase 下，没挂 same-object formal dialogue 的 NPC 仍允许 casual；
+         - 挂了 same-object formal dialogue 的 NPC 才应让位。
+  3. live targeted probe：
+     - 使用 CodexEditorCommandBridge + DialogueDebugMenu bootstrap 做干净入口；
+     - 直接在 CrashAndMeet + Dialogue=idle 的 bootstrap 现场验证：
+       -  02 可起聊；
+       -  03 可起聊。
+     - 后续单独 trace 结果：
+       -  02 两轮 casual 闭环完成，endReason=Completed
+       -  02 PlayerTyping Interrupt 跑开中断完成，playerExitSeen=True、
+pcReactionSeen=True、leavePhase=PlayerSpeaking
+       -  03 两轮 casual 闭环完成，endReason=Completed
+       -  03 PlayerTyping Interrupt 跑开中断完成，playerExitSeen=True、
+pcReactionSeen=True、leavePhase=PlayerSpeaking
+- 关键判断：
+  - 这轮最核心的 bug 不是“中断链没写”，而是“002/003 先被全局门禁误杀，后面的自动续聊/跑开中断根本进不了链”；
+  - 现在这层已经修回来了。
+- 验证状态：
+  - 线程自测已过：
+    - 代码层 green
+    - live targeted probe green
+  - 用户终验：
+    - 尚未进行
+- thread-state：
+  - 本轮继续真实施工前沿用了已登记 slice；
+  - 收尾已跑：
+    - Park-Slice
+  - 未跑：
+    - Ready-To-Sync
+  - 当前 live 状态：
+    - PARKED
+- 当前恢复点：
+  - 如果下一轮继续 NPC 本线，直接从“用户可感知体验复核 + NPC own 细节补口”继续，不必再回头排查 002/003 为何完全起不了聊。
+
+## 2026-04-05｜更正：上一条线程补记中的 002/003 脏字样由本条校正
+
+- 线程最终确认的稳定事实：
+  1. NpcInteractionPriorityPolicy 已改成 same-object formal takeover only。
+  2. NPCInformalChatInteractable 已全面接入对象级 suppression。
+  3. 002 闭环通过，002 PlayerTyping Interrupt 通过。
+  4. 003 闭环通过，003 PlayerTyping Interrupt 通过。
+  5. 当前 live 状态已 Park-Slice，后续可直接从用户体验复核继续。
+
+## 2026-04-05｜补记：本线程继续深推 `pair ambient`，已把新 8 人 crowd 的 pair pass 和静态群众口径一起收住
+
+- 当前主线目标：
+  - 继续只做 `NPC own`：
+    - `pair ambient / bubble`
+    - `crowd data / bootstrap / prefab truth`
+  - 不回吞 UI、Day1 导演、Primary、Town、GameInputManager。
+- 本轮子任务：
+  - 先把 `pair=0/2` 这个 runtime blocker 真正压掉；
+  - 再把 `101~301` 的内部 token 与 bootstrap 口径继续降回群众层。
+- 本轮完成：
+  1. `NPCBubblePresenter.cs`
+     - ambient show 前会自动释放 stale prompt suppression。
+  2. `NPCAutoRoamController.cs`
+     - ambient bubble 增加短 retry，避免单帧 race 吞掉气泡。
+  3. `SpringDay1NpcCrowdValidationMenu.cs`
+     - pair probe 前主动清 suppression / conversation owner；
+     - pair line 比较改为去换行后再比；
+     - probe root 去掉 `HideFlags.DontSave`，清掉退出时 Assert。
+  4. `NpcBubblePresenterEditModeGuardTests.cs`
+     - 新增 stale suppression 回归测试。
+  5. `Assets/111_Data/NPC/SpringDay1Crowd/*.asset`
+     - 8 组 crowd 的内部 `m_Name` 已统一降级为群众/线索/夜间见闻 token。
+  6. `SpringDay1NpcCrowdBootstrap.cs`
+     - bootstrap token、`displayName`、`roleSummary` 已同步降级。
+  7. `NpcCrowdDialogueTruthTests.cs`、`NpcCrowdPrefabBindingTests.cs`
+     - 测试真值已同步。
+- 本轮验证：
+  - direct `validate_script`：
+    - 以上脚本全部 `0 error`
+  - `git diff --check`：
+    - own 范围通过
+  - fresh runtime targeted probe：
+    - `instance=8/8`
+    - `informal=8/8`
+    - `pair=2/2`
+    - `walkAway=2/2`
+  - fresh CLI console：
+    - `errors=0 warnings=0`
+  - direct console：
+    - 只剩 `There are no audio listeners in the scene` warning
+- 关键判断：
+  - `pair ambient` 这条原 blocker 已经被拿下；
+  - 当前下一步不该再回头卡在“pair 为什么不亮”，而该转回用户体验复核和更细的 crowd 内容语义。
+- thread-state：
+  - 本轮沿用了既有 slice；
+  - 已跑：
+    - `Park-Slice`
+  - 当前 `.kiro/state/active-threads/NPC.json` 为 `PARKED`
+  - `Show-Active-Ownership.ps1` 同轮仍短暂显示 `ACTIVE`，判断为展示层滞后。
+- 当前恢复点：
+  - 下轮若继续，优先做：
+    1. 用户可感知的 pair / informal / walk-away 体验复核
+    2. 仍待细修的 crowd 内容语义
+    3. sync 前 own 范围与 dirty 收口

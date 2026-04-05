@@ -2390,3 +2390,136 @@ pcReactionSeen=True
   4. 002 和 003 的两轮 casual 闭环都已 live 通过。
   5. 002 和 003 的 PlayerTyping 跑开中断都已 live 通过，playerExitSeen=True，npcReactionSeen=True。
 - 这条更正只修正文案，不改变上一条记录里已经写明的代码文件、验证结论和 thread-state。
+
+## 2026-04-05｜补记：NPC own 继续深推到 crowd probe 收口，当前 fresh blocker 已缩窄到 pair bubble live 发声链
+
+- 当前主线目标：
+  - 继续只做 NPC own 的 crowd/runtime/probe 收口，不回吞 UI、Day1 导演、Primary、Town 场景本体。
+- 本轮实际完成：
+  1. 静态与编辑器层补口：
+     - `Assets/YYY_Scripts/Story/Interaction/NpcInteractionPriorityPolicy.cs`
+       - 新增 editor-only `SetEditorValidationPhaseOverride`，只给 validation/probe 用，不改导演线真实 phase。
+     - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+       - 去掉“任何 phase 都让 formal candidate 永远压过 casual”的旧兜底，正式/非正式优先级现在只按 formal priority phase 生效。
+     - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+       - 新增 `LastPresentedText`，保留最近一次真正塞进气泡的文本，便于后续 probe 与聊天链排查。
+     - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+       - pair probe 临时覆写到 `FreeTime`；
+       - walk-away probe 会主动跳过中断收尾动效；
+       - FAIL/Evidence 逐条拆日志；
+       - pair probe 额外记 `seen text / last text / bubble state`。
+  2. 测试与验证补口：
+     - `NpcCrowdDialogueNormalizationTests`：
+       - `manage_script validate` clean；
+       - EditMode class `2/2` 通过。
+     - `NpcInteractionPriorityPolicyTests`：
+       - 修掉旧反射夹具误判（UnityEditor.InteractionContext / overload 模糊 / singleton 泄漏）；
+       - fresh EditMode class `14/14` 通过。
+     - `NpcBubblePresenterEditModeGuardTests`：
+       - 新增“ShowText / ShowConversationImmediate 直接拉起气泡可见态”的覆盖；
+       - 脚本级 validate clean。
+- fresh runtime probe 结论：
+  - `instance=8/8`
+  - `informal=8/8`
+  - `walkAway=2/2`
+  - 当前唯一未过项：
+    - `pair=0/2`
+- 当前已确认的 pair live blocker：
+  1. partner 选择与 pair 文案解析都已经命中：
+     - `initiatorDecision=chatting with Probe_xxx`
+     - `responderDecision=joined chat with Probe_xxx`
+     - `initiatorLines / responderLines` 都能解析出正确 pair 台词。
+  2. 但 fresh probe 里两边气泡都没有留下可见文本：
+     - `initiatorText=""`
+     - `responderText=""`
+     - `seenInitiatorText=""`
+     - `seenResponderText=""`
+  3. 当前 blocker 更像：
+     - `ambient pair` 的 live 发声链没有真正把文本送到可见气泡上；
+     - 不再是 phase suppression，也不再是 formal/casual takeover。
+- 当前外部现场噪音：
+  - fresh console 反复混入外部 missing-script 报错；
+  - 场景现场曾切到 `Primary.unity`；
+  - 这会干扰继续拿“干净 live 结论”，所以本轮不再把 live 结果过度宣称为 done。
+- 当前恢复点：
+  1. 下一轮优先继续只打 `NPCBubblePresenter / ambient pair live 发声链`；
+  2. 直接沿 `LastPresentedText + pair probe issue logs` 继续查；
+  3. 不回吞 UI / Town / 字体 / Primary。
+
+## 2026-04-05｜补记：pair bubble 已从 live blocker 推到 fresh pass，crowd 内部语义也已继续降回群众层
+
+- 当前主线目标：
+  - 继续只做 `NPC own` 的 `pair ambient / bubble / crowd truth` 收口；
+  - 不回吞 `UI / SpringDay1Director.cs / SpringDay1NpcCrowdDirector.cs / Primary.unity / Town.unity / GameInputManager.cs`。
+- 本轮真实施工：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+     - ambient 展示前若检测到“提示期 suppression 只是残留、当前焦点并不属于自己”，会自动释放 stale suppression；
+     - 不再因为上一拍 proximity prompt 的残留状态，把 pair bubble 整段闷死。
+  2. `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `PlayAmbientChatBubble(...)` 改成“挑一条有效台词后，允许做极短二次 show retry”；
+     - 修掉 single-frame show race 直接把 pair/ambient bubble 吞掉的问题。
+  3. `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+     - pair probe 开始前会主动清 `SetInteractionPromptSuppressed(false)`、`SetConversationChannelActive(false)`；
+     - `IsExpectedPairLine(...)` 改为按去换行后的文本比较，避免把 formatter 插入的换行误判成 pair 没亮；
+     - runtime probe 临时根节点去掉 `HideFlags.DontSave`，清掉 probe 离场后的 Unity `Assert` 噪音。
+  4. `Assets/YYY_Tests/Editor/NpcBubblePresenterEditModeGuardTests.cs`
+     - 新增 stale prompt suppression 回归测试。
+  5. `Assets/111_Data/NPC/SpringDay1Crowd/*.asset`
+     - 8 组 crowd 的 `m_Name` 内部命名收回到群众/线索/夜间见闻口径：
+       - `101 -> ScribeCrowd`
+       - `102 -> HunterClue`
+       - `103 -> WitnessBoy`
+       - `104 -> CarpenterCrowd`
+       - `201 -> MendingCrowd`
+       - `202 -> HerbCrowd`
+       - `203 -> DinnerCrowd`
+       - `301 -> NightWitness`
+  6. `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+     - bootstrap 生成 token、`displayName`、`roleSummary` 全部回正到群众层/线索层/夜间见闻层；
+     - 避免后续重跑 bootstrap 又把 crowd 重新写回“具名正式角色”口径。
+  7. `Assets/YYY_Tests/Editor/NpcCrowdDialogueTruthTests.cs`
+     - truth token 同步到新的群众口径。
+  8. `Assets/YYY_Tests/Editor/NpcCrowdPrefabBindingTests.cs`
+     - prefab 绑定测试同步到新的群众口径。
+- 本轮 fresh 验证：
+  - direct `validate_script` 通过：
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+    - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+    - `Assets/YYY_Tests/Editor/NpcBubblePresenterEditModeGuardTests.cs`
+    - `Assets/YYY_Tests/Editor/NpcCrowdDialogueTruthTests.cs`
+    - `Assets/YYY_Tests/Editor/NpcCrowdPrefabBindingTests.cs`
+  - `git diff --check` 对上述 own 范围通过。
+  - fresh runtime targeted probe 已拿到：
+    - `instance=8/8`
+    - `informal=8/8`
+    - `pair=2/2`
+    - `walkAway=2/2`
+  - fresh console / CLI：
+    - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 20`
+      回到 `errors=0 warnings=0`
+    - direct console 只剩 `There are no audio listeners in the scene` warning；
+      本轮自己的 `DontSave Assert` 已清掉。
+- 当前判断：
+  - `pair bubble` 这条主 blocker 已从 `0/2` 推到 `2/2`；
+  - 当前 `NPC own` 这段不再卡在 ambient pair 发声链；
+  - 同时 `101~301` 内部命名和 bootstrap 再生成口径也已经进一步降回群众层，不再继续往“正式具名角色”漂。
+- thread-state：
+  - 本轮沿用既有 slice：
+    - `npc-own-deep-push-crowd-content-and-pair-ambient-closure-20260405`
+  - 已跑：
+    - `Park-Slice`
+  - 未跑：
+    - `Ready-To-Sync`
+  - 当前 live 状态：
+    - `PARKED`
+  - 备注：
+    - `Park-Slice` 返回 `PARKED`，`.kiro/state/active-threads/NPC.json` 也已写成 `PARKED`；
+      但 `Show-Active-Ownership.ps1` 同轮仍短暂把 `NPC` 显示成 `ACTIVE`，像是状态展示层滞后，不按这条表象误报现场。
+- 当前恢复点：
+  1. 下轮若继续 NPC 本线，优先从：
+     - 用户可感知的 `pair / informal / walk-away` 体验复核
+     - 以及剩余更细的 crowd 内容语义微调
+     继续；
+  2. 不必再回头把 `pair=0/2` 当成当前 blocker。

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 7e1d8fd01cb8442eb570f1fd4d33ac41, type: 3}
-  m_Name: NPC_102_HunterDialogueContent
+  m_Name: NPC_102_HunterClueDialogueContent
   m_EditorClassIdentifier: 
   npcId: 102
   selfTalkLines:
@@ -66,7 +66,7 @@ MonoBehaviour:
   pairDialogueSets:
   - partnerNpcId: 301
     initiatorLines:
-    - "\u673D\u949F\uFF0C\u4F60\u5B88\u591C\u8DEF\u8FD9\u4E48\u4E45\uFF0C\u540E\u5761\u90A3\u4E32\u788E\u77F3\u5230\u5E95\u5F80\u54EA\u8FB9\u62D0\u4E86\uFF1F"
+    - "\u4F60\u5B88\u591C\u8DEF\u8FD9\u4E48\u4E45\uFF0C\u540E\u5761\u90A3\u4E32\u788E\u77F3\u5230\u5E95\u5F80\u54EA\u8FB9\u62D0\u4E86\uFF1F"
     - "\u6211\u8FFD\u767D\u5929\u7684\u811A\u5370\uFF0C\u4F60\u8BB0\u591C\u91CC\u7684\u56DE\u58F0\uFF0C\u6211\u4EEC\u8BE5\u80FD\u62FC\u51FA\u4E00\u6761\u7EBF\u3002"
     responderLines:
     - "\u6211\u542C\u89C1\u7684\u65B9\u5411\u548C\u4F60\u731C\u7684\u5DEE\u4E0D\u79BB\uFF0C\u53EA\u662F\u90A3\u4EBA\u6BD4\u98CE\u8FD8\u5FC3\u865A\u3002"

@@ -10,7 +10,7 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c01be81b1d634694b827b2f28f4987e2, type: 3}
-  m_Name: NPC_203_CanteenKeeperRoamProfile
+  m_Name: NPC_203_DinnerCrowdRoamProfile
   m_EditorClassIdentifier: 
   moveSpeed: 2.5
   idleAnimationSpeed: 1

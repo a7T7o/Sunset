@@ -87,6 +87,10 @@ namespace Sunset.Story
         private void OnEnable()
         {
             CacheComponents();
+            if (Application.isPlaying)
+            {
+                NpcAmbientBubblePriorityGuard.EnsureRuntime();
+            }
         }
 
         private void OnDisable()
@@ -116,6 +120,7 @@ namespace Sunset.Story
 
         public bool CanInteract(InteractionContext context)
         {
+            InteractionContext effectiveContext = context ?? BuildInteractionContext();
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
             {
                 return false;
@@ -131,9 +136,12 @@ namespace Sunset.Story
                 return false;
             }
 
-            Component sessionService = ResolveSessionService(context);
-            if (!InvokeSessionBool(sessionService, "IsConversationActiveWith", this)
-                && ShouldYieldToDialogueCandidate(context))
+            Component sessionService = ResolveSessionService(effectiveContext);
+            bool isActiveConversationTarget = InvokeSessionBool(sessionService, "IsConversationActiveWith", this);
+            if (!isActiveConversationTarget &&
+                NpcInteractionPriorityPolicy.ShouldSuppressInformalInteractionForCurrentStory(
+                    dialogueInteractable,
+                    effectiveContext))
             {
                 return false;
             }
@@ -148,10 +156,20 @@ namespace Sunset.Story
 
         public bool TryHandleInteract(InteractionContext context)
         {
-            Component sessionService = ResolveSessionService(context);
+            InteractionContext effectiveContext = context ?? BuildInteractionContext();
+            Component sessionService = ResolveSessionService(effectiveContext);
+            bool isActiveConversationTarget = InvokeSessionBool(sessionService, "IsConversationActiveWith", this);
+            if (!isActiveConversationTarget &&
+                NpcInteractionPriorityPolicy.ShouldSuppressInformalInteractionForCurrentStory(
+                    dialogueInteractable,
+                    effectiveContext))
+            {
+                return false;
+            }
+
             if (sessionService != null)
             {
-                return InvokeSessionBool(sessionService, "HandleInteract", this, context);
+                return InvokeSessionBool(sessionService, "HandleInteract", this, effectiveContext);
             }
 
             return false;
@@ -263,21 +281,34 @@ namespace Sunset.Story
             if (!enableProximityKeyInteraction)
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() || (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive))
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             Component sessionService = ResolveSessionService(context);
             bool isActiveConversationTarget = InvokeSessionBool(sessionService, "IsConversationActiveWith", this);
+            if (!isActiveConversationTarget &&
+                NpcInteractionPriorityPolicy.ShouldSuppressInformalInteractionForCurrentStory(
+                    dialogueInteractable,
+                    context))
+            {
+                SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
+                return;
+            }
+
             bool canInteractNow = CanInteract(context);
             if (!isActiveConversationTarget && !canInteractNow)
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
@@ -288,6 +319,7 @@ namespace Sunset.Story
             if (boundaryDistance > revealDistance)
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
@@ -330,23 +362,6 @@ namespace Sunset.Story
             return SpringDay1UiLayerUtility.TryGetPresentationBounds(transform, out Bounds bounds)
                 ? bounds
                 : new Bounds(transform.position, Vector3.one);
-        }
-
-        private bool ShouldYieldToDialogueCandidate(InteractionContext context)
-        {
-            if (context == null || dialogueInteractable == null || !dialogueInteractable.isActiveAndEnabled)
-            {
-                return false;
-            }
-
-            if (!dialogueInteractable.CanInteract(context))
-            {
-                return false;
-            }
-
-            float dialogueDistance = dialogueInteractable.GetBoundaryDistance(context.PlayerPosition);
-            float revealDistance = Mathf.Max(bubbleRevealDistance, dialogueInteractable.InteractionDistance);
-            return dialogueDistance <= revealDistance;
         }
 
         private static Component ResolveSessionService(InteractionContext context)

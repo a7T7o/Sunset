@@ -214,12 +214,14 @@ namespace Sunset.Story
             if (!enableProximityKeyInteraction)
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
@@ -227,12 +229,14 @@ namespace Sunset.Story
             if (boundaryDistance > Mathf.Max(bubbleRevealDistance, interactionDistance))
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 
             if (!CanInteract(context))
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
+                NpcWorldHintBubble.HideIfExists(transform);
                 return;
             }
 

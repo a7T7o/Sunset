@@ -2162,3 +2162,125 @@
 - 当前恢复点：
   - 后续若要继续 NPC-v，本线只能先拿到更高权威的 cast 映射证据，
     或显式改成“匿名 / 次级群众”收口策略，再做最小回正
+
+## 2026-04-04｜补记：NPC 线已收到新的硬切片 prompt
+
+- 当前主线未变：
+  - NPC 线继续只做 `原剧本角色回正 + NPC 本体收口`，不再混入 `spring-day1` opening 或玩家面 UI。
+- 本轮新增落点：
+  - 已新增续工文件：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-04_NPC-v_春一日原剧本群像回正与NPC本体收口prompt_05.md`
+- 这份 prompt 明确要求：
+  1. 先按原案权威来源回正 `101~301`
+  2. 证据不足时只允许降级为匿名 / 次级群众层
+  3. 把 `pair bubble` 真正修到 runtime 亮起来
+  4. 把 NPC 旧气泡样式回到用户认可旧版
+  5. 不碰 `Primary.unity / GameInputManager.cs / PromptOverlay / Workbench / opening / Town / 字体`
+- 当前恢复点：
+  - 下一轮以 `prompt_05` 为唯一入口继续，不再沿旧口径各说各话
+
+## 2026-04-05｜补记：NPC 线已收到 Day1 owner 的真值补线
+
+- 当前统一入口已更新为：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-05_NPC-v_Day1真值补线与NPC正式非正式优先级续工prompt_06.md`
+- 这份 prompt 相比 `prompt_05` 新增 3 个硬要求：
+  1. 明确 formal/casual/ambient 的 Day1 优先级真值
+  2. 明确 `101~301` 的群众层 / 线索层 / 氛围层降级口径
+  3. 明确外部编译红只阻断 live，不阻断静态 own 回正
+
+## 2026-04-04｜补记：NPC 现阶段不再泛吞 UI / Day1，而是先拆清“玩家面 NPC own”与“NOC本体收口”
+
+- 当前稳定判断：
+  - `UI` 负责壳体与左下角提示底座。
+  - `spring-day1` 负责 Day1 正式剧情顺序与状态。
+  - `NPC` 当前应只守：
+    - 玩家面里真正属于 NPC 的 speaking-owner / bubble / 正式-非正式闭环语义
+    - 以及 `101~301` 的原剧本口径回正与 NPC own runtime 收口
+- 当前下一步优先级：
+  1. 先钉死 `exact-own / 协作切片 / 明确不归我`
+  2. 再以 `NPC own bubble / speaking-owner / 正式-非正式闭环` 作为第一刀真实施工
+- 本轮状态：
+  - 只读分析
+  - 未跑 `Begin-Slice`
+
+## 2026-04-05｜补记：NPC own 本体继续落在“会话/气泡底座收口”，当前先因外部编译 blocker 停车
+
+- 当前主线目标：
+  - 继续只做 `NPC own` 的会话/气泡底座，不回吞 UI 壳与 Day1 integration。
+- 本轮新增稳定结论：
+  1. `NPC own` 当前有效施工面仍集中在：
+     - `PlayerNpcChatSessionService`
+     - `NPCBubblePresenter`
+     - 相关 own 测试
+  2. 这轮没有再动气泡主题样式；
+     - 只确认了当前代码里的样式计数口径：
+       - `4` 种 live 主样式
+       - `7` 条工程壳
+  3. 当前 `NPC own` 代码面仍是可编的：
+     - own 脚本 `validate_script` 继续 `0 error`
+  4. 但 Unity 现场现在被外部文件挡住：
+     - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs(1694,23)`
+     - 所以这轮不能 claim “Unity 运行态已验完”
+- 当前恢复点：
+  - 先等外部编译红解除；
+  - 再恢复 NPC own targeted test / live probe。
+## 2026-04-05｜补记：NPC own formal/casual 门禁已回正，002/003 的 casual 闭环与玩家首句跑开中断都拿到 live 硬证据
+- 当前主线未变：
+  - NPC 线程继续只守非正式聊天会话底座、NPC 气泡与 speaking-owner / 中断链；
+  - 不吞 UI 玩家面壳体，也不回改 spring-day1 正式剧情控制。
+- 本轮新增稳定事实：
+  1. 之前拦住  02 / 003 的关键原因，不是 casual 底座没写，而是 ormal phase 被误实现成“全局封杀所有 casual”。
+  2. 现在这条门禁已改成：
+     - 只有“同一个 NPC 自己的 formal dialogue 当前能接管”时，才 suppress casual。
+  3. fresh console 已回到：
+     - errors=0 warnings=0
+  4. live probe 已证实：
+     -  02 两轮闭环完成
+     -  02 玩家首句跑开中断完成
+     -  03 两轮闭环完成
+     -  03 玩家首句跑开中断完成
+- 当前恢复点：
+  - 后续如继续本线，优先转回用户可感知体验层，而不是再把时间耗在“为什么 002/003 完全起不了聊”的静态门禁上。
+
+## 2026-04-05｜更正：以上新增 NPC 门禁记录以本条中文校正版为准
+
+- 本轮核心不是换 UI 壳，也不是改 Day1 正式链。
+- 本轮核心是把 NPC casual 门禁从 phase 全局封杀改回对象级 takeover。
+- 现有 live 结论：002 闭环通过，002 跑开中断通过，003 闭环通过，003 跑开中断通过。
+
+## 2026-04-05｜补记：NPC own 新 8 人 crowd 本体链已再向前一格，pair runtime 与群众语义同轮收口
+
+- 当前主线目标：
+  - 继续把 `NPC own` 收在：
+    - `pair / ambient / bubble`
+    - `crowd content/profile/prefab`
+    - `101~301` 的群众层/线索层/夜间见闻层口径
+  - 不回吞 Day1 导演、UI、Town、Primary、GameInputManager。
+- 本轮新增稳定事实：
+  1. `pair bubble` 已不再是 live blocker：
+     - fresh runtime targeted probe 已真实回到 `pair=2/2`
+     - 同轮仍保持：
+       - `instance=8/8`
+       - `informal=8/8`
+       - `walkAway=2/2`
+  2. `NPCBubblePresenter` 与 `NPCAutoRoamController` 已补进：
+     - stale prompt suppression 自动释放
+     - ambient bubble 极短 retry
+  3. `SpringDay1NpcCrowdValidationMenu` 已收掉：
+     - prompt suppression / conversation owner 残留
+     - pair 行文比较被格式化换行误伤
+     - probe 离场 `DontSave Assert`
+  4. `101~301` 这批 crowd 的内部 token / bootstrap 生成口径已进一步降级为：
+     - 群众层
+     - 线索层
+     - 夜间见闻层
+     不再继续往“Day1 正式具名角色”漂。
+- 当前阶段判断：
+  - NPC own 当前不再主要差 runtime 发声链；
+  - 下一段更适合转回用户可感知体验层与更细的内容语义复核。
+- 当前恢复点：
+  - 后续若继续 NPC 本线，直接从：
+    - 用户体验复核
+    - crowd 内容细修
+    - sync 前 own 范围收口
+    继续。

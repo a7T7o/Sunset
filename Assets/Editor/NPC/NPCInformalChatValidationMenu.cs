@@ -59,6 +59,8 @@ public static class NPCInformalChatValidationMenu
     private static string s_resumePlayerLine = string.Empty;
     private static string s_resumeNpcLine = string.Empty;
     private static bool s_resumeTargetExchangeSeen;
+    private static bool s_previousRunInBackground;
+    private static bool s_runInBackgroundOverridden;
 
     [MenuItem(TriggerNearestMenuPath)]
     private static void TriggerNearestInformalChat()
@@ -265,6 +267,7 @@ public static class NPCInformalChatValidationMenu
         s_resumeNpcLine = string.Empty;
         s_resumeTargetExchangeSeen = false;
 
+        EnsureRunInBackground();
         TriggerConversation(candidate, playerMovement, $"trace-{targetName}-start");
         TryCaptureImmediatePlayerTypingInterrupt(playerMovement);
         EditorApplication.update += TickValidationTrace;
@@ -281,6 +284,7 @@ public static class NPCInformalChatValidationMenu
     private static void StopValidationTrace()
     {
         EditorApplication.update -= TickValidationTrace;
+        RestoreRunInBackground();
         if (EditorPrefs.HasKey(ExclusiveValidationLockKey))
         {
             EditorPrefs.DeleteKey(ExclusiveValidationLockKey);
@@ -302,6 +306,29 @@ public static class NPCInformalChatValidationMenu
         s_resumePlayerLine = string.Empty;
         s_resumeNpcLine = string.Empty;
         s_resumeTargetExchangeSeen = false;
+    }
+
+    private static void EnsureRunInBackground()
+    {
+        if (s_runInBackgroundOverridden)
+        {
+            return;
+        }
+
+        s_previousRunInBackground = Application.runInBackground;
+        Application.runInBackground = true;
+        s_runInBackgroundOverridden = true;
+    }
+
+    private static void RestoreRunInBackground()
+    {
+        if (!s_runInBackgroundOverridden)
+        {
+            return;
+        }
+
+        Application.runInBackground = s_previousRunInBackground;
+        s_runInBackgroundOverridden = false;
     }
 
     private static void TickValidationTrace()

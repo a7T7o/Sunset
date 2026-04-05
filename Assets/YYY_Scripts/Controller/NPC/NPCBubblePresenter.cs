@@ -2,6 +2,10 @@ using System.Collections;
 using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+using UnityEditor.SceneManagement;
+#endif
 
 /// <summary>
 /// NPC 头顶气泡表现器。
@@ -10,12 +14,21 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class NPCBubblePresenter : MonoBehaviour
 {
-    private const int CurrentStyleVersion = 8;
+    private const int CurrentStyleVersion = 13;
+    private const int BubbleForegroundSortingBase = 24000;
+    private const int SpeakerForegroundSortBoost = 2200;
 
     private enum BubbleDisplayMode
     {
         Default = 0,
         ReactionCue = 1
+    }
+
+    private enum BubbleChannelPriority
+    {
+        Ambient = 0,
+        Conversation = 10,
+        ReactionCue = 12
     }
 
     private static readonly string[] PreferredFontResourcePaths =
@@ -33,6 +46,8 @@ public class NPCBubblePresenter : MonoBehaviour
     private static Texture2D s_runtimeBubbleTexture;
     private static Sprite s_runtimeTailSprite;
     private static Texture2D s_runtimeTailTexture;
+    private static NPCBubblePresenter s_conversationChannelOwner;
+    private static NPCBubblePresenter s_foregroundSpeakerOwner;
 
     [Header("组件引用")]
     [SerializeField] private SpriteRenderer targetRenderer;
@@ -62,7 +77,7 @@ public class NPCBubblePresenter : MonoBehaviour
 
     [Header("气泡样式")]
     [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
-    [SerializeField] private Color bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
+    [SerializeField] private Color bubbleColor = new Color(0.10f, 0.12f, 0.16f, 1f);
     [SerializeField] private Color bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
     [SerializeField] private Color textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
     [SerializeField] private Color textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
@@ -111,10 +126,18 @@ public class NPCBubblePresenter : MonoBehaviour
     private Vector2 _fillTailBasePosition;
     private Vector3 _conversationLayoutShift;
     private bool _hasConversationLayoutShift;
+    private int _conversationSortBoost;
+    private int _speakerForegroundSortBoost;
+    private bool _suppressAmbientWhilePromptFocused;
     private BubbleDisplayMode _displayMode;
+    private BubbleChannelPriority _channelPriority;
+    private string _lastPresentedText = string.Empty;
 
     public bool IsBubbleVisible => _canvas != null && _canvas.gameObject.activeSelf;
     public string CurrentBubbleText => IsBubbleVisible && _bubbleText != null ? _bubbleText.text : string.Empty;
+    public string LastPresentedText => _lastPresentedText ?? string.Empty;
+    public float ApproximateWorldWidth => _canvasRect != null ? _canvasRect.sizeDelta.x * bubbleLocalScale.x : 0f;
+    public float ApproximateWorldHeight => _canvasRect != null ? _canvasRect.sizeDelta.y * bubbleLocalScale.y : 0f;
     public int SelfTalkLineCount => selfTalkLines != null ? selfTalkLines.Length : 0;
 
     private void Reset()
@@ -127,7 +150,11 @@ public class NPCBubblePresenter : MonoBehaviour
     {
         CacheComponents();
         UpgradeLegacyStyleIfNeeded();
-        EnsureBubbleUi();
+        if (CanCreateBubbleUiInCurrentContext())
+        {
+            EnsureBubbleUi();
+        }
+
         HideImmediate();
     }
 
@@ -170,17 +197,26 @@ public class NPCBubblePresenter : MonoBehaviour
         hideDuration = Mathf.Max(0.01f, hideDuration);
         showScaleOvershoot = Mathf.Clamp(showScaleOvershoot, 0f, 0.2f);
 
-        if (_canvas != null)
+        if (!CanCreateBubbleUiInCurrentContext())
         {
-            UpdateStyleVisuals();
-            UpdateLayout();
-            SyncCanvasTransform();
+            return;
         }
+
+        EnsureBubbleUi();
+        if (_canvas == null)
+        {
+            return;
+        }
+
+        UpdateStyleVisuals();
+        UpdateLayout();
+        SyncCanvasTransform();
     }
 
     private void OnDisable()
     {
         HideImmediate();
+        ReleaseConversationChannelIfOwned();
     }
 
     public void ApplyProfile(NPCRoamProfile profile)
@@ -206,26 +242,194 @@ public class NPCBubblePresenter : MonoBehaviour
 
     public bool ShowText(string content, float duration = -1f, bool restartFadeIn = true)
     {
-        return ShowTextInternal(content, duration, restartFadeIn, BubbleDisplayMode.Default);
+        return ShowTextInternal(
+            content,
+            duration,
+            restartFadeIn,
+            immediateVisible: false,
+            BubbleDisplayMode.Default,
+            BubbleChannelPriority.Ambient);
     }
 
-    public bool ShowReactionCue(string content, float duration = -1f, bool restartFadeIn = true)
+    public bool ShowConversationText(string content, float duration = -1f, bool restartFadeIn = true)
     {
-        return ShowTextInternal(content, duration, restartFadeIn, BubbleDisplayMode.ReactionCue);
+        return ShowTextInternal(
+            content,
+            duration,
+            restartFadeIn,
+            immediateVisible: false,
+            BubbleDisplayMode.Default,
+            BubbleChannelPriority.Conversation);
     }
 
-    private bool ShowTextInternal(
-        string content,
-        float duration,
-        bool restartFadeIn,
-        BubbleDisplayMode displayMode)
+    public bool ShowConversationImmediate(string content)
+    {
+        return ShowTextInternal(
+            content,
+            -1f,
+            restartFadeIn: false,
+            immediateVisible: true,
+            BubbleDisplayMode.Default,
+            BubbleChannelPriority.Conversation);
+    }
+
+    public bool BeginTypedConversationText(string content, bool restartFadeIn)
+    {
+        return ShowTextInternal(
+            content,
+            -1f,
+            restartFadeIn,
+            true,
+            BubbleDisplayMode.Default,
+            BubbleChannelPriority.Conversation);
+    }
+
+    public bool UpdateTypedConversationText(string content)
     {
         if (string.IsNullOrWhiteSpace(content))
         {
             return false;
         }
 
+        if (!CanShow(BubbleChannelPriority.Conversation))
+        {
+            return false;
+        }
+
+        _displayMode = BubbleDisplayMode.Default;
+        _channelPriority = BubbleChannelPriority.Conversation;
+        UpdateSpeakerForegroundFocus(true);
+        EnsureBubbleUi();
+        if (_canvas == null || _bubbleText == null || _fillBodyRect == null)
+        {
+            return false;
+        }
+
+        if (_visibilityCoroutine != null)
+        {
+            StopCoroutine(_visibilityCoroutine);
+            _visibilityCoroutine = null;
+        }
+
+        _canvas.gameObject.SetActive(true);
+        SyncCanvasTransform();
+        SyncSorting();
+
+        _lastPresentedText = FormatBubbleText(content.Trim());
+        _bubbleText.text = _lastPresentedText;
+        UpdateStyleVisuals();
+        UpdateLayout();
+        SyncCanvasTransform();
+
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 1f;
+        }
+
+        if (_bubbleRoot != null)
+        {
+            _bubbleRoot.localScale = Vector3.one;
+        }
+
+        return true;
+    }
+
+    public bool ShowReactionCue(string content, float duration = -1f, bool restartFadeIn = true)
+    {
+        return ShowTextInternal(
+            content,
+            duration,
+            restartFadeIn,
+            immediateVisible: false,
+            BubbleDisplayMode.ReactionCue,
+            BubbleChannelPriority.ReactionCue);
+    }
+
+    public bool ShowReactionCueImmediate(string content)
+    {
+        return ShowTextInternal(
+            content,
+            -1f,
+            restartFadeIn: false,
+            immediateVisible: true,
+            BubbleDisplayMode.ReactionCue,
+            BubbleChannelPriority.ReactionCue);
+    }
+
+    public void SetConversationChannelActive(bool active)
+    {
+        if (active)
+        {
+            s_conversationChannelOwner = this;
+            _channelPriority = BubbleChannelPriority.Conversation;
+
+            NPCBubblePresenter[] presenters = FindObjectsByType<NPCBubblePresenter>(FindObjectsSortMode.None);
+            for (int index = 0; index < presenters.Length; index++)
+            {
+                NPCBubblePresenter presenter = presenters[index];
+                if (presenter == null || presenter == this)
+                {
+                    continue;
+                }
+
+                if (presenter._channelPriority >= BubbleChannelPriority.Conversation)
+                {
+                    continue;
+                }
+
+                if (presenter.IsBubbleVisible)
+                {
+                    presenter.HideBubble();
+                }
+            }
+            return;
+        }
+
+        ReleaseConversationChannelIfOwned();
+        ClearSpeakerForegroundFocus();
+        if (_channelPriority >= BubbleChannelPriority.Conversation)
+        {
+            _channelPriority = BubbleChannelPriority.Ambient;
+        }
+    }
+
+    public void SetInteractionPromptSuppressed(bool suppressed)
+    {
+        if (_suppressAmbientWhilePromptFocused == suppressed)
+        {
+            return;
+        }
+
+        _suppressAmbientWhilePromptFocused = suppressed;
+        if (_suppressAmbientWhilePromptFocused &&
+            _channelPriority == BubbleChannelPriority.Ambient &&
+            IsBubbleVisible)
+        {
+            HideBubble();
+        }
+    }
+
+    private bool ShowTextInternal(
+        string content,
+        float duration,
+        bool restartFadeIn,
+        bool immediateVisible,
+        BubbleDisplayMode displayMode,
+        BubbleChannelPriority channelPriority)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return false;
+        }
+
+        if (!CanShow(channelPriority))
+        {
+            return false;
+        }
+
         _displayMode = displayMode;
+        _channelPriority = channelPriority;
+        UpdateSpeakerForegroundFocus(channelPriority >= BubbleChannelPriority.Conversation || displayMode == BubbleDisplayMode.ReactionCue);
         EnsureBubbleUi();
         if (_canvas == null || _bubbleText == null || _fillBodyRect == null)
         {
@@ -238,16 +442,22 @@ public class NPCBubblePresenter : MonoBehaviour
             _hideCoroutine = null;
         }
 
+        bool wasActive = _canvas.gameObject.activeSelf;
         _canvas.gameObject.SetActive(true);
         SyncCanvasTransform();
         SyncSorting();
 
-        _bubbleText.text = FormatBubbleText(content.Trim());
+        _lastPresentedText = FormatBubbleText(content.Trim());
+        _bubbleText.text = _lastPresentedText;
         UpdateStyleVisuals();
         UpdateLayout();
         SyncCanvasTransform();
 
-        if (restartFadeIn || _canvasGroup == null || _canvasGroup.alpha < 0.99f)
+        if (immediateVisible)
+        {
+            ApplyImmediateVisibleState();
+        }
+        else if (restartFadeIn || !wasActive)
         {
             if (_canvasGroup != null)
             {
@@ -263,6 +473,12 @@ public class NPCBubblePresenter : MonoBehaviour
         }
         else
         {
+            if (_visibilityCoroutine != null)
+            {
+                StopCoroutine(_visibilityCoroutine);
+                _visibilityCoroutine = null;
+            }
+
             if (_canvasGroup != null)
             {
                 _canvasGroup.alpha = 1f;
@@ -304,10 +520,15 @@ public class NPCBubblePresenter : MonoBehaviour
         StartVisibilityAnimation(visible: false, deactivateAfter: true);
     }
 
+    public void HideImmediateBubble()
+    {
+        HideImmediate();
+    }
+
     public void SetConversationLayoutShift(Vector3 localOffsetShift)
     {
         _conversationLayoutShift = localOffsetShift;
-        _hasConversationLayoutShift = true;
+        _hasConversationLayoutShift = localOffsetShift != Vector3.zero;
         SyncCanvasTransform();
     }
 
@@ -321,6 +542,38 @@ public class NPCBubblePresenter : MonoBehaviour
         _conversationLayoutShift = Vector3.zero;
         _hasConversationLayoutShift = false;
         SyncCanvasTransform();
+    }
+
+    public void SetConversationSortBoost(int sortBoost)
+    {
+        if (_conversationSortBoost == sortBoost)
+        {
+            return;
+        }
+
+        _conversationSortBoost = sortBoost;
+        SyncSorting();
+    }
+
+    public void ClearConversationSortBoost()
+    {
+        if (_conversationSortBoost == 0)
+        {
+            return;
+        }
+
+        _conversationSortBoost = 0;
+        SyncSorting();
+    }
+
+    public void ClearSpeakerForegroundFocus()
+    {
+        if (s_foregroundSpeakerOwner == this)
+        {
+            s_foregroundSpeakerOwner = null;
+        }
+
+        ApplySpeakerForegroundSortBoost(0);
     }
 
     [ContextMenu("调试/显示随机自言自语")]
@@ -376,10 +629,10 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private void ApplyCurrentStylePreset()
     {
-        bubbleLocalOffset = new Vector3(0.08f, 1.46f, 0f);
+        bubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
         bubblePadding = new Vector2(82f, 42f);
         bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
-        bubbleColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
+        bubbleColor = new Color(0.10f, 0.12f, 0.16f, 1f);
         bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
         textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
         textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
@@ -406,9 +659,112 @@ public class NPCBubblePresenter : MonoBehaviour
         showScaleOvershoot = 0.05f;
     }
 
+    private bool CanShow(BubbleChannelPriority requestedPriority)
+    {
+        if (_suppressAmbientWhilePromptFocused && requestedPriority == BubbleChannelPriority.Ambient)
+        {
+            if (ShouldReleaseStalePromptSuppression())
+            {
+                _suppressAmbientWhilePromptFocused = false;
+            }
+            else
+            {
+                return false;
+            }
+        }
+
+        if (requestedPriority >= BubbleChannelPriority.Conversation)
+        {
+            return true;
+        }
+
+        if (s_conversationChannelOwner == null)
+        {
+            return true;
+        }
+
+        if (s_conversationChannelOwner == this)
+        {
+            return _channelPriority >= BubbleChannelPriority.Conversation;
+        }
+
+        bool ownerStillBlocksAmbient =
+            s_conversationChannelOwner.isActiveAndEnabled &&
+            s_conversationChannelOwner.gameObject.activeInHierarchy &&
+            s_conversationChannelOwner.IsBubbleVisible &&
+            s_conversationChannelOwner._channelPriority >= BubbleChannelPriority.Conversation;
+
+        if (!ownerStillBlocksAmbient)
+        {
+            s_conversationChannelOwner = null;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool ShouldReleaseStalePromptSuppression()
+    {
+        if (!_suppressAmbientWhilePromptFocused)
+        {
+            return false;
+        }
+
+        if (!Application.isPlaying)
+        {
+            return true;
+        }
+
+        if (!Sunset.Story.InteractionHintDisplaySettings.AreHintsVisible)
+        {
+            return true;
+        }
+
+        Transform currentAnchorTarget = Sunset.Story.SpringDay1ProximityInteractionService.CurrentAnchorTarget;
+        if (currentAnchorTarget == null)
+        {
+            return true;
+        }
+
+        NPCBubblePresenter focusedPresenter = ResolvePresenterFromPromptAnchor(currentAnchorTarget);
+        return focusedPresenter != this;
+    }
+
+    private static NPCBubblePresenter ResolvePresenterFromPromptAnchor(Transform anchorTarget)
+    {
+        if (anchorTarget == null)
+        {
+            return null;
+        }
+
+        NPCBubblePresenter presenter = anchorTarget.GetComponent<NPCBubblePresenter>();
+        if (presenter != null)
+        {
+            return presenter;
+        }
+
+        presenter = anchorTarget.GetComponentInParent<NPCBubblePresenter>();
+        if (presenter != null)
+        {
+            return presenter;
+        }
+
+        return anchorTarget.GetComponentInChildren<NPCBubblePresenter>(true);
+    }
+
     private void EnsureBubbleUi()
     {
         if (_canvas != null && _bubbleText != null)
+        {
+            return;
+        }
+
+        if (!CanCreateBubbleUiInCurrentContext())
+        {
+            return;
+        }
+
+        if (TryBindExistingBubbleUi())
         {
             return;
         }
@@ -520,6 +876,118 @@ public class NPCBubblePresenter : MonoBehaviour
         SyncSorting();
     }
 
+    private bool TryBindExistingBubbleUi()
+    {
+        Transform canvasTransform = transform.Find("NPCBubbleCanvas");
+        if (canvasTransform == null)
+        {
+            return false;
+        }
+
+        Transform bubbleRootTransform = canvasTransform.Find("BubbleRoot");
+        Transform bubbleTextTransform = canvasTransform.Find("BubbleRoot/FillBody/BubbleText");
+        if (bubbleRootTransform == null || bubbleTextTransform == null)
+        {
+            return false;
+        }
+
+        _canvas = canvasTransform.GetComponent<Canvas>();
+        _canvasGroup = canvasTransform.GetComponent<CanvasGroup>();
+        _canvasRect = canvasTransform.GetComponent<RectTransform>();
+        _bubbleRoot = bubbleRootTransform.GetComponent<RectTransform>();
+        _shadowBodyImage = ResolveImage(_bubbleRoot, "ShadowBody", out _shadowBodyRect);
+        _shadowTailImage = ResolveImage(_bubbleRoot, "ShadowTail", out _shadowTailRect);
+        _borderBodyImage = ResolveImage(_bubbleRoot, "BorderBody", out _borderBodyRect);
+        _borderTailImage = ResolveImage(_bubbleRoot, "BorderTail", out _borderTailRect);
+        _fillBodyImage = ResolveImage(_bubbleRoot, "FillBody", out _fillBodyRect);
+        _fillTailImage = ResolveImage(_bubbleRoot, "FillTail", out _fillTailRect);
+        _bubbleText = bubbleTextTransform.GetComponent<TextMeshProUGUI>();
+
+        bool resolved =
+            _canvas != null &&
+            _canvasGroup != null &&
+            _canvasRect != null &&
+            _bubbleRoot != null &&
+            _shadowBodyImage != null &&
+            _shadowTailImage != null &&
+            _borderBodyImage != null &&
+            _borderTailImage != null &&
+            _fillBodyImage != null &&
+            _fillTailImage != null &&
+            _bubbleText != null;
+
+        if (!resolved)
+        {
+            ResetBubbleUiCache();
+            return false;
+        }
+
+        return true;
+    }
+
+    private static Image ResolveImage(Transform parent, string childName, out RectTransform rectTransform)
+    {
+        rectTransform = null;
+        if (parent == null)
+        {
+            return null;
+        }
+
+        Transform child = parent.Find(childName);
+        if (child == null)
+        {
+            return null;
+        }
+
+        rectTransform = child.GetComponent<RectTransform>();
+        return child.GetComponent<Image>();
+    }
+
+    private void ResetBubbleUiCache()
+    {
+        _canvas = null;
+        _canvasGroup = null;
+        _canvasRect = null;
+        _bubbleRoot = null;
+        _shadowBodyRect = null;
+        _shadowTailRect = null;
+        _borderBodyRect = null;
+        _borderTailRect = null;
+        _fillBodyRect = null;
+        _fillTailRect = null;
+        _shadowBodyImage = null;
+        _shadowTailImage = null;
+        _borderBodyImage = null;
+        _borderTailImage = null;
+        _fillBodyImage = null;
+        _fillTailImage = null;
+        _bubbleText = null;
+    }
+
+    private bool CanCreateBubbleUiInCurrentContext()
+    {
+#if UNITY_EDITOR
+        if (EditorUtility.IsPersistent(gameObject))
+        {
+            return false;
+        }
+
+        if (PrefabStageUtility.GetPrefabStage(gameObject) != null)
+        {
+            return false;
+        }
+
+        if (Application.isPlaying)
+        {
+            return true;
+        }
+
+        return !gameObject.scene.IsValid() || string.IsNullOrEmpty(gameObject.scene.path);
+#else
+        return Application.isPlaying;
+#endif
+    }
+
     private void UpdateStyleVisuals()
     {
         if (_bubbleText == null)
@@ -527,34 +995,17 @@ public class NPCBubblePresenter : MonoBehaviour
             return;
         }
 
-        bool isReactionCue = _displayMode == BubbleDisplayMode.ReactionCue;
-        Color resolvedShadowColor = isReactionCue
-            ? new Color(0.02f, 0.01f, 0.03f, 0.24f)
-            : bubbleShadowColor;
-        Color resolvedBorderColor = isReactionCue
-            ? new Color(1f, 0.84f, 0.58f, 1f)
-            : bubbleBorderColor;
-        Color resolvedBubbleColor = isReactionCue
-            ? new Color(0.18f, 0.13f, 0.18f, 0.96f)
-            : bubbleColor;
-        Color resolvedTextColor = isReactionCue
-            ? new Color(0.99f, 0.92f, 0.84f, 1f)
-            : textColor;
-        Color resolvedOutlineColor = isReactionCue
-            ? new Color(0.17f, 0.10f, 0.08f, 0.94f)
-            : textOutlineColor;
+        _shadowBodyImage.color = bubbleShadowColor;
+        _shadowTailImage.color = bubbleShadowColor;
+        _borderBodyImage.color = bubbleBorderColor;
+        _borderTailImage.color = bubbleBorderColor;
+        _fillBodyImage.color = bubbleColor;
+        _fillTailImage.color = bubbleColor;
 
-        _shadowBodyImage.color = resolvedShadowColor;
-        _shadowTailImage.color = resolvedShadowColor;
-        _borderBodyImage.color = resolvedBorderColor;
-        _borderTailImage.color = resolvedBorderColor;
-        _fillBodyImage.color = resolvedBubbleColor;
-        _fillTailImage.color = resolvedBubbleColor;
-
-        _bubbleText.fontSize = isReactionCue ? fontSize - 2f : fontSize;
-        _bubbleText.color = resolvedTextColor;
-        _bubbleText.outlineColor = resolvedOutlineColor;
-        _bubbleText.outlineWidth = isReactionCue ? textOutlineWidth * 0.82f : textOutlineWidth;
+        _bubbleText.fontSize = fontSize;
+        _bubbleText.color = textColor;
+        _bubbleText.outlineColor = textOutlineColor;
+        _bubbleText.outlineWidth = textOutlineWidth;
     }
 
     private void UpdateLayout()
@@ -566,64 +1017,54 @@ public class NPCBubblePresenter : MonoBehaviour
 
         string bubbleText = _bubbleText.text ?? string.Empty;
         AnalyzeBubbleText(bubbleText, out int visibleCharacterCount, out int longestLineCharacterCount);
-        bool isReactionCue = _displayMode == BubbleDisplayMode.ReactionCue;
-        Vector2 effectiveBubblePadding = isReactionCue ? new Vector2(44f, 18f) : bubblePadding;
-        Vector2 effectiveTextSafePadding = isReactionCue ? new Vector2(18f, 14f) : textSafePadding;
-        float effectiveFontSize = isReactionCue ? fontSize - 2f : fontSize;
-        float effectiveBorderThickness = isReactionCue ? Mathf.Max(4f, borderThickness - 1f) : borderThickness;
-        Vector2 effectiveTailSize = isReactionCue ? Vector2.zero : tailSize;
-        float effectiveTailYOffset = isReactionCue ? 0f : tailYOffset;
-        float effectiveTailHorizontalBias = isReactionCue ? 0f : tailHorizontalBias;
-        Vector2 effectiveShadowOffset = isReactionCue ? new Vector2(2f, -3f) : shadowOffset;
-        float effectiveTextVerticalOffset = isReactionCue ? -4f : textVerticalOffset;
 
         Vector2 preferredSize = _bubbleText.GetPreferredValues(bubbleText, 10000f, 0f);
         preferredSize.x = Mathf.Max(92f, preferredSize.x);
-        preferredSize.y = Mathf.Max(effectiveFontSize + 16f, preferredSize.y);
+        preferredSize.y = Mathf.Max(fontSize + 16f, preferredSize.y);
 
-        Vector2 textBoxSize = preferredSize + effectiveTextSafePadding;
+        Vector2 textBoxSize = preferredSize + textSafePadding;
         float shapeBias = Mathf.InverseLerp(preferredCharactersPerLine, preferredCharactersPerLine * 5f, visibleCharacterCount);
         float lineWidthBias = Mathf.InverseLerp(1f, preferredCharactersPerLine, longestLineCharacterCount);
-        float horizontalPadding = Mathf.Lerp(isReactionCue ? 26f : 42f, effectiveBubblePadding.x, shapeBias);
-        float verticalPadding = effectiveBubblePadding.y + Mathf.Lerp(0f, isReactionCue ? 6f : 12f, shapeBias);
+        float horizontalPadding = Mathf.Lerp(42f, bubblePadding.x, shapeBias);
+        float verticalPadding = bubblePadding.y + Mathf.Lerp(0f, 12f, shapeBias);
         Vector2 bodySize = textBoxSize + new Vector2(horizontalPadding, verticalPadding) + new Vector2(lineWidthBias * 10f, shapeBias * 18f);
         Vector2 fillBodySize = new Vector2(
-            Mathf.Max(60f, bodySize.x - (effectiveBorderThickness * 2f)),
-            Mathf.Max(effectiveFontSize + 18f, bodySize.y - (effectiveBorderThickness * 2f)));
+            Mathf.Max(60f, bodySize.x - (borderThickness * 2f)),
+            Mathf.Max(fontSize + 18f, bodySize.y - (borderThickness * 2f)));
         Vector2 fillTailSize = new Vector2(
-            Mathf.Max(0f, effectiveTailSize.x - (effectiveBorderThickness * 1.6f)),
-            Mathf.Max(0f, effectiveTailSize.y - (effectiveBorderThickness * 1.2f)));
+            Mathf.Max(0f, tailSize.x - (borderThickness * 1.6f)),
+            Mathf.Max(0f, tailSize.y - (borderThickness * 1.2f)));
         Vector2 textRectSize = new Vector2(
-            Mathf.Max(68f, fillBodySize.x - (effectiveTextSafePadding.x * 2f)),
-            Mathf.Max(effectiveFontSize + 14f, fillBodySize.y - (effectiveTextSafePadding.y * 2f)));
+            Mathf.Max(68f, fillBodySize.x - (textSafePadding.x * 2f)),
+            Mathf.Max(fontSize + 14f, fillBodySize.y - (textSafePadding.y * 2f)));
 
-        float bodyCenterY = isReactionCue ? 0f : Mathf.Max(effectiveTailSize.y * 0.72f, 10f);
-        float tailCenterY = bodyCenterY - (bodySize.y * 0.54f) - (effectiveTailSize.y * 0.06f) + effectiveTailYOffset;
+        float bodyCenterY = Mathf.Max(tailSize.y * 0.72f, 10f);
+        float tailCenterY = bodyCenterY - (bodySize.y * 0.54f) - (tailSize.y * 0.06f) + tailYOffset;
 
         Vector2 bodyPosition = new Vector2(0f, bodyCenterY);
-        Vector2 tailPosition = new Vector2(effectiveTailHorizontalBias, tailCenterY);
-        Vector2 shadowBodyPosition = bodyPosition + effectiveShadowOffset;
-        Vector2 shadowTailPosition = tailPosition + effectiveShadowOffset;
-        Vector2 fillTailPosition = tailPosition + (Vector2.up * (isReactionCue ? 0f : 0.75f));
+        Vector2 tailPosition = new Vector2(tailHorizontalBias, tailCenterY);
+        Vector2 shadowBodyPosition = bodyPosition + shadowOffset;
+        Vector2 shadowTailPosition = tailPosition + shadowOffset;
+        Vector2 fillTailPosition = tailPosition + (Vector2.up * 0.75f);
 
         _shadowTailBasePosition = shadowTailPosition;
         _borderTailBasePosition = tailPosition;
         _fillTailBasePosition = fillTailPosition;
 
         SetRect(_shadowBodyRect, bodySize, shadowBodyPosition);
-        SetRect(_shadowTailRect, effectiveTailSize, _shadowTailBasePosition);
+        SetRect(_shadowTailRect, tailSize, _shadowTailBasePosition);
         SetRect(_borderBodyRect, bodySize, bodyPosition);
-        SetRect(_borderTailRect, effectiveTailSize, _borderTailBasePosition);
+        SetRect(_borderTailRect, tailSize, _borderTailBasePosition);
         SetRect(_fillBodyRect, fillBodySize, bodyPosition);
         SetRect(_fillTailRect, fillTailSize, _fillTailBasePosition);
-        SetRect(_bubbleText.rectTransform, textRectSize, bodyPosition + (Vector2.up * effectiveTextVerticalOffset));
+        SetRect(_bubbleText.rectTransform, textRectSize, bodyPosition + (Vector2.up * textVerticalOffset));
 
         _lowestVisibleLocalY = Mathf.Min(
             bodyPosition.y - (bodySize.y * 0.5f),
-            tailPosition.y - (effectiveTailSize.y * 0.5f));
+            tailPosition.y - (tailSize.y * 0.5f));
 
         float canvasWidth = bodySize.x + Mathf.Abs(shadowOffset.x) + 18f;
-        float canvasHeight = bodySize.y + effectiveTailSize.y + Mathf.Abs(effectiveTailYOffset) + Mathf.Abs(effectiveShadowOffset.y) + 20f;
+        float canvasHeight = bodySize.y + tailSize.y + Mathf.Abs(tailYOffset) + Mathf.Abs(shadowOffset.y) + 20f;
         Vector2 canvasSize = new Vector2(canvasWidth, canvasHeight);
 
         _canvasRect.sizeDelta = canvasSize;
@@ -651,15 +1092,9 @@ public class NPCBubblePresenter : MonoBehaviour
             return;
         }
 
-        if (targetRenderer != null)
-        {
-            _canvas.sortingLayerID = targetRenderer.sortingLayerID;
-            _canvas.sortingOrder = targetRenderer.sortingOrder + sortingOrderOffset;
-        }
-        else
-        {
-            _canvas.sortingOrder = sortingOrderOffset;
-        }
+        _canvas.overrideSorting = true;
+        _canvas.sortingLayerID = ResolveForegroundSortingLayerId();
+        _canvas.sortingOrder = BubbleForegroundSortingBase + ResolveStableSortingBias() + sortingOrderOffset + _conversationSortBoost + _speakerForegroundSortBoost;
     }
 
     private void HideImmediate()
@@ -685,7 +1120,12 @@ public class NPCBubblePresenter : MonoBehaviour
             _canvas.gameObject.SetActive(false);
         }
 
+        ClearSpeakerForegroundFocus();
         _displayMode = BubbleDisplayMode.Default;
+        if (_channelPriority < BubbleChannelPriority.Conversation)
+        {
+            _channelPriority = BubbleChannelPriority.Ambient;
+        }
     }
 
     private void StartVisibilityAnimation(bool visible, bool deactivateAfter)
@@ -785,11 +1225,6 @@ public class NPCBubblePresenter : MonoBehaviour
             resolvedOffset.y += floatOffset;
         }
 
-        if (_displayMode == BubbleDisplayMode.ReactionCue)
-        {
-            resolvedOffset.y += 0.16f;
-        }
-
         if (_hasConversationLayoutShift)
         {
             resolvedOffset += _conversationLayoutShift;
@@ -798,23 +1233,93 @@ public class NPCBubblePresenter : MonoBehaviour
         return resolvedOffset;
     }
 
+    private void ApplyImmediateVisibleState()
+    {
+        if (_visibilityCoroutine != null)
+        {
+            StopCoroutine(_visibilityCoroutine);
+            _visibilityCoroutine = null;
+        }
+
+        if (_canvasGroup != null)
+        {
+            _canvasGroup.alpha = 1f;
+        }
+
+        if (_bubbleRoot != null)
+        {
+            _bubbleRoot.localScale = Vector3.one;
+        }
+    }
+
     private static Vector3 GetHiddenScale()
     {
         return new Vector3(0.84f, 0.78f, 1f);
+    }
+
+    private void ReleaseConversationChannelIfOwned()
+    {
+        if (s_conversationChannelOwner == this)
+        {
+            s_conversationChannelOwner = null;
+        }
+
+        if (s_foregroundSpeakerOwner == this)
+        {
+            s_foregroundSpeakerOwner = null;
+        }
+    }
+
+    private void UpdateSpeakerForegroundFocus(bool isCurrentSpeaker)
+    {
+        if (!isCurrentSpeaker)
+        {
+            ClearSpeakerForegroundFocus();
+            return;
+        }
+
+        if (s_foregroundSpeakerOwner != null && s_foregroundSpeakerOwner != this)
+        {
+            s_foregroundSpeakerOwner.ClearSpeakerForegroundFocus();
+        }
+
+        s_foregroundSpeakerOwner = this;
+        ApplySpeakerForegroundSortBoost(SpeakerForegroundSortBoost);
+    }
+
+    private void ApplySpeakerForegroundSortBoost(int sortBoost)
+    {
+        if (_speakerForegroundSortBoost == sortBoost)
+        {
+            return;
+        }
+
+        _speakerForegroundSortBoost = sortBoost;
+        SyncSorting();
+    }
+
+    private int ResolveStableSortingBias()
+    {
+        return targetRenderer != null
+            ? Mathf.Clamp(targetRenderer.sortingOrder, -200, 1200)
+            : 0;
+    }
+
+    private static int ResolveForegroundSortingLayerId()
+    {
+        SortingLayer[] layers = SortingLayer.layers;
+        if (layers != null && layers.Length > 0)
+        {
+            return layers[layers.Length - 1].id;
+        }
+
+        return SortingLayer.NameToID("Default");
     }
 
     private void ApplyTailBob()
     {
         if (_shadowTailRect == null || _borderTailRect == null || _fillTailRect == null)
         {
-            return;
-        }
-
-        if (_displayMode == BubbleDisplayMode.ReactionCue)
-        {
-            _shadowTailRect.anchoredPosition = _shadowTailBasePosition;
-            _borderTailRect.anchoredPosition = _borderTailBasePosition;
-            _fillTailRect.anchoredPosition = _fillTailBasePosition;
             return;
         }
 
@@ -934,13 +1439,38 @@ public class NPCBubblePresenter : MonoBehaviour
         for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
         {
             TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
-            if (candidate != null)
+            if (IsFontAssetUsable(candidate))
             {
                 return candidate;
             }
         }
 
         return null;
+    }
+
+    private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)
+    {
+        if (fontAsset == null || fontAsset.material == null)
+        {
+            return false;
+        }
+
+        Texture[] atlasTextures = fontAsset.atlasTextures;
+        if (atlasTextures == null || atlasTextures.Length == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < atlasTextures.Length; index++)
+        {
+            Texture atlasTexture = atlasTextures[index];
+            if (atlasTexture != null && atlasTexture.width > 1 && atlasTexture.height > 1)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static Image CreateImage(

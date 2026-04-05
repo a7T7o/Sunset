@@ -22,6 +22,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const float AmbientChatRetryDelay = 0.9f;
     private const float AmbientChatRetryMinRemainingTime = 1.25f;
     private const int AmbientChatMaxRetryCount = 3;
+    private const float AmbientBubbleRetryDelay = 0.08f;
+    private const int AmbientBubbleMaxShowAttempts = 3;
     private const float SHARED_DETOUR_MIN_ACTIVE_DURATION = 0.35f;
     private const int SHARED_DETOUR_RELEASE_STABLE_FRAMES = 3;
     private const float SHARED_DETOUR_POST_RELEASE_RECOVERY_WINDOW = 0.22f;
@@ -387,6 +389,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void Update()
     {
+        if (ShouldSuspendForDialogue())
+        {
+            ApplyDialogueFreeze();
+            return;
+        }
+
         UpdateTraversalSoftPassState(GetNavigationCenter());
 
         switch (state)
@@ -410,9 +418,40 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void FixedUpdate()
     {
+        if (ShouldSuspendForDialogue())
+        {
+            ApplyDialogueFreeze();
+            return;
+        }
+
         if (state == RoamState.Moving && rb != null)
         {
             TickMoving(Time.fixedDeltaTime);
+        }
+    }
+
+    private static bool ShouldSuspendForDialogue()
+    {
+        return DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive;
+    }
+
+    private void ApplyDialogueFreeze()
+    {
+        BreakAmbientChatLink(hideBubble: true);
+
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+        }
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        if (bubblePresenter != null)
+        {
+            bubblePresenter.HideBubble();
         }
     }
 
@@ -2298,17 +2337,42 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         ambientChatCoroutine = null;
-        if (!isActiveAndEnabled ||
-            bubblePresenter == null ||
-            !HasBubbleLines(lines) ||
-            chatPartner == null ||
-            NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory())
+        string selectedLine = SelectAmbientChatLine(lines);
+        if (string.IsNullOrWhiteSpace(selectedLine))
         {
             yield break;
         }
 
         float bubbleDuration = Mathf.Clamp(duration * 0.45f, 1.2f, 2.4f);
-        bubblePresenter.ShowText(lines[Random.Range(0, lines.Length)], bubbleDuration);
+        for (int attempt = 0; attempt < AmbientBubbleMaxShowAttempts; attempt++)
+        {
+            StoryPhase currentPhase = NpcInteractionPriorityPolicy.ResolveCurrentStoryPhase();
+            if (!CanShowAmbientBubbleNow(lines, currentPhase))
+            {
+                yield break;
+            }
+
+            if (bubblePresenter.ShowText(selectedLine, bubbleDuration))
+            {
+                yield break;
+            }
+
+            if (attempt >= AmbientBubbleMaxShowAttempts - 1)
+            {
+                yield break;
+            }
+
+            yield return new WaitForSeconds(AmbientBubbleRetryDelay);
+        }
+    }
+
+    private bool CanShowAmbientBubbleNow(string[] lines, StoryPhase currentPhase)
+    {
+        return isActiveAndEnabled &&
+               bubblePresenter != null &&
+               HasBubbleLines(lines) &&
+               chatPartner != null &&
+               !NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubble(currentPhase);
     }
 
     private void BreakAmbientChatLink(bool hideBubble)
@@ -2361,6 +2425,26 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         return false;
+    }
+
+    private static string SelectAmbientChatLine(string[] lines)
+    {
+        if (lines == null || lines.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        int startIndex = Random.Range(0, lines.Length);
+        for (int offset = 0; offset < lines.Length; offset++)
+        {
+            string line = lines[(startIndex + offset) % lines.Length];
+            if (!string.IsNullOrWhiteSpace(line))
+            {
+                return line.Trim();
+            }
+        }
+
+        return string.Empty;
     }
 
     private bool HasAmbientChatInitiatorContent()
