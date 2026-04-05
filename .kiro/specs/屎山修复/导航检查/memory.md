@@ -9233,3 +9233,30 @@
   - 本轮沿用已存在的 `ACTIVE` 切片继续施工
   - 收尾已 `Park-Slice`
   - 当前状态：`PARKED`
+
+## 2026-04-06｜导航统一执行内核方向已锚定：后续只允许统一 traversal core，不允许合并整套 controller
+
+- 当前主线目标：
+  - 在不推翻玩家已认可导航版本的前提下，为后续“玩家 / NPC / 其他可移动体统一导航接口”写一份可落地、可回退、不会变黑洞的方向锚定。
+- 本轮完成：
+  1. 新增方向文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-05_导航统一执行内核方向锚定.md`
+  2. 文档已明确压实 4 个核心判断：
+     - 当前已经统一的是 `NavGrid2D / NavigationPathExecutor2D / Avoidance` 底层；
+     - 当前没统一的是“建路后的 traversal 执行层”；
+     - 后续只能统一 `Traversal / Path Following / Step Execution Core`；
+     - 严禁把 `PlayerAutoNavigator` 和 `NPCAutoRoamController` 直接合并成一套大控制器。
+  3. 文档已写清楚实施顺序：
+     - Phase 1：抽窄核心
+     - Phase 2：先让 NPC 接 core
+     - Phase 3：NPC 稳住后再让玩家切到同一 core
+     - Phase 4：再放给其他可移动体
+- 当前判断：
+  - 这个方向是可实施的；
+  - 只要守住“统一中层，不统一整套 controller”的边界，就不是黑洞；
+  - 如果第一刀开始同时改玩家完成语义、NPC 状态机和运动落地层，就会立刻失控。
+- 本轮性质：
+  - 只做方向锚定与安全归档准备；
+  - 不改导航业务逻辑；
+  - 不重修玩家版本；
+  - 不直接开启统一内核施工。
