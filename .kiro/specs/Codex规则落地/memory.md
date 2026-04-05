@@ -11913,3 +11913,15 @@
 - 当前恢复点：
   - 下一步若继续收口，就进入最小白名单提交；
   - `Town / Primary` 仍维持上一轮裁定，不因这次规则补强而 reopen 自刀。
+
+### 提交与现场结算
+- 本轮白名单提交已完成：
+  - `commit = 7f4a641b`
+  - `message = 2026.04.05_Codex规则落地_04`
+- `thread-state`：
+  - `Ready-To-Sync` 已处于通过态
+  - `Park-Slice` 已执行
+  - 当前 live 状态 = `PARKED`
+- 当前 own 结论：
+  - 这轮 no-red 规则同步已形成真实 checkpoint
+  - `Town / Primary` 继续维持只读治理裁定，不新增 own 施工面

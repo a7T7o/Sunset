@@ -1409,3 +1409,15 @@ Sunset 里大量改动都属于：
   - `git diff -- <3 files>` 仅见本轮规则补强
 - 当前恢复点：
   - 下一步进入最小白名单提交，并在提交后 `Park-Slice`。
+
+### 提交结算
+- 本轮已提交：
+  - `commit = 7f4a641b`
+  - `message = 2026.04.05_Codex规则落地_04`
+- `thread-state`：
+  - `Ready-To-Sync` 已处于通过态
+  - `Park-Slice` 已执行
+  - 当前 = `PARKED`
+- 下次恢复点：
+  - no-red 规则层本轮无需继续补旧文件
+  - 若再进入治理主线，优先看新的用户裁定或外线回执，不 reopen 已停手的 `Town / Primary`
