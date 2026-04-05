@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using Sunset.Story;
 using UnityEngine;
 
 /// <summary>
@@ -29,6 +30,9 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const int BLOCKED_ADVANCE_REROUTE_MIN_FRAMES = 3;
     private const int BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES = 6;
     private const float MOVE_COMMAND_NO_PROGRESS_RADIUS = 0.015f;
+    private const float MOVE_COMMAND_OSCILLATION_SAME_POSITION_RADIUS = 0.14f;
+    private const float MOVE_COMMAND_OSCILLATION_FLIP_DOT_THRESHOLD = 0.15f;
+    private const int MOVE_COMMAND_OSCILLATION_MIN_FLIPS = 2;
     private const int TERMINAL_STUCK_LONG_PAUSE_MIN_COUNT = 2;
     private const float TERMINAL_STUCK_SAME_POSITION_RADIUS = 0.2f;
     private const float AVOIDANCE_STUCK_RESET_MAX_MOVE_SCALE = 0.32f;
@@ -248,6 +252,9 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private Vector2 lastBlockedAdvancePosition;
     private bool hasPendingMoveCommandProgressCheck;
     private Vector2 pendingMoveCommandOrigin;
+    private Vector2 lastIssuedMoveDirection;
+    private Vector2 lastIssuedMovePosition;
+    private int consecutiveMoveCommandDirectionFlips;
     private int consecutiveTerminalStuckCount;
     private Vector2 lastTerminalStuckPosition;
 
@@ -972,6 +979,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (velocity.sqrMagnitude <= 0.0001f)
         {
             TryHandleBlockedAdvance(currentPosition, "ConstrainedZeroAdvance");
+            return;
+        }
+
+        if (ShouldTreatMoveCommandAsOscillation(currentPosition, velocity))
+        {
+            TryHandleBlockedAdvance(currentPosition, "MoveCommandOscillation");
             return;
         }
 
@@ -2079,7 +2092,10 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 ScheduleAmbientChatRetry(resetCounter: true);
             }
 
-            bubblePresenter.ShowRandomSelfTalk(Mathf.Max(1f, stateTimer - 0.15f));
+            if (!NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory())
+            {
+                bubblePresenter.ShowRandomSelfTalk(Mathf.Max(1f, stateTimer - 0.15f));
+            }
         }
 
         if (showDebugLog)
@@ -2282,7 +2298,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         ambientChatCoroutine = null;
-        if (!isActiveAndEnabled || bubblePresenter == null || !HasBubbleLines(lines))
+        if (!isActiveAndEnabled ||
+            bubblePresenter == null ||
+            !HasBubbleLines(lines) ||
+            chatPartner == null ||
+            NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory())
         {
             yield break;
         }
@@ -2401,6 +2421,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return;
         }
 
+        if (NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory())
+        {
+            return;
+        }
+
         if (ambientChatRetryCount >= AmbientChatMaxRetryCount)
         {
             return;
@@ -2421,6 +2446,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         if (!ambientChatRetryPending || state != RoamState.LongPause || chatPartner != null)
         {
+            return;
+        }
+
+        if (NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory())
+        {
+            ClearAmbientChatRetry();
             return;
         }
 
@@ -2656,6 +2687,36 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         pendingMoveCommandOrigin = Vector2.zero;
     }
 
+    private bool ShouldTreatMoveCommandAsOscillation(Vector2 currentPosition, Vector2 velocity)
+    {
+        Vector2 moveDirection = velocity.normalized;
+        bool samePosition =
+            Vector2.Distance(currentPosition, lastIssuedMovePosition) <= MOVE_COMMAND_OSCILLATION_SAME_POSITION_RADIUS;
+        bool flipped =
+            lastIssuedMoveDirection.sqrMagnitude > 0.0001f &&
+            Vector2.Dot(moveDirection, lastIssuedMoveDirection) <= MOVE_COMMAND_OSCILLATION_FLIP_DOT_THRESHOLD;
+
+        if (samePosition && flipped)
+        {
+            consecutiveMoveCommandDirectionFlips++;
+        }
+        else
+        {
+            consecutiveMoveCommandDirectionFlips = 0;
+        }
+
+        lastIssuedMoveDirection = moveDirection;
+        lastIssuedMovePosition = currentPosition;
+        return consecutiveMoveCommandDirectionFlips >= MOVE_COMMAND_OSCILLATION_MIN_FLIPS;
+    }
+
+    private void ResetMoveCommandOscillationState(Vector2 currentPosition)
+    {
+        lastIssuedMoveDirection = Vector2.zero;
+        lastIssuedMovePosition = currentPosition;
+        consecutiveMoveCommandDirectionFlips = 0;
+    }
+
     private BlockedRecoveryState CaptureBlockedRecoveryState()
     {
         return new BlockedRecoveryState(
@@ -2702,6 +2763,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         NavigationPathExecutor2D.ResetProgress(navigationExecution, currentPosition, resetCounter);
         lastBlockedAdvanceRecoveryTime = float.NegativeInfinity;
         ClearPendingMoveCommandProgressCheck();
+        ResetMoveCommandOscillationState(currentPosition);
         NoteSuccessfulAdvance(currentPosition);
         if (resetCounter && !preserveTrafficState)
         {

@@ -205,19 +205,31 @@ public class NPCMotionController : MonoBehaviour
             return previewMoveInput.normalized * moveSpeed;
         }
 
-        if (_hasExternalVelocity)
+        float deltaTime = Mathf.Max(Time.deltaTime, 0.0001f);
+        Vector3 delta = transform.position - _lastPosition;
+        Vector2 transformVelocity = new Vector2(delta.x, delta.y) / deltaTime;
+        Vector2 rigidbodyVelocity = useRigidbodyVelocity && rb != null
+            ? rb.linearVelocity
+            : Vector2.zero;
+
+        if (rigidbodyVelocity.sqrMagnitude >= moveThreshold * moveThreshold)
+        {
+            return rigidbodyVelocity;
+        }
+
+        if (transformVelocity.sqrMagnitude >= moveThreshold * moveThreshold)
+        {
+            return transformVelocity;
+        }
+
+        if (_hasExternalVelocity && rb == null)
         {
             return _externalVelocity;
         }
 
-        if (useRigidbodyVelocity && rb != null)
-        {
-            return rb.linearVelocity;
-        }
-
-        float deltaTime = Mathf.Max(Time.deltaTime, 0.0001f);
-        Vector3 delta = transform.position - _lastPosition;
-        return new Vector2(delta.x, delta.y) / deltaTime;
+        return rigidbodyVelocity.sqrMagnitude > transformVelocity.sqrMagnitude
+            ? rigidbodyVelocity
+            : transformVelocity;
     }
 
     private NPCAnimController.NPCAnimDirection GetDirectionFromVelocity(Vector2 velocity)
