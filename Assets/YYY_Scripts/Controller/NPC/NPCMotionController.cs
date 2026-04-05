@@ -37,6 +37,7 @@ public class NPCMotionController : MonoBehaviour
     private Vector3 _lastPosition;
     private Vector2 _externalVelocity;
     private bool _hasExternalVelocity;
+    private float _lastObservedMovementTime = float.NegativeInfinity;
 
     #endregion
 
@@ -65,6 +66,7 @@ public class NPCMotionController : MonoBehaviour
     {
         CacheComponents();
         _lastPosition = transform.position;
+        _lastObservedMovementTime = float.NegativeInfinity;
     }
 
     private void Start()
@@ -151,6 +153,7 @@ public class NPCMotionController : MonoBehaviour
         _hasExternalVelocity = false;
         CurrentVelocity = Vector2.zero;
         IsMoving = false;
+        _lastObservedMovementTime = float.NegativeInfinity;
 
         if (rb != null)
         {
@@ -212,14 +215,21 @@ public class NPCMotionController : MonoBehaviour
             ? rb.linearVelocity
             : Vector2.zero;
 
-        if (rigidbodyVelocity.sqrMagnitude >= moveThreshold * moveThreshold)
-        {
-            return rigidbodyVelocity;
-        }
-
         if (transformVelocity.sqrMagnitude >= moveThreshold * moveThreshold)
         {
+            _lastObservedMovementTime = Time.time;
             return transformVelocity;
+        }
+
+        if (rigidbodyVelocity.sqrMagnitude >= moveThreshold * moveThreshold)
+        {
+            // Contacts can leave Rigidbody2D with a non-zero intent velocity while the visible pose is already stuck.
+            if (Time.time - _lastObservedMovementTime <= 0.12f)
+            {
+                return rigidbodyVelocity;
+            }
+
+            return Vector2.zero;
         }
 
         if (_hasExternalVelocity && rb == null)
@@ -227,9 +237,7 @@ public class NPCMotionController : MonoBehaviour
             return _externalVelocity;
         }
 
-        return rigidbodyVelocity.sqrMagnitude > transformVelocity.sqrMagnitude
-            ? rigidbodyVelocity
-            : transformVelocity;
+        return transformVelocity;
     }
 
     private NPCAnimController.NPCAnimDirection GetDirectionFromVelocity(Vector2 velocity)

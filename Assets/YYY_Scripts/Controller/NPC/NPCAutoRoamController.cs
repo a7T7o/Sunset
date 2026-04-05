@@ -2487,6 +2487,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         lastBlockedAdvancePosition = currentPosition;
         consecutiveTerminalStuckCount = 0;
         lastTerminalStuckPosition = currentPosition;
+        ResetMoveCommandOscillationState(currentPosition);
     }
 
     private void RefreshProgressCheckpoint(Vector2 currentPosition, bool resetCounter)
@@ -2520,7 +2521,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         if (closeRangeConstraint.HardBlocked)
         {
-            return true;
+            return false;
         }
 
         if (closeRangeConstraint.Applied && moveScale <= AVOIDANCE_STUCK_RESET_MAX_MOVE_SCALE)
