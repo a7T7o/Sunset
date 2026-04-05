@@ -2999,6 +2999,8 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         }
 
         actor.position = new Vector3(position.x, position.y, actor.position.z);
+        NPCMotionController motionController = actor.GetComponent<NPCMotionController>();
+        motionController?.ResetMotionObservation();
         Physics2D.SyncTransforms();
     }
 

@@ -4978,3 +4978,28 @@
 - 当前判断：
   - 现在已经具备“方向已锚定 + Git 已提交 + 本地可离线恢复”的三层保险；
   - 后续如果开始统一共享 traversal core，可以在这个锚点上放心开刀。
+
+## 2026-04-06｜导航统一执行内核第一刀已验证：共享 traversal core 接通玩家与 NPC
+
+- 子线：
+  - `导航检查V2`
+- 本轮新增事实：
+  1. 已新增共享执行内核：
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs`
+  2. 已完成第一批接线：
+     - `PlayerMovement.cs`
+     - `NPCAutoRoamController.cs`
+  3. 为了压掉 NPC 假速度 / 假起跑问题，又补了三处 bugfix：
+     - `NPCMotionController.cs`：新增 `ResetMotionObservation()`，并让 `StopMotion()` 同步重置 `_lastPosition`
+     - `CodexNpcTraversalAcceptanceProbeMenu.cs`：起点 occupiable 解析 + 瞬移后重置 motion + queued play dispatch
+     - `NavigationLiveValidationRunner.cs`：`PlaceActor(...)` 后重置 NPC motion 观测
+  4. fresh live 结果：
+     - NPC：`PASS natural-roam-bridge`
+     - NPC：`PASS bridge+water+edge`
+     - 玩家：`GroundPointMatrix pass=True`
+  5. final fresh console：
+     - `errors=0 warnings=0`
+     - Unity 已回 `Edit Mode`
+- 当前判断：
+  - “统一 traversal core 第一刀”已经拿到最小可用 runtime 证据，当前不是纸面设计。
+  - 仍未覆盖长时 roam / 墙边卡住 / 全量 acceptance，但桥 / 水 / 边界合同已用共享内核跑通。

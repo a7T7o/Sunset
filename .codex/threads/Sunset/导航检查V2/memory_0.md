@@ -3951,3 +3951,33 @@
     - tag `nav-unification-anchor-20260406-01`
     - bundle `nav-unification-anchor-20260406-01.bundle`
     为唯一安全基线。
+
+## 2026-04-06｜导航检查V2：共享 traversal core 第一刀已落地并拿到玩家/NPC fresh 最小闭环
+
+- 当前主线目标：
+  - 只统一 `traversal contract/core`，不回退到“大合并 controller”，也不改玩家已认可的完成语义。
+- 本轮实际落地：
+  1. 新增共享内核：
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs`
+  2. 接线到两侧：
+     - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+  3. 为压掉 NPC 假失败，又补了 3 处 bugfix：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+     - `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs`
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs`
+- 本轮核心判断：
+  - 第一真问题不是“建路失败”，而是 NPC 执行层把“观测速度 / reported velocity / 瞬移残影”混在一起，导致 probe 和本体都会吃到假坏相。
+  - 把这层 bugfix 补完后，NPC bridge/water/edge 和玩家 ground matrix 都重新 fresh 过线。
+- fresh 证据：
+  - `PASS natural-roam-bridge`
+  - `PASS bridge+water+edge`
+  - `[NavValidation] scenario_end=RealInputPlayerGroundPointMatrix pass=True clickMode=SuppressedNpcInteractions reachedCases=6/6 accurateCenterCases=6/6 positiveCenterBiasCases=0/6 maxColliderDistance=0.192`
+  - final CLI console：`errors=0 warnings=0`
+  - Unity 收尾：`Edit Mode`
+- 当前还没做的：
+  - 还没补更长时 NPC roam / 墙边卡住 soak
+  - 还没补更宽的玩家 acceptance pack
+  - 这轮不能宣称“整个导航系统所有边角都收完”，但能宣称“统一 traversal core 第一刀已经拿到最小 runtime 闭环”
+- 当前切片：
+  - `导航统一执行内核第一刀_共享traversal-contract-core接线玩家与NPC`

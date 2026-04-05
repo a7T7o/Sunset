@@ -334,7 +334,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         if (motionController != null)
         {
-            Vector2 currentVelocity = motionController.CurrentVelocity;
+            Vector2 currentVelocity = motionController.ReportedVelocity;
             if (currentVelocity.sqrMagnitude > 0.0001f)
             {
                 return currentVelocity;
@@ -357,6 +357,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public bool ApplyProfileOnAwakeEnabled => applyProfileOnAwake;
     public int DebugPathPointCount => path.Count;
     public Vector2 DebugRoamCenter => GetRoamCenter();
+
+    public bool TryResolveOccupiablePosition(Vector2 sampledPosition, out Vector2 resolvedPosition)
+    {
+        CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
+        return TryResolveOccupiableDestination(sampledPosition, out resolvedPosition);
+    }
 
     private void Reset()
     {
@@ -534,7 +541,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         allowTraversalOverridePhysicsSoftPass = enabled;
-        traversalSoftPassBlockers = NormalizeColliderArray(colliders);
+        traversalSoftPassBlockers = NavigationTraversalCore.NormalizeColliderArray(colliders);
         UpdateTraversalSoftPassState(GetNavigationCenter());
     }
 
@@ -549,17 +556,10 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         out Vector2 leftProbe,
         out Vector2 rightProbe)
     {
-        centerProbe = GetFootProbeCenter(worldCenter);
-        float lateralOffset = GetLateralFootProbeOffset();
-        if (lateralOffset <= 0.03f)
-        {
-            leftProbe = centerProbe;
-            rightProbe = centerProbe;
-            return;
-        }
-
-        leftProbe = centerProbe + Vector2.left * lateralOffset;
-        rightProbe = centerProbe + Vector2.right * lateralOffset;
+        NavigationTraversalCore.ProbePoints probePoints = NavigationTraversalCore.GetNavigationProbePoints(GetTraversalContract(), worldCenter);
+        centerProbe = probePoints.Center;
+        leftProbe = probePoints.Left;
+        rightProbe = probePoints.Right;
     }
 
     public void StartRoam()
@@ -1749,30 +1749,16 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private bool TryResolveOccupiableDestination(Vector2 sampledDestination, out Vector2 resolvedDestination)
     {
-        sampledDestination = NormalizeDestinationToNavGridBounds(sampledDestination);
-        resolvedDestination = sampledDestination;
-        if (CanOccupyNavigationPoint(sampledDestination))
-        {
-            return true;
-        }
-
         if (!TryResolveNavGrid(logIfMissing: false))
         {
+            resolvedDestination = sampledDestination;
             return false;
         }
 
-        if (!navGrid.TryFindNearestWalkable(sampledDestination, out Vector2 walkableDestination, navigationCollider))
-        {
-            return false;
-        }
-
-        if (!CanOccupyNavigationPoint(walkableDestination))
-        {
-            return false;
-        }
-
-        resolvedDestination = walkableDestination;
-        return true;
+        return NavigationTraversalCore.TryResolveOccupiableDestination(
+            GetTraversalContract(),
+            sampledDestination,
+            out resolvedDestination);
     }
 
     private Vector2 NormalizeDestinationToNavGridBounds(Vector2 destination)
@@ -1825,37 +1811,16 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return desiredNextPosition;
         }
 
-        Vector2 desiredOffset = desiredNextPosition - currentPosition;
-        if (desiredOffset.sqrMagnitude <= 0.0001f)
-        {
-            return currentPosition;
-        }
-
         if (!TryResolveNavGrid(logIfMissing: false))
         {
             return desiredNextPosition;
         }
 
-        if (CanOccupyNavigationPoint(desiredNextPosition))
-        {
-            return desiredNextPosition;
-        }
-
-        bool prioritizeX = Mathf.Abs(desiredOffset.x) >= Mathf.Abs(desiredOffset.y);
-        Vector2 constrainedPosition = prioritizeX
-            ? ConstrainNextPositionByAxes(currentPosition, desiredOffset, tryXFirst: true)
-            : ConstrainNextPositionByAxes(currentPosition, desiredOffset, tryXFirst: false);
-        if ((constrainedPosition - currentPosition).sqrMagnitude > 0.0001f)
-        {
-            return constrainedPosition;
-        }
-
-        if (TryResolveConstrainedFallbackPosition(currentPosition, desiredNextPosition, desiredOffset, out Vector2 fallbackPosition))
-        {
-            return fallbackPosition;
-        }
-
-        return currentPosition;
+        return NavigationTraversalCore.ConstrainNextPositionToNavigationBounds(
+            GetTraversalContract(),
+            currentPosition,
+            desiredNextPosition,
+            CONSTRAINED_ADVANCE_FALLBACK_EXTRA_DISTANCE);
     }
 
     private bool TryResolveConstrainedFallbackPosition(
@@ -1926,29 +1891,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
-        float queryRadius = GetNavigationPointQueryRadius();
-        GetNavigationProbePoints(worldCenter, out Vector2 footProbeCenter, out Vector2 leftProbe, out Vector2 rightProbe);
-        bool centerWalkable = navGrid.IsWalkable(footProbeCenter, queryRadius, navigationCollider);
-        if (!centerWalkable)
-        {
-            return false;
-        }
-
-        bool leftIsDistinct = (leftProbe - footProbeCenter).sqrMagnitude > 0.0009f;
-        bool rightIsDistinct = (rightProbe - footProbeCenter).sqrMagnitude > 0.0009f;
-        if (!leftIsDistinct && !rightIsDistinct)
-        {
-            return true;
-        }
-
-        bool leftWalkable = !leftIsDistinct || navGrid.IsWalkable(leftProbe, queryRadius, navigationCollider);
-        bool rightWalkable = !rightIsDistinct || navGrid.IsWalkable(rightProbe, queryRadius, navigationCollider);
-        if (IsTraversalBridgeCenterSupported(footProbeCenter, queryRadius))
-        {
-            return leftWalkable || rightWalkable;
-        }
-
-        return leftWalkable && rightWalkable;
+        return NavigationTraversalCore.CanOccupyNavigationPoint(GetTraversalContract(), worldCenter);
     }
 
     private void UpdateTraversalSoftPassState(Vector2 worldCenter)
@@ -1965,32 +1908,26 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private bool ShouldEnableTraversalSoftPass(Vector2 worldCenter)
     {
-        if (!allowTraversalOverridePhysicsSoftPass ||
-            navigationCollider == null ||
-            traversalSoftPassBlockers == null ||
-            traversalSoftPassBlockers.Length == 0 ||
-            !TryResolveNavGrid(logIfMissing: false))
+        if (!TryResolveNavGrid(logIfMissing: false))
         {
             return false;
         }
 
-        float queryRadius = GetTraversalSupportQueryRadius(GetNavigationPointQueryRadius());
-        GetTraversalSupportProbePoints(worldCenter, out Vector2 centerProbe, out Vector2 leftProbe, out Vector2 rightProbe);
-        bool leftIsDistinct = (leftProbe - centerProbe).sqrMagnitude > 0.0009f;
-        bool rightIsDistinct = (rightProbe - centerProbe).sqrMagnitude > 0.0009f;
-        if (!navGrid.HasWalkableOverrideAt(centerProbe, queryRadius))
-        {
-            return false;
-        }
+        return NavigationTraversalCore.ShouldEnableTraversalSoftPass(
+            GetTraversalContract(),
+            worldCenter,
+            allowTraversalOverridePhysicsSoftPass,
+            traversalSoftPassBlockers);
+    }
 
-        bool leftSupported = !leftIsDistinct || navGrid.HasWalkableOverrideAt(leftProbe, queryRadius);
-        bool rightSupported = !rightIsDistinct || navGrid.HasWalkableOverrideAt(rightProbe, queryRadius);
-        if (!leftIsDistinct && !rightIsDistinct)
-        {
-            return true;
-        }
-
-        return leftSupported || rightSupported;
+    private NavigationTraversalCore.Contract GetTraversalContract()
+    {
+        return new NavigationTraversalCore.Contract(
+            navGrid,
+            navigationCollider,
+            navigationFootProbeVerticalInset,
+            navigationFootProbeSideInset,
+            navigationFootProbeExtraRadius);
     }
 
     private void ApplyTraversalSoftPass(Collider2D[] colliders, bool shouldIgnore)

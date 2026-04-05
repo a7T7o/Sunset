@@ -9271,3 +9271,51 @@
 - 当前用途：
   - 作为后续“抽共享 traversal core”之前的完整安全回退点；
   - 如果后面第一刀统一执行内核走偏，应优先回到这组锚点，而不是回到更早的 NPC 红面现场。
+
+## 2026-04-06｜导航统一执行内核第一刀已落地并拿到 fresh 最小闭环
+
+- 当前主线目标：
+  - 只统一玩家 / NPC 共用的 `traversal contract/core`，不改玩家已认可的完成语义，也不重写 NPC 漫游状态机。
+- 本轮代码落地：
+  1. 新增共享内核：
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs`
+     - 统一脚底 probe、occupancy、bridge support、soft-pass、bounds constraint、occupiable destination 解析。
+  2. 玩家侧接线：
+     - `Assets/YYY_Scripts/Service/Player/PlayerMovement.cs`
+     - 已改成调用共享 `NavigationTraversalCore`。
+  3. NPC 侧接线：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - 已改成调用共享 `NavigationTraversalCore`；
+     - `GetCurrentVelocity()` 改为优先使用 `NPCMotionController.ReportedVelocity`，避免“已下发移动意图但快照还读到旧观测速度”。
+  4. 运动观测补口：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+     - 新增 `ResetMotionObservation()`；
+     - `StopMotion()` 现在会同步重置 `_lastPosition`，避免瞬移/重摆后留下脏速度残影。
+  5. 验证入口补口：
+     - `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs`
+       - probe 起点改成优先走 `TryResolveOccupiablePosition(...)`
+       - 瞬移后立刻重置 motion observation
+       - 新增 `queued_action -> 进 Play 后自动派发` 入口，避免直接从 Edit 点菜单时空跑
+     - `Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs`
+       - `PlaceActor(...)` 后会同步重置 `NPCMotionController` 的观测状态，避免验证链自身制造假速度。
+- 本轮 fresh 验证：
+  - `git diff --check`（own 文件）通过
+  - `manage_script validate`
+    - `NPCMotionController`：`errors=0 warnings=1`
+    - `NPCAutoRoamController`：`errors=0 warnings=1`
+    - `CodexNpcTraversalAcceptanceProbeMenu`：clean
+    - `NavigationLiveValidationRunner`：`errors=0 warnings=2`
+    - 以上 warning 都是旧的非 blocker warning
+  - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+    - 最终 fresh 结果：`errors=0 warnings=0`
+  - NPC live：
+    - `[CodexNpcTraversalAcceptance] PASS natural-roam-bridge`
+    - `[CodexNpcTraversalAcceptance] PASS bridge+water+edge`
+  - 玩家最小回归：
+    - `[NavValidation] scenario_end=RealInputPlayerGroundPointMatrix pass=True clickMode=SuppressedNpcInteractions reachedCases=6/6 accurateCenterCases=6/6 positiveCenterBiasCases=0/6 maxColliderDistance=0.192`
+  - 收尾时 Unity 已回 `Edit Mode`
+- 当前判断：
+  - 这轮“统一 traversal core 第一刀”已经不只是静态接线，而是拿到了玩家 + NPC 的最小 fresh runtime 闭环。
+  - 当前还没有证明“所有 NPC 长时 roam / 撞墙 / 长时间 crowd”都完全过线；这轮只证明桥 / 水 / 边界合同与玩家地面合同没有被统一内核带坏。
+- 当前恢复点：
+  - 如果继续统一导航，下一步不该回到大合并，而是做更长时 NPC soak / 墙边卡住复核，或补更宽的玩家 acceptance pack。

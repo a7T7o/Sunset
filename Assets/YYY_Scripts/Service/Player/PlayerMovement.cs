@@ -335,7 +335,7 @@ public class PlayerMovement : MonoBehaviour
         }
 
         allowTraversalOverridePhysicsSoftPass = enabled;
-        traversalSoftPassBlockers = NormalizeColliderArray(colliders);
+        traversalSoftPassBlockers = NavigationTraversalCore.NormalizeColliderArray(colliders);
         UpdateTraversalSoftPassState();
     }
 
@@ -365,17 +365,10 @@ public class PlayerMovement : MonoBehaviour
         out Vector2 leftProbe,
         out Vector2 rightProbe)
     {
-        centerProbe = GetFootProbeCenter(worldCenter);
-        float lateralOffset = GetLateralFootProbeOffset();
-        if (lateralOffset <= 0.03f)
-        {
-            leftProbe = centerProbe;
-            rightProbe = centerProbe;
-            return;
-        }
-
-        leftProbe = centerProbe + Vector2.left * lateralOffset;
-        rightProbe = centerProbe + Vector2.right * lateralOffset;
+        NavigationTraversalCore.ProbePoints probePoints = NavigationTraversalCore.GetNavigationProbePoints(GetTraversalContract(), worldCenter);
+        centerProbe = probePoints.Center;
+        leftProbe = probePoints.Left;
+        rightProbe = probePoints.Right;
     }
 
     private void ApplyBlockedNavigationVelocity(Vector2 desiredVelocity, float currentSpeed)
@@ -433,17 +426,11 @@ public class PlayerMovement : MonoBehaviour
 
         Vector2 currentCenter = GetCurrentCenter();
         float stepDuration = Mathf.Max(Time.fixedDeltaTime, 0.02f);
-        Vector2 projectedOffset = desiredVelocity * stepDuration;
-
-        if (CanOccupyNavigationPoint(currentCenter + projectedOffset))
-        {
-            return desiredVelocity;
-        }
-
-        bool prioritizeX = Mathf.Abs(desiredVelocity.x) >= Mathf.Abs(desiredVelocity.y);
-        return prioritizeX
-            ? ConstrainVelocityByAxes(currentCenter, desiredVelocity, stepDuration, tryXFirst: true)
-            : ConstrainVelocityByAxes(currentCenter, desiredVelocity, stepDuration, tryXFirst: false);
+        return NavigationTraversalCore.ConstrainVelocityToNavigationBounds(
+            GetTraversalContract(),
+            currentCenter,
+            desiredVelocity,
+            stepDuration);
     }
 
     private Vector2 ConstrainVelocityByAxes(Vector2 currentCenter, Vector2 desiredVelocity, float stepDuration, bool tryXFirst)
@@ -497,31 +484,7 @@ public class PlayerMovement : MonoBehaviour
             return true;
         }
 
-        float queryRadius = GetNavigationPointQueryRadius();
-        GetNavigationProbePoints(worldCenter, out Vector2 footProbeCenter, out Vector2 leftProbe, out Vector2 rightProbe);
-        bool centerWalkable = navGrid.IsWalkable(footProbeCenter, queryRadius, playerCollider);
-        if (!centerWalkable)
-        {
-            return false;
-        }
-
-        bool leftIsDistinct = (leftProbe - footProbeCenter).sqrMagnitude > 0.0009f;
-        bool rightIsDistinct = (rightProbe - footProbeCenter).sqrMagnitude > 0.0009f;
-        if (!leftIsDistinct && !rightIsDistinct)
-        {
-            return true;
-        }
-
-        bool leftWalkable = !leftIsDistinct || navGrid.IsWalkable(leftProbe, queryRadius, playerCollider);
-        bool rightWalkable = !rightIsDistinct || navGrid.IsWalkable(rightProbe, queryRadius, playerCollider);
-        if (IsTraversalBridgeCenterSupported(footProbeCenter, queryRadius))
-        {
-            // 桥面本身通常比玩家整套碰撞宽度更窄。
-            // 只要中心脚底被桥面真实支撑，就允许单侧贴边，不再把一侧临水直接算成整段空气墙。
-            return leftWalkable || rightWalkable;
-        }
-
-        return leftWalkable && rightWalkable;
+        return NavigationTraversalCore.CanOccupyNavigationPoint(GetTraversalContract(), worldCenter);
     }
 
     private void UpdateTraversalSoftPassState()
@@ -538,33 +501,26 @@ public class PlayerMovement : MonoBehaviour
 
     private bool ShouldEnableTraversalSoftPass()
     {
-        if (!allowTraversalOverridePhysicsSoftPass ||
-            playerCollider == null ||
-            traversalSoftPassBlockers == null ||
-            traversalSoftPassBlockers.Length == 0 ||
-            !EnsureNavGridReference(logIfMissing: false))
+        if (!EnsureNavGridReference(logIfMissing: false))
         {
             return false;
         }
 
-        Vector2 currentCenter = GetCurrentCenter();
-        float queryRadius = GetTraversalSupportQueryRadius(GetNavigationPointQueryRadius());
-        GetTraversalSupportProbePoints(currentCenter, out Vector2 centerProbe, out Vector2 leftProbe, out Vector2 rightProbe);
-        bool leftIsDistinct = (leftProbe - centerProbe).sqrMagnitude > 0.0009f;
-        bool rightIsDistinct = (rightProbe - centerProbe).sqrMagnitude > 0.0009f;
-        if (!navGrid.HasWalkableOverrideAt(centerProbe, queryRadius))
-        {
-            return false;
-        }
+        return NavigationTraversalCore.ShouldEnableTraversalSoftPass(
+            GetTraversalContract(),
+            GetCurrentCenter(),
+            allowTraversalOverridePhysicsSoftPass,
+            traversalSoftPassBlockers);
+    }
 
-        bool leftSupported = !leftIsDistinct || navGrid.HasWalkableOverrideAt(leftProbe, queryRadius);
-        bool rightSupported = !rightIsDistinct || navGrid.HasWalkableOverrideAt(rightProbe, queryRadius);
-        if (!leftIsDistinct && !rightIsDistinct)
-        {
-            return true;
-        }
-
-        return leftSupported || rightSupported;
+    private NavigationTraversalCore.Contract GetTraversalContract()
+    {
+        return new NavigationTraversalCore.Contract(
+            navGrid,
+            playerCollider,
+            navigationFootProbeVerticalInset,
+            navigationFootProbeSideInset,
+            navigationFootProbeExtraRadius);
     }
 
     private void ApplyTraversalSoftPass(Collider2D[] colliders, bool shouldIgnore)

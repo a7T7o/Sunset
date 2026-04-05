@@ -12,6 +12,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
 {
     private const string MenuPath = "Tools/Codex/NPC/Run Traversal Acceptance Probe";
     private const string NaturalBridgeMenuPath = "Tools/Codex/NPC/Run Natural Roam Bridge Probe";
+    private const string PendingActionKey = "Sunset.CodexNpcTraversalAcceptance.PendingAction";
     private const string RequiredSceneName = "Primary";
     private const double BridgeTimeoutSeconds = 12.0d;
     private const double EdgeTimeoutSeconds = 8.0d;
@@ -34,6 +35,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
     {
         public string Name;
         public NPCAutoRoamController Controller;
+        public NPCMotionController MotionController;
         public Rigidbody2D Rigidbody;
         public Collider2D Collider;
         public Transform HomeAnchor;
@@ -49,16 +51,88 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
     private static TilemapCollider2D s_waterCollider;
     private static readonly List<Behaviour> s_temporarilyDisabledBehaviours = new List<Behaviour>();
 
+    static CodexNpcTraversalAcceptanceProbeMenu()
+    {
+        EditorApplication.playModeStateChanged -= HandlePlayModeStateChanged;
+        EditorApplication.playModeStateChanged += HandlePlayModeStateChanged;
+        EditorApplication.delayCall += ResumePendingActionAfterReload;
+    }
+
     [MenuItem(MenuPath)]
     private static void RunProbe()
     {
-        RunProbeInternal(naturalRoamBridgeMode: false);
+        RunOrQueueProbe(naturalRoamBridgeMode: false);
     }
 
     [MenuItem(NaturalBridgeMenuPath)]
     private static void RunNaturalRoamBridgeProbe()
     {
-        RunProbeInternal(naturalRoamBridgeMode: true);
+        RunOrQueueProbe(naturalRoamBridgeMode: true);
+    }
+
+    private static void RunOrQueueProbe(bool naturalRoamBridgeMode)
+    {
+        if (EditorApplication.isPlaying)
+        {
+            RunProbeInternal(naturalRoamBridgeMode);
+            return;
+        }
+
+        EditorPrefs.SetString(PendingActionKey, naturalRoamBridgeMode ? "natural" : "full");
+        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            Debug.Log(
+                naturalRoamBridgeMode
+                    ? "[CodexNpcTraversalAcceptance] queued_action=natural entering_play_mode"
+                    : "[CodexNpcTraversalAcceptance] queued_action=full entering_play_mode");
+            EditorApplication.isPlaying = true;
+        }
+    }
+
+    private static void HandlePlayModeStateChanged(PlayModeStateChange state)
+    {
+        if (state != PlayModeStateChange.EnteredPlayMode)
+        {
+            return;
+        }
+
+        EditorApplication.delayCall += DispatchPendingActionAfterPlayModeEntered;
+    }
+
+    private static void ResumePendingActionAfterReload()
+    {
+        if (!EditorPrefs.HasKey(PendingActionKey))
+        {
+            return;
+        }
+
+        if (EditorApplication.isPlaying)
+        {
+            DispatchPendingAction();
+            return;
+        }
+
+        if (!EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            EditorApplication.isPlaying = true;
+        }
+    }
+
+    private static void DispatchPendingActionAfterPlayModeEntered()
+    {
+        DispatchPendingAction();
+    }
+
+    private static void DispatchPendingAction()
+    {
+        if (!EditorApplication.isPlaying || !EditorPrefs.HasKey(PendingActionKey))
+        {
+            return;
+        }
+
+        string pendingAction = EditorPrefs.GetString(PendingActionKey, string.Empty);
+        EditorPrefs.DeleteKey(PendingActionKey);
+        RunProbeInternal(string.Equals(pendingAction, "natural", StringComparison.Ordinal));
     }
 
     private static void RunProbeInternal(bool naturalRoamBridgeMode)
@@ -286,6 +360,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
             {
                 Name = npcName,
                 Controller = controller,
+                MotionController = controller.GetComponent<NPCMotionController>(),
                 Rigidbody = controller.GetComponent<Rigidbody2D>(),
                 Collider = controller.GetComponent<Collider2D>(),
                 HomeAnchor = FindNamedTransform($"{npcName}_HomeAnchor")
@@ -313,6 +388,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         }
 
         context.Controller.transform.position = resolvedStartPosition;
+        context.MotionController?.ResetMotionObservation();
         if (context.HomeAnchor != null)
         {
             context.HomeAnchor.position = homeAnchorPosition;
@@ -330,6 +406,12 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         if (context == null || s_navGrid == null)
         {
             return requestedStartPosition;
+        }
+
+        if (context.Controller != null &&
+            context.Controller.TryResolveOccupiablePosition(requestedStartPosition, out Vector2 occupiableStart))
+        {
+            return occupiableStart;
         }
 
         if (s_navGrid.TryFindNearestWalkable(requestedStartPosition, out Vector2 walkableStart, context.Collider))

@@ -164,6 +164,22 @@ public class NPCMotionController : MonoBehaviour
         {
             animController.PlayIdle(animController.CurrentDirection, force: true);
         }
+
+        _lastPosition = transform.position;
+    }
+
+    public void ResetMotionObservation(bool clearExternalVelocity = true)
+    {
+        if (clearExternalVelocity)
+        {
+            _externalVelocity = Vector2.zero;
+            _hasExternalVelocity = false;
+        }
+
+        CurrentVelocity = Vector2.zero;
+        IsMoving = false;
+        _lastObservedMovementTime = float.NegativeInfinity;
+        _lastPosition = transform.position;
     }
 
     [ContextMenu("调试/向右移动预览")]
