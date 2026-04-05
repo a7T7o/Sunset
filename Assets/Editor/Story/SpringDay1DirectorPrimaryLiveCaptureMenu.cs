@@ -15,6 +15,7 @@ namespace Sunset.Editor.Story
         private const string MenuPath = "Sunset/Story/Validation/Run Director Primary Live Capture";
         private static readonly string CommandRoot = Path.Combine(Directory.GetCurrentDirectory(), "Library", "CodexEditorCommands");
         private static readonly string ResultPath = Path.Combine(CommandRoot, "spring-day1-director-primary-live-capture.json");
+        private static readonly string RehearsalBakeSignalPath = Path.Combine(CommandRoot, "spring-day1-director-primary-rehearsal-bake.signal");
 
         private readonly struct CaptureTarget
         {
@@ -51,6 +52,13 @@ namespace Sunset.Editor.Story
         [MenuItem(MenuPath)]
         private static void Run()
         {
+            if (File.Exists(RehearsalBakeSignalPath))
+            {
+                File.Delete(RehearsalBakeSignalPath);
+                SpringDay1DirectorPrimaryRehearsalBakeMenu.RunFromBridge();
+                return;
+            }
+
             Directory.CreateDirectory(CommandRoot);
             CaptureResult result = Capture();
             File.WriteAllText(ResultPath, ToJson(result), new UTF8Encoding(false));

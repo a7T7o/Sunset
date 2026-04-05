@@ -42,19 +42,43 @@
                     "lookAtTargetName": "NPC001",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 1.100000023841858,
-                    "initialHoldSeconds": 0.3499999940395355,
+                    "moveSpeed": 1.5499999523162842,
+                    "initialHoldSeconds": 0.3400000035762787,
                     "path": [
                         {
                             "position": {
-                                "x": -5.856014728546143,
-                                "y": 4.663653373718262
+                                "x": -6.040021896362305,
+                                "y": 4.710577011108398
                             },
                             "facing": {
                                 "x": -1.0,
                                 "y": 0.0
                             },
-                            "holdSeconds": 0.4000000059604645,
+                            "holdSeconds": 0.1599999964237213,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -5.745928764343262,
+                                "y": 4.80860710144043
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.11999999731779099,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -5.745928764343262,
+                                "y": 4.80860710144043
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.23999999463558198,
                             "lookAtTargetName": "NPC001"
                         }
                     ]
@@ -77,19 +101,43 @@
                     "lookAtTargetName": "NPC001",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 1.0,
-                    "initialHoldSeconds": 0.20000000298023225,
+                    "moveSpeed": 1.7000000476837159,
+                    "initialHoldSeconds": 0.2199999988079071,
                     "path": [
                         {
                             "position": {
-                                "x": -8.6060152053833,
-                                "y": 4.293653964996338
+                                "x": -8.198845863342286,
+                                "y": 4.697566032409668
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.10000000149011612,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -8.464343070983887,
+                                "y": 4.9099626541137699
                             },
                             "facing": {
                                 "x": -1.0,
                                 "y": 0.0
                             },
-                            "holdSeconds": 0.6000000238418579,
+                            "holdSeconds": 0.18000000715255738,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -8.464343070983887,
+                                "y": 4.9099626541137699
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.25999999046325686,
                             "lookAtTargetName": "NPC001"
                         }
                     ]
@@ -153,19 +201,55 @@
                     "lookAtTargetName": "NPC001",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 0.949999988079071,
-                    "initialHoldSeconds": 0.550000011920929,
+                    "moveSpeed": 1.2000000476837159,
+                    "initialHoldSeconds": 0.5600000023841858,
                     "path": [
                         {
                             "position": {
-                                "x": -6.276014804840088,
-                                "y": 6.723653793334961
+                                "x": -6.2192792892456059,
+                                "y": 6.6041975021362309
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.14000000059604646,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -6.438593864440918,
+                                "y": 6.701669692993164
                             },
                             "facing": {
                                 "x": -1.0,
                                 "y": 0.0
                             },
-                            "holdSeconds": 0.800000011920929,
+                            "holdSeconds": 0.18000000715255738,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -6.259708404541016,
+                                "y": 6.791112422943115
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.11999999731779099,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -6.259708404541016,
+                                "y": 6.791112422943115
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.3199999928474426,
                             "lookAtTargetName": "NPC001"
                         }
                     ]
@@ -188,19 +272,55 @@
                     "lookAtTargetName": "NPC001",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 0.8999999761581421,
+                    "moveSpeed": 1.149999976158142,
                     "initialHoldSeconds": 0.44999998807907107,
                     "path": [
                         {
                             "position": {
-                                "x": -8.696015357971192,
-                                "y": 6.213653564453125
+                                "x": -8.784610748291016,
+                                "y": 6.219053745269775
                             },
                             "facing": {
                                 "x": -1.0,
                                 "y": 0.0
                             },
-                            "holdSeconds": 0.699999988079071,
+                            "holdSeconds": 0.1599999964237213,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -8.60031795501709,
+                                "y": 6.166399002075195
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.14000000059604646,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -8.735844612121582,
+                                "y": 6.3019280433654789
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.10000000149011612,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -8.735844612121582,
+                                "y": 6.3019280433654789
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.30000001192092898,
                             "lookAtTargetName": "NPC001"
                         }
                     ]
@@ -223,19 +343,55 @@
                     "lookAtTargetName": "NPC001",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 0.8500000238418579,
-                    "initialHoldSeconds": 0.6000000238418579,
+                    "moveSpeed": 1.0499999523162842,
+                    "initialHoldSeconds": 0.5799999833106995,
                     "path": [
                         {
                             "position": {
-                                "x": 2.4199163913726808,
-                                "y": 8.274144172668457
+                                "x": 2.510801076889038,
+                                "y": 8.27208137512207
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.1599999964237213,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": 2.3307268619537355,
+                                "y": 8.380125045776368
                             },
                             "facing": {
                                 "x": -1.0,
                                 "y": 0.0
                             },
-                            "holdSeconds": 0.6499999761581421,
+                            "holdSeconds": 0.11999999731779099,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": 2.458660364151001,
+                                "y": 8.436983108520508
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.10000000149011612,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": 2.458660364151001,
+                                "y": 8.436983108520508
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.3400000035762787,
                             "lookAtTargetName": "NPC001"
                         }
                     ]
@@ -258,19 +414,55 @@
                     "lookAtTargetName": "NPC001",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 0.8399999737739563,
+                    "moveSpeed": 1.0800000429153443,
                     "initialHoldSeconds": 0.5799999833106995,
                     "path": [
                         {
                             "position": {
-                                "x": -0.2600836157798767,
-                                "y": 8.364143371582032
+                                "x": -0.23885397613048554,
+                                "y": 8.423473358154297
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.14000000059604646,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -0.430940181016922,
+                                "y": 8.522258758544922
                             },
                             "facing": {
                                 "x": -1.0,
                                 "y": 0.0
                             },
-                            "holdSeconds": 0.7200000286102295,
+                            "holdSeconds": 0.1599999964237213,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -0.29201415181159975,
+                                "y": 8.56014633178711
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.11999999731779099,
+                            "lookAtTargetName": "NPC001"
+                        },
+                        {
+                            "position": {
+                                "x": -0.29201415181159975,
+                                "y": 8.56014633178711
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.3400000035762787,
                             "lookAtTargetName": "NPC001"
                         }
                     ]
@@ -381,19 +573,43 @@
                     "lookAtTargetName": "Player",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 0.8999999761581421,
-                    "initialHoldSeconds": 0.800000011920929,
+                    "moveSpeed": 1.4500000476837159,
+                    "initialHoldSeconds": 0.7799999713897705,
                     "path": [
                         {
                             "position": {
-                                "x": 5.785999298095703,
-                                "y": 8.343110084533692
+                                "x": 5.566169738769531,
+                                "y": 8.171757698059082
                             },
                             "facing": {
                                 "x": -1.0,
                                 "y": 0.0
                             },
-                            "holdSeconds": 1.0,
+                            "holdSeconds": 0.18000000715255738,
+                            "lookAtTargetName": "Player"
+                        },
+                        {
+                            "position": {
+                                "x": 5.782322406768799,
+                                "y": 8.27983283996582
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.10000000149011612,
+                            "lookAtTargetName": "Player"
+                        },
+                        {
+                            "position": {
+                                "x": 5.782322406768799,
+                                "y": 8.27983283996582
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.36000001430511477,
                             "lookAtTargetName": "Player"
                         }
                     ]
@@ -416,19 +632,43 @@
                     "lookAtTargetName": "Player",
                     "suspendRoam": true,
                     "loopPath": false,
-                    "moveSpeed": 0.75,
-                    "initialHoldSeconds": 1.0,
+                    "moveSpeed": 1.350000023841858,
+                    "initialHoldSeconds": 0.949999988079071,
                     "path": [
                         {
                             "position": {
-                                "x": 1.1759989261627198,
-                                "y": 6.453110218048096
+                                "x": 1.5440711975097657,
+                                "y": 6.0088934898376469
                             },
                             "facing": {
                                 "x": 0.0,
-                                "y": 1.0
+                                "y": -1.0
                             },
-                            "holdSeconds": 1.100000023841858,
+                            "holdSeconds": 0.18000000715255738,
+                            "lookAtTargetName": "Player"
+                        },
+                        {
+                            "position": {
+                                "x": 1.3025758266448975,
+                                "y": 6.129640102386475
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.11999999731779099,
+                            "lookAtTargetName": "Player"
+                        },
+                        {
+                            "position": {
+                                "x": 1.3025758266448975,
+                                "y": 6.129640102386475
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.3799999952316284,
                             "lookAtTargetName": "Player"
                         }
                     ]

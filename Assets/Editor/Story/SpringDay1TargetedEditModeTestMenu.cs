@@ -76,6 +76,7 @@ namespace Sunset.Editor.Story
         {
             "SpringDay1DirectorStagingTests.StageBook_ShouldResolveCueBySemanticAnchor",
             "SpringDay1DirectorStagingTests.StageBook_ShouldContainCapturedAbsolutePositionsForKeyDirectorCues",
+            "SpringDay1DirectorStagingTests.StageBook_ShouldContainMultiPointPathsForRehearsedDirectorTargets",
             "SpringDay1DirectorStagingTests.StagingPlayback_ShouldPlaceNpcAtCustomStartAndExposeCueIdentity",
             "SpringDay1DirectorStagingTests.StagingPlayback_ReapplyingSameCue_ShouldNotSnapNpcBackToStart",
             "SpringDay1DirectorStagingTests.Director_ShouldExposeFreeTimeAndDayEndBeatKeys",

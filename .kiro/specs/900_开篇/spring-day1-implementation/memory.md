@@ -3170,3 +3170,58 @@
   - 下一轮直接做：
     1. 导演窗口手工排练 `EnterVillageCrowdRoot / KidLook_01 / NightWitness_01`
     2. 再把 `DinnerBackgroundRoot` 往复杂多人层推进一刀
+
+## 2026-04-05｜父层补记：已给 UI / NPC / Town 三线补发最新统一续工入口
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍在推进 Day1 正式剧情导演消费；
+  - 但当前为了并行协作，已把相关外线的最新入口重新收清。
+- 本轮新增的协作入口：
+  1. `UI`：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.1 SpringUI\2026-04-05_UI线程_day1玩家面从古至今全量清单与唯一主线续工prompt_06.md`
+  2. `NPC`：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-05_NPC线程_day1后半段群像内容并行续工prompt_03.md`
+  3. `Town`：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给典狱长_Town最小runtime-contract接刀续工prompt_11.md`
+- 这轮新的分工边界已明确：
+  - `UI`：只收玩家面 `UI/UE` 与 Workbench/Prompt/任务链，不碰导演/Town/NPC 底座
+  - `NPC`：只收后半段群像内容层，不碰导演工具、Town runtime、UI
+  - `Town`：优先重审并尝试接 `CrowdDirector` 的最小 runtime contract，不再停在说明层
+- 当前恢复点：
+  - 后续如果需要并行推进，以上 3 份 prompt 就是最新统一入口。
+
+## 2026-04-05｜父层补记：分发后 day1 自己的职责没有降级成治理位
+
+- 当前父层判断补充：
+  - `UI / NPC / Town` 三线现在都已有最新入口；
+  - 但 `spring-day1` 自己仍负责：
+    1. 导演窗口实排与保存
+    2. 后半段导演消费继续下沉
+    3. 最终把外线成果接回 Day1 主链
+- 当前恢复点：
+  - 后续若继续并行，`spring-day1` 应直接往 `三处锚点实排 -> DinnerBackgroundRoot 再压深 -> 接 Town contract` 这条线走。
+
+## 2026-04-06｜父层补记：导演排练工具已能真实写回，DinnerBackgroundRoot 不再只是薄壳
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍在推进 Day1 导演消费与后半段承接；
+  - 这轮已经把“是否有导演工具可用”从方案态推进到可验证态。
+- 当前新增稳定事实：
+  1. `Assets/Editor/Story/SpringDay1DirectorPrimaryRehearsalBakeMenu.cs` 已落地
+     - 通过稳定旧菜单桥接
+     - 带 `edit-mode fallback bake`
+     - 不再卡死在 shared Editor 的 play 切换噪音里
+  2. `StageBook` 已 fresh 写回 8 条关键 cue
+     - `EnterVillageCrowdRoot / KidLook_01 / NightWitness_01`
+     - `DinnerBackgroundRoot` 四条多人背景 cue
+  3. `Run Director Staging Tests` 已 fresh `8/8 PASS`
+- 当前父层判断：
+  - 导演工具 MVP 这条线已经够资格继续作为 Day1 后半段的实际生产工具，而不是继续停在“要不要做工具”的争论层；
+  - 当前第一 blocker 进一步收窄成：
+    - `Town runtime contract` 与后续迁回
+    - 以及最终 `NPC/UI` 回流后的 Day1 总整合
+- 当前父层恢复点：
+  - 下一轮优先顺序：
+    1. 吃 `Town` 的真实 runtime contract
+    2. 把当前代理排练结果迁回 `Town`
+    3. 再做 `NPC/UI -> Day1` 总整合

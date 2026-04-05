@@ -2278,3 +2278,86 @@
     1. 用导演窗口在 live 里手工排练并保存 `EnterVillageCrowdRoot / KidLook_01 / NightWitness_01`
     2. 在不碰 `Town.unity` 的前提下，再把 `DinnerBackgroundRoot` 推深一层
     3. 等 `Town` 真实锚点落位后，再把代理 `Primary` cue 迁回 `Town` runtime contract
+
+## 2026-04-05｜续工补记：已给 NPC 线补发最新并行续工入口
+
+- 当前主线没有换：
+  - 仍是 `spring-day1` 导演线；
+  - 本轮只是把并行协作的 `NPC` 入口重新钉死。
+- 本轮新增 prompt：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-05_NPC线程_day1后半段群像内容并行续工prompt_03.md`
+- 这份 prompt 锁死了 `NPC` 现在真正该做的事：
+  1. 不再补底座
+  2. 不回吞导演工具 / Town runtime / UI
+  3. 只收后半段会被导演线消费的群像内容层：
+     - `EnterVillage_PostEntry`
+     - `DinnerConflict / ReturnAndReminder`
+     - `FreeTime / DayEnd / DailyStand`
+- 当前恢复点：
+  - 后续如果继续并行推进，`NPC` 线应按 `03` 号 prompt 继续，不再沿旧聊天自行解释边界。
+
+## 2026-04-05｜续工补记：三线分发后，spring-day1 自己仍是导演总整合位
+
+- 当前主线没有换：
+  - `spring-day1` 自己不是纯分发者；
+  - 分发完 `UI / NPC / Town` 后，仍然是 Day1 导演线 owner 与最终整合位。
+- 当前 own 下一步被锁成：
+  1. 用导演窗口手工排练并保存
+     - `EnterVillageCrowdRoot`
+     - `KidLook_01`
+     - `NightWitness_01`
+  2. 把 `DinnerBackgroundRoot` 往复杂多人层再推进一刀
+  3. 等 `Town` 最小 runtime contract 落地后，优先把当前 `Primary` 代理承接迁回真实 `Town` runtime
+  4. 再把 `NPC` 回来的群像内容继续吃进导演消费层
+- 当前恢复点：
+  - 后续若用户追问“你自己做到哪里”，统一按上面这条回答，不再把自己误说成只负责分发 prompt。
+
+## 2026-04-06｜导演线续工：排练 bake 工具落地，三处关键锚点与 DinnerBackgroundRoot 已写回
+
+- 当前主线没有换：
+  - 仍是 `spring-day1` 导演线 owner；
+  - 本轮只做两件事：
+    1. 把导演排练工具真正做成可写回的 MVP
+    2. 把 `EnterVillageCrowdRoot / KidLook_01 / NightWitness_01` 与 `DinnerBackgroundRoot` 的 cue 真正压深
+- 本轮真实落地：
+  - 新增工具：
+    - `Assets/Editor/Story/SpringDay1DirectorPrimaryRehearsalBakeMenu.cs`
+    - 支持通过稳定旧入口 `Run Director Primary Live Capture` + signal 切到 bake 分支
+    - 优先尝试 play 触发；如果 shared Editor 的 play 切换卡住，就自动走 `edit-mode fallback bake`
+  - 已更新：
+    - `Assets/Resources/Story/SpringDay1/Directing/SpringDay1DirectorStageBook.json`
+    - `EnterVillage_PostEntry`
+      - `enter-crowd-101` => `pathPointCount=3`
+      - `enter-kid-103` => `pathPointCount=3`
+    - `FreeTime_NightWitness`
+      - `night-witness-102` => `pathPointCount=3`
+      - `night-witness-301` => `pathPointCount=3`
+    - `DinnerConflict_Table`
+      - `dinner-bg-203/104/201/202` => 全部 `pathPointCount=4`
+  - 测试护栏已补：
+    - `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+      - 新增 `StageBook_ShouldContainMultiPointPathsForRehearsedDirectorTargets`
+    - `Assets/Editor/Story/SpringDay1TargetedEditModeTestMenu.cs`
+      - `Run Director Staging Tests` 扩到 `8/8`
+- 本轮验证：
+  - `Library/CodexEditorCommands/spring-day1-director-primary-rehearsal-bake.json`
+    - `status=completed`
+    - `message=导演 rehearsal bake 已通过 edit-mode fallback 完成，写回 8 条 cue`
+  - `Library/CodexEditorCommands/spring-day1-director-staging-tests.json`
+    - `status=completed`
+    - `passCount=8`
+    - `failCount=0`
+  - `python scripts/sunset_mcp.py errors --count 60 --output-limit 20`
+    - `errors=0 warnings=0`
+- 本轮最关键判断：
+  - 当前 shared Editor 的 play 切换并不稳定，继续死磕“必须拿到纯 play 录制”只会拖住主线；
+  - 所以导演工具必须自带 fallback，先保证 cue 数据真正可写回、可验证、可被当前导演链消费。
+- 当前还没做成什么：
+  1. 还没拿到“纯 play-mode 手工 WASD 录制”的干净证据
+  2. 还没把这些代理结果迁回 `Town runtime contract`
+  3. 还没把 `NPC` 群像内容层与 `UI` 玩家面最新结果重新并回 Day1 主链
+- 当前恢复点：
+  - 下一轮继续时，顺序固定为：
+    1. 继续补 `Town runtime contract`
+    2. 再把当前代理排练结果迁回 `Town`
+    3. 最后做 `NPC/UI -> Day1` 总整合

@@ -146,6 +146,22 @@ public class SpringDay1DirectorStagingTests
     }
 
     [Test]
+    public void StageBook_ShouldContainMultiPointPathsForRehearsedDirectorTargets()
+    {
+        Type databaseType = ResolveTypeOrFail("Sunset.Story.SpringDay1DirectorStagingDatabase");
+        object bookAsset = InvokeStatic(databaseType, "Load", true);
+        Assert.That(bookAsset, Is.Not.Null, "未能通过导演数据库加载 SpringDay1DirectorStageBook。");
+
+        AssertCuePathCountAtLeast(bookAsset, "EnterVillage_PostEntry", "enter-crowd-101", 3);
+        AssertCuePathCountAtLeast(bookAsset, "EnterVillage_PostEntry", "enter-kid-103", 3);
+        AssertCuePathCountAtLeast(bookAsset, "FreeTime_NightWitness", "night-witness-102", 3);
+        AssertCuePathCountAtLeast(bookAsset, "DinnerConflict_Table", "dinner-bg-203", 4);
+        AssertCuePathCountAtLeast(bookAsset, "DinnerConflict_Table", "dinner-bg-104", 4);
+        AssertCuePathCountAtLeast(bookAsset, "DinnerConflict_Table", "dinner-bg-201", 4);
+        AssertCuePathCountAtLeast(bookAsset, "DinnerConflict_Table", "dinner-bg-202", 4);
+    }
+
+    [Test]
     public void NpcTakeover_ShouldDisableRoamAndInteractionsUntilRelease()
     {
         GameObject npc = Track(new GameObject("NPC_Takeover"));
@@ -252,6 +268,19 @@ public class SpringDay1DirectorStagingTests
 
         Vector2 startPosition = (Vector2)GetFieldValue(cue, "startPosition");
         Assert.That(startPosition.sqrMagnitude, Is.GreaterThan(0.25f), $"{cueId} 的绝对起点仍然过近原点，像是没吃到 live capture。");
+    }
+
+    private static void AssertCuePathCountAtLeast(object bookAsset, string beatKey, string cueId, int minCount)
+    {
+        object beat = InvokeInstance(bookAsset, "FindBeat", beatKey);
+        Assert.That(beat, Is.Not.Null, $"StageBook 缺少 beat: {beatKey}");
+
+        object cue = FindCueById(beat, cueId);
+        Assert.That(cue, Is.Not.Null, $"Beat {beatKey} 缺少 cue: {cueId}");
+
+        Array path = (Array)GetFieldValue(cue, "path");
+        Assert.That(path, Is.Not.Null, $"{cueId} 缺少 path。");
+        Assert.That(path.Length, Is.GreaterThanOrEqualTo(minCount), $"{cueId} 的 path 仍然过薄，像是还没完成导演排练写回。");
     }
 
     private static object FindCueById(object beat, string cueId)
