@@ -1449,3 +1449,16 @@ Sunset 里大量改动都属于：
   - `git diff --check -- AGENTS.md scripts/sunset_mcp.py` 通过
 - 当前恢复点：
   - 收本轮最小 checkpoint 后 `Park-Slice`
+
+### 提交结算
+- 本轮已提交：
+  - `commit = 6aa62055`
+  - `message = 2026.04.05_Codex规则落地_06`
+- `thread-state`：
+  - `Begin-Slice` 已跑
+  - `Ready-To-Sync` 已跑
+  - `Park-Slice` 已跑
+  - 当前 = `PARKED`
+- 下次恢复点：
+  - 这条 no-red 编辑循环补强线本轮已完成
+  - 若用户继续追问执行效果，优先去盯线程是否仍在 own_red 状态下继续扩写，而不是再重讲 handoff 概念

@@ -11975,3 +11975,16 @@
     - `scripts/sunset_mcp.py`
     - 两份 memory
   - 全局 skill 已更新，但不属于 Sunset 仓库提交面
+
+### 提交与停车结算
+- 本轮白名单提交已完成：
+  - `commit = 6aa62055`
+  - `message = 2026.04.05_Codex规则落地_06`
+- `thread-state`：
+  - `Begin-Slice` 已跑
+  - `Ready-To-Sync` 已跑
+  - `Park-Slice` 已跑
+  - 当前 = `PARKED`
+- 当前 own 结论：
+  - no-red 已从“停手闸门”推进到“编辑循环硬闸门”
+  - 以后像 `SetTimeWithoutSystems / CreateCompletedEvent / InvokeWorkbenchCraftPermission` 这种缺 helper 的半成品红，不应再被允许跨下一簇责任继续扩写
