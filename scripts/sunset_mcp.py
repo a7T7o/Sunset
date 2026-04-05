@@ -39,6 +39,11 @@ def write(payload: dict[str, object], code: int) -> None:
     raise SystemExit(code)
 
 
+def progress(message: str) -> None:
+    sys.stderr.write(f"[sunset_mcp] {message}\n")
+    sys.stderr.flush()
+
+
 def norm(path: str) -> str:
     return path.replace("\\", "/").lstrip("./")
 
@@ -339,19 +344,21 @@ def code_paths(repo: Path, paths: list[str], all_changed: bool) -> list[str]:
     return out
 
 
-def codeguard(repo: Path, owner: str, paths: list[str]) -> dict[str, object]:
+def codeguard(repo: Path, owner: str, paths: list[str], timeout_sec: int) -> dict[str, object]:
     if not paths:
         return {"Applies": False, "CanContinue": True, "Summary": "No target .cs paths.", "Reason": "no_target_paths", "Diagnostics": []}
     project = repo / "scripts" / "CodexCodeGuard" / "CodexCodeGuard.csproj"
     dll = repo / "scripts" / "CodexCodeGuard" / "bin" / "Release" / "net9.0" / "CodexCodeGuard.dll"
     if not dll.exists():
-        build = run(["dotnet", "build", str(project), "-c", "Release", "--nologo"], repo, timeout=600)
+        progress(f"phase=codeguard-build timeout={timeout_sec}s")
+        build = run(["dotnet", "build", str(project), "-c", "Release", "--nologo"], repo, timeout=timeout_sec)
         if build.returncode != 0:
             raise RuntimeError(build.stdout.strip() or build.stderr.strip() or "CodexCodeGuard build failed")
     args = ["dotnet", str(dll), "--repo-root", str(repo), "--phase", "pre-sync", "--owner-thread", owner, "--branch", "main"]
     for path in paths:
         args += ["--path", str((repo / path).resolve())]
-    proc = run(args, repo, timeout=600)
+    progress(f"phase=codeguard timeout={timeout_sec}s targets={len(paths)}")
+    proc = run(args, repo, timeout=timeout_sec)
     lines = [x for x in proc.stdout.splitlines() if x.strip()]
     if not lines:
         raise RuntimeError(proc.stderr.strip() or "CodexCodeGuard returned no JSON")
@@ -516,7 +523,7 @@ def mcp_fallback_fields(args: argparse.Namespace, mcp_error: str | None, waited:
 def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object]:
     guards = build_guards(args)
     paths = resolve_code_paths(args.repo_root, args)
-    guard = codeguard(args.repo_root, args.owner_thread, paths)
+    guard = codeguard(args.repo_root, args.owner_thread, paths, int(guards["timeout_sec"]))
     guard_counts = codeguard_stats(guard)
     mcp_error, refresh, waited, state, logs = None, None, None, None, None
     manage_script_validation = None
@@ -531,8 +538,10 @@ def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object
         manage_script_validation = skipped_manage_script_validation(validation_level(args), "skip_mcp", int(guards["output_limit"]))
     if not args.skip_mcp:
         try:
+            progress(f"phase=mcp-connect timeout={int(guards['timeout_sec'])}s")
             mcp = Mcp(args.endpoint, int(guards["timeout_sec"]))
             if command == "validate_script" and compat_target is not None:
+                progress(f"phase=manage_script.validate target={compat_target['name']}")
                 raw_validation = mcp.custom(
                     "manage_script",
                     {
@@ -543,9 +552,12 @@ def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object
                     },
                 )
                 manage_script_validation = manage_script_validation_summary(raw_validation, validation_level(args), int(guards["output_limit"]))
+            progress(f"phase=refresh_unity mode={args.mode} scope={args.scope}")
             refresh = mcp.custom("refresh_unity", {"mode": args.mode, "scope": args.scope, "compile": "request", "wait_for_ready": True})
+            progress(f"phase=wait_ready timeout={int(guards['wait_sec'])}s")
             waited = wait_ready(mcp, int(guards["wait_sec"]))
             state = waited["final_state"]
+            progress(f"phase=read_console count={int(guards['console_count'])}")
             logs = console(mcp, int(guards["console_count"]), True)
         except Exception as exc:
             mcp_error = str(exc)
@@ -726,7 +738,7 @@ def main() -> None:
             if not base["is_pass"]:
                 recs.append("先跑 recover-bridge")
             recs.append("高频顺序应是：compile -> errors/no-red -> 再决定是否继续改代码")
-            recs.append("编辑循环硬规则：每完成一簇 .cs 改动就立刻 validate_script；assessment=own_red 时停止扩写并先清红")
+            recs.append("编辑循环硬规则：不是每两行都跑 CLI；完成一个最小可编译责任簇后再 validate_script，跨到下一簇前必须先过")
             recs.append("新增 helper/API/测试工具时先落 helper 或兼容 shim，再改调用点；不要把缺符号红挂到下一轮")
             recs.append("validate_script 已是脚本级单命令入口；需要原生兼容时优先用 --name/--path/--level")
             recs.append("manage_script 只开放 validate|get_sha；不要把 create/update/edit 面重新搬回高频 CLI")

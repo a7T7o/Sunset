@@ -11988,3 +11988,68 @@
 - 当前 own 结论：
   - no-red 已从“停手闸门”推进到“编辑循环硬闸门”
   - 以后像 `SetTimeWithoutSystems / CreateCompletedEvent / InvokeWorkbenchCraftPermission` 这种缺 helper 的半成品红，不应再被允许跨下一簇责任继续扩写
+
+## 2026-04-05｜编辑循环 no-red 粒度纠偏：不是“每两行一跑”，而是“责任簇过界前必检”
+
+- 当前主线目标：
+  - 回应用户对“每完成一簇 `.cs` 改动就 validate_script` 是否会退化成每两行跑一次 CLI”的质疑，把新规则的粒度纠偏到可执行但不荒唐。
+- 本轮子任务：
+  - 把“编辑循环硬闸门”从容易误解的版本，修正成“最小可编译责任簇”版本
+- 这轮实际做成了什么：
+  1. `AGENTS.md` 已明确：
+     - 单位不是“每两行”或“每次按键”
+     - 单位是“一个最小可编译责任簇”
+  2. 已明确哪些可以合并成同一簇：
+     - 同一方法 / 同一类内部的连续逻辑改动
+     - 同一个 helper 的完整落地
+     - 同一个测试文件与其紧邻 helper / shim 的成组补口
+  3. 已明确哪些属于“跨到下一簇”，跨前必须先自检：
+     - 改下一个独立文件
+     - 进入下一段独立功能语义
+     - 改动符号面：签名、字段、属性、类名、helper 名、测试工具 API、namespace、asmdef、公共入口
+  4. `sunset_mcp.py doctor` 的提示语也已同步纠偏为：
+     - `不是每两行都跑 CLI；完成一个最小可编译责任簇后再 validate_script，跨到下一簇前必须先过`
+- 关键判断：
+  - 用户这次质疑是对的；如果把规则写成“像每两行都跑一次 CLI”，那会把好规则执行成坏流程。
+  - 正确落点不是“高频按键级自检”，而是“责任边界级自检”。
+- 验证：
+  - `python scripts/sunset_mcp.py doctor` 通过，且新提示语已生效
+  - `python -m py_compile scripts/sunset_mcp.py` 通过
+- 当前恢复点：
+  - 当前 no-red 编辑循环规则已完成第二次纠偏，后续若再追这条线，重点应转去“线程有没有实际遵守”，不再是“规则怎么理解”
+
+## 2026-04-05｜`validate_script` 卡死根因已坐实：`CodexCodeGuard` 前置阶段未受 CLI 护栏约束
+
+- 用户目标：
+  - 解释为什么真实高频场景里 `validate_script` 会长时间无输出、最终被外层 `124` 杀掉。
+- 本轮实际确认的事实：
+  1. `baseline` / `doctor` / `errors` / `manage_script validate` 当前都能在约 `0.3s ~ 0.5s` 返回，说明 Python CLI 壳和 MCP 读链本身很轻。
+  2. `validate_script` 的首个重阶段不是 MCP，而是 `CodexCodeGuard`。
+  3. 直接调用 `dotnet ... CodexCodeGuard.dll --path SpringDay1PromptOverlay.cs` 在当前 shared root 上 `90s` 仍未返回，说明瓶颈在代码闸门阶段。
+  4. `scripts/CodexCodeGuard/Program.cs` 当前会：
+     - 读取全仓 tracked `.cs`
+     - 读取 dirty / untracked 状态
+     - 对受影响程序集做 current / baseline 两轮 Roslyn 编译
+     因而“单脚本验证”并不是真单文件秒级检查。
+  5. `scripts/sunset_mcp.py` 原实现里 `codeguard()` 仍写死 `timeout=600`，而 compile/no-red/validate_script 的 CLI 资源护栏只约束了后面的 MCP 阶段；这就导致最慢一段没有被真实护栏包住。
+- 本轮已落地修正：
+  1. `sunset_mcp.py` 新增 `progress()`，在 `stderr` 输出当前阶段：
+     - `phase=codeguard`
+     - `phase=mcp-connect`
+     - `phase=manage_script.validate`
+     - `phase=refresh_unity`
+     - `phase=wait_ready`
+     - `phase=read_console`
+  2. `codeguard()` 现已改为继承 CLI `--timeout-sec`，不再默认挂 `600s`。
+  3. 实测：
+     - `py -3 scripts/sunset_mcp.py --timeout-sec 5 validate_script --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --count 5 --output-limit 3`
+       - 约 `5.3s` 返回
+       - `assessment=blocked`
+       - `message=subprocess_timeout:dotnet:5s`
+       - `stderr` 明确出现 `phase=codeguard timeout=5s targets=1`
+     - `manage_script validate` / `errors` 仍保持秒回
+- 当前判断：
+  - 当前“为什么卡”已经不是猜测，而是已坐实为：`validate_script` 前置 `CodexCodeGuard` 太重，且原先没有被 CLI 护栏真实包住。
+  - 这轮修正后，至少不会再出现长时间黑盒无输出；它会在护栏内诚实报 blocked。
+- 当前仍未完成：
+  - `validate_script` 仍不是理想的高频快路径；若要进一步贴近用户当前使用场景，下一刀应考虑把“快路径 compile/error”与“重型 codeguard 证明”彻底拆层。
