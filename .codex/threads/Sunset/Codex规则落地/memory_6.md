@@ -1942,3 +1942,29 @@ Sunset 里大量改动都属于：
     1. 新的 ownership
     2. 或 scene 旧账清理条件
   - 当前则优先把 `Codex规则落地` own docs-only 产物收口提交。
+
+## 2026-04-06｜补记：Town resident scene-side 正式 checkpoint 与 working tree broader dirty 已拆清
+
+- 当前主线目标：
+  - 把 `Town.unity` resident scene-side 这轮真正已经正式提交的最小 checkpoint，和当前 working tree 里仍漂着的 broader dirty 现场拆开说明白。
+- 本轮子任务：
+  1. 复核 `HEAD` 的 `Town.unity` 是否已回到最小目标版；
+  2. 查清中间过宽提交与后续纠偏提交；
+  3. 补一份给 `spring-day1` 的正式纠偏回执，并为当前 slice 做收尾准备。
+- 本轮实际做成：
+  1. 已确认 `HEAD:Assets/000_Scenes/Town.unity` 当前是 blob `0c65ae855b953a0b4f3981c82226cec8169e10dc`，也就是 resident scene-side 最小目标版。
+  2. 已确认中间那刀 `d35366de` 的 scene patch 吃宽了，不应继续作为最终正式 checkpoint 被引用。
+  3. 已确认 `15d75285` `Town partial sync scope correction` 才是当前应认的正式 checkpoint。
+  4. 已新增纠偏回执：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给spring-day1_Town驻村常驻化scene-side最小checkpoint纠偏回执_10.md`
+- 当前关键判断：
+  - `HEAD` 上的 `Town` resident scene-side 结果已经纠偏正确；
+  - 但 working tree 里的 `Town.unity` 仍有一份更大的 shared dirty 现场，不能被我偷报成“当前正式承接面”。
+- 当前验证状态：
+  - `git rev-parse HEAD:Assets/000_Scenes/Town.unity` => `0c65ae855b953a0b4f3981c82226cec8169e10dc`
+  - `git diff --check a07945df..HEAD -- Assets/000_Scenes/Town.unity` => 无输出
+  - `git diff --stat -- Assets/000_Scenes/Town.unity` => `67724 insertions / 29536 deletions`
+  - `py -3 scripts/sunset_mcp.py status` => `error_count=0`、`warning_count=2`
+- 当前恢复点：
+  - 下次如果继续推进 `Town`，不要从“整份 working tree 里的 Town scene 都可直接认领”这个假前提出发；
+  - 正确恢复点是：以 `15d75285` 这份最小 checkpoint 为正式基线，等待新的 ownership 或 scene 旧账整理条件，再进入下一刀。
