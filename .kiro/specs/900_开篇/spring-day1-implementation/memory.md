@@ -2504,3 +2504,669 @@
 - 当前父层恢复点：
   - `spring-day1` 继续扩 `Town` 时，优先用这次新增的 carrier anchors；
   - 前半段剧情源仍由 opening 主线继续持有，不往 `Town` 回灌。
+## 2026-04-04 字体复发根因只读排查
+- 用户主诉：每次重启 Unity 后中文字体又丢失，正规对话/UI 文本重新变方块，要求查清“为什么一直出现、到底是什么情况”。
+- 本轮性质：只读排查；未进入真实施工，未跑 `Begin-Slice`。
+- 关键查实：
+  - `Editor.log` 持续出现 `The character with Unicode value ... was not found in the [LiberationSans SDF] font asset`，命中对象包括 `FocusText`、`FooterText` 等，说明运行时这些文本真实落到了 `LiberationSans SDF` 上。
+  - `Assets/TextMesh Pro/Resources/TMP Settings.asset` 里的 `m_defaultFontAsset` 仍指向 `LiberationSans SDF`（guid `8f586378b4e144a9851e7b34d9b748ee`）。
+  - `SpringDay1PromptOverlay.cs`、`SpringDay1WorkbenchCraftingOverlay.cs`、`InteractionHintOverlay.cs`、`SpringDay1WorldHintBubble.cs`、`DialogueUI.cs` 都有同构逻辑：优先 `Resources.Load` 中文字体；若 `IsFontAssetUsable(...)`/`CanFontRenderText(...)` 不通过，就回退到 `TMP_Settings.defaultFontAsset`。
+  - 这些脚本的 `IsFontAssetUsable(...)` 判定非常硬：要求 `fontAsset.material != null` 且 `atlasTextures` 里至少有一张 `width > 1 && height > 1` 的纹理。
+  - `DialogueChinese SDF.asset` 当前是明显坏态：`m_Material: {fileID: 0}`、`m_AtlasTextures: - {fileID: 0}`、`atlas: {fileID: 0}`，属于直接 unusable。
+  - `DialogueChinese Pixel SDF.asset` 与 `DialogueChinese SoftPixel SDF.asset` 虽然有 material，但磁盘 YAML 都呈现“动态字体初始空壳”状态：`m_GlyphTable: []`、`m_CharacterTable: []`，挂着一个名为 `LiberationSans SDF Atlas` 的 1x1 占位 atlas；在当前脚本判定下，这也会被直接视为 unusable。
+  - `Editor.log` 还出现了 `Importer(NativeFormatImporter) generated inconsistent result for asset ... DialogueChinese Pixel SDF.asset`，说明 `DialogueChinese Pixel SDF.asset` 的导入结果本身不稳定，会放大“重启后又坏”的复发概率。
+- 当前结论：
+  - 这不是“prefab 没配中文字体”。
+  - 这也不是“某一条 UI 文案没绑定字体”。
+  - 真正复发链是两层叠加：
+    1. 中文 TMP 字体资产本身不稳定/部分坏掉，尤其 `DialogueChinese SDF.asset` 直接坏、`DialogueChinese Pixel SDF.asset` 导入不稳定。
+    2. UI/Dialogue 运行时代码把“动态字体当前还是空 atlas/占位 atlas”的状态也当成“完全不可用”，于是过早回退到 TMP 默认字体 `LiberationSans SDF`。
+  - 因为 `LiberationSans SDF` 不含中文，所以每次 Unity 重启、字体重新导入后，这条回退链都会再次触发，控制台就会重复刷同一类 missing glyph 警告。
+- 当前主线恢复点：
+  - 如果下一刀继续处理字体问题，应优先修“共享 TMP 中文字体底座稳定性 + 回退策略”，不是先去追 UI prefab。
+
+## 2026-04-04 继续施工补记：共享字体稳定化与 opening 消费 probe 已各自推进一拍
+- 当前父层主线没有换题：
+  - `spring-day1` 这条线当前最值得继续推进的，仍然是：
+    1. `CrashAndMeet / EnterVillage` 之后的非 UI 剧情源收口
+    2. 共享中文字体 incident 的可落地稳定化
+  - 本轮没有去吞 UI owner，也没有碰 `Primary.unity / GameInputManager.cs`。
+- 本轮真实施工已完成两块：
+  1. 共享中文字体稳定化：
+     - 新增 `Assets/YYY_Scripts/Story/Dialogue/DialogueChineseFontRuntimeBootstrap.cs`
+     - 作用：在 runtime `BeforeSceneLoad` 预热 `DialogueChinese Pixel / SoftPixel / SDF`，提前尝试 `TryAddCharacters(...)`，并把 `TMP_Settings.defaultFontAsset` 的运行时回退切到当前可用中文字体，而不是继续落回 `LiberationSans SDF`
+     - 目标是直接剪断“Unity 重启后早期文本先回退到英文字体”的链
+  2. 编辑器坏资产自愈：
+     - `Assets/Editor/Story/DialogueChineseFontAssetCreator.cs` 已改成不再只会“缺文件才补”
+     - 现在会在 editor 启动延迟检查时，对 `Default / Pixel / SoftPixel` runtime profiles 做健康检查
+     - 如果字体资产还在但已经坏到 `material` 或 `atlasTextures` 链失效，会自动 silent rebuild
+     - 同时补了预热字符集和 `Rebuild Dialogue Runtime Fonts (Silent)` 菜单入口
+  3. opening 消费 probe：
+     - 新增 `Assets/YYY_Tests/Editor/DialogueChineseFontRuntimeBootstrapTests.cs`
+     - 新增 `Assets/YYY_Tests/Editor/SpringDay1OpeningRuntimeBridgeTests.cs`
+     - 前者把“runtime 字体预热后，TMP 默认回退应改指向中文字体且 atlas 可用”收成最小编辑器测试
+     - 后者把“`HouseArrival` 收束后会自动接上 `HealingAndHP`”以及“`SpringDay1LiveValidationRunner` 在 `CrashAndMeet / EnterVillage` 阶段给出的下一步动作没有漂”收成独立 runtime bridge 测试
+- 本轮验证状态：
+  - `git diff --check` 对上述 4 个 C# 文件通过
+  - `CodexCodeGuard` 对：
+    - `DialogueChineseFontRuntimeBootstrap.cs`
+    - `DialogueChineseFontAssetCreator.cs`
+    - `DialogueChineseFontRuntimeBootstrapTests.cs`
+    - `SpringDay1OpeningRuntimeBridgeTests.cs`
+    通过，`CanContinue = true`
+  - 本轮没有新的 Unity live / Console / PlayMode 证据
+  - 当前只能宣称：`代码层和测试层收口已推进，live 待验证`
+- 当前父层剩余 backlog 已重新收窄为：
+  1. 共享字体这条线还差一次真实 Unity 现场确认：
+     - runtime bootstrap 是否足以让重启后的早期中文文本不再先掉回 `LiberationSans`
+     - editor auto-heal 是否真的会把坏态字体资产自动拉回
+  2. `spring-day1` 非 UI 剧情主线还差：
+     - opening 链的真实 Unity 消费验证
+     - 再往后才是 `HealingAndHP / WorkbenchFlashback / Dinner / FreeTime` 的正式剧情扩充
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑，原因：本轮不是 sync 收口
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 当前父层恢复点：
+  - 如果继续，优先顺序改为：
+    1. 先用当前 Unity 现场验证字体 runtime bootstrap / auto-heal 是否真止血
+    2. 再补 opening 链真实消费验证
+    3. 最后才继续往 `HealingAndHP / WorkbenchFlashback` 之后扩
+
+## 2026-04-04 补记：只读回读原案，收出 `HealingAndHP -> DayEnd` 最小剧情 beat
+
+- 本轮性质：
+  - 只读审计；未进入真实施工，未跑新的 `thread-state`
+  - 当前 live 状态维持 `PARKED`
+- 本轮回读材料：
+  - `春1日_坠落_融合版.md`
+  - `Deepseek聊天记录001.md`
+  - `Deepseek-2-P1.md`
+  - `2026-04-04_spring-day1_原剧本回正与Town承接剧情扩充设计_01.md`
+  - `2026-04-04_spring-day1_非UI剧情扩充框架落地任务单_01.md`
+- 本轮结论：
+  1. `HealingAndHP` 最少要承担“艾拉正式接住主角 + HP 首次出现 + 村长稳场”。
+  2. `WorkbenchFlashback` 最少要承担“村里最好但仍很基础的工作台 + 回闪 + 基础配方记忆 + 被拉回现实去学怎么活下去”。
+  3. `DinnerConflict` 最少要承担“真正吃上饭的喘息 + 卡尔敌意 + 村长压场后仍有余味”。
+  4. `ReturnAndReminder` 最少要承担“黄昏归途 + 两点前必须睡 + 玩家第一次被单独留在这里”。
+  5. `FreeTime` 最少要承担“夜里村庄仍有人在，但玩家仍是暂住外来者”的 3-4 个见闻点。
+  6. `DayEnd` 必须留下三层尾味：`被暂时接住 / 仍未被真正信任 / 夜里不对劲`。
+- 必须出声或被提及的角色：
+  - 必出声：`马库斯 / 艾拉 / 卡尔`
+  - 最少应被提及或作为见闻层出现：`老杰克 / 老乔治 / 老汤姆 / 小米 / 围观村民 / 饭馆村民 / 小孩`
+- 禁偏项：
+  1. 不打乱 `HP -> EP` 的出现顺序
+  2. 不把工作台写成“外面世界更先进”
+  3. 不把花菜改回大蒜
+  4. 不把闲置屋写成大儿子的房子
+  5. 不把 `101~301` 后补 crowd 槽位继续当原案正式角色真名
+- 当前恢复点：
+  - 若后续继续落地后半天扩充，应直接以这轮 beats 为最小剧情基线，不需要再回头重新发明 Day1 后半段语义。
+
+## 2026-04-04 补记：opening 这条线已把“能不能点跑验证”补成仓库内正式入口
+
+- 当前父层主线没有换题：
+  - `spring-day1` 仍只守非 UI opening 收口；
+  - 这轮父层子任务不是再扩对白，而是把 opening 当前最现实的验证缺口收窄。
+- 当前父层新增稳定结论：
+  1. `Assets/Editor/Story/SpringDay1TargetedEditModeTestMenu.cs` 已接回 opening 专项入口，后续不用再从大而杂的测试集里手工找 opening 四个测试。
+  2. `SpringDay1DialogueProgressionTests.cs` 里有一条 opening 推荐动作断言此前仍停在旧口径；本轮已回正到和当前 `SpringDay1Director` 一致的新字符串。
+  3. 这说明 opening 这条线当前最真实的残项已经进一步收束到：
+     - `CLI/CodeGuard` 为什么拿不到 fresh 程序集级结果
+     - 以及 `Unity/live` 为什么还没有真正补到 opening 消费证据
+     而不是继续缺剧情结构。
+- 当前父层验证状态：
+  - `git diff --check` 对 tracked 测试文件通过
+  - touched 文件未发现尾随空白
+  - `sunset_mcp.py validate_script` 与直接 `CodexCodeGuard` 这轮都被 `dotnet` 600 秒超时卡住
+  - 因此当前只能宣称：`结构/测试口径继续收紧，CLI 程序集级验证与 Unity live 仍待补`
+- 当前父层恢复点：
+  - 若下一轮继续 `spring-day1` opening，优先顺序应是：
+    1. 先解 `CLI CodexCodeGuard validation timed out`
+    2. 再直接利用新 menu 跑 opening 专项测试
+    3. 最后补 opening 消费链的 Unity 现场证据
+
+## 2026-04-04 补记：给 UI 的下一轮 prompt 已从“大链继续做”收窄成“缺字链 fresh live”
+
+- 当前父层主线没有换题：
+  - `spring-day1` 仍继续守 non-UI 剧情源；
+  - 本轮父层子任务只是基于 UI 最新回执，判断是否要补一份新的协同 prompt。
+- 当前父层新增稳定结论：
+  1. 需要给 UI 新 prompt；
+  2. 但这份 prompt 的正确方向，不是再让 UI “继续收全链”，而是把 UI 当前最真实的主矛盾压回：
+     - `缺字链 fresh live`
+     - `第一真实 blocker`
+  3. 当前对 UI 最合理的 4 个玩家面验点已固定为：
+     - 开局左侧任务栏
+     - 中间任务卡
+     - 村长 `继续`
+     - Workbench 左列 recipe
+  4. 当前对 UI 最需要禁止的漂移也已固定为：
+     - 多悬浮框 `3x2`
+     - Workbench 全量 polish
+     - 气泡总整合
+     - 回吞 `Director / Dialogue asset` owner
+- 本轮新增 prompt 文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_UI线程_缺字链fresh-live与第一真实blocker续工prompt_05.md`
+- 当前父层恢复点：
+  - 如果用户现在要继续并行推进 UI，优先转发 `prompt_05`
+  - `spring-day1` 自己则继续保持 non-UI opening / 后半天剧情基线 owner，不回漂到 UI 实现面
+
+## 2026-04-04 父层补记：`spring-day1` 自身下一刀已收窄到 opening 验证闭环
+
+- 当前父层主线没有换题：
+  - `spring-day1` 仍是剧情源 / non-UI owner；
+  - 但它自己当前最真实的推进价值，已经从“继续补 opening 结构”切到“验证闭环 / blocker 报实”。
+- 当前父层新增稳定结论：
+  1. `spring-day1` 下一刀不该再继续扩 opening 内容；
+  2. 当前最合理的新 prompt，应把它压回：
+     - `opening 验证闭环`
+     - `第一真实 blocker`
+  3. 这轮最该禁止的漂移是：
+     - 回漂 UI owner
+     - 继续补 opening 文案
+     - 提前扩后半段
+     - 用结构进展替代验证结果
+- 本轮新增 prompt 文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-04_spring-day1_opening验证闭环与第一真实blocker续工prompt_06.md`
+- 当前父层恢复点：
+  - 如果用户要现在继续压 `spring-day1`，优先转发 `prompt_06`
+  - 后续对 `spring-day1` 的判断标准，也应优先看：
+    - fresh opening 验证证据
+    - 或第一真实 blocker
+  - 而不是继续看它是否又补了更多 opening 结构。
+
+## 2026-04-04 补记：`SpringDay1PromptOverlay` 假活状态单文件只读重排
+
+- 当前父层主线没有换题：
+  - `spring-day1` 仍是 Day1 非 UI 剧情源 owner；
+  - 本轮父层子任务只是协助排查 `PromptOverlay` 为什么会出现“任务列表背景还在但文字大面积消失”的假活状态，不进入真实施工。
+- 当前父层新增稳定结论：
+  1. 当前最像主根因的不是 `Director` 没给数据，而是 `SpringDay1PromptOverlay` 自己的 3 段链路叠加：
+     - 中文字体可读性链过早把运行时字体判 unusable；
+     - runtime shell / front-back page 复用判定仍允许半残页壳继续活着；
+     - queued reveal / page flip / same-signature 恢复路径没有强制重新证明“前台页真的可读”。
+  2. 当前最值钱的第一刀仍应留在 `SpringDay1PromptOverlay.cs` 自身，不该先回漂 `SpringDay1Director`。
+  3. 这刀若继续，最该先做的是：
+     - 收紧 `TryBindRuntimeShell()` / `CanBindPageRoot()` 的前台页健康判定；
+     - 再给 `ApplyStateToPage()` 后面补“前台页真实可读”断言；
+     - 这样才能先把“壳假活”与“字体真坏”拆开。
+- 当前父层验证状态：
+  - `静态推断成立`
+  - 未改代码、未进 Unity、未跑 live。
+- 当前父层恢复点：
+  - 若后续继续 `PromptOverlay`，先做本文件内的壳健康判定与结果断言；
+  - 做完仍大面积空字，再把下一嫌疑切到共享中文字体底座。
+
+## 2026-04-05｜补记：opening 验证闭环已从 `1 pass / 3 fail` 压到 `4 pass / 0 fail`
+
+- 当前父层主线未变：
+  - `spring-day1` 继续只守 opening / Day1 逻辑 / 当前 blocker，不回吞 UI 与 NPC own。
+- 本轮新增稳定结论：
+  1. `PromptOverlay` 当前最危险的 destroyed-row 漏口已落在本体里补守卫：
+     - `HasReadablePromptRow()` 不再把 destroyed row 当成“可读”
+     - `AnimateRowCompletion()` 也不再在 stale row 上继续写 `CanvasGroup`
+  2. `PromptOverlay` 相关 fresh probe 已真实通过：
+     - `PromptOverlay_ShouldRecoverFromDestroyedRowCanvasGroup`
+     - `PromptOverlay_CompletionAnimation_ShouldStopTouchingDestroyedRowCanvasGroup`
+  3. opening 原先最大的 `Followup.asset.meta` blocker 已被压实到真实根因：
+     - `.meta` YAML 空值格式导致 Unity import 链判坏
+     - fresh opening graph 已恢复通过
+  4. opening runtime bridge 也已恢复：
+     - 当前 `Run Opening Bridge Tests = 4/4 PASS`
+  5. 当前 Console 里这轮未再出现：
+     - `PromptOverlay MissingReference`
+     - `ShouldRunBehaviour`
+  6. 仍有一条 Editor 域重载 `NullReferenceException` 来自 `UnityEditor.Graphs.Edge.WakeUp()`，判定为外部噪音，不归本线。
+- 当前父层恢复点：
+  - 这刀现在停在“代码层 + targeted editmode + fresh console 已闭环，等待用户 runtime 复测”。
+
+## 2026-04-05｜补记：Day1 owner 当前剩余工作已重新收成 `任务单_07`
+
+- 当前父层新增稳定结论：
+  1. opening 闭环后，`spring-day1` 当前不再缺“前半段能不能跑”
+  2. 当前真正剩下的是：
+     - `HealingAndHP`
+     - `WorkbenchFlashback`
+     - `FarmingTutorial`
+     - `DinnerConflict`
+     - `ReturnAndReminder`
+     - `FreeTime`
+     - `DayEnd`
+     这整段后半天的正式剧情版
+  3. 这部分已经被我单独收成：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-05_spring-day1_Day1后半段正式剧情收口任务单_07.md`
+  4. 当前最深下一刀不是修零碎 bug，而是直接砍穿：
+     - `HealingAndHP -> DayEnd`
+
+## 2026-04-05｜补记：`气泡 / 提示` 样式与代码宿主只读盘点
+
+- 本轮主线：
+  - 只读盘点 Sunset 当前 `气泡 / 提示` 相关 runtime 宿主、显式样式入口，以及 `NPC own / shared/UI/day1` 的代码归口，不做任何修改。
+- 本轮稳定结论：
+  1. Day1 当前真正在线上的近身提示主宿主不是 [SpringDay1WorldHintBubble.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs)，而是 [SpringDay1ProximityInteractionService.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs) 驱动的 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)。
+  2. `SpringDay1WorldHintBubble` 代码里仍保留 `HintVisualKind.Interaction / Tutorial` 两种显式视觉类型，但当前近身仲裁服务在运行链里只会 `HideIfExists()`，没有 `Show()` 调用，因此这两种样式目前是“代码存在、运行链未接通”的 latent style。
+  3. Day1 左侧任务提示主宿主仍是 [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)，它没有 enum 级 `preset / mode`，但有稳定的单一卡片壳样式，以及 row `Completed` 前后两套颜色态。
+  4. [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs) 的 `BuildPromptCardModel()` 仍是 `PromptOverlay` 的主要内容生产源；工作台 fallback 与制作完成提示则由 [CraftingStationInteractable.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Interaction/CraftingStationInteractable.cs) / [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs) 直接调用 `SpringDay1PromptOverlay.Instance.Show(...)`。
+  5. 从“代码里能切出真实视觉差异”的口径看，Day1 / shared 侧当前可稳定站住的主要样式是：
+     - `InteractionHintOverlay`：1 套正式卡片壳，外加 `有键/无键` 两种布局态；
+     - `SpringDay1PromptOverlay`：1 套任务卡壳，外加 `未完成/已完成` 两种 row 颜色态；
+     - `SpringDay1WorldHintBubble`：2 个显式 `HintVisualKind`，但当前未接入 live 显示链；
+     - `ItemTooltip`：1 套共享 tooltip 壳，不并入 Day1 交互提示主计数。
+- 当前验证状态：
+  - `静态代码盘点成立`
+  - 未改代码、未进 Unity、未跑 live。
+- 当前恢复点：
+  - 如果后续要继续收样式边界，先决定 `SpringDay1WorldHintBubble` 是恢复接线，还是继续判为历史残留壳；再判断 `PromptOverlay / InteractionHintOverlay / ItemTooltip` 是否需要统一主题基线。
+
+## 2026-04-05｜补记：101~301 crowd 只读审计已坐实“仍像 Day1 固定具名角色”
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍是 Day1 own / 正式剧情边界 owner；
+  - 本轮父层子任务只是只读审 `101~301` crowd 资产，不进入真实施工。
+- 当前父层新增稳定结论：
+  1. `101~301` 当前最大的问题不是“有没有台词”，而是命名层与文案层一起把 crowd 槽位写成了固定角色：
+     - 文件名 / `m_Name` 仍是职业标签
+     - `bundleId` 仍像单角色事件 ID
+     - `pairDialogueSets` 里仍有显式小名互称
+     - prefab 里还复制了一份职业化独白与 ambient chat
+  2. 这说明 `101~301` 虽然已经在 owner 口径上降为 `群众层 / 线索层 / 氛围层`，但资产现场还没跟上。
+  3. 最小回正不需要先碰系统结构；优先改三类即可：
+     - 命名层
+     - 互称层
+     - 强职业独白层
+  4. 8 个编号的最小口径已固定为：
+     - `101` 记事/对账位
+     - `102` 后坡盯梢位
+     - `103` 快腿见闻位
+     - `104` 修缮帮手位
+     - `201` 缝补/安抚位
+     - `202` 安神草/摆花位
+     - `203` 端汤/灶台位
+     - `301` 后坡守夜/怪谈位
+- 当前父层验证状态：
+  - `静态只读审计成立`
+  - 未改资产、未进 Unity、未跑 live。
+- 当前父层恢复点：
+  - 若后续要继续压 `NPC-v` 或 Day1 crowd 回正，优先让对方先改口径，不要先扩剧情或补系统。
+
+## 2026-04-05｜补记：Day1 后半段正式桥接已把“教学收束 -> 晚餐 formal 接管”钉成硬逻辑
+
+- 当前父层主线没有换：
+  - `spring-day1` 继续只守 Day1 own；
+  - 这轮只在后半段正式剧情链里继续深砍，不回碰 opening、UI、NPC own 或 Town。
+- 当前父层新增稳定结论：
+  1. `Healing / Workbench / Dinner / Reminder / FreeTime` 这些 authored dialogue 现在不只是“资产存在”，后半段桥接也开始具备 formal-first 的硬约束。
+  2. 本轮最关键的补强点是：
+     - `FarmingTutorial` 完成后不再只是切到 `DinnerConflict`，而是立刻排队正式晚餐对白；
+     - `DinnerConflict / ReturnAndReminder / DayEnd` 期间，工作台交互与制作都会明确让位。
+  3. 对应 runtime probe 也补到了：
+     - `Workbench -> FarmingTutorial`
+     - `FarmingTutorial -> DinnerConflict`
+     - `Dinner / Reminder` 对工作台的 formal priority
+  4. fresh Unity 命令桥结果：
+     - `Run Midday Bridge Tests = 8/8 PASS`
+  5. 这说明 Day1 后半段当前已经从“对白变厚”推进到“导演桥接 + formal 优先级 + probe”三层同时站住。
+- 当前父层仍未闭环的点：
+  - CLI 侧 `sunset_mcp.py errors` 因本机 `8888` endpoint refused，没拿到 fresh console；
+  - 因此这轮不能包装成“CLI / MCP 全链 no-red 已闭环”，只能诚实 claim：
+    - `Unity 命令桥 targeted 验证已过`
+    - `CLI fresh console 未闭环`
+- 当前父层恢复点：
+  - 后续若继续 `spring-day1`，优先再压：
+    - `ReturnAndReminder / FreeTime / DayEnd` 尾声矩阵
+    - 或把当前后半段 formal 化结果收成用户向阶段结论与最少验收包。
+
+## 2026-04-05｜补记：`004/005` 任务卡缺字主根因更像 PromptOverlay 固定字体 probe，而不是 Director 空模型
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍是 Day1 own / 正式剧情边界 owner；
+  - 本轮父层子任务只是支撑 UI 线程做一轮只读归因，不进入真实施工。
+- 当前父层新增稳定结论：
+  1. `WorkBenchFlashback / FarmingTutorial` 左侧任务卡“只剩底板没字”当前最像 `SpringDay1PromptOverlay.cs` 的字体覆盖判定问题：
+     - `ResolveFontAsset()` 只按固定 probe `当前任务工作台继续制作` 选 `_fontAsset`；
+     - 后续 `EnsurePromptTextReady()` / `EnsurePromptTextContent()` 不会按 `004/005` 当前目标文本重新选字体；
+     - 因而更像“字没法被当前字体吃下”，不是“PromptCardModel 没给字”。
+  2. `DialogueUI.cs` 更像触发边界：
+     - 它会在对白期间把 `PromptOverlay` 这类 sibling UI 先 hide 再 restore；
+     - 所以问题最容易在 `003 -> 004`、`004 -> 005` 这种对白收束后的重新显字瞬间暴露。
+  3. `SpringDay1Director.cs` 当前 `004` / `005` 任务模型本身是 filled 的：
+     - `BuildWorkbenchFlashbackPromptItems()` = 2 条正式任务；
+     - `BuildFarmingTutorialPromptItems()` = 5 条正式任务；
+     - 因此不像导演层空数据或 phase 漏切。
+  4. 玩家之所以会看到“只剩一条黑色透明底板”，是因为：
+     - `PromptOverlay` 当前只显示 1 条主任务 row；
+     - row plate / bullet 会继续被 `ApplyRow()` 正常着色；
+     - 但文字可读性与底板显隐是两条链，所以会出现“壳还活着，字没出来”。
+- 当前父层验证状态：
+  - `静态推断成立`
+  - 未改代码、未进 Unity、未跑 live。
+- 当前父层恢复点：
+  - 若 UI 线程继续真修，优先先收 `SpringDay1PromptOverlay.cs` 的字体重选逻辑与 phase 边界 fresh-readability probe；
+  - 暂不建议先把刀扩到 `SpringDay1Director` 文案或 `DialogueUI` 整体 fade 策略。
+
+## 2026-04-05｜补记：Workbench 左列 recipe 空白当前更像 UI 壳复用 + manual 布局漏判，不像数据源断链
+
+- 当前父层主线不变：
+  - `spring-day1` 仍在 own 范围内做 Day1 体验链收口；
+  - 本轮只是给 UI 侧一个可继续执行的只读结论，不回吞别的系统面。
+- 当前父层新增稳定判断：
+  1. `SpringDay1WorkbenchCraftingOverlay` 左列 recipe “可点但像空白”当前更像 UI 壳问题，不像 `CraftingService` / recipe 资产没给数据。
+  2. 最可疑的是两层叠加：
+     - `EnsureRuntime()` 对旧 runtime/prefab 壳的复用门槛仍偏宽；
+     - manual `RecipeRow_*` 壳改走手工几何后，现有 readable 判据抓不到父级裁切或 stale 几何。
+  3. 因为 row 自己的 `Button/Image` 仍在，所以会出现“还能点”；而 `Name/Summary` 如果被裁掉或落到坏几何里，就会看起来像没字。
+  4. 当前最小修复面仍可压在单文件：
+     - 优先改 `SpringDay1WorkbenchCraftingOverlay.cs`
+     - 再补一条 `SpringDay1LateDayRuntimeTests.cs` 的左列 fresh-readability probe
+- 当前父层验证状态：
+  - `静态只读审计成立`
+  - 未改代码、未进 Unity、未跑 live。
+- 当前父层恢复点：
+  - 后续若 UI 线程继续接这条链，优先顺序应是：
+    1. 左列 row 壳复用收紧或首次强制重建
+    2. 补 runtime 可读性测试
+    3. 再决定是否需要继续动 prefab 壳
+
+## 2026-04-05｜补记：spring-day1 已把后半段尾声矩阵、PromptOverlay inactive 崩点与 fresh console 一起收平
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍只守 Day1 own；
+  - 本轮父层新增的是一个可直接复用的稳定结论：后半段尾声链现在不只是“文案更厚”，而是正式进入 `导演 gate + targeted probe + fresh console clean` 的状态。
+- 当前父层新增稳定结论：
+  1. `ReturnAndReminder -> FreeTime -> DayEnd` 现在具备了明确的 formal 三段式：
+     - 刚进 `FreeTime` 先让 `night intro` 接管；
+     - intro 完成后才开放真正的自由活动与睡觉收束；
+     - `night / midnight / final-call` 递进不会再提前压到 intro 前面。
+  2. `PromptOverlay` live 崩点已坐实并修掉：
+     - 根因不是导演层没给 prompt，而是 `SpringDay1PromptOverlay` 在 sibling UI fade 流里被临时关成 inactive 后，`Show()` 仍直接起协程；
+     - 现在 `Show()` / `QueuePromptReveal()` 会先把 runtime 对象自救拉起，再进入 transition。
+  3. `Midday` 的临时 `Primary` 验证场景路径已回正到项目相对路径，不再给 console 带 `Invalid AssetDatabase path: .../Temp/CodexEditModeScenes/Primary.unity` 这种 own 噪音。
+  4. `DialogueChinese Pixel SDF.asset` 多 atlas 列表尾部的空 atlas 槽位已清掉；fresh refresh 后，那条 `Importer(NativeFormatImporter) generated inconsistent result` 也已不再复现。
+  5. fresh 结果已经到：
+     - `PromptOverlay Guard = 3/3 PASS`
+     - `Late-Day Bridge = 5/5 PASS`
+     - `Midday Bridge = 8/8 PASS`
+     - CLI fresh console `errors=0 warnings=0`
+- 当前父层恢复点：
+  - 若后续继续 `spring-day1`，不再需要回头收这批后半段尾声 / PromptOverlay / 临时 Primary 路径噪音；
+  - 下一刀可以直接决定：
+    - 继续扩厚后半段正式剧情密度
+    - 或把当前后半段 formal 化结果收成用户终验/阶段结论。
+
+## 2026-04-05｜补记：spring-day1 已把“导演线 vs Town 承接边界”正式提请典狱长裁定
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍只守 Day1 own；
+  - 本轮父层新增的是一条协同层稳定结论：当前导演线最缺的已不是单个 phase 文案，而是“Town 到底从哪一段开始可被正式消费”的边界真值。
+- 当前父层新增稳定结论：
+  1. 用户最新真实关注点已经转到：
+     - 什么时候可以开始按场地分场；
+     - 什么时候可以开始排 NPC 的剧本走位与出场调度；
+     - `Primary` 不能再被误当成正式长期剧情场地。
+  2. 结合当前治理层记录，`Town` 当前可被导演线询问的真问题不是“scene 健不健康”，而是：
+     - 它现在是否已足以承接 `进村围观 / 小屋周边生活 / 晚餐背景 / 夜间见闻 / 日常站位` 这些戏；
+     - 哪些 phase 现在能按 Town 真实空间写；
+     - 哪些 phase 仍只能保留临时承载 / 抽象承接。
+  3. 已新增对典狱长的正式问询文件：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\003-进一步搭建\2026-04-05_给典狱长_spring-day1与Town承接边界及导演分场问询_08.md`
+- 当前父层恢复点：
+  - 若典狱长回信明确了 `Town` 的导演消费边界，`spring-day1` 下一步就不应再泛写，而应直接按：
+    1. 继续留在临时承载的段落
+    2. 可开始按 Town 分场与群像调度的段落
+    进行二分推进。
+
+## 2026-04-05｜补记：Town 与导演线边界已裁定，可从 post-entry crowd 开始正式按 Town 分场
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍是 Day1 own；
+  - 本轮父层新增的是一条稳定协同结论：Town 现在已经足以被导演线部分消费，但消费层级只到“分场 / 锚点 / 背景调度”，还不到“runtime 全写死”。
+- 当前父层新增稳定结论：
+  1. `Town` 当前正式身份：
+     - 村庄承载层
+     - 面向 Day1 后续生活面 / 背景层 / 群像层 / 夜间见闻层 / 日常站位层
+     - 不是 `CrashAndMeet / EnterVillage` 前半段剧情源
+  2. phase 级边界已明确：
+     - `CrashAndMeet`、`EnterVillage` 前半段、`HealingAndHP`、`WorkbenchFlashback`、`FarmingTutorial` 继续临时/抽象承载
+     - `EnterVillage` 后半段、`DinnerConflict` 背景层、`FreeTime` 夜间见闻层、`DayEnd` 的夜间承接，可开始按 `Town` 锚点写导演分场
+  3. 当前 NPC 剧本走位可写到：
+     - 出场时机
+     - 锚点站位
+     - 朝向/视线/围观让位
+     - 背景层布人
+     - 夜间见闻位
+     但还不能写死：
+     - 精确 runtime 路径
+     - 相机联动
+     - 切场 timing
+     - 最终 spawn / nav route
+  4. 当前真正 first blocker：
+     - `Town` 还未 `sync-ready`
+     - 外线 blocker 仍在 `camera/frustum`、`DialogueUI/字体链`、`PlacementManager compile red`
+     - 所以导演线当前应消费锚点语义，不消费“Town live 已完全闭环”的假前提
+- 当前父层恢复点：
+  - 后续若继续 `spring-day1`，最合理拆法是：
+    1. 继续把前半段保留在临时承载
+    2. 从 `EnterVillage post-entry crowd` 开始，把 `DinnerConflict / FreeTime / DayEnd` 的导演层按 `Town` 写起来
+    3. 先写分场与锚点调度，不先写 runtime 路径
+
+## 2026-04-05｜补记：spring-day1 已把跨线程协同从“问边界”推进到“三方说明文件齐备”
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍是 Day1 own；
+  - 本轮父层新增的是协同层的正式落盘：导演线、NPC 线、典狱长线都各自拿到了一份清晰的情况说明，而不是继续靠碎聊天拼上下文。
+- 当前父层新增稳定结论：
+  1. 典狱长说明文件已成：
+     - 重点不是催他开某一刀，而是让他清楚：
+       - 导演线已进入按 `Town` 分场阶段
+       - `NPC` 已正式接群像层
+       - 他后续最值钱的是继续推 Town 总治理与剩余 blocker
+  2. NPC 协同说明已成：
+     - 群像层、背景层、观察层、夜间见闻层、次日站位层，已被明确写成 NPC 线的长期承接面
+  3. 导演线自续工说明已成：
+     - `spring-day1` 自己下一阶段该做的，不再是泛讲剧情，而是从 `EnterVillage post-entry` 开始正式按 `Town` 分场
+- 当前父层恢复点：
+  - 后续若继续 `spring-day1`，不再需要重新解释“谁做什么”；
+  - 直接进入导演分场与群像承接的实写阶段。
+
+## 2026-04-05｜补记：spring-day1 导演线已把 `Town` 消费面推进到三份正文级稳定产物
+
+- 当前父层主线没有换：
+  - `spring-day1` 继续只守 Day1 own；
+  - 本轮父层新增的是导演层真正可持续复用的正文资产，不是又一轮问边界或短 prompt。
+- 当前父层新增稳定结论：
+  1. 已新增导演分场正文：
+     - `2026-04-05_spring-day1_导演分场与Town承接脚本_10.md`
+     - 它把 `EnterVillage` 后半段到 `DayEnd` 的 `Town` 可消费段落正式收成了：
+       - 分场编号
+       - 主锚点
+       - 背景层职责
+       - 玩家情绪目标
+       - 当前不写死的 runtime 项
+  2. 已新增 NPC 群像矩阵正文：
+     - `2026-04-05_spring-day1_NPC剧本走位与群像层矩阵_11.md`
+     - 它把当前可消费的 anchor 与角色层级、说话强度、让位关系都写实了；
+     - 同时继续守住：
+       - `马库斯 / 艾拉 / 卡尔` = Day1 正式主戏
+       - `101~301` = 只按 crowd 外壳使用
+  3. 已新增阶段边界与后续落位正文：
+     - `2026-04-05_spring-day1_阶段承载边界与后续runtime落位清单_12.md`
+     - 它把“当前导演层能写什么 / 以后 Town ready 后再落什么”彻底拆开，避免下轮继续混写。
+  4. 这意味着导演线当前已经把 `Town` 消费面推进到了“正文级稳定 checkpoint”：
+     - 不再只是聊天判断
+     - 不再只是 prompt 指令
+     - 而是三份后续任何线程都可直接引用的正式说明
+- 当前父层恢复点：
+  - 后续若继续 `spring-day1`，可以直接从：
+    1. 正式剧情资产化
+    2. 与 `NPC / Town` 的 runtime 接口继续下沉
+    二选一推进；
+  - 不再需要回到“Town 到底是不是现在可消费”的阶段。
+
+## 2026-04-05｜补记：导演正文 10/11/12 已二次同步给 NPC 与典狱长
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍只守导演线；
+  - 本轮父层新增的是“同步层完成”，不是新的导演内容。
+- 当前父层新增稳定结论：
+  1. `NPC` 已拿到新版同步：
+     - `2026-04-05_给NPC_v2_导演正文同步与后续承接提示_08.md`
+     - 它把 `10/11/12` 的新增真值正式回灌给了 `NPC`。
+  2. 典狱长已拿到新版同步：
+     - `2026-04-05_给典狱长_导演正文同步与Town后续承接提示_07.md`
+     - 它把当前导演正文成果重新解释成了 Town 后续治理输入。
+  3. 当前不需要同步给 `UI`：
+     - 因为这轮新增的不属于 UI 当前主线依赖。
+- 当前父层恢复点：
+  - 后续若继续 `spring-day1`，可以直接回到导演线本体继续推进，不再停在“还要通知谁”的阶段。
+
+## 2026-04-05｜补记：spring-day1 已把“未完成剧情 + 轻量导演工具”正式收成自用任务清单
+
+- 当前父层主线没有换：
+  - `spring-day1` 继续只守导演线；
+  - 本轮父层新增的是一份后续执行底板，而不是新的跨线程协同件。
+- 当前父层新增稳定结论：
+  1. 已新增：
+     - `2026-04-05_spring-day1_导演线后续任务清单与轻量导演工具路线图_13.md`
+  2. 这份文档把后续工作正式并成两条线：
+     - Day1 未完成剧情内容
+     - 轻量导演工具 MVP
+  3. 并明确写死：
+     - 现在不做完整版导演编辑器
+     - 工具必须服务剧情，而不是反客为主
+     - 第一批最值得吃工具的场景只有少数几个高返工点
+- 当前父层恢复点：
+  - 后续若继续 `spring-day1`，可直接按 `13` 号文档推进，不再重新做路线争论。
+
+## 2026-04-05｜补记：导演线已把“剧情正文 + 轻量导演工具 MVP”一起推进到可用阶段
+
+- 当前父层主线没有换：
+  - `spring-day1` 继续只守导演线；
+  - 本轮父层新增的是一份真实施工成果，而不再是方案或分发。
+- 当前父层新增稳定结论：
+  1. `A组` 正式剧情内容已继续压进真实资产：
+     - opening / enter-village / return-reminder / free-time 的对白资产均已加厚
+     - 当前正式文本层不再只靠文档说明
+  2. `B组` 轻量导演工具 MVP 已真实落地：
+     - `SpringDay1DirectorStaging.cs`
+     - `SpringDay1DirectorStagingWindow.cs`
+     - `SpringDay1DirectorStageBook.json`
+     - `SpringDay1DirectorStagingTests.cs`
+  3. 当前导演工具已经具备最小可用闭环：
+     - beat 数据结构
+     - cue / path 数据
+     - 单 NPC 排练
+     - JSON 保存
+     - 手动回放
+     - `Director -> CrowdDirector` runtime 挂接
+  4. 当前已先把真实场景优先接到：
+     - `EnterVillageCrowdRoot`
+     - `KidLook_01`
+     - `NightWitness_01`
+     - 并预留 `DailyStand_Preview`
+  5. 这轮 targeted 验证已拿到通过信号：
+     - 新增导演工具测试 `3/3 pass`
+     - opening / midday 的关键资产与 bridge 用例已各过一批
+- 当前父层恢复点：
+  - 后续若继续 `spring-day1`，不再需要先回到“工具值不值得做 / 要不要并行”这层；
+  - 可直接继续：
+    1. live 排练 `EnterVillage / NightWitness`
+    2. 再把 `DinnerBackgroundRoot` 吃进下一层 runtime 承接
+
+## 2026-04-05｜补记：`SpringDay1NpcCrowdBootstrap` crowd lines 只读审查已筛出第一批高价值细修句
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍在收“完整的一天 + crowd 不抢正式角色位”这条主线；
+  - 本轮只是为 `101~301` crowd 文案做只读筛查，不进入真实施工。
+- 本轮子任务：
+  - 只读审查 `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs` 中 `101/102/103/104/201/202/203/301` 的 crowd lines；
+  - 目标是筛出最值得先细修的句子，重点盯三类风险：
+    1. 写得太像正式角色 / 主线角色
+    2. 写得太像直接给玩家下任务或给线索指令
+    3. 写得太像验收向文学腔，不够自然口语
+- 本轮稳定结论：
+  1. 第一优先组是 `102 / 103 / 301`：
+     - 当前最容易把群众壳写成“半侦查 NPC / 半任务提示器”；
+     - 尤其是涉及河滩、后坡、旧路、夜路的句子，已经开始直接把玩家往具体方向推。
+  2. 第二优先组是 `101 / 104 / 201 / 202 / 203`：
+     - 主要问题不是功能错位，而是“金句化 / 总结化 / 主题句化”偏重；
+     - 这些句子更像作者在收主题，不像村民顺口说出来的话。
+  3. 后续真修时，最稳的收法不是重写设定，而是统一做两刀：
+     - 把“教玩家怎么查 / 往哪走 / 该注意什么”改回 NPC 自己的见闻和顾虑
+     - 把“不是……是…… / 总得有人…… / 最……的是……”这类总结句降成更口语、更局部的抱怨或观察
+- 本轮未做：
+  - 未改代码
+  - 未改对白资产
+  - 未把 `ConversationSpec / Reaction` 一并纳入这轮清单
+- 当前父层恢复点：
+  - 如果后续继续压 crowd 文案，直接先修 `102 / 103 / 301` 的去任务化 / 去主角化；
+  - 第二轮再收 `101 / 104 / 201 / 202 / 203` 的去金句化即可。
+
+## 2026-04-05｜父层补记：导演工具从摆位推进到全接管与最小录制，后半段 Town 消费继续下沉
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍在同时推进：
+    1. Day1 正式剧情/对白资产
+    2. 轻量导演工具 MVP
+- 这轮新增的高价值产出：
+  1. 排练链不再只是“拖 NPC 走两步”：
+     - 已新增玩家侧临时冻结；
+     - 排练期间不会再把玩家一起带走；
+     - 同时补了“一次只接管一只 NPC”的收口。
+  2. 导演工具已补最小自动录制：
+     - 可在排练时自动采样位置/朝向；
+     - 停止录制后直接写回当前 cue；
+     - 当前 MVP 已从“手填点位”推进到“可录可回写”。
+  3. runtime 消费护栏继续补强：
+     - 同一 `beat + cue` 不再在 crowd sync 中反复重置；
+     - 这一步直接解决了“NPC 永远在同一条 cue 上反复回起点”的导演层真实风险。
+  4. 后半段 `Town` 消费继续落到真实数据：
+     - `ReturnAndReminder_WalkBack` 已补 `DinnerBackgroundRoot` 的最小背景层；
+     - `DayEnd_Settle` 已补 `NightWitness_01` 的最小收束位；
+     - 当前 `Town` 可消费范围已经从 `EnterVillage / Dinner / FreeTime / DailyStand` 扩到 `ReturnAndReminder / DayEnd`。
+- 这轮父层验证：
+  - `Run Midday Graph Tests`：`3/3 pass`
+  - `Run Midday Bridge Tests`：`8/8 pass`
+  - `status` 一度 fresh `0 error / 0 warning`
+  - 但 edit-mode test 结束后，console 会残留测试框架与字体导入副产物，不把它们判成导演线 own 业务红
+- 当前父层判断：
+  - 导演工具这条线已经值得继续，不再停留在“是否有必要做”的方案层；
+  - 后续最值钱的下一刀不该再只是写文档，而应直接去 live 排练并保存：
+    - `EnterVillageCrowdRoot`
+    - `KidLook_01`
+    - `NightWitness_01`
+- 当前父层恢复点：
+  - 下一轮继续时，先拿 live 保存证据；
+  - 再视结果决定是否把 `DinnerBackgroundRoot` 推到更复杂多人层。
+
+## 2026-04-05｜父层补记：导演线已转入 Primary 代理 live capture，测试护栏与 fresh 回归一起站住
+
+- 当前父层主线没有换：
+  - `spring-day1` 仍在并行推进 Day1 正式剧情导演消费与轻量导演工具 MVP。
+- 这轮父层新增的稳定真值：
+  1. 导演工具不再只会“录”，现在已能从 `Primary` 代理现场直接抓真实落位并写回 stage book：
+     - `SpringDay1DirectorPrimaryLiveCaptureMenu.cs`
+     - 命中 `EnterVillage / Dinner / FreeTime / DailyStand`
+     - 本轮 live 写回 `14` 条关键 cue
+  2. 导演测试不再只是结构层：
+     - `SpringDay1DirectorStagingTests` 新增了对“关键 cue 已绝对落位”的真实数据护栏
+     - `Run Director Staging Tests` 已 fresh 到 `7/7 PASS`
+  3. `Town` 的判断没有被推翻：
+     - `Town` 仍可继续作为后半段导演承接层消费；
+     - 但 scene anchor 仍是空壳，当前 blocker 还是 `town-anchor-empty-transform`。
+- 这轮父层验证：
+  - `Primary live capture`：`completed`
+  - `Director Staging Tests`：`7/7 pass`
+  - `status`：baseline `pass`，fresh console `0 error`，仅余测试框架 warning
+  - `manage_script validate`：
+    - `SpringDay1DirectorPrimaryLiveCaptureMenu.cs` = clean
+    - `SpringDay1DirectorStagingTests.cs` = clean
+    - `SpringDay1TargetedEditModeTestMenu.cs` = clean
+- 当前父层判断：
+  - 导演工具已经值得继续深推，不需要再回到“要不要做工具”的方案层；
+  - 现在最值钱的不是再写抽象分场，而是继续拿 live 保存证据，把代理排练链压深。
+- 当前父层恢复点：
+  - 下一轮直接做：
+    1. 导演窗口手工排练 `EnterVillageCrowdRoot / KidLook_01 / NightWitness_01`
+    2. 再把 `DinnerBackgroundRoot` 往复杂多人层推进一刀

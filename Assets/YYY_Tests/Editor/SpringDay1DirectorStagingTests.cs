@@ -133,6 +133,19 @@ public class SpringDay1DirectorStagingTests
     }
 
     [Test]
+    public void StageBook_ShouldContainCapturedAbsolutePositionsForKeyDirectorCues()
+    {
+        Type databaseType = ResolveTypeOrFail("Sunset.Story.SpringDay1DirectorStagingDatabase");
+        object bookAsset = InvokeStatic(databaseType, "Load", true);
+        Assert.That(bookAsset, Is.Not.Null, "未能通过导演数据库加载 SpringDay1DirectorStageBook。");
+
+        AssertCueCaptured(bookAsset, "EnterVillage_PostEntry", "enter-crowd-101");
+        AssertCueCaptured(bookAsset, "DinnerConflict_Table", "dinner-bg-203");
+        AssertCueCaptured(bookAsset, "FreeTime_NightWitness", "night-witness-102");
+        AssertCueCaptured(bookAsset, "DailyStand_Preview", "daily-201");
+    }
+
+    [Test]
     public void NpcTakeover_ShouldDisableRoamAndInteractionsUntilRelease()
     {
         GameObject npc = Track(new GameObject("NPC_Takeover"));
@@ -219,6 +232,53 @@ public class SpringDay1DirectorStagingTests
         return Enum.Parse(enumType, name);
     }
 
+    private static object InvokeStatic(Type targetType, string methodName, params object[] args)
+    {
+        MethodInfo method = targetType.GetMethod(methodName, BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.That(method, Is.Not.Null, $"未找到静态方法: {targetType.Name}.{methodName}");
+        return method.Invoke(null, args);
+    }
+
+    private static void AssertCueCaptured(object bookAsset, string beatKey, string cueId)
+    {
+        object beat = InvokeInstance(bookAsset, "FindBeat", beatKey);
+        Assert.That(beat, Is.Not.Null, $"StageBook 缺少 beat: {beatKey}");
+
+        object cue = FindCueById(beat, cueId);
+        Assert.That(cue, Is.Not.Null, $"Beat {beatKey} 缺少 cue: {cueId}");
+
+        Assert.That((bool)GetFieldValue(cue, "keepCurrentSpawnPosition"), Is.False, $"{cueId} 不应继续依赖当前出生位。");
+        Assert.That((bool)GetFieldValue(cue, "pathPointsAreOffsets"), Is.False, $"{cueId} 应该已经是绝对落位，不应继续保存 offset。");
+
+        Vector2 startPosition = (Vector2)GetFieldValue(cue, "startPosition");
+        Assert.That(startPosition.sqrMagnitude, Is.GreaterThan(0.25f), $"{cueId} 的绝对起点仍然过近原点，像是没吃到 live capture。");
+    }
+
+    private static object FindCueById(object beat, string cueId)
+    {
+        Array cues = (Array)GetFieldValue(beat, "actorCues");
+        if (cues == null)
+        {
+            return null;
+        }
+
+        foreach (object cue in cues)
+        {
+            if (cue == null)
+            {
+                continue;
+            }
+
+            string currentCueId = GetFieldValue(cue, "cueId") as string;
+            if (string.Equals(currentCueId, cueId, StringComparison.OrdinalIgnoreCase))
+            {
+                return cue;
+            }
+        }
+
+        return null;
+    }
+
     private static object InvokeInstance(object target, string methodName, params object[] args)
     {
         MethodInfo method = target.GetType().GetMethod(methodName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -231,6 +291,13 @@ public class SpringDay1DirectorStagingTests
         PropertyInfo property = target.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
         Assert.That(property, Is.Not.Null, $"未找到属性: {target.GetType().Name}.{propertyName}");
         return property.GetValue(target);
+    }
+
+    private static object GetFieldValue(object target, string fieldName)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, $"未找到字段: {target.GetType().Name}.{fieldName}");
+        return field.GetValue(target);
     }
 
     private static void SetField(object target, string fieldName, object value)
