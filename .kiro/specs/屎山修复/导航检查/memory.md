@@ -8983,3 +8983,106 @@
 - 当前结论：
   - “能合法提交的内容”已经先做成本地 commit；
   - 远端 push 仍是外部网络 blocker，不应据此回退本轮归仓判断。
+
+## 2026-04-04｜NPC 自然漫游静态审计与补口：先收 bounds 归一化 + 被动 NPC 堵墙改线
+
+- 当前主线目标：
+  - 不重修玩家已认可版本；
+  - 先在纯静态层把 NPCAutoRoamController.cs 里最像导致 NPC 撞墙卡住 / warning 连发的上层缺口补掉；
+  - 然后再向用户申请占用 Unity 做 runtime 验证。
+- 本轮子任务与服务关系：
+  - 先确保当前准备改的导航代码已有可回退 checkpoint：7e06c2e6；
+  - 再做 NPCAutoRoamController + NPCMotionController 静态审计；
+  - 本轮实际只修改 NPCAutoRoamController.cs。
+- 本轮实际完成：
+  1. 重新压实责任链：
+     - 玩家和 NPC 共享同一份 NavGrid2D + soft-pass + bounds enforcement 底层 contract；
+     - 但 NPC 仍走独立的 roam / avoidance / recovery 上层链，不是“另一张静态导航”，而是“同底层、上层更脆”。
+  2. 在 NPCAutoRoamController.cs 收了两刀纯静态补口：
+     - 所有 roam 采样点 / requestedDestination / rebuildDestination 统一先经过 NormalizeDestinationToNavGridBounds(...)，不再把越出 nav world bounds 一点点的点直接喂给 TryFindNearestWalkable(...)；
+     - TryBeginMove() 与多处 ResetMovementRecovery(...) 改用 GetNavigationCenter()，不再混用 	ransform.position 与 b.position 做导航恢复基准；
+     - 当共享避让遇到“静止 NPC 挡墙”且 detour / rebuild 都失败时，先尝试 TryBeginMove() 改线，不再立刻掉成 SharedAvoidanceRepathFailed -> interrupt warning。
+  3. 一次性只读子智能体 Sagan 已收结果并关闭。
+- 关键判断：
+  - 这轮最像的静态真问题，不是 NPCMotionController 基础运动桥接器本身坏掉；
+  - 而是 NPCAutoRoamController 的“采样点越界 + 被动 NPC 堵墙 fallback 太硬”让 NPC 更容易撞墙、抖动、掉 warning。
+- 验证结果：
+  - git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs 通过；
+  - alidate_script（含 --skip-mcp）与直接 CodexCodeGuard.dll 在当前环境都超时，未形成可靠结果；
+  - 已人工复查新增 helper 与调用点，未发现明显语法级结构错误；
+  - 当前尚未进入 Unity live，符合用户“先静态、后申请”的顺序要求。
+- 当前阶段：
+  - 静态补口已完成，线程已 Park-Slice；
+  - 下一步应只做一件事：向用户申请占用 Unity，专门复测 NPC 自然漫游撞墙 / warning / bridge-water-edge runtime 真值。
+- changed_paths：
+  - D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs
+- thread-state：
+  - Begin-Slice=已跑
+  - Ready-To-Sync=未跑（本轮未收口 sync）
+  - Park-Slice=已跑
+  - 当前状态：PARKED
+- 时间：2026-04-05 00:29:33 +08:00
+
+## 2026-04-05｜只读排查：当前 Console 里的 NPC oam interrupted 不是编译报错，而是自然漫游卡住 warning
+
+- 当前主线目标：
+  - 只读查明用户截图里的 NPC 导航告警到底是什么、是否仍然活着、现在主要坏在哪一层。
+- 本轮子任务与服务关系：
+  - 不进施工、不占 Unity 写现场；
+  - 只读对齐 Editor.log + status.json + NPCAutoRoamController.cs，把 warning 源头和现状钉实。
+- 只读查明的事实：
+  1. 这批不是 compile error，而是运行时 Debug.LogWarning：
+     - 触发点在 NPCAutoRoamController.cs:2412
+     - 进入来源是 CheckAndHandleStuck(...) 的 progress.ShouldCancel -> TryInterruptRoamMove(StuckCancel, ...)
+  2. 当前 Unity 仍在 Play Mode：
+     - status.json = isPlaying=true
+     - isCompiling=false
+     - 所以这不是编辑器红编译，而是游戏跑着时 NPC 自然漫游不断卡住。
+  3. 当前 warning 的主型是：
+     - Reason=StuckCancel
+     - 不是 SharedAvoidanceRepathFailed
+  4. 统计 Editor.log 当前样本：
+     - BlockerKind=None 远多于 BlockerKind=NPC
+     - 说明多数 warning 不是“明确识别到某个 blocker 然后报错”，而是 NPC 长时间没有足够位移，被 stuck 检测直接取消当前漫游。
+  5. 热点 NPC 很集中：
+     -  03 次数最高，其次是 201 / 102 / 101 / 202 / 103
+     - 多条日志里同一个 NPC 的 Current=... 基本不变，但 Requested=... 在变，说明它们是在同一位置附近反复短停、重选目标、再卡住。
+- 当前判断：
+  - 这能证明两件事：
+    1. 用户截图里的 warning 是真的还活着，不是 stale；
+    2. 当前第一 runtime 问题已经不是桥 / 水 / 边缘 contract 没接上，而是正式场景下 NPC 自然漫游在局部 choke point / crowd 位点里反复进 StuckCancel 循环。
+- 当前边界：
+  - 这轮仍是只读；
+  - 还没有进入新的 targeted runtime 取证或修复；
+  - 所以当前不能 claim “warning 已解决”。
+- 下一步最小动作：
+  - 如果继续，应直接针对高频点  03 / 201 / 101 / 202 做一次定点 runtime 取证：看它们各自在什么场景位置被卡、周围是否是 NPC 墙 / 静态碰撞 / 狭窄通道，再决定修 stuck recovery、采样选点 还是 shared avoidance。
+- 时间：2026-04-05 01:34:32 +08:00
+
+## 2026-04-05｜NPC 自然漫游 StuckCancel 全盘修复：静态补口完成，own 改动已提交，live 被外部 compile red 阻断
+
+- 当前主线目标：
+  - 只修 NPC 自然漫游里的 StuckCancel / 撞墙 / 被动堵塞恢复漏洞，不改玩家已认可的导航业务逻辑。
+- 本轮施工切片：
+  - 只实际修改：
+    - Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs
+    - Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs
+- 本轮实际完成：
+  1. 在 NPCAutoRoamController.cs 补齐“零推进 / ConstrainedZeroAdvance / 终局 stuck”恢复链。
+  2. 把共享避让里的“动态避让正常停顿”和“静态/被动堵塞真卡死”拆开；动态 blocker 才重置 stuck 进度，静态 hard-stop 改走 blocked-advance recover。
+  3. 保留并收紧 bridge / bounds 接线：采样点、requestedDestination、rebuildDestination 统一走 NormalizeDestinationToNavGridBounds(...)，被动 NPC 堵墙时允许更早 TryBeginMove() 改线。
+  4. 顺手清掉 NavGrid2D.cs 一条导航静态 warning：EnableNavGridRefreshProfiling 从 const false 改成 static readonly false，只去掉 CS0162 unreachable code，不改变默认行为。
+  5. 已提交本地 checkpoint：7cd57279 2026.04.05_导航检查V2_npc-stuck-recovery-checkpoint
+- 验证与证据：
+  - git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs 通过；
+  - 最新 Editor.log fresh compile 没有把 NPCAutoRoamController.cs / NavGrid2D.cs 打成新的 compile error 或 warning；
+  - 当前 compile red 明确在 external：Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs、Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs、Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs、Assets/YYY_Tests/Editor/NpcCrowdDialogueTruthTests.cs；
+  - CLI 侧还有两个工具 blocker：sunset_mcp.py errors/status 会遇到 'str' object has no attribute 'get'，CodexCodeGuard 对这条 runtime 程序集 compile 仍会 600s 超时。
+- 当前判断：
+  - own 责任范围内，代码补口和静态清理已经完成；
+  - 但还不能 claim runtime 已闭环，因为 fresh live 被外部 compile red + CLI 工具 blocker 截断。
+- 当前阶段：
+  - partial checkpoint / PARKED
+- 下一步恢复点：
+  - 先清外部 compile red，恢复可进 Play；
+  - 然后只复测 NPC 自然漫游高频热点，验证 StuckCancel warning、撞墙卡住和静态堵塞是否真实下降。

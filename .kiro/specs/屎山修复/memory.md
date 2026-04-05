@@ -3581,6 +3581,27 @@
   - 后续只需在 Unity 当前现场确认一次：`C1/C2/C3` 是否不再继续报 `Unknown error occurred while loading ...`
   - 如果已不再报，这条 incident 可以按 prefab 本体损坏已止血关闭。
 
+## 2026-04-03（屎山修复父层补记：Stone 批量状态工具已并到 `Tool_005`）
+
+- 当前新增事实：
+  1. `树石修复` 子线又补了一把石头专用的批量状态工具；
+  2. 当前主菜单入口为：
+     - `Tools/005批量 (Stone状态)`
+  3. 这把工具不是纯复制树工具，而是额外处理了石头专属差异：
+     - `OreType` 改动时同步切 `spriteFolder/spritePathPrefix`
+     - 不勾血量时按阶段/含量自动派生 `currentHealth`
+- 当前阶段判断：
+  - 这条子线现在已经同时具备 `Tool_004 Tree` 与 `Tool_005 Stone`；
+  - 剩下的不确定性只在 Unity 里的真实使用手感，不在工具结构层。
+
+## 2026-04-03（屎山修复父层补记：Tool_005 首个编译红已热修）
+
+- 当前新增事实：
+  1. `Tool_005_BatchStoneState.cs` 首次落地后立刻暴露出一个纯命名空间级低级红：
+     - 少了 `using FarmGame.Data;`
+  2. 这不是工具设计错，而是 `StoneStage / OreType` 所在命名空间未引入；
+  3. 当前该红已直接补掉。
+
 ## 2026-04-02（屎山修复父层补记：导航检查V2 `-40` 当前合法停车位已改判为 external `Tool_002_BatchHierarchy` gate）
 
 - 当前新增事实：
@@ -4259,3 +4280,484 @@
 - 当前恢复点：
   - 让用户先直接进 Unity 过桥；
   - 如果还被挡，再做 scene 五段式审计，不回退成“导航父线程整包缺席”的泛问题。
+
+## 2026-04-03（屎山修复父层补记：树石批量工具新增提示已静音）
+
+- 当前新增事实：
+  1. 用户直接要求把最近新增的树/石批量工具提示全部关掉，不要再显示；
+  2. 本轮收缩范围只锁在我新加的提示层，不扩到 `TreeControllerEditor.cs` / `StoneControllerEditor.cs` 里原本就存在的旧 warning；
+  3. 已把 `Tool_004_BatchTreeState.cs` / `Tool_005_BatchStoneState.cs` 里的 `HelpBox`、`DisplayDialog`、`ShowNotification` 清掉；
+  4. 已把树/石 Inspector 里“打开批量工具”按钮前的新增引导 `HelpBox` 清掉，仅保留按钮。
+- 当前阶段判断：
+  - 树/石批量工具现在回到“只给字段和按钮，不给新增提示”的轻量态；
+  - 这仍是编辑器 UX 收口，不是 Tree/Stone 业务逻辑再返工。
+- 当前恢复点：
+  - 用户现在可直接在 Unity 里继续批量改树和石头；
+  - 如果后续还要改，只应继续锁在树石编辑器工具层，不扩回其他系统。
+
+## 2026-04-04（屎山修复父层补记：树石批量工具状态参数已按钮化）
+
+- 当前新增事实：
+  1. 用户明确要求树和石头批量工具里的参数都改成按钮，不再保留输入框/下拉；
+  2. 当前已把树工具的 `treeID / 当前阶段 / 当前状态 / 当前季节` 改成按钮式选择；
+  3. 当前已把石头工具的 `当前阶段 / 矿物类型 / 含量指数 / 当前血量` 改成按钮式选择；
+  4. 数值型字段没有继续保留输入框，而是统一改成“预设按钮 + 步进按钮”。
+- 当前阶段判断：
+  - 树石批量工具现在已经进入“状态参数纯按钮选择”的编辑器交互态；
+  - 这仍是工具层 UX 收口，不是 Tree / Stone 运行时逻辑返工。
+- 当前恢复点：
+  - 用户现在可直接回 Unity 使用新的按钮式批量参数面板；
+  - 如果后续继续调，只需继续锁在 `Tool_004/005` 的排版和可点性，不扩题。
+
+## 2026-04-04（屎山修复父层补记：Tree 批量窗口空引用导致的 GUI 报错已确认归我并热修）
+
+- 当前新增事实：
+  1. 用户贴出的 `MissingReferenceException` 直接命中 `Tool_004_BatchTreeState.DrawSelectionSummary()`，属于我这轮编辑器工具代码的问题；
+  2. 后续 `Invalid GUILayout state` / `GUIClips` 报错是同一异常把 `OnGUI` 布局栈打断后的连带结果；
+  3. 当前已在 `Tool_004/005` 两个批量窗口都补上 stale-reference 清理和 scope 化布局保护。
+- 当前阶段判断：
+  - 树石批量工具当前已从“对象销毁后可能炸窗口”回到更稳的编辑器态；
+  - `UnityEditor.Graphs.Edge.WakeUp()` 暂不归到这条树石工具线上。
+- 当前恢复点：
+  - 用户现在可继续复测树/石批量窗口；
+  - 若仍出现非 `Tool_004/005` 栈内错误，再按新栈单独收窄。
+
+## 2026-04-03（屎山修复父层补记：NPC 已开始并行吃桥/水/边缘 contract）
+
+- 当前新增事实：
+  1. 用户已口头认可玩家当前桥 / 水 / 边缘体验，这条父层主线不再回头重修玩家；
+  2. 本轮导航检查已把 `NPCAutoRoamController` 和 `TraversalBlockManager2D` 接到 NPC 等价 contract：
+     - NPC 桥面中心脚底 probe
+     - 基于 walkable override 的 water soft-pass
+     - NPC nav bounds enforcement
+  3. 当前没有 scene 实写，也没有改 binder / traversal Inspector 配置。
+- 当前阶段判断：
+  - 这轮已把“NPC 还像走旧接线”收成脚本侧补口；
+  - 但父层还不能把 NPC 桥面体验写成最终关闭，因为真实 live 过桥真值还没补到。
+- 当前恢复点：
+  - 如果后续继续，只应补 NPC 最小 live probe；
+  - 若 probe 仍失败，再精确点名是脚本 gap 还是 scene source gap，不准偷改 scene 混过去。
+
+## 2026-04-03（屎山修复父层补记：NPC 接线已有 runtime probe）
+
+- 当前新增事实：
+  1. 本轮已补最小 runtime probe；
+  2. `TraversalBlockManager2D` 在 Play 中已真实报出 `npcBindings=3，npcBounds=on`；
+  3. 说明 NPC contract 绑定已跑进运行时，但仍未直接证明“桥上体验完全过线”。
+
+## 2026-04-03（屎山修复父层补记：NPC bridge / water / edge targeted acceptance 已过）
+
+- 当前新增事实：
+  1. 本轮没有回碰玩家 traversal，也没有 scene 实写；
+  2. `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 已改成 `DebugMoveTo` 直达 probe，并在起跑前自动吸到最近可走格中心；
+  3. fresh Play 结果已明确拿到：
+     - `bridge_probe_pass final=(-9.10, 1.42) sawBridgeSupport=True inWater=False`
+     - `edge_probe_pass position=(8.02, 2.25) inBounds=True`
+     - 总结 `PASS bridge+water+edge`
+  4. 本轮为继续验收，顺手清掉了一条外部 compile 门：
+     - `SpringDay1PromptOverlay.cs` 的 `Object` 二义性
+     - 仅是限定名修正，不是 UI 行为返工。
+- 当前阶段判断：
+  - NPC 当前已经有“结构接线 + targeted acceptance”两层证据；
+  - 这足以证明 NPC 已能接入玩家当前认可的桥 / 水 / 边缘 contract；
+  - 但如果后续还要追“自然 roam 体验是否同样稳定”，仍需额外 live case，不应把 targeted probe 误写成完整体验终验。
+- 当前恢复点：
+  - 用户若只关心“NPC 是否已经吃到等价 traversal contract”，当前可以按已成立处理；
+  - 若后续要继续，只应补更贴近自然 roam 的体验验证，不要再回头重修玩家版。
+
+## 2026-04-03（屎山修复父层补记：NPC 自然过桥也已拿到 fresh 正样本）
+
+- 当前新增事实：
+  1. 本轮继续补了一刀更贴近真实漫游的验证，不再只停在 `DebugMoveTo`；
+  2. `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 新增了自然桥入口：
+     - `Tools/Codex/NPC/Run Natural Roam Bridge Probe`
+  3. fresh 查明并修掉了一处 probe 自身接线错误：
+     - 旧逻辑把 `homeAnchor` 误写成吸附后的起点
+     - 导致 `StartRoam` 的 roam center 回到桥西侧，报出假 `ShortPause` 失败
+  4. 修正后 fresh 结果：
+     - `bridge_natural_probe_pass ... final=(-9.13, 1.42) sawBridgeSupport=True inWater=False state=Moving`
+- 当前阶段判断：
+  - NPC 这条线现在已经不只是“结构接线 + targeted probe”；
+  - 还额外拿到了一条“自然 StartRoam 过桥”正样本；
+  - 这让当前 bridge contract 的可信度进一步上升。
+- 当前恢复点：
+  - 如果继续补强，下一步应只考虑“自然 roam 下 edge / 长时间体验”；
+  - 不应再回头重修玩家 bridge / water / bounds 方案。
+## 2026-04-03（屎山修复父层补记：camera confiner 回归已止血，镜头重新跟随玩家）
+
+- 当前新增事实：
+  1. 用户直接报出“镜头不动、不跟着玩家走”，本轮先按回归事故处理，只碰 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`，不碰 `Primary.unity`。
+  2. live 取证先确认：`CinemachineCamera` 的 `Follow` 没丢，真问题是 confiner 把镜头提前钉死。
+  3. 修法已落在脚本侧：
+     - 自动 bounds 不再只吃一张最窄的 exact base tilemap，而是会联合 exact base 候选；
+     - 对当前 legacy 默认排除词做软化，避免把 `water / props / farmland` 一刀切排出可见场景边界；
+     - 自动 bounds 现在会额外吸收 world layer 下的 `SpriteRenderer` 可见范围，补上房屋/桥面这类非 tilemap 可见内容；
+     - 新增宽屏保护：超宽画面时自动收窄 camera viewport，避免全屏或超宽窗口把镜头直接锁死。
+  4. fresh Play runtime 证据：
+     - 修前：`Main Camera` 被强制修正到右边界，`PositionCorrection.x=-8.166666`
+     - 修后：`Player` 与 `CinemachineCamera` 世界坐标重新对齐，`PositionCorrection=(0,0,0)`
+     - 新 `WorldBounds` 读数约为 `center=(-13.625, 16.0)`、`size=(56.25, 65.0)`
+  5. fresh screenshot 已补，镜头画面重新回到跟随态；Unity 也已退回 `Edit Mode`。
+- 当前阶段判断：
+  - `结构证据`：成立
+  - `compile 证据`：成立
+  - `真实体验`：这轮至少已拿到“镜头重新跟随玩家”的 live 证据，但用户自己的全屏/长路径终验仍待补。
+- 当前恢复点：
+  - 让用户优先复测：
+    - 普通移动时镜头是否继续跟随
+    - 双击 `Game` 全屏后是否还会出现“镜头不动”
+    - 是否仍会拍到 scene 外
+  - `SceneTransitionTrigger2D` 这轮没有继续改 runtime 行为；只保留上一轮黑幕异步加载和 scene path 兼容版本，若要最终收口仍需再补一次 end-to-end 转场终验。
+
+## 2026-04-03（屎山修复父层补记：camera 左右残留蓝边继续收窄到“真实占用格子”）
+
+- 当前新增事实：
+  1. 用户继续反馈：镜头跟随已经恢复，但最左和最右仍会露出一条很窄的深蓝色场景外边。
+  2. 本轮仍然只碰 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`，没有回碰 `Primary.unity`、binder、scene sync，也没有改用户当前 traversal Inspector 配置。
+  3. `TryGetTilemapWorldBounds()` 已从直接使用 `tilemap.localBounds`，改成遍历 `cellBounds` 内真实 `HasTile` 的格子来收世界边界；空白但仍落在旧 bounds 里的列/行不再被当成可见世界宽度。
+  4. `ComparePreferredTilemaps()` 与 `ShouldIncludeTilemapInAutoBounds()` 也同步改成同一口径，避免排序和筛选阶段还沿用旧的空白列面积。
+  5. 这轮拿到的验证证据：
+     - `validate_script(CameraDeadZoneSync.cs)`：`0 error / 2 warning`
+     - `git diff --check -- Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：仅 CRLF/LF 提示，无 diff 结构错误
+     - Unity `refresh_unity` 已请求脚本编译，随后两次 `read_console(error)` 都是 `0 error`
+- 当前阶段判断：
+  - `结构 / checkpoint`：成立
+  - `targeted probe / 局部验证`：成立到“脚本编译和控制台无新红错”
+  - `真实入口体验`：尚未最终确认，仍待用户亲自复测左右蓝边是否完全消失
+- 当前恢复点：
+  - 如果用户复测仍能看到边缘蓝边，下一步优先继续查 `Camera.rect` 宽屏保护与当前 scene base 内容真实宽度之间是否还存在 1 格以内残差；
+  - 但在用户给出 fresh 画面前，不能把这轮写成“camera 体验完全过线”。
+
+## 2026-04-04（屎山修复父层补记：仅运行时左侧白边，继续收 runtime viewport / confiner 单侧残差）
+
+- 当前新增事实：
+  1. 用户最新补充：现在不是编辑态也有问题，而是“只有运行时左侧还会出现镜头溢出边界”；右侧和上下已经对了。
+  2. 这条信息把根因进一步收窄为：不只是左侧地形不规则，更像 `Play` 时才会生效的 viewport / confiner 残差。
+  3. 本轮仍然只碰 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`，没有改 scene、没有改 binder。
+  4. 新落的脚本修复点：
+     - `RefreshBounds()` 改成先应用最终 runtime viewport，再让 `CinemachineConfiner2D` 重算缓存；
+     - `LateUpdate()` 里如果屏幕尺寸变了，只有在 viewport rect 真发生变化时才重新 `InvalidateBoundingShapeCache()`；
+     - 新增 `snapViewportClampToPixelGrid`，把 runtime `Camera.rect` 吸到像素网格，降低只在 `Play` 里出现的一侧细白边/细缝。
+  5. 本轮额外做的 live 取证：
+     - 进过一次短 `Play`
+     - 读到 runtime `CinemachineCamera`、`CameraDeadZoneSync`、`_CameraBounds` 组件值
+     - runtime `WorldBounds` 约为 `center=(-14.45,16)`、`size=(54.6,65)`
+     - 当前 `PositionCorrection=(0,0,0)`，说明不是“confiner 继续把镜头钉死”的旧问题
+  6. 本轮验证：
+     - `validate_script(CameraDeadZoneSync.cs)`：`0 error / 2 warning`
+     - Unity 脚本编译请求后，连续两次 `read_console(error)`：`0 error`
+     - Unity 已主动退回 `Edit Mode`
+- 当前阶段判断：
+  - `结构 / checkpoint`：成立
+  - `targeted probe / 局部验证`：成立到 runtime 组件值和编译/控制台证据
+  - `真实入口体验`：仍待用户复测左侧白边是否完全消失
+- 当前恢复点：
+  - 如果用户这次复测仍看到左侧白边，下一步优先继续查：
+    - 用户实际全屏/窗口比例下的 `Camera.rect`
+    - 和 confiner 在该比例下的窗口尺寸是否还有 1px 级别偏差
+  - 但在用户 fresh 反馈前，不能把这轮写成“镜头最终体验已完全过线”。
+
+## 2026-04-04（屎山修复父层补记：命中 exact base tilemap 后不再让 runtime Sprite 把相机边界外扩）
+
+- 当前新增事实：
+  1. 用户要求我先把自己这条线能负责的问题彻底修掉；本轮继续只碰 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`。
+  2. 这轮前置核查已补齐：
+     - `skills-governor`
+     - `preference-preflight-gate`
+     - `global-preference-profile.md`
+     - 手工等价 `sunset-startup-guard`
+     - `sunset-no-red-handoff`
+  3. 根因继续收窄为：
+     - `Edit` 下不溢出、`Play` 下左侧才溢出；
+     - 说明比起地形本身，更像运行时参与边界计算的内容把一侧 world bounds 撑宽；
+     - 当前 `TryCalculateAutoBounds()` 在已经命中 exact base tilemap 后，仍会继续把 `SpriteRenderer` bounds 纳入世界边界。
+  4. 本轮新落脚本修复：
+     - `SelectAutoBoundsTilemaps(out bool usingExactBaseTilemaps)`
+     - 当已命中 `Layer 2 - Base / Layer 1 - Base` 这类 exact base tilemap 时，`TryCalculateAutoBounds()` 不再继续吸收 `SpriteRenderer` bounds；
+     - `SpriteRenderer` 只保留给“没有 exact base tilemap 时”的 fallback。
+  5. 本轮验证：
+     - `validate_script(CameraDeadZoneSync.cs)`：`0 error / 2 warning`
+     - Unity 编译请求后，`read_console(error)` 没有新增 `CameraDeadZoneSync` 相关红错
+     - 短 Play probe 里，`WorldBounds` 已收紧到 `center=(-14,16)`、`size=(53,65)`
+     - 运行时截图已补：`Assets/Screenshots/camera-runtime-check.png`
+     - Unity 已退回 `Edit Mode`
+- 当前阶段判断：
+  - `结构 / checkpoint`：成立
+  - `targeted probe / 局部验证`：成立到“bounds 已进一步收紧 + 编译无新红”
+  - `真实入口体验`：仍待用户把玩家走到最左边界后终验，当前不能把这轮写成体验彻底过线
+- 当前恢复点：
+  - 等用户做真实左侧贴边复测；
+  - 若仍有残边，下一步只继续查玩家贴左边时的相机位置与 `Camera.rect`，不再把 runtime Sprite 重新并入 exact base world bounds。
+
+## 2026-04-04（屎山修复父层补记：用户改口为三层并集，同时修掉 frustum warning 的主因）
+
+- 当前新增事实：
+  1. 用户最新明确改口：镜头范围不要再按 `base-only`，而应该按 `LAYER 1 / LAYER 2 / LAYER 3` 三个 world layer 里的内容并集来算。
+  2. 用户同时追问 `Screen position out of view frustum`；这轮已把它和相机需求一起处理。
+  3. 这条 warning 的主因已锁到输入换算，而不是 camera confiner 本身：
+     - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs:1013`
+     - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs:1876`
+     - 两处都把 `Input.mousePosition` 以 `z=0` 直接喂给 `Camera.ScreenToWorldPoint(...)`
+     - 对当前 2D 相机来说，`z` 这里代表“离相机多远”，不是“世界坐标 z”；给 `0` 就会触发 Unity 的 frustum warning
+  4. 为了不留下同类坑，debug 生成脚本也顺手一起改了：
+     - `Assets/YYY_Scripts/World/WorldSpawnDebug.cs`
+  5. 本轮落的修复：
+     - `CameraDeadZoneSync.cs`
+       - `SelectAutoBoundsTilemaps()` 改回直接收 `worldLayerNames` 下所有可用 Tilemap
+       - `ShouldIncludeTilemapInAutoBounds()` 不再把 `water / props / farmland` 这类 tilemap 从三层并集里排掉
+       - `SpriteRenderer` 现在只在“三层里一个 Tilemap 都没找到”时才当 fallback
+     - `GameInputManager.cs`
+       - 新增 `ScreenToGameplayWorld(...)`
+       - 右键自动导航取鼠标世界坐标、通用 `GetMouseWorldPosition()` 都改成用“相机到世界平面 z=0 的距离”，不再用 `z=0`
+     - `WorldSpawnDebug.cs`
+       - 同样改成先算正确的世界平面深度，再做 `ScreenToWorldPoint`
+  6. 本轮验证：
+     - `git diff --check`：无结构错误，仅 `CameraDeadZoneSync.cs` 的 CRLF/LF 提示
+     - Unity `Editor.log` 里在本轮最后几次 `Reloading assemblies after forced synchronous recompile` 之后，没有再看到新的 `Screen position out of view frustum`
+     - `Editor.log` 里能看到的 `error CS0246` 来自既有 `Assets/YYY_Tests/Editor/SpringDay1OpeningRuntimeBridgeTests.cs`，不是本轮新增
+- 当前阶段判断：
+  - `camera`：已按用户新口径切回“三层并集”
+  - `frustum warning`：主因补丁已落到常驻输入链与 debug 链
+  - `真实入口体验`：仍待用户自己进游戏确认两件事
+- 当前恢复点：
+  - 让用户复测：
+    - 镜头边界现在是否按三层并集工作，不再只守 base
+    - 那条 `Screen position out of view frustum` 是否还会在正常游玩里出现
+  - 如果 warning 仍复现，下一步优先继续追剩余同类调用点，而不是再回头怀疑 confiner。
+
+## 2026-04-04（屎山修复父层状态快照：历史需求剩余项重新盘点）
+
+- 当前盘点结论：
+  1. `player` 侧的桥 / 水 / 边缘行走问题，用户此前已经明确认可“玩家现在这个版本我也认可了”，所以这块不再算当前主 blocker。
+  2. `npc` 过桥与同套 traversal 接入，仍在 `导航检查` 线程 active 收口，当前不是我这条线在做。
+  3. `camera` 这条线现在剩的不是“继续大改逻辑”，而是：
+     - 复测“三层并集”口径是否符合用户实际视觉预期
+     - 复测 `Screen position out of view frustum` 是否已在正常玩法链消失
+  4. `scene transition` 历史需求仍没有完全画句号：
+     - `SceneTransitionTrigger2D` 的黑幕异步加载和 scene path / Build Profile 兼容脚本版本已存在
+     - 但 end-to-end 的真实切场体验仍待单独终验，当前不能写成“转场最终体验已收口”
+  5. 树苗放置卡顿已明确转交 `农田交互修复V3` 线程，不再是我这条线 own。
+  6. `Tool_002_BatchHierarchy` 当前不是 active blocker；对应线程是 `scene-build-5.0.0-001`，状态是代码已落、等用户在 Unity 里继续验“确认选取 + 持久化”。
+- 当前最该提醒用户的事实：
+  - 从“历史原始大包”看，现在真正还悬着的主要是 4 块：
+    1. `camera` 终验
+    2. `scene transition` 终验
+    3. `npc traversal` 终验
+    4. `sapling stutter` 农田线程收口
+  - 这 4 块里，只有第 1 块是我这条线刚刚还在直接动的。
+
+## 2026-04-05（屎山修复父层补记：Town 相机 / 输入 / frustum 只收脚本契约，运行态未再见 frustum，但 Town 真实载入探针受限）
+
+- 当前主线目标：
+  - 只在允许范围内把 `Town` 进入链上的相机 / 输入 / `frustum` 问题推进到基础设施闭环
+  - 不回到 `Primary/Town` scene wiring、UI、导航或通用工具
+- 本轮子任务：
+  - 继续收 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 继续收 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - 继续收 `Assets/YYY_Scripts/World/WorldSpawnDebug.cs`
+  - 必要时补最小契约 `Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs`
+- 本轮实际做成了什么：
+  1. `CameraDeadZoneSync.cs`
+     - `sceneLoaded` 后会先重抓当前 scene 的 `CinemachineCamera / Main Camera`
+     - 若 `Main Camera` 已切换，会重置默认 `Camera.rect` 捕获，再重新 `SetupConfiner + ValidateReferences + RefreshBounds`
+  2. `GameInputManager.cs`
+     - `Awake()` 的初始相机绑定改成 `ResolveWorldCamera()`
+     - 订阅 `SceneManager.sceneLoaded`，在新场景下一帧重绑 `worldCamera`
+     - `HandleRightClickAutoNav()` / `GetMouseWorldPosition()` 改成统一走 `ScreenToGameplayWorld(...)`
+     - 该换算现在会：
+       - clamp 到当前 `camera.pixelRect`
+       - 使用“相机到 `z=0` 世界平面”的正确深度，不再用 `z=0`
+       - 在 `SceneTransitionRunner.IsBusy` 时直接短路，避免切场窗口继续做屏幕转世界
+  3. `WorldSpawnDebug.cs`
+     - 同样改成 `sceneLoaded` 后重绑相机
+     - 所有鼠标到世界坐标换算统一走正确深度与 `pixelRect` clamp
+  4. `SceneTransitionTrigger2D.cs`
+     - `SceneTransitionRunner` 在黑幕期间会缓存并关闭 `GameInputManager` 输入
+     - `fade-in` 结束后再恢复原输入状态
+     - 这条补口的目的不是改 Town scene，而是切断“旧输入链在切场窗口继续跑”的剩余风险
+- 本轮验证：
+  - `manage_script validate`
+    - `GameInputManager`：`clean`
+    - `SceneTransitionTrigger2D`：`clean`
+    - `CameraDeadZoneSync`：`0 error / 2 warning`
+    - `WorldSpawnDebug`：`0 error / 1 warning`
+  - `git diff --check`
+    - 本轮 4 个脚本无结构错误；仅保留既有 `CRLF/LF` 提示，不是新的 diff 断裂
+  - Unity / MCP 低负载探针
+    - `clear console -> enter Play -> read_console`
+    - 本轮没有再读到新的 `Screen position out of view frustum`
+    - 但 `manage_scene` 在 PlayMode 下不能直接载入 `Town`，工具自己返回：
+      - 需要改走 `SceneManager.LoadScene()/LoadSceneAsync()`
+    - 所以“真实 `Primary -> Town` 切场链已终验”这句话当前仍不能写
+  - 本轮探针同时暴露的外部红面：
+    - `Primary` 运行时存在 `The referenced script (Unknown) on this Behaviour is missing!`
+    - `Primary` 运行时存在 `There are no audio listeners in the scene`
+    - 还有 Unity 编辑器 `Graphs` 侧空引用与 MCP websocket 噪音
+    - 这些都没有指向我本轮 own 的 4 个脚本
+- 当前阶段判断：
+  - `脚本契约`：成立
+  - `Town 进入链上的相机 / 输入 / frustum` 主嫌疑：仍在我 own 范围内，而且这轮已补到更稳的口径
+  - `真实 Town end-to-end 切场终验`：尚未闭环，原因不是 scene 没改，而是当前可用探针无法在 PlayMode 下直接把 `Town` runtime load 进去
+- 当前恢复点：
+  - 如果用户继续压这条线，下一步只该做 2 选 1：
+    1. 用真实 `SceneTransitionTrigger2D` 手走一次 `Primary -> Town` 终验
+    2. 或补一个只读 / 临时的 runtime probe 入口，用 `SceneManager.LoadSceneAsync()` 直接验证 Town 进入窗口
+  - 不该再回头碰 `Town.unity / Primary.unity` 实写，也不该扩回导航或 UI
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+  - 当前 blocker：
+    - `town-runtime-load-probe-blocked-by-manage_scene-playmode-limitation`
+    - `external-primary-console-noise-missing-script-and-audio-listener`
+## 2026-04-04｜NPC 自然漫游静态审计与补口：先收 bounds 归一化 + 被动 NPC 堵墙改线
+
+- 当前主线目标：
+  - 不重修玩家已认可版本；
+  - 先在纯静态层把 NPCAutoRoamController.cs 里最像导致 NPC 撞墙卡住 / warning 连发的上层缺口补掉；
+  - 然后再向用户申请占用 Unity 做 runtime 验证。
+- 本轮子任务与服务关系：
+  - 先确保当前准备改的导航代码已有可回退 checkpoint：7e06c2e6；
+  - 再做 NPCAutoRoamController + NPCMotionController 静态审计；
+  - 本轮实际只修改 NPCAutoRoamController.cs。
+- 本轮实际完成：
+  1. 重新压实责任链：
+     - 玩家和 NPC 共享同一份 NavGrid2D + soft-pass + bounds enforcement 底层 contract；
+     - 但 NPC 仍走独立的 roam / avoidance / recovery 上层链，不是“另一张静态导航”，而是“同底层、上层更脆”。
+  2. 在 NPCAutoRoamController.cs 收了两刀纯静态补口：
+     - 所有 roam 采样点 / requestedDestination / rebuildDestination 统一先经过 NormalizeDestinationToNavGridBounds(...)，不再把越出 nav world bounds 一点点的点直接喂给 TryFindNearestWalkable(...)；
+     - TryBeginMove() 与多处 ResetMovementRecovery(...) 改用 GetNavigationCenter()，不再混用 	ransform.position 与 b.position 做导航恢复基准；
+     - 当共享避让遇到“静止 NPC 挡墙”且 detour / rebuild 都失败时，先尝试 TryBeginMove() 改线，不再立刻掉成 SharedAvoidanceRepathFailed -> interrupt warning。
+  3. 一次性只读子智能体 Sagan 已收结果并关闭。
+- 关键判断：
+  - 这轮最像的静态真问题，不是 NPCMotionController 基础运动桥接器本身坏掉；
+  - 而是 NPCAutoRoamController 的“采样点越界 + 被动 NPC 堵墙 fallback 太硬”让 NPC 更容易撞墙、抖动、掉 warning。
+- 验证结果：
+  - git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs 通过；
+  - alidate_script（含 --skip-mcp）与直接 CodexCodeGuard.dll 在当前环境都超时，未形成可靠结果；
+  - 已人工复查新增 helper 与调用点，未发现明显语法级结构错误；
+  - 当前尚未进入 Unity live，符合用户“先静态、后申请”的顺序要求。
+- 当前阶段：
+  - 静态补口已完成，线程已 Park-Slice；
+  - 下一步应只做一件事：向用户申请占用 Unity，专门复测 NPC 自然漫游撞墙 / warning / bridge-water-edge runtime 真值。
+- changed_paths：
+  - D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs
+- thread-state：
+  - Begin-Slice=已跑
+  - Ready-To-Sync=未跑（本轮未收口 sync）
+  - Park-Slice=已跑
+  - 当前状态：PARKED
+- 时间：2026-04-05 00:29:33 +08:00
+
+## 2026-04-05（屎山修复父层补记：Town 镜头不跟随已补成脚本自愈，最新 `frustum` 红确认为 Unity Tilemap 编辑器外部噪音）
+
+- 当前新增事实：
+  1. 用户最新现场先给出两条连续反馈：
+     - 进入 `Town` 后不再爆旧的 runtime 红屏，但镜头不跟着玩家走
+     - 随后又再次看到 `Screen position out of view frustum`
+  2. 静态核实 `Town.unity` 后，`CinemachineCamera.Target.TrackingTarget` 仍然是空引用；
+     - 所以“Town 相机不跟随”这一级问题，确实还在脚本 / 相机契约这条线上，而不是 layer 或 UI。
+  3. 本轮只改了 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`，补成：
+     - `Start()` 就会按 active scene 刷一次 scene references
+     - `sceneLoaded` 后短 retry 数帧，自动把 `CinemachineCamera.Follow` 重绑回真正的玩家根
+     - 玩家解析优先按 `PlayerMovement`，并用 `Rigidbody2D` / scene 优先级避开 `Tool` 这类同 tag 干扰
+     - `LateUpdate()` 额外加了 Follow 丢失自愈兜底
+  4. 用户随后贴出的最新 `frustum` 红，这轮已经通过 `Editor.log` 追到真实堆栈：
+     - `UnityEditor.Tilemaps.GridEditorUtility:ScreenToLocal`
+     - `UnityEditor.Tilemaps.PaintableSceneViewGrid`
+     - 说明这次红属于 Unity Tilemap 画笔 / SceneView 编辑器态，不是当前 Town runtime 相机 / 输入链。
+- 当前阶段判断：
+  - `Town` 镜头不跟随：脚本侧补口已落，等待用户重新走一次 `Primary -> Town` 真正复测
+  - 最新 `frustum` 红：当前不应再算到工具-V1线程自己的 runtime 问题上；应按 Unity 编辑器 Tile Palette / SceneView 状态噪音处理
+- 当前恢复点：
+  - 如果用户下次复测看到的是“镜头仍不跟随”，这条线继续只查 Town runtime 到底绑定到了哪个 `PlayerMovement`
+  - 如果只再看到 `PaintableSceneViewGrid` 这条 warning，则不该继续让工具-V1线程背 runtime 锅
+
+## 2026-04-05（屎山修复父层补记：Town `Main Camera` 静态缺 `CinemachineBrain`，工具-V1 已改成 runtime 自动补挂）
+
+- 当前新增事实：
+  1. 用户 fresh 反馈为：上一轮补了 Town 的 `Follow` 重绑后，镜头仍然不跟随。
+  2. 继续静态核查 `Town.unity` 后，确认 `Main Camera` 当前只有：
+     - `Transform`
+     - `Camera`
+     - `AudioListener`
+     - 没有 `CinemachineBrain`
+  3. 因而这条 Town 相机问题的真实链条已经进一步压实为两级：
+     - `CinemachineCamera.Target.TrackingTarget` 静态为空
+     - `Main Camera` 静态又缺 `CinemachineBrain`
+  4. 工具-V1 本轮继续只改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：
+     - 新增 `EnsureCinemachineBrain()`
+     - `Awake()` 与每次 `RefreshSceneReferences(...)` 时若发现主相机没脑子，就 runtime 自动补挂并启用
+- 当前阶段判断：
+  - Town 相机不跟随这条线，目前脚本侧两级主嫌疑都已经被补上；
+  - 接下来最关键的不再是继续静态猜，而是用户重新走一次 `Primary -> Town` 看是否已经恢复跟随。
+- 当前恢复点：
+  - 若仍失败，下一步只该继续查 runtime 下真正 active 的 `Main Camera / CinemachineCamera / PlayerMovement` 绑定现场；
+  - 不该回到 scene wiring 泛修，也不该把刚确认是 `PaintableSceneViewGrid` 的编辑器 warning 再算回 runtime 链。
+
+## 2026-04-05｜只读排查：当前 Console 里的 NPC oam interrupted 不是编译报错，而是自然漫游卡住 warning
+
+- 当前主线目标：
+  - 只读查明用户截图里的 NPC 导航告警到底是什么、是否仍然活着、现在主要坏在哪一层。
+- 本轮子任务与服务关系：
+  - 不进施工、不占 Unity 写现场；
+  - 只读对齐 Editor.log + status.json + NPCAutoRoamController.cs，把 warning 源头和现状钉实。
+- 只读查明的事实：
+  1. 这批不是 compile error，而是运行时 Debug.LogWarning：
+     - 触发点在 NPCAutoRoamController.cs:2412
+     - 进入来源是 CheckAndHandleStuck(...) 的 progress.ShouldCancel -> TryInterruptRoamMove(StuckCancel, ...)
+  2. 当前 Unity 仍在 Play Mode：
+     - status.json = isPlaying=true
+     - isCompiling=false
+     - 所以这不是编辑器红编译，而是游戏跑着时 NPC 自然漫游不断卡住。
+  3. 当前 warning 的主型是：
+     - Reason=StuckCancel
+     - 不是 SharedAvoidanceRepathFailed
+  4. 统计 Editor.log 当前样本：
+     - BlockerKind=None 远多于 BlockerKind=NPC
+     - 说明多数 warning 不是“明确识别到某个 blocker 然后报错”，而是 NPC 长时间没有足够位移，被 stuck 检测直接取消当前漫游。
+  5. 热点 NPC 很集中：
+     -  03 次数最高，其次是 201 / 102 / 101 / 202 / 103
+     - 多条日志里同一个 NPC 的 Current=... 基本不变，但 Requested=... 在变，说明它们是在同一位置附近反复短停、重选目标、再卡住。
+- 当前判断：
+  - 这能证明两件事：
+    1. 用户截图里的 warning 是真的还活着，不是 stale；
+    2. 当前第一 runtime 问题已经不是桥 / 水 / 边缘 contract 没接上，而是正式场景下 NPC 自然漫游在局部 choke point / crowd 位点里反复进 StuckCancel 循环。
+- 当前边界：
+  - 这轮仍是只读；
+  - 还没有进入新的 targeted runtime 取证或修复；
+  - 所以当前不能 claim “warning 已解决”。
+- 下一步最小动作：
+  - 如果继续，应直接针对高频点  03 / 201 / 101 / 202 做一次定点 runtime 取证：看它们各自在什么场景位置被卡、周围是否是 NPC 墙 / 静态碰撞 / 狭窄通道，再决定修 stuck recovery、采样选点 还是 shared avoidance。
+- 时间：2026-04-05 01:34:32 +08:00
+
+## 2026-04-05（屎山修复父层补记：Town 相机跟随已拿到用户 fresh 通过）
+
+- 当前新增事实：
+  1. 工具-V1线程前面把 `Town` 相机链压到两级主嫌疑：
+     - `CinemachineCamera.Follow / TrackingTarget` 需要 runtime 重绑
+     - `Main Camera` 缺 `CinemachineBrain` 时需要 runtime 自愈补挂
+  2. 用户 fresh 回执已明确：`我测试了，没有任何问题`
+- 当前阶段判断：
+  - `Town` 相机跟随这条主线现在可以按 `用户已测通过` 收口；
+  - 它不再是屎山修复父层的活跃 blocker。
+- 当前恢复点：
+  - 后续若再出现 Town 相机问题，应按新回归重新立案，不再把这条旧线挂作未闭环。
+
+## 2026-04-05｜导航检查V2：NPC 自然漫游 stuck recovery 静态补口已完成，运行验证被外部 compile red 阻断
+
+- 子线：
+  - 导航检查V2
+- 当前目标：
+  - 修正式场景里 NPC 自然漫游反复 StuckCancel / 撞墙 / 堵塞 warning。
+- 本轮子线结论：
+  1. NPCAutoRoamController.cs 已完成一轮更强恢复链补口：零推进与共享 hard-stop 不再一味停住；静态/被动堵塞会进入 blocked-advance recover；terminal stuck 会优先 long-pause/restart，再决定是否 interrupt warning。
+  2. NavGrid2D.cs 额外清掉一条导航静态 dead-code warning（CS0162），不改运行逻辑。
+  3. own 改动已提交本地 checkpoint：7cd57279。
+  4. 最新 Unity compile 证据显示：导航 own 文件没有新编译红面；当前 external red 在 BoxPanelUI.cs 与一组 NPC 测试脚本，不在本轮 own 路径。
+- 当前状态：
+  - 该子线已 PARKED；
+  - 停车原因是 external compile blocker，不是导航 own 红错未清。
+- 恢复点：
+  - 外部 red 清掉后，直接回到 NPC 自然漫游 live 复测，不需要回头重做这轮静态补口。
