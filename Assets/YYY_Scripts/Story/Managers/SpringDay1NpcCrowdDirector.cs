@@ -14,6 +14,28 @@ namespace Sunset.Story
         {
             public GameObject Instance;
             public GameObject HomeAnchor;
+            public string ResolvedAnchorName;
+            public bool UsedFallback;
+            public string BaseResolvedAnchorName;
+            public bool BaseUsedFallback;
+            public Vector3 BasePosition;
+            public Vector2 BaseFacing;
+            public string AppliedBeatKey;
+            public string AppliedCueKey;
+        }
+
+        private readonly struct SpawnPointResolution
+        {
+            public SpawnPointResolution(Vector3 position, string anchorName, bool usedFallback)
+            {
+                Position = position;
+                AnchorName = anchorName;
+                UsedFallback = usedFallback;
+            }
+
+            public Vector3 Position { get; }
+            public string AnchorName { get; }
+            public bool UsedFallback { get; }
         }
 
         private const string PrimarySceneName = "Primary";
@@ -133,6 +155,7 @@ namespace Sunset.Story
             PruneDestroyedStates();
 
             StoryPhase currentPhase = ResolveCurrentPhase();
+            string currentBeatKey = ResolveCurrentBeatKey();
             SpringDay1NpcCrowdManifest.Entry[] entries = manifest.Entries;
             HashSet<string> liveIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -156,6 +179,8 @@ namespace Sunset.Story
                 {
                     state.Instance.SetActive(true);
                 }
+
+                ApplyStagingCue(entry, state, currentBeatKey);
             }
 
             List<string> staleIds = new List<string>(_spawnStates.Keys);
@@ -184,22 +209,53 @@ namespace Sunset.Story
             builder.Append(entries.Length);
             builder.Append("|spawned=");
             builder.Append(_spawnStates.Count);
+            builder.Append("|active=");
+            bool appendedActive = false;
+            for (int index = 0; index < entries.Length; index++)
+            {
+                SpringDay1NpcCrowdManifest.Entry entry = entries[index];
+                if (entry == null || string.IsNullOrWhiteSpace(entry.npcId))
+                {
+                    continue;
+                }
+
+                if (!_spawnStates.TryGetValue(entry.npcId, out SpawnState state) || state.Instance == null || !state.Instance.activeSelf)
+                {
+                    continue;
+                }
+
+                if (appendedActive)
+                {
+                    builder.Append(';');
+                }
+
+                appendedActive = true;
+                AppendStateSummary(builder, entry.npcId, state, true);
+            }
+
+            if (!appendedActive)
+            {
+                builder.Append("none");
+            }
 
             if (_spawnStates.Count > 0)
             {
                 builder.Append("|states=");
+                List<string> keys = new List<string>(_spawnStates.Keys);
+                keys.Sort(StringComparer.OrdinalIgnoreCase);
+
                 bool appendedAny = false;
-                foreach (KeyValuePair<string, SpawnState> pair in _spawnStates)
+                for (int index = 0; index < keys.Count; index++)
                 {
+                    string npcId = keys[index];
+                    SpawnState state = _spawnStates[npcId];
                     if (appendedAny)
                     {
-                        builder.Append(',');
+                        builder.Append(';');
                     }
 
                     appendedAny = true;
-                    builder.Append(pair.Key);
-                    builder.Append(':');
-                    builder.Append(pair.Value.Instance != null && pair.Value.Instance.activeSelf ? "on" : "off");
+                    AppendStateSummary(builder, npcId, state, false);
                 }
             }
 
@@ -219,7 +275,8 @@ namespace Sunset.Story
                 return null;
             }
 
-            Vector3 spawnPosition = ResolveSpawnPosition(entry);
+            SpawnPointResolution resolution = ResolveSpawnPoint(entry);
+            Vector3 spawnPosition = resolution.Position;
             GameObject instance = Instantiate(entry.prefab, spawnPosition, Quaternion.identity);
             instance.name = entry.npcId;
             SceneManager.MoveGameObjectToScene(instance, activeScene);
@@ -241,7 +298,13 @@ namespace Sunset.Story
             SpawnState state = new SpawnState
             {
                 Instance = instance,
-                HomeAnchor = homeAnchor
+                HomeAnchor = homeAnchor,
+                ResolvedAnchorName = resolution.AnchorName,
+                UsedFallback = resolution.UsedFallback,
+                BaseResolvedAnchorName = resolution.AnchorName,
+                BaseUsedFallback = resolution.UsedFallback,
+                BasePosition = spawnPosition,
+                BaseFacing = entry.initialFacing
             };
             _spawnStates[entry.npcId] = state;
             return state;
@@ -273,14 +336,16 @@ namespace Sunset.Story
             }
         }
 
-        private Vector3 ResolveSpawnPosition(SpringDay1NpcCrowdManifest.Entry entry)
+        private SpawnPointResolution ResolveSpawnPoint(SpringDay1NpcCrowdManifest.Entry entry)
         {
             Transform anchor = FindAnchor(entry.anchorObjectName);
-            Vector3 basePosition = anchor != null
-                ? anchor.position
-                : new Vector3(entry.fallbackWorldPosition.x, entry.fallbackWorldPosition.y, 0f);
-
-            return basePosition + new Vector3(entry.spawnOffset.x, entry.spawnOffset.y, 0f);
+            bool usedFallback = anchor == null;
+            Vector3 basePosition = usedFallback
+                ? new Vector3(entry.fallbackWorldPosition.x, entry.fallbackWorldPosition.y, 0f)
+                : anchor.position;
+            Vector3 resolvedPosition = basePosition + new Vector3(entry.spawnOffset.x, entry.spawnOffset.y, 0f);
+            string anchorName = usedFallback ? "fallback" : anchor.name;
+            return new SpawnPointResolution(resolvedPosition, anchorName, usedFallback);
         }
 
         private static Transform FindAnchor(string anchorObjectName)
@@ -382,6 +447,95 @@ namespace Sunset.Story
             return storyManager != null ? storyManager.CurrentPhase : StoryPhase.CrashAndMeet;
         }
 
+        private static string ResolveCurrentBeatKey()
+        {
+            SpringDay1Director director = SpringDay1Director.Instance;
+            return director != null ? director.GetCurrentBeatKey() : string.Empty;
+        }
+
+        private static T GetOrAddComponent<T>(GameObject gameObject) where T : Component
+        {
+            T component = gameObject.GetComponent<T>();
+            if (component == null)
+            {
+                component = gameObject.AddComponent<T>();
+            }
+
+            return component;
+        }
+
+        private void ApplyStagingCue(SpringDay1NpcCrowdManifest.Entry entry, SpawnState state, string beatKey)
+        {
+            if (entry == null || state?.Instance == null)
+            {
+                return;
+            }
+
+            if (!string.IsNullOrWhiteSpace(beatKey)
+                && SpringDay1DirectorStagingDatabase.TryResolveCue(beatKey, entry, out SpringDay1DirectorActorCue cue))
+            {
+                SpringDay1DirectorStagingPlayback playback = GetOrAddComponent<SpringDay1DirectorStagingPlayback>(state.Instance);
+                string cueKey = cue.StableKey;
+                bool needsApply = !string.Equals(state.AppliedBeatKey, beatKey, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(state.AppliedCueKey, cueKey, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(playback.CurrentBeatKey, beatKey, StringComparison.OrdinalIgnoreCase)
+                    || !string.Equals(playback.CurrentCueKey, cueKey, StringComparison.OrdinalIgnoreCase);
+                if (needsApply)
+                {
+                    playback.ApplyCue(beatKey, cue, state.HomeAnchor != null ? state.HomeAnchor.transform : null);
+                    state.AppliedBeatKey = beatKey;
+                    state.AppliedCueKey = cueKey;
+                    state.ResolvedAnchorName = $"staging:{cueKey}";
+                    state.UsedFallback = false;
+                }
+
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(state.AppliedCueKey))
+            {
+                return;
+            }
+
+            SpringDay1DirectorStagingPlayback existingPlayback = state.Instance.GetComponent<SpringDay1DirectorStagingPlayback>();
+            if (existingPlayback != null)
+            {
+                existingPlayback.ClearCue();
+                Destroy(existingPlayback);
+            }
+
+            state.Instance.transform.position = state.BasePosition;
+            if (state.HomeAnchor != null)
+            {
+                state.HomeAnchor.transform.position = state.BasePosition;
+            }
+
+            NPCAutoRoamController roamController = state.Instance.GetComponent<NPCAutoRoamController>();
+            if (roamController != null)
+            {
+                roamController.enabled = true;
+                if (state.HomeAnchor != null)
+                {
+                    roamController.SetHomeAnchor(state.HomeAnchor.transform);
+                    roamController.SyncHomeAnchorToCurrentPosition();
+                }
+
+                roamController.ApplyProfile();
+            }
+
+            NPCMotionController motionController = state.Instance.GetComponent<NPCMotionController>();
+            if (motionController != null && state.BaseFacing.sqrMagnitude > 0.01f)
+            {
+                motionController.StopMotion();
+                motionController.SetFacingDirection(state.BaseFacing);
+            }
+
+            state.AppliedBeatKey = string.Empty;
+            state.AppliedCueKey = string.Empty;
+            state.ResolvedAnchorName = state.BaseResolvedAnchorName;
+            state.UsedFallback = state.BaseUsedFallback;
+        }
+
         private void EnsureSceneRoot(Scene scene)
         {
             if (_sceneRoot != null && _sceneRoot.scene.IsValid() && _sceneRoot.scene == scene)
@@ -463,6 +617,33 @@ namespace Sunset.Story
         {
             Scene activeScene = SceneManager.GetActiveScene();
             return activeScene.IsValid() && activeScene.name == PrimarySceneName;
+        }
+
+        private static void AppendStateSummary(StringBuilder builder, string npcId, SpawnState state, bool activeOnly)
+        {
+            builder.Append(npcId);
+            builder.Append(':');
+            builder.Append(state.Instance != null && state.Instance.activeSelf ? "on" : "off");
+            builder.Append('@');
+            builder.Append(string.IsNullOrWhiteSpace(state.ResolvedAnchorName) ? "unknown-anchor" : state.ResolvedAnchorName);
+            builder.Append("@fallback=");
+            builder.Append(state.UsedFallback ? '1' : '0');
+
+            if (state.Instance != null)
+            {
+                Vector3 position = state.Instance.transform.position;
+                builder.Append("@pos=");
+                builder.Append(FormatPosition(position));
+            }
+            else if (!activeOnly)
+            {
+                builder.Append("@pos=destroyed");
+            }
+        }
+
+        private static string FormatPosition(Vector3 position)
+        {
+            return $"{position.x:F2}/{position.y:F2}";
         }
     }
 }

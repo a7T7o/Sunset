@@ -1,0 +1,663 @@
+{
+    "version": "1.0",
+    "beats": [
+        {
+            "beatKey": "CrashAndMeet_Awake",
+            "phaseKey": "CrashAndMeet",
+            "sceneLabel": "矿洞口醒来",
+            "storySummary": "主角刚从坠落与错位感中醒来，先听见一段暂时无法理解的语言，再从语气里判断村长不是来补刀，而是在逼他站起来脱离危险。",
+            "assetizationHook": "对白资产重点继续保留“乱码 -> 重新听懂”的转换层，事件包只需要承担醒来、靠近村长、首段对话接管。",
+            "actorCues": []
+        },
+        {
+            "beatKey": "CrashAndMeet_Escape",
+            "phaseKey": "CrashAndMeet",
+            "sceneLabel": "怪物逼近与撤离",
+            "storySummary": "语言刚接上，怪物逼近就压了上来。村长不给主角犹豫时间，只留下“跟上、别回头、先进村再说”的生存节奏。",
+            "assetizationHook": "对白包已经能承载撤离语义；后续事件包只要保住声源逼近、跟随撤离和切入进村前桥接。",
+            "actorCues": []
+        },
+        {
+            "beatKey": "EnterVillage_PostEntry",
+            "phaseKey": "EnterVillage",
+            "sceneLabel": "进村围观与让位",
+            "storySummary": "进村后第一拍不是欢迎，而是整个村子先把主角看一遍。村长仍然是唯一合法带路人，围观层只负责停手、让位、把目光压到主角身上。",
+            "assetizationHook": "对白包已承载围观话术；导演层先用 crowd cue 把 EnterVillageCrowdRoot 与 KidLook_01 钉住，后续再细化让位路径。",
+            "actorCues": [
+                {
+                    "cueId": "enter-crowd-101",
+                    "npcId": "101",
+                    "semanticAnchorId": "EnterVillageCrowdRoot",
+                    "duty": 1,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -5.606014728546143,
+                        "y": 4.54365348815918
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "NPC001",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 1.100000023841858,
+                    "initialHoldSeconds": 0.3499999940395355,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -5.856014728546143,
+                                "y": 4.663653373718262
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.4000000059604645,
+                            "lookAtTargetName": "NPC001"
+                        }
+                    ]
+                },
+                {
+                    "cueId": "enter-kid-103",
+                    "npcId": "103",
+                    "semanticAnchorId": "KidLook_01",
+                    "duty": 2,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -8.756014823913575,
+                        "y": 4.393653869628906
+                    },
+                    "facing": {
+                        "x": 0.0,
+                        "y": -1.0
+                    },
+                    "lookAtTargetName": "NPC001",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 1.0,
+                    "initialHoldSeconds": 0.20000000298023225,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -8.6060152053833,
+                                "y": 4.293653964996338
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.6000000238418579,
+                            "lookAtTargetName": "NPC001"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "beatKey": "EnterVillage_HouseArrival",
+            "phaseKey": "EnterVillage",
+            "sceneLabel": "闲置小屋安置",
+            "storySummary": "村口围观退去后，村长把主角推进一间旧屋。这里给的是临时安置，不是接纳；艾拉会从这里接起“先救人、后追问”的线。",
+            "assetizationHook": "HouseArrival 继续作为对白包主承载；导演层此 beat 暂不强上 crowd，只保留文本与过渡语义。",
+            "actorCues": []
+        },
+        {
+            "beatKey": "HealingAndHP_Treatment",
+            "phaseKey": "HealingAndHP",
+            "sceneLabel": "疗伤与 HP 首显",
+            "storySummary": "艾拉先压住伤，再把主角第一次真正拉回“还能活多久”的身体感里。HP 的出现不是系统提示，而是一次明确的剧情感知。",
+            "assetizationHook": "疗伤对白包继续扩成“善意但不等于信任”的正式口径，事件包只接 UI 首显、恢复量和对话完成推进。",
+            "actorCues": []
+        },
+        {
+            "beatKey": "WorkbenchFlashback_Recall",
+            "phaseKey": "WorkbenchFlashback",
+            "sceneLabel": "工作台闪回",
+            "storySummary": "主角在工作台前抓回一段模糊但真实的手艺记忆：他不一定记得人和地方，却记得怎样把材料拼成能用的东西。",
+            "assetizationHook": "对白资产已经能承载“手先醒过来”的语义；后续只需把制作入口与回忆段的节奏保持连贯。",
+            "actorCues": []
+        },
+        {
+            "beatKey": "FarmingTutorial_Fieldwork",
+            "phaseKey": "FarmingTutorial",
+            "sceneLabel": "农田与基础制作教学",
+            "storySummary": "村长把“留下来”翻译成最朴素的劳动链：开垦、播种、浇水、收木材、做第一件能活下去的东西。",
+            "assetizationHook": "正式文本层已经有焦点语义；事件包继续围绕五个教学目标与晚餐桥接，不额外扩导演 crowd。",
+            "actorCues": []
+        },
+        {
+            "beatKey": "DinnerConflict_Table",
+            "phaseKey": "DinnerConflict",
+            "sceneLabel": "晚餐冲突",
+            "storySummary": "这顿饭让主角暂时坐上桌，也让卡尔把村里的怀疑直接说出口。敌意不只来自卡尔本人，而是来自一屋子默认在旁观的人。",
+            "assetizationHook": "对白包继续承载正面冲突；导演层这一轮已先把 DinnerBackgroundRoot 的最小多人背景层吃进来，后续再细化桌边密度与让位关系。",
+            "actorCues": [
+                {
+                    "cueId": "dinner-bg-203",
+                    "npcId": "203",
+                    "semanticAnchorId": "DinnerBackgroundRoot",
+                    "duty": 3,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -6.456014633178711,
+                        "y": 6.643653869628906
+                    },
+                    "facing": {
+                        "x": 0.0,
+                        "y": -1.0
+                    },
+                    "lookAtTargetName": "NPC001",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.949999988079071,
+                    "initialHoldSeconds": 0.550000011920929,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -6.276014804840088,
+                                "y": 6.723653793334961
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.800000011920929,
+                            "lookAtTargetName": "NPC001"
+                        }
+                    ]
+                },
+                {
+                    "cueId": "dinner-bg-104",
+                    "npcId": "104",
+                    "semanticAnchorId": "DinnerBackgroundRoot",
+                    "duty": 3,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -8.556015014648438,
+                        "y": 6.193653583526611
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "NPC001",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.8999999761581421,
+                    "initialHoldSeconds": 0.44999998807907107,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -8.696015357971192,
+                                "y": 6.213653564453125
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.699999988079071,
+                            "lookAtTargetName": "NPC001"
+                        }
+                    ]
+                },
+                {
+                    "cueId": "dinner-bg-201",
+                    "npcId": "201",
+                    "semanticAnchorId": "DinnerBackgroundRoot",
+                    "duty": 3,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": 2.339916467666626,
+                        "y": 8.394144058227539
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "NPC001",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.8500000238418579,
+                    "initialHoldSeconds": 0.6000000238418579,
+                    "path": [
+                        {
+                            "position": {
+                                "x": 2.4199163913726808,
+                                "y": 8.274144172668457
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.6499999761581421,
+                            "lookAtTargetName": "NPC001"
+                        }
+                    ]
+                },
+                {
+                    "cueId": "dinner-bg-202",
+                    "npcId": "202",
+                    "semanticAnchorId": "DinnerBackgroundRoot",
+                    "duty": 3,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -0.46008360385894778,
+                        "y": 8.544143676757813
+                    },
+                    "facing": {
+                        "x": 1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "NPC001",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.8399999737739563,
+                    "initialHoldSeconds": 0.5799999833106995,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -0.2600836157798767,
+                                "y": 8.364143371582032
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.7200000286102295,
+                            "lookAtTargetName": "NPC001"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "beatKey": "ReturnAndReminder_WalkBack",
+            "phaseKey": "ReturnAndReminder",
+            "sceneLabel": "回屋提醒",
+            "storySummary": "晚餐散去后，村长把主角重新带回规矩里：白天那点脆弱的安全感，到夜里就得靠按时回屋来换。",
+            "assetizationHook": "对白资产已经能承载“两点前必须睡”的硬规则；事件层后续只需要补更强的空间收口感。",
+            "actorCues": [
+                {
+                    "cueId": "reminder-bg-203",
+                    "npcId": "203",
+                    "semanticAnchorId": "DinnerBackgroundRoot",
+                    "duty": 3,
+                    "keepCurrentSpawnPosition": true,
+                    "pathPointsAreOffsets": true,
+                    "startPosition": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "facing": {
+                        "x": 0.0,
+                        "y": -1.0
+                    },
+                    "lookAtTargetName": "NPC001",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.8199999928474426,
+                    "initialHoldSeconds": 0.5,
+                    "path": [
+                        {
+                            "position": {
+                                "x": 0.10000000149011612,
+                                "y": -0.07999999821186066
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.699999988079071,
+                            "lookAtTargetName": "NPC001"
+                        }
+                    ]
+                },
+                {
+                    "cueId": "reminder-bg-201",
+                    "npcId": "201",
+                    "semanticAnchorId": "DinnerBackgroundRoot",
+                    "duty": 3,
+                    "keepCurrentSpawnPosition": true,
+                    "pathPointsAreOffsets": true,
+                    "startPosition": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.7799999713897705,
+                    "initialHoldSeconds": 0.4000000059604645,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -0.11999999731779099,
+                                "y": -0.05999999865889549
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.75,
+                            "lookAtTargetName": ""
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "beatKey": "FreeTime_NightWitness",
+            "phaseKey": "FreeTime",
+            "sceneLabel": "夜间见闻",
+            "storySummary": "自由时段不是空窗，而是主角第一次在夜里的村庄里被轻轻看见。有人没拦他，也没人真正欢迎他，只留下一句让他快回屋的规矩味道。",
+            "assetizationHook": "对白资产已经把老乔治、老汤姆、老杰克、小孩的夜间余波写出来；导演 cue 这一轮先把 NightWitness_01 钉住。",
+            "actorCues": [
+                {
+                    "cueId": "night-witness-102",
+                    "npcId": "102",
+                    "semanticAnchorId": "NightWitness_01",
+                    "duty": 4,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": 5.965999126434326,
+                        "y": 8.343110084533692
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "Player",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.8999999761581421,
+                    "initialHoldSeconds": 0.800000011920929,
+                    "path": [
+                        {
+                            "position": {
+                                "x": 5.785999298095703,
+                                "y": 8.343110084533692
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 1.0,
+                            "lookAtTargetName": "Player"
+                        }
+                    ]
+                },
+                {
+                    "cueId": "night-witness-301",
+                    "npcId": "301",
+                    "semanticAnchorId": "NightWitness_01",
+                    "duty": 4,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": 1.415998935699463,
+                        "y": 6.393110275268555
+                    },
+                    "facing": {
+                        "x": 0.0,
+                        "y": 1.0
+                    },
+                    "lookAtTargetName": "Player",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.75,
+                    "initialHoldSeconds": 1.0,
+                    "path": [
+                        {
+                            "position": {
+                                "x": 1.1759989261627198,
+                                "y": 6.453110218048096
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": 1.0
+                            },
+                            "holdSeconds": 1.100000023841858,
+                            "lookAtTargetName": "Player"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "beatKey": "DayEnd_Settle",
+            "phaseKey": "DayEnd",
+            "sceneLabel": "第一夜收束",
+            "storySummary": "夜色彻底压下来后，故事不再继续解释世界，而是把主角逼回那间旧屋，让“先活过第一夜”成为唯一合理的收束。",
+            "assetizationHook": "DayEnd 继续保留为收束文本和睡觉行为闭环，暂不把次日站位强绑成 runtime 切场。",
+            "actorCues": [
+                {
+                    "cueId": "dayend-watch-301",
+                    "npcId": "301",
+                    "semanticAnchorId": "NightWitness_01",
+                    "duty": 4,
+                    "keepCurrentSpawnPosition": true,
+                    "pathPointsAreOffsets": true,
+                    "startPosition": {
+                        "x": 0.0,
+                        "y": 0.0
+                    },
+                    "facing": {
+                        "x": 0.0,
+                        "y": 1.0
+                    },
+                    "lookAtTargetName": "Player",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.6800000071525574,
+                    "initialHoldSeconds": 1.100000023841858,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -0.18000000715255738,
+                                "y": 0.019999999552965165
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": 1.0
+                            },
+                            "holdSeconds": 1.2000000476837159,
+                            "lookAtTargetName": "Player"
+                        }
+                    ]
+                }
+            ]
+        },
+        {
+            "beatKey": "DailyStand_Preview",
+            "phaseKey": "DayEnd",
+            "sceneLabel": "次日站位预示",
+            "storySummary": "在 Day1 尾声里先把“明天村子还会照常运转”这件事悄悄埋下去，让玩家知道自己只是被暂时塞进了一个仍在运转的地方。",
+            "assetizationHook": "这一 beat 先作为导演预留位，不抢 Day1 收束；等 Town 更稳后，再把 DailyStand_01~03 推到真实 runtime。",
+            "actorCues": [
+                {
+                    "cueId": "daily-101",
+                    "npcId": "101",
+                    "semanticAnchorId": "DailyStand_01",
+                    "duty": 5,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -5.606014728546143,
+                        "y": 4.54365348815918
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 1.0,
+                    "initialHoldSeconds": 0.0,
+                    "path": []
+                },
+                {
+                    "cueId": "daily-103",
+                    "npcId": "103",
+                    "semanticAnchorId": "DailyStand_02",
+                    "duty": 5,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -8.756014823913575,
+                        "y": 4.393653869628906
+                    },
+                    "facing": {
+                        "x": 0.0,
+                        "y": -1.0
+                    },
+                    "lookAtTargetName": "",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 1.0,
+                    "initialHoldSeconds": 0.0,
+                    "path": []
+                },
+                {
+                    "cueId": "daily-102",
+                    "npcId": "102",
+                    "semanticAnchorId": "DailyStand_03",
+                    "duty": 5,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": 5.965999126434326,
+                        "y": 8.343110084533692
+                    },
+                    "facing": {
+                        "x": 1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 1.0,
+                    "initialHoldSeconds": 0.0,
+                    "path": [
+                        {
+                            "position": {
+                                "x": 0.41999998688697817,
+                                "y": -0.18000000715255738
+                            },
+                            "facing": {
+                                "x": 1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.20000000298023225,
+                            "lookAtTargetName": ""
+                        }
+                    ]
+                },
+                {
+                    "cueId": "daily-104",
+                    "npcId": "104",
+                    "semanticAnchorId": "DailyStand_01",
+                    "duty": 5,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -8.556015014648438,
+                        "y": 6.193653583526611
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.9200000166893005,
+                    "initialHoldSeconds": 0.15000000596046449,
+                    "path": [
+                        {
+                            "position": {
+                                "x": -0.2800000011920929,
+                                "y": -0.07999999821186066
+                            },
+                            "facing": {
+                                "x": -1.0,
+                                "y": 0.0
+                            },
+                            "holdSeconds": 0.3499999940395355,
+                            "lookAtTargetName": ""
+                        }
+                    ]
+                },
+                {
+                    "cueId": "daily-203",
+                    "npcId": "203",
+                    "semanticAnchorId": "DailyStand_01",
+                    "duty": 5,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": -6.456014633178711,
+                        "y": 6.643653869628906
+                    },
+                    "facing": {
+                        "x": 0.0,
+                        "y": -1.0
+                    },
+                    "lookAtTargetName": "",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.8999999761581421,
+                    "initialHoldSeconds": 0.10000000149011612,
+                    "path": [
+                        {
+                            "position": {
+                                "x": 0.11999999731779099,
+                                "y": -0.3199999928474426
+                            },
+                            "facing": {
+                                "x": 0.0,
+                                "y": -1.0
+                            },
+                            "holdSeconds": 0.3499999940395355,
+                            "lookAtTargetName": ""
+                        }
+                    ]
+                },
+                {
+                    "cueId": "daily-201",
+                    "npcId": "201",
+                    "semanticAnchorId": "DailyStand_02",
+                    "duty": 5,
+                    "keepCurrentSpawnPosition": false,
+                    "pathPointsAreOffsets": false,
+                    "startPosition": {
+                        "x": 2.339916467666626,
+                        "y": 8.394144058227539
+                    },
+                    "facing": {
+                        "x": -1.0,
+                        "y": 0.0
+                    },
+                    "lookAtTargetName": "",
+                    "suspendRoam": true,
+                    "loopPath": false,
+                    "moveSpeed": 0.8799999952316284,
+                    "initialHoldSeconds": 0.11999999731779099,
+                    "path": []
+                }
+            ]
+        }
+    ]
+}
