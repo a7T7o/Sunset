@@ -12590,3 +12590,52 @@
 - 当前判断：
   - 至少按 Sunset 当前项目依赖和锁文件看，当前实际用的是 `CoplayDev/unity-mcp`，不是 `IvanMurzak/Unity-MCP`。
   - 同时，我没有查到 Unity 官方站点 / Unity-Technologies 官方仓库发布的“官方 Unity MCP 包”；当前更像是社区生态，而不是 Unity 官方 MCP 标准包。
+
+## 2026-04-05｜补记：Town 线已收到最新接刀 prompt，旧的“spring-day1 仍 ACTIVE”口径废止
+
+- 当前主线没有换：
+  - `Town` own 线仍只负责把 `Town` 真正推进到能跟上 `day1` 的下一步。
+- 本轮新增治理输入：
+  - 已生成续工文件：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给典狱长_Town最小runtime-contract接刀续工prompt_11.md`
+- 新 prompt 钉死的最新现场：
+  1. `spring-day1` 已经 `PARKED`，不能再沿用“它还在 ACTIVE，所以 Town 不能接刀”的旧口径。
+  2. 当前 touchpoint 真状态变成：
+     - `SpringDay1NpcCrowdDirector.cs`：当前不在 dirty 面
+     - `SpringDay1DirectorStageBook.json`：当前不在 dirty 面
+     - `SpringDay1NpcCrowdManifest.asset`：当前仍在 dirty 面
+  3. 因此 Town 下一刀最值钱的优先级改成：
+     - 先重审接刀权
+     - 若 `CrowdDirector.cs` 可接，则优先走代码-only 最小 runtime contract
+     - `Manifest.asset` 只有在真必要且安全时才碰
+- 当前恢复点：
+  - 后续 Town 若继续推进，应以 `11` 号 prompt 作为最新入口，不再沿用 `10` 号之前的旧时点判断。
+
+## 2026-04-05｜补记：最新现场已再次变化，Town 撤回 `CrowdDirector` 试刀并切回 docs-only
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，让 `Town` 跟上 `day1`，但不再越权碰对方当前 active own 文件。
+- 本轮子任务：
+  1. 按 `11` 号 prompt 继续核 `CrowdDirector` 接刀权；
+  2. 若接刀前提失效，立即收回 shared-file 现场；
+  3. 把最新真值同步给治理位和 `spring-day1`。
+- 本轮实际做成：
+  1. 最新 `Show-Active-Ownership.ps1` 与 `.kiro/state/active-threads/spring-day1.json` 已确认：
+     - `spring-day1` 当前重新 `ACTIVE`
+     - own paths 明确重新包含 `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+  2. 我一度按旧前提试写过 `SpringDay1NpcCrowdDirector.cs` 的最小 runtime contract，但在确认对方 reopen 后，已完整撤回：
+     - `git diff --stat -- Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs` = 空
+     - `git status --short -- Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs` = 空
+  3. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给典狱长_Town最小runtime-contract二次复核与共享文件撤回_12.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_Town最小runtime-contract同事回执_04.md`
+  4. `thread-state` 已重新切回 docs-only：
+     - 先 `Park-Slice`
+     - 再 `Begin-Slice -ForceReplace`
+     - 当前 slice = `Town-contract-reaudit-docs-only-2026-04-05`
+- 当前关键判断：
+  - `11` 号 prompt 里的“可优先接 `CrowdDirector`”只在那个时点成立；
+  - 到我真正继续施工时，现场已经变化成 `spring-day1` reopen 并 own 这个文件，所以这轮最正确的动作不是继续硬写，而是撤回共享文件改动并回到 docs-only 协作位。
+- 当前恢复点：
+  - 这轮后续只继续 docs-only 收口、验证和可提交判断；
+  - 真正的 `CrowdDirector` runtime contract 修改，必须等 `spring-day1` 停车或明确回球后再 reopen。

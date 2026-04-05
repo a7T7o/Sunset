@@ -1778,3 +1778,29 @@ Sunset 里大量改动都属于：
   - 下一轮若继续：
     1. 未授权时继续停在 docs / 协作层；
     2. 获授权时，优先从 `CrowdDirector + Manifest` 的最小 contract 升级切入。
+
+## 2026-04-05｜补记：最新现场里 `spring-day1` 已 reopen，Town 已撤回 `CrowdDirector` 试刀
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，但不再直接占 `spring-day1` 当前 active own 文件。
+- 本轮子任务：
+  1. 根据 `11` 号 prompt 继续核接刀权；
+  2. 判断刚写进 `CrowdDirector` 的试刀是否还能合法保留；
+  3. 若前提已失效，就把 shared-file 现场收干净并改走 docs-only。
+- 本轮实际做成：
+  1. 最新 `thread-state` 已确认：
+     - `spring-day1 = ACTIVE`
+     - own paths 明确包含 `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+  2. 我已把自己刚写进 `SpringDay1NpcCrowdDirector.cs` 的最小 runtime contract 改动完整撤回，当前该文件对我这条线重新 clean。
+  3. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给典狱长_Town最小runtime-contract二次复核与共享文件撤回_12.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_Town最小runtime-contract同事回执_04.md`
+  4. 当前 `thread-state` 已重新切为 docs-only：
+     - slice = `Town-contract-reaudit-docs-only-2026-04-05`
+     - own paths 仅保留 `.kiro/specs/Codex规则落地` 和 `.codex/threads/Sunset/Codex规则落地`
+- 当前关键判断：
+  - 我对“问题在哪、最小怎么改”已经足够清楚；
+  - 但当前更重要的是不把半成品留在 `spring-day1` own 文件里。
+- 当前恢复点：
+  - 这轮后续只继续 docs-only 收口、验证和可提交判断；
+  - 若后续 `spring-day1` 停车或明确回球，再 reopen 代码刀。
