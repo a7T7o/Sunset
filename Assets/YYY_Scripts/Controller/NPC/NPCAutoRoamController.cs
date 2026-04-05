@@ -862,13 +862,24 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return;
         }
 
+        Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
         if (path.Count == 0)
         {
+            if (TryInterruptRoamMove(
+                    RoamMoveInterruptionReason.StuckRecoveryFailed,
+                    currentPosition,
+                    lastBlockingAgentId,
+                    null,
+                    RoamMoveInterruptionBlockerKind.None,
+                    "PathClearedWhileMoving"))
+            {
+                return;
+            }
+
             FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
             return;
         }
 
-        Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
         UpdateTraversalSoftPassState(currentPosition);
         Vector2 avoidancePosition = GetNavigationCenter();
 
@@ -912,6 +923,17 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (!waypointState.HasWaypoint)
         {
+            if (TryInterruptRoamMove(
+                    RoamMoveInterruptionReason.StuckRecoveryFailed,
+                    currentPosition,
+                    lastBlockingAgentId,
+                    null,
+                    RoamMoveInterruptionBlockerKind.None,
+                    "WaypointMissingWhileMoving"))
+            {
+                return;
+            }
+
             FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
             return;
         }
