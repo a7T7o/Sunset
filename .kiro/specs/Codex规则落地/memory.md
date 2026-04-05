@@ -12235,6 +12235,68 @@
   - `Unity 场景产出尚未验证`
   - `legal sync 尚未尝试`
 
+## 2026-04-05｜只读复盘：day1 最新续工 prompt 很强，但 Town 当前只跟到了导演层，未跟到 runtime 承接层
+
+- 当前主线目标：
+  - 用户要求我回看 `spring-day1` 给自己的最新续工 prompt，并从多个角度判断这份 prompt 的质量、风险以及我 own 的 `Town` 线到底跟不跟得上。
+- 本轮子任务：
+  1. 只读复盘 `day1` prompt 中已经继承的真实现场；
+  2. 对照我 own 的 `Town` 最新结论，判断 Town 在导演层、工具层、runtime 层分别跟到哪里；
+  3. 形成一份可直接给用户决策的多角度判断。
+- 本轮关键判断：
+  1. 这份 `day1` prompt 的优点很明显：
+     - 不是回到方案模式，而是强行继承当前真实现场；
+     - 把 `A组` 剧情/导演消费和 `B组` 工具 MVP 同时往前推；
+     - 明确把 `Town` 放在“后半段导演承接层”而不是“已完全 runtime-ready 的主场地”；
+     - 对 no-red、验证、停车、提交都有具体收口纪律。
+  2. 它的最大工程风险也很明确：
+     - 一旦 `day1` 真开始吃 `EnterVillageCrowdRoot / KidLook_01 / NightWitness_01` 的 live/runtime 承接，当前最容易撞上的不是导演层空白，而是 `semanticAnchorId -> runtime spawn` 这层 contract 仍未打通。
+  3. 从我 own 的 `Town` 线看，当前最诚实的结论是：
+     - `Town` **跟得上 day1 的导演层与锚点语义层**
+     - `Town` **暂时跟不上 day1 的 runtime 实承接层**
+     - 换句话说，`Town` 现在不是“拖后腿到 day1 不能继续写”，但也还没有强到能无条件接住 day1 的 live ambitions。
+  4. 因此我现在真正该担起的，不是继续泛讲边界，也不是回头做场景基础设施大扫除，而是：
+     - 持续守住 `Town` 不被误判成 runtime-ready；
+     - 一旦用户授权真实改动，就优先去补 `SpringDay1NpcCrowdDirector + Manifest` 那层最小 runtime contract。
+- 当前恢复点：
+  - 如果后续仍停留在只读协作层，我继续给 `day1` 提供窄口径 contract / anchor 升级判断就够了；
+  - 如果用户要求我真正“担起 Town 的份量”，下一刀必须不是再写文档，而是去补 `semanticAnchorId -> runtime spawn` 这一刀。
+
+## 2026-04-05｜Town 主线继续深推：最小 contract 当前不能越权接手，已改做接管权裁定与回球阈值收口
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，并以“真正跟上 day1 的推进速度、担得起 Town 的份量”为目标推进到当前能做到的最深处。
+- 本轮子任务：
+  1. 重审 `CrowdDirector / Manifest / StageBook` 这三个最小 contract 触点能否由 Town 当前安全接手；
+  2. 把 `PersistentManagers` 与 fresh CLI 噪声重新定性；
+  3. 在不越权前提下，继续产出最值钱的 Town own 交付物并准备可提交小批。
+- 本轮实际做成：
+  1. 证据已经钉死：
+     - `spring-day1` 当前 `ACTIVE`
+     - own paths 明确包含 `SpringDay1NpcCrowdDirector.cs` 与 `SpringDay1DirectorStageBook.json`
+     - 当前 working tree 里 `CrowdDirector / StageBook / Manifest` 都仍在动
+     - 因此 Town 这轮**不能安全越权接手**最小 runtime contract 修改
+  2. 重新跑 fresh CLI 后确认：
+     - 当前 active scene 已是 `Primary`
+     - 站着的新红是 `CodexNpcTraversalAcceptance` 的桥 probe timeout
+     - 这是导航 live 外部噪声，不是 Town first blocker
+  3. 重新归类 `PersistentManagers`：
+     - 当前应定性为“编辑态 manager bootstrap 噪声”
+     - 根因是 `PersistentManagers.InitializeIfNeeded()` 在编辑态仍会直接 `DontDestroyOnLoad(gameObject)`
+     - 这不是 Town scene 基建重新炸了
+  4. 新增两份更窄交付物：
+     - `2026-04-05_给典狱长_Town最小contract接管权裁定与外部噪声归类_10.md`
+     - `2026-04-05_给spring-day1_Town回球阈值与runtime接刀前提_03.md`
+- 当前关键判断：
+  - 这轮最值钱的不是硬抢 `day1` 活文件，而是把“Town 什么时候必须接手”收成硬阈值。
+  - 现在 Town own 线已经推进到：
+    - 能裁清不能接刀的原因
+    - 能裁清哪些噪声不是自己 own
+    - 能把回球条件写成工程可执行规则
+- 当前恢复点：
+  - 如果后续 `spring-day1` 仍保持当前 active slice，Town 继续停在不越权协作层；
+  - 一旦 `spring-day1` 停车并允许外线接手，Town 第一刀就直接进 `CrowdDirector + Manifest` 的最小 contract。
+
 ## 2026-04-05｜Town 主线 docs-only 深推：first blocker 已从 compile red 改判为 runtime contract gap
 
 - 当前主线目标：
@@ -12509,3 +12571,22 @@
   - `脚本静态验证已过`
   - `Unity 场景产出尚未验证`
   - `legal sync 尚未尝试`
+
+## 2026-04-05｜当前 Sunset 实际使用的 Unity MCP 来源已核实
+
+- 用户目标：
+  - 直接确认“我们现在用的 MCP 到底是哪套”，以及它是不是 `IvanMurzak/Unity-MCP`。
+- 本轮实际确认的事实：
+  1. Sunset 当前项目 `Packages/manifest.json` 里安装的是：
+     - `com.coplaydev.unity-mcp`
+     - Git 源：`https://github.com/CoplayDev/unity-mcp.git?path=/MCPForUnity#main`
+  2. `Packages/packages-lock.json` 也锁定到同一来源，并记录当前 hash：
+     - `a7c715fb1f2b7741b46f5ee48c70aa3bb1189bd2`
+  3. 运行侧本地文档与代码也都统一写成：
+     - `unityMCP`
+     - `MCPForUnity`
+  4. 外部检索里，`IvanMurzak/Unity-MCP` 是另一套公开 Unity MCP 项目；
+     - 当前 Sunset 已装包来源并不是那个仓库。
+- 当前判断：
+  - 至少按 Sunset 当前项目依赖和锁文件看，当前实际用的是 `CoplayDev/unity-mcp`，不是 `IvanMurzak/Unity-MCP`。
+  - 同时，我没有查到 Unity 官方站点 / Unity-Technologies 官方仓库发布的“官方 Unity MCP 包”；当前更像是社区生态，而不是 Unity 官方 MCP 标准包。

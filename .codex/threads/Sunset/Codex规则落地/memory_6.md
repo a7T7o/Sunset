@@ -1696,6 +1696,62 @@ Sunset 里大量改动都属于：
     1. 经确认后进入 `Town` 生产 scene 修改
     2. `spring-day1` 真的开始吃 `EnterVillageCrowdRoot` runtime，再按窄口 reopen
 
+## 2026-04-05｜只读复盘：day1 这轮已经准备狠狠干 live，而 Town 目前只领先半步
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，但用户要求我正面判断：面对 `day1` 最新续工 prompt，`Town` 到底跟不跟得上。
+- 本轮结论：
+  1. `day1` 这份 prompt 很成熟：
+     - 强继承现场
+     - 强约束不漂移
+     - 强调 live 接入而不是只写骨架
+     - 明确区分导演层、工具层、验证层和提交层
+  2. `Town` 当前对它的支持度分层如下：
+     - 导演语义层：跟得上
+     - anchor 静态承接层：跟得上
+     - runtime 实承接层：还没完全跟上
+  3. 这意味着：
+     - `day1` 可以继续下沉 `A组/B组`
+     - 但只要它开始真正吃 `Town` runtime，第一撞点就会是 `semanticAnchorId -> runtime spawn` contract
+  4. 所以我 own 的责任已经很清楚：
+     - 不再泛讲 Town 边界
+     - 继续守住 Town 不被误判成 live-ready
+     - 若后续获准进入真实修改，第一刀就是补 `CrowdDirector + Manifest` 的最小 contract，而不是再做场景大扫除
+- 当前恢复点：
+  - 未授权前继续停在协作判断层；
+  - 授权后直接进 runtime contract 切口。
+
+## 2026-04-05｜Town 主线继续深推：当前最深推进已改为“不能越权接刀时，把回球条件写死”
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，不回 UI / 农田 / NPC / Primary 总历史。
+- 本轮子任务：
+  1. 重审 `CrowdDirector / Manifest / StageBook` 是否可由 Town 当前安全接手；
+  2. 重新定性 fresh CLI 里的外部噪声与 `PersistentManagers` 编辑态异常；
+  3. 在不越权前提下继续把 Town 线推到最深。
+- 本轮实际做成：
+  1. 已确认：
+     - `spring-day1` 当前 `ACTIVE`
+     - own paths 明确包含 `CrowdDirector` 与 `StageBook`
+     - `Manifest.asset` 虽未显式写进 own paths，但当前脏改内容已直接耦合 Town crowd contract
+     - 因此这轮不能安全由 Town 越权接刀
+  2. 已确认：
+     - fresh CLI 当前 active scene 是 `Primary`
+     - 当前新红是 `CodexNpcTraversalAcceptance` 桥 probe timeout
+     - 这是导航 live 外部噪声，不是 Town own blocker
+  3. 已确认：
+     - `PersistentManagers` 当前更像编辑态 manager bootstrap 噪声
+     - 不该再作为 Town first blocker 误判
+  4. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给典狱长_Town最小contract接管权裁定与外部噪声归类_10.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给spring-day1_Town回球阈值与runtime接刀前提_03.md`
+- 当前关键判断：
+  - Town 这轮最深推进不是硬改 code，而是把“什么时候必须由 Town 接手”写成硬阈值；
+  - 这样 day1 还能继续深推，但不会把旧 `Primary` 锚 contract 硬拖成长期方案。
+- 当前恢复点：
+  - 未授权前继续停在不越权协作层；
+  - 一旦 `spring-day1` 停车并允许外线接刀，第一刀就进 `CrowdDirector + Manifest` 的最小 contract。
+
 ## 2026-04-05｜Town 主线 docs-only 深推：最前面的 gap 已收敛到 crowd runtime contract
 
 - 当前主线目标：
