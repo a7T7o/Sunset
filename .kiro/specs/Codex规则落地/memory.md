@@ -11925,3 +11925,53 @@
 - 当前 own 结论：
   - 这轮 no-red 规则同步已形成真实 checkpoint
   - `Town / Primary` 继续维持只读治理裁定，不新增 own 施工面
+
+## 2026-04-05｜no-red 从“停手闸门”补强为“编辑循环硬闸门”
+
+- 当前主线目标：
+  - 回应用户对“明明已有 no-red 规范，但线程仍会长时间挂 own compile red”的追责，把 Sunset 的 no-red 从交接口径推进到编辑中也可执行的硬规则。
+- 本轮子任务：
+  - 判断现行 no-red 为什么没拦住用户看到的这类中间红：
+    - `CS0103 SetTimeWithoutSystems`
+    - `CS0103 CreateCompletedEvent`
+    - `CS0103 InvokeWorkbenchCraftPermission`
+  - 把规则、skill、CLI 提示面一起补到“下一簇代码前就要先清 own_red”
+- 这轮实际做成了什么：
+  1. 确认当前真实缺口不是“没有 no-red”，而是：
+     - 现行 no-red 主要卡 `停手前 / sync前 / handoff前`
+     - 但没有把“编辑循环中不能长期带 own_red 继续扩写”写成硬闸门
+  2. 已实写 `AGENTS.md`，新增编辑循环硬规则：
+     - 每完成一簇 `.cs` 改动，继续下一簇责任前必须先跑一次最小 CLI 自检
+     - 允许短暂红只存在于单个编辑单元
+     - `assessment=own_red` 时立即进入 `red-lock`
+     - 不得继续扩写新功能 / 新文件 / unrelated fix
+     - 新 helper / API / 测试工具默认 `helper/shim first -> callers second`
+  3. 已同步 `sunset-no-red-handoff` skill：
+     - 增加 `Edit-Loop Hard Gate`
+     - 明确 `red-lock`
+     - 明确缺符号红不能跨下一轮
+  4. 已同步 `sunset_mcp.py doctor`：
+     - 会直接提示“每完成一簇 `.cs` 改动就立刻 validate_script”
+     - 会直接提示“helper / shim 先于调用点”
+- 关键判断：
+  - 你这次看到的这类红，不是 no-red 方向错了，而是过去只拦“结果态”，没拦“过程态”。
+  - 这轮补完之后，正确纪律已经变成：
+    - 中间可以短暂红
+    - 但 own_red 不能跨出单个编辑单元继续往前写
+- 验证 / 证据：
+  - `python scripts/sunset_mcp.py doctor`
+    - 已能输出：
+      - `编辑循环硬规则：每完成一簇 .cs 改动就立刻 validate_script；assessment=own_red 时停止扩写并先清红`
+      - `新增 helper/API/测试工具时先落 helper 或兼容 shim，再改调用点；不要把缺符号红挂到下一轮`
+  - `python -m py_compile scripts/sunset_mcp.py` 通过
+  - `git diff --check -- AGENTS.md scripts/sunset_mcp.py` 通过
+- changed_paths：
+  - `D:\Unity\Unity_learning\Sunset\AGENTS.md`
+  - `D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py`
+  - `C:\Users\aTo\.codex\skills\sunset-no-red-handoff\SKILL.md`
+- 当前恢复点：
+  - 下一步若继续，本轮仓库内白名单只收：
+    - `AGENTS.md`
+    - `scripts/sunset_mcp.py`
+    - 两份 memory
+  - 全局 skill 已更新，但不属于 Sunset 仓库提交面

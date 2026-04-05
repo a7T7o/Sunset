@@ -726,6 +726,8 @@ def main() -> None:
             if not base["is_pass"]:
                 recs.append("先跑 recover-bridge")
             recs.append("高频顺序应是：compile -> errors/no-red -> 再决定是否继续改代码")
+            recs.append("编辑循环硬规则：每完成一簇 .cs 改动就立刻 validate_script；assessment=own_red 时停止扩写并先清红")
+            recs.append("新增 helper/API/测试工具时先落 helper 或兼容 shim，再改调用点；不要把缺符号红挂到下一轮")
             recs.append("validate_script 已是脚本级单命令入口；需要原生兼容时优先用 --name/--path/--level")
             recs.append("manage_script 只开放 validate|get_sha；不要把 create/update/edit 面重新搬回高频 CLI")
             recs.append("外部 red 仍然只能诚实报 external_red，不能因为 native validate 通过就包装成 pass")

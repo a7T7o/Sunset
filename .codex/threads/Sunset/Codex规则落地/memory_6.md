@@ -1421,3 +1421,31 @@ Sunset 里大量改动都属于：
 - 下次恢复点：
   - no-red 规则层本轮无需继续补旧文件
   - 若再进入治理主线，优先看新的用户裁定或外线回执，不 reopen 已停手的 `Town / Primary`
+
+## 2026-04-05｜把 no-red 补成“编辑循环硬闸门”
+
+- 当前主线目标：
+  - 解决“已有 no-red 规范，但线程仍会长时间挂 own compile red”这个执行层缺口。
+- 本轮子任务：
+  - 把 no-red 从“停手前闸门”补成“编辑过程中也卡住 own_red”
+- 这轮实际做成了什么：
+  1. 在 `AGENTS.md` 新增编辑循环硬规则：
+     - 每簇 `.cs` 改动后继续下一簇前，必须先跑最小 CLI 自检
+     - own red 不能跨下一簇责任继续扩写
+     - `assessment=own_red` 立即进入 `red-lock`
+  2. 在 `sunset-no-red-handoff` 新增：
+     - `Edit-Loop Hard Gate`
+     - `red-lock`
+     - `helper/shim first`
+  3. 在 `sunset_mcp.py doctor` 补出同等推荐语句
+- 关键判断：
+  - 过去的问题不是没有 no-red，而是只拦“停手前”，没拦“编辑循环中”。
+  - 现在正确口径已改成：
+    - 短暂红允许
+    - 长时间 own_red 扩写不允许
+- 验证：
+  - `python scripts/sunset_mcp.py doctor` 通过，且新推荐语句已出现
+  - `python -m py_compile scripts/sunset_mcp.py` 通过
+  - `git diff --check -- AGENTS.md scripts/sunset_mcp.py` 通过
+- 当前恢复点：
+  - 收本轮最小 checkpoint 后 `Park-Slice`
