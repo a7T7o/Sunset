@@ -1476,3 +1476,66 @@ Sunset 里大量改动都属于：
   - 真正要防的是“跨责任簇带着 own_red 继续写”，不是“按键级高频 CLI”
 - 当前恢复点：
   - 如需收口，本轮仓库内只需提交 `AGENTS.md`、`scripts/sunset_mcp.py` 与两份 memory
+
+## 2026-04-05｜只读裁定：spring-day1 当前可消费 Town 的“后续生活面分场”，但不应把整条 Day1 全量写死到 Town
+
+- 当前主线目标：
+  - 按用户指定文件回答典狱长问询，直接给出 `Town` 承接边界、`spring-day1` 可消费范围、导演分场范围与 NPC 剧本走位范围。
+- 本轮只读裁定结果：
+  1. `Town` 当前正式身份已经够清楚：
+     - 村庄承载层
+     - 面向后续生活面 / 背景层 / 群像层 / 夜间见闻层 / 日常站位层
+     - 不是前半段剧情源 owner
+  2. `spring-day1` 现在可以消费 `Town`，但只到导演层：
+     - 可用 `Town_Day1Carriers` 与 7 个锚点做 post-entry crowd、晚餐背景、夜间见闻、日常站位的分场和背景调度
+     - 不可把 runtime 切场、相机联动、tile 级路径、最终 spawn/nav 路线写死在 `Town`
+  3. phase 级判断：
+     - 继续临时/抽象承载：`CrashAndMeet`、`EnterVillage` 前半段、`HealingAndHP`、`WorkbenchFlashback`、`FarmingTutorial`
+     - 可开始按 `Town` 写导演分场：`EnterVillage` 后半段、`DinnerConflict` 背景层、`FreeTime` 夜间见闻层、`DayEnd` 的夜间承接
+  4. first blocker：
+     - `Town` 仍未 `sync-ready`
+     - 外线 blocker 仍在 `camera/frustum`、`DialogueUI/字体链`、`PlacementManager compile red`
+- 当前恢复点：
+  - 若用户下一步让治理线程继续，只需把这份裁定回给用户；
+  - 若是导演线继续推进，建议从 `EnterVillage post-entry crowd -> DinnerBackground -> NightWitness -> DailyStand` 这条锚点序列开始写，不要回吞前半段。
+
+## 2026-04-05｜Town 总治理继续推进：owner 状态已重审，first blocker 已从 Placement 改判为 scene-build Tilemap 工具编译红
+
+- 当前主线目标：
+  - 不再重裁 `spring-day1 / Town` 边界，直接把 `Town` 收成一份“anchor 等级 + 升级条件 + blocker 推进图”。
+- 本轮子任务：
+  1. 重审当前活跃线程里与 `Town` 剩余 blocker 直接相关的 owner 状态
+  2. 产出新版治理正文
+  3. 只给真正还该继续的线程发 prompt
+  4. 在不 reopen `Town` own 施工的前提下做治理位合法收口
+- 本轮实际做成：
+  1. 重新核对 `Show-Active-Ownership`、`UI / 019... / 导航检查 / 导航检查V2 / 农田 / scene-build` memory 与 `sunset_mcp.py status`。
+  2. 新增治理正文：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给典狱长_Town各anchor可承接等级表_升级条件与剩余blocker推进图_08.md`
+  3. 新增两份继续施工 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给scene-build-5.0.0-001_Town当前first-blocker之Tilemap工具编译红收口_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-05_给UI_Town当前第二blocker之DialogueUI中文字体链收口_01.md`
+  4. 当前 Town blocker 已重写：
+     - `工具-V1` 不再继续发，`Town` 相机链按 `用户已测通过` 收口
+     - `PlacementManager.cs` 不再有 fresh compile red 证据支撑其继续作为 first blocker
+     - 当前 first blocker 改判为：
+       - `scene-build-5.0.0-001` 的 `Assets/Editor/TilemapToColliderObjects.cs(177,24): CS0051`
+     - 当前 second blocker 为：
+       - `UI` 的 `DialogueUI / 中文字体链`
+     - `导航检查V2` 仍与 Town runtime 证据相关，但当前不该被催成第一刀
+- 本轮关键判断：
+  - Town 现在不缺“边界解释”，缺的是按正确顺序清 blocker。
+  - 当前最先值得升级的 anchor 已明确为 `EnterVillageCrowdRoot`。
+  - 当前最正确的治理动作不是 reopen `Town` 自刀，而是只发 `scene-build + UI` 两条最小 prompt。
+- 本轮验证 / 证据：
+  - `py -3 scripts/sunset_mcp.py status`
+    - fresh console 当前唯一 error：
+      - `Assets\\Editor\\TilemapToColliderObjects.cs(177,24): error CS0051`
+  - `git status --short -- Assets/Editor/TilemapToColliderObjects.cs`
+    - 当前为 `??`
+  - `git status --short -- PlacementManager / DialogueUI / CameraDeadZoneSync / NPCAutoRoamController`
+    - `PlacementManager.cs` 当前不在 dirty 面
+    - `DialogueUI.cs / CameraDeadZoneSync.cs / NPCAutoRoamController.cs` 仍有 active/foreign dirty
+- 当前恢复点：
+  - 如果用户下一步继续治理位，直接沿 `08` 文档判断外线回执，不再回头重裁边界；
+  - 若允许继续分发，就只发 `scene-build` 与 `UI`，不再泛发 `farm / 工具-V1 / spring-day1 / NPC`。

@@ -12053,3 +12053,159 @@
   - 这轮修正后，至少不会再出现长时间黑盒无输出；它会在护栏内诚实报 blocked。
 - 当前仍未完成：
   - `validate_script` 仍不是理想的高频快路径；若要进一步贴近用户当前使用场景，下一刀应考虑把“快路径 compile/error”与“重型 codeguard 证明”彻底拆层。
+
+## 2026-04-05｜`direct MCP / thin CLI / heavy validate_script` 真实成本对照已测出
+
+- 用户目标：
+  - 不再停在概念讨论，而是客观判断：在 Sunset 当前高频 no-red 使用场景里，CLI 到底是净收益还是净负担；如果慢，慢在 CLI、MCP，还是别的层。
+- 本轮实测结果（当前机器、当前 shared root、当前实例）：
+  1. direct MCP 原始 HTTP：
+     - initialize：约 `0.015s`
+     - `manage_script validate`：约 `0.076s`
+     - `read_console`：约 `0.204s`
+  2. thin CLI：
+     - `py -3 scripts/sunset_mcp.py --timeout-sec 5 manage_script validate --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --level standard --output-limit 3`
+       - 约 `0.451s`
+     - `py -3 scripts/sunset_mcp.py --timeout-sec 5 errors --count 10 --output-limit 5`
+       - 约 `0.534s`
+  3. heavy CLI：
+     - `py -3 scripts/sunset_mcp.py --timeout-sec 5 validate_script --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --count 5 --output-limit 3`
+       - 约 `5.396s`
+       - 返回 `assessment=blocked`
+       - stderr 显示 `phase=codeguard timeout=5s targets=1`
+- 当前仓库现场：
+  - tracked `.cs` 约 `297` 个
+  - `git diff HEAD` dirty entries 约 `113` 个
+  - untracked entries 约 `109` 个
+- 当前判断：
+  1. “CLI 套 MCP”确实有额外成本，但当前实测只是几百毫秒级，不是分钟级。
+  2. 在高频轻命令上，thin CLI 相比 direct MCP 的真实代价大约是：
+     - `manage_script validate`：多约 `0.3s ~ 0.4s`
+     - `read_console/errors`：多约 `0.3s`
+  3. 当前真正拖慢体感的不是 CLI 壳，而是 `validate_script` 里绑定的重型 `CodexCodeGuard` 前置阶段。
+  4. 所以现在最准确的结论不是“CLI 本身很重”，而是：
+     - thin CLI：轻，且有价值
+     - heavy validate_script：目前不适合作为每次改代码后的默认高频动作
+- 决策含义：
+  - Sunset 当前最合理的高频工作流，不该是“每次改完都先跑 heavy validate_script”；
+  - 更适合的是把：
+    - `errors`
+    - `manage_script validate`
+    - 必要时再补更重的 compile / codeguard 证明
+    拆成不同层级的动作。
+
+## 2026-04-05｜scene-build 共享根 Tilemap 工具已最小复刻，但 same-root dirty 使 `Ready-To-Sync` 被合法阻断
+- 用户已明确接受 shared root 编译刷新窗口，因此本轮不再停在风险评估，而是实际把两份 Tilemap Editor 工具最小落进 `D:\Unity\Unity_learning\Sunset\Assets\Editor`。
+- 已新增：
+  - `TilemapToColliderObjects.cs`
+  - `TilemapSelectionToColliderWorkflow.cs`
+  - 以及对应 `.meta`
+- 轻量 no-red 证据当前成立：
+  - `manage_script validate` 两份脚本均 `clean`
+  - `errors` 返回 `0 error / 0 warning`
+  - `git diff --check` 通过
+- 但 `Ready-To-Sync -Mode task` 已被 live 闸门真实阻断：
+  - 原因不是这 4 个新文件有红
+  - 而是 `Assets/Editor` 与 `Codex规则落地` own roots 下面仍有大量未纳入本轮的 existing dirty
+- 当前正确口径：
+  - `代码层落地 = 成立`
+  - `legal sync / 归仓 = 未成立`
+  - 线程已 `Park-Slice`
+
+## 2026-04-05｜Town 总治理继续推进：anchor 等级、升级条件与 blocker owner 已改写为新版真值
+
+- 当前主线目标：
+  - 不再重裁 `spring-day1 / Town` 边界，而是继续推进 `Town` 总治理到“不能再推进”为止。
+- 本轮子任务：
+  1. 重审当前 active owner 里与 `Town` 剩余 blocker 直接相关的线程状态
+  2. 输出 `Town 各 anchor 可承接等级表 + Town 升级条件 + 剩余 blocker 推进图`
+  3. 只给真正还该继续的线程生成 prompt
+  4. 让治理位保持合法停手边界
+- 本轮实际做成：
+  1. 新增治理正文：
+     - [2026-04-05_给典狱长_Town各anchor可承接等级表_升级条件与剩余blocker推进图_08.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_给典狱长_Town各anchor可承接等级表_升级条件与剩余blocker推进图_08.md)
+  2. 新增继续施工 prompt：
+     - [2026-04-05_给scene-build-5.0.0-001_Town当前first-blocker之Tilemap工具编译红收口_01.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_给scene-build-5.0.0-001_Town当前first-blocker之Tilemap工具编译红收口_01.md)
+     - [2026-04-05_给UI_Town当前第二blocker之DialogueUI中文字体链收口_01.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-05_给UI_Town当前第二blocker之DialogueUI中文字体链收口_01.md)
+  3. Town 关键判断更新：
+     - `工具-V1` 不再继续发：`Town` 相机跟随已按 `用户已测通过` 收口
+     - `PlacementManager.cs` 不再有 fresh compile red 证据支撑其继续作为 Town 当前 first blocker
+     - 当前 fresh `status` 里真正的 compile red 已改判为：
+       - `Assets/Editor/TilemapToColliderObjects.cs(177,24): error CS0051`
+       - owner = `scene-build-5.0.0-001`
+     - `UI` 的 `DialogueUI / 中文字体链` 继续保留为 Town 当前 second blocker
+     - `导航检查V2` 仍与 Town 正式场景 NPC runtime 证据有关，但当前不该被催成第一刀
+  4. Town anchor 等级已首次显式收表：
+     - `EnterVillageCrowdRoot = L4`，且是当前最先值得升级的 anchor
+     - `KidLook_01 / DinnerBackgroundRoot / NightWitness_01 = L3`
+     - `DailyStand_01~03 = L2`
+- 当前结论：
+  - Town 全局未完成项现已收敛为：
+    1. `scene-build` 的 editor compile red
+    2. `UI` 的 Town 中文 `DialogueUI / 字体链`
+    3. `导航检查V2` 尚未在较干净 Town 现场拿到正式场景 NPC runtime 证据
+    4. anchor 仍未从导演消费层升级到 runtime 可正式交付层
+  - 当前最值得继续施工的线程：
+    - 第一位：`scene-build-5.0.0-001`
+    - 第二位：`UI`
+  - 当前无需继续发：
+    - `工具-V1`
+    - `农田交互修复V3`
+    - `spring-day1`
+    - `NPC`
+    - `导航检查`
+- 技术证据：
+  - `Show-Active-Ownership.ps1`
+  - `py -3 scripts/sunset_mcp.py status`
+  - `UI / 019... / 导航检查 / 导航检查V2 / 农田 / scene-build-5.0.0-001` 最新 memory 尾部
+  - `git status --short -- Assets/Editor/TilemapToColliderObjects.cs`
+- 当前恢复点：
+  - 若后续继续 Town 总治理，直接从 `08` 文档继续，不再退回旧的 `03` blocker 表；
+  - 下一轮应优先审 `scene-build` 与 `UI` 新回执，再决定 Town 是否能从“导演可消费”升级到“更接近 runtime 可承接”。
+## 2026-04-05｜scene-build 共享根 Tilemap 工具已新增“植被整体模式”，第一版开始按整丛植物而不是逐格碎片处理
+- 用户当前主线已从“能不能做”进入“直接开始实现植被处理”：
+  - 目标不是继续强化“一格一个物体”
+  - 而是把连在一起的灌木 / 花丛 tile 先识别成整体对象，再让它们按一个排序单位参与前后遮挡
+- 本轮已实际完成：
+  1. 已重新执行：
+     - `Begin-Slice.ps1 -ThreadName scene-build-5.0.0-001 -CurrentSlice sunset-vegetation-grouping`
+  2. 已在 `Assets/Editor/TilemapToColliderObjects.cs` 新增第一版“植被整体模式”：
+     - 保留旧的逐格模式不删
+     - 新增 `生成模式`：`逐格物体 / 植被整体对象`
+     - 在植被模式下，先从选区里找非空 tile
+     - 用“底部锚点 + 多源连通扩散”把 tile 划成一丛丛 cluster
+     - 每个 cluster 生成一个根对象
+     - 根对象挂 `SortingGroup`
+     - 子物体仍保留逐 tile 的 `SpriteRenderer / Collider2D`
+     - 因此现在是“整体排序 + 细粒度碰撞”并存，而不是只能二选一
+  3. 已在 `Assets/Editor/TilemapSelectionToColliderWorkflow.cs` 同步补上最小入口：
+     - 框选面板现在也能直接切 `生成模式`
+     - 并可快速设置植被排序倍率、排序偏移、组内行间距
+  4. 旧能力仍保留：
+     - 同一个工具仍支持“框选局部”
+     - 也仍支持关闭框选、改走整张 Tilemap 扫描
+  5. 这轮实现后已合法执行：
+     - `Park-Slice.ps1 -ThreadName scene-build-5.0.0-001 -Reason vegetation-grouping-implemented`
+- 当前最重要的稳定判断：
+  - 这不是“绝对精确语义识别”的最终版
+  - 但它已经不再是“每格碎掉”的旧逻辑，而是第一版真正贴近用户目标的“整体植物对象化”
+  - 其边界是：
+    - 适合灌木 / 花丛 / 连续装饰这类有明显底部锚点的 tile 群
+    - 如果未来遇到更复杂的拼接语义，下一刀应继续加模板 / hint，而不是退回逐格逻辑
+- No-Red 证据卡 v2：
+  - `cli_red_check_command`: `未执行 CLI；本轮改用 direct MCP validate_script + git diff --check 做脚本级静态验红`
+  - `cli_red_check_scope`: `Assets/Editor/TilemapToColliderObjects.cs` + `Assets/Editor/TilemapSelectionToColliderWorkflow.cs`
+  - `cli_red_check_assessment`: `unity_validation_pending`
+  - `unity_red_check`: `live-pending`
+  - `mcp_fallback`: `used`
+  - `mcp_fallback_reason`: `用户要求先做代码层落地，不做场景产出测试；因此本轮只闭到脚本静态层`
+  - `current_owned_errors`: `0（validate_script 两文件均 clean）`
+  - `current_external_blockers`: `shared root 仍存在 same-root dirty 基线；本轮未进入 Ready-To-Sync`
+  - `current_warnings`: `0（validate_script 两文件均 warnings=0）`
+- 本轮验证状态必须报实为：
+  - `脚本静态验证已过`
+  - `Unity 场景产出尚未验证`
+  - `legal sync 尚未尝试`
+- 当前恢复点：
+  - 如果后续继续这条线，最合理的下一步不是再补更多逐格选项
+  - 而是拿用户真实植被 Tilemap 做一次定向验收，再判断哪些 cluster 需要模板 / hint 才能继续往“更准”推进
