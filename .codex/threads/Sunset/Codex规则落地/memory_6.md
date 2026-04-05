@@ -1846,3 +1846,99 @@ Sunset 里大量改动都属于：
 - 当前恢复点：
   - 若后续获得 `Town.unity` 写窗，最小 scene-side 改动应优先落 resident 根层与 carrier 非零空间位；
   - 否则继续 docs-only 旁站，等下一次正式回球。
+
+## 2026-04-06｜补记：已按 `14` 号 prompt 真写 `Town.unity`，resident scene-side 第一刀落地
+
+- 当前主线目标：
+  - 继续把 `Town` 这条线压到“能跟上 day1，但不抢对方 active 代码文件”的最深处。
+- 本轮子任务：
+  1. 进入真实施工并锁住 `Town.unity`
+  2. 新增 resident 根层
+  3. 让 7 个 carrier 脱离零位
+- 本轮实际做成：
+  1. `Begin-Slice` 已以 `town-resident-scene-first-cut-2026-04-06` 进入真实施工，A 类锁已拿到 `Assets/000_Scenes/Town.unity`。
+  2. `Town.unity` 已新增：
+     - `SCENE/Town_Day1Residents`
+     - `Resident_DefaultPresent`
+     - `Resident_DirectorTakeoverReady`
+     - `Resident_BackstagePresent`
+  3. `Town_Day1Carriers` 下 7 个 child 已全部脱离零位，并压到粗粒度语义位：
+     - 入口围观位：`EnterVillageCrowdRoot`
+     - 入口侧探头位：`KidLook_01`
+     - 饭馆/生活背景位：`DinnerBackgroundRoot`
+     - 夜路/坡边见闻位：`NightWitness_01`
+     - 次日生活位：`DailyStand_01 ~ 03`
+  4. 已新增给 `day1` 的协作回执：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给spring-day1_Town驻村常驻化scene第一刀已落地回执_08.md`
+- 当前关键判断：
+  - `Town` 这轮已经跨过“没有 resident 容器层”这个 blocker；但当前只站住了 scene-side 第一刀，还不能冒充 resident actor / contract 已迁回。
+- 当前验证状态：
+  - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10` => `errors=0 warnings=0`
+  - `py -3 scripts/sunset_mcp.py status` => baseline pass；Unity 当前活跃 scene 仍报 `Primary.unity`
+  - `git diff --check -- Assets/000_Scenes/Town.unity` => 仍被整文件既有 mixed dirty / trailing-whitespace 旧账阻断，因此这轮不能安全 sync / 提交 `Town.unity`
+- 当前恢复点：
+  - 这轮收尾时应直接 `Park-Slice`，不要继续把 `Town.unity` 挂成 `ACTIVE`
+  - 下次如果继续，优先只做：
+    1. anchor 精修
+    2. resident actor scene-side 承接
+    3. 或 contract 迁回前的最小接刀
+
+## 2026-04-06｜补记：Town 第二刀已把 resident 分层压成 slot contract
+
+- 当前主线目标：
+  - 继续把 `Town` own 线压深，但仍不抢 `spring-day1` 当前 active 代码文件。
+- 本轮子任务：
+  1. 查明 `Town.unity` 为什么无法再次 `Begin-Slice`
+  2. 释放自己遗留的 `Town.unity` 自锁
+  3. 在 resident 根层之上继续补第一批 slot 合同
+- 本轮实际做成：
+  1. 已确认 `Town.unity` A 类锁是我自己上一轮的 stale self-lock，并已用 `Release-Lock.ps1` 合法释放。
+  2. 已重新 `Begin-Slice` 进入 `town-resident-scene-slot-contract-2026-04-06`。
+  3. `Town.unity` 已新增 8 个空承接槽位：
+     - `ResidentSlot_DinnerBackgroundRoot`
+     - `ResidentSlot_DailyStand_01`
+     - `ResidentSlot_DailyStand_02`
+     - `ResidentSlot_DailyStand_03`
+     - `DirectorReady_EnterVillageCrowdRoot`
+     - `DirectorReady_KidLook_01`
+     - `DirectorReady_DinnerBackgroundRoot`
+     - `BackstageSlot_NightWitness_01`
+  4. 已新增更深回执：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给spring-day1_Town驻村常驻化scene第二刀槽位合同与第一批迁回优先级_09.md`
+- 当前关键判断：
+  - `Town` 现在的 scene-side 承接层已经有：
+    1. root 层
+    2. group 层
+    3. slot 层
+  - 后续 day1 做完 resident deployment 大 checkpoint 后，第一批迁回已不需要再从零搭 Town 的 scene-side 容器。
+- 当前验证状态：
+  - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10` => `errors=0 warnings=0`
+  - 新增 slot 名与挂载层级已成功回读
+  - `Town.unity` 仍因整文件 mixed dirty 旧账而不具备直接 sync / 提交条件
+- 当前恢复点：
+  - 这轮若停，应先 `Park-Slice`
+  - 下次最值钱的推进不再是补说明，而是 resident actor / contract 真迁回。
+
+## 2026-04-06｜补记：已复核最新外部校验漂移，当前可安全收口面改判为 docs-only
+
+- 当前主线目标：
+  - 把 `Town` 这条线推进到现阶段最深，同时不把 shared scene 旧账硬吞进本轮 checkpoint。
+- 本轮子任务：
+  1. 复核当前 `status / errors`；
+  2. 追查新出现的 `SpringDay1NpcCrowdValidation`；
+  3. 重新验证 `Town.unity` 是否已具备直接 sync 条件。
+- 本轮实际做成：
+  1. 已查明当前 fresh console 的新 error 不是编译红，而是：
+     - `EnterVillage_PostEntry` 的 director consumption role drifted，`Trace` 出现 `301`
+     - 来源：`Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+  2. 已确认该菜单读 `manifest / 导演消费` 校验面，不直接吃 `Town.unity` resident root / slot 结构，因此不应把它算到 `Town` own red。
+  3. 已再次确认 `Town.unity` 仍不适合当前直接 sync：
+     - `git diff --check` 命中大量 trailing whitespace；
+     - `git diff` 显示 scene 文件里混有大量非本轮 shared dirty。
+- 当前关键判断：
+  - `Town` 业务推进层已经到 `root/group/slot`，但 checkpoint 收口层应切成 docs-only 小批，不硬吞 `Town.unity`。
+- 当前恢复点：
+  - 如果继续 `Town` 真施工，应等待：
+    1. 新的 ownership
+    2. 或 scene 旧账清理条件
+  - 当前则优先把 `Codex规则落地` own docs-only 产物收口提交。
