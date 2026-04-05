@@ -1823,3 +1823,26 @@ Sunset 里大量改动都属于：
   - 当前最大的未完成项不是“再写新规则”，而是 `Town / day1` 之间这刀到底由谁最终落代码。
 - 当前恢复点：
   - 下一轮优先读取 `day1` 对 `05` 回执的回应，再决定继续 docs-only 还是重新进代码施工。
+
+## 2026-04-06｜补记：Town 线已接受“驻村常驻化”方向，scene-side 第一 blocker 改判为 resident 根层缺失
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，但这轮主轴已从最小 spawn contract 转向常驻化的 scene-side 承接。
+- 本轮子任务：
+  1. 读取 `06` 号 prompt；
+  2. 只读审计 `Town.unity / Primary.unity / SpringDay1NpcCrowdManifest.asset`；
+  3. 收成给 `day1` 的正式回执和给治理位的最小改动建议。
+- 本轮实际做成：
+  1. 确认 `Town.unity` 当前只有 `SCENE/Town_Day1Carriers` 这一层，没有 resident 根层，而且 7 个 child anchor 全是 `(0,0,0)` 空壳。
+  2. 确认 `Primary.unity` 的 `001 / 002 / 003` 仍只是代理锚，不应继续被误当长期 village resident contract。
+  3. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给spring-day1_Town驻村常驻化承接与scene-side正式回执_07.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给典狱长_Town驻村常驻化scene-side审计与最小改动建议_13.md`
+  4. 为清掉 own-root blocker，也确认同根两份现成文档可并入本轮收口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给Town_day1转向驻村常驻化承接与scene-side准备prompt_06.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_Sunset_Ivan平台化路线对比与落地方案_01.md`
+- 当前关键判断：
+  - 这轮最值钱的不是再追 `CrowdDirector`，而是把 `Town_Day1Residents / Resident_DefaultPresent / Resident_DirectorTakeoverReady / Resident_BackstagePresent` 这套 scene-side 容器语义钉死。
+- 当前恢复点：
+  - 若后续获得 `Town.unity` 写窗，最小 scene-side 改动应优先落 resident 根层与 carrier 非零空间位；
+  - 否则继续 docs-only 旁站，等下一次正式回球。

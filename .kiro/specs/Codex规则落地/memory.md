@@ -12591,6 +12591,67 @@
   - 至少按 Sunset 当前项目依赖和锁文件看，当前实际用的是 `CoplayDev/unity-mcp`，不是 `IvanMurzak/Unity-MCP`。
   - 同时，我没有查到 Unity 官方站点 / Unity-Technologies 官方仓库发布的“官方 Unity MCP 包”；当前更像是社区生态，而不是 Unity 官方 MCP 标准包。
 
+## 2026-04-06｜`IvanMurzak/Unity-MCP` vs `CoplayDev/unity-mcp` 已形成 Sunset 立项级对比判断
+
+- 用户目标：
+  - 不再只问“现在用的是哪套”，而是要一份可直接立项的对比与落地判断，说明是否值得把 Sunset 未来方向转向 `IvanMurzak/Unity-MCP`。
+- 本轮实际确认的外部事实：
+  1. `IvanMurzak/Unity-MCP` README 的定位是：
+     - `AI Skills, MCP Tools, and CLI for Unity Engine`
+     - 强调 `100+ built-in tools`
+     - 强调 `Runtime` / `In-Game` / `Reflection` / `CLI`
+  2. `CoplayDev/unity-mcp` README 的定位是：
+     - Unity Editor bridge
+     - local Python server
+     - structured MCP tools/resources
+     - multiple Unity Editor instances
+  3. 当前 Sunset 本地已深度绑定 Coplay 语义：
+     - 包依赖：`com.coplaydev.unity-mcp`
+     - 运行基线：`unityMCP + 127.0.0.1:8888 + MCPForUnity`
+     - CLI：`manage_script / read_console / refresh_unity / mcpforunity://editor/state`
+- 当前立项级判断：
+  1. `IvanMurzak/Unity-MCP` 更像：
+     - AI 全家桶平台
+     - 反射与运行时能力更强
+     - 更适合往“任意方法暴露 + 游戏内 AI + 大平台”方向走
+  2. `CoplayDev/unity-mcp` 更像：
+     - 稳定的 Unity Editor 控制底座
+     - 更适合 compile / console / script / scene / instance 这类结构化自动化
+  3. 对 Sunset 当前最高频工作流而言：
+     - `CoplayDev/unity-mcp` 更贴当前现实
+     - `IvanMurzak/Unity-MCP` 更适合“下一代平台化方向”，不是当前最低迁移代价的替换
+  4. 如果要切 Ivan，这不是“换包”：
+     - 需要重写现有 CLI 绑定
+     - 需要重写基线与运维脚本
+     - 需要重写治理文档与 live 口径
+- 当前结论：
+  - 短中期：不建议把“切 Ivan”当作立刻替换 Coplay 的动作
+  - 中长期：如果要布局更强的 AI 平台、运行时代理、反射驱动工具暴露，Ivan 值得作为平行实验线单独立项
+
+## 2026-04-06｜Ivan 平台化路线正式起草案已成稿
+
+- 用户目标：
+  - 不再停在对比判断，而是直接产出一份可用文稿，把平台方向、对比、立项建议、阶段计划和注意事项一次写清楚。
+- 本轮实际做成了什么：
+  1. 已新建正式文稿：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_Sunset_Ivan平台化路线对比与落地方案_01.md`
+  2. 文稿已覆盖：
+     - 当前 Sunset 真实现状
+     - `IvanMurzak/Unity-MCP` 与 `CoplayDev/unity-mcp` 的定位差异
+     - 为什么用户会对 Ivan 心动
+     - 为什么不建议今天直接替换现网
+     - 为什么建议立 `Sunset AI Platform 0.1｜Ivan 实验线`
+     - 分阶段推进路线
+     - 最值得先测与最不值得先测的能力
+  3. 当前文稿立场已经明确：
+     - `Coplay 负责今天的生产`
+     - `Ivan 负责明天的平台`
+- 当前判断：
+  - 这份文稿已经达到“可直接拿去继续决策或派生下一轮执行任务”的程度；
+  - 若继续，下一步应进入：
+    - Ivan 实验线 PoC 计划
+    - 或正式迁移成本清单
+
 ## 2026-04-05｜补记：Town 线已收到最新接刀 prompt，旧的“spring-day1 仍 ACTIVE”口径废止
 
 - 当前主线没有换：
@@ -12663,3 +12724,73 @@
   - 作为典狱长，我当前最该守住的不是“继续自己多写几份文档”，而是别在 `day1` 还没表态前抢它的活文件，同时把下一步只收敛到明确 ownership。
 - 当前恢复点：
   - 下一轮优先看 `day1` 对 `05` 回执的回应，再决定我是继续当协作位，还是重新切回施工位。
+
+## 2026-04-06｜补记：`day1` 已改判为驻村常驻化，Town 当前最窄 blocker 改为 resident 根层缺失
+
+- 当前主线目标：
+  - 继续只守 `Town` own 线，但这轮不再以“最小 runtime spawn contract”为唯一中心，而是转向“驻村常驻化”的 scene-side 承接。
+- 本轮子任务：
+  1. 读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给Town_day1转向驻村常驻化承接与scene-side准备prompt_06.md`
+  2. 只读审计 `Town.unity / Primary.unity / SpringDay1NpcCrowdManifest.asset`
+  3. 产出给 `day1` 的正式回执与给治理位的 scene-side 审计卡
+- 本轮实际做成：
+  1. 已确认 `NPC` 当前 active own paths 不含 `Town.unity`，因此 Town 这轮可继续做 scene-side 审计与协作文档，但不去碰 `NPC` 的数据/脚本面。
+  2. 已确认 `Town.unity` 当前真实 scene-side 状态：
+     - `SCENE/Town_Day1Carriers` 存在
+     - 其下 7 个 child anchor 名已齐
+     - 但全部还是 `(0,0,0)` 的空 `Transform`
+     - Town 里当前没有任何 resident 根层
+  3. 已确认 `Primary.unity` 里仍有旧锚 `001 / 002 / 003`，说明当前代理 contract 仍旧活着，但已不适合作为长期 village resident 合约面。
+  4. 已新增：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给spring-day1_Town驻村常驻化承接与scene-side正式回执_07.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给典狱长_Town驻村常驻化scene-side审计与最小改动建议_13.md`
+  5. 为清掉 `Codex规则落地` own root 的 remaining untracked，我这轮也确认两份同根文档可一并纳入收口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给Town_day1转向驻村常驻化承接与scene-side准备prompt_06.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_Sunset_Ivan平台化路线对比与落地方案_01.md`
+- 当前关键判断：
+  - 当前第一 blocker 已从“resolver 还没吃 `semanticAnchorId`”继续前移成：
+    - `Town` 还没有 `Town_Day1Residents` 这一层常驻根
+    - `Town_Day1Carriers` 仍只是零位锚点壳
+  - 因此这轮最深且最安全的推进，不是直接去改 active 代码或吞 scene 脏改，而是把 resident root / carrier / backstage 三层 scene-side contract 写死。
+- 当前恢复点：
+  - 若后续用户明确开放 `Town.unity` 写窗，下一刀应直接做最小 scene-side 改动：
+    1. 新增 `Town_Day1Residents`
+    2. 固定 3 个 resident group root
+    3. 给 7 个 carrier 补粗粒度真实空间位
+  - 若未开放 scene 写窗，则继续停在 docs-only 协作位，等 `day1` 或用户正式回球。
+
+## 2026-04-06｜补记：`Ivan 平台化路线对比与落地方案` 已完成一轮本地与上游核实
+
+- 当前主线目标：
+  - 审核 `IvanMurzak/Unity-MCP` 与 `CoplayDev/unity-mcp` 的平台化路线稿，判断它是否已经达到“可以继续进入 PoC 计划”的程度。
+- 本轮子任务：
+  - 交叉核实：
+    1. Sunset 本地是否真的已深绑 Coplay
+    2. 文稿对 Ivan / Coplay 的定位是否大体成立
+    3. 文稿里还有没有需要补硬边界的地方
+- 本轮实际核实结果：
+  1. Sunset 当前本地确实已经深绑 Coplay：
+     - `Packages/manifest.json` 直接依赖 `com.coplaydev.unity-mcp`
+     - `scripts/sunset_mcp.py` 当前直接绑定 `read_console / manage_script / refresh_unity / execute_custom_tool / mcpforunity://editor/state`
+     - `Assets/Editor/CodexMcpHttpAutostart.cs` 也明确依赖 `MCPForUnity.Editor.Services`
+  2. 文稿的主判断成立：
+     - `直接替换现网` 的描述确实过轻，真实上更接近基础设施重构
+     - `Coplay 生产 + Ivan 实验线` 的双线判断目前是合理的
+  3. 但有两条口径必须补得更硬：
+     - `8888` 是 Sunset 当前本地 live baseline，不是 Coplay 上游默认端口；上游 README / Registry 当前默认仍是 `localhost:8080`
+     - Ivan 的公开 quick-start 带有更强的平台化 / CLI / cloud-login 叙事，因此 PoC 第一阶段必须先明确：
+       - 走不走云登录
+       - 走不走纯本地 / 离线路线
+       - 不允许把“平台实验”直接偷渡成“现网基础设施替换”
+- 当前判断：
+  - 这份稿子可以继续推进；
+  - 但下一步 PoC 计划里必须显式新增两项：
+    1. `能力映射表`
+       - 先把 Sunset 当前高频 Coplay 能力与 Ivan 候选能力做一一映射
+    2. `部署边界`
+       - 明确本次 PoC 是本地离线、局域、还是云登录路径
+- 当前恢复点：
+  - 如果继续，下一份文不该再是泛分析稿；
+  - 应该直接进入：
+    - `Ivan 实验线 PoC 执行计划`
+    - 但要把上述两条新增硬边界写进去
