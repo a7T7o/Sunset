@@ -3698,3 +3698,213 @@
 - 当前恢复点：
   - 如果继续，优先只在用户给出的新正式场景卡点上做 targeted live；
   - 如果没有新反例，这条 NPC 导航恢复链可按“当前版本已修到可用”向用户报实。
+
+## 2026-04-05｜只读审计：这轮未提交 NPC diff 仍有一条高置信 oscillation 误判漏洞
+
+- 当前主线目标：
+  - 保持 `导航检查V2` 在 NPC 自然漫游这条线上的静态审计连续性；
+  - 本轮子任务是不改文件，只核 `NPCAutoRoamController.cs` / `NPCMotionController.cs` 当前未提交 diff 是否还留静态坑。
+- 本轮完成事项：
+  1. 只读审完这两文件的完整内容与 uncommitted diff；
+  2. 交叉检查了 `NavigationAgentSnapshot.cs`、`NavigationAgentRegistry.cs`，以及仓库里 `ReportedVelocity / CurrentVelocity / IsMoving` 的实际调用点；
+  3. 明确回答了“这轮 diff 是否混入导航无关改动”。
+- 关键结论：
+  1. 这轮唯一高置信逻辑漏洞在：
+     - `NPCAutoRoamController.TickMoving(...)`
+     - `ShouldTreatMoveCommandAsOscillation(...)`
+     - `TryHandlePendingMoveCommandNoProgress(...)`
+     当前实现会在 NPC 已经有小幅真实前进时，继续保留上一轮的 oscillation 翻向计数；
+     一旦出现 `A -> B -> A` 命令翻转，就可能把“正在慢慢挪”的 NPC 误送进 `TryHandleBlockedAdvance(...)`，制造额外 repath / interrupt，直接放大“原地朝向疯狂切换”与假卡住。
+  2. `NPCMotionController` 这轮没有发现新的高置信 active bug；
+     - 但 `ReportedVelocity` 仍表示指令速度，
+     - 而 `ResolveVelocity / CurrentVelocity / IsMoving` 已改成更偏真实运动，
+     - 当前仓库未见 active caller，所以先记为 latent footgun。
+  3. 当前未提交 diff 确实混入了导航无关改动：
+     - `Sunset.Story`
+     - `NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory()`
+     - 属于 ambient chat / story bubble suppression，不该跟这轮导航补口一起提。
+- 验证结果：
+  - 纯只读；
+  - 未跑 `Begin-Slice`；
+  - 未改文件；
+  - 未跑 Unity / live。
+- 当前恢复点：
+  - 如果用户后续让我继续这条线，第一刀先只修 oscillation counter reset；
+  - 第二刀再把非导航 diff 拆出；
+  - 然后才值得进 targeted runtime 复测。
+
+## 2026-04-05｜NPC 疯转静态修复已提交，Town live 复测被外部噪声挡住
+
+- 当前主线目标：
+  - 修 NPC 正式场景里的“撞墙卡住 / 原地疯狂转圈”，但不改玩家已认可的导航业务逻辑。
+- 本轮子任务与服务关系：
+  - 先把 `NPCMotionController.cs` 和 `NPCAutoRoamController.cs` 现有未提交导航 diff 收成可回退 checkpoint；
+  - 再补最小静态 bug fix；
+  - 最后尝试进入 `Town` live 验证。
+- 本轮实际完成：
+  1. 已提交回退点：
+     - `c29a80a2` `2026.04.05_导航检查V2_npc-spin-debug-checkpoint`
+  2. 已提交导航 bug fix：
+     - `592705f8` `2026.04.05_导航检查V2_npc-spin-hardstop-fix`
+  3. 代码面修了三件事：
+     - `NPCMotionController.ResolveVelocity()` 现在优先用真实位移判断移动，最近没有观测到位移时不会继续把 `Rigidbody2D.linearVelocity` 当成真移动；
+     - `NPCAutoRoamController.NoteSuccessfulAdvance(...)` 现在会重置 move-command oscillation 状态；
+     - `NPCAutoRoamController.ShouldResetSharedAvoidanceStuckProgress(...)` 不再把 `HardBlocked` 算成正常避让进度。
+  4. 脚本级验证：
+     - `validate_script` 两文件均 `0 error`
+     - `git diff --check` 通过
+     - `Editor.log` 有 fresh `Tundra build success`
+  5. live 尝试结果：
+     - `Tools/Codex/NPC/Run Traversal Acceptance Probe` 在当前 `Town` 现场不适用，直接报 `缺少运行时依赖：NavGrid/Water/NPC 002/003`
+     - 随后直接进 `Town` play 取样时，console 出现外部噪声：
+       - `The referenced script (Unknown) on this Behaviour is missing!`
+       - `[OcclusionTransparency] ... 未找到OcclusionManager（等待超时）`
+     - 因此这轮没有拿到可站住的正式场景 NPC runtime 真样本。
+  6. 额外现场报实：
+     - `NPCAutoRoamController.cs` 当前 working tree 仍有同文件 foreign/非本刀残留：
+       - `ambient bubble helper / StoryPhase` 那段未归我这刀；
+       - 当前 own 路径不 clean。
+- 关键判断：
+  - 这轮最值钱的结果是：静态上最像导致“原地乱翻向/假让行”的三处底座漏洞已经补掉并留了 checkpoint；
+  - 但还不能 claim “NPC 已 fresh 修好”，因为 `Town` live 现场本身还没稳到能让我抓真 runtime。
+- thread-state：
+  - `Begin-Slice`：沿用 ACTIVE 施工态继续
+  - `Ready-To-Sync`：未跑（本轮未收口 sync）
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前 blocker：
+  - `live-blocker:Town-play-entry-produces-missing-behaviour-and-occlusion-manager-noise`
+  - `runtime-evidence-not-closed:npc-scene-spin-still-needs-stable-live-capture`
+  - `same-file-foreign-dirty:NPCAutoRoamController-ambient-bubble-helper-not-owned-by-this-cut`
+- 当前恢复点：
+  - 先等/先厘清 `Town` play 外部噪声；
+  - 一旦现场稳定，直接回 `Town` 做 NPC 疯转 targeted live capture。
+
+## 2026-04-05｜Primary 快速 live 复测：桥 probe 已过，NPC 已开始真实 roam，但仍留有非 traversal 外侧红面
+
+- 当前主线目标：
+  - 在 `Primary` 场景里快速验证 NPC 是否已经真正吃到玩家桥 / 水 / 边缘 traversal contract；
+  - 同时确认“撞墙卡住 / 原地疯转”有没有继续稳定复现。
+- 本轮实际完成：
+  1. 直接在运行中的 `Primary` 现场执行两条现成 probe：
+     - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+     - `Tools/Codex/NPC/Run Natural Roam Bridge Probe`
+  2. `Natural Roam Bridge Probe` fresh 结果：
+     - `npc=002`
+     - `requestedStart=(-13.60, 0.30)`
+     - `actualStart=(-13.75, 0.25)`
+     - `final=(-9.25, 1.70)`
+     - `sawBridgeSupport=True`
+     - `inWater=False`
+     - `state=Moving`
+     - 控制台结论：`[CodexNpcTraversalAcceptance] PASS natural-roam-bridge`
+  3. `Primary` 当前 live 至少找到 3 个有效 `NPCAutoRoamController` 本体：`001 / 002 / 003`。
+  4. 运行后抽样状态：
+     - `001`：`IsRoaming=True`，`DebugState=LongPause`
+     - `002`：被桥 probe 放到目标点后进入 `LongPause`，桥 probe 明确 pass
+     - `003`：`IsRoaming=True`，`IsMoving=True`，`DebugState=Moving`，`DebugPathPointCount=2`
+  5. 本轮没有再抓到之前那种 `bridge_probe_fail reason=timeout`；也没有抓到新的 NPC 导航 error / warning。
+- 新发现的外侧问题：
+  - `SpringDay1NpcRuntimeProbe` 这条菜单主要在测 8 人闲聊 / 配对链，不是 traversal 主探针；
+  - 它当前仍报：
+    - `101<103: pair dialogue timeout`
+    - `201<202: pair dialogue timeout`
+  - 这说明当前 `Primary` 里还留着 NPC 聊天链问题，但这不是本轮 traversal contract 的第一 blocker。
+- 当前判断：
+  - 玩家那套桥 / 水 / 边缘 contract，NPC 现在至少已经有一条 `natural-roam-bridge` fresh 过线证据；
+  - 当前没看到新的导航报错，也确认至少有 NPC 在真实 roam / moving；
+  - 但这轮仍不能直接 claim “所有 NPC 正式场景导航已彻底无问题”，因为这里只拿到了快速 probe，不是长时全量 roam soak。
+- thread-state：
+  - `Begin-Slice`：尝试补跑时发现线程仍为 `ACTIVE`，沿用当前 live 施工态
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：待本轮收尾后补跑
+  - 当前状态：`ACTIVE -> 待停车`
+- 当前恢复点：
+  - 这轮 quick pass 已拿到；
+  - 下一步若继续 NPC 导航，应转向更长时的 `Primary` roam soak / 墙边卡住复现，而不是再回头重修玩家 contract。
+
+## 2026-04-05｜修 probe 假红与起跑脆弱：Primary-only + natural 模式去掉 NPC003 硬依赖 + 直接建路
+
+- 当前主线目标：
+  - 把 `CodexNpcTraversalAcceptanceProbeMenu` 自己的假红清掉，确保后续 NPC bridge 测试只留下有效样本。
+- 本轮完成：
+  1. 只改了 `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs`。
+  2. 修了 3 件事：
+     - probe 现在先校验当前 active scene，非 `Primary` 时只给 warning，不再把 `Town` 误跑样本打成红错；
+     - `natural-roam-bridge` 模式不再硬依赖 `NPC 003`，只要求 `NavGrid/Water/NPC 002`；
+     - `natural-roam-bridge` 起跑不再走 `StartRoam() -> ShortPause` 那条易卡链，改成直接 dispatch 到桥目标，避免 `pathCount=0 state=ShortPause` 这种 probe 自己制造的假失败。
+  3. `git diff --check -- Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 通过。
+  4. CLI fresh console：
+     - `python scripts/sunset_mcp.py errors --count 20`
+     - 结果：`errors=0 warnings=0`
+- 当前判断：
+  - 这刀解决的是 probe 自己的问题，不是去改玩家认可的 NPC 业务行为；
+  - 现在已经适合重新开始做 `Primary` 的有效 bridge retest。
+
+## 2026-04-05｜修掉“NPC 建路后不移动”：首跳 no-progress 误杀 + 边界约束原地钉死
+
+- 当前主线目标：
+  - 修 `Primary` 里 NPC traversal 的真坏相：
+    - `pathCount=12`
+    - `state=Moving`
+    - `sawBridgeSupport=True`
+    - 但 `progress=0.000 / rbVel=0 / motionVel=0`
+  - 不碰玩家版本，不改场景业务逻辑，只修 NPC traversal bug。
+- 本轮先做的保护动作：
+  1. 把当前两份相关文件先固化成回退点：
+     - commit `767d389b`
+     - message=`checkpoint npc traversal probe diagnostics`
+  2. 然后才继续下修复刀。
+- 本轮代码修复：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - `MoveCommandNoProgress` 现在有 `0.06s` 的首跳 grace，不再把动态刚体刚发出的第一跳误判成“没进度”。
+     - `ConstrainNextPositionToNavigationBounds(...)` 在轴向约束失败时会尝试近邻 walkable fallback；只要 fallback 很近、且仍满足占位语义，就不再直接钉回 `currentPosition`。
+     - 补了调试属性：
+       - `DebugLastMoveSkipReason`
+       - `DebugPendingMoveCommandAge`
+  2. `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs`
+     - runtime 诊断追加：
+       - `skipReason`
+       - `pendingAge`
+  3. 修复提交：
+     - commit `aeaea9a0`
+     - message=`fix npc traversal bridge movement stall`
+- 代码层 / 红错闸门：
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 通过
+  - `python scripts/sunset_mcp.py errors --count 20 --output-limit 10` => `errors=0 warnings=0`
+  - `manage_script validate --name NPCAutoRoamController --path Assets/YYY_Scripts/Controller/NPC --level standard`
+    - `errors=0 warnings=1`
+    - warning 为旧的 `Update() string concatenation`，非 blocker
+  - `manage_script validate --name CodexNpcTraversalAcceptanceProbeMenu --path Assets/Editor/NPC --level standard` => clean
+  - `validate_script / compile` 仍可能被 CLI `subprocess_timeout:dotnet` 卡住；这轮靠 fresh console + fresh live 补了运行态闭环。
+- fresh live 取证：
+  1. 先做：
+     - `STOP`
+     - `Assets/Refresh`
+     - `PLAY`
+  2. `Editor.log` 出现：
+     - `*** Tundra build success (2.93 seconds), 9 items updated, 862 evaluated`
+  3. 然后跑：
+     - `Tools/Codex/NPC/Run Natural Roam Bridge Probe`
+     - 结果：`PASS natural-roam-bridge`
+     - `npc=002`
+     - `final=(-9.24, 1.72)`
+     - `sawBridgeSupport=True`
+     - `inWater=False`
+  4. 再跑：
+     - `Tools/Codex/NPC/Run Traversal Acceptance Probe`
+     - 结果：
+       - `bridge_probe_pass`
+       - `edge_probe_pass`
+       - 最终 `PASS bridge+water+edge`
+  5. 收尾：
+     - Unity 已退回 `Edit Mode`
+     - `status.json`=`isPlaying=false / isCompiling=false`
+- 当前判断：
+  - 本轮 active blocker 已经不是 “NPC 建了路但实体不动”；
+  - `Primary` 的 NPC bridge / water / edge traversal contract 当前已有 fresh pass；
+  - 如果后续还要继续 NPC 线，应该转去抓长时 roam、墙边卡住、聊天链这些别的 runtime 问题，而不是再回头怀疑桥接线没吃进去。
+- thread-state：
+  - 本轮沿用已存在的 `ACTIVE`：`修NPC建路后不移动`
+  - 收尾已 `Park-Slice`
+  - 当前状态：`PARKED`

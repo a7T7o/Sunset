@@ -4322,6 +4322,19 @@
   - 用户现在可继续复测树/石批量窗口；
   - 若仍出现非 `Tool_004/005` 栈内错误，再按新栈单独收窄。
 
+## 2026-04-05（屎山修复父层补记：树石批量工具按钮交互层已从 Toggle 改成显式 Button）
+
+- 当前新增事实：
+  1. 用户反馈 `005批量-Stone状态` 工具按钮点了不更新、界面像卡住；
+  2. 当前最可疑实现点不是 `StoneController` 底层，而是批量工具 UI 仍在用 `GUILayout.Toggle(..., "Button")` 做伪按钮组；
+  3. 当前已把 `Tool_004/005` 两个批量工具都改成显式 `GUILayout.Button` 选中逻辑，并在点击/读值/应用后强制刷新窗口。
+- 当前阶段判断：
+  - 树石批量工具现在已从“伪按钮组交互不稳定”切回更明确的按钮交互态；
+  - 是否完全恢复，要以用户再次实机点击为准。
+- 当前恢复点：
+  - 用户现在直接回 Unity 再测按钮交互；
+  - 若仍异常，下一刀就继续往应用链和编辑器事件链压缩，不再停留在样式层。
+
 ## 2026-04-03（屎山修复父层补记：NPC 已开始并行吃桥/水/边缘 contract）
 
 - 当前新增事实：
@@ -4745,6 +4758,71 @@
 - 当前恢复点：
   - 后续若再出现 Town 相机问题，应按新回归重新立案，不再把这条旧线挂作未闭环。
 
+## 2026-04-05（屎山修复父层补记：Town 镜头边界仍比 Primary 更松，结构主因已定位到 `CameraDeadZoneSync` 的 bounds 选源实现）
+
+- 当前新增事实：
+  1. 用户最新重新点名的不是 `Town` 跟随，而是：
+     - `Town` 里镜头仍会照到不该照到的区域
+     - 需要把 `Town` 的摄像头边界做到和 `Primary` 一致
+  2. 静态对比 `Primary.unity / Town.unity` 后，`CameraDeadZoneSync` 序列化字段在两边基本一致：
+     - `autoDetectBounds=1`
+     - `worldLayerNames = LAYER 1/2/3`
+     - `explicitBoundsTilemaps=[]`
+     - `explicitBoundsColliders=[]`
+     - 所以不是“Primary / Town 挂了两套完全不同参数”
+  3. 真正的结构主因在 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：
+     - `SelectAutoBoundsTilemaps()` / `ShouldIncludeTilemapInAutoBounds()` 当前会把 world layers 下所有 tilemap 都纳入 bounds；
+     - 代码没有真正利用 `preferredExactTilemapNames / preferredAutoBoundsKeywords` 去收敛到 `Base`；
+     - 也没有对 tilemap 路径应用 `water / props / farmland / old` 排除；
+     - 因而当前 auto bounds 本质上是“全部 tilemap 并集”，不是“Base 并集”。
+  4. `Town.unity` 恰好比 `Primary.unity` 更容易把这个 bug 放大：
+     - `Town` 在 world layers 下存在更多 `Water / Props / Grass / Farmland_*` tilemap；
+     - 这些都可能被并进 `_worldBounds`，让 confiner 边界比真正可见 Base 更松。
+  5. 进一步的放大器在同一脚本里也已查明：
+     - `UpdateBoundingCollider()` 最终把 `_worldBounds` 压成 4 点矩形；
+     - 不是按真实 Base 轮廓做 shape；
+     - 所以 `Town` 一旦边缘更不规则，就比 `Primary` 更容易出现漏边。
+  6. 另一个次级差异也已确认：
+     - `Primary` 的 `Main Camera orthographic size = 10.5`
+     - `Town` 的 `Main Camera orthographic size = 5`
+     - 但 `Town` 的 `CinemachineCamera Lens.OrthographicSize` 仍是 `10.5`
+     - `ApplyWideScreenViewportClamp()` 读的是 `mainCamera.orthographicSize`
+     - 这会让 `Town` 的宽屏保护比 `Primary` 更依赖运行时时序。
+- 当前阶段判断：
+  - 这轮已经形成可行动的结构级结论；
+  - 但还没有 live 读到 `Town` runtime 的最终 `_worldBounds` 数值，因此当前不能把它说成体验已过线。
+- 当前恢复点：
+  - 若后续 reopen，这条线最值得先做的是：
+    1. 让 auto bounds 真正只取 `Base`
+    2. 再决定是否要从矩形 confiner 升级成更贴合 Base 轮廓的 shape
+
+## 2026-04-05（屎山修复父层补记：用户已纠正前提，Town 左侧漏边当前更像 runtime bounds 未稳定刷新，而不是“必须改成 Base 选源”）
+
+- 当前新增事实：
+  1. 用户明确纠正了分析前提：
+     - 这里不是要求“只取 Base”
+     - 而是允许继续按 `world tilemap` 并集作为相机边界源
+  2. 在这个新前提下重新对比后，静态上最硬的异常变成：
+     - `Primary` 与 `Town` 的 `_CameraBounds` 多边形点位完全相同
+     - 都是 `(-41,-17) / (-41,49) / (13,49) / (13,-17)`
+     - 说明 `Town` scene 资产里没有一个明显已经落成的“Town 自己的边界”
+  3. 同时 `Town` 相机链仍明显比 `Primary` 更脆弱：
+     - `Town Main Camera orthographic size = 5`
+     - `Town CinemachineCamera Lens.OrthographicSize = 10.5`
+     - `Primary` 这两者对齐为 `10.5`
+     - `Town` 的 `TrackingTarget` 静态为空，而 `Primary` 静态上已绑玩家
+     - `Town Main Camera` 还是 `SolidColor` 清屏，所以只要边界漏一点，蓝边会更明显
+  4. `CameraDeadZoneSync.UpdateBoundingCollider()` 运行时仍然会把最终 `_worldBounds` 压成矩形；
+     - 因此当前更像的实因不再是“选源必须换 Base”
+     - 而是 `Town` runtime 没有稳定把自己的 world-tilemap 并集刷新进 `_worldBounds`
+     - 或刷新时机被 Town 这条更脆弱的相机链干扰
+- 当前阶段判断：
+  - 上一条“必须收敛到 Base”的判断对用户当前要求来说不够准，现已在父层修正；
+  - 现在更可信的结构结论是：
+    - `Town` 左侧漏边 = runtime bounds 没稳定落成 Town 自己的结果
+- 当前恢复点：
+  - 如果后续继续查，最值钱的证据将是 Town runtime 下 `_worldBounds` 与 `_CameraBounds` 实际数值，而不是继续只做静态猜测
+
 ## 2026-04-05｜导航检查V2：NPC 自然漫游 stuck recovery 静态补口已完成，运行验证被外部 compile red 阻断
 
 - 子线：
@@ -4761,3 +4839,107 @@
   - 停车原因是 external compile blocker，不是导航 own 红错未清。
 - 恢复点：
   - 外部 red 清掉后，直接回到 NPC 自然漫游 live 复测，不需要回头重做这轮静态补口。
+
+## 2026-04-05（屎山修复父层补记：树石批量工具按钮选中色已改成显式着色）
+
+- 当前新增事实：
+  1. 用户确认按钮功能已恢复，但指出选中颜色没有显示，属于视觉层问题；
+  2. 当前已把树/石批量工具的选中按钮改成显式 `GUI.backgroundColor` + `GUI.contentColor` 着色，不再依赖 Unity 皮肤 active 背景。
+- 当前阶段判断：
+  - 树石批量工具当前已从“功能对但选中态看不见”推进到“功能 + 选中视觉都补上”的状态；
+  - 终验仍以用户现场观感为准。
+- 当前恢复点：
+  - 用户现在直接回 Unity 继续看按钮选中色；
+  - 若还不满意，只继续调颜色/对比度，不扩到别的逻辑。
+
+## 2026-04-05｜导航检查V2：NPC 当前未提交 diff 的只读审计已压实为“一条真风险 + 一条 diff hygiene”
+
+- 子线：
+  - 导航检查V2
+- 当前目标：
+  - 只读判断当前 NPC 导航未提交 diff 里，是否还留有会导致撞墙卡住 / 原地乱翻向 / 误把指令速度当真实速度的静态漏洞。
+- 本轮子线结论：
+  1. 高置信真风险只剩 1 条：
+     - `NPCAutoRoamController.cs` 新加的 move-command oscillation 检测没有在“已经发生真实前进”时清零计数，可能把仍在缓慢前进的 `A/B/A` 校正误打成 blocked recover。
+  2. `NPCMotionController.cs` 当前没有新的高置信 active 运行漏洞；
+     - 但 `ReportedVelocity` 与 `CurrentVelocity/IsMoving` 语义已分裂，属于 latent API footgun。
+  3. 当前 NPC 导航未提交 diff 里混入了非导航内容：
+     - ambient chat / story bubble suppression。
+- 当前状态：
+  - 只读结论已形成；
+  - 尚未进入新施工切片。
+- 恢复点：
+  - 若后续继续，先修 oscillation reset，再拆非导航 diff，之后才值得重新进 runtime 验证。
+
+## 2026-04-05｜导航检查V2：NPC 疯转修复已形成双 checkpoint，当前停在 Town live 外部噪声 blocker
+
+- 子线：
+  - `导航检查V2`
+- 当前目标：
+  - 修 `NPC` 正式场景里的撞墙 / 原地乱翻向；
+  - 不改玩家已认可版本，只收 NPC 底座 bug。
+- 本轮子线新增事实：
+  1. 已先为目标代码落本地回退点：
+     - `c29a80a2` `npc-spin-debug-checkpoint`
+  2. 后续真正的导航修复提交为：
+     - `592705f8` `npc-spin-hardstop-fix`
+  3. 这轮补的是 3 个纯 bug：
+     - `NPCMotionController` 不再把长期没有真实位移的刚体意图速度当成移动事实；
+     - `NPCAutoRoamController.NoteSuccessfulAdvance(...)` 会清掉 oscillation 计数；
+     - `ShouldResetSharedAvoidanceStuckProgress(...)` 不再把 `HardBlocked` 误当 progress。
+  4. 脚本级静态验证通过，`Editor.log` 也已有 fresh `Tundra build success`。
+  5. 但 `Town` live 仍被外部噪声截断：
+     - missing behaviour
+     - `OcclusionManager` timeout
+     - 因而还没拿到能站住的“正式场景 NPC 疯转已消失”新样本。
+  6. 另外同文件仍有 foreign/非本刀改动残留在 `NPCAutoRoamController.cs`：
+     - `ambient bubble helper / StoryPhase`
+- 当前状态：
+  - `PARKED`
+- 恢复点：
+  - 外部现场清稳后，直接回 `Town` live 做 targeted capture；
+  - 不需要再回头重做这轮静态补口。
+
+## 2026-04-05｜导航检查V2：Primary live 快测已拿到 NPC bridge pass，当前主风险转成长时 roam soak
+
+- 子线：
+  - `导航检查V2`
+- 当前目标：
+  - 在不改玩家版本的前提下，确认 NPC 是否已经接上桥 / 水 / 边缘 traversal contract。
+- 本轮新增事实：
+  1. `Primary` live quick probe 已跑：
+     - `Tools/Codex/NPC/Run Natural Roam Bridge Probe`
+  2. fresh console 结论：
+     - `[CodexNpcTraversalAcceptance] PASS natural-roam-bridge`
+     - `npc=002`
+     - `sawBridgeSupport=True`
+     - `inWater=False`
+     - `state=Moving`
+  3. 现场抽样的 3 个主 NPC：
+     - `001`：`IsRoaming=True`
+     - `002`：bridge probe 到点后稳定停住
+     - `003`：`IsRoaming=True` 且 `IsMoving=True`
+  4. 本轮没有新的 NPC 导航 error / warning，也没再看到 `bridge_probe_fail timeout`。
+  5. 但 `SpringDay1NpcRuntimeProbe` 仍暴露聊天链 pair timeout；这属于 NPC 其它 runtime 问题，不是 traversal contract 本身。
+- 当前状态：
+  - `Primary` 的 NPC traversal contract 已有 fresh pass 证据；
+  - 现阶段最该补的是更长时 roam soak / 墙边卡住复现，而不是再回头怀疑桥接线没吃进去。
+
+## 2026-04-05｜导航检查V2：NPC 建路不动已修通，bridge/water/edge 当前 fresh 过线
+
+- 子线：
+  - `导航检查V2`
+- 本轮新增事实：
+  1. `NPCAutoRoamController` 已补两刀 bugfix：
+     - 动态刚体首跳不再被 `MoveCommandNoProgress` 提前误杀；
+     - 边界约束失败时，会尝试近邻 walkable fallback，而不是直接钉回原地。
+  2. `CodexNpcTraversalAcceptanceProbeMenu` 补了更细的 runtime 诊断口径，便于后续真失败时定位。
+  3. 先经过 `STOP -> Assets/Refresh -> PLAY`，`Editor.log` 出现 `Tundra build success` 后再跑 probe。
+  4. fresh live：
+     - `PASS natural-roam-bridge`
+     - `PASS bridge+water+edge`
+  5. 收尾时 Unity 已回 `Edit Mode`，fresh console `errors=0 warnings=0`。
+- 当前判断：
+  - NPC 当前已经吃到玩家已认可的 bridge / water / edge traversal contract；
+  - 本轮主 bug `pathCount>0 但实体不动` 已从 active blocker 变成已修复；
+  - 后续若继续 NPC 线，重点应转向长时 roam / 墙边卡住 / 聊天链，而不是再回头修这条 bridge 起跑链。
