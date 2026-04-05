@@ -823,3 +823,25 @@
   - `Unity 场景产出体验仍未验证`
 - 当前恢复点：
   - 下一步直接对白名单路径执行 `sync`，不再继续扩业务能力。
+
+### 2026-04-05（父工作区补记：scene-build Tilemap 工具线已完成非 live 收尾）
+- 当前这条 `scene-build` Tilemap 工具线的提交收口已经真正完成：
+  - commit：`1cac18804eb8a29e9be870456aba71ac52b6c6d3`
+  - branch：`codex/scene-build-500-001`
+  - upstream：`origin/codex/scene-build-500-001`
+- 我又补做了一轮“除了 live 之外的最终收尾”：
+  1. 重新核相关 own roots 是否还有未提交残留
+     - 结果：无
+  2. 直接用 `CodexCodeGuard.dll` 对两份 Tilemap Editor 脚本再跑一遍显式守门
+     - 结果：`Diagnostics=[]`、`CanContinue=true`
+  3. 用 `git diff-tree --check` 回审上一笔 commit
+     - 发现 `scene-build_场景理解与精修施工方案快照_2026-03-22.md` 有 1 处 trailing whitespace
+     - 本轮已修正，避免留下“已提交但文本质量没收干净”的尾巴
+- 因此父工作区当前最新稳定判断更新为：
+  - 这条工具线除了用户在 Unity 里真实点验之外，代码侧、提交侧、审计侧已经收干净
+  - 不需要再继续往前扩功能来假装“更彻底”
+- 当前恢复点：
+  - 后续如果继续，不再是“继续实现”
+  - 而是：
+    - 用户验收
+    - 或根据真实验收反馈做下一轮窄修

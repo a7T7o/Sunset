@@ -1693,3 +1693,37 @@
   - 两个 Tilemap 工具脚本及其 `.meta`
   - `scripts/CodexCodeGuard` 最小源码
   - 本轮相关记忆文件
+
+### 2026-04-05（最终收尾：commit / push 已完成，非 live 尾项只剩用户验收）
+**本轮已完成**：
+1. 白名单 `sync` 已真正跑通并创建提交：
+   - commit：`1cac18804eb8a29e9be870456aba71ac52b6c6d3`
+   - message：`2026.04.05_scene-build-5.0.0-001_01`
+2. 分支 upstream 重新绑定成功并已推送：
+   - branch：`codex/scene-build-500-001`
+   - upstream：`origin/codex/scene-build-500-001`
+3. 对当前工具相关路径重新核查：
+   - `Assets/Editor`
+   - `scripts/CodexCodeGuard`
+   - `.kiro/specs/900_开篇/5.0.0场景搭建`
+   - `.codex/threads/Sunset/scene-build-5.0.0-001`
+   当前都已无未提交残留
+4. 又补做了一轮非 live 质量收尾：
+   - 发现上一笔带入的场景快照文件存在 1 处 trailing whitespace
+   - 已修正，避免这条线停在“提交了但质量没收干净”
+
+**额外验证**：
+- `git diff-tree --check --no-commit-id -r 1cac18804eb8a29e9be870456aba71ac52b6c6d3`
+  - 结果：发现并定位了快照文件的 trailing whitespace，本轮已修
+- `dotnet scripts/CodexCodeGuard/bin/Release/net9.0/CodexCodeGuard.dll --repo-root ... --path TilemapToColliderObjects.cs --path TilemapSelectionToColliderWorkflow.cs`
+  - 结果：`Diagnostics=[]`、`CanContinue=true`
+
+**当前稳定判断**：
+- 除了 `live / 实地测试` 之外，这条工具线现在该做的代码层、提交层、记忆层、审计层收口都已经做完。
+- 剩下不该由我继续假装完成的，只剩：
+  - 你在 Unity 里的真实使用验收
+
+**恢复点 / 下一步**：
+- 下一步不再继续写代码。
+- 直接转入用户验收：
+  - 在非 `Primary` 风险场景中，按对话里的验收指南和使用说明去点一次真实 Tilemap。

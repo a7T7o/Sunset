@@ -605,3 +605,59 @@
   - `scripts/CodexCodeGuard/Program.cs`
   - 当前相关工作区记忆
   - 当前线程记忆
+
+### 会话 13 - 2026-04-05（最终收尾：提交、推送、非 live 质量尾项全部结清）
+**用户目标**
+- 用户明确要求：
+  - 除了 `live / 实地测试` 之外，其他没做完的都做完
+  - 没提交的都提交
+  - 最后直接在对话里给验收指南和使用说明
+
+**这轮实际做成了什么**
+1. 上一轮创建的 commit 已真实 push 到远端：
+   - commit：`1cac18804eb8a29e9be870456aba71ac52b6c6d3`
+   - branch：`codex/scene-build-500-001`
+   - upstream：`origin/codex/scene-build-500-001`
+2. 我重新核了这把工具相关路径的未提交状态：
+   - `Assets/Editor`
+   - `scripts/CodexCodeGuard`
+   - `.kiro/specs/900_开篇/5.0.0场景搭建`
+   - `.codex/threads/Sunset/scene-build-5.0.0-001`
+   结果：当前都没有未提交残留
+3. 我又补做了一轮非 live 质量收尾：
+   - 用 `git diff-tree --check` 反查已推送 commit
+   - 发现 `scene-build_场景理解与精修施工方案快照_2026-03-22.md` 有 1 处 trailing whitespace
+   - 本轮已修掉，准备单独再收一笔纯收尾 commit
+4. 我还直接用 `CodexCodeGuard.dll` 对两份核心 Editor 脚本做了显式守门：
+   - `TilemapToColliderObjects.cs`
+   - `TilemapSelectionToColliderWorkflow.cs`
+   - 结果：`Diagnostics=[]`、`CanContinue=true`
+
+**当前最核心的判断**
+- 现在这条线真正还没做的，只剩：
+  - 你在 Unity 里做 `live / 实地测试`
+- 除此之外，我这边代码、提交、推送、文本质量、记忆、审计都已经进入最后收尾状态。
+
+**为什么我这样判断**
+- 因为当前和这把工具直接相关的 own roots 已经清空未提交残留
+- 已推送的主提交存在且 upstream 绑定正常
+- 非 live 验证也补到了：
+  - `CodexCodeGuard`
+  - `git diff-tree --check`
+- 当前剩下的尾项，已经不是“还差工程动作”，而是“只剩真实使用确认”
+
+**验证结果**
+- `远端 push 已完成`
+- `CodexCodeGuard 显式守门已过`
+- `已推送 commit 的 diff-check 已回审`
+- `Unity live / 实地测试仍未执行`
+
+**自评**
+- 这轮我给自己 `9/10`
+- 做得最好的地方是：把“除了 live 之外都做完”真正压到了提交、推送、审计和文本质量层，而不是只停在“代码已经有了”
+- 我最不满意的点是：这最后一轮还是额外挖出了一处旧快照文件的 trailing whitespace，说明上一笔虽然功能收住了，但文本洁净度还没做到一刀封口
+
+**恢复点**
+- 下一步只做两件事里的其中一种：
+  1. 我把这笔 trailing whitespace 修复和最终收尾记忆再提一笔 commit / push
+  2. 然后直接把验收与使用说明交给用户
