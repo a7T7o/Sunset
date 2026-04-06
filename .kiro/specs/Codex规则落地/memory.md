@@ -13504,6 +13504,94 @@
   - 后续若再次看到 websocket 同类假红，优先先查是不是有人又把 autostart 改回“自动 `Bridge.StartAsync`”
   - 现阶段不需要因为这次噪音再重启一轮 Ivan 平台迁移讨论
 
+## 2026-04-06｜补记：`Home.unity` 已补最小住处 scene-side 语义层，`HomeBed` 正式落地
+
+- 当前主线目标：
+  - 把 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) 从“只有中文 Tilemap 的室内壳”推进到“day1 可消费的玩家住处 scene-side 语义层”，但不偷拿用户摆位权。
+- 本轮子任务：
+  1. 先审当前 `Home` 屋内现场；
+  2. 确认缺口是不是 `HomeBed/HomeDoor` 这类语义点；
+  3. 只补最小场景合同层，不碰 `day1/NPC/UI` 主逻辑。
+- 本轮实际做成：
+  1. 已确认当前 `Home` 磁盘版有：
+     - `床 / 枕头 / 椅子 / 家具 / 地板 / Main Camera / PersistentManagers`
+     - 但没有 `HomeBed / HomeDoor / HomeEntryAnchor`
+  2. 已直接修改 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity)：
+     - 在 `Home` 根下新增 `Home_Contracts`
+     - 在其下新增 `HomeDoor`
+     - 在 `HomeDoor` 下新增 `HomeEntryAnchor`
+     - 在现有床根下新增 `HomeBed`
+  3. 已给 `HomeBed` 补上最小 `BoxCollider2D(isTrigger=true)`，让后续 `SpringDay1Director` 能把它吃成住处/睡觉承载点
+  4. 已新增回执：
+     - `2026-04-06_给spring-day1_Home屋内scene-side适配与语义锚点回执_18.md`
+- 当前关键判断：
+  - `Home` 当前最值钱的不是重做屋子，而是先把“逻辑看得懂的住处语义点”补进场景；
+  - 这轮之后，`HomeBed` 已不再缺失，`HomeDoor/HomeEntryAnchor` 也已经有了 scene-side 合同位，但门口最终摆位仍归用户。
+- 当前验证状态：
+  - `git diff --check -- Assets/000_Scenes/Home.unity` = clean
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 10 --output-limit 5` = `0 error / 0 warning`
+- 当前恢复点：
+  - 若继续 `Home`，下一刀应围绕真实门位和 player-facing contract，而不是再补床语义；
+  - 这轮已经足够把 `Home` 交成“屋内住处语义层已落地”的阶段性成果。
+
+## 2026-04-07｜补记：`Home` live 验证口径收紧为 partial-pass，原因是 active scene 被外线抢回且二次补验撞上 PlayMode
+
+- 当前主线目标：
+  - 在 `Home` scene-side 语义层已经落盘后，把验证口径说实，不把部分 live 证据冒充成完整闭环。
+- 本轮新增事实：
+  1. 通过 direct MCP，`Home` 曾成功被加载为 active scene 一次：
+     - `active_scene = Home`
+     - `isDirty = false`
+     - `rootCount = 3`
+     - 说明当前 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) 至少没有坏到 Unity 打不开。
+  2. 但同轮稍后 active scene 又被外部 live 线程切回：
+     - `Primary`
+     - 再随后是 `Town`
+  3. 再次窄口补验 `load Home` 时，Unity 已处于 `PlayMode`，返回：
+     - `This cannot be used during play mode`
+- 当前关键判断：
+  - `Home` 这轮可以诚实站住：
+     - `scene-side 语义层已落地`
+     - `Home 文件可被 Unity 打开`
+  - 但不能站住：
+     - `完整 live 验收已过`
+- 当前验证口径应改成：
+  - 文本层 / own scope：clean
+  - direct MCP：partial-pass
+  - 整体：`unity_validation_pending`
+- 当前恢复点：
+  - 若后续还要补 `Home` 的最终 scene-side live 验收，必须等 active scene 稳定且不在 PlayMode，再重跑窄口补验；
+  - 这不是 `Home` own red，而是当前共享 Unity live 现场的外部抢占问题。
+
+## 2026-04-07｜补记：`Home` 这刀尝试白名单提交，但被 own-root 历史尾账阻断
+
+- 当前主线目标：
+  - 在 `Home` scene-side 适配已完成后，把本轮 own 成果直接做成白名单提交，而不是继续留尾账。
+- 本轮实际发生：
+  1. 已重新开极小 sync slice：
+     - `home-scene-adaptation-sync-2026-04-07`
+  2. 已把本轮白名单收缩到 4 个文件：
+     - [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity)
+     - `2026-04-06_给spring-day1_Home屋内scene-side适配与语义锚点回执_18.md`
+     - `Codex规则落地/memory.md`
+     - `.codex/threads/Sunset/Codex规则落地/memory_6.md`
+  3. `Ready-To-Sync` 仍被阻断：
+     - 不是因为这 4 个文件自身有新错误；
+     - 而是因为当前 own roots 里还压着更早的历史残留：
+       - `Assets/000_Scenes/Primary.unity`
+       - `Assets/000_Scenes/Town.unity`
+       - `Assets/000_Scenes/SampleScene.unity` 删除残留
+       - `Codex规则落地` 工作区里更早未收口的其他文档/回执
+- 当前关键判断：
+  - `Home` 这刀本身已经到了“可提交内容已收缩清楚”的程度；
+  - 但在 Sunset 当前规则下，它不能绕过同根历史尾账单独 sync。
+- 当前恢复点：
+  - 若后续要真正提交这刀，需要先单开 cleanup 把：
+    - `Assets/000_Scenes`
+    - `Codex规则落地`
+    这两个 own root 的旧残留一起收掉；
+  - 当前我已把线程合法停回 `PARKED`，不会把“sync 被规则拦下”伪装成这刀未完成。
+
 ## 2026-04-06｜补记：`Primary` 的 1 FPS 现场已完成一轮 live 定责，当前第一嫌疑仍是 `OcclusionManager + OcclusionTransparency`
 
 - 当前主线目标：
@@ -13586,3 +13674,202 @@
   - 最新 `errors` = `0 error / 0 warning`
 - 当前恢复点：
   - 这轮更深 player-facing 推进已完成；如果下一轮继续 Town own，更值钱的不是再回 entry contract，而是接更深 runtime live 承接面。
+
+## 2026-04-06｜补记：Town 更深 anchor-slot 静态承接矩阵已压清，但 live 二次 probe 被 `spring-day1` external red 挡住
+
+- 当前主线目标：
+  - 在 `Town player-facing` 首层已站住之后，继续把 `DinnerBackground / NightWitness / DailyStand` 这批更深 anchor 的 scene-side/runtime-ready 层压清。
+- 本轮子任务：
+  1. 只接 `Town` 自己的更深 anchor/slot readiness，不回吞 `spring-day1` active 代码；
+  2. 新增更深 probe，准备把这层也跑成 JSON；
+  3. 如果 live 仍被外部红挡住，就至少先把静态矩阵和真实 blocker 写给 `day1`。
+- 本轮实际做成：
+  1. 已新增：
+     - `Assets/Editor/Town/TownSceneRuntimeAnchorReadinessMenu.cs`
+     - 目标菜单：`Tools/Sunset/Scene/Run Town Runtime Anchor Readiness Probe`
+  2. 已确认代码层：
+     - `manage_script validate Assets/Editor/Town/TownSceneRuntimeAnchorReadinessMenu.cs` = `clean`
+     - `validate_script` 没有 owned/external code red，但本次落在 `unity_validation_pending`
+  3. 已做静态核实并补新回执：
+     - `2026-04-06_给spring-day1_Town更深anchor-slot静态承接矩阵与live阻断说明_16.md`
+  4. 已确认的更深静态事实：
+     - `DinnerBackgroundRoot` 对齐：
+       - `ResidentSlot_DinnerBackgroundRoot`
+       - `DirectorReady_DinnerBackgroundRoot`
+     - `NightWitness_01` 对齐：
+       - `BackstageSlot_NightWitness_01`
+     - `DailyStand_01~03` 对齐：
+       - `ResidentSlot_DailyStand_01~03`
+     - 上述 slot 当前都与对应 carrier 同位
+     - manifest 消费者矩阵已能对上：
+       - `DinnerBackgroundRoot` = `101/104/201/202/203`
+       - `NightWitness_01` = `102/301`
+       - `DailyStand_01` = `101/104/203`
+       - `DailyStand_02` = `103/201`
+       - `DailyStand_03` = `102/202`
+- 当前关键判断：
+  - `Town` 更深 scene-side 承接矩阵静态上已经站住；当前不是“更深 anchor 没位”，而是“更深 probe 的 live 补跑被外部 fresh compile red 挡住”。
+- 当前 blocker：
+  - fresh `errors` 持续落在：
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs:169`
+  - 这属于 `spring-day1` 当前 external red，不是 `Town` own red。
+- 当前恢复点：
+  - 一旦 `SpringDay1WorkbenchCraftingOverlay.cs:169` 这两条 external red 清掉，下一刀就应立刻重跑：
+    - `Tools/Sunset/Scene/Run Town Runtime Anchor Readiness Probe`
+  - 然后把这层从“静态矩阵已站住”推进成“live 二次 probe 已站住”。
+
+## 2026-04-06｜补记：Town 当前更深验收阻断已从 Workbench 编译红切换为 `Primary` 编辑态 5 条 missing script
+
+- 当前主线目标：
+  - 对用户回答 `Town` 还剩多少没做完、什么时候能验收，同时重新确认当前真正卡住 `Town` 更深验收的 fresh blocker。
+- 本轮子任务：
+  1. 只读核查当前 `Town` own 进度与最近 live 证据；
+  2. 用 CLI first 重新读一遍 fresh console/status，不进入新的 Unity live 写；
+  3. 把新的 blocker 改判写回治理记忆，避免继续沿用旧的 `Workbench` 口径。
+- 本轮实际做成：
+  1. 已重新确认 `Town` 已提交站住的层级：
+     - resident scene-side 基线已提交
+     - `player-facing` 首层 probe 已真实跑通
+     - 更深 `DinnerBackground / NightWitness / DailyStand` 静态承接矩阵已压清，但第二份 live probe 仍未补跑
+  2. 已跑：
+     - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+     - `py -3 scripts/sunset_mcp.py status`
+  3. 已确认 fresh console 现状已变化：
+     - 不再是之前的 `SpringDay1WorkbenchCraftingOverlay.cs:169` 两条编译红
+     - 现在是 `Primary.unity` 编辑态下 `5` 条 `The referenced script (Unknown) on this Behaviour is missing!`
+  4. 已确认当前 Unity 现场：
+     - `active_scene = Assets/000_Scenes/Primary.unity`
+     - `is_playing = false`
+     - `is_compiling = false`
+- 当前关键判断：
+  - `Town` 自己已完成到“可继续内建推进，但还不能宣称总验收”的阶段。
+  - 当前挡住 `Town` 更深 live 验收的第一 blocker，已经从旧的 `spring-day1` UI 编译红，切换成了当前 `Primary` 编辑态里的 `missing script` 场景错误。
+- 当前恢复点：
+  - `Town` 下一步最值钱的不是再补入口或再写文档，而是等 scene-level red 清掉后，立刻补跑：
+    - `Tools/Sunset/Scene/Run Town Runtime Anchor Readiness Probe`
+  - 若该 probe 成功，`Town` 就会从“更深静态矩阵已站住”推进到“更深 live 承接也站住”，那时才接近可验收。
+
+## 2026-04-06｜补记：Town 原生 resident scene-side 第一刀已补到 8 个 HomeAnchor 配置位
+
+- 当前主线目标：
+  - 严格按 `29` 号 prompt，把 `Town` 从“resident slot 说明层”继续推进到“原生 resident scene-side 可施工面”，且把用户手摆 `HomeAnchor` 的位置权落到 scene 里。
+- 本轮子任务：
+  1. 只碰 `Town.unity` 与 `Assets/Editor/Town`；
+  2. 不碰 `day1 / NPC / UI` 主逻辑；
+  3. 在现有 resident slot/ready/backstage 承接位下面补真正的 `HomeAnchor` 配置节点；
+  4. 同时把现有 `TownSceneRuntimeAnchorReadinessMenu.cs` 扩成会检查 `HomeAnchor` 是否存在。
+- 本轮实际做成：
+  1. 已重新做 scene-side 审计，确认：
+     - `Town` 当前已有 `Town_Day1Residents` 三组与 8 个 slot/ready/backstage 位；
+     - 但此前这 8 个节点下面都还没有用户可手摆的 `HomeAnchor`。
+  2. 已在 `Town.unity` 下新增 8 个 `HomeAnchor` 节点：
+     - `Resident_DinnerBackgroundRoot_HomeAnchor`
+     - `Resident_DailyStand_01_HomeAnchor`
+     - `Resident_DailyStand_02_HomeAnchor`
+     - `Resident_DailyStand_03_HomeAnchor`
+     - `DirectorReady_EnterVillageCrowdRoot_HomeAnchor`
+     - `DirectorReady_KidLook_01_HomeAnchor`
+     - `DirectorReady_DinnerBackgroundRoot_HomeAnchor`
+     - `Backstage_NightWitness_01_HomeAnchor`
+  3. 这些 `HomeAnchor` 当前全部是：
+     - 直接挂在现有 slot/ready/backstage 位下面；
+     - `localPosition = (0,0,0)`；
+     - 不改原 slot 名，不改原 slot 位置。
+  4. 已修改：
+     - `Assets/Editor/Town/TownSceneRuntimeAnchorReadinessMenu.cs`
+     - 新增对 primary / secondary slot 下 `HomeAnchor` 存在性与 bounds 内状态的检查。
+  5. 已补新回执：
+     - `2026-04-06_给spring-day1_Town原生resident场景迁移第一刀与HomeAnchor配置位回执_17.md`
+- 当前关键判断：
+  - 这轮之后，`Town` 不再只有 resident 根层和 slot 语义壳，而是真正多了一层“用户可手摆位置”的 scene-side 配置位。
+  - 但当前还没有 native resident actor 本体入场，因此这仍是“原生迁移第一刀”，不是终态。
+- 当前验证状态：
+  - `Town.unity` 新节点已落磁盘；
+  - `Assets/Editor/Town/TownSceneRuntimeAnchorReadinessMenu.cs` 文本层 `git diff --check` clean；
+  - direct MCP 会话中途失联；
+  - CLI `validate_script / errors` 这轮都超时，导致 fresh Unity 侧 no-red 证据未闭环。
+- 当前恢复点：
+  - 后续最值钱的不是再解释 resident 方向，而是：
+    1. 等桥恢复后跑一轮新的 `Town Runtime Anchor Readiness Probe`；
+    2. 再决定是否继续推进 native resident actor 的 scene-side 原生存在性。
+
+## 2026-04-06｜补记：桥恢复后，Town 原生 resident 的 `HomeAnchor` 第一刀已拿到 fresh live 通过
+
+- 当前主线目标：
+  - 在 `Town.unity` 已补 8 个 `HomeAnchor` 配置位之后，补齐 fresh live 证据，确认这层 scene-side 不是静态自说自话。
+- 本轮子任务：
+  1. 重新进入真实施工并确认桥恢复；
+  2. 重跑 `Tools/Sunset/Scene/Run Town Runtime Anchor Readiness Probe`；
+  3. 同轮补最小 no-red 证据。
+- 本轮实际做成：
+  1. 已确认桥恢复：
+     - `py -3 scripts/sunset_mcp.py status`
+     - `active_scene = Assets/000_Scenes/Town.unity`
+     - fresh console = `0 error / 0 warning`
+  2. 已重跑菜单：
+     - `Tools/Sunset/Scene/Run Town Runtime Anchor Readiness Probe`
+  3. 已读取输出：
+     - `Library/CodexEditorCommands/town-runtime-anchor-readiness-probe.json`
+     - `status = completed`
+     - `success = true`
+     - `blockingFindings = 0`
+     - `attentionFindings = 0`
+  4. 已被 live 证据站住的关键事实：
+     - `EnterVillageCrowdRoot / KidLook_01 / DinnerBackgroundRoot / NightWitness_01 / DailyStand_01~03`
+       全部存在且在 `_CameraBounds` 内；
+     - 对应的 slot / ready / backstage 位全部存在且与 anchor 同位；
+     - 本轮新补的 8 个 `HomeAnchor` 全部存在且在 `_CameraBounds` 内；
+     - 当前 `slot -> HomeAnchor` 也是 `0` 偏移的 scene-side 基线。
+  5. 已补代码侧 no-red：
+     - `validate_script Assets/Editor/Town/TownSceneRuntimeAnchorReadinessMenu.cs` = `assessment=no_red`
+     - `errors --count 10 --output-limit 5` = `errors=0 warnings=0`
+- 当前关键判断：
+  - `Town` 的原生 resident scene-side 第一刀已经真正过线；
+  - 当前 `Town` 自己的第一 blocker，不再是 `HomeAnchor` 配置位缺失，而是“native resident actor 本体尚未原生入场”。
+- 当前恢复点：
+  - 如果下一轮继续 Town own，最值钱的就不再是补 `HomeAnchor`，而是判断：
+    1. 哪一批 native resident actor 适合先原生入 Town；
+    2. 以及这一步何时才不会越权撞进 `day1/NPC` 主逻辑。
+
+## 2026-04-07｜补记：`Home` 已继续推进到“住处更自持 + probe 已落”，当前只差 external red 放行 live 菜单
+
+- 当前主线目标：
+  - 不停在 `Home` 语义第一层，而是继续把它推进到“自己能站住、也能像 Town 一样有日志探针可验”的状态。
+- 本轮实际做成：
+  1. 已用 direct MCP 确认用户手摆后的 `Home_Contracts` live 位置确实存在：
+     - `position = (-18.03, -5.93, 0)`
+     - 当时 `Home.unity` 为 active 且 `isDirty = true`
+  2. 已直接保存 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity)，所以这组门位合同坐标现在已经落盘，不再只是 Editor 现场。
+  3. 已把 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) 继续补深：
+     - 给 `HomeBed` 直接补上 `SpringDay1BedInteractable`
+     - 让 `Home` 不再只依赖 `day1` 运行时临时补这张床的住处交互语义
+  4. 已新增：
+     - [HomeSceneRestContractMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Home/HomeSceneRestContractMenu.cs)
+     - 菜单：`Tools/Sunset/Scene/Run Home Rest Contract Probe`
+     - 输出目标：`Library/CodexEditorCommands/home-rest-contract-probe.json`
+  5. 这份 probe 当前会检查：
+     - `Main Camera / AudioListener`
+     - `PersistentManagers`
+     - `Home_Contracts / HomeDoor / HomeEntryAnchor / HomeBed`
+     - `HomeBed` 的 `Collider2D/isTrigger`
+     - `SpringDay1BedInteractable` 是否显式存在
+     - `HomeDoor` 是否已挂 scene exit 组件
+     - 关键节点是否在主相机初始视野里
+- 当前验证状态：
+  - `git diff --check -- Assets/Editor/Home/HomeSceneRestContractMenu.cs Assets/000_Scenes/Home.unity` = clean
+  - `manage_script validate --name HomeSceneRestContractMenu --path Assets/Editor/Home --level standard` = `clean`
+  - `validate_script Assets/Editor/Home/HomeSceneRestContractMenu.cs --count 20 --output-limit 5`
+    - `assessment = external_red`
+    - `owned_errors = 0`
+    - 当前 external red 落在：
+      - [PackageSaveSettingsPanel.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs):275
+  - direct MCP 执行菜单：
+    - `Tools/Sunset/Scene/Run Home Rest Contract Probe`
+    - 当前失败原因为“没有这个 menu”，与上面的 external compile red 一致，说明新菜单还没被 Unity 正常装载
+- 当前关键判断：
+  - `Home` 自己的 scene-side 与 probe 代码都已经落下；
+  - 当前第一 blocker 不再是 `Home` own，而是外部 compile red 卡住了 editor menu 装载链。
+- 当前恢复点：
+  - 等 [PackageSaveSettingsPanel.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs):275 清掉后，下一刀只需要重跑：
+    - `Tools/Sunset/Scene/Run Home Rest Contract Probe`
+  - 如果那轮通过，`Home` 就会从“scene-side 成立 + probe 已落”推进到“live probe 也通过”。
