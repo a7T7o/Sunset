@@ -13913,3 +13913,93 @@
     1. `PrefabDatabase` 是否需要显式配置
     2. 门位/入口位是否要调回屋内首屏视野
     3. `HomeDoor` 的正式 exit contract 是否该现在落
+
+## 2026-04-07｜补记：`Home` 已从“attention 但像失败”收成 `usable with attention`
+
+- 当前主线目标：
+  - 把 `Home` 从“live probe 已跑通，但结果仍像失败”继续收成一个真正可交接的屋内住处承接层。
+- 本轮实际做成：
+  1. 已把 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) 的 `PersistentManagers.prefabDatabase` 显式绑定到 [PrefabDatabase.asset](/D:/Unity/Unity_learning/Sunset/Assets/111_Data/Database/PrefabDatabase.asset)。
+  2. 已修改 [HomeSceneRestContractMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Home/HomeSceneRestContractMenu.cs) 的收口语义：
+     - `blocked` 仍然是失败
+     - `attention` 现在改为 `success = true`
+     - 代表“可用但仍有保留项”，不再和 blocker 混成一个口径
+  3. 已重跑：
+     - `Tools/Sunset/Scene/Run Home Rest Contract Probe`
+  4. 已拿到新结果：
+     - `status = attention`
+     - `success = true`
+     - `firstBlocker = ""`
+     - `prefabDatabaseAssigned = true`
+  5. 已确认 fresh CLI：
+     - `manage_script validate Assets/Editor/Home/HomeSceneRestContractMenu.cs` = `clean`
+     - `errors` = `0 error / 0 warning`
+     - `validate_script Assets/Editor/Home/HomeSceneRestContractMenu.cs` 本轮仍超时，因此 compile-first CLI assessment 仍记为 `blocked`
+- 当前关键判断：
+  - `Home` 现在已经不是“probe 虽然能跑，但结果像没过”；
+  - 更准确的状态是：
+    - `Home 住处 rest contract 已可用`
+    - `剩下只有 4 条设计/体验 attention`
+    - `当前不该为了假全绿去硬猜 HomeDoor 的最终出口`
+- 当前剩余 attention：
+  1. `Home_Contracts` 不在主相机初始视野里
+  2. `HomeDoor` 不在主相机初始视野里
+  3. `HomeEntryAnchor` 不在主相机初始视野里
+  4. `HomeDoor` 还没有显式的 scene exit 组件
+- 当前恢复点：
+  - `Home` 这条线已经可以按 `usable with attention` 交回；
+  - 若后续还继续 `Home`，最值钱的只剩两类设计选择：
+    1. 是否重做首屏 framing，让门位/入口位进镜头
+    2. 是否给 `HomeDoor` 落正式 exit contract，以及它到底回哪一个外部 scene contract
+  - 当前 Git 收口仍被 `Assets/000_Scenes` 混合根阻断：
+    - `Primary.unity / Town.unity / 矿洞口.unity / SampleScene` 的同根历史脏改仍在
+    - 因此这轮内容已做完，但还不能合法白名单 sync
+
+## 2026-04-07｜补记：`Home <-> Primary` 双向门合同已真实落地，但 `Home` 仍未到 Town 级 runtime scene
+
+- 当前主线目标：
+  - 不再停在 `Home` 屋内可用但无出口，而是把它推进到真正有 `Home -> Primary` 与 `Primary -> Home` 双向门合同。
+- 本轮实际做成：
+  1. 已新增 [HomePrimaryDoorContractMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Home/HomePrimaryDoorContractMenu.cs)
+     - `Tools/Sunset/Scene/Setup Home <-> Primary Door Contract`
+     - `Tools/Sunset/Scene/Run Home <-> Primary Door Contract Probe`
+  2. 已真实执行 setup 菜单：
+     - `HomeDoor` 现在显式挂上 `BoxCollider2D + SceneTransitionTrigger2D(target=Primary)`
+     - `Primary/2_World` 现在新增：
+       - `Primary_HomeContracts`
+       - `PrimaryHomeDoor`
+       - `PrimaryHomeEntryAnchor`
+     - `PrimaryHomeDoor` 已显式挂上 `BoxCollider2D + SceneTransitionTrigger2D(target=Home)`
+  3. 已真实执行 probe 菜单，并产出：
+     - [home-primary-door-contract-probe.json](/D:/Unity/Unity_learning/Sunset/Library/CodexEditorCommands/home-primary-door-contract-probe.json)
+  4. 已重新执行旧的 `Home Rest Contract Probe`，确认它现在也已经认到：
+     - `HomeDoor.hasExitComponent = true`
+     - `exitComponentType = SceneTransitionTrigger2D`
+     - `targetSceneName = Primary`
+- 最新 live 结果：
+  - `home-primary-door-contract-probe.json`
+    - `status = attention`
+    - `success = true`
+    - `firstBlocker = ""`
+  - 已明确站住：
+    - `HomeDoor -> Primary`
+    - `PrimaryHomeDoor -> Home`
+    - 两边都已有 trigger collider + `SceneTransitionTrigger2D`
+- 当前第一判断：
+  - `Home <-> Primary` 门合同已成立；
+  - 但 `Home` 仍不是 Town 等级的完整 runtime scene。
+- 当前更深 runtime attention（probe 已直接报实）：
+  - `homeHasPlayerMovement = false`
+  - `homeHasGameInputManager = false`
+  - `homeHasNavigationRoot = false`
+  - `homeHasCinemachineCamera = false`
+- 为什么这轮没有继续硬补：
+  - 继续往下已经不是“补门”，而是会进入 `Player + GameInputManager + UI/Inventory + Navigation + Camera` 整条 scene-local runtime 基础链；
+  - 这些对象在 `Primary` 内带大量 scene-local 引用，直接硬拷高概率会做出跨场景脏引用和假闭环。
+- 当前恢复点：
+  - 现在用户只需手动移动：
+    - `Home_Contracts/HomeDoor`
+    - `Home_Contracts/HomeDoor/HomeEntryAnchor`
+    - `2_World/Primary_HomeContracts/PrimaryHomeDoor`
+    - `2_World/Primary_HomeContracts/PrimaryHomeDoor/PrimaryHomeEntryAnchor`
+  - 若下一轮继续，最值钱方向不再是补门，而是单开 `Home runtime baseline seed`，专审 `Player / GameInputManager / UI依赖 / NavigationRoot / CinemachineCamera` 这条更深 scene-side 迁移。

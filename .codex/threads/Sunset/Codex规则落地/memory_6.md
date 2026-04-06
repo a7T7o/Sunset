@@ -2779,3 +2779,91 @@ Sunset 里大量改动都属于：
     - 门位首屏视野
     - `HomeDoor` exit contract
     这三件事里继续选，不再回头补基础语义或床位本体。
+
+## 2026-04-07｜补记：`Home` 已进一步收成 `usable with attention`
+
+- 用户目标：
+  - 不要停在“probe 能跑但像失败”，而是把 `Home` 继续收成一个真正可交接的屋内住处场景。
+- 本轮实际做成：
+  1. 已直接修改 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity)：
+     - 给 `PersistentManagers.prefabDatabase` 显式绑上 [PrefabDatabase.asset](/D:/Unity/Unity_learning/Sunset/Assets/111_Data/Database/PrefabDatabase.asset)
+  2. 已直接修改 [HomeSceneRestContractMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Home/HomeSceneRestContractMenu.cs)：
+     - `attention` 结果改为 `success=true`
+     - 用来表达“当前已可用，但保留设计 attention”
+  3. 已重跑菜单：
+     - `Tools/Sunset/Scene/Run Home Rest Contract Probe`
+  4. 新结果已站住：
+     - `status = attention`
+     - `success = true`
+     - `prefabDatabaseAssigned = true`
+  5. 已确认 fresh CLI：
+     - `manage_script validate` = `clean`
+     - `errors` = `0 error / 0 warning`
+     - `validate_script Assets/Editor/Home/HomeSceneRestContractMenu.cs` 仍超时，所以 compile-first CLI assessment 这轮没完全闭环
+- 关键判断：
+  - 这轮之后，`Home` 当前最诚实的阶段不是 `blocked`，也不是 `fully ready`，而是：
+    - `usable with attention`
+  - 当前再继续硬写 `HomeDoor` 的 scene exit 或强改首屏镜头，风险已经大于收益，因为那两件事都变成了设计选择题，不再是通用正确补口。
+- 当前剩余 attention：
+  1. 门位/入口位不在主相机初始视野里
+  2. `HomeDoor` 尚无正式 exit component
+- 当前恢复点：
+  - 这条 `Home` own 线现在已经可以合法收口；
+  - 若后续还继续，只应围绕：
+    1. 首屏 framing
+    2. `HomeDoor` 的外部 return contract
+    继续，而不再回头补基础住处语义层。
+  - 本轮 Git 仍不能合法收口，因为 `Assets/000_Scenes` 根下还有：
+    - `Primary.unity`
+    - `Town.unity`
+    - `矿洞口.unity`
+    - `SampleScene` 删除残留
+    这些同根 mixed dirty；不能绕过 safe-sync 直接偷提 `Home.unity`
+
+## 2026-04-07｜补记：`Home <-> Primary` 双向门合同已落地，当前第一 blocker 改判为 `Home runtime baseline` 缺位
+
+- 用户目标：
+  - 不要再停在 `Home` 屋内能睡但出不去，而是把 `Home` 做成真正有 `Primary <-> Home` 双向进出的场景合同。
+- 本轮实际做成：
+  1. 新增 [HomePrimaryDoorContractMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Home/HomePrimaryDoorContractMenu.cs)
+     - `Tools/Sunset/Scene/Setup Home <-> Primary Door Contract`
+     - `Tools/Sunset/Scene/Run Home <-> Primary Door Contract Probe`
+  2. 已真实执行 setup 菜单：
+     - `HomeDoor` 现在显式带 `BoxCollider2D + SceneTransitionTrigger2D(target=Primary)`
+     - `Primary/2_World` 现在新增：
+       - `Primary_HomeContracts`
+       - `PrimaryHomeDoor`
+       - `PrimaryHomeEntryAnchor`
+     - `PrimaryHomeDoor` 现在显式带 `BoxCollider2D + SceneTransitionTrigger2D(target=Home)`
+  3. 已真实执行 probe 菜单，产出：
+     - [home-primary-door-contract-probe.json](/D:/Unity/Unity_learning/Sunset/Library/CodexEditorCommands/home-primary-door-contract-probe.json)
+  4. 已顺手重跑旧的 `Home Rest Contract Probe`，确认：
+     - `HomeDoor.hasExitComponent = true`
+     - `exitComponentType = SceneTransitionTrigger2D`
+     - `targetSceneName = Primary`
+- 当前 live 证据：
+  - `home-primary-door-contract-probe.json`
+    - `status = attention`
+    - `success = true`
+    - `firstBlocker = ""`
+  - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+    - `errors = 0`
+    - `warnings = 0`
+- 当前关键判断：
+  - `Home <-> Primary` 的门合同已经站住；
+  - 但 `Home` 还没有进入“像 Town 一样可自由跑”的状态。
+- probe 已直接钉死的更深 runtime attention：
+  - `homeHasPlayerMovement = false`
+  - `homeHasGameInputManager = false`
+  - `homeHasNavigationRoot = false`
+  - `homeHasCinemachineCamera = false`
+- 为什么我没有继续硬补：
+  - 再往下已经不是“补一个门”，而是 `Player + GameInputManager + UI/Inventory + Navigation + Camera` 整条 scene-local runtime 基础链；
+  - 这条链在 `Primary` 里带大量 scene-local 引用，当前直接硬拷高概率会做出跨场景脏引用和假闭环。
+- 当前恢复点：
+  - 用户现在只需要手动摆：
+    - `Home_Contracts/HomeDoor`
+    - `Home_Contracts/HomeDoor/HomeEntryAnchor`
+    - `Primary/2_World/Primary_HomeContracts/PrimaryHomeDoor`
+    - `Primary/2_World/Primary_HomeContracts/PrimaryHomeDoor/PrimaryHomeEntryAnchor`
+  - 如果下一轮继续，最值钱方向不再是补门，而是单开 `Home runtime baseline seed`，专审 `Player / GameInputManager / UI依赖 / NavigationRoot / CinemachineCamera` 这条更深 scene-side 迁移。

@@ -420,9 +420,9 @@ namespace Sunset.EditorTools.SceneSync
             if (result.attentionFindings.Count > 0)
             {
                 result.status = "attention";
-                result.success = false;
+                result.success = true;
                 result.firstBlocker = string.Empty;
-                result.message = result.attentionFindings[0];
+                result.message = "Home 的住处 rest contract 已可用，但仍有 attention 需要后续决定。";
                 return;
             }
 

@@ -234,6 +234,8 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 204061011}
+  - component: {fileID: 204061013}
+  - component: {fileID: 204061012}
   m_Layer: 0
   m_Name: HomeDoor
   m_TagString: Untagged
@@ -257,6 +259,74 @@ Transform:
   - {fileID: 204061021}
   m_Father: {fileID: 204061001}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &204061012
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 204061010}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e47fa612ef854cc788fd9ac8a08d7b99, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  targetSceneAsset: {fileID: 102900000, guid: a84e2b409be801a498002965a6093c05, type: 3}
+  targetSceneName: Primary
+  targetScenePath: Assets/000_Scenes/Primary.unity
+  loadSceneMode: 0
+  triggerOnPlayerEnter: 1
+  playerTag: Player
+  fadeOutDuration: 0.2
+  blackScreenHoldDuration: 0.05
+  fadeInDuration: 0.2
+  postActivationSettleFrames: 2
+--- !u!61 &204061013
+BoxCollider2D:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 204061010}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Density: 1
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_ForceSendLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ForceReceiveLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_ContactCaptureLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_CallbackLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_IsTrigger: 1
+  m_UsedByEffector: 0
+  m_CompositeOperation: 0
+  m_CompositeOrder: 0
+  m_Offset: {x: 0, y: 0}
+  m_SpriteTilingProperty:
+    border: {x: 0, y: 0, z: 0, w: 0}
+    pivot: {x: 0, y: 0}
+    oldSize: {x: 0, y: 0}
+    newSize: {x: 0, y: 0}
+    adaptiveTilingThreshold: 0
+    drawMode: 0
+    adaptiveTiling: 0
+  m_AutoTiling: 0
+  m_Size: {x: 1, y: 1}
+  m_EdgeRadius: 0
 --- !u!1 &204061020
 GameObject:
   m_ObjectHideFlags: 0
@@ -379,7 +449,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 63e7e7b152d5465a95b7982ef7d9ee37, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  interactionHint: "\u7761\u89c9"
+  interactionHint: "\u7761\u89C9"
   interactionDistance: 1.6
   interactionPriority: 24
   requireFreeTime: 1
@@ -4747,7 +4817,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 54f797e9790b0654ea7fb11f9c54fd3a, type: 3}
   m_Name:
   m_EditorClassIdentifier:
-  prefabDatabase: {fileID: 0}
+  prefabDatabase: {fileID: 11400000, guid: b7cfaf156d4737f49b2c1bd887136688, type: 2}
   showDebugInfo: 0
 --- !u!4 &1912106224
 Transform:
