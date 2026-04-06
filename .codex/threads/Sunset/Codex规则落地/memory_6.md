@@ -2737,3 +2737,45 @@ Sunset 里大量改动都属于：
   - 这轮后，用户暂时不需要再摆位；
   - 若下一轮继续，最值钱的动作只有一个：
     - 等 [PackageSaveSettingsPanel.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs):275 清掉后，立刻重跑 `Home Rest Contract Probe`。
+
+## 2026-04-07｜补记：`Home Rest Contract Probe` 已 live 跑通，当前只剩 attention 层
+
+- 用户目标：
+  - 在旧 external red 松开后，不停在“probe 理论可跑”，而是继续确认 `Home` 的菜单 probe 能不能真跑起来。
+- 本轮实际做成：
+  1. 已重新 `Begin-Slice` 到极小验证面：
+     - `home-probe-retry-after-external-shift-2026-04-07`
+  2. 已成功执行：
+     - `Tools/Sunset/Scene/Run Home Rest Contract Probe`
+  3. 已拿到真实输出：
+     - `home-rest-contract-probe.json`
+     - `status = attention`
+     - `success = false`
+     - `firstBlocker = ""`
+  4. 已确认 fresh console：
+     - `0 error / 0 warning`
+- 已被 live 结果站住的事实：
+  - `Main Camera + MainCamera tag + AudioListener` 成立
+  - `PersistentManagers` 存在
+  - `Home_Contracts / HomeDoor / HomeEntryAnchor / HomeBed` 全存在且层级正确
+  - `Home_Contracts.position = (-18.03, -5.93, 0)`
+  - `HomeBed` 现在是：
+    - `Collider2D = true`
+    - `isTrigger = true`
+    - `tag = Interactable`
+    - `SpringDay1BedInteractable = true`
+- 当前 attention：
+  1. `PersistentManagers.prefabDatabase` 未显式配置
+  2. `Home_Contracts / HomeDoor / HomeEntryAnchor` 不在主相机初始视野里
+  3. `HomeDoor` 还没有显式 exit 组件
+- 当前关键判断：
+  - `Home` 这条线已经不是“probe 没跑通”；
+  - 当前更准确的状态是：
+    - `Home rest contract live 已过 blocker 层`
+    - 剩下只有体验/出口层 attention
+- 当前恢复点：
+  - 若后续继续 `Home`，我最确信的下一步是只在：
+    - `PrefabDatabase`
+    - 门位首屏视野
+    - `HomeDoor` exit contract
+    这三件事里继续选，不再回头补基础语义或床位本体。

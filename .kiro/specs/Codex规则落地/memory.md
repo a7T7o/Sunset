@@ -13873,3 +13873,43 @@
   - 等 [PackageSaveSettingsPanel.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs):275 清掉后，下一刀只需要重跑：
     - `Tools/Sunset/Scene/Run Home Rest Contract Probe`
   - 如果那轮通过，`Home` 就会从“scene-side 成立 + probe 已落”推进到“live probe 也通过”。
+
+## 2026-04-07｜补记：`Home Rest Contract Probe` 已真实跑通，剩余问题从 blocker 收缩成 attention
+
+- 当前主线目标：
+  - 在 `Home` 的 probe 代码已落之后，继续把这条线推进到“菜单真实跑通并产出可读 JSON”。
+- 本轮实际做成：
+  1. 重新开了极小 live 验证 slice，只接 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) 与 [HomeSceneRestContractMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Home/HomeSceneRestContractMenu.cs)。
+  2. 已真实执行：
+     - `Tools/Sunset/Scene/Run Home Rest Contract Probe`
+  3. 已读取：
+     - `Library/CodexEditorCommands/home-rest-contract-probe.json`
+  4. 当前 probe 结果：
+     - `status = attention`
+     - `success = false`
+     - `firstBlocker = ""`
+  5. fresh console 同轮已回到：
+     - `0 error / 0 warning`
+- 已被 live 证据站住的关键事实：
+  - `Main Camera` 存在，且 `MainCamera tag + AudioListener` 成立
+  - `PersistentManagers` 存在
+  - `Home_Contracts / HomeDoor / HomeEntryAnchor / HomeBed` 全部存在，且层级关系正确
+  - `Home_Contracts` 手摆位置已真实落到结果里：
+    - `(-18.030, -5.930, 0.000)`
+  - `HomeBed` 当前：
+    - `Collider2D = true`
+    - `isTrigger = true`
+    - `tag = Interactable`
+    - `SpringDay1BedInteractable = true`
+- 当前 attention：
+  1. `PersistentManagers.prefabDatabase` 仍未显式配置
+  2. `Home_Contracts / HomeDoor / HomeEntryAnchor` 当前都不在主相机初始视野里
+  3. `HomeDoor` 还没有 scene exit 组件
+- 当前关键判断：
+  - `Home` 当前已经没有 blocking failure；
+  - 剩余问题已经从“不能用/没落地”收缩成“体验层与出口层 attention”。
+- 当前恢复点：
+  - 如果下一轮继续 `Home`，不该再回头补基础语义层，而应只在下面三件事里选：
+    1. `PrefabDatabase` 是否需要显式配置
+    2. 门位/入口位是否要调回屋内首屏视野
+    3. `HomeDoor` 的正式 exit contract 是否该现在落
