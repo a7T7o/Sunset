@@ -12963,3 +12963,319 @@
     2. 环境 / Tilemap / bridge-farmland layer
     3. manager / bootstrap / baseline
   - 而不是再把 resident scene-side 当下一刀。
+
+## 2026-04-06｜补记：已给 spring-day1 形成 Town 全量进度与可代接工作面的详细回执
+
+- 当前主线目标：
+  - 在 `day1` 审核前，把 `Town` 这条线当前所有已完成进度、剩余真实问题、可代接工作面和不该代接的边界，一次性收成可用于调度分配的详细回执。
+- 本轮子任务：
+  1. 复用 `Town` 最近两轮正式结论；
+  2. 对照 `day1` 转向驻村常驻化后的最新协作语义；
+  3. 写一份能直接帮助 `day1` 做后续分工与调度的长回执。
+- 本轮实际做成：
+  1. 已新增详细回执：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给spring-day1_Town全量进度与可代接工作面详细回执_12.md`
+  2. 回执已明确写清：
+     - `Town` 已真实做成的 resident scene-side 进度
+     - `15d75285` 与 broader dirty 的关系
+     - 当前剩余问题已不再是 resident scene-side，而是 mixed-scene 三大块
+     - 哪些东西 `day1` 该继续自己吃
+     - 哪些东西可以后续正式交回 Town
+     - 我当前最深能替 `day1` 分担到哪一层
+- 当前关键判断：
+  - 现在对 `day1` 最有价值的，不是再给一句“Town 已准备好”，而是把 `Town` 的真实完成度、真实剩余量和可代接工作面说成一张可调度地图。
+- 当前恢复点：
+  - 这份回执发出后，后续若 `day1` 要继续交球，应优先从：
+    1. `Town 相机 / 转场`
+    2. `Town 环境 / Tilemap`
+    3. `Town manager / baseline`
+    这三类 mixed-scene 子域中选一类给 Town，而不是再把它叫成 resident 第三刀。
+
+## 2026-04-06｜补记：紧急卡顿支线快速归因，当前最高嫌疑不是 Town resident，而是 Primary 的 CloudShadow 调试态
+
+- 当前主线目标：
+  - 用户临时插入紧急支线，要快速查清“游戏为什么变卡”，并给出最小可行动的快结论。
+- 本轮子任务：
+  1. 用 CLI 快速看 Unity 当前基线与 console；
+  2. 读 `Editor.log` 最近运行尾巴；
+  3. 查近期最像性能热点的渲染/场景对象。
+- 本轮实际做成：
+  1. 已确认这轮没跑成新的 live Play 验证：
+     - `py -3 scripts/sunset_mcp.py status/errors` 当前被 `127.0.0.1:8888` 拒绝连接阻断；
+     - 所以这轮是“日志与场景配置层的快速归因”，不是完整新一轮 live 试玩。
+  2. 已在 `Editor.log` 里抓到明显可疑链：
+     - `CloudShadowManager.cs:808` 连续打印 `生成云朵 #N ...`
+     - `CloudShadowManager.cs:1179` 打印初始化统计
+     - 这些日志带完整堆栈，且发生在运行初始化阶段
+  3. 已确认 `Assets/YYY_Scripts/Service/Rendering/CloudShadowManager.cs` 里的云朵生成日志只在 `enableDebug` 为真时才会打印。
+  4. 已进一步确认当前 working tree 的 `Primary.unity` 上：
+     - `enableInOvercast: 1`
+     - `enableInRain: 1`
+     - `enableInSnow: 1`
+     - `maxClouds: 20`
+     - `enableDebug: 1`
+     - 其中 `enableDebug: 1` 位于 `Primary.unity` 约 `151493` 行附近，当前为 `Not Committed Yet`
+  5. 已在 `Editor.log` 同时看到 `Temp/__Backupscenes/0.backup` 的 scene load/integration 耗时多次超过 `1s`，说明编辑器侧还夹着 backup-scene 载入抖动。
+- 当前关键判断：
+  - 当前“游戏卡”的最高嫌疑，不是 `Town` resident scene-side 本体；
+  - 更像是 `Primary.unity` 当前未提交的 `CloudShadowManager` 调试态与更激进天气/云量配置，叠加编辑器 backup-scene 装载抖动。
+- 当前验证状态：
+  - `Editor.log` 已有明确证据；
+  - 新的 live Play 复现：未闭环，原因是当前 MCP bridge 不可达
+- 当前恢复点：
+  - 如果后续要做这条紧急修复，优先先收：
+    1. `Primary.unity` 上 `CloudShadowManager.enableDebug`
+    2. `maxClouds / all-weather` 配置
+    3. 再分离 editor backup-scene 抖动是否只是编辑器态附加成本
+  - 当前先把这次归因记清，不让它误算成 `Town` 主线 blocker。
+
+## 2026-04-06｜补记：Ivan 路线纠偏为“不新开实例的准备层”，`Sunset_Ivan7777` 已停用
+
+- 当前主线目标：
+  - 重新校正 `IvanMurzak/Unity-MCP` 在 Sunset 的落地方式，避免继续沿着“我自己新开独立 Unity 实例推进 PoC”这条被用户否决的方向往前跑。
+- 本轮子任务：
+  1. 复核 `Sunset_Ivan7777` 是否已经彻底停掉；
+  2. 复核当前 Sunset live 基线是否仍是 `Coplay + 8888`；
+  3. 把后续 Ivan 方案改判成“无实例、无现网侵入的准备层”。
+- 本轮实际做成：
+  1. 已确认 `Sunset_Ivan7777` 对应的 Unity 进程已关闭，不再继续运行。
+  2. 已确认当前 live 基线仍是：
+     - `Coplay`
+     - `127.0.0.1:8888`
+     - 主现场没有切到 `7777`
+  3. 已把后续 Ivan 方向改判为：
+     - 不再新开实例
+     - 不再把“独立副本拉起并跑通”当作下一刀
+     - 只保留 `7777` 作为将来 Ivan 接入时的候选固定端口策略
+  4. 已明确这轮能诚实站住的层级是：
+     - `静态准备层 / 方案纠偏成立`
+     - 不是 `Ivan live parity 已打通`
+- 当前关键判断：
+  - 在“不要新开实例”与“不要碰现网高危内容”同时成立的前提下，这轮之后最正确的路线不再是继续追 `Sunset_Ivan7777` 的 live PoC，而是先把 Ivan 的：
+    1. 能力映射
+    2. `7777` 端口策略
+    3. 包装脚本方案
+    4. 接入边界
+    全部收成无侵入准备层。
+  - 也就是说，下一步该证明的是“将来怎么安全接”，而不是“现在我还能不能再偷偷拉起一个实验实例”。
+- 当前验证状态：
+  - `Sunset_Ivan7777` 进程：已关闭
+  - `127.0.0.1:8888`：仍在监听
+  - `127.0.0.1:7777`：当前未启用
+- 当前恢复点：
+  - 后续若继续 Ivan 线，默认只允许做：
+    1. 无实例准备层文档
+    2. 能力映射表
+    3. 包装层设计
+    4. 接入边界与禁止项
+  - 若未来真要做 live 验证，前提必须改成：
+    - 使用用户明确允许的“已开实例 / 已批准现场”
+    - 而不是再次自发新开 `Sunset_Ivan7777`
+
+## 2026-04-06｜补记：用户已明确否决 `Sunset_Ivan7777` 方案，目录已彻底删除
+
+- 当前主线目标：
+  - 把已经被用户明确否决的 `Sunset_Ivan7777` 独立副本方案彻底清掉，并基于这个否决结果重新收窄 Ivan 后续方向。
+- 本轮子任务：
+  1. 确认 `Sunset_Ivan7777` 无残留 Unity 进程；
+  2. 彻底删除目录 `D:\Unity\Unity_learning\Sunset_Ivan7777`；
+  3. 把“该方案已作废”同步到治理记忆与旧路线文稿。
+- 本轮实际做成：
+  1. 已确认 `Sunset_Ivan7777` 没有残留 Unity 进程。
+  2. 已彻底删除目录：
+     - `D:\Unity\Unity_learning\Sunset_Ivan7777`
+  3. 已在路线正文上补充 superseded 提示：
+     - `2026-04-06_Sunset_Ivan平台化路线对比与落地方案_01.md`
+       现在只保留历史分析身份，不再作为当前执行依据。
+- 当前关键判断：
+  - 用户这次否决的不是“只暂停一下这个目录”，而是明确否决了：
+    - `独立副本`
+    - `新开实例`
+    - `Sunset_Ivan7777` 这整条执行路径
+  - 因此后续如果还继续想 `Ivan`，必须按新的前提重新起方案，不能再从旧 PoC 计划往下续。
+- 当前验证状态：
+  - `Sunset_Ivan7777` 目录：已删除
+  - `Sunset_Ivan7777` 相关 Unity 进程：无
+- 当前恢复点：
+  - 后续若继续 Ivan 方向，新的方案必须满足：
+    1. 不以 `Sunset_Ivan7777` 为载体
+    2. 不默认新开实例
+    3. 不沿用“先跑独立副本 live PoC”作为默认第一刀
+
+## 2026-04-06｜补记：已确认 Coplay 历史调用记录可读，但不是一份统一的原始 MCP 全量抓包
+
+- 当前主线目标：
+  - 在重新思考 Ivan 方案前，先搞清楚 Sunset 现有 `Coplay` 现场到底留下了哪些“真实使用痕迹”，看能不能反推出 Ivan 适配层的需求面。
+- 本轮子任务：
+  1. 审核当前 `Coplay` 的详细调用日志与历史记录落点；
+  2. 判断这些记录是不是“完整原始 MCP 历史”；
+  3. 把后续 Ivan 新系统的思考起点从“兼容旧方案”改成“基于真实使用痕迹重建”。
+- 本轮实际做成：
+  1. 已确认当前最有价值的 `Coplay` 历史记录主要分成 3 层：
+     - `D:\Unity\Unity_learning\Sunset\.codex\sunset-mcp-trace.log`
+     - `D:\Unity\Unity_learning\Sunset\Library\CodexEditorCommands\`
+     - `D:\Unity\Unity_learning\Sunset\Library\MCPForUnity\RunState\codex_mcp_http_autostart_status.txt`
+  2. 已确认 `sunset-mcp-trace.log` 记录的是：
+     - `sunset_mcp.py` 这条 CLI 壳亲自发起过的 MCP 资源/工具调用
+     - 当前样本很小，只有 `33` 行，时间面落在 `2026-04-04 13:08 ~ 13:14`
+     - 当前能直接看到的调用是：
+       - `initialize`
+       - `mcpforunity://instances`
+       - `set_active_instance`
+       - `mcpforunity://project/info`
+       - `mcpforunity://editor/state`
+  3. 已确认 `Library\CodexEditorCommands\archive\` 才是更厚的历史使用面：
+     - 当前归档文件数约 `630`
+     - 时间范围约 `2026-04-01 13:24` 到 `2026-04-06 13:20`
+     - 其中：
+       - `MENU` 类命令约 `446`
+       - `STOP` 约 `102`
+       - `PLAY` 约 `78`
+     - 高频动作包括：
+       - `Assets/Refresh`
+       - `Sunset/Story/Debug/Step Spring Day1 Validation`
+       - `Tools/NPC/Spring Day1/Validate New Cast`
+       - 多类 `Director/Bridge/Probe/Capture/Test` 菜单
+  4. 已确认 `Library\CodexEditorCommands\` 根目录下还保留了大量结果 JSON：
+     - 例如各类 `bridge-tests`、`graph-tests`、`rehearsal-bake`、`contract-probe`
+     - 这些文件能提供：
+       - 命令名
+       - 时间戳
+       - success/fail
+       - message/details
+       - 部分业务结果载荷
+  5. 已确认 `RunState\codex_mcp_http_autostart_status.txt` 主要是桥恢复诊断：
+     - 能看自动启动/已运行/跳过
+     - 但不提供完整业务调用历史
+- 当前关键判断：
+  - 答案是：`能拿到，而且量不小`；
+  - 但这些记录并不是“一份统一的、原始 JSON-RPC 全量 MCP 历史抓包”。
+  - 更准确地说，现在我们手里拿到的是：
+    1. CLI 壳级 trace
+    2. Unity 命令归档
+    3. 业务结果快照
+    4. 桥健康诊断
+  - 这已经足够拿来反推：
+    - Sunset 真实高频动作有哪些
+    - 哪些是必须保留到 Ivan 里的第一优先能力
+    - 哪些是辅助调试能力
+- 当前验证状态：
+  - `Coplay` live 基线仍是：
+    - `127.0.0.1:8888`
+    - `unityMCP`
+  - 本轮属于：
+    - `只读审计成立`
+    - 不是新系统已经落地
+- 当前恢复点：
+  - 如果继续 Ivan 线，下一刀最值钱的不再是泛写路线稿，而是直接做：
+    1. `从 Coplay 历史记录反推 Ivan 第一版能力面`
+    2. `把 630 份 archive + 结果 JSON 收成能力分类表`
+    3. `明确 Ivan 第一版必须覆盖的高频工作流`
+
+## 2026-04-06｜补记：已确认 `enableDebug` 不是云影主开关，禁用态初始化漏闸才是更硬异常
+
+- 当前主线目标：
+  - 回答用户追问：`Primary.unity:151493` 的 `enableDebug` 到底会造成什么影响，是否足以单独解释 `Primary` 卡顿。
+- 本轮子任务：
+  1. 复核 `CloudShadowManager.cs` 的运行分支；
+  2. 对照 `Primary.unity` 当前序列化值；
+  3. 判断更高效的 runtime 取证路径是否可用。
+- 本轮实际做成：
+  1. 已确认 `enableDebug` 只控制调试日志，不会单独把 `enableCloudShadows` 打开。
+  2. 已确认真正的逻辑问题在于：
+     - `OnEnable()` 里直接调用 `InitializeIfNeeded()`
+     - `InitializeIfNeeded()` 又直接 `RebuildClouds()`
+     - 这条初始化链在进入时并没有先检查 `enableCloudShadows`
+  3. 这解释了为什么当前 `Primary.unity` 明明写着 `enableCloudShadows: 0`，`Editor.log` 里仍会出现 `CreateCloudInstance` 和 `初始化完成` 日志。
+  4. 已确认 `previewInEditor: 1` + `[ExecuteAlways]` 会让这条初始化链在编辑器态也更容易被触发，放大卡顿/抖动感知。
+  5. 已确认更高效的判断方式不是继续慢读代码，而是：
+     - `CLI first`
+     - 再走 `MCP/live A-B` 看关掉组件或关掉 debug 后卡顿是否立刻下降
+  6. 当前这条更快路径的现状是：
+     - `py -3 scripts/sunset_mcp.py status` 已恢复可读
+     - 但 `editor_state.ready_for_tools=false`，`blocking_reasons=stale_status`
+     - 也就是桥半活着，尚未进入稳定可直接下手的 live 工具态
+- 当前关键判断：
+  - `enableDebug: 1` 会放大日志和初始化期的噪音，但它不是“云影主开关”，也不能单独证明“Primary 卡顿就是它一个值造成的”。
+  - 当前更像是 `CloudShadowManager` 的“禁用态初始化漏闸”叠加编辑器 backup-scene / integration 抖动，而不只是用户误开了云影。
+- 当前恢复点：
+  - 如果继续查卡顿，下一刀最值钱的是直接做一次 `CloudShadowManager` live A/B：
+    - 保持场景不变
+    - 对比当前态 / 仅关 `enableDebug` / 直接禁用组件
+    - 看体感卡顿和日志量是否立刻变化
+
+## 2026-04-06｜补记：用户现场“现在又不卡了”进一步支持间歇性初始化抖动判断
+
+- 当前主线目标：
+  - 回答用户“为什么刚才卡、现在又不卡”的现场变化，不把一次性卡顿误判成稳定常驻根因。
+- 本轮实际做成：
+  1. 已根据用户最新现场更新判断：
+     - 当前现象更像“瞬时触发的一次性抖动”
+     - 不像 `enableDebug` 这种只要配置在那就会长期稳定拖慢的常驻死因
+  2. 已进一步收窄高嫌疑面：
+     - `CloudShadowManager` 的禁用态初始化漏闸
+     - 编辑器 backup scene / integration 抖动
+     - 其他一次性初始化链
+- 当前关键判断：
+  - “现在不卡了”不是已经修好，而是当前没有再次踩到同一触发条件。
+- 当前恢复点：
+  - 下次若再复现，应直接按最小 live A/B 抓当场状态，而不是再回到纯静态猜测。
+
+## 2026-04-06｜补记：已抓到 Primary 爆卡主因更像导航 live 验证器与避障详细日志同时开启
+
+- 当前主线目标：
+  - 解释为什么“看剧情不卡、正常运行/走场景时爆卡”，并把主嫌疑从云影进一步收窄到真实运行链。
+- 本轮实际做成：
+  1. 已确认剧情静止画面可达约 `84 FPS / 11.9ms`，说明：
+     - UI / Dialogue / 字体 / 纯静态场景本身不是主因
+  2. 已确认爆卡画面约 `1.7 FPS / 598ms`，而最新 `Editor.log` 尾巴出现了持续刷屏的：
+     - `NavigationLiveValidationRunner`
+     - `[NavValidation] final_acceptance_pack_started`
+     - `[NavValidation] scenario_start=RealInputPlayerPassableCorridor`
+     - `PlayerAutoNavigator:MaybeLogSharedAvoidance`
+     - `<color=orange>[NavAvoid]</color> ...`
+  3. 已在 `Primary.unity` 里直接确认玩家 `PlayerAutoNavigator` 当前配置为：
+     - `enableDetailedDebug: 1`
+  4. 已确认 `NavigationLiveValidationRunner` 代码会：
+     - 运行 `FinalAcceptancePack`
+     - 周期性输出 `heartbeat`
+     - 在 play 中持续推进验证场景
+- 当前关键判断：
+  - 当前 Primary 爆卡的第一嫌疑，已经从“云影调试态”切到：
+    - `导航 live 验证器正在跑`
+    - `玩家自动导航详细调试打开`
+    - 两者在走动时一起疯狂写日志
+  - 这和用户现象完全一致：
+    - 看剧情基本不动，所以不卡
+    - 一正常运行/走场景，就触发导航与避障链，Editor 被日志洪水拖穿
+- 当前恢复点：
+  - 如果继续收口卡顿，第一刀应优先停掉导航 live validation / 关闭 `PlayerAutoNavigator.enableDetailedDebug`，再看是否还剩云影或其他次级问题。
+
+## 2026-04-06｜补记：Town 最终收尾回执已回切到 `Codex规则落地` 根，正式可提交版本不再挂在 `003` 根下
+
+- 当前主线目标：
+  - 把 Town 当前最硬的最终回执真正收成可提交的治理产物，而不是继续被 `spring-day1` 活跃目录的 foreign dirty 绑住。
+- 本轮子任务：
+  1. 对 Town 最终回执跑 `Ready-To-Sync`；
+  2. 查明阻断来自哪里；
+  3. 把这轮 own slice 收窄到 `Codex规则落地` 自家根。
+- 本轮实际做成：
+  1. 已确认旧的 `24.md` 虽然内容正确，但一旦挂在 `003-进一步搭建`，`Ready-To-Sync` 会把整个 `003` 根视为 own roots，直接被 `spring-day1` 当前活跃 dirty 阻断。
+  2. 已合法 `Park-Slice` 旧 slice，再重开更窄的新 slice，只拥有：
+     - `.codex/threads/Sunset/Codex规则落地/memory_6.md`
+     - `.kiro/specs/Codex规则落地/memory.md`
+     - `.kiro/specs/Codex规则落地/2026-04-06_Sunset_Ivan平台化路线对比与落地方案_01.md`
+     - `.kiro/specs/Codex规则落地/2026-04-06_给spring-day1_Town全量进度与可代接工作面详细回执_12.md`
+     - `.kiro/specs/Codex规则落地/2026-04-06_给spring-day1_Town最终收尾_scene-side正式基线与下一安全切片回执_13.md`
+  3. 已新增正式可提交回执：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_给spring-day1_Town最终收尾_scene-side正式基线与下一安全切片回执_13.md`
+  4. 这份 `13.md` 与 `24.md` 的核心结论一致：
+     - Town resident scene-side 最小 contract 已成立
+     - 当前 contract 的“不对称”是有意语义，不是缺漏
+     - `DailyStand_02 / 03` 首撞点已不再是 scene-side 空位
+     - Town 下一安全切片不再是 resident 第三刀，而是 `Town 相机 / 转场 / 玩家位`
+- 当前关键判断：
+  - 这轮 Town 最终回执的真正 blocker 是“scope 放错根”，不是“结论不够硬”。
+- 当前恢复点：
+  - 正式提交时，应以 `Codex规则落地` 根下的 `13.md` 为准；
+  - `003` 下的 `24.md` 只保留为 day1-facing 本地投递副本，不再作为提交目标。
