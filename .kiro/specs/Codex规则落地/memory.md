@@ -13503,3 +13503,86 @@
 - 当前恢复点：
   - 后续若再次看到 websocket 同类假红，优先先查是不是有人又把 autostart 改回“自动 `Bridge.StartAsync`”
   - 现阶段不需要因为这次噪音再重启一轮 Ivan 平台迁移讨论
+
+## 2026-04-06｜补记：`Primary` 的 1 FPS 现场已完成一轮 live 定责，当前第一嫌疑仍是 `OcclusionManager + OcclusionTransparency`
+
+- 当前主线目标：
+  - 查清用户说的“运行游戏后整个编辑器都卡、游戏只有约 1 FPS”更像是哪条运行时链在拖死 `Primary`，先做定责，不先盲修。
+- 本轮子任务：
+  1. 先用 CLI/MCP 核实现场是不是异常刷屏或桥断；
+  2. 统计 `OcclusionManager / OcclusionTransparency / NPCAutoRoamController / CloudShadowManager` 的规模；
+  3. 做最小 live A/B，优先验证遮挡链。
+- 本轮实际做成：
+  1. 已确认 fresh 基线：
+     - `status` = baseline pass
+     - fresh `errors --include-warnings` = `0 error / 0 warning`
+  2. 已确认对象规模：
+     - `OcclusionManager` = `1`
+     - `OcclusionTransparency` = `114`
+     - `NPCAutoRoamController` = `3`
+     - `CloudShadowManager` = `1`
+  3. 已补代码证据：
+     - `OcclusionManager.Update()` 每 `0.1s` 跑一次 `DetectOcclusion()`
+     - 遍历全部 `registeredOccluders`
+     - 命中像素采样时会走 `ContainsPointPrecise()` / `CalculateOcclusionRatioPrecise()`
+     - 其中存在 `Texture2D.GetPixel(...)`
+  4. 已做一轮 live A/B：
+     - 临时关闭 `Primary/1_Managers/OcclusionManager`
+     - 同一短窗口内，之前那串 `OcclusionTransparency 注册失败 / 等待超时` 不再出现
+     - 当前能明确证明：遮挡链和这次卡顿强关联，不再只是纸面嫌疑
+- 当前关键判断：
+  - 这轮最像的不是“场景普通渲染量太大”，而是“遮挡链在主线程做了高频、重遍历、可能还带像素级采样的工作”。
+  - 其中 `OcclusionManager + 114 个 OcclusionTransparency` 仍然是第一嫌疑；`NPCAutoRoamController` 目前更像第二嫌疑。
+- 当前不确定性：
+  - 这轮 live A/B 进行到一半时，`thread-state` 公共脚本 `StateCommon.ps1` 出现解析级故障，MCP 现场也多次落回 `stale_status` / 中间态，所以第二组 `NPCAutoRoamController` 对比还没稳定完成。
+  - 因此当前能站住的是：`targeted probe / partial validation`，还不是最终修复结论。
+- 涉及文件：
+  - [OcclusionManager.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs)
+  - [OcclusionTransparency.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs)
+  - [NPCAutoRoamController.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+  - [memory.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/memory.md)
+  - [memory_6.md](/D:/Unity/Unity_learning/Sunset/.codex/threads/Sunset/Codex规则落地/memory_6.md)
+- 当前恢复点：
+  - 如果继续这条线，最值钱的下一刀不是先改 NPC 漫游，而是：
+    1. 先给 `OcclusionManager` 加最小 profile/计时证据或临时降级开关；
+    2. 再做一次干净的 `Occlusion on/off` 与 `NPCAutoRoam on/off` 对照；
+    3. 然后才决定是关像素采样、降检测频率，还是拆树林整体透明逻辑。
+
+## 2026-04-06｜补记：Town 已从 entry contract 继续推进到更深的 player-facing contract
+
+- 当前主线目标：
+  - 不再只停在 `Town` 的入口组件契约层，而是继续把 `Town` 往更深的 `runtime / player-facing` 层推进，并形成一份可直接交给 `spring-day1` 的正式回执。
+- 本轮子任务：
+  1. 在不硬碰当前 mixed dirty `Town.unity` 的前提下，继续推进 `Town`；
+  2. 用 `Assets/Editor/Town` 自己的 probe 代码，把更深一层玩家体验事实跑成 JSON；
+  3. 拿到 CLI + 命令桥双证据后，补 `day1` 回执。
+- 本轮实际做成：
+  1. 已新增：
+     - `Assets/Editor/Town/TownScenePlayerFacingContractMenu.cs`
+     - `Assets/Editor/Town/TownScenePlayerFacingContractMenu.cs.meta`
+     - 菜单：`Tools/Sunset/Scene/Run Town Player-Facing Contract Probe`
+     - 输出：`Library/CodexEditorCommands/town-player-facing-contract-probe.json`
+  2. 已真实跑通命令桥：
+     - 第一次失败是因为 Unity 仍在 `Play Mode`
+     - 已通过命令桥先 `STOP`
+     - 随后二次执行菜单成功，`status.json` 记录 `success=true`
+  3. 已拿到更深 player-facing 事实：
+     - `CinemachineCamera.TrackingTarget = Player`
+     - virtual camera XY 与玩家起步位对齐
+     - 玩家在 `_CameraBounds` 内
+     - 玩家与返回 `Primary` 的 trigger 不重叠
+     - 玩家到返回 trigger 的边缘距离约 `2.83`
+     - `EnterVillageCrowdRoot / KidLook_01` 均在玩家初始第一屏内
+  4. 已补新回执：
+     - `2026-04-06_给spring-day1_Town更深player-facing-contract与下一撞点改判_15.md`
+- 当前关键判断：
+  - `Town` 当前第一 blocker 已不再是入口相机/起步位/第一屏空场。
+  - 这轮之后，`day1` 若继续吃 `Town`，第一撞点更真实地转到了 `DinnerBackgroundRoot / NightWitness_01 / DailyStand_01` 这类更深 runtime 消费层。
+- 验证结果：
+  - 命令桥菜单：`menu:Tools/Sunset/Scene/Run Town Player-Facing Contract Probe` = `success=true`
+  - `town-player-facing-contract-probe.json` = `status=completed`
+  - `validate_script Assets/Editor/Town/TownScenePlayerFacingContractMenu.cs` = `assessment=no_red`
+  - `manage_script validate Assets/Editor/Town/TownScenePlayerFacingContractMenu.cs` = `clean`
+  - 最新 `errors` = `0 error / 0 warning`
+- 当前恢复点：
+  - 这轮更深 player-facing 推进已完成；如果下一轮继续 Town own，更值钱的不是再回 entry contract，而是接更深 runtime live 承接面。

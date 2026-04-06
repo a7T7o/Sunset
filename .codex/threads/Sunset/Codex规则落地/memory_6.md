@@ -2428,3 +2428,82 @@ Sunset 里大量改动都属于：
 - 恢复点 / 下一步：
   - 现网继续按 `HTTP /mcp` 跑
   - 下一刀若继续修 CLI，就回到 `stale_status` / live ready 判断，不再先查 websocket
+
+## 2026-04-06｜补记：`Primary` 1 FPS 事件已完成一轮 live 定责，当前第一嫌疑锁在遮挡链
+
+- 用户目标：
+  - 不是继续谈 Ivan，也不是空讲常见原因，而是直接用当前 `Coplay + CLI + MCP` 现场查清“为什么一进 Play 整个编辑器卡、游戏接近 1 FPS”。
+- 已完成事项：
+  1. 已先确认 fresh 基线正常：
+     - `py -3 D:\Unity\Unity_learning\Sunset\scripts\sunset_mcp.py status`
+       - baseline pass
+     - `errors --include-warnings`
+       - fresh `0 error / 0 warning`
+  2. 已确认主要运行时规模：
+     - `OcclusionManager` 1 个
+     - `OcclusionTransparency` 114 个
+     - `NPCAutoRoamController` 3 个
+     - `CloudShadowManager` 1 个
+  3. 已回读遮挡实现：
+     - `OcclusionManager` 每 `0.1s` 检测一次
+     - 遍历全部已注册遮挡物
+     - 精确路径会走 `ContainsPointPrecise` / `CalculateOcclusionRatioPrecise`
+     - 内部存在 `Texture2D.GetPixel(...)`
+  4. 已做最小 live A/B：
+     - 临时关闭 `OcclusionManager`
+     - 短窗口内 `OcclusionTransparency 注册失败 / 等待超时` 噪音不再出现
+     - 因而当前已能把遮挡链从“嫌疑”推进到“第一责任候选”
+- 关键决策：
+  - 当前不先改 NPC 漫游，不先猜云影，也不先怪普通渲染量；先按“遮挡链重遍历/像素采样”继续收证。
+- 验证结果：
+  - `OcclusionManager` 组件属性当前包含：
+     - `detectionInterval = 0.1`
+     - `enableForestTransparency = true`
+     - `useOcclusionRatioFilter = true`
+     - `enableSmartEdgeOcclusion = true`
+  - `OcclusionTransparency` 默认序列化字段里：
+     - `usePixelSampling = true`
+  - 当前 live 证据层级：
+     - `targeted probe / partial validation`
+- 遗留问题 / 下一步：
+  - `thread-state` 公共脚本 `StateCommon.ps1` 当前存在解析级 blocker，导致这轮没法合法补 `Begin-Slice / Park-Slice`；需后续单独修。
+  - MCP 现场在 live A/B 中多次回落 `stale_status`，所以 `NPCAutoRoamController` 第二组对照还没稳定跑完。
+  - 若继续，下一刀优先：
+     1. 给遮挡链补最小 profile 或可回滚降级开关
+     2. 重跑 `Occlusion on/off` 与 `NPCAutoRoam on/off`
+     3. 再决定修 `pixel sampling / detectionInterval / forest transparency` 的哪一层
+
+## 2026-04-06｜补记：Town 已从 entry contract 继续推进到更深的 player-facing contract
+
+- 用户目标：
+  - 把 `Town` 往更深的 `runtime / player-facing` 层推进，而不是再停在入口合同层；做完后写回执给 `day1`。
+- 本轮实际做成：
+  1. 先重报了当前 `thread-state`，把 owned scope 从纯 docs 扩到：
+     - `Assets/Editor/Town`
+     - `.kiro/specs/Codex规则落地`
+     - `.codex/threads/Sunset/Codex规则落地`
+  2. 已新增：
+     - [TownScenePlayerFacingContractMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Town/TownScenePlayerFacingContractMenu.cs)
+     - 菜单：`Tools/Sunset/Scene/Run Town Player-Facing Contract Probe`
+     - 输出：`Library/CodexEditorCommands/town-player-facing-contract-probe.json`
+  3. 已通过命令桥真实执行：
+     - 第一次 `menu-fail` 被查实是 Unity 还在 `Play Mode`
+     - 已先发 `STOP`
+     - 退回 `Edit Mode` 后再次执行菜单，`success=true`
+  4. 已拿到关键 player-facing 事实：
+     - `trackingTarget = Player`
+     - virtual camera XY 与玩家起步位对齐
+     - 玩家在 `_CameraBounds` 内
+     - 玩家不在返回 `Primary` 的 trigger 中
+     - 返回 trigger 边缘距离约 `2.83`
+     - `EnterVillageCrowdRoot / KidLook_01` 都在玩家入 Town 第一屏内
+  5. 已补新回执：
+     - [2026-04-06_给spring-day1_Town更深player-facing-contract与下一撞点改判_15.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-06_给spring-day1_Town更深player-facing-contract与下一撞点改判_15.md)
+- 关键判断：
+  - `Town` 的第一 blocker 已不再是 entry contract，而是更深 `DinnerBackgroundRoot / NightWitness_01 / DailyStand_01` 的 runtime 消费层。
+- 验证结果：
+  - `validate_script Assets/Editor/Town/TownScenePlayerFacingContractMenu.cs` = `assessment=no_red`
+  - `manage_script validate Assets/Editor/Town/TownScenePlayerFacingContractMenu.cs` = `clean`
+  - fresh `errors` = `0 error / 0 warning`
+- 恢复点 / 下一步：
+  - 这轮 own 最值钱的推进已经落地；若继续 Town own，应优先接更深 runtime live 承接，而不是再回入口层解释。
