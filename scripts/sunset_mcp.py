@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import socket
 import subprocess
@@ -42,6 +43,83 @@ def write(payload: dict[str, object], code: int) -> None:
 def progress(message: str) -> None:
     sys.stderr.write(f"[sunset_mcp] {message}\n")
     sys.stderr.flush()
+
+
+def decode_json_stream(text: str) -> list[dict[str, object]]:
+    decoder = json.JSONDecoder()
+    payloads: list[dict[str, object]] = []
+    index = 0
+    length = len(text)
+    while index < length:
+        while index < length and text[index].isspace():
+            index += 1
+        if index >= length:
+            break
+        item, next_index = decoder.raw_decode(text, index)
+        if isinstance(item, dict):
+            payloads.append(item)
+        index = next_index
+    return payloads
+
+
+def cleanup_stale_codeguard_processes(repo: Path) -> list[int]:
+    if os.name != "nt":
+        return []
+    repo_text = str(repo).replace("'", "''")
+    script = rf"""
+$repo = '{repo_text}'
+$targets = Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" |
+    Where-Object {{
+        $_.CommandLine -like '*CodexCodeGuard.dll*' -and
+        $_.CommandLine -like ('*' + $repo + '*')
+    }}
+$ids = @($targets | Select-Object -ExpandProperty ProcessId)
+foreach ($proc in $targets) {{
+    Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+}}
+$ids | ConvertTo-Json -Compress
+"""
+    try:
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-Command", script],
+            cwd=str(repo),
+            text=True,
+            capture_output=True,
+            timeout=15,
+            check=False,
+        )
+    except Exception:
+        return []
+    output = (proc.stdout or "").strip()
+    if not output:
+        return []
+    try:
+        decoded = json.loads(output)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(decoded, list):
+        candidate_ids = [int(item) for item in decoded if str(item).isdigit()]
+    elif isinstance(decoded, int):
+        candidate_ids = [decoded]
+    elif isinstance(decoded, str) and decoded.isdigit():
+        candidate_ids = [int(decoded)]
+    else:
+        candidate_ids = []
+    killed: list[int] = []
+    for pid in candidate_ids:
+        try:
+            subprocess.run(
+                ["taskkill", "/PID", str(pid), "/T", "/F"],
+                cwd=str(repo),
+                text=True,
+                capture_output=True,
+                timeout=15,
+                check=False,
+            )
+            killed.append(pid)
+        except Exception:
+            continue
+    return killed
 
 
 def norm(path: str) -> str:
@@ -178,16 +256,18 @@ class Mcp:
     def _messages(self, text: str) -> list[dict[str, object]]:
         text = text.strip()
         if text.startswith("{"):
-            return [json.loads(text)]
+            return decode_json_stream(text)
         out, buf = [], []
         for line in text.splitlines():
             if line.startswith("data: "):
                 buf.append(line[6:])
             elif not line.strip() and buf:
-                out.append(json.loads("\n".join(buf)))
+                payload = "\n".join(buf)
+                out.extend(decode_json_stream(payload))
                 buf = []
         if buf:
-            out.append(json.loads("\n".join(buf)))
+            payload = "\n".join(buf)
+            out.extend(decode_json_stream(payload))
         return out
 
     def _post(self, payload: dict[str, object]) -> dict[str, object]:
@@ -344,11 +424,14 @@ def code_paths(repo: Path, paths: list[str], all_changed: bool) -> list[str]:
     return out
 
 
-def codeguard(repo: Path, owner: str, paths: list[str], timeout_sec: int) -> dict[str, object]:
+def codeguard(repo: Path, owner: str, paths: list[str], timeout_sec: int, allow_timeout_fallback: bool = False) -> dict[str, object]:
     if not paths:
         return {"Applies": False, "CanContinue": True, "Summary": "No target .cs paths.", "Reason": "no_target_paths", "Diagnostics": []}
     project = repo / "scripts" / "CodexCodeGuard" / "CodexCodeGuard.csproj"
     dll = repo / "scripts" / "CodexCodeGuard" / "bin" / "Release" / "net9.0" / "CodexCodeGuard.dll"
+    cleaned_pids = cleanup_stale_codeguard_processes(repo)
+    if cleaned_pids:
+        progress(f"phase=codeguard-cleanup count={len(cleaned_pids)}")
     if not dll.exists():
         progress(f"phase=codeguard-build timeout={timeout_sec}s")
         build = run(["dotnet", "build", str(project), "-c", "Release", "--nologo"], repo, timeout=timeout_sec)
@@ -358,7 +441,22 @@ def codeguard(repo: Path, owner: str, paths: list[str], timeout_sec: int) -> dic
     for path in paths:
         args += ["--path", str((repo / path).resolve())]
     progress(f"phase=codeguard timeout={timeout_sec}s targets={len(paths)}")
-    proc = run(args, repo, timeout=timeout_sec)
+    try:
+        proc = run(args, repo, timeout=timeout_sec)
+    except RuntimeError as exc:
+        timeout_cleanup = cleanup_stale_codeguard_processes(repo)
+        if allow_timeout_fallback and str(exc).startswith("subprocess_timeout:dotnet:"):
+            return {
+                "Applies": True,
+                "CanContinue": True,
+                "Summary": "CodexCodeGuard timed out; downgraded for validate_script.",
+                "Reason": "timeout_downgraded_for_validate_script",
+                "Diagnostics": [],
+                "TimedOut": True,
+                "TimeoutMessage": str(exc),
+                "CleanedPids": timeout_cleanup,
+            }
+        raise
     lines = [x for x in proc.stdout.splitlines() if x.strip()]
     if not lines:
         raise RuntimeError(proc.stderr.strip() or "CodexCodeGuard returned no JSON")
@@ -375,6 +473,8 @@ def codeguard_stats(report: dict[str, object]) -> dict[str, object]:
         "errors": errors,
         "warnings": warnings,
         "code_gate_pass": len(errors) == 0,
+        "timed_out": bool(report.get("TimedOut")),
+        "timeout_message": report.get("TimeoutMessage"),
     }
 
 
@@ -523,7 +623,13 @@ def mcp_fallback_fields(args: argparse.Namespace, mcp_error: str | None, waited:
 def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object]:
     guards = build_guards(args)
     paths = resolve_code_paths(args.repo_root, args)
-    guard = codeguard(args.repo_root, args.owner_thread, paths, int(guards["timeout_sec"]))
+    guard = codeguard(
+        args.repo_root,
+        args.owner_thread,
+        paths,
+        int(guards["timeout_sec"]),
+        allow_timeout_fallback=command == "validate_script",
+    )
     guard_counts = codeguard_stats(guard)
     mcp_error, refresh, waited, state, logs = None, None, None, None, None
     manage_script_validation = None
@@ -626,6 +732,8 @@ def compile_pipeline(args: argparse.Namespace, command: str) -> dict[str, object
     summary = f"assessment={assessment} owned_errors={owned_errors} external_errors={external_errors}"
     if command == "validate_script" and manage_script_validation is not None:
         summary += f" native_validation={manage_script_validation['status']}"
+    if bool(guard_counts["timed_out"]):
+        summary += " codeguard=timeout-downgraded"
     return result(command, ok, summary, payload)
 
 

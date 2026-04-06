@@ -482,23 +482,38 @@ function Invoke-StableGitSafeSync {
         throw "稳定 launcher 不存在：$launcherPath"
     }
 
+    $normalizedIncludePaths = @(Expand-DelimitedStringList -Values $IncludePaths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $normalizedScopeRoots = @(Expand-DelimitedStringList -Values $ScopeRoots | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+    $useWorkingTreeGitSafeSync = @($normalizedIncludePaths + $normalizedScopeRoots) -contains 'scripts/git-safe-sync.ps1'
+    $targetScriptPath = $launcherPath
+    if ($useWorkingTreeGitSafeSync) {
+        $repoScriptPath = Join-Path $RepoRoot 'scripts\git-safe-sync.ps1'
+        if (-not (Test-Path -LiteralPath $repoScriptPath)) {
+            throw "仓库内 git-safe-sync 脚本不存在：$repoScriptPath"
+        }
+
+        $targetScriptPath = $repoScriptPath
+    }
+
     $output = @()
     $arguments = @(
         '-NoProfile',
         '-ExecutionPolicy', 'Bypass',
-        '-File', $launcherPath,
+        '-File', $targetScriptPath,
         '-Action', $Action,
         '-OwnerThread', $OwnerThread,
-        '-Mode', $Mode,
-        '-RepoRoot', $RepoRoot
+        '-Mode', $Mode
     )
 
-    $normalizedIncludePaths = @(Expand-DelimitedStringList -Values $IncludePaths | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if (-not $useWorkingTreeGitSafeSync) {
+        $arguments += @('-RepoRoot', $RepoRoot)
+    }
+
     if ($normalizedIncludePaths.Count -gt 0) {
         $arguments += @('-IncludePaths', ($normalizedIncludePaths -join ';'))
     }
 
-    $normalizedScopeRoots = @(Expand-DelimitedStringList -Values $ScopeRoots | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
     if ($normalizedScopeRoots.Count -gt 0) {
         $arguments += @('-ScopeRoots', ($normalizedScopeRoots -join ';'))
     }

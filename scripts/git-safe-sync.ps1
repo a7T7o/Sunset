@@ -129,6 +129,20 @@ function Get-RepoRoot {
     return (Invoke-Git -Arguments @('rev-parse', '--show-toplevel')).Output[0].Trim()
 }
 
+function Get-RepoRelativePath {
+    param(
+        [string]$RepoRoot,
+        [string]$AbsolutePath
+    )
+
+    $repoRootFull = [System.IO.Path]::GetFullPath($RepoRoot).TrimEnd('\')
+    $absoluteFull = [System.IO.Path]::GetFullPath($AbsolutePath)
+    $repoUri = [System.Uri]::new(($repoRootFull + '\'))
+    $absoluteUri = [System.Uri]::new($absoluteFull)
+    $relative = $repoUri.MakeRelativeUri($absoluteUri).ToString()
+    return (Normalize-InputPath -Path ([System.Uri]::UnescapeDataString($relative)))
+}
+
 function Get-CurrentBranch {
     return (Invoke-Git -Arguments @('branch', '--show-current')).Output[0].Trim()
 }
@@ -1392,15 +1406,45 @@ function Get-CodeGuardDllPath {
     return (Join-Path $projectDirectory 'bin/Release/net9.0/CodexCodeGuard.dll')
 }
 
+function Stop-StaleCodeGuardProcesses {
+    $repoRoot = Get-RepoRoot
+    $targets = Get-CimInstance Win32_Process -Filter "Name = 'dotnet.exe'" |
+        Where-Object {
+            $_.CommandLine -like '*CodexCodeGuard.dll*' -and
+            $_.CommandLine -like ('*' + $repoRoot + '*')
+        }
+
+    $stopped = @()
+    foreach ($proc in @($targets)) {
+        try {
+            $null = & taskkill /PID $proc.ProcessId /T /F 2>$null
+            $stopped += [int]$proc.ProcessId
+        }
+        catch {
+        }
+    }
+
+    return $stopped
+}
+
+function Get-CodeGuardSourceInputs {
+    $projectDirectory = Split-Path -Parent (Get-CodeGuardProjectPath)
+    return @(
+        Get-ChildItem -Path $projectDirectory -Recurse -File |
+        Where-Object {
+            $_.Extension -in @('.cs', '.csproj') -and
+            $_.FullName -notmatch '[\\/](bin|obj)[\\/]'
+        }
+    )
+}
+
 function Test-CodeGuardBuildRequired {
     $dllPath = Get-CodeGuardDllPath
     if (-not (Test-Path -LiteralPath $dllPath)) {
         return $true
     }
 
-    $projectDirectory = Split-Path -Parent (Get-CodeGuardProjectPath)
-    $latestInput = Get-ChildItem -Path $projectDirectory -Recurse -File |
-        Where-Object { $_.Extension -in @('.cs', '.csproj') } |
+    $latestInput = Get-CodeGuardSourceInputs |
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
 
@@ -1415,6 +1459,11 @@ function Ensure-CodeGuardBuilt {
     $projectPath = Get-CodeGuardProjectPath
     if (-not (Test-Path -LiteralPath $projectPath)) {
         throw "FATAL: CodexCodeGuard 项目不存在：$projectPath"
+    }
+
+    $stalePids = Stop-StaleCodeGuardProcesses
+    if (@($stalePids).Count -gt 0) {
+        Write-Host ("[git-safe-sync] 已清理 stale CodexCodeGuard 进程: " + (($stalePids | ForEach-Object { $_.ToString() }) -join ', '))
     }
 
     if (-not (Test-CodeGuardBuildRequired)) {
@@ -1447,6 +1496,189 @@ function New-EmptyCodeGuardReport {
     }
 }
 
+function New-CodeGuardDiagnostic {
+    param(
+        [string]$Severity,
+        [string]$RuleId,
+        [string]$Message,
+        [string]$FilePath = $null,
+        [Nullable[int]]$Line = $null,
+        [Nullable[int]]$Column = $null,
+        [string]$Assembly = $null
+    )
+
+    return [PSCustomObject]@{
+        Severity = $Severity
+        RuleId   = $RuleId
+        Message  = $Message
+        FilePath = $FilePath
+        Line     = $Line
+        Column   = $Column
+        Assembly = $Assembly
+    }
+}
+
+function Get-CodeGuardAssemblyNameForPath {
+    param(
+        [string]$RepoRoot,
+        [string]$AbsolutePath
+    )
+
+    $relative = Get-RepoRelativePath -RepoRoot $RepoRoot -AbsolutePath $AbsolutePath
+    if ([string]::IsNullOrWhiteSpace($relative)) {
+        return 'Assembly-CSharp'
+    }
+
+    if ($relative.StartsWith('Assets/YYY_Tests/Editor/', [System.StringComparison]::OrdinalIgnoreCase)) {
+        return 'Tests.Editor'
+    }
+
+    if ($relative.StartsWith('Assets/Editor/', [System.StringComparison]::OrdinalIgnoreCase) -or
+        $relative.IndexOf('/Editor/', [System.StringComparison]::OrdinalIgnoreCase) -ge 0) {
+        return 'Assembly-CSharp-Editor'
+    }
+
+    return 'Assembly-CSharp'
+}
+
+function Invoke-LightweightSingleScriptGate {
+    param(
+        [string]$RepoRoot,
+        [string]$OwnerThread,
+        [string]$Branch,
+        [string]$Phase,
+        [string[]]$CandidatePaths
+    )
+
+    if (@($CandidatePaths).Count -ne 1) {
+        return $null
+    }
+
+    $absolutePath = [System.IO.Path]::GetFullPath($CandidatePaths[0])
+    $relativePath = Get-RepoRelativePath -RepoRoot $RepoRoot -AbsolutePath $absolutePath
+    if ([string]::IsNullOrWhiteSpace($relativePath) -or
+        -not $relativePath.EndsWith('.cs', [System.StringComparison]::OrdinalIgnoreCase) -or
+        -not $relativePath.StartsWith('Assets/', [System.StringComparison]::OrdinalIgnoreCase)) {
+        return $null
+    }
+
+    $diagnostics = [System.Collections.Generic.List[object]]::new()
+    $assemblyName = Get-CodeGuardAssemblyNameForPath -RepoRoot $RepoRoot -AbsolutePath $absolutePath
+
+    if (-not (Test-Path -LiteralPath $absolutePath)) {
+        $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'CODEGUARD' -Message '目标脚本不存在。' -FilePath $absolutePath -Assembly $assemblyName))
+    }
+    else {
+        try {
+            $bytes = [System.IO.File]::ReadAllBytes($absolutePath)
+            $utf8 = [System.Text.UTF8Encoding]::new($false, $true)
+            $text = $utf8.GetString($bytes)
+            if ($text.Contains([char]0xFFFD)) {
+                $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'ENCODING' -Message '文件包含 Unicode 替换字符 U+FFFD，疑似存在错误解码或坏字符。' -FilePath $absolutePath -Assembly $assemblyName))
+            }
+        }
+        catch [System.Text.DecoderFallbackException] {
+            $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'ENCODING' -Message '文件不是健康的 UTF-8 文本，禁止继续收口。' -FilePath $absolutePath -Assembly $assemblyName))
+        }
+    }
+
+    $diffCheck = Invoke-Git -Arguments @('diff', '--check', '--', $relativePath) -AllowFailure
+    if ($diffCheck.ExitCode -ne 0) {
+        foreach ($line in @($diffCheck.Output | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+            $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'DIFFCHECK' -Message $line.Trim() -FilePath $absolutePath -Assembly $assemblyName))
+        }
+    }
+
+    $sunsetMcpPath = Join-Path $RepoRoot 'scripts\sunset_mcp.py'
+    if (-not (Test-Path -LiteralPath $sunsetMcpPath)) {
+        $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'MANAGE_SCRIPT' -Message "sunset_mcp.py 不存在：$sunsetMcpPath" -FilePath $absolutePath -Assembly $assemblyName))
+    }
+    else {
+        $scriptName = [System.IO.Path]::GetFileNameWithoutExtension($relativePath)
+        $scriptParent = Normalize-InputPath -Path (Split-Path -Path $relativePath -Parent)
+        if ([string]::IsNullOrWhiteSpace($scriptParent)) {
+            $scriptParent = 'Assets'
+        }
+
+        $validationOutput = & py -3 $sunsetMcpPath --project-root $RepoRoot manage_script validate --name $scriptName --path $scriptParent --level standard --output-limit 10 2>&1
+        $validationExitCode = if ($null -ne $LASTEXITCODE) { [int]$LASTEXITCODE } else { 0 }
+        $validationText = ($validationOutput | ForEach-Object { $_.ToString() }) -join [Environment]::NewLine
+
+        try {
+            $validation = $validationText | ConvertFrom-Json
+            $summary = $validation.data.validation
+            $counts = $summary.counts
+
+            if ($null -eq $summary) {
+                $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'MANAGE_SCRIPT' -Message 'manage_script validate 未返回 validation 摘要。' -FilePath $absolutePath -Assembly $assemblyName))
+            }
+            elseif ($validationExitCode -ne 0 -or [int]$counts.errors -gt 0) {
+                $entries = @($summary.diagnostics.entries)
+                if ($entries.Count -eq 0) {
+                    $fallbackMessage = if (-not [string]::IsNullOrWhiteSpace($summary.error)) {
+                        [string]$summary.error
+                    }
+                    elseif (-not [string]::IsNullOrWhiteSpace($summary.message)) {
+                        [string]$summary.message
+                    }
+                    else {
+                        'manage_script validate 失败。'
+                    }
+
+                    $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'MANAGE_SCRIPT' -Message $fallbackMessage -FilePath $absolutePath -Assembly $assemblyName))
+                }
+                else {
+                    foreach ($entry in $entries) {
+                        $severity = if ([string]::IsNullOrWhiteSpace($entry.severity)) { 'error' } else { [string]$entry.severity }
+                        $ruleId = if ([string]::IsNullOrWhiteSpace($entry.code)) {
+                            'MANAGE_SCRIPT'
+                        }
+                        else {
+                            [string]$entry.code
+                        }
+                        $entryMessage = if (-not [string]::IsNullOrWhiteSpace($entry.message)) {
+                            [string]$entry.message
+                        }
+                        elseif (-not [string]::IsNullOrWhiteSpace($summary.message)) {
+                            [string]$summary.message
+                        }
+                        else {
+                            'manage_script validate 失败。'
+                        }
+                        $entryFile = if ([string]::IsNullOrWhiteSpace($entry.file)) {
+                            $absolutePath
+                        }
+                        else {
+                            [string]$entry.file
+                        }
+
+                        $diagnostics.Add((New-CodeGuardDiagnostic -Severity $severity -RuleId $ruleId -Message $entryMessage -FilePath $entryFile -Line $entry.line -Column $entry.column -Assembly $assemblyName))
+                    }
+                }
+            }
+        }
+        catch {
+            $diagnostics.Add((New-CodeGuardDiagnostic -Severity 'error' -RuleId 'MANAGE_SCRIPT' -Message "manage_script validate 输出无法解析：$validationText" -FilePath $absolutePath -Assembly $assemblyName))
+        }
+    }
+
+    $hasErrors = @($diagnostics | Where-Object { $_.Severity -eq 'error' }).Count -gt 0
+    return [PSCustomObject]@{
+        Applies            = $true
+        CanContinue        = -not $hasErrors
+        Phase              = $Phase
+        RepoRoot           = $RepoRoot
+        OwnerThread        = $OwnerThread
+        Branch             = $Branch
+        ChangedCodeFiles   = @($absolutePath)
+        AffectedAssemblies = @($assemblyName)
+        ChecksRun          = @('utf8-strict', 'git-diff-check', 'manage-script-validate-fallback')
+        Diagnostics        = @($diagnostics)
+        Summary            = if ($hasErrors) { '单脚本轻量代码闸门未通过' } else { '单脚本轻量代码闸门通过' }
+        Reason             = if ($hasErrors) { 'manage_script validate 或文本闸门未通过。' } else { '当前单脚本已通过 UTF-8、diff 和 manage_script validate 轻量验证。' }
+    }
+}
+
 function Invoke-CodeGuard {
     param(
         [string]$RepoRoot,
@@ -1468,6 +1700,11 @@ function Invoke-CodeGuard {
 
     if ($candidatePaths.Count -eq 0) {
         return (New-EmptyCodeGuardReport -Reason '本轮白名单未触发 C# 代码闸门。')
+    }
+
+    $lightweightReport = Invoke-LightweightSingleScriptGate -RepoRoot $RepoRoot -OwnerThread $OwnerThread -Branch $Branch -Phase $Phase -CandidatePaths $candidatePaths
+    if ($null -ne $lightweightReport) {
+        return $lightweightReport
     }
 
     Ensure-CodeGuardBuilt
