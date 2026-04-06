@@ -1968,3 +1968,35 @@ Sunset 里大量改动都属于：
 - 当前恢复点：
   - 下次如果继续推进 `Town`，不要从“整份 working tree 里的 Town scene 都可直接认领”这个假前提出发；
   - 正确恢复点是：以 `15d75285` 这份最小 checkpoint 为正式基线，等待新的 ownership 或 scene 旧账整理条件，再进入下一刀。
+
+## 2026-04-06｜补记：Town broader dirty 复勘后，resident scene-side 方向已无额外隐藏增量
+
+- 当前主线目标：
+  - 趁 `day1` 还在审核前，把 `Town.unity` working tree 里剩余的 broader dirty 再压深一层，查实还有没有 resident scene-side 的隐藏可提取内容。
+- 本轮子任务：
+  1. 读 `HEAD` 与 working tree 的 `Town.unity`；
+  2. 做轻量 section/object-name 级对比；
+  3. 对 resident scene-side 关键词做二次筛查。
+- 本轮实际做成：
+  1. 已确认 `Town.unity` 当前总 changed sections 为 `265`。
+  2. 已确认主要 remaining dirty 落在：
+     - Farmland / bridge / wall / props 等环境层与 Tilemap 层；
+     - `Main Camera / CinemachineCamera / Player / SceneTransitionTrigger`；
+     - `PersistentManagers / CloudShadow`；
+     - `LAYER 111 / LAYER 222` 等大型壳层。
+  3. 已再次单独筛 resident 关键词，结果为 `COUNT 0`：
+     - 当前 broader dirty 里已经没有新的 `Town_Day1Residents / carrier / slot` 增量。
+  4. 已新增归类正文：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_Town工作区broader-dirty分类与下一安全切片_11.md`
+- 当前关键判断：
+  - `Town` resident scene-side 当前已经压到“不能再从这份 shared dirty 里安全榨出下一刀”的深度；
+  - 后续若继续，不应再沿 resident scene-side 命名继续扩，而应改开新的 mixed-scene 子域 slice。
+- 当前验证状态：
+  - resident 关键词筛查 => `COUNT 0`
+  - `Town.unity` 仍为 working tree dirty
+- 当前恢复点：
+  - 下一次最靠谱的新切法是：
+    1. `Town 相机 / 转场 / 玩家位`
+    2. `Town 环境 / Tilemap / bridge-farmland`
+    3. `Town manager / baseline`
+  - 不再把 resident scene-side 当下一刀。

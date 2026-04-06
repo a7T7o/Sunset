@@ -12929,3 +12929,37 @@
 - 当前恢复点：
   - 这轮收尾应继续只补 own docs / memory / 协作回执，不去 destructive 清 working tree 里的整份 `Town.unity`
   - 完成 docs-only 收口后，直接 `Park-Slice` 并释放 `Town.unity` 锁
+
+## 2026-04-06｜补记：Town 当前 broader dirty 已证实不再包含新的 resident scene-side 增量
+
+- 当前主线目标：
+  - 在 `Town` resident scene-side 最小 checkpoint 已经纠偏成立后，继续只读深压 working tree 里的 broader dirty，判断还有没有 resident scene-side 的隐藏增量可继续提取。
+- 本轮子任务：
+  1. 对 `HEAD` 与 working tree 的 `Assets/000_Scenes/Town.unity` 做轻量结构比对；
+  2. 统计当前 broader dirty 主要落在哪些对象名；
+  3. 单独核验 `Town_Day1Residents / Town_Day1Carriers / ResidentSlot_* / DirectorReady_* / BackstageSlot_*` 这层是否还有未提交增量。
+- 本轮实际做成：
+  1. 已确认 working tree 相对 `HEAD` 的 `Town.unity` 变更 section 总数为 `265`。
+  2. 已确认变更主体已经转向：
+     - 桥 / 农田 / Wall / Props 等 Tilemap 与环境层
+     - `Main Camera / CinemachineCamera / Player / SceneTransitionTrigger`
+     - `PersistentManagers / CloudShadow`
+     - `LAYER 111 / LAYER 222` 等大型壳层
+  3. 已单独筛查 resident scene-side 关键词，结果为：
+     - `Town_Day1Residents / Town_Day1Carriers / ResidentSlot_* / DirectorReady_* / BackstageSlot_* / EnterVillageCrowdRoot / KidLook_01 / DinnerBackgroundRoot / NightWitness_01 / DailyStand_01~03`
+     - 当前 additional changed section 数 = `0`
+  4. 已新增归类正文：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-06_Town工作区broader-dirty分类与下一安全切片_11.md`
+- 当前关键判断：
+  - `Town` resident scene-side 这条线，在当前 shared dirty 条件下已经基本抽尽了可安全提取的增量；
+  - 现在再继续把 `Town.unity` 的 broader dirty 当成“resident 第三刀”方向，会造成错误归类。
+- 当前验证状态：
+  - `git status --short -- Assets/000_Scenes/Town.unity` => 仍为 `M`
+  - 轻量结构比对 => `TOTAL_CHANGED_SECTIONS 265`
+  - resident 关键词追加筛查 => `COUNT 0`
+- 当前恢复点：
+  - 下次如果继续 `Town`，真正安全的新 slice 方向应改成：
+    1. 相机 / 转场 / 玩家位
+    2. 环境 / Tilemap / bridge-farmland layer
+    3. manager / bootstrap / baseline
+  - 而不是再把 resident scene-side 当下一刀。
