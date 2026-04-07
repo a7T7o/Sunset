@@ -3120,3 +3120,23 @@ Sunset 里大量改动都属于：
   - docs/memory 还处于本轮 own dirty，待是否继续作为 docs-only 小批提交。
 - 恢复点：
   - 如果继续收尾，只需判断 docs-only 小批是否现在一起提交。
+
+## 2026-04-08｜补记：docs-only 小批已提交，Ready-To-Sync 暂被历史 own roots 阻断
+
+- 当前主线目标：
+  - 在不吞 shared 大现场的前提下，把这轮能交的都先交出去，并诚实记录收尾状态。
+- 本轮新增事项：
+  1. 已继续提交 docs-only 小批：
+     - `09371865`
+     - `docs: record governance progress and weekly project receipt`
+  2. 现阶段本轮已交出的提交共有：
+     - `53d806d2`
+     - `09371865`
+  3. 执行 `Ready-To-Sync` 时被 blocker 卡住：
+     - 不是本轮 touched files 未清
+     - 而是 `Codex规则落地` 历史 owner 根仍挂着大量旧 dirty / untracked
+- 当前判断：
+  - 本轮 own 可独立提交成果已经先落库；
+  - 但治理线历史清账仍是单独议题，不能伪装成“这轮已经整体 clean”。
+- 恢复点：
+  - 若后续继续治理线收尾，需专开“历史 own roots 清账”切片。

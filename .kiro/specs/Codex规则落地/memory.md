@@ -14290,3 +14290,25 @@
   - 若继续本线收尾，优先只剩：
     1. 视情况单独提交 docs-only 审计批
     2. 等用户或相关线程继续做 runtime/manual 终验
+
+## 2026-04-08｜补记：两批 commit 已交，但 `Ready-To-Sync` 仍被历史同根尾账阻断
+
+- 本轮新增事实：
+  1. 已继续提交 docs-only 审计批：
+     - `09371865`
+     - `docs: record governance progress and weekly project receipt`
+  2. 目前我这轮实际提交出的两批是：
+     - `53d806d2`
+     - `09371865`
+  3. 之后执行 `Ready-To-Sync -ThreadName Codex规则落地` 时，仍被 blocker 卡住：
+     - 原因不是本轮刚提交的 6 个目标文件还没收干净
+     - 而是 `Codex规则落地` 这条治理线在 owner 口径上仍挂着大量历史同根 dirty / untracked
+     - 典型包括：
+       - `Assets/YYY_Scripts/Service/Player/*`
+       - `Assets/YYY_Scripts/Story/Interaction/*`
+       - 多份旧截图、旧工具、旧测试、旧 scene 脏改
+- 当前关键判断：
+  - 这轮我已经把“能最小独立提交的内容”先交掉了；
+  - 但这不等于治理线程自己的历史 same-root 现场已经恢复 clean。
+- 当前恢复点：
+  - 若后续真的要把 `Codex规则落地` 收到可 sync clean，必须专门开一轮“治理线历史 own roots 清账”，不能在业务推进里顺手带走。
