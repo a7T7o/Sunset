@@ -1,12 +1,14 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.UI;
 using FarmGame.World;
 using FarmGame.Farm;
+using Sunset.Story;
 
 // ===== 10.1.1 补丁002：FIFO 操作队列类型定义 =====
 
@@ -72,25 +74,56 @@ public class GameInputManager : MonoBehaviour
         }
     }
 
+    private bool IsDialogueWorldLockActive()
+    {
+        return !_inputEnabled || (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive);
+    }
+
     private void OnEnable()
     {
         Sunset.Events.EventBus.Subscribe<Sunset.Events.DialogueStartEvent>(OnDialogueStart, owner: this);
         Sunset.Events.EventBus.Subscribe<Sunset.Events.DialogueEndEvent>(OnDialogueEnd, owner: this);
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
     private void OnDisable()
     {
         Sunset.Events.EventBus.UnsubscribeAll(this);
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
     private void OnDialogueStart(Sunset.Events.DialogueStartEvent _)
     {
         SetInputEnabled(false);
+        HideFarmToolPreview();
+        CaptureProtectedHeldSlotForUIFreeze();
+        _isQueuePaused = true;
+        PlacementManager.Instance?.ExitPlacementMode();
+        AbortFarmToolOperationImmediately("正式剧情对话接管世界输入");
+        PauseCurrentNavigationForUI();
+        CloseBoxPanelIfOpen();
     }
 
     private void OnDialogueEnd(Sunset.Events.DialogueEndEvent _)
     {
         SetInputEnabled(true);
+        _isQueuePaused = false;
+        ClearPausedFarmingNavigation();
+        ClearProtectedHeldSlotForUIFreeze();
+        PlacementManager.Instance?.RefreshCurrentPreview();
+    }
+
+    private void OnSceneLoaded(Scene _, LoadSceneMode __)
+    {
+        StopCoroutine(nameof(RefreshWorldCameraBindingNextFrame));
+        StartCoroutine(nameof(RefreshWorldCameraBindingNextFrame));
+    }
+
+    private System.Collections.IEnumerator RefreshWorldCameraBindingNextFrame()
+    {
+        worldCamera = null;
+        yield return null;
+        ResolveWorldCamera();
     }
     #endregion
 
@@ -103,6 +136,7 @@ public class GameInputManager : MonoBehaviour
     private Transform _pendingAutoInteractTarget;
     private float _pendingAutoInteractDistance;
     private int _pendingAutoInteractRetryCount;
+    private const int PendingAutoInteractionMaxRetries = 2;
     
     // 🔥 9.0.5 扩展：农田导航状态机
     private enum FarmNavState 
@@ -159,6 +193,7 @@ public class GameInputManager : MonoBehaviour
     private bool _isQueuePaused = false;        // 队列暂停（面板打开时）
     private CropController _currentHarvestTarget = null;   // 当前正在收获的作物
     private FarmActionRequest _currentProcessingRequest;    // 当前正在处理的请求
+    private bool _hasCurrentProcessingRequest = false;
     private bool _wasUIOpen = false;                        // 面板暂停/恢复：上一帧 UI 状态
     private bool _hasUIFrozenProtectedHeldSlot = false;
     private int _uiFrozenProtectedHeldSlotIndex = -1;
@@ -200,7 +235,7 @@ public class GameInputManager : MonoBehaviour
         if (inventory != null)
             database = inventory.Database;
 
-        if (worldCamera == null) worldCamera = Camera.main;
+        if (worldCamera == null) worldCamera = ResolveWorldCamera();
     }
 
     void OnDestroy()
@@ -236,14 +271,31 @@ public class GameInputManager : MonoBehaviour
 
     void Update()
     {
+        if (IsDialogueWorldLockActive())
+        {
+            HideFarmToolPreview();
+            return;
+        }
+
         // ===== 10.2.0 V键放置模式切换 =====
         if (Input.GetKeyDown(KeyCode.V))
         {
+            bool shouldAbortFarmToolOperation = IsPlacementMode &&
+                                                IsHoldingFarmTool() &&
+                                                (HasActiveAutomatedFarmToolOperation() ||
+                                                 (playerInteraction != null && playerInteraction.IsPerformingAction()));
             IsPlacementMode = !IsPlacementMode;
 
             if (!IsPlacementMode)
             {
-                HideFarmToolPreview();
+                if (shouldAbortFarmToolOperation)
+                {
+                    AbortFarmToolOperationImmediately("关闭放置模式，按中断处理当前农具链");
+                }
+                else
+                {
+                    HideFarmToolPreview();
+                }
             }
 
             SyncPlaceableModeWithCurrentSelection();
@@ -276,8 +328,13 @@ public class GameInputManager : MonoBehaviour
             PlacementManager.Instance?.RefreshCurrentPreview();
             bool resumedPausedNavigation = ResumePausedFarmNavigationAfterUI();
             ClearProtectedHeldSlotForUIFreeze();
-            if (!resumedPausedNavigation && (_farmActionQueue.Count > 0 || _isProcessingQueue) && !_isExecutingFarming)
+            if (!resumedPausedNavigation &&
+                (_farmActionQueue.Count > 0 || _isProcessingQueue) &&
+                !_isExecutingFarming &&
+                (playerInteraction == null || !playerInteraction.IsPerformingAction()))
+            {
                 ProcessNextAction();
+            }
         }
         _wasUIOpen = uiOpen;
         
@@ -567,9 +624,10 @@ public class GameInputManager : MonoBehaviour
         
         Vector2 input = GetManualMovementInput();
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+        bool hasManualMovementInput = input.sqrMagnitude > 0.01f;
 
         // 🔥 10.1.1补丁002 V4：WASD 中断队列（优先级高于 lockManager）
-        bool hasWASD = input.sqrMagnitude > 0.01f;
+        bool hasWASD = hasManualMovementInput;
         bool hasActiveQueue = _farmActionQueue.Count > 0 || _isProcessingQueue;
         if (hasWASD && hasActiveQueue)
         {
@@ -586,6 +644,14 @@ public class GameInputManager : MonoBehaviour
             }
             // else: 动画执行中 → 只清空队列，不取消导航/不解锁移动
             // 动画完成后由 OnFarmActionAnimationComplete 回调链正常清理一切
+        }
+
+        if (hasManualMovementInput &&
+            PlacementManager.Instance != null &&
+            (PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Locked ||
+             PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Navigating))
+        {
+            PlacementManager.Instance.HandleManualMovementWhileLocked();
         }
 
         // 检查是否处于工具动作锁定状态
@@ -623,15 +689,6 @@ public class GameInputManager : MonoBehaviour
             CancelFarmingNavigation();
         }
         
-        // 🔥 Bug D 修复：WASD 也取消放置系统导航
-        if (PlacementManager.Instance != null && 
-            (PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Locked || 
-             PlacementManager.Instance.CurrentState == PlacementManager.PlacementState.Navigating) &&
-            (Mathf.Abs(input.x) > 0.01f || Mathf.Abs(input.y) > 0.01f))
-        {
-            PlacementManager.Instance.InterruptFromExternal();
-        }
-
         // 非导航状态，正常写入移动
         if (playerMovement != null) playerMovement.SetMovementInput(input, shift);
     }
@@ -750,6 +807,8 @@ public class GameInputManager : MonoBehaviour
 
     void HandlePanelHotkeys()
     {
+        if (IsDialogueWorldLockActive()) return;
+
         var tabs = EnsurePackageTabs();
         
         // 🔥 9.0.5：ESC 键特殊处理
@@ -858,18 +917,11 @@ public class GameInputManager : MonoBehaviour
     void HandleUseCurrentTool()
     {
         // 对话/演出输入锁
-        if (!_inputEnabled) return;
+        if (IsDialogueWorldLockActive()) return;
 
         // 任何面板打开时禁用工具使用
         bool uiOpen = IsAnyPanelOpen();
         if (uiOpen) return;
-
-        bool hasManualMovementInput = GetManualMovementInput().sqrMagnitude > 0.01f;
-        bool hasPlacementFlow = IsPlacementMode || (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode);
-        if (hasManualMovementInput && hasPlacementFlow)
-        {
-            return;
-        }
 
         // 🔥 10.1.1补丁002：执行保护 — 执行中/动画中的点击走 FIFO 入队（替代旧 CacheFarmInput）
         // V1 漏洞修补：保护分支1（_isExecutingFarming）+ 保护分支2（isPerformingAction）合并
@@ -897,6 +949,12 @@ public class GameInputManager : MonoBehaviour
             return;
         }
 
+        // 收获链必须先于放置/手持物分发，不能再被“当前拿着什么”挡住。
+        if (TryDetectAndEnqueueHarvest())
+        {
+            return;
+        }
+
         // ★ 检查是否处于放置模式
         if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
         {
@@ -912,10 +970,6 @@ public class GameInputManager : MonoBehaviour
 
         var itemData = database.GetItemByID(slot.itemId);
         if (itemData == null) return;
-
-        // 🔥 10.1.1补丁002 CP-5：收获检测（最高优先级）— 在所有工具分发之前
-        if (TryDetectAndEnqueueHarvest())
-            return;
 
         if (itemData is ToolData tool)
         {
@@ -968,6 +1022,8 @@ public class GameInputManager : MonoBehaviour
 
     void HandleRightClickAutoNav()
     {
+        if (IsDialogueWorldLockActive()) return;
+
         if (!Input.GetMouseButtonDown(1)) return;
 
         bool boxOpen = BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen;
@@ -1012,11 +1068,14 @@ public class GameInputManager : MonoBehaviour
             return;
         }
 
-        var cam = worldCamera != null ? worldCamera : Camera.main;
+        if (SceneTransitionRunner.IsBusy)
+        {
+            return;
+        }
+
+        Camera cam = ResolveWorldCamera();
         if (cam == null) return;
-        Vector3 mouse = Input.mousePosition;
-        Vector3 world = cam.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
-        world.z = 0f;
+        Vector3 world = ScreenToGameplayWorld(cam, Input.mousePosition);
 
         TryHandleAutoNavWorldClick(world, boxOpen, respectClickRateLimit: true);
     }
@@ -1215,7 +1274,7 @@ public class GameInputManager : MonoBehaviour
         // 🔥 v4.0：使用 ClosestPoint 计算玩家到目标的最近距离
         Vector2 targetPos = GetTargetAnchor(interactionTarget, playerCenter);
         float distance = Vector2.Distance(playerCenter, targetPos);
-        float interactDist = interactable.InteractionDistance;
+        float interactDist = GetInteractionDistanceThreshold(interactable, interactable.InteractionDistance);
         
         if (showDebugInfo)
         {
@@ -1236,10 +1295,7 @@ public class GameInputManager : MonoBehaviour
                 autoNavigator.ForceCancel();
 
                 BeginPendingAutoInteraction(interactable, interactionTarget, interactDist);
-                autoNavigator.FollowTarget(interactionTarget, interactDist, () =>
-                {
-                    TryCompletePendingAutoInteraction();
-                });
+                TryStartPendingAutoInteractionNavigation();
             }
         }
     }
@@ -1310,6 +1366,16 @@ public class GameInputManager : MonoBehaviour
         _pendingAutoInteractRetryCount = 0;
     }
 
+    private void TryStartPendingAutoInteractionNavigation()
+    {
+        if (_pendingAutoInteractTarget == null || autoNavigator == null)
+        {
+            return;
+        }
+
+        autoNavigator.FollowTarget(_pendingAutoInteractTarget, _pendingAutoInteractDistance);
+    }
+
     private void ClearPendingAutoInteraction()
     {
         _pendingAutoInteractable = null;
@@ -1336,31 +1402,28 @@ public class GameInputManager : MonoBehaviour
         {
             autoNavigator?.ForceCancel();
             CompletePendingAutoInteraction();
+            return;
         }
-    }
 
-    private void TryCompletePendingAutoInteraction()
-    {
-        if (_pendingAutoInteractable == null || _pendingAutoInteractTarget == null)
+        if (autoNavigator == null)
         {
             ClearPendingAutoInteraction();
             return;
         }
 
-        if (IsPendingAutoInteractionInRange())
+        if (autoNavigator.IsActive || !autoNavigator.IsNavigationSleeping())
         {
-            CompletePendingAutoInteraction();
             return;
         }
 
-        if (_pendingAutoInteractRetryCount >= 1 || autoNavigator == null)
+        if (_pendingAutoInteractRetryCount >= PendingAutoInteractionMaxRetries)
         {
             ClearPendingAutoInteraction();
             return;
         }
 
         _pendingAutoInteractRetryCount++;
-        autoNavigator.FollowTarget(_pendingAutoInteractTarget, _pendingAutoInteractDistance, TryCompletePendingAutoInteraction);
+        TryStartPendingAutoInteractionNavigation();
     }
 
     private void CompletePendingAutoInteraction()
@@ -1395,10 +1458,12 @@ public class GameInputManager : MonoBehaviour
             return 0f;
         }
 
-        float interactDistance = _pendingAutoInteractDistance > 0f
-            ? _pendingAutoInteractDistance
-            : _pendingAutoInteractable.InteractionDistance;
-        return GetInteractionDistanceThreshold(_pendingAutoInteractable, interactDistance);
+        if (_pendingAutoInteractDistance > 0f)
+        {
+            return Mathf.Max(0.35f, _pendingAutoInteractDistance);
+        }
+
+        return GetInteractionDistanceThreshold(_pendingAutoInteractable, _pendingAutoInteractable.InteractionDistance);
     }
 
     private float GetInteractionDistanceThreshold(IInteractable interactable, float baseDistance)
@@ -1867,13 +1932,72 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private Vector3 GetMouseWorldPosition()
     {
-        var cam = worldCamera != null ? worldCamera : Camera.main;
+        if (SceneTransitionRunner.IsBusy)
+        {
+            return Vector3.zero;
+        }
+
+        Camera cam = ResolveWorldCamera();
         if (cam == null) return Vector3.zero;
-        
-        Vector3 mousePos = Input.mousePosition;
-        Vector3 worldPos = cam.ScreenToWorldPoint(new Vector3(mousePos.x, mousePos.y, 0f));
+
+        return ScreenToGameplayWorld(cam, Input.mousePosition);
+    }
+
+    private Camera ResolveWorldCamera()
+    {
+        Camera main = Camera.main;
+        if (IsUsableWorldCamera(main))
+        {
+            worldCamera = main;
+            return worldCamera;
+        }
+
+        if (IsUsableWorldCamera(worldCamera))
+        {
+            return worldCamera;
+        }
+
+        Camera[] cameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+        for (int index = 0; index < cameras.Length; index++)
+        {
+            Camera candidate = cameras[index];
+            if (!IsUsableWorldCamera(candidate))
+            {
+                continue;
+            }
+
+            worldCamera = candidate;
+            return worldCamera;
+        }
+
+        worldCamera = null;
+        return null;
+    }
+
+    private static bool IsUsableWorldCamera(Camera candidate)
+    {
+        if (candidate == null || !candidate.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        Scene scene = candidate.gameObject.scene;
+        return scene.IsValid() && scene.isLoaded;
+    }
+
+    private static Vector3 ScreenToGameplayWorld(Camera cam, Vector3 screenPosition)
+    {
+        if (cam == null)
+        {
+            return Vector3.zero;
+        }
+
+        Rect pixelRect = cam.pixelRect;
+        float clampedX = Mathf.Clamp(screenPosition.x, pixelRect.xMin, pixelRect.xMax);
+        float clampedY = Mathf.Clamp(screenPosition.y, pixelRect.yMin, pixelRect.yMax);
+        float worldPlaneDistance = Mathf.Max(cam.nearClipPlane + 0.01f, Mathf.Abs(cam.transform.position.z));
+        Vector3 worldPos = cam.ScreenToWorldPoint(new Vector3(clampedX, clampedY, worldPlaneDistance));
         worldPos.z = 0f;
-        
         return worldPos;
     }
     
@@ -2538,7 +2662,9 @@ public class GameInputManager : MonoBehaviour
         FarmToolPreview.Instance?.AddQueuePreview(request.cellPos, request.layerIndex, request.type, request.puddleVariant, ghostTileData);
         
         // 队列之前为空且未暂停且没有正在执行的操作 → 启动处理
-        if (!_isProcessingQueue && !_isQueuePaused)
+        if (!_isProcessingQueue &&
+            !_isQueuePaused &&
+            (playerInteraction == null || !playerInteraction.IsPerformingAction()))
         {
             ProcessNextAction();
         }
@@ -2559,14 +2685,16 @@ public class GameInputManager : MonoBehaviour
             _isProcessingQueue = false;
             _isExecutingFarming = false;
             _queuedPositions.Clear();
+            ClearCurrentProcessingRequest();
             // 🔴 补丁004 模块G（CP-G1）：移除 UnlockPosition（ghost 永不锁定）
-            _farmNavState = FarmNavState.Preview;
+            _farmNavState = IsHoldingFarmTool() ? FarmNavState.Preview : FarmNavState.Idle;
             return;
         }
         
         _isProcessingQueue = true;
         var request = _farmActionQueue.Dequeue();
         _currentProcessingRequest = request;
+        _hasCurrentProcessingRequest = true;
         
         // ===== 二次验证 =====
         switch (request.type)
@@ -2577,6 +2705,7 @@ public class GameInputManager : MonoBehaviour
                 if (request.targetCrop == null || !request.targetCrop.CanInteract(null))
                 {
                     _queuedPositions.Remove((request.layerIndex, request.cellPos));
+                    ClearCurrentProcessingRequest();
                     ProcessNextAction(); // 跳过
                     return;
                 }
@@ -2622,9 +2751,26 @@ public class GameInputManager : MonoBehaviour
         _currentHarvestTarget = null;
         _pendingTileUpdate = null;
         _tileUpdateTriggered = false;
+        RemoveExecutingPreviewForCurrentRequest();
+        ProcessNextAction();
+    }
+
+    private void ClearCurrentProcessingRequest()
+    {
+        _currentProcessingRequest = default;
+        _hasCurrentProcessingRequest = false;
+    }
+
+    private void RemoveExecutingPreviewForCurrentRequest()
+    {
+        if (!_hasCurrentProcessingRequest)
+        {
+            return;
+        }
+
         _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
         FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos);
-        ProcessNextAction();
+        ClearCurrentProcessingRequest();
     }
     
     /// <summary>
@@ -2706,6 +2852,7 @@ public class GameInputManager : MonoBehaviour
                 Debug.LogWarning("[FarmQueue] PlantSeed 不应通过 FIFO 执行，种子已迁移到放置系统");
                 _isExecutingFarming = false;
                 _queuedPositions.Remove((request.layerIndex, request.cellPos));
+                ClearCurrentProcessingRequest();
                 ProcessNextAction();
                 break;
             
@@ -2732,7 +2879,20 @@ public class GameInputManager : MonoBehaviour
             case FarmActionType.Harvest:
                 _currentHarvestTarget = request.targetCrop;
                 FaceTarget(request.worldPos);
-                playerInteraction?.RequestAction(PlayerAnimController.AnimState.Collect);
+                if (!TryStartPlayerAction(PlayerAnimController.AnimState.Collect))
+                {
+                    _currentHarvestTarget = null;
+                    ToolUseFailureReason failureReason = GetLastActionFailureReasonCompat();
+                    if (ShouldInterruptFarmToolOperationForFailure(failureReason))
+                    {
+                        AbortFarmToolOperationImmediately($"收获动作前校验失败: {failureReason}");
+                    }
+                    else
+                    {
+                        AbortCurrentQueuedFarmAction("收获动画未开始");
+                    }
+                    break;
+                }
                 // 动画完成后由 OnActionComplete → OnCollectAnimationComplete 回调
                 break;
         }
@@ -2784,10 +2944,7 @@ public class GameInputManager : MonoBehaviour
         _tileUpdateTriggered = false;
         
         _isExecutingFarming = false;
-        _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
-        
-        // 🔴 补丁004 模块G（CP-G3）：执行完成时移除执行预览（替代 RemoveQueuePreview）
-        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos);
+        RemoveExecutingPreviewForCurrentRequest();
         
         ProcessNextAction();
     }
@@ -2808,10 +2965,7 @@ public class GameInputManager : MonoBehaviour
         
         _currentHarvestTarget = null;
         _isExecutingFarming = false;
-        _queuedPositions.Remove((_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos));
-        
-        // 🔴 补丁004 模块G（CP-G3）：执行完成时移除执行预览（替代 RemoveQueuePreview）
-        FarmToolPreview.Instance?.RemoveExecutingPreview(_currentProcessingRequest.layerIndex, _currentProcessingRequest.cellPos);
+        RemoveExecutingPreviewForCurrentRequest();
         
         ProcessNextAction();
     }
@@ -2832,7 +2986,7 @@ public class GameInputManager : MonoBehaviour
             // 没有动画在执行，全部清空
             _isExecutingFarming = false;
             _currentHarvestTarget = null;
-            _currentProcessingRequest = default;
+            ClearCurrentProcessingRequest();
             _pendingTileUpdate = null;
             _tileUpdateTriggered = false;
         }
@@ -2850,25 +3004,8 @@ public class GameInputManager : MonoBehaviour
     /// CP-5：收获最高优先级，无论手持什么物品都执行检测。
     /// CP-6：只检测玩家当前层级的作物。
     /// </summary>
-    private bool ShouldSkipHarvestPriorityForPlacementTool()
-    {
-        if (!IsPlacementMode || inventory == null || database == null || hotbarSelection == null)
-            return false;
-
-        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
-        var slot = inventory.GetSlot(idx);
-        if (slot.IsEmpty) return false;
-
-        var itemData = database.GetItemByID(slot.itemId);
-        return itemData is ToolData tool &&
-               (tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan);
-    }
-
     private bool TryDetectAndEnqueueHarvest()
     {
-        if (ShouldSkipHarvestPriorityForPlacementTool())
-            return false;
-
         Vector3 mouseWorldPos = GetMouseWorldPosition();
         var hits = Physics2D.OverlapPointAll(mouseWorldPos);
         if (hits == null || hits.Length == 0) return false;
@@ -2878,7 +3015,6 @@ public class GameInputManager : MonoBehaviour
         if (farmTileManager == null) return false;
         // 🔴🔴🔴 玩家位置 = Collider 中心（最高优先级规则）
         Vector2 playerCenter = GetPlayerCenter();
-        int playerLayer = farmTileManager.GetCurrentLayerIndex(playerCenter);
 
         foreach (var hit in hits)
         {
@@ -2894,8 +3030,8 @@ public class GameInputManager : MonoBehaviour
 
             if (interactable is CropController crop)
             {
-                // CP-6：层级过滤 — 只检测玩家当前层级的作物
-                if (crop.LayerIndex != playerLayer) continue;
+                // CP-6：优先使用玩家当前层级；若玩家脚下楼层解析失手，再回退到鼠标所点击到的 crop 自身层。
+                if (!IsCropOnResolvedInteractionLayer(farmTileManager, crop, playerCenter, mouseWorldPos)) continue;
 
                 // 可收获检测（Mature 或 WitheredMature）
                 if (!crop.CanInteract(null)) continue;
@@ -2926,7 +3062,6 @@ public class GameInputManager : MonoBehaviour
         if (farmTileManager == null) return false;
 
         Vector2 playerCenter = GetPlayerCenter();
-        int playerLayer = farmTileManager.GetCurrentLayerIndex(playerCenter);
 
         foreach (var hit in hits)
         {
@@ -2939,7 +3074,7 @@ public class GameInputManager : MonoBehaviour
                 crop = hit.GetComponentInParent<CropController>();
 
             if (crop == null) continue;
-            if (crop.LayerIndex != playerLayer) continue;
+            if (!IsCropOnResolvedInteractionLayer(farmTileManager, crop, playerCenter, mouseWorldPos)) continue;
 
             EnqueueAction(new FarmActionRequest
             {
@@ -2955,6 +3090,66 @@ public class GameInputManager : MonoBehaviour
         return false;
     }
 
+    private bool IsCropOnResolvedInteractionLayer(FarmTileManager farmTileManager, CropController crop, Vector3 playerCenter, Vector3 mouseWorldPos)
+    {
+        if (farmTileManager == null || crop == null)
+        {
+            return false;
+        }
+
+        int playerLayer = farmTileManager.GetCurrentLayerIndex(playerCenter);
+        if (crop.LayerIndex == playerLayer)
+        {
+            return true;
+        }
+
+        if (TryResolveFarmLayerIndexFromWorld(farmTileManager, playerCenter, out int resolvedPlayerLayer))
+        {
+            return crop.LayerIndex == resolvedPlayerLayer;
+        }
+
+        if (TryResolveFarmLayerIndexFromWorld(farmTileManager, mouseWorldPos, out int resolvedMouseLayer))
+        {
+            return crop.LayerIndex == resolvedMouseLayer;
+        }
+
+        return false;
+    }
+
+    private bool TryResolveFarmLayerIndexFromWorld(FarmTileManager farmTileManager, Vector3 worldPosition, out int layerIndex)
+    {
+        layerIndex = -1;
+        if (farmTileManager == null)
+        {
+            return false;
+        }
+
+        int detectedLayer = PlacementLayerDetector.GetLayerAtPosition(worldPosition);
+        string detectedLayerName = LayerMask.LayerToName(detectedLayer);
+        if (string.IsNullOrEmpty(detectedLayerName) ||
+            string.Equals(detectedLayerName, "Default", System.StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < farmTileManager.LayerCount; index++)
+        {
+            LayerTilemaps tilemaps = farmTileManager.GetLayerTilemaps(index);
+            if (tilemaps == null || string.IsNullOrEmpty(tilemaps.layerName))
+            {
+                continue;
+            }
+
+            if (string.Equals(tilemaps.layerName, detectedLayerName, System.StringComparison.OrdinalIgnoreCase))
+            {
+                layerIndex = index;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// 农田工具入队方法：检查预览有效性后，将锄头/浇水操作入队。
     /// CP-9：预览无效时不入队。
@@ -2963,6 +3158,18 @@ public class GameInputManager : MonoBehaviour
     {
         var farmPreview = FarmGame.Farm.FarmToolPreview.Instance;
         if (farmPreview == null || !farmPreview.IsValid()) return; // CP-9：预览无效不入队
+
+        if (!ToolRuntimeUtility.TryValidateHeldToolUse(
+                inventory,
+                hotbarSelection,
+                database,
+                tool,
+                $"GameInputManager/TryEnqueueFarmTool/{tool.toolType}",
+                true,
+                out _))
+        {
+            return;
+        }
 
         var type = tool.toolType == ToolType.Hoe
             ? FarmActionType.Till
@@ -3133,11 +3340,7 @@ public class GameInputManager : MonoBehaviour
             return;
         }
 
-        HideFarmToolPreview();
-        ClearActionQueue();
-
-        var lockManager = ToolActionLockManager.Instance;
-        lockManager?.ClearHotbarCache();
+        AbortFarmToolOperationImmediately($"自动农具尾段被失败原因打断: {failureReason}");
     }
 
     private void AbortFarmToolOperationImmediately(string reason)
@@ -3146,8 +3349,6 @@ public class GameInputManager : MonoBehaviour
         {
             Debug.Log($"[FarmQueue] 彻底中断自动农具链: {reason}");
         }
-
-        HideFarmToolPreview();
 
         if (_farmingNavigationCoroutine != null)
         {
@@ -3166,7 +3367,7 @@ public class GameInputManager : MonoBehaviour
         _isQueuePaused = false;
         _isExecutingFarming = false;
         _currentHarvestTarget = null;
-        _currentProcessingRequest = default;
+        ClearCurrentProcessingRequest();
         _pendingTileUpdate = null;
         _tileUpdateTriggered = false;
         _farmNavigationTarget = Vector3.zero;
@@ -3182,6 +3383,11 @@ public class GameInputManager : MonoBehaviour
         if (lockManager != null && lockManager.IsLocked)
         {
             lockManager.ForceUnlock();
+        }
+
+        if (!IsPlacementMode || !IsHoldingFarmTool())
+        {
+            HideFarmToolPreview();
         }
     }
 
@@ -3331,6 +3537,7 @@ public class GameInputManager : MonoBehaviour
     {
         tree = null;
         float bestDistanceSqr = float.MaxValue;
+        const float treePreBlockBoundsPadding = 0.35f;
 
         var resourceNodes = ResourceNodeRegistry.Instance?.GetNodesInRange(world, 2f);
         if (resourceNodes != null)
@@ -3342,7 +3549,7 @@ public class GameInputManager : MonoBehaviour
                     continue;
                 }
 
-                Bounds bounds = candidate.GetBounds();
+                Bounds bounds = GetTreePreBlockBounds(candidate, treePreBlockBoundsPadding);
                 if (!bounds.Contains(world))
                 {
                     continue;
@@ -3378,7 +3585,11 @@ public class GameInputManager : MonoBehaviour
                 continue;
             }
 
-            Bounds bounds = candidate.GetBounds();
+            Bounds bounds = GetTreePreBlockBounds(candidate, treePreBlockBoundsPadding);
+            if (!bounds.Contains(world))
+            {
+                continue;
+            }
             float distanceSqr = ((Vector2)bounds.center - world).sqrMagnitude;
             if (distanceSqr >= bestDistanceSqr)
             {
@@ -3390,6 +3601,16 @@ public class GameInputManager : MonoBehaviour
         }
 
         return tree != null;
+    }
+
+    private static Bounds GetTreePreBlockBounds(TreeController candidate, float padding)
+    {
+        Bounds bounds = candidate.GetBounds();
+        Bounds colliderBounds = candidate.GetColliderBounds();
+        bounds.Encapsulate(colliderBounds.min);
+        bounds.Encapsulate(colliderBounds.max);
+        bounds.Expand(new Vector3(padding, padding, 0.01f));
+        return bounds;
     }
 
     private bool TryGetChestInteractableAtWorld(Vector2 world, out ChestController chest)
@@ -3582,10 +3803,7 @@ public class GameInputManager : MonoBehaviour
             return;
         }
 
-        if (GetManualMovementInput().sqrMagnitude > 0.01f)
-        {
-            return;
-        }
+        if (TryDetectAndEnqueueHarvest()) return;
 
         // 再尝试工具/种子
         if (inventory == null || database == null || hotbarSelection == null) return;
@@ -3593,9 +3811,6 @@ public class GameInputManager : MonoBehaviour
         var slot = inventory.GetSlot(idx);
         if (slot.IsEmpty) return;
         var itemData = database.GetItemByID(slot.itemId);
-
-        // CP-5：先尝试收获（最高优先级）
-        if (TryDetectAndEnqueueHarvest()) return;
 
         if (itemData is ToolData tool)
         {

@@ -47,7 +47,7 @@ MonoBehaviour:
   materialTier: 0
   energyCostPerAttack: 1
   hasDurability: 1
-  maxDurability: 1
+  maxDurability: 40
   animatorController: {fileID: 9100000, guid: 65d0c31b060fa21478bc15aa6b76f322, type: 2}
   animationFrameCount: 8
   animActionType: 7
