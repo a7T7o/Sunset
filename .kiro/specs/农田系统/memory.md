@@ -458,3 +458,124 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 ## 2026-03-31：农田总层补记，`TreeController.cs` 当前整包 diff 已按完整包真实出仓
 
 当前农田总层新增的最终稳定事实是：继 preview 遮挡小尾差已经出仓后，用户要求的第二刀也没有停在“先讲边界”，而是直接按完整包推进。线程本轮没有把 `TreeController.cs` 再说成 shared runtime 小尾账，而是按执行书把它当作“农田 / 砍树表现包”处理：先只对白名单里的 `TreeController.cs` 本身做最窄白名单 `preflight`，确认 `代码闸门通过=True`、`own roots remaining dirty 数量=0`；随后继续真实执行 `sync`，代码归仓提交 SHA 为 `d28d9302`，推送后 upstream 已恢复到 `behind=0, ahead=0`。与此同时，这轮也真实守住了范围边界：`OcclusionManager.cs`、`GameInputManager.cs`、`Primary.unity` 与 TMP 字体都没有被拖回白名单。总层恢复点因此更新为：农田方向当前两条被单独切开的 runtime 归仓刀都已完成，其中 `TreeController.cs` 已按完整包出仓；后续若继续治理，不该再回到“它算不算完整包”这类旧判断，而应直接转向新的剩余热根或业务委托。
+
+## 2026-04-06：历史未完项续工先补 `Tooltip / 工具状态条 / 玩家气泡换行` 的代码漏点
+
+当前农田总层新增的稳定事实是：这轮没有再被刚才的存档边界子任务带跑，也没有回头碰树 runtime / `Primary` / 农田 hover 那组更重切片，而是先从历史尾账里挑了一刀最能靠代码继续收的面：`Tooltip / 工具状态条 / 玩家气泡换行`。这一刀的核心判断有两句。第一句，历史里用户一直骂的 “Sword 没耐久条” 并不是整套状态条都坏了，而是 `down` 装备区根本没跟上 `up/toolbar` 这一套状态条和 hover 真源；当前 `EquipmentSlotUI.cs` 原本只有图标/数量/选中，没有耐久条、没有 hover 状态，也没有和 `InventorySlotInteraction` 的 hover 转发闭环。第二句，玩家气泡里“十个字一行”的怪断句，在代码层确实还留着：`PlayerThoughtBubblePresenter.cs` 还在 `FormatBubbleText()` 里按 `preferredCharactersPerLine = 10` 强插换行。
+
+这轮真实补口已经落下两组：
+1. `Assets/YYY_Scripts/UI/Inventory/EquipmentSlotUI.cs`
+   - 补齐装备区状态条 UI、alpha fade、`SetHovered()`、`RefreshSelection()` 和装备区 runtime item 的 `ToolRuntimeUtility.TryGetToolStatusRatio(...)` 接线。
+   - 当前装备区显示逻辑已改成和 `up` 区一致：背包面板打开时默认显示，hover 时也能独立亮起。
+2. `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`
+   - `OnPointerEnter/Exit` 现在也会把 hover 转发到 `EquipmentSlotUI`，不再只有 `InventorySlotUI` 吃到 hover。
+3. `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+   - 去掉按固定字数强插换行，改回只保留原始换行；
+   - 同时把玩家气泡单行宽度和行距放宽一点，避免继续维持“十个字一行”的挤压式断句。
+
+这轮最小验证结果：
+- `EquipmentSlotUI.cs`：`manage_script validate` = `0 error / 1 warning`
+  - warning 仍是既有的 `String concatenation in Update() can cause garbage collection issues`
+- `InventorySlotInteraction.cs`：`0 error / 0 warning`
+- `PlayerThoughtBubblePresenter.cs`：`0 error / 1 warning`
+  - warning 同样是既有的 `String concatenation in Update() can cause garbage collection issues`
+- `python scripts/sunset_mcp.py errors --count 20 --output-limit 10` 当前为 `errors=0 warnings=0`
+- `git diff --check` 对本轮文件通过，仅见既有 `CRLF -> LF` warning
+
+当前总层恢复点因此更新为：
+- `Tooltip / 工具状态条` 这组历史尾账，已经不再是“装备区彻底漏掉”的结构缺口；
+- `玩家气泡` 这组也至少把最明确的“十个字一行”断句问题从代码层拿掉了；
+- 下一步若继续，不该立刻再回到这组细抠样式，而应在剩余大账里重新选下一条单纵切片，例如：
+  - `农田 preview hover 遮挡`
+  - `成熟作物收获 / 枯萎 collect` 的 fresh live 终验
+  - `Primary TimeManagerDebugger / 时间调试链`
+
+## 2026-04-07：只读审计成熟作物收获 / 枯萎 collect 当前代码链
+
+- 用户目标：只读审计 `CropController / GameInputManager / PlayerInteraction / Farm` 相关脚本，确认“成熟作物收获 / 枯萎 collect”当前是否还留着结构缺口；明确不改代码，不扩到 UI / `Primary`。
+- 当前主线目标：把农田方向里“为什么有时会什么模式下都收不了，或被别的逻辑吞掉”压成可直接决策的代码链结论。
+- 本轮子任务 / 阻塞：只读核实收获入口事实链、找最可能的吞输入点，并给出最小修复面。
+- 已完成事项：
+  1. 确认当前左键收获入口已固定为 `GameInputManager.HandleUseCurrentTool -> TryDetectAndEnqueueHarvest -> EnqueueAction(Harvest) -> ProcessNextAction -> ExecuteFarmAction(Harvest) -> PlayerInteraction.RequestAction(Collect) -> PlayerInteraction.OnActionComplete(Collect) -> GameInputManager.OnCollectAnimationComplete -> CropController.OnInteract/Harvest`。
+  2. 确认 `CropController.CanInteract()` 当前允许三种状态：`Mature / WitheredMature / WitheredImmature`；其中 `WitheredImmature` 实际会走 `ClearWitheredImmature()`，也就是“collect 清理”，不是锄头专线路径。
+  3. 确认当前最危险的结构缺口有两个：
+     - `GameInputManager.ExecuteFarmAction()` 的 `Harvest` 分支没有检查 `RequestAction(Collect)` 是否真的启动成功，失败时不会清掉 `_isExecutingFarming / _currentHarvestTarget / _queuedPositions`，队列可能直接卡死。
+     - harvest 检测硬依赖 `FarmTileManager.GetCurrentLayerIndex(playerCenter)`，而该方法在解析失败时仍保留“默认返回 0”的 TODO 退路；一旦楼层识别失手，非 0 层作物会被整条链静默漏掉。
+- 关键决策：
+  - 当前不需要先改 `CropController` 主体；最小修复优先级应先落在 `GameInputManager` 的 harvest 动画启动失败处理，以及 `FarmTileManager` / harvest 层级解析口径。
+  - 右键通用 `IInteractable` 导航链当前明确排除了 `CropController`，所以作物收获仍是左键特判链，不能把“通用交互链存在”误判成“作物一定不会漏”。
+- 涉及文件 / 路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\CropController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmTileManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmTileData.cs`
+- 验证结果：静态代码审计成立；未做 Unity live 验证；未改业务代码。
+- 恢复点 / 下一步：如果后续进入最小修复，应只先处理 `Harvest` 分支的失败收口和楼层解析，再决定是否同步清理注释 / 测试里仍把 `WitheredImmature` 当成“不可 collect”的旧语义。
+
+## 2026-04-07：总层补记，历史尾账里“高树前置拦截 / 自动替换文案”都应降到更精确的剩余描述
+
+总层这里补一条只读审计后的稳定事实：农田历史尾账里那两条长期悬空的 `低级斧头砍高级树前置冷却拦截` 和 `同类型工具损坏自动替换 + 气泡文案`，现在都不该再被粗暴归成“还没做”或“差不多做完”两种极端。更准确的总层判断是：代码骨架都已经落地，但剩余点已经收窄成“闭环证明不足 + 表现口径漂移”。高树这条当前代码确实已有 `GameInputManager -> PlayerInteraction -> TreeController` 的前置阻断链，说明历史上的“30 秒内别再让低级斧头起挥”目标已经被写进结构里；真正未关门的是，这条链当前缺少一份走真实输入入口的验证，现有 runner 还停在直接 `TreeController.OnHit(...)`。自动替换这条当前也已有 `ToolRuntimeUtility` 的同类型备胎替换和 `PlayerToolFeedbackService` 的 tone 分流；真正未关门的是，当前文案常量与现有 runner/用户原话已出现漂移，而且还缺一条专门验证“替换发生后 tone 和热槽状态是否正确”的回归。
+
+总层恢复点因此更新为：如果后续再继续打这两条历史尾账，最小正确切法不该再是“大修农田交互”，而应是两刀分开处理。第一刀只补 `高树前置拦截` 的端到端输入验证；第二刀只补 `自动替换 + 文案` 的常量对齐与最小回归。当前状态仍只能写成 `静态推断成立，live 终验未补齐`。
+
+## 2026-04-07：总层补记，最新边界已收缩到“剑耐久恢复 + 锄地切模式队列残留”并完成本地提交
+
+总层这里补一条新的稳定事实：在用户确认“其他内容目前都正确”之后，农田线这轮不再继续扩题，而是只定点收两个最新边界。第一块是耐久数据：`6` 把剑当前已经重新回到可用状态，并落成正式梯度 `40 / 60 / 80 / 120 / 150 / 200`；同时之前为了测试改成一次性耐久的 `0` 档工具也一起恢复回长期口径。第二块是锄地交互边界：`GameInputManager` 现在已经补上两条关键保护，一条是“旧动画还在播时，新农田队列只入队不自启动”，另一条是“关闭放置模式时，当前农具自动链按被打断同口径立即清队列/清预览/清导航”。这说明最新剩余项已经不再是泛化的“放置/农田还不行”，而是被收窄成几条明确的 live 终验 case。
+
+总层还必须记住这轮的收口形态：代码层 own red 没有新增，`git diff --check` 通过；但治理 preflight 仍被外部工具链卡住，`Ready-To-Sync` 的第一真实 blocker 是 `manage_script` 在当前 Unity project 上缺失，而不是本轮代码爆红。因此这轮可提交内容已经先本地提交为 `530483b38ee128653f7d2276f595c267a68d4189 (fix farm queue interrupt edges and restore tool durability)`，线程 live 状态已重新 `Park-Slice` 回到 `PARKED`。总层恢复点因此更新为：下一步优先级应直接切到用户 live 终验，不再继续在同一问题上盲改；只有当用户终验仍然指出这两条边界没过线时，才值得重新开 slice 打下一刀。
+
+## 2026-04-07：恢复 0 档工具测试耐久，并继续补农田 hover / 收获链的真实剩余缺口
+
+- 用户目标：
+  - 先把之前为了测试临时改成 `1` 次耐久的 `0` 档工具 / 水壶 / `Weapon_200_Sword_0` 恢复回历史原值，再继续把我这条线仍能靠代码推进的未完项往前收一轮。
+- 当前主线目标：
+  - 继续服务 `农田交互修复V3` 历史尾账，不扩到 `Primary/Town`，只收当前还能直接落到代码里的运行时缺口。
+- 本轮子任务 / 阻塞：
+  - 子任务 1：回退测试耐久口径。
+  - 子任务 2：继续补 `农田 preview hover` 过紧与 `成熟/枯萎 collect` 链里“点了像被吞掉”的结构缺口。
+- 已完成事项：
+  1. 已把 5 个测试资产恢复回历史值：
+     - `Tool_0_Axe_0.asset` `maxDurability: 20`
+     - `Tool_6_Pickaxe_0.asset` `maxDurability: 20`
+     - `Tool_12_Hoe_0.asset` `maxDurability: 20`
+     - `Tool_18_WateringCan.asset` `maxDurability: 100`
+     - `Weapon_200_Sword_0.asset` 恢复为 `hasDurability: 0`、`maxDurability: 200`
+  2. `OcclusionManager.cs`
+     - 继续只调 `FarmTool` 这一条 preview hover 缓冲，把 `FarmToolPreviewHoverExpand` 从 `0.24f` 提到 `0.4f`；
+     - `placeable` 原缓冲 `0.14f` 保持不动，避免回灌已经被用户判过线的遮挡行为。
+  3. `GameInputManager.cs`
+     - `ExecuteFarmAction(Harvest)` 现在改成和 `Till / Water / RemoveCrop` 同级的失败收口；
+     - 如果 `Collect` 动画起不来，会立刻清 `_currentHarvestTarget` 并走现有 `Abort...` 链，不再留下“执行中但实际上没开始”的假锁死。
+  4. `GameInputManager.cs`
+     - `TryDetectAndEnqueueHarvest()` 与 `TryEnqueueHoeRemoveCropFromMouse()` 的层级判定补了回退口径；
+     - 优先仍认玩家当前层；但当玩家脚下层解析失手时，会再尝试按鼠标点击到的 crop 自身层匹配，减少高层作物被静默漏掉。
+  5. `FarmRuntimeLiveValidationRunner.cs`
+     - 工具损坏/自动替换气泡文案识别已补入当前用户口径，避免 runner 继续只认旧标点版本。
+- 关键决策：
+  - 这轮没有继续去碰 `CropController` 主体，也没有去碰 `Primary`；因为当前最小真实缺口已经收敛到 `Harvest` 执行失败清理和 harvest 层级判定，而不是作物本体状态机。
+  - `高树前置拦截` 与 `自动替换` 这组当前仍以“结构已在、验证口未闭”为准，不再和这轮的农田 hover / 收获修复混成一个大包。
+- 涉及文件 / 路径：
+  - `Assets/111_Data/Items/Tools/Tool_0_Axe_0.asset`
+  - `Assets/111_Data/Items/Tools/Tool_6_Pickaxe_0.asset`
+  - `Assets/111_Data/Items/Tools/Tool_12_Hoe_0.asset`
+  - `Assets/111_Data/Items/Tools/Tool_18_WateringCan.asset`
+  - `Assets/111_Data/Items/Weapons/Weapon_200_Sword_0.asset`
+  - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+  - `Assets/YYY_Tests/Editor/OcclusionSystemTests.cs`
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - `Assets/YYY_Scripts/Farm/FarmRuntimeLiveValidationRunner.cs`
+- 验证结果：
+  - fresh console：`errors=0 warnings=0`
+  - `OcclusionManager.cs`：native validate = `0 error / 2 warning`（既有性能 warning）
+  - `OcclusionSystemTests.cs`：native validate = `0 error / 0 warning`
+  - `GameInputManager.cs`：native validate = `0 error / 2 warning`（既有性能 warning）
+  - `FarmRuntimeLiveValidationRunner.cs`：native validate = `0 error / 0 warning`
+  - `validate_script` 的 compile-first 结果这轮被 Unity 外部现场噪音挡住：Editor 处于 `playmode_transition / stale_status`，并夹带 `The referenced script (Unknown) on this Behaviour is missing!` 外部红；当前只能诚实记为 `owned clean, external red present`。
+- 恢复点 / 下一步：
+  - 当前这条线又向前收了两件真实会影响玩家的东西：`FarmTool hover` 过紧，和 `Harvest` 假执行锁死。
+  - 如果后续继续，优先级最高的 live 终验应是：
+    1. 农田 hover 是否终于不再逼近“碰撞体重合才触发”
+    2. 成熟 / 枯萎作物左键收取是否不再出现“点了像被吞掉、后续也卡住”的表现
+    3. 0 档工具 / 水壶 / 剑的耐久与水量显示是否回到正常长期口径
+  - 收尾补记：本轮已执行 `Park-Slice`，当前 live 状态已回到 `PARKED`。

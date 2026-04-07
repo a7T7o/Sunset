@@ -3824,3 +3824,449 @@ thread-state 本轮已报实：
 
 恢复点：
 - 如果用户下一轮反馈“首拖图标”和“箱子下半区选中”仍有残留问题，下一刀不该回去重写整套拖拽状态机，而应继续沿 `InventoryInteractionManager / InventorySlotInteraction / InventorySlotUI / BoxPanelUI` 这一组交互真源细收，重点再看 `hotbar` 跟随与 UI 高亮是否还存在剩余双真源。
+## 2026-04-06：朝花夕拾，总盘这条交互线程后，历史未完成项已重新收成一张真实总账
+
+本轮用户没有让我继续修代码，而是要求我“朝花夕拾”，把这条线程从早期树/农田交互一路到最近背包/箱子交互的历史尾账重新盘清。这轮因此保持只读分析，没有进入真实施工，也没有跑新的 `Begin-Slice`；当前 live 口径仍保持最近一次的 `PARKED`。这轮最核心的新判断是：最近的背包/箱子提交不能代表整条交互线程已经关门，当前必须重新分清三类账。
+
+第一类是“最近已经做成代码提交，但仍待用户终验”的账。当前最明确的是背包/箱子交互链：最近提交 `6f37537bcfd0f9779a81204c2b29455d51f7bb05` 已经把选中真源、首次拖拽图标、空白区回源和部分 held owner 统一推进到新完成面，但这组只能算“代码已提交，待用户 live 终验”，不能包装成整条线程已结束。
+
+第二类是“代码层做过很多轮，但没有形成最终关门”的历史尾账。重新对齐后，当前仍应保留：
+1. `树专题 P0`
+   - `树苗放置成功瞬间卡顿 / 近身边缘 10% 手感` 没有形成用户最终 live 通过。
+   - 用户后来新增的 `按右方向键导致树成长/全局卡顿` 也没有看到最终关门记录。
+2. `农田 preview hover 遮挡`
+   - 结构改过很多轮，`OcclusionManager.cs` 也单独归过仓，但最新稳妥口径仍是“结构写过，真实体验没过”。
+3. `成熟作物收获 / 枯萎 mature collect`
+   - `CropController + GameInputManager` 的结构补口做过，但更像“代码面成立，缺 fresh live 终验”。
+4. `Tooltip / 工具状态条`
+   - 已有延迟、渐隐、runtime 文本和状态条显示链，但 `Sword`、`WateringCan`、触发时机、遮挡体感与视觉终线没有最终关门。
+5. `玩家气泡样式`
+   - 入口和多轮优化都做过，但样式和观感从未拿到正式通过。
+6. `树木倒下动画表现`
+   - 用户后续一直明确嫌弃表现差，因此仍是表现尾账，不应算已完成。
+7. `低级斧头砍高级树的前置冷却拦截`
+   - 已有部分实现，但“失败后 30 秒内不再允许继续触发挥砍动画”的最终口径没有最终证明。
+8. `同类型工具损坏自动替换 + 分档气泡文案`
+   - 当前线程记忆与工作区文档里都没有看到已最终关闭的记录。
+
+第三类是“独立历史尾账，不能再和树 runtime 混成一个问题”的账。当前最典型的是 `Primary` 的 `TimeManagerDebugger / 时间调试链`：历史上曾和树 runtime 一起分析过，但现在必须单独记账，它不该被最近的背包/箱子施工覆盖掉，也不该继续被说成树控制器自己的问题。
+
+这轮我刻意没有把所有旧树问题一股脑重新算成未完成。原因是用户在某些阶段明确口头判过“树木没有任何问题了”，因此这次只保留那些后来又被明确重新拉出来、且没有最终关门的树相关尾账。恢复点因此非常明确：如果后续继续，这条线默认不该再围着最近的背包/箱子提交打转，而应先在 `树专题 P0 / 农田 hover / Tooltip-状态条-气泡 / 成熟枯萎收获终验 / Primary 时间调试链` 这些真实剩余面里，明确下一条单纵切片。
+## 2026-04-06：继续修背包/箱子选中真源，这轮已把“左键点击”和“拖拽落点”开始写回同一组真实状态源
+
+本轮用户在最新 live 反馈里继续点名：当前背包/箱子交互最离谱的点，不是单纯某个红框没亮，而是“左键点击根本不算真选中”“拖拽后的选中只是样式变化，不是全局性质变化”。这轮因此重新进入真实施工，继续只守 `UI/Inventory + Box` 这条线，不扩回树、农田、Tooltip 或 `Primary`。已真实执行：
+- `Begin-Slice.ps1`
+  - `CurrentSlice = UI选中真源修复_左键点击与拖拽统一为全局选中_2026-04-06`
+  - `TargetPaths = Assets/YYY_Scripts/UI/Inventory, Assets/YYY_Scripts/UI/Box, Assets/YYY_Scripts/UI/Toolbar`
+- `Park-Slice.ps1`
+  - `Reason = ui-selection-truth-source_repair_written_for_inventory-box-left-click-and-drag_retest`
+- 当前 `thread-state = PARKED`
+
+这轮真正落下的实现只有两组：
+1. [InventorySlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs)
+   - 增加 `ResolveInventoryPanel()` / `ResolveBoxPanel()`，让箱子页里的背包格不再只认自己局部父物体。
+   - `Select()` 对 `InventoryService` 槽位改成同时写回 `InventoryPanelUI`，箱子页打开时也同步写回 `BoxPanelUI`；第一行 hotbar 仍继续通过 `HotbarSelectionService` 联动。
+   - `ClearSelectionState()` 对背包格改成同时清理 `InventoryPanelUI + BoxPanelUI` 的库存选中源。
+   - `RefreshSelection()` 在箱子页打开时，对背包格改成同时认 `BoxPanelUI` 和 `InventoryPanelUI`，避免“这里认为选中了，那边却不知道”的双真源漂移。
+   - `OnPointerClick()` 不再继续改 `EventSystem.currentSelectedGameObject`，避免 Unity 自己的 click/toggle 链继续干扰真正的交互选中。
+2. [InventoryInteractionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs)
+   - `SelectSlot(...)` 的无 `preferredSlotUI` 回退路径，改成 `InventoryPanelUI + BoxPanelUI` 同步，而不是只写主背包。
+   - `ExecutePlacement(...)` 在“同类堆叠但手上仍有剩余”的路径里补了 `SelectSlot(targetIndex, ...)`，让部分堆叠后继续手持也能把目标格写成当前真选中。
+
+这轮最核心的判断是：现在 `InventorySlotUI.Select()`、`SlotDragContext.SourceSlotUI.Select()`、`InventoryInteractionManager.SelectSlot(...)` 以及拖拽/堆叠落点后的目标选中，终于开始共同写一组真实状态源，而不是之前那种有时改 `BoxPanelUI`，有时只改 `InventoryPanelUI`，有时只剩一层 `Toggle/overlay`。
+
+当前验证状态必须诚实写成：
+- `git diff --check` 对本轮主刀文件通过，仅剩既有 `CRLF -> LF` warning。
+- `python scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs` 与 `...InventoryInteractionManager.cs` 都被 `subprocess_timeout:dotnet:20s` 卡住，没有 fresh compile pass 证据。
+- `python scripts/sunset_mcp.py errors --count 30 --output-limit 20` 当前外部红主要是：
+  - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` 缺 `SetTopStretchRect`
+  - 更早一轮的 `NPC Traversal` probe timeout
+  这两条都不是本轮这组 UI 文件新增的 own red。
+
+恢复点：如果用户下一轮继续回这条线，最该优先复测的不是整包背包，而是：
+1. 普通左键点击背包格/箱子页库存格，是否已经变成真正的选中。
+2. 拖拽、跨容器放置、部分堆叠后继续手持时，目标格是否仍保持当前真选中。
+
+## 2026-04-06：朝花夕拾后的历史总账继续有效，最近 UI 施工不能覆盖整条交互线程老账
+
+为防止最近几轮一直围着背包/箱子打转，这里再次保留稳定结论：当前最近提交和这轮 `真选中` 修补，都只代表 `背包/箱子交互` 子线继续推进，不能代表整条交互线程已经收口。当前历史上仍未闭环的主账仍包括：
+- `树专题 P0`：树苗放置卡顿/边缘手感、右方向键触发树成长卡顿
+- `农田 preview hover 遮挡`
+- `成熟作物收获 / 枯萎 mature collect` 的 fresh live 终验
+- `Tooltip / 工具状态条`
+- `玩家气泡样式`
+- `树木倒下动画表现`
+- `低级斧头砍高级树前置冷却拦截`
+- `同类型工具损坏自动替换 + 气泡文案`
+- 与树 runtime 分账的 `Primary TimeManagerDebugger / 时间调试链`
+
+## 2026-04-06：继续补点击入口层，当前“真选中”修复已经从状态源推进到点击入口 + 状态源双层
+
+在上面那刀之后，用户继续 live 反馈：“现在只有 Toolbar 会更新，背包和箱子内部点击死活不触发选中样式，但拖拽的选中样式是对的。” 这说明此前那刀虽然已经把 `InventorySlotUI / InventoryInteractionManager` 的选中状态源收了一层，但普通点击入口自己没有先把目标格按真实选中链写进去。因此这轮又继续改了 [InventorySlotInteraction.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs)：
+- 对普通左键点击的库存槽位，在 `OnPointerDown(...)` 里先执行一次 `SelectTargetSlot()`；
+- `SelectTargetSlot()` 与 `SelectSourceSlot()` 在 `Select()` 之后会立刻 `RefreshSelection()`，直接从真实状态源回读本地视觉，而不是等外层刷新链晚一拍追上。
+
+因此这条 `真选中` 修复现在已经是双层补口：
+1. `InventorySlotUI / InventoryInteractionManager` 负责把选中真正写回状态源；
+2. `InventorySlotInteraction` 负责让普通点击入口立刻按这组真实状态源工作。
+
+当前末次验证更新为：
+- `git diff --check` 对 `InventorySlotUI.cs / InventoryInteractionManager.cs / InventorySlotInteraction.cs` 通过，仅剩既有 `CRLF -> LF` warning；
+- `python scripts/sunset_mcp.py errors --count 30 --output-limit 20` 的末次读取结果为 `errors=0 warnings=0`，当前 fresh console 未见我这组 own UI 文件新增红；
+- `validate_script` 仍被 `subprocess_timeout:dotnet:20s` 卡住，因此没有 fresh compile pass 证据。
+
+恢复点：这条线下一步最该让用户复测的是“普通左键点击背包格/箱子页库存格，是否终于也是真选中”；若仍有残留，也继续只守 `UI/Inventory + Box` 这组代码面，不扩题。
+
+## 2026-04-06：继续只守背包/箱子普通点击选中，这轮把根因进一步钉到 Toggle 自身点击翻转链
+
+这轮用户把范围再次收窄，只要我反省并彻底修“普通左键点击背包格/箱子格不更新选中样式”这一点，不准扩回树、Tooltip、`Primary` 或别的专题。因此这轮重新进入真实施工，已执行 `Begin-Slice.ps1 -ThreadName 农田交互修复V3 -CurrentSlice UI背包箱子普通左键点击选中修复_2026-04-06 -TargetPaths Assets/YYY_Scripts/UI/Inventory, Assets/YYY_Scripts/UI/Box, Assets/YYY_Scripts/UI/Toolbar`；当前 live 状态在收尾前将重新回到 `PARKED`。
+
+这轮新的关键判断，比前几轮更具体：我之前一直在修“谁是真状态源”，但漏掉了普通点击和拖拽的一个结构差异。拖拽链不经过 `Toggle` 的原生点击翻转，因此看起来能保住选中；普通左键点击则会在 `InventorySlotInteraction.OnPointerDown()` 之后，继续走 `Toggle` 自己的点击链，把刚刚写进去的真选中又翻回去。所以用户才会看到“拖拽后的选中样式是对的，但普通点击死活不亮”，这不是选中真源完全没写进去，而是被 `Toggle` 末端反手冲掉。
+
+这轮实际只改了一个文件：[InventorySlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs)：
+- 在 `OnEnable()` / `OnDisable()` 上给当前 slot 的 `toggle.onValueChanged` 加了最小订阅与解除；
+- 新增 `OnToggleValueChanged(bool isOn)`，当 `Toggle` 的即时状态和真实状态源不一致时，立刻调用 `RefreshSelection()` 回到真实状态；
+- 把 `RefreshSelection()` 的判定抽成 `ResolveSelectionState()`，避免拦截逻辑和正常刷新逻辑各自读出两套不同口径。
+
+这刀没有去改 manager、箱子逻辑或拖拽状态机，也没有改任何玩法语义，目标只有一个：不让普通点击的 `Toggle` 自身翻转，再把背包/箱子格子的选中样式冲掉。
+
+这轮验证状态：
+- `git diff --check -- Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs` 通过，仅剩既有 `CRLF -> LF` warning；
+- `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py manage_script validate --name InventorySlotUI --path Assets/YYY_Scripts/UI/Inventory --level standard --output-limit 5` 结果为 `errors=0 warnings=1`，warning 仍是既有的 `String concatenation in Update() can cause garbage collection issues`，不是本轮新增 blocking red；
+- `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 10` 当前 fresh console 的唯一 error 是外部 `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs:244 [SpringDay1NpcCrowdValidation] FAIL | issues=48`，不是我这组 UI 文件 own 新红；
+- `validate_script Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs` 仍被 `subprocess_timeout:dotnet:20s` 卡住，所以这轮不能 claim fresh compile pass，只能诚实写成“目标脚本 manage_script 校验过，fresh console 未见 own 新红”。
+
+恢复点更新为：下一步最值钱的不是继续重构整套交互，而是优先让用户只复测一件事：普通左键点击背包格/箱子页库存格，是否终于也能立刻进入真正选中态并亮选中样式；如果仍有残留，再继续只守 `UI/Inventory + Box` 这一组，不扩题。
+
+## 2026-04-06：继续只守 UI 交互，`down` 装备区普通左键点击选中已补上独立真源
+
+用户随后明确打回了一条最新 live 事实：`up` 背包区点击已经可以，但 `down` 装备区点击仍然不触发选中样式，因此这轮不能把“UI 交互没问题”直接写成整包通过。主线于是继续只守这一点，不扩回树、Tooltip 逻辑或别的历史专题；这轮已重新执行 `Begin-Slice.ps1 -CurrentSlice UI装备区普通左键点击选中修复_2026-04-06`，准备在收尾前再回到 `PARKED`。
+
+这轮新的关键判断是：`down` 区没有吃到前面那组修复，不是因为同一个 bug 还差一点，而是它本来就走另一套代码面。`up` 区用的是 `InventorySlotUI`，而 `down` 装备区走的是 `EquipmentSlotUI + InventoryPanelUI.down + InventoryInteractionManager(isEquip)`。此前装备区没有自己的选中状态源、没有自己的选中样式刷新，也没有把 `isEquip` 的点击选中接回 manager，所以“背包格修了、装备格没修”是结构上必然的。
+
+这轮实际落下了 4 处最小补口：
+- [EquipmentSlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/EquipmentSlotUI.cs)：补了 `Toggle / Selected overlay / InventoryPanelUI` 引用、`RefreshSelection()`、`Select()`、`ClearSelectionState()` 和 `OnToggleValueChanged()` 回正；并移除了旧的点击调试日志。
+- [InventoryPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryPanelUI.cs)：新增 `selectedEquipmentIndex`、`IsEquipmentSlotSelected()`、`SetSelectedEquipmentIndex()`、`ClearDownSelectionState()` 和 `RefreshDownSelectionVisuals()`，让 `down` 区第一次拥有独立真源。
+- [InventoryInteractionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs)：`SelectSlot(...)` 对 `isEquip` 不再直接 return，而是会把选中写到 `equipmentSlots[]` 或 `InventoryPanelUI` 的装备区状态源。
+- [InventorySlotInteraction.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs)：普通左键点击时，`SelectTargetSlot()` 现在也支持 `EquipmentSlotUI`，不再只支持 `InventorySlotUI`。
+
+这轮最小验证结果：
+- `manage_script validate`：
+  - `EquipmentSlotUI.cs` = `0 error / 0 warning`
+  - `InventoryPanelUI.cs` = `0 error / 0 warning`
+  - `InventorySlotInteraction.cs` = `0 error / 0 warning`
+  - `InventoryInteractionManager.cs` = `0 error / 1 warning`（既有 `String concatenation in Update()`，不是本轮新增 red）
+- `python scripts/sunset_mcp.py errors --count 20 --output-limit 10` 当前为 `errors=0 warnings=0`，只读到一条 editor assert 噪音，不是当前 own 代码编译红。
+- `git diff --check` 对这组文件通过，仅剩既有 `CRLF -> LF` warning。
+
+恢复点更新为：如果用户下一步先继续验 UI，这次最该只看一件事：`down` 装备区普通左键点击后，是否终于也会立刻亮起真正的选中样式；只有这条也过了，才能把最近这一组背包/箱子/装备区点击交互真正从剩余项里拿掉。
+
+## 2026-04-06：只读事故快查，当前“自由场景全局卡顿”没有证据指向我这轮 UI 改动是首因
+
+这轮用户突然追问“现在游戏运行卡顿是不是我的原因”，并附带另一条线程的自述，怀疑 `Missing Script + OcclusionTransparency/OcclusionManager 初始化链异常`。本轮因此只做快速只读排查，没有进入真实施工，没有跑 `Begin-Slice`。结论需要分三层写实：
+
+1. **不是我最近这轮 UI/背包修复直接导致的证据面**
+- 当前 fresh console 通过 `py -3 scripts/sunset_mcp.py errors --count 80 --output-limit 40` 读取结果为 `errors=0 warnings=0`，没有看到我最近 `UI/Inventory` 那组文件在持续刷错或刷警告。
+- 当前 UI own 改动只在 `Inventory/Toolbar` 范围，和“自由场景一进可探索就掉帧、进剧情反而回升”这类世界运行链症状并不匹配。
+
+2. **但我这条大线程历史上不能完全装无辜**
+- `git log` 显示这条线历史上确实碰过：
+  - [OcclusionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs) → `6ae80182`
+  - [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) → `d28d9302`
+  - [FarmToolPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Farm/FarmToolPreview.cs) 也在当前 suspect 面里
+- 所以如果用户问的是“农田交互修复V3 这条大线程历史上有没有嫌疑”，答案是：**有中等嫌疑**，但不是我最近这轮背包/UI 修复。
+
+3. **当前现场的更高嫌疑，不在我最近 UI 刀，而在 Rendering/Primary 混合脏面**
+- 当前 repo 里与卡顿更直接相关的 dirty 仍集中在：
+  - [Primary.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity)
+  - [OcclusionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs)
+  - [OcclusionTransparency.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs)
+  - [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)
+  - [FarmToolPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Farm/FarmToolPreview.cs)
+- 快速事故探针把 `spring-day1` 排成第一嫌疑，主要是因为 story/Primary 脏面极大；但就“自由场景掉帧、剧情里 FPS 回升”的机制匹配度来看，**更直接的技术嫌疑仍是 `遮挡/树/Primary` 这组世界运行链**，而不是我刚刚这轮 UI 修复。
+
+补充事实：
+- 我没有快速 grep 到 `Primary.unity` 里最典型的 `m_Script: {fileID: 0}` 明示坏引用，因此“有 2 个 Missing Script”这条目前对我来说**还没有本地文本证据坐实**。
+- [OcclusionTransparency.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs) 当前确实存在 `OnEnable() -> StartCoroutine(RegisterDelayed()) -> 最多等 2 秒注册 OcclusionManager` 的逻辑；如果场景里大量对象反复 Enable/Disable，它有能力制造持续负担或超时 warning。但 **这轮 fresh console 没看到它正在刷 warning**，所以“当前卡顿 = 现在正在疯狂刷超时日志”这条也还没坐实。
+
+恢复点更新为：如果后续要继续追这次全局卡顿，正确口径不是回头查我最近的 UI 修复，而是把追责优先压到 `遮挡检查 / Primary mixed scene / tree runtime` 这组世界运行链；我这条线程若继续参与，也应以“历史 Tree/Occlusion 改动的只读审计”身份加入，而不是背锅到最近 UI 刀上。
+
+## 2026-04-06：继续深挖“自由场景持续卡顿”，当前已把“持续卡”和“树专题瞬时卡”分账
+
+用户随后要求我“去排查，彻底排查”，并明确不让我顺手施工。因此这轮继续保持只读分析，没有进入真实施工，也没有跑新的 `Begin-Slice`。这次比上一条快查更深的新结论有 6 点：
+
+1. **当前活动场景其实是 `Town`，不是 `Primary`**
+- 通过 Unity MCP 只读确认，当前 `active scene = Assets/000_Scenes/Town.unity`，而且它本身就是 dirty。
+- 所以这次“自由场景持续卡顿”的第一判断不能再偷懒地全压给 `Primary`；当前真实世界侧现场是 `Town + Rendering managers + tree runtime`。
+
+2. **`Missing Script` 这条目前没有磁盘证据**
+- 我用 `rg -n "m_Script: \\{fileID: 0\\}" Assets -g '!*.meta'` 扫了 `Assets`，没有扫出命中的场景/Prefab 文本证据。
+- 这不等于 Unity 里绝对没有坏组件，但至少目前不能把“有 2 个 Missing Script”当成已经被我本地证实的首因。
+
+3. **当前 `Town` 里真正持续跑的世界侧链，比我最近 UI/放置修复更像首因**
+- Unity MCP 只读计数结果：
+  - `TreeController` ≈ `45`
+  - `OcclusionTransparency` ≈ `115`
+  - `OcclusionManager` = `1`
+  - `CloudShadowManager` = `1`
+  - `DayNightManager` = `0`
+- 这意味着当前 `Town` 的持续世界更新，最直接的是：
+  - `CloudShadowManager.Update()` 每帧模拟云影
+  - `OcclusionManager.Update()` 按 `detectionInterval=0.1` 做遮挡扫描
+- 这两条都比我最近 `UI/Inventory` 或 preview hover 修复，更符合“自由跑图持续卡，进剧情后世界侧负担减弱就回升”的症状。
+
+4. **我这条线程的历史嫌疑现在更精确地收缩成“树专题瞬时卡”，而不是“Town 持续卡”的第一责任面**
+- 我重新对齐了 `TreeController.cs` 当前盘面和旧提交：
+  - `UpdateRuntimeInspectorDebug()` / `Update()` 这种“每棵树每帧检查 Inspector 预览”的结构，早在旧版本里就已经存在，不是我最近几轮突然新加出来的持续卡点。
+  - 当前 dirty 里真正新增的重点，多是 `Start/OnEnable/OnDisable/Load/InitializeAsNewTree` 的生命周期、延迟初始化、active cell 注册、局部 nav refresh 合并等。
+- 这更像是：
+  - **树苗放置成功瞬间卡**
+  - **按右方向键跳天后树成长/碰撞体/nav refresh 的瞬时卡**
+  仍然属于我这条线的责任面；
+  但不够支撑“当前 Town 持续低帧就是我这条线直接造成”的结论。
+
+5. **`OcclusionManager` 当前 dirty 更像 preview/hover 逻辑，不像这次持续卡顿的直接来源**
+- 我重新看了当前 dirty diff，主要变化集中在：
+  - `PreviewOcclusionSource`
+  - `SetPreviewBounds(...)`
+  - `DetectPreviewOcclusion()`
+  - preview bounds expand / source 分流
+- 这些逻辑的触发前提是“有 preview bounds 正在上报”，因此更对应：
+  - 农田 hover
+  - placeable preview
+  - 放置时的遮挡表现
+- 它和“什么都不放、只在 Town 自由跑图就持续卡”不是一个触发形态。
+
+6. **当前 live 证据仍被外部红面污染，不能把运行态结论说死**
+- Unity MCP 当前 console 读到的 fresh error 是外部编译红：
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs` 缺 `StringComparison`
+  - `Assets/Editor/TownSceneEntryContractMenu.cs` 缺 `CameraDeadZoneSync`
+- 这两条都不是我这轮产生的 own red，但说明当前编辑器现场不是“完全无外部噪音的纯净 runtime”。
+- 所以这轮我能给出的最诚实结论是：
+  - **不是我最近 UI/背包修复导致了这次持续卡顿**
+  - **我这条线程只对树专题的瞬时卡、成长卡、放置后卡顿仍保留责任**
+  - **如果要继续追 Town 持续卡，第一责任面更该优先盯 `CloudShadow/Occlusion/Town scene-side`，而不是继续追着我最近的 UI 刀或 preview diff 打**
+
+恢复点更新为：
+- 如果用户下一轮继续问“持续卡到底先查谁”，当前最稳口径是：
+  1. `Town scene-side + CloudShadow/Occlusion` 作为持续卡第一嫌疑；
+  2. `TreeController` 作为“树成长/树苗落地/跳天瞬时卡”独立嫌疑；
+  3. 我这条线程最近的 `UI/Inventory` 与 `preview hover` 改动，不应再被当成这次 Town 持续卡的直接首因。
+
+## 2026-04-06：按指定 prompt 完成“旧存档底座边界确认”回执补写，不扩成实现
+
+**当前主线目标**:
+> 主线仍然是 `农田交互修复V3` 的运行时/UI/树专题收口；本轮插入式子任务只是按用户给定 prompt，对“旧存档底座边界”做一次 owner 级只读确认，并把结论写回指定回执文件。
+
+**本轮子任务**:
+> 读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\存档系统\2026-04-06_农田交互修复V3_存档边界确认prompt_01.md`，只读审计当前旧存档链，写回：
+> `D:\Unity\Unity_learning\Sunset\.kiro\specs\存档系统\2026-04-06_农田交互修复V3_存档边界回执_01.md`
+> 不改代码、不扩成存档实现、不额外给聊天长回执。
+
+**本轮完成事项**:
+1. 已读取并核对：
+   - `SaveManager.cs`
+   - `SaveDataDTOs.cs`
+   - `PersistentObjectRegistry.cs`
+   - `DynamicObjectFactory.cs`
+   - `IPersistentObject.cs`
+   - `InventoryService.cs`
+   - `EquipmentService.cs`
+   - `存档系统/memory.md`
+2. 已把正式回执写回指定文件：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\存档系统\2026-04-06_农田交互修复V3_存档边界回执_01.md`
+3. 已形成并落盘的核心 owner 判断：
+   - 旧底座稳定主链是 `SaveManager -> PersistentObjectRegistry -> IPersistentObject -> worldObjects/genericData`
+   - 新增长期态优先做独立 `IPersistentObject` / 独立持久化服务接入
+   - 不要回扩 `SaveManager` 成总表
+   - `PersistentObjectRegistry`、`SaveManager` 主恢复顺序、以及既有对象 `Save()/Load()` 语义不建议外线直接改
+4. 已同步更新：
+   - `D:\Unity\Unity_learning\Sunset\.kiro\specs\存档系统\memory.md`
+   - `C:\Users\aTo\.codex\memories\skill-trigger-log.md`
+5. 已关闭本轮只读 subagent，避免后台挂住。
+
+**验证 / 审计状态**:
+- 这轮没有代码修改、没有 Unity live 验证需求。
+- `skill-trigger-log` 健康检查结果：
+  - `Health: ok`
+  - `Canonical-Duplicate-Groups: 0`
+- `thread-state`：
+  - 已先跑 `Begin-Slice`
+  - 回执和审计层收尾后已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+
+**恢复点**:
+- 这次存档边界确认已经完成，不需要再额外聊天回执。
+- 如果后续 `存档系统` 真正进入第一刀实施，应直接以这份回执为 `农田交互修复V3` 对旧存档底座的固定边界依据。
+- 当前主线在这次子任务后没有扩题；后续若继续回到本线程原业务面，应回到树/放置/UI 历史遗留的 live 收口，而不是把本线程继续拖进存档实现。
+
+## 2026-04-06：回到历史未完项后，先补 `Tooltip / 工具状态条` 的装备区缺口，并顺手收掉玩家气泡“十字断句”
+
+**当前主线目标**:
+> 从存档边界子任务回到 `农田交互修复V3` 的历史真未完项，不再管刚才那个存档确认；这轮只挑当前最适合继续靠代码推进的一刀：`Tooltip / 工具状态条 / 玩家气泡换行`。
+
+**本轮子任务**:
+> 先把 `down` 装备区没跟上 `up/toolbar` 的状态条和 hover 逻辑补齐，顺手把玩家气泡里“十个字一行”的强制断句去掉，但不扩回树 runtime、农田 hover 或 `Primary` 调试链。
+
+**本轮完成事项**:
+1. `EquipmentSlotUI.cs`
+   - 补齐装备区状态条 UI、hover 状态、fade 链和 `ToolRuntimeUtility.TryGetToolStatusRatio(...)` 接线；
+   - 装备区现在和背包 `up` 区一样，打开背包时会按同一口径显示工具状态条；
+   - 这条直接针对历史反馈里的 “Sword 没耐久条”。
+2. `InventorySlotInteraction.cs`
+   - `OnPointerEnter/Exit` 现在也会转发给 `EquipmentSlotUI.SetHovered(...)`；
+   - 因此装备区的 tooltip / 状态条 hover 终于不是“只显示 tooltip，不亮状态条”的半截链。
+3. `PlayerThoughtBubblePresenter.cs`
+   - 去掉 `FormatBubbleText()` 里按固定字数硬插回车的旧逻辑；
+   - 同时把单行宽度和行距放宽一点，避免继续出现“十个字一行”的生硬断句。
+
+**验证状态**:
+- `EquipmentSlotUI.cs`：`manage_script validate` = `0 error / 1 warning`
+  - warning 是既有的 `String concatenation in Update() can cause garbage collection issues`
+- `InventorySlotInteraction.cs`：`0 error / 0 warning`
+- `PlayerThoughtBubblePresenter.cs`：`0 error / 1 warning`
+  - warning 同样是既有的字符串拼接提示，不是这轮新增 red
+- fresh console：`errors=0 warnings=0`
+- `git diff --check`：通过，仅有既有 `CRLF -> LF` warning
+
+**本轮最核心判断**:
+- 历史里的 `Tooltip / 工具状态条` 这组，现在最大的结构缺口不是“所有状态条都坏”，而是 `down` 装备区本来就没接上；
+- 历史里的玩家气泡换行问题，也确实不是错觉，代码里原本还留着强制“十字断句”。
+
+**我这轮最不满意 / 最可能看错的点**:
+- 这轮能站住的是代码层和最小验证层，不等于 live 体验已经过线；
+- 尤其 `PlayerThoughtBubblePresenter.cs` 当前文件本身还有前面几轮留下的更大 dirty 面，所以这轮我只敢认“把强制断句拿掉了”，不敢把整包气泡样式说成彻底完成。
+
+**恢复点**:
+- 当前 `Tooltip / 工具状态条` 这组可继续请用户重点看两件事：
+  1. 背包打开后，`down` 装备区里的 `Sword`/其他工具是否终于也会显示状态条；
+  2. 装备区 hover 时是否和 `up/toolbar` 一样按同口径工作。
+- 当前 `玩家气泡` 这组可继续请用户重点看：
+  - 是否终于不再出现“十个字一行”的僵硬换行。
+- 这轮收口后，下一条历史未完项不该再继续围着这组三个文件打转，而应重新回到：
+  - `农田 preview hover 遮挡`
+  - `成熟作物收获 / 枯萎 collect` 的 live 终验
+  - `Primary TimeManagerDebugger / 时间调试链`
+
+## 2026-04-07：只读审计两条历史尾账，高树前置拦截和自动替换文案都已缩成“代码已在但证据/口径未关门”
+
+- 用户目标：
+  - 只做只读代码审计，不改业务文件；复核 `低级斧头砍高级树前置冷却拦截` 与 `同类型工具损坏自动替换/气泡文案` 两条历史尾账当前到底做到哪、还差什么、最小补口应落哪。
+- 当前主线：
+  - 继续服务 `农田交互修复V3` 的历史尾账总账，不扩到 `Primary`，只围绕运行时代码与现有验证脚本收敛判断。
+- 本轮实际完成：
+  - 回读并交叉核对了 `ToolRuntimeUtility.cs`、`PlayerInteraction.cs`、`GameInputManager.cs`、`TreeController.cs`、`PlayerToolFeedbackService.cs`、`PlayerThoughtBubblePresenter.cs`、`FarmRuntimeLiveValidationRunner.cs` 与相关历史 memory / 需求入口。
+  - 确认高树这条的结构链已经存在：`GameInputManager.TryBlockAxeActionAgainstHighTierTree(...)`、`PlayerInteraction.CanStartAction(...)`、`TreeController.ShouldBlockAxeActionBeforeAnimation(...)` 与 `HandleAxeChop(...)` 已共同覆盖“不扣精力、30 秒冷却、失败/恢复气泡切换”。
+  - 确认自动替换这条的结构链已经存在：`ToolRuntimeUtility.TryConsumeHeldToolUseDetailed(...)` 在工具归零后会走 `TryAutoReplaceBrokenTool(...)`，并把 `ToolReplacementTone` 传给 `PlayerToolFeedbackService.HandleToolBroken(...)`。
+  - 额外发现两个最像没关门的缺口：
+    1. 现有 `FarmRuntimeLiveValidationRunner` 的高树场景仍是直接 `TreeController.OnHit(...)`，没有真正证明输入层前置拦截已被 live 命中。
+    2. `PlayerToolFeedbackService` 当前若干损坏/替换文案已经和 `FarmRuntimeLiveValidationRunner.IsToolBrokenLine(...)` 认的字符串发生漂移，例如 `“哎哟，搞什么鬼？” / “诶，好吧…”` 已被实现改成 `“哎哟搞什么鬼” / “唉”`，同级文案也去掉了原来的标点。
+- 关键判断：
+  - 这两条都不该再写成“完全没做”；更准确的状态是“结构骨架已落，但高树还缺输入链最终证明，自动替换还缺文案一致性与专门回归”。
+- 涉及文件 / 路径：
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+  - `Assets/YYY_Scripts/Controller/TreeController.cs`
+  - `Assets/YYY_Scripts/Data/Core/ToolRuntimeUtility.cs`
+  - `Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs`
+  - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+  - `Assets/YYY_Scripts/Farm/FarmRuntimeLiveValidationRunner.cs`
+- 验证结果：
+  - 仅做静态代码与现有验证脚本审计，未跑 Unity live，验证状态只能写 `静态推断成立`。
+- 恢复点 / 下一步：
+  - 若继续最小补口，优先只动两到三个文件：
+    1. `Assets/YYY_Scripts/Farm/FarmRuntimeLiveValidationRunner.cs` 或独立编辑器测试，补一条真正经过 `GameInputManager / PlayerInteraction` 的高树前置拦截验证；
+    2. `Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs`，把损坏/替换文案重新对齐到当前 runner 与用户原话；
+    3. 若还要更稳，再补一条 `ToolRuntimeUtility` 自动替换 tone/槽位行为的最小回归测试。
+
+## 2026-04-07：恢复 0 档工具测试耐久，并继续收一轮 hover / 收获链的代码缺口
+
+- 用户目标：
+  - 把之前为了便于测试临时改成 `1` 次耐久的 `0` 档工具 / 水壶 / 剑恢复回长期口径，然后继续把我这条线仍未关门、且还能靠代码推进的内容往前收一轮。
+- 当前主线：
+  - 继续 `农田交互修复V3` 历史尾账，不扩到 `Primary/Town`，优先收 `FarmTool hover` 与 `成熟/枯萎 collect` 这两条仍可能被用户现场再次打回的结构面。
+- 本轮实际完成：
+  1. 已把 5 个测试资产恢复回历史原值：
+     - `Assets/111_Data/Items/Tools/Tool_0_Axe_0.asset` `maxDurability=20`
+     - `Assets/111_Data/Items/Tools/Tool_6_Pickaxe_0.asset` `maxDurability=20`
+     - `Assets/111_Data/Items/Tools/Tool_12_Hoe_0.asset` `maxDurability=20`
+     - `Assets/111_Data/Items/Tools/Tool_18_WateringCan.asset` `maxDurability=100`
+     - `Assets/111_Data/Items/Weapons/Weapon_200_Sword_0.asset` 恢复为 `hasDurability=0 / maxDurability=200`
+  2. `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+     - 继续只动 `FarmTool` 这一条 preview hover 缓冲，把 `FarmToolPreviewHoverExpand` 从 `0.24f` 提到 `0.4f`；
+     - `placeable` 的 `0.14f` 口径保持不动。
+  3. `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - `ExecuteFarmAction(Harvest)` 现在会检查 `Collect` 动画是否真的启动；
+     - 若启动失败，会立刻走失败收口，不再留下 `_isExecutingFarming=true` 的假执行卡死。
+  4. `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - `TryDetectAndEnqueueHarvest()` 与 `TryEnqueueHoeRemoveCropFromMouse()` 现在补了“玩家层解析失手时，回退按点击到的 crop 自身层匹配”的兜底，不再只硬信 `GetCurrentLayerIndex(playerCenter)` 的默认 `0` 退路。
+  5. `Assets/YYY_Scripts/Farm/FarmRuntimeLiveValidationRunner.cs`
+     - `IsToolBrokenLine(...)` 已补入当前用户口径的替换气泡文本，避免 runner 继续只认旧标点版字符串。
+- 关键判断：
+  - `CropController` 本体当前不是最小必改面；最小真实缺口在 `GameInputManager` 的 `Harvest` 执行失败收口和 harvest 层级判定。
+  - `高树前置拦截 / 自动替换` 当前仍按“结构已在但验证/文案口径未完全关门”记账；这轮没有再把它们混进同一大包。
+- 验证结果：
+  - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10` => `errors=0 warnings=0`
+  - `OcclusionManager.cs` native validate = `0 error / 2 warning`（既有性能 warning）
+  - `OcclusionSystemTests.cs` native validate = `0 error / 0 warning`
+  - `GameInputManager.cs` native validate = `0 error / 2 warning`（既有性能 warning）
+  - `FarmRuntimeLiveValidationRunner.cs` native validate = `0 error / 0 warning`
+  - compile-first validate 这轮被 Unity 外部现场噪音挡住：Editor 处于 `playmode_transition / stale_status`，并出现外部 `Missing Script` 红；当前只能诚实写成 `owned clean, external red present`。
+- thread-state：
+  - 本轮继续沿用已有 `ACTIVE` slice：`恢复0工具耐久并继续清历史未完项_2026-04-07`
+  - 过程中未跑 `Ready-To-Sync`
+  - 收尾前应补 `Park-Slice`
+- 恢复点 / 下一步：
+  - 当前最值得用户优先重验的就是：
+    1. 农田 hover 是否不再逼近“碰撞体重合才触发”
+    2. 成熟 / 枯萎作物左键收取是否不再出现“点了像被吞掉、后续也卡住”
+    3. 0 档工具 / 水壶 / 剑的耐久与水量是否恢复到正常长期口径
+  - 收尾补记：本轮已执行 `Park-Slice`，当前 live 状态已回到 `PARKED`。
+
+## 2026-04-07：剑耐久梯度恢复，锄地切模式/建队列残留两条最新边界已落代码并本地提交
+
+- 用户目标：
+  - 把“剑还是不能用”这条最新问题直接收口：`Sword_0~5` 改成正式耐久梯度 `40 / 60 / 80 / 120 / 150 / 200`；
+  - 修两个锄头边界：
+    1. 非放置模式先起锄地动作，动画过程中切到放置模式并快速建队列时，队列会残一格、预览不消失；
+    2. 放置模式下锄地，动画播放中关闭放置模式时，不会按“被打断”同语义清空剩余队列。
+- 当前主线：
+  - 只收这两个最新边界，不再扩题回到 `Primary / Town / Tooltip / 树 / 箱子`。
+- 本轮实际完成：
+  1. `Assets/111_Data/Items/Weapons/Weapon_200_Sword_0.asset ~ Weapon_205_Sword_5.asset`
+     - 全部恢复 `hasDurability: 1`
+     - `maxDurability` 依次改成 `40 / 60 / 80 / 120 / 150 / 200`
+  2. 把此前用户已经要求恢复、但还没归仓的 `0` 档工具耐久一并纳入本轮提交：
+     - `Tool_0_Axe_0.asset = 20`
+     - `Tool_6_Pickaxe_0.asset = 20`
+     - `Tool_12_Hoe_0.asset = 20`
+     - `Tool_18_WateringCan.asset = 100`
+  3. `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - `V` 键关闭放置模式时，如果当前正持有农田工具且自动农具链仍活跃，或动画仍在播，现在直接走 `AbortFarmToolOperationImmediately("关闭放置模式，按中断处理当前农具链")`
+     - `EnqueueAction(...)` 现在不会在旧动画播放中抢跑 `ProcessNextAction()`，避免旧动作和新队列争同一套 `_currentProcessingRequest / preview / queue`
+     - 新增 `_hasCurrentProcessingRequest` 标记，并统一 `ProcessNextAction / AbortCurrentQueuedFarmAction / OnFarmActionAnimationComplete / OnCollectAnimationComplete / AbortFarmToolOperationImmediately` 的 request 清理
+     - 队列跑空时，`_farmNavState` 现在按“当前是否还在手持农田工具”回到 `Preview / Idle`，避免退出放置模式后又被硬回成 `Preview`
+- 关键判断：
+  - 这两条边界的主因都在 `GameInputManager` 当前队列/动画/切模式交界，不在导航本身，也不在别的系统。
+  - 这轮已经把“旧动画还在播时新队列抢跑”和“关放置模式没有按被打断口径清队列”这两条根因直接补进代码。
+- 验证结果：
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Controller/Input/GameInputManager.cs --count 20 --output-limit 5`
+    - `owned_errors = 0`
+    - `assessment = unity_validation_pending`
+    - 阻断原因是外部工具缺失：`Tool 'manage_script' not found for project 21935cd3ad733705`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+    - fresh console 无本轮 own error；复跑时只见外部 `MCP-FOR-UNITY [WebSocket] Unexpected receive error`
+  - `git diff --check` 针对白名单 `11` 文件通过
+- 提交 / 状态：
+  - 已重新 `Begin-Slice -ForceReplace` 收窄白名单到本轮 `11` 文件
+  - `Ready-To-Sync` 第一真实 blocker 是外部 preflight 工具面，不是本轮代码红
+  - 可提交内容已先本地提交：
+    - SHA：`530483b38ee128653f7d2276f595c267a68d4189`
+    - message：`fix farm queue interrupt edges and restore tool durability`
+  - 收尾已重新执行 `Park-Slice`
+  - 当前 live 状态：`PARKED`
+- 恢复点 / 下一步：
+  - 下一步不该继续猜代码，而应直接让用户终验三件事：
+    1. 剑是否已正常可用，且耐久梯度正确
+    2. 非放置模式先锄地、再切放置模式快速点多个队列时，是否不再残一格/残预览
+    3. 放置模式下锄地，动画中关闭放置模式时，是否已经和“被打断”表现一致
