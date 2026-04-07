@@ -19,6 +19,7 @@ namespace Sunset.Story
 #endif
         [SerializeField, HideInInspector] private string targetSceneName = string.Empty;
         [SerializeField, HideInInspector] private string targetScenePath = string.Empty;
+        [SerializeField] private string targetEntryAnchorName = string.Empty;
         [SerializeField] private LoadSceneMode loadSceneMode = LoadSceneMode.Single;
 
         [Header("触发设置")]
@@ -33,7 +34,9 @@ namespace Sunset.Story
 
         public string TargetSceneName => targetSceneName;
         public string TargetScenePath => targetScenePath;
+        public string TargetEntryAnchorName => ResolveTargetEntryAnchorName();
         public bool HasValidTarget => TryResolveTarget(out _, out _, out _);
+        private static float s_playerEnterSuppressUntilUnscaledTime;
 
         private void Reset()
         {
@@ -75,6 +78,11 @@ namespace Sunset.Story
                 return;
             }
 
+            if (Time.unscaledTime < s_playerEnterSuppressUntilUnscaledTime)
+            {
+                return;
+            }
+
             TryStartTransition();
         }
 
@@ -91,6 +99,11 @@ namespace Sunset.Story
                 return false;
             }
 
+            PersistentPlayerSceneBridge.QueueSceneEntry(
+                resolvedSceneName,
+                resolvedScenePath,
+                ResolveTargetEntryAnchorName());
+
             SceneTransitionRunner.Begin(
                 resolvedSceneName,
                 resolvedScenePath,
@@ -103,7 +116,7 @@ namespace Sunset.Story
             return true;
         }
 
-        public void SetTargetScene(string sceneName, string scenePath = "")
+        public void SetTargetScene(string sceneName, string scenePath = "", string entryAnchorName = "")
         {
             targetScenePath = string.IsNullOrWhiteSpace(scenePath)
                 ? string.Empty
@@ -111,15 +124,38 @@ namespace Sunset.Story
             targetSceneName = !string.IsNullOrWhiteSpace(sceneName)
                 ? sceneName.Trim()
                 : ResolveSceneName(string.Empty, targetScenePath);
+            targetEntryAnchorName = string.IsNullOrWhiteSpace(entryAnchorName)
+                ? string.Empty
+                : entryAnchorName.Trim();
         }
 
         public void ClearTargetScene()
         {
             targetSceneName = string.Empty;
             targetScenePath = string.Empty;
+            targetEntryAnchorName = string.Empty;
 #if UNITY_EDITOR
             targetSceneAsset = null;
 #endif
+        }
+
+        public void SetTargetEntryAnchor(string anchorName)
+        {
+            targetEntryAnchorName = string.IsNullOrWhiteSpace(anchorName)
+                ? string.Empty
+                : anchorName.Trim();
+        }
+
+        public static void SuppressPlayerEnter(float seconds)
+        {
+            if (seconds <= 0f)
+            {
+                return;
+            }
+
+            s_playerEnterSuppressUntilUnscaledTime = Mathf.Max(
+                s_playerEnterSuppressUntilUnscaledTime,
+                Time.unscaledTime + seconds);
         }
 
         private void EnsureTriggerCollider()
@@ -164,6 +200,28 @@ namespace Sunset.Story
             }
 
             return System.IO.Path.GetFileNameWithoutExtension(scenePath.Trim());
+        }
+
+        private string ResolveTargetEntryAnchorName()
+        {
+            if (!string.IsNullOrWhiteSpace(targetEntryAnchorName))
+            {
+                return targetEntryAnchorName.Trim();
+            }
+
+            if (string.Equals(name, "HomeDoor", System.StringComparison.Ordinal) &&
+                string.Equals(TargetSceneName, "Primary", System.StringComparison.Ordinal))
+            {
+                return "PrimaryHomeEntryAnchor";
+            }
+
+            if (string.Equals(name, "PrimaryHomeDoor", System.StringComparison.Ordinal) &&
+                string.Equals(TargetSceneName, "Home", System.StringComparison.Ordinal))
+            {
+                return "HomeEntryAnchor";
+            }
+
+            return string.Empty;
         }
 
     }
