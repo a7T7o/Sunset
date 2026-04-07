@@ -14003,3 +14003,290 @@
     - `2_World/Primary_HomeContracts/PrimaryHomeDoor`
     - `2_World/Primary_HomeContracts/PrimaryHomeDoor/PrimaryHomeEntryAnchor`
   - 若下一轮继续，最值钱方向不再是补门，而是单开 `Home runtime baseline seed`，专审 `Player / GameInputManager / UI依赖 / NavigationRoot / CinemachineCamera` 这条更深 scene-side 迁移。
+
+## 2026-04-07｜补记：持久化玩家桥接已落地，`Home / Town` 承接进入 `persistent player + scene-local/fallback` 新阶段
+
+- 当前主线目标：
+  - 不再把 `Home` 继续做成第二套 scene-local player，而是把 `Primary / Town / Home` 一起切到“唯一玩家跨场景保留”的更深基线。
+- 本轮实际做成：
+  1. 已修改 [SceneTransitionTrigger2D.cs](/D:/Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\SceneTransitionTrigger2D.cs)
+     - 新增 `targetEntryAnchorName`
+     - 切场时会把 entry anchor 交给 runtime bridge
+     - 新增入场 grace，防止落地即被门 trigger 反咬
+     - 对 `HomeDoor -> PrimaryHomeEntryAnchor` / `PrimaryHomeDoor -> HomeEntryAnchor` 补了代码级 fallback
+  2. 已新增 [PersistentPlayerSceneBridge.cs](/D:/Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PersistentPlayerSceneBridge.cs)
+     - 首次接管当前 scene player 并转成 `DontDestroyOnLoad`
+     - 后续切场优先吃 entry anchor
+     - 回收 `Primary / Town` 的重复 scene-local player
+     - 重绑 `PlayerAutoNavigator`
+     - 重绑当前 scene 的 `GameInputManager` 私有 player 引用
+     - 无 `CinemachineCamera` 场景走 fallback camera follow
+     - 无 `GameInputManager` 场景走最小轴向输入 fallback
+  3. 已修改 [PlayerAutoNavigator.cs](/D:/Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerAutoNavigator.cs)
+     - 新增 `BindRuntimeSceneReferences(...)`
+  4. 已新增 [PersistentPlayerSceneRuntimeMenu.cs](/D:/Unity\Unity_learning\Sunset\Assets\Editor\Home\PersistentPlayerSceneRuntimeMenu.cs)
+     - 可在运行中写出 persistent player probe
+  5. 已拿到 runtime probe：
+     - [persistent-player-scene-probe.json](/D:/Unity\Unity_learning\Sunset\Library\CodexEditorCommands\persistent-player-scene-probe.json)
+     - `totalPlayerCount = 1`
+     - `activeScenePlayerCount = 0`
+     - `dontDestroyOnLoadPlayerCount = 1`
+  6. 已重跑 edit-mode probe：
+     - [home-primary-door-contract-probe.json](/D:/Unity\Unity_learning\Sunset\Library\CodexEditorCommands\home-primary-door-contract-probe.json)
+     - [town-player-facing-contract-probe.json](/D:/Unity\Unity_learning\Sunset\Library\CodexEditorCommands\town-player-facing-contract-probe.json)
+- 当前关键判断：
+  - `persistent player` 主链已经不是纸面设计，而是 runtime 真实存在；
+  - `Home / Town` 现在更准确的阶段是：
+    - `持久化玩家主链已落地`
+    - `scene-side contract 已站住`
+    - `完整 runtime 门链终验仍被外部 play 现场 missing-script 红阻断`
+- 当前还没做成：
+  1. `Primary -> Home -> Primary` runtime 完整过线证据尚未拿到
+  2. `Town` 仍有一个 player-facing attention：
+     - 返回 `Primary` 的 trigger 离起步位只有 `0.97`
+  3. `HomeEntryAnchor / PrimaryHomeEntryAnchor` 当前仍与 door 同位，虽已被入场 grace 兜住，但长期仍建议手摆出真正落点
+- 当前恢复点：
+  - 若下一轮继续，最值钱方向不再是再补第二只玩家，而是：
+    1. 查清 play 现场 `missing script` 外部 blocker 的来源
+    2. 重新跑 `Primary -> Home -> Primary` runtime 门链终验
+    3. 视情况收窄 `Town` 返回 trigger 的误触风险
+
+## 2026-04-07｜补记：`Home` 已切到固定镜头黑底口径
+
+- 用户目标：
+  - `Home` 不再跟随玩家，而是固定镜头，且背景改成黑色。
+- 本轮实际做成：
+  1. 已修改 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)
+     - `Home` 现在被显式判定为 `fixed fallback camera scene`
+     - 进入 `Home` 后不再走 fallback follow
+     - 会把 `Main Camera` 锁到 scene center，而不是锁到 player
+  2. 已修改 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity)
+     - `Main Camera.m_BackGroundColor` 已改成黑色
+  3. 已做最小文本 / Console 验证：
+     - `git diff --check` 对本轮 `Home.unity + PersistentPlayerSceneBridge.cs` clean
+     - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10` = `0 error / 0 warning`
+- 当前关键判断：
+  - `Home` 现在的正确口径已经不是“无 Cinemachine 时默认跟随玩家”，而是：
+    - `固定镜头`
+    - `场景居中`
+    - `黑底`
+- 当前恢复点：
+  - 你现在最该直接验：
+    1. `Primary -> Home`
+    2. 看镜头是否固定不跟人
+    3. 看边界外是否已经是黑色
+
+## 2026-04-07｜补记：`Home` 镜头改判为尊重手摆构图，切场背包/工具链断口已补最小迁移桥
+
+- 当前主线目标：
+  - 让 `persistent player` 不只把“人”带过场，也把玩家当前的 `背包内容 / 快捷栏选中态 / 当前装备工具` 一起带过去。
+- 本轮实际做成：
+  1. 已修正 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)
+     - `Home` 不再运行时自动对齐 scene center
+     - 进入 `Home` 后只保留“固定镜头，不跟玩家”，完全尊重场景里手摆的 `Main Camera`
+     - `QueueSceneEntry(...)` 时会抓当前 scene 的 `InventoryService.Save()` 和 `HotbarSelectionService.selectedIndex`
+     - 进新 scene 后会把快照恢复到本场景 `InventoryService`
+     - 并回填 `GameInputManager.inventory / hotbarSelection / database / playerToolController`
+  2. 已修正 [HotbarSelectionService.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs)
+     - 新增 runtime 重绑入口
+     - 新增当前选中槽位恢复入口
+     - 切场后会重新订阅新背包事件并强制重挂当前工具
+  3. 已修改 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity)
+     - `Main Camera` 现在按用户指定构图：
+       - `Position = (-19.57, -1.17, -10)`
+       - `Orthographic Size = 5`
+       - `Background = 黑色`
+- 当前关键判断：
+  - 背包丢失和回 `Primary` 后工具失效，真根因不是单纯 UI 不刷新，而是“玩家已经持久化，但 `InventoryService + HotbarSelectionService` 还是 scene-local，切场时换了一套新服务”。
+  - 这轮补的是“运行态状态迁移桥”，不是把整套背包 UI 常驻化；这样对现有 scene-local UI 改动最小。
+- 验证状态：
+  - `git diff --check` 对本轮 `.cs` 改动 clean
+  - `validate_script Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs` = `owned_errors=0`
+  - `validate_script Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs` = `owned_errors=0`
+  - 但当前 Unity fresh 验证仍被外部 `The referenced script (Unknown) on this Behaviour is missing!` 和 `Primary` playmode transition 污染，所以整轮 Unity assessment 只能诚实记为 `external_red`
+- 当前还没闭环：
+  1. 需要用户按真实门链重测 `Primary -> Town -> Primary`
+  2. `Home.unity` 仍有 shared dirty，不应把整份 scene 误判成这一刀 own-only clean
+  3. 外部 `missing script` 红仍在，会污染 live 取证
+- 当前恢复点：
+  - 下一步最值钱的是让用户直接测：
+    1. `Primary -> Town`
+    2. 看背包是否还在
+    3. 再 `Town -> Primary`
+    4. 看热键/滚轮选中的工具是否仍可正常使用
+
+## 2026-04-07｜补记：`Town` 耕地红错来源已厘清，真实断点是 scene-side 农田合同 + Hoe 预览 guard 不一致
+
+- 用户目标：
+  - 查清 `Town` 打开锄头/放置模式时的两条红错到底来自什么，不只止血单条报错，还要从全局触发链看清当前哪些场景已经能玩、哪些只是补了一半。
+- 本轮实际做成：
+  1. 已确认 `Town` 当时的首个爆红不是玩家操作问题，而是 `FarmTileManager.layerTilemaps[0].groundTilemap` 在 [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 里曾经没配；
+  2. 已把 [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 的 `FarmTileManager` 场景配置补成：
+     - `farmlandCenterTilemap = Layer 1 - Farmland_Center`
+     - `farmlandBorderTilemap = Layer 1 - Farmland_Border`
+     - `groundTilemap = Layer 1 - Grass`
+     - `waterPuddleTilemap / waterPuddleTilemapNew = Layer 1 - Farmland_Water`
+     - `propsContainer = Props/Farm`
+  3. 已进一步补硬 [GameInputManager.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs)：
+     - `UpdateFarmToolPreview(...)`
+     - `ForceUpdatePreviewToPosition(...)`
+     - `ExecuteTillSoil(...)`
+     现在 `Hoe` 链路会把 `groundTilemap` 当成硬前置，不再把“有 farmlandCenterTilemap”误当成“可以安全耕地”；
+  4. 已进一步补硬 [FarmToolPreview.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Farm/FarmToolPreview.cs)：
+     - `UpdateHoePreview(...)` 现在即使被别的入口直接调用，也会在缺 `groundTilemap` 时直接 `Hide()` 安全降级，不再把红错从别的入口重新放出来。
+- 当前关键判断：
+  - 这次红错的真实来源是“双缺口叠加”：
+    1. `Town` 场景自己的农田合同没配完整；
+    2. 代码入口的 guard 与 `FarmTileManager.CanTillAt()` 的真实依赖不一致。
+  - 从全局触发链看，当前更准确的场景分层是：
+    - `Primary / Town`：已有完整 scene-local 基线（`1_Managers / Systems / InventorySystem / HotbarSelection / PlacementManager / FarmToolPreview / FarmTileManager / UI / DialogueCanvas / EventSystem`）
+    - `Home`：目前只命中 `PersistentManagers`，仍然不是完整可玩场景；背包/玩家迁移桥已经有了，但本地输入、农田、放置、UI 承接并没齐。
+- 验证结果：
+  - `rg` 已命中 `Town.unity` 中 `groundTilemap: {fileID: 404378717}` 与完整 `FarmTileManager` 配置块；
+  - `git diff --check -- Assets/YYY_Scripts/Controller/Input/GameInputManager.cs Assets/YYY_Scripts/Farm/FarmToolPreview.cs` 通过（仅有 CRLF/LF 提示，无 diff 结构错误）；
+  - CLI 侧：
+    - `validate_script --skip-mcp Assets/YYY_Scripts/Controller/Input/GameInputManager.cs` = `assessment=unity_validation_pending / owned_errors=0 / external_errors=0`
+    - 当前 `status / validate_script / errors` 存在工具侧超时和 `sunset_mcp.py` 自身 `AttributeError`，因此这轮不能把 Unity live 校验包装成“彻底无红”
+  - direct MCP 侧：
+    - `validate_script` 返回 `Unity session not available`
+    - 当前只可诚实记为：`代码层已补口，Unity live 终验待恢复`
+- 当前还没做成：
+  1. 用户尚未在最新 `Town` 现场重新复测“开锄头/耕地/种植”；
+  2. `Home` 仍缺 scene-local 基线，不能把“背包保留了”误判成“Home 交互已完整”；
+  3. 当前 CLI/MCP 工具面不稳定，导致这轮缺少一次干净的 Unity live 证据。
+- 当前恢复点：
+  - 下一轮如果继续，最值钱顺序应是：
+    1. 先让用户重测 `Town` 的锄地/放置链是否还会出红；
+    2. 如果还有断口，再继续抓“点位是否在真实可耕 Grass 上”与 `Props/Farm` 后续实例化；
+    3. 中期再补 `Home` 的 scene-local 基线，而不是误以为它已经和 `Town` 同级。
+
+## 2026-04-07｜补记：边界 UI 与 `Home` UI 的结构判断
+
+- 用户目标：
+  - 先给一个可审核方案，解决 `Town` 靠边界时固定 UI 挡住边缘内容的问题；
+  - 同时判断 `Home` 是否也应该具备和 `Town` 同级的核心 UI 承接。
+- 本轮只读结论：
+  1. 我同意 `Home` 应该能触发核心 UI，但不同意“所有 UI 都直接做成全局”；
+  2. 更稳的架构是：
+     - `全局核心 UI`
+       - `EventSystem`
+       - `DialogueCanvas`
+       - 核心 HUD / Hotbar / 背包壳 / Prompt / InteractionHint
+     - `场景本地 UI 扩展`
+       - `BoxUIRoot`
+       - 场景专属教程 / 调试 / 特殊面板
+       - 强依赖本场景对象引用的 UI
+  3. 当前结构证据：
+     - [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 已有 `Systems / 1_Managers / InventorySystem / HotbarSelection / EventSystem / UI / DialogueCanvas / BoxUIRoot`
+     - [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) 目前仍基本只命中 `PersistentManagers`
+  4. `Town` 边界问题本质更像“玩家视面安全区”问题，不是简单的 trigger 半径问题：
+     - 当前 [SceneTransitionTrigger2D.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs) 是 `OnTriggerEnter2D -> 直接切场`
+     - 也就是说，只要关键边界信息长期放在屏幕最底/最边，固定 HUD 就天然会和它抢空间。
+- 当前推荐方案：
+  1. 第一优先：做 `全局核心 UI + 场景本地扩展`，让 `Home` 自动继承核心 HUD，而不是继续复制一整套 scene-local UI 树；
+  2. 第二优先：给边界设计一层 `Boundary Focus Mode`
+     - 玩家进入边界接近区时，底部核心 HUD 自动弱化 / 收窄 / 局部隐藏
+     - 只保留最小必要提示，不让固定条长期压住屏幕边缘内容
+  3. 第三优先：在 scene-side 保留“边界安全带”
+     - 不把真正需要玩家观察的出入口语义直接压在最外圈可视边缘
+     - 尤其底边和左右边，应该留一层可读过渡带
+  4. 如果后续仍不够，再考虑第二阶段：
+     - 把自动碰撞切场改成 `接近 -> 小提示 -> 明确确认`
+     - 但这属于行为改判，比前两项更重，不建议现在就上。
+- 当前恢复点：
+  - 若下一轮按这条线继续，最值钱顺序应是：
+    1. 先做 `Home` 的核心 UI 继承口径定稿
+    2. 再做 `Boundary Focus Mode`
+    3. 最后才考虑是否把边界切场从“自动进入”改成“两段式交互”
+
+## 2026-04-07｜补记：`Home` 核心 UI / 输入承接桥与 `Town/Home` 边界专注模式已进主运行链
+
+- 用户目标：
+  - 不再停在方案判断，真实落地两件事：
+    1. `Home` 进入后也能继承核心 HUD / 背包 / 对话 / 提示的基础承接
+    2. `Town/Home` 玩家贴近画面边界时，核心 HUD 自动弱化，减少遮挡边缘内容
+- 本轮实际做成：
+  1. 已新增 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)
+     - 启动时自动建立 `_PersistentPlayerSceneBridge`
+     - 持久化保留 `Player`
+     - 捕获并跨场景复用：
+       - `Systems`
+       - `InventorySystem`
+       - `HotbarSelection`
+       - `EquipmentSystem`
+       - `UI`
+       - `DialogueCanvas`
+       - `EventSystem`
+       - `InteractionHintOverlay`
+     - 切场后会回填 `GameInputManager` 的：
+       - `playerMovement / playerInteraction / playerToolController / autoNavigator`
+       - `inventory / hotbarSelection / database / worldCamera / packageTabs`
+     - 同时重绑 `ToolbarUI / InventoryPanelUI / InventoryInteractionManager / PackagePanelTabsUI / ItemTooltip`
+  2. 已把 [SceneTransitionTrigger2D.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs) 接进桥接链：
+     - 进入切场前先 `QueueSceneEntry(...)`
+     - 支持 `targetEntryAnchorName`
+     - 新增 `SuppressPlayerEnter(...)`，避免切入后立刻被原门反触发
+     - 对 `HomeDoor -> PrimaryHomeEntryAnchor` / `PrimaryHomeDoor -> HomeEntryAnchor` 保留默认回退
+  3. 已在桥里落下 `Boundary Focus Mode`
+     - `LateUpdate()` 持续按玩家在屏幕里的 viewport 位置计算边缘压力
+     - 靠近底边 / 左右边时，核心 HUD 通过 `CanvasGroup.alpha` 自动淡化
+     - 打开背包、箱子、正式对话时保持 HUD 全显，不偷淡功能 UI
+  4. 本轮 own red 已真实止血：
+     - 通过查 `Editor.log` 抓到 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs) 缺 `ItemDatabase` 命名空间导入
+     - 已补 `using FarmGame.Data;`
+     - 最新 `Editor.log` 已出现 `*** Tundra build success`
+- 当前关键判断：
+  - 这轮已经不是“只给方向”，而是代码已经进入真实运行链；
+  - 但它更准确的状态仍是：
+    - `代码层已落`
+    - `最新 Unity 编译成功`
+    - `runtime/manual 终验仍待用户或 live 工具恢复`
+  - 当前更适合把这刀定义为“核心 UI 持久化桥 + 边界专注模式代码完成”，而不是“Home/Town 全部 runtime 已完全验收”
+- 验证结果：
+  - `git diff --check -- Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs` 通过
+  - `validate_script --skip-mcp Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`：
+    - `owned_errors=0`
+    - assessment 仍是 `unity_validation_pending`
+  - `Editor.log` 最新 compile 结果：
+    - `*** Tundra build success (15.15 seconds)`
+    - 当前只看到外部 warning：`SpringDay1WorkbenchCraftingOverlay.cs` 的过时 TMP API 警告
+  - direct MCP 当前仍无 session，因此这轮没有再拿 scene/play 侧 live 证据
+- 当前还没做成：
+  1. `Primary -> Home -> Primary` 的真实玩家门链终验还没补到
+  2. `Town/Home` 的边界 HUD 淡化还没拿到玩家实际视面复测
+  3. 当前 [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) / [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 仍有 mixed dirty，不应把整个 scene 误判成这轮 own-only clean
+- 当前恢复点：
+  - 若下一轮继续，最值钱顺序应是：
+    1. 用户先重测 `Primary -> Home -> Primary`，确认核心 HUD / 背包 / 对话 / 提示是否都能继续工作
+    2. 再重测 `Town/Home` 贴近边界时 HUD 是否按预期弱化
+    3. 若行为不稳，再继续收窄 `PersistentPlayerSceneBridge` 的 duplicate-root / runtime-rebind 策略，而不是回头重做 UI 线程大文件
+
+## 2026-04-08｜补记：持久化桥代码已独立提交，项目文档周回执已落盘
+
+- 用户目标：
+  - 准备收尾前，把当前这条线能安全提交的内容先提交；
+  - 同时给 `项目文档总览` 写一份能直接吸收进总文档的周回执，不再只是线程流水账。
+- 本轮实际做成：
+  1. 已把代码 slice 单独提交为：
+     - `53d806d2`
+     - `feat: add persistent player scene bridge`
+  2. 该 commit 只包含：
+     - [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)
+     - [PersistentPlayerSceneBridge.cs.meta](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs.meta)
+     - [SceneTransitionTrigger2D.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs)
+  3. 已新增给项目文档线程的正式回执：
+     - [2026-04-08_给项目文档总览_用户本周实做与统筹回执_01.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/项目文档总览/2026-04-08_给项目文档总览_用户本周实做与统筹回执_01.md)
+     - 内容重点不是“线程改了什么”，而是系统回顾：
+       - 这一周用户如何主导 `spring-day1 / Town / Home / Primary`
+       - 用户如何拍板 resident 化、持久化玩家、UI 结构、Home 镜头、CLI first 等关键方向
+       - 用户如何作为治理主控推动 no-red、回执质量和多线程继续/停发判断
+- 当前关键判断：
+  - 当前最安全、最值钱的可提交内容已经先独立落成一个 code checkpoint；
+  - 其余 scene / shared root 大现场仍不适合由我顺手打包。
+- 当前还没做成：
+  1. `Home.unity / Town.unity / Primary.unity` 仍是 mixed scene 现场，不能在这轮偷吞
+  2. 项目文档线程自己的正式正文还需要对方决定如何吸收这份回执
+- 当前恢复点：
+  - 若继续本线收尾，优先只剩：
+    1. 视情况单独提交 docs-only 审计批
+    2. 等用户或相关线程继续做 runtime/manual 终验
