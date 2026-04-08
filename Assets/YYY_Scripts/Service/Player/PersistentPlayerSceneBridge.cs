@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using FarmGame.Data;
 using FarmGame.UI;
@@ -25,10 +26,11 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private const string DialogueCanvasRootName = "DialogueCanvas";
     private const string EventSystemRootName = "EventSystem";
     private const string InteractionHintRootName = "InteractionHintOverlay";
-    private const float BoundaryFocusBottomViewportThreshold = 0.24f;
-    private const float BoundaryFocusSideViewportThreshold = 0.12f;
-    private const float BoundaryFocusMinAlpha = 0.2f;
-    private const float BoundaryFocusBlendSpeed = 6f;
+    private const float BoundaryFocusStartViewportThreshold = 0.25f;
+    private const float BoundaryFocusFullViewportThreshold = 0.18f;
+    private const float BoundaryFocusMinAlpha = 0.02f;
+    private const float BoundaryFocusBlendSpeed = 18f;
+    private const float BoundaryFocusHardFadePressure = 0.58f;
 
     private static readonly BindingFlags InstanceBindingFlags =
         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
@@ -62,6 +64,23 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private HotbarSelectionService persistentHotbarSelectionService;
     private EquipmentService persistentEquipmentService;
     private CanvasGroup persistentUiCanvasGroup;
+    private readonly List<BoundaryFocusUiTarget> boundaryFocusUiTargets = new List<BoundaryFocusUiTarget>();
+
+    [System.Flags]
+    private enum BoundaryFocusEdgeMask
+    {
+        None = 0,
+        Left = 1 << 0,
+        Right = 1 << 1,
+        Top = 1 << 2,
+        Bottom = 1 << 3
+    }
+
+    private sealed class BoundaryFocusUiTarget
+    {
+        public RectTransform RectTransform;
+        public CanvasGroup CanvasGroup;
+    }
 
     private struct PendingSceneEntry
     {
@@ -520,20 +539,61 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         EnsurePersistentUiCanvasGroup();
+        RefreshBoundaryFocusUiTargets();
         if (persistentUiCanvasGroup == null)
         {
             return;
         }
 
-        float targetAlpha = ResolveBoundaryFocusTargetAlpha();
-        persistentUiCanvasGroup.alpha = Mathf.MoveTowards(
-            persistentUiCanvasGroup.alpha,
-            targetAlpha,
-            Time.unscaledDeltaTime * BoundaryFocusBlendSpeed);
+        persistentUiCanvasGroup.alpha = 1f;
+        persistentUiCanvasGroup.blocksRaycasts = true;
+        persistentUiCanvasGroup.interactable = true;
 
-        bool shouldBlockRaycasts = persistentUiCanvasGroup.alpha > 0.95f || ShouldKeepCoreUiFullyVisible();
-        persistentUiCanvasGroup.blocksRaycasts = shouldBlockRaycasts;
-        persistentUiCanvasGroup.interactable = shouldBlockRaycasts;
+        if (boundaryFocusUiTargets.Count == 0)
+        {
+            RefreshBoundaryFocusUiTargets();
+        }
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        bool keepFullyVisible = IsFixedFallbackCameraScene(activeScene) || ShouldKeepCoreUiFullyVisible();
+        Vector3 playerViewport = Vector3.zero;
+        if (!keepFullyVisible)
+        {
+            Camera runtimeCamera = ResolveRuntimeCamera(activeScene);
+            if (runtimeCamera == null || persistentPlayerTransform == null)
+            {
+                keepFullyVisible = true;
+            }
+            else
+            {
+                playerViewport = runtimeCamera.WorldToViewportPoint(persistentPlayerTransform.position);
+                if (playerViewport.z <= 0f)
+                {
+                    keepFullyVisible = true;
+                }
+            }
+        }
+
+        for (int index = 0; index < boundaryFocusUiTargets.Count; index++)
+        {
+            BoundaryFocusUiTarget target = boundaryFocusUiTargets[index];
+            if (target == null || target.RectTransform == null || target.CanvasGroup == null)
+            {
+                continue;
+            }
+
+            float targetAlpha = keepFullyVisible
+                ? 1f
+                : ResolveBoundaryFocusTargetAlpha(playerViewport, target.RectTransform);
+            target.CanvasGroup.alpha = Mathf.MoveTowards(
+                target.CanvasGroup.alpha,
+                targetAlpha,
+                Time.unscaledDeltaTime * BoundaryFocusBlendSpeed);
+
+            bool shouldBlockRaycasts = keepFullyVisible || target.CanvasGroup.alpha > 0.95f;
+            target.CanvasGroup.blocksRaycasts = shouldBlockRaycasts;
+            target.CanvasGroup.interactable = shouldBlockRaycasts;
+        }
     }
 
     private void SnapFallbackCameraToPlayer()
@@ -561,18 +621,26 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         persistentEventSystemRoot = CaptureOrPersistSceneRoot(scene, persistentEventSystemRoot, EventSystemRootName);
         persistentInteractionHintRoot = CaptureOrPersistSceneRoot(scene, persistentInteractionHintRoot, InteractionHintRootName);
 
-        persistentSceneInputManager = persistentSystemsRoot != null
-            ? persistentSystemsRoot.GetComponent<GameInputManager>()
-            : persistentSceneInputManager;
-        persistentInventoryService = persistentInventoryRoot != null
-            ? persistentInventoryRoot.GetComponent<InventoryService>()
-            : persistentInventoryService;
-        persistentHotbarSelectionService = persistentHotbarRoot != null
-            ? persistentHotbarRoot.GetComponent<HotbarSelectionService>()
-            : persistentHotbarSelectionService;
-        persistentEquipmentService = persistentEquipmentRoot != null
-            ? persistentEquipmentRoot.GetComponent<EquipmentService>()
-            : persistentEquipmentService;
+        RefreshPersistentRuntimeServices();
+    }
+
+    private void RefreshPersistentRuntimeServices()
+    {
+        persistentSceneInputManager = ResolvePersistentComponent(
+            persistentSceneInputManager,
+            persistentSystemsRoot);
+        persistentInventoryService = ResolvePersistentComponent(
+            persistentInventoryService,
+            persistentInventoryRoot,
+            persistentSystemsRoot);
+        persistentHotbarSelectionService = ResolvePersistentComponent(
+            persistentHotbarSelectionService,
+            persistentHotbarRoot,
+            persistentSystemsRoot);
+        persistentEquipmentService = ResolvePersistentComponent(
+            persistentEquipmentService,
+            persistentEquipmentRoot,
+            persistentSystemsRoot);
     }
 
     private void RebindPersistentCoreUi(
@@ -696,32 +764,119 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
     }
 
-    private float ResolveBoundaryFocusTargetAlpha()
+    private void RefreshBoundaryFocusUiTargets()
     {
-        if (ShouldKeepCoreUiFullyVisible())
+        boundaryFocusUiTargets.Clear();
+        if (persistentUiRoot == null)
+        {
+            return;
+        }
+
+        RectTransform uiRootRect = persistentUiRoot.GetComponent<RectTransform>();
+        if (uiRootRect == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < uiRootRect.childCount; index++)
+        {
+            RectTransform childRect = uiRootRect.GetChild(index) as RectTransform;
+            if (childRect == null || !ShouldTrackBoundaryFocusTarget(childRect.gameObject))
+            {
+                continue;
+            }
+
+            CanvasGroup canvasGroup = childRect.GetComponent<CanvasGroup>();
+            if (canvasGroup == null)
+            {
+                canvasGroup = childRect.gameObject.AddComponent<CanvasGroup>();
+            }
+
+            boundaryFocusUiTargets.Add(new BoundaryFocusUiTarget
+            {
+                RectTransform = childRect,
+                CanvasGroup = canvasGroup
+            });
+        }
+    }
+
+    private static bool ShouldTrackBoundaryFocusTarget(GameObject target)
+    {
+        return ResolveNamedBoundaryFocusEdges(target != null ? target.name : null) != BoundaryFocusEdgeMask.None;
+    }
+
+    private float ResolveBoundaryFocusTargetAlpha(Vector3 viewport, RectTransform targetRect)
+    {
+        if (targetRect == null)
         {
             return 1f;
         }
 
-        Scene activeScene = SceneManager.GetActiveScene();
-        Camera runtimeCamera = ResolveRuntimeCamera(activeScene);
-        if (runtimeCamera == null || persistentPlayerTransform == null)
+        BoundaryFocusEdgeMask edges = ResolveNamedBoundaryFocusEdges(targetRect.gameObject.name);
+        if (edges == BoundaryFocusEdgeMask.None)
         {
             return 1f;
         }
 
-        Vector3 viewport = runtimeCamera.WorldToViewportPoint(persistentPlayerTransform.position);
-        if (viewport.z <= 0f)
+        float edgePressure = 0f;
+        if ((edges & BoundaryFocusEdgeMask.Left) != 0)
         {
-            return 1f;
+            edgePressure = Mathf.Max(edgePressure, ResolveLowerEdgePressure(viewport.x));
+        }
+        if ((edges & BoundaryFocusEdgeMask.Right) != 0)
+        {
+            edgePressure = Mathf.Max(edgePressure, ResolveUpperEdgePressure(viewport.x));
+        }
+        if ((edges & BoundaryFocusEdgeMask.Top) != 0)
+        {
+            edgePressure = Mathf.Max(edgePressure, ResolveUpperEdgePressure(viewport.y));
+        }
+        if ((edges & BoundaryFocusEdgeMask.Bottom) != 0)
+        {
+            edgePressure = Mathf.Max(edgePressure, ResolveLowerEdgePressure(viewport.y));
         }
 
-        float bottomPressure = Mathf.Clamp01((BoundaryFocusBottomViewportThreshold - viewport.y) / BoundaryFocusBottomViewportThreshold);
-        float leftPressure = Mathf.Clamp01((BoundaryFocusSideViewportThreshold - viewport.x) / BoundaryFocusSideViewportThreshold);
-        float rightPressure = Mathf.Clamp01((viewport.x - (1f - BoundaryFocusSideViewportThreshold)) / BoundaryFocusSideViewportThreshold);
-        float edgePressure = Mathf.Max(bottomPressure, leftPressure * 0.65f, rightPressure * 0.65f);
+        edgePressure = Mathf.Clamp01(edgePressure);
+        if (edgePressure >= BoundaryFocusHardFadePressure)
+        {
+            return BoundaryFocusMinAlpha;
+        }
 
-        return Mathf.Lerp(1f, BoundaryFocusMinAlpha, edgePressure);
+        float easedPressure = 1f - Mathf.Pow(1f - edgePressure, 5f);
+        return Mathf.Lerp(1f, BoundaryFocusMinAlpha, easedPressure);
+    }
+
+    private static BoundaryFocusEdgeMask ResolveNamedBoundaryFocusEdges(string targetName)
+    {
+        switch (targetName)
+        {
+            case "State":
+                return BoundaryFocusEdgeMask.Left | BoundaryFocusEdgeMask.Top;
+            case "ToolBar":
+                return BoundaryFocusEdgeMask.Bottom;
+            case "SpringDay1PromptOverlay":
+                return BoundaryFocusEdgeMask.Left;
+            case "SpringDay1WorldHintBubble":
+                return BoundaryFocusEdgeMask.Right;
+            default:
+                return BoundaryFocusEdgeMask.None;
+        }
+    }
+
+    private static float ResolveLowerEdgePressure(float viewportValue)
+    {
+        return 1f - Mathf.InverseLerp(
+            BoundaryFocusFullViewportThreshold,
+            BoundaryFocusStartViewportThreshold,
+            viewportValue);
+    }
+
+    private static float ResolveUpperEdgePressure(float viewportValue)
+    {
+        return Mathf.InverseLerp(
+            1f - BoundaryFocusStartViewportThreshold,
+            1f - BoundaryFocusFullViewportThreshold,
+            viewportValue);
     }
 
     private bool ShouldKeepCoreUiFullyVisible()
@@ -784,13 +939,38 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
                 continue;
             }
 
-            if (string.Equals(candidate.name, s_pendingSceneEntry.EntryAnchorName, System.StringComparison.Ordinal))
+            if (DoesEntryAnchorNameMatch(candidate.name, s_pendingSceneEntry.EntryAnchorName))
             {
                 return candidate;
             }
         }
 
         return null;
+    }
+
+    private static bool DoesEntryAnchorNameMatch(string candidateName, string rawEntryAnchorNames)
+    {
+        if (string.IsNullOrWhiteSpace(candidateName) || string.IsNullOrWhiteSpace(rawEntryAnchorNames))
+        {
+            return false;
+        }
+
+        string[] aliasNames = rawEntryAnchorNames.Split('|');
+        for (int index = 0; index < aliasNames.Length; index++)
+        {
+            string aliasName = aliasNames[index]?.Trim();
+            if (string.IsNullOrWhiteSpace(aliasName))
+            {
+                continue;
+            }
+
+            if (string.Equals(candidateName, aliasName, System.StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void DestroySceneDuplicatePlayers(PlayerMovement[] scenePlayers)
@@ -935,6 +1115,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             return sceneInventory;
         }
 
+        RefreshPersistentRuntimeServices();
         return persistentInventoryService;
     }
 
@@ -946,6 +1127,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             return sceneHotbar;
         }
 
+        RefreshPersistentRuntimeServices();
         return persistentHotbarSelectionService;
     }
 
@@ -957,7 +1139,40 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             return sceneEquipment;
         }
 
+        RefreshPersistentRuntimeServices();
         return persistentEquipmentService;
+    }
+
+    private static T ResolvePersistentComponent<T>(T current, params GameObject[] roots)
+        where T : Component
+    {
+        if (current != null)
+        {
+            return current;
+        }
+
+        for (int index = 0; index < roots.Length; index++)
+        {
+            GameObject root = roots[index];
+            if (root == null)
+            {
+                continue;
+            }
+
+            T direct = root.GetComponent<T>();
+            if (direct != null)
+            {
+                return direct;
+            }
+
+            T nested = root.GetComponentInChildren<T>(true);
+            if (nested != null)
+            {
+                return nested;
+            }
+        }
+
+        return FindFirstObjectByType<T>(FindObjectsInactive.Include);
     }
 
     private GameInputManager ResolveRuntimeInputManager(Scene scene)
