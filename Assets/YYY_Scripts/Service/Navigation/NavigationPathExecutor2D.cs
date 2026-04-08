@@ -248,11 +248,6 @@ public static class NavigationPathExecutor2D
             return new BuildPathResult(false, "执行状态未初始化", requestedStart, requestedDestination, 0);
         }
 
-        state.Path.Clear();
-        state.PathIndex = 0;
-        state.HasDestination = false;
-        state.Destination = Vector2.zero;
-
         if (navGrid == null)
         {
             log?.Invoke("NavGrid2D 未找到");
@@ -290,14 +285,18 @@ public static class NavigationPathExecutor2D
             }
         }
 
-        if (!navGrid.TryFindPath(start, destination, state.Path))
+        List<Vector2> builtPath = new List<Vector2>(Mathf.Max(8, state.Path.Count));
+        if (!navGrid.TryFindPath(start, destination, builtPath))
         {
             log?.Invoke("A* 寻路失败");
-            state.Path.Clear();
             return new BuildPathResult(false, "寻路失败", start, destination, 0);
         }
 
-        AppendContinuousDestination(state.Path, destination, log);
+        AppendContinuousDestination(builtPath, destination, log);
+
+        state.Path.Clear();
+        state.Path.AddRange(builtPath);
+        state.PathIndex = 0;
         state.HasDestination = true;
         state.Destination = destination;
 

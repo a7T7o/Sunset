@@ -16,6 +16,7 @@ public class NPCMotionController : MonoBehaviour
     [Header("移动参数")]
     [SerializeField] private float moveSpeed = 2.5f;
     [SerializeField] private float moveThreshold = 0.05f;
+    [SerializeField] private float facingDirectionMinHoldSeconds = 0.08f;
     [SerializeField] private float navigationAcceleration = 16f;
     [SerializeField] private float navigationDeceleration = 20f;
     [SerializeField] private float navigationRecoverAcceleration = 12f;
@@ -38,6 +39,8 @@ public class NPCMotionController : MonoBehaviour
     private Vector2 _externalVelocity;
     private bool _hasExternalVelocity;
     private float _lastObservedMovementTime = float.NegativeInfinity;
+    private float _lastFacingDirectionChangeTime = float.NegativeInfinity;
+    private NPCAnimController.NPCAnimDirection _lastSmoothedDirection = NPCAnimController.NPCAnimDirection.Down;
 
     #endregion
 
@@ -74,6 +77,8 @@ public class NPCMotionController : MonoBehaviour
         if (animController != null)
         {
             animController.PlayIdle(defaultFacingDirection, force: true);
+            _lastSmoothedDirection = defaultFacingDirection;
+            _lastFacingDirectionChangeTime = Time.time;
         }
     }
 
@@ -90,7 +95,9 @@ public class NPCMotionController : MonoBehaviour
 
         if (IsMoving)
         {
-            animController.PlayMove(GetDirectionFromVelocity(velocity));
+            NPCAnimController.NPCAnimDirection targetDirection = GetDirectionFromVelocity(velocity);
+            targetDirection = GetSmoothedFacingDirection(targetDirection);
+            animController.PlayMove(targetDirection);
         }
         else
         {
@@ -111,6 +118,7 @@ public class NPCMotionController : MonoBehaviour
     {
         moveSpeed = Mathf.Max(0f, moveSpeed);
         moveThreshold = Mathf.Max(0.001f, moveThreshold);
+        facingDirectionMinHoldSeconds = Mathf.Clamp(facingDirectionMinHoldSeconds, 0f, 0.4f);
         navigationAcceleration = Mathf.Max(0.1f, navigationAcceleration);
         navigationDeceleration = Mathf.Max(0.1f, navigationDeceleration);
         navigationRecoverAcceleration = Mathf.Max(0.1f, navigationRecoverAcceleration);
@@ -132,7 +140,10 @@ public class NPCMotionController : MonoBehaviour
             return;
         }
 
-        animController.SetDirection(GetDirectionFromVelocity(direction), force: true);
+        NPCAnimController.NPCAnimDirection facingDirection = GetDirectionFromVelocity(direction);
+        animController.SetDirection(facingDirection, force: true);
+        _lastSmoothedDirection = facingDirection;
+        _lastFacingDirectionChangeTime = Time.time;
     }
 
     public void SetExternalVelocity(Vector2 velocity)
@@ -163,6 +174,8 @@ public class NPCMotionController : MonoBehaviour
         if (animController != null)
         {
             animController.PlayIdle(animController.CurrentDirection, force: true);
+            _lastSmoothedDirection = animController.CurrentDirection;
+            _lastFacingDirectionChangeTime = Time.time;
         }
 
         _lastPosition = transform.position;
@@ -268,6 +281,24 @@ public class NPCMotionController : MonoBehaviour
         return velocity.x >= 0f
             ? NPCAnimController.NPCAnimDirection.Right
             : NPCAnimController.NPCAnimDirection.Left;
+    }
+
+    private NPCAnimController.NPCAnimDirection GetSmoothedFacingDirection(
+        NPCAnimController.NPCAnimDirection rawDirection)
+    {
+        if (rawDirection == _lastSmoothedDirection)
+        {
+            return rawDirection;
+        }
+
+        if (Time.time - _lastFacingDirectionChangeTime < facingDirectionMinHoldSeconds)
+        {
+            return _lastSmoothedDirection;
+        }
+
+        _lastSmoothedDirection = rawDirection;
+        _lastFacingDirectionChangeTime = Time.time;
+        return rawDirection;
     }
 
     #endregion

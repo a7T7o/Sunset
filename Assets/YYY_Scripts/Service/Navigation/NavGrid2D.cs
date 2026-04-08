@@ -52,10 +52,17 @@ public class NavGrid2D : MonoBehaviour
     private bool[,] walkable;
     private static NavGrid2D s_instance;
     private static readonly Dictionary<int, TileSpriteGeometry> s_tileSpriteGeometryCache = new Dictionary<int, TileSpriteGeometry>();
+    private static readonly Dictionary<int, bool> s_dynamicNavigationColliderIgnoreCache = new Dictionary<int, bool>();
+    private static readonly List<MonoBehaviour> s_navigationBehaviourBuffer = new List<MonoBehaviour>(8);
+    private static int s_lastSyncedPhysicsFrame = -1;
+    private const int NearestWalkableVerificationCandidateLimit = 8;
 
     // 🔥 Unity 6 优化：预分配碰撞体缓存数组，避免 GC 分配
     private Collider2D[] _colliderCache = new Collider2D[10];
     private Collider2D[] _walkableOverrideColliderCache = new Collider2D[6];
+    private readonly Vector2Int[] _nearestWalkableVerificationCandidates = new Vector2Int[NearestWalkableVerificationCandidateLimit];
+    private readonly float[] _nearestWalkableVerificationDistances = new float[NearestWalkableVerificationCandidateLimit];
+    private readonly int[] _nearestWalkableVerificationPriorities = new int[NearestWalkableVerificationCandidateLimit];
     private ContactFilter2D _obstacleFilter;
 
     // 公共事件：外部可调用以通知网格需要刷新
@@ -80,6 +87,8 @@ public class NavGrid2D : MonoBehaviour
     void Awake()
     {
         s_instance = this;
+        s_dynamicNavigationColliderIgnoreCache.Clear();
+        s_lastSyncedPhysicsFrame = -1;
         ValidateParameters();
         RefreshExplicitObstacleSources();
         _obstacleFilter = new ContactFilter2D().NoFilter();
@@ -129,6 +138,8 @@ public class NavGrid2D : MonoBehaviour
     void OnDestroy()
     {
         if (s_instance == this) s_instance = null;
+        s_dynamicNavigationColliderIgnoreCache.Clear();
+        s_lastSyncedPhysicsFrame = -1;
         OnRequestGridRefresh -= RefreshGrid;
     }
 
@@ -179,7 +190,7 @@ public class NavGrid2D : MonoBehaviour
             return true;
         }
 
-        Physics2D.SyncTransforms();
+        EnsurePhysicsTransformsSyncedOncePerFrame();
 
         if (!CanRefreshBoundsInPlace(refreshBounds))
         {
@@ -463,7 +474,7 @@ public class NavGrid2D : MonoBehaviour
         // 🔥 关键修复：同步物理系统的 Transform 变化
         // 动态障碍物（如树木成长、箱子放置）修改碰撞体后，
         // Physics2D 内部缓存可能未更新，导致 OverlapCircle 检测到旧数据
-        Physics2D.SyncTransforms();
+        EnsurePhysicsTransformsSyncedOncePerFrame();
         
         // 自动检测世界边界
         if (autoDetectWorldBounds)
@@ -616,65 +627,59 @@ public class NavGrid2D : MonoBehaviour
             hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
         }
 
-        bool hasWalkableOverrideColliderHit = HasExplicitWalkableOverrideColliderHit(
-            worldPos,
-            walkableOverrideRadius,
-            ignoredCollider);
-        hasWalkableOverride |= hasWalkableOverrideColliderHit;
+        bool hasSoftPassHit = false;
+        bool shouldCheckTags = obstacleTags != null && obstacleTags.Length > 0;
+        bool shouldCheckLayerMask = obstacleMask.value != 0;
 
-        if (HasExplicitObstacleHit(hitCount, ignoredCollider))
+        for (int i = 0; i < hitCount; i++)
         {
-            return true;
-        }
-
-        if (!hasWalkableOverride &&
-            HasExplicitSoftPassObstacleHit(hitCount, ignoredCollider))
-        {
-            return true;
-        }
-
-        // 先检查标签
-        if (obstacleTags != null && obstacleTags.Length > 0)
-        {
-            for (int i = 0; i < hitCount; i++)
+            Collider2D hitCollider = _colliderCache[i];
+            if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
             {
-                Collider2D hitCollider = _colliderCache[i];
-                if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
-                    continue;
+                continue;
+            }
 
-                if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
-                    continue;
+            if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
+            {
+                continue;
+            }
 
-                var hitTransform = hitCollider.transform;
-                // 跳过生成的物体
-                if (hitTransform.name.Contains("(Clone)") || hitTransform.name.Contains("Pickup"))
-                    continue;
+            if (!hasWalkableOverride && MatchesExplicitWalkableOverrideCollider(hitCollider))
+            {
+                hasWalkableOverride = true;
+            }
 
-                // 检查标签（包括父级）
-                if (HasAnyTag(hitTransform, obstacleTags))
+            if (MatchesExplicitObstacleCollider(hitCollider))
+            {
+                return true;
+            }
+
+            if (!hasSoftPassHit && MatchesExplicitSoftPassCollider(hitCollider))
+            {
+                hasSoftPassHit = true;
+            }
+
+            if (shouldCheckTags)
+            {
+                Transform hitTransform = hitCollider.transform;
+                if (!hitTransform.name.Contains("(Clone)") &&
+                    !hitTransform.name.Contains("Pickup") &&
+                    HasAnyTag(hitTransform, obstacleTags))
                 {
                     return true;
                 }
             }
+
+            if (shouldCheckLayerMask &&
+                ((1 << hitCollider.gameObject.layer) & obstacleMask.value) != 0)
+            {
+                return true;
+            }
         }
 
-        // 如果标签没检测到，再用LayerMask检测
-        if (obstacleMask.value != 0)
+        if (!hasWalkableOverride && hasSoftPassHit)
         {
-            for (int i = 0; i < hitCount; i++)
-            {
-                Collider2D hitCollider = _colliderCache[i];
-                if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
-                    continue;
-
-                if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
-                    continue;
-
-                if (((1 << hitCollider.gameObject.layer) & obstacleMask.value) != 0)
-                {
-                    return true;
-                }
-            }
+            return true;
         }
 
         return false;
@@ -808,6 +813,17 @@ public class NavGrid2D : MonoBehaviour
 
         string extraSuffix = string.IsNullOrEmpty(extra) ? string.Empty : $" {extra}";
         Debug.LogWarning($"[NavGridProfile] {stage} took {elapsedMs:F2}ms{extraSuffix}");
+    }
+
+    private static void EnsurePhysicsTransformsSyncedOncePerFrame()
+    {
+        if (s_lastSyncedPhysicsFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        Physics2D.SyncTransforms();
+        s_lastSyncedPhysicsFrame = Time.frameCount;
     }
 
     private bool HasExplicitWalkableOverrideTilemapHit(Vector2 worldPos, float radius)
@@ -1235,6 +1251,26 @@ public class NavGrid2D : MonoBehaviour
         return false;
     }
 
+    private bool MatchesExplicitSoftPassCollider(Collider2D hitCollider)
+    {
+        if (hitCollider == null ||
+            explicitSoftPassObstacleColliders == null ||
+            explicitSoftPassObstacleColliders.Length == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < explicitSoftPassObstacleColliders.Length; index++)
+        {
+            if (explicitSoftPassObstacleColliders[index] == hitCollider)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool HasExplicitWalkableOverrideColliderHit(Vector2 worldPos, float radius, Collider2D ignoredCollider)
     {
         if (explicitWalkableOverrideColliders == null || explicitWalkableOverrideColliders.Length == 0)
@@ -1374,7 +1410,7 @@ public class NavGrid2D : MonoBehaviour
 
         if (ignoredCollider != null || !Mathf.Approximately(effectiveRadius, probeRadius))
         {
-            Physics2D.SyncTransforms();
+            EnsurePhysicsTransformsSyncedOncePerFrame();
             return !IsPointBlocked(worldPos, effectiveRadius, ignoredCollider);
         }
 
@@ -1391,7 +1427,7 @@ public class NavGrid2D : MonoBehaviour
 
         if (ignoredCollider != null)
         {
-            Physics2D.SyncTransforms();
+            EnsurePhysicsTransformsSyncedOncePerFrame();
         }
         
         // 🔥 使用更大的搜索范围，确保能找到可走点
@@ -1477,6 +1513,12 @@ public class NavGrid2D : MonoBehaviour
     {
         nx = gx; ny = gy;
         if (IsGridWalkableForQuery(gx, gy, ignoredCollider)) return true;
+
+        if (ignoredCollider != null &&
+            FindNearestWalkableWithIgnoredCollider(gx, gy, maxRange, ignoredCollider, out nx, out ny))
+        {
+            return true;
+        }
         
         // 🔥 在搜索范围内找到欧几里得距离最近的可走点
         float bestDistSq = float.MaxValue;
@@ -1539,6 +1581,122 @@ public class NavGrid2D : MonoBehaviour
         }
         
         return found;
+    }
+
+    private bool FindNearestWalkableWithIgnoredCollider(
+        int gx,
+        int gy,
+        int maxRange,
+        Collider2D ignoredCollider,
+        out int nx,
+        out int ny)
+    {
+        nx = gx;
+        ny = gy;
+        int candidateCount = 0;
+        float bestGridDistSq = float.MaxValue;
+
+        for (int r = 1; r <= maxRange; r++)
+        {
+            for (int dx = -r; dx <= r; dx++)
+            {
+                for (int dy = -r; dy <= r; dy++)
+                {
+                    if (System.Math.Abs(dx) != r && System.Math.Abs(dy) != r)
+                    {
+                        continue;
+                    }
+
+                    int x = gx + dx;
+                    int y = gy + dy;
+                    if (!InBounds(x, y) || !IsWalkable(x, y))
+                    {
+                        continue;
+                    }
+
+                    float distSq = dx * dx + dy * dy;
+                    int priority = GetDirectionPriority(dx, dy);
+                    InsertNearestWalkableVerificationCandidate(x, y, distSq, priority, ref candidateCount);
+                    bestGridDistSq = Mathf.Min(bestGridDistSq, distSq);
+                }
+            }
+
+            if (candidateCount > 0 && r > Mathf.Sqrt(bestGridDistSq) + 1f)
+            {
+                break;
+            }
+        }
+
+        for (int index = 0; index < candidateCount; index++)
+        {
+            Vector2Int candidate = _nearestWalkableVerificationCandidates[index];
+            if (!IsPointBlocked(GridToWorldCenter(candidate.x, candidate.y), probeRadius, ignoredCollider))
+            {
+                nx = candidate.x;
+                ny = candidate.y;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void InsertNearestWalkableVerificationCandidate(
+        int x,
+        int y,
+        float distSq,
+        int priority,
+        ref int candidateCount)
+    {
+        int limit = _nearestWalkableVerificationCandidates.Length;
+        int usedCount = Mathf.Min(candidateCount, limit);
+        if (usedCount >= limit &&
+            !IsCandidateBetter(
+                distSq,
+                priority,
+                _nearestWalkableVerificationDistances[limit - 1],
+                _nearestWalkableVerificationPriorities[limit - 1]))
+        {
+            return;
+        }
+
+        int insertIndex = usedCount;
+        while (insertIndex > 0 &&
+               IsCandidateBetter(
+                   distSq,
+                   priority,
+                   _nearestWalkableVerificationDistances[insertIndex - 1],
+                   _nearestWalkableVerificationPriorities[insertIndex - 1]))
+        {
+            if (insertIndex < limit)
+            {
+                _nearestWalkableVerificationCandidates[insertIndex] = _nearestWalkableVerificationCandidates[insertIndex - 1];
+                _nearestWalkableVerificationDistances[insertIndex] = _nearestWalkableVerificationDistances[insertIndex - 1];
+                _nearestWalkableVerificationPriorities[insertIndex] = _nearestWalkableVerificationPriorities[insertIndex - 1];
+            }
+
+            insertIndex--;
+        }
+
+        if (insertIndex >= limit)
+        {
+            return;
+        }
+
+        _nearestWalkableVerificationCandidates[insertIndex] = new Vector2Int(x, y);
+        _nearestWalkableVerificationDistances[insertIndex] = distSq;
+        _nearestWalkableVerificationPriorities[insertIndex] = priority;
+        candidateCount = Mathf.Min(candidateCount + 1, limit);
+    }
+
+    private static bool IsCandidateBetter(float distSq, int priority, float otherDistSq, int otherPriority)
+    {
+        if (distSq < otherDistSq - 0.01f)
+        {
+            return true;
+        }
+
+        return Mathf.Abs(distSq - otherDistSq) < 0.01f && priority < otherPriority;
     }
     
     /// <summary>
@@ -1712,9 +1870,14 @@ public class NavGrid2D : MonoBehaviour
             return false;
         }
 
+        if (!IsWalkable(x, y))
+        {
+            return false;
+        }
+
         if (ignoredCollider == null)
         {
-            return IsWalkable(x, y);
+            return true;
         }
 
         return !IsPointBlocked(GridToWorldCenter(x, y), probeRadius, ignoredCollider);
@@ -1749,17 +1912,49 @@ public class NavGrid2D : MonoBehaviour
             return false;
         }
 
-        MonoBehaviour[] behaviours = hitCollider.GetComponentsInParent<MonoBehaviour>(includeInactive: false);
-        for (int index = 0; index < behaviours.Length; index++)
+        int colliderId = hitCollider.GetInstanceID();
+        if (s_dynamicNavigationColliderIgnoreCache.TryGetValue(colliderId, out bool cachedResult))
         {
-            if (behaviours[index] is INavigationUnit navigationUnit &&
-                navigationUnit.GetUnitType() != NavigationUnitType.StaticObstacle)
-            {
-                return true;
-            }
+            return cachedResult;
         }
 
+        Transform current = hitCollider.transform;
+        while (current != null)
+        {
+            s_navigationBehaviourBuffer.Clear();
+            current.GetComponents<MonoBehaviour>(s_navigationBehaviourBuffer);
+            for (int index = 0; index < s_navigationBehaviourBuffer.Count; index++)
+            {
+                if (s_navigationBehaviourBuffer[index] is INavigationUnit navigationUnit &&
+                    navigationUnit.GetUnitType() != NavigationUnitType.StaticObstacle)
+                {
+                    CacheDynamicNavigationColliderIgnore(colliderId, true);
+                    s_navigationBehaviourBuffer.Clear();
+                    return true;
+                }
+            }
+
+            if (current == current.root)
+            {
+                break;
+            }
+
+            current = current.parent;
+        }
+
+        CacheDynamicNavigationColliderIgnore(colliderId, false);
+        s_navigationBehaviourBuffer.Clear();
         return false;
+    }
+
+    private static void CacheDynamicNavigationColliderIgnore(int colliderId, bool shouldIgnore)
+    {
+        if (s_dynamicNavigationColliderIgnoreCache.Count >= 4096)
+        {
+            s_dynamicNavigationColliderIgnoreCache.Clear();
+        }
+
+        s_dynamicNavigationColliderIgnoreCache[colliderId] = shouldIgnore;
     }
 
     private static bool HasAnyTag(Transform t, string[] tags)

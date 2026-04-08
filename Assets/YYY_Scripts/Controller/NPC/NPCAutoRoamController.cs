@@ -29,6 +29,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const float SHARED_DETOUR_POST_RELEASE_RECOVERY_WINDOW = 0.22f;
     private const float BLOCKED_ADVANCE_RECOVERY_COOLDOWN = 0.18f;
     private const float BLOCKED_ADVANCE_SAME_POSITION_RADIUS = 0.18f;
+    private const float REBUILD_REQUEST_DEDUPE_WINDOW_SECONDS = 0.12f;
+    private const float REBUILD_REQUEST_DESTINATION_RADIUS = 0.28f;
     private const int BLOCKED_ADVANCE_REROUTE_MIN_FRAMES = 3;
     private const int BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES = 6;
     private const float MOVE_COMMAND_NO_PROGRESS_RADIUS = 0.015f;
@@ -43,6 +45,10 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const int PASSIVE_NPC_BLOCKER_REROUTE_MIN_SIGHTINGS = 4;
     private const float PASSIVE_NPC_BLOCKER_REROUTE_MAX_DISTANCE = 1.15f;
     private const float PASSIVE_NPC_BLOCKER_REROUTE_MAX_CLEARANCE = 0.24f;
+    private const float FRAME_REUSE_WAYPOINT_DISTANCE_PADDING = 0.04f;
+    private const float PATH_BUILD_FAILURE_BASE_COOLDOWN = 0.08f;
+    private const float PATH_BUILD_FAILURE_MAX_COOLDOWN = 0.48f;
+    private const int PATH_BUILD_FAILURE_BACKOFF_STEP_CAP = 3;
 
     private enum RoamState
     {
@@ -254,12 +260,22 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private float lastBlockedAdvanceRecoveryTime = float.NegativeInfinity;
     private int blockedAdvanceFrames;
     private Vector2 lastBlockedAdvancePosition;
+    private float lastRebuildRequestTime = float.NegativeInfinity;
+    private Vector2 lastRebuildRequestPosition;
+    private Vector2 lastRebuildRequestDestination;
     private bool hasPendingMoveCommandProgressCheck;
     private Vector2 pendingMoveCommandOrigin;
     private float pendingMoveCommandIssuedAt = float.NegativeInfinity;
     private Vector2 lastIssuedMoveDirection;
     private Vector2 lastIssuedMovePosition;
     private int consecutiveMoveCommandDirectionFlips;
+    private int lastTraversalSoftPassUpdateFrame = -1;
+    private int lastHeavyMoveDecisionFrame = -1;
+    private bool hasCachedMoveDecisionVelocity;
+    private Vector2 cachedMoveDecisionVelocity;
+    private int lastPathBuildAttemptFrame = -1;
+    private int consecutivePathBuildFailures;
+    private float nextPathBuildAllowedTime = float.NegativeInfinity;
     private int consecutiveTerminalStuckCount;
     private Vector2 lastTerminalStuckPosition;
     private string lastMoveSkipReason = "None";
@@ -411,7 +427,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return;
         }
 
-        UpdateTraversalSoftPassState(GetNavigationCenter());
+        UpdateTraversalSoftPassStateOncePerFrame(GetNavigationCenter());
 
         switch (state)
         {
@@ -453,6 +469,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void ApplyDialogueFreeze()
     {
+        ClearMoveDecisionCache();
         BreakAmbientChatLink(hideBubble: true);
 
         if (motionController != null)
@@ -580,6 +597,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     public void StopRoam()
     {
+        ClearMoveDecisionCache();
         BreakAmbientChatLink(hideBubble: true);
         debugMoveActive = false;
         ClearRequestedDestination();
@@ -914,6 +932,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         if (motionController == null)
         {
+            ClearMoveDecisionCache();
             lastMoveSkipReason = "MissingMotionController";
             return;
         }
@@ -921,6 +940,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
         if (path.Count == 0)
         {
+            ClearMoveDecisionCache();
             lastMoveSkipReason = "PathClearedWhileMoving";
             if (TryInterruptRoamMove(
                     RoamMoveInterruptionReason.StuckRecoveryFailed,
@@ -937,11 +957,19 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return;
         }
 
-        UpdateTraversalSoftPassState(currentPosition);
+        if (CanReuseStoppedMoveDecisionThisFrame(currentPosition))
+        {
+            ApplyStoppedMoveDecision();
+            lastMoveSkipReason = "ReusedFrameStopDecision";
+            return;
+        }
+
+        UpdateTraversalSoftPassStateOncePerFrame(currentPosition);
         Vector2 avoidancePosition = GetNavigationCenter();
 
         if (TryHandlePendingMoveCommandNoProgress(currentPosition))
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "MoveCommandNoProgress";
             return;
         }
@@ -970,19 +998,29 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (waypointState.ReachedPathEnd ||
             Vector2.Distance(currentPosition, currentDestination) <= destinationTolerance)
         {
+            ClearMoveDecisionCache();
             lastMoveSkipReason = "ReachedDestination";
             FinishMoveCycle(countTowardLongPause: true, reachedDestination: true);
             return;
         }
 
+        if (CanReuseHeavyMoveDecisionThisFrame(waypointState, currentPosition, deltaTime))
+        {
+            ApplyCachedMoveVelocity(currentPosition, deltaTime);
+            lastMoveSkipReason = "ReusedFrameMoveDecision";
+            return;
+        }
+
         if (CheckAndHandleStuck(currentPosition))
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "Stuck";
             return;
         }
 
         if (!waypointState.HasWaypoint)
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "MissingWaypoint";
             if (TryInterruptRoamMove(
                     RoamMoveInterruptionReason.StuckRecoveryFailed,
@@ -1006,6 +1044,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (distance <= 0.0001f || moveSpeed <= 0f)
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = distance <= 0.0001f ? "ZeroDistanceToWaypoint" : "ZeroMoveSpeed";
             motionController.StopMotion();
             return;
@@ -1014,6 +1053,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 moveDirection = toWaypoint / distance;
         if (TryHandleSharedAvoidance(currentPosition, avoidancePosition, waypoint, moveDirection, out Vector2 adjustedDirection, out float moveScale))
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "SharedAvoidance";
             return;
         }
@@ -1021,6 +1061,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         float step = moveSpeed * Mathf.Clamp01(moveScale) * Mathf.Max(deltaTime, 0.0001f);
         if (step <= 0.0001f)
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "ZeroStep";
             TryHandleBlockedAdvance(currentPosition, "ZeroStep");
             return;
@@ -1035,6 +1076,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 velocity = (nextPosition - currentPosition) / safeDeltaTime;
         if (velocity.sqrMagnitude <= 0.0001f)
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "ConstrainedZeroAdvance";
             TryHandleBlockedAdvance(currentPosition, "ConstrainedZeroAdvance");
             return;
@@ -1042,6 +1084,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (ShouldTreatMoveCommandAsOscillation(currentPosition, velocity))
         {
+            CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "MoveCommandOscillation";
             TryHandleBlockedAdvance(currentPosition, "MoveCommandOscillation");
             return;
@@ -1049,22 +1092,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         lastMoveSkipReason = "IssuingVelocity";
         MarkMoveCommandIssued(currentPosition, nextPosition);
-        motionController.SetExternalVelocity(velocity);
-        if (rb != null)
-        {
-            if (rb.bodyType == RigidbodyType2D.Dynamic)
-            {
-                rb.linearVelocity = velocity;
-            }
-            else
-            {
-                rb.MovePosition(nextPosition);
-            }
-        }
-        else
-        {
-            transform.position = new Vector3(nextPosition.x, nextPosition.y, transform.position.z);
-        }
+        ApplyMoveVelocity(currentPosition, velocity, deltaTime);
+        CacheMoveDecisionVelocityForCurrentFrame(velocity);
     }
 
     private void TickLongPause()
@@ -1101,6 +1130,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private bool TryBeginMove(bool preserveBlockedRecoveryState = false)
     {
         if (!TryResolveNavGrid())
+        {
+            return false;
+        }
+
+        if (!TryAcquirePathBuildBudget())
         {
             return false;
         }
@@ -1151,6 +1185,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 continue;
             }
 
+            RecordPathBuildOutcome(success: true);
             RememberRequestedDestination(walkableDestination);
             ResetRoamInterruptionState();
             state = RoamState.Moving;
@@ -1176,6 +1211,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
+        RecordPathBuildOutcome(success: false);
         if (showDebugLog)
         {
             Debug.LogWarning($"[NPCAutoRoamController] {name} 在 {pathSampleAttempts} 次采样内没有找到可用路径。", this);
@@ -1230,7 +1266,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 preserveTrafficState: preserveTrafficState,
                 preserveBlockedRecoveryState: true))
         {
-            return false;
+            return true;
         }
 
         if (TryBeginMove(preserveBlockedRecoveryState: true))
@@ -1292,6 +1328,17 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             : default;
 
         Vector2 rebuildDestination = NormalizeDestinationToNavGridBounds(GetRebuildRequestedDestination());
+        if (ShouldSkipRebuildPathRequest(currentPosition, rebuildDestination))
+        {
+            return false;
+        }
+
+        if (!TryAcquirePathBuildBudget())
+        {
+            return false;
+        }
+
+        RecordRebuildPathRequest(currentPosition, rebuildDestination);
         NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
             navigationExecution,
             navGrid,
@@ -1305,9 +1352,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (!buildResult.Success || path.Count == 0)
         {
+            RecordPathBuildOutcome(success: false);
             return false;
         }
 
+        RecordPathBuildOutcome(success: true);
         ResetMovementRecovery(
             currentPosition,
             resetCounter: resetRecoveryCounter,
@@ -1325,6 +1374,31 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         return true;
+    }
+
+    private bool ShouldSkipRebuildPathRequest(Vector2 currentPosition, Vector2 rebuildDestination)
+    {
+        float elapsed = Time.time - lastRebuildRequestTime;
+        if (elapsed < 0f || elapsed > REBUILD_REQUEST_DEDUPE_WINDOW_SECONDS)
+        {
+            return false;
+        }
+
+        bool samePosition = Vector2.Distance(currentPosition, lastRebuildRequestPosition) <= BLOCKED_ADVANCE_SAME_POSITION_RADIUS;
+        if (!samePosition)
+        {
+            return false;
+        }
+
+        float destinationToleranceRadius = Mathf.Max(destinationTolerance + 0.05f, REBUILD_REQUEST_DESTINATION_RADIUS);
+        return Vector2.Distance(rebuildDestination, lastRebuildRequestDestination) <= destinationToleranceRadius;
+    }
+
+    private void RecordRebuildPathRequest(Vector2 currentPosition, Vector2 rebuildDestination)
+    {
+        lastRebuildRequestTime = Time.time;
+        lastRebuildRequestPosition = currentPosition;
+        lastRebuildRequestDestination = rebuildDestination;
     }
 
     private System.Action<string> GetPathBuildLogger(string context)
@@ -1906,6 +1980,17 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         isTraversalSoftPassActive = shouldSoftPass;
     }
 
+    private void UpdateTraversalSoftPassStateOncePerFrame(Vector2 worldCenter)
+    {
+        if (lastTraversalSoftPassUpdateFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        lastTraversalSoftPassUpdateFrame = Time.frameCount;
+        UpdateTraversalSoftPassState(worldCenter);
+    }
+
     private bool ShouldEnableTraversalSoftPass(Vector2 worldCenter)
     {
         if (!TryResolveNavGrid(logIfMissing: false))
@@ -2061,6 +2146,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void EnterShortPause(bool countTowardLongPause)
     {
+        ClearMoveDecisionCache();
         BreakAmbientChatLink(hideBubble: true);
         ClearAmbientChatRetry();
         ClearRequestedDestination();
@@ -2119,6 +2205,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void EnterLongPause()
     {
+        ClearMoveDecisionCache();
         BreakAmbientChatLink(hideBubble: true);
         ClearAmbientChatRetry();
         ClearRequestedDestination();
@@ -2142,7 +2229,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
             if (!NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory())
             {
-                bubblePresenter.ShowRandomSelfTalk(Mathf.Max(1f, stateTimer - 0.15f));
+                TryShowResidentSelfTalk(Mathf.Max(1f, stateTimer - 0.15f));
             }
         }
 
@@ -2456,6 +2543,30 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         return string.Empty;
     }
 
+    private bool TryShowResidentSelfTalk(float duration)
+    {
+        if (bubblePresenter == null)
+        {
+            return false;
+        }
+
+        StoryPhase currentPhase = NpcInteractionPriorityPolicy.ResolveCurrentStoryPhase();
+        string[] contentLines = roamProfile != null
+            ? roamProfile.GetSelfTalkLines(currentPhase)
+            : null;
+
+        if (HasBubbleLines(contentLines))
+        {
+            string selectedLine = SelectAmbientChatLine(contentLines);
+            if (!string.IsNullOrWhiteSpace(selectedLine))
+            {
+                return bubblePresenter.ShowText(selectedLine, duration);
+            }
+        }
+
+        return bubblePresenter.ShowRandomSelfTalk(duration);
+    }
+
     private bool HasAmbientChatInitiatorContent()
     {
         return roamProfile != null
@@ -2582,6 +2693,143 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         lastTerminalStuckPosition = currentPosition;
         ResetMoveCommandOscillationState(currentPosition);
         lastMoveSkipReason = "AdvanceConfirmed";
+    }
+
+    private bool CanReuseStoppedMoveDecisionThisFrame(Vector2 currentPosition)
+    {
+        return lastHeavyMoveDecisionFrame == Time.frameCount &&
+            !hasCachedMoveDecisionVelocity &&
+            Vector2.Distance(currentPosition, currentDestination) > destinationTolerance;
+    }
+
+    private bool CanReuseHeavyMoveDecisionThisFrame(
+        NavigationPathExecutor2D.WaypointResult waypointState,
+        Vector2 currentPosition,
+        float deltaTime)
+    {
+        if (lastHeavyMoveDecisionFrame != Time.frameCount)
+        {
+            return false;
+        }
+
+        if (!hasCachedMoveDecisionVelocity)
+        {
+            return false;
+        }
+
+        if (!waypointState.HasWaypoint || waypointState.ReachedPathEnd)
+        {
+            return false;
+        }
+
+        float maxReusableStep = cachedMoveDecisionVelocity.magnitude * Mathf.Max(deltaTime, 0.0001f);
+        float reuseThreshold = Mathf.Max(destinationTolerance, maxReusableStep + FRAME_REUSE_WAYPOINT_DISTANCE_PADDING);
+        if (waypointState.DistanceToWaypoint <= reuseThreshold)
+        {
+            return false;
+        }
+
+        if (hasPendingMoveCommandProgressCheck ||
+            blockedAdvanceFrames > 0 ||
+            sharedAvoidanceBlockingFrames > 0 ||
+            hasDynamicDetour)
+        {
+            return false;
+        }
+
+        return Vector2.Distance(currentPosition, currentDestination) > destinationTolerance;
+    }
+
+    private void ApplyCachedMoveVelocity(Vector2 currentPosition, float deltaTime)
+    {
+        ApplyMoveVelocity(currentPosition, cachedMoveDecisionVelocity, deltaTime);
+    }
+
+    private void ApplyStoppedMoveDecision()
+    {
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+        }
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+    }
+
+    private void ApplyMoveVelocity(Vector2 currentPosition, Vector2 velocity, float deltaTime)
+    {
+        motionController.SetExternalVelocity(velocity);
+        if (rb != null)
+        {
+            if (rb.bodyType == RigidbodyType2D.Dynamic)
+            {
+                rb.linearVelocity = velocity;
+            }
+            else
+            {
+                Vector2 nextPosition = currentPosition + velocity * Mathf.Max(deltaTime, 0.0001f);
+                rb.MovePosition(nextPosition);
+            }
+        }
+        else
+        {
+            Vector2 nextPosition = currentPosition + velocity * Mathf.Max(deltaTime, 0.0001f);
+            transform.position = new Vector3(nextPosition.x, nextPosition.y, transform.position.z);
+        }
+    }
+
+    private void CacheMoveDecisionVelocityForCurrentFrame(Vector2 velocity)
+    {
+        lastHeavyMoveDecisionFrame = Time.frameCount;
+        hasCachedMoveDecisionVelocity = true;
+        cachedMoveDecisionVelocity = velocity;
+    }
+
+    private void CacheStoppedMoveDecisionForCurrentFrame()
+    {
+        lastHeavyMoveDecisionFrame = Time.frameCount;
+        hasCachedMoveDecisionVelocity = false;
+        cachedMoveDecisionVelocity = Vector2.zero;
+    }
+
+    private void ClearMoveDecisionCache()
+    {
+        lastHeavyMoveDecisionFrame = -1;
+        hasCachedMoveDecisionVelocity = false;
+        cachedMoveDecisionVelocity = Vector2.zero;
+    }
+
+    private bool TryAcquirePathBuildBudget()
+    {
+        if (lastPathBuildAttemptFrame == Time.frameCount)
+        {
+            return false;
+        }
+
+        if (Time.time < nextPathBuildAllowedTime)
+        {
+            return false;
+        }
+
+        lastPathBuildAttemptFrame = Time.frameCount;
+        return true;
+    }
+
+    private void RecordPathBuildOutcome(bool success)
+    {
+        if (success)
+        {
+            consecutivePathBuildFailures = 0;
+            nextPathBuildAllowedTime = Time.time;
+            return;
+        }
+
+        consecutivePathBuildFailures = Mathf.Min(consecutivePathBuildFailures + 1, 16);
+        int backoffStep = Mathf.Min(consecutivePathBuildFailures - 1, PATH_BUILD_FAILURE_BACKOFF_STEP_CAP);
+        float cooldown = PATH_BUILD_FAILURE_BASE_COOLDOWN * Mathf.Pow(2f, backoffStep);
+        nextPathBuildAllowedTime = Time.time + Mathf.Min(PATH_BUILD_FAILURE_MAX_COOLDOWN, cooldown);
     }
 
     private void RefreshProgressCheckpoint(Vector2 currentPosition, bool resetCounter)
