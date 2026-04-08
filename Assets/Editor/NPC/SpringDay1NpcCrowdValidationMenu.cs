@@ -22,12 +22,15 @@ public static class SpringDay1NpcCrowdValidationMenu
     private const float RuntimeProbeSpacingX = 2.6f;
     private const float RuntimeProbeSpacingY = 2.3f;
     private const double RuntimeProbeSettleSeconds = 0.35d;
+    private const double RuntimeProbeSelfTalkTimeoutSeconds = 4.2d;
     private const double RuntimeProbeChatTimeoutSeconds = 7.5d;
     private const double RuntimeProbePairTimeoutSeconds = 6.0d;
     private const double RuntimeProbeInterruptTimeoutSeconds = 12.0d;
+    private const double RuntimeProbeInterruptFallbackTriggerDelaySeconds = 0.65d;
+    private const int RuntimeProbeInterruptNaturalCompletionRetryLimit = 1;
     private const double RuntimeProbeCleanupTimeoutSeconds = 1.5d;
     private const float RuntimeProbePairDialogueDurationSeconds = 5.2f;
-    private static readonly string[] ExpectedNpcIds = { "101", "102", "103", "104", "201", "202", "203", "301" };
+    private static readonly string[] ExpectedNpcIds = { "101", "102", "103", "104", "201", "202", "203" };
     private static readonly Dictionary<string, SpringDay1CrowdSceneDuty[]> ExpectedSceneDutiesByNpcId =
         new Dictionary<string, SpringDay1CrowdSceneDuty[]>(StringComparer.OrdinalIgnoreCase)
         {
@@ -67,10 +70,6 @@ public static class SpringDay1NpcCrowdValidationMenu
             {
                 SpringDay1CrowdSceneDuty.DinnerBackground,
                 SpringDay1CrowdSceneDuty.DailyStand
-            },
-            ["301"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.NightWitness
             }
         };
 
@@ -83,8 +82,7 @@ public static class SpringDay1NpcCrowdValidationMenu
             ["104"] = new[] { "DinnerBackgroundRoot", "DailyStand_01" },
             ["201"] = new[] { "DinnerBackgroundRoot", "DailyStand_02" },
             ["202"] = new[] { "DinnerBackgroundRoot", "DailyStand_03" },
-            ["203"] = new[] { "DinnerBackgroundRoot", "DailyStand_01" },
-            ["301"] = new[] { "NightWitness_01" }
+            ["203"] = new[] { "DinnerBackgroundRoot", "DailyStand_01" }
         };
 
     private static readonly Dictionary<string, SpringDay1CrowdGrowthIntent> ExpectedGrowthIntentByNpcId =
@@ -96,8 +94,73 @@ public static class SpringDay1NpcCrowdValidationMenu
             ["104"] = SpringDay1CrowdGrowthIntent.StableSupport,
             ["201"] = SpringDay1CrowdGrowthIntent.HoldAnonymous,
             ["202"] = SpringDay1CrowdGrowthIntent.HoldAnonymous,
-            ["203"] = SpringDay1CrowdGrowthIntent.StableSupport,
-            ["301"] = SpringDay1CrowdGrowthIntent.UpgradeCandidate
+            ["203"] = SpringDay1CrowdGrowthIntent.StableSupport
+        };
+
+    private static readonly Dictionary<string, SpringDay1CrowdResidentBaseline> ExpectedResidentBaselineByNpcId =
+        new Dictionary<string, SpringDay1CrowdResidentBaseline>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["101"] = SpringDay1CrowdResidentBaseline.DaytimeResident,
+            ["102"] = SpringDay1CrowdResidentBaseline.PeripheralResident,
+            ["103"] = SpringDay1CrowdResidentBaseline.DaytimeResident,
+            ["104"] = SpringDay1CrowdResidentBaseline.PeripheralResident,
+            ["201"] = SpringDay1CrowdResidentBaseline.DaytimeResident,
+            ["202"] = SpringDay1CrowdResidentBaseline.PeripheralResident,
+            ["203"] = SpringDay1CrowdResidentBaseline.DaytimeResident
+        };
+
+    private static readonly string[] ExpectedResidentBeatKeys =
+    {
+        "EnterVillage_PostEntry",
+        "DinnerConflict_Table",
+        "ReturnAndReminder_WalkBack",
+        "FreeTime_NightWitness",
+        "DayEnd_Settle",
+        "DailyStand_Preview"
+    };
+
+    private static readonly Dictionary<string, string[]> ExpectedPriorityNpcIdsByBeat =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["EnterVillage_PostEntry"] = new[] { "101", "103" },
+            ["DinnerConflict_Table"] = new[] { "101", "103", "104", "201", "202", "203" },
+            ["FreeTime_NightWitness"] = new[] { "102" }
+        };
+
+    private static readonly Dictionary<string, string[]> ExpectedSupportNpcIdsByBeat =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["EnterVillage_PostEntry"] = new[] { "104", "201", "202", "203" },
+            ["DinnerConflict_Table"] = Array.Empty<string>(),
+            ["FreeTime_NightWitness"] = new[] { "101" }
+        };
+
+    private static readonly Dictionary<string, string[]> ExpectedBackstagePressureNpcIdsByBeat =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["EnterVillage_PostEntry"] = Array.Empty<string>(),
+            ["DinnerConflict_Table"] = new[] { "102" },
+            ["FreeTime_NightWitness"] = new[] { "103" }
+        };
+
+    private static readonly Dictionary<string, string[]> ExpectedTraceNpcIdsByBeat =
+        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["EnterVillage_PostEntry"] = new[] { "102" },
+            ["DinnerConflict_Table"] = Array.Empty<string>(),
+            ["FreeTime_NightWitness"] = new[] { "104", "201", "202", "203" }
+        };
+
+    private static readonly Dictionary<string, StoryPhase[]> ExpectedPhaseFallbackPhasesByNpcId =
+        new Dictionary<string, StoryPhase[]>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["101"] = new[] { StoryPhase.EnterVillage, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
+            ["102"] = new[] { StoryPhase.ReturnAndReminder, StoryPhase.FreeTime, StoryPhase.DayEnd },
+            ["103"] = new[] { StoryPhase.EnterVillage, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
+            ["104"] = new[] { StoryPhase.WorkbenchFlashback, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
+            ["201"] = new[] { StoryPhase.HealingAndHP, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
+            ["202"] = new[] { StoryPhase.FarmingTutorial, StoryPhase.ReturnAndReminder, StoryPhase.DayEnd },
+            ["203"] = new[] { StoryPhase.DinnerConflict, StoryPhase.ReturnAndReminder, StoryPhase.DayEnd }
         };
 
     private static readonly string[][] PairProbeNpcIds =
@@ -112,18 +175,26 @@ public static class SpringDay1NpcCrowdValidationMenu
         new InterruptProbeSpec("201", interruptDuringPlayerTyping: true)
     };
 
+    private static readonly SelfTalkProbeSpec[] SelfTalkProbeSpecs =
+    {
+        new SelfTalkProbeSpec("101", StoryPhase.EnterVillage),
+        new SelfTalkProbeSpec("202", StoryPhase.ReturnAndReminder)
+    };
+
     private enum RuntimeProbePhase
     {
         Idle = 0,
         SettlingInstances = 1,
-        InformalChatStart = 2,
-        InformalChatWait = 3,
-        InformalChatCleanup = 4,
-        PairStart = 5,
-        PairWait = 6,
-        InterruptStart = 7,
-        InterruptWait = 8,
-        InterruptCleanup = 9
+        SelfTalkStart = 2,
+        SelfTalkWait = 3,
+        InformalChatStart = 4,
+        InformalChatWait = 5,
+        InformalChatCleanup = 6,
+        PairStart = 7,
+        PairWait = 8,
+        InterruptStart = 9,
+        InterruptWait = 10,
+        InterruptCleanup = 11
     }
 
     private sealed class RuntimeProbeNpc
@@ -154,15 +225,30 @@ public static class SpringDay1NpcCrowdValidationMenu
         }
     }
 
+    private sealed class SelfTalkProbeSpec
+    {
+        public readonly string NpcId;
+        public readonly StoryPhase StoryPhase;
+
+        public SelfTalkProbeSpec(string npcId, StoryPhase storyPhase)
+        {
+            NpcId = npcId;
+            StoryPhase = storyPhase;
+        }
+    }
+
     private static readonly List<RuntimeProbeNpc> RuntimeProbeNpcs = new List<RuntimeProbeNpc>();
     private static readonly List<string> RuntimeProbeIssues = new List<string>();
     private static readonly List<string> RuntimeProbeEvidence = new List<string>();
+    private static readonly int[] RuntimeProbeInterruptRetryCounts = new int[InterruptProbeSpecs.Length];
 
     private static RuntimeProbePhase s_runtimeProbePhase;
     private static double s_runtimePhaseStartedAt;
+    private static int s_runtimeSelfTalkIndex;
     private static int s_runtimeChatIndex;
     private static int s_runtimePairIndex;
     private static int s_runtimeInterruptIndex;
+    private static RuntimeProbeNpc s_runtimeSelfTalkNpc;
     private static RuntimeProbeNpc s_runtimeActiveNpc;
     private static RuntimeProbeNpc s_runtimePairInitiator;
     private static RuntimeProbeNpc s_runtimePairResponder;
@@ -178,6 +264,7 @@ public static class SpringDay1NpcCrowdValidationMenu
     private static bool s_runtimePreviousRunInBackground;
     private static bool s_runtimeRunInBackgroundOverridden;
     private static int s_instanceRuntimePassCount;
+    private static int s_selfTalkPassCount;
     private static int s_informalChatPassCount;
     private static int s_pairDialoguePassCount;
     private static int s_walkAwayPassCount;
@@ -194,17 +281,15 @@ public static class SpringDay1NpcCrowdValidationMenu
 
         Dictionary<string, SpringDay1NpcCrowdManifest.Entry> entryByNpcId = BuildEntryLookup(manifest, issues);
         Dictionary<string, NPCDialogueContentProfile> dialogueByNpcId = BuildDialogueLookup();
-        string[] dialogueGuids = AssetDatabase.FindAssets("t:NPCDialogueContentProfile", new[] { DataRoot });
-        string[] roamGuids = AssetDatabase.FindAssets("t:NPCRoamProfile", new[] { DataRoot });
-
-        if (dialogueGuids.Length != ExpectedNpcIds.Length)
+        if (dialogueByNpcId.Count != ExpectedNpcIds.Length)
         {
-            issues.Add($"dialogue asset count mismatch: expected={ExpectedNpcIds.Length}, actual={dialogueGuids.Length}");
+            issues.Add($"dialogue asset count mismatch: expected={ExpectedNpcIds.Length}, actual={dialogueByNpcId.Count}");
         }
 
-        if (roamGuids.Length != ExpectedNpcIds.Length)
+        int roamProfileCount = CountNpcAssetsPresent<NPCRoamProfile>("RoamProfile.asset");
+        if (roamProfileCount != ExpectedNpcIds.Length)
         {
-            issues.Add($"roam profile count mismatch: expected={ExpectedNpcIds.Length}, actual={roamGuids.Length}");
+            issues.Add($"roam profile count mismatch: expected={ExpectedNpcIds.Length}, actual={roamProfileCount}");
         }
 
         int totalPairLinks = 0;
@@ -215,6 +300,7 @@ public static class SpringDay1NpcCrowdValidationMenu
         }
 
         ValidatePairReciprocity(dialogueByNpcId, issues);
+        ValidateDirectorConsumptionSlices(manifest, issues);
 
         if (issues.Count > 0)
         {
@@ -247,7 +333,7 @@ public static class SpringDay1NpcCrowdValidationMenu
         s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
         EditorApplication.update -= TickRuntimeTargetedProbe;
         EditorApplication.update += TickRuntimeTargetedProbe;
-        Debug.Log("[SpringDay1NpcRuntimeProbe] START | 目标=新8人本体层 runtime targeted probe");
+        Debug.Log("[SpringDay1NpcRuntimeProbe] START | 目标=当前7人本体层 runtime targeted probe");
     }
 
     [MenuItem(RuntimeProbeMenuPath, true)]
@@ -279,9 +365,17 @@ public static class SpringDay1NpcCrowdValidationMenu
                 if (EditorApplication.timeSinceStartup - s_runtimePhaseStartedAt >= RuntimeProbeSettleSeconds)
                 {
                     EvaluateInstanceRuntime();
-                    s_runtimeProbePhase = RuntimeProbePhase.InformalChatStart;
+                    s_runtimeProbePhase = RuntimeProbePhase.SelfTalkStart;
                     s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
                 }
+                break;
+
+            case RuntimeProbePhase.SelfTalkStart:
+                StartNextSelfTalkProbe();
+                break;
+
+            case RuntimeProbePhase.SelfTalkWait:
+                TickSelfTalkProbe();
                 break;
 
             case RuntimeProbePhase.InformalChatStart:
@@ -324,11 +418,17 @@ public static class SpringDay1NpcCrowdValidationMenu
         RuntimeProbeNpcs.Clear();
         RuntimeProbeIssues.Clear();
         RuntimeProbeEvidence.Clear();
+        for (int index = 0; index < RuntimeProbeInterruptRetryCounts.Length; index++)
+        {
+            RuntimeProbeInterruptRetryCounts[index] = 0;
+        }
         s_runtimeProbePhase = RuntimeProbePhase.Idle;
         s_runtimePhaseStartedAt = 0d;
+        s_runtimeSelfTalkIndex = 0;
         s_runtimeChatIndex = 0;
         s_runtimePairIndex = 0;
         s_runtimeInterruptIndex = 0;
+        s_runtimeSelfTalkNpc = null;
         s_runtimeActiveNpc = null;
         s_runtimePairInitiator = null;
         s_runtimePairResponder = null;
@@ -337,6 +437,7 @@ public static class SpringDay1NpcCrowdValidationMenu
         s_runtimePairSeenInitiatorText = string.Empty;
         s_runtimePairSeenResponderText = string.Empty;
         s_instanceRuntimePassCount = 0;
+        s_selfTalkPassCount = 0;
         s_informalChatPassCount = 0;
         s_pairDialoguePassCount = 0;
         s_walkAwayPassCount = 0;
@@ -462,6 +563,82 @@ public static class SpringDay1NpcCrowdValidationMenu
             RuntimeProbeEvidence.Add(
                 $"{probeNpc.NpcId}: instance-ok | facing={probeNpc.AnimController.CurrentDirection} | " +
                 $"isRoaming={probeNpc.RoamController.IsRoaming} | homeAnchor={boundHomeAnchor.name}");
+        }
+    }
+
+    private static void StartNextSelfTalkProbe()
+    {
+        if (s_runtimeSelfTalkIndex >= SelfTalkProbeSpecs.Length)
+        {
+            ClearRuntimeValidationPhaseOverride();
+            s_runtimeProbePhase = RuntimeProbePhase.InformalChatStart;
+            s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
+            return;
+        }
+
+        SelfTalkProbeSpec spec = SelfTalkProbeSpecs[s_runtimeSelfTalkIndex];
+        s_runtimeSelfTalkNpc = FindProbeNpc(spec.NpcId);
+        if (s_runtimeSelfTalkNpc == null)
+        {
+            RuntimeProbeIssues.Add($"{spec.NpcId}: selfTalk probe target missing");
+            s_runtimeSelfTalkIndex++;
+            s_runtimeProbePhase = RuntimeProbePhase.SelfTalkStart;
+            return;
+        }
+
+        AbortActiveConversationIfNeeded();
+        PositionNonPairNpcsFarAway();
+        ResetProbeNpcPosition(s_runtimeSelfTalkNpc, new Vector2(RuntimeProbeBaseX, RuntimeProbeBaseY), restartRoam: false);
+        MovePlayerToProbePoint(new Vector2(RuntimeProbeBaseX - 8f, RuntimeProbeBaseY - 6f));
+        ApplyRuntimeValidationPhaseOverride(spec.StoryPhase);
+        s_runtimeSelfTalkNpc.RoamController?.DebugEnterLongPause();
+        s_runtimeProbePhase = RuntimeProbePhase.SelfTalkWait;
+        s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
+    }
+
+    private static void TickSelfTalkProbe()
+    {
+        if (s_runtimeSelfTalkNpc == null)
+        {
+            RuntimeProbeIssues.Add("selfTalk probe failed: npc state missing");
+            ClearRuntimeValidationPhaseOverride();
+            s_runtimeSelfTalkIndex++;
+            s_runtimeProbePhase = RuntimeProbePhase.SelfTalkStart;
+            return;
+        }
+
+        SelfTalkProbeSpec spec = SelfTalkProbeSpecs[s_runtimeSelfTalkIndex];
+        string currentText = s_runtimeSelfTalkNpc.BubblePresenter != null ? s_runtimeSelfTalkNpc.BubblePresenter.CurrentBubbleText : string.Empty;
+        string lastText = s_runtimeSelfTalkNpc.BubblePresenter != null ? s_runtimeSelfTalkNpc.BubblePresenter.LastPresentedText : string.Empty;
+        if (IsExpectedSelfTalkLine(s_runtimeSelfTalkNpc, spec.StoryPhase, currentText) ||
+            IsExpectedSelfTalkLine(s_runtimeSelfTalkNpc, spec.StoryPhase, lastText))
+        {
+            s_selfTalkPassCount++;
+            RuntimeProbeEvidence.Add(
+                $"{s_runtimeSelfTalkNpc.NpcId}: selfTalk-ok | phase={spec.StoryPhase} | " +
+                $"text=\"{(!string.IsNullOrWhiteSpace(currentText) ? currentText : lastText)}\"");
+            ClearRuntimeValidationPhaseOverride();
+            s_runtimeSelfTalkNpc.BubblePresenter?.HideImmediateBubble();
+            s_runtimeSelfTalkIndex++;
+            s_runtimeSelfTalkNpc = null;
+            s_runtimeProbePhase = RuntimeProbePhase.SelfTalkStart;
+            s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
+            return;
+        }
+
+        if (EditorApplication.timeSinceStartup - s_runtimePhaseStartedAt > RuntimeProbeSelfTalkTimeoutSeconds)
+        {
+            RuntimeProbeIssues.Add(
+                $"{s_runtimeSelfTalkNpc.NpcId}: selfTalk timeout | phase={spec.StoryPhase} | " +
+                $"current=\"{currentText}\" | last=\"{lastText}\" | " +
+                $"expected={DescribeResolvedSelfTalkLines(s_runtimeSelfTalkNpc, spec.StoryPhase)} | " +
+                $"bubble={DescribeBubblePresenterState(s_runtimeSelfTalkNpc.BubblePresenter)}");
+            ClearRuntimeValidationPhaseOverride();
+            s_runtimeSelfTalkNpc.BubblePresenter?.HideImmediateBubble();
+            s_runtimeSelfTalkIndex++;
+            s_runtimeSelfTalkNpc = null;
+            s_runtimeProbePhase = RuntimeProbePhase.SelfTalkStart;
+            s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
         }
     }
 
@@ -717,14 +894,19 @@ public static class SpringDay1NpcCrowdValidationMenu
         }
 
         InterruptProbeSpec spec = InterruptProbeSpecs[s_runtimeInterruptIndex];
+        bool hasActiveConversation = HasActiveConversation();
+        string stateName = s_runtimeSessionService.DebugStateName;
+        double probeElapsed = EditorApplication.timeSinceStartup - s_runtimePhaseStartedAt;
 
         if (!s_runtimeInterruptTriggered)
         {
             bool shouldTrigger = spec.InterruptDuringPlayerTyping
-                ? s_runtimeSessionService.DebugStateName == "PlayerTyping" &&
+                ? stateName == "PlayerTyping" &&
                   !string.IsNullOrWhiteSpace(s_runtimeSessionService.CurrentPlayerBubbleText)
-                : s_runtimeSessionService.CompletedExchangeCount >= 1 &&
-                  s_runtimeSessionService.DebugStateName == "WaitingNpcReply";
+                : stateName == "WaitingNpcReply" ||
+                  (hasActiveConversation &&
+                   s_runtimeSessionService.CompletedExchangeCount >= 1 &&
+                   probeElapsed >= RuntimeProbeInterruptFallbackTriggerDelaySeconds);
 
             if (shouldTrigger && s_runtimeSessionService.TryStartWalkAwayInterruptForValidation())
             {
@@ -732,6 +914,29 @@ public static class SpringDay1NpcCrowdValidationMenu
                 s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
                 return;
             }
+        }
+
+        if (!s_runtimeInterruptTriggered &&
+            !hasActiveConversation &&
+            s_runtimeSessionService.LastConversationEndReason == PlayerNpcChatSessionService.ConversationEndReason.Completed)
+        {
+            int retryIndex = Mathf.Clamp(s_runtimeInterruptIndex, 0, RuntimeProbeInterruptRetryCounts.Length - 1);
+            if (RuntimeProbeInterruptRetryCounts[retryIndex] < RuntimeProbeInterruptNaturalCompletionRetryLimit)
+            {
+                RuntimeProbeInterruptRetryCounts[retryIndex]++;
+                if (PrepareProbeNpcForConversation(s_runtimeActiveNpc))
+                {
+                    s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
+                    return;
+                }
+            }
+
+            RuntimeProbeIssues.Add(
+                $"{s_runtimeActiveNpc.NpcId}: walk-away precondition missed | mode={(spec.InterruptDuringPlayerTyping ? "PlayerTyping" : "WaitingNpcReply")} | " +
+                $"retries={RuntimeProbeInterruptRetryCounts[retryIndex]} | state={stateName} | endReason={s_runtimeSessionService.LastConversationEndReasonName}");
+            s_runtimeProbePhase = RuntimeProbePhase.InterruptCleanup;
+            s_runtimePhaseStartedAt = EditorApplication.timeSinceStartup;
+            return;
         }
 
         if (s_runtimeInterruptTriggered &&
@@ -796,6 +1001,7 @@ public static class SpringDay1NpcCrowdValidationMenu
     {
         string summary =
             $"instance={s_instanceRuntimePassCount}/{ExpectedNpcIds.Length} | " +
+            $"selfTalk={s_selfTalkPassCount}/{SelfTalkProbeSpecs.Length} | " +
             $"informal={s_informalChatPassCount}/{ExpectedNpcIds.Length} | " +
             $"pair={s_pairDialoguePassCount}/{PairProbeNpcIds.Length} | " +
             $"walkAway={s_walkAwayPassCount}/{InterruptProbeSpecs.Length}";
@@ -850,6 +1056,7 @@ public static class SpringDay1NpcCrowdValidationMenu
 
         RuntimeProbeNpcs.Clear();
         s_runtimeProbePhase = RuntimeProbePhase.Idle;
+        s_runtimeSelfTalkNpc = null;
         s_runtimeActiveNpc = null;
         s_runtimePairInitiator = null;
         s_runtimePairResponder = null;
@@ -870,10 +1077,20 @@ public static class SpringDay1NpcCrowdValidationMenu
 
     private static void ApplyRuntimePairPhaseOverride()
     {
-        NpcInteractionPriorityPolicy.SetEditorValidationPhaseOverride(StoryPhase.FreeTime);
+        ApplyRuntimeValidationPhaseOverride(StoryPhase.FreeTime);
     }
 
     private static void ClearRuntimePairPhaseOverride()
+    {
+        ClearRuntimeValidationPhaseOverride();
+    }
+
+    private static void ApplyRuntimeValidationPhaseOverride(StoryPhase storyPhase)
+    {
+        NpcInteractionPriorityPolicy.SetEditorValidationPhaseOverride(storyPhase);
+    }
+
+    private static void ClearRuntimeValidationPhaseOverride()
     {
         NpcInteractionPriorityPolicy.SetEditorValidationPhaseOverride(null);
     }
@@ -982,6 +1199,10 @@ public static class SpringDay1NpcCrowdValidationMenu
             {
                 issues.Add($"{npcId}: informal conversation bundle missing");
             }
+
+            ValidatePhaseInformalFallback(npcId, dialogue, issues);
+            ValidatePhaseSelfTalkCoverage(npcId, dialogue, issues);
+            ValidatePhaseNearbyCoverage(npcId, dialogue, issues);
 
             if (dialogue.PlayerNearbyLines.Length == 0)
             {
@@ -1165,6 +1386,70 @@ public static class SpringDay1NpcCrowdValidationMenu
         }
     }
 
+    private static void ValidateDirectorConsumptionSlices(
+        SpringDay1NpcCrowdManifest manifest,
+        List<string> issues)
+    {
+        if (manifest == null)
+        {
+            return;
+        }
+
+        ValidateDirectorConsumptionRole(manifest, "EnterVillage_PostEntry", SpringDay1CrowdDirectorConsumptionRole.Priority, ExpectedPriorityNpcIdsByBeat["EnterVillage_PostEntry"], issues);
+        ValidateDirectorConsumptionRole(manifest, "EnterVillage_PostEntry", SpringDay1CrowdDirectorConsumptionRole.Support, ExpectedSupportNpcIdsByBeat["EnterVillage_PostEntry"], issues);
+        ValidateDirectorConsumptionRole(manifest, "EnterVillage_PostEntry", SpringDay1CrowdDirectorConsumptionRole.Trace, ExpectedTraceNpcIdsByBeat["EnterVillage_PostEntry"], issues);
+        ValidateDirectorConsumptionRole(manifest, "DinnerConflict_Table", SpringDay1CrowdDirectorConsumptionRole.Priority, ExpectedPriorityNpcIdsByBeat["DinnerConflict_Table"], issues);
+        ValidateDirectorConsumptionRole(manifest, "DinnerConflict_Table", SpringDay1CrowdDirectorConsumptionRole.Support, ExpectedSupportNpcIdsByBeat["DinnerConflict_Table"], issues);
+        ValidateDirectorConsumptionRole(manifest, "DinnerConflict_Table", SpringDay1CrowdDirectorConsumptionRole.BackstagePressure, ExpectedBackstagePressureNpcIdsByBeat["DinnerConflict_Table"], issues);
+        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.Support, ExpectedSupportNpcIdsByBeat["FreeTime_NightWitness"], issues);
+        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.Priority, ExpectedPriorityNpcIdsByBeat["FreeTime_NightWitness"], issues);
+        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.BackstagePressure, ExpectedBackstagePressureNpcIdsByBeat["FreeTime_NightWitness"], issues);
+        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.Trace, ExpectedTraceNpcIdsByBeat["FreeTime_NightWitness"], issues);
+
+        if (!manifest.TryGetEntry("102", out SpringDay1NpcCrowdManifest.Entry npc102) ||
+            !npc102.IsDirectorBackstagePressureBeat("DinnerConflict_Table"))
+        {
+            issues.Add("102: dinner backstage pressure contract drifted");
+        }
+    }
+
+    private static void ValidateDirectorConsumptionRole(
+        SpringDay1NpcCrowdManifest manifest,
+        string beatKey,
+        SpringDay1CrowdDirectorConsumptionRole role,
+        string[] expectedNpcIds,
+        List<string> issues)
+    {
+        SpringDay1NpcCrowdManifest.Entry[] entries = manifest.GetEntriesForDirectorConsumptionRole(beatKey, role);
+        string[] actualNpcIds = ExtractNpcIds(entries);
+        if (!SetEquals(actualNpcIds, expectedNpcIds))
+        {
+            issues.Add($"{beatKey}: director consumption role drifted -> {role} | actual=[{string.Join(",", actualNpcIds)}]");
+        }
+    }
+
+    private static string[] ExtractNpcIds(SpringDay1NpcCrowdManifest.Entry[] entries)
+    {
+        if (entries == null || entries.Length == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        List<string> npcIds = new List<string>();
+        for (int index = 0; index < entries.Length; index++)
+        {
+            SpringDay1NpcCrowdManifest.Entry entry = entries[index];
+            if (entry == null || string.IsNullOrWhiteSpace(entry.npcId))
+            {
+                continue;
+            }
+
+            npcIds.Add(entry.npcId.Trim());
+        }
+
+        return npcIds.ToArray();
+    }
+
     private static void ValidateManifestEntrySemantics(
         string npcId,
         SpringDay1NpcCrowdManifest.Entry entry,
@@ -1192,6 +1477,44 @@ public static class SpringDay1NpcCrowdValidationMenu
             entry.growthIntent != expectedGrowthIntent)
         {
             issues.Add($"{npcId}: manifest growthIntent drifted -> {entry.growthIntent}");
+        }
+
+        if (ExpectedResidentBaselineByNpcId.TryGetValue(npcId, out SpringDay1CrowdResidentBaseline expectedResidentBaseline) &&
+            entry.residentBaseline != expectedResidentBaseline)
+        {
+            issues.Add($"{npcId}: manifest residentBaseline drifted -> {entry.residentBaseline}");
+        }
+
+        SpringDay1NpcCrowdManifest.ResidentBeatSemantic[] residentBeatSemantics = entry.residentBeatSemantics;
+        if (residentBeatSemantics == null || residentBeatSemantics.Length != ExpectedResidentBeatKeys.Length)
+        {
+            issues.Add($"{npcId}: manifest residentBeatSemantics count drifted");
+            return;
+        }
+
+        for (int index = 0; index < ExpectedResidentBeatKeys.Length; index++)
+        {
+            string beatKey = ExpectedResidentBeatKeys[index];
+            if (!TryFindResidentBeatSemantic(entry, beatKey, out SpringDay1NpcCrowdManifest.ResidentBeatSemantic semantic))
+            {
+                issues.Add($"{npcId}: missing resident beat semantic -> {beatKey}");
+                continue;
+            }
+
+            if (semantic.flags == SpringDay1CrowdResidentBeatFlags.None)
+            {
+                issues.Add($"{npcId}: resident beat semantic has empty flags -> {beatKey}");
+            }
+
+            if (semantic.presenceLevel == SpringDay1CrowdResidentPresenceLevel.None)
+            {
+                issues.Add($"{npcId}: resident beat semantic has empty presenceLevel -> {beatKey}");
+            }
+
+            if (string.IsNullOrWhiteSpace(semantic.note))
+            {
+                issues.Add($"{npcId}: resident beat semantic note missing -> {beatKey}");
+            }
         }
     }
 
@@ -1231,6 +1554,156 @@ public static class SpringDay1NpcCrowdValidationMenu
             }
 
             if (string.Equals(pairSet.PartnerNpcId, partnerNpcId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryFindResidentBeatSemantic(
+        SpringDay1NpcCrowdManifest.Entry entry,
+        string beatKey,
+        out SpringDay1NpcCrowdManifest.ResidentBeatSemantic semantic)
+    {
+        semantic = null;
+        SpringDay1NpcCrowdManifest.ResidentBeatSemantic[] residentBeatSemantics = entry.residentBeatSemantics;
+        if (residentBeatSemantics == null)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < residentBeatSemantics.Length; index++)
+        {
+            SpringDay1NpcCrowdManifest.ResidentBeatSemantic candidate = residentBeatSemantics[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (string.Equals(candidate.beatKey, beatKey, StringComparison.OrdinalIgnoreCase))
+            {
+                semantic = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void ValidatePhaseInformalFallback(
+        string npcId,
+        NPCDialogueContentProfile dialogue,
+        List<string> issues)
+    {
+        if (dialogue == null)
+        {
+            return;
+        }
+
+        if (!ExpectedPhaseFallbackPhasesByNpcId.TryGetValue(npcId, out StoryPhase[] expectedPhases) ||
+            expectedPhases == null ||
+            expectedPhases.Length == 0)
+        {
+            return;
+        }
+
+        for (int index = 0; index < expectedPhases.Length; index++)
+        {
+            StoryPhase phase = expectedPhases[index];
+            if (!dialogue.TryGetPhaseInformalChatSet(phase, out NPCDialogueContentProfile.PhaseInformalChatSet phaseSet) ||
+                phaseSet == null)
+            {
+                issues.Add($"{npcId}: missing phase fallback set -> {phase}");
+                continue;
+            }
+
+            if (!phaseSet.HasConversationContent())
+            {
+                issues.Add($"{npcId}: empty phase fallback set -> {phase}");
+            }
+        }
+    }
+
+    private static void ValidatePhaseNearbyCoverage(
+        string npcId,
+        NPCDialogueContentProfile dialogue,
+        List<string> issues)
+    {
+        if (dialogue == null)
+        {
+            return;
+        }
+
+        if (!ExpectedPhaseFallbackPhasesByNpcId.TryGetValue(npcId, out StoryPhase[] expectedPhases) ||
+            expectedPhases == null ||
+            expectedPhases.Length == 0)
+        {
+            return;
+        }
+
+        for (int index = 0; index < expectedPhases.Length; index++)
+        {
+            StoryPhase phase = expectedPhases[index];
+            if (!dialogue.TryGetPhaseNearbySet(phase, out NPCDialogueContentProfile.PhaseNearbySet phaseSet) ||
+                phaseSet == null)
+            {
+                issues.Add($"{npcId}: missing phase nearby set -> {phase}");
+                continue;
+            }
+
+            if (!HasAnyDialogueLines(phaseSet.PlayerNearbyLines))
+            {
+                issues.Add($"{npcId}: empty phase nearby set -> {phase}");
+            }
+        }
+    }
+
+    private static void ValidatePhaseSelfTalkCoverage(
+        string npcId,
+        NPCDialogueContentProfile dialogue,
+        List<string> issues)
+    {
+        if (dialogue == null)
+        {
+            return;
+        }
+
+        if (!ExpectedPhaseFallbackPhasesByNpcId.TryGetValue(npcId, out StoryPhase[] expectedPhases) ||
+            expectedPhases == null ||
+            expectedPhases.Length == 0)
+        {
+            return;
+        }
+
+        for (int index = 0; index < expectedPhases.Length; index++)
+        {
+            StoryPhase phase = expectedPhases[index];
+            if (!dialogue.TryGetPhaseSelfTalkSet(phase, out NPCDialogueContentProfile.PhaseSelfTalkSet phaseSet) ||
+                phaseSet == null)
+            {
+                issues.Add($"{npcId}: missing phase selfTalk set -> {phase}");
+                continue;
+            }
+
+            if (!HasAnyDialogueLines(phaseSet.SelfTalkLines))
+            {
+                issues.Add($"{npcId}: empty phase selfTalk set -> {phase}");
+            }
+        }
+    }
+
+    private static bool HasAnyDialogueLines(string[] lines)
+    {
+        if (lines == null || lines.Length == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < lines.Length; index++)
+        {
+            if (!string.IsNullOrWhiteSpace(lines[index]))
             {
                 return true;
             }
@@ -1649,6 +2122,38 @@ public static class SpringDay1NpcCrowdValidationMenu
         return $"count={nonEmptyCount},first=\"{firstLine}\"";
     }
 
+    private static string DescribeResolvedSelfTalkLines(RuntimeProbeNpc speaker, StoryPhase storyPhase)
+    {
+        if (speaker?.RoamController?.RoamProfile == null)
+        {
+            return "missing";
+        }
+
+        string[] lines = speaker.RoamController.RoamProfile.GetSelfTalkLines(storyPhase);
+        if (lines == null || lines.Length == 0)
+        {
+            return "count=0,first=\"\"";
+        }
+
+        int nonEmptyCount = 0;
+        string firstLine = string.Empty;
+        for (int index = 0; index < lines.Length; index++)
+        {
+            if (string.IsNullOrWhiteSpace(lines[index]))
+            {
+                continue;
+            }
+
+            nonEmptyCount++;
+            if (string.IsNullOrEmpty(firstLine))
+            {
+                firstLine = lines[index].Trim();
+            }
+        }
+
+        return $"count={nonEmptyCount},first=\"{firstLine}\"";
+    }
+
     private static bool IsExpectedPairLine(RuntimeProbeNpc speaker, RuntimeProbeNpc partner, string bubbleText, bool initiator)
     {
         if (speaker?.RoamController?.RoamProfile == null || string.IsNullOrWhiteSpace(bubbleText))
@@ -1658,6 +2163,29 @@ public static class SpringDay1NpcCrowdValidationMenu
 
         string normalizedBubbleText = NormalizeBubbleComparisonText(bubbleText);
         string[] expectedLines = speaker.RoamController.RoamProfile.GetAmbientChatLines(partner.NpcId, initiator);
+        for (int index = 0; index < expectedLines.Length; index++)
+        {
+            if (string.Equals(
+                    NormalizeBubbleComparisonText(expectedLines[index]),
+                    normalizedBubbleText,
+                    StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsExpectedSelfTalkLine(RuntimeProbeNpc speaker, StoryPhase storyPhase, string bubbleText)
+    {
+        if (speaker?.RoamController?.RoamProfile == null || string.IsNullOrWhiteSpace(bubbleText))
+        {
+            return false;
+        }
+
+        string normalizedBubbleText = NormalizeBubbleComparisonText(bubbleText);
+        string[] expectedLines = speaker.RoamController.RoamProfile.GetSelfTalkLines(storyPhase);
         for (int index = 0; index < expectedLines.Length; index++)
         {
             if (string.Equals(
@@ -1781,6 +2309,20 @@ public static class SpringDay1NpcCrowdValidationMenu
         }
 
         return dialogueByNpcId;
+    }
+
+    private static int CountNpcAssetsPresent<T>(string fileNameSuffix) where T : UnityEngine.Object
+    {
+        int count = 0;
+        for (int index = 0; index < ExpectedNpcIds.Length; index++)
+        {
+            if (LoadNpcAsset<T>(ExpectedNpcIds[index], fileNameSuffix) != null)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static T LoadSingleAsset<T>(string rootPath) where T : UnityEngine.Object
