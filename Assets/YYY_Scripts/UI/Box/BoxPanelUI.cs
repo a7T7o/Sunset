@@ -125,21 +125,7 @@ namespace FarmGame.UI
 
         private void Start()
         {
-            // 获取服务引用
-            _inventoryService = FindFirstObjectByType<InventoryService>();
-            _equipmentService = FindFirstObjectByType<EquipmentService>();
-            _hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
-            
-            if (_inventoryService != null)
-            {
-                _database = _inventoryService.Database;
-            }
-            
-            // 🔥 修复：确保 _database 不为 null
-            if (_database == null)
-            {
-                Debug.LogError("[BoxPanelUI] Start: _database 为 null！无法初始化箱子 UI");
-            }
+            RefreshRuntimeContextFromScene();
 
             // 绑定按钮事件
             BindButtons();
@@ -150,6 +136,33 @@ namespace FarmGame.UI
             {
                 Debug.Log($"[BoxPanelUI] Start: _inventoryService={_inventoryService != null}, _equipmentService={_equipmentService != null}, _database={_database != null}");
                 Debug.Log($"[BoxPanelUI] Start: 箱子槽位={_chestSlots.Count}, 背包槽位={_inventorySlots.Count}");
+            }
+        }
+
+        public void ConfigureRuntimeContext(
+            InventoryService inventoryService,
+            EquipmentService equipmentService,
+            ItemDatabase database,
+            HotbarSelectionService hotbarSelection)
+        {
+            bool wasOpen = _isOpen;
+            if (wasOpen)
+            {
+                UnsubscribeFromChest();
+            }
+
+            _inventoryService = inventoryService ?? _inventoryService;
+            _equipmentService = equipmentService ?? _equipmentService;
+            _database = database != null
+                ? database
+                : inventoryService != null ? inventoryService.Database : _database;
+            _hotbarSelection = hotbarSelection ?? _hotbarSelection;
+
+            if (wasOpen)
+            {
+                SubscribeToChest();
+                SubscribeToHotbarSelection();
+                RefreshUI();
             }
         }
 
@@ -444,7 +457,7 @@ namespace FarmGame.UI
         /// 打开箱子UI
         /// </summary>
         /// <param name="chest">要打开的箱子</param>
-        public void Open(ChestController chest)
+        public void Open(ChestController chest, bool syncChestOpenState = true)
         {
             if (chest == null)
             {
@@ -452,19 +465,23 @@ namespace FarmGame.UI
                 return;
             }
 
-            // 检查箱子是否可以打开
-            var result = chest.TryOpen();
-            if (result != OpenResult.Success)
+            if (syncChestOpenState)
             {
-                if (showDebugInfo)
-                    Debug.Log($"[BoxPanelUI] 无法打开箱子: {result}");
-                return;
+                var result = chest.TryOpen();
+                if (result != OpenResult.Success)
+                {
+                    if (showDebugInfo)
+                        Debug.Log($"[BoxPanelUI] 无法打开箱子: {result}");
+                    return;
+                }
             }
 
             _currentChest = chest;
             
             // 🔥 重置日志去重标志
             _hasLoggedBindFailure = false;
+
+            RefreshRuntimeContextFromScene();
 
             // 🔥 P0-3 修复：防御性获取 _database
             EnsureDatabaseReference(chest);
@@ -509,7 +526,7 @@ namespace FarmGame.UI
             // 关闭箱子的打开状态
             if (_currentChest != null)
             {
-                _currentChest.SetOpen(false);
+                _currentChest.NotifyBoxUiClosed();
             }
 
             // 隐藏面板
@@ -1115,6 +1132,29 @@ namespace FarmGame.UI
             else
             {
                 Debug.LogError("[BoxPanelUI] 无法获取 _database！箱子 UI 将无法正常工作");
+            }
+        }
+
+        private void RefreshRuntimeContextFromScene()
+        {
+            if (_inventoryService == null)
+            {
+                _inventoryService = FindFirstObjectByType<InventoryService>();
+            }
+
+            if (_equipmentService == null)
+            {
+                _equipmentService = FindFirstObjectByType<EquipmentService>();
+            }
+
+            if (_hotbarSelection == null)
+            {
+                _hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+            }
+
+            if (_database == null && _inventoryService != null)
+            {
+                _database = _inventoryService.Database;
             }
         }
 

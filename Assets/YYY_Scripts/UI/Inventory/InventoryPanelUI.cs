@@ -22,6 +22,7 @@ public class InventoryPanelUI : MonoBehaviour
     [SerializeField] private int downCount = 6;
 
     private int selectedInventoryIndex = -1;
+    private int selectedEquipmentIndex = -1;
     private bool followHotbarSelection = true;
 
     void Awake()
@@ -36,8 +37,7 @@ public class InventoryPanelUI : MonoBehaviour
 
     void Start()
     {
-        BuildUpSlots();
-        BuildDownSlots();
+        EnsureBuilt();
     }
     
     /// <summary>
@@ -45,6 +45,8 @@ public class InventoryPanelUI : MonoBehaviour
     /// </summary>
     void OnEnable()
     {
+        EnsureBuilt();
+
         // 🔥 P1-1 修复：每次面板激活时强制刷新
         // 确保从 BoxUI 切换回来时数据是最新的
         if (selection != null)
@@ -107,6 +109,25 @@ public class InventoryPanelUI : MonoBehaviour
         }
     }
 
+    public void ConfigureRuntimeContext(
+        InventoryService inventoryService,
+        EquipmentService equipmentService,
+        ItemDatabase itemDatabase,
+        HotbarSelectionService hotbarSelection)
+    {
+        inventory = inventoryService;
+        equipment = equipmentService;
+        database = itemDatabase != null
+            ? itemDatabase
+            : inventoryService != null ? inventoryService.Database : database;
+        selection = hotbarSelection;
+
+        if (isActiveAndEnabled)
+        {
+            EnsureBuilt();
+        }
+    }
+
     // 在面板首次从未激活→激活时调用，确保所有格子已构建与绑定
     public void EnsureBuilt()
     {
@@ -114,6 +135,13 @@ public class InventoryPanelUI : MonoBehaviour
         if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
         if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
         if (database == null && inventory != null) database = inventory.Database;
+        if (selection == null) selection = FindFirstObjectByType<HotbarSelectionService>();
+
+        // 持久 UI 在空场景切换时允许短暂等待服务重绑，不要把过渡态打成红错。
+        if (inventory == null || database == null)
+        {
+            return;
+        }
         
         BuildUpSlots();
         BuildDownSlots();
@@ -141,7 +169,11 @@ public class InventoryPanelUI : MonoBehaviour
             for (int i = 0; i < n; i++)
             {
                 var slot = downParent.GetChild(i).GetComponent<EquipmentSlotUI>();
-                if (slot != null) slot.Refresh();
+                if (slot != null)
+                {
+                    slot.Refresh();
+                    slot.RefreshSelection();
+                }
             }
         }
     }
@@ -153,18 +185,8 @@ public class InventoryPanelUI : MonoBehaviour
 
     private void ClearDownSelection()
     {
-        if (downParent == null) return;
-        for (int i = 0; i < Mathf.Min(downCount, downParent.childCount); i++)
-        {
-            var tg = downParent.GetChild(i).GetComponent<Toggle>();
-            if (tg == null) continue;
-
-#if UNITY_2021_2_OR_NEWER
-            tg.SetIsOnWithoutNotify(false);
-#else
-            tg.isOn = false;
-#endif
-        }
+        selectedEquipmentIndex = -1;
+        RefreshDownSelectionVisuals();
     }
 
     // 由 PackagePanelTabsUI 在"主面板从关闭→打开"时调用
@@ -191,6 +213,11 @@ public class InventoryPanelUI : MonoBehaviour
         return slotIndex >= 0 && slotIndex == selectedInventoryIndex;
     }
 
+    public bool IsEquipmentSlotSelected(int slotIndex)
+    {
+        return slotIndex >= 0 && slotIndex == selectedEquipmentIndex;
+    }
+
     public void SetSelectedInventoryIndex(int slotIndex, bool syncHotbarSelection)
     {
         if (slotIndex < 0 || slotIndex >= upCount)
@@ -210,6 +237,22 @@ public class InventoryPanelUI : MonoBehaviour
         }
 
         RefreshUpSelectionVisuals();
+    }
+
+    public void SetSelectedEquipmentIndex(int slotIndex)
+    {
+        if (slotIndex < 0 || slotIndex >= downCount)
+        {
+            return;
+        }
+
+        selectedEquipmentIndex = slotIndex;
+        RefreshDownSelectionVisuals();
+    }
+
+    public void ClearDownSelectionState()
+    {
+        ClearDownSelection();
     }
 
     private void SyncSelectionFromHotbar()
@@ -262,6 +305,38 @@ public class InventoryPanelUI : MonoBehaviour
             }
 
             bool isSelected = i == selectedInventoryIndex;
+#if UNITY_2021_2_OR_NEWER
+            tg.SetIsOnWithoutNotify(isSelected);
+#else
+            tg.isOn = isSelected;
+#endif
+        }
+    }
+
+    private void RefreshDownSelectionVisuals()
+    {
+        if (downParent == null)
+        {
+            return;
+        }
+
+        int n = Mathf.Min(downCount, downParent.childCount);
+        for (int i = 0; i < n; i++)
+        {
+            var slot = downParent.GetChild(i).GetComponent<EquipmentSlotUI>();
+            if (slot != null)
+            {
+                slot.RefreshSelection();
+                continue;
+            }
+
+            var tg = downParent.GetChild(i).GetComponent<Toggle>();
+            if (tg == null)
+            {
+                continue;
+            }
+
+            bool isSelected = i == selectedEquipmentIndex;
 #if UNITY_2021_2_OR_NEWER
             tg.SetIsOnWithoutNotify(isSelected);
 #else

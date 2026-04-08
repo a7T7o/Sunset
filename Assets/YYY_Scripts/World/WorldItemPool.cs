@@ -82,7 +82,7 @@ public class WorldItemPool : MonoBehaviour
         // 尝试获取数据库
         if (database == null)
         {
-            database = Resources.Load<ItemDatabase>("Data/Database/MasterItemDatabase");
+            database = AssetLocator.LoadItemDatabase();
         }
 
         // 创建默认预制体（如果未指定）

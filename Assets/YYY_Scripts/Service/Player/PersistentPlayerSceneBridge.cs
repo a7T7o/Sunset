@@ -26,6 +26,8 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private const string DialogueCanvasRootName = "DialogueCanvas";
     private const string EventSystemRootName = "EventSystem";
     private const string InteractionHintRootName = "InteractionHintOverlay";
+    private const string HealthSystemRootName = "HealthSystem";
+    private const string SprintStateManagerRootName = "SprintStateManager";
     private const float BoundaryFocusStartViewportThreshold = 0.25f;
     private const float BoundaryFocusFullViewportThreshold = 0.18f;
     private const float BoundaryFocusMinAlpha = 0.02f;
@@ -59,12 +61,18 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private GameObject persistentDialogueCanvasRoot;
     private GameObject persistentEventSystemRoot;
     private GameObject persistentInteractionHintRoot;
+    private GameObject persistentHealthSystemRoot;
+    private GameObject persistentSprintStateManagerRoot;
     private GameInputManager persistentSceneInputManager;
     private InventoryService persistentInventoryService;
     private HotbarSelectionService persistentHotbarSelectionService;
     private EquipmentService persistentEquipmentService;
+    private HealthSystem persistentHealthSystem;
+    private SprintStateManager persistentSprintStateManager;
     private CanvasGroup persistentUiCanvasGroup;
     private readonly List<BoundaryFocusUiTarget> boundaryFocusUiTargets = new List<BoundaryFocusUiTarget>();
+    private int lastReboundSceneHandle = int.MinValue;
+    private Coroutine startupFallbackRebindCoroutine;
 
     [System.Flags]
     private enum BoundaryFocusEdgeMask
@@ -141,6 +149,12 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         s_pendingSceneEntry.HasFacingDirection = facingDirection.sqrMagnitude > 0.01f;
     }
 
+    public static bool TryApplyLoadedPlayerState(Vector2 worldPosition, Vector2? facingDirection = null)
+    {
+        EnsureInstance();
+        return s_instance != null && s_instance.TryApplyLoadedPlayerStateInternal(worldPosition, facingDirection);
+    }
+
     private static void EnsureInstance()
     {
         if (s_instance != null)
@@ -173,6 +187,12 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        if (startupFallbackRebindCoroutine != null)
+        {
+            StopCoroutine(startupFallbackRebindCoroutine);
+            startupFallbackRebindCoroutine = null;
+        }
     }
 
     private void Start()
@@ -183,11 +203,22 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         initialSceneProcessed = true;
-        RebindScene(SceneManager.GetActiveScene());
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (WasSceneAlreadyRebound(activeScene))
+        {
+            return;
+        }
+
+        ScheduleStartupFallbackRebind();
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
+        if (WasSceneAlreadyRebound(scene))
+        {
+            return;
+        }
+
         RebindScene(scene);
     }
 
@@ -242,6 +273,8 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         {
             s_pendingSceneEntry.Clear();
         }
+
+        lastReboundSceneHandle = scene.handle;
     }
 
     private void EnsurePersistentPlayer(Scene preferredScene)
@@ -337,6 +370,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private void ReapplyTraversalBindings(Scene scene)
     {
         TraversalBlockManager2D[] managers = FindComponentsInScene<TraversalBlockManager2D>(scene);
+        bool appliedAny = false;
         for (int index = 0; index < managers.Length; index++)
         {
             TraversalBlockManager2D manager = managers[index];
@@ -345,7 +379,31 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
                 continue;
             }
 
-            manager.ApplyConfiguration(rebuildNavGrid: true);
+            manager.ApplyConfiguration(rebuildNavGrid: false);
+            appliedAny = true;
+        }
+
+        if (!appliedAny)
+        {
+            return;
+        }
+
+        NavGrid2D[] sceneNavGrids = FindComponentsInScene<NavGrid2D>(scene);
+        for (int index = 0; index < sceneNavGrids.Length; index++)
+        {
+            NavGrid2D navGrid = sceneNavGrids[index];
+            if (navGrid == null)
+            {
+                continue;
+            }
+
+            if (navGrid.LastRebuildFrame >= 0
+                && Time.frameCount - navGrid.LastRebuildFrame <= 1)
+            {
+                continue;
+            }
+
+            navGrid.RefreshGrid();
         }
     }
 
@@ -378,6 +436,22 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         persistentPlayerTransform.position = targetPosition;
+    }
+
+    private bool TryApplyLoadedPlayerStateInternal(Vector2 worldPosition, Vector2? facingDirection)
+    {
+        Scene activeScene = SceneManager.GetActiveScene();
+        EnsurePersistentPlayer(activeScene);
+        if (persistentPlayerMovement == null || persistentPlayerTransform == null)
+        {
+            return false;
+        }
+
+        BindNavigator(activeScene);
+        ApplyPersistentPlayerPosition(
+            new Vector3(worldPosition.x, worldPosition.y, persistentPlayerTransform.position.z),
+            facingDirection);
+        return true;
     }
 
     private Vector2 ResolvePersistentFacingDirection()
@@ -620,6 +694,8 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         persistentDialogueCanvasRoot = CaptureOrPersistSceneRoot(scene, persistentDialogueCanvasRoot, DialogueCanvasRootName);
         persistentEventSystemRoot = CaptureOrPersistSceneRoot(scene, persistentEventSystemRoot, EventSystemRootName);
         persistentInteractionHintRoot = CaptureOrPersistSceneRoot(scene, persistentInteractionHintRoot, InteractionHintRootName);
+        persistentHealthSystemRoot = CaptureOrPersistSceneRoot(scene, persistentHealthSystemRoot, HealthSystemRootName);
+        persistentSprintStateManagerRoot = CaptureOrPersistSceneRoot(scene, persistentSprintStateManagerRoot, SprintStateManagerRootName);
 
         RefreshPersistentRuntimeServices();
     }
@@ -641,6 +717,12 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             persistentEquipmentService,
             persistentEquipmentRoot,
             persistentSystemsRoot);
+        persistentHealthSystem = ResolvePersistentComponent(
+            persistentHealthSystem,
+            persistentHealthSystemRoot);
+        persistentSprintStateManager = ResolvePersistentComponent(
+            persistentSprintStateManager,
+            persistentSprintStateManagerRoot);
     }
 
     private void RebindPersistentCoreUi(
@@ -669,10 +751,22 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             persistentInteractionHintRoot.SetActive(true);
         }
 
+        if (persistentHealthSystemRoot != null)
+        {
+            persistentHealthSystemRoot.SetActive(true);
+        }
+
+        if (persistentSprintStateManagerRoot != null)
+        {
+            persistentSprintStateManagerRoot.SetActive(true);
+        }
+
         EnsurePersistentUiCanvasGroup();
 
         EquipmentService sceneEquipment = ResolveRuntimeEquipmentService(scene);
-        ItemDatabase database = sceneInventory != null ? sceneInventory.Database : null;
+        ItemDatabase database = sceneInventory != null
+            ? sceneInventory.Database
+            : persistentInventoryService != null ? persistentInventoryService.Database : null;
         InventorySortService sortService = FindFirstObjectByType<InventorySortService>(FindObjectsInactive.Include);
 
         ToolbarUI[] toolbarUis = persistentUiRoot.GetComponentsInChildren<ToolbarUI>(true);
@@ -728,6 +822,11 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
                 continue;
             }
 
+            packagePanel.ConfigureRuntimeContext(
+                sceneInventory,
+                sceneEquipment,
+                database,
+                sceneHotbarSelection);
             packagePanel.EnsureReady();
             packagePanel.ClosePanelForExternalAction();
         }
@@ -1244,6 +1343,34 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         return string.Equals(scene.path, HomeScenePath, System.StringComparison.Ordinal);
+    }
+
+    private bool WasSceneAlreadyRebound(Scene scene)
+    {
+        return scene.IsValid() && scene.handle == lastReboundSceneHandle;
+    }
+
+    private void ScheduleStartupFallbackRebind()
+    {
+        if (startupFallbackRebindCoroutine != null || !isActiveAndEnabled)
+        {
+            return;
+        }
+
+        startupFallbackRebindCoroutine = StartCoroutine(StartupFallbackRebindRoutine());
+    }
+
+    private System.Collections.IEnumerator StartupFallbackRebindRoutine()
+    {
+        // sceneLoaded 通常会先完成重绑；这里只保留一帧后的兜底，避免首屏同帧重复重活。
+        yield return null;
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (!WasSceneAlreadyRebound(activeScene))
+        {
+            RebindScene(activeScene);
+        }
+
+        startupFallbackRebindCoroutine = null;
     }
 
     private static void TrySetField(Component target, string fieldName, Object value)

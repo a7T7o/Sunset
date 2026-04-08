@@ -1,5 +1,8 @@
 using UnityEngine;
 using System;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 /// <summary>
 /// 昼夜管理器 - 核心协调器（单例）
@@ -9,6 +12,12 @@ using System;
 /// </summary>
 public class DayNightManager : MonoBehaviour
 {
+    private const string DefaultConfigResourcesPath = "DayNightConfig";
+    private const string RuntimeConfigNamePrefix = "RuntimePrepared_";
+#if UNITY_EDITOR
+    private const string DefaultConfigEditorAssetPath = "Assets/111_Data/DayNightConfig.asset";
+#endif
+
     #region 单例
     private static DayNightManager instance;
     public static DayNightManager Instance
@@ -44,6 +53,26 @@ public class DayNightManager : MonoBehaviour
 
     [Header("━━━━ 调试 ━━━━")]
     [SerializeField] private bool showDebugInfo = true;
+
+    [Header("━━━━ 夜晚视野 ━━━━")]
+    [SerializeField] private bool enableNightVision = true;
+    [SerializeField] private float duskStartHour = 18f;
+    [SerializeField] private float fullNightHour = 21f;
+    [SerializeField] private float dawnRecoverHour = 6f;
+    [SerializeField] private float dawnClearHour = 7f;
+    [SerializeField] private float dayVisionRadiusNormalized = 1.15f;
+    [SerializeField] private float nightVisionRadiusNormalized = 0.4f;
+    [SerializeField] private float visionSoftness = 0.78f;
+    [SerializeField] private float visionOuterDarkness = 0.48f;
+    [SerializeField] private float visionAspect = 0.84f;
+    [SerializeField] private float dawnResidualVisionStrength = 0.22f;
+
+    [Header("━━━━ 夜灯 Overlay ━━━━")]
+    [SerializeField] private bool enableNightLightOverlay = true;
+    [SerializeField] private float nightLightWarmth = 0.42f;
+    [SerializeField] private float nightLightIntensityScale = 0.9f;
+    [SerializeField] private float nightLightSearchInterval = 1f;
+    [SerializeField] private int maxOverlayNightLights = 8;
 
     [Tooltip("当前叠加颜色（只读，调试用）")]
     [SerializeField] private Color debugFinalColor;
@@ -98,6 +127,10 @@ public class DayNightManager : MonoBehaviour
     // ═══ 缓存 ═══
     private SeasonManager.Season cachedSeason;
     private float cachedDayProgress;
+    private Transform cachedPlayerTransform;
+    private NightLightMarker[] cachedNightLightMarkers = new NightLightMarker[0];
+    private float nextNightLightRefreshTime;
+    private DayNightOverlay.LightSample[] overlayNightLights = new DayNightOverlay.LightSample[8];
 
     #endregion
 
@@ -116,10 +149,11 @@ public class DayNightManager : MonoBehaviour
             return;
         }
 
-        // 配置缺失检查
-        if (config == null)
+        EnsureDependencies();
+
+        if (config == null || overlay == null)
         {
-            Debug.LogWarning("[DayNightManager] config 引用为空，组件已禁用");
+            Debug.LogWarning("[DayNightManager] 关键依赖缺失，组件已禁用");
             enabled = false;
             return;
         }
@@ -231,6 +265,11 @@ public class DayNightManager : MonoBehaviour
             previousEnableRouteA = enableRouteA;
         }
 
+        if (SyncStateFromSources())
+        {
+            needsUpdate = true;
+        }
+
         // 有过渡进行中时重新计算并更新 overlay
         if (needsUpdate)
         {
@@ -249,7 +288,7 @@ public class DayNightManager : MonoBehaviour
     {
         if (config == null) return;
 
-        cachedDayProgress = TimeManager.Instance != null ? TimeManager.Instance.GetDayProgress() : 0f;
+        RefreshCachedDayProgress();
         RecalculateAndApply();
     }
 
@@ -336,8 +375,10 @@ public class DayNightManager : MonoBehaviour
     {
         // 记录跳跃前的颜色
         timeJumpStartColor = finalOverlayColor;
+        RefreshCachedDayProgress();
         isTimeJumpTransitioning = true;
         timeJumpTransitionTimer = 0f;
+        RecalculateAndApply();
 
         if (showDebugInfo)
         {
@@ -354,6 +395,8 @@ public class DayNightManager : MonoBehaviour
     /// </summary>
     private void InitializeState()
     {
+        EnsureDependencies();
+
         if (TimeManager.Instance != null)
         {
             cachedSeason = TimeManager.Instance.GetSeason();
@@ -474,20 +517,7 @@ public class DayNightManager : MonoBehaviour
 
         // 天气修正强度：晴天时 tint 为白色，Lerp 无效果
         float strength = config.weatherTintStrength;
-
-        // 判断当前是否为晴天（tint 接近白色时视为无修正）
-        bool isSunny = (currentWeatherTint.r > 0.99f &&
-                        currentWeatherTint.g > 0.99f &&
-                        currentWeatherTint.b > 0.99f);
-
-        if (isSunny)
-        {
-            // 晴天：不做任何修正
-            return;
-        }
-
-        // 非晴天：在基础色和天气修正色之间按强度插值
-        baseColor = Color.Lerp(baseColor, currentWeatherTint, strength);
+        baseColor = ApplyWeatherTint(baseColor, currentWeatherTint, strength);
     }
 
     /// <summary>
@@ -495,8 +525,15 @@ public class DayNightManager : MonoBehaviour
     /// </summary>
     private void UpdateOverlay()
     {
+        if (overlay == null)
+        {
+            overlay = EnsureOverlayReference();
+        }
+
         if (overlay == null) return;
+        ApplyConfiguredOverlayStrength();
         overlay.SetColor(finalOverlayColor);
+        ApplyOverlayEnvironment();
     }
 
     /// <summary>
@@ -753,7 +790,561 @@ public class DayNightManager : MonoBehaviour
 
         if (isSunny) return baseColor;
 
-        return Color.Lerp(baseColor, weatherTint, tintStrength);
+        float clampedStrength = Mathf.Clamp01(tintStrength);
+        Color clampedTint = new Color(
+            Mathf.Clamp01(weatherTint.r),
+            Mathf.Clamp01(weatherTint.g),
+            Mathf.Clamp01(weatherTint.b),
+            baseColor.a);
+        Color limitedTint = new Color(
+            baseColor.r * clampedTint.r,
+            baseColor.g * clampedTint.g,
+            baseColor.b * clampedTint.b,
+            baseColor.a);
+
+        return Color.Lerp(baseColor, limitedTint, clampedStrength);
+    }
+
+    private void RefreshCachedDayProgress()
+    {
+        cachedDayProgress = TimeManager.Instance != null ? TimeManager.Instance.GetDayProgress() : 0f;
+    }
+
+    private void EnsureDependencies()
+    {
+        EnsureOverlayNightLightCapacity();
+
+        if (config == null)
+        {
+            config = TryResolveConfig();
+        }
+        else
+        {
+            config = PrepareRuntimeConfig(config);
+        }
+
+        if (overlay == null)
+        {
+            overlay = EnsureOverlayReference();
+        }
+
+        ApplyConfiguredOverlayStrength();
+    }
+
+    private DayNightConfig TryResolveConfig()
+    {
+        DayNightConfig resolved = AssetLocator.LoadDayNightConfig(DefaultConfigResourcesPath);
+        if (resolved != null)
+        {
+            return PrepareRuntimeConfig(resolved);
+        }
+
+        return PrepareRuntimeConfig(CreateFallbackConfig());
+    }
+
+    private DayNightConfig PrepareRuntimeConfig(DayNightConfig source)
+    {
+        if (source == null)
+        {
+            return null;
+        }
+
+        if (source.name.StartsWith(RuntimeConfigNamePrefix, StringComparison.Ordinal))
+        {
+            return source;
+        }
+
+        DayNightConfig runtimeConfig = Instantiate(source);
+        runtimeConfig.name = RuntimeConfigNamePrefix + source.name;
+        runtimeConfig.hideFlags = HideFlags.DontSave;
+
+        if (ShouldUpgradeLegacyConfig(runtimeConfig))
+        {
+            ApplyRecommendedBaseline(runtimeConfig);
+        }
+
+        return runtimeConfig;
+    }
+
+    private DayNightOverlay EnsureOverlayReference()
+    {
+        DayNightOverlay existing = GetComponentInChildren<DayNightOverlay>(true);
+        if (existing != null)
+        {
+            existing.gameObject.SetActive(true);
+            existing.transform.localPosition = Vector3.zero;
+            return existing;
+        }
+
+        GameObject overlayObject = new GameObject("DayNightOverlay");
+        overlayObject.transform.SetParent(transform, false);
+        return overlayObject.AddComponent<DayNightOverlay>();
+    }
+
+    private bool SyncStateFromSources()
+    {
+        bool changed = false;
+
+        if (TimeManager.Instance != null)
+        {
+            float liveDayProgress = TimeManager.Instance.GetDayProgress();
+            if (!Mathf.Approximately(cachedDayProgress, liveDayProgress))
+            {
+                cachedDayProgress = liveDayProgress;
+                changed = true;
+            }
+
+            SeasonManager.Season liveSeason = TimeManager.Instance.GetSeason();
+            if (liveSeason != cachedSeason)
+            {
+                cachedSeason = liveSeason;
+                currentSeasonGradient = config != null ? config.GetSeasonGradient(liveSeason) : currentSeasonGradient;
+                previousSeasonGradient = currentSeasonGradient;
+                isSeasonTransitioning = false;
+                changed = true;
+            }
+        }
+
+        if (!isWeatherTransitioning && config != null && WeatherSystem.Instance != null)
+        {
+            Color liveWeatherTint = GetWeatherTint(WeatherSystem.Instance.GetCurrentWeather());
+            if (!ColorsApproximatelyEqual(currentWeatherTint, liveWeatherTint))
+            {
+                currentWeatherTint = liveWeatherTint;
+                targetWeatherTint = liveWeatherTint;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private Color GetWeatherTint(WeatherSystem.Weather weather)
+    {
+        if (config == null)
+        {
+            return Color.white;
+        }
+
+        switch (weather)
+        {
+            case WeatherSystem.Weather.Rainy:
+                return config.rainyTint;
+            case WeatherSystem.Weather.Withering:
+                return config.witheringTint;
+            default:
+                return Color.white;
+        }
+    }
+
+    private static bool ColorsApproximatelyEqual(Color a, Color b)
+    {
+        return Mathf.Approximately(a.r, b.r) &&
+               Mathf.Approximately(a.g, b.g) &&
+               Mathf.Approximately(a.b, b.b) &&
+               Mathf.Approximately(a.a, b.a);
+    }
+
+    private void ApplyConfiguredOverlayStrength()
+    {
+        if (overlay == null || config == null)
+        {
+            return;
+        }
+
+        overlay.SetStrength(GetDesiredOverlayStrength());
+    }
+
+    private float GetDesiredOverlayStrength()
+    {
+        if (config == null)
+        {
+            return 1f;
+        }
+
+        return enableRouteA ? config.overlayStrengthWithURP : config.overlayStrengthWithoutURP;
+    }
+
+    private void ApplyOverlayEnvironment()
+    {
+        if (overlay == null)
+        {
+            return;
+        }
+
+        overlay.SetVisionAspect(visionAspect);
+        overlay.SetVisionFocus(ResolvePlayerTransform());
+
+        float visionStrength = enableNightVision ? EvaluateNightVisionStrength() : 0f;
+        float radiusNormalized = Mathf.Lerp(dayVisionRadiusNormalized, nightVisionRadiusNormalized, visionStrength);
+        float outerDarkness = visionOuterDarkness * visionStrength;
+        overlay.SetVisionProfile(radiusNormalized, visionSoftness, visionStrength, outerDarkness);
+
+        if (!enableNightLightOverlay)
+        {
+            overlay.SetNightLights(overlayNightLights, 0);
+            return;
+        }
+
+        float nightLightStrength = EvaluateNightLightStrength();
+        int lightCount = BuildOverlayNightLights(nightLightStrength);
+        overlay.SetNightLights(overlayNightLights, lightCount);
+    }
+
+    private Transform ResolvePlayerTransform()
+    {
+        if (cachedPlayerTransform != null)
+        {
+            return cachedPlayerTransform;
+        }
+
+        GameObject taggedPlayer = GameObject.FindGameObjectWithTag("Player");
+        if (taggedPlayer != null)
+        {
+            cachedPlayerTransform = taggedPlayer.transform;
+            return cachedPlayerTransform;
+        }
+
+        GameObject[] taggedPlayers = GameObject.FindGameObjectsWithTag("Player");
+        if (taggedPlayers != null && taggedPlayers.Length > 0)
+        {
+            cachedPlayerTransform = taggedPlayers[0].transform;
+        }
+
+        return cachedPlayerTransform;
+    }
+
+    private float EvaluateNightVisionStrength()
+    {
+        float currentHour = GetCurrentTimeAsHourFloat();
+
+        if (currentHour >= duskStartHour && currentHour < fullNightHour)
+        {
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(duskStartHour, fullNightHour, currentHour));
+        }
+
+        if (currentHour >= fullNightHour || currentHour < dawnRecoverHour)
+        {
+            return 1f;
+        }
+
+        if (currentHour >= dawnRecoverHour && currentHour < dawnClearHour)
+        {
+            return Mathf.Lerp(dawnResidualVisionStrength, 0f, Mathf.InverseLerp(dawnRecoverHour, dawnClearHour, currentHour));
+        }
+
+        return 0f;
+    }
+
+    private float EvaluateNightLightStrength()
+    {
+        float currentHour = GetCurrentTimeAsHourFloat();
+
+        if (currentHour >= duskStartHour && currentHour < fullNightHour)
+        {
+            return Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(duskStartHour, fullNightHour, currentHour));
+        }
+
+        if (currentHour >= fullNightHour || currentHour < dawnRecoverHour)
+        {
+            return 1f;
+        }
+
+        if (currentHour >= dawnRecoverHour && currentHour < dawnClearHour)
+        {
+            return Mathf.Lerp(0.3f, 0f, Mathf.InverseLerp(dawnRecoverHour, dawnClearHour, currentHour));
+        }
+
+        return 0f;
+    }
+
+    private float GetCurrentTimeAsHourFloat()
+    {
+        if (TimeManager.Instance == null)
+        {
+            return 12f;
+        }
+
+        return TimeManager.Instance.GetHour() + TimeManager.Instance.GetMinute() / 60f;
+    }
+
+    private int BuildOverlayNightLights(float lightStrength)
+    {
+        EnsureOverlayNightLightCapacity();
+
+        if (lightStrength <= 0.001f)
+        {
+            return 0;
+        }
+
+        RefreshNightLightMarkersIfNeeded();
+        int maxCount = Mathf.Min(maxOverlayNightLights, overlayNightLights.Length);
+        int count = 0;
+        if (cachedNightLightMarkers != null)
+        {
+            for (int i = 0; i < cachedNightLightMarkers.Length && count < maxCount; i++)
+            {
+                NightLightMarker marker = cachedNightLightMarkers[i];
+                if (marker == null || !marker.isActiveAndEnabled)
+                {
+                    continue;
+                }
+
+                float animatedIntensity = ComputeAnimatedLightIntensity(marker, lightStrength);
+                float animatedRadius = ComputeAnimatedLightRadius(marker);
+                Vector2 animatedPosition = ComputeAnimatedLightPosition(marker);
+                Color lampColor = Color.Lerp(Color.white, marker.LightColor, nightLightWarmth);
+                overlayNightLights[count] = new DayNightOverlay.LightSample
+                {
+                    position = animatedPosition,
+                    color = lampColor,
+                    radius = Mathf.Max(0.5f, animatedRadius * 1.12f),
+                    feather = Mathf.Clamp01(marker.Feather),
+                    intensity = Mathf.Clamp01(animatedIntensity),
+                    coreRatio = Mathf.Clamp01(Mathf.Lerp(0.22f, 0.38f, 1f - marker.Feather))
+                };
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private void RefreshNightLightMarkersIfNeeded()
+    {
+        if (Application.isPlaying)
+        {
+            if (Time.time < nextNightLightRefreshTime)
+            {
+                return;
+            }
+
+            nextNightLightRefreshTime = Time.time + Mathf.Max(0.2f, nightLightSearchInterval);
+        }
+
+        cachedNightLightMarkers = FindObjectsByType<NightLightMarker>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+    }
+
+    private float ComputeAnimatedLightIntensity(NightLightMarker marker, float lightStrength)
+    {
+        float baseIntensity = marker.MaxIntensity * marker.OverlayWeight * nightLightIntensityScale * lightStrength;
+        if (!Application.isPlaying)
+        {
+            return baseIntensity;
+        }
+
+        float time = Time.time + marker.AnimationSeed;
+        float pulseSpeed = Mathf.Max(0.01f, marker.PulseSpeed);
+        float slowWave = Mathf.Sin(time * pulseSpeed * Mathf.PI * 2f);
+        float fastWave = Mathf.Sin(time * (pulseSpeed * 2.17f + 0.36f) * Mathf.PI * 2f + 0.9f);
+        float emberWave = Mathf.Sin(time * (pulseSpeed * 3.45f + 0.51f) * Mathf.PI * 2f + 1.8f);
+        float noiseWave = (Mathf.PerlinNoise(marker.AnimationSeed * 1.37f, time * (0.55f + pulseSpeed * 0.24f)) - 0.5f) * 2f;
+        float pulseOffset = (slowWave * 0.42f + fastWave * 0.22f + emberWave * 0.16f + noiseWave * 0.20f) * marker.PulseAmount;
+        return baseIntensity * Mathf.Max(0.2f, 1f + pulseOffset);
+    }
+
+    private float ComputeAnimatedLightRadius(NightLightMarker marker)
+    {
+        float baseRadius = Mathf.Max(0.5f, marker.Radius);
+        if (!Application.isPlaying)
+        {
+            return baseRadius;
+        }
+
+        float time = Time.time + marker.AnimationSeed;
+        float pulseSpeed = Mathf.Max(0.01f, marker.PulseSpeed);
+        float radiusWave = Mathf.Sin(time * (pulseSpeed * 0.74f + 0.19f) * Mathf.PI * 2f);
+        float secondaryWave = Mathf.Sin(time * (pulseSpeed * 1.21f + 0.07f) * Mathf.PI * 2f + 1.2f);
+        float radiusOffset = (radiusWave * 0.7f + secondaryWave * 0.3f) * Mathf.Min(0.14f, marker.PulseAmount * 0.32f);
+        return baseRadius * Mathf.Max(0.72f, 1f + radiusOffset);
+    }
+
+    private Vector2 ComputeAnimatedLightPosition(NightLightMarker marker)
+    {
+        Vector3 basePosition = marker.transform.position;
+        if (!Application.isPlaying || marker.SwayAmplitude <= 0.0001f)
+        {
+            return basePosition;
+        }
+
+        float time = Time.time + marker.AnimationSeed;
+        float swaySpeed = Mathf.Max(0.01f, marker.SwaySpeed);
+        float swayX = Mathf.Sin(time * swaySpeed * Mathf.PI * 2f) * marker.SwayAmplitude;
+        float swayY = Mathf.Cos(time * (swaySpeed * 0.63f + 0.11f) * Mathf.PI * 2f) * marker.SwayAmplitude * 0.4f;
+        float emberJitter = (Mathf.PerlinNoise(marker.AnimationSeed * 0.73f, time * (1.1f + swaySpeed * 0.35f)) - 0.5f) * marker.SwayAmplitude * 0.22f;
+        return new Vector2(basePosition.x + swayX + emberJitter, basePosition.y + swayY);
+    }
+
+    private void EnsureOverlayNightLightCapacity()
+    {
+        int desiredCapacity = Mathf.Clamp(maxOverlayNightLights, 1, 8);
+        if (overlayNightLights == null || overlayNightLights.Length != desiredCapacity)
+        {
+            overlayNightLights = new DayNightOverlay.LightSample[desiredCapacity];
+        }
+    }
+
+    private bool ShouldUpgradeLegacyConfig(DayNightConfig candidate)
+    {
+        if (candidate == null)
+        {
+            return false;
+        }
+
+        if (candidate.springGradient == null ||
+            candidate.summerGradient == null ||
+            candidate.autumnGradient == null ||
+            candidate.winterGradient == null)
+        {
+            return true;
+        }
+
+        float noonBrightness = GetBrightness(candidate.springGradient.Evaluate(0.30f));
+        float afternoonBrightness = GetBrightness(candidate.springGradient.Evaluate(0.50f));
+
+        bool dayPlateauMissing = noonBrightness - afternoonBrightness > 0.05f;
+        bool routeBTooHeavy = candidate.overlayStrengthWithoutURP >= 0.98f;
+        bool routeAMixTooStrong = candidate.overlayStrengthWithURP >= 0.39f;
+
+        return dayPlateauMissing || routeBTooHeavy || routeAMixTooStrong;
+    }
+
+    private void ApplyRecommendedBaseline(DayNightConfig target)
+    {
+        if (target == null)
+        {
+            return;
+        }
+
+        target.springGradient = CreateSpringGradient();
+        target.summerGradient = CreateSummerGradient();
+        target.autumnGradient = CreateAutumnGradient();
+        target.winterGradient = CreateWinterGradient();
+        target.rainyTint = new Color(0.55f, 0.55f, 0.6f, 1f);
+        target.witheringTint = new Color(0.85f, 0.75f, 0.45f, 1f);
+        target.weatherTintStrength = 0.5f;
+        target.weatherTransitionDuration = 1.5f;
+        target.timeJumpTransitionDuration = 0.8f;
+        target.seasonTransitionDuration = 2f;
+        target.globalLightIntensityCurve = CreateGlobalLightIntensityCurve();
+        target.globalLightColorGradient = CreateGlobalLightColorGradient();
+        target.nightLightActivateHour = 18f;
+        target.nightLightDeactivateHour = 6f;
+        target.pointLightFadeDuration = 1f;
+        target.overlayStrengthWithURP = 0.35f;
+        target.overlayStrengthWithoutURP = 0.92f;
+    }
+
+    private DayNightConfig CreateFallbackConfig()
+    {
+        DayNightConfig fallback = ScriptableObject.CreateInstance<DayNightConfig>();
+        fallback.name = RuntimeConfigNamePrefix + "Fallback_DayNightConfig";
+        fallback.hideFlags = HideFlags.DontSave;
+        ApplyRecommendedBaseline(fallback);
+        return fallback;
+    }
+
+    private static Gradient CreateSpringGradient()
+    {
+        return CreateGradient(
+            new[]
+            {
+                new GradientColorKey(new Color(0.76f, 0.78f, 0.82f, 1f), 0.00f),
+                new GradientColorKey(new Color(0.98f, 0.98f, 0.95f, 1f), 0.30f),
+                new GradientColorKey(new Color(0.98f, 0.98f, 0.95f, 1f), 0.40f),
+                new GradientColorKey(new Color(0.95f, 0.93f, 0.86f, 1f), 0.50f),
+                new GradientColorKey(new Color(0.86f, 0.76f, 0.60f, 1f), 0.60f),
+                new GradientColorKey(new Color(0.33f, 0.38f, 0.52f, 1f), 0.80f),
+                new GradientColorKey(new Color(0.24f, 0.27f, 0.42f, 1f), 1.00f)
+            });
+    }
+
+    private static Gradient CreateSummerGradient()
+    {
+        return CreateGradient(
+            new[]
+            {
+                new GradientColorKey(new Color(0.80f, 0.78f, 0.76f, 1f), 0.00f),
+                new GradientColorKey(new Color(1.00f, 0.98f, 0.95f, 1f), 0.30f),
+                new GradientColorKey(new Color(1.00f, 0.98f, 0.95f, 1f), 0.40f),
+                new GradientColorKey(new Color(0.97f, 0.93f, 0.86f, 1f), 0.50f),
+                new GradientColorKey(new Color(0.88f, 0.72f, 0.54f, 1f), 0.60f),
+                new GradientColorKey(new Color(0.31f, 0.35f, 0.50f, 1f), 0.80f),
+                new GradientColorKey(new Color(0.22f, 0.24f, 0.40f, 1f), 1.00f)
+            });
+    }
+
+    private static Gradient CreateAutumnGradient()
+    {
+        return CreateGradient(
+            new[]
+            {
+                new GradientColorKey(new Color(0.74f, 0.68f, 0.62f, 1f), 0.00f),
+                new GradientColorKey(new Color(0.98f, 0.95f, 0.90f, 1f), 0.30f),
+                new GradientColorKey(new Color(0.98f, 0.95f, 0.90f, 1f), 0.40f),
+                new GradientColorKey(new Color(0.95f, 0.88f, 0.76f, 1f), 0.50f),
+                new GradientColorKey(new Color(0.82f, 0.62f, 0.40f, 1f), 0.60f),
+                new GradientColorKey(new Color(0.32f, 0.30f, 0.46f, 1f), 0.80f),
+                new GradientColorKey(new Color(0.24f, 0.23f, 0.39f, 1f), 1.00f)
+            });
+    }
+
+    private static Gradient CreateWinterGradient()
+    {
+        return CreateGradient(
+            new[]
+            {
+                new GradientColorKey(new Color(0.64f, 0.70f, 0.82f, 1f), 0.00f),
+                new GradientColorKey(new Color(0.95f, 0.95f, 0.98f, 1f), 0.30f),
+                new GradientColorKey(new Color(0.95f, 0.95f, 0.98f, 1f), 0.40f),
+                new GradientColorKey(new Color(0.88f, 0.90f, 0.95f, 1f), 0.50f),
+                new GradientColorKey(new Color(0.62f, 0.58f, 0.78f, 1f), 0.60f),
+                new GradientColorKey(new Color(0.28f, 0.26f, 0.46f, 1f), 0.80f),
+                new GradientColorKey(new Color(0.20f, 0.20f, 0.36f, 1f), 1.00f)
+            });
+    }
+
+    private static AnimationCurve CreateGlobalLightIntensityCurve()
+    {
+        return new AnimationCurve(
+            new Keyframe(0.00f, 0.7f),
+            new Keyframe(0.15f, 0.9f),
+            new Keyframe(0.30f, 1.0f),
+            new Keyframe(0.45f, 0.9f),
+            new Keyframe(0.60f, 0.6f),
+            new Keyframe(0.80f, 0.3f),
+            new Keyframe(1.00f, 0.2f));
+    }
+
+    private static Gradient CreateGlobalLightColorGradient()
+    {
+        return CreateGradient(
+            new[]
+            {
+                new GradientColorKey(new Color(1.0f, 0.85f, 0.65f, 1f), 0.00f),
+                new GradientColorKey(new Color(1.0f, 0.98f, 0.95f, 1f), 0.30f),
+                new GradientColorKey(new Color(1.0f, 0.80f, 0.55f, 1f), 0.60f),
+                new GradientColorKey(new Color(0.50f, 0.55f, 0.80f, 1f), 0.80f),
+                new GradientColorKey(new Color(0.40f, 0.42f, 0.70f, 1f), 1.00f)
+            });
+    }
+
+    private static Gradient CreateGradient(GradientColorKey[] colorKeys)
+    {
+        Gradient gradient = new Gradient();
+        gradient.SetKeys(
+            colorKeys,
+            new[]
+            {
+                new GradientAlphaKey(1f, 0f),
+                new GradientAlphaKey(1f, 1f)
+            });
+        return gradient;
+    }
+
+    private static float GetBrightness(Color color)
+    {
+        return 0.299f * color.r + 0.587f * color.g + 0.114f * color.b;
     }
 
     #endregion

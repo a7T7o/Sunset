@@ -204,29 +204,10 @@ public class WorldItemPickup : MonoBehaviour, IPersistentObject
     {
         if (spriteRenderer == null) spriteRenderer = GetComponentInChildren<SpriteRenderer>();
         if (database == null && WorldSpawnService.Instance != null) database = WorldSpawnService.Instance.Database;
+        if (database == null && WorldItemPool.Instance != null) database = WorldItemPool.Instance.Database;
         if (database == null)
         {
-            database = Resources.Load<FarmGame.Data.ItemDatabase>("Data/Database/MasterItemDatabase");
-#if UNITY_EDITOR
-            if (database == null)
-            {
-                var guids = UnityEditor.AssetDatabase.FindAssets("t:ItemDatabase MasterItemDatabase");
-                if (guids != null && guids.Length > 0)
-                {
-                    string path = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[0]);
-                    database = UnityEditor.AssetDatabase.LoadAssetAtPath<FarmGame.Data.ItemDatabase>(path);
-                }
-                if (database == null)
-                {
-                    var any = UnityEditor.AssetDatabase.FindAssets("t:ItemDatabase");
-                    if (any != null && any.Length > 0)
-                    {
-                        string path = UnityEditor.AssetDatabase.GUIDToAssetPath(any[0]);
-                        database = UnityEditor.AssetDatabase.LoadAssetAtPath<FarmGame.Data.ItemDatabase>(path);
-                    }
-                }
-            }
-#endif
+            database = AssetLocator.LoadItemDatabase();
         }
         if (spriteRenderer != null && database != null)
         {

@@ -1,10 +1,14 @@
 using System;
 using System.Collections.Generic;
+using FarmGame.Data;
+using Sunset.Story;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class PackagePanelTabsUI : MonoBehaviour
 {
+    private const int PanelSortingOrder = 181;
+
     [Header("Roots")]
     [SerializeField] private GameObject panelRoot;         // PackagePanel 根
     [SerializeField] private Transform topParent;           // 6_Top
@@ -25,18 +29,35 @@ public class PackagePanelTabsUI : MonoBehaviour
     private int currentIndex = -1;
     private bool suppressToggleCallbacks = false;
     private bool initialStateApplied = false;
+    private Canvas panelCanvas;
+    private GraphicRaycaster panelGraphicRaycaster;
+    private InventoryService runtimeInventoryService;
+    private EquipmentService runtimeEquipmentService;
+    private ItemDatabase runtimeDatabase;
+    private HotbarSelectionService runtimeHotbarSelection;
 
     void Awake()
     {
         TryAutoLocate();
         Collect();
+        PackageSaveSettingsPanel.EnsureInstalled(panelRoot);
+        EnsureOptionalPanelInstalled("PackageMapOverviewPanel");
+        EnsureOptionalPanelInstalled("PackageNpcRelationshipPanel");
         ApplyInitialState();
         WireToggles();
     }
 
     public void SetRoots(GameObject root, Transform top, Transform pagesRoot)
     {
-        panelRoot = root; topParent = top; pagesParent = pagesRoot; Collect(); ApplyInitialState(); WireToggles();
+        panelRoot = root;
+        topParent = top;
+        pagesParent = pagesRoot;
+        Collect();
+        PackageSaveSettingsPanel.EnsureInstalled(panelRoot);
+        EnsureOptionalPanelInstalled("PackageMapOverviewPanel");
+        EnsureOptionalPanelInstalled("PackageNpcRelationshipPanel");
+        ApplyInitialState();
+        WireToggles();
     }
 
     void Collect()
@@ -160,11 +181,34 @@ public class PackagePanelTabsUI : MonoBehaviour
     {
         TryAutoLocate();
         Collect();
+        PackageSaveSettingsPanel.EnsureInstalled(panelRoot);
+        EnsureOptionalPanelInstalled("PackageMapOverviewPanel");
+        EnsureOptionalPanelInstalled("PackageNpcRelationshipPanel");
         WireToggles();
+        EnsurePanelCanvasPriority();
+        ConfigureInventoryPanelRuntimeContext();
+        ConfigureActiveBoxRuntimeContext();
         if (panelRoot != null && !panelRoot.activeSelf)
         {
             ApplyInitialState();
         }
+    }
+
+    public void ConfigureRuntimeContext(
+        InventoryService inventoryService,
+        EquipmentService equipmentService,
+        ItemDatabase database,
+        HotbarSelectionService hotbarSelection)
+    {
+        runtimeInventoryService = inventoryService;
+        runtimeEquipmentService = equipmentService;
+        runtimeDatabase = database != null
+            ? database
+            : inventoryService != null ? inventoryService.Database : runtimeDatabase;
+        runtimeHotbarSelection = hotbarSelection;
+
+        ConfigureInventoryPanelRuntimeContext();
+        ConfigureActiveBoxRuntimeContext();
     }
 
     public void ShowPanel(bool visible)
@@ -182,6 +226,17 @@ public class PackagePanelTabsUI : MonoBehaviour
     public bool IsPanelOpen()
     {
         return panelRoot != null && panelRoot.activeSelf;
+    }
+
+    public void ClosePanelForExternalAction()
+    {
+        if (IsBoxUIOpen())
+        {
+            CloseBoxUI(false);
+            return;
+        }
+
+        ClosePanel();
     }
 
     public void ShowPage(int idx)
@@ -248,6 +303,47 @@ public class PackagePanelTabsUI : MonoBehaviour
         suppressToggleCallbacks = false;
     }
 
+    private void EnsureOptionalPanelInstalled(string typeName)
+    {
+        if (panelRoot == null || string.IsNullOrWhiteSpace(typeName))
+        {
+            return;
+        }
+
+        Type panelType = ResolveType(typeName);
+        if (panelType == null)
+        {
+            return;
+        }
+
+        var ensureMethod = panelType.GetMethod(
+            "EnsureInstalled",
+            System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static,
+            null,
+            new[] { typeof(GameObject) },
+            null);
+        if (ensureMethod == null)
+        {
+            return;
+        }
+
+        ensureMethod.Invoke(null, new object[] { panelRoot });
+    }
+
+    private static Type ResolveType(string typeName)
+    {
+        foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            Type resolved = assembly.GetType(typeName, false);
+            if (resolved != null)
+            {
+                return resolved;
+            }
+        }
+
+        return null;
+    }
+
     void HandleToggleChanged(int idx, bool isOn)
     {
         if (suppressToggleCallbacks) return;
@@ -294,11 +390,14 @@ public class PackagePanelTabsUI : MonoBehaviour
         
         // 🔥 互斥逻辑：打开 PackagePanel 前先关闭 BoxPanelUI
         CloseBoxPanelIfOpen();
+        EnsurePanelCanvasPriority();
         
         panelRoot.SetActive(true);
+        SyncExternalOverlaySuppression(true);
         
         // 🔥 C10：确保 Main/Top 可见（修复 ESC 关闭箱子后 Tab 打开背包时 Main/Top 未激活的问题）
         ShowMainAndTop();
+        ConfigureInventoryPanelRuntimeContext();
         
         OnPanelJustOpened();
     }
@@ -333,9 +432,12 @@ public class PackagePanelTabsUI : MonoBehaviour
     private void EnsurePanelOpenForBox()
     {
         if (panelRoot == null) return;
+        EnsurePanelCanvasPriority();
+        ConfigureInventoryPanelRuntimeContext();
         if (!panelRoot.activeSelf)
         {
             panelRoot.SetActive(true);
+            SyncExternalOverlaySuppression(true);
             OnPanelJustOpened(); // 🔥 关键：确保 InventoryPanelUI.EnsureBuilt() 被调用
         }
     }
@@ -389,6 +491,12 @@ public class PackagePanelTabsUI : MonoBehaviour
             _activeBoxUI = null;
             return null;
         }
+
+        boxPanelUI.ConfigureRuntimeContext(
+            runtimeInventoryService,
+            runtimeEquipmentService,
+            runtimeDatabase,
+            runtimeHotbarSelection);
 
         Debug.Log($"[PackagePanelTabsUI] 打开 Box UI: {boxUIPrefab.name}, panelRoot.active={panelRoot.activeSelf}, wasBackpackOpen={_wasBackpackOpenBeforeBox}");
         return boxPanelUI;
@@ -501,7 +609,42 @@ public class PackagePanelTabsUI : MonoBehaviour
         ReturnHeldItemsBeforeClose();
         
         panelRoot.SetActive(false);
+        SyncExternalOverlaySuppression(false);
         SetVisiblePageInactive();
+    }
+
+    private void EnsurePanelCanvasPriority()
+    {
+        if (panelRoot == null)
+        {
+            return;
+        }
+
+        panelCanvas = SpringDay1UiLayerUtility.EnsureComponent<Canvas>(panelRoot);
+        if (panelCanvas != null)
+        {
+            panelCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+            panelCanvas.worldCamera = null;
+            panelCanvas.planeDistance = 100f;
+            panelCanvas.overrideSorting = true;
+            panelCanvas.sortingOrder = PanelSortingOrder;
+            panelCanvas.pixelPerfect = true;
+        }
+
+        panelGraphicRaycaster = SpringDay1UiLayerUtility.EnsureComponent<GraphicRaycaster>(panelRoot);
+        if (panelGraphicRaycaster != null)
+        {
+            panelGraphicRaycaster.enabled = true;
+        }
+    }
+
+    private void SyncExternalOverlaySuppression(bool suppressed)
+    {
+        SpringDay1PromptOverlay promptOverlay = FindFirstObjectByType<SpringDay1PromptOverlay>(FindObjectsInactive.Include);
+        if (promptOverlay != null)
+        {
+            promptOverlay.SetExternalVisibilityBlock(suppressed);
+        }
     }
     
     /// <summary>
@@ -560,9 +703,54 @@ public class PackagePanelTabsUI : MonoBehaviour
         var invPanel = panelRoot != null ? panelRoot.GetComponentInChildren<InventoryPanelUI>(true) : null;
         if (invPanel != null)
         {
+            invPanel.ConfigureRuntimeContext(
+                runtimeInventoryService,
+                runtimeEquipmentService,
+                runtimeDatabase,
+                runtimeHotbarSelection);
             invPanel.EnsureBuilt();
             invPanel.ResetSelectionsOnPanelOpen();
         }
+    }
+
+    private void ConfigureInventoryPanelRuntimeContext()
+    {
+        if (panelRoot == null)
+        {
+            return;
+        }
+
+        var invPanel = panelRoot.GetComponentInChildren<InventoryPanelUI>(true);
+        if (invPanel == null)
+        {
+            return;
+        }
+
+        invPanel.ConfigureRuntimeContext(
+            runtimeInventoryService,
+            runtimeEquipmentService,
+            runtimeDatabase,
+            runtimeHotbarSelection);
+    }
+
+    private void ConfigureActiveBoxRuntimeContext()
+    {
+        if (_activeBoxUI == null)
+        {
+            return;
+        }
+
+        var boxPanelUI = _activeBoxUI.GetComponent<FarmGame.UI.BoxPanelUI>();
+        if (boxPanelUI == null)
+        {
+            return;
+        }
+
+        boxPanelUI.ConfigureRuntimeContext(
+            runtimeInventoryService,
+            runtimeEquipmentService,
+            runtimeDatabase,
+            runtimeHotbarSelection);
     }
 
     // 备用：通过名称片段打开（以防层级命名不同）

@@ -21,6 +21,7 @@ public class PersistentManagers : MonoBehaviour
     private const string TimeManagerObjectName = "TimeManager";
     private const string SeasonManagerObjectName = "SeasonManager";
     private const string WeatherSystemObjectName = "WeatherSystem";
+    private const string DayNightManagerObjectName = "DayNightManager";
     private const string PersistentRegistryObjectName = "[PersistentObjectRegistry]";
     private const string PrefabDatabaseResourcesPath = "Data/Database/PrefabDatabase";
 #if UNITY_EDITOR
@@ -61,7 +62,7 @@ public class PersistentManagers : MonoBehaviour
         isBootstrapping = true;
         try
         {
-            instance = FindFirstObjectByType<PersistentManagers>(FindObjectsInactive.Include);
+            instance = FindExistingInstance();
             if (instance == null)
             {
                 GameObject rootObject = new GameObject(RootObjectName);
@@ -75,6 +76,37 @@ public class PersistentManagers : MonoBehaviour
         {
             isBootstrapping = false;
         }
+    }
+
+    private static PersistentManagers FindExistingInstance()
+    {
+        PersistentManagers found = FindFirstObjectByType<PersistentManagers>(FindObjectsInactive.Include);
+        if (IsSceneBackedCandidate(found))
+        {
+            return found;
+        }
+
+        PersistentManagers[] allCandidates = Resources.FindObjectsOfTypeAll<PersistentManagers>();
+        foreach (PersistentManagers candidate in allCandidates)
+        {
+            if (IsSceneBackedCandidate(candidate))
+            {
+                return candidate;
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsSceneBackedCandidate(PersistentManagers candidate)
+    {
+        if (candidate == null)
+        {
+            return false;
+        }
+
+        Scene scene = candidate.gameObject.scene;
+        return scene.IsValid();
     }
 
     public static T EnsureManagedComponent<T>(string objectName) where T : Component
@@ -151,6 +183,7 @@ public class PersistentManagers : MonoBehaviour
         EnsureTimeManagerDebugger(timeManager);
         EnsureManagedChild<SeasonManager>(SeasonManagerObjectName);
         EnsureManagedChild<WeatherSystem>(WeatherSystemObjectName);
+        EnsureManagedChild<DayNightManager>(DayNightManagerObjectName);
 
         if (PersistentObjectRegistry.Instance != null)
         {
@@ -174,20 +207,7 @@ public class PersistentManagers : MonoBehaviour
 
     private void EnsureTimeManagerDebugger(TimeManager timeManager)
     {
-        if (timeManager == null)
-        {
-            return;
-        }
-
-        TimeManagerDebugger debugger = timeManager.GetComponent<TimeManagerDebugger>();
-        if (debugger == null)
-        {
-            debugger = timeManager.gameObject.AddComponent<TimeManagerDebugger>();
-        }
-
-        debugger.enableDebugKeys = true;
-        debugger.enableScreenClock = true;
-        debugger.showDebugInfo = false;
+        TimeManagerDebugger.EnsureAttached(timeManager, enableScreenClockByDefault: true, showDebugInfoByDefault: false);
     }
 
     private void AdoptIntoRoot(Transform target, string objectName)
@@ -250,13 +270,7 @@ public class PersistentManagers : MonoBehaviour
             return true;
         }
 
-        prefabDatabase = Resources.Load<PrefabDatabase>(PrefabDatabaseResourcesPath);
-        if (prefabDatabase != null)
-        {
-            return true;
-        }
-
-        prefabDatabase = Resources.Load<PrefabDatabase>("PrefabDatabase");
+        prefabDatabase = AssetLocator.LoadPrefabDatabase(PrefabDatabaseResourcesPath);
         if (prefabDatabase != null)
         {
             return true;
@@ -264,6 +278,10 @@ public class PersistentManagers : MonoBehaviour
 
 #if UNITY_EDITOR
         prefabDatabase = UnityEditor.AssetDatabase.LoadAssetAtPath<PrefabDatabase>(PrefabDatabaseEditorAssetPath);
+        if (prefabDatabase != null)
+        {
+            return true;
+        }
 #endif
 
         return prefabDatabase != null;

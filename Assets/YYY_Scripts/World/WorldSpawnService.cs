@@ -32,7 +32,7 @@ public class WorldSpawnService : MonoBehaviour
         // 尝试获取数据库
         if (database == null)
         {
-            database = Resources.Load<ItemDatabase>("Data/Database/MasterItemDatabase");
+            database = AssetLocator.LoadItemDatabase();
         }
     }
 
