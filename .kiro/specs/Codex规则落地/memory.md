@@ -14312,3 +14312,264 @@
   - 但这不等于治理线程自己的历史 same-root 现场已经恢复 clean。
 - 当前恢复点：
   - 若后续真的要把 `Codex规则落地` 收到可 sync clean，必须专门开一轮“治理线历史 own roots 清账”，不能在业务推进里顺手带走。
+
+## 2026-04-08｜补记：对项目文档线程“用户本周实做与统筹吸收”做只读严厉审稿
+
+- 当前主线目标：
+  - 只读复核 `项目文档总览` 线程这轮对用户本周主控作用的吸收质量，判断它是否真达到了“正式项目文档”口径。
+- 本轮实际做了什么：
+  1. 只读核查了以下 4 处正文新增段落是否真实存在：
+     - [01_总览.md](/D:/Unity/Unity_learning/Sunset/Docx/大总结/Sunset_持续策划案/01_总览.md)
+     - [04_剧情NPC.md](/D:/Unity/Unity_learning/Sunset/Docx/大总结/Sunset_持续策划案/04_剧情NPC.md)
+     - [07_AI治理.md](/D:/Unity/Unity_learning/Sunset/Docx/大总结/Sunset_持续策划案/07_AI治理.md)
+     - [08_进度总表.md](/D:/Unity/Unity_learning/Sunset/Docx/大总结/Sunset_持续策划案/08_进度总表.md)
+  2. 给出新的严厉判断：
+     - 方向是对的，已经不只是流水账
+     - 但“已经像正式主文”这个评价仍偏乐观
+  3. 本轮主要 findings：
+     - 阶段性治理快照被直接写进长期主文，时效性差，后续容易腐烂
+     - 同一组裁定在 4 卷重复，事实源分叉风险高
+     - `07_AI治理.md` 的流程口径与当前 `AGENTS.md` 存在偏差，尤其是 `startup-guard` 与 `CLI first, MCP last-resort` 没有准确落位
+     - 用词仍偏治理现场话术，如“钉住”“漂回”“live 回拉”，正式感不够
+     - 进度表和治理卷里缺少“当前未闭环项 / 当前 blocker”层，整体偏乐观
+- 关键决策：
+  - 这轮不去改那 4 份正文，因为它们当前就是项目文档线程 own dirty；
+  - 我这里只保留只读审稿结论，供后续是否继续返工时使用。
+- 当前阶段：
+  - 只读严审已完成；
+  - 未改项目正文；
+  - 可直接把这轮审稿当成“停给用户审核”的结论使用。
+- 恢复点：
+  - 如果后续要继续动这条线，最值钱的不是重写同义表述，而是：
+    1. 把长期原则和本周阶段快照拆层
+    2. 收拢单一事实源
+    3. 修正 `07_AI治理.md` 与当前 live 规则的不一致
+
+## 2026-04-08｜补记：已为项目文档线程生成主文工程化整改 prompt
+
+- 当前主线目标：
+  - 基于刚刚的严厉锐评，给 `项目文档总览` 线程生成一份可直接转发的整改 prompt。
+- 本轮实际做了什么：
+  1. 已新增整改 prompt：
+     - [2026-04-08_给项目文档总览_主文工程化整改续工prompt_02.md](/D:/Unity/Unity_learning/Sunset/.kiro/specs/项目文档总览/2026-04-08_给项目文档总览_主文工程化整改续工prompt_02.md)
+  2. prompt 已明确收成单一主刀：
+     - 不是重扫全项目
+     - 不是继续夸主控作用
+     - 只做“主文工程化整改第一刀”
+  3. prompt 已固定要求对方只处理 4 类问题：
+     - `07_AI治理.md` 规则失真
+     - 阶段快照与长期主文混层
+     - 多卷重复背同一组裁定
+     - 文风仍偏治理现场总结
+  4. prompt 已明确限制作用域只到 4 个主文文件，并固定回执格式。
+- 关键决策：
+  - 这轮不代替项目文档线程去改正文；
+  - 我只负责把整改目标钉成一刀可收口的 prompt。
+- 当前阶段：
+  - prompt 已落文件并做过 `git diff --check`；
+  - 当前线程已 `Park-Slice` 回到 `PARKED`。
+- 恢复点：
+  - 下一步如果用户要转发，直接发这份 prompt 即可；
+  - 如果对方回执回来，再按整改结果决定是停给用户审核还是继续做附表化收口。
+
+## 2026-04-08｜补记：`Home` 进场 `InventoryPanelUI inventory == null` 已定位并止血
+
+- 当前主线目标：
+  - 修复进入 `Home` 时 `InventoryPanelUI.BuildUpSlots: inventory 为 null` 的运行态报错。
+- 本轮实际做了什么：
+  1. 已定位真实根因不在 `Home` 本身，而在 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)：
+     - 之前把 `InventorySystem / HotbarSelection / EquipmentSystem` 当成 root-only 对象去抓
+     - 但它们在 `Primary / Town` 实际挂在 `Systems` 根下面的子物体
+     - 所以切到 `Home` 这种空场景时，`persistentInventoryService` 回退不到持久服务
+  2. 已在 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs) 补：
+     - `RefreshPersistentRuntimeServices()`
+     - `ResolvePersistentComponent<T>()`
+     - 让桥接器能从 `persistentSystemsRoot` 子层级正确回收 `InventoryService / HotbarSelectionService / EquipmentService`
+     - 并在 runtime resolve fallback 前主动刷新这些持久服务引用
+  3. 已在 [InventoryPanelUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryPanelUI.cs) 补过渡态保护：
+     - `EnsureBuilt()` 在服务尚未重绑完成时直接等待，不再把这个过渡态打成红错
+- 验证结果：
+  1. `validate_script` 对两个目标脚本的 owned error 都是 `0`
+  2. 当前 CLI fresh console：
+     - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+     - 返回 `errors=0 warnings=0`
+  3. `git diff --check` 对本轮两处代码改动通过
+- 关键决策：
+  - 这轮只修“持久服务回退失败 + UI 过渡态爆红”，不顺手扩写 `Home` 其他 scene-side 逻辑。
+- 当前阶段：
+  - 代码层与 fresh console 已止血；
+  - 仍待用户手测 `Primary/Town -> Home` 实际切场是否彻底恢复正常。
+- 恢复点：
+  - 若用户复测仍异常，下一步优先抓：
+    1. 切场后 `PackagePanelTabsUI -> InventoryPanelUI.EnsureBuilt()` 是否过早触发
+    2. `Systems` 持久根在实际门链中的存活状态
+
+## 2026-04-08｜补记：边界 HUD 透明规则已改为“按边分组渐隐”
+
+- 当前主线目标：
+  - 把 `Town / Primary` 的边界 HUD 透明，从“整张 UI 一起淡、力度不够”改成“玩家靠哪边，哪边的常驻 HUD 才渐隐”。
+- 本轮实际做了什么：
+  1. 继续只改 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)，不碰场景。
+  2. 已把旧逻辑从：
+     - 整个 `UI` 根共用一个 `CanvasGroup`
+     - 只按底部/左右粗粒度算一次 alpha
+     改成：
+     - 遍历 `UI` 根的直系常驻 HUD 目标
+     - 为每个目标单独挂/复用 `CanvasGroup`
+     - 根据该 HUD 自己贴近的屏幕边，分别吃 `Left / Right / Top / Bottom` 压力
+  3. 已明确排除不该被边界渐隐直接处理的对象：
+     - `PackagePanel`
+     - `DebugUI`
+     - `DialogueCanvas`
+  4. 新阈值已改为：
+     - 从视口 `25%` 开始渐隐
+     - 到 `15%` 时接近最淡
+     - 最低 alpha 下探到 `0.06`
+- 关键决策：
+  - 这轮不靠场景手摆分组，而是利用 `UI` 根下直系 HUD 的屏幕位置动态归类为上/下/左/右边 HUD；
+  - 这样 `State` 会按左/上淡，`ToolBar` 会按下边淡，避免“站左边却把整排底栏一起洗掉”的旧问题。
+- 验证结果：
+  1. `validate_script Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+     - `owned_errors=0`
+     - 当前 CLI assessment 为 `unity_validation_pending`
+     - 原因是 Unity 状态取样 `stale_status`，不是 own red
+  2. `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+     - 返回 `errors=0 warnings=0`
+  3. `git diff --check` 对当前脚本通过
+- 当前阶段：
+  - 代码层和 fresh console 已 clean；
+  - 现在主要待用户看体感是否符合“哪边靠边淡哪边，而且更透明”的预期。
+- 恢复点：
+  - 如果用户体感还不够，下一步优先只调 3 个量：
+    1. `BoundaryFocusHudEdgeBand`
+    2. `BoundaryFocusMinAlpha`
+    3. `BoundaryFocusBlendSpeed`
+
+## 2026-04-08｜补记：边界 HUD 透明进一步收成“语义归边 + 近乎全隐”
+
+- 当前主线目标：
+  - 把边界 HUD 透明收成可打包的最终体验，不再让“靠右时左侧任务也淡”或“贴边时还挡住玩家”继续存在。
+- 本轮实际做了什么：
+  1. 已推翻上一版“按矩形猜边”的做法，改成在 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs) 里用 `ResolveNamedBoundaryFocusEdges()` 做语义归边：
+     - `State` = `Left + Top`
+     - `ToolBar` = `Bottom`
+     - `SpringDay1PromptOverlay` = `Left`
+     - `SpringDay1WorldHintBubble` = `Right`
+  2. `Home` 已不再吃这套边界透明：
+     - `UpdatePersistentUiBoundaryFocus()` 现在直接把 `IsFixedFallbackCameraScene(activeScene)` 当成全显条件之一
+  3. 透明强度又往更狠方向压了一刀：
+     - `BoundaryFocusFullViewportThreshold = 0.18`
+     - `BoundaryFocusMinAlpha = 0.02`
+     - `BoundaryFocusBlendSpeed = 18`
+     - `BoundaryFocusHardFadePressure = 0.58`
+     - 边界压力曲线提升到 `Pow(..., 5f)`，让贴边时更快接近近乎全隐
+- 关键判断：
+  - 当前正确口径不再是“自动猜 HUD 靠哪边”，而是“按语义指定归边 + 用更激进的 fade 曲线收口”。
+- 验证结果：
+  1. `validate_script Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+     - `owned_errors=0`
+     - assessment 当前为 `unity_validation_pending`
+     - 原因仍是 Unity `stale_status`，不是 own red
+  2. 当前 fresh console 只剩外部 warning：
+     - `PackagePanelRuntimeUiKit.cs` / `SpringDay1WorkbenchCraftingOverlay.cs` 的 TMP 废弃 warning
+     - 没有这轮 own red
+  3. `git diff --check` 通过
+- 当前阶段：
+  - 代码已进入“可以按最终打包体验来收”的状态；
+  - 现在主要差用户看实际体感是否已经够狠。
+- 恢复点：
+  - 如果用户还觉得不够，下一步只剩最后一类微调：
+    1. 再压 `BoundaryFocusMinAlpha`
+    2. 再提前 `BoundaryFocusHardFadePressure`
+    3. 不再改结构
+
+## 2026-04-09｜三场景持久化彻查：当前不是“没做”，而是模型混用未收口
+
+- 当前主线目标：
+  - 查清 `Primary / Town / Home` 三场景里，到底哪些东西应该持久化、哪些其实不该持久化、以及为什么 `Home` 到现在仍没有真正接上整套持久化底座。
+- 这轮实际做了什么：
+  1. 只读核对了 [PersistentPlayerSceneBridge.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs) 的持久化模型：
+     - 当前 bridge 会按固定根名捕获并持久化：
+       - `Systems`
+       - `InventorySystem`
+       - `HotbarSelection`
+       - `EquipmentSystem`
+       - `UI`
+       - `DialogueCanvas`
+       - `EventSystem`
+       - `InteractionHintOverlay`
+  2. 只读核对了三个场景的文本侧现状：
+     - [Primary.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity) 与 [Town.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 都具备上述完整运行根；
+     - [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity) 文本侧只明确看到 `Home_Contracts / HomeDoor / HomeEntryAnchor / Main Camera`，没有同等级的 `Systems/UI/InventorySystem/...` 根。
+  3. 结合 [BoxPanelUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs) 与用户日志确认：
+     - `Home` 里的问题不只是“UI 没持久化”，而是“重依赖 UI 通路”没有闭环；
+     - `PersistentPlayerSceneBridge` 当前会显式重绑 `ToolbarUI / InventoryPanelUI / InventoryInteractionManager / ItemTooltip / GameInputManager.packageTabs`；
+     - 但 `PackagePanelTabsUI / BoxPanelUI` 这条链没有同等级的显式服务注入，所以出现“工具栏活着、背包/箱子断路”的半通状态。
+- 关键判断：
+  - 当前项目其实并存了两种场景模式：
+    1. `Primary / Town` = 带完整运行根的“种子场景”
+    2. `Home` = 试图只消费持久化底座的“轻场景”
+  - 真正没收口的不是“有没有做持久化”，而是第二种模式还没做完整，所以 `Home` 一直卡在半落地状态。
+- 当前阶段：
+  - 结论层已站稳；
+  - 下一步若进入施工，应该围绕“`Home` 要不要升级为完整 seed scene，还是把 bridge 真做成 scene-agnostic bootstrap”来选唯一方案。
+- 恢复点：
+  - 若继续，先把 `Home` 闭环任务拆成两类：
+    1. 该持久化但没彻底 scene-agnostic 的 runtime core
+    2. 根本不该持久化、而是 `Home` 本地缺失的 scene-local 基础设施（如 `NavGrid2D / OcclusionManager`）
+
+## 2026-04-09｜三场景持久化闭环：`Home` seed 化 + UI/bridge 闭环 + 打包态资产解析补口已提交
+
+- 当前主线目标：
+  - 把 `Primary / Town / Home` 收成统一的三场景持久化运行基线，不再只是解释“该不该持久化”，而是直接把 `Home`、persistent UI 和打包态资产解析补到能落库的一批。
+- 这轮实际做了什么：
+  1. 已把 `Home` 基础骨架正式落成 scene-side 第一刀，并提交了：
+     - [Home.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Home.unity)
+     - [HomeFoundationBootstrapMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Home/HomeFoundationBootstrapMenu.cs)
+  2. 已把 `PersistentPlayerSceneBridge` 继续补到三场景统一持久化模型：
+     - 持久化 `Systems / InventorySystem / HotbarSelection / EquipmentSystem / UI / DialogueCanvas / EventSystem / InteractionHintOverlay / HealthSystem / SprintStateManager`
+     - 切场时重绑 `PackagePanelTabsUI / InventoryPanelUI / BoxPanelUI` 这条重依赖 UI 通路
+  3. 已把 `Home` 里最关键的 persistent UI 断链补上：
+     - [PackagePanelTabsUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs)
+     - [BoxPanelUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs)
+     - [InventoryPanelUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryPanelUI.cs)
+  4. 已继续补“打包态与编辑态不一致”的资产解析链：
+     - [AssetLocator.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Utils/AssetLocator.cs) 现在统一提供 `ItemDatabase / PrefabDatabase / DayNightConfig` 的 runtime-first 定位
+     - [WorldSpawnService.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/WorldSpawnService.cs)
+     - [WorldItemPool.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/WorldItemPool.cs)
+     - [WorldItemPickup.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/WorldItemPickup.cs)
+     - [PersistentManagers.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/PersistentManagers.cs)
+     - [SaveManager.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/SaveManager.cs)
+     - [DayNightManager.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs)
+     不再把 build 可用性偷偷寄托在 Editor-only `AssetDatabase` 回退上。
+  5. 已补一个运行态诊断钩子：
+     - [LoadedSceneMissingScriptProbeMenu.cs](/D:/Unity/Unity_learning/Sunset/Assets/Editor/Diagnostics/LoadedSceneMissingScriptProbeMenu.cs)
+     - 用于扫描当前已加载 scene + `DontDestroyOnLoad` 上的 missing scripts，避免再被瞬时 `Unknown script` 噪音误导。
+- 验证结果：
+  1. `git diff --check` 对本轮提交批通过。
+  2. `validate_script` 对本轮新增/修改脚本没有 owned error；CLI assessment 仍会被外部 `stale_status` / 旧 warning 打成 `external_red`，不是这轮 own red。
+  3. `py -3 scripts/sunset_mcp.py errors --count 30 --output-limit 10` 最新返回：
+     - `errors=0 warnings=0`
+  4. 三个场景在编辑态逐个 `load` 后 fresh console 都是 `0 log entries`：
+     - `Town`
+     - `Primary`
+     - `Home`
+  5. `loaded-missing-script-probe.json` 当前结果：
+     - `totalMissingComponents = 0`
+  6. 运行态侧已拿到一条最小门链证据：
+     - `Primary -> Home` 后 probe 显示 `hasPersistentPlayerBridge = true`
+     - `totalPlayerCount = 1`
+     - `dontDestroyOnLoadPlayerCount = 1`
+     - 说明没有再复制出第二个玩家。
+- 提交状态：
+  - 已提交：
+    - `f741a58c`
+    - `feat: close three-scene persistent runtime baseline`
+- 关键判断：
+  - 这轮之后，`Primary / Town / Home` 已不再停留在“结构说明成立”的层面，而是进入“scene-side 基线 + persistent UI 链 + 打包态资产解析”三者都真正落库的阶段。
+  - 当前剩余风险已经不再是 `Home` 缺基础骨架，而是更偏体验 / live 门链 / 个别外线 warning，而不是这条三场景持久化主链本身还没落地。
+- 恢复点：
+  - 若继续，下一步最值钱的不再是重补 `Home` 骨架，而是：
+    1. 只针对真实门链做玩家向复测
+    2. 如果还有包体差异，再继续查更窄的 live/runtime 证据
+    3. 不再回到“该不该持久化”的抽象讨论
