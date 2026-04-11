@@ -31,6 +31,7 @@ namespace Sunset.Story
         private static SpringDay1StatusOverlay _instance;
 
         [SerializeField] private Canvas overlayCanvas;
+        [SerializeField] private CanvasScaler overlayScaler;
         [SerializeField] private CanvasGroup rootCanvasGroup;
         [SerializeField] private RectTransform rootRect;
         [SerializeField] private SectionRefs healthSection;
@@ -150,6 +151,11 @@ namespace Sunset.Story
         {
             rootRect = transform as RectTransform;
             overlayCanvas = GetComponent<Canvas>();
+            overlayScaler = GetComponent<CanvasScaler>();
+            if (overlayScaler == null)
+            {
+                overlayScaler = gameObject.AddComponent<CanvasScaler>();
+            }
             rootCanvasGroup = GetComponent<CanvasGroup>();
             _fontAsset = ResolveFont();
 
@@ -157,6 +163,12 @@ namespace Sunset.Story
             overlayCanvas.overrideSorting = true;
             overlayCanvas.sortingOrder = 145;
             overlayCanvas.pixelPerfect = true;
+
+            overlayScaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+            overlayScaler.referenceResolution = new Vector2(1980f, 1080f);
+            overlayScaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
+            overlayScaler.matchWidthOrHeight = 1f;
+            overlayScaler.referencePixelsPerUnit = 16f;
 
             rootCanvasGroup.interactable = false;
             rootCanvasGroup.blocksRaycasts = false;

@@ -68,6 +68,11 @@ public class EnergySystem : MonoBehaviour
     private bool lowEnergyWarningVisual;
     private float restoreHighlightUntil;
     private bool overlayVisible;
+    private RectTransform energySliderRect;
+    private Vector2 preferredEnergyAnchoredPosition;
+    private bool hasPreferredEnergyAnchoredPosition;
+    private int lastLayoutScreenWidth = -1;
+    private int lastLayoutScreenHeight = -1;
     #endregion
 
     #region Unity生命周期
@@ -96,6 +101,7 @@ public class EnergySystem : MonoBehaviour
 
     private void Update()
     {
+        UpdateResponsiveLayoutIfNeeded();
         UpdateFillVisual();
     }
 
@@ -281,6 +287,13 @@ public class EnergySystem : MonoBehaviour
             if (energyCanvasGroup != null)
             {
                 energyCanvasGroup.alpha = overlayVisible ? 1f : 0f;
+            }
+
+            if (overlayVisible)
+            {
+                lastLayoutScreenWidth = -1;
+                lastLayoutScreenHeight = -1;
+                UpdateResponsiveLayoutIfNeeded();
             }
         }
     }
@@ -497,8 +510,168 @@ public class EnergySystem : MonoBehaviour
         }
 
         EnsureEnergyUiReferences();
+        UpdateResponsiveLayoutIfNeeded();
         energySlider.maxValue = maxEnergy;
         return true;
+    }
+
+    private void UpdateResponsiveLayoutIfNeeded()
+    {
+        if (energySlider == null)
+        {
+            energySliderRect = null;
+            hasPreferredEnergyAnchoredPosition = false;
+            lastLayoutScreenWidth = -1;
+            lastLayoutScreenHeight = -1;
+            return;
+        }
+
+        RectTransform sliderRect = energySlider.transform as RectTransform;
+        if (sliderRect == null)
+        {
+            return;
+        }
+
+        if (energySliderRect != sliderRect)
+        {
+            energySliderRect = sliderRect;
+            preferredEnergyAnchoredPosition = sliderRect.anchoredPosition;
+            hasPreferredEnergyAnchoredPosition = true;
+            lastLayoutScreenWidth = -1;
+            lastLayoutScreenHeight = -1;
+        }
+        else if (!hasPreferredEnergyAnchoredPosition)
+        {
+            preferredEnergyAnchoredPosition = sliderRect.anchoredPosition;
+            hasPreferredEnergyAnchoredPosition = true;
+        }
+
+        if (Screen.width == lastLayoutScreenWidth && Screen.height == lastLayoutScreenHeight)
+        {
+            return;
+        }
+
+        if (!TryResolveResponsiveLayoutContext(sliderRect, out RectTransform rootRect, out RectTransform parentRect))
+        {
+            lastLayoutScreenWidth = Screen.width;
+            lastLayoutScreenHeight = Screen.height;
+            return;
+        }
+
+        const float screenPadding = 24f;
+        Canvas.ForceUpdateCanvases();
+        sliderRect.anchoredPosition = preferredEnergyAnchoredPosition;
+
+        if (!TryCalculateVisibleBoundsInRoot(sliderRect, rootRect, out Vector2 min, out Vector2 max))
+        {
+            lastLayoutScreenWidth = Screen.width;
+            lastLayoutScreenHeight = Screen.height;
+            return;
+        }
+
+        Rect rootBounds = rootRect.rect;
+
+        float shiftX = 0f;
+        float shiftY = 0f;
+        float minX = rootBounds.xMin + screenPadding;
+        float maxX = rootBounds.xMax - screenPadding;
+        float minY = rootBounds.yMin + screenPadding;
+        float maxY = rootBounds.yMax - screenPadding;
+
+        if (min.x < minX)
+        {
+            shiftX = minX - min.x;
+        }
+        else if (max.x > maxX)
+        {
+            shiftX = maxX - max.x;
+        }
+
+        if (min.y < minY)
+        {
+            shiftY = minY - min.y;
+        }
+        else if (max.y > maxY)
+        {
+            shiftY = maxY - max.y;
+        }
+
+        if (Mathf.Abs(shiftX) > 0.01f || Mathf.Abs(shiftY) > 0.01f)
+        {
+            Vector3 worldOrigin = rootRect.TransformPoint(Vector3.zero);
+            Vector3 worldShift = rootRect.TransformPoint(new Vector3(shiftX, shiftY, 0f));
+            Vector2 parentDelta = (Vector2)(parentRect.InverseTransformPoint(worldShift) - parentRect.InverseTransformPoint(worldOrigin));
+            sliderRect.anchoredPosition = preferredEnergyAnchoredPosition + parentDelta;
+        }
+
+        lastLayoutScreenWidth = Screen.width;
+        lastLayoutScreenHeight = Screen.height;
+    }
+
+    private static bool TryCalculateVisibleBoundsInRoot(RectTransform sliderRect, RectTransform rootRect, out Vector2 min, out Vector2 max)
+    {
+        min = Vector2.zero;
+        max = Vector2.zero;
+
+        if (sliderRect == null || rootRect == null)
+        {
+            return false;
+        }
+
+        RectTransform[] rects = sliderRect.GetComponentsInChildren<RectTransform>(true);
+        if (rects == null || rects.Length == 0)
+        {
+            return false;
+        }
+
+        bool hasSample = false;
+        Vector3[] corners = new Vector3[4];
+        for (int rectIndex = 0; rectIndex < rects.Length; rectIndex++)
+        {
+            RectTransform rect = rects[rectIndex];
+            if (rect == null)
+            {
+                continue;
+            }
+
+            rect.GetWorldCorners(corners);
+            for (int cornerIndex = 0; cornerIndex < corners.Length; cornerIndex++)
+            {
+                Vector2 point = rootRect.InverseTransformPoint(corners[cornerIndex]);
+                if (!hasSample)
+                {
+                    min = point;
+                    max = point;
+                    hasSample = true;
+                    continue;
+                }
+
+                min = Vector2.Min(min, point);
+                max = Vector2.Max(max, point);
+            }
+        }
+
+        return hasSample;
+    }
+
+    private static bool TryResolveResponsiveLayoutContext(RectTransform sliderRect, out RectTransform rootRect, out RectTransform parentRect)
+    {
+        rootRect = null;
+        parentRect = sliderRect != null ? sliderRect.parent as RectTransform : null;
+        if (sliderRect == null || parentRect == null)
+        {
+            return false;
+        }
+
+        Canvas canvas = sliderRect.GetComponentInParent<Canvas>(includeInactive: true);
+        if (canvas == null)
+        {
+            return false;
+        }
+
+        Canvas rootCanvas = canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
+        rootRect = rootCanvas.transform as RectTransform;
+        return rootRect != null;
     }
 
     private void StopPresentationCoroutine()
