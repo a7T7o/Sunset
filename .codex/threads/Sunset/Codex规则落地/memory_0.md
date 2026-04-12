@@ -406,3 +406,7 @@
 - 当前恢复点：
   - 下一步先做本轮 own 变更的 pre-sync 与最小提交；
   - 提交后给用户直接可转发的 `02` 版壳，并继续把 `Codex规则落地 own` 里可独立收的部分往下砍。
+  - 该提交现已实际完成：
+    - `2a5f8236` `2026.04.13_Codex规则落地_14`
+    - 收口内容为 `.kiro/xmind-pipeline + 02 版 owner docs/prompt + 本线程相关记忆`
+    - `ProjectSettings` 与 `Assets` 代码尾账继续保留在 shared-root，不被这笔治理提交吞并

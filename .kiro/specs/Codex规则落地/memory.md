@@ -139,6 +139,13 @@
       - `2026-04-13_shared-root剩余大头警匪分流批次_02.md`
       - `给 spring-day1 / NPC / UI / 树石修复` 的 `02` 版专属 prompt
       - `02` 版 prompt 已统一补上 `thread-state` 接线尾巴，不再沿用旧的粗口径 prompt。
+  18. 上述 `.kiro/xmind-pipeline + v2 owner docs + 工作区/线程记忆` 已在治理模式下完成最小同步：
+      - 实际提交为 `2a5f8236` `2026.04.13_Codex规则落地_14`
+      - 本次只吞治理线程 own：
+        - `.kiro/xmind-pipeline/*`
+        - `Codex规则落地` 的 `02` 版矩阵/批次/prompt
+        - 工作区与线程记忆
+      - 没有吞 `Assets` 里的其他线程代码尾账，也没有碰 `ProjectSettings`
 
 ## 本卷纪律
 - 根卷只保留：
