@@ -584,3 +584,57 @@
   - 本轮未跑：`Ready-To-Sync`
   - 当前 live 状态：`PARKED`
   - 停车原因：TimeDebug 简介定位修改已完成，等待用户看位
+
+## 2026-04-13｜按规范尝试提交树石线程自有改动，但 stone-only 切片被 own-root blocker 拦下
+
+- 用户目标：
+  - 根据历史 memory 与当前线程记忆，把我自己能安全提交的内容先提交掉。
+- 当前主线目标：
+  - 先收最独立的石头批量工具切片，不硬吞混杂的树文件与其他 shared-root 脏改。
+- 本轮子任务 / 阻塞：
+  - 子任务：以 stone-only 方式尝试提交 4 个石头批量工具相关文件；
+  - 阻塞：`Ready-To-Sync` 返回 `BLOCKED`，不能继续提交。
+- 已完成事项：
+  1. 先做只读归属判断：
+     - `TreeController.cs` 当前混有大段非本轮树石批量工具语义的运行时优化 / 调参，不适合整文件直接提；
+     - 当前最安全的提交候选缩到石头链：
+       - `Assets/Editor/Tool_005_BatchStoneState.cs`
+       - `Assets/Editor/Tool_005_BatchStoneState.cs.meta`
+       - `Assets/Editor/StoneControllerEditor.cs`
+       - `Assets/YYY_Scripts/Controller/StoneController.cs`
+  2. 石头切片校验：
+     - `mcp validate_script`
+       - `Tool_005_BatchStoneState.cs`：0 error / 0 warning
+       - `StoneControllerEditor.cs`：0 error / 1 warning
+       - `StoneController.cs`：0 error / 1 warning
+     - `git diff --check`
+       - 无 patch 结构错误，仅 CRLF warning
+  3. 流程动作：
+     - 已跑一次 `Begin-Slice`
+     - 发现切片过宽后先 `Park-Slice`
+     - 再重开 `Begin-Slice(石头批量工具最小安全提交)`
+     - 再跑 `Ready-To-Sync`
+  4. 最终 blocker：
+     - `Ready-To-Sync` 指出白名单所属 own roots 仍有 `83` 个 remaining dirty/untracked
+     - 这些 remaining dirty 落在 `Assets/Editor`、`Assets/YYY_Scripts/Controller`、`.kiro/specs/屎山修复`、`.codex/threads/Sunset/树石修复` 同根范围
+     - 所以这轮不能按规范只提石头 4 文件然后宣称 clean
+- 关键决策：
+  1. 不绕过 `Ready-To-Sync` 强行 `git commit`
+  2. 本轮停止在 blocker，不制造违规提交
+  3. 把“stone 文件本身可过、真正卡点在 same-root remaining dirty”明确记下来
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs.meta`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\StoneControllerEditor.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\StoneController.cs`
+- 验证结果：
+  - 代码层：stone-only 候选通过
+  - 提交流程层：`Ready-To-Sync = BLOCKED`
+  - 本轮无 commit SHA
+- 遗留问题或下一步：
+  - 如果继续，最稳下一步不是硬提，而是先把这 `83` 个 same-root remaining dirty 做一次真实归属和清尾；
+  - 只要这批 remaining dirty 还在，stone-only 提交会继续被规范拦下。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Ready-To-Sync`、`Park-Slice`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：stone-only 提交被 own-root remaining dirty 阻断，未提交

@@ -5141,6 +5141,19 @@
   - 这是一刀独立的小型编辑体验修补，已代码落地；
   - 现阶段只缺用户在 Unity 里看一眼位置是否满意，不需要扩到别的系统。
 
+## 2026-04-13｜树石修复提交尝试被规范闸门拦下
+
+- 子线：
+  - `树石修复`
+- 本轮新增事实：
+  1. 线程按用户要求尝试把“自己能提交的先提交”落到石头批量工具最小切片；
+  2. 石头这 4 个源码文件本身代码校验通过，没有 owned compile red；
+  3. 但 `Ready-To-Sync` 失败，原因不是石头切片本身，而是同 owner 在 `Assets/Editor` / `Assets/YYY_Scripts/Controller` 下还挂着 `83` 个 remaining dirty/untracked；
+  4. 线程已合法停车，没有绕过规范强提。
+- 当前判断：
+  - 当前真正 blocker 是 shared-root 下的“同根剩余 own dirty”，不是石头批量工具的代码质量；
+  - 若要继续提交，下一刀必须先解决这批 remaining dirty 的归属/清尾。
+
 ## 2026-04-08｜新增 TilemapCollider2D / CompositeCollider2D 接入静态导航的可拍板方案已收敛
 
 - 子线：

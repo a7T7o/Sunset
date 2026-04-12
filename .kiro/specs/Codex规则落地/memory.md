@@ -103,6 +103,25 @@
       - `Assets/YYY_Scripts/Story/Dialogue.meta`
       - `Assets/YYY_Scripts/UI/Save.meta`
       这 3 项不应再由治理线程在“非代码资产大包”里顺手吞并。
+  12. 2026-04-13 继续顺手收掉的 safe tail 已再收一刀：
+      - `Docx/大总结/Sunset_持续策划案/*.md`
+      - `.kiro/specs/UI系统/*.md`
+      - `.kiro/specs/屎山修复/*.md`
+      - `.codex/threads/Sunset/UI/*.md`
+      - `.codex/threads/Sunset/树石修复/*.md`
+      - 两个孤立的只读线程记忆根
+      - 以及 3 个代码目录 folder meta：
+        - `Assets/Editor/Town.meta`
+        - `Assets/YYY_Scripts/Story/Dialogue.meta`
+        - `Assets/YYY_Scripts/UI/Save.meta`
+  13. 同轮已把“其他线程怎样找回自己的剩余大头”正式落成治理产物，而不是继续靠聊天口述：
+      - `2026-04-13_给典狱长_shared-root剩余大头拆分与owner定责矩阵_01.md`
+      - `2026-04-13_shared-root剩余大头警匪分流批次_01.md`
+      - `给 spring-day1 / NPC / UI / 树石修复` 四条专属 cleanup prompt
+  14. 因此当前 shared-root 剩余的明确口径已经变成：
+      - 安全可代收的 docs / folder-meta 尾巴已基本由治理线程收完；
+      - 真正剩余的大头已经收窄成 `spring-day1 / NPC / UI / 树石修复 / Codex规则落地 own` 五组代码/配置/工具链尾账；
+      - 后续不应再让业务线程靠猜文件名找 owner，而应直接按矩阵和专属 prompt 自收。
 
 ## 本卷纪律
 - 根卷只保留：

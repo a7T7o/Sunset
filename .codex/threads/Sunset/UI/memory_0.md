@@ -643,3 +643,154 @@
     3. 正式剧情 / 正式对话时右上角时间与调试提示是否彻底退场
 - 需要用户现在做什么：
   - 当前无；这轮先把安全做法和代码链固定下来，等下一次 live 验即可
+
+## 2026-04-12 UI 续记｜右卡排版重对齐 + 背包开关恢复任务清单压住
+- 当前主线目标：
+  - 用户最新反馈明确要求继续完善两个点：
+    1. 右侧 `ContextHintCard` 要把中线、字号、页脚键位提示真正做好
+    2. 背包打开时，左侧任务清单要恢复被 page 压住/退场
+- 本轮子任务：
+  1. 只改 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs) 的卡内布局与页脚提示
+  2. 不碰已经脏着的 [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)，只在 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 走现有 block 接口恢复背包退场
+- 本轮完成：
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 右卡整体放大一档：
+      - `ContextCardWidth 220 -> 238`
+      - `ContextCardMinHeight 154 -> 176`
+      - `ContextCardRowHeight 17 -> 20`
+      - `ContextCardRowGap 3 -> 4`
+    - 键帽 / 正文 / 页脚重新按中线关系布局
+    - 说明文字改成 `MidlineLeft`
+    - 标题、正文、键帽、页脚字号整体抬升
+    - 页脚新增 `Backspace` 键帽，动作文字改成 `关闭提示`
+  - [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs)
+    - 新增 `RefreshPromptOverlayVisibilityBlock()`
+    - `OpenPanel()` / `ClosePanel()` / `EnsurePanelOpenForBox()` 都会在背包或箱子页拉起/收起时，显式把当前运行中的 `PromptOverlay` 走一次 `SetExternalVisibilityBlock(...)`
+- 验证：
+  - `validate_script InteractionHintOverlay.cs`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+  - `validate_script PackagePanelTabsUI.cs`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs`
+    - clean
+  - 当前 external 只剩 Unity 现场 warning / stale status，不是本轮 own red
+- 当前阶段：
+  - 这轮代码层已经把用户刚点名的 4 件事里收了 3 件半：
+    - 右卡中线
+    - 右卡字号
+    - 退格键帽
+    - 背包打开时任务清单退场恢复口
+  - 还差用户 fresh live 终验来判断它是不是终于顺眼、是不是彻底恢复
+- 下一步只做什么：
+  - 等用户 live 看这两刀是否真的回正
+- 需要用户现在做什么：
+  - 测 3 个点：
+    1. 背包/箱子打开时任务清单是否恢复退场
+    2. 右卡每行键帽和正文是否中线对齐
+    3. 页脚 `Backspace` 键帽是否清楚、不卡壳
+
+## 2026-04-13 UI 续记｜右卡中心线与退格图形键
+- 当前主线目标：
+  - 继续只收 `ContextHintCard`，不扩别的 UI
+- 本轮子任务：
+  1. 把每行键帽和说明文字真正压到同一条中心线
+  2. 把页脚 `Backspace` 英文单词键改成图形退格键
+- 本轮完成：
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - description 布局从左右 offset 拉伸改成固定中心点布局
+    - 页脚新增 runtime `ContextFooterKeyIcon`
+    - 新增 `GetOrCreateBackspaceIconSprite()`，运行时生成退格图形 sprite
+    - 原 `ContextFooterKeyText` 保留兼容但运行时直接隐藏
+- 验证：
+  - `validate_script InteractionHintOverlay.cs`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - clean
+- 当前阶段：
+  - 这轮已经把用户刚点名的两个问题落实成代码
+  - 仍缺用户 fresh live 终验
+- 下一步只做什么：
+  - 等用户看右卡最后一眼
+- 需要用户现在做什么：
+  - 看 2 个点：
+    1. 行内中线是不是终于平了
+    2. 页脚退格键是不是终于不像字母键了
+
+## 2026-04-13 UI 续记｜退格键重画
+- 当前主线目标：
+  - 用户裁定：其他都过了，只剩页脚退格键太丑，要重做。
+- 本轮子任务：
+  - 只重画 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs) 的 runtime 退格图形键
+- 本轮完成：
+  - 退格键从上一轮的块状箭头重画成更接近真实退格键的图形：
+    - 左侧箭头轮廓
+    - 右侧主体
+    - 中间删除 `X` 语义
+  - 页脚键帽宽度与 icon 可见尺寸同步轻微放大
+- 验证：
+  - `validate_script InteractionHintOverlay.cs`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - clean
+- 当前阶段：
+  - 这轮是纯视觉重画，代码层已收住
+- 下一步只做什么：
+  - 等用户看这个退格键是否顺眼
+- 需要用户现在做什么：
+  - 看页脚退格键这一处
+
+## 2026-04-13 UI 续记｜顶部单行化
+- 当前主线目标：
+  - 用户继续只收右卡，要求顶部更像放置状态提示：标签和标题同一行，整体再小一点。
+- 本轮子任务：
+  - 只改 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs) 的顶部布局和卡片尺寸
+- 本轮完成：
+  - 顶部 `玩法 + 常用操作` 改成单行
+  - 整卡继续缩一档
+  - 行间距继续收一档
+- 验证：
+  - `validate_script InteractionHintOverlay.cs`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - clean
+- 当前阶段：
+  - 这轮是纯布局微调，代码层已收住
+- 下一步只做什么：
+  - 等用户看顶部这一行是否顺手
+- 需要用户现在做什么：
+  - 看顶部 `玩法 + 常用操作` 这一行
+
+## 2026-04-13 UI 续记｜头部中心线与整块留白再收口
+- 当前主线目标：
+  - 用户继续只收右卡，明确指出“位置不对、细节一堆问题”，所以这轮继续只收几何关系。
+- 本轮子任务：
+  1. 把头部竖线 / 标签 / 标题真正压在同一条中心线上
+  2. 把整卡再缩一点，把底部空腔压掉
+- 本轮完成：
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 整卡缩到 `220 x 156`
+    - 头部三件套统一中心线
+    - 内容整体上提，footer 区与底部空腔继续压缩
+- 验证：
+  - `validate_script InteractionHintOverlay.cs`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - clean
+- 当前阶段：
+  - 这轮仍是纯几何微调，代码层已收住
+- 下一步只做什么：
+  - 等用户看右卡整体位置关系是否终于顺手
+- 需要用户现在做什么：
+  - 看右卡整体位置关系这一处

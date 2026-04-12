@@ -331,3 +331,40 @@
   - 剩下那 3 项虽然是 meta，但它们挂在代码目录上，不该再用“资产大包”名义顺手吞。
 - 当前恢复点：
   - 这轮完成 `Park-Slice` 后，shared-root 剩余应主要回到代码线与少量代码目录 meta；除非用户继续点名，否则 `Codex规则落地` 不应再扩大到代码目录。
+
+## 2026-04-13｜续记：继续收 safe docs/meta，并把剩余大头正式分流定责
+
+- 用户目标：
+  - 继续提交安全内容，并且把剩余大头拆成具体责任，让别的线程能直接找到自己的内容，不再靠聊天猜。
+- 当前主线：
+  - 这轮继续沿 `Codex规则落地` 做 shared-root 收口，但从“代收资产”转到“继续代收安全 docs/meta + 产出正式 owner 矩阵和分流 prompt”。
+- 这轮实际做成了什么：
+  1. 已确认下列内容仍属于 safe tail，可由治理线程继续代收：
+     - `Docx/大总结/Sunset_持续策划案/*.md`
+     - `.kiro/specs/UI系统/*.md`
+     - `.kiro/specs/屎山修复/*.md`
+     - `.codex/threads/Sunset/UI/*.md`
+     - `.codex/threads/Sunset/树石修复/*.md`
+     - 两个孤立只读线程记忆根
+     - 以及 3 个代码目录 folder meta：`Assets/Editor/Town.meta`、`Assets/YYY_Scripts/Story/Dialogue.meta`、`Assets/YYY_Scripts/UI/Save.meta`
+  2. 已把“剩余大头拆分与 owner 定责”写成正式治理正文：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_给典狱长_shared-root剩余大头拆分与owner定责矩阵_01.md`
+  3. 已把“警匪启动”的入口落成正式批次与四条专属 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_shared-root剩余大头警匪分流批次_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_给spring-day1_shared-root剩余Story链尾账自收prompt_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_给NPC_shared-root剩余NPC链尾账自收prompt_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_给UI_shared-root剩余UI链尾账自收prompt_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_给树石修复_shared-root剩余树石链尾账自收prompt_01.md`
+  4. 这份矩阵已经把当前剩余大头压成 5 组：
+     - `spring-day1`
+     - `NPC`
+     - `UI`
+     - `树石修复`
+     - `Codex规则落地 own`
+- 关键判断：
+  - 现在真正剩下的，不再是“再顺手提一点截图/素材”能解决的问题；
+  - 真大头已经变成多线程 own 代码/测试/工具链尾账，必须按 owner 自收。
+- 当前恢复点：
+  - 下一步最值钱的动作不是再猜文件归属，而是：
+    1. 先把这轮 safe docs/meta 收成一个最小提交；
+    2. 再按已写好的四条 prompt 去追 `spring-day1 / NPC / UI / 树石修复` 各自收尾。

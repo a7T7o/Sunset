@@ -519,3 +519,47 @@
   - 本轮未跑：`Ready-To-Sync`
   - 当前 live 状态：`PARKED`
   - 停车原因：`TimeDebug` 简介定位已改完，等待用户看位
+
+## 2026-04-13（按规范尝试提交石头批量工具，但被 own-root remaining dirty 阻断）
+
+- 用户目标：
+  - 按当前历史 memory 与线程记忆，把我自己这条线能安全提交的改动先提交干净。
+- 当前主线目标：
+  - 先从最可独立收口的石头批量工具切片入手，尝试按 Sunset `thread-state + Ready-To-Sync` 规范提交。
+- 本轮子任务 / 阻塞：
+  - 子任务：只收 `StoneController` 批量工具相关 4 个源码文件；
+  - 当前阻塞：`Ready-To-Sync` 明确失败，不能继续提交。
+- 已完成事项：
+  1. 先做了切片收窄，确认当前最安全的候选提交面是：
+     - `Assets/Editor/Tool_005_BatchStoneState.cs`
+     - `Assets/Editor/Tool_005_BatchStoneState.cs.meta`
+     - `Assets/Editor/StoneControllerEditor.cs`
+     - `Assets/YYY_Scripts/Controller/StoneController.cs`
+  2. 校验结果：
+     - `mcp validate_script`
+       - `Tool_005_BatchStoneState.cs`：0 error / 0 warning
+       - `StoneControllerEditor.cs`：0 error / 1 warning（旧 GC 提示）
+       - `StoneController.cs`：0 error / 1 warning（旧 GC 提示）
+     - `git diff --check`
+       - 无 patch 结构错误，仅 `StoneControllerEditor.cs` / `StoneController.cs` 的 CRLF warning
+  3. 同时确认：
+     - `TreeController.cs` 当前不是纯树石线程小改，混有大段其它运行时优化/调参，不适合整文件直接提交。
+- 阻塞结论：
+  1. `Ready-To-Sync.ps1` 返回 `BLOCKED`
+  2. blocker 不是这 4 个石头文件本身，而是当前白名单所属 own roots 仍有 `83` 个 remaining dirty/untracked
+  3. 核心根因：
+     - 只要切片里包含 `Assets/Editor` 与 `Assets/YYY_Scripts/Controller`，规范就会把同根目录下其余 `树石修复` owner 脏改一起算进来
+     - 因此当前不能只提石头这 4 个文件然后假装 clean
+- 关键决策：
+  1. 这轮不绕过 `Ready-To-Sync` 强行 `git commit`
+  2. 先合法 `Park-Slice`，把状态停在 blocker，而不是造一个违规提交
+  3. 后续如果继续，要么：
+     - 先清这批同 root remaining dirty
+     - 要么改走更高成本的隔离方案，但这轮未执行
+- 恢复点 / 下一步：
+  - 当前没有产生 commit SHA；
+  - 下一步最稳的是先把 `树石修复` 在 `Assets/Editor` / `Assets/YYY_Scripts/Controller` 下的 remaining dirty 做一次真实归属与收口，不然提交闸门还会继续挡。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Ready-To-Sync`、`Park-Slice`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：stone-only 提交被 own-root remaining dirty 阻断，未提交
