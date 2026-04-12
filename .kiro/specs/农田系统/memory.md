@@ -579,3 +579,485 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
     2. 成熟 / 枯萎作物左键收取是否不再出现“点了像被吞掉、后续也卡住”的表现
     3. 0 档工具 / 水壶 / 剑的耐久与水量显示是否回到正常长期口径
   - 收尾补记：本轮已执行 `Park-Slice`，当前 live 状态已回到 `PARKED`。
+
+## 2026-04-08｜补记：箱子 E 键当前不再需要重写运行时，只需继续补 live 终验
+
+- 主线程本轮复核后确认：
+  1. 当前 shared root 里的箱子近身链已经接上，不需要再另造第二套开箱系统；
+  2. `ChestController` 已在运行时每帧上报 proximity candidate；
+  3. 触发继续复用 `OnInteract(context)`；
+  4. `SpringDay1UiLayerUtility.IsBlockingPageUiOpen()` 已把箱子页打开纳入阻塞判定；
+  5. `ChestProximityInteractionSourceTests.cs` 已把“近身 E 键 / 右键自动走近 / 同箱抑制”这些关键事实锁成源码守门。
+- 当前验证：
+  - `validate_script Assets/YYY_Tests/Editor/ChestProximityInteractionSourceTests.cs --skip-mcp`
+    - `owned_errors=0`
+    - `external_errors=0`
+    - `assessment=unity_validation_pending`
+  - `validate_script Assets/YYY_Scripts/World/Placeable/ChestController.cs --skip-mcp`
+    - `owned_errors=0`
+    - `external_errors=0`
+    - `assessment=unity_validation_pending`
+- 当前恢复点：
+  - 这条线后续不要再回去重写 `ChestController` 或 `GameInputManager` 的主链；
+  - 真正还缺的是一次 fresh runtime/live 验证，而不是新的结构改造。
+
+## 2026-04-08｜补记：farm 阶段回执 prompt 已落盘
+
+- 新文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026-04-08_给farm_箱子E键toggle闭环与live终验回执prompt_03.md`
+- 当前作用：
+  - 把后续 farm 刀口继续压在：
+    - 箱子 `E` 键 toggle 的 fresh runtime/live 终验
+  - 明确禁止：
+    - 再重写 `ChestController`
+    - 再重写 `GameInputManager` 自动走近链
+    - 泛修箱子 UI
+
+## 2026-04-08｜补刀：箱子 E 键已收成 toggle，和原有交互真入口闭环
+
+- 当前新增闭环点：
+  1. `ChestController.OpenBoxUI()` 现在在“同箱已开”时会直接 `Close()`；
+  2. 也就是 `OnInteract()` 不再只是“打开箱子”，而是“打开/关闭同箱子的同一个真入口”；
+  3. `ChestController.ReportProximityInteraction(...)` 不再在同箱已开时把自己整个抑制掉；
+  4. 它会把“同箱已开”作为唯一 page-open 例外继续上报给 `SpringDay1ProximityInteractionService`；
+  5. `SpringDay1ProximityInteractionService` 新增 `AllowWhilePageUiOpen`，因此箱子页打开时，只有这个同箱 toggle 候选能继续活着。
+- 当前验证：
+  - `validate_script` 针对：
+    - `Assets/YYY_Scripts/Story/Interaction/SpringDay1ProximityInteractionService.cs`
+    - `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+    - `Assets/YYY_Tests/Editor/ChestProximityInteractionSourceTests.cs`
+    均为：
+    - `owned_errors=0`
+    - `external_errors=0`
+    - `assessment=unity_validation_pending`
+  - `sunset_mcp.py status` 当前 fresh console：
+    - `error_count=0`
+    - `warning_count=2`
+- 当前恢复点：
+  - 这条线结构上已闭环到“开/关同源 + proximity 例外保持”；
+  - 后续只差真实 runtime 验证，不该再回去重做主链。
+## 2026-04-09｜农田交互线补记：005 教学步骤下种子切槽掉出放置链，根因已压到运行时 placement 资格兜底
+
+- 当前新增结论：
+  - 工作台后进入 `FarmingTutorial / 0.0.5` 时，`Hoe` 还能用但切到种子预览/放置失联，真根因不是教学提示链，而是种子资产磁盘上仍普遍保留 `isPlaceable: 0`。
+  - 运行时又有多条主链直接用 `itemData.isPlaceable` 判定，所以种子会在：
+    - `GameInputManager.SyncPlaceableModeWithCurrentSelection()`
+    - `HotbarSelectionService.EquipCurrentTool()`
+    - `PlacementManager.EnterPlacementMode()`
+    这些入口被挡掉。
+- 已落地修法：
+  - `SeedData.OnEnable()` 运行时强制 `isPlaceable = true`
+  - 并把 `GameInputManager / HotbarSelectionService / PlacementManager` 的关键入口统一补成“种子也算 placement-capable”
+- 当前意义：
+  - 这刀是在修“种子接不进放置系统真入口”，不是去重写 Day1 教学流程本身。
+  - 目标是把“锄头正常、种子切过去就死”的打包态异常彻底压平。
+
+## 2026-04-09｜复盘更新：Day1 侧已确认不是剧情禁播种，当前仍需只守种子切槽预览链
+
+- 新增共识：
+  - Day1 已只读确认“不是剧情规定不能播种”，而是 `Seed -> PlacementManager/preview` 这条接线仍有 bug。
+- 对 farm 线程自己的要求：
+  - 不能继续泛化成“Day1 去修就行”；
+  - 也不能继续在 `PlacementPreview` 视觉层盲改扩写；
+  - 下一刀必须收窄成最小状态追踪，钉死 `Hoe -> Seed -> Hoe` 切槽瞬间到底是：
+    - `IsPlacementMode`
+    - `selectedIndex`
+    - `PlacementManager.CurrentState`
+    - `PlacementPreview` 可视激活态
+    哪个先丢。
+
+## 2026-04-09｜农田交互线再补刀：把 `当前热栏事实源 -> PlacementManager` 校正链拉直
+
+- 当前新增结论：
+  - `Hoe -> Seed -> Hoe` 这条线的 runtime 问题，不能再只看“种子是否被当成 placeable”；真正还缺的是：
+    - `GameInputManager` 每帧都要把当前热栏和 `PlacementManager` 的状态对齐
+    - `PlacementManager.RefreshCurrentPreview()` 在 preview 被藏掉或内容空掉时，要能真正 `Show(currentPlacementItem)` 重建，而不是只把空壳重新激活
+- 已落地修法：
+  - `GameInputManager.UpdatePreviews()` 现在先 `SyncPlaceableModeWithCurrentSelection()`
+  - `SyncPlaceableModeWithCurrentSelection()` 改成幂等，只在当前 item 和 `PlacementManager.CurrentPlacementItem` 不一致时才 `EnterPlacementMode(...)`
+  - `PlacementManager.RefreshCurrentPreview()` 现在在 `preview inactive` 或 `gridCells` 为空时直接 `Show(currentPlacementItem)` 重建
+- 当前意义：
+  - 这刀是在收“状态脱节导致左键掉回导航 / preview 不真重建”的 runtime 真链；
+  - 不是再去扩写 day1、Primary、Town 或别的 UI 线。
+- 当前验证：
+  - `validate_script` 对 `GameInputManager.cs + PlacementManager.cs`：`owned_errors = 0`
+  - 结论仍为 `unity_validation_pending`，因为 Unity 当前卡 `stale_status`
+
+## 2026-04-09｜placeable preview 空壳补口
+
+- 当前新增结论：
+  - 用户最新反馈把问题继续压窄到：`Hoe` 正常，但 `Seed / Sapling / Chest` 会出现“只有 occlusion、没有 preview 真内容”的 shared failure。
+  - 这说明主根因已经从入口资格层下沉到 `PlacementPreview/PlacementManager` 的可视恢复合同。
+- 已落地修法：
+  - `PlacementPreview`
+    - 补了 `NeedsVisualRebuildFor(...)`
+    - `SetVisualVisibility(true)` 不再只激活根物体，而是优先恢复真正 sprite/grid
+    - occlusion 上报改成“空壳不再继续残留 preview bounds”
+  - `PlacementManager`
+    - `RefreshCurrentPreview()` 现在会在 preview inactive 或 visual 内容不完整时，先 restore，不够再 `Show(currentPlacementItem)` 真重建
+- 当前验证：
+  - `validate_script PlacementPreview.cs`：`0 error / 0 warning`
+  - `validate_script PlacementManager.cs`：`0 error / 2 warning`（既有）
+  - 当前 Unity 全量 no-red 仍被外部 `GameInputManager.cs` 的 `CS0165` 与 `stale_status` 阻塞，不属于本轮 owned red
+- 当前恢复点：
+  - 下一步只该复测 placeable preview 是否恢复，不应再扩到 `Primary/Town/day1`
+
+## 2026-04-09｜放置 runtime 红面止血与恢复点更新
+
+- 用户目标：
+  - 继续只收 `farm` 自己的放置 runtime，不再怀疑 `day1` 禁播种；
+  - 优先修 `Seed / Sapling / Chest` 在 `Hoe` 正常时仍无 preview/无法放置的问题。
+- 本轮实际推进：
+  - 先按 `skills-governor + sunset-workspace-router + sunset-no-red-handoff` 的手工等价流程完成前置核查；
+  - `thread-state` 已跑 `Begin-Slice`，切片为 `placement-runtime-seed-sapling-chest-preview-chain`；
+  - 确认 `PlacementPreview/PlacementManager` 的“空壳自愈”补丁已在磁盘版存在；
+  - 当前新主怀疑继续收窄为：`GameInputManager` 里仍残留 `hotbar-only` 入口，导致背包真选中未完整进入 runtime 放置链。
+- 本轮代码改动：
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - 把 `UpdatePreviews()` 中 `placementSlotIndex / placementSlot / placementItemData` 的读取改成显式 `if/else` 赋值链；
+    - 当前磁盘版 `582~611` 已不再是原来的条件表达式/短路写法。
+- 当前验证：
+  - 磁盘代码已改到位；
+  - 但 fresh 编译结论还未闭环，因为用户中途打断后，CLI `errors` 再读桥接时报 `127.0.0.1:8888 refused connection`；
+  - `NPC_Hand/a570...jpg` 那条 `.meta` 警告经本地核查，当前磁盘上 jpg 与 .meta 都不存在，更像外部残留导入现场，不是这次改动直接产物。
+- 当前阶段：
+  - 处于“红面源代码已止血，但 fresh compile / console 证据未重新拿到”的中间态；
+  - 功能主线尚未完全收口，还没继续补完 `CaptureDialoguePlacementRestoreState / CanRestorePlacementModeAfterDialogue / TryGetRuntimeProtectedHeldSlotIndex` 这些剩余 `hotbar-only` 入口。
+- 恢复点：
+  - 下一步先重新拿 fresh 编译/console，确认 `GameInputManager.cs(588/590/598)` 旧红是否已清；
+  - 然后继续只守 `GameInputManager + HotbarSelectionService + PlacementManager + PlacementPreview` 这条 placement runtime 链，不扩回 `Primary/Town/day1/UI`。
+
+## 2026-04-09｜跨场景 persistent player 与 PlacementManager 重绑补口
+
+- 用户新增 live 事实：
+  - `Town -> Primary` 时放置类预览/放置异常；
+  - 但直接从 `Primary` 启动时放置系统正常；
+  - 这把主根因从 `preview/selection` 下游继续上推到 `persistent player` 跨场景重绑层。
+- 本轮核心判断：
+  - `PersistentPlayerSceneBridge` 跨场景时会重绑 `GameInputManager / PlayerAutoNavigator / HotbarSelectionService`，但原先没有重绑 `PlacementManager`；
+  - `PlacementManager.Start()` 会一次性缓存 `playerTransform` 并 `navigator.Initialize(playerTransform)`；
+  - 因此 `Town -> Primary` 或 `Primary -> Home -> Primary` 时，`PlacementManager` 很容易继续拿旧场景 player/旧导航上下文做距离、预览排序层、导航与放置判定。
+- 本轮已改：
+  - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - 新增 `RebindRuntimeSceneReferences(...)`，统一重绑：
+      - `playerTransform`
+      - `inventoryService`
+      - `hotbarSelection`
+      - `packageTabs`
+      - `mainCamera`
+      - 内部 `PlacementNavigator.Initialize(playerTransform)`
+    - 重绑时会先退订旧事件，再订阅新事件；若当前仍在放置态，会 `RefreshCurrentPreview()`。
+  - `Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+    - 在 `RebindScene(...)` 里新增 `RebindScenePlacementManager(...)`
+    - 每次场景重绑后，显式把当前场景的 `PlacementManager` 重绑到 persistent player/runtime services 上。
+- 对前几轮修改的复盘：
+  - 前几轮有一部分是次级问题修补（preview 自愈、selection 真源、hotbar-only 入口收窄），不是这次跨场景 bug 的第一主根；
+  - 但当前没有证据表明它们把“直开 Primary 本来正确的逻辑”整体改坏；更准确口径是：那些修改没有打到这次最上游断点，所以没收口。
+- 当前验证：
+  - `validate_script PlacementManager.cs PersistentPlayerSceneBridge.cs`
+    - `owned_errors = 0`
+    - `assessment = unity_validation_pending`
+    - 未拿到 live console 仅因 MCP 桥当前拒连：`127.0.0.1:8888 refused`
+  - `git diff --check` 对本轮两文件通过。
+- 当前恢复点：
+  - 下一步先做用户 live 复测：
+    1. `Town -> Primary`
+    2. `Primary -> Home -> Primary`
+    3. 两条都测 `Hoe -> Seed / Sapling / Chest`
+  - 如果跨场景 bug 消失，再回头收第二层尾差：`GameInputManager/HotbarSelectionService` 里剩余的 `hotbar-only` 口径。
+
+## 2026-04-09｜种子预览恢复链统一到同一图源逻辑
+
+- 用户新增现场纠偏：当前问题不是“把 UI 图标误认成 preview”，而是 `farm` 的种子放置预览本体还没有恢复到正确语义；要求回顾历史并确保原本正确的 preview 逻辑没有被后续多轮迭代搞坏。
+- 历史核对结果：
+  - 根层明确保留过这条旧口径：`种子预览应保留方框（和箱子一致），hideCellVisuals 需回滚`；
+  - 当前 `PlacementPreview.Show(item)` 对 `SeedData` 有单独图源逻辑，但 `RestoreVisualStateIfNeeded()` 走的是 `Show(item, gridSize)`，两条链并不统一。
+- 本轮已改：
+  - `Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`
+    - 把 preview 图源选择收敛成统一 helper：`TryApplyPreviewSprite(ItemData item)`；
+    - `Show(item, gridSize)` 与恢复链现在都走同一套图源选择，不再出现“首次显示一套、隐藏后恢复另一套”的分叉；
+    - 保留格子方框创建逻辑不动，继续满足历史口径里“种子预览保留方框”。
+- 当前判断：
+  - 前几轮这里最像的真回归点，不是 preview 整体没有内容，而是 `SeedData` 在“恢复可视状态”时没有复用它自己的 preview 图源规则；
+  - 这会导致种子 preview 在某些中断/隐藏/恢复后退回到错误的通用图源链。
+- 验证：
+  - `validate_script PlacementPreview.cs PlacementManager.cs` => `owned_errors = 0`
+  - `assessment = unity_validation_pending`
+  - MCP bridge 当前仍拒连 `127.0.0.1:8888`，因此 live console 证据待补。
+- 恢复点：
+  - 下一步优先看用户 live：
+    1. 种子 preview 是否回到历史正确样子
+    2. 方框是否仍保留
+    3. 种子/树苗/箱子之间 preview 语义是否重新一致
+
+## 2026-04-11｜只读核查：空置耕地三天消失逻辑目前未落地
+
+- 用户追加核查点：
+  - `耕地上没有任何内容超过三天就会消失；只要种了任何东西就刷新计时；只要有东西就不计时` 是否已经实现。
+- 本轮只读检查文件：
+  - `Assets/YYY_Scripts/Farm/FarmTileData.cs`
+  - `Assets/YYY_Scripts/Farm/FarmTileManager.cs`
+  - `Assets/YYY_Scripts/Farm/CropController.cs`
+- 结论：
+  - 当前代码面**没有看到**空置耕地的 3 天倒计时与自动清除实现。
+- 关键依据：
+  - `FarmTileData` 没有 `daysSinceEmpty / lastOccupiedDay / emptyDays` 之类字段。
+  - `FarmTileManager.OnDayChanged(...)` 只重置浇水和刷新视觉。
+  - `CropController.OnDayChanged(...)` 只处理作物成长/枯萎，不管理空置耕地寿命。
+- 后续如果要做：
+  - 最合理施工面是 `FarmTileData + FarmTileManager.OnDayChanged + 播种/收获链上的计时刷新`，而不是继续改 preview 或剧情链。
+
+## 2026-04-11｜已施工：作物浇水需求恢复 + 空置耕地三天自动消失
+
+- 用户明确批准本轮真实施工，只守两件事：
+  - 所有作物重新需要浇水
+  - 空置耕地按日切累计，满 3 天自动消失
+- 本轮修改：
+  - `Assets/222_Prefabs/Crops/1大蒜.prefab`
+  - `Assets/222_Prefabs/Crops/1生菜.prefab`
+  - `Assets/222_Prefabs/Crops/1花椰菜.prefab`
+  - `Assets/222_Prefabs/Crops/2卷心菜.prefab`
+  - `Assets/222_Prefabs/Crops/2西蓝花.prefab`
+  - `Assets/222_Prefabs/Crops/3甜菜.prefab`
+  - `Assets/222_Prefabs/Crops/3胡萝卜.prefab`
+  - `Assets/YYY_Scripts/Farm/FarmTileData.cs`
+  - `Assets/YYY_Scripts/Farm/FarmTileManager.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+- 结果：
+  - 7 个真正被 `SeedData.cropPrefab` 引用的作物 prefab，`CropController.needsWatering` 已全部改回 `1`
+  - `FarmTileData` 增加空置计时字段，并在 `SetCropData/ClearCropData` 时统一清计时
+  - `FarmTileManager.OnDayChanged(...)` 现在在每日重置浇水状态后，会处理空置耕地：
+    - 有作物则清计时
+    - 无作物则开始/继续计时
+    - 第 3 天到期则加入统一删除集合
+  - 删除逻辑按楼层先收集全集，再统一删，再按“所有删除格子的 1+8 并集”做最终态局部刷新
+  - 连片删除不会被逐格中间态污染
+  - 存档结构新增 `hasEmptySinceRecord / emptySinceTotalDays`
+- 验证：
+  - `manage_script validate`：
+    - `FarmTileManager` => `clean`
+    - `FarmTileData` => `clean`
+  - fresh console：
+    - `errors=0 warnings=0`
+  - `validate_script` 对 farm 脚本当前无 owned/external error，但 Unity editor state 有 `stale_status`，因此 assessment 不是纯 `no_red`
+
+## 2026-04-11｜farm live 复测 + toolbar 全面自查（当前切片：farm-live-validation-and-toolbar-audit）
+
+- 当前主线：
+  - 一边补这轮 `farm` 改动的 live 证据；
+  - 一边彻查 `toolbar` 偶发“全未选中 / 点击无效”是否是 own 逻辑问题。
+- 本轮实际新增改动：
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs`
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+- 本轮确认的代码面事实：
+  - `toolbar` 当前真选中源仍然是 `HotbarSelectionService.selectedIndex`；
+  - `GameInputManager.IsAnyPanelOpen()` 会硬挡 `toolbar` 切换，因此“看起来没选中且点不动”不一定是 toolbar 真源丢失，也可能是包裹/箱子逻辑态残留；
+  - 我们 own 代码里还存在一个真实薄弱点：之前只做了“引用缺失时补引用”，但如果运行时 `HotbarSelectionService / InventoryService` 被重绑成新实例，`ToolbarUI / ToolbarSlotUI` 的事件订阅不会自动跟着切换，表现上就可能变成“全未选中”或只局部刷新。
+- 本轮已修：
+  - `ToolbarUI` 新增 `subscribedSelection + SyncSelectionSubscription()`，现在运行时 selection 服务被替换后会自动退订旧实例、重绑新实例；
+  - `ToolbarSlotUI` 新增 `subscribedInventory / subscribedSelection + SyncRuntimeSubscriptions()`，现在 inventory / selection 服务重绑后，槽位事件会自动跟着切换，不再只补引用不补订阅；
+  - 这刀只做 toolbar 自愈，不改选中语义、不改输入规则、不碰别的系统。
+- 最小代码闸门：
+  - `manage_script validate --name ToolbarUI --path Assets/YYY_Scripts/UI/Toolbar --level standard` => `clean, errors=0, warnings=0`
+  - `manage_script validate --name ToolbarSlotUI --path Assets/YYY_Scripts/UI/Toolbar --level standard` => `warning, errors=0, warnings=1`
+  - 这 1 条 warning 仍是既有的 `Update()` 字符串拼接 GC 提示，不是这轮新红。
+- live 复测结果：
+  - 我通过 `CodexEditorCommandBridge` 两次跑了：
+    - `PLAY`
+    - `Tools/Sunset/Placement/Run Second Blade Live Validation`
+    - `Tools/Sunset/Farm/Run Hover Occlusion Live Validation`
+    - `STOP`
+  - 两次都能成功进入 Play 并成功退回 Edit Mode；
+  - 但两条 runner 都只拿到：
+    - `PlacementSecondBlade runner_started scene=Primary`
+    - `scenario_start=ChestReachEnvelope`
+    - `move_cursor ... moved=True`
+    - `FarmRuntimeLive runner_started scene=Primary`
+  - 仍然没有拿到任何 `scenario_end` / `all_completed=true` 完成票。
+- live 被打断的更强证据：
+  - Editor.log 里在 runner 启动后混入了外部测试链异常与编译：
+    - `UnityEditor.TestRunner` 的 `NullReferenceException / InvalidOperationException: This cannot be used during play mode`
+    - 同时还反复出现外部文件 `Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs` 的一串 `CS0103`
+  - 所以当前 live 没有收口，不该继续包装成“farm 已经 live 全过”；更准确口径是：
+    - `Play / menu 触发链是通的`
+    - `toolbar own 自愈补丁已落地`
+    - `但 live completion ticket 仍被外部测试/编译噪音打断，未闭环`
+- 当前恢复点：
+  - 等 UI 线程回信后，把 `GameInputManager.IsAnyPanelOpen()` 与 `PackagePanelTabsUI / BoxPanelUI` 的关闭态一起对接；
+  - 如果下一轮继续 live，优先先确保没有外部 TestRunner/InteractionHintOverlay 编译噪音，再重跑 `PlacementSecondBlade` 与 `Farm hover`。
+
+## 2026-04-11｜只读读取 UI 协作 prompt_10 后，对 toolbar 空选中/手持链的判断
+
+- 用户要求：
+  - 只读读取 `2026-04-11_UI线程_给farm_toolbar空选中与手持链闭环协作prompt_10.md`，然后说明我对这份 prompt 的判断与下一步理解。
+- 本轮只读，不进入真实施工，未跑 Begin-Slice。
+- 读 prompt 后的核心判断：
+  - 这份 prompt 方向是对的；当前主问题不是 `toolbar` 外观，而是 `toolbar / hand-held / placement` 三层真值没有收平。
+  - 主刀应该在 `GameInputManager + HotbarSelectionService + PersistentPlayerSceneBridge`，UI 线程只适合协助，不适合单独主刀收根因。
+- 结合当前磁盘版代码，我确认的 4 个关键点：
+  1. `HotbarSelectionService.selectedIndex` 当前几乎被当成唯一主真值，但 `selectedInventoryIndex` 也在承担“非 hotbar 的真实手持来源”；两者其实是双轨。
+  2. `HotbarSelectionService.RestoreSelection(...)` 现在会强行 `selectedInventoryIndex = selectedIndex`，这会把背包区真实手持语义直接压回 hotbar 语义，是一个非常可疑的统一口。
+  3. `GameInputManager.ResetPlacementRuntimeState(...)` 现在会清 placement / queue / preview / paused nav，但不会显式把 selection 恢复到一个稳定、可点击、可装备、可继续 placement 的明确状态。
+  4. `PersistentPlayerSceneBridge` 在 fresh start / rebind 时，当前也主要只恢复 `hotbarSelectionSnapshot`，没有把 `selectedInventoryIndex / hand-held / placement session` 作为同一事务恢复。
+- 因此我现在的判断是：
+  - 用户实机看到的“没有任何槽位被选中”，未必真的是 `selectedIndex == -1` 这种字面非法值；
+  - 更像是 `selection 真值 / UI 订阅态 / hand-held / placement runtime` 其中至少一层被清了一半或恢复了一半，最后进入了“视觉像空、点击又被挡、切个模式才活过来”的半死态。
+- 额外补充：
+  - 这轮之前我已经给 `ToolbarUI / ToolbarSlotUI` 补过“运行时引用重绑后的事件自愈”，那能堵住一部分“UI 不跟 selection 更新”的假空态；
+  - 但 prompt_10 点得很准：真正要收的是更深一层的 selection 状态机，而不是只修 toolbar 刷新。
+- 如果下一轮按这份 prompt 真实开工，我认为最先该做的顺序是：
+  1. 先钉死 `HotbarSelectionService` 到底允许不允许“空手/空选中”，合法语义到底是什么；
+  2. 再把 `TryApplyHotbarSelectionChange / SelectIndex / RestoreSelection / ResetPlacementRuntimeState / ForceResetPlacementRuntime / RebindHotbarSelection` 统一成一套恢复口径；
+  3. 最后再让 `ToolbarSlotUI / ToolbarUI` 只做这个真值的纯映射，不再自己承担恢复职责。
+- 当前恢复点：
+  - 我认为这份 prompt 可直接执行，而且 owner 归位是对的；
+  - 下一轮如果正式施工，重点不该再围着 UI 样式转，而该直接进 selection 真值统一和 placement reset/rebind 闭环。
+
+## 2026-04-11｜已施工：toolbar / hand-held / placement selection 真值链收口
+
+- 当前主线：
+  - 彻底修 `toolbar` 偶发“空选中死态”，把 `selection / hand-held / placement` 收成一套稳定恢复语义。
+- 本轮真实施工文件：
+  - `Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs`
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - `Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs`
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+- 本轮最终判断：
+  - 根因不是 `selectedIndex` 真变成了非法空值；
+  - 真正的问题是：`selection 真值 / toolbar 显示 / hand-held / placement reset/rebind` 没有统一恢复口径，导致某些入口后出现“真值还在，但 UI 不亮、点击同槽又不重发、placement/hand-held 跟 UI 不完全同源”的半死态。
+- 本轮已做的关键收口：
+  1. `HotbarSelectionService`
+     - 新增 `RestoreSelectionState(hotbarIndex, inventoryIndex, invokeEvent)`
+     - 新增 `ReassertCurrentSelection(collapseInventorySelectionToHotbar, invokeEvent)`
+     - 让“恢复完整 selection 状态”和“强制重申当前选中态”从以前的隐式副作用，变成显式统一入口。
+  2. `GameInputManager`
+     - `ResetPlacementRuntimeState(...)` 现在在清 placement/preview/queue 之后，统一 `ReassertCurrentSelection(collapse=true)`
+     - 面板从开到关的恢复分支，也统一 `ReassertCurrentSelection(collapse=true)`
+     - `TryApplyHotbarSelectionChange(...)` 遇到“再次选择当前 hotbar 槽位”时，不再静默 no-op，而是显式重申当前选中态并强制广播
+  3. `PersistentPlayerSceneBridge`
+     - 切场 / rebind 恢复时，不再把运行态带回“双轨半恢复”；
+     - 现在 rebind 后直接把 selection 恢复成单一 hotbar 稳态：`RestoreSelectionState(hotbar, hotbar)`
+  4. `ToolbarUI / ToolbarSlotUI`
+     - 保留上一刀的运行时引用重绑自愈，避免服务实例切换后 UI 订阅丢失。
+- 这刀真正改变的语义：
+  - 只要用户明确通过 `toolbar / 数字键 / 滚轮 / runtime reset / panel close / scene rebind` 回到运行态，`selectedInventoryIndex` 就不再偷偷保留成另一条世界态真值；
+  - 运行态统一回压到 hotbar 稳态，避免 `toolbar / hand-held / placement` 再继续三轨分裂。
+- 我认为这刀最值钱的修复点：
+  - 以前“同槽再点”在 `selectedIndex` 没变时很容易拿不到一次重新广播；
+  - 现在同槽重选也会强制重申当前状态，这能直接堵住一类“真值没丢，但 UI 失光后死活回不来”的坏现场。
+- 最小代码闸门：
+  - `manage_script validate HotbarSelectionService` => `clean`
+  - `manage_script validate GameInputManager` => `warning(2)`，均为既有风格级 warning
+  - `manage_script validate PersistentPlayerSceneBridge` => `warning(2)`，均为既有风格级 warning
+  - fresh `errors` => `errors=0 warnings=0`
+- 当前恢复点：
+  - 这刀代码面已经收口完成，接下来最关键的是用户 live 终验：
+    1. toolbar 是否还会进入“全未选中 + 点击失效”
+    2. 同槽再点是否能立即恢复
+    3. 放置模式切换 / 面板关闭 / 切场后，toolbar 与手持是否终于不再脱钩
+
+## 2026-04-11｜toolbar 空选中死态二次收口：补上箱子关闭后的 ghost panel 自愈
+
+- 当前主线：
+  - 继续只守 `toolbar / hand-held / placement` 真值链，不扩题。
+- 本轮新增定证：
+  - `selectedIndex` 本身并不是这次死态的主根；
+  - 当前更像是 `BoxPanelUI.Close()` 与 `PackagePanelTabsUI.panelRoot` 脱钩，导致视觉上箱子/背包已经关了，但逻辑上 `panelRoot.activeSelf` 还留在 `true`；
+  - `GameInputManager.IsAnyPanelOpen()` 又把这个残留面板当真，因此 toolbar 点击、placement 输入都会被硬挡住。
+- 本轮实际改动：
+  - `Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs`
+    - `IsPanelOpen()` 现在会识别 `panelRoot=true + 背包不可见 + BoxUI不可见` 的 ghost open state，并立即自愈关闭；
+    - `CloseBoxUI()` 新增 `_activeBoxUI == null` 时的补救分支，避免箱子子物体已没了但父面板还挂着。
+  - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `IsAnyPanelOpen()` 统一通过 `EnsurePackageTabs()` 读最新 PackagePanel 状态；
+    - `CloseBoxPanelIfOpen()` 改为优先走 `tabs.CloseBoxUI(false)`，不再默认直打 `BoxPanelUI.Close()` 留脏现场。
+- 代码层验证：
+  - `validate_script PackagePanelTabsUI.cs` => `assessment=unity_validation_pending, owned_errors=0`
+  - `validate_script GameInputManager.cs` => `assessment=external_red, owned_errors=0`
+  - fresh `errors` 当前仍有 `4` 条 external `Missing Script (Unknown)`，不是本轮 own red。
+- 当前恢复点：
+  - 这条线现在最需要用户 live 复测两件事：
+    1. toolbar 是否还会出现“全未选中 + 点击失效”
+    2. 箱子用 `E/ESC` 关闭后，是否还会残留一层背包背景并把输入卡死
+
+## 2026-04-12｜只读评估：箱子/背包双击跨容器快移可做，但必须走独立语义
+
+- 用户新增问题：
+  - 打开箱子时，双击箱子格子直接放到背包；双击背包格子直接放到箱子；规则是“遍历目标容器，找到第一个空格放进去，满了就不放”。
+- 本轮只读，不进真实施工。
+- 当前代码事实：
+  - `InventorySlotInteraction.OnPointerDown(...)` 已经是背包/箱子槽位点击真源，当前单击、Shift/Ctrl 拿取、Held 放置、拖拽都从这里分流。
+  - 现有 `InventoryService.AddItem(...)` / `ChestInventory.AddItem(...)` 都会先叠堆，再找空位；其中背包还会优先 Hotbar。
+  - 因此如果用户要的是“严格第一个空格，不叠堆”，不能偷用现有 `AddItem()`，必须单独做快移逻辑。
+- 当前判断：
+  - 这功能能安全接入当前交互，但应该限制在：
+    1. 仅箱子页面打开时
+    2. 仅左键双击
+    3. 当前没有 `InventoryInteractionManager.IsHolding`
+    4. 当前没有 `SlotDragContext.IsDragging`
+    5. 当前没按 Shift/Ctrl
+    6. 源槽非空
+  - 更合适的接入点是 `InventorySlotInteraction`，而不是 `InventorySlotUI` 或 `BoxPanelUI`；因为这里只有它同时知道源槽、源容器、修饰键、Held/Drag 状态和跨容器 drop 规则。
+- 风险与影响：
+  - 最大风险不是数据安全，而是交互语义冲突：单击选中、双击快移、Shift/Ctrl 拿取、长按拖拽之间的时序要分得很清楚。
+  - 如果实现粗糙，最容易出现：第一次单击先触发选中，第二击又触发快移，导致视觉与内容突变；或和拖拽起手阈值打架。
+  - 但只要把双击判定放在 `无 Held / 无 Drag / 无修饰键 / 箱子页打开` 这条窄入口里，它不会伤到放置系统、toolbar、Primary、剧情链。
+- 建议口径：
+  - 这是可以做、且值得做的一刀；
+  - 但必须明确：是“整格整堆搬运到目标容器第一个空槽”，不是自动叠堆，也不是智能整理。
+
+## 2026-04-12｜双击跨容器快移：先打安全回退点，再落一刀功能提交
+
+- 当前主线：
+  - 背包/箱子交互继续收口，这轮只做一条新需求：箱子页双击格子跨容器快移。
+- 本轮先做的安全动作：
+  - 已先把当前交互版本收成本地回退提交：`f2c23e25`
+  - commit message: `checkpoint: inventory interaction baseline before double-click transfer`
+- 本轮新增功能提交：
+  - `a44d2987`
+  - commit message: `feat: add double-click transfer between chest and inventory`
+- 本轮真实改动文件：
+  - `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`
+- 落地语义：
+  - 仅在箱子页面打开时生效
+  - 仅左键双击生效
+  - 当前没有 `InventoryInteractionManager.IsHolding`
+  - 当前没有 `SlotDragContext.IsDragging`
+  - 当前没有按 Shift/Ctrl
+  - 箱子格子双击：整格内容移动到背包第一个空槽
+  - 背包格子双击：整格内容移动到当前箱子第一个空槽
+  - 不叠堆
+  - 目标满了就不移动，并给源槽位 reject shake
+- 当前实现方式：
+  - 在 `InventorySlotInteraction` 新增 `IPointerClickHandler`
+  - 用 `eventData.clickCount >= 2` 走独立的双击快移分支
+  - 目标容器通过当前 `BoxPanelUI.CurrentChest.RuntimeInventory / InventoryService` 解析
+  - 目标槽位只找第一个 `IsEmpty` 槽
+  - 实际写槽继续复用现有 `SetContainerSlotPreservingRuntime(...)`，避免吞 runtime item
+- 验证：
+  - `validate_script Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - 当前 Unity/MCP 基线没有 active instance，没拿到 live 票，但代码层无 own red
+- 当前恢复点：
+  - 线程已 `PARKED`
+  - 现在只差用户 live 验双击手感与语义是否过线
+
+## 2026-04-12｜交互线程 own 提交补票
+
+- 当前目标：
+  - 先把农田交互修复 V3 线程自己负责且仍未提交的交互相关代码收成可回退 checkpoint，再补 memory 收口。
+- 本轮完成：
+  - 提交 `Assets/YYY_Scripts/World/Placeable/ChestController.cs` 与 `Assets/YYY_Scripts/Data/Core/PlayerInventoryData.cs`
+  - commit: `ecdca19f`
+  - message: `feat: checkpoint chest interaction runtime updates`
+- 本轮判断：
+  - 当前 shared root 里有大量其他线程 dirty / untracked，不适合做全局 sync
+  - 本线程这轮正确策略是只收 own 路径、显式提交、不给别人吞现场
+- 验证：
+  - `git diff --check` 针对上述 2 文件通过
+  - `validate_script` 返回 `owned_errors=0`
+  - Unity 侧仍是 `unity_validation_pending`，原因是本轮缺 active Unity instance，不是本线程 own red
+- 下一步：
+  - 继续提交当前线程 memory，并整理一份用户可直接审的交互规范矩阵
