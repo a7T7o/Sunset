@@ -51,13 +51,31 @@
   - `Assets/Screenshots` = `58`
   - `Assets/Sprites` = `54`
   - `.kiro/xmind-pipeline` 仅剩 `36` 条源码/输出/测试文件，不再是第一大头。
+- 2026-04-12 已继续把 `.kiro/specs + .codex/threads` 这层 parked 文档海分三刀安全压平：
+  - `e9026d7e` `2026.04.12_Codex规则落地_04`：白名单提交 `NPC / 存档系统 / 屎山修复 / 项目文档总览 / Codex规则落地` 及对应 parked 线程记忆，共 `83` 条 docs-only 项；
+  - `7efc47de` `2026.04.12_Codex规则落地_05`：白名单提交 `900_开篇` 与 `spring-day1 / spring-day1V2` parked 线程记忆，共 `43` 条 docs-only 项；
+  - `5665560d` `2026.04.12_Codex规则落地_06`：白名单提交剩余 parked docs 尾巴（`000_Gemini / Z_光影系统 / 云朵遮挡系统 / 农田系统 / 箱子系统` 及多条 parked 线程记忆），共 `20` 条 docs-only 项。
+- 上述三刀之后，shared-root 总量已从 `792` 继续降到 `644`；当前 `.kiro + .codex/threads` 基本只剩：
+  - `UI系统` 与 `.codex/threads/Sunset/UI` 这条活跃线；
+  - 两个未进入当前 `thread-state` 池的孤立线程记忆根；
+  - 真正的剩余大头已明确回到 `Assets`，而不是治理 docs 海。
+- 当前 `Assets` 只读分层的新头部已经钉死：
+  - `Assets/100_Anim/FarmAnimals` = `85`
+  - `Assets/Editor` = `78`
+  - `Assets/Sprites` = `58`
+  - `Assets/Screenshots` = `58`
+  - `Assets/YYY_Tests/Editor` = `54`
+  - 这些根里目前没有像 `node_modules` 那样显而易见、可直接闭眼清掉的零功能风险大头；继续推进前必须先做“证据副产物 / 草图 / 真实功能资产 / 活跃线程输出”四分层，而不能盲删或盲提交通用大包。
 
 ## 当前恢复点
 - 继续做 memory 治理、治理入口收口或规范修订时，优先进入：
   - [26_memory主卷退场与活跃卷重建](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/26_memory主卷退场与活跃卷重建/memory.md)
 - 如果只是查旧治理事实、批次分发、典狱长裁定或历史事故过程，直接查 `memory_0..7.md` 与对应阶段目录。
 - 如果后续继续 shared-root 清账，优先沿“先拿最大同根大头做独立 checkpoint”推进；`Assets/000_Scenes` 这一根已经单独收口，不要再把 scene 与 docs/memory 混成通用大包。
-- 当前下一刀若继续以“让 Codex/VS Code 不再爆卡”为优先目标，应先处理 `.kiro/specs` 这一批 `108` 个未跟踪正文，再决定是否要碰 `Assets/Screenshots / Assets/Sprites / Assets/Editor`。
+- 当前下一刀若继续以“让 Codex/VS Code 不再爆卡”为优先目标，主战场已经从 `.kiro/specs` 转成 `Assets`；正确顺序应是：
+  1. 先只读细分 `Assets/Screenshots / Assets/Sprites/Temp000 / Assets/Sprites/Generated / Assets/100_Anim/FarmAnimals / Assets/Editor / Assets/YYY_Tests/Editor`
+  2. 明确哪些是证据副产物、哪些是草图、哪些是 parked 线程的真实成果、哪些仍受 active 线程影响
+  3. 只对白名单安全根继续做最小 checkpoint 或忽略策略
 
 ## 本卷纪律
 - 根卷只保留：

@@ -188,3 +188,40 @@
   - 这轮最值钱的不是“又提了一个 commit”，而是把真正把 Codex 撑爆的第一噪音源先干掉了；这证明接下来的 shared-root 降噪应该继续优先从 untracked 大根动手，而不是再盯 scene。
 - 当前恢复点：
   - 如果继续清账，下一刀先审 `.kiro/specs` 这 `108` 条未跟踪正文；只有在确认它们可归类后，才考虑继续碰 `Assets/Screenshots / Assets/Sprites / Assets/Editor`。
+
+## 2026-04-12｜续记：parked-doc-roots 连续三刀收口结果
+
+- 用户目标：
+  - 继续把 shared-root 爆量往下收，但必须保持“最安全方式”，不要误吞 active 线程现场。
+- 当前主线：
+  - 这是 `Codex规则落地` 的 docs-only 治理真实施工；目标是把已经 `PARKED` 的工作区正文与线程记忆海继续压平，把剩余爆量重新收窄到真正的 `Assets` 业务面。
+- 这轮实际做成了什么：
+  1. 先按 `core.quotepath=false` 重新精确分层，确认 `.kiro/specs` 的最大头是 `900_开篇(40)`、`NPC(26)`、`存档系统(14)`、`屎山修复(12)`、`UI系统(10)`、`Codex规则落地(9)`、`项目文档总览(9)`。
+  2. 结合 `Show-Active-Ownership.ps1`，把 `spring-day1 / UI` 活跃线排除在外，只对白名单 parked 根继续收口。
+  3. 第一刀提交 `e9026d7e` `2026.04.12_Codex规则落地_04`：
+     - 白名单包含 `NPC / 存档系统 / 屎山修复 / 项目文档总览 / Codex规则落地`
+     - 同时带上对应 parked 线程记忆
+     - 实际收掉 `83` 条 docs-only 项，提交后这些根已 clean。
+  4. 第二刀提交 `7efc47de` `2026.04.12_Codex规则落地_05`：
+     - 白名单包含 `900_开篇` 与 `spring-day1 / spring-day1V2` parked 线程记忆
+     - 实际收掉 `43` 条 docs-only 项，提交后该根已 clean。
+  5. 第三刀提交 `5665560d` `2026.04.12_Codex规则落地_06`：
+     - 白名单包含 `000_Gemini / Z_光影系统 / 云朵遮挡系统 / 农田系统 / 箱子系统`
+     - 同时带上多条 parked 线程记忆尾巴
+     - 中途只补了一个最小止血：去掉 `农田系统` 记忆里两处行尾空格，让 `git diff --check` 重新通过
+     - 实际收掉 `20` 条 docs-only 项。
+  6. 三刀收完后重新盘点真实总量：
+     - `git status --porcelain=v1 -uall` 已从 `792` 继续降到 `644`
+     - 当前 `Assets = 583`
+     - 当前 `.kiro = 46`
+     - 当前 `.codex = 5`
+     - 说明 docs 海已经基本压平，剩余主战场已回到 `Assets`。
+- 关键判断：
+  - 现在再继续“为了收而收”去碰 `.kiro/.codex` 已经不值钱，因为剩余那点 docs 基本都挂在 `UI` 活跃线；真正的大头已经是 `Assets/100_Anim/FarmAnimals / Assets/Editor / Assets/Sprites / Assets/Screenshots / Assets/YYY_Tests` 这些真实业务或证据资产。
+- 当前恢复点：
+  - 如果继续 shared-root 清账，下一步不要再盯 docs；应改成对 `Assets` 做只读四分层：
+    1. `证据副产物`
+    2. `草图/临时图`
+    3. `真实功能资产`
+    4. `active 线程输出`
+  - 只有分清这四类后，才适合决定下一刀是继续做 safe checkpoint、局部忽略，还是必须停给用户拍板。
