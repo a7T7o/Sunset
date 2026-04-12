@@ -206,6 +206,48 @@
   - 代码层无 own red
   - 等用户继续看 runtime 观感
 
+## 2026-04-11 UI 续记｜V0.5 checkpoint 已提交，PromptOverlay owner 回 day1，包裹页开始重构
+- 当前主线判断：
+  - `PromptOverlay / 任务清单` authoritative owner 已回 `spring-day1`
+  - UI 线程这轮不再继续碰 [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs) 做治理补丁
+- 已提交本地 V0.5 checkpoint：
+  - commit: `6ff90a48`
+  - message: `checkpoint(ui): V0.5 HUD and overlay fixes`
+  - 这次只提交了 UI own 的 HUD / overlay 收口：
+    - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - [SpringDay1StatusOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1StatusOverlay.cs)
+    - [HealthSystem.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/HealthSystem.cs)
+    - [EnergySystem.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/EnergySystem.cs)
+- thread-state 事实：
+  - `Ready-To-Sync` 仍被 UI 历史 own roots 大量残留阻断，所以这次不是按 sync 收口
+  - 用户要求先交 `V0.5`，因此本轮改用最小白名单本地 commit 留 checkpoint，不吞旧尾账
+- 包裹页新施工切片：
+  - 新 slice：`Package关系页与地图页V0.5体验重构_2026-04-11`
+  - 目标只收：
+    - [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs)
+    - [PackageMapOverviewPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageMapOverviewPanel.cs)
+    - [PackagePanelRuntimeUiKit.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelRuntimeUiKit.cs)
+    - [PackagePanelLayoutGuardsTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/PackagePanelLayoutGuardsTests.cs)
+- 这轮已落地的玩家面优化：
+  - `关系页`
+    - 加入当前阶段 chip
+    - 名册按 `presence + stage + 当前阶段相关性` 排序
+    - 默认选中不再用“第一个不是陌生的人”，改成当前阶段最相关的人，避免 `卡尔` 被莫名其妙推成默认主角
+    - 左侧卡片改成 `出场方式 + 关系阶段` 双 chip，并把预览改成当前 beat 的真实印象
+  - `地图页`
+    - 地图区从“空底板 + 几条线 + 批注感标签”改成分区块 + 路线节点 + active halo 的正式面方向
+    - 移除底部 legend 栏，减少开发示意板味道
+    - 当前重点点位增加 halo，主次更直观
+- 代码层验证：
+  - `validate_script PackageNpcRelationshipPanel.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `validate_script PackageMapOverviewPanel.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `validate_script PackagePanelRuntimeUiKit.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `validate_script PackagePanelLayoutGuardsTests.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `errors --count 20` => `errors=0 warnings=0`
+- 当前恢复点：
+  - 等用户 live 看包裹里的 `人物关系页 / 地图页`
+  - `任务清单` 问题继续由 `day1` 主刀，不再由 UI 线程兜底乱补
+
 ## 2026-04-11 UI 续记｜状态提示卡二次微调
 - 又按最新截图再收了 3 个纯关系值：
   - 左侧竖条更短
@@ -213,3 +255,113 @@
   - 说明行再往上贴，缩小上下两行间距
 - 仍只动：
   - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+
+## 2026-04-12 UI 新刀｜右侧上下文操作提示面板首版落地
+- 当前主线：
+  - 给玩家面补一张屏幕右侧靠边中部的轻量操作提示卡，只先收 `玩法态 / 背包态` 两组，不动左下角交互提示。
+- 本轮完成：
+  - 在 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs) 内新增右侧 `ContextHintCard` runtime scaffold。
+  - 上下文分流先直接吃真值：
+    - `PackagePanelTabsUI.IsPanelOpen()` => 背包态
+    - `DialogueManager / BoxPanelUI / SpringDay1WorkbenchCraftingOverlay` => 阻断态隐藏
+    - 其他正常玩家游玩态 => 玩法态
+  - 每组提示可用 `Backspace` 单独关闭：
+    - 玩法态关闭只影响玩法态
+    - 背包态关闭只影响背包态
+    - 左下角交互提示完全不受影响
+  - 首版文案矩阵：
+    - `玩法态`：`右键 / 左键 / E / Tab / V / 1-5`
+    - `背包态`：`左键 / Shift+左键 / Ctrl+左键 / B/M/L/O / Tab / Esc`
+- 当前判断：
+  - 这轮已站住 `结构 / checkpoint`
+  - 还没有玩家侧 live 画面，不能 claim 体验过线
+- 代码层验证：
+  - `validate_script InteractionHintOverlay.cs` => `assessment=unity_validation_pending`, `owned_errors=0`, `external_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs` => clean
+- 仍待：
+  - 玩家侧看右侧卡实际大小、位置、遮挡关系、文案体感
+
+## 2026-04-12 UI 窄刀｜toolbar 槽位绑定顺序修正
+- 当前主线判断：
+  - 这轮仍是 UI own 的窄刀，不回漂 `PromptOverlay`、`farm` 输入链或别的 HUD 泛修。
+- 根因结论：
+  - `toolbar 第五格不显示` 的第一真实根因是 `ToolbarUI.Build()` 把 hotbar 索引绑定在了错误的 hierarchy 顺序上。
+  - `ToolBar.prefab` 与 `Home / Primary / Town` 里的 `Bar_00_TG` 子物体顺序都不是视觉顺序，所以“只拿 5 个物体时第五格不显示”本质是视觉槽位和 inventory index 错位。
+- 本轮完成：
+  - [ToolbarUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs)
+    - 改成按 `Bar_00_TG` 名字里的 clone 后缀排序后再绑定索引。
+    - 非 hotbar 槽位子物体会自动排到后面，不再可能抢占 `0` 号槽位。
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 玩法态右侧提示补上 `Shift 加速移动`
+    - `1-5` 提示扩成 `1-5 / 滚轮 切换手持`
+- 代码层验证：
+  - `validate_script ToolbarUI.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `validate_script InteractionHintOverlay.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs` => clean
+- 当前恢复点：
+  - 等用户 live 看 `toolbar` 第五格与右侧玩法态提示
+  - 这轮只站住 `结构 / targeted probe`，不是体验终验
+
+## 2026-04-12 UI 精修｜ContextHintCard 结构重排
+- 当前主线判断：
+  - 用户新回传的截图已经把问题说透：右侧提示卡当前最大缺陷是“像测试说明板”，不是“某个字没对齐”。
+- 本轮完成：
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 卡片整体收窄
+    - accent 改成短条，不再贯穿整块
+    - 键帽全部收进壳体内，变成稳定左列
+    - 右侧说明列统一起点，不再断裂
+    - 标题/说明/列表/页脚层次重新压平
+    - 文案从“系统说明”减成更像正式玩家面的提示语
+- 代码层验证：
+  - `validate_script InteractionHintOverlay.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs` => clean
+- 当前恢复点：
+  - 等用户看新 live 图
+  - 这轮依旧不 claim 体验过线
+
+## 2026-04-12 UI 精修｜ContextHintCard 第二刀减法
+- 当前主线判断：
+  - 右侧提示卡已经脱离“明显坏相”，这轮继续只做减法和精致度，不碰功能逻辑。
+- 本轮完成：
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 再次收窄卡片
+    - 表头更紧凑
+    - 列表文案更短
+    - 键帽更小、更收敛
+    - 页脚缩成 `退格关闭` 并改成右对齐
+- 代码层验证：
+  - `validate_script InteractionHintOverlay.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs` => clean
+- 当前恢复点：
+  - 等用户继续看 live 图
+  - 这轮仍只站住 `targeted probe`
+
+## 2026-04-12 UI 续记｜右卡边界透明与右上角隐藏治理确认
+- 当前主线判断：
+  - 这轮不是继续泛修 UI，而是把 `ContextHintCard` 的右边界透明方案与 `TimeManagerDebugger` 的正式剧情退场条件压实。
+- 关键治理结论：
+  - 右侧提示卡不能走“整根 overlay 一起 fade”的路子。
+  - 因为 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs) 根下同时承载：
+    - 左下角交互提示
+    - 放置模式状态提示
+    - 右侧上下文提示卡
+  - 整根 fade 会误伤左下角和状态卡，所以安全做法必须是：只对 `contextCard` 自己合成边界 alpha。
+- 当前代码状态已确认：
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - `SetContextCardAlpha()` 改成只写 `_contextRequestedAlpha`
+    - `ApplyContextCardAlpha()` 用 `_contextRequestedAlpha * _contextBoundaryAlpha`
+    - `UpdateContextBoundaryFade()` / `ResolveContextBoundaryTargetAlpha()` 只作用右卡
+    - 边界阈值与 [PersistentPlayerSceneBridge.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs) 保持同语义
+    - `Package` 页时保持 fully visible；`Dialogue / Box / Workbench` 时直接隐藏
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - 新增 `ShouldHideTopRightHud()`
+    - `Dialogue active` 或 `SpringDay1Director.ShouldForceHideTaskListForCurrentStory()` 时不再绘制右上角时钟 / 调试帮助
+- 代码层验证：
+  - `validate_script InteractionHintOverlay.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `validate_script TimeManagerDebugger.cs` => `assessment=unity_validation_pending`, `owned_errors=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs Assets/YYY_Scripts/TimeManagerDebugger.cs` => clean
+  - blocker 仍是本机没有 active Unity instance，不是本轮 own red
+- 当前恢复点：
+  - 下轮优先等用户 live 验右边界淡出体感与正式剧情退场效果
+  - 这条线当前已站住 `结构 / targeted probe`，但尚未到 `真实入口体验`
