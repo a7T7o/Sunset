@@ -45,6 +45,9 @@ namespace FarmGame.Data.Core
         
         /// <summary>农田数据</summary>
         public List<FarmTileSaveData> farmTiles;
+
+        /// <summary>云影运行态数据（按 scene + manager 分组）</summary>
+        public List<CloudShadowSceneSaveData> cloudShadowScenes;
         
         public GameSaveData()
         {
@@ -52,7 +55,59 @@ namespace FarmGame.Data.Core
             lastSaveTime = createdTime;
             worldObjects = new List<WorldObjectSaveData>();
             farmTiles = new List<FarmTileSaveData>();
+            cloudShadowScenes = new List<CloudShadowSceneSaveData>();
         }
+    }
+
+    [Serializable]
+    public class SaveSlotSummary
+    {
+        public string slotName;
+        public string displayName;
+        public bool exists;
+        public bool isDefaultSlot;
+        public string createdTime;
+        public string lastSaveTime;
+        public string sceneName;
+        public int day = 1;
+        public int season = 0;
+        public int year = 1;
+        public int hour = 6;
+        public int minute = 0;
+        public string storyPhaseLabel = "开局";
+        public bool isLanguageDecoded;
+        public int filledInventorySlots;
+        public int healthCurrent = -1;
+        public int healthMax = -1;
+        public int energyCurrent = -1;
+        public int energyMax = -1;
+        public string loadError;
+    }
+
+    [Serializable]
+    public class CloudShadowSceneSaveData
+    {
+        public string sceneKey;
+        public string managerPath;
+        public int seed;
+        public int cloudIdCounter;
+        public float lastSpawnTime;
+        public float lastSpawnFailureLogTime;
+        public int consecutiveSpawnFailures;
+        public List<CloudShadowEntrySaveData> clouds = new List<CloudShadowEntrySaveData>();
+    }
+
+    [Serializable]
+    public class CloudShadowEntrySaveData
+    {
+        public float positionX;
+        public float positionY;
+        public float positionZ;
+        public int spriteIndex;
+        public float scale;
+        public int id;
+        public float lifetime;
+        public float stuckTime;
     }
     
     #endregion
@@ -444,6 +499,12 @@ namespace FarmGame.Data.Core
         
         /// <summary>水渍变体索引（0-2）</summary>
         public int puddleVariant;
+
+        /// <summary>是否已开始记录空置耕地计时</summary>
+        public bool hasEmptySinceRecord;
+
+        /// <summary>从哪一天开始空置（按 totalDays 记录）</summary>
+        public int emptySinceTotalDays;
         
         // ===== 废弃字段（保留用于兼容旧存档）=====
         

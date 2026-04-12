@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using Sunset.Story;
@@ -24,9 +25,13 @@ namespace FarmGame.Data.Core
     public class SaveManager : MonoBehaviour
     {
         private const string NativeFreshSceneName = "Town";
-        private const string FreshStartBaselineSlotName = "__fresh_start_baseline__";
+        private const string LegacyFreshStartBaselineSlotName = "__fresh_start_baseline__";
         private const string DefaultProgressSlotName = "__default_progress__";
         private const string OrdinarySlotPrefix = "slot";
+        private const string DefaultProgressDisplayName = "默认开局";
+        private const string NativeFreshEntryLabel = "原生开局";
+        private const string StoryProgressPersistenceServiceTypeName = "Sunset.Story.StoryProgressPersistenceService";
+        private const string SaveActionToastOverlayTypeName = "SaveActionToastOverlay";
 
         #region 单例
         
@@ -88,16 +93,11 @@ namespace FarmGame.Data.Core
         /// </summary>
         public GameSaveData CurrentSaveData { get; private set; }
 
-        public bool HasFreshStartBaseline => File.Exists(GetSaveFilePath(FreshStartBaselineSlotName));
         public bool HasDefaultProgressSlot => true;
         public string DefaultSaveSlotName => DefaultProgressSlotName;
 
         public event Action SaveSlotsChanged;
 
-        private bool _freshStartBaselinePrepared;
-        private bool _freshStartBaselineCaptureScheduled;
-        private Coroutine _freshStartBaselineCaptureCoroutine;
-        private bool _startupDefaultProgressHandled;
         private bool _nativeFreshRestartInProgress;
         private bool _sceneSwitchLoadInProgress;
         private bool _legacyMigrationAttempted;
@@ -110,10 +110,7 @@ namespace FarmGame.Data.Core
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void BootstrapRuntime()
         {
-            if (Instance != null)
-            {
-                Instance.ScheduleFreshStartBaselineCapture();
-            }
+            _ = Instance;
         }
 
         private void Awake()
@@ -147,8 +144,6 @@ namespace FarmGame.Data.Core
                 // 迁移/初始化改为普通槽位或读档路径按需触发。
             }
 
-            ScheduleFreshStartBaselineCapture();
-
             if (showDebugInfo)
                 Debug.Log($"[SaveManager] 初始化完成，存档路径: {SaveFolderPath}");
         }
@@ -168,11 +163,6 @@ namespace FarmGame.Data.Core
             {
                 ExecuteQuickLoadHotkey();
             }
-        }
-
-        private void OnApplicationQuit()
-        {
-            TryPersistDefaultProgressOnQuit();
         }
 
         private void OnDestroy()
@@ -207,14 +197,14 @@ namespace FarmGame.Data.Core
         /// </summary>
         /// <param name="slotName">存档槽名称</param>
         /// <returns>是否成功</returns>
-        public bool LoadGame(string slotName)
+        public bool LoadGame(string slotName, Action<bool> onCompleted = null)
         {
             if (IsDefaultSlot(slotName))
             {
-                return QuickLoadDefaultSlot();
+                return QuickLoadDefaultSlot(onCompleted);
             }
 
-            return LoadGameInternal(slotName, refreshUi: true, raiseSlotChangedEvent: true);
+            return LoadGameInternal(slotName, refreshUi: true, raiseSlotChangedEvent: true, onCompleted);
         }
 
         /// <summary>
@@ -326,7 +316,7 @@ namespace FarmGame.Data.Core
         {
             if (IsDefaultSlot(slotName))
             {
-                return "默认存档";
+                return DefaultProgressDisplayName;
             }
 
             if (!string.IsNullOrWhiteSpace(slotName)
@@ -343,8 +333,8 @@ namespace FarmGame.Data.Core
 
         public bool CanExecutePlayerSaveAction(out string blockerReason)
         {
-            StoryProgressPersistenceService.EnsureRuntime();
-            return StoryProgressPersistenceService.CanSaveNow(out blockerReason);
+            EnsureStoryProgressPersistenceRuntime();
+            return CanSaveStoryProgressNow(out blockerReason);
         }
 
         public bool CreateNewOrdinarySlotFromCurrentProgress(out string slotName)
@@ -385,7 +375,7 @@ namespace FarmGame.Data.Core
             }
 
             if (string.IsNullOrWhiteSpace(targetSlotName)
-                || string.Equals(targetSlotName, FreshStartBaselineSlotName, StringComparison.Ordinal)
+                || string.Equals(targetSlotName, LegacyFreshStartBaselineSlotName, StringComparison.Ordinal)
                 || string.Equals(targetSlotName, DefaultProgressSlotName, StringComparison.Ordinal))
             {
                 error = "目标槽位无效";
@@ -432,34 +422,19 @@ namespace FarmGame.Data.Core
             return false;
         }
 
-        public bool QuickLoadDefaultSlot()
+        public bool QuickLoadDefaultSlot(Action<bool> onCompleted = null)
         {
-            return BeginNativeFreshRestart();
+            return BeginNativeFreshRestart(onCompleted);
         }
 
-        public bool RestartToFreshGame()
+        public bool RestartToFreshGame(Action<bool> onCompleted = null)
         {
-            return BeginNativeFreshRestart();
+            return BeginNativeFreshRestart(onCompleted);
         }
 
         public bool TryGetDefaultSlotSummary(out SaveSlotSummary summary)
         {
-            summary = CreateEmptySlotSummary(DefaultProgressSlotName);
-            summary.exists = true;
-            summary.isDefaultSlot = true;
-            summary.displayName = GetSlotDisplayName(DefaultProgressSlotName);
-            summary.sceneName = NativeFreshSceneName;
-            summary.storyPhaseLabel = FormatStoryPhaseLabel((int)StoryPhase.EnterVillage);
-
-            if (HasFreshStartBaseline && TryReadSaveData(FreshStartBaselineSlotName, out GameSaveData baselineData))
-            {
-                SaveSlotSummary baselineSummary = BuildSlotSummary(DefaultProgressSlotName, baselineData);
-                baselineSummary.slotName = DefaultProgressSlotName;
-                baselineSummary.displayName = GetSlotDisplayName(DefaultProgressSlotName);
-                baselineSummary.isDefaultSlot = true;
-                summary = baselineSummary;
-            }
-
+            summary = CreateNativeFreshDefaultSummary();
             return true;
         }
 
@@ -508,19 +483,23 @@ namespace FarmGame.Data.Core
                 return false;
             }
 
-            if (!string.Equals(slotName, FreshStartBaselineSlotName, StringComparison.Ordinal))
+            if (IsReservedSlot(slotName))
             {
-                EnsureLegacySaveMigrationAttempted();
-            }
+                if (IsDefaultSlot(slotName))
+                {
+                    Debug.LogWarning("[SaveManager] 默认存档当前固定为原生开局入口，本轮不再允许覆盖。");
+                }
+                else
+                {
+                    Debug.LogWarning("[SaveManager] 旧版默认基线槽已退役，不再允许写入。");
+                }
 
-            if (string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal))
-            {
-                Debug.LogWarning("[SaveManager] 默认存档当前固定为原生开局入口，本轮不再允许覆盖。");
                 return false;
             }
 
-            StoryProgressPersistenceService.EnsureRuntime();
-            if (enforceSaveBlockers && !StoryProgressPersistenceService.CanSaveNow(out string saveBlockerReason))
+            EnsureLegacySaveMigrationAttempted();
+            EnsureStoryProgressPersistenceRuntime();
+            if (enforceSaveBlockers && !CanSaveStoryProgressNow(out string saveBlockerReason))
             {
                 Debug.LogWarning($"[SaveManager] 当前不可存档：{saveBlockerReason}");
                 return false;
@@ -534,12 +513,6 @@ namespace FarmGame.Data.Core
 
                 if (raiseSlotChangedEvent)
                 {
-                    RaiseSaveSlotsChanged();
-                }
-
-                if (string.Equals(slotName, FreshStartBaselineSlotName, StringComparison.Ordinal))
-                {
-                    _freshStartBaselinePrepared = true;
                     RaiseSaveSlotsChanged();
                 }
 
@@ -557,35 +530,38 @@ namespace FarmGame.Data.Core
             }
         }
 
-        private bool LoadGameInternal(string slotName, bool refreshUi, bool raiseSlotChangedEvent)
+        private bool LoadGameInternal(string slotName, bool refreshUi, bool raiseSlotChangedEvent, Action<bool> onCompleted = null)
         {
             if (string.IsNullOrWhiteSpace(slotName))
             {
                 Debug.LogError("[SaveManager] 存档名称不能为空");
+                onCompleted?.Invoke(false);
                 return false;
             }
 
             if (!TryReadSaveData(slotName, out GameSaveData saveData))
             {
                 Debug.LogWarning($"[SaveManager] 存档文件不存在或解析失败: {GetSaveFilePath(slotName)}");
+                onCompleted?.Invoke(false);
                 return false;
             }
 
             string targetSceneName = ResolveTargetLoadSceneName(saveData);
             if (ShouldSceneSwitchBeforeLoad(targetSceneName))
             {
-                return BeginSceneSwitchLoad(saveData, targetSceneName, refreshUi, raiseSlotChangedEvent);
+                return BeginSceneSwitchLoad(saveData, targetSceneName, refreshUi, raiseSlotChangedEvent, onCompleted);
             }
 
-            return ApplyLoadedSaveData(saveData, refreshUi, raiseSlotChangedEvent);
+            return ApplyLoadedSaveData(saveData, refreshUi, raiseSlotChangedEvent, onCompleted);
         }
 
-        private bool ApplyLoadedSaveData(GameSaveData saveData, bool refreshUi, bool raiseSlotChangedEvent)
+        private bool ApplyLoadedSaveData(GameSaveData saveData, bool refreshUi, bool raiseSlotChangedEvent, Action<bool> onCompleted = null)
         {
             try
             {
                 EnsureDynamicObjectFactoryInitialized();
-                StoryProgressPersistenceService.EnsureRuntime();
+                EnsureStoryProgressPersistenceRuntime();
+                GameInputManager.ForceResetPlacementRuntime("读档前强制关闭放置模式与残留预览");
 
                 if (PersistentObjectRegistry.Instance != null)
                 {
@@ -599,14 +575,14 @@ namespace FarmGame.Data.Core
                 RestoreGameTimeData(saveData.gameTime);
                 RestorePlayerData(saveData.player);
                 RestoreInventoryData(saveData.inventory);
-                CloudShadowManager.ImportPersistentSaveData(saveData.cloudShadowScenes);
+                ImportCloudShadowPersistentSaveData(saveData.cloudShadowScenes);
 
                 if (PersistentObjectRegistry.Instance != null && saveData.worldObjects != null)
                 {
                     PersistentObjectRegistry.Instance.RestoreAllFromSaveData(saveData.worldObjects);
                 }
 
-                StoryProgressPersistenceService.FinalizeLoadedSave(saveData.worldObjects);
+                FinalizeStoryProgressLoaded(saveData.worldObjects);
 
                 CurrentSaveData = saveData;
 
@@ -625,33 +601,37 @@ namespace FarmGame.Data.Core
                     RaiseSaveSlotsChanged();
                 }
 
+                onCompleted?.Invoke(true);
                 return true;
             }
             catch (Exception e)
             {
                 Debug.LogError($"[SaveManager] 加载失败: {e.Message}\n{e.StackTrace}");
+                onCompleted?.Invoke(false);
                 return false;
             }
         }
 
-        private bool BeginSceneSwitchLoad(GameSaveData saveData, string targetSceneName, bool refreshUi, bool raiseSlotChangedEvent)
+        private bool BeginSceneSwitchLoad(GameSaveData saveData, string targetSceneName, bool refreshUi, bool raiseSlotChangedEvent, Action<bool> onCompleted = null)
         {
             if (_sceneSwitchLoadInProgress)
             {
                 Debug.LogWarning("[SaveManager] 当前已有读档切场流程在进行，已忽略新的读档请求。");
+                onCompleted?.Invoke(false);
                 return false;
             }
 
             if (!Application.isPlaying)
             {
+                onCompleted?.Invoke(false);
                 return false;
             }
 
-            StartCoroutine(LoadAfterSceneSwitchRoutine(saveData, targetSceneName, refreshUi, raiseSlotChangedEvent));
+            StartCoroutine(LoadAfterSceneSwitchRoutine(saveData, targetSceneName, refreshUi, raiseSlotChangedEvent, onCompleted));
             return true;
         }
 
-        private IEnumerator LoadAfterSceneSwitchRoutine(GameSaveData saveData, string targetSceneName, bool refreshUi, bool raiseSlotChangedEvent)
+        private IEnumerator LoadAfterSceneSwitchRoutine(GameSaveData saveData, string targetSceneName, bool refreshUi, bool raiseSlotChangedEvent, Action<bool> onCompleted)
         {
             _sceneSwitchLoadInProgress = true;
 
@@ -668,6 +648,7 @@ namespace FarmGame.Data.Core
             if (loadOperation == null)
             {
                 _sceneSwitchLoadInProgress = false;
+                onCompleted?.Invoke(false);
                 yield break;
             }
 
@@ -679,7 +660,7 @@ namespace FarmGame.Data.Core
             yield return null;
             yield return new WaitForEndOfFrame();
 
-            ApplyLoadedSaveData(saveData, refreshUi, raiseSlotChangedEvent);
+            ApplyLoadedSaveData(saveData, refreshUi, raiseSlotChangedEvent, onCompleted);
             _sceneSwitchLoadInProgress = false;
         }
 
@@ -722,7 +703,7 @@ namespace FarmGame.Data.Core
                 saveData.worldObjects = PersistentObjectRegistry.Instance.CollectAllSaveData();
             }
 
-            saveData.cloudShadowScenes = CloudShadowManager.ExportPersistentSaveData();
+            saveData.cloudShadowScenes = ExportCloudShadowPersistentSaveData();
 
             return saveData;
         }
@@ -739,16 +720,17 @@ namespace FarmGame.Data.Core
         private bool TryReadSaveData(string slotName, out GameSaveData saveData)
         {
             saveData = null;
-            string readableSlotName = string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal)
-                ? FreshStartBaselineSlotName
-                : slotName;
-
-            if (!string.Equals(readableSlotName, FreshStartBaselineSlotName, StringComparison.Ordinal))
+            // 默认开局不再映射到任何落盘槽位；旧 baseline 文件名只保留隐藏兼容，
+            // 防止历史文件被误当成普通存档重新露出来。
+            if (IsDefaultSlot(slotName)
+                || string.Equals(slotName, LegacyFreshStartBaselineSlotName, StringComparison.Ordinal))
             {
-                EnsureLegacySaveMigrationAttempted();
+                return false;
             }
 
-            string filePath = GetSaveFilePath(readableSlotName);
+            EnsureLegacySaveMigrationAttempted();
+
+            string filePath = GetSaveFilePath(slotName);
             if (!File.Exists(filePath))
             {
                 return false;
@@ -771,39 +753,6 @@ namespace FarmGame.Data.Core
             }
         }
 
-        private void ScheduleFreshStartBaselineCapture()
-        {
-            if (_freshStartBaselinePrepared || _freshStartBaselineCaptureScheduled || !isActiveAndEnabled)
-            {
-                return;
-            }
-
-            _freshStartBaselineCaptureScheduled = true;
-            if (_freshStartBaselineCaptureCoroutine != null)
-            {
-                StopCoroutine(_freshStartBaselineCaptureCoroutine);
-            }
-
-            _freshStartBaselineCaptureCoroutine = StartCoroutine(CaptureFreshStartBaselineRoutine());
-        }
-
-        private IEnumerator CaptureFreshStartBaselineRoutine()
-        {
-            yield return null;
-            yield return new WaitForEndOfFrame();
-
-            _freshStartBaselineCaptureScheduled = false;
-            _freshStartBaselineCaptureCoroutine = null;
-
-            if (_freshStartBaselinePrepared)
-            {
-                yield break;
-            }
-
-            SaveGameInternal(FreshStartBaselineSlotName, enforceSaveBlockers: false, raiseSlotChangedEvent: false);
-            RaiseSaveSlotsChanged();
-        }
-
         private void RaiseSaveSlotsChanged()
         {
             SaveSlotsChanged?.Invoke();
@@ -814,7 +763,7 @@ namespace FarmGame.Data.Core
             return new SaveSlotSummary
             {
                 slotName = slotName,
-                displayName = string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal) ? "默认存档" : slotName,
+                displayName = string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal) ? DefaultProgressDisplayName : slotName,
                 isDefaultSlot = string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal),
                 day = 1,
                 season = 0,
@@ -902,63 +851,56 @@ namespace FarmGame.Data.Core
             return summary;
         }
 
-        private void EnsureDefaultProgressPreparedForRuntime()
+        private static SaveSlotSummary CreateNativeFreshDefaultSummary()
         {
-            if (_startupDefaultProgressHandled)
+            return new SaveSlotSummary
             {
-                return;
-            }
-
-            _startupDefaultProgressHandled = true;
-
-            RaiseSaveSlotsChanged();
-        }
-
-        private static bool IsValidRuntimeDefaultSave(GameSaveData saveData)
-        {
-            return saveData != null
-                && saveData.worldObjects != null
-                && saveData.worldObjects.Count > 0;
-        }
-
-        private void TryRepairDefaultProgressFromBaseline()
-        {
-            _startupDefaultProgressHandled = true;
-        }
-
-        private void TryPersistDefaultProgressOnQuit()
-        {
-            _startupDefaultProgressHandled = true;
+                slotName = DefaultProgressSlotName,
+                displayName = DefaultProgressDisplayName,
+                exists = true,
+                isDefaultSlot = true,
+                createdTime = NativeFreshEntryLabel,
+                lastSaveTime = NativeFreshEntryLabel,
+                sceneName = NativeFreshSceneName,
+                day = 1,
+                season = 0,
+                year = 1,
+                hour = 9,
+                minute = 0,
+                storyPhaseLabel = FormatStoryPhaseLabel((int)StoryPhase.EnterVillage),
+                isLanguageDecoded = true
+            };
         }
 
         private void ExecuteQuickSaveHotkey()
         {
-            SaveActionToastOverlay.Show("F5 已停用：默认存档当前固定为原生开局，请使用普通存档槽。");
+            ShowSaveActionToast("F5 已停用：默认开局固定为原生入口，请使用普通存档槽。");
         }
 
         private void ExecuteQuickLoadHotkey()
         {
-            bool success = QuickLoadDefaultSlot();
-            SaveActionToastOverlay.Show(success ? "已读档" : "读档失败");
+            QuickLoadDefaultSlot(success => ShowSaveActionToast(success ? "已读档" : "读档失败"));
         }
 
-        private bool BeginNativeFreshRestart()
+        private bool BeginNativeFreshRestart(Action<bool> onCompleted = null)
         {
             if (!Application.isPlaying)
             {
+                onCompleted?.Invoke(false);
                 return false;
             }
 
             if (_nativeFreshRestartInProgress)
             {
+                onCompleted?.Invoke(false);
                 return false;
             }
 
-            StartCoroutine(NativeFreshRestartRoutine());
+            StartCoroutine(NativeFreshRestartRoutine(onCompleted));
             return true;
         }
 
-        private IEnumerator NativeFreshRestartRoutine()
+        private IEnumerator NativeFreshRestartRoutine(Action<bool> onCompleted)
         {
             _nativeFreshRestartInProgress = true;
 
@@ -975,6 +917,7 @@ namespace FarmGame.Data.Core
             if (loadOperation == null)
             {
                 _nativeFreshRestartInProgress = false;
+                onCompleted?.Invoke(false);
                 yield break;
             }
 
@@ -986,22 +929,35 @@ namespace FarmGame.Data.Core
             yield return null;
             yield return new WaitForEndOfFrame();
 
-            ApplyNativeFreshRuntimeDefaults();
-            CurrentSaveData = null;
-            RefreshAllUI();
-            RaiseSaveSlotsChanged();
+            bool success = false;
+            try
+            {
+                ApplyNativeFreshRuntimeDefaults();
+                CurrentSaveData = null;
+                RefreshAllUI();
+                RaiseSaveSlotsChanged();
+                success = true;
+            }
+            catch (Exception exception)
+            {
+                Debug.LogError($"[SaveManager] 原生重开应用默认运行态失败：{exception.Message}\n{exception.StackTrace}");
+            }
 
             _nativeFreshRestartInProgress = false;
+            onCompleted?.Invoke(success);
         }
 
         private void ApplyNativeFreshRuntimeDefaults()
         {
+            PersistentPlayerSceneBridge.ResetPersistentRuntimeForFreshStart();
+            GameInputManager.ForceResetPlacementRuntime("新开局重建默认运行态前强制关闭放置模式");
+
             if (TimeManager.Instance != null)
             {
-                TimeManager.Instance.SetTime(1, SeasonManager.Season.Spring, 1, 16, 0);
+                TimeManager.Instance.SetTime(1, SeasonManager.Season.Spring, 1, 9, 0);
             }
 
-            StoryProgressPersistenceService.ResetToTownOpeningRuntimeState();
+            ResetStoryProgressToTownOpeningRuntimeState();
 
             if (showDebugInfo)
             {
@@ -1057,8 +1013,97 @@ namespace FarmGame.Data.Core
 
         private static bool IsReservedSlot(string slotName)
         {
-            return string.Equals(slotName, FreshStartBaselineSlotName, StringComparison.Ordinal)
+            return string.Equals(slotName, LegacyFreshStartBaselineSlotName, StringComparison.Ordinal)
                 || string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal);
+        }
+
+        private static Type ResolveStoryProgressPersistenceServiceType()
+        {
+            return typeof(SaveManager).Assembly.GetType(StoryProgressPersistenceServiceTypeName);
+        }
+
+        private static bool TryInvokeStoryProgressPersistenceMethod(string methodName, object[] parameters, out object returnValue)
+        {
+            returnValue = null;
+
+            Type serviceType = ResolveStoryProgressPersistenceServiceType();
+            if (serviceType == null)
+            {
+                return false;
+            }
+
+            MethodInfo method = serviceType.GetMethod(methodName, BindingFlags.Public | BindingFlags.Static);
+            if (method == null)
+            {
+                return false;
+            }
+
+            returnValue = method.Invoke(null, parameters);
+            return true;
+        }
+
+        private static void EnsureStoryProgressPersistenceRuntime()
+        {
+            TryInvokeStoryProgressPersistenceMethod("EnsureRuntime", Array.Empty<object>(), out _);
+        }
+
+        private static bool CanSaveStoryProgressNow(out string blockerReason)
+        {
+            object[] parameters = { null };
+            if (TryInvokeStoryProgressPersistenceMethod("CanSaveNow", parameters, out object result)
+                && result is bool canSave)
+            {
+                blockerReason = parameters[0] as string;
+                return canSave;
+            }
+
+            blockerReason = null;
+            return true;
+        }
+
+        private static void FinalizeStoryProgressLoaded(List<WorldObjectSaveData> worldObjects)
+        {
+            object[] parameters = { worldObjects };
+            TryInvokeStoryProgressPersistenceMethod("FinalizeLoadedSave", parameters, out _);
+        }
+
+        private static void ResetStoryProgressToTownOpeningRuntimeState()
+        {
+            TryInvokeStoryProgressPersistenceMethod("ResetToTownOpeningRuntimeState", Array.Empty<object>(), out _);
+        }
+
+        private static List<CloudShadowSceneSaveData> ExportCloudShadowPersistentSaveData()
+        {
+            MethodInfo exportMethod = typeof(CloudShadowManager).GetMethod("ExportPersistentSaveData", BindingFlags.Public | BindingFlags.Static);
+            if (exportMethod == null)
+            {
+                return new List<CloudShadowSceneSaveData>();
+            }
+
+            return exportMethod.Invoke(null, null) as List<CloudShadowSceneSaveData> ?? new List<CloudShadowSceneSaveData>();
+        }
+
+        private static void ImportCloudShadowPersistentSaveData(List<CloudShadowSceneSaveData> serializedStates)
+        {
+            MethodInfo importMethod = typeof(CloudShadowManager).GetMethod("ImportPersistentSaveData", BindingFlags.Public | BindingFlags.Static);
+            if (importMethod == null)
+            {
+                return;
+            }
+
+            importMethod.Invoke(null, new object[] { serializedStates });
+        }
+
+        private static void ShowSaveActionToast(string message)
+        {
+            Type toastType = typeof(SaveManager).Assembly.GetType(SaveActionToastOverlayTypeName);
+            MethodInfo showMethod = toastType?.GetMethod("Show", BindingFlags.Public | BindingFlags.Static);
+            if (showMethod == null)
+            {
+                return;
+            }
+
+            showMethod.Invoke(null, new object[] { message });
         }
 
         private static string FormatStoryPhaseLabel(int storyPhase)
@@ -1081,10 +1126,10 @@ namespace FarmGame.Data.Core
         [Serializable]
         private sealed class StoryPreviewSnapshot
         {
-            public int storyPhase;
-            public bool isLanguageDecoded;
-            public PreviewGaugeState health;
-            public PreviewGaugeState energy;
+            public int storyPhase = 0;
+            public bool isLanguageDecoded = false;
+            public PreviewGaugeState health = null;
+            public PreviewGaugeState energy = null;
         }
 
         [Serializable]

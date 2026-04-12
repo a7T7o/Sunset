@@ -84,6 +84,23 @@ namespace FarmGame.Data.Core
     /// </summary>
     public static class ToolRuntimeUtility
     {
+        private readonly struct ToolAutoReplacementResult
+        {
+            public ToolAutoReplacementResult(
+                bool replaced,
+                int sourceSlotIndex,
+                int remainingDurability)
+            {
+                Replaced = replaced;
+                SourceSlotIndex = sourceSlotIndex;
+                RemainingDurability = remainingDurability;
+            }
+
+            public bool Replaced { get; }
+            public int SourceSlotIndex { get; }
+            public int RemainingDurability { get; }
+        }
+
         private const int DefaultDurabilityCost = 1;
         private const int DefaultWaterCapacity = 100;
         private const int DefaultWaterUseCost = 1;
@@ -130,32 +147,45 @@ namespace FarmGame.Data.Core
 
         public static bool EnsureRuntimeState(InventoryItem item, global::FarmGame.Data.ItemData itemData)
         {
-            if (item == null || item.IsEmpty || itemData is not global::FarmGame.Data.ToolData toolData)
+            if (item == null || item.IsEmpty || itemData == null)
             {
                 return false;
             }
 
             bool changed = false;
 
-            if (UsesWater(toolData))
+            if (itemData is global::FarmGame.Data.ToolData toolData)
             {
-                if (item.HasDurability)
+                if (UsesWater(toolData))
                 {
-                    item.ClearDurability();
-                    changed = true;
+                    if (item.HasDurability)
+                    {
+                        item.ClearDurability();
+                        changed = true;
+                    }
+
+                    if (EnsureWaterState(item, toolData))
+                    {
+                        changed = true;
+                    }
+
+                    return changed;
                 }
 
-                if (EnsureWaterState(item, toolData))
+                if (UsesDurability(toolData) && (item.MaxDurability <= 0 || item.CurrentDurability < 0))
                 {
+                    item.SetDurability(GetMaxDurability(toolData));
                     changed = true;
                 }
 
                 return changed;
             }
 
-            if (UsesDurability(toolData) && (item.MaxDurability <= 0 || item.CurrentDurability < 0))
+            if (itemData is global::FarmGame.Data.WeaponData weaponData &&
+                UsesDurability(weaponData) &&
+                (item.MaxDurability <= 0 || item.CurrentDurability < 0))
             {
-                item.SetDurability(GetMaxDurability(toolData));
+                item.SetDurability(GetMaxDurability(weaponData));
                 changed = true;
             }
 
@@ -289,6 +319,104 @@ namespace FarmGame.Data.Core
             return true;
         }
 
+        public static bool TryValidateHeldWeaponUse(
+            global::InventoryService inventory,
+            global::HotbarSelectionService hotbarSelection,
+            global::FarmGame.Data.ItemDatabase database,
+            global::FarmGame.Data.WeaponData weaponData,
+            string context,
+            bool emitFailureFeedback,
+            out ToolUseFailureReason failureReason)
+        {
+            failureReason = ToolUseFailureReason.None;
+
+            if (weaponData == null)
+            {
+                failureReason = ToolUseFailureReason.ToolMissing;
+                return false;
+            }
+
+            inventory ??= Object.FindFirstObjectByType<global::InventoryService>();
+            hotbarSelection ??= Object.FindFirstObjectByType<global::HotbarSelectionService>();
+            database ??= inventory != null ? inventory.Database : null;
+
+            if (inventory == null || hotbarSelection == null)
+            {
+                failureReason = ToolUseFailureReason.ServicesMissing;
+                return false;
+            }
+
+            int slotIndex = Mathf.Clamp(hotbarSelection.selectedIndex, 0, global::InventoryService.HotbarWidth - 1);
+            ItemStack slotStack = inventory.GetSlot(slotIndex);
+            if (slotStack.IsEmpty)
+            {
+                failureReason = ToolUseFailureReason.SlotEmpty;
+                return false;
+            }
+
+            if (slotStack.itemId != weaponData.itemID)
+            {
+                Debug.LogWarning($"[ToolRuntime] {context}: 当前槽位物品({slotStack.itemId})与武器({weaponData.itemID})不一致，跳过动作前校验");
+                failureReason = ToolUseFailureReason.SlotMismatch;
+                return false;
+            }
+
+            InventoryItem runtimeItem = inventory.GetInventoryItem(slotIndex);
+            bool slotStateChanged = false;
+            if (runtimeItem == null || runtimeItem.IsEmpty)
+            {
+                runtimeItem = CreateRuntimeItem(database, slotStack.itemId, slotStack.quality, slotStack.amount);
+                inventory.SetInventoryItem(slotIndex, runtimeItem);
+                slotStateChanged = true;
+            }
+
+            if (EnsureRuntimeState(runtimeItem, weaponData))
+            {
+                slotStateChanged = true;
+            }
+
+            int energyCost = Mathf.Max(0, weaponData.energyCostPerAttack);
+            global::EnergySystem energySystem = global::EnergySystem.Instance;
+            if (energySystem != null && !energySystem.HasEnoughEnergy(energyCost))
+            {
+                if (slotStateChanged)
+                {
+                    inventory.RefreshSlot(slotIndex);
+                }
+
+                if (emitFailureFeedback)
+                {
+                    Debug.LogWarning($"[ToolRuntime] {context}: 精力不足，动作前校验失败");
+                }
+
+                failureReason = ToolUseFailureReason.InsufficientEnergy;
+                return false;
+            }
+
+            if (UsesDurability(weaponData) && runtimeItem != null && runtimeItem.HasDurability)
+            {
+                int durabilityCost = GetDurabilityCost(weaponData);
+                if (runtimeItem.CurrentDurability < durabilityCost || runtimeItem.CurrentDurability <= 0)
+                {
+                    if (slotStateChanged)
+                    {
+                        inventory.RefreshSlot(slotIndex);
+                    }
+
+                    Debug.LogWarning($"[ToolRuntime] {context}: {weaponData.itemName} 耐久不足，动作前校验失败");
+                    failureReason = ToolUseFailureReason.InsufficientDurability;
+                    return false;
+                }
+            }
+
+            if (slotStateChanged)
+            {
+                inventory.RefreshSlot(slotIndex);
+            }
+
+            return true;
+        }
+
         public static ToolUseCommitResult TryConsumeHeldToolUseDetailed(
             global::InventoryService inventory,
             global::HotbarSelectionService hotbarSelection,
@@ -377,6 +505,7 @@ namespace FarmGame.Data.Core
             int durabilityCost = UsesDurability(toolData) ? GetDurabilityCost(toolData) : 0;
             bool toolBroken = false;
             bool toolRemoved = false;
+            ToolAutoReplacementResult autoReplacementResult = default;
 
             if (waterCost > 0)
             {
@@ -393,8 +522,17 @@ namespace FarmGame.Data.Core
             int remainingDurability = runtimeItem != null && runtimeItem.HasDurability ? runtimeItem.CurrentDurability : -1;
             if (toolBroken)
             {
-                inventory.ClearSlot(slotIndex);
-                toolRemoved = true;
+                autoReplacementResult = TryAutoReplaceBrokenTool(inventory, database, slotIndex, toolData);
+                if (autoReplacementResult.Replaced)
+                {
+                    remainingDurability = autoReplacementResult.RemainingDurability;
+                }
+                else
+                {
+                    inventory.ClearSlot(slotIndex);
+                    toolRemoved = true;
+                }
+
                 NotifyToolBroken(toolData, slotIndex);
             }
             else
@@ -419,11 +557,113 @@ namespace FarmGame.Data.Core
                 maxWater);
         }
 
+        public static ToolUseCommitResult TryConsumeHeldWeaponUseDetailed(
+            global::InventoryService inventory,
+            global::HotbarSelectionService hotbarSelection,
+            global::FarmGame.Data.ItemDatabase database,
+            global::FarmGame.Data.WeaponData weaponData,
+            string context)
+        {
+            if (weaponData == null)
+            {
+                return ToolUseCommitResult.Failure(ToolUseFailureReason.ToolMissing, context);
+            }
+
+            inventory ??= Object.FindFirstObjectByType<global::InventoryService>();
+            hotbarSelection ??= Object.FindFirstObjectByType<global::HotbarSelectionService>();
+            database ??= inventory != null ? inventory.Database : null;
+
+            if (inventory == null || hotbarSelection == null)
+            {
+                return ToolUseCommitResult.Failure(ToolUseFailureReason.ServicesMissing, context);
+            }
+
+            int slotIndex = Mathf.Clamp(hotbarSelection.selectedIndex, 0, global::InventoryService.HotbarWidth - 1);
+            ItemStack slotStack = inventory.GetSlot(slotIndex);
+            if (slotStack.IsEmpty)
+            {
+                return ToolUseCommitResult.Failure(ToolUseFailureReason.SlotEmpty, context, slotIndex);
+            }
+
+            if (slotStack.itemId != weaponData.itemID)
+            {
+                Debug.LogWarning($"[ToolRuntime] {context}: 当前槽位物品({slotStack.itemId})与武器({weaponData.itemID})不一致，本次使用未提交");
+                return ToolUseCommitResult.Failure(ToolUseFailureReason.SlotMismatch, context, slotIndex);
+            }
+
+            InventoryItem runtimeItem = inventory.GetInventoryItem(slotIndex);
+            bool slotStateChanged = false;
+            if (runtimeItem == null || runtimeItem.IsEmpty)
+            {
+                runtimeItem = CreateRuntimeItem(database, slotStack.itemId, slotStack.quality, slotStack.amount);
+                inventory.SetInventoryItem(slotIndex, runtimeItem);
+                slotStateChanged = true;
+            }
+
+            if (EnsureRuntimeState(runtimeItem, weaponData))
+            {
+                slotStateChanged = true;
+            }
+
+            global::EnergySystem energySystem = global::EnergySystem.Instance;
+            int energyCost = Mathf.Max(0, weaponData.energyCostPerAttack);
+            if (energySystem != null && !energySystem.HasEnoughEnergy(energyCost))
+            {
+                if (slotStateChanged)
+                {
+                    inventory.RefreshSlot(slotIndex);
+                }
+
+                Debug.LogWarning($"[ToolRuntime] {context}: 精力不足，{weaponData.itemName} 本次使用未提交");
+                return ToolUseCommitResult.Failure(ToolUseFailureReason.InsufficientEnergy, context, slotIndex);
+            }
+
+            int durabilityCost = UsesDurability(weaponData) ? GetDurabilityCost(weaponData) : 0;
+            bool weaponBroken = false;
+            bool weaponRemoved = false;
+
+            if (runtimeItem != null && runtimeItem.HasDurability && durabilityCost > 0)
+            {
+                weaponBroken = runtimeItem.UseDurability(durabilityCost);
+            }
+
+            int remainingDurability = runtimeItem != null && runtimeItem.HasDurability ? runtimeItem.CurrentDurability : -1;
+            if (weaponBroken)
+            {
+                inventory.ClearSlot(slotIndex);
+                weaponRemoved = true;
+            }
+            else
+            {
+                inventory.RefreshSlot(slotIndex);
+            }
+
+            RecentToolUseTimestamps[slotIndex] = Time.unscaledTime;
+            LogCommit(weaponData, context, energySystem, energyCost, durabilityCost, remainingDurability, weaponBroken);
+
+            return ToolUseCommitResult.Success(
+                context,
+                slotIndex,
+                energyCost,
+                durabilityCost,
+                remainingDurability,
+                weaponBroken,
+                weaponRemoved,
+                0,
+                -1,
+                -1);
+        }
+
         public static bool UsesDurability(global::FarmGame.Data.ToolData toolData)
         {
             return toolData != null &&
                    toolData.toolType != global::FarmGame.Data.ToolType.WateringCan &&
                    (toolData.hasDurability || toolData.maxDurability > 0);
+        }
+
+        public static bool UsesDurability(global::FarmGame.Data.WeaponData weaponData)
+        {
+            return weaponData != null && (weaponData.hasDurability || weaponData.maxDurability > 0);
         }
 
         public static bool UsesWater(global::FarmGame.Data.ToolData toolData)
@@ -441,6 +681,11 @@ namespace FarmGame.Data.Core
             return Mathf.Max(0, toolData.durabilityCost <= 0 ? DefaultDurabilityCost : toolData.durabilityCost);
         }
 
+        public static int GetDurabilityCost(global::FarmGame.Data.WeaponData weaponData)
+        {
+            return weaponData == null ? DefaultDurabilityCost : DefaultDurabilityCost;
+        }
+
         public static int GetMaxDurability(global::FarmGame.Data.ToolData toolData)
         {
             if (toolData == null)
@@ -449,6 +694,16 @@ namespace FarmGame.Data.Core
             }
 
             return Mathf.Max(1, toolData.maxDurability);
+        }
+
+        public static int GetMaxDurability(global::FarmGame.Data.WeaponData weaponData)
+        {
+            if (weaponData == null)
+            {
+                return 1;
+            }
+
+            return Mathf.Max(1, weaponData.maxDurability);
         }
 
         public static int GetWaterCapacity(global::FarmGame.Data.ToolData toolData)
@@ -503,9 +758,41 @@ namespace FarmGame.Data.Core
             ratio = 0f;
             usesWater = false;
 
+            if (itemData is global::FarmGame.Data.WeaponData weaponData)
+            {
+                if (item != null && !item.IsEmpty)
+                {
+                    EnsureRuntimeState(item, weaponData);
+                }
+
+                if (item == null || item.IsEmpty)
+                {
+                    if (!UsesDurability(weaponData))
+                    {
+                        return false;
+                    }
+
+                    ratio = 1f;
+                    return true;
+                }
+
+                if (!item.HasDurability)
+                {
+                    return false;
+                }
+
+                ratio = Mathf.Clamp01(item.DurabilityPercent);
+                return true;
+            }
+
             if (itemData is not global::FarmGame.Data.ToolData toolData)
             {
                 return false;
+            }
+
+            if (item != null && !item.IsEmpty)
+            {
+                EnsureRuntimeState(item, toolData);
             }
 
             if (UsesWater(toolData))
@@ -571,6 +858,11 @@ namespace FarmGame.Data.Core
                 return new InventoryItem(itemId, quality, amount, GetMaxDurability(toolData));
             }
 
+            if (itemData is global::FarmGame.Data.WeaponData weaponData && UsesDurability(weaponData))
+            {
+                return new InventoryItem(itemId, quality, amount, GetMaxDurability(weaponData));
+            }
+
             return new InventoryItem(itemId, quality, amount);
         }
 
@@ -618,6 +910,74 @@ namespace FarmGame.Data.Core
             global::PlayerToolFeedbackService.ResolveForPlayer(null)?.HandleWateringCanEmpty(toolData, slotIndex);
         }
 
+        private static ToolAutoReplacementResult TryAutoReplaceBrokenTool(
+            global::InventoryService inventory,
+            global::FarmGame.Data.ItemDatabase database,
+            int brokenSlotIndex,
+            global::FarmGame.Data.ToolData brokenToolData)
+        {
+            if (inventory == null || brokenToolData == null)
+            {
+                return default;
+            }
+
+            int bestSlotIndex = -1;
+            int bestTier = int.MaxValue;
+            int bestQuality = int.MaxValue;
+
+            for (int index = 0; index < inventory.Capacity; index++)
+            {
+                if (index == brokenSlotIndex)
+                {
+                    continue;
+                }
+
+                ItemStack candidateStack = inventory.GetSlot(index);
+                if (candidateStack.IsEmpty)
+                {
+                    continue;
+                }
+
+                global::FarmGame.Data.ToolData candidateToolData =
+                    database != null ? database.GetItemByID(candidateStack.itemId) as global::FarmGame.Data.ToolData : null;
+                if (candidateToolData == null || candidateToolData.toolType != brokenToolData.toolType)
+                {
+                    continue;
+                }
+
+                int candidateTier = candidateToolData.GetMaterialTierValue();
+                if (candidateTier < bestTier ||
+                    (candidateTier == bestTier && candidateStack.quality < bestQuality) ||
+                    (candidateTier == bestTier && candidateStack.quality == bestQuality && index < bestSlotIndex))
+                {
+                    bestSlotIndex = index;
+                    bestTier = candidateTier;
+                    bestQuality = candidateStack.quality;
+                }
+            }
+
+            if (bestSlotIndex < 0)
+            {
+                return default;
+            }
+
+            InventoryItem replacementItem = inventory.GetInventoryItem(bestSlotIndex);
+            if (replacementItem == null || replacementItem.IsEmpty)
+            {
+                ItemStack replacementStack = inventory.GetSlot(bestSlotIndex);
+                replacementItem = CreateRuntimeItem(database, replacementStack.itemId, replacementStack.quality, replacementStack.amount);
+            }
+
+            EnsureRuntimeState(replacementItem, database);
+            inventory.SetInventoryItem(brokenSlotIndex, replacementItem);
+            inventory.ClearSlot(bestSlotIndex);
+
+            return new ToolAutoReplacementResult(
+                true,
+                bestSlotIndex,
+                replacementItem != null && replacementItem.HasDurability ? replacementItem.CurrentDurability : -1);
+        }
+
         private static void LogCommit(
             global::FarmGame.Data.ToolData toolData,
             string context,
@@ -640,6 +1000,24 @@ namespace FarmGame.Data.Core
             string breakPart = toolBroken ? "；工具已损坏并移除" : string.Empty;
 
             Debug.Log($"[ToolRuntime] {context}: {toolData.itemName} {energyPart}{durabilityPart}{waterPart}{breakPart}");
+        }
+
+        private static void LogCommit(
+            global::FarmGame.Data.WeaponData weaponData,
+            string context,
+            global::EnergySystem energySystem,
+            int energyCost,
+            int durabilityCost,
+            int remainingDurability,
+            bool weaponBroken)
+        {
+            string energyPart = $"精力-{energyCost}，当前精力 {energySystem?.CurrentEnergy ?? 0}/{energySystem?.MaxEnergy ?? 0}";
+            string durabilityPart = durabilityCost > 0
+                ? $"；耐久-{durabilityCost}，当前耐久 {remainingDurability}/{GetMaxDurability(weaponData)}"
+                : "；无耐久度链路";
+            string breakPart = weaponBroken ? "；武器已损坏并移除" : string.Empty;
+
+            Debug.Log($"[ToolRuntime] {context}: {weaponData.itemName} {energyPart}{durabilityPart}{breakPart}");
         }
     }
 }
