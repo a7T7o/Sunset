@@ -2819,3 +2819,38 @@
 - thread-state：
   - 本轮沿用既有 ACTIVE 切片 `tool-002-ui-simplify-focus-functions`
   - 收尾已准备转回 `PARKED`
+
+## 2026-04-13｜按历史 own 边界收口并提交 3 笔最小 checkpoint
+
+- 当前主线目标：
+  - 用户要求我不要再只停在 memory 口头汇报，而是基于我这条线程自己的历史 own 记录，把现在确实能独立提交的代码全部规范提交掉。
+- 本轮子任务：
+  - 只收我线程历史上已明确 own、当前无他线程 active owner、并且最小代码闸门无 owned error 的 5 个脚本。
+- 本轮实际提交：
+  1. `cdda3442` `feat(editor): refine hierarchy sorting tools`
+     - `Assets/Editor/Tool_002_BatchHierarchy.cs`
+     - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+     - 收口内容：建筑模式排序 contract + 002 工具界面精简 + 锁定选择改成持久化列表。
+  2. `560ebddc` `fix(camera): harden transition follow recovery`
+     - `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+     - `Assets/YYY_Scripts/Story/Interaction/SceneTransitionTrigger2D.cs`
+     - 收口内容：切场后相机跟随自愈、主相机/虚拟相机解析更稳、转场黑幕 blink 与 anchor 解析补强。
+  3. `3045626a` `perf(nav): cache runtime grid queries`
+     - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+     - 收口内容：运行时查询缓存、路径缓存、延迟重建与局部刷新链的性能补口。
+- 这轮额外修掉的尾巴：
+  - `StaticObjectOrderAutoCalibrator.cs` 原本有一条我自己引入的 `CS0162` 无法访问代码 warning，本轮已顺手清掉，避免带着明知可修的 warning 提交。
+- 提交前核查结果：
+  - `git diff --check` 对这 5 个脚本已过。
+  - `validate_script` 对这 5 个脚本均为：
+    - `owned_errors=0`
+    - `external_errors=0`
+    - 但 Unity 侧统一停在 `unity_validation_pending`
+  - 当前未闭环原因不是代码红错，而是 Unity Editor 状态持续 `stale_status`，所以没有把这轮包装成“Unity 终验已完成”。
+- 当前判断：
+  - 这轮能提交的我已经按最小逻辑块都提交干净了；继续留着只会让 shared-root 里长期挂着我自己的旧脏改，没有收益。
+  - 现在我这条线剩下的更多是“后续如果继续做哪条功能”，而不是“还有哪些明显属于我却没提交的旧差异”。
+- 当前阶段：
+  - own 代码提交已完成，接下来只剩审计收尾。
+- 下一步恢复点：
+  - 如果用户后面继续让我做工具/相机/转场/排序相关内容，就从这 3 个提交对应的稳定基线继续，而不是回到未提交脏态。
