@@ -94,6 +94,7 @@ namespace FarmGame.Data.Core
             if (!InRange(index)) return false;
             _items[index] = ToolRuntimeUtility.NormalizeInventoryItem(item, _database);
             RaiseSlotChanged(index);
+            RaiseInventoryChanged();
             return true;
         }
         
@@ -105,6 +106,7 @@ namespace FarmGame.Data.Core
             if (!InRange(index)) return;
             _items[index] = null;
             RaiseSlotChanged(index);
+            RaiseInventoryChanged();
         }
         
         #endregion
@@ -139,6 +141,7 @@ namespace FarmGame.Data.Core
             }
             
             RaiseSlotChanged(index);
+            RaiseInventoryChanged();
             return true;
         }
         

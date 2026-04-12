@@ -5,6 +5,7 @@ using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.Combat;
 using FarmGame.UI;
+using Sunset.Story;
 
 namespace FarmGame.World
 {
@@ -18,6 +19,10 @@ namespace FarmGame.World
     public class ChestController : MonoBehaviour, IResourceNode, IInteractable, IPersistentObject
     {
         private static readonly List<ChestController> s_activeInstances = new List<ChestController>();
+        private static PlayerMovement s_cachedPlayerMovement;
+        private static int s_lastPlayerLookupFrame = -1;
+        private static int s_lastPlayerSamplePointFrame = -1;
+        private static Vector2 s_cachedPlayerSamplePoint;
 
         #region 序列化字段
 
@@ -48,6 +53,16 @@ namespace FarmGame.World
         [Header("=== 交互设置 ===")]
         [Tooltip("玩家到箱子边界的允许开启距离")]
         [SerializeField, Min(0.35f)] private float interactionDistance = 0.9f;
+
+        [Header("=== 近身 E 键交互 ===")]
+        [SerializeField] private bool enableProximityKeyInteraction = true;
+        [SerializeField] private KeyCode proximityInteractionKey = KeyCode.E;
+        [SerializeField, Min(0f)] private float keyInteractionCooldown = 0.15f;
+        [SerializeField, Min(0.35f)] private float bubbleRevealDistance = 1.1f;
+        [SerializeField] private string bubbleCaption = "打开箱子";
+        [SerializeField] private string bubbleDetail = "按 E 打开箱子";
+        [SerializeField, Min(0f)] private float uiOpenDelaySeconds = 0.35f;
+        [SerializeField, Min(0f)] private float closeVisualDelaySeconds = 0.35f;
 
         [Header("=== 来源与归属 ===")]
         [Tooltip("箱子来源（玩家制作/野外生成）")]
@@ -84,6 +99,10 @@ namespace FarmGame.World
         [Header("=== 调试 ===")]
         [SerializeField] private bool showDebugInfo = false;
 
+        [Header("=== 作者预设内容 ===")]
+        [SerializeField, Tooltip("场景默认内容。仅在箱子首次初始化且尚未由存档恢复时灌入，不会覆盖正式读档结果。")]
+        private List<InventorySlotSaveData> _authoringSlots = new List<InventorySlotSaveData>();
+
         #endregion
 
         #region 私有字段
@@ -113,6 +132,14 @@ namespace FarmGame.World
         // 🔥 缓存引用（性能优化）
         private PackagePanelTabsUI _cachedPackagePanel;
         private Canvas _cachedCanvas;
+        private InventoryService _cachedInventoryService;
+        private HotbarSelectionService _cachedHotbarSelection;
+        private InteractionContext _cachedInteractionContext;
+        private string _cachedProximityKeyLabel;
+        private Coroutine _pendingUiOpenCoroutine;
+        private Coroutine _pendingVisualCloseCoroutine;
+        private bool _isUiOpenPending;
+        private bool _isVisualClosePending;
 
         #endregion
 
@@ -155,6 +182,123 @@ namespace FarmGame.World
         /// `InventoryV2` 已是 authoritative runtime source，旧库存只保留为兼容镜像。
         /// </summary>
         public bool IsEmpty => _inventoryV2?.IsEmpty ?? _inventory?.IsEmpty ?? true;
+
+        #endregion
+
+        #region 作者预设
+
+        public IReadOnlyList<InventorySlotSaveData> GetAuthoringSlotsSnapshot()
+        {
+            return CloneAndNormalizeAuthoringSlots(_authoringSlots);
+        }
+
+        public void SetAuthoringSlotsFromEditor(IEnumerable<InventorySlotSaveData> slots)
+        {
+            _authoringSlots = CloneAndNormalizeAuthoringSlots(slots);
+        }
+
+        public void ClearAuthoringSlots()
+        {
+            _authoringSlots.Clear();
+        }
+
+        private void ApplyAuthoringSlotsIfNeeded(bool inventoriesCreatedThisCall)
+        {
+            if (!inventoriesCreatedThisCall || _inventoryV2 == null)
+            {
+                return;
+            }
+
+            if (_authoringSlots == null || _authoringSlots.Count == 0)
+            {
+                return;
+            }
+
+            if (!_inventoryV2.IsEmpty || (_inventory != null && !_inventory.IsEmpty))
+            {
+                return;
+            }
+
+            _inventoryV2.LoadFromSaveData(_authoringSlots);
+
+            if (showDebugInfo)
+            {
+                Debug.Log($"[ChestController] 已应用作者预设内容，槽位数={_authoringSlots.Count}");
+            }
+        }
+
+        private static List<InventorySlotSaveData> CloneAndNormalizeAuthoringSlots(IEnumerable<InventorySlotSaveData> source)
+        {
+            var normalizedBySlot = new Dictionary<int, InventorySlotSaveData>();
+            if (source == null)
+            {
+                return new List<InventorySlotSaveData>();
+            }
+
+            foreach (InventorySlotSaveData slot in source)
+            {
+                InventorySlotSaveData cloned = CloneInventorySlot(slot);
+                if (cloned == null || cloned.slotIndex < 0 || cloned.IsEmpty)
+                {
+                    continue;
+                }
+
+                normalizedBySlot[cloned.slotIndex] = cloned;
+            }
+
+            var result = new List<InventorySlotSaveData>(normalizedBySlot.Count);
+            foreach (KeyValuePair<int, InventorySlotSaveData> pair in normalizedBySlot)
+            {
+                result.Add(pair.Value);
+            }
+
+            result.Sort((left, right) => left.slotIndex.CompareTo(right.slotIndex));
+            return result;
+        }
+
+        private static InventorySlotSaveData CloneInventorySlot(InventorySlotSaveData source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            var clone = new InventorySlotSaveData
+            {
+                slotIndex = source.slotIndex,
+                itemId = source.itemId,
+                quality = Mathf.Max(0, source.quality),
+                amount = Mathf.Max(0, source.amount),
+                instanceId = source.instanceId,
+                currentDurability = source.currentDurability,
+                maxDurability = source.maxDurability
+            };
+
+            if (source.properties != null)
+            {
+                foreach (PropertyEntrySaveData property in source.properties)
+                {
+                    if (property == null)
+                    {
+                        continue;
+                    }
+
+                    clone.properties.Add(new PropertyEntrySaveData(property.key, property.value));
+                }
+            }
+
+            if (clone.IsEmpty)
+            {
+                clone.itemId = -1;
+                clone.amount = 0;
+                clone.instanceId = null;
+                clone.currentDurability = -1;
+                clone.maxDurability = -1;
+                clone.properties.Clear();
+            }
+
+            return clone;
+        }
 
         #endregion
 
@@ -595,16 +739,21 @@ namespace FarmGame.World
                 _anchorWorldPos = GetCurrentBottomCenterWorld();
                 _anchorInitialized = true;
             }
+
+            CacheInteractionLabels();
         }
 
         private void OnEnable()
         {
             RegisterActiveInstance(this);
+            CacheInteractionLabels();
         }
 
         private void OnDisable()
         {
             UnregisterActiveInstance(this);
+            ClearTransitionState(stopCoroutines: true);
+            HideProximityHint();
         }
 
         private void Start()
@@ -629,6 +778,17 @@ namespace FarmGame.World
             // 🔥 关键修复：箱子放置后通知 NavGrid 刷新
             // 延迟一帧确保碰撞体已完全初始化
             StartCoroutine(RequestNavGridRefreshDelayed());
+        }
+
+        private void Update()
+        {
+            if (!TryBuildProximityInteractionContext(out InteractionContext context))
+            {
+                HideProximityHint();
+                return;
+            }
+
+            ReportProximityInteraction(context);
         }
 
         /// <summary>
@@ -705,6 +865,8 @@ namespace FarmGame.World
             {
                 currentHealth = storageData.maxHealth;
                 isLocked = storageData.defaultLocked;
+                bool createdLegacyInventory = false;
+                bool createdRuntimeInventory = false;
 
                 // 🔥 3.7.6 修复：如果 _inventory 已被 Load() 初始化并填充数据，则不重新创建
                 // 问题场景：DynamicObjectFactory 重建箱子时，Load() 先于 Start() 执行
@@ -712,6 +874,7 @@ namespace FarmGame.World
                 if (_inventory == null)
                 {
                     _inventory = new ChestInventory(storageData.storageCapacity);
+                    createdLegacyInventory = true;
                     // 🔥 P1 任务 4：订阅库存变化事件，实时同步到 V2
                     _inventory.OnInventoryChanged += OnInventoryChangedHandler;
 
@@ -732,6 +895,7 @@ namespace FarmGame.World
                 if (_inventoryV2 == null)
                 {
                     _inventoryV2 = new ChestInventoryV2(storageData.storageCapacity);
+                    createdRuntimeInventory = true;
 
                     if (showDebugInfo)
                         Debug.Log($"[ChestController] Initialize: 创建新的 _inventoryV2, capacity={storageData.storageCapacity}");
@@ -744,6 +908,7 @@ namespace FarmGame.World
 
                 _inventoryV2.OnInventoryChanged -= OnInventoryV2ChangedHandler;
                 _inventoryV2.OnInventoryChanged += OnInventoryV2ChangedHandler;
+                ApplyAuthoringSlotsIfNeeded(createdLegacyInventory || createdRuntimeInventory);
 
                 // 🔥 C4：添加调试日志验证每个箱子有独立的 ChestInventory 实例
                 if (showDebugInfo)
@@ -1328,6 +1493,11 @@ namespace FarmGame.World
             return true;
         }
 
+        public float GetBoundaryDistance(Vector2 playerPosition)
+        {
+            return Vector2.Distance(playerPosition, GetClosestInteractionPoint(playerPosition));
+        }
+
         /// <summary>
         /// 执行交互 - 核心逻辑从 GameInputManager 移到这里
         /// 🔥 修正：玩家箱子交互时不消耗钥匙
@@ -1422,16 +1592,44 @@ namespace FarmGame.World
         /// </summary>
         private void OpenBoxUI()
         {
+            bool sameChestUiOpen = IsSameChestUiAlreadyOpen();
+            if (sameChestUiOpen)
+            {
+                if (_cachedPackagePanel == null)
+                {
+                    _cachedPackagePanel = FindFirstObjectByType<PackagePanelTabsUI>(FindObjectsInactive.Include);
+                }
+
+                if (showDebugInfo)
+                    Debug.Log("[ChestController] 箱子 UI 已打开，执行 toggle 关闭");
+
+                if (_cachedPackagePanel != null && _cachedPackagePanel.IsPanelOpen())
+                {
+                    _cachedPackagePanel.CloseBoxUI(false);
+                }
+                else
+                {
+                    BoxPanelUI.ActiveInstance.Close();
+                }
+
+                return;
+            }
+
+            CancelPendingUiOpenOnOtherChests();
+
+            if (_isUiOpenPending)
+            {
+                if (showDebugInfo)
+                    Debug.Log("[ChestController] 箱子 UI 正在延时打开，忽略重复打开请求");
+                return;
+            }
+
+            bool reopeningDuringVisualClose = _isVisualClosePending;
+            CancelPendingVisualClose(keepOpenVisual: true);
+
             // 检查是否已有打开的 BoxPanelUI
             if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen)
             {
-                // 如果是同一个箱子，不重复打开
-                if (BoxPanelUI.ActiveInstance.CurrentChest == this)
-                {
-                    if (showDebugInfo)
-                        Debug.Log("[ChestController] 箱子 UI 已打开");
-                    return;
-                }
                 // 关闭之前的 UI
                 BoxPanelUI.ActiveInstance.Close();
             }
@@ -1441,6 +1639,119 @@ namespace FarmGame.World
             {
                 Debug.LogError($"[ChestController] 箱子 {gameObject.name} 缺少 boxUiPrefab 配置！");
                 return;
+            }
+
+            OpenResult openResult = TryOpen();
+            if (openResult != OpenResult.Success)
+            {
+                if (showDebugInfo)
+                    Debug.Log($"[ChestController] 箱子当前无法打开：{openResult}");
+                return;
+            }
+
+            if (reopeningDuringVisualClose || uiOpenDelaySeconds <= 0f)
+            {
+                ShowBoxUiNow();
+                return;
+            }
+
+            BeginDelayedUiOpen();
+        }
+
+        private void CancelPendingUiOpenOnOtherChests()
+        {
+            for (int i = 0; i < s_activeInstances.Count; i++)
+            {
+                ChestController otherChest = s_activeInstances[i];
+                if (otherChest == null || otherChest == this || !otherChest._isUiOpenPending)
+                {
+                    continue;
+                }
+
+                otherChest.CancelPendingUiOpen(restoreClosedVisualImmediately: true);
+            }
+        }
+
+        private void BeginDelayedUiOpen()
+        {
+            CancelPendingUiOpen(restoreClosedVisualImmediately: false);
+            _isUiOpenPending = true;
+            _pendingUiOpenCoroutine = StartCoroutine(ShowBoxUiAfterDelay());
+        }
+
+        private IEnumerator ShowBoxUiAfterDelay()
+        {
+            if (uiOpenDelaySeconds > 0f)
+            {
+                yield return new WaitForSecondsRealtime(uiOpenDelaySeconds);
+            }
+
+            _pendingUiOpenCoroutine = null;
+            if (!_isUiOpenPending)
+            {
+                yield break;
+            }
+
+            _isUiOpenPending = false;
+            if (ShouldAbortPendingUiOpen())
+            {
+                ForceCloseVisualImmediately();
+                yield break;
+            }
+
+            ShowBoxUiNow();
+        }
+
+        private bool ShouldAbortPendingUiOpen()
+        {
+            if (!isActiveAndEnabled || storageData == null || storageData.boxUiPrefab == null)
+            {
+                return true;
+            }
+
+            if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+            {
+                return true;
+            }
+
+            if (BoxPanelUI.ActiveInstance != null
+                && BoxPanelUI.ActiveInstance.IsOpen
+                && BoxPanelUI.ActiveInstance.CurrentChest != this)
+            {
+                return true;
+            }
+
+            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+            {
+                return true;
+            }
+
+            if (!TryBuildProximityInteractionContext(out InteractionContext context))
+            {
+                return true;
+            }
+
+            return GetBoundaryDistance(context.PlayerPosition) > InteractionDistance;
+        }
+
+        private void ShowBoxUiNow()
+        {
+            BoxPanelUI boxPanelUI = CreateBoxUiInstance();
+            if (boxPanelUI == null)
+            {
+                ForceCloseVisualImmediately();
+                return;
+            }
+
+            boxPanelUI.Open(this, false);
+        }
+
+        private BoxPanelUI CreateBoxUiInstance()
+        {
+            if (storageData == null || storageData.boxUiPrefab == null)
+            {
+                Debug.LogError($"[ChestController] 箱子 {gameObject.name} 缺少 boxUiPrefab 配置！");
+                return null;
             }
 
             // 🔥 使用缓存引用（PackagePanelTabsUI 没有单例）
@@ -1453,10 +1764,9 @@ namespace FarmGame.World
                 var boxPanelUI = packageTabs.OpenBoxUI(storageData.boxUiPrefab);
                 if (boxPanelUI != null)
                 {
-                    boxPanelUI.Open(this);
                     if (showDebugInfo)
-                        Debug.Log($"[ChestController] 通过 PackagePanelTabsUI 打开箱子 UI: {storageData.boxUiPrefab.name}");
-                    return;
+                        Debug.Log($"[ChestController] 通过 PackagePanelTabsUI 准备箱子 UI: {storageData.boxUiPrefab.name}");
+                    return boxPanelUI;
                 }
             }
 
@@ -1467,7 +1777,7 @@ namespace FarmGame.World
             if (_cachedCanvas == null)
             {
                 Debug.LogError("[ChestController] 场景中没有 Canvas！");
-                return;
+                return null;
             }
 
             var uiInstance = Instantiate(storageData.boxUiPrefab, _cachedCanvas.transform);
@@ -1477,13 +1787,124 @@ namespace FarmGame.World
             {
                 Debug.LogError($"[ChestController] UI Prefab {storageData.boxUiPrefab.name} 缺少 BoxPanelUI 组件！");
                 Destroy(uiInstance);
-                return;
+                return null;
             }
-
-            boxUI.Open(this);
 
             if (showDebugInfo)
                 Debug.Log($"[ChestController] 直接实例化箱子 UI: {storageData.boxUiPrefab.name}");
+
+            return boxUI;
+        }
+
+        public void NotifyBoxUiClosed(bool delayVisualClose = true)
+        {
+            CancelPendingUiOpen(restoreClosedVisualImmediately: false);
+
+            if (!delayVisualClose || closeVisualDelaySeconds <= 0f)
+            {
+                ForceCloseVisualImmediately();
+                return;
+            }
+
+            BeginDelayedVisualClose();
+        }
+
+        private void BeginDelayedVisualClose()
+        {
+            CancelPendingVisualClose(keepOpenVisual: true);
+            if (!_isOpen)
+            {
+                return;
+            }
+
+            _isVisualClosePending = true;
+            _pendingVisualCloseCoroutine = StartCoroutine(CloseVisualAfterDelay());
+        }
+
+        private IEnumerator CloseVisualAfterDelay()
+        {
+            if (closeVisualDelaySeconds > 0f)
+            {
+                yield return new WaitForSecondsRealtime(closeVisualDelaySeconds);
+            }
+
+            _pendingVisualCloseCoroutine = null;
+            if (!_isVisualClosePending)
+            {
+                yield break;
+            }
+
+            _isVisualClosePending = false;
+            if (IsSameChestUiAlreadyOpen())
+            {
+                yield break;
+            }
+
+            ForceCloseVisualImmediately();
+        }
+
+        private void CancelPendingUiOpen(bool restoreClosedVisualImmediately)
+        {
+            if (_pendingUiOpenCoroutine != null)
+            {
+                StopCoroutine(_pendingUiOpenCoroutine);
+                _pendingUiOpenCoroutine = null;
+            }
+
+            bool hadPendingUiOpen = _isUiOpenPending;
+            _isUiOpenPending = false;
+
+            if (restoreClosedVisualImmediately && hadPendingUiOpen)
+            {
+                ForceCloseVisualImmediately();
+            }
+        }
+
+        private void CancelPendingVisualClose(bool keepOpenVisual)
+        {
+            if (_pendingVisualCloseCoroutine != null)
+            {
+                StopCoroutine(_pendingVisualCloseCoroutine);
+                _pendingVisualCloseCoroutine = null;
+            }
+
+            bool hadPendingVisualClose = _isVisualClosePending;
+            _isVisualClosePending = false;
+
+            if (!keepOpenVisual && hadPendingVisualClose)
+            {
+                ForceCloseVisualImmediately();
+            }
+        }
+
+        private void ClearTransitionState(bool stopCoroutines)
+        {
+            if (stopCoroutines)
+            {
+                if (_pendingUiOpenCoroutine != null)
+                {
+                    StopCoroutine(_pendingUiOpenCoroutine);
+                }
+
+                if (_pendingVisualCloseCoroutine != null)
+                {
+                    StopCoroutine(_pendingVisualCloseCoroutine);
+                }
+            }
+
+            _pendingUiOpenCoroutine = null;
+            _pendingVisualCloseCoroutine = null;
+            _isUiOpenPending = false;
+            _isVisualClosePending = false;
+        }
+
+        private void ForceCloseVisualImmediately()
+        {
+            ClearTransitionState(stopCoroutines: false);
+            if (_isOpen)
+            {
+                SetOpen(false);
+            }
         }
 
         /// <summary>
@@ -1564,6 +1985,12 @@ namespace FarmGame.World
         /// </summary>
         private void OnValidate()
         {
+            interactionDistance = Mathf.Max(0.35f, interactionDistance);
+            bubbleRevealDistance = Mathf.Max(interactionDistance, bubbleRevealDistance);
+            uiOpenDelaySeconds = Mathf.Max(0f, uiOpenDelaySeconds);
+            closeVisualDelaySeconds = Mathf.Max(0f, closeVisualDelaySeconds);
+            CacheInteractionLabels();
+
             if (_preGenerateId && string.IsNullOrEmpty(_persistentId))
             {
                 _persistentId = System.Guid.NewGuid().ToString();
@@ -1582,6 +2009,250 @@ namespace FarmGame.World
             Debug.Log($"[ChestController] 已重新生成 ID: {_persistentId}");
         }
 #endif
+
+        #endregion
+
+        #region 近身交互
+
+        private void ReportProximityInteraction(InteractionContext context)
+        {
+            if (!enableProximityKeyInteraction)
+            {
+                HideProximityHint();
+                return;
+            }
+
+            if (_isUiOpenPending || _isVisualClosePending)
+            {
+                HideProximityHint();
+                return;
+            }
+
+            bool sameChestOpen = IsSameChestUiAlreadyOpen();
+            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() && !sameChestOpen)
+            {
+                HideProximityHint();
+                return;
+            }
+
+            DialogueManager dialogueManager = DialogueManager.Instance;
+            if (dialogueManager != null && dialogueManager.IsDialogueActive)
+            {
+                HideProximityHint();
+                return;
+            }
+
+            if (IsOutsideCoarseInteractionRange(context.PlayerPosition))
+            {
+                HideProximityHint();
+                return;
+            }
+
+            float boundaryDistance = GetBoundaryDistance(context.PlayerPosition);
+            if (boundaryDistance > Mathf.Max(bubbleRevealDistance, InteractionDistance))
+            {
+                HideProximityHint();
+                return;
+            }
+
+            if (!CanInteract(context))
+            {
+                HideProximityHint();
+                return;
+            }
+
+            bool canTriggerNow = boundaryDistance <= InteractionDistance;
+            SpringDay1ProximityInteractionService.ReportCandidate(
+                transform,
+                proximityInteractionKey,
+                _cachedProximityKeyLabel,
+                ResolveProximityCaption(context, sameChestOpen),
+                ResolveProximityDetail(canTriggerNow, sameChestOpen),
+                boundaryDistance,
+                InteractionPriority,
+                keyInteractionCooldown,
+                canTriggerNow,
+                () => OnInteract(context),
+                allowWhilePageUiOpen: sameChestOpen,
+                showWorldIndicator: false);
+        }
+
+        private bool TryBuildProximityInteractionContext(out InteractionContext context)
+        {
+            Transform playerTransform = ResolveCachedPlayerTransform();
+            if (playerTransform == null)
+            {
+                context = null;
+                return false;
+            }
+
+            _cachedInteractionContext ??= new InteractionContext();
+            _cachedInteractionContext.PlayerTransform = playerTransform;
+            _cachedInteractionContext.PlayerPosition = ResolveCachedPlayerSamplePoint(playerTransform);
+            _cachedInteractionContext.Inventory = ResolveInventoryService();
+            _cachedInteractionContext.Database = _cachedInteractionContext.Inventory != null
+                ? _cachedInteractionContext.Inventory.Database
+                : null;
+            _cachedInteractionContext.Navigator = GameInputManager.Instance != null
+                ? GameInputManager.Instance.GetComponent<PlayerAutoNavigator>()
+                : null;
+            _cachedInteractionContext.HeldItemId = -1;
+            _cachedInteractionContext.HeldItemQuality = 0;
+            _cachedInteractionContext.HeldSlotIndex = -1;
+
+            InventoryService inventoryService = _cachedInteractionContext.Inventory;
+            HotbarSelectionService hotbarSelection = ResolveHotbarSelectionService();
+            if (inventoryService != null && hotbarSelection != null)
+            {
+                int index = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+                ItemStack heldSlot = inventoryService.GetSlot(index);
+                if (!heldSlot.IsEmpty)
+                {
+                    _cachedInteractionContext.HeldItemId = heldSlot.itemId;
+                    _cachedInteractionContext.HeldItemQuality = heldSlot.quality;
+                    _cachedInteractionContext.HeldSlotIndex = index;
+                }
+            }
+
+            context = _cachedInteractionContext;
+            return true;
+        }
+
+        private Vector2 GetClosestInteractionPoint(Vector2 playerPosition)
+        {
+            Collider2D targetCollider = _collider != null && _collider.enabled
+                ? _collider
+                : (_polyCollider != null && _polyCollider.enabled ? _polyCollider : null);
+            if (targetCollider != null)
+            {
+                return targetCollider.ClosestPoint(playerPosition);
+            }
+
+            Bounds bounds = SpringDay1UiLayerUtility.TryGetPresentationBounds(transform, out Bounds presentationBounds)
+                ? presentationBounds
+                : GetBounds();
+            return bounds.ClosestPoint(playerPosition);
+        }
+
+        private bool IsOutsideCoarseInteractionRange(Vector2 playerPosition)
+        {
+            float coarseDistance = Mathf.Max(bubbleRevealDistance, InteractionDistance) + 0.5f;
+            return ((Vector2)transform.position - playerPosition).sqrMagnitude > coarseDistance * coarseDistance;
+        }
+
+        private bool IsSameChestUiAlreadyOpen()
+        {
+            return BoxPanelUI.ActiveInstance != null
+                && BoxPanelUI.ActiveInstance.IsOpen
+                && BoxPanelUI.ActiveInstance.CurrentChest == this;
+        }
+
+        private string ResolveProximityCaption(InteractionContext context, bool sameChestOpen)
+        {
+            if (sameChestOpen)
+            {
+                return "关闭箱子";
+            }
+
+            if (isLocked && ownership != ChestOwnership.Player)
+            {
+                return GetInteractionHint(context);
+            }
+
+            return string.IsNullOrWhiteSpace(bubbleCaption)
+                ? GetInteractionHint(context)
+                : bubbleCaption;
+        }
+
+        private string ResolveProximityDetail(bool canTriggerNow, bool sameChestOpen)
+        {
+            if (sameChestOpen)
+            {
+                return canTriggerNow
+                    ? "按 E 关闭箱子"
+                    : "再靠近一点即可关闭箱子";
+            }
+
+            if (!canTriggerNow)
+            {
+                if (isLocked && ownership != ChestOwnership.Player)
+                {
+                    return "再靠近一点即可尝试解锁箱子";
+                }
+
+                return "再靠近一点即可打开箱子";
+            }
+
+            if (isLocked && ownership != ChestOwnership.Player)
+            {
+                return "按 E 尝试解锁或打开箱子";
+            }
+
+            if (!string.IsNullOrWhiteSpace(bubbleDetail))
+            {
+                return bubbleDetail;
+            }
+
+            return "按 E 打开箱子";
+        }
+
+        private void HideProximityHint()
+        {
+            SpringDay1WorldHintBubble.HideIfExists(transform);
+        }
+
+        private void CacheInteractionLabels()
+        {
+            _cachedProximityKeyLabel = proximityInteractionKey.ToString();
+        }
+
+        private InventoryService ResolveInventoryService()
+        {
+            if (_cachedInventoryService == null)
+            {
+                _cachedInventoryService = FindFirstObjectByType<InventoryService>();
+            }
+
+            return _cachedInventoryService;
+        }
+
+        private HotbarSelectionService ResolveHotbarSelectionService()
+        {
+            if (_cachedHotbarSelection == null)
+            {
+                _cachedHotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+            }
+
+            return _cachedHotbarSelection;
+        }
+
+        private static Transform ResolveCachedPlayerTransform()
+        {
+            if (s_cachedPlayerMovement != null)
+            {
+                return s_cachedPlayerMovement.transform;
+            }
+
+            if (s_lastPlayerLookupFrame == Time.frameCount)
+            {
+                return null;
+            }
+
+            s_lastPlayerLookupFrame = Time.frameCount;
+            s_cachedPlayerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            return s_cachedPlayerMovement != null ? s_cachedPlayerMovement.transform : null;
+        }
+
+        private static Vector2 ResolveCachedPlayerSamplePoint(Transform playerTransform)
+        {
+            if (s_lastPlayerSamplePointFrame != Time.frameCount)
+            {
+                s_cachedPlayerSamplePoint = SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform);
+                s_lastPlayerSamplePointFrame = Time.frameCount;
+            }
+
+            return s_cachedPlayerSamplePoint;
+        }
 
         #endregion
     }
