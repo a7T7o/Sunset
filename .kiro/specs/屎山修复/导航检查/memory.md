@@ -340,3 +340,26 @@
 - 本轮报实：
   - 只读分析，未改代码
   - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`，因为没有进入真实施工
+
+## 2026-04-12 收口检查：导航检查线程当前 repo 内 own roots 已无可合法归仓差异
+- 用户本轮要求：
+  - 让我按历史 memory 和当前线程 memory，把“我自己能提交的内容”全部按规范检查并提交干净
+- 本轮执行：
+  1. 对 `导航检查` 线程自己的 repo 内 own roots 做白名单核对：
+     - `.kiro/specs/屎山修复/导航检查/memory.md`
+     - `.codex/threads/Sunset/导航检查/memory_0.md`
+  2. 先跑 `Begin-Slice`，只登记这两个 own 路径
+  3. 用 `git status --short -- <own roots>`、`git diff -- <own roots>`、`git log -- <own roots>` 复核
+  4. 结论：当前这两个 own roots 在仓库内已经没有待提交差异，不能为了“看起来有动作”强行凑空提交
+- 当前判断：
+  - 我这条线程 repo 内“自己能合法提交”的内容当前是空集
+  - 仓库里虽然还有大量 dirty/untracked，但都不属于这轮 `导航检查` 线程可安全吞并的 own 白名单
+  - 其中 `Assets` 大面当前仍是 shared-root / 多线程混合现场，不能被我借“顺手提交”吞进去
+- 补充发现：
+  - 当前阻断 live 的第一外部红，不在导航 own，而在 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+  - 所以即使我想继续跑 Town/NPC live，也会先被外部 compile red 挡回 EditMode
+- thread-state 报实：
+  - `Begin-Slice`：已跑
+  - 因为 own roots 无差异，本轮没有进入 `Ready-To-Sync`
+  - 已跑 `Park-Slice`
+  - 当前状态按脚本返回值为 `PARKED`

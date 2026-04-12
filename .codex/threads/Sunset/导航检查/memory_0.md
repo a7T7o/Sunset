@@ -370,6 +370,29 @@
   - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`，因为本轮停留在只读分析
   - 当前判断已越过“还没定位”；现在更像 Day1 caller 责任链，而不是导航 own first-truth
 
+## 2026-04-12 提交审计：导航检查线程当前无 repo 内 own changes 可合法 sync
+- 用户要求我把“自己能提交的都提交掉”
+- 本轮按当前 thread-state 规则做了最小收口核对：
+  - `Begin-Slice` 已跑，白名单只登记：
+    - `.kiro/specs/屎山修复/导航检查/memory.md`
+    - `.codex/threads/Sunset/导航检查/memory_0.md`
+  - 之后对这两个 own roots 跑了：
+    - `git status --short -- <own roots>`
+    - `git diff -- <own roots>`
+    - `git log -- <own roots>`
+- 结论：
+  - 当前这两个 repo 内 own roots 没有待提交差异
+  - 因此这轮不存在“我自己能合法归仓但还没提”的 repo 改动
+  - 仓库里剩余海量 dirty/untracked 仍主要在 `Assets` / `ProjectSettings` / 其他线程范围，不属于导航检查线程可安全吞并的白名单
+- 额外现场：
+  - 我尝试自测 Town/NPC live 时，Play 首先被外部 compile red 挡住
+  - 第一外部 blocker 现在落在 `spring-day1/UI` 的 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+  - 所以当前不是“导航这边有东西没提交”，而是“导航 live 还被别的线程红面挡着”
+- 收口：
+  - 本轮未做空提交
+  - 因为没有进入真实 sync，未跑 `Ready-To-Sync`
+  - 已跑 `Park-Slice`
+
 ## 2026-04-11 只读分析：朝向已基本收住后，Town 当前“顶墙 / 避让像没了”并不等于静态导航消失
 - 用户最新目标：
   - 要我彻底讲清：现在朝向已经对了，但 NPC 还会撞墙、避让像没了；到底是静态导航不存在，还是别的层出了问题；以及下一刀能不能做到“历史可用体验 + 当前性能稳定”。
