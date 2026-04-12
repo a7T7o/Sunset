@@ -18,6 +18,7 @@ using FarmGame.UI;
 /// </summary>
 public class InventorySlotInteraction : MonoBehaviour,
     IPointerDownHandler,
+    IPointerClickHandler,
     IPointerUpHandler,
     IPointerEnterHandler,
     IPointerExitHandler,
@@ -452,6 +453,24 @@ public class InventorySlotInteraction : MonoBehaviour,
     public void OnPointerUp(PointerEventData eventData)
     {
         // PointerUp 不做任何事
+    }
+
+    public void OnPointerClick(PointerEventData eventData)
+    {
+        if (eventData.button != PointerEventData.InputButton.Left || eventData.clickCount < 2)
+        {
+            return;
+        }
+
+        if (!CanExecuteBoxDoubleClickTransfer())
+        {
+            return;
+        }
+
+        if (!TryExecuteBoxDoubleClickTransfer())
+        {
+            inventorySlotUI?.PlayRejectShake();
+        }
     }
 
     public void OnPointerEnter(PointerEventData eventData)
@@ -1591,6 +1610,109 @@ public class InventorySlotInteraction : MonoBehaviour,
         }
 
         sourceSlotUI.ClearSelectionState();
+    }
+
+    private bool CanExecuteBoxDoubleClickTransfer()
+    {
+        if (isEquip || (!IsChestSlot && !IsInventorySlot))
+        {
+            return false;
+        }
+
+        BoxPanelUI boxPanel = CachedBoxPanel;
+        if (boxPanel == null || !boxPanel.IsOpen || boxPanel.CurrentChest == null)
+        {
+            return false;
+        }
+
+        if (SlotDragContext.IsDragging)
+        {
+            return false;
+        }
+
+        InventoryInteractionManager manager = InventoryInteractionManager.Instance;
+        if (manager != null && manager.IsHolding)
+        {
+            return false;
+        }
+
+        if (Input.GetKey(KeyCode.LeftShift) ||
+            Input.GetKey(KeyCode.RightShift) ||
+            Input.GetKey(KeyCode.LeftControl) ||
+            Input.GetKey(KeyCode.RightControl))
+        {
+            return false;
+        }
+
+        return !ResolveCurrentStack().IsEmpty;
+    }
+
+    private bool TryExecuteBoxDoubleClickTransfer()
+    {
+        IItemContainer sourceContainer = CurrentContainer;
+        int sourceIndex = SlotIndex;
+        ItemStack sourceStack = ResolveCurrentStack();
+        if (sourceContainer == null || sourceIndex < 0 || sourceStack.IsEmpty)
+        {
+            return false;
+        }
+
+        IItemContainer targetContainer = ResolveDoubleClickTransferTarget();
+        if (targetContainer == null)
+        {
+            return false;
+        }
+
+        int targetIndex = FindFirstEmptySlot(targetContainer);
+        if (targetIndex < 0)
+        {
+            return false;
+        }
+
+        if (TryRejectProtectedHeldMutation(sourceContainer, sourceIndex, false, targetContainer, targetIndex, false))
+        {
+            return false;
+        }
+
+        InventoryItem sourceRuntimeItem = ResolveCurrentRuntimeItem();
+        SetContainerSlotPreservingRuntime(targetContainer, targetIndex, sourceStack, sourceRuntimeItem);
+        SetContainerSlotPreservingRuntime(sourceContainer, sourceIndex, ItemStack.Empty, null);
+        inventorySlotUI?.ClearSelectionState();
+        inventorySlotUI?.RefreshSelection();
+        return true;
+    }
+
+    private IItemContainer ResolveDoubleClickTransferTarget()
+    {
+        if (IsChestSlot)
+        {
+            return CachedInventoryService;
+        }
+
+        if (!IsInventorySlot)
+        {
+            return null;
+        }
+
+        return CachedBoxPanel != null ? CachedBoxPanel.CurrentChest?.RuntimeInventory : null;
+    }
+
+    private static int FindFirstEmptySlot(IItemContainer container)
+    {
+        if (container == null)
+        {
+            return -1;
+        }
+
+        for (int index = 0; index < container.Capacity; index++)
+        {
+            if (container.GetSlot(index).IsEmpty)
+            {
+                return index;
+            }
+        }
+
+        return -1;
     }
 
     private void ReturnHeldToSourceContainer(IItemContainer container, int sourceIndex, ItemStack draggedItem, InventoryItem draggedRuntimeItem)
