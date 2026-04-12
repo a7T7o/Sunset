@@ -56,8 +56,8 @@ public static class DayNightConfigCreator
         config.pointLightFadeDuration = 1.0f;
 
         // ═══ 路线融合参数 ═══
-        config.overlayStrengthWithURP = 0.4f;
-        config.overlayStrengthWithoutURP = 1.0f;
+        config.overlayStrengthWithURP = 0.35f;
+        config.overlayStrengthWithoutURP = 0.92f;
 
         // 确保目标目录存在
         string directory = System.IO.Path.GetDirectoryName(AssetPath);
@@ -96,6 +96,8 @@ public static class DayNightConfigCreator
             {
                 new GradientColorKey(new Color(0.95f, 0.90f, 0.75f), 0.00f),  // 06:00 淡绿金
                 new GradientColorKey(new Color(0.98f, 0.98f, 0.95f), 0.30f),  // 12:00 近白微绿
+                new GradientColorKey(new Color(0.98f, 0.98f, 0.95f), 0.40f),  // 14:00 白天平台
+                new GradientColorKey(new Color(0.95f, 0.93f, 0.86f), 0.50f),  // 16:00 仍保持明亮
                 new GradientColorKey(new Color(0.90f, 0.80f, 0.60f), 0.60f),  // 18:00 绿橙
                 new GradientColorKey(new Color(0.40f, 0.45f, 0.60f), 0.80f),  // 22:00 深蓝绿
                 new GradientColorKey(new Color(0.30f, 0.30f, 0.50f), 1.00f),  // 02:00 深蓝
@@ -120,6 +122,8 @@ public static class DayNightConfigCreator
             {
                 new GradientColorKey(new Color(0.95f, 0.88f, 0.70f), 0.00f),  // 06:00 暖金
                 new GradientColorKey(new Color(1.00f, 0.98f, 0.95f), 0.30f),  // 12:00 近白微暖
+                new GradientColorKey(new Color(1.00f, 0.98f, 0.95f), 0.40f),  // 14:00 白天平台
+                new GradientColorKey(new Color(0.97f, 0.93f, 0.86f), 0.50f),  // 16:00 仍保持通透
                 new GradientColorKey(new Color(0.92f, 0.75f, 0.55f), 0.60f),  // 18:00 暖橙红
                 new GradientColorKey(new Color(0.38f, 0.40f, 0.58f), 0.80f),  // 22:00 深蓝暖
                 new GradientColorKey(new Color(0.32f, 0.28f, 0.48f), 1.00f),  // 02:00 深蓝紫
@@ -144,6 +148,8 @@ public static class DayNightConfigCreator
             {
                 new GradientColorKey(new Color(0.95f, 0.82f, 0.60f), 0.00f),  // 06:00 橙金
                 new GradientColorKey(new Color(0.98f, 0.95f, 0.90f), 0.30f),  // 12:00 近白微橙
+                new GradientColorKey(new Color(0.98f, 0.95f, 0.90f), 0.40f),  // 14:00 白天平台
+                new GradientColorKey(new Color(0.95f, 0.88f, 0.76f), 0.50f),  // 16:00 保留暖亮
                 new GradientColorKey(new Color(0.88f, 0.70f, 0.45f), 0.60f),  // 18:00 深橙
                 new GradientColorKey(new Color(0.40f, 0.38f, 0.55f), 0.80f),  // 22:00 深蓝橙
                 new GradientColorKey(new Color(0.30f, 0.30f, 0.48f), 1.00f),  // 02:00 深蓝
@@ -168,6 +174,8 @@ public static class DayNightConfigCreator
             {
                 new GradientColorKey(new Color(0.80f, 0.85f, 0.95f), 0.00f),  // 06:00 冷蓝白
                 new GradientColorKey(new Color(0.95f, 0.95f, 0.98f), 0.30f),  // 12:00 近白微蓝
+                new GradientColorKey(new Color(0.95f, 0.95f, 0.98f), 0.40f),  // 14:00 白天平台
+                new GradientColorKey(new Color(0.88f, 0.90f, 0.95f), 0.50f),  // 16:00 仍保持冷亮
                 new GradientColorKey(new Color(0.70f, 0.65f, 0.85f), 0.60f),  // 18:00 冷紫蓝
                 new GradientColorKey(new Color(0.35f, 0.30f, 0.55f), 0.80f),  // 22:00 深蓝紫
                 new GradientColorKey(new Color(0.28f, 0.25f, 0.50f), 1.00f),  // 02:00 深紫蓝
@@ -256,38 +264,15 @@ public static class DayNightConfigCreator
     [MenuItem("Tools/Setup DayNight Scene")]
     public static void SetupDayNightScene()
     {
-        // 查找或创建 DayNightManager 根对象
-        var existingMgr = Object.FindFirstObjectByType<DayNightManager>();
+        EnsureDayNightSceneControllers.EnsureAndSaveSupportedScenes();
+
+        var existingMgr = Object.FindFirstObjectByType<DayNightManager>(FindObjectsInactive.Include);
         if (existingMgr != null)
         {
-            if (!EditorUtility.DisplayDialog(
-                "DayNightManager 已存在",
-                "场景中已存在 DayNightManager。\n是否重新配置引用？",
-                "重新配置", "取消"))
-            {
-                return;
-            }
-            SetupHierarchy(existingMgr.gameObject);
-            return;
+            Selection.activeGameObject = existingMgr.gameObject;
         }
 
-        // 创建新的 DayNightManager 对象
-        var mgrGO = new GameObject("DayNightManager");
-        mgrGO.AddComponent<DayNightManager>();
-
-        // 尝试挂到 PersistentManagers 下
-        var persistentManagers = GameObject.Find("PersistentManagers");
-        if (persistentManagers != null)
-        {
-            mgrGO.transform.SetParent(persistentManagers.transform);
-            Debug.Log("[SetupDayNightScene] 已挂载到 PersistentManagers 下");
-        }
-        else
-        {
-            Debug.LogWarning("[SetupDayNightScene] 未找到 PersistentManagers，DayNightManager 创建在根层级");
-        }
-
-        SetupHierarchy(mgrGO);
+        Debug.Log("<color=green>[SetupDayNightScene] 已确保 Primary / Town 的 DayNight 控制器存在并写回场景。</color>");
     }
 
     /// <summary>

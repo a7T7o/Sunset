@@ -10,8 +10,15 @@ using UnityEditor;
 /// 计算最终叠加颜色并驱动 DayNightOverlay（路线 B）。
 /// 路线 A（URP 增强层）通过 enableRouteA 开关控制。
 /// </summary>
+[ExecuteAlways]
 public class DayNightManager : MonoBehaviour
 {
+    public enum EditorPreviewMode
+    {
+        LocalVision = 0,
+        GlobalScene = 1
+    }
+
     private const string DefaultConfigResourcesPath = "DayNightConfig";
     private const string RuntimeConfigNamePrefix = "RuntimePrepared_";
 #if UNITY_EDITOR
@@ -51,6 +58,15 @@ public class DayNightManager : MonoBehaviour
     [Tooltip("路线 A：局部光源管理器（可选）")]
     [SerializeField] private PointLightManager pointLightMgr;
 
+    [Header("━━━━ 编辑器预览 ━━━━")]
+    [SerializeField] private bool enableEditorPreview = true;
+    [SerializeField] private EditorPreviewMode editorPreviewMode = EditorPreviewMode.LocalVision;
+    [SerializeField, Range(0f, 23.99f)] private float editorPreviewTime = 21f;
+    [SerializeField] private SeasonManager.Season editorPreviewSeason = SeasonManager.Season.Spring;
+    [SerializeField] private WeatherSystem.Weather editorPreviewWeather = WeatherSystem.Weather.Sunny;
+    [SerializeField] private Transform editorPreviewFocus;
+    [SerializeField] private bool animateLightsInEditor = true;
+
     [Header("━━━━ 调试 ━━━━")]
     [SerializeField] private bool showDebugInfo = true;
 
@@ -70,7 +86,7 @@ public class DayNightManager : MonoBehaviour
     [Header("━━━━ 夜灯 Overlay ━━━━")]
     [SerializeField] private bool enableNightLightOverlay = true;
     [SerializeField] private float nightLightWarmth = 0.42f;
-    [SerializeField] private float nightLightIntensityScale = 0.9f;
+    [SerializeField] private float nightLightIntensityScale = 0.96f;
     [SerializeField] private float nightLightSearchInterval = 1f;
     [SerializeField] private int maxOverlayNightLights = 8;
 
@@ -131,6 +147,10 @@ public class DayNightManager : MonoBehaviour
     private NightLightMarker[] cachedNightLightMarkers = new NightLightMarker[0];
     private float nextNightLightRefreshTime;
     private DayNightOverlay.LightSample[] overlayNightLights = new DayNightOverlay.LightSample[8];
+#if UNITY_EDITOR
+    private double nextEditorPreviewTickTime;
+    private bool editorPreviewApplied;
+#endif
 
     #endregion
 
@@ -138,15 +158,22 @@ public class DayNightManager : MonoBehaviour
 
     private void Awake()
     {
-        if (instance == null)
+        if (Application.isPlaying)
+        {
+            if (instance == null)
+            {
+                instance = this;
+                // DontDestroyOnLoad 由 PersistentManagers 统一处理
+            }
+            else if (instance != this)
+            {
+                Destroy(gameObject);
+                return;
+            }
+        }
+        else if (instance == null || instance == this)
         {
             instance = this;
-            // DontDestroyOnLoad 由 PersistentManagers 统一处理
-        }
-        else if (instance != this)
-        {
-            Destroy(gameObject);
-            return;
         }
 
         EnsureDependencies();
@@ -154,13 +181,34 @@ public class DayNightManager : MonoBehaviour
         if (config == null || overlay == null)
         {
             Debug.LogWarning("[DayNightManager] 关键依赖缺失，组件已禁用");
-            enabled = false;
+            if (Application.isPlaying)
+            {
+                enabled = false;
+            }
             return;
         }
     }
 
+    private void OnEnable()
+    {
+        EnsureDependencies();
+
+#if UNITY_EDITOR
+        if (!Application.isPlaying)
+        {
+            QueueEditorRefresh();
+        }
+#endif
+    }
+
     private void Start()
     {
+        if (!Application.isPlaying)
+        {
+            EditorRefreshNow();
+            return;
+        }
+
         // 订阅事件
         TimeManager.OnMinuteChanged += OnMinuteChanged;
         TimeManager.OnHourChanged += OnHourChanged;
@@ -179,12 +227,15 @@ public class DayNightManager : MonoBehaviour
 
     private void OnDestroy()
     {
-        // 取消所有订阅
-        TimeManager.OnMinuteChanged -= OnMinuteChanged;
-        TimeManager.OnHourChanged -= OnHourChanged;
-        TimeManager.OnSeasonChanged -= OnSeasonChanged;
-        TimeManager.OnSleep -= OnSleep;
-        WeatherSystem.OnWeatherChanged -= OnWeatherChanged;
+        if (Application.isPlaying)
+        {
+            // 取消所有订阅
+            TimeManager.OnMinuteChanged -= OnMinuteChanged;
+            TimeManager.OnHourChanged -= OnHourChanged;
+            TimeManager.OnSeasonChanged -= OnSeasonChanged;
+            TimeManager.OnSleep -= OnSleep;
+            WeatherSystem.OnWeatherChanged -= OnWeatherChanged;
+        }
 
         if (instance == this)
         {
@@ -194,6 +245,14 @@ public class DayNightManager : MonoBehaviour
 
     private void Update()
     {
+        if (!Application.isPlaying)
+        {
+#if UNITY_EDITOR
+            EditorUpdate();
+#endif
+            return;
+        }
+
         bool needsUpdate = false;
 
         // 驱动天气过渡计时器
@@ -745,11 +804,12 @@ public class DayNightManager : MonoBehaviour
     /// </summary>
     public bool IsNightMode()
     {
-        if (TimeManager.Instance != null)
+        if (Application.isPlaying && TimeManager.Instance != null)
         {
             return TimeManager.Instance.IsNighttime();
         }
-        return false;
+
+        return EvaluateNightVisionStrength() > 0.01f;
     }
 
     /// <summary>
@@ -807,7 +867,7 @@ public class DayNightManager : MonoBehaviour
 
     private void RefreshCachedDayProgress()
     {
-        cachedDayProgress = TimeManager.Instance != null ? TimeManager.Instance.GetDayProgress() : 0f;
+        cachedDayProgress = GetEffectiveDayProgress();
     }
 
     private void EnsureDependencies()
@@ -818,7 +878,13 @@ public class DayNightManager : MonoBehaviour
         {
             config = TryResolveConfig();
         }
-        else
+#if UNITY_EDITOR
+        else if (!Application.isPlaying && IsTemporaryRuntimeConfig(config))
+        {
+            config = ResolveConfigAsset();
+        }
+#endif
+        else if (Application.isPlaying)
         {
             config = PrepareRuntimeConfig(config);
         }
@@ -833,13 +899,28 @@ public class DayNightManager : MonoBehaviour
 
     private DayNightConfig TryResolveConfig()
     {
+        DayNightConfig resolved = ResolveConfigAsset();
+        if (resolved == null)
+        {
+            return Application.isPlaying ? PrepareRuntimeConfig(CreateFallbackConfig()) : null;
+        }
+
+        return Application.isPlaying ? PrepareRuntimeConfig(resolved) : resolved;
+    }
+
+    private DayNightConfig ResolveConfigAsset()
+    {
         DayNightConfig resolved = AssetLocator.LoadDayNightConfig(DefaultConfigResourcesPath);
         if (resolved != null)
         {
-            return PrepareRuntimeConfig(resolved);
+            return resolved;
         }
 
-        return PrepareRuntimeConfig(CreateFallbackConfig());
+#if UNITY_EDITOR
+        resolved = AssetDatabase.LoadAssetAtPath<DayNightConfig>(DefaultConfigEditorAssetPath);
+#endif
+
+        return resolved;
     }
 
     private DayNightConfig PrepareRuntimeConfig(DayNightConfig source)
@@ -866,6 +947,13 @@ public class DayNightManager : MonoBehaviour
         return runtimeConfig;
     }
 
+    private static bool IsTemporaryRuntimeConfig(DayNightConfig candidate)
+    {
+        return candidate != null &&
+               (candidate.hideFlags & HideFlags.DontSave) != 0 &&
+               candidate.name.StartsWith(RuntimeConfigNamePrefix, StringComparison.Ordinal);
+    }
+
     private DayNightOverlay EnsureOverlayReference()
     {
         DayNightOverlay existing = GetComponentInChildren<DayNightOverlay>(true);
@@ -885,29 +973,26 @@ public class DayNightManager : MonoBehaviour
     {
         bool changed = false;
 
-        if (TimeManager.Instance != null)
+        float liveDayProgress = GetEffectiveDayProgress();
+        if (!Mathf.Approximately(cachedDayProgress, liveDayProgress))
         {
-            float liveDayProgress = TimeManager.Instance.GetDayProgress();
-            if (!Mathf.Approximately(cachedDayProgress, liveDayProgress))
-            {
-                cachedDayProgress = liveDayProgress;
-                changed = true;
-            }
-
-            SeasonManager.Season liveSeason = TimeManager.Instance.GetSeason();
-            if (liveSeason != cachedSeason)
-            {
-                cachedSeason = liveSeason;
-                currentSeasonGradient = config != null ? config.GetSeasonGradient(liveSeason) : currentSeasonGradient;
-                previousSeasonGradient = currentSeasonGradient;
-                isSeasonTransitioning = false;
-                changed = true;
-            }
+            cachedDayProgress = liveDayProgress;
+            changed = true;
         }
 
-        if (!isWeatherTransitioning && config != null && WeatherSystem.Instance != null)
+        SeasonManager.Season liveSeason = GetEffectiveSeason();
+        if (liveSeason != cachedSeason)
         {
-            Color liveWeatherTint = GetWeatherTint(WeatherSystem.Instance.GetCurrentWeather());
+            cachedSeason = liveSeason;
+            currentSeasonGradient = config != null ? config.GetSeasonGradient(liveSeason) : currentSeasonGradient;
+            previousSeasonGradient = currentSeasonGradient;
+            isSeasonTransitioning = false;
+            changed = true;
+        }
+
+        if (!isWeatherTransitioning && config != null)
+        {
+            Color liveWeatherTint = GetWeatherTint(GetEffectiveWeather());
             if (!ColorsApproximatelyEqual(currentWeatherTint, liveWeatherTint))
             {
                 currentWeatherTint = liveWeatherTint;
@@ -972,12 +1057,17 @@ public class DayNightManager : MonoBehaviour
             return;
         }
 
+        overlay.SetVisible(Application.isPlaying || enableEditorPreview);
         overlay.SetVisionAspect(visionAspect);
         overlay.SetVisionFocus(ResolvePlayerTransform());
 
-        float visionStrength = enableNightVision ? EvaluateNightVisionStrength() : 0f;
-        float radiusNormalized = Mathf.Lerp(dayVisionRadiusNormalized, nightVisionRadiusNormalized, visionStrength);
-        float outerDarkness = visionOuterDarkness * visionStrength;
+        bool useGlobalScenePreview = IsUsingGlobalScenePreview();
+        overlay.SetEditorGlobalScenePreview(useGlobalScenePreview);
+        float visionStrength = enableNightVision && !useGlobalScenePreview ? EvaluateNightVisionStrength() : 0f;
+        float radiusNormalized = useGlobalScenePreview
+            ? dayVisionRadiusNormalized
+            : Mathf.Lerp(dayVisionRadiusNormalized, nightVisionRadiusNormalized, visionStrength);
+        float outerDarkness = useGlobalScenePreview ? 0f : visionOuterDarkness * visionStrength;
         overlay.SetVisionProfile(radiusNormalized, visionSoftness, visionStrength, outerDarkness);
 
         if (!enableNightLightOverlay)
@@ -993,6 +1083,11 @@ public class DayNightManager : MonoBehaviour
 
     private Transform ResolvePlayerTransform()
     {
+        if (!Application.isPlaying && editorPreviewFocus != null)
+        {
+            return editorPreviewFocus;
+        }
+
         if (cachedPlayerTransform != null)
         {
             return cachedPlayerTransform;
@@ -1012,6 +1107,13 @@ public class DayNightManager : MonoBehaviour
         }
 
         return cachedPlayerTransform;
+    }
+
+    private bool IsUsingGlobalScenePreview()
+    {
+        return !Application.isPlaying &&
+               enableEditorPreview &&
+               editorPreviewMode == EditorPreviewMode.GlobalScene;
     }
 
     private float EvaluateNightVisionStrength()
@@ -1060,12 +1162,7 @@ public class DayNightManager : MonoBehaviour
 
     private float GetCurrentTimeAsHourFloat()
     {
-        if (TimeManager.Instance == null)
-        {
-            return 12f;
-        }
-
-        return TimeManager.Instance.GetHour() + TimeManager.Instance.GetMinute() / 60f;
+        return GetEffectiveHourFloat();
     }
 
     private int BuildOverlayNightLights(float lightStrength)
@@ -1098,7 +1195,7 @@ public class DayNightManager : MonoBehaviour
                 {
                     position = animatedPosition,
                     color = lampColor,
-                    radius = Mathf.Max(0.5f, animatedRadius * 1.12f),
+                    radius = Mathf.Max(0.5f, animatedRadius * 1.32f),
                     feather = Mathf.Clamp01(marker.Feather),
                     intensity = Mathf.Clamp01(animatedIntensity),
                     coreRatio = Mathf.Clamp01(Mathf.Lerp(0.22f, 0.38f, 1f - marker.Feather))
@@ -1128,51 +1225,127 @@ public class DayNightManager : MonoBehaviour
     private float ComputeAnimatedLightIntensity(NightLightMarker marker, float lightStrength)
     {
         float baseIntensity = marker.MaxIntensity * marker.OverlayWeight * nightLightIntensityScale * lightStrength;
-        if (!Application.isPlaying)
-        {
-            return baseIntensity;
-        }
-
-        float time = Time.time + marker.AnimationSeed;
+        float time = GetLightAnimationTime() + marker.AnimationSeed;
         float pulseSpeed = Mathf.Max(0.01f, marker.PulseSpeed);
         float slowWave = Mathf.Sin(time * pulseSpeed * Mathf.PI * 2f);
         float fastWave = Mathf.Sin(time * (pulseSpeed * 2.17f + 0.36f) * Mathf.PI * 2f + 0.9f);
         float emberWave = Mathf.Sin(time * (pulseSpeed * 3.45f + 0.51f) * Mathf.PI * 2f + 1.8f);
         float noiseWave = (Mathf.PerlinNoise(marker.AnimationSeed * 1.37f, time * (0.55f + pulseSpeed * 0.24f)) - 0.5f) * 2f;
         float pulseOffset = (slowWave * 0.42f + fastWave * 0.22f + emberWave * 0.16f + noiseWave * 0.20f) * marker.PulseAmount;
-        return baseIntensity * Mathf.Max(0.2f, 1f + pulseOffset);
+        return baseIntensity * Mathf.Max(0.24f, 1f + pulseOffset * 1.08f);
     }
 
     private float ComputeAnimatedLightRadius(NightLightMarker marker)
     {
         float baseRadius = Mathf.Max(0.5f, marker.Radius);
-        if (!Application.isPlaying)
-        {
-            return baseRadius;
-        }
-
-        float time = Time.time + marker.AnimationSeed;
+        float time = GetLightAnimationTime() + marker.AnimationSeed;
         float pulseSpeed = Mathf.Max(0.01f, marker.PulseSpeed);
         float radiusWave = Mathf.Sin(time * (pulseSpeed * 0.74f + 0.19f) * Mathf.PI * 2f);
         float secondaryWave = Mathf.Sin(time * (pulseSpeed * 1.21f + 0.07f) * Mathf.PI * 2f + 1.2f);
-        float radiusOffset = (radiusWave * 0.7f + secondaryWave * 0.3f) * Mathf.Min(0.14f, marker.PulseAmount * 0.32f);
+        float radiusOffset = (radiusWave * 0.7f + secondaryWave * 0.3f) * Mathf.Min(0.2f, marker.PulseAmount * 0.42f);
         return baseRadius * Mathf.Max(0.72f, 1f + radiusOffset);
     }
 
     private Vector2 ComputeAnimatedLightPosition(NightLightMarker marker)
     {
         Vector3 basePosition = marker.transform.position;
-        if (!Application.isPlaying || marker.SwayAmplitude <= 0.0001f)
+        if (marker.SwayAmplitude <= 0.0001f)
         {
             return basePosition;
         }
 
-        float time = Time.time + marker.AnimationSeed;
+        float time = GetLightAnimationTime() + marker.AnimationSeed;
         float swaySpeed = Mathf.Max(0.01f, marker.SwaySpeed);
         float swayX = Mathf.Sin(time * swaySpeed * Mathf.PI * 2f) * marker.SwayAmplitude;
-        float swayY = Mathf.Cos(time * (swaySpeed * 0.63f + 0.11f) * Mathf.PI * 2f) * marker.SwayAmplitude * 0.4f;
-        float emberJitter = (Mathf.PerlinNoise(marker.AnimationSeed * 0.73f, time * (1.1f + swaySpeed * 0.35f)) - 0.5f) * marker.SwayAmplitude * 0.22f;
+        float swayY = Mathf.Cos(time * (swaySpeed * 0.63f + 0.11f) * Mathf.PI * 2f) * marker.SwayAmplitude * 0.52f;
+        float emberJitter = (Mathf.PerlinNoise(marker.AnimationSeed * 0.73f, time * (1.1f + swaySpeed * 0.35f)) - 0.5f) * marker.SwayAmplitude * 0.34f;
         return new Vector2(basePosition.x + swayX + emberJitter, basePosition.y + swayY);
+    }
+
+    private float GetEffectiveDayProgress()
+    {
+        if (!Application.isPlaying && enableEditorPreview)
+        {
+            return ConvertHourToDayProgress(editorPreviewTime);
+        }
+
+        return TimeManager.Instance != null ? TimeManager.Instance.GetDayProgress() : 0.3f;
+    }
+
+    private SeasonManager.Season GetEffectiveSeason()
+    {
+        if (!Application.isPlaying && enableEditorPreview)
+        {
+            return editorPreviewSeason;
+        }
+
+        if (TimeManager.Instance != null)
+        {
+            return TimeManager.Instance.GetSeason();
+        }
+
+        return SeasonManager.Season.Spring;
+    }
+
+    private WeatherSystem.Weather GetEffectiveWeather()
+    {
+        if (!Application.isPlaying && enableEditorPreview)
+        {
+            return editorPreviewWeather;
+        }
+
+        return WeatherSystem.Instance != null ? WeatherSystem.Instance.GetCurrentWeather() : WeatherSystem.Weather.Sunny;
+    }
+
+    private float GetEffectiveHourFloat()
+    {
+        if (!Application.isPlaying && enableEditorPreview)
+        {
+            return NormalizeHour(editorPreviewTime);
+        }
+
+        if (TimeManager.Instance == null)
+        {
+            return 12f;
+        }
+
+        return TimeManager.Instance.GetHour() + TimeManager.Instance.GetMinute() / 60f;
+    }
+
+    private static float NormalizeHour(float rawHour)
+    {
+        float normalized = rawHour % 24f;
+        if (normalized < 0f)
+        {
+            normalized += 24f;
+        }
+
+        return normalized;
+    }
+
+    private static float ConvertHourToDayProgress(float hourFloat)
+    {
+        float normalizedHour = NormalizeHour(hourFloat);
+        if (normalizedHour < 6f)
+        {
+            normalizedHour += 24f;
+        }
+
+        return Mathf.Clamp01((normalizedHour - 6f) / 20f);
+    }
+
+    private float GetLightAnimationTime()
+    {
+        if (Application.isPlaying)
+        {
+            return Time.time;
+        }
+
+#if UNITY_EDITOR
+        return animateLightsInEditor ? (float)EditorApplication.timeSinceStartup : 0f;
+#else
+        return 0f;
+#endif
     }
 
     private void EnsureOverlayNightLightCapacity()
@@ -1400,4 +1573,111 @@ public class DayNightManager : MonoBehaviour
     }
 
     #endregion
+
+#if UNITY_EDITOR
+    private void OnValidate()
+    {
+        if (Application.isPlaying)
+        {
+            return;
+        }
+
+        QueueEditorRefresh();
+    }
+
+    public void EditorRefreshNow()
+    {
+        if (Application.isPlaying)
+        {
+            return;
+        }
+
+        EnsureDependencies();
+        if (overlay == null)
+        {
+            return;
+        }
+
+        if (!enableEditorPreview)
+        {
+            overlay.SetNightLights(overlayNightLights, 0);
+            overlay.SetVisible(false);
+            editorPreviewApplied = false;
+            SceneView.RepaintAll();
+            return;
+        }
+
+        cachedSeason = editorPreviewSeason;
+        cachedDayProgress = ConvertHourToDayProgress(editorPreviewTime);
+        currentSeasonGradient = config != null ? config.GetSeasonGradient(cachedSeason) : currentSeasonGradient;
+        previousSeasonGradient = currentSeasonGradient;
+        currentWeatherTint = GetWeatherTint(editorPreviewWeather);
+        targetWeatherTint = currentWeatherTint;
+        isWeatherTransitioning = false;
+        isSeasonTransitioning = false;
+        isTimeJumpTransitioning = false;
+        overlay.SetVisible(true);
+        RecalculateAndApply();
+        editorPreviewApplied = true;
+        SceneView.RepaintAll();
+    }
+
+    public static void EditorRefreshAllManagers()
+    {
+        DayNightManager[] managers = FindObjectsByType<DayNightManager>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int i = 0; i < managers.Length; i++)
+        {
+            if (managers[i] != null)
+            {
+                managers[i].EditorRefreshNow();
+            }
+        }
+    }
+
+    private void QueueEditorRefresh()
+    {
+        EditorApplication.delayCall -= DelayedEditorRefresh;
+        EditorApplication.delayCall += DelayedEditorRefresh;
+    }
+
+    private void DelayedEditorRefresh()
+    {
+        if (this == null || Application.isPlaying)
+        {
+            return;
+        }
+
+        EditorRefreshNow();
+    }
+
+    private void EditorUpdate()
+    {
+        if (EditorApplication.isCompiling || EditorApplication.isPlayingOrWillChangePlaymode)
+        {
+            return;
+        }
+
+        if (!enableEditorPreview)
+        {
+            if (editorPreviewApplied && overlay != null)
+            {
+                overlay.SetNightLights(overlayNightLights, 0);
+                overlay.SetVisible(false);
+                editorPreviewApplied = false;
+                SceneView.RepaintAll();
+            }
+            return;
+        }
+
+        double now = EditorApplication.timeSinceStartup;
+        double tickInterval = animateLightsInEditor ? 0.05d : 0.2d;
+        if (editorPreviewApplied && now < nextEditorPreviewTickTime)
+        {
+            return;
+        }
+
+        nextEditorPreviewTickTime = now + tickInterval;
+        EditorRefreshNow();
+    }
+#endif
 }

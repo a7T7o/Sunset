@@ -8,7 +8,7 @@ using UnityEngine.Rendering.Universal;
 /// <summary>
 /// 局部光源管理器（路线 A）
 /// 管理场景中的夜间 Point Light 2D 光源。
-/// 通过 NightLightMarker 组件识别夜间光源，使用协程实现淡入淡出动画。
+/// 通过 NightLightMarker 组件识别夜间光源，并做淡入淡出与轻微动态呼吸。
 /// 使用条件编译 #if USE_URP 隔离 URP 依赖。
 /// </summary>
 public class PointLightManager : MonoBehaviour
@@ -34,10 +34,27 @@ public class PointLightManager : MonoBehaviour
     private bool isActivated = false;
 
     /// <summary>
+    /// 当前淡入淡出因子
+    /// </summary>
+    private float activationFactor = 0f;
+
+    /// <summary>
     /// 当前正在运行的淡入淡出协程
     /// </summary>
     private Coroutine fadeCoroutine;
 #endif
+
+    private void Update()
+    {
+#if USE_URP
+        if (nightLights.Count == 0)
+        {
+            return;
+        }
+
+        ApplyAnimatedLightState();
+#endif
+    }
 
     /// <summary>
     /// 渐变激活夜间光源
@@ -101,9 +118,10 @@ public class PointLightManager : MonoBehaviour
 
                 // 应用 Marker 中配置的参数到 Light2D
                 light.color = marker.LightColor;
-                light.pointLightOuterRadius = marker.Radius;
+                light.pointLightOuterRadius = marker.Radius * 1.18f;
+                light.intensity = marker.MaxIntensity * activationFactor;
             }
-            else
+            else if (marker.BindLight2D)
             {
                 Debug.LogWarning($"[PointLightManager] {marker.gameObject.name} 有 NightLightMarker 但缺少 Light2D 组件");
             }
@@ -135,29 +153,48 @@ public class PointLightManager : MonoBehaviour
             float t = Mathf.Clamp01(elapsed / duration);
 
             // 淡入：0→maxIntensity，淡出：当前→0
-            float progress = fadeIn ? t : (1f - t);
-
-            foreach (var entry in nightLights)
-            {
-                if (entry.light != null && entry.marker != null)
-                {
-                    entry.light.intensity = entry.marker.MaxIntensity * progress;
-                }
-            }
+            activationFactor = fadeIn ? t : (1f - t);
+            ApplyAnimatedLightState();
 
             yield return null;
         }
 
         // 确保最终值精确
-        foreach (var entry in nightLights)
-        {
-            if (entry.light != null && entry.marker != null)
-            {
-                entry.light.intensity = fadeIn ? entry.marker.MaxIntensity : 0f;
-            }
-        }
+        activationFactor = fadeIn ? 1f : 0f;
+        ApplyAnimatedLightState();
 
         fadeCoroutine = null;
+    }
+
+    private void ApplyAnimatedLightState()
+    {
+        for (int i = 0; i < nightLights.Count; i++)
+        {
+            NightLightEntry entry = nightLights[i];
+            if (entry.light == null || entry.marker == null)
+            {
+                continue;
+            }
+
+            float intensity = entry.marker.MaxIntensity * activationFactor;
+            float radius = entry.marker.Radius;
+
+            if (Application.isPlaying && activationFactor > 0.0001f)
+            {
+                float time = Time.time + entry.marker.AnimationSeed;
+                float slowWave = Mathf.Sin(time * Mathf.Max(0.01f, entry.marker.PulseSpeed) * Mathf.PI * 2f);
+                float fastWave = Mathf.Sin(time * (Mathf.Max(0.01f, entry.marker.PulseSpeed) * 1.87f + 0.33f) * Mathf.PI * 2f + 0.7f);
+                float pulseWave = (slowWave * 0.65f) + (fastWave * 0.35f);
+                float pulseAmount = entry.marker.PulseAmount;
+
+                intensity *= 1f + pulseWave * pulseAmount * 0.72f;
+                radius *= 1f + pulseWave * Mathf.Min(0.26f, pulseAmount * 0.46f);
+            }
+
+            entry.light.color = entry.marker.LightColor;
+            entry.light.intensity = Mathf.Max(0f, intensity);
+            entry.light.pointLightOuterRadius = Mathf.Max(0.25f, radius * 1.12f);
+        }
     }
 #endif
 
