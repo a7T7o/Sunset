@@ -57,7 +57,7 @@ TextureImporter:
     heightScale: 0.25
     normalMapFilter: 0
     flipGreenChannel: 0
-  isReadable: 0
+  isReadable: 1
   streamingMipmaps: 0
   streamingMipmapsPriority: 0
   vTOnly: 0
@@ -108,7 +108,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -133,297 +133,297 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Female Cow Brown_0
+      name: Female Cow Brown_Row0_0
       rect:
         serializedVersion: 2
-        x: 2
-        y: 63
-        width: 24
-        height: 21
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 0
+        y: 64
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: e6602995e2e7d0d40800000000000000
-      internalID: 5552232653154027118
+      spriteID: 5ac27edf63a172740ba3fb63954ed742
+      internalID: 214529990
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_1
+      name: Female Cow Brown_Row0_1
       rect:
         serializedVersion: 2
-        x: 34
-        y: 63
-        width: 24
-        height: 20
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 32
+        y: 64
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 0285d0d9ff9ce7050800000000000000
-      internalID: 5800295469788518432
+      spriteID: b5163f42d450a6542bc27d4954ad35bd
+      internalID: -1467618307
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_2
+      name: Female Cow Brown_Row0_2
       rect:
         serializedVersion: 2
-        x: 66
-        y: 63
-        width: 24
-        height: 21
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 64
+        y: 64
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 130aaa678a58377a0800000000000000
-      internalID: -6380609288461967311
+      spriteID: e82ca0f6cf3fc4847889da2ce1762648
+      internalID: -1776284513
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_3
+      name: Female Cow Brown_Row0_3
       rect:
         serializedVersion: 2
-        x: 98
-        y: 63
-        width: 24
-        height: 20
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 96
+        y: 64
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: c893334cc2dae7aa0800000000000000
-      internalID: -6161296832414402164
+      spriteID: 52456d8db9a328d41a9161152a5e7bc9
+      internalID: 989044181
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_4
+      name: Female Cow Brown_Row1_0
       rect:
         serializedVersion: 2
-        x: 8
-        y: 31
-        width: 15
-        height: 23
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 0
+        y: 32
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: e1b03a93a78f97df0800000000000000
-      internalID: -181841106095109346
+      spriteID: 087604e8c0fc49a409ac9e90f00588ee
+      internalID: 2141506067
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_5
+      name: Female Cow Brown_Row1_1
       rect:
         serializedVersion: 2
-        x: 40
-        y: 31
-        width: 15
-        height: 22
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 32
+        y: 32
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 943fd504c24555590800000000000000
-      internalID: -7686144640002690231
+      spriteID: 1f1877e523fc7394d8d1d64fa9486199
+      internalID: 820056940
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_6
+      name: Female Cow Brown_Row1_2
       rect:
         serializedVersion: 2
-        x: 72
-        y: 31
-        width: 15
-        height: 23
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 64
+        y: 32
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: c0b4b97a805f1aa00800000000000000
-      internalID: 766162829150210828
+      spriteID: ff1886609ce604842a05193d1436cee8
+      internalID: -2052138031
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_7
+      name: Female Cow Brown_Row1_3
       rect:
         serializedVersion: 2
-        x: 104
-        y: 31
-        width: 15
-        height: 22
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 96
+        y: 32
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 52f25fe2a70cf96d0800000000000000
-      internalID: -2981452797289615579
+      spriteID: 61b3da44e43162149bf413d2314f54b5
+      internalID: -1299296506
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_8
+      name: Female Cow Brown_Row2_0
       rect:
         serializedVersion: 2
-        x: 8
+        x: 0
         y: 0
-        width: 15
-        height: 22
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 98e16b29a7e548c80800000000000000
-      internalID: -8321422330933404023
+      spriteID: 5a2cfa409ee47aa4d99c5a82b3c244e6
+      internalID: -627094070
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_9
+      name: Female Cow Brown_Row2_1
       rect:
         serializedVersion: 2
-        x: 40
+        x: 32
         y: 0
-        width: 15
-        height: 21
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: bb1ba192fcda325c0800000000000000
-      internalID: -4241355318793424453
+      spriteID: 799a55e98e499c84facced58f9e79d85
+      internalID: -825938505
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_10
+      name: Female Cow Brown_Row2_2
       rect:
         serializedVersion: 2
-        x: 72
+        x: 64
         y: 0
-        width: 15
-        height: 22
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 9877d15678270fa50800000000000000
-      internalID: 6552863383666653065
+      spriteID: 4d1295b4de102bd4c8ac613f1ca18ee2
+      internalID: -959291132
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Female Cow Brown_11
+      name: Female Cow Brown_Row2_3
       rect:
         serializedVersion: 2
-        x: 104
+        x: 96
         y: 0
-        width: 15
-        height: 21
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 32
+        height: 32
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: af28f457393f852b0800000000000000
-      internalID: -5595454722353954054
+      spriteID: 027098110feb2b743ab502b76a44aebf
+      internalID: -1994945999
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     outline: []
-    customData: 
+    customData:
     physicsShape: []
     bones: []
     spriteID: 6743153f178f657429106d89bf22cfec
     internalID: 0
     vertices: []
-    indices: 
+    indices:
     edges: []
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Female Cow Brown_0: 5552232653154027118
-      Female Cow Brown_1: 5800295469788518432
-      Female Cow Brown_10: 6552863383666653065
-      Female Cow Brown_11: -5595454722353954054
-      Female Cow Brown_2: -6380609288461967311
-      Female Cow Brown_3: -6161296832414402164
-      Female Cow Brown_4: -181841106095109346
-      Female Cow Brown_5: -7686144640002690231
-      Female Cow Brown_6: 766162829150210828
-      Female Cow Brown_7: -2981452797289615579
-      Female Cow Brown_8: -8321422330933404023
-      Female Cow Brown_9: -4241355318793424453
-  mipmapLimitGroupName: 
+      Female Cow Brown_Row0_0: 214529990
+      Female Cow Brown_Row0_1: -1467618307
+      Female Cow Brown_Row0_2: -1776284513
+      Female Cow Brown_Row0_3: 989044181
+      Female Cow Brown_Row1_0: 2141506067
+      Female Cow Brown_Row1_1: 820056940
+      Female Cow Brown_Row1_2: -2052138031
+      Female Cow Brown_Row1_3: -1299296506
+      Female Cow Brown_Row2_0: -627094070
+      Female Cow Brown_Row2_1: -825938505
+      Female Cow Brown_Row2_2: -959291132
+      Female Cow Brown_Row2_3: -1994945999
+  mipmapLimitGroupName:
   pSDRemoveMatte: 0
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:

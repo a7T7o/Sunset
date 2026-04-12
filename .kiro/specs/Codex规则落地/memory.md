@@ -76,6 +76,24 @@
   1. 先只读细分 `Assets/Screenshots / Assets/Sprites/Temp000 / Assets/Sprites/Generated / Assets/100_Anim/FarmAnimals / Assets/Editor / Assets/YYY_Tests/Editor`
   2. 明确哪些是证据副产物、哪些是草图、哪些是 parked 线程的真实成果、哪些仍受 active 线程影响
   3. 只对白名单安全根继续做最小 checkpoint 或忽略策略
+  4. 2026-04-13 的第一轮复勘已经给出更硬结论：
+     - `Assets/Screenshots` 代表样本 guid 未搜到外部引用，当前更像验收/排障截图海；
+     - `Assets/Sprites/Temp000` 代表样本 guid 未搜到外部引用，当前更像 UI 草图池；
+     - `Assets/Sprites/Generated` 代表样本 `床.png` 已被 `Assets/Prefabs/场景物品/床_0.prefab` 真引用，不能再按临时图处理；
+     - `Assets/100_Anim/FarmAnimals` 代表样本 controller 已被 `Assets/222_Prefabs/FarmAnimals/Baby Chicken Yellow.prefab` 真引用，属于完整功能资产链；
+     - `Assets/Editor / Assets/YYY_Tests/Editor` 已直接混着 `spring-day1 / NPC / TownHome / UI / 渲染验证` 的 active 或近活跃输出。
+  5. 因此当前最接近“可单独再谈安全白名单”的只剩 `Assets/Screenshots` 与 `Assets/Sprites/Temp000`；其余 `Generated / FarmAnimals / Editor / Tests / YYY_Scripts / Resources / 111_Data / 222_Prefabs` 已连到 active 业务链，治理线程不应再借 cleanup 名义硬吞。
+  6. 2026-04-13 用户已明确改判：`Assets/222_Prefabs / Assets/Resources / Assets/111_Data / Assets/100_Anim / Assets/Sprites / Assets/Screenshots / Assets/Prefabs / Assets/000_Scenes/Primary.unity` 这批非代码资产允许直接提交，不再按“等待 owner 各自回收”处理。
+  7. 基于这次显式授权，治理线程已改走“手工白名单 staging”而不是继续卡在 `git-safe-sync` 的 own-root 阻断上：
+     - `git-safe-sync preflight` 仍会因为 `Assets` 根下另有代码 dirty 而阻断；
+     - 但在用户明确批准“只提非代码资产”的前提下，手工仅 stage 资产路径、显式排除 `.cs / .asmdef / *.cs.meta / *.asmdef.meta` 是可接受的最小 override。
+  8. 上述资产大包已提交为 `8a3ad181` `2026.04.13_Codex规则落地_10`：
+     - 实际提交 `329` 个非代码资产文件；
+     - 含 `Primary.unity`、`FarmAnimals` 动画与 prefab 链、`Generated` 精灵及 `Assets/Prefabs/场景物品`、`SpringDay1` 相关 `Resources/111_Data/222_Prefabs` 资产、以及 `Screenshots`。
+  9. 第一刀之后，`Assets` 非代码剩余已降到 `11` 项，其中只有：
+     - `Assets/TextMesh Pro/...` 3 项；
+     - `Assets/ZZZ_999_Package/.../Farm Animals/*.png.meta` 5 项；
+     - 以及 3 个挂在代码目录上的 folder meta：`Assets/Editor/Town.meta`、`Assets/YYY_Scripts/Story/Dialogue.meta`、`Assets/YYY_Scripts/UI/Save.meta`。
 
 ## 本卷纪律
 - 根卷只保留：

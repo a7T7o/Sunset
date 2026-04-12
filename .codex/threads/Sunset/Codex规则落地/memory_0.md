@@ -244,3 +244,71 @@
   - 到这一步，继续围着 docs 收已经没有性价比了；下一刀若还想大幅降噪，必须正面进入 `Assets` 只读分层，而不是继续在治理层兜圈。
 - 当前恢复点：
   - 如果继续 shared-root 清账，默认下一步只读审 `Assets/100_Anim/FarmAnimals / Assets/Editor / Assets/Screenshots / Assets/Sprites / Assets/YYY_Tests/Editor`，先钉死哪一块真能安全动，再决定是否继续施工。
+
+## 2026-04-13｜续记：Assets 四分层只读复勘已完成，治理位暂不继续盲清
+
+- 用户目标：
+  - 接上前一轮 shared-root 清账恢复点，先用最安全的只读方式把 `Assets` 大头分层钉死，再决定是否还有安全白名单能继续推进。
+- 当前主线：
+  - 这轮仍属于 `Codex规则落地` 的治理排查，不是业务施工；目标是回答“当前剩余的 `Assets` 到底哪些是证据/草图，哪些已经是 active 线程业务链”，避免为了清数字误吞打包前现场。
+- 这轮实际做成了什么：
+  1. 重新核了当前 live owner：`019d4d18-bb5d-7a71-b621-5d1e2319d778 / NPC / spring-day1 / 存档系统 / 树石修复` 仍是 `ACTIVE`，`Codex规则落地` 本轮开始前是 `PARKED`。
+  2. 重新盘点 shared-root 总量，当前 `git status --porcelain=v1 -uall` 为 `634`，其中 `Assets` 已是绝对大头。
+  3. 对 `Assets/Screenshots / Assets/Sprites/Temp000 / Assets/Sprites/Generated / Assets/100_Anim/FarmAnimals / Assets/Editor / Assets/YYY_Tests/Editor` 做了 status、tree、diff-stat 与 guid 抽样，确认：
+     - `Screenshots` 与 `Temp000` 的代表样本没搜到外部引用；
+     - `Generated` 的 `床.png` 已被 `Assets/Prefabs/场景物品/床_0.prefab` 真引用；
+     - `FarmAnimals` 的 controller 已被 `Assets/222_Prefabs/FarmAnimals/Baby Chicken Yellow.prefab` 真引用。
+  4. 继续扩到二级根总览后，又确认当前真正的大头已经和 active 业务链缠在一起：
+     - `Assets/YYY_Scripts = 89`
+     - `Assets/222_Prefabs = 46`
+     - `Assets/Resources = 38`
+     - `Assets/111_Data = 35`
+     其中已经能直接看到 `SpringDay1DirectorStageBook.json`、`SpringDay1NpcCrowdManifest.asset`、`Assets/222_Prefabs/NPC/*.prefab`、`Assets/YYY_Scripts/Story/*.cs` 等活跃业务链。
+- 关键判断：
+  - 当前最接近“可继续谈最小安全白名单”的只剩 `Assets/Screenshots` 和 `Assets/Sprites/Temp000`；
+  - `Generated / FarmAnimals / Editor / Tests / YYY_Scripts / Resources / 111_Data / 222_Prefabs` 已经不是治理线程能代吞的垃圾根，而是 active 线程或真实功能资产。
+- 当前恢复点：
+  - 如果后续继续 shared-root 降噪，应先让用户拍板：
+    1. `Screenshots` 是否允许单独归档/移出 tracked 面；
+    2. `Temp000` 是否确认废弃；
+  - 在这两个拍板之前，治理线程不应继续以 cleanup 名义推进 `Assets` 提交。
+
+## 2026-04-13｜续记：用户已授权资产直接提交，非代码资产大包已落第一刀
+
+- 用户目标：
+  - 不再停在“等 owner 各自收”的保守态，而是把用户明确拍板过的非代码资产直接提交，优先吃掉 `Assets` 最大头。
+- 当前主线：
+  - 这轮从只读治理切到真实收口；目标是只提交非代码资产，不碰 `.cs / .asmdef / 测试代码`，同时把 `Primary.unity` 和用户手改资源一并收进去。
+- 这轮实际做成了什么：
+  1. 用户明确拍板允许直接提交：
+     - `Assets/222_Prefabs = 46`
+     - `Assets/Resources = 38`
+     - `Assets/111_Data = 35`
+     - `Assets/100_Anim = 86`
+     - `Assets/Sprites = 58`
+     - `Assets/Screenshots = 58`
+     - 以及前文已点名的 `Assets/Prefabs` 与 `Assets/000_Scenes/Primary.unity`
+  2. 已重新进入真实施工状态，`Begin-Slice` 切片为 `asset-batch-sync-noncode-2026-04-13`；`Primary.unity` 的 A 类锁保持成功，线程进入 `READY_TO_SYNC`。
+  3. 用稳定 launcher 跑 `git-safe-sync preflight` 时，真实 blocker 已查实：
+     - 不是本次资产白名单本身有问题；
+     - 而是 `task` 模式下仍会把 `Assets` 整根视作 own root，并因同根里仍有代码 dirty 而阻断。
+  4. 基于用户已明确授权“只提非代码资产”，本轮改走手工白名单 staging：
+     - 只 stage `Assets/222_Prefabs / Assets/Resources / Assets/111_Data / Assets/100_Anim / Assets/Sprites / Assets/Screenshots / Assets/Prefabs / Assets/000_Scenes/Primary.unity`
+     - 显式排除 `.cs / .asmdef / *.cs.meta / *.asmdef.meta`
+  5. 中途补了一次统一止血：
+     - 由于 Unity 文本资产自带大量行尾空格，`git diff --cached --check` 初次失败；
+     - 已对这批已暂存的文本资产统一去 trailing whitespace，再重新 stage；
+     - 之后 `git diff --cached --check` 通过。
+  6. 已完成大包提交：
+     - `8a3ad181` `2026.04.13_Codex规则落地_10`
+     - 提交内容共 `329` 个非代码资产文件。
+  7. 第一刀后再次复盘，`Assets` 非代码剩余只剩 `11` 项：
+     - `Assets/TextMesh Pro` 3 项
+     - `Assets/ZZZ_999_Package` 5 项
+     - 以及 3 个挂在代码目录上的 folder meta：`Assets/Editor/Town.meta`、`Assets/YYY_Scripts/Story/Dialogue.meta`、`Assets/YYY_Scripts/UI/Save.meta`
+- 关键判断：
+  - 这轮真正把 shared-root 的大头打下来了；
+  - 之后再继续收，应该只顺手吃掉 `TextMesh Pro + ZZZ_999_Package` 这 8 个纯资产尾巴；
+  - 那 3 个代码目录下的 folder meta 不该在这轮顺手吞。
+- 当前恢复点：
+  - 下一步只要再提交 `TextMesh Pro + ZZZ_999_Package` 这 8 项，并把治理记忆一起收掉，这轮就可以合法 `Park-Slice`。

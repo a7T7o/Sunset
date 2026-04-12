@@ -57,7 +57,7 @@ TextureImporter:
     heightScale: 0.25
     normalMapFilter: 0
     flipGreenChannel: 0
-  isReadable: 0
+  isReadable: 1
   streamingMipmaps: 0
   streamingMipmapsPriority: 0
   vTOnly: 0
@@ -108,7 +108,7 @@ TextureImporter:
     maxTextureSize: 2048
     resizeAlgorithm: 0
     textureFormat: -1
-    textureCompression: 1
+    textureCompression: 0
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
@@ -133,297 +133,297 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Baby Chicken Yellow_0
+      name: Baby Chicken Yellow_Row0_0
       rect:
         serializedVersion: 2
-        x: 2
-        y: 31
-        width: 12
-        height: 13
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 0
+        y: 32
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 939add0cb712b0c90800000000000000
-      internalID: -7202626363648530119
+      spriteID: 257b91321db5e174cb3dddc16fd9a8a1
+      internalID: -1752607279
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_1
+      name: Baby Chicken Yellow_Row0_1
       rect:
         serializedVersion: 2
-        x: 18
-        y: 31
-        width: 12
-        height: 12
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 16
+        y: 32
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: bab5abc0888913900800000000000000
-      internalID: 662478330296687531
+      spriteID: 38da3788b6fa7d249986dbacb0a211fb
+      internalID: 474938634
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_2
+      name: Baby Chicken Yellow_Row0_2
       rect:
         serializedVersion: 2
-        x: 34
-        y: 31
-        width: 12
-        height: 13
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 32
+        y: 32
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 00b7ae0050c576100800000000000000
-      internalID: 101150693199084288
+      spriteID: e16fe64a4942a4c43abb76a0421c62bf
+      internalID: 1584793617
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_3
+      name: Baby Chicken Yellow_Row0_3
       rect:
         serializedVersion: 2
-        x: 50
-        y: 31
-        width: 12
-        height: 12
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 48
+        y: 32
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 1121f7b53a4901780800000000000000
-      internalID: -8714301849626275311
+      spriteID: fe2ded7b8414e2842b5b8e612535c048
+      internalID: -1341753877
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_4
+      name: Baby Chicken Yellow_Row1_0
       rect:
         serializedVersion: 2
-        x: 3
-        y: 15
-        width: 12
-        height: 13
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 0
+        y: 16
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 0095907b69d12a340800000000000000
-      internalID: 4873490279921441024
+      spriteID: 5c4af6972c38a0c45a8e656b3a033ea1
+      internalID: 575188985
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_5
+      name: Baby Chicken Yellow_Row1_1
       rect:
         serializedVersion: 2
-        x: 19
-        y: 15
-        width: 12
-        height: 12
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 16
+        y: 16
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 7edb687aaf8c8a770800000000000000
-      internalID: 8622362465478819303
+      spriteID: 0e2efbe5444403343b2100e0215d6c47
+      internalID: 321796265
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_6
+      name: Baby Chicken Yellow_Row1_2
       rect:
         serializedVersion: 2
-        x: 35
-        y: 15
-        width: 12
-        height: 13
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 32
+        y: 16
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 7932ecd85952b0ea0800000000000000
-      internalID: -5905585162106821737
+      spriteID: 448b632739d91c748ad5e177230d20a3
+      internalID: 591771333
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_7
+      name: Baby Chicken Yellow_Row1_3
       rect:
         serializedVersion: 2
-        x: 51
-        y: 15
-        width: 12
-        height: 12
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        x: 48
+        y: 16
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: a59d30ccd5b6c6840800000000000000
-      internalID: 5218664118814497114
+      spriteID: bb3b44ca9b56d7b4e8e23b62f1570daa
+      internalID: 234781215
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_8
+      name: Baby Chicken Yellow_Row2_0
       rect:
         serializedVersion: 2
-        x: 4
+        x: 0
         y: 0
-        width: 9
-        height: 11
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 88f0606ddcf3dd430800000000000000
-      internalID: 3809271013116874632
+      spriteID: f51f674151ae0064a8b7765d3f58324e
+      internalID: 1084580551
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_9
+      name: Baby Chicken Yellow_Row2_1
       rect:
         serializedVersion: 2
-        x: 19
+        x: 16
         y: 0
-        width: 11
-        height: 10
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 44c6bdab90693a0a0800000000000000
-      internalID: -6871483637903430588
+      spriteID: 9aeefa06455be4e49979ea32a9e8fdaf
+      internalID: -1700849954
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_10
+      name: Baby Chicken Yellow_Row2_2
       rect:
         serializedVersion: 2
-        x: 36
+        x: 32
         y: 0
-        width: 9
-        height: 11
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: ca90e29a3befc13b0800000000000000
-      internalID: -5540273393981584980
+      spriteID: 63ca46f772503a54cb113a58a167aee6
+      internalID: -1398956481
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
-      name: Baby Chicken Yellow_11
+      name: Baby Chicken Yellow_Row2_3
       rect:
         serializedVersion: 2
-        x: 51
+        x: 48
         y: 0
-        width: 11
-        height: 10
-      alignment: 0
-      pivot: {x: 0.5, y: 0.5}
+        width: 16
+        height: 16
+      alignment: 9
+      pivot: {x: 0.5, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
-      tessellationDetail: -1
+      tessellationDetail: 0
       bones: []
-      spriteID: 12f2b3fad96237f80800000000000000
-      internalID: -8110096045272518879
+      spriteID: 901953187883c7b44baea4f5e820ec5a
+      internalID: -216223256
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     outline: []
-    customData: 
+    customData:
     physicsShape: []
     bones: []
     spriteID: fe16750ded2b1e947a34f3f5d539ab48
     internalID: 0
     vertices: []
-    indices: 
+    indices:
     edges: []
     weights: []
     secondaryTextures: []
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Baby Chicken Yellow_0: -7202626363648530119
-      Baby Chicken Yellow_1: 662478330296687531
-      Baby Chicken Yellow_10: -5540273393981584980
-      Baby Chicken Yellow_11: -8110096045272518879
-      Baby Chicken Yellow_2: 101150693199084288
-      Baby Chicken Yellow_3: -8714301849626275311
-      Baby Chicken Yellow_4: 4873490279921441024
-      Baby Chicken Yellow_5: 8622362465478819303
-      Baby Chicken Yellow_6: -5905585162106821737
-      Baby Chicken Yellow_7: 5218664118814497114
-      Baby Chicken Yellow_8: 3809271013116874632
-      Baby Chicken Yellow_9: -6871483637903430588
-  mipmapLimitGroupName: 
+      Baby Chicken Yellow_Row0_0: -1752607279
+      Baby Chicken Yellow_Row0_1: 474938634
+      Baby Chicken Yellow_Row0_2: 1584793617
+      Baby Chicken Yellow_Row0_3: -1341753877
+      Baby Chicken Yellow_Row1_0: 575188985
+      Baby Chicken Yellow_Row1_1: 321796265
+      Baby Chicken Yellow_Row1_2: 591771333
+      Baby Chicken Yellow_Row1_3: 234781215
+      Baby Chicken Yellow_Row2_0: 1084580551
+      Baby Chicken Yellow_Row2_1: -1700849954
+      Baby Chicken Yellow_Row2_2: -1398956481
+      Baby Chicken Yellow_Row2_3: -216223256
+  mipmapLimitGroupName:
   pSDRemoveMatte: 0
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:
