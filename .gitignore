@@ -27,8 +27,14 @@ scripts/__pycache__/
 .codex/artifacts/**
 !.codex/artifacts/
 !.codex/artifacts/README.md
+.codex/archives/
+.codex/sunset-mcp-trace.log
+.codex/tmp_inventory_select_scan.txt
 .kiro/state/active-threads/
 .kiro/state/*.lock
+Save/
+Assets/__CodexEditModeScenes/
+Assets/__CodexEditModeScenes.meta
 
 # ========== 只保留需要提交的核心文件（不用写，默认跟踪）==========
 # Assets/、Packages/manifest.json、ProjectSettings/ 这些核心目录/文件会被保留，Git不会碰被占用的缓存
