@@ -47,6 +47,7 @@ public class NavGrid2D : MonoBehaviour
     [SerializeField] private bool showDebugGizmos = true;
 #pragma warning restore CS0414
     [SerializeField] private bool logObstacleDetection = false;
+    [SerializeField] private bool scheduleDelayedRuntimeRebuild = false;
 
     private int gridW, gridH;
     private bool[,] walkable;
@@ -56,6 +57,7 @@ public class NavGrid2D : MonoBehaviour
     private static readonly List<MonoBehaviour> s_navigationBehaviourBuffer = new List<MonoBehaviour>(8);
     private static int s_lastSyncedPhysicsFrame = -1;
     private const int NearestWalkableVerificationCandidateLimit = 8;
+    private const float NearestWalkableCacheSeconds = 0.08f;
 
     // 🔥 Unity 6 优化：预分配碰撞体缓存数组，避免 GC 分配
     private Collider2D[] _colliderCache = new Collider2D[10];
@@ -63,10 +65,19 @@ public class NavGrid2D : MonoBehaviour
     private readonly Vector2Int[] _nearestWalkableVerificationCandidates = new Vector2Int[NearestWalkableVerificationCandidateLimit];
     private readonly float[] _nearestWalkableVerificationDistances = new float[NearestWalkableVerificationCandidateLimit];
     private readonly int[] _nearestWalkableVerificationPriorities = new int[NearestWalkableVerificationCandidateLimit];
+    private readonly Dictionary<DynamicWalkableQueryKey, bool> _dynamicWalkableQueryCache = new Dictionary<DynamicWalkableQueryKey, bool>(256);
+    private readonly Dictionary<NearestWalkableQueryKey, NearestWalkableQueryResult> _nearestWalkableQueryCache = new Dictionary<NearestWalkableQueryKey, NearestWalkableQueryResult>(128);
+    private readonly Dictionary<PathCacheKey, Vector2[]> _pathQueryCache = new Dictionary<PathCacheKey, Vector2[]>(128);
     private ContactFilter2D _obstacleFilter;
+    private double _lastFullRebuildRealtime = double.NegativeInfinity;
+    private double _startupDelayedRebuildScheduledAt = double.NegativeInfinity;
+    private int _lastRebuildFrame = -1;
+    private int _runtimeQueryCacheFrame = -1;
+    private int _gridVersion = 0;
 
     // 公共事件：外部可调用以通知网格需要刷新
     public static System.Action OnRequestGridRefresh;
+    public int LastRebuildFrame => _lastRebuildFrame;
 
     private sealed class TileSpriteGeometry
     {
@@ -82,6 +93,142 @@ public class NavGrid2D : MonoBehaviour
         public ushort[] MeshTriangles { get; }
         public bool HasPaths => Paths.Length > 0;
         public bool HasMesh => MeshVertices.Length >= 3 && MeshTriangles.Length >= 3;
+    }
+
+    private readonly struct DynamicWalkableQueryKey : System.IEquatable<DynamicWalkableQueryKey>
+    {
+        public DynamicWalkableQueryKey(Vector2 worldPos, float radius, int ignoredColliderId)
+        {
+            WorldPos = worldPos;
+            Radius = radius;
+            IgnoredColliderId = ignoredColliderId;
+        }
+
+        public Vector2 WorldPos { get; }
+        public float Radius { get; }
+        public int IgnoredColliderId { get; }
+
+        public bool Equals(DynamicWalkableQueryKey other)
+        {
+            return WorldPos.Equals(other.WorldPos) &&
+                   Radius.Equals(other.Radius) &&
+                   IgnoredColliderId == other.IgnoredColliderId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is DynamicWalkableQueryKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = (hash * 31) + WorldPos.GetHashCode();
+                hash = (hash * 31) + Radius.GetHashCode();
+                hash = (hash * 31) + IgnoredColliderId;
+                return hash;
+            }
+        }
+    }
+
+    private readonly struct NearestWalkableQueryKey : System.IEquatable<NearestWalkableQueryKey>
+    {
+        public NearestWalkableQueryKey(int gx, int gy, int ignoredColliderId)
+        {
+            Gx = gx;
+            Gy = gy;
+            IgnoredColliderId = ignoredColliderId;
+        }
+
+        public int Gx { get; }
+        public int Gy { get; }
+        public int IgnoredColliderId { get; }
+
+        public bool Equals(NearestWalkableQueryKey other)
+        {
+            return Gx == other.Gx &&
+                   Gy == other.Gy &&
+                   IgnoredColliderId == other.IgnoredColliderId;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is NearestWalkableQueryKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = (hash * 31) + Gx;
+                hash = (hash * 31) + Gy;
+                hash = (hash * 31) + IgnoredColliderId;
+                return hash;
+            }
+        }
+    }
+
+    private readonly struct NearestWalkableQueryResult
+    {
+        public NearestWalkableQueryResult(bool success, Vector2 nearestWorld, float cachedAtTime)
+        {
+            Success = success;
+            NearestWorld = nearestWorld;
+            CachedAtTime = cachedAtTime;
+        }
+
+        public bool Success { get; }
+        public Vector2 NearestWorld { get; }
+        public float CachedAtTime { get; }
+    }
+
+    private readonly struct PathCacheKey : System.IEquatable<PathCacheKey>
+    {
+        public PathCacheKey(int startX, int startY, int targetX, int targetY, int gridVersion)
+        {
+            StartX = startX;
+            StartY = startY;
+            TargetX = targetX;
+            TargetY = targetY;
+            GridVersion = gridVersion;
+        }
+
+        public int StartX { get; }
+        public int StartY { get; }
+        public int TargetX { get; }
+        public int TargetY { get; }
+        public int GridVersion { get; }
+
+        public bool Equals(PathCacheKey other)
+        {
+            return StartX == other.StartX &&
+                   StartY == other.StartY &&
+                   TargetX == other.TargetX &&
+                   TargetY == other.TargetY &&
+                   GridVersion == other.GridVersion;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is PathCacheKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = (hash * 31) + StartX;
+                hash = (hash * 31) + StartY;
+                hash = (hash * 31) + TargetX;
+                hash = (hash * 31) + TargetY;
+                hash = (hash * 31) + GridVersion;
+                return hash;
+            }
+        }
     }
 
     void Awake()
@@ -117,7 +264,13 @@ public class NavGrid2D : MonoBehaviour
     void OnEnable()
     {
         RefreshExplicitObstacleSources();
-        // 组件启用时立即重建网格
+        if (!Application.isEditor
+            && Application.isPlaying
+            && HasActiveTraversalBootstrapManager())
+        {
+            return;
+        }
+
         RebuildGrid();
     }
 
@@ -131,8 +284,12 @@ public class NavGrid2D : MonoBehaviour
 
     void Start()
     {
-        // Start时延迟刷新，确保所有动态障碍物已生成
-        Invoke(nameof(RebuildGrid), 0.5f);
+        // 旧逻辑会在启用后再强打一轮整图重建，demo 首次进场代价过高。
+        if (scheduleDelayedRuntimeRebuild)
+        {
+            _startupDelayedRebuildScheduledAt = Time.realtimeSinceStartupAsDouble;
+            Invoke(nameof(DelayedRuntimeRebuildIfStillNeeded), 0.5f);
+        }
     }
 
     void OnDestroy()
@@ -140,6 +297,7 @@ public class NavGrid2D : MonoBehaviour
         if (s_instance == this) s_instance = null;
         s_dynamicNavigationColliderIgnoreCache.Clear();
         s_lastSyncedPhysicsFrame = -1;
+        InvalidateRuntimeQueryCaches();
         OnRequestGridRefresh -= RefreshGrid;
     }
 
@@ -401,6 +559,11 @@ public class NavGrid2D : MonoBehaviour
 
     public bool HasWalkableOverrideAt(Vector2 worldPos, float radius = -1f)
     {
+        if (HasAnyExplicitWalkableOverrideTileAt(worldPos))
+        {
+            return true;
+        }
+
         float effectiveRadius = GetWalkableOverrideSupportRadius(radius);
 
         if (HasExplicitWalkableOverrideTilemapHit(worldPos, effectiveRadius))
@@ -471,6 +634,8 @@ public class NavGrid2D : MonoBehaviour
     public void RebuildGrid()
     {
         double profileStart = Time.realtimeSinceStartupAsDouble;
+        InvalidateRuntimeQueryCaches();
+        _gridVersion++;
         // 🔥 关键修复：同步物理系统的 Transform 变化
         // 动态障碍物（如树木成长、箱子放置）修改碰撞体后，
         // Physics2D 内部缓存可能未更新，导致 OverlapCircle 检测到旧数据
@@ -501,10 +666,48 @@ public class NavGrid2D : MonoBehaviour
             Debug.Log($"[NavGrid2D] 网格重建完毕: {gridW}x{gridH}={gridW*gridH} 单元，障碍物={obstacleCount}");
         }
 
+        _lastRebuildFrame = Time.frameCount;
         LogRefreshProfileIfSlow(
             "RebuildGrid",
             profileStart,
             $"grid={gridW}x{gridH} cells={gridW * gridH}");
+        _lastFullRebuildRealtime = Time.realtimeSinceStartupAsDouble;
+    }
+
+    private bool HasActiveTraversalBootstrapManager()
+    {
+        TraversalBlockManager2D[] managers = FindObjectsByType<TraversalBlockManager2D>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int index = 0; index < managers.Length; index++)
+        {
+            TraversalBlockManager2D manager = managers[index];
+            if (manager == null
+                || manager.gameObject.scene != gameObject.scene
+                || !manager.gameObject.activeInHierarchy
+                || !manager.enabled
+                || !manager.AppliesConfigurationOnAwake)
+            {
+                continue;
+            }
+
+            return true;
+        }
+
+        return false;
+    }
+
+    private void DelayedRuntimeRebuildIfStillNeeded()
+    {
+        if (!Application.isPlaying)
+        {
+            return;
+        }
+
+        if (_lastFullRebuildRealtime > _startupDelayedRebuildScheduledAt + 0.05d)
+        {
+            return;
+        }
+
+        RebuildGrid();
     }
 
     /// <summary>
@@ -608,23 +811,43 @@ public class NavGrid2D : MonoBehaviour
     private bool IsPointBlocked(Vector2 worldPos, float radius, Collider2D ignoredCollider = null)
     {
         float walkableOverrideRadius = GetWalkableOverrideSupportRadius(radius);
-        bool hasWalkableOverrideTilemapHit = HasExplicitWalkableOverrideTilemapHit(worldPos, walkableOverrideRadius);
-        if (HasExplicitObstacleTilemapHit(worldPos, radius))
-        {
-            return true;
-        }
-
-        bool hasWalkableOverride = hasWalkableOverrideTilemapHit;
-        if (!hasWalkableOverride && HasExplicitSoftPassObstacleTilemapHit(worldPos, radius))
-        {
-            return true;
-        }
+        bool hasWalkableOverride = HasAnyExplicitWalkableOverrideTileAt(worldPos) ||
+                                   HasExplicitWalkableOverrideTilemapHit(worldPos, walkableOverrideRadius);
 
         int hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
         if (hitCount == _colliderCache.Length)
         {
             System.Array.Resize(ref _colliderCache, _colliderCache.Length * 2);
             hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
+        }
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hitCollider = _colliderCache[i];
+            if (ShouldIgnoreCollider(hitCollider, ignoredCollider))
+            {
+                continue;
+            }
+
+            if (ShouldIgnoreDynamicNavigationCollider(hitCollider))
+            {
+                continue;
+            }
+
+            if (MatchesExplicitWalkableOverrideCollider(hitCollider))
+            {
+                hasWalkableOverride = true;
+            }
+        }
+
+        if (!hasWalkableOverride && HasExplicitObstacleTilemapHit(worldPos, radius))
+        {
+            return true;
+        }
+
+        if (!hasWalkableOverride && HasExplicitSoftPassObstacleTilemapHit(worldPos, radius))
+        {
+            return true;
         }
 
         bool hasSoftPassHit = false;
@@ -644,19 +867,24 @@ public class NavGrid2D : MonoBehaviour
                 continue;
             }
 
-            if (!hasWalkableOverride && MatchesExplicitWalkableOverrideCollider(hitCollider))
-            {
-                hasWalkableOverride = true;
-            }
-
             if (MatchesExplicitObstacleCollider(hitCollider))
             {
-                return true;
+                if (!hasWalkableOverride)
+                {
+                    return true;
+                }
+
+                continue;
             }
 
             if (!hasSoftPassHit && MatchesExplicitSoftPassCollider(hitCollider))
             {
-                hasSoftPassHit = true;
+                if (!hasWalkableOverride)
+                {
+                    hasSoftPassHit = true;
+                }
+
+                continue;
             }
 
             if (shouldCheckTags)
@@ -754,6 +982,8 @@ public class NavGrid2D : MonoBehaviour
     private void RefreshGridRegion(Bounds refreshBounds)
     {
         double profileStart = Time.realtimeSinceStartupAsDouble;
+        InvalidateRuntimeQueryCaches();
+        _gridVersion++;
         int minX = Mathf.Clamp(
             Mathf.FloorToInt((refreshBounds.min.x - worldOrigin.x) / cellSize),
             0,
@@ -824,6 +1054,25 @@ public class NavGrid2D : MonoBehaviour
 
         Physics2D.SyncTransforms();
         s_lastSyncedPhysicsFrame = Time.frameCount;
+    }
+
+    private void EnsureRuntimeQueryCachesCurrentFrame()
+    {
+        if (_runtimeQueryCacheFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        _runtimeQueryCacheFrame = Time.frameCount;
+        _dynamicWalkableQueryCache.Clear();
+    }
+
+    private void InvalidateRuntimeQueryCaches()
+    {
+        _runtimeQueryCacheFrame = -1;
+        _dynamicWalkableQueryCache.Clear();
+        _nearestWalkableQueryCache.Clear();
+        _pathQueryCache.Clear();
     }
 
     private bool HasExplicitWalkableOverrideTilemapHit(Vector2 worldPos, float radius)
@@ -1323,6 +1572,13 @@ public class NavGrid2D : MonoBehaviour
             if (!FindNearestWalkable(tx, ty, 6, out tx, out ty)) return false;
         }
 
+        PathCacheKey cacheKey = new PathCacheKey(sx, sy, tx, ty, _gridVersion);
+        if (_pathQueryCache.TryGetValue(cacheKey, out Vector2[] cachedPath))
+        {
+            AppendCachedPath(cachedPath, outPath);
+            return cachedPath.Length > 0;
+        }
+
         var open = new List<Node>();
         var closed = new bool[gridW, gridH];
         var parent = new Vector2Int[gridW, gridH];
@@ -1372,7 +1628,11 @@ public class NavGrid2D : MonoBehaviour
             }
         }
 
-        if (found == null) return false;
+        if (found == null)
+        {
+            CachePathQuery(cacheKey, outPath);
+            return false;
+        }
 
         // 回溯
         var stack = new Stack<Vector2Int>();
@@ -1389,7 +1649,34 @@ public class NavGrid2D : MonoBehaviour
             var g = stack.Pop();
             outPath.Add(GridToWorldCenter(g.x, g.y));
         }
+
+        CachePathQuery(cacheKey, outPath);
         return true;
+    }
+
+    private void AppendCachedPath(Vector2[] cachedPath, List<Vector2> outPath)
+    {
+        if (cachedPath == null || cachedPath.Length == 0)
+        {
+            return;
+        }
+
+        for (int index = 0; index < cachedPath.Length; index++)
+        {
+            outPath.Add(cachedPath[index]);
+        }
+    }
+
+    private void CachePathQuery(PathCacheKey cacheKey, List<Vector2> pathPoints)
+    {
+        if (_pathQueryCache.Count >= 256)
+        {
+            _pathQueryCache.Clear();
+        }
+
+        _pathQueryCache[cacheKey] = pathPoints.Count == 0
+            ? System.Array.Empty<Vector2>()
+            : pathPoints.ToArray();
     }
 
     /// <summary>
@@ -1410,8 +1697,20 @@ public class NavGrid2D : MonoBehaviour
 
         if (ignoredCollider != null || !Mathf.Approximately(effectiveRadius, probeRadius))
         {
+            EnsureRuntimeQueryCachesCurrentFrame();
+            DynamicWalkableQueryKey cacheKey = new DynamicWalkableQueryKey(
+                worldPos,
+                effectiveRadius,
+                ignoredCollider != null ? ignoredCollider.GetInstanceID() : 0);
+            if (_dynamicWalkableQueryCache.TryGetValue(cacheKey, out bool cachedWalkable))
+            {
+                return cachedWalkable;
+            }
+
             EnsurePhysicsTransformsSyncedOncePerFrame();
-            return !IsPointBlocked(worldPos, effectiveRadius, ignoredCollider);
+            bool isWalkable = !IsPointBlocked(worldPos, effectiveRadius, ignoredCollider);
+            _dynamicWalkableQueryCache[cacheKey] = isWalkable;
+            return isWalkable;
         }
 
         if (!WorldToGrid(worldPos, out int gx, out int gy))
@@ -1427,9 +1726,37 @@ public class NavGrid2D : MonoBehaviour
 
         if (ignoredCollider != null)
         {
+            EnsureRuntimeQueryCachesCurrentFrame();
+            NearestWalkableQueryKey cacheKey = new NearestWalkableQueryKey(gx, gy, ignoredCollider.GetInstanceID());
+            if (_nearestWalkableQueryCache.TryGetValue(cacheKey, out NearestWalkableQueryResult cachedResult))
+            {
+                float cachedAge = Time.time - cachedResult.CachedAtTime;
+                if (cachedAge >= 0f && cachedAge <= NearestWalkableCacheSeconds)
+                {
+                    nearestWorld = cachedResult.NearestWorld;
+                    return cachedResult.Success;
+                }
+            }
+
             EnsurePhysicsTransformsSyncedOncePerFrame();
+            bool success = false;
+            Vector2 cachedNearestWorld = world;
+            if (FindNearestWalkableImproved(gx, gy, 30, out int cachedNx, out int cachedNy, ignoredCollider))
+            {
+                cachedNearestWorld = GridToWorldCenter(cachedNx, cachedNy);
+                success = true;
+            }
+
+            if (_nearestWalkableQueryCache.Count >= 256)
+            {
+                _nearestWalkableQueryCache.Clear();
+            }
+
+            _nearestWalkableQueryCache[cacheKey] = new NearestWalkableQueryResult(success, cachedNearestWorld, Time.time);
+            nearestWorld = cachedNearestWorld;
+            return success;
         }
-        
+
         // 🔥 使用更大的搜索范围，确保能找到可走点
         // 并且找到真正最近的点，而不是第一个找到的点
         if (FindNearestWalkableImproved(gx, gy, 30, out int nx, out int ny, ignoredCollider))
