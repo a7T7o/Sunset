@@ -51,12 +51,12 @@
   - `Assets/Screenshots` = `58`
   - `Assets/Sprites` = `54`
   - `.kiro/xmind-pipeline` 仅剩 `36` 条源码/输出/测试文件，不再是第一大头。
-- 2026-04-12 已继续把 `.kiro/specs + .codex/threads` 这层 parked 文档海分三刀安全压平：
+- 2026-04-12 已继续把 `.kiro/specs + .codex/threads` 这层 parked 文档海分四刀安全压平：
   - `e9026d7e` `2026.04.12_Codex规则落地_04`：白名单提交 `NPC / 存档系统 / 屎山修复 / 项目文档总览 / Codex规则落地` 及对应 parked 线程记忆，共 `83` 条 docs-only 项；
   - `7efc47de` `2026.04.12_Codex规则落地_05`：白名单提交 `900_开篇` 与 `spring-day1 / spring-day1V2` parked 线程记忆，共 `43` 条 docs-only 项；
-  - `5665560d` `2026.04.12_Codex规则落地_06`：白名单提交剩余 parked docs 尾巴（`000_Gemini / Z_光影系统 / 云朵遮挡系统 / 农田系统 / 箱子系统` 及多条 parked 线程记忆），共 `20` 条 docs-only 项。
-- 上述三刀之后，shared-root 总量已从 `792` 继续降到 `644`；当前 `.kiro + .codex/threads` 基本只剩：
-  - `UI系统` 与 `.codex/threads/Sunset/UI` 这条活跃线；
+  - `5665560d` `2026.04.12_Codex规则落地_06`：白名单提交剩余 parked docs 尾巴（`000_Gemini / Z_光影系统 / 云朵遮挡系统 / 农田系统 / 箱子系统` 及多条 parked 线程记忆），共 `20` 条 docs-only 项；
+  - `54c9eae3` `2026.04.12_Codex规则落地_08`：白名单提交 `UI系统` 与 `.codex/threads/Sunset/UI`，共 `13` 条 docs-only 项。
+- 上述四刀之后，shared-root 总量已从 `792` 继续降到 `631`；当前 `.kiro + .codex/threads` 基本只剩：
   - 两个未进入当前 `thread-state` 池的孤立线程记忆根；
   - 真正的剩余大头已明确回到 `Assets`，而不是治理 docs 海。
 - 当前 `Assets` 只读分层的新头部已经钉死：

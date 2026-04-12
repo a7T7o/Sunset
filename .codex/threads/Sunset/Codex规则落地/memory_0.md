@@ -225,3 +225,22 @@
     3. `真实功能资产`
     4. `active 线程输出`
   - 只有分清这四类后，才适合决定下一刀是继续做 safe checkpoint、局部忽略，还是必须停给用户拍板。
+
+## 2026-04-12｜续记：UI docs 尾巴也已收口，docs 海正式退场
+
+- 当前主线：
+  - 在不碰 `Assets` 业务根的前提下，把最后一块 parked 文档尾巴也压掉，确保 docs 海真正退场。
+- 这轮实际做成了什么：
+  1. 复核 `Show-Active-Ownership.ps1` 时发现 `UI` 线程已由 `ACTIVE` 转为 `PARKED`，因此原先不能碰的 `UI系统 + .codex/threads/Sunset/UI` 这批 docs-only 尾巴也进入可收口状态。
+  2. 已对白名单 `.kiro/specs/UI系统` 与 `.codex/threads/Sunset/UI` 完成最小同步：
+     - 实际提交为 `54c9eae3` `2026.04.12_Codex规则落地_08`
+     - 共收掉 `13` 条 docs-only 项。
+  3. 重新盘点后，shared-root 总量已进一步降到 `631`：
+     - `Assets = 583`
+     - `.kiro = 36`
+     - `.codex = 2`
+     - 当前 `.kiro/.codex` 剩下的已基本不是活跃工作区正文海，而是两个未进入当前 `thread-state` 池的孤立线程记忆根。
+- 关键判断：
+  - 到这一步，继续围着 docs 收已经没有性价比了；下一刀若还想大幅降噪，必须正面进入 `Assets` 只读分层，而不是继续在治理层兜圈。
+- 当前恢复点：
+  - 如果继续 shared-root 清账，默认下一步只读审 `Assets/100_Anim/FarmAnimals / Assets/Editor / Assets/Screenshots / Assets/Sprites / Assets/YYY_Tests/Editor`，先钉死哪一块真能安全动，再决定是否继续施工。
