@@ -3365,3 +3365,27 @@ Sunset 里大量改动都属于：
   - 代码与 scene-side 基线已提交；
   - 线程下一步若停，应走 `Park-Slice`；
   - 若继续，只适合做用户向复测与更窄 live 门链。
+
+## 2026-04-09｜补记：`NpcSceneTransitionContinuityTests` 的 `CS0246` 已不再成立
+
+- 用户目标：
+  - 处理用户看到的 `Assets\\YYY_Tests\\Editor\\NpcSceneTransitionContinuityTests.cs(54,13): error CS0246: The type or namespace name 'NPCAutoRoamController' could not be found`。
+- 当前主线：
+  - 这仍是 `npc-scene-continuity-bridge-20260409` 的支撑性 no-red 排查，不是新的独立主线。
+- 本轮子任务：
+  - 重新核实测试文件当前源码、fresh CLI 校验结果、以及 Unity 当前真实 console blocker。
+- 已完成事项：
+  1. 确认测试文件当前已用反射式写法，不再有静态 `NPCAutoRoamController` 类型声明。
+  2. `validate_script Assets/YYY_Tests/Editor/NpcSceneTransitionContinuityTests.cs --count 20 --output-limit 8` 返回：
+     - `owned_errors=0`
+     - `assessment=external_red`
+  3. `errors/status` 显示当前真正的 fresh blocker 是 [SpringDay1WorkbenchCraftingOverlay.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs) 的 6 条 `CS0103`，不是这份测试文件。
+- 关键决策：
+  - 把这条 `CS0246` 定性为 stale console 感知；
+  - 当前不再对 `NpcSceneTransitionContinuityTests.cs` 做额外止血修改。
+- 验证结果：
+  - 测试文件 own compile red：`无`
+  - Unity 全局 fresh console：`仍有 external red`
+- 恢复点：
+  - 若继续 NPC continuity 主线，优先回到 live 行为验证；
+  - 若先清总红面，目标应转向 `SpringDay1WorkbenchCraftingOverlay.cs`。

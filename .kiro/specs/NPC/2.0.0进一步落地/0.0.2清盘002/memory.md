@@ -2523,3 +2523,1454 @@ pcReactionSeen=True
      - 以及剩余更细的 crowd 内容语义微调
      继续；
   2. 不必再回头把 `pair=0/2` 当成当前 blocker。
+
+## 2026-04-05｜补记：formal 期 ambient 已从“整段全灭”收成“formal 当前接管时才压住”，并补齐 8 人 duty/phase 静态护栏
+
+- 当前主线目标：
+  - 继续只做 `NPC own` 的 formal/casual/ambient 优先级与 crowd 静态真值；
+  - 不回吞 `Primary.unity / Town.unity / SpringDay1Director.cs / SpringDay1NpcCrowdDirector.cs / UI / GameInputManager.cs`。
+- 本轮实际完成：
+  1. `Assets/YYY_Scripts/Story/Interaction/NpcInteractionPriorityPolicy.cs`
+     - ambient suppress 不再按 formal phase 全局闷死；
+     - 现在只在两类情况压住 ambient：
+       - formal dialogue 正在播放；
+       - 当前 proximity focus 确实落在可接管的 formal NPC 上。
+  2. `Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs`
+     - 补成三档回归：
+       - formal 对话进行中应压掉 ambient；
+       - formal phase 但没有当前接管时 ambient 仍可保留；
+       - 当前 formal prompt 占焦点时应压掉 ambient。
+  3. `Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs`
+     - phase 基础矩阵回正为“formal phase 只直接决定 casual suppress”；
+     - 新增“formal phase 无接管时 ambient 不应被全局闷掉”的断言。
+  4. `Assets/YYY_Tests/Editor/NpcCrowdManifestSceneDutyTests.cs`
+     - 从原来的局部抽查，补到 8 人完整 exact matrix；
+     - 现在会同时校验：
+       - `sceneDuties`
+       - `semanticAnchorIds`
+       - `growthIntent`
+       - `minPhase / maxPhase`
+- 本轮 fresh 验证：
+  - `manage_script validate` clean：
+    - `NpcInteractionPriorityPolicy.cs`
+    - `NpcAmbientBubblePriorityGuardTests.cs`
+    - `NpcInteractionPriorityPolicyTests.cs`
+    - `NpcCrowdManifestSceneDutyTests.cs`
+  - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 20`
+    - fresh 回到 `errors=0 warnings=0`
+  - `Tools/NPC/Spring Day1/Validate New Cast`
+    - `PASS | npcCount=8 | totalPairLinks=16`
+  - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+    - `PASS | instance=8/8 | informal=8/8 | pair=2/2 | walkAway=2/2`
+- 关键判断：
+  - 这轮把剩余最大静态漏洞从“ambient 被 formal phase 一刀切”收回到了“只有当前 formal 真接管时才压”；
+  - 同时把 crowd 8 人 duty/anchor/phase 的 NUnit 护栏补满，避免 101/102/104/202/203 再静悄悄漂掉。
+- thread-state：
+  - 已跑：
+    - `Begin-Slice`
+    - `Park-Slice`
+  - 未跑：
+    - `Ready-To-Sync`
+  - 当前 slice：
+    - `npc-own-priority-and-crowd-runtime-closure-20260405`
+  - 当前 live 状态：
+    - `PARKED`
+- 当前恢复点：
+  1. 若继续 NPC 本线，优先只剩：
+     - crowd 内容语气强度细修；
+     - 用户可感知的 pair / informal / walk-away 体验终验。
+  2. 不必再回头把 ambient global suppress 当成未解决问题。
+
+## 2026-04-05｜补记：NPC own 剩余测试契约与 EditMode 气泡底座已收平，当前已停在“只差体验终验 / 内容细修”
+
+- 当前主线目标：
+  - 继续只做 NPC own 的会话/气泡底座、crowd 内容与 targeted probe；
+  - 不碰 `Primary.unity / Town.unity / SpringDay1Director.cs / SpringDay1NpcCrowdDirector.cs / UI / GameInputManager.cs`。
+- 本轮子任务：
+  - 核实 `Tests.Editor` 里疑似残留的 NPC own 失败是否还是真的；
+  - 只收属于 NPC 的测试夹具与 EditMode 气泡底座契约。
+- 本轮实际完成：
+  1. `Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs`
+     - 把 `InteractionContext` 的反射解析从误指向 `UnityEditor.InteractionContext` 回正到 `Assembly-CSharp` 里的真实交互上下文；
+     - 调整测试内类型解析顺序，避免同名类型再误判。
+  2. `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+     - EditMode 下不再在 `Awake / OnValidate` 抢先创建 `NPCBubbleCanvas`；
+     - 改成真正需要显示气泡时再懒创建，清掉 EditMode 测试里的 `SendMessage cannot be called during Awake/OnValidate` 噪音；
+     - 不动现有气泡样式，只收初始化时机。
+- 本轮验证：
+  - `validate_script`：
+    - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs` -> `0 error`
+    - `Assets/YYY_Tests/Editor/NpcAmbientBubblePriorityGuardTests.cs` -> `0 error`
+  - `git diff --check` 对本轮 touched files 通过。
+  - targeted EditMode tests PASS：
+    - `NpcAmbientBubblePriorityGuardTests.FormalPriorityPhase_ShouldHideVisibleAmbientBubble_WhenFormalPromptOwnsCurrentFocus`
+    - `NpcBubblePresenterEditModeGuardTests.TemporaryEditObjectPresenter_ShowText_ShouldMakeBubbleVisible`
+    - `PlayerThoughtBubblePresenterStyleTests.ConversationLayout_ShouldStayCloseToSpeakerHeads_WhileKeepingReadableSeparation`
+    - `PlayerThoughtBubblePresenterStyleTests.ReadableHoldSeconds_ShouldFollowFixedPacingFormula`
+    - `NPCInformalChatInterruptMatrixTests.ResumeIntroPlan_ShouldReturnContinuityLines_ForBlockingUiResume`
+  - full `Tests.Editor` 后查 `C:\Users\aTo\AppData\LocalLow\DefaultCompany\Sunset\TestResults.xml`：
+    - `NpcAmbientBubblePriorityGuardTests` = `4/4 Passed`
+    - `NpcBubblePresenterEditModeGuardTests` = `5/5 Passed`
+    - `NPCInformalChatInterruptMatrixTests` = `16/16 Passed`
+    - `PlayerThoughtBubblePresenterStyleTests` = `7/7 Passed`
+    - 当前剩余失败都落在 foreign：`Occlusion / ScenePartialSync / SpringDay1 Prompt/Director/Workbench`
+  - Unity / MCP：
+    - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe` => `PASS | instance=8/8 | informal=8/8 | pair=2/2 | walkAway=2/2`
+    - `Tools/NPC/Spring Day1/Validate New Cast` => `PASS | npcCount=8 | totalPairLinks=16`
+    - 清 console 后 `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 20` => `errors=0 warnings=0`
+    - 当前已回到 Edit Mode。
+- 当前判断：
+  - 这一轮之后，NPC own 的“剩余测试契约没收平”已经不再是 blocker；
+  - 代码层和 targeted probe 层都已再次站住；
+  - 再往下继续写，就会开始碰用户体感终验或 UI / Day1 边界，不适合在本线程继续盲补。
+- thread-state：
+  - 本轮沿用 slice：`npc-own-remaining-test-contract-closure-20260405`
+  - 已跑：
+    - `Park-Slice`
+  - 未跑：
+    - `Ready-To-Sync`
+  - 当前 live 状态：
+    - `PARKED`
+- 当前恢复点：
+  1. 若继续 NPC 本线，优先只剩：
+     - crowd 内容语气 / 强度细修；
+     - 用户可感知的 `pair / informal / walk-away` 体验终验。
+  2. 不需要再回头把 `Tests.Editor` 里的这组 NPC own fixture 当成当前 blocker。
+  3. 若后续准备 sync，再先做 own 范围白名单收口与 `Ready-To-Sync`。
+
+## 2026-04-05｜补记：只读复核再次确认“interrupt/style 残留失败”更像旧 runner/旧编译快照
+
+- 当前补充结论：
+  1. 对 `NPCInformalChatInterruptMatrixTests.ResumeIntroPlan_ShouldReturnContinuityLines_ForBlockingUiResume`、
+     `PlayerThoughtBubblePresenterStyleTests` 这批旧失败的只读复核，与本轮实际验证结论一致：
+     - 当前磁盘代码和当前已编 `Assembly-CSharp.dll` 都已经对上测试要求；
+     - 旧失败列表更像先前半改状态或旧 runner/旧编译快照，不像当前树上仍未补口。
+  2. `ResumeIntroPlan` 当前正确真值：
+     - `CreateFallbackResumeIntroPlan()` 已返回测试要求的 continuity lines；
+     - `ResumeIntroPlan` 也已经是属性形态，不是旧的 public field 版本。
+  3. `PlayerThoughtBubblePresenter` 当前正确真值：
+     - `ApplyPlayerBubbleStylePreset()` 已保持“与 NPC 明显不同但不透明”的 preset；
+     - `FormatBubbleText()` 当前也已按 `preferredCharactersPerLine=10` 自动换行。
+- 当前判断：
+  - 这进一步加强了本轮总判断：
+    - NPC own 当前不再卡在“interrupt/style 残留测试没收掉”；
+    - 后续不应继续盲改 resume 文案或玩家气泡 preset，除非 fresh runner 再次给出新的真实失败。
+
+## 2026-04-05｜补记：crowd 对话刷新链、人设化 interrupt/resume 与稳定旧 asset 路径已补齐，fresh live probe 复跑被外部串台噪音打断
+
+- 当前主线目标：
+  - 继续只做 NPC own 的 crowd 内容语气细修与 crowd dialogue 资产刷新链；
+  - 不碰 `Primary.unity / Town.unity / SpringDay1Director.cs / SpringDay1NpcCrowdDirector.cs / UI / GameInputManager.cs`。
+- 本轮实际完成：
+  1. `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+     - 新增 `Tools/NPC/Spring Day1/Refresh Crowd Dialogue Assets` 菜单，只刷新 8 份 crowd dialogue asset；
+     - `101~301` 的 crowd 文案继续往群众层/线索层压，补掉一批过重的“任务指令腔 / 主角腔 / 金句腔”；
+     - 给 8 人都补上了 default `interrupt / resume` 人设化文案，不再全部落回通用 fallback；
+     - 新增 `AssetStem` 稳定旧文件名映射，避免 slug 改名后再次生成第二套 dialogue / roam 文件。
+  2. `Assets/YYY_Tests/Editor/NpcCrowdDialogueNormalizationTests.cs`
+     - 扩充 stale crowd directive phrase 黑名单；
+     - 新增“每份 crowd asset 不得再是空 `defaultInterruptRules / defaultResumeRules`”护栏；
+     - 新增 bootstrap 源头必须保留 refresh 菜单、不得把 default rules 写空的护栏。
+  3. `Assets/111_Data/NPC/SpringDay1Crowd/*.asset`
+     - 已把 8 份 legacy crowd dialogue asset 真正刷新到最新 crowd 文案；
+     - `defaultInterruptRules / defaultResumeRules` 已实写进资产；
+     - 过程中误生成过一套新 slug 文件名的重复资产，已在 own root 内全部清掉，不留双份对话包尾账。
+- 本轮验证：
+  - `manage_script validate` clean：
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+    - `Assets/YYY_Tests/Editor/NpcCrowdDialogueNormalizationTests.cs`
+  - `git diff --check` 对：
+    - `Assets/111_Data/NPC/SpringDay1Crowd`
+    - `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+    - `Assets/YYY_Tests/Editor/NpcCrowdDialogueNormalizationTests.cs`
+    通过。
+  - `Editor.log` 已拿到：
+    - `Tools/NPC/Spring Day1/Validate New Cast` => `PASS | npcCount=8 | totalPairLinks=16`
+  - fresh console：
+    - 仅跑 `Validate New Cast` 后 => `errors=0 warnings=0`
+  - fresh runtime probe 复跑：
+    - 已真实进入 Play，再自动退回 Edit；
+    - 但这次 `Editor.log` 只拿到 `START`，没拿到新的 `PASS / FAIL` 终行；
+    - 同时 fresh console 混入了 foreign 噪音：
+      - `ExecuteMenuItem failed because there is no menu named 'Sunset/Story/Validation/Run Director Staging Tests'`
+      - `PersistentManagers DontDestroyOnLoad` editor-side exception
+    - 因此这轮只能报实为：
+      - `fresh runtime probe attempted`
+      - `但结果被外部串台/外部 editor exception 污染，不能把这次复跑继续 claim 成 clean pass`
+- thread-state：
+  - 本轮沿用 slice：
+    - `npc-own-crowd-content-deep-polish-20260405`
+  - 已跑：
+    - `Begin-Slice`
+    - `Park-Slice`
+  - 未跑：
+    - `Ready-To-Sync`
+  - 当前 live 状态：
+    - `PARKED`
+- 当前判断：
+  - crowd 这条线现在不再缺“资产刷新链 / resume/interrupt 底座 / 文件路径稳定性”这类代码层补口；
+  - 剩余最值钱的 own 工作已经缩窄成两类：
+    1. 等 foreign 噪音停下后，再补一次 clean runtime targeted probe
+    2. 用户真实体验维度的 crowd 体感终验与极少量语气微调
+- 当前恢复点：
+  - 若后续继续 NPC 本线，先别再改 shared/UI/Day1；
+  - 先在干净现场补一次 fresh runtime targeted probe；
+  - 若 probe clean，再进入用户体验验收或 sync 前白名单收口。
+
+## 2026-04-05｜补记：用户现场放开 Unity 后，quick test 已真实拿到 clean runtime pass
+
+- 当前主线目标：
+  - 继续只做 NPC own 的 crowd 内容与 runtime probe 收口；
+  - 不碰 `Primary / Town / Day1 Director / UI / GameInputManager`。
+- 本轮快速测试结果：
+  1. `Tools/NPC/Spring Day1/Validate New Cast`
+     - `PASS | npcCount=8 | totalPairLinks=16`
+  2. `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+     - `PASS | instance=8/8 | informal=8/8 | pair=2/2 | walkAway=2/2`
+  3. fresh console：
+     - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 20`
+     - `errors=0 warnings=0`
+  4. Unity 状态：
+     - 已确认回到 Edit Mode
+- 关键说明：
+  - 这次不是旧日志复用；
+  - 本轮重新进了 Play，再自动退回 Edit；
+  - `Editor.log` 已拿到这次新的 runtime probe `PASS` 终行与完整 evidence。
+- 当前判断：
+  - crowd 这条 own 线现在已经不再卡在 runtime targeted probe；
+  - 代码层 + targeted runtime 层都再次 clean 站住；
+  - 剩余主要只剩：
+    1. 用户真实体验终验
+    2. 如有必要的极少量 crowd 语气微调
+- thread-state：
+  - 本轮 slice：`npc-quick-clean-runtime-retest-20260405`
+  - 已跑：`Begin-Slice`、`Park-Slice`
+  - 未跑：`Ready-To-Sync`
+  - 当前状态：`PARKED`
+
+## 2026-04-05｜补记：基于 day1 自续工 prompt 的多角度只读判断已稳定
+
+- 用户本轮要求：
+  - 阅读 `spring-day1` 给自己的续工 prompt；
+  - 不写代码，只从多个角度判断：
+    1. prompt 本身方向是否对；
+    2. `NPC own` 当前完成度是否已经担得起 Day1 群像承接；
+    3. `Town` 现在到底跟不跟得上 `day1`。
+- 当前稳定结论：
+  1. day1 prompt 本身是对的：
+     - 没漂回方案模式；
+     - 真正把火力放在“导演工具 live 接入 + 后半段导演消费下沉”；
+     - 对 Town 也保持了窄口径，不是假装全闭环。
+  2. 从 `NPC own` 当前完成度看，NPC 现在已经能担起 Day1 后半段群像的底座责任：
+     - 8 人 cast / crowd asset / runtime targeted probe / informal / pair / walk-away 已有真实通过证据；
+     - 因此当前主 blocker 不再是 NPC 底座。
+  3. `Town` 现在跟得上，但只是“轻量、anchor 优先、一个个 cue 打穿”这个级别的跟得上：
+     - 可优先承接：
+       - `EnterVillageCrowdRoot`
+       - `KidLook_01`
+       - `NightWitness_01`
+       - `DinnerBackgroundRoot`
+       - `DailyStand_01`（前面稳住后）
+     - 不可误判为：
+       - 后半段整张 Town 已 fully ready
+       - 可以直接跳过具体 live 排练/写回/保存验证
+  4. 当前更值得警惕的真实风险，在 day1 自己的导演链而不是 NPC：
+     - `Run Director Staging Tests` 菜单桥问题
+     - 排练/录制/写回链是否长期稳定
+     - live 现场噪音不要污染导演验证
+- 当前恢复点：
+  - 若后续继续 NPC 本线，不应盲写新底座；
+  - 应围绕 day1 已明确分给 NPC 的群像承接位继续补本体内容与语义细化；
+  - 但不把 `NPC ready` 偷换成 `day1 已完工`。
+
+## 2026-04-05｜补记：Day1 后半段群像内容并行续工已落一轮实改，且 clean runtime 仍站住
+
+- 本轮主线：
+  - 不再补 NPC 底座；
+  - 只收 `Day1` 后半段会被导演线消费的群像内容层；
+  - 重点覆盖：
+    - `EnterVillage_PostEntry`
+    - `DinnerConflict_Table`
+    - `ReturnAndReminder_WalkBack`
+    - `FreeTime_NightWitness`
+    - `DayEnd_Settle`
+    - `DailyStand_Preview`
+- 本轮真实施工内容：
+  1. `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+     - 重写 `101/102/103/104/201/202/203/301` 的 crowd 内容源；
+     - 明确把这些 NPC 的 `selfTalk / playerNearby / defaultChatInitiator / defaultChatResponder / 部分 pair dialogue` 调到后半段群像口径：
+       - `101 / 103`：进村围观、停手、偷看、压低嗓子、次日照常站位
+       - `104 / 201 / 202 / 203`：晚餐冲突背景压力、散场回屋、低声议论、仍要照旧开门/开摊/开火
+       - `102 / 301`：夜见闻、后坡、收夜规矩、夜路脚步与回声
+  2. `Assets/YYY_Tests/Editor/NpcCrowdDialogueNormalizationTests.cs`
+     - 新增 `CrowdDialogueAssets_ShouldCarryLateSceneSemanticCoverage`；
+     - 用资产级 token 断言把这轮新增的后半段群像语义钉住，避免回退成“结构在、内容空”。
+  3. `Assets/111_Data/NPC/SpringDay1Crowd/*.asset`
+     - 通过 `Tools/NPC/Spring Day1/Refresh Crowd Dialogue Assets` 真正刷新 8 份 crowd dialogue asset；
+     - 现在 source-of-truth 与资产序列化内容一致。
+- 本轮验证：
+  - `manage_script validate --name SpringDay1NpcCrowdBootstrap --path Assets/Editor/NPC --level standard` => clean
+  - `manage_script validate --name NpcCrowdDialogueNormalizationTests --path Assets/YYY_Tests/Editor --level standard` => clean
+  - `git diff --check -- Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs Assets/YYY_Tests/Editor/NpcCrowdDialogueNormalizationTests.cs Assets/111_Data/NPC/SpringDay1Crowd` => 通过
+  - `Tools/NPC/Spring Day1/Validate New Cast` => `PASS | npcCount=8 | totalPairLinks=16`
+  - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe` => `PASS | instance=8/8 | informal=8/8 | pair=2/2 | walkAway=2/2`
+  - fresh console：
+    - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 20`
+    - `summary = errors=0 warnings=0`
+    - 但返回体里仍带 1 条 `PersistentManager` assert 型 entry，当前未被 CLI 归类为 error/warning，先报实为“无红计数，但有 editor-side assert 噪音条目”。
+- 当前判断：
+  - 这轮后半段群像内容已经不是空壳；
+  - day1 后面只要继续消费这些 crowd NPC，至少能吃到更明确的：
+    - 围观/偷看/停手感
+    - 晚餐与散场压力
+    - 夜见闻与回屋规矩
+    - 次日“村子照常转”的冷处理感
+- 当前恢复点：
+  - 若下一轮继续 NPC 本线，优先不再补底座；
+  - 应转向：
+    1. 用户真实体验终验
+    2. 若终验指出某个 scene-duty 的 crowd 语气还不够，再做一小轮定点微调。
+
+## 2026-04-06｜补记：已确认“NPC 突然生成”属于 runtime crowd director 契约问题，不是内容层问题
+
+- 用户新观察：
+  - 新 NPC 看起来不像本来就在村里；
+  - 而是到对话/阶段时才突然蹦出来；
+  - 用户质疑它们本来就该常驻在村子里 / `Town` 里。
+- 本轮只读核查结论：
+  1. 真正负责运行时生成的核心文件是：
+     - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+  2. 关键事实：
+     - 它把 crowd runtime 限定在 `Primary`：
+       - `PrimarySceneName = "Primary"`
+       - 非 `Primary` 时会 `TeardownAll()`
+     - 它在同步 crowd 时，会对每个 entry 调 `GetOrCreateState(...)`
+     - 若 state 不存在，就 `Instantiate(entry.prefab, spawnPosition, Quaternion.identity)`
+  3. 因此当前体验上的“突然生成”，不是错觉，也不是我这轮刚补的群像文本导致的；
+     - 而是当前 crowd runtime contract 本来就是“按 phase/beat 在 `Primary` 中临时生成与显隐”，不是“Town 里本来就摆着一批常驻 NPC”。
+- 边界判断：
+  - 这件事当前不应由我这条 NPC 内容线默认吞掉；
+  - 因为它已经越过“群像内容层”，进入：
+    - `SpringDay1NpcCrowdDirector.cs`
+    - `Town runtime contract`
+    - 可能还会碰 scene 级常驻布置/常驻 root
+  - 而这些在最新 day1 -> NPC prompt 里都明确不是我当前 own。
+- 当前恢复点：
+  - 如果后续要修“突然生成 / 常驻在村里”这件事，默认应由 day1 / Town runtime owner 接盘；
+  - NPC 这边可以配合提供：
+    - manifest / semantic duty / 文本内容 / crowd mapping
+  - 但不应在未重新授权前，自己把部署契约一并吞掉。
+
+## 2026-04-06｜补记：已给 day1 写出正式回执信与引导 prompt
+
+- 本轮用户目标：
+  - 不是立即施工；
+  - 而是把我这边近几轮完成的 NPC 相关内容、已吸收的 day1 导演相关真值，以及最新“NPC 突然生成 / 驻村部署”判断，正式写成一份给 day1 的回执信；
+  - 再补一份可直接转发给 day1 的引导 prompt。
+- 本轮产出文件：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-06_NPC给day1_后半段群像回执与驻村部署问题汇总_09.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-06_NPC给day1_读取回执并判断crowd驻村部署prompt_10.md`
+- 回执信里已明确写清：
+  1. 我这边已完成的 crowd 底座与后半段群像内容层
+  2. 我对 day1 当前导演线进度的吸收结果
+  3. “突然生成”问题的代码定位：
+     - `SpringDay1NpcCrowdDirector.cs`
+  4. 为什么这属于 deployment/runtime contract，而不是内容层小问题
+  5. 我当前对 owner 边界与下一步协作方式的判断
+- 当前状态：
+  - 本轮只做文档与交接材料；
+  - 未进入新的代码施工；
+  - thread-state 已 `Park-Slice`，当前状态 `PARKED`。
+
+## 2026-04-06｜补记：驻村常驻居民语义矩阵已真正落盘到 manifest，可直接给 day1 导演线吃
+
+- 这轮主线：
+  - 读取 `prompt_11 + prompt_12` 后，继续只做 `NPC own` 的 resident 语义层；
+  - 不吞 `CrowdDirector`、不碰 `Town runtime contract`、不改 deployment；
+  - 目标是把 `101~301` 做成能被 day1 直接读取的常驻居民语义矩阵。
+- 本轮真实落地：
+  1. `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdManifest.cs`
+     - 新增并站住：
+       - `SpringDay1CrowdResidentBaseline`
+       - `SpringDay1CrowdResidentPresenceLevel`
+       - `residentBeatSemantics`
+       - `GetResidentPresenceLevel / GetResidentBeatFlags / HasResidentBeatFlags`
+       - `IsDirectorPriorityBeat / IsDirectorSupportBeat / IsDirectorTraceBeat`
+  2. `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+     - 为 8 个 NPC 全量补齐 6 段 beat 的 resident matrix：
+       - `EnterVillage_PostEntry`
+       - `DinnerConflict_Table`
+       - `ReturnAndReminder_WalkBack`
+       - `FreeTime_NightWitness`
+       - `DayEnd_Settle`
+       - `DailyStand_Preview`
+     - 每段都落了：
+       - `presenceLevel`
+       - `flags`
+       - `note`
+     - 同时把 manifest 里的 `displayName / roleSummary` 刷成更像常驻村民的口径。
+  3. `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+     - `Validate New Cast` 现在也会盯 resident baseline / beat semantics / presenceLevel，不再只看旧 duty。
+  4. `Assets/YYY_Tests/Editor/NpcCrowdManifestSceneDutyTests.cs`
+     - 新增 resident matrix 真值护栏；
+     - 直接卡：
+       - 旧具名角色名不得回流
+       - baseline 不得漂
+       - 6 段 beat flags 不得漂
+       - helper contract 不得漂
+  5. `Assets/Resources/Story/SpringDay1/SpringDay1NpcCrowdManifest.asset`
+     - 已执行 `Refresh Crowd Resident Manifest`；
+     - 资源里已真实写入 resident 字段，不是只停在脚本定义。
+- 当前 resident baseline 稳定结论：
+  - 白天默认常在：`101 / 103 / 201 / 203`
+  - 白天背景常在：`104 / 202`
+  - 白天低可见、夜里更强：`102 / 301`
+- 当前最适合给 day1 先吃回的 beat：
+  1. `EnterVillage_PostEntry`：
+     - `101 / 103`
+  2. `DinnerConflict_Table`：
+     - `101 / 104 / 201 / 202 / 203`
+  3. `FreeTime_NightWitness`：
+     - `102 / 301`
+  4. 次级继续吃：
+     - `ReturnAndReminder_WalkBack`
+  5. support layer：
+     - `DayEnd_Settle`
+     - `DailyStand_Preview`
+- 本轮验证：
+  - `manage_script validate`
+    - `SpringDay1NpcCrowdManifest.cs` clean
+    - `SpringDay1NpcCrowdBootstrap.cs` clean
+    - `SpringDay1NpcCrowdValidationMenu.cs` clean
+    - `NpcCrowdManifestSceneDutyTests.cs` clean
+  - `Refresh Crowd Resident Manifest`：成功
+  - `Validate New Cast`：
+    - `PASS | npcCount=8 | totalPairLinks=16`
+  - `git diff --check`：通过
+  - fresh console：
+    - `errors=0 warnings=0`
+  - Unity：
+    - 已退回 `Edit Mode`
+- 当前恢复点：
+  - `NPC own` 这边可继续压的 resident 语义层已经基本压到头；
+  - 下一步真正限制 day1 的，不再是我的语义矩阵，而是它自己的 deployment / director consumption 落地。
+
+## 2026-04-06｜补记：formal 剧情聊天已改成一次性消耗，消费后只回落到 informal / resident
+
+- 用户新增硬约束：
+  - 正式剧情聊天不能重复触发同一段；
+  - 消费后只能回落到：
+    1. informal 闲聊
+    2. resident 日常句池
+    3. phase 后非正式补句
+- 本轮真实改动：
+  1. `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+     - `ResolveDialogueSequence()` 不再在 formal 消费后回放 `followup`；
+     - 新增 `HasConsumedFormalDialogue()`；
+     - 现在只要 initial formal 已被完成 / 推相位 / 解码，正式交互就直接让出，不再重播。
+  2. `Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs`
+     - 新增 same NPC formal 已消费后，informal 应重新接手的回归测试。
+  3. `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+     - 新增文本级护栏，防止有人把 `NPCDialogueInteractable` 改回“formal 完了还能点出 followup 重播”。
+- 本轮验证：
+  - `manage_script validate`
+    - `NPCDialogueInteractable.cs` clean
+    - `NpcInteractionPriorityPolicyTests.cs` clean
+    - `SpringDay1DialogueProgressionTests.cs` clean
+  - `git diff --check`：通过
+  - fresh console：
+    - `errors=0 warnings=0`
+- 当前恢复点：
+  - 现在 `NPC own` 这边已同时站住：
+    1. resident 矩阵
+    2. formal 一次性消费
+    3. post-consume 回落 informal/resident 的优先级契约
+
+## 2026-04-06｜只读补记：resident manifest / formal-once-only 现场下仍可补的 day1 直接消费层
+
+- 当前主线目标：
+  - 不碰 `SpringDay1NpcCrowdDirector.cs`、`Town/Primary scene`、`UI`、`GameInputManager`；
+  - 只读判断 NPC 线程还能补哪一层 helper / contract / test，最方便 `spring-day1` 直接消费。
+- 本轮子任务：
+  - 读取 resident manifest、formal once-only、day1 现有消费点与测试空白；
+  - 收敛 3 个以内不越界建议。
+- 本轮只读结论：
+  1. 最值钱的 helper 不是再补 runtime 逻辑，而是把 manifest 现有逐条 API 收成“按 beat 可直接取用的消费快照”；
+     当前 `Entry` 已有 `GetResidentPresenceLevel / GetResidentBeatFlags / GetDirectorConsumptionRole`，但顶层仍缺一次拿全 beat roster 的 helper。
+  2. formal once-only 现在行为已成立，但 `NPCDialogueInteractable` 还没有公开的只读消费状态口径；
+     day1 若想知道某 NPC 当前还是 formal one-shot，还是已回落 informal / resident，只能间接走 `CanInteract()` 或读私有逻辑。
+  3. 当前最缺的测试不是再测 manifest 或 stage book 各自是否存在，而是二者之间的桥接契约；
+     resident matrix 与 `StageBook` / cue 的断层还没有独立护栏。
+- 建议的下一层：
+  1. `helper`
+     - 在 `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdManifest.cs`
+       增加 beat 级只读快照 / roster helper，让 day1 一次拿到：
+       - priority / support / trace / backstage-pressure
+       - 对应 `npcId`
+       - `semanticAnchorIds`
+       - `note`
+  2. `contract`
+     - 在 `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+       增加 formal 消费状态的公开只读口径；
+       让 day1 / validation 不必再靠私有方法推断“formal 是否已消费、是否已回落 informal/resident”。
+  3. `test`
+     - 新增或扩充一组 bridge tests，交叉验证：
+       - `SpringDay1NpcCrowdManifest`
+       - `SpringDay1DirectorStageBook`
+       - `NPCDialogueInteractable`
+       三者在核心 beat 上的消费边界与 cue 对齐关系。
+- 本轮明确不建议：
+  - 不建议再补 resident root / parent / active 判定 helper；
+  - 这已经贴近 `CrowdDirector` 的 deployment / runtime 归类，边界太近。
+- 涉及只读文件：
+  - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdManifest.cs`
+  - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+  - `Assets/YYY_Scripts/Story/Directing/SpringDay1DirectorStaging.cs`
+  - `Assets/YYY_Tests/Editor/NpcCrowdManifestSceneDutyTests.cs`
+  - `Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+- 验证状态：
+  - 纯静态代码 / 文档取证；
+  - 未改业务代码；
+  - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+    - 原因：本轮始终停留在只读分析。
+- 当前恢复点：
+  - 如果后续真要继续 NPC 自己的一小刀，最优先顺序应是：
+    1. manifest beat-consumption helper
+    2. formal 状态公开 contract
+    3. manifest <-> stagebook bridge tests
+
+## 2026-04-06｜续工补记：day1 可直接消费的 beat roster 与 formal state contract 已补齐
+
+- 当前主线目标：
+  - 继续只做 NPC own；
+  - 不碰 `CrowdDirector / Town runtime / scene / UI / GameInputManager`；
+  - 把 resident semantic contract 压到 day1 不用再手搓外部筛选。
+- 本轮真实完成：
+  1. `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdManifest.cs`
+     - 新增 `SpringDay1CrowdDirectorConsumptionRole`
+     - 新增 `GetDirectorConsumptionRole()`
+     - 新增 `IsDirectorBackstagePressureBeat()`
+     - 新增 `TryGetEntry()`
+     - 新增 `GetEntriesForDirectorConsumptionRole()`
+     - 新增 `BuildBeatConsumptionSnapshot()`
+  2. `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+     - `Validate New Cast` 现在会检查：
+       - `EnterVillage_PostEntry` 的 `priority / trace`
+       - `DinnerConflict_Table` 的 `priority / backstagePressure`
+       - `FreeTime_NightWitness` 的 `priority`
+  3. `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+     - 新增 `NPCFormalDialogueState`
+     - 新增 `HasFormalDialogueConfigured`
+     - 新增 `GetFormalDialogueStateForCurrentStory()`
+     - 新增 `HasConsumedFormalDialogueForCurrentStory()`
+     - 新增 `WillYieldToInformalResident()`
+  4. `Assets/YYY_Tests/Editor/NpcCrowdManifestSceneDutyTests.cs`
+     - 新增 direct-consumption role 与 snapshot helper 护栏
+  5. `Assets/YYY_Tests/Editor/NpcInteractionPriorityPolicyTests.cs`
+     - formal consumed 后公开状态 contract 的回归测试已补
+  6. `Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`
+     - public formal-state contract 文本护栏已补
+- 本轮中途真实问题：
+  - `Validate New Cast` 初次重跑报了 48 条 `presenceLevel = None`
+  - 根因不是逻辑回退，而是 `SpringDay1NpcCrowdManifest.asset` 里的旧脏序列化值
+  - 已通过 `Tools/NPC/Spring Day1/Refresh Crowd Resident Manifest` 刷回
+  - 后续又修掉：
+    - 离屏 `KeepRoutine` 被误判成前台 support 的角色层判断
+    - 需要显式走一次 `Assets/Refresh`，避免 Unity 继续拿旧编译快照跑菜单
+- 本轮验证：
+  - `manage_script validate` clean：
+    - `SpringDay1NpcCrowdManifest.cs`
+    - `SpringDay1NpcCrowdValidationMenu.cs`
+    - `NPCDialogueInteractable.cs`
+    - `NpcCrowdManifestSceneDutyTests.cs`
+    - `NpcInteractionPriorityPolicyTests.cs`
+    - `SpringDay1DialogueProgressionTests.cs`
+  - `Assets/Refresh` 后最新：
+    - `Tools/NPC/Spring Day1/Validate New Cast`
+    - `PASS | npcCount=8 | totalPairLinks=16`
+  - `git diff --check` 通过
+  - fresh console：
+    - `errors=0 warnings=0`
+  - Unity 保持 `Edit Mode`
+- 当前阶段：
+  - NPC own 的 resident semantic contract + direct-consumption helper + formal state contract 已压到头
+- 当前恢复点：
+  - 继续往下不该再默认扩到 stagebook/runtime/deployment
+  - 若以后真要再补，只剩“是否授权补 bridge tests”这一类跨边界协作项
+
+## 2026-04-06｜续工补记：bridge tests 已真实落地并跑过
+
+- 当前主线目标：
+  - 在不碰 `CrowdDirector / Town runtime / scene / UI` 的前提下，
+    继续把 NPC own 能补的最后一层“day1 直接消费护栏”压完。
+- 本轮真实完成：
+  1. `Assets/YYY_Tests/Editor/NpcCrowdResidentDirectorBridgeTests.cs`
+     - 补了 3 个桥接测试：
+       - priority resident 在 `EnterVillage_PostEntry / FreeTime_NightWitness` 必须能 resolve 到 cue
+       - `DinnerConflict_Table` 的当前 cue roster 不得越出 resident priority 白名单
+       - 关键 beat 的 cue `semanticAnchorId / duty` 必须仍在 manifest 合同内
+  2. `Assets/Editor/NPC/NpcResidentDirectorBridgeValidationMenu.cs`
+     - 补了菜单：
+       - `Tools/NPC/Spring Day1/Run Resident Director Bridge Tests`
+- 本轮排障：
+  - 菜单第一次没被 Unity 注册
+  - 查实不是菜单路径问题，而是菜单脚本 own 编译错：
+    - `TestStatus` 被误写成可空链
+  - 已修正并重新 `Assets/Refresh`
+- 本轮验证：
+  - `manage_script validate` clean：
+    - `NpcCrowdResidentDirectorBridgeTests.cs`
+    - `NpcResidentDirectorBridgeValidationMenu.cs`
+  - 真实菜单执行结果：
+    - `Library/CodexEditorCommands/npc-resident-director-bridge-tests.json`
+    - `status=passed`
+    - `total=3`
+    - `passed=3`
+    - `failed=0`
+  - `git diff --check` 通过
+  - fresh console：
+    - `errors=0 warnings=0`
+    - 仅剩 test runner 写结果 XML 的信息项
+- 当前阶段：
+  - NPC own 的 helper / contract / bridge-test 三层都已压完
+- 当前恢复点：
+  - 再继续往下就不是 NPC 自己还能高质量单线推进的内容了
+  - 现在更该等 day1 结合这套 contract 去接 deployment / director consumption / Town 落位
+
+## 2026-04-06｜补记：已为 day1 落一份全量承接回执，并准备先停车等导演线调度
+
+- 当前主线目标：
+  - 不再继续扩 `NPC` 新代码；
+  - 先把 `NPC` 这几轮已经做成的 resident / formal / bridge 层完整交给 `day1`；
+  - 让 `day1` 能基于真实边界继续做 deployment / director / Town 承接。
+- 本轮实际完成：
+  1. 新增回执文档：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-06_NPC给day1_全量进度与承接边界回执_14.md`
+  2. 文档里已系统写清：
+     - 我已做成的 resident semantic matrix / beat consumption helper / formal once-only contract / bridge tests
+     - 当前真正 blocker 已经转到 `day1` 的 resident deployment / director consumption / Town 常驻落位
+     - 我还能继续分担的最深层次
+     - 我明确不该继续吞的边界
+     - 给 `day1` 的建议调度顺序与优先吃回段
+- 当前关键判断：
+  - `NPC` own 现在已经不是“还缺概念层”，而是“底座已交，deployment/runtime 才是主 blocker”。
+  - 如果后续还要继续协作，我最适合继续守的是：
+    - `manifest / content profile / formal fallback contract / tests / probe`
+  - 不适合默认回吞的是：
+    - `CrowdDirector / Town runtime / scene 落位 / UI`
+- 验证状态：
+  - 本轮只写回执文档，没有新增业务代码；
+  - 之前已站住的验证结果仍然是：
+    - `Validate New Cast` = `PASS | npcCount=8 | totalPairLinks=16`
+    - `Run Resident Director Bridge Tests` = `3/3 PASS`
+    - fresh console = `errors=0 warnings=0`
+    - Unity 保持 `Edit Mode`
+- 当前恢复点：
+  - 先把当前 slice 停到 `PARKED`
+  - 等 `day1` 审完回执，再决定是否重新授权 `NPC` 往更深一层协作
+
+## 2026-04-06｜续记：resident fallback 已继续压到 phase-aware nearby，并已双回执收口
+
+- 当前主线目标：
+  - 在不越界去吞 `director / Town / UI` 的前提下，把 `formal consumed -> resident fallback` 再往下压一层；
+  - 做到不只闲聊 bundle 按 `StoryPhase` 回 resident，连玩家靠近 NPC 的 nearby 轻反馈也按 `StoryPhase` 走；
+  - 然后把这轮阶段安全点同时回执给 `day1` 和 `存档系统`。
+- 本轮实际完成：
+  1. 代码与资产：
+     - `NPCDialogueContentProfile.cs` 新增 `PhaseNearbySet / phaseNearbyLines / GetPlayerNearbyLines(relationshipStage, storyPhase) / TryGetPhaseNearbySet`
+     - `NPCRoamProfile.cs` 新增 phase-aware nearby 透传
+     - `PlayerNpcNearbyFeedbackService.cs` 改为按当前 `StoryPhase` 解析 nearby resident lines
+     - `SpringDay1NpcCrowdBootstrap.cs` 新增 `BuildPhaseNearbyPayloads / BuildPhaseNearbySets / PhaseNearbyPayload`
+     - 8 份 `Assets/111_Data/NPC/SpringDay1Crowd/*DialogueContent.asset` 已刷新进 `phaseNearbyLines`
+     - `SpringDay1NpcCrowdValidationMenu.cs` 新增 `ValidatePhaseNearbyCoverage`
+     - tests 已补到：
+       - `NpcInteractionPriorityPolicyTests.cs`
+       - `NpcCrowdDialogueNormalizationTests.cs`
+       - `SpringDay1DialogueProgressionTests.cs`
+  2. 回执：
+     - 新增给 `day1` 的阶段安全点回执：
+       - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-06_NPC给day1_阶段安全点回执_15.md`
+     - 已按固定文件回写 `存档系统` 边界回执：
+       - `D:\Unity\Unity_learning\Sunset\.kiro\specs\存档系统\2026-04-06_NPC_存档边界回执_01.md`
+- 本轮验证结果：
+  - `manage_script validate` clean：
+    - `NPCDialogueContentProfile.cs`
+    - `NPCRoamProfile.cs`
+    - `PlayerNpcNearbyFeedbackService.cs`
+    - `SpringDay1NpcCrowdBootstrap.cs`
+    - `SpringDay1NpcCrowdValidationMenu.cs`
+    - `NpcInteractionPriorityPolicyTests.cs`
+    - `NpcCrowdDialogueNormalizationTests.cs`
+  - `SpringDay1DialogueProgressionTests.cs`
+    - `native_validation=clean`
+    - `owned_errors=0`
+    - 但 `validate_script` 被现场已有 external console 噪音打成 `external_red`
+  - 菜单真值：
+    - `Tools/NPC/Spring Day1/Refresh Crowd Dialogue Assets` 已执行
+    - `Tools/NPC/Spring Day1/Validate New Cast` 已执行
+    - `Editor.log` 最新仍是：
+      - `[SpringDay1NpcCrowdValidation] PASS | npcCount=8 | totalPairLinks=16`
+  - `git diff --check` 对本轮 own 路径通过
+  - `Run Resident Director Bridge Tests`
+    - 之前最后一份稳定结果仍是 `passed`
+    - 本轮 rerun 结果文件停在 `running/started`，未 claim 新通过
+- 当前关键判断：
+  - `NPC` own 现在又多交出了一层真正可消费的 resident contract：`phaseNearbyLines`
+  - 后续最该由 `day1` 去吃回的，仍然是 `resident deployment / director consumption / Town 常驻落位`
+  - `存档系统` 第一版只该接 `relationshipStage + formal consumed / completed sequence` 这种长期态，不该碰聊天过程态
+- 当前恢复点：
+  - 这轮已到安全点，不再继续往下压新功能；
+  - 接下来只需 `Park-Slice`、补 thread memory 和审计日志即可离场。
+
+## 2026-04-06｜续记：phase selfTalk + phase walkAway 已落地，day1 新安全点回执 16 已写
+
+- 当前主线目标：
+  - 按 `day1` 的 27 号补充口径，继续只做 `NPC` own 的 resident 常驻语义、formal consumed 后的 resident/informal 回落、以及可直接给 `day1` 吃的 validation/contract；
+  - 不再围绕 `runtime spawn / deployment / Town resident 主逻辑` 扩写。
+- 本轮实际完成：
+  1. `phase-aware selfTalk` 已全链路落地：
+     - `NPCDialogueContentProfile.cs` 新增 `PhaseSelfTalkSet / phaseSelfTalkLines / GetSelfTalkLines(StoryPhase) / TryGetPhaseSelfTalkSet`
+     - `NPCRoamProfile.cs` 新增 `GetSelfTalkLines(StoryPhase)`
+     - `NPCAutoRoamController.cs` 新增 `TryShowResidentSelfTalk(...)`，长停自语优先吃当前 `StoryPhase`
+     - `SpringDay1NpcCrowdBootstrap.cs` 新增 `BuildPhaseSelfTalkSets / BuildPhaseSelfTalkPayloads`
+     - 8 份 `Assets/111_Data/NPC/SpringDay1Crowd/*DialogueContent.asset` 已刷新出 `phaseSelfTalkLines`
+  2. `phase-aware walkAwayReaction` 已继续补深：
+     - `SpringDay1NpcCrowdBootstrap.cs` 新增 `BuildPhaseWalkAwayReactionPayload(...)`
+     - `phaseInformalChatSets` 现在优先写入 phase-specific `walkAwayReaction`
+     - 8 份 crowd dialogue assets 已刷新出各自 phase walkAway cue
+  3. validation / tests 继续加厚：
+     - `SpringDay1NpcCrowdValidationMenu.cs` 新增 `ValidatePhaseSelfTalkCoverage(...)`
+     - runtime targeted probe 已补 selfTalk 入口代码，但本轮未 live claim
+     - `NpcCrowdDialogueNormalizationTests.cs` 新增：
+       - `CrowdDialogueAssets_ShouldContainPhaseAwareResidentSelfTalkLines`
+       - `CrowdDialogueAssets_ShouldContainPhaseAwareWalkAwayReactions`
+     - `SpringDay1DialogueProgressionTests.cs` 新增：
+       - `NpcAutoRoamSelfTalk_UsesPhaseAwareResidentLines`
+       - `CrowdBootstrap_UsesPhaseAwareWalkAwayReactionsAfterFormalConsumed`
+  4. 用户临时报的编译红已止血：
+     - 以 `carried foreign blocker fix` 方式最小补了
+       `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+     - fresh `errors` 已回到 `errors=0 warnings=0`
+  5. 回执文件：
+     - 新增给 `day1` 的安全点回执：
+       `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-06_NPC给day1_阶段安全点回执_16.md`
+     - 新增给 `存档系统` 的边界回执：
+       `D:\Unity\Unity_learning\Sunset\.kiro\specs\存档系统\2026-04-06_NPC_存档边界回执_02.md`
+- 本轮验证结果：
+  - `validate_script` clean：
+    - `NPCDialogueContentProfile.cs`
+    - `NPCRoamProfile.cs`
+    - `SpringDay1NpcCrowdBootstrap.cs`
+    - `SpringDay1NpcCrowdValidationMenu.cs`
+    - `NpcCrowdDialogueNormalizationTests.cs`
+    - `SpringDay1DialogueProgressionTests.cs`
+  - `NPCAutoRoamController.cs`：`errors=0 warnings=1`
+  - `SpringDay1NpcCrowdDirector.cs`：`errors=0 warnings=2`
+  - `Tools/NPC/Spring Day1/Refresh Crowd Dialogue Assets` 已执行
+  - `Tools/NPC/Spring Day1/Validate New Cast`：
+    - `PASS | npcCount=8 | totalPairLinks=16`
+  - targeted EditMode 小集 job `succeeded`
+  - `py -3 scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+    - `errors=0 warnings=0`
+  - own + carried 路径 `git diff --check` 通过
+  - Unity 当前在 `Edit Mode`
+- 当前关键判断：
+  - `NPC` own 这轮又多交出了两层真正可消费的 resident contract：
+    - `phaseSelfTalkLines`
+    - phase-specific `walkAwayReaction`
+  - 继续往下最该由 `day1 / Town` 吃回的，仍然是：
+    - 原生 resident deployment
+    - director consumption
+    - scene / anchor 落位
+  - 存档边界不需要因这轮新增内容扩写：
+    - `phaseSelfTalk / walkAwayReaction` 都是内容资产，不是新的长期态
+- 当前恢复点：
+  - 代码已到安全点，准备离场；
+  - 下一步只做：
+    1. 追加父级 / 线程 memory
+    2. 追加 `skill-trigger-log`
+    3. `Park-Slice`
+
+## 2026-04-06｜收口：thread-state 已正式 PARKED
+
+- `Park-Slice` 已执行：
+  - `status = PARKED`
+  - `blockers = 无`
+- 当前离场状态：
+  - Unity 在 `Edit Mode`
+  - fresh `errors = 0`
+  - 这轮安全点已正式结算完毕
+
+## 2026-04-07｜只读分析：Town 正式对话后 NPC prompt 链还能安全继续砍什么
+
+- 当前主线：
+  - 用户要求只读评估 `Town` 里正式对话结束后，大量 NPC 同时恢复 `Update` 提示链时，这 3 个脚本内部还剩哪些安全性能刀口；
+  - 明确限制：只看
+    - `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+    - `Assets/YYY_Scripts/Story/Interaction/NpcInteractionPriorityPolicy.cs`
+  - 不扩到更多运行时代码文件。
+- 本轮子任务：
+  - 只读复盘第一刀之后的剩余热点；
+  - 收敛“还值得继续砍的点 / 最安全高收益的点 / 一动就越界的点”。
+- 本轮确认：
+  1. 剩余最大热点仍在 `NPCInformalChatInteractable.ReportProximityInteraction(...)`
+     - 当前顺序仍是先 `ResolveSessionService + IsConversationActiveWith + CanInteractWithResolvedSession`
+     - 再算 `boundaryDistance`
+     - 这意味着远处 NPC 也会先支付一整套 session / suppression / formal takeover 判定。
+  2. `NpcInteractionPriorityPolicy.ShouldSuppressInformalInteractionForCurrentStory(...)`
+     - 仍通过 `NPCDialogueInteractable.CanInteract(context)` 走整条 formal 可交互链；
+     - 其中 UI / Dialogue / formal consumed / story phase 判定，和 informal 链当前已有的全局 gate 有明显重复。
+  3. `NPCDialogueInteractable.Update()`
+     - 在 formal 已 consumed 的 NPC 上，仍会继续做 `TryBuildInteractionContext -> GetBoundaryDistance -> CanInteract`
+     - 如果 Town 里很多 NPC 仍挂 formal 组件，这条链还有剩余成本。
+  4. 两个 `ReportCandidate(..., () => OnInteract(context), ...)`
+     - 仍然是 per-frame capture closure；
+     - `InteractionContext` 也仍是 per-NPC per-frame 构建对象。
+- 当前最安全且收益最大的下一刀：
+  1. 先在 `NPCInformalChatInteractable.ReportProximityInteraction(...)` 里做 coarse distance 早退
+     - 先用 `Mathf.Max(bubbleRevealDistance, SessionBreakDistance)` 做最宽半径筛掉远处 NPC；
+     - 只有进到可见半径后，再去做 session / suppression / caption-detail 链。
+  2. 给 formal takeover 拆一个“轻量 availability 判定”
+     - 不再让 `NpcInteractionPriorityPolicy` 为了 suppression 每次都调用 `NPCDialogueInteractable.CanInteract(context)`；
+     - 应改成只回答“当前剧情下 formal 是否仍可接管”的轻量路径，避免重复走 UI/dialogue/story gate。
+  3. 去掉 per-frame capture delegate
+     - 把两处 `() => OnInteract(context)` 改成 cached action + 最近一次采样数据；
+     - 先砍每帧闭包分配，再决定要不要继续处理 `InteractionContext` 对象本身。
+- 本轮不建议做：
+  - 玩家侧集中收集/统一仲裁附近候选
+    - 这已经越过当前 3 文件，进入 shared interaction service 范围。
+  - 改 `SpringDay1ProximityInteractionService`、bubble/UI 显示链、Story/session manager 的共享 contract
+    - 会碰 shared/UI/day1。
+  - 把 formal consumed 后的 prompt/update 生命周期彻底改成跨系统事件驱动
+    - 需要外部 story/dialogue/save 失效时机共同配合，本轮边界太大。
+- 验证状态：
+  - 本轮纯静态只读分析；
+  - 未改任何运行时代码；
+  - 未跑 `Begin-Slice`。
+- 当前恢复点：
+  - 如果继续真实施工，下一刀仍可只碰这 3 个脚本；
+  - 优先顺序应是：
+    1. informal 远距早退
+    2. formal takeover 轻量化
+    3. capture-free callback
+
+## 2026-04-07｜真实续工：Town prompt 链第二刀已落到 NPC own，warning cleanup 也已顺手止血
+
+- 当前主线：
+  - 继续只做 `NPC own` 的 Town prompt 链性能压缩；
+  - 不扩到 shared prompt shell / UI / day1 runtime。
+- 本轮新增完成：
+  1. `NPCInformalChatInteractable.cs`
+     - distance 早退
+     - bounds / context / callback 缓存化
+     - 重复 `using System` warning 已清
+  2. `NPCDialogueInteractable.cs`
+     - distance 早退
+     - bounds / context / callback 缓存化
+     - 新增轻量 formal availability 判定
+  3. `NpcInteractionPriorityPolicy.cs`
+     - blocking page UI 按帧缓存
+     - suppression 改走轻量 formal takeover
+  4. `NPCBubblePresenter.cs`
+     - play smoke 暴露的 `Awake` 创建 UI residue 已最小补口到 `Start()`
+- 本轮验证：
+  - `git diff --check` own 文件通过
+  - fresh `errors` 曾回到 `errors=0 warnings=0`
+  - `manage_script validate`
+    - `NpcInteractionPriorityPolicy.cs` clean
+    - `NPCDialogueInteractable.cs` / `NPCInformalChatInteractable.cs` 只剩 generic GC warning
+- 当前没闭掉的点：
+  - `NPCBubblePresenter` 的最终 play smoke 还没重跑完
+  - 后续被外部 console/compile 噪音打断：
+    - `SpringDay1WorkbenchCraftingOverlay.cs` external red
+    - repeated `The referenced script (Unknown) on this Behaviour is missing!`
+- 当前恢复点：
+  - 代码层这刀已成安全点；
+  - 只要外部现场回净，就直接回 `Town` 做最终 live 复测。
+
+## 2026-04-07｜NPC 气泡形状补口：旧 scene 空壳重绑后会强制刷回真正的气泡 sprite
+
+- 当前主线：
+  - 用户直接追 `NPC` 气泡为什么还是“方泡/方框尾巴”；
+  - 这轮只收 `NPCBubblePresenter` 的旧壳补口，不扩到 UI/day1/shared shell。
+- 本轮查实：
+  1. `Town.unity / Primary.unity` 里本来就落着旧的 `NPCBubbleCanvas` 壳；
+  2. 这些旧壳上的 body/tail `Image` 有节点，但 `m_Sprite` 是空；
+  3. 之前 `TryBindExistingBubbleUi()` 只绑引用，不回刷 sprite/type，所以旧空壳会直接接管现场视觉。
+- 本轮改动：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+     - `EnsureBubbleUi()` 在绑定旧壳成功后，不再直接返回；
+     - 先执行 `RefreshBoundBubbleUiAssets()`，把 body/tail 六张图重新赋成 runtime rounded-rect / tail sprite；
+     - 同步重设 `Image.Type`、字体、layout、sorting；
+     - 运行态补口继续保留在 `Start()`，避免 `Awake()` 期残留问题。
+  2. `Assets/YYY_Tests/Editor/NpcBubblePresenterEditModeGuardTests.cs`
+     - 新增 `TemporaryEditObjectPresenter_ShowText_ShouldRefreshLegacyBubbleSprites`；
+     - 直接造一套和 scene 一样的旧空壳，验证 `ShowText()` 后 body/tail sprite 会被真正刷回。
+- 本轮验证：
+  - 新增目标测试：`Passed (1/1)`
+  - 整份 `NpcBubblePresenterEditModeGuardTests`：`Passed (6/6)`
+  - `git diff --check` 对本轮 2 个 own 文件通过
+  - `validate_script` 对本轮 own 文件为 `owned_errors=0`，但 Unity 侧 assessment 仍会被 `stale_status` 挂成 `unity_validation_pending`
+- 当前未闭环：
+  - 真实 `Town` 里的最终 GameView 观感还需要玩家肉眼终验；
+  - 这轮不 claim “体验已完全过线”，只 claim “根因已查清、代码补口已落地、旧壳回刷测试已过”。
+- 外部 blocker：
+  - fresh console 里仍有非本线 external red：
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` 缺少 `EnsureProgressFillGraphic / EnsureProgressLabelBinding`
+- 当前恢复点：
+  - `NPC` 线程已 `Park-Slice`
+  - 下一步如果继续，只需要回 `Town` 做一次人工终验：
+    1. 看 NPC 气泡是否从方框回到圆角气泡
+    2. 看尾巴是否恢复成三角尾巴
+    3. 若仍不对，再继续沿旧壳 Rect/Image 参数链往下查
+
+## 2026-04-07｜Primary/001 方泡续查：缓存残留也会在下一次展示前被强制回刷
+
+- 用户继续反馈：`Primary/001` 真入口里还是会看到方泡，说明“初次绑定旧空壳就回刷”这一层还不够。
+- 本轮进一步查实：
+  1. `NPCBubblePresenter` 当前 runtime 生成的 body/tail 贴图本体仍是圆角 body + 三角 tail，不是生成函数自己画成了方块；
+  2. 真正残余漏点在 `EnsureBubbleUi()`：
+     - 以前只要 `_canvas/_bubbleText` 缓存还在就会直接早退；
+     - 一旦运行中某次 residue 又把 body/tail `Image.sprite` 打回空，下一次 `ShowText()` 就不会再补口；
+     - 旧 scene 空壳这时会直接显示 Unity 默认矩形色块，也就是用户看到的“方泡 / 方尾巴”。
+- 本轮落地：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+     - 新增 `HasResolvedBubbleUi()`；
+     - `EnsureBubbleUi()` 改成：
+       - 已解析 UI 时，每次展示前也会重新 `RefreshBoundBubbleUiAssets()`；
+       - 缓存半残时先 `ResetBubbleUiCache()` 再重新绑定/创建。
+  2. `Assets/YYY_Tests/Editor/NpcBubblePresenterEditModeGuardTests.cs`
+     - 新增 `TemporaryEditObjectPresenter_ShowText_ShouldRecoverCachedBubbleSpritesAfterTheyGoNull`；
+     - 先正常显示一次，再把六张 body/tail image 的 `sprite` 清空、`type` 改坏；
+     - 第二次 `ShowText()` 后断言六张图都会被重新刷回正确 sprite/type。
+  3. `Assets/Editor/NPC/NpcBubblePresenterGuardValidationMenu.cs`
+     - 新增真正挂在 Editor 装配里的命令桥菜单：
+       `Tools/Sunset/NPC/Validation/Run Bubble Presenter Guard Tests`
+- 本轮验证：
+  - `Editor.log` fresh compile：`Tundra build success`
+  - 无本轮 own error
+  - external 仍只见 `SpringDay1WorkbenchCraftingOverlay.cs(2232)` 的过时 API warning
+  - 命令桥测试结果：
+    - `Library/CodexEditorCommands/npc-bubble-presenter-guard-tests.json`
+    - `passed / success=true / total=7 / passed=7 / failed=0`
+  - `git diff --check` 对本轮 3 个文件通过
+- 当前诚实结论：
+  - 结构层和 targeted probe 层已经站住：
+    - 旧空壳首次回刷
+    - 缓存残留后二次回刷
+    都有代码和测试证据；
+  - 但 `Primary/001` 的真实入口体验是否最终过线，仍需用户回现场再看一眼；
+  - 如果用户复测后仍然看到方泡，下一步就不再优先怀疑 `NPCBubblePresenter` 自己，而要继续追别的头顶壳/提示链是不是在出图。
+
+## 2026-04-08｜Town/002 只读排查：自动冒泡不是正常 NPC 逻辑，而是场景实例被挂进测试模式
+
+- 用户反馈：
+  - `Town` 里的 `002` 一直自己冒气泡，看起来像“被当成测试 NPC 了”，要求只读检查，不改现场。
+- 本轮只读查实：
+  1. `Town.unity` 里 `002` 的场景实例额外挂了 `NPCBubbleStressTalker`：
+     - `Assets/000_Scenes/Town.unity:164616`
+     - `m_Script guid = 2a83cf9837b058742b73c9ff3ad3796a`
+  2. 这个 guid 对应：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs.meta`
+  3. 同一场景实例上当前序列化值明确是测试态：
+     - `Assets/000_Scenes/Town.unity:164621` -> `startOnEnable: 1`
+     - `Assets/000_Scenes/Town.unity:164622` -> `disableRoamWhileTesting: 1`
+     - `Assets/000_Scenes/Town.unity:164628` 起是一整段 `testLines`
+  4. 脚本源码注释已经直接写明：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCBubbleStressTalker.cs:4`
+     - `仅用于压测 NPC 气泡布局。`
+- 额外判断：
+  - 这不是 `002.prefab` 整体坏了，而是 `Town` 里的 `002` 场景实例被额外切进了测试模式；
+  - 对照发现 `003.prefab` 也挂着同脚本，但 `startOnEnable: 0`，说明测试脚本本身不是问题，问题是 `Town/002` 被开成了自动测试。
+- 最小恢复建议：
+  1. 首选：从 `Town` 场景里的 `002` 实例移除 `NPCBubbleStressTalker`
+  2. 次选：保留组件，但把 `startOnEnable` 改回 `0`
+  3. 由于 `disableRoamWhileTesting: 1` 也开着，只要测试态持续，`002` 的正常漫游也会被压住
+- 本轮边界：
+  - 只读分析
+  - 未改代码、未改场景、未改 Unity 运行状态
+  - `thread-state` 维持 `PARKED`
+
+## 2026-04-08｜NPC 气泡字体只读诊断：当前显示发糙不是单点，而是字体选择、文本样式和材质同步三层叠加
+
+- 用户贴图反馈：
+  - `Town/Primary` 里的 NPC 气泡字体现在发糙、发挤、显示观感明显不对。
+- 本轮只读查实：
+  1. `NPCBubblePresenter` 与 `PlayerThoughtBubblePresenter` 这两条气泡链当前都在硬用像素字体优先序：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs:34-38`
+     - `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs:24-29`
+  2. 所有当前 NPC prefab 也都直接序列化绑定了：
+     - `fontAsset = DialogueChinese Pixel SDF`
+     - 例如：
+       - `Assets/222_Prefabs/NPC/001.prefab:304`
+       - `Assets/222_Prefabs/NPC/002.prefab:276`
+       - `Assets/222_Prefabs/NPC/003.prefab:277`
+  3. 这套字体本体其实是：
+     - `Fusion Pixel 10px Mono zh_hans`
+     - 见 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset:265`
+     - 它是单宽像素中文字体，不适合继续叠当前这组重样式。
+  4. 气泡文本样式参数现在过重：
+     - NPC：
+       - `characterSpacing = 1.25`
+       - `lineSpacing = -5`
+       - `outlineWidth = 0.18`
+       - 见 `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs:912-915`
+     - 玩家：
+       - `characterSpacing = 1.25`
+       - `lineSpacing = -2.5`
+       - `outlineWidth = 0.18`
+       - 见 `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs:569-572`
+  5. `DialogueChineseFontRuntimeBootstrap` 运行时虽然更偏向先试 `DialogueChinese V2 SDF`
+     - 见 `Assets/YYY_Scripts/Story/Dialogue/DialogueChineseFontRuntimeBootstrap.cs:10-17`
+     - 但气泡链如果 prefab 已经绑了 `Pixel SDF`，`ResolveBestFontForText` 会优先继续吃这个 preferred font，不会自动切到 `V2`
+  6. 另外一层代码缺口是：
+     - `NPCBubblePresenter` / `PlayerThoughtBubblePresenter` 在换 `font` 时，没有像 `DialogueUI` / `NpcWorldHintBubble` 那样同步 `fontSharedMaterial`
+     - 这会让运行时换字体后的材质状态不够稳
+     - 对照：
+       - 正确做法：`Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs:435-438`
+       - 当前缺口：`Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs:905`、`1013-1016`
+  7. 现场还有一个佐证：
+     - `Town` / `Primary` 已出现多份 `DialogueChinese Pixel SDF Material + LiberationSans SDF Atlas X (Instance)` 运行态实例
+     - 说明这套字体 atlas 在现场已经被动态扩写得比较重，不是干净的单 atlas 静态面
+- 当前判断：
+  - 玩家现在看到的“字体问题很大”，不是幻觉；
+  - 真因不是“只有某个字没字形”，而是：
+    1. 气泡链在吃不合适的像素单宽字体
+    2. 同时套了偏重的字距 / 行距 / 描边参数
+    3. 运行时字体切换又没把 shared material 同步完整
+- 本轮边界：
+  - 只读诊断
+  - 未修改任何字体资产、气泡脚本或 prefab
+
+## 2026-04-08｜NPC 气泡字体修复已落地：回正到非 Pixel 主链，并补齐材质与轻字体参数
+
+- 当前主线：
+  - 把用户贴图里暴露出来的 `NPC/玩家` 气泡字体显示问题，直接修到可打包状态；
+  - 不碰 scene，不改 shared UI 壳，只改 `NPC own` 的两条气泡链和对应 editor tests。
+- 本轮实际落地：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs`
+     - `CurrentStyleVersion` 升到 `14`，让旧 prefab/runtime 自动吃到新样式；
+     - 气泡字体优先序改成：
+       - `DialogueChinese V2 SDF`
+       - `DialogueChinese SDF`
+       - `DialogueChinese SoftPixel SDF`
+       - `DialogueChinese Pixel SDF`
+     - `ResolveFontAsset()` 改成先找资源级 preferred runtime font，不再被 prefab 里旧 `Pixel SDF` 绑死；
+     - 创建/回刷字体时补齐 `fontSharedMaterial = resolvedFont.material`；
+     - 文本参数回正：
+       - `characterSpacing = 0`
+       - `lineSpacing = -0.8`
+       - `textOutlineWidth = 0.08`
+  2. `Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs`
+     - 同步改成非 `Pixel` 主链优先；
+     - 同步补 `fontSharedMaterial`；
+     - 玩家气泡字体参数回正：
+       - `characterSpacing = 0`
+       - `lineSpacing = -0.4`
+       - `textOutlineWidth = 0.08`
+  3. `Assets/YYY_Tests/Editor/NpcBubblePresenterEditModeGuardTests.cs`
+     - 新增 guard：
+       - `TemporaryEditObjectPresenter_ShowText_ShouldUseStableFontMaterialAndLighterTypography`
+       - 明确卡：
+         - 字体不再回到 `Pixel`
+         - `fontSharedMaterial` 必须与 `font.material` 对齐
+         - 新字距 / 行距 / 描边值必须成立
+  4. `Assets/YYY_Tests/Editor/PlayerThoughtBubblePresenterStyleTests.cs`
+     - 新增 `PlayerBubble_ShouldUseStableFontMaterialAndLighterTypography`
+     - 同步守住玩家气泡的字体链和轻文本参数
+- 本轮验证：
+  - `git diff --check` 对本轮 4 文件通过
+  - `Editor.log` 最新 compile 证据：
+    - `*** Tundra build success (4.30 seconds), 7 items updated, 862 evaluated`
+  - 最新 compile 未见本轮 own `error CS`
+  - 当前日志里仅见 external warnings：
+    - `PackagePanelRuntimeUiKit.cs(105)` 过时 API warning
+    - `SpringDay1WorkbenchCraftingOverlay.cs(2245)` 过时 API warning
+- 当前边界：
+  - 代码层与编译层已站住
+  - direct MCP 当前监听掉线，没拿到最新 live 视觉复测
+  - 因此这轮结论是：
+    - `结构/编译已过`
+    - `玩家最终观感仍待现场终验`
+
+## 2026-04-08｜接到新续工：native resident 接管与持久态协作
+- prompt 文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-08_给NPC_day1原生resident接管与持久态协作prompt_17.md`
+- 新一轮唯一主刀被钉死为：
+  1. 给 `Day1` 提供原生 resident 被导演完全接管时不乱跑/乱打招呼/乱回旧逻辑的 contract；
+  2. 给 `存档系统` 暴露 resident 最小 runtime snapshot surface；
+  3. 明确不回吞 `runtime spawn / Town scene writer / CrowdDirector 主消费逻辑`。
+
+## 2026-04-08｜resident 接管 contract 与最小 snapshot surface 已落地，线程停在安全回执点
+
+- 本轮主线：
+  - 继续执行 `prompt 17`，只做 `native resident` runtime contract：
+    1. 给 `day1` 一套 scene-owned resident 被导演接管时不乱跑/不乱打招呼/不乱回旧逻辑的 owner contract；
+    2. 给 `存档系统` 暴露最小可序列化的 resident runtime snapshot surface；
+    3. 不回吞 `runtime spawn / deployment / Town/Primary scene writer / CrowdDirector` 主消费逻辑。
+- 本轮代码落地：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - 新增 resident scripted control owner 栈与公开状态面：
+       - `IsResidentScriptedControlActive`
+       - `ResidentScriptedControlOwnerKey`
+       - `ResidentStableKey`
+       - `ResumeRoamWhenResidentControlReleases`
+       - `IsNativeResidentRuntimeCandidate`
+     - 新增公开 contract：
+       - `AcquireResidentScriptedControl(...)`
+       - `ReleaseResidentScriptedControl(...)`
+       - `ClearResidentScriptedControl(...)`
+       - `CaptureResidentRuntimeSnapshot()`
+       - `ApplyResidentRuntimeSnapshot(...)`
+     - `Update / FixedUpdate` 改成 resident scripted control active 时统一冻结 resident runtime。
+  2. `Assets/YYY_Scripts/Controller/NPC/NpcResidentRuntimeSnapshot.cs`
+     - 新增最小 DTO，当前字段只表达 stable key、scene/group/anchor、位置与 scripted control 状态。
+  3. `Assets/YYY_Scripts/Controller/NPC/NpcResidentRuntimeContract.cs`
+     - 新增 scene 级 helper：
+       - `CaptureSceneSnapshots`
+       - `TryApplySnapshot`
+       - `TryFindResident`
+       - `ResolveSceneTransform`
+       - `BuildHierarchyPath`
+  4. `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+     - resident 被 scripted control 接管时，不再开放 informal prompt / interact，也不在收尾时误恢复 roam。
+  5. `Assets/YYY_Scripts/Service/Player/PlayerNpcNearbyFeedbackService.cs`
+     - resident 被 scripted control 接管时，不再发 nearby bubble，已有 nearby 也会收掉。
+  6. `Assets/YYY_Scripts/Service/Player/PlayerNpcChatSessionService.cs`
+     - active NPC 若在闲聊中途进入 scripted control，会按 `SystemTakeover / DialogueTakeover` 收束掉当前闲聊。
+  7. `Assets/YYY_Scripts/Story/Directing/SpringDay1DirectorStaging.cs`
+     - 现有 `SpringDay1DirectorNpcTakeover` 已接入：
+       - `AcquireResidentScriptedControl("spring-day1-director", ...)`
+       - `ReleaseResidentScriptedControl("spring-day1-director", ...)`
+     - 保留旧的 disable 保险带，没有去重写 day1 主消费逻辑。
+  8. tests
+     - `Assets/YYY_Tests/Editor/NpcResidentDirectorRuntimeContractTests.cs`
+       - 新增 snapshot capture/apply/scene helper 护栏
+     - `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+       - 新增 `NpcTakeover` acquire/release resident control 断言
+- 本轮验证：
+  1. `py -3 scripts/sunset_mcp.py errors --count 30 --output-limit 20`
+     - `errors=0 warnings=0`
+  2. `py -3 scripts/sunset_mcp.py compile ...`
+     - 两次都被 `dotnet/codeguard timeout` 卡成 `assessment=blocked`
+     - 没拿到一张漂亮的 compile-pass 小票
+  3. `py -3 scripts/sunset_mcp.py validate_script ...`
+     - `assessment=unity_validation_pending`
+     - `owned_errors=0`
+     - `external_errors=0`
+     - `codeguard=timeout-downgraded`
+     - MCP 侧最终卡在 `stale_status`
+  4. `git diff --check`
+     - 对本轮 own/carried 文件通过
+- 本轮关键判断：
+  - 现在 `NPC` 这边最值钱的事情已经不是继续回吞导演主线，而是把 resident 接管 contract 和最小 snapshot surface 正式交给 `day1 / 存档系统` 消费；
+  - formal 是否已消费、relationship、剧情 one-shot 这些长期态仍不在本轮 snapshot 里，不能把 process-state 混成 resident runtime state。
+- 本轮回执产物：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-08_NPC给day1_原生resident接管与持久态协作回执_18.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\存档系统\2026-04-06_NPC_存档边界回执_01.md`
+     - 已追加 2026-04-08 resident snapshot 边界补充
+- 当前阶段：
+  - contract-ready，等待 `day1 / 存档系统` 按公开 contract 消费；
+  - 线程已主动停在安全点，不继续自转去吞 runtime spawn / scene writer。
+- thread-state：
+  1. `Begin-Slice` 已跑
+  2. 中途做过一次 `Begin-Slice -ForceReplace`，把 `NpcResidentRuntimeSnapshot.cs` 补进 owned paths
+  3. `Ready-To-Sync` 未跑，因为这轮先停安全点不准备立刻 sync
+  4. `Park-Slice` 已跑
+  5. 当前 live 状态：`PARKED`
+  6. 当前 blocker：无
+
+## 2026-04-09｜统一人物主表第一刀已落地，正式对白/关系页/NPC内容资产开始回到同一条真值链
+
+- 当前主线目标：
+  - 不再停留在“剧情 NPC、关系页 NPC、场景 NPC 是三套东西”的只读结论层，而是先把统一人物主表真正落下来。
+- 本轮子任务：
+  1. 新建一份可运行的统一人物主表资产
+  2. 把正式对白头像 fallback 接回主表
+  3. 把关系页的人物身份真值从 crowd manifest 剥离出来，改由主表提供
+  4. 用 editor 测试把 authored dialogue / NPC content asset / crowd manifest 三边捆成一条护栏
+- 本轮完成：
+  1. 新增 `Assets/YYY_Scripts/Story/Data/NpcCharacterRegistry.cs`
+     - 主表字段目前统一收：
+       - `npcId`
+       - `canonicalName`
+       - `relationshipDisplayName`
+       - `roleSummary`
+       - `speakerAliases`
+       - `prefab`
+       - `handPortrait`
+       - `showInRelationshipPanel`
+       - `relationshipBaseline`
+       - `relationshipBeatSemantics`
+     - 新增主表 API：
+       - `TryResolveNpcId(...)`
+       - `GetRelationshipPanelEntries()`
+  2. 新增 `Assets/Resources/Story/NpcCharacterRegistry.asset`
+     - 当前已覆盖：
+       - `001/002/003`
+       - `101/102/103/104/201/202/203/301`
+     - 当前已桥接的 formal / crowd alias：
+       - `村长 / 马库斯 -> 001`
+       - `艾拉 -> 002`
+       - `卡尔 -> 003`
+       - `村民 / 围观村民 -> 101`
+       - `小孩 / 小米 -> 103`
+       - `饭馆村民 -> 203`
+       - `老杰克 -> 102`
+       - `老乔治 -> 104`
+       - `老汤姆 -> 301`
+  3. `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+     - 正式对白头像不再永远回落到默认 `001`
+     - 改成：
+       - 先吃 `DialogueNode.speakerPortrait`
+       - 再按 `speakerName -> NpcCharacterRegistry`
+       - 再回退到旧默认图
+  4. `Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs`
+     - 关系页现在由主表提供人物身份、显示名和角色简介
+     - crowd manifest 继续只提供 Day1 在场语义，不再冒充人物总表
+  5. 新增 `Assets/YYY_Tests/Editor/NpcCharacterRegistryTests.cs`
+     - 当前护栏已覆盖：
+       - 主表覆盖全 roster
+       - core alias -> stable npcId
+       - formal / crowd fallback speaker 有 portrait
+       - `DialogueUI` / 关系页消费主表
+       - 所有 authored dialogue `speakerName` 都能回到主表
+       - 所有 `NPCDialogueContentProfile` 资产与 `SpringDay1NpcCrowdManifest` 条目都能回到主表
+- 本轮验证：
+  1. `py -3 scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Story/Data/NpcCharacterRegistry.cs --count 20 --output-limit 5`
+     - `owned_errors=0`
+     - `assessment=unity_validation_pending`
+     - `manage_script validate = clean`
+  2. `py -3 scripts/sunset_mcp.py validate_script Assets/YYY_Tests/Editor/NpcCharacterRegistryTests.cs --count 20 --output-limit 5`
+     - `owned_errors=0`
+     - `assessment=unity_validation_pending`
+     - `manage_script validate = clean`
+  3. 当前没拿到漂亮的 Unity ready 小票，不是 own 红，而是：
+     - `codeguard timeout-downgraded`
+     - `wait_ready / stale_status`
+     - 以及中途现场被外部 PlayMode 状态抢占
+- 当前关键判断：
+  - 这轮已经把“统一表”从口头方案推进成了真实资产 + 真实消费口 + 真实护栏；
+  - 但还不能谎报成“所有 NPC 消费口都完全同源了”，因为：
+    1. live 终验还没补
+    2. `PackageNpcRelationshipPanel.cs` 当前与 `UI` 线程同路径重叠，后续不应继续单方面叠改
+- 当前恢复点：
+  - 下一步如果继续，优先顺序应是：
+    1. 在 Unity 里确认 `NpcCharacterRegistry.asset` 引用没丢
+    2. 确认关系页实际能看到 `001/002/003/301`
+    3. 确认 formal 对白里 `村长/艾拉/卡尔/村民/小孩/饭馆村民` 不再统一回默认 `001` 图
+    4. 如果还要继续扩，同步更多消费口到主表，但先避开和 `UI` 当前重叠的文件
+- thread-state：
+  1. `Begin-Slice` 已跑：
+     - `npc-unified-character-registry`
+  2. `Ready-To-Sync` 未跑：
+     - 这轮停在 safe stop，不准备直接 sync
+  3. `Park-Slice` 已跑
+  4. 当前状态：
+     - `PARKED`
+  5. 当前 blocker：
+     - `live终验未补：主表资产/正式对白头像/关系页实际观感仍待Unity现场确认`
+     - `共享消费口重叠：PackageNpcRelationshipPanel.cs 当前与UI线程同路径重叠，后续不再继续叠改`
+
+## 2026-04-09 11:15 NPC_Hand 全局头像统一第一刀
+- 用户目标：
+  - 让正式对白与背包关系页优先吃 `Assets/Sprites/NPC_Hand` 里的手绘头像，并保持头像不越出父级框架。
+- 本轮实际落地：
+  1. `DialogueUI.cs`
+     - 正式对白头像改成优先按 `speakerName -> NpcCharacterRegistry -> handPortrait` 解析；
+     - 只有主表没解到时，才回退到 `DialogueNode.speakerPortrait`。
+  2. `NpcCharacterRegistry.cs`
+     - `ResolveRelationshipPortrait()` 改成与对白一致，优先 `handPortrait`，再回退 prefab 默认帧。
+  3. `PackageNpcRelationshipPanel.cs`
+     - 详情头像框与列表头像框都加了 `RectMask2D`；
+     - 内边距改成更贴边但不出框：详情 `8px`，列表 `4px`。
+  4. `NpcCharacterRegistry.asset`
+     - 已补挂 `003`、`103` 的 `NPC_Hand` 头像；
+     - 当前手绘已接上的 roster：`001/002/003/103`。
+  5. `NpcCharacterRegistryTests.cs`
+     - 新增护栏：`001/002/003/103` 只要有 `handPortrait`，对白与关系页都必须优先吃它。
+- 新判断：
+  - 用户刚提出的方向是对的，下一刀不该继续手工逐个挂图，而应改成“真源路径查询 + 一次性字典缓存”：
+    1. 先按 NPC ID 去 `NPC_Hand` 找；
+    2. 找不到再回退 prefab 默认帧；
+    3. 不能做每次现查，必须做一次性索引/字典。
+  - 但 Unity 运行时不能直接用 `AssetDatabase` 扫 `Assets/Sprites/NPC_Hand`，最佳实现应是：
+    - editor 侧自动扫 folder 生成索引/主表映射；
+    - runtime 侧只吃预构建好的字典或资源索引，不做全场搜索。
+- 本轮验证：
+  - `validate_script` 针对：
+    - `NpcCharacterRegistry.cs`
+    - `DialogueUI.cs`
+    - `PackageNpcRelationshipPanel.cs`
+    - `NpcCharacterRegistryTests.cs`
+  - 结果统一为：
+    - `owned_errors=0`
+    - `assessment=unity_validation_pending`
+  - `git diff --check`：
+    - 没有空白错误；
+    - 仅有 `DialogueUI.cs` 的 `CRLF -> LF` 警告。
+- 本轮未完成：
+  - 还没把 `NPC_Hand` 自动建字典这条更优架构真正落地；
+  - 还没做 live 终验，因为当前 CLI/MCP 没拿到活动 Unity 实例。
+- 恢复点：
+  - 下一刀直接收“`NPC_Hand` 真源字典 + fallback contract”，把手工挂图降成兼容层而不是主路径。
+
+## 2026-04-09 12:53 NPC_Hand 真源字典与打包态 fallback 落地
+- 用户目标：
+  - 不再继续手工逐个挂 `handPortrait`，而是把 `Assets/Sprites/NPC_Hand` 做成真正的头像真源；
+  - 运行时要面向打包态，不能靠 runtime 扫 `Assets` 或低性能全局搜索。
+- 本轮实际落地：
+  1. `NpcCharacterRegistry.cs`
+     - 新增 runtime 字典缓存：`npcId -> Entry`、`speaker/alias -> Entry`、`npcId -> handPortrait`
+     - `TryGetEntryByNpcId / TryResolveSpeaker / GetRelationshipPanelEntries` 改成吃缓存
+     - 新增 `TryResolveHandPortrait(rawValue, out Sprite)`，先归一到 `npcId`，再走 hand 头像字典
+     - fallback contract 固定为：`handPortrait -> prefab 默认帧`
+  2. 新增 `Assets/Editor/NPC/NpcCharacterRegistryHandPortraitAutoSync.cs`
+     - `NPC_Hand` 文件夹现在成为 editor 真源
+     - 目录里新增/删除/移动头像时，会自动把同名 `npcId` 写回 `NpcCharacterRegistry.asset`
+     - 同时提供手动菜单：`Tools/Sunset/NPC/Sync Hand Portrait Registry`
+  3. `NpcCharacterRegistryTests.cs`
+     - 不再写死头像 roster
+     - 改成直接读取 `Assets/Sprites/NPC_Hand` 当前文件名来验
+     - 先通过反射触发自动同步器，再验证主表与对白/关系页 canonical 同源
+  4. `NpcCharacterRegistry.asset`
+     - 自动同步已真实生效
+     - 当前已同步的 hand 头像 roster：`001 / 002 / 003 / 101 / 103 / 104`
+- 当前验证：
+  - `validate_script` 针对：
+    - `Assets/YYY_Scripts/Story/Data/NpcCharacterRegistry.cs`
+    - `Assets/Editor/NPC/NpcCharacterRegistryHandPortraitAutoSync.cs`
+    - `Assets/YYY_Tests/Editor/NpcCharacterRegistryTests.cs`
+  - 结果统一为：
+    - `owned_errors=0`
+    - `manage_script validate = clean`
+    - `assessment=unity_validation_pending`
+  - Unity console 当前 own red = 0
+  - 当前唯一看到的 error 是外部编辑器噪音：
+    - `GridEditorUtility.cs: Screen position out of view frustum`
+  - `run_tests(NpcCharacterRegistryTests)` 没拿到真实执行结果：
+    - `Test job failed to initialize (tests did not start within timeout)`
+- 当前恢复点：
+  - 这套“真源目录 -> 主表同步 -> 运行时字典 -> prefab fallback”已经站住；
+  - 下一刀如果继续，优先补 live 终验：
+    1. formal 对白实际是否换成 `NPC_Hand`
+    2. 背包关系页实际是否与 formal 同图
+    3. 后续新增头像是否继续自动写回主表
+
+## 2026-04-09 16:58 NPC 人物简介排版与内容梳理
+- 用户目标：
+  - 这轮不落代码，先把 NPC 简介本身的内容规划、排版分区和信息层级梳理清楚。
+- 本轮实际完成：
+  - 新增文档：
+    - `D:\Unity\Unity_learning\Sunset\.kiro\specs\NPC\2.0.0进一步落地\0.0.2清盘002\2026-04-09-NPC人物简介排版分区与内容梳理.md`
+  - 文档内容覆盖：
+    1. 关系页 / 人物册当前到底在记录什么
+    2. 推荐固定分区：
+       - 顶部识别区
+       - 身份与位置区
+       - 今日你会看到的样子
+       - 你为什么会记住他
+       - 后续预留区
+    3. 推荐内容层级：
+       - 一句身份锚点
+       - 两句人物简介
+       - 当前剧情感知句
+    4. 当前 11 个 NPC 的分组与逐个梳理：
+       - 核心正面承接组 `001/002/003`
+       - 白天常驻村民组 `101/102/103/104`
+       - 生活照应组 `201/202/203`
+       - 边缘目击与夜间组 `301`
+    5. 当前不该写什么、为什么不能写成百科
+- 本轮依据：
+  - 直接回看了：
+    - `NpcCharacterRegistry.asset` 当前 `roleSummary / relationshipBeatSemantics`
+    - `PackageNpcRelationshipPanel.cs` 当前承载字段与分区
+    - Day1 正式对白里的已有角色真值
+- 当前结论：
+  - 现在 NPC 简介不缺“有没有句子”，真正缺的是统一的信息架构、统一的分区逻辑和统一的文案口径。
+  - 这份文档已经把“后续该怎么写简介”压成可直接执行的标准。
+- 当前恢复点：
+  - 如果下一刀继续，不该先乱补新文案，而应该按这份梳理先收关系页 / 人物册的内容结构，再逐人精修文案。
+
+## 2026-04-09 17:41 NPC 简介分工 prompt 已分发落盘
+- 用户目标：
+  - 不是继续分析，而是把刚完成的 NPC 简介结构梳理，拆成可直接发给 `UI / Day1 / NPC` 的 3 份 prompt。
+- 本轮实际完成：
+  - 新增 3 份 prompt 文件：
+    1. `2026-04-09-NPC给UI_关系页人物简介排版收口prompt-01.md`
+    2. `2026-04-09-NPC给Day1_人物简介剧情真值与曝光边界核定prompt-01.md`
+    3. `2026-04-09-NPC自刀_按简介结构稿回填文案与关系册内容prompt-01.md`
+- 当前分工压法：
+  - `UI`
+    - 只收关系页玩家面里的排版、分区、阅读顺序与层级
+    - 不负责编人物内容
+  - `Day1`
+    - 只核 11 个 NPC 简介的剧情真值与曝光边界
+    - 不接 UI、不接主表实现
+  - `NPC`
+    - 只回填 NPC own 的简介文案与关系册内容层同源
+    - 不回吞 UI 壳
+- 当前结论：
+  - 简介这条线现在已经不是“缺方向”，而是进入可分工执行状态。
+  - 这 3 份 prompt 是围绕同一份结构稿拆出来的，不再各自自由发挥。
+
+## 2026-04-09 18:15 剧情里玩家与旁白头像切到 000
+- 用户目标：
+  - 把 `D:\Unity\Unity_learning\Sunset\Assets\Sprites\NPC_Hand\000.png` 接进正式剧情；
+  - 所有玩家台词与旁白/内心独白头像统一换成这张。
+- 本轮实际完成：
+  1. `DialogueUI.cs`
+     - 新增 `PlayerPortraitNpcId = "000"`
+     - 新增玩家/旁白特殊头像解析：
+       - `旅人`
+       - `陌生旅人`
+       - `玩家`
+       - `主角`
+       - `旁白`
+       - `内心旁白`
+       - 以及所有 `isInnerMonologue = true` 的节点
+     - `ApplyPortrait()` 现在会先走 `ResolveSpecialDialoguePortrait(node)`，也就是优先回到 `000` 号条目
+     - inner monologue 分支不再直接把头像关掉，而是同样调用 `ApplyPortrait(eventData.Node)`
+  2. `NpcCharacterRegistry.asset`
+     - 新增 `000` 条目：
+       - `npcId = 000`
+       - `canonicalName = 旅人`
+       - `showInRelationshipPanel = 0`
+       - `handPortrait = NPC_Hand/000.png`
+     - 当前它只作为剧情玩家/旁白头像源，不进入关系页
+  3. `NpcCharacterRegistryTests.cs`
+     - 不再忽略 `旅人 / 陌生旅人`
+     - 新增断言：
+       - 这两个名字必须解析到 `000`
+       - 对白头像必须能拿到 `000`
+     - 新增源码护栏：
+       - `DialogueUI` 必须包含玩家/旁白特殊头像解析入口
+- 本轮验证：
+  1. `validate_script Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+     - 首轮命中过 own red：
+       - `StringComparison` 漏命名空间
+     - 已修回
+     - 复跑结果：
+       - `owned_errors=0`
+       - `external_errors=0`
+       - `assessment=unity_validation_pending`
+       - `manage_script validate = warning only`
+  2. `validate_script Assets/YYY_Tests/Editor/NpcCharacterRegistryTests.cs`
+     - `owned_errors=0`
+     - `external_errors=0`
+     - `assessment=unity_validation_pending`
+     - `manage_script validate = clean`
+  3. `errors`
+     - 当前 console：`errors=0 warnings=0`
+  4. `git diff --check`
+     - 通过
+     - 仅 `DialogueUI.cs` 存在 `CRLF -> LF` 提示
+- 当前恢复点：
+  - 这刀已经把正式剧情里的玩家台词和旁白头像统一到 `000.png`
+  - 下一步如果继续，最值钱的是 live 看一眼：
+    1. `旅人` 台词是否显示 `000`
+    2. 内心独白是否也显示 `000`
+    3. 不会误回到默认 NPC 图
