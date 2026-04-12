@@ -1752,3 +1752,38 @@
 - 当前判断：
   - 这次修正的是正确层级：从“参数逻辑”切到“覆盖范围逻辑”
   - 运行时仍不受影响；只改编辑器全局预览的铺面方式
+
+## 2026-04-13 云朵与光影安全白名单本地 checkpoint
+
+- 用户目标：
+  - 不是继续扩功能，而是把这条线程当前“能合法交成最小 checkpoint 的内容”先提交掉
+- 本轮处理：
+  1. 按工作区 memory 与线程 memory 收出本线程当前最安全白名单：
+     - 云影止血链
+     - DayNight 编辑器控制器链
+     - build 白屏修补链
+     - NightVision shader / editor authoring 脚本
+  2. 明确排除 [Primary.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity)
+     - 因为 diff 里混有编辑器生成的 `Custom/NightVisionOverlay` 材质与 4x4 白 Sprite 序列化体
+     - 当前不适合把这类 scene 现场直接吞进 checkpoint
+  3. 以 19 个文件落了本地提交：
+     - commit: `7e4508d0`
+     - message: `feat: checkpoint cloud shadow and day night editor bundle`
+- 这次提交实际包含：
+  - `CloudShadowManager / CloudShadowManagerEditor / CloudShadowSystemTests`
+  - `DayNightManager / DayNightOverlay / NightLightMarker / PointLightManager`
+  - `DayNightConfigCreator / DayNightManagerEditor / EnsureDayNightSceneControllers / NightLightMarkerEditor / PrimaryNightLightAuthoringMenu`
+  - `NightVisionOverlay.shader`
+  - `GraphicsSettings.asset`
+- 关键判断：
+  - 这是“安全白名单本地 checkpoint”，不是“own roots 已彻底清空后的合法 sync”
+  - `Ready-To-Sync` 已明确 blocker：
+    - `Assets/Editor`
+    - `Assets/YYY_Scripts/Service/Rendering`
+    - `Assets/YYY_Tests/Editor`
+    - `Assets/444_Shaders/Shader`
+    - `ProjectSettings`
+    这些 own roots 下仍有大量历史 remaining dirty / untracked
+- 当前阶段：
+  - 本线程已把“最安全能交的代码/工具包”交成了本地 commit
+  - 但还不能 claim “按 Sunset 规范已 clean sync”

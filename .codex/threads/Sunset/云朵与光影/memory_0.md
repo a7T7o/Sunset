@@ -2141,3 +2141,52 @@
   - 不用动运行时
   - 只在编辑器里切到 `GlobalScene`
   - 看整张场景是否都一起进入夜色/晨昏，而不是只有相机框里那块变化
+
+## 2026-04-13 本地 checkpoint 收口
+
+- 当前主线：
+  - 用户要求我按历史 memory 和线程 memory，把我自己当前能提交的内容先提交干净
+- 本轮子任务：
+  - 不再继续实现，只收“安全白名单本地 checkpoint”
+- 服务对象：
+  - 给用户一个已经落地的本地提交，而不是继续让这条线只停留在工作树 dirty
+- 恢复点：
+  - 如果后续继续，这条线的下一步不是“再提交同一批”，而是决定要不要继续处理 own-root 历史残留与 `Primary.unity`
+
+**本轮完成**:
+1. 收出并提交了本线程当前最安全白名单：
+   - 云影止血链
+   - DayNight 编辑器控制器链
+   - build 白屏修补链
+   - NightVision shader / authoring 工具链
+2. 落地本地 commit：
+   - `7e4508d0`
+   - `feat: checkpoint cloud shadow and day night editor bundle`
+3. 明确没有把 [Primary.unity](/D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity) 混进这次提交
+   - 因为 scene diff 中混有编辑器生成的材质 / Sprite 序列化体，当前不适合顺手吞并
+4. `git diff --cached --check` 已过
+
+**关键判断**:
+- 这轮最核心的判断是：可以先交“安全白名单本地 checkpoint”，但不能假装它已经是 Sunset 规范里的合法 sync 收口。
+- 我为什么这样判断：
+  - `Ready-To-Sync` 明确被 own roots 历史残留拦下
+  - 但本轮白名单本身是干净的，适合先落本地提交保成果
+- 我这轮最薄弱的点：
+  - own roots 下面还挂着大量历史 dirty / untracked
+  - `Primary.unity` 也还留在工作树里没进这次 commit
+- 自评：
+  - 这轮我给自己 `8.5/10`
+  - 本地 checkpoint 交得干净，但我不会把“已 commit”包装成“已合法 sync clean”
+
+**验证结果**:
+- 本地 commit：已完成
+- `git diff --cached --check`：通过
+- `Ready-To-Sync`：未通过
+- blocker：同根历史残留过多，不是这批白名单本身出错
+
+**当前阶段 / 下一步**:
+- 当前阶段：本线程已回到 `PARKED`
+- 下一步只做什么：
+  - 如果继续，要么做 own-root 历史残留分层
+  - 要么单独处理 `Primary.unity` 这类高危 scene 现场
+- 需要用户现在做什么：无
