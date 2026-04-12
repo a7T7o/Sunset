@@ -94,6 +94,15 @@
      - `Assets/TextMesh Pro/...` 3 项；
      - `Assets/ZZZ_999_Package/.../Farm Animals/*.png.meta` 5 项；
      - 以及 3 个挂在代码目录上的 folder meta：`Assets/Editor/Town.meta`、`Assets/YYY_Scripts/Story/Dialogue.meta`、`Assets/YYY_Scripts/UI/Save.meta`。
+  10. 上述纯资产尾巴又已继续收掉一刀：`a54e2342` `2026.04.13_Codex规则落地_11`
+      - 含 `Assets/TextMesh Pro` 3 项；
+      - 含 `Assets/ZZZ_999_Package/.../Farm Animals/*.png.meta` 5 项；
+      - 同时把本线程治理记忆一起合法收口。
+  11. 到第二刀后，`Assets` 非代码剩余已只剩 `3` 项，而且全是挂在代码目录上的 folder meta：
+      - `Assets/Editor/Town.meta`
+      - `Assets/YYY_Scripts/Story/Dialogue.meta`
+      - `Assets/YYY_Scripts/UI/Save.meta`
+      这 3 项不应再由治理线程在“非代码资产大包”里顺手吞并。
 
 ## 本卷纪律
 - 根卷只保留：

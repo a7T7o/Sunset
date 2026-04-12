@@ -312,3 +312,22 @@
   - 那 3 个代码目录下的 folder meta 不该在这轮顺手吞。
 - 当前恢复点：
   - 下一步只要再提交 `TextMesh Pro + ZZZ_999_Package` 这 8 项，并把治理记忆一起收掉，这轮就可以合法 `Park-Slice`。
+
+## 2026-04-13｜续记：第二刀尾巴已收，Assets 非代码面只剩 3 个代码目录 folder meta
+
+- 当前主线：
+  - 延续上一刀，把还能安全带走的非代码资产尾巴继续收掉，然后让这条治理切片合法停车。
+- 这轮实际做成了什么：
+  1. 已把 `Assets/TextMesh Pro` 3 项和 `Assets/ZZZ_999_Package/.../Farm Animals/*.png.meta` 5 项一起 stage。
+  2. 已把 `.kiro/specs/Codex规则落地/memory.md` 与 `.codex/threads/Sunset/Codex规则落地/memory_0.md` 一并带进同次提交。
+  3. `git diff --cached --check` 通过后，已完成第二刀提交：
+     - `a54e2342` `2026.04.13_Codex规则落地_11`
+  4. 提交后再次复盘，`Assets` 非代码剩余已只剩 `3` 项：
+     - `Assets/Editor/Town.meta`
+     - `Assets/YYY_Scripts/Story/Dialogue.meta`
+     - `Assets/YYY_Scripts/UI/Save.meta`
+- 关键判断：
+  - 到这里，用户本轮授权的“非代码资产大头提交”已经基本完成；
+  - 剩下那 3 项虽然是 meta，但它们挂在代码目录上，不该再用“资产大包”名义顺手吞。
+- 当前恢复点：
+  - 这轮完成 `Park-Slice` 后，shared-root 剩余应主要回到代码线与少量代码目录 meta；除非用户继续点名，否则 `Codex规则落地` 不应再扩大到代码目录。
