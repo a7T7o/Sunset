@@ -397,6 +397,60 @@
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
 
+## 2026-04-13｜已提交：Data/Core 三文件 code checkpoint
+
+### 当前主线 / 子任务 / 恢复点
+- 当前主线仍是存档系统收口。
+- 本轮子任务：按用户要求，把当前这条线在 `Assets/YYY_Scripts/Data/Core` 下能够合法单独归仓的内容先提交干净，不扩到更大的 `Story / Rendering / Player / UI` 脏根。
+- 恢复点：这笔 code checkpoint 已落库；后续如果继续这条线，应只补这轮的 memory/审计结算，或再开新的窄切片，不要把 `Data/Core` 三文件和其他大根重新混回同一刀。
+
+### 本轮实际完成
+1. 重新按 `thread-state` 缩窄白名单，只保留：
+   - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+   - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+   - `Assets/YYY_Scripts/Data/Core/ToolRuntimeUtility.cs`
+2. 为了让这三个文件能独立通过 codeguard，而不把 `Story / Rendering / Player / Save` 整片脏根一并吞进来，补了两层向后兼容壳：
+   - `SaveManager.cs`
+     - 对 `StoryProgressPersistenceService` 改成反射可选调用
+     - 对 `CloudShadowManager.Export/ImportPersistentSaveData()` 改成反射可选调用
+     - 对 `SaveActionToastOverlay` 改成反射可选调用
+     - 同时保留本轮真正要收的默认开局语义清理
+   - `ToolRuntimeUtility.cs`
+     - 去掉对 `PlayerToolFeedbackService.ToolReplacementTone` 新 enum 的硬耦合
+     - 保留武器耐久 / 自动替换主链
+     - 工具损坏反馈退回到当前 HEAD 已存在的两参接口
+3. 通过 `sunset-git-safe-sync.ps1 -Action sync` 完成白名单归仓。
+
+### 提交结果
+- 提交 SHA：`0fa99813`
+- 提交说明：`2026.04.13_存档系统_01`
+- 影响文件：
+  - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+  - `Assets/YYY_Scripts/Data/Core/ToolRuntimeUtility.cs`
+
+### 过线证据
+- `sunset-git-safe-sync.ps1 -Action sync -OwnerThread 存档系统 -IncludePaths <Data/Core 三文件>`
+  - `own roots remaining dirty 数量 = 0`
+  - `代码闸门适用 = True`
+  - `代码闸门通过 = True`
+  - `代码闸门原因 = 已对 3 个 C# 文件完成 UTF-8、diff 和程序集级编译检查`
+- `validate_script SaveManager.cs / SaveDataDTOs.cs / ToolRuntimeUtility.cs`
+  - `owned_errors = 0`
+  - 当前仍统一停在 `unity_validation_pending / stale_status`
+  - 说明这轮没有 fresh owned red，但 Unity 侧仍不是 fresh-ready 基线
+
+### 当前判断
+- 这笔提交成立的是：`Data/Core` 三文件的代码 checkpoint 已经合法落库。
+- 这笔提交没有宣称的是：整个存档系统已经全部收完。
+- 更准确的人话：
+  - 我先把最容易继续腐烂的同根 code tail 收进去了
+  - 但 save 线程在 shared root 上仍有大量其他历史脏根，不能因为这一笔 code checkpoint 成立，就误判为“存档线整体 clean”
+
+### 额外报实
+- `sync` 成功后，shared root 上又出现了他线新提交，当前 `HEAD` 已继续前移。
+- 但 `0fa99813` 已经进入 `main` 历史，这不影响本笔 checkpoint 成立。
+
 ## 2026-04-11 13:47 施工收口：默认开局旧壳已清，典狱长 prompt 已生成
 
 ### 当前主线 / 子任务 / 恢复点

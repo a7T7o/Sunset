@@ -62,6 +62,54 @@
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
 
+## 2026-04-13 01:02 真实收口：Data/Core 三文件已按规范提交
+- 当前主线仍是存档系统收口；本轮子任务是响应用户“把你自己能提交的都提交干净”，先把当前线程在 `Assets/YYY_Scripts/Data/Core` 同根下能合法独立归仓的 code tail 真正提交。
+- 这轮没有再扩新功能，而是围绕 `SaveManager.cs / SaveDataDTOs.cs / ToolRuntimeUtility.cs` 做一次完整的 same-root hygiene + codeguard + sync 收口。
+
+### 本轮完成
+1. 先重跑 `Begin-Slice`，把旧的单文件白名单改成真实三文件白名单：
+   - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+   - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+   - `Assets/YYY_Scripts/Data/Core/ToolRuntimeUtility.cs`
+2. 处理通过 codeguard 所需的最小兼容补口：
+   - `SaveManager.cs`
+     - 把 `StoryProgressPersistenceService`、`CloudShadowManager.Export/ImportPersistentSaveData()`、`SaveActionToastOverlay` 改成反射可选调用
+     - 目的不是撤销 save 语义，而是不把 `Story / Rendering / Save` 其他脏根强行并入这次提交
+   - `ToolRuntimeUtility.cs`
+     - 去掉对 `PlayerToolFeedbackService.ToolReplacementTone` 的硬依赖
+     - 保留武器耐久/自动替换链
+     - 工具损坏反馈退回当前 HEAD 已存在的旧接口
+3. 重新过线：
+   - `Ready-To-Sync` 通过
+   - `sunset-git-safe-sync.ps1 -Action sync` 通过
+4. 生成提交：
+   - `0fa99813`
+   - `2026.04.13_存档系统_01`
+
+### 关键证据
+- `sync` 时：
+  - `own roots = Assets/YYY_Scripts/Data/Core`
+  - `own roots remaining dirty 数量 = 0`
+  - `代码闸门适用 = True`
+  - `代码闸门通过 = True`
+  - `代码闸门原因 = 已对 3 个 C# 文件完成 UTF-8、diff 和程序集级编译检查`
+- `validate_script`：
+  - `SaveManager.cs`：owned/external errors = `0/0`，停在 `unity_validation_pending`
+  - `SaveDataDTOs.cs`：owned/external errors = `0/0`，停在 `unity_validation_pending`
+  - `ToolRuntimeUtility.cs`：owned/external errors = `0/0`，停在 `unity_validation_pending`
+
+### 当前判断
+- 这轮我已经把当前最该先烂掉的 `Data/Core` 同根 code tail 真正收成了可回退 checkpoint。
+- 但我没有把这件事包装成“存档线程整体 clean”：
+  - shared root 上仍有大量其他存档相关历史脏根
+  - 这轮只是把当前能独立合法提交的一坨先收住
+
+### 恢复点
+- 代码 checkpoint 已落库：`0fa99813`
+- 当前紧接着要做的只有两件事：
+  1. 把这条事实回写到工作区 memory / 线程 memory / skill 审计
+  2. 完成本轮 `Park-Slice`
+
 ## 2026-04-11 02:50 讨论补口：后续三步的人话定义
 - 当前主线仍是存档系统收口；本轮子任务是把“清 packaged live 日志、清 FreshStartBaseline 旧壳、做真实 build smoke”翻译给用户听，不进入真实施工。
 - 解释口径固定为：
