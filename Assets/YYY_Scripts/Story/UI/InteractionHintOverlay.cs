@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Collections.Generic;
+using FarmGame.UI;
 using TMPro;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -22,6 +24,23 @@ namespace Sunset.Story
         private const float StatusCardDetailHeight = 80f;
         private const float StatusFadeDuration = 0.25f;
         private const float StatusHoldDuration = 2f;
+        private const float ContextCardWidth = 220f;
+        private const float ContextCardMinHeight = 154f;
+        private const float ContextCardRowHeight = 17f;
+        private const float ContextCardRowGap = 3f;
+        private const float ContextCardRightInset = 22f;
+        private const float ContextCardCenterOffsetY = 4f;
+        private const float ContextCardInnerLeft = 14f;
+        private const float ContextCardInnerRight = 12f;
+        private const float ContextCardTopInset = 12f;
+        private const float ContextCardBottomInset = 10f;
+        private const int MaxContextRowCount = 7;
+        private const KeyCode ContextHintDismissKey = KeyCode.Backspace;
+        private const float ContextBoundaryFocusStartViewportThreshold = 0.25f;
+        private const float ContextBoundaryFocusFullViewportThreshold = 0.18f;
+        private const float ContextBoundaryFocusMinAlpha = 0.02f;
+        private const float ContextBoundaryFocusBlendSpeed = 18f;
+        private const float ContextBoundaryFocusHardFadePressure = 0.58f;
 
         private static readonly string[] PreferredFontResourcePaths =
         {
@@ -31,6 +50,34 @@ namespace Sunset.Story
         };
 
         private const string FontCoverageProbeText = "工作台进入任务按E开始制作";
+
+        private enum ContextHintGroup
+        {
+            None,
+            Gameplay,
+            Package
+        }
+
+        private struct ContextHintEntry
+        {
+            public string KeyLabel;
+            public string Description;
+
+            public ContextHintEntry(string keyLabel, string description)
+            {
+                KeyLabel = keyLabel;
+                Description = description;
+            }
+        }
+
+        private sealed class ContextHintRowRefs
+        {
+            public RectTransform Root;
+            public RectTransform KeyPlateRect;
+            public Image KeyPlateImage;
+            public TextMeshProUGUI KeyText;
+            public TextMeshProUGUI DescriptionText;
+        }
 
         private static InteractionHintOverlay s_instance;
         private static Sprite s_backplateSprite;
@@ -57,17 +104,38 @@ namespace Sunset.Story
         [SerializeField] private TextMeshProUGUI statusTagText;
         [SerializeField] private TextMeshProUGUI statusTitleText;
         [SerializeField] private TextMeshProUGUI statusDetailText;
+        [SerializeField] private RectTransform contextCardRect;
+        [SerializeField] private CanvasGroup contextCardCanvasGroup;
+        [SerializeField] private Image contextCardImage;
+        [SerializeField] private Image contextAccentLineImage;
+        [SerializeField] private Image contextTagImage;
+        [SerializeField] private TextMeshProUGUI contextTagText;
+        [SerializeField] private TextMeshProUGUI contextTitleText;
+        [SerializeField] private TextMeshProUGUI contextDetailText;
+        [SerializeField] private RectTransform contextRowsRoot;
+        [SerializeField] private TextMeshProUGUI contextFooterText;
 
         private TMP_FontAsset _fontAsset;
         private bool _visible;
         private bool _statusVisible;
+        private bool _contextVisible;
         private bool _hasPlacementModeStateSample;
         private bool _lastPlacementModeState;
         private string _lastGuidanceSignature = string.Empty;
         private string _consumedGuidanceSignature = string.Empty;
         private Coroutine _statusVisibilityCoroutine;
         private GameInputManager _gameInputManager;
+        private PlayerMovement _playerMovement;
         private SpringDay1Director _day1Director;
+        private PackagePanelTabsUI _packageTabs;
+        private SpringDay1WorkbenchCraftingOverlay _workbenchOverlay;
+        private readonly List<ContextHintRowRefs> _contextRows = new();
+        private readonly List<ContextHintEntry> _contextHintEntries = new();
+        private ContextHintGroup _activeContextHintGroup = ContextHintGroup.None;
+        private bool _gameplayContextDismissed;
+        private bool _packageContextDismissed;
+        private float _contextRequestedAlpha;
+        private float _contextBoundaryAlpha = 1f;
 
         public bool IsVisible =>
             _visible &&
@@ -277,6 +345,8 @@ namespace Sunset.Story
         private void LateUpdate()
         {
             SyncPlacementModeStatusCard();
+            SyncContextHintCard();
+            UpdateContextBoundaryFade();
         }
 
         public void ShowPrompt(string keyLabel, string caption, string detail = "")
@@ -314,9 +384,14 @@ namespace Sunset.Story
         {
             _visible = false;
             _statusVisible = false;
+            _contextVisible = false;
+            _activeContextHintGroup = ContextHintGroup.None;
+            _contextRequestedAlpha = 0f;
+            _contextBoundaryAlpha = 1f;
             StopStatusVisibilityCoroutine();
             SetInteractionCardAlpha(0f);
             SetStatusCardAlpha(0f);
+            SetContextCardAlpha(0f);
             RefreshOverlayVisibility();
         }
 
@@ -373,8 +448,13 @@ namespace Sunset.Story
             EnsureStatusCardScaffold();
             ConfigureStatusCardVisuals();
 
+            RebindExistingContextElements();
+            EnsureContextCardScaffold();
+            ConfigureContextCardVisuals();
+
             SetInteractionCardAlpha(_visible ? 1f : 0f);
             SetStatusCardAlpha(_statusVisible ? 1f : 0f);
+            SetContextCardAlpha(_contextVisible ? 1f : 0f);
             RefreshCardStackLayout();
         }
 
@@ -400,7 +480,18 @@ namespace Sunset.Story
                 && statusTagImage != null
                 && statusTagText != null
                 && statusTitleText != null
-                && statusDetailText != null)
+                && statusDetailText != null
+                && contextCardRect != null
+                && contextCardCanvasGroup != null
+                && contextCardImage != null
+                && contextAccentLineImage != null
+                && contextTagImage != null
+                && contextTagText != null
+                && contextTitleText != null
+                && contextDetailText != null
+                && contextRowsRoot != null
+                && contextFooterText != null
+                && _contextRows.Count >= MaxContextRowCount)
             {
                 return;
             }
@@ -619,6 +710,58 @@ namespace Sunset.Story
             statusDetailText = statusDetailText != null ? statusDetailText : ResolveUniqueText(statusCardRect, "StatusDetailText");
         }
 
+        private void RebindExistingContextElements()
+        {
+            contextCardRect = contextCardRect != null ? contextCardRect : ResolveUniqueRect(transform, "ContextHintCard");
+            if (contextCardRect == null)
+            {
+                return;
+            }
+
+            contextCardCanvasGroup = contextCardCanvasGroup != null
+                ? contextCardCanvasGroup
+                : GetOrAddComponent<CanvasGroup>(contextCardRect.gameObject);
+            contextCardImage = contextCardImage != null ? contextCardImage : GetOrAddComponent<Image>(contextCardRect.gameObject);
+            contextAccentLineImage = contextAccentLineImage != null ? contextAccentLineImage : ResolveUniqueImage(contextCardRect, "ContextAccentLine");
+            contextTagImage = contextTagImage != null ? contextTagImage : ResolveUniqueImage(contextCardRect, "ContextTag");
+            if (contextTagImage != null)
+            {
+                contextTagText = contextTagText != null ? contextTagText : ResolveUniqueText(contextTagImage.rectTransform, "ContextTagText");
+            }
+
+            contextTitleText = contextTitleText != null ? contextTitleText : ResolveUniqueText(contextCardRect, "ContextTitleText");
+            contextDetailText = contextDetailText != null ? contextDetailText : ResolveUniqueText(contextCardRect, "ContextDetailText");
+            contextRowsRoot = contextRowsRoot != null ? contextRowsRoot : ResolveUniqueRect(contextCardRect, "ContextRows");
+            contextFooterText = contextFooterText != null ? contextFooterText : ResolveUniqueText(contextCardRect, "ContextFooterText");
+
+            _contextRows.Clear();
+            if (contextRowsRoot == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < MaxContextRowCount; index++)
+            {
+                RectTransform rowRect = ResolveUniqueRect(contextRowsRoot, $"ContextRow_{index}");
+                if (rowRect == null)
+                {
+                    continue;
+                }
+
+                RectTransform keyPlateRect = ResolveUniqueRect(rowRect, "KeyPlate");
+                TextMeshProUGUI keyLabel = keyPlateRect != null ? ResolveUniqueText(keyPlateRect, "KeyText") : null;
+                TextMeshProUGUI description = ResolveUniqueText(rowRect, "DescriptionText");
+                _contextRows.Add(new ContextHintRowRefs
+                {
+                    Root = rowRect,
+                    KeyPlateRect = keyPlateRect,
+                    KeyPlateImage = keyPlateRect != null ? GetOrAddComponent<Image>(keyPlateRect.gameObject) : null,
+                    KeyText = keyLabel,
+                    DescriptionText = description
+                });
+            }
+        }
+
         private void EnsureStatusCardScaffold()
         {
             if (statusCardRect == null)
@@ -652,6 +795,69 @@ namespace Sunset.Story
             if (statusDetailText == null)
             {
                 statusDetailText = CreateText(statusCardRect, "StatusDetailText", string.Empty, 10.5f, new Color(0.78f, 0.87f, 0.95f, 0.96f), TextAlignmentOptions.Left);
+            }
+        }
+
+        private void EnsureContextCardScaffold()
+        {
+            if (contextCardRect == null)
+            {
+                contextCardRect = CreateRect(transform, "ContextHintCard");
+            }
+
+            contextCardCanvasGroup = GetOrAddComponent<CanvasGroup>(contextCardRect.gameObject);
+            contextCardImage = GetOrAddComponent<Image>(contextCardRect.gameObject);
+
+            if (contextAccentLineImage == null)
+            {
+                contextAccentLineImage = CreateRect(contextCardRect, "ContextAccentLine").gameObject.AddComponent<Image>();
+            }
+
+            if (contextTagImage == null)
+            {
+                contextTagImage = CreateRect(contextCardRect, "ContextTag").gameObject.AddComponent<Image>();
+            }
+
+            if (contextTagText == null)
+            {
+                contextTagText = CreateText(contextTagImage.rectTransform, "ContextTagText", "玩法", 8.5f, new Color(0.96f, 0.95f, 0.9f, 1f), TextAlignmentOptions.Center);
+            }
+
+            if (contextTitleText == null)
+            {
+                contextTitleText = CreateText(contextCardRect, "ContextTitleText", "当前操作", 14.5f, new Color(0.98f, 0.96f, 0.92f, 1f), TextAlignmentOptions.Left);
+            }
+
+            if (contextDetailText == null)
+            {
+                contextDetailText = CreateText(contextCardRect, "ContextDetailText", "只显示当前会用到的操作。", 10.5f, new Color(0.78f, 0.87f, 0.95f, 0.96f), TextAlignmentOptions.Left);
+            }
+
+            if (contextRowsRoot == null)
+            {
+                contextRowsRoot = CreateRect(contextCardRect, "ContextRows");
+            }
+
+            if (contextFooterText == null)
+            {
+                contextFooterText = CreateText(contextCardRect, "ContextFooterText", "退格关闭这组提示", 10f, new Color(0.72f, 0.79f, 0.87f, 0.92f), TextAlignmentOptions.Left);
+            }
+
+            for (int index = _contextRows.Count; index < MaxContextRowCount; index++)
+            {
+                RectTransform rowRect = CreateRect(contextRowsRoot, $"ContextRow_{index}");
+                RectTransform keyPlateRect = CreateRect(rowRect, "KeyPlate");
+                Image keyPlateImage = keyPlateRect.gameObject.AddComponent<Image>();
+                TextMeshProUGUI keyLabel = CreateText(keyPlateRect, "KeyText", string.Empty, 10.5f, new Color(0.16f, 0.12f, 0.05f, 1f), TextAlignmentOptions.Center);
+                TextMeshProUGUI description = CreateText(rowRect, "DescriptionText", string.Empty, 11.5f, new Color(0.98f, 0.96f, 0.92f, 1f), TextAlignmentOptions.Left);
+                _contextRows.Add(new ContextHintRowRefs
+                {
+                    Root = rowRect,
+                    KeyPlateRect = keyPlateRect,
+                    KeyPlateImage = keyPlateImage,
+                    KeyText = keyLabel,
+                    DescriptionText = description
+                });
             }
         }
 
@@ -768,6 +974,189 @@ namespace Sunset.Story
             statusTagImage.rectTransform.SetAsLastSibling();
             statusDetailText.gameObject.SetActive(!string.IsNullOrWhiteSpace(statusDetailText.text));
             ApplyStatusLayout();
+        }
+
+        private void ConfigureContextCardVisuals()
+        {
+            if (contextCardRect == null
+                || contextCardCanvasGroup == null
+                || contextCardImage == null
+                || contextAccentLineImage == null
+                || contextTagImage == null
+                || contextTagText == null
+                || contextTitleText == null
+                || contextDetailText == null
+                || contextRowsRoot == null
+                || contextFooterText == null)
+            {
+                return;
+            }
+
+            contextCardCanvasGroup.interactable = false;
+            contextCardCanvasGroup.blocksRaycasts = false;
+
+            contextCardRect.anchorMin = new Vector2(1f, 0.5f);
+            contextCardRect.anchorMax = new Vector2(1f, 0.5f);
+            contextCardRect.pivot = new Vector2(1f, 0.5f);
+            contextCardRect.anchoredPosition = new Vector2(-ContextCardRightInset, ContextCardCenterOffsetY);
+            contextCardRect.sizeDelta = new Vector2(ContextCardWidth, ContextCardMinHeight);
+
+            contextCardImage.sprite = GetOrCreateBackplateSprite();
+            contextCardImage.type = Image.Type.Sliced;
+            contextCardImage.color = new Color(0.11f, 0.14f, 0.19f, 0.92f);
+            contextCardImage.raycastTarget = false;
+
+            Outline contextOutline = GetOrAddComponent<Outline>(contextCardRect.gameObject);
+            contextOutline.effectColor = new Color(0.72f, 0.82f, 0.94f, 0.035f);
+            contextOutline.effectDistance = new Vector2(0.8f, -0.8f);
+            contextOutline.useGraphicAlpha = true;
+
+            Shadow contextShadow = GetOrAddComponent<Shadow>(contextCardRect.gameObject);
+            contextShadow.effectColor = new Color(0f, 0f, 0f, 0.14f);
+            contextShadow.effectDistance = new Vector2(0f, -2f);
+            contextShadow.useGraphicAlpha = true;
+
+            RectTransform accentRect = contextAccentLineImage.rectTransform;
+            accentRect.anchorMin = new Vector2(0f, 1f);
+            accentRect.anchorMax = new Vector2(0f, 1f);
+            accentRect.pivot = new Vector2(0f, 1f);
+            accentRect.anchoredPosition = new Vector2(10f, -ContextCardTopInset);
+            accentRect.sizeDelta = new Vector2(3f, 22f);
+            contextAccentLineImage.raycastTarget = false;
+
+            RectTransform tagRect = contextTagImage.rectTransform;
+            tagRect.anchorMin = new Vector2(0f, 1f);
+            tagRect.anchorMax = new Vector2(0f, 1f);
+            tagRect.pivot = new Vector2(0f, 1f);
+            tagRect.anchoredPosition = new Vector2(18f, -ContextCardTopInset);
+            tagRect.sizeDelta = new Vector2(36f, 14f);
+            contextTagImage.sprite = GetOrCreateBackplateSprite();
+            contextTagImage.type = Image.Type.Sliced;
+            contextTagImage.raycastTarget = false;
+
+            contextTagText.font = _fontAsset;
+            if (_fontAsset != null && _fontAsset.material != null)
+            {
+                contextTagText.fontSharedMaterial = _fontAsset.material;
+            }
+
+            contextTagText.fontSize = 8f;
+            contextTagText.color = new Color(0.96f, 0.95f, 0.9f, 1f);
+            contextTagText.alignment = TextAlignmentOptions.Center;
+            contextTagText.fontStyle = FontStyles.Bold;
+            contextTagText.textWrappingMode = TextWrappingModes.NoWrap;
+            contextTagText.overflowMode = TextOverflowModes.Ellipsis;
+            contextTagText.raycastTarget = false;
+            RectTransform contextTagTextRect = contextTagText.rectTransform;
+            contextTagTextRect.anchorMin = new Vector2(0.5f, 0.5f);
+            contextTagTextRect.anchorMax = new Vector2(0.5f, 0.5f);
+            contextTagTextRect.pivot = new Vector2(0.5f, 0.5f);
+            contextTagTextRect.anchoredPosition = Vector2.zero;
+            contextTagTextRect.sizeDelta = new Vector2(26f, 10f);
+
+            contextTitleText.font = _fontAsset;
+            if (_fontAsset != null && _fontAsset.material != null)
+            {
+                contextTitleText.fontSharedMaterial = _fontAsset.material;
+            }
+
+            contextTitleText.fontSize = 12f;
+            contextTitleText.color = new Color(0.98f, 0.96f, 0.92f, 1f);
+            contextTitleText.alignment = TextAlignmentOptions.Left;
+            contextTitleText.fontStyle = FontStyles.Bold;
+            contextTitleText.textWrappingMode = TextWrappingModes.NoWrap;
+            contextTitleText.overflowMode = TextOverflowModes.Ellipsis;
+            contextTitleText.raycastTarget = false;
+
+            contextDetailText.font = _fontAsset;
+            if (_fontAsset != null && _fontAsset.material != null)
+            {
+                contextDetailText.fontSharedMaterial = _fontAsset.material;
+            }
+
+            contextDetailText.fontSize = 8.75f;
+            contextDetailText.color = new Color(0.78f, 0.87f, 0.95f, 0.96f);
+            contextDetailText.alignment = TextAlignmentOptions.Left;
+            contextDetailText.textWrappingMode = TextWrappingModes.Normal;
+            contextDetailText.overflowMode = TextOverflowModes.Overflow;
+            contextDetailText.raycastTarget = false;
+
+            contextRowsRoot.anchorMin = new Vector2(0f, 1f);
+            contextRowsRoot.anchorMax = new Vector2(0f, 1f);
+            contextRowsRoot.pivot = new Vector2(0f, 1f);
+            contextRowsRoot.anchoredPosition = new Vector2(0f, 0f);
+            contextRowsRoot.sizeDelta = new Vector2(ContextCardWidth, 0f);
+
+            contextFooterText.font = _fontAsset;
+            if (_fontAsset != null && _fontAsset.material != null)
+            {
+                contextFooterText.fontSharedMaterial = _fontAsset.material;
+            }
+
+            contextFooterText.fontSize = 8f;
+            contextFooterText.color = new Color(0.72f, 0.79f, 0.87f, 0.72f);
+            contextFooterText.alignment = TextAlignmentOptions.Right;
+            contextFooterText.textWrappingMode = TextWrappingModes.NoWrap;
+            contextFooterText.overflowMode = TextOverflowModes.Ellipsis;
+            contextFooterText.raycastTarget = false;
+
+            for (int index = 0; index < _contextRows.Count; index++)
+            {
+                ContextHintRowRefs row = _contextRows[index];
+                if (row == null || row.Root == null || row.KeyPlateRect == null || row.KeyPlateImage == null || row.KeyText == null || row.DescriptionText == null)
+                {
+                    continue;
+                }
+
+                row.Root.anchorMin = new Vector2(0f, 1f);
+                row.Root.anchorMax = new Vector2(0f, 1f);
+                row.Root.pivot = new Vector2(0f, 1f);
+                row.Root.sizeDelta = new Vector2(ContextCardWidth - ContextCardInnerLeft - ContextCardInnerRight, ContextCardRowHeight);
+
+                row.KeyPlateRect.anchorMin = new Vector2(0f, 0.5f);
+                row.KeyPlateRect.anchorMax = new Vector2(0f, 0.5f);
+                row.KeyPlateRect.pivot = new Vector2(0f, 0.5f);
+                row.KeyPlateRect.sizeDelta = new Vector2(56f, 16f);
+                row.KeyPlateImage.sprite = GetOrCreateBackplateSprite();
+                row.KeyPlateImage.type = Image.Type.Sliced;
+                row.KeyPlateImage.color = new Color(0.90f, 0.75f, 0.33f, 0.96f);
+                row.KeyPlateImage.raycastTarget = false;
+
+                row.KeyText.font = _fontAsset;
+                if (_fontAsset != null && _fontAsset.material != null)
+                {
+                    row.KeyText.fontSharedMaterial = _fontAsset.material;
+                }
+
+                row.KeyText.fontSize = 8.75f;
+                row.KeyText.color = new Color(0.16f, 0.12f, 0.05f, 1f);
+                row.KeyText.alignment = TextAlignmentOptions.Center;
+                row.KeyText.fontStyle = FontStyles.Bold;
+                row.KeyText.textWrappingMode = TextWrappingModes.NoWrap;
+                row.KeyText.overflowMode = TextOverflowModes.Ellipsis;
+                row.KeyText.raycastTarget = false;
+                RectTransform keyTextRect = row.KeyText.rectTransform;
+                keyTextRect.anchorMin = new Vector2(0.5f, 0.5f);
+                keyTextRect.anchorMax = new Vector2(0.5f, 0.5f);
+                keyTextRect.pivot = new Vector2(0.5f, 0.5f);
+                keyTextRect.anchoredPosition = Vector2.zero;
+                keyTextRect.sizeDelta = new Vector2(48f, 11f);
+
+                row.DescriptionText.font = _fontAsset;
+                if (_fontAsset != null && _fontAsset.material != null)
+                {
+                    row.DescriptionText.fontSharedMaterial = _fontAsset.material;
+                }
+
+                row.DescriptionText.fontSize = 9.75f;
+                row.DescriptionText.color = new Color(0.98f, 0.96f, 0.92f, 1f);
+                row.DescriptionText.alignment = TextAlignmentOptions.Left;
+                row.DescriptionText.textWrappingMode = TextWrappingModes.NoWrap;
+                row.DescriptionText.overflowMode = TextOverflowModes.Ellipsis;
+                row.DescriptionText.raycastTarget = false;
+            }
+
+            ApplyContextHintCardLayout();
         }
 
         private void ApplyContentLayout()
@@ -974,6 +1363,233 @@ namespace Sunset.Story
             RefreshCardStackLayout();
         }
 
+        private void SyncContextHintCard()
+        {
+            EnsureBuilt();
+
+            ContextHintGroup targetGroup = ResolveCurrentContextHintGroup();
+            bool contextChanged = _activeContextHintGroup != targetGroup;
+            if (Input.GetKeyDown(ContextHintDismissKey) && targetGroup != ContextHintGroup.None)
+            {
+                SetContextDismissed(targetGroup, true);
+            }
+
+            if (targetGroup == ContextHintGroup.None || IsContextDismissed(targetGroup))
+            {
+                HideContextHintImmediate();
+                return;
+            }
+
+            if (contextChanged || targetGroup == ContextHintGroup.Gameplay || !_contextVisible)
+            {
+                ApplyContextHintCard(targetGroup);
+            }
+
+            _activeContextHintGroup = targetGroup;
+            _contextVisible = true;
+            SetContextCardAlpha(1f);
+            RefreshOverlayVisibility();
+        }
+
+        private ContextHintGroup ResolveCurrentContextHintGroup()
+        {
+            if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+            {
+                return ContextHintGroup.None;
+            }
+
+            if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen)
+            {
+                return ContextHintGroup.None;
+            }
+
+            if (_packageTabs == null)
+            {
+                _packageTabs = FindFirstObjectByType<PackagePanelTabsUI>(FindObjectsInactive.Include);
+            }
+
+            if (_packageTabs != null && _packageTabs.IsPanelOpen())
+            {
+                return ContextHintGroup.Package;
+            }
+
+            if (_workbenchOverlay == null)
+            {
+                _workbenchOverlay = FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            }
+
+            if (_workbenchOverlay != null && _workbenchOverlay.IsVisible)
+            {
+                return ContextHintGroup.None;
+            }
+
+            return ContextHintGroup.Gameplay;
+        }
+
+        private void ApplyContextHintCard(ContextHintGroup group)
+        {
+            _contextHintEntries.Clear();
+
+            bool placementModeEnabled = TryResolveGameInputManager(out GameInputManager inputManager) && inputManager.IsPlacementMode;
+            Color accentColor;
+            Color surfaceColor;
+            switch (group)
+            {
+                case ContextHintGroup.Package:
+                    contextTagText.text = "背包";
+                    contextTitleText.text = "常用操作";
+                    contextDetailText.text = string.Empty;
+                    accentColor = new Color(0.50f, 0.76f, 0.92f, 0.96f);
+                    surfaceColor = new Color(0.08f, 0.12f, 0.18f, 0.95f);
+                    _contextHintEntries.Add(new ContextHintEntry("左键", "选中 / 拖拽"));
+                    _contextHintEntries.Add(new ContextHintEntry("Shift+左", "二分"));
+                    _contextHintEntries.Add(new ContextHintEntry("Ctrl+左", "单取"));
+                    _contextHintEntries.Add(new ContextHintEntry("B/M/L/O", "切页"));
+                    _contextHintEntries.Add(new ContextHintEntry("Tab", "物品页 / 收起"));
+                    _contextHintEntries.Add(new ContextHintEntry("Esc", "设置页"));
+                    break;
+
+                default:
+                    contextTagText.text = "玩法";
+                    contextTitleText.text = "常用操作";
+                    contextDetailText.text = placementModeEnabled
+                        ? string.Empty
+                        : string.Empty;
+                    accentColor = new Color(0.96f, 0.74f, 0.34f, 0.96f);
+                    surfaceColor = new Color(0.09f, 0.13f, 0.18f, 0.95f);
+                    _contextHintEntries.Add(new ContextHintEntry("右键", "导航"));
+                    _contextHintEntries.Add(new ContextHintEntry("左键", placementModeEnabled ? "使用 / 放置" : "使用"));
+                    _contextHintEntries.Add(new ContextHintEntry("E", "交互"));
+                    _contextHintEntries.Add(new ContextHintEntry("Shift", "加速"));
+                    _contextHintEntries.Add(new ContextHintEntry("Tab", "背包"));
+                    _contextHintEntries.Add(new ContextHintEntry("V", "放置"));
+                    _contextHintEntries.Add(new ContextHintEntry("1~5/滚轮", "切换手持"));
+                    break;
+            }
+
+            contextCardImage.color = surfaceColor;
+            contextAccentLineImage.color = accentColor;
+            contextTagImage.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.22f);
+            contextFooterText.text = "退格关闭";
+
+            EnsureTextReadable(contextTagText);
+            EnsureTextReadable(contextTitleText);
+            EnsureTextReadable(contextDetailText);
+            EnsureTextReadable(contextFooterText);
+            contextDetailText.gameObject.SetActive(!string.IsNullOrWhiteSpace(contextDetailText.text));
+
+            for (int index = 0; index < _contextRows.Count; index++)
+            {
+                ContextHintRowRefs row = _contextRows[index];
+                bool shouldShow = index < _contextHintEntries.Count;
+                if (row?.Root == null || row.KeyText == null || row.DescriptionText == null || row.KeyPlateImage == null || row.KeyPlateRect == null)
+                {
+                    continue;
+                }
+
+                row.Root.gameObject.SetActive(shouldShow);
+                if (!shouldShow)
+                {
+                    continue;
+                }
+
+                ContextHintEntry entry = _contextHintEntries[index];
+                row.KeyText.text = entry.KeyLabel;
+                row.DescriptionText.text = entry.Description;
+                row.KeyPlateImage.color = group == ContextHintGroup.Package
+                    ? new Color(0.67f, 0.84f, 0.98f, 0.98f)
+                    : new Color(0.98f, 0.81f, 0.36f, 0.98f);
+                row.KeyText.color = group == ContextHintGroup.Package
+                    ? new Color(0.09f, 0.16f, 0.26f, 1f)
+                    : new Color(0.16f, 0.12f, 0.05f, 1f);
+                EnsureTextReadable(row.KeyText);
+                EnsureTextReadable(row.DescriptionText);
+            }
+
+            ApplyContextHintCardLayout();
+        }
+
+        private void ApplyContextHintCardLayout()
+        {
+            if (contextCardRect == null || contextRowsRoot == null || contextTitleText == null || contextDetailText == null || contextFooterText == null)
+            {
+                return;
+            }
+
+            float contentWidth = ContextCardWidth - ContextCardInnerLeft - ContextCardInnerRight;
+            bool hasDetail = contextDetailText != null && !string.IsNullOrWhiteSpace(contextDetailText.text);
+            float titleTop = 28f;
+            RectTransform titleRect = contextTitleText.rectTransform;
+            titleRect.anchorMin = new Vector2(0f, 1f);
+            titleRect.anchorMax = new Vector2(0f, 1f);
+            titleRect.pivot = new Vector2(0f, 1f);
+            titleRect.anchoredPosition = new Vector2(18f, -titleTop);
+            titleRect.sizeDelta = new Vector2(contentWidth - 4f, 16f);
+
+            RectTransform detailRect = contextDetailText.rectTransform;
+            detailRect.anchorMin = new Vector2(0f, 1f);
+            detailRect.anchorMax = new Vector2(0f, 1f);
+            detailRect.pivot = new Vector2(0f, 1f);
+            detailRect.anchoredPosition = new Vector2(18f, -44f);
+            detailRect.sizeDelta = new Vector2(contentWidth - 6f, 16f);
+
+            float rowsTop = hasDetail ? 68f : 48f;
+            float rowWidth = contentWidth;
+            float keyColumnWidth = 48f;
+            for (int index = 0; index < _contextRows.Count; index++)
+            {
+                ContextHintRowRefs row = _contextRows[index];
+                if (row?.Root == null || !row.Root.gameObject.activeSelf || row.KeyText == null)
+                {
+                    continue;
+                }
+
+                string keyLabel = row.KeyText.text ?? string.Empty;
+                keyColumnWidth = Mathf.Max(keyColumnWidth, Mathf.Clamp(16f + (keyLabel.Length * 5.8f), 48f, 72f));
+            }
+
+            int visibleRowCount = 0;
+            for (int index = 0; index < _contextRows.Count; index++)
+            {
+                ContextHintRowRefs row = _contextRows[index];
+                if (row?.Root == null || !row.Root.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                float y = rowsTop + visibleRowCount * (ContextCardRowHeight + ContextCardRowGap);
+                row.Root.anchoredPosition = new Vector2(ContextCardInnerLeft, -y);
+                row.Root.sizeDelta = new Vector2(rowWidth, ContextCardRowHeight);
+
+                row.KeyPlateRect.anchoredPosition = new Vector2(0f, -ContextCardRowHeight * 0.5f);
+                row.KeyPlateRect.sizeDelta = new Vector2(keyColumnWidth, 16f);
+                RectTransform keyTextRect = row.KeyText.rectTransform;
+                keyTextRect.sizeDelta = new Vector2(Mathf.Max(keyColumnWidth - 8f, 24f), 11f);
+
+                RectTransform descriptionRect = row.DescriptionText.rectTransform;
+                descriptionRect.anchorMin = new Vector2(0f, 0.5f);
+                descriptionRect.anchorMax = new Vector2(1f, 0.5f);
+                descriptionRect.pivot = new Vector2(0f, 0.5f);
+                descriptionRect.offsetMin = new Vector2(keyColumnWidth + 8f, -8f);
+                descriptionRect.offsetMax = new Vector2(0f, 8f);
+
+                visibleRowCount++;
+            }
+
+            float footerY = rowsTop + visibleRowCount * (ContextCardRowHeight + ContextCardRowGap) + 5f;
+            RectTransform footerRect = contextFooterText.rectTransform;
+            footerRect.anchorMin = new Vector2(1f, 1f);
+            footerRect.anchorMax = new Vector2(1f, 1f);
+            footerRect.pivot = new Vector2(1f, 1f);
+            footerRect.anchoredPosition = new Vector2(-ContextCardInnerRight, -footerY);
+            footerRect.sizeDelta = new Vector2(contentWidth, 10f);
+
+            float desiredHeight = Mathf.Max(
+                ContextCardMinHeight,
+                footerY + 10f + ContextCardBottomInset);
+            contextCardRect.sizeDelta = new Vector2(ContextCardWidth, desiredHeight);
+        }
+
         private IEnumerator PlayStatusCardVisibility(bool keepVisible)
         {
             _statusVisible = true;
@@ -1033,6 +1649,15 @@ namespace Sunset.Story
             RefreshOverlayVisibility();
         }
 
+        private void HideContextHintImmediate()
+        {
+            _contextVisible = false;
+            _activeContextHintGroup = ContextHintGroup.None;
+            _contextBoundaryAlpha = 1f;
+            SetContextCardAlpha(0f);
+            RefreshOverlayVisibility();
+        }
+
         private void StopStatusVisibilityCoroutine()
         {
             if (_statusVisibilityCoroutine == null)
@@ -1065,7 +1690,7 @@ namespace Sunset.Story
 
         private void RefreshOverlayVisibility()
         {
-            bool anyVisible = _visible || _statusVisible;
+            bool anyVisible = _visible || _statusVisible || _contextVisible;
 
             if (canvasGroup != null)
             {
@@ -1107,6 +1732,137 @@ namespace Sunset.Story
             statusCardCanvasGroup.interactable = false;
             statusCardCanvasGroup.blocksRaycasts = false;
             statusCardRect.gameObject.SetActive(alpha > 0.001f);
+        }
+
+        private void SetContextCardAlpha(float alpha)
+        {
+            _contextRequestedAlpha = alpha;
+            ApplyContextCardAlpha();
+        }
+
+        private void ApplyContextCardAlpha()
+        {
+            if (contextCardCanvasGroup == null || contextCardRect == null)
+            {
+                return;
+            }
+
+            float finalAlpha = _contextRequestedAlpha * _contextBoundaryAlpha;
+            contextCardCanvasGroup.alpha = finalAlpha;
+            bool shouldBlockRaycasts = _contextRequestedAlpha > 0.001f && finalAlpha > 0.95f;
+            contextCardCanvasGroup.interactable = shouldBlockRaycasts;
+            contextCardCanvasGroup.blocksRaycasts = shouldBlockRaycasts;
+            contextCardRect.gameObject.SetActive(_contextRequestedAlpha > 0.001f);
+        }
+
+        private void UpdateContextBoundaryFade()
+        {
+            if (contextCardCanvasGroup == null || contextCardRect == null)
+            {
+                return;
+            }
+
+            float targetAlpha = ResolveContextBoundaryTargetAlpha();
+            _contextBoundaryAlpha = Mathf.MoveTowards(
+                _contextBoundaryAlpha,
+                targetAlpha,
+                Time.unscaledDeltaTime * ContextBoundaryFocusBlendSpeed);
+            ApplyContextCardAlpha();
+        }
+
+        private float ResolveContextBoundaryTargetAlpha()
+        {
+            if (!_contextVisible || _contextRequestedAlpha <= 0.001f || ShouldKeepContextCardFullyVisible())
+            {
+                return 1f;
+            }
+
+            if (!TryResolvePlayerViewport(out Vector3 playerViewport))
+            {
+                return 1f;
+            }
+
+            float edgePressure = Mathf.Clamp01(ResolveUpperEdgePressure(playerViewport.x));
+            if (edgePressure >= ContextBoundaryFocusHardFadePressure)
+            {
+                return ContextBoundaryFocusMinAlpha;
+            }
+
+            float easedPressure = 1f - Mathf.Pow(1f - edgePressure, 5f);
+            return Mathf.Lerp(1f, ContextBoundaryFocusMinAlpha, easedPressure);
+        }
+
+        private bool ShouldKeepContextCardFullyVisible()
+        {
+            if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+            {
+                return true;
+            }
+
+            if (_packageTabs != null && _packageTabs.IsPanelOpen())
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryResolvePlayerViewport(out Vector3 viewport)
+        {
+            viewport = default;
+            Transform playerTransform = ResolvePlayerTransform();
+            Camera worldCamera = SpringDay1UiLayerUtility.GetWorldProjectionCamera(overlayCanvas);
+            if (playerTransform == null || worldCamera == null)
+            {
+                return false;
+            }
+
+            viewport = worldCamera.WorldToViewportPoint(playerTransform.position);
+            return float.IsFinite(viewport.x)
+                && float.IsFinite(viewport.y)
+                && float.IsFinite(viewport.z)
+                && viewport.z > 0f;
+        }
+
+        private Transform ResolvePlayerTransform()
+        {
+            if (_playerMovement == null)
+            {
+                _playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            }
+
+            return _playerMovement != null ? _playerMovement.transform : null;
+        }
+
+        private static float ResolveUpperEdgePressure(float viewportValue)
+        {
+            return Mathf.InverseLerp(
+                1f - ContextBoundaryFocusStartViewportThreshold,
+                1f - ContextBoundaryFocusFullViewportThreshold,
+                viewportValue);
+        }
+
+        private bool IsContextDismissed(ContextHintGroup group)
+        {
+            return group switch
+            {
+                ContextHintGroup.Gameplay => _gameplayContextDismissed,
+                ContextHintGroup.Package => _packageContextDismissed,
+                _ => false
+            };
+        }
+
+        private void SetContextDismissed(ContextHintGroup group, bool dismissed)
+        {
+            switch (group)
+            {
+                case ContextHintGroup.Gameplay:
+                    _gameplayContextDismissed = dismissed;
+                    break;
+                case ContextHintGroup.Package:
+                    _packageContextDismissed = dismissed;
+                    break;
+            }
         }
 
         private TMP_FontAsset ResolveFontAsset()
