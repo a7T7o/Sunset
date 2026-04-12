@@ -1,6 +1,7 @@
 using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
+using System.Text;
 
 /// <summary>
 /// 002批量工具 - Hierarchy窗口专用
@@ -9,36 +10,45 @@ using System.Collections.Generic;
 /// </summary>
 public class Tool_002_BatchHierarchy : EditorWindow
 {
+    internal const string WindowTitle = "002批量-Hierarchy";
+    private const string PersistedSelectionIdsKey = "Batch002_SelectedGlobalObjectIds";
     private enum ToolMode { Order, Transform, 碰撞器 }
     private ToolMode currentMode = ToolMode.Order;
     private Vector2 scrollPos;
+    private bool showLockedObjectList;
+    private bool showOrderAdvanced = true;
+    private bool showOrderNotes;
     
     private List<GameObject> selectedObjs = new List<GameObject>();
 
     [MenuItem("Tools/002批量 (Hierarchy窗口)")]
     public static void ShowWindow()
     {
-        var window = GetWindow<Tool_002_BatchHierarchy>("002批量-Hierarchy");
+        Tool_002_BatchHierarchy window = GetWindow<Tool_002_BatchHierarchy>(false, WindowTitle, true);
+        window.titleContent = new GUIContent(WindowTitle);
         window.minSize = new Vector2(480, 650);
         window.Show();
+        window.Focus();
     }
 
     private void OnEnable()
     {
+        titleContent = new GUIContent(WindowTitle);
         currentMode = (ToolMode)EditorPrefs.GetInt("Batch002_Mode", 0);
         LoadSettings();
         
-        // 自动监听选择变化
+        // 只监听重绘，不再自动接管 Hierarchy 当前选择
         Selection.selectionChanged += OnSelectionChanged;
         
-        // 初始加载当前选择
-        GetSelectedObjects();
+        // 初始加载上次确认并持久化的选择
+        LoadPersistedSelection();
     }
 
     private void OnDisable()
     {
         EditorPrefs.SetInt("Batch002_Mode", (int)currentMode);
         SaveSettings();
+        SavePersistedSelection();
         
         // 取消监听
         Selection.selectionChanged -= OnSelectionChanged;
@@ -46,50 +56,15 @@ public class Tool_002_BatchHierarchy : EditorWindow
     
     private void OnSelectionChanged()
     {
-        // 自动获取选中对象
-        GetSelectedObjects();
+        Repaint();
     }
 
     private void OnGUI()
     {
         DrawHeader();
         DrawModeSwitch();
-        
-        EditorGUILayout.Space(3);
         DrawLine();
-        
-        // 显示选中对象（自动跟随Hierarchy）
-        EditorGUILayout.BeginHorizontal(EditorStyles.helpBox);
-        if (selectedObjs.Count == 0)
-        {
-            EditorGUILayout.LabelField("⚠️ 未选择任何对象（自动跟随Hierarchy）", EditorStyles.miniLabel);
-        }
-        else
-        {
-            EditorGUILayout.LabelField($"✓ 已选择 {selectedObjs.Count} 个对象", EditorStyles.boldLabel);
-        }
-        
-        if (GUILayout.Button("🔄 刷新", GUILayout.Width(60)))
-        {
-            GetSelectedObjects();
-        }
-        EditorGUILayout.EndHorizontal();
-        
-        // 详细列表
-        if (selectedObjs.Count > 0)
-        {
-            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
-            int show = Mathf.Min(selectedObjs.Count, 6);
-            for (int i = 0; i < show; i++)
-            {
-                if (selectedObjs[i] != null)
-                    EditorGUILayout.LabelField($"• {selectedObjs[i].name}", EditorStyles.miniLabel);
-            }
-            if (selectedObjs.Count > 6) 
-                EditorGUILayout.LabelField($"... 还有 {selectedObjs.Count - 6} 个", EditorStyles.miniLabel);
-            EditorGUILayout.EndVertical();
-        }
-        
+        DrawSelectionSummary();
         DrawLine();
         
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
@@ -112,43 +87,27 @@ public class Tool_002_BatchHierarchy : EditorWindow
 
     private void DrawHeader()
     {
-        GUIStyle style = new GUIStyle(EditorStyles.boldLabel) { fontSize = 16, alignment = TextAnchor.MiddleCenter };
-        EditorGUILayout.LabelField("🏗️ 002批量工具 (Hierarchy)", style, GUILayout.Height(28));
+        EditorGUILayout.LabelField("002批量-Hierarchy", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("先锁定对象，再按当前模式批量处理。", EditorStyles.miniLabel);
     }
 
     private void DrawModeSwitch()
     {
         EditorGUILayout.BeginHorizontal();
-        
-        GUI.backgroundColor = currentMode == ToolMode.Order ? new Color(1f, 0.8f, 0.3f) : Color.white;
-        if (GUILayout.Button("📊 Order", GUILayout.Height(40)))
+
+        ToolMode nextMode = (ToolMode)GUILayout.Toolbar(
+            (int)currentMode,
+            new[] { "Order", "Transform", "碰撞器" },
+            GUILayout.Height(28));
+
+        if (nextMode != currentMode)
         {
-            currentMode = ToolMode.Order;
-            EditorPrefs.SetInt("Batch002_Mode", 0);
+            currentMode = nextMode;
+            EditorPrefs.SetInt("Batch002_Mode", (int)currentMode);
         }
-        
-        GUI.backgroundColor = currentMode == ToolMode.Transform ? new Color(1f, 0.8f, 0.3f) : Color.white;
-        if (GUILayout.Button("📐 Transform", GUILayout.Height(40)))
-        {
-            currentMode = ToolMode.Transform;
-            EditorPrefs.SetInt("Batch002_Mode", 1);
-        }
-        
-        GUI.backgroundColor = currentMode == ToolMode.碰撞器 ? new Color(1f, 0.8f, 0.3f) : Color.white;
-        if (GUILayout.Button("🔲 碰撞器", GUILayout.Height(40)))
-        {
-            currentMode = ToolMode.碰撞器;
-            EditorPrefs.SetInt("Batch002_Mode", 2);
-        }
-        
-        GUI.backgroundColor = Color.white;
-        EditorGUILayout.EndHorizontal();
-        
-        // 恢复默认按钮
-        EditorGUILayout.BeginHorizontal();
-        GUILayout.FlexibleSpace();
+
         GUI.backgroundColor = new Color(1f, 0.6f, 0.6f);
-        if (GUILayout.Button("🔄 恢复默认", GUILayout.Width(100)))
+        if (GUILayout.Button("恢复默认", GUILayout.Width(88), GUILayout.Height(28)))
         {
             if (EditorUtility.DisplayDialog("确认", $"恢复【{currentMode}】的默认设置？", "确定", "取消"))
             {
@@ -159,20 +118,154 @@ public class Tool_002_BatchHierarchy : EditorWindow
         EditorGUILayout.EndHorizontal();
     }
 
+    private void DrawSelectionSummary()
+    {
+        int hierarchySelectionCount = Selection.gameObjects != null ? Selection.gameObjects.Length : 0;
+
+        EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+        EditorGUILayout.BeginHorizontal();
+        string lockedSummary = selectedObjs.Count > 0
+            ? $"已锁定 {selectedObjs.Count} 个"
+            : "未锁定对象";
+        EditorGUILayout.LabelField(
+            $"{lockedSummary}  |  Hierarchy 当前选中 {hierarchySelectionCount} 个",
+            EditorStyles.miniBoldLabel);
+
+        if (GUILayout.Button("确认选取", GUILayout.Width(90)))
+        {
+            ConfirmCurrentHierarchySelection();
+        }
+
+        if (GUILayout.Button("清空", GUILayout.Width(56)))
+        {
+            ClearLockedSelection();
+        }
+        EditorGUILayout.EndHorizontal();
+
+        EditorGUILayout.LabelField(
+            "在 Hierarchy 选好对象后，点击“确认选取”才会替换当前锁定列表。",
+            EditorStyles.wordWrappedMiniLabel);
+
+        if (selectedObjs.Count > 0)
+        {
+            showLockedObjectList = EditorGUILayout.Foldout(showLockedObjectList, "查看锁定对象", true);
+            if (showLockedObjectList)
+            {
+                int show = Mathf.Min(selectedObjs.Count, 6);
+                for (int i = 0; i < show; i++)
+                {
+                    if (selectedObjs[i] != null)
+                    {
+                        EditorGUILayout.LabelField($"• {selectedObjs[i].name}", EditorStyles.miniLabel);
+                    }
+                }
+
+                if (selectedObjs.Count > 6)
+                {
+                    EditorGUILayout.LabelField($"... 还有 {selectedObjs.Count - 6} 个", EditorStyles.miniLabel);
+                }
+            }
+        }
+
+        EditorGUILayout.EndVertical();
+    }
+
     private void DrawLine()
     {
         Rect rect = EditorGUILayout.GetControlRect(false, 2);
         EditorGUI.DrawRect(rect, new Color(0.5f, 0.5f, 0.5f, 0.3f));
     }
 
-    private void GetSelectedObjects()
+    private void ConfirmCurrentHierarchySelection()
     {
         selectedObjs.Clear();
         if (Selection.gameObjects != null && Selection.gameObjects.Length > 0)
         {
-        selectedObjs.AddRange(Selection.gameObjects);
+            foreach (GameObject selectedObject in Selection.gameObjects)
+            {
+                if (selectedObject != null && !selectedObjs.Contains(selectedObject))
+                {
+                    selectedObjs.Add(selectedObject);
+                }
+            }
         }
+
+        SavePersistedSelection();
         Repaint();
+    }
+
+    private void ClearLockedSelection()
+    {
+        selectedObjs.Clear();
+        SavePersistedSelection();
+        Repaint();
+    }
+
+    private void LoadPersistedSelection()
+    {
+        selectedObjs.Clear();
+
+        string serializedIds = EditorPrefs.GetString(PersistedSelectionIdsKey, string.Empty);
+        if (string.IsNullOrWhiteSpace(serializedIds))
+        {
+            return;
+        }
+
+        string[] lines = serializedIds.Split('\n');
+        foreach (string rawLine in lines)
+        {
+            string line = rawLine.Trim();
+            if (string.IsNullOrEmpty(line))
+            {
+                continue;
+            }
+
+            if (!GlobalObjectId.TryParse(line, out GlobalObjectId globalObjectId))
+            {
+                continue;
+            }
+
+            GameObject restoredObject = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(globalObjectId) as GameObject;
+            if (restoredObject != null && !selectedObjs.Contains(restoredObject))
+            {
+                selectedObjs.Add(restoredObject);
+            }
+        }
+
+    }
+
+    private void SavePersistedSelection()
+    {
+        if (selectedObjs.Count == 0)
+        {
+            EditorPrefs.DeleteKey(PersistedSelectionIdsKey);
+            return;
+        }
+
+        StringBuilder builder = new StringBuilder();
+        foreach (GameObject selectedObject in selectedObjs)
+        {
+            if (selectedObject == null)
+            {
+                continue;
+            }
+
+            GlobalObjectId globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(selectedObject);
+            if (builder.Length > 0)
+            {
+                builder.Append('\n');
+            }
+
+            builder.Append(globalObjectId.ToString());
+        }
+
+        if (builder.Length == 0)
+        {
+            EditorPrefs.DeleteKey(PersistedSelectionIdsKey);
+            return;
+        }
+
+        EditorPrefs.SetString(PersistedSelectionIdsKey, builder.ToString());
     }
 
     #region ========== Order排序模式 ==========
@@ -191,20 +284,30 @@ public class Tool_002_BatchHierarchy : EditorWindow
     private float sort_bottomOffset = 0f;
     private int sort_shadowOffset = -1;
     private int sort_glowOffset = 0;
+    private bool sort_useBuildingMode = true;
+    private int sort_buildingFrontOrderOffset = 12;
+    private float sort_buildingFrontageLocalYOffset = 1f;
+
+    private class BuildingSortContext
+    {
+        public bool IsActive;
+        public GameObject RootObject;
+        public SpriteRenderer BaseRenderer;
+        public float BaseSortingY;
+        public int BaseOrder;
+        public float BaseLocalY;
+        public string BaseSource;
+    }
 
     private void DrawOrderMode()
     {
-        // 核心说明
-        EditorGUILayout.HelpBox(
-            "✨ 智能Collider底部计算：优先使用Collider2D底部（物理边界），回退到Sprite底部！\n\n" +
-            "原理：Collider底部 = 玩家实际交互位置 = 最准确的排序基准\n" +
-            "优势：自动处理分离设计（主体+子物体），每个物体用自己的Collider底部\n" +
-            "适用于：任何Collider设计、分离式设计、混合Pivot场景",
-            MessageType.Info);
-        
-        EditorGUILayout.Space(5);
-        
-        EditorGUILayout.LabelField("⚡ 快速操作", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField("核心规则", EditorStyles.boldLabel);
+        EditorGUILayout.LabelField(
+            "优先按 Collider2D 底边算 Order；没有 Collider 时回退到 Sprite 底边。",
+            EditorStyles.wordWrappedMiniLabel);
+
+        EditorGUILayout.Space(4);
+        EditorGUILayout.LabelField("快速操作", EditorStyles.boldLabel);
         
         EditorGUILayout.BeginHorizontal();
         GUILayout.Label("Order偏移:", GUILayout.Width(80));
@@ -219,54 +322,47 @@ public class Tool_002_BatchHierarchy : EditorWindow
         EditorGUILayout.EndHorizontal();
         
         DrawLine();
-        
-        // 按Y坐标计算Order（完整功能）
-        EditorGUILayout.LabelField("📐 按Y坐标计算Order（智能Pivot换算）", EditorStyles.boldLabel);
-        
+
+        EditorGUILayout.LabelField("核心参数", EditorStyles.boldLabel);
         sort_multiplier = EditorGUILayout.IntField("Y坐标缩放倍数", sort_multiplier);
-        EditorGUILayout.HelpBox("推荐值：100。数值越大，排序越精确", MessageType.None);
-        
         sort_orderOffset = EditorGUILayout.IntField("Order偏移值", sort_orderOffset);
-        EditorGUILayout.HelpBox("默认0即可。用于微调整体显示优先级", MessageType.None);
-        
-        EditorGUILayout.Space(5);
-        EditorGUILayout.LabelField("计算方式", EditorStyles.boldLabel);
-        
-        sort_useSpriteBounds = EditorGUILayout.Toggle("使用边界计算（优先Collider）", sort_useSpriteBounds);
-        EditorGUILayout.HelpBox(
-            "✅ 推荐勾选！\n" +
-            "• 优先：Collider2D.bounds.min.y（物理底部）\n" +
-            "• 回退：Sprite.bounds.min.y（视觉底部）\n" +
-            "• 自动处理子物体，每个用自己的Collider",
-            MessageType.Info);
-        
+        sort_useSpriteBounds = EditorGUILayout.Toggle("优先用底边计算", sort_useSpriteBounds);
         sort_bottomOffset = EditorGUILayout.FloatField("底部偏移（世界单位）", sort_bottomOffset);
-        EditorGUILayout.HelpBox(
-            "正值=逻辑底部往上移，负值=往下移\n" +
-            "树等高物体建议设0.2-0.5",
-            MessageType.None);
-        
-        EditorGUILayout.LabelField("子物体设置", EditorStyles.boldLabel);
-        sort_shadowOffset = EditorGUILayout.IntField("Shadow偏移值", sort_shadowOffset);
-        sort_glowOffset = EditorGUILayout.IntField("Glow/特效偏移值", sort_glowOffset);
-        
+        EditorGUILayout.LabelField("推荐：倍数 100，偏移默认 0，需要整体上提时再调底部偏移。", EditorStyles.wordWrappedMiniLabel);
+
+        EditorGUILayout.Space(2);
+        showOrderAdvanced = EditorGUILayout.Foldout(showOrderAdvanced, "高级设置", true);
+        if (showOrderAdvanced)
+        {
+            EditorGUI.indentLevel++;
+
+            EditorGUILayout.LabelField("子物体偏移", EditorStyles.boldLabel);
+            sort_shadowOffset = EditorGUILayout.IntField("Shadow偏移值", sort_shadowOffset);
+            sort_glowOffset = EditorGUILayout.IntField("Glow/特效偏移值", sort_glowOffset);
+
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField("建筑模式", EditorStyles.boldLabel);
+            sort_useBuildingMode = EditorGUILayout.Toggle("房子多片统一基线", sort_useBuildingMode);
+            if (sort_useBuildingMode)
+            {
+                sort_buildingFrontOrderOffset = EditorGUILayout.IntField("前檐/前片偏移", sort_buildingFrontOrderOffset);
+                sort_buildingFrontageLocalYOffset = EditorGUILayout.FloatField("前片局部Y阈值", sort_buildingFrontageLocalYOffset);
+            }
+
+            EditorGUILayout.Space(2);
+            EditorGUILayout.LabelField("Sorting Layer", EditorStyles.boldLabel);
+            EditorGUILayout.BeginHorizontal();
+            sort_chk_layer = EditorGUILayout.Toggle(sort_chk_layer, GUILayout.Width(18));
+            EditorGUI.BeginDisabledGroup(!sort_chk_layer);
+            sort_layer = EditorGUILayout.TextField(sort_layer);
+            EditorGUI.EndDisabledGroup();
+            EditorGUILayout.EndHorizontal();
+            EditorGUILayout.LabelField("勾选后执行时会同时设置 Sorting Layer。", EditorStyles.wordWrappedMiniLabel);
+
+            EditorGUI.indentLevel--;
+        }
+
         DrawLine();
-        
-        EditorGUILayout.LabelField("⚙️ 可选：Sorting Layer 设置", EditorStyles.boldLabel);
-        
-        EditorGUILayout.BeginHorizontal();
-        sort_chk_layer = EditorGUILayout.Toggle(sort_chk_layer, GUILayout.Width(20));
-        EditorGUI.BeginDisabledGroup(!sort_chk_layer);
-        sort_layer = EditorGUILayout.TextField("Sorting Layer", sort_layer);
-        EditorGUI.EndDisabledGroup();
-        EditorGUILayout.EndHorizontal();
-        
-        EditorGUILayout.HelpBox(
-            "✅ 勾选后会同时设置Sorting Layer\n" +
-            "✅ Order始终自动计算（基于Collider底部）\n" +
-            "💡 一键完成！",
-            MessageType.Info);
-        
         GUI.enabled = selectedObjs.Count > 0;
         GUI.backgroundColor = new Color(0.3f, 0.8f, 1f);
         if (GUILayout.Button("🚀 设置选中物体的Order in Layer", GUILayout.Height(40)))
@@ -280,25 +376,17 @@ public class Tool_002_BatchHierarchy : EditorWindow
         if (GUILayout.Button("📊 显示选中物体的当前Order", GUILayout.Height(30)))
             ShowCurrentOrders();
         GUI.enabled = true;
-        
-        EditorGUILayout.Space(10);
-        
-        // 使用说明
-        EditorGUILayout.LabelField("使用说明：", EditorStyles.boldLabel);
-        EditorGUILayout.HelpBox(
-            "1. 在Scene中选中要设置的固定物体（可以只选父物体）\n" +
-            "2. 点击上面的按钮\n" +
-            "3. 工具会自动处理该物体及其所有子物体的SpriteRenderer\n" +
-            "4. Order会自动设置为：-Round(底部Y × 倍数) + 偏移值\n\n" +
-            "特殊处理：\n" +
-            "• Shadow子物体：Order = 父物体Order + shadowOffset（在父物体下面）\n" +
-            "• Glow子物体：Order = 父物体Order + glowOffset（与父物体同层）\n" +
-            "• 其他子物体：Order = 父物体Order（与父物体完全一致）\n\n" +
-            "示例：物体底部Y=10，倍数=100，偏移=0\n" +
-            "      → Order = -1000\n\n" +
-            "💡 提示：不需要手动展开层级，工具会自动递归处理所有子物体！\n" +
-            "💡 Pivot换算：自动处理，无需修改Sprite资源！", 
-            MessageType.None);
+
+        EditorGUILayout.Space(6);
+        showOrderNotes = EditorGUILayout.Foldout(showOrderNotes, "补充说明", true);
+        if (showOrderNotes)
+        {
+            EditorGUILayout.BeginVertical(EditorStyles.helpBox);
+            EditorGUILayout.LabelField("• 公式：-Round(底部Y × 倍数) + Order偏移值", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField("• 只选父物体也可以，工具会递归处理子物体的 SpriteRenderer。", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.LabelField("• 正底部偏移 = 逻辑底边上移；树等高物体可从 0.2~0.5 开始试。", EditorStyles.wordWrappedMiniLabel);
+            EditorGUILayout.EndVertical();
+        }
     }
 
     private void QuickOffsetOrder(int offset)
@@ -349,103 +437,119 @@ public class Tool_002_BatchHierarchy : EditorWindow
         
         int count = 0;
         List<SpriteRenderer> allRenderers = new List<SpriteRenderer>();
-        
-        // ✅ 关键修复：获取所有选中对象及其子物体的SpriteRenderer
+
         foreach (GameObject obj in selectedObjs)
         {
-            // 获取自己和所有子物体的SpriteRenderer
             SpriteRenderer[] renderers = obj.GetComponentsInChildren<SpriteRenderer>(true);
             allRenderers.AddRange(renderers);
         }
-        
+
         if (allRenderers.Count == 0)
         {
             EditorUtility.DisplayDialog("提示", "选中对象及其子物体中没有SpriteRenderer！", "确定");
             return;
         }
+
         
-        // 为每个SpriteRenderer独立计算Order（基于它自己的位置）
-        foreach (SpriteRenderer sr in allRenderers)
+        foreach (GameObject selectedRoot in selectedObjs)
+        {
+            SpriteRenderer[] renderers = selectedRoot.GetComponentsInChildren<SpriteRenderer>(true);
+            if (renderers == null || renderers.Length == 0)
             {
-                Undo.RecordObject(sr, "Set Order in Layer");
-                
-            // ✅ 跳过特殊标记的物体（Order < -9990）
-            if (sr.sortingOrder < -9990)
-            {
-                Debug.Log($"<color=grey>[{GetGameObjectPath(sr.gameObject)}] Order={sr.sortingOrder} < -9990，跳过处理</color>");
                 continue;
             }
-            
-            float sortingY = CalculateSortingY(sr, sr.transform);
-                int calculatedOrder = -Mathf.RoundToInt(sortingY * sort_multiplier) + sort_orderOffset;
-            
-            // 特殊处理：Shadow子物体
-            if (sr.gameObject.name.ToLower().Contains("shadow"))
+
+            BuildingSortContext buildingContext = CreateBuildingSortContext(selectedRoot, renderers);
+
+            foreach (SpriteRenderer sr in renderers)
             {
-                // Shadow需要在父物体下方
-                // 先找父物体的SR
-                Transform parent = sr.transform.parent;
-                if (parent != null)
+                Undo.RecordObject(sr, "Set Order in Layer");
+
+                if (sr.sortingOrder < -9990)
                 {
-                    SpriteRenderer parentSr = parent.GetComponent<SpriteRenderer>();
-                    if (parentSr != null)
+                    Debug.Log($"<color=grey>[{GetGameObjectPath(sr.gameObject)}] Order={sr.sortingOrder} < -9990，跳过处理</color>");
+                    continue;
+                }
+
+                float sortingY;
+                string source;
+                int calculatedOrder = CalculateOrderForRenderer(sr, buildingContext, out sortingY, out source);
+
+                if (sr.gameObject.name.ToLower().Contains("shadow"))
+                {
+                    Transform effectParent = sr.transform.parent;
+                    if (effectParent != null)
                     {
-                        float parentSortY = CalculateSortingY(parentSr, parent);
-                        int parentOrder = -Mathf.RoundToInt(parentSortY * sort_multiplier) + sort_orderOffset;
-                        calculatedOrder = parentOrder + sort_shadowOffset;
-                        
-                        Debug.Log($"  ↳ [Shadow: {sr.gameObject.name}] 父Order={parentOrder} → Shadow Order={calculatedOrder}");
+                        SpriteRenderer parentSr = effectParent.GetComponent<SpriteRenderer>();
+                        if (parentSr != null)
+                        {
+                            float parentSortY;
+                            string parentSource;
+                            int parentOrder = CalculateOrderForRenderer(parentSr, buildingContext, out parentSortY, out parentSource);
+                            calculatedOrder = parentOrder + sort_shadowOffset;
+                            source = $"Parent({parentSource})+ShadowOffset";
+                            sortingY = parentSortY;
+
+                            Debug.Log($"  ↳ [Shadow: {sr.gameObject.name}] 父Order={parentOrder} → Shadow Order={calculatedOrder}");
+                        }
                     }
                 }
-            }
-            else if (sr.gameObject.name.ToLower().Contains("glow") || 
-                     sr.gameObject.name.ToLower().Contains("light") || 
-                     sr.gameObject.name.ToLower().Contains("effect"))
-            {
-                // Glow与父物体同层
-                Transform parent = sr.transform.parent;
-                if (parent != null)
+                else if (sr.gameObject.name.ToLower().Contains("glow") ||
+                         sr.gameObject.name.ToLower().Contains("light") ||
+                         sr.gameObject.name.ToLower().Contains("effect"))
                 {
-                    SpriteRenderer parentSr = parent.GetComponent<SpriteRenderer>();
-                    if (parentSr != null)
+                    Transform effectParent = sr.transform.parent;
+                    if (effectParent != null)
                     {
-                        float parentSortY = CalculateSortingY(parentSr, parent);
-                        int parentOrder = -Mathf.RoundToInt(parentSortY * sort_multiplier) + sort_orderOffset;
-                        calculatedOrder = parentOrder + sort_glowOffset;
-                        
-                        Debug.Log($"  ↳ [Glow: {sr.gameObject.name}] 父Order={parentOrder} → Glow Order={calculatedOrder}");
+                        SpriteRenderer parentSr = effectParent.GetComponent<SpriteRenderer>();
+                        if (parentSr != null)
+                        {
+                            float parentSortY;
+                            string parentSource;
+                            int parentOrder = CalculateOrderForRenderer(parentSr, buildingContext, out parentSortY, out parentSource);
+                            calculatedOrder = parentOrder + sort_glowOffset;
+                            source = $"Parent({parentSource})+GlowOffset";
+                            sortingY = parentSortY;
+
+                            Debug.Log($"  ↳ [Glow: {sr.gameObject.name}] 父Order={parentOrder} → Glow Order={calculatedOrder}");
+                        }
                     }
                 }
+
+                if (sort_chk_layer)
+                {
+                    sr.sortingLayerName = sort_layer;
+                }
+
+                sr.sortingOrder = calculatedOrder;
+                EditorUtility.SetDirty(sr);
+                count++;
+
+                string path = GetGameObjectPath(sr.gameObject);
+                Collider2D col = sr.GetComponent<Collider2D>();
+                Transform parent = sr.transform.parent;
+
+                string debugInfo = $"[{path}]\n" +
+                                  $"  Transform.Y = {sr.transform.position.y:F3}\n";
+
+                if (col != null)
+                    debugInfo += $"  Collider.min.y = {col.bounds.min.y:F3}\n";
+                if (sr.sprite != null)
+                    debugInfo += $"  Sprite.min.y = {sr.bounds.min.y:F3}\n";
+                if (parent != null && parent.GetComponent<SpriteRenderer>() == null)
+                    debugInfo += $"  Parent.Y = {parent.position.y:F3}\n";
+
+                if (buildingContext.IsActive && buildingContext.BaseRenderer != null)
+                {
+                    debugInfo += $"  BuildingBase = {buildingContext.BaseRenderer.gameObject.name}, BaseOrder = {buildingContext.BaseOrder}\n";
+                }
+
+                debugInfo += $"  → 用{source}底部Y = {sortingY:F3}\n" +
+                            $"  → 计算 = -Round({sortingY:F3} × {sort_multiplier}) + {sort_orderOffset}\n" +
+                            $"  → Order = {calculatedOrder}";
+
+                Debug.Log(debugInfo);
             }
-            
-            // ✅ 可选：设置Sorting Layer
-            if (sort_chk_layer)
-            {
-                sr.sortingLayerName = sort_layer;
-            }
-            
-            sr.sortingOrder = calculatedOrder;
-            EditorUtility.SetDirty(sr);
-            count++;
-            
-            // 🔍 详细调试输出
-            string path = GetGameObjectPath(sr.gameObject);
-            Collider2D col = sr.GetComponent<Collider2D>();
-            string source = col != null ? "Collider" : (sr.sprite != null ? "Sprite" : "Transform");
-            
-            string debugInfo = $"[{path}]\n" +
-                              $"  Transform.Y = {sr.transform.position.y:F3}\n";
-            
-            if (col != null)
-                debugInfo += $"  Collider.min.y = {col.bounds.min.y:F3} ✅\n";
-            if (sr.sprite != null)
-                debugInfo += $"  Sprite.min.y = {sr.bounds.min.y:F3}" + (col == null ? " ✅" : "") + "\n";
-            
-            debugInfo += $"  → 用{source}底部Y = {sortingY:F3}\n" +
-                        $"  → 计算 = -Round({sortingY:F3} × {sort_multiplier}) + {sort_orderOffset}\n" +
-                        $"  → Order = {calculatedOrder}";
-            
-            Debug.Log(debugInfo);
         }
         
         string msg = $"已设置 {count} 个SpriteRenderer";
@@ -459,47 +563,184 @@ public class Tool_002_BatchHierarchy : EditorWindow
     
     /// <summary>
     /// 计算排序用的Y坐标
-    /// 🔥 核心修正：双层结构（父物体无SR）时用父物体的Y坐标
-    /// 核心：优先使用Collider底部，回退到Sprite底部
+    /// 核心：优先使用当前对象自己的Collider底部；只有无Collider时才回退双层结构父节点或Sprite底部
     /// </summary>
     private float CalculateSortingY(SpriteRenderer sr, Transform trans)
     {
-        float sortingY;
-        
-        // 🔥 关键：双层结构检测（父物体无SpriteRenderer）
-        // 如Tree_M1_XX（父）/ Tree（子）结构，用父物体的Y坐标（种植点）
+        return CalculateDefaultSortingY(sr, trans, out _);
+    }
+
+    private float CalculateDefaultSortingY(SpriteRenderer sr, Transform trans, out string source)
+    {
+        Collider2D collider = sr.GetComponent<Collider2D>();
+
+        if (collider != null && sort_useSpriteBounds)
+        {
+            source = "Collider";
+            return collider.bounds.min.y + sort_bottomOffset;
+        }
+
         Transform parent = trans.parent;
         if (parent != null)
         {
             SpriteRenderer parentSr = parent.GetComponent<SpriteRenderer>();
             if (parentSr == null)
             {
-                // 父物体没有SR → 双层结构，用父物体的Y坐标
-                sortingY = parent.position.y + sort_bottomOffset;
-                return sortingY;
+                source = "Parent";
+                return parent.position.y + sort_bottomOffset;
             }
         }
-        
-        // 常规计算：优先Collider，回退Sprite，最后Transform
+
+        if (sort_useSpriteBounds && sr.sprite != null)
+        {
+            source = "Sprite";
+            return sr.bounds.min.y + sort_bottomOffset;
+        }
+
+        source = "Transform";
+        return trans.position.y + sort_bottomOffset;
+    }
+
+    private float CalculateDirectVisualSortingY(SpriteRenderer sr, Transform trans, out string source)
+    {
         Collider2D collider = sr.GetComponent<Collider2D>();
-        
         if (collider != null && sort_useSpriteBounds)
         {
-            // 使用Collider底部 = 物理边界的最低点
-            sortingY = collider.bounds.min.y + sort_bottomOffset;
+            source = "Collider";
+            return collider.bounds.min.y + sort_bottomOffset;
         }
-        else if (sort_useSpriteBounds && sr.sprite != null)
+
+        if (sort_useSpriteBounds && sr.sprite != null)
         {
-            // 回退：使用Sprite底部
-            sortingY = sr.bounds.min.y + sort_bottomOffset;
-                }
-                else
-                {
-            // Fallback：使用Transform位置
-            sortingY = trans.position.y + sort_bottomOffset;
+            source = "Sprite";
+            return sr.bounds.min.y + sort_bottomOffset;
         }
-        
-        return sortingY;
+
+        source = "Transform";
+        return trans.position.y + sort_bottomOffset;
+    }
+
+    private BuildingSortContext CreateBuildingSortContext(GameObject selectedRoot, SpriteRenderer[] renderers)
+    {
+        BuildingSortContext context = new BuildingSortContext { IsActive = false };
+
+        if (!sort_useBuildingMode || !IsBuildingSelection(selectedRoot, renderers))
+        {
+            return context;
+        }
+
+        SpriteRenderer baseRenderer = FindPrimaryBuildingRenderer(renderers);
+        if (baseRenderer == null)
+        {
+            return context;
+        }
+
+        string baseSource;
+        float baseSortingY = CalculateDefaultSortingY(baseRenderer, baseRenderer.transform, out baseSource);
+
+        context.IsActive = true;
+        context.RootObject = selectedRoot;
+        context.BaseRenderer = baseRenderer;
+        context.BaseSortingY = baseSortingY;
+        context.BaseOrder = -Mathf.RoundToInt(baseSortingY * sort_multiplier) + sort_orderOffset;
+        context.BaseLocalY = baseRenderer.transform.localPosition.y;
+        context.BaseSource = baseSource;
+        return context;
+    }
+
+    private bool IsBuildingSelection(GameObject selectedRoot, SpriteRenderer[] renderers)
+    {
+        if (selectedRoot == null || renderers == null || renderers.Length <= 1)
+        {
+            return false;
+        }
+
+        string nameLower = selectedRoot.name.ToLowerInvariant();
+        string tagValue = selectedRoot.tag;
+        return nameLower.Contains("house") ||
+               tagValue == "Building" ||
+               tagValue == "Buildings";
+    }
+
+    private SpriteRenderer FindPrimaryBuildingRenderer(SpriteRenderer[] renderers)
+    {
+        SpriteRenderer bestRenderer = null;
+        float bestScore = float.MinValue;
+
+        foreach (SpriteRenderer sr in renderers)
+        {
+            if (sr == null || sr.sortingOrder < -9990)
+            {
+                continue;
+            }
+
+            float score = GetRendererScore(sr);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestRenderer = sr;
+            }
+        }
+
+        return bestRenderer;
+    }
+
+    private float GetRendererScore(SpriteRenderer sr)
+    {
+        Collider2D collider = sr.GetComponent<Collider2D>();
+        if (collider != null)
+        {
+            Bounds bounds = collider.bounds;
+            return bounds.size.x * bounds.size.y;
+        }
+
+        if (sr.sprite != null)
+        {
+            Rect rect = sr.sprite.rect;
+            return rect.width * rect.height;
+        }
+
+        Bounds rendererBounds = sr.bounds;
+        return rendererBounds.size.x * rendererBounds.size.y;
+    }
+
+    private bool IsBuildingFrontageRenderer(SpriteRenderer sr, BuildingSortContext context)
+    {
+        if (!context.IsActive || sr == null || context.BaseRenderer == null || sr == context.BaseRenderer)
+        {
+            return false;
+        }
+
+        float localDelta = context.BaseLocalY - sr.transform.localPosition.y;
+        return localDelta >= Mathf.Max(0.1f, sort_buildingFrontageLocalYOffset);
+    }
+
+    private int CalculateOrderForRenderer(SpriteRenderer sr, BuildingSortContext context, out float sortingY, out string source)
+    {
+        if (!context.IsActive)
+        {
+            sortingY = CalculateDefaultSortingY(sr, sr.transform, out source);
+            return -Mathf.RoundToInt(sortingY * sort_multiplier) + sort_orderOffset;
+        }
+
+        if (sr == context.BaseRenderer)
+        {
+            sortingY = context.BaseSortingY;
+            source = $"{context.BaseSource}[BuildingBase]";
+            return context.BaseOrder;
+        }
+
+        if (IsBuildingFrontageRenderer(sr, context))
+        {
+            sortingY = CalculateDirectVisualSortingY(sr, sr.transform, out source);
+            source = $"{source}[BuildingFrontage]";
+            int ownOrder = -Mathf.RoundToInt(sortingY * sort_multiplier) + sort_orderOffset;
+            return Mathf.Max(context.BaseOrder + sort_buildingFrontOrderOffset, ownOrder);
+        }
+
+        sortingY = context.BaseSortingY;
+        source = "BuildingBaseInherited";
+        return context.BaseOrder;
     }
     
     
@@ -899,3 +1140,12 @@ public class Tool_002_BatchHierarchy : EditorWindow
     #endregion
 }
 
+[InitializeOnLoad]
+internal static class Tool002BatchHierarchyPlayModeGuard
+{
+    static Tool002BatchHierarchyPlayModeGuard()
+    {
+        // 当前已确认报错根因在 Unity 的布局缓存残留，而不是稳定可控的 EditorWindow 生命周期；
+        // 这里先不做自动清理，避免在坏页签现场上再次引入新的 Editor 空引用。
+    }
+}

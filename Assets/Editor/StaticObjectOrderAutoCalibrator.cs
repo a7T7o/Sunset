@@ -15,6 +15,19 @@ public static class StaticObjectOrderAutoCalibrator
     private const float BottomOffset = 0f;
     private const int ShadowOffset = -1;
     private const int GlowOffset = 0;
+    private const bool UseBuildingMode = true;
+    private const int BuildingFrontOrderOffset = 12;
+    private const float BuildingFrontageLocalYOffset = 1f;
+
+    private class BuildingSortContext
+    {
+        public bool IsActive;
+        public GameObject RootObject;
+        public SpriteRenderer BaseRenderer;
+        public float BaseSortingY;
+        public int BaseOrder;
+        public float BaseLocalY;
+    }
 
     static StaticObjectOrderAutoCalibrator()
     {
@@ -101,8 +114,8 @@ public static class StaticObjectOrderAutoCalibrator
                 continue;
             }
 
-            float sortingY = CalculateSortingY(sr);
-            int calculatedOrder = -Mathf.RoundToInt(sortingY * Multiplier) + OrderOffset;
+            BuildingSortContext buildingContext = CreateBuildingSortContext(sr);
+            int calculatedOrder = CalculateOrderForRenderer(sr, buildingContext, out _);
 
             string loweredName = sr.gameObject.name.ToLowerInvariant();
             if (loweredName.Contains("shadow"))
@@ -113,8 +126,7 @@ public static class StaticObjectOrderAutoCalibrator
                     SpriteRenderer parentSr = parent.GetComponent<SpriteRenderer>();
                     if (parentSr != null)
                     {
-                        float parentSortY = CalculateSortingY(parentSr);
-                        int parentOrder = -Mathf.RoundToInt(parentSortY * Multiplier) + OrderOffset;
+                        int parentOrder = CalculateOrderForRenderer(parentSr, buildingContext, out _);
                         calculatedOrder = parentOrder + ShadowOffset;
                     }
                 }
@@ -127,8 +139,7 @@ public static class StaticObjectOrderAutoCalibrator
                     SpriteRenderer parentSr = parent.GetComponent<SpriteRenderer>();
                     if (parentSr != null)
                     {
-                        float parentSortY = CalculateSortingY(parentSr);
-                        int parentOrder = -Mathf.RoundToInt(parentSortY * Multiplier) + OrderOffset;
+                        int parentOrder = CalculateOrderForRenderer(parentSr, buildingContext, out _);
                         calculatedOrder = parentOrder + GlowOffset;
                     }
                 }
@@ -160,6 +171,17 @@ public static class StaticObjectOrderAutoCalibrator
 
     private static float CalculateSortingY(SpriteRenderer sr)
     {
+        return CalculateDefaultSortingY(sr);
+    }
+
+    private static float CalculateDefaultSortingY(SpriteRenderer sr)
+    {
+        Collider2D collider = sr.GetComponent<Collider2D>();
+        if (collider != null)
+        {
+            return collider.bounds.min.y + BottomOffset;
+        }
+
         Transform parent = sr.transform.parent;
         if (parent != null)
         {
@@ -170,6 +192,16 @@ public static class StaticObjectOrderAutoCalibrator
             }
         }
 
+        if (sr.sprite != null)
+        {
+            return sr.bounds.min.y + BottomOffset;
+        }
+
+        return sr.transform.position.y + BottomOffset;
+    }
+
+    private static float CalculateDirectVisualSortingY(SpriteRenderer sr)
+    {
         Collider2D collider = sr.GetComponent<Collider2D>();
         if (collider != null)
         {
@@ -182,6 +214,137 @@ public static class StaticObjectOrderAutoCalibrator
         }
 
         return sr.transform.position.y + BottomOffset;
+    }
+
+    private static BuildingSortContext CreateBuildingSortContext(SpriteRenderer sr)
+    {
+        BuildingSortContext context = new BuildingSortContext { IsActive = false };
+
+        GameObject rootObject = FindBuildingRoot(sr.transform);
+        if (rootObject == null)
+        {
+            return context;
+        }
+
+        SpriteRenderer[] renderers = rootObject.GetComponentsInChildren<SpriteRenderer>(true);
+        if (renderers == null || renderers.Length <= 1)
+        {
+            return context;
+        }
+
+        SpriteRenderer baseRenderer = FindPrimaryBuildingRenderer(renderers);
+        if (baseRenderer == null)
+        {
+            return context;
+        }
+
+        float baseSortingY = CalculateDefaultSortingY(baseRenderer);
+        context.IsActive = true;
+        context.RootObject = rootObject;
+        context.BaseRenderer = baseRenderer;
+        context.BaseSortingY = baseSortingY;
+        context.BaseOrder = -Mathf.RoundToInt(baseSortingY * Multiplier) + OrderOffset;
+        context.BaseLocalY = baseRenderer.transform.localPosition.y;
+        return context;
+    }
+
+    private static GameObject FindBuildingRoot(Transform start)
+    {
+        Transform current = start;
+        GameObject bestMatch = null;
+
+        while (current != null)
+        {
+            GameObject currentObject = current.gameObject;
+            string nameLower = currentObject.name.ToLowerInvariant();
+            string tagValue = currentObject.tag;
+            if (nameLower.Contains("house") || tagValue == "Building" || tagValue == "Buildings")
+            {
+                bestMatch = currentObject;
+            }
+
+            current = current.parent;
+        }
+
+        return bestMatch;
+    }
+
+    private static SpriteRenderer FindPrimaryBuildingRenderer(SpriteRenderer[] renderers)
+    {
+        SpriteRenderer bestRenderer = null;
+        float bestScore = float.MinValue;
+
+        foreach (SpriteRenderer sr in renderers)
+        {
+            if (sr == null || sr.sortingOrder < -9990)
+            {
+                continue;
+            }
+
+            float score = GetRendererScore(sr);
+            if (score > bestScore)
+            {
+                bestScore = score;
+                bestRenderer = sr;
+            }
+        }
+
+        return bestRenderer;
+    }
+
+    private static float GetRendererScore(SpriteRenderer sr)
+    {
+        Collider2D collider = sr.GetComponent<Collider2D>();
+        if (collider != null)
+        {
+            Bounds bounds = collider.bounds;
+            return bounds.size.x * bounds.size.y;
+        }
+
+        if (sr.sprite != null)
+        {
+            Rect rect = sr.sprite.rect;
+            return rect.width * rect.height;
+        }
+
+        Bounds rendererBounds = sr.bounds;
+        return rendererBounds.size.x * rendererBounds.size.y;
+    }
+
+    private static bool IsBuildingFrontageRenderer(SpriteRenderer sr, BuildingSortContext context)
+    {
+        if (!context.IsActive || sr == null || context.BaseRenderer == null || sr == context.BaseRenderer)
+        {
+            return false;
+        }
+
+        float localDelta = context.BaseLocalY - sr.transform.localPosition.y;
+        return localDelta >= Mathf.Max(0.1f, BuildingFrontageLocalYOffset);
+    }
+
+    private static int CalculateOrderForRenderer(SpriteRenderer sr, BuildingSortContext context, out float sortingY)
+    {
+        if (!context.IsActive)
+        {
+            sortingY = CalculateDefaultSortingY(sr);
+            return -Mathf.RoundToInt(sortingY * Multiplier) + OrderOffset;
+        }
+
+        if (sr == context.BaseRenderer)
+        {
+            sortingY = context.BaseSortingY;
+            return context.BaseOrder;
+        }
+
+        if (IsBuildingFrontageRenderer(sr, context))
+        {
+            sortingY = CalculateDirectVisualSortingY(sr);
+            int ownOrder = -Mathf.RoundToInt(sortingY * Multiplier) + OrderOffset;
+            return Mathf.Max(context.BaseOrder + BuildingFrontOrderOffset, ownOrder);
+        }
+
+        sortingY = context.BaseSortingY;
+        return context.BaseOrder;
     }
 
     private static void CleanEmptySpriteRenderers()
