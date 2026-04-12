@@ -121,3 +121,64 @@
   - 直接拿真实 vegetation tilemap 做一次定向验收
   - 看 cluster 划分哪里会误并、误拆
   - 再决定是否加模板 / hint
+## 会话 3 - 2026-04-05（用户指定：碰撞体必须可选）
+**用户目标**
+- 用户要求给这套工具加一个明确选项：
+  - 是否启用碰撞体，由用户自己决定
+
+**当前主线目标**
+- 主线仍是“植被整体对象化工具”；
+- 本轮只是补一个关键可控项，不改变整体模式主方向。
+
+**本轮已完成**
+1. 已重新执行：
+   - `Begin-Slice.ps1 -ThreadName scene-build-5.0.0-001 -CurrentSlice sunset-collider-toggle`
+2. 已修改：
+   - `D:\Unity\Unity_learning\Sunset\Assets\Editor\TilemapToColliderObjects.cs`
+   - `D:\Unity\Unity_learning\Sunset\Assets\Editor\TilemapSelectionToColliderWorkflow.cs`
+3. 已新增：
+   - `生成碰撞体` 开关
+4. 已确认关闭时的真实行为：
+   - 不生成 `Collider2D`
+   - 不生成 `Rigidbody2D`
+   - 仍可生成 `SpriteRenderer`、`SortingGroup`、植被整体对象结构
+5. 已做最小脚本级 no-red 证据：
+   - `git diff --check`：通过
+   - `validate_script Assets/Editor/TilemapToColliderObjects.cs`：`errors=0 warnings=0`
+   - `validate_script Assets/Editor/TilemapSelectionToColliderWorkflow.cs`：`errors=0 warnings=0`
+6. 已合法停车：
+   - `Park-Slice.ps1 -ThreadName scene-build-5.0.0-001 -Reason collider-toggle-implemented`
+
+**关键判断**
+- 这轮补口很值：
+  - 现在这套工具终于不再假设“对象化就一定要带碰撞”
+  - 更符合真实场景：有的植物只需要排序，不需要物理阻挡
+
+**验证结果**
+- `脚本静态验证已过`
+- `Unity 场景产出尚未验证`
+- `legal sync 尚未尝试`
+
+**恢复点**
+- 下一步如果继续，还是优先做真实 vegetation tilemap 的定向验收，看：
+  - cluster 是否合理
+  - 不带碰撞体的纯排序模式是否贴手
+## 会话 4 - 2026-04-05（用户要求提交：shared root 仍因 same-root dirty 不能合法提）
+**用户目标**
+- 用户要求直接提交当前这刀；如果还能合理再压一步，就先压一步再提。
+
+**本轮关键动作**
+- 已额外补完一个小收口：
+  - 碰撞体关闭时，`Rigidbody2D` 也自动跳过
+- 已重新核 shared root 提交条件：
+  - 当前 shared root 仍不是“功能可提但我没提”
+  - 而是“`Assets/Editor` 同根 existing dirty 仍挡着合法 sync”
+
+**稳定结论**
+- shared root 当前仍不能给出合法 commit。
+- blocker 依旧是：
+  - `Assets/Editor` same-root dirty
+  - 不是本轮 Tilemap 工具自己的脚本红面
+
+**恢复点**
+- 如果后续还要在 shared root 里真正收出 commit，先处理 same-root dirty，再谈 sync。

@@ -1283,6 +1283,31 @@
     - `桥_物品0` 的 colliderless fallback 阻挡语义
     - 或 scene 显式 bounds source 缺口
 
+## 2026-04-03｜交接导航系统：玩家版本认可，NPC 桥/水/边缘 contract gap 已收成独立 prompt
+
+- 当前主线目标：
+  - 这条线程自己的桥 / 水 / 边缘收口先停在“玩家版本认可”；
+  - 用户最新裁定改成：把剩余的 `NPC 走不过桥` 问题正式交给导航系统处理。
+- 本轮子任务：
+  - 不再继续施工业务代码；
+  - 只把“玩家已认可、NPC 未接入同等 traversal contract”的判断和历史修改压成一份可直接转发给导航系统的 prompt。
+- 本轮实际完成：
+  1. 重新压实代码责任点：
+     - `TraversalBlockManager2D` 当前只显式绑定 `playerMovement`
+     - `NPCAutoRoamController` 虽然自己持有 `NavGrid2D` 并 `rb.MovePosition(nextPosition)`，但没有并行吃到玩家这轮 traversal soft-pass / bounds enforcement / 中心支撑优先语义
+  2. 已创建导航交接文件：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-03_导航系统_NPC桥水边缘接线prompt_01.md`
+  3. prompt 已明确写死：
+     - 玩家当前版本不准改坏
+     - 只收 `NPC 接入桥 / 水 / 边缘 traversal contract`
+     - 不准扩回树苗卡顿、Tool、camera、UI、Town、scene sync、binder
+- 当前判断：
+  1. 现在最像的问题不是“玩家没修好”，而是 NPC 仍在走旧接线；
+  2. 所以正确动作是交给导航系统补 NPC contract，而不是让我这条线继续扩大 scope。
+- 当前恢复点：
+  - 用户现在可以直接转发给导航系统；
+  - 本线程本轮不再继续改桥 / 水 / 边缘代码，等待导航系统接刀后的回执。
+
 ## 2026-04-03：树苗残余卡顿续工，本轮改口为 PlacementValidator/PlacementManager 的树 prefab 画像缓存
 
 - 当前主线目标：
@@ -1315,3 +1340,1482 @@
 补记：本轮收尾前已执行 `Park-Slice`，当前 live 状态为 `PARKED`；当前两个真实尾项分别是：
 1. 外部 `Assets/Editor/Tool_005_BatchStoneState.cs` 编译红错挡住了干净的 sapling-only menu live 验证；
 2. 树苗体感是否真正变轻，仍待用户现场复测。
+
+## 2026-04-03｜历史需求清账：本线程当前已基本耗尽主动施工面，剩余主问题已外移
+
+- 用户这轮要求：
+  - 彻底搜索这条线的历史需求和迭代；
+  - 说清楚我现在还剩什么、哪些没落地、哪些已经交给别的线程、以及我是否还有明确头绪能继续接。
+- 本轮只读梳理后，当前最稳的总判断：
+  1. **我这条线程自己当前最核心的业务施工面，已经基本做完或外移。**
+  2. 现在真正还在跑的两条 active 主问题已经分流：
+     - `树苗放置卡顿` = `farm`
+     - `NPC 走不过桥 / 没吃到玩家同等 traversal contract` = 导航系统
+  3. 所以我现在不该再自己闷头继续改桥/树苗/NPC，否则只会重新和别的线程撞车。
+- 按最初历史需求回看，当前状态可分成 4 类：
+  1. **已被用户明确认可或至少不再是当前主投诉**
+     - 玩家桥 / 水 / 地图外边缘的 traversal 行为：用户已明确说“玩家现在这个版本我也认可了”
+     - `Tool_002` 窗口常驻问题：用户后续主投诉已转移到树苗和桥/NPC，不再是当前活跃主线
+  2. **已正式交给别的线程**
+     - 树苗放置卡顿：已交给 `farm`
+     - NPC 过桥 / NPC 不下水 / NPC 不越界：已交给导航系统
+  3. **历史上提出过，但没有拿到最终验收通过口头回执，且现在不在我当前 ownership 里**
+     - camera 不能拍到场景外
+     - 场景切换触发与转场体验是否最终过线
+     - `Tool_002` / maximize / invalid editor window 是否做到了用户最终意义上的“彻底过线”
+  4. **我现在如果被重新点名，仍然有明确技术头绪能接的**
+     - `camera`：用 scene-independent 的 bounds provider / confiner source 明确接线，而不是再走 binder 或自动写 scene
+     - `scene transition`：继续收成“拖 `SceneAsset` / path，黑幕下异步加载，避免 Build Profile 名称坑”的稳定版本
+     - `桥/水/边缘 residual mismatch`：如果导航线最终证明 NPC 也已经吃到 contract，但现场仍怪，就继续精确追 `桥_物品0` 的 colliderless fallback 语义或显式 `bounds source` 缺口
+- 当前我最不该做的事：
+  1. 自己重新接手树苗卡顿
+  2. 自己重新接手 NPC 过桥
+  3. 趁机把 camera / transition / Tool_002 / scene sync 混成一个综合包
+- 当前恢复点：
+  - 等 `farm` 和导航各自把 active 问题收口；
+  - 若用户要我重新开新刀，最合理的新 ownership 候选是：
+    - `camera confiner`
+    - 或 `scene transition 最终体验收口`
+  - 这两条都需要用户明确重新给我 scope，我不该自己偷开。
+
+## 2026-04-03｜camera confiner 回归止血：镜头重新跟随玩家，宽屏锁死链已改到脚本侧
+
+- 当前主线目标：
+  - 按用户最新直接报错，先把“镜头不动、不跟着玩家走”的回归止血；
+  - 同时保留上一轮 `SceneTransitionTrigger2D` 的黑幕异步加载 / scene path 兼容版本，不在这轮混改 scene。
+- 本轮子任务：
+  - 只改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 不碰 `Primary.unity`、不碰 binder、也不改用户当前 scene Inspector 里的 traversal 配置
+- 本轮实际做成了什么：
+  1. live 先查实根因不是 `Follow` 丢失：
+     - `CinemachineCamera` 仍然跟随 `Player`
+     - 真问题是 confiner 边界过窄，`Main Camera` 被强行钉在右边界
+     - 修前 runtime 证据：`PositionCorrection.x = -8.166666`
+  2. `CameraDeadZoneSync.cs`
+     - 自动 bounds 不再只取一张最窄的 exact base tilemap，而是联合 exact base 候选；
+     - 对当前 legacy 默认排除词做软化，避免把 `water / props / farmland` 全排掉后把可见场景边界缩死；
+     - 自动 bounds 现在会额外吸收 world layer 下的 `SpriteRenderer` 可见范围，补上房屋/桥面等非 tilemap 可见内容；
+     - 新增宽屏保护：超宽画面时自动收窄 `Camera.rect`，避免双击全屏或超宽窗口时 confiner 直接把镜头锁死。
+  3. fresh Play 结果：
+     - 修后 `Player` 与 `CinemachineCamera` 世界坐标重新对齐
+     - `PositionCorrection = (0,0,0)`
+     - `WorldBounds ≈ center(-13.625, 16.0), size(56.25, 65.0)`
+     - fresh screenshot 已取到，镜头画面重新回到正常跟随态
+  4. Unity 已退回 `Edit Mode`
+- 验证结果：
+  - `validate_script(CameraDeadZoneSync.cs)`：`0 error / 2 warning`
+  - forced script refresh 后，console 仅见既有 warning：
+    - `DialogueUI.fadeInDuration` 未使用
+  - fresh Play live probe：
+    - 修前 camera 被 confiner 提前拽死
+    - 修后 follow/camera 对齐成立
+- 这轮没做成什么：
+  - `SceneTransitionTrigger2D` 这轮没有再跑 end-to-end 切场 live
+  - 所以上一轮的转场脚本改造仍是“结构成立 + compile 成立”，但最终切场体验这轮没有新增 live 证据
+- 当前阶段：
+  - `camera`：结构成立、compile 成立、已拿到 live 止血证据
+  - `scene transition`：脚本版本保留，仍待单独终验
+- thread-state：
+  - `Begin-Slice`：此前当前 slice 已登记
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：本轮收尾已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 让用户优先复测：
+    - 普通移动时镜头是否继续跟随
+    - 双击 `Game` 全屏后是否还会“镜头不动”
+    - 是否仍会拍到 scene 外
+  - 如果 camera 通过，下一步再单独补 `SceneTransitionTrigger2D` 的 end-to-end 转场终验，不把两条线重新混成一个大包。
+
+## 2026-04-03｜camera-blue-edge-trim：左右残留蓝边改成按真实占用 tile 收边界
+
+- 当前主线目标：
+  - 在“镜头已恢复跟随”的前提下，继续收掉左右两侧仍会露出的那一条窄蓝边。
+- 本轮子任务：
+  - 继续只改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 不碰 `Primary.unity`、不碰 binder、也不改用户当前 scene 里的 traversal Inspector 配置
+- 本轮实际做成了什么：
+  1. 重新做了这刀的前置核查：
+     - `skills-governor`
+     - `preference-preflight-gate`
+     - `sunset-no-red-handoff`
+     - `sunset-unity-validation-loop`
+     - `sunset-startup-guard` 继续按手工等价流程执行
+  2. 根因进一步收窄为：
+     - `TryGetTilemapWorldBounds()` 之前仍直接吃 `tilemap.localBounds`
+     - 这会把“看起来没画东西、但还落在旧 cell/local bounds 里的空列”也算进世界宽度
+     - 所以镜头能正常跟随，但左右极限仍可能多露一丝背景色
+  3. 已落的脚本修复：
+     - `TryGetTilemapWorldBounds()` 现在遍历 `cellBounds` 里真实 `HasTile` 的格子，再按这些已占用格子的 world bounds 收边界
+     - `ShouldIncludeTilemapInAutoBounds()` 改成同样依赖真实 tile 占用，不再只看旧 `cellBounds.size`
+     - `ComparePreferredTilemaps()` 的面积排序也改成同一套真实边界口径，避免优先级正确但面积判断仍吃到空白列
+  4. 本轮最小验证：
+     - `validate_script(CameraDeadZoneSync.cs)`：`0 error / 2 warning`
+     - `git diff --check -- Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：仅 CRLF/LF 提示
+     - Unity `refresh_unity` 已接受 compile request
+     - 随后两次 `read_console(error)`：`0 error`
+- 这轮没做成什么：
+  - 没有再做新的 Play 截图或 full-screen live 证据
+  - 所以当前只能说“脚本侧收边界 + compile/console 成立”，不能说“用户体验完全过线”
+- 当前阶段：
+  - `camera`：残留蓝边的脚本侧修复已落，处于等待用户复测阶段
+- thread-state：
+  - `Begin-Slice`：已在本轮前存在
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 等用户直接复测左右边缘；
+  - 如果仍有蓝边，下一步只继续查 `Camera.rect` 宽屏保护和 scene base 实际可见宽度之间是否还有亚格级残差，不扩回别的线。
+
+## 2026-04-04｜camera-left-edge-final-trim：确认是 runtime-only 残差，继续修 viewport / confiner 顺序
+
+- 当前主线目标：
+  - 把现在只剩“运行时左侧一条白边”的镜头问题收掉。
+- 本轮子任务：
+  - 继续只改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 不碰 `Primary.unity`、不碰 binder、不扩回 scene sync
+- 本轮实际做成了什么：
+  1. 用户新增线索：
+     - 右侧和上下都对了
+     - `Edit` 模式下左侧也不溢出
+     - 只有 `Play` 运行时左侧会出现镜头白边
+  2. 基于这条线索，本轮判断从“左侧地形不规则”进一步收窄到：
+     - 更像 runtime `Camera.rect` / `CinemachineConfiner2D` 的单侧残差
+     - 而不是纯 tilemap 左边形状本身
+  3. 补了最小 live 取证：
+     - 进过一次短 `Play`
+     - 读到了 `CinemachineCamera`、`Main Camera`、`CameraDeadZoneSync`、`_CameraBounds` 组件数据
+     - 当前 runtime 下 `PositionCorrection=(0,0,0)`，说明镜头跟随主回归没有复发
+     - runtime `WorldBounds ≈ center(-14.45,16.0), size(54.6,65.0)`
+  4. 新落的脚本修复：
+     - `RefreshBounds()` 改成先 `ApplyWideScreenViewportClamp()`，再 `InvalidateConfinerCache()`，避免 confiner 仍按旧 viewport 计算窗口
+     - `LateUpdate()` 里如果屏幕尺寸变化，只有在 viewport rect 真的变化时才重新 invalidation
+     - 新增 `snapViewportClampToPixelGrid`，把 runtime `Camera.rect` 吸到像素网格，减少只在 `Play` 里出现的一侧细白边
+  5. 最小验证：
+     - `validate_script(CameraDeadZoneSync.cs)`：`0 error / 2 warning`
+     - Unity 脚本刷新后，连续两次 `read_console(error)`：`0 error`
+     - Unity 已退回 `Edit Mode`
+- 这轮没做成什么：
+  - 我没有拿到你这边全屏/实际游戏窗口下的新一轮肉眼复测结果
+  - 所以这轮仍不能写成“左侧白边体验已彻底过线”
+- 当前阶段：
+  - `camera`：runtime-only 左侧白边的脚本侧修复已落，等待用户复测
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 如果用户复测通过，这条 camera 边界线可以继续往“收尾验收”推进；
+  - 如果仍失败，下一步只继续追用户实际窗口比例下的 `Camera.rect` 和 confiner 窗口尺寸，不再回头扩成别的系统。
+
+## 2026-04-04｜camera-base-only-bounds-trim：命中 exact base tilemap 时禁用 Sprite 扩边
+
+- 当前主线目标：
+  - 先把我自己负责的 camera 左侧 runtime 漏边问题继续收窄，保证镜头只守住 base 区域。
+- 本轮子任务：
+  - 继续只改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 不碰 `Primary.unity`、不碰 `Town.unity`、不碰导航 / 农田 / UI / binder / 通用工具
+- 本轮实际做成了什么：
+  1. 重新做了启动与偏好前置：
+     - `skills-governor`
+     - `preference-preflight-gate`
+     - 手工等价 `sunset-startup-guard`
+     - `sunset-no-red-handoff`
+  2. 结合“Edit 正常、Play 左侧才漏”的用户反馈，把根因继续收窄为：
+     - 命中 exact base tilemap 后，auto bounds 仍在吃运行时 `SpriteRenderer`
+     - 这些 runtime Sprite 会把某一侧边界单侧撑宽
+  3. 已落的脚本修改：
+     - `SelectAutoBoundsTilemaps(out bool usingExactBaseTilemaps)`
+     - `TryCalculateAutoBounds()` 里，只有 `!usingExactBaseTilemaps` 时才吸收 `SpriteRenderer` bounds
+     - 也就是：精确命中 base 时，以 base 为准；没命中精确 base 时，Sprite 才当 fallback
+  4. 本轮验证：
+     - `validate_script(CameraDeadZoneSync.cs)`：`0 error / 2 warning`
+     - `git diff --check -- Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：仅 CRLF/LF 提示
+     - Unity 编译请求后，`read_console(error)` 未出现新的 camera 红错
+     - 短 Play probe：
+       - `WorldBounds = center(-14,16), size(53,65)`
+       - 相比上一轮继续收紧，方向符合“只守 base 区域”
+       - 运行时截图：`Assets/Screenshots/camera-runtime-check.png`
+     - Play 后已主动退回 `Edit Mode`
+- 这轮没做成什么：
+  - 自动化里没法把玩家推进到最左边界做肉眼终验
+  - 所以这轮仍只能写成“脚本与 targeted probe 成立”，不能写成“最终体验已过线”
+- 当前阶段：
+  - `camera`：我自己负责的 base-only 边界修补已落，等待用户做最后那步左侧贴边复测
+- thread-state：
+  - `Begin-Slice`：本轮进入前已是 `ACTIVE`
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：本轮收尾已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 等用户把玩家走到最左边缘再看是否还露底；
+  - 若仍失败，下一步只继续查“玩家靠左时的相机中心 + viewport 裁切”，不再回头把 runtime Sprite 重新纳入 world bounds。
+
+## 2026-04-04｜camera-worldlayer-union-and-input-frustum-fix：相机改回三层并集，并修 `ScreenToWorldPoint(z=0)` 警告
+
+- 当前主线目标：
+  - 把我自己负责的 camera 行为改成用户最新要求的“三个 world layer 并集”
+  - 同时把用户刚追问的 `Screen position out of view frustum` 主因一起收掉
+- 本轮子任务：
+  - 改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 共享触点改 `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  - 顺手补 `Assets/YYY_Scripts/World/WorldSpawnDebug.cs` 的同类 bug
+- 本轮实际做成了什么：
+  1. 用户需求变化：
+     - 不再要 `base-only`
+     - 明确要 `LAYER 1 / LAYER 2 / LAYER 3` 的并集
+  2. 这轮根因分析：
+     - `Screen position out of view frustum` 不是因为 confiner 本身“取大了”
+     - 真正主因是 `GameInputManager` 两处把 `Input.mousePosition` 以 `z=0` 直接传给 `ScreenToWorldPoint`
+     - 这个 `z` 在 Unity 里表示“离相机多远”，不是世界 z；对当前相机给 `0` 就会报 frustum warning
+  3. 已落代码：
+     - `CameraDeadZoneSync.cs`
+       - `SelectAutoBoundsTilemaps()` 改回直接收三层 world layer 下所有可用 Tilemap
+       - `ShouldIncludeTilemapInAutoBounds()` 不再把 `water / props / farmland` 从三层并集里排掉
+       - 只在一个 Tilemap 都没有时才让 `SpriteRenderer` 参与 fallback
+     - `GameInputManager.cs`
+       - 新增 `ScreenToGameplayWorld(Camera, Vector3)`
+       - `HandleRightClickAutoNav()` 与 `GetMouseWorldPosition()` 都改成用“相机到 z=0 世界平面的距离”做 `ScreenToWorldPoint`
+     - `WorldSpawnDebug.cs`
+       - ctrl 左键 / 中键生成物同样改成正确深度
+  4. 本轮验证：
+     - `git diff --check`：通过，只有 `CameraDeadZoneSync.cs` 的 CRLF/LF 提示
+     - `Editor.log` 里最后一组强制重编译 / 重载后，没有继续看到新的 `Screen position out of view frustum`
+     - `Editor.log` 里仍有既有 `SpringDay1OpeningRuntimeBridgeTests.cs` 的旧 `CS0246`，不是我这轮新增
+- 这轮没做成什么：
+  - 没拿到 Unity MCP live 重新连上，所以没再做一轮组件级 runtime 读值
+  - 也还没有你这边的玩家手测结果
+- 当前阶段：
+  - `camera`：已改成三层并集的脚本版本
+  - `warning`：主因补丁已落到常驻输入链
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 等用户直接进游戏复测“镜头边界口径 + warning 是否消失”
+  - 若 warning 仍复现，下一步继续搜剩余 `ScreenToWorldPoint` 同类调用点，而不是再回头怀疑 camera bounds 自身。
+
+## 2026-04-04｜历史需求剩余项快照：只把我 own / 非 own 分开讲清
+
+- 当前主线目标：
+  - 给用户一份“历史需求现在还剩什么”的可下令版本，不再把我 own、别线 own、以及仅待终验的项混在一起。
+- 本轮实际结论：
+  1. 我 own 的当前剩余项只剩 2 个终验点：
+     - `camera` 三层并集是否符合实际视觉预期
+     - `Screen position out of view frustum` 是否在正常玩法链里已消失
+  2. 我这条线历史上碰过、但现在仍未完全终结的项还有 1 个：
+     - `SceneTransitionTrigger2D` 已有黑幕异步加载 + scene path 兼容脚本版
+     - 但 end-to-end 真实切场体验仍待单独终验
+  3. 已经明确不再归我 own 的项：
+     - `npc` 过桥 / traversal 闭环 -> `导航检查`
+     - 树苗放置卡顿 -> `农田交互修复V3`
+     - UI 中文缺字 / 对话与工作台面 -> `UI`
+     - `Tool_002_BatchHierarchy` 的最终使用习惯验收 -> `scene-build-5.0.0-001`
+- 当前阶段：
+  - 我这条线不是“还有很多代码没写”，而是“代码面已推进到一个只差用户终验和必要再补刀的阶段”
+- 当前恢复点：
+  - 如果用户现在要继续压我这条线，最值当的命令不再是“继续乱修”，而是先给我：
+    - `camera 终验结果`
+    - `frustum warning` 是否还复现
+    - 如果顺带要我接 `scene transition`，就明确点名“现在转场终验收口”
+
+## 2026-04-05｜town-camera-input-frustum-closure：Town 相机 / 输入 / frustum 只收脚本链，Town 真实 runtime 终验仍受探针能力限制
+
+- 当前主线目标：
+  - 按典狱长 2026-04-04 prompt，只收 `Town` 进入链上的相机 / 输入 / `frustum`，推进到基础设施闭环
+- 本轮子任务：
+  - 继续压 `CameraDeadZoneSync.cs / GameInputManager.cs / WorldSpawnDebug.cs`
+  - 必要时补最小契约 `SceneTransitionTrigger2D.cs`
+- 本轮实际做成了什么：
+  1. `CameraDeadZoneSync.cs`
+     - `OnSceneLoaded()` 先 `RefreshSceneReferences()`
+     - scene load 后会重新解析当前 `Main Camera / CinemachineCamera`
+  2. `GameInputManager.cs`
+     - `Awake()` 改成 `ResolveWorldCamera()`
+     - 订阅 `sceneLoaded`，新场景下一帧重绑 `worldCamera`
+     - 右键自动导航 / 通用鼠标世界坐标改成统一 `ScreenToGameplayWorld(...)`
+     - 切场忙碌时不再继续跑鼠标到世界换算
+  3. `WorldSpawnDebug.cs`
+     - 同样改成 `sceneLoaded` 后重绑相机并使用正确世界平面深度
+  4. `SceneTransitionTrigger2D.cs`
+     - 黑幕切场期间会缓存并关闭 `GameInputManager` 输入
+     - 切场结束后恢复原输入状态
+- `GameInputManager` 本轮 touched touchpoints：
+  - `Awake()` 的 `worldCamera` 初始绑定
+  - `OnEnable()/OnDisable()` 的 `sceneLoaded` 订阅
+  - `OnSceneLoaded()` / `RefreshWorldCameraBindingNextFrame()`
+  - `HandleRightClickAutoNav()`
+  - `GetMouseWorldPosition()`
+  - `ResolveWorldCamera()`
+  - `ScreenToGameplayWorld()`
+- 本轮验证：
+  - `manage_script validate`
+    - `GameInputManager`：`clean`
+    - `SceneTransitionTrigger2D`：`clean`
+    - `CameraDeadZoneSync`：`warning`
+    - `WorldSpawnDebug`：`warning`
+  - `git diff --check`
+    - 本轮 4 文件通过；只有既有 `CRLF/LF` 提示
+  - Unity 低负载 probe
+    - `clear console -> enter Play -> read_console`
+    - 没再读到新的 `Screen position out of view frustum`
+    - 但 `manage_scene` 在 PlayMode 下无法直接载入 `Town`，因此 Town 真实进入链还没被自动探针打穿
+  - 本轮同时读到的外部问题：
+    - `Primary` 运行时缺脚本
+    - `Primary` 没有 `AudioListener`
+    - Unity `Graphs` 空引用 / MCP websocket 噪音
+    - 都不是我这轮 own 的 4 个脚本
+- 当前阶段：
+  - `脚本侧成立`
+  - `Town end-to-end runtime 终验未完成`
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 下轮如果 reopen，这条线只该补：
+    - 真实 `Primary -> Town` 切场终验
+    - 或一个只读 runtime load probe
+  - 不该再回到 scene 实写、UI、导航或通用工具
+## 2026-04-05｜Town 相机跟随补口：`CameraDeadZoneSync` 现在会在切场后自动重绑 `Follow`，最新 `frustum` 红已定性为 Unity Tilemap 编辑器外部噪音
+
+- 当前主线目标：
+  - 继续只收 `Town` 进入链上的相机 / 输入 / `frustum`
+  - 本轮用户最新直接反馈是“进入 `Town` 后不报错了，但镜头不跟着走”，以及随后再次看到 `Screen position out of view frustum`
+- 本轮子任务：
+  - 只改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 不碰 `Town.unity / Primary.unity / UI / 导航 / 通用工具`
+- 本轮实际做成了什么：
+  1. 重新核实 `Town.unity` 静态现场：
+     - `CinemachineCamera.Target.TrackingTarget = {fileID: 0}`
+     - 说明 `Town` 资产默认没有跟随目标
+  2. 在 `CameraDeadZoneSync.cs` 落了最小自愈链：
+     - `Start()` 先按当前 active scene 刷一次 scene references
+     - `sceneLoaded` 后先重抓 `Main Camera / CinemachineCamera`
+     - 新增短 retry coroutine，连续几帧尝试把 `CinemachineCamera.Follow` 重绑回真正的玩家根
+     - 玩家解析优先按 `PlayerMovement`，并用 `Rigidbody2D` / scene 优先级避开 `Tool` 这类同 tag 干扰
+     - `LateUpdate()` 新增兜底：运行中如果 `Follow` 再次丢失，会立刻自愈重绑
+  3. 对用户最新贴出的 `Screen position out of view frustum` 继续追栈后，已确认：
+     - 这次不是 runtime `GameInputManager / CameraDeadZoneSync` 链
+     - `Editor.log` 最新真实堆栈落在：
+       - `UnityEditor.Tilemaps.GridEditorUtility:ScreenToLocal`
+       - `UnityEditor.Tilemaps.PaintableSceneViewGrid`
+     - 也就是 Unity Tilemap 画笔 / SceneView 编辑器链，不是我当前 own 的 Town runtime 相机问题
+- 验证状态：
+  - `git diff --check -- Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：通过；仅有既有 `CRLF/LF` 提示
+  - `CodexCodeGuard.exe` 与 `python scripts/sunset_mcp.py validate_script ...`：
+    - 在当前环境都长时间卡住并超时，未形成可靠代码闸门结论
+  - Unity MCP：
+    - `unityMCP@8888` 当前握手失败，未能补 live 组件读值
+- 当前阶段：
+  - `Town` 镜头不跟随：脚本侧补口已落
+  - 最新 `frustum` 红：已从我这条 runtime 主线剥离，定性为 Unity Tilemap 编辑器外部噪音
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 先让用户重新走一次 `Primary -> Town`，看镜头是否已经重新跟随玩家
+  - 若镜头仍不跟，再继续只查 `Town` 运行时到底绑定到了哪个 `PlayerMovement`
+  - 若只复现那条 `frustum` 红，但堆栈仍是 `UnityEditor.Tilemaps.PaintableSceneViewGrid`，则应按编辑器 / Tile Palette 状态问题处理，不再误算到我这条 runtime 线上
+
+## 2026-04-05｜Town 相机继续排查：已确认 `Main Camera` 静态缺 `CinemachineBrain`，并在 `CameraDeadZoneSync` 加 runtime 自动补挂
+
+- 当前主线目标：
+  - 继续只收 `Town` 进入链上的相机 / 输入 / `frustum`
+  - 用户 fresh 反馈是：即使上一轮补了 `Follow` 重绑，镜头仍然不跟随
+- 本轮子任务：
+  - 继续只改 `Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`
+  - 不碰 `Town.unity / Primary.unity / UI / 导航 / 通用工具`
+- 本轮实际做成了什么：
+  1. 重新核查 `Town.unity` 的 `Main Camera` 静态组件链：
+     - 当前只有 `Transform + Camera + AudioListener`
+     - 没有 `CinemachineBrain`
+  2. 这意味着上一轮即使把 `CinemachineCamera.Follow` 重新绑回玩家，Town 主相机也不会真正被 Cinemachine 驱动
+  3. 本轮在 `CameraDeadZoneSync.cs` 新增 `EnsureCinemachineBrain()`：
+     - `Awake()` 和每次 `RefreshSceneReferences(...)` 时都会检查主相机
+     - 若当前 `Main Camera` 缺 `CinemachineBrain`，运行时自动补挂并启用
+  4. 到本轮为止，`CameraDeadZoneSync` 已同时负责两层自愈：
+     - `Town` 切场后 `Follow` 自动重绑到真正的 `PlayerMovement`
+     - `Main Camera` 缺 `CinemachineBrain` 时自动补挂
+- 验证状态：
+  - `git diff --check -- Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：通过；仅有既有 `CRLF/LF` 提示
+  - 代码层 fresh compile / Unity live：仍未闭环
+    - `CodexCodeGuard.exe` 持续超时
+    - `validate_script` 持续超时
+    - `unityMCP@8888` 仍握手失败
+- 当前阶段：
+  - `Town` 相机不跟随：脚本侧两级主嫌疑都已补上
+  - 下一步判断完全依赖用户 fresh 复测
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 让用户再次走 `Primary -> Town`
+  - 如果这次仍不跟，再继续只查 runtime 下真正 active 的 `Main Camera` / `CinemachineCamera` / `PlayerMovement` 三者绑定现场
+
+## 2026-04-05｜Town 相机跟随闭环：用户 fresh 实测“没有任何问题”，这条主线正式按通过收口
+
+- 当前主线目标：
+  - 只收 `Town` 的相机跟随闭环，不把方案漂成 `CinemachineBrain` 持久化
+- 本轮用户裁定：
+  - 用户 fresh 回执：`我测试了，没有任何问题`
+- 当前结论：
+  1. `Town` 相机跟随这条线现在可以按 `用户已测通过` 收口
+  2. 当前通过口径只覆盖：
+     - `Primary -> Town` 后镜头恢复正常跟随玩家
+  3. 不自动外扩成：
+     - 所有历史 camera 尾项都完成
+     - 或其他系统也一起闭环
+- 当前阶段：
+  - `Town` 相机跟随主线：已过线
+- thread-state：
+  - 当前保持 `PARKED`
+- 当前恢复点：
+  - 后续若用户再点相机问题，应视为新问题或新回归，不再把这条旧主线当未完成项继续挂着
+
+## 2026-04-05｜给典狱长的总回执基线：本线程当前无活跃 own blocker，保持 `PARKED`
+
+- 当前主线目标：
+  - 本线程最后一条活跃主线是 `Town` 相机跟随闭环
+  - 该主线现已按 `用户已测通过` 收口
+- 这轮固定下来的总判断：
+  1. 本线程当前没有新的活跃 own blocker
+  2. 当前不该再把已外移的导航 / 农田问题重新算回我这里
+  3. 当前最正确状态是继续 `PARKED`，等待新的明确点名或新回归
+- 已过线内容：
+  - `Town` 相机跟随：`用户已测通过`
+  - `Primary` 玩家桥 / 水 / 边缘：用户此前已明确认可当前玩家版本
+  - `SceneTransitionTrigger2D` 所在线的最终体验问题，后来并入 `Town` 相机问题；随着 `Town` 相机通过，这条线也不再挂作活跃未完成项
+- 已外移内容：
+  - `NPC` 桥 / 水 / 边缘：已交导航线程
+  - 树苗放置卡顿：已交 `farm`
+- 当前不应误报为本线程未完成的内容：
+  - 最新 `Screen position out of view frustum` 已追到 `UnityEditor.Tilemaps.PaintableSceneViewGrid` 编辑器链，不是我这条 `Town` runtime 相机主线
+  - `Town.unity` 当前虽是 dirty，但我最后一刀实际没有再实写它；不能把 shared root 现场脏改都算到我头上
+- thread-state：
+  - 当前保持 `PARKED`
+- 当前恢复点：
+  - 只有在用户重新点名新问题、或父线程精确点名我 own 的脚本 gap 时，才应 reopen
+
+## 2026-04-05｜只读对比：`Town` 为什么比 `Primary` 更容易拍到场景外
+
+- 当前主线目标：
+  - 用户新点名的问题不是“Town 镜头不跟随”，而是“Town 镜头边界没有和 Primary 对齐，仍会拍到不该拍到的区域”
+  - 这轮只做结构级 / 局部验证分析，不直接改 scene
+- 这轮查明的关键差异：
+  1. `CameraDeadZoneSync` 的序列化字段在两个 scene 里基本一致：
+     - 都是 `autoDetectBounds=1`
+     - 都是 `worldLayerNames = LAYER 1/2/3`
+     - 都是 `explicitBoundsTilemaps=[]`、`explicitBoundsColliders=[]`
+     - 都是 `autoBoundsInset=0.5`
+     - 说明问题不在“Primary 和 Town 挂了两套完全不同的 CameraDeadZoneSync 参数”
+  2. 真正的问题在代码实现和场景输入的组合：
+     - `CameraDeadZoneSync.SelectAutoBoundsTilemaps()` + `ShouldIncludeTilemapInAutoBounds()` 现在会把 world layers 里的所有 tilemap 都纳入 auto bounds；
+     - 它没有像字段名暗示的那样，真正收敛到 `preferredExactTilemapNames / preferredAutoBoundsKeywords`；
+     - 甚至 tilemap 路径也没有走 `water / props / farmland / old` 这组排除词；
+     - 所以当前 auto bounds 不是“只取 Base”，而是“取 world layers 里全部 tilemap 并集”。
+  3. `Town` 比 `Primary` 更容易中招，因为 `Town` 场景里 world layers 下可见的非 Base tilemap 更多：
+     - `Layer 1 - Water`
+     - `Layer 1 - Props`
+     - `Layer 1 - Props (1/2/3/4)`
+     - `Layer 1 - Grass`
+     - `Farmland_*`
+     - 等
+     - 这些名字都存在于 `Town.unity`，而当前 auto bounds tilemap 路径不会把它们排除。
+  4. 更进一步，`UpdateBoundingCollider()` 最终会把 `_worldBounds` 直接压成 4 点矩形：
+     - 也就是用 AABB 矩形去喂 `CinemachineConfiner2D`
+     - 不是按真实 Base 轮廓或不规则边缘去生成 shape
+     - 所以只要 `Town` 的左侧/边缘本来就不规则，矩形 confiner 就更容易放出空边
+  5. `Town` 还有一个次级风险差异：
+     - `Town` 的 `Main Camera` 静态 `orthographic size = 5`
+     - 但 `CinemachineCamera` 的 Lens `OrthographicSize = 10.5`
+     - `Primary` 这两者是对齐的（都是 `10.5`）
+     - 而 `ApplyWideScreenViewportClamp()` 读的是 `mainCamera.orthographicSize`
+     - 这会让 `Town` 的宽屏保护比 `Primary` 更依赖运行时时序，稳定性更差
+- 当前阶段判断：
+  - 这轮已经拿到结构层真原因；
+  - 但还没有 live 读到 Town runtime 最终 `_worldBounds` 数值，所以当前口径只能算：
+    - `结构判断成立`
+    - 不能直接宣称 `Town` 体验已经修好
+- 最小结论：
+  - `Town` 边界问题的主因不是“Town 参数挂错了一两个值”
+  - 而是当前 `CameraDeadZoneSync` 实现并没有真正做到“只按 Base 收 bounds”，再叠加矩形 confiner 和 Town 更复杂的 world tilemap 分布，导致 Town 比 Primary 更容易漏出场景外
+
+## 2026-04-05｜用户纠正后再收敛：按“world tilemap 并集”前提，`Town` 左侧漏边更像是 runtime bounds 没稳定落成 Town 自己的结果
+
+- 当前主线目标：
+  - 用户明确纠正：这里不是要把边界源改成 `Base`，而是就按 `world tilemap` 取并集
+  - 这轮在这个前提下重新收敛原因，不再把“只取 Base”当主结论
+- 用户纠正后重新钉实的差异：
+  1. `Primary` 与 `Town` 的静态 `_CameraBounds` 多边形完全相同：
+     - 两边都是 `(-41,-17) -> (-41,49) -> (13,49) -> (13,-17)`
+     - 这说明 `Town` 当前 scene 资产里并没有一个“明显属于 Town 自己”的静态边界轮廓
+  2. `CameraDeadZoneSync.UpdateBoundingCollider()` 会把 runtime 算出的 `_worldBounds` 直接压成 4 点矩形；
+     - 因而真正关键不再是“是不是矩形”，而是 runtime 有没有把 `Town` 自己的 world bounds 正确刷新进去
+  3. `Town` 比 `Primary` 更脆弱的硬差异现在有 3 个：
+     - `Town` 的 `Main Camera orthographic size = 5`，而 `CinemachineCamera Lens.OrthographicSize = 10.5`
+     - `Primary` 这两者是对齐的，都是 `10.5`
+     - `Town` 的 `CinemachineCamera.TrackingTarget` 静态仍为空，`Primary` 静态上已绑玩家
+     - `Town` 的 `Main Camera` `m_ClearFlags = 2`（纯色清屏），`Primary = 1`，所以只要边界漏一点，Town 的蓝边会更明显地暴露出来
+- 当前最可信的新判断：
+  - 如果前提固定为“就取 world tilemap 并集”，那么这轮更像的主因不是选源类别，而是：
+    1. `Town` runtime 没有稳定把自己的 world-tilemap 并集刷新成最终 `_worldBounds`
+    2. 或者刷新时机被 `Town` 这条更脆弱的相机链（主相机尺寸与 vcam 尺寸不一致、TrackingTarget 静态为空）干扰
+  - 于是最后沿用的仍然是那块和 `Primary` 一样的泛矩形，左侧就会漏
+- 当前阶段判断：
+  - 这轮结构判断比上一条更贴近用户的真实前提；
+  - 但仍然缺一份 runtime `_worldBounds` / `boundingCollider` 数值证据，所以还不能把它写成终局定论
+
+## 2026-04-05｜只读彻查：`Primary` 偶发镜头脱离玩家的高可信根因已收缩到 `CameraDeadZoneSync` 运行时自愈逻辑
+
+- 当前主线目标：
+  - 用户新点名的问题是：`Primary` 里镜头为什么“有的时候会脱离玩家”，要求我彻查代码并汇报
+  - 这轮只做只读分析，不进入真实施工
+- 这轮实际查明：
+  1. `Primary` 的静态相机 wiring 本身是对的，不像之前 `Town` 那样有明显缺线：
+     - `Main Camera` 存在且带 `MainCamera` tag
+     - `CinemachineCamera` 静态 `TrackingTarget` 已绑到玩家
+     - `Primary` 里那个名为 `Camera` 的对象只是父节点，不是第二台真正的 Camera
+  2. 当前项目里直接写 `cinemachineCamera.Follow` 的运行时代码，责任面基本集中在 `CameraDeadZoneSync.cs`：
+     - `TryBindTrackingTarget()` 会改 `Follow`
+     - 没有查到别的常规运行时代码在同时抢写这条 Follow 链
+  3. 真正的高风险点在 `CameraDeadZoneSync.HasUsableTrackingTarget()`：
+     - 它只判断当前 `Follow` 是否“active + scene loaded”
+     - 它不判断这个 `Follow` 还是不是“当前真正的玩家”
+     - 所以只要 Follow 指到了一个“还活着但已经错了”的目标，自愈逻辑就不会触发
+  4. `OnSceneLoaded -> DelayedRefresh()` 同样存在这个短路问题：
+     - 它每帧重试时，一旦 `HasUsableTrackingTarget()` 为真就提前 break
+     - 这意味着 scene 切换后的恢复窗口，也会被“错误但仍可用的 Follow”提前骗停
+  5. `Primary` 现场还存在一个确认过的污染源：
+     - 真正玩家根物体 `Player` 带 `Player` tag
+     - 其子物体 `Tool` 也带 `Player` tag
+     - `SaveManager` 里已经明确把这件事记成已知坑，说明通用 `Player` tag 查找在本项目里并不可靠
+  6. 但这轮也排掉了一条常见误判：
+     - 我没有查到 `Primary` 常规运行链会正常实例化出第二个 `PlayerMovement`
+     - 所以当前更像“错误 Follow 没被纠正”，而不是“正常流程总会生成第二个玩家”
+- 当前最可信判断：
+  - `Primary` 偶发镜头脱离玩家，更像是运行时某个时机把 Follow 留在了“仍然活着的错误目标”上；
+  - 而 `CameraDeadZoneSync` 又把“还活着”误判成“已经正确”，于是后续不再重绑
+- 当前阶段判断：
+  - `结构级高可信分析成立`
+  - 还没有 live runtime 取证到“错误 Follow 当场具体指向谁”，所以不能把它写成 100% 实锤终局
+- 当前恢复点：
+  - 如果后续 reopen 这条线，正确下一步不该回去怀疑 `Primary` 静态 scene wiring；
+  - 而应该直接收 `CameraDeadZoneSync` 的“当前 Follow 是否仍是最佳玩家目标”判定，并在 runtime 里打印 Follow / PlayerMovement / Player tag 候选做现场对照
+- thread-state：
+  - 本轮只读分析，未跑新的 `Begin-Slice / Ready-To-Sync`
+  - 当前保持 `PARKED`
+
+## 2026-04-05｜只读分析：背包 / 箱子交互 own 面仍残留三类旧真源与混合入口
+
+- 当前主线目标：
+  - 用户要求只读盘点 Sunset 仓库里背包 / 箱子交互 own 面，找出还残留哪些“旧真源 / 混合入口”会继续破坏统一交互语义
+- 本轮子任务：
+  - 重点只读 `Assets/YYY_Scripts/UI/Inventory`、`Assets/YYY_Scripts/UI/Box`、`Assets/YYY_Scripts/UI/Toolbar`、`Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+- 这轮实际做成了什么：
+  1. 钉实箱子 runtime authoritative source 仍然写在 `ChestController.RuntimeInventory -> ChestInventoryV2`，但 `Inventory / InventoryV2 / RuntimeInventory / Contents / SetSlot / GetSlot` 仍同时暴露，旧 mirror 没真正退场。
+  2. 钉实普通背包拖拽和箱子拖拽都在走 `SlotDragContext`，而 `shift/ctrl` 点击 held 与装备拖拽仍由 `InventoryInteractionManager` 管；同一个 `InventoryService` 已经出现“点击一个 owner、拖拽另一个 owner”的混口径。
+  3. 钉实 `BoxPanelUI` 仍保留自己的空白区 / 垃圾桶 / close 回源语义和一套容器写回 helper，和 `SlotDragContext` / `InventoryInteractionManager` 的回源逻辑重复。
+  4. 钉实 `ChestController.OnInteract()` 仍直接按 `context.HeldItemId + context.HeldSlotIndex` 消耗背包槽位，world interaction 还没接入统一 held 语义。
+  5. 钉实选中态仍分散在 `InventoryPanelUI`、`BoxPanelUI`、`InventorySlotUI`、`ToolbarSlotUI`，还不是单一 selection truth。
+- 关键判断：
+  - 当前最大问题已经不只是“箱子和背包是两套 held”，而是 `ChestController legacy mirror + InventoryInteractionManager + SlotDragContext + BoxPanelUI 本地回源` 四层并存；只要不先收 authority 和 owner，继续补 if/else 只会把语义再摊薄。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Box\BoxPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- 验证结果：
+  - `静态代码审计成立`
+  - `未改代码`
+  - `未进 Unity`
+- 下一步恢复点：
+  - 如果继续施工，最稳顺序是：
+    1. 先收 `ChestController` 真源
+    2. 再收 `Held/Drag Session` 单一 owner
+    3. 再删 `BoxPanelUI` 的本地回源副本
+    4. 再收 `OnInteract()` 的持钥匙 / 锁消耗入口
+    5. 最后才收 selection truth
+- thread-state：
+  - 本轮只读分析，未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+  - 当前保持 `PARKED`
+
+## 2026-04-05｜只读分析：NpcAmbientBubblePriorityGuard 三条定向失败当前已复跑通过，最可能是“1 条 runtime contract + 2 条 fixture seam”
+
+- 当前主线目标：
+  - 用户要求在不改文件的前提下，分析 `NpcAmbientBubblePriorityGuardTests` 里 3 条失败最可能的根因、最小修法与责任归属。
+- 本轮子任务：
+  - 重点只读 `NpcAmbientBubblePriorityGuardTests.cs`、`NpcAmbientBubblePriorityGuard.cs`、`NpcInteractionPriorityPolicy.cs`，并补读 `NPCDialogueInteractable.cs`、`SpringDay1ProximityInteractionService.cs`、`NPCBubblePresenter.cs`。
+- 这轮实际做成了什么：
+  1. 静态比对了当前 working tree 与 `cea3eef5` 的差异，确认当前未提交改动正好覆盖用户点名的 3 条测试语义。
+  2. 用 Unity MCP 只读复跑了整类 `NpcAmbientBubblePriorityGuardTests`，当前结果 `4/4 passed`，用户点名的 3 条都已通过。
+  3. 判定 `ShouldAllowAmbientBubble_WhenNoFormalTakeoverIsActive` 的历史失败最像 runtime contract 之前太粗：`NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubble()` 把 formal 阶段 blanket suppression 写死，没区分“有无 actual takeover”。
+  4. 判定另外两条若曾失败，更像夹具桥接未补全：
+     - active dialogue case 依赖 `CreateDialogueManager()` 正确立起 `DialogueManager.Instance + IsDialogueActive`
+     - focused prompt case 依赖 `SetCurrentFormalPromptFocus()` 正确立起 `SpringDay1ProximityInteractionService._instance + current candidate`
+- 关键决策：
+  - 这组三测在当前树上不该再当“现存 runtime blocker”处理；
+  - 更稳口径是：当前实现已经覆盖目标 contract，若外部仍报这 3 条失败，先排查旧缓存、半改测试夹具或非当前 working tree 的旧结果。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NpcAmbientBubblePriorityGuardTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NpcAmbientBubblePriorityGuard.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NpcInteractionPriorityPolicy.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCDialogueInteractable.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\SpringDay1ProximityInteractionService.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCBubblePresenter.cs`
+- 验证结果：
+  - `Unity MCP run_tests(EditMode)`：`NpcAmbientBubblePriorityGuardTests = 4/4 passed`
+  - `未改业务代码`
+  - `只读结论成立`
+- 遗留问题 / 下一步：
+  - 若用户给的是旧失败截图或别的工作树结果，下一步应先核对那边是否缺失当前 dirty 改动，而不是继续在这棵树上猜新的 runtime 漏洞。
+- thread-state：
+  - 本轮只读分析，未跑新的 `Begin-Slice / Ready-To-Sync / Park-Slice`
+  - 当前保持 `PARKED`
+
+## 2026-04-05｜只读 live 取证：当前 Unity 现场可读，但被 `SpringDay1NpcCrowdBootstrap.cs` 外部编译红拦住了进一步可靠 Play 取证
+
+- 当前主线目标：
+  - 用户要求我趁导航线正在用 MCP 测 NPC 时，一起查 live 现场问题
+  - 这轮仍只做只读 live 取证，不进入真实施工，也不抢导航线的 scene / play 控制
+- 本轮 live 核查动作：
+  1. 手工补过 `skills-governor + sunset-startup-guard` 等价前置；
+  2. 读取 `mcp-single-instance-occupancy / mcp-live-baseline / mcp-hot-zones`；
+  3. 跑基线脚本确认 `unityMCP@8888` 正常；
+  4. 读取 `editor/state`、`instances`、`scene/cameras`、`read_console(get)`；
+  5. 只读抽样 `Player`、`Tool`、`CinemachineCamera`、`Main Camera`、`_CameraBounds` 的 runtime/scene 现场。
+- 这轮 live 现场确认到的事实：
+  1. 当前 Editor 不在 Play：
+     - active scene = `Primary`
+     - `is_playing = false`
+     - `is_compiling = false`
+     - `ready_for_tools = true`
+  2. 当前相机链在编辑态是健康的：
+     - `Main Camera` 存在 `Camera + AudioListener + CinemachineBrain`
+     - `CinemachineCamera` 当前 `Follow / LookAt / TrackingTarget` 都指向 `Player`
+     - Brain 当前 active vcam = `CinemachineCamera`
+  3. `Tool` 的 `Player` tag 污染在 live 现场也成立：
+     - `Tool.path = Player/Tool`
+     - `Tool.tag = Player`
+     - `Player.tag = Player`
+  4. `_CameraBounds` 在当前现场也确实存在，且点位仍是：
+     - `(-41,-17) -> (-41,49) -> (13,49) -> (13,-17)`
+  5. 这轮最重要的新 blocker：
+     - 当前 Console 有 fresh 编译红，全部指向 `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`
+     - 错误类型为多条 `CS1003: Syntax error, ',' expected`
+     - 报错行集中在 `977 / 1001 / 1025 / 1049 / 1073 / 1097 / 1121 / 1145`
+- 当前判断：
+  - 我自己的相机线 live 只读结论仍然成立：编辑态当前并没有“相机已经脱离玩家”的常驻故障；
+  - 但现在如果继续往下做 Play 取证，证据会被外部编译红污染，所以不该假装现场已经适合继续深追 runtime。
+- 责任面判断：
+  - 这波 fresh 编译红不在我 own 的相机脚本里；
+  - 文件落在 `Assets/Editor/NPC/SpringDay1NpcCrowdBootstrap.cs`，更像 `NPC / spring-day1 crowd bootstrap` 线的外部 blocker，不是我这条 `CameraDeadZoneSync` 线能直接代处理的范围
+- 当前恢复点：
+  - 等外部 `SpringDay1NpcCrowdBootstrap.cs` 编译红清掉后，再回到 Play/live 去钉 `Primary` 偶发脱离时 `Follow` 到底短瞬间指向谁；
+  - 在那之前，不该把当前相机结论夸大成“live 根因已实锤”
+- thread-state：
+  - 本轮只读 live 取证，未跑新的 `Begin-Slice / Ready-To-Sync / Park-Slice`
+  - 当前继续保持 `PARKED`
+
+## 2026-04-05｜再收敛：`Screen position out of view frustum` 与“镜头飘走固定住”更像同一类底层问题，但不是“有两台主相机在互抢”
+
+- 当前主线目标：
+  - 用户要求我再客观思考一次：到底是不是相机解析/投屏链的问题，以及具体该怎么修
+  - 这轮仍是只读分析，不进真实施工
+- 这轮新增确认的事实：
+  1. 当前项目里真正会把“世界点 -> 屏幕点”的高风险路径并不多，核心集中在：
+     - `SpringDay1WorldHintBubble`
+     - `NpcWorldHintBubble`
+     - `SpringDay1WorkbenchCraftingOverlay`
+     - `ItemTooltip`
+     - 少量 `Placement*` live runner / `GameInputManager` / `WorldSpawnDebug`
+  2. 上面三条 story/UI 浮层路径都统一依赖：
+     - `SpringDay1UiLayerUtility.GetWorldProjectionCamera()`
+     - 当前实现是：先拿 canvas.worldCamera；拿不到就退回 `Camera.main`；再不行就 `FindFirstObjectByType<Camera>()`
+  3. `GameInputManager.ResolveWorldCamera()`、`WorldSpawnDebug.ResolveWorldCamera()`、`DayNightOverlay.CacheCamera()` 也都有同类“找不到就拿第一个 Camera”的宽松兜底。
+  4. 当前 live 现场可以排掉一个常见误判：
+     - `scene/cameras` 里只有一台 Unity `Main Camera` 和一台 live `CinemachineCamera`
+     - 因而这波问题不像“存在两台主相机长期互抢控制权”
+  5. 当前报错栈形态仍然很关键：
+     - 用户给的是只有 `UnityEngine.GUIUtility:ProcessEvent`
+     - 没有稳定落到某个业务脚本行
+     - 这更像“GUI / UI / Editor event 驱动路径里做投影时用了不可靠相机”，而不是 `PlayerMovement` 自己在报错
+- 当前最可信判断：
+  - 这两类现象大概率不是两套互不相干的问题，而是一个更底层的“相机解析契约过松”问题在不同表面上的两个表现：
+    1. UI/浮层拿错相机做投屏时，容易打出 `Screen position out of view frustum`
+    2. 运行时主相机 / 跟随目标解析过松时，镜头偶发飘走后又缺少强自愈，会表现成“固定住不照玩家”
+  - 但也要保留一个客观边界：
+    - `frustum` 红字本身更像投屏/GUI问题
+    - “镜头飘走固定住”更像 `CameraDeadZoneSync` 跟随目标/主相机解析问题
+    - 两者不是同一个函数直接导致，但共享同一个更底层的设计缺陷：都在用“太宽松的相机解析兜底”
+- 当前建议修法（设计层）：
+  1. 先收一份统一的“世界投影相机解析”契约：
+     - 不能再到处 `Camera.main ?? first camera`
+     - 必须只承认“当前 scene 中有效、启用、带 `MainCamera` 语义、最好带 `CinemachineBrain` 且正在输出世界视图”的相机
+     - 找不到就返回 `null`，让调用方本帧跳过，而不是硬投
+  2. 所有 UI world-anchor 调用点在投影前必须先做 `viewport/z` 有效性判断：
+     - 如果世界点不在当前相机前方或视口无效，直接 `return`
+     - 不再盲调 `WorldToScreenPoint`
+  3. `CameraDeadZoneSync` 不能再只判断 `Follow` “还活着”：
+     - 必须判断它是否仍是“当前最佳玩家目标”
+     - 不是的话就重绑，而不是继续假定正常
+  4. `GameInputManager / WorldSpawnDebug / DayNightOverlay` 这些缓存世界相机的系统也要并到同一解析器，避免场景切换/调试期间把错误相机缓存住
+- 当前阶段判断：
+  - 我现在认为“问题核心是相机解析链过松”这个判断，已经比之前单纯说“某个 UI 拿错相机”更完整也更客观；
+  - 但还没进代码实修，所以当前只能 claim：
+    - `结构级修法已明确`
+    - 不能 claim `问题已修掉`
+- thread-state：
+  - 本轮只读分析，未跑新的 `Begin-Slice / Ready-To-Sync / Park-Slice`
+  - 当前继续保持 `PARKED`
+
+## 2026-04-06｜方向重锚：彻底剥离导航，只保留“跨场景相机统一跟随”主线，并建立安全 checkpoint
+
+- 当前主线目标：
+  - 用户明确更正：导航线与我无关
+  - 我这条线只保留：
+    - 跨场景相机统一跟随
+    - `Screen position out of view frustum`
+    - 世界锚点 UI 投屏安全
+    - 切场后的相机接管 / 自愈
+- 这轮实际做成了什么：
+  1. 已把当前 slice 从 `navigation-camera` 改锚为纯 `camera-follow`
+  2. 已把方向文档收成：
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\2026-04-05_跨场景相机统一跟随_方向锚定与安全收口清单.md`
+  3. 已从文档里显式删除“导航归我收”的口径，并把白名单改成纯相机 / scene transition / 世界锚点 UI：
+     - `CameraDeadZoneSync`
+     - `SpringDay1UiLayerUtility`
+     - `NpcWorldHintBubble`
+     - `SpringDay1WorkbenchCraftingOverlay`
+     - `SpringDay1WorldHintBubble`
+     - `SceneTransitionTrigger2D`
+  4. 已把 `GameInputManager / WorldSpawnDebug / DayNightOverlay` 从“我的 checkpoint 白名单”降级成“协作观察位”，不再算进我这条线的提交范围
+  5. 已完成一次安全 checkpoint 提交：
+     - commit: `ceaa1df7d7f702b59ba8961e6d31cdeacb0eb6e0`
+     - message: `checkpoint(camera): anchor cross-scene follow baseline`
+- 这轮验证结果：
+  - `mcp validate_script`：
+    - `SceneTransitionTrigger2D.cs` => `0 error / 0 warning`
+    - `NpcWorldHintBubble.cs` => `0 error / 1 warning`
+    - `SpringDay1WorldHintBubble.cs` => `0 error / 1 warning`
+    - `SpringDay1WorkbenchCraftingOverlay.cs` => `0 error / 1 warning`
+  - `read_console(error, warning)` => `0 entries`
+  - CLI `sunset_mcp.py no-red` 整仓模式被 `82` 个 changed `.cs` 文件的共享现场阻断，因此这轮 no-red 只对我白名单文件做了显式判定，不再误收全仓
+- 当前关键决策：
+  - 以后这条线不再以“导航/相机混合问题”表述
+  - 正确口径固定为：
+    - 相机解析契约
+    - 玩家根解析契约
+    - `CameraDeadZoneSync` 自愈
+    - 世界锚点 UI 投屏守卫
+- 当前阶段：
+  - 方向锚定已完成
+  - 安全 checkpoint 已完成
+  - 代码本体尚未开始按统一契约实修
+- 当前恢复点：
+  - 后续 reopen 时，直接从：
+    - `CameraDeadZoneSync.cs`
+    - `SpringDay1UiLayerUtility.cs`
+    - `NpcWorldHintBubble.cs`
+    - `SpringDay1WorldHintBubble.cs`
+    - `SpringDay1WorkbenchCraftingOverlay.cs`
+    - `SceneTransitionTrigger2D.cs`
+    这 6 个点继续
+  - 不再回头碰导航/NPC桥水边界/玩家建路线
+- thread-state：
+  - 本轮已跑 `Begin-Slice`
+  - 收尾已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+
+## 2026-04-06｜实修推进：纯相机线已开始统一世界相机解析、UI 投屏守卫与跟随自愈；误删的导航历史材料已恢复留档
+
+- 当前主线目标：
+  - 只收“跨场景相机统一跟随 + 世界锚点 UI 安全投屏 + frustum 红字抑制”；
+  - 不再把导航算进当前施工面。
+- 本轮子任务：
+  1. 纠正我自己刚才对“删掉导航相关内容”的误解
+  2. 保留历史材料，只把当前代码施工面收窄到纯相机白名单
+  3. 开始真正落地统一相机契约
+- 本轮实际完成：
+  1. thread-state：
+     - 已执行 `Begin-Slice`
+     - 收尾已执行 `Park-Slice`
+     - 当前状态回到 `PARKED`
+  2. 已恢复误删的 3 份 tracked 历史导航 prompt：
+     - `2026-04-03_导航分工prompt_01.md`
+     - `2026-04-03_导航分工prompt_02.md`
+     - `2026-04-03_导航分工prompt_03.md`
+  3. 那份当时未进 git 的 `2026-04-03_导航系统_NPC桥水边缘接线prompt_01.md` 已按 thread memory 重建为“留档恢复稿”：
+     - 只用于补回历史材料
+     - 不代表当前线程重新接回导航施工
+  4. `SpringDay1UiLayerUtility.cs`
+     - 新增统一世界相机解析
+     - 不再退回“任意第一个 Camera”
+     - 新增 `TryProjectWorldToCanvas / TryProjectWorldToScreen`
+     - 统一要求：没合法世界相机、点在相机后方、视口非法，就本帧直接返回
+  5. `NpcWorldHintBubble.cs`
+     - 改为走统一投屏守卫
+     - 投屏非法时直接把自身 alpha 压到 0，不再沿旧锚点硬显示
+  6. `SpringDay1WorldHintBubble.cs`
+     - 同样改为走统一投屏守卫
+     - 视口无效时不再继续硬投屏
+  7. `SpringDay1WorkbenchCraftingOverlay.cs`
+     - 主面板和 floating progress 都改成统一投屏守卫
+     - 投屏失败时不再继续沿旧屏幕坐标保留错误位置
+     - 顺手移除了本地旧相机 helper，避免继续走双入口
+  8. `CameraDeadZoneSync.cs`
+     - 不再靠 `Player` tag 猜跟随目标，只认真正的 `PlayerMovement`
+     - `HasUsableTrackingTarget()` 不再只看“Follow 活着没”，而是会检查它是不是当前最佳玩家根
+     - `ResolveMainCamera()` 不再使用宽松 `Camera.main / first camera` 兜底，改为按 `MainCamera tag + CinemachineBrain + scene` 打分
+     - `ResolveCinemachineCamera()` 也改为按 `scene + Follow 是否真是玩家根 + priority` 打分
+- 本轮验证结果：
+  - `mcp validate_script Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs` => `0 error / 0 warning`
+  - `mcp validate_script Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs` => `0 error / 3 warning`
+  - `mcp validate_script Assets/YYY_Scripts/Story/UI/NpcWorldHintBubble.cs` => `0 error / 1 warning`
+  - `mcp validate_script Assets/YYY_Scripts/Story/UI/SpringDay1WorldHintBubble.cs` => `0 error / 1 warning`
+  - `mcp validate_script Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs` => `0 error / 1 warning`
+  - `git diff --check -- [上述 5 个脚本]` => 仅有 CRLF/LF 提示，无 diff 格式错误
+  - `read_console(Error,Warning)` 当前仍有外部现场噪音：
+    - `Missing Script`
+    - `OcclusionTransparency` 注册失败
+    - 字体省略号缺字
+    - 这些都不是本轮相机白名单新引入的问题
+- 当前判断：
+  1. 这轮已经不再是“相机方向锚定”，而是开始了真正的代码契约实修；
+  2. 当前最核心的收口是：
+     - 世界相机解析不能再宽松乱拿
+     - 世界锚点 UI 在非法相机/非法视口时宁可不画，也不能硬投
+     - 跟随链不能再只靠“当前 Follow 还活着”判断正常
+  3. 但这轮仍然只是：
+     - `结构 / checkpoint` 已推进
+     - `targeted probe / 局部验证` 已推进
+     - 还没有拿到用户的 `真实入口体验` 终验
+- 当前恢复点：
+  - 下一轮如果继续，只盯：
+    - `Primary / Town` 切场后的镜头是否还会漂走
+    - 世界提示 / 工作台是否还会再冒 `Screen position out of view frustum`
+  - 不再回导航、不再回 scene 实写、不再把别的系统噪音算到这条线
+
+## 2026-04-06｜继续追 startup 红字：这次 `Screen position out of view frustum` 更像 `ItemTooltip` 的 UI 边界换算，不是导航也不是我前面那三个世界提示气泡
+
+- 当前主线目标：
+  - 继续只收纯相机 / 屏幕投影线；
+  - 解决用户 fresh 反馈的“刚进 Play 就立刻爆 `Screen position out of view frustum`”。
+- 本轮子任务：
+  1. 重新进 slice，做一次最小 live 红字定位
+  2. 排掉“是我刚改的三个 world hint bubble 又在硬投屏”这个误判
+  3. 找出新的直接调用点并修掉
+- 本轮实际完成：
+  1. 已执行 `Begin-Slice`
+  2. 先做全仓收缩：
+     - 当前运行时代码里直接做 `WorldToScreenPoint` 的常驻链并不多
+     - 我刚改过的 `NpcWorldHintBubble / SpringDay1WorldHintBubble / SpringDay1WorkbenchCraftingOverlay` 都已经走统一守卫
+  3. 新定位出的高嫌疑点是：
+     - `Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`
+     - `ClampLocalPointToFollowBounds()`
+     - 这里之前仍在对 `_followBoundsRect` 的 UI 世界角点调用 `RectTransformUtility.WorldToScreenPoint(_uiCamera, ...)`
+     - 这类点最容易打出用户现在这种“`y=-2`，只越界一点点”的红字
+  4. 已实修 `ItemTooltip.cs`：
+     - 不再把 UI 角点先投到屏幕坐标
+     - 改为直接用 `RectTransformUtility.CalculateRelativeRectTransformBounds(canvasRect, _followBoundsRect)` 在同一 UI 本地空间算 clamp bounds
+     - 这样既满足 tooltip 跟随边界约束，也彻底避开那条屏幕投影红字链
+  5. 已做脚本级闸门：
+     - `mcp validate_script Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs` => `0 error / 1 warning`
+     - `git diff --check -- Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs` => 通过
+  6. 已做最小 live 复验：
+     - 先 `clear console`
+     - 退 Play 再重新进 Play
+     - fresh `read_console(Error,Warning)` => `0 entries`
+     - 这次没有再立刻看到 startup 的 `frustum` 红字
+- 当前判断：
+  1. 这次用户报的 startup 红字，更像是 `ItemTooltip` 的 UI 边界换算残留，不是导航系统，也不是我前面刚收过的 world hint bubble 那条链
+  2. 目前最小 live smoke 已过，所以这轮我认为这个具体红字大概率已经切掉了
+  3. 但仍要保持诚实边界：
+     - 我现在只能说“当前最小复验没再复现”
+     - 还不能说“此后永远不会再有任何 frustum 红字”
+- 当前恢复点：
+  - 让用户优先再测一次“刚进 Play 是否立刻爆这条红字”
+  - 如果还复现，下一轮直接抓当时活跃 UI 物体和更完整 runtime 现场
+  - 仍不回导航
+- thread-state：
+  - 本轮已 `Begin-Slice`
+  - 收尾已 `Park-Slice`
+  - 当前状态：`PARKED`
+
+## 2026-04-06｜用户追问“到底为什么一直报、到底是不是我的责任”后的归责复判：这是同一类 Unity 红字下的多发射点问题，最新这条更像 inventory/UI 屏幕坐标链，不是纯相机线独占
+
+- 当前主线目标：
+  - 不再泛说“相机问题”；
+  - 要把这条 `Screen position out of view frustum` 的技术形态、概率原因、以及责任边界说清楚。
+- 本轮子任务：
+  1. 对最新报错形态做技术归类
+  2. 区分“原始责任面”和“我当前接手后的收口责任”
+  3. 如有必要，顺手把剩余同类危险入口再补一层保险
+- 本轮新增判断：
+  1. 用户最新这条报错形态是：
+     - `screen pos x/y` 在 camera rect 内
+     - `z = 0`
+  2. 这和我前面处理过的“world hint bubble 把世界点硬投到屏幕上”不是同一形态；
+  3. 它更像：
+     - `ScreenToWorldPoint`
+     - 或 `ScreenPointToLocalPointInRectangle / ScreenPointToRay`
+     这一类直接消费屏幕点的调用链
+  4. 这也是它“看起来像概率触发”的原因：
+     - 它往往和启动时鼠标位置
+     - UI 是否刚好显示
+     - 当前 GameView/Canvas/Camera 的初始化时机
+     有关
+     - 所以不是每次都稳定复现
+- 本轮证据：
+  1. 全仓收缩后，当前运行时代码里真正高风险的屏幕坐标入口不多：
+     - `GameInputManager`
+     - `WorldSpawnDebug`
+     - `PlacementManager`
+     - `ItemTooltip`
+     - `HeldItemDisplay`
+  2. 其中：
+     - `GameInputManager` 已显式用 `worldPlaneDistance`
+     - `WorldSpawnDebug` 已显式用 `worldPlaneDistance`
+     - `PlacementManager` 已显式设置 `mousePos.z = -mainCamera.transform.position.z`
+     - 所以这三者并不符合“`z=0`”这条最新报错形态
+  3. 相反：
+     - `ItemTooltip.FollowMouse()` 直接把 `Input.mousePosition` 喂给 `ScreenPointToLocalPointInRectangle`
+     - `HeldItemDisplay.FollowMouse()` 也直接把 `Input.mousePosition / pinnedScreenPosition` 喂给 `ScreenPointToLocalPointInRectangle`
+     - 这更符合“启动偶发、跟鼠标/显示状态相关、报 `z=0`”的特征
+- 本轮实际改动：
+  1. `ItemTooltip.cs`
+     - 在 `FollowMouse()` 前补了 `ClampScreenPositionToCanvas()`
+     - 不再让原始鼠标屏幕点直接裸喂 UI 换算
+  2. `HeldItemDisplay.cs`
+     - 同样补了 `ClampScreenPositionToCanvas()`
+     - 对 overlay / camera canvas 分别走安全屏幕矩形
+- 当前责任判断：
+  1. 不是导航责任；
+  2. 也不能把这条最新红字全算成“我这条纯相机线自己制造的”；
+  3. 更准确的说法是：
+     - 这是 Sunset 里“屏幕坐标 -> UI / 世界坐标”这一类老问题的多发射点现象
+     - 我前面相机线修掉的是其中一个发射点
+     - 最新这条更像 inventory/UI 入口（`ItemTooltip / HeldItemDisplay`）的同类问题
+  4. 但既然我现在已经接手这条红字排查，并且已经动了相关代码，
+     - 当前继续把这类剩余 emitter 找干净，已经是我的收口责任
+     - 我不会再把它甩回导航
+- 当前阶段：
+  - 根因层面的解释已经更清楚了；
+  - 代码上也补了第二层保险；
+  - 但 fresh 编译证据当前被 CLI/MCP 基线阻断，只能 claim“静态归类 + 局部修补成立”
+- 当前恢复点：
+  - 如果用户还会遇到同样红字，下一轮继续抓：
+     - 当时鼠标是否正压在 UI 上
+     - `ItemTooltip / HeldItemDisplay` 是否正显示
+     - 是否还有第三个 sibling emitter
+  - 不回导航
+- thread-state：
+  - 本轮已 `Begin-Slice`
+  - 收尾已 `Park-Slice`
+  - 当前状态：`PARKED`
+
+## 2026-04-06｜直接落地：inventory/UI 的两处屏幕点入口已继续收紧，但 fresh Play 复验被外部 `SpringDay1NpcCrowdDirector.cs` 编译红阻断
+
+- 当前主线目标：
+  - 用户要求我直接开始修，不再停留在“归因分析”；
+  - 这轮只收 inventory/UI 屏幕点链上的最小修复，不扩到 shared hotspot。
+- 本轮子任务：
+  1. 对 `ItemTooltip / HeldItemDisplay` 继续补最后一层屏幕点保险
+  2. 做脚本级闸门
+  3. 进一次最小 PlayMode smoke 看这条红字是否还会立刻出现
+- 本轮实际完成：
+  1. 由于 `GameInputManager` 是 B 类共享热点，本轮切片主动收窄为：
+     - `Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`
+     - `Assets/YYY_Scripts/UI/Inventory/HeldItemDisplay.cs`
+  2. `ItemTooltip.cs`
+     - `FollowMouse()` 已先做 `ClampScreenPositionToCanvas()`
+     - `IsPointerWithinFollowBounds()` 也不再直接吃裸的 `Input.mousePosition`
+     - 现在同样走统一的屏幕点钳制
+  3. `HeldItemDisplay.cs`
+     - `FollowMouse()` 已对 `Input.mousePosition / pinnedScreenPosition` 统一做 `ClampScreenPositionToCanvas()`
+  4. 脚本级闸门：
+     - `mcp validate_script ItemTooltip.cs` => `0 error / 1 warning`
+     - `mcp validate_script HeldItemDisplay.cs` => `0 error / 0 warning`
+     - `git diff --check -- ItemTooltip.cs HeldItemDisplay.cs` => 仅 CRLF/LF 提示
+  5. 最小 live 验证：
+     - 已清空 console
+     - 已进 Play
+     - 这次 fresh console 没先看到 `frustum` 红字
+     - 但 Play 现场立即被外部编译红截断：
+       - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+       - `CS1501` x2
+       - `CS0103`
+       - `CS0165`
+     - 因此这轮最终只能 claim：
+       - inventory/UI 这刀已经继续落地
+       - live 最终验收被外部 `spring-day1` 方向的 compile red 阻断
+- 当前判断：
+  1. 这轮该修的 UI 屏幕点入口我已经继续收了；
+  2. 当前不能继续假装 live 已彻底通过，因为 `SpringDay1NpcCrowdDirector.cs` 的外部红已经把 fresh Play 现场污染掉了；
+  3. 所以最准确口径是：
+     - 我负责的这刀已落地
+     - fresh live 最终验收待外部编译红清掉后补跑
+- 当前恢复点：
+  - 等 `SpringDay1NpcCrowdDirector.cs` 外部红清掉后，再回到：
+     - `clear console`
+     - `fresh play`
+     - `read_console`
+    做一次真正干净的 startup 红字复验
+- thread-state：
+  - 本轮已 `Begin-Slice`
+  - 收尾已 `Park-Slice`
+  - 当前状态：`PARKED`
+
+## 2026-04-06｜只读调查：我现在对 002批量工具、Primary 层级关系、显示规范的掌握边界
+
+- 当前主线目标：
+  - 用户准备继续追问一个关于 `002批量Hierarchy`、项目层级关系、场景显示规范的严肃问题；
+  - 这轮先把底层事实查清楚，避免再靠印象回答。
+- 本轮子任务：
+  1. 重新核实 `Assets/Editor/Tool_002_BatchHierarchy.cs`
+  2. 用 Unity MCP 读取 `Primary` 当前真实 hierarchy
+  3. 把 `Hierarchy 容器 / Unity Layer / Sorting Layer / 运行时排序脚本` 四套系统拆开
+- 这轮实际做成了什么：
+  1. 确认 `002批量Hierarchy` 当前是编辑器工具，不是运行时工具；它是“手动确认锁定选择”的工作流，含 `Order / Transform / 碰撞器` 三模式。
+  2. 确认它的 `Order` 模式针对的是“静态物体排序”，核心规则是：
+     - `Collider2D.bounds.min.y`
+     - 父无 SR 时回退父节点 Y
+     - `SpriteRenderer.bounds.min.y`
+     - `Transform.position.y`
+     - `Shadow / Glow / Effect` 子物体按命名特殊偏移
+  3. 确认 `StaticObjectOrderAutoCalibrator.cs` 与它属同一静态排序体系。
+  4. 确认 `Primary` 当前现场不是纯文档里的单根 Scene 结构，而是：
+     - root 共 12 个
+     - 真实世界内容主要在 `SCENE/LAYER 1/2/3`
+     - 运行时系统又分散在 `Primary/1_Managers`、`Primary/2_World`、独立 `Camera / Player / NPCs / UI`
+  5. 确认项目显示规范当前真正落地是三条链：
+     - 静态场景：预写 `sortingOrder` + 002/AutoCalibrator
+     - 动态角色：`DynamicSortingOrder`
+     - 工具显示：`LayerAnimSync`，工具永远压玩家上层
+  6. 确认当前文档规范与 live 现场存在两类关键偏差：
+     - `Sorting Layer` 文档比项目实际多，当前真实只有 `Default / Layer 1 / Layer 2 / Layer 3 / Building / CloudShadow`
+     - “挂在哪个楼层容器下”不等于“对象自身 Unity Layer 就是什么楼层”
+  7. 确认当前还有旧口径残留：
+     - `PlacementLayerDetector` 里用 `"LAYER 1/2/3"` 当物理 Layer 名
+     - 但 `TagManager.asset` 当前真实名是 `"Layer 1/2/3"`
+- 本轮没做什么：
+  - 没有改任何 scene / prefab / inspector
+  - 没有进真实施工
+  - 没有新开 `Begin-Slice`
+- 关键结论：
+  - 我现在已经能清楚区分：
+    1. `002批量` 假设的静态排序模型
+    2. `Primary` 当前真实层级结构
+    3. 项目真实 `Sorting Layer`
+    4. 哪些脚本会在运行时改显示层和顺序
+  - 后续如果用户问“某个对象为什么显示不对 / 排序不对 / 层级不对 / 工具为什么算歪”，我可以直接按这四层事实回答，不再混口径。
+- 涉及文件/证据：
+  - `Assets/Editor/Tool_002_BatchHierarchy.cs`
+  - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+  - `Assets/YYY_Scripts/Service/DynamicSortingOrder.cs`
+  - `Assets/YYY_Scripts/Anim/_...._/LayerAnimSync.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementLayerDetector.cs`
+  - `ProjectSettings/TagManager.asset`
+  - `.kiro/steering/layers.md`
+  - `.kiro/steering/systems.md`
+  - Unity MCP 读取到的 `Primary` live hierarchy / renderer 属性
+- 验证结果：
+  - 本轮全是只读证据链；
+  - 没有代码/scene 改动验证；
+  - 当前 thread-state 保持此前的 `PARKED`。
+
+## 2026-04-08｜用户贴树与二楼地表遮挡图后的最新判断：错在 Sorting Layer 语义，不在 `-Y*100` 公式本身
+
+- 当前主线目标：
+  - 用户要我结合项目实际判断“当前层级/排序规则是不是根上就做错了”，并要我后续亲自修，不接受只给抽象方案。
+- 本轮子任务：
+  1. 用前一轮已建立的 live 证据链回看树木 vs `Layer 2` 地表的遮挡关系
+  2. 判断问题究竟在 `sortingOrder` 公式，还是在 `Sorting Layer` 职责分工
+- 本轮实际做成了什么：
+  1. 明确确认：当前主要错误不是 `sortingOrder = -Round(y * 100)` 本身。
+  2. 明确确认：当前把 `Layer 1 / Layer 2 / Layer 3` 当成 `Sorting Layer` 的绝对渲染优先级，才是导致一楼高树冠被二楼地表整体盖掉的真根因。
+  3. 现场证据已经足够支撑这个结论：
+     - `Layer 1 - Base` 与一楼静态物在 `Sorting Layer = Layer 1`
+     - `Layer 2 - Base / Wall` 在 `Sorting Layer = Layer 2`
+     - 跨层比较时会先输在 `Sorting Layer`，根本轮不到 `sortingOrder` 去纠正
+  4. 进一步确认：当前树/房等大静态物多数还是单体渲染，没有拆成前后片；因此一旦和台地/坡面/二楼地表做复杂前后关系，就更容易整体出错。
+- 关键结论：
+  1. 当前渲染系统把两件事混了：
+     - 逻辑楼层
+     - 屏幕前后关系
+  2. 这条线后续不应再继续沿“楼层 Sorting Layer + 静态 `-Y*100`”补丁式修补。
+  3. 正确方向应是：
+     - 楼层继续服务导航/交互/可达性
+     - 渲染分成地表域、世界物体域、前景域、UI域
+     - `002批量` / `StaticObjectOrderAutoCalibrator` 改成服务共享世界渲染层，而不是继续服务“楼层就是显示层”
+- 当前阶段：
+  - 这轮只读归因已成立；
+  - 还没进入真实施工；
+  - 但已经足够说明旧规则不能继续当真理修下去了。
+
+## 2026-04-06｜只读核实：UI 线 formal one-shot / resident fallback 当前真实状态
+
+- 当前主线目标：
+  - 用户要求不改业务文件，只读核对两份 UI 回执，最短说明 formal one-shot / resident fallback 已做成什么、还没闭环什么，以及若改走 `Town` 原生 resident，UI prompt 是否要改。
+- 本轮子任务：
+  1. 读取并互校：
+     - `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/2026-04-06_UI线程给day1全量回执_01.md`
+     - `.kiro/specs/900_开篇/spring-day1-implementation/003-进一步搭建/2026-04-06_UI线程_给day1阶段回执_25.md`
+  2. 只提炼玩家面 contract，不扩写无关 UI backlog。
+- 本轮实际做成了什么：
+  1. 确认这组话题的较新口径以 `阶段回执 25` 为主，`全量回执 01` 提供较早总盘点背景。
+  2. 确认 formal one-shot 已有 3 条直接玩家面结果：
+     - formal 候选竞争不再被更近的 informal / resident 抢走；
+     - formal 左下角 copy 已稳定回到正式任务入口口径；
+     - formal phase 会主动压掉 nearby feedback 与旧环境气泡残影。
+  3. 确认 resident fallback 已有最小回落：
+     - formal consumed 后不再一律显示 `闲聊`；
+     - 至少会落成 `日常交流 / 按 E 聊聊近况`。
+  4. 确认当前未闭环点：
+     - resident 仍是 minimal fallback，不是 `Town` 原生 resident 的完整玩家面 contract；
+     - 还缺 resident / informal 完整分层、phase-specific 文案矩阵和 fresh live 终验证据。
+  5. 确认若方向改成 `Town` 原生 resident，UI 下一轮 prompt 需要改，重点应改成：
+     - resident 何时接管；
+     - resident 与 informal 如何分层；
+     - 文案矩阵；
+     - 是否继续压 nearby bubble；
+     - 哪些 fresh live 图才算闭环。
+- 关键判断：
+  - 这轮最核心的真实状态不是“UI 已经做完”，而是“formal contract 已明显更真，resident 已开始显式回落，但体验仍未终验”。
+- 最薄弱点：
+  - 当前证据仍是文档层互校，不是 fresh live 图；
+  - 因此只能做静态推断，不能替 UI 线偷报体验过线。
+- 线程状态：
+  - 本轮始终只读，未进入真实施工；
+  - 未跑 `Begin-Slice`；
+  - 当前 thread-state 仍保持此前的 `PARKED`。
+
+## 2026-04-09｜只读静态排查：Day1 demo 打包/启动卡顿五文件责任链
+
+- 当前主线目标：
+  - 用户要求不改文件，只做 Sunset 仓库里的静态排查，把 Day1 demo 打包/启动卡顿在 5 个指定文件中的当前最可能责任链压成极短结论，并判断哪些值得 `day1` 先亲自收、哪些应留给存档/UI 协作、以及这轮若不先修会不会卡住 Day1 live 验收。
+- 本轮子任务：
+  1. 复核 [DialogueChineseFontRuntimeBootstrap.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Dialogue/DialogueChineseFontRuntimeBootstrap.cs)、[SaveManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/SaveManager.cs)、[PersistentPlayerSceneBridge.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)、[NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs)、[NavGrid2DStressTest.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs)。
+  2. 修正我上一轮里已经过时的静态判断，不再把 `SaveManager Awake` 与字体 `BeforeSceneLoad` 本体误当成当前唯一主重活。
+- 新结论：
+  1. 当前最像 build-only 启动卡顿的主嫌之一是 [SaveManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/SaveManager.cs) 自动 baseline 捕获链：`ScheduleFreshStartBaselineCapture() -> CaptureFreshStartBaselineRoutine() -> CollectFullSaveData() -> JsonUtility.ToJson() -> File.WriteAllText()`；build 下旧存档迁移/工厂初始化反而已被延后，不再是这轮首嫌。
+  2. 当前最像 build-only 首批 UI 峰值的主嫌之一是 [DialogueChineseFontRuntimeBootstrap.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Dialogue/DialogueChineseFontRuntimeBootstrap.cs) 首批文字出现时的动态补字 / atlas 准备，而不是 `BootstrapBeforeSceneLoad()` 自己就做完整大预热。
+  3. [PersistentPlayerSceneBridge.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs) 仍是 `day1` own 的强嫌疑启动放大器：`sceneLoaded/StartupFallbackRebind -> RebindScene()` 会叠加 `FindObjectsByType<>`、runtime root promote、UI rebuild、以及下游 nav 刷新。
+  4. [NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs) 仍是 bridge 链下游重活点：`OnEnable()` 默认整图 `RebuildGrid()`，`RefreshGrid()` 又会再做全量 source refresh + rebuild。
+  5. [NavGrid2DStressTest.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs) 只有当前 demo 是 Development Build / `Debug.isDebugBuild` 时才该上升优先级；release 打包默认不是第一主嫌。
+- 分类判断：
+  - `day1` 自己可以直接收一刀：`PersistentPlayerSceneBridge + NavGrid2D`；若当前 demo 确认是 Development Build，再顺手看 `NavGrid2DStressTest`。
+  - 更适合留给存档 / UI 协作：`SaveManager` baseline capture；`DialogueChineseFontRuntimeBootstrap` 首批中文字体 warmup。
+- 阻塞判断：
+  - 这轮问题不会硬阻塞 Day1 主链继续做 editor/live 功能验收；
+  - 但会软阻塞“打包版启动顺滑 / 首屏不卡”的 demo 口验收。
+- 自评：
+  - 这轮我最有把握的是 `SaveManager baseline capture` 和 `bridge -> nav` 两条链；最不确定的是 `NavGrid2DStressTest` 是否真的进入了当前 demo 的构建配置。
+- thread-state / 恢复点：
+  - 本轮始终只读，未进入真实施工，未跑 `Begin-Slice`；
+  - 当前仍保持此前的 `PARKED`；
+  - 若后续转施工，最稳的下一步是先验证并压缩 `SaveManager baseline capture` 与 `bridge -> nav` 峰值，再决定是否把字体 warmup 交给 UI 线拆。
+
+## 2026-04-11｜只读总审：2D 透视 / 排序 / 层级系统为什么长期失真，以及最可靠的收口方向
+
+- 当前主线目标：
+  - 用户不再满足于“某个房子 / 某个树 / 某个桥 order 不对”的局部修补；
+  - 这轮要我彻查整个项目里 2D 透视、Sorting Layer、sortingOrder、楼层结构、Prefab 分片与批量工具的真实关系，并给出最可靠、最值得继续走的方向。
+- 本轮子任务：
+  1. 复核 `002批量Hierarchy` / `StaticObjectOrderAutoCalibrator` / `DynamicSortingOrder` / `PlacementManager` / `PlacementLayerDetector`
+  2. 复核 `Primary.unity`、`House 2.prefab`、`House TP 4.prefab`
+  3. 判断“玩家理解的前后关系”与“项目当前真正渲染规则”是否一致
+  4. 给出不是空话、而是基于当前项目现场的收口方向
+- 这轮实际确认的关键事实：
+  1. 当前项目不是一个统一排序系统，而是至少 4 套机制并存：
+     - Scene/Prefab 里手写 `sortingOrder`
+     - `002批量` / `StaticObjectOrderAutoCalibrator` 的静态单体自动排序
+     - `DynamicSortingOrder` 的动态 Y 排序
+     - `PlacementManager` / `WorldSpawnService` 这类运行时生成物体自己的硬编码口径
+  2. `002批量` 和 `StaticObjectOrderAutoCalibrator` 的核心假设，都是“每个 SpriteRenderer 按自己底部 Y 独立算 order，只对 shadow/glow/effect 做极少数特判”；这套假设更适合单体静态物，不适合多片建筑。
+  3. `House 2.prefab` 不是单片建筑，而是根对象 `House 2` 加三个子片：
+     - `House 2_0`
+     - `House 2_1`
+     - `House 2_2`
+     三片都有自己的 `SpriteRenderer`，其中左右片还各自带 `PolygonCollider2D`。
+  4. `Primary.unity` 里这个房子实例确实还带 scene 级分片 override：
+     - `-880`
+     - `-879`
+     - `-872`
+     这说明它原本就被当成“有内部前后语义的建筑”，不是普通单体物。
+  5. `House TP 4.prefab` 这种 Tilemap 房屋 prefab 走的是另一套口径：
+     - 内部多个 TilemapRenderer
+     - 固定 `sortingOrder = 1~11`
+     - 不是 `-Y*100`
+     说明项目里其实已经出现过“建筑要保留内部固定层次”的另一条思路，只是没有被提炼成统一 contract。
+  6. 真实 `TagManager.asset` 当前 Sorting Layers 只有：
+     - `Default`
+     - `Layer 1`
+     - `Layer 2`
+     - `Layer 3`
+     - `Building`
+     - `CloudShadow`
+     而 `.kiro/steering/layers.md` 仍写着 `Background / Ground / Effects / UI` 那套旧规范，文档与现场已经漂移。
+  7. `PlacementLayerDetector` 仍在用 `"LAYER 1/2/3"` 这种旧字符串，而当前 Unity Layer 真名是 `"Layer 1/2/3"`；这进一步说明项目里“楼层名 / Unity Layer / Sorting Layer / hierarchy 容器名”已经长期混口。
+  8. `PlacementManager` 放置物时，会把所有子 Renderer 同步成玩家当前 `sortingLayerName`，再给全部子 Renderer 写同一个 `sortingOrder`（只有 Shadow -1）；这对多片物体同样会把内部语义压平。
+  9. `WorldSpawnService` / `WorldItemPool` 默认世界掉落物仍硬编码写死 `sortingLayerName = "Layer 1"`；这又是另一条与场景楼层/动态对象并行的旧口径。
+  10. 当前资产现场几乎没有真正落地的 `SortingGroup`；工程里只有一个编辑器工具 `TilemapToColliderObjects.cs` 在提它，说明“多片整体排序 contract”还没正式进入当前主数据。
+- 当前判断：
+  1. 用户感受到的“判定标准和实际标准不一致”，本质上是真的。
+  2. 玩家直觉期待的是：
+     - 下面的脚点更靠前
+     - 树冠/屋顶不会被不相关楼层地表整块吃掉
+     - 建筑前片/后片有稳定语义
+  3. 但项目当前真正执行的是：
+     - 先看 `Sorting Layer`
+     - 同层再看 `sortingOrder`
+     - 不同系统再各自额外改 layer/order
+     所以表面上像“order 算错”，根上其实是“排序职责没有分层”。
+  4. 当前最大根因不是 `-Y*100` 公式本身，而是把“楼层语义”和“屏幕前后关系”绑死在同一套 `Sorting Layer = Layer 1/2/3` 上，再叠加多套独立脚本/工具各自写 order。
+  5. 房子之所以特别怪，不是因为它最难，而是因为它最早把这个系统缺陷暴露出来：
+     - 它属于多片建筑
+     - 但工具和运行时大多按单体物处理它
+     - 所以你即使“全场跑过工具”，房子也依然可能失真
+- 这轮最可靠的方向锚定：
+  1. 不要再把 `002批量` 当成“全项目排序真理”。
+  2. 后续真正值得收的，不是继续手调每个 order，而是先把对象分型：
+     - 纯地表/楼层 Tilemap
+     - 单体静态物
+     - 多片建筑/桥/前后片遮挡件
+     - 动态角色/动态放置物/掉落物
+  3. 真正可靠的渲染 contract 应该拆成两层：
+     - 楼层/导航/碰撞：继续服务“在哪一层走、能不能交互、能不能到达”
+     - 渲染前后：重新定义共享的世界渲染域，而不是继续让 `Layer 1/2/3` 同时承担楼层和前后关系
+  4. 多片建筑必须单独立约：
+     - 不能再让每个 child renderer 各自按底部 Y 自由算
+     - 要么按“根锚点 + 子片固定偏移”收
+     - 要么只对“永远整体前后”的纯装饰群选择性引入 `SortingGroup`
+     - 但不能把 `SortingGroup` 当万能药一锅端
+  5. 对项目当前现场来说，最值得继续走的不是“再发明一个更复杂的 002”，而是“统一排序服务 + 建筑专用 contract + 放置/掉落接入同一渲染口径”。
+- 当前最薄弱点：
+  - 这轮没有做 live runtime 复现，只做了静态审计；
+  - 所以我能高把握 claim“结构性根因已经压实”，但不能 claim“体验已经收好”。
+- thread-state / 恢复点：
+  - 本轮全程只读，未进入真实施工，未跑 `Begin-Slice`
+  - 当前仍保持此前 `PARKED`
+  - 如果下一轮转施工，最稳的第一刀不该是“全场重跑 002”，而应先选一个最小垂直切片把“单体物 contract”和“多片建筑 contract”真正分开，再决定如何迁回 `Primary/Town`
+
+## 2026-04-11｜只读复核：House 2 现在这份拆法“方向对了一半，但还没拆到排序真正稳”
+
+- 当前主线目标：
+  - 用户继续追问“我现在房子这样拆到底对不对”，要求我直接基于当前 prefab 现场判断，而不是再给抽象排序方案。
+- 本轮子任务：
+  1. 只读复核 `House 2.prefab` 当前分片、位置、Sprite 尺寸和碰撞
+  2. 判断这份拆法到底是在解决“前后语义”，还是只是在做局部补丁
+- 这轮确认的事实：
+  1. `House 2.prefab` 当前根下只有 3 片：
+     - `House 2_0`：大主体，`SpriteRenderer size = 16.125 x 12`
+     - `House 2_1`：左下小片，`size = 1.75 x 0.6875`
+     - `House 2_2`：右下小片，`size = 2 x 0.8125`
+  2. 三片里：
+     - 大主体 `House 2_0` 仍然吞了几乎整栋房子的绝大多数视觉信息
+     - 左右两小片只是底边很小的局部补片
+  3. 当前碰撞上：
+     - `House 2_0` 自己已有一条较大的底部 `PolygonCollider2D`
+     - `House 2_1 / House 2_2` 也各自带小 `PolygonCollider2D`
+- 当前判断：
+  1. 如果用户这次拆分的目标只是“把房子底边两个容易出错的小角单独拿出来”，那这份拆法方向是对的。
+  2. 但如果目标是“让房子以后排序稳定，不再总出奇怪遮挡”，这份拆法还不够。
+  3. 根因是：
+     - 真正应该被拆开的，是“后主体”和“前遮挡语义”
+     - 现在最大的 `House 2_0` 仍然把屋顶/后墙/前立面混在同一张大图里
+     - 左右两小片太小，不能真正承担“整栋建筑前片”的职责
+  4. 所以这份 prefab 当前更像“局部补丁式拆分”，还不是“正式建筑排序拆分”。
+- 最稳的下一步建议：
+  - 建筑类 prefab 以后至少要按下面 3 类语义拆，而不是只拆两个角：
+    1. 后主体片：屋顶、后墙、绝大部分主体
+    2. 前遮挡片：会盖住玩家的前檐/门廊/前柱/前沿
+    3. 碰撞片：单独服务物理阻挡，不和渲染前后语义绑死
+- thread-state：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前仍保持 `PARKED`
+
+## 2026-04-11｜House 2 局部急救落地：只收一个 prefab，可回退，不碰 Primary
+
+- 当前主线目标：
+  - 用户急着打包，先把 `House 2` 做成一个可回退的局部稳妥版本，不扩成“全局 2D 排序系统重构”。
+- 本轮子任务：
+  1. 只改 `Assets/222_Prefabs/House/House 2.prefab`
+  2. 只给它新增并接入独立切片资源 `Assets/Sprites/House/House 2_split.png(.meta)`
+  3. 不碰 `Primary.unity`
+- 本轮进入真实施工前已做的兜底：
+  - 先前已跑 `Begin-Slice`，本轮沿同一切片继续。
+  - 已把原始 prefab 备份到：
+    - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\house2-prefab-backups\2026-04-11_13-48-44\House 2.prefab.bak`
+  - 本轮又额外补备份：
+    - `House 2.prefab.meta.bak`
+    - `House 2_split.png.bak`
+    - `House 2_split.png.meta.bak`
+- 这轮实际改动：
+  1. `House 2_split.png.meta` 不再沿用原图 `guid`，改成独立资源 `guid: 7096f22d779742e2b0c6b91128694ccd`
+  2. 新资源只保留两片：
+     - `House 2_back`
+     - `House 2_front`
+  3. `House 2_back` 取原主图上半主体，`pivot.y = 0.33333334`，这样 `House 2_0` 保持在本地 `0,0,0` 时仍能和原图对齐，不会把原主碰撞一起抬走
+  4. `House 2_front` 取原主图下方前檐/门廊片，挂到 `House 2_1`
+  5. `House 2_1` 改成前片显示，局部位移改为 `{x:0, y:-4.5, z:0}`，并禁用其旧小碰撞
+  6. `House 2_0` 改引用后主体片，保留原大碰撞
+  7. `House 2_2` 旧底角片的 `SpriteRenderer` 和 `PolygonCollider2D` 已禁用，避免重复显示/重复挡路
+- 静态验证结果：
+  - 复读 `prefab/meta` 后，sprite `guid/fileID` 对接正确。
+  - 用 PIL 按当前 `rect + pivot + localPosition` 重拼了一次前后两片，`diff_bbox = None`，说明数学上能无缝还原回原来的 `House 2_0` 图面。
+  - 重拼校验图落在：
+    - `D:\Unity\Unity_learning\Sunset\.codex\artifacts\house2-prefab-backups\2026-04-11_13-48-44\House2_reconstructed_check.png`
+- 当前判断：
+  - 这轮已经把 `House 2` 从“只拆两个底角”推进成了“后主体 + 前片”的局部可用版本。
+  - 但这还不是“全项目建筑排序 contract 已完成”；只是给当前这栋房子做了一个能打包、能回退的最小急救。
+- 遗留与恢复点：
+  - 还没做 Unity 导入后的肉眼终验，所以不能把它说成“体验已最终过线”。
+  - 下一步最合理的是：让用户在 Unity 里看这一个 `House 2` 的实际遮挡是否比原来稳定；如果不满意，直接用备份回退这两个文件即可。
+- thread-state：
+  - 本轮真实施工沿用既有 `ACTIVE`
+  - 收尾后应跑 `Park-Slice`
+
+## 2026-04-11｜只读彻查：房子排序错，不是“整体偏移不够”，而是 002 对建筑多片语义不成立
+
+- 当前主线目标：
+  - 用户追问“为什么树正常，房子不正常；002 到底哪里不对；该怎么收最稳”。
+- 本轮子任务：
+  1. 只读检查 `002批量` 和 `StaticObjectOrderAutoCalibrator`
+  2. 对比现有 `House 1` 与当前被我动过的 `House 2`
+  3. 给出“能打包的正确方向”，但本轮不再继续乱改
+- 这轮钉实的事实：
+  1. `002` 不是按“父物体整体”算一次，而是把父物体下所有 `SpriteRenderer` 逐个重算。
+  2. 排序核心逻辑是：
+     - 自己有 `Collider2D` → 用 `collider.bounds.min.y`
+     - 否则如果父节点没有 `SpriteRenderer` → 直接退回 `parent.position.y`
+     - 再否则才用 `sprite.bounds.min.y`
+  3. 这个逻辑对树是成立的，因为树的父空节点通常就是“种植点/落地点”。
+  4. 但对房子不成立，因为房子根下面混着：
+     - 主体片
+     - 前遮挡片
+     - 门廊/栏杆/柱子
+     - 装饰角片
+     它们不是同一种排序语义，不能全交给“父空节点 Y”或“每片自己底边”。
+  5. 现有项目自己也已经默认“房子不能纯自动算”：
+     - `House 1.prefab` 里就有子片被写成 `sortingOrder = -9999`，也就是故意跳过 002/自动校准。
+  6. 我前面做的 `House 2` split 也把现场搞乱了：
+     - 当前 `House 2_0 / House 2_1` 的 `sortingOrder` 还停在 `0`
+     - `House 2_1` 又没有可参与排序的碰撞
+     - 如果再跑一次 002，它会继续被当成“父空节点挂件”来算，不会自动变成正确的建筑前片 contract
+- 当前判断：
+  1. 不是“取最高点”。
+     - 那样房子后面的人一定会穿帮。
+  2. 也不是“整栋统一往上偏移一点”。
+     - 那只是把判定线整体挪一下，能救一栋，不能成为稳定规则。
+  3. 根因不是你 sprite 画错，而是 prefab 没有把“主体片 / 前遮挡片 / 手工跳过片”这种建筑语义显式标出来，而 002 又只懂树式双层结构。
+  4. 现在最稳的方向是：
+     - 房子走建筑专用 contract
+     - 不再把房子完全当树那套自动排序处理
+- 我认为的正确收法：
+  1. 先回退我对 `House 2` 那次 split 急救改动，不再把它当最终方案。
+  2. 给房子单独立约：
+     - 一个 `baseOrder` 锚点，只由主体碰撞/主体底边来算
+     - 主体片、墙体、屋顶、门柱这类“跟房子同进退”的片，继承 `baseOrder`
+     - 前遮挡片/门廊栏杆这类“专门盖住玩家”的片，走 `baseOrder + frontOffset`
+     - 明确人工片继续允许 `-9999` 跳过
+  3. 也就是说，后面该修的是 `002` 的“建筑模式/建筑语义”，不是继续拍脑袋改房子图片或塞全局偏移
+- 这轮自评：
+  - `8/10`
+  - 判断已经压得比较实，最薄弱的点不是根因，而是本轮还没进入“正式把建筑专用 contract 写进工具”的施工
+- thread-state：
+  - 本轮只读分析，未进入新的真实施工
+  - 当前保持 `PARKED`
+
+## 2026-04-11｜回退 House 2 错误 split，并把建筑模式补进 002 / 自动校准器
+
+- 当前主线目标：
+  - 用户明确要求我先回退前一轮把房子搞乱的改动，再以保守方式把“房子前后都要透视得当”收回工具逻辑。
+- 本轮实际动作：
+  1. 已把 `House 2.prefab` 回退到备份版，恢复原始三片结构。
+  2. 已清掉我实验留下的 `Assets/Sprites/House/House 2_split.png` 与 `.meta`，避免继续污染现场。
+  3. 没再碰房子图片切分；本轮只改：
+     - `Assets/Editor/Tool_002_BatchHierarchy.cs`
+     - `Assets/Editor/StaticObjectOrderAutoCalibrator.cs`
+- 这轮新落地的工具 contract：
+  1. 新增“建筑模式”判断：
+     - `House` / `Building` / `Buildings` 多片对象不再完全沿用树式双层锚点逻辑。
+  2. 对房子会先找“主体片”：
+     - 默认选面积/碰撞面最大的 `SpriteRenderer` 作为 `baseRenderer`
+     - 用它算 `baseOrder`
+  3. 其余子片改成两类：
+     - 普通建筑子片：继承 `baseOrder`
+     - 局部 Y 明显更低的底边前片/门廊片：`Order = Max(自己的底边Order, baseOrder + frontOffset)`
+  4. 这样房子的排序基线统一了，但前檐/前片仍会稳定压在玩家前面，不会再全靠每个子片自己乱算。
+  5. 现有 `-9999` 的人工跳过片仍保留跳过，不会被建筑模式硬覆盖。
+- 当前默认参数：
+  - 建筑前片偏移：`12`
+  - 识别前片的局部 Y 阈值：`1`
+- 当前判断：
+  - 这次不是“继续给房子加 offset”，而是把房子从树逻辑里剥出来，收成“主体统一基线 + 前片稳定前置”的保守版建筑 contract。
+  - 这比继续改图片安全得多，也更接近项目当前已有 prefab 结构。
+- 验证情况：
+  - `git diff --check` 已过。
+  - `Tool_002_BatchHierarchy.cs` 原生 `manage_script validate`：`0 errors / 2 warnings`
+  - `StaticObjectOrderAutoCalibrator.cs` 的 `validate_script`：`owned_errors=0`，但 Unity 侧仍是老 `stale_status`，所以只到 `unity_validation_pending`
+  - fresh console 读取：`errors=0 warnings=0`
+- 剩余真实风险：
+  - 本轮还没直接 live 写场景重新跑房子，只把工具逻辑改对了。
+  - 所以现在能 claim 的是“脚本侧 contract 已收对”，不能 claim“所有房子现场已经自动重排完成”。
+- 下一步恢复点：
+  - 让用户对房子根重新跑一次 `002` 或确认自动校准器在进 Play 前会生效，然后观察房子前后遮挡是否回到统一逻辑。
+- thread-state：
+  - 本轮真实施工已完成，并已执行 `Park-Slice`
+  - 当前状态：`PARKED`
+
+## 2026-04-12｜002批量-Hierarchy 界面精简，首屏改成“功能优先”
+
+- 当前主线目标：
+  - 用户要求把 `002批量-Hierarchy` 工具界面收成简洁明了版本，不要长篇介绍，首屏优先显示核心功能。
+- 本轮子任务：
+  - 只改 `Assets/Editor/Tool_002_BatchHierarchy.cs` 的编辑器界面组织，不改排序、Transform、碰撞器的核心处理逻辑。
+- 本轮实际做成了什么：
+  1. 顶部标题缩成两行短信息，不再像教程页。
+  2. 模式切换改成更紧凑的 `Toolbar + 恢复默认`，减少大按钮占高。
+  3. 锁定对象区压成一块摘要卡：
+     - 同时显示“已锁定数量 / 当前 Hierarchy 选择数量”
+     - 保留 `确认选取 / 清空`
+     - 锁定对象列表改成折叠显示，不再默认铺满。
+  4. `Order` 模式大幅减法：
+     - 长 `HelpBox` 改成短规则说明
+     - 核心参数直接前置
+     - 子物体偏移 / 建筑模式 / Sorting Layer 收进 `高级设置`
+     - 底部大段使用说明收成 `补充说明` 折叠区
+  5. `Transform` / `碰撞器` 模式本轮未扩写，只沿用原有较简洁布局。
+- 关键决策：
+  - 这轮只收“界面表达”，不碰工具核心排序 contract，不把任务扩回房子、scene、导航或 live 现场。
+  - 当前证据层只到 `结构 / checkpoint`，不能把它说成最终体验已验收。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_002_BatchHierarchy.cs`
+- 验证结果：
+  - `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs` 已过。
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/Editor/Tool_002_BatchHierarchy.cs --count 20 --output-limit 10`
+    - 返回：`assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+    - 未能拿到 Unity 侧 live 验证，原因是当前无 active Unity instance。
+- 当前阶段：
+  - 代码侧 UI 精简已落地；仍待用户打开工具看首屏体感是否够简洁。
+- 下一步恢复点：
+  - 如果用户觉得还要再减，只继续收 `Tool_002_BatchHierarchy.cs` 的按钮文案、间距和信息密度，不扩到别的工具或功能线。
+- thread-state：
+  - 本轮沿用既有 ACTIVE 切片 `tool-002-ui-simplify-focus-functions`
+  - 收尾已准备转回 `PARKED`

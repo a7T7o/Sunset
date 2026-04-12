@@ -1,0 +1,47 @@
+# build-cn-tmp-fontfix 线程记忆
+
+## 2026-04-07（build 中文 TMP 字体链修复）
+- 用户目标：
+  - 在不触碰 `Town/Primary/Home` 场景与 `SpringDay1Director.cs` 的前提下，修复 build 后中文丢字/回退 `LiberationSans` 的链路。
+  - 只改授权字体/文本渲染文件，并给出 no-red 证据或 blocker。
+- 当前主线目标：
+  - 把中文 TMP 字体链收敛到 build-safe 的最小可用状态（真实文本 `TryAddCharacters(actualText)` + 中文优先 resolver + TMP Settings/字体库默认链修正）。
+- 本轮子任务：
+  - 统一 `DialogueUI/Prompt/Workbench/Hint/NPCBubble/PlayerBubble` 的字体解析入口，改为走 `DialogueChineseFontRuntimeBootstrap`。
+  - 改 `TMP Settings.asset` 与 `DialogueFontLibrary_Default.asset` 的默认中文链。
+- 本轮完成：
+  - 新版 `DialogueChineseFontRuntimeBootstrap`：
+    - 中文链优先顺序调整为 `V2 -> Pixel -> SoftPixel -> SDF -> BitmapSong`。
+    - 新增统一入口：`ResolveBestFontForText(...)`、`CanRenderText(...)`、`ResolveAndAssign(...)`。
+    - 每次按真实将显示文本做 `TryAddCharacters(actualText)`，并在标签剥离后再做覆盖校验。
+  - 把以下脚本的字体选择/可读判断收敛到统一入口：
+    - `DialogueUI.cs`
+    - `SpringDay1PromptOverlay.cs`
+    - `SpringDay1WorkbenchCraftingOverlay.cs`
+    - `InteractionHintOverlay.cs`
+    - `NpcWorldHintBubble.cs`
+    - `SpringDay1WorldHintBubble.cs`
+    - `NPCBubblePresenter.cs`
+    - `PlayerThoughtBubblePresenter.cs`
+  - 资产侧：
+    - `DialogueFontLibrary_Default.asset` 的默认条目链切到 `DialogueChinese V2 SDF`（含各 key）。
+    - `TMP Settings.asset`：
+      - `m_defaultFontAsset` 改为 `DialogueChinese V2 SDF`
+      - `m_fallbackFontAssets` 改为中文链优先，`LiberationSans` 放末尾
+      - `m_ClearDynamicDataOnBuild` 改为 `0`
+- 关键决策：
+  - 不再依赖固定 seed 预热作为唯一手段；所有关键 UI 文本路径都走统一 resolver + 实时补字。
+  - 默认保持中文字体优先，仅在中文链都不可用时才触及 `TMP_Settings.defaultFontAsset` 的兜底。
+- 验证与结果：
+  - 责任簇 `validate_script` 已跑 3 组（Dialogue/Overlay/Presenter），均返回：
+    - `cli_red_check_assessment = unity_validation_pending`
+    - `owned_errors = 0`
+    - `external_errors = 0`
+    - 但被 `refresh_unity` 缺失与 MCP 基线不可用阻断。
+  - `compile --skip-mcp` 多次重试仍被 `CodexCodeGuard dotnet timeout(60s)` 阻断，未拿到可判定 `no_red`。
+- blocker：
+  - `unity_validation_pending: refresh_unity tool missing / MCP baseline unavailable`
+  - `codeguard timeout: dotnet 20s~60s timed out on compile checks`
+- 恢复点：
+  - 代码与资产修改已落盘，线程状态已 `Park-Slice`（`build-cn-tmp-fontfix`）。
+  - 后续恢复时，先补一轮可用 Unity/CLI compile 证据，再决定是否进入白名单 sync。

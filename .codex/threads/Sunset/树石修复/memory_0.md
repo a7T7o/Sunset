@@ -195,3 +195,392 @@
   - 本轮未跑：`Ready-To-Sync`
   - 当前 live 状态：`PARKED`
   - 停车原因：prefab 本体已从损坏态拉回正常 YAML，等待 Unity 现场最后确认加载错误不再续刷
+
+## 2026-04-03（Stone 批量状态工具快速搭建）
+
+- 用户目标：
+  - 立刻补一个“批量石头管控”工具，状态面要彻底复刻树工具的交付水准，但必须先厘清石头和树木的真实差异。
+- 当前主线目标：
+  - 交付可立即使用的 `Stone` 批量状态工具，同时把石头独有的矿种资源联动做进去，避免“只抄 UI 壳子”。
+- 本轮子任务 / 阻塞：
+  - 子任务：新增 `Tool_005`、补 `StoneController.ApplyBatchEditorState(...)`、补 Inspector 快捷入口；
+  - 当前阻塞：无代码 blocker；只缺 Unity 编辑器内的真实烟测证据。
+- 已完成事项：
+  1. 进入真实施工前已登记：
+     - `Begin-Slice`
+     - thread = `树石修复`
+     - slice = `Stone 批量状态工具快速搭建`
+  2. 新增：
+     - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs.meta`
+  3. 新工具支持批量改：
+     - `StoneStage`
+     - `OreType`
+     - `OreIndex`
+     - `currentHealth`
+  4. 扩展 `StoneController.cs`：
+     - 新增 `ApplyBatchEditorState(...)`
+     - 阶段/矿种/含量改动后自动刷新 Sprite 与 Collider
+     - `OreType` 变更到 `C1/C2/C3` 时自动改 `spriteFolder/spritePathPrefix`
+  5. 扩展 `StoneControllerEditor.cs`：
+     - 在“当前状态”区新增 `选中父物体并打开批量石头工具`
+  6. 这轮明确厘清的石头/树木区别：
+     - 树批量状态的核心是 `阶段/树状态/季节`
+     - 石头批量状态的核心是 `阶段/矿种/含量/血量`
+     - 树不需要切资源目录
+     - 石头改矿种时必须联动资源目录，否则预览会错
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs.meta`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\StoneControllerEditor.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\StoneController.cs`
+- 关键决策：
+  1. 不做“树工具换皮”，而是把石头的 `OreType -> Sprite目录` 联动补进底层
+  2. 血量默认不强制覆盖，避免批量改阶段/含量后把血量留在坏值
+  3. 保留旧菜单兼容：
+     - `Tools/Sunset/Stone/批量石头状态工具`
+  4. 新主入口并到工具组：
+     - `Tools/005批量 (Stone状态)`
+- 恢复点 / 下一步：
+  - 你现在可直接进 Unity：
+    1. 打开 `Tools/005批量 (Stone状态)`
+    2. 或从单块石头 Inspector 点 `选中父物体并打开批量石头工具`
+    3. 立刻批量试改 `阶段 / 矿种 / 含量 / 血量`
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：工具已搭完，等用户在 Unity 里直接用
+
+## 2026-04-03（Stone 批量工具编译红热修）
+
+- 用户目标：
+  - 立即清掉 `Tool_005` 的编译红，不要再浪费时间。
+- 当前主线目标：
+  - 把 `Tool_005_BatchStoneState.cs` 从“命名空间漏引入导致直接编不过”拉回到至少能过这一层编译。
+- 本轮子任务 / 阻塞：
+  - 子任务：定位 `StoneStage / OreType` 的真实命名空间并热修
+  - 当前阻塞：已清这条 blocker，待 Unity 重新编译验证是否还有下一层红
+- 已完成事项：
+  1. 复核到 `StoneEnums.cs` 的命名空间是 `FarmGame.Data`
+  2. 已在 `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs` 顶部补上：
+     - `using FarmGame.Data;`
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+- 关键决策：
+  1. 这轮只修即时编译 blocker，不顺手改别的逻辑
+  2. 把问题定性为“漏引命名空间”，不误判成更深层结构问题
+- 恢复点 / 下一步：
+  - 现在直接回 Unity 重新编译
+  - 如果还有红，再基于新的第一条真实报错继续收窄
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：这条即时编译红已热修，等待 Unity 现场下一次编译结果
+
+## 2026-04-03（批量树石工具提示静音）
+
+- 用户目标：
+  - 把我最近新增到树/石批量工具上的提示、弹窗、成功通知全部关掉，不要再显示。
+- 当前主线目标：
+  - 继续服务 `树石修复` 主线，把树/石批量编辑工具收成可直接用、少打断的编辑器状态，不扩回 Tree/Stone 逻辑彻查。
+- 本轮子任务 / 阻塞：
+  - 子任务：只静音我这轮新加的提示层；
+  - 当前阻塞：无，已完成。
+- 已完成事项：
+  1. `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_004_BatchTreeState.cs`
+     - 清掉所有新增 `HelpBox`
+     - 清掉“当前没有可应用的树”弹窗
+     - 清掉“已更新 X 棵树”通知
+     - `DrawToggleIntField(...)` 改为纯字段，不再显示 helpText
+  2. `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+     - 清掉所有新增 `HelpBox`
+     - 清掉“当前没有可应用的石头”弹窗
+     - 清掉“已更新 X 块石头”通知
+  3. `D:\Unity\Unity_learning\Sunset\Assets\Editor\TreeControllerEditor.cs`
+     - 清掉批量树按钮前的新增引导提示
+  4. `D:\Unity\Unity_learning\Sunset\Assets\Editor\StoneControllerEditor.cs`
+     - 清掉批量石头按钮前的新增引导提示
+- 关键决策：
+  1. 不去碰老的 Inspector 预警，只收我这轮新增提示；
+  2. 保留按钮、字段、预览和批量应用逻辑，单独把提示层静音；
+  3. 这轮目标是“编辑不再被吵”，不是再做一轮功能扩展。
+- 验证结果：
+  - `rg -n 'HelpBox|DisplayDialog|ShowNotification'` 在 `Tool_004/005` 上已无命中；
+  - `git diff --check` 对 owned scope 无 patch 结构错误，只有两份老编辑器文件的 CRLF warning；
+  - `validate_script` 四文件均 0 error，其中 `TreeControllerEditor.cs` / `StoneControllerEditor.cs` 各有 1 条非阻塞 GC warning。
+- 恢复点 / 下一步：
+  - 你现在可以直接回 Unity 用树/石批量工具，不会再被我这轮新增的提示打断；
+  - 如果你下一步要我把旧 Inspector 的历史 warning 也继续砍掉，需要单独下令，我再收那一刀。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：批量树石工具新增提示静音已完成，等待用户继续使用或再下新范围
+
+## 2026-04-04（树苗放置卡顿只读探针）
+
+- 用户目标：
+  - 只读分析 `TreeController.cs` 与 `PlacementManager.cs`，找出“树苗放置成功那一下卡顿”最可能还残留在哪些 `TreeController` 首帧链路里，只给具体热点和最小优化思路，不改文件。
+- 当前主线目标：
+  - 继续服务 `树石修复` / TreeController 相关主线，但本轮只做运行时代码探针，定位 sapling runtime placed 初始化链的残余峰值。
+- 本轮子任务 / 阻塞：
+  - 子任务：核对 `ExecutePlacement -> TryPrepareSaplingPlacement -> InitializeAsNewTree -> Start -> FinalizeDeferredRuntimePlacedSaplingInitialization`；
+  - 当前阻塞：无，实现未开始，这轮停在结论交付。
+- 已完成事项：
+  1. 确认 `PlacementManager` 已把“放置成功确认”收缩到本地占格校验，不再每次放置后全场找树。
+  2. 确认 `TreeController` 当前默认是“延后 2 帧 + lightweight runtime sapling presentation”。
+  3. 确认最可疑残余热点是轻量链掉回完整初始化：
+     - `EnterRuntimeLifecycle()` 里的 `EnsureRuntimeEventSubscriptions()` 若发现当前正在 wither，会立刻 `OnWeatherWither() -> UpdateSprite()`；
+     - 这会把 `currentState` 从 `Normal` 改掉，导致 `ShouldUseLightweightRuntimePlacedSaplingPresentation()` 返回 false；
+     - 后续就会进入 `FinalizeInitialPresentationSetup()`，把 `CacheOcclusionTransparencies()`、`InitializeShadowCache()`、`RefreshTreePresentation()` 又压回放置后的前几帧。
+  4. 确认正常 sapling 基态下，registry 本身只是字典写入，优先级低于上面的回退链。
+  5. 确认 NavGrid 不是当前第一嫌疑，但若碰撞体状态/形状真的变化，`RequestNavGridRefresh()` 仍可能回退到 `NavGrid2D.RebuildGrid()`。
+  6. 确认 active-cell / collider baseline 仍有重复触碰：`OnEnable`、`InitializeAsNewTree()`、`EnterRuntimeLifecycle()` 都会动同一棵树的注册或 baseline。
+- 关键决策：
+  1. 这轮不泛谈“优化树系统”，只围绕 runtime placed sapling 首帧链；
+  2. 把 registry 链定性为低疑点，把“天气副作用触发完整初始化回退”定为首疑点；
+  3. 把 NavGrid 定性为条件性热点，不夸大成默认主因。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavGrid2D.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Combat\ResourceNodeRegistry.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\PersistentObjectRegistry.cs`
+- 验证结果：
+  - 只读静态链路分析，未改代码；
+  - 结论基于当前源码调用链，未做 Unity profiler 实机取证。
+- 恢复点 / 下一步：
+  - 如果继续施工，最小风险入口应是守住 lightweight sapling path，不让天气/bootstrap 副作用把它打回完整初始化；
+  - 如需进一步证实，再补 profiler / 时间戳埋点去分离“同帧放置”和“延后 2 帧 finalize”。
+- thread-state：
+  - 本轮已跑：无（只读分析，按规则未跑 `Begin-Slice`）
+  - 本轮未跑：`Begin-Slice`、`Ready-To-Sync`、`Park-Slice`
+  - 当前 live 状态：未登记（只读）
+  - 原因：本轮未进入真实施工
+
+## 2026-04-04（树石批量工具参数按钮化）
+
+- 用户目标：
+  - 把树和石头批量工具里的这些参数都改成按钮，树木这边也要全改成按钮。
+- 当前主线目标：
+  - 继续服务 `树石修复` 工具层主线，把树/石批量状态参数统一收成更快点选的按钮式面板。
+- 本轮子任务 / 阻塞：
+  - 子任务：只改 `Tool_004_BatchTreeState.cs` / `Tool_005_BatchStoneState.cs` 的状态参数 UI；
+  - 当前阻塞：无，已完成。
+- 已完成事项：
+  1. 树批量工具：
+     - `treeID` 改成预设按钮 + `-10/-1/+1/+10/重置-1`
+     - `当前阶段` 改成 `0~5` 按钮
+     - `当前状态` 改成按钮组
+     - `当前季节` 改成按钮组
+  2. 石头批量工具：
+     - `当前阶段` 改成按钮组
+     - `矿物类型` 改成按钮组
+     - `含量指数` 改成 `0~max` 按钮
+     - `当前血量` 改成预设按钮 + `-10/-1/+1/+10`
+  3. 两个工具都统一补了按钮 helper，避免后面再各写一套。
+- 关键决策：
+  1. 这轮不动底层批量应用逻辑，只替换交互层；
+  2. 全部离散值都走按钮；
+  3. 数值字段也不再留输入框，而是走纯按钮步进，满足“全都改成按钮”。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_004_BatchTreeState.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+- 验证结果：
+  - `validate_script` 两文件均 `0 error / 0 warning`
+  - `git diff --check` 对两文件无报错
+- 恢复点 / 下一步：
+  - 你现在可以直接进 Unity 点树/石批量工具，状态参数已经都是按钮式；
+  - 如果还要继续调布局、尺寸、分组顺序，再在这两份工具里继续收口。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：参数按钮化已完成，等待用户继续使用或下新范围
+
+## 2026-04-04（Tree 批量窗口 MissingReference 归因与热修）
+
+- 用户目标：
+  - 要我说清楚这串报错里哪些是我的问题，而且不能因为“现在不报错了”就当没事。
+- 当前主线目标：
+  - 把树石批量工具当前真实属于我的编辑器报错归因说准，并把已确认的坏态热修掉。
+- 本轮子任务 / 阻塞：
+  - 子任务：检查 `Tool_004_BatchTreeState.cs` 报错行，确认责任边界，并补同类防护到 `Tool_005`；
+  - 当前阻塞：无，已完成。
+- 已完成事项：
+  1. 明确归因：
+     - `Tool_004_BatchTreeState.DrawSelectionSummary()` 的 `MissingReferenceException` 是我的问题；
+     - 后面两条 `GUI Error` 是它连带炸出来的；
+     - `UnityEditor.Graphs.Edge.WakeUp()` 目前看不在我这两个工具脚本栈里，不能直接算到我头上。
+  2. 热修内容：
+     - `Tool_004_BatchTreeState.cs` 新增 `PruneMissingSelections()`，并在 `OnGUI` / 读值 / 应用前清 stale 引用
+     - `OnGUI` 改成 `ScrollViewScope`
+     - `DrawSelectionSummary()` 改成 `VerticalScope`
+     - `Tool_005_BatchStoneState.cs` 同步补同类 stale-reference 防护
+- 关键决策：
+  1. 我承认 `Tool_004` 这条空引用就是我这边的问题；
+  2. 不只改报错点，也把石头窗口的同类风险提前补掉；
+  3. 不把 Unity 内部 graph 栈强行冒领成我这条线的问题。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_004_BatchTreeState.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+- 验证结果：
+  - `validate_script` 两文件均 `0 error / 0 warning`
+  - `git diff --check` 对两文件无报错
+- 恢复点 / 下一步：
+  - 你现在可以继续复测树/石批量窗口，删除对象后不该再因为 stale 引用把 GUI 布局栈炸掉；
+  - 如果下一条栈还是不在 `Tool_004/005` 里，我再按新栈继续认账或切边界。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：归因与热修已完成，等待用户继续复测或给下一条真实栈
+
+## 2026-04-05（Stone 批量工具按钮无响应热修）
+
+- 用户目标：
+  - 石头批量工具现在点按钮没更新、像卡住了，要我立刻看是不是出问题。
+- 当前主线目标：
+  - 继续服务树石批量工具主线，把 `005批量-Stone状态` 当前按钮无响应问题直接热修。
+- 本轮子任务 / 阻塞：
+  - 子任务：检查窗口按钮交互实现，并把最可疑的按钮层问题先改掉；
+  - 当前阻塞：无，已完成代码热修。
+- 已完成事项：
+  1. 已把 `Tool_005_BatchStoneState.cs` 的按钮组选中逻辑从 `GUILayout.Toggle(..., "Button")` 改成显式 `GUILayout.Button(...)`。
+  2. 已补：
+     - `selectedButtonStyle`
+     - `EnsureStyles()`
+     - 点击按钮后 `GUI.changed = true` + `Repaint()`
+     - 读值/刷新按钮点击后 `Repaint()`
+     - 应用后 `RefreshSelection()` + `Repaint()`
+  3. 已把同样修法同步进 `Tool_004_BatchTreeState.cs`，避免树工具后面复现同类毛病。
+- 关键决策：
+  1. 先收最可疑的交互层，不先把锅甩给 `StoneController`；
+  2. 不继续沿用 `Toggle(Button)` 伪按钮组；
+  3. 如果这轮热修后还不行，下一步就继续下钻到底层应用链，不停在窗口样式判断。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_004_BatchTreeState.cs`
+- 验证结果：
+  - `validate_script` 两文件均 `0 error / 0 warning`
+  - `git diff --check` 对两文件无报错
+- 恢复点 / 下一步：
+  - 你现在直接回 Unity 再点石头批量工具的参数按钮和应用按钮；
+  - 如果还是不更新，我下一步直接追 `StoneController.ApplyBatchEditorState()` 或窗口事件链。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：按钮无响应热修已完成，等待用户复测
+
+## 2026-04-05（树石批量工具按钮选中色修复）
+
+- 用户目标：
+  - 按钮功能已经正常，但选中颜色不显示，视觉受影响，要把这个也修掉。
+- 当前主线目标：
+  - 继续服务树石批量工具主线，把按钮选中视觉补成稳定可见。
+- 本轮子任务 / 阻塞：
+  - 子任务：修树/石批量工具的按钮选中色；
+  - 当前阻塞：无，已完成。
+- 已完成事项：
+  1. 在 `Tool_004_BatchTreeState.cs` / `Tool_005_BatchStoneState.cs` 的 `DrawButtonRows<T>(...)` 里：
+     - 选中按钮绘制前显式设置蓝色 `GUI.backgroundColor`
+     - 文本改成白色 `GUI.contentColor`
+     - 绘制后恢复原色
+  2. `selectedButtonStyle` 改成只负责白字粗体，不再依赖 Editor skin 的 active 背景贴图。
+- 关键决策：
+  1. 不继续赌 Unity 皮肤兼容性；
+  2. 选中态颜色自己画，保证更稳定。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_004_BatchTreeState.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_005_BatchStoneState.cs`
+- 验证结果：
+  - `validate_script` 两文件均 `0 error / 0 warning`
+  - `git diff --check` 对两文件无报错
+- 恢复点 / 下一步：
+  - 你现在直接回 Unity 再看按钮选中色；
+  - 如果还嫌不明显，我下一刀就只继续调颜色和对比度。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：按钮选中色修复已完成，等待用户复测
+
+## 2026-04-07（树批量工具加入是否生长）
+
+- 用户目标：
+  - 树木批量工具里加上“是否可以生长”，`是否可以砍伐` 这轮先不做。
+- 当前主线目标：
+  - 继续服务树石批量工具主线，把 `autoGrow` 接进树批量编辑。
+- 本轮子任务 / 阻塞：
+  - 子任务：修改 `Tool_004_BatchTreeState.cs` 和 `TreeController.cs`；
+  - 当前阻塞：无，已完成。
+- 已完成事项：
+  1. `Tool_004_BatchTreeState.cs`
+     - 新增批量项 `是否生长`
+     - 按当前按钮式交互提供 `可生长 / 不生长`
+     - `从首棵树读入当前值` 现在会同步读 `autoGrow`
+     - 预览列表追加显示当前树是否生长
+  2. `TreeController.cs`
+     - `ApplyBatchEditorState(...)` 新增 `applyAutoGrow / newAutoGrow`
+     - 批量应用时会真正修改 `autoGrow`
+     - 运行中切换时会处理 `OnDayChanged` 订阅开关
+- 关键决策：
+  1. 这轮只做 `autoGrow`；
+  2. `是否可砍伐` 明确不进本轮；
+  3. `是否生长` 不默认勾选，避免误伤一批场景树。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_004_BatchTreeState.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+- 验证结果：
+  - `validate_script`
+    - `Tool_004_BatchTreeState.cs`：0 error / 0 warning
+    - `TreeController.cs`：0 error / 1 warning（旧 GC 提示，非 blocker）
+  - `git diff --check` 对两文件无报错
+- 恢复点 / 下一步：
+  - 你现在直接回 Unity 测树批量工具的 `是否生长`
+  - 如果需要，我下一刀再继续补别的树批量控制项，但不会把“是否可砍伐”偷偷混进来。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：树批量工具加入 `autoGrow` 已完成，等待用户复测
+
+## 2026-04-07｜TimeDebug 简介移到右上角时间下方
+
+- 用户目标：
+  - 把 `TimeDebug` 画出来的快捷键简介移到右上角，并放到时间显示下面。
+- 当前主线目标：
+  - 在树石修复线程里顺手处理这个调试体验阻塞，但不扩散到别的 UI 系统。
+- 本轮子任务 / 阻塞：
+  - 子任务：只改 `TimeManagerDebugger.OnGUI()` 的帮助文案布局；
+  - 服务于什么：让用户在编辑/调试时直接看到更合理的位置摆放；
+  - 子任务完成后回到哪一步：等待用户在 Unity 里直接看位，需要再调就继续只改这个脚本。
+- 已完成事项：
+  1. 新增统一的右上角布局参数：`clockWidth / clockHeight / margin / helpWidth / helpHeight`；
+  2. 帮助文案样式改成 `UpperRight` 对齐；
+  3. 有时钟时，帮助文案根据 `clockRect.yMax + 6f` 放到时钟下方；
+  4. 没有时钟时，帮助文案仍固定在右上角，不再写死左上角坐标。
+- 关键决策：
+  1. 只改帮助文案位置，不改文案内容和时钟格式；
+  2. 这文件存在前序 dirty，本轮明确只动 `OnGUI()` 布局，不碰前面已存在的运行时挂载逻辑；
+  3. 不把当前项目外部 `ItemTooltip` 红错误报成本轮问题。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\TimeManagerDebugger.cs`
+- 验证结果：
+  - `python scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/TimeManagerDebugger.cs --count 20`
+    - 结论：`external_red`
+    - owned error：`0`
+    - external blocker：`12`（`ItemTooltip` 相关旧红）
+  - `git diff --check -- Assets/YYY_Scripts/TimeManagerDebugger.cs`
+    - 无 diff 语法报错，仅 CRLF/LF warning
+- 遗留问题或下一步：
+  - 尚未做 Unity 画面终验，只能确认代码位置逻辑已改通；
+  - 如果用户反馈还要更贴边/更紧凑，下一步继续只调 `OnGUI()` 这段参数。
+- thread-state：
+  - 本轮已跑：`Begin-Slice`、`Park-Slice`
+  - 本轮未跑：`Ready-To-Sync`
+  - 当前 live 状态：`PARKED`
+  - 停车原因：TimeDebug 简介定位修改已完成，等待用户看位

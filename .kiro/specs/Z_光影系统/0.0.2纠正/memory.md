@@ -193,3 +193,73 @@
 
 ### 状态
 - 锐评003 核查完成，等待用户确认修复方案
+
+---
+
+## 会话1（续14）（2026-04-03）
+
+### 背景
+用户没有要求继续修光影，而是要求对 `云朵遮挡系统` 和 `Z_光影系统` 做彻底扫盘，重点确认这套光影系统“历史需求做到哪、当前 live 里到底开没开”。
+
+### 当前主线 / 本轮定位
+- 主线目标：建立光影系统的真实现状基线，区分“落仓实现”和“场景启用”
+- 本轮子任务：只读审计 `Z_光影系统`
+- 服务对象：给用户一份可直接判断是否继续投入这套系统的现状盘点
+- 恢复点：如果后续继续做光影，先决定是否要把 `DayNightManager` 重新接回 live 场景，再处理 bug 和体验优化
+
+### 完成任务
+1. 复读 `0.0.1初出茅庐` 的需求 / 设计 / 任务，确认原始目标包含：
+   - 昼夜颜色曲线
+   - 全屏 Multiply 光影叠加
+   - 夜间点光源与 Marker
+   - 调试与配置资产
+2. 对照当前仓库确认核心代码和资产仍在：
+   - `DayNightManager.cs`
+   - `DayNightOverlay.cs`
+   - `DayNightConfig.cs`
+   - `GlobalLightController.cs`
+   - `PointLightManager.cs`
+   - `NightLightMarker.cs`
+   - `DayNightConfig.asset`
+   - `DayNightMultiply.mat`
+3. 核查当前场景接线：
+   - Unity MCP 只读现场确认 `Primary` 中 `DayNightManager=0`
+   - `TimeManagerDebugger=0`
+   - `NightLightMarker=0`
+   - `Town.unity` 静态搜索也没有 `DayNightManager`
+4. 核查运行路线：
+   - `Packages/manifest.json` 无 `com.unity.render-pipelines.universal`
+   - 路线 A（URP）当前明确未启用
+   - 路线 B（全屏 Multiply）有资产，但当前 live 场景未接线
+
+### 关键结论
+- 当前最准确的状态不是“光影系统坏了”，而是“这套系统目前没有接进玩家正在用的主场景”。
+- 也就是说：
+  - **仓库库存存在**
+  - **测试库存存在**
+  - **历史验证场景 / 备份场景里出现过**
+  - **但当前 live `Primary` / `Town` 不在运行它**
+- `0.0.2纠正` 里停住的 `Sleep` 后晨光滞后一拍问题仍然有效：
+  - `TimeManager.SetTime()` 已补发小时 / 分钟事件
+  - `TimeManager.Sleep()` 仍不会补发这条链
+  - 如果以后把 `DayNightManager` 重新接回 live，Sleep 滞后问题大概率还会复现
+
+### 涉及文件
+| 文件 | 操作 | 说明 |
+|------|------|------|
+| `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs` | 审计 | 确认逻辑仍在仓库 |
+| `Assets/YYY_Scripts/Service/TimeManager.cs` | 审计 | 确认 `SetTime()` 与 `Sleep()` 事件链差异 |
+| `Assets/111_Data/DayNightConfig.asset` | 审计 | 确认配置资产仍在 |
+| `Assets/000_Scenes/Primary.unity` | 审计 | 确认 live 主场景未挂光影管理器 |
+| `Assets/000_Scenes/Town.unity` | 审计 | 确认另一主场景也未挂光影管理器 |
+| `Packages/manifest.json` | 审计 | 确认未启用 URP |
+
+### 验证结果
+- 静态代码 / 资产检索：通过
+- 场景 YAML / MCP live 只读核查：通过
+- 测试执行：未运行
+- PlayMode / 用户体感：未验证
+
+### 状态
+- 光影系统库存仍在，但当前 live 场景未启用
+- `Sleep` 滞后问题仍待后续是否修复的决策

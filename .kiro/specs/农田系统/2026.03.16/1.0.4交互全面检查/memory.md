@@ -1338,6 +1338,594 @@
 
 父层当前新增的稳定事实是：在上面那轮只读拆责之后，线程已重新进入真实施工，并把这次范围硬收成两张最小牌，不再扩碰别的交互面。第一张牌是 `PlacementManager.cs`：一次左键如果在 Preview 态已经验证通过，现在锁定与近身直放会直接复用这次结果，不再在同一点击里把 `RefreshPlacementValidationAt(...)` 对同一目标格连续跑 2~3 遍；但导航到位后的 `OnNavigationReached()` 和真正走近后才触发的 `TryExecuteLockedPlacementWhenPlayerIsNear()` 仍保留提交前重验，因此这刀是“去同帧重复验证”，不是“删掉所有重验”。第二张牌是 `TreeController.cs`：新增 `ShouldSyncColliderShapeForCurrentPresentation()`，把 `Start()`、`InitializeDisplay()`、`SetStage()` 里原本无条件的 `syncColliderShape: true` 收成“只有当前展示态真的需要 collider 时才同步形状”，于是新放下的树苗 `Stage 0` 不再因为默认无碰撞阶段还去走 `UpdatePolygonColliderShape() -> RequestNavGridRefresh()` 这条整张 `NavGrid` 重建链，但阶段 1+、树桩态和真正有碰撞阻挡的展示态仍保留原刷新契约。父层这轮静态验证也已写实：已针对这两个目标文件再次执行 `git diff --check`，结果通过，没有新的 diff 结构错误。与此同时，这轮仍然没有新的 Unity live 证据，因此当前阶段判断必须继续诚实写成“静态修复完成、待用户复测”，不能偷换成“体感已经正式过线”。线程本轮已执行 `Begin-Slice -> Park-Slice`，当前 live 状态回到 `PARKED`。父层恢复点因此更新为：后续用户只需优先重验两件事，左键起步那一下是否变轻，树苗/近身放置真正落地那一下是否还会再卡；若仍有残留，再继续只沿这两段成本追，不重新扩题。
 
+## 2026-04-03：父层补记，放置成功卡顿这条线已从“导航归锅”改口成“工具线当前停车现场上的更窄残余峰复判”
+
+父层当前新增的稳定事实是：用户随后没有让我继续盲改代码，而是要求我重新去看导航相关工作区、memory 和 thread-state，判断“放置成功那一下卡”现在到底该不该继续算导航问题，以及下一轮究竟该由谁接。线程因此本轮保持只读，没有进入新的业务施工，只对跨线程现场做了重新分账。父层这轮最重要的新结论有四句。第一句，导航父线程 `导航检查` 当前仍是 `PARKED`，唯一主刀还是 `Primary.unity + PrimaryTraversalSceneBinder + Primary traversal` 的 scene integration/live closure，它不该因为“放置成功卡一下”再被拉回一整包运行时卡顿。第二句，`导航检查V2` 现在也已经 `PARKED`，当前语义是 accepted navigation 版本的最终验收交接与 same-root cleanup 阻断，它同样不该再回来接 runtime 卡顿主刀。第三句，当前最该接这件事的，反而是那条工具线最近刚改过 `TreeController / PlacementManager / PlacementValidator / NavGrid2D` 的停车现场：`019d4d18-bb5d-7a71-b621-5d1e2319d778` 当前虽已 `PARKED`，但最近 slice 仍是 `tree-stutter-and-bridge-precision-fix-v2`，账面 own 路径正好覆盖本问题最核心的运行时链。第四句，工具线当前真实现场还暴露出一个更硬的治理信号：`ChestController.cs` 仍然是实际 dirty 文件，却没出现在它的账面 own 路径里；也就是说，当前更值得追问的不是“导航父线程该不该背锅”，而是“工具线要不要先把真实改动面和第一真实热点一起重新报实”。基于这四句判断，这轮已经把旧的窄 prompt 继续缩成新的 `2026-04-03-工具线-放置成功卡顿残余峰定点复判与窄收口-61.md`，并且又根据最新现场把其中过期的 `ACTIVE` 状态修正成“对方当前已 `PARKED`，若继续真实施工必须重新 `Begin-Slice`”。因此父层当前最准确的阶段判断应更新为：这条线现在不是继续回到“导航有没有锅”的泛讨论，而是已经进入“只让工具线在最新停车现场上复判残余峰第一真实热点”的更窄协作阶段；当前能诚实 claim 的仍然只是“责任重新分账成立、下一刀刀口更准”，而不是“卡顿已经被解决”。父层恢复点因此更新为：下一步如果继续，不应再回抛导航父线程，而是把 `-61` 发给工具线，让它只回答“第一真实热点到底还在不在 `NavGrid` 刷新链里，还是已经转移到实例化/初始化链”；在拿到这份更窄回执前，不再继续泛修导航或放置主链。
+
+## 2026-04-03：父层补记，工具线交回后 farm 已按“只有树苗还卡”重新接刀，当前第一责任点改口为树苗专属验证链
+
+父层当前新增的稳定事实是：随后用户又把真正执行位切回 farm，并明确要求只按 `2026-04-03_farm_树苗放置卡顿交接prompt_04.md` 施工；同时还把最新 live 事实再次压实成一句话：现在不是 placeable 全体都卡，而是只有树苗放置仍然卡。线程因此重新进入真实施工，并在 `Begin-Slice` 后只碰了 `TreeController.cs / PlacementManager.cs / PlacementValidator.cs` 三个文件，没有扩回 `NavGrid2D`、桥/水/边缘、`Tool_002`、scene、camera、UI 或 binder。父层这轮最重要的新判断也因此重新收窄成三句。第一句，当前树苗残余峰的第一责任点应当改口为“树苗成功后的专属查询链 + 同帧恢复验证”，而不是再先看 `NavGrid2D`。最硬代码证据是：树苗成功后，`ResumePreviewAfterSuccessfulPlacement()` 仍会把下一次树苗预览/验证接回当前成功窗口，而树苗验证里又会专门走 `HasTreeAtPosition(...) / HasTreeWithinDistance(...)` 这组树专属查询。第二句，当前之所以只有树苗还卡，而箱子/农作物基本不卡，恰恰说明剩下的热路径已经不再是共享导航刷新，而是树苗独有的“放下后一边确认自己已占格，一边为下一棵树苗继续做边距/占格验证”这条链。第三句，这轮真正落下去的修法也正对这条链：`TreeController.cs` 新增按格子组织的运行时活树缓存 `s_activeInstancesByCell`，并提供 `HasActiveTreeAtCell(...) / HasActiveTreeWithinDistance(...)`，让树苗运行时验证不再每次全量扫活树；`PlacementValidator.cs` 在 play mode 下正式改走这套运行时缓存；`PlacementManager.cs` 则把树苗成功后的“同帧立即再跑一次树苗专属验证”切掉，改成先保留占位事实，下一帧再由正常 Preview 更新接回。除此之外，这轮还额外补了一层 shared-root 兼容处理：`PlacementValidator.GetChestsForCurrentFrame()` 不再硬编译依赖 `ChestController.ActiveInstances`，而是改成“有这个静态入口就反射取，没有就回退 `FindObjectsByType`”，避免这条树苗修复线被箱子 dirty 依赖反卡编译。父层当前静态验证也已补实：`git diff --check` 通过；`CodexCodeGuard` 当前已没有 owned error，但仍有 `11` 条既有 warning；`validate_script` 对 `PlacementValidator.cs / TreeController.cs / PlacementManager.cs` 的结果分别是 `0/1/2` 条 warning，均为 `0 error`。Unity 侧只做了一次最小真值核对，没有进入 Play；当前 Console `0` 条 `error/warning`，但 `refresh_unity` 被外部 `tests_running` 状态阻断，因此这轮没有拿到新的完整编译收口信号。由此父层当前最准确的阶段判断应更新为：这条线现在已经从“跨线程归责”切回“farm 自己只修树苗专属残余峰”，并且第一责任点已经从通用导航刷新改口为树苗专属验证链；但当前仍只能诚实 claim 到“结构成立 / targeted probe 成立”，不能把它写成 live 体验已经正式过线。父层恢复点因此更新为：下一步如果继续，优先只需要用户重验“为什么现在只有树苗还卡”这一刀是否已经被打轻；在拿到这条 live 回执之前，不再重新扩 `NavGrid` 或 shared placeable 总线。
+
+## 2026-04-03：父层补记，用户直接点名的 PlacementValidator warning 已在本轮按 owned 尾账清掉
+
+父层当前新增的稳定事实是：用户随后直接把 `PlacementValidator.cs` 的 4 条 `CS0618` warning 贴到了对话里，并明确表达这件事不能再被我轻描淡写成“无所谓的既有警告”。线程因此重新进入一个更窄的真实施工切片，只触碰 `PlacementValidator.cs` 这一处 owned 文件，先把这组静态尾账清掉。父层这轮最重要的新变化有两句。第一句，4 条 warning 的根因已经被最小修正：`PlacementValidator.cs` 里 2 处 `Physics2D.OverlapBoxNonAlloc(...)` 和 2 处 `Physics2D.OverlapCircleNonAlloc(...)` 都已经改成项目里现有的新版口径，也就是 `ContactFilter2D + Physics2D.OverlapBox/OverlapCircle(..., Collider2D[])`，保留预分配数组和扩容逻辑，没有退化成分配式查询。第二句，这轮还顺手把一个更隐蔽的 compile 风险一起切掉了：`PlacementValidator.cs` 原本已经开始直接依赖当前 dirty 版 `TreeController` 的静态入口，因此单独编译它会因为 shared-root 另一头的 WIP 而炸；现在已改成“有静态入口就反射取，没有就自动回退”，因此这个文件自己就能单独 compile-clean，不再偷偷要求整包 `TreeController` 脏改必须同时存在。父层这轮静态验证也已经补实：`validate_script` 对 `PlacementValidator.cs` 返回 `0 warning / 0 error`；仅对白名单 `PlacementValidator.cs` 跑 `CodexCodeGuard` 结果为 `CanContinue=true`、`Diagnostics=[]`；`git diff --check` 也已通过，仅剩 CRLF 提示。由此父层当前最准确的阶段判断应再补一句：这组用户亲眼看见的 `PlacementValidator` 过时 API warning 已经不再是当前 owned 尾账，不应该再出现在下一轮同一文件的 compile 现场里；但这只是静态尾账清理，不等于树苗 live 卡顿已经自动过线。父层恢复点因此更新为：下一步重新回到树苗 live 复测本身，不再允许把这 4 条 warning 留着当“以后再说”的尾账。
+
+## 2026-04-03：父层补记，warning 修完后又补做了一轮只读核实与状态收口
+
+父层当前新增的稳定事实是：在上面那轮 warning 修复之后，用户继续质问“你真的没在逗我吗”，等价于要求我别再口头保证，而是直接核死这 4 条 warning 现在到底还在不在。线程因此这轮没有继续新的业务施工，只做了两件事：一是重新只读检查 `PlacementValidator.cs` 当前代码现场，确认文件里已经没有 `Physics2D.OverlapBoxNonAlloc(...)` / `Physics2D.OverlapCircleNonAlloc(...)`；二是补跑最小脚本级验证与 thread-state 收口，避免旧的 `ACTIVE` slice 继续悬着。最新核实结果已经能再次坐实：`validate_script(PlacementValidator.cs)` 仍然是 `0 warning / 0 error`，说明用户刚贴出来的那 4 条过时 API warning 现在已经被清掉，不是“我以为没事”，而是“这轮刚刚核完确实没了”。同时，线程已把旧的 `placement-validator-obsolete-physics-overlap-warning-fix` 切片执行 `Park-Slice`，当前 live 状态重新回到 `PARKED`。
+
+父层因此新增一个很明确的纠偏：我前面对这 4 条 warning 的表述如果让用户感受到“你在装作本来就没问题”，那是我说错了；正确说法只能是“它们之前确实存在，这轮已经按 owned 尾账清掉并重新核实了”。下一步恢复点不变，仍然回到树苗放置 live 卡顿主线本身。
+
+## 2026-04-03：父层补记，用户纠正“树苗并没有碰撞体”后，这条成功卡顿责任再次改口
+
+父层当前新增的稳定事实是：用户随后又给出一个关键现场约束，“树苗在游戏运行时放下时并没有立即拥有碰撞体”，并要求我据此重做逻辑分析而不是继续沿着旧怀疑面走。线程因此保持只读，没有进入新的真实施工，只把 `TreeController.cs / PlacementManager.cs / NavGrid2D.cs` 的成功放置链重新对了一遍。最新更准确的判断有三句。第一句，树苗阶段 0 的默认 `StageConfig` 确实就是 `enableCollider = false`，`InitializeAsNewTree()` 也会立刻调用 `DisableBlockingCollidersForSaplingBaseline()`；更进一步，当前轻量树苗展示路径里 `UpdateSprite()` 在设置 sprite 和底对齐后会直接返回，不走 `UpdateColliderState()`，所以“成功那一瞬间因为树苗立刻启用碰撞体而刷新导航”已经不该继续当主口径。第二句，当前更像真凶的是树苗完整 prefab 的主线程实例化与首帧激活：`PlacementManager` 仍然先 `Instantiate` 整个树 prefab，再同步 layer / sorting、扣背包、调用 `TreeController.InitializeAsNewTree()`；Unity 这类 prefab 实例化、子层级激活、组件 `Awake/OnEnable/Start`、Transform/Renderer 真正生效，本质上都只能在主线程发生，因此只要这一帧对象面太重，玩家体感就会是“全局卡了一下”。第三句，`NavGrid` 现在不是完全无关，而是从“第一锅”降到了“次级怀疑面”：如果当前树苗轻量路径没有错误地触发碰撞体状态变化，那真正该优先削的就不再是 `NavGrid`，而是树苗 prefab 本身是不是太重、首帧是不是还在把不必要的初始化一起做完。
+
+父层恢复点因此更新为：当前“树苗成功卡顿”最该优先收的责任面，已经从“碰撞体 / NavGrid 刷新”改口为“完整树 prefab 的主线程实例化与激活成本”；如果后续继续真修，方向应优先是两段式落地或更轻量的树苗运行时对象，而不是简单粗暴把 Unity 物体操作丢去异步线程。
+
 ## 2026-04-02：放置/遮挡/空水壶/箱子/tooltip 再返工，当前已重新停回“代码层成立、待用户终验”
 
 当前父层新增的稳定事实是：用户又把主线明确收回到此前那 8 条硬问题，并要求我不要再碰 `Primary.unity`、不要再甩锅给导航，而是直接把遮挡、放置、空水壶、高树前检、箱子 held 吞物、tooltip 和同类型工具自动替换这几条入口重新做干净。线程因此这轮继续保持纯代码施工，沿用已登记的农田 slice，不碰 scene / prefab，只在当前交互链自己的白名单文件上继续收口，然后在停手前重新执行了 `Park-Slice`，把 thread-state 合法收回到 `PARKED`。父层这轮最关键的新变化有六块。第一块是 preview 遮挡真源回正：`OcclusionTransparency.cs` 不再把“第一个子 SpriteRenderer”强行当主可见面，而是改成优先选最大、可见、非 shadow 的主 renderer；`GetBounds()` 也改回以可见 sprite 联合框为真源。与此同时，`OcclusionManager.cs` 对非树遮挡物的参考点改成 `GetBounds().center`，并把 placeable / generic preview 的预判缓冲重新放宽到 `0.14f`，避免房子、箱子等 preview 遮挡继续退化成“几乎要物理重叠才透明”。第二块是放置链回正：`PlacementPreview.cs` 的 `GetPreviewBounds()` 重新只返回真实占格格子，不再把高 sprite / 底部对齐包进导航与到位判定；`PlacementManager.cs` 则新增 `HandleManualMovementWhileLocked()`，把“手动移动但鼠标仍指着同一格”的情况收成“取消自动导航但继续保留锁定，玩家走到位就放”，而一旦鼠标候选格已变则仍会按中断恢复预览跟随。这一刀的目的就是同时对齐“边走边放要能成”和“真的改意图时要能解除锁定”两条用户口径。第三块是工具事务再收口：`GameInputManager.cs` 里的 `TryEnqueueFarmTool(...)` 现在会在入队前先走 `ToolRuntimeUtility.TryValidateHeldToolUse(...)`，因此空水壶、没耐久、没精力都不会再被错误视为“已经入队”，浇水同格重复点也不会再白白刷新随机样式；同文件对高树前置拦截的目标树识别也改成 `GetBounds() + GetColliderBounds()` 联合包络，再统一扩 `0.35f`，尽量减少“第一次失败后 30 秒冷却重复挥砍却没拦住”的目标识别漏判。第四块是箱子 held 放置语义对齐：`InventorySlotInteraction.cs` 中 `HandleSameContainerDrop(...)`、`HandleChestToInventoryDrop(...)`、`HandleInventoryToChestDrop(...)` 已改成向背包 `InventoryInteractionManager.ExecutePlacement(...)` 看齐，原则固定为“目标为空则放、同物堆叠则堆、只有拖拽或源槽已空时才交换；Shift/Ctrl held 但源槽还留着东西时，一律优先回源，不得动目标”。同时还补了 `ReturnHeldToSourceContainer(...)` 与源槽重新选中，避免“手上半堆放到已有物品格子后把目标吃掉”。第五块是 tooltip 继续收口：`ItemTooltip.cs` 现在固定 `1s` 悬浮延迟、`0.3s` 渐显渐隐，跟随 offset 和尺寸都继续缩小，运行时背景从黑片收成更窄的暖色框体；更关键的是 tooltip 只再认当前 source 槽位自己的 `RectTransform` 作为跟随边界，不再 fallback 到父级大面板，同时在显示期和延迟期都会检查鼠标是否仍在该槽位矩形内，从结构上切掉“渐隐时 tooltip 飘到游戏场景里”的旧问题。第六块是自动替换口径补齐：同类型工具损坏后的最低 tier 自动替换链仍由 `ToolRuntimeUtility.cs` 负责，这轮没再重写事务本体，但把 `PlayerToolFeedbackService.cs` 里的同级 / 降级替换文案又收回到了用户给定的原句，避免最后卡在文案口径差上。父层这轮静态闸门也已重新写实：针对这批目标文件再次跑过 `git diff --check`，结果没有新的 diff 结构错误，只有 `InventorySlotInteraction.cs` 的 CRLF 提示；当前环境里也没有可直接复用的 `.sln`，所以这轮不能 claim 真正的 Unity 编译终验，只能继续诚实写成“静态代码层没有再看到新的结构性红点”。因此父层当前最准确的阶段判断应更新为：这 8 条里我还能靠纯代码继续收口的部分已经又往前推了一轮，而且线程已合法 `PARKED`；但这仍然只是结构 / checkpoint 成立，不是体验正式过线。后续若继续，用户最该优先重验的仍是 `A1` 连放 / 近身直放、`B1` 农田与 placeable hover 遮挡、箱子 held 放置回源、空水壶同格重复点击，以及 tooltip 的真实范围与观感。
+
+## 2026-04-03：父层补记，主线已临时切成“只修箱子 UI 交互语义”，当前阶段为静态完成、待用户终验
+
+父层当前新增的稳定事实是：用户这轮主动把范围从大清盘主线里再次切出一刀，要求线程不要再碰农田、遮挡、placeable、`Primary.unity` 或背包本体逻辑，而是只修“箱子 UI 交互必须复刻背包语义”这一条最基础链路。线程因此重新执行了 `Begin-Slice`，切片固定为“箱子UI交互对齐背包交互修复”，并把 owned 面严格压在 `Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`、`Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs`、`Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs` 三个文件，没有把 `InventoryPanelUI`、`Primary.unity` 或其他农田文件再次带回。
+
+这一刀当前已经能站稳的事实有三句。第一句，箱子侧之前那套漂掉的点击/拖拽分支现在已经重新对齐背包：空槽直接放、同类正确叠加、不同物品只有源槽已空时才交换、否则一律回源；`Shift/Ctrl` held 的部分叠加、跨容器放置和关闭箱子 UI 时的回源，也都已经补到 runtime item 保真，不再沿用旧 `ChestInventory`/`ItemStack` 的半套逻辑。第二句，背包本体逻辑这轮没有被重写；`InventoryInteractionManager.cs` 只新增了两个供箱子桥接调用的最小接口，目的是让箱子侧复用背包既有 held 事务，而不是去改背包点击/拖拽的主状态机。第三句，这轮当前只拿到了结构 / targeted probe 层证据：`git diff --check` 对上述 3 文件通过，`CodexCodeGuard` 结果为 `Diagnostics=[]`、程序集 `Assembly-CSharp`；但箱子 UI 的真人手感、最终运行态和用户实际操作路径仍然没有新的 live 结论，因此不能包装成“体验已过线”。
+
+父层恢复点因此更新为：当前主线虽然仍是农田交互修复 `V3`，但最新有效切片已经临时收窄成“箱子 UI 交互独立收口”；当前阶段应写成“代码层静态完成、待用户终验箱子 UI”，而不是“整条农田大线继续施工中”。下一步如果继续，优先应让用户只验箱子 UI 的四类核心行为是否与背包一致，再根据回执决定是否还需要二次返工；在此之前，不再重开其他交互面。
+
+## 2026-04-03：父层补记，树苗残余卡顿这轮继续收窄为“树苗验证时反复解析 prefab 画像”
+
+父层当前新增的稳定事实是：用户继续追这条线时，已经把现场真值重新钉死成“箱子和农作物基本不卡，只剩树苗还卡”，并明确要求线程不要扩回桥/水/边缘、`Tool_002`、scene、camera、UI 或 binder。线程因此把 `019d4d18-bb5d-7a71-b621-5d1e2319d778` 的活跃切片从旧的桥面问题强制替换成新的 `sapling-placement-stutter-closure_2026-04-03`，并只在 `PlacementValidator.cs` 与 `PlacementManager.cs` 上继续下刀。
+
+这轮父层最关键的新判断是：当前树苗残余峰又往里缩了一层，第一责任点不再优先是 `NavGrid2D` 或 `TreeController` 首帧，而是树苗专属验证每次都在重复走的 prefab 画像查询链。最硬证据是：`PlacementValidator.ValidateSaplingPlacement(...)` 原先每次都经由 `SaplingData.GetStage0Margins()` 去 prefab 里递归抓 `TreeController` 和 `CurrentStageConfig`，而 `PlacementManager.AllowsAdjacentDirectPlacement(...)` 里判断“树苗阶段 0 是否有阻挡 collider”也会再走一遍同样的 `GetTreeController()` 链；这条链只有树苗才有，正符合用户最新 live 事实。当前这轮的最小修法也已经落地：`PlacementValidator` 现在会缓存树苗的 `verticalMargin / horizontalMargin / hasBlockingCollider`，`PlacementManager` 复用同一份缓存，不再重复解剖树 prefab。静态验证层写实结果为：`git diff --check` 通过、`CodexCodeGuard` 对 2 个 C# 文件返回 `CanContinue=true / Diagnostics=[] / Assembly-CSharp`。但 Unity 现场当前仍被外部 `Assets/Editor/Tool_005_BatchStoneState.cs` 的 editor 编译红错卡住，因此这轮没有拿到新的 sapling-only live runner 结果，当前阶段仍必须诚实写成“结构继续推进，体验待验证”。
+补记：本轮收尾前已执行 `Park-Slice`，当前 live 状态为 `PARKED`；当前两个真实尾项分别是：
+1. 外部 `Assets/Editor/Tool_005_BatchStoneState.cs` 编译红错挡住了干净的 sapling-only menu live 验证；
+2. 树苗体感是否真正变轻，仍待用户现场复测。
+
+## 2026-04-04：树 runtime 本轮只在 `TreeController.cs` 内推进生命周期/注册总口与倒下冻结，不依赖 `Primary`
+
+本轮用户把 scope 再次压窄，只允许我写 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)，并且只准围绕树 runtime 本体推进三件事：`InitializeAsNewTree / Start / Load / DestroyTree / OnDisable / OnDestroy` 的运行时语义尽量统一、倒下期间冻结、`Load()` 后重新激活/重新注册/重新同步占格；`ResourceNodeRegistry.cs` 只有在绝对必要时才允许动。线程这轮已真实施工，并在停手前合法执行了 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason runtime-treecontroller-static-slice-complete`，当前 live 状态已回到 `PARKED`。
+
+这轮当前已经落地的稳定事实有四条。第一，`TreeController` 现在把运行时进入/退出的公共地基往同一套 helper 上收了：新增 `EnterRuntimeLifecycle(...) / ExitRuntimeLifecycle(...)` 以及事件订阅、资源节点注册、持久注册的细粒度布尔标记；`Start()`、延迟 finalize、`OnEnable()`、`OnDisable()`、`OnDestroy()` 不再各自零散做一半，而是围绕这套 helper 走同一个 runtime 面。第二，倒下冻结已经从“只拦命中”扩大到“事件层 + 显示层双保险”：新增 `ShouldFreezeRuntimeMutationDuringFall()` 和 `ShouldHideStandingSpriteDuringFall()`，把 `OnSeasonChanged / OnVegetationSeasonChanged / OnDayChanged / OnWeatherWither / OnWeatherRecover / OnWinterSnow / OnWinterMelt` 在倒下期间统一短路，并让 `UpdateSprite()` 在无树桩倒下中继续隐藏原树 sprite，避免季节/天气或其他刷新链把倒下中的树重新刷站起来。第三，`DestroyTree()` 现在会在真正 `Destroy(...)` 前提前退出 runtime 生命周期并移除 active-instance 占格，这样 runtime 查询和占格事实不会再等到帧末 `OnDestroy()` 才慢半拍退场。第四，`Load()` 现在会主动清掉临时倒下/树苗延迟标记，执行 `RepairRuntimeStateIfNeeded()`，然后重新进入 runtime lifecycle、刷新 active cell、再按当前状态重建表现与碰撞体；也就是说，这一刀已经把“只恢复字段和 sprite”推进成了“恢复后重新接回 runtime 面”，而且没有扩到 `Primary / Town / PersistentObjectRegistry / TimeManager / SeasonManager`。
+
+这轮有意没动、并且当前应继续诚实报成剩余 exact blocker 的点也要写死。第一，`PersistentObjectRegistry` 本身没有被重构，只是在 `TreeController` 内把“是否已注册持久面”做成了本地标记；这是刻意遵守“不碰全局持久层”的 scope，而不是忘了处理。第二，`ResourceNodeRegistry.cs` 这轮没有必要改，原因是目前 `TreeController` 自己已经能完成重新注册/退注册，不需要为了树 runtime 总口去扩大共享文件面。第三，这轮只做了静态代码自检，没有进 `Primary`、没有碰 scene，也没有做 live 运行验证；因此当前最准确的验证结论仍然只是“结构成立、无脚本级红错”，不是“用户体验已过线”。
+
+## 2026-04-03：父层补记，树木季节超时 warning 与方向键调试失效已定位为 `Primary` 场景基线回退，不是交互脚本单点坏
+
+父层当前新增的稳定事实是：用户随后贴出了运行时 warning `[TreeController] Tree - SeasonManager初始化超时，回退到 currentSeason 预览态`，并同步反馈“方向键调试给关了，天数没办法调试”。线程因此保持只读，没有进入新的真实施工，也没有重开 `Begin-Slice`；当前 live 状态继续保持 `PARKED`。父层这轮最关键的新判断有四句。第一句，warning 本身不是树木逻辑凭空报错，而是 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs:463) 之后的既定降级分支：如果 `SeasonManager.Instance == null`，树会最多等 100 帧；超过还没有，就在 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs:663) 打 warning，并退回当前序列化的 `currentSeason` 预览态。第二句，当前运行的 [Primary.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity) 已经完全查不到 `SeasonManager.cs`、`TimeManager.cs`、`TimeManagerDebugger.cs` 这三个脚本引用；但 [primary_backup_2026-04-02_20-46-54.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/primary_backup_2026-04-02_20-46-54.unity) 和更老的提交 `65e1ee35` 里三者都还在，说明这不是“树等太快了”，而是当前场景基线真的把这条时间/季节/调试链弄没了。第三句，方向键调试为什么没了也已经钉死：旧的 [TimeManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/TimeManager.cs:191) 明确写着“已弃用：请使用 `TimeManagerDebugger` 组件”，真正响应 `RightArrow / DownArrow / UpArrow` 的只有 [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs:45) 之后的 `Update()`；但这个组件现在不在 `Primary` 里，所以按键当然彻底失效。第四句，`TimeManager` 虽然代码里还能在缺实例时自动补建一个 `GameObject("TimeManager")`，但 `SeasonManager` 没有同类自建逻辑，`PersistentManagers` 也只负责保活已有子物体，不会替你临时生成 `SeasonManager`；因此树季节 warning 和调试键失效会一起出现，完全符合当前现场。
+
+父层恢复点因此更新为：这组问题当前不能再按“交互线又把树逻辑改坏了”来理解，真正要先修的是 `Primary` 运行场景里的 manager/debugger 挂载链。下一步如果继续，应该先恢复 `SeasonManager + TimeManager + TimeManagerDebugger` 在 `Primary` 的场景存在，再回到树季节显示和时间调试验证；在这之前继续补 `TreeController` 本体不会把 warning 和调试失效真正收掉。
+
+## 2026-04-03：典狱长已把 `Primary` 修法正式锁成“先 A 只读、后 B 写入”的双阶段
+
+父层当前新增的稳定事实是：用户已经认可我提出的“四步修法”，但又同步转达了典狱长对 `Primary` 的强约束，要求我这轮先按 [2026-04-03_典狱长_Primary_只增恢复manager链并严禁回灌_01.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-03_典狱长_Primary_只增恢复manager链并严禁回灌_01.md) 停在“阶段 A：只读审计当前磁盘版 `Primary`”，在没有用户明确开放写窗、没有锁正式转交、也没有确认没有其他 live writer 之前，不准真实写场景。线程因此这轮保持只读，没有进入新的真实施工，也没有新跑 `Begin-Slice`；当前 live 状态继续为 `PARKED`。
+
+父层这轮只读审计又把三件事钉得更死。第一，`Primary` 的用户独占锁仍在，锁文件 [A__Assets__000_Scenes__Primary.unity.lock.json](D:/Unity/Unity_learning/Sunset/.kiro/locks/active/A__Assets__000_Scenes__Primary.unity.lock.json) 里 owner 仍是 `用户Primary独占`；同时当前磁盘版 `Primary.unity` 的 dirty 规模已经扩到 `1 file changed, 3650 insertions(+), 632 deletions(-)`，比典狱长 prompt 引用的旧快照更大，因此这轮更不能做任何 restore、partial sync、scratch 回灌或 Git 覆盖动作。第二，当前磁盘版 [Primary.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity) 里依旧搜不到 `SeasonManager`、`m_Name: 'TimeManager '`、`TimeManagerDebugger` 脚本 GUID `45df3a1e671e38048a3353a77f40d1d1`；但只读参考 [primary_backup_2026-04-02_20-46-54.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/primary_backup_2026-04-02_20-46-54.unity) 中，这条链仍完整存在，其中 `SeasonManager` 在 `1191` 行附近，`TimeManager ` 在 `67111` 行附近，`TimeManagerDebugger` 在 `67141` 行附近，关键字段仍是 `useTimeManager: 1`、`enableDebugControl: 0`、`enableDebugKeys: 1`、`nextDayKey: 275`、`nextSeasonKey: 274`、`prevSeasonKey: 273`、`enableScreenClock: 1`。第三，`GameInputManager` 当前仍不是第一刀，因为当前磁盘版和只读参考里的场景序列化值都还是同一组空值：`timeDebugger: {fileID: 0}`、`enableTimeDebugKeys: 0`；也就是说，当前最先缺的是 scene 基线里的 manager/debugger 挂载链，不是先去改输入链。
+
+父层恢复点因此再次更新为：我原先提出的四步修法仍然成立，但现在第 1 步必须正式拆成 `A/B` 两阶段。`A` 阶段永远先做只读审计和最小恢复方案列举；只有用户明确开放 `Primary` 写窗并转交锁后，才进入 `B` 阶段，在“当前磁盘版 `Primary.unity`”上做 additive-only 的 `SeasonManager + TimeManager + TimeManagerDebugger` 恢复。后面的 `B1/B2/B3` 三条树域 runtime 收口线本身不受这条 prompt 的业务 scope 影响，但方法上也必须继承同样的硬边界：不搞 restore、不搞 scratch 回灌、不把 scene incident 和 runtime incident 再混成一锅。下一步如果继续，先等用户决定是否正式开放 `Primary` 写窗；在那之前，不进入任何真实 scene 写入。
+
+## 2026-04-04：树苗放置卡顿链本轮只在 `Placement/Navigation runtime` 侧继续削峰，不扩到 `TreeController`
+
+父层当前新增的稳定事实是：用户本轮把 scope 再次硬性压窄，只允许我写 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs)、[PlacementValidator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs)、[NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs)、[PlayerAutoNavigator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs)，目标也只剩“不依赖 `Primary` 的树苗放置卡顿残余峰”。线程这轮真实施工后已合法执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason placement-navigation-runtime-stutter-static-slice-complete`，当前 live 状态回到 `PARKED`。
+
+这轮父层新增了三条稳定结论。第一，`PlacementManager` 现在补上了“到达提交防重入”和“重复导航目标抑制”：当 `TryExecuteLockedPlacementWhenPlayerIsNear()` 与 `OnNavigationReached()` 在同一帧同时撞到时，会被新的 commit frame guard 挡掉，不再对同一格重复触发到达提交；同时同一锁定目标在仍处于导航中时，也不会再重复发起同目标的 `StartNavigation()`。第二，`PlayerAutoNavigator` 当前最可疑的两段无条件重活已经被削掉了：`FollowTarget()` / `CompleteArrival()` 的大段 `Debug.Log(...)` 现在统一受 `enableDetailedDebug` 控制，`AddDebugLog(...)` 在非详细调试模式下也不再持续分配字符串；另外 `BuildPath()` 现在会基于“同帧、同起点、同终点、同目标”的签名跳过重复建路，避免左键起步这一帧又被重复求一次相同路径。第三，`PlacementValidator` 对 play mode 回退扫描也补了逐帧缓存：如果当前帧拿不到 `TreeController.ActiveInstances` / `ChestController.ActiveInstances`，对 `FindObjectsByType<TreeController>` 和 `FindObjectsByType<ChestController>` 的 fallback 扫描现在只会做一次，不会在同一帧内被树苗验证链反复重扫。
+
+父层当前也必须诚实保留一个 exact blocker：这轮仍然没有动 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)，因为这不是本轮允许文件。如果用户后续现场复测后，树苗“成功放置那一瞬”的残余峰仍然明显存在，那么当前最需要被继续归因的已不是 `Placement/Navigation runtime` 侧的重复验证、重复建路或 fallback 扫描，而是树实例化/树 runtime 首帧链本身；这条剩余点届时只能作为 `TreeController` 侧配合项继续追，不能再在本轮这 4 个文件里硬拗。
+
+## 2026-04-03：典狱长已把 farm 续工面重新锁回“只做树 runtime / 树苗卡顿，不碰 `Primary/Town/全局持久层`”
+
+父层当前新增的稳定事实是：用户随后又转达了新的治理 prompt [2026-04-03_典狱长_农田交互修复V3_树runtime续工且禁止触碰PrimaryTown_01.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/Codex规则落地/2026-04-03_典狱长_农田交互修复V3_树runtime续工且禁止触碰PrimaryTown_01.md)，这条 prompt 直接把我这条线重新收窄成一句话：这轮不要再申请 `Primary`，也不要再把 `Town`、场景基线、全局持久层和树 runtime 混成一锅；我这轮唯一主刀，只剩“不依赖 `Primary` 的树 runtime / 树苗放置卡顿链”。线程因此这轮继续保持只读，没有进入新的真实施工，也没有新跑 `Begin-Slice`；当前 live 状态继续为 `PARKED`。
+
+这条 prompt 生效后，当前主线的允许面和禁止面已经重新清楚了。允许面只剩运行时树线本体，核心文件是 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)、[PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs)、[PlacementValidator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs)、[NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs)、[PlayerAutoNavigator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs)；如果真遇到树 runtime 注册总口必须补一张牌，也只允许精确触碰 `ResourceNodeRegistry.cs`，而且必须能说明这是树 runtime 注册，不是全局持久层。禁止面则被明确锁死成：任何 scene 文件，尤其 [Primary.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity) 和 `Town.unity`；任何全局持久层/时间季节层，包括 [PersistentManagers.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/PersistentManagers.cs)、[PersistentObjectRegistry.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/PersistentObjectRegistry.cs)、[TimeManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/TimeManager.cs)、[SeasonManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/SeasonManager.cs)；以及 `GameInputManager`、UI、NPC、字体/TMP、Town/Home 等扩题面。
+
+这也把我前面那套“四步树方案”重新切成了新的执行口径：第 1 步 `Primary` manager/debugger 基线恢复，现在已经不再是我这条线本轮的工作内容，治理位已经接走；我不能再把它挂在嘴边当默认下一步。真正属于我这轮的，只剩第 2 到第 4 步里“不依赖 `Primary`”的那部分，也就是：把 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 的生命周期/注册总口前置地基和树苗放置卡顿这条 runtime 链尽可能收窄；再把 still blocked 的部分收敛成 exact blocker，而不是宽泛地说“不给 `Primary` 我就做不了”。恢复点因此更新为：我这轮之后的正确主线不再是“四步整包一起推进”，而是“先把 runtime 能独立收掉的全部收掉，最后只剩 exact `Primary` blocker”；下一步如果继续真修，也只能围绕树苗卡顿、`TreeController` 生命周期/注册前置地基、以及不依赖场景基线的倒下冻结态继续下刀。
+## 2026-04-04：树苗卡顿这轮继续只收 Placement runtime，削掉成功放置后的重复重验与树苗专属重复检查
+
+当前父层新增的稳定事实是：在不碰 `Primary/Town/全局持久层` 的前提下，我这轮重新开了 `tree-runtime-and-sapling-stutter-without-primary` 切片，只继续收树苗放置残余卡顿，而且本轮真正落代码的面再次压窄成 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs) 与 [PlacementValidator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs) 两个文件；`TreeController.cs` 这轮没有再新增逻辑改动，`Primary` 也没有被触碰。线程在停手前已合法执行 `Park-Slice`，当前 live 状态重新回到 `PARKED`。
+
+这轮能站稳的代码层变化有三条。第一条，`PlacementManager` 现在把“树苗刚放下后的 hold 预览”正式变成轻量占格态：`ResumePreviewAfterSuccessfulPlacement(...)` 已经会给树苗塞一份立即占位的红格状态，而 `UpdatePreview()` 现在在仍处于同一 hold 格且鼠标未离开时，会直接复用这份状态，不再每帧重新跑树苗验证链。第二条，`OnLeftClick()` 与 `RefreshPlacementValidationAt(...)` 现在有了“同帧同格结果复用”缓存，避免当前帧预览已经做过验证后，点击同一格时再同步重算一轮；这条优化只复用同帧、同物品、同 anchor cell 的结果，不会把跨帧体验变成假缓存。第三条，`PlacementValidator` 对树苗验证又少跑了两段重活：`HasObstacle(...)` 改成了带静态缓冲的 `Physics2D.OverlapBox(..., Collider2D[])`，不再每次 `OverlapBoxAll` 分配；同时 `ValidateSaplingPlacement(...)` 里对“小于半格的 sapling margin”不再额外跑一轮 `HasTreeWithinDistance(...)`，因为这类距离本质上已经被同格占位判定覆盖。
+
+本轮静态验证也已经补实：`git diff --check` 对上述 2 个脚本通过；`mcp__unityMCP__validate_script` 对 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs) 返回 `errors=0, warnings=2`，对 [PlacementValidator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs) 返回 `errors=0, warnings=0`；随后对当前树 runtime 切片补做的脚本级验证里，[TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)、[PlayerAutoNavigator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs)、[NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs)、[ResourceNodeRegistry.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Combat/ResourceNodeRegistry.cs) 也都没有新的 error。控制台当前只看到与本轮无关的旧 warning：`DialogueUI.fadeInDuration` 未使用，以及三条既有的 `Tree: OnSpriteRendererBoundsChanged` 的 `SendMessage cannot be called during Awake...`。
+
+父层恢复点因此更新为：当前“树苗成功放置后的卡顿”这条线，我还能靠纯 Placement runtime 继续收的同步重验/重复检查已经又往前压了一层；下一步如果用户现场复测后仍然明确说“只剩树苗成功那一下还卡”，那就不该再把锅往 `HasObstacle / sapling margin / hold preview` 这边兜，而应进一步把剩余峰收敛成 `TreeController` 首帧 runtime 链或 prefab 激活成本的 exact blocker。
+
+## 2026-04-04：用户要求先提交当前工作区可提交内容，但这轮真实 `preflight` 已证明当前没有独立可提包
+
+父层当前新增的稳定事实是：用户随后没有再让我继续补代码，而是先要求“把当前工作区存在的所有可以提交的内容先提交掉”。线程因此没有扩大实现面，而是直接沿用已开的 `tree-runtime-and-sapling-stutter-without-primary-sync` 切片去跑真实 `Ready-To-Sync` / `preflight`。这轮最关键的新结论不是新的功能点，而是一个必须诚实报出来的收口事实：在当前 scope 下，这条线程现在并不存在一个已经可以合法 `sync` 的完整代码包。第一层阻断来自 same-root：原先想提交的 `TreeController.cs / PlayerAutoNavigator.cs / NavGrid2D.cs + PlacementManager.cs / PlacementValidator.cs + memory` 这组 8 文件，被 `git-safe-sync` 认定仍落在 `Assets/YYY_Scripts/Controller`、`Assets/YYY_Scripts/Service/Player`、`Assets/YYY_Scripts/Service/Navigation` 等宽根里，因此同根下还没纳入白名单的 `GameInputManager.cs`、`NPC*`、`TraversalBlockManager2D.cs` 等 remaining dirty 会直接阻断 sync。第二层阻断来自代码闸门：线程随后改用“最大可提交子集”再做只读 preflight，发现 `Placement` 整根虽然 same-root 已清，但会被 [PlacementPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs) 缺少 `PreviewOcclusionSource` 可见定义卡出 `2` 条编译错误；这说明它当前仍依赖未一起纳入白名单的 [OcclusionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs)。同理，`Service/Player` 整根虽然也能过 same-root，却会被 `PlayerNpcChatSessionService -> NPCBubblePresenter` 新接口缺失，以及 `PlayerMovement -> NavGrid` 其他重载依赖一共卡出 `25` 条编译错误。第三层结论则是：`TreeController.cs` 本身目前仍不可能在“只守树 runtime / 不吞 foreign hot file”的口径下独立提交，因为它所在的 `Controller` 根仍混有 [GameInputManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs) 和 `NPC` 侧 dirty。线程因此没有生成新的提交 SHA，也没有硬做越界扩包；收尾前已合法执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason sync-blocked-by-own-root-and-code-gates`，当前 live 状态重新回到 `PARKED`。父层恢复点因此更新为：如果后续还要继续走“先提交当前工作区内容”这条路，下一步已经不是重复跑 sync，而是先由用户拍板是否允许最小扩包带上 `OcclusionManager.cs / NPCBubblePresenter.cs / NavGrid` 这类真实依赖；如果不允许，那当前最诚实的结论就是“此刻没有可合法提交的独立代码包”。
+
+## 2026-04-04：`TreeController` 当前 3 条 `SendMessage cannot be called during Awake/OnValidate` warning 已定位为编辑器预览链问题
+
+父层当前新增的稳定事实是：用户随后贴出了 3 条完全一致的 warning，调用栈都落在 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 的 `OnValidate -> RefreshTreePresentation -> UpdateSprite`。线程这轮保持只读，没有进入新的真实施工，也没有新跑 `Begin-Slice`；当前 live 状态继续保持 `PARKED`。这轮只读审计后，结论已经足够明确。第一，这不是项目里某个我们自己写的 `OnSpriteRendererBoundsChanged()` 被错误调用，因为全项目根本没有这个方法；这条名字来自 Unity 自己在 `SpriteRenderer.sprite` 发生变化时的内部消息。第二，当前 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs:3240) 的 `OnValidate()` 在 `editorPreview` 打开且阶段/状态/季节变化时，会直接调用 [RefreshTreePresentation()](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs:841)，而它第一句就是 [UpdateSprite()](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs:2022)。第三，[UpdateSprite()](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs:2038) 在拿到目标 sprite 后会直接执行 `spriteRenderer.sprite = targetSprite`，这一步正好命中 Unity 明确不允许在 `Awake / CheckConsistency / OnValidate` 期间触发的内部消息，因此 warning 才会在 “恢复上次打开场景” 时刷 3 次。第四，`OnValidate` 这条编辑态预览链现在还不只是换 sprite；同一轮预览里还可能继续走 `AlignSpriteBottom()`、`UpdateColliderState()`，甚至在阶段/状态变化时进一步 `UpdatePolygonColliderShape()` 和 `RequestNavGridRefresh()`。也就是说，当前问题本质上是“编辑器实时预览链写得太重”，而不是“树运行时砍树/树苗/倒下事务重新坏了”。父层恢复点因此更新为：如果后续要真正修这组 warning，正确第一刀应当是把 `OnValidate` 改成“只做脏标记，延后到安全的 editor 回调再刷新表现”，而不是继续在运行时树事务链里找锅。
+
+## 2026-04-04：树专题本轮继续深推，`TreeController` 当前已把 warning 根因和 deferred finalize 重链同时收成新静态完成面
+
+父层当前新增的稳定事实是：用户随后明确要求我“直接干到最深处”，因此线程这轮没有再停在只读分析，而是重新开了 `tree-runtime-deep-push-sapling-stutter-and-editor-warning` 切片，只真实修改了 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)，目标同时锁定两件事：一是把 `OnValidate` 预览 warning 真正收掉，二是继续往 `TreeController` 最深的树苗 deferred finalize 链里砍，把“树苗放置成功那一下”的残余卡顿再往下压一层。线程在停手前已再次合法执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason tree-runtime-deep-push-static-slice-complete`，当前 live 状态重新回到 `PARKED`。
+
+这轮最关键的新落点有五条。第一，runtime placed sapling 的 deferred finalize 现在不再在同一拍里又进生命周期注册、又跑轻量树苗呈现；当前链路已经被拆成两段：先只落轻量树苗表现，再额外晚一拍补 `EnterRuntimeLifecycle(...)`。这直接避开了之前最重的回退口，也就是“树苗刚落地就因为天气/季节订阅副作用被打回完整初始化”。第二，`ShouldUseLightweightRuntimePlacedSaplingPresentation()` 已经从“只允许 `Normal`”扩大到“`Normal / Withered` 都允许继续走轻量树苗链”，所以即便 deferred heavy lifecycle 那一拍天气系统是枯萎态，树苗也不会因为 `currentState = Withered` 就被踢回 full init。第三，`RefreshActiveInstanceCellRegistration()` 现在对“目标格没变、这棵树也已经登记过”的情况做了幂等短路，省掉 `OnEnable -> InitializeAsNewTree -> deferred lifecycle` 这一串里的重复占格注销/重注册。第四，`OnValidate()` 预览链已经改成 `QueueEditorPreviewRefresh(...) -> EditorApplication.delayCall -> FlushQueuedEditorPreviewRefresh()`；也就是说，这轮不是只说“将来该怎么改”，而是已经把预览刷新真实挪出了 `OnValidate`，从根上消除 `SendMessage cannot be called during Awake/OnValidate` 这组 warning 的触发条件。第五，`TreeController` 内部又顺手去掉了一层重复成本：`Collider2D[]` 改成缓存复用，main sprite 与 shadow sprite 改成“只有真的变化时才赋值”，`AlignSpriteBottom()` 也改成 y 没变就不重复写 `localPosition`。
+
+验证层这轮也已经补实，而且是 compile-clean。`git diff --check -- Assets/YYY_Scripts/Controller/TreeController.cs` 通过；随后用 [CodexCodeGuard](D:/Unity/Unity_learning/Sunset/scripts/CodexCodeGuard/Program.cs) 对 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 单文件跑了 `utf8-strict + git-diff-check + roslyn-assembly-compile`，结果 `CanContinue=true`、`Diagnostics=[]`、程序集 `Assembly-CSharp`。因此这轮能诚实 claim 的层级是：`TreeController` 这刀已经形成新的静态完成面，而且当前没有脚本级红错；但它还不是 live 终验结论，树苗那一下到底有没有完全过线，仍然必须等用户现场复测。父层恢复点因此更新为：这轮之后，树专题最深的两条明显根因已经都被真正写进代码里了；下一步如果继续，优先应让用户只盯“树苗放置成功瞬间是否明显变轻”和“那 3 条 warning 是否真正消失”做一次 live 终验。如果用户仍然说树苗成功那一下还卡，下一刀就不该再回 `Placement` 层找锅，而该继续追 prefab 激活 / 更外层实例化成本。
+
+## 2026-04-04：树专题补记，当前 `TreeController` own 编译面与最小 Unity 责任边界都已重新核清
+
+本轮线程没有再扩大到 `Primary/Town/全局持久层`，也没有继续改农田其他业务。用户最后一个直接阻塞是 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 上的 `CacheCoreComponentReferences` 编译错误和几条“字段赋值未使用”warning，所以线程只围绕这个 own 文件补做 fresh compile / fresh console truth。线程这轮没有新增代码改动，主要是重新钉死当前磁盘版与用户贴出的旧红错之间的真实关系；停手前已再次执行 `Park-Slice`，live 状态回到 `PARKED`。
+
+这次补记后能稳定站住的事实有三条。第一，当前磁盘版 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 已真实具备 `CacheCoreComponentReferences()` 方法实现，而且 `runtimePlacedSaplingHeavyLifecycleQueued`、`editorPreviewRefreshQueued`、`pendingEditorPreviewColliderSync` 都有真实使用点，所以用户先前贴出来的那组编译错误和未使用 warning，不再对应当前代码。第二，代码层闸门重新通过：`git diff --check -- Assets/YYY_Scripts/Controller/TreeController.cs` 通过，`python scripts/sunset_mcp.py compile Assets/YYY_Scripts/Controller/TreeController.cs --skip-mcp --owner-thread 农田交互修复V3` 返回 `assessment=no_red`，`CodexCodeGuard` 结果是 `CanContinue=true`、`Diagnostics=[]`。第三，最小 Unity 侧 fresh compile / console 证据也已经补上：`python scripts/sunset_mcp.py no-red Assets/YYY_Scripts/Controller/TreeController.cs --owner-thread 农田交互修复V3 --count 30` 返回 `owned_errors=0`、`warning_count=0`，说明当前树专题 own 文件没有再留下 Unity owned red，也没有再次刷出那组 `OnValidate` warning；Console 剩余的红面全部来自 [SpringDay1OpeningRuntimeBridgeTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/SpringDay1OpeningRuntimeBridgeTests.cs) 这条外线测试文件，不属于当前树专题切片。
+
+当前工作区恢复点因此更新为：树专题这条线现在可以诚实 claim 的，只剩“own 编译面 clean + 最小 Unity 责任边界 clean + warning 暂未再现”；还不能 claim 的仍然是体验层，也就是树苗放置成功瞬间的卡顿是否已经彻底过线。下一步如果继续，正确动作不是回头补旧编译错，而是等 live 终验树苗卡顿；若仍卡，再继续往 prefab 激活 / 实例化成本追。
+
+## 2026-04-04：工作区补记，TMP 字体导入报错这条误线索已撤回
+
+用户随后补充说明，先前把树苗放置卡顿和 `DialogueChinese Pixel SDF.asset` 的导入报错绑定在一起，是他的错觉。这意味着当前工作区不应把 `Importer(NativeFormatImporter) generated inconsistent result for asset "Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset"` 继续当成树专题的主根因。线程对此只做了只读 incident triage 起手，没有进入真实施工，也没有新增代码改动。工作区主线因此恢复为：继续只盯“树苗放置成功瞬间的真实卡顿”本体，不再沿着这条已撤回的 TMP 字体误报扩查。
+
+## 2026-04-04：工作区补记，clean 环境下的直接重测重新证明 TMP editor 资产重导入噪音真实存在
+
+用户随后要求我别再只做静态判断，而是直接在已打开的 Unity 里亲自重测树苗卡顿。我这轮因此真实修了 [PlacementSecondBladeLiveValidationRunner.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementSecondBladeLiveValidationRunner.cs) 的 support harness：一是把 `LockPreviewPosition(skipValidation)` 的反射调用签名补齐，二是给树苗放置补了 `SampleRealtimeSpikeWindow(...)` 采样框架。代码层闸门已过：`git diff --check` 通过，`python scripts/sunset_mcp.py compile Assets/YYY_Scripts/Service/Placement/PlacementSecondBladeLiveValidationRunner.cs --skip-mcp --owner-thread 农田交互修复V3` 也通过。
+
+更关键的是 clean 环境 live 结果本身。命令桥多次真实执行了 `Tools/Sunset/Placement/Run Sapling Ghost Validation`，Editor.log 里能看到 `runner_started` 和 `scenario_start=SaplingGhostOccupancy`，说明脚本不是没跑；但当前还没吐出 `scenario_end` 或 `peakFrameMs`，所以树专题自己的采样结果还没落出来。与此同时，在这次 clean 环境直测里，控制台和 Editor.log 又稳定出现了 `Importer(NativeFormatImporter) generated inconsistent result for asset "Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese Pixel SDF.asset"`，并且调用栈明确落在 `TMPro.TMP_EditorResourceManager -> SceneView.DoOnGUI` 这条 editor-only 链上。工作区当前因此必须更新判断：先前那条 TMP 字体报错不该在“只读猜测阶段”里直接当成树卡顿根因，但到了 clean 环境 direct retest，这条 editor-only 资产重导入噪音已经重新被现场证实存在，而且它会直接卡编辑器。所以下一步不能继续把“树苗放置卡顿”和“TMP editor 资产重导入卡编辑器”混成一条线，而要先把两者分离。
+
+## 2026-04-04：工作区补记，用户要求继续多轮快跑，runner 与业务两层现状已分账
+
+用户随后明确要求“再重跑几轮，快，重跑并记录”。线程因此没有再做额外分析，只继续围绕 `sapling-only` live runner 快速重复执行。为了避免验证器自己制造假阳性，我先把 [PlacementSecondBladeLiveValidationRunner.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementSecondBladeLiveValidationRunner.cs) 里的 `TriggerPlacementAttempt()` 改回真实 `placementManager.OnLeftClick()`，不再直调 `LockPreviewPosition(skipValidation:true)`。
+
+这轮快跑后，工作区当前必须同时保留两层事实。第一层是业务层事实仍然稳定：已有 3 次完整 `scenario_end` 继续证明 `secondPlantBlocked=False / previewInvalid=True / previewStayedOnOccupiedCell=True / treeDelta=2`，也就是预览层已经判无效，但执行层仍然把第二棵树放进去了，这条业务问题仍然真实存在。第二层是验证器层事实也要单独报实：本轮继续追加的 4 次 run 只留下新的 `scenario_start`，没有新的 `scenario_end`，说明当前 runner 自己现在也存在“只 start 不 end”的挂住点。因此，后续不能把所有“后面没结果”都继续算到业务本身，也不能拿 runner 的挂住替代对业务问题已经成立的判断。
+
+## 2026-04-04：树苗卡顿这轮已把 warning 洪流主锅与红格 hold 副锅都落进代码，但 live 被外部 UI 编译红阻断
+
+父层当前新增的稳定事实是：用户随后把本线严格收敛成“先别碰 `Primary`，只收 `TreeController + 树苗放置`，尤其要把树苗放置卡顿彻底解决”。线程因此重新进入真实施工，只改了 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs) 与 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)，没有扩回 `Primary/Town/全局持久层`。这轮最关键的新结论有三句。第一句，fresh `Editor.log` 已经证明树苗放置主事务和 `TreeController` deferred heavy lifecycle 本体都不重，分别只在 `2~7ms` 与 `9~16ms` 左右；真正异常的是同一轮树苗放置周围会连续刷出多条 `[PlacementSaplingProfile] / [TreeSaplingProfile]` `Debug.LogWarning`，而用户也同步看到了“32 个 warning”，所以当前最像真主锅的卡顿根因不是放置事务本体，而是本线程为了追卡顿临时埋下的 profiling warning 洪流。第二句，树苗连放的 runner 尾差也补到了一个真实逻辑口子：当前 `UpdatePreview()` 先跑 `ResolvePreviewCandidatePosition()`，而它会吃到“边缘 10% 倾向”和“相邻直放”偏置，导致树苗刚落下后的 occupied hold 还没守住上一格，就先被 adjacent bias 带去旁边格；线程这轮已经把这条语义冲突压回 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs)，只要 `holdPreviewUntilMouseMoves` 仍然生效且鼠标 base cell 还在原格，就不再提前应用相邻偏置。第三句，own 代码层这轮已经 clean：`git diff --check` 通过，`python scripts/sunset_mcp.py compile` 对 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs) 与 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 都返回 `CanContinue=true`；但 live 验证没有真正跑成，因为 Unity 当前被外部 UI 红面卡住，第一真实 blocker 是 [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs:640) 的 `AddProgressHoverRelay` 编译错误。线程随后真实执行了 `STOP -> Assets/Refresh -> PLAY`，命令桥确实归档了 `play.cmd`，但 Unity 仍停在 `EditMode`，说明这条外部编译红已经真实阻断了 Play / live sapling rerun。父层恢复点因此更新为：树苗卡顿这轮的 own 修正已经写完，当前唯一挡住“真正吃进 Unity runtime 并跑 live 终验”的不再是树 runtime 本身，而是外部 UI compile blocker；如果后续要继续，不该再回树线里盲改，而应先等外部红面清掉，或者由用户明确授权我越界处理那条 [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs:640) blocker。线程这轮收尾前已执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason tree-runtime-sapling-stutter-fix-written-but-live-blocked-by-ui-compile-red`，当前 live 状态为 `PARKED`。
+
+## 2026-04-04：树苗卡顿根因进一步钉死为树苗放下后的 NavGrid 刷新，不再是放置事务本体
+
+用户随后继续要求“先别碰 `Primary`，只收 `TreeController + 树苗放置`，尤其最高优先级是树苗放置成功瞬间卡顿”。线程因此继续真实施工，只围绕 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs)、[TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)、[NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs) 做 live 归因，没有碰 `Primary/Town/全局持久层`。这轮新的稳定事实有四条。第一，fresh live 日志已经把“同步放置本体”与“后续帧卡顿”彻底分账：树苗一次成功放置的同步段只在大约 `2.46~7.10ms`，`TreeController` 的 runtime placed sapling deferred heavy lifecycle 也只在大约 `10~11ms`，这些都不足以解释玩家感知到的明显卡顿。第二，真正的大峰值已经被 `Editor.log` 钉死在树苗放下后的 `NavGrid` 刷新：`RefreshGridRegion` 大约 `192ms`，而且刷新范围异常大，`bounds=Center(-13.66, 5.77), Extents(27.92, 19.95)`，一次重算了 `9153` 个格子；有些 run 还会直接退化成 `RefreshGrid(full)` / `RebuildGrid()`，单次大约 `288~297ms`。第三，最新 runner 业务事实也因此重新收口：树苗重复落地这条现在已经不是旧口径里的 `treeDelta=2` 了，最新干净样本已经回到 `secondPlantBlocked=True / treeDelta=1`，说明“第二棵树继续落地”这条旧业务锅不再是本轮第一主问题；当前 runner 之所以仍然 `pass=False`，更多是因为 `previewInvalid / previewStayedOnOccupiedCell` 这些旧断言还没跟最新 hold 口径同步。第四，源码层已经把树苗期导航刷新进一步收口：在 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 里，runtime placed sapling 现在会在 `InitializeAsNewTree()` 时清掉旧的 nav obstacle bounds，并且 `RequestNavGridRefresh()` 会对“stage0 且仍处于 runtime placed sapling 轻量期”的树直接抑制导航刷新；同时，如果当前树既没有 current bounds 也没有 last bounds，就不再继续排队共享 nav refresh，也不再因为“无边界请求”回退成整张 NavGrid 重建。
+
+这轮也必须诚实报一个 exact blocker：由于当前 Unity 仍被外部编译红 [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs:640) `AddProgressHoverRelay` 卡住，最新这组“树苗期抑制 NavGrid 刷新”的源码还没有被完整吃进 live assembly，所以我这轮能站稳的层级是“根因已钉死、源码修正已写完、静态脚本验证通过”，还不是“live 终验已过线”。线程收尾前已执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason tree-sapling-stutter-root-caused-to-navgrid-refresh-source-fix-written-live-retest-blocked-by-external-ui-compile-red`，当前 live 状态继续为 `PARKED`。恢复点因此更新为：后续只要外部 UI 编译红清掉，第一步不是再猜，而是直接复跑 sapling-only，核对 `NavGrid` 大刷新是否真正消失，以及树苗成功落地的卡顿是否同步消失。
+
+## 2026-04-04：树苗刚放下后预览仍是绿色，这轮已钉到 preview cell 自己把红格刷回绿的具体漏洞
+
+用户在上一轮最新 live 反馈里进一步收窄问题：树苗放置看起来已经没那么卡了，但“刚放置后预览还停在当前位置，而且还是绿色”，说明当前不是放置事务没执行，而是 preview 状态没有立刻跟上真实占位。线程因此继续只守 `TreeController + 树苗放置`，不碰 `Primary`，并重新进入一个更小的切片：只修“放下后立即红格”这条。当前这轮新增的关键事实是一个非常具体的代码漏洞，而不是抽象推测：在 [PlacementPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs) 里，`ForceUpdatePosition()/UpdatePosition()` 都会走 `UpdateGridCellPositions()`；而它原先又会对每个格子调用 [PlacementGridCell.Initialize()](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementGridCell.cs)，但这个 `Initialize()` 内部会无条件 `SetValid(true)`。结果就是：`PlacementManager` 前一拍明明已经通过 `TryApplyImmediateOccupiedHoldState()` 把刚放下的树苗格刷成红色，下一拍 preview 只要重绑位置，就会被 `PlacementGridCell.Initialize()` 偷偷重置回绿色。线程这轮已经把这条漏洞定点修掉：第一，在 [PlacementGridCell.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementGridCell.cs) 里把 `Initialize()` 改成“不再强制设为 valid=true”，并新增 `Rebind(...)`，专门只更新格子索引和位置、保留当前红/绿状态；第二，在 [PlacementPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs) 里把 `CreateGridCells()` 改成“新格子第一次创建/复用时显式 `SetValid(true)`”，而 `UpdateGridCellPositions()` 以后只走 `Rebind(...)`，不再在每次位置更新时把颜色重置。也就是说，这轮修掉的是 preview cell 自己的状态回滚 bug，不是又去乱改树 runtime 或导航。代码文本层当前 `git diff --check -- PlacementGridCell.cs PlacementPreview.cs` 已通过，只有既有 CRLF 提示；`sunset_mcp.py compile --skip-mcp` 对这两个小文件这轮没有拿到新鲜结果，因为仓库当前整库 compile helper 又卡在长等待上，所以这轮还不能把它包装成“Unity live 已验证过线”，只能诚实记成“静态漏洞已修，等待用户下一轮 live 复验”。收尾前线程已执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason preview-grid-state-reset-fix-written-awaiting-user-retest`，当前 live 状态回到 `PARKED`。恢复点因此更新为：下一轮如果继续，优先让用户只验证“树苗刚放下后，预览是否立刻在原格变红；鼠标继续停在原格时不再假绿”；若这条过了，再继续看边缘 10% 倾向与相邻顺延是否还需要二次收口。
+
+## 2026-04-04：工作区补记，本轮只读总盘点已把当前全部历史遗留重新定级
+
+这轮用户没有要求我继续落代码，而是要求我把“到现在为止到底还有哪些历史遗留和未完成项”重新列清楚，并且把一个新 live 事实一并纳入：现在按右方向键触发树木成长时，会出现全局卡顿。线程因此这轮保持只读，没有新跑 Begin-Slice，也没有新增业务代码；当前 live 状态继续视为 PARKED。
+
+当前这轮重新定级后的未完成总账应固定为三层。第一层是树专题主线，仍然是最高优先级：树苗放置成功瞬间的残余卡顿、树苗放下后预览立即红格/边缘 10% 倾向与相邻顺延手感、以及新增的 树木成长/按右方向键时的全局卡顿，这三条当前都还没有被用户终验为通过；另外，TreeController 生命周期/注册总口、倒下冻结、Load() 恢复链虽然已推进过，但整包仍未形成新的 live 完成结论。第二层是农田交互仍未过线的功能项：成熟作物无法收获 / 枯萎作物无法 collect、农田 preview hover 遮挡仍未收准到用户要的单中心格口径、箱子 UI 交互还没完全复刻背包语义。第三层是表现与一致性尾差：Tooltip + 工具状态条 + Sword/WateringCan 显示链、玩家气泡样式、树木倒下动画质感、低级斧头砍高级树的冷却前置拦截最终口径、同类型工具损坏后的自动替换与文案、背包/Toolbar 选中手感最终体验，这些都还不能写成已过线。
+
+另有两条必须保留为“未完成但当前不该混改”的独立尾账。其一，Primary 场景里的 SeasonManager / TimeManager / TimeManagerDebugger 缺失问题依旧是独立 blocker，它会影响树季节 warning 与时间调试键，但这条不应再和当前树 runtime / 树苗放置 slice 混写。其二，sapling live runner 自己仍有 只 start 不 end 的不稳定样本，所以它只能当辅助取证工具，不能代替用户终验。当前工作区恢复点因此更新为：下一轮如果继续，最该先打的是“树成长/右方向键卡顿 + 树苗放置最终收口”这一组 P0 树专题，再回头收成熟作物收获、农田遮挡和箱子 UI；不要再回头误动已经被用户判过“可用”的 placeable 遮挡链。
+## 2026-04-04：工作区补记，Primary 时间/调试链当前不是“完全没做”，但也绝不能算这条线已经做完
+
+这轮用户追问“Primary 那部分、时间控制器那部分是不是已经做好了”，线程因此保持只读，重新核了当前磁盘版 Primary 场景文本、锁目录和 TimeManager / TimeManagerDebugger / SeasonManager 的现行代码口径。当前最关键的新事实是：我 earlier 那套“Primary 里 SeasonManager / TimeManager / TimeManagerDebugger 三个都缺失”的判断，已经过时了一半。当前磁盘版 Primary 里已经真实存在 `SeasonManager` GameObject，并且它的 `useTimeManager: 1` 也在；同时，当前 `.kiro/locks/active` 下已经没有 `Primary.unity` 的活动锁文件，说明“用户独占锁仍在”这条旧判断也不再成立。
+
+但这不等于那条 Primary 任务已经做完。因为当前 Primary 文本里仍然搜不到 `TimeManager` GameObject，也搜不到 `TimeManagerDebugger` 或其脚本 GUID；从代码口径看，`TimeManager.Instance` 现在会通过 `PersistentManagers.EnsureManagedComponent<TimeManager>("TimeManager")` 自行补建，所以“时间流逝本体”未必还需要靠场景里预摆一个 TimeManager 才能工作；相对地，`TimeManagerDebugger` 没有同类自建逻辑，它只有挂在场景里时，`RightArrow / DownArrow / UpArrow` 这组调试键才会真的恢复。也就是说，当前现场更像是：SeasonManager 已经被补回，TimeManager 本体可能改成了运行时自建，但 TimeManagerDebugger 这条调试入口链还没有在场景文本里看到。
+
+因此这条 Primary / 时间控制器任务在我这条线上的最新准确定性应更新为：不是“完全没动”，也不是“已经收口”，而是“外部现场已经部分恢复，但我这条线没有亲手完成也没有做过 fresh live 验证”。当前还不能诚实 claim 的部分有三条：1）方向键跳天 / 跳季是否真的恢复；2）TreeController 的 SeasonManager 超时 warning 是否已经因此彻底消失；3）这套恢复到底是场景摆件恢复，还是脚本自建链已经接管。工作区恢复点因此更新为：后续如果要重新把 Primary 这条案子拉回施工，第一步不该再沿用“缺三件套”的旧口径，而要按“SeasonManager 已在、TimeManager 可能自建、TimeManagerDebugger 仍待核”的新现场来处理。
+## 2026-04-04：工作区补记，四个专题当前不能诚实承诺一轮全部完成
+
+用户进一步追问，前面压出来的四个专题在允许开子智能体时能否一轮全部做完。当前工作区需要写死的新判断是：不能诚实承诺。最核心原因不是并行能力不足，而是任务结构本身不对称：树专题 P0 这一组已经足够重，里面同时包含树苗放置卡顿、树成长/右方向键卡顿，以及 TreeController 生命周期/倒下冻结/Load 恢复链的 live 收口；即使允许拆并行，也大概率会单独占掉一整轮。相比之下，成熟作物收获、农田 preview 遮挡、箱子 UI 这组三条仍是真功能链，不是顺手修一修的尾差；而 Tooltip、气泡、倒下动画、自动替换文案、选中手感这些表现尾差，优先级应继续后置。工作区因此更新判断为：下一轮最多只能承诺“打穿树专题 P0，再尽量顺带收一到两条交互功能链”，不能对四个专题做一轮全清的承诺。## 2026-04-04：sidecar 定点修复成熟作物无法收获、枯萎作物无法 collect，只改 CropController
+
+这轮用户把我从树专题主刀里拆出来，单独只修“成熟作物无法收获、枯萎作物无法 collect”，并明确限定默认 write scope 只能是 [CropController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Farm/CropController.cs)。因此本轮没有碰 `Primary/Town`，没有碰 `TreeController / PlacementManager / NavGrid2D / GameInputManager`，只沿 `CropController -> IInteractable -> collect/harvest` 这条链做只读核因和最小落地。
+
+本轮钉住并直接修掉了两类根因。第一类是状态门本身收窄错了：`CropController.CanInteract()` 原先只放行 `Mature` 和 `WitheredMature`，导致未成熟枯萎作物完全进不了 collect 入口；这轮已把 `WitheredImmature` 也纳入可交互状态，并在 `Harvest(...)` 内把这条状态接到 `ClearWitheredImmature()`，让“枯萎作物 collect”重新闭环。第二类是父子结构下的交互命中与位置恢复口径不够自守：当前收获链实际依赖 `Physics2D.OverlapPointAll` 先打到 crop 的 trigger，再通过 `CropController.CanInteract(null)` 入队；但 `CropController` 之前只在 Awake 里被动取本体 `BoxCollider2D`，也仍有若干初始化/恢复逻辑继续直接用 `transform.position`，没有统一走“父物体是格子中心、子物体只是表现层”的口径。这轮已把这些事实源重新收回 `CropController` 自己：Awake/Initialize/Load 统一补 `CacheComponentReferences()` + `EnsureLocalInteractionTrigger()`，必要时在控制器同体补一个本地 `BoxCollider2D Trigger`，并在 `UpdateVisuals()` 后同步 trigger 到当前 sprite；同时 `Initialize(seed,data)`、旧版 `Initialize(CropInstance)` 与 `Load(WorldObjectSaveData)` 都改为按 `GetCellCenterPosition()` / 父物体位置恢复层级与格子，不再把偏移后的子物体位置当成真实格子中心。
+
+这轮静态验证已经完成并且 no-red：`git diff --check -- Assets/YYY_Scripts/Farm/CropController.cs` 通过；`validate_script(Assets/YYY_Scripts/Farm/CropController.cs)` 通过，`errors=0`，只剩一个旧 warning：`Update()` 里的字符串拼接可能产生 GC。当前还没有 fresh live 用户终验，因此这轮口径只能算“代码层已修、静态验证通过，等待 live 收获/collect 复测”，不能包装成“用户已测通过”。
+
+## 2026-04-05：第一大组继续深推，当前已把 TreeController / PlacementManager / CropController 都收回代码层 clean
+
+这轮用户明确批准“狠狠干穿第一大组，再顺带吃一点第二组”，并且反复强调安全红线是不碰 `Primary`、不制造任何 scene reload / 回退事故。线程因此沿现有 `tree-p0-deep-push-plus-second-group-sidecar_2026-04-04` 切片继续真实施工，只守 [TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs)、[PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs)、[CropController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Farm/CropController.cs) 这三条链，没有触碰 `Primary/Town` 的 tracked 内容，也没有回开新的 shared hot file。
+
+这轮新增的稳定事实有五条。第一，[TreeController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/TreeController.cs) 当前盘上那组“树苗 deferred finalize + 成长 obstacle 查询减分配 + shared nav refresh 分帧化 + OnValidate 延后刷新”的大改面，脚本级验证已经重新站稳：`manage_script validate(TreeController/basic)` 返回 `status=clean errors=0 warnings=0`。第二，第二组 sidecar 已收回，`CropController` 当前新增了 `WitheredImmature` 的交互/collect 闭环、本地 trigger 自守以及父物体格子中心恢复；脚本级验证同样 clean。第三，`PlacementManager` 这轮真正往前推的一刀是近身连放 hold/release 口径：当 `holdPreviewPlayerDominantCellValid == true` 时，不再因为玩家中心点在同一主占格里轻微漂移就提前 release hold，只有 dominant cell 真变了才解除；只有 dominant cell 不可用时，才退回旧的中心点移动阈值。第四，这一刀中途我自己引入过一条 owned compile red：`PlacementManager.cs(1694,23)` 的 `Vector3 - Vector2` 二义性；但已在同轮立刻修回，当前 `manage_script validate(PlacementManager/basic)` 重新返回 `status=clean errors=0 warnings=0`，`git diff --check -- Assets/YYY_Scripts/Service/Placement/PlacementManager.cs` 也通过。第五，这轮 fresh Unity 侧最小 compile 证据已经补到位：通过 `refresh_unity(targeted) + read_console` 后，当前控制台对这组 own 文件已没有新的编译错误；fresh 剩余项只看到一条外部 warning `[NavGrid2D.cs:803] CS0162 Unreachable code detected` 和一条匿名 `NullReferenceException`，都不能归到本轮 own 改动名下。
+
+这轮也补了一次 live 取证，但结果必须分账。为了不碰 `Primary`，线程只在当前 [Town.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 现场尝试执行 `Tools/Sunset/Placement/Run Sapling Ghost Validation`。结果不是业务断言失败，而是 runner 自己在 `ResolveReferences()` 就停住：`preview=True navigator=True playerTransform=True playerCollider=False database=True`。也就是说，当前 Town 现场并不满足这个 sapling-only runner 的最低前提，exact blocker 是“runner 需要的 player Collider2D 在当前 live scene 里不存在/拿不到”，而不是这轮 tree/placement 代码又重新爆红。线程已在收尾前主动执行 `manage_editor stop` 把 Editor 退回 Edit Mode，没有把 Unity 留在 Play 态；同时也已执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason first-group-deep-push-code-clean-live-runner-blocked-by-town-scene-precondition`，当前 live 状态重新回到 `PARKED`。
+
+当前工作区恢复点因此更新为：第一大组这轮已经真正新增了三个可站住的代码层完成面，即 `TreeController` 静态 clean、`PlacementManager` 近身 hold/release 纠偏、`CropController` 收获/collect 入口补齐；但 live 树苗 runner 仍未给出新的 sapling 业务结论，当前 exact blocker 不是编译红，而是 `Town` 现场不满足 runner 前置条件。下一步如果继续，正确顺序应是：要么切到满足 runner 前提的场景再复跑 sapling-only，要么直接等用户在真实农田入口手测“树苗连放、刚放下后预览是否立刻无效、树成长/右方向键是否还卡”；不要再回头把这轮已清掉的编译红错或 `Primary` 旧账重新混进来。
+
+## 2026-04-05：用户最新 live 裁定已把树专题移出未完成列表，并新增“背包首次拖拽图标不跟鼠标”问题
+
+这轮用户没有要求我继续改代码，而是先给出新的 live 裁定并要求我重排总账。最新裁定有两条必须直接写死。第一条：`树木没有任何问题了`，因此当前 `1.0.4` 的未完成清单里，不应再继续把 `TreeController / 树苗放置 / 树成长 tick` 这整组挂成主线未完项；除非用户后续再次打回，否则树专题从当前剩余总表里移除。第二条：当前新增一个更高优先级的 UI/交互问题，即“每次运行后的第一次背包拖拽，图标不会跟随鼠标移动”。这条问题不属于树线，也不是农田 placeable 线，而应直接归到 `InventoryInteractionManager / InventorySlotInteraction / SlotDragContext / HeldItemDisplay` 这一整条拖拽显示链。
+
+基于这次重排，当前工作区仍未完成的内容应重新压成四组。第一组是当前新的主线阻塞：`背包/箱子拖拽显示与拖拽语义`，其中至少新增确认了一条 `首次拖拽图标不跟鼠标`；同时，箱子 UI 是否已经和背包完全同语义、拖拽/堆叠/放回是否还有边角回归，也不应在没有新终验前直接移出清单。第二组是农田功能项：`成熟作物收获 / 枯萎作物 collect` 这条虽然代码层已补，但还没有新的 live 终验；`农田 preview hover 遮挡` 也仍未收到用户正式判定“已过线”。第三组是表现与一致性尾差：`Tooltip / 工具状态条 / 水壶与 Sword 显示链`、`玩家气泡样式`、以及与背包/Toolbar 选中真源相关的最终手感，当前仍应保留在剩余项里。第四组是独立历史尾账：`Primary` 里的 `TimeManagerDebugger / 时间调试链` 若仍要继续追，也依旧是独立尾账，但它不再属于当前最优先的交互主线。
+
+当前工作区恢复点因此更新为：后续如果继续，不该再按“树专题 P0”推进，而应把主线切成“背包/箱子拖拽链优先”，先解决 `首次拖拽图标不跟鼠标`，再连同箱子拖拽语义一起收；之后再回头终验作物收获、农田遮挡和 Tooltip/气泡尾差。
+
+## 2026-04-05：只读补记，首次拖拽不跟鼠标已进一步收束到 Held 图标首次显示链
+
+这轮我继续保持只读，没有跑 `Begin-Slice`，也没有新增 tracked 代码改动。当前新增的一条稳定判断是：`每次运行后的第一次背包拖拽，图标不会跟随鼠标移动` 这条，不该再泛化地挂在“背包手感”或“箱子交互”下面，而应直接归到 `InventoryInteractionManager / InventorySlotInteraction / SlotDragContext / HeldItemDisplay` 这条 Held 图标显示链。静态代码回看也进一步支持这一定性：当前拖拽入口会在 `OnBeginDrag -> ShowDragIcon -> InventoryInteractionManager.ShowHeldIcon -> HeldItemDisplay.Show()` 这条链里完成显示，而真正的鼠标跟随仍依赖 `HeldItemDisplay.Update() -> FollowMouse()`。因此这条问题当前最像“首次显示时机或首次位置同步没接上”，而不是树、农田或放置系统回归。
+
+基于这次补记，当前工作区的剩余顺序继续保持四组，但第一组内部需要再收窄成两段：先收 `首次拖拽图标不跟鼠标` 这个新 P0，再连带复核背包/箱子拖拽、堆叠、放回是否完全同语义；后面的作物收获、农田遮挡、Tooltip/状态条/气泡/选中手感和 Primary 调试链，优先级不变。恢复点因此更具体：下轮如果继续实现，第一刀只该切 `HeldItemDisplay.Show()/FollowMouse()` 的首次显示同步，不要又把树专题重新挂回主线。
+
+## 2026-04-05：只读补记，下一刀最狠也只该打穿 `UI/Inventory` 同一代码面，不应混收农田与 Primary 尾账
+
+这轮用户继续追问“下一刀最狠能砍掉哪些内容、能彻底落地哪些内容”。工作区当前新的稳定结论是：如果我要狠狠干一刀，最合理的上限不是“四组一起吃”，而是把同一组 `UI/Inventory` 代码面狠狠干穿。也就是说，下一刀可以诚实承诺去彻底落地的，是下面这组强相关内容：`首次拖拽图标不跟鼠标`、`背包内拖拽` 的首次/后续一致性、`背包 <-> 箱子` 的拖拽/堆叠/放回是否完全同语义，以及在不额外开新链的前提下，把 `背包/Toolbar` 拖拽后的最终选中态也顺手统一。它们共享的主要 write surface 仍然是 `InventoryInteractionManager / InventorySlotInteraction / SlotDragContext / HeldItemDisplay`，必要时再连 `InventorySlotUI / ToolbarSlotUI / BoxPanelUI / ChestController` 这组 UI 语义桥接点一起收。
+
+相反，当前不应该被混进同一刀、也不该对用户承诺“顺手彻底落地”的内容有四类：一是 `成熟作物收获 / 枯萎作物 collect`，它属于 `CropController` 和 live 农田交互链；二是 `农田 preview hover 遮挡`，它属于放置/遮挡事实源；三是 `Tooltip / 工具状态条 / 玩家气泡样式`，虽然也是 UI，但不是同一组交互真源；四是 `Primary` 的 `TimeManagerDebugger / 时间调试链`，它是独立尾账。恢复点因此更新为：下轮如果继续，最狠的一刀应被定义成“狠狠干穿背包/箱子拖拽链”，而不是再承诺跨 4 到 8 个点一起清空。
+
+## 2026-04-05：首次拖拽图标不跟鼠标，这轮已补成“显示时立即定位 + 拖拽事件持续推位”的双保险
+
+这轮用户在确认范围后，要求我直接继续真实施工。因此这轮从只读进入真实实现，主线只守 `UI/Inventory` 的首次拖拽显示链，不扩回作物、遮挡、Tooltip 或 `Primary`。当前最关键的新动作是把“第一次拖拽不跟鼠标”从单点猜测修成了双保险。第一层补在 [HeldItemDisplay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/HeldItemDisplay.cs)：新增 `SyncToScreenPosition(...)`，并把 `Show(...)` 的首帧定位改成“显示后立刻按传入屏幕坐标同步一次”，不再只依赖下一帧 `Update() -> FollowMouse()`。第二层补在拖拽事件链：在 [InventoryInteractionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs) 新增 `SyncHeldIconToScreenPosition(...)`，并在 [InventorySlotInteraction.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs) 的 `OnDrag(...)` 里直接把 `eventData.position` 持续推给 Held 图标。这样即使第一次激活时 Canvas/Layout 还有一拍错位，拖拽事件本身也会立刻把图标拉到鼠标上，而不是继续只赌 `Update()` 的时序。
+
+## 2026-04-05：只读审计，四组交互尾账的真实剩余面已经重新压实
+
+这轮用户没有要求继续写代码，而是明确要求只读审计当前四组尾账：`成熟作物收获 / 枯萎 collect`、`农田 preview hover 遮挡`、`Tooltip / 工具状态条`、`玩家气泡样式`。因此这轮保持只读，没有跑 `Begin-Slice`，也没有新增 tracked 代码。当前最关键的新结论是：这四组里没有哪一组还能诚实地被叫成“完全没做”；它们当前都属于“结构已经写过，但缺 live 终验或表现终线”的不同形态，只是剩余层级不一样。
+
+第一组 `成熟作物收获 / 枯萎 collect` 当前最可能相关的文件已经可以稳定锁定为 [CropController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Farm/CropController.cs) 和 [GameInputManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs)。代码面并非空白：`CropController.CanInteract()` 已放行 `Mature / WitheredMature / WitheredImmature`，`Harvest(...)` 已把 `WitheredImmature` 接到 `ClearWitheredImmature()`，`WitheredMature` 接到 `HarvestWitheredMature(...)`；`GameInputManager.TryDetectAndEnqueueHarvest()` 与 `OnCollectAnimationComplete()` 也已经通过 `IInteractable` 链接回 `CropController`。因此这组当前更像“结构已做过，主要缺真实体验层验证”，不是再去大改架构；如果要尽快落地，最应该先看的仍是这两个文件，而不是重新扩到别的农田类。
+
+第二组 `农田 preview hover 遮挡` 当前最可能相关的文件是 [FarmToolPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Farm/FarmToolPreview.cs)、[OcclusionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs)、[OcclusionTransparency.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs)，必要时再带 [PlacementPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs) 对照 placeable 口径。代码也不是没写：`FarmToolPreview.TryGetHoverPreviewBounds()` 现在已经把 hover 真源收成“只认当前中心格”，`OcclusionManager` 也已经拆出 `PreviewOcclusionSource`，并对 `FarmTool` 与 `PlaceablePlacement` 走不同 expand 口径；placeable 链的 preview 上报则继续走 `PlacementPreview -> OcclusionManager.SetPreviewBounds(...)`。但从当前代码和历史反馈综合判断，这组剩余层级不是纯结构，而是“局部验证 + 真实体验”双缺：结构已经写了，可用户最近 live 反馈仍反复把农田 preview 判成“不存在/只碰撞体重合才触发/范围不对”。如果本轮要尽快落地，最先该改的仍是 `FarmToolPreview.cs` 与 `OcclusionManager.cs` 这两个事实源。
+
+第三组 `Tooltip / 工具状态条` 当前最可能相关的文件已经收得很窄： [ItemTooltip.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs)、[ItemTooltipTextBuilder.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/ItemTooltipTextBuilder.cs)、[InventorySlotInteraction.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs)、[InventorySlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs)、[ToolbarSlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs)、[ToolRuntimeUtility.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Core/ToolRuntimeUtility.cs)。代码层已经做过很多：`ItemTooltip` 当前固定 `1s` 延迟和 `0.3s` 渐隐，且有拖拽/Shift/Ctrl/边界抑制；`ItemTooltipTextBuilder` 已能拼出耐久、水量、种袋等实例态文本；`InventorySlotUI / ToolbarSlotUI` 已经通过 `ToolRuntimeUtility.TryGetToolStatusRatio(...)` 驱动状态条显示、选中/悬浮/最近使用后保留显示，`WeaponData` 也已被 `TryGetToolStatusRatio(...)` 单独纳入，所以从结构上看 `Sword` 其实已经在显示链考虑范围内。当前真正没过线的主要是“真实体验 + 表现终线”，也就是 tooltip 视觉仍偏测试味、状态条与 tooltip 的最终出现/消失体感是否完全符合用户口径仍缺 live 终验；如果要尽快落地，最先应改的是 `ItemTooltip.cs`，然后才是 `InventorySlotUI.cs / ToolbarSlotUI.cs`。
+
+第四组 `玩家气泡样式` 当前最可能相关的文件是 [PlayerThoughtBubblePresenter.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs) 与 [PlayerToolFeedbackService.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerToolFeedbackService.cs)，参考基线则必须对照 [NPCBubblePresenter.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCBubblePresenter.cs)。代码层同样已经写过完整入口：玩家气泡已有独立 world-space Canvas、像素字体资源加载、气泡 body/tail runtime sprite、描边/阴影/换行与 show/hide 动画，反馈服务也已经把没水、坏工具、等级不足等文案打通。因此这组当前绝不是“没做”，但缺口也最明显地落在“真实体验层”：现在更像是玩家气泡已经能冒出来，但配色、亮度、字重、换行和整体语气仍没真正对齐 NPC 样式语言。如果要尽快落地，最先该改的文件就是 `PlayerThoughtBubblePresenter.cs`；`PlayerToolFeedbackService.cs` 只在文案/调用节奏要一起收时再跟。
+
+基于这轮只读审计，当前四组尾账的优先级判断也被重新压实：最像“代码已经做过、现在主要缺 fresh live 终验”的是 `成熟作物收获 / 枯萎 collect`；最像“事实源已写过，但结构和体验之间还隔着一层局部验证”的是 `农田 preview hover 遮挡`；最像“功能链已具备，但表现终线没过”的是 `Tooltip / 工具状态条` 与 `玩家气泡样式`。因此如果后续要尽快落地，不该四组一起乱打，正确顺序应是：先 `FarmToolPreview.cs + OcclusionManager.cs`，再 `ItemTooltip.cs + InventorySlotUI.cs + ToolbarSlotUI.cs`，最后 `PlayerThoughtBubblePresenter.cs`；`CropController.cs + GameInputManager.cs` 则更像先拿 live 复测，而不是再盲改结构。
+
+这轮还顺手补了一条很重要的兼容口径：`InventoryInteractionManager.SyncHeldIconToScreenPosition(...)` 不能再拿 `IsHolding` 当门，因为箱子拖拽时 Held 图标同样由 manager 持有显示，但 manager 自己未必处于 `IsHolding`。当前改成按 `heldDisplay.IsShowing` 兜底，因此背包/装备/箱子三条拖拽显示链都能吃到这次同步修正。代码层这轮能站住的验证只有两类：`git diff --check` 对这三个文件没有新的空白/补丁格式错误，仅有既有 CRLF 提示；但 `sunset_mcp.py validate_script/compile --skip-mcp` 这轮在本地连续超时，所以暂时还不能包装成“编译层已 fresh 通过”。工作区恢复点因此更新为：下一步应优先让用户只复测“第一次拖拽图标是否立刻跟随鼠标”，若这条过了，再顺着同一组代码面去清背包/箱子拖拽语义尾差。
+
+## 2026-04-05：只读补记，下一刀最狠也只该打穿 `UI/Inventory` 同一代码面，不应混收农田与 Primary 尾账
+
+这轮用户进一步追问“下一刀最狠能砍掉哪些内容、能彻底落地哪些内容”。工作区当前新的稳定结论是：如果我要狠狠干一刀，最合理的上限不是“四组一起吃”，而是把同一组 `UI/Inventory` 代码面狠狠干穿。也就是说，下一刀可以诚实承诺去彻底落地的，是下面这组强相关内容：`首次拖拽图标不跟鼠标`、`背包内拖拽的首次/后续一致性`、`背包 <-> 箱子 拖拽/堆叠/放回是否完全同语义`，以及在不额外开新链的前提下，把 `背包/Toolbar` 拖拽后的最终选中态也顺手统一。它们共享的主要 write surface 仍然是 `InventoryInteractionManager / InventorySlotInteraction / SlotDragContext / HeldItemDisplay`，必要时再连 `InventorySlotUI / ToolbarSlotUI / BoxPanelUI / ChestController` 这组 UI 语义桥接点一起收。
+
+相反，当前不应该被混进同一刀、也不该对用户承诺“顺手彻底落地”的内容有四类：一是 `成熟作物收获 / 枯萎作物 collect`，它属于 `CropController` 和 live 农田交互链；二是 `农田 preview hover 遮挡`，它属于放置/遮挡事实源；三是 `Tooltip / 工具状态条 / 玩家气泡样式`，虽然也是 UI，但不是同一组交互真源；四是 `Primary` 的 `TimeManagerDebugger / 时间调试链`，它是独立尾账。恢复点因此更新为：下轮如果继续，最狠的一刀应被定义成“狠狠干穿背包/箱子拖拽链”，而不是再承诺跨 4 到 8 个点一起清空。
+
+## 2026-04-05：交互大清盘续工，这轮新增一层 `箱子放回/Tooltip/时间跳转` 静态完成面
+
+这轮继续真实施工，但没有回到农田树专题，也没有去碰 `Primary/Town` 场景面。新增落地的交互修复集中在 `UI/Inventory + Box + Tooltip + TimeManager`：
+- `InventorySlotInteraction.cs` 新增保真写回 helper，把箱子/背包跨容器里的堆叠、改数量、回源、shift/ctrl 连续拿取，统一改成按 runtime item 保真写回，减少 `SetSlot(...)` 把动态状态洗掉的问题。
+- `BoxPanelUI.cs` 新增 `HandleHeldClickOutside(...)`，并通过新文件 `BoxPanelClickHandler.cs` 在运行时自动挂到箱子面板根、Up、Down 和垃圾桶；因此箱子 UI 现在不再只有“垃圾桶”和“关闭时”能收手，空白区点击本身也有回源入口。
+- `InventorySlotInteraction.TryShowTooltip()` 现在会把 `transform` 传给 `ItemTooltip.Show(...)`，背包/箱子 Tooltip 与快捷栏 Tooltip 的跟随边界和 Canvas 上下文终于统一。
+- `ItemTooltip.cs` 的 runtime fallback 壳体缩小，并补上 `QualityIcon`；`TimeManager.SetTime(...)` 也补发了 `OnDayChanged`，让方向键/整点跳时触发的时间链更接近 Sleep 口径。
+- `OcclusionManager.cs` 还顺手清掉了我自己引入的 preview 检测硬红，避免后续验证继续被这条 owned error 污染。
+
+当前这轮还不能包装成 fresh Unity 编译已过：`sunset_mcp.py manage_script/validate_script` 当前要么超时，要么直接报本地 `8888` 端点拒绝连接，所以 Unity CLI 证据是 blocker，不是 pass。文本层能确认的只有 `git diff --check` 通过，仍只剩既有 CRLF warning。当前新的恢复点因此是：如果后续继续，先打穿 `箱子 Held owner 双轨`，再回头做 `Tooltip/状态条/玩家气泡` 的表现尾差；`农田 preview hover 遮挡` 这轮还没继续收。
+
+## 2026-04-05：优化口径补记，这轮只收箱子空白区回收、Tooltip 壳体与玩家气泡几何，不再扩逻辑面
+
+用户这轮追加了新红线：从当前这一步开始“不要改动原有的业务逻辑和实现的功能，只允许优化”。因此这轮后半段的新增内容需要单独记清楚，避免后续把它和前面的逻辑补口混成一锅。当前实际继续推进的只有纯优化项：
+- `BoxPanelUI.cs + BoxPanelClickHandler.cs`：补箱子面板空白区点击回收壳，并限制为只在真正点到背景本体时才接管，避免误吃槽位点击。
+- `ItemTooltip.cs + InventorySlotInteraction.cs`：继续优化 Tooltip 的 runtime fallback 体积、`QualityIcon`、以及背包/箱子与快捷栏的一致跟随上下文；没有改它现有的延迟/淡出业务口径。
+- `PlayerThoughtBubblePresenter.cs`：只做玩家气泡的几何对齐和尾巴 fill 位置优化，让它更贴近 NPC 样式语言；没有改气泡触发、内容或时长逻辑。
+
+这轮仍未拿到 fresh Unity 验证证据，所以这里只能记为“静态优化面已落盘，live 终验未闭环”。如果后续继续，在当前“只允许优化”的前提下，最合适继续收的是 Tooltip / 状态条 / 玩家气泡这类表现尾差；`农田 hover` 和 `Held owner 双轨` 这类逻辑面不能再默认继续动。
+
+## 2026-04-05：检查层补记，本轮暂停功能推进，先把当前交互线现场固化成可回退锚点
+
+这轮检查层新增的事实不是某条交互又推进了一步，而是用户先要求我停在修复前，给当前 `农田交互修复V3` 这条线做一套真正能落地的回退前置存档。因此这轮没有继续改交互逻辑、没有继续推 Tooltip / Box / 树 / 农田功能链，实际做的是把当前 own 面的现场做成后续可恢复的双锚点。
+
+当前已落下的锚点有两部分。Git 层锚点：记录当前基线 `HEAD=877ddf6fdcb79c82e524b8e0b06f4950086626ce`，并创建受保护引用 `refs/codex-snapshots/farm-interaction-v3/rollback-preflight-20260405_132340`，对应 stash 提交 `a3c93730f8ab23ecf4247e46ec2ee0e72cb6341b`，已执行 `git show-ref --verify` 验证成功。文件层锚点：生成目录 `D:\Unity\Unity_learning\Sunset\.codex\drafts\农田交互修复V3\rollback-preflight-anchor_20260405_132340`，其中包含 `manifest.json`、`owned-tracked.diff`、`owned-file-hashes.csv`、`files/` 全量副本和 `restore-owned-files.ps1`。这份前置存档覆盖了当前这条线 own 面里的 `18` 个 tracked 文件与 `2` 个 untracked 文件，明确只用于恢复这条线程 own 路径。
+
+检查层必须把结论说清：这轮做成的是“高把握可回退锚点”，不是“整仓万无一失”。因为仓库当前仍有大量他线 dirty，所以这份锚点的正确使用边界就是只恢复 own 面，不能拿去 broad restore 整个仓库。收尾前本轮已合法 `Park-Slice`，原因记为 `rollback-preflight-anchor-created-no-repair-work-started`。下一步恢复点因此很明确：如果后续继续修交互，当前这份前置存档就是施工起点，不必再临时补抓现场。
+
+## 2026-04-05：检查层补记，本轮在 own 交互面完成一轮结构收口，重点收的是箱子/背包 held 双轨
+
+这轮检查层要补的核心事实是：线程在前置存档之后，已经真正推进了一轮“大步收口”，而且主刀方向是对的。当前这轮没有去扩 `Primary/Town`，也没有再混回农田/树/导航旧专题，而是集中收 `UI/Inventory + Box + 玩家气泡补面`。其中最关键的推进不是外观，而是 `背包 held` 与 `箱子 modifier-held` 的统一事实源。
+
+当前真实落地的关键点包括：`SlotDragContext.cs` 新增 `ModifierHoldMode / ActiveOwner` 元数据，并把 `Cancel()` 升级成安全回源逻辑；`InventorySlotInteraction.cs` 现在通过 `SlotDragContext.IsHeldByShift / IsHeldByCtrl / IsOwnedBy(this)` 驱动箱子侧连续 Shift/Ctrl 拿取，不再依赖分散的 `_chestHeldByShift / _chestHeldByCtrl / s_activeChestHeldOwner`；`HandleManagerHeldToChest()` 的部分堆叠剩余也改成继续留在手上，而不是错误地回源；`BoxPanelUI.cs` 的空白区点击在箱子 held 状态下改成走 `ReturnChestItemToSource()`，和关闭箱子归位口径统一；`InventoryPanelClickHandler.cs` 补了“只在真正点到背景本体时接管”的保护，并去掉高频日志；`PlayerThoughtBubblePresenter.cs` 则收掉了之前用户明确不满的硬断行逻辑，改成只做换行规范化，让实际折行重新交给宽度约束与 TMP；`EnergyBarTooltipWatcher.cs` 也补上了 `transform` 上下文，让自定义 tooltip 跟随边界与 slot tooltip 口径更一致。
+
+这轮检查层验证已经比前几轮扎实：`git diff --check` 对本轮主刀文件通过；`validate_script` 对 `SlotDragContext.cs`、`InventorySlotInteraction.cs`、`BoxPanelUI.cs`、`InventoryInteractionManager.cs`、`InventoryPanelClickHandler.cs`、`PlayerThoughtBubblePresenter.cs`、`EnergyBarTooltipWatcher.cs` 均为 `0 error`，相关 own 文件如 `ItemTooltip.cs`、`InventorySlotUI.cs`、`ToolbarSlotUI.cs`、`PlayerToolFeedbackService.cs`、`TimeManager.cs`、`OcclusionManager.cs` 也已脚本级无红。MCP fresh console 当前没看到 own 新编译红，看到的仍是既有编辑态噪音。还不能夸口的地方只剩一个：CLI 全量 compile 依旧超时，所以这轮只能诚实记为“主刀文件静态过线 + fresh console 未见 own 新红”，还不是“程序集级全绿编译已证明”。下一步恢复点因此更新为：这条线当前最值钱的动作已经不是继续扩写，而是让用户优先做 runtime 终验。
+
+## 2026-04-05：只读根因分析，首次左键长按拖拽不出 Held 图标的最高概率根因已收敛
+
+这轮用户明确要求我作为 `农田交互修复V3` 的只读代码分析子智能体，只围绕一个问题收敛：为什么“每次运行游戏后第一次左键长按拖拽物品，拖拽图标不出现”。因此本轮没有进入真实施工，没有跑 `Begin-Slice`，也没有改任何 tracked 文件；主线只是对 `HeldItemDisplay.cs / InventoryInteractionManager.cs / InventorySlotInteraction.cs` 做限定范围归因，并在必要时只读核对 `Primary.unity` 与 `PackagePanel.prefab` 里的 `HeldItemDisplay` 初始状态与引用。
+
+当前最强结论已经足够稳定：首因不是拖拽主状态机没进，也不是 `OnDrag` 没推屏幕坐标，而是 `HeldItemDisplay` 的“首次激活时机”和 `Awake()` 里的自隐藏逻辑互相打架。代码证据链是：
+- [HeldItemDisplay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/HeldItemDisplay.cs) 在 `Awake()` 末尾直接调用 `Hide()`；而 `Hide()` 会执行 `gameObject.SetActive(false)`。
+- 同文件 `Show()` 的第一句又是 `gameObject.SetActive(true)`。
+- `Primary.unity` 里的场景实例 `HeldItemDisplay` 当前是 `m_IsActive: 0`，而 `PackagePanel.prefab` 对应预制体却是 `m_IsActive: 1`，说明场景实例存在“初始禁用”的覆盖。
+- `InventoryInteractionManager` 的 `heldDisplay` 引用确实指向这个场景实例，不是别的壳对象。
+
+把这几件事连起来，运行态最合理的顺序就是：游戏第一次拖拽时，manager 首次调用 `heldDisplay.Show(...)`，`Show()` 先把场景里原本 inactive 的 `HeldItemDisplay` 激活；但因为这是“第一次真正激活”，Unity 会立刻跑它的 `Awake()`，而 `Awake()` 又马上 `Hide() -> SetActive(false)`，等于把这次首秀又关掉了。于是同一轮第一次拖拽里，后续 `SyncHeldIconToScreenPosition()` 也会因为 `heldDisplay.IsShowing == false` 直接短路，整次首拖都看不到图标。第二次拖拽开始，`Awake()` 已经跑过，不会再把它重新关掉，所以图标就恢复正常显示。
+
+因此，下一步最小修法不该扩成“重做拖拽系统”，而应只在这条因果链上补口：
+1. 最小数据修：把 `Primary.unity` 里的 `HeldItemDisplay` 初始激活状态改回和 `PackagePanel.prefab` 一致，让它在场景启动时就先跑完 `Awake()`，不要把第一次用户拖拽变成第一次激活。
+2. 更稳的代码修：不要在 `HeldItemDisplay.Awake()` 里调用会 `SetActive(false)` 的 `Hide()`；改成只清 `alpha / raycast / pinned state` 的“视觉初始化”，把真正的 `SetActive(false)` 只留给运行时 `Hide()`。
+
+这轮我对自己判断的自评是：`高把握，但仍属静态推断`。最不放心的点只有一个：我这轮没进 Unity live 去抓第一帧激活顺序，所以理论上仍存在“别的运行时脚本也会改 `HeldItemDisplay` active 状态”的低概率外因；但在当前限定文件和场景/Prefab 证据范围内，上面这条首次激活链已经是最像真的根因。
+## 2026-04-06：朝花夕拾审计，当前交互线程的历史未完成项已重新分账
+
+这轮用户没有让我继续施工，而是要求我彻底回头，把这条 `农田交互修复V3` 线程从早期树/农田交互一路到最近背包/箱子交互的历史尾账重新盘清。当前这轮保持只读，没有跑 `Begin-Slice`，也没有新增业务代码。新的稳定结论是：最近提交并不能代表整条交互线程已经结束，当前必须至少分清三类账，而不能继续混着说。
+
+第一类是“最近代码已经做了，但仍待用户 live 终验”的账。当前最明确的是背包/箱子交互这一刀：`6f37537bcfd0f9779a81204c2b29455d51f7bb05` 已把选中真源、首次拖拽显示链、箱子空白区回源、部分 held owner 统一推进到一版新的静态完成面，但这组仍只能算“代码已提交，待用户终验”，不能包装成整条线程已经关门。
+
+第二类是“代码层做过不少，但从未真正关门”的历史尾账。当前重新压实后，主要包括：
+- 树专题 P0 仍有两条没彻底关门：`树苗放置成功瞬间卡顿/近身边缘 10% 手感`，以及用户后来新增的 `按右方向键导致树成长/全局卡顿`。
+- `农田 preview hover 遮挡` 结构写过很多轮，也单独归过 `OcclusionManager.cs` 小尾差，但用户 live 反馈始终没有形成最终通过。
+- `成熟作物收获 / 枯萎 mature collect` 代码层已补过 `CropController + GameInputManager`，但最新稳妥口径仍应算“结构成立，缺 fresh live 终验”。
+- `Tooltip / 工具状态条` 已有 `1s` 延迟、`0.3s` 渐隐、runtime 文本与状态条显示链，但 `Sword`、`WateringCan`、触发时机、遮挡体感与视觉终线没有最终关门。
+- `玩家气泡样式` 已有 world-space 入口与多轮几何/配色优化，但用户一直没有给过“正式过线”的终结论。
+- `树木倒下动画表现` 被用户多次明确嫌弃“逻辑不一定错，但表现没过线”，因此仍是表现尾账。
+- `低级斧头砍高级树的前置冷却拦截` 做过部分实现，但“第一次失败后 30 秒内不再允许继续挥砍动画”这条最终口径没有拿到最终通过。
+- `同类型工具损坏自动替换 + 分档气泡文案` 在当前工作区与线程记忆里都没有看到已最终关闭的记录。
+
+第三类是“独立历史尾账，不能再和树 runtime 混成一个问题”的账。当前最典型的是 `Primary` 的 `TimeManagerDebugger / 时间调试链`：这条历史上曾和树 runtime 一起被讨论，但现在必须单独记账，它不是树控制器自身问题，也不能再被最近的背包/箱子施工覆盖掉。
+
+这轮最重要的判断有两条：第一，不能把“最近背包/箱子代码已提交”误判成“整条交互线程已完成”；第二，也不能反过来把所有旧树 bug 一锅重算。用户曾口头判过某些树逻辑阶段“没有任何问题了”，因此这轮只保留那些后来又被明确重新拉出来、且没有最终关门的树相关尾账。
+
+恢复点因此更新为：如果后续用户继续让这条线施工，默认不该再围着最近的背包/箱子提交打转，而应先在以下历史尾账里明确下一条单纵切片：`树专题 P0`、`农田 hover`、`Tooltip/状态条/气泡`、`成熟/枯萎收获终验收口`，以及与它们分账的 `Primary 时间调试链`。
+
+## 2026-04-06：最新补口说明，`down` 装备区普通左键点击并不是旧修复的残差，而是独立漏面
+
+用户最新 live 反馈把一个很重要的事实重新钉死了：`up` 背包区点击已经可以，但 `down` 装备区点击仍然不出选中样式。因此不能把“最近 UI 交互大体好了”直接理解成整包通过。当前更准确的结构判断是：装备区没有吃到前面那组 `InventorySlotUI` 的修复，因为它本来就走另一套代码面：`EquipmentSlotUI + InventoryPanelUI.down + InventoryInteractionManager(isEquip)`。
+
+这轮已对这条独立漏面做了最小补口：
+- `EquipmentSlotUI.cs` 现在拥有自己的 `Toggle / Selected overlay / RefreshSelection / Select / ClearSelectionState / OnToggleValueChanged`；
+- `InventoryPanelUI.cs` 新增了 `selectedEquipmentIndex` 和完整的 `down` 区刷新链；
+- `InventoryInteractionManager.SelectSlot(...)` 已不再对 `isEquip` 直接跳过；
+- `InventorySlotInteraction.SelectTargetSlot()` 也开始支持 `EquipmentSlotUI`。
+
+当前代码层验证为：
+- `EquipmentSlotUI.cs`、`InventoryPanelUI.cs`、`InventorySlotInteraction.cs` 均 `0 error / 0 warning`
+- `InventoryInteractionManager.cs` 仅剩既有 `Update()` 字符串拼接 warning
+- fresh console 当前为 `errors=0 warnings=0`
+
+因此，这条 UI 剩余项的最新口径应该更新成：最近这组背包/箱子/装备区点击交互，目前唯一还需要用户再看一眼的，是 `down` 装备区这条新补口是否终于过线；只有它也过了，最近这一组 UI 交互才算真的从剩余清单里移除。
+## 2026-04-06：继续修 `UI/Inventory + Box`，把“左键真选中”和“拖拽落点真选中”往同一事实源压了一刀
+
+这轮用户在最新 live 反馈里继续点名：当前背包/箱子交互最大的残缺，不是单纯某个红框样式错，而是“左键点击并没有变成真正的选中”“拖拽后的红框只是样式变化，不是全局性质变化”。因此这轮重新进入真实施工，但范围继续严格收在 `Assets/YYY_Scripts/UI/Inventory` 与关联的箱子/快捷栏选中链，不扩回树、农田、Tooltip 或 `Primary`。当前已经执行 `Begin-Slice` 与 `Park-Slice`，slice 名为 `UI选中真源修复_左键点击与拖拽统一为全局选中_2026-04-06`，当前 live 状态已回到 `PARKED`。
+
+这轮真正落下的代码点只有两组，但都直接对准“真选中”而不是红框皮相：
+- [InventorySlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs)
+  - 新增 `ResolveInventoryPanel()` / `ResolveBoxPanel()`，让箱子页里的背包格也能回写到真正的 `InventoryPanelUI`，而不是只认当前局部父物体。
+  - `Select()` 现在对 `InventoryService` 槽位会同时把选中写回 `InventoryPanelUI`，如果箱子页打开，也同步写回 `BoxPanelUI`；第一行 hotbar 映射仍继续联动 `HotbarSelectionService`。
+  - `ClearSelectionState()` 对背包格也改成同时清掉 `InventoryPanelUI + BoxPanelUI` 这两侧库存选中源，避免“源格清了表皮，但全局选中没清”的混状态。
+  - `RefreshSelection()` 在箱子页打开时，不再只认 `BoxPanelUI` 局部状态；对于背包格，改成 `BoxPanelUI` 与 `InventoryPanelUI` 两边任一命中都视为选中，确保两面同步期不会再出现“这里红了，那里却还认为没选中”。
+  - `OnPointerClick()` 不再去额外篡改 `EventSystem.currentSelectedGameObject`，避免 Unity UI 自己的 click/toggle 事件与真正的交互选中链打架。
+- [InventoryInteractionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs)
+  - `SelectSlot(...)` 在没有 `preferredSlotUI` 的回退路径下，不再只写 `InventoryPanelUI`；如果箱子页打开，也会同步把选中写回 `BoxPanelUI`。
+  - `ExecutePlacement(...)` 的“同类堆叠但手上还有剩余”路径，之前只更新数量和 Held 图标，没有把目标格设成当前真选中；这轮已补 `SelectSlot(targetIndex, ...)`，让部分堆叠后继续手持的场景也遵守同一套选中语义。
+
+当前我对这刀的核心判断是：它解决的不是单一红框，而是“点击/拖拽到底有没有真正在改选中状态源”这个底座问题。至少在代码结构上，现在 `InventorySlotUI.Select()`、`SlotDragContext.SourceSlotUI.Select()`、`InventoryInteractionManager.SelectSlot(...)`、以及拖拽/堆叠落点后的目标选中，已经开始共同写同一组真源：`InventoryPanelUI.selectedInventoryIndex`、`BoxPanelUI._selectedInventoryIndex/_selectedChestIndex`，以及必要时的 `HotbarSelectionService.selectedIndex`。
+
+这轮的验证状态只能诚实写成：
+- `git diff --check` 对本轮主刀文件通过，仅剩既有 `CRLF -> LF` warning。
+- `python scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs` 与 `...InventoryInteractionManager.cs` 这轮都被 `subprocess_timeout:dotnet:20s` 卡住，因此没有 fresh compile pass 证据。
+- `python scripts/sunset_mcp.py errors --count 30 --output-limit 20` 当前读到的错误来自外线 `SpringDay1WorkbenchCraftingOverlay.cs` 缺 `SetTopStretchRect`，以及更早一轮的 `NPC Traversal` 探针超时，不是本轮这组 UI 文件新增的 own compile 红。
+
+恢复点因此更新为：当前最值钱的下一步不是继续扩题，而是让用户优先只测两类场景：
+1. 普通左键单击背包格/箱子页库存格，是否已经变成真正的选中，而不是只改一层红框样式。
+2. 拖拽、跨容器放置、部分堆叠后继续手持时，目标格是否仍保持为当前真选中。
+
+## 当前 `1.0.4` 未闭环主账（2026-04-06 朝花夕拾口径）
+
+为了防止最近几轮 UI/背包施工把历史老账盖掉，这里同时保留一版新的稳定总账：最近提交和本轮施工都只代表 `背包/箱子交互` 这条子线在继续收口，不能代表整条交互线程已经关门。当前仍需继续单独处理或继续终验的主账，优先级仍应按：
+- `树专题 P0`：树苗放置卡顿/边缘手感、右方向键触发树成长卡顿
+- `农田 preview hover 遮挡`
+- `成熟作物收获 / 枯萎 mature collect` 的 fresh live 终验
+- `Tooltip / 工具状态条`
+- `玩家气泡样式`
+- `树木倒下动画表现`
+- `低级斧头砍高级树前置冷却拦截`
+- `同类型工具损坏自动替换 + 气泡文案`
+- 与树 runtime 分账的 `Primary TimeManagerDebugger / 时间调试链`
+
+## 2026-04-06：点击选中这轮又补了入口层，当前 fresh console 已回到 0 error
+
+在上面那刀之后，用户继续 live 反馈：“现在只有 Toolbar 会更新，背包和箱子内部点击死活不触发选中样式，但拖拽的选中样式是对的。” 这说明还差最后一层：普通点击入口自己没有先把目标格按真实选中链写进去，而是过度依赖后面的 manager/面板刷新链。因此这轮又继续补了 [InventorySlotInteraction.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs)：
+- 在 `OnPointerDown(...)` 里，对普通左键点击的库存槽位先执行一次 `SelectTargetSlot()`；
+- `SelectTargetSlot()` 与 `SelectSourceSlot()` 现在在 `Select()` 后会立刻 `RefreshSelection()`，直接从真实状态源把本地显示刷新一遍，而不是等外层刷新晚一拍追上。
+
+因此当前这条 `真选中` 切片已经不是单层补口，而是双层：
+1. `InventorySlotUI / InventoryInteractionManager` 负责把选中真正写回状态源；
+2. `InventorySlotInteraction` 负责让普通点击入口立刻使用这组真实状态源。
+
+这次末轮验证也比上一版更稳：
+- `git diff --check` 对 `InventorySlotUI.cs / InventoryInteractionManager.cs / InventorySlotInteraction.cs` 通过，仅剩既有 `CRLF -> LF` warning；
+- `python scripts/sunset_mcp.py errors --count 30 --output-limit 20` 的末次读取结果为 `errors=0 warnings=0`，当前 fresh console 未见我这组 own UI 文件新增红；
+- `validate_script` 对 `InventorySlotUI.cs / InventoryInteractionManager.cs` 仍被 `subprocess_timeout:dotnet:20s` 卡住，所以依旧不能 claim fresh compile pass。
+
+恢复点更新为：优先让用户复测“普通左键点击背包格/箱子页库存格，是否终于也按真选中工作”；如果这条仍有残留，下一刀也应继续只守 `UI/Inventory + Box`，不扩题。
+
+## 2026-04-06：普通左键点击仍不亮的根因继续收窄，这轮钉成 Toggle 自身翻转而不是状态源完全失效
+
+用户这轮把范围彻底压缩到一个点：背包/箱子里最基础的普通左键点击，为什么始终不能稳定更新选中样式。最新结构判断比前几轮更具体：不是“真选中状态源完全没写进去”，而是普通点击比拖拽多走了一层 `Toggle` 原生点击翻转。当前 `InventorySlotInteraction` 与 `InventoryInteractionManager` 已经会把目标槽位写成选中，但普通点击收尾时 `Toggle` 还会按自己的逻辑再翻一次，导致用户看到“点了还是不亮”；拖拽链不走这层，所以反而更像是对的。
+
+因此这轮只对 [InventorySlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs) 做了一个极小补口，不再扩到 manager 或箱子逻辑：
+- 给 slot 自己的 `toggle.onValueChanged` 加了监听与解除；
+- 新增 `OnToggleValueChanged(bool isOn)`，一旦 `Toggle` 当前状态和真实状态源不一致，就立刻 `RefreshSelection()`；
+- 把 `RefreshSelection()` 的判断抽成 `ResolveSelectionState()`，保证正常刷新和拦截回正读的是同一套状态源。
+
+这刀的意义不是再重写交互，而是把“普通点击为什么老做不对”的根因从大而泛的双真源问题，继续压到了更小的 `Toggle` 运行时翻转问题上。当前代码层验证为：
+- `git diff --check` 对 `InventorySlotUI.cs` 通过，仅剩既有 `CRLF -> LF` warning；
+- `manage_script validate --name InventorySlotUI --path Assets/YYY_Scripts/UI/Inventory` 为 `0 error / 1 warning`，warning 仍是既有字符串拼接提醒；
+- fresh console 当前唯一 error 是外部 `NPC crowd validation`，未见我这组 UI 文件新增 own 红；
+- `validate_script` 仍被 `dotnet:20s` timeout 卡住，所以还不能把它包装成 fresh compile 已过。
+
+恢复点：下一步优先让用户只复测这一件事：普通左键点击背包格/箱子页库存格，是否终于能够立刻亮起正确选中态；若仍有残留，再继续只守 `UI/Inventory + Box`。
+
+## 2026-04-09：剧情里放置模式基础失效的只读诊断，第一真嫌疑是 GameInput 与 Placement 状态失步
+
+本轮用户把阻塞点重新切回“剧情里放置模式莫名其妙不能用了”。线程这轮按要求只做只读排查，不改代码，也不进入 `Begin-Slice`。当前最关键的新结论不是 `PlacementManager.EnterPlacementMode()` 本体坏了，而是 [GameInputManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs) 在剧情对话接管时把“放置模式状态真源”拆成了两套并失步。具体来说，`OnDialogueStart()` 当前会 `SetInputEnabled(false)`、`PlacementManager.Instance?.ExitPlacementMode()`、`AbortFarmToolOperationImmediately(...)`，但没有同步把 `GameInputManager.IsPlacementMode` 设回 `false`。于是剧情开始后真实的 [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs) 已经退回 `Idle`，而 `GameInputManager` 这层布尔仍可能保留为 `true`。紧接着 `OnDialogueEnd()` 又只做 `SetInputEnabled(true)`、清暂停链和 `PlacementManager.Instance?.RefreshCurrentPreview()`，仍然没有重新跑 `SyncPlaceableModeWithCurrentSelection()` 去把 `GameInputManager.IsPlacementMode / PlacementManager.CurrentState / 当前热栏手持` 重新对齐。这样剧情结束后的第一次 `V`，对玩家来说不是“重新开启放置模式”，而是在把那个残留的 `true` 翻成 `false`；表现就会非常像“剧情里放置模式基础功能坏了，预览不出来，点击也没反应”。
+
+这轮也顺手排除了两个次级方向。第一，普通页面阻断 `SpringDay1UiLayerUtility.IsBlockingPageUiOpen()` 主要限制的是 `Prompt / Nearby / Workbench` 这类剧情 UI 提示，并不是这次放置模式基础失效的第一根因，因为 `GameInputManager.Update()` 顶部的 `IsDialogueWorldLockActive()` 早就在更前面把输入吃掉了。第二，`SceneTransitionTrigger2D.cs` 确实也会 `SetInputEnabled(false/true)`，但它保存并恢复 `_restoreInputEnabledState` 的链看起来是闭合的；和当前“剧情后第一次切换放置直接假死”的症状相比，`OnDialogueStart/OnDialogueEnd` 的 placement 状态失步更像真主锅。
+
+因此当前推荐的最小安全修法也被压得很窄：只守 [GameInputManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs) 的剧情 enter/exit 处理，不先动 `SpringDay1Director`、`DialogueManager`、`PlacementManager` 规则层。最小方案应该是：1）`OnDialogueStart()` 先记住“剧情前是否处于放置模式 + 当前槽位是否仍是 placeable”，然后显式把 `IsPlacementMode` 清成 `false`，再退出 `PlacementManager`；2）`OnDialogueEnd()` 不直接假设 placement 还在，而是按快照条件受控恢复：只有当剧情前确实在放置模式、当前热栏仍是同类可放置物、当前没有阻断 UI、也不在对话/切场中时，才恢复 `IsPlacementMode=true` 并调用 `SyncPlaceableModeWithCurrentSelection()`；否则就保持关闭。这样修的优点是：不会去改剧情推进、对话事件发布顺序、StoryPhase 切换、UI 演出本体；只是在剧情接管输入前后把“世界输入态”和“放置模式态”重新对齐。风险等级当前判断为 `中低`：如果只做“剧情开始强制清 false、剧情结束不自动恢复”，风险更低，但会牺牲“对话前就在放置模式，结束后应能无缝继续”的手感；如果按带快照的恢复方案做，体验更对，但需要多加 2 到 3 个 guard 避免误在剧情后强行拉回放置模式。当前这轮仍停在 `静态诊断成立`，没有进入真实修复。
+
+## 2026-04-07：只读审计历史尾账，高树前置冷却拦截与同类型工具自动替换/气泡文案仍属“结构已在、闭环证据不足”
+
+本轮按用户要求只做只读代码审计，不跑 `Begin-Slice`，也不改任何业务代码或场景资源；审计范围固定为 `ToolRuntimeUtility.cs`、`PlayerInteraction.cs`、`GameInputManager.cs`、`TreeController.cs`、`PlayerToolFeedbackService.cs`、`PlayerThoughtBubblePresenter.cs` 与 `FarmRuntimeLiveValidationRunner.cs`，明确不扩到 `Primary`。当前最核心的新判断有四条。第一，`低级斧头砍高级树前置冷却拦截` 的结构链已经存在：`GameInputManager.TryBlockAxeActionAgainstHighTierTree(...) -> PlayerInteraction.CanStartAction(...) -> TreeController.ShouldBlockAxeActionBeforeAnimation(...)` 已能在首次失败后 30 秒内拦住再次起挥，同时 `TreeController.HandleAxeChop(...)` 仍负责“不扣精力、起冷却、播失败/恢复气泡”。第二，这条链还不能诚实写成彻底关门，因为现有 `FarmRuntimeLiveValidationRunner` 的高树场景仍是直接 `TreeController.OnHit(...)`，它能证明冷却数值和气泡切换，但不能证明“真实玩家输入已在动画前被完全挡住”。第三，`同类型工具损坏自动替换` 也已经有结构：`ToolRuntimeUtility.TryConsumeHeldToolUseDetailed(...)` 在工具归零后会调用 `TryAutoReplaceBrokenTool(...)`，并按 `toolType + 最低 tier + 最低 quality + 最早槽位` 选备胎，再把替换语气传给 `PlayerToolFeedbackService.HandleToolBroken(...)`。第四，这条自动替换链当前最像没关门的不是事务本体，而是表现口径：`PlayerToolFeedbackService` 里的损坏/替换文案和 `FarmRuntimeLiveValidationRunner.IsToolBrokenLine(...)` 记录的期望文案已经出现漂移，例如 runner 仍认 `“哎哟，搞什么鬼？” / “诶，好吧…” / “旧的不去新的不来！” / “碎碎平安~”`，而当前实现里对应文案已变成 `“哎哟搞什么鬼” / “唉” / 去掉标点的同级文案`。
+
+因此本轮对子工作区的恢复点更新为：这两条历史尾账目前最准确的状态是“代码骨架已在，但还差真正能证明最终口径的闭环证据”。如果后续继续最小补口，优先级应固定为：1）在 `FarmRuntimeLiveValidationRunner.cs` 或编辑器测试里补一条真正经过 `GameInputManager/PlayerInteraction` 的高树前置拦截验证，而不是继续只打 `TreeController.OnHit(...)`；2）在 `PlayerToolFeedbackService.cs` 把损坏/替换文案重新对齐到当前 runner 与用户原话；3）若要做更稳的自动替换回归，再单独补一条“备胎替换后 tone 正确、源槽清空、热槽保持可用”的测试。当前验证状态仅能写成 `静态推断成立`，不能写成 live 终验通过。
+## 2026-04-09：005 教学步骤里“锄头正常但切到种子预览/放置失联”已钉到运行时放置资格判定
+
+- 用户目标：
+  - 继续收“放置系统打包态异常”，新增真症状是：工作台后进入 `0.0.5 / FarmingTutorial`，`Hoe` 还能正常开垦，但切到花椰菜种子后看不到预览、也无法播种，左键有时只剩导航。
+- 这轮实际做成了什么：
+  1. 先只读钉死真根因不是教学提示文本，也不是 `PlacementValidator` 本身，而是“种子是否能被运行时当成可放置物”。
+  2. 直接查到磁盘上的所有种子资产当前仍是 `isPlaceable: 0`，包括 `Assets/111_Data/Items/Seeds/Seed_1002_花椰菜.asset`。
+  3. 因为 `GameInputManager / HotbarSelectionService / PlacementManager` 多处仍然直接看 `itemData.isPlaceable`，所以锄头这条 `FarmToolPreview` 本地链能活，切到种子时却不会重新接入 `PlacementManager`，表现就正好是“锄头正常、种子彻底没预览/没法放置”。
+  4. 已做最小运行时修复：
+     - `Assets/YYY_Scripts/Data/Items/SeedData.cs`
+       - 新增 `OnEnable()`，运行时强制把种子视为 `isPlaceable=true`，不再依赖编辑器 `OnValidate` 有没有触发过。
+     - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+       - 新增 `SupportsPlacementCapableItem(...)`
+       - 用它统一修正：
+         - `DoesItemSupportPlacementMode(...)`
+         - `SyncPlaceableModeWithCurrentSelection()`
+         - `HasActivePlacementHeldSession(...)`
+         - `TryRejectActiveFarmToolSwitch(...)`
+     - `Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs`
+       - 切槽装备逻辑不再只认裸 `isPlaceable`，改为种子也算 placement-capable。
+     - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+       - `EnterPlacementMode(...)` 不再只认裸 `isPlaceable`，避免种子在入口直接被拒。
+- 当前判断：
+  - 这轮修的是“种子掉出放置模式真入口”的根因，不是又去重写教学流程。
+  - 用户描述里“锄头还行、种子一切就死”现在能被这条代码链完整解释。
+- 验证结果：
+  - `git diff --check -- Assets/YYY_Scripts/Data/Items/SeedData.cs Assets/YYY_Scripts/Controller/Input/GameInputManager.cs Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - 通过，仅有既有 `CRLF/LF` warning
+  - `validate_script` / `compile`
+    - CLI 侧未见 own red
+    - 但当前 `CodexCodeGuard` 与 Unity/MCP 基线不稳定，停在 `unity_validation_pending / blocked`，还不能 claim fresh live compile pass
+- 当前恢复点：
+  - 下一步优先只让用户重测：
+    1. 工作台后进入 `0.0.5` 教学
+    2. `V` 开放置
+    3. 先拿锄头开垦
+    4. 再切到花椰菜种子
+    5. 看种子预览是否立刻恢复、左键是否改为播种而不是只导航
+  - 如果这条过了，再看是否还残留更深的 tutorial/runtime 边界；如果不过，再继续只守 `种子接入 PlacementManager` 这条线，不扩到 `Primary/Town`。
+
+## 2026-04-09：复盘补记——Day1 已确认不是剧情设计关死，当前仍是“种子进入 PlacementManager/预览链”真 bug
+
+- 用户回测后最新事实：
+  - 仅修 `SeedData.isPlaceable` 和 placement-capable 判定后，现场仍未过线；
+  - 当前现象进一步收窄为：
+    - 先用锄头时预览可正常初始化
+    - 只要切到种子或别的，再回到锄头也会出现“预览不见”
+    - 但遮挡效果仍存在
+- 这轮复盘判断：
+  - `SpringDay1Director / Day1` 已明确报实：
+    - 正式对白时会收放置
+    - 对话结束后理论上恢复
+    - `SeedData` 设计上不是被剧情禁止播种
+  - 所以当前不能再把锅甩给“剧情设计不允许”，这仍然是 placement/runtime bug。
+  - 但我也不能继续把所有责任都简单压成 Day1；因为我自己这边最近确实动了：
+    - `GameInputManager` 的剧情前后 placement 对齐
+    - `SeedData` 运行时 `isPlaceable` 兜底
+    - `HotbarSelectionService / PlacementManager` 的种子入口兼容
+    - `PlacementPreview / PlacementManager / GameInputManager` 的预览显隐与 occlusion 同步
+- 当前最诚实的结论：
+  - 第一层修法“种子必须能被运行时当成 placeable”方向是对的，不该直接回滚；
+  - 但第二层“预览显隐/遮挡同步”虽然逻辑上合理，仍没有拿到 live 通过，不能继续当成已经证明的主根因；
+  - 下一步不该再盲目扩写 `PlacementPreview` 视觉层，而应该转成最小 runtime tracing：只钉 `Hoe -> Seed -> Hoe` 切换瞬间，
+    - `GameInputManager.IsPlacementMode`
+    - `HotbarSelectionService.selectedIndex`
+    - `PlacementManager.CurrentState / CurrentPlacementItem`
+    - `PlacementPreview` 可视对象是否被重新激活
+    这 4 组状态到底谁先掉了。
+
+## 2026-04-09：补刀“预览看不见但遮挡还在”，把 placement preview 的显隐与 occlusion 注册绑回同一真源
+
+- 用户最新现场反馈：
+  - 先用锄头时预览能正常初始化；
+  - 但只要切到种子或别的，再回到锄头就像“预览完全不显示”；
+  - 同时又能看到遮挡还在，因此明确不是单纯没进逻辑，而是可视层和遮挡层分家。
+- 这轮新增修复：
+  - `PlacementPreview.cs`
+    - 新增 `SetVisualVisibility(bool visible)`，统一负责：
+      - 隐藏时清 `PreviewOcclusionSource.PlaceablePlacement`
+      - 显示时重新注册 bounds
+  - `PlacementManager.cs`
+    - 不再散落地直接 `placementPreview.gameObject.SetActive(false/true)`，背包暂停/恢复与 `RefreshCurrentPreview()` 都改走统一显隐入口
+    - 新增 `SetPreviewVisualVisibility(bool visible)` 给 `GameInputManager` 调用
+  - `GameInputManager.cs`
+    - `HidePlacementPreview()` 不再是空实现
+    - 当前手持是 `SeedData / PlaceableItemData` 时主动 `RefreshCurrentPreview()`，保证之前被隐藏的 placeable 预览能及时回来
+- 当前判断：
+  - 种子这条线的真问题已经被拆成两层并都补了：
+    1. 运行时 placement 资格
+    2. 预览显隐与 occlusion 同步
+
+## 2026-04-09：只读复核当前磁盘版后，`Hoe -> Seed -> Hoe` 最可能单根因收敛为 `Placement` 预览恢复合同缺口
+
+- 用户目标：
+  - 只读审计当前磁盘上的 5 个文件与已改动逻辑，不改代码，直接回答 `Hoe -> Seed -> Hoe` 后“预览消失但遮挡仍可能存在”的最可能单一真根因与最小修法落点。
+- 本轮完成：
+  - 只读核对了：
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `Assets/YYY_Scripts/Data/Items/SeedData.cs`
+    - `Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`
+  - 同时对照了这 5 个文件当前未提交 diff，确认当前症状最像“状态仍在，但 preview 重显合同缺口”而不是 `day1` 或种子资格第一层问题。
+- 当前最稳判断：
+  - 最可能的单一真根因已经不在 `SeedData` / `HotbarSelectionService` / `day1`，而在 `Placement` 可视恢复层：
+    1. [GameInputManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/Input/GameInputManager.cs) `HidePlacementPreview()` / `UpdatePreviews()` 现在会真实驱动 placeable preview 的显隐；
+    2. [PlacementManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementManager.cs) `RefreshCurrentPreview()` 只做 `SetVisualVisibility(true)` + `UpdatePreview()`，没有在“视觉对象已空/已被清掉”时重新 `Show(currentPlacementItem)`；
+    3. [PlacementPreview.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs) `SetVisualVisibility(true)` 只是重新激活对象并立刻 `NotifyOcclusionSystem()`，而 `GetGridPreviewBounds()` 在 `gridCells.Count == 0` 时会退回默认 `1x1 bounds`；
+    4. 因此就会出现：`PlacementManager.currentState/currentPlacementItem` 还活着，但 preview 没真正重建；与此同时 occlusion 仍可能拿到一个 preview bounds，于是用户看到“预览没了，但遮挡还活着”。
+- 非根因层：
+  - [SeedData.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Data/Items/SeedData.cs) 当前 `OnEnable()/OnValidate()` 把 `isPlaceable` 兜回 `true`，它只是把种子重新送进放置系统，不是这次第二层症状的主根因。
+  - [HotbarSelectionService.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Inventory/HotbarSelectionService.cs) 当前 `EquipCurrentTool()` 负责“种子进入 `PlacementManager` / 锄头退出 `PlacementManager`”，它是切换触发层，不是最像出错的责任层。
+- 最小修法判断：
+  - 如果下一轮允许真实施工，最小刀应只落在：
+    - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - 方法：`RefreshCurrentPreview()`
+  - 目标不是再扩写 `GameInputManager` 或 `SeedData`，而是在 `RefreshCurrentPreview()` 内把“preview inactive / 视觉对象已空”时的真正重建补齐，再继续 `UpdatePreview()` / `UpdateCellStates()`。
+  - `PlacementPreview.SetVisualVisibility()` 可以作为额外保险层，但不应抢成主修面。
+- 验证状态：
+  - 本轮是只读静态审计；
+  - 结论基于当前磁盘版代码和未提交 diff；
+  - 尚未做新的 Unity live 复测，也没有 claim fresh no-red / live pass。
+- 当前恢复点：
+  - 如果后续继续，不该再把主刀扩回 `Primary/Town/UI`，也不该回头重打 `SeedData`；
+  - 只需围住 `PlacementManager.RefreshCurrentPreview()` 这一处，把 preview 重显合同补完整，再看是否还需要极小的 `PlacementPreview` 防守式兜底。
+
+## 2026-04-09：真实施工补刀后，`Hoe -> Seed -> Hoe` 运行时错位收束为“每帧对齐 PlacementManager + 必要时真实重建 preview”
+
+- 用户目标：
+  - 不再只读分析，直接把 `Hoe -> Seed -> Hoe` 的 runtime 放置链再往前收一刀，解决“种子切槽后 placement state/preview 可能脱节，回到锄头后也会一起乱”的问题。
+- 本轮主线：
+  - 只守 `GameInputManager / PlacementManager` 这条 runtime 链，不扩到 `Primary/Town/day1 UI`。
+- 本轮实际做成：
+  1. `GameInputManager.UpdatePreviews()` 在解析出当前热栏物品后，先调用 `SyncPlaceableModeWithCurrentSelection()`；
+  2. `SyncPlaceableModeWithCurrentSelection()` 改成幂等：
+     - 当前手持不是 placement-capable 或 `IsPlacementMode=false` 时，照旧退出 `PlacementManager`
+     - 当前手持是种子/可放置物时，只在 `PlacementManager` 还没对齐到当前 item 时才 `EnterPlacementMode(...)`
+     - 已经对齐时不再每次重复重进，只做 `RefreshCurrentPreview()`
+  3. `PlacementManager.RefreshCurrentPreview()` 不再只把隐藏对象重新激活；现在如果 preview 当前 inactive，或格子内容已经空了，会直接 `Show(currentPlacementItem)` 真实重建 preview，然后再继续正常刷新。
+- 这轮关键判断：
+  - 真问题不只是“种子资格”或“可视显隐”某一层，而是 `PlacementManager` 有机会和真实热栏脱节；
+  - 一旦脱节，`SeedData` 分支原先只会 `Refresh` 一个根本没进场的 preview，锄头分支也只会把旧放置预览藏起来，不会把 placement 状态真校正。
+  - 现在这条链改成：`当前热栏事实源 -> GameInputManager 每帧校正 -> PlacementManager 只在必要时重进/重建`。
+- 验证：
+  - `validate_script Assets/YYY_Scripts/Controller/Input/GameInputManager.cs Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - `owned_errors = 0`
+    - `external_errors = 0`
+    - `assessment = unity_validation_pending`
+    - 当前阻塞仍是 Unity `stale_status`，不是本轮 own red
+  - `git diff --check -- Assets/YYY_Scripts/Controller/Input/GameInputManager.cs Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - 通过（仅 CRLF/LF 提示）
+- 当前阶段：
+  - 代码层已把 `Hoe -> Seed -> Hoe` 的状态错位链往前收了一刀；
+  - 但还没有拿到这次修法的 fresh live 通过，不能 claim 最终验收完成。
+- 恢复点：
+  - 下次如果继续，不该再泛修 `SeedData / HotbarSelectionService / day1`；
+  - 优先只看这次“每帧对齐 + Refresh 真重建”是否已让：
+    1. 种子切到手上后 preview 正常出现
+    2. 左键不再掉回导航
+    3. 再切回 hoe 预览仍正常
+
+## 2026-04-09｜placeable preview 只剩 occlusion 时，再补一层“空壳自恢复”
+
+- 用户最新 live 反馈：
+  - `Hoe` 仍能正常显示与使用
+  - `Seed / Sapling / Chest` 仍会出现“preview 不可见、无法放置，但 occlusion 遮挡效果还在”
+- 本轮新的收敛判断：
+  - 这已经不是单独的 `SeedData` 资格问题，而是 `PlacementPreview` 共享可视层可能进入“状态活着、occlusion 活着、sprite/grid 空壳”的失败态。
+- 本轮已落地修法：
+  - `PlacementPreview.cs`
+    - 增加 `NeedsVisualRebuildFor(...)`
+    - `SetVisualVisibility(true)` 不再只是重新激活根物体，会优先尝试恢复真正的 visual 内容
+    - `NotifyOcclusionSystem()` 改成只有在确实存在 sprite 或 grid 内容时才上报 preview bounds；空壳时直接清空 occlusion
+    - 种子覆盖第一阶段 sprite 后立即重推 occlusion
+  - `PlacementManager.cs`
+    - `RefreshCurrentPreview()` 现在会同时检查：
+      - preview 是否 inactive
+      - 当前 preview 内容是否和 `CurrentPlacementItem` 不匹配/不完整
+    - 先 restore，不够再 `Show(currentPlacementItem)` 真重建
+- 当前验证：
+  - `validate_script Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`：`0 error / 0 warning`
+  - `validate_script Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`：`0 error / 2 warning`（既有 warning）
+  - `sunset_mcp.py validate_script PlacementPreview.cs PlacementManager.cs`：
+    - `owned_errors = 0`
+    - 仍被外部 blocker 卡住：`GameInputManager.cs` 当前 `CS0165` 红错 + Unity `stale_status`
+- 当前恢复点：
+  - 下一步应该只让用户复测 `Seed / Sapling / Chest` 是否已经从“只有遮挡”恢复成“preview 真可见 + 左键可放置”
+  - 不应再回头把主刀扩到 `Primary / day1 / UI 审美`

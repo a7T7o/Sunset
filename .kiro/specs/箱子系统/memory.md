@@ -296,3 +296,302 @@
   - 根本问题：Up 区域未接入 `InventoryInteractionManager`
   - 拖拽逻辑与修饰键逻辑分离，两套系统的"Held 状态"不互通
 - 下一步：等待用户选择修复方案
+
+### 会话 23 - 2026-04-05
+- 内容：只读复核当前箱子 UI / Inventory / Chest 交互链，追查 `shift/ctrl` 拿起与放置、同类堆叠、跨 Up/Down 落点语义为何仍和背包不一致
+- 用户要求：
+  - 只读对比：
+    - `InventoryInteractionManager.cs`
+    - `InventorySlotInteraction.cs`
+    - `SlotDragContext.cs`
+    - `InventorySlotUI.cs`
+    - `BoxPanelUI.cs`
+    - `ChestController.cs`
+  - 输出：
+    1. 真正共享事实源
+    2. 箱子链和背包链分叉点
+    3. 最小修复建议优先级
+  - 不改代码
+- 审计结论：
+  1. 箱子格数据的 runtime 真源已经不是 legacy `ChestInventory`，而是 `ChestController.RuntimeInventory -> ChestInventoryV2`；`BoxPanelUI.Up` 直接绑定这个容器，legacy 只保留兼容镜像。
+  2. 真正共享的只有容器/堆叠层：
+     - `IItemContainer`
+     - `ItemStack.CanStackWith`
+     - `container.GetMaxStack(itemId)`
+     也就是“槽位里是什么、能不能堆、最多能吃多少”。
+  3. 真正不共享的是交互语义层：
+     - 背包 `shift/ctrl` Held 语义由 `InventoryInteractionManager` 管
+     - 箱子 `shift/ctrl` Held 语义由 `InventorySlotInteraction + SlotDragContext + _chestHeldByShift/_Ctrl` 另起一套
+     - `Down -> Up` 走 `HandleManagerHeldToChest(...)`
+     - `Up -> Down` 走 `HandleSlotDragContextDrop(...)`
+     这就是当前不一致的根因。
+  4. 在这轮代码里，“同类堆叠是否允许”本身不是根因；根因是“堆叠后剩余物、回源、点击空白/无效落点、跨区域交换”分别被两套状态机各自实现。
+- 关键文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Box\BoxPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- 验证状态：
+  - `静态代码审计成立`
+  - `未改代码`
+  - `未进 Unity`
+- 下一步建议：
+  1. 不要继续在 `HandleManagerHeldToChest(...)` 和箱子专用 `shift/ctrl` 分支上补 if/else。
+  2. 最小正确方向是先把 `shift/ctrl` Held 的“事实 owner”统一，再让 Up/Down 都只调同一套落点判定与回源规则。
+
+### 会话 24 - 2026-04-05
+- 内容：只读盘点 Sunset 当前背包 / 箱子 own 面里还残留哪些“旧真源 / 混合入口”会继续破坏统一交互语义；重点只看 `Inventory / Box / Toolbar / ChestController`
+- 用户要求：
+  - 只读，不改文件
+  - 输出：
+    1. 仍然混口径的关键方法 / 字段
+    2. 最值得继续改的 3-6 个点
+    3. 明确文件和方法名
+- 审计结论：
+  1. `ChestController` 自己仍保留三套箱子真源表面：
+     - `Inventory`
+     - `RuntimeInventory`
+     - `InventoryV2`
+     再加 `SetSlot()/GetSlot()/Contents` 这批 legacy 入口，导致调用方仍可能摸到 mirror，而不是 authoritative `ChestInventoryV2`。
+  2. 背包 / 箱子当前不是“两条链”，而是至少“三层混口径”：
+     - `InventoryInteractionManager` 负责背包 `shift/ctrl` held 与装备拖拽
+     - `SlotDragContext` 负责箱子 held，同时也接管普通背包拖拽
+     - `BoxPanelUI` 又额外实现一套空白区 / 垃圾桶 / close 回源逻辑
+  3. `InventorySlotInteraction.OnBeginDrag()` 让普通背包槽位直接走 `SlotDragContext.Begin(...)`，但 `OnPointerDown()` 又把点击交给 `InventoryInteractionManager`；同一个 `InventoryService` 容器已经出现“点击一套 owner、拖拽另一套 owner”的分裂。
+  4. `InventoryInteractionManager` 里已经显式暴露给箱子桥接的内部接口：
+     - `ReplaceHeldItem(...)`
+     - `ReturnHeldToSourceAndClear()`
+     - `ClearHeldSourceSelectionVisual()`
+     - `GetSourceIndex()/GetSourceIsEquip()`
+     说明箱子链不是在调统一交互服务，而是在借背包 manager 的内部状态做桥接。
+  5. `BoxPanelUI` 仍在复制交互语义，而不是委托：
+     - `HandleHeldClickOutside(...)`
+     - `OnTrashCanClicked()`
+     - `ReturnHeldItemsBeforeClose()`
+     - `ReturnChestItemToSource()`
+     - 一整组 `SetContainerSlotPreservingRuntime()/TryReturnToSpecificSlot()/TryReturnToFirstEmptySlot()`
+     这些与 `SlotDragContext` / `InventoryInteractionManager` 自己已有的回源和落点规则高度重叠。
+  6. 选中态也还没有单一真源：
+     - `InventoryPanelUI.selectedInventoryIndex/followHotbarSelection`
+     - `BoxPanelUI._selectedChestIndex/_selectedInventoryIndex/_followHotbarSelection`
+     - `InventorySlotUI.RefreshSelection()/Select()/ClearSelectionState()`
+     - `ToolbarSlotUI.OnPointerClick() -> selection.SelectIndex(...)`
+     目前是“槽位组件按当前活跃面板猜该读谁的选中态”，不是统一 selection model。
+  7. `ChestController.OnInteract()` 仍直接用 `context.HeldItemId` 和 `context.Inventory.RemoveFromSlot(context.HeldSlotIndex, 1)` 处理锁 / 钥匙消耗；这条 world interaction 链还没和 UI held 语义真正统一。
+  8. `ChestController.OpenBoxUI()` 与 `BoxPanelUI.Open()` 之间仍然分摊“打开权限”：
+     - 前者负责实例化 UI
+     - 后者再次调用 `chest.TryOpen()`
+     打开语义还没收成单点 authority。
+- 关键文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryInteractionManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotInteraction.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\SlotDragContext.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventoryPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Inventory\InventorySlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Box\BoxPanelUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\UI\Toolbar\ToolbarSlotUI.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\World\Placeable\ChestController.cs`
+- 验证状态：
+  - `静态代码审计成立`
+  - `未改代码`
+  - `未进 Unity`
+- 下一步建议：
+  1. 第一刀先收 `ChestController` 箱子真源，只保留 `RuntimeInventory / InventoryV2` 作为 runtime authority，把 `Inventory / SetSlot / GetSlot / Contents` 明确降成兼容层或移除调用。
+  2. 第二刀只收“Held / Drag Session 单一 owner”，让 `InventorySlotInteraction` 不再在普通背包拖拽时绕过 `InventoryInteractionManager` 直接开 `SlotDragContext`。
+  3. 第三刀把 `BoxPanelUI` 的空白区 / 垃圾桶 / close 回源全部改成委托统一交互层，不再保留自己的回源算法副本。
+  4. 第四刀再收 `ChestController.OnInteract()` 的锁 / 钥匙消耗入口，让 world interaction 不再直接按 `HeldSlotIndex` 改背包槽位。
+  5. 第五刀最后清 selection truth，把 `InventoryPanelUI/BoxPanelUI/Toolbar` 里的选中态收成单一模型，`InventorySlotUI` 只读不判。
+
+### 会话 25 - 2026-04-08
+- 内容：用户正式把“箱子支持近身 E 键交互”交还给 farm 线程主刀；本轮在不改 `GameInputManager` 的前提下，把箱子接入现有 proximity candidate 主链。
+- 用户要求：
+  - 箱子近身时出现统一 `E` 键交互提示
+  - 按 `E` 可直接开箱
+  - 远处右键点击箱子自动走近并到点开箱的原链保持不坏
+  - 不要把这件事甩给 UI 线程主刀
+- 实际落地：
+  1. `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+     - 新增箱子 proximity 交互配置：`enableProximityKeyInteraction / proximityInteractionKey / keyInteractionCooldown / bubbleRevealDistance / bubbleCaption / bubbleDetail`
+     - 新增 `Update()` + `TryBuildProximityInteractionContext(...)` + `ReportProximityInteraction(...)`
+     - 箱子现在会向 `SpringDay1ProximityInteractionService.ReportCandidate(...)` 上报近身 `E` 候选
+     - `E` 键最终仍复用 `ChestController.OnInteract(context)`，没有新造第二套开箱逻辑
+     - 新增 `GetBoundaryDistance(Vector2)`，距离口径改成“玩家到箱子碰撞体最近点”的边界距离，尽量贴齐现有右键自动走近链
+     - 新增抑制：页面 UI 打开 / 对话中 / 同箱 UI 已开时不再重复上报近身候选
+  2. `GameInputManager.cs`
+     - 本轮未改；右键自动走近链保持原样
+- 关键判断：
+  - 当前缺口不是箱子 UI，也不是 `OpenBoxUI()`，而是箱子一直没有接入 proximity candidate 主链。
+  - 最小安全改法就是让 `ChestController` 自己报名进入 `SpringDay1ProximityInteractionService`，并继续复用现有 `OnInteract()` 真入口。
+- 验证状态：
+  - `validate_script Assets/YYY_Scripts/World/Placeable/ChestController.cs`：`owned_errors = 0`
+  - 当前 Unity 现场仍有外部 NPC 编译红，故 compile-first assessment 为 `external_red`
+  - direct `validate_script`：`ChestController.cs errors = 0, warnings = 1`
+  - `git diff --check -- Assets/YYY_Scripts/World/Placeable/ChestController.cs`：通过
+- 待终验：
+  1. 近身是否出现统一 `E` 提示并能开箱
+  2. 远处右键自动走近开箱是否仍正常
+  3. 箱子 UI 已打开时是否不重复触发近身 `E` 链
+
+### 会话 26 - 2026-04-09
+- 内容：用户提出新的箱子交互时序需求，只要只读分析：
+  - 打开时：交互成功后延时 `0.5s` 再显示 UI
+  - 关闭时：UI 先关，箱子 sprite 延时 `0.5s` 再合上
+- 用户要求：
+  - 先只读检查，不改代码
+  - 判断这件事应加在哪里、是否合理、为什么不能乱加
+- 只读结论：
+  1. 当前打开链是即时链：
+     - `ChestController.OnInteract()`
+     - → `ChestController.OpenBoxUI()`
+     - → `BoxPanelUI.Open(chest)`
+     - → `chest.TryOpen()`
+     - → `chest.SetOpen(true)`
+     - → 立刻切 open sprite / collider / nav
+     - → 立刻 `gameObject.SetActive(true)` 显示 UI
+  2. 当前关闭链也是即时链：
+     - `BoxPanelUI.Close()`
+     - → `_currentChest.SetOpen(false)`
+     - → 立刻切 closed sprite / collider / nav
+     - → 立刻隐藏 UI
+  3. 所以这条需求不能靠“随手包一个 `WaitForSeconds(0.5)`”完成；最佳实现应仍收在 `ChestController + BoxPanelUI`，不要去改导航，也不要让 UI 线程主刀 runtime。
+  4. 如果目标体验是“先开盖，再出 UI；先收 UI，再合盖”，则必须把当前耦合在一起的：
+     - 逻辑开箱
+     - UI 打开
+     - 视觉关箱
+     拆成更细的状态阶段。
+- 最推荐的落点：
+  1. `ChestController`
+     - 增加非硬编码的可配时序字段
+     - 管理 pending open / pending close
+     - 负责取消竞态
+  2. `BoxPanelUI`
+     - 关闭时不要再立刻 `_currentChest.SetOpen(false)`
+     - 改成“UI 立刻关，但把视觉合盖委托回 `ChestController`”
+  3. `GameInputManager`
+     - 原则上不用改，因为右键与 `E` 已经汇到 `ChestController.OnInteract()`
+- 关键风险：
+  1. `TryOpen()` 当前在 `BoxPanelUI.Open()` 内部，若整体延后，会把 open sprite 和 UI 一起延后。
+  2. `SetOpen(false)` 当前同时改 sprite、collider、nav；若只想延时视觉合盖，需要注意当前结构会连带把 collider/nav 一起拖后。
+  3. 需要处理竞态：
+     - 延时开期间再次交互同箱
+     - 延时关期间再次打开
+     - 关闭后提示过早恢复
+- 验证状态：
+  - `静态代码审计成立`
+  - `未改代码`
+  - `未进 Unity`
+
+### 会话 27 - 2026-04-09
+- 内容：用户批准直接落地箱子交互时序链：
+  - 打开时：先开箱，再延时显示 UI
+  - 关闭时：UI 先收，再延时合盖
+- 用户要求：
+  - 直接做最终实现
+  - 同时说明是否会影响原功能、是否可回退
+- 实际落地：
+  1. `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+     - 新增可调时序字段：`uiOpenDelaySeconds`、`closeVisualDelaySeconds`
+     - `OpenBoxUI()` 现在会：
+       - 先 `TryOpen()` 进入 open 视觉态
+       - 再延时显示 `BoxPanelUI`
+     - 新增 `NotifyBoxUiClosed()`，让 close 链改成“UI 先收、视觉后收”
+     - 新增 pending-open / pending-close 小状态机与跨箱子互斥取消
+     - proximity 提示在过渡态中抑制，避免抢提示
+  2. `Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs`
+     - `Open(...)` 增加 `syncChestOpenState` 参数，支持由 `ChestController` 先控制开盖，再显示 UI
+     - `Close()` 不再直接 `SetOpen(false)`，改为通知 `ChestController` 处理延时合盖
+- 影响面判断：
+  1. 主动保持不变的：
+     - 右键自动走近入口不改
+     - `E` 键与右键仍复用同一 `ChestController.OnInteract()` 入口
+     - 箱子 UI 数据绑定、物品归位、Up/Down 交互逻辑不动
+  2. 主动改变的只有：
+     - 箱子 UI 的显示时机
+     - 箱子视觉合盖时机
+     - 过渡态中的提示抑制
+- 回退性：
+  - 可回退，且改动只集中在 `ChestController.cs` 与 `BoxPanelUI.cs` 两个文件
+  - 没有修改 `GameInputManager`、导航主链或其他共享 UI 系统
+- 验证状态：
+  - `validate_script ChestController.cs BoxPanelUI.cs`：`owned_errors = 0`
+  - direct `validate_script`：`ChestController errors = 0 / BoxPanelUI errors = 0`
+  - `git diff --check`：通过
+  - 未做本轮 live 手测
+
+## 2026-04-09 箱子 E Toggle 关闭残留背包背景根因与静态修口
+
+- 当前主线：
+  - 用户实机反馈新增 exact bug：近身 `E` 打开箱子后，再按 `E` 关闭，会残留一层背包背景，输入像仍被页面 UI 占住，必须再按一次 `Tab` 才能恢复。
+- 这轮新确认的根因：
+  1. 不是 `E` toggle 本身没触发，而是“同箱再次 `E` 关闭”走错了关闭链。
+  2. [ChestController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/Placeable/ChestController.cs) 里 `OpenBoxUI()` 在“同一个箱子 UI 已开”分支，原先直接调用 `BoxPanelUI.ActiveInstance.Close()`。
+  3. [BoxPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs) 的 `Close()` 只会收掉箱子内容层与 `_isOpen`，不会主动把 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 的 `panelRoot` 一起关掉。
+  4. 而 `PackagePanelTabsUI.OpenBoxUI()` 打开箱子时会 `EnsurePanelOpenForBox() + HideMainAndTop()`，也就是会把 `panelRoot` 留在“页面已开”状态。
+  5. 结果就是：箱子内容层关了，但 `panelRoot` 背景层还活着；后续 `GameInputManager` / 页面阻塞判定仍把它当成“背包页面开着”，所以玩家输入像被 UI 吞掉。
+- 这轮实际修口：
+  1. [ChestController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/Placeable/ChestController.cs)
+     - `OpenBoxUI()` 的“同箱已开 -> toggle 关闭”分支，改为优先走 `_cachedPackagePanel.CloseBoxUI(false)`。
+     - 只有在 `_cachedPackagePanel` 不可用时才回退到 `BoxPanelUI.ActiveInstance.Close()`。
+  2. [BoxPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs)
+     - 保持 `Close()` 继续通过 `NotifyBoxUiClosed()` 通知箱子视觉延时收口，不额外改入口链。
+  3. [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs)
+     - 保持 `CloseBoxUI(false)` 负责 `ShowMainAndTop() + ClosePanel()`，也就是正式关闭 `panelRoot` 宿主层。
+- 影响面判断：
+  - 没有回碰 `GameInputManager`、导航主链、`Primary/Town` 或其他背包交互逻辑。
+  - 这轮只是在同箱 `E` toggle 关闭时，把关闭路径纠正回“宿主面板正式关闭链”。
+- 代码闸门：
+  - `validate_script ChestController.cs / BoxPanelUI.cs / PackagePanelTabsUI.cs`
+    - `owned_errors = 0`
+    - `external_errors = 0`
+    - assessment = `unity_validation_pending`
+    - 当前阻断是 Unity 实例 `stale_status`，不是这 3 个文件 own red。
+  - `git diff --check -- ChestController.cs BoxPanelUI.cs PackagePanelTabsUI.cs`
+    - 通过（仅有 CRLF/LF 提示）
+- 下一步 / 用户应优先复测：
+  1. `E` 打开同一箱子，再按 `E` 关闭：不应再残留背包背景。
+  2. 关闭后立刻移动、再次交互、或按其他输入：不应再像页面 UI 仍开着。
+  3. 右键打开后再按 `E` 关闭：也不应残背景。
+  4. `Tab / ESC` 关闭现有箱子页：应继续保持原行为。
+- thread-state：
+  - 已跑 `Begin-Slice`
+  - 未跑 `Ready-To-Sync`（本轮未进入 sync）
+  - 已跑 `Park-Slice`
+  - 当前 live 状态：`PARKED`
+
+## 2026-04-09 正常打开 UI 也会卡顿 的只读复盘
+
+- 用户最新 live 口径修正：
+  - 当前问题已经不只是“箱子 `E` 延时打开难受”，而是“正常打开 UI 现在也会卡一下”。
+  - 本轮按用户要求只做自查，不改代码。
+- 这轮重新核对后的核心判断：
+  1. 如果现象是“普通背包 / Package 面板打开也顿一下”，主锅已经不是 `ChestController.ShowBoxUiAfterDelay()` 里的 `WaitForSecondsRealtime`。
+  2. `WaitForSecondsRealtime` 只在箱子延时开 UI 时才会命中，不会解释普通背包页面 `Tab` 打开也顿。
+  3. 普通页面的公共开口在 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs)：
+     - `OpenPanel()` 里 `panelRoot.SetActive(true)` 之后会直接调用 `OnPanelJustOpened()`
+  4. [InventoryPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryPanelUI.cs) 自己又有：
+     - `OnEnable() -> EnsureBuilt() -> RefreshAll()`
+  5. 而 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 的 `OnPanelJustOpened()` 又会再次：
+     - `invPanel.ConfigureRuntimeContext(...)`
+     - `invPanel.EnsureBuilt()`
+     - `invPanel.ResetSelectionsOnPanelOpen()`
+  6. 也就是说，主面板从关到开的一次普通打开，现在很可能会重复打两轮：
+     - 第一轮：`InventoryPanelUI.OnEnable()`
+     - 第二轮：`PackagePanelTabsUI.OnPanelJustOpened()`
+  7. 而 `EnsureBuilt()` 当前不是轻量 noop，它会：
+     - `BuildUpSlots()` 重新遍历 `up` 区所有格子并 `Bind`
+     - `BuildDownSlots()` 重新遍历装备区所有格子并 `Bind`
+     - `RefreshAll()` 再刷全部槽位和选中态
+- 这轮额外确认的次级风险：
+  - 箱子链的 `ChestController.TryOpen() -> SetOpen(true)` 仍然会触发：
+    - `UpdateColliderShape()`
+    - `RequestNavGridRefresh()`
+  - 所以箱子打开时的体感可能是“两层叠加”：
+    1. 公共 Package 面板打开重复刷新
+    2. 箱子自身开盖时的碰撞体 / NavGrid 刷新
+  - 但“普通 UI 打开也卡”这件事，已经足以说明不能再把主锅只甩给箱子延时协程。
+- 当前最诚实的结论：
+  - 我前一轮把问题重心放在箱子延时链上是不完整的。
+  - 如果下一轮要真修，“先拆 Package 面板公共打开链的重复 `EnsureBuilt/RefreshAll`”优先级已经高于继续调箱子延时参数。
+- 这轮没有改代码，只形成了新的稳定诊断结论。

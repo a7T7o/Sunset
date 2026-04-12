@@ -881,3 +881,39 @@
 - 当前恢复点：
   - 这条 `UI` 线程现在可以继续保持 `PARKED`；
   - 除非用户后续明确要求它处理 same-root dirty 归属 / 清理，或让出 Unity 实例去补真实终验，否则不需要再给它发新的实现 prompt。
+
+## 2026-04-03：002批量工具改成“手动确认选择 + 持久化锁定”，不再自动跟随 Hierarchy
+
+- 当前主线目标：用户临时插入一个高优先级支线，要把 `002批量-Hierarchy` 的选取逻辑从“自动跟随 Hierarchy”改成“在层级里选好后，点击确认按钮才生效”，并且锁定选择要持久化，重开窗口后不自动变化。
+- 本轮子任务：
+  1. 只改 `Assets/Editor/Tool_002_BatchHierarchy.cs`
+  2. 去掉自动跟随当前 `Selection` 的行为
+  3. 新增手动“确认选取”入口
+  4. 把已确认对象持久化到 `EditorPrefs`
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Park-Slice`：已跑
+  - 当前 live 状态：`PARKED`
+- 本轮实际改动：
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Tool_002_BatchHierarchy.cs`
+- 本轮实现结果：
+  1. 002 窗口不再在 `Selection.selectionChanged` 时自动接管当前层级选择，只会 `Repaint()`。
+  2. 选择区域新增：
+     - `✅ 确认选取`
+     - `🗑 清空`
+  3. 用户现在可以：
+     - 先在 Hierarchy 里选对象
+     - 再点击“确认选取”把当前选择锁定到工具里
+     - 不再因为继续点别的对象导致工具目标被自动改掉
+  4. 已确认对象会通过 `GlobalObjectId + EditorPrefs` 持久化；
+     - 关闭窗口再打开时，会优先恢复上次锁定对象
+     - 只要用户不重新确认，锁定对象就不会变
+- 本轮验证：
+  - `git diff --check -- Assets/Editor/Tool_002_BatchHierarchy.cs`：通过
+  - `validate_script`：`0 error / 2 warning`
+- 当前恢复点：
+  - 这刀代码已落地，下一步最值钱的是用户直接在 Unity 里点一次：
+    1. Hierarchy 里选对象
+    2. 点 `✅ 确认选取`
+    3. 切去别的对象确认不会自动跟随
+    4. 关窗重开确认选择仍在

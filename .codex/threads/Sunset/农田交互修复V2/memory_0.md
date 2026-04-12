@@ -1517,3 +1517,39 @@
 **恢复点 / 下一步**：
 - 当前线程的重型交接包已经就位；
 - 后续若继续农田主线，应由 `农田交互修复V3` 直接在“恢复基线 + runner 尾差 + 新增需求”这三个层次上接手推进。
+
+## 2026-04-07：只读代码审计，确认成熟作物收获 / 枯萎 collect 主链已通但仍留两处结构缺口
+
+**用户目标**：
+- 只读审计 `CropController / GameInputManager / PlayerInteraction / Farm` 相关脚本，判断“成熟作物收获 / 枯萎 collect”当前代码链是否还留结构缺口；不改文件，不扩到 UI / `Primary`。
+
+**当前主线目标**：
+- 把“收不了 / 被别的逻辑吞掉”的最可能代码缺口压成可直接修的最小面。
+
+**本轮子任务 / 阻塞**：
+- 只读核实左键收获入口事实链，确认当前 harvest 是否已经脱离旧路径、还会不会被工具 / 放置 / 自动导航吞掉。
+
+**已完成事项**：
+1. 已确认当前真实入口不是旧的 `TryHarvestCropAtMouse()`，而是 `HandleUseCurrentTool()` 内部先跑 `TryDetectAndEnqueueHarvest()`；这一步发生在放置模式、手持工具分发之前，且动画中 / 导航中也会经 `TryEnqueueFromCurrentInput()` 继续保持 harvest-first。
+2. 已确认 `CropController` 当前通过 `IInteractable` 接收最终执行，`OnCollectAnimationComplete()` 最终会把 `InteractionContext` 送进 `CropController.Harvest()`；成熟、枯萎成熟、枯萎未成熟三种状态都会被当前 runtime 认作可 collect。
+3. 已确认当前最危险的两个缺口：
+   - `GameInputManager.ExecuteFarmAction()` 的 `Harvest` 分支只写了 `playerInteraction?.RequestAction(PlayerAnimController.AnimState.Collect);`，但不像 `Till / Water / RemoveCrop` 那样检查返回值并做失败清理；一旦 Collect 动画没真正起，队列和占位可能卡住。
+   - `TryDetectAndEnqueueHarvest()` 与 `TryEnqueueHoeRemoveCropFromMouse()` 都强依赖 `FarmTileManager.GetCurrentLayerIndex(playerCenter)`，而该方法解析失败仍会 silent fallback 到 `0`；楼层识别一旦飘掉，高层作物会表现成“怎么点都收不了”。
+
+**关键决策**：
+- 若后续真修，最小切口先改 `GameInputManager.ExecuteFarmAction(Harvest)` 的失败处理，再补 `FarmTileManager.GetCurrentLayerIndex()` 或 harvest 层级解析逻辑；当前不需要先碰 `CropController` 主体。
+- 右键 auto-nav 的通用 `IInteractable` 链当前明确排除了 `CropController`，所以作物收获仍是左键专线；这不是马上要修的 bug，但它解释了为什么“别的交互逻辑修好了”不代表 crop 收获链一定跟着好。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerInteraction.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\CropController.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmTileManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmTileData.cs`
+
+**验证结果**：
+- 静态代码审计成立；未做 Unity / PlayMode live 验证。
+
+**恢复点 / 下一步**：
+- 当前这轮只读审计已经把“主链是否存在”和“最可能卡死点在哪里”说清；
+- 如果下一轮继续，直接从 `GameInputManager.ExecuteFarmAction(Harvest)` 的失败收口开始，而不是再回头重查 `CropController` 基本收获逻辑。

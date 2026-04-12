@@ -499,3 +499,74 @@
 **恢复点 / 下一步**：
 - 本线程自身已无继续必须落地的尾项；本轮只需做白名单同步提交。
 - 农田 preview 遮挡已由用户决定转给 farm 线程处理，不在本线程继续展开。
+
+### 会话 18 - 2026-04-07（农田 preview hover 遮挡只读代码审计）
+
+**用户目标**：
+- 只做只读代码审计，不改文件。
+- 聚焦“农田 preview hover 遮挡为什么仍可能看起来只有碰撞体重叠才触发”，并基于现有代码给出：
+  1. `FarmToolPreview / OcclusionManager / Placement/Farm` 的事实链
+  2. 最可能根因
+  3. 最小修复点（具体到文件 / 方法）
+  4. 风险
+- 明确不扩到 placeable 预览，也不讨论 `Primary`。
+
+**当前主线目标**：
+- 延续 `遮挡检查` 线程的只读审计定位，补一份针对农田 hover 遮挡子链路的当前实现判断，给后续真正修复前提供可直接落刀的事实基线。
+
+**本轮子任务 / 阻塞**：
+- 子任务：只读核对 `GameInputManager -> FarmToolPreview -> OcclusionManager -> OcclusionTransparency`，并补看 `FarmTileManager / PlacementManager / FarmRuntimeLiveValidationRunner / OcclusionSystemTests` 的相关接线与验证口径。
+- 阻塞：当前会话未显式暴露 `sunset-startup-guard`，因此只能按 Sunset AGENTS 做手工等价启动核查；本轮保持只读，不进入 `Begin-Slice`。
+
+**本轮完成**：
+1. 已按 `skills-governor` 做前置核查，并显式说明本轮只读分析、暂不跑 `Begin-Slice`；同时读取 `delivery-self-review-gate` 约束收尾判断。
+2. 已核对农田 hover 链路：
+   - `GameInputManager.UpdateFarmToolPreview()` 把鼠标对齐后的世界坐标解析成 `layerIndex + cellPos`，并调用 `FarmToolPreview.UpdateHoePreview()` / `UpdateWateringPreview()`。
+   - `FarmToolPreview.UpdateRealtimeData()` 刷新 `CurrentCellPos / CurrentLayerIndex / CurrentCursorPos`，`Show()` 内再调用 `NotifyOcclusionSystem()`。
+   - `FarmToolPreview.TryGetCurrentPreviewTileBounds()` 当前固定只返回 `CurrentCellPos` 对应的单个中心格 bounds。
+   - `OcclusionManager.SetPreviewBounds(PreviewOcclusionSource.FarmTool, ...)` 进入 `DetectPreviewOcclusion()`，最终以 `occluder.GetPreviewOcclusionBounds(...).Intersects(detectionBounds)` 判定是否透明。
+3. 已核对遮挡侧 bounds 口径：
+   - `OcclusionTransparency.GetPreviewOcclusionBounds()` 当前并没有退回 `GetColliderBounds()`，而是走 `GetVisualPreviewOcclusionBounds()`，优先吃可见 Sprite bounds，再包入 root/local collider bounds。
+   - `OcclusionSystemTests.PreviewOcclusion_FarmToolSource_UsesVisualBoundsInsteadOfColliderFootprint()` 也明确把“preview bounds 应大于 collider bounds”作为现有代码假设。
+4. 已核对当前行为约束：
+   - `OcclusionManager.ExpandPreviewBoundsForOcclusion()` 对 `FarmTool` 只额外补 `0.24f` 的很小 hover 缓冲。
+   - `FarmRuntimeLiveValidationRunner.RunHoverOcclusionScenario()` 明确把“旁边一格的小侧向 occluder 仍应保持不透明、中心格 occluder 才应透明”当成当前通过条件。
+
+**关键判断**：
+- 当前代码最可能的问题不在“preview 侧又退回 collider bounds”，而在“农田 hover 遮挡被硬性收窄为中心格 + 很小缓冲”：
+  - 只要可见树冠 / 遮挡面没有真正压进 `CurrentCellPos` 的那一格及其 `0.24f` 扩张区，就不会触发；
+  - 在很多实际资源上，最先压进这块区域的往往是树根 / 主体 / 碰撞体附近，所以体感上就像“必须碰撞体重叠才触发”。
+- 这条结论还被当前 live runner 的验收口径固化了：它本来就在拒绝相邻侧向 hover 触发。
+
+**最小修复建议（只给落点，不在本轮实施）**：
+- 首选最小落点：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - 方法：`ExpandPreviewBoundsForOcclusion(Bounds sourceBounds, PreviewOcclusionSource source)`
+  - 方向：只调 `PreviewOcclusionSource.FarmTool` 分支的 hover 扩张量，不动 placeable / generic，也不去改 `GetPreviewOcclusionBounds()`。
+- 次选落点（如果要保留 manager 常量不动、改 preview 源本身）：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+  - 方法：`TryGetCurrentPreviewTileBounds(out Bounds previewBounds)`
+  - 方向：仍锚定 `CurrentCellPos`，但放宽 farm hover footprint；不要退回“任意 ghost tile 联合 bounds”。
+
+**风险**：
+1. 如果直接放大 `FarmTool` hover 扩张，最先回归的是“隔壁树 / 边缘 canopy 提前透明”，需要重新核 `RunHoverOcclusionScenario()` 当前的 `sideStayedOpaque` 假设。
+2. 如果改 `TryGetCurrentPreviewTileBounds()` 而不是 manager 常量，可能让农田 hover 事实源与当前“只认中心格”的注释 / 设计预期发生漂移。
+3. 当前没有覆盖“真实树冠只擦边中心格、但用户主观认为已挡住 hover”的自动化验证；现有测试更多是在证明“不是 collider-only API”，而不是证明“场景体感已过线”。
+
+**涉及文件 / 路径**：
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\Input\GameInputManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmToolPreview.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmTileManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Farm\FarmRuntimeLiveValidationRunner.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionTransparency.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+- `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\OcclusionSystemTests.cs`
+
+**验证结果**：
+- 本轮仅做静态代码审计，验证状态为：`静态推断成立`。
+- 未进入 Unity / PlayMode / live runner 复测，因此不能把这轮判断升级成“体感已验证”。
+
+**恢复点 / 下一步**：
+- 若下一轮要真实修复，优先从 `OcclusionManager.ExpandPreviewBoundsForOcclusion()` 这一处做 FarmTool-only 的最小调节，并立刻补一条“边缘 canopy 也应触发，但相邻侧向不应过早触发”的针对性验证。
+- 如果用户只要审计结论，本线程当前已可直接交付，不需要继续读 placeable 或 `Primary` 相关链路。

@@ -3981,3 +3981,423 @@
   - 这轮不能宣称“整个导航系统所有边角都收完”，但能宣称“统一 traversal core 第一刀已经拿到最小 runtime 闭环”
 - 当前切片：
   - `导航统一执行内核第一刀_共享traversal-contract-core接线玩家与NPC`
+
+## 2026-04-06｜导航检查V2：第二刀未改代码，先补更宽验证；NPC 宽验证过线，玩家宽验收被外部线程打断
+
+- 当前主线目标：
+  - 继续补“统一 traversal core 第一刀”后的剩余验证，不急着再改代码，先看 Spring Day1 NPC 宽 runtime 和玩家 final acceptance pack。
+- 本轮实际完成：
+  1. 已沿用本线程第二刀 slice 开工：
+     - `导航统一执行内核第二刀_长时soak与更宽验收补齐`
+  2. Spring Day1 静态验证 fresh 通过：
+     - `[SpringDay1NpcCrowdValidation] PASS | npcCount=8 | totalPairLinks=16`
+  3. Spring Day1 runtime targeted probe fresh 通过：
+     - `[SpringDay1NpcRuntimeProbe] PASS | instance=8/8 | informal=8/8 | pair=2/2 | walkAway=2/2`
+  4. 代码静态对照确认：
+     - `NavGrid2D.ShouldIgnoreDynamicNavigationCollider()` 为旧实现既有行为，不是 unified core 新引入
+  5. 两次尝试跑 `FinalPlayerNavigationAcceptancePack` 都被外部线程打断：
+     - 第 1 次：`Open Workbench + Capture Spring UI Evidence`
+     - 第 2 次：`Run Director Staging Tests`
+- 本轮只可作为线索、不可当最终 truth 的 partial player 结果：
+  - `PassableCorridor#1~#3`：红
+  - `StaticNpcWall#1~#3`：绿
+  - `EndpointNpcOccupied#1`：`Bulldoze`
+  - `GroundRawMatrix#1`：未完即被外部菜单打断
+- 当前 blocker：
+  - `external-live-interference:Sunset/Story/Debug/Open Workbench + Capture Spring UI Evidence`
+  - `external-live-interference:Sunset/Story/Validation/Run Director Staging Tests`
+  - `external-compile-red:Assets/YYY_Scripts/Service/Rendering/LookDev2D/Editor/LocalLightingReviewCreator.cs:295:CS1061`
+- 当前判断：
+  - 这轮不能因为被污染的 player pack partial 结果，就贸然回改玩家逻辑；
+  - 当前最可信的新事实是 NPC 宽验证已经成立；
+  - 玩家更宽验收要等干净窗口再复跑。
+- 当前恢复点：
+  - 外部干扰清掉后，从 `FinalPlayerNavigationAcceptancePack` 干净重跑恢复；
+  - 若干净重跑后 `EndpointNpcOccupied` 仍红，再回 shared traversal/core 相关最小 bugfix。
+- thread-state：
+  - 本轮开始前：沿用 `ACTIVE`
+  - 收尾：已 `Park-Slice`
+  - 当前状态：`PARKED`
+
+## 2026-04-06｜导航检查V2：用户怀疑“测试没关导致持续卡顿”，只读排查后已排除验证残留
+
+- 本轮用户插入式子任务：
+  - 排查当前持续卡顿是不是我遗留的 live 验证还在后台跑。
+- fresh 结果：
+  1. `NavigationLiveValidationRunner` = 0
+  2. `__SpringDay1NpcCrowdRuntimeProbeRoot` = 0
+  3. `status` = `isPlaying=false`
+  4. 当前 console 真正显眼的是：
+     - `Missing Script` ×2
+     - 大量 `OcclusionTransparency ... 未找到OcclusionManager（等待超时）`
+  5. `OcclusionManager` scene 物体存在，不是“场景里没有 manager”
+- 当前判断：
+  - 当前持续卡顿不是验证 runner 残留；
+  - 更像是 runtime 场景本身的缺失脚本与遮挡系统注册异常。
+- 主线恢复点：
+  - 如果用户继续让这条线程处理卡顿，下一步应转成“定位 missing script 宿主 + 追 `OcclusionTransparency/OcclusionManager` 初始化链”；
+  - 这已经不是 unified traversal core 自身验证问题。
+
+## 2026-04-06｜导航检查V2：用户现场截图把 Primary 卡顿进一步压实为“移动触发型树遮挡链爆炸”
+
+- 当前主线目标：
+  - 继续定责 `Primary` 运行时整机卡顿，不改业务逻辑，先找第一责任点。
+- 本轮 fresh 事实：
+  1. 用户现场图直接给出性能面：
+     - `1.3 FPS`
+     - `CPU main 773.4ms`
+     - `render thread 765.1ms`
+  2. 用户把触发条件压实：
+     - 不移动玩家时基本不卡
+     - 一移动就持续卡到约 `1 FPS`
+  3. 现场 console 右下角显示 `116` 条 warning，主内容为：
+     - `[OcclusionTransparency] ... 注册失败！未找到OcclusionManager（等待超时）`
+  4. 既有只读证据可拼成完整链：
+     - `OcclusionManager` scene 物体存在
+     - `Editor.log` 累计已有 `550` 条同型 `OcclusionTransparency` warning
+     - 当前 `Library/CodexEditorCommands` 里还挂着未消费请求、`status.json` 停在 `18:19:43`，说明工具桥也不健康，但这更像旁路故障，不足以解释“玩家一移动就稳定 1FPS”
+- 当前判断：
+  - 当前第一责任点不应再写成“也许是 NPC / 也许是别的 manager”，而是优先收缩到 `TreeController -> OcclusionTransparency -> OcclusionManager` 这条树遮挡注册链。
+  - 更直白的人话是：
+    - 玩家一动，附近树的遮挡逻辑开始参与；
+    - 这批树对象运行时拿不到 `OcclusionManager.Instance`；
+    - 于是大量 warning + 树遮挡处理一起把编辑器拖死。
+  - 这说明主锅现在不在玩家右键导航本体；导航只是暴露了移动触发条件。
+- 当前恢复点：
+  - 下一刀先修树遮挡运行时契约；
+  - 修完再复测“移动即卡”，若仍残留，再继续二分 NPC/其他世界系统。
+
+## 2026-04-06｜导航检查V2补纠偏：上一轮已钉到症状落点，但“当前 live 会话”随后漂离 Primary，不能把漂移后的 MCP 读数误当成同一现场
+
+- 当前主线目标：
+  - 继续定责 `Primary` 的移动触发型卡顿，但先纠正 live 证据边界。
+- 本轮 fresh 新事实：
+  1. 用户对上一轮判断提出质疑后，重新查 `git status / git diff` 发现：
+     - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs` 当前 dirty
+     - `Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs` 当前 dirty
+     - `Assets/YYY_Scripts/Controller/TreeController.cs` 当前 dirty
+     - `Assets/000_Scenes/Primary.unity` 当前 dirty
+  2. 这不是“老早没动过的稳定基线”；当前工作区里，这条树遮挡相关簇本身就处在大脏状态。
+  3. 继续用 MCP 做 live 查询时，发现当前 Unity 会话已经不是截图里的同一现场：
+     - `active_scene = Assets/111_Data/Rendering/LookDev2D/Scenes/LightingLocal2DReview.unity`
+     - `isPlaying = false`
+     - console 当前可见的是另一条 compile red：
+       - `SpringDay1WorkbenchCraftingOverlay.cs` 的 `CS0103 / CS1061`
+  4. 因此，“当前 MCP 里看不到 OcclusionManager / OcclusionTransparency 对象”只说明**会话已经漂到别的场景**，不能反推用户截图里的 `Primary` 现场不存在这些对象。
+- 当前判断：
+  - 上一轮成立的是“症状落点”：
+    - 用户截图里的 `Primary` 会话，移动时确实伴随 `OcclusionTransparency -> OcclusionManager` warning 洪流与 `1 FPS`
+  - 上一轮还没最终闭环的是“变坏因果”：
+    - 我还不能只凭后来漂移到 `LightingLocal2DReview` 的会话，就把 `Primary` 里的根因 100% 结案。
+  - 目前最稳的客观结论改写为：
+    1. `Primary` 移动触发卡顿与树遮挡 warning 洪流强相关；
+    2. 这条相关链不是“老旧 untouched 基线”，因为相关脚本和 `Primary.unity` 当前都在大脏状态；
+    3. 但要把它升级成“最终第一责任点”，还需要在**干净、稳定、未漂移的 Primary play 会话**里再做一次对照。
+- 当前恢复点：
+  - 下一步不是直接拍板谁背锅；
+  - 而是在稳定 `Primary + Play` 会话里补三项硬证据：
+    - 移动前后 warning 增量
+    - 当帧 `OcclusionManager` 运行时实例/启用状态
+    - 当帧 `OcclusionTransparency` 活对象数与新增启用/注册节奏
+## 2026-04-06｜导航检查V2：TMP 字体资产自改阻塞已切掉；用户随后确认关掉多工具浮窗后当前现场已不卡
+
+- 当前支撑子任务：
+  - 清掉 `DialogueChinese Pixel SDF.asset` inconsistent import / assert 这条新阻塞，并记录用户最新现场改判。
+- 本轮新增事实：
+  1. `Editor.log` 定责：
+     - `TMP_EditorResourceManager:DoPostRenderUpdates()`
+     - `Importer(NativeFormatImporter) generated inconsistent result for asset ... DialogueChinese Pixel SDF.asset`
+     - `Assertion failed ... DontSaveInEditor`
+  2. 代码面确认：
+     - `DialogueChineseFontRuntimeBootstrap` 会在运行时对 `DialogueChinese Pixel SDF` 执行 `TryAddCharacters(...)`
+     - 这张字体又是 `Dynamic + MultiAtlas`
+     - 原先等于直接把项目里的动态字体资产拿去做运行时可写缓存
+  3. 已做修复：
+     - 只改 `Assets/YYY_Scripts/Story/Dialogue/DialogueChineseFontRuntimeBootstrap.cs`
+     - 运行时先克隆 `TMP_FontAsset` 和材质
+     - 之后只对运行时副本做 `TryAddCharacters(...)`
+  4. fresh 验证：
+     - `mcp validate_script`：`errors=0 warnings=0`
+     - `Primary -> Play -> Stop` 短窗口后 CLI console：`errors=0 warnings=0`
+  5. 用户最新现场反馈：
+     - 现在“完全不卡了”
+     - 用户判断更像“工具浮窗开太多导致编辑器卡”
+- 当前判断：
+  - `TMP` 资产自改这条阻塞已经被切掉；
+  - 但整机卡顿主因当前不再应继续硬压到运行时代码，因为用户最新真值是：收掉多工具浮窗后现场已不卡。
+- 当前恢复点：
+  - 本线程先 `PARKED`
+  - 如果后续在“工具浮窗已收敛”的前提下还能稳定复现 `Primary` 卡顿，再重新开运行时二分。
+
+## 2026-04-06｜导航检查V2：Primary 卡顿主因改判为 NPC 固定步导航雪崩；已完成第一刀代码压载
+
+- 当前主线：
+  - 不再围绕 `TMP / 工具浮窗 / 遮挡链` 猜测；
+  - 这轮已根据用户给出的 Profiler 图，直接收缩到 `NPCAutoRoamController.FixedUpdate()` 的高频导航判断雪崩。
+- 本轮新增事实：
+  1. Profiler 硬证据一致：
+     - `NPCAutoRoamController.FixedUpdate()` 单帧总耗时约 `736ms ~ 1007ms`
+     - `Self` 自耗时约 `666ms ~ 936ms`
+     - `Physics2D.OverlapCircleAll` 单帧约 `48ms ~ 50ms`
+     - `GC.Alloc` 单帧约 `20ms ~ 21ms`，分配约 `28.7MB ~ 30.6MB`
+     - 同一渲染帧 `FixedUpdate.ScriptRunBehaviourFixedUpdate` 被补跑 `16~17` 次
+  2. 代码链收缩：
+     - `NPCAutoRoamController.TickMoving(...)`
+     - `NavigationTraversalCore.CanOccupyNavigationPoint(...)`
+     - `NavGrid2D.IsWalkable(...) / IsPointBlocked(...)`
+  3. 第一刀修复已落：
+     - `NPCAutoRoamController`：
+       - 同一渲染帧里只做一次重导航决策
+       - 其余补算 `FixedUpdate` 复用本帧已决策的移动速度
+       - `TraversalSoftPass` 检查改为同帧最多一次
+     - `NavGrid2D`：
+       - `Physics2D.SyncTransforms()` 改为同帧最多一次
+  4. 代码层验证：
+     - `validate_script Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`：`errors=0 warnings=1`
+     - `validate_script Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`：`errors=0 warnings=0`
+     - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs` 通过
+  5. 最小 live 复核：
+     - 切到 `Primary`
+     - `Play` 短窗口后 fresh console：`errors=0 warnings=0`
+     - 已主动退回 `Edit Mode`
+- 当前判断：
+  - 这轮已经把最核心的补算雪崩点砍下来了；
+  - 但“帧时间已经回到最终可接受区间”还缺一次用户侧/Profiler 终验，当前只能报 `线程自测已过最小 live，性能最终体验待终验`。
+- 当前恢复点：
+  - 下一步如果继续这条线，不该再盲猜别的系统；
+  - 只应在 `Primary` 里用同一套 Profiler 口径复拍，确认 `NPCAutoRoamController.FixedUpdate()` 是否已从“每帧几百毫秒”压回正常区间。
+
+## 2026-04-08｜导航检查V2：Town 新增 TilemapCollider2D / CompositeCollider2D 如何纳入静态导航的只读方案分析
+
+- 当前主线：
+  - 用户要求先做方案判断，不直接动手；重点是“新增了很多 `TilemapCollider2D` 和 `CompositeCollider2D` 后，怎样快速、正确、高效地纳入静态导航”，并评估代价、影响面和工期。
+- 本轮新增事实：
+  1. 只读 scene 现状（当前 active scene=`Town`）：
+     - 找到了大量 `TilemapCollider2D`：
+       - `Layer 1 - Farmland_Water`
+       - `Layer 1 - Props / Props(1~4)`
+       - `基础设施/-9960 / -9960.5 / -9970 / -9975`
+     - 其中多组 `基础设施` tilemap 是 `Rigidbody2D + CompositeCollider2D + TilemapCollider2D`
+  2. 但当前 `Town` 没找到 `TraversalBlockManager2D`，只有一个 `NavGrid2D`
+  3. 当前 `NavGrid2D` 配置仍是旧口径：
+     - `explicitObstacleTilemaps / explicitObstacleColliders / explicitSoftPassObstacle* / explicitWalkableOverride*` 全空
+     - `autoDetectObstacleTilemapsByName = true`，但 `obstacleTilemapNameKeywords = []`
+     - `obstacleMask = 0`
+     - `obstacleTags = [Interactable, Building, Tree, Rock, Placed, NPC]`
+  4. 这意味着：这些新加的 `TilemapCollider2D / CompositeCollider2D` 现在大多只是“场景里真实存在”，并没有以受控分类方式进入静态导航 contract
+  5. 代码实现细节：
+     - `TraversalBlockManager2D` 是当前正确接线位，负责把来源分成：
+       - `blocking`
+       - `soft pass`
+       - `walkable override`
+       - `bounds`
+     - `TraversalBlockManager2D` 目前通过 `tilemap.GetComponent<Collider2D>()` 吃 tilemap 相关碰撞体；对 composite scene 当前大概率能吃到 `CompositeCollider2D`，但实现上仍带一点“依赖组件返回顺序”的隐性歧义
+- 当前判断：
+  - 最推荐方案不是去全局放宽 `NavGrid2D` 的自动识别，而是给 `Town` 做 scene-local 的 `TraversalBlockManager2D` 分类接线；
+  - 这样影响面最小、回滚最容易，也最不容易把已经过线的桥/水/soft-pass 语义一起打坏。
+- 当前恢复点：
+  - 若继续这条线，下一步应该先给用户出三档方案：
+    - `快但脏`
+    - `推荐平衡`
+    - `自动化增强`
+  - 再由用户拍板要不要真正进入 scene/config 施工。
+
+## 2026-04-08｜导航检查V2：Town 静态导航接线方案已压成可决策结论
+
+- 当前主线：
+  - 本轮仍是只读方案分析，不进入真实施工，也不跑 `Begin-Slice`。
+- 这轮实际做成了什么：
+  1. 已把新增 `TilemapCollider2D / CompositeCollider2D` 的纳入方式压成三档可选方案。
+  2. 已明确推荐：
+     - 不走全局 `NavGrid2D` 自动吞
+     - 走 `Town` scene-local `TraversalBlockManager2D` 分类接线
+  3. 已给出代价与工期口径：
+     - 全局自动吞：`0.5 ~ 1.5h`，高风险
+     - scene-local 分类接线：`2 ~ 4h`，低到中风险
+     - 自动化增强：在推荐方案上再加 `1 ~ 2h`
+- 现在还没做成什么：
+  - 尚未真正开始 `Town` scene/config 接线施工。
+- 当前阶段：
+  - 已到用户可直接拍板的方案阶段，不是实现阶段。
+- 下一步只做什么：
+  - 等用户决定是否按 `Town` scene-local `TraversalBlockManager2D` 进入真实接线。
+- 需要用户现在做什么：
+  - 只需要拍板方案，不需要额外补测。
+
+## 2026-04-08｜导航检查V2：Town scene-local TraversalBlockManager2D 已落地并完成最小 live 验证
+
+- 当前主线：
+  - 已从只读方案切到真实施工；目标是把 `Town` 新增的 `TilemapCollider2D / CompositeCollider2D` 正式接进静态导航，但只动 `Town` 本地，不改全局导航逻辑。
+- 这轮实际做成了什么：
+  1. 已在 `Town` scene 内新增独立节点 `TraversalBlockManager2D`。
+  2. 已把新增来源接进 manager：
+     - `Layer 1 - Farmland_Water`
+     - `Layer 1 - Props / Props(1~4)`
+     - `基础设施/-9960 / -9960.5 / -9970 / -9975`
+  3. 配置口径：
+     - `water` 继续按 soft-pass 语义走
+     - 其余按 hard blocking 走
+     - 同时打开 `useTilemapOccupancyFallback=true`，兜住 `CompositeCollider2D` 与 tile occupancy 双路径
+  4. 最小 live 结果：
+     - `NavGrid2D.autoDetectObstacleTilemapsByName` 已被关掉
+     - `explicitObstacleTilemaps` 已落到 9 条硬阻挡来源
+     - `explicitSoftPassObstacleTilemaps` 已落到 1 条 `Farmland_Water`
+     - `PlayerMovement.navGrid` 已绑定 `NavigationRoot`
+     - `PlayerMovement.enforceNavGridBounds=true`
+     - 抽检 2 个 `NPCAutoRoamController` 都已绑定同一张 `NavGrid`，且 `enforceNavGridBounds=true`
+- 现在还没做成什么：
+  - 还没做更深的玩家手动走图 / NPC 自然 roam 长时间终验；
+  - 这轮只做到了“scene-side contract 已接上并通过最小 live”。
+- 当前阶段：
+  - `Town` 静态导航 scene-local 接线已经落地，可进入后续人工体验验证；不是停留在纸面方案阶段了。
+- 下一步只做什么：
+  - 如果继续这条线，下一步只做 `Town` 里的玩家/NPC 实走体验复判，不再回头扩大全局 `NavGrid2D`。
+- 需要用户现在做什么：
+  - 可以直接在 `Town` 里用玩家/NPC 去走新增 tilemap/composite 区域做体验判断。
+- 审计补充：
+  - 本轮保存 `Town.unity` 后 diff 体量很大，已确认不只是新 manager 本身，还把 scene 里原本就存在的大量场景侧改动一起正式落盘；本线程没有回滚这些 scene 既有脏改。
+  - Play 窗口中抓到过 2 条 `Missing Script` error 和一批 `OcclusionTransparency` warning，但它们不在本次新增 manager 接线链路上；退回 `Edit Mode` 后用 CLI fresh 读 console 为 `errors=0 warnings=0`。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前状态=`PARKED`
+## 2026-04-08｜导航检查V2：Town / NPC 导航卡顿第二轮修补已落到代码，当前停在 `Primary` live 复判前
+
+- 当前主线目标：
+  - 把 `Town / NPC` 导航高频卡顿压到可持续运行，再用 `Primary` 的 NPC traversal probe / profiler 做最终 runtime 裁定。
+- 本轮子任务：
+  - 在不改 roam 业务策略的前提下，继续修 `NPCAutoRoamController.cs + NavGrid2D.cs` 的实现级热路径。
+- 本轮完成：
+  1. `NavGrid2D.cs`
+     - `EnsurePhysicsTransformsSyncedOncePerFrame()` 已接到 refresh / rebuild / ignoredCollider 查询链。
+     - `ShouldIgnoreDynamicNavigationCollider(...)` 改成 `Collider2D instance cache + List<MonoBehaviour>` 无分配父链扫描。
+     - `IsGridWalkableForQuery(...)` 先走 `walkable[,]`，blocked cell 不再无脑退化成 live physics。
+     - `FindNearestWalkableImproved(...)` 新增 shortlist 路径 `FindNearestWalkableWithIgnoredCollider(...)`，把大量候选格 physics 确认压缩成少量候选校验。
+  2. `NPCAutoRoamController.cs`
+     - `Update()` 里的 traversal soft-pass 更新已改成 once-per-frame。
+     - `TickMoving(...)` 新增 `CanReuseStoppedMoveDecisionThisFrame(...) + ApplyStoppedMoveDecision()`，同一渲染帧里已判“停”的补算 FixedUpdate 不再重复重跑阻挡恢复链。
+     - `TryHandlePendingMoveCommandNoProgress(...)` 命中后也会缓存 stop decision，避免同帧继续重算。
+  3. 代码层验证：
+     - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs` 通过。
+     - `manage_script validate NPCAutoRoamController`：`errors=0 warnings=1`（工具提示 `String concatenation in Update()`，非编译错误）
+     - `manage_script validate NavGrid2D`：`clean errors=0 warnings=0`
+- 这轮没做成的：
+  - 没拿到 fresh `Primary` 运行态 / Profiler 复判；
+  - 没继续动 `TryRebuildPath / TryBeginMove` 的跨帧 rebuild 去重，因为当前更需要先验证前两刀是否已把主要成本打下去。
+- 当前 blocker：
+  - `live-retest-pending-primary-scene-context`
+  - `external-console-errors:NPCBubblePresenter SendMessage OnValidate`
+  - `runtime-noise-history:repeated-snapshot-menu-requests-needs-clean-probe-window`
+- 当前恢复点：
+  - 下一轮不要再先猜第三刀；
+  - 先等一个干净的 `Primary` 场景窗口，再跑最小 traversal probe / profiler 复判；如果仍重，再回头补 `TryRebuildPath` 的 destination+blocker 去重/backoff。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前状态=`PARKED`
+
+## 2026-04-08｜导航检查V2：按用户要求收紧 probe 触发权限（默认不自动运行）
+
+- 当前主线目标：
+  - 在不破坏玩家/NPC现有逻辑的前提下推进 NPC 导航修复；测试必须“先获用户允许，再执行”。
+- 本轮子任务：
+  - 修 `Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs` 的测试触发机制，消除自动触发和隐式干预。
+- 本轮完成：
+  1. 删除自动触发链：
+     - 移除 `PendingActionKey` 队列流程；
+     - 移除进入 Play / 重载后自动 `DispatchPendingAction`；
+     - 取消非 Play 状态自动切换到 Play。
+  2. 增加显式授权闸门：
+     - 新增授权菜单（2分钟窗口）+ 撤销授权菜单；
+     - 未授权时，probe 直接拦截并写 warning，不会实际跑。
+  3. 执行改为一次性：
+     - 在 Play 且有授权时才执行；
+     - 执行前消费授权，避免连发/误触发。
+- 本轮验证：
+  - `git diff --check` 通过；
+  - `sunset_mcp validate_script ...CodexNpcTraversalAcceptanceProbeMenu.cs` 显示 `native_validation=clean`，assessment 为 `unity_validation_pending`（外部 stale 状态）。
+- 当前恢复点：
+  - 之后任何 probe/live 测试都必须先拿到用户明确口头许可；
+  - 下一步若继续主线，先在 `Primary` 下重新确认 `NPC 002` 依赖与探针执行结果。
+
+## 2026-04-08｜导航检查V2：导航实现层“大刀稳定化”完成并已提交
+
+- 当前主线目标：
+  - 在不改变用户既有导航设计与业务语义的前提下，压实 NPC/导航运行态稳定性，面向打包降低卡顿与异常抖动。
+- 本轮子任务：
+  - 对 `NPCAutoRoamController/NavGrid2D/NavigationPathExecutor2D/NPCMotionController` 做实现层防护改造并落提交。
+- 本轮完成：
+  1. `NPCAutoRoamController.cs`
+     - 加路径构建预算闸门：同帧只允许一次重建尝试；
+     - 加失败退避：连续失败短时间 backoff；
+     - stuck 重建成功后本帧直接结束，避免继续跑旧 waypoint。
+  2. `NavGrid2D.cs`
+     - `IsPointBlocked` 逻辑改成单遍分类扫描，减少重复判定与冗余查询。
+  3. `NavigationPathExecutor2D.cs`
+     - `TryBuildPath` 改成事务式提交，失败保留旧路径。
+  4. `NPCMotionController.cs`
+     - 加朝向切换最小保持窗，压视觉抖动转向。
+- 本轮验证：
+  - `git diff --check`（4 文件）通过；
+  - `manage_script validate`：
+    - `NavGrid2D` / `NavigationPathExecutor2D` clean；
+    - `NPCAutoRoamController` warning-only（工具提示）；
+    - `NPCMotionController` warning-only（工具提示）；
+  - `sunset_mcp errors --count 120 --output-limit 30` = `0 error / 0 warning`。
+- 提交：
+  - SHA=`4c736a7a`
+  - message=`harden navigation runtime: throttle path rebuild and reduce blocker query overhead`
+- 当前恢复点：
+  - 代码大刀已落并可回退；
+  - 下一步只需要用户授权后进行 Primary live 验收（群跑 + 桥/水/边缘）。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前状态=`PARKED`
+
+## 2026-04-08｜导航检查V2：Town 授权 live 双跑结果（快速复验）
+
+- 当前主线目标：
+  - 在用户授权下做最小 live 复验，确认大刀后导航运行态是否可用。
+- 本轮执行：
+  - 现场：`Town`（用户指定）
+  - 动作：通过 `CodexEditorCommandBridge` 连续两次触发
+    - `Tools/NPC/Spring Day1/Run Runtime Targeted Probe`
+- 两轮结果一致：
+  - `PASS:` `instance=7/7`, `selfTalk=2/2`, `informal=7/7`, `pair=2/2`
+  - `FAIL:` `walkAway=1/2`
+  - 固定 issue：
+    - `101: walk-away timeout | mode=WaitingNpcReply | triggered=False | state=Idle | endReason=Completed`
+- 运行态附加信号：
+  - 本轮 fresh `errors` 只包含该 probe 的两条 FAIL 输出，无新增导航链崩溃型 error。
+- 当前恢复点：
+  - 大刀后 runtime 结果已收敛为单点时序问题；
+  - 若继续修，优先针对 `walk-away timeout` 的会话中断链做定点补口。
+
+## 2026-04-08｜导航检查V2：`walk-away timeout` 已定点修复并复跑通过
+
+- 当前主线目标：
+  - 把 runtime probe 唯一红点 `101 walk-away timeout` 压绿，验证导航主链是否恢复闭环。
+- 本轮改动：
+  - `Assets/Editor/NPC/SpringDay1NpcCrowdValidationMenu.cs`
+  - `TickInterruptProbe()` 新增：
+    1. `WaitingNpcReply` 语义下的 fallback 触发窗口（会话已完成 1 轮 exchange）；
+    2. 触发前自然 `Completed` 时按 spec 自动重试 1 次。
+- live 复跑结果：
+  1. 先跑：旧红仍在（说明旧逻辑尚未吃到）；
+  2. `Assets/Refresh` 后再跑：
+     - `walkAway=2/2` 已过；
+     - 中途出现过一次 `203 informal timeout`；
+  3. 再复跑一轮：
+     - `PASS | instance=7/7 | selfTalk=2/2 | informal=7/7 | pair=2/2 | walkAway=2/2`
+     - `sunset_mcp errors` fresh=`0 error / 0 warning`
+- 提交：
+  - `7d5b753d`
+  - `stabilize npc runtime targeted probe walk-away trigger window`
+- 当前恢复点：
+  - 导航 probe 已回全绿；
+  - 若继续保守收口，可把 `203 informal timeout` 作为偶发波动继续观察样本。
+  - 追加 1 轮复跑后继续 `PASS`，当前连续 2 轮全绿（`walkAway=2/2` 稳定）。
