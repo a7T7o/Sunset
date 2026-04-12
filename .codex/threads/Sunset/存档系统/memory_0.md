@@ -62,6 +62,45 @@
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
 
+## 2026-04-13 02:02 审计收尾：这条线该提交的已经提交，当前只收 memory 与停车
+- 当前主线仍是存档系统收口；本轮子任务不是继续扩功能，而是把“我自己能合法提交的内容到底还有没有尾账”这件事彻底钉死。
+- 我重新核了：
+  - `git log --oneline --decorate -n 12`
+  - `git branch -vv`
+  - 当前 `thread-state`
+  - 工作区 / 线程 memory 里前一轮留下的恢复点
+
+### 本轮确认下来的事实
+1. 两笔存档提交都已成立并在 `main` 历史里：
+   - `0fa99813` `2026.04.13_存档系统_01`
+   - `7fd6a606` `2026.04.13_存档系统_02`
+2. 当前 `main` 和 `origin/main` 共同指向：
+   - `8a3ad181` `2026.04.13_Codex规则落地_10`
+3. 所以现在不存在“我这条线还有一笔没 push 的 save 提交”。
+4. 当前真正还没收的是规范尾巴：
+   - `skill-trigger-log`
+   - docs slice 的正式 `Park-Slice`
+
+### 当前判断
+- 用户这轮要的“你能提交的都提交干净”，对存档线程来说已经基本完成：
+  - 代码能提的先提成了 `0fa99813`
+  - memory 能提的随后提成了 `7fd6a606`
+- 现在再盲提第三笔业务提交，反而更容易越过 own 边界去吞 shared-root 里别人的 active 脏改。
+- 所以这轮正确动作是：
+  1. 只补 memory / skill 审计
+  2. 只提这轮 memory checkpoint
+  3. 立刻 `Park-Slice`
+
+### thread-state
+- 发现旧状态还停在 `READY_TO_SYNC`，不适合直接继续写 memory。
+- 已用原来的 docs 白名单重新 `Begin-Slice -ForceReplace`，把当前切片拉回：
+  - `收口 Data/Core 已提交事实并完成最终审计停车`
+- 本轮下一步：
+  - 补 `skill-trigger-log`
+  - `Ready-To-Sync`
+  - 提交 docs checkpoint
+  - `Park-Slice`
+
 ## 2026-04-13 01:02 真实收口：Data/Core 三文件已按规范提交
 - 当前主线仍是存档系统收口；本轮子任务是响应用户“把你自己能提交的都提交干净”，先把当前线程在 `Assets/YYY_Scripts/Data/Core` 同根下能合法独立归仓的 code tail 真正提交。
 - 这轮没有再扩新功能，而是围绕 `SaveManager.cs / SaveDataDTOs.cs / ToolRuntimeUtility.cs` 做一次完整的 same-root hygiene + codeguard + sync 收口。
