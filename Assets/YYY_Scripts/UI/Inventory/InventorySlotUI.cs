@@ -129,7 +129,6 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             if (t != null) selectedOverlay = t.GetComponent<Image>();
         }
 
-        hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
         inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
         boxPanel = GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
 
@@ -165,6 +164,13 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             hotbarSelection.OnSelectedChanged += OnHotbarSelectionChanged;
             RefreshSelection();
         }
+
+        if (toggle != null)
+        {
+            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
+            toggle.onValueChanged.AddListener(OnToggleValueChanged);
+        }
+
         RegisterSlot();
         // 移除 Refresh()，避免使用旧绑定数据
     }
@@ -178,6 +184,12 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     void OnDisable()
     {
         UnregisterSlot();
+
+        if (toggle != null)
+        {
+            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
+        }
+
         if (isHotbar && hotbarSelection != null)
         {
             hotbarSelection.OnSelectedChanged -= OnHotbarSelectionChanged;
@@ -200,6 +212,19 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     /// </summary>
     public void Bind(InventoryService inv, EquipmentService equip, ItemDatabase db, int slotIndex, bool hotbar)
     {
+        Bind(inv, equip, db, null, null, null, slotIndex, hotbar);
+    }
+
+    public void Bind(
+        InventoryService inv,
+        EquipmentService equip,
+        ItemDatabase db,
+        HotbarSelectionService selectionService,
+        InventoryPanelUI ownerInventoryPanel,
+        FarmGame.UI.BoxPanelUI ownerBoxPanel,
+        int slotIndex,
+        bool hotbar)
+    {
         // 清理旧绑定
         UnbindEvents();
         UnregisterSlot();
@@ -208,9 +233,13 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         inventory = inv;
         equipment = equip;
         database = db;
-        if (hotbarSelection == null) hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
-        inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
-        boxPanel = GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
+        hotbarSelection = selectionService;
+        inventoryPanel = ownerInventoryPanel != null
+            ? ownerInventoryPanel
+            : GetComponentInParent<InventoryPanelUI>(true);
+        boxPanel = ownerBoxPanel != null
+            ? ownerBoxPanel
+            : GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
         index = slotIndex;
         isHotbar = hotbar;
 
@@ -236,6 +265,16 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     /// </summary>
     public void BindContainer(IItemContainer cont, int slotIndex)
     {
+        BindContainer(cont, slotIndex, null, null, null);
+    }
+
+    public void BindContainer(
+        IItemContainer cont,
+        int slotIndex,
+        HotbarSelectionService selectionService,
+        InventoryPanelUI ownerInventoryPanel,
+        FarmGame.UI.BoxPanelUI ownerBoxPanel)
+    {
         // 清理旧绑定
         UnbindEvents();
         UnregisterSlot();
@@ -255,8 +294,13 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         inventory = cont as InventoryService; // 如果是 InventoryService，保留引用
         equipment = null;
         database = cont?.Database;
-        inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
-        boxPanel = GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
+        hotbarSelection = selectionService;
+        inventoryPanel = ownerInventoryPanel != null
+            ? ownerInventoryPanel
+            : GetComponentInParent<InventoryPanelUI>(true);
+        boxPanel = ownerBoxPanel != null
+            ? ownerBoxPanel
+            : GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
         index = slotIndex;
         isHotbar = false;
 
@@ -305,33 +349,53 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         RefreshSelection();
     }
 
+    private void OnToggleValueChanged(bool isOn)
+    {
+        if (toggle == null)
+        {
+            return;
+        }
+
+        bool expectedSelection = ResolveSelectionState();
+        if (isOn != expectedSelection)
+        {
+            RefreshSelection();
+        }
+    }
+
+    private InventoryPanelUI ResolveInventoryPanel()
+    {
+        if (inventoryPanel == null || !inventoryPanel.gameObject)
+        {
+            inventoryPanel = GetComponentInParent<InventoryPanelUI>(true);
+        }
+
+        if (inventoryPanel == null)
+        {
+            inventoryPanel = InventoryPanelUI.ActiveVisibleInstance;
+        }
+
+        return inventoryPanel;
+    }
+
+    private FarmGame.UI.BoxPanelUI ResolveBoxPanel()
+    {
+        if (boxPanel == null || !boxPanel.gameObject)
+        {
+            boxPanel = GetComponentInParent<FarmGame.UI.BoxPanelUI>(true);
+        }
+
+        if (boxPanel == null)
+        {
+            boxPanel = FarmGame.UI.BoxPanelUI.ActiveInstance;
+        }
+
+        return boxPanel;
+    }
+
     public void RefreshSelection()
     {
-        bool isSelected = false;
-
-        if (boxPanel != null && boxPanel.IsOpen)
-        {
-            if (container is ChestInventory || container is ChestInventoryV2)
-            {
-                isSelected = boxPanel.IsChestSlotSelected(index);
-            }
-            else if (container is InventoryService)
-            {
-                isSelected = boxPanel.IsInventorySlotSelected(index);
-            }
-        }
-        else if (inventoryPanel != null && inventoryPanel.gameObject.activeInHierarchy)
-        {
-            isSelected = inventoryPanel.IsInventorySlotSelected(index);
-        }
-        else if (isHotbar && hotbarSelection != null)
-        {
-            isSelected = hotbarSelection.selectedIndex == index;
-        }
-        else if (toggle != null)
-        {
-            isSelected = toggle.isOn;
-        }
+        bool isSelected = ResolveSelectionState();
 
         if (toggle != null)
         {
@@ -344,6 +408,40 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
         ApplySelectionVisual(isSelected);
         UpdateStatusBarVisibility();
+    }
+
+    private bool ResolveSelectionState()
+    {
+        bool isSelected = false;
+        var resolvedBoxPanel = ResolveBoxPanel();
+        var resolvedInventoryPanel = ResolveInventoryPanel();
+
+        if (resolvedBoxPanel != null && resolvedBoxPanel.IsOpen)
+        {
+            if (container is ChestInventory || container is ChestInventoryV2)
+            {
+                isSelected = resolvedBoxPanel.IsChestSlotSelected(index);
+            }
+            else if (container is InventoryService)
+            {
+                isSelected = resolvedBoxPanel.IsInventorySlotSelected(index) ||
+                             (resolvedInventoryPanel != null && resolvedInventoryPanel.IsInventorySlotSelected(index));
+            }
+        }
+        else if (resolvedInventoryPanel != null && resolvedInventoryPanel.gameObject.activeInHierarchy)
+        {
+            isSelected = resolvedInventoryPanel.IsInventorySlotSelected(index);
+        }
+        else if (isHotbar && hotbarSelection != null)
+        {
+            isSelected = hotbarSelection.selectedIndex == index;
+        }
+        else if (toggle != null)
+        {
+            isSelected = toggle.isOn;
+        }
+
+        return isSelected;
     }
 
     public void Refresh()
@@ -639,15 +737,9 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     /// </summary>
     public void OnPointerClick(PointerEventData eventData)
     {
-        if (eventData.button == PointerEventData.InputButton.Left)
-        {
-            // 🔥 P1：移除高频调用的日志输出（符合日志规范）
-            // Toggle 会自动管理选中状态，不需要手动切换
-            if (EventSystem.current != null && EventSystem.current.currentSelectedGameObject == gameObject)
-            {
-                EventSystem.current.SetSelectedGameObject(null);
-            }
-        }
+        // 当前背包/箱子槽位的点击真源统一由 InventorySlotInteraction +
+        // InventoryInteractionManager 处理，这里不再额外改 EventSystem 选中态，
+        // 避免和真实选中链互相打架，造成“点了但不算真选中”的假状态。
     }
 
     /// <summary>
@@ -655,27 +747,34 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
     /// </summary>
     public void Select()
     {
-        if (boxPanel != null && boxPanel.IsOpen)
-        {
-            if (container is ChestInventory || container is ChestInventoryV2)
-            {
-                boxPanel.SetSelectedChestIndex(index);
-                return;
-            }
+        var resolvedBoxPanel = ResolveBoxPanel();
+        var resolvedInventoryPanel = ResolveInventoryPanel();
+        bool isChestContainer = container is ChestInventory || container is ChestInventoryV2;
+        bool isInventoryContainer = container is InventoryService;
 
-            if (container is InventoryService)
-            {
-                boxPanel.SetSelectedInventoryIndex(index, isHotbar);
-                return;
-            }
+        if (resolvedBoxPanel != null && resolvedBoxPanel.IsOpen && isChestContainer)
+        {
+            resolvedBoxPanel.SetSelectedChestIndex(index);
+            return;
         }
 
-        if (container is InventoryService &&
-            inventoryPanel != null &&
-            inventoryPanel.gameObject.activeInHierarchy)
+        if (isInventoryContainer)
         {
-            inventoryPanel.SetSelectedInventoryIndex(index, isHotbar);
-            return;
+            if (resolvedInventoryPanel != null)
+            {
+                resolvedInventoryPanel.SetSelectedInventoryIndex(index, isHotbar);
+            }
+
+            if (resolvedBoxPanel != null && resolvedBoxPanel.IsOpen)
+            {
+                resolvedBoxPanel.SetSelectedInventoryIndex(index, isHotbar);
+                return;
+            }
+
+            if (resolvedInventoryPanel != null)
+            {
+                return;
+            }
         }
 
         if (toggle != null)
@@ -705,27 +804,34 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
 
     public void ClearSelectionState()
     {
-        if (boxPanel != null && boxPanel.IsOpen)
-        {
-            if (container is ChestInventory || container is ChestInventoryV2)
-            {
-                boxPanel.ClearUpSelections();
-                return;
-            }
+        var resolvedBoxPanel = ResolveBoxPanel();
+        var resolvedInventoryPanel = ResolveInventoryPanel();
+        bool isChestContainer = container is ChestInventory || container is ChestInventoryV2;
+        bool isInventoryContainer = container is InventoryService;
 
-            if (container is InventoryService)
-            {
-                boxPanel.ClearDownSelections();
-                return;
-            }
+        if (resolvedBoxPanel != null && resolvedBoxPanel.IsOpen && isChestContainer)
+        {
+            resolvedBoxPanel.ClearUpSelections();
+            return;
         }
 
-        if (container is InventoryService &&
-            inventoryPanel != null &&
-            inventoryPanel.gameObject.activeInHierarchy)
+        if (isInventoryContainer)
         {
-            inventoryPanel.ClearUpSelection();
-            return;
+            if (resolvedInventoryPanel != null)
+            {
+                resolvedInventoryPanel.ClearUpSelection();
+            }
+
+            if (resolvedBoxPanel != null && resolvedBoxPanel.IsOpen)
+            {
+                resolvedBoxPanel.ClearDownSelections();
+                return;
+            }
+
+            if (resolvedInventoryPanel != null)
+            {
+                return;
+            }
         }
 
         Deselect();

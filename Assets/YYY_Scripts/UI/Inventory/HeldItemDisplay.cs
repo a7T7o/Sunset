@@ -241,6 +241,7 @@ public class HeldItemDisplay : MonoBehaviour
 
         Vector2 screenPosition = hasPinnedScreenPosition ? pinnedScreenPosition : (Vector2)Input.mousePosition;
         hasPinnedScreenPosition = false;
+        screenPosition = ClampScreenPositionToCanvas(screenPosition);
         
         // 根据 Canvas 渲染模式处理
         if (parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay)
@@ -257,5 +258,28 @@ public class HeldItemDisplay : MonoBehaviour
             );
             rectTransform.localPosition = localPoint;
         }
+    }
+
+    private Vector2 ClampScreenPositionToCanvas(Vector2 screenPosition)
+    {
+        if (parentCanvas == null)
+        {
+            return screenPosition;
+        }
+
+        Rect screenRect = GetCanvasScreenRect();
+        return new Vector2(
+            Mathf.Clamp(screenPosition.x, screenRect.xMin, screenRect.xMax),
+            Mathf.Clamp(screenPosition.y, screenRect.yMin, screenRect.yMax));
+    }
+
+    private Rect GetCanvasScreenRect()
+    {
+        if (parentCanvas == null || parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay || parentCanvas.worldCamera == null)
+        {
+            return new Rect(0f, 0f, Screen.width, Screen.height);
+        }
+
+        return parentCanvas.worldCamera.pixelRect;
     }
 }

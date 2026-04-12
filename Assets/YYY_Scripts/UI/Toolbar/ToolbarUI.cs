@@ -12,14 +12,17 @@ public class ToolbarUI : MonoBehaviour
 
     private readonly List<ToolbarSlotUI> slots = new List<ToolbarSlotUI>(InventoryService.HotbarWidth);
     private readonly List<Toggle> toggles = new List<Toggle>(InventoryService.HotbarWidth);
+    private HotbarSelectionService subscribedSelection;
 
     void Awake()
     {
         if (gridParent == null) gridParent = transform;
+        ResolveRuntimeContextIfMissing();
     }
 
     void Start()
     {
+        ResolveRuntimeContextIfMissing();
         Build();
         // 初始同步一次选中高亮
         if (selection != null) HandleSelectedChanged(selection.selectedIndex);
@@ -27,6 +30,7 @@ public class ToolbarUI : MonoBehaviour
 
     public void Build()
     {
+        ResolveRuntimeContextIfMissing();
         slots.Clear();
         toggles.Clear();
         int index = 0;
@@ -47,23 +51,22 @@ public class ToolbarUI : MonoBehaviour
 
     void OnEnable()
     {
-        if (selection != null)
-        {
-            selection.OnSelectedChanged -= HandleSelectedChanged;
-            selection.OnSelectedChanged += HandleSelectedChanged;
-        }
+        ResolveRuntimeContextIfMissing();
+        SyncSelectionSubscription();
+        if (selection != null) HandleSelectedChanged(selection.selectedIndex);
     }
 
     void OnDisable()
     {
-        if (selection != null)
+        if (subscribedSelection != null)
         {
-            selection.OnSelectedChanged -= HandleSelectedChanged;
+            subscribedSelection.OnSelectedChanged -= HandleSelectedChanged;
         }
     }
 
     public void ForceRefresh()
     {
+        ResolveRuntimeContextIfMissing();
         foreach (var s in slots) s.Refresh();
     }
 
@@ -71,5 +74,47 @@ public class ToolbarUI : MonoBehaviour
     {
         // 仅让每个Slot更新覆盖层，不再强制改 Toggle.isOn，避免白块/双触发
         foreach (var s in slots) s.RefreshSelection();
+    }
+
+    private void ResolveRuntimeContextIfMissing()
+    {
+        if (inventory == null)
+        {
+            inventory = FindFirstObjectByType<InventoryService>();
+        }
+
+        if (database == null && inventory != null)
+        {
+            database = inventory.Database;
+        }
+
+        if (selection == null)
+        {
+            selection = FindFirstObjectByType<HotbarSelectionService>();
+        }
+
+        SyncSelectionSubscription();
+    }
+
+    private void SyncSelectionSubscription()
+    {
+        if (subscribedSelection == selection)
+        {
+            return;
+        }
+
+        if (subscribedSelection != null)
+        {
+            subscribedSelection.OnSelectedChanged -= HandleSelectedChanged;
+        }
+
+        subscribedSelection = selection;
+        if (!isActiveAndEnabled || subscribedSelection == null)
+        {
+            return;
+        }
+
+        subscribedSelection.OnSelectedChanged -= HandleSelectedChanged;
+        subscribedSelection.OnSelectedChanged += HandleSelectedChanged;
     }
 }

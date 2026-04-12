@@ -7,6 +7,8 @@ using FarmGame.Data;
 /// </summary>
 public class InventoryPanelUI : MonoBehaviour
 {
+    public static InventoryPanelUI ActiveVisibleInstance { get; private set; }
+
     [Header("Services & DB")]
     [SerializeField] private InventoryService inventory;
     [SerializeField] private EquipmentService equipment;
@@ -24,20 +26,18 @@ public class InventoryPanelUI : MonoBehaviour
     private int selectedInventoryIndex = -1;
     private int selectedEquipmentIndex = -1;
     private bool followHotbarSelection = true;
+    private bool slotBindingsReady;
+    private InventoryService boundInventory;
+    private EquipmentService boundEquipment;
+    private ItemDatabase boundDatabase;
+    private HotbarSelectionService boundSelection;
 
     void Awake()
     {
-        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
-        if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
-        // ItemDatabase 是 ScriptableObject，不能用 FindFirstObjectByType
-        // 必须从 InventoryService 获取
-        if (database == null && inventory != null) database = inventory.Database;
-        if (selection == null) selection = FindFirstObjectByType<HotbarSelectionService>();
-    }
-
-    void Start()
-    {
-        EnsureBuilt();
+        if (database == null && inventory != null)
+        {
+            database = inventory.Database;
+        }
     }
     
     /// <summary>
@@ -45,10 +45,9 @@ public class InventoryPanelUI : MonoBehaviour
     /// </summary>
     void OnEnable()
     {
+        ActiveVisibleInstance = this;
         EnsureBuilt();
 
-        // 🔥 P1-1 修复：每次面板激活时强制刷新
-        // 确保从 BoxUI 切换回来时数据是最新的
         if (selection != null)
         {
             selection.OnSelectedChanged -= HandleHotbarSelectionChanged;
@@ -56,11 +55,16 @@ public class InventoryPanelUI : MonoBehaviour
         }
         followHotbarSelection = true;
         SyncSelectionFromHotbar();
-        RefreshAll();
+        RefreshSelectionOnly();
     }
 
     void OnDisable()
     {
+        if (ReferenceEquals(ActiveVisibleInstance, this))
+        {
+            ActiveVisibleInstance = null;
+        }
+
         if (selection != null)
         {
             selection.OnSelectedChanged -= HandleHotbarSelectionChanged;
@@ -92,7 +96,7 @@ public class InventoryPanelUI : MonoBehaviour
             var slot = child.GetComponent<InventorySlotUI>();
             if (slot == null) slot = child.gameObject.AddComponent<InventorySlotUI>();
             bool isHotbar = i < InventoryService.HotbarWidth;
-            slot.Bind(inventory, equipment, database, i, isHotbar);
+            slot.Bind(inventory, equipment, database, selection, this, null, i, isHotbar);
         }
     }
 
@@ -105,7 +109,7 @@ public class InventoryPanelUI : MonoBehaviour
             var child = downParent.GetChild(i);
             var slot = child.GetComponent<EquipmentSlotUI>();
             if (slot == null) slot = child.gameObject.AddComponent<EquipmentSlotUI>();
-            slot.Bind(equipment, inventory, database, i);
+            slot.Bind(equipment, inventory, database, this, i);
         }
     }
 
@@ -131,24 +135,51 @@ public class InventoryPanelUI : MonoBehaviour
     // 在面板首次从未激活→激活时调用，确保所有格子已构建与绑定
     public void EnsureBuilt()
     {
-        // 确保引用已初始化
-        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
-        if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
-        if (database == null && inventory != null) database = inventory.Database;
-        if (selection == null) selection = FindFirstObjectByType<HotbarSelectionService>();
+        ResolveRuntimeContextIfMissing();
 
         // 持久 UI 在空场景切换时允许短暂等待服务重绑，不要把过渡态打成红错。
         if (inventory == null || database == null)
         {
             return;
         }
-        
-        BuildUpSlots();
-        BuildDownSlots();
-        RefreshAll();
+
+        bool needsRebind =
+            !slotBindingsReady ||
+            !ReferenceEquals(boundInventory, inventory) ||
+            !ReferenceEquals(boundEquipment, equipment) ||
+            !ReferenceEquals(boundDatabase, database) ||
+            !ReferenceEquals(boundSelection, selection);
+
+        if (needsRebind)
+        {
+            BuildUpSlots();
+            BuildDownSlots();
+            slotBindingsReady = true;
+            boundInventory = inventory;
+            boundEquipment = equipment;
+            boundDatabase = database;
+            boundSelection = selection;
+            return;
+        }
+
+        RefreshDataOnly();
     }
 
     public void RefreshAll()
+    {
+        RefreshDataOnly();
+        RefreshSelectionOnly();
+    }
+
+    private void ResolveRuntimeContextIfMissing()
+    {
+        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
+        if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
+        if (database == null && inventory != null) database = inventory.Database;
+        if (selection == null) selection = FindFirstObjectByType<HotbarSelectionService>();
+    }
+
+    private void RefreshDataOnly()
     {
         if (upParent != null)
         {
@@ -159,7 +190,6 @@ public class InventoryPanelUI : MonoBehaviour
                 if (slot != null)
                 {
                     slot.Refresh();
-                    slot.RefreshSelection();
                 }
             }
         }
@@ -172,7 +202,6 @@ public class InventoryPanelUI : MonoBehaviour
                 if (slot != null)
                 {
                     slot.Refresh();
-                    slot.RefreshSelection();
                 }
             }
         }
@@ -193,8 +222,9 @@ public class InventoryPanelUI : MonoBehaviour
     public void ResetSelectionsOnPanelOpen()
     {
         SyncSelectionFromHotbar();
-        TryApplyHotbarSelectionToUp();
-        ClearDownSelection();
+        followHotbarSelection = true;
+        selectedEquipmentIndex = -1;
+        RefreshSelectionOnly();
     }
     
     /// <summary>
@@ -228,12 +258,9 @@ public class InventoryPanelUI : MonoBehaviour
         selectedInventoryIndex = slotIndex;
         followHotbarSelection = syncHotbarSelection && slotIndex < InventoryService.HotbarWidth;
 
-        if (syncHotbarSelection &&
-            selection != null &&
-            slotIndex < InventoryService.HotbarWidth &&
-            selection.selectedIndex != slotIndex)
+        if (selection != null)
         {
-            selection.SelectIndex(slotIndex);
+            selection.SelectInventoryIndex(slotIndex);
         }
 
         RefreshUpSelectionVisuals();
@@ -279,6 +306,12 @@ public class InventoryPanelUI : MonoBehaviour
         }
 
         RefreshUpSelectionVisuals();
+    }
+
+    private void RefreshSelectionOnly()
+    {
+        RefreshUpSelectionVisuals();
+        RefreshDownSelectionVisuals();
     }
 
     private void RefreshUpSelectionVisuals()

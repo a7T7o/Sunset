@@ -63,6 +63,10 @@ public class GameInputManager : MonoBehaviour
 
     #region 阶段1：对话输入锁（最小接入）
     private bool _inputEnabled = true;
+    private bool _dialoguePlacementSuspendActive = false;
+    private bool _dialoguePlacementResumeRequested = false;
+    private int _dialoguePlacementResumeSlotIndex = -1;
+    private int _dialoguePlacementResumeItemId = -1;
     public bool IsInputEnabledForDebug => _inputEnabled;
 
     public void SetInputEnabled(bool enabled)
@@ -97,7 +101,13 @@ public class GameInputManager : MonoBehaviour
         SetInputEnabled(false);
         HideFarmToolPreview();
         CaptureProtectedHeldSlotForUIFreeze();
+        if (!_dialoguePlacementSuspendActive)
+        {
+            CaptureDialoguePlacementRestoreState();
+            _dialoguePlacementSuspendActive = true;
+        }
         _isQueuePaused = true;
+        IsPlacementMode = false;
         PlacementManager.Instance?.ExitPlacementMode();
         AbortFarmToolOperationImmediately("正式剧情对话接管世界输入");
         PauseCurrentNavigationForUI();
@@ -110,11 +120,13 @@ public class GameInputManager : MonoBehaviour
         _isQueuePaused = false;
         ClearPausedFarmingNavigation();
         ClearProtectedHeldSlotForUIFreeze();
-        PlacementManager.Instance?.RefreshCurrentPreview();
+        RestorePlacementModeAfterDialogueIfNeeded();
     }
 
     private void OnSceneLoaded(Scene _, LoadSceneMode __)
     {
+        ResetPlacementRuntimeState("场景切换后重置放置/手持运行态");
+        ClearDialoguePlacementRestoreState();
         StopCoroutine(nameof(RefreshWorldCameraBindingNextFrame));
         StartCoroutine(nameof(RefreshWorldCameraBindingNextFrame));
     }
@@ -125,11 +137,210 @@ public class GameInputManager : MonoBehaviour
         yield return null;
         ResolveWorldCamera();
     }
+
+    private void CaptureDialoguePlacementRestoreState()
+    {
+        ClearDialoguePlacementRestoreState(resetSuspendFlag: false);
+
+        if (!IsPlacementMode ||
+            !TryGetCurrentPlacementModeSelection(out int slotIndex, out ItemStack slot, out ItemData itemData))
+        {
+            return;
+        }
+
+        if (!DoesItemSupportPlacementMode(itemData) || slot.IsEmpty)
+        {
+            return;
+        }
+
+        _dialoguePlacementResumeRequested = true;
+        _dialoguePlacementResumeSlotIndex = slotIndex;
+        _dialoguePlacementResumeItemId = slot.itemId;
+    }
+
+    private void RestorePlacementModeAfterDialogueIfNeeded()
+    {
+        if (!_dialoguePlacementSuspendActive)
+        {
+            return;
+        }
+
+        if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+        {
+            return;
+        }
+
+        try
+        {
+            IsPlacementMode = false;
+
+            if (!CanRestorePlacementModeAfterDialogue())
+            {
+                PlacementManager.Instance?.ExitPlacementMode();
+                HideFarmToolPreview();
+                return;
+            }
+
+            IsPlacementMode = true;
+            SyncPlaceableModeWithCurrentSelection();
+        }
+        finally
+        {
+            ClearDialoguePlacementRestoreState();
+        }
+    }
+
+    private bool CanRestorePlacementModeAfterDialogue()
+    {
+        if (!_dialoguePlacementResumeRequested)
+        {
+            return false;
+        }
+
+        if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+        {
+            return false;
+        }
+
+        if (!TryGetCurrentPlacementModeSelection(out int slotIndex, out ItemStack slot, out ItemData itemData))
+        {
+            return false;
+        }
+
+        if (slotIndex != _dialoguePlacementResumeSlotIndex || !DoesItemSupportPlacementMode(itemData))
+        {
+            return false;
+        }
+
+        return !slot.IsEmpty && slot.itemId == _dialoguePlacementResumeItemId;
+    }
+
+    private bool DoesItemSupportPlacementMode(ItemData itemData)
+    {
+        if (itemData == null)
+        {
+            return false;
+        }
+
+        if (SupportsPlacementCapableItem(itemData))
+        {
+            return true;
+        }
+
+        if (itemData is ToolData tool)
+        {
+            return tool.toolType == ToolType.Hoe || tool.toolType == ToolType.WateringCan;
+        }
+
+        return false;
+    }
+
+    private static bool SupportsPlacementCapableItem(ItemData itemData)
+    {
+        return itemData != null && (itemData.isPlaceable || itemData is SeedData);
+    }
+
+    private bool TryGetInventorySlotItem(int slotIndex, out ItemStack slot, out ItemData itemData)
+    {
+        slot = ItemStack.Empty;
+        itemData = null;
+
+        if (inventory == null ||
+            database == null ||
+            slotIndex < 0 ||
+            slotIndex >= inventory.Size)
+        {
+            return false;
+        }
+
+        slot = inventory.GetSlot(slotIndex);
+        if (slot.IsEmpty)
+        {
+            return false;
+        }
+
+        itemData = database.GetItemByID(slot.itemId);
+        return itemData != null;
+    }
+
+    private bool TryGetCurrentPlacementSelection(out int slotIndex, out ItemStack slot, out ItemData itemData)
+    {
+        slotIndex = -1;
+        slot = ItemStack.Empty;
+        itemData = null;
+
+        if (inventory == null || database == null || hotbarSelection == null)
+        {
+            return false;
+        }
+
+        int resolvedIndex = hotbarSelection.GetResolvedPlacementSlotIndex(inventory, database);
+        if (!TryGetInventorySlotItem(resolvedIndex, out slot, out itemData) ||
+            !SupportsPlacementCapableItem(itemData))
+        {
+            return false;
+        }
+
+        slotIndex = resolvedIndex;
+        return true;
+    }
+
+    private bool TryGetCurrentPlacementModeSelection(out int slotIndex, out ItemStack slot, out ItemData itemData)
+    {
+        slotIndex = -1;
+        slot = ItemStack.Empty;
+        itemData = null;
+
+        if (TryGetCurrentPlacementSelection(out slotIndex, out slot, out itemData))
+        {
+            return true;
+        }
+
+        if (!TryGetCurrentHotbarItem(out slotIndex, out itemData) ||
+            !DoesItemSupportPlacementMode(itemData) ||
+            inventory == null ||
+            slotIndex < 0 ||
+            slotIndex >= inventory.Size)
+        {
+            return false;
+        }
+
+        slot = inventory.GetSlot(slotIndex);
+        return !slot.IsEmpty;
+    }
+
+    private void ClearDialoguePlacementRestoreState(bool resetSuspendFlag = true)
+    {
+        if (resetSuspendFlag)
+        {
+            _dialoguePlacementSuspendActive = false;
+        }
+
+        _dialoguePlacementResumeRequested = false;
+        _dialoguePlacementResumeSlotIndex = -1;
+        _dialoguePlacementResumeItemId = -1;
+    }
     #endregion
 
     private static GameInputManager s_instance;
     /// <summary>公开单例访问（供 PlayerInteraction 回调使用）</summary>
     public static GameInputManager Instance => s_instance;
+
+    public static void ForceResetPlacementRuntime(string reason = null)
+    {
+        GameInputManager inputManager = s_instance != null
+            ? s_instance
+            : FindFirstObjectByType<GameInputManager>(FindObjectsInactive.Include);
+
+        if (inputManager != null)
+        {
+            inputManager.ResetPlacementRuntimeState(reason);
+            return;
+        }
+
+        PlacementManager.Instance?.ExitPlacementMode();
+    }
+
     private float lastNavClickTime = -1f;
     private Vector3 lastNavClickPos = Vector3.zero;
     private IInteractable _pendingAutoInteractable;
@@ -246,6 +457,21 @@ public class GameInputManager : MonoBehaviour
         }
     }
 
+    public void ResetPlacementRuntimeState(string reason = null)
+    {
+        _accumulatedScrollSteps = 0;
+        _isQueuePaused = false;
+        IsPlacementMode = false;
+        ClearDialoguePlacementRestoreState();
+        ClearPausedFarmingNavigation();
+        ClearProtectedHeldSlotForUIFreeze();
+        ClearActionQueue();
+        CancelFarmingNavigation();
+        HideAllPreviews();
+        PlacementManager.Instance?.ExitPlacementMode();
+        hotbarSelection?.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
+    }
+
     void Start()
     {
         // 运行时自动激活UI根物体
@@ -325,6 +551,7 @@ public class GameInputManager : MonoBehaviour
         {
             // 面板刚关闭 → 恢复预览与队列推进
             _isQueuePaused = false;
+            hotbarSelection?.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
             PlacementManager.Instance?.RefreshCurrentPreview();
             bool resumedPausedNavigation = ResumePausedFarmNavigationAfterUI();
             ClearProtectedHeldSlotForUIFreeze();
@@ -395,16 +622,40 @@ public class GameInputManager : MonoBehaviour
             return;
         }
         
-        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
-        var slot = inventory.GetSlot(idx);
+        // 让当前手持事实源每帧都和 PlacementManager 对齐，避免切槽后只剩 Refresh 一个未进场的预览。
+        SyncPlaceableModeWithCurrentSelection();
+
+        int placementSlotIndex = -1;
+        ItemStack placementSlot = ItemStack.Empty;
+        ItemData placementItemData = null;
+        bool hasPlacementSelection = false;
+        if (IsPlacementMode)
+        {
+            hasPlacementSelection = TryGetCurrentPlacementSelection(out placementSlotIndex, out placementSlot, out placementItemData);
+        }
+
+        int idx;
+        ItemStack slot;
+        ItemData itemData;
+        if (hasPlacementSelection)
+        {
+            idx = placementSlotIndex;
+            slot = placementSlot;
+            itemData = placementItemData;
+        }
+        else
+        {
+            idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
+            slot = inventory.GetSlot(idx);
+            itemData = database.GetItemByID(slot.itemId);
+        }
         
         if (slot.IsEmpty)
         {
             HideAllPreviews();
             return;
         }
-        
-        var itemData = database.GetItemByID(slot.itemId);
+
         if (itemData == null)
         {
             HideAllPreviews();
@@ -459,11 +710,13 @@ public class GameInputManager : MonoBehaviour
             // 🔴 补丁005：种子现在走放置系统预览，不再走 FarmToolPreview
             // HotbarSelectionService 会自动路由到 PlacementManager.EnterPlacementMode
             HideFarmToolPreview();
+            PlacementManager.Instance?.RefreshCurrentPreview();
             return;
         }
         else if (itemData is PlaceableItemData)
         {
             HideFarmToolPreview();
+            PlacementManager.Instance?.RefreshCurrentPreview();
             return;
         }
         else
@@ -494,7 +747,11 @@ public class GameInputManager : MonoBehaviour
         int layerIndex = farmTileManager.GetCurrentLayerIndex(alignedPos);
         var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
         
-        if (tilemaps == null)
+        // Hoe 预览硬依赖 groundTilemap；Watering 只要求基础农田 Tilemap 存在。
+        bool requiresGroundTilemap = isHoe;
+        if (tilemaps == null ||
+            (requiresGroundTilemap && tilemaps.groundTilemap == null) ||
+            (!requiresGroundTilemap && !tilemaps.IsValid()))
         {
             farmPreview.Hide();
             return;
@@ -541,8 +798,7 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private void HidePlacementPreview()
     {
-        // PlacementPreview 由 PlacementManager 管理
-        // 这里只是占位，实际隐藏逻辑在 PlacementManager 中
+        PlacementManager.Instance?.SetPreviewVisualVisibility(false);
     }
 
     private void SyncPlaceableModeWithCurrentSelection()
@@ -556,35 +812,44 @@ public class GameInputManager : MonoBehaviour
             {
                 placementManager.ExitPlacementMode();
             }
+            HidePlacementPreview();
             return;
         }
 
-        int idx = Mathf.Clamp(hotbarSelection.selectedIndex, 0, InventoryService.HotbarWidth - 1);
-        var slot = inventory.GetSlot(idx);
-        if (slot.IsEmpty)
+        if (!IsPlacementMode ||
+            !TryGetCurrentPlacementSelection(out _, out ItemStack slot, out ItemData itemData))
         {
             if (placementActive)
             {
                 placementManager.ExitPlacementMode();
             }
-            return;
-        }
-
-        var itemData = database.GetItemByID(slot.itemId);
-        if (itemData == null || !itemData.isPlaceable || !IsPlacementMode)
-        {
-            if (placementActive)
-            {
-                placementManager.ExitPlacementMode();
-            }
+            HidePlacementPreview();
             return;
         }
 
         if (placementManager != null)
         {
-            placementManager.EnterPlacementMode(itemData, slot.quality);
+            bool samePlacementItem =
+                placementActive &&
+                placementManager.CurrentPlacementItem != null &&
+                placementManager.CurrentPlacementItem.itemID == itemData.itemID;
+
+            if (!samePlacementItem)
+            {
+                placementManager.EnterPlacementMode(itemData, slot.quality);
+            }
+
             placementManager.RefreshCurrentPreview();
         }
+    }
+
+    private bool HasLivePlacementClickSession()
+    {
+        var placementManager = PlacementManager.Instance;
+        return IsPlacementMode
+               && placementManager != null
+               && placementManager.IsPlacementMode
+               && TryGetCurrentPlacementSelection(out _, out _, out _);
     }
 
     void HandleRunToggleWhileNav()
@@ -700,6 +965,29 @@ public class GameInputManager : MonoBehaviour
     // 滚轮累积值（用于锁定状态下累积多次滚动）
     private int _accumulatedScrollSteps = 0;
 
+    public bool TryApplyHotbarSelectionChange(int requestedIndex)
+    {
+        if (hotbarSelection == null)
+        {
+            return false;
+        }
+
+        if (IsAnyPanelOpen())
+        {
+            return false;
+        }
+
+        int clampedIndex = Mathf.Clamp(requestedIndex, 0, InventoryService.HotbarWidth - 1);
+        if (hotbarSelection.selectedIndex == clampedIndex)
+        {
+            hotbarSelection.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
+            return hotbarSelection.selectedIndex == clampedIndex;
+        }
+
+        hotbarSelection.SelectIndex(clampedIndex);
+        return hotbarSelection.selectedIndex == clampedIndex;
+    }
+
     void HandleHotbarSelection()
     {
         // 面板打开或鼠标在UI上时，禁用滚轮切换工具栏
@@ -755,8 +1043,10 @@ public class GameInputManager : MonoBehaviour
                     _accumulatedScrollSteps = 0;
 
                     // 统一交给 HotbarSelectionService 做最终切换与农田态收尾
-                    if (scrollSteps > 0) hotbarSelection?.SelectNext();
-                    else hotbarSelection?.SelectPrev();
+                    if (!TryApplyHotbarSelectionChange(targetIndex))
+                    {
+                        _accumulatedScrollSteps = 0;
+                    }
                 }
             }
         }
@@ -800,7 +1090,7 @@ public class GameInputManager : MonoBehaviour
             else
             {
                 // 统一交给 HotbarSelectionService 做最终切换与农田态收尾
-                hotbarSelection?.SelectIndex(keyIndex);
+                TryApplyHotbarSelectionChange(keyIndex);
             }
         }
     }
@@ -898,7 +1188,8 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private bool IsAnyPanelOpen()
     {
-        bool packageOpen = packageTabs != null && packageTabs.IsPanelOpen();
+        var tabs = EnsurePackageTabs();
+        bool packageOpen = tabs != null && tabs.IsPanelOpen();
         bool boxOpen = BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen;
         return packageOpen || boxOpen;
     }
@@ -910,7 +1201,15 @@ public class GameInputManager : MonoBehaviour
     {
         if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen)
         {
-            BoxPanelUI.ActiveInstance.Close();
+            var tabs = EnsurePackageTabs();
+            if (tabs != null)
+            {
+                tabs.CloseBoxUI(false);
+            }
+            else
+            {
+                BoxPanelUI.ActiveInstance.Close();
+            }
         }
     }
 
@@ -956,7 +1255,7 @@ public class GameInputManager : MonoBehaviour
         }
 
         // ★ 检查是否处于放置模式
-        if (PlacementManager.Instance != null && PlacementManager.Instance.IsPlacementMode)
+        if (HasLivePlacementClickSession())
         {
             PlacementManager.Instance.OnLeftClick();
             return;
@@ -1752,6 +2051,14 @@ public class GameInputManager : MonoBehaviour
         if (farmTileManager == null)
         {
             Debug.LogError("[GameInputManager] 锄地失败：FarmTileManager.Instance 为空！");
+            return false;
+        }
+
+        var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
+        if (tilemaps == null || tilemaps.groundTilemap == null)
+        {
+            if (showDebugInfo)
+                Debug.LogWarning($"[GameInputManager] 锄地跳过：Layer={layerIndex} 缺少可耕作 groundTilemap 配置");
             return false;
         }
         
@@ -2606,7 +2913,13 @@ public class GameInputManager : MonoBehaviour
         // 获取楼层和格子坐标
         int layerIndex = farmTileManager.GetCurrentLayerIndex(alignedPos);
         var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
-        if (tilemaps == null) return;
+        bool requiresGroundTilemap = itemData is ToolData toolData && toolData.toolType == ToolType.Hoe;
+        if (tilemaps == null ||
+            (requiresGroundTilemap && tilemaps.groundTilemap == null) ||
+            (!requiresGroundTilemap && !tilemaps.IsValid()))
+        {
+            return;
+        }
         
         Vector3Int cellPos = tilemaps.WorldToCell(alignedPos);
         Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
@@ -3257,7 +3570,7 @@ public class GameInputManager : MonoBehaviour
     private bool HasActivePlacementHeldSession(ItemData itemData)
     {
         return itemData != null &&
-               itemData.isPlaceable &&
+               SupportsPlacementCapableItem(itemData) &&
                PlacementManager.Instance != null &&
                PlacementManager.Instance.HasProtectedHeldSession;
     }
@@ -3292,7 +3605,8 @@ public class GameInputManager : MonoBehaviour
     private bool TryGetRuntimeProtectedHeldSlotIndex(out int slotIndex)
     {
         slotIndex = -1;
-        if (!TryGetCurrentHotbarItem(out slotIndex, out var itemData))
+        if (!TryGetCurrentPlacementModeSelection(out slotIndex, out _, out var itemData) &&
+            !TryGetCurrentHotbarItem(out slotIndex, out itemData))
         {
             return false;
         }
@@ -3718,7 +4032,7 @@ public class GameInputManager : MonoBehaviour
             return true;
         }
 
-        if (itemData != null && itemData.isPlaceable && HasActivePlacementNavigationSession())
+        if (SupportsPlacementCapableItem(itemData) && HasActivePlacementNavigationSession())
         {
             PlayProtectedHeldRejectFeedback(protectedSlotIndex);
             PlacementManager.Instance?.InterruptFromExternal();

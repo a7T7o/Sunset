@@ -18,6 +18,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private const float DefaultTransitionGraceSeconds = 0.35f;
     private const float FallbackCameraSmoothTime = 0.08f;
     private const string HomeScenePath = "Assets/000_Scenes/Home.unity";
+    private const string SpringDay1NpcCrowdManifestResourcePath = "Story/SpringDay1/SpringDay1NpcCrowdManifest";
     private const string SystemsRootName = "Systems";
     private const string InventoryRootName = "InventorySystem";
     private const string HotbarRootName = "HotbarSelection";
@@ -53,6 +54,11 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private bool hasInventorySnapshot;
     private int hotbarSelectionSnapshot;
     private bool hasHotbarSelectionSnapshot;
+    private readonly Dictionary<string, List<NpcResidentRuntimeSnapshot>> nativeResidentSnapshotsByScene =
+        new Dictionary<string, List<NpcResidentRuntimeSnapshot>>(System.StringComparer.OrdinalIgnoreCase);
+    private List<SpringDay1NpcCrowdDirector.ResidentRuntimeSnapshotEntry> crowdResidentSnapshots =
+        new List<SpringDay1NpcCrowdDirector.ResidentRuntimeSnapshotEntry>();
+    private HashSet<string> crowdDirectorManagedNpcIds;
     private GameObject persistentSystemsRoot;
     private GameObject persistentInventoryRoot;
     private GameObject persistentHotbarRoot;
@@ -153,6 +159,16 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     {
         EnsureInstance();
         return s_instance != null && s_instance.TryApplyLoadedPlayerStateInternal(worldPosition, facingDirection);
+    }
+
+    public static void ResetPersistentRuntimeForFreshStart()
+    {
+        if (s_instance == null)
+        {
+            return;
+        }
+
+        s_instance.ResetPersistentRuntimeForFreshStartInternal();
     }
 
     private static void EnsureInstance()
@@ -265,7 +281,9 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         RebindSceneInput(scene, sceneInventory, sceneHotbarSelection);
+        RebindScenePlacementManager(scene, sceneInventory, sceneHotbarSelection);
         ReapplyTraversalBindings(scene);
+        RestoreSceneResidentRuntimeState(scene);
         RefreshFallbackCameraBinding(scene);
         SceneTransitionTrigger2D.SuppressPlayerEnter(DefaultTransitionGraceSeconds);
 
@@ -367,8 +385,33 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         TrySetBooleanField(sceneInputManager, "packageTabsInitialized", false);
     }
 
+    private void RebindScenePlacementManager(
+        Scene scene,
+        InventoryService sceneInventory,
+        HotbarSelectionService sceneHotbarSelection)
+    {
+        PlacementManager scenePlacementManager = FindFirstComponentInScene<PlacementManager>(scene);
+        if (scenePlacementManager == null)
+        {
+            return;
+        }
+
+        Camera sceneCamera = ResolveRuntimeCamera(scene);
+        PackagePanelTabsUI runtimePackageTabs = persistentUiRoot != null
+            ? persistentUiRoot.GetComponentInChildren<PackagePanelTabsUI>(true)
+            : null;
+
+        scenePlacementManager.RebindRuntimeSceneReferences(
+            persistentPlayerTransform,
+            sceneInventory,
+            sceneHotbarSelection,
+            runtimePackageTabs,
+            sceneCamera);
+    }
+
     private void ReapplyTraversalBindings(Scene scene)
     {
+        NavGrid2D primarySceneNavGrid = FindFirstComponentInScene<NavGrid2D>(scene);
         TraversalBlockManager2D[] managers = FindComponentsInScene<TraversalBlockManager2D>(scene);
         bool appliedAny = false;
         for (int index = 0; index < managers.Length; index++)
@@ -379,6 +422,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
                 continue;
             }
 
+            manager.BindRuntimeSceneReferences(primarySceneNavGrid, persistentPlayerMovement);
             manager.ApplyConfiguration(rebuildNavGrid: false);
             appliedAny = true;
         }
@@ -505,6 +549,44 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             hotbarSelectionSnapshot = sceneHotbarSelection.selectedIndex;
             hasHotbarSelectionSnapshot = true;
         }
+
+        CaptureSceneResidentRuntimeState(scene);
+    }
+
+    private void ResetPersistentRuntimeForFreshStartInternal()
+    {
+        s_pendingSceneEntry.Clear();
+        inventorySnapshot = null;
+        hasInventorySnapshot = false;
+        hotbarSelectionSnapshot = 0;
+        hasHotbarSelectionSnapshot = false;
+        nativeResidentSnapshotsByScene.Clear();
+        crowdResidentSnapshots.Clear();
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        InventoryService inventoryService = ResolveRuntimeInventoryService(activeScene);
+        if (inventoryService != null)
+        {
+            for (int index = 0; index < inventoryService.Size; index++)
+            {
+                inventoryService.ClearSlot(index);
+            }
+        }
+
+        EquipmentService equipmentService = ResolveRuntimeEquipmentService(activeScene);
+        if (equipmentService != null)
+        {
+            for (int index = 0; index < EquipmentService.EquipSlots; index++)
+            {
+                equipmentService.ClearEquip(index);
+            }
+        }
+
+        HotbarSelectionService hotbarSelectionService = ResolveRuntimeHotbarSelectionService(activeScene);
+        if (hotbarSelectionService != null)
+        {
+            hotbarSelectionService.RestoreSelection(0);
+        }
     }
 
     private void RestoreSceneInventoryState(InventoryService sceneInventory)
@@ -527,8 +609,146 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         sceneHotbarSelection.RebindRuntimeReferences(persistentPlayerToolController, sceneInventory);
-        sceneHotbarSelection.RestoreSelection(
+        sceneHotbarSelection.RestoreSelectionState(
+            hasHotbarSelectionSnapshot ? hotbarSelectionSnapshot : sceneHotbarSelection.selectedIndex,
             hasHotbarSelectionSnapshot ? hotbarSelectionSnapshot : sceneHotbarSelection.selectedIndex);
+    }
+
+    private void CaptureSceneResidentRuntimeState(Scene scene)
+    {
+        CaptureCrowdResidentRuntimeState(scene);
+        CaptureNativeResidentRuntimeState(scene);
+    }
+
+    private void CaptureCrowdResidentRuntimeState(Scene scene)
+    {
+        if (!IsCrowdDirectorRuntimeScene(scene))
+        {
+            return;
+        }
+
+        crowdResidentSnapshots = SpringDay1NpcCrowdDirector.CaptureResidentRuntimeSnapshots()
+            ?? new List<SpringDay1NpcCrowdDirector.ResidentRuntimeSnapshotEntry>();
+    }
+
+    private void CaptureNativeResidentRuntimeState(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
+        List<NpcResidentRuntimeSnapshot> snapshots = NpcResidentRuntimeContract.CaptureSceneSnapshots(scene);
+        if (snapshots == null || snapshots.Count <= 0)
+        {
+            nativeResidentSnapshotsByScene.Remove(BuildSceneSnapshotKey(scene));
+            return;
+        }
+
+        HashSet<string> managedIds = GetCrowdDirectorManagedNpcIds();
+        snapshots.RemoveAll(snapshot =>
+            snapshot == null
+            || string.IsNullOrWhiteSpace(snapshot.stableKey)
+            || managedIds.Contains(snapshot.stableKey.Trim()));
+
+        if (snapshots.Count <= 0)
+        {
+            nativeResidentSnapshotsByScene.Remove(BuildSceneSnapshotKey(scene));
+            return;
+        }
+
+        nativeResidentSnapshotsByScene[BuildSceneSnapshotKey(scene)] = snapshots;
+    }
+
+    private void RestoreSceneResidentRuntimeState(Scene scene)
+    {
+        RestoreCrowdResidentRuntimeState(scene);
+        RestoreNativeResidentRuntimeState(scene);
+    }
+
+    private void RestoreCrowdResidentRuntimeState(Scene scene)
+    {
+        if (!IsCrowdDirectorRuntimeScene(scene) || crowdResidentSnapshots == null || crowdResidentSnapshots.Count <= 0)
+        {
+            return;
+        }
+
+        SpringDay1NpcCrowdDirector.ApplyResidentRuntimeSnapshots(crowdResidentSnapshots);
+    }
+
+    private void RestoreNativeResidentRuntimeState(Scene scene)
+    {
+        if (!scene.IsValid())
+        {
+            return;
+        }
+
+        if (!nativeResidentSnapshotsByScene.TryGetValue(BuildSceneSnapshotKey(scene), out List<NpcResidentRuntimeSnapshot> snapshots)
+            || snapshots == null
+            || snapshots.Count <= 0)
+        {
+            return;
+        }
+
+        for (int index = 0; index < snapshots.Count; index++)
+        {
+            NpcResidentRuntimeSnapshot snapshot = snapshots[index];
+            if (snapshot == null)
+            {
+                continue;
+            }
+
+            NpcResidentRuntimeContract.TryApplySnapshot(scene, snapshot, resumeResidentLogic: true);
+        }
+    }
+
+    private HashSet<string> GetCrowdDirectorManagedNpcIds()
+    {
+        if (crowdDirectorManagedNpcIds != null)
+        {
+            return crowdDirectorManagedNpcIds;
+        }
+
+        crowdDirectorManagedNpcIds = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        SpringDay1NpcCrowdManifest manifest =
+            Resources.Load<SpringDay1NpcCrowdManifest>(SpringDay1NpcCrowdManifestResourcePath);
+        if (manifest == null || manifest.Entries == null)
+        {
+            return crowdDirectorManagedNpcIds;
+        }
+
+        SpringDay1NpcCrowdManifest.Entry[] entries = manifest.Entries;
+        for (int index = 0; index < entries.Length; index++)
+        {
+            SpringDay1NpcCrowdManifest.Entry entry = entries[index];
+            if (entry == null || string.IsNullOrWhiteSpace(entry.npcId))
+            {
+                continue;
+            }
+
+            crowdDirectorManagedNpcIds.Add(entry.npcId.Trim());
+        }
+
+        return crowdDirectorManagedNpcIds;
+    }
+
+    private static string BuildSceneSnapshotKey(Scene scene)
+    {
+        if (!scene.IsValid())
+        {
+            return string.Empty;
+        }
+
+        return !string.IsNullOrWhiteSpace(scene.path)
+            ? scene.path.Trim()
+            : scene.name.Trim();
+    }
+
+    private static bool IsCrowdDirectorRuntimeScene(Scene scene)
+    {
+        return scene.IsValid()
+            && (string.Equals(scene.name, "Town", System.StringComparison.Ordinal)
+                || string.Equals(scene.name, "Primary", System.StringComparison.Ordinal));
     }
 
     private void RefreshFallbackCameraBinding(Scene scene)
@@ -954,7 +1174,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             case "ToolBar":
                 return BoundaryFocusEdgeMask.Bottom;
             case "SpringDay1PromptOverlay":
-                return BoundaryFocusEdgeMask.Left;
+                return BoundaryFocusEdgeMask.None;
             case "SpringDay1WorldHintBubble":
                 return BoundaryFocusEdgeMask.Right;
             default:
@@ -992,6 +1212,13 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
 
         PackagePanelTabsUI packageTabs = persistentUiRoot.GetComponentInChildren<PackagePanelTabsUI>(true);
         if (packageTabs != null && packageTabs.IsPanelOpen())
+        {
+            return true;
+        }
+
+        SpringDay1WorkbenchCraftingOverlay workbenchOverlay =
+            FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+        if (workbenchOverlay != null && workbenchOverlay.IsVisible)
         {
             return true;
         }

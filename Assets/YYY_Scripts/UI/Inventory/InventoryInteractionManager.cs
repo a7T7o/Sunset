@@ -702,6 +702,7 @@ public class InventoryInteractionManager : MonoBehaviour
             {
                 SetSlot(targetIndex, targetIsEquip, new ItemStack { itemId = target.itemId, quality = target.quality, amount = maxStack });
                 heldItem.amount = total - maxStack;
+                SelectSlot(targetIndex, targetIsEquip, targetSlotUI);
                 ShowHeld(Input.mousePosition);
             }
             return;
@@ -1009,6 +1010,17 @@ public class InventoryInteractionManager : MonoBehaviour
     {
         if (isEquip)
         {
+            if (equipmentSlots != null && index >= 0 && index < equipmentSlots.Length && equipmentSlots[index] != null)
+            {
+                equipmentSlots[index].Select();
+                return;
+            }
+
+            var inventoryPanelForEquip = FindFirstObjectByType<InventoryPanelUI>(FindObjectsInactive.Include);
+            if (inventoryPanelForEquip != null)
+            {
+                inventoryPanelForEquip.SetSelectedEquipmentIndex(index);
+            }
             return;
         }
 
@@ -1018,10 +1030,22 @@ public class InventoryInteractionManager : MonoBehaviour
             return;
         }
 
+        var boxPanel = FarmGame.UI.BoxPanelUI.ActiveInstance;
         var inventoryPanel = FindFirstObjectByType<InventoryPanelUI>(FindObjectsInactive.Include);
+
         if (inventoryPanel != null)
         {
             inventoryPanel.SetSelectedInventoryIndex(index, index < InventoryService.HotbarWidth);
+        }
+
+        if (boxPanel != null && boxPanel.IsOpen)
+        {
+            boxPanel.SetSelectedInventoryIndex(index, index < InventoryService.HotbarWidth);
+            return;
+        }
+
+        if (inventoryPanel != null)
+        {
             return;
         }
 

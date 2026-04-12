@@ -5,6 +5,7 @@ using FarmGame.Data;
 public class HotbarSelectionService : MonoBehaviour
 {
     public int selectedIndex = 0; // 0..11
+    public int selectedInventoryIndex = 0; // 0..35，允许背包区作为真实手持来源
     public event Action<int> OnSelectedChanged;
 
     [Header("装备系统引用")]
@@ -13,36 +14,24 @@ public class HotbarSelectionService : MonoBehaviour
 
     private ItemDatabase database;
 
+    private static bool SupportsPlacementMode(ItemData itemData)
+    {
+        return itemData != null && (itemData.isPlaceable || itemData is SeedData);
+    }
+
     void Awake()
     {
-        // 自动查找引用
-        if (playerToolController == null)
-            playerToolController = FindFirstObjectByType<PlayerToolController>();
-        if (inventory == null)
-            inventory = FindFirstObjectByType<InventoryService>();
-        
-        // 从 InventoryService 获取 database 引用(ItemDatabase 是 ScriptableObject,不能用 Find)
-        if (inventory != null)
-            database = inventory.Database;
+        ResolveReferences();
     }
 
     void OnEnable()
     {
-        // 订阅背包变化事件，当物品变化时检查是否需要更新装备
-        if (inventory != null)
-        {
-            inventory.OnSlotChanged += OnSlotChanged;
-            inventory.OnHotbarSlotChanged += OnHotbarSlotChanged;
-        }
+        BindInventoryEvents();
     }
 
     void OnDisable()
     {
-        if (inventory != null)
-        {
-            inventory.OnSlotChanged -= OnSlotChanged;
-            inventory.OnHotbarSlotChanged -= OnHotbarSlotChanged;
-        }
+        UnbindInventoryEvents();
     }
 
     void Start()
@@ -79,14 +68,24 @@ public class HotbarSelectionService : MonoBehaviour
     public void SelectIndex(int index)
     {
         int clamped = Mathf.Clamp(index, 0, InventoryService.HotbarWidth - 1);
-        if (clamped == selectedIndex) return;
+        if (clamped == selectedIndex && selectedInventoryIndex == clamped) return;
         if (!CanApplySelectionChange(clamped)) return;
-        selectedIndex = clamped;
-        
-        // 选中变化时立即装备工具
-        EquipCurrentTool();
-        
-        OnSelectedChanged?.Invoke(selectedIndex);
+        RestoreSelection(clamped);
+    }
+
+    public void SelectInventoryIndex(int index)
+    {
+        ResolveReferences();
+
+        int maxIndex = inventory != null ? Mathf.Max(0, inventory.Size - 1) : InventoryService.DefaultInventorySize - 1;
+        int clamped = Mathf.Clamp(index, 0, maxIndex);
+        if (clamped < InventoryService.HotbarWidth)
+        {
+            SelectIndex(clamped);
+            return;
+        }
+
+        selectedInventoryIndex = clamped;
     }
 
     public void SelectNext()
@@ -107,11 +106,173 @@ public class HotbarSelectionService : MonoBehaviour
         return inputManager == null || inputManager.TryPrepareHotbarSelectionChange(requestedIndex);
     }
 
+    public void RebindRuntimeReferences(PlayerToolController runtimePlayerToolController, InventoryService runtimeInventory)
+    {
+        UnbindInventoryEvents();
+
+        if (runtimePlayerToolController != null)
+        {
+            playerToolController = runtimePlayerToolController;
+        }
+
+        if (runtimeInventory != null)
+        {
+            inventory = runtimeInventory;
+        }
+
+        ResolveReferences();
+
+        if (isActiveAndEnabled)
+        {
+            BindInventoryEvents();
+        }
+    }
+
+    public void RestoreSelection(int index, bool invokeEvent = true)
+    {
+        RestoreSelectionState(index, index, invokeEvent);
+    }
+
+    public void RestoreSelectionState(int hotbarIndex, int inventoryIndex, bool invokeEvent = true)
+    {
+        selectedIndex = Mathf.Clamp(hotbarIndex, 0, InventoryService.HotbarWidth - 1);
+        selectedInventoryIndex = NormalizeInventoryIndex(inventoryIndex, selectedIndex);
+        EquipCurrentTool();
+
+        if (invokeEvent)
+        {
+            OnSelectedChanged?.Invoke(selectedIndex);
+        }
+    }
+
+    public void ReassertCurrentSelection(bool collapseInventorySelectionToHotbar = false, bool invokeEvent = true)
+    {
+        int inventoryIndex = collapseInventorySelectionToHotbar ? selectedIndex : selectedInventoryIndex;
+        RestoreSelectionState(selectedIndex, inventoryIndex, invokeEvent);
+    }
+
+    public int GetResolvedPlacementSlotIndex(
+        InventoryService inventoryOverride = null,
+        ItemDatabase databaseOverride = null,
+        ItemData expectedItem = null,
+        int expectedQuality = 0)
+    {
+        ResolveReferences();
+
+        InventoryService resolvedInventory = inventoryOverride ?? inventory;
+        ItemDatabase resolvedDatabase = databaseOverride ?? database ?? resolvedInventory?.Database;
+        int maxIndex = resolvedInventory != null ? Mathf.Max(0, resolvedInventory.Size - 1) : InventoryService.DefaultInventorySize - 1;
+
+        int preferredIndex = Mathf.Clamp(selectedInventoryIndex, 0, maxIndex);
+        if (SlotMatchesPlacementItem(resolvedInventory, resolvedDatabase, preferredIndex, expectedItem, expectedQuality))
+        {
+            return preferredIndex;
+        }
+
+        int hotbarIndex = Mathf.Clamp(selectedIndex, 0, InventoryService.HotbarWidth - 1);
+        if (SlotMatchesPlacementItem(resolvedInventory, resolvedDatabase, hotbarIndex, expectedItem, expectedQuality))
+        {
+            return hotbarIndex;
+        }
+
+        return hotbarIndex;
+    }
+
+    private void ResolveReferences()
+    {
+        if (playerToolController == null)
+        {
+            playerToolController = FindFirstObjectByType<PlayerToolController>();
+        }
+
+        if (inventory == null)
+        {
+            inventory = FindFirstObjectByType<InventoryService>();
+        }
+
+        database = inventory != null ? inventory.Database : null;
+    }
+
+    private int NormalizeInventoryIndex(int inventoryIndex, int fallbackIndex)
+    {
+        int maxIndex = inventory != null
+            ? Mathf.Max(0, inventory.Size - 1)
+            : InventoryService.DefaultInventorySize - 1;
+
+        if (inventoryIndex < 0)
+        {
+            return Mathf.Clamp(fallbackIndex, 0, maxIndex);
+        }
+
+        return Mathf.Clamp(inventoryIndex, 0, maxIndex);
+    }
+
+    private void BindInventoryEvents()
+    {
+        ResolveReferences();
+        if (inventory == null)
+        {
+            return;
+        }
+
+        inventory.OnSlotChanged -= OnSlotChanged;
+        inventory.OnSlotChanged += OnSlotChanged;
+        inventory.OnHotbarSlotChanged -= OnHotbarSlotChanged;
+        inventory.OnHotbarSlotChanged += OnHotbarSlotChanged;
+    }
+
+    private void UnbindInventoryEvents()
+    {
+        if (inventory == null)
+        {
+            return;
+        }
+
+        inventory.OnSlotChanged -= OnSlotChanged;
+        inventory.OnHotbarSlotChanged -= OnHotbarSlotChanged;
+    }
+
+    private static bool SlotMatchesPlacementItem(
+        InventoryService inventoryService,
+        ItemDatabase itemDatabase,
+        int slotIndex,
+        ItemData expectedItem,
+        int expectedQuality)
+    {
+        if (inventoryService == null ||
+            itemDatabase == null ||
+            slotIndex < 0 ||
+            slotIndex >= inventoryService.Size)
+        {
+            return false;
+        }
+
+        ItemStack slot = inventoryService.GetSlot(slotIndex);
+        if (slot.IsEmpty)
+        {
+            return false;
+        }
+
+        ItemData slotItem = itemDatabase.GetItemByID(slot.itemId);
+        if (!SupportsPlacementMode(slotItem))
+        {
+            return false;
+        }
+
+        if (expectedItem == null)
+        {
+            return true;
+        }
+
+        return slot.itemId == expectedItem.itemID && slot.quality == expectedQuality;
+    }
+
     /// <summary>
     /// 装备当前选中槽位的工具
     /// </summary>
     private void EquipCurrentTool()
     {
+        ResolveReferences();
         if (playerToolController == null || inventory == null || database == null)
             return;
 
@@ -129,7 +290,7 @@ public class HotbarSelectionService : MonoBehaviour
         if (itemData == null) return;
 
         // ★ 检查是否是可放置物品
-        if (itemData.isPlaceable)
+        if (SupportsPlacementMode(itemData))
         {
             playerToolController.UnequipCurrent();
 

@@ -757,12 +757,9 @@ namespace FarmGame.UI
             _selectedInventoryIndex = slotIndex;
             _followHotbarSelection = syncHotbarSelection && slotIndex < InventoryService.HotbarWidth;
 
-            if (syncHotbarSelection &&
-                _hotbarSelection != null &&
-                slotIndex < InventoryService.HotbarWidth &&
-                _hotbarSelection.selectedIndex != slotIndex)
+            if (_hotbarSelection != null)
             {
-                _hotbarSelection.SelectIndex(slotIndex);
+                _hotbarSelection.SelectInventoryIndex(slotIndex);
             }
 
             RefreshInventorySelectionVisuals();
@@ -856,7 +853,7 @@ namespace FarmGame.UI
             }
 
             // 🔥 优先绑定到 RuntimeInventory（InventoryV2 优先）
-            slot.BindContainer(runtimeInventory, index);
+            slot.BindContainer(runtimeInventory, index, _hotbarSelection, null, this);
             
             // 🔥 P1：删除逐格日志，只在 showDebugInfo 开启时输出汇总
         }
@@ -908,7 +905,7 @@ namespace FarmGame.UI
                 bool isHotbar = actualIndex < InventoryService.HotbarWidth;
                 
                 // 🔥 修正 C2：与 InventoryPanelUI.BuildUpSlots 保持一致
-                slot.Bind(_inventoryService, _equipmentService, _database, actualIndex, isHotbar);
+                slot.Bind(_inventoryService, _equipmentService, _database, _hotbarSelection, null, this, actualIndex, isHotbar);
                 
                 // 🔥 致命修复 1：Bind 后必须调用 Refresh 才能更新 UI 显示
                 slot.Refresh();

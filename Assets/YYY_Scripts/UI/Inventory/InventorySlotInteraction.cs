@@ -35,6 +35,7 @@ public class InventorySlotInteraction : MonoBehaviour,
     private InventorySlotUI inventorySlotUI;
     private EquipmentSlotUI equipmentSlotUI;
     private bool isEquip;
+    private bool isPointerHovering;
     
     private bool isDragging = false;
     private float pressTime;
@@ -436,6 +437,11 @@ public class InventorySlotInteraction : MonoBehaviour,
         // 装备槽位或背包槽位：使用 InventoryInteractionManager
         if (isEquip || IsInventorySlot)
         {
+            if (!shift && !ctrl && (inventorySlotUI != null || equipmentSlotUI != null))
+            {
+                SelectTargetSlot();
+            }
+
             if (manager != null)
             {
                 manager.OnSlotPointerDown(SlotIndex, isEquip, inventorySlotUI);
@@ -450,14 +456,28 @@ public class InventorySlotInteraction : MonoBehaviour,
 
     public void OnPointerEnter(PointerEventData eventData)
     {
+        isPointerHovering = true;
         inventorySlotUI?.SetHovered(true);
+        equipmentSlotUI?.SetHovered(true);
         TryShowTooltip();
     }
 
     public void OnPointerExit(PointerEventData eventData)
     {
+        isPointerHovering = false;
         inventorySlotUI?.SetHovered(false);
+        equipmentSlotUI?.SetHovered(false);
         ItemTooltip.Instance?.Hide();
+    }
+
+    void Update()
+    {
+        if (!isPointerHovering || ShouldSuppressTooltipHover())
+        {
+            return;
+        }
+
+        TryShowTooltip();
     }
     
     public void OnBeginDrag(PointerEventData eventData)
@@ -1535,6 +1555,14 @@ public class InventorySlotInteraction : MonoBehaviour,
         if (inventorySlotUI != null)
         {
             inventorySlotUI.Select();
+            inventorySlotUI.RefreshSelection();
+            return;
+        }
+
+        if (equipmentSlotUI != null)
+        {
+            equipmentSlotUI.Select();
+            equipmentSlotUI.RefreshSelection();
         }
     }
 
@@ -1547,6 +1575,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         }
 
         sourceSlotUI.Select();
+        sourceSlotUI.RefreshSelection();
     }
     
     /// <summary>

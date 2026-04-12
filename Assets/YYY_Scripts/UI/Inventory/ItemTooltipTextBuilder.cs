@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Text;
+using System.Text.RegularExpressions;
 using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.Farm;
@@ -9,6 +10,10 @@ using FarmGame.Farm;
 /// </summary>
 public static class ItemTooltipTextBuilder
 {
+    private const int TooltipDescriptionMaxLines = 2;
+    private const int TooltipDescriptionMaxChars = 44;
+    private static readonly Regex RichTextTagRegex = new Regex("<.*?>", RegexOptions.Compiled);
+
     public static string Build(ItemData itemData, InventoryItem runtimeItem)
     {
         if (itemData == null)
@@ -16,8 +21,8 @@ public static class ItemTooltipTextBuilder
             return string.Empty;
         }
 
-        string baseText = SanitizeBaseTooltip(itemData);
-        string runtimeText = BuildRuntimeSection(itemData, runtimeItem);
+        string baseText = BuildDescriptionText(itemData);
+        string runtimeText = BuildRuntimeStatusText(itemData, runtimeItem);
 
         if (string.IsNullOrWhiteSpace(runtimeText))
         {
@@ -32,16 +37,26 @@ public static class ItemTooltipTextBuilder
         return $"{baseText}\n\n{runtimeText}";
     }
 
+    public static string BuildDescriptionText(ItemData itemData)
+    {
+        return ClampForTooltipDisplay(SanitizeBaseTooltip(itemData));
+    }
+
+    public static string BuildRuntimeStatusText(ItemData itemData, InventoryItem runtimeItem)
+    {
+        return BuildRuntimeSection(itemData, runtimeItem);
+    }
+
     private static string SanitizeBaseTooltip(ItemData itemData)
     {
         string raw = itemData.GetTooltipText();
         if (string.IsNullOrWhiteSpace(raw))
         {
-            return itemData.description ?? string.Empty;
+            return StripRichTextTags(itemData.description ?? string.Empty);
         }
 
-        string trimmed = raw.Trim();
-        string title = $"<b>{itemData.itemName}</b>";
+        string trimmed = StripRichTextTags(raw).Trim();
+        string title = StripRichTextTags(itemData.itemName ?? string.Empty).Trim();
         if (trimmed.StartsWith(title))
         {
             trimmed = trimmed.Substring(title.Length).TrimStart('\r', '\n', ' ');
@@ -100,34 +115,31 @@ public static class ItemTooltipTextBuilder
         {
             int currentWater = ToolRuntimeUtility.GetCurrentWater(displayRuntimeItem, toolData);
             int maxWater = ToolRuntimeUtility.GetWaterCapacity(toolData);
-            sb.Append("<color=cyan>当前水量: ");
+            sb.Append("当前水量 ");
             sb.Append(currentWater);
             sb.Append('/');
             sb.Append(maxWater);
-            sb.Append("</color>");
         }
         else if (displayRuntimeItem.HasDurability)
         {
-            sb.Append("<color=orange>当前耐久: ");
+            sb.Append("当前耐久 ");
             sb.Append(displayRuntimeItem.CurrentDurability);
             sb.Append('/');
             sb.Append(displayRuntimeItem.MaxDurability);
-            sb.Append("</color>");
         }
 
         if (itemData is SeedData seedData && SeedBagHelper.IsSeedBag(displayRuntimeItem))
         {
             AppendLineBreak(sb);
             sb.Append(SeedBagHelper.IsOpened(displayRuntimeItem)
-                ? "<color=cyan>种袋状态: 已开袋</color>"
-                : "<color=cyan>种袋状态: 未开袋</color>");
+                ? "种袋状态 已开袋"
+                : "种袋状态 未开袋");
 
             AppendLineBreak(sb);
-            sb.Append("<color=green>剩余种子: ");
+            sb.Append("剩余种子 ");
             sb.Append(SeedBagHelper.GetRemaining(displayRuntimeItem));
             sb.Append('/');
             sb.Append(seedData.seedsPerBag);
-            sb.Append("</color>");
 
             int currentTotalDays = TimeManager.Instance != null ? TimeManager.Instance.GetTotalDaysPassed() : -1;
             int expireDay = displayRuntimeItem.GetPropertyInt(SeedBagHelper.KEY_EXPIRE_DAY, -1);
@@ -136,15 +148,84 @@ public static class ItemTooltipTextBuilder
                 AppendLineBreak(sb);
                 if (SeedBagHelper.IsExpired(displayRuntimeItem, currentTotalDays))
                 {
-                    sb.Append("<color=red>保质期: 已过期</color>");
+                    sb.Append("保质期 已过期");
                 }
                 else
                 {
-                    sb.Append("<color=yellow>剩余保质期: ");
+                    sb.Append("剩余保质期 ");
                     sb.Append(expireDay - currentTotalDays);
-                    sb.Append(" 天</color>");
+                    sb.Append("天");
                 }
             }
+        }
+
+        return sb.ToString();
+    }
+
+    private static string ClampForTooltipDisplay(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        string normalized = text.Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+        string[] rawLines = normalized.Split('\n');
+        var sb = new StringBuilder();
+        int lineCount = 0;
+        int charCount = 0;
+        bool truncated = false;
+
+        for (int index = 0; index < rawLines.Length; index++)
+        {
+            string line = rawLines[index].Trim();
+            if (string.IsNullOrEmpty(line))
+            {
+                continue;
+            }
+
+            if (lineCount >= TooltipDescriptionMaxLines || charCount >= TooltipDescriptionMaxChars)
+            {
+                truncated = true;
+                break;
+            }
+
+            int remainingChars = TooltipDescriptionMaxChars - charCount;
+            if (remainingChars <= 0)
+            {
+                truncated = true;
+                break;
+            }
+
+            if (line.Length > remainingChars)
+            {
+                line = line.Substring(0, remainingChars);
+                truncated = true;
+            }
+
+            if (sb.Length > 0)
+            {
+                sb.Append('\n');
+            }
+
+            sb.Append(line);
+            charCount += line.Length;
+            lineCount++;
+
+            if (truncated)
+            {
+                break;
+            }
+        }
+
+        if (sb.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        if (truncated && sb[sb.Length - 1] != '…')
+        {
+            sb.Append('…');
         }
 
         return sb.ToString();
@@ -156,5 +237,15 @@ public static class ItemTooltipTextBuilder
         {
             sb.Append('\n');
         }
+    }
+
+    private static string StripRichTextTags(string text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        return RichTextTagRegex.Replace(text, string.Empty);
     }
 }

@@ -225,7 +225,18 @@ public class PackagePanelTabsUI : MonoBehaviour
 
     public bool IsPanelOpen()
     {
-        return panelRoot != null && panelRoot.activeSelf;
+        if (panelRoot == null || !panelRoot.activeSelf)
+        {
+            return false;
+        }
+
+        if (HasGhostOpenState())
+        {
+            NormalizeGhostOpenState();
+            return false;
+        }
+
+        return true;
     }
 
     public void ClosePanelForExternalAction()
@@ -391,13 +402,10 @@ public class PackagePanelTabsUI : MonoBehaviour
         // 🔥 互斥逻辑：打开 PackagePanel 前先关闭 BoxPanelUI
         CloseBoxPanelIfOpen();
         EnsurePanelCanvasPriority();
-        
-        panelRoot.SetActive(true);
-        SyncExternalOverlaySuppression(true);
-        
-        // 🔥 C10：确保 Main/Top 可见（修复 ESC 关闭箱子后 Tab 打开背包时 Main/Top 未激活的问题）
         ShowMainAndTop();
         ConfigureInventoryPanelRuntimeContext();
+
+        panelRoot.SetActive(true);
         
         OnPanelJustOpened();
     }
@@ -433,11 +441,10 @@ public class PackagePanelTabsUI : MonoBehaviour
     {
         if (panelRoot == null) return;
         EnsurePanelCanvasPriority();
-        ConfigureInventoryPanelRuntimeContext();
         if (!panelRoot.activeSelf)
         {
+            ConfigureInventoryPanelRuntimeContext();
             panelRoot.SetActive(true);
-            SyncExternalOverlaySuppression(true);
             OnPanelJustOpened(); // 🔥 关键：确保 InventoryPanelUI.EnsureBuilt() 被调用
         }
     }
@@ -527,7 +534,11 @@ public class PackagePanelTabsUI : MonoBehaviour
     /// <param name="openBackpackAfter">是否在关闭后打开背包（Tab 触发时为 true）</param>
     public void CloseBoxUI(bool openBackpackAfter = false)
     {
-        if (_activeBoxUI == null) return;
+        if (_activeBoxUI == null)
+        {
+            RecoverFromMissingBoxUiState(openBackpackAfter);
+            return;
+        }
         
         CloseBoxUIInternal();
 
@@ -548,6 +559,52 @@ public class PackagePanelTabsUI : MonoBehaviour
             Debug.Log("[PackagePanelTabsUI] CloseBoxUI: ESC 触发，返回 NoPanel");
         }
         
+        _wasBackpackOpenBeforeBox = false;
+    }
+
+    private bool HasGhostOpenState()
+    {
+        return panelRoot != null
+            && panelRoot.activeSelf
+            && !IsBackpackVisible()
+            && !IsBoxUIOpen();
+    }
+
+    private void NormalizeGhostOpenState()
+    {
+        if (!HasGhostOpenState())
+        {
+            return;
+        }
+
+        ShowMainAndTop();
+        ClosePanel();
+        _wasBackpackOpenBeforeBox = false;
+    }
+
+    private void RecoverFromMissingBoxUiState(bool openBackpackAfter)
+    {
+        if (panelRoot == null || !panelRoot.activeSelf)
+        {
+            _wasBackpackOpenBeforeBox = false;
+            return;
+        }
+
+        if (openBackpackAfter)
+        {
+            ShowMainAndTop();
+            if (currentIndex < 0) currentIndex = 0;
+            SetVisiblePage(currentIndex);
+            _wasBackpackOpenBeforeBox = false;
+            return;
+        }
+
+        if (HasGhostOpenState())
+        {
+            NormalizeGhostOpenState();
+            return;
+        }
+
         _wasBackpackOpenBeforeBox = false;
     }
 
@@ -609,7 +666,6 @@ public class PackagePanelTabsUI : MonoBehaviour
         ReturnHeldItemsBeforeClose();
         
         panelRoot.SetActive(false);
-        SyncExternalOverlaySuppression(false);
         SetVisiblePageInactive();
     }
 
@@ -638,15 +694,6 @@ public class PackagePanelTabsUI : MonoBehaviour
         }
     }
 
-    private void SyncExternalOverlaySuppression(bool suppressed)
-    {
-        SpringDay1PromptOverlay promptOverlay = FindFirstObjectByType<SpringDay1PromptOverlay>(FindObjectsInactive.Include);
-        if (promptOverlay != null)
-        {
-            promptOverlay.SetExternalVisibilityBlock(suppressed);
-        }
-    }
-    
     /// <summary>
     /// 🔥 P1+-1：关闭前处理手持物品（物品归位逻辑）
     /// </summary>
@@ -708,7 +755,6 @@ public class PackagePanelTabsUI : MonoBehaviour
                 runtimeEquipmentService,
                 runtimeDatabase,
                 runtimeHotbarSelection);
-            invPanel.EnsureBuilt();
             invPanel.ResetSelectionsOnPanelOpen();
         }
     }

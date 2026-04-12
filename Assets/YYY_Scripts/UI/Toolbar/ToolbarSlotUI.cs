@@ -19,10 +19,16 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     // 🔥 V2 新增：耐久度条
     private Image _durabilityBar;
     private Image _durabilityBarBg;
+    private float _statusBarAlpha;
+    private float _statusBarTargetAlpha;
+    private bool _statusBarHasData;
+    private const float StatusBarFadeDuration = 0.3f;
 
     private InventoryService inventory;
     private ItemDatabase database;
     private HotbarSelectionService selection;
+    private InventoryService subscribedInventory;
+    private HotbarSelectionService subscribedSelection;
     private int index = -1;
     private bool isHovered;
     private RectTransform _rectTransform;
@@ -35,6 +41,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     {
         _rectTransform = transform as RectTransform;
         CaptureRestAnchoredPosition();
+        ResolveRuntimeContextIfMissing();
 
         if (toggle == null) toggle = GetComponent<Toggle>();
         if (iconImage == null)
@@ -108,17 +115,8 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     {
         CaptureRestAnchoredPosition();
         RegisterSlot();
-
-        if (inventory != null)
-        {
-            inventory.OnHotbarSlotChanged += HandleHotbarChanged;
-            inventory.OnSlotChanged += HandleAnySlotChanged;
-        }
-        if (selection != null)
-        {
-            selection.OnSelectedChanged -= HandleSelectionChanged;
-            selection.OnSelectedChanged += HandleSelectionChanged;
-        }
+        ResolveRuntimeContextIfMissing();
+        SyncRuntimeSubscriptions();
         
         // 注册 Toggle 的 OnValueChanged 事件，用于锁定状态下拦截
         if (toggle != null)
@@ -131,19 +129,17 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         RefreshSelection();
     }
 
+    void Update()
+    {
+        UpdateStatusBarVisibility();
+        TickStatusBarFade();
+        RefreshTooltipWhileHovered();
+    }
+
     void OnDisable()
     {
         UnregisterSlot();
-
-        if (inventory != null)
-        {
-            inventory.OnHotbarSlotChanged -= HandleHotbarChanged;
-            inventory.OnSlotChanged -= HandleAnySlotChanged;
-        }
-        if (selection != null)
-        {
-            selection.OnSelectedChanged -= HandleSelectionChanged;
-        }
+        SyncRuntimeSubscriptions(forceClear: true);
         
         // 移除 Toggle 事件监听
         if (toggle != null)
@@ -173,6 +169,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         selection = sel;
         index = hotbarIndex;
         CaptureRestAnchoredPosition();
+        ResolveRuntimeContextIfMissing();
         RegisterSlot();
         if (isActiveAndEnabled)
         {
@@ -203,6 +200,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     public void Refresh()
     {
+        ResolveRuntimeContextIfMissing();
         if (inventory == null || database == null) return;
         var s = inventory.GetSlot(index);
         if (s.IsEmpty)
@@ -285,6 +283,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         // 默认隐藏
         _durabilityBarBg.enabled = false;
         _durabilityBar.enabled = false;
+        ApplyStatusBarAlpha(0f);
     }
     
     /// <summary>
@@ -297,18 +296,21 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         
         if (!ToolRuntimeUtility.TryGetToolStatusRatio(item, itemData, out float percent, out bool usesWater))
         {
-            _durabilityBarBg.enabled = false;
-            _durabilityBar.enabled = false;
+            _statusBarHasData = false;
+            _statusBarTargetAlpha = 0f;
+            if (_statusBarAlpha <= 0.001f)
+            {
+                _durabilityBarBg.enabled = false;
+                _durabilityBar.enabled = false;
+            }
             return;
         }
 
         bool shouldShow = ShouldShowStatusBar();
-        _durabilityBarBg.enabled = shouldShow;
-        _durabilityBar.enabled = shouldShow;
-        if (!shouldShow)
-        {
-            return;
-        }
+        _statusBarHasData = true;
+        _statusBarTargetAlpha = shouldShow ? 1f : 0f;
+        _durabilityBarBg.enabled = true;
+        _durabilityBar.enabled = true;
         
         // 🔥 P2-1：使用像素偏移控制宽度
         var rt = (RectTransform)_durabilityBar.transform;
@@ -338,12 +340,14 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
             barColor = Color.Lerp(Color.red, Color.yellow, t);
         }
         _durabilityBar.color = barColor;
+        ApplyStatusBarAlpha(_statusBarAlpha);
     }
     
     #endregion
 
     public void RefreshSelection()
     {
+        ResolveRuntimeContextIfMissing();
         bool sel = selection != null && selection.selectedIndex == index;
         // 1) 更新选中红框（overlay）
         if (selectedOverlay) selectedOverlay.enabled = sel;
@@ -371,25 +375,6 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
                 EventSystem.current.SetSelectedGameObject(null);
             }
 
-            // ★ 检查是否有面板打开（背包/箱子）- 被遮挡时不响应
-            var packageTabs = FindFirstObjectByType<PackagePanelTabsUI>();
-            if (packageTabs != null && packageTabs.IsPanelOpen()) 
-            {
-                ForceRestoreToggleState();
-                return;
-            }
-            if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen) 
-            {
-                ForceRestoreToggleState();
-                return;
-            }
-
-            if (GameInputManager.Instance != null && GameInputManager.Instance.TryRejectActiveFarmToolSwitch(index))
-            {
-                ForceRestoreToggleState();
-                return;
-            }
-            
             // 检查是否处于工具动作锁定状态
             var lockManager = ToolActionLockManager.Instance;
             if (lockManager != null && lockManager.IsLocked)
@@ -402,8 +387,27 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
                 ForceRestoreToggleState();
                 return;
             }
-            
+
+            var inputManager = GameInputManager.Instance;
+            if (inputManager != null)
+            {
+                if (!inputManager.TryApplyHotbarSelectionChange(index))
+                {
+                    ForceRestoreToggleState();
+                    return;
+                }
+
+                RefreshSelection();
+                return;
+            }
+
             selection?.SelectIndex(index);
+            if (selection == null || selection.selectedIndex != index)
+            {
+                ForceRestoreToggleState();
+                return;
+            }
+
             RefreshSelection();
         }
     }
@@ -412,31 +416,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     {
         isHovered = true;
         UpdateStatusBarVisibility();
-        if (SlotDragContext.IsDragging || (InventoryInteractionManager.Instance != null && InventoryInteractionManager.Instance.IsHolding))
-        {
-            return;
-        }
-
-        if (inventory == null || database == null || index < 0)
-        {
-            return;
-        }
-
-        var stack = inventory.GetSlot(index);
-        if (stack.IsEmpty)
-        {
-            ItemTooltip.Instance?.Hide();
-            return;
-        }
-
-        var itemData = database.GetItemByID(stack.itemId);
-        if (itemData == null)
-        {
-            ItemTooltip.Instance?.Hide();
-            return;
-        }
-
-        ItemTooltip.Instance?.Show(itemData, stack, inventory.GetInventoryItem(index), stack.amount);
+        TryShowTooltip();
     }
 
     public void OnPointerExit(PointerEventData eventData)
@@ -448,6 +428,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     private void UpdateStatusBarVisibility()
     {
+        ResolveRuntimeContextIfMissing();
         if (inventory == null || database == null || index < 0)
         {
             return;
@@ -468,6 +449,118 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         return selection != null &&
                (selection.selectedIndex == index || ToolRuntimeUtility.WasSlotUsedRecently(index));
     }
+
+    private void TickStatusBarFade()
+    {
+        if (_durabilityBar == null || _durabilityBarBg == null)
+        {
+            return;
+        }
+
+        float targetAlpha = _statusBarHasData ? _statusBarTargetAlpha : 0f;
+        if (Mathf.Approximately(_statusBarAlpha, targetAlpha))
+        {
+            if (targetAlpha <= 0.001f && !_statusBarHasData)
+            {
+                _durabilityBarBg.enabled = false;
+                _durabilityBar.enabled = false;
+            }
+            return;
+        }
+
+        float fadeStep = StatusBarFadeDuration <= 0.0001f
+            ? 1f
+            : Time.unscaledDeltaTime / StatusBarFadeDuration;
+        _statusBarAlpha = Mathf.MoveTowards(_statusBarAlpha, targetAlpha, fadeStep);
+        ApplyStatusBarAlpha(_statusBarAlpha);
+
+        if (_statusBarAlpha <= 0.001f && targetAlpha <= 0.001f)
+        {
+            _durabilityBarBg.enabled = false;
+            _durabilityBar.enabled = false;
+        }
+    }
+
+    private void ApplyStatusBarAlpha(float alpha)
+    {
+        if (_durabilityBarBg == null || _durabilityBar == null)
+        {
+            return;
+        }
+
+        Color backgroundColor = _durabilityBarBg.color;
+        backgroundColor.a = alpha;
+        _durabilityBarBg.color = backgroundColor;
+
+        Color barColor = _durabilityBar.color;
+        barColor.a = alpha;
+        _durabilityBar.color = barColor;
+    }
+
+    private static bool ShouldSuppressTooltipHover()
+    {
+        if (SlotDragContext.IsDragging)
+        {
+            return true;
+        }
+
+        var interactionManager = InventoryInteractionManager.Instance;
+        if (interactionManager != null && interactionManager.IsHolding)
+        {
+            return true;
+        }
+
+        if (Input.GetMouseButton(0) || Input.GetMouseButton(1))
+        {
+            return true;
+        }
+
+        return Input.GetKey(KeyCode.LeftShift) ||
+               Input.GetKey(KeyCode.RightShift) ||
+               Input.GetKey(KeyCode.LeftControl) ||
+               Input.GetKey(KeyCode.RightControl);
+    }
+
+    private void RefreshTooltipWhileHovered()
+    {
+        if (!isHovered || ShouldSuppressTooltipHover())
+        {
+            return;
+        }
+
+        TryShowTooltip();
+    }
+
+    private void TryShowTooltip()
+    {
+        if (ShouldSuppressTooltipHover())
+        {
+            return;
+        }
+
+        ResolveRuntimeContextIfMissing();
+
+        if (inventory == null || database == null || index < 0)
+        {
+            return;
+        }
+
+        var stack = inventory.GetSlot(index);
+        if (stack.IsEmpty)
+        {
+            ItemTooltip.Instance?.Hide();
+            return;
+        }
+
+        var itemData = database.GetItemByID(stack.itemId);
+        if (itemData == null)
+        {
+            ItemTooltip.Instance?.Hide();
+            return;
+        }
+
+        ItemTooltip.Instance?.Show(itemData, stack, inventory.GetInventoryItem(index), stack.amount, transform);
+    }
     
     /// <summary>
     /// 强制恢复 Toggle 状态到当前选中的槽位
@@ -475,6 +568,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     /// </summary>
     private void ForceRestoreToggleState()
     {
+        ResolveRuntimeContextIfMissing();
         if (toggle == null || selection == null) return;
         
         bool shouldBeSelected = selection.selectedIndex == index;
@@ -543,6 +637,68 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         {
             RegisteredSlots.Remove(index);
         }
+    }
+
+    private void ResolveRuntimeContextIfMissing()
+    {
+        if (inventory == null)
+        {
+            inventory = FindFirstObjectByType<InventoryService>();
+        }
+
+        if (database == null && inventory != null)
+        {
+            database = inventory.Database;
+        }
+
+        if (selection == null)
+        {
+            selection = FindFirstObjectByType<HotbarSelectionService>();
+        }
+
+        SyncRuntimeSubscriptions();
+    }
+
+    private void SyncRuntimeSubscriptions(bool forceClear = false)
+    {
+        InventoryService desiredInventory = forceClear ? null : inventory;
+        if (subscribedInventory != desiredInventory)
+        {
+            if (subscribedInventory != null)
+            {
+                subscribedInventory.OnHotbarSlotChanged -= HandleHotbarChanged;
+                subscribedInventory.OnSlotChanged -= HandleAnySlotChanged;
+            }
+
+            subscribedInventory = desiredInventory;
+            if (isActiveAndEnabled && subscribedInventory != null)
+            {
+                subscribedInventory.OnHotbarSlotChanged -= HandleHotbarChanged;
+                subscribedInventory.OnHotbarSlotChanged += HandleHotbarChanged;
+                subscribedInventory.OnSlotChanged -= HandleAnySlotChanged;
+                subscribedInventory.OnSlotChanged += HandleAnySlotChanged;
+            }
+        }
+
+        HotbarSelectionService desiredSelection = forceClear ? null : selection;
+        if (subscribedSelection == desiredSelection)
+        {
+            return;
+        }
+
+        if (subscribedSelection != null)
+        {
+            subscribedSelection.OnSelectedChanged -= HandleSelectionChanged;
+        }
+
+        subscribedSelection = desiredSelection;
+        if (!isActiveAndEnabled || subscribedSelection == null)
+        {
+            return;
+        }
+
+        subscribedSelection.OnSelectedChanged -= HandleSelectionChanged;
+        subscribedSelection.OnSelectedChanged += HandleSelectionChanged;
     }
 
     private IEnumerator RejectShakeCoroutine()
