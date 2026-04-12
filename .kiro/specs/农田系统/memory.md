@@ -1061,3 +1061,26 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
   - Unity 侧仍是 `unity_validation_pending`，原因是本轮缺 active Unity instance，不是本线程 own red
 - 下一步：
   - 继续提交当前线程 memory，并整理一份用户可直接审的交互规范矩阵
+
+## 2026-04-12｜交互线程最终 own 代码尾账已补提交
+
+- 当前目标：
+  - 继续把农田交互修复 V3 线程最后两处 own 代码尾账补提交，确保这条线 repo 内可收的都已收。
+- 本轮完成：
+  - 提交：
+    - `Assets/YYY_Scripts/Service/Player/EnergyBarTooltipWatcher.cs`
+    - `Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs`
+  - commit: `e8df0212`
+  - message: `fix: finalize tooltip anchor and toolbar slot ordering`
+- 本轮判断：
+  - 这两处是本线程 tooltip / toolbar 语义链的合法尾账，不属于其他线程当前主刀的大面资产。
+- 验证：
+  - `git diff --check` 通过
+  - `validate_script` 返回：
+    - `owned_errors=0`
+    - `external_errors=0`
+    - `assessment=unity_validation_pending`
+  - 原因是 Unity `stale_status`，不是本线程 own red
+- 当前恢复点：
+  - 本线程 repo 内 own 代码可提交内容已收尽
+  - 接下来只需补 memory 与向用户汇报

@@ -5326,3 +5326,38 @@ thread-state 本轮已报实：
   - 下一步只剩：
     1. 提交两份 memory
     2. 输出交互规范矩阵
+
+## 2026-04-12｜提交最后一笔 own 代码尾账：tooltip 锚点 + toolbar 槽位顺序
+
+- 当前主线：
+  - 把本线程按历史 own 边界还能合法提交的内容彻底收干净，不再混入别的线程业务面。
+- 本轮子任务：
+  - 只收最后两个仍未提交的 own 改动：
+    - `Assets/YYY_Scripts/Service/Player/EnergyBarTooltipWatcher.cs`
+    - `Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs`
+- 本轮实际完成：
+  1. 已提交：
+     - commit: `e8df0212`
+     - message: `fix: finalize tooltip anchor and toolbar slot ordering`
+  2. 这笔提交包含两件真实收口：
+     - `EnergyBarTooltipWatcher.cs`
+       - 精力 tooltip 改为把 `transform` 作为 source 传给 `ItemTooltip.ShowCustom(...)`
+       - 目的：让 tooltip 跟当前 UI 来源保持一致，不再漂成脱离来源的全局提示
+     - `ToolbarUI.cs`
+       - `Build()` 改成先按 `ResolveToolbarSlotIndex(...)` 排序再绑定
+       - 目的：稳定 toolbar 槽位顺序，避免子物体顺序 / clone 命名干扰导致首行选中或映射错位
+  3. 自检结果：
+     - `git diff --check -- Assets/YYY_Scripts/Service/Player/EnergyBarTooltipWatcher.cs Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs` 通过
+     - `validate_script`：
+       - `owned_errors = 0`
+       - `external_errors = 0`
+       - fresh console = `0 error / 0 warning`
+       - assessment = `unity_validation_pending`
+       - 当前阻断原因是 Unity `stale_status`，不是本轮 own red
+- 关键判断：
+  - 到这一笔为止，本线程历史 own 的交互/tooltip/toolbar/箱子尾账已经都提交进 repo。
+- 当前恢复点：
+  - 代码面可提交内容已收尽
+  - 下一步只剩：
+    1. 提交这条记录到 memory
+    2. `Park-Slice`
