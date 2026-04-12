@@ -1,0 +1,15 @@
+{
+  "generatedAt": "2026-04-12T18:13:27.050Z",
+  "stableSemanticKey": "incremental::project-positioning",
+  "stableId": "topic-3aab846ae697",
+  "before": {
+    "excerpt": "Sunset 当前是一款以聚落复兴、生活经营和跨场景推进为主线的 2D 像素 Unity 项目。",
+    "id": "topic-3aab846ae697"
+  },
+  "after": {
+    "excerpt": "Sunset 当前是一款以聚落复兴、生活经营、AI 协作推进和跨场景承接为主线的 2D 像素 Unity 项目。",
+    "id": "topic-3aab846ae697"
+  },
+  "idStable": true,
+  "contentChanged": true
+}

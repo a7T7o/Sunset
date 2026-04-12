@@ -1,0 +1,131 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "id": "plan-index",
+      "title": "Sunset 策划总索引",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/00_总索引.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["project", "rule", "source"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-overview",
+      "title": "Sunset 项目总览、世界观与核心闭环",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/01_总览.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["project", "module", "milestone"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-economy",
+      "title": "Sunset 生活经营、资源成长与时间季节",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/02_经营成长.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["module", "system", "rule"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-interaction",
+      "title": "Sunset 交互系统：输入、状态边界、背包、放置与存储",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/03_交互系统.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["module", "system", "rule"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-story-npc",
+      "title": "Sunset 剧情推进、春 1 日切片与 NPC 系统",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/04_剧情NPC.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["module", "scene", "flow"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-presentation",
+      "title": "Sunset 表现层：场景、UI、动画、遮挡与导航",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/05_表现层.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["module", "scene", "system"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-toolchain",
+      "title": "Sunset Unity 策划侧落地：工具链与数据资产",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/06_工具链.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["toolchain", "system", "rule"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-ai-governance",
+      "title": "Sunset AI 协同治理、规则层与线程体系",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/07_AI治理.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["governance", "rule", "toolchain"],
+      "stability": "canonical"
+    },
+    {
+      "id": "plan-progress",
+      "title": "Sunset 模块进度总表",
+      "relativePath": "Docx/大总结/Sunset_持续策划案/08_进度总表.md",
+      "tier": "canonical",
+      "allowPrimaryNodes": true,
+      "kindHints": ["milestone", "risk", "module"],
+      "stability": "canonical"
+    },
+    {
+      "id": "workspace-material-pack",
+      "title": "Sunset 对外简历/作品集素材总包",
+      "relativePath": ".kiro/specs/项目文档总览/2026-04-08_给外部简历智能体_Sunset项目素材总包_01.md",
+      "tier": "supporting",
+      "allowPrimaryNodes": true,
+      "kindHints": ["project", "toolchain", "governance"],
+      "stability": "stable"
+    },
+    {
+      "id": "workspace-three-dimensions",
+      "title": "Sunset 项目三维度母卷",
+      "relativePath": ".kiro/specs/项目文档总览/2026-04-08_给外部简历智能体_Sunset三维度母卷_01.md",
+      "tier": "supporting",
+      "allowPrimaryNodes": true,
+      "kindHints": ["project", "governance", "toolchain"],
+      "stability": "stable"
+    },
+    {
+      "id": "workspace-boundaries",
+      "title": "Sunset 对外压缩原则与禁写边界",
+      "relativePath": ".kiro/specs/项目文档总览/2026-04-08_给外部简历智能体_压缩原则与禁写边界_01.md",
+      "tier": "supporting",
+      "allowPrimaryNodes": true,
+      "kindHints": ["rule", "risk", "governance"],
+      "stability": "stable"
+    },
+    {
+      "id": "workspace-weekly-receipt",
+      "title": "用户本周实做与统筹回执",
+      "relativePath": ".kiro/specs/项目文档总览/2026-04-08_给项目文档总览_用户本周实做与统筹回执_01.md",
+      "tier": "supporting",
+      "allowPrimaryNodes": true,
+      "kindHints": ["milestone", "risk", "governance"],
+      "stability": "active"
+    },
+    {
+      "id": "workspace-engineering-prompt",
+      "title": "主文工程化整改续工 prompt",
+      "relativePath": ".kiro/specs/项目文档总览/2026-04-08_给项目文档总览_主文工程化整改续工prompt_02.md",
+      "tier": "supporting",
+      "allowPrimaryNodes": false,
+      "kindHints": ["rule", "risk"],
+      "stability": "active"
+    }
+  ]
+}

@@ -122,6 +122,23 @@
       - 安全可代收的 docs / folder-meta 尾巴已基本由治理线程收完；
       - 真正剩余的大头已经收窄成 `spring-day1 / NPC / UI / 树石修复 / Codex规则落地 own` 五组代码/配置/工具链尾账；
       - 后续不应再让业务线程靠猜文件名找 owner，而应直接按矩阵和专属 prompt 自收。
+  15. 2026-04-13 当晚又继续把治理位 own 收口压深了一层：
+      - `.kiro/xmind-pipeline` 当前不是“未验证源码堆”，而是一套完整工具链；
+      - 初次 `npm run smoke` / `npm run test` 的真 blocker 已查实为 `topic-blueprints.ts` 仍引用旧标题 `### 7.4 当前阶段的治理与验收补记`；
+      - 已就地修成新标题 `### 7.4 当前阶段的收口条件补记`，之后 `smoke` 与 `test` 均已通过。
+  16. 同轮已把 shared-root 剩余代码面继续压成 `6` 组二级 owner 簇，而不是停在粗分组：
+      - `spring-day1 = 48`
+      - `NPC = 47`
+      - `UI = 19`
+      - `树石修复 = 8`
+      - `Codex规则落地 own：Town/Home/Primary 基线链 = 76`
+      - `Codex规则落地 own：工具链/配置 = 38`
+      其中 `Assets/TextMesh Pro/Resources/Fonts & Materials/DialogueChinese V2 SDF.asset` 已明确改判到 `UI`，不再按“剩余纯资产”顺手吞。
+  17. 上述二级拆分与第二轮分流入口已经正式落盘：
+      - `2026-04-13_给典狱长_shared-root剩余大头二级拆分与owner定责矩阵_02.md`
+      - `2026-04-13_shared-root剩余大头警匪分流批次_02.md`
+      - `给 spring-day1 / NPC / UI / 树石修复` 的 `02` 版专属 prompt
+      - `02` 版 prompt 已统一补上 `thread-state` 接线尾巴，不再沿用旧的粗口径 prompt。
 
 ## 本卷纪律
 - 根卷只保留：

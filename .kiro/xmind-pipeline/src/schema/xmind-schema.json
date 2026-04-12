@@ -1,0 +1,284 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sunset.local/xmind-schema.json",
+  "title": "Sunset XMind Graph",
+  "type": "object",
+  "required": [
+    "version",
+    "generatedAt",
+    "repositoryRoot",
+    "sources",
+    "topicIndex",
+    "maps"
+  ],
+  "properties": {
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "generatedAt": {
+      "type": "string",
+      "minLength": 1
+    },
+    "repositoryRoot": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/sourceDescriptor"
+      }
+    },
+    "topicIndex": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/topicIndexEntry"
+      }
+    },
+    "maps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/mapDescriptor"
+      }
+    }
+  },
+  "$defs": {
+    "sourceDescriptor": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "relativePath",
+        "absolutePath",
+        "tier",
+        "allowPrimaryNodes",
+        "stability"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "relativePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "absolutePath": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tier": {
+          "type": "string",
+          "enum": [
+            "canonical",
+            "supporting"
+          ]
+        },
+        "allowPrimaryNodes": {
+          "type": "boolean"
+        },
+        "stability": {
+          "type": "string",
+          "enum": [
+            "canonical",
+            "stable",
+            "active",
+            "volatile",
+            "historical"
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "sourceRef": {
+      "type": "object",
+      "required": [
+        "sourceId",
+        "path",
+        "section",
+        "quoteHint",
+        "confidence"
+      ],
+      "properties": {
+        "sourceId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "section": {
+          "type": "string",
+          "minLength": 1
+        },
+        "quoteHint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "topicNode": {
+      "type": "object",
+      "required": [
+        "id",
+        "semanticKey",
+        "title",
+        "kind",
+        "summary",
+        "children",
+        "sourceRefs",
+        "stability",
+        "status"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semanticKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "project",
+            "module",
+            "system",
+            "scene",
+            "flow",
+            "rule",
+            "toolchain",
+            "governance",
+            "milestone",
+            "risk",
+            "source"
+          ]
+        },
+        "summary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "established",
+            "in_progress",
+            "partial",
+            "planned",
+            "parked",
+            "deprecated"
+          ]
+        },
+        "stability": {
+          "type": "string",
+          "enum": [
+            "canonical",
+            "stable",
+            "active",
+            "volatile",
+            "historical"
+          ]
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/topicNode"
+          }
+        },
+        "sourceRefs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceRef"
+          }
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "topicIndexEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "semanticKey",
+        "title",
+        "kind",
+        "status",
+        "stability"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "semanticKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "$ref": "#/$defs/topicNode/properties/kind"
+        },
+        "status": {
+          "$ref": "#/$defs/topicNode/properties/status"
+        },
+        "stability": {
+          "$ref": "#/$defs/topicNode/properties/stability"
+        }
+      },
+      "additionalProperties": true
+    },
+    "mapDescriptor": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "fileName",
+        "root"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "fileName": {
+          "type": "string",
+          "pattern": "\\.xmind$"
+        },
+        "root": {
+          "$ref": "#/$defs/topicNode"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

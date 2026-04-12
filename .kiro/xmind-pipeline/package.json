@@ -1,0 +1,27 @@
+{
+  "name": "sunset-xmind-pipeline",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Sunset 项目 XMind 工程化生成管线",
+  "scripts": {
+    "build:graph": "tsx src/build/build-master-graph.ts",
+    "validate:graph": "tsx src/build/validate-graph.ts",
+    "generate:xmind": "tsx src/build/generate-maps.ts",
+    "clean:output": "tsx src/build/clean-output.ts",
+    "experiment:incremental": "tsx src/build/run-incremental-experiment.ts",
+    "smoke": "tsx src/build/smoke.ts",
+    "test": "tsx --test tests/**/*.test.ts"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "ajv": "^8.17.1",
+    "xmind": "^2.2.33",
+    "xmind-generator": "^1.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

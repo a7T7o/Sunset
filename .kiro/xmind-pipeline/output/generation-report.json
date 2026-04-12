@@ -1,0 +1,73 @@
+{
+  "generatedAt": "2026-04-12T18:13:27.020Z",
+  "sdkReadiness": {
+    "package": "xmind",
+    "ok": true,
+    "errors": []
+  },
+  "outputs": [
+    {
+      "filePath": "D:\\Unity\\Unity_learning\\Sunset\\.kiro\\xmind-pipeline\\output\\Sunset_项目总图.xmind",
+      "smoke": {
+        "exists": true,
+        "hasManifest": true,
+        "hasContentJson": true,
+        "entryCount": 4
+      }
+    },
+    {
+      "filePath": "D:\\Unity\\Unity_learning\\Sunset\\.kiro\\xmind-pipeline\\output\\Sunset_系统版图.xmind",
+      "smoke": {
+        "exists": true,
+        "hasManifest": true,
+        "hasContentJson": true,
+        "entryCount": 4
+      }
+    },
+    {
+      "filePath": "D:\\Unity\\Unity_learning\\Sunset\\.kiro\\xmind-pipeline\\output\\Sunset_剧情与NPC.xmind",
+      "smoke": {
+        "exists": true,
+        "hasManifest": true,
+        "hasContentJson": true,
+        "entryCount": 4
+      }
+    },
+    {
+      "filePath": "D:\\Unity\\Unity_learning\\Sunset\\.kiro\\xmind-pipeline\\output\\Sunset_交互与状态边界.xmind",
+      "smoke": {
+        "exists": true,
+        "hasManifest": true,
+        "hasContentJson": true,
+        "entryCount": 4
+      }
+    },
+    {
+      "filePath": "D:\\Unity\\Unity_learning\\Sunset\\.kiro\\xmind-pipeline\\output\\Sunset_表现层与场景链.xmind",
+      "smoke": {
+        "exists": true,
+        "hasManifest": true,
+        "hasContentJson": true,
+        "entryCount": 4
+      }
+    },
+    {
+      "filePath": "D:\\Unity\\Unity_learning\\Sunset\\.kiro\\xmind-pipeline\\output\\Sunset_工具链与AI治理.xmind",
+      "smoke": {
+        "exists": true,
+        "hasManifest": true,
+        "hasContentJson": true,
+        "entryCount": 4
+      }
+    },
+    {
+      "filePath": "D:\\Unity\\Unity_learning\\Sunset\\.kiro\\xmind-pipeline\\output\\Sunset_进度与优先级.xmind",
+      "smoke": {
+        "exists": true,
+        "hasManifest": true,
+        "hasContentJson": true,
+        "entryCount": 4
+      }
+    }
+  ]
+}

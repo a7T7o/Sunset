@@ -368,3 +368,41 @@
   - 下一步最值钱的动作不是再猜文件归属，而是：
     1. 先把这轮 safe docs/meta 收成一个最小提交；
     2. 再按已写好的四条 prompt 去追 `spring-day1 / NPC / UI / 树石修复` 各自收尾。
+
+## 2026-04-13｜续记：owner 二级拆分已补齐，xmind-pipeline 从 blocker 拉回可提交态
+
+- 用户目标：
+  - 继续把安全内容提交下去，同时把 shared-root 剩余大头拆得更具体，让其他线程一眼就能找到自己的内容，不再靠猜。
+- 当前主线：
+  - 这是 `Codex规则落地` 的治理真实施工；目标是把治理线程 own 的 `.kiro/xmind-pipeline` 收成独立 checkpoint 候选，并把剩余 shared-root 大头升级成可直接转发的二级 owner 矩阵。
+- 这轮实际做成了什么：
+  1. 已重新合法切片到：
+     - `xmind-pipeline-safe-checkpoint-and-owner-matrix-v2-2026-04-13`
+  2. 已把剩余 `236` 条 dirty 再压成 6 组明确责任簇：
+     - `spring-day1 = 48`
+     - `NPC = 47`
+     - `UI = 19`
+     - `树石修复 = 8`
+     - `Codex规则落地 own：Town/Home/Primary 基线链 = 76`
+     - `Codex规则落地 own：工具链/配置 = 38`
+  3. 已把此前未归位的 10 条尾巴全部定责：
+     - `DialogueDebugMenu.cs / SpringUiEvidenceMenu.cs / DialogueManager.cs / CraftingStationInteractable.cs / SpringDay1ProximityInteractionService.cs` -> `spring-day1`
+     - `DialogueChinese V2 SDF.asset` -> `UI`
+     - `TilemapSelectionToColliderWorkflow.cs / TilemapToColliderObjects.cs / FarmAnimalPrefabBuilder.cs(.meta)` -> `Codex规则落地 own：Town/Home/Primary 基线链`
+  4. 已查实 `.kiro/xmind-pipeline` 的真 blocker 不是工程本身坏掉，而是引用的章节标题漂移：
+     - 初次 `npm run smoke` / `npm run test` 都报：
+       `无法在来源 plan-overview 中找到章节：### 7.4 当前阶段的治理与验收补记`
+     - 已修复 [topic-blueprints.ts](D:/Unity/Unity_learning/Sunset/.kiro/xmind-pipeline/src/config/topic-blueprints.ts) 中该引用到新标题 `### 7.4 当前阶段的收口条件补记`
+     - 修后 `npm run smoke` 与 `npm run test` 均已通过
+  5. 已新增第二轮治理产物：
+     - `2026-04-13_给典狱长_shared-root剩余大头二级拆分与owner定责矩阵_02.md`
+     - `2026-04-13_shared-root剩余大头警匪分流批次_02.md`
+     - `给 spring-day1 / NPC / UI / 树石修复` 的 `02` 版 prompt
+     - 上述 `02` 版 prompt 已统一补上 `thread-state` 接线尾巴
+- 关键判断：
+  - 现在 shared-root 已经不是“还很多、先别动”的模糊现场，而是：
+    - 别的线程各自有明牌 own 簇；
+    - 治理线程自己则可以先独立收 `.kiro/xmind-pipeline`，再单独处理 `ProjectSettings` 与 Town/Home 基线链。
+- 当前恢复点：
+  - 下一步先做本轮 own 变更的 pre-sync 与最小提交；
+  - 提交后给用户直接可转发的 `02` 版壳，并继续把 `Codex规则落地 own` 里可独立收的部分往下砍。
