@@ -1,4 +1,5 @@
 using System.Collections;
+using System;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -13,6 +14,10 @@ namespace Sunset.Story
     [RequireComponent(typeof(Collider2D))]
     public class SceneTransitionTrigger2D : MonoBehaviour
     {
+        private const string PrimaryHomeEntryAnchorName = "PrimaryHomeEntryAnchor";
+        private const string HomeEntryAnchorName = "HomeEntryAnchor";
+        private const string TownOpeningEntryAnchorName = "EnterVillageCrowdRoot";
+
         [Header("目标场景")]
 #if UNITY_EDITOR
         [SerializeField] private SceneAsset targetSceneAsset;
@@ -212,13 +217,30 @@ namespace Sunset.Story
             if (string.Equals(name, "HomeDoor", System.StringComparison.Ordinal) &&
                 string.Equals(TargetSceneName, "Primary", System.StringComparison.Ordinal))
             {
-                return "PrimaryHomeEntryAnchor";
+                return PrimaryHomeEntryAnchorName;
             }
 
             if (string.Equals(name, "PrimaryHomeDoor", System.StringComparison.Ordinal) &&
                 string.Equals(TargetSceneName, "Home", System.StringComparison.Ordinal))
             {
-                return "HomeEntryAnchor";
+                return HomeEntryAnchorName;
+            }
+
+            if (!string.Equals(name, "SceneTransitionTrigger", StringComparison.Ordinal))
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(gameObject.scene.name, "Town", StringComparison.Ordinal) &&
+                string.Equals(TargetSceneName, "Primary", StringComparison.Ordinal))
+            {
+                return PrimaryHomeEntryAnchorName;
+            }
+
+            if (string.Equals(gameObject.scene.name, "Primary", StringComparison.Ordinal) &&
+                string.Equals(TargetSceneName, "Town", StringComparison.Ordinal))
+            {
+                return TownOpeningEntryAnchorName;
             }
 
             return string.Empty;
@@ -258,6 +280,16 @@ namespace Sunset.Story
                 postActivationSettleFrames);
         }
 
+        public static bool TryBlink(
+            Action onBlackout,
+            float fadeOutDuration = 0.08f,
+            float blackScreenHoldDuration = 0.04f,
+            float fadeInDuration = 0.08f)
+        {
+            SceneTransitionRunner runner = EnsureInstance();
+            return runner.StartBlink(onBlackout, fadeOutDuration, blackScreenHoldDuration, fadeInDuration);
+        }
+
         private static SceneTransitionRunner EnsureInstance()
         {
             if (_instance != null)
@@ -266,7 +298,11 @@ namespace Sunset.Story
             }
 
             GameObject runnerObject = new GameObject(RunnerObjectName);
-            DontDestroyOnLoad(runnerObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(runnerObject);
+            }
+
             _instance = runnerObject.AddComponent<SceneTransitionRunner>();
             return _instance;
         }
@@ -280,7 +316,11 @@ namespace Sunset.Story
             }
 
             _instance = this;
-            DontDestroyOnLoad(gameObject);
+            if (Application.isPlaying)
+            {
+                DontDestroyOnLoad(gameObject);
+            }
+
             BuildOverlay();
         }
 
@@ -307,6 +347,21 @@ namespace Sunset.Story
                     blackScreenHoldDuration,
                     fadeInDuration,
                     postActivationSettleFrames));
+        }
+
+        private bool StartBlink(
+            Action onBlackout,
+            float fadeOutDuration,
+            float blackScreenHoldDuration,
+            float fadeInDuration)
+        {
+            if (_isBusy)
+            {
+                return false;
+            }
+
+            StartCoroutine(BlinkRoutine(onBlackout, fadeOutDuration, blackScreenHoldDuration, fadeInDuration));
+            return true;
         }
 
         private IEnumerator TransitionRoutine(
@@ -346,6 +401,40 @@ namespace Sunset.Story
                 {
                     yield return null;
                 }
+
+                if (blackScreenHoldDuration > 0f)
+                {
+                    yield return new WaitForSecondsRealtime(blackScreenHoldDuration);
+                }
+
+                yield return FadeTo(0f, fadeInDuration);
+            }
+            finally
+            {
+                if (_canvasGroup != null)
+                {
+                    _canvasGroup.alpha = 0f;
+                }
+
+                SetOverlayInputBlock(false);
+                RestoreGameplayInput();
+                _isBusy = false;
+            }
+        }
+
+        private IEnumerator BlinkRoutine(
+            Action onBlackout,
+            float fadeOutDuration,
+            float blackScreenHoldDuration,
+            float fadeInDuration)
+        {
+            _isBusy = true;
+            CacheAndBlockGameplayInput();
+            SetOverlayInputBlock(true);
+            try
+            {
+                yield return FadeTo(1f, fadeOutDuration);
+                onBlackout?.Invoke();
 
                 if (blackScreenHoldDuration > 0f)
                 {

@@ -83,16 +83,12 @@ namespace Sunset.Service.Camera
             // 自动获取引用
             if (cinemachineCamera == null)
             {
-                cinemachineCamera = GetComponentInParent<CinemachineCamera>();
-                if (cinemachineCamera == null)
-                {
-                    cinemachineCamera = FindFirstObjectByType<CinemachineCamera>();
-                }
+                cinemachineCamera = ResolveCinemachineCamera();
             }
             
             if (mainCamera == null)
             {
-                mainCamera = UnityEngine.Camera.main;
+                mainCamera = ResolveMainCamera();
             }
 
             CaptureDefaultCameraRect();
@@ -412,27 +408,18 @@ namespace Sunset.Service.Camera
                 return bestCandidate;
             }
 
-            GameObject[] taggedPlayers = GameObject.FindGameObjectsWithTag("Player");
-            for (int index = 0; index < taggedPlayers.Length; index++)
-            {
-                Transform candidate = taggedPlayers[index] != null ? taggedPlayers[index].transform : null;
-                if (!IsUsableTrackingTarget(candidate))
-                {
-                    continue;
-                }
-
-                if (candidate.TryGetComponent<Rigidbody2D>(out _))
-                {
-                    return candidate;
-                }
-            }
-
             return null;
         }
 
         private bool HasUsableTrackingTarget()
         {
-            return cinemachineCamera != null && IsUsableTrackingTarget(cinemachineCamera.Follow);
+            if (cinemachineCamera == null || !IsUsableTrackingTarget(cinemachineCamera.Follow))
+            {
+                return false;
+            }
+
+            Transform bestCandidate = ResolveTrackingTarget(SceneManager.GetActiveScene());
+            return bestCandidate != null && cinemachineCamera.Follow == bestCandidate;
         }
 
         private static bool IsUsableTrackingTarget(Transform candidate)
@@ -499,41 +486,62 @@ namespace Sunset.Service.Camera
                 return parentCamera;
             }
 
+            Scene preferredScene = mainCamera != null
+                ? mainCamera.gameObject.scene
+                : SceneManager.GetActiveScene();
+            CinemachineCamera bestCamera = null;
+            int bestScore = int.MinValue;
             var cameras = FindObjectsByType<CinemachineCamera>(FindObjectsSortMode.None);
             for (int index = 0; index < cameras.Length; index++)
             {
-                if (IsUsableSceneObject(cameras[index]))
+                CinemachineCamera candidate = cameras[index];
+                if (!IsUsableSceneObject(candidate))
                 {
-                    return cameras[index];
+                    continue;
+                }
+
+                int score = ScoreCinemachineCameraCandidate(candidate, preferredScene);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCamera = candidate;
                 }
             }
 
-            return null;
+            return bestCamera;
         }
 
         private UnityEngine.Camera ResolveMainCamera()
         {
-            if (IsUsableSceneObject(mainCamera))
+            if (IsUsableWorldCamera(mainCamera))
             {
                 return mainCamera;
             }
 
-            UnityEngine.Camera taggedMainCamera = UnityEngine.Camera.main;
-            if (IsUsableSceneObject(taggedMainCamera))
-            {
-                return taggedMainCamera;
-            }
+            Scene preferredScene = cinemachineCamera != null
+                ? cinemachineCamera.gameObject.scene
+                : SceneManager.GetActiveScene();
 
+            UnityEngine.Camera bestCamera = null;
+            int bestScore = int.MinValue;
             var cameras = FindObjectsByType<UnityEngine.Camera>(FindObjectsSortMode.None);
             for (int index = 0; index < cameras.Length; index++)
             {
-                if (IsUsableSceneObject(cameras[index]))
+                UnityEngine.Camera candidate = cameras[index];
+                if (!IsUsableWorldCamera(candidate))
                 {
-                    return cameras[index];
+                    continue;
+                }
+
+                int score = ScoreWorldCameraCandidate(candidate, preferredScene);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCamera = candidate;
                 }
             }
 
-            return null;
+            return bestCamera;
         }
 
         private static bool IsUsableSceneObject(UnityEngine.Object candidate)
@@ -550,6 +558,84 @@ namespace Sunset.Service.Camera
             }
 
             return true;
+        }
+
+        private static bool IsUsableWorldCamera(UnityEngine.Camera candidate)
+        {
+            return candidate != null &&
+                   candidate.enabled &&
+                   candidate.targetTexture == null &&
+                   IsUsableSceneObject(candidate);
+        }
+
+        private static int ScoreWorldCameraCandidate(UnityEngine.Camera candidate, Scene preferredScene)
+        {
+            if (!IsUsableWorldCamera(candidate))
+            {
+                return int.MinValue;
+            }
+
+            int score = 0;
+            Scene activeScene = SceneManager.GetActiveScene();
+            Scene candidateScene = candidate.gameObject.scene;
+
+            if (candidate.CompareTag("MainCamera"))
+            {
+                score += 220;
+            }
+
+            CinemachineBrain brain = candidate.GetComponent<CinemachineBrain>();
+            if (brain != null && brain.enabled)
+            {
+                score += 200;
+            }
+
+            if (preferredScene.IsValid() && preferredScene.isLoaded && candidateScene == preferredScene)
+            {
+                score += 180;
+            }
+
+            if (activeScene.IsValid() && activeScene.isLoaded && candidateScene == activeScene)
+            {
+                score += 140;
+            }
+
+            score += Mathf.RoundToInt(Mathf.Clamp(candidate.depth, -20f, 20f));
+            return score;
+        }
+
+        private static int ScoreCinemachineCameraCandidate(CinemachineCamera candidate, Scene preferredScene)
+        {
+            if (!IsUsableSceneObject(candidate))
+            {
+                return int.MinValue;
+            }
+
+            int score = 0;
+            Scene activeScene = SceneManager.GetActiveScene();
+            Scene candidateScene = candidate.gameObject.scene;
+
+            if (preferredScene.IsValid() && preferredScene.isLoaded && candidateScene == preferredScene)
+            {
+                score += 180;
+            }
+
+            if (activeScene.IsValid() && activeScene.isLoaded && candidateScene == activeScene)
+            {
+                score += 140;
+            }
+
+            if (candidate.Follow != null && candidate.Follow.TryGetComponent<global::PlayerMovement>(out _))
+            {
+                score += 220;
+            }
+
+            if (candidate.Priority.Enabled)
+            {
+                score += Mathf.RoundToInt(Mathf.Clamp(candidate.Priority.Value, -50f, 50f));
+            }
+
+            return score;
         }
 
         
@@ -1236,16 +1322,12 @@ namespace Sunset.Service.Camera
         {
             if (cinemachineCamera == null)
             {
-                cinemachineCamera = GetComponentInParent<CinemachineCamera>();
-                if (cinemachineCamera == null)
-                {
-                    cinemachineCamera = FindFirstObjectByType<CinemachineCamera>();
-                }
+                cinemachineCamera = ResolveCinemachineCamera();
             }
             
             if (mainCamera == null)
             {
-                mainCamera = UnityEngine.Camera.main;
+                mainCamera = ResolveMainCamera();
             }
             
             SetupConfiner();
