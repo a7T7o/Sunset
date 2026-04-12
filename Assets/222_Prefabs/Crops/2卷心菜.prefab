@@ -131,8 +131,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 16e787772292ea4448c4adf419da036f, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   stages:
   - daysToNextStage: 2
     normalSprite: {fileID: -848039026, guid: e0214536be996294c9d0ae694950b684, type: 3}
@@ -156,10 +156,10 @@ MonoBehaviour:
   enableMatureGlow: 1
   glowSpeed: 2
   glowColor: {r: 1, g: 1, b: 0.8, a: 1}
-  needsWatering: 0
+  needsWatering: 1
   daysUntilWithered: 3
   daysUntilOverMature: 2
-  persistentId: 
+  persistentId:
   showDebugInfo: 1
 --- !u!61 &7595010805505132289
 BoxCollider2D:

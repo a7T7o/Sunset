@@ -1,0 +1,54 @@
+{
+  "version": "1.0",
+  "anchors": [
+    {
+      "anchorName": "EnterVillageCrowdRoot",
+      "worldPosition": {
+        "x": -34.5,
+        "y": 15.8
+      }
+    },
+    {
+      "anchorName": "KidLook_01",
+      "worldPosition": {
+        "x": -30.8,
+        "y": 13.9
+      }
+    },
+    {
+      "anchorName": "NightWitness_01",
+      "worldPosition": {
+        "x": -6.4,
+        "y": 18.7
+      }
+    },
+    {
+      "anchorName": "DinnerBackgroundRoot",
+      "worldPosition": {
+        "x": -17.2,
+        "y": 8.6
+      }
+    },
+    {
+      "anchorName": "DailyStand_01",
+      "worldPosition": {
+        "x": -14.1,
+        "y": 3.2
+      }
+    },
+    {
+      "anchorName": "DailyStand_02",
+      "worldPosition": {
+        "x": -9.4,
+        "y": 1.5
+      }
+    },
+    {
+      "anchorName": "DailyStand_03",
+      "worldPosition": {
+        "x": -3.6,
+        "y": 4.1
+      }
+    }
+  ]
+}

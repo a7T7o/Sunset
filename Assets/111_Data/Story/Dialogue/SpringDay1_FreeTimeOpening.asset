@@ -1,0 +1,121 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
+  m_Name: SpringDay1_FreeTimeOpening
+  m_EditorClassIdentifier:
+  sequenceId: spring-day1-free-time-opening
+  nodes:
+  - speakerName: ""
+    text: （村里的灯一盏一盏暗下去，只剩几处还留着人声和火光。屋门合上之后，这地方反而更像它本来的样子。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 村民
+    text: 铁匠铺那边还亮着灯，老乔治今天怕是又要收得很晚。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村民
+    text: 听说他明天还得去看村口那几把裂开的锄头，今晚不把火收利索，早上又要骂人。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村民
+    text: 河边那只小船还没拴好，老汤姆多半又要摸黑收最后一趟。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村民
+    text: 老杰克刚从田埂那边回来，说今晚的露水气味不对。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 小米
+    text: 娘说别老盯着那个外乡人，可大家都在偷偷看他。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村民
+    text: 村长既然把人塞进来了，明天总得让他下地试一试。能不能留，不是今晚一张嘴说了算。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 小孩
+    text: 那个外乡人还没睡啊……
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 小孩
+    text: 他明天真的会去帮忙吗？
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （他们仍在用余光看我。可和白天比起来，那股警惕已经没那么锋利，像是这个村子先把我放进了门里，又没有真正把我算进去。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （他们给我的，只是一块能先站住脚的地方。明天要不要把我算进去，还得看我能不能活过这一夜，也能不能在天亮后做出点什么。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  canSkip: 1
+  defaultTypingSpeed: 45
+  markLanguageDecodedOnComplete: 0
+  advanceStoryPhaseOnComplete: 0
+  nextStoryPhase: 0
+  followupSequence: {fileID: 0}

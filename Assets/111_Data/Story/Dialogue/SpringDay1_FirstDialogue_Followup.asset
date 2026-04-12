@@ -24,7 +24,7 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: 旅人
-    text: 我……我居然真的听懂了。这里到底是什么地方？
+    text: 我……我居然真的听懂了。我这是掉到了矿洞外？
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -33,7 +33,16 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: 村长
-    text: 这里是落日村的矿洞外缘。先别问了，那边的动静不对。
+    text: 能动就先跟着我，脚下别踩空。这里不是让你慢慢想明白的地方。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 先别问。听那边的声音，已经往外爬了。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -42,7 +51,7 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: ""
-    text: （矿洞深处传来骨头拖地的声响。那不是风声，也不像人。）
+    text: （矿洞深处传来骨头拖地的声响。那不是风声，也不像人，像有什么东西正沿着石壁朝我们摸过来。）
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -50,8 +59,17 @@ MonoBehaviour:
     isBubble: 0
     fontStyleKey: narration
     typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 那到底是什么东西？它一直在追我们？
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
   - speakerName: 村长
-    text: 跟紧我。先离开这里，进村再说。
+    text: 骷髅闻到活人的味就会追出来。跟紧我，沿着山路跑，别回头。先离开这里，进村再说。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -60,7 +78,7 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: 旅人
-    text: 好，我跟你走。
+    text: 好，我跟你走。你带路，我不会掉队。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}

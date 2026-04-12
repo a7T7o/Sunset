@@ -36,8 +36,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.85, y: 0.85, z: 0.85}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -113,7 +113,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage: 
+  m_WarningMessage:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -128,8 +128,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45a3d1d4bd5a8744aa9ed982679f875a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   sortingOrderMultiplier: 100
   sortingOrderOffset: 0
   useSpriteBounds: 1
@@ -220,12 +220,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e004ed4ea9953478ba4e8cd978ce83, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animator: {fileID: 3844086481874564336}
   spriteRenderer: {fileID: 6810934365131530715}
   idleAnimationSpeed: 1
   moveAnimationSpeed: 1
+  useCustomFacingVisualMap: 0
+  animatorDirectionWhenFacingDown: 0
+  animatorDirectionWhenFacingUp: 1
+  animatorDirectionWhenFacingRight: 2
+  animatorDirectionWhenFacingLeft: 2
+  flipXWhenFacingDown: 0
+  flipXWhenFacingUp: 0
+  flipXWhenFacingRight: 0
+  flipXWhenFacingLeft: 1
   showDebugLog: 0
 --- !u!114 &4098858840886516713
 MonoBehaviour:
@@ -237,8 +246,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 160b8ec8fa40bf4488cc674ecc3ac425, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animController: {fileID: 8917976443269091304}
   rb: {fileID: 5341929371157957998}
   moveSpeed: 2.5
@@ -262,11 +271,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ac174c341f38786448acc149c20ffde3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   targetRenderer: {fileID: 6810934365131530715}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0.08, y: 1.46, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.46, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
   bubblePadding: {x: 82, y: 42}
   maxTextWidth: 315
@@ -287,7 +296,7 @@ MonoBehaviour:
   tailBobAmplitude: 26
   tailBobFrequency: 0.85
   bubbleBorderColor: {r: 0.92, g: 0.79, b: 0.56, a: 1}
-  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 0.96}
+  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 1}
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
   textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
   textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
@@ -297,11 +306,11 @@ MonoBehaviour:
   hideDuration: 0.1
   showScaleOvershoot: 0.05
   selfTalkLines:
-  - "\u6211\u628A\u5B89\u795E\u8349\u548C\u5C0F\u767D\u82B1\u624E\u5728\u4E00\u8D77\uFF0C\u95FB\u8D77\u6765\u5C31\u6CA1\u90A3\u4E48\u82E6\u3002"
-  - "\u6751\u957F\u8DD1\u4E86\u4E5F\u597D\uFF0C\u81F3\u5C11\u4EE5\u540E\u6CA1\u4EBA\u62FF\u82B1\u675F\u88C5\u4F53\u9762\u4E86\u3002"
-  - "\u53EA\u8981\u82B1\u8FD8\u5F00\u7740\uFF0C\u6751\u91CC\u5C31\u4E0D\u8BE5\u53EA\u5269\u6101\u7709\u82E6\u8138\u3002"
+  - "\u665A\u996D\u90A3\u9635\u706B\u6C14\u592A\u91CD\uFF0C\u6211\u5C31\u628A\u5B89\u795E\u8349\u591A\u624E\u4E86\u51E0\u675F\u6302\u5728\u95E8\u8FB9\u3002"
+  - "\u6709\u4EBA\u5634\u4E0A\u8BF4\u4E0D\u7528\uFF0C\u624B\u5374\u4F1A\u5728\u82B1\u675F\u8FB9\u505C\u4E00\u4E0B\uFF0C\u50CF\u6015\u628A\u591C\u91CC\u7684\u614C\u5E26\u56DE\u5C4B\u3002"
+  - "\u660E\u65E9\u644A\u5B50\u8FD8\u662F\u7167\u5E38\u6446\uFF0C\u6211\u53EF\u4E0D\u60F3\u8BA9\u6751\u91CC\u53EA\u5269\u4E00\u8138\u7070\u8272\u3002"
   showDebugLog: 0
-  styleVersion: 10
+  styleVersion: 13
 --- !u!114 &6396743862972799364
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -312,8 +321,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd5b960b4766650449a960eda299b830, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   motionController: {fileID: 4098858840886516713}
   bubblePresenter: {fileID: 5188396733274292721}
   rb: {fileID: 5341929371157957998}
@@ -336,13 +345,18 @@ MonoBehaviour:
   ambientChatChance: 0.75
   ambientChatResponseDelay: 0.85
   chatInitiatorLines:
-  - "\u6211\u8BA8\u538C\u518D\u5FCD\u5FCD\u5C31\u597D\u8FD9\u79CD\u8BDD\uFF0C\u6240\u4EE5\u53EA\u7ED9\u4EBA\u80FD\u95FB\u5230\u7684\u5B89\u7A33\u3002"
-  - "\u82B1\u5F00\u5F97\u8D8A\u4EAE\uFF0C\u6211\u8D8A\u89C9\u5F97\u90A3\u4E2A\u4EBA\u8DD1\u5F97\u5FC3\u865A\u3002"
+  - "\u6211\u4E0D\u62E6\u4EBA\u8BAE\u8BBA\uFF0C\u53EA\u662F\u4E0D\u60F3\u6563\u573A\u540E\u6BCF\u6247\u95E8\u91CC\u90FD\u53EA\u5269\u4E00\u80A1\u614C\u5473\u3002"
+  - "\u660E\u65E9\u7167\u5E38\u6446\u82B1\uFF0C\u4E0D\u662F\u88C5\u6CA1\u4E8B\uFF0C\u662F\u63D0\u9192\u5927\u5BB6\u522B\u628A\u81EA\u5DF1\u4E5F\u6D3B\u6210\u67AF\u8272\u3002"
   chatResponderLines:
-  - "\u55EF\uFF0C\u6211\u5C31\u662F\u4E0D\u60F3\u8BA9\u6751\u91CC\u4E00\u591C\u4E4B\u95F4\u53EA\u5269\u571F\u8272\u3002"
-  - "\u771F\u8981\u6709\u4EBA\u6015\u9ED1\uFF0C\u6211\u5C31\u5148\u628A\u8FD9\u70B9\u4EAE\u8272\u5B88\u4F4F\u3002"
+  - "\u5BF9\u5440\uFF0C\u54EA\u6015\u53EA\u662F\u4E00\u5C0F\u675F\u5B89\u795E\u8349\uFF0C\u4E5F\u591F\u8BA9\u4EBA\u4ECE\u56DE\u5C4B\u90A3\u51E0\u6B65\u91CC\u7F13\u4E00\u53E3\u6C14\u3002"
+  - "\u6751\u91CC\u8981\u771F\u60F3\u6491\u4F4F\uFF0C\u706B\u6C14\u65C1\u8FB9\u603B\u5F97\u7559\u70B9\u80FD\u5B89\u795E\u7684\u4E1C\u897F\u3002"
   waypointTolerance: 0.08
   destinationTolerance: 0.12
+  enforceNavGridBounds: 1
+  allowTraversalOverridePhysicsSoftPass: 1
+  navigationFootProbeVerticalInset: 0.08
+  navigationFootProbeSideInset: 0.05
+  navigationFootProbeExtraRadius: 0.02
   stuckCheckInterval: 0.3
   stuckDistanceThreshold: 0.08
   maxStuckRecoveries: 3
@@ -362,8 +376,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3ea269b9d9b843e2bbd17ff2676fca3a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   interactionHint: "\u95F2\u804A"
   interactionDistance: 1.15
   sessionBreakDistance: 1.85

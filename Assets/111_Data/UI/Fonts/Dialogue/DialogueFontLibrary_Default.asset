@@ -11,30 +11,30 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2e03d75ba4b948168e783e5388493420, type: 3}
   m_Name: DialogueFontLibrary_Default
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   defaultKey: default
   entries:
   - key: default
-    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
+    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: speaker_name
-    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
+    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: inner_monologue
-    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
+    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: garbled
-    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
+    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: retro
-    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
+    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0
   - key: narration
-    fontAsset: {fileID: 11400000, guid: 31e1cd04017345b78c2a157d7af8d398, type: 2}
+    fontAsset: {fileID: 11400000, guid: 07d6bf6bf0c00b645ad0511980bf13a7, type: 2}
     fontSizeOffset: 0
     lineSpacingOffset: 0

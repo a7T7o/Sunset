@@ -1,0 +1,33 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f5659cd1900e6c4ebd245f17fe88400, type: 3}
+  m_Name: Recipe_9120_Storage_1403
+  m_EditorClassIdentifier:
+  recipeID: 9120
+  recipeName: Storage_1403
+  description: 更大容量的铁箱，补上工作台里的最终箱体展示档位。
+  resultItemID: 1403
+  resultAmount: 1
+  ingredients:
+  - itemID: 3200
+    amount: 10
+  - itemID: 3101
+    amount: 8
+  requiredStation: 5
+  requiredLevel: 1
+  craftingTime: 5
+  unlockedByDefault: 1
+  requiredSkillType: 2
+  requiredSkillLevel: 1
+  isHiddenRecipe: 0
+  unlockCondition:
+  craftingExp: 16

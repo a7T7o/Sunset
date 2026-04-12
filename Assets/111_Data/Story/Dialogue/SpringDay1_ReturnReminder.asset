@@ -1,0 +1,130 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
+  m_Name: SpringDay1_ReturnReminder
+  m_EditorClassIdentifier:
+  sequenceId: spring-day1-reminder
+  nodes:
+  - speakerName: ""
+    text: （摊板一扇扇合上，屋檐下的灯也比刚才更暗了。白天还热闹的村路，开始一截一截收回影子里。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 今晚要睡就回住处去。门窗我让人补过，撑一晚够了。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 白天那些人……好像都还在看着我。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 村子不怕穷，怕的是来路不明。先活过今晚，明天再慢慢让大家看清你。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 卡尔说得也没错。换成我，大概也不会轻易信一个从矿洞里摔出来的人。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 你能这么想，不算坏事。可今晚别再琢磨怎么证明自己，先把命保住。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 两点之后会怎样？
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 别拿这事试。夜里这片地，不喜欢还醒着的人。我没兴趣半夜出去把你从路边拖回来。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 还有，记牢了。两点之前必须睡下。这不是吓唬你的规矩。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 真到了那时候，路会像认不得人，风声也不像风声。你只要记住一件事：别让自己留在外面。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （那不像老人家随口拿来吓人的话。他说得太平静，像是真的见过有人把夜里走成回不来的样子。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: ……我记住了。今晚先把状态稳住，明天再想办法让他们看到我不是白吃白住。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  canSkip: 1
+  defaultTypingSpeed: 45
+  markLanguageDecodedOnComplete: 0
+  advanceStoryPhaseOnComplete: 0
+  nextStoryPhase: 0
+  followupSequence: {fileID: 0}

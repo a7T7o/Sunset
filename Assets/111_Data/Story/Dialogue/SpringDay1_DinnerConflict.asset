@@ -1,0 +1,121 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
+  m_Name: SpringDay1_DinnerConflict
+  m_EditorClassIdentifier:
+  sequenceId: spring-day1-dinner
+  nodes:
+  - speakerName: 饭馆村民
+    text: 先坐吧，汤还热着。折腾了一整天，总得先把肚子垫起来。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （热气总算把手指上的凉意赶开了一点。直到这一刻，我才像是真的吃上了今天第一顿饭。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 卡尔
+    text: 凭什么让一个来历不明的人先吃村里的粮？矿洞那边捡回来的人，谁知道会带来什么。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 卡尔
+    text: 白天把他带进村已经够冒险了，现在还要把吃的、药和住处都往他身上搭？村里不是拿来赌运气的。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 人是我带回来的。今晚这一口算在我头上。你要有话，明天再冲我来。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 他现在连伤都没好利索。卡尔，你非要挑今晚跟他过不去吗？
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 如果一碗汤也算欠债，那我记下。等我能站稳，我会把今天吃下去的都还上。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 卡尔
+    text: 我不是要你嘴上还。我只提醒你们，别因为一时心软，把村子往更麻烦的地方推。明天要是真能下地、能做活，再来谈你是不是累赘。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 饭馆村民
+    text: 汤要凉了，都少说两句。真要看他值不值得留下，也该等明天见了活再吵。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （桌边短暂安静了下来，没人再接话。热汤还在冒气，可那股敌意没有跟着散掉。这个村子只是暂时容下了我，还没有谁真正把我当成自己人。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （这顿饭把我留在了桌边，却也把明天压到了眼前。要不要把我算进这个村子，看来不是今晚一句话能定下来的。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  canSkip: 1
+  defaultTypingSpeed: 45
+  markLanguageDecodedOnComplete: 0
+  advanceStoryPhaseOnComplete: 0
+  nextStoryPhase: 0
+  followupSequence: {fileID: 0}

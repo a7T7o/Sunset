@@ -1,0 +1,139 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
+  m_Name: SpringDay1_Healing
+  m_EditorClassIdentifier:
+  sequenceId: spring-day1-healing
+  nodes:
+  - speakerName: 艾拉
+    text: 先别动。我得先看看伤口裂到哪儿了，不然一会儿施术也压不住血。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 你们为什么愿意救我？我连自己为什么会掉在这里都说不清。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 救你，是因为你还活着，不是因为大家已经信任你了。先把伤稳下来。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 还有，你这身衣料、缝法，还有你说话的调子，都不像这附近的人。等你能坐稳了，我还要再问。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 我脑子里只剩碎片。石头、风声、还有一路被什么东西追着跑……剩下的全是空白。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 艾拉，先把人救下来。来历的事，等他今晚不会死在我们村里，再慢慢问。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 伤口我能先替你压住，但这不代表你已经没事了。今天别逞强，先学着看清自己还能撑到哪一步。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （温热的光顺着伤口压下来，疼痛像被一层厚布慢慢按住。至少今晚，我不会马上死在这里。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （那股暖意压住伤口的同时，意识里像被硬生生刻出一道清楚的刻度。我第一次真切知道，自己还剩下多少命。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 我好像……能感觉到自己还剩多少力气。像是身体里忽然多了一道不会说谎的底线。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 那就别再装作感觉不到。村里眼下不会因为你可怜就一直让着你，先学会在这条底线上活。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 能感觉到底线就记牢。后面无论下地还是干活，都别再把自己耗到躺回去。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 既然命先拽回来了，就跟我去看看村里还能让你活下去的东西。空着手的人，在这里熬不过太久。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  canSkip: 1
+  defaultTypingSpeed: 45
+  markLanguageDecodedOnComplete: 0
+  advanceStoryPhaseOnComplete: 0
+  nextStoryPhase: 0
+  followupSequence: {fileID: 0}

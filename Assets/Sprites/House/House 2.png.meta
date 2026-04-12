@@ -104,21 +104,17 @@ TextureImporter:
       rect:
         serializedVersion: 2
         x: 7
-        y: 19
+        y: 27
         width: 258
-        height: 200
+        height: 192
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape:
-      - - {x: -96, y: -86}
-        - {x: -63, y: -86}
-        - {x: -61, y: -98}
-        - {x: -35, y: -98}
-        - {x: -33, y: -86}
-        - {x: 96, y: -86}
+      - - {x: -96, y: -94}
+        - {x: 96, y: -94}
         - {x: 96, y: -16}
         - {x: -96, y: -16}
       tessellationDetail: 0
@@ -126,17 +122,65 @@ TextureImporter:
       spriteID: 2b9bfca64d315f260800000000000000
       internalID: 7130627388057041330
       vertices: []
-      indices: 
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: House 2_1
+      rect:
+        serializedVersion: 2
+        x: 74
+        y: 21
+        width: 28
+        height: 10
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape:
+      - - {x: -14, y: -5}
+        - {x: 14, y: -5}
+        - {x: 14, y: 5}
+        - {x: -14, y: 5}
+      tessellationDetail: 0
+      bones: []
+      spriteID: 38d116aa9826c5b4c9e76dab5e264456
+      internalID: 1431458087
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: House 2_2
+      rect:
+        serializedVersion: 2
+        x: 168
+        y: 20
+        width: 32
+        height: 11
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape: []
+      tessellationDetail: 0
+      bones: []
+      spriteID: 8b57ded13c5ea4c418afae5c730f87f0
+      internalID: 1038829937
+      vertices: []
+      indices:
       edges: []
       weights: []
     outline: []
-    customData: 
+    customData:
     physicsShape: []
     bones: []
     spriteID: c87fe26ad0e4a5749ae280a193804bd8
     internalID: 0
     vertices: []
-    indices: 
+    indices:
     edges: []
     weights: []
     secondaryTextures: []
@@ -144,8 +188,10 @@ TextureImporter:
       entries: []
     nameFileIdTable:
       House 2_0: 7130627388057041330
-  mipmapLimitGroupName: 
+      House 2_1: 1431458087
+      House 2_2: 1038829937
+  mipmapLimitGroupName:
   pSDRemoveMatte: 0
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:

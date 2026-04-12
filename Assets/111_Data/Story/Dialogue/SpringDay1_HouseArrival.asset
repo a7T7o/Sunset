@@ -15,7 +15,7 @@ MonoBehaviour:
   sequenceId: spring-day1-house-arrival
   nodes:
   - speakerName: 村长
-    text: 这屋子空了很多年，不是谁家的房间。先将就住下。等会儿我让艾拉过来看看你的伤。
+    text: 先在这边站稳。围观的人虽然散开了，可今晚还没人真把你算成自己人。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -23,8 +23,17 @@ MonoBehaviour:
     isBubble: 0
     fontStyleKey: default
     typingSpeedOverride: 0
+  - speakerName: ""
+    text: （村口那股注视只是退远了一点，没有真正散干净。这里先给了我一条路，却还没把我接成自己人。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
   - speakerName: 旅人
-    text: 这里……至少能挡风。谢谢你先把我带到安全的地方。
+    text: 这里……至少比矿洞口像活人该站的地方。谢谢你先把我带到这里。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -33,13 +42,40 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: 村长
-    text: 今晚先别乱走。先把命稳下来，别的事等天亮再说。
+    text: 我不是把你完全收进村子了，只是先给你一口喘气的地方。今晚别乱走，先把命稳下来。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
     isInnerMonologue: 0
     isBubble: 0
     fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 艾拉就在这附近。先让她把你的伤压住，别的事等天亮再说。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 今晚先给我一个落脚处，明天再决定要不要继续留我……是这个意思吧。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （村里的光和人声都还在不远处，我像是终于从矿洞口那边被拉回了活人的地方。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
     typingSpeedOverride: 0
   canSkip: 1
   defaultTypingSpeed: 45

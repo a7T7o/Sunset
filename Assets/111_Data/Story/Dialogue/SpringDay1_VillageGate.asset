@@ -23,8 +23,26 @@ MonoBehaviour:
     isBubble: 0
     fontStyleKey: default
     typingSpeedOverride: 0
+  - speakerName: 村民
+    text: 又是矿洞那边捡回来的？今晚村里还要把他放进来？
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
   - speakerName: 小孩
-    text: 他真的是从矿洞那边出来的吗？
+    text: 他真的是从矿洞那边出来的吗？身上全是灰……
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村民
+    text: 饭馆那边都听见你们回来的动静了。真要把他留在村里过夜？
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -33,7 +51,7 @@ MonoBehaviour:
     fontStyleKey: default
     typingSpeedOverride: 0
   - speakerName: ""
-    text: （所有人的目光都落在我身上。这里没有一个人真正把我当成自己人。）
+    text: （所有人的目光都落在我身上。这里没有一个人真正把我当成自己人，我只是被村长硬带进村里的外乡人。）
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -42,7 +60,7 @@ MonoBehaviour:
     fontStyleKey: narration
     typingSpeedOverride: 0
   - speakerName: 村长
-    text: 先让路。人是我带回来的，今晚的事由我担着。
+    text: 先让路。人是我带回来的，今晚的事由我担着。谁有话，等他先活过今晚再来问我。
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -50,9 +68,18 @@ MonoBehaviour:
     isBubble: 0
     fontStyleKey: default
     typingSpeedOverride: 0
+  - speakerName: ""
+    text: （他一句话把路压开了，可那不叫欢迎。更像是先替我挡下今晚，明天再把我重新推回所有人的眼睛里。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
   canSkip: 1
   defaultTypingSpeed: 45
   markLanguageDecodedOnComplete: 0
   advanceStoryPhaseOnComplete: 0
   nextStoryPhase: 0
-  followupSequence: {fileID: 11400000, guid: 8ecb8bb90c564b2289fec30b42625533, type: 2}
+  followupSequence: {fileID: 0}

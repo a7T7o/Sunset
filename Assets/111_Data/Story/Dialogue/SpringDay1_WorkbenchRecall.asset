@@ -1,0 +1,121 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6fd7c7e213ea3424784e4d44afe4baba, type: 3}
+  m_Name: SpringDay1_WorkbenchRecall
+  m_EditorClassIdentifier:
+  sequenceId: spring-day1-workbench
+  nodes:
+  - speakerName: 村长
+    text: 村里能用的东西都在这儿了。算不上多好，但这已经是村里现在最顶用、也最基础的台子。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 坏掉的农具、旧木箱、补过的门闩，大家平时都是在这张台子上将就修出来的。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 老乔治总说，手上这点家伙什不漂亮，可只要还能拼出能用的东西，人就不算被逼到绝路。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （木料、绑绳、刀口角度……这些步骤像从雾里一块一块浮出来。我明明不该熟悉，却偏偏知道下一步是什么。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （更深处还有一点模糊的残影：更整齐的台面、更亮的火光、有人在我身后纠正过握刀的角度。可名字和脸全都抓不住。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 木料要先分软硬，绑绳和箱钉也不能混着算……不，对，先把门闩和木箱拆成两套。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 你连这些碎话都会顺嘴说出来？刚才那一瞬，你像忽然想起了别的地方的活法。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 艾拉
+    text: 你刚才还半死不活，这会儿倒像手先醒了。你不是临时瞎猜，你是真的做过这些。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 我想不起是谁教过我，可这些步骤一落到手上，就像早就刻在骨头里。越是抓不住来处，越像不能让它就这么断掉。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 村长
+    text: 别把自己吓住。会这些就先拿来活下去，村里现在只要最基础、最顶用的那几样。老乔治见了，大概也只会嫌你手生。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  - speakerName: 旅人
+    text: 如果我明天还要留在这里，就先从这些最基础的活开始。我至少能替自己挣一口饭。
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 0
+    isBubble: 0
+    fontStyleKey: default
+    typingSpeedOverride: 0
+  canSkip: 1
+  defaultTypingSpeed: 45
+  markLanguageDecodedOnComplete: 0
+  advanceStoryPhaseOnComplete: 0
+  nextStoryPhase: 0
+  followupSequence: {fileID: 0}

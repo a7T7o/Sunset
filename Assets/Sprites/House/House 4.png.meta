@@ -103,42 +103,96 @@ TextureImporter:
       name: House 4_0
       rect:
         serializedVersion: 2
-        x: 18
-        y: 0
+        x: 15
+        y: 52
         width: 236
-        height: 297
+        height: 284
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape:
-      - - {x: -115, y: -144.5}
-        - {x: -45, y: -144.5}
-        - {x: -45.574753, y: -96.79579}
-        - {x: 99, y: -96.5}
-        - {x: 98, y: 42.5}
-        - {x: 15, y: 42.5}
-        - {x: 14, y: 8.5}
-        - {x: -46, y: 6.5}
-        - {x: -45.780388, y: -60.85309}
-        - {x: -115, y: -61.5}
+      - - {x: -112, y: -141}
+        - {x: 101, y: -142}
+        - {x: 100, y: -42}
+        - {x: 19, y: -42}
+        - {x: 19, y: -69}
+        - {x: -66, y: -69}
+        - {x: -67, y: -111}
+        - {x: -112, y: -111}
       tessellationDetail: 0
       bones: []
       spriteID: 8f668b589702bcfe0800000000000000
       internalID: -1167803972065925384
       vertices: []
-      indices: 
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: House 4_1
+      rect:
+        serializedVersion: 2
+        x: 21
+        y: 4
+        width: 70
+        height: 48
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape:
+      - - {x: -35, y: -24}
+        - {x: 35, y: -24}
+        - {x: 35, y: 24}
+        - {x: -35, y: 24}
+      tessellationDetail: 0
+      bones: []
+      spriteID: 4df82182fcc4fc844ad48a494ba09f61
+      internalID: 1784839323
+      vertices: []
+      indices:
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: House 4_2
+      rect:
+        serializedVersion: 2
+        x: 188
+        y: 0
+        width: 56
+        height: 52
+      alignment: 0
+      pivot: {x: 0.5, y: 0.5}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData:
+      outline: []
+      physicsShape:
+      - - {x: -28, y: -26}
+        - {x: -20, y: -26}
+        - {x: -20, y: -15}
+        - {x: -28, y: -15}
+      - - {x: 20, y: -26}
+        - {x: 28, y: -26}
+        - {x: 28, y: -15}
+        - {x: 20, y: -15}
+      tessellationDetail: 0
+      bones: []
+      spriteID: 07c80ddcbe8ffa54d955f79df870a5a2
+      internalID: 2111937301
+      vertices: []
+      indices:
       edges: []
       weights: []
     outline: []
-    customData: 
+    customData:
     physicsShape: []
     bones: []
     spriteID: 7dc4b747d71fd5f43816f84bfd816428
     internalID: 0
     vertices: []
-    indices: 
+    indices:
     edges: []
     weights: []
     secondaryTextures: []
@@ -146,8 +200,11 @@ TextureImporter:
       entries: []
     nameFileIdTable:
       House 4_0: -1167803972065925384
-  mipmapLimitGroupName: 
+      House 4_1: 1784839323
+      House 4_2: 2111937301
+      House 4_3: 957954135
+  mipmapLimitGroupName:
   pSDRemoveMatte: 0
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:

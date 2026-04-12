@@ -110,7 +110,7 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape:
       - - {x: -88, y: -76.5}
@@ -122,7 +122,7 @@ TextureImporter:
       spriteID: f39dbaf9a802dab90800000000000000
       internalID: -7229086047103362753
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
@@ -136,15 +136,11 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape:
       - - {x: -14, y: -2.5}
         - {x: -11, y: -5.5}
-        - {x: -7, y: -5.5}
-        - {x: -7, y: -4.5}
-        - {x: 7, y: -4.5}
-        - {x: 7, y: -5.5}
         - {x: 11, y: -5.5}
         - {x: 14, y: -2.5}
         - {x: 14, y: 5.5}
@@ -154,7 +150,7 @@ TextureImporter:
       spriteID: 6f86444634e3a0f4181aec76e4574c7a
       internalID: -2866058
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     - serializedVersion: 2
@@ -168,7 +164,7 @@ TextureImporter:
       alignment: 0
       pivot: {x: 0.5, y: 0.5}
       border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
+      customData:
       outline: []
       physicsShape: []
       tessellationDetail: 0
@@ -176,17 +172,17 @@ TextureImporter:
       spriteID: 8199f572ef7805f4bb6bb585ef6efb30
       internalID: 1079016527
       vertices: []
-      indices: 
+      indices:
       edges: []
       weights: []
     outline: []
-    customData: 
+    customData:
     physicsShape: []
     bones: []
     spriteID: 08cfb4c16cdf26e468e9ec1a024c1a35
     internalID: 0
     vertices: []
-    indices: 
+    indices:
     edges: []
     weights: []
     secondaryTextures: []
@@ -196,8 +192,8 @@ TextureImporter:
       House 1_0: -7229086047103362753
       House 1_1: -2866058
       House 1_2: 1079016527
-  mipmapLimitGroupName: 
+  mipmapLimitGroupName:
   pSDRemoveMatte: 0
-  userData: 
-  assetBundleName: 
-  assetBundleVariant: 
+  userData:
+  assetBundleName:
+  assetBundleVariant:

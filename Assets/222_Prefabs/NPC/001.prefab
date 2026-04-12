@@ -36,8 +36,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.85, y: 0.85, z: 0.85}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -113,7 +113,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage: 
+  m_WarningMessage:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -128,8 +128,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45a3d1d4bd5a8744aa9ed982679f875a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   sortingOrderMultiplier: 100
   sortingOrderOffset: 0
   useSpriteBounds: 1
@@ -175,8 +175,8 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0}
-    oldSize: {x: 1, y: 1}
-    newSize: {x: 1, y: 1}
+    oldSize: {x: 2, y: 2}
+    newSize: {x: 2, y: 2}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
     adaptiveTiling: 0
@@ -220,12 +220,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e004ed4ea9953478ba4e8cd978ce83, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animator: {fileID: 6743005759856267287}
   spriteRenderer: {fileID: 9071852026226074174}
   idleAnimationSpeed: 1
-  moveAnimationSpeed: 1
+  moveAnimationSpeed: 0.98
+  useCustomFacingVisualMap: 0
+  animatorDirectionWhenFacingDown: 0
+  animatorDirectionWhenFacingUp: 1
+  animatorDirectionWhenFacingRight: 2
+  animatorDirectionWhenFacingLeft: 2
+  flipXWhenFacingDown: 0
+  flipXWhenFacingUp: 0
+  flipXWhenFacingRight: 0
+  flipXWhenFacingLeft: 1
   showDebugLog: 0
 --- !u!114 &5652345856402202361
 MonoBehaviour:
@@ -237,12 +246,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 160b8ec8fa40bf4488cc674ecc3ac425, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animController: {fileID: 133949783660093393}
   rb: {fileID: 2100010010010010010}
-  moveSpeed: 2.5
+  moveSpeed: 2.4
   moveThreshold: 0.05
+  navigationAcceleration: 16
+  navigationDeceleration: 20
+  navigationRecoverAcceleration: 12
   useRigidbodyVelocity: 1
   autoDetectMovement: 1
   defaultFacingDirection: 0
@@ -259,13 +271,23 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 43516cef5f8d8124288b5bac8deba638, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  dialogueSequence: {fileID: 11400000, guid: ed6dd8752e5ce564db14b2c92ecf103c, type: 2}
+  m_Name:
+  m_EditorClassIdentifier:
+  initialSequence: {fileID: 11400000, guid: ed6dd8752e5ce564db14b2c92ecf103c, type: 2}
+  followupSequence: {fileID: 0}
   interactionHint: "\u5BF9\u8BDD"
   interactionDistance: 1.5
   interactionPriority: 30
   playOnlyOnce: 0
+  freezeRoamDuringDialogue: 1
+  facePlayerOnInteract: 1
+  autoRoamController: {fileID: 6526568457098644754}
+  motionController: {fileID: 5652345856402202361}
+  enableProximityKeyInteraction: 1
+  proximityInteractionKey: 101
+  keyInteractionCooldown: 0.15
+  bubbleRevealDistance: 1.5
+  bubbleCaption: "\u4EA4\u8C08"
 --- !u!114 &4586379750819969037
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -276,20 +298,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ac174c341f38786448acc149c20ffde3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   targetRenderer: {fileID: 9071852026226074174}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
   bubbleLocalOffset: {x: 0, y: 1.46, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
   bubblePadding: {x: 82, y: 42}
-  maxTextWidth: 290
+  maxTextWidth: 315
   minAdaptiveTextWidth: 64
   preferredCharactersPerLine: 10
   textSafePadding: {x: 24, y: 22}
   textVerticalOffset: -10
   borderThickness: 6
   tailSize: {x: 34, y: 24}
+  tailHorizontalBias: 18
   tailYOffset: -28
   shadowOffset: {x: 3, y: -5}
   sortingOrderOffset: 20
@@ -300,7 +323,7 @@ MonoBehaviour:
   tailBobAmplitude: 26
   tailBobFrequency: 0.85
   bubbleBorderColor: {r: 0.92, g: 0.79, b: 0.56, a: 1}
-  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 0.96}
+  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 1}
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
   textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
   textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
@@ -316,7 +339,7 @@ MonoBehaviour:
   - "\u98CE\u5411\u987A\uFF0C\u4ECA\u5929\u505A\u4E8B\u4F1A\u5229\u7D22\u4E9B\u3002"
   - "\u6162\u4E00\u70B9\u4E0D\u6253\u7D27\uFF0C\u522B\u5148\u628A\u8282\u594F\u4E71\u4E86\u3002"
   showDebugLog: 0
-  styleVersion: 7
+  styleVersion: 13
 --- !u!114 &6526568457098644754
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -327,8 +350,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd5b960b4766650449a960eda299b830, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   motionController: {fileID: 5652345856402202361}
   bubblePresenter: {fileID: 4586379750819969037}
   rb: {fileID: 2100010010010010010}
@@ -337,16 +360,42 @@ MonoBehaviour:
   roamProfile: {fileID: 11400000, guid: 0c11f4f44e5a4dbd93de8c2fd8c06001, type: 2}
   autoStart: 1
   applyProfileOnAwake: 1
-  activityRadius: 3
-  minimumMoveDistance: 0.6
+  activityRadius: 1.7
+  minimumMoveDistance: 0.5
   pathSampleAttempts: 12
-  shortPauseMin: 0.5
-  shortPauseMax: 3
+  shortPauseMin: 0.8
+  shortPauseMax: 2.6
   shortPauseCountMin: 3
-  shortPauseCountMax: 5
-  longPauseMin: 3
-  longPauseMax: 6
+  shortPauseCountMax: 4
+  longPauseMin: 4
+  longPauseMax: 6.8
+  enableAmbientChat: 1
+  ambientChatRadius: 2.8
+  ambientChatChance: 0.52
+  ambientChatResponseDelay: 0.9
+  chatInitiatorLines:
+  - "\u4ECA\u65E9\u6751\u91CC\u52A8\u9759\u4E0D\u5927\uFF0C\u5012\u662F\u4E2A\u505A\u4E8B\u7684\u597D\u65F6\u5019\u3002"
+  - "\u4F60\u90A3\u8FB9\u5FD9\u5B8C\u4E86\uFF1F\u5148\u628A\u811A\u8DDF\u7AD9\u7A33\u518D\u8BF4\u3002"
+  - "\u8DEF\u53E3\u8FD9\u4F1A\u513F\u4EBA\u6765\u4EBA\u5F80\uFF0C\u54B1\u4EEC\u90FD\u8BA9\u7740\u70B9\u3002"
+  - "\u6211\u521A\u770B\u4E86\u4E00\u5708\uFF0C\u5927\u5BB6\u4ECA\u5929\u7CBE\u795E\u90FD\u8FD8\u4E0D\u9519\u3002"
+  chatResponderLines:
+  - "\u55EF\uFF0C\u5148\u628A\u773C\u524D\u8FD9\u70B9\u4E8B\u7A33\u4F4F\u3002"
+  - "\u6211\u4E5F\u662F\u8FD9\u4E48\u60F3\u7684\uFF0C\u6025\u4E0D\u5F97\u3002"
+  - "\u884C\uFF0C\u7B49\u4F1A\u513F\u6211\u518D\u53BB\u522B\u5904\u770B\u770B\u3002"
+  - "\u6709\u4F60\u642D\u53E5\u8BDD\uFF0C\u5012\u662F\u6E05\u695A\u591A\u4E86\u3002"
   waypointTolerance: 0.08
   destinationTolerance: 0.12
+  enforceNavGridBounds: 1
+  allowTraversalOverridePhysicsSoftPass: 1
+  navigationFootProbeVerticalInset: 0.08
+  navigationFootProbeSideInset: 0.05
+  navigationFootProbeExtraRadius: 0.02
+  stuckCheckInterval: 0.3
+  stuckDistanceThreshold: 0.08
+  maxStuckRecoveries: 3
   showDebugLog: 0
   drawDebugPath: 1
+  avoidanceRadius: 0.6
+  avoidancePriority: 50
+  sharedAvoidanceLookAhead: 0.8
+  sharedAvoidanceRepathCooldown: 0.45

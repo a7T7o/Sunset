@@ -1,0 +1,204 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b44625ea17b1425fbabfac26e91976a0, type: 3}
+  m_Name: NpcCharacterRegistry
+  m_EditorClassIdentifier:
+  entries:
+  - npcId: 000
+    canonicalName: "\u65C5\u4EBA"
+    relationshipDisplayName: "\u65C5\u4EBA"
+    roleSummary: "\u73A9\u5BB6\u89C6\u89D2\u6761\u76EE\u3002\u53EA\u7528\u4E8E\u6B63\u5F0F\u5267\u60C5\u91CC\u7684\u73A9\u5BB6\u53F0\u8BCD\u4E0E\u5185\u5FC3\u65C1\u767D\u5934\u50CF\u3002"
+    speakerAliases:
+    - "\u65C5\u4EBA"
+    - "\u964C\u751F\u65C5\u4EBA"
+    - "\u73A9\u5BB6"
+    - "\u4E3B\u89D2"
+    - "\u65C1\u767D"
+    - "\u5185\u5FC3\u65C1\u767D"
+    prefab: {fileID: 0}
+    handPortrait: {fileID: -1483407423975865499, guid: fd1023af7a0c20b4d8c3f257829e20d0, type: 3}
+    showInRelationshipPanel: 0
+    relationshipBaseline: 0
+    relationshipBeatSemantics: []
+  - npcId: 001
+    canonicalName: "\u9A6C\u5E93\u65AF"
+    relationshipDisplayName: "\u9A6C\u5E93\u65AF"
+    roleSummary: "\u6751\u957F\u3002\u5E73\u65F6\u7AD9\u5728\u6751\u53E3\u548C\u4E3B\u8DEF\u4EA4\u754C\u5904\u770B\u5168\u5C40\uFF0C\u8BDD\u4E0D\u591A\uFF0C\u4F46\u4F1A\u5148\u628A\u4EBA\u7A33\u4F4F\u518D\u5904\u7406\u4E8B\u60C5\u3002"
+    speakerAliases:
+    - "\u6751\u957F"
+    - VillageChief
+    prefab: {fileID: 2364401128446201446, guid: dcd2f1f4f1461cd4caabc128d5081a98, type: 3}
+    handPortrait: {fileID: -8321102221490951993, guid: 8787d239a2e6a23408a127dd64b3cf99, type: 3}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 1
+    relationshipBeatSemantics:
+    - beatKey: EnterVillage_PostEntry
+      presenceLevel: 4
+      note: "\u4ED6\u4EB2\u81EA\u628A\u73A9\u5BB6\u5E26\u8FDB\u6751\uFF0C\u662F\u8FDB\u6751\u6BB5\u6700\u76F4\u63A5\u7684\u6B63\u9762\u627F\u8F7D\u3002"
+    - beatKey: DinnerConflict_Table
+      presenceLevel: 4
+      note: "\u665A\u996D\u51B2\u7A81\u91CC\u4ED6\u9700\u8981\u538B\u4F4F\u573A\u9762\uFF0C\u4E0D\u4F1A\u9000\u6210\u80CC\u666F\u3002"
+    - beatKey: ReturnAndReminder_WalkBack
+      presenceLevel: 3
+      note: "\u8FD4\u7A0B\u8FD9\u6BB5\u4ECD\u5728\u7ED9\u73A9\u5BB6\u6307\u8DEF\u548C\u63D0\u9192\u3002"
+    - beatKey: FreeTime_NightWitness
+      presenceLevel: 1
+      note: "\u81EA\u7531\u6BB5\u4E0D\u518D\u59CB\u7EC8\u966A\u5728\u8EAB\u8FB9\uFF0C\u4F46\u6751\u957F\u7684\u51B3\u5B9A\u4ECD\u7136\u5728\u5F71\u54CD\u73A9\u5BB6\u7684\u8DEF\u7EBF\u3002"
+    - beatKey: DayEnd_Settle
+      presenceLevel: 1
+      note: "\u5230\u6536\u591C\u65F6\u66F4\u50CF\u4E00\u4E2A\u521A\u521A\u628A\u573A\u9762\u538B\u4F4F\u7684\u4E3B\u4E8B\u4EBA\u3002"
+  - npcId: 002
+    canonicalName: "\u827E\u62C9"
+    relationshipDisplayName: "\u827E\u62C9"
+    roleSummary: "\u6751\u957F\u5973\u513F\u3002\u66F4\u5728\u610F\u4EBA\u80FD\u4E0D\u80FD\u5148\u7F13\u4E0B\u6765\uFF0C\u559C\u6B22\u4EAE\u4E00\u70B9\u3001\u5B89\u9759\u4E00\u70B9\u7684\u5730\u65B9\u3002"
+    speakerAliases:
+    - VillageDaughter
+    prefab: {fileID: 4076003562643832113, guid: b838ae73998fd7c4db59f26db752883c, type: 3}
+    handPortrait: {fileID: 7417498029127908629, guid: f734894c9e2858948800e54fb42f0475, type: 3}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 1
+    relationshipBeatSemantics:
+    - beatKey: EnterVillage_PostEntry
+      presenceLevel: 3
+      note: "\u5979\u4E0D\u662F\u7A81\u7136\u5192\u51FA\u6765\u7684\u63A5\u5E94\u4EBA\uFF0C\u800C\u662F\u4ECE\u8FDB\u6751\u5230\u5B89\u7F6E\u90FD\u4F1A\u88AB\u611F\u77E5\u5230\u7684\u6B63\u9762\u627F\u8F7D\u3002"
+    - beatKey: DinnerConflict_Table
+      presenceLevel: 3
+      note: "\u665A\u996D\u6BB5\u5979\u4F1A\u6B63\u9762\u62A4\u4F4F\u73A9\u5BB6\uFF0C\u4E0D\u53EA\u662F\u4E00\u4E2A\u80CC\u666F\u89C2\u4F17\u3002"
+    - beatKey: ReturnAndReminder_WalkBack
+      presenceLevel: 2
+      note: "\u8FD4\u7A0B\u4E4B\u540E\u66F4\u50CF\u4E00\u4E2A\u521A\u521A\u7559\u4E0B\u6E29\u5EA6\u7684\u4EBA\u3002"
+    - beatKey: FreeTime_NightWitness
+      presenceLevel: 1
+      note: "\u81EA\u7531\u6BB5\u65F6\u5979\u672A\u5FC5\u7AD9\u5728\u73A9\u5BB6\u9762\u524D\uFF0C\u4F46\u4E4B\u524D\u7559\u4E0B\u7684\u63A5\u7EB3\u611F\u8FD8\u5728\u3002"
+  - npcId: 003
+    canonicalName: "\u5361\u5C14"
+    relationshipDisplayName: "\u5361\u5C14"
+    roleSummary: "\u5F53\u524D\u7531 003 \u627F\u8F7D\u7684 Day1 \u6B63\u5F0F\u89D2\u8272\u3002\u89C2\u5BDF\u7EC6\u3001\u8BDD\u4E0D\u591A\uFF0C\u5BF9\u5916\u6765\u8005\u548C\u5931\u63A7\u98CE\u9669\u90FD\u4F1A\u5148\u8D77\u8B66\u60D5\u3002"
+    speakerAliases:
+    - Research
+    - "\u7814\u7A76\u513F\u5B50"
+    prefab: {fileID: 3131872138138888922, guid: 8a8941913f05aef4ba08e719c3fba539, type: 3}
+    handPortrait: {fileID: 545875093725613961, guid: eb9a7d122cd29f949b71d6758d55703b, type: 3}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 2
+    relationshipBeatSemantics:
+    - beatKey: DinnerConflict_Table
+      presenceLevel: 4
+      note: "\u665A\u996D\u51B2\u7A81\u662F\u4ED6\u7B2C\u4E00\u6B21\u6B63\u9762\u7AD9\u51FA\u6765\u628A\u654C\u610F\u8BF4\u91CD\u3002"
+    - beatKey: ReturnAndReminder_WalkBack
+      presenceLevel: 1
+      note: "\u51B2\u7A81\u8FC7\u540E\u4ED6\u4E0D\u518D\u7AD9\u5230\u524D\u53F0\uFF0C\u4F46\u7559\u4E0B\u7684\u538B\u529B\u8FD8\u5728\u3002"
+  - npcId: 101
+    canonicalName: "\u6751\u53E3\u6284\u5F55\u4EBA"
+    relationshipDisplayName: "\u6751\u53E3\u6284\u5F55\u4EBA"
+    roleSummary: "\u767D\u5929\u5E38\u5B88\u5728\u6751\u53E3\u7EB8\u9875\u8FB9\uFF0C\u66FF\u644A\u4E3B\u548C\u90BB\u91CC\u6284\u8BB0\u96F6\u788E\u53E3\u4F9B\uFF0C\u5916\u6765\u4EBA\u4E00\u8FDB\u6751\u65F6\u4ED6\u603B\u4F1A\u5148\u62AC\u5934\u518D\u4F4E\u5934\u3002"
+    speakerAliases:
+    - "\u6751\u6C11"
+    - "\u56F4\u89C2\u6751\u6C11"
+    - ScribeCrowd
+    prefab: {fileID: 8968207109199461061, guid: 9258d2b19b6fb1846a93cc3fdf4bc696, type: 3}
+    handPortrait: {fileID: 2674749960476766153, guid: 74912814a06248c46ab4674044ff6ac2, type: 3}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 1
+    relationshipBeatSemantics: []
+  - npcId: 102
+    canonicalName: "\u5761\u8FB9\u730E\u75D5\u4EBA"
+    relationshipDisplayName: "\u5761\u8FB9\u730E\u75D5\u4EBA"
+    roleSummary: "\u5E73\u65F6\u591A\u5728\u6751\u8FB9\u548C\u6CB3\u6EE9\u8BA4\u811A\u5370\uFF0C\u767D\u5929\u4E0D\u62A2\u8138\uFF0C\u591C\u91CC\u5374\u66F4\u5BB9\u6613\u56E0\u4E3A\u4E00\u4E32\u4E71\u75D5\u88AB\u4EBA\u6CE8\u610F\u5230\u3002"
+    speakerAliases:
+    - "\u8001\u6770\u514B"
+    - HunterClue
+    prefab: {fileID: 3067264001440543315, guid: e569dbb748b75f94485c29d96f8b50c7, type: 3}
+    handPortrait: {fileID: 0}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 2
+    relationshipBeatSemantics: []
+  - npcId: 103
+    canonicalName: "\u8DD1\u817F\u76EE\u51FB\u5C11\u5E74"
+    relationshipDisplayName: "\u8DD1\u817F\u76EE\u51FB\u5C11\u5E74"
+    roleSummary: "\u5E73\u65F6\u5728\u5C4B\u6A90\u548C\u644A\u4F4D\u4E4B\u95F4\u7A7F\u68AD\u4F20\u8BDD\uFF0C\u771F\u6709\u52A8\u9759\u65F6\u603B\u6BD4\u5927\u4EBA\u66F4\u65E9\u63A2\u5934\uFF0C\u4E5F\u66F4\u5BB9\u6613\u5148\u770B\u5230\u8C01\u8BA9\u4F4D\u8C01\u5077\u770B\u3002"
+    speakerAliases:
+    - "\u5C0F\u5B69"
+    - "\u5C0F\u7C73"
+    - WitnessBoy
+    prefab: {fileID: 4131140958198220229, guid: abf164d7188e27e4797dca0847d5fd6a, type: 3}
+    handPortrait: {fileID: -6814081207438931458, guid: 290c665f883aaae478e57a971c133805, type: 3}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 1
+    relationshipBeatSemantics: []
+  - npcId: 104
+    canonicalName: "\u8865\u95E8\u6728\u5320"
+    relationshipDisplayName: "\u8865\u95E8\u6728\u5320"
+    roleSummary: "\u767D\u5929\u591A\u5728\u95E8\u677F\u3001\u6805\u680F\u548C\u5DE5\u4F5C\u53F0\u9644\u8FD1\u5E72\u6D3B\uFF0C\u8BDD\u4E0D\u591A\uFF0C\u4F46\u8C01\u5BB6\u95E8\u54CD\u4E86\u3001\u54EA\u9762\u677F\u677E\u4E86\u4ED6\u90FD\u5148\u4E00\u6B65\u77E5\u9053\u3002"
+    speakerAliases:
+    - "\u8001\u4E54\u6CBB"
+    - CarpenterCrowd
+    prefab: {fileID: 2810117806074773690, guid: 296b7c4eee638014cacc46d37f7e9b87, type: 3}
+    handPortrait: {fileID: 5953923354035733431, guid: c09c30ba65467fb4190d2679edee39a9, type: 3}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 2
+    relationshipBeatSemantics: []
+  - npcId: 201
+    canonicalName: "\u7EC7\u8865\u7167\u6599\u4EBA"
+    relationshipDisplayName: "\u7EC7\u8865\u7167\u6599\u4EBA"
+    roleSummary: "\u5E73\u65F6\u5B88\u7740\u9488\u7EBF\u548C\u5E03\u888B\uFF0C\u8C01\u8896\u53E3\u88C2\u4E86\u3001\u8C01\u8138\u8272\u4E0D\u5BF9\uFF0C\u5979\u90FD\u50CF\u672C\u6765\u5C31\u5728\u65C1\u8FB9\u63A5\u4F4F\u3002"
+    speakerAliases:
+    - MendingCrowd
+    prefab: {fileID: 387027461231903009, guid: 47c5b029789627c47b280fdad2b32add, type: 3}
+    handPortrait: {fileID: -5434643231075287626, guid: 4e97dac7f634d8c479b96c4f3b28422a, type: 3}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 1
+    relationshipBeatSemantics: []
+  - npcId: 202
+    canonicalName: "\u82B1\u8349\u5B89\u795E\u4EBA"
+    relationshipDisplayName: "\u82B1\u8349\u5B89\u795E\u4EBA"
+    roleSummary: "\u767D\u5929\u6446\u82B1\u3001\u624E\u8349\u675F\uFF0C\u6563\u573A\u540E\u8FD8\u4F1A\u628A\u4E00\u70B9\u4EAE\u8272\u7559\u5728\u95E8\u8FB9\uFF0C\u4E0D\u8BA9\u6751\u91CC\u53EA\u5269\u706B\u6C14\u548C\u7070\u8272\u3002"
+    speakerAliases:
+    - HerbCrowd
+    prefab: {fileID: 8066509756948285930, guid: b1232807fac08a2448d0f6c67650fece, type: 3}
+    handPortrait: {fileID: 0}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 2
+    relationshipBeatSemantics: []
+  - npcId: 203
+    canonicalName: "\u70ED\u6C64\u7167\u5E94\u4EBA"
+    relationshipDisplayName: "\u70ED\u6C64\u7167\u5E94\u4EBA"
+    roleSummary: "\u591A\u534A\u5F85\u5728\u7076\u706B\u548C\u684C\u8FB9\u4E4B\u95F4\uFF0C\u8C01\u7A7A\u7740\u809A\u5B50\u56DE\u5C4B\u3001\u8C01\u7AEF\u7897\u53C8\u9ED8\u9ED8\u8BA9\u4F4D\uFF0C\u5979\u90FD\u770B\u5728\u773C\u91CC\u3002"
+    speakerAliases:
+    - "\u996D\u9986\u6751\u6C11"
+    - DinnerCrowd
+    prefab: {fileID: 2950434405693621139, guid: 8f8c784676baebf409f29be34b8c15c8, type: 3}
+    handPortrait: {fileID: 0}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 1
+    relationshipBeatSemantics: []
+  - npcId: 301
+    canonicalName: "\u5893\u56ED\u5B88\u9AA8\u4EBA"
+    relationshipDisplayName: "\u5893\u56ED\u5B88\u9AA8\u4EBA"
+    roleSummary: "\u591C\u91CC\u66F4\u5BB9\u6613\u88AB\u6CE8\u610F\u5230\u7684\u8FB9\u7F18\u76EE\u51FB\u8005\u3002\u4ED6\u4E0D\u62A2\u767D\u5929\u7684\u955C\u5934\uFF0C\u4F46\u4E00\u5230\u540E\u5761\u548C\u6536\u591C\u8DEF\u6BB5\uFF0C\u5B58\u5728\u611F\u5C31\u4F1A\u53D8\u5F97\u5F88\u5F3A\u3002"
+    speakerAliases:
+    - "\u8001\u6C64\u59C6"
+    - NightWitness
+    prefab: {fileID: 7628497410497253902, guid: d34b92f09f833324db6920497fa88eca, type: 3}
+    handPortrait: {fileID: 0}
+    showInRelationshipPanel: 1
+    relationshipBaseline: 3
+    relationshipBeatSemantics:
+    - beatKey: ReturnAndReminder_WalkBack
+      presenceLevel: 3
+      note: "\u56DE\u5C4B\u8FD9\u4E00\u6BB5\u4ED6\u50CF\u662F\u4E00\u76F4\u5B88\u5728\u540E\u5761\u8FB9\u4E0A\u7684\u76EE\u51FB\u8005\u3002"
+    - beatKey: FreeTime_NightWitness
+      presenceLevel: 4
+      note: "\u591C\u95F4\u81EA\u7531\u6BB5\u662F\u4ED6\u6700\u5BB9\u6613\u88AB\u73A9\u5BB6\u771F\u6B63\u8BA4\u51FA\u6765\u7684\u65F6\u5019\u3002"
+    - beatKey: DayEnd_Settle
+      presenceLevel: 3
+      note: "\u7B2C\u4E00\u591C\u6536\u675F\u65F6\uFF0C\u4ED6\u66F4\u50CF\u4E00\u4E2A\u8FD8\u7559\u5728\u9ED1\u91CC\u542C\u56DE\u58F0\u7684\u4EBA\u3002"

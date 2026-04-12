@@ -36,8 +36,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.85, y: 0.85, z: 0.85}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -113,7 +113,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage: 
+  m_WarningMessage:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -128,8 +128,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45a3d1d4bd5a8744aa9ed982679f875a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   sortingOrderMultiplier: 100
   sortingOrderOffset: 0
   useSpriteBounds: 1
@@ -220,12 +220,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e004ed4ea9953478ba4e8cd978ce83, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animator: {fileID: 6095166076170827493}
   spriteRenderer: {fileID: 5791563525337338612}
   idleAnimationSpeed: 1
   moveAnimationSpeed: 1
+  useCustomFacingVisualMap: 0
+  animatorDirectionWhenFacingDown: 0
+  animatorDirectionWhenFacingUp: 1
+  animatorDirectionWhenFacingRight: 2
+  animatorDirectionWhenFacingLeft: 2
+  flipXWhenFacingDown: 0
+  flipXWhenFacingUp: 0
+  flipXWhenFacingRight: 0
+  flipXWhenFacingLeft: 1
   showDebugLog: 0
 --- !u!114 &6340460593400024026
 MonoBehaviour:
@@ -237,8 +246,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 160b8ec8fa40bf4488cc674ecc3ac425, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animController: {fileID: 1273669650579717202}
   rb: {fileID: 2990007625994254821}
   moveSpeed: 2.5
@@ -262,11 +271,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ac174c341f38786448acc149c20ffde3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   targetRenderer: {fileID: 5791563525337338612}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0.08, y: 1.46, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.46, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
   bubblePadding: {x: 82, y: 42}
   maxTextWidth: 315
@@ -287,7 +296,7 @@ MonoBehaviour:
   tailBobAmplitude: 26
   tailBobFrequency: 0.85
   bubbleBorderColor: {r: 0.92, g: 0.79, b: 0.56, a: 1}
-  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 0.96}
+  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 1}
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
   textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
   textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
@@ -297,11 +306,11 @@ MonoBehaviour:
   hideDuration: 0.1
   showScaleOvershoot: 0.05
   selfTalkLines:
-  - "\u8863\u89D2\u88C2\u4E86\u8FD8\u80FD\u8865\uFF0C\u5FC3\u91CC\u90A3\u9053\u53E3\u5B50\u5C31\u96BE\u8BF4\u4E86\u3002"
-  - "\u6751\u957F\u8DD1\u540E\uFF0C\u6765\u627E\u6211\u7F1D\u5E03\u888B\u7684\u4EBA\u4E00\u4E0B\u591A\u4E86\u4E09\u6210\u3002"
-  - "\u5927\u5BB6\u5634\u4E0A\u8BF4\u6CA1\u4E8B\uFF0C\u624B\u5374\u90FD\u5728\u53D1\u6296\u3002"
+  - "\u665A\u996D\u540E\u6700\u5FD9\u7684\u4E0D\u662F\u7F1D\u53E3\u5B50\uFF0C\u662F\u628A\u90A3\u4E9B\u4E0D\u80AF\u56DE\u5C4B\u7684\u4EBA\u4E00\u4E2A\u4E2A\u529D\u6563\u3002"
+  - "\u6709\u4EBA\u5750\u4E0B\u5C31\u53EA\u6562\u634F\u8896\u53E3\uFF0C\u4E0D\u8BF4\u8BDD\u4E5F\u77E5\u9053\u5FC3\u91CC\u5728\u6296\u3002"
+  - "\u660E\u65E9\u9488\u7EBF\u7167\u5E38\u6446\u51FA\u6765\uFF0C\u8C01\u7EA2\u7740\u773C\u6765\uFF0C\u6211\u5C31\u5F53\u6CA1\u770B\u89C1\u5148\u628A\u53E3\u5B50\u7F1D\u4E0A\u3002"
   showDebugLog: 0
-  styleVersion: 10
+  styleVersion: 13
 --- !u!114 &4533723565904429011
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -312,8 +321,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd5b960b4766650449a960eda299b830, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   motionController: {fileID: 6340460593400024026}
   bubblePresenter: {fileID: 8357662975507897715}
   rb: {fileID: 2990007625994254821}
@@ -336,13 +345,18 @@ MonoBehaviour:
   ambientChatChance: 0.75
   ambientChatResponseDelay: 0.85
   chatInitiatorLines:
-  - "\u6211\u6700\u64C5\u957F\u7684\u4E0D\u662F\u7F1D\u7EBF\uFF0C\u662F\u8BA9\u4EBA\u5750\u4E0B\u540E\u6162\u6162\u628A\u6C14\u5598\u5300\u3002"
-  - "\u6709\u4EBA\u9003\u4E86\uFF0C\u6709\u4EBA\u5C31\u5F97\u7559\u4E0B\u6765\u628A\u6563\u6389\u7684\u5730\u65B9\u7F1D\u8D77\u6765\u3002"
+  - "\u6211\u6700\u6015\u7684\u4E0D\u662F\u54ED\uFF0C\u662F\u5927\u5BB6\u90FD\u88C5\u4F5C\u6CA1\u4E8B\uFF0C\u7136\u540E\u8C01\u4E5F\u4E0D\u80AF\u5148\u8D77\u8EAB\u56DE\u5C4B\u3002"
+  - "\u660E\u65E9\u7167\u6837\u5F97\u6709\u4EBA\u7F1D\u53E3\u5B50\u3001\u9012\u5E03\u888B\uFF0C\u65E5\u5B50\u624D\u4E0D\u4F1A\u88AB\u614C\u4E71\u62FD\u65AD\u3002"
   chatResponderLines:
-  - "\u662F\u5440\uFF0C\u5148\u628A\u9488\u811A\u843D\u7A33\uFF0C\u5FC3\u624D\u4E0D\u4F1A\u8DDF\u7740\u6563\u3002"
-  - "\u8981\u662F\u4F60\u4E5F\u89C9\u5F97\u614C\uFF0C\u5C31\u5148\u5728\u6211\u65C1\u8FB9\u7AD9\u4E00\u4F1A\u513F\u3002"
+  - "\u662F\u554A\uFF0C\u5148\u628A\u4EBA\u529D\u56DE\u5C4B\uFF0C\u628A\u6C14\u5598\u5300\uFF0C\u591C\u91CC\u5C31\u6CA1\u90A3\u4E48\u5BB9\u6613\u80E1\u601D\u4E71\u60F3\u3002"
+  - "\u5927\u5BB6\u53EA\u8981\u8FD8\u80AF\u7167\u5E38\u6765\u627E\u6211\u8865\u4E1C\u897F\uFF0C\u6751\u91CC\u5C31\u8FD8\u6CA1\u6563\u3002"
   waypointTolerance: 0.08
   destinationTolerance: 0.12
+  enforceNavGridBounds: 1
+  allowTraversalOverridePhysicsSoftPass: 1
+  navigationFootProbeVerticalInset: 0.08
+  navigationFootProbeSideInset: 0.05
+  navigationFootProbeExtraRadius: 0.02
   stuckCheckInterval: 0.3
   stuckDistanceThreshold: 0.08
   maxStuckRecoveries: 3
@@ -362,8 +376,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3ea269b9d9b843e2bbd17ff2676fca3a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   interactionHint: "\u95F2\u804A"
   interactionDistance: 1.15
   sessionBreakDistance: 1.85

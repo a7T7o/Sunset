@@ -36,8 +36,8 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
+  m_LocalScale: {x: 0.85, y: 0.85, z: 0.85}
+  m_ConstrainProportionsScale: 1
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -113,7 +113,7 @@ Animator:
   m_LinearVelocityBlending: 0
   m_StabilizeFeet: 0
   m_AnimatePhysics: 0
-  m_WarningMessage: 
+  m_WarningMessage:
   m_HasTransformHierarchy: 1
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
@@ -128,8 +128,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 45a3d1d4bd5a8744aa9ed982679f875a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   sortingOrderMultiplier: 100
   sortingOrderOffset: 0
   useSpriteBounds: 1
@@ -220,12 +220,21 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c7e004ed4ea9953478ba4e8cd978ce83, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animator: {fileID: 4138445532108020236}
   spriteRenderer: {fileID: 5771290030072804508}
   idleAnimationSpeed: 1
   moveAnimationSpeed: 1
+  useCustomFacingVisualMap: 0
+  animatorDirectionWhenFacingDown: 0
+  animatorDirectionWhenFacingUp: 1
+  animatorDirectionWhenFacingRight: 2
+  animatorDirectionWhenFacingLeft: 2
+  flipXWhenFacingDown: 0
+  flipXWhenFacingUp: 0
+  flipXWhenFacingRight: 0
+  flipXWhenFacingLeft: 1
   showDebugLog: 0
 --- !u!114 &4737719888612580045
 MonoBehaviour:
@@ -237,8 +246,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 160b8ec8fa40bf4488cc674ecc3ac425, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   animController: {fileID: 5915968565131426704}
   rb: {fileID: 2274502106278223670}
   moveSpeed: 2.5
@@ -262,11 +271,11 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ac174c341f38786448acc149c20ffde3, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   targetRenderer: {fileID: 5771290030072804508}
   fontAsset: {fileID: 11400000, guid: 3f7a52442e7db3146b08db34e16755e5, type: 2}
-  bubbleLocalOffset: {x: 0.08, y: 1.46, z: 0}
+  bubbleLocalOffset: {x: 0, y: 1.46, z: 0}
   bubbleLocalScale: {x: 0.01, y: 0.01, z: 0.01}
   bubblePadding: {x: 82, y: 42}
   maxTextWidth: 315
@@ -287,7 +296,7 @@ MonoBehaviour:
   tailBobAmplitude: 26
   tailBobFrequency: 0.85
   bubbleBorderColor: {r: 0.92, g: 0.79, b: 0.56, a: 1}
-  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 0.96}
+  bubbleColor: {r: 0.1, g: 0.12, b: 0.16, a: 1}
   bubbleShadowColor: {r: 0.01, g: 0.02, b: 0.04, a: 0.34}
   textColor: {r: 0.98, g: 0.95, b: 0.9, a: 1}
   textOutlineColor: {r: 0.05, g: 0.06, b: 0.09, a: 0.96}
@@ -297,11 +306,11 @@ MonoBehaviour:
   hideDuration: 0.1
   showScaleOvershoot: 0.05
   selfTalkLines:
-  - "\u95E8\u6813\u5F97\u518D\u52A0\u4E00\u9053\uFF0C\u6751\u957F\u8DD1\u4E86\uFF0C\u80C6\u5C0F\u9B3C\u4E5F\u4F1A\u8DDF\u7740\u591A\u8D77\u6765\u3002"
-  - "\u574F\u7684\u662F\u4EBA\u5FC3\u5148\uFF0C\u6728\u5934\u53CD\u5012\u597D\u4FEE\u3002"
-  - "\u8FD9\u6751\u5B50\u8981\u6491\u4F4F\uFF0C\u9760\u7684\u4E0D\u662F\u558A\u8BDD\uFF0C\u662F\u4E00\u9524\u4E00\u9524\u8865\u56DE\u53BB\u3002"
+  - "\u4E00\u5230\u665A\u996D\u540E\uFF0C\u6572\u6728\u58F0\u5C31\u5F97\u8F7B\u4E00\u70B9\uFF0C\u4E0D\u7136\u6EE1\u6751\u90FD\u77E5\u9053\u8C01\u8FD8\u6CA1\u6562\u56DE\u5C4B\u3002"
+  - "\u95E8\u6813\u548C\u7A97\u95E9\u6211\u90FD\u591A\u8865\u4E86\u4E00\u9053\uFF0C\u771F\u6709\u4EBA\u534A\u591C\u5FC3\u865A\uFF0C\u5148\u649E\u4E0A\u7684\u4E5F\u662F\u6728\u677F\u3002"
+  - "\u660E\u65E9\u8BE5\u5F00\u7684\u95E8\u8FD8\u662F\u5F97\u7167\u65E7\u5F00\uFF0C\u4E0D\u80FD\u8BA9\u6751\u91CC\u4E00\u6563\u5C31\u53EA\u5269\u7A7A\u54CD\u3002"
   showDebugLog: 0
-  styleVersion: 10
+  styleVersion: 13
 --- !u!114 &3217417009609466066
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -312,8 +321,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: cd5b960b4766650449a960eda299b830, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   motionController: {fileID: 4737719888612580045}
   bubblePresenter: {fileID: 105990868246196262}
   rb: {fileID: 2274502106278223670}
@@ -336,13 +345,18 @@ MonoBehaviour:
   ambientChatChance: 0.75
   ambientChatResponseDelay: 0.85
   chatInitiatorLines:
-  - "\u624B\u4E0A\u6709\u6D3B\uFF0C\u8111\u5B50\u5C31\u4E0D\u4F1A\u8001\u53BB\u60F3\u90A3\u4E9B\u8DD1\u6389\u7684\u4EBA\u3002"
-  - "\u80FD\u4FEE\u597D\u7684\u5148\u4FEE\uFF0C\u5269\u4E0B\u7684\u518D\u6162\u6162\u8FFD\u8D23\u3002"
+  - "\u8FD9\u51E0\u665A\u8C01\u56DE\u5C4B\u8C01\u8BA9\u8DEF\uFF0C\u6211\u5728\u6728\u5934\u56DE\u58F0\u91CC\u90FD\u542C\u5F97\u51FA\u6765\u3002"
+  - "\u660E\u65E9\u7167\u65E7\u5F00\u95E8\u5E72\u6D3B\uFF0C\u624D\u50CF\u6751\u91CC\u8FD8\u7AD9\u5F97\u4F4F\u3002"
   chatResponderLines:
-  - "\u5BF9\uFF0C\u6211\u4E0D\u7231\u5435\uFF0C\u53EF\u603B\u5F97\u6709\u4EBA\u628A\u80FD\u505A\u7684\u5148\u505A\u5B8C\u3002"
-  - "\u6751\u91CC\u73B0\u5728\u7F3A\u7684\u662F\u7A33\u624B\uFF0C\u4E0D\u662F\u66F4\u5927\u7684\u55D3\u95E8\u3002"
+  - "\u5BF9\uFF0C\u624B\u4E0A\u4E0D\u505C\uFF0C\u4EBA\u624D\u4E0D\u81F3\u4E8E\u76EF\u7740\u90A3\u70B9\u614C\u4E71\u8D8A\u60F3\u8D8A\u5927\u3002"
+  - "\u95E8\u95E9\u5148\u9876\u4F4F\uFF0C\u5269\u4E0B\u7684\u8BAE\u8BBA\u8BA9\u4ED6\u4EEC\u4F4E\u58F0\u6162\u6162\u8BF4\u3002"
   waypointTolerance: 0.08
   destinationTolerance: 0.12
+  enforceNavGridBounds: 1
+  allowTraversalOverridePhysicsSoftPass: 1
+  navigationFootProbeVerticalInset: 0.08
+  navigationFootProbeSideInset: 0.05
+  navigationFootProbeExtraRadius: 0.02
   stuckCheckInterval: 0.3
   stuckDistanceThreshold: 0.08
   maxStuckRecoveries: 3
@@ -362,8 +376,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3ea269b9d9b843e2bbd17ff2676fca3a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   interactionHint: "\u95F2\u804A"
   interactionDistance: 1.15
   sessionBreakDistance: 1.85

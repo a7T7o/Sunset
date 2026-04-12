@@ -15,7 +15,7 @@ MonoBehaviour:
   sequenceId: spring-day1-first
   nodes:
   - speakerName: 村长
-    text: 年轻人，你还好吗？从天上掉下来，居然还活着。
+    text: 年轻人，能站起来吗？从那么高的地方掉下来，命倒是够硬。
     isGarbled: 1
     garbledText: ▓▒……你……还……好……吗……
     speakerPortrait: {fileID: 0}
@@ -33,7 +33,7 @@ MonoBehaviour:
     fontStyleKey: narration
     typingSpeedOverride: 0
   - speakerName: ""
-    text: （脑海里有什么被重新接上了。下次再听他说话，我也许就能听懂。）
+    text: （我听不懂词，可那语气像是在催我别继续躺着。脑海里有什么被重新接上了。下次再听他说话，我也许就能听懂。）
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
@@ -42,7 +42,16 @@ MonoBehaviour:
     fontStyleKey: narration
     typingSpeedOverride: 0
   - speakerName: ""
-    text: （他像是在催我站起来。至少现在，他更像是在救我，而不是要害我。）
+    text: （他没有立刻伸手碰我，只是半蹲在我能看清的地方，像是在等我自己判断他是不是敌人。）
+    isGarbled: 0
+    garbledText:
+    speakerPortrait: {fileID: 0}
+    isInnerMonologue: 1
+    isBubble: 0
+    fontStyleKey: narration
+    typingSpeedOverride: 0
+  - speakerName: ""
+    text: （头顶还残留着坠落后的刺痛。他至少是在救我，不像是要把我留在这里等死。）
     isGarbled: 0
     garbledText:
     speakerPortrait: {fileID: 0}
