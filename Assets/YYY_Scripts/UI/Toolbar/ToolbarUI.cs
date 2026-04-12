@@ -33,8 +33,27 @@ public class ToolbarUI : MonoBehaviour
         ResolveRuntimeContextIfMissing();
         slots.Clear();
         toggles.Clear();
-        int index = 0;
+        List<Transform> orderedChildren = new List<Transform>(gridParent.childCount);
         foreach (Transform child in gridParent)
+        {
+            orderedChildren.Add(child);
+        }
+
+        orderedChildren.Sort((left, right) =>
+        {
+            int leftIndex = ResolveToolbarSlotIndex(left);
+            int rightIndex = ResolveToolbarSlotIndex(right);
+            int compare = leftIndex.CompareTo(rightIndex);
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            return left.GetSiblingIndex().CompareTo(right.GetSiblingIndex());
+        });
+
+        int index = 0;
+        foreach (Transform child in orderedChildren)
         {
             if (index >= InventoryService.HotbarWidth) break;
             var slot = child.GetComponent<ToolbarSlotUI>();
@@ -47,6 +66,38 @@ public class ToolbarUI : MonoBehaviour
         }
         // 若子物体不足12个，不报错，按现有数量绑定
         // 事件将在 OnEnable 中统一注册，避免重复
+    }
+
+    private static int ResolveToolbarSlotIndex(Transform child)
+    {
+        if (child == null)
+        {
+            return int.MaxValue;
+        }
+
+        string childName = child.name;
+        if (string.IsNullOrEmpty(childName))
+        {
+            return int.MaxValue - child.GetSiblingIndex();
+        }
+
+        if (!childName.StartsWith("Bar_00_TG"))
+        {
+            return int.MaxValue - child.GetSiblingIndex();
+        }
+
+        int openParen = childName.LastIndexOf('(');
+        int closeParen = childName.LastIndexOf(')');
+        if (openParen >= 0 && closeParen == childName.Length - 1 && closeParen > openParen + 1)
+        {
+            string cloneSuffix = childName.Substring(openParen + 1, closeParen - openParen - 1).Trim();
+            if (int.TryParse(cloneSuffix, out int parsedCloneIndex))
+            {
+                return parsedCloneIndex;
+            }
+        }
+
+        return 0;
     }
 
     void OnEnable()

@@ -24,7 +24,7 @@ public class EnergyBarTooltipWatcher : MonoBehaviour, IPointerEnterHandler, IPoi
             return;
         }
 
-        ItemTooltip.Instance?.ShowCustom("精力", $"当前精力: {system.CurrentEnergy}/{system.MaxEnergy}");
+        ItemTooltip.Instance?.ShowCustom("精力", $"当前精力: {system.CurrentEnergy}/{system.MaxEnergy}", transform);
     }
 
     public void OnPointerExit(PointerEventData eventData)
