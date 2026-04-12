@@ -163,3 +163,39 @@
     - `7e06c2e6`：大规模共享/NPC 扩张起点
   - 如果后续允许我继续分析，我下一步会优先只做：
     - `343c3910..HEAD` 在 `NPCAutoRoamController / NavGrid2D / PlayerMovement / NPCMotionController / NavigationTraversalCore / TraversalBlockManager2D` 的精确责任差异表。
+
+## 2026-04-13｜真实归仓补记：NpcCharacterRegistry 已作为 NPC 当前唯一稳定小包提交到 main
+- 当前主线目标：
+  - 用户要求我按 NPC 自己的历史边界，把现在真能合法提交的内容先提交掉，不继续扩功能。
+- 本轮子任务：
+  - 先对白名单最小候选做真实 `preflight` 和最小 CLI 验证；
+  - 如果过线，就执行 `Ready-To-Sync -> sync`；
+  - 然后把这次归仓结果结算进 child/parent/thread memory。
+- 本轮稳定结论：
+  1. 旧 docs/thread memory 层本身没有新的可提交增量；当前真能独立提的一刀，是 `Assets/YYY_Scripts/Story/Data/NpcCharacterRegistry.cs(.meta)`。
+  2. 这包已真实通过：
+     - `preflight=True`
+     - `validate_script assessment=no_red`
+     - `owned_errors=0`
+     - `external_errors=0`
+     - `unity_red_check=pass`
+  3. 这包已真实提交并推送：
+     - SHA：`66dadf93cdd9e3b29d67162b192804daec9757ac`
+     - message：`2026.04.13_NPC_01`
+  4. 当前仍不能被我一起提交的大包，主要还是卡在：
+     - mixed roots
+     - same-root remaining dirty
+     - shared / foreign blocker
+     而不是“我没去提”。
+- thread-state：
+  - `Begin-Slice=已跑`
+    - `npc-own-clean-sync`
+    - `npc-character-registry-sync`
+    - `npc-registry-sync-memory-settlement`
+  - `Ready-To-Sync=已跑`
+    - 用于 `NpcCharacterRegistry.cs(.meta)` 真同步
+  - `Park-Slice=已跑`
+    - `npc-character-registry-sync-complete`
+- 当前恢复点：
+  - resident / 关系页 / 头像真源线里，第一个已经回到 `main` 的稳定代码入口，现在就是 `NpcCharacterRegistry`；
+  - 如果用户继续要求“把能提的都提掉”，下一步不该再盲试大包，而是继续只找这种能被证明 `preflight=True` 的最小白名单切片。
