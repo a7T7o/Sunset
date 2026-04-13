@@ -157,7 +157,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         var lockManager = ToolActionLockManager.Instance;
         if (lockManager != null && lockManager.IsLocked)
         {
-            RestoreAllRegisteredSlotVisuals();
+            RestoreAllRegisteredSlotVisuals(resetRejectShake: false);
         }
     }
 
@@ -194,7 +194,6 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     void HandleSelectionChanged(int idx)
     {
-        ResetRejectShakeVisual();
         RefreshSelection();
     }
 
@@ -375,35 +374,34 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
                 EventSystem.current.SetSelectedGameObject(null);
             }
 
-            // 检查是否处于工具动作锁定状态
-            var lockManager = ToolActionLockManager.Instance;
-            if (lockManager != null && lockManager.IsLocked)
-            {
-                // 锁定状态：缓存输入而非立即切换
-                lockManager.CacheHotbarInput(index);
-
-                if (selection != null)
-                {
-                    selection.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
-                }
-                else
-                {
-                    RestoreAllRegisteredSlotVisuals();
-                }
-                return;
-            }
-
             var inputManager = GameInputManager.Instance;
             if (inputManager != null)
             {
-                if (!inputManager.TryHandleToolbarPointerSelectionChange(index))
-                {
-                    RestoreAllRegisteredSlotVisuals();
-                    return;
-                }
+                GameInputManager.ToolbarPointerSelectionChangeResult result =
+                    inputManager.TryHandleToolbarPointerSelectionChange(index);
 
-                RefreshSelection();
-                return;
+                switch (result)
+                {
+                    case GameInputManager.ToolbarPointerSelectionChangeResult.Applied:
+                        RefreshSelection();
+                        return;
+
+                    case GameInputManager.ToolbarPointerSelectionChangeResult.RejectedKeepCurrentSelection:
+                    case GameInputManager.ToolbarPointerSelectionChangeResult.DeferredDuringLock:
+                        if (selection != null)
+                        {
+                            selection.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
+                        }
+                        else
+                        {
+                            RestoreAllRegisteredSlotVisuals(resetRejectShake: false);
+                        }
+                        return;
+
+                    default:
+                        RestoreAllRegisteredSlotVisuals();
+                        return;
+                }
             }
 
             selection?.SelectIndex(index);
@@ -607,7 +605,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         _rectTransform.anchoredPosition = _restAnchoredPosition;
     }
 
-    private static void RestoreAllRegisteredSlotVisuals()
+    private static void RestoreAllRegisteredSlotVisuals(bool resetRejectShake = true)
     {
         foreach (var pair in RegisteredSlots)
         {
@@ -617,7 +615,11 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
                 continue;
             }
 
-            slot.ResetRejectShakeVisual();
+            if (resetRejectShake)
+            {
+                slot.ResetRejectShakeVisual();
+            }
+
             slot.ForceRestoreToggleState();
         }
     }

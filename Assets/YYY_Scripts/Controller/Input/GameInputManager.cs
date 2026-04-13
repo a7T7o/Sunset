@@ -988,33 +988,43 @@ public class GameInputManager : MonoBehaviour
         return hotbarSelection.selectedIndex == clampedIndex;
     }
 
-    public bool TryHandleToolbarPointerSelectionChange(int requestedIndex)
+    public enum ToolbarPointerSelectionChangeResult
+    {
+        Applied,
+        RejectedKeepCurrentSelection,
+        DeferredDuringLock,
+        Failed
+    }
+
+    public ToolbarPointerSelectionChangeResult TryHandleToolbarPointerSelectionChange(int requestedIndex)
     {
         if (hotbarSelection == null)
         {
-            return false;
+            return ToolbarPointerSelectionChangeResult.Failed;
         }
 
         int clampedIndex = Mathf.Clamp(requestedIndex, 0, InventoryService.HotbarWidth - 1);
         if (hotbarSelection.selectedIndex == clampedIndex)
         {
             hotbarSelection.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
-            return true;
+            return ToolbarPointerSelectionChangeResult.Applied;
         }
 
         if (TryRejectActiveFarmToolSwitch(clampedIndex))
         {
-            return false;
+            return ToolbarPointerSelectionChangeResult.RejectedKeepCurrentSelection;
         }
 
         var lockManager = ToolActionLockManager.Instance;
         if (lockManager != null && lockManager.IsLocked)
         {
             lockManager.CacheHotbarInput(clampedIndex);
-            return false;
+            return ToolbarPointerSelectionChangeResult.DeferredDuringLock;
         }
 
-        return TryApplyHotbarSelectionChange(clampedIndex);
+        return TryApplyHotbarSelectionChange(clampedIndex)
+            ? ToolbarPointerSelectionChangeResult.Applied
+            : ToolbarPointerSelectionChangeResult.Failed;
     }
 
     void HandleHotbarSelection()
