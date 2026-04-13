@@ -11,22 +11,24 @@ public class ItemTooltip : MonoBehaviour
 {
     private const float MinimumShowDelay = 1f;
     private const float FadeDurationSeconds = 0.3f;
-    private const float TooltipWidth = 184f;
-    private const float TooltipMinHeight = 74f;
-    private const float PanelBorder = 3f;
-    private const float ContentWidth = 156f;
-    private const float ContentPaddingX = 10f;
-    private const float ContentPaddingTop = 10f;
-    private const float ContentPaddingBottom = 9f;
+    private const float TooltipWidth = 212f;
+    private const float TooltipMinHeight = 88f;
+    private const float PanelBorder = 4f;
+    private const float ContentWidth = 184f;
+    private const float ContentPaddingX = 12f;
+    private const float ContentPaddingTop = 12f;
+    private const float ContentPaddingBottom = 11f;
+    private const float TooltipEdgePadding = 10f;
+    private const float TooltipPointerClearance = 14f;
 
-    private static readonly Color FrameColor = new Color(0.28f, 0.18f, 0.10f, 0.98f);
-    private static readonly Color PanelColor = new Color(0.95f, 0.91f, 0.80f, 0.99f);
-    private static readonly Color HeaderColor = new Color(0.42f, 0.29f, 0.15f, 1f);
-    private static readonly Color DividerColor = new Color(0.55f, 0.40f, 0.20f, 0.95f);
+    private static readonly Color FrameColor = new Color(0.25f, 0.16f, 0.09f, 0.98f);
+    private static readonly Color PanelColor = new Color(0.95f, 0.90f, 0.80f, 0.985f);
+    private static readonly Color HeaderColor = new Color(0.46f, 0.31f, 0.16f, 1f);
+    private static readonly Color DividerColor = new Color(0.69f, 0.51f, 0.24f, 0.95f);
     private static readonly Color TitleBaseColor = new Color(0.99f, 0.97f, 0.92f, 1f);
-    private static readonly Color DescriptionColor = new Color(0.18f, 0.11f, 0.04f, 1f);
-    private static readonly Color StatusColor = new Color(0.24f, 0.18f, 0.07f, 1f);
-    private static readonly Color PriceColor = new Color(0.27f, 0.18f, 0.04f, 1f);
+    private static readonly Color DescriptionColor = new Color(0.21f, 0.13f, 0.05f, 1f);
+    private static readonly Color StatusColor = new Color(0.33f, 0.22f, 0.09f, 1f);
+    private static readonly Color PriceColor = new Color(0.38f, 0.24f, 0.05f, 1f);
 
     private static ItemTooltip _instance;
 
@@ -209,6 +211,21 @@ public class ItemTooltip : MonoBehaviour
             return;
         }
 
+        if (!gameObject.activeInHierarchy || !isActiveAndEnabled)
+        {
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = 0f;
+            }
+
+            if (gameObject.activeSelf)
+            {
+                gameObject.SetActive(false);
+            }
+
+            return;
+        }
+
         StartFade(0f, true);
     }
 
@@ -231,7 +248,13 @@ public class ItemTooltip : MonoBehaviour
             _uiCamera,
             out Vector2 localPoint);
 
-        Rect bounds = TryGetBoundsRect(_movementRect, canvasRect, out Rect movementBounds) ? movementBounds : canvasRect.rect;
+        Rect bounds = canvasRect.rect;
+        if (TryGetBoundsRect(_movementRect, canvasRect, out Rect movementBounds) &&
+            CanBoundsContainTooltip(movementBounds, tooltipRect.rect))
+        {
+            bounds = movementBounds;
+        }
+
         localPoint.x = Mathf.Clamp(localPoint.x, bounds.xMin, bounds.xMax);
         localPoint.y = Mathf.Clamp(localPoint.y, bounds.yMin, bounds.yMax);
 
@@ -239,18 +262,26 @@ public class ItemTooltip : MonoBehaviour
         float halfHeight = tooltipRect.rect.height * 0.5f;
         Vector2 target = new Vector2(localPoint.x + offset.x, localPoint.y + offset.y);
 
-        if (target.x + halfWidth > bounds.xMax)
+        if (target.x + halfWidth > bounds.xMax - TooltipEdgePadding)
         {
-            target.x = localPoint.x - offset.x;
+            target.x = localPoint.x - halfWidth - TooltipPointerClearance;
+        }
+        else if (target.x - halfWidth < bounds.xMin + TooltipEdgePadding)
+        {
+            target.x = localPoint.x + halfWidth + TooltipPointerClearance;
         }
 
-        if (target.y - halfHeight < bounds.yMin)
+        if (target.y - halfHeight < bounds.yMin + TooltipEdgePadding)
         {
-            target.y = localPoint.y - offset.y;
+            target.y = localPoint.y + halfHeight + TooltipPointerClearance;
+        }
+        else if (target.y + halfHeight > bounds.yMax - TooltipEdgePadding)
+        {
+            target.y = localPoint.y - halfHeight - TooltipPointerClearance;
         }
 
-        target.x = Mathf.Clamp(target.x, bounds.xMin + halfWidth, bounds.xMax - halfWidth);
-        target.y = Mathf.Clamp(target.y, bounds.yMin + halfHeight, bounds.yMax - halfHeight);
+        target.x = Mathf.Clamp(target.x, bounds.xMin + halfWidth + TooltipEdgePadding, bounds.xMax - halfWidth - TooltipEdgePadding);
+        target.y = Mathf.Clamp(target.y, bounds.yMin + halfHeight + TooltipEdgePadding, bounds.yMax - halfHeight - TooltipEdgePadding);
         tooltipRect.anchoredPosition = target;
     }
 
@@ -352,7 +383,7 @@ public class ItemTooltip : MonoBehaviour
 
         var contentLayout = contentRoot.GetComponent<VerticalLayoutGroup>();
         contentLayout.padding = new RectOffset(0, 0, 0, 0);
-        contentLayout.spacing = 5;
+        contentLayout.spacing = 6;
         contentLayout.childAlignment = TextAnchor.UpperLeft;
         contentLayout.childControlWidth = true;
         contentLayout.childControlHeight = true;
@@ -368,8 +399,8 @@ public class ItemTooltip : MonoBehaviour
         headerImage.raycastTarget = false;
 
         var headerLayout = headerRoot.GetComponent<HorizontalLayoutGroup>();
-        headerLayout.padding = new RectOffset(8, 8, 5, 5);
-        headerLayout.spacing = 6;
+        headerLayout.padding = new RectOffset(9, 9, 6, 6);
+        headerLayout.spacing = 7;
         headerLayout.childAlignment = TextAnchor.MiddleLeft;
         headerLayout.childControlWidth = false;
         headerLayout.childControlHeight = true;
@@ -382,10 +413,10 @@ public class ItemTooltip : MonoBehaviour
 
         qualityIcon = EnsureImage("QualityIcon", qualityIcon, headerRoot.transform);
         qualityIcon.raycastTarget = false;
-        qualityIcon.rectTransform.sizeDelta = new Vector2(12f, 12f);
+        qualityIcon.rectTransform.sizeDelta = new Vector2(14f, 14f);
         var qualityLayout = qualityIcon.GetComponent<LayoutElement>() ?? qualityIcon.gameObject.AddComponent<LayoutElement>();
-        qualityLayout.preferredWidth = 12f;
-        qualityLayout.preferredHeight = 12f;
+        qualityLayout.preferredWidth = 14f;
+        qualityLayout.preferredHeight = 14f;
 
         itemNameText = EnsureText("ItemName", itemNameText, headerRoot.transform);
         var titleLayout = itemNameText.GetComponent<LayoutElement>() ?? itemNameText.gameObject.AddComponent<LayoutElement>();
@@ -506,6 +537,8 @@ public class ItemTooltip : MonoBehaviour
     {
         var layout = text.GetComponent<LayoutElement>() ?? text.gameObject.AddComponent<LayoutElement>();
         layout.preferredWidth = ContentWidth;
+        layout.flexibleWidth = 0f;
+        text.lineSpacing = 1.08f;
     }
 
     private void ApplyTheme()
@@ -518,10 +551,20 @@ public class ItemTooltip : MonoBehaviour
         headerImage.color = HeaderColor;
         dividerImage.color = DividerColor;
 
-        ApplyTextTheme(itemNameText, font, 15, FontStyle.Bold, TextAnchor.MiddleLeft, TitleBaseColor);
-        ApplyTextTheme(statusText, font, 12, FontStyle.Bold, TextAnchor.MiddleLeft, StatusColor);
-        ApplyTextTheme(descriptionText, font, 12, FontStyle.Bold, TextAnchor.UpperLeft, DescriptionColor);
-        ApplyTextTheme(priceText, font, 12, FontStyle.Bold, TextAnchor.MiddleRight, PriceColor);
+        Outline frameOutline = frameImage.GetComponent<Outline>() ?? frameImage.gameObject.AddComponent<Outline>();
+        frameOutline.effectColor = new Color(0f, 0f, 0f, 0.14f);
+        frameOutline.effectDistance = new Vector2(1f, -1f);
+        frameOutline.useGraphicAlpha = true;
+
+        Shadow panelShadow = panelImage.GetComponent<Shadow>() ?? panelImage.gameObject.AddComponent<Shadow>();
+        panelShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
+        panelShadow.effectDistance = new Vector2(0f, -2f);
+        panelShadow.useGraphicAlpha = true;
+
+        ApplyTextTheme(itemNameText, font, 16, FontStyle.Bold, TextAnchor.MiddleLeft, TitleBaseColor);
+        ApplyTextTheme(statusText, font, 13, FontStyle.Bold, TextAnchor.MiddleLeft, StatusColor);
+        ApplyTextTheme(descriptionText, font, 13, FontStyle.Normal, TextAnchor.UpperLeft, DescriptionColor);
+        ApplyTextTheme(priceText, font, 13, FontStyle.Bold, TextAnchor.MiddleRight, PriceColor);
     }
 
     private static void ApplyTextTheme(Text text, Font font, int size, FontStyle style, TextAnchor anchor, Color color)
@@ -739,6 +782,22 @@ public class ItemTooltip : MonoBehaviour
             StopCoroutine(_fadeCoroutine);
         }
 
+        if (!gameObject.activeInHierarchy || !isActiveAndEnabled)
+        {
+            _fadeCoroutine = null;
+            if (canvasGroup != null)
+            {
+                canvasGroup.alpha = targetAlpha;
+            }
+
+            if (deactivateOnComplete && gameObject.activeSelf)
+            {
+                gameObject.SetActive(false);
+            }
+
+            return;
+        }
+
         _fadeCoroutine = StartCoroutine(FadeRoutine(targetAlpha, deactivateOnComplete));
     }
 
@@ -824,6 +883,12 @@ public class ItemTooltip : MonoBehaviour
         Bounds bounds = RectTransformUtility.CalculateRelativeRectTransformBounds(canvasRect, target);
         rect = Rect.MinMaxRect(bounds.min.x, bounds.min.y, bounds.max.x, bounds.max.y);
         return true;
+    }
+
+    private static bool CanBoundsContainTooltip(Rect bounds, Rect tooltipRect)
+    {
+        return bounds.width >= tooltipRect.width + TooltipEdgePadding * 2f &&
+               bounds.height >= tooltipRect.height + TooltipEdgePadding * 2f;
     }
 
     private static bool ShouldSuppressBecauseOfInteraction()

@@ -988,6 +988,35 @@ public class GameInputManager : MonoBehaviour
         return hotbarSelection.selectedIndex == clampedIndex;
     }
 
+    public bool TryHandleToolbarPointerSelectionChange(int requestedIndex)
+    {
+        if (hotbarSelection == null)
+        {
+            return false;
+        }
+
+        int clampedIndex = Mathf.Clamp(requestedIndex, 0, InventoryService.HotbarWidth - 1);
+        if (hotbarSelection.selectedIndex == clampedIndex)
+        {
+            hotbarSelection.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
+            return true;
+        }
+
+        if (TryRejectActiveFarmToolSwitch(clampedIndex))
+        {
+            return false;
+        }
+
+        var lockManager = ToolActionLockManager.Instance;
+        if (lockManager != null && lockManager.IsLocked)
+        {
+            lockManager.CacheHotbarInput(clampedIndex);
+            return false;
+        }
+
+        return TryApplyHotbarSelectionChange(clampedIndex);
+    }
+
     void HandleHotbarSelection()
     {
         // 面板打开或鼠标在UI上时，禁用滚轮切换工具栏
@@ -1619,6 +1648,20 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     private Vector2 GetTargetAnchor(Transform target, Vector2 playerPos)
     {
+        if (target != null)
+        {
+            ChestController chest = target.GetComponent<ChestController>();
+            if (chest == null)
+            {
+                chest = target.GetComponentInParent<ChestController>();
+            }
+
+            if (chest != null)
+            {
+                return chest.GetClosestInteractionPointForNavigation(playerPos);
+            }
+        }
+
         // 尝试获取 Collider
         var collider = target.GetComponent<Collider2D>();
         if (collider == null)
@@ -1775,7 +1818,7 @@ public class GameInputManager : MonoBehaviour
         float clampedDistance = Mathf.Max(0.35f, baseDistance);
         if (interactable is ChestController)
         {
-            return clampedDistance;
+            return clampedDistance * 1.15f;
         }
 
         return clampedDistance * 1.2f;
@@ -3217,7 +3260,72 @@ public class GameInputManager : MonoBehaviour
     /// </summary>
     public void OnFarmActionAnimationComplete()
     {
-        // 🔴 补丁003 模块C：兜底 — 若 tile 更新还没触发（异常情况），强制执行
+        FinalizePendingFarmAnimationResult();
+        _pendingTileUpdate = null;
+        _tileUpdateTriggered = false;
+
+        _isExecutingFarming = false;
+        RemoveExecutingPreviewForCurrentRequest();
+
+        ProcessNextAction();
+    }
+
+    public void CompleteCurrentFarmActionAndStopQueueForHotbarSwitch()
+    {
+        FinalizePendingFarmAnimationResult();
+
+        if (_farmingNavigationCoroutine != null)
+        {
+            StopCoroutine(_farmingNavigationCoroutine);
+            _farmingNavigationCoroutine = null;
+        }
+
+        if (autoNavigator != null && autoNavigator.IsActive)
+        {
+            autoNavigator.ForceCancel();
+        }
+
+        _farmActionQueue.Clear();
+        _queuedPositions.Clear();
+        _isProcessingQueue = false;
+        _isQueuePaused = false;
+        _isExecutingFarming = false;
+        _currentHarvestTarget = null;
+        _pendingTileUpdate = null;
+        _tileUpdateTriggered = false;
+        _farmNavigationTarget = Vector3.zero;
+        _farmNavigationAction = null;
+        _farmNavState = FarmNavState.Idle;
+
+        RemoveExecutingPreviewForCurrentRequest();
+        FarmToolPreview.Instance?.ClearAllQueuePreviews(clearExecutingPreviews: true);
+        ClearPausedFarmingNavigation();
+        ClearSnapshot();
+    }
+
+    /// <summary>
+    /// 收获动画完成回调（Collect）。
+    /// 由 PlayerInteraction.OnActionComplete 中的 Collect 专用分支调用。
+    /// 执行收获逻辑（走 IInteractable 接口），然后取队列下一个。
+    /// </summary>
+    public void OnCollectAnimationComplete()
+    {
+        // 执行收获逻辑（走 IInteractable 接口）
+        if (_currentHarvestTarget != null && _currentHarvestTarget.CanInteract(null))
+        {
+            var context = BuildInteractionContext();
+            _currentHarvestTarget.OnInteract(context);
+        }
+
+        _currentHarvestTarget = null;
+        _isExecutingFarming = false;
+        RemoveExecutingPreviewForCurrentRequest();
+
+        ProcessNextAction();
+    }
+
+    private void FinalizePendingFarmAnimationResult()
+    {
         if (_pendingTileUpdate != null && !_tileUpdateTriggered)
         {
             var req = _pendingTileUpdate.Value;
@@ -3230,13 +3338,11 @@ public class GameInputManager : MonoBehaviour
                     ExecuteWaterTile(req.layerIndex, req.cellPos, req.puddleVariant);
                     break;
                 case FarmActionType.RemoveCrop:
-                    // 🔴 004-P3：兜底 — 如果动画中期没触发隐藏，这里直接隐藏
                     ExecuteRemoveCrop(req.layerIndex, req.cellPos);
                     break;
             }
         }
-        
-        // 🔴 004-P3：动画完成后，RemoveCrop 类型执行真正的数据销毁
+
         if (_pendingTileUpdate != null && _pendingTileUpdate.Value.type == FarmActionType.RemoveCrop)
         {
             var req = _pendingTileUpdate.Value;
@@ -3252,35 +3358,6 @@ public class GameInputManager : MonoBehaviour
                 }
             }
         }
-        
-        _pendingTileUpdate = null;
-        _tileUpdateTriggered = false;
-        
-        _isExecutingFarming = false;
-        RemoveExecutingPreviewForCurrentRequest();
-        
-        ProcessNextAction();
-    }
-    
-    /// <summary>
-    /// 收获动画完成回调（Collect）。
-    /// 由 PlayerInteraction.OnActionComplete 中的 Collect 专用分支调用。
-    /// 执行收获逻辑（走 IInteractable 接口），然后取队列下一个。
-    /// </summary>
-    public void OnCollectAnimationComplete()
-    {
-        // 执行收获逻辑（走 IInteractable 接口）
-        if (_currentHarvestTarget != null && _currentHarvestTarget.CanInteract(null))
-        {
-            var context = BuildInteractionContext();
-            _currentHarvestTarget.OnInteract(context);
-        }
-        
-        _currentHarvestTarget = null;
-        _isExecutingFarming = false;
-        RemoveExecutingPreviewForCurrentRequest();
-        
-        ProcessNextAction();
     }
     
     /// <summary>

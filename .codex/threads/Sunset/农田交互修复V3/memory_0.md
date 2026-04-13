@@ -5361,3 +5361,597 @@ thread-state 本轮已报实：
   - 下一步只剩：
     1. 提交这条记录到 memory
     2. `Park-Slice`
+
+## 2026-04-13｜只读定责：掉落物拾取、箱子接近/开关异常、提示闪烁、toolbar 第五格归因拆账
+
+- 当前主线：
+  - 用户要求本轮不要改代码，只把最近几条异常按“是谁的问题 / 问题在哪 / 怎么修”拆清楚，避免继续把 UI、day1、导航和 farm 乱甩锅。
+- 本轮子任务：
+  - 只读审计这 5 组问题：
+    1. 掉落物为什么不能拾取
+    2. 箱子右键接近为什么会绕后、不肯只走一小步
+    3. 箱子为什么会开一下又立刻关上
+    4. 箱子提示为什么会闪烁/消失
+    5. toolbar 第五格为什么有槽但内容不显示
+- 本轮实际读到并钉实：
+  1. 掉落物拾取主链不在 UI 壳，而在：
+     - `AutoPickupService.cs`
+     - `WorldItemPickup.cs`
+     - `WorldItemPool.cs`
+     - `WorldSpawnService.cs`
+     - `ItemDropHelper.cs`
+  2. 当前代码里其实有两种“拿不起来”：
+     - 资源/世界掉落：`WorldItemPool.defaultSpawnCooldown` 默认 `1s`
+     - 玩家手动丢弃：`ItemDropHelper.DropAtPlayer/DropAtPosition` 默认直接 `SetDropCooldown(5f)`
+     - `WorldItemPickup.CanBePickedUp()` 对丢弃物的判定是：`5 秒结束` 或 `玩家离开拾取圈再回来`
+  3. `AutoPickupService` 本身没有近期被本线程改坏；其主逻辑仍是老链：
+     - OverlapCircle 扫半径
+     - 过 tag `Pickup`
+     - 找 `WorldItemPickup`
+     - 过 `CanBePickedUp()`
+     - 再过 `InventoryService.CanAddItem(...)`
+  4. 当前世界掉落 prefab 与场景实例普遍已经带：
+     - `m_TagString: Pickup`
+     - `CircleCollider2D`
+     - `m_IsTrigger: 1`
+     所以“完全因为 prefab 没 tag/没 trigger”不是当前最高嫌疑。
+  5. 箱子异常三连的直接根因仍在本线程 own runtime：
+     - `ChestController.interactionDistance = 0.9`
+     - `GameInputManager.GetInteractionDistanceThreshold()` 对箱子不给 `1.2x` 容差
+     - `PlayerAutoNavigator.CalculateOptimalStopRadius()` 对箱子 stopFactor 偏紧
+     - `ChestController.uiOpenDelaySeconds = 0.35`
+     - `ShowBoxUiAfterDelay() -> ShouldAbortPendingUiOpen()` 会在延迟后再次按距离/UI 状态回杀
+     - `ReportProximityInteraction()` 每帧硬依赖边界距离和 pending 状态，导致提示闪烁
+  6. toolbar 第五格问题当前仍优先算本线程 own：
+     - 最近确实改过 `ToolbarUI.Build()` / 槽位排序映射
+     - 当前更像 `build/bind/index/refresh` 逻辑面，而不是纯 UI 美术壳问题
+- 当前判断：
+  1. 如果用户说的“掉落物不能拾取”是“玩家从背包丢到地上的物品”，那这不是 day1，也不是 UI 美术问题，直接根因就是历史交互线自己加的 `5f` 丢弃冷却；责任面属于农田/交互历史链，本线程应主刀收。
+  2. 如果用户说的是“资源节点/作物正常掉出来的掉落物长期都拿不了”，那静态读码还没钉到单一 if，但当前最高嫌疑仍是 runtime 拾取链，不该先甩 UI 或 day1；优先继续看 `AutoPickupService -> CanBePickedUp -> CanAddItem` 的现场状态。
+  3. 箱子右键绕后、开一下又关、提示闪烁，这三条都应该由本线程主刀；导航线程最多作为“箱子专属接近点策略”协作者，不是主锅。
+  4. toolbar 第五格问题也不该先甩 UI；至少要先由本线程把 `ToolbarUI / ToolbarSlotUI` 的绑定真源再核一轮。
+- 推荐修法（只记录方案，不在本轮施工）：
+  1. 掉落物：
+     - 先区分“手动丢弃冷却”与“世界掉落真的坏了”
+     - 若用户不接受 `5s`，改成更短/可配置，或只保留“离开再回收”防秒捡
+     - 若是世界掉落仍坏，再 live 钉 `CanBePickedUp / CanAddItem / inventory ref`
+  2. 箱子接近：
+     - 不先改全局导航
+     - 给箱子接入“当前侧优先”的专属接近点，而不是继续裸用 `FollowTarget(transform)`
+  3. 箱子开关与提示：
+     - 打开视觉与延迟 UI 打开要拆开时序，不能再“先开视觉、延后再判死”
+     - proximity candidate 需要稳定带/滞回，不能每帧硬清
+  4. toolbar 第五格：
+     - 继续核 `ToolbarUI.Build / ResolveToolbarSlotIndex / ToolbarSlotUI.Bind/Refresh`
+     - 先按 runtime 绑定问题处理，不先扩成 UI 视觉专题
+- 当前恢复点：
+  - 本轮无代码修改，仍保持 `PARKED`
+  - 下一轮如果继续，建议顺序：
+    1. 先钉掉落物到底是“5 秒冷却”还是“世界掉落链坏了”
+    2. 再做箱子 runtime 三连收口
+    3. 最后补 toolbar 第五格
+
+## 2026-04-13｜只读加票：双击快移不是拖拽语义，当前确实有独立 bug 面
+
+- 当前主线：
+  - 用户追加指出“箱子/背包双击快移”存在大量 bug，尤其是“重新读档后再打开箱子，双击拿取会直接凭空消失”；要求继续只读把问题查清。
+- 本轮子任务：
+  - 对照真实拖拽链，审计双击快移实现是否真的复用了拖拽语义，以及它为什么在读档后更容易出错。
+- 本轮实际钉实：
+  1. 当前双击快移完全不是拖拽语义：
+     - 入口在 `InventorySlotInteraction.OnPointerClick()`
+     - 真执行在 `TryExecuteBoxDoubleClickTransfer()`
+     - 它没有走 `SlotDragContext.Begin -> HandleSlotDragContextDrop -> HandleChestToInventoryDrop / HandleInventoryToChestDrop`
+     - 而是自己直接：
+       - `ResolveDoubleClickTransferTarget()`
+       - `FindFirstEmptySlot(targetContainer)`
+       - `SetContainerSlotPreservingRuntime(target, ...)`
+       - `SetContainerSlotPreservingRuntime(source, empty, ...)`
+  2. 这意味着双击绕开了真实拖拽链里已经站稳的一整套语义：
+     - 同类堆叠
+     - 交换/回退
+     - 回源容器兜底
+     - 目标容器是否合法
+     - 统一选中刷新
+     - `SlotDragContext` 的跨容器 owner/source 语义
+  3. 当前最危险的一条分叉是“目标背包不是取当前面板真实绑定的背包容器”：
+     - 双击箱子 -> 背包时，用的是 `InventorySlotInteraction.CachedInventoryService`
+     - 这个缓存来源是 `FindFirstObjectByType<InventoryService>()`
+     - 它不是 `BoxPanelUI` 当前真正绑定在 `Down` 区显示的那个容器真源
+     - 读档/重开箱子后，这条差异尤其危险：双击可能把物品写进一个当前 UI 没在看的 `InventoryService`，玩家体感就是“凭空消失”
+  4. 相比之下，真正拖拽链不会这样：
+     - 源容器来自当前槽位 `CurrentContainer`
+     - 目标容器来自真实落点槽位/容器
+     - 不会在跨容器落点时私自 `FindFirstObjectByType<InventoryService>()`
+  5. 现在的双击实现还天然不满足“省略拖拽过程，但语义仍等同拖拽”：
+     - 它只找第一个空槽
+     - 不做同类堆叠
+     - 不走 `HandleChestToInventoryDrop / HandleInventoryToChestDrop`
+     - 所以它不是“拖拽快捷入口”，而是“另起了一条快移捷径”
+- 当前判断：
+  1. 用户这次判断是对的：双击逻辑现在确实有结构性问题，不是单个小 bug。
+  2. “读档后双击箱子物品直接消失”这条，最高嫌疑不是 UI 壳，而是：
+     - 双击目的地解析用了全局 `CachedInventoryService`
+     - 与 `BoxPanelUI` 当前绑定容器脱轨
+  3. 所以这条仍应由本线程主刀，不该甩给 UI 线程。
+- 后续正确修法（只记录，不在本轮施工）：
+  1. 双击不能再保留独立直写捷径
+  2. 必须改成“复用拖拽链，只是省略鼠标拖动过程”：
+     - 先构造等价 `SlotDragContext`
+     - 再走现有 `HandleSlotDragContextDrop`
+     - 目标槽位解析也必须基于当前可见容器真源，而不是全局找 `InventoryService`
+  3. 否则继续补 if/else，只会把“拖拽一套、双击一套”的分裂越补越重
+- 当前恢复点：
+  - 本轮仍无代码修改，继续 `PARKED`
+  - 如果下一轮允许开修，双击快移应单独收一刀，目标就是“彻底并轨到拖拽语义”，不再留第二套落点逻辑
+
+## 2026-04-13｜总账整理：最近用户问题已收成 4 组主专题 + 1 组协作边界
+
+- 这轮目标：
+  - 按用户要求，把最近连续插入的所有提问、投诉、边界追问和责任划分请求，统一整理成可直接决策的总账，不再只回答最后一个点。
+- 当前已收敛的主专题：
+  1. 箱子 runtime 交互专题
+     - 右键接近会绕后
+     - 开一下又关
+     - 提示闪烁/消失
+     - `E` 键开关残留背景层
+  2. 背包 / 箱子 / toolbar 交互专题
+     - 点击选中
+     - `up/down` 区选中一致性
+     - 第五格内容显示
+     - 双击快移 bug
+  3. 掉落物 / 自动拾取专题
+     - 玩家丢弃物拾取
+     - 世界掉落物拾取
+  4. 责任归属与跨线程边界专题
+     - 哪些归本线程
+     - 哪些不该甩给 UI
+     - 哪些不该再甩给 day1
+     - 导航线程只在哪些点协作
+- 当前核心结论：
+  - 箱子 runtime 三连、toolbar 第五格、双击快移、掉落物冷却口径，这几条当前都仍优先算本线程 own。
+  - UI 线程主刀的是视觉壳与排版，不该背 runtime 交互真源。
+  - day1 当前已从“剧情是不是禁用播种/交互”这类怀疑中剥离，不该继续背箱子/双击/掉落物锅。
+  - 双击快移是结构性分叉，必须并轨回拖拽真语义，不能继续补 if/else。
+  - 掉落物“不能拾取”至少要先区分：
+    - 玩家主动丢弃后的 `5s` 冷却
+    - 世界掉落运行时真坏
+- 当前恢复点：
+  - 这轮仍为只读总账整理
+  - 继续保持 `PARKED`
+
+## 2026-04-13｜只读总账交付：按“已过线 / 未过线 / 待分责”重排最近全部提问
+
+- 当前主线：
+  - 用户要求不要再只回最后一个点，而是把最近连续提过的所有问题、追问、边界和责任划分一次性列清，并给出解决方案与任务清单。
+- 本轮子任务：
+  - 不进施工，只做总账重排，按“当前状态 / 责任归属 / 根因层 / 推荐修法 / 优先级”整理。
+- 本轮整理后的结果：
+  1. 当前仍未过线、且优先归本线程 own 的主问题收敛为 4 组：
+     - 箱子 runtime 三连：右键接近绕后、开一下又关、提示闪烁
+     - 双击快移：未复用拖拽真语义，读档后跨容器可能写错目标
+     - 掉落物拾取：先区分玩家手丢 `5s` 冷却，还是世界掉落运行时真坏
+     - toolbar 第五格：优先按 runtime build/bind/index/refresh 问题处理
+  2. 已基本过线、可先移出主战场但仍保留回归关注的内容：
+     - 树苗放置主链
+     - 背包/箱子普通点击选中与大部分拖拽链
+     - 全部作物重新需要浇水
+     - 空耕地三天自动消失
+  3. 责任边界进一步压实：
+     - UI 线程主刀视觉壳与排版，不背箱子 runtime / 双击 / 掉落物主锅
+     - day1 不再背“剧情禁播种/禁交互”这类锅
+     - 导航线程最多只在“箱子专属接近点策略”落地时协作，不是当前主锅
+- 当前判断：
+  - 这轮最核心的判断是：最近剩下的真问题已经不再是一大坨“农田交互全坏”，而是 4 个可以分刀收掉的 runtime 专题；其中最危险的是双击快移，因为它现在是一条独立捷径，不是拖拽快捷入口。
+  - 这个判断成立，是因为当前只读证据已经能把“箱子 runtime 三连 / 双击快移 / 掉落物 / toolbar 第五格”分别落到具体脚本和具体失真点，不再只是模糊体感。
+- 最薄弱点：
+  - 世界掉落物“长期不能拾取”这条还差一次 live 定证；静态证据目前只能确认“玩家手丢 5 秒冷却”是真存在的。
+- 当前恢复点：
+  - 本轮没有代码修改
+  - 线程继续保持 `PARKED`
+  - 如果下一轮用户放行施工，推荐顺序：
+    1. 双击快移并轨回拖拽真语义
+    2. 箱子 runtime 三连
+    3. 掉落物拾取定证并收口
+    4. toolbar 第五格
+
+## 2026-04-13｜已施工：双击快移并轨、箱子 runtime 收口、掉落物冷却下调、toolbar 第五格绑定加固
+
+- 当前主线：
+  - 用户批准把最近总账里仍未过线的 4 组问题直接落地：双击快移、箱子 runtime 三连、掉落物拾取、toolbar 第五格。
+- 本轮子任务：
+  - 只围绕这 4 组真问题改运行时代码，不再扩回树、Primary、day1、UI 样式或别的支线。
+- 本轮实际完成：
+  1. 双击快移不再直接写容器：
+     - 文件：`Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs`
+     - 现在改为：
+       - 目标容器先走 `BoxPanelUI.CurrentInventoryService / CurrentChest.RuntimeInventory`
+       - 通过 `SlotDragContext.Begin(...) + HandleSlotDragContextDrop(...)` 复用现有跨容器落点链
+       - 双击后再由 `BoxPanelUI` 刷新目标区域选中态
+     - 目的：把“读档后双击箱子物品凭空消失”的最高嫌疑点从“写到错误 InventoryService”上切掉
+  2. 箱子接近/开一下又关/提示闪烁往同一事实源收了一层：
+     - 文件：
+       - `Assets/YYY_Scripts/World/Placeable/ChestController.cs`
+       - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+       - `Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs`
+     - 现在改为：
+       - `GameInputManager` 与 `PlayerAutoNavigator` 对箱子统一走 `ChestController.GetClosestInteractionPointForNavigation(...)`
+       - 箱子交互距离从“完全无容差”改成 `1.15x` 完成阈值
+       - 导航 stop radius 对箱子明显放宽，不再要求角色几乎贴模停下
+       - `ShouldAbortPendingUiOpen()` 不再按过紧的 `InteractionDistance` 直接回杀，而是吃 `PendingUiOpenDistanceGrace`
+       - proximity 提示不再因为 pending open / close 直接硬隐藏，并加了一层 sticky grace
+       - coarse range 粗筛改成按边界距离，不再用箱子中心点做粗判
+  3. 掉落物“手丢后短时间拿不起来”先按口径收窄：
+     - 文件：`Assets/YYY_Scripts/UI/Utility/ItemDropHelper.cs`
+     - 玩家主动丢弃默认冷却从 `5f` 下调到 `0.35f`
+     - 目的：保留防止同帧秒吸回的最小保护，但不再出现“丢地上像坏了一样半天捡不起来”
+  4. toolbar 第五格按绑定真源再加固一层：
+     - 文件：`Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs`
+     - `Build()` 现在：
+       - 先过滤非真实 toolbar 槽位节点
+       - 再按解析出的真实槽位号绑定
+       - 避免隐藏子物体/顺序漂移吞掉某个槽位索引，导致“第五格有槽但内容不显示”
+- 当前判断：
+  - 这轮最值钱的一刀是双击快移终于不再独走第二套容器写链；箱子 runtime 也从“距离、导航、pending UI、proximity 各自一套”往同源事实压了一层。
+  - 当前还没做 live 最终盖章，所以不能写成“用户已测全过”；更准确状态是：代码层已落地，等待用户实机终验。
+- 验证结果：
+  - `mcp validate_script`：
+    - `InventorySlotInteraction.cs`：`0 error / 1 warning`
+    - `ChestController.cs`：`0 error / 1 warning`
+    - `PlayerAutoNavigator.cs`：`0 error / 2 warning`
+    - `GameInputManager.cs`：`0 error / 2 warning`
+    - `ItemDropHelper.cs`：`0 error / 0 warning`
+    - `ToolbarUI.cs`：`0 error / 0 warning`
+  - fresh console：`0 error / 0 warning`
+  - `git diff --check`：通过（仅有 CRLF/LF 提示，不是 diff 错）
+- 最薄弱点：
+  - 这轮还没做 live 手操，所以：
+    - 箱子“绕后”是否已经彻底消失
+    - 第五格是否在你真实场景里完全恢复
+    仍需用户现场终验
+- 当前恢复点：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+  - 如果用户下一轮继续追：
+    1. 先按 live 结果补箱子 residual
+    2. 若仍有掉落物异常，再区分“手丢冷却”之外的世界掉落链
+
+## 2026-04-13｜只读定证：toolbar 第五格持续空白的更高层根因已转向“总变更不驱动 toolbar 刷新”
+
+- 当前主线：
+  - 用户贴了最新 live 截图，明确指出“第五格问题依旧存在”，要求只读审核，找到问题并给出具体解决方案。
+- 本轮子任务：
+  - 只读对照 `ToolbarUI / ToolbarSlotUI / InventoryService / PlayerInventoryData / ToolBar.prefab`，判断第五格为什么在底部 toolbar 仍然空白，而箱子页面/背包页面却已经能看到该格子里有物品。
+- 本轮实际钉实：
+  1. 从用户截图可直接确认一条关键事实：
+     - 底部 toolbar 的第 5 格是空的
+     - 但打开箱子页后的 `down` 背包第 5 格已经能显示物品
+     - 这说明“真实背包数据里已经有物品”，问题不在物品生成本身，而在 toolbar 同步链
+  2. `ToolBar.prefab` 当前 `Grid` 下正好就是 12 个 `Bar_00_TG*` 子物体，不是“少了一个槽位”：
+     - hierarchy 顺序是完整 12 格
+     - 所以“第五格根本没建出来”不成立
+  3. `ToolbarSlotUI` 当前只订阅：
+     - `InventoryService.OnHotbarSlotChanged`
+     - `InventoryService.OnSlotChanged`
+     - `HotbarSelectionService.OnSelectedChanged`
+     它没有订阅 `InventoryService.OnInventoryChanged`
+  4. `PlayerInventoryData.LoadFromSaveData(...)` 在恢复整包数据时，结尾只会：
+     - `RaiseInventoryChanged()`
+     - 不会逐格 `RaiseSlotChanged(...)`
+  5. `InventoryService` 只是把这条总事件转发成：
+     - `OnInventoryChanged?.Invoke()`
+     - 也不会自动补发每个 hotbar 槽位的 `OnHotbarSlotChanged`
+  6. 所以现在会出现完全符合截图的状态：
+     - 真实 inventory 已经有第 5 格物品
+     - 打开箱子/背包面板时，`RefreshInventorySlots()` 会整面板重绑重刷，所以你能在 `down` 区看到它
+     - 但底部 toolbar 因为没有监听整包刷新，仍停留在旧空态
+- 当前判断：
+  - 这次第五格问题的主根因，不再是“toolbar 第 5 格 prefab 坏了”或“第 5 格索引解析错了”，而是：
+    - `整包恢复 / 跨场景恢复 / save-load 恢复`
+    - 只发了 `OnInventoryChanged`
+    - toolbar 没有吃这条总刷新信号
+  - 我前一轮对 `ToolbarUI.Build()` 做的“过滤非槽位 + 按真实索引绑定”属于加固，但不是这次截图里这条现象的最高层根因。
+- 推荐修法：
+  1. 主修法，低风险、最对症：
+     - 在 `ToolbarUI.cs` 订阅 `InventoryService.OnInventoryChanged`
+     - 一旦整包变化，直接对 12 格跑一次 `ForceRefresh()`，然后补 `RefreshSelection()`
+     - 理由：toolbar 是“整条条带 UI”，最适合由面板级统一吃“整包变了”的信号
+  2. 次修法，可作为保险：
+     - 在 `InventoryService.Load(...)` 或 `PlayerInventoryData.LoadFromSaveData(...)` 结束后，额外补发 hotbar 0~11 的逐格变化事件
+     - 但这条 blast radius 更大，会影响所有依赖槽位事件的监听者，不如先走 toolbar 自己补听总事件更稳
+  3. 不推荐把这刀继续做成“再猜 prefab 槽位名 / 再调 ResolveToolbarSlotIndex”
+     - 因为最新截图已经证明：核心不是“第 5 个物体不存在”，而是“底部 toolbar 没吃到总刷新”
+- 当前恢复点：
+  - 本轮无代码修改
+  - 当前状态维持 `PARKED`
+## 2026-04-13｜已施工：toolbar 第五格补整包刷新订阅
+
+- 当前主线：
+  - 用户放行继续，把 	oolbar 第五格空白 这条从只读定证推进到最小真实修复。
+- 本轮子任务：
+  - 只改 Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs，让 toolbar 在整包 inventory 变化后也能立即刷新，不扩到底层 inventory 事件模型。
+- 本轮实际完成：
+  1. ToolbarUI 新增 subscribedInventory 订阅管理。
+  2. 在 OnEnable / ResolveRuntimeContextIfMissing() 中同步 InventoryService.OnInventoryChanged 订阅。
+  3. 新增 HandleInventoryChanged()：整包变化时执行 ForceRefresh()，然后补一次当前选中态刷新。
+  4. 在 OnDisable() 中对应解绑，避免重复订阅和脏回调。
+- 当前判断：
+  - 第五格问题的主根因是“整包恢复只发 OnInventoryChanged，toolbar 没吃这条总刷新事件”；这轮已经按最低 blast radius 修到最对症的一层。
+  - 这轮仍然只站住 结构 / targeted probe，还没有拿到用户 live 终验，所以不能写成体验已过线。
+- 验证结果：
+  - alidate_script Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs：owned_errors=0 external_errors=0，assessment=unity_validation_pending（等待 Unity 编译状态回稳，不是代码红）
+  - errors --count 20 --output-limit 5：errors=0 warnings=0
+  - git diff --check：存在外部既有 trailing whitespace / CRLF 提示，不在本轮 own 路径
+- 当前恢复点：
+  - 已跑 Begin-Slice
+  - 已跑 Park-Slice
+  - 当前状态：PARKED
+  - 下一步优先只等用户 live 看：整包恢复后 toolbar 第五格是否终于同步显示
+## 2026-04-13｜已施工：掉落物拾取跨场景重绑修复
+
+- 当前主线：
+  - 用户报告“掉落物根本不会被捡起来”，要求先彻查并优先修这条 runtime 阻塞。
+- 本轮子任务：
+  - 只收 WorldItemPickup / AutoPickupService / PersistentPlayerSceneBridge 这条拾取链，不扩到别的交互面。
+- 本轮关键定证：
+  1. WorldItems prefab 根条件不是主因：抽查 Tools / Materials / Storage 的 world prefab，根节点都有 Pickup Tag，且 CircleCollider2D 为 isTrigger=1。
+  2. 真根因在跨场景持久化玩家：
+     - Town.unity 里的 AutoPickupService.inventory 序列化引用为  
+     - 玩家从 Town -> Primary 是持久化延续，不是每次都用 Primary 场景本地玩家重新起一份
+     - PersistentPlayerSceneBridge 会重绑 GameInputManager / Placement / Hotbar / UI，但没有重绑 AutoPickupService
+     - 于是 AutoPickupService.CanPickupItem() 长期拿着空背包引用，直接返回 false，形成“地上有掉落物，但永远不进包”
+- 本轮实际完成：
+  1. Assets/YYY_Scripts/Service/Player/AutoPickupService.cs
+     - 新增 EnsureRuntimeReferences()，会在 Awake / Update / RebindRuntimeReferences 中补找 InventoryService、Collider2D 和 hit buffer
+     - Update() 顶部先自恢复引用，若当前仍无 inventory 才直接返回
+     - 新增 RebindRuntimeReferences(InventoryService runtimeInventory) 供跨场景桥接主动重绑
+  2. Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs
+     - 在 RebindScene(...) 里新增 RebindAutoPickup(sceneInventory)
+     - 让持久化玩家切场景时，自动把当前 runtime InventoryService 重新塞回 AutoPickupService
+- 当前判断：
+  - 这条 bug 主责任在我这边 runtime 拾取链，不在掉落 prefab 本身，也不在用户操作。
+  - 这轮修法是双保险：
+    - AutoPickupService 自恢复引用
+    - PersistentPlayerSceneBridge 主动重绑
+  - 所以不只修 Town -> Primary，对后续 Primary -> Home -> 再回来 这类跨场景链也更稳。
+- 验证结果：
+  - manage_script validate AutoPickupService：  error / 1 warning
+  - manage_script validate PersistentPlayerSceneBridge：  error / 2 warning
+  - git diff --check -- <two files>：通过
+  - fresh console：errors=0 warnings=0（有一条 assert 类型 transport 噪音，不是当前脚本红错）
+- 当前恢复点：
+  - 已跑 Begin-Slice
+  - 已跑 Park-Slice
+  - 当前状态：PARKED
+  - 下一步优先请用户 live 复测：从 Town -> Primary 或当前持久化玩家现场，靠近掉落物，确认是否终于会自动吸起
+## 2026-04-13｜只读定证：RuntimeItemTooltip inactive 协程报错属于 tooltip 链问题
+
+- 当前主线：
+  - 用户询问运行时反复出现 `Coroutine couldn't be started because the game object 'RuntimeItemTooltip' is inactive!` 是否属于本线程问题。
+- 本轮子任务：
+  - 只读核查 `ItemTooltip.Hide/StartFade` 与 `ToolbarSlotUI.OnPointerExit`，确认责任归属与真根因。
+- 本轮实际钉实：
+  1. `ToolbarSlotUI.OnPointerExit()` 会直接调用 `ItemTooltip.Instance?.Hide()`。
+  2. `ItemTooltip.Hide()` 当前只检查 `gameObject.activeSelf`，然后直接 `StartFade(0f, true)`。
+  3. `StartFade()` 内部无 `activeInHierarchy / isActiveAndEnabled` 防守，直接 `StartCoroutine(...)`。
+  4. 因此当 `RuntimeItemTooltip` 自身 `activeSelf=true`，但父级或层级链已 inactive 时，会命中这条 Unity 报错。
+- 当前判断：
+  - 这条报错属于本线程最近 tooltip 交互链的问题，不是用户误操作。
+  - 真根因不是 `OnPointerExit` 本身，而是 `ItemTooltip` 的 fade 启动条件只看了 `activeSelf`，没挡住 `activeInHierarchy=false` 的情况。
+- 推荐修法：
+  - 在 `ItemTooltip.Hide()` / `StartFade()` 里统一补 `activeInHierarchy` 或 `isActiveAndEnabled` 守卫；若当前层级已 inactive，则直接把 alpha 置 0 并返回，不再起协程。
+- 当前恢复点：
+  - 本轮无代码修改
+  - 当前线程状态保持 `PARKED`
+## 2026-04-13｜已落盘：给 UI 的 Tooltip 视觉 contract + 给自己的下一轮 prompt
+
+- 当前主线：
+  - 用户要求先不要继续乱修，而是先把两份可直接发的 prompt 写扎实：一份给 UI，一份给我自己下一轮。
+- 本轮子任务：
+  - 生成 `Tooltip` 视觉 contract，明确 UI 只负责视觉壳与版式；再生成本线程下一轮 prompt，限定为“先修 tooltip runtime 报错，再做一轮安全审计”。
+- 本轮实际完成：
+  1. 新增文件：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\UI\2026-04-13_给UI_Tooltip视觉contract与边界说明_01.md`
+     - 收紧了 UI 线程的唯一主刀：`ItemTooltip` 正式视觉面
+     - 明确了最新用户否定、视觉完成定义、允许 scope、禁止漂移、以及 UI/logic owner 边界
+  2. 新增文件：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-04-13_给自己下一轮_Tooltip报错修复与安全审计prompt_01.md`
+     - 明确下一轮只做两件事：修 `RuntimeItemTooltip inactive` 报错；修完后只做 tooltip 安全/逻辑/边界审计，并列清任务清单
+- 当前判断：
+  - 这轮最重要的不是继续写代码，而是把 UI 视觉 owner 和 farm 逻辑 owner 彻底拆开，避免下一轮继续混战。
+  - 这两份 prompt 都是窄刀，不再把 tooltip、交互、drop、placement 混成一坨。
+- 当前恢复点：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+  - 下一步：等用户转发 UI contract；若用户直接继续 farm 线程，则按自用 prompt 开下一轮。
+## 2026-04-13｜已更新：自用 prompt 现在先修 Toolbar 动作切换死态，再做 Tooltip
+
+- 当前主线：
+  - 用户补了最新 live 反馈，明确把下一轮优先级改为：先修 `toolbar` 动作中切换工具时的抖动/选中死态，再去执行原来的 tooltip 报错修复与安全审计。
+- 本轮子任务：
+  - 不继续写代码，只把给自己的下一轮 prompt 按最新反馈重写成新的优先级顺序。
+- 本轮实际完成：
+  1. 新增文件：`D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\2026-04-13_给自己下一轮_先修Toolbar动作切换死态再做Tooltip报错与安全审计prompt_02.md`
+  2. 新 prompt 已明确：
+     - 第一刀：先修 toolbar 点击切换工具与滚轮切换手感/抖动不同源、动作结束后旧工具残留抖动、选中死态
+     - 第二刀：再修 `RuntimeItemTooltip inactive` 报错
+     - 第三刀：最后只做 tooltip 安全审计与任务清单
+- 当前判断：
+  - 这次更新的价值在于把用户最新 live 问题压到最高优先级，避免下一轮继续按旧 prompt 先修 tooltip，结果又偏题。
+- 当前恢复点：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+
+## 2026-04-13｜已施工：toolbar 动作切换死态先收一层，tooltip inactive 报错已补守卫，随后只做 tooltip 审计
+
+- 当前主线：
+  - 按 `2026-04-13_给自己下一轮_先修Toolbar动作切换死态再做Tooltip报错与安全审计prompt_02.md`，严格顺序只做：
+    1. `toolbar` 工具动作进行中切换工具的抖动/选中死态
+    2. `RuntimeItemTooltip inactive` 报错
+    3. 一轮 tooltip 安全审计
+- 本轮子任务：
+  - 不扩到 `Primary / Town / Placement / Tree / Drop / day1`
+  - 不顺手重构整套 `UI/Inventory/Box`
+- 本轮实际完成：
+  1. `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+     - 锁定期 `toolbar` 左键点击现在会：
+       - 先缓存 hotbar 切换输入
+       - 再 `ReassertCurrentSelection(...)` 做整条 toolbar 状态回正
+       - 无 selection 时回退到 `RestoreAllRegisteredSlotVisuals()`
+     - `OnToggleValueChanged()` 在锁定态不再只恢复当前格，而是整条 toolbar 一起回正
+     - `HandleSelectionChanged()` 会先清本 slot 的 reject shake，再刷新选中态
+     - 非锁定点击失败时，也统一改成整条 toolbar 回正，避免点击路径和滚轮路径继续分叉
+  2. `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+     - `ApplyCachedHotbarSwitch()` 不再只直接 `HotbarSelectionService.SelectIndex(cachedIndex)`
+     - 现在优先走 `GameInputManager.TryApplyHotbarSelectionChange(cachedIndex)`
+     - 若切换失败，会显式 `ReassertCurrentSelection(...)`，避免动作结束后留下半切换死态
+  3. `Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`
+     - `Hide()` 新增 `activeInHierarchy / isActiveAndEnabled` 守卫
+     - `StartFade()` 同样补守卫
+     - 在 tooltip 自身 active 但层级已 inactive 时，不再强起协程，而是同步 alpha / deactivate，直接堵 `RuntimeItemTooltip inactive` 这条报错
+  4. tooltip 审计（只读，不继续扩修）：
+     - 高优先级逻辑漏洞：
+       - `QueueShow()` 里先写 `_pendingVisual = visual`，再比较 `VisualEquals(_pendingVisual, visual)`，导致“同 source 下 visual 更新”分支永远在比较自己，存在内容更新被吞掉的风险
+     - 高优先级边界：
+       - `QueueShow()/ShowAfterDelayRoutine` 仍可能在父级 inactive 时继续起 show 协程；这和本轮刚修掉的 fade 守卫属于同类隐患
+     - 中优先级 owner 风险：
+       - `ToolbarSlotUI / InventorySlotInteraction / InventoryInteractionManager` 仍在多入口 `Show/Hide` tooltip，hover 跨面板、页面关闭、拖拽切换时可能出现竞态
+     - 中优先级边界：
+       - source transform 失活/销毁后的 pending source 约束，还应继续审一刀
+- 验证结果：
+  - `validate_script Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`：`owned_errors=0`，仅 external red
+  - `validate_script Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`：`owned_errors=0`，仅 external red
+  - `validate_script Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`：`owned_errors=0`，仅 external red
+  - `git diff --check -- <三文件>`：通过（仅 CRLF/LF 提示）
+  - `errors --count 20 --output-limit 10`：仍有 `16` 条 external `Missing Script`，不是本轮 own 改动引入
+- 关键判断：
+  - 这轮 toolbar 的真修法不是“再改一条 if”，而是把“点击失败 / 锁定点击 / 缓存切换失败”三种状态统一收回同一条 `selection reassert + toolbar 全条回正` 语义
+  - 这轮 tooltip 的真修法只守 runtime 报错，不越界碰视觉；视觉继续交 UI 线程
+- 当前最薄弱点：
+  - toolbar 这刀目前主要站住代码面 + targeted probe，还没拿到用户 live 终验
+  - tooltip 也只是真实堵了 `inactive coroutine` 这条报错，不代表整套 tooltip owner/竞态已过线
+- 当前恢复点：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+  - 当前 blocker：
+    - `等待用户 live 复测 toolbar 切换死态与 tooltip 报错；Unity Console 仍有 external Missing Script 现场（非本轮 own 改动）`
+  - 如果下一轮继续 tooltip，只应按这个优先级往下：
+    1. 修 `QueueShow()` 的同 source visual 更新判断
+    2. 补 `QueueShow()/ShowAfterDelayRoutine` 的 inactive 父级守卫
+    3. 再收 tooltip owner / race
+
+## 2026-04-13｜重新彻查后钉死：toolbar 点击死锁的真根因不是“视觉没回正”，而是点击入口和滚轮/数字键不是同源，且 cached 分支保留了 `_isExecutingFarming`
+
+- 当前主线：
+  - 用户明确否定上一轮“toolbar 已收口”的判断，要求停止模糊口径，重新钉死：
+    - 为什么耕地动画中点击 toolbar 其他工具仍会死锁
+    - 为什么点击和滚轮/快捷键抖动不是同源
+    - 具体该怎么改
+- 本轮子任务：
+  - 只读复盘 `ToolbarSlotUI / GameInputManager / PlayerInteraction / ToolActionLockManager`，不再继续盲改。
+- 重新钉死的代码级证据：
+  1. `GameInputManager.HandleHotbarSelection()` 中：
+     - 滚轮在 `1021`
+     - 数字键在 `1078`
+     - 都会先执行 `TryRejectActiveFarmToolSwitch(targetIndex)`，再决定是否缓存输入
+     - 也就是说：滚轮/数字键在锁定期仍然先走“立即拒绝/立即中断”的运行时语义
+  2. `ToolbarSlotUI.OnPointerClick()` 中：
+     - 锁定期点击在 `380~393`
+     - 只做 `lockManager.CacheHotbarInput(index)`，然后回正 UI
+     - 完全没有先走 `TryRejectActiveFarmToolSwitch(...)`
+     - 所以点击入口和滚轮/数字键从一开始就不是同源
+  3. `PlayerInteraction.OnActionComplete()` 中：
+     - 一旦存在 cached hotbar input，当前分支只调用 `gimRelease.ClearActionQueue()`（`333~337`）
+     - 不调用 `OnFarmActionAnimationComplete()`
+  4. `GameInputManager.ClearActionQueue()` 中：
+     - 如果 `_isExecutingFarming == true`，会刻意保留：
+       - `_isExecutingFarming`
+       - `_pendingTileUpdate`
+       - `_currentProcessingRequest`
+       - 见 `3310~3321`
+     - 这意味着 cached 分支清队列以后，执行态仍然活着
+  5. 接着 `PlayerInteraction.ApplyCachedHotbarSwitch()` 再调用 `TryApplyHotbarSelectionChange(cachedIndex)`：
+     - 又会落回 `TryPrepareHotbarSelectionChange() -> TryRejectActiveFarmToolSwitch()`
+     - 这时 `HasActiveAutomatedFarmToolOperation()` 仍为 true，因为 `_isExecutingFarming` 还没清
+     - 于是切换再次被拒绝，形成你看到的“死锁还在，只是表现方式变了”
+- 结论：
+  - 上一轮我只收了 UI 回正和缓存切换失败回正，所以只是把“表面症状”换了一种样子；真根因没切到。
+  - 真问题有两条，而且必须一起改：
+    1. `toolbar 点击` 入口没有和滚轮/数字键走同一条 runtime 语义
+    2. cached hotbar 分支在动作结束后没有真正结束当前农具执行态，导致 `_isExecutingFarming` 残留，后续切换必被再次拒绝
+- 现在我已经知道的确定修法：
+  1. 第一刀：
+     - `ToolbarSlotUI.OnPointerClick()` 锁定期不能再自己直接 `CacheHotbarInput`
+     - 必须改成委托给 `GameInputManager` 的统一入口，让点击也先跑 `TryRejectActiveFarmToolSwitch()`，和滚轮/数字键同源
+  2. 第二刀：
+     - `PlayerInteraction.OnActionComplete()` 在 `HasCachedHotbarInput` 分支，不能只 `ClearActionQueue()`
+     - 需要一个“当前这一锄/这一浇正常收尾，但不再继续队列，然后把 `_isExecutingFarming / pendingTileUpdate / currentProcessingRequest / executing preview` 真正清掉”的专用收尾方法
+     - 然后再应用 cached hotbar 切换
+  3. 只有这两刀一起做，才会同时解决：
+     - 点击和滚轮/快捷键不同源
+     - 动作结束后死锁
+     - 选中仍在旧工具、必须再用一次旧工具才能解锁
+- 当前恢复点：
+  - 这轮只读定证，不再继续盲改
+  - 当前状态保持 `PARKED`
+
+## 2026-04-14｜已施工：toolbar 点击入口已并轨，cached hotbar 分支已补“真清执行态”
+
+- 当前主线：
+  - 用户批准“彻底落地”，要求按刚刚钉死的真根因直接修，不再停留在分析。
+- 本轮子任务：
+  - 只落两刀：
+    1. `toolbar 点击` 并轨到和滚轮/数字键同一条 runtime 入口
+    2. `cached hotbar` 分支补“当前动作正常收尾但停止队列并真清执行态”的专用清理
+- 本轮实际完成：
+  1. `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - 新增 `TryHandleToolbarPointerSelectionChange(int requestedIndex)`
+     - 现在 `toolbar` 点击也会先跑：
+       - 同槽位 `ReassertCurrentSelection(...)`
+       - 不同槽位先 `TryRejectActiveFarmToolSwitch(...)`
+       - 若只是普通锁定态再 `CacheHotbarInput(...)`
+       - 非锁定态再 `TryApplyHotbarSelectionChange(...)`
+     - 这意味着 `toolbar 点击` 不再绕过滚轮/数字键的主逻辑
+  2. `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+     - 抽出 `FinalizePendingFarmAnimationResult()`
+     - 新增 `CompleteCurrentFarmActionAndStopQueueForHotbarSwitch()`
+     - 这条新收尾会：
+       - 先补做当前这一锄/这一浇的最终 tile 结果兜底
+       - 再清 `_isExecutingFarming`
+       - 清 `_pendingTileUpdate / _currentProcessingRequest`
+       - 清 executing/queue preview
+       - 清队列、导航、snapshot
+       - 真正把当前农具执行态收掉
+  3. `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+     - `OnActionComplete()` 里，存在 cached hotbar input 且当前是 farm tool action 时：
+       - 不再只 `ClearActionQueue()`
+       - 改成调用 `gimRelease.CompleteCurrentFarmActionAndStopQueueForHotbarSwitch()`
+     - 然后再走 `ApplyCachedHotbarSwitch()`
+  4. `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+     - 普通点击入口不再直接自己决定锁定期分支
+     - 现在统一委托给 `GameInputManager.TryHandleToolbarPointerSelectionChange(index)`
+- 关键结果：
+  - 之前的问题：
+    - 点击入口不同源
+    - cached hotbar 分支保留执行态
+  - 现在都已经对应落刀，不再只是修 UI 表面
+- 验证结果：
+  - `validate_script Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`：`owned_errors=0`，仅既有 warning / Unity compiling pending
+  - `validate_script Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`：`owned_errors=0`
+  - `manage_script validate ToolbarSlotUI`：`errors=0 warnings=1`（既有 `Update()` 字符串拼接 warning）
+  - `errors --count 20 --output-limit 10`：`errors=0 warnings=0`
+  - `git diff --check -- <三文件>`：通过（仅 CRLF/LF 提示）
+- 当前判断：
+  - 这次修法已经切到真根因，不再是上一轮那种“只换了一种表面表现”。
+  - 现在最关键的是用户 live 复测：
+    - 耕地动画中点击 toolbar 其他工具
+    - 看是否终于和滚轮/快捷键同源
+    - 看动作结束后是否还能死锁
+- 当前恢复点：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+  - blocker：
+    - `等待用户 live 复测 toolbar 点击打断农具动作是否已与滚轮/快捷键同源且不再死锁`

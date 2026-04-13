@@ -1929,3 +1929,96 @@
 - 当前恢复点：
   - 下一步应该只让用户复测 `Seed / Sapling / Chest` 是否已经从“只有遮挡”恢复成“preview 真可见 + 左键可放置”
   - 不应再回头把主刀扩到 `Primary / day1 / UI 审美`
+
+## 2026-04-13｜toolbar 动作切换死态先收口 + tooltip inactive 报错已补守卫，随后只做 tooltip 审计
+
+- 当前主线：
+  - 按最新自用 prompt，只做 `toolbar 动作进行中切换工具死态`、`RuntimeItemTooltip inactive` 报错、以及一轮 tooltip 安全审计。
+- 本轮实际完成：
+  1. `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+     - 锁定期 `toolbar` 左键点击不再只回正当前被点格子，改为：
+       - 缓存 hotbar 切换输入
+       - 立刻 `ReassertCurrentSelection(...)` 全条回正
+       - 无 selection 时回退到 `RestoreAllRegisteredSlotVisuals()`
+     - `OnToggleValueChanged()` 在锁定态下不再只恢复当前 slot，而是统一回正整条 toolbar
+     - `HandleSelectionChanged()` 现在会先清当前 slot 的 reject shake 残留，再刷新选中态
+     - 非锁定点击失败时也统一改成整条 toolbar 视觉回正，不再只修当前格
+  2. `Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`
+     - `ApplyCachedHotbarSwitch()` 不再只直接 `SelectIndex(cachedIndex)`；
+     - 现在优先走 `GameInputManager.TryApplyHotbarSelectionChange(cachedIndex)`，失败时会 `ReassertCurrentSelection(...)`，避免缓存切换失败后把 toolbar/手持/UI 留在半切换死态
+  3. `Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`
+     - `Hide()` 新增 `activeInHierarchy / isActiveAndEnabled` 守卫；
+     - `StartFade()` 也补了同类守卫；
+     - 当 tooltip 自己 active、但父级层次已 inactive 时，不再强起协程，而是直接同步 alpha / deactivate，堵住 `RuntimeItemTooltip inactive` 这条运行时报错
+- 当前验证：
+  - `validate_script Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`：`owned_errors=0`，仅 external red
+  - `validate_script Assets/YYY_Scripts/Service/Player/PlayerInteraction.cs`：`owned_errors=0`，仅 external red
+  - `validate_script Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`：`owned_errors=0`，仅 external red
+  - `errors --count 20`：仍是外部现场 `Missing Script`，不是本轮 own 改动引入
+- tooltip 审计结论（本轮只收清单，不继续扩修）：
+  1. 高优先级逻辑漏洞：
+     - `ItemTooltip.QueueShow()` 先写 `_pendingVisual = visual`，再做 `VisualEquals(_pendingVisual, visual)` 比较，导致同 source 下的 visual 变化分支永远比较自己，存在“内容更新被吞掉”的风险
+  2. 高优先级边界：
+     - `QueueShow()` 里仍会在 `gameObject.activeSelf=true` 但父级 inactive 的情况下走 `StartCoroutine(ShowAfterDelayRoutine())`，和这次刚修掉的 fade 守卫属于同类隐患，只是还没在这轮顺手扩修
+  3. 中优先级 owner 风险：
+     - tooltip 现在由 `ToolbarSlotUI`、`InventorySlotInteraction`、`InventoryInteractionManager` 多处同时 `Show/Hide`
+     - 虽然真源仍是单例 `ItemTooltip.Instance`，但 hover 跨面板、背包关闭、拖拽/快捷拿取切换时，依然存在“上一处 Hide 抢掉下一处 Show”的竞态风险
+  4. 中优先级体验边界：
+     - 当前 tooltip 抑制逻辑主要靠鼠标键位 / `SlotDragContext.IsDragging` / `InventoryInteractionManager.IsHolding`
+     - 但页面切换、容器关闭、source transform 被销毁/失活时，还需要再审一次“是否应即时清空 pending source 约束”
+- 当前恢复点：
+  - 本轮已跑 `Begin-Slice`
+  - 本轮已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+  - 下一步应先让用户 live 复测：
+    1. toolbar 工具动作中点击切换是否还会抖动残留 / 选中死态
+    2. `RuntimeItemTooltip inactive` 是否已消失
+  - 如果继续 tooltip 下一刀，优先级应是：
+    1. 修 `QueueShow()` 的同 source visual 更新判断
+    2. 补 `ShowAfterDelayRoutine`/`QueueShow` 的 inactive 父级守卫
+    3. 再收 tooltip owner/竞态链
+
+## 2026-04-13｜重新定证：toolbar 点击死锁的真根因已钉死，上一轮只改到表层症状
+
+- 重新钉死的代码证据：
+  1. `GameInputManager.HandleHotbarSelection()` 里，滚轮/数字键都会先跑 `TryRejectActiveFarmToolSwitch(targetIndex)` 再决定是否缓存输入。
+  2. `ToolbarSlotUI.OnPointerClick()` 锁定期点击却只 `CacheHotbarInput(index)`，完全没先走 `TryRejectActiveFarmToolSwitch(...)`。
+  3. `PlayerInteraction.OnActionComplete()` 在 `HasCachedHotbarInput` 分支里，只 `ClearActionQueue()`，不走 `OnFarmActionAnimationComplete()`。
+  4. `GameInputManager.ClearActionQueue()` 如果 `_isExecutingFarming == true`，会故意保留 `_isExecutingFarming / _pendingTileUpdate / _currentProcessingRequest`。
+  5. 所以后续 `ApplyCachedHotbarSwitch() -> TryApplyHotbarSelectionChange()` 时，又会因为 `HasActiveAutomatedFarmToolOperation()` 仍为 true 被再次拒绝。
+- 结论：
+  - 真问题不是“toolbar 视觉没回正”，而是：
+    1. 点击入口和滚轮/数字键一开始就不是同源
+    2. cached hotbar 分支在动作结束后没有真正结束当前农具执行态
+- 确定修法：
+  1. `ToolbarSlotUI` 锁定期点击必须改成走 `GameInputManager` 统一入口，先跑 `TryRejectActiveFarmToolSwitch(...)`，不再自己直接缓存。
+  2. `PlayerInteraction` 的 cached hotbar 分支必须新增“当前动作正常收尾但不继续队列”的专用清理，而不是只 `ClearActionQueue()`。
+  3. 只有两刀一起做，才能同时解决：
+    - 点击与滚轮/快捷键不同源
+    - 动作结束后仍死锁
+    - 必须再用一次旧工具才能解锁
+
+## 2026-04-14｜已落地：toolbar 点击并轨 + cached hotbar 分支真清执行态
+
+- 本轮实际施工：
+  1. `GameInputManager`
+     - 新增 `TryHandleToolbarPointerSelectionChange(...)`
+     - toolbar 点击现在也先走 `TryRejectActiveFarmToolSwitch(...)`，和滚轮/数字键并轨
+  2. `GameInputManager`
+     - 抽出 `FinalizePendingFarmAnimationResult()`
+     - 新增 `CompleteCurrentFarmActionAndStopQueueForHotbarSwitch()`
+     - cached hotbar 分支不再只清队列，而会把当前农具执行态真实收尾后再切
+  3. `PlayerInteraction`
+     - `HasCachedHotbarInput` + `IsFarmToolAction(currentAction)` 时，改走新收尾，不再只 `ClearActionQueue()`
+  4. `ToolbarSlotUI`
+     - 点击改为统一委托 `GameInputManager.TryHandleToolbarPointerSelectionChange(index)`
+- 当前验证：
+  - `validate_script GameInputManager`：`owned_errors=0`
+  - `validate_script PlayerInteraction`：`owned_errors=0`
+  - `manage_script validate ToolbarSlotUI`：`errors=0`
+  - fresh `errors`：`0 error / 0 warning`
+- 当前恢复点：
+  - 现在只差用户 live 确认：
+    - 耕地动画中点击 toolbar 其他工具
+    - 是否终于不再死锁
+    - 是否已经和滚轮/数字键统一

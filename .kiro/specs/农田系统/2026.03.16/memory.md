@@ -617,3 +617,55 @@
     1. toolbar 是否还会进入“全未选中 + 点击失效”
     2. 同槽再点是否能立即恢复
     3. 放置模式切换 / 面板关闭 / 切场后，toolbar 与手持是否终于不再脱钩
+
+## 2026-04-13｜V3 最新切片：只收 toolbar 动作切换死态 + tooltip inactive 报错，并把 tooltip 风险压成审计清单
+
+- 这轮没有再扩回 placement / tree / day1 / box / drop。
+- 实际落地：
+  1. `ToolbarSlotUI`
+     - 锁定期点击与非锁定点击失败时，统一改成“整条 toolbar 视觉回正”，不再只修当前被点格子
+     - 选中变化时会清 reject shake 残留，降低旧工具继续抖动的死态风险
+  2. `PlayerInteraction`
+     - 缓存 hotbar 切换改为优先走 `GameInputManager.TryApplyHotbarSelectionChange(...)`
+     - 失败时显式 `ReassertCurrentSelection(...)`，避免动作结束后留下半切换状态
+  3. `ItemTooltip`
+     - `Hide / StartFade` 已补 `activeInHierarchy / isActiveAndEnabled` 守卫，针对 `RuntimeItemTooltip inactive` 报错做真实堵口
+- 只读审计新增结论：
+  - `ItemTooltip.QueueShow()` 当前存在同 source visual 更新判断失真；
+  - `QueueShow()/ShowAfterDelayRoutine` 仍有“父级 inactive 但自己 activeSelf=true 时可能继续起 show 协程”的同类隐患；
+  - tooltip 目前仍是多入口 `Show/Hide`，后续要继续收 owner / 竞态。
+- 当前状态：
+  - 已 `PARKED`
+  - 现阶段先等用户 live 复测 toolbar 切换死态与 tooltip 报错
+
+## 2026-04-13｜再次复盘后修正判断：toolbar 死锁还没过线，真根因是“点击入口不同源 + cached 分支保留执行态”
+
+- 这轮只读复盘直接推翻了上一轮“toolbar 已基本收口”的判断。
+- 已确认：
+  1. 点击 `toolbar` 的锁定期路径，当前没有像滚轮/数字键那样先走 `TryRejectActiveFarmToolSwitch(...)`。
+  2. 动画结束时若存在 cached hotbar input，当前只 `ClearActionQueue()`，而 `ClearActionQueue()` 在 `_isExecutingFarming == true` 时会刻意保留执行态。
+  3. 于是后续应用 cached 切换时，又因为 `HasActiveAutomatedFarmToolOperation()` 仍为 true 被再次拒绝，这就是用户现场里的死锁。
+- 现在的正确方向不是再修 toolbar 样式，而是：
+  - 先把点击入口和滚轮/数字键并轨
+  - 再把 cached hotbar 分支的“当前动作收尾但停止队列”做成真实运行态清理
+
+## 2026-04-14｜当前最新结果：toolbar 点击并轨 + cached 分支真清执行态 已落地
+
+- `ToolbarSlotUI`
+  - 点击入口已统一委托到 `GameInputManager.TryHandleToolbarPointerSelectionChange(...)`
+- `GameInputManager`
+  - 已新增 `TryHandleToolbarPointerSelectionChange(...)`
+  - 已新增 `CompleteCurrentFarmActionAndStopQueueForHotbarSwitch()`
+  - 已抽出 `FinalizePendingFarmAnimationResult()`
+- `PlayerInteraction`
+  - cached hotbar 分支已改接 `CompleteCurrentFarmActionAndStopQueueForHotbarSwitch()`
+- 当前验证：
+  - `validate_script GameInputManager`：`owned_errors=0`
+  - `validate_script PlayerInteraction`：`owned_errors=0`
+  - `manage_script validate ToolbarSlotUI`：`errors=0 warnings=1`（既有字符串拼接 warning）
+  - fresh `errors`：`0 error / 0 warning`
+- 当前恢复点：
+  - 现在只等用户 live 复测：
+    - 耕地动画中点击 toolbar 其他工具
+    - 是否终于不再死锁
+    - 是否已与滚轮/快捷键统一
