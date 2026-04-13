@@ -1105,3 +1105,127 @@
 - 下一恢复点：
   - 优先等用户做 fresh live 黑盒，看 `002` 剧情后 Town resident 是否不再整片“地震式抖动”
   - 如果还有残留，再继续收 `SpringDay1DirectorStaging` 的手搓 `transform.position += step` cue 位移链
+
+## 2026-04-13｜Day1 阻塞复判与当前停车点：已抓到 resident 全体卡死的 lifecycle 恢复漏口，并补上 Town runtime rebind
+- 当前主线：
+  - `spring-day1 / Day1 打包前 runtime 收口`
+  - 这轮唯一主刀是用户新报的 P0 阻塞：`002` 后 Town 里除 `001~003/小动物` 外的 resident 看起来整片卡死，导致无法继续打包验收。
+- 这轮真实施工与取证：
+  1. 新增 editor-only 探针 `[Assets/Editor/Story/SpringDay1ActorRuntimeProbeMenu.cs]`，用于输出：
+     - 当前 loaded scenes
+     - `001/002/003/101~203` 是否真实存在
+     - 所在 scene / hierarchy
+     - roam/state/scripted-control/shared-avoidance 运行态
+  2. 修正该探针的两轮误判：
+     - 第一轮修掉编译红（`ToArray()` / 移除不存在的 `CurrentFacingDirection`）
+     - 第二轮把 NPC 识别规则从“任意名字抽数字”收紧为“只认真 NPC objectName，或明确位于 `NPCs / Town_Day1Residents / Resident_*` 根下的对象”，避免把 `Baby Chicken Yellow (1)` 之类小动物误记成 `001`
+  3. 新增 editor-only 快速跳转菜单 `[Assets/Editor/Story/SpringDay1LatePhaseValidationMenu.cs]`
+     - 只服务这轮 live 取证，支持把当前 Play 现场快速推进到 `Dinner` / `FreeTime` 验收入口
+     - 不改 runtime 业务逻辑
+  4. fresh live 关键证据：
+     - 在 `Town / EnterVillage_HouseArrival / 09:10` 的正常现场里，resident probe 明确显示 `101~203` 都是 `scriptedControlActive=false` 且大多 `isRoaming=true|isMoving=true`，说明“所有 resident 天生就不动”并不成立
+     - 但在一次 refresh / domain reload 后，fresh snapshot 与 probe 抓到：
+       - `Crowd=scene=Town|phase=EnterVillage_HouseArrival|spawned=0|missing=101,102,103,104,201,202,203|active=none`
+       - 同时 `Town` scene 里的 `101~203` 实例仍然存在，但 `roamState=Inactive / isRoaming=false / isMoving=false`
+     - 这说明真问题不是单纯导航，而是：`SpringDay1NpcCrowdDirector` 的 runtime registry 在某些重建/承接拍上会丢失，scene resident 还在，但 crowd runtime 没把它们重新 bind 回 `_spawnStates`，于是整批 NPC 被留在失活态
+  5. 已落地 runtime 修口：
+     - `[Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs]`
+     - 在 `Update()` 前段新增 `ShouldRecoverMissingTownResidents(...)`
+     - 当满足：
+       - 当前 active scene = `Town`
+       - `_spawnStates.Count == 0`
+       - `StoryManager / SpringDay1Director / manifest` 都已就位
+       - 且 Town scene 里确实还存在 `Town_Day1Residents / Resident_*` 根或 manifest resident 实例
+       就会主动执行一次 `SyncCrowd()` 把 scene resident 重新 bind 回 runtime registry
+     - 这刀只补生命周期恢复，不改剧情 phase 判定、不改既有 resident 语义
+- 当前验证：
+  - `validate_script` 对 `[Assets/Editor/Story/SpringDay1ActorRuntimeProbeMenu.cs]` 与 `[Assets/Editor/Story/SpringDay1LatePhaseValidationMenu.cs]` 代码层通过
+  - `python scripts/sunset_mcp.py errors --count 20 --include-warnings --output-limit 20`：`errors=0`
+  - 当前 console 仍有一批 `[NPCFacingMismatch]` warning，它们是 warning，不是 blocking error
+- 当前阶段：
+  - 这轮已经从“怀疑导航/怀疑 owner”推进到“Day1 crowd runtime lifecycle 恢复漏口已钉实并已补 runtime 恢复刀”
+  - 用户当前 live 口头回报是“npc 已经可以走了”，所以本轮按 `等待用户黑盒继续终验` 合法停车，不继续扩第二刀
+- 当前状态：
+  - 已 `Park-Slice`
+  - `spring-day1 = PARKED`
+- 后续恢复点：
+  1. 如果用户 live 继续通过，这轮主修口可视为成立，下一步转用户终验反馈
+  2. 如果 live 仍有“002 后 Town resident 整片站死/抖动”，下一刀优先继续查 `SpringDay1NpcCrowdDirector` 在 scene transition / cue release 后的 registry 再建与 release 时机，不再回导航线程泛查
+
+## 2026-04-13｜已按用户要求补给导航的同步文件
+- 已新增同步文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-12_给导航_002后TownResident冻结根因与当前修复同步.md`
+- 目的：
+  - 让导航明确知道这次 `002` 后 `Town resident` 整片冻结的 fresh 结论
+  - 避免后续再把这条问题漂回“导航 core 泛锅”
+- 同步核心：
+  - 真根是 `SpringDay1NpcCrowdDirector` 的 crowd runtime registry 恢复漏口
+  - 已在 `Update()` 里补 Town resident rebind 恢复刀
+  - 用户当前 live 口头反馈：`npc 已经可以走了`
+
+## 2026-04-13｜按用户最新裁定改为先产出双 prompt 分账
+- 用户最新明确要求：
+  - 先不要继续让我直接闷头改
+  - 要先把“该由存档线程接的 Day1 晚段恢复语义”与“我自己这边的打包前彻底收尾清单”各自收成 prompt
+  - 且 prompt 必须能直接转发，不再让用户自己从长聊天里拼
+- 已新增 2 份 prompt 文件：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给存档系统_Day1晚段恢复语义与职责分工prompt.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给spring-day1_晚段打包前彻底收尾prompt.md`
+- 这两份 prompt 已吸收的最新用户补充：
+  - 晚饭不只是 `+` 快进会卡，主动找村长触发也会卡
+  - `重新开始` / `读档` 高风险说明当前不只是 runtime 自身问题，还包括恢复语义没交全
+  - 存档线程负责恢复 contract，`spring-day1` 自己负责晚段 runtime re-entry 与 own 自愈，不互相越权
+
+## 2026-04-13｜上一版双 prompt 已被用户否决，已重写为“整条 Day1”v2
+- 用户明确指出：
+  - 问题不是“晚段”独有，而是整条 `Day1`
+  - 存档 prompt 不该让 save thread 自己去猜语义，而应由 `spring-day1` 先把完整恢复 contract 说清，再分工出去
+  - 给 `spring-day1` 自己的 prompt 也不能再分成窄刀口，而要覆盖最近十轮遗留、完整修复清单、注意事项和打包前完成定义
+- 已新增新版 prompt：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给存档系统_整条Day1恢复contract与职责分工prompt_v2.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给spring-day1_整条Day1打包前总收尾prompt_v2.md`
+- 这两份 v2 已纳入的核心口径：
+  - save thread 接的是“按 spring-day1 已定义 contract 做 save/load/restart/re-entry 接线”，不是自己发明 Day1 语义
+  - `spring-day1` 自己接的是“整条 Day1 打包前 own runtime / own UI / own staging / own re-entry 总收尾”，不是继续只盯晚段
+  - 用户最新补充“晚饭无论主动触发还是 + 快进都会卡在 0.0.6”也已写入新版 prompt
+
+## 2026-04-13｜用户再裁定后，已把 UI 完全分出去并生成 v3
+- 用户最新明确裁定：
+  - 晚饭卡顿的真根是“有个 NPC 没有走到位”
+  - 正确 runtime 处理应为：最多等待 `5` 秒，超时则只对必要剧情 actor 瞬移到位，然后立刻开始剧情
+  - `UI` 全权交给 `UI` 线程，`spring-day1` 不要再自己动 UI
+  - 但 `spring-day1` 必须把整条 Day1 的 UI 语义 contract 完整传给 UI
+- 已新增：
+  1. `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给UI_整条Day1任务清单与Prompt语义contract.md`
+  2. `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给spring-day1_整条Day1打包前总收尾prompt_v3.md`
+- 当前最新口径：
+  - UI 视觉/布局/层级/最终玩家可见面由 UI own
+  - `spring-day1` own prompt 已改成只收 runtime/staging/re-entry/time gate/NPC 晚间行为/对外 contract，不再自己碰 UI 壳体
+
+## 2026-04-13｜v3 晚饭 5 秒兜底 runtime 已落地并完成目标测试
+- 本轮按 `2026-04-13_给spring-day1_整条Day1打包前总收尾prompt_v3.md` 继续真实施工；只动 `spring-day1` own runtime，不碰 UI 壳体。
+- 已改：
+  1. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+     - 新增 `dinnerCueSettleTimeout = 5f`
+     - 新增 `_dinnerCueWaitStartedAt`
+     - 将晚饭 actor 对位拆成 `AlignTownDinnerGatheringStoryActors()`
+     - `BeginDinnerConflict()` 不再因 `DinnerConflictTable` 未 settled 无限 `return`
+     - 现逻辑为：先等 cue settled；若未 settled，则最多等 5 秒；超时后仍直接继续，并在开戏前强制把 `001/002` 对到晚饭区域
+     - 新增 `ResetDinnerCueSettlementState()`，把这条计时状态接进 fresh / phase reset / debug re-entry
+     - 仅编辑器下新增 `_editorDinnerCueSettledOverride`，只服务 EditMode 测试，不进玩家运行包默认语义
+  2. `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1LateDayRuntimeTests.cs`
+     - 新增 `BeginDinnerConflict_ShouldKeepWaitingBeforeDinnerCueTimeout`
+     - 新增 `BeginDinnerConflict_ShouldForceAlignStoryActorsAfterDinnerCueTimeout`
+- 已验证：
+  - 目标 EditMode 测试 4/4 通过：
+    - `SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldKeepWaitingBeforeDinnerCueTimeout`
+    - `SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldForceAlignStoryActorsAfterDinnerCueTimeout`
+    - `SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldNormalizeClockToSixPm`
+    - `SpringDay1LateDayRuntimeTests.AlignTownDinnerGatheringActorsAndPlayer_ShouldPreferDinnerAreaOverVillageCrowdMarkers`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 10` => `errors=0 warnings=0`
+  - 两个目标脚本 `validate_script` 均为 `owned_errors=0`
+- 当前用户下轮 live 预期：
+  - 主动找村长触发晚饭，不会再因单个 NPC 没走到位而无限卡住
+  - `+` 快进触发晚饭，也会走同一套 5 秒兜底
+  - 最坏情况就是等满 5 秒后，`001/002` 被拉到晚饭区然后直接开戏
+- 本轮已执行 `Park-Slice`，当前线程状态：`PARKED`

@@ -306,3 +306,53 @@
 - 当前状态：
   - 本轮已 `Park-Slice`
   - `spring-day1 = PARKED`
+
+## 2026-04-13｜父层补记：Day1 当前 P0 阻塞已从“导航泛锅”收束到 crowd runtime registry 恢复漏口
+- `spring-day1` 这轮围绕用户最新 P0 阻塞做了 fresh live + editor probe：`002` 后 Town resident 整片卡死/像冻结，当前已不再按“导航 own”处理。
+- 当前 authoritative 结论更新：
+  1. `Town / EnterVillage_HouseArrival` 的正常 fresh 现场里，`101~203` resident 可以是 `scriptedControlActive=false` 且 `isRoaming=true`，说明 resident 并非天然不会动；
+  2. 但在一次 runtime 重建后，`SpringDay1NpcCrowdDirector` 会出现 `_spawnStates=0`、`spawned=0|missing=101~203`，而 Town scene 中 resident 实例仍然留在场；
+  3. 这就是用户看到“scene 里 NPC 还在，但整片像死掉”的一条真根：crowd runtime registry 丢失后没有及时 rebind scene-bound residents。
+- `spring-day1` 已在 `SpringDay1NpcCrowdDirector.Update()` 落了一刀最小恢复：Town 活场景下若发现 scene resident 仍在但 runtime registry 为空，就主动 `SyncCrowd()` 重建绑定。
+- 当前状态：用户 live 口头反馈已看到“npc 可以走了”，所以线程本轮先停给用户继续黑盒终验；当前 `spring-day1 = PARKED`。
+
+## 2026-04-13｜父层补记：已给导航落同步文件
+- 新增：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-12_给导航_002后TownResident冻结根因与当前修复同步.md`
+- 用途：
+  - 把这次 `002` 后 `Town resident` 冻结的 fresh 定责同步给导航
+  - 说明当前这条线已不优先按导航 core 处理
+
+## 2026-04-13｜父层补记：已按用户要求生成“存档线程 / spring-day1 自身”双 prompt
+- 新增：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给存档系统_Day1晚段恢复语义与职责分工prompt.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给spring-day1_晚段打包前彻底收尾prompt.md`
+- 目的：
+  - 先把 Day1 晚段恢复的职责分账说清
+  - 避免 `spring-day1` 再越权去修通用 save/load
+  - 同时也避免 save thread 反过来替 Day1 收 runtime staging / prompt 布局
+
+## 2026-04-13｜父层补记：双 prompt 已升级为整条 Day1 v2
+- 上一版只聚焦晚段 scope，已被用户明确否决。
+- 当前应以新版 v2 为准：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给存档系统_整条Day1恢复contract与职责分工prompt_v2.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给spring-day1_整条Day1打包前总收尾prompt_v2.md`
+
+## 2026-04-13｜父层补记：UI 语义 contract 与 spring-day1 v3 已生成
+- 用户进一步裁定后，当前又新增：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给UI_整条Day1任务清单与Prompt语义contract.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-13_给spring-day1_整条Day1打包前总收尾prompt_v3.md`
+- 最新职责边界：
+  - UI 全量接手 Day1 玩家可见 UI
+  - `spring-day1` 不再自己改 UI 壳体，但必须把完整 UI 语义 contract 交全
+  - 晚饭开场的 own runtime 兜底已被用户明确成“最多等待 5 秒，超时瞬移必要剧情 actor 后开戏”
+
+## 2026-04-13｜父层补记：spring-day1 已落地晚饭 5 秒兜底与 001/002 必要强制就位
+- `spring-day1` 这轮已按 v3 prompt 完成晚饭 P0 runtime 收尾：
+  - `SpringDay1Director.BeginDinnerConflict()` 现在会对 `DinnerConflictTable` 最多等待 5 秒
+  - 超时后不再无限卡住，而是继续开戏，并在开戏前把 `001/002` 强制拉回晚饭区域
+  - 这条逻辑同时覆盖主动找村长触发与 `+` 快进后最终都会汇入的晚饭开场链
+- 目标测试已过 4/4，fresh console `errors=0 warnings=0`
+- 当前父层判断：
+  - Day1 最阻塞打包的晚饭卡顿主根已从“会卡死”降成“最多等 5 秒，超时也能开戏”
+  - 下一步最值钱的是用户 live 复测主动触发与 `+` 快进两条入口，而不是再泛修 UI 壳体
