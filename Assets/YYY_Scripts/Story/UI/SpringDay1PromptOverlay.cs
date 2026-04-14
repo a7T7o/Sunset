@@ -2012,6 +2012,19 @@ namespace Sunset.Story
                 }
             }
 
+            PromptCardViewState completedHoldState = BuildCompletedHoldState(_displayedState, targetState);
+            if (completedHoldState != null)
+            {
+                ApplyState(completedHoldState);
+                _displayedState = completedHoldState;
+
+                float holdDuration = Mathf.Max(0.12f, completionStepDuration * 0.75f);
+                if (holdDuration > 0.001f)
+                {
+                    yield return new WaitForSecondsRealtime(holdDuration);
+                }
+            }
+
             bool requiresFlip = ShouldUsePageFlipTransition(_displayedState, targetState);
 
             if (requiresFlip)
@@ -2038,6 +2051,72 @@ namespace Sunset.Story
                     ApplyPendingStateWithoutTransition();
                 }
             }
+        }
+
+        private PromptCardViewState BuildCompletedHoldState(PromptCardViewState currentState, PromptCardViewState targetState)
+        {
+            if (currentState == null || targetState == null)
+            {
+                return null;
+            }
+
+            PromptCardViewState completedState = currentState.Clone();
+            bool changed = false;
+
+            for (int index = 0; index < completedState.Items.Count; index++)
+            {
+                PromptRowState holdItem = completedState.Items[index];
+                if (holdItem == null || holdItem.Completed)
+                {
+                    continue;
+                }
+
+                PromptRowState targetItem = FindStateItemByLabel(targetState, holdItem.Label);
+                if (targetItem != null && targetItem.Completed)
+                {
+                    holdItem.Completed = true;
+                    changed = true;
+                    continue;
+                }
+
+                if (index == 0 && targetItem == null)
+                {
+                    holdItem.Completed = true;
+                    changed = true;
+                }
+            }
+
+            if (!changed)
+            {
+                return null;
+            }
+
+            completedState.RefreshSignatures();
+            return completedState;
+        }
+
+        private static PromptRowState FindStateItemByLabel(PromptCardViewState state, string label)
+        {
+            if (state?.Items == null || string.IsNullOrWhiteSpace(label))
+            {
+                return null;
+            }
+
+            for (int index = 0; index < state.Items.Count; index++)
+            {
+                PromptRowState item = state.Items[index];
+                if (item == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(item.Label, label, StringComparison.Ordinal))
+                {
+                    return item;
+                }
+            }
+
+            return null;
         }
 
         private static bool HasSameRowLayout(PromptCardViewState previousState, PromptCardViewState nextState)
@@ -3976,6 +4055,16 @@ namespace Sunset.Story
             public string Detail;
             public bool Completed;
 
+            public PromptRowState Clone()
+            {
+                return new PromptRowState
+                {
+                    Label = Label,
+                    Detail = Detail,
+                    Completed = Completed
+                };
+            }
+
             public string GetSignature()
             {
                 return $"{Label}|{Detail}|{Completed}";
@@ -3992,6 +4081,26 @@ namespace Sunset.Story
             public List<PromptRowState> Items = new();
             public string DisplaySignature;
             public string Signature;
+
+            public PromptCardViewState Clone()
+            {
+                PromptCardViewState clone = new PromptCardViewState
+                {
+                    PhaseKey = PhaseKey,
+                    StageLabel = StageLabel,
+                    Subtitle = Subtitle,
+                    FocusText = FocusText,
+                    FooterText = FooterText
+                };
+
+                for (int index = 0; index < Items.Count; index++)
+                {
+                    clone.Items.Add(Items[index]?.Clone());
+                }
+
+                clone.RefreshSignatures();
+                return clone;
+            }
 
             public static PromptCardViewState FromModel(SpringDay1Director.PromptCardModel model, string focusText, int maxVisibleItems)
             {
@@ -4047,23 +4156,28 @@ namespace Sunset.Story
                     });
                 }
 
+                state.RefreshSignatures();
+                return state;
+            }
+
+            public void RefreshSignatures()
+            {
                 StringBuilder builder = new StringBuilder();
-                builder.Append(state.PhaseKey).Append('|').Append(state.StageLabel).Append('|').Append(state.Subtitle).Append('|').Append(state.FocusText).Append('|').Append(state.FooterText);
-                for (int index = 0; index < state.Items.Count; index++)
+                builder.Append(PhaseKey).Append('|').Append(StageLabel).Append('|').Append(Subtitle).Append('|').Append(FocusText).Append('|').Append(FooterText);
+                for (int index = 0; index < Items.Count; index++)
                 {
-                    builder.Append('|').Append(state.Items[index].GetSignature());
+                    builder.Append('|').Append(Items[index]?.GetSignature() ?? "null");
                 }
 
                 StringBuilder displayBuilder = new StringBuilder();
-                displayBuilder.Append(state.PhaseKey).Append('|').Append(state.StageLabel).Append('|').Append(state.Items.Count);
-                for (int index = 0; index < state.Items.Count; index++)
+                displayBuilder.Append(PhaseKey).Append('|').Append(StageLabel).Append('|').Append(Items.Count);
+                for (int index = 0; index < Items.Count; index++)
                 {
-                    displayBuilder.Append('|').Append(state.Items[index].Label);
+                    displayBuilder.Append('|').Append(Items[index]?.Label ?? "null");
                 }
 
-                state.DisplaySignature = displayBuilder.ToString();
-                state.Signature = builder.ToString();
-                return state;
+                DisplaySignature = displayBuilder.ToString();
+                Signature = builder.ToString();
             }
 
             private static PromptRowState CreateSanitizedRowState(SpringDay1Director.PromptTaskItem item, string focusText, string subtitle, string footerText)
