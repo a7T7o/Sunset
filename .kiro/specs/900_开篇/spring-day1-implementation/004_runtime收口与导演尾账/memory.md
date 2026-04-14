@@ -1497,3 +1497,20 @@
   - `Ready-To-Sync.ps1` 仍被 spring-day1 历史 own roots 残留脏改阻断，原因不是本轮新增 red，而是同根残留太多
 - 当前恢复点：
   - 下一步优先交用户 live 复测 opening 后 resident 分散恢复与 Day1 `26:00` 切 `Home`
+
+## 2026-04-14｜runtime 子层补记：第二刀已形成本地 checkpoint 并回到 PARKED
+- 子层这轮没有继续扩到 UI / 导航 / save，只把已经拿到 targeted `4/4 pass` 的 own 代码切片收成最小可回退 checkpoint。
+- 本地提交：
+  - `442b9a40` `checkpoint: spring-day1 owner contract fixes`
+- 当前 no-red 证据补记：
+  - `git diff --cached --check` 通过
+  - `sunset_mcp.py errors --count 20 --output-limit 5`=`errors=0 warnings=0`
+  - `validate_script SpringDay1Director.cs` 与 `validate_script SpringDay1NpcCrowdDirector.cs` 当前都无 owned/external red，但 Unity 侧仍是 `unity_validation_pending`
+  - 精确原因：Editor 当前 `ready_for_tools=false`，`blocking_reasons=[stale_status]`
+- 当前 thread-state：
+  - `spring-day1` 已重新 `Park-Slice`
+  - live 状态=`PARKED`
+  - blocker 已改写为真实人话，不再保留错误的 `System.String[]` 假值
+- 子层恢复点保持不变：
+  1. 让用户先 live 复测 opening 后 resident 是否回 base/anchor 域
+  2. 再看 Day1 `26:00` 是否在真实 live 下稳定切回 `Home`

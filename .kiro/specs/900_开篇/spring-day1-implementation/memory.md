@@ -421,3 +421,15 @@
   - 当前没能进 `READY` 不是因为这轮新刀没收平，而是 `spring-day1` 整条线历史 own roots 脏改量过大
 - 父层恢复点：
   - 后续优先看用户 live 复测；若 live 仍有坏相，再回子层只收剩余 runtime contract，不扩到 UI / navigation
+
+## 2026-04-14｜父层补记：spring-day1 当前自然停顿点已落本地 checkpoint
+- `spring-day1` 子层本轮已把 own 第二刀收成最小本地回退点：
+  - 提交 `442b9a40` `checkpoint: spring-day1 owner contract fixes`
+- 父层当前 authoritative 状态：
+  - `spring-day1` 已合法 `Park-Slice`
+  - 当前 live 状态=`PARKED`
+  - 当前 blocker 不再是 stale 锁，而是这条线程历史 own roots 残留脏改太多，导致 `Ready-To-Sync` 不能代表整线 clean
+- 父层当前判断不变：
+  - 已站住的是 `spring-day1 own canonical contract`
+  - 仍待用户终验的是 opening 后 resident live 恢复、以及 Day1 `26:00` 真实切 `Home`
+  - 后续不应再把这两条 live 结果回漂成 UI / 导航 / save 泛锅

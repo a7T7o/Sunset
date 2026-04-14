@@ -1219,3 +1219,27 @@
   - 下一步优先让用户 live 复测：
     1. opening 结束后 resident 是否回各自 anchor/base 域，不再跳到一坨区域
     2. Day1 `26:00` 是否在 `Town` 直接切回 `Home`
+
+## 2026-04-14｜本轮最小可回退 checkpoint 已提交并合法停车
+- 本轮在不扩 scope 的前提下，已把以下 own 收口提交成最小 checkpoint：
+  - `SpringDay1Director.cs`
+  - `SpringDay1NpcCrowdDirector.cs`
+  - `SpringDay1DirectorStagingTests.cs`
+  - `SpringDay1LateDayRuntimeTests.cs`
+  - `SpringDay1TargetedEditModeTestMenu.cs`
+  - 以及对应 thread/workspace memory
+- 本地 checkpoint 提交：
+  - `442b9a40` `checkpoint: spring-day1 owner contract fixes`
+- 本轮 fresh no-red 证据更新：
+  - `git diff --cached --check` 通过
+  - `sunset_mcp.py errors --count 20 --output-limit 5`=`errors=0 warnings=0`
+  - `validate_script` 对 `SpringDay1Director.cs` 与 `SpringDay1NpcCrowdDirector.cs` 均无 owned/external red，但 Unity 现场仍是 `unity_validation_pending`
+  - 原因不是本轮代码 red，而是当前 Unity editor state 持续落在 `stale_status`
+- 本轮 thread-state：
+  - 已执行 `Park-Slice -ThreadName spring-day1 -Reason owner-contract-checkpoint-landed`
+  - 当前状态=`PARKED`
+  - 当前 blocker=`Ready-To-Sync 仍被 spring-day1 历史 own roots 脏改阻断；当前最小 checkpoint 已本地提交，等待下一轮 live 复测 opening 与 Day1 26:00。`
+- 当前恢复点：
+  - 后续如果继续真实施工，只继续追两条 live：
+    1. opening 结束后 resident 是否确实回各自 base/anchor 域
+    2. Day1 `26:00` 在真实 live 下是否稳定 `Town -> Home -> DayEnd`
