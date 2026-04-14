@@ -794,3 +794,678 @@
   - 等用户看右卡整体位置关系是否终于顺手
 - 需要用户现在做什么：
   - 看右卡整体位置关系这一处
+
+## 2026-04-13 UI 续记｜退格符号标准化
+- 当前主线目标：
+  - 用户继续只收右卡，直接指出页脚回退键“毫无意义”，所以这轮只重画退格符号本体。
+- 本轮子任务：
+  - 只改 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs) 的 runtime 退格符号绘制
+- 本轮完成：
+  - 退格符号改成更标准的退格轮廓：
+    - 左指向箭头
+    - 右侧主体
+    - 中间删除 `X`
+- 验证：
+  - `validate_script InteractionHintOverlay.cs`
+    - `assessment=external_red`
+    - `owned_errors=0`
+    - `external_errors=4`
+  - 这 4 条 external 都是当前 Unity 场景已有的 missing script，不是本轮引入
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - clean
+- 当前阶段：
+  - 这轮 own 代码已收住，外部 scene red 仍在
+- 下一步只做什么：
+  - 等用户看退格符号是否终于顺眼
+- 需要用户现在做什么：
+  - 看页脚退格符号这一处
+
+## 2026-04-13 UI 续记｜最小安全集中检查补丁
+- 当前主线目标：
+  - 用户要求这一轮只按最小、最安全、最可回退方案，集中检查 4 个点：
+    - 任务清单边界透明
+    - 箱子打开时也要有右侧提示
+    - 关系页左上空头像框太大
+    - 工作台 A 完成后不准刷新 B 的数量选择
+- 本轮子任务：
+  - 只改 4 个文件：
+    - [PersistentPlayerSceneBridge.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)
+    - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs)
+    - [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs)
+- 本轮完成：
+  - PromptOverlay 重新接回边界透明，最低透明度改到 `40%`，并改成渐进式 `SmoothStep`
+  - 右侧提示卡新增 `箱子` 组，箱子打开时也会显示；footer 键帽跟随蓝色组态、图标放大重画、底部中线重新对齐
+  - 人物关系页左上无头像时改成更小的头像框，并显示“暂无画像”
+  - 工作台完成其他配方时，不再清空当前选中配方的数量和详情上下文
+- 验证：
+  - `manage_script validate InteractionHintOverlay` => `errors=0`, `warnings=1`
+  - `manage_script validate PackageNpcRelationshipPanel` => `errors=0`, `warnings=0`
+  - `manage_script validate SpringDay1WorkbenchCraftingOverlay` => `errors=0`, `warnings=1`
+  - `manage_script validate PersistentPlayerSceneBridge` => `errors=0`, `warnings=2`
+  - `errors --count 20 --output-limit 5` => `errors=0`, `warnings=0`
+  - `validate_script PersistentPlayerSceneBridge` => `assessment=unity_validation_pending`, `owned_errors=0`，工具侧 blocker 仍是 Unity `stale_status`
+- 当前阶段：
+  - 代码补丁已完成，等待用户集中 live 检查
+- 下一步只做什么：
+  - 看用户集中检查回执，再决定是否继续只收局部细节
+- 需要用户现在做什么：
+  - 重点测这 4 个点，不需要再泛测别的 UI
+
+## 2026-04-13 UI 续记｜fresh live 二次纠偏
+- 当前主线目标：
+  - 用户 fresh live 后新增 3 个具体问题：
+    - 箱子页打开时任务清单仍压在上面
+    - 右卡 footer 图标还是怪
+    - 关系页左侧大方块根本没被收小
+- 本轮子任务：
+  - 只继续改 3 个文件：
+    - [BoxPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs)
+    - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs)
+- 本轮完成：
+  - 箱子 open/close 也正式接管任务清单外部 block，关闭时按“箱子/背包是否还开着”一起算
+  - 右卡 footer 图标改成更小的纯退格箭头，keycap 也一起缩小
+  - 关系页左侧头部阶段芯片改成固定锚点布局，避免再长成大砖块
+- 验证：
+  - `manage_script validate BoxPanelUI` => clean
+  - `manage_script validate PackageNpcRelationshipPanel` => clean
+  - `manage_script validate InteractionHintOverlay` => warning-only
+  - fresh `errors` => `errors=0`, `warnings=0`
+- 当前阶段：
+  - 第二轮纠偏已落完，等待用户继续看 live 结果
+- 下一步只做什么：
+  - 如果这 3 处还有偏差，继续只做这 3 处细调，不扩散
+- 需要用户现在做什么：
+  - 优先看箱子页任务清单、右卡 footer、关系页左侧头部
+
+## 2026-04-13 UI 续记｜双链 block 稳定化
+- 当前主线目标：
+  - 用户继续要求“进行”，所以这轮只补最后一个稳定性口：箱子页和背包页都要一致地压住任务清单
+- 本轮子任务：
+  - 只改：
+    - [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs)
+    - [BoxPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs)
+- 本轮完成：
+  - `PackagePanelTabsUI` 的 prompt block 改成同时考虑 `panelRoot.activeSelf` 和 `IsBoxUIOpen()`
+  - `BoxPanelUI` 的 prompt block 改成同时考虑 `_isOpen`、`packageTabs.IsPanelOpen()`、`packageTabs.IsBoxUIOpen()`
+  - 目的就是避免箱子链/背包链互相把任务清单 block 顶掉
+- 验证：
+  - `manage_script validate PackagePanelTabsUI` => clean
+  - `manage_script validate BoxPanelUI` => clean
+- 当前阶段：
+  - 本轮代码已收住，等用户 fresh live 测最后这条稳定性链
+- 下一步只做什么：
+  - 如果任务清单还会露出来，就只继续查 `SpringDay1PromptOverlay` 当前运行时实例和 block 来源，不扩散
+- 需要用户现在做什么：
+  - 优先打开箱子和背包，再看任务清单是否终于完全退场
+
+## 2026-04-13 UI 续记｜Day1 PromptOverlay contract 第一刀已落
+- 当前主线目标：
+  - 用户这轮明确把 Day1 `任务清单 / Prompt / bridge prompt / 对话期间显隐 / modal 层级 / 恢复后玩家可见面` 全权交给 UI；本轮继续真实施工，不回漂 runtime staging/save-load。
+- 本轮子任务：
+  - 先收真正的 PromptOverlay 根因：
+    - modal block 必须命中真实 runtime 单例
+    - PromptOverlay 必须回到 HUD lane，而不是继续压在 package/box page 上
+    - 正式对话开始/结束时，PromptOverlay 自己就要吃事件真值
+  - 顺手把右卡 footer 退格键和关系页无头像大空框再收一刀
+- 本轮完成：
+  - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - 新增 `CurrentRuntimeInstanceOrNull / SetGlobalExternalVisibilityBlock`
+    - `EnsureAttachedToPreferredParent()` 现在会把 PromptOverlay 插回 HUD 正确兄弟位
+    - 正式对话开始/结束改成直接立即收显隐，不再等待别的链补淡出
+  - [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs)
+    - prompt block 改成统一打到 PromptOverlay 全局入口
+  - [BoxPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs)
+    - 箱子链也改成统一打到 PromptOverlay 全局入口
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - footer backspace 图标重画，底部键帽尺寸与 icon 中心重新收平
+  - [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs)
+    - 无头像时左上占位继续缩到更小的安全尺寸
+  - [PackagePanelLayoutGuardsTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/PackagePanelLayoutGuardsTests.cs)
+    - 新增 PromptOverlay HUD lane / stale duplicate 两条护栏
+- 验证结果：
+  - `manage_script validate SpringDay1PromptOverlay` => `errors=0`, `warnings=2`
+  - `manage_script validate PackagePanelTabsUI` => `errors=0`, `warnings=0`
+  - `manage_script validate BoxPanelUI` => `errors=0`, `warnings=0`
+  - `manage_script validate InteractionHintOverlay` => `errors=0`, `warnings=1`
+  - `manage_script validate PackageNpcRelationshipPanel` => `errors=0`, `warnings=0`
+  - `manage_script validate PackagePanelLayoutGuardsTests` => `errors=0`, `warnings=0`
+  - `errors --count 20 --output-limit 10` => `errors=0`, `warnings=0`
+  - `PackagePanelLayoutGuardsTests` => `5/5 passed`
+  - `SpringDay1LateDayRuntimeTests.PromptOverlay_ShouldHideDuringDialogueAndRecoverAfterwards` => `passed`
+  - `SpringDay1LateDayRuntimeTests.PromptOverlay_UsesParentCanvasGovernance_WhenUiRootCanvasExists` => `passed`
+  - `SpringDay1LateDayRuntimeTests.PromptOverlay_ShouldPreferBaseCanvasUnderUiRoot_InsteadOfModalPackageCanvas` => `passed`
+- 当前阶段：
+  - 结构 / targeted probe 已过；真正的 packaged/live 玩家面终验还得等用户继续测
+- 下一步只做什么：
+  - 继续等用户 fresh live / packaged 看任务清单在背包、箱子、正式对话里的玩家面
+  - 如果还有问题，下一刀只回 `SpringDay1PromptOverlay` 本体，不再退回外围补丁
+- 需要用户现在做什么：
+  - 优先测：
+    1. 开背包/箱子时任务清单是否终于不再压在 page 上
+    2. 正式对话开始/结束时任务清单是否稳定退场与恢复
+    3. 右卡 footer 的退格键观感
+    4. 关系页无头像时左上空框是否终于不再扎眼
+
+## 2026-04-13 UI 续记｜PromptOverlay 闪烁根因第二刀 + 卡尔 chip 栏纠偏
+- 当前主线：
+  - 继续收 Day1 `任务清单 / PromptOverlay / bridge prompt / 对话显隐 / modal 层级` 的玩家可见稳定性；本轮新增用户纠偏点是“卡尔的问题不是头像壳，而是列表右侧好感度小筹码栏不统一”。
+- 本轮实际做成了什么：
+  - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - 新增 `_visibilityAlpha + _boundaryFocusAlpha` 合成口，PromptOverlay 开始改成单一 alpha owner
+    - 边界透明不再直接改最终显隐真值，而是只作为乘法边界 alpha 参与合成
+    - `LateUpdate` 的显隐判断改为看 `_visibilityAlpha`，避免边界透明把“已显示/未显示”判断误导成闪烁
+  - [PersistentPlayerSceneBridge.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs)
+    - 边界焦点系统命中 `SpringDay1PromptOverlay` 时，改成调用 `SetBoundaryFocusAlpha(...)`，不再直接抢写它的 `CanvasGroup.alpha`
+  - [DialogueUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/DialogueUI.cs)
+    - `ShouldManageAsNonDialogueUi(...)` 现在会明确跳过 `SpringDay1PromptOverlay`，避免正式对话和 PromptOverlay 自己的事件显隐双写 alpha
+  - [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs)
+    - 按用户纠偏，把卡尔所在的列表右侧 chip 栏收成固定栏宽、固定 chip 宽高、顶部对齐、禁止换行
+    - `未露面` 这类长文案不再把这列视觉撑乱
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 右侧提示卡 footer 的 backspace 键帽又收一刀：键帽略放大，icon 重新改成更正常的 backspace 轮廓
+  - [PackagePanelLayoutGuardsTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/PackagePanelLayoutGuardsTests.cs)
+    - 新增护栏：`DialogueUI` 不能再把 PromptOverlay 当普通 sibling 淡出
+    - 新增护栏：boundary alpha 只能压缩 PromptOverlay 最终 alpha，不能反向把它重新抬出来
+- 验证结果：
+  - `manage_script validate SpringDay1PromptOverlay` => `errors=0`, `warnings=2`
+  - `manage_script validate PersistentPlayerSceneBridge` => `errors=0`, `warnings=2`
+  - `manage_script validate DialogueUI` => `errors=0`, `warnings=1`
+  - `manage_script validate PackageNpcRelationshipPanel` => `errors=0`, `warnings=0`
+  - `manage_script validate InteractionHintOverlay` => `errors=0`, `warnings=1`
+  - `manage_script validate PackagePanelLayoutGuardsTests` => `errors=0`, `warnings=0`
+  - fresh `errors --count 20 --output-limit 10` => `errors=0`, `warnings=0`
+  - 说明：Unity 当前 live tests 这轮没再主动抢跑，因为用户正在用运行中的 Editor 看 UI；这轮只确认了代码层 clean 和 fresh console clean，还没 claim live 体验已过线
+- 当前阶段：
+  - 结构 / targeted probe 再往前推了一刀；真正的 live 终验现在聚焦两处：`PromptOverlay` 在背包/边界/对话时是否还闪，和 `卡尔` 这列 chip 栏是否终于统一
+- 下一步只做什么：
+  - 等用户 fresh live 继续验 `PromptOverlay` 闪烁
+  - 如果还闪，下一刀继续只查 `PromptOverlay` 自身与 blocking 真值，不再回到关系页或右卡泛修
+- 需要用户现在做什么：
+  - 优先复看：
+    1. 打开背包时任务清单是否还闪
+    2. 靠近边界时任务清单是否还闪
+    3. 正式对话开始/结束时任务清单是否还闪
+    4. 卡尔这一列右侧小筹码是否终于统一
+
+## 2026-04-13 UI 续记｜BridgePromptRoot manual-aligned layout match
+- 当前主线目标：
+  - 用户把本轮切成新的窄刀：`BridgePromptRoot` 必须对齐他手动摆好的正式布局，不再泛修别的 UI。
+- 本轮子任务：
+  - 只改 [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs) 里 `BuildBridgePromptShell()` 的 root 布局真值。
+- 本轮完成：
+  - 新增 bridge prompt 专用常量：
+    - `BridgePromptOffsetX = 13f`
+    - `BridgePromptOffsetY = 368f`
+    - `BridgePromptWidth = 328f`
+    - `BridgePromptHeight = 34f`
+  - `BridgePromptRoot` 继续保持左下锚、`pivot=(0, 0.5)`，但运行时位置和尺寸改为用户手调基线，不再借用 `TaskCardLeftPadding`
+- 验证：
+  - `validate_script Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs --count 20 --output-limit 5`
+    - `assessment=external_red`
+    - `owned_errors=0`
+    - 外部 blocker 为用户当前运行态里的 missing-script 与 `stale_status`
+  - `manage_script validate --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --level standard --output-limit 5`
+    - `errors=0`
+    - `warnings=2`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+    - 仅现有 CRLF/LF 警告，无新 diff 格式错误
+- 当前阶段：
+  - 这轮代码已落到位，但还没有 live 终验
+- 下一步只做什么：
+  - 等用户直接看 bridge prompt 玩家面；如果还差，就继续只收这一个 root 的几何关系
+- 需要用户现在做什么：
+  - 看 `BridgePromptRoot` 是否已经回到他手动摆的那套布局
+
+## 2026-04-13 UI 续记｜Chest context hint palette parity + footer keycap polish
+- 当前主线目标：
+  - 用户继续只收右侧提示卡，明确指出“箱子场景下颜色上下不一致”以及“关闭提示按钮还怪”。
+- 本轮子任务：
+  - 先审源头，确认这是 `InteractionHintOverlay` 的 `Chest` 组提示卡表现问题，不是 `BoxPanelUI` 主脚本逻辑问题
+  - 再只改 `InteractionHintOverlay.cs` 的 chest palette 和 footer keycap 比例
+- 本轮完成：
+  - `ContextHintGroup.Chest` 现在拥有独立的整套暖色 palette：
+    - 顶部 accent/tag
+    - 行内 keycap
+    - footer keycap / icon / 文案
+    - 全部统一到同一组暖色语义
+  - footer 的关闭提示键帽从 `44x20` 收到更紧的 `40x18`
+  - footer icon 放大到 `24x14`，并轻微下压一点，减少“漂”和“空”
+- 验证：
+  - `manage_script validate --name InteractionHintOverlay --path Assets/YYY_Scripts/Story/UI --level standard --output-limit 5`
+    - `errors=0`
+    - `warnings=1`
+  - `validate_script Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs --count 20 --output-limit 5`
+    - `assessment=external_red`
+    - `owned_errors=0`
+    - external blocker：`Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs:742` 运行态 inactive coroutine
+- 当前阶段：
+  - 这轮代码已落地，等待 live 看卡面是否顺眼
+- 下一步只做什么：
+  - 若还有问题，继续只收箱子提示卡这张卡，不扩散到别的 UI
+- 需要用户现在做什么：
+  - 直接看箱子场景下右侧提示卡的配色和 `关闭提示` 键帽
+
+## 2026-04-13 UI 续记｜Tooltip visual contract polish + mouse follow edge clamp
+- 当前主线目标：
+  - 用户把主线切到 farm 委托的 tooltip 视觉 contract，并明确追加限制：不要改 tooltip 已有功能，只做他描述的微调。
+- 本轮子任务：
+  - 只改 [ItemTooltip.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs)
+  - 不碰 `ToolbarSlotUI.cs` 和 `InventorySlotInteraction.cs` 的 hover 抑制 / show-hide / 交互逻辑
+- 本轮完成：
+  - tooltip 壳体从更小更挤的测试态收成更正式的纸卡感：
+    - `TooltipWidth: 184 -> 212`
+    - `TooltipMinHeight: 74 -> 88`
+    - `PanelBorder: 3 -> 4`
+    - 内容宽度、padding、行间距、header padding、quality icon 一起微调
+    - 标题/状态/描述/价格字号全部上调
+    - 根框补轻微 outline，内板补轻微 shadow
+  - 跟鼠标与边界显示做了最小安全收口：
+    - 局部 `_movementRect` 只有在真能容纳 tooltip 时才参与约束
+    - toolbar 这种窄条 hover 会自动退回 canvas 级 bounds
+    - 四个方向越界时先翻边，再做带 `TooltipEdgePadding` 的 clamp
+- 验证：
+  - `manage_script validate --name ItemTooltip --path Assets/YYY_Scripts/UI/Inventory --level standard --output-limit 5`
+    - `errors=0`
+    - `warnings=1`
+  - `validate_script Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs --count 20 --output-limit 5`
+    - `assessment=external_red`
+    - `owned_errors=0`
+    - external blockers：当前用户运行中的 Unity 现场里 existing missing-script / stale_status
+  - `git diff --check -- Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs`
+    - clean
+- 当前阶段：
+  - 代码已落位，等 live 看 tooltip 真观感
+- 下一步只做什么：
+  - 若用户还觉得 tooltip 不正式或贴鼠标不顺，继续只收 `ItemTooltip.cs`
+- 需要用户现在做什么：
+  - 分别看：
+    1. toolbar hover 的 tooltip 会不会还越出屏幕或贴鼠标太差
+    2. 背包 hover 的 tooltip 是否和 toolbar 同一套正式语言
+
+## 2026-04-13 UI 续记｜右侧提示卡黄系统一 + BACKSPACE 键帽 + 状态卡缩小 + 右上角调试提示恢复
+- 当前主线目标：
+  - 用户把这轮明确钉成两条 own 一起收：继续把右侧提示卡和状态卡收精，同时把右上角调试提示恢复出来，不能再被我关掉。
+- 本轮子任务：
+  - 只改 [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)、[TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)、[PersistentManagers.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/PersistentManagers.cs)
+  - 不扩回别的 UI 逻辑链
+- 本轮完成：
+  - `InteractionHintOverlay.cs`
+    - `Gameplay / Package / Chest` 三组右侧提示卡统一回暖黄语义，不再保留背包蓝卡
+    - footer 彻底改成 `BACKSPACE` 文字键帽，不再用退格图标
+    - 放置模式状态卡整体缩小，tag / title / detail / 阴影 / 内容区一起收紧
+    - 默认状态详情文案缩短成单行优先：`耕地/播种/浇水已开启/关闭，按 V ...`
+  - `TimeManagerDebugger.cs`
+    - 去掉 `ShouldHideTopRightHud()` 隐藏链
+    - `EnsureAttached(...)` 默认把 `showDebugInfo` 重新开回 `true`
+  - `PersistentManagers.cs`
+    - 常驻初始化也改回 `showDebugInfoByDefault: true`
+- 验证：
+  - `manage_script validate InteractionHintOverlay` => `errors=0`, `warnings=1`
+  - `manage_script validate TimeManagerDebugger` => `errors=0`, `warnings=1`
+  - `manage_script validate PersistentManagers` => `errors=0`, `warnings=0`
+  - `git diff --check -- Assets/YYY_Scripts/TimeManagerDebugger.cs Assets/YYY_Scripts/Service/PersistentManagers.cs Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs`
+    - 只有既有 CRLF/LF 警告，无新 diff 格式错误
+  - `validate_script`
+    - `InteractionHintOverlay.cs` / `TimeManagerDebugger.cs` => `assessment=blocked`，原因是 `CodexCodeGuard returned no JSON`
+    - `PersistentManagers.cs` => `assessment=external_red`, `owned_errors=0`
+    - fresh console 仍是外部现场红：`DialogueUI.cs:1975 IndexOutOfRangeException` + missing script，非本轮 own 引入
+- 当前阶段：
+  - 结构 / targeted probe 已落地；还差用户 live 看最终观感
+- 下一步只做什么：
+  - 等用户继续看：右上角调试提示是否恢复、右侧提示卡黄系是否统一、`BACKSPACE` 键帽是否过线、状态卡大小是否顺眼
+- 需要用户现在做什么：
+  - 继续 live 看上面 4 项即可；这轮不需要用户补本地信息
+
+## 2026-04-14 UI 只读续记｜六张图审计 + farm 常用操作 contract 并入
+- 当前主线目标：
+  - 用户要求这轮只做只读审计，不切主线：把 6 张图里的真实问题、补充进来的 farm `常用操作提示 contract`、以及我接下来该怎么改，一次讲清楚。
+- 本轮核实结论：
+  - [ItemTooltip.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs)
+    - tooltip 标题现在直接吃 `itemData.itemName`，所以会把 `Axe_0 / Hoe_0 / WateringCan` 原样打给玩家
+    - tooltip 视觉虽然比旧版大，但当前字号仍偏小，且正文仍被 [ItemTooltipTextBuilder.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/ItemTooltipTextBuilder.cs) 的 `2 行 / 44 字` 护栏截断
+  - [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs)
+    - 工作台这边已经有一套成熟的玩家向命名与说明映射：`GetWorkbenchPlayerFacingName / Description / GetItemDisplayName`
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 当前右侧提示卡已经分成 `Gameplay / Package / Chest` 三组，但 footer 仍是 `BACKSPACE` 在左、`关闭提示` 在右，语义像两个平级标签，不像“动作说明 + 对应按键”
+    - 当前 package/chest/gameplay 文案还没完全吃透 farm 新 contract：世界内基本够；背包缺更明确的 `Ctrl+左 = 单取 / 快捷装备`；箱子的 `双击` 还没写成“快速转移 / 双向”
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs) + [TimeManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/TimeManager.cs)
+    - 右上角现在只是裸 `OnGUI` 文本，没有正式壳体
+    - “10 分钟一跳”不是显示问题，而是 `TimeManager` 真源当前就是 10 分钟步进：`currentMinute += 10`，`SetTime()` 也会强制 clamp 到 10 的倍数
+- 下一步修改原则：
+  - tooltip 命名必须复用或抽取工作台那套成熟命名，不允许继续把内部 SO 名原样给玩家
+  - 右侧提示卡要同时做两层收口：
+    1. 视觉：字体、对比度、footer 结构
+    2. 语义：并入 farm contract 的 world / package / chest 场景差异
+  - 右上角调试时间 UI 可以安全美化
+  - 但“分钟精度改成个位数”不是 UI 微调，是 `TimeManager` 核心改造，必须单列成独立 runtime 切片，不能伪装成这轮顺手小修
+
+## 2026-04-14 UI 续记｜tooltip 成熟命名 + 右侧提示卡 contract 落地 + 右上角时间 HUD 收口
+- 当前主线目标：
+  - 用户要求继续当前 UI 主线，不切题，直接把 tooltip 正式命名、右侧提示卡正式玩家面、以及右上角时间/调试 HUD 一起落地。
+- 本轮完成：
+  - [ItemTooltipTextBuilder.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/ItemTooltipTextBuilder.cs)
+    - 新增 `BuildPlayerFacingTitle(ItemData itemData)`，把 tooltip 标题正式切到玩家向命名
+    - 内置工作台同语义的成熟映射：工具 `0~18`、剑 `200~205`、箱子 `1400~1403`
+    - 兜底把 `WateringCan / Pickaxe / Axe / Hoe / Storage / Sword` 这类内部名归一成中文玩家词
+    - tooltip 描述预算从 `2 行 / 44 字` 放宽到 `3 行 / 72 字`
+  - [ItemTooltip.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs)
+    - 标题正式改用 `BuildPlayerFacingTitle(...)`
+    - 壳体、padding、quality icon、标题/状态/描述/价格字号继续放大一刀
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - 右侧提示卡正式分成 `Gameplay / Package / Chest`
+    - 文案按 farm contract 收到当前真实语义
+    - footer 固定为 `关闭提示  BACKSPACE` 结构，keycap 宽度和间距做了收口
+    - 边界透明做成渐进，最低 alpha 固定 `40%`
+  - [TimeManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/TimeManager.cs)
+    - 真源时间粒度改成 1 分钟：`minuteStepsPerHour = 60`、`AdvanceMinute()` 改成 `+1`、`Update()` 改成 `while`
+    - `SetTime()` 改成接受 `0~59`
+    - 旧场景里的 `minuteStepsPerHour=6` 会在 `OnValidate()` 自动修正到 `60`
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - 右上角调试区从裸字改成正式小 HUD：深色卡片、黄 accent、时间卡 + 快捷键卡两块
+    - 时间显示固定精确到分钟个位数
+    - `+/-` 改成真正的 `±1 小时且保留分钟`
+    - 快捷键 keycap 宽度按文本自适应，`↓/↑`、`+/-` 不会再被挤坏
+- 验证：
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs Assets/YYY_Scripts/UI/Inventory/ItemTooltipTextBuilder.cs Assets/YYY_Scripts/TimeManagerDebugger.cs Assets/YYY_Scripts/Service/TimeManager.cs --count 20 --output-limit 10`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+    - 当前卡点是 Unity 实例 `stale_status / compiling / playmode_transition`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+    - fresh console 仍有 external 现场红：一组 `The referenced script (Unknown) on this Behaviour is missing!`
+    - 现阶段不能 claim 全量 no-red，只能报“本轮 touched 文件未见 owned red”
+  - `git diff --check -- Assets/YYY_Scripts/Service/TimeManager.cs Assets/YYY_Scripts/TimeManagerDebugger.cs Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs Assets/YYY_Scripts/UI/Inventory/ItemTooltip.cs Assets/YYY_Scripts/UI/Inventory/ItemTooltipTextBuilder.cs`
+    - 无新 diff 格式错误；仅剩既有 `TimeManagerDebugger.cs` CRLF/LF 提示
+- 当前阶段：
+  - 结构 / targeted probe 已落地；等待用户 live 看最终观感与分钟流逝体感
+- 下一步只做什么：
+  - 如果用户 live 后仍觉得不顺，只继续收：
+    1. 右侧提示卡 footer / 行距
+    2. 右上角 HUD 体量
+    3. 分钟粒度改完后的 Day1 时间体验边界
+- 需要用户现在做什么：
+  - live 看 4 件事：
+    1. tooltip 是否还会出现内部名
+    2. 右侧提示卡三组语义是否对
+    3. 右上角 HUD 外观是否过线
+    4. 时间是否真的按分钟流逝、`+/-` 是否保留分钟
+
+## 2026-04-14 UI 只读续记｜`+` 快进时间语义彻查
+- 当前主线目标：
+  - 用户指出 `+` 快进后的分钟语义不对，这轮只读彻查，不改代码。
+- 本轮核实结论：
+  - 现在不是“显示没跟上”，而是我上轮把真实逻辑改成了“保留分钟”：
+    - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs) 的 `AdvanceOneHour()` 会把 `currentMinute` 原样传进 `SetTime(...)`
+    - 所以 `14:37 +` 当前真实结果就是 `15:37`
+    - 跨过 `26` 时也会先 `Sleep()`，然后再把分钟补回去，所以会出现 `06:37` 这类状态
+  - `SpringDay1Director` 的 Day1 guardrail 也不会帮我们归零分钟：
+    - 它按“总分钟”做 clamp，`requestedMinute` 会被完整保留
+  - 你说的“先到 :59 再自然 +1 分钟”抓住了跨 2 点边界的核心，但如果直接用现有 `SetTime(xx:59)` 去做，会多发一次 `:59` 的时间事件，这样也不稳
+- 我现在的判断：
+  - 当前 bug 根因不是 HUD 显示，而是 `TimeManagerDebugger` 的 `+/-` 调试语义被我改错了
+  - 最稳修法不是简单继续保留分钟，也不是直接照搬“`SetTime(:59)` 再等自然流逝”
+  - 最稳方案应是：
+    1. `+` 回到“整点跳转”语义，最终落点必须是 `xx:00`
+    2. 普通小时跳转可直接落 `SetTime(targetHour, 0)`
+    3. 只有跨 `26 -> Sleep` 这一刀必须走 `Sleep()` 真链，不能伪造第二天整点
+    4. 如果坚持做“最后一分钟自然跨整点”，需要补一个不会额外广播 `:59` 事件的内部 helper，不能直接拿现有 `SetTime(:59)` 硬拼
+- 下一步只做什么：
+  - 下一轮若你批准我修，我会只收 `TimeManagerDebugger` 的 `+/-` 语义，不再碰 tooltip / 提示卡 / HUD 其他内容
+
+## 2026-04-14 UI 只读续记｜Day1 第三点 ownership 边界判断
+- 当前主线目标：
+  - 用户担心我和 `spring-day1` 线程同时碰“超过凌晨 2:00 稳定回家睡觉”这一条，会把 owner 搞乱；这轮要求先判断第三点到底该谁主刀。
+- 本轮核实结论：
+  - 当前代码里的职责实际上已经分成两层：
+    1. [TimeManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/TimeManager.cs)
+       - 负责全局时钟真源
+       - `currentHour > dayEndHour(26)` 时触发 `Sleep()`
+       - `Sleep()` 只做通用动作：进下一天、时间回到 `06:00`、发 `OnSleep`
+       - 它**不负责** Day1 的剧情收束、玩家摆位、NPC 回 anchor、Prompt、相位切换
+    2. [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs)
+       - `OnEnable()` 已订阅 `TimeManager.OnSleep += HandleSleep`
+       - `HandleSleep()` 才是真正处理 Day1 特有“稳定回家睡觉”的地方：
+         - 校验当前 phase 是否允许进入 DayEnd
+         - 非法早睡时走 `RecoverFromInvalidEarlySleep()`
+         - 合法时执行 blink / 场景切换 / 玩家放回住处 / 居民与剧情角色 snap home anchor / 进 `DayEnd` / 回满精力
+       - `HandleHourChanged()` 里 FreeTime 到 `hour >= 26` 也会主动调用 `TimeManager.Sleep()`，说明 Day1 已经显式接管了“到点该怎么收束”
+  - 这说明“超过凌晨 2:00 的玩家稳定回家睡觉”不是单纯 `TimeManager` 问题：
+    - `TimeManager` 只该负责“时间越界 -> 触发睡觉事件”
+    - Day1 的“怎么睡、睡到哪、谁回家、什么时候算剧情结束”应该由 `SpringDay1Director` 负责
+- 我现在的判断：
+  - 第三点整体**不该由 UI 线程主刀**
+  - 也**不该主要交给我继续碰**
+  - 这条应以 `spring-day1` 为唯一主刀，因为它本质上是 Day1 的剧情时间治理和 DayEnd 收束
+  - 只有当 `spring-day1` 查明 `TimeManager.Sleep()` 这个全局 contract 本身不够用时，才应最小补 `TimeManager`；但那也应作为 Day1 需要的 runtime 配套，不是 UI own
+- 我应该负责什么：
+  - 我只继续对自己这条线负责：
+    - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs) 的 `+/-` 调试跳时语义
+    - 这属于调试 HUD / 调试输入，不属于 Day1 夜间收束真逻辑
+  - 我不应该再继续碰：
+    - `SpringDay1Director.HandleSleep()`
+    - `RecoverFromInvalidEarlySleep()`
+    - `CanFinalizeDayEndFromCurrentState()`
+    - FreeTime 警告时点与 DayEnd 收束
+- 从现代码反推出的 Day1 时间节点设计：
+  - `09:00`：Town opening 最低时间
+  - `16:59` 前：教程主段时间上限
+  - `18:00`：DinnerConflict 起点
+  - `19:00`：Reminder 起点
+  - `19:30`：FreeTime 起点
+  - `22:00`：夜深提示
+  - `24:00`：午夜提示
+  - `25:00`：最终催促
+  - `> 26:00`：应触发 Sleep / DayEnd 收束
+- 下一步只做什么：
+  - 对外判断上，我建议：
+    1. 第三点整体交给 `spring-day1` 主刀
+    2. 我只单独收 `TimeManagerDebugger.cs` 的 `+/-` 语义回归
+
+## 2026-04-14 UI 续记｜给 spring-day1 的 owner 边界告知信
+- 当前主线目标：
+  - 用户要求我不要再越权碰第三点，只做好自己的 own，并给 `spring-day1` 写一份“这是我的状态说明，不是命令”的告知信。
+- 本轮完成：
+  - 已新增告知文件：
+    - [2026-04-14_UI线程_给spring-day1_时间owner边界与自收内容告知_11.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/UI系统/0.0.2_玩家面集成与性能收口/2026-04-14_UI线程_给spring-day1_时间owner边界与自收内容告知_11.md)
+  - 文件内容只做三件事：
+    1. 告知第三点整体 owner 属于 `spring-day1`
+    2. 告知我不会再碰 `SpringDay1Director` 的睡觉 / DayEnd 逻辑
+    3. 告知我会自己收掉 `TimeManagerDebugger +/-` 的调试跳时语义，不再让这条干扰 Day1 live 判断
+- 当前阶段：
+  - 告知信已落文件，可直接转发
+- 下一步只做什么：
+  - 等用户转发或继续下令；若后续需要我修 `TimeManagerDebugger +/-`，我再单开一刀，只收那一处
+
+## 2026-04-14 UI 续记｜prompt_12 第一刀施工完成
+- 当前主线目标：
+  - 按 `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.2_玩家面集成与性能收口\2026-04-14_UI线程_Day1最终UI语义与时间owner边界收口prompt_12.md`
+    只收 Day1 玩家可见 UI contract 与 `TimeManagerDebugger +/-`，不越权碰 Day1 真逻辑。
+- 本轮子任务：
+  - 修正 `TimeManagerDebugger +/-`
+  - 把 `BridgePromptRoot` 收回任务卡语义链
+  - 把 workbench 纳入 prompt modal block
+  - 给 `spring-day1` 落一份 UI own 状态说明
+- 已完成事项：
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - `AdvanceOneHour()` / `RewindOneHour()` 恢复整点跳转
+    - 跨 `26` 直接走 `Sleep()` 真链，不再补分钟
+  - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - `BridgePromptRoot` 改为挂在 `TaskCardRoot` 下方
+    - 绑定阶段会校验 bridge prompt parent，不再接受旧漂浮壳
+    - bridge prompt 已补进 live binding 与布局刷新链
+  - [SpringDay1UiLayerUtility.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs)
+    - `IsBlockingPageUiOpen()` 新增 workbench 判定
+  - 新增：
+    - [2026-04-14_UI线程_给spring-day1_Day1玩家面UI收口状态告知_13.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/UI系统/0.0.2_玩家面集成与性能收口/2026-04-14_UI线程_给spring-day1_Day1玩家面UI收口状态告知_13.md)
+- 关键决策：
+  - Day1 canonical state 仍由 `spring-day1` 提供，UI 只消费，不发明新 runtime 真值
+  - `HandleSleep / DayEnd / anchor / resident release` 继续冻结，不由 UI 越权
+  - 本轮只 claim“结构与代码层已站住”，不 claim“体验已过线”
+- 验证结果：
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py manage_script validate --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --level standard --output-limit 5`
+    - `errors=0 warnings=2`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py manage_script validate --name SpringDay1UiLayerUtility --path Assets/YYY_Scripts/Story/UI --level standard --output-limit 5`
+    - `errors=0 warnings=0`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py manage_script validate --name TimeManagerDebugger --path Assets/YYY_Scripts --level standard --output-limit 5`
+    - `errors=0 warnings=1`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs Assets/YYY_Scripts/TimeManagerDebugger.cs --count 20 --output-limit 5`
+    - `owned_errors=0 / external_errors=0 / assessment=unity_validation_pending`
+    - 当前 blocker 是 Unity 现场 `playmode_transition / stale_status`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs Assets/YYY_Scripts/TimeManagerDebugger.cs`
+    - 无空白/补丁格式错误；仅有 CRLF/LF 提示
+- 当前恢复点：
+  - 如果继续这条线，下一步应是用户 live 测 Day1 任务清单 / bridge prompt / workbench 退让 / `+/-` 跳时，再按截图反馈做第二刀
+
+## 2026-04-14 UI 补记｜workbench 打开即关闭阻塞已解除
+- 当前主线目标：
+  - 修复 `prompt_12` 第一刀引入的 workbench 自关回归，不扩到其他系统。
+- 本轮子任务：
+  - 查明是不是我刚加的 workbench modal 判定导致工作台把自己判成 blocker。
+- 结论：
+  - 是。
+  - [SpringDay1UiLayerUtility.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs) 把 workbench 塞进 `IsBlockingPageUiOpen()` 后，
+    [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs) 的 `LateUpdate()` 会命中这条判定并立即 `Hide()`。
+- 修复：
+  - `IsBlockingPageUiOpen()` 回退为只认 `package / box`
+  - `ShouldHidePromptOverlayForParentModalUi()` 单独补认 workbench
+  - 这样 PromptOverlay 仍对 workbench 退让，但 workbench 本体不再把自己当成外部 modal
+- 验证：
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py manage_script validate --name SpringDay1UiLayerUtility --path Assets/YYY_Scripts/Story/UI --level standard --output-limit 5`
+    - `errors=0 warnings=0`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs`
+    - clean
+
+## 2026-04-14 UI 收尾｜thread-state 已停车
+- 本轮 thread-state：
+  - `Begin-Slice`：已于本轮开工前完成
+  - `Ready-To-Sync`：未跑；因为这轮还停在用户 live 终验前，没有做 sync/commit
+  - `Park-Slice`：已跑，当前状态为 `PARKED`
+- 当前恢复点：
+  - 代码层 checkpoint 已在：
+    - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - [SpringDay1UiLayerUtility.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs)
+  - 接下来只等用户 live 测：
+    - Day1 任务清单 / bridge prompt 主次
+    - workbench 打开与退让
+    - `+/-` 跳时语义
+
+## 2026-04-14 UI 续记｜prompt12 可见面微调 + day1 转发壳
+- 当前主线目标：
+  - 用户要求继续收 5 个 UI 细节，并附一段“不要打断 day1 当前进程”的转发壳。
+- 本轮子任务：
+  - 修右上角调试卡的裁切和居中
+  - 修右侧常用操作卡 footer 语义层次
+  - 修任务清单下方条子左对齐
+  - 缩左下箱子交互卡
+  - 准备给 `day1` 的引导壳
+- 已完成事项：
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - 面板尺寸、文本容器、列表行高已调
+    - 时间和日期状态改居中
+  - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - `BridgePromptOffsetX = 0`
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - footer keycap 改成深底浅字、补 outline
+    - footer 间距重排
+    - `DetailCard / CompactCard` 尺寸下调
+- 验证结果：
+  - `manage_script validate TimeManagerDebugger` = `errors=0 warnings=1`
+  - `manage_script validate SpringDay1PromptOverlay` = `errors=0 warnings=2`
+  - `manage_script validate InteractionHintOverlay` = `errors=0 warnings=1`
+  - `git diff --check -- Assets/YYY_Scripts/TimeManagerDebugger.cs Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs` = clean（仅 CRLF/LF 提示）
+- 关键决策：
+  - 这一刀只收可见面，不继续扩 modal/runtime 真逻辑
+  - `day1` 的详细状态告知正文继续以
+    [2026-04-14_UI线程_给spring-day1_Day1玩家面UI收口状态告知_13.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/UI系统/0.0.2_玩家面集成与性能收口/2026-04-14_UI线程_给spring-day1_Day1玩家面UI收口状态告知_13.md)
+    为真源；聊天里只给转发壳
+- 本轮 thread-state：
+  - `Begin-Slice`：已重开
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-14 UI 补记｜右侧常用操作卡 footer/tag 二次细调
+- 当前主线目标：
+  - 继续只收右侧常用操作卡的美观细节，不改别的逻辑。
+- 本轮子任务：
+  - 拉开 `关闭提示` 与 `BACKSPACE`
+  - 整体间距轻微放大
+  - `背包/玩法` tag pill 更窄、字更大
+- 已完成事项：
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - `ContextCardRowGap: 3 -> 4`
+    - footer 顶部与左右间距继续拉开
+    - tag pill 宽度 `40 -> 36`
+    - tag 字号 `9 -> 9.75`
+    - 标题起点轻微左收，整体更整齐
+- 验证结果：
+  - `manage_script validate InteractionHintOverlay` = `errors=0 warnings=1`
+  - `git diff --check -- Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs` = clean
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：未跑
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-14 UI 只读续记｜任务清单完成态与下一任务切换错位
+- 当前主线目标：
+  - 用户要求我先只读查清：任务完成后为什么没有先完整显示完成态，而是和下一条未完成任务内容发生错位。
+- 本轮子任务：
+  - 核对 `SpringDay1PromptOverlay` 的状态机构造、过渡协程和 `SpringDay1Director` 提供的 prompt 真值边界，确认问题属于 UI 还是 Day1 真逻辑。
+- 已确认事项：
+  - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - `LateUpdate()` 会先把 `_pendingState` 直接刷新成最新 `BuildCurrentViewState()` 结果
+    - `TransitionToPendingState()` 先对旧 row 播 `AnimateRowCompletion(...)`，但随后仍直接把整张卡切到新的 `targetState`
+    - `ApplyStateToPage(...)` 会一次性重写 `StageLabel / Subtitle / FocusText / FooterText / Rows`
+    - `PromptCardViewState.FromModel(...)` 当前优先拿“第一个未完成项”当 primary
+  - [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs)
+    - `BuildPromptCardModel()` 当前只输出即时真值，没有“刚完成任务先保留整卡完成态”的过渡层
+- 关键判断：
+  - 用户体感成立：现在确实会出现“完成框还是旧任务，但正文已经切到下一条”的错位
+  - 主因在 UI own 的 `PromptOverlay` 状态机时序，不是先去改 `spring-day1` 真逻辑
+- 下一步最稳修法：
+  - 只改 `SpringDay1PromptOverlay.cs`
+  - 在 `TransitionToPendingState()` 引入 completed snapshot / completion hold
+  - 先完整显示旧任务完成态整卡，再切到新的未完成任务态
+- 验证状态：
+  - 本轮是只读分析，结论属于 `静态推断成立`
+  - 尚未开始代码施工，也未跑新的 `Begin-Slice`
+- 当前恢复点：
+  - 如果用户下一轮批准开修，直接从 `SpringDay1PromptOverlay.cs` 的 completed snapshot 切口进入，不再重复查 owner 边界
+
+## 2026-04-14 UI 续记｜任务清单 completed snapshot 修复已提交
+- 当前主线目标：
+  - 在不碰 `SpringDay1Director` 真逻辑的前提下，修复任务清单“先显示完成态，再切下一条未完成任务”的展示时序，并确保这轮先有可回退 checkpoint。
+- 本轮子任务：
+  - 先把已有 UI 四文件状态固化成可回退基线
+  - 再只改 `SpringDay1PromptOverlay.cs` 一个点完成 completed snapshot 修复
+- 已完成事项：
+  - 本地 checkpoint 提交：
+    - `33985c17` `checkpoint: save UI prompt baseline before completion snapshot fix`
+  - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - 新增 `PromptRowState.Clone()` 与 `PromptCardViewState.Clone()`
+    - 新增 `PromptCardViewState.RefreshSignatures()`
+    - 新增 `BuildCompletedHoldState(...)`
+    - 在 `TransitionToPendingState()` 中先应用旧卡 completed snapshot，再把控制权交给新的 `targetState`
+  - 修复提交：
+    - `f172ec62` `fix: keep completed prompt card state before advancing`
+- 验证结果：
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs Assets/YYY_Scripts/TimeManagerDebugger.cs --count 20 --output-limit 5`
+    - `assessment=no_red owned_errors=0 external_errors=0`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py manage_script validate --name SpringDay1PromptOverlay --path Assets/YYY_Scripts/Story/UI --level standard --output-limit 10`
+    - `errors=0 warnings=2`
+    - 仅既有性能 warning
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+    - `0 error / 0 warning`
+- 关键判断：
+  - 这次修法把“完成框”和“正文”重新收回同一个 UI 状态
+  - 根因仍属于 `PromptOverlay` 展示层，不需要把 Day1 真逻辑一起卷进来
+- 当前阶段：
+  - 代码已提交，等待用户 live 看体感
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：尝试过，但被 own roots 历史脏改阻断；未走白名单 sync
+  - `Park-Slice`：已跑，当前 `PARKED`
+- 当前恢复点：
+  - 如果用户 live 反馈还不够顺，下一轮继续只改 `SpringDay1PromptOverlay.cs` 的 completed snapshot 持续时长 / 触发矩阵，不扩回 Day1 runtime 真值
