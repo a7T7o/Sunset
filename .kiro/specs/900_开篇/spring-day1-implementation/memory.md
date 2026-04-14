@@ -356,3 +356,68 @@
 - 当前父层判断：
   - Day1 最阻塞打包的晚饭卡顿主根已从“会卡死”降成“最多等 5 秒，超时也能开戏”
   - 下一步最值钱的是用户 live 复测主动触发与 `+` 快进两条入口，而不是再泛修 UI 壳体
+
+## 2026-04-13｜父层补记：晚段第二轮补口已压实 02:00 forced sleep、003 夜晚链与 19:30 resident 放行
+- `spring-day1` 本轮继续围绕用户最新的晚段坏相收口，没有扩到 UI/save 越权面。
+- 当前 authoritative 代码层补口：
+  1. `SpringDay1Director.HandleHourChanged()` 在 Day1 `FreeTime && hour>=26` 时，如果 `TimeManager.Sleep()` 没即时把导演带回 `HandleSleep()`，会主动补一次，确保 Day1 立刻收进 `DayEnd`
+  2. `SpringDay1Director.TryPlacePlayerNearCurrentSceneRestTarget()` 现在对带 `Rigidbody2D` 的玩家同时写 `body.position + transform.position`，Home 床边 fallback 不再只改刚体不改视觉落点
+  3. `SpringDay1Director.ShouldKeepStoryActorNightRestControl()` 已把 `003` 纳入，夜晚导演控制不会再被下一帧 runtime policy 误释放
+  4. `SpringDay1NpcCrowdDirector.ResolveResidentParent()` 新增 `19:30~20:00` free-time 释放口径：除真正的 `Priority witness actor` 外，其它 resident 回到 `Resident_DefaultPresent`，不再被扣在 `Resident_BackstagePresent / Resident_DirectorTakeoverReady`
+- 当前 authoritative 验证：
+  - `spring-day1-late-day-bridge-tests.json`：`13/13 passed`
+  - `spring-day1-director-staging-tests.json`：`39/39 passed`
+- 额外 authoritative 判断：
+  - 我中途用于取证的 `Force Spring Day1 Dinner Validation Jump` live 样本并不稳定，不能拿来当产品最终体验结论
+  - 但它反向暴露并帮助我钉死了一个真根：`19:30` resident baseline 仍在把普通居民扣进 backstage 语义，这条现在已由代码与测试一起收平
+
+## 2026-04-14｜父层补记：Day1 当前三条关键 owner 已在只读层重新钉死
+- `004_runtime收口与导演尾账` 本轮新增了一次只读彻查，不直接开修，目标是把用户最新追问的 3 条关键问题重新压成明确 owner：
+  1. 开场剧情就位错误
+  2. 剧情结束后 NPC 不按白天目标恢复、但 `20:00` 会回家
+  3. `02:00` forced sleep 的 Day1 own 与共享层分工
+- 当前 authoritative 结论：
+  - 开场就位主锅在 `SpringDay1Director` 的 opening staging / hold / marker resolution contract，不在导航；
+  - resident 白天释放与夜间回家主锅在 `SpringDay1NpcCrowdDirector` 的 state machine 分裂，不在导航；
+  - `02:00` 的 Day1 第一夜剧情收束仍归 `SpringDay1Director`，但“所有天数统一超过 02:00 睡觉”最终不应长期留在 Day1 own。
+- 当前恢复点：
+  - 下一轮如果继续真实施工，应按 `opening -> resident -> 02:00 分层` 这个顺序回到 `004_runtime收口与导演尾账/memory.md` 的最新恢复点，不再把这三条问题混成 UI / save / navigation 泛锅。
+
+## 2026-04-14｜父层补记：三线程 owner 边界 prompt 已生成
+- 用户最新裁定不是立刻再开修，而是先把 `spring-day1 / 导航 / UI` 三条线程的边界与续工 prompt 正式写清。
+- 本轮已新增三份正式 prompt：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-14_给spring-day1_Day1三线程owner边界重划与打包前唯一主刀prompt_v4.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-14_导航线程_Day1边界重划后非剧情态roam静态契约收口prompt_67.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.2_玩家面集成与性能收口\2026-04-14_UI线程_Day1最终UI语义与时间owner边界收口prompt_12.md`
+- 当前父层 authoritative 边界：
+  1. `spring-day1` 继续主刀 opening authored contract、resident 日夜状态机、Day1 第一夜 forced sleep
+  2. `导航` 只主刀 Day1 已放人后的非剧情态 NPC/动物静态执行契约
+  3. `UI` 只主刀 Day1 玩家可见 UI contract 与 `TimeManagerDebugger +/-`
+- 本轮没有新增业务代码修改，属于文档/治理层收口；恢复点仍在 `004_runtime收口与导演尾账` 子层 memory 的最新条目。
+
+## 2026-04-14｜父层补记：opening own 第一刀已回到真实代码
+- 子层 `004_runtime收口与导演尾账` 本轮已从 prompt 收口重新进入真实施工，但 scope 仍严格限制在 opening own 第一刀。
+- 当前 authoritative 结果：
+  1. `EnterVillage_PostEntry` crowd cue 的 suppress 条件已改正，不再在对白前就被错误释放
+  2. `SpringDay1Director` 现在会严格消费 scene authored 终点；authored root 已存在但点位缺失时，不再静默 fallback 开戏
+  3. opening 相关 EditMode 回归已新增三条
+- 当前 authoritative blocker：
+  - Unity 当前外部 compile red 落在 `NPCAutoRoamController.cs`，不在 `spring-day1` 本轮 own scope
+  - `Ready-To-Sync.ps1` 还被 stale `ready-to-sync.lock` 卡住，因此这刀目前停在 `PARKED`，不是 `READY`
+- 父层恢复点：
+  - 一旦外部 compile red 与 stale lock 清掉，优先回到子层 memory 里的 opening live 复验，而不是先扩到第二刀
+
+## 2026-04-14｜父层补记：resident release 与 Day1 第一夜 forced sleep 第二刀已拿到 targeted 4/4
+- 子层 `004_runtime收口与导演尾账` 继续在 `spring-day1 own` 内收了第二刀，但仍未越过 UI / 导航边界。
+- 当前 authoritative 结果：
+  1. resident scripted cue 结束后的 release 不再默认吃 `DailyStand_*` 聚堆点，而是优先回各自 `BasePosition`
+  2. Day1 `26:00` forced sleep 现在和 generic 路径对齐成“非 `Home` 就先切 `Home` 再摆位”
+  3. Day1 owner regression targeted menu 已新增，并拿到 `4/4 pass`
+- 子层这轮还额外吸收了 UI 告知：
+  - UI 线程继续 own 任务卡 / bridge prompt / PromptOverlay / `TimeManagerDebugger +/-`
+  - `spring-day1` 只继续 own canonical state / staging / release / first-night state machine
+- 父层当前判断：
+  - `spring-day1` 这轮最关键的 owner contract 已经有定向 EditMode 证据，不再只是静态推断
+  - 当前没能进 `READY` 不是因为这轮新刀没收平，而是 `spring-day1` 整条线历史 own roots 脏改量过大
+- 父层恢复点：
+  - 后续优先看用户 live 复测；若 live 仍有坏相，再回子层只收剩余 runtime contract，不扩到 UI / navigation

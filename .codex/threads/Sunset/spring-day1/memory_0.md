@@ -926,6 +926,36 @@
   - 已在 `Update()` 里补 Town resident rebind 恢复刀
   - 用户当前 live 口头反馈：`npc 已经可以走了`
 
+## 2026-04-14｜只读彻查：三条关键问题重新定责到方法级
+- 当前主线没有换，仍是 `spring-day1` 打包前闭环；本轮是用户插入式阻塞分析，不是新主线。
+- 本轮子任务：
+  1. 解释开场剧情就位为什么还错
+  2. 解释剧情结束后 NPC 不回白天目标、但 `20:00` 会回家的真正 owner
+  3. 解释 `02:00` forced sleep 的 Day1 own 与共享层边界
+- 本轮已站住的判断：
+  - 开场就位主锅在 `SpringDay1Director.TryHandleTownEnterVillageFlow()`、`TryPrepareTownVillageGateActors()`、`TryResolveTownVillageGateActorTarget()` 这一链：
+    - 对白结束后过早切 `TryBeginTownHouseLead()`
+    - scene 点位失效时仍会退回 `StageBook cue` / `hard fallback`
+    - `SpringDay1Director` 自己的 `TryResolveVillageCrowdMarker(...)` helper 没真正接进 opening 主链
+  - resident 白天释放 vs 夜间回家主锅在 `SpringDay1NpcCrowdDirector`：
+    - `TryReleaseResidentToDaytimeBaseline(...)` 是白天链
+    - `TryBeginResidentReturnHome(...)` / `TickResidentReturnHome(...)` / `ShouldResidentsReturnHomeByClock()` / `ShouldResidentsRestByClock()` 是夜间链
+    - 两条策略没有统一成一套 Day1 state machine
+  - `02:00` 当前已是“Day1 专属剧情收束 + Day1 内 generic fallback”混居：
+    - `HandleHourChanged(...)` / `HandleSleep()` 负责 Day1 第一夜
+    - `HandleGenericForcedSleepFallback()` 只是目前挂在 Day1 里的通用兜底，还不是最终共享 owner
+- 当前边界重新钉死：
+  - 我该碰：`SpringDay1Director.cs`、`SpringDay1NpcCrowdDirector.cs`、Day1 自己的 staging/tests/contract
+  - 我不该碰：UI 壳体、save thread 的底层实现、导航 core 的全局策略
+- 验证层级：
+  - 这轮只站住 `结构 / checkpoint + targeted code evidence`
+  - 没有把它包装成 `真实入口体验已通过`
+- 子任务完成后的恢复点：
+  - 下一轮若继续真修，顺序必须是：
+    1. `opening hold + marker contract`
+    2. `resident state machine`
+    3. `02:00 shared owner` 分层
+
 ## 2026-04-13｜按用户最新裁定先输出双 prompt，不直接继续扩代码
 - 当前用户新要求不是继续立刻写 runtime 代码，而是：
   - 先把“存档系统该接的 Day1 晚段恢复语义”单独写成 prompt
@@ -988,3 +1018,204 @@
     1. 主动找村长触发
     2. `+` 快进触发
   - 如果这两条都过，再继续收整条 Day1 剩余 re-entry / sleep / NPC 夜晚行为的 live 黑盒尾项
+
+## 2026-04-13｜第二轮晚段实修：补齐 003 夜晚链、Day1 02:00 forced sleep 收口、19:30 resident 放行
+- 当前主线目标不变：还是 `spring-day1 / Day1 打包前 runtime 收口`。
+- 本轮子任务与服务对象：
+  - 用户刚追加并继续追打的 3 条坏相：
+    1. `003` 不回家，夜晚语义不合群
+    2. Day1 `02:00` 没有立刻 forced sleep 收到 `DayEnd`，且 Home 床边落点还会歪
+    3. `19:30` 普通 resident 仍被 crowd 语义扣住，玩家看到的是“八点前根本没放出来”
+  - 这轮仍只服务 Day1 own runtime，不碰 UI 壳体，不把锅漂回导航
+- 本轮真实代码改动：
+  1. `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+     - `HandleHourChanged()`：`TimeManager.Sleep()` 后若导演没收到 `OnSleep` 链，就主动补一次 `HandleSleep()`，把 Day1 直接收进 `DayEnd`
+     - `TryPlacePlayerNearCurrentSceneRestTarget()`：对带 `Rigidbody2D` 的玩家同时写 `body.position + transform.position`
+     - `ShouldKeepStoryActorNightRestControl()`：补入 `003`
+  2. `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+     - `ResolveResidentParent()`：`19:30~20:00` 的 `FreeTime` 里，非 `Priority witness actor` 的 resident 改回 `Resident_DefaultPresent`
+  3. `Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs`
+     - 把 `BeginDinnerConflict_ShouldAlignActorsBeforeDinnerCueTimeoutCompletes`
+     - `StoryActorsNightRestSchedule_ShouldCover001To003`
+     - `HandleHourChanged_FreeTimeAtTwoAmShouldFinalizeDayEnd`
+     - `TryPlacePlayerNearCurrentSceneRestTarget_ShouldUseHomeDoorFallbackOffsetInHomeScene`
+       全部补成有效护栏，并额外让 `003` 过一遍 `ApplyStoryActorRuntimePolicy` 不得被放掉
+  4. `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+     - 新增：
+       - `CrowdDirector_FreeTimeBeforeTwenty_ShouldReleaseNonPriorityResidentsToDefaultPresent`
+       - `CrowdDirector_FreeTimeBeforeTwenty_ShouldKeepPriorityWitnessInTakeoverReady`
+  5. `Assets/Editor/Story/SpringDay1TargetedEditModeTestMenu.cs`
+     - 将这轮新增护栏接进 `Late-Day Bridge Tests` 和 `Director Staging Tests`
+- 本轮验证：
+  - `spring-day1-late-day-bridge-tests.json`：`13/13 passed`
+  - `spring-day1-director-staging-tests.json`：`39/39 passed`
+  - 目标脚本 `validate_script` 均为 `owned_errors=0`
+  - Unity 当前仍有外部 `Missing Script (Unknown)` 和字体 warning 噪音，所以不能包装成“Unity 全线 clean”
+- 本轮 live 取证补记：
+  - 我为了定责跑过一次 `Force Spring Day1 Dinner Validation Jump`
+  - 那次样本没有稳定停在 `DinnerConflict`，而是落到了更早或更晚的 runtime 相位，所以不能当产品体验结论
+  - 但它帮我抓出了 `19:30 resident` 仍被 crowd baseline 扣在 `backstage/takeover` 的真根，这条现在已经被代码与护栏一起收平
+- 当前阶段：
+  - 代码层与 targeted / bundle 护栏均已压实
+  - 本轮准备停给用户重新黑盒，不再继续扩写新刀口
+- 下一恢复点：
+  1. 优先让用户重新测：
+     - fresh / restart 下的晚饭入口 `001/002`
+     - `19:30~20:00` resident 是否已恢复自由活动
+     - Day1 `02:00` forced sleep 与第二天床边落点
+ 2. 如果用户仍报晚饭入口错位，再回到 `SpringDay1Director` 的 `fresh/restart` 入口对位链查，不再用这次不稳定的 validation jump 样本装懂
+
+## 2026-04-13｜Town resident 101~203 owner audit
+- 当前主线：按用户要求只读审计 Town resident 101~203 “phase/owner 混乱、自由时段仍像 staging 接管”的根因，明确 runtime owner 逻辑和 validation menu 哪个才是第一真问题。
+- 本轮子任务：梳理 `SpringDay1NpcCrowdDirector.ApplyStagingCue` -> `SpringDay1DirectorStagingPlayback.ApplyCue` -> `SpringDay1DirectorNpcTakeover` -> `NPCAutoRoamController.AcquireResidentScriptedControl` 的 owner 链，反查 `SpringDay1DirectorStageBook.json` FreeTime/DayEnd actor cues，确认 `SpringDay1LatePhaseValidationMenu` 只是 editor 强跳剧情。
+- 核心结论：101~203 因 stage book 里多个 beat（EnterVillage/PostEntry、FreeTime_NightWitness、DayEnd_Settle 等）仍把它们 `suspendRoam` 到 director 控制，`SpringDay1NpcCrowdDirector` 每帧会重启 `ApplyStagingCue` 并取 `ResidentScriptedControlOwnerKey`；这条 runtime owner chain 才是真正的 culprit，validation menu 仅是强制 story 跳转的辅助入口，没直接改 owner。
+- 下一步：把上述结论用 final answer 趋近用户；如需继续实证，就在 PlayMode 下 replay FreeTime/DayEnd beat、确认 cue settle/clear 路径，或让 navigation 线程在 runtime owner release 上做整刀之前，先把 StageBook cue 归责给 day1 story 组。
+
+## 2026-04-14｜opening / Town fresh live：resident 放人节拍已修，剧情 actor 争议收缩为 authored 点位
+- 用户目标：先把 `opening / 0.0.2 / Town` 这条 P0 收清，不再出现“对白后 resident 卡住不动”的坏相，同时把“对白前站位怪”定责清楚。
+- 本轮服务的子任务：
+  1. fresh live 重跑 `Reset Spring Day1 To Opening -> Bootstrap Spring Day1 Validation`
+  2. 把 `001/002/003` 的对白前站位问题和 `101~203` 的对白后放人问题彻底拆开
+- 本轮关键结论：
+  1. `001/002/003` 在对白第 1 句时已经稳稳落在当前 authored 点位：
+     - `001 = (-12.55, 14.52)`
+     - `002 = (-10.91, 16.86)`
+     - `003 = (-22.02, 10.29)`
+     说明这条争议不再是 runtime 延迟，而是 scene / stagebook 点位本身是否合理。
+  2. resident `101~203` 的 runtime 放人 bug 这轮拿到了 live 改善票：
+     - 旧问题：对白后整排像木桩
+     - 新结果：对白结束后 1 秒内，`102/103/104` 等已重新进入 `Moving`
+- 本轮代码改动：
+  1. `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - 新增 `RestartRoamFromCurrentContext(bool tryImmediateMove = false)`
+  2. `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+     - `TryReleaseResidentToDaytimeBaseline(...)` 改用 `RestartRoamFromCurrentContext(tryImmediateMove: true)`
+  3. `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+     - 补 `DebugState != LongPause` 护栏
+- 本轮验证：
+  - `validate_script` 三个目标文件均 `errors=0`
+  - EditMode targeted：
+    - `SpringDay1DirectorStagingTests.CrowdDirector_ShouldReleaseResidentToBaselineAfterCueReleaseBeforeFreeTime` passed
+  - fresh live：
+    - `spring-day1-live-snapshot.json`
+    - `spring-day1-actor-runtime-probe.json`
+    - `spring-day1-resident-control-probe.json`
+    - `Assets/Screenshots/spring-day1-opening-dialogue-start-2.png`
+- 当前恢复点：
+  1. opening resident 的 runtime bug 已明显收缩
+  2. opening 剩余未收的是 `001/002/003` 这组三个 authored 点位，要不要继续重摆由 day1 自己处理
+
+## 2026-04-14｜补交正式忏悔书
+- 用户补充了一个硬要求：除了修 bug，本线程还必须落一份正式的自我忏悔与罪证检讨书，详细记录 Day1 这段时间的两次重大失误、用户核心需求、我造成的阻塞、以及以后必须遵守的硬规则。
+- 我上一条回复仍漏交了这份文档，这本身被记为新增执行失格。
+- 已新增文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-14_spring-day1线程_自我忏悔与罪证检讨书.md`
+- 文档内容已覆盖：
+  1. 用户真正要的 Day1 闭环
+  2. 两次把 NPC 管死并拖停所有线程的事故
+  3. 我在 owner 边界、live 证据、越权修改、contract 交接上的具体罪证
+  4. 今后必须执行的硬规则
+- 当前恢复点：
+  - 忏悔书已经补交
+  - 主线不变，后续仍回到 Day1 全链路 runtime/staging/save/UI contract 闭环
+
+## 2026-04-14｜三线程 owner 边界 prompt 包已完成并停车
+- 当前主线：
+  - 用户要求我先不要继续改业务代码，而是先把 `spring-day1 / 导航 / UI` 三条线程的 owner 边界、唯一主刀、红线和可直接转发文本一次写清。
+- 本轮子任务：
+  - 用正式 prompt 文件把三条线程的边界冻结，避免再把 opening、resident、02:00、UI 壳体和导航静态契约混成一个泛锅。
+- 本轮实际做成：
+  1. 已读取并纳入：
+     - 导航线程只读分层结论
+     - UI 线程 `2026-04-14_UI线程_给spring-day1_时间owner边界与自收内容告知_11.md`
+     - 用户重发的 opening 历史正确流程原文
+  2. 已新增三份 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-14_给spring-day1_Day1三线程owner边界重划与打包前唯一主刀prompt_v4.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航检查\2026-04-14_导航线程_Day1边界重划后非剧情态roam静态契约收口prompt_67.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\UI系统\0.0.2_玩家面集成与性能收口\2026-04-14_UI线程_Day1最终UI语义与时间owner边界收口prompt_12.md`
+  3. 已把用户原始 opening 正确流程写死进 Day1 prompt：
+     - 立刻传送到起点
+     - 走向终点
+     - 最多等待 5 秒
+     - 超时只对必要剧情 actor 瞬移到终点
+     - 对话前一刻必须就位
+     - 剧情结束原地退场并回 anchor
+  4. 已把“高风险 own 改动必须形成最小可回退 checkpoint”同步写进三份 prompt。
+- 本轮没有改任何业务代码，只做 prompt/contract 文件。
+- 触发的技能与等价流程：
+  - `skills-governor`
+  - `sunset-prompt-slice-guard`
+  - `preference-preflight-gate`
+- 当前 thread-state：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - 当前状态 = `PARKED`
+- 当前恢复点：
+  - 下一步不是继续分析，而是把三份 prompt 交给用户直接转发；如果用户随后让我继续真实施工，我就只能按 v4 的 Day1 own 边界回到 opening / resident / first-night 三条主线。
+
+## 2026-04-14｜按 v4 prompt 回到真实施工：opening own 第一刀
+- 当前主线：
+  - 用户已直接把 `v4` prompt 发回给我，要求我按 `spring-day1 own` 继续真实施工。
+- 本轮子任务：
+  - 只收 opening 第一刀，不碰 UI、不碰导航 core：
+    1. `EnterVillage_PostEntry` crowd cue 的释放时机
+    2. scene authored 终点的严格消费
+    3. authored root 缺点位时不再静默 fallback
+- 本轮实际做成：
+  1. [SpringDay1NpcCrowdDirector.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs)
+     - `ShouldSuppressEnterVillageCrowdCueForTownHouseLead(...)` 改为基于 `director.ShouldReleaseEnterVillageCrowd()` 判定
+  2. [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs)
+     - `TryPrepareTownVillageGateActors()` 改成 authored strict 模式
+     - `TryResolveTownVillageGateActorTarget(...)` 新增 `requireSceneAuthoredTarget`
+     - 新增 `TryResolveVillageCrowdEndMarker(...)`
+  3. [SpringDay1OpeningRuntimeBridgeTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/SpringDay1OpeningRuntimeBridgeTests.cs)
+     - 新增 3 条 opening 回归测试
+- 验证状态：
+  - 代码闸门层对本轮 own 文件无 owned error
+  - `git diff --check` 通过
+  - Unity 当前被外部 `NPCAutoRoamController.cs` 两条 compile red 卡住，assessment = `external_red`
+  - `Ready-To-Sync.ps1` 又被 stale `ready-to-sync.lock` 卡住，未能拿到 `READY`
+- 当前判断：
+  - opening 这刀已经落成最小 own patch，但还没有拿到干净 live 票
+- 当前恢复点：
+  - 下一步必须先等外部 compile red 和 stale lock 清掉，再重跑 opening live；过了再继续 resident / first-night 第二刀
+
+## 2026-04-14｜resident daytime release 与 Day1 第一夜 forced sleep 第二刀
+- 当前主线：
+  - 继续按 `v4` prompt 收 `spring-day1 own`，这轮重点从 opening 转到：
+    1. resident 剧情后 release 不得跳去 `DailyStand_*` 聚堆区
+    2. Day1 第一夜 `26:00` forced sleep 必须像后续天数一样切回 `Home`
+- 本轮子任务：
+  - 只动 `SpringDay1Director / SpringDay1NpcCrowdDirector` 和定向 EditMode 验证，不碰 UI 壳体，不碰导航 core。
+- 本轮实际做成：
+  1. [SpringDay1NpcCrowdDirector.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs)
+     - `TryReleaseResidentToDaytimeBaseline(...)` 改为优先回各自 `BasePosition/BaseResolvedAnchorName`
+     - 只有 `beatKey` 命中 `DailyStand` 语义预演时，才允许继续吃 `DailyStand_*` semantic baseline
+     - 结果：opening/dinner 这类 scripted cue 结束后，resident 不再被统一传到一坨 daytime semantic anchor，而是回各自 base 域恢复 roam
+  2. [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs)
+     - `HandleSleep()` 的 Day1 own 路径改成和 generic 路径一致：只要当前不在 `Home`，就先切回 `Home` 再摆位
+     - `SyncStoryTimePauseState()` 补了 EditMode 安全分支：运行时继续走 `TimeManager.Instance`，编辑器定向测试只吃场景内现有 `TimeManager`，不再误建 `PersistentManagers`
+  3. 回归测试：
+     - [SpringDay1DirectorStagingTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs)
+       - 把 EnterVillage crowd cue 的旧期望改到当前真实 contract
+       - `CrowdDirector_ShouldReleaseResidentBackToBasePoseAfterCueReleaseBeforeFreeTime` 已通过
+     - [SpringDay1LateDayRuntimeTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs)
+       - `HandleHourChanged_FreeTimeAtTwoAmShouldFinalizeDayEnd` 现在验证 `Town -> Home -> DayEnd`
+     - [SpringDay1TargetedEditModeTestMenu.cs](D:/Unity/Unity_learning/Sunset/Assets/Editor/Story/SpringDay1TargetedEditModeTestMenu.cs)
+       - 新增 `Run Day1 Owner Regression Tests`
+- 关键验证：
+  - `validate_script`（4 个 own 文件）=`assessment=no_red`
+  - `Library/CodexEditorCommands/spring-day1-owner-regression-tests.json`=`4/4 pass`
+    - `EnterVillageCrowdCue_ShouldStayActiveUntilHouseLeadActuallyStarts`
+    - `CrowdDirector_ShouldReleaseResidentBackToBasePoseAfterCueReleaseBeforeFreeTime`
+    - `StoryActorsNightRestSchedule_ShouldCover001To003`
+    - `HandleHourChanged_FreeTimeAtTwoAmShouldFinalizeDayEnd`
+- 额外边界吸收：
+  - 已按用户要求读取 UI 线程状态告知 `...UI线程_给spring-day1_Day1玩家面UI收口状态告知_13.md`
+  - 后续只继续碰 Day1 canonical state / staging / release / first-night state machine，不再碰任务卡、bridge prompt、PromptOverlay、`TimeManagerDebugger +/-`
+- 当前 blocker：
+  - `Ready-To-Sync.ps1` 已不再被 stale 锁卡住，但仍被这条线历史 own roots 残留脏改阻断，当前准确状态是“本轮最小代码切片已 clean，可本地 checkpoint；整条 spring-day1 线程 own roots 仍未 clean”
+- 当前恢复点：
+  - 下一步优先让用户 live 复测：
+    1. opening 结束后 resident 是否回各自 anchor/base 域，不再跳到一坨区域
+    2. Day1 `26:00` 是否在 `Town` 直接切回 `Home`

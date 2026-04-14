@@ -1079,6 +1079,119 @@ public class SpringDay1LateDayRuntimeTests
     }
 
     [UnityTest]
+    public IEnumerator BeginDinnerConflict_ShouldAlignActorsBeforeDinnerCueTimeoutCompletes()
+    {
+        EnsureTestSceneActive("Town");
+
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        Type npcMotionControllerType = ResolveTypeOrFail("NPCMotionController");
+        GameObject dinnerAnchor = Track(new GameObject("DirectorReady_DinnerBackgroundRoot"));
+        dinnerAnchor.transform.position = new Vector3(-17.2f, 8.6f, 0f);
+
+        GameObject chief = Track(new GameObject("001"));
+        chief.AddComponent(npcMotionControllerType);
+        chief.transform.position = new Vector3(14f, 12f, 0f);
+
+        GameObject companion = Track(new GameObject("002"));
+        companion.AddComponent(npcMotionControllerType);
+        companion.transform.position = new Vector3(15.5f, 12f, 0f);
+
+        object dinnerPhase = ParseEnum(context.storyPhaseType, "DinnerConflict");
+        InvokeInstance(context.storyManager, "ResetState", dinnerPhase, false);
+        SetPrivateField(context.director, "_editorDinnerCueSettledOverride", false);
+        SetPrivateField(context.director, "dinnerCueSettleTimeout", 5f);
+        SetPrivateField(context.director, "_dinnerCueWaitStartedAt", -1f);
+
+        InvokePrivateMethod(context.director, "BeginDinnerConflict");
+
+        Assert.That(GetPrivateFieldValue(context.director, "_dinnerSequencePlayed"), Is.EqualTo(false), "未超时前仍应继续等待晚饭 cue settled。");
+        Assert.That(GetPrivateFieldValue(context.director, "_dinnerCueWaitStartedAt"), Is.Not.EqualTo(-1f), "开始等待后应记录等待起点。");
+        Assert.That(Vector2.Distance(chief.transform.position, dinnerAnchor.transform.position), Is.LessThan(2.2f), "即使还在等 cue，001 也应先回到晚饭区域。");
+        Assert.That(Vector2.Distance(companion.transform.position, dinnerAnchor.transform.position), Is.LessThan(3.1f), "即使还在等 cue，002 也应先回到晚饭区域。");
+    }
+
+    [UnityTest]
+    public IEnumerator StoryActorsNightRestSchedule_ShouldCover001To003()
+    {
+        EnsureTestSceneActive("Town");
+
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        object freeTimePhase = ParseEnum(context.storyPhaseType, "FreeTime");
+        InvokeInstance(context.storyManager, "ResetState", freeTimePhase, false);
+        SetPrivateField(context.director, "_freeTimeEntered", true);
+        SetPrivateField(context.director, "_freeTimeIntroCompleted", true);
+
+        Component chiefRoam = CreateStoryActorWithHomeAnchor("001", new Vector3(-8f, 2f, 0f), new Vector3(-2f, 1f, 0f));
+        Component companionRoam = CreateStoryActorWithHomeAnchor("002", new Vector3(-7f, 3f, 0f), new Vector3(-1f, 1f, 0f));
+        Component thirdRoam = CreateStoryActorWithHomeAnchor("003", new Vector3(-6f, 4f, 0f), new Vector3(0f, 1f, 0f));
+
+        SetTimeWithoutSystems(context, 20, 0);
+        InvokePrivateMethod(context.director, "SyncStoryActorNightRestSchedule");
+
+        Assert.That((bool)GetPropertyValue(chiefRoam, "IsResidentScriptedControlActive"), Is.True, "20:00 后 001 应进入 Day1 夜晚回家控制。");
+        Assert.That((bool)GetPropertyValue(companionRoam, "IsResidentScriptedControlActive"), Is.True, "20:00 后 002 应进入 Day1 夜晚回家控制。");
+        Assert.That((bool)GetPropertyValue(thirdRoam, "IsResidentScriptedControlActive"), Is.True, "20:00 后 003 也必须进入 Day1 夜晚回家控制。");
+
+        SetTimeWithoutSystems(context, 21, 0);
+        InvokePrivateMethod(context.director, "SyncStoryActorNightRestSchedule");
+
+        Assert.That(((Component)chiefRoam).transform.position, Is.EqualTo(new Vector3(-2f, 1f, 0f)));
+        Assert.That(((Component)companionRoam).transform.position, Is.EqualTo(new Vector3(-1f, 1f, 0f)));
+        Assert.That(((Component)thirdRoam).transform.position, Is.EqualTo(new Vector3(0f, 1f, 0f)));
+
+        InvokePrivateMethod(context.director, "ApplyStoryActorRuntimePolicy", ((Component)thirdRoam).transform, false, false, true);
+
+        Assert.That((bool)GetPropertyValue(thirdRoam, "IsResidentScriptedControlActive"), Is.True, "003 进入夜晚静止态后，不应再被运行时策略下一帧误释放回 roam。");
+    }
+
+    [UnityTest]
+    public IEnumerator HandleHourChanged_FreeTimeAtTwoAmShouldFinalizeDayEnd()
+    {
+        EnsureTestSceneActive("Town");
+
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        object freeTimePhase = ParseEnum(context.storyPhaseType, "FreeTime");
+        object dayEndPhase = ParseEnum(context.storyPhaseType, "DayEnd");
+        InvokeInstance(context.storyManager, "ResetState", freeTimePhase, false);
+        SetPrivateField(context.director, "_freeTimeEntered", true);
+        SetPrivateField(context.director, "_freeTimeIntroCompleted", true);
+
+        SetTimeWithoutSystems(context, 26, 0);
+        InvokePrivateMethod(context.director, "HandleHourChanged", 26);
+        yield return null;
+
+        Assert.That(GetPropertyValue(context.storyManager, "CurrentPhase"), Is.EqualTo(dayEndPhase), "Day1 到 02:00 时应直接走 forced sleep 收束到 DayEnd。");
+        Assert.That(SceneManager.GetActiveScene().name, Is.EqualTo("Home"), "Day1 在 Town 超过 02:00 时，也必须先切回 Home 再做睡觉收束，不能停在 Town 门口。");
+        Assert.That((int)GetPrivateFieldValue(context.director, "_pendingForcedSleepRestPlacementFrames"), Is.GreaterThan(0), "forced sleep 后应保留几帧床边重贴机会，避免切场景后继续沿用旧坐标。");
+    }
+
+    [UnityTest]
+    public IEnumerator TryPlacePlayerNearCurrentSceneRestTarget_ShouldUseHomeDoorFallbackOffsetInHomeScene()
+    {
+        EnsureTestSceneActive("Home");
+
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        GameObject homeDoor = Track(new GameObject("HomeDoor", typeof(SpriteRenderer)));
+        homeDoor.transform.position = new Vector3(5f, 6f, 0f);
+        Component playerMovementComponent = context.playerMovement as Component;
+        Assert.That(playerMovementComponent, Is.Not.Null);
+        playerMovementComponent.transform.position = new Vector3(40f, 40f, 0f);
+
+        InvokePrivateMethod(context.director, "TryPlacePlayerNearCurrentSceneRestTarget");
+
+        Assert.That(playerMovementComponent.transform.position.x, Is.EqualTo(2.4f).Within(0.001f));
+        Assert.That(playerMovementComponent.transform.position.y, Is.EqualTo(8.45f).Within(0.001f));
+    }
+
+    [UnityTest]
     public IEnumerator WorkbenchInteractable_ShouldStayQuietBeforeWorkbenchPhase()
     {
         RuntimeContext context = CreateRuntimeContext();
@@ -1542,6 +1655,22 @@ public class SpringDay1LateDayRuntimeTests
         SetPrivateField(director, "_playerMovement", playerMovement);
 
         return new RuntimeContext(director, storyManager, timeManager, energySystem, playerMovement, storyPhaseType, seasonType);
+    }
+
+    private Component CreateStoryActorWithHomeAnchor(string actorName, Vector3 startPosition, Vector3 homeAnchorPosition)
+    {
+        Type npcMotionControllerType = ResolveTypeOrFail("NPCMotionController");
+        Type roamControllerType = ResolveTypeOrFail("NPCAutoRoamController");
+
+        GameObject actor = Track(new GameObject(actorName));
+        actor.AddComponent(npcMotionControllerType);
+        Component roamController = actor.AddComponent(roamControllerType);
+        actor.transform.position = startPosition;
+
+        GameObject homeAnchor = Track(new GameObject($"{actorName}_HomeAnchor"));
+        homeAnchor.transform.position = homeAnchorPosition;
+        InvokeInstance(roamController, "SetHomeAnchor", homeAnchor.transform);
+        return roamController;
     }
 
     private static Type ResolveTypeOrFail(string fullName)

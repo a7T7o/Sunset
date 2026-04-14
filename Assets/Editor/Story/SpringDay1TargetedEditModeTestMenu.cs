@@ -20,7 +20,10 @@ namespace Sunset.Editor.Story
         private const string MiddayReminderBridgeMenuPath = "Sunset/Story/Validation/Run Midday Reminder Bridge Test";
         private const string LateDayBridgeMenuPath = "Sunset/Story/Validation/Run Late-Day Bridge Tests";
         private const string PromptOverlayGuardMenuPath = "Sunset/Story/Validation/Run PromptOverlay Guard Tests";
+        private const string StoryProgressMenuPath = "Sunset/Story/Validation/Run Story Progress Persistence Tests";
         private const string DirectorStagingMenuPath = "Sunset/Story/Validation/Run Director Staging Tests";
+        private const string NpcFormalConsumptionMenuPath = "Sunset/Story/Validation/Run NPC Formal Consumption Tests";
+        private const string Day1OwnerRegressionMenuPath = "Sunset/Story/Validation/Run Day1 Owner Regression Tests";
         private const string ResultFileName = "spring-day1-workbench-fallback-test.json";
         private const string OpeningResultFileName = "spring-day1-opening-bridge-tests.json";
         private const string OpeningGraphResultFileName = "spring-day1-opening-graph-tests.json";
@@ -30,14 +33,26 @@ namespace Sunset.Editor.Story
         private const string MiddayReminderResultFileName = "spring-day1-midday-reminder-bridge-test.json";
         private const string LateDayResultFileName = "spring-day1-late-day-bridge-tests.json";
         private const string PromptOverlayGuardResultFileName = "spring-day1-prompt-overlay-guard-tests.json";
+        private const string StoryProgressResultFileName = "spring-day1-story-progress-tests.json";
         private const string DirectorStagingResultFileName = "spring-day1-director-staging-tests.json";
+        private const string NpcFormalConsumptionResultFileName = "spring-day1-npc-formal-consumption-tests.json";
+        private const string Day1OwnerRegressionResultFileName = "spring-day1-owner-regression-tests.json";
         private const string TargetTestName = "SpringDay1LateDayRuntimeTests.Director_WorkbenchFallback_ShouldNotMarkCraftObjectiveComplete";
         private static readonly string[] OpeningTargetTestNames =
         {
             "SpringDay1OpeningDialogueAssetGraphTests.OpeningDialogueAssets_FormExpectedFollowupGraph",
             "SpringDay1OpeningDialogueAssetGraphTests.OpeningDialogueAssets_PreserveOpeningSemantics",
+            "SpringDay1OpeningRuntimeBridgeTests.GenericTownTransitionTrigger_ShouldFallbackToPrimaryHomeEntryAnchor",
+            "SpringDay1OpeningRuntimeBridgeTests.GenericPrimaryTransitionTrigger_ShouldFallbackToTownOpeningEntryAnchor",
+            "SpringDay1OpeningRuntimeBridgeTests.PersistentPlayerSceneBridge_ShouldTreatPipeSeparatedEntryNamesAsAliases",
             "SpringDay1OpeningRuntimeBridgeTests.HouseArrivalCompletion_ShouldBridgeIntoHealingAndHp",
-            "SpringDay1OpeningRuntimeBridgeTests.LiveValidationRunner_ShouldRecommendOpeningActionsForCrashAndEnterVillage"
+            "SpringDay1OpeningRuntimeBridgeTests.LiveValidationRunner_ShouldRecommendOpeningActionsForCrashAndEnterVillage",
+            "SpringDay1OpeningRuntimeBridgeTests.TownOpening_ShouldAdoptCrashPhaseIntoEnterVillageBeat",
+            "SpringDay1OpeningRuntimeBridgeTests.TownEnterVillageFlow_ShouldEnsureNpcCrowdDirectorRuntime",
+            "SpringDay1OpeningRuntimeBridgeTests.TownVillageGatePreparation_ShouldAlignStoryActorsBeforeDialogueStarts",
+            "SpringDay1OpeningRuntimeBridgeTests.TownVillageGateDialogueActive_ShouldKeepStoryActorsAligned",
+            "SpringDay1OpeningRuntimeBridgeTests.VillageGateWhileActiveInTown_ShouldKeepPostEntryBeatUntilDialogueCompletes",
+            "SpringDay1OpeningRuntimeBridgeTests.VillageGateCompletionInTown_ShouldPromoteChiefLeadState"
         };
 
         private static readonly string[] OpeningGraphTargetTestNames =
@@ -53,8 +68,8 @@ namespace Sunset.Editor.Story
             "SpringDay1MiddayRuntimeBridgeTests.Director_ShouldPreferAuthoredDialogueAssetsForMiddayPhases",
             "SpringDay1MiddayRuntimeBridgeTests.HealingCompletion_ShouldAdvanceIntoWorkbenchFlashback",
             "SpringDay1MiddayRuntimeBridgeTests.WorkbenchCompletion_ShouldAdvanceIntoFarmingTutorial",
-            "SpringDay1MiddayRuntimeBridgeTests.FarmingTutorialCompletion_ShouldImmediatelyBridgeIntoDinnerConflict",
-            "SpringDay1MiddayRuntimeBridgeTests.DinnerAndReminderPhases_ShouldYieldWorkbenchToFormalStory",
+            "SpringDay1MiddayRuntimeBridgeTests.FarmingTutorialCompletion_ShouldAwaitChiefWrapBeforeExploreWindow",
+            "SpringDay1MiddayRuntimeBridgeTests.DinnerAndReminderPhases_ShouldKeepWorkbenchAvailableAfterUnlock",
             "SpringDay1MiddayRuntimeBridgeTests.DinnerAndReminderCompletion_ShouldBridgeIntoFreeTime"
         };
 
@@ -67,27 +82,98 @@ namespace Sunset.Editor.Story
 
         private static readonly string[] PromptOverlayGuardTargetTestNames =
         {
+            "PackagePanelLayoutGuardsTests.PackagePanelTabsUI_ShowPanel_ShouldRaiseCanvasAndHidePromptOverlayThroughUnifiedModalRule",
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_UsesParentCanvasGovernance_WhenUiRootCanvasExists",
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_ShouldPreferBaseCanvasUnderUiRoot_InsteadOfModalPackageCanvas",
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_ShouldHideWhilePackagePanelIsOpen",
             "SpringDay1LateDayRuntimeTests.PromptOverlay_ShouldRecoverFromDestroyedRowCanvasGroup",
             "SpringDay1LateDayRuntimeTests.PromptOverlay_CompletionAnimation_ShouldStopTouchingDestroyedRowCanvasGroup",
-            "SpringDay1LateDayRuntimeTests.PromptOverlay_Show_ShouldReactivateInactiveRuntimeInstanceBeforeStartingTransition"
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_Show_ShouldReactivateInactiveRuntimeInstanceBeforeStartingTransition",
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_Hide_ShouldNotStartCoroutineWhenRuntimeInstanceIsInactive",
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_FormalTaskCard_ShouldIgnoreManualFocusOverride_WhenDirectorModelExists",
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_DirectorBridgePrompt_ShouldRenderSeparatelyFromFormalFocus",
+            "SpringDay1LateDayRuntimeTests.PromptOverlay_DirectorBridgePrompt_ShouldHideWhenSemanticallyRedundantWithFormalCard"
+        };
+
+        private static readonly string[] StoryProgressTargetTestNames =
+        {
+            "StoryProgressPersistenceServiceTests.SaveLoad_RoundTripRestoresLongTermStoryStateAndClearsNpcTransientState",
+            "StoryProgressPersistenceServiceTests.Load_DoesNotPromoteLateDayPrivateFlagsFromPhaseAlone",
+            "StoryProgressPersistenceServiceTests.Load_DoesNotPromoteOpeningAndMiddayPrivateFlagsFromPhaseAlone"
         };
 
         private static readonly string[] DirectorStagingTargetTestNames =
         {
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldPreferSemanticAnchorBeforeLegacyAnchor",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldFallBackToTownAnchorContractWhenSemanticAnchorIsNotInLoadedScene",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldBindExistingResidentRootsWithoutProvisioningRuntimeOnes",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldBindSceneResidentInTownSceneWithoutRuntimeSpawn",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldNotPersistStoryDrivenReturnHomeSnapshotBeforeFreeTime",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldIgnoreStaleStoryDrivenReturnHomeSnapshotBeforeFreeTime",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldTreatDayResidentsAsAlreadyAroundBeforeEnterVillage",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldOnlyHoldEnterVillagePostEntryCueWhileVillageGateDialogueIsActive",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldNotResnapResidentToBasePositionOnRepeatedBaselineSync",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldReleaseResidentBackToBasePoseAfterCueReleaseBeforeFreeTime",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldQueueReturnHomeAfterCueReleaseDuringFreeTime",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldResumeRoamAfterReturnHomeCompletes",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldFallbackToStepReturnHomeWhenRoamControllerCannotStartPath",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ClockSchedule_ShouldStartReturnAtTwentyAndRestAtTwentyOne",
+            "SpringDay1DirectorStagingTests.CrowdDirector_FreeTimeBeforeTwenty_ShouldReleaseNonPriorityResidentsToDefaultPresent",
+            "SpringDay1DirectorStagingTests.CrowdDirector_FreeTimeBeforeTwenty_ShouldKeepPriorityWitnessInTakeoverReady",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldDeferToManualPreviewLockedPlayback",
             "SpringDay1DirectorStagingTests.StageBook_ShouldResolveCueBySemanticAnchor",
-            "SpringDay1DirectorStagingTests.StageBook_ShouldContainCapturedAbsolutePositionsForKeyDirectorCues",
+            "SpringDay1DirectorStagingTests.StageBook_ShouldPreferExactNpcCueBeforeSharedAnchorAndDutyFallback",
+            "SpringDay1DirectorStagingTests.StageBook_ShouldContainCapturedAbsolutePositionsForTownOpeningCrowdCues",
+            "SpringDay1DirectorStagingTests.StageBook_ShouldContainCapturedAbsolutePositionsForNonOpeningDirectorCues",
             "SpringDay1DirectorStagingTests.StageBook_ShouldContainMultiPointPathsForRehearsedDirectorTargets",
+            "SpringDay1DirectorStagingTests.StageBook_ShouldMarkMigratedTownCuesToUseSemanticAnchorStarts",
             "SpringDay1DirectorStagingTests.StagingPlayback_ShouldPlaceNpcAtCustomStartAndExposeCueIdentity",
             "SpringDay1DirectorStagingTests.StagingPlayback_ReapplyingSameCue_ShouldNotSnapNpcBackToStart",
+            "SpringDay1DirectorStagingTests.StagingPlayback_ForceRestart_ShouldSnapNpcBackToStartForManualPreview",
+            "SpringDay1DirectorStagingTests.StagingPlayback_ShouldKeepManualPreviewLockUntilClear",
+            "SpringDay1DirectorStagingTests.StagingPlayback_ShouldUseSemanticAnchorAsCueStartWhenConfigured",
+            "SpringDay1DirectorStagingTests.StagingPlayback_ShouldSupportSemanticAnchorOffsetStart",
+            "SpringDay1DirectorStagingTests.StagingPlayback_ShouldRebaseLegacyAbsolutePathAroundSemanticAnchorStart",
+            "SpringDay1DirectorStagingTests.StagingPlayback_ShouldDriveRoamControllerInsteadOfHardPushingTransformDuringCueMotion",
             "SpringDay1DirectorStagingTests.Director_ShouldExposeFreeTimeAndDayEndBeatKeys",
             "SpringDay1DirectorStagingTests.NpcTakeover_ShouldDisableRoamAndInteractionsUntilRelease",
-            "SpringDay1DirectorStagingTests.PlayerRehearsalLock_ShouldDisablePlayerMotionUntilRelease"
+            "SpringDay1DirectorStagingTests.ResidentScriptedControl_EndDebugMoveShouldPreserveResumeRoamFlag",
+            "SpringDay1DirectorStagingTests.ResidentScriptedControl_DebugMoveShouldStillParticipateInSharedAvoidance",
+            "SpringDay1DirectorStagingTests.ResidentScriptedControl_StaticBlockedAdvanceShouldAllowEarlyAbort",
+            "SpringDay1DirectorStagingTests.ResidentScriptedControl_PauseAndResumeShouldPreserveScriptedMove",
+            "SpringDay1DirectorStagingTests.RehearsalDriver_ShouldPauseExistingPlaybackUntilDisabled",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldHoldForActiveRehearsalDriver",
+            "SpringDay1DirectorStagingTests.PlayerRehearsalLock_ShouldDisablePlayerMotionUntilRelease",
+            "SpringDay1DirectorStagingTests.EscortTransition_ShouldRequireChiefAndCompanionReady"
+        };
+
+        private static readonly string[] NpcFormalConsumptionTargetTestNames =
+        {
+            "NpcInteractionPriorityPolicyTests.InformalChatInteractable_ShouldYieldOnlyWhenSameNpcFormalDialogueCanTakeOver",
+            "NpcInteractionPriorityPolicyTests.InformalChatInteractable_ShouldRecoverAfterFormalDialogueWasConsumed",
+            "NpcInteractionPriorityPolicyTests.InformalChatInteractable_ShouldRecoverAfterFormalPhaseAdvanceWasAlreadyReached"
+        };
+
+        private static readonly string[] Day1OwnerRegressionTargetTestNames =
+        {
+            "SpringDay1OpeningRuntimeBridgeTests.EnterVillageCrowdCue_ShouldStayActiveUntilHouseLeadActuallyStarts",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldReleaseResidentBackToBasePoseAfterCueReleaseBeforeFreeTime",
+            "SpringDay1LateDayRuntimeTests.StoryActorsNightRestSchedule_ShouldCover001To003",
+            "SpringDay1LateDayRuntimeTests.HandleHourChanged_FreeTimeAtTwoAmShouldFinalizeDayEnd"
         };
 
         private static readonly string[] LateDayTargetTestNames =
         {
             "SpringDay1LateDayRuntimeTests.FreeTimeValidationStep_AdvancesFromFinalCallToDayEnd",
             "SpringDay1LateDayRuntimeTests.BedBridge_EndsDayAndRestoresSystems",
+            "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldNormalizeClockToSixPm",
+            "SpringDay1LateDayRuntimeTests.AlignTownDinnerGatheringActorsAndPlayer_ShouldPreferDinnerAreaOverVillageCrowdMarkers",
+            "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldAlignActorsBeforeDinnerCueTimeoutCompletes",
+            "SpringDay1LateDayRuntimeTests.StoryActorsNightRestSchedule_ShouldCover001To003",
+            "SpringDay1LateDayRuntimeTests.HandleHourChanged_FreeTimeAtTwoAmShouldFinalizeDayEnd",
+            "SpringDay1LateDayRuntimeTests.TryPlacePlayerNearCurrentSceneRestTarget_ShouldUseHomeDoorFallbackOffsetInHomeScene",
+            "SpringDay1LateDayRuntimeTests.PlusHourAdvance_BeyondTwoAmAfterDay1_ShouldFallbackToHomeSleepTransition",
+            "SpringDay1LateDayRuntimeTests.Director_TryAutoBindBedInteractable_ShouldIgnoreDoorOnlyRestProxy",
             "SpringDay1LateDayRuntimeTests.FreeTimePlayerFacingCopy_ShouldTightenAcrossNightPressure",
             "SpringDay1LateDayRuntimeTests.DayEndPlayerFacingCopy_ShouldCarryTomorrowBurdenAndClearWorkbenchState",
             "SpringDay1LateDayRuntimeTests.ReminderCompletion_ShouldEnterFreeTimeWithIntroPendingAndYieldWorkbenchToFormalNightIntro"
@@ -103,7 +189,10 @@ namespace Sunset.Editor.Story
         private static readonly string MiddayReminderResultPath = Path.Combine(CommandRoot, MiddayReminderResultFileName);
         private static readonly string LateDayResultPath = Path.Combine(CommandRoot, LateDayResultFileName);
         private static readonly string PromptOverlayGuardResultPath = Path.Combine(CommandRoot, PromptOverlayGuardResultFileName);
+        private static readonly string StoryProgressResultPath = Path.Combine(CommandRoot, StoryProgressResultFileName);
         private static readonly string DirectorStagingResultPath = Path.Combine(CommandRoot, DirectorStagingResultFileName);
+        private static readonly string NpcFormalConsumptionResultPath = Path.Combine(CommandRoot, NpcFormalConsumptionResultFileName);
+        private static readonly string Day1OwnerRegressionResultPath = Path.Combine(CommandRoot, Day1OwnerRegressionResultFileName);
 
         private static TestRunnerApi _runnerApi;
         private static TestRunCallback _callback;
@@ -162,10 +251,28 @@ namespace Sunset.Editor.Story
             RunTargetedTests(PromptOverlayGuardResultPath, PromptOverlayGuardTargetTestNames);
         }
 
+        [MenuItem(StoryProgressMenuPath)]
+        private static void RunStoryProgressPersistenceTests()
+        {
+            RunTargetedTests(StoryProgressResultPath, StoryProgressTargetTestNames);
+        }
+
         [MenuItem(DirectorStagingMenuPath)]
         private static void RunDirectorStagingTests()
         {
             RunTargetedTests(DirectorStagingResultPath, DirectorStagingTargetTestNames);
+        }
+
+        [MenuItem(NpcFormalConsumptionMenuPath)]
+        private static void RunNpcFormalConsumptionTests()
+        {
+            RunTargetedTests(NpcFormalConsumptionResultPath, NpcFormalConsumptionTargetTestNames);
+        }
+
+        [MenuItem(Day1OwnerRegressionMenuPath)]
+        private static void RunDay1OwnerRegressionTests()
+        {
+            RunTargetedTests(Day1OwnerRegressionResultPath, Day1OwnerRegressionTargetTestNames);
         }
 
         [MenuItem(WorkbenchFallbackGuardMenuPath, true)]
@@ -222,8 +329,26 @@ namespace Sunset.Editor.Story
             return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
         }
 
+        [MenuItem(StoryProgressMenuPath, true)]
+        private static bool ValidateRunStoryProgressPersistenceTests()
+        {
+            return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
+        }
+
         [MenuItem(DirectorStagingMenuPath, true)]
         private static bool ValidateRunDirectorStagingTests()
+        {
+            return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
+        }
+
+        [MenuItem(NpcFormalConsumptionMenuPath, true)]
+        private static bool ValidateRunNpcFormalConsumptionTests()
+        {
+            return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
+        }
+
+        [MenuItem(Day1OwnerRegressionMenuPath, true)]
+        private static bool ValidateRunDay1OwnerRegressionTests()
         {
             return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
         }
