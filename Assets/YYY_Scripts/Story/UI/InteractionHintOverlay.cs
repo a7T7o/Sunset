@@ -11,36 +11,35 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public class InteractionHintOverlay : MonoBehaviour
     {
-        private const float DetailCardWidth = 284f;
-        private const float DetailCardHeight = 74f;
-        private const float CompactCardWidth = 252f;
-        private const float CompactCardHeight = 60f;
+        private const float DetailCardWidth = 270f;
+        private const float DetailCardHeight = 68f;
+        private const float CompactCardWidth = 240f;
+        private const float CompactCardHeight = 56f;
         private const float BaseCardX = 22f;
         private const float BaseCardY = 18f;
         private const float CardStackGap = 8f;
 
-        private const float StatusCardWidth = 312f;
-        private const float StatusCardCompactHeight = 68f;
-        private const float StatusCardDetailHeight = 80f;
+        private const float StatusCardWidth = 252f;
+        private const float StatusCardCompactHeight = 58f;
+        private const float StatusCardDetailHeight = 68f;
         private const float StatusFadeDuration = 0.25f;
         private const float StatusHoldDuration = 2f;
         private const float ContextCardWidth = 220f;
-        private const float ContextCardMinHeight = 154f;
-        private const float ContextCardRowHeight = 17f;
-        private const float ContextCardRowGap = 3f;
+        private const float ContextCardMinHeight = 156f;
+        private const float ContextCardRowHeight = 20f;
+        private const float ContextCardRowGap = 4f;
         private const float ContextCardRightInset = 22f;
         private const float ContextCardCenterOffsetY = 4f;
         private const float ContextCardInnerLeft = 14f;
         private const float ContextCardInnerRight = 12f;
-        private const float ContextCardTopInset = 12f;
-        private const float ContextCardBottomInset = 10f;
+        private const float ContextCardTopInset = 10f;
+        private const float ContextCardBottomInset = 8f;
         private const int MaxContextRowCount = 7;
         private const KeyCode ContextHintDismissKey = KeyCode.Backspace;
         private const float ContextBoundaryFocusStartViewportThreshold = 0.25f;
         private const float ContextBoundaryFocusFullViewportThreshold = 0.18f;
-        private const float ContextBoundaryFocusMinAlpha = 0.02f;
+        private const float ContextBoundaryFocusMinAlpha = 0.40f;
         private const float ContextBoundaryFocusBlendSpeed = 18f;
-        private const float ContextBoundaryFocusHardFadePressure = 0.58f;
 
         private static readonly string[] PreferredFontResourcePaths =
         {
@@ -55,7 +54,8 @@ namespace Sunset.Story
         {
             None,
             Gameplay,
-            Package
+            Package,
+            Chest
         }
 
         private struct ContextHintEntry
@@ -82,6 +82,8 @@ namespace Sunset.Story
         private static InteractionHintOverlay s_instance;
         private static Sprite s_backplateSprite;
         private static Texture2D s_backplateTexture;
+        private static Sprite s_backspaceIconSprite;
+        private static Texture2D s_backspaceIconTexture;
 
         [SerializeField] private Canvas overlayCanvas;
         [SerializeField] private CanvasScaler overlayScaler;
@@ -113,6 +115,11 @@ namespace Sunset.Story
         [SerializeField] private TextMeshProUGUI contextTitleText;
         [SerializeField] private TextMeshProUGUI contextDetailText;
         [SerializeField] private RectTransform contextRowsRoot;
+        [SerializeField] private RectTransform contextFooterKeyPlateRect;
+        [SerializeField] private Image contextFooterKeyPlateImage;
+        [SerializeField] private TextMeshProUGUI contextFooterKeyText;
+        [SerializeField] private RectTransform contextFooterKeyIconRect;
+        [SerializeField] private Image contextFooterKeyIconImage;
         [SerializeField] private TextMeshProUGUI contextFooterText;
 
         private TMP_FontAsset _fontAsset;
@@ -134,6 +141,7 @@ namespace Sunset.Story
         private ContextHintGroup _activeContextHintGroup = ContextHintGroup.None;
         private bool _gameplayContextDismissed;
         private bool _packageContextDismissed;
+        private bool _chestContextDismissed;
         private float _contextRequestedAlpha;
         private float _contextBoundaryAlpha = 1f;
 
@@ -732,6 +740,19 @@ namespace Sunset.Story
             contextTitleText = contextTitleText != null ? contextTitleText : ResolveUniqueText(contextCardRect, "ContextTitleText");
             contextDetailText = contextDetailText != null ? contextDetailText : ResolveUniqueText(contextCardRect, "ContextDetailText");
             contextRowsRoot = contextRowsRoot != null ? contextRowsRoot : ResolveUniqueRect(contextCardRect, "ContextRows");
+            contextFooterKeyPlateRect = contextFooterKeyPlateRect != null ? contextFooterKeyPlateRect : ResolveUniqueRect(contextCardRect, "ContextFooterKeyPlate");
+            contextFooterKeyPlateImage = contextFooterKeyPlateImage != null
+                ? contextFooterKeyPlateImage
+                : contextFooterKeyPlateRect != null ? GetOrAddComponent<Image>(contextFooterKeyPlateRect.gameObject) : null;
+            contextFooterKeyText = contextFooterKeyText != null
+                ? contextFooterKeyText
+                : contextFooterKeyPlateRect != null ? ResolveUniqueText(contextFooterKeyPlateRect, "ContextFooterKeyText") : null;
+            contextFooterKeyIconRect = contextFooterKeyIconRect != null
+                ? contextFooterKeyIconRect
+                : contextFooterKeyPlateRect != null ? ResolveUniqueRect(contextFooterKeyPlateRect, "ContextFooterKeyIcon") : null;
+            contextFooterKeyIconImage = contextFooterKeyIconImage != null
+                ? contextFooterKeyIconImage
+                : contextFooterKeyIconRect != null ? GetOrAddComponent<Image>(contextFooterKeyIconRect.gameObject) : null;
             contextFooterText = contextFooterText != null ? contextFooterText : ResolveUniqueText(contextCardRect, "ContextFooterText");
 
             _contextRows.Clear();
@@ -838,9 +859,28 @@ namespace Sunset.Story
                 contextRowsRoot = CreateRect(contextCardRect, "ContextRows");
             }
 
+            if (contextFooterKeyPlateRect == null)
+            {
+                contextFooterKeyPlateRect = CreateRect(contextCardRect, "ContextFooterKeyPlate");
+            }
+
+            contextFooterKeyPlateImage = GetOrAddComponent<Image>(contextFooterKeyPlateRect.gameObject);
+
+            if (contextFooterKeyText == null)
+            {
+                contextFooterKeyText = CreateText(contextFooterKeyPlateRect, "ContextFooterKeyText", "BACKSPACE", 9.75f, new Color(0.16f, 0.12f, 0.05f, 1f), TextAlignmentOptions.Center);
+            }
+
+            if (contextFooterKeyIconRect == null)
+            {
+                contextFooterKeyIconRect = CreateRect(contextFooterKeyPlateRect, "ContextFooterKeyIcon");
+            }
+
+            contextFooterKeyIconImage = GetOrAddComponent<Image>(contextFooterKeyIconRect.gameObject);
+
             if (contextFooterText == null)
             {
-                contextFooterText = CreateText(contextCardRect, "ContextFooterText", "退格关闭这组提示", 10f, new Color(0.72f, 0.79f, 0.87f, 0.92f), TextAlignmentOptions.Left);
+                contextFooterText = CreateText(contextCardRect, "ContextFooterText", "关闭提示", 10.5f, new Color(0.72f, 0.79f, 0.87f, 0.92f), TextAlignmentOptions.Left);
             }
 
             for (int index = _contextRows.Count; index < MaxContextRowCount; index++)
@@ -890,28 +930,28 @@ namespace Sunset.Story
 
             Outline statusOutline = GetOrAddComponent<Outline>(statusCardRect.gameObject);
             statusOutline.effectColor = new Color(0.92f, 0.84f, 0.48f, 0.12f);
-            statusOutline.effectDistance = new Vector2(1.25f, -1.25f);
+            statusOutline.effectDistance = new Vector2(1.1f, -1.1f);
             statusOutline.useGraphicAlpha = true;
 
             Shadow statusShadow = GetOrAddComponent<Shadow>(statusCardRect.gameObject);
             statusShadow.effectColor = new Color(0f, 0f, 0f, 0.22f);
-            statusShadow.effectDistance = new Vector2(0f, -3f);
+            statusShadow.effectDistance = new Vector2(0f, -2f);
             statusShadow.useGraphicAlpha = true;
 
             RectTransform statusAccentRect = statusAccentLineImage.rectTransform;
             statusAccentRect.anchorMin = new Vector2(0f, 0.5f);
             statusAccentRect.anchorMax = new Vector2(0f, 0.5f);
             statusAccentRect.pivot = new Vector2(0f, 0.5f);
-            statusAccentRect.anchoredPosition = new Vector2(12f, 0f);
-            statusAccentRect.sizeDelta = new Vector2(4f, 47.08f);
+            statusAccentRect.anchoredPosition = new Vector2(10f, 0f);
+            statusAccentRect.sizeDelta = new Vector2(4f, 40f);
             statusAccentLineImage.raycastTarget = false;
 
             RectTransform statusTagRect = statusTagImage.rectTransform;
             statusTagRect.anchorMin = new Vector2(0f, 1f);
             statusTagRect.anchorMax = new Vector2(0f, 1f);
             statusTagRect.pivot = new Vector2(0f, 1f);
-            statusTagRect.anchoredPosition = new Vector2(29f, -16f);
-            statusTagRect.sizeDelta = new Vector2(44f, 18f);
+            statusTagRect.anchoredPosition = new Vector2(24f, -14f);
+            statusTagRect.sizeDelta = new Vector2(36f, 16f);
             statusTagImage.sprite = GetOrCreateBackplateSprite();
             statusTagImage.type = Image.Type.Sliced;
             statusTagImage.raycastTarget = false;
@@ -922,7 +962,7 @@ namespace Sunset.Story
                 statusTagText.fontSharedMaterial = _fontAsset.material;
             }
 
-            statusTagText.fontSize = 10.25f;
+            statusTagText.fontSize = 9.5f;
             statusTagText.color = new Color(0.96f, 0.95f, 0.9f, 1f);
             statusTagText.alignment = TextAlignmentOptions.Center;
             statusTagText.fontStyle = FontStyles.Bold;
@@ -934,7 +974,7 @@ namespace Sunset.Story
             statusTagTextRect.anchorMax = new Vector2(0.5f, 0.5f);
             statusTagTextRect.pivot = new Vector2(0.5f, 0.5f);
             statusTagTextRect.anchoredPosition = Vector2.zero;
-            statusTagTextRect.sizeDelta = new Vector2(34f, 12f);
+            statusTagTextRect.sizeDelta = new Vector2(28f, 11f);
 
             statusTitleText.font = _fontAsset;
             if (_fontAsset != null && _fontAsset.material != null)
@@ -942,12 +982,12 @@ namespace Sunset.Story
                 statusTitleText.fontSharedMaterial = _fontAsset.material;
             }
 
-            statusTitleText.fontSize = 15.5f;
+            statusTitleText.fontSize = 13.5f;
             statusTitleText.color = new Color(0.98f, 0.96f, 0.92f, 1f);
             statusTitleText.alignment = TextAlignmentOptions.Left;
             statusTitleText.fontStyle = FontStyles.Bold;
-            statusTitleText.textWrappingMode = TextWrappingModes.Normal;
-            statusTitleText.overflowMode = TextOverflowModes.Overflow;
+            statusTitleText.textWrappingMode = TextWrappingModes.NoWrap;
+            statusTitleText.overflowMode = TextOverflowModes.Ellipsis;
             statusTitleText.raycastTarget = false;
             RectTransform statusTitleRect = statusTitleText.rectTransform;
             statusTitleRect.anchorMin = new Vector2(0f, 1f);
@@ -960,11 +1000,11 @@ namespace Sunset.Story
                 statusDetailText.fontSharedMaterial = _fontAsset.material;
             }
 
-            statusDetailText.fontSize = 11.5f;
+            statusDetailText.fontSize = 10f;
             statusDetailText.color = new Color(0.78f, 0.87f, 0.95f, 0.96f);
             statusDetailText.alignment = TextAlignmentOptions.Left;
-            statusDetailText.textWrappingMode = TextWrappingModes.Normal;
-            statusDetailText.overflowMode = TextOverflowModes.Overflow;
+            statusDetailText.textWrappingMode = TextWrappingModes.NoWrap;
+            statusDetailText.overflowMode = TextOverflowModes.Ellipsis;
             statusDetailText.raycastTarget = false;
             RectTransform statusDetailRect = statusDetailText.rectTransform;
             statusDetailRect.anchorMin = new Vector2(0f, 0f);
@@ -1007,7 +1047,7 @@ namespace Sunset.Story
             contextCardImage.raycastTarget = false;
 
             Outline contextOutline = GetOrAddComponent<Outline>(contextCardRect.gameObject);
-            contextOutline.effectColor = new Color(0.72f, 0.82f, 0.94f, 0.035f);
+            contextOutline.effectColor = new Color(0.92f, 0.84f, 0.48f, 0.06f);
             contextOutline.effectDistance = new Vector2(0.8f, -0.8f);
             contextOutline.useGraphicAlpha = true;
 
@@ -1019,17 +1059,17 @@ namespace Sunset.Story
             RectTransform accentRect = contextAccentLineImage.rectTransform;
             accentRect.anchorMin = new Vector2(0f, 1f);
             accentRect.anchorMax = new Vector2(0f, 1f);
-            accentRect.pivot = new Vector2(0f, 1f);
-            accentRect.anchoredPosition = new Vector2(10f, -ContextCardTopInset);
-            accentRect.sizeDelta = new Vector2(3f, 22f);
+            accentRect.pivot = new Vector2(0f, 0.5f);
+            accentRect.anchoredPosition = new Vector2(10f, -18f);
+            accentRect.sizeDelta = new Vector2(3f, 26f);
             contextAccentLineImage.raycastTarget = false;
 
             RectTransform tagRect = contextTagImage.rectTransform;
             tagRect.anchorMin = new Vector2(0f, 1f);
             tagRect.anchorMax = new Vector2(0f, 1f);
-            tagRect.pivot = new Vector2(0f, 1f);
-            tagRect.anchoredPosition = new Vector2(18f, -ContextCardTopInset);
-            tagRect.sizeDelta = new Vector2(36f, 14f);
+            tagRect.pivot = new Vector2(0f, 0.5f);
+            tagRect.anchoredPosition = new Vector2(18f, -18f);
+            tagRect.sizeDelta = new Vector2(36f, 16f);
             contextTagImage.sprite = GetOrCreateBackplateSprite();
             contextTagImage.type = Image.Type.Sliced;
             contextTagImage.raycastTarget = false;
@@ -1040,7 +1080,7 @@ namespace Sunset.Story
                 contextTagText.fontSharedMaterial = _fontAsset.material;
             }
 
-            contextTagText.fontSize = 8f;
+            contextTagText.fontSize = 9.75f;
             contextTagText.color = new Color(0.96f, 0.95f, 0.9f, 1f);
             contextTagText.alignment = TextAlignmentOptions.Center;
             contextTagText.fontStyle = FontStyles.Bold;
@@ -1052,7 +1092,7 @@ namespace Sunset.Story
             contextTagTextRect.anchorMax = new Vector2(0.5f, 0.5f);
             contextTagTextRect.pivot = new Vector2(0.5f, 0.5f);
             contextTagTextRect.anchoredPosition = Vector2.zero;
-            contextTagTextRect.sizeDelta = new Vector2(26f, 10f);
+            contextTagTextRect.sizeDelta = new Vector2(28f, 13f);
 
             contextTitleText.font = _fontAsset;
             if (_fontAsset != null && _fontAsset.material != null)
@@ -1060,7 +1100,7 @@ namespace Sunset.Story
                 contextTitleText.fontSharedMaterial = _fontAsset.material;
             }
 
-            contextTitleText.fontSize = 12f;
+            contextTitleText.fontSize = 15.5f;
             contextTitleText.color = new Color(0.98f, 0.96f, 0.92f, 1f);
             contextTitleText.alignment = TextAlignmentOptions.Left;
             contextTitleText.fontStyle = FontStyles.Bold;
@@ -1074,8 +1114,8 @@ namespace Sunset.Story
                 contextDetailText.fontSharedMaterial = _fontAsset.material;
             }
 
-            contextDetailText.fontSize = 8.75f;
-            contextDetailText.color = new Color(0.78f, 0.87f, 0.95f, 0.96f);
+            contextDetailText.fontSize = 11.25f;
+            contextDetailText.color = new Color(0.89f, 0.86f, 0.78f, 0.96f);
             contextDetailText.alignment = TextAlignmentOptions.Left;
             contextDetailText.textWrappingMode = TextWrappingModes.Normal;
             contextDetailText.overflowMode = TextOverflowModes.Overflow;
@@ -1087,15 +1127,53 @@ namespace Sunset.Story
             contextRowsRoot.anchoredPosition = new Vector2(0f, 0f);
             contextRowsRoot.sizeDelta = new Vector2(ContextCardWidth, 0f);
 
+            contextFooterKeyPlateImage.sprite = GetOrCreateBackplateSprite();
+            contextFooterKeyPlateImage.type = Image.Type.Sliced;
+            contextFooterKeyPlateImage.color = new Color(0.30f, 0.22f, 0.11f, 0.98f);
+            contextFooterKeyPlateImage.raycastTarget = false;
+
+            Outline footerKeyOutline = GetOrAddComponent<Outline>(contextFooterKeyPlateRect.gameObject);
+            footerKeyOutline.effectColor = new Color(0.90f, 0.74f, 0.32f, 0.28f);
+            footerKeyOutline.effectDistance = new Vector2(0.9f, -0.9f);
+            footerKeyOutline.useGraphicAlpha = true;
+
+            if (contextFooterKeyText != null)
+            {
+                contextFooterKeyText.gameObject.SetActive(true);
+                contextFooterKeyText.font = _fontAsset;
+                if (_fontAsset != null && _fontAsset.material != null)
+                {
+                    contextFooterKeyText.fontSharedMaterial = _fontAsset.material;
+                }
+
+                contextFooterKeyText.fontSize = 9.75f;
+                contextFooterKeyText.color = new Color(0.96f, 0.88f, 0.57f, 1f);
+                contextFooterKeyText.alignment = TextAlignmentOptions.Center;
+                contextFooterKeyText.fontStyle = FontStyles.Bold;
+                contextFooterKeyText.textWrappingMode = TextWrappingModes.NoWrap;
+                contextFooterKeyText.overflowMode = TextOverflowModes.Ellipsis;
+                contextFooterKeyText.raycastTarget = false;
+            }
+
+            if (contextFooterKeyIconRect != null)
+            {
+                contextFooterKeyIconRect.gameObject.SetActive(false);
+            }
+
+            if (contextFooterKeyIconImage != null)
+            {
+                contextFooterKeyIconImage.raycastTarget = false;
+            }
+
             contextFooterText.font = _fontAsset;
             if (_fontAsset != null && _fontAsset.material != null)
             {
                 contextFooterText.fontSharedMaterial = _fontAsset.material;
             }
 
-            contextFooterText.fontSize = 8f;
-            contextFooterText.color = new Color(0.72f, 0.79f, 0.87f, 0.72f);
-            contextFooterText.alignment = TextAlignmentOptions.Right;
+            contextFooterText.fontSize = 10.25f;
+            contextFooterText.color = new Color(0.74f, 0.72f, 0.64f, 0.88f);
+            contextFooterText.alignment = TextAlignmentOptions.MidlineRight;
             contextFooterText.textWrappingMode = TextWrappingModes.NoWrap;
             contextFooterText.overflowMode = TextOverflowModes.Ellipsis;
             contextFooterText.raycastTarget = false;
@@ -1116,7 +1194,7 @@ namespace Sunset.Story
                 row.KeyPlateRect.anchorMin = new Vector2(0f, 0.5f);
                 row.KeyPlateRect.anchorMax = new Vector2(0f, 0.5f);
                 row.KeyPlateRect.pivot = new Vector2(0f, 0.5f);
-                row.KeyPlateRect.sizeDelta = new Vector2(56f, 16f);
+                row.KeyPlateRect.sizeDelta = new Vector2(62f, 21f);
                 row.KeyPlateImage.sprite = GetOrCreateBackplateSprite();
                 row.KeyPlateImage.type = Image.Type.Sliced;
                 row.KeyPlateImage.color = new Color(0.90f, 0.75f, 0.33f, 0.96f);
@@ -1128,7 +1206,7 @@ namespace Sunset.Story
                     row.KeyText.fontSharedMaterial = _fontAsset.material;
                 }
 
-                row.KeyText.fontSize = 8.75f;
+                row.KeyText.fontSize = 11.25f;
                 row.KeyText.color = new Color(0.16f, 0.12f, 0.05f, 1f);
                 row.KeyText.alignment = TextAlignmentOptions.Center;
                 row.KeyText.fontStyle = FontStyles.Bold;
@@ -1140,7 +1218,7 @@ namespace Sunset.Story
                 keyTextRect.anchorMax = new Vector2(0.5f, 0.5f);
                 keyTextRect.pivot = new Vector2(0.5f, 0.5f);
                 keyTextRect.anchoredPosition = Vector2.zero;
-                keyTextRect.sizeDelta = new Vector2(48f, 11f);
+                keyTextRect.sizeDelta = new Vector2(54f, 15f);
 
                 row.DescriptionText.font = _fontAsset;
                 if (_fontAsset != null && _fontAsset.material != null)
@@ -1148,9 +1226,9 @@ namespace Sunset.Story
                     row.DescriptionText.fontSharedMaterial = _fontAsset.material;
                 }
 
-                row.DescriptionText.fontSize = 9.75f;
+                row.DescriptionText.fontSize = 12.75f;
                 row.DescriptionText.color = new Color(0.98f, 0.96f, 0.92f, 1f);
-                row.DescriptionText.alignment = TextAlignmentOptions.Left;
+                row.DescriptionText.alignment = TextAlignmentOptions.MidlineLeft;
                 row.DescriptionText.textWrappingMode = TextWrappingModes.NoWrap;
                 row.DescriptionText.overflowMode = TextOverflowModes.Ellipsis;
                 row.DescriptionText.raycastTarget = false;
@@ -1250,8 +1328,8 @@ namespace Sunset.Story
             if (_lastPlacementModeState != placementModeEnabled)
             {
                 string toggleDetail = placementModeEnabled
-                    ? "农田/播种/浇水输入已开启，按 V 关闭。"
-                    : "农田/播种/浇水输入已关闭，按 V 开启。";
+                    ? "耕地/播种/浇水已开启，按 V 关闭。"
+                    : "耕地/播种/浇水已关闭，按 V 开启。";
                 ShowPlacementStatus(
                     placementModeEnabled ? "放置模式已开启" : "放置模式已关闭",
                     toggleDetail,
@@ -1349,15 +1427,15 @@ namespace Sunset.Story
             if (statusTitleText != null)
             {
                 RectTransform titleRect = statusTitleText.rectTransform;
-                titleRect.offsetMin = new Vector2(88f, hasDetail ? -36f : -44f);
-                titleRect.offsetMax = new Vector2(-18f, hasDetail ? -12f : -18f);
+                titleRect.offsetMin = new Vector2(66f, hasDetail ? -28f : -36f);
+                titleRect.offsetMax = new Vector2(-14f, hasDetail ? -10f : -16f);
             }
 
             if (statusDetailText != null)
             {
                 RectTransform detailRect = statusDetailText.rectTransform;
-                detailRect.offsetMin = new Vector2(hasDetail ? 29.8f : 22f, 12f);
-                detailRect.offsetMax = new Vector2(hasDetail ? -10.2f : -18f, hasDetail ? 34f : 24f);
+                detailRect.offsetMin = new Vector2(hasDetail ? 24f : 18f, 10f);
+                detailRect.offsetMax = new Vector2(hasDetail ? -8f : -14f, hasDetail ? 28f : 20f);
             }
 
             RefreshCardStackLayout();
@@ -1400,7 +1478,7 @@ namespace Sunset.Story
 
             if (BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen)
             {
-                return ContextHintGroup.None;
+                return ContextHintGroup.Chest;
             }
 
             if (_packageTabs == null)
@@ -1433,20 +1511,49 @@ namespace Sunset.Story
             bool placementModeEnabled = TryResolveGameInputManager(out GameInputManager inputManager) && inputManager.IsPlacementMode;
             Color accentColor;
             Color surfaceColor;
+            Color keyPlateColor;
+            Color keyTextColor;
+            Color footerKeyPlateColor;
+            Color footerKeyIconColor;
+            Color footerTextColor;
             switch (group)
             {
                 case ContextHintGroup.Package:
                     contextTagText.text = "背包";
                     contextTitleText.text = "常用操作";
                     contextDetailText.text = string.Empty;
-                    accentColor = new Color(0.50f, 0.76f, 0.92f, 0.96f);
-                    surfaceColor = new Color(0.08f, 0.12f, 0.18f, 0.95f);
+                    accentColor = new Color(0.96f, 0.74f, 0.34f, 0.96f);
+                    surfaceColor = new Color(0.09f, 0.13f, 0.18f, 0.95f);
+                    keyPlateColor = new Color(0.98f, 0.81f, 0.36f, 0.98f);
+                    keyTextColor = new Color(0.16f, 0.12f, 0.05f, 1f);
+                    footerKeyPlateColor = new Color(0.30f, 0.22f, 0.11f, 0.98f);
+                    footerKeyIconColor = new Color(0.96f, 0.88f, 0.57f, 1f);
+                    footerTextColor = new Color(0.74f, 0.72f, 0.64f, 0.88f);
+                    _contextHintEntries.Add(new ContextHintEntry("左键", "选中 / 拖拽"));
+                    _contextHintEntries.Add(new ContextHintEntry("Shift+左", "二分"));
+                    _contextHintEntries.Add(new ContextHintEntry("Ctrl+左", "单取 / 快捷装备"));
+                    _contextHintEntries.Add(new ContextHintEntry("B/M/L/O", "切换分页"));
+                    _contextHintEntries.Add(new ContextHintEntry("Tab", "收起背包"));
+                    _contextHintEntries.Add(new ContextHintEntry("Esc", "设置页"));
+                    break;
+
+                case ContextHintGroup.Chest:
+                    contextTagText.text = "箱子";
+                    contextTitleText.text = "常用操作";
+                    contextDetailText.text = string.Empty;
+                    accentColor = new Color(0.95f, 0.75f, 0.35f, 0.96f);
+                    surfaceColor = new Color(0.10f, 0.11f, 0.16f, 0.95f);
+                    keyPlateColor = new Color(0.98f, 0.80f, 0.39f, 0.98f);
+                    keyTextColor = new Color(0.16f, 0.12f, 0.05f, 1f);
+                    footerKeyPlateColor = new Color(0.30f, 0.22f, 0.11f, 0.98f);
+                    footerKeyIconColor = new Color(0.96f, 0.88f, 0.57f, 1f);
+                    footerTextColor = new Color(0.74f, 0.72f, 0.64f, 0.88f);
                     _contextHintEntries.Add(new ContextHintEntry("左键", "选中 / 拖拽"));
                     _contextHintEntries.Add(new ContextHintEntry("Shift+左", "二分"));
                     _contextHintEntries.Add(new ContextHintEntry("Ctrl+左", "单取"));
-                    _contextHintEntries.Add(new ContextHintEntry("B/M/L/O", "切页"));
-                    _contextHintEntries.Add(new ContextHintEntry("Tab", "物品页 / 收起"));
-                    _contextHintEntries.Add(new ContextHintEntry("Esc", "设置页"));
+                    _contextHintEntries.Add(new ContextHintEntry("双击", "快速转移"));
+                    _contextHintEntries.Add(new ContextHintEntry("E", "关闭箱子"));
+                    _contextHintEntries.Add(new ContextHintEntry("Esc", "关闭"));
                     break;
 
                 default:
@@ -1457,12 +1564,16 @@ namespace Sunset.Story
                         : string.Empty;
                     accentColor = new Color(0.96f, 0.74f, 0.34f, 0.96f);
                     surfaceColor = new Color(0.09f, 0.13f, 0.18f, 0.95f);
+                    keyPlateColor = new Color(0.98f, 0.81f, 0.36f, 0.98f);
+                    keyTextColor = new Color(0.16f, 0.12f, 0.05f, 1f);
+                    footerKeyPlateColor = new Color(0.30f, 0.22f, 0.11f, 0.98f);
+                    footerKeyIconColor = new Color(0.96f, 0.88f, 0.57f, 1f);
+                    footerTextColor = new Color(0.74f, 0.72f, 0.64f, 0.88f);
                     _contextHintEntries.Add(new ContextHintEntry("右键", "导航"));
-                    _contextHintEntries.Add(new ContextHintEntry("左键", placementModeEnabled ? "使用 / 放置" : "使用"));
+                    _contextHintEntries.Add(new ContextHintEntry("左键", "使用 / 放置"));
                     _contextHintEntries.Add(new ContextHintEntry("E", "交互"));
                     _contextHintEntries.Add(new ContextHintEntry("Shift", "加速"));
-                    _contextHintEntries.Add(new ContextHintEntry("Tab", "背包"));
-                    _contextHintEntries.Add(new ContextHintEntry("V", "放置"));
+                    _contextHintEntries.Add(new ContextHintEntry("Tab", "打开背包"));
                     _contextHintEntries.Add(new ContextHintEntry("1~5/滚轮", "切换手持"));
                     break;
             }
@@ -1470,7 +1581,7 @@ namespace Sunset.Story
             contextCardImage.color = surfaceColor;
             contextAccentLineImage.color = accentColor;
             contextTagImage.color = new Color(accentColor.r, accentColor.g, accentColor.b, 0.22f);
-            contextFooterText.text = "退格关闭";
+            contextFooterText.text = "关闭提示";
 
             EnsureTextReadable(contextTagText);
             EnsureTextReadable(contextTitleText);
@@ -1496,14 +1607,32 @@ namespace Sunset.Story
                 ContextHintEntry entry = _contextHintEntries[index];
                 row.KeyText.text = entry.KeyLabel;
                 row.DescriptionText.text = entry.Description;
-                row.KeyPlateImage.color = group == ContextHintGroup.Package
-                    ? new Color(0.67f, 0.84f, 0.98f, 0.98f)
-                    : new Color(0.98f, 0.81f, 0.36f, 0.98f);
-                row.KeyText.color = group == ContextHintGroup.Package
-                    ? new Color(0.09f, 0.16f, 0.26f, 1f)
-                    : new Color(0.16f, 0.12f, 0.05f, 1f);
+                row.KeyPlateImage.color = keyPlateColor;
+                row.KeyText.color = keyTextColor;
                 EnsureTextReadable(row.KeyText);
                 EnsureTextReadable(row.DescriptionText);
+            }
+
+            if (contextFooterKeyPlateImage != null)
+            {
+                contextFooterKeyPlateImage.color = footerKeyPlateColor;
+            }
+
+            if (contextFooterKeyText != null)
+            {
+                contextFooterKeyText.text = "BACKSPACE";
+                contextFooterKeyText.color = footerKeyIconColor;
+                EnsureTextReadable(contextFooterKeyText);
+            }
+
+            if (contextFooterKeyIconImage != null)
+            {
+                contextFooterKeyIconImage.color = footerKeyIconColor;
+            }
+
+            if (contextFooterText != null)
+            {
+                contextFooterText.color = footerTextColor;
             }
 
             ApplyContextHintCardLayout();
@@ -1518,24 +1647,24 @@ namespace Sunset.Story
 
             float contentWidth = ContextCardWidth - ContextCardInnerLeft - ContextCardInnerRight;
             bool hasDetail = contextDetailText != null && !string.IsNullOrWhiteSpace(contextDetailText.text);
-            float titleTop = 28f;
+            float headerCenterY = 18f;
             RectTransform titleRect = contextTitleText.rectTransform;
             titleRect.anchorMin = new Vector2(0f, 1f);
             titleRect.anchorMax = new Vector2(0f, 1f);
-            titleRect.pivot = new Vector2(0f, 1f);
-            titleRect.anchoredPosition = new Vector2(18f, -titleTop);
-            titleRect.sizeDelta = new Vector2(contentWidth - 4f, 16f);
+            titleRect.pivot = new Vector2(0f, 0.5f);
+            titleRect.anchoredPosition = new Vector2(60f, -headerCenterY);
+            titleRect.sizeDelta = new Vector2(contentWidth - 58f, 18f);
 
             RectTransform detailRect = contextDetailText.rectTransform;
             detailRect.anchorMin = new Vector2(0f, 1f);
             detailRect.anchorMax = new Vector2(0f, 1f);
             detailRect.pivot = new Vector2(0f, 1f);
-            detailRect.anchoredPosition = new Vector2(18f, -44f);
-            detailRect.sizeDelta = new Vector2(contentWidth - 6f, 16f);
+            detailRect.anchoredPosition = new Vector2(18f, -48f);
+            detailRect.sizeDelta = new Vector2(contentWidth - 6f, 18f);
 
-            float rowsTop = hasDetail ? 68f : 48f;
+            float rowsTop = hasDetail ? 62f : 42f;
             float rowWidth = contentWidth;
-            float keyColumnWidth = 48f;
+            float keyColumnWidth = 54f;
             for (int index = 0; index < _contextRows.Count; index++)
             {
                 ContextHintRowRefs row = _contextRows[index];
@@ -1545,7 +1674,7 @@ namespace Sunset.Story
                 }
 
                 string keyLabel = row.KeyText.text ?? string.Empty;
-                keyColumnWidth = Mathf.Max(keyColumnWidth, Mathf.Clamp(16f + (keyLabel.Length * 5.8f), 48f, 72f));
+                keyColumnWidth = Mathf.Max(keyColumnWidth, Mathf.Clamp(22f + (keyLabel.Length * 6.4f), 54f, 90f));
             }
 
             int visibleRowCount = 0;
@@ -1562,31 +1691,63 @@ namespace Sunset.Story
                 row.Root.sizeDelta = new Vector2(rowWidth, ContextCardRowHeight);
 
                 row.KeyPlateRect.anchoredPosition = new Vector2(0f, -ContextCardRowHeight * 0.5f);
-                row.KeyPlateRect.sizeDelta = new Vector2(keyColumnWidth, 16f);
+                row.KeyPlateRect.sizeDelta = new Vector2(keyColumnWidth, 20f);
                 RectTransform keyTextRect = row.KeyText.rectTransform;
-                keyTextRect.sizeDelta = new Vector2(Mathf.Max(keyColumnWidth - 8f, 24f), 11f);
+                keyTextRect.sizeDelta = new Vector2(Mathf.Max(keyColumnWidth - 10f, 28f), 14f);
 
                 RectTransform descriptionRect = row.DescriptionText.rectTransform;
                 descriptionRect.anchorMin = new Vector2(0f, 0.5f);
-                descriptionRect.anchorMax = new Vector2(1f, 0.5f);
+                descriptionRect.anchorMax = new Vector2(0f, 0.5f);
                 descriptionRect.pivot = new Vector2(0f, 0.5f);
-                descriptionRect.offsetMin = new Vector2(keyColumnWidth + 8f, -8f);
-                descriptionRect.offsetMax = new Vector2(0f, 8f);
+                descriptionRect.anchoredPosition = new Vector2(keyColumnWidth + 10f, -ContextCardRowHeight * 0.5f);
+                descriptionRect.sizeDelta = new Vector2(Mathf.Max(rowWidth - keyColumnWidth - 10f, 36f), 16f);
 
                 visibleRowCount++;
             }
 
-            float footerY = rowsTop + visibleRowCount * (ContextCardRowHeight + ContextCardRowGap) + 5f;
+            float footerY = rowsTop + visibleRowCount * (ContextCardRowHeight + ContextCardRowGap) + 8f;
+            float footerLabelWidth = 78f;
+            float footerKeyWidth = 92f;
+            float footerGap = 20f;
+
+            if (contextFooterKeyPlateRect != null)
+            {
+                contextFooterKeyPlateRect.anchorMin = new Vector2(1f, 1f);
+                contextFooterKeyPlateRect.anchorMax = new Vector2(1f, 1f);
+                contextFooterKeyPlateRect.pivot = new Vector2(1f, 0.5f);
+                contextFooterKeyPlateRect.anchoredPosition = new Vector2(-ContextCardInnerRight, -(footerY + 10f));
+                contextFooterKeyPlateRect.sizeDelta = new Vector2(footerKeyWidth, 20f);
+            }
+
+            if (contextFooterKeyIconRect != null)
+            {
+                contextFooterKeyIconRect.anchorMin = new Vector2(0.5f, 0.5f);
+                contextFooterKeyIconRect.anchorMax = new Vector2(0.5f, 0.5f);
+                contextFooterKeyIconRect.pivot = new Vector2(0.5f, 0.5f);
+                contextFooterKeyIconRect.anchoredPosition = new Vector2(0f, -0.25f);
+                contextFooterKeyIconRect.sizeDelta = new Vector2(24f, 14f);
+            }
+
+            if (contextFooterKeyText != null)
+            {
+                RectTransform footerKeyTextRect = contextFooterKeyText.rectTransform;
+                footerKeyTextRect.anchorMin = new Vector2(0.5f, 0.5f);
+                footerKeyTextRect.anchorMax = new Vector2(0.5f, 0.5f);
+                footerKeyTextRect.pivot = new Vector2(0.5f, 0.5f);
+                footerKeyTextRect.anchoredPosition = Vector2.zero;
+                footerKeyTextRect.sizeDelta = new Vector2(78f, 14f);
+            }
+
             RectTransform footerRect = contextFooterText.rectTransform;
             footerRect.anchorMin = new Vector2(1f, 1f);
             footerRect.anchorMax = new Vector2(1f, 1f);
-            footerRect.pivot = new Vector2(1f, 1f);
-            footerRect.anchoredPosition = new Vector2(-ContextCardInnerRight, -footerY);
-            footerRect.sizeDelta = new Vector2(contentWidth, 10f);
+            footerRect.pivot = new Vector2(1f, 0.5f);
+            footerRect.anchoredPosition = new Vector2(-(ContextCardInnerRight + footerKeyWidth + footerGap), -(footerY + 10f));
+            footerRect.sizeDelta = new Vector2(footerLabelWidth, 16f);
 
             float desiredHeight = Mathf.Max(
                 ContextCardMinHeight,
-                footerY + 10f + ContextCardBottomInset);
+                footerY + 22f + ContextCardBottomInset);
             contextCardRect.sizeDelta = new Vector2(ContextCardWidth, desiredHeight);
         }
 
@@ -1783,12 +1944,7 @@ namespace Sunset.Story
             }
 
             float edgePressure = Mathf.Clamp01(ResolveUpperEdgePressure(playerViewport.x));
-            if (edgePressure >= ContextBoundaryFocusHardFadePressure)
-            {
-                return ContextBoundaryFocusMinAlpha;
-            }
-
-            float easedPressure = 1f - Mathf.Pow(1f - edgePressure, 5f);
+            float easedPressure = Mathf.SmoothStep(0f, 1f, edgePressure);
             return Mathf.Lerp(1f, ContextBoundaryFocusMinAlpha, easedPressure);
         }
 
@@ -1848,6 +2004,7 @@ namespace Sunset.Story
             {
                 ContextHintGroup.Gameplay => _gameplayContextDismissed,
                 ContextHintGroup.Package => _packageContextDismissed,
+                ContextHintGroup.Chest => _chestContextDismissed,
                 _ => false
             };
         }
@@ -1861,6 +2018,9 @@ namespace Sunset.Story
                     break;
                 case ContextHintGroup.Package:
                     _packageContextDismissed = dismissed;
+                    break;
+                case ContextHintGroup.Chest:
+                    _chestContextDismissed = dismissed;
                     break;
             }
         }
@@ -2122,8 +2282,8 @@ namespace Sunset.Story
                 return s_backplateSprite;
             }
 
-            const int width = 24;
-            const int height = 16;
+            const int width = 28;
+            const int height = 18;
             const int radius = 4;
 
             s_backplateTexture = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false)
@@ -2155,6 +2315,96 @@ namespace Sunset.Story
             s_backplateSprite.name = "InteractionHintOverlayRuntimeSprite";
             s_backplateSprite.hideFlags = HideFlags.HideAndDontSave;
             return s_backplateSprite;
+        }
+
+        private static Sprite GetOrCreateBackspaceIconSprite()
+        {
+            if (s_backspaceIconSprite != null)
+            {
+                return s_backspaceIconSprite;
+            }
+
+            const int width = 24;
+            const int height = 14;
+            s_backspaceIconTexture = new Texture2D(width, height, TextureFormat.RGBA32, mipChain: false)
+            {
+                name = "InteractionHintOverlayBackspaceIcon",
+                filterMode = FilterMode.Point,
+                wrapMode = TextureWrapMode.Clamp,
+                hideFlags = HideFlags.HideAndDontSave
+            };
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    s_backspaceIconTexture.SetPixel(x, y, Color.clear);
+                }
+            }
+
+            static void SetPixelSafe(Texture2D texture, int texWidth, int texHeight, int x, int y)
+            {
+                if (x < 0 || x >= texWidth || y < 0 || y >= texHeight)
+                {
+                    return;
+                }
+
+                texture.SetPixel(x, y, Color.white);
+            }
+
+            static void DrawHorizontal(Texture2D texture, int texWidth, int texHeight, int x0, int x1, int y, int thickness = 1)
+            {
+                for (int row = 0; row < thickness; row++)
+                {
+                    for (int x = x0; x <= x1; x++)
+                    {
+                        SetPixelSafe(texture, texWidth, texHeight, x, y + row);
+                    }
+                }
+            }
+
+            static void DrawDiagonal(Texture2D texture, int texWidth, int texHeight, int x, int y, int dx, int dy, int length, int thickness = 1)
+            {
+                for (int step = 0; step < length; step++)
+                {
+                    for (int offset = 0; offset < thickness; offset++)
+                    {
+                        SetPixelSafe(texture, texWidth, texHeight, x + dx * step + offset, y + dy * step);
+                        SetPixelSafe(texture, texWidth, texHeight, x + dx * step, y + dy * step + offset);
+                    }
+                }
+            }
+
+            static void DrawVertical(Texture2D texture, int texWidth, int texHeight, int x, int y0, int y1, int thickness = 1)
+            {
+                for (int column = 0; column < thickness; column++)
+                {
+                    for (int y = y0; y <= y1; y++)
+                    {
+                        SetPixelSafe(texture, texWidth, texHeight, x + column, y);
+                    }
+                }
+            }
+
+            DrawHorizontal(s_backspaceIconTexture, width, height, 8, 21, 10, 2);
+            DrawHorizontal(s_backspaceIconTexture, width, height, 8, 21, 2, 2);
+            DrawVertical(s_backspaceIconTexture, width, height, 20, 2, 10, 2);
+            DrawDiagonal(s_backspaceIconTexture, width, height, 8, 10, -1, -1, 6, 2);
+            DrawDiagonal(s_backspaceIconTexture, width, height, 8, 2, -1, 1, 6, 2);
+            DrawDiagonal(s_backspaceIconTexture, width, height, 12, 4, 1, 1, 5, 2);
+            DrawDiagonal(s_backspaceIconTexture, width, height, 12, 8, 1, -1, 5, 2);
+
+            s_backspaceIconTexture.Apply(updateMipmaps: false, makeNoLongerReadable: true);
+            s_backspaceIconSprite = Sprite.Create(
+                s_backspaceIconTexture,
+                new Rect(0f, 0f, width, height),
+                new Vector2(0.5f, 0.5f),
+                24f,
+                0u,
+                SpriteMeshType.FullRect);
+            s_backspaceIconSprite.name = "InteractionHintOverlayBackspaceIconSprite";
+            s_backspaceIconSprite.hideFlags = HideFlags.HideAndDontSave;
+            return s_backspaceIconSprite;
         }
 
         private static bool IsInsideRoundedRect(int x, int y, int width, int height, int radius)

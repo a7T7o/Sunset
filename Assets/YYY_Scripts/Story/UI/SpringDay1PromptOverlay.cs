@@ -21,13 +21,18 @@ namespace Sunset.Story
             "Fonts & Materials/DialogueChinese SDF"
         };
 
+        private const string FontCoverageProbeText = "当前任务工作台继续制作";
+
         private static SpringDay1PromptOverlay _instance;
 
         [SerializeField] private Canvas overlayCanvas;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private RectTransform rootRect;
+        [SerializeField] private RectTransform bridgePromptRect;
+        [SerializeField] private CanvasGroup bridgePromptCanvasGroup;
         [SerializeField] private RectTransform cardRect;
         [SerializeField] private RectTransform pageRect;
+        [SerializeField] private TextMeshProUGUI bridgePromptText;
         [SerializeField] private TextMeshProUGUI titleText;
         [SerializeField] private TextMeshProUGUI subtitleText;
         [SerializeField] private TextMeshProUGUI focusText;
@@ -36,13 +41,28 @@ namespace Sunset.Story
         [SerializeField] private float completionStepDuration = 0.32f;
         [SerializeField] private float pageFlipDuration = 0.42f;
         [SerializeField] private float postDialogueResumeDelay = 0.18f;
+        [SerializeField] private int maxVisibleTaskRows = 1;
+        [SerializeField] private bool preferStableInstantTransitions = true;
 
-        private const float MinPageHeight = 178f;
+        private const float MinPageHeight = 112f;
+        private const float MinLegacyPageHeight = 84f;
         private const float MaxPageHeight = 460f;
         private const float LegacyPageWidth = 316f;
+        private const float LegacyBottomPadding = 10f;
+        private const float LegacyFocusFooterGap = 4f;
+        private const float LegacyTaskToBottomBandMinGap = 10f;
+        private const int FixedHudSortingOrder = 142;
+        private const float TaskCardLeftPadding = 26f;
+        private const float TaskCardBaselineOffsetY = 8f;
+        private const float BridgePromptOffsetX = 0f;
+        private const float BridgePromptGapBelowCard = 10f;
+        private const float BridgePromptWidth = 328f;
+        private const float BridgePromptHeight = 34f;
 
         private readonly List<RowRefs> _rows = new();
         private TMP_FontAsset _fontAsset;
+        private Vector2 _cardDefaultPosition;
+        private float _cardDefaultHeight;
         private bool _suppressWhileDialogueActive;
         private string _manualPromptText = string.Empty;
         private string _manualPromptPhaseKey = string.Empty;
@@ -53,8 +73,14 @@ namespace Sunset.Story
         private PromptCardViewState _displayedState;
         private PromptCardViewState _pendingState;
         private bool _hasDisplayedState;
+        private bool _externallySuppressedByModalUi;
+        private float _visibilityAlpha;
+        private float _boundaryFocusAlpha = 1f;
         private PageRefs _frontPage;
         private PageRefs _backPage;
+        private string _displayedBridgePromptSignature = string.Empty;
+
+        public float CurrentBoundaryFocusAlpha => _boundaryFocusAlpha;
 
         public static SpringDay1PromptOverlay Instance
         {
@@ -67,6 +93,57 @@ namespace Sunset.Story
 
                 return _instance;
             }
+        }
+
+        public static SpringDay1PromptOverlay CurrentRuntimeInstanceOrNull
+        {
+            get
+            {
+                if (_instance != null && !CanReuseRuntimeInstance(_instance, requireScreenOverlay: true))
+                {
+                    RetireRuntimeInstance(_instance);
+                    _instance = null;
+                }
+
+                if (_instance != null)
+                {
+                    return _instance;
+                }
+
+                SpringDay1PromptOverlay existing = FindReusableRuntimeInstance(requireScreenOverlay: true);
+                if (existing == null)
+                {
+                    return null;
+                }
+
+                _instance = existing;
+                _instance.EnsureBuilt();
+                RetireOtherRuntimeInstances(_instance);
+                return _instance;
+            }
+        }
+
+        public static void SetGlobalExternalVisibilityBlock(bool blocked)
+        {
+            SpringDay1PromptOverlay runtimeOverlay = CurrentRuntimeInstanceOrNull;
+            if (runtimeOverlay == null)
+            {
+                return;
+            }
+
+            runtimeOverlay.SetExternalVisibilityBlock(blocked);
+        }
+
+        public void SetBoundaryFocusAlpha(float alpha)
+        {
+            float clamped = Mathf.Clamp01(alpha);
+            if (Mathf.Abs(_boundaryFocusAlpha - clamped) <= 0.001f)
+            {
+                return;
+            }
+
+            _boundaryFocusAlpha = clamped;
+            ApplyComposedCanvasGroupState();
         }
 
         public static void EnsureRuntime()
@@ -156,12 +233,15 @@ namespace Sunset.Story
         {
             EnsureBuilt();
 
-            PromptCardViewState nextState = BuildCurrentViewState();
-            _pendingState = nextState;
+            bool blockedByParentModalUi = SpringDay1UiLayerUtility.ShouldHidePromptOverlayForParentModalUi();
+            if (_externallySuppressedByModalUi != blockedByParentModalUi)
+            {
+                SetExternalVisibilityBlock(blockedByParentModalUi);
+            }
 
             if (ShouldDelayPromptDisplay())
             {
-                if (canvasGroup.alpha > 0.001f)
+                if (_visibilityAlpha > 0.001f)
                 {
                     FadeCanvasGroup(0f, false);
                 }
@@ -169,11 +249,18 @@ namespace Sunset.Story
                 return;
             }
 
+            PromptCardViewState nextState = BuildCurrentViewState();
+            BridgePromptViewState bridgePromptState = BuildCurrentBridgePromptState();
+            _pendingState = nextState;
+
             if (_pendingState == null)
             {
+                ApplyBridgePromptState(null);
                 FadeCanvasGroup(0f, false);
                 return;
             }
+
+            ApplyBridgePromptState(bridgePromptState);
 
             if (NeedsReadableContentRecovery(_pendingState))
             {
@@ -213,7 +300,7 @@ namespace Sunset.Story
                 }
             }
 
-            if (canvasGroup.alpha < 0.999f && _queuedRevealCoroutine == null)
+            if (_visibilityAlpha < 0.999f && _queuedRevealCoroutine == null)
             {
                 FadeCanvasGroup(1f, false);
             }
@@ -227,6 +314,7 @@ namespace Sunset.Story
                 return;
             }
 
+            EnsureRuntimeObjectActive();
             EnsureBuilt();
             string currentPhaseKey = SpringDay1Director.Instance != null
                 ? SpringDay1Director.Instance.BuildPromptCardModel()?.PhaseKey ?? string.Empty
@@ -235,12 +323,14 @@ namespace Sunset.Story
                 && string.Equals(_queuedPromptText, text)
                 && string.Equals(_manualPromptPhaseKey, currentPhaseKey, StringComparison.Ordinal))
             {
+                SpringDay1Director.Instance?.ShowTaskListBridgePrompt(text);
                 return;
             }
 
             _manualPromptText = text;
             _manualPromptPhaseKey = currentPhaseKey;
             _queuedPromptText = text;
+            SpringDay1Director.Instance?.ShowTaskListBridgePrompt(text);
 
             if (ShouldDelayPromptDisplay())
             {
@@ -266,8 +356,28 @@ namespace Sunset.Story
             }
         }
 
+        private void EnsureRuntimeObjectActive()
+        {
+            GameObject targetObject = overlayCanvas != null ? overlayCanvas.gameObject : gameObject;
+            if (targetObject != null && !targetObject.activeSelf)
+            {
+                targetObject.SetActive(true);
+            }
+
+            if (!gameObject.activeSelf)
+            {
+                gameObject.SetActive(true);
+            }
+
+            if (!enabled)
+            {
+                enabled = true;
+            }
+        }
+
         public void Hide()
         {
+            SpringDay1Director.Instance?.HideTaskListBridgePrompt();
             _manualPromptText = string.Empty;
             _manualPromptPhaseKey = string.Empty;
             _queuedPromptText = string.Empty;
@@ -279,14 +389,82 @@ namespace Sunset.Story
             }
         }
 
+        public void SetExternalVisibilityBlock(bool blocked)
+        {
+            if (_externallySuppressedByModalUi == blocked)
+            {
+                return;
+            }
+
+            _externallySuppressedByModalUi = blocked;
+            StopQueuedRevealCoroutine();
+            RefreshPendingState();
+
+            if (blocked)
+            {
+                FadeCanvasGroup(0f, false);
+                return;
+            }
+
+            if (_pendingState == null)
+            {
+                FadeCanvasGroup(0f, false);
+                return;
+            }
+
+            if (ShouldDelayPromptDisplay())
+            {
+                QueuePromptReveal();
+                return;
+            }
+
+            if (!_hasDisplayedState || _displayedState == null)
+            {
+                ApplyState(_pendingState);
+                _displayedState = _pendingState;
+                _hasDisplayedState = true;
+            }
+            else if (_displayedState.DisplaySignature != _pendingState.DisplaySignature)
+            {
+                ApplyState(_pendingState);
+                _displayedState = _pendingState;
+            }
+            else if (_displayedState.Signature != _pendingState.Signature)
+            {
+                ApplyPendingStateWithoutTransition();
+            }
+
+            FadeCanvasGroup(1f, false);
+        }
+
         private void OnDialogueStart(DialogueStartEvent _)
         {
-            _suppressWhileDialogueActive = false;
+            _suppressWhileDialogueActive = true;
+            StopQueuedRevealCoroutine();
+            FadeCanvasGroup(0f, true);
         }
 
         private void OnDialogueEnd(DialogueEndEvent _)
         {
+            if (ShouldIgnoreDialogueEndEvent())
+            {
+                return;
+            }
+
             _suppressWhileDialogueActive = false;
+            RefreshPendingState();
+            if (IsLikelyManagedByDialogueUiTransition())
+            {
+                return;
+            }
+
+            if (_pendingState == null)
+            {
+                FadeCanvasGroup(0f, true);
+                return;
+            }
+
+            FadeCanvasGroup(1f, true);
         }
 
         private void BuildUi()
@@ -303,11 +481,13 @@ namespace Sunset.Story
             cardRect.anchorMin = new Vector2(0f, 0.5f);
             cardRect.anchorMax = new Vector2(0f, 0.5f);
             cardRect.pivot = new Vector2(0f, 0.5f);
-            cardRect.anchoredPosition = new Vector2(26f, 8f);
+            cardRect.anchoredPosition = new Vector2(TaskCardLeftPadding, TaskCardBaselineOffsetY);
             cardRect.sizeDelta = new Vector2(328f, 188f);
+            _cardDefaultPosition = cardRect.anchoredPosition;
+            _cardDefaultHeight = cardRect.sizeDelta.y;
 
             Image shadowPlate = cardRect.gameObject.AddComponent<Image>();
-            shadowPlate.color = new Color(0f, 0f, 0f, 0.18f);
+            shadowPlate.color = new Color(0.19f, 0.14f, 0.1f, 0.9f);
             shadowPlate.raycastTarget = false;
             Shadow shadow = cardRect.gameObject.AddComponent<Shadow>();
             shadow.effectColor = new Color(0f, 0f, 0f, 0.24f);
@@ -321,20 +501,103 @@ namespace Sunset.Story
             SetPageCurlVisible(_frontPage, false);
             SetPageCurlVisible(_backPage, false);
             CacheFrontPageRefs();
+            BuildBridgePromptShell();
+        }
+
+        private void BuildBridgePromptShell()
+        {
+            if (cardRect == null)
+            {
+                return;
+            }
+
+            bridgePromptRect = CreateRect(cardRect, "BridgePromptRoot");
+            RefreshBridgePromptLayout();
+
+            Image background = bridgePromptRect.gameObject.AddComponent<Image>();
+            background.color = new Color(0.16f, 0.11f, 0.08f, 0.72f);
+            background.raycastTarget = false;
+
+            Outline outline = bridgePromptRect.gameObject.AddComponent<Outline>();
+            outline.effectColor = new Color(0.66f, 0.46f, 0.21f, 0.38f);
+            outline.effectDistance = new Vector2(1f, -1f);
+            outline.useGraphicAlpha = true;
+
+            bridgePromptCanvasGroup = SpringDay1UiLayerUtility.EnsureComponent<CanvasGroup>(bridgePromptRect.gameObject);
+            bridgePromptCanvasGroup.alpha = 0f;
+            bridgePromptCanvasGroup.interactable = false;
+            bridgePromptCanvasGroup.blocksRaycasts = false;
+
+            RectTransform textRoot = CreateRect(bridgePromptRect, "BridgePromptText");
+            Stretch(textRoot, new Vector2(10f, 4f), new Vector2(-10f, -4f));
+
+            bridgePromptText = CreateText(
+                textRoot,
+                "Text",
+                string.Empty,
+                10f,
+                new Color(0.93f, 0.84f, 0.67f, 1f),
+                TextAlignmentOptions.MidlineLeft,
+                true);
+            Stretch(bridgePromptText.rectTransform, Vector2.zero, Vector2.zero);
+            bridgePromptRect.gameObject.SetActive(false);
+        }
+
+        private void RefreshBridgePromptLayout()
+        {
+            if (bridgePromptRect == null)
+            {
+                return;
+            }
+
+            float targetWidth = BridgePromptWidth;
+            float targetHeight = BridgePromptHeight;
+            if (bridgePromptText != null)
+            {
+                float innerWidth = Mathf.Max(64f, targetWidth - 20f);
+                Vector2 preferredSize = bridgePromptText.GetPreferredValues(bridgePromptText.text, innerWidth, 0f);
+                targetHeight = Mathf.Max(BridgePromptHeight, preferredSize.y + 8f);
+            }
+
+            bridgePromptRect.anchorMin = new Vector2(0f, 0f);
+            bridgePromptRect.anchorMax = new Vector2(0f, 0f);
+            bridgePromptRect.pivot = new Vector2(0f, 1f);
+            bridgePromptRect.anchoredPosition = new Vector2(BridgePromptOffsetX, -BridgePromptGapBelowCard);
+            bridgePromptRect.sizeDelta = new Vector2(targetWidth, targetHeight);
         }
 
         private void EnsureBuilt()
         {
-            if (rootRect != null && canvasGroup != null && cardRect != null && _frontPage != null && _backPage != null)
+            EnsureAttachedToPreferredParent();
+
+            if (rootRect == null)
+            {
+                rootRect = transform as RectTransform;
+            }
+
+            if (overlayCanvas == null)
+            {
+                overlayCanvas = GetComponent<Canvas>();
+            }
+
+            if (canvasGroup == null)
+            {
+                canvasGroup = GetComponent<CanvasGroup>();
+            }
+
+            ApplyRuntimeCanvasDefaults();
+
+            if (HasLivePromptBindings())
             {
                 return;
             }
 
-            if (TryBindRuntimeShell())
+            if (TryBindRuntimeShell() && HasLivePromptBindings())
             {
                 return;
             }
 
+            ClearRuntimeShellForRebuild();
             BuildUi();
         }
 
@@ -348,6 +611,7 @@ namespace Sunset.Story
             EnsurePageTextChainReady(_frontPage);
 
             if (!HasReadablePrimaryText(_frontPage.titleText, state.StageLabel)
+                || !HasReadablePrimaryText(_frontPage.subtitleText, state.Subtitle)
                 || !HasReadablePrimaryText(_frontPage.focusText, state.FocusText)
                 || !HasReadablePrimaryText(_frontPage.footerText, state.FooterText))
             {
@@ -364,12 +628,20 @@ namespace Sunset.Story
                 return true;
             }
 
-            RowRefs firstRow = _frontPage.rows[0];
-            PromptRowState firstState = state.Items[0];
-            return firstRow?.root == null
-                || !firstRow.root.gameObject.activeSelf
-                || !HasReadablePrimaryText(firstRow.label, firstState.Label)
-                || !HasReadablePrimaryText(firstRow.detail, firstState.Detail);
+            if (_frontPage.rows.Count < state.Items.Count)
+            {
+                return true;
+            }
+
+            for (int index = 0; index < state.Items.Count; index++)
+            {
+                if (!HasReadablePromptRow(_frontPage.rows[index], state.Items[index]))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool HasReadablePrimaryText(TextMeshProUGUI text, string expected)
@@ -381,9 +653,90 @@ namespace Sunset.Story
 
             return text != null
                 && text.enabled
-                && text.gameObject.activeInHierarchy
-                && IsFontAssetUsable(text.font)
-                && !string.IsNullOrWhiteSpace(text.text);
+                && text.gameObject.activeSelf
+                && text.color.a > 0.01f
+                && text.rectTransform.rect.width > 2f
+                && text.rectTransform.rect.height > 2f
+                && CanFontRenderText(text.font, expected)
+                && HasExpectedPromptText(text.text, expected);
+        }
+
+        private static bool HasReadablePromptRow(RowRefs row, PromptRowState expected)
+        {
+            if (!IsRowBindingAlive(row) || expected == null)
+            {
+                return false;
+            }
+
+            return row.root.gameObject.activeSelf
+                && row.group.alpha > 0.98f
+                && HasReadablePrimaryText(row.label, expected.Label)
+                && HasReadablePrimaryText(row.detail, expected.Detail);
+        }
+
+        private static bool HasExpectedPromptText(string actual, string expected)
+        {
+            if (string.IsNullOrWhiteSpace(expected))
+            {
+                return true;
+            }
+
+            return string.Equals(
+                NormalizePromptComparisonText(actual),
+                NormalizePromptComparisonText(expected),
+                StringComparison.Ordinal);
+        }
+
+        private static string NormalizePromptComparisonText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            StringBuilder builder = new StringBuilder(value.Length);
+            bool insideTag = false;
+            bool previousWasWhitespace = false;
+            for (int index = 0; index < value.Length; index++)
+            {
+                char current = value[index];
+                if (current == '<')
+                {
+                    insideTag = true;
+                    continue;
+                }
+
+                if (insideTag)
+                {
+                    if (current == '>')
+                    {
+                        insideTag = false;
+                    }
+
+                    continue;
+                }
+
+                if (char.IsWhiteSpace(current))
+                {
+                    if (!previousWasWhitespace)
+                    {
+                        builder.Append(' ');
+                        previousWasWhitespace = true;
+                    }
+
+                    continue;
+                }
+
+                if (char.IsControl(current))
+                {
+                    continue;
+                }
+
+                builder.Append(current);
+                previousWasWhitespace = false;
+            }
+
+            return builder.ToString().Trim();
         }
 
         private void ClearRuntimeShellForRebuild()
@@ -394,7 +747,13 @@ namespace Sunset.Story
             }
 
             DestroyDirectChildIfExists(rootRect, "TaskCardRoot");
+            DestroyDirectChildIfExists(rootRect, "BridgePromptRoot");
+            bridgePromptRect = null;
+            bridgePromptCanvasGroup = null;
+            bridgePromptText = null;
             cardRect = null;
+            _cardDefaultPosition = Vector2.zero;
+            _cardDefaultHeight = 0f;
             pageRect = null;
             titleText = null;
             subtitleText = null;
@@ -461,6 +820,15 @@ namespace Sunset.Story
                 return false;
             }
 
+            if (!TryBindBridgePromptShell())
+            {
+                DestroyBridgePromptShell();
+                BuildBridgePromptShell();
+            }
+
+            _cardDefaultPosition = cardRect.anchoredPosition;
+            _cardDefaultHeight = cardRect.rect.height > 1f ? cardRect.rect.height : cardRect.sizeDelta.y;
+
             RectTransform frontRoot = pageRect != null ? pageRect : FindDirectChildRect(cardRect, "Page");
             if (frontRoot == null)
             {
@@ -496,16 +864,90 @@ namespace Sunset.Story
             return true;
         }
 
+        private bool TryBindBridgePromptShell()
+        {
+            if (rootRect == null)
+            {
+                rootRect = transform as RectTransform;
+            }
+
+            if (rootRect == null)
+            {
+                return false;
+            }
+
+            bridgePromptRect = bridgePromptRect != null ? bridgePromptRect : FindDescendantRect(rootRect, "BridgePromptRoot");
+            if (bridgePromptRect == null || cardRect == null || bridgePromptRect.parent != cardRect)
+            {
+                return false;
+            }
+
+            bridgePromptCanvasGroup = SpringDay1UiLayerUtility.EnsureComponent<CanvasGroup>(bridgePromptRect.gameObject);
+            bridgePromptText = bridgePromptText != null
+                ? bridgePromptText
+                : FindDescendantComponent<TextMeshProUGUI>(bridgePromptRect, "Text");
+            if (bridgePromptText == null)
+            {
+                return false;
+            }
+
+            bridgePromptCanvasGroup.interactable = false;
+            bridgePromptCanvasGroup.blocksRaycasts = false;
+            RefreshBridgePromptLayout();
+            return true;
+        }
+
+        private void DestroyBridgePromptShell()
+        {
+            RectTransform target = bridgePromptRect != null ? bridgePromptRect : FindDescendantRect(rootRect, "BridgePromptRoot");
+            if (target == null)
+            {
+                return;
+            }
+
+            if (Application.isPlaying)
+            {
+                Destroy(target.gameObject);
+            }
+            else
+            {
+                DestroyImmediate(target.gameObject);
+            }
+
+            bridgePromptRect = null;
+            bridgePromptCanvasGroup = null;
+            bridgePromptText = null;
+        }
+
         private void ApplyRuntimeCanvasDefaults()
         {
             if (overlayCanvas != null)
             {
-                overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
-                overlayCanvas.worldCamera = null;
-                overlayCanvas.planeDistance = 100f;
-                overlayCanvas.overrideSorting = true;
-                overlayCanvas.sortingOrder = 152;
-                overlayCanvas.pixelPerfect = true;
+                if (TryGetParentCanvas(out Canvas parentCanvas))
+                {
+                    overlayCanvas.renderMode = parentCanvas.renderMode;
+                    overlayCanvas.worldCamera = parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay
+                        ? null
+                        : parentCanvas.worldCamera;
+                    overlayCanvas.planeDistance = parentCanvas.planeDistance > 0f
+                        ? parentCanvas.planeDistance
+                        : 100f;
+                    overlayCanvas.overrideSorting = false;
+                    overlayCanvas.sortingOrder = parentCanvas.sortingOrder;
+                    overlayCanvas.sortingLayerID = parentCanvas.sortingLayerID;
+                    overlayCanvas.pixelPerfect = parentCanvas.pixelPerfect;
+                    overlayCanvas.targetDisplay = parentCanvas.targetDisplay;
+                }
+                else
+                {
+                    // 没有父级 HUD Canvas 时，才退回独立 screen-overlay 壳兜底。
+                    overlayCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                    overlayCanvas.worldCamera = null;
+                    overlayCanvas.planeDistance = 100f;
+                    overlayCanvas.overrideSorting = true;
+                    overlayCanvas.sortingOrder = FixedHudSortingOrder;
+                    overlayCanvas.pixelPerfect = true;
+                }
             }
 
             if (rootRect != null)
@@ -542,7 +984,8 @@ namespace Sunset.Story
                 focusText = FindDescendantComponent<TextMeshProUGUI>(pageRoot, "FocusText"),
                 footerText = FindDescendantComponent<TextMeshProUGUI>(pageRoot, "FooterText"),
                 defaultPosition = pageRoot.anchoredPosition,
-                defaultPivot = pageRoot.pivot
+                defaultPivot = pageRoot.pivot,
+                defaultHeight = pageRoot.rect.height > 1f ? pageRoot.rect.height : pageRoot.sizeDelta.y
             };
 
             page.taskListRoot = page.contentRoot != null
@@ -560,13 +1003,14 @@ namespace Sunset.Story
             {
                 page.usesLegacyManualLayout = true;
                 page.contentRoot = page.root;
-                page.stageTagRoot = FindDirectChildRect(pageRoot, "StageTag") ?? page.titleText.rectTransform.parent as RectTransform;
-                page.subtitleRoot = page.subtitleText.rectTransform;
-                page.headerDividerRoot = FindDirectChildRect(pageRoot, "HeaderDivider");
-                page.focusRibbonRoot = FindDirectChildRect(pageRoot, "FocusRibbon") ?? page.focusText.rectTransform.parent as RectTransform;
-                page.footerRoot = FindDirectChildRect(pageRoot, "FooterRoot") ?? page.footerText.rectTransform;
                 PrepareLegacyPage(page);
             }
+
+            page.stageTagRoot ??= FindDirectChildRect(page.contentRoot, "StageTag") ?? FindDirectChildRect(pageRoot, "StageTag") ?? ResolveLegacySectionRoot(pageRoot, null, page.titleText);
+            page.subtitleRoot ??= FindDirectChildRect(page.contentRoot, "SubtitleRoot") ?? ResolveLegacySectionRoot(pageRoot, "SubtitleText", page.subtitleText);
+            page.headerDividerRoot ??= FindDirectChildRect(page.contentRoot, "HeaderDivider") ?? FindDirectChildRect(pageRoot, "HeaderDivider");
+            page.focusRibbonRoot ??= FindDirectChildRect(page.contentRoot, "FocusRibbon") ?? ResolveLegacySectionRoot(pageRoot, "FocusText", page.focusText);
+            page.footerRoot ??= FindDirectChildRect(page.contentRoot, "FooterRoot") ?? ResolveLegacySectionRoot(pageRoot, "FooterText", page.footerText);
 
             BindExistingRows(page);
             return page;
@@ -652,6 +1096,13 @@ namespace Sunset.Story
                 return;
             }
 
+            NormalizeLegacyPageRoot(page);
+            page.stageTagRoot ??= FindDirectChildRect(page.root, "StageTag") ?? ResolveLegacySectionRoot(page.root, null, page.titleText);
+            page.subtitleRoot ??= ResolveLegacySectionRoot(page.root, "SubtitleText", page.subtitleText);
+            page.headerDividerRoot ??= FindDirectChildRect(page.root, "HeaderDivider");
+            page.focusRibbonRoot ??= ResolveLegacySectionRoot(page.root, "FocusText", page.focusText);
+            page.footerRoot ??= ResolveLegacySectionRoot(page.root, "FooterText", page.footerText);
+
             page.titleText.textWrappingMode = TextWrappingModes.NoWrap;
             page.titleText.overflowMode = TextOverflowModes.Ellipsis;
             page.subtitleText.textWrappingMode = TextWrappingModes.Normal;
@@ -661,6 +1112,62 @@ namespace Sunset.Story
             page.footerText.textWrappingMode = TextWrappingModes.Normal;
             page.footerText.overflowMode = TextOverflowModes.Overflow;
             page.footerBaselineTop = page.footerRoot != null ? GetTopInParent(page.footerRoot) : 0f;
+            page.footerDefaultHeight = page.footerRoot != null
+                ? Mathf.Clamp(
+                    page.footerRoot.rect.height > 1f ? page.footerRoot.rect.height : page.footerRoot.sizeDelta.y,
+                    14f,
+                    20f)
+                : 14f;
+            page.defaultPosition = page.root.anchoredPosition;
+            page.defaultPivot = page.root.pivot;
+            page.defaultHeight = page.root.rect.height > 1f ? page.root.rect.height : page.root.sizeDelta.y;
+        }
+
+        private void NormalizeLegacyPageRoot(PageRefs page)
+        {
+            if (page?.root == null || cardRect == null)
+            {
+                return;
+            }
+
+            float width = page.root.rect.width > 1f
+                ? page.root.rect.width
+                : (cardRect.rect.width > 1f ? cardRect.rect.width : Mathf.Max(1f, page.root.sizeDelta.x));
+            float height = page.root.rect.height > 1f
+                ? page.root.rect.height
+                : (cardRect.rect.height > 1f ? cardRect.rect.height : Mathf.Max(MinLegacyPageHeight, page.root.sizeDelta.y));
+
+            page.root.anchorMin = new Vector2(0f, 0.5f);
+            page.root.anchorMax = new Vector2(0f, 0.5f);
+            page.root.pivot = new Vector2(0f, 0.5f);
+            page.root.anchoredPosition = Vector2.zero;
+            page.root.sizeDelta = new Vector2(width, height);
+        }
+
+        private static RectTransform ResolveLegacySectionRoot(RectTransform pageRoot, string directChildName, TextMeshProUGUI text)
+        {
+            if (pageRoot == null)
+            {
+                return text != null ? text.rectTransform : null;
+            }
+
+            if (!string.IsNullOrWhiteSpace(directChildName))
+            {
+                RectTransform directChild = FindDirectChildRect(pageRoot, directChildName);
+                if (directChild != null)
+                {
+                    return directChild;
+                }
+            }
+
+            if (text == null)
+            {
+                return null;
+            }
+
+            RectTransform textRect = text.rectTransform;
+            RectTransform parentRect = textRect.parent as RectTransform;
+            return parentRect == pageRoot || parentRect == null ? textRect : parentRect;
         }
 
         private RectTransform EnsurePageCurl(RectTransform pageRoot)
@@ -703,6 +1210,7 @@ namespace Sunset.Story
             }
 
             float pageWidth = page.root.rect.width > 1f ? page.root.rect.width : LegacyPageWidth;
+            float minimumPageHeight = GetLegacyMinimumPageHeight(page);
             float currentTop = 4f;
 
             if (page.stageTagRoot != null)
@@ -711,33 +1219,56 @@ namespace Sunset.Story
                 currentTop += Mathf.Max(28f, page.stageTagRoot.rect.height + 6f);
             }
 
-            float subtitleWidth = page.subtitleRoot != null && page.subtitleRoot.rect.width > 1f
-                ? page.subtitleRoot.rect.width
-                : pageWidth - 36f;
-            float subtitleHeight = MeasureTextHeight(page.subtitleText, subtitleWidth, 18f);
+            bool hasSubtitle = page.subtitleRoot != null && !string.IsNullOrWhiteSpace(page.subtitleText.text);
             if (page.subtitleRoot != null)
             {
-                SetTopKeepingHorizontal(page.subtitleRoot, currentTop, subtitleHeight);
+                page.subtitleRoot.gameObject.SetActive(hasSubtitle);
             }
 
-            currentTop += subtitleHeight + 8f;
-            if (page.headerDividerRoot != null)
+            if (hasSubtitle)
             {
-                SetTopKeepingHorizontal(page.headerDividerRoot, currentTop, Mathf.Max(2f, page.headerDividerRoot.rect.height));
-                currentTop += Mathf.Max(10f, page.headerDividerRoot.rect.height + 8f);
+                float subtitleWidth = page.subtitleRoot.rect.width > 1f
+                    ? page.subtitleRoot.rect.width
+                    : pageWidth - 36f;
+                float subtitleHeight = MeasureTextHeight(page.subtitleText, subtitleWidth, 18f);
+                SetTopKeepingHorizontal(page.subtitleRoot, currentTop, subtitleHeight);
+                currentTop += subtitleHeight + 6f;
             }
 
             float taskWidth = page.taskListRoot != null && page.taskListRoot.rect.width > 1f
                 ? page.taskListRoot.rect.width
                 : pageWidth - 36f;
             float taskHeight = LayoutLegacyRows(page, taskWidth);
-            if (page.taskListRoot != null)
+            bool hasTasks = taskHeight > 0.01f;
+            bool hasFocus = page.focusRibbonRoot != null && !string.IsNullOrWhiteSpace(page.focusText.text);
+            bool hasFooter = page.footerRoot != null && !string.IsNullOrWhiteSpace(page.footerText.text);
+            bool hasDivider = page.headerDividerRoot != null && (hasSubtitle || hasTasks || hasFocus || hasFooter);
+            if (page.headerDividerRoot != null)
             {
-                SetTopKeepingHorizontal(page.taskListRoot, currentTop, taskHeight);
+                page.headerDividerRoot.gameObject.SetActive(hasDivider);
             }
 
-            currentTop += taskHeight + 4f;
-            bool hasFocus = page.focusRibbonRoot != null && !string.IsNullOrWhiteSpace(page.focusText.text);
+            if (hasDivider)
+            {
+                SetTopKeepingHorizontal(page.headerDividerRoot, currentTop, Mathf.Max(2f, page.headerDividerRoot.rect.height));
+                currentTop += Mathf.Max(8f, page.headerDividerRoot.rect.height + 6f);
+            }
+
+            if (page.taskListRoot != null)
+            {
+                page.taskListRoot.gameObject.SetActive(hasTasks);
+                if (hasTasks)
+                {
+                    SetTopKeepingHorizontal(page.taskListRoot, currentTop, taskHeight);
+                }
+            }
+
+            if (hasTasks)
+            {
+                currentTop += taskHeight + 2f;
+            }
+
+            float focusHeight = 0f;
             if (page.focusRibbonRoot != null)
             {
                 page.focusRibbonRoot.gameObject.SetActive(hasFocus);
@@ -749,32 +1280,63 @@ namespace Sunset.Story
                     ? Mathf.Max(1f, page.focusRibbonRoot.rect.width - 24f)
                     : pageWidth - 58f;
                 float focusTextHeight = MeasureTextHeight(page.focusText, focusWidth, 12f);
-                float focusHeight = Mathf.Max(20f, focusTextHeight + 8f);
-                SetTopKeepingHorizontal(page.focusRibbonRoot, currentTop, focusHeight);
-                currentTop += focusHeight + 4f;
+                focusHeight = Mathf.Max(18f, focusTextHeight + 6f);
             }
 
-            bool hasFooter = page.footerRoot != null && !string.IsNullOrWhiteSpace(page.footerText.text);
             float footerWidth = page.footerRoot != null && page.footerRoot.rect.width > 1f
                 ? page.footerRoot.rect.width
                 : pageWidth - 44f;
-            float footerMinHeight = page.footerRoot != null
-                ? Mathf.Max(14f, page.footerRoot.rect.height)
-                : (string.IsNullOrWhiteSpace(page.footerText.text) ? 12f : 14f);
+            float footerMinHeight = string.IsNullOrWhiteSpace(page.footerText.text)
+                ? 12f
+                : Mathf.Max(14f, page.footerDefaultHeight > 0.01f ? page.footerDefaultHeight : 14f);
             float footerHeight = MeasureTextHeight(page.footerText, footerWidth, footerMinHeight);
             if (page.footerRoot != null)
             {
                 page.footerRoot.gameObject.SetActive(hasFooter);
             }
 
-            if (hasFooter && page.footerRoot != null)
+            float bottomBandHeight = 0f;
+            if (hasFocus)
             {
-                float footerTop = Mathf.Max(page.footerBaselineTop, currentTop);
-                SetTopKeepingHorizontal(page.footerRoot, footerTop, footerHeight);
-                currentTop = footerTop + footerHeight;
+                bottomBandHeight += focusHeight;
             }
 
-            page.preferredHeight = Mathf.Clamp(currentTop + 10f, MinPageHeight, MaxPageHeight);
+            if (hasFocus && hasFooter)
+            {
+                bottomBandHeight += LegacyFocusFooterGap;
+            }
+
+            if (hasFooter)
+            {
+                bottomBandHeight += footerHeight;
+            }
+
+            float minimumTaskGap = hasTasks && bottomBandHeight > 0.01f ? LegacyTaskToBottomBandMinGap : 0f;
+            float preferredContentHeight = Mathf.Max(
+                currentTop + minimumTaskGap + bottomBandHeight + LegacyBottomPadding,
+                ResolveLegacyVisibleHeight(page));
+            float preferredHeight = preferredContentHeight + GetLegacyPageShellInset(page);
+            float legacyHeightCap = Mathf.Min(
+                MaxPageHeight,
+                Mathf.Max(
+                    minimumPageHeight,
+                    (page.defaultHeight > 0.01f ? page.defaultHeight : MinPageHeight) + 52f));
+            page.preferredHeight = Mathf.Clamp(preferredHeight, minimumPageHeight, legacyHeightCap);
+
+            float contentHeight = Mathf.Max(0f, page.preferredHeight - GetLegacyPageShellInset(page));
+            float bottomCursor = Mathf.Max(currentTop + minimumTaskGap, contentHeight - LegacyBottomPadding);
+            if (hasFooter && page.footerRoot != null)
+            {
+                float footerTop = Mathf.Max(currentTop + minimumTaskGap, bottomCursor - footerHeight);
+                SetTopKeepingHorizontal(page.footerRoot, footerTop, footerHeight);
+                bottomCursor = footerTop - LegacyFocusFooterGap;
+            }
+
+            if (hasFocus && page.focusRibbonRoot != null)
+            {
+                float focusTop = Mathf.Max(currentTop + minimumTaskGap, bottomCursor - focusHeight);
+                SetTopKeepingHorizontal(page.focusRibbonRoot, focusTop, focusHeight);
+            }
         }
 
         private float LayoutLegacyRows(PageRefs page, float rowWidth)
@@ -800,11 +1362,12 @@ namespace Sunset.Story
                 activeCount++;
             }
 
-            if (activeCount > 0)
+            if (activeCount == 0)
             {
-                currentTop -= 8f;
+                return 0f;
             }
 
+            currentTop -= 8f;
             return Mathf.Max(30f, currentTop);
         }
 
@@ -827,7 +1390,8 @@ namespace Sunset.Story
                 : Mathf.Max(72f, width - 48f);
             float labelHeight = MeasureTextHeight(row.label, textWidth, 16f);
             float detailHeight = string.IsNullOrWhiteSpace(row.detail.text) ? 0f : MeasureTextHeight(row.detail, textWidth, 14f);
-            float rowHeight = Mathf.Max(58f, 8f + labelHeight + (detailHeight > 0f ? 2f + detailHeight : 0f) + 8f);
+            float minimumRowHeight = detailHeight > 0f ? 50f : 38f;
+            float rowHeight = Mathf.Max(minimumRowHeight, 8f + labelHeight + (detailHeight > 0f ? 2f + detailHeight : 0f) + 8f);
 
             if (row.bulletRoot != null)
             {
@@ -854,7 +1418,7 @@ namespace Sunset.Story
 
         private void ApplyResolvedFontToShellTexts()
         {
-            if (_fontAsset == null || rootRect == null)
+            if (rootRect == null)
             {
                 return;
             }
@@ -868,10 +1432,16 @@ namespace Sunset.Story
                     continue;
                 }
 
-                text.font = _fontAsset;
-                if (_fontAsset.material != null)
+                TMP_FontAsset resolvedFont = ResolveFontAsset(text.text);
+                if (resolvedFont == null)
                 {
-                    text.fontSharedMaterial = _fontAsset.material;
+                    continue;
+                }
+
+                text.font = resolvedFont;
+                if (resolvedFont.material != null)
+                {
+                    text.fontSharedMaterial = resolvedFont.material;
                 }
 
                 text.ForceMeshUpdate();
@@ -885,13 +1455,9 @@ namespace Sunset.Story
                 return minHeight;
             }
 
-            if (!IsFontAssetUsable(text.font))
+            if (!CanFontRenderText(text.font, text.text))
             {
-                if (_fontAsset == null)
-                {
-                    _fontAsset = ResolveFontAsset();
-                }
-
+                _fontAsset = ResolveFontAsset(text.text);
                 if (_fontAsset != null)
                 {
                     text.font = _fontAsset;
@@ -920,6 +1486,11 @@ namespace Sunset.Story
             return parent.rect.yMax - topLeft.y;
         }
 
+        private static float GetCurrentHeight(RectTransform rect, float fallback)
+        {
+            return rect != null && rect.rect.height > 0.01f ? rect.rect.height : fallback;
+        }
+
         private static void SetTopKeepingHorizontal(RectTransform rect, float top, float height)
         {
             if (rect == null)
@@ -930,14 +1501,16 @@ namespace Sunset.Story
             Vector2 anchorMin = rect.anchorMin;
             Vector2 anchorMax = rect.anchorMax;
             Vector2 pivot = rect.pivot;
+            bool stretchesVertically = Mathf.Abs(anchorMin.y - anchorMax.y) > 0.001f;
 
-            if (Mathf.Abs(rect.anchorMin.x - rect.anchorMax.x) > 0.001f)
+            rect.anchorMin = new Vector2(anchorMin.x, 1f);
+            rect.anchorMax = new Vector2(anchorMax.x, 1f);
+            rect.pivot = new Vector2(pivot.x, 1f);
+
+            if (stretchesVertically)
             {
                 Vector2 offsetMin = rect.offsetMin;
                 Vector2 offsetMax = rect.offsetMax;
-                rect.anchorMin = new Vector2(anchorMin.x, 1f);
-                rect.anchorMax = new Vector2(anchorMax.x, 1f);
-                rect.pivot = new Vector2(pivot.x, 1f);
                 rect.offsetMin = new Vector2(offsetMin.x, -top - height);
                 rect.offsetMax = new Vector2(offsetMax.x, -top);
                 return;
@@ -945,9 +1518,6 @@ namespace Sunset.Story
 
             Vector2 anchoredPosition = rect.anchoredPosition;
             Vector2 sizeDelta = rect.sizeDelta;
-            rect.anchorMin = new Vector2(anchorMin.x, 1f);
-            rect.anchorMax = new Vector2(anchorMax.x, 1f);
-            rect.pivot = new Vector2(pivot.x, 1f);
             rect.anchoredPosition = new Vector2(anchoredPosition.x, -top);
             rect.sizeDelta = new Vector2(sizeDelta.x, height);
         }
@@ -1034,7 +1604,7 @@ namespace Sunset.Story
             page.root.anchorMax = new Vector2(0f, 0.5f);
             page.root.pivot = new Vector2(0f, 0.5f);
             page.root.anchoredPosition = isBackPage ? new Vector2(6f, -4f) : Vector2.zero;
-            page.root.sizeDelta = new Vector2(316f, 178f);
+            page.root.sizeDelta = new Vector2(316f, MinPageHeight);
             page.canvasGroup = page.root.gameObject.AddComponent<CanvasGroup>();
 
             Image pageImage = page.root.gameObject.AddComponent<Image>();
@@ -1097,7 +1667,7 @@ namespace Sunset.Story
             ContentSizeFitter subtitleFitter = subtitleRoot.gameObject.AddComponent<ContentSizeFitter>();
             subtitleFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             subtitleFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            subtitleRoot.gameObject.AddComponent<LayoutElement>().minHeight = 26f;
+            subtitleRoot.gameObject.AddComponent<LayoutElement>().minHeight = 0f;
             page.subtitleText = CreateText(subtitleRoot, "SubtitleText", string.Empty, 13f, new Color(0.25f, 0.2f, 0.14f, 0.96f), TextAlignmentOptions.TopLeft, true);
             Stretch(page.subtitleText.rectTransform, Vector2.zero, Vector2.zero);
             page.subtitleText.fontStyle = FontStyles.Bold;
@@ -1120,10 +1690,10 @@ namespace Sunset.Story
             ContentSizeFitter taskFitter = page.taskListRoot.gameObject.AddComponent<ContentSizeFitter>();
             taskFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             taskFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            page.taskListRoot.gameObject.AddComponent<LayoutElement>().minHeight = 30f;
+            page.taskListRoot.gameObject.AddComponent<LayoutElement>().minHeight = 0f;
 
             RectTransform focusRibbon = CreateRect(content, "FocusRibbon");
-            focusRibbon.gameObject.AddComponent<LayoutElement>().minHeight = 30f;
+            focusRibbon.gameObject.AddComponent<LayoutElement>().minHeight = 0f;
             Image focusRibbonImage = focusRibbon.gameObject.AddComponent<Image>();
             focusRibbonImage.color = new Color(0.78f, 0.67f, 0.48f, 0.42f);
             focusRibbonImage.raycastTarget = false;
@@ -1138,7 +1708,7 @@ namespace Sunset.Story
             ContentSizeFitter footerFitter = footerRoot.gameObject.AddComponent<ContentSizeFitter>();
             footerFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             footerFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-            footerRoot.gameObject.AddComponent<LayoutElement>().minHeight = 18f;
+            footerRoot.gameObject.AddComponent<LayoutElement>().minHeight = 0f;
             page.footerText = CreateText(footerRoot, "FooterText", string.Empty, 10f, new Color(0.42f, 0.31f, 0.18f, 0.92f), TextAlignmentOptions.BottomLeft, true);
             Stretch(page.footerText.rectTransform, Vector2.zero, Vector2.zero);
 
@@ -1148,6 +1718,7 @@ namespace Sunset.Story
             page.contentRoot = content;
             page.defaultPosition = page.root.anchoredPosition;
             page.defaultPivot = page.root.pivot;
+            page.defaultHeight = page.root.sizeDelta.y;
             return page;
         }
 
@@ -1161,27 +1732,175 @@ namespace Sunset.Story
                     : BuildManualState(_manualPromptText);
             }
 
+            SpringDay1Director.TaskListVisibilitySemanticState visibilityState = director.GetTaskListVisibilitySemanticState();
+            if (visibilityState.ManagedByDay1 && visibilityState.ForceHidden)
+            {
+                ClearStaleLocalManualPrompt(string.Empty);
+                return null;
+            }
+
             SpringDay1Director.PromptCardModel model = director.BuildPromptCardModel();
             if (model == null)
             {
-                return string.IsNullOrWhiteSpace(_manualPromptText)
-                    ? null
-                    : BuildManualState(_manualPromptText);
+                ClearStaleLocalManualPrompt(string.Empty);
+                return null;
             }
 
-            if (!string.IsNullOrWhiteSpace(_manualPromptText)
-                && !string.IsNullOrWhiteSpace(_manualPromptPhaseKey)
-                && !string.Equals(_manualPromptPhaseKey, model.PhaseKey, StringComparison.Ordinal))
-            {
-                _manualPromptText = string.Empty;
-                _manualPromptPhaseKey = string.Empty;
-                _queuedPromptText = string.Empty;
-            }
+            ClearStaleLocalManualPrompt(model.PhaseKey);
 
             return PromptCardViewState.FromModel(
                 model,
-                string.IsNullOrWhiteSpace(_manualPromptText) ? model.FocusText : _manualPromptText,
-                maxVisibleItems: 1);
+                model.FocusText,
+                maxVisibleItems: Mathf.Max(1, maxVisibleTaskRows));
+        }
+
+        private BridgePromptViewState BuildCurrentBridgePromptState()
+        {
+            SpringDay1Director director = SpringDay1Director.Instance;
+            if (director != null)
+            {
+                SpringDay1Director.TaskListBridgePromptDisplayState directorState = director.GetTaskListBridgePromptDisplayState();
+                if (directorState.Visible)
+                {
+                    return new BridgePromptViewState(directorState.Text, directorState.SemanticKey);
+                }
+            }
+
+            SpringDay1Director.PromptCardModel currentModel = director != null ? director.BuildPromptCardModel() : null;
+            string currentPhaseKey = currentModel?.PhaseKey ?? string.Empty;
+            ClearStaleLocalManualPrompt(currentPhaseKey);
+            if (string.IsNullOrWhiteSpace(_manualPromptText))
+            {
+                return null;
+            }
+
+            if (currentModel != null && IsRedundantBridgePrompt(currentModel, _manualPromptText))
+            {
+                return null;
+            }
+
+            return new BridgePromptViewState(
+                _manualPromptText,
+                $"legacy-bridge:{currentPhaseKey}:{_manualPromptText}");
+        }
+
+        private void ClearStaleLocalManualPrompt(string currentPhaseKey)
+        {
+            if (string.IsNullOrWhiteSpace(_manualPromptText)
+                || string.IsNullOrWhiteSpace(_manualPromptPhaseKey)
+                || string.Equals(_manualPromptPhaseKey, currentPhaseKey, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            _manualPromptText = string.Empty;
+            _manualPromptPhaseKey = string.Empty;
+            _queuedPromptText = string.Empty;
+        }
+
+        private static bool IsRedundantBridgePrompt(SpringDay1Director.PromptCardModel model, string bridgePromptText)
+        {
+            if (model == null || string.IsNullOrWhiteSpace(bridgePromptText))
+            {
+                return false;
+            }
+
+            string normalizedBridgePrompt = NormalizePromptComparisonText(bridgePromptText);
+            if (string.IsNullOrEmpty(normalizedBridgePrompt))
+            {
+                return true;
+            }
+
+            if (ContainsPromptOverlap(model.FocusText, normalizedBridgePrompt)
+                || ContainsPromptOverlap(model.Subtitle, normalizedBridgePrompt)
+                || ContainsPromptOverlap(model.FooterText, normalizedBridgePrompt))
+            {
+                return true;
+            }
+
+            if (model.Items == null)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < model.Items.Length; index++)
+            {
+                SpringDay1Director.PromptTaskItem item = model.Items[index];
+                if (ContainsPromptOverlap(item.Label, normalizedBridgePrompt)
+                    || ContainsPromptOverlap(item.Detail, normalizedBridgePrompt))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool ContainsPromptOverlap(string source, string normalizedNeedle)
+        {
+            if (string.IsNullOrEmpty(normalizedNeedle))
+            {
+                return true;
+            }
+
+            string normalizedSource = NormalizePromptComparisonText(source);
+            if (string.IsNullOrEmpty(normalizedSource))
+            {
+                return false;
+            }
+
+            if (normalizedSource.IndexOf(normalizedNeedle, StringComparison.Ordinal) >= 0
+                || normalizedNeedle.IndexOf(normalizedSource, StringComparison.Ordinal) >= 0)
+            {
+                return true;
+            }
+
+            return CalculatePromptOverlapScore(normalizedSource, normalizedNeedle) >= 0.58f;
+        }
+
+        private static float CalculatePromptOverlapScore(string normalizedSource, string normalizedNeedle)
+        {
+            HashSet<string> sourceNgrams = BuildPromptNgrams(normalizedSource);
+            HashSet<string> needleNgrams = BuildPromptNgrams(normalizedNeedle);
+            if (sourceNgrams.Count == 0 || needleNgrams.Count == 0)
+            {
+                return 0f;
+            }
+
+            HashSet<string> smaller = sourceNgrams.Count <= needleNgrams.Count ? sourceNgrams : needleNgrams;
+            HashSet<string> larger = ReferenceEquals(smaller, sourceNgrams) ? needleNgrams : sourceNgrams;
+            int overlapCount = 0;
+            foreach (string gram in smaller)
+            {
+                if (larger.Contains(gram))
+                {
+                    overlapCount++;
+                }
+            }
+
+            return overlapCount / (float)Mathf.Max(1, smaller.Count);
+        }
+
+        private static HashSet<string> BuildPromptNgrams(string normalizedText)
+        {
+            HashSet<string> grams = new HashSet<string>(StringComparer.Ordinal);
+            if (string.IsNullOrEmpty(normalizedText))
+            {
+                return grams;
+            }
+
+            if (normalizedText.Length == 1)
+            {
+                grams.Add(normalizedText);
+                return grams;
+            }
+
+            for (int index = 0; index < normalizedText.Length - 1; index++)
+            {
+                grams.Add(normalizedText.Substring(index, 2));
+            }
+
+            return grams;
         }
 
         private PromptCardViewState BuildManualState(string text)
@@ -1210,6 +1929,35 @@ namespace Sunset.Story
         private void RefreshPendingState()
         {
             _pendingState = BuildCurrentViewState();
+        }
+
+        private void ApplyBridgePromptState(BridgePromptViewState state)
+        {
+            if (bridgePromptRect == null || bridgePromptCanvasGroup == null || bridgePromptText == null)
+            {
+                return;
+            }
+
+            if (state == null || string.IsNullOrWhiteSpace(state.Text))
+            {
+                bridgePromptText.text = string.Empty;
+                bridgePromptCanvasGroup.alpha = 0f;
+                bridgePromptRect.gameObject.SetActive(false);
+                _displayedBridgePromptSignature = string.Empty;
+                return;
+            }
+
+            bridgePromptRect.gameObject.SetActive(true);
+            if (!string.Equals(_displayedBridgePromptSignature, state.Signature, StringComparison.Ordinal)
+                || !string.Equals(bridgePromptText.text, state.Text, StringComparison.Ordinal))
+            {
+                bridgePromptText.text = state.Text;
+                bridgePromptText.ForceMeshUpdate();
+                _displayedBridgePromptSignature = state.Signature;
+            }
+
+            RefreshBridgePromptLayout();
+            bridgePromptCanvasGroup.alpha = 1f;
         }
 
         private void ApplyPendingStateWithoutTransition()
@@ -1264,8 +2012,7 @@ namespace Sunset.Story
                 }
             }
 
-            bool requiresFlip = _displayedState == null
-                || _displayedState.DisplaySignature != targetState.DisplaySignature;
+            bool requiresFlip = ShouldUsePageFlipTransition(_displayedState, targetState);
 
             if (requiresFlip)
             {
@@ -1367,6 +2114,11 @@ namespace Sunset.Story
 
         private IEnumerator AnimateRowCompletion(RowRefs row, PromptRowState oldItem, PromptRowState newItem)
         {
+            if (!IsRowBindingAlive(row) || oldItem == null || newItem == null)
+            {
+                yield break;
+            }
+
             float elapsed = 0f;
             Color startPlate = row.plate.color;
             Color endPlate = new Color(0.42f, 0.56f, 0.33f, 0.12f);
@@ -1380,6 +2132,11 @@ namespace Sunset.Story
 
             while (elapsed < completionStepDuration)
             {
+                if (!IsRowBindingAlive(row))
+                {
+                    yield break;
+                }
+
                 elapsed += Time.unscaledDeltaTime;
                 float normalized = Mathf.Clamp01(elapsed / completionStepDuration);
                 float eased = 1f - ((1f - normalized) * (1f - normalized));
@@ -1388,6 +2145,11 @@ namespace Sunset.Story
                 row.label.color = Color.Lerp(startLabel, endLabel, eased);
                 row.group.alpha = Mathf.Lerp(1f, 0.92f, eased);
                 yield return null;
+            }
+
+            if (!IsRowBindingAlive(row))
+            {
+                yield break;
             }
 
             ApplyRow(row, newItem, true);
@@ -1404,16 +2166,27 @@ namespace Sunset.Story
 
         private void ApplyStateToPage(PageRefs page, PromptCardViewState state)
         {
+            page = EnsurePageBindingsReady(page, state?.Items.Count ?? 0);
+            if (page == null || state == null)
+            {
+                return;
+            }
+
             page.appliedState = state;
             EnsurePageTextChainReady(page);
             page.titleText.text = state.StageLabel;
             page.subtitleText.text = state.Subtitle;
             page.focusText.text = state.FocusText;
             page.footerText.text = state.FooterText;
+            EnsurePromptTextContent(page.titleText, state.StageLabel, forceOpaque: true);
+            EnsurePromptTextContent(page.subtitleText, state.Subtitle, forceOpaque: false);
+            EnsurePromptTextContent(page.focusText, state.FocusText, forceOpaque: true);
+            EnsurePromptTextContent(page.footerText, state.FooterText, forceOpaque: false);
             page.titleText.ForceMeshUpdate();
             page.subtitleText.ForceMeshUpdate();
             page.focusText.ForceMeshUpdate();
             page.footerText.ForceMeshUpdate();
+            ApplyGeneratedPageSectionVisibility(page, state);
 
             EnsureRows(page, state.Items.Count);
             ApplyRowsToPage(page, state);
@@ -1434,18 +2207,76 @@ namespace Sunset.Story
             }
         }
 
+        private bool ShouldUsePageFlipTransition(PromptCardViewState currentState, PromptCardViewState nextState)
+        {
+            if (preferStableInstantTransitions
+                || currentState == null
+                || nextState == null
+                || _suppressWhileDialogueActive)
+            {
+                return false;
+            }
+
+            if (NeedsReadableContentRecovery(nextState))
+            {
+                return false;
+            }
+
+            if (currentState.Items.Count != nextState.Items.Count
+                || currentState.Items.Count > 1
+                || nextState.Items.Count > 1)
+            {
+                return false;
+            }
+
+            if (!string.Equals(currentState.PhaseKey, nextState.PhaseKey, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            return currentState.DisplaySignature != nextState.DisplaySignature;
+        }
+
         private void ApplyRowsToPage(PageRefs page, PromptCardViewState state)
         {
+            page = EnsurePageBindingsReady(page, state?.Items.Count ?? 0);
+            if (page == null || state == null)
+            {
+                return;
+            }
+
             for (int index = 0; index < page.rows.Count; index++)
             {
+                RowRefs row = page.rows[index];
+                if (index < state.Items.Count && !IsRowBindingAlive(row))
+                {
+                    page = EnsurePageBindingsReady(page, state.Items.Count);
+                    if (page == null || index >= page.rows.Count)
+                    {
+                        return;
+                    }
+
+                    row = page.rows[index];
+                    if (!IsRowBindingAlive(row))
+                    {
+                        return;
+                    }
+                }
+
                 if (index < state.Items.Count)
                 {
-                    ApplyRow(page.rows[index], state.Items[index], false);
-                    page.rows[index].root.gameObject.SetActive(true);
+                    ApplyRow(row, state.Items[index], false);
+                    if (row.root != null && !row.root.gameObject.activeSelf)
+                    {
+                        row.root.gameObject.SetActive(true);
+                    }
                 }
                 else
                 {
-                    page.rows[index].root.gameObject.SetActive(false);
+                    if (row?.root != null && row.root.gameObject.activeSelf)
+                    {
+                        row.root.gameObject.SetActive(false);
+                    }
                 }
             }
         }
@@ -1453,6 +2284,14 @@ namespace Sunset.Story
         private bool PageMatchesState(PageRefs page, PromptCardViewState state)
         {
             if (page == null || state == null || page.rows == null)
+            {
+                return false;
+            }
+
+            if (!HasReadablePrimaryText(page.titleText, state.StageLabel)
+                || !HasReadablePrimaryText(page.subtitleText, state.Subtitle)
+                || !HasReadablePrimaryText(page.focusText, state.FocusText)
+                || !HasReadablePrimaryText(page.footerText, state.FooterText))
             {
                 return false;
             }
@@ -1471,13 +2310,7 @@ namespace Sunset.Story
             {
                 RowRefs row = page.rows[index];
                 PromptRowState expected = state.Items[index];
-                if (row?.root == null || row.label == null || row.detail == null || !row.root.gameObject.activeSelf)
-                {
-                    return false;
-                }
-
-                if (!string.Equals(row.label.text, expected.Label, StringComparison.Ordinal)
-                    || !string.Equals(row.detail.text, expected.Detail, StringComparison.Ordinal))
+                if (!HasReadablePromptRow(row, expected))
                 {
                     return false;
                 }
@@ -1554,10 +2387,17 @@ namespace Sunset.Story
 
         private void ApplyRow(RowRefs row, PromptRowState state, bool immediate)
         {
+            if (!IsRowBindingAlive(row) || state == null)
+            {
+                return;
+            }
+
             row.group.alpha = 1f;
             EnsureRowTextChainReady(row);
             row.label.text = state.Label;
             row.detail.text = state.Detail;
+            EnsurePromptTextContent(row.label, state.Label, forceOpaque: true);
+            EnsurePromptTextContent(row.detail, state.Detail, forceOpaque: false);
             row.label.ForceMeshUpdate();
             row.detail.ForceMeshUpdate();
             row.label.color = state.Completed
@@ -1590,15 +2430,19 @@ namespace Sunset.Story
 
         private void EnsurePageTextChainReady(PageRefs page)
         {
-            if (page == null)
+            if (!IsPageBindingAlive(page))
             {
                 return;
             }
 
             EnsurePromptTextReady(page.titleText, forceActive: true);
+            EnsurePromptTextAncestorsVisible(page.titleText, page.root, 0.9f);
             EnsurePromptTextReady(page.subtitleText, forceActive: true);
+            EnsurePromptTextAncestorsVisible(page.subtitleText, page.root, 0.82f);
             EnsurePromptTextReady(page.focusText, forceActive: true);
+            EnsurePromptTextAncestorsVisible(page.focusText, page.root, 0.9f);
             EnsurePromptTextReady(page.footerText, forceActive: true);
+            EnsurePromptTextAncestorsVisible(page.footerText, page.root, 0.82f);
 
             if (page.rows == null)
             {
@@ -1613,7 +2457,7 @@ namespace Sunset.Story
 
         private void EnsureRowTextChainReady(RowRefs row)
         {
-            if (row == null)
+            if (!IsRowBindingAlive(row))
             {
                 return;
             }
@@ -1623,8 +2467,15 @@ namespace Sunset.Story
                 row.root.gameObject.SetActive(true);
             }
 
+            if (row.group != null && row.group.alpha < 0.98f)
+            {
+                row.group.alpha = 1f;
+            }
+
             EnsurePromptTextReady(row.label, forceActive: true);
+            EnsurePromptTextAncestorsVisible(row.label, row.root, 0.9f);
             EnsurePromptTextReady(row.detail, forceActive: true);
+            EnsurePromptTextAncestorsVisible(row.detail, row.root, 0.82f);
         }
 
         private void EnsurePromptTextReady(TextMeshProUGUI text, bool forceActive)
@@ -1644,13 +2495,9 @@ namespace Sunset.Story
                 text.enabled = true;
             }
 
-            if (!IsFontAssetUsable(text.font))
+            if (!CanFontRenderText(text.font, text.text))
             {
-                if (_fontAsset == null)
-                {
-                    _fontAsset = ResolveFontAsset();
-                }
-
+                _fontAsset = ResolveFontAsset(text.text);
                 if (_fontAsset != null)
                 {
                     text.font = _fontAsset;
@@ -1660,12 +2507,87 @@ namespace Sunset.Story
                     }
                 }
             }
+
+            if (text.color.a <= 0.01f)
+            {
+                Color color = text.color;
+                color.a = 1f;
+                text.color = color;
+            }
+        }
+
+        private void EnsurePromptTextContent(TextMeshProUGUI text, string expected, bool forceOpaque)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            bool changed = false;
+            if (!string.IsNullOrWhiteSpace(expected) && !HasExpectedPromptText(text.text, expected))
+            {
+                text.text = expected;
+                changed = true;
+            }
+
+            if (!CanFontRenderText(text.font, text.text))
+            {
+                _fontAsset = ResolveFontAsset(expected);
+                if (_fontAsset != null)
+                {
+                    text.font = _fontAsset;
+                    if (_fontAsset.material != null)
+                    {
+                        text.fontSharedMaterial = _fontAsset.material;
+                    }
+
+                    changed = true;
+                }
+            }
+
+            if (forceOpaque && text.color.a <= 0.01f)
+            {
+                Color color = text.color;
+                color.a = 1f;
+                text.color = color;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                text.ForceMeshUpdate();
+            }
+        }
+
+        private static void EnsurePromptTextAncestorsVisible(TextMeshProUGUI text, RectTransform stopAtExclusive, float minAlpha)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            Transform current = text.transform.parent;
+            while (current != null && current != stopAtExclusive)
+            {
+                if (!current.gameObject.activeSelf)
+                {
+                    current.gameObject.SetActive(true);
+                }
+
+                if (current.TryGetComponent(out CanvasGroup canvasGroup) && canvasGroup.alpha < minAlpha)
+                {
+                    canvasGroup.alpha = minAlpha;
+                }
+
+                current = current.parent;
+            }
         }
 
         private void RefreshCardLayout(PromptCardViewState frontState, PromptCardViewState backState)
         {
             RefreshPageContentLayout(_frontPage, frontState);
             RefreshPageContentLayout(_backPage, backState);
+            RefreshCardShellHeight();
             ResetPageVisual(_frontPage);
             if (!_backPage.root.gameObject.activeSelf)
             {
@@ -1683,16 +2605,301 @@ namespace Sunset.Story
             if (page.usesLegacyManualLayout)
             {
                 RefreshLegacyPageLayout(page);
+                ApplyPagePreferredHeight(page, page.preferredHeight);
                 return;
             }
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(page.taskListRoot);
             LayoutRebuilder.ForceRebuildLayoutImmediate(page.contentRoot);
+            float preferredHeight = CalculateGeneratedPagePreferredHeight(page);
+            page.preferredHeight = preferredHeight;
+            ApplyPagePreferredHeight(page, preferredHeight);
+        }
+
+        private void ApplyGeneratedPageSectionVisibility(PageRefs page, PromptCardViewState state)
+        {
+            if (page == null || state == null || page.usesLegacyManualLayout)
+            {
+                return;
+            }
+
+            SetSectionVisible(page.subtitleRoot, !string.IsNullOrWhiteSpace(state.Subtitle));
+            SetSectionVisible(page.focusRibbonRoot, !string.IsNullOrWhiteSpace(state.FocusText));
+            SetSectionVisible(page.footerRoot, !string.IsNullOrWhiteSpace(state.FooterText));
+            SetSectionVisible(page.taskListRoot, state.Items.Count > 0);
+        }
+
+        private float CalculateGeneratedPagePreferredHeight(PageRefs page)
+        {
+            if (page?.contentRoot == null)
+            {
+                return MinPageHeight;
+            }
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(page.contentRoot);
+            float contentHeight = CalculateVisibleLayoutStackHeight(page.contentRoot);
+            return Mathf.Clamp(
+                Mathf.Max(MinPageHeight, contentHeight + 28f),
+                MinPageHeight,
+                MaxPageHeight);
+        }
+
+        private static float CalculateVisibleLayoutStackHeight(RectTransform root)
+        {
+            if (root == null)
+            {
+                return 0f;
+            }
+
+            float total = GetVerticalPadding(root);
+            float spacing = GetVerticalSpacing(root);
+            int visibleCount = 0;
+
+            for (int index = 0; index < root.childCount; index++)
+            {
+                if (root.GetChild(index) is not RectTransform child || !child.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                float sectionHeight = ResolveLayoutSectionHeight(child);
+                if (sectionHeight <= 0.01f)
+                {
+                    continue;
+                }
+
+                total += sectionHeight;
+                visibleCount++;
+            }
+
+            if (visibleCount > 1)
+            {
+                total += spacing * (visibleCount - 1);
+            }
+
+            return total;
+        }
+
+        private static float ResolveLayoutSectionHeight(RectTransform rect)
+        {
+            if (rect == null || !rect.gameObject.activeSelf)
+            {
+                return 0f;
+            }
+
+            LayoutRebuilder.ForceRebuildLayoutImmediate(rect);
+
+            float preferredHeight = LayoutUtility.GetPreferredHeight(rect);
+            if (preferredHeight > 0.01f)
+            {
+                return Mathf.Ceil(preferredHeight);
+            }
+
+            float minHeight = LayoutUtility.GetMinHeight(rect);
+            if (minHeight > 0.01f)
+            {
+                return Mathf.Ceil(minHeight);
+            }
+
+            return Mathf.Ceil(GetCurrentHeight(rect, 0f));
+        }
+
+        private static float ResolveLegacyVisibleHeight(PageRefs page)
+        {
+            if (page?.root == null)
+            {
+                return MinLegacyPageHeight;
+            }
+
+            float bottom = 0f;
+            bottom = Mathf.Max(bottom, GetVisibleBottom(page.stageTagRoot));
+            bottom = Mathf.Max(bottom, GetVisibleBottom(page.subtitleRoot));
+            bottom = Mathf.Max(bottom, GetVisibleBottom(page.headerDividerRoot));
+            bottom = Mathf.Max(bottom, GetVisibleBottom(page.focusRibbonRoot));
+            bottom = Mathf.Max(bottom, GetVisibleBottom(page.footerRoot));
+
+            if (page.taskListRoot != null && page.taskListRoot.gameObject.activeSelf)
+            {
+                bottom = Mathf.Max(bottom, GetVisibleBottom(page.taskListRoot));
+                for (int index = 0; index < page.rows.Count; index++)
+                {
+                    if (page.rows[index]?.root != null && page.rows[index].root.gameObject.activeSelf)
+                    {
+                        bottom = Mathf.Max(bottom, GetVisibleBottom(page.rows[index].root));
+                    }
+                }
+            }
+
+            return Mathf.Max(MinLegacyPageHeight, bottom + 8f);
+        }
+
+        private static float GetLegacyPageShellInset(PageRefs page)
+        {
+            if (page?.contentRoot == null || page.contentRoot == page.root)
+            {
+                return 0f;
+            }
+
+            float inset = GetRectVerticalInsetWithinParent(page.contentRoot) + GetVerticalPadding(page.contentRoot);
+            return Mathf.Max(20f, inset);
+        }
+
+        private static float GetRectVerticalInsetWithinParent(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return 0f;
+            }
+
+            bool stretchesVertically = Mathf.Abs(rect.anchorMin.y) <= 0.001f
+                && Mathf.Abs(rect.anchorMax.y - 1f) <= 0.001f;
+            if (!stretchesVertically)
+            {
+                return 0f;
+            }
+
+            return Mathf.Abs(rect.offsetMin.y) + Mathf.Abs(rect.offsetMax.y);
+        }
+
+        private static float GetVisibleBottom(RectTransform rect)
+        {
+            if (rect == null || !rect.gameObject.activeSelf)
+            {
+                return 0f;
+            }
+
+            return GetTopInParent(rect) + GetCurrentHeight(rect, 0f);
+        }
+
+        private static float GetVerticalPadding(RectTransform rect)
+        {
+            if (rect == null || !rect.TryGetComponent(out VerticalLayoutGroup layout))
+            {
+                return 0f;
+            }
+
+            return layout.padding.top + layout.padding.bottom;
+        }
+
+        private static float GetVerticalSpacing(RectTransform rect)
+        {
+            return rect != null && rect.TryGetComponent(out VerticalLayoutGroup layout) ? layout.spacing : 0f;
+        }
+
+        private static void SetSectionVisible(RectTransform rect, bool visible)
+        {
+            if (rect != null && rect.gameObject.activeSelf != visible)
+            {
+                rect.gameObject.SetActive(visible);
+            }
+        }
+
+        private void RefreshCardShellHeight()
+        {
+            if (cardRect == null)
+            {
+                return;
+            }
+
+            float frontHeight = ResolvePageShellHeight(_frontPage);
+            float backHeight = ResolvePageShellHeight(_backPage);
+            float minimumShellHeight = Mathf.Max(
+                ResolveLegacyShellMinimumHeight(_frontPage),
+                ResolveLegacyShellMinimumHeight(_backPage));
+            float targetHeight = Mathf.Max(minimumShellHeight, Mathf.Max(frontHeight, backHeight) + 8f);
+            SetHeightKeepingTop(cardRect, targetHeight, _cardDefaultPosition, _cardDefaultHeight);
+            RefreshBridgePromptLayout();
+        }
+
+        private static float ResolveLegacyShellMinimumHeight(PageRefs page)
+        {
+            if (page == null || !page.usesLegacyManualLayout)
+            {
+                return MinLegacyPageHeight + 8f;
+            }
+
+            return GetLegacyMinimumPageHeight(page) + 8f;
+        }
+
+        private static float ResolvePageShellHeight(PageRefs page)
+        {
+            if (page?.root == null)
+            {
+                return MinPageHeight;
+            }
+
+            bool isVisiblePage = page.root.gameObject.activeSelf
+                && page.root.gameObject.activeInHierarchy
+                && (page.canvasGroup == null || page.canvasGroup.alpha > 0.01f);
+            if (!isVisiblePage)
+            {
+                return 0f;
+            }
+
+            if (page.preferredHeight > 0.01f)
+            {
+                return page.preferredHeight;
+            }
+
+            float currentHeight = page.root.rect.height > 1f ? page.root.rect.height : page.root.sizeDelta.y;
+            float minHeight = page.usesLegacyManualLayout ? GetLegacyMinimumPageHeight(page) : MinPageHeight;
+            return Mathf.Clamp(currentHeight, minHeight, MaxPageHeight);
+        }
+
+        private void ApplyPagePreferredHeight(PageRefs page, float preferredHeight)
+        {
+            if (page?.root == null)
+            {
+                return;
+            }
+
+            float minHeight = page.usesLegacyManualLayout ? GetLegacyMinimumPageHeight(page) : MinPageHeight;
+            float clampedHeight = Mathf.Clamp(preferredHeight, minHeight, MaxPageHeight);
+            SetHeightKeepingTop(page.root, clampedHeight, page.defaultPosition, page.defaultHeight);
+            page.preferredHeight = clampedHeight;
+        }
+
+        private static float GetLegacyMinimumPageHeight(PageRefs page)
+        {
+            if (page == null)
+            {
+                return MinLegacyPageHeight;
+            }
+
+            float baselineHeight = page.defaultHeight > 0.01f ? page.defaultHeight : MinPageHeight;
+            return Mathf.Max(MinLegacyPageHeight, baselineHeight);
+        }
+
+        private static void SetHeightKeepingTop(RectTransform rect, float targetHeight, Vector2 defaultPosition, float defaultHeight)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            float baselineHeight = defaultHeight > 0.01f
+                ? defaultHeight
+                : (rect.rect.height > 1f ? rect.rect.height : rect.sizeDelta.y);
+            if (baselineHeight <= 0.01f)
+            {
+                baselineHeight = targetHeight;
+            }
+
+            if (Mathf.Abs(rect.sizeDelta.y - targetHeight) <= 0.01f
+                && Vector2.Distance(rect.anchoredPosition, defaultPosition) <= 0.01f)
+            {
+                return;
+            }
+
+            Vector2 anchoredPosition = defaultPosition;
+            anchoredPosition.y -= (targetHeight - baselineHeight) * 0.5f;
+            rect.anchoredPosition = anchoredPosition;
+            rect.sizeDelta = new Vector2(rect.sizeDelta.x, targetHeight);
         }
 
         private void ResetPageVisual(PageRefs page)
         {
-            if (page == null)
+            if (!IsPageBindingAlive(page))
             {
                 return;
             }
@@ -1722,6 +2929,17 @@ namespace Sunset.Story
 
         private void CacheFrontPageRefs()
         {
+            if (!IsPageBindingAlive(_frontPage))
+            {
+                pageRect = null;
+                titleText = null;
+                subtitleText = null;
+                focusText = null;
+                footerText = null;
+                _rows.Clear();
+                return;
+            }
+
             pageRect = _frontPage.root;
             titleText = _frontPage.titleText;
             subtitleText = _frontPage.subtitleText;
@@ -1733,7 +2951,7 @@ namespace Sunset.Story
 
         private void ApplyPageVisibility(PageRefs page, bool visible)
         {
-            if (page == null)
+            if (!IsPageBindingAlive(page))
             {
                 return;
             }
@@ -1744,24 +2962,59 @@ namespace Sunset.Story
 
         private bool ShouldDelayPromptDisplay()
         {
+            if (_externallySuppressedByModalUi)
+            {
+                return true;
+            }
+
             if (_suppressWhileDialogueActive)
             {
                 return true;
             }
 
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+            return false;
+        }
+
+        private bool TryGetParentCanvas(out Canvas parentCanvas)
+        {
+            parentCanvas = null;
+            if (overlayCanvas == null)
             {
+                return false;
+            }
+
+            Canvas[] parents = GetComponentsInParent<Canvas>(includeInactive: true);
+            for (int index = 0; index < parents.Length; index++)
+            {
+                Canvas candidate = parents[index];
+                if (candidate == null || candidate == overlayCanvas)
+                {
+                    continue;
+                }
+
+                parentCanvas = candidate;
                 return true;
             }
 
-            SpringDay1WorkbenchCraftingOverlay overlay = UnityEngine.Object.FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
-            return overlay != null && overlay.IsVisible;
+            return false;
         }
 
         private bool ShouldIgnoreDialogueEndEvent()
         {
             DialogueManager dialogueManager = DialogueManager.Instance;
             return dialogueManager != null && dialogueManager.IsDialogueActive;
+        }
+
+        private bool IsLikelyManagedByDialogueUiTransition()
+        {
+            DialogueUI dialogueUi = FindFirstObjectByType<DialogueUI>(FindObjectsInactive.Include);
+            if (dialogueUi == null)
+            {
+                return false;
+            }
+
+            Transform dialogueParent = dialogueUi.transform.parent;
+            return dialogueParent != null && transform.parent == dialogueParent;
         }
 
         private void QueuePromptReveal()
@@ -1771,6 +3024,7 @@ namespace Sunset.Story
                 return;
             }
 
+            EnsureRuntimeObjectActive();
             StopQueuedRevealCoroutine();
             _queuedRevealCoroutine = StartCoroutine(WaitAndRevealQueuedPrompt());
         }
@@ -1832,34 +3086,60 @@ namespace Sunset.Story
 
             StopVisibilityCoroutine();
 
-            if (immediate || fadeDuration <= 0f)
+            if (immediate || fadeDuration <= 0f || !Application.isPlaying || !CanAnimateCanvasVisibility())
             {
-                canvasGroup.alpha = targetAlpha;
-                canvasGroup.interactable = false;
-                canvasGroup.blocksRaycasts = false;
+                ApplyCanvasGroupImmediate(targetAlpha);
                 return;
             }
 
             _visibilityCoroutine = StartCoroutine(FadeCanvasGroupRoutine(targetAlpha));
         }
 
+        private bool CanAnimateCanvasVisibility()
+        {
+            if (!isActiveAndEnabled || !gameObject.activeInHierarchy)
+            {
+                return false;
+            }
+
+            return overlayCanvas == null || overlayCanvas.gameObject.activeInHierarchy;
+        }
+
+        private void ApplyCanvasGroupImmediate(float targetAlpha)
+        {
+            _visibilityAlpha = Mathf.Clamp01(targetAlpha);
+            ApplyComposedCanvasGroupState();
+        }
+
         private IEnumerator FadeCanvasGroupRoutine(float targetAlpha)
         {
-            float startAlpha = canvasGroup.alpha;
+            float startAlpha = _visibilityAlpha;
             float elapsed = 0f;
             while (elapsed < fadeDuration)
             {
                 elapsed += Time.unscaledDeltaTime;
                 float normalized = Mathf.Clamp01(elapsed / fadeDuration);
                 float eased = 1f - ((1f - normalized) * (1f - normalized));
-                canvasGroup.alpha = Mathf.Lerp(startAlpha, targetAlpha, eased);
+                _visibilityAlpha = Mathf.Lerp(startAlpha, targetAlpha, eased);
+                ApplyComposedCanvasGroupState();
                 yield return null;
             }
 
-            canvasGroup.alpha = targetAlpha;
+            _visibilityAlpha = Mathf.Clamp01(targetAlpha);
+            ApplyComposedCanvasGroupState();
+            _visibilityCoroutine = null;
+        }
+
+        private void ApplyComposedCanvasGroupState()
+        {
+            if (canvasGroup == null)
+            {
+                return;
+            }
+
+            canvasGroup.alpha = _visibilityAlpha * _boundaryFocusAlpha;
             canvasGroup.interactable = false;
             canvasGroup.blocksRaycasts = false;
-            _visibilityCoroutine = null;
         }
 
         private void StopVisibilityCoroutine()
@@ -1895,18 +3175,57 @@ namespace Sunset.Story
             _transitionCoroutine = null;
         }
 
-        private TMP_FontAsset ResolveFontAsset()
+        private TMP_FontAsset ResolveFontAsset(string preferredText = null)
         {
-            for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
+            return DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                preferredText,
+                _fontAsset,
+                FontCoverageProbeText);
+        }
+
+        private static bool CanFontRenderText(TMP_FontAsset fontAsset, string currentText)
+        {
+            return DialogueChineseFontRuntimeBootstrap.CanRenderText(
+                fontAsset,
+                currentText,
+                FontCoverageProbeText);
+        }
+
+        private static string GetFontProbeText(string currentText)
+        {
+            if (string.IsNullOrWhiteSpace(currentText))
             {
-                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
-                if (IsFontAssetUsable(candidate))
+                return FontCoverageProbeText;
+            }
+
+            StringBuilder builder = new StringBuilder(currentText.Length);
+            bool insideTag = false;
+            for (int index = 0; index < currentText.Length; index++)
+            {
+                char current = currentText[index];
+                if (current == '<')
                 {
-                    return candidate;
+                    insideTag = true;
+                    continue;
+                }
+
+                if (insideTag)
+                {
+                    if (current == '>')
+                    {
+                        insideTag = false;
+                    }
+
+                    continue;
+                }
+
+                if (!char.IsControl(current))
+                {
+                    builder.Append(current);
                 }
             }
 
-            return TMP_Settings.defaultFontAsset;
+            return builder.Length > 0 ? builder.ToString() : FontCoverageProbeText;
         }
 
         private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)
@@ -1966,7 +3285,231 @@ namespace Sunset.Story
 
         private static Transform ResolveParent()
         {
+            GameObject uiRoot = GameObject.Find("UI");
+            if (uiRoot != null)
+            {
+                Canvas preferredCanvas = ResolvePreferredUiRootCanvas(uiRoot.transform);
+                if (preferredCanvas != null)
+                {
+                    return preferredCanvas.transform;
+                }
+
+                return uiRoot.transform;
+            }
+
             return SpringDay1UiLayerUtility.ResolveUiParent();
+        }
+
+        private void EnsureAttachedToPreferredParent()
+        {
+            Transform preferredParent = ResolveParent();
+            if (preferredParent != null && transform.parent != preferredParent)
+            {
+                transform.SetParent(preferredParent, false);
+                rootRect = transform as RectTransform;
+            }
+
+            EnsureHudSiblingOrder();
+        }
+
+        private void EnsureHudSiblingOrder()
+        {
+            Transform parent = transform.parent;
+            if (parent == null)
+            {
+                return;
+            }
+
+            int currentIndex = transform.GetSiblingIndex();
+            int desiredIndex = ResolveDesiredHudSiblingIndex(parent, currentIndex);
+            if (desiredIndex != currentIndex)
+            {
+                transform.SetSiblingIndex(desiredIndex);
+            }
+        }
+
+        private int ResolveDesiredHudSiblingIndex(Transform parent, int currentIndex)
+        {
+            int afterHudIndex = -1;
+            int firstModalIndex = int.MaxValue;
+
+            for (int index = 0; index < parent.childCount; index++)
+            {
+                Transform sibling = parent.GetChild(index);
+                if (sibling == null || sibling == transform)
+                {
+                    continue;
+                }
+
+                if (ShouldTreatAsPromptModalSibling(sibling))
+                {
+                    firstModalIndex = Mathf.Min(firstModalIndex, index);
+                    continue;
+                }
+
+                if (ShouldTreatAsPromptHudSibling(sibling))
+                {
+                    afterHudIndex = Mathf.Max(afterHudIndex, index);
+                }
+            }
+
+            if (afterHudIndex < 0 && firstModalIndex == int.MaxValue)
+            {
+                return currentIndex;
+            }
+
+            int desiredIndex = afterHudIndex >= 0 ? afterHudIndex + 1 : currentIndex;
+            if (firstModalIndex != int.MaxValue)
+            {
+                desiredIndex = Mathf.Min(desiredIndex, firstModalIndex);
+            }
+
+            return Mathf.Clamp(desiredIndex, 0, Mathf.Max(0, parent.childCount - 1));
+        }
+
+        private static bool ShouldTreatAsPromptHudSibling(Transform sibling)
+        {
+            if (sibling == null)
+            {
+                return false;
+            }
+
+            switch (sibling.gameObject.name)
+            {
+                case "State":
+                case "ToolBar":
+                case "InteractionHintOverlay":
+                case "SpringDay1StatusOverlay":
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
+        private static bool ShouldTreatAsPromptModalSibling(Transform sibling)
+        {
+            if (sibling == null)
+            {
+                return false;
+            }
+
+            if (sibling.GetComponent<PackagePanelTabsUI>() != null
+                || sibling.GetComponent<global::FarmGame.UI.BoxPanelUI>() != null
+                || sibling.GetComponent<DialogueUI>() != null
+                || sibling.GetComponent<PackageSaveSettingsPanel>() != null
+                || sibling.GetComponent<SpringDay1WorkbenchCraftingOverlay>() != null)
+            {
+                return true;
+            }
+
+            string lowerName = sibling.gameObject.name.ToLowerInvariant();
+            return lowerName.Contains("package")
+                || lowerName.Contains("box")
+                || lowerName.Contains("dialogue")
+                || lowerName.Contains("workbench")
+                || lowerName.Contains("settings");
+        }
+
+        private static Canvas ResolvePreferredUiRootCanvas(Transform uiRoot)
+        {
+            if (uiRoot == null)
+            {
+                return null;
+            }
+
+            Canvas[] canvases = uiRoot.GetComponentsInChildren<Canvas>(includeInactive: true);
+            Canvas bestCanvas = null;
+            int bestScore = int.MinValue;
+
+            for (int index = 0; index < canvases.Length; index++)
+            {
+                Canvas candidate = canvases[index];
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                int score = ScoreUiRootCanvasCandidate(uiRoot, candidate);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCanvas = candidate;
+                }
+            }
+
+            return bestScore > int.MinValue ? bestCanvas : null;
+        }
+
+        private static int ScoreUiRootCanvasCandidate(Transform uiRoot, Canvas candidate)
+        {
+            if (candidate == null)
+            {
+                return int.MinValue;
+            }
+
+            string candidateName = candidate.gameObject.name;
+            string lowerName = candidateName.ToLowerInvariant();
+            int score = 0;
+
+            if (candidate.GetComponent<SpringDay1PromptOverlay>() != null)
+            {
+                score -= 900;
+            }
+
+            if (candidate.GetComponent<PackagePanelTabsUI>() != null)
+            {
+                score -= 900;
+            }
+
+            if (candidate.GetComponent<DialogueUI>() != null)
+            {
+                score -= 750;
+            }
+
+            if (candidate.GetComponent<SpringDay1WorkbenchCraftingOverlay>() != null)
+            {
+                score -= 750;
+            }
+
+            if (lowerName.Contains("packagepanel")
+                || lowerName.Contains("package")
+                || lowerName.Contains("box")
+                || lowerName.Contains("dialogue")
+                || lowerName.Contains("workbench")
+                || lowerName.Contains("prompt")
+                || lowerName.Contains("tooltip")
+                || lowerName.Contains("modal")
+                || lowerName.Contains("popup")
+                || lowerName.Contains("confirm"))
+            {
+                score -= 600;
+            }
+
+            if (candidate.transform.parent == uiRoot)
+            {
+                score += 180;
+            }
+
+            if (!candidate.overrideSorting)
+            {
+                score += 220;
+            }
+            else
+            {
+                score -= Mathf.Clamp(candidate.sortingOrder, 0, 400);
+            }
+
+            if (lowerName == "canvas" || lowerName.Contains("main") || lowerName.Contains("hud") || lowerName.Contains("ui"))
+            {
+                score += 160;
+            }
+
+            if (candidate.gameObject.activeInHierarchy)
+            {
+                score += 25;
+            }
+
+            return score;
         }
 
         private static SpringDay1PromptOverlay InstantiateRuntimePrefab()
@@ -2045,6 +3588,14 @@ namespace Sunset.Story
                 return false;
             }
 
+            RectTransform candidateBridgePrompt = candidate.bridgePromptRect != null
+                ? candidate.bridgePromptRect
+                : FindDescendantRect(candidateCard, "BridgePromptRoot");
+            if (candidateBridgePrompt == null || candidateBridgePrompt.parent != candidateCard)
+            {
+                return false;
+            }
+
             RectTransform frontRoot = candidate.pageRect != null ? candidate.pageRect : FindDirectChildRect(candidateCard, "Page");
             if (frontRoot == null || !CanBindPageRoot(frontRoot))
             {
@@ -2055,6 +3606,126 @@ namespace Sunset.Story
             return backRoot == null || CanBindPageRoot(backRoot);
         }
 
+        private bool HasLivePromptBindings()
+        {
+            return rootRect != null
+                && canvasGroup != null
+                && cardRect != null
+                && bridgePromptRect != null
+                && bridgePromptCanvasGroup != null
+                && bridgePromptText != null
+                && IsPageBindingAlive(_frontPage)
+                && IsPageBindingAlive(_backPage);
+        }
+
+        private PageRefs EnsurePageBindingsReady(PageRefs page, int requiredRowCount)
+        {
+            if (page?.root == null)
+            {
+                return null;
+            }
+
+            if (!IsPageBindingAlive(page))
+            {
+                PageRefs rebound = BindPage(page.root);
+                if (!IsPageBindingAlive(rebound))
+                {
+                    return null;
+                }
+
+                CopyPageRefs(page, rebound);
+            }
+
+            bool hasDeadRow = false;
+            for (int index = 0; index < page.rows.Count; index++)
+            {
+                if (!IsRowBindingAlive(page.rows[index]))
+                {
+                    hasDeadRow = true;
+                    break;
+                }
+            }
+
+            if (hasDeadRow)
+            {
+                BindExistingRows(page);
+            }
+
+            if (page.rows.Count < requiredRowCount)
+            {
+                EnsureRows(page, requiredRowCount);
+            }
+
+            if (ReferenceEquals(page, _frontPage))
+            {
+                CacheFrontPageRefs();
+            }
+
+            return page;
+        }
+
+        private static void CopyPageRefs(PageRefs target, PageRefs source)
+        {
+            if (target == null || source == null)
+            {
+                return;
+            }
+
+            PromptCardViewState appliedState = target.appliedState;
+
+            target.root = source.root;
+            target.canvasGroup = source.canvasGroup;
+            target.contentRoot = source.contentRoot;
+            target.taskListRoot = source.taskListRoot;
+            target.pageCurl = source.pageCurl;
+            target.pageCurlImage = source.pageCurlImage;
+            target.stageTagRoot = source.stageTagRoot;
+            target.subtitleRoot = source.subtitleRoot;
+            target.headerDividerRoot = source.headerDividerRoot;
+            target.focusRibbonRoot = source.focusRibbonRoot;
+            target.footerRoot = source.footerRoot;
+            target.titleText = source.titleText;
+            target.subtitleText = source.subtitleText;
+            target.focusText = source.focusText;
+            target.footerText = source.footerText;
+            target.rows.Clear();
+            target.rows.AddRange(source.rows);
+            target.defaultPosition = source.defaultPosition;
+            target.defaultPivot = source.defaultPivot;
+            target.defaultHeight = source.defaultHeight;
+            target.usesLegacyManualLayout = source.usesLegacyManualLayout;
+            target.preferredHeight = source.preferredHeight;
+            target.footerBaselineTop = source.footerBaselineTop;
+            target.footerDefaultHeight = source.footerDefaultHeight;
+            target.appliedState = appliedState;
+        }
+
+        private static bool IsPageBindingAlive(PageRefs page)
+        {
+            return page != null
+                && page.root != null
+                && page.canvasGroup != null
+                && page.contentRoot != null
+                && page.taskListRoot != null
+                && page.pageCurl != null
+                && page.pageCurlImage != null
+                && page.titleText != null
+                && page.subtitleText != null
+                && page.focusText != null
+                && page.footerText != null;
+        }
+
+        private static bool IsRowBindingAlive(RowRefs row)
+        {
+            return row != null
+                && row.root != null
+                && row.group != null
+                && row.plate != null
+                && row.bulletFill != null
+                && row.label != null
+                && row.detail != null;
+        }
+
         private static bool CanBindPageRoot(RectTransform pageRoot)
         {
             if (pageRoot == null)
@@ -2062,10 +3733,14 @@ namespace Sunset.Story
                 return false;
             }
 
-            if (FindDescendantComponent<TextMeshProUGUI>(pageRoot, "TitleText") == null
-                || FindDescendantComponent<TextMeshProUGUI>(pageRoot, "SubtitleText") == null
-                || FindDescendantComponent<TextMeshProUGUI>(pageRoot, "FocusText") == null
-                || FindDescendantComponent<TextMeshProUGUI>(pageRoot, "FooterText") == null)
+            TextMeshProUGUI title = FindDescendantComponent<TextMeshProUGUI>(pageRoot, "TitleText");
+            TextMeshProUGUI subtitle = FindDescendantComponent<TextMeshProUGUI>(pageRoot, "SubtitleText");
+            TextMeshProUGUI focus = FindDescendantComponent<TextMeshProUGUI>(pageRoot, "FocusText");
+            TextMeshProUGUI footer = FindDescendantComponent<TextMeshProUGUI>(pageRoot, "FooterText");
+            if (!CanReusePromptText(title)
+                || !CanReusePromptText(subtitle)
+                || !CanReusePromptText(focus)
+                || !CanReusePromptText(footer))
             {
                 return false;
             }
@@ -2106,8 +3781,19 @@ namespace Sunset.Story
             return rowRect != null
                 && rowRect.GetComponent<Image>() != null
                 && FindDescendantComponent<Image>(rowRect, "BulletFill") != null
-                && FindDescendantComponent<TextMeshProUGUI>(rowRect, "Label") != null
-                && FindDescendantComponent<TextMeshProUGUI>(rowRect, "Detail") != null;
+                && CanReusePromptText(FindDescendantComponent<TextMeshProUGUI>(rowRect, "Label"))
+                && CanReusePromptText(FindDescendantComponent<TextMeshProUGUI>(rowRect, "Detail"));
+        }
+
+        private static bool CanReusePromptText(TextMeshProUGUI text)
+        {
+            return text != null
+                && text.enabled
+                && text.gameObject.activeSelf
+                && text.color.a > 0.01f
+                && text.rectTransform.rect.width > 2f
+                && text.rectTransform.rect.height > 2f
+                && CanFontRenderText(text.font, text.text);
         }
 
         private static void RetireIncompatibleRuntimeInstances()
@@ -2249,9 +3935,11 @@ namespace Sunset.Story
             public readonly List<RowRefs> rows = new();
             public Vector2 defaultPosition;
             public Vector2 defaultPivot;
+            public float defaultHeight;
             public bool usesLegacyManualLayout;
             public float preferredHeight;
             public float footerBaselineTop;
+            public float footerDefaultHeight;
             public PromptCardViewState appliedState;
         }
 
@@ -2268,6 +3956,18 @@ namespace Sunset.Story
             public RectTransform detailRect;
             public bool usesLegacyManualLayout;
             public float preferredHeight;
+        }
+
+        private sealed class BridgePromptViewState
+        {
+            public BridgePromptViewState(string text, string signature)
+            {
+                Text = text ?? string.Empty;
+                Signature = signature ?? string.Empty;
+            }
+
+            public string Text;
+            public string Signature;
         }
 
         private sealed class PromptRowState
@@ -2306,27 +4006,34 @@ namespace Sunset.Story
 
                 if (model.Items != null)
                 {
+                    int visibleLimit = Mathf.Max(1, maxVisibleItems);
                     int primaryIndex = ResolvePrimaryItemIndex(model.Items);
-                    int visibleCount = 0;
-                    for (int index = 0; index < model.Items.Length; index++)
+                    bool hasIncompleteItems = HasIncompleteItems(model.Items);
+                    bool[] consumed = new bool[model.Items.Length];
+
+                    TryAddVisibleItem(state, model.Items, consumed, primaryIndex, focusText, model.Subtitle, model.FooterText);
+
+                    for (int index = 0; index < model.Items.Length && state.Items.Count < visibleLimit; index++)
                     {
-                        if (index != primaryIndex && visibleCount >= Mathf.Max(1, maxVisibleItems))
+                        if (index == primaryIndex)
                         {
                             continue;
                         }
 
-                        if (index != primaryIndex && maxVisibleItems <= 1)
+                        if (hasIncompleteItems && model.Items[index].Completed)
                         {
                             continue;
                         }
 
-                        state.Items.Add(CreateSanitizedRowState(model.Items[index], focusText, model.Subtitle, model.FooterText));
-                        visibleCount++;
-
-                        if (visibleCount >= Mathf.Max(1, maxVisibleItems))
+                        if (!TryAddVisibleItem(state, model.Items, consumed, index, focusText, model.Subtitle, model.FooterText))
                         {
-                            break;
+                            continue;
                         }
+                    }
+
+                    for (int index = 0; index < model.Items.Length && state.Items.Count < visibleLimit; index++)
+                    {
+                        TryAddVisibleItem(state, model.Items, consumed, index, focusText, model.Subtitle, model.FooterText);
                     }
                 }
 
@@ -2404,6 +4111,48 @@ namespace Sunset.Story
                 }
 
                 return 0;
+            }
+
+            private static bool HasIncompleteItems(SpringDay1Director.PromptTaskItem[] items)
+            {
+                if (items == null)
+                {
+                    return false;
+                }
+
+                for (int index = 0; index < items.Length; index++)
+                {
+                    if (!items[index].Completed)
+                    {
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            private static bool TryAddVisibleItem(
+                PromptCardViewState state,
+                SpringDay1Director.PromptTaskItem[] items,
+                bool[] consumed,
+                int index,
+                string focusText,
+                string subtitle,
+                string footerText)
+            {
+                if (state == null
+                    || items == null
+                    || consumed == null
+                    || index < 0
+                    || index >= items.Length
+                    || consumed[index])
+                {
+                    return false;
+                }
+
+                state.Items.Add(CreateSanitizedRowState(items[index], focusText, subtitle, footerText));
+                consumed[index] = true;
+                return true;
             }
         }
     }

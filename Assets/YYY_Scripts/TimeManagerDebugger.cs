@@ -50,11 +50,13 @@ public class TimeManagerDebugger : MonoBehaviour
              "NumPad-/- : 后退1小时")]
     public bool enableScreenClock = true;
     
-    // 时钟 GUI 缓存
-    private GUIStyle clockStyle;
-    private GUIStyle clockShadowStyle;
-    private GUIStyle helpStyle;
-    private GUIStyle helpShadowStyle;
+    // 右上角 HUD GUI 缓存
+    private GUIStyle clockTagStyle;
+    private GUIStyle clockTimeStyle;
+    private GUIStyle clockMetaStyle;
+    private GUIStyle helpTitleStyle;
+    private GUIStyle helpKeyStyle;
+    private GUIStyle helpDescriptionStyle;
     private float cachedGuiScale = -1f;
 
 #if UNITY_EDITOR || DEVELOPMENT_BUILD
@@ -76,7 +78,7 @@ public class TimeManagerDebugger : MonoBehaviour
     }
 #endif
 
-    public static TimeManagerDebugger EnsureAttached(TimeManager timeManager, bool enableScreenClockByDefault = true, bool showDebugInfoByDefault = false)
+    public static TimeManagerDebugger EnsureAttached(TimeManager timeManager, bool enableScreenClockByDefault = true, bool showDebugInfoByDefault = true)
     {
         if (timeManager == null)
         {
@@ -247,30 +249,24 @@ public class TimeManagerDebugger : MonoBehaviour
     }
 
     /// <summary>
-    /// 前进到下一个整点（分钟归零）
-    /// 例：14:30 → 15:00，14:00 → 15:00
-    /// 跨天时走 Sleep() 统一流程，与右方向键行为一致
+    /// 前进 1 小时，始终跳到整点
+    /// 例：14:30 → 15:00，26:45 → 第二天 06:00
     /// </summary>
     private void AdvanceOneHour()
     {
         var tm = TimeManager.Instance;
         int targetHour = tm.GetHour() + 1;
 
-        // 超过 dayEndHour(26) → 走 Sleep() 统一流程进入下一天
+        // 超过 dayEndHour(26) → 直接走 Sleep() 真链，避免再补分钟污染 Day1 夜间语义。
         if (targetHour > 26)
         {
-            if (TryApplyDay1ManagedTimeTarget(tm.GetYear(), tm.GetSeason(), tm.GetDay() + 1, 6, 0))
-            {
-                return;
-            }
-
             tm.Sleep();
+
             if (showDebugInfo)
-                Debug.Log($"<color=cyan>[Debugger] ⏩ +整点 → 跨天(Sleep) → {tm.GetFormattedTime()}</color>");
+                Debug.Log($"<color=cyan>[Debugger] ⏩ +1小时 → 跨天(Sleep) → {tm.GetFormattedTime()}</color>");
             return;
         }
 
-        // 分钟归零，跳到下一个整点
         if (TryApplyDay1ManagedTimeTarget(tm.GetYear(), tm.GetSeason(), tm.GetDay(), targetHour, 0))
         {
             return;
@@ -279,34 +275,18 @@ public class TimeManagerDebugger : MonoBehaviour
         tm.SetTime(tm.GetYear(), tm.GetSeason(), tm.GetDay(), targetHour, 0);
 
         if (showDebugInfo)
-            Debug.Log($"<color=cyan>[Debugger] ⏩ +整点 → {tm.GetFormattedTime()}</color>");
+            Debug.Log($"<color=cyan>[Debugger] ⏩ +1小时 → {tm.GetFormattedTime()}</color>");
     }
 
 
     /// <summary>
-    /// 后退到上一个整点（分钟归零）
-    /// 例：14:30 → 14:00，14:00 → 13:00
-    /// 最低不低于当天 06:00
+    /// 后退 1 小时，始终跳到整点，最低不低于当天 06:00
     /// </summary>
     private void RewindOneHour()
     {
         var tm = TimeManager.Instance;
         int currentHour = tm.GetHour();
-        int currentMinute = tm.GetMinute();
-
-        int targetHour;
-        if (currentMinute > 0)
-        {
-            // 有分钟余数：退到当前小时的整点（如 14:30 → 14:00）
-            targetHour = currentHour;
-        }
-        else
-        {
-            // 已经是整点：退到上一个小时（如 14:00 → 13:00）
-            targetHour = currentHour - 1;
-        }
-
-        if (targetHour < 6) targetHour = 6;
+        int targetHour = Mathf.Max(6, currentHour - 1);
 
         if (TryApplyDay1ManagedTimeTarget(tm.GetYear(), tm.GetSeason(), tm.GetDay(), targetHour, 0))
         {
@@ -316,45 +296,32 @@ public class TimeManagerDebugger : MonoBehaviour
         tm.SetTime(tm.GetYear(), tm.GetSeason(), tm.GetDay(), targetHour, 0);
 
         if (showDebugInfo)
-            Debug.Log($"<color=cyan>[Debugger] ⏪ -整点 → {tm.GetFormattedTime()}</color>");
+            Debug.Log($"<color=cyan>[Debugger] ⏪ -1小时 → {tm.GetFormattedTime()}</color>");
     }
 
     private void OnGUI()
     {
-        if (!enableDebugKeys || ShouldHideTopRightHud()) return;
+        if (!enableDebugKeys) return;
 
         float guiScale = GetGuiScaleFactor();
         EnsureGuiStyles(guiScale);
 
-        float clockWidth = 252f * guiScale;
-        float clockHeight = 32f * guiScale;
-        float margin = 10f * guiScale;
-        float helpWidth = 168f * guiScale;
-        float helpHeight = 118f * guiScale;
+        float panelWidth = 272f * guiScale;
+        float clockHeight = 68f * guiScale;
+        float margin = 12f * guiScale;
+        float helpHeight = 134f * guiScale;
         bool hasClock = enableScreenClock && TimeManager.Instance != null;
-        Rect clockRect = new Rect(Screen.width - clockWidth - margin, margin, clockWidth, clockHeight);
-        
+        Rect clockRect = new Rect(Screen.width - panelWidth - margin, margin, panelWidth, clockHeight);
+
         if (showDebugInfo)
         {
-            string helpText = "调试快捷键\n" +
-                             "→ 下一天\n" +
-                             "↓ 下一季\n" +
-                             "↑ 上一季\n" +
-                             "T 倍速\n" +
-                             "P 暂停\n" +
-                             "+ 前进1小时\n" +
-                             "- 后退1小时";
-
-            float helpTop = hasClock ? clockRect.yMax + (4f * guiScale) : margin;
-            Rect helpRect = new Rect(Screen.width - helpWidth - margin, helpTop, helpWidth, helpHeight);
-            Rect helpShadowRect = new Rect(helpRect.x + guiScale, helpRect.y + guiScale, helpRect.width, helpRect.height);
-            GUI.Label(helpShadowRect, helpText, helpShadowStyle);
-            GUI.Label(helpRect, helpText, helpStyle);
+            float helpTop = hasClock ? clockRect.yMax + (8f * guiScale) : margin;
+            Rect helpRect = new Rect(Screen.width - panelWidth - margin, helpTop, panelWidth, helpHeight);
+            DrawShortcutsPanel(helpRect, guiScale);
         }
 
-        // ── 右上角：屏幕时钟 ──
         if (!hasClock) return;
-        
+
         var tm = TimeManager.Instance;
         string seasonCN = tm.GetSeason() switch
         {
@@ -366,15 +333,14 @@ public class TimeManagerDebugger : MonoBehaviour
         };
         
         int displayHour = tm.GetHour();
-        // 26时制转24时制显示
         if (displayHour >= 24) displayHour -= 24;
 
-        string clockText = $"Y{tm.GetYear()} {seasonCN} D{tm.GetDay()}  {displayHour:D2}:{tm.GetMinute():D2}";
-
-        Rect shadowRect = new Rect(clockRect.x + guiScale, clockRect.y + guiScale, clockRect.width, clockRect.height);
-
-        GUI.Label(shadowRect, clockText, clockShadowStyle);
-        GUI.Label(clockRect, clockText, clockStyle);
+        DrawClockPanel(
+            clockRect,
+            $"Y{tm.GetYear()} {seasonCN} D{tm.GetDay()}",
+            $"{displayHour:D2}:{tm.GetMinute():D2}",
+            tm.IsTimePaused() ? "已暂停" : "运行中",
+            guiScale);
     }
 
     private float GetGuiScaleFactor()
@@ -393,47 +359,131 @@ public class TimeManagerDebugger : MonoBehaviour
 
     private void EnsureGuiStyles(float guiScale)
     {
-        if (helpStyle != null && helpShadowStyle != null && clockStyle != null && clockShadowStyle != null && Mathf.Abs(cachedGuiScale - guiScale) < 0.001f)
+        if (clockTagStyle != null
+            && clockTimeStyle != null
+            && clockMetaStyle != null
+            && helpTitleStyle != null
+            && helpKeyStyle != null
+            && helpDescriptionStyle != null
+            && Mathf.Abs(cachedGuiScale - guiScale) < 0.001f)
         {
             return;
         }
 
         cachedGuiScale = guiScale;
 
-        helpStyle = new GUIStyle(GUI.skin.label);
-        helpStyle.normal.textColor = new Color(0.92f, 0.81f, 0.28f, 0.92f);
-        helpStyle.fontSize = Mathf.Max(11, Mathf.RoundToInt(12f * guiScale));
-        helpStyle.fontStyle = FontStyle.Bold;
-        helpStyle.alignment = TextAnchor.UpperRight;
+        clockTagStyle = new GUIStyle(GUI.skin.label);
+        clockTagStyle.fontSize = Mathf.Max(9, Mathf.RoundToInt(9.5f * guiScale));
+        clockTagStyle.fontStyle = FontStyle.Bold;
+        clockTagStyle.normal.textColor = new Color(0.97f, 0.95f, 0.90f, 1f);
+        clockTagStyle.alignment = TextAnchor.MiddleCenter;
 
-        helpShadowStyle = new GUIStyle(helpStyle);
-        helpShadowStyle.normal.textColor = new Color(0f, 0f, 0f, 0.55f);
+        clockTimeStyle = new GUIStyle(GUI.skin.label);
+        clockTimeStyle.fontSize = Mathf.Max(18, Mathf.RoundToInt(23f * guiScale));
+        clockTimeStyle.fontStyle = FontStyle.Bold;
+        clockTimeStyle.normal.textColor = new Color(0.98f, 0.97f, 0.93f, 1f);
+        clockTimeStyle.alignment = TextAnchor.MiddleCenter;
 
-        clockStyle = new GUIStyle(GUI.skin.label);
-        clockStyle.fontSize = Mathf.Max(14, Mathf.RoundToInt(20f * guiScale));
-        clockStyle.fontStyle = FontStyle.Bold;
-        clockStyle.normal.textColor = new Color(0.98f, 0.98f, 0.94f, 1f);
-        clockStyle.alignment = TextAnchor.UpperRight;
+        clockMetaStyle = new GUIStyle(GUI.skin.label);
+        clockMetaStyle.fontSize = Mathf.Max(10, Mathf.RoundToInt(11f * guiScale));
+        clockMetaStyle.fontStyle = FontStyle.Bold;
+        clockMetaStyle.normal.textColor = new Color(0.91f, 0.88f, 0.80f, 0.82f);
+        clockMetaStyle.alignment = TextAnchor.MiddleCenter;
 
-        clockShadowStyle = new GUIStyle(clockStyle);
-        clockShadowStyle.normal.textColor = new Color(0f, 0f, 0f, 0.7f);
+        helpTitleStyle = new GUIStyle(GUI.skin.label);
+        helpTitleStyle.fontSize = Mathf.Max(12, Mathf.RoundToInt(14f * guiScale));
+        helpTitleStyle.fontStyle = FontStyle.Bold;
+        helpTitleStyle.normal.textColor = new Color(0.98f, 0.96f, 0.92f, 1f);
+        helpTitleStyle.alignment = TextAnchor.MiddleLeft;
+
+        helpKeyStyle = new GUIStyle(GUI.skin.label);
+        helpKeyStyle.fontSize = Mathf.Max(10, Mathf.RoundToInt(10.5f * guiScale));
+        helpKeyStyle.fontStyle = FontStyle.Bold;
+        helpKeyStyle.normal.textColor = new Color(0.20f, 0.11f, 0.03f, 1f);
+        helpKeyStyle.alignment = TextAnchor.MiddleCenter;
+
+        helpDescriptionStyle = new GUIStyle(GUI.skin.label);
+        helpDescriptionStyle.fontSize = Mathf.Max(11, Mathf.RoundToInt(11.5f * guiScale));
+        helpDescriptionStyle.fontStyle = FontStyle.Bold;
+        helpDescriptionStyle.normal.textColor = new Color(0.96f, 0.94f, 0.89f, 0.96f);
+        helpDescriptionStyle.alignment = TextAnchor.MiddleLeft;
     }
 
-    private bool ShouldHideTopRightHud()
+    private void DrawClockPanel(Rect rect, string dateText, string timeText, string stateText, float guiScale)
     {
-        DialogueManager dialogueManager = DialogueManager.Instance;
-        if (dialogueManager != null && dialogueManager.IsDialogueActive)
+        DrawPanelChrome(rect, guiScale);
+        DrawTagPill(new Rect(rect.x + (18f * guiScale), rect.y + (12f * guiScale), 40f * guiScale, 16f * guiScale), "时间");
+
+        GUI.Label(
+            new Rect(rect.x + (10f * guiScale), rect.y + (8f * guiScale), rect.width - (20f * guiScale), 28f * guiScale),
+            timeText,
+            clockTimeStyle);
+        GUI.Label(
+            new Rect(rect.x + (10f * guiScale), rect.y + (38f * guiScale), rect.width - (20f * guiScale), 18f * guiScale),
+            $"{dateText}  {stateText}",
+            clockMetaStyle);
+    }
+
+    private void DrawShortcutsPanel(Rect rect, float guiScale)
+    {
+        DrawPanelChrome(rect, guiScale);
+        DrawTagPill(new Rect(rect.x + (18f * guiScale), rect.y + (12f * guiScale), 40f * guiScale, 16f * guiScale), "调试");
+
+        GUI.Label(
+            new Rect(rect.x + (68f * guiScale), rect.y + (10f * guiScale), rect.width - (88f * guiScale), 20f * guiScale),
+            "快捷键",
+            helpTitleStyle);
+
+        DrawShortcutRow(rect, 0, "→", "下一天", guiScale);
+        DrawShortcutRow(rect, 1, "↓/↑", "切换季节", guiScale);
+        DrawShortcutRow(rect, 2, "T", "倍速", guiScale);
+        DrawShortcutRow(rect, 3, "P", "暂停", guiScale);
+        DrawShortcutRow(rect, 4, "+/-", "调整时间", guiScale);
+    }
+
+    private void DrawShortcutRow(Rect panelRect, int rowIndex, string keyText, string description, float guiScale)
+    {
+        float rowTop = panelRect.y + (40f * guiScale) + rowIndex * (17f * guiScale);
+        float keyWidth = (keyText.Length >= 3 ? 48f : 40f) * guiScale;
+        Rect keyRect = new Rect(panelRect.x + (18f * guiScale), rowTop, keyWidth, 15f * guiScale);
+        Rect descRect = new Rect(panelRect.x + (keyRect.xMax - panelRect.x) + (12f * guiScale), rowTop - (1f * guiScale), panelRect.width - (keyRect.xMax - panelRect.x) - (32f * guiScale), 18f * guiScale);
+        DrawKeyPill(keyRect, keyText, guiScale);
+        GUI.Label(descRect, description, helpDescriptionStyle);
+    }
+
+    private void DrawPanelChrome(Rect rect, float guiScale)
+    {
+        DrawFilledRect(rect, new Color(0.10f, 0.13f, 0.18f, 0.92f));
+        DrawFilledRect(new Rect(rect.x, rect.y, 3f * guiScale, rect.height), new Color(0.93f, 0.72f, 0.27f, 0.96f));
+        DrawFilledRect(new Rect(rect.x, rect.y, rect.width, 1f * guiScale), new Color(0.78f, 0.61f, 0.19f, 0.24f));
+        DrawFilledRect(new Rect(rect.x, rect.yMax - (1f * guiScale), rect.width, 1f * guiScale), new Color(0.04f, 0.05f, 0.08f, 0.32f));
+        DrawFilledRect(new Rect(rect.xMax - (1f * guiScale), rect.y, 1f * guiScale, rect.height), new Color(0.04f, 0.05f, 0.08f, 0.32f));
+    }
+
+    private void DrawTagPill(Rect rect, string text)
+    {
+        DrawFilledRect(rect, new Color(0.93f, 0.72f, 0.27f, 0.23f));
+        GUI.Label(rect, text, clockTagStyle);
+    }
+
+    private void DrawKeyPill(Rect rect, string text, float guiScale)
+    {
+        DrawFilledRect(rect, new Color(0.93f, 0.72f, 0.27f, 0.98f));
+        DrawFilledRect(new Rect(rect.x, rect.yMax - (1f * guiScale), rect.width, 1f * guiScale), new Color(0.52f, 0.35f, 0.09f, 0.28f));
+        GUI.Label(rect, text, helpKeyStyle);
+    }
+
+    private static void DrawFilledRect(Rect rect, Color color)
+    {
+        if (Event.current.type != EventType.Repaint)
         {
-            return true;
+            return;
         }
 
-        SpringDay1Director director = SpringDay1Director.Instance;
-        if (director != null && director.ShouldForceHideTaskListForCurrentStory())
-        {
-            return true;
-        }
-
-        return false;
+        Color previousColor = GUI.color;
+        GUI.color = color;
+        GUI.DrawTexture(rect, Texture2D.whiteTexture, ScaleMode.StretchToFill, alphaBlend: true);
+        GUI.color = previousColor;
     }
 
     private bool TryApplyDay1ManagedTimeTarget(

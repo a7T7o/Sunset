@@ -1,5 +1,7 @@
 using FarmGame.UI;
+using Unity.Cinemachine;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Sunset.Story
 {
@@ -11,6 +13,17 @@ namespace Sunset.Story
             bool packageOpen = packageTabs != null && packageTabs.IsPanelOpen();
             bool boxOpen = BoxPanelUI.ActiveInstance != null && BoxPanelUI.ActiveInstance.IsOpen;
             return packageOpen || boxOpen;
+        }
+
+        public static bool ShouldHidePromptOverlayForParentModalUi()
+        {
+            if (IsBlockingPageUiOpen())
+            {
+                return true;
+            }
+
+            SpringDay1WorkbenchCraftingOverlay workbenchOverlay = Object.FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            return workbenchOverlay != null && workbenchOverlay.IsVisible;
         }
 
         public static Transform ResolveUiParent()
@@ -28,21 +41,13 @@ namespace Sunset.Story
 
         public static Camera GetWorldProjectionCamera(Canvas canvas = null)
         {
-            if (canvas != null)
+            if (TryGetCanvasWorldCamera(canvas, out Camera canvasWorldCamera))
             {
-                Canvas rootCanvas = canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
-                if (rootCanvas.renderMode == RenderMode.ScreenSpaceCamera && rootCanvas.worldCamera != null)
-                {
-                    return rootCanvas.worldCamera;
-                }
-
-                if (rootCanvas.renderMode == RenderMode.WorldSpace && rootCanvas.worldCamera != null)
-                {
-                    return rootCanvas.worldCamera;
-                }
+                return canvasWorldCamera;
             }
 
-            return Camera.main ?? Object.FindFirstObjectByType<Camera>(FindObjectsInactive.Include);
+            Scene preferredScene = canvas != null ? canvas.gameObject.scene : default;
+            return ResolveSceneWorldCamera(preferredScene);
         }
 
         public static Camera GetUiEventCamera(Canvas canvas)
@@ -54,6 +59,68 @@ namespace Sunset.Story
 
             Canvas rootCanvas = canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
             return rootCanvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : rootCanvas.worldCamera;
+        }
+
+        public static bool TryProjectWorldToCanvas(
+            Canvas canvas,
+            RectTransform rootRect,
+            Vector3 worldPoint,
+            Vector2 screenOffset,
+            out Vector2 localPoint)
+        {
+            localPoint = default;
+            if (rootRect == null || !TryProjectWorldToScreen(canvas, worldPoint, screenOffset, out Vector2 screenPoint))
+            {
+                return false;
+            }
+
+            return RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                rootRect,
+                screenPoint,
+                GetUiEventCamera(canvas),
+                out localPoint);
+        }
+
+        public static bool TryProjectWorldToScreen(
+            Canvas canvas,
+            Vector3 worldPoint,
+            Vector2 screenOffset,
+            out Vector2 screenPoint)
+        {
+            return TryProjectWorldToScreen(GetWorldProjectionCamera(canvas), worldPoint, screenOffset, out screenPoint);
+        }
+
+        public static bool TryProjectWorldToScreen(
+            Camera worldCamera,
+            Vector3 worldPoint,
+            Vector2 screenOffset,
+            out Vector2 screenPoint)
+        {
+            screenPoint = default;
+            if (!IsUsableWorldCamera(worldCamera))
+            {
+                return false;
+            }
+
+            Vector3 viewportPoint = worldCamera.WorldToViewportPoint(worldPoint);
+            if (!IsFinite(viewportPoint) ||
+                viewportPoint.z <= 0f ||
+                viewportPoint.x < 0f ||
+                viewportPoint.x > 1f ||
+                viewportPoint.y < 0f ||
+                viewportPoint.y > 1f)
+            {
+                return false;
+            }
+
+            Vector3 rawScreenPoint = worldCamera.WorldToScreenPoint(worldPoint);
+            if (!IsFinite(rawScreenPoint))
+            {
+                return false;
+            }
+
+            screenPoint = new Vector2(rawScreenPoint.x, rawScreenPoint.y) + screenOffset;
+            return IsFinite(screenPoint);
         }
 
         public static Vector2 SnapToCanvasPixel(Canvas canvas, Vector2 localPoint)
@@ -215,6 +282,101 @@ namespace Sunset.Story
             }
 
             return hasCollider;
+        }
+
+        private static bool TryGetCanvasWorldCamera(Canvas canvas, out Camera worldCamera)
+        {
+            worldCamera = null;
+            if (canvas == null)
+            {
+                return false;
+            }
+
+            Canvas rootCanvas = canvas.rootCanvas != null ? canvas.rootCanvas : canvas;
+            if ((rootCanvas.renderMode == RenderMode.ScreenSpaceCamera || rootCanvas.renderMode == RenderMode.WorldSpace) &&
+                IsUsableWorldCamera(rootCanvas.worldCamera))
+            {
+                worldCamera = rootCanvas.worldCamera;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static Camera ResolveSceneWorldCamera(Scene preferredScene)
+        {
+            Camera bestCamera = null;
+            int bestScore = int.MinValue;
+            Scene activeScene = SceneManager.GetActiveScene();
+            Camera[] cameras = Object.FindObjectsByType<Camera>(FindObjectsSortMode.None);
+            for (int index = 0; index < cameras.Length; index++)
+            {
+                Camera candidate = cameras[index];
+                if (!IsUsableWorldCamera(candidate))
+                {
+                    continue;
+                }
+
+                int score = ScoreWorldCamera(candidate, preferredScene, activeScene);
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestCamera = candidate;
+                }
+            }
+
+            return bestCamera;
+        }
+
+        private static bool IsUsableWorldCamera(Camera candidate)
+        {
+            if (candidate == null || !candidate.enabled || candidate.targetTexture != null)
+            {
+                return false;
+            }
+
+            GameObject cameraObject = candidate.gameObject;
+            Scene scene = cameraObject.scene;
+            return cameraObject.activeInHierarchy && scene.IsValid() && scene.isLoaded;
+        }
+
+        private static int ScoreWorldCamera(Camera candidate, Scene preferredScene, Scene activeScene)
+        {
+            int score = 0;
+            Scene candidateScene = candidate.gameObject.scene;
+            if (preferredScene.IsValid() && candidateScene == preferredScene)
+            {
+                score += 180;
+            }
+
+            if (activeScene.IsValid() && candidateScene == activeScene)
+            {
+                score += 140;
+            }
+
+            if (candidate.CompareTag("MainCamera"))
+            {
+                score += 220;
+            }
+
+            CinemachineBrain brain = candidate.GetComponent<CinemachineBrain>();
+            if (brain != null && brain.enabled)
+            {
+                score += 200;
+            }
+
+            score += Mathf.RoundToInt(Mathf.Clamp(candidate.depth, -20f, 20f));
+            return score;
+        }
+
+        private static bool IsFinite(Vector2 value)
+        {
+            return float.IsFinite(value.x) && float.IsFinite(value.y);
+        }
+
+        private static bool IsFinite(Vector3 value)
+        {
+            return float.IsFinite(value.x) && float.IsFinite(value.y) && float.IsFinite(value.z);
         }
     }
 }
