@@ -794,6 +794,78 @@ public class NavigationAvoidanceRulesTests
     }
 
     [Test]
+    public void NPCAutoRoamController_ShouldSoftArrive_WhenAutonomousFailureHappensNearDestination()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_SoftArrivalTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            go.transform.position = new Vector2(0.16f, 0f);
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(0.34f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(0.34f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool softArrived = (bool)InvokeInstance(
+                controller,
+                "TryFinishAutonomousRoamSoftArrival",
+                new Vector2(0.16f, 0f),
+                "UnitTest");
+
+            Assert.That(softArrived, Is.True);
+            Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
+            Assert.That((int)GetFieldOrProperty(controller, "CompletedShortPauseCount"), Is.EqualTo(1));
+            Assert.That((Vector2)GetFieldOrProperty(controller, "lastStaticBlockedDestination"), Is.EqualTo(new Vector2(0.34f, 0f)));
+            Assert.That((Vector2)GetFieldOrProperty(controller, "lastStaticBlockedPosition"), Is.EqualTo(new Vector2(0.16f, 0f)));
+            Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("AutonomousSoftArrival:UnitTest"));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldNotSoftArrive_WhenAutonomousFailureIsStillFarFromDestination()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_SoftArrivalRejectTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            go.transform.position = Vector2.zero;
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(1.2f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(1.2f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool canSoftArrive = (bool)InvokeInstance(
+                controller,
+                "CanTreatAutonomousRoamFailureAsSoftArrival",
+                Vector2.zero);
+
+            Assert.That(canSoftArrive, Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
     public void NPCAutoRoamController_ShouldRejectFormalNavigationBadPoint_WhenDestinationGapIsNarrowerThanBody()
     {
         Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");

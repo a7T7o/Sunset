@@ -517,3 +517,89 @@
   1. 先沿 `201 roam interrupted => StuckRecoveryFailed` 这条链补自救闭环
   2. 再顺着 `maxBlockedAdvanceFrames=417 / Stuck=49` 收坏点与 blocked advance residual
   3. 不把 `102 + 003` 这两个 `night-witness` staged 特例误吞进“普通 resident 导航故障”
+
+## 2026-04-15｜导航健康首刀：autonomous roam 失败先软着陆/换点，不再直接回坏循环
+
+### 用户目标
+- 用户明确要求先把前面的 own 内容提交，然后直接落地做“导航健康”本身，而不是继续停在分析。
+
+### 本轮实际做成了什么
+1. 已先完成 own checkpoint 提交：
+   - 本地 commit：`658efdff`
+   - 提交内容包含：
+     - `Package A` 代码与测试
+     - facade consumer surface 改口
+     - `导航V3` 工作区 / 父层 / 线程 memory
+2. 我随后重新开了 `nav-health-stuck-recovery-and-badpoint-fix` slice，只盯当前真实 residual：
+   - `StuckRecoveryFailed`
+   - `blocked advance / 坏点 residual`
+3. 已在 `NPCAutoRoamController.cs` 落下这刀核心执行修复：
+   - 当 `autonomous roam` 已经接近目标，但最后几步因为坏点/静态阻塞失败时，不再继续硬撞或重复中断，而是走 `AutonomousSoftArrival`
+   - 当 `autonomous roam` 在 moving 中出现 `PathClearedWhileMoving / WaypointMissingWhileMoving / blocked advance / stuck recovery failed` 时，会先尝试：
+     1. `soft arrival`
+     2. 失败目标记坏点
+     3. 立即重选新 roam 目标
+   - 不再第一时间直接掉回原来的失败循环
+4. 已补测试覆盖：
+   - `NPCAutoRoamController_ShouldSoftArrive_WhenAutonomousFailureHappensNearDestination`
+   - `NPCAutoRoamController_ShouldNotSoftArrive_WhenAutonomousFailureIsStillFarFromDestination`
+5. 已做 fresh 代码验证：
+   - `validate_script NPCAutoRoamController.cs` => `errors=0 / warnings=1`
+     - 唯一 warning 仍是旧的 `Update()` 字符串拼接 GC 提示
+   - `validate_script NavigationAvoidanceRulesTests.cs` => `errors=0 / warnings=0`
+   - `NavigationAvoidanceRulesTests` => `30/30 passed`
+   - `git diff --check`（本轮两文件）通过
+
+### fresh live 结果
+1. 我直接在 `Town` 里做了两轮短窗 live 回归：
+   - 进入 `Play`
+   - 强跳 `FreeTime`
+   - 跑 `Tools/Sunset/NPC/Run Roam Spike Stopgap Probe`
+   - 每轮 6 秒后立刻停
+2. 第一轮 live：
+   - `phase=FreeTime`
+   - `beat=FreeTime_NightWitness`
+   - resident probe 里 `101/102/103/104/201/202/203` 全部：
+     - `isRoaming=true`
+     - `isMoving=true`
+     - `blockedAdvanceFrames=0`
+     - `consecutivePathBuildFailures=0`
+     - `lastMoveSkipReason=AdvanceConfirmed`
+   - spike probe：
+     - `npcCount=25`
+     - `roamNpcCount=25`
+     - `avgFrameMs=1.24`
+     - `maxBlockedNpcCount=0`
+     - `maxBlockedAdvanceFrames=0`
+     - `maxConsecutivePathBuildFailures=0`
+     - `topSkipReasons=AdvanceConfirmed`
+3. 第二轮复跑：
+   - spike probe：
+     - `npcCount=25`
+     - `roamNpcCount=16`
+     - `avgFrameMs=1.04`
+     - `maxBlockedNpcCount=0`
+     - `maxBlockedAdvanceFrames=0`
+     - `maxConsecutivePathBuildFailures=0`
+     - `topSkipReasons=AdvanceConfirmed`
+4. fresh console：
+   - 没有新的导航 error
+   - 只剩外部字体 warning：
+     - `LiberationSans SDF (Runtime)` atlas static
+
+### 当前判断
+1. 这刀已经把之前最刺眼的 live 病灶压掉了：
+   - `StuckRecoveryFailed` 没再冒头
+   - `blockedAdvanceFrames` 从先前的 `417` 压到两轮 `0`
+   - `topSkipReasons` 不再出现 `Stuck`
+2. 这说明当前导航 own 至少在这条 true free-time 短窗里，已经从“坏点+不会自救”回到“能持续前进”的健康态。
+3. 这轮最值钱的不是把参数再调大，而是把失败处理语义从：
+   - `失败 -> 中断/重试 -> 回原坏循环`
+   改成：
+   - `失败 -> 近点软着陆 或 记坏点后立即换点`
+
+### 当前恢复点
+- 本轮已再次 `Park-Slice`，当前 thread-state = `PARKED`。
+- 下一轮如果继续，不该立刻再扩大改面，而应优先做：
+  1. 把这刀代码 + memory 一起提交
+  2. 若用户继续终验，再按同样 free-time live 口径做更长窗口或指定坏点复测

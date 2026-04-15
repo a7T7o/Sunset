@@ -61,6 +61,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const float HOME_ANCHOR_MISMATCH_PADDING = 0.5f;
     private const float AUTONOMOUS_ROAM_DESTINATION_CORRECTION_MIN = 0.22f;
     private const float AUTONOMOUS_ROAM_DESTINATION_CORRECTION_MAX = 0.65f;
+    private const float AUTONOMOUS_ROAM_SOFT_ARRIVAL_DISTANCE_MIN = 0.22f;
+    private const float AUTONOMOUS_ROAM_SOFT_ARRIVAL_DISTANCE_MAX = 0.52f;
     private const float AUTONOMOUS_ROAM_PATH_DETOUR_RATIO_LIMIT = 1.8f;
     private const float AUTONOMOUS_ROAM_PATH_DETOUR_MIN_EXTRA_DISTANCE = 0.45f;
     private const float AUTONOMOUS_ROAM_PATH_ROAM_RADIUS_MARGIN = 0.4f;
@@ -2101,6 +2103,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         {
             ClearMoveDecisionCache();
             lastMoveSkipReason = "PathClearedWhileMoving";
+            if (TryRecoverAutonomousRoamFailureBeforeInterrupt(currentPosition, "PathClearedWhileMoving"))
+            {
+                return;
+            }
+
             if (TryInterruptRoamMove(
                     RoamMoveInterruptionReason.StuckRecoveryFailed,
                     currentPosition,
@@ -2181,6 +2188,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         {
             CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "MissingWaypoint";
+            if (TryRecoverAutonomousRoamFailureBeforeInterrupt(currentPosition, "WaypointMissingWhileMoving"))
+            {
+                return;
+            }
+
             if (TryInterruptRoamMove(
                     RoamMoveInterruptionReason.StuckRecoveryFailed,
                     currentPosition,
@@ -2652,6 +2664,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         if (TryBeginMove(preserveBlockedRecoveryState: true))
+        {
+            return true;
+        }
+
+        if (TryRecoverAutonomousRoamFailureBeforeInterrupt(
+                currentPosition,
+                progress.ShouldCancel ? "StuckCancel" : "StuckRecoveryFailed"))
         {
             return true;
         }
@@ -5512,6 +5531,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
+        if (TryRecoverAutonomousRoamFailureBeforeInterrupt(currentPosition, $"BlockedAdvance:{reason}"))
+        {
+            return true;
+        }
+
         if (ShouldEarlyAbortAutonomousRoamMove())
         {
             lastMoveSkipReason = "BlockedAdvanceStopgap";
@@ -5828,6 +5852,62 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         lastMoveSkipReason = $"BlockedAdvanceStaticRetarget:{reason}";
         RefreshProgressCheckpoint(currentPosition, resetCounter: true);
         return true;
+    }
+
+    private bool TryRecoverAutonomousRoamFailureBeforeInterrupt(Vector2 currentPosition, string reason)
+    {
+        if (!UsesAutonomousRoamExecutionContract())
+        {
+            return false;
+        }
+
+        if (TryFinishAutonomousRoamSoftArrival(currentPosition, reason))
+        {
+            return true;
+        }
+
+        return TryRetargetAutonomousRoamAfterStaticBlock(currentPosition, reason);
+    }
+
+    private bool TryFinishAutonomousRoamSoftArrival(Vector2 currentPosition, string reason)
+    {
+        if (!CanTreatAutonomousRoamFailureAsSoftArrival(currentPosition))
+        {
+            return false;
+        }
+
+        RememberStaticBlockedDestination(currentPosition, GetRebuildRequestedDestination());
+        lastMoveSkipReason = $"AutonomousSoftArrival:{reason}";
+        FinishMoveCycle(countTowardLongPause: true, reachedDestination: true);
+        return true;
+    }
+
+    private bool CanTreatAutonomousRoamFailureAsSoftArrival(Vector2 currentPosition)
+    {
+        if (!UsesAutonomousRoamExecutionContract() || state != RoamState.Moving)
+        {
+            return false;
+        }
+
+        Vector2 requestedDestination = GetRebuildRequestedDestination();
+        if (Vector2.Distance(currentPosition, requestedDestination) > GetAutonomousRoamSoftArrivalDistance())
+        {
+            return false;
+        }
+
+        return IsWithinAutonomousRoamBounds(GetRoamCenter(), currentPosition);
+    }
+
+    private float GetAutonomousRoamSoftArrivalDistance()
+    {
+        float desiredDistance = Mathf.Max(
+            destinationTolerance * 2.2f,
+            GetColliderRadius() + GetContactShellPadding(),
+            minimumMoveDistance * 0.45f);
+        return Mathf.Clamp(
+            desiredDistance,
+            AUTONOMOUS_ROAM_SOFT_ARRIVAL_DISTANCE_MIN,
+            AUTONOMOUS_ROAM_SOFT_ARRIVAL_DISTANCE_MAX);
     }
 
     private void RecordBlockedAdvance(Vector2 currentPosition)

@@ -5869,3 +5869,36 @@
      - 先补 `StuckRecoveryFailed` 自救闭环
      - 再收坏点 / blocked advance residual
      - 不再先纠结“是不是还没放行”
+
+## 2026-04-15 导航父层补记：导航健康首刀已把 free-time 短窗 blocked/stuck 压回 0
+- 子工作区 `导航V3` 已先完成自己的阶段 checkpoint：
+  - 本地 commit：`658efdff`
+- 随后它直接进入“导航健康”主修，没再停在分析层。
+- 子层这轮新增的有效代码动作集中在：
+  - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+  - [NavigationAvoidanceRulesTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs)
+- 子层这轮核心修复不是再泛调参数，而是把 `autonomous roam` 的失败处理改成：
+  1. 近目标失败时允许 `soft arrival`
+  2. `PathClearedWhileMoving / WaypointMissingWhileMoving / blocked advance / stuck failure` 先尝试：
+     - 软着陆
+     - 记坏点
+     - 立即换点
+  3. 不再第一时间掉回原坏循环
+- 子层验证摘要：
+  - `validate_script NPCAutoRoamController.cs` => `errors=0 / warnings=1`
+    - warning 仍是旧的 `Update()` 字符串拼接 GC 提示
+  - `validate_script NavigationAvoidanceRulesTests.cs` => `errors=0 / warnings=0`
+  - `NavigationAvoidanceRulesTests` => `30/30 passed`
+  - `git diff --check`（本轮两文件）通过
+- 子层 fresh live 摘要：
+  1. `Town + Play + Force FreeTime + 6秒 spike probe` 连跑两轮
+  2. 第一轮：
+     - resident probe 中 `101/102/103/104/201/202/203` 都是 `isMoving=true / blockedAdvanceFrames=0 / lastMoveSkipReason=AdvanceConfirmed`
+     - spike probe：`npcCount=25 / roamNpcCount=25 / avgFrameMs=1.24 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+  3. 第二轮复跑：
+     - spike probe：`npcCount=25 / roamNpcCount=16 / avgFrameMs=1.04 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+  4. fresh console 没有新的导航 error，只剩外部字体 warning
+- 父层判断更新：
+  1. 这条线当前最关键的“不会自救 + blocked advance residual”已经在 true free-time 短窗里出现强收敛信号。
+  2. 当前不再是“导航一跑就 stuck / blocked / path failure 爆表”的状态。
+  3. 最该继续保持的是这条失败处理语义，不是再把改面突然扩大回 Day1 或杂项参数。
