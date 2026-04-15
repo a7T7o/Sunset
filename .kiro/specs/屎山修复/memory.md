@@ -5902,3 +5902,44 @@
   1. 这条线当前最关键的“不会自救 + blocked advance residual”已经在 true free-time 短窗里出现强收敛信号。
   2. 当前不再是“导航一跑就 stuck / blocked / path failure 爆表”的状态。
   3. 最该继续保持的是这条失败处理语义，不是再把改面突然扩大回 Day1 或杂项参数。
+
+## 2026-04-16 导航父层补记：导航V3 已继续把“健康 + 性能”一起往前收
+- 子工作区 `导航V3` 本轮没有停在昨天那刀的好信号上，而是继续做了两层推进：
+  1. 先把 free-time short-window 健康信号压成 3 次独立样本
+  2. 再落一刀不漂的性能优化：收 `NavigationAgentRegistry` 的 active-unit 全表扫描债
+- 子层这轮新增的有效代码动作集中在：
+  - [NavigationAgentRegistry.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs)
+  - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+  - [NavigationAvoidanceRulesTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs)
+- 子层这轮实际收掉的是：
+  1. `NavigationAgentRegistry` 现在会把 active unit cache 控制成“每帧最多重建一次”，让：
+     - `GetNearbySnapshots(...)`
+     - `GetRegisteredUnits<T>(...)`
+     共用同一层 active cache，而不是每次调用都从 `RegisteredUnits` 重扫
+  2. 同时补了一条新测试，钉死“同一帧里 controller disable 后，下次 registry 查询也必须刷新”
+  3. 还顺手修掉了一条旧的 debug 语义丢失：
+     - `AutonomousSoftArrival:*` 之前会在 `FinishMoveCycle -> ResetMovementRecovery()` 后被冲回 `AdvanceConfirmed`
+     - 现在 soft-arrival 的真实 reason 会保留下来
+- 子层 fresh 代码验证摘要：
+  - direct `validate_script`
+    - `NPCAutoRoamController.cs` => `errors=0 warnings=1`
+    - `NavigationAgentRegistry.cs` => `errors=0 warnings=0`
+    - `NavigationAvoidanceRulesTests.cs` => `errors=0 warnings=0`
+  - `NavigationAvoidanceRulesTests` 全类 => `33/33 passed`
+- 子层 fresh live 摘要：
+  1. 先做了 3 次独立 free-time 短窗：
+     - `avgFrameMs=2.73 / 2.69 / 2.48`
+     - `maxBlockedAdvanceFrames=0`
+     - `maxConsecutivePathBuildFailures=0`
+  2. 代码改完后又做了 3 次独立 free-time 短窗：
+     - `avgFrameMs=0.75 / 0.78 / 0.81`
+     - `maxBlockedAdvanceFrames=0`
+     - `maxConsecutivePathBuildFailures=0`
+     - `topSkipReasons=AdvanceConfirmed`
+  3. fresh Unity 收尾：
+     - `Town.unity / Edit Mode`
+     - `errors=0 warnings=0`
+- 父层判断因此更新为：
+  1. 当前导航线已经不是“为了性能牺牲执行质量”，而是“执行质量继续稳住，同时又把 registry 级性能债再收掉一层”。
+  2. 当前最不该做的事，是因为已经够绿就反过来放弃继续清真正的结构性尾项；但也不该在没有坏证据时重回大面积盲改。
+  3. 这条线现在更接近“可交用户终验”的状态了，但还不能偷换成“清单所有 package 已形式化完成”。

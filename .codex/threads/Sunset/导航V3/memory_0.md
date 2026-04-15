@@ -582,3 +582,99 @@
 - 如果继续下一轮，最稳的顺序是：
   1. 先把这刀代码 + memory 提交
   2. 再看用户是否要更长 free-time soak，或指定坏点人工复验
+
+## 2026-04-16｜继续无人监管施工：把导航健康信号压实后，再收 registry 性能债
+
+### 用户目标
+- 用户明确允许我继续测试和做内容，强调：
+  - 能测就继续测
+  - 测不了就继续做清单内容
+  - 必须兼顾功能和性能，不能偏移
+
+### 当前主线
+- 仍是导航 own 的“导航健康 + 性能兼顾”。
+- 这轮子任务我自己定成两段：
+  1. 先把 free-time 短窗健康信号压成 repeatable truth
+  2. 再把仍然留着的 registry 全表扫描性能债收掉
+
+### 已完成事项
+1. 手工执行了 Sunset 前置核查与 live 验证等价流程：
+   - `skills-governor`
+   - `sunset-workspace-router`
+   - `sunset-unity-validation-loop`
+2. 先做 3 次独立 `Town + Play + Force FreeTime + 6秒 spike probe + Stop`：
+   - Run1：`avgFrameMs=2.73 / roamNpcCount=18 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - Run2：`avgFrameMs=2.69 / roamNpcCount=25 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - Run3：`avgFrameMs=2.48 / roamNpcCount=25 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - 三轮共同点：
+     - `maxBlockedNpcCount=0`
+     - `blockedAdvanceStopgapSamples=0`
+     - `passiveAvoidanceStopgapSamples=0`
+     - `stuckCancelStopgapSamples=0`
+     - `topSkipReasons=AdvanceConfirmed`
+3. 我随后回到代码层，只开一刀不漂的性能修复：
+   - [NavigationAgentRegistry.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs)
+   - 把 active unit 过滤改成 cache 方案：
+     - 每帧最多重建一次
+     - `GetNearbySnapshots(...)` 与 `GetRegisteredUnits<T>(...)` 共用
+     - 同帧 disable 仍能刷新
+4. 补了测试：
+   - `NavigationAgentRegistry_ShouldRefreshCachedUnits_WhenControllerDisablesWithinSameFrame`
+5. 跑全类回归时又抓到一条旧语义噪音，并顺手修掉：
+   - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+   - `AutonomousSoftArrival:*` 之前会被 `ResetMovementRecovery()` 冲回 `AdvanceConfirmed`
+   - 现在 soft-arrival 的 reason 会保留下来
+6. fresh 代码验证：
+   - direct `validate_script`
+     - `NPCAutoRoamController.cs` => `errors=0 warnings=1`
+     - `NavigationAgentRegistry.cs` => `errors=0 warnings=0`
+     - `NavigationAvoidanceRulesTests.cs` => `errors=0 warnings=0`
+   - `NavigationAvoidanceRulesTests` 全类 => `33/33 passed`
+7. 代码改完后又补 3 次独立 free-time 短窗：
+   - Run1：`avgFrameMs=0.75 / roamNpcCount=25 / maxBlockedAdvanceFrames=0`
+   - Run2：`avgFrameMs=0.78 / roamNpcCount=25 / maxBlockedAdvanceFrames=0`
+   - Run3：`avgFrameMs=0.81 / roamNpcCount=25 / maxBlockedAdvanceFrames=0`
+   - 三轮仍然共同成立：
+     - `maxBlockedNpcCount=0`
+     - `maxConsecutivePathBuildFailures=0`
+     - `blockedAdvanceStopgapSamples=0`
+     - `stuckCancelStopgapSamples=0`
+     - `topSkipReasons=AdvanceConfirmed`
+8. fresh 收尾现场：
+   - `python scripts/sunset_mcp.py status` => `Town.unity / Edit Mode`
+   - `python scripts/sunset_mcp.py errors --count 20` => `errors=0 warnings=0`
+9. 本轮已重新执行并收口：
+   - `Begin-Slice`
+   - `Park-Slice`
+   - 当前 thread-state=`PARKED`
+
+### 关键决策
+- 我这轮没有继续放大改面。
+- 我选的是：
+  - 先用 repeat soak 证明“不是偶尔绿一下”
+  - 再只收一个真正会伤性能、但又不会伤行为语义的核心点
+- 这样做的原因：
+  - 你要求我兼顾功能和性能
+  - 当前 live 没给出新的功能坏证据
+  - 那就不该重新盲改行为，而该去还剩下的性能债
+
+### 当前判断
+- 当前能更有把握地说：
+  - 导航 own 在 `Town + true FreeTime + 独立短窗 repeat run` 这层，已经是稳定健康态
+  - 这轮又把 registry 级性能债往前收了一步
+- 但我还不把它包装成：
+  - “清单所有 package 全部形式化完工”
+- 更准确说法是：
+  - `短窗健康 + 代码性能债继续下降`
+  - `更重 targeted probe / 用户体感终验` 仍然是下一层
+
+### 涉及路径
+- `D:\\Unity\\Unity_learning\\Sunset\\Assets\\YYY_Scripts\\Service\\Navigation\\NavigationAgentRegistry.cs`
+- `D:\\Unity\\Unity_learning\\Sunset\\Assets\\YYY_Scripts\\Controller\\NPC\\NPCAutoRoamController.cs`
+- `D:\\Unity\\Unity_learning\\Sunset\\Assets\\YYY_Tests\\Editor\\NavigationAvoidanceRulesTests.cs`
+- `D:\\Unity\\Unity_learning\\Sunset\\Library\\CodexEditorCommands\\npc-roam-spike-stopgap-probe.json`
+
+### 下一步恢复点
+- 当前最稳的下一步不是再盲改导航行为，而是：
+  1. 先把这轮 own 内容做成 checkpoint
+  2. 再决定是继续做更重 targeted probe，还是停给用户做体感终验

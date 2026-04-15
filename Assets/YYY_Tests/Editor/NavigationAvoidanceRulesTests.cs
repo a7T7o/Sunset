@@ -1659,6 +1659,43 @@ public class NavigationAvoidanceRulesTests
         }
     }
 
+    [Test]
+    public void NavigationAgentRegistry_ShouldRefreshCachedUnits_WhenControllerDisablesWithinSameFrame()
+    {
+        GameObject active = new GameObject("RegistryNpc_CachedActive");
+
+        try
+        {
+            Type controllerType = ResolveTypeOrFail("PlayerAutoNavigator");
+            Component controller = active.AddComponent(controllerType);
+
+            Type registryType = ResolveTypeOrFail("NavigationAgentRegistry");
+            MethodInfo registerMethod = registryType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static);
+            Assert.IsNotNull(registerMethod, "未找到 NavigationAgentRegistry.Register");
+            registerMethod.Invoke(null, new object[] { controller });
+
+            Type bufferType = typeof(List<>).MakeGenericType(controllerType);
+            IList buffer = (IList)Activator.CreateInstance(bufferType);
+            MethodInfo registryMethod = registryType
+                .GetMethod("GetRegisteredUnits", BindingFlags.Public | BindingFlags.Static)
+                ?.MakeGenericMethod(controllerType);
+            Assert.IsNotNull(registryMethod, "未找到 NavigationAgentRegistry.GetRegisteredUnits<T>");
+
+            registryMethod.Invoke(null, new object[] { buffer });
+            Assert.That(buffer.Contains(controller), Is.True);
+
+            ((Behaviour)controller).enabled = false;
+            buffer.Clear();
+            registryMethod.Invoke(null, new object[] { buffer });
+
+            Assert.That(buffer.Contains(controller), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(active);
+        }
+    }
+
     private static object CreateSnapshot(
         Type snapshotType,
         Type unitType,

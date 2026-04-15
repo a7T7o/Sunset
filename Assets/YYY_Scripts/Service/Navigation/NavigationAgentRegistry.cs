@@ -8,6 +8,10 @@ public static class NavigationAgentRegistry
 {
     private static readonly HashSet<INavigationUnit> RegisteredUnits = new HashSet<INavigationUnit>();
     private static readonly List<INavigationUnit> StaleUnits = new List<INavigationUnit>();
+    private static readonly List<INavigationUnit> ActiveUnitsCache = new List<INavigationUnit>();
+    private static int ActiveUnitsCacheFrame = -1;
+    private static int ActiveUnitsCacheVersion = -1;
+    private static int RegistryVersion = 0;
 
     public static void Register(INavigationUnit unit)
     {
@@ -17,6 +21,7 @@ public static class NavigationAgentRegistry
         }
 
         RegisteredUnits.Add(unit);
+        RegistryVersion++;
     }
 
     public static void Unregister(INavigationUnit unit)
@@ -26,37 +31,18 @@ public static class NavigationAgentRegistry
             return;
         }
 
-        RegisteredUnits.Remove(unit);
+        if (RegisteredUnits.Remove(unit))
+        {
+            RegistryVersion++;
+        }
     }
 
     public static void GetNearbySnapshots(INavigationUnit self, Vector2 center, float radius, List<NavigationAgentSnapshot> buffer)
     {
         buffer.Clear();
-        StaleUnits.Clear();
-
-        foreach (INavigationUnit unit in RegisteredUnits)
+        EnsureActiveUnitsCacheCurrent();
+        foreach (INavigationUnit unit in ActiveUnitsCache)
         {
-            if (unit == null)
-            {
-                StaleUnits.Add(unit);
-                continue;
-            }
-
-            Behaviour behaviour = unit as Behaviour;
-            if (behaviour == null)
-            {
-                continue;
-            }
-
-            if (!behaviour || !behaviour.enabled || !behaviour.gameObject.activeInHierarchy)
-            {
-                if (!behaviour)
-                {
-                    StaleUnits.Add(unit);
-                }
-                continue;
-            }
-
             if (ReferenceEquals(unit, self))
             {
                 continue;
@@ -74,17 +60,50 @@ public static class NavigationAgentRegistry
                 buffer.Add(snapshot);
             }
         }
-
-        for (int i = 0; i < StaleUnits.Count; i++)
-        {
-            RegisteredUnits.Remove(StaleUnits[i]);
-        }
     }
 
     public static void GetRegisteredUnits<T>(List<T> buffer)
         where T : class, INavigationUnit
     {
         buffer.Clear();
+        EnsureActiveUnitsCacheCurrent();
+        foreach (INavigationUnit unit in ActiveUnitsCache)
+        {
+            if (unit is T typedUnit)
+            {
+                buffer.Add(typedUnit);
+            }
+        }
+    }
+
+    private static void EnsureActiveUnitsCacheCurrent()
+    {
+        if (ActiveUnitsCacheFrame == Time.frameCount &&
+            ActiveUnitsCacheVersion == RegistryVersion &&
+            !CacheHasInvalidEntries())
+        {
+            return;
+        }
+
+        RebuildActiveUnitsCache();
+    }
+
+    private static bool CacheHasInvalidEntries()
+    {
+        for (int index = 0; index < ActiveUnitsCache.Count; index++)
+        {
+            if (!IsUnitActive(ActiveUnitsCache[index]))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static void RebuildActiveUnitsCache()
+    {
+        ActiveUnitsCache.Clear();
         StaleUnits.Clear();
 
         foreach (INavigationUnit unit in RegisteredUnits)
@@ -95,15 +114,9 @@ public static class NavigationAgentRegistry
                 continue;
             }
 
-            Behaviour behaviour = unit as Behaviour;
-            if (behaviour == null)
+            if (!IsUnitActive(unit))
             {
-                continue;
-            }
-
-            if (!behaviour || !behaviour.enabled || !behaviour.gameObject.activeInHierarchy)
-            {
-                if (!behaviour)
+                if (!(unit is Behaviour behaviour) || !behaviour)
                 {
                     StaleUnits.Add(unit);
                 }
@@ -111,15 +124,30 @@ public static class NavigationAgentRegistry
                 continue;
             }
 
-            if (unit is T typedUnit)
-            {
-                buffer.Add(typedUnit);
-            }
+            ActiveUnitsCache.Add(unit);
         }
 
-        for (int i = 0; i < StaleUnits.Count; i++)
+        for (int index = 0; index < StaleUnits.Count; index++)
         {
-            RegisteredUnits.Remove(StaleUnits[i]);
+            RegisteredUnits.Remove(StaleUnits[index]);
         }
+
+        ActiveUnitsCacheFrame = Time.frameCount;
+        ActiveUnitsCacheVersion = RegistryVersion;
+    }
+
+    private static bool IsUnitActive(INavigationUnit unit)
+    {
+        if (unit == null)
+        {
+            return false;
+        }
+
+        if (!(unit is Behaviour behaviour))
+        {
+            return false;
+        }
+
+        return behaviour && behaviour.enabled && behaviour.gameObject.activeInHierarchy;
     }
 }

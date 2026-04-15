@@ -5877,8 +5877,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         RememberStaticBlockedDestination(currentPosition, GetRebuildRequestedDestination());
-        lastMoveSkipReason = $"AutonomousSoftArrival:{reason}";
         FinishMoveCycle(countTowardLongPause: true, reachedDestination: true);
+        lastMoveSkipReason = $"AutonomousSoftArrival:{reason}";
         return true;
     }
 

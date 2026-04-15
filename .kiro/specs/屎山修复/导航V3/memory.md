@@ -603,3 +603,96 @@
 - 下一轮如果继续，不该立刻再扩大改面，而应优先做：
   1. 把这刀代码 + memory 一起提交
   2. 若用户继续终验，再按同样 free-time live 口径做更长窗口或指定坏点复测
+
+## 2026-04-16｜导航健康继续推进：先压实 repeat soak，再收 registry 全表扫描性能债
+
+### 用户目标
+- 用户明确要求我在后面无人监管时继续往下做，能测就测，测不了就继续做清单内容。
+- 这轮我按这个要求继续推进，没有停在“昨天已经绿过一次”的阶段。
+
+### 当前主线
+- 仍是导航 own 的“导航健康 + 性能兼顾”。
+- 这轮子任务分两段：
+  1. 先把 free-time 短窗健康信号压成重复独立样本
+  2. 再把代码里仍然存在的 registry 级全表扫描性能债收掉
+
+### 本轮实际做成了什么
+1. 先做了 3 次独立 `Town + Play + Force FreeTime + 6秒 spike probe + Stop` 验证：
+   - Run1：`avgFrameMs=2.73 / roamNpcCount=18 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - Run2：`avgFrameMs=2.69 / roamNpcCount=25 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - Run3：`avgFrameMs=2.48 / roamNpcCount=25 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - 三轮共同点：
+     - `maxBlockedNpcCount=0`
+     - `blockedAdvanceStopgapSamples=0`
+     - `passiveAvoidanceStopgapSamples=0`
+     - `stuckCancelStopgapSamples=0`
+     - `topSkipReasons=AdvanceConfirmed`
+2. 随后我回到代码层，只收一个不漂的性能点：
+   - [NavigationAgentRegistry.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs)
+   - 把 `RegisteredUnits` 的 active 过滤从“每次调用都重新全表扫”改成：
+     - `每帧最多重建一次 active cache`
+     - `GetNearbySnapshots(...)` 和 `GetRegisteredUnits<T>(...)` 都复用这层 cache
+     - 仍保留“同帧里 controller disable 后下次调用要能刷新”的语义
+3. 为了防止 cache 把语义做坏，我补了新测试：
+   - [NavigationAvoidanceRulesTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs)
+   - 新增：
+     - `NavigationAgentRegistry_ShouldRefreshCachedUnits_WhenControllerDisablesWithinSameFrame`
+4. 在跑全类回归时，我顺手抓到一条旧语义噪音：
+   - `TryFinishAutonomousRoamSoftArrival(...)` 会先写 `AutonomousSoftArrival:*`
+   - 但 `FinishMoveCycle -> ResetMovementRecovery()` 又把它冲回 `AdvanceConfirmed`
+   - 这会让 soft-arrival 的调试信号丢掉
+5. 我做了最小修正：
+   - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+   - 在 `FinishMoveCycle(...)` 之后把 `AutonomousSoftArrival:*` 写回，保留真实失败恢复语义，不改行为流
+6. 代码/测试 fresh 结果：
+   - direct `validate_script`
+     - `NPCAutoRoamController.cs` => `errors=0 warnings=1`
+     - `NavigationAgentRegistry.cs` => `errors=0 warnings=0`
+     - `NavigationAvoidanceRulesTests.cs` => `errors=0 warnings=0`
+   - `NavigationAvoidanceRulesTests` 全类回归：`33/33 passed`
+7. 代码改完后，我又补了 3 次独立 free-time 短窗 live：
+   - Run1：`avgFrameMs=0.75 / roamNpcCount=25 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - Run2：`avgFrameMs=0.78 / roamNpcCount=25 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - Run3：`avgFrameMs=0.81 / roamNpcCount=25 / maxBlockedAdvanceFrames=0 / maxConsecutivePathBuildFailures=0`
+   - 三轮共同点仍然都是：
+     - `maxBlockedNpcCount=0`
+     - `blockedAdvanceStopgapSamples=0`
+     - `passiveAvoidanceStopgapSamples=0`
+     - `stuckCancelStopgapSamples=0`
+     - `topSkipReasons=AdvanceConfirmed`
+8. fresh Unity/console 收尾：
+   - `python scripts/sunset_mcp.py status` => `Town.unity / Edit Mode`
+   - `python scripts/sunset_mcp.py errors --count 20` => `errors=0 warnings=0`
+
+### 关键判断
+1. 当前导航 own 现在不只是“短窗能跑通”，而是：
+   - `坏点/blocked/stuck` 继续稳定为 0
+   - 同时我又收掉了一层真实的 registry 性能债
+2. 这轮最值钱的地方不是“再绿一次”，而是：
+   - 证明当前没有必要为了性能再去牺牲执行质量
+   - 也没有必要在没有坏证据时继续盲改大面
+3. 当前更准确的口径是：
+   - `Package D / Package F` 的 live 信号已经非常强
+   - 但执行清单里仍不能说“所有 package 都形式化完工”
+
+### 验证结果
+- direct `validate_script`
+  - `NPCAutoRoamController.cs` => `errors=0 warnings=1`
+  - `NavigationAgentRegistry.cs` => `errors=0 warnings=0`
+  - `NavigationAvoidanceRulesTests.cs` => `errors=0 warnings=0`
+- EditMode：
+  - `NavigationAvoidanceRulesTests` => `33/33 passed`
+- free-time live（代码改后 3 次独立 short-window）：
+  - `avgFrameMs=0.75 / 0.78 / 0.81`
+  - `maxBlockedAdvanceFrames=0`
+  - `maxConsecutivePathBuildFailures=0`
+  - `topSkipReasons=AdvanceConfirmed`
+- fresh `status / errors`：
+  - `Town.unity / Edit Mode`
+  - `errors=0 warnings=0`
+
+### 状态与恢复点
+- 这轮现已合法再次 `Park-Slice`，当前 thread-state=`PARKED`。
+- 如果继续下一轮，最合理顺序是：
+  1. 先把这轮代码 + memory + own checkpoint 收口
+  2. 再决定是继续做更重 targeted probe，还是停给用户做体感终验
