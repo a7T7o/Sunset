@@ -543,3 +543,45 @@
     1. 先专门清这批 `Service/Player` 历史尾账
     2. 用户明确批准扩大同根切片，再一起收
   - 本轮收尾应改走 `Park-Slice`，不假装自己已经 `READY_TO_SYNC`
+
+## 2026-04-16｜safe docs/memory-only checkpoint 已落地
+
+- 用户目标：
+  - 继续帮 shared-root 找“还能安全提交”的内容，但这轮必须优先安全可靠，不误吞 active 线程。
+- 当前切片：
+  - `safe-docs-memory-checkpoint-2026-04-16`
+- 这轮实际做成了什么：
+  1. 先只读分层当前 dirty：
+     - active：`Day1-V3 / UI / 导航检查`
+     - parked：`NPC / 存档系统 / 云朵与光影 / Codex规则落地 / 019d...`
+  2. 把第一刀收窄到：
+     - 只收 `PARKED` 线程对应的 docs/memory
+     - 再加治理位自己早已形成但未提交的 docs prompt
+  3. 已跑：
+     - `Begin-Slice`
+     - staged `git diff --cached --check`
+     - `Ready-To-Sync`
+  4. 已完成提交：
+     - `dbbbe858`
+     - `2026.04.16_Codex规则落地_01`
+- 本次提交白名单：
+  - `.kiro/specs/Codex规则落地/*`
+  - `.codex/threads/Sunset/Codex规则落地/*`
+  - `.kiro/specs/NPC/*`
+  - `.codex/threads/Sunset/NPC/*`
+  - `.kiro/specs/Z_光影系统/memory.md`
+  - `.codex/threads/Sunset/云朵与光影/memory_0.md`
+  - `.kiro/specs/存档系统/*`
+  - `.codex/threads/Sunset/存档系统/memory_0.md`
+  - `.codex/threads/Sunset/019d4d18-bb5d-7a71-b621-5d1e2319d778/memory_0.md`
+- 为什么这刀安全：
+  - 全部是 `.md`
+  - 全部 owner 当前不是 `ACTIVE`
+  - 没有吞任何：
+    - `Assets`
+    - `ProjectSettings`
+    - active 线程 memory
+    - 代码 / scene / prefab / asset
+- 当前恢复点：
+  - 现在 shared-root 还能继续安全收的，仍应优先是 `PARKED + docs-only + owner 清楚` 的小批；
+  - 不要把这次安全 docs 提交误判成“代码/场景已经收完”。

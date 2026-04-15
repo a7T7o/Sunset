@@ -274,3 +274,50 @@
   - `Ready-To-Sync` 已实跑，但被既有 own-root 残留阻断：
     - `Assets/YYY_Scripts/Service/Player` 根下还留有本线程历史 dirty：`PlayerAutoNavigator.cs / PlayerInteraction.cs / PlayerNpcChatSessionService.cs / PlayerNpcNearbyFeedbackService.cs / PlayerNpcRelationshipService.cs / PlayerThoughtBubblePresenter.cs / PlayerToolFeedbackService.cs`
     - 因此这轮当前不能合法只带 `PersistentPlayerSceneBridge.cs` 单独 sync；后续要么先清这批历史尾账，要么等用户明确允许扩大同根切片
+
+## 2026-04-16｜安全 docs/memory-only checkpoint 已提交
+
+- 用户目标：
+  - 在 shared-root 仍很脏的前提下，继续找“还能安全提交”的内容，并且必须优先安全可靠、不能误吞 active 线程。
+- 本轮主刀：
+  - 只收 `PARKED` 线程的 docs/memory-only 小批，加上治理位自己早已成型但未提交的 prompt/memory。
+- 本轮提交：
+  - `dbbbe858`
+  - `2026.04.16_Codex规则落地_01`
+- 本次实际收掉的范围：
+  1. `Codex规则落地`
+     - 工作区 memory
+     - 线程 memory
+     - `2026-04-13` 两份普通切场 / 存档合同 prompt
+  2. `NPC`
+     - 工作区 memory
+     - `2.2.0_自漫游与避让收口/memory.md`
+     - 线程 `memory_0.md / memory_1.md`
+     - `2026-04-15_给NPC_Day1解耦后resident状态合同与外部调用面收口prompt_01.md`
+  3. `云朵与光影`
+     - 工作区 memory
+     - 线程 memory
+  4. `存档系统`
+     - 工作区 memory
+     - `4.0.0_三场景持久化与门链收口/memory.md`
+     - 线程 memory
+  5. 一个已停车的独立线程记忆：
+     - `.codex/threads/Sunset/019d4d18-bb5d-7a71-b621-5d1e2319d778/memory_0.md`
+- 本轮为什么判它安全：
+  - 白名单全部是 `.md` docs/memory；
+  - 命中的线程和工作区当前都不是 `ACTIVE`；
+  - 明确排除了当前仍在跑的：
+    - `Day1-V3`
+    - `UI`
+    - `导航检查`
+  - 也没有吞任何 `.cs / .unity / .prefab / .asset / ProjectSettings`。
+- 过程验证：
+  - `git diff --cached --check`：通过
+  - `Ready-To-Sync`：通过
+  - staged diff：15 个 docs 文件，无代码/资源
+- 当前恢复点：
+  - 现在 shared-root 剩余的主要仍是代码、场景、配置和 active 线程尾账；
+  - 下一轮如果继续“安全提交”，优先级应改成：
+    1. 继续只读审 active 线程是否已经停稳
+    2. 再找下一批 `PARKED + docs-only + owner 清楚` 的小批
+    3. 不要回到盲吞 `Assets / ProjectSettings`
