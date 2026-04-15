@@ -184,3 +184,80 @@
     1. 用 `343c3910` 当 accepted-window 的单一整仓快照；
     2. 用 `7e06c2e6` 当“开始大规模把 NPC 和 shared traversal 拧在一起”的分水岭；
     3. 然后只对 `NPCAutoRoamController / NavGrid2D / PlayerMovement / NPCMotionController / NavigationTraversalCore / TraversalBlockManager2D` 做窄 diff 和最小恢复。
+
+## 2026-04-14｜打包报错责任拆解：NPC 线当前不是 build blocker，本线只命中 player-warning
+- 用户目标：
+  - 用户贴了 Player build 日志，要求我只拆跟 NPC 线有关的问题，明确“我的问题是什么”，并给出彻底的解决方案。
+- 本轮方式：
+  - 只读排查 `DayNightManager.cs`、`NPCMotionController.cs` 和同批 warning 文件；
+  - 不进真实施工，不跑 `Begin-Slice`。
+- 本轮稳定结论：
+  1. 当前真正拦打包的 fatal blocker 不是 `NPC` 导航/漫游线，而是：
+     - `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs:208`
+     - `Start()` 里直接调用了 `EditorRefreshNow()`；
+     - 但 `EditorRefreshNow()` 定义在 `#if UNITY_EDITOR` 内；
+     - 所以 Editor 里不一定炸，Player build 会直接 `CS0103`。
+  2. 跟 `NPC` 线直接相关的是：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+     - `_facingMismatchFrameCount`
+     - `_facingMismatchBurstCount`
+     - `_lastFacingMismatchLogTime`
+     - `_lastFacingMismatchSeenTime`
+     这 4 个字段的 `CS0414` warning。
+  3. 这 4 个 warning 不是 build blocker；
+     - 根因是这些字段只服务 editor diagnostic；
+     - 在 Player build 里只剩“赋值”，没有真正读取，所以编译器报“assigned but never used”。
+  4. 其它 `drawGizmos / showGizmos / previewInEditor / _preGenerateId` warning 也是同一类：
+     - editor-only gizmo / preview / OnValidate 字段；
+     - 不是当前 packaging fail 的首要根因。
+- 当前恢复点：
+  - 如果后续允许我真实施工，NPC 线该收的是 `NPCMotionController` 这批 editor-only diagnostic 字段；
+  - 但真正要先清掉的打包 blocker，是 `DayNightManager` 的 editor-only 调用泄漏。
+
+## 2026-04-14｜最小补丁已下：只收 `NPCMotionController` 的 4 条 player-warning
+- 用户目标：
+  - 用户要求我先修掉属于我这条 `NPC` 线的 warning，而且必须是最安全、最小、不影响原逻辑的补丁。
+- 本轮方式：
+  - 进入真实施工前已跑 `Begin-Slice`；
+  - 只改 `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`；
+  - 不扩到 `NPCAutoRoamController`、`DayNightManager` 或别的 shared 根。
+- 本轮完成：
+  1. 已把这 4 个仅供 editor 诊断使用的字段收进 `#if UNITY_EDITOR`：
+     - `_facingMismatchFrameCount`
+     - `_facingMismatchBurstCount`
+     - `_lastFacingMismatchLogTime`
+     - `_lastFacingMismatchSeenTime`
+  2. 已把 `ResetFacingMismatchDiagnostics()` 改成：
+     - editor 下按原逻辑重置
+     - player 下空操作
+- 当前稳定判断：
+  - 这是一刀纯编译面清理；
+  - 没改移动、朝向、动画判定、roam、外部 facing owner 链；
+  - 语义上比 `#pragma warning disable` 更稳，因为直接把 editor-only 状态从 player 编译面拿掉了。
+- 验证：
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`：通过
+  - `validate_script NPCMotionController.cs`：
+    - `owned_errors=0`
+    - 当前只剩 external red，来源是 `DayNightOverlay.cs`
+    - `manage_script validate` 只剩 2 条旧式泛 warning，不再是这 4 条 `CS0414`
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑（本轮未准备 sync）`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - 这 4 条属于 `NPCMotionController` 的 player-warning 现在已经按最小方式收掉；
+  - 后续如果要继续清包，先处理外部 `DayNightOverlay / DayNightManager` 红面，再决定是否把其它 editor-only warning 一并治理。
+
+## 2026-04-14｜最小 warning 补丁尾验完成
+- 已补跑审计：
+  - `check-skill-trigger-log-health.ps1` => `Health: ok`
+  - `validate_script NPCMotionController.cs`
+- 最新判断：
+  - `owned_errors=0`
+  - `current_warnings=0`
+  - assessment=`unity_validation_pending`
+  - 原因是 Unity `stale_status`，不是 `NPCMotionController` 新红
+- 当前恢复点：
+  - 这刀的目标已经完成：`NPC` 自己的 4 条 `CS0414` warning 已被安全移出 player 编译面；
+  - 继续往下收时，应转向外部 render/day-night 问题，而不是继续回头返工这把刀。

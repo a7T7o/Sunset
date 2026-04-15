@@ -397,6 +397,126 @@
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
 
+## 2026-04-14｜build fail 只读归因：主阻塞不是 SaveManager，而是 DayNightManager 的 editor-only 调用泄漏到 player 编译面
+
+### 当前主线 / 子任务 / 恢复点
+- 当前主线仍是存档系统打包前收尾与可打包性。
+- 本轮子任务：根据用户贴出的 build 日志，定位“和存档线程有关、或最容易被误归因到存档线程”的真实阻塞点，并给出最小修法。
+- 恢复点：如果下一轮进入真实施工，优先只收 `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs`，必要时再单独收 `CloudShadowManager` 的 editor 预览噪音，不扩到 `SaveManager` 其他逻辑。
+
+### 只读结论
+- 这次打包失败里，当前能明确钉死的真正编译红错不是 `SaveManager`。
+- 真正阻塞点是：
+  - `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs:208`
+  - `Start()` 里直接调用了 `EditorRefreshNow();`
+- 但 `EditorRefreshNow()` 方法本体在同文件的 `#if UNITY_EDITOR` 区块内。
+- 结果是：
+  - Editor 下能编
+  - Player build 时方法被裁掉
+  - 调用还在
+  - 于是触发 `CS0103`
+
+### 补充判断
+- 用户日志里那批 `CS0414` warning 当前都不是 build blocker。
+- `CloudShadowManager` 末尾的自动检测日志与 `DontSaveInEditor` assertion，更像 `[ExecuteAlways] + EditorUpdate + hideFlags` 的编辑器态副作用，不是这次 C# 编译失败的第一主因。
+- 所以后续修复优先级应是：
+  1. 先修 `DayNightManager` 的 editor-only 调用泄漏
+  2. 再看要不要顺手治理 `CloudShadowManager` 的编辑器断言噪音
+  3. 警告类字段可后置统一清理
+
+### 建议最小修法
+- 在 `DayNightManager.Start()` 里把 `if (!Application.isPlaying) { EditorRefreshNow(); return; }` 改成 editor 条件编译保护。
+- 最小安全口径是：
+  - `UNITY_EDITOR` 下：保留 `EditorRefreshNow(); return;`
+  - 非编辑器 build 下：只 `return;`
+- 不建议这一刀顺手大改整条昼夜预览体系。
+
+### thread-state
+- 本轮仍是只读分析
+- 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+- 当前 live 状态：保持 `PARKED`
+
+## 2026-04-13｜Day1 恢复入口卫生链落地 + 离场 scene world-state 审计停表
+
+### 当前主线 / 子任务 / 恢复点
+- 当前主线仍是存档系统收口。
+- 本轮子任务固定为两条：
+  1. 按 `spring-day1` 已给出的整条 `Day1 restore contract`，把 `save/load/restart` 入口的 stale UI / stale modal / stale pause / stale input 清理链接住。
+  2. 重新审计“离场 scene 的 runtime world state 要不要进正式存档”，并给出这轮是否落代码的最小裁定。
+- 恢复点：
+  - `Day1` 这轮已经先把 `SaveManager` 恢复入口卫生链补上；
+  - `off-scene world-state` 仍停在合同层，不直接改 `PersistentPlayerSceneBridge`、不直接改正式 DTO 消费链。
+
+### 本轮实际落地
+1. `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+   - `ApplyLoadedSaveData(...)` 和 `ApplyNativeFreshRuntimeDefaults()` 现在都会先走统一的 `ResetTransientRuntimeForRestore(...)`。
+   - 这条统一清理链现在会做：
+     - `DialogueManager.StopDialogue()`
+     - 关闭 `Package / Box`
+     - 关闭 `SpringDay1WorkbenchCraftingOverlay`
+     - 清掉背包拖拽 / chest held / tooltip / use-confirm
+     - 清掉 `SpringDay1PromptOverlay` 的外部阻断与 bridge prompt 残留
+     - 隐藏 `InteractionHintOverlay / NpcWorldHintBubble / SpringDay1WorldHintBubble`
+     - 隐藏玩家 thought bubble 与 NPC bubble
+     - 清掉已知 pause source：
+       - `Dialogue`
+       - `SpringDay1Director`
+       - `__manual__`
+     - 最后再统一 `ForceResetPlacementRuntime(...)`
+   - 同轮把旧的 `CheckPositionNextFrame(...)` 和相关“内鬼脚本”爆红诊断壳从 `SaveManager` 里删掉，避免 packaged live 再带着这类死日志尸体。
+2. `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+   - 新增 3 条 source-contract 护栏：
+     - 读档 / 原生重开都会走同一条恢复卫生链
+     - 已知的 Day1 transient UI / modal / pause source 不能悄悄脱钩
+     - `worldObjects` 当前仍只代表“当前 loaded scene 内”的正式持久对象，不能被误说成已经覆盖 off-scene world-state
+3. `off-scene world-state` 裁定
+   - `SaveManager.CollectFullSaveData()` 旁已经加了明确注释：
+     - 正式存档当前只收当前 loaded scene 的 `PersistentObjectRegistry`
+     - 已离场 scene 的 runtime continuity 仍由 `PersistentPlayerSceneBridge.sceneWorldSnapshotsByScene` 维护
+     - 在不改 bridge 消费合同前，不能把 off-scene state 粗暴并进 `worldObjects`
+
+### 验证
+- `validate_script Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+  - `owned_errors=0`
+  - `external_errors=0`
+  - `assessment=unity_validation_pending`
+  - 卡点仍是 `stale_status / codeguard timeout-downgraded`，不是 own red
+- `validate_script Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+  - `owned_errors=0`
+  - `external_errors=0`
+  - `assessment=unity_validation_pending`
+- `EditMode` 测试：
+  - `SaveManagerDay1RestoreContractTests`
+  - `passed=3 failed=0`
+- `git diff --check -- SaveManager.cs SaveManagerDay1RestoreContractTests.cs`
+  - 通过
+- `python scripts/sunset_mcp.py errors --count 20 --output-limit 5`
+  - 仍有 `12` 条 external error
+  - 当前展示的是一批 `The referenced script (Unknown) on this Behaviour is missing!`
+  - 这不是本轮 `SaveManager` 自己引入的新红面
+
+### 当前判断
+- 这轮真正完成的是：
+  - `Day1 restore hygiene` 已经从“只有 story snapshot，缺入口清理”推进成“load/restart 前先统一清场，再让 day1 runtime 自己按 phase 重新接管”
+- 这轮没有伪装完成的是：
+  - `off-scene world-state` 还没有正式进入存档文件
+  - 现在最小正确合同仍然是：
+    - 单独的 per-scene snapshot 容器
+    - scene 真加载后再消费
+    - owner 仍在 `PersistentPlayerSceneBridge` 这一侧
+  - 所以这轮不建议在 `runtime bridge` 正式合同没对齐前，先去改 `SaveDataDTOs` / 旧档迁移把它硬塞进正式存档
+
+### thread-state
+- 本轮已跑：
+  - `Begin-Slice`
+  - `Park-Slice`
+- 未跑：
+  - `Ready-To-Sync`
+- 当前 live 状态：`PARKED`
+- 停车原因：
+  - `SaveManager` 入口卫生链和轻量回归护栏已落地
+  - `off-scene world-state` 这轮明确停在审计结论，不继续抢 bridge
+
 ## 2026-04-13｜审计收尾：两笔存档提交已落在 main，当前只再收 memory 与停车
 
 ### 当前主线 / 子任务 / 恢复点

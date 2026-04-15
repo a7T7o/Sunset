@@ -410,3 +410,136 @@
     - `2a5f8236` `2026.04.13_Codex规则落地_14`
     - 收口内容为 `.kiro/xmind-pipeline + 02 版 owner docs/prompt + 本线程相关记忆`
     - `ProjectSettings` 与 `Assets` 代码尾账继续保留在 shared-root，不被这笔治理提交吞并
+
+## 2026-04-13｜续记：进一步提交暂缓，转入打包态总复盘准备
+
+- 用户目标：
+  - 先暂停继续清扫/提交，改成回顾当前打包态的处理情况，结合最新项目现场重排方案与待办，随时准备恢复执行。
+- 当前主线：
+  - 这轮是 `Codex规则落地` 的只读分析，不进入新的真实施工切片，也不继续推进 shared-root 提交。
+- 这轮实际做成了什么：
+  1. 已重新核 current status：
+     - `git status --porcelain=v1 -uall = 204`
+     - 当前活跃线程只剩 `spring-day1` 与 `UI`
+     - 本线程保持 `PARKED`
+  2. 已确认剩余大头已从素材/doc 收口，转成代码/测试/配置：
+     - `Assets/YYY_Tests/Editor = 53`
+     - `Assets/YYY_Scripts/Story = 27`
+     - `Assets/YYY_Scripts/Service = 22`
+     - `Assets/Editor/Story = 19`
+     - `ProjectSettings = 2`
+  3. 已把“当前打包态准备口径”重新收束成三层：
+     - 已站住：非代码资产大头、治理工具链、owner 矩阵与 v2 prompt
+     - 仍待处理：`spring-day1 / UI / Codex规则落地 own TownHomePrimary / ProjectSettings`
+     - 不应误判：现在剩余的已经主要是代码、测试、配置与玩家面体验，不是再顺手提几包素材就能结束
+- 关键判断：
+  - 现在最值钱的不是继续清 status，而是先守住这份“打包前还剩什么”的准确认知；
+  - 否则下一轮很容易把代码/配置/体验闭环误判成“只是收尾垃圾”。
+- 当前恢复点：
+  - 等用户恢复执行时，优先看 `spring-day1 / UI` 两条 active 线是否已经停稳；
+  - 再决定是先补 packaged/live 验证，还是先继续收 `Codex规则落地 own` 的 `Town/Home/Primary` 基线链；
+  - `ProjectSettings` 仍然最后单独处理。
+
+## 2026-04-13｜续记：普通切场掉落物丢失审计
+
+- 用户目标：
+  - 审清“Primary 砍树掉落 -> 去 Home 清背包 -> 回 Primary 掉落消失”的当前逻辑，并给出打包前最安全修复方案。
+- 当前主线：
+  - 这轮保持只读分析，不开新施工切片；本线程继续 `PARKED`。
+- 这轮实际做成了什么：
+  1. 已确认掉落物创建链：
+     - `ItemDropHelper` 通过 `WorldItemPool.SpawnById()` 生成掉落物；
+     - `WorldItemPickup.Start()` 会注册到 `PersistentObjectRegistry`。
+  2. 已确认掉落物正式存档链：
+     - `WorldItemPickup.Save/Load`
+     - `DropDataDTO`
+     - `DynamicObjectFactory.TryReconstructDrop`
+     - `SaveManager.CollectFullSaveData / ApplyLoadedSaveData`
+  3. 已确认普通切场链：
+     - `SceneTransitionTrigger2D.TryStartTransition()`
+     - `PersistentPlayerSceneBridge.QueueSceneEntry()`
+     - `PersistentPlayerSceneBridge.CaptureSceneRuntimeState()`
+     - 当前只 capture/restore 背包、快捷栏与 resident runtime snapshot，不包含掉落物或一般 world object
+- 关键判断：
+  - 当前掉落物 persistence 是“正式存档有效，普通切场无 continuity”。
+  - 这不是 `ItemDropHelper` 单点 bug，而是普通切场桥没有接 scene-local world objects。
+  - 进一步静态推断：`Tree/Stone` 这类同样依赖 registry/save/load 的对象，在普通切场里大概率也没有 continuity；因此打包前不宜只补 `Drop`，否则存在资源复制风险。
+- 推荐方案：
+  - 修在 `PersistentPlayerSceneBridge`，做内存态 `scene-local world snapshot bridge`
+  - 打包前白名单建议先接 `Drop / Tree / Stone`
+  - 不做 `DontDestroyOnLoad` 掉落物常驻
+  - 不把普通切场偷改成磁盘 `SaveGame/LoadGame`
+- 下一步恢复点：
+  - 若用户批准进入施工，先做一份最小白名单快照桥设计与验证清单，再决定是否直接落代码。
+
+## 2026-04-13｜续记：两份续工 prompt 已落地
+
+- 用户目标：
+  - 基于刚刚的掉落物审计结果，把后续工作拆成两条不互相踩线的 prompt。
+- 当前主线：
+  - 本轮仍是 docs/prompt 收口，线程保持 `PARKED`。
+- 本轮实际做成了什么：
+  1. 为本线程自己新增了一份只打 runtime continuity 的 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_给Codex规则落地_普通切场scene-local-world-continuity最小runtime桥prompt_01.md`
+  2. 为 `存档系统` 新增了一份只打正式入盘合同的 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-13_给存档系统_离场场景world-state入盘语义审计与最小合同prompt_01.md`
+- 关键判断：
+  - 这次不适合写成“一条 prompt 两边都做”；
+  - 因为 runtime continuity 与正式存档语义虽然相关，但不是同一刀：
+    - 一边是玩家切场回来马上能不能看到之前的世界状态
+    - 一边是玩家手动存档时，未加载场景的 runtime world state 要不要入盘、怎么入盘
+
+## 2026-04-13｜续记：scene-local world continuity runtime bridge 已进入真实施工并落到桥文件
+
+- 用户目标：
+  - 继续沿 `2026-04-13_给Codex规则落地_普通切场scene-local-world-continuity最小runtime桥prompt_01.md` 真实施工，只改 `PersistentPlayerSceneBridge.cs`，白名单先接 `Drop / Tree / Stone`。
+- 当前主线：
+  - 本轮已按 Sunset 规则从只读进入真实施工，`Begin-Slice` 已登记：
+    - `ThreadName = Codex规则落地`
+    - `Slice = scene-local-world-continuity-runtime-bridge-2026-04-13`
+    - `Target = Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+- 这轮实际做成了什么：
+  1. 已确认 owner 现场可写：
+     - `存档系统 = PARKED`
+     - `PersistentPlayerSceneBridge.cs` 当前虽有 UI 边界透明相关 dirty，但和本轮新增的 world snapshot 逻辑不冲突
+  2. 已在 `PersistentPlayerSceneBridge.cs` 新增：
+     - `sceneWorldSnapshotsByScene`
+     - `sceneWorldRestoreCoroutine`
+     - `SceneWorldRuntimeSnapshotEntry / SceneWorldRuntimeBinding`
+  3. 已把普通切场 capture/restore 打通到：
+     - `WorldItemPickup`
+     - `TreeController`
+     - `StoneController`
+  4. 已实现最小恢复策略：
+     - 同 guid 现有对象：按 snapshot `Load`
+     - snapshot 标记 inactive 的 `Tree / Stone`：继续 inactive
+     - 当前 scene 多出来的 `Drop`：回收到 `WorldItemPool` 或销毁
+     - 当前 scene 缺失但 snapshot 里仍 active 的白名单对象：调用现有 `DynamicObjectFactory.TryReconstruct(...)` 后再 `Load`
+  5. 已把 `fresh start` 清理补到 `ResetPersistentRuntimeForFreshStartInternal()`
+- 本轮关键判断：
+  - 现在普通切场第一 blocker 已经从“桥完全不管 world objects”前移成“live 上这套最小恢复是否完全符合玩家体验”
+  - 正式存档这只球仍不在本线程自己处理，因为这刀严格只补 runtime continuity；`SaveManager / SaveDataDTOs / DynamicObjectFactory.cs` 都没有越权修改
+- 当前验证：
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs --count 20 --output-limit 5`
+    - `owned_errors = 0`
+    - assessment = `unity_validation_pending`
+    - 原因是 editor state `stale_status`，不是本刀 own red
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py status`
+    - baseline `pass`
+    - console `0 error / 0 warning`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 10`
+    - `errors = 0`
+    - `warnings = 0`
+  - `git diff --check -- Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+    - `pass`
+  - 根级 `git diff --check`
+    - 仍被 shared root 的 `Assets/000_Scenes/Town.unity` 与 `Assets/222_Prefabs/House/*.prefab` 既有 trailing whitespace 阻断
+- 当前恢复点：
+  - `Ready-To-Sync` 已实跑，但当前被既有 own-root dirty 阻断：
+    - `Assets/YYY_Scripts/Service/Player` 根下还有 7 个本线程历史 dirty：
+      `PlayerAutoNavigator.cs / PlayerInteraction.cs / PlayerNpcChatSessionService.cs / PlayerNpcNearbyFeedbackService.cs / PlayerNpcRelationshipService.cs / PlayerThoughtBubblePresenter.cs / PlayerToolFeedbackService.cs`
+    - 因此这轮不能合法只带 `PersistentPlayerSceneBridge.cs` 单独 sync
+  - 下一步如果继续这条线，必须二选一：
+    1. 先专门清这批 `Service/Player` 历史尾账
+    2. 用户明确批准扩大同根切片，再一起收
+  - 本轮收尾应改走 `Park-Slice`，不假装自己已经 `READY_TO_SYNC`

@@ -2854,3 +2854,30 @@
   - own 代码提交已完成，接下来只剩审计收尾。
 - 下一步恢复点：
   - 如果用户后面继续让我做工具/相机/转场/排序相关内容，就从这 3 个提交对应的稳定基线继续，而不是回到未提交脏态。
+
+## 2026-04-14｜最小修复 `CameraDeadZoneSync` 的 `CS0414` warning，不改任何运行时功能
+
+- 当前主线目标：
+  - 用户要求我只收 [`CameraDeadZoneSync.cs`](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs) 这一条 warning，而且明确要求不要影响现有功能与需求。
+- 本轮子任务：
+  - 只处理 `showDebugGizmos` 这个仅在 editor Gizmos 路径里使用、但会在 Player 编译时触发 `CS0414` 的字段。
+- 本轮实际做成了什么：
+  1. 在 `showDebugGizmos` 字段前后增加了局部 `#pragma warning disable/restore CS0414`。
+  2. 没有改字段名、默认值、序列化方式、相机跟随逻辑、Confiner 逻辑、Bounds 逻辑，也没有碰任何运行时方法。
+- 为什么这是最小修：
+  - 这条字段本来就只服务 `#if UNITY_EDITOR` 下的 `OnDrawGizmos()`；
+  - 用局部 warning 抑制能保留现有 editor 调试能力，同时不改变 runtime 行为和序列化面。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Camera\CameraDeadZoneSync.cs`
+- 验证结果：
+  - `git diff --check -- Assets/YYY_Scripts/Service/Camera/CameraDeadZoneSync.cs`：通过；仅有既有 `CRLF/LF` 提示。
+  - `validate_script(CameraDeadZoneSync.cs)`：
+    - `owned_errors=0`
+    - `external_errors=0`
+    - `assessment=unity_validation_pending`
+  - 当前未闭环原因不是这条脚本有红错，而是 Unity 当时正处于 `playmode_transition / stale_status`。
+- 当前判断：
+  - 这条 warning 已按“零行为变化”的要求收掉。
+  - 这轮没有提交，只完成了最小代码修和本线程审计记录。
+- 下一步恢复点：
+  - 如果用户要我继续处理打包噪音，我应继续只按“单 warning / 单文件 / 不改行为”的方式逐条收，不要重新扩成相机功能改造。

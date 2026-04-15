@@ -3915,3 +3915,179 @@ pcReactionSeen=True、leavePhase=PlayerSpeaking
 - 当前恢复点：
   - 这刀已经站住；
   - 如果下一步继续，优先补 live 验证“旅人台词 + 内心独白”是否真实显示 000 头像，再回到原主线。
+
+## 2026-04-15 11:45 只读复核：Day1 两份导演文件里 NPC 高危 API 触点现状
+- 当前主线目标：
+  - 为 NPC 外部调用面收口补一份精简、可执行的现状清单，确认 `SpringDay1Director.cs` 与 `SpringDay1NpcCrowdDirector.cs` 还残留哪些 NPC 回执点名的高危触点。
+- 本轮子任务：
+  - 只读扫描 `SetHomeAnchor / ApplyProfile / RefreshRoamCenterFromCurrentContext / StopRoam / RestartRoamFromCurrentContext / DebugMoveTo / NPCMotionController 直接写口 / AcquireResidentScriptedControl / ReleaseResidentScriptedControl`；
+  - 再补扫两文件里对 `NPCAutoRoamController / NPCMotionController` 的直接调用，确认是否出现名单外越界点。
+- 已完成：
+  1. 确认名单内仍残留：
+     - `SpringDay1Director.cs`：`AcquireResidentScriptedControl`、`ReleaseResidentScriptedControl`、`SetHomeAnchor`、`StopRoam`
+     - `SpringDay1NpcCrowdDirector.cs`：`SetHomeAnchor`、`ApplyProfile`、`AcquireResidentScriptedControl`、`ReleaseResidentScriptedControl`
+  2. 确认本轮未命中：
+     - `RefreshRoamCenterFromCurrentContext`
+     - `RestartRoamFromCurrentContext`
+     - `DebugMoveTo`
+  3. 区分允许保留的 staging/release 合同触点：
+     - `SpringDay1NpcCrowdDirector.cs` 内部的 `AcquireResidentDirectorControl / ReleaseResidentDirectorControl` 可暂视为 staging/release 包装口
+     - 但它们内部仍直接调用 `AcquireResidentScriptedControl / ReleaseResidentScriptedControl`，所以只是“合同外壳已出现”，不是“底层高危口已消失”
+  4. 发现名单外新越界点：
+     - 两文件都还直接写 `NPCMotionController`
+     - `SpringDay1Director.cs` 还有 `SetExternalVelocity` 与 `SetFacingDirection`
+     - `SpringDay1NpcCrowdDirector.cs` 还有 `SetFacingDirection`
+     - 此外两文件仍直接碰 `StartRoam`，并分别触到 `DriveResidentScriptedMoveTo`、`Halt/Pause/ResumeResidentScriptedMovement`
+- 关键判断：
+  - 旧名单没有清空，而且真实风险已经不只停留在 `ApplyProfile / StopRoam` 这批老名字；
+  - 如果后续只把旧名单抹掉，却放过 `NPCMotionController` 写口和更深的 scripted movement 直连，外部调用面仍然不干净。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1NpcCrowdDirector.cs`
+- 验证结果：
+  - 纯静态只读复核；
+  - 未修改代码；
+  - 未运行 Unity / CLI 验证。
+- 当前恢复点：
+  - 如果下一轮继续 NPC 合同收口，先把 `NPCMotionController` 直接写口、`StartRoam`、`DriveResidentScriptedMoveTo`、`Halt/Pause/ResumeResidentScriptedMovement` 一并纳入高危外部调用面，而不是只复述旧名单。
+
+## 2026-04-15 21:05 真实施工：NPC locomotion facade 第一刀落地
+- 当前主线目标：
+  - 不是继续写边界文档，而是把 `NPC locomotion` 的对外调用合同面真正落成代码，并把 `Day1/NPC own` 里最脏的低级直调迁走。
+- 本轮子任务：
+  1. 在 `NPCAutoRoamController` 里补 façade；
+  2. 把 resident scripted 低级 public 写口收回控制器内部；
+  3. 迁移 `SpringDay1Director / SpringDay1NpcCrowdDirector / SpringDay1DirectorStaging / NPCDialogueInteractable / NPCInformalChatInteractable`；
+  4. 再补一份反射型守卫测试。
+- 已完成：
+  1. 先跑了 `Begin-Slice`
+     - `ThreadName=NPC`
+     - `CurrentSlice=npc-locomotion-facade-contract`
+     - `TargetPaths` 包含：
+       - `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+       - `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+       - `Assets/YYY_Scripts/Controller/NPC/NpcResidentRuntimeContract.cs`
+       - `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+  2. 新增 `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
+     - 用源码级属性把 façade / runtime-only / debug-only 真正标进方法面。
+  3. `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+     - 新增 `ApplyIdleFacing`
+     - 新增 `ApplyDirectedMotion`
+     - 旧的 `SetFacingDirection / SetExternalVelocity / SetExternalFacingDirection` 标记为 runtime-only
+  4. `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`
+     - 新增 façade：
+       - `AcquireStoryControl`
+       - `ReleaseStoryControl`
+       - `RequestStageTravel`
+       - `RequestReturnToAnchor`
+       - `RequestReturnHome`
+       - `SnapToTarget`
+       - `BeginAutonomousTravel`
+       - `BeginReturnHome`
+       - `ResumeAutonomousRoam`
+       - `AbortAndReplan`
+       - `BindResidentHomeAnchor`
+       - `SyncRuntimeProfileFromAsset`
+       - `ApplyIdleFacing`
+     - resident scripted 低级 public 写口改回控制器内部：
+       - `AcquireResidentScriptedControl`
+       - `ReleaseResidentScriptedControl`
+       - `DriveResidentScriptedMoveTo`
+       - `PauseResidentScriptedMovement`
+       - `ResumeResidentScriptedMovement`
+       - `HaltResidentScriptedMovement`
+       - `SetHomeAnchor`
+       - `ApplyProfile`
+       - `RefreshRoamCenterFromCurrentContext`
+     - `DebugMoveTo / StopRoam / SyncHomeAnchorToCurrentPosition` 被保留为 debug/runtime surface，并加了显式标记
+  5. `Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs`
+     - 切到 façade：
+       - `BindResidentHomeAnchor`
+       - `SyncRuntimeProfileFromAsset`
+       - `AcquireStoryControl`
+       - `ReleaseStoryControl`
+       - `RequestReturnToAnchor`
+       - `ResumeAutonomousRoam`
+       - `ApplyIdleFacing`
+  6. `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+     - 切到 façade：
+       - `AcquireStoryControl`
+       - `ReleaseStoryControl`
+       - `RequestReturnToAnchor`
+       - `RequestStageTravel`
+       - `HaltStoryControlMotion`
+       - `PauseStoryControlMotion`
+       - `ResumeStoryControlMotion`
+       - `BindResidentHomeAnchor`
+     - `NPCMotionController` 直接写口改成：
+       - `ApplyIdleFacing`
+       - `ApplyDirectedMotion`
+  7. `Assets/YYY_Scripts/Story/Directing/SpringDay1DirectorStaging.cs`
+     - `SetExternalVelocity/SetFacingDirection` 改成 `ApplyDirectedMotion / ApplyIdleFacing`
+  8. `Assets/YYY_Scripts/Story/Interaction/NPCDialogueInteractable.cs`
+     - 对话冻结链改成 `AcquireStoryControl / HaltStoryControlMotion / ReleaseStoryControl`
+     - 朝向改成 `ApplyIdleFacing`
+  9. `Assets/YYY_Scripts/Story/Interaction/NPCInformalChatInteractable.cs`
+     - 闲聊冻结链改成 `AcquireStoryControl / HaltStoryControlMotion / ReleaseStoryControl`
+     - 朝向改成 `ApplyIdleFacing`
+  10. 新增 `Assets/YYY_Tests/Editor/NpcLocomotionFacadeSurfaceTests.cs`
+      - 反射断言 façade 是否公开
+      - 反射断言 resident scripted 低级口是否不再 public
+      - 反射断言 surface 标记是否存在
+- 验证结果：
+  1. `manage_script validate`
+     - `NpcLocomotionSurfaceAttribute.cs` clean
+     - `NpcLocomotionFacadeSurfaceTests.cs` clean
+     - `NPCAutoRoamController.cs` errors=0
+     - `NPCMotionController.cs` errors=0
+     - `SpringDay1Director.cs` errors=0
+     - `SpringDay1NpcCrowdDirector.cs` errors=0
+     - `SpringDay1DirectorStaging.cs` errors=0
+     - `NPCInformalChatInteractable.cs` errors=0
+     - `NPCDialogueInteractable.cs` errors=0
+  2. `git diff --check -- <本轮 own files>` clean
+  3. `errors` fresh console = `0 error / 0 warning`
+  4. Unity targeted test：
+     - `run_tests(test_names=["NpcLocomotionFacadeSurfaceTests"])`
+     - `run_tests(test_names=["NpcLocomotionFacadeSurfaceTests.NPCAutoRoamController_ShouldExposeMinimalFacadeSurface"])`
+     - 两次都返回 `total=0`
+     - 当前只能记成“Unity test filter 没发现 case”，不是“测试已过”
+- 关键判断：
+  1. 这轮最值钱的不是又写一版边界文档，而是 `NPC` 线程真的把 “外部线程直接拼 internal lifecycle” 这件事切断了。
+  2. `Day1` 后续可合法消费的面，现在已经落成代码，而不是停在口头合同。
+  3. 这轮最薄弱点是 Unity targeted test filter 没跑到新 case；这不是编译红，但确实还缺一张更硬的 Unity 运行型测试票。
+- 当前恢复点：
+  1. 如果继续 NPC own，优先写给 `Day1` / `导航` 的实际消费回执，而不是再泛修别的 roaming 体验。
+  2. 如果先停，这刀已经可以按“代码 contract 已落地，Unity targeted test 票待补”来交接。
+
+## 2026-04-15 21:18 回执口径已确定
+- 用户要求：
+  - 先写回执，再继续后续调度。
+- 本轮补充结论：
+  1. 这轮回执的核心，不是再讲“我建议怎么做”，而是明确告诉 `Day1/导航`：
+     - façade 已经真的落成代码
+     - 他们现在该消费哪些合法入口
+     - 当前唯一没补齐的是 Unity targeted test 发现票
+  2. 对外最重要的消费口径应固定为：
+     - `Day1` 继续只走 `AcquireStoryControl / ReleaseStoryControl / RequestStageTravel / RequestReturnToAnchor / Halt/Pause/ResumeStoryControlMotion / BindResidentHomeAnchor`
+     - `导航` 保留 debug/runtime 面，不回吞剧情语义
+  3. 这轮回执应明确写：`代码合同已落地` 不等于 `Unity test 已过`，不能把 targeted test 的 `0 discovered` 包装成 pass。
+- 当前恢复点：
+  - 如果下一轮继续，我优先输出给 `Day1/导航` 的直接消费回执，不回头再重写同一份工程总结。
+
+## 2026-04-15 21:24 导航回执口径已确定
+- 用户要求：
+  - 在给完 `Day1` 回执后，直接继续写给 `导航` 的回执。
+- 本轮补充结论：
+  1. 给 `导航` 的核心口径不是“我也来消费 story control”，而是：
+     - 只接 autonomous / return-home / replan 这一层执行入口；
+     - 不回吞剧情语义；
+     - 不再直接替 `Day1/NPC` 拼 resident scripted lifecycle。
+  2. 导航现在该合法消费的最小面应固定为：
+     - `BeginAutonomousTravel`
+     - `BeginReturnHome`
+     - `ResumeAutonomousRoam`
+     - `AbortAndReplan`
+  3. `DebugMoveTo / StopRoam / SyncHomeAnchorToCurrentPosition` 这类口仍可保留给 probe / validation / 调试菜单，但不应再回流成正式业务 contract。
+- 当前恢复点：
+  - 如果下一轮继续，我应优先补“导航如何基于这套新入口收 execution quality”的窄口协作，而不是再回头讨论 facade 是否存在。

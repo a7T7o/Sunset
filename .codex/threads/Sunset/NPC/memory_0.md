@@ -199,3 +199,173 @@
 - 当前恢复点：
   - resident / 关系页 / 头像真源线里，第一个已经回到 `main` 的稳定代码入口，现在就是 `NpcCharacterRegistry`；
   - 如果用户继续要求“把能提的都提掉”，下一步不该再盲试大包，而是继续只找这种能被证明 `preflight=True` 的最小白名单切片。
+
+## 2026-04-14｜只读补记：当前 build fail 的第一真 blocker 不在 NPC own，NPC 线只命中 warning
+- 当前主线目标：
+  - 用户贴出 Player build 日志，要求我只拆跟 `NPC` 线有关的问题，讲清“我的问题是什么”和怎么修。
+- 本轮子任务：
+  - 只读核对 `DayNightManager.cs`、`NPCMotionController.cs` 与同批 warning 文件；
+  - 不进真实施工，不跑 `Begin-Slice`。
+- 本轮稳定结论：
+  1. 当前真正卡住打包的是：
+     - `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs:208`
+     - `Start()` 调用了 `EditorRefreshNow()`；
+     - 但 `EditorRefreshNow()` 定义在 `#if UNITY_EDITOR` 内；
+     - 这是 rendering/day-night 线的 fatal compile error，不是 `NPC` 线当前第一 blocker。
+  2. `NPC` 线在这份日志里真正相关的是：
+     - `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`
+     - 4 条 `CS0414` warning
+     - 本质是 editor-only facing mismatch diagnostics 字段在 Player build 里只写不读。
+  3. 这些 `NPCMotionController` warning 会脏 build 日志，但不会单独导致 Player build fail。
+- 当前恢复点：
+  - 如果后续继续修包：
+    1. 先清 `DayNightManager` 的 editor-only 调用泄漏；
+    2. 再收 `NPCMotionController` 这批 player-warning；
+  - 不要把当前 packaging fail 误判成“NPC 导航/漫游线又把打包打炸了”。
+
+## 2026-04-14｜真实施工补记：已按最小风险修掉 `NPCMotionController` 自己的 4 条 warning
+- 当前主线目标：
+  - 用户要求我先修属于 `NPC` 自己的 warning，而且必须是最小、安全、不改原有高危逻辑的补丁。
+- 本轮子任务：
+  - 真实施工前已跑 `Begin-Slice`；
+  - 只改 `Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`；
+  - 只收 `CS0414` 那 4 个 editor-diagnostic 字段 warning。
+- 本轮完成：
+  1. 已把以下字段收进 `#if UNITY_EDITOR`：
+     - `_facingMismatchFrameCount`
+     - `_facingMismatchBurstCount`
+     - `_lastFacingMismatchLogTime`
+     - `_lastFacingMismatchSeenTime`
+  2. 已把 `ResetFacingMismatchDiagnostics()` 改成：
+     - editor 下正常清空
+     - player 下空操作
+  3. 没改：
+     - move / stop / roam / facing 判定
+     - `NPCAutoRoamController`
+     - 任何 shared render/day-night 逻辑
+- 验证：
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`：通过
+  - `validate_script NPCMotionController.cs`：
+    - `owned_errors=0`
+    - 当前 assessment=`external_red`
+    - 外部 blocker 来自 `DayNightOverlay.cs`
+    - `manage_script validate` 只剩 2 条旧式泛 warning，不再是这 4 条字段 warning
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑（本轮未进入 sync）`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - `NPC` 自己这 4 条 warning 现在已经按最小补丁收掉；
+  - 继续修包时，该转去处理外部 render/day-night 红面，不该再回头把这条 NPC warning 当主阻塞。
+
+## 2026-04-14｜warning 补丁尾验完成
+- 本轮补记：
+  - 已补跑 `check-skill-trigger-log-health.ps1`，结果 `Health: ok`、`Canonical-Duplicate-Groups: 0`；
+  - 已再次跑 `validate_script Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs`。
+- 最新验证结论：
+  1. `NPCMotionController.cs` 当前 `owned_errors=0`、`current_warnings=0`；
+  2. CLI assessment 这次是 `unity_validation_pending`，原因不是脚本自身出错，而是 Unity 当前 `stale_status`，不构成新的 own red；
+  3. `manage_script validate` 仅剩 2 条旧式泛提示：
+     - `Consider using FixedUpdate() for Rigidbody operations`
+     - `String concatenation in Update() can cause garbage collection issues`
+     这两条不是本次用户要求先清掉的 `CS0414` 字段 warning。
+- 当前恢复点：
+  - 这刀“只修我自己的 4 条 warning”已经完成并补齐审计；
+  - 如果后续继续追整包 warning / build blocker，优先级不该再落回这 4 条，而该转去外部 render/day-night 面。
+
+## 2026-04-15｜只读剖腹：NPC 本体结构、当前病灶与对外边界
+- 当前主线目标：
+  - 用户要求我把 `NPC` 线程自身剖开讲清楚，给 `Day1` 和 `导航` 一份能直接使用的本体参照，不继续停留在“谁像在抢锅”的层面。
+- 本轮子任务：
+  - 只读核对 `NpcCharacterRegistry / NPCDialogueContentProfile / NPCRoamProfile / NPCMotionController / NPCAutoRoamController / NPCInformalChatInteractable / PlayerNpcChatSessionService / NpcResidentRuntimeContract / SpringDay1NpcCrowdManifest / SpringDay1NpcCrowdDirector / DialogueUI / PackageNpcRelationshipPanel / PersistentPlayerSceneBridge / StoryProgressPersistenceService`；
+  - 不进真实施工，不跑 `Begin-Slice`。
+- 本轮稳定结论：
+  1. `NPC` 自己现在的核心器官可拆成 5 层：
+     - 身份主表层：`NpcCharacterRegistry`
+     - 内容语义层：`NPCDialogueContentProfile` + `NPCRoamProfile`
+     - 运动/漫游层：`NPCMotionController` + `NPCAutoRoamController`
+     - 会话/气泡层：`NPCInformalChatInteractable` + `PlayerNpcChatSessionService` + `NPCBubblePresenter` + `PlayerThoughtBubblePresenter`
+     - resident/runtime bridge 层：`NpcResidentRuntimeContract` + `NpcResidentRuntimeSnapshot`
+  2. 外部消费口已经很明确：
+     - 正式对白头像：`DialogueUI`
+     - 关系页：`PackageNpcRelationshipPanel`
+     - 关系持久化：`StoryProgressPersistenceService`
+     - 切场 native resident snapshot：`PersistentPlayerSceneBridge`
+     - Day1 resident runtime 消费：`SpringDay1NpcCrowdDirector`
+  3. 当前最健康的是身份/内容/头像/关系链；
+     - 当前最不健康的是 locomotion owner 与 resident release/return-home 合同。
+  4. 当前最大问题不是“缺功能”，而是“同一个 NPC 没有单一 locomotion owner”：
+     - `Day1 crowd` 仍在深碰 resident release/home-return/roam restart
+     - `NPCAutoRoamController` 同时背着 free-roam、scripted control、debug move、shared avoidance
+     - `NPCMotionController` 又在最后一层兜动画与朝向
+  5. 因此后续不该再把 `NPC` 整条线当成一坨一起修；
+     - 必须按器官和 owner 拆。
+- 当前恢复点：
+  - 如果下轮继续给 `Day1` / `导航` 对齐，不该再从“主诉现象”讲起；
+  - 直接用这张拆层图去落：
+    - `NPC own`
+    - `Day1 consume-only`
+    - `导航 own`
+    - `shared contract`
+    - `禁止再跨写`
+
+## 2026-04-15｜只读大整理：NPC locomotion 对外合同草案
+- 当前主线目标：
+  - 用户要求我只收 `NPC locomotion` 的对外合同草案，不回吞 `Day1` phase 语义，也不回吞导航执行策略。
+- 本轮子任务：
+  - 只读核对 `NPCAutoRoamController` 的 public 口、`NPCMotionController` 的 public 写口、`SpringDay1NpcCrowdDirector` 对这些口的当前调用方式、以及 `SpringDay1Director` 的夜间 story actor 调度；
+  - 不进真实施工，不跑 `Begin-Slice`。
+- 本轮稳定结论：
+  1. `NPCAutoRoamController` 当前对外高危口太多，且粒度过低；
+     - 外部线程现在能直接拼装内部 lifecycle
+     - 这就是 contract 面失控的根因
+  2. 最危险的一组口是：
+     - `StartRoam / RestartRoamFromCurrentContext / StopRoam`
+     - `AcquireResidentScriptedControl / DriveResidentScriptedMoveTo / PauseResidentScriptedMovement / ResumeResidentScriptedMovement / ReleaseResidentScriptedControl / ClearResidentScriptedControl`
+     - `ApplyProfile / SetHomeAnchor / RefreshRoamCenterFromCurrentContext`
+     - `DebugMoveTo`
+     - `NPCMotionController.SetFacingDirection / SetExternalVelocity / SetExternalFacingDirection`
+  3. 这些口里，只有少数应继续给外部保留“语义级 facade”；
+     - 大多数都该降成 `internal-only / runtime-only / debug-only`
+  4. 当前 `Day1 crowd` 已经在直接组合这些低级口；
+     - 所以后续最该收的不是“调参数”，而是 public 面缩口
+  5. 夜间合同目前也还是双头：
+     - resident 夜间时段写在 `SpringDay1NpcCrowdDirector`
+     - story actor 夜间时段写在 `SpringDay1Director`
+     - 这两套都不该继续各自私写，应统一消费 locomotion contract
+- 当前恢复点：
+  - 如果继续往下做，下一刀应直接把这份草案压成一张面向 `Day1 / 导航` 的合法接口表，而不是继续做症状层争论。
+
+## 2026-04-15｜固定格式回卡补记：按 prompt 01 输出合同面回执
+- 当前主线目标：
+  - 用户要求我严格按 prompt 01 的固定格式输出 `NPC locomotion` 合同面回执。
+- 本轮子任务：
+  - 复核 prompt 里的硬要求；
+  - 沿用上一轮只读结论；
+  - 以 `A1 / A2 / B` 与四张表输出，不新增代码判断。
+- 本轮稳定结论：
+  1. 当前回卡的核心内容没有变：
+     - 高危 public 写口清单
+     - 最小 facade
+     - `internal-only / runtime-only / debug-only / facade 内部原语`
+     - `Day1 / Navigation` 各自合法触碰范围
+  2. 本轮仍然是只读；
+     - 线程状态继续 `PARKED`
+     - 不存在新的代码/scene 改动
+- 当前恢复点：
+  - 如果下一刀继续深入，就该从“回卡”进入“执行表”，把 public 面迁移方案真正落细。
+
+## 2026-04-15｜弱引导同步：NPC 只回答自己 own 的 facade 判断
+- 当前主线目标：
+  - 用户要求我读取 `Day1-V3` 的弱引导文件后，只回答 `NPC own` 的部分，不回吞 `Day1 phase`，也不回吞导航策略。
+- 本轮子任务：
+  - 读取弱引导总表与给 NPC 的协作边界文件；
+  - 只输出 facade 主导权、优先 internal-only 的口、Day1 最先停碰的低级 API、最小 facade 面、唯一下一刀。
+- 本轮稳定结论：
+  1. facade 仍应由 `NPC` 主导；
+  2. 最先要 internal-only 的，是最容易让外部拼状态机的那批低级 public 写口；
+  3. `Day1` 最先该停碰的，就是 `SetHomeAnchor / ApplyProfile / RefreshRoamCenter / StopRoam / RestartRoam / DebugMoveTo` 这组；
+  4. 我自己的唯一下一刀，不是直接开改，而是先把 `旧 public -> 新 facade -> 调用迁移` 压成执行表。
+- 当前恢复点：
+  - 后续如果继续推进代码，就按这份判断进入 facade 迁移表，而不是重新争论职责边界。

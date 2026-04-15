@@ -62,6 +62,49 @@
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
 
+## 2026-04-14 23:00 打包报错只读归因：主阻塞在 DayNightManager，不在 SaveManager
+
+### 用户目标
+- 用户贴出一组 build 日志，要求我只读找出“和我这条线有关的问题”、拆清责任面，并给出可执行解决方案。
+
+### 已完成
+- 已按 `skills-governor` 做前置核查，并手工补了 `sunset-startup-guard` 等价流程。
+- 已核对：
+  - `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs`
+  - `Assets/YYY_Scripts/Service/Rendering/CloudShadowManager.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+- 已确认：
+  - 这次打包失败的直接代码红错不是 `SaveManager`
+  - 真正阻塞点是 `DayNightManager.Start()` 在 player 编译面调用 `EditorRefreshNow()`
+  - `EditorRefreshNow()` 本体位于 `#if UNITY_EDITOR` 区块内，所以 Player build 触发 `CS0103`
+
+### 关键判断
+- 当前可明确落锅的 build blocker 是：
+  - `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs:208`
+- `CloudShadowManager` 的自动检测日志与 `DontSaveInEditor` assertion 更像编辑器预览链副作用，属于次级治理项，不是这次第一主因。
+- 用户贴出的 `CS0414` warnings 当前都不是 build 阻塞项。
+
+### 建议方案
+- P0：
+  - 先把 `DayNightManager.Start()` 内的 `EditorRefreshNow()` 调用包进 `#if UNITY_EDITOR`
+  - 非编辑器 build 下只 `return`
+- P1：
+  - 后续再治理 `CloudShadowManager` 的 `[ExecuteAlways] + EditorUpdate + hideFlags` 断言噪音
+- P2：
+  - 未使用字段 warning 统一后置清理
+
+### 恢复点
+- 如果下一轮进入真实施工，先跑 `Begin-Slice`
+- 最小切片只收：
+  - `Assets/YYY_Scripts/Service/Rendering/DayNightManager.cs`
+  - 如确有必要，再加 `Assets/YYY_Scripts/Service/Rendering/CloudShadowManager.cs`
+- 不要把这轮 build fail 误扩成存档链全面返工
+
+### thread-state
+- 本轮只读分析
+- 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+- 当前 live 状态：保持 `PARKED`
+
 ## 2026-04-13 02:02 审计收尾：这条线该提交的已经提交，当前只收 memory 与停车
 - 当前主线仍是存档系统收口；本轮子任务不是继续扩功能，而是把“我自己能合法提交的内容到底还有没有尾账”这件事彻底钉死。
 - 我重新核了：
@@ -161,6 +204,70 @@
 - 本轮只读讨论
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
+
+## 2026-04-13 14:34 真实施工：SaveManager 已补 Day1 restore hygiene，off-scene world-state 维持审计结论
+- 当前主线没有变，仍是存档系统收口；本轮子任务是把 `spring-day1` 已交出的整条 `Day1 restore contract` 真接到 `save/load/restart` 入口上，同时把“离场 scene world-state 是否入正式存档”做一次不返工的安全裁定。
+
+### 本轮完成
+1. `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+   - `ApplyLoadedSaveData(...)` / `ApplyNativeFreshRuntimeDefaults()` 现在统一先走 `ResetTransientRuntimeForRestore(...)`
+   - 这条恢复卫生链会：
+     - stop active dialogue
+     - 关闭 `Package / Box / Workbench overlay`
+     - 清掉背包 held / tooltip / confirm dialog
+     - 清掉 `SpringDay1PromptOverlay` 外部 block 与 bridge prompt 残留
+     - 隐藏 `InteractionHintOverlay / NpcWorldHintBubble / SpringDay1WorldHintBubble`
+     - 隐藏玩家 / NPC bubble
+     - 清掉 `Dialogue / SpringDay1Director / __manual__` pause source
+     - 最后再统一 `ForceResetPlacementRuntime(...)`
+   - 同轮删除了 `CheckPositionNextFrame(...)` 那类旧的 packaged 爆红诊断壳。
+2. `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+   - 新增 3 条 source-contract 护栏，钉住：
+     - load / native fresh restart 共享同一条 restore hygiene
+     - Day1 transient UI / modal / pause source 不得被删脱
+     - `worldObjects` 当前仍只代表 loaded scene，不能冒充 off-scene formal save
+3. `off-scene world-state`
+   - 这轮没有落 DTO / bridge 代码
+   - 维持的正式判断是：
+     - 当前正式存档不能覆盖离场 scene 的 runtime world state
+     - 最小正确合同仍是 `per-scene snapshot + scene 真加载后消费`
+     - owner 仍在 `PersistentPlayerSceneBridge`，现在不建议先改正式存档代码
+
+### 验证
+- `validate_script Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+  - `owned_errors=0`
+  - `external_errors=0`
+  - `assessment=unity_validation_pending`
+  - 卡在 `stale_status / codeguard timeout-downgraded`
+- `validate_script Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+  - `owned_errors=0`
+  - `external_errors=0`
+  - `assessment=unity_validation_pending`
+- `EditMode`：
+  - `SaveManagerDay1RestoreContractTests`
+  - `3/3 passed`
+- `git diff --check -- SaveManager.cs SaveManagerDay1RestoreContractTests.cs`
+  - clean
+- `python scripts/sunset_mcp.py errors --count 20 --output-limit 5`
+  - 当前仍有 `12` 条 external `missing script` error
+  - 不是本轮 save own 新引入
+
+### 当前判断
+- 这轮已经把 `Day1 restore contract` 里最危险、最容易在 packaged live 里表现成“假冻结/假卡死”的那层入口残留清掉了。
+- 但这不等于“整条 save 线已经无懈可击”：
+  - `StoryProgressPersistenceService` 这条长期态链当前仍未被我这轮正式接盘入 same-root 提交
+  - `off-scene world-state` 也还在合同层
+- 所以下一恢复点如果继续，优先级应是：
+  1. 结合 `day1` 最终 live 反馈，再决定是否要正式接盘 `StoryProgressPersistenceService` 这条链
+  2. `off-scene world-state` 只有在 bridge owner 明确消费合同后再动
+
+### thread-state
+- 本轮已跑：
+  - `Begin-Slice`
+  - `Park-Slice`
+- 未跑：
+  - `Ready-To-Sync`
+- 当前 live 状态：`PARKED`
 
 ## 2026-04-11 13:47 施工收口：本轮 own 已完成
 - 当前主线仍是存档系统收口；本轮实际做的是两件事：

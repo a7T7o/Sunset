@@ -146,6 +146,36 @@
         - `Codex规则落地` 的 `02` 版矩阵/批次/prompt
         - 工作区与线程记忆
       - 没有吞 `Assets` 里的其他线程代码尾账，也没有碰 `ProjectSettings`
+  19. 2026-04-13 深夜已按“先暂停进一步 shared-root 提交，转入打包态总复盘”的新口径做只读回看：
+      - 当前 `git status --porcelain=v1 -uall` 已降到 `204`；
+      - 当前活跃线程只有 `spring-day1` 与 `UI`，治理线程自己已回到 `PARKED`；
+      - 剩余 dirty 已基本不是素材海，而是：
+        - `Assets/YYY_Tests/Editor = 53`
+        - `Assets/YYY_Scripts/Story = 27`
+        - `Assets/YYY_Scripts/Service = 22`
+        - `Assets/Editor/Story = 19`
+        - `ProjectSettings = 2`
+      - 这说明“打包前的大头”已经从素材/文档转成运行时代码、Editor/Test 尾账与少量配置面。
+  20. 当前打包态准备口径也因此重新收束成三层：
+      - `已站住的`：
+        - 非代码资产大头已基本收完；
+        - `.kiro/xmind-pipeline` 已验证可跑并已提交；
+        - shared-root 剩余代码面已经有 `02` 版 owner 矩阵和专属 prompt，可随时重新启动分流。
+      - `仍待真正处理的`：
+        - `spring-day1` own Story/导演/测试尾账；
+        - `UI` own 玩家面与字体材质尾账；
+        - `Codex规则落地 own` 的 `Town/Home/Primary` 基线链；
+        - `ProjectSettings/EditorBuildSettings.asset` 与 `QualitySettings.asset`。
+      - `当前不应误判的`：
+        - 现在不是“只差几张图/几个 meta 就能打包”的阶段；
+        - 真正剩余风险已经转成代码、测试、配置和玩家面体验闭环。
+  21. 由于用户本轮明确要求“先暂停进一步提交，先复盘打包态并随时准备”，治理线程本轮停在分析准备层：
+      - 不继续吞新的 shared-root 提交；
+      - 只保留最新打包态判断、待办口径和恢复点；
+      - 下一轮如用户恢复执行，优先顺序应是：
+        1. 先看 `spring-day1 / UI` 两条 active 线是否已停稳；
+        2. 再决定是先补 packaged/live 验证，还是先继续收 `Codex规则落地 own` 的 `Town/Home/Primary` 基线链；
+        3. `ProjectSettings` 继续最后单独处理，不混普通尾账。
 
 ## 本卷纪律
 - 根卷只保留：
@@ -154,3 +184,93 @@
   - 稳定结论
   - 恢复点
 - 任何新的详细治理过程、批次执行、分卷动作或事故复盘，都不得再回灌本卷。
+
+## 2026-04-13｜续记：切场掉落物丢失链路审计与打包前修复口径
+
+- 用户目标：
+  - 排查 `Primary -> Home -> Primary` 这类普通切场后，地面掉落物为什么直接消失，并给出最安全、最适合打包前的一刀修复方案。
+- 当前主线：
+  - 本轮仍是 `Codex规则落地` 的只读分析，不进入真实施工；线程状态维持 `PARKED`。
+- 这轮实际做成了什么：
+  1. 已把掉落物的创建 / 注册 / 正式存档 / 普通切场四段链路串清：
+     - `ItemDropHelper` 只负责把物品生成到 `WorldItemPool`
+     - `WorldItemPickup` 会注册进 `PersistentObjectRegistry`
+     - `WorldItemPickup.Save/Load + DropDataDTO + DynamicObjectFactory.TryReconstructDrop` 说明系统确实支持“正式存档/读档恢复掉落物”
+     - 但普通切场走的是 `SceneTransitionTrigger2D -> PersistentPlayerSceneBridge`
+  2. 已确认普通切场桥当前只接：
+     - 背包快照
+     - 快捷栏选择
+     - crowd/native resident runtime snapshot
+     - 没有任何 scene-local 掉落物或一般 world object snapshot/restore
+  3. 已确认 `SaveManager` 的 worldObjects 链只在 `SaveGame/LoadGame` 时生效，不会在普通 `LoadSceneMode.Single` 切场时自动介入。
+- 关键判断：
+  - 用户看到的“回 Primary 掉落物全没了”不是单点 bug，而是当前普通切场 continuity 只桥接玩家自身，不桥接 scene-local 世界对象的结构缺口。
+  - 更进一步，从代码静态面看，这个缺口不只打在 `Drop`，理论上也会波及 `Tree/Stone` 这类同样依赖 `PersistentObjectRegistry + Save/Load` 的 scene-local world object；只是用户这次首先撞到的是掉落物。
+- 打包前最安全修复口径：
+  - 不建议走 `DontDestroyOnLoad` 掉落物常驻
+  - 不建议把普通切场硬绑成一次磁盘 `SaveGame/LoadGame`
+  - 推荐把补丁落在 `PersistentPlayerSceneBridge` 上，做“内存态 scene-local world snapshot bridge”
+  - 但打包前的白名单不建议一口气放太大；最稳的主方案是先接住与当前玩家循环直接相关的 `Drop / Tree / Stone`，避免只补 `Drop` 导致“树重生但掉落还在”的复制漏洞
+- 当前恢复点：
+  - 如果下一轮进入真实施工，优先补一份场景内存快照桥设计：
+    - 离场前 capture source scene 的白名单 world objects
+    - 回场时按 scene key restore
+    - 与正式磁盘存档语义分离
+    - 新游戏 / fresh start 时清空这层 runtime snapshot
+
+## 2026-04-13｜续记：已按“普通切场 continuity / 正式存档合同”拆成两份 prompt
+
+- 用户目标：
+  - 不把“掉落物跨场景消失”继续混成一锅，要求拆成两份可直接下发的 prompt：
+    1. `Codex规则落地` 负责普通切场 continuity
+    2. `存档系统` 负责正式存档入盘语义
+- 当前主线：
+  - 这轮仍是治理位 docs/prompt 收口，不进入真实施工。
+- 这轮实际做成了什么：
+  1. 已新增 `Codex规则落地` prompt：
+     - `2026-04-13_给Codex规则落地_普通切场scene-local-world-continuity最小runtime桥prompt_01.md`
+  2. 已新增 `存档系统` prompt：
+     - `2026-04-13_给存档系统_离场场景world-state入盘语义审计与最小合同prompt_01.md`
+  3. 已明确两线边界：
+     - runtime 线只管 `PersistentPlayerSceneBridge` 的内存态 scene-local world snapshot bridge
+     - save 线只管 off-scene world state 到正式存档的数据合同与最小入盘语义
+- 关键判断：
+  - “掉落物正式写入存档”这件事不是从零开始加字段，因为正式 `worldObjects` 主链已经存在；
+  - 真正需要拆开的是：
+    - 普通切场 continuity 缺口
+    - off-scene runtime state 入盘语义
+  - 如果不拆，这两条线最容易在 `PersistentPlayerSceneBridge / SaveManager` 的边界上互相覆盖。
+
+## 2026-04-13｜续记：普通切场 scene-local world continuity 最小 runtime bridge 已落代码
+
+- 用户目标：
+  - 不改正式存档链，只在 `PersistentPlayerSceneBridge.cs` 上补普通切场的 `scene-local world continuity` 最小 runtime bridge，白名单先接 `Drop / Tree / Stone`。
+- 当前主线：
+  - 本轮已从只读进入真实施工；线程已补登记 `Begin-Slice`，当前仍在本刀收口阶段。
+- 这轮实际做成了什么：
+  1. 已在 `PersistentPlayerSceneBridge` 新增按 scene key 存放的 runtime snapshot 容器，单独承接 `Drop / Tree / Stone`，不与正式磁盘存档混用。
+  2. 已把 `CaptureSceneRuntimeState()` 扩成：
+     - 继续保留背包 / 快捷栏 / resident snapshot
+     - 追加 capture 当前 scene 内的 `WorldItemPickup / TreeController / StoneController`
+  3. 已把 `RebindScene()` 扩成：
+     - 在 resident restore 之后，追加一段 deferred restore 协程
+     - 通过 `scene handle + scene key` 只对当前回到的同场景应用 snapshot
+  4. 已把 restore 语义收成最小白名单逻辑：
+     - 当前 scene 中已存在且 snapshot 仍应存在的对象：按 snapshot `Load`
+     - snapshot 标记为失活的 `Tree / Stone`：回场后继续保持失活
+     - 当前 scene 中多出来但 snapshot 不存在的 `Drop`：回收/销毁，避免回场复制
+     - 当前 scene 中缺失但 snapshot 里仍活着的对象：通过现有 `DynamicObjectFactory.TryReconstruct(...)` 重建后再 `Load`
+  5. `ResetPersistentRuntimeForFreshStartInternal()` 已新增清空这层 runtime snapshot，并停止挂起的 restore coroutine，避免 fresh start 继承旧场景内存态。
+- 关键判断：
+  - 这刀补的是“普通切场 continuity”，不是“正式存档入盘”；`SaveManager / SaveDataDTOs / DynamicObjectFactory` 仍保持原语义未改。
+  - 当前第一显性问题“离场后掉落物蒸发”在结构上已经被前移成更窄的 live 验证问题，不再是桥文件完全没接 world object。
+- 验证状态：
+  - `validate_script Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`：`owned_errors = 0`，assessment=`unity_validation_pending`
+  - `py -3 ... status`：baseline `pass`，fresh console `0 error / 0 warning`
+  - `py -3 ... errors --count 20 --output-limit 10`：`errors=0 warnings=0`
+  - 根级 `git diff --check` 仍被 shared root 里既有的 `Town.unity / House prefab` 行尾空格阻断；本刀 scope 级 `git diff --check -- Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs` 已通过
+- 当前恢复点：
+  - live 侧仍待用户或后续 runtime probe 真测：`Drop / Tree / Stone` 在 `Primary/Town/Home` 普通切场下是否都按预期延续
+  - `Ready-To-Sync` 已实跑，但被既有 own-root 残留阻断：
+    - `Assets/YYY_Scripts/Service/Player` 根下还留有本线程历史 dirty：`PlayerAutoNavigator.cs / PlayerInteraction.cs / PlayerNpcChatSessionService.cs / PlayerNpcNearbyFeedbackService.cs / PlayerNpcRelationshipService.cs / PlayerThoughtBubblePresenter.cs / PlayerToolFeedbackService.cs`
+    - 因此这轮当前不能合法只带 `PersistentPlayerSceneBridge.cs` 单独 sync；后续要么先清这批历史尾账，要么等用户明确允许扩大同根切片
