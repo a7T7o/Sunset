@@ -1,4 +1,6 @@
 using System;
+using System.Collections;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -427,6 +429,110 @@ public class NavigationAvoidanceRulesTests
     }
 
     [Test]
+    public void Solver_ShouldKeepYieldingNpcPeerMovingSideways_WhenHeadOnConflictGetsClose()
+    {
+        Type snapshotType = ResolveTypeOrFail("NavigationAgentSnapshot");
+        Type unitType = ResolveTypeOrFail("NavigationUnitType");
+        Type solverType = ResolveTypeOrFail("NavigationLocalAvoidanceSolver");
+
+        object yieldingNpc = CreateSnapshot(
+            snapshotType,
+            unitType,
+            2,
+            "NPC",
+            Vector2.zero,
+            Vector2.right,
+            0.35f,
+            0.6f,
+            50,
+            true,
+            false,
+            true);
+
+        object holdCourseNpc = CreateSnapshot(
+            snapshotType,
+            unitType,
+            1,
+            "NPC",
+            new Vector2(0.74f, 0.02f),
+            Vector2.left,
+            0.35f,
+            0.6f,
+            50,
+            true,
+            false,
+            true);
+
+        Array nearbyAgents = Array.CreateInstance(snapshotType, 1);
+        nearbyAgents.SetValue(holdCourseNpc, 0);
+
+        object result = InvokeStatic(solverType, "Solve", yieldingNpc, Vector2.right, 1.4f, nearbyAgents);
+        Assert.IsNotNull(result);
+
+        bool hasBlockingAgent = (bool)GetFieldOrProperty(result, "HasBlockingAgent");
+        bool shouldRepath = (bool)GetFieldOrProperty(result, "ShouldRepath");
+        float speedScale = (float)GetFieldOrProperty(result, "SpeedScale");
+        Vector2 adjustedDirection = (Vector2)GetFieldOrProperty(result, "AdjustedDirection");
+
+        Assert.That(hasBlockingAgent, Is.True);
+        Assert.That(shouldRepath, Is.True);
+        Assert.That(speedScale, Is.GreaterThanOrEqualTo(0.22f));
+        Assert.That(Mathf.Abs(adjustedDirection.y), Is.GreaterThan(0.08f));
+    }
+
+    [Test]
+    public void Solver_ShouldKeepHoldCourseNpcPeerAdvancing_WhenHeadOnConflictGetsClose()
+    {
+        Type snapshotType = ResolveTypeOrFail("NavigationAgentSnapshot");
+        Type unitType = ResolveTypeOrFail("NavigationUnitType");
+        Type solverType = ResolveTypeOrFail("NavigationLocalAvoidanceSolver");
+
+        object holdCourseNpc = CreateSnapshot(
+            snapshotType,
+            unitType,
+            1,
+            "NPC",
+            Vector2.zero,
+            Vector2.right,
+            0.35f,
+            0.6f,
+            50,
+            true,
+            false,
+            true);
+
+        object yieldingNpc = CreateSnapshot(
+            snapshotType,
+            unitType,
+            2,
+            "NPC",
+            new Vector2(0.74f, 0.02f),
+            Vector2.left,
+            0.35f,
+            0.6f,
+            50,
+            true,
+            false,
+            true);
+
+        Array nearbyAgents = Array.CreateInstance(snapshotType, 1);
+        nearbyAgents.SetValue(yieldingNpc, 0);
+
+        object result = InvokeStatic(solverType, "Solve", holdCourseNpc, Vector2.right, 1.4f, nearbyAgents);
+        Assert.IsNotNull(result);
+
+        bool hasBlockingAgent = (bool)GetFieldOrProperty(result, "HasBlockingAgent");
+        bool shouldRepath = (bool)GetFieldOrProperty(result, "ShouldRepath");
+        float speedScale = (float)GetFieldOrProperty(result, "SpeedScale");
+        Vector2 adjustedDirection = (Vector2)GetFieldOrProperty(result, "AdjustedDirection");
+
+        Assert.That(hasBlockingAgent, Is.True);
+        Assert.That(shouldRepath, Is.False);
+        Assert.That(speedScale, Is.GreaterThan(0.78f));
+        Assert.That(adjustedDirection.x, Is.GreaterThan(0.78f));
+    }
+
+    [Test]
     public void NPCAutoRoamController_ShouldPreferRequestedDestination_WhenRecoveringFromDetour()
     {
         Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
@@ -448,6 +554,445 @@ public class NavigationAvoidanceRulesTests
         finally
         {
             UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldBiasSideways_WhenStaticObstacleSitsDirectlyAhead()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject npcGo = new GameObject("NPCAutoRoamController_StaticSteeringTest");
+        GameObject wallGo = new GameObject("StaticWallAhead");
+
+        try
+        {
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+
+            BoxCollider2D wallCollider = wallGo.AddComponent<BoxCollider2D>();
+            wallGo.transform.position = new Vector2(0.48f, 0f);
+            wallCollider.size = new Vector2(0.18f, 1.1f);
+            Physics2D.SyncTransforms();
+
+            Vector2 adjustedDirection = (Vector2)InvokeInstance(
+                controller,
+                "AdjustDirectionByStaticColliders",
+                Vector2.zero,
+                Vector2.right,
+                0.12f);
+
+            Assert.That(adjustedDirection.x, Is.LessThan(0.995f));
+            Assert.That(Mathf.Abs(adjustedDirection.y), Is.GreaterThan(0.05f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(wallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+        }
+    }
+
+    [Test]
+    public void NavigationTraversalCore_ShouldRejectNarrowGap_WhenClearanceMarginWouldClipNpcBody()
+    {
+        Type navGridType = ResolveTypeOrFail("NavGrid2D");
+        Type traversalCoreType = ResolveTypeOrFail("NavigationTraversalCore");
+        Type traversalContractType = ResolveTypeOrFail("NavigationTraversalCore+Contract");
+        Type tilemapType = ResolveTypeOrFail("UnityEngine.Tilemaps.Tilemap");
+        GameObject navGridGo = new GameObject("NavGrid_ClearanceMarginGapTest");
+        GameObject npcGo = new GameObject("NPC_ClearanceMarginGapTest");
+        GameObject leftWallGo = new GameObject("GapWall_Left");
+        GameObject rightWallGo = new GameObject("GapWall_Right");
+
+        try
+        {
+            Component navGrid = navGridGo.AddComponent(navGridType);
+            InvokeInstance(navGrid, "Awake");
+            SetFieldOrProperty(navGrid, "autoDetectWorldBounds", false);
+            SetFieldOrProperty(navGrid, "worldOrigin", new Vector2(-2f, -2f));
+            SetFieldOrProperty(navGrid, "worldSize", new Vector2(4f, 4f));
+            SetFieldOrProperty(navGrid, "cellSize", 0.25f);
+            SetFieldOrProperty(navGrid, "probeRadius", 0.2f);
+
+            BoxCollider2D leftWall = leftWallGo.AddComponent<BoxCollider2D>();
+            leftWall.size = new Vector2(0.12f, 1.6f);
+            leftWallGo.transform.position = new Vector2(-0.34f, 0f);
+
+            BoxCollider2D rightWall = rightWallGo.AddComponent<BoxCollider2D>();
+            rightWall.size = new Vector2(0.12f, 1.6f);
+            rightWallGo.transform.position = new Vector2(0.34f, 0f);
+            Physics2D.SyncTransforms();
+
+            Array emptyTilemaps = Array.CreateInstance(tilemapType, 0);
+            InvokeInstance(
+                navGrid,
+                "ConfigureExplicitObstacleSources",
+                new Collider2D[] { leftWall, rightWall },
+                emptyTilemaps,
+                false);
+            InvokeInstance(navGrid, "RebuildGrid");
+
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            object traversalContract = Activator.CreateInstance(
+                traversalContractType,
+                navGrid,
+                npcCollider,
+                0.08f,
+                0.05f,
+                0.02f);
+
+            bool footProbeOccupiable = InvokeStaticBool(
+                traversalCoreType,
+                "CanOccupyNavigationPoint",
+                traversalContract,
+                Vector2.zero);
+            bool bodyClearanceOccupiable = InvokeStaticBool(
+                traversalCoreType,
+                "CanOccupyNavigationPointWithClearanceMargin",
+                traversalContract,
+                Vector2.zero,
+                0.12f,
+                0.18f,
+                0.35f);
+
+            Assert.That(footProbeOccupiable, Is.True);
+            Assert.That(bodyClearanceOccupiable, Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(rightWallGo);
+            UnityEngine.Object.DestroyImmediate(leftWallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+            UnityEngine.Object.DestroyImmediate(navGridGo);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldTreatStoryOwnedFormalReturn_AsResidentScriptedMove()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+        GameObject go = new GameObject("NPCAutoRoamController_StoryOwnedFormalReturnTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            IList scriptedOwners = (IList)GetFieldOrProperty(controller, "residentScriptedControlOwners");
+            scriptedOwners.Add("day1");
+
+            SetFieldOrProperty(controller, "debugMoveActive", true);
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "FormalNavigation"));
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+
+            bool isResidentScriptedMoveActive = (bool)GetFieldOrProperty(controller, "IsResidentScriptedMoveActive");
+            Assert.That(isResidentScriptedMoveActive, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldKeepPlainDebugBypass_ButEnableRecoverablePointToPointStaticSteering()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_DebugContractTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+            SetFieldOrProperty(controller, "debugMoveActive", true);
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "PlainDebug"));
+
+            bool plainDebugBypassesSharedAvoidance = (bool)InvokeInstance(controller, "ShouldBypassSharedAvoidanceForCurrentMove");
+            bool plainDebugUsesStaticSteering = (bool)InvokeInstance(controller, "ShouldApplyAutonomousStaticObstacleSteering");
+
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "AutonomousDirected"));
+
+            bool autonomousDirectedBypassesSharedAvoidance = (bool)InvokeInstance(controller, "ShouldBypassSharedAvoidanceForCurrentMove");
+            bool autonomousDirectedUsesStaticSteering = (bool)InvokeInstance(controller, "ShouldApplyAutonomousStaticObstacleSteering");
+
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "FormalNavigation"));
+
+            bool formalHomeReturnBypassesSharedAvoidance = (bool)InvokeInstance(controller, "ShouldBypassSharedAvoidanceForCurrentMove");
+            bool formalHomeReturnUsesStaticSteering = (bool)InvokeInstance(controller, "ShouldApplyAutonomousStaticObstacleSteering");
+
+            Assert.That(plainDebugBypassesSharedAvoidance, Is.True);
+            Assert.That(plainDebugUsesStaticSteering, Is.False);
+            Assert.That(autonomousDirectedBypassesSharedAvoidance, Is.False);
+            Assert.That(autonomousDirectedUsesStaticSteering, Is.True);
+            Assert.That(formalHomeReturnBypassesSharedAvoidance, Is.False);
+            Assert.That(formalHomeReturnUsesStaticSteering, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldEnableReleasedBodyClearance_ForRecoverablePointToPointContracts()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+        GameObject go = new GameObject("NPCAutoRoamController_ReleasedBodyClearanceContractTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "debugMoveActive", true);
+
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "PlainDebug"));
+            bool plainDebugUsesReleasedBodyClearance = (bool)InvokeInstance(controller, "ShouldUseReleasedMovementBodyClearanceExecutionContract");
+
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "AutonomousDirected"));
+            bool autonomousDirectedUsesReleasedBodyClearance = (bool)InvokeInstance(controller, "ShouldUseReleasedMovementBodyClearanceExecutionContract");
+
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "ResidentScripted"));
+            bool residentScriptedUsesReleasedBodyClearance = (bool)InvokeInstance(controller, "ShouldUseReleasedMovementBodyClearanceExecutionContract");
+
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "FormalNavigation"));
+            bool formalNavigationUsesReleasedBodyClearance = (bool)InvokeInstance(controller, "ShouldUseReleasedMovementBodyClearanceExecutionContract");
+
+            Assert.That(plainDebugUsesReleasedBodyClearance, Is.False);
+            Assert.That(autonomousDirectedUsesReleasedBodyClearance, Is.True);
+            Assert.That(residentScriptedUsesReleasedBodyClearance, Is.True);
+            Assert.That(formalNavigationUsesReleasedBodyClearance, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldDelayImmediateRestart_AfterFormalNavigationArrival()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_FormalRestartSettleTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            go.transform.position = Vector2.zero;
+
+            SetFieldOrProperty(controller, "lastFormalNavigationArrivalTime", Time.time);
+            SetFieldOrProperty(controller, "lastFormalNavigationArrivalPosition", Vector2.zero);
+
+            bool shouldDelayRestart = (bool)InvokeInstance(controller, "ShouldDelayImmediateRoamRestartAfterFormalNavigation");
+            Assert.That(shouldDelayRestart, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldRejectFormalNavigationBadPoint_WhenDestinationGapIsNarrowerThanBody()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+        Type navGridType = ResolveTypeOrFail("NavGrid2D");
+        Type tilemapType = ResolveTypeOrFail("UnityEngine.Tilemaps.Tilemap");
+        GameObject navGridGo = new GameObject("NavGrid_FormalBadPointGapTest");
+        GameObject npcGo = new GameObject("NPC_FormalBadPointGapTest");
+        GameObject leftWallGo = new GameObject("FormalGapWall_Left");
+        GameObject rightWallGo = new GameObject("FormalGapWall_Right");
+
+        try
+        {
+            Component navGrid = navGridGo.AddComponent(navGridType);
+            InvokeInstance(navGrid, "Awake");
+            SetFieldOrProperty(navGrid, "autoDetectWorldBounds", false);
+            SetFieldOrProperty(navGrid, "worldOrigin", new Vector2(-2f, -2f));
+            SetFieldOrProperty(navGrid, "worldSize", new Vector2(4f, 4f));
+            SetFieldOrProperty(navGrid, "cellSize", 0.25f);
+            SetFieldOrProperty(navGrid, "probeRadius", 0.2f);
+
+            BoxCollider2D leftWall = leftWallGo.AddComponent<BoxCollider2D>();
+            leftWall.size = new Vector2(0.12f, 1.6f);
+            leftWallGo.transform.position = new Vector2(-0.32f, 0f);
+
+            BoxCollider2D rightWall = rightWallGo.AddComponent<BoxCollider2D>();
+            rightWall.size = new Vector2(0.12f, 1.6f);
+            rightWallGo.transform.position = new Vector2(0.32f, 0f);
+            Physics2D.SyncTransforms();
+
+            Array emptyTilemaps = Array.CreateInstance(tilemapType, 0);
+            InvokeInstance(
+                navGrid,
+                "ConfigureExplicitObstacleSources",
+                new Collider2D[] { leftWall, rightWall },
+                emptyTilemaps,
+                false);
+            InvokeInstance(navGrid, "RebuildGrid");
+
+            npcGo.transform.position = new Vector2(0f, -1.2f);
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navGrid", navGrid);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+
+            bool beganMove = (bool)InvokeInstance(
+                controller,
+                "BeginPathDirectedMove",
+                Vector2.zero,
+                Enum.Parse(travelContractType, "FormalNavigation"));
+
+            Assert.That(beganMove, Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(rightWallGo);
+            UnityEngine.Object.DestroyImmediate(leftWallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+            UnityEngine.Object.DestroyImmediate(navGridGo);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldRejectRecoverablePointToPointBuiltPath_WhenSegmentClipsNarrowGap()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type navGridType = ResolveTypeOrFail("NavGrid2D");
+        Type tilemapType = ResolveTypeOrFail("UnityEngine.Tilemaps.Tilemap");
+        GameObject navGridGo = new GameObject("NavGrid_ReleasedPathGapTest");
+        GameObject npcGo = new GameObject("NPC_ReleasedPathGapTest");
+        GameObject leftWallGo = new GameObject("ReleasedPathGapWall_Left");
+        GameObject rightWallGo = new GameObject("ReleasedPathGapWall_Right");
+
+        try
+        {
+            Component navGrid = navGridGo.AddComponent(navGridType);
+            InvokeInstance(navGrid, "Awake");
+            SetFieldOrProperty(navGrid, "autoDetectWorldBounds", false);
+            SetFieldOrProperty(navGrid, "worldOrigin", new Vector2(-2f, -2f));
+            SetFieldOrProperty(navGrid, "worldSize", new Vector2(4f, 4f));
+            SetFieldOrProperty(navGrid, "cellSize", 0.25f);
+            SetFieldOrProperty(navGrid, "probeRadius", 0.2f);
+
+            BoxCollider2D leftWall = leftWallGo.AddComponent<BoxCollider2D>();
+            leftWall.size = new Vector2(0.12f, 1.6f);
+            leftWallGo.transform.position = new Vector2(-0.32f, 0f);
+
+            BoxCollider2D rightWall = rightWallGo.AddComponent<BoxCollider2D>();
+            rightWall.size = new Vector2(0.12f, 1.6f);
+            rightWallGo.transform.position = new Vector2(0.32f, 0f);
+            Physics2D.SyncTransforms();
+
+            Array emptyTilemaps = Array.CreateInstance(tilemapType, 0);
+            InvokeInstance(
+                navGrid,
+                "ConfigureExplicitObstacleSources",
+                new Collider2D[] { leftWall, rightWall },
+                emptyTilemaps,
+                false);
+            InvokeInstance(navGrid, "RebuildGrid");
+
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navGrid", navGrid);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+
+            object executionState = GetFieldOrProperty(controller, "navigationExecution");
+            IList path = (IList)GetFieldOrProperty(executionState, "Path");
+            path.Add(Vector2.zero);
+            path.Add(new Vector2(0f, 1.1f));
+
+            bool acceptable = (bool)InvokeInstance(
+                controller,
+                "IsRecoverablePointToPointBuiltPathAcceptable",
+                new Vector2(0f, -1.2f),
+                new Vector2(0f, 1.1f));
+
+            Assert.That(acceptable, Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(rightWallGo);
+            UnityEngine.Object.DestroyImmediate(leftWallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+            UnityEngine.Object.DestroyImmediate(navGridGo);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldCreateStaticRecoveryPath_WithOverrideWaypointAroundWall()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+        Type navGridType = ResolveTypeOrFail("NavGrid2D");
+        Type tilemapType = ResolveTypeOrFail("UnityEngine.Tilemaps.Tilemap");
+        GameObject navGridGo = new GameObject("NavGrid_StaticRecoveryPathTest");
+        GameObject npcGo = new GameObject("NPC_StaticRecoveryPathTest");
+        GameObject wallGo = new GameObject("StaticRecoveryWall");
+
+        try
+        {
+            Component navGrid = navGridGo.AddComponent(navGridType);
+            InvokeInstance(navGrid, "Awake");
+            SetFieldOrProperty(navGrid, "autoDetectWorldBounds", false);
+            SetFieldOrProperty(navGrid, "worldOrigin", new Vector2(-2f, -2f));
+            SetFieldOrProperty(navGrid, "worldSize", new Vector2(4f, 4f));
+            SetFieldOrProperty(navGrid, "cellSize", 0.25f);
+            SetFieldOrProperty(navGrid, "probeRadius", 0.2f);
+
+            BoxCollider2D wall = wallGo.AddComponent<BoxCollider2D>();
+            wall.size = new Vector2(0.18f, 0.9f);
+            wallGo.transform.position = new Vector2(0.48f, 0f);
+            Physics2D.SyncTransforms();
+
+            Array emptyTilemaps = Array.CreateInstance(tilemapType, 0);
+            InvokeInstance(
+                navGrid,
+                "ConfigureExplicitObstacleSources",
+                new Collider2D[] { wall },
+                emptyTilemaps,
+                false);
+            InvokeInstance(navGrid, "RebuildGrid");
+
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navGrid", navGrid);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+            SetFieldOrProperty(controller, "debugMoveActive", true);
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "FormalNavigation"));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(1.5f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(1.5f, 0f));
+
+            bool createdRecovery = (bool)InvokeInstance(
+                controller,
+                "TryCreateStaticObstacleRecoveryPath",
+                Vector2.zero,
+                "ConstrainedZeroAdvance");
+
+            object executionState = GetFieldOrProperty(controller, "navigationExecution");
+            bool hasOverrideWaypoint = (bool)GetFieldOrProperty(executionState, "HasOverrideWaypoint");
+            Vector2 overrideWaypoint = (Vector2)GetFieldOrProperty(executionState, "OverrideWaypoint");
+            IList path = (IList)GetFieldOrProperty(executionState, "Path");
+            Vector2 activeDestination = (Vector2)GetFieldOrProperty(executionState, "Destination");
+
+            Assert.That(createdRecovery, Is.True);
+            Assert.That(hasOverrideWaypoint, Is.True);
+            Assert.That(Mathf.Abs(overrideWaypoint.y), Is.GreaterThan(0.05f));
+            Assert.That(path.Count, Is.GreaterThan(0));
+            Assert.That(activeDestination.x, Is.GreaterThan(1.2f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(wallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+            UnityEngine.Object.DestroyImmediate(navGridGo);
         }
     }
 
@@ -999,6 +1544,49 @@ public class NavigationAvoidanceRulesTests
         }
     }
 
+    [Test]
+    public void NavigationAgentRegistry_ShouldReturnOnlyActiveRegisteredRoamControllers()
+    {
+        GameObject activeA = new GameObject("RegistryNpc_A");
+        GameObject activeB = new GameObject("RegistryNpc_B");
+        GameObject inactive = new GameObject("RegistryNpc_Inactive");
+
+        try
+        {
+            Type controllerType = ResolveTypeOrFail("PlayerAutoNavigator");
+            Component controllerA = activeA.AddComponent(controllerType);
+            Component controllerB = activeB.AddComponent(controllerType);
+            Component inactiveController = inactive.AddComponent(controllerType);
+
+            Type registryType = ResolveTypeOrFail("NavigationAgentRegistry");
+            MethodInfo registerMethod = registryType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static);
+            Assert.IsNotNull(registerMethod, "未找到 NavigationAgentRegistry.Register");
+            registerMethod.Invoke(null, new object[] { controllerA });
+            registerMethod.Invoke(null, new object[] { controllerB });
+            registerMethod.Invoke(null, new object[] { inactiveController });
+
+            ((Behaviour)inactiveController).enabled = false;
+
+            Type bufferType = typeof(List<>).MakeGenericType(controllerType);
+            IList buffer = (IList)Activator.CreateInstance(bufferType);
+            MethodInfo registryMethod = registryType
+                .GetMethod("GetRegisteredUnits", BindingFlags.Public | BindingFlags.Static)
+                ?.MakeGenericMethod(controllerType);
+            Assert.IsNotNull(registryMethod, "未找到 NavigationAgentRegistry.GetRegisteredUnits<T>");
+            registryMethod.Invoke(null, new object[] { buffer });
+
+            Assert.That(buffer.Contains(controllerA), Is.True);
+            Assert.That(buffer.Contains(controllerB), Is.True);
+            Assert.That(buffer.Contains(inactiveController), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(inactive);
+            UnityEngine.Object.DestroyImmediate(activeB);
+            UnityEngine.Object.DestroyImmediate(activeA);
+        }
+    }
+
     private static object CreateSnapshot(
         Type snapshotType,
         Type unitType,
@@ -1181,4 +1769,5 @@ public class NavigationAvoidanceRulesTests
 
         return fallback;
     }
+
 }

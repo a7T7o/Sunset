@@ -7,6 +7,15 @@ using UnityEngine;
 /// </summary>
 public static class NavigationLocalAvoidanceSolver
 {
+    private const float NpcPeerYieldPredictedSidestepWeight = 2.55f;
+    private const float NpcPeerYieldHeadOnSidestepWeight = 2.35f;
+    private const float NpcPeerYieldCruiseSidestepWeight = 2.05f;
+    private const float NpcPeerYieldPredictedMinSpeedScale = 0.22f;
+    private const float NpcPeerYieldNearContactMinSpeedScale = 0.26f;
+    private const float NpcPeerYieldCruiseMinSpeedScale = 0.3f;
+    private const float NpcPeerHoldCourseNearContactSidestepWeight = 0.18f;
+    private const float NpcPeerHoldCourseCruiseSidestepWeight = 0.06f;
+
     public readonly struct AvoidanceResult
     {
         public readonly Vector2 AdjustedDirection;
@@ -413,23 +422,36 @@ public static class NavigationLocalAvoidanceSolver
             float sidestepWeight;
             if (yieldToDynamicAgent || treatAsBlockingObstacle)
             {
-                sidestepWeight = predictedYieldConflict
-                    ? 2.25f
-                        : (headOnPeerCrossing
-                            ? 2.05f
-                            : (playerAgainstPassiveNpcBlocker
-                                ? 1.45f
-                                : (sleepingBlocker
-                                    ? 2.55f
-                                    : (treatAsBlockingObstacle ? 2.15f : 1.75f))));
+                if (yieldToDynamicAgent && npcPeerCrossing)
+                {
+                    sidestepWeight = predictedYieldConflict
+                        ? NpcPeerYieldPredictedSidestepWeight
+                        : (headOnPeerCrossing ? NpcPeerYieldHeadOnSidestepWeight : NpcPeerYieldCruiseSidestepWeight);
+                }
+                else
+                {
+                    sidestepWeight = predictedYieldConflict
+                        ? 2.25f
+                            : (headOnPeerCrossing
+                                ? 2.05f
+                                : (playerAgainstPassiveNpcBlocker
+                                    ? 1.45f
+                                    : (sleepingBlocker
+                                        ? 2.55f
+                                        : (treatAsBlockingObstacle ? 2.15f : 1.75f))));
+                }
             }
             else if (nearContact)
             {
-                sidestepWeight = peerHoldCourse ? 0.08f : (headOnPeerCrossing ? 0.08f : (npcPeerCrossing ? 0.42f : 1.1f));
+                sidestepWeight = peerHoldCourse
+                    ? (holdCoursePeerAwareness ? NpcPeerHoldCourseNearContactSidestepWeight : 0.1f)
+                    : (headOnPeerCrossing ? 0.08f : (npcPeerCrossing ? 0.42f : 1.1f));
             }
             else
             {
-                sidestepWeight = peerHoldCourse ? 0.02f : (headOnPeerCrossing ? 0.02f : (npcPeerCrossing ? 0.18f : 0.65f));
+                sidestepWeight = peerHoldCourse
+                    ? NpcPeerHoldCourseCruiseSidestepWeight
+                    : (headOnPeerCrossing ? 0.02f : (npcPeerCrossing ? 0.18f : 0.65f));
             }
 
             if (playerAgainstPassiveNpcBlocker)
@@ -465,6 +487,14 @@ public static class NavigationLocalAvoidanceSolver
                         1f,
                         Mathf.Clamp01(timeToClosest / Mathf.Max(predictionHorizon, 0.001f)));
                     localSpeedScale = Mathf.Min(localSpeedScale, timeSpeedScale);
+                }
+
+                if (npcPeerCrossing)
+                {
+                    float peerYieldMinSpeedScale = predictedYieldConflict
+                        ? NpcPeerYieldPredictedMinSpeedScale
+                        : (nearContact ? NpcPeerYieldNearContactMinSpeedScale : NpcPeerYieldCruiseMinSpeedScale);
+                    localSpeedScale = Mathf.Max(localSpeedScale, peerYieldMinSpeedScale);
                 }
 
                 speedScale = Mathf.Min(speedScale, localSpeedScale);
@@ -504,12 +534,13 @@ public static class NavigationLocalAvoidanceSolver
             }
             else if (nearContact)
             {
-                avoidance += (-desired) * weight * (peerHoldCourse ? 0.08f : (headOnPeerCrossing ? 0.08f : 0.35f));
+                float holdCourseBackoffWeight = holdCoursePeerAwareness ? 0.04f : 0.08f;
+                avoidance += (-desired) * weight * (peerHoldCourse ? holdCourseBackoffWeight : (headOnPeerCrossing ? 0.08f : 0.35f));
                 float nonYieldSpeedScale = Mathf.Clamp01(Mathf.Max(clearance, 0f) / Mathf.Max(interactionRadius * 0.5f, 0.001f));
                 speedScale = Mathf.Min(
                     speedScale,
                     peerHoldCourse || headOnPeerCrossing
-                        ? Mathf.Lerp(0.75f, 0.95f, nonYieldSpeedScale)
+                        ? Mathf.Lerp(holdCoursePeerAwareness ? 0.82f : 0.78f, 0.96f, nonYieldSpeedScale)
                         : Mathf.Lerp(0.18f, 0.45f, nonYieldSpeedScale));
             }
 

@@ -12,8 +12,12 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
 {
     private const string MenuPath = "Tools/Codex/NPC/Run Traversal Acceptance Probe";
     private const string NaturalBridgeMenuPath = "Tools/Codex/NPC/Run Natural Roam Bridge Probe";
-    private const string PendingActionKey = "Sunset.CodexNpcTraversalAcceptance.PendingAction";
+    private const string AuthorizeMenuPath = "Tools/Codex/NPC/Authorize Traversal Probe (2 min)";
+    private const string RevokeAuthorizationMenuPath = "Tools/Codex/NPC/Revoke Traversal Probe Authorization";
+    private const string ManualRunPermitUntilUtcTicksKey = "Sunset.CodexNpcTraversalAcceptance.ManualRunPermitUntilUtcTicks";
     private const string RequiredSceneName = "Primary";
+    private const string NpcPrefabRootPath = "Assets/222_Prefabs/NPC";
+    private const double ManualRunPermitWindowSeconds = 120.0d;
     private const double BridgeTimeoutSeconds = 12.0d;
     private const double EdgeTimeoutSeconds = 8.0d;
     private const float BridgeReachTolerance = 0.45f;
@@ -50,13 +54,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
     private static NavGrid2D s_navGrid;
     private static TilemapCollider2D s_waterCollider;
     private static readonly List<Behaviour> s_temporarilyDisabledBehaviours = new List<Behaviour>();
-
-    static CodexNpcTraversalAcceptanceProbeMenu()
-    {
-        EditorApplication.playModeStateChanged -= HandlePlayModeStateChanged;
-        EditorApplication.playModeStateChanged += HandlePlayModeStateChanged;
-        EditorApplication.delayCall += ResumePendingActionAfterReload;
-    }
+    private static readonly List<GameObject> s_spawnedProbeObjects = new List<GameObject>();
 
     [MenuItem(MenuPath)]
     private static void RunProbe()
@@ -70,69 +68,68 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         RunOrQueueProbe(naturalRoamBridgeMode: true);
     }
 
+    [MenuItem(AuthorizeMenuPath)]
+    private static void AuthorizeProbeRun()
+    {
+        DateTime expiresAt = DateTime.UtcNow.AddSeconds(ManualRunPermitWindowSeconds);
+        EditorPrefs.SetString(ManualRunPermitUntilUtcTicksKey, expiresAt.Ticks.ToString());
+        Debug.Log($"[CodexNpcTraversalAcceptance] probe_authorized_until_utc={expiresAt:O}");
+    }
+
+    [MenuItem(RevokeAuthorizationMenuPath)]
+    private static void RevokeProbeRunAuthorization()
+    {
+        EditorPrefs.DeleteKey(ManualRunPermitUntilUtcTicksKey);
+        Debug.Log("[CodexNpcTraversalAcceptance] probe_authorization_revoked");
+    }
+
     private static void RunOrQueueProbe(bool naturalRoamBridgeMode)
     {
+        if (!HasManualRunPermit())
+        {
+            Debug.LogWarning(
+                "[CodexNpcTraversalAcceptance] probe_blocked reason=authorization_required；" +
+                "先手动执行 Tools/Codex/NPC/Authorize Traversal Probe (2 min)。");
+            return;
+        }
+
         if (EditorApplication.isPlaying)
         {
+            ConsumeManualRunPermit();
             RunProbeInternal(naturalRoamBridgeMode);
             return;
         }
 
-        EditorPrefs.SetString(PendingActionKey, naturalRoamBridgeMode ? "natural" : "full");
-        if (!EditorApplication.isPlayingOrWillChangePlaymode)
-        {
-            Debug.Log(
-                naturalRoamBridgeMode
-                    ? "[CodexNpcTraversalAcceptance] queued_action=natural entering_play_mode"
-                    : "[CodexNpcTraversalAcceptance] queued_action=full entering_play_mode");
-            EditorApplication.isPlaying = true;
-        }
+        Debug.LogWarning("[CodexNpcTraversalAcceptance] 请先手动进入 Play Mode，再执行 probe；已取消自动切 Play。");
     }
 
-    private static void HandlePlayModeStateChanged(PlayModeStateChange state)
+    private static bool HasManualRunPermit()
     {
-        if (state != PlayModeStateChange.EnteredPlayMode)
+        if (!EditorPrefs.HasKey(ManualRunPermitUntilUtcTicksKey))
         {
-            return;
+            return false;
         }
 
-        EditorApplication.delayCall += DispatchPendingActionAfterPlayModeEntered;
+        string rawValue = EditorPrefs.GetString(ManualRunPermitUntilUtcTicksKey, string.Empty);
+        if (!long.TryParse(rawValue, out long ticks))
+        {
+            EditorPrefs.DeleteKey(ManualRunPermitUntilUtcTicksKey);
+            return false;
+        }
+
+        DateTime expiresAt = new DateTime(ticks, DateTimeKind.Utc);
+        if (DateTime.UtcNow <= expiresAt)
+        {
+            return true;
+        }
+
+        EditorPrefs.DeleteKey(ManualRunPermitUntilUtcTicksKey);
+        return false;
     }
 
-    private static void ResumePendingActionAfterReload()
+    private static void ConsumeManualRunPermit()
     {
-        if (!EditorPrefs.HasKey(PendingActionKey))
-        {
-            return;
-        }
-
-        if (EditorApplication.isPlaying)
-        {
-            DispatchPendingAction();
-            return;
-        }
-
-        if (!EditorApplication.isPlayingOrWillChangePlaymode)
-        {
-            EditorApplication.isPlaying = true;
-        }
-    }
-
-    private static void DispatchPendingActionAfterPlayModeEntered()
-    {
-        DispatchPendingAction();
-    }
-
-    private static void DispatchPendingAction()
-    {
-        if (!EditorApplication.isPlaying || !EditorPrefs.HasKey(PendingActionKey))
-        {
-            return;
-        }
-
-        string pendingAction = EditorPrefs.GetString(PendingActionKey, string.Empty);
-        EditorPrefs.DeleteKey(PendingActionKey);
-        RunProbeInternal(string.Equals(pendingAction, "natural", StringComparison.Ordinal));
+        EditorPrefs.DeleteKey(ManualRunPermitUntilUtcTicksKey);
     }
 
     private static void RunProbeInternal(bool naturalRoamBridgeMode)
@@ -156,8 +153,8 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
 
         s_navGrid = UnityEngine.Object.FindFirstObjectByType<NavGrid2D>();
         s_waterCollider = FindWaterCollider();
-        s_bridgeNpc = BuildContext("002");
-        s_edgeNpc = naturalRoamBridgeMode ? null : BuildContext("003");
+        s_bridgeNpc = BuildOrSpawnContext("002");
+        s_edgeNpc = naturalRoamBridgeMode ? null : BuildOrSpawnContext("003");
         if (!TryValidateDependencies(naturalRoamBridgeMode, out string missingReason))
         {
             Debug.LogError($"[CodexNpcTraversalAcceptance] 缺少运行时依赖：{missingReason}。");
@@ -339,10 +336,22 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         s_navGrid = null;
         s_waterCollider = null;
         RestoreSuppressedControllers();
+        DestroySpawnedProbeObjects();
         if (logSummary)
         {
             Debug.Log("[CodexNpcTraversalAcceptance] cleanup");
         }
+    }
+
+    private static ProbeNpcContext BuildOrSpawnContext(string npcName)
+    {
+        ProbeNpcContext existing = BuildContext(npcName);
+        if (existing != null)
+        {
+            return existing;
+        }
+
+        return TrySpawnProbeNpcContext(npcName);
     }
 
     private static ProbeNpcContext BuildContext(string npcName)
@@ -370,6 +379,62 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         return null;
     }
 
+    private static ProbeNpcContext TrySpawnProbeNpcContext(string npcName)
+    {
+        string prefabPath = $"{NpcPrefabRootPath}/{npcName}.prefab";
+        GameObject npcPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (npcPrefab == null)
+        {
+            return null;
+        }
+
+        GameObject instance = PrefabUtility.InstantiatePrefab(npcPrefab) as GameObject;
+        if (instance == null)
+        {
+            instance = UnityEngine.Object.Instantiate(npcPrefab);
+        }
+
+        if (instance == null)
+        {
+            return null;
+        }
+
+        instance.name = npcName;
+        s_spawnedProbeObjects.Add(instance);
+
+        NPCAutoRoamController controller = instance.GetComponent<NPCAutoRoamController>();
+        if (controller == null)
+        {
+            controller = instance.GetComponentInChildren<NPCAutoRoamController>(true);
+        }
+
+        if (controller == null)
+        {
+            UnityEngine.Object.Destroy(instance);
+            s_spawnedProbeObjects.Remove(instance);
+            return null;
+        }
+
+        Transform homeAnchor = FindNamedTransform($"{npcName}_HomeAnchor");
+        if (homeAnchor == null)
+        {
+            GameObject createdAnchor = new GameObject($"{npcName}_HomeAnchor");
+            createdAnchor.transform.position = controller.transform.position;
+            s_spawnedProbeObjects.Add(createdAnchor);
+            homeAnchor = createdAnchor.transform;
+        }
+
+        return new ProbeNpcContext
+        {
+            Name = npcName,
+            Controller = controller,
+            MotionController = controller.GetComponent<NPCMotionController>(),
+            Rigidbody = controller.GetComponent<Rigidbody2D>(),
+            Collider = controller.GetComponent<Collider2D>(),
+            HomeAnchor = homeAnchor
+        };
+    }
+
     private static void ConfigureNpcForProbe(ProbeNpcContext context, Vector2 startPosition, Vector2 homeAnchorPosition)
     {
         if (context == null)
@@ -377,9 +442,9 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
             return;
         }
 
-        context.Controller.StopRoam();
         context.Controller.enabled = true;
         Vector2 resolvedStartPosition = ResolveStableStartPosition(context, startPosition);
+        context.Controller.SnapToTarget(resolvedStartPosition);
         if (context.Rigidbody != null)
         {
             context.Rigidbody.position = resolvedStartPosition;
@@ -430,7 +495,7 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
             return false;
         }
 
-        if (context.Controller.DebugMoveTo(targetPosition))
+        if (context.Controller.BeginAutonomousTravel(targetPosition))
         {
             return true;
         }
@@ -628,6 +693,20 @@ internal static class CodexNpcTraversalAcceptanceProbeMenu
         }
 
         s_temporarilyDisabledBehaviours.Clear();
+    }
+
+    private static void DestroySpawnedProbeObjects()
+    {
+        for (int index = s_spawnedProbeObjects.Count - 1; index >= 0; index--)
+        {
+            GameObject probeObject = s_spawnedProbeObjects[index];
+            if (probeObject != null)
+            {
+                UnityEngine.Object.Destroy(probeObject);
+            }
+        }
+
+        s_spawnedProbeObjects.Clear();
     }
 
     private static T FindNamedComponent<T>(string objectName) where T : Component

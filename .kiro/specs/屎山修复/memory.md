@@ -5503,3 +5503,369 @@
     1. `Town` 问题 NPC / 小动物的 `HomeAnchor / DailyStand / ResidentSlot / roam destination` occupiable 验证
     2. 若目标点非法，再做最小的目标修正 / 采样收紧
     3. 只在这两层都站住后，再回看 shared avoidance 是否还需要补第二刀
+
+## 2026-04-13 导航坏相进一步分层：tag 不是主根因，第一真口子在 shared traversal core clearance 太窄
+- 新增结论：
+  1. `Town resident` 整片冻结已被 day1 own fresh probe 钉到 `SpringDay1NpcCrowdDirector` runtime registry 恢复漏口；不要再把这类冻结先甩回导航 core。
+  2. 对树/房屋/围栏这类静态障碍，当前更像不是“tag 没挂对”，而是：
+     - 树/房屋子物体本身已有 `PolygonCollider2D`
+     - [NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs#L2287) 的 `HasAnyTag(...)` 还会沿父链检查 tag
+     - 所以简单的 `tag wiring` 不能解释“路线贴进碰撞体内部”
+  3. 真正更像的第一真问题是 shared traversal core 的 static clearance 判定半径过小：
+     - NPC 当前 `navigationFootProbeVerticalInset / SideInset / ExtraRadius = 0.08 / 0.05 / 0.02`
+     - [NavigationTraversalCore.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs#L520-L534) 最终把 `CanOccupyNavigationPoint(...)` 的查询半径压到约 `0.07~0.10`
+     - 但 `NPCAutoRoamController` 的动态避让半径却是 `0.6`
+     - 结果就是：路径/占位在用“脚底细探针”判可走，而不是用真实身体 clearance 判可走
+  4. `Town` 当前 `TraversalBlockManager2D` 还是显式阻挡源模式：
+     - 显式数组存在时，`autoCollectSceneBlockingColliders` 会被短路
+     - 所以 tag 不是万能入口；真正吃进去的还是实际 collider/source
+  5. 卡住后的低成本重规划不是空白：
+     - roam 侧已经有 `MoveCommandNoProgress / CheckAndHandleStuck / blockedAdvance -> rebuild` 骨架
+     - 当前更像是“对静态障碍卡死场景恢复太保守”，不是“完全没有恢复逻辑”
+- 当前恢复点更新：
+  - 如果下一刀要兼顾功能和性能，正确主刀应是：
+    1. 先把 shared traversal core 的 static clearance 口径从“脚底小探针”拉近到真实身体 clearance
+    2. 再把 `blocked/stuck` 恢复出口调成“短窗口低频 reroute”，而不是更快 stop/pause
+
+## 2026-04-13 导航修复已落第一刀：静态 clearance 与低成本 reroute 都已开始收口
+- 已落地内容：
+  1. [NavigationTraversalCore.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs) 已补 expanded static clearance 校验：
+     - 基础脚底 probe 通过后，再用更接近真实身体宽度的 blended radius 复核一次静态 clearance
+     - 目标是减少树根、屋角、围栏边“路径能算进去、身体却挤进去”的坏相
+  2. [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs) 已把 blocked/stuck 恢复顺序调成：
+     - 先 `TryBeginMove(...)` fresh reroute
+     - 再 stopgap / pause
+     - 并把 autonomous roam 的 static abort 阈值放宽到 `6`
+- 当前意义：
+  - 这不是大重构
+  - 是沿现有 shared traversal core + existing stuck skeleton 做的最小值钱修复
+  - 方向上正对“功能 + 性能并存”这一目标
+- 当前验证边界：
+  - 代码层已过 `validate_script`
+  - Unity fresh console 当前无新 error/warning
+  - 但新的 live 体验证明还没补，仍待下一轮或用户 live 复测
+
+## 2026-04-13 导航修复收口补记：这轮不是代码 blocker，而是 same-root sync blocker
+- 结论补记：
+  - 这轮修复已经真实落进代码，并通过了最小代码/编译自检
+  - 但 `Ready-To-Sync` 被 `Assets/YYY_Scripts/Controller/NPC/*` 与 `Assets/YYY_Scripts/Service/Navigation/*` 同根旧账阻断
+  - 因此当前正确状态是：
+    - `功能修复代码已在工作区`
+    - `治理同步暂时 blocked`
+    - `live 体验复测仍待补`
+
+## 2026-04-13 导航检查只读监测补记：Town 其他居民不是“没接导航”，而是与 001~003 处在不同 owner 包装层
+- 本轮用途：
+  - 只读回答“为什么 `001~003` 看起来有避让，而其他 Town NPC 像没接上”
+- 压实的新事实：
+  1. `Town` 当前 console 没有新的导航/避让红错。
+  2. 场景内共有 `25` 个 `NPCAutoRoamController` 实例，不是只有前三个有 roam/avoidance 核。
+  3. 抽查 `001 / 002 / 003 / 101 / 103 / 201` 后，确认这些对象都挂着同一套：
+     - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+     - [NPCMotionController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs)
+  4. `101~301` 与 `001~003` 的 shared avoidance 参数一致；当前不支持“其他 NPC 没接避让”这个判断。
+  5. 真正差异落在：
+     - `101~301` 处于 `Town_Day1Residents/Resident_DefaultPresent/*`
+     - 额外挂 `SpringDay1DirectorNpcTakeover`
+     - 并经过 [SpringDay1NpcCrowdDirector.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs#L867) 的 resident crowd 绑定链
+  6. 同时，`101~301` 的 roam 半径普遍更大（当前抽查为 `3.0`），比 `001~003` 更容易采到坏目标。
+- 当前最稳判断：
+  - 不是“没接”
+  - 而是“同核，但后面那批居民被 crowd/day1 owner 包了一层，再叠加更大的 roam 半径，所以 live 体感明显更差”
+- 边界：
+  - 这轮只读监测只钉死了 wiring / owner 分层
+  - 没再做新一轮 unpaused live movement proof
+## 2026-04-13 导航检查自查总结已形成：当前最大问题是“混锅”，不是“导航整套失效”
+- 子工作区 `导航检查` 新增了一轮完整自查总结，核心统一为：
+  1. `Town resident 冻结` 先归 `spring-day1 crowd runtime registry` 恢复漏口，不再先甩导航 core
+  2. `树/房屋/围栏贴边、算进碰撞体、撞墙` 的主锅是：
+     - shared traversal core 的 static clearance 太小
+     - `Town` 处于显式 blocker source 模式
+     - autonomous roam sampling 还不理解 enclosure / 局部可达域
+  3. `动物/NPC 高密度互挤` 的主锅是 reactive avoidance 仍偏轻，不是完全没接导航
+- 当前对子工作区的统一恢复建议：
+  - 已落的 `expanded static clearance + blocked/stuck 优先 fresh reroute` 不回滚
+  - 下一刀若继续，应先做 `坏目标采样 / scene blocker source`，不要又回到泛修朝向或泛讲 spike
+
+## 2026-04-13 导航坏目标/enclosure 收口已开始真实落地
+- `导航检查` 子工作区本轮已从只读分析进入真实施工，当前已落两类修复：
+  1. autonomous roam 坏目标过滤：
+     - tight destination 邻域 clearance 过滤
+     - built-path detour/enclosure 过滤
+  2. blocker source 收口：
+     - `TraversalBlockManager2D` 支持 manual + auto collect 并存
+     - `Town` 当前 live scene 已将 `autoCollectSceneBlockingColliders` 打开
+- 当前父工作区层面的统一判断：
+  - 功能方向是对的
+  - 但 scene 交付层仍有 mixed 风险，尤其是 `Town.unity` 不是 clean 单点 diff
+
+## 2026-04-13 导航性能只读复盘补记：这轮止血失败的核心不是“没加节流”，而是把更贵的过滤叠进了热循环
+- 来自子工作区 `导航检查` 的 fresh 复盘结论：
+  1. `fresh profiler` 已足够判定：当前性能炸点仍在 `NPCAutoRoamController.Update` 驱动的 NPC 自漫游热链。
+  2. 当前 live 代码里虽然已经有 `dedupe / backoff / reuse`，但它们主要限制的是“重复建路次数”，没有挡住 `TryBeginMove` 单次采样循环本身越来越贵。
+  3. 我这轮新增的 `坏目标过滤 + 邻域 clearance + built-path acceptable` 都挂在 [TryBeginMove](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs#L1552) 内部；`pathSampleAttempts = 12` 时会放大成多次 occupancy/path 校验。
+  4. 我还把 [NavigationTraversalCore.CanOccupyNavigationPoint](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs#L148) 扩成了更重的 shared occupancy 契约，所以变重的不只是 roam 选点，而是共用这条 contract 的静态判定。
+  5. `fresh profiler` 里 `OverlapCircleAll` 标签与当前 live 文本源码仍未完全对上；当前只能稳定说“热点还在 NPC 自漫游链”，不能假装“源码里没这个文本就说明现场已经没这条热点”。
+- 当前父工作区层面的统一判断更新：
+  - 这轮导航失败更像“修错顺序”，不是“需求本身错”
+  - 当前不该继续往 `TryBeginMove` 叠 correctness 过滤
+  - 如果后续允许继续修，第一刀必须先拆 hottest loop
+
+## 2026-04-13 导航性能修复已落第一刀：先撤掉 hottest loop 上我自己叠进去的成本
+- 子工作区 `导航检查` 本轮已按 fresh profiler 复盘结论，真实落了一刀代码修复：
+  1. [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs#L1552)
+     - `TryBeginMove()` 改回便宜的 `TryResolveOccupiableDestination`
+     - 不再在采样循环里继续叠 `邻域 clearance + built-path acceptable`
+     - 同时新增坏 case 专用的采样预算收紧，`blocked / stuck / path failure` 时不再跑满原始采样上限
+  2. [NavigationTraversalCore.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs#L148)
+     - 撤掉我上一轮加进去的 `expanded static clearance` 热查询
+- 当前父工作区判断：
+  - 这刀是“先止住我自己新增的热成本”，不是最终体验闭环
+  - 代码层/编译层当前 clean
+  - 真实体验层仍待 live 复测后才能判断是否继续补第二刀
+
+## 2026-04-13 live 复盘补记：fresh profiler 里的 101 热点落在 resident scripted control，不是纯自然漫游
+- 子工作区 `导航检查` 这轮继续做了 live 调试取证，并补了两类关键日志：
+  1. [NavGrid2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs) 新增阻挡摘要输出，能把 `current/next/destination` 点位撞到的 collider/tag/layer 原因直接打出来
+  2. [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs) 在 blocked 坏 case 时会调用这份摘要
+- 这轮父工作区最值钱的新结论：
+  - `Building` 标签不是完全没处理；`Town` 的 `obstacleTags` 明确含 `Building/Buildings`
+  - 用户 fresh profiler 里最热的 `101`，在 live 现场状态是：
+    - `IsResidentScriptedControlActive = true`
+    - `IsResidentScriptedMoveActive = true`
+    - owner = `spring-day1-director`
+  - 所以这次最热样本不应再被粗暴归成“纯 autonomous roam 热点”
+  - 当前正确分层是：
+    - `Building 避让 / static clearance` 仍有问题
+    - 但 `性能 hottest sample` 至少有一部分落在 resident scripted control 的现实层
+
+## 2026-04-13 导航问题分层更新：当前不是单点 bug，而是三层同时漏口
+- 来自子工作区 `导航检查` 的 fresh 只读核查新增了一个更准确的总判断：
+  1. **配置层漏口**
+     - `TraversalBlockManager2D` 仍用名字关键词自动收静态障碍，include keywords 里带 `border`
+     - 这会把 `Farmland_Border` 也当成 hard obstacle 收进去，违背用户“农田边界可走”的正式配置语义
+  2. **自漫游 acceptance 层漏口**
+     - 之前为止性能峰值，把 `NPCAutoRoamController.TryBeginMove()` 从更稳的“坏目标修正 + 邻域净空 + 路径质量筛选”退回成了便宜版 `TryResolveOccupiableDestination(...)`
+     - 结果是性能回来了，但 NPC 会重新采到太贴墙、太贴柱、太贴围栏的目标
+  3. **owner 层漏口**
+     - `201 / 103` 用户日志已直接显示：运动由 `NPCAutoRoamController` 驱动，但朝向仍被 `SpringDay1NpcCrowdDirector.ResetStateToBasePose` 抢写
+     - 所以 resident 这一批不能再被粗暴归成“只是导航 core 坏”
+- 父层统一判断因此更新为：
+  - 当前导航线不能 claim `功能 + 性能` 已同时闭环
+  - 当前最危险误判是：继续只盯 `Building 标签` 或继续只盯 `性能 spike`
+  - 真正该修的是“配置权威、坏目标 acceptance、movement/facing owner 一致性”这三层
+
+## 2026-04-13 导航父层补记：`Farmland_Border` 自动误收已先落地修掉
+- 子工作区 `导航检查` 已先按用户纠偏，真实修了一刀窄改：
+  - [TraversalBlockManager2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs) 现在会在自动收集静态障碍时，明确跳过 `Farmland_Border / Farmland_Center` 这类农田可走面
+  - `Farmland_Water` 仍保留给 soft-pass 判定，不受这刀误伤
+- 父层判断更新为：
+  - `配置权威` 这一层已经从“只读结论”推进到“代码已落地”
+  - 但其余两层仍是待修状态：
+    1. `自漫游 acceptance`
+    2. `resident movement/facing owner 一致性`
+    3. `NPCMotionController` 自身的朝向平滑/反向确认逻辑
+
+## 2026-04-14 导航父层补记：`003 release` 已有 fresh 释放样本，但白天 free-roam 贴静态障碍仍属导航 own
+- 子工作区 `导航检查` 今日 fresh live 新增了更清楚的责任分层：
+  1. `003 不 roam` 不再是当前唯一病灶
+     - fresh `FreeTime` 样本里，`003` 已能被 Day1 放回 roam
+     - 说明 earlier `003` 问题更像是 phase/cue 持有窗口问题，而不是“导航 core 永远放不出 003”
+  2. 用户当前最稳定复现的坏相变成：
+     - `101` 贴房卡住
+     - `103` 贴石头卡住
+     - 都发生在白天非剧情态 free-roam
+  3. 这层问题与 Day1 夜间 `20:00` 回家成功不矛盾
+     - 回家成功只能说明夜间状态机最终收尾了
+     - 不能反证白天 autonomous roam 的静态 clearance 已经过线
+- 父层统一判断更新为：
+  - 当前真实主锅已经收缩成两层并行：
+    1. `导航 own`：autonomous roam 选点/路径离静态障碍过近，free-roam 会贴房贴石头；四向朝向在斜向边界仍会摆头
+    2. `Day1 own`：dinner/return 仍可能误吃 opening contract，release / scripted move 合同仍需 Day1 自己收口
+  - 之后不要再把这两层混成“全是导航”或“全是 Day1”
+
+## 2026-04-14 导航父层补记：本轮已经先落导航 narrow fix，但 latest live 仍提醒“验证样本要区分 free-roam 与 scripted move”
+- 子工作区本轮已真实落地：
+  - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+    - 更保守的静态 clearance
+    - anchor 周边安全 roam center
+  - [NPCMotionController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs)
+    - diagonal facing 四向扇区滞回
+- 父层判断更新：
+  1. 导航线不是还停在“只读分析”，而是已经开始做最窄功能修复
+  2. 但 latest forced-`FreeTime` live 又暴露一个验证边界：
+     - `101/103` 在那次样本里仍由 `SpringDay1NpcCrowdDirector` scripted move 持有
+     - 所以不能直接拿那次 live 当成“纯 free-roam 已终证”
+  3. 正确口径应是：
+     - 代码窄修已落
+     - console 仍是 `0 error / 0 warning`
+     - 体验终证仍需用户在真正 free-roam 样本里继续看 `101/103`
+
+## 2026-04-14 导航父层补记：fresh 只读核查未发现 Day1 直接回退导航窄修
+- 子工作区最新只读核查确认：
+  - `NPCAutoRoamController` 的 safe-center / deadlock-break / agent-clearance 代码仍在
+  - `NPCMotionController` 的 facing hysteresis 代码仍在
+  - `SpringDay1Director` 里的 `003` release 相关方法仍在
+- 因此父层结论更新为：
+  - 当前如果又出现坏相，更像是 `Day1 owner/runtime` 在 live 里继续持有脚本移动
+  - 不是直接把导航线程这两刀从代码里抹掉
+
+## 2026-04-14 导航父层补记：已拿到更硬的 live 证据，Town resident 在 `HealingAndHP` 就开始 roam
+- 子工作区最新 live 已证明：
+  - `101~203` 在 `HealingAndHP` 阶段已经 `isRoaming=true`
+  - 不存在“全部 resident 必须等 opening 完全结束后才开始 roam”的绝对说法
+- 同时子工作区也确认了一个导航 own 回归：
+  - 之前加的 safe-center 逻辑会把白天 resident 锚到远处 `homeAnchor`
+  - 这会制造大面积 `ShortPause + pathBuildFailures`
+  - 该问题现已在导航线程 own 修掉
+- 父层判断更新为：
+  1. 现在 Day1 的 runtime owner 问题仍可能影响个别角色，例如 `003`
+  2. 但导航线这边也确实刚修掉了一条实打实的 own bug，不是纯背锅
+  3. 当前剩余风险已经收缩成：
+     - `201` 单点坏 case
+     - `003` 在当前样本里的 owner / roam 不稳定
+
+## 2026-04-15 导航V3 只读接手复核：当前应按三主根重排导航施工
+- 子工作区 `导航V3` 本轮未进真实施工，只做只读复核。
+- 已确认 `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\导航V3\` 当前仍是接手壳；真正持续更新的 live 材料仍以 `导航检查` 为准。
+- 父层当前统一判断更新为：
+  1. 用户压的三主根 `坏点 / 静态导航垃圾 / 不会自救` 成立。
+  2. Day1 越权仍是真问题，但导航 own 也远未过线；不能再说“只剩 Day1”或“只剩导航参数”。
+  3. 当前最该优先的施工顺序应重排为：
+     - `destination hard contract`
+     - `path-level body clearance`
+     - `完整脱困闭环`
+- fresh CLI / artifact 补证：
+  - `validate_script` 针对导航核心脚本返回 `assessment=external_red / owned_errors=0 / external_errors=1`
+  - 当前外部阻断是 `DialogueChinese V2 SDF.asset` importer inconsistent，不是导航 own compile red
+  - `npc-roam-spike-stopgap-probe.json` 最新仍显示 `avgFrameMs=31.46 / maxFrameMs=102.88 / Stuck=21 / SharedAvoidance=9 / MoveCommandNoProgress=2`
+- 当前父层恢复点：
+  - 如果后续允许继续导航线真实施工，不再先磨零散参数，也不先混修 Day1；先按这三个主根排“一刀一收”。
+
+## 2026-04-15 导航父层补记：导航V3 已真实开 `Package A` 首刀
+- 子工作区 `导航V3` 本轮已从只读进入真实施工，并按 `Begin-Slice -> Park-Slice` 合法收口。
+- 本轮真实改动集中在：
+  - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+  - [NavigationAvoidanceRulesTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs)
+- 子层已完成的第一段统一是：
+  1. 新增显式 `PointToPointTravelContract` 枚举，替代旧的 `debugMoveUsesFormalNavigationContract` 隐式状态。
+  2. `RequestStageTravel / RequestReturnHome / BeginAutonomousTravel / BeginReturnHome / DebugMoveTo` 已统一汇入 `BeginPathDirectedMove(...)` 真相入口。
+  3. `AutonomousDirected / ResidentScripted / FormalNavigation` 已开始共用 recoverable stuck / blocked-advance 分支。
+  4. recoverable point-to-point contract 已统一吃静态障碍 steering；`PlainDebug` 继续保持 debug-only 例外口。
+- 父层判断更新：
+  1. `导航V3` 不再停在“只有清单没有施工”，而是已经正式开了 `Package A`。
+  2. 这仍然只是 `Package A` 第一段，不能误报成“坏点 / clearance / 自救闭环已修完”。
+  3. 当前最合理的下一步仍是继续把剩余 point-to-point 旁路分支收完，再考虑 facade / call-site 收口，暂不越到 `Package B`。
+- 当前验证摘要：
+  - `validate_script` 两个目标都返回 `owned_errors=0 / external_errors=0`
+  - assessment 仍是 `unity_validation_pending`，主因是 Unity `stale_status`
+  - targeted EditMode tests：`2/2 passed`
+  - `git diff --check`（仅本轮文件）通过
+
+## 2026-04-15 导航父层补记：导航V3 已继续收 `Package A` 内部合同分流
+- 子工作区 `导航V3` 本轮继续真实施工，并在收尾再次合法 `Park-Slice`。
+- 这轮子层不是去碰 Day1 phase，而是根据 NPC 最新回执，把导航 own 的边界口径再收窄，并继续收内部合同分流。
+- 子层这轮新增的有效推进：
+  1. 在 `NPCAutoRoamController` 内新增显式 `UsesAutonomousRoamExecutionContract()` helper。
+  2. 将一批仍靠 `debugMoveActive / IsResidentScriptedControlActive` 拼装的内部判断，继续收成“autonomous roam contract vs point-to-point contract”语义分流。
+  3. `AutonomousDirected / ResidentScripted / FormalNavigation` 现在已进一步统一到 released body clearance 执行合同；`PlainDebug` 继续排除。
+  4. 补了一条新的 EditMode 测试，证明 recoverable point-to-point contract 都会吃这层 body clearance。
+- 父层判断更新：
+  1. NPC 回执没有改写导航主方向；它只是证明 facade 基本已落成，因此导航更该只做执行质量。
+  2. Day1 当前仍有少量 `StartRoam()` 残留 call-site，但这更像 Day1 尾项，不是导航主刀应回吞的 phase 问题。
+  3. 导航线当前最合理的下一步仍是：先把 `Package A` 少量残余旁路继续收完，再看 facade / call-site 收口，暂不越到 `Package B`。
+- 当前验证摘要：
+  - `validate_script` 两个目标继续是 `owned_errors=0 / external_errors=0`
+  - assessment 仍是 `unity_validation_pending`，主因仍是 Unity `stale_status`
+  - targeted EditMode tests：`3/3 passed`
+  - `git diff --check`（仅本轮文件）通过
+
+## 2026-04-15 导航父层补记：导航V3 已把导航 own 验证/探针消费面切到新 facade
+- 子工作区 `导航V3` 本轮继续留在 `Package A`，但不再只改 `NPCAutoRoamController` 内部；已开始收导航 own 的 validation/probe 消费面。
+- 这轮子层有效改动集中在：
+  - [NavigationLiveValidationRunner.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/NavigationLiveValidationRunner.cs)
+  - [CodexNpcTraversalAcceptanceProbeMenu.cs](D:/Unity/Unity_learning/Sunset/Assets/Editor/NPC/CodexNpcTraversalAcceptanceProbeMenu.cs)
+  - [NpcLocomotionFacadeSurfaceTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/NpcLocomotionFacadeSurfaceTests.cs)
+- 子层本轮已完成：
+  1. `NavigationLiveValidationRunner` 的 directed travel 从 `DebugMoveTo` 切到 `BeginAutonomousTravel`。
+  2. managed roam restart 从 `StartRoam` 切到 `ResumeAutonomousRoam`。
+  3. validation/probe 的 parking/reset 从 `StopRoam` 切到 `SnapToTarget`。
+  4. source test 已新增并通过，明确钉死这两个导航 own 工具文件不再直调 `DebugMoveTo / StartRoam / StopRoam`。
+- 父层判断更新：
+  1. `Package A` 已经进入“consumer surface 收口”阶段，不再只是内部 contract 清洗。
+  2. 这能减少导航 own 自己的验证工具继续回流旧 contract，对后续判断 `Package A` 是否收尾非常关键。
+  3. 当前仍不应误报成“导航体验已过线”；这只是导航 own 消费口径更干净了。
+- 当前验证摘要：
+  - direct MCP `validate_script`：
+    - `NavigationLiveValidationRunner.cs` => `errors=0 / warnings=2`
+    - 另两个目标 => `errors=0 / warnings=0`
+  - `NpcLocomotionFacadeSurfaceTests` => `5/5 passed`
+  - CLI `errors` => `errors=0 / warnings=0`
+  - `git diff --check`（仅本轮文件）通过
+  - CLI `validate_script` 仍有 `CodexCodeGuard returned no JSON / stale_status` 噪音，因此 compile-first 证据仍未完全理想闭环，但没有 own compile red 迹象
+
+## 2026-04-15 导航父层补记：已对齐“连续施工”与“分层推进”口径
+- 子工作区 `导航V3` 本轮没有继续改代码，而是专门回答了用户的关键追问：
+  - 为什么不能简单承诺“一轮从 A 到 D 全做完”
+  - 为什么导航修复还要按 `A/B/C/D` 分层
+- 父层统一口径更新为：
+  1. 以后这条导航线可以连续施工，不必每小步都停下来给用户看中间包装。
+  2. 但内部仍必须保留 `A -> B -> C -> D` 的分层判断，因为这 4 层不是任意拆段，而是上下游病层：
+     - `A` 不稳会污染 `B/C/D`
+     - `B` 不稳会污染 `C/D`
+     - `C` 不稳会让 `D` 长期变成擦屁股
+  3. 因此真正该取消的是“中间产物感”，不是“分层真相”。
+- 当前父层恢复点：
+  - 如果继续导航真实施工，默认按“连续往下做，但内部仍逐层确认站稳”的口径执行；
+  - 只有真 blocker 或确实还不能 claim 最终导航过线时，才需要停下来报实。
+
+## 2026-04-15 导航父层补记：Town fresh live 现已确认被 Day1 / 测试残留污染
+- 子工作区 `导航V3` 这轮没有再扩写导航算法，而是按 CLI-first + 最小 live 取证补了 Town runtime 真值。
+- 子层已实际完成：
+  1. 基线核对：
+     - `doctor` = `baseline pass`
+  2. 运行 Town live probe：
+     - `NpcRoamRecoverWindow`
+     - `NpcRoamPersistentBlockInterrupt`
+  3. 两条 probe 都不是“detour/recovery 逻辑跑坏”，而是在 `seedAccepted=False` 之前就超时
+  4. Play Mode 直接读取 `001 / 002 / 003` 组件真值后确认：
+     - 三者都 `IsResidentScriptedControlActive=true`
+     - owner 统一是 `spring-day1-director`
+     - `002` 另有 `NPCBubbleStressTalker(startOnEnable=true, disableRoamWhileTesting=true)`，运行时会直接 `roamController.enabled=false`
+- 父层判断更新：
+  1. 这轮 Town live 已经不适合继续被当成“纯导航 own 现场”。
+  2. 当前最准确结论是：
+     - 导航 own 的代码层与 targeted tests 站住了
+     - Town fresh live 仍被 Day1 resident hold 与测试器残留污染
+  3. 因此下一步不应继续在导航 own 里盲磨参数；应先拿到 clean live baseline，再判断 residual 是否仍属导航。
+- 当前验证摘要：
+  - `validate_script NPCAutoRoamController.cs` => `owned_errors=0`, `assessment=unity_validation_pending`
+  - `validate_script NavigationAvoidanceRulesTests.cs` => `owned_errors=0`, `assessment=unity_validation_pending`
+  - scoped `git diff --check`（仅 own 两文件）通过
+  - fresh `errors` 在清理 MCP 读组件噪音后回到 `0 error / 0 warning`
+- 当前父层恢复点：
+  - 如果继续导航线真实施工，优先需求已不是“再磨导航细节”，而是“先移除 Town live 的 Day1/test 污染，再重跑 live 取证”。
+
+## 2026-04-15 导航父层补记：真 free-time live 已压出导航 own 当前主 residual
+- 子工作区 `导航V3` 这轮继续沿 Town live 取证，但不再停在用户口述的“opening结束后”模糊态，而是先用项目自带跳转把 Day1 直接推进到：
+  - `StoryPhase.FreeTime`
+  - `beat=FreeTime_NightWitness`
+  - `clock≈19:30~19:54`
+- 子层这轮新压实的关键真值：
+  1. 用户最初给我的现场，其实仍停在 `EnterVillage / HouseArrival`，不是普通 resident 真正自由放行态。
+  2. 进入真实 `FreeTime_NightWitness` 后：
+     - `001 / 002 / 101 / 103 / 104 / 201 / 202 / 203` 都已进入 free-time 自主 roam 或短暂停留聊天
+     - `102 / 003` 仍是 `night-witness` staged 特例，分别被 `SpringDay1NpcCrowdDirector / spring-day1-director` 持有，不该误算成导航 own 全局故障
+  3. 导航 own 现在最有价值的 live 故障点已经从“是否放行”收窄成：
+     - `201` 已打出一次 `StuckRecoveryFailed`
+     - short-window spike 仍有 `maxBlockedAdvanceFrames=417`、`Stuck=49`
+- 父层判断更新：
+  1. 现在不能再把主判断写成“Day1 还没放 resident”。
+  2. 更准确的说法是：
+     - Day1 只剩 `102 + 003` 这类 staged 特例
+     - 导航 own 的普通 resident 执行层已经接上
+     - 但 `不会自救` 和 `blocked advance residual` 还没过线
+  3. 因此导航线的下一刀优先级也更新为：
+     - 先补 `StuckRecoveryFailed` 自救闭环
+     - 再收坏点 / blocked advance residual
+     - 不再先纠结“是不是还没放行”

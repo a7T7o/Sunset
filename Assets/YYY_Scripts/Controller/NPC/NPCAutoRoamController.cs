@@ -32,23 +32,76 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private const float REBUILD_REQUEST_DEDUPE_WINDOW_SECONDS = 0.12f;
     private const float REBUILD_REQUEST_DESTINATION_RADIUS = 0.28f;
     private const int BLOCKED_ADVANCE_REROUTE_MIN_FRAMES = 3;
+    private const int BLOCKED_ADVANCE_STATIC_ABORT_MIN_FRAMES = 2;
+    private const int AUTONOMOUS_STATIC_ABORT_MIN_FRAMES = 4;
+    private const int FORMAL_NAVIGATION_BLOCKED_ABORT_MIN_FRAMES = 8;
     private const int BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES = 6;
     private const float MOVE_COMMAND_NO_PROGRESS_RADIUS = 0.015f;
     private const float MOVE_COMMAND_NO_PROGRESS_GRACE_SECONDS = 0.06f;
     private const float MOVE_COMMAND_OSCILLATION_SAME_POSITION_RADIUS = 0.14f;
     private const float MOVE_COMMAND_OSCILLATION_FLIP_DOT_THRESHOLD = 0.15f;
     private const int MOVE_COMMAND_OSCILLATION_MIN_FLIPS = 2;
+    private const float MOVE_DIRECTION_STABILIZE_SAME_POSITION_RADIUS = 0.16f;
+    private const float MOVE_DIRECTION_STABILIZE_FLIP_DOT_THRESHOLD = 0.05f;
+    private const float PHYSICS_HEAVY_DECISION_REUSE_SECONDS = 0.02f;
+    private const float SCRIPTED_MOVE_DECISION_REUSE_SECONDS = 0.08f;
+    private const float NPC_BAD_CASE_STOP_DECISION_REUSE_SECONDS = 0.12f;
     private const float CONSTRAINED_ADVANCE_FALLBACK_EXTRA_DISTANCE = 0.18f;
     private const int TERMINAL_STUCK_LONG_PAUSE_MIN_COUNT = 2;
     private const float TERMINAL_STUCK_SAME_POSITION_RADIUS = 0.2f;
     private const float AVOIDANCE_STUCK_RESET_MAX_MOVE_SCALE = 0.32f;
-    private const int PASSIVE_NPC_BLOCKER_REROUTE_MIN_SIGHTINGS = 4;
+    private const int PASSIVE_NPC_BLOCKER_REROUTE_MIN_SIGHTINGS = 3;
     private const float PASSIVE_NPC_BLOCKER_REROUTE_MAX_DISTANCE = 1.15f;
-    private const float PASSIVE_NPC_BLOCKER_REROUTE_MAX_CLEARANCE = 0.24f;
+    private const float PASSIVE_NPC_BLOCKER_REROUTE_MAX_CLEARANCE = 0.32f;
     private const float FRAME_REUSE_WAYPOINT_DISTANCE_PADDING = 0.04f;
     private const float PATH_BUILD_FAILURE_BASE_COOLDOWN = 0.08f;
     private const float PATH_BUILD_FAILURE_MAX_COOLDOWN = 0.48f;
     private const int PATH_BUILD_FAILURE_BACKOFF_STEP_CAP = 3;
+    private const float HOME_ANCHOR_MISMATCH_MIN_DISTANCE = 2.25f;
+    private const float HOME_ANCHOR_MISMATCH_PADDING = 0.5f;
+    private const float AUTONOMOUS_ROAM_DESTINATION_CORRECTION_MIN = 0.22f;
+    private const float AUTONOMOUS_ROAM_DESTINATION_CORRECTION_MAX = 0.65f;
+    private const float AUTONOMOUS_ROAM_PATH_DETOUR_RATIO_LIMIT = 1.8f;
+    private const float AUTONOMOUS_ROAM_PATH_DETOUR_MIN_EXTRA_DISTANCE = 0.45f;
+    private const float AUTONOMOUS_ROAM_PATH_ROAM_RADIUS_MARGIN = 0.4f;
+    private const float AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_RADIUS_SCALE = 0.7f;
+    private const float AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_MIN_RADIUS = 0.16f;
+    private const float AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_MAX_RADIUS = 0.48f;
+    private const int AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_MIN_OPEN_PROBES = 2;
+    private const float AUTONOMOUS_ROAM_BODY_CLEARANCE_EXTRA_RADIUS_SCALE = 0.38f;
+    private const float AUTONOMOUS_ROAM_BODY_CLEARANCE_MIN_EXTRA_RADIUS = 0.05f;
+    private const float AUTONOMOUS_ROAM_BODY_CLEARANCE_MAX_EXTRA_RADIUS = 0.34f;
+    private const float AUTONOMOUS_ROAM_PATH_CLEARANCE_SAMPLE_SPACING = 0.18f;
+    private const float AUTONOMOUS_ROAM_SAFE_CENTER_SEARCH_RADIUS_SCALE = 0.18f;
+    private const float AUTONOMOUS_ROAM_SAFE_CENTER_MIN_SEARCH_RADIUS = 0.22f;
+    private const float AUTONOMOUS_ROAM_SAFE_CENTER_MAX_SEARCH_RADIUS = 1.1f;
+    private const int AUTONOMOUS_ROAM_SAFE_CENTER_RING_COUNT = 3;
+    private const int AUTONOMOUS_ROAM_STATIC_RECOVERY_SAMPLE_BUDGET = 6;
+    private const float AUTONOMOUS_STATIC_STEERING_REPULSE_GAIN = 0.82f;
+    private const float AUTONOMOUS_STATIC_STEERING_MAX_ANGLE = 58f;
+    private const float AUTONOMOUS_ROAM_DESTINATION_AGENT_CLEARANCE_RADIUS_SCALE = 0.92f;
+    private const float AUTONOMOUS_ROAM_DESTINATION_AGENT_CLEARANCE_MIN_RADIUS = 0.26f;
+    private const float AUTONOMOUS_ROAM_DESTINATION_AGENT_CLEARANCE_MAX_RADIUS = 0.72f;
+    private const float RELEASED_MOVEMENT_DESTINATION_CORRECTION_MIN = 0.24f;
+    private const float RELEASED_MOVEMENT_DESTINATION_CORRECTION_MAX = 0.95f;
+    private const float RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_RADIUS_SCALE = 0.82f;
+    private const float RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_MIN_RADIUS = 0.18f;
+    private const float RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_MAX_RADIUS = 0.56f;
+    private const int RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_MIN_OPEN_PROBES = 2;
+    private const float RELEASED_MOVEMENT_PATH_CLEARANCE_SAMPLE_SPACING = 0.16f;
+    private const int STATIC_RECOVERY_DETOUR_MIN_BLOCKED_FRAMES = 2;
+    private const float STATIC_RECOVERY_DETOUR_MIN_DISTANCE = 0.24f;
+    private const float STATIC_RECOVERY_DETOUR_MAX_DISTANCE = 0.96f;
+    private const float STATIC_BLOCKED_DESTINATION_RETRY_COOLDOWN = 1.2f;
+    private const float STATIC_BLOCKED_DESTINATION_RETRY_RADIUS = 0.68f;
+    private const int SHARED_AVOIDANCE_DYNAMIC_ABORT_MIN_FRAMES = 10;
+    private const int SHARED_AVOIDANCE_DYNAMIC_ABORT_MIN_SIGHTINGS = 3;
+    private const float SHARED_AVOIDANCE_DYNAMIC_ABORT_MAX_DISTANCE = 1.28f;
+    private const float SHARED_AVOIDANCE_DYNAMIC_ABORT_MAX_CLEARANCE = 0.28f;
+    private const float FORMAL_NAVIGATION_RESTART_SETTLE_SECONDS = 0.45f;
+    private const float FORMAL_NAVIGATION_RESTART_SETTLE_RADIUS = 0.65f;
+    private const float RELEASED_STEP_BODY_CLEARANCE_SIDE_INSET_SCALE = 0.18f;
+    private const float RELEASED_STEP_BODY_CLEARANCE_VERTICAL_INSET_SCALE = 0.35f;
 
     private enum RoamState
     {
@@ -205,7 +258,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     [SerializeField] private float sharedAvoidanceRepathCooldown = 0.45f;
 
     private readonly List<NavigationAgentSnapshot> nearbyNavigationAgents = new List<NavigationAgentSnapshot>(12);
+    private readonly List<NPCAutoRoamController> registeredRoamControllers = new List<NPCAutoRoamController>(24);
+    private readonly List<AutonomousRoamCandidate> autonomousRoamCandidates = new List<AutonomousRoamCandidate>(16);
     private readonly NavigationPathExecutor2D.ExecutionState navigationExecution = new NavigationPathExecutor2D.ExecutionState();
+    private ContactFilter2D staticObstacleProbeFilter = new ContactFilter2D().NoFilter();
+    private Collider2D[] staticObstacleProbeBuffer = new Collider2D[12];
+    private int registeredRoamControllersFrame = -1;
 
     private readonly struct BlockedRecoveryState
     {
@@ -227,6 +285,33 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
+    private readonly struct AutonomousRoamCandidate
+    {
+        public readonly Vector2 Destination;
+        public readonly float Score;
+
+        public AutonomousRoamCandidate(Vector2 destination, float score)
+        {
+            Destination = destination;
+            Score = score;
+        }
+    }
+
+    private enum DestinationAcceptanceContract
+    {
+        AutonomousRoam = 0,
+        ReleasedMovement = 1
+    }
+
+    private enum PointToPointTravelContract
+    {
+        None = 0,
+        PlainDebug = 1,
+        AutonomousDirected = 2,
+        ResidentScripted = 3,
+        FormalNavigation = 4
+    }
+
     private RoamState state = RoamState.Inactive;
     private Vector2 homePosition;
     private float stateTimer;
@@ -240,6 +325,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private float ambientChatRetryAtTime;
     private int ambientChatRetryCount;
     private bool debugMoveActive;
+    private PointToPointTravelContract activePointToPointTravelContract = PointToPointTravelContract.None;
+    private readonly List<string> residentScriptedControlOwners = new List<string>(2);
     private Collider2D navigationCollider;
     private Collider2D[] traversalSoftPassBlockers = new Collider2D[0];
     private bool isTraversalSoftPassActive;
@@ -271,14 +358,24 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private int consecutiveMoveCommandDirectionFlips;
     private int lastTraversalSoftPassUpdateFrame = -1;
     private int lastHeavyMoveDecisionFrame = -1;
+    private float lastHeavyMoveDecisionTime = float.NegativeInfinity;
     private bool hasCachedMoveDecisionVelocity;
     private Vector2 cachedMoveDecisionVelocity;
+    private Vector2 cachedMoveFacingDirection;
     private int lastPathBuildAttemptFrame = -1;
     private int consecutivePathBuildFailures;
     private float nextPathBuildAllowedTime = float.NegativeInfinity;
     private int consecutiveTerminalStuckCount;
     private Vector2 lastTerminalStuckPosition;
     private string lastMoveSkipReason = "None";
+    private string residentScriptedControlOwnerKey = string.Empty;
+    private bool resumeRoamAfterResidentScriptedControl;
+    private bool residentScriptedMovePaused;
+    private float lastFormalNavigationArrivalTime = float.NegativeInfinity;
+    private Vector2 lastFormalNavigationArrivalPosition;
+    private float lastStaticBlockedDestinationTime = float.NegativeInfinity;
+    private Vector2 lastStaticBlockedDestination;
+    private Vector2 lastStaticBlockedPosition;
 
     private List<Vector2> path => navigationExecution.Path;
     private Vector2 currentDestination { get => navigationExecution.Destination; set => navigationExecution.Destination = value; }
@@ -292,6 +389,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public bool IsRoaming => state != RoamState.Inactive;
     public bool IsMoving => state == RoamState.Moving;
     public bool IsInAmbientChat => chatPartner != null;
+    public bool IsResidentScriptedControlActive => residentScriptedControlOwners.Count > 0;
+    public bool IsResidentScriptedMovePaused => residentScriptedMovePaused;
+    public bool IsResidentScriptedMoveActive => IsResidentScriptedControlActive && HasActivePointToPointTravelContract() && state == RoamState.Moving && !residentScriptedMovePaused;
+    public string ResidentScriptedControlOwnerKey => residentScriptedControlOwnerKey ?? string.Empty;
+    public string ResidentStableKey => ResolveNpcId();
+    public bool ResumeRoamWhenResidentControlReleases => resumeRoamAfterResidentScriptedControl;
+    public bool IsNativeResidentRuntimeCandidate => gameObject.scene.IsValid() && !string.IsNullOrWhiteSpace(ResidentStableKey);
     public string ChatPartnerName => chatPartner != null ? chatPartner.name : string.Empty;
     public string LastAmbientDecision => lastAmbientDecision;
     public string DebugState => state.ToString();
@@ -301,6 +405,9 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public int CurrentStuckRecoveryCount => currentStuckRecoveryCount;
     public float DebugLastProgressDistance => lastProgressDistance;
     public string DebugLastMoveSkipReason => lastMoveSkipReason;
+    public int DebugBlockedAdvanceFrames => blockedAdvanceFrames;
+    public int DebugConsecutivePathBuildFailures => consecutivePathBuildFailures;
+    public float DebugPathBuildCooldownRemaining => Mathf.Max(0f, nextPathBuildAllowedTime - Time.time);
     public float DebugPendingMoveCommandAge =>
         hasPendingMoveCommandProgressCheck && pendingMoveCommandIssuedAt > float.NegativeInfinity
             ? Time.time - pendingMoveCommandIssuedAt
@@ -343,27 +450,39 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     public float GetAvoidanceRadius()
     {
         float colliderRadius = GetColliderRadius();
-        float cappedShell = Mathf.Min(avoidanceRadius, colliderRadius + 0.06f);
+        float cappedShell = Mathf.Min(avoidanceRadius, colliderRadius + 0.12f);
         return Mathf.Max(colliderRadius, cappedShell);
     }
     public Vector2 GetCurrentVelocity()
     {
         if (motionController != null)
         {
-            Vector2 currentVelocity = motionController.ReportedVelocity;
+            Vector2 currentVelocity = motionController.CurrentVelocity;
             if (currentVelocity.sqrMagnitude > 0.0001f)
             {
                 return currentVelocity;
             }
 
-            return rb != null ? rb.linearVelocity : Vector2.zero;
+            if (rb != null && rb.linearVelocity.sqrMagnitude > 0.0001f)
+            {
+                return rb.linearVelocity;
+            }
+
+            // Shared avoidance should prefer real motion first. Falling back to reported intent
+            // keeps scripted moves working, but prevents crowded NPCs from advertising a stale
+            // commanded velocity when their body is actually being constrained by contact.
+            currentVelocity = motionController.ReportedVelocity;
+            if (currentVelocity.sqrMagnitude > 0.0001f)
+            {
+                return currentVelocity;
+            }
         }
 
         return rb != null ? rb.linearVelocity : Vector2.zero;
     }
     public int GetAvoidancePriority() => avoidancePriority;
     public bool IsCurrentlyMoving() => state == RoamState.Moving && GetCurrentVelocity().sqrMagnitude > 0.0001f;
-    public bool IsNavigationSleeping() => state != RoamState.Moving;
+    public bool IsNavigationSleeping() => state != RoamState.Moving || GetCurrentVelocity().sqrMagnitude <= 0.0001f;
     public bool ParticipatesInLocalAvoidance() => state == RoamState.Moving;
     public Transform HomeAnchor => homeAnchor;
     public float ActivityRadius => activityRadius;
@@ -396,7 +515,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             ApplyProfile();
         }
 
-        homePosition = homeAnchor != null ? homeAnchor.position : transform.position;
+        RefreshHomePositionFromCurrentContext();
     }
 
     private void OnEnable()
@@ -421,9 +540,19 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void Update()
     {
-        if (ShouldSuspendForDialogue())
+        if (resumeRoamAfterResidentScriptedControl &&
+            !IsResidentScriptedControlActive &&
+            !ShouldSuspendForDialogue() &&
+            enabled &&
+            isActiveAndEnabled)
         {
-            ApplyDialogueFreeze();
+            resumeRoamAfterResidentScriptedControl = false;
+            StartRoam();
+        }
+
+        if (ShouldSuspendResidentRuntime())
+        {
+            ApplyResidentRuntimeFreeze();
             return;
         }
 
@@ -450,9 +579,9 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void FixedUpdate()
     {
-        if (ShouldSuspendForDialogue())
+        if (ShouldSuspendResidentRuntime())
         {
-            ApplyDialogueFreeze();
+            ApplyResidentRuntimeFreeze();
             return;
         }
 
@@ -462,12 +591,22 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
+    private bool ShouldSuspendResidentRuntime()
+    {
+        if (ShouldSuspendForDialogue())
+        {
+            return true;
+        }
+
+        return IsResidentScriptedControlActive && !IsResidentScriptedMoveActive;
+    }
+
     private static bool ShouldSuspendForDialogue()
     {
         return DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive;
     }
 
-    private void ApplyDialogueFreeze()
+    private void ApplyResidentRuntimeFreeze()
     {
         ClearMoveDecisionCache();
         BreakAmbientChatLink(hideBubble: true);
@@ -482,7 +621,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             rb.linearVelocity = Vector2.zero;
         }
 
-        if (bubblePresenter != null)
+        bool preserveScriptedPriorityBubble =
+            bubblePresenter != null
+            && !ShouldSuspendForDialogue()
+            && IsResidentScriptedControlActive
+            && !IsResidentScriptedMoveActive
+            && bubblePresenter.IsConversationPriorityVisible;
+
+        if (bubblePresenter != null && !preserveScriptedPriorityBubble)
         {
             bubblePresenter.HideBubble();
         }
@@ -491,7 +637,16 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private void OnDisable()
     {
         NavigationAgentRegistry.Unregister(this);
-        StopRoam();
+        if (IsResidentScriptedControlActive)
+        {
+            // Disabled-time resident freezes must preserve the "resume roam on release" intent.
+            HaltResidentScriptedMovement();
+        }
+        else
+        {
+            StopRoam();
+        }
+
         ClearTraversalSoftPassState();
     }
 
@@ -579,12 +734,21 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         rightProbe = probePoints.Right;
     }
 
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.RuntimeOnly,
+        Guidance = "底层 autonomous roam 入口。外部协作线程应优先使用 ResumeAutonomousRoam 或 story facade，而不是自己拼 lifecycle。")]
     public void StartRoam()
     {
+        if (IsResidentScriptedControlActive)
+        {
+            resumeRoamAfterResidentScriptedControl = true;
+            return;
+        }
+
         CacheComponents();
         EnsureRuntimeHomeAnchorBound();
 
-        homePosition = homeAnchor != null ? homeAnchor.position : transform.position;
+        RefreshHomePositionFromCurrentContext();
         ResetSharedAvoidanceDebugState();
         ResetRoamInterruptionState();
         warnedMissingNavGrid = false;
@@ -595,11 +759,59 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         EnterShortPause(false);
     }
 
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "外部 autonomous owner 恢复 resident roam 时，应通过这个语义口，而不是直接拼 StartRoam/RestartRoam。")]
+    public void ResumeAutonomousRoam(bool tryImmediateMove = false)
+    {
+        if (IsResidentScriptedControlActive || !enabled || !isActiveAndEnabled)
+        {
+            return;
+        }
+
+        if (!IsRoaming)
+        {
+            StartRoam();
+            return;
+        }
+
+        RestartRoamFromCurrentContext(tryImmediateMove);
+    }
+
+    private void RestartRoamFromCurrentContext(bool tryImmediateMove = false)
+    {
+        StartRoam();
+        if (!tryImmediateMove
+            || IsResidentScriptedControlActive
+            || state != RoamState.ShortPause)
+        {
+            return;
+        }
+
+        if (ShouldDelayImmediateRoamRestartAfterFormalNavigation())
+        {
+            ConsumeFormalNavigationRoamSettle();
+            return;
+        }
+
+        stateTimer = 0f;
+        if (!TryBeginMove())
+        {
+            EnterShortPause(false);
+        }
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.RuntimeOnly,
+        Guidance = "低级停 roam 写口。debug/runtime 工具可以用，外部协作线程不要再拿它和其他内部原语自由组合。")]
     public void StopRoam()
     {
+        resumeRoamAfterResidentScriptedControl = false;
         ClearMoveDecisionCache();
         BreakAmbientChatLink(hideBubble: true);
         debugMoveActive = false;
+        activePointToPointTravelContract = PointToPointTravelContract.None;
+        residentScriptedMovePaused = false;
         ClearRequestedDestination();
         ResetSharedAvoidanceDebugState();
         ResetRoamInterruptionState();
@@ -621,7 +833,514 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
-    public void ApplyProfile()
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "Day1 等剧情 owner 取得 resident 身体控制权时，应从这里进入，不再直接调用 resident scripted low-level 写口。")]
+    public void AcquireStoryControl(string ownerKey, bool resumeAutonomousRoamWhenReleased = true)
+    {
+        AcquireResidentScriptedControl(ownerKey, resumeAutonomousRoamWhenReleased);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "Day1 等剧情 owner 释放 resident 身体控制权时，应从这里退出，不再自己拼 release + roam restart。")]
+    public void ReleaseStoryControl(string ownerKey, bool resumeAutonomousRoam = true)
+    {
+        ReleaseResidentScriptedControl(ownerKey, resumeAutonomousRoam);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "剧情/导演要求 resident 受控走位时应走这个语义口，不再直接组合 Acquire + Drive。")]
+    public bool RequestStageTravel(
+        string ownerKey,
+        Vector2 stageStart,
+        Vector2 stageDestination,
+        float retargetTolerance = 0.35f,
+        bool resumeAutonomousRoamWhenReleased = true)
+    {
+        return DriveResidentScriptedMoveTo(
+            ownerKey,
+            stageDestination,
+            PointToPointTravelContract.ResidentScripted,
+            resumeAutonomousRoamWhenReleased,
+            retargetTolerance);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "剧情 owner 把 resident 交还 home/anchor 时应走这里；它会同时更新 anchor 绑定并走统一的 return-home contract。")]
+    public bool RequestReturnToAnchor(
+        string ownerKey,
+        Transform anchor,
+        bool resumeAutonomousRoamWhenReleased = true,
+        float retargetTolerance = 0.35f)
+    {
+        if (anchor == null)
+        {
+            return false;
+        }
+
+        BindResidentHomeAnchor(anchor);
+        return RequestReturnHome(
+            ownerKey,
+            anchor.position,
+            resumeAutonomousRoamWhenReleased,
+            retargetTolerance);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "剧情 owner 让 resident 回家/回锚点时应走这里，而不是直接 DebugMoveTo/DriveResidentScriptedMoveTo。")]
+    public bool RequestReturnHome(
+        string ownerKey,
+        Vector2 homeDestination,
+        bool resumeAutonomousRoamWhenReleased = true,
+        float retargetTolerance = 0.35f)
+    {
+        homePosition = homeDestination;
+        return DriveResidentScriptedMoveTo(
+            ownerKey,
+            homeDestination,
+            PointToPointTravelContract.FormalNavigation,
+            resumeAutonomousRoamWhenReleased,
+            retargetTolerance);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "剧情/导演想让 resident 立刻停住并保持 story owner 控制时，应走这个语义口。")]
+    public void HaltStoryControlMotion(bool preserveResumeAutonomousRoamWhenReleased = true)
+    {
+        HaltResidentScriptedMovement(preserveResumeAutonomousRoamWhenReleased);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "剧情/导演想让 resident 暂停受控移动时，应走这个语义口。")]
+    public void PauseStoryControlMotion()
+    {
+        PauseResidentScriptedMovement();
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "剧情/导演恢复 resident 的受控移动时，应走这个语义口。")]
+    public void ResumeStoryControlMotion()
+    {
+        ResumeResidentScriptedMovement();
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "剧情/导演要瞬时摆正 resident 到目标点时，应走这个语义口，而不是自己拼 Stop/Halt/Transform 写入。")]
+    public void SnapToTarget(Vector2 worldPosition, Vector2? facingDirection = null)
+    {
+        CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
+
+        ClearMoveDecisionCache();
+        BreakAmbientChatLink(hideBubble: true);
+        debugMoveActive = false;
+        activePointToPointTravelContract = PointToPointTravelContract.None;
+        residentScriptedMovePaused = false;
+        ClearRequestedDestination();
+        ResetSharedAvoidanceDebugState();
+        ResetRoamInterruptionState();
+        ClearTraversalSoftPassState();
+        state = RoamState.Inactive;
+        stateTimer = 0f;
+        currentPathIndex = 0;
+        path.Clear();
+        ResetMovementRecovery(worldPosition, resetCounter: true);
+
+        Vector3 snappedPosition = new Vector3(worldPosition.x, worldPosition.y, transform.position.z);
+        transform.position = snappedPosition;
+        if (rb != null)
+        {
+            rb.position = worldPosition;
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+            if (facingDirection.HasValue)
+            {
+                motionController.ApplyIdleFacing(facingDirection.Value);
+            }
+        }
+
+        if (bubblePresenter != null)
+        {
+            bubblePresenter.HideBubble();
+        }
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "Navigation owner 让 resident 进入一次性 autonomous directed travel 时，应走这个语义口。")]
+    public bool BeginAutonomousTravel(Vector2 destination)
+    {
+        if (IsResidentScriptedControlActive)
+        {
+            return false;
+        }
+
+        return BeginPathDirectedMove(destination, PointToPointTravelContract.AutonomousDirected);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "Navigation owner 让 resident 走正式 return-home/return-anchor 路径时，应走这个语义口。")]
+    public bool BeginReturnHome(Vector2 destination)
+    {
+        if (IsResidentScriptedControlActive)
+        {
+            return false;
+        }
+
+        homePosition = destination;
+        return BeginPathDirectedMove(destination, PointToPointTravelContract.FormalNavigation);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "Navigation owner 发现当前 autonomous 路径该放弃并重新取样时，应走这个语义口。")]
+    public void AbortAndReplan(bool tryImmediateMove = false)
+    {
+        if (IsResidentScriptedControlActive)
+        {
+            return;
+        }
+
+        debugMoveActive = false;
+        activePointToPointTravelContract = PointToPointTravelContract.None;
+        residentScriptedMovePaused = false;
+        ResetRoamInterruptionState();
+
+        if (!enabled || !isActiveAndEnabled)
+        {
+            StopRoam();
+            return;
+        }
+
+        StartRoam();
+        if (tryImmediateMove && state == RoamState.ShortPause)
+        {
+            stateTimer = 0f;
+            if (!TryBeginMove())
+            {
+                EnterShortPause(false);
+            }
+        }
+    }
+
+    private void HaltResidentScriptedMovement(bool preserveResumeRoamWhenReleased = true)
+    {
+        CacheComponents();
+
+        if (!preserveResumeRoamWhenReleased)
+        {
+            resumeRoamAfterResidentScriptedControl = false;
+        }
+
+        ClearMoveDecisionCache();
+        BreakAmbientChatLink(hideBubble: true);
+        debugMoveActive = false;
+        activePointToPointTravelContract = PointToPointTravelContract.None;
+        residentScriptedMovePaused = false;
+        ClearRequestedDestination();
+        ResetSharedAvoidanceDebugState();
+        ResetRoamInterruptionState();
+        ClearTraversalSoftPassState();
+        state = RoamState.Inactive;
+        stateTimer = 0f;
+        currentPathIndex = 0;
+        path.Clear();
+        ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
+
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+        }
+
+        if (rb != null)
+        {
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        if (bubblePresenter != null)
+        {
+            bubblePresenter.HideBubble();
+        }
+    }
+
+    private void AcquireResidentScriptedControl(string ownerKey, bool resumeRoamWhenReleased = true)
+    {
+        CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
+
+        string normalizedOwnerKey = NormalizeResidentScriptedControlOwner(ownerKey);
+        if (residentScriptedControlOwners.Count > 0 &&
+            string.Equals(residentScriptedControlOwners[residentScriptedControlOwners.Count - 1], normalizedOwnerKey, System.StringComparison.Ordinal))
+        {
+            if (resumeRoamWhenReleased)
+            {
+                resumeRoamAfterResidentScriptedControl = true;
+            }
+
+            residentScriptedControlOwnerKey = normalizedOwnerKey;
+            return;
+        }
+
+        bool ownerAlreadyRegistered = residentScriptedControlOwners.Remove(normalizedOwnerKey);
+        if (residentScriptedControlOwners.Count == 0)
+        {
+            resumeRoamAfterResidentScriptedControl = resumeRoamWhenReleased && state != RoamState.Inactive;
+            ApplyResidentRuntimeFreeze();
+            debugMoveActive = false;
+            activePointToPointTravelContract = PointToPointTravelContract.None;
+            residentScriptedMovePaused = false;
+            ClearRequestedDestination();
+            state = RoamState.Inactive;
+            stateTimer = 0f;
+            currentPathIndex = 0;
+            path.Clear();
+            ResetMovementRecovery(GetNavigationCenter(), resetCounter: true);
+        }
+        else if (resumeRoamWhenReleased)
+        {
+            resumeRoamAfterResidentScriptedControl = true;
+        }
+
+        if (ownerAlreadyRegistered && showDebugLog)
+        {
+            Debug.Log($"<color=green>[NPCAutoRoamController]</color> {name} Resident scripted control refreshed => Owner={normalizedOwnerKey}", this);
+        }
+
+        residentScriptedControlOwners.Add(normalizedOwnerKey);
+        residentScriptedControlOwnerKey = normalizedOwnerKey;
+    }
+
+    private bool DriveResidentScriptedMoveTo(
+        string ownerKey,
+        Vector2 destination,
+        PointToPointTravelContract travelContract,
+        bool resumeRoamWhenReleased = true,
+        float retargetTolerance = 0.35f)
+    {
+        CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
+
+        AcquireResidentScriptedControl(ownerKey, resumeRoamWhenReleased);
+
+        Vector2 normalizedDestination = NormalizeDestinationToNavGridBounds(destination);
+        float effectiveTolerance = Mathf.Max(0.05f, retargetTolerance);
+        if (debugMoveActive &&
+            state == RoamState.Moving &&
+            Vector2.Distance(GetRebuildRequestedDestination(), normalizedDestination) <= effectiveTolerance)
+        {
+            residentScriptedMovePaused = false;
+            return true;
+        }
+
+        residentScriptedMovePaused = false;
+        return BeginPathDirectedMove(normalizedDestination, travelContract);
+    }
+
+    private void PauseResidentScriptedMovement()
+    {
+        CacheComponents();
+
+        if (!IsResidentScriptedControlActive || !debugMoveActive || state != RoamState.Moving)
+        {
+            return;
+        }
+
+        residentScriptedMovePaused = true;
+        ApplyResidentRuntimeFreeze();
+    }
+
+    private void ResumeResidentScriptedMovement()
+    {
+        if (!IsResidentScriptedControlActive || !debugMoveActive || state != RoamState.Moving)
+        {
+            return;
+        }
+
+        residentScriptedMovePaused = false;
+    }
+
+    private void ReleaseResidentScriptedControl(string ownerKey, bool resumeResidentLogic = true)
+    {
+        if (residentScriptedControlOwners.Count == 0)
+        {
+            return;
+        }
+
+        string normalizedOwnerKey = NormalizeResidentScriptedControlOwner(ownerKey);
+        if (string.IsNullOrWhiteSpace(normalizedOwnerKey) ||
+            !residentScriptedControlOwners.Remove(normalizedOwnerKey))
+        {
+            residentScriptedControlOwners.RemoveAt(residentScriptedControlOwners.Count - 1);
+        }
+
+        residentScriptedControlOwnerKey = residentScriptedControlOwners.Count > 0
+            ? residentScriptedControlOwners[residentScriptedControlOwners.Count - 1]
+            : string.Empty;
+
+        if (residentScriptedControlOwners.Count > 0)
+        {
+            return;
+        }
+
+        if (!resumeResidentLogic)
+        {
+            resumeRoamAfterResidentScriptedControl = false;
+            residentScriptedMovePaused = false;
+            ApplyResidentRuntimeFreeze();
+            return;
+        }
+
+        if (resumeRoamAfterResidentScriptedControl &&
+            !IsResidentScriptedControlActive &&
+            !ShouldSuspendForDialogue() &&
+            enabled &&
+            isActiveAndEnabled)
+        {
+            resumeRoamAfterResidentScriptedControl = false;
+            StartRoam();
+        }
+    }
+
+    private void ClearResidentScriptedControl(bool resumeResidentLogic = false)
+    {
+        residentScriptedControlOwners.Clear();
+        residentScriptedControlOwnerKey = string.Empty;
+        if (!resumeResidentLogic)
+        {
+            resumeRoamAfterResidentScriptedControl = false;
+            residentScriptedMovePaused = false;
+            ApplyResidentRuntimeFreeze();
+            return;
+        }
+
+        if (resumeRoamAfterResidentScriptedControl &&
+            !IsResidentScriptedControlActive &&
+            !ShouldSuspendForDialogue() &&
+            enabled &&
+            isActiveAndEnabled)
+        {
+            resumeRoamAfterResidentScriptedControl = false;
+            StartRoam();
+        }
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.RuntimeOnly,
+        Guidance = "scene continuity / persistence runtime 使用的 resident 快照口，不是给剧情线程拼 locomotion lifecycle 用的。")]
+    public NpcResidentRuntimeSnapshot CaptureResidentRuntimeSnapshot()
+    {
+        CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
+
+        return new NpcResidentRuntimeSnapshot
+        {
+            stableKey = ResidentStableKey,
+            sceneName = gameObject.scene.IsValid() ? gameObject.scene.name : string.Empty,
+            residentGroupName = transform.parent != null ? transform.parent.name : string.Empty,
+            residentGroupHierarchyPath = NpcResidentRuntimeContract.BuildHierarchyPath(transform.parent),
+            homeAnchorName = homeAnchor != null ? homeAnchor.name : string.Empty,
+            homeAnchorHierarchyPath = NpcResidentRuntimeContract.BuildHierarchyPath(homeAnchor),
+            hasHomeAnchor = homeAnchor != null,
+            homeAnchorSceneOwned = homeAnchor != null && homeAnchor.gameObject.scene.IsValid(),
+            residentPosition = transform.position,
+            homeAnchorPosition = homeAnchor != null ? (Vector2)homeAnchor.position : (Vector2)transform.position,
+            wasRoaming = IsRoaming,
+            scriptedControlActive = IsResidentScriptedControlActive,
+            scriptedControlOwnerKey = ResidentScriptedControlOwnerKey,
+            resumeRoamWhenReleased = resumeRoamAfterResidentScriptedControl
+        };
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.RuntimeOnly,
+        Guidance = "scene continuity / persistence runtime 使用的 resident 快照恢复口，不是给剧情线程拼 locomotion lifecycle 用的。")]
+    public void ApplyResidentRuntimeSnapshot(NpcResidentRuntimeSnapshot snapshot, bool resumeResidentLogic = false)
+    {
+        if (snapshot == null)
+        {
+            return;
+        }
+
+        CacheComponents();
+        Transform resolvedHomeAnchor = NpcResidentRuntimeContract.ResolveSceneTransform(
+            gameObject.scene,
+            snapshot.homeAnchorHierarchyPath,
+            snapshot.homeAnchorName);
+
+        if (resolvedHomeAnchor != null)
+        {
+            BindResidentHomeAnchor(resolvedHomeAnchor);
+            if (snapshot.hasHomeAnchor)
+            {
+                resolvedHomeAnchor.position = snapshot.homeAnchorPosition;
+            }
+        }
+        else if (snapshot.hasHomeAnchor)
+        {
+            homePosition = snapshot.homeAnchorPosition;
+        }
+
+        transform.position = snapshot.residentPosition;
+        if (rb != null)
+        {
+            rb.position = snapshot.residentPosition;
+            rb.linearVelocity = Vector2.zero;
+        }
+
+        if (motionController != null)
+        {
+            motionController.StopMotion();
+        }
+
+        residentScriptedControlOwners.Clear();
+        residentScriptedControlOwnerKey = string.Empty;
+        resumeRoamAfterResidentScriptedControl = snapshot.resumeRoamWhenReleased;
+
+        if (snapshot.scriptedControlActive)
+        {
+            AcquireResidentScriptedControl(snapshot.scriptedControlOwnerKey, snapshot.resumeRoamWhenReleased);
+            return;
+        }
+
+        bool shouldResumeRoam = snapshot.wasRoaming || snapshot.resumeRoamWhenReleased;
+        if (resumeResidentLogic && shouldResumeRoam)
+        {
+            if (!IsResidentScriptedControlActive &&
+                !ShouldSuspendForDialogue() &&
+                enabled &&
+                isActiveAndEnabled)
+            {
+                resumeRoamAfterResidentScriptedControl = false;
+                StartRoam();
+                return;
+            }
+        }
+
+        ApplyResidentRuntimeFreeze();
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "runtime/baseline 配置如果确实要从 roamProfile 重灌，应走这个语义口，而不是外部直接碰低级 ApplyProfile。")]
+    public void SyncRuntimeProfileFromAsset()
+    {
+        ApplyProfile();
+    }
+
+    private void ApplyProfile()
     {
         if (roamProfile == null)
         {
@@ -671,7 +1390,29 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
-    public void SetHomeAnchor(Transform anchor)
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "runtime/baseline 配置如果需要重绑 home anchor，应走这个语义口。剧情线程不要把它当成 locomotion lifecycle 拼装件。")]
+    public void BindResidentHomeAnchor(Transform anchor)
+    {
+        SetHomeAnchor(anchor);
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.ExternalFacade,
+        Guidance = "外部线程如果只是想在 NPC 静止时摆正朝向，应走这个语义口，不要直写 NPCMotionController 的低级 facing API。")]
+    public void ApplyIdleFacing(Vector2 facing)
+    {
+        CacheComponents();
+        if (motionController == null)
+        {
+            return;
+        }
+
+        motionController.ApplyIdleFacing(facing);
+    }
+
+    private void SetHomeAnchor(Transform anchor)
     {
         homeAnchor = anchor;
         homePosition = anchor != null ? anchor.position : transform.position;
@@ -699,18 +1440,19 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private Transform FindRuntimeHomeAnchorCandidate()
     {
         string anchorName = $"{name}_HomeAnchor";
+        Vector2 currentPosition = GetNavigationCenter();
         Transform parent = transform.parent;
         if (parent != null)
         {
             Transform siblingAnchor = parent.Find(anchorName);
-            if (siblingAnchor != null)
+            if (IsPlausibleRuntimeHomeAnchorCandidate(siblingAnchor, currentPosition))
             {
                 return siblingAnchor;
             }
         }
 
         Transform childAnchor = transform.Find(anchorName);
-        if (childAnchor != null)
+        if (IsPlausibleRuntimeHomeAnchorCandidate(childAnchor, currentPosition))
         {
             return childAnchor;
         }
@@ -724,7 +1466,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         for (int index = 0; index < roots.Length; index++)
         {
             Transform sceneAnchor = FindNamedChildRecursive(roots[index].transform, anchorName);
-            if (sceneAnchor != null)
+            if (IsPlausibleRuntimeHomeAnchorCandidate(sceneAnchor, currentPosition))
             {
                 return sceneAnchor;
             }
@@ -767,6 +1509,362 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         return null;
     }
 
+    private bool IsPlausibleRuntimeHomeAnchorCandidate(Transform candidate, Vector2 currentPosition)
+    {
+        return candidate != null && !ShouldPreferCurrentPositionAsRoamCenter(currentPosition, candidate.position);
+    }
+
+    private void RefreshHomePositionFromCurrentContext()
+    {
+        Vector2 currentPosition = GetNavigationCenter();
+        if (homeAnchor == null)
+        {
+            homePosition = currentPosition;
+            return;
+        }
+
+        Vector2 anchorPosition = homeAnchor.position;
+        bool preferCurrentPosition = ShouldPreferCurrentPositionAsRoamCenter(currentPosition, anchorPosition);
+        Vector2 preferredCenter = preferCurrentPosition ? currentPosition : anchorPosition;
+        if (TryResolvePreferredRoamCenter(preferredCenter, preferCurrentPosition ? anchorPosition : currentPosition, out Vector2 resolvedRoamCenter))
+        {
+            homePosition = resolvedRoamCenter;
+            return;
+        }
+
+        homePosition = preferCurrentPosition
+            ? currentPosition
+            : anchorPosition;
+    }
+
+    private static bool IsRecoverablePointToPointTravelContract(PointToPointTravelContract travelContract)
+    {
+        return travelContract == PointToPointTravelContract.AutonomousDirected ||
+               travelContract == PointToPointTravelContract.ResidentScripted ||
+               travelContract == PointToPointTravelContract.FormalNavigation;
+    }
+
+    private static bool RequiresReleasedMovementBodyClearance(PointToPointTravelContract travelContract)
+    {
+        return IsRecoverablePointToPointTravelContract(travelContract);
+    }
+
+    private bool HasActivePointToPointTravelContract()
+    {
+        return debugMoveActive && activePointToPointTravelContract != PointToPointTravelContract.None;
+    }
+
+    private bool IsActivePointToPointTravelContract(PointToPointTravelContract travelContract)
+    {
+        return debugMoveActive && activePointToPointTravelContract == travelContract;
+    }
+
+    private bool IsRecoverablePointToPointTravelActive()
+    {
+        return debugMoveActive && IsRecoverablePointToPointTravelContract(activePointToPointTravelContract);
+    }
+
+    private bool UsesAutonomousRoamExecutionContract()
+    {
+        return !HasActivePointToPointTravelContract() && !IsResidentScriptedControlActive;
+    }
+
+    private bool IsFormalNavigationDebugMoveActive()
+    {
+        return IsActivePointToPointTravelContract(PointToPointTravelContract.FormalNavigation);
+    }
+
+    private bool IsPlainDebugMoveActive()
+    {
+        return IsActivePointToPointTravelContract(PointToPointTravelContract.PlainDebug);
+    }
+
+    private string GetPointToPointTravelContractLabel(PointToPointTravelContract travelContract)
+    {
+        return $"{GetPointToPointTravelContractName(travelContract)}Move";
+    }
+
+    private string GetPointToPointTravelContractName(PointToPointTravelContract travelContract)
+    {
+        return travelContract switch
+        {
+            PointToPointTravelContract.PlainDebug => "PlainDebug",
+            PointToPointTravelContract.AutonomousDirected => "AutonomousDirected",
+            PointToPointTravelContract.ResidentScripted => "ResidentScripted",
+            PointToPointTravelContract.FormalNavigation => "FormalNavigation",
+            _ => "PointToPoint"
+        };
+    }
+
+    private bool ShouldUseReleasedMovementBodyClearanceExecutionContract()
+    {
+        return UsesAutonomousRoamExecutionContract() || IsRecoverablePointToPointTravelActive();
+    }
+
+    private float GetReleasedMovementStepBodyClearanceExtraRadius()
+    {
+        return Mathf.Max(
+            GetAutonomousRoamBodyClearanceExtraRadius(),
+            GetContactShellPadding() * 0.85f);
+    }
+
+    private float GetReleasedMovementDestinationCorrectionLimit()
+    {
+        float correctionLimit = Mathf.Max(
+            GetReleasedMovementStepBodyClearanceExtraRadius() * 2.25f,
+            GetColliderRadius() + GetContactShellPadding(),
+            minimumMoveDistance * 0.55f);
+        return Mathf.Clamp(
+            correctionLimit,
+            RELEASED_MOVEMENT_DESTINATION_CORRECTION_MIN,
+            RELEASED_MOVEMENT_DESTINATION_CORRECTION_MAX);
+    }
+
+    private float GetReleasedMovementNeighborClearanceRadius()
+    {
+        float desiredRadius = Mathf.Max(
+            GetColliderRadius() * RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_RADIUS_SCALE,
+            GetReleasedMovementStepBodyClearanceExtraRadius() * 1.2f,
+            minimumMoveDistance * 0.32f);
+        return Mathf.Clamp(
+            desiredRadius,
+            RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_MIN_RADIUS,
+            RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_MAX_RADIUS);
+    }
+
+    private bool ShouldDelayImmediateRoamRestartAfterFormalNavigation()
+    {
+        if (lastFormalNavigationArrivalTime <= float.NegativeInfinity)
+        {
+            return false;
+        }
+
+        float elapsed = Time.time - lastFormalNavigationArrivalTime;
+        if (elapsed < 0f || elapsed > FORMAL_NAVIGATION_RESTART_SETTLE_SECONDS)
+        {
+            return false;
+        }
+
+        return Vector2.Distance(GetNavigationCenter(), lastFormalNavigationArrivalPosition) <= FORMAL_NAVIGATION_RESTART_SETTLE_RADIUS;
+    }
+
+    private void ConsumeFormalNavigationRoamSettle()
+    {
+        lastFormalNavigationArrivalTime = float.NegativeInfinity;
+    }
+
+    private bool TryResolvePreferredRoamCenter(
+        Vector2 primaryCenter,
+        Vector2 secondaryCenter,
+        out Vector2 resolvedRoamCenter)
+    {
+        if (TryResolveSafeRoamCenterNear(primaryCenter, out resolvedRoamCenter))
+        {
+            return true;
+        }
+
+        if (TryResolveSafeRoamCenterNear(secondaryCenter, out resolvedRoamCenter))
+        {
+            return true;
+        }
+
+        resolvedRoamCenter = primaryCenter;
+        return false;
+    }
+
+    private bool TryResolveSafeRoamCenterNear(Vector2 preferredCenter, out Vector2 resolvedRoamCenter)
+    {
+        Vector2 clampedCenter = NormalizeDestinationToNavGridBounds(preferredCenter);
+        if (IsAutonomousRoamCenterCandidateClear(clampedCenter))
+        {
+            resolvedRoamCenter = clampedCenter;
+            return true;
+        }
+
+        if (TryResolveOccupiableDestination(clampedCenter, out Vector2 correctedCenter) &&
+            Vector2.Distance(preferredCenter, correctedCenter) <= GetAutonomousRoamSafeCenterSearchRadius() + GetAutonomousRoamDestinationCorrectionLimit() &&
+            IsAutonomousRoamCenterCandidateClear(correctedCenter))
+        {
+            resolvedRoamCenter = correctedCenter;
+            return true;
+        }
+
+        float searchRadius = GetAutonomousRoamSafeCenterSearchRadius();
+        Vector2[] searchDirections =
+        {
+            Vector2.right,
+            Vector2.left,
+            Vector2.up,
+            Vector2.down,
+            new Vector2(1f, 1f).normalized,
+            new Vector2(-1f, 1f).normalized,
+            new Vector2(1f, -1f).normalized,
+            new Vector2(-1f, -1f).normalized
+        };
+
+        for (int ringIndex = 1; ringIndex <= AUTONOMOUS_ROAM_SAFE_CENTER_RING_COUNT; ringIndex++)
+        {
+            float ringDistance = searchRadius * (ringIndex / (float)AUTONOMOUS_ROAM_SAFE_CENTER_RING_COUNT);
+            for (int directionIndex = 0; directionIndex < searchDirections.Length; directionIndex++)
+            {
+                Vector2 candidate = NormalizeDestinationToNavGridBounds(preferredCenter + searchDirections[directionIndex] * ringDistance);
+                if (!TryResolveOccupiableDestination(candidate, out Vector2 correctedCandidate))
+                {
+                    continue;
+                }
+
+                if (Vector2.Distance(preferredCenter, correctedCandidate) > searchRadius + GetAutonomousRoamDestinationCorrectionLimit())
+                {
+                    continue;
+                }
+
+                if (IsAutonomousRoamCenterCandidateClear(correctedCandidate))
+                {
+                    resolvedRoamCenter = correctedCandidate;
+                    return true;
+                }
+            }
+        }
+
+        resolvedRoamCenter = clampedCenter;
+        return false;
+    }
+
+    private float GetAutonomousRoamSafeCenterSearchRadius()
+    {
+        float desiredRadius = Mathf.Max(
+            GetColliderRadius() + GetAutonomousRoamBodyClearanceExtraRadius(),
+            activityRadius * AUTONOMOUS_ROAM_SAFE_CENTER_SEARCH_RADIUS_SCALE,
+            minimumMoveDistance * 0.75f);
+        return Mathf.Clamp(
+            desiredRadius,
+            AUTONOMOUS_ROAM_SAFE_CENTER_MIN_SEARCH_RADIUS,
+            AUTONOMOUS_ROAM_SAFE_CENTER_MAX_SEARCH_RADIUS);
+    }
+
+    private bool IsAutonomousRoamCenterCandidateClear(Vector2 candidatePosition)
+    {
+        return IsAutonomousRoamDestinationCandidateClear(candidatePosition);
+    }
+
+    private bool IsAutonomousRoamDestinationCandidateClear(Vector2 candidatePosition)
+    {
+        return CanOccupyNavigationPoint(candidatePosition) &&
+            HasAutonomousRoamDestinationNeighborhoodClearance(candidatePosition) &&
+            HasAutonomousRoamDestinationBodyClearance(candidatePosition) &&
+            HasAutonomousRoamDestinationAgentClearance(candidatePosition) &&
+            !IsRecentlyBlockedAutonomousDestination(candidatePosition);
+    }
+
+    private bool IsReleasedMovementDestinationCandidateClear(Vector2 candidatePosition)
+    {
+        return HasReleasedMovementDestinationBodyClearance(candidatePosition) &&
+            HasReleasedMovementDestinationNeighborhoodClearance(candidatePosition);
+    }
+
+    private bool IsRecoverablePointToPointBuiltPathAcceptable(
+        Vector2 currentPosition,
+        Vector2 destination)
+    {
+        if (path.Count == 0 || !IsReleasedMovementDestinationCandidateClear(destination))
+        {
+            return false;
+        }
+
+        return HasPathBodyClearance(
+            currentPosition,
+            GetReleasedMovementStepBodyClearanceExtraRadius(),
+            RELEASED_MOVEMENT_PATH_CLEARANCE_SAMPLE_SPACING,
+            RELEASED_STEP_BODY_CLEARANCE_SIDE_INSET_SCALE,
+            RELEASED_STEP_BODY_CLEARANCE_VERTICAL_INSET_SCALE);
+    }
+
+    private bool HasPathBodyClearance(
+        Vector2 currentPosition,
+        float extraRadius,
+        float sampleSpacing,
+        float sideInsetScale,
+        float verticalInsetScale)
+    {
+        if (path.Count == 0)
+        {
+            return false;
+        }
+
+        Vector2 previousPoint = currentPosition;
+        for (int index = 0; index < path.Count; index++)
+        {
+            if (!HasPathSegmentBodyClearance(
+                    previousPoint,
+                    path[index],
+                    extraRadius,
+                    sampleSpacing,
+                    sideInsetScale,
+                    verticalInsetScale))
+            {
+                return false;
+            }
+
+            previousPoint = path[index];
+        }
+
+        return true;
+    }
+
+    private bool HasPathSegmentBodyClearance(
+        Vector2 start,
+        Vector2 end,
+        float extraRadius,
+        float sampleSpacing,
+        float sideInsetScale,
+        float verticalInsetScale)
+    {
+        float segmentDistance = Vector2.Distance(start, end);
+        if (segmentDistance <= 0.0001f)
+        {
+            return true;
+        }
+
+        int sampleCount = Mathf.Max(1, Mathf.CeilToInt(segmentDistance / Mathf.Max(0.05f, sampleSpacing)));
+        for (int step = 1; step <= sampleCount; step++)
+        {
+            Vector2 samplePoint = Vector2.Lerp(start, end, step / (float)sampleCount);
+            if (!NavigationTraversalCore.CanOccupyNavigationPointWithClearanceMargin(
+                    GetTraversalContract(),
+                    samplePoint,
+                    extraRadius,
+                    sideInsetScale,
+                    verticalInsetScale))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool ShouldPreferCurrentPositionAsRoamCenter(Vector2 currentPosition, Vector2 anchorPosition)
+    {
+        if (IsResidentScriptedControlActive)
+        {
+            return false;
+        }
+
+        float allowedAnchorDistance = Mathf.Max(
+            HOME_ANCHOR_MISMATCH_MIN_DISTANCE,
+            activityRadius + Mathf.Max(minimumMoveDistance, 0.5f) + GetColliderRadius() + HOME_ANCHOR_MISMATCH_PADDING);
+        return Vector2.Distance(currentPosition, anchorPosition) > allowedAnchorDistance;
+    }
+
+    private static string NormalizeResidentScriptedControlOwner(string ownerKey)
+    {
+        string trimmed = ownerKey?.Trim();
+        return string.IsNullOrWhiteSpace(trimmed) ? "resident-scripted-control" : trimmed;
+    }
+
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.RuntimeOnly,
+        Guidance = "runtime/debug 校准 home anchor 用口。不要把它当成剧情 lifecycle 拼装件。")]
     public void SyncHomeAnchorToCurrentPosition()
     {
         if (homeAnchor != null)
@@ -775,6 +1873,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         homePosition = transform.position;
+    }
+
+    private void RefreshRoamCenterFromCurrentContext()
+    {
+        CacheComponents();
+        EnsureRuntimeHomeAnchorBound();
+        RefreshHomePositionFromCurrentContext();
     }
 
     [ContextMenu("调试/立即开始漫游")]
@@ -813,7 +1918,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
+    [NpcLocomotionSurface(
+        NpcLocomotionSurfaceScope.DebugOnly,
+        Guidance = "只给 probe / validation / 调试菜单使用。业务线程不要再拿它作为正式 locomotion contract。")]
     public bool DebugMoveTo(Vector2 destination)
+    {
+        return BeginPathDirectedMove(destination, PointToPointTravelContract.PlainDebug);
+    }
+
+    private bool BeginPathDirectedMove(Vector2 destination, PointToPointTravelContract travelContract)
     {
         CacheComponents();
         EnsureRuntimeHomeAnchorBound();
@@ -824,7 +1937,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         BreakAmbientChatLink(hideBubble: true);
         ClearAmbientChatRetry();
-        if (!TryResolveOccupiableDestination(destination, out Vector2 resolvedDestination))
+        if (!TryResolvePathDirectedDestination(destination, travelContract, out Vector2 resolvedDestination))
+        {
+            return false;
+        }
+
+        if (!TryAcquirePathBuildBudget())
         {
             return false;
         }
@@ -833,23 +1951,27 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         ResetRoamInterruptionState();
 
         Vector2 currentPosition = rb != null ? rb.position : (Vector2)transform.position;
-        NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
-            navigationExecution,
-            navGrid,
-            currentPosition,
-            resolvedDestination,
-            null,
-            null,
-            0f,
-            GetPathBuildLogger("DebugMoveTo"),
-            navigationCollider);
-
-        if (!buildResult.Success || path.Count == 0)
+        if (!TryBuildPathToDestination(
+                currentPosition,
+                resolvedDestination,
+                GetPointToPointTravelContractLabel(travelContract),
+                out _))
         {
+            RecordPathBuildOutcome(success: false);
             return false;
         }
 
+        if (!IsBuiltPathAcceptableForTravelContract(currentPosition, resolvedDestination, travelContract))
+        {
+            RecordPathBuildOutcome(success: false);
+            NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
+            return false;
+        }
+
+        RecordPathBuildOutcome(success: true);
         debugMoveActive = true;
+        activePointToPointTravelContract = travelContract;
+        residentScriptedMovePaused = false;
         state = RoamState.Moving;
         stateTimer = 0f;
         ResetSharedAvoidanceDebugState();
@@ -863,11 +1985,43 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (showDebugLog)
         {
             Debug.Log(
-                $"<color=green>[NPCAutoRoamController]</color> {name} DebugMoveTo => Destination={currentDestination}, PathCount={path.Count}",
+                $"<color=green>[NPCAutoRoamController]</color> {name} PointToPointTravel => Contract={travelContract}, Destination={currentDestination}, PathCount={path.Count}",
                 this);
         }
 
         return true;
+    }
+
+    private bool TryResolvePathDirectedDestination(
+        Vector2 destination,
+        PointToPointTravelContract travelContract,
+        out Vector2 resolvedDestination)
+    {
+        if (RequiresReleasedMovementBodyClearance(travelContract))
+        {
+            return TryResolveReleasedMovementDestination(destination, out resolvedDestination);
+        }
+
+        return TryResolveOccupiableDestination(destination, out resolvedDestination);
+    }
+
+    private bool TryBuildPathToDestination(
+        Vector2 startPosition,
+        Vector2 destination,
+        string reason,
+        out NavigationPathExecutor2D.BuildPathResult buildResult)
+    {
+        buildResult = NavigationPathExecutor2D.TryRefreshPath(
+            navigationExecution,
+            navGrid,
+            startPosition,
+            destination,
+            null,
+            null,
+            0f,
+            GetPathBuildLogger(reason),
+            navigationCollider);
+        return buildResult.Success && path.Count > 0;
     }
 
     private void CacheComponents()
@@ -899,6 +2053,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (navGrid == null)
         {
             navGrid = FindFirstObjectByType<NavGrid2D>();
+        }
+
+        if (staticObstacleProbeBuffer == null || staticObstacleProbeBuffer.Length < 12)
+        {
+            staticObstacleProbeBuffer = new Collider2D[12];
         }
     }
 
@@ -1058,13 +2217,23 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return;
         }
 
+        if (sharedAvoidanceBlockingFrames <= 0 && !hasDynamicDetour)
+        {
+            adjustedDirection = StabilizeMoveDirection(currentPosition, adjustedDirection);
+        }
         float step = moveSpeed * Mathf.Clamp01(moveScale) * Mathf.Max(deltaTime, 0.0001f);
         if (step <= 0.0001f)
         {
             CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "ZeroStep";
+            LogBlockedMovementDiagnostics("ZeroStep", currentPosition, waypoint, currentPosition);
             TryHandleBlockedAdvance(currentPosition, "ZeroStep");
             return;
+        }
+
+        if (ShouldApplyAutonomousStaticObstacleSteering())
+        {
+            adjustedDirection = AdjustDirectionByStaticColliders(currentPosition, adjustedDirection, step);
         }
 
         Vector2 nextPosition = distance <= step
@@ -1078,6 +2247,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         {
             CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "ConstrainedZeroAdvance";
+            LogBlockedMovementDiagnostics("ConstrainedZeroAdvance", currentPosition, waypoint, nextPosition);
             TryHandleBlockedAdvance(currentPosition, "ConstrainedZeroAdvance");
             return;
         }
@@ -1086,14 +2256,16 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         {
             CacheStoppedMoveDecisionForCurrentFrame();
             lastMoveSkipReason = "MoveCommandOscillation";
+            LogBlockedMovementDiagnostics("MoveCommandOscillation", currentPosition, waypoint, nextPosition);
             TryHandleBlockedAdvance(currentPosition, "MoveCommandOscillation");
             return;
         }
 
+        Vector2 facingDirection = ResolveFacingDirectionForMoveCommand(moveDirection, adjustedDirection);
         lastMoveSkipReason = "IssuingVelocity";
         MarkMoveCommandIssued(currentPosition, nextPosition);
-        ApplyMoveVelocity(currentPosition, velocity, deltaTime);
-        CacheMoveDecisionVelocityForCurrentFrame(velocity);
+        ApplyMoveVelocity(currentPosition, velocity, facingDirection, deltaTime);
+        CacheMoveDecisionVelocityForCurrentFrame(velocity, facingDirection);
     }
 
     private void TickLongPause()
@@ -1144,29 +2316,28 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             : default;
 
         debugMoveActive = false;
+        activePointToPointTravelContract = PointToPointTravelContract.None;
         NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
 
         Vector2 currentPosition = GetNavigationCenter();
         Vector2 roamCenter = GetRoamCenter();
 
-        for (int attempt = 0; attempt < pathSampleAttempts; attempt++)
+        bool requireAutonomousRoamAcceptance = UsesAutonomousRoamExecutionContract();
+        Vector2 samplingCenter = requireAutonomousRoamAcceptance
+            ? ResolveAutonomousRoamSamplingCenter(currentPosition, roamCenter)
+            : roamCenter;
+        int sampleAttemptBudget = GetAutonomousRoamSampleAttemptBudget();
+        if (requireAutonomousRoamAcceptance)
         {
-            Vector2 randomOffset = Random.insideUnitCircle * activityRadius;
-            Vector2 sampledDestination = NormalizeDestinationToNavGridBounds(roamCenter + randomOffset);
+            autonomousRoamCandidates.Clear();
+            EnsureRegisteredRoamControllerBufferCurrentFrame();
+        }
 
-            if (Vector2.Distance(currentPosition, sampledDestination) < minimumMoveDistance)
-            {
-                continue;
-            }
-
-            if (!TryResolveOccupiableDestination(sampledDestination, out Vector2 walkableDestination))
-            {
-                continue;
-            }
-
+        bool TryCommitResolvedDestination(Vector2 walkableDestination)
+        {
             if (Vector2.Distance(currentPosition, walkableDestination) < minimumMoveDistance)
             {
-                continue;
+                return false;
             }
 
             NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
@@ -1182,7 +2353,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
             if (!buildResult.Success || path.Count == 0)
             {
-                continue;
+                return false;
+            }
+
+            if (requireAutonomousRoamAcceptance &&
+                !IsAutonomousRoamBuiltPathAcceptable(currentPosition, roamCenter, walkableDestination))
+            {
+                NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
+                return false;
             }
 
             RecordPathBuildOutcome(success: true);
@@ -1211,13 +2389,212 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
+        bool TryCollectAutonomousRoamCandidate(Vector2 sampledDestination)
+        {
+            if (!IsWithinAutonomousRoamBounds(roamCenter, sampledDestination) ||
+                Vector2.Distance(currentPosition, sampledDestination) < minimumMoveDistance)
+            {
+                return false;
+            }
+
+            if (!TryResolveAutonomousRoamDestination(
+                    currentPosition,
+                    roamCenter,
+                    sampledDestination,
+                    out Vector2 walkableDestination,
+                    out float candidateScore))
+            {
+                return false;
+            }
+
+            InsertAutonomousRoamCandidate(walkableDestination, candidateScore);
+            return true;
+        }
+
+        bool TryCommitSampledDestination(Vector2 sampledDestination)
+        {
+            if (requireAutonomousRoamAcceptance)
+            {
+                return TryCollectAutonomousRoamCandidate(sampledDestination);
+            }
+
+            if (Vector2.Distance(currentPosition, sampledDestination) < minimumMoveDistance)
+            {
+                return false;
+            }
+
+            if (!TryResolveOccupiableDestination(sampledDestination, out Vector2 walkableDestination))
+            {
+                return false;
+            }
+
+            return TryCommitResolvedDestination(walkableDestination);
+        }
+
+        if (requireAutonomousRoamAcceptance && IsAutonomousRoamRecoverySamplingActive())
+        {
+            float recoveryDistance = GetAutonomousRoamRecoverySampleDistance();
+            Vector2[] recoveryDirections =
+            {
+                Vector2.right,
+                Vector2.left,
+                Vector2.up,
+                Vector2.down,
+                new Vector2(1f, 1f).normalized,
+                new Vector2(-1f, 1f).normalized,
+                new Vector2(1f, -1f).normalized,
+                new Vector2(-1f, -1f).normalized
+            };
+
+            for (int index = 0; index < recoveryDirections.Length; index++)
+            {
+                Vector2 sampledDestination = NormalizeDestinationToNavGridBounds(
+                    samplingCenter + recoveryDirections[index] * recoveryDistance);
+                TryCommitSampledDestination(sampledDestination);
+            }
+        }
+
+        for (int attempt = 0; attempt < sampleAttemptBudget; attempt++)
+        {
+            Vector2 randomOffset = Random.insideUnitCircle * activityRadius;
+            Vector2 sampledDestination = NormalizeDestinationToNavGridBounds(samplingCenter + randomOffset);
+            if (!TryCommitSampledDestination(sampledDestination))
+            {
+                continue;
+            }
+
+            if (!requireAutonomousRoamAcceptance)
+            {
+                return true;
+            }
+        }
+
+        if (requireAutonomousRoamAcceptance)
+        {
+            for (int index = 0; index < autonomousRoamCandidates.Count; index++)
+            {
+                if (TryCommitResolvedDestination(autonomousRoamCandidates[index].Destination))
+                {
+                    return true;
+                }
+            }
+        }
+
         RecordPathBuildOutcome(success: false);
         if (showDebugLog)
         {
-            Debug.LogWarning($"[NPCAutoRoamController] {name} 在 {pathSampleAttempts} 次采样内没有找到可用路径。", this);
+            string navSummary = navGrid != null
+                ? navGrid.BuildBlockingDebugSummary(currentPosition, GetBlockingDebugProbeRadius(), navigationCollider)
+                : "NavGridMissing";
+            Debug.LogWarning(
+                $"[NPCAutoRoamController] {name} 在 {sampleAttemptBudget} 次采样内没有找到可用路径。 " +
+                $"state={state} blockedFrames={blockedAdvanceFrames} pathFailures={consecutivePathBuildFailures} " +
+                $"current={currentPosition} roamCenter={roamCenter} nav={navSummary}",
+                this);
         }
 
         return false;
+    }
+
+    private int GetAutonomousRoamSampleAttemptBudget()
+    {
+        int budget = Mathf.Max(1, pathSampleAttempts);
+        if (!UsesAutonomousRoamExecutionContract())
+        {
+            return budget;
+        }
+
+        if (blockedAdvanceFrames > 0 || currentStuckRecoveryCount > 0 || consecutivePathBuildFailures > 0)
+        {
+            return Mathf.Min(budget, AUTONOMOUS_ROAM_STATIC_RECOVERY_SAMPLE_BUDGET);
+        }
+
+        if (hasPendingMoveCommandProgressCheck || sharedAvoidanceBlockingFrames > 0 || hasDynamicDetour)
+        {
+            return Mathf.Min(budget, 6);
+        }
+
+        return budget;
+    }
+
+    private bool IsAutonomousRoamRecoverySamplingActive()
+    {
+        return UsesAutonomousRoamExecutionContract() &&
+            (blockedAdvanceFrames > 0 ||
+             currentStuckRecoveryCount > 0 ||
+             consecutivePathBuildFailures > 0);
+    }
+
+    private Vector2 ResolveAutonomousRoamSamplingCenter(Vector2 currentPosition, Vector2 roamCenter)
+    {
+        if (!IsAutonomousRoamRecoverySamplingActive())
+        {
+            return roamCenter;
+        }
+
+        if (TryResolveSafeRoamCenterNear(currentPosition, out Vector2 localSafeCenter))
+        {
+            return localSafeCenter;
+        }
+
+        return currentPosition;
+    }
+
+    private float GetAutonomousRoamRecoverySampleDistance()
+    {
+        float desiredDistance = Mathf.Max(
+            minimumMoveDistance * 1.1f,
+            GetColliderRadius() + GetAutonomousRoamBodyClearanceExtraRadius() + GetContactShellPadding());
+        return Mathf.Clamp(
+            desiredDistance,
+            minimumMoveDistance,
+            Mathf.Max(minimumMoveDistance, activityRadius));
+    }
+
+    private bool IsWithinAutonomousRoamBounds(Vector2 roamCenter, Vector2 candidatePosition)
+    {
+        return Vector2.Distance(roamCenter, candidatePosition) <=
+               activityRadius + GetAutonomousRoamDestinationCorrectionLimit();
+    }
+
+    private void LogBlockedMovementDiagnostics(
+        string reason,
+        Vector2 currentPosition,
+        Vector2 waypoint,
+        Vector2 candidatePosition)
+    {
+        if (!showDebugLog || navGrid == null)
+        {
+            return;
+        }
+
+        if (blockedAdvanceFrames > 1 &&
+            blockedAdvanceFrames != BLOCKED_ADVANCE_REROUTE_MIN_FRAMES &&
+            blockedAdvanceFrames != BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES)
+        {
+            return;
+        }
+
+        float debugRadius = GetBlockingDebugProbeRadius();
+        string currentSummary = navGrid.BuildBlockingDebugSummary(currentPosition, debugRadius, navigationCollider);
+        string candidateSummary = navGrid.BuildBlockingDebugSummary(candidatePosition, debugRadius, navigationCollider);
+        string destinationSummary = navGrid.BuildBlockingDebugSummary(currentDestination, debugRadius, navigationCollider);
+
+        Debug.LogWarning(
+            $"[NPCBlockedDebug] {name} reason={reason} state={state} moveSkip={lastMoveSkipReason} " +
+            $"blockedFrames={blockedAdvanceFrames} current={currentPosition} waypoint={waypoint} next={candidatePosition} destination={currentDestination} " +
+            $"sampleBudget={GetAutonomousRoamSampleAttemptBudget()} currentHits={currentSummary} nextHits={candidateSummary} destinationHits={destinationSummary}",
+            this);
+    }
+
+    private float GetBlockingDebugProbeRadius()
+    {
+        float bodyRadius = Mathf.Max(0.05f, GetColliderRadius() + GetContactShellPadding());
+        float traversalRadius = Mathf.Max(
+            0.05f,
+            navigationFootProbeVerticalInset + navigationFootProbeExtraRadius,
+            navigationFootProbeSideInset + navigationFootProbeExtraRadius);
+        return Mathf.Min(bodyRadius, Mathf.Max(traversalRadius, 0.08f));
     }
 
     private bool CheckAndHandleStuck(Vector2 currentPosition)
@@ -1252,6 +2629,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 this);
         }
 
+        if (IsRecoverablePointToPointTravelActive())
+        {
+            return TryHandleRecoverablePointToPointTravelStuck(currentPosition, progress);
+        }
+
         if (debugMoveActive)
         {
             EndDebugMove(reachedDestination: false);
@@ -1271,6 +2653,14 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
         if (TryBeginMove(preserveBlockedRecoveryState: true))
         {
+            return true;
+        }
+
+        if (progress.ShouldCancel &&
+            UsesAutonomousRoamExecutionContract())
+        {
+            lastMoveSkipReason = "StuckCancelStopgap";
+            FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
             return true;
         }
 
@@ -1311,6 +2701,32 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         return true;
     }
 
+    private bool TryHandleRecoverablePointToPointTravelStuck(
+        Vector2 currentPosition,
+        NavigationPathExecutor2D.ProgressCheckResult progress)
+    {
+        string contractName = GetPointToPointTravelContractName(activePointToPointTravelContract);
+        bool preserveTrafficState = lastBlockingAgentId != 0 || sharedAvoidanceBlockingFrames > 0;
+        if (TryRebuildPath(
+                currentPosition,
+                resetRecoveryCounter: false,
+                reason: progress.ShouldCancel ? $"{contractName}StuckCancelRecover" : $"{contractName}StuckRecover",
+                preserveTrafficState: preserveTrafficState,
+                preserveBlockedRecoveryState: true))
+        {
+            return true;
+        }
+
+        if (!progress.ShouldCancel)
+        {
+            return true;
+        }
+
+        lastMoveSkipReason = $"{contractName}StuckCancel";
+        EndDebugMove(reachedDestination: false);
+        return true;
+    }
+
     private bool TryRebuildPath(
         Vector2 currentPosition,
         bool resetRecoveryCounter,
@@ -1327,7 +2743,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             ? CaptureBlockedRecoveryState()
             : default;
 
-        Vector2 rebuildDestination = NormalizeDestinationToNavGridBounds(GetRebuildRequestedDestination());
+        if (!TryResolveRebuildRequestedDestination(out Vector2 rebuildDestination))
+        {
+            return false;
+        }
+
         if (ShouldSkipRebuildPathRequest(currentPosition, rebuildDestination))
         {
             return false;
@@ -1339,20 +2759,25 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         RecordRebuildPathRequest(currentPosition, rebuildDestination);
-        NavigationPathExecutor2D.BuildPathResult buildResult = NavigationPathExecutor2D.TryRefreshPath(
-            navigationExecution,
-            navGrid,
-            currentPosition,
-            rebuildDestination,
-            null,
-            null,
-            0f,
-            GetPathBuildLogger(reason),
-            navigationCollider);
-
-        if (!buildResult.Success || path.Count == 0)
+        if (!TryBuildPathToDestination(
+                currentPosition,
+                rebuildDestination,
+                reason,
+                out _))
         {
             RecordPathBuildOutcome(success: false);
+            return false;
+        }
+
+        if (!IsCurrentBuiltPathAcceptable(currentPosition, rebuildDestination))
+        {
+            RecordPathBuildOutcome(success: false);
+            if (UsesAutonomousRoamExecutionContract())
+            {
+                RememberStaticBlockedDestination(currentPosition, rebuildDestination);
+            }
+
+            NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
             return false;
         }
 
@@ -1374,6 +2799,45 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         return true;
+    }
+
+    private bool TryResolveRebuildRequestedDestination(out Vector2 rebuildDestination)
+    {
+        rebuildDestination = NormalizeDestinationToNavGridBounds(GetRebuildRequestedDestination());
+        if (!IsRecoverablePointToPointTravelActive())
+        {
+            return true;
+        }
+
+        return TryResolveReleasedMovementDestination(rebuildDestination, out rebuildDestination);
+    }
+
+    private bool IsCurrentBuiltPathAcceptable(Vector2 currentPosition, Vector2 destination)
+    {
+        if (UsesAutonomousRoamExecutionContract())
+        {
+            return IsAutonomousRoamBuiltPathAcceptable(currentPosition, GetRoamCenter(), destination);
+        }
+
+        if (IsRecoverablePointToPointTravelActive())
+        {
+            return IsRecoverablePointToPointBuiltPathAcceptable(currentPosition, destination);
+        }
+
+        return true;
+    }
+
+    private bool IsBuiltPathAcceptableForTravelContract(
+        Vector2 currentPosition,
+        Vector2 destination,
+        PointToPointTravelContract travelContract)
+    {
+        if (!RequiresReleasedMovementBodyClearance(travelContract))
+        {
+            return true;
+        }
+
+        return IsRecoverablePointToPointBuiltPathAcceptable(currentPosition, destination);
     }
 
     private bool ShouldSkipRebuildPathRequest(Vector2 currentPosition, Vector2 rebuildDestination)
@@ -1422,6 +2886,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         adjustedDirection = desiredDirection;
         speedScale = 1f;
+        if (ShouldBypassSharedAvoidanceForCurrentMove())
+        {
+            sharedAvoidanceNoBlockerFrames = 0;
+            sharedAvoidanceBlockingFrames = 0;
+            lastBlockingAgentId = 0;
+            blockingAgentSightings = 0;
+            return false;
+        }
+
         NavigationAgentSnapshot self = NavigationAgentSnapshot.FromUnit(this);
         if (!self.IsValid || desiredDirection.sqrMagnitude < 0.0001f)
         {
@@ -1515,6 +2988,16 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             ShouldResetSharedAvoidanceStuckProgress(closeRangeConstraint, speedScale, avoidance.ShouldRepath))
         {
             RefreshProgressCheckpoint(movementPosition, resetCounter: true);
+        }
+
+        if (dynamicAvoidanceBlocker &&
+            TryBreakAutonomousSharedAvoidanceDeadlock(
+                movementPosition,
+                navigationPosition,
+                avoidance,
+                closeRangeConstraint))
+        {
+            return true;
         }
 
         if (isInReleaseRecoveryWindow)
@@ -1614,6 +3097,69 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             nearbyNavigationAgents);
     }
 
+    private bool TryBreakAutonomousSharedAvoidanceDeadlock(
+        Vector2 movementPosition,
+        Vector2 navigationPosition,
+        NavigationLocalAvoidanceSolver.AvoidanceResult avoidance,
+        NavigationLocalAvoidanceSolver.CloseRangeConstraintResult closeRangeConstraint)
+    {
+        if (!UsesAutonomousRoamExecutionContract())
+        {
+            return false;
+        }
+
+        if (sharedAvoidanceBlockingFrames < SHARED_AVOIDANCE_DYNAMIC_ABORT_MIN_FRAMES ||
+            blockingAgentSightings < SHARED_AVOIDANCE_DYNAMIC_ABORT_MIN_SIGHTINGS ||
+            !avoidance.HasBlockingAgent ||
+            !TryResolveAvoidanceBlockingSnapshot(avoidance, out NavigationAgentSnapshot blocker) ||
+            blocker.UnitType != NavigationUnitType.NPC)
+        {
+            return false;
+        }
+
+        float blockerDistance = Mathf.Min(
+            avoidance.BlockingDistance,
+            Vector2.Distance(navigationPosition, blocker.Position));
+        bool isHardStopped =
+            closeRangeConstraint.HardBlocked ||
+            closeRangeConstraint.SpeedScale <= 0.08f ||
+            closeRangeConstraint.Clearance <= SHARED_AVOIDANCE_DYNAMIC_ABORT_MAX_CLEARANCE;
+        if (!isHardStopped || blockerDistance > SHARED_AVOIDANCE_DYNAMIC_ABORT_MAX_DISTANCE)
+        {
+            return false;
+        }
+
+        StopForSharedAvoidance(navigationPosition, avoidance, closeRangeConstraint, "DynamicDeadlockAbort");
+        sharedAvoidanceNoBlockerFrames = 0;
+        sharedAvoidanceBlockingFrames = 0;
+        lastBlockingAgentId = 0;
+        blockingAgentSightings = 0;
+        lastSharedAvoidanceRepathTime = Time.time;
+
+        Vector2 detourDirection = avoidance.AdjustedDirection.sqrMagnitude > 0.0001f
+            ? avoidance.AdjustedDirection
+            : (avoidance.SuggestedDetourDirection.sqrMagnitude > 0.0001f
+                ? avoidance.SuggestedDetourDirection
+                : (blocker.Position - navigationPosition).normalized);
+        if (TryCreateSharedAvoidanceDetour(navigationPosition, detourDirection, avoidance))
+        {
+            lastMoveSkipReason = "SharedAvoidanceDeadlockDetour";
+            RefreshProgressCheckpoint(movementPosition, resetCounter: true);
+            return true;
+        }
+
+        if (TryBeginMove(preserveBlockedRecoveryState: true))
+        {
+            lastMoveSkipReason = "SharedAvoidanceDeadlockRetarget";
+            RefreshProgressCheckpoint(movementPosition, resetCounter: true);
+            return true;
+        }
+
+        lastMoveSkipReason = "SharedAvoidanceDeadlockAbort";
+        FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
+        return true;
+    }
+
     private bool TryCreateSharedAvoidanceDetour(
         Vector2 navigationPosition,
         Vector2 adjustedDirection,
@@ -1692,7 +3238,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             blockingAgentSightings = 0;
             lastSharedAvoidanceRepathTime = currentTime;
 
-            if (debugMoveActive)
+            if (IsRecoverablePointToPointTravelActive())
             {
                 if (motionController != null)
                 {
@@ -1784,6 +3330,211 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         return 0.05f;
     }
 
+    private bool ShouldApplyAutonomousStaticObstacleSteering()
+    {
+        return UsesAutonomousRoamExecutionContract() || IsRecoverablePointToPointTravelActive();
+    }
+
+    private Vector2 AdjustDirectionByStaticColliders(Vector2 position, Vector2 desiredDirection, float stepDistance)
+    {
+        if (navigationCollider == null || desiredDirection.sqrMagnitude <= 0.0001f)
+        {
+            return desiredDirection;
+        }
+
+        float clearanceRadius = Mathf.Max(
+            0.18f,
+            Mathf.Max(
+                GetAvoidanceRadius() + 0.04f,
+                GetColliderRadius() + GetAutonomousRoamBodyClearanceExtraRadius() + GetContactShellPadding() + 0.08f));
+        float[] aheadDistances =
+        {
+            Mathf.Max(0.28f, Mathf.Max(clearanceRadius * 1.0f, stepDistance * 1.7f)),
+            Mathf.Max(0.52f, Mathf.Max(clearanceRadius * 1.75f, stepDistance * 2.7f)),
+            Mathf.Max(0.88f, Mathf.Max(clearanceRadius * 2.45f, stepDistance * 3.5f))
+        };
+
+        Vector2 totalRepulse = Vector2.zero;
+        int obstacleCount = 0;
+        for (int probeIndex = 0; probeIndex < aheadDistances.Length; probeIndex++)
+        {
+            float aheadDistance = aheadDistances[probeIndex];
+            Vector2 probe = position + desiredDirection * aheadDistance;
+            int hitCount = ProbeStaticObstacleHits(probe, clearanceRadius);
+            float probeWeight = 1f / (aheadDistance + 0.1f);
+
+            for (int hitIndex = 0; hitIndex < hitCount; hitIndex++)
+            {
+                Collider2D hitCollider = staticObstacleProbeBuffer[hitIndex];
+                if (!ShouldTreatAsStaticSceneObstacle(hitCollider))
+                {
+                    continue;
+                }
+
+                obstacleCount++;
+                Vector2 closestPoint = hitCollider.ClosestPoint(probe);
+                Vector2 away = probe - closestPoint;
+                float distance = away.magnitude;
+                if (distance < 0.01f)
+                {
+                    away = probe - (Vector2)hitCollider.bounds.center;
+                    distance = away.magnitude;
+                }
+
+                if (distance <= 0.01f)
+                {
+                    continue;
+                }
+
+                float repulseStrength = 1f / (distance * distance + 0.08f);
+                totalRepulse += away.normalized * repulseStrength * probeWeight;
+            }
+        }
+
+        if (obstacleCount == 0 || totalRepulse.sqrMagnitude <= 0.0001f)
+        {
+            return desiredDirection;
+        }
+
+        // 当前方障碍把 repulse 压成明显“纯后退”时，给一个稳定侧绕偏置，避免贴墙原地磨。
+        Vector2 repulseDirection = totalRepulse.normalized;
+        float frontalPressure = Mathf.Max(0f, -Vector2.Dot(repulseDirection, desiredDirection));
+        if (frontalPressure > 0.2f)
+        {
+            Vector2 sidestepAxis = Vector2.Perpendicular(desiredDirection).normalized;
+            float sidestepSign = Mathf.Sign(Vector2.Dot(sidestepAxis, totalRepulse));
+            if (Mathf.Approximately(sidestepSign, 0f))
+            {
+                sidestepSign = (GetInstanceID() & 1) == 0 ? 1f : -1f;
+            }
+
+            totalRepulse -= desiredDirection * Mathf.Lerp(0.18f, 0.42f, frontalPressure);
+            totalRepulse += sidestepAxis * sidestepSign * Mathf.Lerp(0.35f, 0.85f, frontalPressure);
+        }
+
+        Vector2 adjustedDirection = (desiredDirection + totalRepulse * AUTONOMOUS_STATIC_STEERING_REPULSE_GAIN).normalized;
+        if (adjustedDirection.sqrMagnitude <= 0.0001f)
+        {
+            return desiredDirection;
+        }
+
+        float angle = Vector2.SignedAngle(desiredDirection, adjustedDirection);
+        if (Mathf.Abs(angle) > AUTONOMOUS_STATIC_STEERING_MAX_ANGLE)
+        {
+            adjustedDirection = RotateVector(desiredDirection, Mathf.Sign(angle) * AUTONOMOUS_STATIC_STEERING_MAX_ANGLE).normalized;
+        }
+
+        return adjustedDirection;
+    }
+
+    private int ProbeStaticObstacleHits(Vector2 center, float radius)
+    {
+        if (staticObstacleProbeBuffer == null || staticObstacleProbeBuffer.Length < 12)
+        {
+            staticObstacleProbeBuffer = new Collider2D[12];
+        }
+
+        int hitCount = Physics2D.OverlapCircle(center, radius, staticObstacleProbeFilter, staticObstacleProbeBuffer);
+        if (hitCount == staticObstacleProbeBuffer.Length)
+        {
+            System.Array.Resize(ref staticObstacleProbeBuffer, staticObstacleProbeBuffer.Length * 2);
+            hitCount = Physics2D.OverlapCircle(center, radius, staticObstacleProbeFilter, staticObstacleProbeBuffer);
+        }
+
+        return hitCount;
+    }
+
+    private bool ShouldTreatAsStaticSceneObstacle(Collider2D collider)
+    {
+        if (collider == null ||
+            collider == navigationCollider ||
+            collider.isTrigger)
+        {
+            return false;
+        }
+
+        if (collider.attachedRigidbody != null &&
+            collider.attachedRigidbody.bodyType == RigidbodyType2D.Dynamic)
+        {
+            return false;
+        }
+
+        if (collider.name.Contains("(Clone)") || collider.name.Contains("Pickup"))
+        {
+            return false;
+        }
+
+        if (isTraversalSoftPassActive && IsTraversalSoftPassBlocker(collider))
+        {
+            return false;
+        }
+
+        if (TryGetNavigationUnit(collider, out INavigationUnit navigationUnit))
+        {
+            return navigationUnit.GetUnitType() == NavigationUnitType.StaticObstacle;
+        }
+
+        return true;
+    }
+
+    private bool IsTraversalSoftPassBlocker(Collider2D collider)
+    {
+        if (collider == null || traversalSoftPassBlockers == null || traversalSoftPassBlockers.Length == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < traversalSoftPassBlockers.Length; index++)
+        {
+            if (traversalSoftPassBlockers[index] == collider)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetNavigationUnit(Collider2D collider, out INavigationUnit navigationUnit)
+    {
+        navigationUnit = null;
+        if (collider == null)
+        {
+            return false;
+        }
+
+        NavigationUnitBase unitBase = collider.GetComponentInParent<NavigationUnitBase>();
+        if (unitBase != null)
+        {
+            navigationUnit = unitBase;
+            return true;
+        }
+
+        PlayerAutoNavigator playerNavigator = collider.GetComponentInParent<PlayerAutoNavigator>();
+        if (playerNavigator != null)
+        {
+            navigationUnit = playerNavigator;
+            return true;
+        }
+
+        NPCAutoRoamController npcNavigator = collider.GetComponentInParent<NPCAutoRoamController>();
+        if (npcNavigator != null)
+        {
+            navigationUnit = npcNavigator;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static Vector2 RotateVector(Vector2 vector, float degrees)
+    {
+        float radians = degrees * Mathf.Deg2Rad;
+        return new Vector2(
+            Mathf.Cos(radians) * vector.x - Mathf.Sin(radians) * vector.y,
+            Mathf.Sin(radians) * vector.x + Mathf.Cos(radians) * vector.y);
+    }
+
     private bool IsSharedAvoidanceDetourProtected(float currentTime)
     {
         return hasDynamicDetour &&
@@ -1835,6 +3586,536 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             out resolvedDestination);
     }
 
+    private bool TryResolveDestinationNear(
+        Vector2 sampledDestination,
+        DestinationAcceptanceContract acceptanceContract,
+        out Vector2 resolvedDestination)
+    {
+        if (!TryResolveNavGrid(logIfMissing: false))
+        {
+            resolvedDestination = sampledDestination;
+            return false;
+        }
+
+        float extraRadius = acceptanceContract == DestinationAcceptanceContract.ReleasedMovement
+            ? GetReleasedMovementStepBodyClearanceExtraRadius()
+            : GetAutonomousRoamBodyClearanceExtraRadius();
+        float correctionLimit = acceptanceContract == DestinationAcceptanceContract.ReleasedMovement
+            ? GetReleasedMovementDestinationCorrectionLimit()
+            : GetAutonomousRoamDestinationCorrectionLimit();
+        float sideInsetScale = acceptanceContract == DestinationAcceptanceContract.ReleasedMovement
+            ? RELEASED_STEP_BODY_CLEARANCE_SIDE_INSET_SCALE
+            : 0.35f;
+        float verticalInsetScale = acceptanceContract == DestinationAcceptanceContract.ReleasedMovement
+            ? RELEASED_STEP_BODY_CLEARANCE_VERTICAL_INSET_SCALE
+            : 0.55f;
+
+        Vector2 clampedDestination = NormalizeDestinationToNavGridBounds(sampledDestination);
+        if (IsDestinationCandidateClear(acceptanceContract, clampedDestination))
+        {
+            resolvedDestination = clampedDestination;
+            return true;
+        }
+
+        if (NavigationTraversalCore.TryResolveOccupiableDestinationWithClearanceMargin(
+                GetTraversalContract(),
+                clampedDestination,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale,
+                out Vector2 correctedDestination) &&
+            Vector2.Distance(clampedDestination, correctedDestination) <= correctionLimit &&
+            IsDestinationCandidateClear(acceptanceContract, correctedDestination))
+        {
+            resolvedDestination = correctedDestination;
+            return true;
+        }
+
+        float searchRadius = correctionLimit;
+        Vector2[] searchDirections =
+        {
+            Vector2.right,
+            Vector2.left,
+            Vector2.up,
+            Vector2.down,
+            new Vector2(1f, 1f).normalized,
+            new Vector2(-1f, 1f).normalized,
+            new Vector2(1f, -1f).normalized,
+            new Vector2(-1f, -1f).normalized
+        };
+
+        for (int ringIndex = 1; ringIndex <= AUTONOMOUS_ROAM_SAFE_CENTER_RING_COUNT; ringIndex++)
+        {
+            float ringDistance = searchRadius * (ringIndex / (float)AUTONOMOUS_ROAM_SAFE_CENTER_RING_COUNT);
+            for (int directionIndex = 0; directionIndex < searchDirections.Length; directionIndex++)
+            {
+                Vector2 candidate = NormalizeDestinationToNavGridBounds(
+                    clampedDestination + searchDirections[directionIndex] * ringDistance);
+                if (!NavigationTraversalCore.TryResolveOccupiableDestinationWithClearanceMargin(
+                        GetTraversalContract(),
+                        candidate,
+                        extraRadius,
+                        sideInsetScale,
+                        verticalInsetScale,
+                        out Vector2 correctedCandidate))
+                {
+                    continue;
+                }
+
+                if (Vector2.Distance(clampedDestination, correctedCandidate) > correctionLimit)
+                {
+                    continue;
+                }
+
+                if (IsDestinationCandidateClear(acceptanceContract, correctedCandidate))
+                {
+                    resolvedDestination = correctedCandidate;
+                    return true;
+                }
+            }
+        }
+
+        resolvedDestination = clampedDestination;
+        return false;
+    }
+
+    private bool TryResolveReleasedMovementDestination(Vector2 sampledDestination, out Vector2 resolvedDestination)
+    {
+        return TryResolveDestinationNear(
+            sampledDestination,
+            DestinationAcceptanceContract.ReleasedMovement,
+            out resolvedDestination);
+    }
+
+    private bool TryResolveAutonomousRoamDestinationCandidate(Vector2 sampledDestination, out Vector2 resolvedDestination)
+    {
+        return TryResolveDestinationNear(
+            sampledDestination,
+            DestinationAcceptanceContract.AutonomousRoam,
+            out resolvedDestination);
+    }
+
+    private bool IsDestinationCandidateClear(DestinationAcceptanceContract acceptanceContract, Vector2 candidatePosition)
+    {
+        switch (acceptanceContract)
+        {
+            case DestinationAcceptanceContract.ReleasedMovement:
+                return IsReleasedMovementDestinationCandidateClear(candidatePosition);
+
+            case DestinationAcceptanceContract.AutonomousRoam:
+                return IsAutonomousRoamDestinationCandidateClear(candidatePosition);
+
+            default:
+                return CanOccupyNavigationPoint(candidatePosition);
+        }
+    }
+
+    private bool TryResolveAutonomousRoamDestination(
+        Vector2 currentPosition,
+        Vector2 roamCenter,
+        Vector2 sampledDestination,
+        out Vector2 resolvedDestination,
+        out float destinationScore)
+    {
+        resolvedDestination = sampledDestination;
+        destinationScore = float.NegativeInfinity;
+        if (!TryResolveAutonomousRoamDestinationCandidate(sampledDestination, out Vector2 correctedDestination))
+        {
+            return false;
+        }
+
+        if (!IsAutonomousRoamDestinationCorrectionAcceptable(roamCenter, sampledDestination, correctedDestination))
+        {
+            return false;
+        }
+
+        resolvedDestination = correctedDestination;
+        destinationScore = EvaluateAutonomousRoamDestinationScore(
+            currentPosition,
+            roamCenter,
+            sampledDestination,
+            correctedDestination);
+        return true;
+    }
+
+    private bool IsAutonomousRoamDestinationCorrectionAcceptable(
+        Vector2 roamCenter,
+        Vector2 sampledDestination,
+        Vector2 correctedDestination)
+    {
+        float maxCorrectionDistance = GetAutonomousRoamDestinationCorrectionLimit();
+        if (Vector2.Distance(sampledDestination, correctedDestination) > maxCorrectionDistance)
+        {
+            return false;
+        }
+
+        return Vector2.Distance(roamCenter, correctedDestination) <= activityRadius + maxCorrectionDistance;
+    }
+
+    private float GetAutonomousRoamDestinationCorrectionLimit()
+    {
+        float correctionLimit = Mathf.Max(
+            GetColliderRadius() + GetContactShellPadding(),
+            minimumMoveDistance * 0.8f,
+            activityRadius * 0.18f);
+        return Mathf.Clamp(
+            correctionLimit,
+            AUTONOMOUS_ROAM_DESTINATION_CORRECTION_MIN,
+            AUTONOMOUS_ROAM_DESTINATION_CORRECTION_MAX);
+    }
+
+    private bool HasAutonomousRoamDestinationNeighborhoodClearance(Vector2 destination)
+    {
+        return CountAutonomousRoamOpenNeighborProbes(destination) >=
+            AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_MIN_OPEN_PROBES;
+    }
+
+    private int CountAutonomousRoamOpenNeighborProbes(Vector2 destination)
+    {
+        return CountOpenNeighborProbes(
+            destination,
+            GetAutonomousRoamNeighborClearanceRadius(),
+            0f,
+            0.35f,
+            0.55f);
+    }
+
+    private float GetAutonomousRoamNeighborClearanceRadius()
+    {
+        float desiredRadius = Mathf.Max(
+            GetColliderRadius() * AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_RADIUS_SCALE,
+            minimumMoveDistance * 0.35f);
+        return Mathf.Clamp(
+            desiredRadius,
+            AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_MIN_RADIUS,
+            AUTONOMOUS_ROAM_NEIGHBOR_CLEARANCE_MAX_RADIUS);
+    }
+
+    private bool HasAutonomousRoamDestinationBodyClearance(Vector2 destination)
+    {
+        return HasAutonomousRoamBodyClearance(
+            destination,
+            GetAutonomousRoamBodyClearanceExtraRadius());
+    }
+
+    private bool HasReleasedMovementDestinationNeighborhoodClearance(Vector2 destination)
+    {
+        return CountOpenNeighborProbes(
+                destination,
+                GetReleasedMovementNeighborClearanceRadius(),
+                GetReleasedMovementStepBodyClearanceExtraRadius(),
+                RELEASED_STEP_BODY_CLEARANCE_SIDE_INSET_SCALE,
+                RELEASED_STEP_BODY_CLEARANCE_VERTICAL_INSET_SCALE) >=
+            RELEASED_MOVEMENT_NEIGHBOR_CLEARANCE_MIN_OPEN_PROBES;
+    }
+
+    private bool HasReleasedMovementDestinationBodyClearance(Vector2 destination)
+    {
+        return NavigationTraversalCore.CanOccupyNavigationPointWithClearanceMargin(
+            GetTraversalContract(),
+            destination,
+            GetReleasedMovementStepBodyClearanceExtraRadius(),
+            RELEASED_STEP_BODY_CLEARANCE_SIDE_INSET_SCALE,
+            RELEASED_STEP_BODY_CLEARANCE_VERTICAL_INSET_SCALE);
+    }
+
+    private int CountOpenNeighborProbes(
+        Vector2 destination,
+        float neighborProbeRadius,
+        float extraRadius,
+        float sideInsetScale,
+        float verticalInsetScale)
+    {
+        if (neighborProbeRadius <= 0.0001f)
+        {
+            return 4;
+        }
+
+        int openProbeCount = 0;
+        Vector2[] offsets =
+        {
+            Vector2.right * neighborProbeRadius,
+            Vector2.left * neighborProbeRadius,
+            Vector2.up * neighborProbeRadius,
+            Vector2.down * neighborProbeRadius
+        };
+
+        for (int index = 0; index < offsets.Length; index++)
+        {
+            if (!NavigationTraversalCore.CanOccupyNavigationPointWithClearanceMargin(
+                    GetTraversalContract(),
+                    destination + offsets[index],
+                    extraRadius,
+                    sideInsetScale,
+                    verticalInsetScale))
+            {
+                continue;
+            }
+
+            openProbeCount++;
+        }
+
+        return openProbeCount;
+    }
+
+    private bool HasAutonomousRoamDestinationAgentClearance(Vector2 destination)
+    {
+        return GetAutonomousRoamDestinationAgentClearanceMargin(destination) >= 0f;
+    }
+
+    private float GetAutonomousRoamDestinationAgentClearanceRadius()
+    {
+        float desiredRadius = Mathf.Max(
+            GetColliderRadius() + GetContactShellPadding(),
+            Mathf.Max(0.18f, GetAvoidanceRadius() * AUTONOMOUS_ROAM_DESTINATION_AGENT_CLEARANCE_RADIUS_SCALE),
+            minimumMoveDistance * 0.24f);
+        return Mathf.Clamp(
+            desiredRadius,
+            AUTONOMOUS_ROAM_DESTINATION_AGENT_CLEARANCE_MIN_RADIUS,
+            AUTONOMOUS_ROAM_DESTINATION_AGENT_CLEARANCE_MAX_RADIUS);
+    }
+
+    private bool TryGetAutonomousRoamDestinationClaim(out Vector2 destinationClaim)
+    {
+        destinationClaim = Vector2.zero;
+        if (state == RoamState.Inactive)
+        {
+            return false;
+        }
+
+        if (hasRequestedDestination)
+        {
+            destinationClaim = requestedDestination;
+            return true;
+        }
+
+        if (state == RoamState.Moving || path.Count > 0 || HasActivePointToPointTravelContract())
+        {
+            destinationClaim = currentDestination;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool HasAutonomousRoamBodyClearance(Vector2 position, float extraRadius)
+    {
+        return NavigationTraversalCore.CanOccupyNavigationPointWithClearanceMargin(
+            GetTraversalContract(),
+            position,
+            extraRadius);
+    }
+
+    private float GetAutonomousRoamDestinationAgentClearanceMargin(Vector2 destination)
+    {
+        EnsureRegisteredRoamControllerBufferCurrentFrame();
+
+        float selfClaimRadius = GetAutonomousRoamDestinationAgentClearanceRadius();
+        float nearestMargin = float.PositiveInfinity;
+        for (int index = 0; index < registeredRoamControllers.Count; index++)
+        {
+            NPCAutoRoamController other = registeredRoamControllers[index];
+            if (other == null ||
+                ReferenceEquals(other, this) ||
+                !other.gameObject.scene.IsValid() ||
+                other.gameObject.scene != gameObject.scene)
+            {
+                continue;
+            }
+
+            float conflictRadius = selfClaimRadius + other.GetAutonomousRoamDestinationAgentClearanceRadius();
+            nearestMargin = Mathf.Min(
+                nearestMargin,
+                Vector2.Distance(destination, other.GetNavigationCenter()) - conflictRadius);
+
+            if (other.TryGetAutonomousRoamDestinationClaim(out Vector2 otherDestinationClaim))
+            {
+                nearestMargin = Mathf.Min(
+                    nearestMargin,
+                    Vector2.Distance(destination, otherDestinationClaim) - conflictRadius);
+            }
+        }
+
+        return nearestMargin;
+    }
+
+    private bool IsRecentlyBlockedAutonomousDestination(Vector2 destination)
+    {
+        if (lastStaticBlockedDestinationTime <= float.NegativeInfinity)
+        {
+            return false;
+        }
+
+        float elapsed = Time.time - lastStaticBlockedDestinationTime;
+        if (elapsed < 0f || elapsed > STATIC_BLOCKED_DESTINATION_RETRY_COOLDOWN)
+        {
+            return false;
+        }
+
+        float blockedPositionRadius = Mathf.Max(
+            STATIC_BLOCKED_DESTINATION_RETRY_RADIUS * 0.75f,
+            GetColliderRadius() + GetContactShellPadding());
+        return Vector2.Distance(destination, lastStaticBlockedDestination) <= STATIC_BLOCKED_DESTINATION_RETRY_RADIUS ||
+            Vector2.Distance(destination, lastStaticBlockedPosition) <= blockedPositionRadius;
+    }
+
+    private float EvaluateAutonomousRoamDestinationScore(
+        Vector2 currentPosition,
+        Vector2 roamCenter,
+        Vector2 sampledDestination,
+        Vector2 resolvedDestination)
+    {
+        float travelScore = Mathf.Clamp01(
+            (Vector2.Distance(currentPosition, resolvedDestination) - minimumMoveDistance) /
+            Mathf.Max(activityRadius, minimumMoveDistance));
+        float centerScore = 1f - Mathf.Clamp01(
+            Vector2.Distance(roamCenter, resolvedDestination) /
+            Mathf.Max(activityRadius, 0.001f));
+        float correctionPenalty = Mathf.Clamp01(
+            Vector2.Distance(sampledDestination, resolvedDestination) /
+            Mathf.Max(GetAutonomousRoamDestinationCorrectionLimit(), 0.001f));
+
+        int openNeighborCount = CountAutonomousRoamOpenNeighborProbes(resolvedDestination);
+        float neighborScore = openNeighborCount / 4f;
+
+        float bodyClearanceExtraRadius = GetAutonomousRoamBodyClearanceExtraRadius();
+        float bodyScore = 0f;
+        if (HasAutonomousRoamBodyClearance(resolvedDestination, bodyClearanceExtraRadius * 1.35f))
+        {
+            bodyScore += 0.75f;
+        }
+
+        if (HasAutonomousRoamBodyClearance(resolvedDestination, bodyClearanceExtraRadius * 1.7f))
+        {
+            bodyScore += 0.85f;
+        }
+
+        float agentMargin = GetAutonomousRoamDestinationAgentClearanceMargin(resolvedDestination);
+        float agentSpacingScore = float.IsPositiveInfinity(agentMargin)
+            ? 1f
+            : Mathf.Clamp01(agentMargin / Mathf.Max(0.24f, GetAutonomousRoamDestinationAgentClearanceRadius()));
+
+        return bodyScore * 1.2f +
+            neighborScore * 1.05f +
+            agentSpacingScore * 1.15f +
+            travelScore * 0.35f +
+            centerScore * 0.15f -
+            correctionPenalty * 0.4f;
+    }
+
+    private float GetAutonomousRoamBodyClearanceExtraRadius()
+    {
+        float desiredRadius = Mathf.Max(
+            GetContactShellPadding() * 0.65f,
+            GetColliderRadius() * AUTONOMOUS_ROAM_BODY_CLEARANCE_EXTRA_RADIUS_SCALE,
+            minimumMoveDistance * 0.18f);
+        return Mathf.Clamp(
+            desiredRadius,
+            AUTONOMOUS_ROAM_BODY_CLEARANCE_MIN_EXTRA_RADIUS,
+            AUTONOMOUS_ROAM_BODY_CLEARANCE_MAX_EXTRA_RADIUS);
+    }
+
+    private bool HasAutonomousRoamPathBodyClearance(Vector2 currentPosition)
+    {
+        if (path.Count == 0)
+        {
+            return false;
+        }
+
+        float extraRadius = GetAutonomousRoamBodyClearanceExtraRadius();
+        Vector2 previousPoint = currentPosition;
+        for (int index = 0; index < path.Count; index++)
+        {
+            if (!HasAutonomousRoamSegmentBodyClearance(previousPoint, path[index], extraRadius))
+            {
+                return false;
+            }
+
+            previousPoint = path[index];
+        }
+
+        return true;
+    }
+
+    private bool HasAutonomousRoamSegmentBodyClearance(Vector2 start, Vector2 end, float extraRadius)
+    {
+        float segmentDistance = Vector2.Distance(start, end);
+        if (segmentDistance <= 0.0001f)
+        {
+            return true;
+        }
+
+        int sampleCount = Mathf.Max(1, Mathf.CeilToInt(segmentDistance / AUTONOMOUS_ROAM_PATH_CLEARANCE_SAMPLE_SPACING));
+        for (int step = 1; step <= sampleCount; step++)
+        {
+            Vector2 samplePoint = Vector2.Lerp(start, end, step / (float)sampleCount);
+            if (!HasAutonomousRoamBodyClearance(samplePoint, extraRadius))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private bool IsAutonomousRoamBuiltPathAcceptable(
+        Vector2 currentPosition,
+        Vector2 roamCenter,
+        Vector2 destination)
+    {
+        float directDistance = Vector2.Distance(currentPosition, destination);
+        if (directDistance <= minimumMoveDistance * 1.1f)
+        {
+            return true;
+        }
+
+        float pathTravelDistance = ComputeCurrentPathTravelDistance(currentPosition);
+        float maxExtraDistance = Mathf.Max(
+            AUTONOMOUS_ROAM_PATH_DETOUR_MIN_EXTRA_DISTANCE,
+            GetColliderRadius() + GetContactShellPadding(),
+            minimumMoveDistance * 0.65f);
+        float maxAllowedPathDistance = Mathf.Max(
+            directDistance * AUTONOMOUS_ROAM_PATH_DETOUR_RATIO_LIMIT,
+            directDistance + maxExtraDistance);
+        if (pathTravelDistance > maxAllowedPathDistance)
+        {
+            return false;
+        }
+
+        float maxWaypointDistanceFromRoamCenter = activityRadius + Mathf.Max(
+            AUTONOMOUS_ROAM_PATH_ROAM_RADIUS_MARGIN,
+            GetColliderRadius() * 0.6f,
+            minimumMoveDistance * 0.35f);
+        for (int index = 0; index < path.Count; index++)
+        {
+            if (Vector2.Distance(roamCenter, path[index]) > maxWaypointDistanceFromRoamCenter)
+            {
+                return false;
+            }
+        }
+
+        return HasAutonomousRoamPathBodyClearance(currentPosition);
+    }
+
+    private float ComputeCurrentPathTravelDistance(Vector2 startPosition)
+    {
+        float totalDistance = 0f;
+        Vector2 previousPoint = startPosition;
+        for (int index = 0; index < path.Count; index++)
+        {
+            float segmentDistance = Vector2.Distance(previousPoint, path[index]);
+            if (segmentDistance <= 0.0001f)
+            {
+                continue;
+            }
+
+            totalDistance += segmentDistance;
+            previousPoint = path[index];
+        }
+
+        return totalDistance;
+    }
+
     private Vector2 NormalizeDestinationToNavGridBounds(Vector2 destination)
     {
         if (!TryResolveNavGrid(logIfMissing: false))
@@ -1843,6 +4124,49 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
 
         return navGrid.ClampToWorldBounds(destination);
+    }
+
+    private void EnsureRegisteredRoamControllerBufferCurrentFrame()
+    {
+        if (registeredRoamControllersFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        registeredRoamControllersFrame = Time.frameCount;
+        NavigationAgentRegistry.GetRegisteredUnits(registeredRoamControllers);
+    }
+
+    private void InsertAutonomousRoamCandidate(Vector2 destination, float score)
+    {
+        float dedupeRadius = Mathf.Max(
+            minimumMoveDistance * 0.45f,
+            GetColliderRadius() + GetContactShellPadding());
+        for (int index = 0; index < autonomousRoamCandidates.Count; index++)
+        {
+            if (Vector2.Distance(autonomousRoamCandidates[index].Destination, destination) > dedupeRadius)
+            {
+                continue;
+            }
+
+            if (score <= autonomousRoamCandidates[index].Score)
+            {
+                return;
+            }
+
+            autonomousRoamCandidates.RemoveAt(index);
+            break;
+        }
+
+        AutonomousRoamCandidate candidate = new AutonomousRoamCandidate(destination, score);
+        int insertIndex = 0;
+        while (insertIndex < autonomousRoamCandidates.Count &&
+               autonomousRoamCandidates[insertIndex].Score >= score)
+        {
+            insertIndex++;
+        }
+
+        autonomousRoamCandidates.Insert(insertIndex, candidate);
     }
 
     private bool TryResolveAvoidanceBlockingSnapshot(
@@ -1888,6 +4212,18 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         if (!TryResolveNavGrid(logIfMissing: false))
         {
             return desiredNextPosition;
+        }
+
+        if (ShouldUseReleasedMovementBodyClearanceExecutionContract())
+        {
+            return NavigationTraversalCore.ConstrainNextPositionToNavigationBoundsWithClearanceMargin(
+                GetTraversalContract(),
+                currentPosition,
+                desiredNextPosition,
+                CONSTRAINED_ADVANCE_FALLBACK_EXTRA_DISTANCE,
+                GetReleasedMovementStepBodyClearanceExtraRadius(),
+                RELEASED_STEP_BODY_CLEARANCE_SIDE_INSET_SCALE,
+                RELEASED_STEP_BODY_CLEARANCE_VERTICAL_INSET_SCALE);
         }
 
         return NavigationTraversalCore.ConstrainNextPositionToNavigationBounds(
@@ -2192,14 +4528,32 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private void EndDebugMove(bool reachedDestination)
     {
+        PointToPointTravelContract completedTravelContract = activePointToPointTravelContract;
+        bool formalNavigationArrived = completedTravelContract == PointToPointTravelContract.FormalNavigation && reachedDestination;
+        Vector2 finalPosition = GetNavigationCenter();
         debugMoveActive = false;
-        StopRoam();
+        activePointToPointTravelContract = PointToPointTravelContract.None;
+        residentScriptedMovePaused = false;
+        if (IsResidentScriptedControlActive)
+        {
+            HaltResidentScriptedMovement();
+        }
+        else
+        {
+            StopRoam();
+        }
 
         if (showDebugLog)
         {
             Debug.Log(
-                $"<color=yellow>[NPCAutoRoamController]</color> {name} DebugMove {(reachedDestination ? "completed" : "stopped")} => Position={(rb != null ? rb.position : (Vector2)transform.position)}, Destination={currentDestination}",
+                $"<color=yellow>[NPCAutoRoamController]</color> {name} PointToPointTravel {(reachedDestination ? "completed" : "stopped")} => Contract={completedTravelContract}, Position={(rb != null ? rb.position : (Vector2)transform.position)}, Destination={currentDestination}",
                 this);
+        }
+
+        if (formalNavigationArrived)
+        {
+            lastFormalNavigationArrivalTime = Time.time;
+            lastFormalNavigationArrivalPosition = finalPosition;
         }
     }
 
@@ -2244,7 +4598,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private Vector2 GetRoamCenter()
     {
         EnsureRuntimeHomeAnchorBound();
-        return homeAnchor != null ? (Vector2)homeAnchor.position : homePosition;
+        return homePosition;
     }
 
     private bool TryStartAmbientChat(float duration)
@@ -2329,11 +4683,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     {
         float bestDistanceSqr = ambientChatRadius * ambientChatRadius;
         NPCAutoRoamController bestPartner = null;
-        NPCAutoRoamController[] controllers = FindObjectsByType<NPCAutoRoamController>(FindObjectsSortMode.None);
-        for (int index = 0; index < controllers.Length; index++)
+        EnsureRegisteredRoamControllerBufferCurrentFrame();
+        for (int index = 0; index < registeredRoamControllers.Count; index++)
         {
-            NPCAutoRoamController candidate = controllers[index];
-            if (!CanUseAsAmbientChatPartner(candidate))
+            NPCAutoRoamController candidate = registeredRoamControllers[index];
+            if (candidate == null ||
+                candidate == this ||
+                !candidate.gameObject.scene.IsValid() ||
+                candidate.gameObject.scene != gameObject.scene ||
+                !CanUseAsAmbientChatPartner(candidate))
             {
                 continue;
             }
@@ -2476,7 +4834,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         StopAmbientChatRoutine();
         ClearAmbientChatRetry();
 
-        if (hideBubble && bubblePresenter != null)
+        bool preserveOwnPriorityBubble =
+            hideBubble
+            && bubblePresenter != null
+            && !ShouldSuspendForDialogue()
+            && IsResidentScriptedControlActive
+            && !IsResidentScriptedMoveActive
+            && bubblePresenter.IsConversationPriorityVisible;
+
+        if (hideBubble && bubblePresenter != null && !preserveOwnPriorityBubble)
         {
             bubblePresenter.HideBubble();
         }
@@ -2488,7 +4854,15 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         {
             partner.chatPartner = null;
             partner.StopAmbientChatRoutine();
-            if (hideBubble && partner.bubblePresenter != null)
+            bool preservePartnerPriorityBubble =
+                hideBubble
+                && partner.bubblePresenter != null
+                && !ShouldSuspendForDialogue()
+                && partner.IsResidentScriptedControlActive
+                && !partner.IsResidentScriptedMoveActive
+                && partner.bubblePresenter.IsConversationPriorityVisible;
+
+            if (hideBubble && partner.bubblePresenter != null && !preservePartnerPriorityBubble)
             {
                 partner.bubblePresenter.HideBubble();
             }
@@ -2688,6 +5062,8 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private void NoteSuccessfulAdvance(Vector2 currentPosition)
     {
         blockedAdvanceFrames = 0;
+        consecutivePathBuildFailures = 0;
+        nextPathBuildAllowedTime = Time.time;
         lastBlockedAdvancePosition = currentPosition;
         consecutiveTerminalStuckCount = 0;
         lastTerminalStuckPosition = currentPosition;
@@ -2697,6 +5073,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
 
     private bool CanReuseStoppedMoveDecisionThisFrame(Vector2 currentPosition)
     {
+        if (rb != null &&
+            IsWithinStopDecisionReuseWindow())
+        {
+            return !hasCachedMoveDecisionVelocity &&
+                Vector2.Distance(currentPosition, currentDestination) > destinationTolerance;
+        }
+
         return lastHeavyMoveDecisionFrame == Time.frameCount &&
             !hasCachedMoveDecisionVelocity &&
             Vector2.Distance(currentPosition, currentDestination) > destinationTolerance;
@@ -2707,11 +5090,6 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         Vector2 currentPosition,
         float deltaTime)
     {
-        if (lastHeavyMoveDecisionFrame != Time.frameCount)
-        {
-            return false;
-        }
-
         if (!hasCachedMoveDecisionVelocity)
         {
             return false;
@@ -2722,11 +5100,34 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return false;
         }
 
+        bool isSameFrameReuse = lastHeavyMoveDecisionFrame == Time.frameCount;
+        if (!isSameFrameReuse &&
+            !CanReuseStableMoveDecisionAcrossFrames(waypointState, currentPosition, deltaTime))
+        {
+            return false;
+        }
+
         float maxReusableStep = cachedMoveDecisionVelocity.magnitude * Mathf.Max(deltaTime, 0.0001f);
         float reuseThreshold = Mathf.Max(destinationTolerance, maxReusableStep + FRAME_REUSE_WAYPOINT_DISTANCE_PADDING);
         if (waypointState.DistanceToWaypoint <= reuseThreshold)
         {
             return false;
+        }
+
+        // Physics-driven NPCs can hit TickMoving multiple times in the same rendered frame
+        // when Unity catches up on FixedUpdate. Reusing the already computed decision keeps
+        // the visible direction stable and avoids re-running the expensive avoidance/repath
+        // chain several times before the frame is even presented.
+        if (rb != null)
+        {
+            return (isSameFrameReuse
+                    ? IsWithinPhysicsHeavyDecisionReuseWindow()
+                    : IsWithinScriptedMoveDecisionReuseWindow()) &&
+                !hasPendingMoveCommandProgressCheck &&
+                blockedAdvanceFrames <= 0 &&
+                sharedAvoidanceBlockingFrames <= 0 &&
+                !hasDynamicDetour &&
+                Vector2.Distance(currentPosition, currentDestination) > destinationTolerance;
         }
 
         if (hasPendingMoveCommandProgressCheck ||
@@ -2740,9 +5141,49 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         return Vector2.Distance(currentPosition, currentDestination) > destinationTolerance;
     }
 
+    private bool CanReuseStableMoveDecisionAcrossFrames(
+        NavigationPathExecutor2D.WaypointResult waypointState,
+        Vector2 currentPosition,
+        float deltaTime)
+    {
+        if (!HasActivePointToPointTravelContract())
+        {
+            return false;
+        }
+
+        if (!IsWithinScriptedMoveDecisionReuseWindow())
+        {
+            return false;
+        }
+
+        if (hasPendingMoveCommandProgressCheck ||
+            blockedAdvanceFrames > 0 ||
+            sharedAvoidanceBlockingFrames > 0 ||
+            hasDynamicDetour)
+        {
+            return false;
+        }
+
+        Vector2 toWaypoint = waypointState.Waypoint - currentPosition;
+        if (toWaypoint.sqrMagnitude <= 0.0001f)
+        {
+            return false;
+        }
+
+        Vector2 cachedDirection = cachedMoveDecisionVelocity.normalized;
+        Vector2 waypointDirection = toWaypoint.normalized;
+        if (Vector2.Dot(cachedDirection, waypointDirection) < 0.92f)
+        {
+            return false;
+        }
+
+        float maxReusableStep = cachedMoveDecisionVelocity.magnitude * Mathf.Max(deltaTime, 0.0001f);
+        return waypointState.DistanceToWaypoint > maxReusableStep + FRAME_REUSE_WAYPOINT_DISTANCE_PADDING;
+    }
+
     private void ApplyCachedMoveVelocity(Vector2 currentPosition, float deltaTime)
     {
-        ApplyMoveVelocity(currentPosition, cachedMoveDecisionVelocity, deltaTime);
+        ApplyMoveVelocity(currentPosition, cachedMoveDecisionVelocity, cachedMoveFacingDirection, deltaTime);
     }
 
     private void ApplyStoppedMoveDecision()
@@ -2758,9 +5199,11 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
-    private void ApplyMoveVelocity(Vector2 currentPosition, Vector2 velocity, float deltaTime)
+    private void ApplyMoveVelocity(Vector2 currentPosition, Vector2 velocity, Vector2 facingDirection, float deltaTime)
     {
+        Vector2 committedFacingDirection = ResolveCommittedFacingDirection(velocity, facingDirection);
         motionController.SetExternalVelocity(velocity);
+        motionController.SetExternalFacingDirection(committedFacingDirection);
         if (rb != null)
         {
             if (rb.bodyType == RigidbodyType2D.Dynamic)
@@ -2780,25 +5223,110 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         }
     }
 
-    private void CacheMoveDecisionVelocityForCurrentFrame(Vector2 velocity)
+    private Vector2 ResolveFacingDirectionForMoveCommand(Vector2 desiredDirection, Vector2 adjustedDirection)
+    {
+        if (desiredDirection.sqrMagnitude > 0.0001f)
+        {
+            return desiredDirection.normalized;
+        }
+
+        if (adjustedDirection.sqrMagnitude > 0.0001f)
+        {
+            return adjustedDirection.normalized;
+        }
+
+        if (lastIssuedMoveDirection.sqrMagnitude > 0.0001f)
+        {
+            return lastIssuedMoveDirection;
+        }
+
+        return Vector2.zero;
+    }
+
+    private static Vector2 ResolveCommittedFacingDirection(Vector2 velocity, Vector2 fallbackFacingDirection)
+    {
+        if (velocity.sqrMagnitude > 0.0001f)
+        {
+            return velocity.normalized;
+        }
+
+        if (fallbackFacingDirection.sqrMagnitude > 0.0001f)
+        {
+            return fallbackFacingDirection.normalized;
+        }
+
+        return Vector2.zero;
+    }
+
+    private void CacheMoveDecisionVelocityForCurrentFrame(Vector2 velocity, Vector2 facingDirection)
     {
         lastHeavyMoveDecisionFrame = Time.frameCount;
+        lastHeavyMoveDecisionTime = Time.time;
         hasCachedMoveDecisionVelocity = true;
         cachedMoveDecisionVelocity = velocity;
+        cachedMoveFacingDirection = ResolveCommittedFacingDirection(velocity, facingDirection);
     }
 
     private void CacheStoppedMoveDecisionForCurrentFrame()
     {
         lastHeavyMoveDecisionFrame = Time.frameCount;
+        lastHeavyMoveDecisionTime = Time.time;
         hasCachedMoveDecisionVelocity = false;
         cachedMoveDecisionVelocity = Vector2.zero;
+        cachedMoveFacingDirection = Vector2.zero;
     }
 
     private void ClearMoveDecisionCache()
     {
         lastHeavyMoveDecisionFrame = -1;
+        lastHeavyMoveDecisionTime = float.NegativeInfinity;
         hasCachedMoveDecisionVelocity = false;
         cachedMoveDecisionVelocity = Vector2.zero;
+        cachedMoveFacingDirection = Vector2.zero;
+    }
+
+    private bool IsWithinPhysicsHeavyDecisionReuseWindow()
+    {
+        if (lastHeavyMoveDecisionTime <= float.NegativeInfinity)
+        {
+            return false;
+        }
+
+        float elapsed = Time.time - lastHeavyMoveDecisionTime;
+        return elapsed >= 0f && elapsed <= PHYSICS_HEAVY_DECISION_REUSE_SECONDS;
+    }
+
+    private bool IsWithinScriptedMoveDecisionReuseWindow()
+    {
+        if (lastHeavyMoveDecisionTime <= float.NegativeInfinity)
+        {
+            return false;
+        }
+
+        float elapsed = Time.time - lastHeavyMoveDecisionTime;
+        return elapsed >= 0f && elapsed <= SCRIPTED_MOVE_DECISION_REUSE_SECONDS;
+    }
+
+    private bool IsWithinStopDecisionReuseWindow()
+    {
+        if (lastHeavyMoveDecisionTime <= float.NegativeInfinity)
+        {
+            return false;
+        }
+
+        float elapsed = Time.time - lastHeavyMoveDecisionTime;
+        float reuseWindow = ShouldUseExtendedStopDecisionReuseWindow()
+            ? NPC_BAD_CASE_STOP_DECISION_REUSE_SECONDS
+            : PHYSICS_HEAVY_DECISION_REUSE_SECONDS;
+        return elapsed >= 0f && elapsed <= reuseWindow;
+    }
+
+    private bool ShouldUseExtendedStopDecisionReuseWindow()
+    {
+        return hasPendingMoveCommandProgressCheck ||
+            blockedAdvanceFrames > 0 ||
+            sharedAvoidanceBlockingFrames > 0 ||
+            hasDynamicDetour;
     }
 
     private bool TryAcquirePathBuildBudget()
@@ -2902,6 +5430,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
                 RefreshProgressCheckpoint(currentPosition, resetCounter: true);
                 return true;
             }
+
+            if (ShouldEarlyAbortAutonomousRoamMove())
+            {
+                lastMoveSkipReason = "PassiveAvoidanceStopgap";
+                FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
+                return true;
+            }
         }
 
         if (blockedAdvanceFrames >= BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES)
@@ -2928,6 +5463,31 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
     private bool TryHandleBlockedAdvance(Vector2 currentPosition, string reason)
     {
         RecordBlockedAdvance(currentPosition);
+        if (IsRecoverablePointToPointTravelActive())
+        {
+            return TryHandleRecoverablePointToPointTravelBlockedAdvance(currentPosition, reason);
+        }
+
+        if (blockedAdvanceFrames >= STATIC_RECOVERY_DETOUR_MIN_BLOCKED_FRAMES &&
+            TryCreateStaticObstacleRecoveryPath(currentPosition, reason))
+        {
+            lastMoveSkipReason = $"BlockedAdvanceStaticRecovery:{reason}";
+            RefreshProgressCheckpoint(currentPosition, resetCounter: true);
+            return true;
+        }
+
+        if (ShouldAbortBlockedAdvanceWithoutRebuild(reason))
+        {
+            if (TryRetargetAutonomousRoamAfterStaticBlock(currentPosition, reason))
+            {
+                return true;
+            }
+
+            lastMoveSkipReason = "BlockedAdvanceStaticAbort";
+            FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
+            return true;
+        }
+
         if (Time.time - lastBlockedAdvanceRecoveryTime < BLOCKED_ADVANCE_RECOVERY_COOLDOWN)
         {
             return true;
@@ -2952,6 +5512,13 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
+        if (ShouldEarlyAbortAutonomousRoamMove())
+        {
+            lastMoveSkipReason = "BlockedAdvanceStopgap";
+            FinishMoveCycle(countTowardLongPause: false, reachedDestination: false);
+            return true;
+        }
+
         if (blockedAdvanceFrames >= BLOCKED_ADVANCE_LONG_PAUSE_MIN_FRAMES)
         {
             if (TryInterruptRoamMove(
@@ -2969,6 +5536,297 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
             return true;
         }
 
+        return true;
+    }
+
+    private bool TryHandleRecoverablePointToPointTravelBlockedAdvance(Vector2 currentPosition, string reason)
+    {
+        string contractName = GetPointToPointTravelContractName(activePointToPointTravelContract);
+        if (blockedAdvanceFrames >= STATIC_RECOVERY_DETOUR_MIN_BLOCKED_FRAMES &&
+            TryCreateStaticObstacleRecoveryPath(currentPosition, reason))
+        {
+            lastMoveSkipReason = $"{contractName}StaticRecovery";
+            RefreshProgressCheckpoint(currentPosition, resetCounter: true);
+            return true;
+        }
+
+        if (Time.time - lastBlockedAdvanceRecoveryTime < BLOCKED_ADVANCE_RECOVERY_COOLDOWN)
+        {
+            return true;
+        }
+
+        lastBlockedAdvanceRecoveryTime = Time.time;
+        if (TryRebuildPath(
+                currentPosition,
+                resetRecoveryCounter: false,
+                reason: $"{contractName}BlockedAdvance:{reason}",
+                preserveTrafficState: true,
+                preserveBlockedRecoveryState: true))
+        {
+            RefreshProgressCheckpoint(currentPosition, resetCounter: true);
+            return true;
+        }
+
+        if (blockedAdvanceFrames >= FORMAL_NAVIGATION_BLOCKED_ABORT_MIN_FRAMES)
+        {
+            lastMoveSkipReason = $"{contractName}BlockedAbort";
+            EndDebugMove(reachedDestination: false);
+            return true;
+        }
+
+        return true;
+    }
+
+    private bool ShouldBypassSharedAvoidanceForCurrentMove()
+    {
+        return IsPlainDebugMoveActive();
+    }
+
+    private bool ShouldAbortBlockedAdvanceWithoutRebuild(string reason)
+    {
+        if (HasActivePointToPointTravelContract())
+        {
+            return false;
+        }
+
+        int abortThreshold = BLOCKED_ADVANCE_STATIC_ABORT_MIN_FRAMES;
+        if (UsesAutonomousRoamExecutionContract())
+        {
+            abortThreshold = AUTONOMOUS_STATIC_ABORT_MIN_FRAMES;
+        }
+
+        if (blockedAdvanceFrames < abortThreshold)
+        {
+            return false;
+        }
+
+        if (lastBlockingAgentId != 0 || sharedAvoidanceBlockingFrames > 0 || hasDynamicDetour)
+        {
+            return false;
+        }
+
+        return reason == "ConstrainedZeroAdvance" ||
+               reason == "MoveCommandOscillation" ||
+               reason == "MoveCommandNoProgress" ||
+               reason == "ZeroStep";
+    }
+
+    private static bool IsStaticBlockedAdvanceReason(string reason)
+    {
+        return reason == "ConstrainedZeroAdvance" ||
+               reason == "MoveCommandOscillation" ||
+               reason == "MoveCommandNoProgress" ||
+               reason == "ZeroStep";
+    }
+
+    private bool IsStaticBlockedAdvanceRecoveryEligible(string reason)
+    {
+        if (!IsStaticBlockedAdvanceReason(reason))
+        {
+            return false;
+        }
+
+        if (lastBlockingAgentId != 0 || sharedAvoidanceBlockingFrames > 0 || hasDynamicDetour)
+        {
+            return false;
+        }
+
+        return UsesAutonomousRoamExecutionContract() || IsRecoverablePointToPointTravelActive();
+    }
+
+    private void RememberStaticBlockedDestination(Vector2 currentPosition, Vector2 destination)
+    {
+        lastStaticBlockedDestinationTime = Time.time;
+        lastStaticBlockedDestination = NormalizeDestinationToNavGridBounds(destination);
+        lastStaticBlockedPosition = currentPosition;
+    }
+
+    private bool TryCreateStaticObstacleRecoveryPath(Vector2 currentPosition, string reason)
+    {
+        if (!TryResolveNavGrid(logIfMissing: false) ||
+            !IsStaticBlockedAdvanceRecoveryEligible(reason))
+        {
+            return false;
+        }
+
+        bool useReleasedClearance = IsRecoverablePointToPointTravelActive();
+        Vector2 rebuildDestination = NormalizeDestinationToNavGridBounds(GetRebuildRequestedDestination());
+        if (useReleasedClearance &&
+            !TryResolveReleasedMovementDestination(rebuildDestination, out rebuildDestination))
+        {
+            return false;
+        }
+
+        if (!TryResolveStaticObstacleRecoveryWaypoint(
+                currentPosition,
+                rebuildDestination,
+                out Vector2 recoveryWaypoint))
+        {
+            return false;
+        }
+
+        if (!TryBuildPathToDestination(
+                recoveryWaypoint,
+                rebuildDestination,
+                $"StaticRecovery:{reason}",
+                out _))
+        {
+            RecordPathBuildOutcome(success: false);
+            NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
+            return false;
+        }
+
+        bool acceptable = useReleasedClearance
+            ? IsRecoverablePointToPointBuiltPathAcceptable(recoveryWaypoint, rebuildDestination)
+            : IsAutonomousRoamBuiltPathAcceptable(recoveryWaypoint, GetRoamCenter(), rebuildDestination);
+        if (!acceptable)
+        {
+            RecordPathBuildOutcome(success: false);
+            NavigationPathExecutor2D.Clear(navigationExecution, clearDestination: false);
+            if (!useReleasedClearance)
+            {
+                RememberStaticBlockedDestination(currentPosition, rebuildDestination);
+            }
+
+            return false;
+        }
+
+        NavigationPathExecutor2D.SetOverrideWaypoint(navigationExecution, recoveryWaypoint, 0);
+        RememberRequestedDestination(rebuildDestination);
+        RecordPathBuildOutcome(success: true);
+
+        if (showDebugLog)
+        {
+            Debug.Log(
+                $"<color=yellow>[NPCAutoRoamController]</color> {name} StaticRecovery => Reason={reason}, Waypoint={recoveryWaypoint}, Destination={rebuildDestination}, PathCount={path.Count}",
+                this);
+        }
+
+        return true;
+    }
+
+    private bool TryResolveStaticObstacleRecoveryWaypoint(
+        Vector2 currentPosition,
+        Vector2 rebuildDestination,
+        out Vector2 recoveryWaypoint)
+    {
+        recoveryWaypoint = currentPosition;
+        bool useReleasedClearance = IsRecoverablePointToPointTravelActive();
+        Vector2 referenceDirection = currentDestination - currentPosition;
+        if (path.Count > currentPathIndex)
+        {
+            referenceDirection = path[currentPathIndex] - currentPosition;
+        }
+
+        if (referenceDirection.sqrMagnitude <= 0.0001f)
+        {
+            referenceDirection = rebuildDestination - currentPosition;
+        }
+
+        if (referenceDirection.sqrMagnitude <= 0.0001f)
+        {
+            referenceDirection = Vector2.right;
+        }
+
+        referenceDirection.Normalize();
+        Vector2 sidestep = Vector2.Perpendicular(referenceDirection).normalized;
+        Vector2 backward = -referenceDirection;
+        Vector2[] recoveryDirections =
+        {
+            (sidestep + backward * 0.35f).normalized,
+            (-sidestep + backward * 0.35f).normalized,
+            sidestep,
+            -sidestep,
+            backward,
+            (sidestep + referenceDirection * 0.18f).normalized,
+            (-sidestep + referenceDirection * 0.18f).normalized
+        };
+
+        float detourDistanceStep = Mathf.Lerp(
+            STATIC_RECOVERY_DETOUR_MIN_DISTANCE,
+            STATIC_RECOVERY_DETOUR_MAX_DISTANCE,
+            0.5f);
+        float[] detourDistances =
+        {
+            STATIC_RECOVERY_DETOUR_MAX_DISTANCE,
+            detourDistanceStep,
+            STATIC_RECOVERY_DETOUR_MIN_DISTANCE
+        };
+
+        for (int distanceIndex = 0; distanceIndex < detourDistances.Length; distanceIndex++)
+        {
+            float detourDistance = detourDistances[distanceIndex];
+            for (int directionIndex = 0; directionIndex < recoveryDirections.Length; directionIndex++)
+            {
+                Vector2 candidate = NormalizeDestinationToNavGridBounds(
+                    currentPosition + recoveryDirections[directionIndex] * detourDistance);
+                if (!TryResolveStaticObstacleRecoveryCandidate(
+                        currentPosition,
+                        candidate,
+                        useReleasedClearance,
+                        out Vector2 resolvedWaypoint))
+                {
+                    continue;
+                }
+
+                recoveryWaypoint = resolvedWaypoint;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryResolveStaticObstacleRecoveryCandidate(
+        Vector2 currentPosition,
+        Vector2 candidate,
+        bool useReleasedClearance,
+        out Vector2 recoveryWaypoint)
+    {
+        recoveryWaypoint = candidate;
+        bool resolved = useReleasedClearance
+            ? TryResolveReleasedMovementDestination(candidate, out recoveryWaypoint)
+            : TryResolveAutonomousRoamDestinationCandidate(candidate, out recoveryWaypoint);
+        if (!resolved)
+        {
+            return false;
+        }
+
+        float minRecoveryDistance = Mathf.Max(minimumMoveDistance * 0.45f, STATIC_RECOVERY_DETOUR_MIN_DISTANCE * 0.55f);
+        if (Vector2.Distance(currentPosition, recoveryWaypoint) < minRecoveryDistance)
+        {
+            return false;
+        }
+
+        return HasPathSegmentBodyClearance(
+            currentPosition,
+            recoveryWaypoint,
+            useReleasedClearance ? GetReleasedMovementStepBodyClearanceExtraRadius() : GetAutonomousRoamBodyClearanceExtraRadius(),
+            useReleasedClearance ? RELEASED_MOVEMENT_PATH_CLEARANCE_SAMPLE_SPACING : AUTONOMOUS_ROAM_PATH_CLEARANCE_SAMPLE_SPACING,
+            useReleasedClearance ? RELEASED_STEP_BODY_CLEARANCE_SIDE_INSET_SCALE : 0.35f,
+            useReleasedClearance ? RELEASED_STEP_BODY_CLEARANCE_VERTICAL_INSET_SCALE : 0.55f);
+    }
+
+    private bool TryRetargetAutonomousRoamAfterStaticBlock(Vector2 currentPosition, string reason)
+    {
+        if (!UsesAutonomousRoamExecutionContract())
+        {
+            return false;
+        }
+
+        if (lastBlockingAgentId != 0 || sharedAvoidanceBlockingFrames > 0 || hasDynamicDetour)
+        {
+            return false;
+        }
+
+        RememberStaticBlockedDestination(currentPosition, GetRebuildRequestedDestination());
+        if (!TryBeginMove())
+        {
+            return false;
+        }
+
+        lastMoveSkipReason = $"BlockedAdvanceStaticRetarget:{reason}";
+        RefreshProgressCheckpoint(currentPosition, resetCounter: true);
         return true;
     }
 
@@ -3038,6 +5896,12 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         pendingMoveCommandIssuedAt = float.NegativeInfinity;
     }
 
+    private bool ShouldEarlyAbortAutonomousRoamMove()
+    {
+        return UsesAutonomousRoamExecutionContract() &&
+            blockedAdvanceFrames >= BLOCKED_ADVANCE_REROUTE_MIN_FRAMES;
+    }
+
     private bool ShouldTreatMoveCommandAsOscillation(Vector2 currentPosition, Vector2 velocity)
     {
         Vector2 moveDirection = velocity.normalized;
@@ -3059,6 +5923,37 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         lastIssuedMoveDirection = moveDirection;
         lastIssuedMovePosition = currentPosition;
         return consecutiveMoveCommandDirectionFlips >= MOVE_COMMAND_OSCILLATION_MIN_FLIPS;
+    }
+
+    private Vector2 StabilizeMoveDirection(Vector2 currentPosition, Vector2 desiredDirection)
+    {
+        if (rb == null ||
+            desiredDirection.sqrMagnitude <= 0.0001f ||
+            lastIssuedMoveDirection.sqrMagnitude <= 0.0001f)
+        {
+            return desiredDirection;
+        }
+
+        if (!ShouldHoldPreviousMoveDirection() ||
+            Vector2.Distance(currentPosition, lastIssuedMovePosition) > MOVE_DIRECTION_STABILIZE_SAME_POSITION_RADIUS)
+        {
+            return desiredDirection;
+        }
+
+        float alignment = Vector2.Dot(desiredDirection, lastIssuedMoveDirection);
+        if (alignment > MOVE_DIRECTION_STABILIZE_FLIP_DOT_THRESHOLD)
+        {
+            return desiredDirection;
+        }
+
+        return lastIssuedMoveDirection;
+    }
+
+    private bool ShouldHoldPreviousMoveDirection()
+    {
+        return hasPendingMoveCommandProgressCheck ||
+            blockedAdvanceFrames > 0 ||
+            (rb != null && IsWithinPhysicsHeavyDecisionReuseWindow());
     }
 
     private void ResetMoveCommandOscillationState(Vector2 currentPosition)
@@ -3157,7 +6052,7 @@ public class NPCAutoRoamController : MonoBehaviour, INavigationUnit
         string trigger,
         List<NavigationAgentSnapshot> blockingCandidates = null)
     {
-        if (debugMoveActive || state != RoamState.Moving)
+        if (HasActivePointToPointTravelContract() || state != RoamState.Moving)
         {
             return false;
         }

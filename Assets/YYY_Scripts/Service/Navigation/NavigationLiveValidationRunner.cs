@@ -840,7 +840,7 @@ public class NavigationLiveValidationRunner : MonoBehaviour
 
         laneReferenceY = GetActorMeasurePosition(activePlayerNavigator.transform, playerCollider).y;
         combinedRadius = GetActorRadius(playerCollider) + GetActorRadius(activeNpcA.Collider);
-        npcMoveIssued = activeNpcA.Controller.DebugMoveTo(npcTarget);
+        npcMoveIssued = TryBeginValidationTravel(activeNpcA, npcTarget);
         activePlayerNavigator.SetDestination(playerTarget);
         settleFramesRemaining = SetupSettleFrames;
 
@@ -874,7 +874,7 @@ public class NavigationLiveValidationRunner : MonoBehaviour
 
         laneReferenceY = GetActorMeasurePosition(activeNpcA.Transform, activeNpcA.Collider).y;
         combinedRadius = GetActorRadius(playerCollider) + GetActorRadius(activeNpcA.Collider);
-        npcMoveIssued = activeNpcA.Controller.DebugMoveTo(npcTarget);
+        npcMoveIssued = TryBeginValidationTravel(activeNpcA, npcTarget);
         settleFramesRemaining = SetupSettleFrames;
 
         Debug.Log(
@@ -907,8 +907,8 @@ public class NavigationLiveValidationRunner : MonoBehaviour
 
         laneReferenceY = GetActorMeasurePosition(activeNpcA.Transform, activeNpcA.Collider).y;
         combinedRadius = GetActorRadius(activeNpcA.Collider) + GetActorRadius(activeNpcB.Collider);
-        npcAMoveIssued = activeNpcA.Controller.DebugMoveTo(npcATarget);
-        npcBMoveIssued = activeNpcB.Controller.DebugMoveTo(npcBTarget);
+        npcAMoveIssued = TryBeginValidationTravel(activeNpcA, npcATarget);
+        npcBMoveIssued = TryBeginValidationTravel(activeNpcB, npcBTarget);
         settleFramesRemaining = SetupSettleFrames;
 
         Debug.Log(
@@ -986,7 +986,7 @@ public class NavigationLiveValidationRunner : MonoBehaviour
 
         laneReferenceY = GetActorFootPosition(activePlayerNavigator.transform, activePlayerNavigator.GetComponent<Rigidbody2D>()).y;
         combinedRadius = GetActorFootprintRadius(playerCollider) + GetActorFootprintRadius(activeNpcA.Collider);
-        npcMoveIssued = activeNpcA.Controller.DebugMoveTo(npcTarget);
+        npcMoveIssued = TryBeginValidationTravel(activeNpcA, npcTarget);
         playerClickIssued = TryIssueAutoNavClick(
             activeGameInputManager,
             playerTarget,
@@ -1725,7 +1725,7 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         roamSeedAttempts++;
         Debug.Log($"{LogPrefix} roam_seed_attempt scenario={currentScenario} seed={roamSeedCursor} attempt={roamSeedAttempts}");
         roamSeedCursor++;
-        activeNpcA.Controller.StartRoam();
+        activeNpcA.Controller.ResumeAutonomousRoam();
     }
 
     private void UpdateManagedRoamObservation(NPCAutoRoamController controller)
@@ -1826,7 +1826,7 @@ public class NavigationLiveValidationRunner : MonoBehaviour
     {
         if (npc.Controller != null)
         {
-            npc.Controller.StopRoam();
+            npc.Controller.SnapToTarget(position);
         }
 
         if (npc.Transform != null)
@@ -2960,7 +2960,15 @@ public class NavigationLiveValidationRunner : MonoBehaviour
         for (int index = 0; index < npcs.Length; index++)
         {
             RestoreManagedRoamController(npcs[index].Controller);
-            npcs[index].Controller.StopRoam();
+            if (npcs[index].Controller != null)
+            {
+                Vector2 currentPosition = npcs[index].Rigidbody != null
+                    ? npcs[index].Rigidbody.position
+                    : npcs[index].Transform != null
+                        ? (Vector2)npcs[index].Transform.position
+                        : Vector2.zero;
+                npcs[index].Controller.SnapToTarget(currentPosition);
+            }
             if (npcs[index].Rigidbody != null)
             {
                 npcs[index].Rigidbody.linearVelocity = Vector2.zero;
@@ -2988,6 +2996,11 @@ public class NavigationLiveValidationRunner : MonoBehaviour
     private static void PlaceNpc(NPCMovementBundle npc, Vector2 position)
     {
         PlaceActor(npc.Transform, npc.Rigidbody, position);
+    }
+
+    private static bool TryBeginValidationTravel(NPCMovementBundle npc, Vector2 destination)
+    {
+        return npc.Controller != null && npc.Controller.BeginAutonomousTravel(destination);
     }
 
     private static void PlaceActor(Transform actor, Rigidbody2D rb, Vector2 position)

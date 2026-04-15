@@ -8,6 +8,65 @@ using UnityEngine;
 /// </summary>
 public static class NavigationTraversalCore
 {
+    private readonly struct OccupancyQueryKey : System.IEquatable<OccupancyQueryKey>
+    {
+        public OccupancyQueryKey(
+            int navGridId,
+            int colliderId,
+            Vector2 worldCenter,
+            float footProbeVerticalInset,
+            float footProbeSideInset,
+            float footProbeExtraRadius)
+        {
+            NavGridId = navGridId;
+            ColliderId = colliderId;
+            WorldCenter = worldCenter;
+            FootProbeVerticalInset = footProbeVerticalInset;
+            FootProbeSideInset = footProbeSideInset;
+            FootProbeExtraRadius = footProbeExtraRadius;
+        }
+
+        public int NavGridId { get; }
+        public int ColliderId { get; }
+        public Vector2 WorldCenter { get; }
+        public float FootProbeVerticalInset { get; }
+        public float FootProbeSideInset { get; }
+        public float FootProbeExtraRadius { get; }
+
+        public bool Equals(OccupancyQueryKey other)
+        {
+            return NavGridId == other.NavGridId &&
+                   ColliderId == other.ColliderId &&
+                   WorldCenter.Equals(other.WorldCenter) &&
+                   FootProbeVerticalInset.Equals(other.FootProbeVerticalInset) &&
+                   FootProbeSideInset.Equals(other.FootProbeSideInset) &&
+                   FootProbeExtraRadius.Equals(other.FootProbeExtraRadius);
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is OccupancyQueryKey other && Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = (hash * 31) + NavGridId;
+                hash = (hash * 31) + ColliderId;
+                hash = (hash * 31) + WorldCenter.GetHashCode();
+                hash = (hash * 31) + FootProbeVerticalInset.GetHashCode();
+                hash = (hash * 31) + FootProbeSideInset.GetHashCode();
+                hash = (hash * 31) + FootProbeExtraRadius.GetHashCode();
+                return hash;
+            }
+        }
+    }
+
+    private static readonly Dictionary<OccupancyQueryKey, bool> s_occupancyQueryCache = new Dictionary<OccupancyQueryKey, bool>(256);
+    private static int s_occupancyQueryCacheFrame = -1;
+
     public readonly struct Contract
     {
         public readonly NavGrid2D NavGrid;
@@ -89,11 +148,25 @@ public static class NavigationTraversalCore
             return true;
         }
 
+        EnsureOccupancyQueryCacheCurrentFrame();
+        OccupancyQueryKey cacheKey = new OccupancyQueryKey(
+            contract.NavGrid.GetInstanceID(),
+            contract.NavigationCollider != null ? contract.NavigationCollider.GetInstanceID() : 0,
+            worldCenter,
+            contract.FootProbeVerticalInset,
+            contract.FootProbeSideInset,
+            contract.FootProbeExtraRadius);
+        if (s_occupancyQueryCache.TryGetValue(cacheKey, out bool cachedOccupancy))
+        {
+            return cachedOccupancy;
+        }
+
         float queryRadius = GetNavigationPointQueryRadius(contract);
         ProbePoints probePoints = GetNavigationProbePoints(contract, worldCenter);
         bool centerWalkable = contract.NavGrid.IsWalkable(probePoints.Center, queryRadius, contract.NavigationCollider);
         if (!centerWalkable)
         {
+            s_occupancyQueryCache[cacheKey] = false;
             return false;
         }
 
@@ -101,6 +174,7 @@ public static class NavigationTraversalCore
         bool rightIsDistinct = (probePoints.Right - probePoints.Center).sqrMagnitude > 0.0009f;
         if (!leftIsDistinct && !rightIsDistinct)
         {
+            s_occupancyQueryCache[cacheKey] = true;
             return true;
         }
 
@@ -108,10 +182,25 @@ public static class NavigationTraversalCore
         bool rightWalkable = !rightIsDistinct || contract.NavGrid.IsWalkable(probePoints.Right, queryRadius, contract.NavigationCollider);
         if (IsTraversalBridgeCenterSupported(contract, probePoints.Center, queryRadius))
         {
-            return leftWalkable || rightWalkable;
+            bool bridgeOccupiable = leftWalkable || rightWalkable;
+            s_occupancyQueryCache[cacheKey] = bridgeOccupiable;
+            return bridgeOccupiable;
         }
 
-        return leftWalkable && rightWalkable;
+        bool occupiable = leftWalkable && rightWalkable;
+        s_occupancyQueryCache[cacheKey] = occupiable;
+        return occupiable;
+    }
+
+    private static void EnsureOccupancyQueryCacheCurrentFrame()
+    {
+        if (s_occupancyQueryCacheFrame == Time.frameCount)
+        {
+            return;
+        }
+
+        s_occupancyQueryCacheFrame = Time.frameCount;
+        s_occupancyQueryCache.Clear();
     }
 
     public static bool ShouldEnableTraversalSoftPass(
@@ -176,6 +265,154 @@ public static class NavigationTraversalCore
 
         resolvedDestination = walkableDestination;
         return true;
+    }
+
+    public static bool TryResolveOccupiableDestinationWithClearanceMargin(
+        in Contract contract,
+        Vector2 sampledDestination,
+        float extraRadius,
+        float sideInsetScale,
+        float verticalInsetScale,
+        out Vector2 resolvedDestination)
+    {
+        if (extraRadius <= 0.0001f ||
+            contract.NavGrid == null ||
+            contract.NavigationCollider == null)
+        {
+            return TryResolveOccupiableDestination(contract, sampledDestination, out resolvedDestination);
+        }
+
+        resolvedDestination = ClampToWorldBounds(contract, sampledDestination);
+        if (CanOccupyNavigationPointWithClearanceMargin(
+                contract,
+                resolvedDestination,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale))
+        {
+            return true;
+        }
+
+        if (!contract.NavGrid.TryFindNearestWalkable(resolvedDestination, out Vector2 walkableDestination, contract.NavigationCollider))
+        {
+            return false;
+        }
+
+        if (!CanOccupyNavigationPointWithClearanceMargin(
+                contract,
+                walkableDestination,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale))
+        {
+            return false;
+        }
+
+        resolvedDestination = walkableDestination;
+        return true;
+    }
+
+    public static bool CanOccupyNavigationPointWithClearanceMargin(
+        in Contract contract,
+        Vector2 worldCenter,
+        float extraRadius,
+        float sideInsetScale = 0.35f,
+        float verticalInsetScale = 0.55f)
+    {
+        if (extraRadius <= 0.0001f ||
+            contract.NavGrid == null ||
+            contract.NavigationCollider == null)
+        {
+            return CanOccupyNavigationPoint(contract, worldCenter);
+        }
+
+        float clampedSideInsetScale = Mathf.Clamp01(sideInsetScale);
+        float clampedVerticalInsetScale = Mathf.Clamp01(verticalInsetScale);
+        Contract expandedContract = new Contract(
+            contract.NavGrid,
+            contract.NavigationCollider,
+            contract.FootProbeVerticalInset * clampedVerticalInsetScale,
+            contract.FootProbeSideInset * clampedSideInsetScale,
+            contract.FootProbeExtraRadius + Mathf.Max(0f, extraRadius));
+
+        return CanOccupyNavigationPoint(expandedContract, worldCenter);
+    }
+
+    public static Vector2 ConstrainNextPositionToNavigationBoundsWithClearanceMargin(
+        in Contract contract,
+        Vector2 currentPosition,
+        Vector2 desiredNextPosition,
+        float fallbackExtraDistance,
+        float extraRadius,
+        float sideInsetScale = 0.35f,
+        float verticalInsetScale = 0.55f)
+    {
+        if (extraRadius <= 0.0001f ||
+            contract.NavGrid == null ||
+            contract.NavigationCollider == null)
+        {
+            return ConstrainNextPositionToNavigationBounds(
+                contract,
+                currentPosition,
+                desiredNextPosition,
+                fallbackExtraDistance);
+        }
+
+        Vector2 desiredOffset = desiredNextPosition - currentPosition;
+        if (desiredOffset.sqrMagnitude <= 0.0001f)
+        {
+            return currentPosition;
+        }
+
+        if (CanOccupyNavigationPointWithClearanceMargin(
+                contract,
+                desiredNextPosition,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale))
+        {
+            return desiredNextPosition;
+        }
+
+        bool prioritizeX = Mathf.Abs(desiredOffset.x) >= Mathf.Abs(desiredOffset.y);
+        Vector2 constrainedPosition = prioritizeX
+            ? ConstrainPositionByAxesWithClearanceMargin(
+                contract,
+                currentPosition,
+                desiredOffset,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale,
+                tryXFirst: true)
+            : ConstrainPositionByAxesWithClearanceMargin(
+                contract,
+                currentPosition,
+                desiredOffset,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale,
+                tryXFirst: false);
+        if ((constrainedPosition - currentPosition).sqrMagnitude > 0.0001f)
+        {
+            return constrainedPosition;
+        }
+
+        if (fallbackExtraDistance > 0f &&
+            TryResolveConstrainedFallbackPositionWithClearanceMargin(
+                contract,
+                currentPosition,
+                desiredNextPosition,
+                desiredOffset,
+                fallbackExtraDistance,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale,
+                out Vector2 fallbackPosition))
+        {
+            return fallbackPosition;
+        }
+
+        return currentPosition;
     }
 
     public static Vector2 ConstrainVelocityToNavigationBounds(
@@ -339,6 +576,67 @@ public static class NavigationTraversalCore
         constrainedPosition = candidatePosition;
     }
 
+    private static Vector2 ConstrainPositionByAxesWithClearanceMargin(
+        in Contract contract,
+        Vector2 currentPosition,
+        Vector2 desiredOffset,
+        float extraRadius,
+        float sideInsetScale,
+        float verticalInsetScale,
+        bool tryXFirst)
+    {
+        Vector2 constrainedPosition = currentPosition;
+        TryApplyAxisOffsetWithClearanceMargin(
+            contract,
+            ref constrainedPosition,
+            desiredOffset,
+            extraRadius,
+            sideInsetScale,
+            verticalInsetScale,
+            applyX: tryXFirst);
+        TryApplyAxisOffsetWithClearanceMargin(
+            contract,
+            ref constrainedPosition,
+            desiredOffset,
+            extraRadius,
+            sideInsetScale,
+            verticalInsetScale,
+            applyX: !tryXFirst);
+        return constrainedPosition;
+    }
+
+    private static void TryApplyAxisOffsetWithClearanceMargin(
+        in Contract contract,
+        ref Vector2 constrainedPosition,
+        Vector2 desiredOffset,
+        float extraRadius,
+        float sideInsetScale,
+        float verticalInsetScale,
+        bool applyX)
+    {
+        float axisOffset = applyX ? desiredOffset.x : desiredOffset.y;
+        if (Mathf.Abs(axisOffset) <= 0.0001f)
+        {
+            return;
+        }
+
+        Vector2 offset = applyX
+            ? new Vector2(axisOffset, 0f)
+            : new Vector2(0f, axisOffset);
+        Vector2 candidatePosition = constrainedPosition + offset;
+        if (!CanOccupyNavigationPointWithClearanceMargin(
+                contract,
+                candidatePosition,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale))
+        {
+            return;
+        }
+
+        constrainedPosition = candidatePosition;
+    }
+
     private static bool TryResolveConstrainedFallbackPosition(
         in Contract contract,
         Vector2 currentPosition,
@@ -366,6 +664,49 @@ public static class NavigationTraversalCore
         }
 
         if (!CanOccupyNavigationPoint(contract, nearestWalkable))
+        {
+            return false;
+        }
+
+        fallbackPosition = nearestWalkable;
+        return true;
+    }
+
+    private static bool TryResolveConstrainedFallbackPositionWithClearanceMargin(
+        in Contract contract,
+        Vector2 currentPosition,
+        Vector2 desiredNextPosition,
+        Vector2 desiredOffset,
+        float fallbackExtraDistance,
+        float extraRadius,
+        float sideInsetScale,
+        float verticalInsetScale,
+        out Vector2 fallbackPosition)
+    {
+        fallbackPosition = currentPosition;
+        if (contract.NavGrid == null)
+        {
+            return false;
+        }
+
+        if (!contract.NavGrid.TryFindNearestWalkable(desiredNextPosition, out Vector2 nearestWalkable, contract.NavigationCollider))
+        {
+            return false;
+        }
+
+        float fallbackDistance = Vector2.Distance(currentPosition, nearestWalkable);
+        float maxFallbackDistance = desiredOffset.magnitude + fallbackExtraDistance;
+        if (fallbackDistance <= 0.0001f || fallbackDistance > maxFallbackDistance)
+        {
+            return false;
+        }
+
+        if (!CanOccupyNavigationPointWithClearanceMargin(
+                contract,
+                nearestWalkable,
+                extraRadius,
+                sideInsetScale,
+                verticalInsetScale))
         {
             return false;
         }
@@ -446,4 +787,5 @@ public static class NavigationTraversalCore
         float clampedRadius = Mathf.Min(Mathf.Min(bounds.extents.x, bounds.extents.y), Mathf.Max(sideRadius, verticalRadius));
         return Mathf.Min(maxRadius, clampedRadius);
     }
+
 }
