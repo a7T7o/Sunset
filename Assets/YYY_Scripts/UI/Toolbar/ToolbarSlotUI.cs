@@ -117,14 +117,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         RegisterSlot();
         ResolveRuntimeContextIfMissing();
         SyncRuntimeSubscriptions();
-        
-        // 注册 Toggle 的 OnValueChanged 事件，用于锁定状态下拦截
-        if (toggle != null)
-        {
-            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
-            toggle.onValueChanged.AddListener(OnToggleValueChanged);
-        }
-        
+        SyncToggleValueListener();
         Refresh();
         RefreshSelection();
     }
@@ -140,12 +133,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     {
         UnregisterSlot();
         SyncRuntimeSubscriptions(forceClear: true);
-        
-        // 移除 Toggle 事件监听
-        if (toggle != null)
-        {
-            toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
-        }
+        ClearToggleValueListener();
     }
     
     /// <summary>
@@ -172,14 +160,15 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         RegisterSlot();
         if (isActiveAndEnabled)
         {
-            OnDisable();
-            OnEnable();
+            SyncRuntimeSubscriptions();
+            SyncToggleValueListener();
         }
-        else
-        {
-            Refresh();
-            RefreshSelection();
-        }
+
+        // 不再手动调用 OnEnable/OnDisable。
+        // 那会把 RefreshSelection 提前塞进 ToggleGroup 尚未稳定的时机，
+        // 导致 Build 在选中槽位处直接中断，后续槽位不再继续绑定和刷新。
+        Refresh();
+        RefreshSelection();
     }
 
     void HandleHotbarChanged(int changedIndex)
@@ -755,5 +744,26 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
         _rectTransform.anchoredPosition = _restAnchoredPosition;
         _rejectShakeCoroutine = null;
+    }
+
+    private void SyncToggleValueListener()
+    {
+        if (toggle == null)
+        {
+            return;
+        }
+
+        toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
+        toggle.onValueChanged.AddListener(OnToggleValueChanged);
+    }
+
+    private void ClearToggleValueListener()
+    {
+        if (toggle == null)
+        {
+            return;
+        }
+
+        toggle.onValueChanged.RemoveListener(OnToggleValueChanged);
     }
 }
