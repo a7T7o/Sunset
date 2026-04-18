@@ -2515,3 +2515,19 @@
   - 当前主线目标：把 Day1 当前 own 代码、文档与提交切片收干净，服务打包前闭环。
   - 本轮子任务：校准 `0417` 角色、同步 memory，并准备只对白名单 own 文件做收口与提交。
   - 恢复点：继续时先看 own 白名单 diff 与验证，再 `Ready-To-Sync`，不吞并仓内其他线程脏区。
+
+## 2026-04-19｜线程补记：spring-day1 own 已提交，当前 own roots clean
+- 本轮最终结果：
+  1. 已提交第 1 个批次：
+     - `f9496b01 spring-day1: land day1 v3 runtime closeout batch`
+  2. 已提交第 2 个批次：
+     - `0d59b8b3 spring-day1: finish persistent restore guard tail`
+  3. `spring-day1` own roots 当前已 clean。
+- 流程工具侧报实：
+  1. `Ready-To-Sync` 先遇到 stale `ready-to-sync.lock`
+  2. 再遇到 `CodexCodeGuard` 非 JSON 输出
+  3. 因此这轮没有拿到正式 sync 票，但代码和文档 checkpoint 已落盘
+- 当前主线目标 / 本轮子任务 / 恢复点：
+  - 当前主线目标：保持 spring-day1 收口后状态，等用户 fresh 体验复测。
+  - 本轮子任务：把当前 own dirty 收干净并同步记忆。
+  - 恢复点：后续若继续，先从 `0d59b8b3` 之后的 clean 状态续，不再从旧脏现场开刀。

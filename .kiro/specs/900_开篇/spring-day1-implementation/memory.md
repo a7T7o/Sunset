@@ -2402,3 +2402,16 @@
      - 以真实代码与 fresh 验证为底板
      - 继续做打包前必要收尾
      - 用 `0417` 做对账、防漂移和收口说明
+
+## 2026-04-19｜父层补记：spring-day1 own 批次已提交并脱离 own dirty
+- 父层新增事实：
+  1. `spring-day1` 本轮已提交 2 个 checkpoint：
+     - `f9496b01 spring-day1: land day1 v3 runtime closeout batch`
+     - `0d59b8b3 spring-day1: finish persistent restore guard tail`
+  2. 当前 `git status --short -- spring-day1 own roots` 已 clean。
+  3. `Ready-To-Sync` 本轮没有形成成功票，原因是流程工具侧先后撞到 stale lock 与 `CodexCodeGuard` 非 JSON 输出。
+- 父层判断：
+  1. 这条线当前已经不是“own 改动还没提交”的状态。
+  2. 后续该看的重点重新回到：
+     - 用户 fresh live / packaged 体验
+     - 以及与其他线程成果的后续整合

@@ -2590,3 +2590,22 @@
 - 当前恢复点：
   1. 后续若继续真实收尾，先看真实代码和 fresh 验证，再用 `0417` 对账。
   2. 不再允许“因为 `0417` 还留空项，就去顺手扩大 Day1 结构重构”。
+
+## 2026-04-19｜收口补记：spring-day1 own 批次已提交
+- 当前主线目标：
+  - 把这条线已经落地的 runtime / test / 文档 / memory 成果真正收成 git checkpoint，而不是继续挂在 own dirty 里。
+- 本轮实际做成：
+  1. 已把 spring-day1 own roots 的 staged 内容提交为：
+     - `f9496b01 spring-day1: land day1 v3 runtime closeout batch`
+  2. 已把收尾遗漏的 `PersistentPlayerSceneBridge.cs` 与 `SaveManagerDay1RestoreContractTests.cs` 再补成第二个小提交：
+     - `0d59b8b3 spring-day1: finish persistent restore guard tail`
+  3. `git status --short -- spring-day1 own roots` 当前已 clean。
+- 额外报实：
+  1. 本轮曾尝试走 `Ready-To-Sync`。
+  2. 前两次先后撞到：
+     - stale `ready-to-sync.lock`
+     - `CodexCodeGuard` 未返回 JSON
+  3. 这两条都属于流程工具侧噪音，不是这批内容本身的 blocker。
+- 当前恢复点：
+  1. 这条线现在已从“own dirty 待收口”进入“已提交 checkpoint，等待后续真实体验复测”。
+  2. 若下轮继续，应从 `0d59b8b3` 往后看，不再回到这轮之前的脏现场。
