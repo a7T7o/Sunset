@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using UnityEngine;
 
 namespace Sunset.Story
@@ -10,6 +11,8 @@ namespace Sunset.Story
     {
         private const string TaskPriorityOverlayCaption = "进入任务";
         private const string TaskPriorityOverlayDetail = "按 E 开始任务相关对话";
+        private static readonly MethodInfo NpcPromptSuppressionMethod =
+            typeof(NPCBubblePresenter).GetMethod("SetInteractionPromptSuppressed", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
 
         private readonly struct Candidate
         {
@@ -23,6 +26,7 @@ namespace Sunset.Story
                 int priority,
                 float cooldownSeconds,
                 bool canTriggerNow,
+                bool allowWhilePageUiOpen,
                 bool forceFocus,
                 bool showWorldIndicator,
                 SpringDay1WorldHintBubble.HintVisualKind visualKind,
@@ -37,6 +41,7 @@ namespace Sunset.Story
                 Priority = priority;
                 CooldownSeconds = Mathf.Max(0f, cooldownSeconds);
                 CanTriggerNow = canTriggerNow;
+                AllowWhilePageUiOpen = allowWhilePageUiOpen;
                 ForceFocus = forceFocus;
                 ShowWorldIndicator = showWorldIndicator;
                 VisualKind = visualKind;
@@ -52,6 +57,7 @@ namespace Sunset.Story
             public int Priority { get; }
             public float CooldownSeconds { get; }
             public bool CanTriggerNow { get; }
+            public bool AllowWhilePageUiOpen { get; }
             public bool ForceFocus { get; }
             public bool ShowWorldIndicator { get; }
             public SpringDay1WorldHintBubble.HintVisualKind VisualKind { get; }
@@ -67,6 +73,8 @@ namespace Sunset.Story
         private Candidate _currentCandidate;
         private bool _hasCurrentCandidate;
         private NPCBubblePresenter _suppressedNpcBubblePresenter;
+        private string _lastOverlayPromptSignature = string.Empty;
+        private bool _overlayPromptVisible;
 
         public static Transform CurrentAnchorTarget =>
             _instance != null && _instance._hasCurrentCandidate
@@ -120,6 +128,7 @@ namespace Sunset.Story
             bool canTriggerNow,
             Action trigger,
             SpringDay1WorldHintBubble.HintVisualKind visualKind = SpringDay1WorldHintBubble.HintVisualKind.Interaction,
+            bool allowWhilePageUiOpen = false,
             bool forceFocus = false,
             bool showWorldIndicator = true)
         {
@@ -140,6 +149,7 @@ namespace Sunset.Story
                     priority,
                     cooldownSeconds,
                     canTriggerNow,
+                    allowWhilePageUiOpen,
                     forceFocus,
                     showWorldIndicator,
                     visualKind,
@@ -184,7 +194,8 @@ namespace Sunset.Story
 
         private void RefreshFocusFromCurrentFrame()
         {
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen()
+            bool blockingPageUiOpen = SpringDay1UiLayerUtility.IsBlockingPageUiOpen();
+            if ((blockingPageUiOpen && !ShouldAllowPendingCandidateWhilePageUiIsOpen())
                 || (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive))
             {
                 ClearPendingCandidate();
@@ -202,46 +213,44 @@ namespace Sunset.Story
             _hasCurrentCandidate = true;
             ClearPendingCandidate();
             UpdateNpcPromptFocusSuppression();
-            bool shouldShowWorldIndicator = ShouldShowWorldIndicator(_currentCandidate);
 
             if (InteractionHintDisplaySettings.AreHintsVisible)
             {
-                if (shouldShowWorldIndicator)
-                {
-                    SpringDay1WorldHintBubble.EnsureRuntime();
-                    SpringDay1WorldHintBubble.Instance.Show(
-                        _currentCandidate.AnchorTarget,
-                        BuildWorldHintKeyLabel(_currentCandidate),
-                        _currentCandidate.Caption,
-                        BuildWorldHintDetail(_currentCandidate),
-                        _currentCandidate.VisualKind);
-                }
-                else
-                {
-                    SpringDay1WorldHintBubble.HideIfExists();
-                }
+                SpringDay1WorldHintBubble.HideIfExists();
 
                 if (_currentCandidate.CanTriggerNow || ShouldKeepOverlayVisibleForTeaser(_currentCandidate))
                 {
                     ResolveOverlayPromptContent(_currentCandidate, out string overlayCaption, out string overlayDetail);
-                    InteractionHintOverlay.EnsureRuntime();
-                    InteractionHintOverlay.Instance.ShowPrompt(
-                        _currentCandidate.CanTriggerNow ? _currentCandidate.KeyLabel : string.Empty,
-                        overlayCaption,
-                        overlayDetail);
+                    string keyLabel = _currentCandidate.CanTriggerNow ? _currentCandidate.KeyLabel : string.Empty;
+                    string overlaySignature = BuildOverlayPromptSignature(keyLabel, overlayCaption, overlayDetail);
+                    if (!_overlayPromptVisible
+                        || !string.Equals(_lastOverlayPromptSignature, overlaySignature, StringComparison.Ordinal))
+                    {
+                        InteractionHintOverlay.EnsureRuntime();
+                        InteractionHintOverlay.Instance.ShowPrompt(keyLabel, overlayCaption, overlayDetail);
+                        _lastOverlayPromptSignature = overlaySignature;
+                        _overlayPromptVisible = true;
+                    }
                 }
                 else
                 {
-                    InteractionHintOverlay.HideIfExists();
+                    HideInteractionOverlay();
                 }
             }
             else
             {
                 SpringDay1WorldHintBubble.HideIfExists();
-                InteractionHintOverlay.HideIfExists();
+                HideInteractionOverlay();
             }
 
             TryTriggerCurrentCandidate();
+        }
+
+        private bool ShouldAllowPendingCandidateWhilePageUiIsOpen()
+        {
+            return _pendingCandidateFrame == Time.frameCount
+                && _hasPendingCandidate
+                && _pendingCandidate.AllowWhilePageUiOpen;
         }
 
         private void ReportCandidateInternal(Candidate candidate)
@@ -296,54 +305,19 @@ namespace Sunset.Story
                 return candidate.CanTriggerNow;
             }
 
-            if (!Mathf.Approximately(candidate.BoundaryDistance, current.BoundaryDistance))
-            {
-                return candidate.BoundaryDistance < current.BoundaryDistance;
-            }
-
             if (candidate.Priority != current.Priority)
             {
                 return candidate.Priority > current.Priority;
             }
 
+            if (!Mathf.Approximately(candidate.BoundaryDistance, current.BoundaryDistance))
+            {
+                return candidate.BoundaryDistance < current.BoundaryDistance;
+            }
+
             int candidateId = candidate.AnchorTarget != null ? candidate.AnchorTarget.GetInstanceID() : int.MaxValue;
             int currentId = current.AnchorTarget != null ? current.AnchorTarget.GetInstanceID() : int.MaxValue;
             return candidateId < currentId;
-        }
-
-        private static string BuildWorldHintKeyLabel(Candidate candidate)
-        {
-            return candidate.CanTriggerNow ? candidate.KeyLabel : string.Empty;
-        }
-
-        private static string BuildWorldHintDetail(Candidate candidate)
-        {
-            if (candidate.CanTriggerNow)
-            {
-                return candidate.Detail;
-            }
-
-            return "再靠近一些";
-        }
-
-        private static bool ShouldShowWorldIndicator(Candidate candidate)
-        {
-            if (!candidate.ShowWorldIndicator || candidate.AnchorTarget == null)
-            {
-                return false;
-            }
-
-            if (IsNpcPromptTarget(candidate.AnchorTarget))
-            {
-                return false;
-            }
-
-            if (IsWorkbenchPromptTarget(candidate.AnchorTarget))
-            {
-                return false;
-            }
-
-            return !LooksLikeGenericDialoguePrompt(candidate.Caption, candidate.Detail);
         }
 
         private static void ResolveOverlayPromptContent(Candidate candidate, out string caption, out string detail)
@@ -368,9 +342,7 @@ namespace Sunset.Story
 
         private static bool ShouldKeepOverlayVisibleForTeaser(Candidate candidate)
         {
-            return !candidate.CanTriggerNow
-                && candidate.AnchorTarget != null
-                && IsWorkbenchPromptTarget(candidate.AnchorTarget);
+            return false;
         }
 
         private static bool ShouldUseTaskPriorityOverlayCopy(Candidate candidate)
@@ -386,22 +358,12 @@ namespace Sunset.Story
                 return false;
             }
 
-            if (!LooksLikeGenericDialoguePrompt(candidate.Caption, candidate.Detail))
+            if (dialogueInteractable.GetFormalDialogueStateForCurrentStory() != NPCFormalDialogueState.Available)
             {
                 return false;
             }
 
             return true;
-        }
-
-        private static bool LooksLikeGenericDialoguePrompt(string caption, string detail)
-        {
-            string normalizedCaption = string.IsNullOrWhiteSpace(caption) ? string.Empty : caption.Trim();
-            string normalizedDetail = string.IsNullOrWhiteSpace(detail) ? string.Empty : detail.Trim();
-
-            return normalizedCaption == "交谈"
-                || normalizedCaption == "对话"
-                || normalizedDetail == "按 E 开始对话";
         }
 
         private void ClearFocus(bool hideBubble)
@@ -411,8 +373,19 @@ namespace Sunset.Story
             if (hideBubble)
             {
                 SpringDay1WorldHintBubble.HideIfExists();
+                HideInteractionOverlay();
+            }
+        }
+
+        private void HideInteractionOverlay()
+        {
+            if (_overlayPromptVisible)
+            {
                 InteractionHintOverlay.HideIfExists();
             }
+
+            _overlayPromptVisible = false;
+            _lastOverlayPromptSignature = string.Empty;
         }
 
         private void ClearPendingCandidate()
@@ -439,7 +412,7 @@ namespace Sunset.Story
             _suppressedNpcBubblePresenter = presenter;
             if (_suppressedNpcBubblePresenter != null)
             {
-                _suppressedNpcBubblePresenter.SetInteractionPromptSuppressed(true);
+                SetNpcInteractionPromptSuppressed(_suppressedNpcBubblePresenter, true);
             }
         }
 
@@ -450,8 +423,18 @@ namespace Sunset.Story
                 return;
             }
 
-            _suppressedNpcBubblePresenter.SetInteractionPromptSuppressed(false);
+            SetNpcInteractionPromptSuppressed(_suppressedNpcBubblePresenter, false);
             _suppressedNpcBubblePresenter = null;
+        }
+
+        private static void SetNpcInteractionPromptSuppressed(NPCBubblePresenter presenter, bool suppressed)
+        {
+            if (presenter == null || NpcPromptSuppressionMethod == null)
+            {
+                return;
+            }
+
+            NpcPromptSuppressionMethod.Invoke(presenter, new object[] { suppressed });
         }
 
         private static bool IsNpcPromptTarget(Transform anchorTarget)
@@ -525,6 +508,11 @@ namespace Sunset.Story
                 .Replace('\r', ' ')
                 .Replace('|', '/')
                 .Trim();
+        }
+
+        private static string BuildOverlayPromptSignature(string keyLabel, string caption, string detail)
+        {
+            return $"{SanitizeSummaryText(keyLabel)}|{SanitizeSummaryText(caption)}|{SanitizeSummaryText(detail)}";
         }
     }
 }

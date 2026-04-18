@@ -157,13 +157,13 @@ namespace Sunset.Story
         private static readonly string[] PreferredTownThirdResidentObjectNames = { "003", "NPC003" };
         private static readonly string[] PreferredTownLeadTargetObjectNames = { "EnterVillage_HouseLead", "进屋安置点", "进村安置点", "SceneTransitionTrigger" };
         private static readonly string[] PreferredTownTransitionTriggerObjectNames = { "SceneTransitionTrigger" };
-        private static readonly string[] PreferredTownOpeningLayoutGroupObjectNames = { "进村围观", "EnterVillageCrowdRoot", "VillageCrowd" };
+        private static readonly string[] PreferredPrimaryHomeTransitionTriggerObjectNames = { "PrimaryHomeDoor" };
+        private static readonly string[] PreferredTownOpeningLayoutGroupObjectNames = { "进村围观" };
         private static readonly string[] PreferredPrimaryArrivalAnchorObjectNames = { "PrimaryHomeEntryAnchor", "PrimaryEntryAnchor" };
         private static readonly string[] PreferredPrimaryEntryGroupObjectNames = { "刚进primary" };
         private static readonly string[] PreferredPrimaryWorkbenchEscortGroupObjectNames = { "到工作台的npc终点" };
         private static readonly string[] PreferredPrimaryWorkbenchIdleGroupObjectNames = { "工作台结束，在旁等待站位" };
-        private static readonly string[] PreferredVillageCrowdMarkerRootObjectNames = { "EnterVillageCrowdRoot", "进村围观", "VillageCrowd" };
-        private static readonly string[] PreferredDinnerGatheringAnchorObjectNames = { "DirectorReady_DinnerBackgroundRoot", "DinnerBackgroundRoot" };
+        private static readonly string[] PreferredVillageCrowdMarkerRootObjectNames = { "进村围观" };
         private const string PrimaryEntryChiefPointName = "村长初始站位";
         private const string PrimaryEntryCompanionPointName = "艾拉初始站位";
         private const string PrimaryEntryPlayerPointName = "玩家初始站位";
@@ -173,6 +173,7 @@ namespace Sunset.Story
         private const string TownOpeningThirdResidentPointName = "003终点";
         private const string StoryNpcChiefLabel = "001";
         private const string StoryNpcCompanionLabel = "002";
+        private const string PrimaryHomeEntryAnchorName = "PrimaryHomeEntryAnchor";
         private const string BedInteractionHint = "睡觉";
         private const string RestProxyInteractionHint = "回屋休息";
         private const string TownLeadBridgePromptText = "跟住村长和艾拉往住处走，别在村口掉队。";
@@ -182,7 +183,7 @@ namespace Sunset.Story
         private const string HealingBridgeArrivalPromptText = "先别动，让艾拉把你的伤稳住。";
         private const string WorkbenchEscortPromptText = "跟着村长和艾拉去工作台，把今晚该学的手艺先接回来。";
         private const string WorkbenchBriefingPromptText = "先听村长把工作台和边上的补给箱交代清楚。";
-        private const string WorkbenchEscortWaitPromptText = "小伙子，先跟我走";
+        private const string WorkbenchEscortWaitPromptText = "跟上，到了工作台我再慢慢教你。";
         private const string WorkbenchEscortReadyPromptText = "村长已经把工作台和补给箱交代清楚了，按 E 打开制作菜单。";
         private const string PostTutorialWrapPromptText = "农田这边先收住，去和村长说一声。";
         private const string PostTutorialWrapProgressText = "农田与工作台目标已完成，等待和村长收口";
@@ -214,9 +215,11 @@ namespace Sunset.Story
         private const int FreeTimeStartMinute = 30;
         private const int StoryActorReturnHomeHour = 20;
         private const int StoryActorForcedRestHour = 21;
-        private const int StoryActorMorningReleaseHour = 9;
+        private const int StoryActorMorningReleaseHour = 7;
         private const int FreeTimeNightWarningHour = 22;
         private const int FreeTimeMidnightWarningHour = 24;
+        private const float MinimumWorkbenchEscortLeaderReadyDistance = 0.75f;
+        private const float MinimumHealingSupportApproachDistance = 2.4f;
         private const int FreeTimeFinalWarningHour = 25;
         private const int Day1RuntimeManagedYear = 1;
         private const int Day1RuntimeManagedDay = 1;
@@ -271,7 +274,8 @@ namespace Sunset.Story
         [SerializeField, Min(0.05f)] private float escortRetargetTolerance = 0.45f;
         [SerializeField, Min(0.05f)] private float escortCompanionSideOffset = 0.45f;
         [SerializeField, Min(0.05f)] private float escortCompanionTrailingOffset = 0.35f;
-        [SerializeField, Min(0.1f)] private float healingSupportApproachDistance = 0.9f;
+        [SerializeField, Min(0.1f)] private float escortCompanionFormationDistance = 1.5f;
+        [SerializeField, Min(0.1f)] private float healingSupportApproachDistance = 1.6f;
         [SerializeField, Min(0f)] private float healingSupportPauseDuration = 0.18f;
         [SerializeField, Min(0.1f)] private float primaryArrivalReframeDistance = 1.35f;
         [SerializeField, Min(0f)] private float primaryArrivalDialogueDelay = 0.18f;
@@ -297,6 +301,7 @@ namespace Sunset.Story
         private bool _postTutorialExploreWindowPending;
         private float _postTutorialExploreWindowEarliestEnterAt = -1f;
         private bool _postTutorialExploreWindowEntered;
+        private bool _postTutorialTownActorsAnchored;
         private bool _dinnerGatheringRequested;
         private bool _pendingDinnerTownLoad;
         private bool _dinnerSequencePlayed;
@@ -350,7 +355,11 @@ namespace Sunset.Story
         private float _townHouseLeadCompanionDistance = float.PositiveInfinity;
         private float _townHouseLeadPlayerDistance = float.PositiveInfinity;
         private float _townVillageGateCueWaitStartedAt = -1f;
+        private float _townVillageGateActorsWaitStartedAt = -1f;
+        private bool _townVillageGateActorsPlaced;
         private float _dinnerCueWaitStartedAt = -1f;
+        private float _dinnerStoryActorsWaitStartedAt = -1f;
+        private bool _dinnerStoryActorsPlaced;
 #if UNITY_EDITOR
         private bool? _editorDinnerCueSettledOverride;
 #endif
@@ -394,6 +403,7 @@ namespace Sunset.Story
         private Transform _cachedTownLeadTarget;
         private SceneTransitionTrigger2D _cachedTownTransitionTrigger;
         private SceneTransitionTrigger2D _cachedPrimaryTownTransitionTrigger;
+        private SceneTransitionTrigger2D _cachedPrimaryHomeTransitionTrigger;
         private bool _dayEndTaskCardAutoHideArmed;
         private float _dayEndTaskCardShownAt = -1f;
         private bool _suppressDay1TimeGuardrail;
@@ -541,15 +551,67 @@ namespace Sunset.Story
             return $"Phase={phaseText}, Tilled={GetLatchedProgress(_tillObjectiveCompleted, requiredTilledCount)}, Planted={GetLatchedProgress(_plantObjectiveCompleted, requiredPlantedCount)}, Watered={GetLatchedProgress(_waterObjectiveCompleted, requiredWateredCount)}, Wood={GetCollectedWoodProgress()}/{requiredWoodCollectedCount}, Crafted={_craftedCount}, Wrap={_postTutorialWrapSequenceQueued}, Explore={_postTutorialExploreWindowEntered}, DinnerReq={_dinnerGatheringRequested}, FreeTime={_freeTimeEntered}, DayEnd={_dayEnded}";
         }
 
-        public string GetCurrentTaskLabel()
+        private bool TryResolvePlayerFacingPhase(out StoryPhase phase)
         {
             StoryManager storyManager = StoryManager.Instance;
-            if (storyManager == null)
+            if (ShouldFallbackToDayEndWhenStoryPhaseUnavailable(storyManager))
+            {
+                phase = StoryPhase.DayEnd;
+                return true;
+            }
+
+            if (storyManager != null)
+            {
+                phase = storyManager.CurrentPhase;
+                return true;
+            }
+
+            phase = default;
+            return false;
+        }
+
+        private bool ShouldFallbackToDayEndWhenStoryPhaseUnavailable(StoryManager storyManager)
+        {
+            if (!_dayEnded)
+            {
+                return false;
+            }
+
+            bool storyPhaseUnavailable = storyManager == null || storyManager.CurrentPhase == StoryPhase.None;
+            if (!storyPhaseUnavailable)
+            {
+                return false;
+            }
+
+            if (!_dayEndTaskCardAutoHideArmed)
+            {
+                return false;
+            }
+
+            return !ShouldAutoHideDayEndTaskCard();
+        }
+
+        private static PromptCardModel BuildUninitializedPromptCardModel()
+        {
+            return new PromptCardModel
+            {
+                PhaseKey = "Uninitialized",
+                StageLabel = "未初始化",
+                Subtitle = "等待 Day1 运行时对象就位。",
+                FocusText = "等待 StoryManager 初始化后再刷新正式任务摘要。",
+                FooterText = "暂无正式阶段信息。",
+                Items = System.Array.Empty<PromptTaskItem>()
+            };
+        }
+
+        public string GetCurrentTaskLabel()
+        {
+            if (!TryResolvePlayerFacingPhase(out StoryPhase phase))
             {
                 return "未初始化";
             }
 
-            return storyManager.CurrentPhase switch
+            return phase switch
             {
                 StoryPhase.CrashAndMeet => "0.0.2 矿洞首遇/撤离",
                 StoryPhase.EnterVillage => "0.0.2 进村/安置",
@@ -568,13 +630,11 @@ namespace Sunset.Story
 
         public string GetCurrentProgressLabel()
         {
-            StoryManager storyManager = StoryManager.Instance;
-            if (storyManager == null)
+            if (!TryResolvePlayerFacingPhase(out StoryPhase phase))
             {
                 return "等待 StoryManager 初始化";
             }
 
-            StoryPhase phase = storyManager.CurrentPhase;
             if (phase == StoryPhase.CrashAndMeet)
             {
                 if (IsDialogueSequenceCurrentlyActive(FirstSequenceId))
@@ -947,8 +1007,103 @@ namespace Sunset.Story
 
         public string GetCurrentFocusTextForTests()
         {
+            return TryResolvePlayerFacingPhase(out StoryPhase phase)
+                ? GetPromptFocusText(phase)
+                : string.Empty;
+        }
+
+        public bool TryGetStorySaveLoadBlockReason(out string blockerReason)
+        {
+            blockerReason = string.Empty;
+
+            if (!Application.isPlaying || !IsStoryRuntimeSceneActive())
+            {
+                return false;
+            }
+
             StoryManager storyManager = StoryManager.Instance;
-            return storyManager != null ? GetPromptFocusText(storyManager.CurrentPhase) : string.Empty;
+            if (storyManager == null)
+            {
+                return false;
+            }
+
+            StoryPhase currentPhase = storyManager.CurrentPhase;
+            switch (currentPhase)
+            {
+                case StoryPhase.CrashAndMeet:
+                    blockerReason = "当前还在 Day1 开场剧情接管中，请等这段剧情收束后再操作存档。";
+                    return true;
+
+                case StoryPhase.EnterVillage:
+                    if (IsTownHouseLeadPending() || IsFirstFollowupPending() || !HasCompletedDialogueSequence(HouseArrivalSequenceId))
+                    {
+                        blockerReason = "当前还在进村/安置剧情接管中，请等这段剧情收束后再操作存档。";
+                        return true;
+                    }
+
+                    return false;
+
+                case StoryPhase.HealingAndHP:
+                    if (IsHealingBridgePendingForValidation() || !HasCompletedDialogueSequence(HealingSequenceId))
+                    {
+                        blockerReason = "当前还在疗伤剧情接管中，请等这段剧情收束后再操作存档。";
+                        return true;
+                    }
+
+                    return false;
+
+                case StoryPhase.WorkbenchFlashback:
+                    if (!HasWorkbenchBriefingCompleted() || !_workbenchOpened || !HasCompletedDialogueSequence(WorkbenchSequenceId))
+                    {
+                        blockerReason = "当前还在工作台剧情接管中，请等这段剧情收束后再操作存档。";
+                        return true;
+                    }
+
+                    return false;
+
+                case StoryPhase.FarmingTutorial:
+                    if (IsAwaitingPostTutorialChiefWrap()
+                        || _postTutorialWrapSequenceQueued
+                        || IsDialogueSequenceCurrentlyActive(PostTutorialWrapSequenceId))
+                    {
+                        blockerReason = "当前还在和村长收口的剧情接管中，请等这段剧情收束后再操作存档。";
+                        return true;
+                    }
+
+                    return false;
+
+                case StoryPhase.DinnerConflict:
+                    if (IsReturnToTownEscortPending()
+                        || IsDinnerDialoguePendingStart()
+                        || !HasCompletedDialogueSequence(DinnerSequenceId))
+                    {
+                        blockerReason = "当前还在晚饭剧情接管中，请等这段剧情收束后再操作存档。";
+                        return true;
+                    }
+
+                    return false;
+
+                case StoryPhase.ReturnAndReminder:
+                    if (IsReminderDialoguePendingStart() || !HasCompletedDialogueSequence(ReminderSequenceId))
+                    {
+                        blockerReason = "当前还在归途提醒剧情接管中，请等这段剧情收束后再操作存档。";
+                        return true;
+                    }
+
+                    return false;
+
+                case StoryPhase.FreeTime:
+                    if (IsFreeTimeIntroPending())
+                    {
+                        blockerReason = "当前还在夜间见闻剧情接管中，请等这段剧情收束后再操作存档。";
+                        return true;
+                    }
+
+                    return false;
+
+                default:
+                    return false;
+            }
         }
 
         public void ShowTaskListBridgePrompt(string text)
@@ -1017,8 +1172,9 @@ namespace Sunset.Story
 
         private string GetCurrentPromptPhaseKey()
         {
-            StoryManager storyManager = StoryManager.Instance;
-            return storyManager != null ? storyManager.CurrentPhase.ToString() : string.Empty;
+            return TryResolvePlayerFacingPhase(out StoryPhase phase)
+                ? phase.ToString()
+                : string.Empty;
         }
 
         private static bool IsBridgePromptRedundant(PromptCardModel model, string bridgePromptText)
@@ -1150,13 +1306,11 @@ namespace Sunset.Story
 
         public string GetCurrentBeatKey()
         {
-            StoryManager storyManager = StoryManager.Instance;
-            if (storyManager == null)
+            if (!TryResolvePlayerFacingPhase(out StoryPhase phase))
             {
                 return string.Empty;
             }
 
-            StoryPhase phase = storyManager.CurrentPhase;
             return phase switch
             {
                 StoryPhase.CrashAndMeet => IsDialogueSequenceCurrentlyActive(FirstFollowupSequenceId) || HasCompletedDialogueSequence(FirstSequenceId)
@@ -1167,6 +1321,7 @@ namespace Sunset.Story
                     : SpringDay1DirectorBeatKeys.EnterVillagePostEntry,
                 StoryPhase.HealingAndHP => SpringDay1DirectorBeatKeys.HealingAndHpTreatment,
                 StoryPhase.WorkbenchFlashback => SpringDay1DirectorBeatKeys.WorkbenchFlashbackRecall,
+                StoryPhase.FarmingTutorial when IsPostTutorialExploreWindowActive() => SpringDay1DirectorBeatKeys.FreeTimeNightWitness,
                 StoryPhase.FarmingTutorial => SpringDay1DirectorBeatKeys.FarmingTutorialFieldwork,
                 StoryPhase.DinnerConflict => SpringDay1DirectorBeatKeys.DinnerConflictTable,
                 StoryPhase.ReturnAndReminder => SpringDay1DirectorBeatKeys.ReturnAndReminderWalkBack,
@@ -1180,21 +1335,11 @@ namespace Sunset.Story
 
         public PromptCardModel BuildPromptCardModel()
         {
-            StoryManager storyManager = StoryManager.Instance;
-            if (storyManager == null)
+            if (!TryResolvePlayerFacingPhase(out StoryPhase phase))
             {
-                return new PromptCardModel
-                {
-                    PhaseKey = "Uninitialized",
-                    StageLabel = "未初始化",
-                    Subtitle = "等待 Day1 运行时对象就位。",
-                    FocusText = "等待 StoryManager 初始化后再刷新正式任务摘要。",
-                    FooterText = "暂无正式阶段信息。",
-                    Items = System.Array.Empty<PromptTaskItem>()
-                };
+                return BuildUninitializedPromptCardModel();
             }
 
-            StoryPhase phase = storyManager.CurrentPhase;
             RefreshPromptModelTrackingState(phase);
             if (phase != StoryPhase.DayEnd)
             {
@@ -1228,6 +1373,27 @@ namespace Sunset.Story
             InitializeFarmingTutorialTracking();
             RefreshInventoryTrackingSubscription();
             HandleInventoryChanged();
+        }
+
+        private void RestoreLoadedDayEndTaskCardState()
+        {
+            StoryManager storyManager = StoryManager.Instance;
+            bool shouldExpireDayEndCardImmediately =
+                _dayEnded
+                && storyManager != null
+                && storyManager.CurrentPhase == StoryPhase.DayEnd;
+
+            if (!shouldExpireDayEndCardImmediately)
+            {
+                _dayEndTaskCardAutoHideArmed = false;
+                _dayEndTaskCardShownAt = -1f;
+                return;
+            }
+
+            _dayEndTaskCardAutoHideArmed = true;
+            _dayEndTaskCardShownAt = dayEndTaskCardVisibleSeconds <= 0f
+                ? Time.unscaledTime - 1f
+                : Time.unscaledTime - dayEndTaskCardVisibleSeconds - 0.01f;
         }
 
         private string GetPromptSubtitle(StoryPhase phase)
@@ -1286,7 +1452,7 @@ namespace Sunset.Story
                     ? "先听村长把回屋和两点规矩说死。"
                     : "先接住归途提醒，别在夜里规矩落下前乱走。",
                 StoryPhase.FreeTime when IsDialogueSequenceCurrentlyActive(FreeTimeIntroSequenceId) => "先听一圈村里夜里的动静，再决定现在回不回屋。",
-                StoryPhase.FreeTime when !_freeTimeIntroCompleted => "自由时段见闻会先接管，先别急着立刻睡。",
+                StoryPhase.FreeTime when !_freeTimeIntroCompleted => "夜里的动静会先接管，但你现在想回屋睡也可以。",
                 StoryPhase.FreeTime => GetFreeTimeFocusText(),
                 StoryPhase.DayEnd => "这一夜总算先熬过去了。天亮以后，再让他们看清你值不值得留下。",
                 _ => "等待推进。"
@@ -1441,10 +1607,10 @@ namespace Sunset.Story
                 {
                     !_freeTimeIntroCompleted
                         ? new PromptTaskItem(
-                            "听完村里夜间见闻",
+                            "先听夜里的动静，或直接回屋睡觉",
                             IsDialogueSequenceCurrentlyActive(FreeTimeIntroSequenceId)
-                                ? "老乔治、老汤姆、老杰克和村里的余光，会先把今晚最后一点余波说完。"
-                                : "自由时段见闻已排队，先让这段夜里的动静完整接管。",
+                                ? "这段夜里的动静正在接管；你可以先听完，也可以现在就回屋睡觉。"
+                                : "自由时段见闻已排队；你可以先听，也可以现在就回屋睡觉。",
                             false)
                         : new PromptTaskItem(
                             "回住处睡觉",
@@ -1489,7 +1655,7 @@ namespace Sunset.Story
                 && !_postTutorialExploreWindowEntered;
         }
 
-        private bool IsPostTutorialExploreWindowActive()
+        public bool IsPostTutorialExploreWindowActive()
         {
             StoryManager storyManager = StoryManager.Instance;
             return storyManager != null
@@ -1561,6 +1727,7 @@ namespace Sunset.Story
             void ApplyExploreWindowState()
             {
                 _postTutorialExploreWindowEntered = true;
+                _postTutorialTownActorsAnchored = false;
                 _dinnerGatheringRequested = false;
                 _pendingDinnerTownLoad = false;
                 EnsureStoryHourAtLeast(TutorialTimeCapHour);
@@ -1646,7 +1813,7 @@ namespace Sunset.Story
                 {
                     if (_pendingDinnerTownLoad)
                     {
-                        SceneManager.LoadScene(TownSceneName, LoadSceneMode.Single);
+                        LoadSceneThroughPersistentBridge(TownSceneName);
                         return;
                     }
 
@@ -1686,56 +1853,19 @@ namespace Sunset.Story
             StoryManager.Instance.SetPhase(StoryPhase.DinnerConflict);
             UpdateSceneStoryNpcVisibility();
             SpringDay1PromptOverlay.Instance.Hide();
+            SpringDay1NpcCrowdDirector.ForceImmediateSync();
             BeginDinnerConflict();
         }
 
         private void AlignTownDinnerGatheringActorsAndPlayer()
         {
             MovePlayerToExactPosition(DinnerGatheringTownPlayerPosition);
-            AlignTownDinnerGatheringStoryActors();
-        }
-
-        private void AlignTownDinnerGatheringStoryActors()
-        {
-            Transform chief = ResolveStoryChiefTransform();
-            Transform companion = ResolveStoryCompanionTransform();
-            Vector2 lookTarget = new Vector2(DinnerGatheringTownPlayerPosition.x, DinnerGatheringTownPlayerPosition.y);
-
-            if (TryResolveDinnerGatheringActorTarget(isChief: true, chief, out Vector3 chiefTarget))
-            {
-                ReframeStoryActor(chief, chiefTarget, lookTarget);
-            }
-
-            if (TryResolveDinnerGatheringActorTarget(isChief: false, companion, out Vector3 companionTarget))
-            {
-                ReframeStoryActor(companion, companionTarget, lookTarget);
-            }
-        }
-
-        private static bool TryResolveDinnerGatheringActorTarget(bool isChief, Transform actor, out Vector3 targetPosition)
-        {
-            Vector2 fallbackPoint = new Vector2(DinnerGatheringTownPlayerPosition.x, DinnerGatheringTownPlayerPosition.y)
-                + (isChief ? DinnerGatheringChiefFallbackOffset : DinnerGatheringCompanionFallbackOffset);
-            targetPosition = BuildStoryActorReframeTarget(fallbackPoint, actor);
-
-            Transform dinnerAnchor = FindPreferredObjectTransform(PreferredDinnerGatheringAnchorObjectNames);
-            if (dinnerAnchor == null)
-            {
-                return actor != null;
-            }
-
-            Vector2 anchorPoint = dinnerAnchor.position;
-            Vector2 anchorOffset = isChief ? DinnerGatheringChiefAnchorOffset : DinnerGatheringCompanionAnchorOffset;
-            targetPosition = BuildStoryActorReframeTarget(anchorPoint + anchorOffset, actor);
-            return actor != null;
         }
 
         private static bool TryResolveVillageCrowdMarker(string npcId, bool preferStart, out Transform marker)
         {
             string preferredSuffixCn = preferStart ? "起点" : "终点";
             string preferredSuffixEn = preferStart ? "Start" : "End";
-            string fallbackSuffixCn = preferStart ? "终点" : "起点";
-            string fallbackSuffixEn = preferStart ? "End" : "Start";
 
             marker = FindPreferredNamedChildTransform(PreferredVillageCrowdMarkerRootObjectNames, $"{npcId}{preferredSuffixCn}");
             if (marker != null)
@@ -1749,14 +1879,8 @@ namespace Sunset.Story
                 return true;
             }
 
-            marker = FindPreferredNamedChildTransform(PreferredVillageCrowdMarkerRootObjectNames, $"{npcId}{fallbackSuffixCn}");
-            if (marker != null)
-            {
-                return true;
-            }
-
-            marker = FindPreferredNamedChildTransform(PreferredVillageCrowdMarkerRootObjectNames, $"{npcId}{fallbackSuffixEn}");
-            return marker != null;
+            marker = null;
+            return false;
         }
 
         private void MovePlayerToExactPosition(Vector3 targetPosition)
@@ -1931,6 +2055,7 @@ namespace Sunset.Story
             {
                 _postTutorialWrapSequenceQueued = false;
                 _postTutorialExploreWindowEntered = false;
+                _postTutorialTownActorsAnchored = false;
                 _dinnerGatheringRequested = false;
                 _pendingDinnerTownLoad = false;
                 ResetDinnerCueSettlementState();
@@ -1971,7 +2096,6 @@ namespace Sunset.Story
             if (evt.SequenceId == VillageGateSequenceId)
             {
                 _villageGateSequencePlayed = true;
-                SpringDay1NpcCrowdDirector.ForceImmediateSync();
                 if (IsPrimarySceneActive())
                 {
                     ResetTownHouseLeadState();
@@ -1981,6 +2105,8 @@ namespace Sunset.Story
                 {
                     TryBeginTownHouseLead();
                 }
+
+                SpringDay1NpcCrowdDirector.ForceImmediateSync();
 
                 return;
             }
@@ -2012,6 +2138,7 @@ namespace Sunset.Story
                 InitializeFarmingTutorialTracking(true);
                 _postTutorialWrapSequenceQueued = false;
                 _postTutorialExploreWindowEntered = false;
+                _postTutorialTownActorsAnchored = false;
                 _dinnerGatheringRequested = false;
                 _pendingDinnerTownLoad = false;
                 ResetDinnerCueSettlementState();
@@ -2171,6 +2298,15 @@ namespace Sunset.Story
                 }
             }
 
+            StoryManager storyManager = StoryManager.Instance;
+            if (!_pendingDinnerTownLoad
+                && string.Equals(scene.name, TownSceneName, StringComparison.Ordinal)
+                && storyManager != null
+                && ShouldPrimeTownStoryActorsForExploreWindow(storyManager.CurrentPhase))
+            {
+                UpdateSceneStoryNpcVisibility();
+            }
+
             if (!_pendingDinnerTownLoad || !string.Equals(scene.name, TownSceneName, StringComparison.Ordinal))
             {
                 return;
@@ -2245,47 +2381,6 @@ namespace Sunset.Story
             }
 
             SpringDay1PromptOverlay.Instance.Hide();
-            bool canUseSceneBlink = Application.isPlaying;
-
-            void FinalizeSleepSceneState()
-            {
-                if (!IsHomeSceneActive())
-                {
-#if UNITY_EDITOR
-                    if (!Application.isPlaying)
-                    {
-                        EditorSceneManager.OpenScene(HomeSceneAssetPath, OpenSceneMode.Single);
-                    }
-                    else
-#endif
-                    {
-                        SceneManager.LoadScene(HomeSceneName, LoadSceneMode.Single);
-                    }
-                }
-
-                TryPlacePlayerNearCurrentSceneRestTarget();
-                TrySnapResidentsToHomeAnchorsForDayEnd();
-                TrySnapStoryActorsToHomeAnchorsForDayEnd();
-                ArmForcedSleepRestPlacementRetries();
-            }
-
-            if (canUseSceneBlink)
-            {
-                bool blinkStarted = SceneTransitionRunner.TryBlink(
-                    FinalizeSleepSceneState,
-                    storyBlinkFadeOutDuration,
-                    storyBlinkHoldDuration,
-                    storyBlinkFadeInDuration);
-                if (!blinkStarted)
-                {
-                    FinalizeSleepSceneState();
-                }
-            }
-            else
-            {
-                FinalizeSleepSceneState();
-            }
-
             _dayEnded = true;
             _freeTimeEntered = true;
             _freeTimeIntroCompleted = true;
@@ -2308,6 +2403,48 @@ namespace Sunset.Story
             _dayEndTaskCardShownAt = Time.unscaledTime;
             ResyncLowEnergyState(false);
             SyncStoryTimePauseState();
+            bool canUseSceneBlink = Application.isPlaying;
+
+            void FinalizeSleepSceneState()
+            {
+                if (!IsHomeSceneActive())
+                {
+#if UNITY_EDITOR
+                    if (!Application.isPlaying)
+                    {
+                        EditorSceneManager.OpenScene(HomeSceneAssetPath, OpenSceneMode.Single);
+                    }
+                    else
+#endif
+                    {
+                        LoadSceneThroughPersistentBridge(HomeSceneName);
+                    }
+                }
+
+                TryPlacePlayerNearCurrentSceneRestTarget();
+                TrySnapResidentsToHomeAnchorsForDayEnd();
+                TrySnapStoryActorsToHomeAnchorsForDayEnd();
+                SpringDay1NpcCrowdDirector.ClearResidentRuntimeSnapshots();
+                PersistentPlayerSceneBridge.ClearNativeResidentRuntimeSnapshots("001", "002", "003");
+                ArmForcedSleepRestPlacementRetries();
+            }
+
+            if (canUseSceneBlink)
+            {
+                bool blinkStarted = SceneTransitionRunner.TryBlink(
+                    FinalizeSleepSceneState,
+                    storyBlinkFadeOutDuration,
+                    storyBlinkHoldDuration,
+                    storyBlinkFadeInDuration);
+                if (!blinkStarted)
+                {
+                    FinalizeSleepSceneState();
+                }
+            }
+            else
+            {
+                FinalizeSleepSceneState();
+            }
         }
 
         private bool ShouldHandleSpringDay1SleepResolution(StoryManager storyManager)
@@ -2350,13 +2487,15 @@ namespace Sunset.Story
                     else
 #endif
                     {
-                    SceneManager.LoadScene(HomeSceneName, LoadSceneMode.Single);
+                        LoadSceneThroughPersistentBridge(HomeSceneName);
                     }
                 }
 
                 TryPlacePlayerNearCurrentSceneRestTarget();
                 TrySnapResidentsToHomeAnchorsForDayEnd();
                 TrySnapStoryActorsToHomeAnchorsForDayEnd();
+                SpringDay1NpcCrowdDirector.ClearResidentRuntimeSnapshots();
+                PersistentPlayerSceneBridge.ClearNativeResidentRuntimeSnapshots("001", "002", "003");
                 ArmForcedSleepRestPlacementRetries();
             }
 
@@ -2394,11 +2533,23 @@ namespace Sunset.Story
             Debug.LogWarning("[SpringDay1Director] SnapResidentsToHomeAnchors() 不可用，已回退为 EnsureRuntime。");
         }
 
+        private static void LoadSceneThroughPersistentBridge(
+            string sceneName,
+            string scenePath = "",
+            string entryAnchorName = "")
+        {
+            if (Application.isPlaying)
+            {
+                PersistentPlayerSceneBridge.QueueSceneEntry(sceneName, scenePath, entryAnchorName);
+            }
+
+            SceneManager.LoadScene(sceneName, LoadSceneMode.Single);
+        }
+
         private bool CanFinalizeDayEndFromCurrentState(StoryPhase currentPhase)
         {
             return currentPhase == StoryPhase.FreeTime
                 && _freeTimeEntered
-                && _freeTimeIntroCompleted
                 && !_dayEnded;
         }
 
@@ -2465,6 +2616,8 @@ namespace Sunset.Story
             TryAutoBindWorkbenchInteractable();
             TryAutoBindBedInteractable();
             SyncStoryTimePauseState();
+            SyncPrimaryTownReturnGate();
+            SyncPrimaryHomeEntryGate();
             UpdateSceneStoryNpcVisibility();
             SyncStoryActorNightRestSchedule();
             TryApplyDebugWorkbenchSkip();
@@ -2529,6 +2682,11 @@ namespace Sunset.Story
             RefreshInventoryTrackingSubscription(null);
             TryAutoBindBedInteractable();
             SyncStoryTimePauseState();
+            if (TryRecoverPreHealingHomeIntrusion())
+            {
+                return;
+            }
+
             SyncStoryActorNightRestSchedule();
             ResetTownHouseLeadState();
             ResetPrimaryArrivalState();
@@ -2551,12 +2709,29 @@ namespace Sunset.Story
             Transform companion = ResolveStoryCompanionTransform();
             if (IsTownSceneActive())
             {
-                SetStoryNpcActiveIfPresent(chief, true);
-                SetStoryNpcActiveIfPresent(companion, true);
+                bool deferVisibilityToResidentNightContract = ShouldDeferTownStoryActorVisibilityToResidentNightContract(currentPhase);
+                bool shouldPrimeTownStoryActors = ShouldPrimeTownStoryActorsForExploreWindow(currentPhase);
+                if (!shouldPrimeTownStoryActors)
+                {
+                    _postTutorialTownActorsAnchored = false;
+                }
+
+                if (!deferVisibilityToResidentNightContract)
+                {
+                    SetStoryNpcActiveIfPresent(chief, true);
+                    SetStoryNpcActiveIfPresent(companion, true);
+                }
+
+                if (shouldPrimeTownStoryActors)
+                {
+                    TryPrimeTownStoryActorsForExploreWindow(chief, companion);
+                }
+
                 bool storyActorMode = ShouldUseTownStoryActorMode(currentPhase);
                 bool shouldSuppressRoam = storyActorMode;
-                ApplyStoryActorRuntimePolicy(chief, storyActorMode, shouldSuppressRoam, resumeRoamWhenReleased: true);
-                ApplyStoryActorRuntimePolicy(companion, storyActorMode, shouldSuppressRoam, resumeRoamWhenReleased: true);
+                bool resumeRoamWhenReleased = !deferVisibilityToResidentNightContract;
+                ApplyStoryActorRuntimePolicy(chief, storyActorMode, shouldSuppressRoam, resumeRoamWhenReleased);
+                ApplyStoryActorRuntimePolicy(companion, storyActorMode, shouldSuppressRoam, resumeRoamWhenReleased);
                 return;
             }
 
@@ -2584,10 +2759,25 @@ namespace Sunset.Story
             return currentPhase switch
             {
                 StoryPhase.EnterVillage => !HasHouseArrivalProgressed(),
-                StoryPhase.DinnerConflict => true,
-                StoryPhase.ReturnAndReminder => true,
                 _ => false
             };
+        }
+
+        private bool ShouldDeferTownStoryActorVisibilityToResidentNightContract(StoryPhase currentPhase)
+        {
+            if (currentPhase != StoryPhase.FreeTime && currentPhase != StoryPhase.DayEnd)
+            {
+                return false;
+            }
+
+            TimeManager timeManager = TimeManager.Instance;
+            if (timeManager == null)
+            {
+                return false;
+            }
+
+            int currentHour = timeManager.GetHour();
+            return ShouldStoryActorsReturnHomeByClock(currentHour) || ShouldStoryActorsRestByClock(currentHour);
         }
 
         private bool ShouldUsePrimaryStoryActorMode(StoryPhase currentPhase)
@@ -2612,6 +2802,166 @@ namespace Sunset.Story
             return currentPhase == StoryPhase.DinnerConflict && IsReturnToTownEscortPending();
         }
 
+        private void SyncPrimaryTownReturnGate()
+        {
+            if (!IsPrimarySceneActive())
+            {
+                return;
+            }
+
+            SceneTransitionTrigger2D transitionTrigger = ResolveCachedPrimaryTownTransitionTrigger();
+            if (transitionTrigger == null)
+            {
+                return;
+            }
+
+            bool allowReturn = ShouldAllowPrimaryReturnToTown();
+            if (transitionTrigger.enabled != allowReturn)
+            {
+                transitionTrigger.enabled = allowReturn;
+            }
+
+            Collider2D triggerCollider = transitionTrigger.GetComponent<Collider2D>();
+            if (triggerCollider != null && triggerCollider.enabled != allowReturn)
+            {
+                triggerCollider.enabled = allowReturn;
+            }
+        }
+
+        private void SyncPrimaryHomeEntryGate()
+        {
+            if (!IsPrimarySceneActive())
+            {
+                return;
+            }
+
+            SceneTransitionTrigger2D transitionTrigger = ResolveCachedPrimaryHomeTransitionTrigger();
+            if (transitionTrigger == null)
+            {
+                return;
+            }
+
+            bool allowEntry = ShouldAllowPrimaryHomeEntry();
+            if (transitionTrigger.enabled != allowEntry)
+            {
+                transitionTrigger.enabled = allowEntry;
+            }
+
+            Collider2D triggerCollider = transitionTrigger.GetComponent<Collider2D>();
+            if (triggerCollider != null && triggerCollider.enabled != allowEntry)
+            {
+                triggerCollider.enabled = allowEntry;
+            }
+        }
+
+        private bool ShouldAllowPrimaryReturnToTown()
+        {
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return true;
+            }
+
+            if (IsPostTutorialExploreWindowActive())
+            {
+                return true;
+            }
+
+            return storyManager.CurrentPhase == StoryPhase.DinnerConflict
+                || storyManager.CurrentPhase == StoryPhase.ReturnAndReminder
+                || storyManager.CurrentPhase == StoryPhase.FreeTime
+                || storyManager.CurrentPhase == StoryPhase.DayEnd;
+        }
+
+        private bool ShouldAllowPrimaryHomeEntry()
+        {
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return true;
+            }
+
+            return storyManager.CurrentPhase >= StoryPhase.WorkbenchFlashback;
+        }
+
+        private bool ShouldRecoverPreHealingHomeIntrusion()
+        {
+            return IsHomeSceneActive() && !ShouldAllowPrimaryHomeEntry();
+        }
+
+        private bool TryRecoverPreHealingHomeIntrusion()
+        {
+            if (!ShouldRecoverPreHealingHomeIntrusion())
+            {
+                return false;
+            }
+
+            if (SceneTransitionRunner.IsBusy)
+            {
+                return true;
+            }
+
+            SceneTransitionTrigger2D.SuppressPlayerEnter(0.35f);
+            LoadSceneThroughPersistentBridge(PrimarySceneName, string.Empty, PrimaryHomeEntryAnchorName);
+            return true;
+        }
+
+        private bool ShouldPrimeTownStoryActorsForExploreWindow(StoryPhase currentPhase)
+        {
+            return IsTownSceneActive()
+                && currentPhase == StoryPhase.FarmingTutorial
+                && _postTutorialExploreWindowEntered
+                && !_dinnerGatheringRequested
+                && !_pendingDinnerTownLoad;
+        }
+
+        private void TryPrimeTownStoryActorsForExploreWindow(Transform chief, Transform companion)
+        {
+            if (_postTutorialTownActorsAnchored)
+            {
+                return;
+            }
+
+            bool chiefAnchored = chief == null || TrySnapStoryActorToResolvedTownHomeAnchor(chief);
+            bool companionAnchored = companion == null || TrySnapStoryActorToResolvedTownHomeAnchor(companion);
+            if (!chiefAnchored || !companionAnchored)
+            {
+                return;
+            }
+
+            _postTutorialTownActorsAnchored = true;
+            Physics2D.SyncTransforms();
+        }
+
+        private static bool TrySnapStoryActorToResolvedTownHomeAnchor(Transform actor)
+        {
+            if (actor == null)
+            {
+                return true;
+            }
+
+            NPCAutoRoamController roamController = actor.GetComponent<NPCAutoRoamController>();
+            Transform homeAnchor = ResolveStoryActorNightHomeAnchor(actor, roamController);
+            if (homeAnchor == null)
+            {
+                return false;
+            }
+
+            Vector3 targetPosition = homeAnchor.position;
+            targetPosition.z = actor.position.z;
+            if (roamController != null)
+            {
+                roamController.SnapToTarget((Vector2)targetPosition);
+            }
+            else
+            {
+                actor.position = targetPosition;
+                actor.GetComponent<NPCMotionController>()?.StopMotion();
+            }
+
+            return true;
+        }
+
         private void ApplyStoryActorRuntimePolicy(Transform actor, bool storyActorMode, bool suppressRoam, bool resumeRoamWhenReleased)
         {
             if (actor == null)
@@ -2625,22 +2975,17 @@ namespace Sunset.Story
 
             if (storyActorMode)
             {
-                if (formalDialogue != null && formalDialogue.enabled)
-                {
-                    formalDialogue.enabled = false;
-                }
-
-                if (informalDialogue != null && informalDialogue.enabled)
-                {
-                    informalDialogue.enabled = false;
-                }
-
                 if (roamController != null)
                 {
-                    roamController.AcquireResidentScriptedControl(DirectorResidentControlOwnerKey, resumeRoamWhenReleased);
+                    roamController.AcquireStoryControl(DirectorResidentControlOwnerKey, resumeRoamWhenReleased);
                 }
 
-                ResolveNpcBubblePresenter(actor)?.HideBubble();
+                NPCBubblePresenter bubblePresenter = ResolveNpcBubblePresenter(actor);
+                if (bubblePresenter != null && !bubblePresenter.IsConversationPriorityVisible)
+                {
+                    bubblePresenter.HideBubble();
+                }
+
                 return;
             }
 
@@ -2661,17 +3006,18 @@ namespace Sunset.Story
 
             if (roamController != null)
             {
-                roamController.ReleaseResidentScriptedControl(DirectorResidentControlOwnerKey, resumeRoamWhenReleased);
+                roamController.ReleaseStoryControl(DirectorResidentControlOwnerKey, resumeRoamWhenReleased);
             }
 
             if (roamController != null
+                && resumeRoamWhenReleased
                 && roamController.isActiveAndEnabled
                 && actor.gameObject.activeInHierarchy
                 && IsTownSceneActive()
                 && !roamController.IsRoaming
                 && !roamController.IsResidentScriptedControlActive)
             {
-                roamController.StartRoam();
+                roamController.ResumeAutonomousRoam(tryImmediateMove: true);
             }
         }
 
@@ -2683,30 +3029,11 @@ namespace Sunset.Story
             }
 
             return ReferenceEquals(actor, ResolveStoryChiefTransform())
-                || ReferenceEquals(actor, ResolveStoryCompanionTransform())
-                || ReferenceEquals(actor, ResolveStoryThirdResidentTransform());
+                || ReferenceEquals(actor, ResolveStoryCompanionTransform());
         }
 
         private void SyncStoryActorNightRestSchedule()
         {
-            if (!ShouldManageStoryActorNightSchedule(out int currentHour))
-            {
-                ReleaseStoryActorNightRestControlIfNeeded(resumeRoam: true);
-                return;
-            }
-
-            if (ShouldStoryActorsRestByClock(currentHour))
-            {
-                ApplyStoryActorNightRestSchedule(forceSnap: true);
-                return;
-            }
-
-            if (ShouldStoryActorsReturnHomeByClock(currentHour))
-            {
-                ApplyStoryActorNightRestSchedule(forceSnap: false);
-                return;
-            }
-
             ReleaseStoryActorNightRestControlIfNeeded(resumeRoam: true);
         }
 
@@ -2751,7 +3078,6 @@ namespace Sunset.Story
         {
             ApplyStoryActorNightRestToActor(ResolveStoryChiefTransform(), forceSnap);
             ApplyStoryActorNightRestToActor(ResolveStoryCompanionTransform(), forceSnap);
-            ApplyStoryActorNightRestToActor(ResolveStoryThirdResidentTransform(), forceSnap);
             _storyActorNightRestActive = true;
         }
 
@@ -2776,18 +3102,18 @@ namespace Sunset.Story
                 && roamController != null
                 && Vector2.Distance(actor.position, targetPosition) > 0.05f)
             {
-                roamController.DriveResidentScriptedMoveTo(
+                roamController.RequestReturnToAnchor(
                     DirectorResidentControlOwnerKey,
-                    homeAnchor.position,
-                    resumeRoamWhenReleased: true,
+                    homeAnchor,
+                    resumeAutonomousRoamWhenReleased: true,
                     retargetTolerance: Mathf.Max(escortRetargetTolerance, 0.35f));
                 return;
             }
 
             if (roamController != null)
             {
-                roamController.AcquireResidentScriptedControl(DirectorResidentControlOwnerKey, resumeRoamWhenReleased: true);
-                roamController.HaltResidentScriptedMovement();
+                roamController.AcquireStoryControl(DirectorResidentControlOwnerKey, resumeAutonomousRoamWhenReleased: true);
+                roamController.HaltStoryControlMotion();
             }
 
             actor.position = targetPosition;
@@ -2797,14 +3123,9 @@ namespace Sunset.Story
 
         private static Transform ResolveStoryActorNightHomeAnchor(Transform actor, NPCAutoRoamController roamController)
         {
-            if (roamController != null && roamController.HomeAnchor != null)
-            {
-                return roamController.HomeAnchor;
-            }
-
             if (actor == null)
             {
-                return null;
+                return roamController != null ? roamController.HomeAnchor : null;
             }
 
             string normalizedNpcId = NPCDialogueContentProfile.NormalizeNpcId(actor.name);
@@ -2812,13 +3133,18 @@ namespace Sunset.Story
                 ? new[] { $"{actor.name}_HomeAnchor" }
                 : new[] { $"{actor.name}_HomeAnchor", $"{normalizedNpcId}_HomeAnchor", $"NPC{normalizedNpcId}_HomeAnchor" };
 
-            Transform homeAnchor = FindPreferredObjectTransform(preferredAnchorNames);
-            if (homeAnchor != null && roamController != null)
+            Transform explicitHomeAnchor = FindPreferredObjectTransform(preferredAnchorNames);
+            if (explicitHomeAnchor != null)
             {
-                roamController.SetHomeAnchor(homeAnchor);
+                if (roamController != null && roamController.HomeAnchor != explicitHomeAnchor)
+                {
+                    roamController.BindResidentHomeAnchor(explicitHomeAnchor);
+                }
+
+                return explicitHomeAnchor;
             }
 
-            return homeAnchor;
+            return roamController != null ? roamController.HomeAnchor : null;
         }
 
         private void ReleaseStoryActorNightRestControlIfNeeded(bool resumeRoam)
@@ -2830,7 +3156,6 @@ namespace Sunset.Story
 
             ReleaseStoryActorNightRestControl(ResolveStoryChiefTransform(), resumeRoam);
             ReleaseStoryActorNightRestControl(ResolveStoryCompanionTransform(), resumeRoam);
-            ReleaseStoryActorNightRestControl(ResolveStoryThirdResidentTransform(), resumeRoam);
             _storyActorNightRestActive = false;
         }
 
@@ -2842,7 +3167,7 @@ namespace Sunset.Story
                 return;
             }
 
-            roamController.ReleaseResidentScriptedControl(DirectorResidentControlOwnerKey, resumeRoam);
+            roamController.ReleaseStoryControl(DirectorResidentControlOwnerKey, resumeRoam);
         }
 
         private void TrySnapStoryActorsToHomeAnchorsForDayEnd()
@@ -2899,24 +3224,34 @@ namespace Sunset.Story
             StoryManager storyManager = StoryManager.Instance;
             if (storyManager == null || storyManager.CurrentPhase != StoryPhase.EnterVillage)
             {
-                _townVillageGateCueWaitStartedAt = -1f;
+                ResetTownVillageGateDialogueSettlementState();
                 return;
             }
 
             EnsureStoryHourAtLeast(TownOpeningHour);
 
+            if (IsVillageGateDialoguePendingStart())
+            {
+                return;
+            }
+
+            if (IsDialogueSequenceCurrentlyActive(VillageGateSequenceId))
+            {
+                return;
+            }
+
             if (HasHouseArrivalProgressed())
             {
                 _houseArrivalSequencePlayed = true;
-                _townVillageGateCueWaitStartedAt = -1f;
+                ResetTownVillageGateDialogueSettlementState();
                 ResetTownHouseLeadState();
                 return;
             }
 
-            if (HasVillageGateProgressed())
+            if (HasVillageGateCompleted())
             {
                 _villageGateSequencePlayed = true;
-                _townVillageGateCueWaitStartedAt = -1f;
+                ResetTownVillageGateDialogueSettlementState();
                 if (!IsDialogueChainStillActive())
                 {
                     TryBeginTownHouseLead();
@@ -2930,36 +3265,52 @@ namespace Sunset.Story
                 return;
             }
 
+            if (_townVillageGateCueWaitStartedAt < 0f)
+            {
+                _townVillageGateCueWaitStartedAt = Time.unscaledTime;
+            }
+
+            bool flowTimedOut = townVillageGateCueSettleTimeout <= 0f
+                || Time.unscaledTime - _townVillageGateCueWaitStartedAt >= townVillageGateCueSettleTimeout;
+
+            bool actorsReady;
+            if (flowTimedOut)
+            {
+                actorsReady = TryPrepareTownVillageGateActors(forceImmediate: true);
+                if (!actorsReady)
+                {
+                    ForcePlaceTownVillageGateActorsAtTargets();
+                    actorsReady = true;
+                }
+            }
+            else
+            {
+                actorsReady = TryPrepareTownVillageGateActors();
+            }
+
             SpringDay1NpcCrowdDirector.ForceImmediateSync();
             bool beatSettled = SpringDay1NpcCrowdDirector.IsBeatCueSettled(SpringDay1DirectorBeatKeys.EnterVillagePostEntry);
             if (!beatSettled)
             {
-                if (_townVillageGateCueWaitStartedAt < 0f)
-                {
-                    _townVillageGateCueWaitStartedAt = Time.unscaledTime;
-                }
-
                 bool beatReady = string.Equals(
                     GetCurrentBeatKey(),
                     SpringDay1DirectorBeatKeys.EnterVillagePostEntry,
                     StringComparison.OrdinalIgnoreCase);
-                bool timedOut = townVillageGateCueSettleTimeout <= 0f
-                    || Time.unscaledTime - _townVillageGateCueWaitStartedAt >= townVillageGateCueSettleTimeout;
-                if (!beatReady || !timedOut)
+                if (!flowTimedOut)
                 {
+                    if (!beatReady)
+                    {
+                        return;
+                    }
+
                     return;
                 }
 
-                if (!SpringDay1NpcCrowdDirector.ForceSettleBeatCue(SpringDay1DirectorBeatKeys.EnterVillagePostEntry))
+                bool settledNow = SpringDay1NpcCrowdDirector.ForceSettleBeatCue(SpringDay1DirectorBeatKeys.EnterVillagePostEntry);
+                if (!settledNow && showDebugLog)
                 {
-                    return;
+                    Debug.LogWarning("[SpringDay1Director] Town opening crowd cue 超时后仍未完全 settled，已改为不再阻塞 village gate 对话。");
                 }
-
-                _townVillageGateCueWaitStartedAt = -1f;
-            }
-            else
-            {
-                _townVillageGateCueWaitStartedAt = -1f;
             }
 
             if (!ShouldQueueDialogueSequence(ref _villageGateSequencePlayed, VillageGateSequenceId))
@@ -2967,7 +3318,7 @@ namespace Sunset.Story
                 return;
             }
 
-            if (!TryPrepareTownVillageGateActors())
+            if (!actorsReady)
             {
                 _villageGateSequencePlayed = false;
                 return;
@@ -2985,7 +3336,12 @@ namespace Sunset.Story
                 return;
             }
 
-            TryPrepareTownVillageGateActors();
+            // opening 对话一旦开始，就不再允许 story actors 被重新拉回起点重播；
+            // 这里直接钉终点，保证 live 现场只剩“已就位、不再动”这一种状态。
+            if (!TryPrepareTownVillageGateActors(forceImmediate: true))
+            {
+                ForcePlaceTownVillageGateActorsAtTargets();
+            }
         }
 
         private void TryBeginTownHouseLead()
@@ -3041,12 +3397,24 @@ namespace Sunset.Story
                 if (!_townHouseLeadWaitingForPlayer)
                 {
                     PauseStoryActorNavigation(chiefRoam);
-                    PauseStoryActorNavigation(companionRoam);
+                    _townHouseLeadNextMoveRetryAt = 0f;
                     SpringDay1PromptOverlay.Instance.Show(TownLeadWaitPromptText);
                 }
 
                 _townHouseLeadWaitingForPlayer = true;
                 TryShowEscortWaitBubble(chiefBubble, TownLeadWaitPromptText, ref _townHouseLeadNextBubbleAt);
+                if (leadTarget != null && Time.unscaledTime >= _townHouseLeadNextMoveRetryAt)
+                {
+                    if (TryDriveEscortCompanionTowardLeaderFormation(
+                            chief,
+                            companion,
+                            companionRoam,
+                            leadTarget.position,
+                            townHouseLeadChiefArrivalDistance))
+                    {
+                        _townHouseLeadNextMoveRetryAt = Time.unscaledTime + townHouseLeadMoveRetryInterval;
+                    }
+                }
             }
             else
             {
@@ -3073,10 +3441,12 @@ namespace Sunset.Story
 
                     if (companion != null)
                     {
-                        Vector3 companionTarget = BuildEscortCompanionTarget(
-                            chief != null ? chief.position : companion.position,
-                            leadTarget.position);
-                        if (TryDriveEscortActor(companion, companionRoam, companionTarget, townHouseLeadChiefArrivalDistance))
+                        if (TryDriveEscortCompanionTowardLeaderFormation(
+                                chief,
+                                companion,
+                                companionRoam,
+                                leadTarget.position,
+                                townHouseLeadChiefArrivalDistance))
                         {
                             issuedMove = true;
                         }
@@ -3190,6 +3560,7 @@ namespace Sunset.Story
             _freeTimeIntroCompleted = false;
             _postTutorialWrapSequenceQueued = false;
             _postTutorialExploreWindowEntered = false;
+            _postTutorialTownActorsAnchored = false;
             _dinnerGatheringRequested = false;
             _pendingDinnerTownLoad = false;
             ResetDinnerCueSettlementState();
@@ -3248,6 +3619,7 @@ namespace Sunset.Story
             _healingStarted = true;
             _postTutorialWrapSequenceQueued = false;
             _postTutorialExploreWindowEntered = false;
+            _postTutorialTownActorsAnchored = false;
             _dinnerGatheringRequested = false;
             _pendingDinnerTownLoad = false;
             ResetDinnerCueSettlementState();
@@ -3304,7 +3676,7 @@ namespace Sunset.Story
                 companion,
                 workbenchTarget,
                 out Vector3 chiefEscortTarget,
-                out Vector3 companionEscortTarget);
+                out _);
 
             string bridgePromptText = ResolveEscortBridgePromptText(
                 chief,
@@ -3332,12 +3704,25 @@ namespace Sunset.Story
                 if (!_workbenchEscortWaitingForPlayer)
                 {
                     PauseStoryActorNavigation(chiefRoam);
-                    PauseStoryActorNavigation(companionRoam);
+                    _workbenchEscortNextMoveRetryAt = 0f;
                     SpringDay1PromptOverlay.Instance.Show(WorkbenchEscortWaitPromptText);
                 }
 
                 _workbenchEscortWaitingForPlayer = true;
                 TryShowEscortWaitBubble(chiefBubble, WorkbenchEscortWaitPromptText, ref _workbenchEscortNextBubbleAt);
+                if (workbenchTarget != null && Time.unscaledTime >= _workbenchEscortNextMoveRetryAt)
+                {
+                    if (TryDriveEscortCompanionTowardLeaderFormation(
+                            chief,
+                            companion,
+                            companionRoam,
+                            workbenchTarget.position,
+                            townHouseLeadChiefArrivalDistance))
+                    {
+                        _workbenchEscortNextMoveRetryAt = Time.unscaledTime + townHouseLeadMoveRetryInterval;
+                    }
+                }
+
                 return;
             }
 
@@ -3364,7 +3749,12 @@ namespace Sunset.Story
 
                 if (companion != null)
                 {
-                    if (TryDriveEscortActor(companion, companionRoam, companionEscortTarget, townHouseLeadChiefArrivalDistance))
+                    if (TryDriveEscortCompanionTowardLeaderFormation(
+                            chief,
+                            companion,
+                            companionRoam,
+                            workbenchTarget != null ? workbenchTarget.position : chiefEscortTarget,
+                            townHouseLeadChiefArrivalDistance))
                     {
                         issuedMove = true;
                     }
@@ -3376,12 +3766,23 @@ namespace Sunset.Story
                 }
             }
 
+            float workbenchLeaderReadyDistance = Mathf.Max(townHouseLeadChiefArrivalDistance, MinimumWorkbenchEscortLeaderReadyDistance);
             bool chiefReady = float.IsInfinity(_workbenchEscortChiefDistance)
-                || _workbenchEscortChiefDistance <= townHouseLeadChiefArrivalDistance;
+                || _workbenchEscortChiefDistance <= workbenchLeaderReadyDistance;
             bool companionReady = float.IsInfinity(_workbenchEscortCompanionDistance)
-                || _workbenchEscortCompanionDistance <= townHouseLeadChiefArrivalDistance;
+                || _workbenchEscortCompanionDistance <= workbenchLeaderReadyDistance;
             bool playerReady = !float.IsInfinity(_workbenchEscortPlayerDistance)
                 && _workbenchEscortPlayerDistance <= workbenchEscortReadyDistance;
+            bool playerNearWorkbench = workbenchTarget != null
+                && TryGetPlayerDistanceToEscortTarget(null, workbenchTarget, out float playerWorkbenchDistance)
+                && playerWorkbenchDistance <= workbenchEscortReadyDistance;
+            bool canForceWorkbenchBriefing = CanForceWorkbenchBriefing(chiefReady, playerNearWorkbench);
+            if (canForceWorkbenchBriefing)
+            {
+                companionReady = true;
+                playerReady = true;
+            }
+
             if (playerReady && chiefReady && companionReady)
             {
                 if (!_workbenchEscortIdlePlaced)
@@ -3738,7 +4139,7 @@ namespace Sunset.Story
                 StoryPhase.ReturnAndReminder => ((FreeTimeStartHour * 60) + FreeTimeStartMinute) - 1,
                 StoryPhase.FreeTime => 26 * 60,
                 StoryPhase.FarmingTutorial when _postTutorialExploreWindowEntered || _dinnerGatheringRequested || _pendingDinnerTownLoad => (DinnerReturnHour * 60) + DinnerReturnMinute,
-                _ => (TutorialTimeCapHour * 60) + 59
+                _ => TutorialTimeCapHour * 60
             };
         }
 
@@ -3887,15 +4288,15 @@ namespace Sunset.Story
             }
 
             UpdateHealingBridgeSnapshot(out Transform supportNpc, out NPCAutoRoamController supportRoam);
-            if (supportNpc == null || !TryGetPlayerInteractionSamplePoint(out Vector2 playerSamplePoint))
+            if (supportNpc == null || !TryGetPlayerHealingProximityPoint(out Vector2 playerProximityPoint))
             {
                 StartHealingSequence();
                 return;
             }
 
-            Vector2 npcPosition = supportNpc.position;
-            _healingBridgeNpcDistance = Vector2.Distance(npcPosition, playerSamplePoint);
-            if (_healingBridgeNpcDistance > healingSupportApproachDistance)
+            Vector2 supportSamplePoint = GetHealingSupportSamplePoint(supportNpc);
+            _healingBridgeNpcDistance = Vector2.Distance(supportSamplePoint, playerProximityPoint);
+            if (_healingBridgeNpcDistance > GetEffectiveHealingSupportApproachDistance())
             {
                 HaltStoryActorNavigation(supportRoam);
                 _healingBridgeHoldUntil = 0f;
@@ -3904,6 +4305,7 @@ namespace Sunset.Story
             }
 
             HaltStoryActorNavigation(supportRoam);
+            FaceHealingSupportTowardPlayer(supportNpc, playerProximityPoint);
 
             if (_healingBridgeHoldUntil <= 0f)
             {
@@ -4360,8 +4762,8 @@ namespace Sunset.Story
             if (IsFreeTimeIntroPending())
             {
                 return IsDialogueSequenceCurrentlyActive(FreeTimeIntroSequenceId)
-                    ? "先把夜里的见闻听完，再继续验证回屋收束。"
-                    : "自由时段见闻尚未收束，先让这段夜里的动静完整接管。";
+                    ? "夜里的见闻正在进行，但床现在已经可用；想直接收束就回屋睡。"
+                    : "自由时段见闻尚未收束，但床现在已经可用；想收束就直接回屋睡。";
             }
 
             if (!IsSleepInteractionAvailable())
@@ -4399,8 +4801,8 @@ namespace Sunset.Story
             if (IsFreeTimeIntroPending())
             {
                 return IsDialogueSequenceCurrentlyActive(FreeTimeIntroSequenceId)
-                    ? "当前夜间见闻仍在进行，先把它听完。"
-                    : "自由时段见闻尚未收束，先听完这段夜里的动静。";
+                    ? "当前夜间见闻仍在进行；若要直接收束，现在就可以触发床交互。"
+                    : "自由时段见闻尚未收束；若要直接收束，现在就可以触发床交互。";
             }
 
             if (!IsSleepInteractionAvailable())
@@ -4582,7 +4984,7 @@ namespace Sunset.Story
                 && storyManager.CurrentPhase == StoryPhase.EnterVillage
                 && IsTownSceneActive()
                 && !IsDialogueSequenceCurrentlyActive(VillageGateSequenceId)
-                && HasVillageGateProgressed()
+                && HasVillageGateCompleted()
                 && !HasHouseArrivalProgressed();
         }
 
@@ -4592,10 +4994,37 @@ namespace Sunset.Story
             return storyManager != null
                 && storyManager.CurrentPhase == StoryPhase.EnterVillage
                 && IsTownSceneActive()
+                && (!IsDialogueSequenceCurrentlyActive(VillageGateSequenceId))
                 && (HasVillageGateCompleted()
+                    || HasHouseArrivalProgressed()
                     || _townHouseLeadStarted
                     || _townHouseLeadTransitionQueued
                     || _townHouseLeadWaitingForPlayer);
+        }
+
+        public bool ShouldLatchEnterVillageCrowdRelease()
+        {
+            StoryManager storyManager = StoryManager.Instance;
+            if (storyManager == null)
+            {
+                return false;
+            }
+
+            if (storyManager.CurrentPhase > StoryPhase.EnterVillage)
+            {
+                return true;
+            }
+
+            if (storyManager.CurrentPhase < StoryPhase.EnterVillage)
+            {
+                return false;
+            }
+
+            return HasVillageGateCompleted()
+                || HasHouseArrivalProgressed()
+                || _townHouseLeadStarted
+                || _townHouseLeadTransitionQueued
+                || _townHouseLeadWaitingForPlayer;
         }
 
         public bool ShouldHoldEnterVillageCrowdCue()
@@ -4806,7 +5235,7 @@ namespace Sunset.Story
                 StartHealingSequence();
             }
 
-            return resultingDistance <= healingSupportApproachDistance
+            return resultingDistance <= GetEffectiveHealingSupportApproachDistance()
                 ? "验收入口：已模拟玩家靠近艾拉，疗伤对白与 HP 卡片开始接管。"
                 : $"验收入口：已模拟玩家靠近艾拉并强制疗伤接管（当前采样距离={resultingDistance:F2}）。";
         }
@@ -4934,6 +5363,16 @@ namespace Sunset.Story
                 && !IsDialogueSequenceCurrentlyActive(DinnerSequenceId);
         }
 
+        private bool IsVillageGateDialoguePendingStart()
+        {
+            StoryManager storyManager = StoryManager.Instance;
+            return storyManager != null
+                && storyManager.CurrentPhase == StoryPhase.EnterVillage
+                && _villageGateSequencePlayed
+                && !HasCompletedDialogueSequence(VillageGateSequenceId)
+                && !IsDialogueSequenceCurrentlyActive(VillageGateSequenceId);
+        }
+
         public bool IsReminderDialoguePendingStart()
         {
             StoryManager storyManager = StoryManager.Instance;
@@ -4970,7 +5409,6 @@ namespace Sunset.Story
             return storyManager != null
                 && storyManager.CurrentPhase == StoryPhase.FreeTime
                 && _freeTimeEntered
-                && _freeTimeIntroCompleted
                 && !_dayEnded;
         }
 
@@ -5113,7 +5551,15 @@ namespace Sunset.Story
                 return;
             }
 
-            AlignTownDinnerGatheringStoryActors();
+            if (IsDinnerDialoguePendingStart())
+            {
+                return;
+            }
+
+            if (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive)
+            {
+                return;
+            }
 
             if (!CanStartDinnerConflictDialogueNow())
             {
@@ -5125,20 +5571,192 @@ namespace Sunset.Story
                 return;
             }
 
-            ResetDinnerCueSettlementState();
+            ResetDinnerCueWaitState();
             PlayDialogueNowOrQueue(BuildDinnerSequence());
         }
 
         private bool CanStartDinnerConflictDialogueNow()
         {
-            return EvaluateDinnerCueStartPermission(ResolveDinnerCueSettledState());
+            if (_dinnerCueWaitStartedAt < 0f)
+            {
+                _dinnerCueWaitStartedAt = Time.unscaledTime;
+            }
+
+            bool storyActorsReady = PrepareDinnerStoryActorsForDialogue();
+            bool beatSettled = ResolveDinnerCueSettledState();
+            if (storyActorsReady && beatSettled)
+            {
+                ResetDinnerCueWaitState();
+                return true;
+            }
+
+            bool timedOut = dinnerCueSettleTimeout <= 0f
+                || Time.unscaledTime - _dinnerCueWaitStartedAt >= dinnerCueSettleTimeout;
+            if (!timedOut)
+            {
+                return false;
+            }
+
+            bool settledNow = SpringDay1NpcCrowdDirector.ForceSettleBeatCue(SpringDay1DirectorBeatKeys.DinnerConflictTable);
+            ForceSettleDinnerStoryActors();
+            if (!settledNow && showDebugLog)
+            {
+                Debug.LogWarning("[SpringDay1Director] Dinner crowd cue 超时后仍未完全 settled，已改为不再阻塞晚饭正式对白。");
+            }
+
+            ResetDinnerCueWaitState();
+            return true;
+        }
+
+        private bool PrepareDinnerStoryActorsForDialogue()
+        {
+            Transform chief = ResolveStoryChiefTransform();
+            Transform companion = ResolveStoryCompanionTransform();
+
+            if (chief == null || companion == null)
+            {
+                return false;
+            }
+
+            if (!_dinnerStoryActorsPlaced)
+            {
+                SpringDay1NpcCrowdDirector.ForceImmediateSync();
+                Vector2 lookTarget = new Vector2(DinnerGatheringTownPlayerPosition.x, DinnerGatheringTownPlayerPosition.y);
+
+                if (TryResolveDinnerStoryActorRoute(StoryNpcChiefLabel, chief, out Vector3 chiefStart, out _)
+                    && Vector2.Distance(chief.position, chiefStart) > 0.05f)
+                {
+                    ReframeStoryActor(chief, chiefStart, lookTarget);
+                }
+
+                if (TryResolveDinnerStoryActorRoute(StoryNpcCompanionLabel, companion, out Vector3 companionStart, out _)
+                    && Vector2.Distance(companion.position, companionStart) > 0.05f)
+                {
+                    ReframeStoryActor(companion, companionStart, lookTarget);
+                }
+
+                _dinnerStoryActorsPlaced = true;
+                _dinnerStoryActorsWaitStartedAt = _dinnerCueWaitStartedAt >= 0f
+                    ? _dinnerCueWaitStartedAt
+                    : Time.unscaledTime;
+            }
+
+            return true;
+        }
+
+        private void ForceSettleDinnerStoryActors()
+        {
+            Transform chief = ResolveStoryChiefTransform();
+            Transform companion = ResolveStoryCompanionTransform();
+            Vector2 lookTarget = new Vector2(DinnerGatheringTownPlayerPosition.x, DinnerGatheringTownPlayerPosition.y);
+
+            if (chief != null
+                && TryResolveDinnerStoryActorRoute(StoryNpcChiefLabel, chief, out _, out Vector3 chiefEnd)
+                && Vector2.Distance(chief.position, chiefEnd) > 0.05f)
+            {
+                ReframeStoryActor(chief, chiefEnd, lookTarget);
+            }
+
+            if (companion != null
+                && TryResolveDinnerStoryActorRoute(StoryNpcCompanionLabel, companion, out _, out Vector3 companionEnd)
+                && Vector2.Distance(companion.position, companionEnd) > 0.05f)
+            {
+                ReframeStoryActor(companion, companionEnd, lookTarget);
+            }
+
+            _dinnerStoryActorsWaitStartedAt = -1f;
+        }
+
+        private bool TryResolveDinnerStoryActorRoute(
+            string npcId,
+            Transform actor,
+            out Vector3 startPosition,
+            out Vector3 endPosition)
+        {
+            startPosition = default;
+            endPosition = default;
+            if (actor == null || string.IsNullOrWhiteSpace(npcId))
+            {
+                return false;
+            }
+
+            return TryResolveDinnerStoryActorRouteFromSceneMarkers(npcId, actor, out startPosition, out endPosition);
+        }
+
+        private static bool TryResolveDinnerStoryActorRouteFromSceneMarkers(
+            string npcId,
+            Transform actor,
+            out Vector3 startPosition,
+            out Vector3 endPosition)
+        {
+            startPosition = default;
+            endPosition = default;
+            if (actor == null || string.IsNullOrWhiteSpace(npcId))
+            {
+                return false;
+            }
+
+            if (!TryResolveVillageCrowdMarker(npcId, preferStart: true, out Transform startMarker)
+                || !TryResolveVillageCrowdMarker(npcId, preferStart: false, out Transform endMarker))
+            {
+                return false;
+            }
+
+            startPosition = BuildStoryPointPosition(startMarker, actor);
+            endPosition = BuildStoryPointPosition(endMarker, actor);
+            return true;
+        }
+
+        private static bool TryResolveBeatActorRoute(
+            string beatKey,
+            string npcId,
+            Transform actor,
+            out Vector3 startPosition,
+            out Vector3 endPosition)
+        {
+            startPosition = default;
+            endPosition = default;
+            if (actor == null || string.IsNullOrWhiteSpace(beatKey) || string.IsNullOrWhiteSpace(npcId))
+            {
+                return false;
+            }
+
+            SpringDay1DirectorStageBook stageBook = SpringDay1DirectorStagingDatabase.Load();
+            SpringDay1DirectorBeatEntry beatEntry = stageBook != null ? stageBook.FindBeat(beatKey) : null;
+            if (beatEntry?.actorCues == null)
+            {
+                return false;
+            }
+
+            SpringDay1DirectorActorCue cue = null;
+            for (int index = 0; index < beatEntry.actorCues.Length; index++)
+            {
+                SpringDay1DirectorActorCue candidate = beatEntry.actorCues[index];
+                if (candidate == null
+                    || !string.Equals(candidate.npcId?.Trim(), npcId.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                cue = candidate;
+                break;
+            }
+
+            if (cue == null
+                || !TryResolveCueStartWorldPosition(cue, actor.position.z, out startPosition)
+                || !TryResolveCueArrivalWorldPosition(cue, actor.position.z, out endPosition))
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private bool EvaluateDinnerCueStartPermission(bool beatSettled)
         {
             if (beatSettled)
             {
-                ResetDinnerCueSettlementState();
+                ResetDinnerCueWaitState();
                 return true;
             }
 
@@ -5155,12 +5773,13 @@ namespace Sunset.Story
                 return false;
             }
 
-            if (!SpringDay1NpcCrowdDirector.ForceSettleBeatCue(SpringDay1DirectorBeatKeys.DinnerConflictTable))
+            bool settledNow = SpringDay1NpcCrowdDirector.ForceSettleBeatCue(SpringDay1DirectorBeatKeys.DinnerConflictTable);
+            if (!settledNow && showDebugLog)
             {
-                return false;
+                Debug.LogWarning("[SpringDay1Director] Dinner crowd cue 超时后仍未完全 settled，已改为不再阻塞晚饭正式对白。");
             }
 
-            ResetDinnerCueSettlementState();
+            ResetDinnerCueWaitState();
             return true;
         }
 
@@ -5301,14 +5920,14 @@ namespace Sunset.Story
 
         public string BuildPlayerFacingStatusSummary()
         {
-            PromptCardModel card = StoryManager.Instance != null
-                ? BuildPromptCardModel()
-                : new PromptCardModel
+            PromptCardModel card = BuildPromptCardModel() ?? (_dayEnded
+                ? new PromptCardModel
                 {
-                    StageLabel = "未初始化",
-                    FocusText = "等待 Day1 运行时对象就位。",
-                    FooterText = "暂无正式阶段信息。"
-                };
+                    StageLabel = GetCurrentTaskLabel(),
+                    FocusText = GetCurrentFocusTextForTests(),
+                    FooterText = GetCurrentProgressLabel()
+                }
+                : BuildUninitializedPromptCardModel());
             return $"{SanitizePlayerFacingText(card.StageLabel)}|focus={SanitizePlayerFacingText(card.FocusText)}|progress={SanitizePlayerFacingText(card.FooterText)}|hint={SanitizePlayerFacingText(GetCurrentWorldHintSummary())}";
         }
 
@@ -5372,9 +5991,23 @@ namespace Sunset.Story
             _townVillageGateCueWaitStartedAt = -1f;
         }
 
-        private void ResetDinnerCueSettlementState()
+        private void ResetTownVillageGateDialogueSettlementState()
+        {
+            _townVillageGateCueWaitStartedAt = -1f;
+            _townVillageGateActorsWaitStartedAt = -1f;
+            _townVillageGateActorsPlaced = false;
+        }
+
+        private void ResetDinnerCueWaitState()
         {
             _dinnerCueWaitStartedAt = -1f;
+            _dinnerStoryActorsWaitStartedAt = -1f;
+        }
+
+        private void ResetDinnerCueSettlementState()
+        {
+            ResetDinnerCueWaitState();
+            _dinnerStoryActorsPlaced = false;
         }
 
         private void ResetPrimaryArrivalState()
@@ -5575,6 +6208,14 @@ namespace Sunset.Story
                 TownSceneName);
         }
 
+        private SceneTransitionTrigger2D ResolveCachedPrimaryHomeTransitionTrigger()
+        {
+            return ResolveCachedSceneTransitionTrigger(
+                ref _cachedPrimaryHomeTransitionTrigger,
+                HomeSceneName,
+                PreferredPrimaryHomeTransitionTriggerObjectNames);
+        }
+
         private SceneTransitionTrigger2D ResolveCachedSceneTransitionTrigger(
             ref SceneTransitionTrigger2D cachedTrigger,
             string targetSceneName,
@@ -5606,7 +6247,7 @@ namespace Sunset.Story
             return _cachedTownLeadTarget;
         }
 
-        private bool TryPrepareTownVillageGateActors()
+        private bool TryPrepareTownVillageGateActors(bool forceImmediate = false)
         {
             if (!IsTownSceneActive())
             {
@@ -5614,68 +6255,267 @@ namespace Sunset.Story
             }
 
             Transform chief = ResolveStoryChiefTransform();
+            NPCAutoRoamController chiefRoam = chief != null ? chief.GetComponent<NPCAutoRoamController>() : null;
             Transform companion = ResolveStoryCompanionTransform();
-            Transform thirdResident = ResolveStoryThirdResidentTransform();
+            NPCAutoRoamController companionRoam = companion != null ? companion.GetComponent<NPCAutoRoamController>() : null;
             bool hasSceneAuthoredTargets = HasAnyTownVillageGateSceneAuthoring();
 
-            TryResolveTownOpeningLayoutPoints(out Transform chiefPoint, out Transform companionPoint, out Transform thirdResidentPoint);
+            TryResolveTownOpeningLayoutPoints(out Transform chiefPoint, out Transform companionPoint, out _);
 
             Vector2 lookTarget = _playerMovement != null
                 ? (Vector2)_playerMovement.transform.position
                 : TryGetPlayerInteractionSamplePoint(out Vector2 playerSamplePoint)
                     ? playerSamplePoint
                     : Vector2.zero;
-            bool preparedAnyActor = false;
+            Vector3 chiefStart = default;
+            Vector3 chiefEnd = default;
+            Vector3 companionStart = default;
+            Vector3 companionEnd = default;
+
+            bool hasChiefRoute = chief == null || TryResolveTownVillageGateActorRoute(
+                StoryNpcChiefLabel,
+                chief,
+                chiefPoint,
+                hasSceneAuthoredTargets,
+                out chiefStart,
+                out chiefEnd);
+            bool hasCompanionRoute = companion == null || TryResolveTownVillageGateActorRoute(
+                StoryNpcCompanionLabel,
+                companion,
+                companionPoint,
+                hasSceneAuthoredTargets,
+                out companionStart,
+                out companionEnd);
+            if (!hasChiefRoute || !hasCompanionRoute)
+            {
+                return !hasSceneAuthoredTargets;
+            }
+
+            if (!_townVillageGateActorsPlaced)
+            {
+                if (chief != null)
+                {
+                    ReframeStoryActor(chief, chiefStart, lookTarget);
+                }
+
+                if (companion != null)
+                {
+                    ReframeStoryActor(companion, companionStart, lookTarget);
+                }
+
+                _townVillageGateActorsPlaced = true;
+                _townVillageGateActorsWaitStartedAt = Time.unscaledTime;
+
+                if (forceImmediate)
+                {
+                    if (chief != null)
+                    {
+                        ReframeStoryActor(chief, chiefEnd, lookTarget);
+                    }
+
+                    if (companion != null)
+                    {
+                        ReframeStoryActor(companion, companionEnd, lookTarget);
+                    }
+
+                    _townVillageGateActorsWaitStartedAt = -1f;
+                    return true;
+                }
+            }
+
+            bool chiefSettled = chief == null || Vector2.Distance(chief.position, chiefEnd) <= townHouseLeadChiefArrivalDistance;
+            if (!chiefSettled && chief != null)
+            {
+                TryDriveEscortActor(chief, chiefRoam, chiefEnd, townHouseLeadChiefArrivalDistance);
+                chiefSettled = Vector2.Distance(chief.position, chiefEnd) <= townHouseLeadChiefArrivalDistance;
+            }
+
+            bool companionSettled = companion == null || Vector2.Distance(companion.position, companionEnd) <= townHouseLeadChiefArrivalDistance;
+            if (!companionSettled && companion != null)
+            {
+                TryDriveEscortActor(companion, companionRoam, companionEnd, townHouseLeadChiefArrivalDistance);
+                companionSettled = Vector2.Distance(companion.position, companionEnd) <= townHouseLeadChiefArrivalDistance;
+            }
+
+            if (chiefSettled && companionSettled)
+            {
+                _townVillageGateActorsWaitStartedAt = -1f;
+                return true;
+            }
+
+            if (forceImmediate)
+            {
+                if (chief != null)
+                {
+                    ReframeStoryActor(chief, chiefEnd, lookTarget);
+                }
+
+                if (companion != null)
+                {
+                    ReframeStoryActor(companion, companionEnd, lookTarget);
+                }
+
+                _townVillageGateActorsWaitStartedAt = -1f;
+                return true;
+            }
+
+            if (_townVillageGateActorsWaitStartedAt < 0f)
+            {
+                _townVillageGateActorsWaitStartedAt = Time.unscaledTime;
+            }
+
+            bool timedOut = townVillageGateCueSettleTimeout <= 0f
+                || Time.unscaledTime - _townVillageGateActorsWaitStartedAt >= townVillageGateCueSettleTimeout;
+            if (!timedOut)
+            {
+                return false;
+            }
 
             if (chief != null)
             {
-                if (!TryResolveTownVillageGateActorTarget(
-                        StoryNpcChiefLabel,
-                        chief,
-                        chiefPoint,
-                        hasSceneAuthoredTargets,
-                        out Vector3 chiefTarget))
-                {
-                    return false;
-                }
-
-                ReframeStoryActor(chief, chiefTarget, lookTarget);
-                preparedAnyActor = true;
+                ReframeStoryActor(chief, chiefEnd, lookTarget);
             }
 
             if (companion != null)
             {
-                if (!TryResolveTownVillageGateActorTarget(
-                        StoryNpcCompanionLabel,
-                        companion,
-                        companionPoint,
-                        hasSceneAuthoredTargets,
-                        out Vector3 companionTarget))
-                {
-                    return false;
-                }
-
-                ReframeStoryActor(companion, companionTarget, lookTarget);
-                preparedAnyActor = true;
+                ReframeStoryActor(companion, companionEnd, lookTarget);
             }
 
-            if (thirdResident != null)
+            _townVillageGateActorsWaitStartedAt = -1f;
+            return true;
+        }
+
+        private void ForcePlaceTownVillageGateActorsAtTargets()
+        {
+            if (!IsTownSceneActive())
             {
-                if (!TryResolveTownVillageGateActorTarget(
-                        ThirdResidentNpcId,
-                        thirdResident,
-                        thirdResidentPoint,
-                        hasSceneAuthoredTargets,
-                        out Vector3 thirdResidentTarget))
-                {
-                    return false;
-                }
-
-                ReframeStoryActor(thirdResident, thirdResidentTarget, lookTarget);
-                preparedAnyActor = true;
+                return;
             }
 
-            return preparedAnyActor || !hasSceneAuthoredTargets;
+            Transform chief = ResolveStoryChiefTransform();
+            Transform companion = ResolveStoryCompanionTransform();
+            bool hasSceneAuthoredTargets = HasAnyTownVillageGateSceneAuthoring();
+
+            TryResolveTownOpeningLayoutPoints(out Transform chiefPoint, out Transform companionPoint, out _);
+
+            Vector2 lookTarget = _playerMovement != null
+                ? (Vector2)_playerMovement.transform.position
+                : TryGetPlayerInteractionSamplePoint(out Vector2 playerSamplePoint)
+                    ? playerSamplePoint
+                    : Vector2.zero;
+
+            if (chief != null
+                && TryResolveTownVillageGateActorRoute(
+                    StoryNpcChiefLabel,
+                    chief,
+                    chiefPoint,
+                    hasSceneAuthoredTargets,
+                    out _,
+                    out Vector3 chiefEnd))
+            {
+                ReframeStoryActor(chief, chiefEnd, lookTarget);
+            }
+
+            if (companion != null
+                && TryResolveTownVillageGateActorRoute(
+                    StoryNpcCompanionLabel,
+                    companion,
+                    companionPoint,
+                    hasSceneAuthoredTargets,
+                    out _,
+                    out Vector3 companionEnd))
+            {
+                ReframeStoryActor(companion, companionEnd, lookTarget);
+            }
+
+            _townVillageGateActorsPlaced = true;
+            _townVillageGateActorsWaitStartedAt = -1f;
+        }
+
+        private bool TryResolveTownVillageGateActorRoute(
+            string npcId,
+            Transform actor,
+            Transform explicitEndPoint,
+            bool requireSceneAuthoredTarget,
+            out Vector3 startPosition,
+            out Vector3 endPosition)
+        {
+            startPosition = default;
+            endPosition = default;
+            if (actor == null)
+            {
+                return false;
+            }
+
+            bool hasStart = false;
+            bool hasEnd = false;
+
+            if (explicitEndPoint != null)
+            {
+                endPosition = BuildStoryPointPosition(explicitEndPoint, actor);
+                hasEnd = true;
+            }
+            else if (TryResolveTownOpeningMarker(npcId, preferStart: false, out Transform endMarker))
+            {
+                endPosition = BuildStoryPointPosition(endMarker, actor);
+                hasEnd = true;
+            }
+
+            if (!hasEnd && requireSceneAuthoredTarget)
+            {
+                return false;
+            }
+
+            if (TryResolveTownOpeningMarker(npcId, preferStart: true, out Transform startMarker))
+            {
+                startPosition = BuildStoryPointPosition(startMarker, actor);
+                hasStart = true;
+            }
+
+            if (!hasStart && requireSceneAuthoredTarget)
+            {
+                return false;
+            }
+
+            if (!hasStart && hasEnd)
+            {
+                startPosition = endPosition;
+                hasStart = true;
+            }
+
+            return hasStart && hasEnd;
+        }
+
+        private static bool TryResolveTownOpeningMarker(string npcId, bool preferStart, out Transform marker)
+        {
+            marker = null;
+            if (string.IsNullOrWhiteSpace(npcId))
+            {
+                return false;
+            }
+
+            string preferredSuffixCn = preferStart ? "起点" : "终点";
+            string preferredSuffixEn = preferStart ? "Start" : "End";
+
+            if (TryFindTownOpeningMarker($"{npcId}{preferredSuffixCn}", out marker)
+                || TryFindTownOpeningMarker($"{npcId}{preferredSuffixEn}", out marker))
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool TryFindTownOpeningMarker(string markerName, out Transform marker)
+        {
+            marker = null;
+            if (string.IsNullOrWhiteSpace(markerName))
+            {
+                return false;
+            }
+
+            marker = FindPreferredNamedChildTransform(PreferredTownOpeningLayoutGroupObjectNames, markerName);
+            return marker != null;
         }
 
         private static bool IsTransformCachedForScene(Transform candidate, Scene scene)
@@ -6024,7 +6864,7 @@ namespace Sunset.Story
             NPCAutoRoamController roamController = actor.GetComponent<NPCAutoRoamController>();
             if (roamController != null && !roamController.IsResidentScriptedControlActive)
             {
-                roamController.AcquireResidentScriptedControl(DirectorResidentControlOwnerKey, resumeRoamWhenReleased: true);
+                roamController.AcquireStoryControl(DirectorResidentControlOwnerKey, resumeAutonomousRoamWhenReleased: true);
             }
 
             HaltStoryActorNavigation(roamController);
@@ -6041,7 +6881,7 @@ namespace Sunset.Story
                     facing = Vector2.down;
                 }
 
-                motionController.SetFacingDirection(facing);
+                motionController.ApplyIdleFacing(facing);
             }
         }
 
@@ -6140,9 +6980,24 @@ namespace Sunset.Story
             _workbenchEscortCompanionDistance = companion != null && workbenchTarget != null
                 ? Vector2.Distance(companion.position, BuildEscortCompanionTarget(chief != null ? chief.position : companion.position, workbenchTarget.position))
                 : float.PositiveInfinity;
-            Transform playerReadyReference = chief != null ? chief : workbenchTarget;
-            _workbenchEscortPlayerDistance = TryGetPlayerDistanceToEscortTarget(null, playerReadyReference, out float playerDistance)
-                ? playerDistance
+            float resolvedPlayerDistance = float.PositiveInfinity;
+            bool hasResolvedPlayerDistance = false;
+            if (chief != null && TryGetPlayerDistanceToEscortTarget(null, chief, out float chiefPlayerDistance))
+            {
+                resolvedPlayerDistance = chiefPlayerDistance;
+                hasResolvedPlayerDistance = true;
+            }
+
+            if (workbenchTarget != null
+                && TryGetPlayerDistanceToEscortTarget(null, workbenchTarget, out float workbenchPlayerDistance)
+                && (!hasResolvedPlayerDistance || workbenchPlayerDistance < resolvedPlayerDistance))
+            {
+                resolvedPlayerDistance = workbenchPlayerDistance;
+                hasResolvedPlayerDistance = true;
+            }
+
+            _workbenchEscortPlayerDistance = hasResolvedPlayerDistance
+                ? resolvedPlayerDistance
                 : float.PositiveInfinity;
         }
 
@@ -6651,8 +7506,35 @@ namespace Sunset.Story
             }
 
             Vector2 perpendicular = new Vector2(-direction.y, direction.x);
-            Vector2 target = (Vector2)leaderPosition - direction * escortCompanionTrailingOffset + perpendicular * escortCompanionSideOffset;
+            Vector2 shapeOffset = -direction * escortCompanionTrailingOffset + perpendicular * escortCompanionSideOffset;
+            if (shapeOffset.sqrMagnitude <= 0.0001f)
+            {
+                shapeOffset = -direction;
+            }
+            else
+            {
+                shapeOffset.Normalize();
+            }
+
+            Vector2 target = (Vector2)leaderPosition + shapeOffset * escortCompanionFormationDistance;
             return new Vector3(target.x, target.y, leaderPosition.z);
+        }
+
+        private bool TryDriveEscortCompanionTowardLeaderFormation(
+            Transform leader,
+            Transform companion,
+            NPCAutoRoamController companionRoam,
+            Vector3 leadTargetPosition,
+            float arrivalDistance)
+        {
+            if (companion == null)
+            {
+                return false;
+            }
+
+            Vector3 leaderPosition = leader != null ? leader.position : companion.position;
+            Vector3 companionTarget = BuildEscortCompanionTarget(leaderPosition, leadTargetPosition);
+            return TryDriveEscortActor(companion, companionRoam, companionTarget, arrivalDistance);
         }
 
         private bool TryDriveEscortActor(
@@ -6680,11 +7562,12 @@ namespace Sunset.Story
                 bool resumeRoamWhenReleased = roamController.IsResidentScriptedControlActive
                     ? roamController.ResumeRoamWhenResidentControlReleases
                     : true;
-                if (roamController.DriveResidentScriptedMoveTo(
+                if (roamController.RequestStageTravel(
                         DirectorResidentControlOwnerKey,
+                        actor.position,
                         desired,
-                        resumeRoamWhenReleased,
-                        Mathf.Max(escortRetargetTolerance, arrivalDistance * 0.5f)))
+                        Mathf.Max(escortRetargetTolerance, arrivalDistance * 0.5f),
+                        resumeRoamWhenReleased))
                 {
                     return true;
                 }
@@ -6730,8 +7613,7 @@ namespace Sunset.Story
             if (motionController != null)
             {
                 Vector2 velocity = new Vector2(step.x, step.y) / tickSeconds;
-                motionController.SetExternalVelocity(velocity);
-                motionController.SetFacingDirection(new Vector2(step.x, step.y));
+                motionController.ApplyDirectedMotion(velocity, new Vector2(step.x, step.y));
             }
 
             return true;
@@ -6755,13 +7637,12 @@ namespace Sunset.Story
                 return;
             }
 
-            if (roamController.IsResidentScriptedControlActive)
+            if (!roamController.IsResidentScriptedControlActive)
             {
-                roamController.PauseResidentScriptedMovement();
-                return;
+                roamController.AcquireStoryControl(DirectorResidentControlOwnerKey, resumeAutonomousRoamWhenReleased: true);
             }
 
-            roamController.StopRoam();
+            roamController.PauseStoryControlMotion();
         }
 
         private static void ResumeStoryActorNavigation(NPCAutoRoamController roamController)
@@ -6771,10 +7652,7 @@ namespace Sunset.Story
                 return;
             }
 
-            if (roamController.IsResidentScriptedControlActive)
-            {
-                roamController.ResumeResidentScriptedMovement();
-            }
+            roamController.ResumeStoryControlMotion();
         }
 
         private static void HaltStoryActorNavigation(NPCAutoRoamController roamController)
@@ -6784,13 +7662,12 @@ namespace Sunset.Story
                 return;
             }
 
-            if (roamController.IsResidentScriptedControlActive)
+            if (!roamController.IsResidentScriptedControlActive)
             {
-                roamController.HaltResidentScriptedMovement();
-                return;
+                roamController.AcquireStoryControl(DirectorResidentControlOwnerKey, resumeAutonomousRoamWhenReleased: true);
             }
 
-            roamController.StopRoam();
+            roamController.HaltStoryControlMotion();
         }
 
         private static NPCBubblePresenter ResolveNpcBubblePresenter(Transform actor)
@@ -6909,9 +7786,9 @@ namespace Sunset.Story
                 return false;
             }
 
-            Vector2 currentSamplePoint = SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform);
-            Vector2 supportPosition = supportNpc.position;
-            Vector2 playerOffsetFromSupport = currentSamplePoint - supportPosition;
+            Vector2 currentSamplePoint = GetHealingProximityPoint(playerTransform);
+            Vector2 supportSamplePoint = GetHealingSupportSamplePoint(supportNpc);
+            Vector2 playerOffsetFromSupport = currentSamplePoint - supportSamplePoint;
             if (playerOffsetFromSupport.sqrMagnitude <= 0.0001f)
             {
                 playerOffsetFromSupport = Vector2.right;
@@ -6921,12 +7798,13 @@ namespace Sunset.Story
                 playerOffsetFromSupport.Normalize();
             }
 
-            Vector2 desiredSamplePoint = supportPosition + playerOffsetFromSupport * Mathf.Max(0.18f, healingSupportApproachDistance * 0.55f);
+            float effectiveHealingSupportApproachDistance = GetEffectiveHealingSupportApproachDistance();
+            Vector2 desiredSamplePoint = supportSamplePoint + playerOffsetFromSupport * Mathf.Max(0.18f, effectiveHealingSupportApproachDistance * 0.55f);
             Vector3 targetPlayerPosition = playerTransform.position + (Vector3)(desiredSamplePoint - currentSamplePoint);
             targetPlayerPosition.z = playerTransform.position.z;
 
             _playerMovement.StopMovement();
-            _playerMovement.SetFacingDirection(supportPosition - desiredSamplePoint);
+            _playerMovement.SetFacingDirection(supportSamplePoint - desiredSamplePoint);
 
             Rigidbody2D playerBody = _playerMovement.GetComponent<Rigidbody2D>();
             if (playerBody != null)
@@ -6940,8 +7818,70 @@ namespace Sunset.Story
             }
 
             Physics2D.SyncTransforms();
-            resultingDistance = Vector2.Distance(SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform), supportPosition);
+            resultingDistance = Vector2.Distance(GetHealingProximityPoint(playerTransform), supportSamplePoint);
             return true;
+        }
+
+        private bool TryGetPlayerHealingProximityPoint(out Vector2 samplePoint)
+        {
+            samplePoint = Vector2.zero;
+            if (_playerMovement == null)
+            {
+                _playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            }
+
+            Transform playerTransform = _playerMovement != null ? _playerMovement.transform : null;
+            if (playerTransform == null)
+            {
+                return false;
+            }
+
+            samplePoint = GetHealingProximityPoint(playerTransform);
+            return true;
+        }
+
+        private static Vector2 GetHealingProximityPoint(Transform playerTransform)
+        {
+            return playerTransform != null ? (Vector2)playerTransform.position : Vector2.zero;
+        }
+
+        private static Vector2 GetHealingSupportSamplePoint(Transform supportNpc)
+        {
+            return supportNpc != null ? (Vector2)supportNpc.position : Vector2.zero;
+        }
+
+        private bool CanForceWorkbenchBriefing(bool chiefReady, bool playerNearWorkbench)
+        {
+            return chiefReady
+                && playerNearWorkbench
+                && !HasWorkbenchBriefingCompleted();
+        }
+
+        private float GetEffectiveHealingSupportApproachDistance()
+        {
+            return Mathf.Max(healingSupportApproachDistance, MinimumHealingSupportApproachDistance);
+        }
+
+        private void FaceHealingSupportTowardPlayer(Transform supportNpc, Vector2 playerProximityPoint)
+        {
+            if (supportNpc == null)
+            {
+                return;
+            }
+
+            NPCMotionController motionController = supportNpc.GetComponent<NPCMotionController>();
+            if (motionController == null)
+            {
+                return;
+            }
+
+            Vector2 facing = playerProximityPoint - (Vector2)supportNpc.position;
+            if (facing.sqrMagnitude <= 0.0001f)
+            {
+                return;
+            }
+
+            motionController.ApplyIdleFacing(facing);
         }
 
         private bool TrySnapValidationPlayerNearEscortTarget(
@@ -7018,7 +7958,7 @@ namespace Sunset.Story
                 offsetDirection.Normalize();
             }
 
-            return playerSamplePoint + offsetDirection * healingSupportApproachDistance;
+            return playerSamplePoint + offsetDirection * GetEffectiveHealingSupportApproachDistance();
         }
 
         private void UpdateReturnEscortSnapshot(
@@ -8523,26 +9463,23 @@ namespace Sunset.Story
 
         private bool ShouldPauseStoryTimeForCurrentPhase(StoryPhase currentPhase)
         {
-            if (currentPhase == StoryPhase.None
-                || currentPhase == StoryPhase.FreeTime
-                || currentPhase == StoryPhase.DayEnd)
+            return currentPhase switch
             {
-                return false;
-            }
-
-            if (ShouldKeepStoryTimeRunningForRuntimeBridge(currentPhase))
-            {
-                return false;
-            }
-
-            return true;
+                StoryPhase.None => false,
+                StoryPhase.HealingAndHP => false,
+                StoryPhase.WorkbenchFlashback => false,
+                StoryPhase.FarmingTutorial => false,
+                StoryPhase.FreeTime => false,
+                StoryPhase.DayEnd => false,
+                _ => !ShouldKeepStoryTimeRunningForRuntimeBridge(currentPhase)
+            };
         }
 
         private bool ShouldKeepStoryTimeRunningForRuntimeBridge(StoryPhase currentPhase)
         {
             return currentPhase switch
             {
-                StoryPhase.EnterVillage => IsTownHouseLeadPending(),
+                StoryPhase.EnterVillage => IsPrimarySceneActive() || IsTownHouseLeadPending(),
                 StoryPhase.HealingAndHP => _healingBridgePending && !_healingBridgeSequenceQueued,
                 StoryPhase.WorkbenchFlashback => !_workbenchOpened,
                 StoryPhase.DinnerConflict => IsReturnToTownEscortPending(),

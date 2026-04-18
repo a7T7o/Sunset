@@ -116,6 +116,29 @@ public class SpringDay1LateDayRuntimeTests
     }
 
     [UnityTest]
+    public IEnumerator BedBridge_ShouldAllowSleepImmediatelyAfterFreeTimeBegins()
+    {
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        object freeTimePhase = ParseEnum(context.storyPhaseType, "FreeTime");
+        object dayEndPhase = ParseEnum(context.storyPhaseType, "DayEnd");
+
+        SetPrivateField(context.director, "_freeTimeEntered", true);
+        SetPrivateField(context.director, "_freeTimeIntroCompleted", false);
+        InvokeInstance(context.storyManager, "ResetState", freeTimePhase, false);
+        SetTimeWithoutSystems(context, 19, 30);
+
+        bool available = (bool)InvokeInstance(context.director, "IsSleepInteractionAvailable");
+        bool triggered = (bool)InvokeInstance(context.director, "TryTriggerSleepFromBed");
+        InvokePrivateMethod(context.director, "HandleSleep");
+
+        Assert.That(available, Is.True, "只要已经进入 19:30 后的自由时段，就不该再拿 free-time intro 卡床交互。");
+        Assert.That(triggered, Is.True, "自由时段一开始，床交互就应允许玩家直接睡到第二天。");
+        Assert.That(GetPropertyValue(context.storyManager, "CurrentPhase"), Is.EqualTo(dayEndPhase));
+    }
+
+    [UnityTest]
     public IEnumerator PlusHourAdvance_BeyondTwoAmAfterDay1_ShouldFallbackToHomeSleepTransition()
     {
         EnsureTestSceneActive("Town");
@@ -150,15 +173,15 @@ public class SpringDay1LateDayRuntimeTests
         InvokeInstance(context.storyManager, "ResetState", freeTimePhase, false);
         SetTimeWithoutSystems(context, 21, 0);
 
-        Assert.That((bool)InvokeInstance(context.director, "IsSleepInteractionAvailable"), Is.False);
-        Assert.That((string)InvokeInstance(context.director, "GetCurrentFocusTextForTests"), Is.EqualTo("自由时段见闻会先接管，先别急着立刻睡。"));
-        Assert.That((string)InvokeInstance(context.director, "GetValidationFreeTimeNextAction"), Is.EqualTo("自由时段见闻尚未收束，先让这段夜里的动静完整接管。"));
+        Assert.That((bool)InvokeInstance(context.director, "IsSleepInteractionAvailable"), Is.True);
+        Assert.That((string)InvokeInstance(context.director, "GetCurrentFocusTextForTests"), Is.EqualTo("夜里的动静会先接管，但你现在想回屋睡也可以。"));
+        Assert.That((string)InvokeInstance(context.director, "GetValidationFreeTimeNextAction"), Is.EqualTo("自由时段见闻尚未收束，但床现在已经可用；想收束就直接回屋睡。"));
 
         object introPendingCard = InvokeInstance(context.director, "BuildPromptCardModel");
         Array introPendingItems = GetFieldValue(introPendingCard, "Items") as Array;
         Assert.That(introPendingItems, Is.Not.Null);
-        Assert.That(GetPropertyValue(introPendingItems.GetValue(0), "Label"), Is.EqualTo("听完村里夜间见闻"));
-        Assert.That(GetPropertyValue(introPendingItems.GetValue(0), "Detail"), Is.EqualTo("自由时段见闻已排队，先让这段夜里的动静完整接管。"));
+        Assert.That(GetPropertyValue(introPendingItems.GetValue(0), "Label"), Is.EqualTo("先听夜里的动静，或直接回屋睡觉"));
+        Assert.That(GetPropertyValue(introPendingItems.GetValue(0), "Detail"), Is.EqualTo("自由时段见闻已排队；你可以先听，也可以现在就回屋睡觉。"));
 
         SetPrivateField(context.director, "_freeTimeIntroCompleted", true);
 
@@ -238,14 +261,31 @@ public class SpringDay1LateDayRuntimeTests
         Assert.That(freeTimeFloorMinute, Is.EqualTo(30), "自由时段进入后，受管控时钟的最早落点应是 19:30。");
         Assert.That(GetPrivateFieldValue(context.director, "_freeTimeIntroQueued"), Is.EqualTo(true));
         Assert.That(GetPrivateFieldValue(context.director, "_freeTimeIntroCompleted"), Is.EqualTo(false));
-        Assert.That((bool)InvokeInstance(context.director, "IsSleepInteractionAvailable"), Is.False);
-        Assert.That((string)InvokeInstance(context.director, "GetCurrentFocusTextForTests"), Is.EqualTo("自由时段见闻会先接管，先别急着立刻睡。"));
-        Assert.That((string)InvokeInstance(context.director, "GetValidationFreeTimeNextAction"), Is.EqualTo("自由时段见闻尚未收束，先让这段夜里的动静完整接管。"));
+        Assert.That((bool)InvokeInstance(context.director, "IsSleepInteractionAvailable"), Is.True);
+        Assert.That((string)InvokeInstance(context.director, "GetCurrentFocusTextForTests"), Is.EqualTo("夜里的动静会先接管，但你现在想回屋睡也可以。"));
+        Assert.That((string)InvokeInstance(context.director, "GetValidationFreeTimeNextAction"), Is.EqualTo("自由时段见闻尚未收束，但床现在已经可用；想收束就直接回屋睡。"));
 
         bool canCraft = InvokeWorkbenchCraftPermission(context.director, out string blockerMessage);
         Assert.That(canCraft, Is.True, "完成 0.0.4 进入 0.0.5 之后，即使夜间 formal 见闻仍 pending，工作台也不应再被重新锁回去。");
         Assert.That(blockerMessage, Is.EqualTo(string.Empty));
         Assert.That((bool)InvokeInstance(context.director, "ShouldExposeWorkbenchInteraction"), Is.True, "完成 0.0.4 进入 0.0.5 之后，工作台提示不应再被 formal 夜间见闻整体禁用。");
+    }
+
+    [UnityTest]
+    public IEnumerator BedInteractable_ShouldRemainAvailableAfterDayEnd()
+    {
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        object dayEndPhase = ParseEnum(context.storyPhaseType, "DayEnd");
+        InvokeInstance(context.storyManager, "ResetState", dayEndPhase, false);
+
+        Type bedInteractableType = ResolveTypeOrFail("Sunset.Story.SpringDay1BedInteractable");
+        Component bed = Track(new GameObject("PlayerBed")).AddComponent(bedInteractableType);
+
+        bool canInteract = (bool)InvokeInstance(bed, "CanInteract", new object[] { null });
+
+        Assert.That(canInteract, Is.True, "离开 Day1 后，床应保持可交互，不再回流 FreeTime-only 的旧限制。");
     }
 
     [UnityTest]
@@ -986,43 +1026,27 @@ public class SpringDay1LateDayRuntimeTests
     }
 
     [UnityTest]
-    public IEnumerator AlignTownDinnerGatheringActorsAndPlayer_ShouldPreferDinnerAreaOverVillageCrowdMarkers()
+    public IEnumerator AlignTownDinnerGatheringActorsAndPlayer_ShouldOnlyMovePlayerAtDinnerEntry()
     {
         RuntimeContext context = CreateRuntimeContext();
         yield return null;
 
         Type npcMotionControllerType = ResolveTypeOrFail("NPCMotionController");
 
-        GameObject crowdRoot = Track(new GameObject("EnterVillageCrowdRoot"));
-        Transform chiefMarker = Track(new GameObject("001起点")).transform;
-        chiefMarker.SetParent(crowdRoot.transform, false);
-        chiefMarker.position = new Vector3(8.03f, 18.58f, 0f);
-
-        Transform companionMarker = Track(new GameObject("002起点")).transform;
-        companionMarker.SetParent(crowdRoot.transform, false);
-        companionMarker.position = new Vector3(9.27f, 18.04f, 0f);
-
-        GameObject dinnerAnchor = Track(new GameObject("DirectorReady_DinnerBackgroundRoot"));
-        dinnerAnchor.transform.position = new Vector3(-17.2f, 8.6f, 0f);
-
         GameObject chief = Track(new GameObject("001"));
         chief.AddComponent(npcMotionControllerType);
-        chief.transform.position = new Vector3(0f, 0f, 0f);
+        chief.transform.position = new Vector3(4f, 5f, 0f);
 
         GameObject companion = Track(new GameObject("002"));
         companion.AddComponent(npcMotionControllerType);
-        companion.transform.position = new Vector3(0f, 0f, 0f);
+        companion.transform.position = new Vector3(6f, 5f, 0f);
 
         InvokePrivateMethod(context.director, "AlignTownDinnerGatheringActorsAndPlayer");
 
-        Vector2 chiefPosition = chief.transform.position;
-        Vector2 companionPosition = companion.transform.position;
-
-        Assert.That(Vector2.Distance(chiefPosition, chiefMarker.position), Is.GreaterThan(5f), "晚饭开场时，001 不应再被重新扔回进村围观 marker。");
-        Assert.That(Vector2.Distance(companionPosition, companionMarker.position), Is.GreaterThan(5f), "晚饭开场时，002 不应再被重新扔回进村围观 marker。");
-        Assert.That(Vector2.Distance(chiefPosition, dinnerAnchor.transform.position), Is.LessThan(2.2f), "001 应落在晚饭区域附近，而不是继续站在围观左上角。");
-        Assert.That(Vector2.Distance(companionPosition, dinnerAnchor.transform.position), Is.LessThan(3.1f), "002 应落在晚饭区域附近，而不是继续站在围观左上角。");
-
+        Assert.That(chief.transform.position, Is.EqualTo(new Vector3(4f, 5f, 0f)),
+            "晚饭入口的纯对齐步骤现在只应移动玩家，不应提前把 001 拖去旧 dinner anchor。");
+        Assert.That(companion.transform.position, Is.EqualTo(new Vector3(6f, 5f, 0f)),
+            "001/002 的 staged 入场应由 BeginDinnerConflict 统一处理，而不是在 player align 阶段偷跑。");
     }
 
     [UnityTest]
@@ -1053,8 +1077,23 @@ public class SpringDay1LateDayRuntimeTests
         yield return null;
 
         Type npcMotionControllerType = ResolveTypeOrFail("NPCMotionController");
-        GameObject dinnerAnchor = Track(new GameObject("DirectorReady_DinnerBackgroundRoot"));
-        dinnerAnchor.transform.position = new Vector3(-17.2f, 8.6f, 0f);
+        GameObject crowdRoot = Track(new GameObject("进村围观"));
+        GameObject startGroup = Track(new GameObject("起点"));
+        GameObject endGroup = Track(new GameObject("终点"));
+        startGroup.transform.SetParent(crowdRoot.transform, false);
+        endGroup.transform.SetParent(crowdRoot.transform, false);
+        Transform chiefStart = Track(new GameObject("001起点")).transform;
+        chiefStart.SetParent(startGroup.transform, false);
+        chiefStart.position = new Vector3(-11.60f, 15.26f, 0f);
+        Transform chiefEnd = Track(new GameObject("001终点")).transform;
+        chiefEnd.SetParent(endGroup.transform, false);
+        chiefEnd.position = new Vector3(-12.55f, 14.52f, 0f);
+        Transform companionStart = Track(new GameObject("002起点")).transform;
+        companionStart.SetParent(startGroup.transform, false);
+        companionStart.position = new Vector3(-10.40f, 14.88f, 0f);
+        Transform companionEnd = Track(new GameObject("002终点")).transform;
+        companionEnd.SetParent(endGroup.transform, false);
+        companionEnd.position = new Vector3(-11.32f, 14.26f, 0f);
 
         GameObject chief = Track(new GameObject("001"));
         chief.AddComponent(npcMotionControllerType);
@@ -1074,8 +1113,8 @@ public class SpringDay1LateDayRuntimeTests
 
         Assert.That(GetPrivateFieldValue(context.director, "_dinnerSequencePlayed"), Is.EqualTo(true), "晚饭 cue 超时后，应直接开始正式剧情，不再无限等待。");
         Assert.That(GetPrivateFieldValue(context.director, "_dinnerCueWaitStartedAt"), Is.EqualTo(-1f), "超时兜底开戏后，等待计时应及时清零。");
-        Assert.That(Vector2.Distance(chief.transform.position, dinnerAnchor.transform.position), Is.LessThan(2.2f), "超时后只应强制把 001 拉回晚饭区域。");
-        Assert.That(Vector2.Distance(companion.transform.position, dinnerAnchor.transform.position), Is.LessThan(3.1f), "超时后只应强制把 002 拉回晚饭区域。");
+        Assert.That(chief.transform.position, Is.EqualTo(chiefEnd.position), "超时后 001 应直接 snap 到自己的晚饭终点。");
+        Assert.That(companion.transform.position, Is.EqualTo(companionEnd.position), "超时后 002 应直接 snap 到自己的晚饭终点。");
     }
 
     [UnityTest]
@@ -1087,8 +1126,23 @@ public class SpringDay1LateDayRuntimeTests
         yield return null;
 
         Type npcMotionControllerType = ResolveTypeOrFail("NPCMotionController");
-        GameObject dinnerAnchor = Track(new GameObject("DirectorReady_DinnerBackgroundRoot"));
-        dinnerAnchor.transform.position = new Vector3(-17.2f, 8.6f, 0f);
+        GameObject crowdRoot = Track(new GameObject("进村围观"));
+        GameObject startGroup = Track(new GameObject("起点"));
+        GameObject endGroup = Track(new GameObject("终点"));
+        startGroup.transform.SetParent(crowdRoot.transform, false);
+        endGroup.transform.SetParent(crowdRoot.transform, false);
+        Transform chiefStart = Track(new GameObject("001起点")).transform;
+        chiefStart.SetParent(startGroup.transform, false);
+        chiefStart.position = new Vector3(-11.60f, 15.26f, 0f);
+        Transform chiefEnd = Track(new GameObject("001终点")).transform;
+        chiefEnd.SetParent(endGroup.transform, false);
+        chiefEnd.position = new Vector3(-12.55f, 14.52f, 0f);
+        Transform companionStart = Track(new GameObject("002起点")).transform;
+        companionStart.SetParent(startGroup.transform, false);
+        companionStart.position = new Vector3(-10.40f, 14.88f, 0f);
+        Transform companionEnd = Track(new GameObject("002终点")).transform;
+        companionEnd.SetParent(endGroup.transform, false);
+        companionEnd.position = new Vector3(-11.32f, 14.26f, 0f);
 
         GameObject chief = Track(new GameObject("001"));
         chief.AddComponent(npcMotionControllerType);
@@ -1107,13 +1161,121 @@ public class SpringDay1LateDayRuntimeTests
         InvokePrivateMethod(context.director, "BeginDinnerConflict");
 
         Assert.That(GetPrivateFieldValue(context.director, "_dinnerSequencePlayed"), Is.EqualTo(false), "未超时前仍应继续等待晚饭 cue settled。");
-        Assert.That(GetPrivateFieldValue(context.director, "_dinnerCueWaitStartedAt"), Is.Not.EqualTo(-1f), "开始等待后应记录等待起点。");
-        Assert.That(Vector2.Distance(chief.transform.position, dinnerAnchor.transform.position), Is.LessThan(2.2f), "即使还在等 cue，001 也应先回到晚饭区域。");
-        Assert.That(Vector2.Distance(companion.transform.position, dinnerAnchor.transform.position), Is.LessThan(3.1f), "即使还在等 cue，002 也应先回到晚饭区域。");
+        Assert.That(Vector2.Distance(chief.transform.position, chiefStart.position), Is.LessThan(0.8f),
+            "未超时前，001 应从自己的晚饭起点起步，而不是被扔去别的锚点。");
+        Assert.That(Vector2.Distance(companion.transform.position, companionStart.position), Is.LessThan(0.8f),
+            "未超时前，002 应从自己的晚饭起点起步，而不是再走旧 dinner anchor。");
+        Assert.That(Vector2.Distance(chief.transform.position, chiefEnd.position), Is.GreaterThan(0.1f),
+            "未超时前，001 还不应被直接 snap 到终点。");
+        Assert.That(Vector2.Distance(companion.transform.position, companionEnd.position), Is.GreaterThan(0.1f),
+            "未超时前，002 还不应被直接 snap 到终点。");
     }
 
     [UnityTest]
-    public IEnumerator StoryActorsNightRestSchedule_ShouldCover001To003()
+    public IEnumerator ActivateDinnerGatheringOnTownScene_ShouldPlaceStoryActorsAtAuthoredStartsOnPhaseEntry()
+    {
+        EnsureTestSceneActive("Town");
+
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        Type npcMotionControllerType = ResolveTypeOrFail("NPCMotionController");
+        Type roamControllerType = ResolveTypeOrFail("NPCAutoRoamController");
+
+        GameObject crowdRoot = Track(new GameObject("进村围观"));
+        GameObject startGroup = Track(new GameObject("起点"));
+        GameObject endGroup = Track(new GameObject("终点"));
+        startGroup.transform.SetParent(crowdRoot.transform, false);
+        endGroup.transform.SetParent(crowdRoot.transform, false);
+        Transform chiefStart = CreateMarker(startGroup.transform, "001起点", new Vector3(-11.60f, 15.26f, 0f)).transform;
+        CreateMarker(endGroup.transform, "001终点", new Vector3(-12.55f, 14.52f, 0f));
+        Transform companionStart = CreateMarker(startGroup.transform, "002起点", new Vector3(-10.40f, 14.88f, 0f)).transform;
+        CreateMarker(endGroup.transform, "002终点", new Vector3(-11.32f, 14.26f, 0f));
+
+        GameObject chief = Track(new GameObject("001"));
+        chief.AddComponent(npcMotionControllerType);
+        chief.AddComponent(roamControllerType);
+        chief.transform.position = new Vector3(18f, 12f, 0f);
+
+        GameObject companion = Track(new GameObject("002"));
+        companion.AddComponent(npcMotionControllerType);
+        companion.AddComponent(roamControllerType);
+        companion.transform.position = new Vector3(19.5f, 12f, 0f);
+
+        SetPrivateField(context.director, "_cachedChiefActor", chief.transform);
+        SetPrivateField(context.director, "_cachedCompanionActor", companion.transform);
+        SetPrivateField(context.director, "_editorDinnerCueSettledOverride", false);
+        SetPrivateField(context.director, "dinnerCueSettleTimeout", 5f);
+
+        InvokePrivateMethod(context.director, "ActivateDinnerGatheringOnTownScene");
+
+        object dinnerPhase = ParseEnum(context.storyPhaseType, "DinnerConflict");
+        Assert.That(GetPropertyValue(context.storyManager, "CurrentPhase"), Is.EqualTo(dinnerPhase),
+            "18:00 晚饭入口一旦切进来，导演应立刻进入 DinnerConflict phase。");
+        Assert.That(GetPrivateFieldValue(context.director, "_dinnerStoryActorsPlaced"), Is.EqualTo(true),
+            "晚饭入口第一拍就应完成 001/002 的 authored start 对位，不应继续等到对白前再懒执行。");
+        Assert.That(GetPrivateFieldValue(context.director, "_dinnerSequencePlayed"), Is.EqualTo(false),
+            "cue 未 settled 且未超时前，晚饭入口应只做 staged 起步，不应直接开对白。");
+        Assert.That(Vector2.Distance(chief.transform.position, chiefStart.position), Is.LessThan(0.8f),
+            "18:00 晚饭入口时，001 应先被强制拉到自己的 authored 起点，而不是延续上一段 roam/nav。");
+        Assert.That(Vector2.Distance(companion.transform.position, companionStart.position), Is.LessThan(0.8f),
+            "18:00 晚饭入口时，002 应先被强制拉到自己的 authored 起点，而不是延续上一段 roam/nav。");
+    }
+
+    [UnityTest]
+    public IEnumerator BeginDinnerConflict_ShouldNotReclaimThirdResidentIntoDirectorStoryActorPath()
+    {
+        EnsureTestSceneActive("Town");
+
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        Type npcMotionControllerType = ResolveTypeOrFail("NPCMotionController");
+        Type roamControllerType = ResolveTypeOrFail("NPCAutoRoamController");
+
+        GameObject crowdRoot = Track(new GameObject("进村围观"));
+        GameObject startGroup = Track(new GameObject("起点"));
+        GameObject endGroup = Track(new GameObject("终点"));
+        startGroup.transform.SetParent(crowdRoot.transform, false);
+        endGroup.transform.SetParent(crowdRoot.transform, false);
+        CreateMarker(startGroup.transform, "001起点", new Vector3(-11.60f, 15.26f, 0f));
+        CreateMarker(endGroup.transform, "001终点", new Vector3(-12.55f, 14.52f, 0f));
+        CreateMarker(startGroup.transform, "002起点", new Vector3(-10.40f, 14.88f, 0f));
+        CreateMarker(endGroup.transform, "002终点", new Vector3(-11.32f, 14.26f, 0f));
+        Transform thirdStart = CreateMarker(startGroup.transform, "003起点", new Vector3(-22.71f, 7.78f, 0f)).transform;
+        CreateMarker(endGroup.transform, "003终点", new Vector3(-22.02f, 10.29f, 0f));
+
+        GameObject chief = Track(new GameObject("001"));
+        chief.AddComponent(npcMotionControllerType);
+        chief.AddComponent(roamControllerType);
+        chief.transform.position = new Vector3(14f, 12f, 0f);
+
+        GameObject companion = Track(new GameObject("002"));
+        companion.AddComponent(npcMotionControllerType);
+        companion.AddComponent(roamControllerType);
+        companion.transform.position = new Vector3(15.5f, 12f, 0f);
+
+        GameObject thirdResident = Track(new GameObject("003"));
+        thirdResident.AddComponent(npcMotionControllerType);
+        Component thirdRoam = thirdResident.AddComponent(roamControllerType);
+        Vector3 initialThirdPosition = new Vector3(-4.5f, 8.2f, 0f);
+        thirdResident.transform.position = initialThirdPosition;
+
+        object dinnerPhase = ParseEnum(context.storyPhaseType, "DinnerConflict");
+        InvokeInstance(context.storyManager, "ResetState", dinnerPhase, false);
+        SetPrivateField(context.director, "_editorDinnerCueSettledOverride", false);
+        SetPrivateField(context.director, "dinnerCueSettleTimeout", 5f);
+
+        InvokePrivateMethod(context.director, "BeginDinnerConflict");
+
+        Assert.That(GetPrivateFieldValue(context.director, "_cachedThirdResidentActor"), Is.Null,
+            "003 在晚饭里应继续走 ordinary resident / crowd contract，director 自己不该再把它缓存成私有 story actor。");
+        Assert.That(thirdResident.transform.position, Is.EqualTo(thirdStart.position),
+            "新的 dinner 统一合同下，003 也应和 everybody 一样先对到 authored 起点，再由 crowd/stage-book 处理后续 movement。");
+    }
+
+    [UnityTest]
+    public IEnumerator StoryActorsNightRestSchedule_ShouldStandDownForUnifiedResidentNightContract()
     {
         EnsureTestSceneActive("Town");
 
@@ -1127,25 +1289,51 @@ public class SpringDay1LateDayRuntimeTests
 
         Component chiefRoam = CreateStoryActorWithHomeAnchor("001", new Vector3(-8f, 2f, 0f), new Vector3(-2f, 1f, 0f));
         Component companionRoam = CreateStoryActorWithHomeAnchor("002", new Vector3(-7f, 3f, 0f), new Vector3(-1f, 1f, 0f));
-        Component thirdRoam = CreateStoryActorWithHomeAnchor("003", new Vector3(-6f, 4f, 0f), new Vector3(0f, 1f, 0f));
+        Vector3 chiefStart = ((Component)chiefRoam).transform.position;
+        Vector3 companionStart = ((Component)companionRoam).transform.position;
 
         SetTimeWithoutSystems(context, 20, 0);
         InvokePrivateMethod(context.director, "SyncStoryActorNightRestSchedule");
 
-        Assert.That((bool)GetPropertyValue(chiefRoam, "IsResidentScriptedControlActive"), Is.True, "20:00 后 001 应进入 Day1 夜晚回家控制。");
-        Assert.That((bool)GetPropertyValue(companionRoam, "IsResidentScriptedControlActive"), Is.True, "20:00 后 002 应进入 Day1 夜晚回家控制。");
-        Assert.That((bool)GetPropertyValue(thirdRoam, "IsResidentScriptedControlActive"), Is.True, "20:00 后 003 也必须进入 Day1 夜晚回家控制。");
+        Assert.That((bool)GetPropertyValue(chiefRoam, "IsResidentScriptedControlActive"), Is.False,
+            "20:00 后，001 的夜间回家不应再由 director 私链长期持有。");
+        Assert.That((bool)GetPropertyValue(companionRoam, "IsResidentScriptedControlActive"), Is.False,
+            "20:00 后，002 的夜间回家不应再由 director 私链长期持有。");
+        Assert.That(((Component)chiefRoam).transform.position, Is.EqualTo(chiefStart),
+            "统一夜间合同落到 crowd 后，director 不应再私自改 001 的夜间位置。");
+        Assert.That(((Component)companionRoam).transform.position, Is.EqualTo(companionStart),
+            "统一夜间合同落到 crowd 后，director 不应再私自改 002 的夜间位置。");
 
         SetTimeWithoutSystems(context, 21, 0);
         InvokePrivateMethod(context.director, "SyncStoryActorNightRestSchedule");
 
-        Assert.That(((Component)chiefRoam).transform.position, Is.EqualTo(new Vector3(-2f, 1f, 0f)));
-        Assert.That(((Component)companionRoam).transform.position, Is.EqualTo(new Vector3(-1f, 1f, 0f)));
-        Assert.That(((Component)thirdRoam).transform.position, Is.EqualTo(new Vector3(0f, 1f, 0f)));
+        Assert.That((bool)GetPropertyValue(chiefRoam, "IsResidentScriptedControlActive"), Is.False);
+        Assert.That((bool)GetPropertyValue(companionRoam, "IsResidentScriptedControlActive"), Is.False);
+        Assert.That(((Component)chiefRoam).transform.position, Is.EqualTo(chiefStart));
+        Assert.That(((Component)companionRoam).transform.position, Is.EqualTo(companionStart));
+    }
 
-        InvokePrivateMethod(context.director, "ApplyStoryActorRuntimePolicy", ((Component)thirdRoam).transform, false, false, true);
+    [UnityTest]
+    public IEnumerator StoryActorsNightContract_ShouldReleaseAtSeven()
+    {
+        EnsureTestSceneActive("Town");
 
-        Assert.That((bool)GetPropertyValue(thirdRoam, "IsResidentScriptedControlActive"), Is.True, "003 进入夜晚静止态后，不应再被运行时策略下一帧误释放回 roam。");
+        RuntimeContext context = CreateRuntimeContext();
+        yield return null;
+
+        object freeTimePhase = ParseEnum(context.storyPhaseType, "FreeTime");
+        InvokeInstance(context.storyManager, "ResetState", freeTimePhase, false);
+        SetPrivateField(context.director, "_freeTimeEntered", true);
+        SetPrivateField(context.director, "_freeTimeIntroCompleted", true);
+
+        SetTimeWithoutSystems(context, 6, 59);
+        bool deferAtSix = (bool)InvokePrivateMethod(context.director, "ShouldDeferTownStoryActorVisibilityToResidentNightContract", freeTimePhase);
+
+        SetTimeWithoutSystems(context, 7, 0);
+        bool deferAtSeven = (bool)InvokePrivateMethod(context.director, "ShouldDeferTownStoryActorVisibilityToResidentNightContract", freeTimePhase);
+
+        Assert.That(deferAtSix, Is.True, "7:00 前，story actors 仍应服从夜间 resident contract。");
+        Assert.That(deferAtSeven, Is.False, "7:00 起，story actors 也应结束夜间隐藏窗口。");
     }
 
     [UnityTest]
@@ -1178,6 +1366,30 @@ public class SpringDay1LateDayRuntimeTests
 
         RuntimeContext context = CreateRuntimeContext();
         yield return null;
+
+        HashSet<string> restMarkerNames = new(StringComparer.Ordinal)
+        {
+            "Bed",
+            "PlayerBed",
+            "HomeBed",
+            "House 1_2",
+            "HomeDoor",
+            "HouseDoor",
+            "Door"
+        };
+        Transform[] sceneTransforms = UnityEngine.Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int index = 0; index < sceneTransforms.Length; index++)
+        {
+            Transform candidate = sceneTransforms[index];
+            if (candidate == null
+                || candidate.gameObject.scene != SceneManager.GetActiveScene()
+                || !restMarkerNames.Contains(candidate.name))
+            {
+                continue;
+            }
+
+            candidate.gameObject.SetActive(false);
+        }
 
         GameObject homeDoor = Track(new GameObject("HomeDoor", typeof(SpriteRenderer)));
         homeDoor.transform.position = new Vector3(5f, 6f, 0f);
@@ -1671,6 +1883,14 @@ public class SpringDay1LateDayRuntimeTests
         homeAnchor.transform.position = homeAnchorPosition;
         InvokeInstance(roamController, "SetHomeAnchor", homeAnchor.transform);
         return roamController;
+    }
+
+    private GameObject CreateMarker(Transform parent, string name, Vector3 position)
+    {
+        GameObject marker = Track(new GameObject(name));
+        marker.transform.SetParent(parent, false);
+        marker.transform.position = position;
+        return marker;
     }
 
     private static Type ResolveTypeOrFail(string fullName)

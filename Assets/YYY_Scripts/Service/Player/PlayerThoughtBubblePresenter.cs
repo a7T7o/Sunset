@@ -7,23 +7,28 @@ using UnityEngine.UI;
 [DisallowMultipleComponent]
 public class PlayerThoughtBubblePresenter : MonoBehaviour
 {
-    private static readonly Vector3 PlayerBubbleLocalOffset = new Vector3(-0.16f, 1.68f, 0f);
+    private const int BubbleForegroundSortingBase = 24000;
+    private const int SpeakerForegroundSortBoost = 2200;
+    private const float BubbleTextCharacterSpacing = 0f;
+    private const float BubbleTextLineSpacing = -0.4f;
+    private static readonly Vector3 PlayerBubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
     private static readonly Vector3 PlayerBubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
-    private static readonly Vector2 PlayerBubblePadding = new Vector2(68f, 34f);
+    private static readonly Vector2 PlayerBubblePadding = new Vector2(82f, 42f);
     private static readonly Vector2 PlayerTextSafePadding = new Vector2(24f, 22f);
-    private static readonly Vector2 PlayerTailSize = new Vector2(30f, 20f);
+    private static readonly Vector2 PlayerTailSize = new Vector2(34f, 24f);
     private static readonly Vector2 PlayerShadowOffset = new Vector2(3f, -5f);
     private static readonly Color PlayerBubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
-    private static readonly Color PlayerBubbleFillColor = new Color(0.10f, 0.12f, 0.16f, 0.96f);
+    private static readonly Color PlayerBubbleFillColor = new Color(0.19f, 0.16f, 0.12f, 1f);
     private static readonly Color PlayerBubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
     private static readonly Color PlayerTextColor = new Color(0.98f, 0.95f, 0.90f, 1f);
     private static readonly Color PlayerTextOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
 
     private static readonly string[] PreferredFontResourcePaths =
     {
-        "Fonts & Materials/DialogueChinese Pixel SDF",
+        "Fonts & Materials/DialogueChinese V2 SDF",
         "Fonts & Materials/DialogueChinese SDF",
-        "Fonts & Materials/DialogueChinese SoftPixel SDF"
+        "Fonts & Materials/DialogueChinese SoftPixel SDF",
+        "Fonts & Materials/DialogueChinese Pixel SDF"
     };
 
     private static Sprite sRuntimeBubbleSprite;
@@ -36,33 +41,33 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     [SerializeField] private TMP_FontAsset fontAsset;
 
     [Header("气泡布局")]
-    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(0f, 1.46f, 0f);
+    [SerializeField] private Vector3 bubbleLocalOffset = new Vector3(-0.14f, 1.48f, 0f);
     [SerializeField] private Vector3 bubbleLocalScale = new Vector3(0.01f, 0.01f, 0.01f);
     [SerializeField] private Vector2 bubblePadding = new Vector2(82f, 42f);
-    [SerializeField] private float maxTextWidth = 315f;
-    [SerializeField] private float minAdaptiveTextWidth = 92f;
-    [SerializeField] private int preferredCharactersPerLine = 12;
+    [SerializeField] private float maxTextWidth = 356f;
+    [SerializeField] private float minAdaptiveTextWidth = 64f;
+    [SerializeField] private int preferredCharactersPerLine = 14;
     [SerializeField] private Vector2 textSafePadding = new Vector2(24f, 22f);
     [SerializeField] private float textVerticalOffset = -10f;
     [SerializeField] private float borderThickness = 6f;
     [SerializeField] private Vector2 tailSize = new Vector2(34f, 24f);
-    [SerializeField] private float tailHorizontalBias = -24f;
+    [SerializeField] private float tailHorizontalBias = 18f;
     [SerializeField] private float tailYOffset = -28f;
     [SerializeField] private Vector2 shadowOffset = new Vector2(3f, -5f);
     [SerializeField] private int sortingOrderOffset = 20;
     [SerializeField] private float minBubbleHeight = 1.24f;
     [SerializeField] private float bubbleGapAboveRenderer = 0.02f;
-    [SerializeField] private float visibleFloatAmplitude = 0.0034f;
+    [SerializeField] private float visibleFloatAmplitude = 0.004f;
     [SerializeField] private float visibleFloatFrequency = 0.8f;
-    [SerializeField] private float tailBobAmplitude = 22f;
+    [SerializeField] private float tailBobAmplitude = 26f;
     [SerializeField] private float tailBobFrequency = 0.85f;
 
     [Header("气泡样式")]
-    [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.81f, 0.62f, 1f);
-    [SerializeField] private Color bubbleFillColor = new Color(0.15f, 0.18f, 0.20f, 0.97f);
-    [SerializeField] private Color bubbleShadowColor = new Color(0.02f, 0.03f, 0.06f, 0.34f);
-    [SerializeField] private Color textColor = new Color(0.97f, 0.97f, 0.94f, 1f);
-    [SerializeField] private Color textOutlineColor = new Color(0.07f, 0.09f, 0.12f, 0.88f);
+    [SerializeField] private Color bubbleBorderColor = new Color(0.92f, 0.79f, 0.56f, 1f);
+    [SerializeField] private Color bubbleFillColor = new Color(0.19f, 0.16f, 0.12f, 1f);
+    [SerializeField] private Color bubbleShadowColor = new Color(0.01f, 0.02f, 0.04f, 0.34f);
+    [SerializeField] private Color textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
+    [SerializeField] private Color textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
     [SerializeField] private float fontSize = 32f;
     [SerializeField] private float textOutlineWidth = 0.18f;
     [SerializeField] private float showDuration = 0.14f;
@@ -94,9 +99,13 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
     private Vector2 fillTailBasePosition;
     private Vector3 conversationLayoutShift;
     private bool hasConversationLayoutShift;
+    private int conversationSortBoost;
+    private int speakerForegroundSortBoost;
 
     public bool IsVisible => canvasRoot != null && canvasRoot.gameObject.activeSelf;
     public string CurrentBubbleText => IsVisible && bubbleText != null ? bubbleText.text : string.Empty;
+    public float ApproximateWorldWidth => canvasRect != null ? canvasRect.sizeDelta.x * bubbleLocalScale.x : 0f;
+    public float ApproximateWorldHeight => canvasRect != null ? canvasRect.sizeDelta.y * bubbleLocalScale.y : 0f;
     public event Action Hidden;
 
     private void Reset()
@@ -155,21 +164,23 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
             hideCoroutine = null;
         }
 
-        if (visibilityCoroutine != null)
-        {
-            StopCoroutine(visibilityCoroutine);
-            visibilityCoroutine = null;
-        }
-
+        bool wasActive = canvasRoot.gameObject.activeSelf;
         canvasRoot.gameObject.SetActive(true);
         bubbleText.text = FormatBubbleText(content.Trim());
+        Sunset.Story.DialogueChineseFontRuntimeBootstrap.CanRenderText(bubbleText.font, bubbleText.text);
         UpdateStyleVisuals();
         UpdateLayout();
         SyncCanvasTransform();
         SyncSorting();
 
-        if (restartFadeIn || canvasGroup == null || canvasGroup.alpha < 0.99f)
+        if (restartFadeIn || !wasActive)
         {
+            if (visibilityCoroutine != null)
+            {
+                StopCoroutine(visibilityCoroutine);
+                visibilityCoroutine = null;
+            }
+
             if (canvasGroup != null)
             {
                 canvasGroup.alpha = 0f;
@@ -184,6 +195,12 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         }
         else
         {
+            if (visibilityCoroutine != null)
+            {
+                StopCoroutine(visibilityCoroutine);
+                visibilityCoroutine = null;
+            }
+
             if (canvasGroup != null)
             {
                 canvasGroup.alpha = 1f;
@@ -198,6 +215,54 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         if (totalDuration > 0f)
         {
             hideCoroutine = StartCoroutine(HideAfterSeconds(totalDuration));
+        }
+    }
+
+    public void BeginTypedText(string content, bool restartFadeIn)
+    {
+        ShowTextImmediate(content);
+    }
+
+    public void ShowImmediateText(string content)
+    {
+        ShowTextImmediate(content);
+    }
+
+    public void UpdateTypedText(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return;
+        }
+
+        EnsureUi();
+        if (canvasRoot == null || bubbleText == null)
+        {
+            return;
+        }
+
+        if (visibilityCoroutine != null)
+        {
+            StopCoroutine(visibilityCoroutine);
+            visibilityCoroutine = null;
+        }
+
+        canvasRoot.gameObject.SetActive(true);
+        bubbleText.text = FormatBubbleText(content.Trim());
+        Sunset.Story.DialogueChineseFontRuntimeBootstrap.CanRenderText(bubbleText.font, bubbleText.text);
+        UpdateStyleVisuals();
+        UpdateLayout();
+        SyncCanvasTransform();
+        SyncSorting();
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+        }
+
+        if (bubbleRoot != null)
+        {
+            bubbleRoot.localScale = Vector3.one;
         }
     }
 
@@ -230,13 +295,15 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
             canvasRoot.gameObject.SetActive(false);
         }
 
+        ClearSpeakerForegroundFocus();
+
         Hidden?.Invoke();
     }
 
     public void SetConversationLayoutShift(Vector3 localOffsetShift)
     {
         conversationLayoutShift = localOffsetShift;
-        hasConversationLayoutShift = true;
+        hasConversationLayoutShift = localOffsetShift != Vector3.zero;
         SyncCanvasTransform();
     }
 
@@ -252,8 +319,102 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         SyncCanvasTransform();
     }
 
-    private void HideBubble()
+    public void SetConversationSortBoost(int sortBoost)
     {
+        if (conversationSortBoost == sortBoost)
+        {
+            return;
+        }
+
+        conversationSortBoost = sortBoost;
+        SyncSorting();
+    }
+
+    public void ClearConversationSortBoost()
+    {
+        if (conversationSortBoost == 0)
+        {
+            return;
+        }
+
+        conversationSortBoost = 0;
+        SyncSorting();
+    }
+
+    public void SetSpeakerForegroundFocus()
+    {
+        if (speakerForegroundSortBoost == SpeakerForegroundSortBoost)
+        {
+            return;
+        }
+
+        speakerForegroundSortBoost = SpeakerForegroundSortBoost;
+        SyncSorting();
+    }
+
+    public void ClearSpeakerForegroundFocus()
+    {
+        if (speakerForegroundSortBoost == 0)
+        {
+            return;
+        }
+
+        speakerForegroundSortBoost = 0;
+        SyncSorting();
+    }
+
+    private void ShowTextImmediate(string content)
+    {
+        if (string.IsNullOrWhiteSpace(content))
+        {
+            return;
+        }
+
+        EnsureUi();
+        if (canvasRoot == null || bubbleText == null)
+        {
+            return;
+        }
+
+        if (hideCoroutine != null)
+        {
+            StopCoroutine(hideCoroutine);
+            hideCoroutine = null;
+        }
+
+        if (visibilityCoroutine != null)
+        {
+            StopCoroutine(visibilityCoroutine);
+            visibilityCoroutine = null;
+        }
+
+        canvasRoot.gameObject.SetActive(true);
+        bubbleText.text = FormatBubbleText(content.Trim());
+        Sunset.Story.DialogueChineseFontRuntimeBootstrap.CanRenderText(bubbleText.font, bubbleText.text);
+        UpdateStyleVisuals();
+        UpdateLayout();
+        SyncCanvasTransform();
+        SyncSorting();
+
+        if (canvasGroup != null)
+        {
+            canvasGroup.alpha = 1f;
+        }
+
+        if (bubbleRoot != null)
+        {
+            bubbleRoot.localScale = Vector3.one;
+        }
+    }
+
+    public void HideBubble()
+    {
+        if (hideCoroutine != null)
+        {
+            StopCoroutine(hideCoroutine);
+            hideCoroutine = null;
+        }
+
         if (!Application.isPlaying || canvasRoot == null || !canvasRoot.gameObject.activeSelf)
         {
             HideImmediate();
@@ -281,17 +442,17 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         bubbleLocalOffset = PlayerBubbleLocalOffset;
         bubbleLocalScale = PlayerBubbleLocalScale;
         bubblePadding = PlayerBubblePadding;
-        maxTextWidth = 315f;
+        maxTextWidth = 356f;
         minAdaptiveTextWidth = 64f;
-        preferredCharactersPerLine = 10;
+        preferredCharactersPerLine = 14;
         textSafePadding = PlayerTextSafePadding;
         textVerticalOffset = -10f;
         borderThickness = 6f;
         tailSize = PlayerTailSize;
-        tailHorizontalBias = -18f;
+        tailHorizontalBias = 18f;
         tailYOffset = -28f;
         shadowOffset = PlayerShadowOffset;
-        sortingOrderOffset = 24;
+        sortingOrderOffset = 20;
         minBubbleHeight = 1.24f;
         bubbleGapAboveRenderer = 0.02f;
         visibleFloatAmplitude = 0.004f;
@@ -304,7 +465,7 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         textColor = PlayerTextColor;
         textOutlineColor = PlayerTextOutlineColor;
         fontSize = 32f;
-        textOutlineWidth = 0.18f;
+        textOutlineWidth = 0.08f;
         showDuration = 0.14f;
         hideDuration = 0.1f;
         showScaleOvershoot = 0.05f;
@@ -402,14 +563,18 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
 
         bubbleText = textObject.GetComponent<TextMeshProUGUI>();
         bubbleText.font = resolvedFont;
+        if (resolvedFont.material != null)
+        {
+            bubbleText.fontSharedMaterial = resolvedFont.material;
+        }
         bubbleText.alignment = TextAlignmentOptions.Center;
         bubbleText.textWrappingMode = TextWrappingModes.Normal;
         bubbleText.overflowMode = TextOverflowModes.Overflow;
         bubbleText.raycastTarget = false;
         bubbleText.enableAutoSizing = false;
         bubbleText.extraPadding = true;
-        bubbleText.characterSpacing = 1.25f;
-        bubbleText.lineSpacing = -5f;
+        bubbleText.characterSpacing = BubbleTextCharacterSpacing;
+        bubbleText.lineSpacing = BubbleTextLineSpacing;
         bubbleText.outlineColor = textOutlineColor;
         bubbleText.outlineWidth = textOutlineWidth;
 
@@ -431,6 +596,7 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
             return;
         }
 
+        EnsureBubbleShapeSprites();
         shadowBodyImage.color = bubbleShadowColor;
         shadowTailImage.color = bubbleShadowColor;
         borderBodyImage.color = bubbleBorderColor;
@@ -442,6 +608,24 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         bubbleText.color = textColor;
         bubbleText.outlineColor = textOutlineColor;
         bubbleText.outlineWidth = textOutlineWidth;
+        bubbleText.characterSpacing = BubbleTextCharacterSpacing;
+        bubbleText.lineSpacing = BubbleTextLineSpacing;
+        if (bubbleText.font != null && bubbleText.font.material != null)
+        {
+            bubbleText.fontSharedMaterial = bubbleText.font.material;
+        }
+    }
+
+    private void EnsureBubbleShapeSprites()
+    {
+        Sprite bodySprite = GetOrCreateRuntimeBubbleSprite();
+        Sprite tailSprite = GetOrCreateRuntimeTailSprite();
+        ApplyBubbleImageShape(shadowBodyImage, bodySprite, Image.Type.Sliced);
+        ApplyBubbleImageShape(borderBodyImage, bodySprite, Image.Type.Sliced);
+        ApplyBubbleImageShape(fillBodyImage, bodySprite, Image.Type.Sliced);
+        ApplyBubbleImageShape(shadowTailImage, tailSprite, Image.Type.Simple);
+        ApplyBubbleImageShape(borderTailImage, tailSprite, Image.Type.Simple);
+        ApplyBubbleImageShape(fillTailImage, tailSprite, Image.Type.Simple);
     }
 
     private void UpdateLayout()
@@ -481,7 +665,7 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         Vector2 tailPosition = new Vector2(tailHorizontalBias, tailCenterY);
         Vector2 shadowBodyPosition = bodyPosition + shadowOffset;
         Vector2 shadowTailPosition = tailPosition + shadowOffset;
-        Vector2 fillTailPosition = tailPosition + (Vector2.up * 0.6f);
+        Vector2 fillTailPosition = tailPosition + (Vector2.up * 0.75f);
 
         shadowTailBasePosition = shadowTailPosition;
         borderTailBasePosition = tailPosition;
@@ -528,16 +712,27 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
             return;
         }
 
-        if (targetRenderer != null)
+        canvasRoot.overrideSorting = true;
+        canvasRoot.sortingLayerID = ResolveForegroundSortingLayerId();
+        canvasRoot.sortingOrder = BubbleForegroundSortingBase + ResolveStableSortingBias() + sortingOrderOffset + conversationSortBoost + speakerForegroundSortBoost;
+    }
+
+    private int ResolveStableSortingBias()
+    {
+        return targetRenderer != null
+            ? Mathf.Clamp(targetRenderer.sortingOrder, -200, 1200)
+            : 0;
+    }
+
+    private static int ResolveForegroundSortingLayerId()
+    {
+        SortingLayer[] layers = SortingLayer.layers;
+        if (layers != null && layers.Length > 0)
         {
-            canvasRoot.sortingLayerID = targetRenderer.sortingLayerID;
-            canvasRoot.sortingOrder = targetRenderer.sortingOrder + sortingOrderOffset;
+            return layers[layers.Length - 1].id;
         }
-        else
-        {
-            canvasRoot.sortingLayerName = "Default";
-            canvasRoot.sortingOrder = sortingOrderOffset;
-        }
+
+        return SortingLayer.NameToID("Default");
     }
 
     private void StartVisibilityAnimation(bool visible, bool deactivateAfter)
@@ -686,37 +881,84 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
             return string.Empty;
         }
 
-        return content.Replace("\r", string.Empty);
+        string normalized = content.Replace("\r\n", "\n").Replace('\r', '\n').Trim();
+        if (normalized.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return normalized;
     }
 
     private TMP_FontAsset ResolveFontAsset()
     {
-        if (fontAsset != null)
+        TMP_FontAsset preferredRuntimeFont = ResolvePreferredRuntimeFontAsset();
+        TMP_FontAsset resolved = Sunset.Story.DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+            bubbleText != null ? bubbleText.text : string.Empty,
+            preferredRuntimeFont != null ? preferredRuntimeFont : fontAsset);
+        if (resolved != null)
         {
-            return fontAsset;
+            fontAsset = resolved;
+            return resolved;
         }
 
-        fontAsset = TryLoadPreferredFontAsset();
-        if (fontAsset != null)
-        {
-            return fontAsset;
-        }
-
-        return TMP_Settings.defaultFontAsset;
+        TMP_FontAsset fallback = preferredRuntimeFont != null ? preferredRuntimeFont : fontAsset;
+        return fallback != null ? fallback : TMP_Settings.defaultFontAsset;
     }
 
     private TMP_FontAsset TryLoadPreferredFontAsset()
     {
+        return ResolvePreferredRuntimeFontAsset();
+    }
+
+    private TMP_FontAsset ResolvePreferredRuntimeFontAsset()
+    {
+        string currentText = bubbleText != null ? bubbleText.text : string.Empty;
         for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
         {
             TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
-            if (candidate != null)
+            if (!IsFontAssetUsable(candidate))
             {
-                return candidate;
+                continue;
+            }
+
+            TMP_FontAsset resolvedCandidate = Sunset.Story.DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                currentText,
+                candidate);
+            if (IsFontAssetUsable(resolvedCandidate))
+            {
+                return resolvedCandidate;
             }
         }
 
-        return null;
+        return Sunset.Story.DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+            currentText,
+            fontAsset);
+    }
+
+    private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)
+    {
+        if (fontAsset == null || fontAsset.material == null)
+        {
+            return false;
+        }
+
+        Texture[] atlasTextures = fontAsset.atlasTextures;
+        if (atlasTextures == null || atlasTextures.Length == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < atlasTextures.Length; index++)
+        {
+            Texture atlasTexture = atlasTextures[index];
+            if (atlasTexture != null && atlasTexture.width > 1 && atlasTexture.height > 1)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static void AnalyzeBubbleText(string content, out int visibleCharacterCount, out int longestLineCharacterCount)
@@ -778,6 +1020,18 @@ public class PlayerThoughtBubblePresenter : MonoBehaviour
         rectTransform.pivot = new Vector2(0.5f, 0.5f);
 
         return image;
+    }
+
+    private static void ApplyBubbleImageShape(Image image, Sprite sprite, Image.Type imageType)
+    {
+        if (image == null)
+        {
+            return;
+        }
+
+        image.sprite = sprite;
+        image.type = imageType;
+        image.raycastTarget = false;
     }
 
     private static Sprite GetOrCreateRuntimeBubbleSprite()

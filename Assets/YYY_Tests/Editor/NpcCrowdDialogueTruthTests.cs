@@ -13,13 +13,12 @@ public class NpcCrowdDialogueTruthTests
     private static readonly CrowdTruthEntry[] ExpectedCrowdTruthTable =
     {
         new CrowdTruthEntry($"{CrowdRoot}/NPC_101_LedgerScribeDialogueContent.asset", "101", "ScribeCrowd", "103", "104", "203"),
-        new CrowdTruthEntry($"{CrowdRoot}/NPC_102_HunterDialogueContent.asset", "102", "HunterClue", "301"),
+        new CrowdTruthEntry($"{CrowdRoot}/NPC_102_HunterDialogueContent.asset", "102", "HunterClue"),
         new CrowdTruthEntry($"{CrowdRoot}/NPC_103_ErrandBoyDialogueContent.asset", "103", "WitnessBoy", "101", "104", "203"),
         new CrowdTruthEntry($"{CrowdRoot}/NPC_104_CarpenterDialogueContent.asset", "104", "CarpenterCrowd", "101", "103", "203"),
         new CrowdTruthEntry($"{CrowdRoot}/NPC_201_SeamstressDialogueContent.asset", "201", "MendingCrowd", "202"),
         new CrowdTruthEntry($"{CrowdRoot}/NPC_202_FloristDialogueContent.asset", "202", "HerbCrowd", "201"),
-        new CrowdTruthEntry($"{CrowdRoot}/NPC_203_CanteenKeeperDialogueContent.asset", "203", "DinnerCrowd", "101", "103", "104"),
-        new CrowdTruthEntry($"{CrowdRoot}/NPC_301_GraveWardenBoneDialogueContent.asset", "301", "NightWitness", "102")
+        new CrowdTruthEntry($"{CrowdRoot}/NPC_203_CanteenKeeperDialogueContent.asset", "203", "DinnerCrowd", "101", "103", "104")
     };
 
     private static readonly string[] BannedFormalRoleTokens =

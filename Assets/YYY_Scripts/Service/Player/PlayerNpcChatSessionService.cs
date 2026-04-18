@@ -7,6 +7,8 @@ using UnityEngine;
 [DefaultExecutionOrder(110)]
 public class PlayerNpcChatSessionService : MonoBehaviour
 {
+    private const int ConversationForegroundSortBoost = 1400;
+
     private enum SessionState
     {
         Idle = 0,
@@ -18,11 +20,18 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         Completing = 6
     }
 
+    private enum ConversationBubbleFocus
+    {
+        None = 0,
+        Player = 1,
+        Npc = 2
+    }
+
     private sealed class ResumeIntroPlan
     {
-        public string PlayerLine;
-        public string NpcLine;
-        public float NpcReplyDelay;
+        public string PlayerLine { get; set; }
+        public string NpcLine { get; set; }
+        public float NpcReplyDelay { get; set; }
 
         public bool HasAnyContent =>
             !string.IsNullOrWhiteSpace(PlayerLine) ||
@@ -52,18 +61,18 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         InvalidSnapshot = 6
     }
 
-    [SerializeField] private float playerCharsPerSecond = 36f;
-    [SerializeField] private float npcCharsPerSecond = 30f;
-    [SerializeField] private float sessionBreakGraceSeconds = 0.18f;
+    [SerializeField] private float playerCharsPerSecond = 24f;
+    [SerializeField] private float npcCharsPerSecond = 20f;
+    [SerializeField] private float sessionBreakGraceSeconds = 0.2f;
     [SerializeField] private float resumeWindowSeconds = 16f;
     [SerializeField] private float resumeIntroCooldownSeconds = 5f;
-    [SerializeField] private float autoContinueDelayMin = 0.18f;
-    [SerializeField] private float autoContinueDelayMax = 0.34f;
+    [SerializeField] private float autoContinueDelayMin = 1f;
+    [SerializeField] private float autoContinueDelayMax = 0f;
     [SerializeField] private float completionHoldSeconds = 1.15f;
     [SerializeField] private float interruptionHoldSeconds = 1.35f;
-    [SerializeField] private float conversationBubbleSideOffset = 0.34f;
-    [SerializeField] private float playerConversationBubbleLift = 0.22f;
-    [SerializeField] private float npcConversationBubbleLift = 0.06f;
+    [SerializeField] private float conversationBubbleSideOffset = 0.18f;
+    [SerializeField] private float playerConversationBubbleLift = 0.12f;
+    [SerializeField] private float npcConversationBubbleLift = 0.05f;
     [SerializeField] private PlayerThoughtBubblePresenter playerBubblePresenter;
 
     private readonly Dictionary<string, int> _bundleCursorByNpcId = new Dictionary<string, int>();
@@ -102,6 +111,7 @@ public class PlayerNpcChatSessionService : MonoBehaviour
     private float _pendingResumeExpiresAt = -1f;
     private string _resumeIntroCooldownNpcId = string.Empty;
     private float _resumeIntroCooldownEndsAt = -1f;
+    private ConversationBubbleFocus _conversationBubbleFocus = ConversationBubbleFocus.None;
 
     public static PlayerNpcChatSessionService Instance { get; private set; }
     public static bool IsAnySessionActive => Instance != null && Instance.HasActiveConversation;
@@ -193,13 +203,15 @@ public class PlayerNpcChatSessionService : MonoBehaviour
     {
         if (!IsConversationActiveWith(interactable))
         {
-            return "闲聊";
+            return interactable != null && interactable.ShouldUseResidentPromptTone()
+                ? "日常交流"
+                : "闲聊";
         }
 
         return _state switch
         {
             SessionState.PlayerTyping => "你在说话",
-            SessionState.WaitingNpcReply => "等对方回应",
+            SessionState.WaitingNpcReply => "对方在想",
             SessionState.NpcTyping => "对方在回你",
             SessionState.AutoContinuing => "对话还在继续",
             SessionState.Interrupting => "聊到一半",
@@ -212,17 +224,19 @@ public class PlayerNpcChatSessionService : MonoBehaviour
     {
         if (!IsConversationActiveWith(interactable))
         {
-            return "按 E 开口";
+            return interactable != null && interactable.ShouldUseResidentPromptTone()
+                ? "按 E 聊聊近况"
+                : "按 E 开口";
         }
 
         return _state switch
         {
-            SessionState.PlayerTyping => "按 E 跳过动效",
-            SessionState.WaitingNpcReply => "按 E 让回应快一点",
-            SessionState.NpcTyping => "按 E 跳过动效",
-            SessionState.AutoContinuing => "这段会自己接上",
-            SessionState.Interrupting => "正在收尾",
-            SessionState.Completing => "按 E 立刻收尾",
+            SessionState.PlayerTyping => "会自动继续，按 E 只跳过这句动效",
+            SessionState.WaitingNpcReply => "对方会自动接话，按 E 跳过等待",
+            SessionState.NpcTyping => "会自动继续，按 E 只跳过这句动效",
+            SessionState.AutoContinuing => "会自动续聊，按 E 跳过停顿",
+            SessionState.Interrupting => "正在收束，按 E 跳过收尾",
+            SessionState.Completing => "这段聊完了，按 E 直接收起",
             _ => string.Empty
         };
     }
@@ -286,14 +300,22 @@ public class PlayerNpcChatSessionService : MonoBehaviour
             return;
         }
 
+        if (ShouldCancelForResidentScriptedTakeover())
+        {
+            CancelConversationImmediate(ConversationEndReason.SystemTakeover, NPCInformalChatLeaveCause.DialogueTakeover);
+            return;
+        }
+
         if (_state is SessionState.Interrupting or SessionState.Completing)
         {
             ResetSessionBreakProbe();
             UpdateConversationBubbleLayout();
+            SyncConversationPromptOverlay();
             return;
         }
 
         UpdateConversationBubbleLayout();
+        SyncConversationPromptOverlay();
         HandleSessionBreakDistance();
     }
 
@@ -318,7 +340,6 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         {
             case SessionState.PlayerTyping:
             case SessionState.NpcTyping:
-            case SessionState.Interrupting:
                 _skipCurrentEffectRequested = true;
                 return true;
 
@@ -326,12 +347,26 @@ public class PlayerNpcChatSessionService : MonoBehaviour
                 _expediteNpcReplyRequested = true;
                 return true;
 
+            case SessionState.AutoContinuing:
+            case SessionState.Interrupting:
             case SessionState.Completing:
+                _skipCurrentEffectRequested = true;
                 _advanceRequested = true;
                 return true;
         }
 
         return false;
+    }
+
+    private bool ShouldCancelForResidentScriptedTakeover()
+    {
+        NPCAutoRoamController roamController = _activeInteractable != null ? _activeInteractable.AutoRoamController : null;
+        if (roamController == null || !roamController.IsResidentScriptedControlActive)
+        {
+            return false;
+        }
+
+        return !NPCInformalChatInteractable.IsInformalChatControlOwner(roamController.ResidentScriptedControlOwnerKey);
     }
 
     public bool RequestAdvanceOrSkipActiveConversation()
@@ -376,6 +411,7 @@ public class PlayerNpcChatSessionService : MonoBehaviour
 
         string npcId = interactable.ResolveNpcId();
         NPCRelationshipStage relationshipStage = interactable.ResolveRelationshipStage();
+        StoryPhase storyPhase = ResolveCurrentStoryPhase();
         bool shouldClearPendingResumeAfterStart = false;
         int startExchangeIndex = 0;
         string resumedLastCompletedPlayerLine = string.Empty;
@@ -392,7 +428,7 @@ public class PlayerNpcChatSessionService : MonoBehaviour
                 out resumeOutcome);
         if (bundle == null)
         {
-            bundle = ResolveBundle(npcId, interactable.ResolveConversationBundles(relationshipStage));
+            bundle = ResolveBundle(npcId, interactable.ResolveConversationBundles(relationshipStage, storyPhase));
             startExchangeIndex = 0;
             shouldClearPendingResumeAfterStart =
                 !string.IsNullOrEmpty(_pendingResumeNpcId) &&
@@ -470,10 +506,30 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         }
 
         RecordResumeOutcome(npcId, resumeOutcome);
+        SetConversationBubbleFocus(ConversationBubbleFocus.Player);
+
+        if (playerBubblePresenter != null && playerBubblePresenter.IsVisible)
+        {
+            playerBubblePresenter.ClearConversationLayoutShift();
+            playerBubblePresenter.ClearConversationSortBoost();
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
+            playerBubblePresenter.HideImmediate();
+        }
+
+        if (_activeInteractable.BubblePresenter != null)
+        {
+            _activeInteractable.BubblePresenter.SetConversationChannelActive(true);
+            _activeInteractable.BubblePresenter.ClearConversationSortBoost();
+            if (_activeInteractable.BubblePresenter.IsBubbleVisible)
+            {
+                _activeInteractable.BubblePresenter.HideImmediateBubble();
+            }
+        }
 
         _activeInteractable.EnterConversationOccupation(context);
         FaceEachOther();
         UpdateConversationBubbleLayout();
+        SyncConversationPromptOverlay();
         if (resumeIntro != null && resumeIntro.HasAnyContent)
         {
             MarkResumeIntroCooldown(npcId);
@@ -558,13 +614,14 @@ public class PlayerNpcChatSessionService : MonoBehaviour
             {
                 ApplyCompletionRelationshipDelta();
                 _state = SessionState.Completing;
-                yield return WaitForSecondsOrAdvance(completionHoldSeconds);
+                yield return WaitForSecondsOrAdvance(CalculateReadableHoldSeconds(npcReplyLine, completionHoldSeconds));
                 EndConversation(ConversationEndReason.Completed);
                 yield break;
             }
 
             _state = SessionState.AutoContinuing;
-            yield return WaitForSecondsOrAdvance(Random.Range(autoContinueDelayMin, autoContinueDelayMax));
+            yield return WaitForSecondsOrAdvance(
+                CalculateReadableHoldSeconds(npcReplyLine, autoContinueDelayMin, autoContinueDelayMax));
         }
 
         EndConversation();
@@ -573,14 +630,23 @@ public class PlayerNpcChatSessionService : MonoBehaviour
     private IEnumerator PlayPlayerLine(string line, bool restartFadeIn)
     {
         _state = SessionState.PlayerTyping;
+        SetConversationBubbleFocus(ConversationBubbleFocus.Player);
+        if (_activeInteractable != null && _activeInteractable.BubblePresenter != null)
+        {
+            _activeInteractable.BubblePresenter.ClearSpeakerForegroundFocus();
+        }
+        if (playerBubblePresenter != null)
+        {
+            playerBubblePresenter.SetSpeakerForegroundFocus();
+        }
         FaceEachOther();
         UpdateConversationBubbleLayout();
         yield return PlayTypedLine(
             line,
             playerCharsPerSecond,
             restartFadeIn,
-            updateText: partial => playerBubblePresenter.ShowText(partial, -1f, restartFadeIn: false),
-            openLine: firstChunk => playerBubblePresenter.ShowText(firstChunk, -1f, restartFadeIn));
+            updateText: partial => playerBubblePresenter.UpdateTypedText(partial),
+            openLine: firstChunk => playerBubblePresenter.BeginTypedText(firstChunk, restartFadeIn));
     }
 
     private IEnumerator PlayNpcLine(string line, bool restartFadeIn)
@@ -591,13 +657,18 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         }
 
         _state = SessionState.NpcTyping;
+        SetConversationBubbleFocus(ConversationBubbleFocus.Npc);
+        if (playerBubblePresenter != null)
+        {
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
+        }
         UpdateConversationBubbleLayout();
         yield return PlayTypedLine(
             line,
             npcCharsPerSecond,
             restartFadeIn,
-            updateText: partial => _activeInteractable.BubblePresenter.ShowText(partial, -1f, restartFadeIn: false),
-            openLine: firstChunk => _activeInteractable.BubblePresenter.ShowText(firstChunk, -1f, restartFadeIn));
+            updateText: partial => _activeInteractable.BubblePresenter.UpdateTypedConversationText(partial),
+            openLine: firstChunk => _activeInteractable.BubblePresenter.BeginTypedConversationText(firstChunk, restartFadeIn));
     }
 
     private IEnumerator PlayTypedLine(string fullText, float charsPerSecond, bool restartFadeIn, System.Action<string> updateText, System.Action<string> openLine)
@@ -702,17 +773,13 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         _advanceRequested = false;
         _expediteNpcReplyRequested = false;
 
-        if (playerBubblePresenter != null && playerBubblePresenter.IsVisible)
-        {
-            playerBubblePresenter.HideImmediate();
-        }
-
         if (_sessionCoroutine != null)
         {
             StopCoroutine(_sessionCoroutine);
             _sessionCoroutine = null;
         }
 
+        ResetConversationBubbleVisualsImmediate();
         _state = SessionState.Interrupting;
         _sessionCoroutine = StartCoroutine(RunWalkAwayInterrupt(leavePhase));
     }
@@ -732,35 +799,31 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         }
 
         _lastInterruptedPlayerLine = playerExitLine;
-        yield return PlayPlayerLine(playerExitLine, restartFadeIn: true);
-        yield return WaitForSecondsOrAdvance(0.18f);
+        ShowInterruptPlayerLine(playerExitLine);
+        yield return WaitForSecondsOrAdvance(CalculateNpcReactionDelay(playerExitLine));
 
         if (_activeInteractable != null && _activeInteractable.BubblePresenter != null)
         {
             string reactionCue = reaction.ReactionCue;
+            float npcReactionDelay = Mathf.Clamp(reaction.NpcReactionDelay, 0.18f, 0.85f);
             if (!string.IsNullOrWhiteSpace(reactionCue))
             {
-                _lastInterruptedNpcLine = reactionCue.Trim();
-                _activeInteractable.BubblePresenter.ShowReactionCue(
-                    reactionCue,
-                    -1f,
-                    restartFadeIn: leavePhase == NPCInformalChatLeavePhase.NpcSpeaking || !_activeInteractable.BubblePresenter.IsBubbleVisible);
-                yield return WaitForSecondsOrAdvance(Mathf.Min(0.4f, Mathf.Max(0.15f, reaction.NpcReactionDelay)));
+                float cueHoldSeconds = Mathf.Min(0.28f, npcReactionDelay);
+                yield return WaitForSecondsOrAdvance(cueHoldSeconds);
+                npcReactionDelay = Mathf.Max(0.1f, npcReactionDelay - cueHoldSeconds);
             }
 
             string npcReactionLine = PickLine(reaction.NpcReactionLines, 0);
             if (!string.IsNullOrWhiteSpace(npcReactionLine))
             {
-                yield return WaitForSecondsOrAdvance(reaction.NpcReactionDelay);
+                yield return WaitForSecondsOrAdvance(npcReactionDelay);
                 if (_playerMovement != null)
                 {
                     _activeInteractable.FaceToward(_playerMovement.transform.position - _activeInteractable.transform.position);
                 }
 
                 _lastInterruptedNpcLine = npcReactionLine;
-                yield return PlayNpcLine(
-                    npcReactionLine,
-                    restartFadeIn: leavePhase == NPCInformalChatLeavePhase.NpcSpeaking || !_activeInteractable.BubblePresenter.IsBubbleVisible);
+                ShowInterruptNpcLine(npcReactionLine);
             }
         }
 
@@ -780,8 +843,9 @@ public class PlayerNpcChatSessionService : MonoBehaviour
     {
         if (_activeInteractable != null)
         {
+            StoryPhase currentStoryPhase = ResolveCurrentStoryPhase();
             NPCDialogueContentProfile.InformalChatInterruptReaction configuredReaction =
-                _activeInteractable.ResolveInterruptReaction(_activeRelationshipStage, leaveCause, leavePhase);
+                _activeInteractable.ResolveInterruptReaction(_activeRelationshipStage, currentStoryPhase, leaveCause, leavePhase);
             if (configuredReaction != null && configuredReaction.HasAnyContent())
             {
                 return configuredReaction;
@@ -816,13 +880,17 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         }
 
         ResetSessionBreakProbe();
+        HideConversationPromptOverlay();
 
         if (_activeInteractable != null)
         {
             _activeInteractable.ExitConversationOccupation();
             if (_activeInteractable.BubblePresenter != null)
             {
+                _activeInteractable.BubblePresenter.SetConversationChannelActive(false);
+                _activeInteractable.BubblePresenter.ClearSpeakerForegroundFocus();
                 _activeInteractable.BubblePresenter.ClearConversationLayoutShift();
+                _activeInteractable.BubblePresenter.ClearConversationSortBoost();
                 _activeInteractable.BubblePresenter.HideBubble();
             }
         }
@@ -830,7 +898,9 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         if (playerBubblePresenter != null)
         {
             playerBubblePresenter.ClearConversationLayoutShift();
-            playerBubblePresenter.HideImmediate();
+            playerBubblePresenter.ClearConversationSortBoost();
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
+            playerBubblePresenter.HideBubble();
         }
 
         _activeInteractable = null;
@@ -841,6 +911,7 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         _advanceRequested = false;
         _expediteNpcReplyRequested = false;
         _completionDeltaApplied = false;
+        _conversationBubbleFocus = ConversationBubbleFocus.None;
 
         if (endReason != ConversationEndReason.None)
         {
@@ -871,24 +942,27 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         }
 
         ResetSessionBreakProbe();
+        HideConversationPromptOverlay();
 
         if (_activeInteractable != null)
         {
             _activeInteractable.ExitConversationOccupation();
             if (_activeInteractable.BubblePresenter != null)
             {
+                _activeInteractable.BubblePresenter.SetConversationChannelActive(false);
+                _activeInteractable.BubblePresenter.ClearSpeakerForegroundFocus();
                 _activeInteractable.BubblePresenter.ClearConversationLayoutShift();
-                _activeInteractable.BubblePresenter.HideBubble();
+                _activeInteractable.BubblePresenter.ClearConversationSortBoost();
+                _activeInteractable.BubblePresenter.HideImmediateBubble();
             }
         }
 
-        if (playerBubblePresenter != null && playerBubblePresenter.IsVisible)
-        {
-            playerBubblePresenter.HideImmediate();
-        }
-        else if (playerBubblePresenter != null)
+        if (playerBubblePresenter != null)
         {
             playerBubblePresenter.ClearConversationLayoutShift();
+            playerBubblePresenter.ClearConversationSortBoost();
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
+            playerBubblePresenter.HideImmediate();
         }
 
         _activeInteractable = null;
@@ -899,6 +973,7 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         _advanceRequested = false;
         _expediteNpcReplyRequested = false;
         _completionDeltaApplied = false;
+        _conversationBubbleFocus = ConversationBubbleFocus.None;
 
         if (hadConversation)
         {
@@ -923,6 +998,81 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         _lastAbortCause = NPCInformalChatLeaveCause.Any;
         _lastLeavePhase = NPCInformalChatLeavePhase.Any;
         ResetSessionBreakProbe();
+        _conversationBubbleFocus = ConversationBubbleFocus.None;
+    }
+
+    private void ResetConversationBubbleVisualsImmediate()
+    {
+        if (playerBubblePresenter != null)
+        {
+            playerBubblePresenter.ClearConversationLayoutShift();
+            playerBubblePresenter.ClearConversationSortBoost();
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
+            playerBubblePresenter.HideImmediate();
+        }
+
+        _conversationBubbleFocus = ConversationBubbleFocus.None;
+
+        if (_activeInteractable == null || _activeInteractable.BubblePresenter == null)
+        {
+            return;
+        }
+
+        _activeInteractable.BubblePresenter.ClearConversationLayoutShift();
+        _activeInteractable.BubblePresenter.ClearSpeakerForegroundFocus();
+        _activeInteractable.BubblePresenter.ClearConversationSortBoost();
+        _activeInteractable.BubblePresenter.HideImmediateBubble();
+    }
+
+    private void ShowInterruptPlayerLine(string line)
+    {
+        if (playerBubblePresenter == null || string.IsNullOrWhiteSpace(line))
+        {
+            return;
+        }
+
+        FaceEachOther();
+        SetConversationBubbleFocus(ConversationBubbleFocus.Player);
+        if (_activeInteractable != null && _activeInteractable.BubblePresenter != null)
+        {
+            _activeInteractable.BubblePresenter.ClearSpeakerForegroundFocus();
+        }
+        playerBubblePresenter.SetSpeakerForegroundFocus();
+        UpdateConversationBubbleLayout();
+        playerBubblePresenter.ShowImmediateText(line);
+        UpdateConversationBubbleLayout();
+    }
+
+    private void ShowInterruptNpcLine(string line)
+    {
+        if (_activeInteractable == null || _activeInteractable.BubblePresenter == null || string.IsNullOrWhiteSpace(line))
+        {
+            return;
+        }
+
+        SetConversationBubbleFocus(ConversationBubbleFocus.Npc);
+        if (playerBubblePresenter != null)
+        {
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
+        }
+        _activeInteractable.BubblePresenter.ShowConversationImmediate(line);
+        UpdateConversationBubbleLayout();
+    }
+
+    private void ShowInterruptReactionCue(string line)
+    {
+        if (_activeInteractable == null || _activeInteractable.BubblePresenter == null || string.IsNullOrWhiteSpace(line))
+        {
+            return;
+        }
+
+        SetConversationBubbleFocus(ConversationBubbleFocus.Npc);
+        if (playerBubblePresenter != null)
+        {
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
+        }
+        _activeInteractable.BubblePresenter.ShowReactionCueImmediate(line);
+        UpdateConversationBubbleLayout();
     }
 
     private NPCDialogueContentProfile.InformalConversationBundle TryResolvePendingResumePlan(
@@ -1020,6 +1170,8 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         if (_activeInteractable == null || _playerMovement == null)
         {
             playerBubblePresenter.ClearConversationLayoutShift();
+            playerBubblePresenter.ClearConversationSortBoost();
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
             return;
         }
 
@@ -1027,22 +1179,108 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         if (npcBubblePresenter == null)
         {
             playerBubblePresenter.ClearConversationLayoutShift();
+            playerBubblePresenter.ClearConversationSortBoost();
+            playerBubblePresenter.ClearSpeakerForegroundFocus();
             return;
         }
 
         Vector3 delta = _activeInteractable.transform.position - _playerMovement.transform.position;
-        float horizontalSign = Mathf.Abs(delta.x) > 0.08f ? Mathf.Sign(delta.x) : 1f;
+        float horizontalDistance = Mathf.Abs(delta.x);
+        float horizontalSign = horizontalDistance > 0.08f ? Mathf.Sign(delta.x) : 1f;
+        float overlapPressure = 1f - Mathf.Clamp01(horizontalDistance / 0.72f);
+        float combinedBubbleWidth = Mathf.Max(
+            playerBubblePresenter.ApproximateWorldWidth + npcBubblePresenter.ApproximateWorldWidth,
+            2.8f);
+        float combinedBubbleHeight = Mathf.Max(
+            playerBubblePresenter.ApproximateWorldHeight + npcBubblePresenter.ApproximateWorldHeight,
+            1.8f);
+        float baseSideOffset = Mathf.Clamp(conversationBubbleSideOffset, 0.05f, 0.085f);
+        float widthDrivenSideOffset = combinedBubbleWidth * 0.0115f;
+        float heightDrivenLift = combinedBubbleHeight * 0.0085f;
+        float overlapPadding = Mathf.Lerp(0.004f, 0.016f, overlapPressure);
+        float sideOffset = Mathf.Clamp(
+            Mathf.Max(baseSideOffset * 0.82f, widthDrivenSideOffset) + overlapPadding,
+            baseSideOffset * 0.82f,
+            baseSideOffset + 0.028f);
+        float foregroundLift = heightDrivenLift + Mathf.Lerp(0.012f, 0.034f, overlapPressure);
+        float backgroundLift = (heightDrivenLift * 0.25f) + Mathf.Lerp(0.002f, 0.012f, overlapPressure);
+        bool isPlayerForeground = ResolveConversationBubbleFocus() != ConversationBubbleFocus.Npc;
+        float basePlayerLift = Mathf.Clamp(playerConversationBubbleLift, 0.035f, 0.065f);
+        float baseNpcLift = Mathf.Clamp(npcConversationBubbleLift, 0.015f, 0.035f);
+        float playerLift = basePlayerLift + (isPlayerForeground ? foregroundLift : backgroundLift);
+        float npcLift = baseNpcLift + (isPlayerForeground ? backgroundLift : foregroundLift);
         Vector3 playerShift = new Vector3(
-            -horizontalSign * conversationBubbleSideOffset,
-            playerConversationBubbleLift,
+            -horizontalSign * sideOffset,
+            playerLift,
             0f);
         Vector3 npcShift = new Vector3(
-            horizontalSign * conversationBubbleSideOffset,
-            npcConversationBubbleLift,
+            horizontalSign * sideOffset,
+            npcLift,
             0f);
 
         playerBubblePresenter.SetConversationLayoutShift(playerShift);
         npcBubblePresenter.SetConversationLayoutShift(npcShift);
+        playerBubblePresenter.SetConversationSortBoost(isPlayerForeground ? ConversationForegroundSortBoost : 0);
+        npcBubblePresenter.SetConversationSortBoost(isPlayerForeground ? 0 : ConversationForegroundSortBoost);
+    }
+
+    private void SetConversationBubbleFocus(ConversationBubbleFocus focus)
+    {
+        if (focus == ConversationBubbleFocus.None)
+        {
+            return;
+        }
+
+        _conversationBubbleFocus = focus;
+    }
+
+    private ConversationBubbleFocus ResolveConversationBubbleFocus()
+    {
+        if (_conversationBubbleFocus != ConversationBubbleFocus.None)
+        {
+            return _conversationBubbleFocus;
+        }
+
+        return _state switch
+        {
+            SessionState.PlayerTyping => ConversationBubbleFocus.Player,
+            SessionState.WaitingNpcReply => ConversationBubbleFocus.Player,
+            SessionState.NpcTyping => ConversationBubbleFocus.Npc,
+            SessionState.AutoContinuing => ConversationBubbleFocus.Npc,
+            SessionState.Interrupting => ConversationBubbleFocus.Npc,
+            SessionState.Completing => ConversationBubbleFocus.Npc,
+            _ => ConversationBubbleFocus.None
+        };
+    }
+
+    private void SyncConversationPromptOverlay()
+    {
+        if (_activeInteractable == null)
+        {
+            return;
+        }
+
+        SpringDay1WorldHintBubble.HideIfExists(_activeInteractable.transform);
+        if (!InteractionHintDisplaySettings.AreHintsVisible)
+        {
+            InteractionHintOverlay.HideIfExists();
+            return;
+        }
+
+        InteractionHintOverlay.EnsureRuntime();
+        InteractionHintOverlay.Instance.ShowPrompt(
+            "E",
+            GetPromptCaption(_activeInteractable),
+            GetPromptDetail(_activeInteractable));
+    }
+
+    private void HideConversationPromptOverlay()
+    {
+        InteractionHintOverlay.HideIfExists();
+        if (_activeInteractable != null)
+        {
+            SpringDay1WorldHintBubble.HideIfExists(_activeInteractable.transform);
+        }
     }
 
     private void HandleSessionBreakDistance()
@@ -1061,13 +1299,15 @@ public class PlayerNpcChatSessionService : MonoBehaviour
             return;
         }
 
+        FastForwardConversationForDistanceBreak();
+
         if (_sessionBreakExceededAt < 0f)
         {
             _sessionBreakExceededAt = Time.unscaledTime;
             return;
         }
 
-        if (Time.unscaledTime - _sessionBreakExceededAt >= sessionBreakGraceSeconds)
+        if (Time.unscaledTime - _sessionBreakExceededAt >= ResolveSessionBreakGraceSeconds())
         {
             StartWalkAwayInterrupt();
         }
@@ -1076,6 +1316,64 @@ public class PlayerNpcChatSessionService : MonoBehaviour
     private void ResetSessionBreakProbe()
     {
         _sessionBreakExceededAt = -1f;
+    }
+
+    private float ResolveSessionBreakGraceSeconds()
+    {
+        float baseGraceSeconds = Mathf.Max(0.02f, sessionBreakGraceSeconds);
+        return _state is SessionState.PlayerTyping or SessionState.NpcTyping
+            ? Mathf.Min(baseGraceSeconds, 0.06f)
+            : baseGraceSeconds;
+    }
+
+    private float CalculateReadableHoldSeconds(string line, float minimumSeconds = 0f, float maximumSeconds = -1f)
+    {
+        int visibleCharacterCount = CountReadableCharacters(line);
+        float readableHoldSeconds = 1f + (visibleCharacterCount * 0.08f);
+        float heldSeconds = Mathf.Max(minimumSeconds, readableHoldSeconds);
+        return maximumSeconds > 0f
+            ? Mathf.Min(maximumSeconds, heldSeconds)
+            : heldSeconds;
+    }
+
+    private float CalculateNpcReactionDelay(string playerExitLine)
+    {
+        float readableHoldSeconds = CalculateReadableHoldSeconds(playerExitLine) * 0.42f;
+        return Mathf.Clamp(readableHoldSeconds, 0.5f, 1f);
+    }
+
+    private void FastForwardConversationForDistanceBreak()
+    {
+        switch (_state)
+        {
+            case SessionState.PlayerTyping:
+            case SessionState.NpcTyping:
+                _skipCurrentEffectRequested = true;
+                break;
+
+            case SessionState.WaitingNpcReply:
+            case SessionState.AutoContinuing:
+                break;
+        }
+    }
+
+    private static int CountReadableCharacters(string line)
+    {
+        if (string.IsNullOrWhiteSpace(line))
+        {
+            return 0;
+        }
+
+        int count = 0;
+        for (int index = 0; index < line.Length; index++)
+        {
+            if (!char.IsWhiteSpace(line[index]))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private bool HasPendingResumeSnapshot(float now)
@@ -1400,8 +1698,9 @@ public class PlayerNpcChatSessionService : MonoBehaviour
     {
         if (_activeInteractable != null)
         {
+            StoryPhase currentStoryPhase = ResolveCurrentStoryPhase();
             NPCDialogueContentProfile.InformalChatResumeIntro configuredIntro =
-                _activeInteractable.ResolveResumeIntro(_activeRelationshipStage, abortCause, leavePhase);
+                _activeInteractable.ResolveResumeIntro(_activeRelationshipStage, currentStoryPhase, abortCause, leavePhase);
             if (configuredIntro != null && configuredIntro.HasAnyContent())
             {
                 return new ResumeIntroPlan
@@ -1603,5 +1902,10 @@ public class PlayerNpcChatSessionService : MonoBehaviour
         }
 
         return false;
+    }
+
+    private static StoryPhase ResolveCurrentStoryPhase()
+    {
+        return NpcInteractionPriorityPolicy.ResolveCurrentStoryPhase();
     }
 }

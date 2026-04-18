@@ -26,17 +26,17 @@ public class AutoPickupService : MonoBehaviour
 
     void Awake()
     {
-        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
-        // 获取Player的Collider2D作为中心点参考
-        playerCollider = GetComponent<Collider2D>();
-        if (playerCollider == null) playerCollider = GetComponentInChildren<Collider2D>();
-        
-        // 初始化碰撞检测缓冲区
-        _hitBuffer = new Collider2D[hitBufferSize];
+        EnsureRuntimeReferences();
     }
 
     void Update()
     {
+        EnsureRuntimeReferences();
+        if (inventory == null)
+        {
+            return;
+        }
+
         int count = 0;
         // 使用Player Collider的中心作为拾取半径的中心点
         Vector2 center = playerCollider != null ? (Vector2)playerCollider.bounds.center : (Vector2)transform.position;
@@ -91,6 +91,12 @@ public class AutoPickupService : MonoBehaviour
         // 检测离开范围的物品
         CheckExitedPickups(currentFramePickups);
     }
+
+    public void RebindRuntimeReferences(InventoryService runtimeInventory)
+    {
+        inventory = runtimeInventory;
+        EnsureRuntimeReferences();
+    }
     
     // 上一帧检测到的物品
     private System.Collections.Generic.HashSet<WorldItemPickup> _lastFramePickups = new System.Collections.Generic.HashSet<WorldItemPickup>();
@@ -120,6 +126,30 @@ public class AutoPickupService : MonoBehaviour
     {
         if (inventory == null) return false;
         return inventory.CanAddItem(pickup.itemId, pickup.quality, pickup.amount);
+    }
+
+    private void EnsureRuntimeReferences()
+    {
+        if (inventory == null)
+        {
+            inventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+        }
+
+        if (playerCollider == null)
+        {
+            playerCollider = GetComponent<Collider2D>();
+            if (playerCollider == null)
+            {
+                playerCollider = GetComponentInChildren<Collider2D>();
+            }
+        }
+
+        int desiredBufferSize = Mathf.Max(1, hitBufferSize);
+        if (_hitBuffer == null || _hitBuffer.Length != desiredBufferSize)
+        {
+            _hitBuffer = new Collider2D[desiredBufferSize];
+        }
     }
 
 #if UNITY_EDITOR

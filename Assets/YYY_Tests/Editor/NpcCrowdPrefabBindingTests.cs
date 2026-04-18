@@ -19,7 +19,6 @@ public class NpcCrowdPrefabBindingTests
         new PrefabTruthEntry($"{PrefabRoot}/201.prefab", "201", "MendingCrowd"),
         new PrefabTruthEntry($"{PrefabRoot}/202.prefab", "202", "HerbCrowd"),
         new PrefabTruthEntry($"{PrefabRoot}/203.prefab", "203", "DinnerCrowd"),
-        new PrefabTruthEntry($"{PrefabRoot}/301.prefab", "301", "NightWitness"),
     };
 
     [Test]

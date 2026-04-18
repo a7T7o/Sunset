@@ -386,14 +386,17 @@ public class PlayerInteraction : MonoBehaviour
             {
                 if (!inputManager.TryApplyHotbarSelectionChange(cachedIndex))
                 {
-                    FindFirstObjectByType<HotbarSelectionService>()?
-                        .ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
+                    (PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                        ?? FindFirstObjectByType<HotbarSelectionService>(FindObjectsInactive.Include))?.ReassertCurrentSelection(
+                            collapseInventorySelectionToHotbar: false,
+                            invokeEvent: true);
                 }
 
                 return;
             }
 
-            var hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+            var hotbarSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                ?? FindFirstObjectByType<HotbarSelectionService>(FindObjectsInactive.Include);
             hotbarSelection?.SelectIndex(cachedIndex);
         }
     }

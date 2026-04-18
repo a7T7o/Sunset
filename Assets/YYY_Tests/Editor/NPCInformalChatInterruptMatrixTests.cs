@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -260,6 +261,68 @@ public class NPCInformalChatInterruptMatrixTests
         Assert.That(differentNpcResult, Is.False);
         Assert.That(expiredResult, Is.False);
         Assert.That(validResult, Is.True);
+    }
+
+    [Test]
+    public void ConversationTakeoverProbe_ShouldIgnoreInformalChatSelfOwner()
+    {
+        Type serviceType = ResolveTypeOrFail("PlayerNpcChatSessionService");
+        Type roamType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type interactableType = ResolveTypeOrFail("Sunset.Story.NPCInformalChatInteractable");
+
+        GameObject player = new GameObject("Player_ConversationTakeoverProbe");
+        GameObject npc = new GameObject("Npc_ConversationTakeoverProbe");
+        try
+        {
+            Component service = player.AddComponent(serviceType);
+            Component roamController = npc.AddComponent(roamType);
+            Component interactable = npc.AddComponent(interactableType);
+            SetPrivateField(interactable, "autoRoamController", roamController);
+            SetPrivateField(service, "_activeInteractable", interactable);
+            SetPrivateField(roamController, "residentScriptedControlOwners", new List<string> { "npc-informal-chat" });
+            SetPrivateField(roamController, "residentScriptedControlOwnerKey", "npc-informal-chat");
+
+            bool shouldCancel = (bool)InvokeInstance(service, "ShouldCancelForResidentScriptedTakeover");
+
+            Assert.That(shouldCancel, Is.False,
+                "闲聊自己占用 resident scripted control 时，不应再被 session service 当成系统 takeover 误杀。");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(npc);
+            UnityEngine.Object.DestroyImmediate(player);
+        }
+    }
+
+    [Test]
+    public void ConversationTakeoverProbe_ShouldTreatStoryOwnerAsRealTakeover()
+    {
+        Type serviceType = ResolveTypeOrFail("PlayerNpcChatSessionService");
+        Type roamType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type interactableType = ResolveTypeOrFail("Sunset.Story.NPCInformalChatInteractable");
+
+        GameObject player = new GameObject("Player_StoryTakeoverProbe");
+        GameObject npc = new GameObject("Npc_StoryTakeoverProbe");
+        try
+        {
+            Component service = player.AddComponent(serviceType);
+            Component roamController = npc.AddComponent(roamType);
+            Component interactable = npc.AddComponent(interactableType);
+            SetPrivateField(interactable, "autoRoamController", roamController);
+            SetPrivateField(service, "_activeInteractable", interactable);
+            SetPrivateField(roamController, "residentScriptedControlOwners", new List<string> { "spring-day1-director" });
+            SetPrivateField(roamController, "residentScriptedControlOwnerKey", "spring-day1-director");
+
+            bool shouldCancel = (bool)InvokeInstance(service, "ShouldCancelForResidentScriptedTakeover");
+
+            Assert.That(shouldCancel, Is.True,
+                "真正的 Day1/director scripted owner 介入时，session service 仍应把它当 takeover 收掉闲聊。");
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(npc);
+            UnityEngine.Object.DestroyImmediate(player);
+        }
     }
 
     [Test]

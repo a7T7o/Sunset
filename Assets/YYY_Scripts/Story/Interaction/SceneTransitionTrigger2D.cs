@@ -16,7 +16,7 @@ namespace Sunset.Story
     {
         private const string PrimaryHomeEntryAnchorName = "PrimaryHomeEntryAnchor";
         private const string HomeEntryAnchorName = "HomeEntryAnchor";
-        private const string TownOpeningEntryAnchorName = "EnterVillageCrowdRoot";
+        private const string TownOpeningEntryAnchorName = "TownPlayerEntryAnchor";
 
         [Header("目标场景")]
 #if UNITY_EDITOR

@@ -558,7 +558,7 @@ public class NavigationAvoidanceRulesTests
     }
 
     [Test]
-    public void NPCAutoRoamController_ShouldBiasSideways_WhenStaticObstacleSitsDirectlyAhead()
+    public void NPCAutoRoamController_ShouldTriggerStaticNearWallHardStop_WhenObstacleSitsDirectlyAhead()
     {
         Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
         GameObject npcGo = new GameObject("NPCAutoRoamController_StaticSteeringTest");
@@ -576,19 +576,113 @@ public class NavigationAvoidanceRulesTests
             wallCollider.size = new Vector2(0.18f, 1.1f);
             Physics2D.SyncTransforms();
 
+            Vector2 firstAdjustedDirection = (Vector2)InvokeInstance(
+                controller,
+                "AdjustDirectionByStaticColliders",
+                Vector2.zero,
+                Vector2.right,
+                0.12f);
+            bool firstHardStop = (bool)InvokeInstance(controller, "ShouldTriggerStaticNearWallHardStop");
+
+            Vector2 secondAdjustedDirection = (Vector2)InvokeInstance(
+                controller,
+                "AdjustDirectionByStaticColliders",
+                Vector2.zero,
+                Vector2.right,
+                0.12f);
+            bool secondHardStop = (bool)InvokeInstance(controller, "ShouldTriggerStaticNearWallHardStop");
+
+            Assert.That(firstAdjustedDirection.sqrMagnitude, Is.GreaterThan(0.0001f));
+            Assert.That(firstHardStop, Is.False);
+            Assert.That(secondAdjustedDirection.sqrMagnitude, Is.GreaterThan(0.0001f));
+            Assert.That(secondHardStop, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(wallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+        }
+    }
+
+    public void NPCAutoRoamController_ShouldKeepSoftSteering_WhenStaticObstacleIsOffsetFromPath()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject npcGo = new GameObject("NPCAutoRoamController_StaticSoftSteeringTest");
+        GameObject wallGo = new GameObject("StaticWallOffset");
+
+        try
+        {
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+
+            BoxCollider2D wallCollider = wallGo.AddComponent<BoxCollider2D>();
+            wallGo.transform.position = new Vector2(0.48f, 0.22f);
+            wallCollider.size = new Vector2(0.18f, 0.9f);
+            Physics2D.SyncTransforms();
+
             Vector2 adjustedDirection = (Vector2)InvokeInstance(
                 controller,
                 "AdjustDirectionByStaticColliders",
                 Vector2.zero,
                 Vector2.right,
                 0.12f);
+            bool hardStop = (bool)InvokeInstance(controller, "ShouldTriggerStaticNearWallHardStop");
 
-            Assert.That(adjustedDirection.x, Is.LessThan(0.995f));
-            Assert.That(Mathf.Abs(adjustedDirection.y), Is.GreaterThan(0.05f));
+            Assert.That(adjustedDirection.x, Is.GreaterThan(0.7f));
+            Assert.That(Mathf.Abs(adjustedDirection.y), Is.GreaterThan(0.01f));
+            Assert.That(hardStop, Is.False);
         }
         finally
         {
             UnityEngine.Object.DestroyImmediate(wallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldReuseObstacleSteeringProbe_WhenFollowingPreviousAdjustedDirection()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject npcGo = new GameObject("NPCAutoRoamController_StaticProbeReuseTest");
+
+        try
+        {
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+            Vector2 cachedAdjustedDirection = new Vector2(0.88f, 0.42f).normalized;
+            SetFieldOrProperty(controller, "lastStaticSteeringProbeDetectedObstacle", true);
+            SetFieldOrProperty(controller, "lastStaticSteeringProbeTime", Time.time);
+            SetFieldOrProperty(controller, "lastStaticSteeringProbePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "lastStaticSteeringProbeDirection", Vector2.right);
+            SetFieldOrProperty(controller, "lastStaticSteeringAdjustedDirection", cachedAdjustedDirection);
+
+            object[] reuseArgs =
+            {
+                new Vector2(0.03f, 0.01f),
+                cachedAdjustedDirection,
+                0.12f,
+                Vector2.zero
+            };
+            MethodInfo reuseMethod = ResolveMethodByArguments(
+                controllerType,
+                "TryReuseObstacleStaticSteeringProbe",
+                BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance,
+                reuseArgs);
+
+            Assert.That(reuseMethod, Is.Not.Null, "应能直接命中静态 obstacle steering probe 复用入口。");
+
+            bool reused = (bool)reuseMethod.Invoke(controller, reuseArgs);
+            Vector2 reusedDirection = (Vector2)reuseArgs[3];
+
+            Assert.That(reused, Is.True);
+            Assert.That(Vector2.Distance(reusedDirection, cachedAdjustedDirection), Is.LessThan(0.001f));
+        }
+        finally
+        {
             UnityEngine.Object.DestroyImmediate(npcGo);
         }
     }
@@ -794,6 +888,323 @@ public class NavigationAvoidanceRulesTests
     }
 
     [Test]
+    public void NPCAutoRoamController_ShouldReuseCrossFrameDecisionWindow_ForAutonomousRoam()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_AutonomousReuseWindowTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "lastHeavyMoveDecisionTime", Time.time);
+
+            bool canReuse = (bool)InvokeInstance(controller, "CanReuseCrossFrameMoveDecisionWindow");
+            Assert.That(canReuse, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldExtendAutonomousReuseWindow_AfterAdvanceConfirmed()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_AutonomousStableReuseWindowTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "lastHeavyMoveDecisionTime", Time.time - 0.08f);
+
+            SetFieldOrProperty(controller, "lastMoveSkipReason", "IssuingVelocity");
+            bool canReuseBeforeAdvanceConfirmed = (bool)InvokeInstance(controller, "CanReuseCrossFrameMoveDecisionWindow");
+
+            SetFieldOrProperty(controller, "lastMoveSkipReason", "AdvanceConfirmed");
+            bool canReuseAfterAdvanceConfirmed = (bool)InvokeInstance(controller, "CanReuseCrossFrameMoveDecisionWindow");
+
+            Assert.That(canReuseBeforeAdvanceConfirmed, Is.False);
+            Assert.That(canReuseAfterAdvanceConfirmed, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldReuseClearStaticSteeringProbe_WhenDirectionStaysStable()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_StaticSteeringProbeReuseTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            InvokeInstance(controller, "RecordStaticSteeringProbe", Vector2.zero, Vector2.right, false);
+
+            bool canReuse = (bool)InvokeInstance(
+                controller,
+                "CanReuseClearStaticSteeringProbe",
+                new Vector2(0.08f, 0f),
+                Vector2.right,
+                0.1f);
+
+            Assert.That(canReuse, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldNotReuseClearStaticSteeringProbe_WhenLastProbeDetectedObstacle()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_StaticSteeringObstacleProbeReuseRejectTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            InvokeInstance(controller, "RecordStaticSteeringProbe", Vector2.zero, Vector2.right, true);
+
+            bool canReuse = (bool)InvokeInstance(
+                controller,
+                "CanReuseClearStaticSteeringProbe",
+                new Vector2(0.08f, 0f),
+                Vector2.right,
+                0.1f);
+
+            Assert.That(canReuse, Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldReuseObstacleStaticSteeringProbe_WhenDirectionAndPositionStayStable()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_StaticSteeringObstacleProbeReuseTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "lastStaticSteeringProbeTime", Time.time);
+            SetFieldOrProperty(controller, "lastStaticSteeringProbePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "lastStaticSteeringProbeDirection", Vector2.right);
+            SetFieldOrProperty(controller, "lastStaticSteeringProbeDetectedObstacle", true);
+            SetFieldOrProperty(controller, "lastStaticSteeringAdjustedDirection", new Vector2(0.8f, 0.6f).normalized);
+
+            MethodInfo reuseMethod = controllerType.GetMethod(
+                "TryReuseObstacleStaticSteeringProbe",
+                BindingFlags.Instance | BindingFlags.NonPublic);
+            Assert.That(reuseMethod, Is.Not.Null);
+
+            object[] args =
+            {
+                new Vector2(0.1f, 0.01f),
+                Vector2.right,
+                0.12f,
+                null
+            };
+
+            bool reused = (bool)reuseMethod.Invoke(controller, args);
+
+            Assert.That(reused, Is.True);
+            Assert.That((Vector2)args[3], Is.EqualTo(new Vector2(0.8f, 0.6f).normalized));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldUseFastRetryShortPause_WhenAutonomousRetryWasDeferred()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_AutonomousFastRetryShortPauseTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "shortPauseMin", 0.5f);
+            SetFieldOrProperty(controller, "shortPauseMax", 3f);
+            SetFieldOrProperty(controller, "preferFastAutonomousRetryShortPause", true);
+
+            InvokeInstance(controller, "EnterShortPause", false);
+
+            float timer = (float)GetFieldOrProperty(controller, "DebugStateTimer");
+            Assert.That(timer, Is.GreaterThanOrEqualTo(0.03f));
+            Assert.That(timer, Is.LessThan(0.2f));
+            Assert.That((bool)GetFieldOrProperty(controller, "preferFastAutonomousRetryShortPause"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldDeferAutonomousResumeFromShortPause_WhenResumePermitBudgetIsExhausted()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_AutonomousResumePermitShortPauseTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "ShortPause"));
+            SetFieldOrProperty(controller, "stateTimer", 0f);
+            SetFieldOrProperty(controller, "longPauseTriggerCount", 1);
+            SetFieldOrProperty(controller, "autonomousRoamStartupWindowUntil", Time.time + 1f);
+            SetFieldOrProperty(controller, "shortPauseMin", 0.1f);
+            SetFieldOrProperty(controller, "shortPauseMax", 0.1f);
+
+            for (int index = 0; index < 4; index++)
+            {
+                bool acquired = (bool)InvokeInstance(controller, "TryAcquireAutonomousResumePermit");
+                Assert.That(acquired, Is.True);
+            }
+
+            bool deferred = (bool)InvokeInstance(controller, "TryDeferAutonomousResumeFromPauseState");
+
+            Assert.That(deferred, Is.True);
+            Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
+            Assert.That((float)GetFieldOrProperty(controller, "DebugStateTimer"), Is.GreaterThan(0f));
+            Assert.That((float)GetFieldOrProperty(controller, "DebugStateTimer"), Is.LessThan(0.2f));
+            Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("AutonomousResumePermitDeferred"));
+        }
+        finally
+        {
+            SetStaticField(controllerType, "s_autonomousStartupResumePermitFrame", -1);
+            SetStaticField(controllerType, "s_autonomousStartupResumePermitsThisFrame", 0);
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldDeferAutonomousResumeFromLongPause_WhenResumePermitBudgetIsExhausted()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_AutonomousResumePermitLongPauseTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "LongPause"));
+            SetFieldOrProperty(controller, "stateTimer", 0f);
+            SetFieldOrProperty(controller, "autonomousRoamStartupWindowUntil", Time.time + 1f);
+            SetFieldOrProperty(controller, "shortPauseMin", 0.1f);
+            SetFieldOrProperty(controller, "shortPauseMax", 0.1f);
+
+            for (int index = 0; index < 4; index++)
+            {
+                bool acquired = (bool)InvokeInstance(controller, "TryAcquireAutonomousResumePermit");
+                Assert.That(acquired, Is.True);
+            }
+
+            bool deferred = (bool)InvokeInstance(controller, "TryDeferAutonomousResumeFromPauseState");
+
+            Assert.That(deferred, Is.True);
+            Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
+            Assert.That((float)GetFieldOrProperty(controller, "DebugStateTimer"), Is.GreaterThan(0f));
+            Assert.That((float)GetFieldOrProperty(controller, "DebugStateTimer"), Is.LessThan(0.2f));
+            Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("AdvanceConfirmed"));
+        }
+        finally
+        {
+            SetStaticField(controllerType, "s_autonomousStartupResumePermitFrame", -1);
+            SetStaticField(controllerType, "s_autonomousStartupResumePermitsThisFrame", 0);
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldThrottleTraversalSoftPassRefresh_WhenStateAndPositionAreStable()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_SoftPassThrottleStableTest");
+        GameObject blockerGo = new GameObject("NPCAutoRoamController_SoftPassThrottleBlocker");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            BoxCollider2D blocker = blockerGo.AddComponent<BoxCollider2D>();
+            object shortPause = Enum.Parse(roamStateType, "ShortPause");
+
+            SetFieldOrProperty(controller, "allowTraversalOverridePhysicsSoftPass", true);
+            SetFieldOrProperty(controller, "traversalSoftPassBlockers", new Collider2D[] { blocker });
+            SetFieldOrProperty(controller, "hasTraversalSoftPassSample", true);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassSampleTime", Time.time);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassSamplePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassSampleState", shortPause);
+            SetFieldOrProperty(controller, "state", shortPause);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassUpdateFrame", Time.frameCount - 1);
+
+            bool shouldRefresh = (bool)InvokeInstance(
+                controller,
+                "ShouldRefreshTraversalSoftPassState",
+                Vector2.zero);
+
+            Assert.That(shouldRefresh, Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(blockerGo);
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldRefreshTraversalSoftPass_WhenRoamStateChanges()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_SoftPassStateChangeTest");
+        GameObject blockerGo = new GameObject("NPCAutoRoamController_SoftPassStateChangeBlocker");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            BoxCollider2D blocker = blockerGo.AddComponent<BoxCollider2D>();
+            object shortPause = Enum.Parse(roamStateType, "ShortPause");
+            object moving = Enum.Parse(roamStateType, "Moving");
+
+            SetFieldOrProperty(controller, "allowTraversalOverridePhysicsSoftPass", true);
+            SetFieldOrProperty(controller, "traversalSoftPassBlockers", new Collider2D[] { blocker });
+            SetFieldOrProperty(controller, "hasTraversalSoftPassSample", true);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassSampleTime", Time.time);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassSamplePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassSampleState", shortPause);
+            SetFieldOrProperty(controller, "state", moving);
+            SetFieldOrProperty(controller, "lastTraversalSoftPassUpdateFrame", Time.frameCount - 1);
+
+            bool shouldRefresh = (bool)InvokeInstance(
+                controller,
+                "ShouldRefreshTraversalSoftPassState",
+                Vector2.zero);
+
+            Assert.That(shouldRefresh, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(blockerGo);
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
     public void NPCAutoRoamController_ShouldSoftArrive_WhenAutonomousFailureHappensNearDestination()
     {
         Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
@@ -822,9 +1233,107 @@ public class NavigationAvoidanceRulesTests
             Assert.That(softArrived, Is.True);
             Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
             Assert.That((int)GetFieldOrProperty(controller, "CompletedShortPauseCount"), Is.EqualTo(1));
-            Assert.That((Vector2)GetFieldOrProperty(controller, "lastStaticBlockedDestination"), Is.EqualTo(new Vector2(0.34f, 0f)));
-            Assert.That((Vector2)GetFieldOrProperty(controller, "lastStaticBlockedPosition"), Is.EqualTo(new Vector2(0.16f, 0f)));
             Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("AutonomousSoftArrival:UnitTest"));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldUseBodyShellAsMainArrivalContract_ForAutonomousRoam()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_MainArrivalContractTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            go.transform.position = new Vector2(0.16f, 0f);
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "destinationTolerance", 0.12f);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(0.34f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(0.34f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool arrived = (bool)InvokeInstance(
+                controller,
+                "CanTreatCurrentMoveAsBodyShellArrival",
+                new Vector2(0.16f, 0f));
+            float arrivalDistance = (float)InvokeInstance(controller, "GetCurrentMoveArrivalDistance");
+
+            Assert.That(arrived, Is.True);
+            Assert.That(arrivalDistance, Is.GreaterThan(0.45f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldUseBodyShellArrival_ForFormalNavigationMove()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+        GameObject go = new GameObject("NPCAutoRoamController_FormalArrivalContractTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "debugMoveActive", true);
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "FormalNavigation"));
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(0.36f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(0.36f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool arrived = (bool)InvokeInstance(
+                controller,
+                "CanTreatCurrentMoveAsBodyShellArrival",
+                new Vector2(0.16f, 0f));
+
+            Assert.That(arrived, Is.True);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldNotUseBodyShellArrival_ForResidentScriptedTravel()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+        GameObject go = new GameObject("NPCAutoRoamController_ResidentScriptedArrivalGuardTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "debugMoveActive", true);
+            SetFieldOrProperty(controller, "activePointToPointTravelContract", Enum.Parse(travelContractType, "ResidentScripted"));
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(0.36f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(0.36f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool arrived = (bool)InvokeInstance(
+                controller,
+                "CanTreatCurrentMoveAsBodyShellArrival",
+                new Vector2(0.16f, 0f));
+
+            Assert.That(arrived, Is.False);
         }
         finally
         {
@@ -862,6 +1371,515 @@ public class NavigationAvoidanceRulesTests
         finally
         {
             UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldExpandSoftArrivalDistance_WhenBlockedNearDestination()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_BlockedSoftArrivalDistanceTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            go.transform.position = Vector2.zero;
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(0.6f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(0.6f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            float baseArrivalDistance = (float)InvokeInstance(controller, "GetAutonomousRoamSoftArrivalDistance");
+            bool baseCanArrive = (bool)InvokeInstance(
+                controller,
+                "CanTreatCurrentMoveAsBodyShellArrival",
+                Vector2.zero);
+
+            SetFieldOrProperty(controller, "blockedAdvanceFrames", 3);
+
+            float blockedArrivalDistance = (float)InvokeInstance(controller, "GetAutonomousRoamSoftArrivalDistance");
+            bool blockedCanArrive = (bool)InvokeInstance(
+                controller,
+                "CanTreatCurrentMoveAsBodyShellArrival",
+                Vector2.zero);
+
+            Assert.That(baseCanArrive, Is.False);
+            Assert.That(blockedCanArrive, Is.True);
+            Assert.That(blockedArrivalDistance, Is.GreaterThan(baseArrivalDistance));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldSoftArriveBlockedAdvance_WhenAutonomousFailureHappensNearDestination()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_BlockedAdvanceSoftArrivalTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            go.transform.position = new Vector2(0.16f, 0f);
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(0.34f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(0.34f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool handled = (bool)InvokeInstance(
+                controller,
+                "TryHandleBlockedAdvance",
+                new Vector2(0.16f, 0f),
+                "MoveCommandNoProgress");
+
+            Assert.That(handled, Is.True);
+            Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
+            Assert.That((int)GetFieldOrProperty(controller, "CompletedShortPauseCount"), Is.EqualTo(1));
+            Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("AutonomousSoftArrival:BlockedAdvance:MoveCommandNoProgress"));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldPreferMediumDistanceSampling_ForAutonomousRoam()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_MediumDistanceSamplingTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+
+            float preferredDistance = (float)InvokeInstance(
+                controller,
+                "GetAutonomousRoamPreferredMinimumTravelDistance");
+            float samplingDistance = (float)InvokeInstance(
+                controller,
+                "GetAutonomousRoamSamplingMinimumTravelDistance",
+                false);
+
+            Assert.That(preferredDistance, Is.GreaterThan(1.5f));
+            Assert.That(samplingDistance, Is.GreaterThan(1.5f));
+            Assert.That(samplingDistance, Is.LessThan(2.6f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldSampleOuterRing_WhenPreferredMinimumTravelDistanceNearlyMatchesActivityRadius()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_OuterRingSamplingTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+
+            UnityEngine.Random.InitState(12345);
+            Vector2 sampledOffset = (Vector2)InvokeInstance(
+                controller,
+                "SampleAutonomousRoamOffset",
+                3f);
+
+            Assert.That(sampledOffset.magnitude, Is.GreaterThanOrEqualTo(2.2f));
+            Assert.That(sampledOffset.magnitude, Is.LessThanOrEqualTo(3.0001f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldEnterRecoveryHold_WhenStaticBlockedReasonRepeats()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_RecoveryHoldTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            go.transform.position = Vector2.zero;
+
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(1.6f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(1.6f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool handled = (bool)InvokeInstance(
+                controller,
+                "TryHandleBlockedAdvance",
+                Vector2.zero,
+                "StaticNearWallHardStop");
+
+            Assert.That(handled, Is.True);
+            Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
+            Assert.That((float)GetFieldOrProperty(controller, "DebugStateTimer"), Is.EqualTo(0.42f).Within(0.02f));
+            Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("AutonomousRecoveryHold:StaticNearWallHardStop"));
+            Assert.That((bool)GetFieldOrProperty(controller, "autonomousRecoveryHoldActive"), Is.True);
+            Assert.That((bool)GetFieldOrProperty(controller, "hasRequestedDestination"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldAbortRepeatedStaticNearWallHardStop_InsteadOfReenteringRecoveryHold()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_RepeatStaticHoldAbortTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            Vector2 currentPosition = Vector2.zero;
+            Vector2 requestedDestination = new Vector2(1.6f, 0f);
+
+            go.transform.position = currentPosition;
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", requestedDestination);
+            SetFieldOrProperty(controller, "requestedDestination", requestedDestination);
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+            SetFieldOrProperty(controller, "blockedAdvanceFrames", 1);
+            SetFieldOrProperty(controller, "lastBlockedAdvancePosition", currentPosition);
+            SetFieldOrProperty(controller, "lastBlockedAdvanceRecoveryTime", float.NegativeInfinity);
+
+            bool handled = (bool)InvokeInstance(
+                controller,
+                "TryHandleBlockedAdvance",
+                currentPosition,
+                "StaticNearWallHardStop");
+
+            Assert.That(handled, Is.True);
+            Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
+            Assert.That((bool)GetFieldOrProperty(controller, "autonomousRecoveryHoldActive"), Is.False);
+            Assert.That((bool)GetFieldOrProperty(controller, "hasRequestedDestination"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldPauseBeforeStaticRetargetRetry_AfterRepeatedStaticBlock()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_StaticRetargetPauseTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            Vector2 currentPosition = Vector2.zero;
+            Vector2 requestedDestination = new Vector2(1.6f, 0f);
+
+            go.transform.position = currentPosition;
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", requestedDestination);
+            SetFieldOrProperty(controller, "requestedDestination", requestedDestination);
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+            SetFieldOrProperty(controller, "shortPauseMin", 0.1f);
+            SetFieldOrProperty(controller, "shortPauseMax", 0.1f);
+
+            bool handled = (bool)InvokeInstance(
+                controller,
+                "TryRetargetAutonomousRoamAfterStaticBlock",
+                currentPosition,
+                "StaticNearWallHardStop");
+
+            Assert.That(handled, Is.True);
+            Assert.That(GetFieldOrProperty(controller, "DebugState"), Is.EqualTo("ShortPause"));
+            Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("BlockedAdvanceStaticRetargetPause:StaticNearWallHardStop"));
+            Assert.That((float)GetFieldOrProperty(controller, "DebugStateTimer"), Is.GreaterThanOrEqualTo(0.54f));
+            Assert.That((bool)GetFieldOrProperty(controller, "hasRequestedDestination"), Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldRememberStaticBlockedDestination_BeforeAutonomousRetarget()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        GameObject go = new GameObject("NPCAutoRoamController_StaticBlockMemoryTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            Vector2 currentPosition = Vector2.zero;
+            Vector2 requestedDestination = new Vector2(2f, 0f);
+
+            go.transform.position = currentPosition;
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", requestedDestination);
+            SetFieldOrProperty(controller, "requestedDestination", requestedDestination);
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+            SetFieldOrProperty(controller, "blockedAdvanceFrames", 2);
+            SetFieldOrProperty(controller, "lastBlockedAdvancePosition", currentPosition);
+            SetFieldOrProperty(controller, "lastBlockedAdvanceRecoveryTime", float.NegativeInfinity);
+
+            bool handled = (bool)InvokeInstance(
+                controller,
+                "TryHandleBlockedAdvance",
+                currentPosition,
+                "MoveCommandNoProgress");
+
+            Assert.That(handled, Is.True);
+            Assert.That((Vector2)GetFieldOrProperty(controller, "lastStaticBlockedDestination"), Is.EqualTo(requestedDestination));
+            Assert.That((Vector2)GetFieldOrProperty(controller, "lastStaticBlockedPosition"), Is.EqualTo(currentPosition));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldRejectAutonomousBadZoneCandidate_AfterStaticBlockedDestination()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_StaticBadZoneRejectTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+
+            InvokeInstance(
+                controller,
+                "RememberStaticBlockedDestination",
+                Vector2.zero,
+                new Vector2(1.6f, 0f));
+
+            bool rejected = (bool)InvokeInstance(
+                controller,
+                "IsRecentlyBlockedAutonomousDestination",
+                new Vector2(0.72f, 0f));
+
+            Assert.That(rejected, Is.True);
+            Assert.That((float)GetFieldOrProperty(controller, "lastStaticBlockedZoneRadius"), Is.GreaterThan(0.8f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldPenalizeAutonomousBadZoneCandidate_AfterStaticBlockedDestination()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        GameObject go = new GameObject("NPCAutoRoamController_StaticBadZonePenaltyTest");
+
+        try
+        {
+            Component controller = go.AddComponent(controllerType);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+
+            InvokeInstance(
+                controller,
+                "RememberStaticBlockedDestination",
+                Vector2.zero,
+                new Vector2(1.6f, 0f));
+
+            float nearPenalty = (float)InvokeInstance(
+                controller,
+                "GetRecentStaticBlockedBadZonePenalty",
+                new Vector2(0.72f, 0f));
+            float farPenalty = (float)InvokeInstance(
+                controller,
+                "GetRecentStaticBlockedBadZonePenalty",
+                new Vector2(-2f, 0f));
+
+            Assert.That(nearPenalty, Is.GreaterThan(0.4f));
+            Assert.That(farPenalty, Is.EqualTo(0f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(go);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldPreferOpenSpaceOverCornerPocket_WhenAutonomousRoamScoresCandidates()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type navGridType = ResolveTypeOrFail("NavGrid2D");
+        Type tilemapType = ResolveTypeOrFail("UnityEngine.Tilemaps.Tilemap");
+        GameObject navGridGo = new GameObject("NavGrid_AutonomousCornerScoreTest");
+        GameObject npcGo = new GameObject("NPC_AutonomousCornerScoreTest");
+        GameObject wallXGo = new GameObject("AutonomousCornerWall_X");
+        GameObject wallYGo = new GameObject("AutonomousCornerWall_Y");
+
+        try
+        {
+            Component navGrid = navGridGo.AddComponent(navGridType);
+            InvokeInstance(navGrid, "Awake");
+            SetFieldOrProperty(navGrid, "autoDetectWorldBounds", false);
+            SetFieldOrProperty(navGrid, "worldOrigin", new Vector2(-2f, -2f));
+            SetFieldOrProperty(navGrid, "worldSize", new Vector2(4f, 4f));
+            SetFieldOrProperty(navGrid, "cellSize", 0.25f);
+            SetFieldOrProperty(navGrid, "probeRadius", 0.2f);
+
+            BoxCollider2D wallX = wallXGo.AddComponent<BoxCollider2D>();
+            wallX.size = new Vector2(0.12f, 1.2f);
+            wallXGo.transform.position = new Vector2(0.68f, 0.58f);
+
+            BoxCollider2D wallY = wallYGo.AddComponent<BoxCollider2D>();
+            wallY.size = new Vector2(1.2f, 0.12f);
+            wallYGo.transform.position = new Vector2(0.58f, 0.68f);
+            Physics2D.SyncTransforms();
+
+            Array emptyTilemaps = Array.CreateInstance(tilemapType, 0);
+            InvokeInstance(
+                navGrid,
+                "ConfigureExplicitObstacleSources",
+                new Collider2D[] { wallX, wallY },
+                emptyTilemaps,
+                false);
+            InvokeInstance(navGrid, "RebuildGrid");
+
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navGrid", navGrid);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+
+            Vector2 openCandidate = new Vector2(0.9f, 0f);
+            Vector2 cornerCandidate = new Vector2(0.55f, 0.55f);
+
+            int openCornerCount = (int)InvokeInstance(controller, "CountAutonomousRoamOpenCornerProbes", openCandidate);
+            int cornerCornerCount = (int)InvokeInstance(controller, "CountAutonomousRoamOpenCornerProbes", cornerCandidate);
+            float openScore = (float)InvokeInstance(
+                controller,
+                "EvaluateAutonomousRoamDestinationScore",
+                Vector2.zero,
+                Vector2.zero,
+                openCandidate,
+                openCandidate);
+            float cornerScore = (float)InvokeInstance(
+                controller,
+                "EvaluateAutonomousRoamDestinationScore",
+                Vector2.zero,
+                Vector2.zero,
+                cornerCandidate,
+                cornerCandidate);
+
+            Assert.That(openCornerCount, Is.GreaterThan(cornerCornerCount));
+            Assert.That(openScore, Is.GreaterThan(cornerScore));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(wallYGo);
+            UnityEngine.Object.DestroyImmediate(wallXGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+            UnityEngine.Object.DestroyImmediate(navGridGo);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldRejectAutonomousRoamBadPoint_WhenGapOnlyFitsBareFootprint()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type navGridType = ResolveTypeOrFail("NavGrid2D");
+        Type tilemapType = ResolveTypeOrFail("UnityEngine.Tilemaps.Tilemap");
+        GameObject navGridGo = new GameObject("NavGrid_AutonomousBadPointGapTest");
+        GameObject npcGo = new GameObject("NPC_AutonomousBadPointGapTest");
+        GameObject leftWallGo = new GameObject("AutonomousGapWall_Left");
+        GameObject rightWallGo = new GameObject("AutonomousGapWall_Right");
+
+        try
+        {
+            Component navGrid = navGridGo.AddComponent(navGridType);
+            InvokeInstance(navGrid, "Awake");
+            SetFieldOrProperty(navGrid, "autoDetectWorldBounds", false);
+            SetFieldOrProperty(navGrid, "worldOrigin", new Vector2(-2f, -2f));
+            SetFieldOrProperty(navGrid, "worldSize", new Vector2(4f, 4f));
+            SetFieldOrProperty(navGrid, "cellSize", 0.25f);
+            SetFieldOrProperty(navGrid, "probeRadius", 0.2f);
+
+            BoxCollider2D leftWall = leftWallGo.AddComponent<BoxCollider2D>();
+            leftWall.size = new Vector2(0.12f, 1.6f);
+            leftWallGo.transform.position = new Vector2(-0.43f, 0f);
+
+            BoxCollider2D rightWall = rightWallGo.AddComponent<BoxCollider2D>();
+            rightWall.size = new Vector2(0.12f, 1.6f);
+            rightWallGo.transform.position = new Vector2(0.43f, 0f);
+            Physics2D.SyncTransforms();
+
+            Array emptyTilemaps = Array.CreateInstance(tilemapType, 0);
+            InvokeInstance(
+                navGrid,
+                "ConfigureExplicitObstacleSources",
+                new Collider2D[] { leftWall, rightWall },
+                emptyTilemaps,
+                false);
+            InvokeInstance(navGrid, "RebuildGrid");
+
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            SetFieldOrProperty(controller, "navGrid", navGrid);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+
+            bool bodyClear = (bool)InvokeInstance(controller, "HasAutonomousRoamDestinationBodyClearance", Vector2.zero);
+            bool comfortClear = (bool)InvokeInstance(controller, "HasAutonomousRoamDestinationComfortClearance", Vector2.zero);
+            bool candidateClear = (bool)InvokeInstance(controller, "IsAutonomousRoamDestinationCandidateClear", Vector2.zero);
+
+            Assert.That(bodyClear, Is.True);
+            Assert.That(comfortClear, Is.False);
+            Assert.That(candidateClear, Is.False);
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(rightWallGo);
+            UnityEngine.Object.DestroyImmediate(leftWallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+            UnityEngine.Object.DestroyImmediate(navGridGo);
         }
     }
 
@@ -1059,6 +2077,78 @@ public class NavigationAvoidanceRulesTests
             Assert.That(Mathf.Abs(overrideWaypoint.y), Is.GreaterThan(0.05f));
             Assert.That(path.Count, Is.GreaterThan(0));
             Assert.That(activeDestination.x, Is.GreaterThan(1.2f));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(wallGo);
+            UnityEngine.Object.DestroyImmediate(npcGo);
+            UnityEngine.Object.DestroyImmediate(navGridGo);
+        }
+    }
+
+    [Test]
+    public void NPCAutoRoamController_ShouldPreferStaticRecoveryPath_BeforeRecoveryHold_OnFirstStaticNearWallHardStop()
+    {
+        Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        Type navGridType = ResolveTypeOrFail("NavGrid2D");
+        Type tilemapType = ResolveTypeOrFail("UnityEngine.Tilemaps.Tilemap");
+        GameObject navGridGo = new GameObject("NavGrid_StaticNearWallRecoveryPriorityTest");
+        GameObject npcGo = new GameObject("NPC_StaticNearWallRecoveryPriorityTest");
+        GameObject wallGo = new GameObject("StaticNearWallRecoveryPriorityWall");
+
+        try
+        {
+            Component navGrid = navGridGo.AddComponent(navGridType);
+            InvokeInstance(navGrid, "Awake");
+            SetFieldOrProperty(navGrid, "autoDetectWorldBounds", false);
+            SetFieldOrProperty(navGrid, "worldOrigin", new Vector2(-2f, -2f));
+            SetFieldOrProperty(navGrid, "worldSize", new Vector2(4f, 4f));
+            SetFieldOrProperty(navGrid, "cellSize", 0.25f);
+            SetFieldOrProperty(navGrid, "probeRadius", 0.2f);
+
+            BoxCollider2D wall = wallGo.AddComponent<BoxCollider2D>();
+            wall.size = new Vector2(0.18f, 0.9f);
+            wallGo.transform.position = new Vector2(0.48f, 0f);
+            Physics2D.SyncTransforms();
+
+            Array emptyTilemaps = Array.CreateInstance(tilemapType, 0);
+            InvokeInstance(
+                navGrid,
+                "ConfigureExplicitObstacleSources",
+                new Collider2D[] { wall },
+                emptyTilemaps,
+                false);
+            InvokeInstance(navGrid, "RebuildGrid");
+
+            Component controller = npcGo.AddComponent(controllerType);
+            BoxCollider2D npcCollider = npcGo.AddComponent<BoxCollider2D>();
+            npcCollider.size = new Vector2(0.4f, 0.4f);
+            npcGo.transform.position = Vector2.zero;
+
+            SetFieldOrProperty(controller, "navGrid", navGrid);
+            SetFieldOrProperty(controller, "navigationCollider", npcCollider);
+            SetFieldOrProperty(controller, "state", Enum.Parse(roamStateType, "Moving"));
+            SetFieldOrProperty(controller, "homePosition", Vector2.zero);
+            SetFieldOrProperty(controller, "activityRadius", 3f);
+            SetFieldOrProperty(controller, "minimumMoveDistance", 0.6f);
+            SetFieldOrProperty(controller, "currentDestination", new Vector2(1.5f, 0f));
+            SetFieldOrProperty(controller, "requestedDestination", new Vector2(1.5f, 0f));
+            SetFieldOrProperty(controller, "hasRequestedDestination", true);
+
+            bool handled = (bool)InvokeInstance(
+                controller,
+                "TryHandleBlockedAdvance",
+                Vector2.zero,
+                "StaticNearWallHardStop");
+
+            object executionState = GetFieldOrProperty(controller, "navigationExecution");
+            bool hasOverrideWaypoint = (bool)GetFieldOrProperty(executionState, "HasOverrideWaypoint");
+
+            Assert.That(handled, Is.True);
+            Assert.That((bool)GetFieldOrProperty(controller, "autonomousRecoveryHoldActive"), Is.False);
+            Assert.That(hasOverrideWaypoint, Is.True);
+            Assert.That((string)GetFieldOrProperty(controller, "DebugLastMoveSkipReason"), Is.EqualTo("BlockedAdvanceStaticRecovery:StaticNearWallHardStop"));
         }
         finally
         {
@@ -1696,6 +2786,58 @@ public class NavigationAvoidanceRulesTests
         }
     }
 
+    [Test]
+    public void NavigationAgentRegistry_ShouldReturnNearbySnapshots_WithoutIncludingSelf()
+    {
+        GameObject selfGo = new GameObject("RegistrySnapshot_Self");
+        GameObject nearbyGo = new GameObject("RegistrySnapshot_Nearby");
+        GameObject farGo = new GameObject("RegistrySnapshot_Far");
+
+        try
+        {
+            Type controllerType = ResolveTypeOrFail("NPCAutoRoamController");
+            Type registryType = ResolveTypeOrFail("NavigationAgentRegistry");
+            Type snapshotType = ResolveTypeOrFail("NavigationAgentSnapshot");
+            Component selfController = selfGo.AddComponent(controllerType);
+            Component nearbyController = nearbyGo.AddComponent(controllerType);
+            Component farController = farGo.AddComponent(controllerType);
+
+            selfGo.transform.position = Vector2.zero;
+            nearbyGo.transform.position = new Vector2(0.45f, 0f);
+            farGo.transform.position = new Vector2(40f, 0f);
+
+            MethodInfo registerMethod = registryType.GetMethod("Register", BindingFlags.Public | BindingFlags.Static);
+            Assert.IsNotNull(registerMethod, "未找到 NavigationAgentRegistry.Register");
+            registerMethod.Invoke(null, new object[] { selfController });
+            registerMethod.Invoke(null, new object[] { nearbyController });
+            registerMethod.Invoke(null, new object[] { farController });
+
+            Type bufferType = typeof(List<>).MakeGenericType(snapshotType);
+            IList buffer = (IList)Activator.CreateInstance(bufferType);
+            MethodInfo nearbyMethod = registryType.GetMethod("GetNearbySnapshots", BindingFlags.Public | BindingFlags.Static);
+            Assert.IsNotNull(nearbyMethod, "未找到 NavigationAgentRegistry.GetNearbySnapshots");
+
+            nearbyMethod.Invoke(null, new object[] { selfController, Vector2.zero, 1f, buffer });
+
+            List<int> snapshotIds = new List<int>(buffer.Count);
+            for (int index = 0; index < buffer.Count; index++)
+            {
+                snapshotIds.Add((int)GetFieldOrProperty(buffer[index], "InstanceId"));
+            }
+
+            Assert.That(snapshotIds.Count, Is.EqualTo(1));
+            Assert.That(snapshotIds, Contains.Item(nearbyController.GetInstanceID()));
+            Assert.That(snapshotIds, Has.No.Member(selfController.GetInstanceID()));
+            Assert.That(snapshotIds, Has.No.Member(farController.GetInstanceID()));
+        }
+        finally
+        {
+            UnityEngine.Object.DestroyImmediate(farGo);
+            UnityEngine.Object.DestroyImmediate(nearbyGo);
+            UnityEngine.Object.DestroyImmediate(selfGo);
+        }
+    }
+
     private static object CreateSnapshot(
         Type snapshotType,
         Type unitType,
@@ -1816,6 +2958,13 @@ public class NavigationAvoidanceRulesTests
         }
 
         Assert.Fail($"未找到可写字段或属性：{type.Name}.{name}");
+    }
+
+    private static void SetStaticField(Type type, string name, object value)
+    {
+        FieldInfo field = type.GetField(name, BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
+        Assert.IsNotNull(field, $"未找到静态字段：{type.Name}.{name}");
+        field.SetValue(null, value);
     }
 
     private static MethodInfo ResolveMethodByArguments(Type type, string methodName, BindingFlags bindingFlags, object[] args)

@@ -7,10 +7,9 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public class CraftingStationInteractable : MonoBehaviour, IInteractable
     {
-        private const string WorkbenchHintConsumedKey = "spring-day1.workbench-entry-hint-consumed";
-        private const float Day1WorkbenchInteractionDistance = 1.42f;
-        private const float Day1WorkbenchOverlayAutoHideDistance = 3.2f;
-        private const float Day1WorkbenchHintRevealDistance = 2.4f;
+        private const float Day1WorkbenchInteractionDistance = 1.58f;
+        private const float Day1WorkbenchOverlayAutoHideDistance = 3.4f;
+        private const float Day1WorkbenchHintRevealDistance = 2.85f;
 
         [Header("Crafting Station")]
         [SerializeField] private CraftingStation station = CraftingStation.Workbench;
@@ -38,12 +37,19 @@ namespace Sunset.Story
         private Collider2D[] _cachedColliders;
         private SpriteRenderer[] _cachedSpriteRenderers;
         private bool _bubbleAlreadyAppeared;
+        private PlayerMovement _cachedPlayerMovement;
 
         public int InteractionPriority => interactionPriority;
         public float InteractionDistance => interactionDistance;
 
         public bool CanInteract(InteractionContext context)
         {
+            SpringDay1WorkbenchCraftingOverlay overlay = station == CraftingStation.Workbench ? ResolveWorkbenchOverlay() : null;
+            if (overlay != null && overlay.IsVisible)
+            {
+                return true;
+            }
+
             if (!ShouldExposeWorkbenchInteraction())
             {
                 return false;
@@ -67,6 +73,13 @@ namespace Sunset.Story
 
         public void OnInteract(InteractionContext context)
         {
+            SpringDay1WorkbenchCraftingOverlay existingOverlay = station == CraftingStation.Workbench ? ResolveWorkbenchOverlay() : null;
+            if (existingOverlay != null && existingOverlay.IsVisible)
+            {
+                existingOverlay.Toggle(transform, context?.PlayerTransform, ResolveCraftingService(createCraftingServiceIfMissing), station, overlayAutoCloseDistance);
+                return;
+            }
+
             if (!ShouldExposeWorkbenchInteraction())
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
@@ -92,6 +105,7 @@ namespace Sunset.Story
 
             if (craftingService != null)
             {
+                craftingService.RefreshRuntimeContextFromScene();
                 craftingService.SetStation(station);
             }
 
@@ -138,7 +152,18 @@ namespace Sunset.Story
 
         public string GetInteractionHint(InteractionContext context)
         {
-            return CanInteract(context) ? interactionHint : string.Empty;
+            if (!CanInteract(context))
+            {
+                return string.Empty;
+            }
+
+            SpringDay1WorkbenchCraftingOverlay overlay = station == CraftingStation.Workbench ? ResolveWorkbenchOverlay() : null;
+            if (overlay != null && overlay.IsVisible)
+            {
+                return "关闭工作台";
+            }
+
+            return interactionHint;
         }
 
         public void ConfigureRuntimeDefaults(CraftingStation targetStation, string hint, float distance, int priority)
@@ -312,7 +337,9 @@ namespace Sunset.Story
                 return;
             }
 
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+            SpringDay1WorkbenchCraftingOverlay overlay = ResolveWorkbenchOverlay();
+            bool overlayVisible = overlay != null && overlay.IsVisible;
+            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() && !overlayVisible)
             {
                 SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
@@ -323,15 +350,6 @@ namespace Sunset.Story
                 _bubbleAlreadyAppeared = HasConsumedWorkbenchHint();
             }
 
-            SpringDay1WorkbenchCraftingOverlay overlay = workbenchOverlay != null
-                ? workbenchOverlay
-                : FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
-            if (overlay != null && overlay.IsVisible)
-            {
-                SpringDay1WorldHintBubble.HideIfExists(transform);
-                return;
-            }
-
             float distance = GetBoundaryDistance(context.PlayerPosition);
             if (distance > Mathf.Max(bubbleRevealDistance, interactionDistance))
             {
@@ -339,20 +357,26 @@ namespace Sunset.Story
                 return;
             }
 
-            SpringDay1WorldHintBubble.EnsureRuntime();
             bool keepTutorialVisible = _bubbleAlreadyAppeared
-                && !HasConsumedWorkbenchHint()
-                && SpringDay1WorldHintBubble.Instance.CurrentAnchorTarget == transform;
-            bool shouldShowTutorial = showFirstUseBubble && (keepTutorialVisible || (!_bubbleAlreadyAppeared && ShouldShowWorkbenchHint()));
-            bool canInteractNow = distance <= interactionDistance && CanInteract(context);
+                && !HasConsumedWorkbenchHint();
+            bool shouldShowTutorial = !overlayVisible && showFirstUseBubble && (keepTutorialVisible || (!_bubbleAlreadyAppeared && ShouldShowWorkbenchHint()));
+            bool canUseWorkbench = CanInteract(context);
+            bool canInteractNow = canUseWorkbench && (overlayVisible || distance <= interactionDistance);
             if (shouldShowTutorial)
             {
+                if (!canInteractNow)
+                {
+                    InteractionHintOverlay.HideIfExists();
+                    SpringDay1WorldHintBubble.HideIfExists(transform);
+                    return;
+                }
+
                 SpringDay1ProximityInteractionService.ReportCandidate(
                     transform,
                     proximityInteractionKey,
                     proximityInteractionKey.ToString(),
-                    "工作台",
-                    "按 E 打开",
+                    BuildWorkbenchPromptCaption(isTeaser: false),
+                    BuildWorkbenchTutorialDetail(),
                     distance,
                     interactionPriority,
                     keyInteractionCooldown,
@@ -364,8 +388,9 @@ namespace Sunset.Story
                 return;
             }
 
-            if (!CanInteract(context))
+            if (!canUseWorkbench)
             {
+                InteractionHintOverlay.HideIfExists();
                 SpringDay1WorldHintBubble.HideIfExists(transform);
                 return;
             }
@@ -375,12 +400,19 @@ namespace Sunset.Story
                 return;
             }
 
+            if (!overlayVisible && !canInteractNow)
+            {
+                InteractionHintOverlay.HideIfExists();
+                SpringDay1WorldHintBubble.HideIfExists(transform);
+                return;
+            }
+
             SpringDay1ProximityInteractionService.ReportCandidate(
                 transform,
                 proximityInteractionKey,
                 proximityInteractionKey.ToString(),
-                bubbleCaption,
-                BuildWorkbenchReadyDetail(),
+                overlayVisible ? "关闭工作台" : BuildWorkbenchPromptCaption(isTeaser: !canInteractNow),
+                overlayVisible ? "按 E 收起工作台，继续看悬浮制作状态。" : canInteractNow ? BuildWorkbenchReadyDetail() : BuildWorkbenchTeaserDetail(),
                 distance,
                 interactionPriority,
                 keyInteractionCooldown,
@@ -698,18 +730,12 @@ namespace Sunset.Story
 
         private static bool HasConsumedWorkbenchHint()
         {
-            return PlayerPrefs.GetInt(WorkbenchHintConsumedKey, 0) == 1;
+            return StoryProgressPersistenceService.IsWorkbenchHintConsumed();
         }
 
         private static void PersistWorkbenchHintConsumed()
         {
-            if (PlayerPrefs.GetInt(WorkbenchHintConsumedKey, 0) == 1)
-            {
-                return;
-            }
-
-            PlayerPrefs.SetInt(WorkbenchHintConsumedKey, 1);
-            PlayerPrefs.Save();
+            StoryProgressPersistenceService.MarkWorkbenchHintConsumed();
         }
 
         private CraftingPanel ResolveCraftingPanel()
@@ -747,10 +773,15 @@ namespace Sunset.Story
 
         private InteractionContext BuildProximityInteractionContext()
         {
-            PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
-            Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
+            if (_cachedPlayerMovement == null)
+            {
+                _cachedPlayerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            }
+
+            Transform playerTransform = _cachedPlayerMovement != null ? _cachedPlayerMovement.transform : null;
             if (playerTransform == null)
             {
+                _cachedPlayerMovement = null;
                 return null;
             }
 
@@ -780,21 +811,65 @@ namespace Sunset.Story
 
         private string BuildWorkbenchReadyDetail()
         {
-            SpringDay1WorkbenchCraftingOverlay overlay = workbenchOverlay != null
-                ? workbenchOverlay
-                : FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            SpringDay1WorkbenchCraftingOverlay overlay = ResolveWorkbenchOverlay();
 
             if (overlay != null && overlay.IsVisible)
             {
-                return "按 E 关闭工作台。";
+                if (overlay.HasReadyWorkbenchOutputs)
+                {
+                    return "按 E 收起工作台；进度条可直接领取已完成产物。";
+                }
+
+                return overlay.HasActiveCraftQueue
+                    ? "按 E 收起工作台；左下角会继续显示制作进度。"
+                    : "按 E 收起工作台。";
+            }
+
+            if (overlay != null && overlay.HasReadyWorkbenchOutputs)
+            {
+                return overlay.HasActiveCraftQueue
+                    ? "按 E 打开工作台，查看单件进度、点击进度条领取产物，或继续追加制作。"
+                    : "按 E 打开工作台，点击进度条领取已完成产物，或继续安排制作。";
             }
 
             if (overlay != null && overlay.HasActiveCraftQueue)
             {
-                return "按 E 打开工作台，查看制作进度、可领取产物和剩余队列。";
+                return "按 E 打开工作台，查看单件进度、剩余数量和当前队列。";
             }
 
-            return "按 E 打开工作台，查看配方、材料并开始制作。";
+            return "按 E 打开工作台，查看配方、材料和制作进度。";
+        }
+
+        private string BuildWorkbenchPromptCaption(bool isTeaser)
+        {
+            SpringDay1WorkbenchCraftingOverlay overlay = ResolveWorkbenchOverlay();
+
+            if (overlay != null && overlay.IsVisible)
+            {
+                return "工作台已打开";
+            }
+
+            if (overlay != null && overlay.HasReadyWorkbenchOutputs)
+            {
+                return overlay.HasActiveCraftQueue ? "工作台可领取" : "工作台已完成";
+            }
+
+            if (overlay != null && overlay.HasActiveCraftQueue)
+            {
+                return "工作台制作中";
+            }
+
+            return isTeaser ? "靠近工作台" : (string.IsNullOrWhiteSpace(bubbleCaption) ? "工作台" : bubbleCaption);
+        }
+
+        private static string BuildWorkbenchTutorialDetail()
+        {
+            return "按 E 打开工作台，正式进入制作教学。";
+        }
+
+        private static string BuildWorkbenchTeaserDetail()
+        {
+            return "再靠近一些，进入工作台交互范围。";
         }
 
         private bool ShouldExposeWorkbenchInteraction()
@@ -802,6 +877,12 @@ namespace Sunset.Story
             if (station != CraftingStation.Workbench || !notifySpringDay1Director)
             {
                 return true;
+            }
+
+            SpringDay1Director director = SpringDay1Director.Instance;
+            if (director != null)
+            {
+                return director.ShouldExposeWorkbenchInteraction();
             }
 
             StoryManager storyManager = StoryManager.Instance;

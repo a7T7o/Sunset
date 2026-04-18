@@ -1,8 +1,10 @@
 using System.Collections.Generic;
 using System.Reflection;
 using FarmGame.Data;
+using FarmGame.Farm;
 using FarmGame.UI;
 using FarmGame.Data.Core;
+using FarmGame.World;
 using Sunset.Story;
 using Unity.Cinemachine;
 using UnityEngine.EventSystems;
@@ -31,9 +33,8 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private const string SprintStateManagerRootName = "SprintStateManager";
     private const float BoundaryFocusStartViewportThreshold = 0.25f;
     private const float BoundaryFocusFullViewportThreshold = 0.18f;
-    private const float BoundaryFocusMinAlpha = 0.02f;
+    private const float BoundaryFocusMinAlpha = 0.40f;
     private const float BoundaryFocusBlendSpeed = 18f;
-    private const float BoundaryFocusHardFadePressure = 0.58f;
 
     private static readonly BindingFlags InstanceBindingFlags =
         BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
@@ -53,7 +54,12 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private WorldObjectSaveData inventorySnapshot;
     private bool hasInventorySnapshot;
     private int hotbarSelectionSnapshot;
+    private int hotbarInventorySelectionSnapshot;
     private bool hasHotbarSelectionSnapshot;
+    private readonly Dictionary<string, List<SceneWorldRuntimeSnapshotEntry>> sceneWorldSnapshotsByScene =
+        new Dictionary<string, List<SceneWorldRuntimeSnapshotEntry>>(System.StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, int> sceneWorldSnapshotCapturedTotalDaysByScene =
+        new Dictionary<string, int>(System.StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<NpcResidentRuntimeSnapshot>> nativeResidentSnapshotsByScene =
         new Dictionary<string, List<NpcResidentRuntimeSnapshot>>(System.StringComparer.OrdinalIgnoreCase);
     private List<SpringDay1NpcCrowdDirector.ResidentRuntimeSnapshotEntry> crowdResidentSnapshots =
@@ -79,6 +85,8 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     private readonly List<BoundaryFocusUiTarget> boundaryFocusUiTargets = new List<BoundaryFocusUiTarget>();
     private int lastReboundSceneHandle = int.MinValue;
     private Coroutine startupFallbackRebindCoroutine;
+    private Coroutine sceneWorldRestoreCoroutine;
+    private string suppressedSceneWorldRestoreSceneName = string.Empty;
 
     [System.Flags]
     private enum BoundaryFocusEdgeMask
@@ -94,6 +102,23 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     {
         public RectTransform RectTransform;
         public CanvasGroup CanvasGroup;
+        public SpringDay1PromptOverlay PromptOverlay;
+    }
+
+    private sealed class SceneWorldRuntimeSnapshotEntry
+    {
+        public string Guid;
+        public string ObjectType;
+        public bool IsActive;
+        public WorldObjectSaveData SaveData;
+    }
+
+    private sealed class SceneWorldRuntimeBinding
+    {
+        public MonoBehaviour Component;
+        public IPersistentObject PersistentObject;
+        public GameObject StateRoot;
+        public string ObjectType;
     }
 
     private struct PendingSceneEntry
@@ -171,6 +196,201 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         s_instance.ResetPersistentRuntimeForFreshStartInternal();
     }
 
+    public static void RefreshActiveSceneRuntimeBindings()
+    {
+        EnsureInstance();
+        if (s_instance == null)
+        {
+            return;
+        }
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        s_instance.RefreshSceneRuntimeBindingsInternal(activeScene);
+    }
+
+    public static void SyncActiveSceneInventorySnapshot()
+    {
+        EnsureInstance();
+        if (s_instance == null)
+        {
+            return;
+        }
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        s_instance.SyncSceneInventorySnapshotInternal(activeScene);
+    }
+
+    public static void ClearNativeResidentRuntimeSnapshots(params string[] stableKeys)
+    {
+        if (stableKeys == null || stableKeys.Length <= 0)
+        {
+            return;
+        }
+
+        if (s_instance == null)
+        {
+            if (!Application.isPlaying)
+            {
+                return;
+            }
+
+            EnsureInstance();
+        }
+
+        if (s_instance == null)
+        {
+            return;
+        }
+
+        s_instance.ClearNativeResidentRuntimeSnapshotsInternal(stableKeys);
+    }
+
+    public static List<SceneWorldSnapshotSaveData> ExportOffSceneWorldSnapshotsForSave()
+    {
+        if (s_instance == null)
+        {
+            return new List<SceneWorldSnapshotSaveData>();
+        }
+
+        return s_instance.ExportOffSceneWorldSnapshotsForSaveInternal(SceneManager.GetActiveScene());
+    }
+
+    public static void ImportOffSceneWorldSnapshotsFromSave(List<SceneWorldSnapshotSaveData> serializedSnapshots)
+    {
+        if (s_instance == null)
+        {
+            return;
+        }
+
+        s_instance.ImportOffSceneWorldSnapshotsFromSaveInternal(serializedSnapshots, SceneManager.GetActiveScene());
+    }
+
+    public static void SuppressSceneWorldRestoreForScene(string sceneName)
+    {
+        EnsureInstance();
+        if (s_instance == null)
+        {
+            return;
+        }
+
+        s_instance.suppressedSceneWorldRestoreSceneName = string.IsNullOrWhiteSpace(sceneName)
+            ? string.Empty
+            : sceneName.Trim();
+    }
+
+    public static void CancelSuppressedSceneWorldRestore(string sceneName)
+    {
+        if (s_instance == null
+            || string.IsNullOrWhiteSpace(s_instance.suppressedSceneWorldRestoreSceneName)
+            || string.IsNullOrWhiteSpace(sceneName))
+        {
+            return;
+        }
+
+        if (string.Equals(
+                s_instance.suppressedSceneWorldRestoreSceneName,
+                sceneName.Trim(),
+                System.StringComparison.OrdinalIgnoreCase))
+        {
+            s_instance.suppressedSceneWorldRestoreSceneName = string.Empty;
+        }
+    }
+
+    public static InventoryService GetPreferredRuntimeInventoryService()
+    {
+        if (!Application.isPlaying)
+        {
+            return null;
+        }
+
+        EnsureInstance();
+        if (s_instance == null)
+        {
+            return null;
+        }
+
+        s_instance.RefreshPersistentRuntimeServices();
+        return s_instance.persistentInventoryService;
+    }
+
+    public static HotbarSelectionService GetPreferredRuntimeHotbarSelectionService()
+    {
+        if (!Application.isPlaying)
+        {
+            return null;
+        }
+
+        EnsureInstance();
+        if (s_instance == null)
+        {
+            return null;
+        }
+
+        s_instance.RefreshPersistentRuntimeServices();
+        return s_instance.persistentHotbarSelectionService;
+    }
+
+    public static EquipmentService GetPreferredRuntimeEquipmentService()
+    {
+        if (!Application.isPlaying)
+        {
+            return null;
+        }
+
+        EnsureInstance();
+        if (s_instance == null)
+        {
+            return null;
+        }
+
+        s_instance.RefreshPersistentRuntimeServices();
+        return s_instance.persistentEquipmentService;
+    }
+
+    public static GameInputManager GetPreferredRuntimeInputManager()
+    {
+        if (!Application.isPlaying)
+        {
+            return null;
+        }
+
+        EnsureInstance();
+        if (s_instance == null)
+        {
+            return null;
+        }
+
+        s_instance.RefreshPersistentRuntimeServices();
+        return s_instance.persistentSceneInputManager;
+    }
+
+    public static GameObject GetPreferredRuntimeUiRoot()
+    {
+        if (!Application.isPlaying)
+        {
+            return null;
+        }
+
+        EnsureInstance();
+        return s_instance != null ? s_instance.persistentUiRoot : null;
+    }
+
+    public static PackagePanelTabsUI GetPreferredRuntimePackageTabs()
+    {
+        if (!Application.isPlaying)
+        {
+            return null;
+        }
+
+        EnsureInstance();
+        if (s_instance?.persistentUiRoot == null)
+        {
+            return null;
+        }
+
+        return s_instance.persistentUiRoot.GetComponentInChildren<PackagePanelTabsUI>(true);
+    }
+
     private static void EnsureInstance()
     {
         if (s_instance != null)
@@ -209,6 +429,12 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             StopCoroutine(startupFallbackRebindCoroutine);
             startupFallbackRebindCoroutine = null;
         }
+
+        if (sceneWorldRestoreCoroutine != null)
+        {
+            StopCoroutine(sceneWorldRestoreCoroutine);
+            sceneWorldRestoreCoroutine = null;
+        }
     }
 
     private void Start()
@@ -230,11 +456,9 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (WasSceneAlreadyRebound(scene))
-        {
-            return;
-        }
-
+        // sceneLoaded 是每次真正加载完场景后的正式重绑入口。
+        // 这里不能再按 scene.handle 做“已处理”短路，否则往返同一路径时一旦 handle 复用，
+        // 整条 runtime rebind 会被跳过，留下 Home 正常 / 回 Primary 又乱的坏相。
         RebindScene(scene);
     }
 
@@ -267,6 +491,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
 
         DestroySceneDuplicatePlayers(scenePlayers);
         BindNavigator(scene);
+        RebindAutoPickup(sceneInventory);
         RestoreSceneInventoryState(sceneInventory);
         RebindHotbarSelection(sceneHotbarSelection, sceneInventory);
         RebindPersistentCoreUi(scene, sceneInventory, sceneHotbarSelection);
@@ -283,7 +508,9 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         RebindSceneInput(scene, sceneInventory, sceneHotbarSelection);
         RebindScenePlacementManager(scene, sceneInventory, sceneHotbarSelection);
         ReapplyTraversalBindings(scene);
+        RebindSceneOcclusionManagers(scene);
         RestoreSceneResidentRuntimeState(scene);
+        ScheduleSceneWorldRestore(scene);
         RefreshFallbackCameraBinding(scene);
         SceneTransitionTrigger2D.SuppressPlayerEnter(DefaultTransitionGraceSeconds);
 
@@ -293,6 +520,66 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         lastReboundSceneHandle = scene.handle;
+    }
+
+    private void RefreshSceneRuntimeBindingsInternal(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
+        EnsurePersistentPlayer(scene);
+        if (persistentPlayerMovement == null || persistentPlayerTransform == null)
+        {
+            return;
+        }
+
+        InventoryService sceneInventory = ResolveRuntimeInventoryService(scene);
+        HotbarSelectionService sceneHotbarSelection = ResolveRuntimeHotbarSelectionService(scene);
+
+        RestoreSceneInventoryState(sceneInventory);
+        RebindHotbarSelection(sceneHotbarSelection, sceneInventory);
+        RebindAutoPickup(sceneInventory);
+        RebindPersistentCoreUi(scene, sceneInventory, sceneHotbarSelection);
+        RebindSceneInput(scene, sceneInventory, sceneHotbarSelection);
+        RebindScenePlacementManager(scene, sceneInventory, sceneHotbarSelection);
+        RebindSceneOcclusionManagers(scene);
+    }
+
+    private void SyncSceneInventorySnapshotInternal(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
+        InventoryService sceneInventory = ResolveRuntimeInventoryService(scene);
+        if (sceneInventory != null)
+        {
+            inventorySnapshot = sceneInventory.Save();
+            hasInventorySnapshot = inventorySnapshot != null &&
+                                 !string.IsNullOrWhiteSpace(inventorySnapshot.genericData);
+        }
+        else
+        {
+            inventorySnapshot = null;
+            hasInventorySnapshot = false;
+        }
+
+        HotbarSelectionService sceneHotbarSelection = ResolveRuntimeHotbarSelectionService(scene);
+        if (sceneHotbarSelection != null)
+        {
+            hotbarSelectionSnapshot = sceneHotbarSelection.selectedIndex;
+            hotbarInventorySelectionSnapshot = sceneHotbarSelection.selectedInventoryIndex;
+            hasHotbarSelectionSnapshot = true;
+        }
+        else
+        {
+            hotbarSelectionSnapshot = 0;
+            hotbarInventorySelectionSnapshot = 0;
+            hasHotbarSelectionSnapshot = false;
+        }
     }
 
     private void EnsurePersistentPlayer(Scene preferredScene)
@@ -383,6 +670,8 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         TrySetField(sceneInputManager, "worldCamera", sceneCamera);
         TrySetField(sceneInputManager, "packageTabs", persistentUiRoot != null ? persistentUiRoot.GetComponentInChildren<PackagePanelTabsUI>(true) : null);
         TrySetBooleanField(sceneInputManager, "packageTabsInitialized", false);
+        sceneInputManager.ResetPlacementRuntimeState("PersistentPlayerSceneBridge 场景重绑后重置输入运行态");
+        persistentSceneInputManager = sceneInputManager;
     }
 
     private void RebindScenePlacementManager(
@@ -407,6 +696,22 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             sceneHotbarSelection,
             runtimePackageTabs,
             sceneCamera);
+    }
+
+    private void RebindAutoPickup(InventoryService sceneInventory)
+    {
+        if (persistentPlayerTransform == null)
+        {
+            return;
+        }
+
+        AutoPickupService autoPickupService = persistentPlayerTransform.GetComponentInChildren<AutoPickupService>(true);
+        if (autoPickupService == null)
+        {
+            return;
+        }
+
+        autoPickupService.RebindRuntimeReferences(sceneInventory);
     }
 
     private void ReapplyTraversalBindings(Scene scene)
@@ -525,11 +830,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             return;
         }
 
-        InventoryService sceneInventory = FindFirstComponentInScene<InventoryService>(scene);
-        if (sceneInventory == null)
-        {
-            sceneInventory = persistentInventoryService;
-        }
+        InventoryService sceneInventory = ResolveRuntimeInventoryService(scene);
 
         if (sceneInventory != null)
         {
@@ -538,19 +839,17 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
                                  !string.IsNullOrWhiteSpace(inventorySnapshot.genericData);
         }
 
-        HotbarSelectionService sceneHotbarSelection = FindFirstComponentInScene<HotbarSelectionService>(scene);
-        if (sceneHotbarSelection == null)
-        {
-            sceneHotbarSelection = persistentHotbarSelectionService;
-        }
+        HotbarSelectionService sceneHotbarSelection = ResolveRuntimeHotbarSelectionService(scene);
 
         if (sceneHotbarSelection != null)
         {
             hotbarSelectionSnapshot = sceneHotbarSelection.selectedIndex;
+            hotbarInventorySelectionSnapshot = sceneHotbarSelection.selectedInventoryIndex;
             hasHotbarSelectionSnapshot = true;
         }
 
         CaptureSceneResidentRuntimeState(scene);
+        CaptureSceneWorldRuntimeState(scene);
     }
 
     private void ResetPersistentRuntimeForFreshStartInternal()
@@ -559,9 +858,19 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         inventorySnapshot = null;
         hasInventorySnapshot = false;
         hotbarSelectionSnapshot = 0;
+        hotbarInventorySelectionSnapshot = 0;
         hasHotbarSelectionSnapshot = false;
+        suppressedSceneWorldRestoreSceneName = string.Empty;
+        sceneWorldSnapshotsByScene.Clear();
+        sceneWorldSnapshotCapturedTotalDaysByScene.Clear();
         nativeResidentSnapshotsByScene.Clear();
         crowdResidentSnapshots.Clear();
+
+        if (sceneWorldRestoreCoroutine != null)
+        {
+            StopCoroutine(sceneWorldRestoreCoroutine);
+            sceneWorldRestoreCoroutine = null;
+        }
 
         Scene activeScene = SceneManager.GetActiveScene();
         InventoryService inventoryService = ResolveRuntimeInventoryService(activeScene);
@@ -585,7 +894,59 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         HotbarSelectionService hotbarSelectionService = ResolveRuntimeHotbarSelectionService(activeScene);
         if (hotbarSelectionService != null)
         {
-            hotbarSelectionService.RestoreSelection(0);
+            hotbarSelectionService.RestoreSelectionState(0, 0);
+        }
+    }
+
+    private void ClearNativeResidentRuntimeSnapshotsInternal(IReadOnlyList<string> stableKeys)
+    {
+        if (stableKeys == null || stableKeys.Count <= 0 || nativeResidentSnapshotsByScene.Count <= 0)
+        {
+            return;
+        }
+
+        HashSet<string> normalizedStableKeys = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        for (int index = 0; index < stableKeys.Count; index++)
+        {
+            string normalized = NPCDialogueContentProfile.NormalizeNpcId(stableKeys[index]);
+            if (!string.IsNullOrWhiteSpace(normalized))
+            {
+                normalizedStableKeys.Add(normalized.Trim());
+            }
+        }
+
+        if (normalizedStableKeys.Count <= 0)
+        {
+            return;
+        }
+
+        List<string> sceneKeys = new List<string>(nativeResidentSnapshotsByScene.Keys);
+        for (int index = 0; index < sceneKeys.Count; index++)
+        {
+            string sceneKey = sceneKeys[index];
+            if (!nativeResidentSnapshotsByScene.TryGetValue(sceneKey, out List<NpcResidentRuntimeSnapshot> snapshots)
+                || snapshots == null)
+            {
+                nativeResidentSnapshotsByScene.Remove(sceneKey);
+                continue;
+            }
+
+            snapshots.RemoveAll(snapshot =>
+            {
+                if (snapshot == null)
+                {
+                    return true;
+                }
+
+                string normalizedSnapshotKey = NPCDialogueContentProfile.NormalizeNpcId(snapshot.stableKey);
+                return !string.IsNullOrWhiteSpace(normalizedSnapshotKey)
+                    && normalizedStableKeys.Contains(normalizedSnapshotKey.Trim());
+            });
+
+            if (snapshots.Count <= 0)
+            {
+                nativeResidentSnapshotsByScene.Remove(sceneKey);
+            }
         }
     }
 
@@ -609,9 +970,15 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         sceneHotbarSelection.RebindRuntimeReferences(persistentPlayerToolController, sceneInventory);
+        int restoredHotbarIndex = hasHotbarSelectionSnapshot
+            ? hotbarSelectionSnapshot
+            : sceneHotbarSelection.selectedIndex;
+        int restoredInventoryIndex = hasHotbarSelectionSnapshot
+            ? hotbarInventorySelectionSnapshot
+            : sceneHotbarSelection.selectedInventoryIndex;
         sceneHotbarSelection.RestoreSelectionState(
-            hasHotbarSelectionSnapshot ? hotbarSelectionSnapshot : sceneHotbarSelection.selectedIndex,
-            hasHotbarSelectionSnapshot ? hotbarSelectionSnapshot : sceneHotbarSelection.selectedIndex);
+            restoredHotbarIndex,
+            restoredInventoryIndex);
     }
 
     private void CaptureSceneResidentRuntimeState(Scene scene)
@@ -664,6 +1031,717 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
     {
         RestoreCrowdResidentRuntimeState(scene);
         RestoreNativeResidentRuntimeState(scene);
+    }
+
+    private void CaptureSceneWorldRuntimeState(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
+        string sceneKey = BuildSceneSnapshotKey(scene);
+        if (string.IsNullOrWhiteSpace(sceneKey))
+        {
+            return;
+        }
+
+        List<SceneWorldRuntimeSnapshotEntry> snapshots = new List<SceneWorldRuntimeSnapshotEntry>();
+        HashSet<string> capturedGuids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+
+        CaptureSceneWorldRuntimeSnapshots(FindComponentsInScene<FarmTileManager>(scene), snapshots, capturedGuids);
+        CaptureSceneWorldRuntimeSnapshots(FindComponentsInScene<CropController>(scene), snapshots, capturedGuids);
+        CaptureSceneWorldRuntimeSnapshots(FindComponentsInScene<ChestController>(scene), snapshots, capturedGuids);
+        CaptureSceneWorldRuntimeSnapshots(FindComponentsInScene<WorldItemPickup>(scene), snapshots, capturedGuids);
+        CaptureSceneWorldRuntimeSnapshots(FindComponentsInScene<TreeController>(scene), snapshots, capturedGuids);
+        CaptureSceneWorldRuntimeSnapshots(FindComponentsInScene<StoneController>(scene), snapshots, capturedGuids);
+
+        // Empty snapshots are authoritative too: they mean every tracked world
+        // object in that scene was removed, so native scene objects must not revive.
+        sceneWorldSnapshotsByScene[sceneKey] = snapshots;
+        sceneWorldSnapshotCapturedTotalDaysByScene[sceneKey] = GetCurrentTotalDaysSafe();
+    }
+
+    private static void CaptureSceneWorldRuntimeSnapshots<T>(
+        T[] components,
+        List<SceneWorldRuntimeSnapshotEntry> snapshots,
+        HashSet<string> capturedGuids)
+        where T : MonoBehaviour, IPersistentObject
+    {
+        if (components == null || snapshots == null || capturedGuids == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < components.Length; index++)
+        {
+            T component = components[index];
+            if (component == null)
+            {
+                continue;
+            }
+
+            string guid = component.PersistentId?.Trim();
+            if (string.IsNullOrWhiteSpace(guid) || !capturedGuids.Add(guid))
+            {
+                continue;
+            }
+
+            WorldObjectSaveData snapshotData = component.ShouldSave
+                ? CloneWorldObjectSaveData(component.Save())
+                : CreateInactiveWorldObjectSnapshot(component);
+            bool isActive = snapshotData != null && snapshotData.isActive;
+            if (snapshotData == null)
+            {
+                continue;
+            }
+
+            snapshots.Add(new SceneWorldRuntimeSnapshotEntry
+            {
+                Guid = guid,
+                ObjectType = component.ObjectType,
+                IsActive = isActive,
+                SaveData = snapshotData
+            });
+        }
+    }
+
+    private static WorldObjectSaveData CreateInactiveWorldObjectSnapshot(IPersistentObject persistentObject)
+    {
+        if (!(persistentObject is Component component))
+        {
+            return null;
+        }
+
+        WorldObjectSaveData snapshot = new WorldObjectSaveData
+        {
+            guid = persistentObject.PersistentId?.Trim(),
+            objectType = persistentObject.ObjectType,
+            sceneName = component.gameObject.scene.name,
+            isActive = false
+        };
+
+        GameObject stateRoot = ResolveWorldObjectStateRoot(component);
+        if (stateRoot != null)
+        {
+            snapshot.SetPosition(stateRoot.transform.position);
+        }
+
+        return snapshot;
+    }
+
+    private void ScheduleSceneWorldRestore(Scene scene)
+    {
+        if (sceneWorldRestoreCoroutine != null)
+        {
+            StopCoroutine(sceneWorldRestoreCoroutine);
+            sceneWorldRestoreCoroutine = null;
+        }
+
+        if (ShouldSuppressSceneWorldRestore(scene))
+        {
+            return;
+        }
+
+        string sceneKey = BuildSceneSnapshotKey(scene);
+        if (string.IsNullOrWhiteSpace(sceneKey)
+            || !sceneWorldSnapshotsByScene.TryGetValue(sceneKey, out List<SceneWorldRuntimeSnapshotEntry> snapshots)
+            || snapshots == null)
+        {
+            return;
+        }
+
+        sceneWorldRestoreCoroutine = StartCoroutine(
+            RestoreSceneWorldRuntimeStateDeferred(scene.handle, sceneKey));
+    }
+
+    private System.Collections.IEnumerator RestoreSceneWorldRuntimeStateDeferred(int sceneHandle, string sceneKey)
+    {
+        yield return null;
+        yield return new WaitForEndOfFrame();
+
+        Scene activeScene = SceneManager.GetActiveScene();
+        if (!activeScene.IsValid()
+            || !activeScene.isLoaded
+            || activeScene.handle != sceneHandle
+            || !string.Equals(BuildSceneSnapshotKey(activeScene), sceneKey, System.StringComparison.OrdinalIgnoreCase))
+        {
+            sceneWorldRestoreCoroutine = null;
+            yield break;
+        }
+
+        RestoreSceneWorldRuntimeState(activeScene);
+        sceneWorldRestoreCoroutine = null;
+    }
+
+    private void RestoreSceneWorldRuntimeState(Scene scene)
+    {
+        if (!scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
+        string sceneKey = BuildSceneSnapshotKey(scene);
+        if (string.IsNullOrWhiteSpace(sceneKey)
+            || !sceneWorldSnapshotsByScene.TryGetValue(sceneKey, out List<SceneWorldRuntimeSnapshotEntry> snapshots)
+            || snapshots == null)
+        {
+            return;
+        }
+
+        Dictionary<string, SceneWorldRuntimeBinding> bindings = BuildSceneWorldRuntimeBindings(scene);
+        HashSet<string> snapshotGuids = new HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+        List<SceneWorldRuntimeSnapshotEntry> orderedSnapshots = CloneSceneWorldRuntimeSnapshotEntries(snapshots);
+        int currentTotalDays;
+        int elapsedDays = ResolveSceneWorldSnapshotElapsedDays(sceneKey, out currentTotalDays);
+
+        for (int index = 0; index < orderedSnapshots.Count; index++)
+        {
+            SceneWorldRuntimeSnapshotEntry snapshot = orderedSnapshots[index];
+            if (snapshot == null || string.IsNullOrWhiteSpace(snapshot.Guid))
+            {
+                continue;
+            }
+
+            string guid = snapshot.Guid.Trim();
+            snapshotGuids.Add(guid);
+
+            if (bindings.TryGetValue(guid, out SceneWorldRuntimeBinding binding))
+            {
+                ApplySceneWorldRuntimeSnapshot(binding, snapshot, elapsedDays, currentTotalDays);
+                continue;
+            }
+
+            if (!snapshot.IsActive || snapshot.SaveData == null)
+            {
+                continue;
+            }
+
+            TryReconstructSceneWorldObject(snapshot, elapsedDays, currentTotalDays);
+        }
+
+        RemoveUnexpectedSceneWorldBindings(bindings, snapshotGuids);
+        FinalizeDeferredSceneWorldCatchUp(scene, elapsedDays, currentTotalDays);
+    }
+
+    private static Dictionary<string, SceneWorldRuntimeBinding> BuildSceneWorldRuntimeBindings(Scene scene)
+    {
+        Dictionary<string, SceneWorldRuntimeBinding> bindings =
+            new Dictionary<string, SceneWorldRuntimeBinding>(System.StringComparer.OrdinalIgnoreCase);
+
+        CollectSceneWorldRuntimeBindings(FindComponentsInScene<FarmTileManager>(scene), bindings);
+        CollectSceneWorldRuntimeBindings(FindComponentsInScene<CropController>(scene), bindings);
+        CollectSceneWorldRuntimeBindings(FindComponentsInScene<ChestController>(scene), bindings);
+        CollectSceneWorldRuntimeBindings(FindComponentsInScene<WorldItemPickup>(scene), bindings);
+        CollectSceneWorldRuntimeBindings(FindComponentsInScene<TreeController>(scene), bindings);
+        CollectSceneWorldRuntimeBindings(FindComponentsInScene<StoneController>(scene), bindings);
+        return bindings;
+    }
+
+    private static void CollectSceneWorldRuntimeBindings<T>(
+        T[] components,
+        Dictionary<string, SceneWorldRuntimeBinding> bindings)
+        where T : MonoBehaviour, IPersistentObject
+    {
+        if (components == null || bindings == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < components.Length; index++)
+        {
+            T component = components[index];
+            if (component == null)
+            {
+                continue;
+            }
+
+            string guid = component.PersistentId?.Trim();
+            if (string.IsNullOrWhiteSpace(guid) || bindings.ContainsKey(guid))
+            {
+                continue;
+            }
+
+            bindings[guid] = new SceneWorldRuntimeBinding
+            {
+                Component = component,
+                PersistentObject = component,
+                StateRoot = ResolveWorldObjectStateRoot(component),
+                ObjectType = component.ObjectType
+            };
+        }
+    }
+
+    private static void ApplySceneWorldRuntimeSnapshot(
+        SceneWorldRuntimeBinding binding,
+        SceneWorldRuntimeSnapshotEntry snapshot,
+        int elapsedDays,
+        int currentTotalDays)
+    {
+        if (binding == null || binding.PersistentObject == null)
+        {
+            return;
+        }
+
+        if (!snapshot.IsActive || snapshot.SaveData == null)
+        {
+            DeactivateSceneWorldBinding(binding);
+            return;
+        }
+
+        WorldObjectSaveData restoredData = CloneWorldObjectSaveData(snapshot.SaveData);
+        if (restoredData == null)
+        {
+            return;
+        }
+
+        ApplySceneWorldObjectPosition(binding.StateRoot, restoredData);
+        binding.PersistentObject.Load(restoredData);
+        SetSceneWorldBindingActive(binding, true);
+        ApplySceneWorldCatchUp(binding.PersistentObject, elapsedDays, currentTotalDays);
+    }
+
+    private static void TryReconstructSceneWorldObject(
+        SceneWorldRuntimeSnapshotEntry snapshot,
+        int elapsedDays,
+        int currentTotalDays)
+    {
+        if (snapshot?.SaveData == null)
+        {
+            return;
+        }
+
+        WorldObjectSaveData restoredData = CloneWorldObjectSaveData(snapshot.SaveData);
+        IPersistentObject persistentObject = DynamicObjectFactory.TryReconstruct(restoredData);
+        if (persistentObject == null)
+        {
+            return;
+        }
+
+        persistentObject.Load(restoredData);
+        if (persistentObject is Component component)
+        {
+            ApplySceneWorldObjectPosition(ResolveWorldObjectStateRoot(component), restoredData);
+            SetSceneWorldBindingActive(
+                new SceneWorldRuntimeBinding
+                {
+                    Component = component as MonoBehaviour,
+                    PersistentObject = persistentObject,
+                    StateRoot = ResolveWorldObjectStateRoot(component),
+                    ObjectType = persistentObject.ObjectType
+                },
+                true);
+        }
+
+        ApplySceneWorldCatchUp(persistentObject, elapsedDays, currentTotalDays);
+    }
+
+    private static void RemoveUnexpectedSceneWorldBindings(
+        Dictionary<string, SceneWorldRuntimeBinding> bindings,
+        HashSet<string> snapshotGuids)
+    {
+        if (bindings == null || snapshotGuids == null)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<string, SceneWorldRuntimeBinding> pair in bindings)
+        {
+            SceneWorldRuntimeBinding binding = pair.Value;
+            if (binding == null
+                || !IsSceneWorldRemovalAuthoritative(binding.ObjectType)
+                || snapshotGuids.Contains(pair.Key))
+            {
+                continue;
+            }
+
+            DeactivateSceneWorldBinding(binding);
+        }
+    }
+
+    private static bool IsSceneWorldRemovalAuthoritative(string objectType)
+    {
+        switch (objectType)
+        {
+            case "Drop":
+            case "Tree":
+            case "Stone":
+            case "Chest":
+            case "Crop":
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    private static void DeactivateSceneWorldBinding(SceneWorldRuntimeBinding binding)
+    {
+        if (binding?.Component == null)
+        {
+            return;
+        }
+
+        if (binding.Component is WorldItemPickup pickup)
+        {
+            if (WorldItemPool.Instance != null)
+            {
+                WorldItemPool.Instance.Despawn(pickup);
+            }
+            else
+            {
+                Object.Destroy(pickup.gameObject);
+            }
+
+            return;
+        }
+
+        SetSceneWorldBindingActive(binding, false);
+    }
+
+    private static void SetSceneWorldBindingActive(SceneWorldRuntimeBinding binding, bool isActive)
+    {
+        if (binding?.StateRoot == null)
+        {
+            return;
+        }
+
+        if (binding.StateRoot.activeSelf == isActive)
+        {
+            return;
+        }
+
+        binding.StateRoot.SetActive(isActive);
+    }
+
+    private static void ApplySceneWorldObjectPosition(GameObject stateRoot, WorldObjectSaveData data)
+    {
+        if (stateRoot == null || data == null)
+        {
+            return;
+        }
+
+        stateRoot.transform.position = data.GetPosition();
+    }
+
+    private static GameObject ResolveWorldObjectStateRoot(Component component)
+    {
+        if (component == null)
+        {
+            return null;
+        }
+
+        Transform parent = component.transform.parent;
+        if (parent != null && parent.gameObject.scene == component.gameObject.scene)
+        {
+            return parent.gameObject;
+        }
+
+        return component.gameObject;
+    }
+
+    private static WorldObjectSaveData CloneWorldObjectSaveData(WorldObjectSaveData source)
+    {
+        if (source == null)
+        {
+            return null;
+        }
+
+        return new WorldObjectSaveData
+        {
+            guid = source.guid,
+            objectType = source.objectType,
+            prefabId = source.prefabId,
+            sceneName = source.sceneName,
+            layer = source.layer,
+            positionX = source.positionX,
+            positionY = source.positionY,
+            positionZ = source.positionZ,
+            rotationZ = source.rotationZ,
+            isActive = source.isActive,
+            sortingLayerName = source.sortingLayerName,
+            sortingOrder = source.sortingOrder,
+            genericData = source.genericData
+        };
+    }
+
+    private List<SceneWorldSnapshotSaveData> ExportOffSceneWorldSnapshotsForSaveInternal(Scene activeScene)
+    {
+        string activeSceneKey = BuildSceneSnapshotKey(activeScene);
+        List<SceneWorldSnapshotSaveData> serializedSnapshots = new List<SceneWorldSnapshotSaveData>();
+
+        foreach (KeyValuePair<string, List<SceneWorldRuntimeSnapshotEntry>> pair in sceneWorldSnapshotsByScene)
+        {
+            if (string.IsNullOrWhiteSpace(pair.Key)
+                || string.Equals(pair.Key, activeSceneKey, System.StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            List<SceneWorldRuntimeSnapshotEntry> clonedEntries = CloneSceneWorldRuntimeSnapshotEntries(pair.Value);
+            bool hasCapturedTotalDays =
+                sceneWorldSnapshotCapturedTotalDaysByScene.TryGetValue(pair.Key, out int capturedTotalDays);
+            SceneWorldSnapshotSaveData serialized = new SceneWorldSnapshotSaveData
+            {
+                sceneKey = pair.Key,
+                hasCapturedTotalDays = hasCapturedTotalDays,
+                capturedTotalDays = hasCapturedTotalDays ? capturedTotalDays : 0,
+                worldObjects = new List<WorldObjectSaveData>(clonedEntries.Count)
+            };
+
+            for (int index = 0; index < clonedEntries.Count; index++)
+            {
+                SceneWorldRuntimeSnapshotEntry entry = clonedEntries[index];
+                if (entry?.SaveData == null)
+                {
+                    continue;
+                }
+
+                serialized.worldObjects.Add(CloneWorldObjectSaveData(entry.SaveData));
+            }
+
+            serializedSnapshots.Add(serialized);
+        }
+
+        serializedSnapshots.Sort((left, right) =>
+            string.Compare(left?.sceneKey, right?.sceneKey, System.StringComparison.OrdinalIgnoreCase));
+        return serializedSnapshots;
+    }
+
+    private void ImportOffSceneWorldSnapshotsFromSaveInternal(
+        List<SceneWorldSnapshotSaveData> serializedSnapshots,
+        Scene activeScene)
+    {
+        if (sceneWorldRestoreCoroutine != null)
+        {
+            StopCoroutine(sceneWorldRestoreCoroutine);
+            sceneWorldRestoreCoroutine = null;
+        }
+
+        string activeSceneKey = BuildSceneSnapshotKey(activeScene);
+        sceneWorldSnapshotsByScene.Clear();
+        sceneWorldSnapshotCapturedTotalDaysByScene.Clear();
+
+        if (serializedSnapshots == null)
+        {
+            return;
+        }
+
+        for (int index = 0; index < serializedSnapshots.Count; index++)
+        {
+            SceneWorldSnapshotSaveData serialized = serializedSnapshots[index];
+            if (serialized == null
+                || string.IsNullOrWhiteSpace(serialized.sceneKey)
+                || string.Equals(serialized.sceneKey, activeSceneKey, System.StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            List<SceneWorldRuntimeSnapshotEntry> clonedEntries =
+                CreateSceneWorldRuntimeSnapshotsFromSaveData(serialized.worldObjects);
+
+            string sceneKey = serialized.sceneKey.Trim();
+            sceneWorldSnapshotsByScene[sceneKey] = clonedEntries;
+            if (serialized.hasCapturedTotalDays)
+            {
+                sceneWorldSnapshotCapturedTotalDaysByScene[sceneKey] = serialized.capturedTotalDays;
+            }
+        }
+    }
+
+    private void RebindSceneOcclusionManagers(Scene scene)
+    {
+        if (persistentPlayerTransform == null)
+        {
+            return;
+        }
+
+        OcclusionManager[] occlusionManagers = FindComponentsInScene<OcclusionManager>(scene);
+        for (int index = 0; index < occlusionManagers.Length; index++)
+        {
+            OcclusionManager manager = occlusionManagers[index];
+            if (manager == null)
+            {
+                continue;
+            }
+
+            manager.RefreshRuntimePlayerBinding(persistentPlayerTransform);
+        }
+    }
+
+    private int ResolveSceneWorldSnapshotElapsedDays(string sceneKey, out int currentTotalDays)
+    {
+        currentTotalDays = GetCurrentTotalDaysSafe();
+        if (string.IsNullOrWhiteSpace(sceneKey)
+            || !sceneWorldSnapshotCapturedTotalDaysByScene.TryGetValue(sceneKey, out int capturedTotalDays))
+        {
+            return 0;
+        }
+
+        return Mathf.Max(0, currentTotalDays - capturedTotalDays);
+    }
+
+    private int GetCurrentTotalDaysSafe()
+    {
+        return TimeManager.Instance != null ? TimeManager.Instance.GetTotalDaysPassed() : 0;
+    }
+
+    private static void ApplySceneWorldCatchUp(IPersistentObject persistentObject, int elapsedDays, int currentTotalDays)
+    {
+        if (elapsedDays <= 0 || persistentObject == null)
+        {
+            return;
+        }
+
+        if (persistentObject is TreeController treeController)
+        {
+            treeController.ApplyOffSceneElapsedDays(elapsedDays, currentTotalDays);
+        }
+    }
+
+    private void FinalizeDeferredSceneWorldCatchUp(Scene scene, int elapsedDays, int currentTotalDays)
+    {
+        if (elapsedDays <= 0 || !scene.IsValid() || !scene.isLoaded)
+        {
+            return;
+        }
+
+        CropController[] cropControllers = FindComponentsInScene<CropController>(scene);
+        for (int index = 0; index < cropControllers.Length; index++)
+        {
+            CropController cropController = cropControllers[index];
+            if (cropController == null || !cropController.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            cropController.ApplyOffSceneElapsedDays(elapsedDays, currentTotalDays);
+        }
+
+        FarmTileManager[] farmTileManagers = FindComponentsInScene<FarmTileManager>(scene);
+        for (int index = 0; index < farmTileManagers.Length; index++)
+        {
+            FarmTileManager farmTileManager = farmTileManagers[index];
+            if (farmTileManager == null || !farmTileManager.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+
+            farmTileManager.ApplyOffSceneElapsedDays(elapsedDays, currentTotalDays);
+        }
+    }
+
+    private bool ShouldSuppressSceneWorldRestore(Scene scene)
+    {
+        if (string.IsNullOrWhiteSpace(suppressedSceneWorldRestoreSceneName))
+        {
+            return false;
+        }
+
+        bool shouldSuppress =
+            string.Equals(scene.name, suppressedSceneWorldRestoreSceneName, System.StringComparison.OrdinalIgnoreCase)
+            || string.Equals(BuildSceneSnapshotKey(scene), suppressedSceneWorldRestoreSceneName, System.StringComparison.OrdinalIgnoreCase);
+
+        if (shouldSuppress)
+        {
+            suppressedSceneWorldRestoreSceneName = string.Empty;
+        }
+
+        return shouldSuppress;
+    }
+
+    private static List<SceneWorldRuntimeSnapshotEntry> CreateSceneWorldRuntimeSnapshotsFromSaveData(
+        List<WorldObjectSaveData> worldObjects)
+    {
+        List<SceneWorldRuntimeSnapshotEntry> snapshots = new List<SceneWorldRuntimeSnapshotEntry>();
+        if (worldObjects == null)
+        {
+            return snapshots;
+        }
+
+        for (int index = 0; index < worldObjects.Count; index++)
+        {
+            WorldObjectSaveData worldObject = CloneWorldObjectSaveData(worldObjects[index]);
+            if (worldObject == null || string.IsNullOrWhiteSpace(worldObject.guid))
+            {
+                continue;
+            }
+
+            snapshots.Add(new SceneWorldRuntimeSnapshotEntry
+            {
+                Guid = worldObject.guid.Trim(),
+                ObjectType = worldObject.objectType,
+                IsActive = worldObject.isActive,
+                SaveData = worldObject
+            });
+        }
+
+        snapshots.Sort(CompareSceneWorldRuntimeSnapshots);
+        return snapshots;
+    }
+
+    private static List<SceneWorldRuntimeSnapshotEntry> CloneSceneWorldRuntimeSnapshotEntries(
+        List<SceneWorldRuntimeSnapshotEntry> source)
+    {
+        List<SceneWorldRuntimeSnapshotEntry> cloned = new List<SceneWorldRuntimeSnapshotEntry>();
+        if (source == null)
+        {
+            return cloned;
+        }
+
+        for (int index = 0; index < source.Count; index++)
+        {
+            SceneWorldRuntimeSnapshotEntry entry = source[index];
+            if (entry == null)
+            {
+                continue;
+            }
+
+            cloned.Add(new SceneWorldRuntimeSnapshotEntry
+            {
+                Guid = string.IsNullOrWhiteSpace(entry.Guid) ? string.Empty : entry.Guid.Trim(),
+                ObjectType = entry.ObjectType,
+                IsActive = entry.IsActive,
+                SaveData = CloneWorldObjectSaveData(entry.SaveData)
+            });
+        }
+
+        cloned.Sort(CompareSceneWorldRuntimeSnapshots);
+        return cloned;
+    }
+
+    private static int CompareSceneWorldRuntimeSnapshots(
+        SceneWorldRuntimeSnapshotEntry left,
+        SceneWorldRuntimeSnapshotEntry right)
+    {
+        int priorityComparison = GetSceneWorldRestorePriority(left?.ObjectType)
+            .CompareTo(GetSceneWorldRestorePriority(right?.ObjectType));
+        if (priorityComparison != 0)
+        {
+            return priorityComparison;
+        }
+
+        return string.Compare(left?.Guid, right?.Guid, System.StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetSceneWorldRestorePriority(string objectType)
+    {
+        switch (objectType)
+        {
+            case "FarmTileManager":
+                return 0;
+            case "Crop":
+                return 1;
+            case "Chest":
+                return 2;
+            case "Drop":
+                return 10;
+            case "Tree":
+                return 20;
+            case "Stone":
+                return 30;
+            default:
+                return 100;
+        }
     }
 
     private void RestoreCrowdResidentRuntimeState(Scene scene)
@@ -879,6 +1957,16 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             float targetAlpha = keepFullyVisible
                 ? 1f
                 : ResolveBoundaryFocusTargetAlpha(playerViewport, target.RectTransform);
+            if (target.PromptOverlay != null)
+            {
+                float nextAlpha = Mathf.MoveTowards(
+                    target.PromptOverlay.CurrentBoundaryFocusAlpha,
+                    targetAlpha,
+                    Time.unscaledDeltaTime * BoundaryFocusBlendSpeed);
+                target.PromptOverlay.SetBoundaryFocusAlpha(nextAlpha);
+                continue;
+            }
+
             target.CanvasGroup.alpha = Mathf.MoveTowards(
                 target.CanvasGroup.alpha,
                 targetAlpha,
@@ -987,7 +2075,28 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         ItemDatabase database = sceneInventory != null
             ? sceneInventory.Database
             : persistentInventoryService != null ? persistentInventoryService.Database : null;
-        InventorySortService sortService = FindFirstObjectByType<InventorySortService>(FindObjectsInactive.Include);
+        InventorySortService sortService = persistentUiRoot.GetComponentInChildren<InventorySortService>(true);
+        if (sortService == null)
+        {
+            sortService = FindFirstObjectByType<InventorySortService>(FindObjectsInactive.Include);
+        }
+
+        if (sortService != null)
+        {
+            sortService.RebindRuntimeContext(sceneInventory, database);
+        }
+
+        CraftingService[] craftingServices = FindObjectsByType<CraftingService>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        for (int index = 0; index < craftingServices.Length; index++)
+        {
+            CraftingService craftingService = craftingServices[index];
+            if (craftingService == null)
+            {
+                continue;
+            }
+
+            craftingService.ConfigureRuntimeContext(sceneInventory, database);
+        }
 
         ToolbarUI[] toolbarUis = persistentUiRoot.GetComponentsInChildren<ToolbarUI>(true);
         for (int index = 0; index < toolbarUis.Length; index++)
@@ -1014,17 +2123,24 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
                 continue;
             }
 
-            TrySetField(panel, "inventory", sceneInventory);
-            TrySetField(panel, "equipment", sceneEquipment);
-            TrySetField(panel, "database", database);
-            TrySetField(panel, "selection", sceneHotbarSelection);
+            panel.ConfigureRuntimeContext(
+                sceneInventory,
+                sceneEquipment,
+                database,
+                sceneHotbarSelection);
             panel.EnsureBuilt();
+            panel.RefreshAll();
         }
 
         InventoryInteractionManager interactionManager =
             persistentUiRoot.GetComponentInChildren<InventoryInteractionManager>(true);
         if (interactionManager != null)
         {
+            interactionManager.ConfigureRuntimeContext(
+                sceneInventory,
+                sceneEquipment,
+                database,
+                sortService);
             TrySetField(interactionManager, "inventory", sceneInventory);
             TrySetField(interactionManager, "equipment", sceneEquipment);
             TrySetField(interactionManager, "database", database);
@@ -1061,6 +2177,47 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             }
 
             tooltip.SetDatabase(database);
+        }
+
+        ForceRuntimeUiRefreshAfterSceneRebind(
+            sceneInventory,
+            sceneEquipment,
+            database,
+            sceneHotbarSelection);
+    }
+
+    private void ForceRuntimeUiRefreshAfterSceneRebind(
+        InventoryService sceneInventory,
+        EquipmentService sceneEquipment,
+        ItemDatabase database,
+        HotbarSelectionService sceneHotbarSelection)
+    {
+        if (persistentUiRoot == null)
+        {
+            return;
+        }
+
+        BoxPanelUI activeBoxPanel = BoxPanelUI.ActiveInstance;
+        if (activeBoxPanel != null && activeBoxPanel.IsOpen)
+        {
+            activeBoxPanel.ConfigureRuntimeContext(
+                sceneInventory,
+                sceneEquipment,
+                database,
+                sceneHotbarSelection);
+            activeBoxPanel.RefreshUI();
+        }
+
+        if (sceneInventory != null)
+        {
+            sceneInventory.RefreshAll();
+        }
+
+        if (sceneHotbarSelection != null)
+        {
+            sceneHotbarSelection.ReassertCurrentSelection(
+                collapseInventorySelectionToHotbar: false,
+                invokeEvent: true);
         }
 
         Canvas.ForceUpdateCanvases();
@@ -1114,7 +2271,8 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             boundaryFocusUiTargets.Add(new BoundaryFocusUiTarget
             {
                 RectTransform = childRect,
-                CanvasGroup = canvasGroup
+                CanvasGroup = canvasGroup,
+                PromptOverlay = childRect.GetComponent<SpringDay1PromptOverlay>()
             });
         }
     }
@@ -1156,12 +2314,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         }
 
         edgePressure = Mathf.Clamp01(edgePressure);
-        if (edgePressure >= BoundaryFocusHardFadePressure)
-        {
-            return BoundaryFocusMinAlpha;
-        }
-
-        float easedPressure = 1f - Mathf.Pow(1f - edgePressure, 5f);
+        float easedPressure = Mathf.SmoothStep(0f, 1f, edgePressure);
         return Mathf.Lerp(1f, BoundaryFocusMinAlpha, easedPressure);
     }
 
@@ -1174,7 +2327,7 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
             case "ToolBar":
                 return BoundaryFocusEdgeMask.Bottom;
             case "SpringDay1PromptOverlay":
-                return BoundaryFocusEdgeMask.None;
+                return BoundaryFocusEdgeMask.Left | BoundaryFocusEdgeMask.Top;
             case "SpringDay1WorldHintBubble":
                 return BoundaryFocusEdgeMask.Right;
             default:
@@ -1435,37 +2588,52 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
 
     private InventoryService ResolveRuntimeInventoryService(Scene scene)
     {
+        RefreshPersistentRuntimeServices();
+        if (persistentInventoryService != null)
+        {
+            return persistentInventoryService;
+        }
+
         InventoryService sceneInventory = FindFirstComponentInScene<InventoryService>(scene);
         if (sceneInventory != null)
         {
             return sceneInventory;
         }
 
-        RefreshPersistentRuntimeServices();
         return persistentInventoryService;
     }
 
     private HotbarSelectionService ResolveRuntimeHotbarSelectionService(Scene scene)
     {
+        RefreshPersistentRuntimeServices();
+        if (persistentHotbarSelectionService != null)
+        {
+            return persistentHotbarSelectionService;
+        }
+
         HotbarSelectionService sceneHotbar = FindFirstComponentInScene<HotbarSelectionService>(scene);
         if (sceneHotbar != null)
         {
             return sceneHotbar;
         }
 
-        RefreshPersistentRuntimeServices();
         return persistentHotbarSelectionService;
     }
 
     private EquipmentService ResolveRuntimeEquipmentService(Scene scene)
     {
+        RefreshPersistentRuntimeServices();
+        if (persistentEquipmentService != null)
+        {
+            return persistentEquipmentService;
+        }
+
         EquipmentService sceneEquipment = FindFirstComponentInScene<EquipmentService>(scene);
         if (sceneEquipment != null)
         {
             return sceneEquipment;
         }
 
-        RefreshPersistentRuntimeServices();
         return persistentEquipmentService;
     }
 
@@ -1503,6 +2671,12 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
 
     private GameInputManager ResolveRuntimeInputManager(Scene scene)
     {
+        RefreshPersistentRuntimeServices();
+        if (persistentSceneInputManager != null)
+        {
+            return persistentSceneInputManager;
+        }
+
         GameInputManager sceneInput = FindFirstComponentInScene<GameInputManager>(scene);
         if (sceneInput != null)
         {
@@ -1595,6 +2769,15 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         if (!WasSceneAlreadyRebound(activeScene))
         {
             RebindScene(activeScene);
+        }
+
+        // 首屏 Town 仍可能在这一帧后半段才把 persistent player / UI / 遮挡对象全部摆齐，
+        // 再补一轮轻量 runtime refresh，避免“第一次进游戏不遮挡，切一次场才恢复”。
+        yield return new WaitForEndOfFrame();
+        activeScene = SceneManager.GetActiveScene();
+        if (activeScene.IsValid() && activeScene.isLoaded)
+        {
+            RefreshSceneRuntimeBindingsInternal(activeScene);
         }
 
         startupFallbackRebindCoroutine = null;

@@ -5494,3 +5494,41 @@
     1. 导航止血结果
     2. 农田 preview live
     3. Day1 全链黑盒验收与少量 runtime 补洞
+## 2026-04-17 02:09｜只读定位 opening/daytime resident release 链的 teleport 根因
+- 这轮性质：
+  - 只读代码审计，不改业务代码；目标是把 `SpringDay1NpcCrowdDirector.cs` 里 opening/daytime resident release 链说透，回答 ordinary resident baseline teleport、`003` 残余特例、最小安全改法与测试影响面。
+- 关键代码事实：
+  1. ordinary resident opening 后会 baseline teleport，不是 `ShouldYieldDaytimeResidentsToAutonomy()` 在放人；真正链路是：
+     - `Update() -> RefreshEnterVillageCrowdReleaseLatch()`
+     - `SyncCrowd() -> ApplyStagingCue()`
+     - `ShouldSuppressEnterVillageCrowdCueForTownHouseLead()` 命中后清 cue，并把 `NeedsResidentReset = true`、`ReleasedFromDirectorCue = true`
+     - 同轮 `ApplyResidentBaseline()` 命中 `state.ReleasedFromDirectorCue && state.NeedsResidentReset`
+     - 进入 `TryReleaseResidentToDaytimeBaseline()`
+     - 该方法当前固定以 `state.BasePosition` 为 `releasePosition`，再直接 `state.Instance.transform.position = releasePosition`
+  2. 这个 `BasePosition` 来自 `TryBindSceneResident()` 初绑 scene resident 时抓到的当前位置；因此 teleport 的目标不是“随便一个点”，而是 resident 初次被 crowd runtime 绑定时记下的 scene 基准位。
+  3. `ShouldUseResidentDaytimeSemanticBaseline()` 与 `TryResolveResidentDaytimeBaselinePosition()` 目前都还是硬 `false`，所以即使 entry 带了 `DailyStand_*` 语义，也不会走语义白天基线；release 仍回 `BasePosition`。
+  4. `ShouldYieldDaytimeResidentsToAutonomy()` 在 `currentPhase == EnterVillage` 时明确返回 `false`；也就是说 opening 放手仍被绑在 `ApplyResidentBaseline()` 的 shared baseline/release contract，而不是 free-time 的 batch yield。
+  5. `003` 当前仍残留两层特例：
+     - `SpringDay1NpcCrowdDirector.GetRuntimeEntries() / ShouldIncludeThirdResidentInResidentRuntime() / BuildSyntheticThirdResidentResidentEntry()`：只在 `currentPhase > StoryPhase.EnterVillage` 后把 `003` synthetic entry 并回 resident runtime。
+     - `SpringDay1Director` 里仍显式保留 `ThirdResidentNpcId`、`ResolveStoryThirdResidentTransform()`、`TryPrepareTownVillageGateActors()`、`TryPrepareDinnerGatheringActors()`、`TryResolveFallbackTownVillageGateTarget()`、`TryResolveTownOpeningLayoutPoints()` 这套 003 opening/dinner story-actor 入口。
+- 最小改法判断（未实施）：
+  1. 最小安全切口应只收 `TryReleaseResidentToDaytimeBaseline()` 的“写 transform 位置”段，保留：
+     - `ShouldReleaseEnterVillageCrowd()`
+     - `ShouldLatchEnterVillageCrowdRelease()`
+     - `RefreshEnterVillageCrowdReleaseLatch()`
+     - `ShouldSuppressEnterVillageCrowdCueForTownHouseLead()`
+     - `ShouldYieldDaytimeResidentsToAutonomy()`
+  2. 最保守方案是：只对 ordinary daytime resident 的 `EnterVillage_PostEntry` release 停掉 `BasePosition` 硬传送，仍保留 shared release contract 的 owner 清理与 `QueueResidentAutonomousRoamResume()`。
+  3. 当前不建议第一刀就启用 `ShouldUseResidentDaytimeSemanticBaseline()` / `TryResolveResidentDaytimeBaselinePosition()`，因为那会把 opening release 从“去掉 teleport”扩大成“切换到另一套 semantic baseline”，影响面更大。
+- 最可能受影响的现有测试（按上述最小改法）：
+  1. `SpringDay1DirectorStagingTests.CrowdDirector_ShouldReleaseOpeningResidentToSharedBaselineAfterEnterVillageCrowdReleaseLatches()`
+     - 现在直接断言 resident 会被传到 `BasePosition = (2.5, 4.75)`，若 stop teleport，这里的位置断言必须改。
+  2. `SpringDay1DirectorStagingTests.CrowdDirector_ShouldReleaseDirectorOwnedThirdResidentThroughSharedResidentContract()`
+     - 如果第一刀顺手统一 `003` 的 release 位姿，这条也会跟着变；若先只修 ordinary resident，可先不动。
+  3. `SpringDay1DirectorStagingTests.CrowdDirector_ShouldKeepOpeningResidentsOnBaselineReleasePathDuringEnterVillage()` 与 opening cue suppress/latch 系列测试理论上不该改；如果它们开始失败，说明改动越过了“只去 teleport、不动 release 合同”的边界。
+- 验证状态：
+  - 纯静态代码审计
+  - 未跑 Unity / MCP / PlayMode
+  - 验证状态：`静态推断成立`
+- 恢复点：
+  - 如果用户批准真实施工，最小刀只该先碰 `TryReleaseResidentToDaytimeBaseline()`；不要先扩到 `ShouldReleaseEnterVillageCrowd()` 或 `003` 的 story-actor 入口清理。

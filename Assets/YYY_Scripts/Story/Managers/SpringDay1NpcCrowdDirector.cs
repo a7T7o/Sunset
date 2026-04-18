@@ -30,6 +30,14 @@ namespace Sunset.Story
             public bool IsReturningHome;
             public bool ResumeRoamAfterReturn;
             public bool IsNightResting;
+            public bool HideWhileNightResting;
+            public float NextReturnHomeDriveRetryAt;
+            public bool QueuedAutonomousResume;
+            public bool QueuedAutonomousResumeTryImmediateMove;
+            public float NextAutonomousResumeAt;
+            public bool InteractionLockOwnedByCue;
+            public bool FormalDialogueWasEnabledBeforeCue;
+            public bool InformalDialogueWasEnabledBeforeCue;
         }
 
         [Serializable]
@@ -103,23 +111,31 @@ namespace Sunset.Story
         private const string PrimarySceneName = "Primary";
         private const string TownSceneName = "Town";
         private const string RuntimeRootName = "SpringDay1NpcCrowdRuntimeRoot";
-        private const string ResidentRootName = "Town_Day1Residents";
-        private const string ResidentDefaultPresentRootName = "Resident_DefaultPresent";
-        private const string ResidentTakeoverReadyRootName = "Resident_DirectorTakeoverReady";
-        private const string ResidentBackstageRootName = "Resident_BackstagePresent";
-        private const string CarrierRootName = "Town_Day1Carriers";
         private const string StoryEscortChiefNpcId = "001";
         private const string StoryEscortCompanionNpcId = "002";
+        private const string ThirdResidentNpcId = "003";
         private const string VillageCrowdMarkerStartSuffixCn = "起点";
         private const string VillageCrowdMarkerEndSuffixCn = "终点";
         private const string ManifestResourcePath = "Story/SpringDay1/SpringDay1NpcCrowdManifest";
         private const float ResidentReturnHomeThreshold = 0.05f;
+        private const float ResidentReturnHomeArrivalRadius = 0.64f;
+        private const float ResidentReturnHomeRetryInterval = 0.35f;
+        private const float TownResidentRecoveryRetryInterval = 0.05f;
+        private const float DaytimeAutonomyYieldRetryInterval = 0.05f;
+        private const int MaxTownResidentRecoveriesPerTick = 3;
+        private const int MaxDaytimeAutonomyReleasesPerTick = 3;
+        private const int MaxQueuedAutonomousResumesPerTick = 2;
+        private const float QueuedAutonomousResumeBaseDelay = 0.08f;
+        private const float QueuedAutonomousResumeJitterSeconds = 0.28f;
+        private const float QueuedAutonomousResumeDispatchInterval = 0.08f;
+        private const float StorySceneMarkerWalkSpeed = 2.5f;
         private const int ResidentReturnHomeHour = 20;
         private const int ResidentForcedRestHour = 21;
-        private const int ResidentMorningReleaseHour = 9;
+        private const int ResidentMorningReleaseHour = 7;
         private const string RestoredDirectorCuePlaceholderKey = "__restored-director-cue__";
         private const string ResidentScriptedControlOwnerKey = nameof(SpringDay1NpcCrowdDirector);
-        private static readonly string[] VillageCrowdMarkerRootNames = { "进村围观", "VillageCrowd", "EnterVillageCrowdRoot" };
+        private const string DirectorResidentScriptedControlOwnerKey = "spring-day1-director";
+        private static readonly string[] VillageCrowdMarkerRootNames = { "进村围观" };
         private static readonly string[] VillageCrowdMarkerStartGroupNames = { "起点", "Start" };
         private static readonly string[] VillageCrowdMarkerEndGroupNames = { "终点", "End" };
 
@@ -127,16 +143,18 @@ namespace Sunset.Story
 
         private readonly Dictionary<string, SpawnState> _spawnStates = new Dictionary<string, SpawnState>(StringComparer.OrdinalIgnoreCase);
         private readonly Dictionary<string, ResidentRuntimeSnapshotEntry> _residentRuntimeSnapshotCache = new Dictionary<string, ResidentRuntimeSnapshotEntry>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, GameObject> _sceneGameObjectLookupCache = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, Transform> _sceneTransformLookupCache = new Dictionary<string, Transform>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _sceneMissingTransformLookupCache = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly HashSet<string> _liveIdsScratch = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly List<string> _staleIdsScratch = new List<string>();
 
         private SpringDay1NpcCrowdManifest _manifest;
-        private GameObject _sceneRoot;
-        private GameObject _residentRoot;
-        private GameObject _residentDefaultRoot;
-        private GameObject _residentTakeoverReadyRoot;
-        private GameObject _residentBackstageRoot;
-        private GameObject _carrierRoot;
+        private int _sceneLookupCacheHandle = -1;
         private float _nextSyncAt;
+        private float _nextQueuedAutonomousResumeDispatchAt;
         private bool _syncRequested = true;
+        private bool _enterVillageCrowdReleaseLatched;
 
         public static string CurrentRuntimeSummary => _instance != null ? _instance.BuildRuntimeSummary() : "not-created";
         public static bool IsBeatCueSettled(string beatKey)
@@ -266,17 +284,70 @@ namespace Sunset.Story
                 return;
             }
 
+            RefreshEnterVillageCrowdReleaseLatch();
             Scene activeScene = SceneManager.GetActiveScene();
+            if (ShouldStandDownDuringPostTutorialTownAutonomy(activeScene))
+            {
+                CancelQueuedAutonomousResumes();
+                return;
+            }
+
+            TickQueuedAutonomousResumes();
+            if (ShouldStandDownAfterEnterVillageCrowdRelease(activeScene)
+                && !HasPendingDaytimeAutonomyRelease()
+                && !HasPendingQueuedAutonomousResume())
+            {
+                return;
+            }
+
             if (ShouldRecoverMissingTownResidents(activeScene))
             {
-                _nextSyncAt = Time.unscaledTime + 0.1f;
-                _syncRequested = false;
+                if (!_syncRequested && Time.unscaledTime < _nextSyncAt)
+                {
+                    return;
+                }
+
                 SyncCrowd();
+                bool hasMorePendingTownRecovery = RecoverReleasedTownResidentsWithoutSpawnStates(activeScene);
+                _syncRequested = hasMorePendingTownRecovery;
+                _nextSyncAt = Time.unscaledTime + (hasMorePendingTownRecovery
+                    ? TownResidentRecoveryRetryInterval
+                    : 0.1f);
                 return;
             }
 
             SyncResidentNightRestSchedule();
             TickResidentReturns();
+
+            if (ShouldYieldDaytimeResidentsToAutonomy())
+            {
+                bool hasPendingDaytimeAutonomyRelease = HasPendingDaytimeAutonomyRelease();
+                if (!hasPendingDaytimeAutonomyRelease && !ShouldResyncBeforeSkippingDaytimeAutonomyYield())
+                {
+                    return;
+                }
+
+                if (!_syncRequested && Time.unscaledTime < _nextSyncAt)
+                {
+                    return;
+                }
+
+                if (hasPendingDaytimeAutonomyRelease)
+                {
+                    bool hasMorePendingDaytimeAutonomyRelease = YieldDaytimeResidentsToAutonomy();
+                    _syncRequested = hasMorePendingDaytimeAutonomyRelease;
+                    _nextSyncAt = Time.unscaledTime + (hasMorePendingDaytimeAutonomyRelease
+                        ? DaytimeAutonomyYieldRetryInterval
+                        : 0.35f);
+                }
+                else
+                {
+                    _syncRequested = false;
+                    _nextSyncAt = Time.unscaledTime + 0.35f;
+                    SyncCrowd();
+                }
+                return;
+            }
 
             if (!_syncRequested && Time.unscaledTime < _nextSyncAt)
             {
@@ -291,28 +362,26 @@ namespace Sunset.Story
         private bool ShouldRecoverMissingTownResidents(Scene activeScene)
         {
             if (!activeScene.IsValid()
-                || !string.Equals(activeScene.name, TownSceneName, StringComparison.Ordinal)
-                || _spawnStates.Count > 0)
+                || !string.Equals(activeScene.name, TownSceneName, StringComparison.Ordinal))
             {
                 return false;
             }
 
-            if (StoryManager.Instance == null || SpringDay1Director.Instance == null || LoadManifest() == null)
+            SpringDay1NpcCrowdManifest manifest = LoadManifest();
+            if (StoryManager.Instance == null || SpringDay1Director.Instance == null || manifest == null)
             {
                 return false;
             }
 
-            EnsureSceneRoot(activeScene);
-            if (_residentRoot != null || _residentDefaultRoot != null || _residentTakeoverReadyRoot != null || _residentBackstageRoot != null)
+            if (!ShouldResumeReleasedTownResidents())
             {
-                return true;
+                return false;
             }
 
-            SpringDay1NpcCrowdManifest.Entry[] entries = _manifest != null ? _manifest.Entries : Array.Empty<SpringDay1NpcCrowdManifest.Entry>();
+            SpringDay1NpcCrowdManifest.Entry[] entries = manifest.Entries ?? Array.Empty<SpringDay1NpcCrowdManifest.Entry>();
             for (int index = 0; index < entries.Length; index++)
             {
-                SpringDay1NpcCrowdManifest.Entry entry = entries[index];
-                if (entry != null && FindSceneResident(entry, activeScene) != null)
+                if (NeedsReleasedResidentRecovery(entries[index], activeScene))
                 {
                     return true;
                 }
@@ -321,9 +390,155 @@ namespace Sunset.Story
             return false;
         }
 
+        private bool RecoverReleasedTownResidentsWithoutSpawnStates(Scene activeScene)
+        {
+            if (!activeScene.IsValid()
+                || !string.Equals(activeScene.name, TownSceneName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (!ShouldResumeReleasedTownResidents())
+            {
+                return false;
+            }
+
+            SpringDay1NpcCrowdManifest manifest = LoadManifest();
+            SpringDay1NpcCrowdManifest.Entry[] entries = manifest != null ? manifest.Entries : Array.Empty<SpringDay1NpcCrowdManifest.Entry>();
+            bool recoveredAnyState = false;
+            int recoveredCount = 0;
+            for (int index = 0; index < entries.Length; index++)
+            {
+                SpringDay1NpcCrowdManifest.Entry entry = entries[index];
+                if (!NeedsReleasedResidentRecovery(entry, activeScene))
+                {
+                    continue;
+                }
+
+                if (recoveredCount >= MaxTownResidentRecoveriesPerTick)
+                {
+                    return true;
+                }
+
+                if (TryRecoverReleasedResidentState(entry, activeScene))
+                {
+                    recoveredAnyState = true;
+                    recoveredCount++;
+                }
+            }
+
+            if (recoveredAnyState)
+            {
+                _syncRequested = true;
+            }
+
+            return false;
+        }
+
+        private bool ShouldResumeReleasedTownResidents()
+        {
+            SpringDay1Director director = SpringDay1Director.Instance;
+            StoryPhase currentPhase = ResolveCurrentPhase();
+            string currentBeatKey = NormalizeResidentRuntimeBeatKey(currentPhase, ResolveCurrentBeatKey());
+            return currentPhase > StoryPhase.EnterVillage
+                || string.Equals(currentBeatKey, SpringDay1DirectorBeatKeys.EnterVillageHouseArrival, StringComparison.OrdinalIgnoreCase)
+                || director != null && director.ShouldLatchEnterVillageCrowdRelease();
+        }
+
+        private bool NeedsReleasedResidentRecovery(SpringDay1NpcCrowdManifest.Entry entry, Scene activeScene)
+        {
+            if (entry == null
+                || string.IsNullOrWhiteSpace(entry.npcId)
+                || _spawnStates.ContainsKey(entry.npcId))
+            {
+                return false;
+            }
+
+            GameObject instance = FindSceneResident(entry, activeScene);
+            if (instance == null || !instance.activeInHierarchy)
+            {
+                return false;
+            }
+
+            SpringDay1DirectorStagingPlayback playback = instance.GetComponent<SpringDay1DirectorStagingPlayback>();
+            if (playback != null && !string.IsNullOrWhiteSpace(playback.CurrentCueKey))
+            {
+                return false;
+            }
+
+            NPCAutoRoamController roamController = instance.GetComponent<NPCAutoRoamController>();
+            return roamController == null || !roamController.IsResidentScriptedControlActive;
+        }
+
+        private bool TryRecoverReleasedResidentState(SpringDay1NpcCrowdManifest.Entry entry, Scene activeScene)
+        {
+            if (entry == null
+                || string.IsNullOrWhiteSpace(entry.npcId)
+                || _spawnStates.ContainsKey(entry.npcId))
+            {
+                return false;
+            }
+
+            GameObject instance = FindSceneResident(entry, activeScene);
+            if (instance == null || !instance.activeInHierarchy)
+            {
+                return false;
+            }
+
+            SpringDay1DirectorStagingPlayback playback = instance.GetComponent<SpringDay1DirectorStagingPlayback>();
+            if (playback != null && !string.IsNullOrWhiteSpace(playback.CurrentCueKey))
+            {
+                return false;
+            }
+
+            NPCAutoRoamController roamController = instance.GetComponent<NPCAutoRoamController>();
+            if (roamController != null && roamController.IsResidentScriptedControlActive)
+            {
+                return false;
+            }
+
+            Transform homeAnchor = FindSceneResidentHomeAnchor(entry, activeScene, instance.transform);
+            ConfigureBoundNpc(entry, instance, homeAnchor);
+
+            string resolvedAnchorName = homeAnchor != null ? homeAnchor.name : instance.name;
+            SpawnState state = new SpawnState
+            {
+                Instance = instance,
+                HomeAnchor = homeAnchor != null ? homeAnchor.gameObject : null,
+                OwnsInstance = false,
+                OwnsHomeAnchor = false,
+                ResolvedAnchorName = resolvedAnchorName,
+                UsedFallback = false,
+                BaseResolvedAnchorName = resolvedAnchorName,
+                BaseUsedFallback = false,
+                BasePosition = instance.transform.position,
+                BaseFacing = entry.initialFacing,
+                AppliedBeatKey = string.Empty,
+                AppliedCueKey = string.Empty,
+                ResidentGroupKey = string.Empty,
+                NeedsResidentReset = false,
+                ReleasedFromDirectorCue = false,
+                IsReturningHome = false,
+                ResumeRoamAfterReturn = false,
+                IsNightResting = false,
+                NextReturnHomeDriveRetryAt = 0f
+            };
+            _spawnStates[entry.npcId] = state;
+
+            if (roamController != null)
+            {
+                // 返场补绑不能只把 NPC 纳回 crowd 视图；否则会把 controller 留在
+                // “表面仍在 roam，但内部 path/recovery 已坏”的旧 runtime 上。
+                QueueResidentAutonomousRoamResume(state, tryImmediateMove: false);
+            }
+
+            return true;
+        }
+
         private void HandleActiveSceneChanged(Scene previousScene, Scene nextScene)
         {
             CaptureSceneResidentRuntimeSnapshotCache(previousScene);
+            InvalidateSceneLookupCache();
             _syncRequested = true;
             if (!IsSupportedRuntimeScene(nextScene))
             {
@@ -333,12 +548,253 @@ namespace Sunset.Story
 
         private void HandleSceneLoaded(Scene _, LoadSceneMode __)
         {
+            InvalidateSceneLookupCache();
             _syncRequested = true;
         }
 
         private void HandleStoryPhaseChanged(StoryPhaseChangedEvent _)
         {
             _syncRequested = true;
+            if (ResolveCurrentPhase() != StoryPhase.EnterVillage)
+            {
+                _enterVillageCrowdReleaseLatched = false;
+            }
+        }
+
+        private void RefreshEnterVillageCrowdReleaseLatch()
+        {
+            StoryPhase currentPhase = ResolveCurrentPhase();
+            if (currentPhase != StoryPhase.EnterVillage)
+            {
+                _enterVillageCrowdReleaseLatched = false;
+                return;
+            }
+
+            SpringDay1Director director = SpringDay1Director.Instance;
+            if (director != null && director.ShouldLatchEnterVillageCrowdRelease())
+            {
+                _enterVillageCrowdReleaseLatched = true;
+            }
+        }
+
+        private bool ShouldStandDownAfterEnterVillageCrowdRelease(Scene activeScene)
+        {
+            if (!_enterVillageCrowdReleaseLatched
+                || !activeScene.IsValid()
+                || !string.Equals(activeScene.name, TownSceneName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (ShouldResidentsRestByClock() || ShouldResidentsReturnHomeByClock())
+            {
+                return false;
+            }
+
+            return ResolveCurrentPhase() == StoryPhase.EnterVillage;
+        }
+
+        private bool ShouldYieldDaytimeResidentsToAutonomy()
+        {
+            if (_spawnStates.Count <= 0)
+            {
+                return false;
+            }
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            if (!activeScene.IsValid() || !string.Equals(activeScene.name, TownSceneName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (ShouldResidentsRestByClock() || ShouldResidentsReturnHomeByClock())
+            {
+                return false;
+            }
+
+            StoryPhase currentPhase = ResolveCurrentPhase();
+            if (currentPhase < StoryPhase.EnterVillage || currentPhase >= StoryPhase.DayEnd)
+            {
+                return false;
+            }
+
+            // opening/house-lead 期间不能提前把 Town resident 放回自由漫游；
+            // 只有 village gate 真正收束后，白天 resident 才恢复全图自治。
+            if (currentPhase == StoryPhase.EnterVillage)
+            {
+                return false;
+            }
+
+            string currentBeatKey = ResolveCurrentBeatKey();
+            if (string.Equals(currentBeatKey, SpringDay1DirectorBeatKeys.DinnerConflictTable, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(currentBeatKey, SpringDay1DirectorBeatKeys.ReturnAndReminderWalkBack, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(currentBeatKey, SpringDay1DirectorBeatKeys.DayEndSettle, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(currentBeatKey, SpringDay1DirectorBeatKeys.DailyStandPreview, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.Equals(currentBeatKey, SpringDay1DirectorBeatKeys.EnterVillagePostEntry, StringComparison.OrdinalIgnoreCase))
+            {
+                return ShouldSuppressEnterVillageCrowdCueForTownHouseLead(currentBeatKey);
+            }
+
+            return true;
+        }
+
+        private bool YieldDaytimeResidentsToAutonomy()
+        {
+            if (_spawnStates.Count <= 0)
+            {
+                return false;
+            }
+
+            int releasedCount = 0;
+            foreach (KeyValuePair<string, SpawnState> pair in _spawnStates)
+            {
+                SpawnState state = pair.Value;
+                if (state?.Instance == null)
+                {
+                    continue;
+                }
+
+                if (!NeedsDaytimeAutonomyRelease(state))
+                {
+                    continue;
+                }
+
+                if (releasedCount >= MaxDaytimeAutonomyReleasesPerTick)
+                {
+                    return true;
+                }
+
+                ReleaseResidentToAutonomousRoam(state);
+                releasedCount++;
+            }
+
+            return false;
+        }
+
+        private bool HasPendingDaytimeAutonomyRelease()
+        {
+            foreach (SpawnState state in _spawnStates.Values)
+            {
+                if (NeedsDaytimeAutonomyRelease(state))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool HasPendingQueuedAutonomousResume()
+        {
+            foreach (SpawnState state in _spawnStates.Values)
+            {
+                if (state != null && state.QueuedAutonomousResume)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private bool ShouldResyncBeforeSkippingDaytimeAutonomyYield()
+        {
+            if (_syncRequested)
+            {
+                return true;
+            }
+
+            foreach (SpawnState state in _spawnStates.Values)
+            {
+                if (state == null || state.Instance == null)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static bool NeedsDaytimeAutonomyRelease(SpawnState state)
+        {
+            if (state?.Instance == null || state.IsNightResting || state.IsReturningHome)
+            {
+                return false;
+            }
+
+            SpringDay1DirectorStagingPlayback playback = state.Instance.GetComponent<SpringDay1DirectorStagingPlayback>();
+            if (playback != null && playback.IsManualPreviewLocked)
+            {
+                return false;
+            }
+
+            if (state.Instance.GetComponent<SpringDay1DirectorStagingRehearsalDriver>() != null)
+            {
+                return false;
+            }
+
+            if (state.ReleasedFromDirectorCue || state.NeedsResidentReset)
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(state.AppliedCueKey) || !string.IsNullOrWhiteSpace(state.AppliedBeatKey))
+            {
+                return true;
+            }
+
+            NPCAutoRoamController roamController = state.Instance.GetComponent<NPCAutoRoamController>();
+            return roamController != null && roamController.IsResidentScriptedControlActive;
+        }
+
+        private void ReleaseResidentToAutonomousRoam(SpawnState state)
+        {
+            if (state?.Instance == null)
+            {
+                return;
+            }
+
+            ClearResidentStagingCue(state);
+
+            state.Instance.SetActive(true);
+            CancelResidentReturnHome(state, resumeRoam: true);
+            state.IsNightResting = false;
+            state.ResidentGroupKey = string.Empty;
+
+            QueueResidentAutonomousRoamResume(state, tryImmediateMove: false);
+
+            state.NeedsResidentReset = false;
+            state.ReleasedFromDirectorCue = false;
+            state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
+            state.ResolvedAnchorName = $"autonomous:{state.BaseResolvedAnchorName}";
+            state.UsedFallback = state.BaseUsedFallback;
+        }
+
+        private static void ClearResidentStagingCue(SpawnState state)
+        {
+            if (state?.Instance == null)
+            {
+                return;
+            }
+
+            SetResidentCueInteractionLock(state, active: false);
+
+            SpringDay1DirectorStagingPlayback existingPlayback = state.Instance.GetComponent<SpringDay1DirectorStagingPlayback>();
+            if (existingPlayback != null)
+            {
+                existingPlayback.ClearCue();
+                Destroy(existingPlayback);
+            }
+
+            state.AppliedBeatKey = string.Empty;
+            state.AppliedCueKey = string.Empty;
+            state.ResolvedAnchorName = state.BaseResolvedAnchorName;
+            state.UsedFallback = state.BaseUsedFallback;
         }
 
         private void SyncCrowd()
@@ -350,24 +806,23 @@ namespace Sunset.Story
                 return;
             }
 
-            EnsureSceneRoot(SceneManager.GetActiveScene());
             PruneDestroyedStates();
 
             StoryPhase currentPhase = ResolveCurrentPhase();
             string currentBeatKey = ResolveCurrentBeatKey();
             SpringDay1NpcCrowdManifest.BeatConsumptionSnapshot beatConsumption = manifest.BuildBeatConsumptionSnapshot(currentBeatKey);
-            SpringDay1NpcCrowdManifest.Entry[] entries = manifest.Entries;
-            HashSet<string> liveIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            SpringDay1NpcCrowdManifest.Entry[] entries = GetRuntimeEntries(manifest, currentPhase);
+            _liveIdsScratch.Clear();
 
             for (int index = 0; index < entries.Length; index++)
             {
                 SpringDay1NpcCrowdManifest.Entry entry = entries[index];
-                if (entry == null || string.IsNullOrWhiteSpace(entry.npcId) || entry.prefab == null)
+                if (entry == null || string.IsNullOrWhiteSpace(entry.npcId))
                 {
                     continue;
                 }
 
-                liveIds.Add(entry.npcId);
+                _liveIdsScratch.Add(entry.npcId);
                 SpawnState state = GetOrCreateState(entry, currentBeatKey, beatConsumption);
                 if (state == null)
                 {
@@ -386,11 +841,16 @@ namespace Sunset.Story
                 }
             }
 
-            List<string> staleIds = new List<string>(_spawnStates.Keys);
-            for (int index = 0; index < staleIds.Count; index++)
+            _staleIdsScratch.Clear();
+            foreach (string npcId in _spawnStates.Keys)
             {
-                string npcId = staleIds[index];
-                if (!liveIds.Contains(npcId))
+                _staleIdsScratch.Add(npcId);
+            }
+
+            for (int index = 0; index < _staleIdsScratch.Count; index++)
+            {
+                string npcId = _staleIdsScratch[index];
+                if (!_liveIdsScratch.Contains(npcId))
                 {
                     DestroyState(npcId);
                 }
@@ -401,8 +861,9 @@ namespace Sunset.Story
         {
             Scene activeScene = SceneManager.GetActiveScene();
             SpringDay1NpcCrowdManifest manifest = LoadManifest();
-            SpringDay1NpcCrowdManifest.Entry[] entries = manifest != null ? manifest.Entries : Array.Empty<SpringDay1NpcCrowdManifest.Entry>();
-            string currentBeatKey = ResolveCurrentBeatKey();
+            StoryPhase currentPhase = ResolveCurrentPhase();
+            SpringDay1NpcCrowdManifest.Entry[] entries = GetRuntimeEntries(manifest, currentPhase);
+            string currentBeatKey = NormalizeResidentRuntimeBeatKey(currentPhase, ResolveCurrentBeatKey());
             SpringDay1NpcCrowdManifest.BeatConsumptionSnapshot beatConsumption = manifest != null
                 ? manifest.BuildBeatConsumptionSnapshot(currentBeatKey)
                 : default;
@@ -411,7 +872,7 @@ namespace Sunset.Story
             builder.Append("scene=");
             builder.Append(activeScene.IsValid() ? activeScene.name : "invalid");
             builder.Append("|phase=");
-            builder.Append(ResolveCurrentPhase());
+            builder.Append(currentPhase);
             builder.Append("|beat=");
             builder.Append(string.IsNullOrWhiteSpace(beatConsumption.beatKey)
                 ? string.IsNullOrWhiteSpace(currentBeatKey) ? "inactive" : currentBeatKey
@@ -554,7 +1015,6 @@ namespace Sunset.Story
                 return;
             }
 
-            EnsureSceneRoot(activeScene);
             List<string> keys = new List<string>(_spawnStates.Keys);
             for (int index = 0; index < keys.Count; index++)
             {
@@ -637,15 +1097,7 @@ namespace Sunset.Story
                 return;
             }
 
-            Transform residentParent = ResolveResidentParentByGroupKey(snapshot.residentGroupKey);
-            if (residentParent != null)
-            {
-                ReparentState(state, residentParent, residentParent.name);
-            }
-            else if (!string.IsNullOrWhiteSpace(snapshot.residentGroupKey))
-            {
-                state.ResidentGroupKey = snapshot.residentGroupKey.Trim();
-            }
+            state.ResidentGroupKey = string.Empty;
 
             state.Instance.SetActive(snapshot.isActive);
 
@@ -670,18 +1122,26 @@ namespace Sunset.Story
             }
 
             bool restoreReturnHome = ShouldRestoreResidentReturnHomeSnapshot(snapshot);
+            bool shouldRestoreDirectorCue = snapshot.underDirectorCue && !ShouldYieldDaytimeResidentsToAutonomy();
             state.IsReturningHome = restoreReturnHome;
             state.ResumeRoamAfterReturn = restoreReturnHome;
-            if (restoreReturnHome || snapshot.underDirectorCue)
+            NPCAutoRoamController roamController = PrepareResidentRoamController(state);
+            if (restoreReturnHome || shouldRestoreDirectorCue)
             {
                 AcquireResidentDirectorControl(state, resumeRoamWhenReleased: restoreReturnHome);
             }
             else
             {
-                ReleaseResidentDirectorControl(state, resumeResidentLogic: snapshot.isActive);
+                ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: false);
+                if (snapshot.isActive && roamController != null)
+                {
+                    // crowd continuity snapshot 只记了位置/朝向/owner 语义，没有完整保存
+                    // NPCAutoRoamController 的内部 path/recovery 现场；返场后要补一次受控重启。
+                    QueueResidentAutonomousRoamResume(state, tryImmediateMove: false);
+                }
             }
 
-            if (snapshot.underDirectorCue)
+            if (shouldRestoreDirectorCue)
             {
                 state.AppliedBeatKey = RestoredDirectorCuePlaceholderKey;
                 state.AppliedCueKey = RestoredDirectorCuePlaceholderKey;
@@ -706,37 +1166,12 @@ namespace Sunset.Story
 
         private bool ShouldPersistResidentReturnHomeSnapshot(SpawnState state)
         {
-            if (state == null || !state.IsReturningHome)
-            {
-                return false;
-            }
-
-            if (state.IsNightResting)
-            {
-                return true;
-            }
-
-            if (ShouldResidentsRestByClock() || ShouldResidentsReturnHomeByClock())
-            {
-                return true;
-            }
-
-            return ResolveCurrentPhase() >= StoryPhase.FreeTime;
+            return false;
         }
 
         private bool ShouldRestoreResidentReturnHomeSnapshot(ResidentRuntimeSnapshotEntry snapshot)
         {
-            if (snapshot == null || !snapshot.isReturningHome)
-            {
-                return false;
-            }
-
-            if (ShouldResidentsRestByClock() || ShouldResidentsReturnHomeByClock())
-            {
-                return true;
-            }
-
-            return ResolveCurrentPhase() >= StoryPhase.FreeTime;
+            return false;
         }
 
         private bool TryGetResidentRuntimeSnapshot(string sceneName, string npcId, out ResidentRuntimeSnapshotEntry snapshot)
@@ -744,21 +1179,6 @@ namespace Sunset.Story
             return _residentRuntimeSnapshotCache.TryGetValue(
                 BuildResidentRuntimeSnapshotCacheKey(sceneName, npcId),
                 out snapshot);
-        }
-
-        private Transform ResolveResidentParentByGroupKey(string residentGroupKey)
-        {
-            string normalizedGroupKey = NormalizeSnapshotValue(residentGroupKey);
-            return normalizedGroupKey switch
-            {
-                ResidentRootName => _residentRoot != null ? _residentRoot.transform : null,
-                ResidentDefaultPresentRootName => _residentDefaultRoot != null ? _residentDefaultRoot.transform : null,
-                ResidentTakeoverReadyRootName => _residentTakeoverReadyRoot != null ? _residentTakeoverReadyRoot.transform : null,
-                ResidentBackstageRootName => _residentBackstageRoot != null ? _residentBackstageRoot.transform : null,
-                CarrierRootName => _carrierRoot != null ? _carrierRoot.transform : null,
-                RuntimeRootName => _sceneRoot != null ? _sceneRoot.transform : null,
-                _ => null
-            };
         }
 
         private static string BuildResidentRuntimeSnapshotCacheKey(string sceneName, string npcId)
@@ -887,8 +1307,7 @@ namespace Sunset.Story
             }
 
             _spawnStates[entry.npcId] = state;
-            Transform initialResidentParent = ResolveResidentParent(entry, ResolveCurrentPhase(), beatKey, beatConsumption);
-            ReparentState(state, initialResidentParent, initialResidentParent != null ? initialResidentParent.name : string.Empty);
+            state.ResidentGroupKey = string.Empty;
             TryApplyCachedResidentRuntimeSnapshot(activeScene, entry.npcId, state);
             return state;
         }
@@ -937,14 +1356,13 @@ namespace Sunset.Story
             {
                 if (homeAnchor != null)
                 {
-                    roamController.SetHomeAnchor(homeAnchor);
+                    roamController.BindResidentHomeAnchor(homeAnchor);
                 }
 
-                roamController.ApplyProfile();
+                roamController.SyncRuntimeProfileFromAsset();
             }
 
-            if (instance.GetComponent<NPCDialogueInteractable>() == null
-                && instance.GetComponent<NPCInformalChatInteractable>() == null
+            if (instance.GetComponent<NPCInformalChatInteractable>() == null
                 && roamController != null
                 && roamController.RoamProfile != null
                 && roamController.RoamProfile.HasInformalConversationContent)
@@ -984,7 +1402,7 @@ namespace Sunset.Story
             return new SpawnPointResolution(fallbackResolvedPosition, anchorName, usedFallback);
         }
 
-        private static Transform FindSemanticAnchor(SpringDay1NpcCrowdManifest.Entry entry, string beatKey)
+        private Transform FindSemanticAnchor(SpringDay1NpcCrowdManifest.Entry entry, string beatKey)
         {
             if (entry == null)
             {
@@ -992,7 +1410,8 @@ namespace Sunset.Story
             }
 
             string preferredSemanticAnchor = ResolvePreferredSemanticAnchor(entry, beatKey);
-            if (!string.IsNullOrWhiteSpace(preferredSemanticAnchor))
+            if (!string.IsNullOrWhiteSpace(preferredSemanticAnchor)
+                && !IsDeprecatedRuntimeSemanticAnchor(preferredSemanticAnchor))
             {
                 Transform preferredAnchor = FindAnchor(preferredSemanticAnchor);
                 if (preferredAnchor != null)
@@ -1008,7 +1427,13 @@ namespace Sunset.Story
 
             for (int index = 0; index < entry.semanticAnchorIds.Length; index++)
             {
-                Transform resolved = FindAnchor(entry.semanticAnchorIds[index]);
+                string semanticAnchorId = entry.semanticAnchorIds[index];
+                if (IsDeprecatedRuntimeSemanticAnchor(semanticAnchorId))
+                {
+                    continue;
+                }
+
+                Transform resolved = FindAnchor(semanticAnchorId);
                 if (resolved != null)
                 {
                     return resolved;
@@ -1045,6 +1470,7 @@ namespace Sunset.Story
 
             string preferredSemanticAnchor = ResolvePreferredSemanticAnchor(entry, beatKey);
             if (!string.IsNullOrWhiteSpace(preferredSemanticAnchor)
+                && !IsDeprecatedRuntimeSemanticAnchor(preferredSemanticAnchor)
                 && SpringDay1TownAnchorContractDatabase.TryResolveAnchor(preferredSemanticAnchor, out worldPosition))
             {
                 anchorName = preferredSemanticAnchor.Trim();
@@ -1064,6 +1490,11 @@ namespace Sunset.Story
                     continue;
                 }
 
+                if (IsDeprecatedRuntimeSemanticAnchor(semanticAnchorId))
+                {
+                    continue;
+                }
+
                 if (SpringDay1TownAnchorContractDatabase.TryResolveAnchor(semanticAnchorId, out worldPosition))
                 {
                     anchorName = semanticAnchorId.Trim();
@@ -1074,13 +1505,15 @@ namespace Sunset.Story
             return false;
         }
 
-        private static Transform FindAnchor(string anchorObjectName)
+        private Transform FindAnchor(string anchorObjectName)
         {
             if (string.IsNullOrWhiteSpace(anchorObjectName))
             {
                 return null;
             }
 
+            Scene activeScene = SceneManager.GetActiveScene();
+            EnsureSceneLookupCache(activeScene);
             string[] candidates = anchorObjectName.Split(new[] { '|' }, StringSplitOptions.RemoveEmptyEntries);
             for (int index = 0; index < candidates.Length; index++)
             {
@@ -1092,11 +1525,27 @@ namespace Sunset.Story
 
                 foreach (string lookupName in EnumerateAnchorLookupNames(name))
                 {
-                    GameObject found = GameObject.Find(lookupName);
-                    if (found != null)
+                    if (_sceneTransformLookupCache.TryGetValue(lookupName, out Transform cachedAnchor)
+                        && cachedAnchor != null
+                        && cachedAnchor.gameObject.scene == activeScene)
                     {
+                        return cachedAnchor;
+                    }
+
+                    if (_sceneMissingTransformLookupCache.Contains(lookupName))
+                    {
+                        continue;
+                    }
+
+                    GameObject found = GameObject.Find(lookupName);
+                    if (found != null && found.scene == activeScene)
+                    {
+                        _sceneGameObjectLookupCache[lookupName] = found;
+                        _sceneTransformLookupCache[lookupName] = found.transform;
                         return found.transform;
                     }
+
+                    _sceneMissingTransformLookupCache.Add(lookupName);
                 }
             }
 
@@ -1140,30 +1589,7 @@ namespace Sunset.Story
                 yield return $"{trimmed}_HomeAnchor";
             }
 
-            foreach (string aliasName in EnumerateSemanticAnchorAliasNames(trimmed))
-            {
-                yield return aliasName;
-            }
-
             yield return trimmed;
-        }
-
-        private static IEnumerable<string> EnumerateSemanticAnchorAliasNames(string candidateName)
-        {
-            if (string.IsNullOrWhiteSpace(candidateName))
-            {
-                yield break;
-            }
-
-            string trimmed = candidateName.Trim();
-            yield return $"DirectorReady_{trimmed}_HomeAnchor";
-            yield return $"Resident_{trimmed}_HomeAnchor";
-            yield return $"Backstage_{trimmed}_HomeAnchor";
-            yield return $"ResidentSlot_{trimmed}_HomeAnchor";
-            yield return $"BackstageSlot_{trimmed}_HomeAnchor";
-            yield return $"DirectorReady_{trimmed}";
-            yield return $"ResidentSlot_{trimmed}";
-            yield return $"BackstageSlot_{trimmed}";
         }
 
         private static string TryBuildHomeAnchorAlias(string candidateName)
@@ -1208,6 +1634,176 @@ namespace Sunset.Story
             return _manifest;
         }
 
+        private SpringDay1NpcCrowdManifest.Entry[] GetRuntimeEntries(SpringDay1NpcCrowdManifest manifest, StoryPhase currentPhase)
+        {
+            SpringDay1NpcCrowdManifest.Entry[] manifestEntries = manifest != null
+                ? manifest.Entries
+                : Array.Empty<SpringDay1NpcCrowdManifest.Entry>();
+
+            List<SpringDay1NpcCrowdManifest.Entry> syntheticEntries = BuildSyntheticRuntimeEntries(manifestEntries, currentPhase);
+            if (syntheticEntries.Count <= 0)
+            {
+                return manifestEntries;
+            }
+
+            SpringDay1NpcCrowdManifest.Entry[] runtimeEntries = new SpringDay1NpcCrowdManifest.Entry[manifestEntries.Length + syntheticEntries.Count];
+            Array.Copy(manifestEntries, runtimeEntries, manifestEntries.Length);
+            for (int index = 0; index < syntheticEntries.Count; index++)
+            {
+                runtimeEntries[manifestEntries.Length + index] = syntheticEntries[index];
+            }
+
+            return runtimeEntries;
+        }
+
+        private static List<SpringDay1NpcCrowdManifest.Entry> BuildSyntheticRuntimeEntries(
+            SpringDay1NpcCrowdManifest.Entry[] manifestEntries,
+            StoryPhase currentPhase)
+        {
+            List<SpringDay1NpcCrowdManifest.Entry> entries = new List<SpringDay1NpcCrowdManifest.Entry>();
+
+            if (ShouldIncludeThirdResidentInResidentRuntime(currentPhase)
+                && !RuntimeEntriesContainNpcId(manifestEntries, ThirdResidentNpcId))
+            {
+                entries.Add(BuildSyntheticThirdResidentResidentEntry());
+            }
+
+            if (ShouldIncludeStoryEscortInUnifiedNightRuntime(currentPhase))
+            {
+                if (!RuntimeEntriesContainNpcId(manifestEntries, StoryEscortChiefNpcId))
+                {
+                    entries.Add(BuildSyntheticStoryEscortResidentEntry(
+                        StoryEscortChiefNpcId,
+                        "晚段后并回普通村民 runtime，20:00/21:00 跟全体 resident 统一走夜间合同。",
+                        "001_HomeAnchor|NPC001_HomeAnchor",
+                        Vector2.left));
+                }
+
+                if (!RuntimeEntriesContainNpcId(manifestEntries, StoryEscortCompanionNpcId))
+                {
+                    entries.Add(BuildSyntheticStoryEscortResidentEntry(
+                        StoryEscortCompanionNpcId,
+                        "晚段后并回普通村民 runtime，20:00/21:00 跟全体 resident 统一走夜间合同。",
+                        "002_HomeAnchor|NPC002_HomeAnchor",
+                        Vector2.right));
+                }
+            }
+
+            return entries;
+        }
+
+        private static bool ShouldIncludeThirdResidentInResidentRuntime(StoryPhase currentPhase)
+        {
+            return currentPhase >= StoryPhase.EnterVillage && currentPhase <= StoryPhase.DayEnd;
+        }
+
+        private static bool ShouldIncludeStoryEscortInUnifiedNightRuntime(StoryPhase currentPhase)
+        {
+            return currentPhase >= StoryPhase.DinnerConflict && currentPhase <= StoryPhase.DayEnd;
+        }
+
+        private static bool RuntimeEntriesContainNpcId(
+            SpringDay1NpcCrowdManifest.Entry[] entries,
+            string npcId)
+        {
+            if (entries == null || string.IsNullOrWhiteSpace(npcId))
+            {
+                return false;
+            }
+
+            for (int index = 0; index < entries.Length; index++)
+            {
+                SpringDay1NpcCrowdManifest.Entry entry = entries[index];
+                if (entry != null
+                    && string.Equals(entry.npcId?.Trim(), npcId.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static SpringDay1NpcCrowdManifest.Entry BuildSyntheticThirdResidentResidentEntry()
+        {
+            return new SpringDay1NpcCrowdManifest.Entry
+            {
+                npcId = ThirdResidentNpcId,
+                displayName = "坡边目击人",
+                roleSummary = "opening 后并回普通村民 runtime，不再继续挂在导演私有合同里。",
+                anchorObjectName = "003_HomeAnchor|NPC003_HomeAnchor",
+                initialFacing = Vector2.left,
+                semanticAnchorIds = Array.Empty<string>(),
+                residentBaseline = SpringDay1CrowdResidentBaseline.DaytimeResident,
+                residentBeatSemantics = new[]
+                {
+                    new SpringDay1NpcCrowdManifest.ResidentBeatSemantic
+                    {
+                        beatKey = SpringDay1CrowdResidentBeatKeys.FreeTimeNightWitness,
+                        presenceLevel = SpringDay1CrowdResidentPresenceLevel.Background,
+                        flags = SpringDay1CrowdResidentBeatFlags.KeepRoutine | SpringDay1CrowdResidentBeatFlags.AmbientPressure,
+                        note = "opening 之后按普通村民收口，白天和傍晚都不再挂在导演 special runtime。"
+                    },
+                    new SpringDay1NpcCrowdManifest.ResidentBeatSemantic
+                    {
+                        beatKey = SpringDay1CrowdResidentBeatKeys.DayEndSettle,
+                        presenceLevel = SpringDay1CrowdResidentPresenceLevel.Background,
+                        flags = SpringDay1CrowdResidentBeatFlags.ReturnHome | SpringDay1CrowdResidentBeatFlags.KeepRoutine,
+                        note = "20:00 后和普通 resident 一样回家，21:00 后进入 rest。"
+                    },
+                    new SpringDay1NpcCrowdManifest.ResidentBeatSemantic
+                    {
+                        beatKey = SpringDay1CrowdResidentBeatKeys.DailyStandPreview,
+                        presenceLevel = SpringDay1CrowdResidentPresenceLevel.Background,
+                        flags = SpringDay1CrowdResidentBeatFlags.AlreadyAround | SpringDay1CrowdResidentBeatFlags.KeepRoutine,
+                        note = "次日继续作为普通村民在场。"
+                    }
+                }
+            };
+        }
+
+        private static SpringDay1NpcCrowdManifest.Entry BuildSyntheticStoryEscortResidentEntry(
+            string npcId,
+            string roleSummary,
+            string anchorObjectName,
+            Vector2 initialFacing)
+        {
+            return new SpringDay1NpcCrowdManifest.Entry
+            {
+                npcId = npcId,
+                displayName = $"夜段并回普通村民_{npcId}",
+                roleSummary = roleSummary,
+                anchorObjectName = anchorObjectName,
+                initialFacing = initialFacing,
+                semanticAnchorIds = Array.Empty<string>(),
+                residentBaseline = SpringDay1CrowdResidentBaseline.DaytimeResident,
+                residentBeatSemantics = new[]
+                {
+                    new SpringDay1NpcCrowdManifest.ResidentBeatSemantic
+                    {
+                        beatKey = SpringDay1CrowdResidentBeatKeys.FreeTimeNightWitness,
+                        presenceLevel = SpringDay1CrowdResidentPresenceLevel.Background,
+                        flags = SpringDay1CrowdResidentBeatFlags.KeepRoutine | SpringDay1CrowdResidentBeatFlags.AmbientPressure,
+                        note = "19:30 后退出导演私链，先按普通村民规则自由活动，直到 20:00 夜间合同开始。"
+                    },
+                    new SpringDay1NpcCrowdManifest.ResidentBeatSemantic
+                    {
+                        beatKey = SpringDay1CrowdResidentBeatKeys.DayEndSettle,
+                        presenceLevel = SpringDay1CrowdResidentPresenceLevel.Background,
+                        flags = SpringDay1CrowdResidentBeatFlags.ReturnHome | SpringDay1CrowdResidentBeatFlags.KeepRoutine,
+                        note = "20:00 后和全体 resident 一样进入统一回家/休息合同。"
+                    },
+                    new SpringDay1NpcCrowdManifest.ResidentBeatSemantic
+                    {
+                        beatKey = SpringDay1CrowdResidentBeatKeys.DailyStandPreview,
+                        presenceLevel = SpringDay1CrowdResidentPresenceLevel.Background,
+                        flags = SpringDay1CrowdResidentBeatFlags.AlreadyAround | SpringDay1CrowdResidentBeatFlags.KeepRoutine,
+                        note = "次日不再由 Day1 私链继续持有，直接还给普通 NPC 规则。"
+                    }
+                }
+            };
+        }
+
         private static StoryPhase ResolveCurrentPhase()
         {
             StoryManager storyManager = StoryManager.Instance;
@@ -1218,6 +1814,17 @@ namespace Sunset.Story
         {
             SpringDay1Director director = SpringDay1Director.Instance;
             return director != null ? director.GetCurrentBeatKey() : string.Empty;
+        }
+
+        private static string NormalizeResidentRuntimeBeatKey(StoryPhase currentPhase, string beatKey)
+        {
+            if (currentPhase == StoryPhase.ReturnAndReminder
+                && string.Equals(beatKey, SpringDay1DirectorBeatKeys.ReturnAndReminderWalkBack, StringComparison.OrdinalIgnoreCase))
+            {
+                return SpringDay1DirectorBeatKeys.DinnerConflictTable;
+            }
+
+            return beatKey ?? string.Empty;
         }
 
         private static SpringDay1CrowdDirectorConsumptionRole ResolveBeatConsumptionRole(
@@ -1332,6 +1939,7 @@ namespace Sunset.Story
 
             state.IsReturningHome = false;
             state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
             state.ResolvedAnchorName = string.IsNullOrWhiteSpace(cueKey)
                 ? $"rehearsal:{state.Instance.name}"
                 : $"rehearsal:{cueKey}";
@@ -1354,6 +1962,7 @@ namespace Sunset.Story
 
             state.IsReturningHome = false;
             state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
             state.ResolvedAnchorName = string.IsNullOrWhiteSpace(playback.CurrentCueKey)
                 ? "manual-preview"
                 : $"manual-preview:{playback.CurrentCueKey}";
@@ -1371,31 +1980,34 @@ namespace Sunset.Story
             if (!string.IsNullOrWhiteSpace(beatKey)
                 && TryResolveStagingCueForCurrentScene(beatKey, entry, out SpringDay1DirectorActorCue cue))
             {
-                SpringDay1DirectorActorCue runtimeCue = ResolveRuntimeCueOverride(beatKey, entry, cue);
                 CancelResidentReturnHome(state, resumeRoam: false);
-                ReparentState(state, _carrierRoot != null ? _carrierRoot.transform : _sceneRoot.transform, CarrierRootName);
+                state.ResidentGroupKey = string.Empty;
                 SetEntryActive(entry.npcId, true);
                 SpringDay1DirectorStagingPlayback playback = GetOrAddComponent<SpringDay1DirectorStagingPlayback>(state.Instance);
+                SpringDay1DirectorActorCue runtimeCue = ResolveRuntimeCueOverride(beatKey, entry, cue);
                 string cueKey = runtimeCue != null ? runtimeCue.StableKey : cue.StableKey;
                 bool needsApply = !string.Equals(state.AppliedBeatKey, beatKey, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(state.AppliedCueKey, cueKey, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(playback.CurrentBeatKey, beatKey, StringComparison.OrdinalIgnoreCase)
                     || !string.Equals(playback.CurrentCueKey, cueKey, StringComparison.OrdinalIgnoreCase);
-                if (needsApply)
+                if (!needsApply)
                 {
-                    if (ShouldRestartCueFromSceneBaseline(beatKey, state))
-                    {
-                        ResetStateToBasePose(state);
-                    }
-
-                    playback.ApplyCue(beatKey, runtimeCue ?? cue, state.HomeAnchor != null ? state.HomeAnchor.transform : null);
-                    state.AppliedBeatKey = beatKey;
-                    state.AppliedCueKey = cueKey;
-                    state.ResolvedAnchorName = $"staging:{cueKey}";
-                    state.UsedFallback = false;
-                    state.ReleasedFromDirectorCue = false;
-                    state.NeedsResidentReset = false;
+                    return true;
                 }
+
+                if (ShouldRestartCueFromSceneBaseline(beatKey, state))
+                {
+                    ResetStateToBasePose(state);
+                }
+
+                SetResidentCueInteractionLock(state, active: true);
+                playback.ApplyCue(beatKey, runtimeCue ?? cue, state.HomeAnchor != null ? state.HomeAnchor.transform : null);
+                state.AppliedBeatKey = beatKey;
+                state.AppliedCueKey = cueKey;
+                state.ResolvedAnchorName = $"staging:{cueKey}";
+                state.UsedFallback = false;
+                state.ReleasedFromDirectorCue = false;
+                state.NeedsResidentReset = false;
 
                 return true;
             }
@@ -1405,6 +2017,17 @@ namespace Sunset.Story
                 return false;
             }
 
+            if (ShouldHoldDinnerCueThroughReturnReminderBlock(state))
+            {
+                SetResidentCueInteractionLock(state, active: true);
+                state.ResidentGroupKey = string.Empty;
+                state.ResolvedAnchorName = $"staging:{state.AppliedCueKey}";
+                state.UsedFallback = false;
+                state.ReleasedFromDirectorCue = false;
+                state.NeedsResidentReset = false;
+                return true;
+            }
+
             SpringDay1DirectorStagingPlayback existingPlayback = state.Instance.GetComponent<SpringDay1DirectorStagingPlayback>();
             if (existingPlayback != null)
             {
@@ -1412,6 +2035,7 @@ namespace Sunset.Story
                 Destroy(existingPlayback);
             }
 
+            SetResidentCueInteractionLock(state, active: false);
             state.AppliedBeatKey = string.Empty;
             state.AppliedCueKey = string.Empty;
             state.ResolvedAnchorName = state.BaseResolvedAnchorName;
@@ -1427,6 +2051,14 @@ namespace Sunset.Story
                 && state.Instance.scene.IsValid()
                 && string.Equals(state.Instance.scene.name, TownSceneName, StringComparison.Ordinal)
                 && ShouldUseVillageCrowdSceneResidentStart(beatKey);
+        }
+
+        private static bool ShouldHoldDinnerCueThroughReturnReminderBlock(SpawnState state)
+        {
+            return state != null
+                && ResolveCurrentPhase() == StoryPhase.ReturnAndReminder
+                && string.Equals(state.AppliedBeatKey, SpringDay1DirectorBeatKeys.DinnerConflictTable, StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(state.AppliedCueKey);
         }
 
         private static void ResetStateToBasePose(SpawnState state)
@@ -1451,6 +2083,7 @@ namespace Sunset.Story
 
             state.IsReturningHome = false;
             state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
             state.ResolvedAnchorName = state.BaseResolvedAnchorName;
             state.UsedFallback = state.BaseUsedFallback;
         }
@@ -1469,15 +2102,9 @@ namespace Sunset.Story
             }
 
             roamController.enabled = true;
-            if (state.HomeAnchor != null)
+            if (state.HomeAnchor != null && roamController.HomeAnchor != state.HomeAnchor.transform)
             {
-                roamController.SetHomeAnchor(state.HomeAnchor.transform);
-            }
-
-            roamController.ApplyProfile();
-            if (!state.IsNightResting && !state.IsReturningHome)
-            {
-                roamController.RefreshRoamCenterFromCurrentContext();
+                roamController.BindResidentHomeAnchor(state.HomeAnchor.transform);
             }
 
             return roamController;
@@ -1486,15 +2113,186 @@ namespace Sunset.Story
         private static NPCAutoRoamController AcquireResidentDirectorControl(SpawnState state, bool resumeRoamWhenReleased)
         {
             NPCAutoRoamController roamController = PrepareResidentRoamController(state);
-            roamController?.AcquireResidentScriptedControl(ResidentScriptedControlOwnerKey, resumeRoamWhenReleased);
+            roamController?.AcquireStoryControl(ResidentScriptedControlOwnerKey, resumeRoamWhenReleased);
             return roamController;
         }
 
         private static NPCAutoRoamController ReleaseResidentDirectorControl(SpawnState state, bool resumeResidentLogic)
         {
             NPCAutoRoamController roamController = PrepareResidentRoamController(state);
-            roamController?.ReleaseResidentScriptedControl(ResidentScriptedControlOwnerKey, resumeResidentLogic);
+            roamController?.ReleaseStoryControl(ResidentScriptedControlOwnerKey, resumeResidentLogic);
             return roamController;
+        }
+
+        private static NPCAutoRoamController ReleaseResidentSharedRuntimeControl(SpawnState state, bool resumeResidentLogic)
+        {
+            NPCAutoRoamController roamController = PrepareResidentRoamController(state);
+            if (roamController == null)
+            {
+                return null;
+            }
+
+            roamController.ReleaseStoryControl(ResidentScriptedControlOwnerKey, resumeResidentLogic);
+            roamController.ReleaseStoryControl(DirectorResidentScriptedControlOwnerKey, resumeResidentLogic);
+            return roamController;
+        }
+
+        private static void QueueResidentAutonomousRoamResume(SpawnState state, bool tryImmediateMove)
+        {
+            NPCAutoRoamController roamController = ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: false);
+            if (roamController == null)
+            {
+                ClearQueuedAutonomousResume(state);
+                return;
+            }
+
+            state.QueuedAutonomousResume = true;
+            state.QueuedAutonomousResumeTryImmediateMove = tryImmediateMove;
+            state.NextAutonomousResumeAt = Mathf.Max(
+                state.NextAutonomousResumeAt,
+                Time.unscaledTime + GetQueuedAutonomousResumeDelay(state, roamController));
+        }
+
+        private static float GetQueuedAutonomousResumeDelay(SpawnState state, NPCAutoRoamController roamController)
+        {
+            int stableId = roamController != null ? roamController.GetInstanceID() : state?.Instance?.GetInstanceID() ?? 0;
+            float spread = Mathf.Repeat(Mathf.Abs(stableId) * 0.0173f, 1f);
+            return QueuedAutonomousResumeBaseDelay + spread * QueuedAutonomousResumeJitterSeconds;
+        }
+
+        private static void SetResidentCueInteractionLock(SpawnState state, bool active)
+        {
+            if (state?.Instance == null)
+            {
+                return;
+            }
+
+            NPCDialogueInteractable formalDialogue = state.Instance.GetComponent<NPCDialogueInteractable>();
+            NPCInformalChatInteractable informalDialogue = state.Instance.GetComponent<NPCInformalChatInteractable>();
+
+            if (active)
+            {
+                if (!state.InteractionLockOwnedByCue)
+                {
+                    state.FormalDialogueWasEnabledBeforeCue = formalDialogue != null && formalDialogue.enabled;
+                    state.InformalDialogueWasEnabledBeforeCue = informalDialogue != null && informalDialogue.enabled;
+                    state.InteractionLockOwnedByCue = true;
+                }
+
+                return;
+            }
+
+            if (!state.InteractionLockOwnedByCue)
+            {
+                return;
+            }
+
+            if (formalDialogue != null)
+            {
+                formalDialogue.enabled = state.FormalDialogueWasEnabledBeforeCue;
+            }
+
+            if (informalDialogue != null)
+            {
+                informalDialogue.enabled = state.InformalDialogueWasEnabledBeforeCue;
+            }
+
+            state.InteractionLockOwnedByCue = false;
+            state.FormalDialogueWasEnabledBeforeCue = false;
+            state.InformalDialogueWasEnabledBeforeCue = false;
+        }
+
+        private void TickQueuedAutonomousResumes()
+        {
+            if (_spawnStates.Count <= 0)
+            {
+                return;
+            }
+
+            float now = Time.unscaledTime;
+            if (now < _nextQueuedAutonomousResumeDispatchAt)
+            {
+                return;
+            }
+
+            int resumedCount = 0;
+            foreach (SpawnState state in _spawnStates.Values)
+            {
+                if (!CanDispatchQueuedAutonomousResume(state, now))
+                {
+                    continue;
+                }
+
+                NPCAutoRoamController roamController = PrepareResidentRoamController(state);
+                if (roamController == null || roamController.IsResidentScriptedControlActive)
+                {
+                    ClearQueuedAutonomousResume(state);
+                    continue;
+                }
+
+                roamController.ResumeAutonomousRoam(state.QueuedAutonomousResumeTryImmediateMove);
+                ClearQueuedAutonomousResume(state);
+                resumedCount++;
+                if (resumedCount >= MaxQueuedAutonomousResumesPerTick)
+                {
+                    break;
+                }
+            }
+
+            if (resumedCount > 0)
+            {
+                _nextQueuedAutonomousResumeDispatchAt = now + QueuedAutonomousResumeDispatchInterval;
+            }
+        }
+
+        private static bool CanDispatchQueuedAutonomousResume(SpawnState state, float now)
+        {
+            if (state == null || !state.QueuedAutonomousResume)
+            {
+                return false;
+            }
+
+            if (state.Instance == null ||
+                !state.Instance.activeInHierarchy ||
+                state.IsNightResting ||
+                state.IsReturningHome ||
+                state.NeedsResidentReset ||
+                state.ReleasedFromDirectorCue ||
+                !string.IsNullOrWhiteSpace(state.AppliedCueKey) ||
+                !string.IsNullOrWhiteSpace(state.AppliedBeatKey))
+            {
+                ClearQueuedAutonomousResume(state);
+                return false;
+            }
+
+            return now >= state.NextAutonomousResumeAt;
+        }
+
+        private static void ClearQueuedAutonomousResume(SpawnState state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            state.QueuedAutonomousResume = false;
+            state.QueuedAutonomousResumeTryImmediateMove = false;
+            state.NextAutonomousResumeAt = 0f;
+        }
+
+        private void CancelQueuedAutonomousResumes()
+        {
+            if (_spawnStates.Count <= 0)
+            {
+                return;
+            }
+
+            foreach (SpawnState state in _spawnStates.Values)
+            {
+                ClearQueuedAutonomousResume(state);
+            }
+
+            _nextQueuedAutonomousResumeDispatchAt = 0f;
         }
 
         private static void ApplyFacingIfIdle(GameObject instance, NPCMotionController motionController, Vector2 facing)
@@ -1516,7 +2314,13 @@ namespace Sunset.Story
                 return;
             }
 
-            motionController.SetFacingDirection(facing);
+            if (roamController != null)
+            {
+                roamController.ApplyIdleFacing(facing);
+                return;
+            }
+
+            motionController.ApplyIdleFacing(facing);
         }
 
         private static bool TryResolveStagingCueForCurrentScene(
@@ -1535,24 +2339,8 @@ namespace Sunset.Story
                 return false;
             }
 
-            Scene activeScene = SceneManager.GetActiveScene();
-            bool isTownScene = activeScene.IsValid() && string.Equals(activeScene.name, TownSceneName, StringComparison.Ordinal);
-            bool shouldMirrorVillageCrowd = isTownScene
-                && (string.Equals(beatKey, SpringDay1DirectorBeatKeys.DinnerConflictTable, StringComparison.OrdinalIgnoreCase)
-                    || string.Equals(beatKey, SpringDay1DirectorBeatKeys.ReturnAndReminderWalkBack, StringComparison.OrdinalIgnoreCase));
-
-            SpringDay1DirectorStageBook book = SpringDay1DirectorStagingDatabase.Load();
-            if (shouldMirrorVillageCrowd)
-            {
-                cue = book != null ? book.TryResolveCue(SpringDay1DirectorBeatKeys.EnterVillagePostEntry, entry) : null;
-                if (cue != null)
-                {
-                    return true;
-                }
-            }
-
-            cue = book != null ? book.TryResolveCue(beatKey, entry) : null;
-            return cue != null;
+            return TryBuildSceneMarkerCue(entry, out cue)
+                && ShouldUseVillageCrowdMarkerCueOverride(beatKey);
         }
 
         private static bool ShouldSuppressEnterVillageCrowdCueForTownHouseLead(string beatKey)
@@ -1562,11 +2350,40 @@ namespace Sunset.Story
                 return false;
             }
 
+            if (_instance != null && _instance._enterVillageCrowdReleaseLatched)
+            {
+                return true;
+            }
+
             SpringDay1Director director = SpringDay1Director.Instance;
             return director != null && director.ShouldReleaseEnterVillageCrowd();
         }
 
-        private static SpringDay1DirectorActorCue ResolveRuntimeCueOverride(
+        private bool ShouldStandDownDuringPostTutorialTownAutonomy(Scene activeScene)
+        {
+            if (!activeScene.IsValid()
+                || !string.Equals(activeScene.name, TownSceneName, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (ShouldResidentsRestByClock() || ShouldResidentsReturnHomeByClock())
+            {
+                return false;
+            }
+
+            if (ResolveCurrentPhase() != StoryPhase.FarmingTutorial)
+            {
+                return false;
+            }
+
+            return string.Equals(
+                ResolveCurrentBeatKey(),
+                SpringDay1DirectorBeatKeys.FreeTimeNightWitness,
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private SpringDay1DirectorActorCue ResolveRuntimeCueOverride(
             string beatKey,
             SpringDay1NpcCrowdManifest.Entry entry,
             SpringDay1DirectorActorCue cue)
@@ -1637,25 +2454,109 @@ namespace Sunset.Story
                 }
             }
 
+            ApplyStorySceneCueRuntimeDefaults(resolvedCue);
             resolvedCue.EnsureDefaults();
             return resolvedCue;
         }
 
+        private static bool TryBuildSceneMarkerCue(
+            SpringDay1NpcCrowdManifest.Entry entry,
+            out SpringDay1DirectorActorCue cue)
+        {
+            cue = null;
+            if (entry == null
+                || string.IsNullOrWhiteSpace(entry.npcId)
+                || !TryResolveVillageCrowdMarkersStatic(entry.npcId, out Transform startMarker, out Transform endMarker))
+            {
+                return false;
+            }
+
+            Vector3 startPosition = startMarker.position;
+            Vector3 endPosition = endMarker.position;
+            Vector2 facing = entry.initialFacing.sqrMagnitude > 0.0001f
+                ? entry.initialFacing.normalized
+                : Vector2.down;
+            Vector2 direction = new Vector2(endPosition.x - startPosition.x, endPosition.y - startPosition.y);
+            if (direction.sqrMagnitude > 0.0001f)
+            {
+                facing = direction.normalized;
+            }
+
+            cue = new SpringDay1DirectorActorCue
+            {
+                cueId = $"scene-marker-{entry.npcId}",
+                npcId = entry.npcId,
+                semanticAnchorId = string.Empty,
+                keepCurrentSpawnPosition = false,
+                useSemanticAnchorAsStart = false,
+                startPositionIsSemanticAnchorOffset = false,
+                pathPointsAreOffsets = false,
+                startPosition = new Vector2(startPosition.x, startPosition.y),
+                facing = facing,
+                lookAtTargetName = string.Empty,
+                suspendRoam = true,
+                loopPath = false,
+                moveSpeed = StorySceneMarkerWalkSpeed,
+                initialHoldSeconds = 0f,
+                path = new[]
+                {
+                    new SpringDay1DirectorPathPoint
+                    {
+                        position = new Vector2(endPosition.x, endPosition.y),
+                        facing = facing,
+                        holdSeconds = 0.25f,
+                        lookAtTargetName = string.Empty
+                    }
+                }
+            };
+            ApplyStorySceneCueRuntimeDefaults(cue);
+            cue.EnsureDefaults();
+            return true;
+        }
+
+        private static void ApplyStorySceneCueRuntimeDefaults(SpringDay1DirectorActorCue cue)
+        {
+            if (cue == null)
+            {
+                return;
+            }
+
+            cue.moveSpeed = Mathf.Max(cue.moveSpeed, StorySceneMarkerWalkSpeed);
+            cue.lookAtTargetName = SpringDay1DirectorStagingPlayback.StoryPlayerLookTargetToken;
+            if (cue.path == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < cue.path.Length; index++)
+            {
+                SpringDay1DirectorPathPoint point = cue.path[index];
+                if (point == null)
+                {
+                    continue;
+                }
+
+                point.lookAtTargetName = SpringDay1DirectorStagingPlayback.StoryPlayerLookTargetToken;
+            }
+        }
+
         private static bool ShouldUseVillageCrowdSceneResidentStart(string beatKey)
         {
-            return string.Equals(beatKey, SpringDay1DirectorBeatKeys.EnterVillagePostEntry, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(beatKey, SpringDay1DirectorBeatKeys.DinnerConflictTable, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(beatKey, SpringDay1DirectorBeatKeys.ReturnAndReminderWalkBack, StringComparison.OrdinalIgnoreCase);
+            return false;
         }
 
         private static bool ShouldUseVillageCrowdMarkerCueOverride(string beatKey)
         {
             return string.Equals(beatKey, SpringDay1DirectorBeatKeys.EnterVillagePostEntry, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(beatKey, SpringDay1DirectorBeatKeys.DinnerConflictTable, StringComparison.OrdinalIgnoreCase)
-                || string.Equals(beatKey, SpringDay1DirectorBeatKeys.ReturnAndReminderWalkBack, StringComparison.OrdinalIgnoreCase);
+                || string.Equals(beatKey, SpringDay1DirectorBeatKeys.DinnerConflictTable, StringComparison.OrdinalIgnoreCase);
         }
 
-        private static bool TryResolveVillageCrowdMarkers(string npcId, out Transform startMarker, out Transform endMarker)
+        private bool TryResolveVillageCrowdMarkers(string npcId, out Transform startMarker, out Transform endMarker)
+        {
+            return TryResolveVillageCrowdMarkersStatic(npcId, out startMarker, out endMarker);
+        }
+
+        private static bool TryResolveVillageCrowdMarkersStatic(string npcId, out Transform startMarker, out Transform endMarker)
         {
             startMarker = null;
             endMarker = null;
@@ -1664,7 +2565,7 @@ namespace Sunset.Story
                 return false;
             }
 
-            Transform root = FindFirstExistingAnchor(VillageCrowdMarkerRootNames);
+            Transform root = FindFirstExistingAnchorStatic(VillageCrowdMarkerRootNames);
             if (root == null)
             {
                 return false;
@@ -1674,10 +2575,10 @@ namespace Sunset.Story
             Transform endGroup = FindFirstExistingChild(root, VillageCrowdMarkerEndGroupNames);
             startMarker = FindVillageCrowdMarker(startGroup, npcId, start: true);
             endMarker = FindVillageCrowdMarker(endGroup, npcId, start: false);
-            return startMarker != null || endMarker != null;
+            return startMarker != null && endMarker != null;
         }
 
-        private static Transform FindFirstExistingAnchor(string[] names)
+        private static Transform FindFirstExistingAnchorStatic(string[] names)
         {
             if (names == null)
             {
@@ -1686,11 +2587,36 @@ namespace Sunset.Story
 
             for (int index = 0; index < names.Length; index++)
             {
-                Transform candidate = FindAnchor(names[index]);
+                Transform candidate = FindNamedTransformInActiveScene(names[index]);
                 if (candidate != null)
                 {
                     return candidate;
                 }
+            }
+
+            return null;
+        }
+
+        private static Transform FindNamedTransformInActiveScene(string objectName)
+        {
+            if (string.IsNullOrWhiteSpace(objectName))
+            {
+                return null;
+            }
+
+            Scene activeScene = SceneManager.GetActiveScene();
+            Transform[] allTransforms = FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+            for (int index = 0; index < allTransforms.Length; index++)
+            {
+                Transform candidate = allTransforms[index];
+                if (candidate == null
+                    || candidate.gameObject.scene != activeScene
+                    || !string.Equals(candidate.name, objectName, StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                return candidate;
             }
 
             return null;
@@ -1930,6 +2856,8 @@ namespace Sunset.Story
                 return;
             }
 
+            SetResidentCueInteractionLock(state, active: false);
+
             if (ShouldDeferToStoryEscortDirector(entry, currentPhase))
             {
                 CancelResidentReturnHome(state, resumeRoam: false);
@@ -1944,16 +2872,14 @@ namespace Sunset.Story
             }
 
             bool shouldRemainActive = ShouldKeepResidentActive(entry, currentPhase, beatKey, beatConsumption);
-            Transform residentParent = ResolveResidentParent(entry, currentPhase, beatKey, beatConsumption);
-            if (state.IsNightResting && _residentDefaultRoot != null)
-            {
-                residentParent = _residentDefaultRoot.transform;
-            }
-
-            ReparentState(state, residentParent, residentParent != null ? residentParent.name : string.Empty);
+            state.ResidentGroupKey = string.Empty;
             if (state.IsNightResting)
             {
-                shouldRemainActive = true;
+                shouldRemainActive = !state.HideWhileNightResting;
+            }
+            else if (ShouldResidentsReturnHomeByClock() && state.HideWhileNightResting)
+            {
+                shouldRemainActive = false;
             }
 
             SetEntryActive(entry.npcId, shouldRemainActive);
@@ -1963,7 +2889,7 @@ namespace Sunset.Story
                 CancelResidentReturnHome(state, resumeRoam: false);
                 state.ReleasedFromDirectorCue = false;
                 state.NeedsResidentReset = false;
-                state.ResolvedAnchorName = BuildResidentSummaryAnchor(entry, currentPhase, beatKey, residentParent, hidden: true);
+                state.ResolvedAnchorName = BuildResidentSummaryAnchor(currentPhase, beatKey, hidden: true);
                 state.UsedFallback = state.BaseUsedFallback;
                 return;
             }
@@ -1971,55 +2897,75 @@ namespace Sunset.Story
             if (state.IsNightResting)
             {
                 ApplyResidentNightRestState(state);
-                state.ResolvedAnchorName = $"night-rest:{state.BaseResolvedAnchorName}";
                 state.UsedFallback = state.BaseUsedFallback;
                 return;
             }
 
             if (state.IsReturningHome)
             {
-                if (!ShouldAllowResidentReturnHome(currentPhase))
+                if (!ShouldKeepResidentReturnHomeContract(state, currentPhase))
                 {
                     CancelResidentReturnHome(state, resumeRoam: false);
                     if (TryReleaseResidentToDaytimeBaseline(entry, state, currentPhase, beatKey))
                     {
-                        state.ResolvedAnchorName = BuildResidentSummaryAnchor(entry, currentPhase, beatKey, residentParent, hidden: false);
+                        state.ResolvedAnchorName = $"baseline-release:{state.BaseResolvedAnchorName}";
                         state.UsedFallback = state.BaseUsedFallback;
                         return;
                     }
+
+                    ReleaseResidentToAutonomousRoam(state);
+                    state.ResolvedAnchorName = $"autonomous:{state.BaseResolvedAnchorName}";
+                    state.UsedFallback = state.BaseUsedFallback;
+                    return;
                 }
 
-                state.ResolvedAnchorName = BuildResidentSummaryAnchor(entry, currentPhase, beatKey, residentParent, hidden: false) + ":return-home";
+                state.ResolvedAnchorName = BuildResidentSummaryAnchor(currentPhase, beatKey, hidden: false) + ":return-home";
                 state.UsedFallback = state.BaseUsedFallback;
                 return;
             }
 
             if (state.ReleasedFromDirectorCue && state.NeedsResidentReset)
             {
-                if (ShouldAllowResidentReturnHome(currentPhase))
+                bool shouldQueueClockOwnedReturnHome = ShouldAllowResidentReturnHome(currentPhase)
+                    && ShouldQueueResidentReturnHomeAfterCueRelease(state, currentPhase);
+                if (shouldQueueClockOwnedReturnHome
+                    && TryBeginResidentReturnHome(state))
                 {
-                    if (TryBeginResidentReturnHome(state))
-                    {
-                        state.ResolvedAnchorName = BuildResidentSummaryAnchor(entry, currentPhase, beatKey, residentParent, hidden: false) + ":return-home";
-                        state.UsedFallback = state.BaseUsedFallback;
-                        return;
-                    }
-                }
-                else if (TryReleaseResidentToDaytimeBaseline(entry, state, currentPhase, beatKey))
-                {
-                    state.ResolvedAnchorName = BuildResidentSummaryAnchor(entry, currentPhase, beatKey, residentParent, hidden: false);
+                    state.ResolvedAnchorName = $"return-home:{state.BaseResolvedAnchorName}";
                     state.UsedFallback = state.BaseUsedFallback;
                     return;
                 }
+
+                if (shouldQueueClockOwnedReturnHome
+                    && QueueResidentReturnHomeRetry(state))
+                {
+                    state.ResolvedAnchorName = state.HideWhileNightResting && !state.Instance.activeSelf
+                        ? $"night-return-hidden:{state.BaseResolvedAnchorName}"
+                        : $"return-home-pending:{state.BaseResolvedAnchorName}";
+                    state.UsedFallback = state.BaseUsedFallback;
+                    return;
+                }
+
+                if (TryReleaseResidentToDaytimeBaseline(entry, state, currentPhase, beatKey))
+                {
+                    state.ResolvedAnchorName = $"baseline-release:{state.BaseResolvedAnchorName}";
+                    state.UsedFallback = state.BaseUsedFallback;
+                    return;
+                }
+
+                ReleaseResidentToAutonomousRoam(state);
+                state.ResolvedAnchorName = $"autonomous:{state.BaseResolvedAnchorName}";
+                state.UsedFallback = state.BaseUsedFallback;
+                return;
             }
 
             NPCAutoRoamController roamController = state.Instance.GetComponent<NPCAutoRoamController>();
             if (roamController != null)
             {
-                roamController = ReleaseResidentDirectorControl(state, resumeResidentLogic: true);
+                roamController = ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: false);
                 if (roamController != null && !roamController.IsRoaming)
                 {
-                    roamController.StartRoam();
+                    QueueResidentAutonomousRoamResume(state, tryImmediateMove: false);
                 }
             }
 
@@ -2033,7 +2979,7 @@ namespace Sunset.Story
                 }
             }
 
-            state.ResolvedAnchorName = BuildResidentSummaryAnchor(entry, currentPhase, beatKey, residentParent, hidden: false);
+            state.ResolvedAnchorName = BuildResidentSummaryAnchor(currentPhase, beatKey, hidden: false);
             state.UsedFallback = state.BaseUsedFallback;
             state.NeedsResidentReset = false;
             state.ReleasedFromDirectorCue = false;
@@ -2054,12 +3000,17 @@ namespace Sunset.Story
                 return false;
             }
 
+            if (currentPhase == StoryPhase.FarmingTutorial
+                && SpringDay1Director.Instance != null
+                && SpringDay1Director.Instance.IsPostTutorialExploreWindowActive())
+            {
+                return false;
+            }
+
             return currentPhase == StoryPhase.EnterVillage
                 || currentPhase == StoryPhase.HealingAndHP
                 || currentPhase == StoryPhase.WorkbenchFlashback
-                || currentPhase == StoryPhase.FarmingTutorial
-                || currentPhase == StoryPhase.DinnerConflict
-                || currentPhase == StoryPhase.ReturnAndReminder;
+                || currentPhase == StoryPhase.FarmingTutorial;
         }
 
         private void TickResidentReturns()
@@ -2099,30 +3050,9 @@ namespace Sunset.Story
                     continue;
                 }
 
-                NPCAutoRoamController roamController = state.Instance.GetComponent<NPCAutoRoamController>();
-                if (roamController != null)
-                {
-                    AcquireResidentDirectorControl(state, resumeRoamWhenReleased: false);
-                }
-
-                Vector3 targetPosition = state.HomeAnchor.transform.position;
-                targetPosition.z = state.Instance.transform.position.z;
-                state.Instance.transform.position = targetPosition;
-
-                NPCMotionController motionController = state.Instance.GetComponent<NPCMotionController>();
-                if (motionController != null)
-                {
-                    motionController.StopMotion();
-                    ApplyFacingIfIdle(state.Instance, motionController, state.BaseFacing);
-                }
-
                 state.IsNightResting = true;
-                state.IsReturningHome = false;
-                state.ResumeRoamAfterReturn = false;
-                state.NeedsResidentReset = false;
-                state.ReleasedFromDirectorCue = false;
-                state.ResolvedAnchorName = state.BaseResolvedAnchorName;
-                state.UsedFallback = state.BaseUsedFallback;
+                state.HideWhileNightResting = true;
+                ApplyResidentNightRestState(state);
             }
 
             Physics2D.SyncTransforms();
@@ -2146,41 +3076,77 @@ namespace Sunset.Story
             Vector3 currentPosition = state.Instance.transform.position;
             Vector3 targetPosition = homeAnchor.position;
             targetPosition.z = currentPosition.z;
-            Vector3 delta = targetPosition - currentPosition;
-            delta.z = 0f;
-            float maxStep = GetResidentReturnHomeStepDistance(state, deltaTime);
             NPCAutoRoamController roamController = state.Instance.GetComponent<NPCAutoRoamController>();
 
-            if (delta.sqrMagnitude <= ResidentReturnHomeThreshold * ResidentReturnHomeThreshold
-                || delta.sqrMagnitude <= maxStep * maxStep)
+            if (TryFinishResidentReturnHomeFromNavigationCompletion(state, roamController, targetPosition))
+            {
+                return;
+            }
+
+            // 这条只保留成 legacy/repair 兜底，不再作为 FormalNavigation 到达收尾的主路径。
+            if (IsResidentAtHomeAnchor(state, roamController))
             {
                 state.Instance.transform.position = targetPosition;
                 FinishResidentReturnHome(state);
                 return;
             }
 
-            if (TryDriveResidentReturnHome(state, roamController))
+            if (HasActiveResidentReturnHomeDrive(roamController))
             {
                 state.ResolvedAnchorName = $"return-home:{state.BaseResolvedAnchorName}";
                 state.UsedFallback = state.BaseUsedFallback;
                 return;
             }
 
-            if (roamController != null)
+            float now = Time.unscaledTime;
+            if (state.NextReturnHomeDriveRetryAt > 0f && now < state.NextReturnHomeDriveRetryAt)
             {
-                roamController.HaltResidentScriptedMovement();
+                state.ResolvedAnchorName = $"return-home-pending:{state.BaseResolvedAnchorName}";
+                state.UsedFallback = state.BaseUsedFallback;
+                return;
             }
 
-            NPCMotionController motionController = state.Instance.GetComponent<NPCMotionController>();
-            Vector3 step = delta.normalized * maxStep;
-            state.Instance.transform.position = currentPosition + step;
-            if (motionController != null)
+            if (TryDriveResidentReturnHome(state, roamController))
             {
-                motionController.SetFacingDirection(new Vector2(step.x, step.y));
+                state.NextReturnHomeDriveRetryAt = 0f;
+                state.ResolvedAnchorName = $"return-home:{state.BaseResolvedAnchorName}";
+                state.UsedFallback = state.BaseUsedFallback;
+                return;
             }
 
-            state.ResolvedAnchorName = $"return-home:{state.BaseResolvedAnchorName}";
+            KeepResidentPendingReturnHome(state, now + ResidentReturnHomeRetryInterval);
+            state.ResolvedAnchorName = $"return-home-pending:{state.BaseResolvedAnchorName}";
             state.UsedFallback = state.BaseUsedFallback;
+        }
+
+        private bool TryFinishResidentReturnHomeFromNavigationCompletion(
+            SpawnState state,
+            NPCAutoRoamController roamController,
+            Vector3 targetPosition)
+        {
+            if (state == null || state.Instance == null || roamController == null)
+            {
+                return false;
+            }
+
+            if (!roamController.TryConsumeFormalNavigationArrival(out Vector2 arrivalPosition))
+            {
+                return false;
+            }
+
+            float acceptanceRadius = GetResidentReturnHomeArrivalRadius();
+            Vector2 comparableArrivalTarget = ResolveResidentReturnHomeArrivalTarget(state, roamController, targetPosition);
+            if (Vector2.Distance(arrivalPosition, targetPosition) > acceptanceRadius
+                && Vector2.Distance(arrivalPosition, comparableArrivalTarget) > acceptanceRadius)
+            {
+                state.ResolvedAnchorName = $"return-home:{state.BaseResolvedAnchorName}";
+                state.UsedFallback = state.BaseUsedFallback;
+                return false;
+            }
+
+            state.Instance.transform.position = targetPosition;
+            FinishResidentReturnHome(state);
+            return true;
         }
 
         private bool TryBeginResidentReturnHome(SpawnState state)
@@ -2190,9 +3156,15 @@ namespace Sunset.Story
                 return false;
             }
 
-            Vector3 currentPosition = state.Instance.transform.position;
-            Vector3 homePosition = state.HomeAnchor.transform.position;
-            if ((homePosition - currentPosition).sqrMagnitude <= ResidentReturnHomeThreshold * ResidentReturnHomeThreshold)
+            NPCAutoRoamController roamController = state.Instance.GetComponent<NPCAutoRoamController>();
+            if (IsResidentAtHomeAnchor(state, roamController))
+            {
+                HideResidentAtHomeForNightReturn(state);
+                return false;
+            }
+
+            float now = Time.unscaledTime;
+            if (state.NextReturnHomeDriveRetryAt > 0f && now < state.NextReturnHomeDriveRetryAt)
             {
                 return false;
             }
@@ -2200,35 +3172,58 @@ namespace Sunset.Story
             if (TryDriveResidentReturnHome(state))
             {
                 state.IsReturningHome = true;
-                state.ResumeRoamAfterReturn = !state.IsNightResting;
+                state.ResumeRoamAfterReturn = false;
+                state.NextReturnHomeDriveRetryAt = 0f;
                 state.ResolvedAnchorName = $"return-home:{state.BaseResolvedAnchorName}";
                 state.UsedFallback = state.BaseUsedFallback;
                 return true;
             }
 
-            state.IsReturningHome = true;
-            state.ResumeRoamAfterReturn = !state.IsNightResting;
-            state.ResolvedAnchorName = $"return-home:{state.BaseResolvedAnchorName}";
-            state.UsedFallback = state.BaseUsedFallback;
-            return true;
-        }
-
-        private static float GetResidentReturnHomeStepDistance(SpawnState state, float deltaTime)
-        {
-            NPCMotionController motionController = state != null && state.Instance != null
-                ? state.Instance.GetComponent<NPCMotionController>()
-                : null;
-            float moveSpeed = motionController != null ? Mathf.Max(0.5f, motionController.MoveSpeed) : 1.5f;
-            return moveSpeed * Mathf.Max(0.0001f, deltaTime);
+            QueueResidentReturnHomeRetry(state, now + ResidentReturnHomeRetryInterval);
+            return false;
         }
 
         private bool ShouldAllowResidentReturnHome(StoryPhase currentPhase)
         {
-            return ShouldResidentsRestByClock()
-                   || ShouldResidentsReturnHomeByClock();
+            return ShouldResidentsReturnHomeByClock();
         }
 
-        private static bool TryReleaseResidentToDaytimeBaseline(
+        private bool ShouldAllowResidentReturnHome(SpawnState state, StoryPhase currentPhase)
+        {
+            if (state != null && state.ResumeRoamAfterReturn)
+            {
+                return true;
+            }
+
+            return ShouldAllowResidentReturnHome(currentPhase);
+        }
+
+        private static bool ShouldQueueResidentReturnHomeAfterCueRelease(SpawnState state, StoryPhase currentPhase)
+        {
+            if (state?.Instance == null || state.HomeAnchor == null)
+            {
+                return false;
+            }
+
+            return !IsResidentAtHomeAnchor(state);
+        }
+
+        private bool ShouldKeepResidentReturnHomeContract(SpawnState state, StoryPhase currentPhase)
+        {
+            if (state == null)
+            {
+                return false;
+            }
+
+            if (state.ReleasedFromDirectorCue && state.NeedsResidentReset)
+            {
+                return ShouldAllowResidentReturnHome(currentPhase);
+            }
+
+            return ShouldAllowResidentReturnHome(state, currentPhase);
+        }
+
+        private bool TryReleaseResidentToDaytimeBaseline(
             SpringDay1NpcCrowdManifest.Entry entry,
             SpawnState state,
             StoryPhase currentPhase,
@@ -2245,8 +3240,8 @@ namespace Sunset.Story
             NPCMotionController motionController = state.Instance.GetComponent<NPCMotionController>();
             motionController?.StopMotion();
 
-            bool hasBasePosition = state.BasePosition.sqrMagnitude > 0.0001f;
-            Vector3 releasePosition = hasBasePosition ? state.BasePosition : state.Instance.transform.position;
+            Vector3 currentPosition = state.Instance.transform.position;
+            Vector3 releasePosition = currentPosition;
             releasePosition.z = state.Instance.transform.position.z;
             string promotedAnchorName = state.BaseResolvedAnchorName;
             bool shouldPromoteBasePose = false;
@@ -2265,21 +3260,7 @@ namespace Sunset.Story
                 {
                     releasePosition = new Vector3(occupiableReleasePosition.x, occupiableReleasePosition.y, state.Instance.transform.position.z);
                 }
-                else if (state.HomeAnchor != null
-                         && roamController.TryResolveOccupiablePosition((Vector2)state.HomeAnchor.transform.position, out Vector2 occupiableHomePosition))
-                {
-                    releasePosition = new Vector3(occupiableHomePosition.x, occupiableHomePosition.y, state.Instance.transform.position.z);
-                    shouldPromoteBasePose = false;
-                    promotedAnchorName = state.BaseResolvedAnchorName;
-                }
-                else if (hasBasePosition
-                         && roamController.TryResolveOccupiablePosition((Vector2)state.BasePosition, out Vector2 occupiableBasePosition))
-                {
-                    releasePosition = new Vector3(occupiableBasePosition.x, occupiableBasePosition.y, state.Instance.transform.position.z);
-                    shouldPromoteBasePose = false;
-                    promotedAnchorName = state.BaseResolvedAnchorName;
-                }
-                else if (roamController.TryResolveOccupiablePosition((Vector2)state.Instance.transform.position, out Vector2 occupiableCurrentPosition))
+                else if (roamController.TryResolveOccupiablePosition((Vector2)currentPosition, out Vector2 occupiableCurrentPosition))
                 {
                     releasePosition = new Vector3(occupiableCurrentPosition.x, occupiableCurrentPosition.y, state.Instance.transform.position.z);
                     shouldPromoteBasePose = false;
@@ -2301,14 +3282,11 @@ namespace Sunset.Story
             }
 
             Physics2D.SyncTransforms();
-            roamController = ReleaseResidentDirectorControl(state, resumeResidentLogic: true);
-            if (roamController != null)
-            {
-                roamController.RestartRoamFromCurrentContext(tryImmediateMove: true);
-            }
+            QueueResidentAutonomousRoamResume(state, tryImmediateMove: false);
 
             state.IsReturningHome = false;
             state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
             state.NeedsResidentReset = false;
             state.ReleasedFromDirectorCue = false;
             state.ResolvedAnchorName = state.BaseResolvedAnchorName;
@@ -2318,9 +3296,7 @@ namespace Sunset.Story
 
         private static bool ShouldUseResidentDaytimeSemanticBaseline(StoryPhase currentPhase, string beatKey)
         {
-            return currentPhase < StoryPhase.FreeTime
-                && !string.IsNullOrWhiteSpace(beatKey)
-                && beatKey.IndexOf("DailyStand", StringComparison.OrdinalIgnoreCase) >= 0;
+            return false;
         }
 
         private static bool TryResolveResidentDaytimeBaselinePosition(
@@ -2330,28 +3306,6 @@ namespace Sunset.Story
         {
             worldPosition = Vector3.zero;
             anchorName = string.Empty;
-            if (entry?.semanticAnchorIds == null)
-            {
-                return false;
-            }
-
-            for (int index = 0; index < entry.semanticAnchorIds.Length; index++)
-            {
-                string candidate = entry.semanticAnchorIds[index];
-                if (!IsResidentDaytimeBaselineSemanticAnchor(candidate))
-                {
-                    continue;
-                }
-
-                if (!SpringDay1DirectorSemanticAnchorResolver.TryResolveWorldPosition(candidate, out worldPosition))
-                {
-                    continue;
-                }
-
-                anchorName = candidate.Trim();
-                return true;
-            }
-
             return false;
         }
 
@@ -2364,6 +3318,20 @@ namespace Sunset.Story
 
             string trimmed = semanticAnchorId.Trim();
             return trimmed.IndexOf("DailyStand", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool IsDeprecatedRuntimeSemanticAnchor(string semanticAnchorId)
+        {
+            if (string.IsNullOrWhiteSpace(semanticAnchorId))
+            {
+                return false;
+            }
+
+            string trimmed = semanticAnchorId.Trim();
+            return string.Equals(trimmed, "EnterVillageCrowdRoot", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "DinnerBackgroundRoot", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(trimmed, "NightWitness_01", StringComparison.OrdinalIgnoreCase)
+                || trimmed.IndexOf("DailyStand_", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static bool TryDriveResidentReturnHome(SpawnState state)
@@ -2386,11 +3354,87 @@ namespace Sunset.Story
                 return false;
             }
 
-            return roamController.DriveResidentScriptedMoveTo(
+            return roamController.RequestReturnToAnchor(
                 ResidentScriptedControlOwnerKey,
-                state.HomeAnchor.transform.position,
-                resumeRoamWhenReleased: !state.IsNightResting,
-                retargetTolerance: Mathf.Max(ResidentReturnHomeThreshold * 4f, 0.35f));
+                state.HomeAnchor.transform,
+                resumeAutonomousRoamWhenReleased: !state.IsNightResting,
+                retargetTolerance: GetResidentReturnHomeArrivalRadius());
+        }
+
+        private static bool HasActiveResidentReturnHomeDrive(NPCAutoRoamController roamController)
+        {
+            return roamController != null && roamController.IsFormalNavigationDriveActive();
+        }
+
+        private static bool QueueResidentReturnHomeRetry(SpawnState state, float nextRetryAt = -1f)
+        {
+            if (state?.Instance == null)
+            {
+                return false;
+            }
+
+            if (state.HideWhileNightResting && !state.Instance.activeSelf)
+            {
+                state.IsReturningHome = false;
+                state.ResumeRoamAfterReturn = false;
+                state.NextReturnHomeDriveRetryAt = 0f;
+                return true;
+            }
+
+            if (state.HomeAnchor == null)
+            {
+                return false;
+            }
+
+            ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: true);
+            state.IsReturningHome = false;
+            state.ResumeRoamAfterReturn = false;
+            if (nextRetryAt >= 0f)
+            {
+                state.NextReturnHomeDriveRetryAt = nextRetryAt;
+            }
+            else if (state.NextReturnHomeDriveRetryAt <= 0f)
+            {
+                state.NextReturnHomeDriveRetryAt = Time.unscaledTime + ResidentReturnHomeRetryInterval;
+            }
+
+            return true;
+        }
+
+        private static bool KeepResidentPendingReturnHome(SpawnState state, float nextRetryAt = -1f)
+        {
+            if (state?.Instance == null)
+            {
+                return false;
+            }
+
+            if (state.HideWhileNightResting && !state.Instance.activeSelf)
+            {
+                state.IsReturningHome = false;
+                state.ResumeRoamAfterReturn = false;
+                state.NextReturnHomeDriveRetryAt = 0f;
+                return true;
+            }
+
+            if (state.HomeAnchor == null)
+            {
+                return false;
+            }
+
+            ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: true);
+
+            state.IsReturningHome = true;
+            state.ResumeRoamAfterReturn = false;
+            if (nextRetryAt >= 0f)
+            {
+                state.NextReturnHomeDriveRetryAt = nextRetryAt;
+            }
+            else if (state.NextReturnHomeDriveRetryAt <= 0f)
+            {
+                state.NextReturnHomeDriveRetryAt = Time.unscaledTime + ResidentReturnHomeRetryInterval;
+            }
+
+            return true;
         }
 
         private void FinishResidentReturnHome(SpawnState state)
@@ -2400,7 +3444,14 @@ namespace Sunset.Story
                 return;
             }
 
+            NPCAutoRoamController roamController = ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: false);
             NPCMotionController motionController = state.Instance.GetComponent<NPCMotionController>();
+            if (ShouldHideResidentImmediatelyAfterNightReturn())
+            {
+                HideResidentAtHomeForNightReturn(state, roamController, motionController);
+                return;
+            }
+
             if (motionController != null)
             {
                 motionController.StopMotion();
@@ -2412,25 +3463,124 @@ namespace Sunset.Story
 
             if (state.ResumeRoamAfterReturn && !state.IsNightResting)
             {
-                NPCAutoRoamController roamController = ReleaseResidentDirectorControl(state, resumeResidentLogic: true);
                 if (roamController != null)
                 {
-                    if (!roamController.IsRoaming)
-                    {
-                        roamController.StartRoam();
-                    }
+                    QueueResidentAutonomousRoamResume(state, tryImmediateMove: true);
                 }
             }
 
             state.IsReturningHome = false;
             state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
             state.NeedsResidentReset = false;
             state.ReleasedFromDirectorCue = false;
             state.ResolvedAnchorName = state.BaseResolvedAnchorName;
             state.UsedFallback = state.BaseUsedFallback;
         }
 
-        private static void CancelResidentReturnHome(SpawnState state, bool resumeRoam)
+        private static bool IsResidentAtHomeAnchor(SpawnState state, NPCAutoRoamController roamController = null)
+        {
+            if (state?.Instance == null || state.HomeAnchor == null)
+            {
+                return false;
+            }
+
+            Vector3 currentPosition = state.Instance.transform.position;
+            Vector3 homePosition = state.HomeAnchor.transform.position;
+            homePosition.z = currentPosition.z;
+            float arrivalRadius = GetResidentReturnHomeArrivalRadius();
+            Vector2 currentPosition2D = currentPosition;
+            Vector2 homePosition2D = homePosition;
+            if (Vector2.Distance(currentPosition2D, homePosition2D) <= arrivalRadius)
+            {
+                return true;
+            }
+
+            Vector2 comparableArrivalTarget = ResolveResidentReturnHomeArrivalTarget(state, roamController, homePosition);
+            return Vector2.Distance(currentPosition2D, comparableArrivalTarget) <= arrivalRadius;
+        }
+
+        private static float GetResidentReturnHomeArrivalRadius()
+        {
+            return Mathf.Max(ResidentReturnHomeThreshold * 4f, ResidentReturnHomeArrivalRadius);
+        }
+
+        private static Vector2 ResolveResidentReturnHomeArrivalTarget(
+            SpawnState state,
+            NPCAutoRoamController roamController,
+            Vector3 homePosition)
+        {
+            Vector2 comparableTarget = homePosition;
+            if (state?.Instance == null)
+            {
+                return comparableTarget;
+            }
+
+            roamController ??= state.Instance.GetComponent<NPCAutoRoamController>();
+            if (roamController != null
+                && roamController.TryResolveFormalNavigationDestination(homePosition, out Vector2 resolvedComparableTarget))
+            {
+                comparableTarget = resolvedComparableTarget;
+            }
+
+            return comparableTarget;
+        }
+
+        private bool ShouldHideResidentImmediatelyAfterNightReturn()
+        {
+            return ShouldResidentsReturnHomeByClock() && !ShouldResidentsRestByClock();
+        }
+
+        private void HideResidentAtHomeForNightReturn(
+            SpawnState state,
+            NPCAutoRoamController roamController = null,
+            NPCMotionController motionController = null)
+        {
+            if (state == null || state.Instance == null)
+            {
+                return;
+            }
+
+            roamController ??= ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: false);
+            motionController ??= state.Instance.GetComponent<NPCMotionController>();
+
+            Vector3 targetPosition = state.HomeAnchor != null
+                ? state.HomeAnchor.transform.position
+                : state.Instance.transform.position;
+            targetPosition.z = state.Instance.transform.position.z;
+
+            if (roamController != null)
+            {
+                roamController.SnapToTarget((Vector2)targetPosition, state.BaseFacing);
+            }
+            else
+            {
+                state.Instance.transform.position = targetPosition;
+            }
+
+            if (motionController != null)
+            {
+                motionController.StopMotion();
+                ApplyFacingIfIdle(state.Instance, motionController, state.BaseFacing);
+            }
+            else
+            {
+                state.Instance.GetComponent<NPCMotionController>()?.StopMotion();
+            }
+
+            state.HideWhileNightResting = true;
+            state.Instance.SetActive(false);
+            state.IsReturningHome = false;
+            state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
+            state.NeedsResidentReset = false;
+            state.ReleasedFromDirectorCue = false;
+            state.ResolvedAnchorName = $"night-return-hidden:{state.BaseResolvedAnchorName}";
+            state.UsedFallback = state.BaseUsedFallback;
+            Physics2D.SyncTransforms();
+        }
+
+        private void CancelResidentReturnHome(SpawnState state, bool resumeRoam)
         {
             if (state == null)
             {
@@ -2439,20 +3589,14 @@ namespace Sunset.Story
 
             state.IsReturningHome = false;
             state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
 
             if (!resumeRoam || state.Instance == null || state.IsNightResting)
             {
                 return;
             }
 
-            NPCAutoRoamController roamController = ReleaseResidentDirectorControl(state, resumeResidentLogic: true);
-            if (roamController != null)
-            {
-                if (!roamController.IsRoaming)
-                {
-                    roamController.StartRoam();
-                }
-            }
+            QueueResidentAutonomousRoamResume(state, tryImmediateMove: false);
         }
 
         private bool ShouldResidentsRestByClock()
@@ -2500,19 +3644,20 @@ namespace Sunset.Story
             bool shouldReturnHome = ShouldResidentsReturnHomeByClock();
             foreach (SpawnState state in _spawnStates.Values)
             {
-                if (state == null || state.Instance == null || state.HomeAnchor == null)
+                if (state == null || state.Instance == null)
                 {
                     continue;
                 }
 
                 if (shouldRest)
                 {
-                    if (state.IsNightResting)
+                    if (state.IsNightResting && state.HideWhileNightResting)
                     {
                         continue;
                     }
 
                     state.IsNightResting = true;
+                    state.HideWhileNightResting = true;
                     ApplyResidentNightRestState(state);
                     _syncRequested = true;
                     continue;
@@ -2521,11 +3666,23 @@ namespace Sunset.Story
                 if (state.IsNightResting)
                 {
                     state.IsNightResting = false;
+                    state.HideWhileNightResting = false;
+                    RestoreResidentFromNightRestState(state);
                     _syncRequested = true;
+                }
+
+                if (state.HomeAnchor == null)
+                {
+                    continue;
                 }
 
                 if (shouldReturnHome)
                 {
+                    if (!state.IsNightResting && state.HideWhileNightResting && !state.Instance.activeSelf)
+                    {
+                        continue;
+                    }
+
                     if (state.IsReturningHome)
                     {
                         continue;
@@ -2533,6 +3690,7 @@ namespace Sunset.Story
 
                     if (TryBeginResidentReturnHome(state))
                     {
+                        state.HideWhileNightResting = false;
                         _syncRequested = true;
                     }
 
@@ -2547,24 +3705,65 @@ namespace Sunset.Story
             }
         }
 
-        private static void ApplyResidentNightRestState(SpawnState state)
+        private static void RestoreResidentFromNightRestState(SpawnState state)
         {
-            if (state == null || state.Instance == null || state.HomeAnchor == null)
+            if (state == null || state.Instance == null)
             {
                 return;
             }
 
             state.Instance.SetActive(true);
 
-            NPCAutoRoamController roamController = state.Instance.GetComponent<NPCAutoRoamController>();
-            if (roamController != null)
+            Vector3 targetPosition = state.Instance.transform.position;
+            if (state.HomeAnchor != null)
             {
-                AcquireResidentDirectorControl(state, resumeRoamWhenReleased: false);
+                targetPosition = state.HomeAnchor.transform.position;
+                targetPosition.z = state.Instance.transform.position.z;
             }
 
-            Vector3 targetPosition = state.HomeAnchor.transform.position;
-            targetPosition.z = state.Instance.transform.position.z;
-            state.Instance.transform.position = targetPosition;
+            NPCAutoRoamController roamController = PrepareResidentRoamController(state);
+            if (roamController != null)
+            {
+                ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: false);
+                roamController.SnapToTarget((Vector2)targetPosition, state.BaseFacing);
+            }
+            else
+            {
+                state.Instance.transform.position = targetPosition;
+            }
+
+            state.Instance.GetComponent<NPCMotionController>()?.StopMotion();
+            Physics2D.SyncTransforms();
+            state.ResolvedAnchorName = state.BaseResolvedAnchorName;
+            state.UsedFallback = state.BaseUsedFallback;
+        }
+
+        private static void ApplyResidentNightRestState(SpawnState state)
+        {
+            if (state == null || state.Instance == null)
+            {
+                return;
+            }
+
+            state.Instance.SetActive(true);
+
+            NPCAutoRoamController roamController = PrepareResidentRoamController(state);
+            Vector3 targetPosition = state.Instance.transform.position;
+            if (state.HomeAnchor != null)
+            {
+                targetPosition = state.HomeAnchor.transform.position;
+                targetPosition.z = state.Instance.transform.position.z;
+            }
+
+            if (roamController != null)
+            {
+                ReleaseResidentSharedRuntimeControl(state, resumeResidentLogic: false);
+                roamController.SnapToTarget((Vector2)targetPosition, state.BaseFacing);
+            }
+            else
+            {
+                state.Instance.transform.position = targetPosition;
+            }
 
             NPCMotionController motionController = state.Instance.GetComponent<NPCMotionController>();
             if (motionController != null)
@@ -2573,11 +3772,19 @@ namespace Sunset.Story
                 ApplyFacingIfIdle(state.Instance, motionController, state.BaseFacing);
             }
 
+            if (state.HideWhileNightResting)
+            {
+                state.Instance.SetActive(false);
+            }
+
             state.IsReturningHome = false;
             state.ResumeRoamAfterReturn = false;
+            state.NextReturnHomeDriveRetryAt = 0f;
             state.NeedsResidentReset = false;
             state.ReleasedFromDirectorCue = false;
-            state.ResolvedAnchorName = $"night-rest:{state.BaseResolvedAnchorName}";
+            state.ResolvedAnchorName = state.HideWhileNightResting
+                ? $"night-rest-hidden:{state.BaseResolvedAnchorName}"
+                : $"night-rest:{state.BaseResolvedAnchorName}";
             state.UsedFallback = state.BaseUsedFallback;
         }
 
@@ -2621,102 +3828,15 @@ namespace Sunset.Story
             return entry.residentBaseline != SpringDay1CrowdResidentBaseline.NightResident;
         }
 
-        private Transform ResolveResidentParent(
-            SpringDay1NpcCrowdManifest.Entry entry,
-            StoryPhase currentPhase,
-            string beatKey,
-            SpringDay1NpcCrowdManifest.BeatConsumptionSnapshot beatConsumption)
-        {
-            if (ShouldReleaseResidentsToFreeTimeBaseline(currentPhase)
-                && ResolveBeatConsumptionRole(beatConsumption, entry.npcId) != SpringDay1CrowdDirectorConsumptionRole.Priority)
-            {
-                return _residentDefaultRoot != null
-                    ? _residentDefaultRoot.transform
-                    : _sceneRoot != null ? _sceneRoot.transform : null;
-            }
-
-            if (ShouldUseBackstageParent(entry, currentPhase, beatKey, beatConsumption))
-            {
-                return _residentBackstageRoot != null
-                    ? _residentBackstageRoot.transform
-                    : _sceneRoot != null ? _sceneRoot.transform : null;
-            }
-
-            if (ShouldUseTakeoverReadyParent(entry, beatKey, beatConsumption))
-            {
-                return _residentTakeoverReadyRoot != null
-                    ? _residentTakeoverReadyRoot.transform
-                    : _sceneRoot != null ? _sceneRoot.transform : null;
-            }
-
-            return _residentDefaultRoot != null
-                ? _residentDefaultRoot.transform
-                : _sceneRoot != null ? _sceneRoot.transform : null;
-        }
-
-        private bool ShouldReleaseResidentsToFreeTimeBaseline(StoryPhase currentPhase)
-        {
-            return currentPhase == StoryPhase.FreeTime
-                && !ShouldResidentsReturnHomeByClock()
-                && !ShouldResidentsRestByClock();
-        }
-
-        private static bool ShouldUseTakeoverReadyParent(
-            SpringDay1NpcCrowdManifest.Entry entry,
-            string beatKey,
-            SpringDay1NpcCrowdManifest.BeatConsumptionSnapshot beatConsumption)
-        {
-            if (entry == null)
-            {
-                return false;
-            }
-
-            SpringDay1CrowdDirectorConsumptionRole role = ResolveBeatConsumptionRole(beatConsumption, entry.npcId);
-            return role == SpringDay1CrowdDirectorConsumptionRole.Priority
-                || role == SpringDay1CrowdDirectorConsumptionRole.Support
-                || entry.residentBaseline == SpringDay1CrowdResidentBaseline.PeripheralResident;
-        }
-
-        private static bool ShouldUseBackstageParent(
-            SpringDay1NpcCrowdManifest.Entry entry,
-            StoryPhase currentPhase,
-            string beatKey,
-            SpringDay1NpcCrowdManifest.BeatConsumptionSnapshot beatConsumption)
-        {
-            if (entry == null)
-            {
-                return false;
-            }
-
-            SpringDay1CrowdDirectorConsumptionRole role = ResolveBeatConsumptionRole(beatConsumption, entry.npcId);
-            if (role == SpringDay1CrowdDirectorConsumptionRole.Trace
-                || role == SpringDay1CrowdDirectorConsumptionRole.BackstagePressure)
-            {
-                return true;
-            }
-
-            if (entry.residentBaseline == SpringDay1CrowdResidentBaseline.NightResident
-                && currentPhase < StoryPhase.FreeTime)
-            {
-                return true;
-            }
-
-            return currentPhase < StoryPhase.EnterVillage
-                && entry.residentBaseline != SpringDay1CrowdResidentBaseline.DaytimeResident;
-        }
-
         private static string BuildResidentSummaryAnchor(
-            SpringDay1NpcCrowdManifest.Entry entry,
             StoryPhase currentPhase,
             string beatKey,
-            Transform residentParent,
             bool hidden)
         {
             string beatLabel = string.IsNullOrWhiteSpace(beatKey) ? currentPhase.ToString() : beatKey;
-            string rootLabel = residentParent != null ? residentParent.name : "runtime-root";
             return hidden
-                ? $"resident-hidden:{rootLabel}:{beatLabel}"
-                : $"resident:{rootLabel}:{beatLabel}";
+                ? $"resident-hidden:{beatLabel}"
+                : $"resident:{beatLabel}";
         }
 
         private void ReparentState(SpawnState state, Transform newParent, string residentGroupKey)
@@ -2744,17 +3864,95 @@ namespace Sunset.Story
 
         private void EnsureSceneRoot(Scene scene)
         {
-            if (_sceneRoot != null && _sceneRoot.scene.IsValid() && _sceneRoot.scene == scene)
+            EnsureSceneLookupCache(scene);
+        }
+
+        private void InvalidateSceneLookupCache()
+        {
+            _sceneLookupCacheHandle = -1;
+            _sceneGameObjectLookupCache.Clear();
+            _sceneTransformLookupCache.Clear();
+            _sceneMissingTransformLookupCache.Clear();
+        }
+
+        private void EnsureSceneLookupCache(Scene scene)
+        {
+            if (!scene.IsValid())
+            {
+                InvalidateSceneLookupCache();
+                return;
+            }
+
+            if (_sceneLookupCacheHandle == scene.handle)
             {
                 return;
             }
 
-            _sceneRoot = FindSceneRoot(RuntimeRootName, scene);
-            _carrierRoot = FindSceneRoot(CarrierRootName, scene);
-            _residentRoot = FindSceneRoot(ResidentRootName, scene);
-            _residentDefaultRoot = FindSceneRoot(ResidentDefaultPresentRootName, scene);
-            _residentTakeoverReadyRoot = FindSceneRoot(ResidentTakeoverReadyRootName, scene);
-            _residentBackstageRoot = FindSceneRoot(ResidentBackstageRootName, scene);
+            _sceneLookupCacheHandle = scene.handle;
+            _sceneGameObjectLookupCache.Clear();
+            _sceneTransformLookupCache.Clear();
+            _sceneMissingTransformLookupCache.Clear();
+
+            GameObject[] sceneRoots = scene.GetRootGameObjects();
+            for (int index = 0; index < sceneRoots.Length; index++)
+            {
+                CacheSceneHierarchy(sceneRoots[index], scene);
+            }
+        }
+
+        private void CacheSceneHierarchy(GameObject rootObject, Scene scene)
+        {
+            if (rootObject == null || rootObject.scene != scene)
+            {
+                return;
+            }
+
+            CacheSceneHierarchy(rootObject.transform, scene);
+        }
+
+        private void CacheSceneHierarchy(Transform root, Scene scene)
+        {
+            if (root == null || root.gameObject.scene != scene)
+            {
+                return;
+            }
+
+            string name = root.name;
+            if (!string.IsNullOrWhiteSpace(name))
+            {
+                if (!_sceneGameObjectLookupCache.ContainsKey(name))
+                {
+                    _sceneGameObjectLookupCache[name] = root.gameObject;
+                }
+
+                if (!_sceneTransformLookupCache.ContainsKey(name))
+                {
+                    _sceneTransformLookupCache[name] = root;
+                }
+            }
+
+            for (int index = 0; index < root.childCount; index++)
+            {
+                CacheSceneHierarchy(root.GetChild(index), scene);
+            }
+        }
+
+        private GameObject FindSceneRoot(string rootName, Scene scene)
+        {
+            if (!scene.IsValid() || string.IsNullOrWhiteSpace(rootName))
+            {
+                return null;
+            }
+
+            EnsureSceneLookupCache(scene);
+            if (_sceneGameObjectLookupCache.TryGetValue(rootName, out GameObject cachedRoot)
+                && cachedRoot != null
+                && cachedRoot.scene == scene)
+            {
+                return cachedRoot;
+            }
+
+            return null;
         }
 
         private List<ResidentControlProbeEntry> CaptureResidentControlProbeInternal()
@@ -2829,43 +4027,6 @@ namespace Sunset.Story
             return entries;
         }
 
-        private static GameObject FindSceneRoot(string rootName, Scene scene)
-        {
-            if (!scene.IsValid() || string.IsNullOrWhiteSpace(rootName))
-            {
-                return null;
-            }
-
-            GameObject[] sceneRoots = scene.GetRootGameObjects();
-            for (int index = 0; index < sceneRoots.Length; index++)
-            {
-                GameObject sceneRoot = sceneRoots[index];
-                if (sceneRoot == null)
-                {
-                    continue;
-                }
-
-                if (string.Equals(sceneRoot.name, rootName, StringComparison.OrdinalIgnoreCase))
-                {
-                    return sceneRoot;
-                }
-
-                Transform exact = sceneRoot.transform.Find(rootName);
-                if (exact != null)
-                {
-                    return exact.gameObject;
-                }
-
-                Transform recursive = FindChildRecursive(sceneRoot.transform, rootName);
-                if (recursive != null)
-                {
-                    return recursive.gameObject;
-                }
-            }
-
-            return null;
-        }
-
         private static Transform FindChildRecursive(Transform root, string childName)
         {
             if (root == null)
@@ -2924,13 +4085,8 @@ namespace Sunset.Story
             }
 
             _spawnStates.Clear();
-            _sceneRoot = null;
-
-            _residentRoot = null;
-            _residentDefaultRoot = null;
-            _residentTakeoverReadyRoot = null;
-            _residentBackstageRoot = null;
-            _carrierRoot = null;
+            InvalidateSceneLookupCache();
+            _enterVillageCrowdReleaseLatched = false;
         }
 
         private void DestroyState(string npcId)
@@ -2939,6 +4095,8 @@ namespace Sunset.Story
             {
                 return;
             }
+
+            SetResidentCueInteractionLock(state, active: false);
 
             if (state.OwnsInstance && state.Instance != null)
             {
@@ -2969,13 +4127,14 @@ namespace Sunset.Story
             return scene.name == PrimarySceneName || scene.name == TownSceneName;
         }
 
-        private static GameObject FindSceneResident(SpringDay1NpcCrowdManifest.Entry entry, Scene scene)
+        private GameObject FindSceneResident(SpringDay1NpcCrowdManifest.Entry entry, Scene scene)
         {
             if (entry == null || !scene.IsValid())
             {
                 return null;
             }
 
+            EnsureSceneLookupCache(scene);
             foreach (string candidateName in EnumerateResidentLookupNames(entry.npcId))
             {
                 if (string.IsNullOrWhiteSpace(candidateName))
@@ -2993,19 +4152,26 @@ namespace Sunset.Story
             return null;
         }
 
-        private static Transform FindSceneResidentHomeAnchor(SpringDay1NpcCrowdManifest.Entry entry, Scene scene, Transform residentTransform)
+        private Transform FindSceneResidentHomeAnchor(SpringDay1NpcCrowdManifest.Entry entry, Scene scene, Transform residentTransform)
         {
             if (entry == null || !scene.IsValid())
             {
                 return null;
             }
 
+            EnsureSceneLookupCache(scene);
             foreach (string candidateName in EnumerateResidentLookupNames(entry.npcId))
             {
-                foreach (string homeAnchorName in EnumerateAnchorNames(candidateName))
+                foreach (string homeAnchorName in EnumerateAnchorLookupNames(candidateName))
                 {
+                    if (_sceneTransformLookupCache.TryGetValue(homeAnchorName, out Transform cachedAnchor)
+                        && IsValidResidentHomeAnchorCandidate(cachedAnchor, scene, residentTransform))
+                    {
+                        return cachedAnchor;
+                    }
+
                     Transform anchor = FindAnchor(homeAnchorName);
-                    if (anchor != null && anchor.gameObject.scene == scene)
+                    if (IsValidResidentHomeAnchorCandidate(anchor, scene, residentTransform))
                     {
                         return anchor;
                     }
@@ -3023,14 +4189,42 @@ namespace Sunset.Story
 
             foreach (string candidateName in EnumerateAnchorNames(entry.anchorObjectName))
             {
+                if (!IsHomeAnchorSemanticName(candidateName))
+                {
+                    continue;
+                }
+
+                if (_sceneTransformLookupCache.TryGetValue(candidateName, out Transform cachedAnchor)
+                    && IsValidResidentHomeAnchorCandidate(cachedAnchor, scene, residentTransform))
+                {
+                    return cachedAnchor;
+                }
+
                 Transform anchor = FindAnchor(candidateName);
-                if (anchor != null && anchor.gameObject.scene == scene)
+                if (IsValidResidentHomeAnchorCandidate(anchor, scene, residentTransform))
                 {
                     return anchor;
                 }
             }
 
             return null;
+        }
+
+        private static bool IsValidResidentHomeAnchorCandidate(Transform candidate, Scene scene, Transform residentTransform)
+        {
+            if (candidate == null || candidate.gameObject.scene != scene)
+            {
+                return false;
+            }
+
+            return (residentTransform == null || !ReferenceEquals(candidate, residentTransform))
+                && IsHomeAnchorSemanticName(candidate.name);
+        }
+
+        private static bool IsHomeAnchorSemanticName(string candidateName)
+        {
+            return !string.IsNullOrWhiteSpace(candidateName)
+                && candidateName.IndexOf("HomeAnchor", StringComparison.OrdinalIgnoreCase) >= 0;
         }
 
         private static IEnumerable<string> EnumerateResidentLookupNames(string npcId)

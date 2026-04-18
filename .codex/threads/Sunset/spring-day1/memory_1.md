@@ -5780,3 +5780,116 @@
     1. fresh-start seed
     2. day1 story-hour ceiling
     3. packaged debug time guard
+
+## 2026-04-15 21:23｜只读审计：Day1 `20:00 return-home / 21:00 rest` owner 持有链
+
+- 当前主线目标：
+  - 按用户最新语义，只读核对 `白天不回 anchor，只在 20:00 开始回 home；21:00 rest 不应被 Day1 runtime 反复回抓 owner` 这条 owner 持有链。
+- 本轮子任务：
+  - 静态拉通 `SpringDay1NpcCrowdDirector.TryBeginResidentReturnHome / TickResidentReturnHome / TryDriveResidentReturnHome / SyncResidentNightRestSchedule / ApplyResidentNightRestState`，并对照 `NPCAutoRoamController` 的 scripted-control 合同，判断最深残余 owner 真相和最小退权切口。
+- 关键结论：
+  1. 当前真正还带 owner 语义的最深残余，不在 `21:00 rest`，而在 `20:00` 的返家 contract：
+     - `TryBeginResidentReturnHome()` 进入后会调用 `TryDriveResidentReturnHome()`；
+     - `TryDriveResidentReturnHome()` 通过 `NPCAutoRoamController.RequestReturnToAnchor(ResidentScriptedControlOwnerKey, ...)` 建立 `SpringDay1NpcCrowdDirector` owner；
+     - 之后 `TickResidentReturnHome()` 只要没到家，就仍把这条 `return-home` 视为合法 contract，并在 drive 掉线后重试。
+  2. `21:00 rest` 当前代码事实并不会继续深持有 owner：
+     - `Update()` 先跑 `SyncResidentNightRestSchedule()`，再跑 `TickResidentReturns()`，最后才 `SyncCrowd()`；
+     - 一到 `shouldRest == true`，`ApplyResidentNightRestState()` 会先 `ReleaseResidentSharedRuntimeControl(..., false)`，再 `SnapToTarget(...)`；
+     - 这一步会把 shared owner 放掉，并把残余 travel contract 清空，所以 `rest` 自己不是“反复回抓 owner”的现成根。
+  3. 但 helper 语义层仍有一个残余冲突：
+     - `ShouldAllowResidentReturnHome(currentPhase)` 目前把 `shouldRest || shouldReturnHome` 合并成同一个“允许 return-home contract”窗口；
+     - 因而 `ShouldKeepResidentReturnHomeContract()` 在 helper 语义上仍把 `21:00 rest` 视作 `return-home` 合法期；
+     - 现在线路之所以没炸，是因为 `SyncResidentNightRestSchedule()` 的执行顺序先把状态切进 `IsNightResting` 并清掉 `IsReturningHome`，把这个 helper 冲突遮住了。
+  4. 因此，如果继续退权，最小正确切口不该砍 `ApplyResidentNightRestState()`，而该落在 `return-home contract` 的合法边界：
+     - 让 `20:00 <= hour < 21:00` 才属于 crowd 的 `return-home` 窗口；
+     - `21:00` 之后只允许 `night-rest` 接管，不再让 helper 语义把它视作 `return-home` 的延长期。
+- 是否已有语义冲突：
+  - 有，但更像“helper 层语义重叠”，不是当前 runtime 已经实锤的 owner 重抓：
+    - 代码顺序层：当前 `21:00` 会先 release + snap，静态推断下不应反复被抓回。
+    - 语义层：`ShouldAllowResidentReturnHome()` 仍把 `rest` 合并进 `return-home`，存在未来被调用顺序/调用点放大的风险。
+- 最小修复建议（仅建议，未改代码）：
+  1. 第一优先只收 `ShouldAllowResidentReturnHome / ShouldKeepResidentReturnHomeContract` 这条 helper 语义，把 `21:00 rest` 从 `return-home contract` 合法窗口里剥离。
+  2. 不建议先动 `ApplyResidentNightRestState()`：
+     - 这里已经是 release 点，再砍只会重复修“已正确 release 的尾部”，碰不到真正的语义边界。
+  3. 也不建议第一刀就彻底砍掉 `TryDriveResidentReturnHome()` 的 owner：
+     - `20:00` 返家仍需要一个 formal-navigation contract 把 resident 真正带回 home；
+     - 当前最小正确收口是缩窄 owner 窗口，不是直接把返家 contract 改成无 owner 漂移。
+- 测试缺口：
+  1. 现有 `SpringDay1DirectorStagingTests.cs` 已有 `ApplyResidentNightRestState()` 不继续持有 owner 的单点测试，但还没有一条完整覆盖：
+     - `20:00` 已在返家中
+     - 时钟跳到 `21:00`
+     - 跑 `SyncResidentNightRestSchedule()`
+     - 再跑一轮 `TickResidentReturns()/SyncCrowd()`
+     - 仍然断言 `ResidentScriptedControlOwnerKey == string.Empty`、`IsResidentScriptedControlActive == false`、`IsResidentScriptedMoveActive == false`
+  2. 还缺一条 helper 语义测试，直接锁死：
+     - `21:00` 时 `ShouldKeepResidentReturnHomeContract()` 不再把 `rest` 当 `return-home` 合法窗口。
+  3. 当前 `CrowdDirector_ClockSchedule_ShouldStartReturnAtTwentyAndRestAtTwentyOne()` 只测时间窗，不测 owner 释放链，覆盖面不足以证明“21:00 不会被再抓回”。
+- 当前验证：
+  - 纯静态代码审计
+  - 未运行 Unity / MCP / PlayMode
+  - 验证状态：`静态推断成立`
+- 恢复点：
+  - 如果用户批准继续收“一刀最小退权”，优先只改：
+    1. `ShouldAllowResidentReturnHome(...)`
+    2. `ShouldKeepResidentReturnHomeContract(...)`
+    3. 一条 `20:00 return-home -> 21:00 rest` 整链回归测试
+## 2026-04-17 02:09｜只读回答 opening/daytime resident release 4 问
+- 当前主线目标：
+  - `spring-day1` 继续把 opening/daytime resident release contract 收成单一、稳定、可验的 runtime 语义面。
+- 本轮子任务：
+  - 用户要求只读精查 `SpringDay1NpcCrowdDirector.cs` 的 opening/daytime resident release 链，至少覆盖 `ApplyResidentBaseline`、`TryReleaseResidentToDaytimeBaseline`、`BuildSyntheticThirdResidentResidentEntry`，以及 `EnterVillage` release/yield 判断，并明确回答 4 个问题。
+- 本轮核心结论：
+  1. ordinary resident opening 后之所以 baseline teleport，是因为：
+     - `ApplyStagingCue()` 在 `ShouldSuppressEnterVillageCrowdCueForTownHouseLead()` 命中后清 cue，并把 `NeedsResidentReset/ReleasedFromDirectorCue` 置真；
+     - `ApplyResidentBaseline()` 随即走 `TryReleaseResidentToDaytimeBaseline()`；
+     - 该方法当前不用 semantic daytime baseline，而是直接把 resident 送回 `TryBindSceneResident()` 初绑时记下的 `BasePosition`。
+  2. `ShouldYieldDaytimeResidentsToAutonomy()` 并不是 opening teleport 的直接来源；它在 `currentPhase == EnterVillage` 时明确返回 `false`，说明 opening 放人仍挂在 baseline-release contract，不是 free-time yield。
+  3. `003` 仍残留两层特殊入口：
+     - crowd 侧：`ShouldIncludeThirdResidentInResidentRuntime()` / `BuildSyntheticThirdResidentResidentEntry()`
+     - director 侧：`ResolveStoryThirdResidentTransform()`、`TryPrepareTownVillageGateActors()`、`TryPrepareDinnerGatheringActors()`、`TryResolveFallbackTownVillageGateTarget()`、`TryResolveTownOpeningLayoutPoints()`
+  4. 最小安全改法不是再动 release timing，而是只收 `TryReleaseResidentToDaytimeBaseline()` 的位置重写；先保留 latch/suppress/yield 条件面，避免把“去 teleport”误扩成“重写整条 opening release contract”。
+  5. 最可能受影响的现有测试：
+     - `CrowdDirector_ShouldReleaseOpeningResidentToSharedBaselineAfterEnterVillageCrowdReleaseLatches`
+     - 若顺手统一 `003` 位姿，再加 `CrowdDirector_ShouldReleaseDirectorOwnedThirdResidentThroughSharedResidentContract`
+     - opening cue suppress/latch 系列理论上不该动
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1NpcCrowdDirector.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1DirectorStagingTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1OpeningRuntimeBridgeTests.cs`
+- 验证结果：
+  - 纯静态代码审计
+  - 无代码改动，无 Unity/MCP 运行验证
+- thread-state：
+  - 本轮始终只读，未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
+  - 当前 live 状态沿用上轮 `PARKED`
+- 修复后恢复点：
+  - 如果继续真实施工，第一刀只该切 `TryReleaseResidentToDaytimeBaseline()` 的 teleport 行为；确认 stable 后再决定要不要继续吃 `003` 残余特例。
+
+## 2026-04-17 14:29｜Day1 Package F-07 stale tests 只读审计
+- 用户目标：
+  - 只读审 `Day1 Package F-07` 的 stale tests，重点看 `SpringDay1DirectorStagingTests.cs` 与 Day1 anchor/beat 相关 editor tests，找出仍把旧中间层当真值的断言，并给最小安全新断言方向。
+- 已完成事项：
+  1. 按 `0417.md` 对齐了本轮只读范围与旧语义名单
+  2. 静态复查了 `SpringDay1DirectorStagingTests.cs`
+  3. 连带复查了 `NpcCrowdManifestSceneDutyTests.cs`、`NpcCrowdResidentDirectorBridgeTests.cs`、`SpringDay1OpeningRuntimeBridgeTests.cs`
+- 关键判断：
+  1. 最该先删/重写的是 `SpringDay1DirectorStagingTests.cs` 里 4 类断言：
+     - `_residentRoot/_carrierRoot` 绑定 `Town_Day1Residents/Town_Day1Carriers`
+     - neutral snapshot 恢复后强制 restart roam
+     - return-home 完成后 resume roam / force restart roam
+     - 继续把 `DailyStand_Preview` 与旧 semantic anchors 当 runtime 真值
+  2. `NpcCrowdManifestSceneDutyTests.cs` / `NpcCrowdResidentDirectorBridgeTests.cs` 目前仍大面积镜像旧 beat/anchor 白名单，属于第二优先级重写面
+  3. `SpringDay1OpeningRuntimeBridgeTests.cs` 里 `TownVillageGate actor fallback` 解析入口要求也已显出 stale 倾向
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1DirectorStagingTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NpcCrowdManifestSceneDutyTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NpcCrowdResidentDirectorBridgeTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1OpeningRuntimeBridgeTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\100-重新开始\0417.md`
+- 验证结果：
+  - 纯静态审计，未改代码，未跑测试
+- 当前主线 / 子任务 / 恢复点：
+  - 主线仍是 `0417` 的 Day1 runtime/contracts 清扫
+  - 本轮子任务是 tests 真相清扫里的 `F-07`
+  - 如果继续施工，先收 `SpringDay1DirectorStagingTests.cs` 的 stale cluster，再回到更大面的 beat/anchor 重映射

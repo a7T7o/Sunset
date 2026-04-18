@@ -1,5 +1,4 @@
 using System;
-using System.Reflection;
 using UnityEngine;
 
 namespace Sunset.Story
@@ -7,7 +6,14 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public class NPCInformalChatInteractable : MonoBehaviour, IInteractable
     {
-        private static Type _playerNpcChatSessionServiceType;
+        private const float CoarseInteractionPadding = 1.5f;
+        internal const string InformalChatControlOwnerKey = "npc-informal-chat";
+
+        private static PlayerMovement _cachedPlayerMovement;
+        private static int _lastPlayerLookupFrame = -1;
+        private static int _lastPlayerSamplePointFrame = -1;
+        private static Vector2 _cachedPlayerSamplePoint;
+        private static global::PlayerNpcChatSessionService _cachedSessionService;
 
         [Header("Interaction")]
         [SerializeField] private string interactionHint = "闲聊";
@@ -32,6 +38,13 @@ namespace Sunset.Story
         [SerializeField] private NPCDialogueInteractable dialogueInteractable;
 
         private bool _resumeRoamAfterChat;
+        private bool _presentationCacheInitialized;
+        private InteractionContext _cachedInteractionContext;
+        private SpriteRenderer[] _cachedPresentationRenderers = System.Array.Empty<SpriteRenderer>();
+        private Collider2D[] _cachedPresentationColliders = System.Array.Empty<Collider2D>();
+        private Action _cachedPromptTriggerAction;
+        private InteractionContext _pendingPromptContext;
+        private string _cachedProximityKeyLabel;
 
         public int InteractionPriority => interactionPriority;
         public float InteractionDistance => interactionDistance;
@@ -40,6 +53,12 @@ namespace Sunset.Story
         public NPCMotionController MotionController => motionController;
         public NPCBubblePresenter BubblePresenter => bubblePresenter;
         public NPCRoamProfile RoamProfile => autoRoamController != null ? autoRoamController.RoamProfile : null;
+        public bool IsResidentScriptedControlActive => autoRoamController != null && autoRoamController.IsResidentScriptedControlActive;
+
+        internal static bool IsInformalChatControlOwner(string ownerKey)
+        {
+            return string.Equals(ownerKey, InformalChatControlOwnerKey, StringComparison.Ordinal);
+        }
 
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void BootstrapRuntime()
@@ -49,11 +68,6 @@ namespace Sunset.Story
             {
                 NPCAutoRoamController controller = controllers[index];
                 if (controller == null || controller.GetComponent<NPCInformalChatInteractable>() != null)
-                {
-                    continue;
-                }
-
-                if (controller.GetComponent<NPCDialogueInteractable>() != null)
                 {
                     continue;
                 }
@@ -82,11 +96,13 @@ namespace Sunset.Story
         private void Awake()
         {
             CacheComponents();
+            CacheInteractionLabels();
         }
 
         private void OnEnable()
         {
             CacheComponents();
+            CacheInteractionLabels();
             if (Application.isPlaying)
             {
                 NpcAmbientBubblePriorityGuard.EnsureRuntime();
@@ -95,13 +111,13 @@ namespace Sunset.Story
 
         private void OnDisable()
         {
-            SpringDay1WorldHintBubble.HideIfExists(transform);
-            NpcWorldHintBubble.HideIfExists(transform);
+            HideProximityHints();
         }
 
         private void OnValidate()
         {
             CacheComponents();
+            CacheInteractionLabels();
             interactionDistance = Mathf.Max(0.35f, interactionDistance);
             sessionBreakDistance = Mathf.Max(interactionDistance, sessionBreakDistance);
             bubbleRevealDistance = Mathf.Max(interactionDistance, bubbleRevealDistance);
@@ -109,8 +125,7 @@ namespace Sunset.Story
 
         private void Update()
         {
-            InteractionContext context = BuildInteractionContext();
-            if (context?.PlayerTransform == null)
+            if (!TryBuildInteractionContext(out InteractionContext context))
             {
                 return;
             }
@@ -120,8 +135,23 @@ namespace Sunset.Story
 
         public bool CanInteract(InteractionContext context)
         {
-            InteractionContext effectiveContext = context ?? BuildInteractionContext();
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
+            InteractionContext effectiveContext = context;
+            if (effectiveContext == null && !TryBuildInteractionContext(out effectiveContext))
+            {
+                return false;
+            }
+
+            global::PlayerNpcChatSessionService sessionService = ResolveSessionService(effectiveContext);
+            bool isActiveConversationTarget = sessionService != null && sessionService.IsConversationActiveWith(this);
+            return CanInteractWithResolvedSession(effectiveContext, sessionService, isActiveConversationTarget);
+        }
+
+        private bool CanInteractWithResolvedSession(
+            InteractionContext effectiveContext,
+            global::PlayerNpcChatSessionService sessionService,
+            bool isActiveConversationTarget)
+        {
+            if (NpcInteractionPriorityPolicy.IsBlockingPageUiOpenCached())
             {
                 return false;
             }
@@ -136,8 +166,11 @@ namespace Sunset.Story
                 return false;
             }
 
-            Component sessionService = ResolveSessionService(effectiveContext);
-            bool isActiveConversationTarget = InvokeSessionBool(sessionService, "IsConversationActiveWith", this);
+            if (IsResidentScriptedControlBlockingInformalInteraction())
+            {
+                return false;
+            }
+
             if (!isActiveConversationTarget &&
                 NpcInteractionPriorityPolicy.ShouldSuppressInformalInteractionForCurrentStory(
                     dialogueInteractable,
@@ -146,7 +179,7 @@ namespace Sunset.Story
                 return false;
             }
 
-            return sessionService == null || InvokeSessionBool(sessionService, "CanRouteInteractable", this);
+            return sessionService == null || sessionService.CanRouteInteractable(this);
         }
 
         public void OnInteract(InteractionContext context)
@@ -156,28 +189,37 @@ namespace Sunset.Story
 
         public bool TryHandleInteract(InteractionContext context)
         {
-            InteractionContext effectiveContext = context ?? BuildInteractionContext();
-            Component sessionService = ResolveSessionService(effectiveContext);
-            bool isActiveConversationTarget = InvokeSessionBool(sessionService, "IsConversationActiveWith", this);
-            if (!isActiveConversationTarget &&
-                NpcInteractionPriorityPolicy.ShouldSuppressInformalInteractionForCurrentStory(
-                    dialogueInteractable,
-                    effectiveContext))
+            InteractionContext effectiveContext = context;
+            if (effectiveContext == null && !TryBuildInteractionContext(out effectiveContext))
             {
                 return false;
             }
 
-            if (sessionService != null)
+            global::PlayerNpcChatSessionService sessionService = ResolveSessionService(effectiveContext);
+            bool isActiveConversationTarget = sessionService != null && sessionService.IsConversationActiveWith(this);
+            if (!CanInteractWithResolvedSession(effectiveContext, sessionService, isActiveConversationTarget))
             {
-                return InvokeSessionBool(sessionService, "HandleInteract", this, effectiveContext);
+                return false;
             }
 
-            return false;
+            if (SpringDay1Director.Instance != null
+                && SpringDay1Director.Instance.TryConsumeStoryNpcInteraction(transform, effectiveContext))
+            {
+                return true;
+            }
+
+            return sessionService != null && sessionService.HandleInteract(this, effectiveContext);
         }
 
         public string GetInteractionHint(InteractionContext context)
         {
             return CanInteract(context) ? interactionHint : string.Empty;
+        }
+
+        public bool ShouldUseResidentPromptTone()
+        {
+            CacheComponents();
+            return dialogueInteractable != null && dialogueInteractable.WillYieldToInformalResident();
         }
 
         public string ResolveNpcId()
@@ -194,15 +236,29 @@ namespace Sunset.Story
 
         public NPCDialogueContentProfile.InformalConversationBundle[] ResolveConversationBundles(NPCRelationshipStage relationshipStage)
         {
+            return ResolveConversationBundles(relationshipStage, ResolveCurrentStoryPhase());
+        }
+
+        public NPCDialogueContentProfile.InformalConversationBundle[] ResolveConversationBundles(
+            NPCRelationshipStage relationshipStage,
+            StoryPhase storyPhase)
+        {
             return RoamProfile != null
-                ? RoamProfile.GetInformalConversationBundles(relationshipStage)
+                ? RoamProfile.GetInformalConversationBundles(relationshipStage, storyPhase)
                 : System.Array.Empty<NPCDialogueContentProfile.InformalConversationBundle>();
         }
 
         public NPCDialogueContentProfile.InformalChatInterruptReaction ResolveWalkAwayReaction(NPCRelationshipStage relationshipStage)
         {
+            return ResolveWalkAwayReaction(relationshipStage, ResolveCurrentStoryPhase());
+        }
+
+        public NPCDialogueContentProfile.InformalChatInterruptReaction ResolveWalkAwayReaction(
+            NPCRelationshipStage relationshipStage,
+            StoryPhase storyPhase)
+        {
             return RoamProfile != null
-                ? RoamProfile.GetWalkAwayReaction(relationshipStage)
+                ? RoamProfile.GetWalkAwayReaction(relationshipStage, storyPhase)
                 : null;
         }
 
@@ -211,8 +267,17 @@ namespace Sunset.Story
             NPCInformalChatLeaveCause leaveCause,
             NPCInformalChatLeavePhase leavePhase)
         {
+            return ResolveInterruptReaction(relationshipStage, ResolveCurrentStoryPhase(), leaveCause, leavePhase);
+        }
+
+        public NPCDialogueContentProfile.InformalChatInterruptReaction ResolveInterruptReaction(
+            NPCRelationshipStage relationshipStage,
+            StoryPhase storyPhase,
+            NPCInformalChatLeaveCause leaveCause,
+            NPCInformalChatLeavePhase leavePhase)
+        {
             return RoamProfile != null
-                ? RoamProfile.GetInterruptReaction(relationshipStage, leaveCause, leavePhase)
+                ? RoamProfile.GetInterruptReaction(relationshipStage, storyPhase, leaveCause, leavePhase)
                 : null;
         }
 
@@ -221,8 +286,17 @@ namespace Sunset.Story
             NPCInformalChatLeaveCause leaveCause,
             NPCInformalChatLeavePhase leavePhase)
         {
+            return ResolveResumeIntro(relationshipStage, ResolveCurrentStoryPhase(), leaveCause, leavePhase);
+        }
+
+        public NPCDialogueContentProfile.InformalChatResumeIntro ResolveResumeIntro(
+            NPCRelationshipStage relationshipStage,
+            StoryPhase storyPhase,
+            NPCInformalChatLeaveCause leaveCause,
+            NPCInformalChatLeavePhase leavePhase)
+        {
             return RoamProfile != null
-                ? RoamProfile.GetResumeIntro(relationshipStage, leaveCause, leavePhase)
+                ? RoamProfile.GetResumeIntro(relationshipStage, storyPhase, leaveCause, leavePhase)
                 : null;
         }
 
@@ -233,10 +307,11 @@ namespace Sunset.Story
 
             if (freezeRoamDuringChat)
             {
-                if (autoRoamController != null && autoRoamController.IsRoaming)
+                if (autoRoamController != null)
                 {
-                    _resumeRoamAfterChat = true;
-                    autoRoamController.StopRoam();
+                    _resumeRoamAfterChat = autoRoamController.IsRoaming;
+                    autoRoamController.AcquireStoryControl(InformalChatControlOwnerKey, _resumeRoamAfterChat);
+                    autoRoamController.HaltStoryControlMotion();
                 }
                 else if (motionController != null)
                 {
@@ -252,9 +327,9 @@ namespace Sunset.Story
 
         public void ExitConversationOccupation()
         {
-            if (_resumeRoamAfterChat && autoRoamController != null && autoRoamController.isActiveAndEnabled)
+            if (autoRoamController != null && autoRoamController.isActiveAndEnabled)
             {
-                autoRoamController.StartRoam();
+                autoRoamController.ReleaseStoryControl(InformalChatControlOwnerKey, _resumeRoamAfterChat);
             }
 
             _resumeRoamAfterChat = false;
@@ -262,9 +337,18 @@ namespace Sunset.Story
 
         public void FaceToward(Vector2 direction)
         {
-            if (motionController != null && direction.sqrMagnitude > 0.0001f)
+            if (direction.sqrMagnitude <= 0.0001f)
             {
-                motionController.SetFacingDirection(direction);
+                return;
+            }
+
+            if (autoRoamController != null)
+            {
+                autoRoamController.ApplyIdleFacing(direction);
+            }
+            else if (motionController != null)
+            {
+                motionController.ApplyIdleFacing(direction);
             }
         }
 
@@ -274,41 +358,44 @@ namespace Sunset.Story
             motionController ??= GetComponent<NPCMotionController>();
             bubblePresenter ??= GetComponent<NPCBubblePresenter>();
             dialogueInteractable ??= GetComponent<NPCDialogueInteractable>();
+            _cachedPresentationRenderers = GetComponentsInChildren<SpriteRenderer>(includeInactive: true);
+            _cachedPresentationColliders = GetComponentsInChildren<Collider2D>(includeInactive: true);
+            _presentationCacheInitialized = true;
         }
 
         private void ReportProximityInteraction(InteractionContext context)
         {
             if (!enableProximityKeyInteraction)
             {
-                SpringDay1WorldHintBubble.HideIfExists(transform);
-                NpcWorldHintBubble.HideIfExists(transform);
+                HideProximityHints();
                 return;
             }
 
-            if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() || (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive))
+            if (IsResidentScriptedControlBlockingInformalInteraction())
             {
-                SpringDay1WorldHintBubble.HideIfExists(transform);
-                NpcWorldHintBubble.HideIfExists(transform);
+                HideProximityHints();
                 return;
             }
 
-            Component sessionService = ResolveSessionService(context);
-            bool isActiveConversationTarget = InvokeSessionBool(sessionService, "IsConversationActiveWith", this);
-            if (!isActiveConversationTarget &&
-                NpcInteractionPriorityPolicy.ShouldSuppressInformalInteractionForCurrentStory(
-                    dialogueInteractable,
-                    context))
+            if (NpcInteractionPriorityPolicy.IsBlockingPageUiOpenCached()
+                || (DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive))
             {
-                SpringDay1WorldHintBubble.HideIfExists(transform);
-                NpcWorldHintBubble.HideIfExists(transform);
+                HideProximityHints();
                 return;
             }
 
-            bool canInteractNow = CanInteract(context);
+            if (IsOutsideCoarseInteractionRange(context.PlayerPosition))
+            {
+                HideProximityHints();
+                return;
+            }
+
+            global::PlayerNpcChatSessionService sessionService = ResolveSessionService(context);
+            bool isActiveConversationTarget = sessionService != null && sessionService.IsConversationActiveWith(this);
+            bool canInteractNow = CanInteractWithResolvedSession(context, sessionService, isActiveConversationTarget);
             if (!isActiveConversationTarget && !canInteractNow)
             {
-                SpringDay1WorldHintBubble.HideIfExists(transform);
-                NpcWorldHintBubble.HideIfExists(transform);
+                HideProximityHints();
                 return;
             }
 
@@ -318,130 +405,219 @@ namespace Sunset.Story
                 : Mathf.Max(bubbleRevealDistance, interactionDistance);
             if (boundaryDistance > revealDistance)
             {
-                SpringDay1WorldHintBubble.HideIfExists(transform);
-                NpcWorldHintBubble.HideIfExists(transform);
+                HideProximityHints();
                 return;
             }
 
-            string caption = InvokeSessionString(sessionService, "GetPromptCaption", bubbleCaption, this);
-            string detail = InvokeSessionString(sessionService, "GetPromptDetail", bubbleDetail, this);
+            string caption = sessionService != null ? sessionService.GetPromptCaption(this) : bubbleCaption;
+            string detail = sessionService != null ? sessionService.GetPromptDetail(this) : bubbleDetail;
 
             SpringDay1ProximityInteractionService.ReportCandidate(
                 transform,
                 proximityInteractionKey,
-                proximityInteractionKey.ToString(),
+                _cachedProximityKeyLabel,
                 caption,
                 detail,
                 boundaryDistance,
                 interactionPriority,
                 keyInteractionCooldown,
                 isActiveConversationTarget || (boundaryDistance <= interactionDistance && canInteractNow),
-                () => OnInteract(context),
+                ResolveCachedPromptTriggerAction(context),
                 forceFocus: isActiveConversationTarget,
                 showWorldIndicator: false);
         }
 
-        private InteractionContext BuildInteractionContext()
+        private bool TryBuildInteractionContext(out InteractionContext context)
         {
-            PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
-            Transform playerTransform = playerMovement != null ? playerMovement.transform : null;
+            Transform playerTransform = ResolveCachedPlayerTransform();
             if (playerTransform == null)
             {
-                return null;
+                context = null;
+                return false;
             }
 
-            return new InteractionContext
-            {
-                PlayerTransform = playerTransform,
-                PlayerPosition = SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform)
-            };
+            _cachedInteractionContext ??= new InteractionContext();
+            _cachedInteractionContext.PlayerTransform = playerTransform;
+            _cachedInteractionContext.PlayerPosition = ResolveCachedPlayerSamplePoint(playerTransform);
+            context = _cachedInteractionContext;
+            return true;
         }
 
         private Bounds GetInteractionBounds()
         {
-            return SpringDay1UiLayerUtility.TryGetPresentationBounds(transform, out Bounds bounds)
+            return TryGetCachedPresentationBounds(out Bounds bounds)
                 ? bounds
                 : new Bounds(transform.position, Vector3.one);
         }
 
-        private static Component ResolveSessionService(InteractionContext context)
+        private static Transform ResolveCachedPlayerTransform()
         {
-            Type serviceType = FindPlayerNpcChatSessionServiceType();
-            if (serviceType == null)
+            if (_cachedPlayerMovement != null)
+            {
+                return _cachedPlayerMovement.transform;
+            }
+
+            if (_lastPlayerLookupFrame == Time.frameCount)
             {
                 return null;
             }
 
-            if (context?.PlayerTransform != null)
-            {
-                MethodInfo resolveForPlayer = serviceType.GetMethod(
-                    "ResolveForPlayer",
-                    BindingFlags.Public | BindingFlags.Static);
-                if (resolveForPlayer != null)
-                {
-                    return resolveForPlayer.Invoke(null, new object[] { context.PlayerTransform.gameObject }) as Component;
-                }
-            }
-
-            PropertyInfo instanceProperty = serviceType.GetProperty(
-                "Instance",
-                BindingFlags.Public | BindingFlags.Static);
-            return instanceProperty?.GetValue(null) as Component;
+            _lastPlayerLookupFrame = Time.frameCount;
+            _cachedPlayerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+            return _cachedPlayerMovement != null ? _cachedPlayerMovement.transform : null;
         }
 
-        private static Type FindPlayerNpcChatSessionServiceType()
+        private static Vector2 ResolveCachedPlayerSamplePoint(Transform playerTransform)
         {
-            if (_playerNpcChatSessionServiceType != null)
+            if (_lastPlayerSamplePointFrame != Time.frameCount)
             {
-                return _playerNpcChatSessionServiceType;
+                _cachedPlayerSamplePoint = SpringDay1UiLayerUtility.GetInteractionSamplePoint(playerTransform);
+                _lastPlayerSamplePointFrame = Time.frameCount;
             }
 
-            Assembly[] assemblies = AppDomain.CurrentDomain.GetAssemblies();
-            for (int index = 0; index < assemblies.Length; index++)
-            {
-                Type serviceType = assemblies[index].GetType("PlayerNpcChatSessionService");
-                if (serviceType != null)
-                {
-                    _playerNpcChatSessionServiceType = serviceType;
-                    return _playerNpcChatSessionServiceType;
-                }
-            }
-
-            return null;
+            return _cachedPlayerSamplePoint;
         }
 
-        private static bool InvokeSessionBool(Component sessionService, string methodName, params object[] args)
+        private static global::PlayerNpcChatSessionService ResolveSessionService(InteractionContext context)
         {
-            if (sessionService == null)
+            if (context?.PlayerTransform == null)
+            {
+                return global::PlayerNpcChatSessionService.Instance;
+            }
+
+            if (_cachedSessionService != null && _cachedSessionService.gameObject == context.PlayerTransform.gameObject)
+            {
+                return _cachedSessionService;
+            }
+
+            _cachedSessionService = global::PlayerNpcChatSessionService.ResolveForPlayer(context.PlayerTransform.gameObject);
+            return _cachedSessionService;
+        }
+
+        private static StoryPhase ResolveCurrentStoryPhase()
+        {
+            return NpcInteractionPriorityPolicy.ResolveCurrentStoryPhase();
+        }
+
+        private bool IsResidentScriptedControlBlockingInformalInteraction()
+        {
+            CacheComponents();
+            if (!IsResidentScriptedControlActive)
             {
                 return false;
             }
 
-            MethodInfo method = sessionService.GetType().GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance);
-            if (method == null)
+            if (autoRoamController != null &&
+                IsInformalChatControlOwner(autoRoamController.ResidentScriptedControlOwnerKey))
             {
                 return false;
             }
 
-            object result = method.Invoke(sessionService, args);
-            return result is bool boolResult && boolResult;
+            return !ShouldAllowInformalInteractionDuringFreeTimeReturnHome();
         }
 
-        private static string InvokeSessionString(Component sessionService, string methodName, string fallback, params object[] args)
+        private bool ShouldAllowInformalInteractionDuringFreeTimeReturnHome()
         {
-            if (sessionService == null)
-            {
-                return fallback;
-            }
-
-            MethodInfo method = sessionService.GetType().GetMethod(methodName, BindingFlags.Public | BindingFlags.Instance);
-            if (method == null)
-            {
-                return fallback;
-            }
-
-            object result = method.Invoke(sessionService, args);
-            return result as string ?? fallback;
+            StoryPhase currentPhase = ResolveCurrentStoryPhase();
+            return autoRoamController != null
+                && autoRoamController.IsResidentScriptedControlActive
+                && autoRoamController.IsFormalNavigationDriveActive()
+                && NpcInteractionPriorityPolicy.AllowsResidentFreeInteractionPhase(currentPhase);
         }
+
+        private void HideProximityHints()
+        {
+            SpringDay1WorldHintBubble.HideIfExists(transform);
+            NpcWorldHintBubble.HideIfExists(transform);
+        }
+
+        private bool IsOutsideCoarseInteractionRange(Vector2 playerPosition)
+        {
+            float coarseDistance = Mathf.Max(bubbleRevealDistance, SessionBreakDistance) + CoarseInteractionPadding;
+            return ((Vector2)transform.position - playerPosition).sqrMagnitude > coarseDistance * coarseDistance;
+        }
+
+        private bool TryGetCachedPresentationBounds(out Bounds bounds)
+        {
+            bounds = default;
+            if (!_presentationCacheInitialized)
+            {
+                CacheComponents();
+            }
+
+            bool hasRenderer = false;
+            for (int index = 0; index < _cachedPresentationRenderers.Length; index++)
+            {
+                SpriteRenderer renderer = _cachedPresentationRenderers[index];
+                if (renderer == null || !renderer.enabled || renderer.sprite == null)
+                {
+                    continue;
+                }
+
+                if (!hasRenderer)
+                {
+                    bounds = renderer.bounds;
+                    hasRenderer = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(renderer.bounds);
+                }
+            }
+
+            if (hasRenderer)
+            {
+                return true;
+            }
+
+            bool hasCollider = false;
+            for (int index = 0; index < _cachedPresentationColliders.Length; index++)
+            {
+                Collider2D collider2D = _cachedPresentationColliders[index];
+                if (collider2D == null || !collider2D.enabled)
+                {
+                    continue;
+                }
+
+                if (!hasCollider)
+                {
+                    bounds = collider2D.bounds;
+                    hasCollider = true;
+                }
+                else
+                {
+                    bounds.Encapsulate(collider2D.bounds);
+                }
+            }
+
+            if (hasCollider)
+            {
+                return true;
+            }
+
+            bounds = new Bounds(transform.position, Vector3.one);
+            return true;
+        }
+
+        private Action ResolveCachedPromptTriggerAction(InteractionContext context)
+        {
+            _pendingPromptContext = context;
+            _cachedPromptTriggerAction ??= TriggerPendingPromptInteraction;
+            return _cachedPromptTriggerAction;
+        }
+
+        private void CacheInteractionLabels()
+        {
+            _cachedProximityKeyLabel = proximityInteractionKey.ToString();
+        }
+
+        private void TriggerPendingPromptInteraction()
+        {
+            if (_pendingPromptContext != null)
+            {
+                OnInteract(_pendingPromptContext);
+            }
+        }
+
     }
 }

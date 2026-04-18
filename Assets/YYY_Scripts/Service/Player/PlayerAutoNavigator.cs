@@ -223,7 +223,7 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         if (playerCollider != null)
         {
             playerRadius = Mathf.Max(playerCollider.bounds.extents.x, playerCollider.bounds.extents.y);
-            if (navGrid != null) navGrid.SetAgentRadius(playerRadius);
+            if (navGrid != null) navGrid.SetAgentRadius(playerRadius, rebuild: false);
         }
         else
         {
@@ -256,6 +256,32 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         if (CheckAndHandleStuck()) return;
 
         ExecuteNavigation();
+    }
+
+    public void BindRuntimeSceneReferences(PlayerMovement boundMovement, Transform boundPlayer, NavGrid2D boundNavGrid)
+    {
+        movement = boundMovement != null ? boundMovement : GetComponent<PlayerMovement>();
+        player = boundPlayer != null ? boundPlayer : transform;
+        navGrid = boundNavGrid;
+        playerRigidbody = player != null ? player.GetComponent<Rigidbody2D>() : GetComponent<Rigidbody2D>();
+        playerCollider = player != null ? player.GetComponent<Collider2D>() : GetComponent<Collider2D>();
+        if (playerCollider == null && player != null)
+        {
+            playerCollider = player.GetComponentInChildren<Collider2D>();
+        }
+
+        if (playerCollider != null)
+        {
+            playerRadius = Mathf.Max(playerCollider.bounds.extents.x, playerCollider.bounds.extents.y);
+            if (navGrid != null)
+            {
+                navGrid.SetAgentRadius(playerRadius, rebuild: false);
+            }
+        }
+
+        _cachedTargetTransform = null;
+        _cachedTargetCollider = null;
+        ForceCancel();
     }
 
     public void SetDestination(Vector3 worldPos)
@@ -2500,6 +2526,12 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
     private Vector2 GetTargetAnchorPoint(Transform target)
     {
         if (target == null) return transform.position;
+
+        var chest = target.GetComponent<FarmGame.World.ChestController>() ?? target.GetComponentInParent<FarmGame.World.ChestController>();
+        if (chest != null)
+        {
+            return chest.GetClosestInteractionPointForNavigation(GetPlayerPosition());
+        }
         
         // 缓存 Collider
         if (_cachedTargetTransform != target)
@@ -2547,8 +2579,8 @@ public class PlayerAutoNavigator : MonoBehaviour, INavigationUnit
         if (interactable != null)
         {
             float interactDist = interactable.InteractionDistance;
-            float stopFactor = interactable is FarmGame.World.ChestController ? 0.3f : 0.78f;
-            float minStopRadius = interactable is FarmGame.World.ChestController ? 0.12f : 0.3f;
+            float stopFactor = interactable is FarmGame.World.ChestController ? 0.72f : 0.78f;
+            float minStopRadius = interactable is FarmGame.World.ChestController ? 0.45f : 0.3f;
             // 对交互目标保留更明显的“到位余量”，避免角色停得过早导致 UI 不开。
             return Mathf.Max(minStopRadius, interactDist * stopFactor);
         }

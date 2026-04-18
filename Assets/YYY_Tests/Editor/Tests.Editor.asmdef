@@ -2,6 +2,7 @@
     "name": "Tests.Editor",
     "rootNamespace": "",
     "references": [
+        "Unity.TextMeshPro",
         "UnityEngine.TestRunner",
         "UnityEditor.TestRunner"
     ],

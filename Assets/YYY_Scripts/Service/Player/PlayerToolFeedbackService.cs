@@ -3,6 +3,14 @@ using UnityEngine;
 [DisallowMultipleComponent]
 public class PlayerToolFeedbackService : MonoBehaviour
 {
+    public enum ToolReplacementTone
+    {
+        None,
+        SameTier,
+        Downgrade,
+        Upgrade
+    }
+
     private const string BubbleKeyAxeTierInsufficient = "axe-tier-insufficient";
     private const string BubbleKeyAxeTierRecovered = "axe-tier-recovered";
     private const string BubbleKeyToolBroken = "tool-broken";
@@ -12,10 +20,27 @@ public class PlayerToolFeedbackService : MonoBehaviour
     {
         "这么不耐用吗？",
         "看来得换个好点的了。",
-        "哎哟，搞什么鬼？",
-        "诶，好吧…",
         "旧的不去新的不来！",
         "碎碎平安~"
+    };
+
+    private static readonly string[] ToolBrokenSameTierReplacementLines =
+    {
+        "旧的不去新的不来",
+        "碎碎平安"
+    };
+
+    private static readonly string[] ToolBrokenDowngradeReplacementLines =
+    {
+        "哎哟搞什么鬼",
+        "唉"
+    };
+
+    private static readonly string[] ToolBrokenUpgradeReplacementLines =
+    {
+        "只能忍痛割爱了！",
+        "就决定是你了！",
+        "豁出去了！"
     };
 
     private static readonly string[] AxeTierInsufficientLines =
@@ -105,12 +130,12 @@ public class PlayerToolFeedbackService : MonoBehaviour
         }
     }
 
-    public void HandleToolBroken(FarmGame.Data.ToolData toolData, int slotIndex)
+    public void HandleToolBroken(FarmGame.Data.ToolData toolData, int slotIndex, ToolReplacementTone replacementTone = ToolReplacementTone.None)
     {
         PlayRejectShake(slotIndex);
         PlayFeedbackSound(toolData != null ? toolData.breakSound : null);
         SpawnBurst(new Color(1f, 0.72f, 0.26f, 1f), 18, 1.1f);
-        ShowBubble(BubbleKeyToolBroken, ToolBrokenLines[Random.Range(0, ToolBrokenLines.Length)], 3f, ignoreIfSameKey: false);
+        ShowBubble(BubbleKeyToolBroken, ResolveToolBrokenLine(replacementTone), 3f, ignoreIfSameKey: false);
     }
 
     public void HandleWateringCanEmpty(FarmGame.Data.ToolData toolData, int slotIndex)
@@ -173,10 +198,33 @@ public class PlayerToolFeedbackService : MonoBehaviour
         }
     }
 
+    private static string ResolveToolBrokenLine(ToolReplacementTone replacementTone)
+    {
+        string[] candidateLines = replacementTone switch
+        {
+            ToolReplacementTone.SameTier => ToolBrokenSameTierReplacementLines,
+            ToolReplacementTone.Downgrade => ToolBrokenDowngradeReplacementLines,
+            ToolReplacementTone.Upgrade => ToolBrokenUpgradeReplacementLines,
+            _ => ToolBrokenLines
+        };
+
+        if (candidateLines == null || candidateLines.Length == 0)
+        {
+            candidateLines = ToolBrokenLines;
+        }
+
+        return candidateLines[Random.Range(0, candidateLines.Length)];
+    }
+
     private void ShowBubble(string bubbleKey, string content, float totalDuration, bool ignoreIfSameKey)
     {
         EnsurePresenter();
         if (thoughtBubblePresenter == null)
+        {
+            return;
+        }
+
+        if (PlayerNpcChatSessionService.IsAnySessionActive)
         {
             return;
         }

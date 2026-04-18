@@ -1,5 +1,6 @@
 using Sunset.Events;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 namespace Sunset.Story
 {
@@ -7,6 +8,9 @@ namespace Sunset.Story
     {
         #region Static Members
         private static StoryManager _instance;
+        private static StoryPhase _runtimeSnapshotPhase = StoryPhase.None;
+        private static bool _runtimeSnapshotDecoded;
+        private static bool _runtimeSnapshotInitialized;
         public static StoryManager Instance
         {
             get
@@ -50,10 +54,12 @@ namespace Sunset.Story
 
             _instance = this;
 
-            if (transform.parent == null)
+            if (transform.parent != null)
             {
-                DontDestroyOnLoad(gameObject);
+                transform.SetParent(null);
             }
+
+            DontDestroyOnLoad(gameObject);
 
             InitializeIfNeeded();
         }
@@ -72,6 +78,7 @@ namespace Sunset.Story
         {
             InitializeIfNeeded();
             IsLanguageDecoded = isDecoded;
+            SyncRuntimeSnapshot();
         }
 
         public bool SetPhase(StoryPhase nextPhase)
@@ -85,6 +92,7 @@ namespace Sunset.Story
 
             StoryPhase previousPhase = CurrentPhase;
             CurrentPhase = nextPhase;
+            SyncRuntimeSnapshot();
 
             EventBus.Publish(new StoryPhaseChangedEvent
             {
@@ -111,6 +119,7 @@ namespace Sunset.Story
         {
             CurrentPhase = phase;
             IsLanguageDecoded = isDecoded;
+            SyncRuntimeSnapshot();
         }
         #endregion
 
@@ -119,12 +128,46 @@ namespace Sunset.Story
         {
             if (CurrentPhase != StoryPhase.None)
             {
+                SyncRuntimeSnapshot();
                 return;
             }
 
-            CurrentPhase = initialPhase == StoryPhase.None ? StoryPhase.CrashAndMeet : initialPhase;
-            IsLanguageDecoded = startLanguageDecoded;
+            bool shouldPromoteTownOpening =
+                string.Equals(SceneManager.GetActiveScene().name, "Town", System.StringComparison.Ordinal) &&
+                (!_runtimeSnapshotInitialized
+                 || _runtimeSnapshotPhase == StoryPhase.None
+                 || _runtimeSnapshotPhase == StoryPhase.CrashAndMeet);
+
+            if (shouldPromoteTownOpening)
+            {
+                CurrentPhase = StoryPhase.EnterVillage;
+                IsLanguageDecoded = true;
+            }
+            else if (_runtimeSnapshotInitialized && _runtimeSnapshotPhase != StoryPhase.None)
+            {
+                CurrentPhase = _runtimeSnapshotPhase;
+                IsLanguageDecoded = _runtimeSnapshotDecoded;
+            }
+            else
+            {
+                CurrentPhase = initialPhase == StoryPhase.None ? StoryPhase.CrashAndMeet : initialPhase;
+                IsLanguageDecoded = startLanguageDecoded;
+            }
+
+            SyncRuntimeSnapshot();
             SpringDay1Director.EnsureRuntime();
+        }
+
+        private void SyncRuntimeSnapshot()
+        {
+            if (CurrentPhase == StoryPhase.None)
+            {
+                return;
+            }
+
+            _runtimeSnapshotPhase = CurrentPhase;
+            _runtimeSnapshotDecoded = IsLanguageDecoded;
+            _runtimeSnapshotInitialized = true;
         }
         #endregion
     }

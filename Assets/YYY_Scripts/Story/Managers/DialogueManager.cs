@@ -11,6 +11,25 @@ namespace Sunset.Story
         #region Static Members
         private const string DialoguePauseSource = "Dialogue";
         public static DialogueManager Instance { get; private set; }
+        private static readonly HashSet<string> RuntimeCompletedSequenceIds = new HashSet<string>(System.StringComparer.Ordinal);
+
+        public static DialogueManager EnsureRuntime()
+        {
+            if (Instance != null)
+            {
+                return Instance;
+            }
+
+            DialogueManager existing = FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
+            if (existing != null)
+            {
+                Instance = existing;
+                return existing;
+            }
+
+            GameObject runtimeObject = new GameObject(nameof(DialogueManager));
+            return runtimeObject.AddComponent<DialogueManager>();
+        }
         #endregion
 
         #region Serialized Fields
@@ -55,6 +74,7 @@ namespace Sunset.Story
             }
 
             Instance = this;
+            RestoreCompletedSequenceSnapshot();
 
             if (transform.parent == null)
             {
@@ -169,6 +189,73 @@ namespace Sunset.Story
             return !string.IsNullOrWhiteSpace(sequenceId) && _completedSequenceIds.Contains(sequenceId);
         }
 
+        public List<string> GetCompletedSequenceIdsSnapshot()
+        {
+            List<string> snapshot = new List<string>(_completedSequenceIds);
+            snapshot.Sort(System.StringComparer.Ordinal);
+            return snapshot;
+        }
+
+        public void ReplaceCompletedSequenceIds(IEnumerable<string> sequenceIds)
+        {
+            _completedSequenceIds.Clear();
+            if (sequenceIds == null)
+            {
+                SyncCompletedSequenceSnapshot();
+                return;
+            }
+
+            foreach (string sequenceId in sequenceIds)
+            {
+                if (!string.IsNullOrWhiteSpace(sequenceId))
+                {
+                    _completedSequenceIds.Add(sequenceId.Trim());
+                }
+            }
+
+            SyncCompletedSequenceSnapshot();
+        }
+
+        public bool EnsureCompletedSequenceIds(IEnumerable<string> sequenceIds)
+        {
+            if (sequenceIds == null)
+            {
+                return false;
+            }
+
+            bool changed = false;
+            foreach (string sequenceId in sequenceIds)
+            {
+                if (EnsureCompletedSequenceId(sequenceId))
+                {
+                    changed = true;
+                }
+            }
+
+            if (changed)
+            {
+                SyncCompletedSequenceSnapshot();
+            }
+
+            return changed;
+        }
+
+        public bool EnsureCompletedSequenceId(string sequenceId)
+        {
+            if (string.IsNullOrWhiteSpace(sequenceId))
+            {
+                return false;
+            }
+
+            if (!_completedSequenceIds.Add(sequenceId.Trim()))
+            {
+                return false;
+            }
+
+            SyncCompletedSequenceSnapshot();
+            return true;
+        }
+
         public void StopDialogue()
         {
             StopDialogueInternal(false, null, false, StoryManager.Instance.CurrentPhase, StoryManager.Instance.CurrentPhase, false);
@@ -190,6 +277,7 @@ namespace Sunset.Story
             if (!string.IsNullOrWhiteSpace(completedSequence.sequenceId))
             {
                 _completedSequenceIds.Add(completedSequence.sequenceId);
+                SyncCompletedSequenceSnapshot();
             }
 
             StoryPhase previousPhase = storyManager.CurrentPhase;
@@ -331,6 +419,34 @@ namespace Sunset.Story
             return HasPlayableNodes(sequence?.followupSequence)
                 ? sequence.followupSequence
                 : null;
+        }
+
+        private void RestoreCompletedSequenceSnapshot()
+        {
+            if (RuntimeCompletedSequenceIds.Count == 0 || _completedSequenceIds.Count > 0)
+            {
+                return;
+            }
+
+            foreach (string sequenceId in RuntimeCompletedSequenceIds)
+            {
+                if (!string.IsNullOrWhiteSpace(sequenceId))
+                {
+                    _completedSequenceIds.Add(sequenceId);
+                }
+            }
+        }
+
+        private void SyncCompletedSequenceSnapshot()
+        {
+            RuntimeCompletedSequenceIds.Clear();
+            foreach (string sequenceId in _completedSequenceIds)
+            {
+                if (!string.IsNullOrWhiteSpace(sequenceId))
+                {
+                    RuntimeCompletedSequenceIds.Add(sequenceId);
+                }
+            }
         }
 
         private void StopTyping()

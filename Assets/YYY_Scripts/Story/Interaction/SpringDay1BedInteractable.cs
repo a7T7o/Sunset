@@ -39,7 +39,7 @@ namespace Sunset.Story
             }
 
             StoryManager storyManager = StoryManager.Instance;
-            return storyManager != null && storyManager.CurrentPhase == StoryPhase.FreeTime;
+            return storyManager == null || storyManager.CurrentPhase >= StoryPhase.FreeTime;
         }
 
         public void OnInteract(InteractionContext context)

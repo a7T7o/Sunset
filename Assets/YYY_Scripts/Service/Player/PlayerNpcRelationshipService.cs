@@ -4,7 +4,11 @@ using UnityEngine;
 public static class PlayerNpcRelationshipService
 {
     private const string PlayerPrefsKeyPrefix = "Sunset.Npc.RelationshipStage.";
+    private const string KnownNpcIdsKey = "Sunset.Npc.RelationshipStage.KnownIds";
+    private const char KnownNpcIdsSeparator = '|';
     private static readonly Dictionary<string, NPCRelationshipStage> CachedStages = new Dictionary<string, NPCRelationshipStage>();
+    private static readonly HashSet<string> KnownNpcIds = new HashSet<string>();
+    private static bool knownNpcIdsLoaded;
 
     public static NPCRelationshipStage GetStage(string npcId)
     {
@@ -19,10 +23,7 @@ public static class PlayerNpcRelationshipService
             return cachedStage;
         }
 
-        NPCRelationshipStage loadedStage = NPCRelationshipStageUtility.FromStoredValue(
-            PlayerPrefs.GetInt(BuildPlayerPrefsKey(normalizedNpcId), (int)NPCRelationshipStage.Stranger));
-        CachedStages[normalizedNpcId] = loadedStage;
-        return loadedStage;
+        return NPCRelationshipStage.Stranger;
     }
 
     public static void SetStage(string npcId, NPCRelationshipStage relationshipStage, bool persist = true)
@@ -35,14 +36,7 @@ public static class PlayerNpcRelationshipService
 
         NPCRelationshipStage sanitizedStage = NPCRelationshipStageUtility.Sanitize(relationshipStage);
         CachedStages[normalizedNpcId] = sanitizedStage;
-
-        if (!persist)
-        {
-            return;
-        }
-
-        PlayerPrefs.SetInt(BuildPlayerPrefsKey(normalizedNpcId), (int)sanitizedStage);
-        PlayerPrefs.Save();
+        RememberKnownNpcId(normalizedNpcId, persistRegistry: false);
     }
 
     public static bool PromoteToAtLeast(string npcId, NPCRelationshipStage minimumStage, bool persist = true)
@@ -79,13 +73,61 @@ public static class PlayerNpcRelationshipService
         }
 
         CachedStages.Remove(normalizedNpcId);
-        if (!deletePersisted)
+        ForgetKnownNpcId(normalizedNpcId, persistRegistry: false);
+    }
+
+    public static IReadOnlyDictionary<string, NPCRelationshipStage> GetSnapshot()
+    {
+        EnsureKnownNpcIdsLoaded();
+
+        Dictionary<string, NPCRelationshipStage> snapshot = new Dictionary<string, NPCRelationshipStage>();
+        foreach (string npcId in KnownNpcIds)
         {
-            return;
+            snapshot[npcId] = GetStage(npcId);
         }
 
-        PlayerPrefs.DeleteKey(BuildPlayerPrefsKey(normalizedNpcId));
-        PlayerPrefs.Save();
+        foreach (KeyValuePair<string, NPCRelationshipStage> pair in CachedStages)
+        {
+            snapshot[pair.Key] = NPCRelationshipStageUtility.Sanitize(pair.Value);
+        }
+
+        return snapshot;
+    }
+
+    public static void ReplaceAllStages(IReadOnlyDictionary<string, NPCRelationshipStage> snapshot, bool persist = true)
+    {
+        EnsureKnownNpcIdsLoaded();
+
+        Dictionary<string, NPCRelationshipStage> normalizedSnapshot = new Dictionary<string, NPCRelationshipStage>();
+        if (snapshot != null)
+        {
+            foreach (KeyValuePair<string, NPCRelationshipStage> pair in snapshot)
+            {
+                string normalizedNpcId = NPCDialogueContentProfile.NormalizeNpcId(pair.Key);
+                if (string.IsNullOrEmpty(normalizedNpcId))
+                {
+                    continue;
+                }
+
+                normalizedSnapshot[normalizedNpcId] = NPCRelationshipStageUtility.Sanitize(pair.Value);
+            }
+        }
+
+        HashSet<string> staleNpcIds = new HashSet<string>(KnownNpcIds);
+        staleNpcIds.ExceptWith(normalizedSnapshot.Keys);
+
+        CachedStages.Clear();
+        foreach (KeyValuePair<string, NPCRelationshipStage> pair in normalizedSnapshot)
+        {
+            CachedStages[pair.Key] = pair.Value;
+        }
+
+        KnownNpcIds.Clear();
+        foreach (string npcId in normalizedSnapshot.Keys)
+        {
+            KnownNpcIds.Add(npcId);
+        }
+
     }
 
     public static string BuildPlayerPrefsKey(string npcId)
@@ -94,6 +136,53 @@ public static class PlayerNpcRelationshipService
         return string.IsNullOrEmpty(normalizedNpcId)
             ? string.Empty
             : PlayerPrefsKeyPrefix + normalizedNpcId;
+    }
+
+    private static void EnsureKnownNpcIdsLoaded()
+    {
+        if (knownNpcIdsLoaded)
+        {
+            return;
+        }
+
+        knownNpcIdsLoaded = true;
+    }
+
+    private static void RememberKnownNpcId(string normalizedNpcId, bool persistRegistry)
+    {
+        if (string.IsNullOrEmpty(normalizedNpcId))
+        {
+            return;
+        }
+
+        EnsureKnownNpcIdsLoaded();
+        if (!KnownNpcIds.Add(normalizedNpcId) || !persistRegistry)
+        {
+            return;
+        }
+
+        PersistKnownNpcIds();
+    }
+
+    private static void ForgetKnownNpcId(string normalizedNpcId, bool persistRegistry)
+    {
+        if (string.IsNullOrEmpty(normalizedNpcId))
+        {
+            return;
+        }
+
+        EnsureKnownNpcIdsLoaded();
+        if (!KnownNpcIds.Remove(normalizedNpcId) || !persistRegistry)
+        {
+            return;
+        }
+
+        PersistKnownNpcIds();
+    }
+
+    private static void PersistKnownNpcIds()
+    {
+        EnsureKnownNpcIdsLoaded();
     }
 
     private static NPCRelationshipStage ShiftStageWithinBounds(NPCRelationshipStage stage, int delta)

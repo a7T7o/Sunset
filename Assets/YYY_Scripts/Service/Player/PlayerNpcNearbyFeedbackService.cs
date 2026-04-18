@@ -20,6 +20,24 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
     private PlayerInteraction playerInteraction;
     private bool suppressWhileDialogueActive;
     private NPCBubblePresenter activeNearbyBubblePresenter;
+    private string lastNearbyNpcName = string.Empty;
+    private string lastNearbyBubbleText = string.Empty;
+
+    public string DebugSummary
+    {
+        get
+        {
+            StoryPhase phase = NpcInteractionPriorityPolicy.ResolveCurrentStoryPhase();
+            bool formalPriority = NpcInteractionPriorityPolicy.IsFormalPriorityPhase(phase);
+            bool nearbySuppressed = ShouldSuppressNearbyFeedbackForCurrentStory();
+            bool activeVisible = activeNearbyBubblePresenter != null && activeNearbyBubblePresenter.IsBubbleVisible;
+            string activeNpcName = activeVisible ? activeNearbyBubblePresenter.name : "none";
+            string activeBubbleText = activeVisible ? Sanitize(activeNearbyBubblePresenter.CurrentBubbleText) : "none";
+            string lastNpcName = string.IsNullOrWhiteSpace(lastNearbyNpcName) ? "none" : Sanitize(lastNearbyNpcName);
+            string lastBubble = string.IsNullOrWhiteSpace(lastNearbyBubbleText) ? "none" : Sanitize(lastNearbyBubbleText);
+            return $"phase={phase}|formalPriority={formalPriority}|nearbySuppressed={nearbySuppressed}|dialogueSuppressed={suppressWhileDialogueActive}|activeNpc={activeNpcName}|activeBubble={activeBubbleText}|lastNpc={lastNpcName}|lastBubble={lastBubble}";
+        }
+    }
 
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
     private static void Bootstrap()
@@ -54,8 +72,16 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
         }
 
         SyncDialogueSuppressionState();
-        if (suppressWhileDialogueActive)
+        if (activeNearbyBubblePresenter != null &&
+            activeNearbyBubblePresenter.TryGetComponent(out NPCAutoRoamController activeController) &&
+            activeController.IsResidentScriptedControlActive)
         {
+            HideActiveNearbyBubble();
+        }
+
+        if (ShouldSuppressNearbyFeedbackForCurrentStory())
+        {
+            HideActiveNearbyBubble();
             return;
         }
 
@@ -70,7 +96,7 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
 
     private bool TryPlayNearbyFeedback()
     {
-        if (suppressWhileDialogueActive)
+        if (ShouldSuppressNearbyFeedbackForCurrentStory())
         {
             return false;
         }
@@ -99,7 +125,8 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
 
         string npcId = roamProfile.ResolveNpcId(candidate.name);
         NPCRelationshipStage relationshipStage = PlayerNpcRelationshipService.GetStage(npcId);
-        string[] lines = roamProfile.GetPlayerNearbyLines(relationshipStage);
+        StoryPhase storyPhase = NpcInteractionPriorityPolicy.ResolveCurrentStoryPhase();
+        string[] lines = roamProfile.GetPlayerNearbyLines(relationshipStage, storyPhase);
         if (!HasAnyLines(lines))
         {
             return false;
@@ -129,10 +156,18 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
         }
 
         activeNearbyBubblePresenter = bubblePresenter;
+        lastNearbyNpcName = candidate.name;
+        lastNearbyBubbleText = line;
         lastNpcInstanceId = npcInstanceId;
         lastNpcFeedbackTime = Time.time;
         nextAllowedFeedbackTime = Time.time + globalCooldown;
         return true;
+    }
+
+    private bool ShouldSuppressNearbyFeedbackForCurrentStory()
+    {
+        return suppressWhileDialogueActive ||
+               NpcInteractionPriorityPolicy.ShouldSuppressAmbientBubbleForCurrentStory();
     }
 
     private NPCAutoRoamController FindNearestCandidate()
@@ -145,7 +180,7 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
         for (int index = 0; index < controllers.Length; index++)
         {
             NPCAutoRoamController candidate = controllers[index];
-            if (candidate == null || !candidate.isActiveAndEnabled)
+            if (candidate == null || !candidate.isActiveAndEnabled || candidate.IsResidentScriptedControlActive)
             {
                 continue;
             }
@@ -257,5 +292,18 @@ public class PlayerNpcNearbyFeedbackService : MonoBehaviour
         }
 
         activeNearbyBubblePresenter = null;
+    }
+
+    private static string Sanitize(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        return value
+            .Replace('\n', ' ')
+            .Replace('\r', ' ')
+            .Trim();
     }
 }
