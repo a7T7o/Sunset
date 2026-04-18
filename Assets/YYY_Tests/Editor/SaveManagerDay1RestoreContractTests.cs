@@ -4,6 +4,9 @@ using NUnit.Framework;
 [TestFixture]
 public class SaveManagerDay1RestoreContractTests
 {
+    private static readonly string ProjectRoot =
+        Directory.GetParent(UnityEngine.Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
+
     private const string SaveManagerPath = "Assets/YYY_Scripts/Data/Core/SaveManager.cs";
     private const string SaveDataDtosPath = "Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs";
     private const string PersistentBridgePath = "Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs";
@@ -46,6 +49,19 @@ public class SaveManagerDay1RestoreContractTests
     }
 
     [Test]
+    public void LoadAndSaveEntries_ShouldRespectSceneRestoreWindows()
+    {
+        string saveManagerText = File.ReadAllText(SaveManagerPath);
+        string bridgeText = File.ReadAllText(PersistentBridgePath);
+
+        StringAssert.Contains("_nativeFreshRestartInProgress || _sceneSwitchLoadInProgress", saveManagerText);
+        StringAssert.Contains("PersistentPlayerSceneBridge.IsSceneWorldRestoreInProgress()", saveManagerText);
+        StringAssert.Contains("当前场景仍在恢复世界状态，请稍候再保存。", saveManagerText);
+        StringAssert.Contains("当前场景仍在恢复世界状态，请稍候再读取存档。", saveManagerText);
+        StringAssert.Contains("public static bool IsSceneWorldRestoreInProgress()", bridgeText);
+    }
+
+    [Test]
     public void RestoreEntry_ShouldCloseInventoryDragAndDay1TransientShells()
     {
         string text = File.ReadAllText(SaveManagerPath);
@@ -63,6 +79,7 @@ public class SaveManagerDay1RestoreContractTests
         StringAssert.Contains("SpringDay1WorldHintBubble.HideIfExists();", text);
         StringAssert.Contains("playerThoughtBubbles[index]?.HideImmediate();", text);
         StringAssert.Contains("npcBubbles[index]?.HideImmediateBubble();", text);
+        StringAssert.Contains("RestoreHotbarSelectionForLoadedPlayer(data);", text);
     }
 
     [Test]
@@ -107,6 +124,43 @@ public class SaveManagerDay1RestoreContractTests
         StringAssert.Contains("RestoreHotbarSelectionForLoadedPlayer(data);", text);
         StringAssert.Contains("hotbarSelection.RestoreSelectionState(restoredHotbarIndex, restoredInventoryIndex);", text,
             "读档后应优先回到存档里的 runtime 选中态，而不是只靠当前会话残留。");
+    }
+
+    [Test]
+    public void EquipmentService_ShouldJoinPersistentRegistry()
+    {
+        string equipmentText = File.ReadAllText(Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Equipment/EquipmentService.cs"));
+
+        StringAssert.Contains("private bool _registeredWithPersistentRegistry;", equipmentText);
+        StringAssert.Contains("RegisterWithPersistentRegistry();", equipmentText);
+        StringAssert.Contains("PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService()", equipmentText);
+        StringAssert.Contains("PersistentObjectRegistry registry = PersistentObjectRegistry.Instance;", equipmentText);
+        StringAssert.Contains("registry.TryRegister(this);", equipmentText);
+        StringAssert.Contains("UnregisterFromPersistentRegistry();", equipmentText);
+    }
+
+    [Test]
+    public void ChestAndDropPayloads_ShouldCarryExtendedRuntimeState()
+    {
+        string dtoText = File.ReadAllText(SaveDataDtosPath);
+        string chestText = File.ReadAllText(Path.Combine(ProjectRoot, "Assets/YYY_Scripts/World/Placeable/ChestController.cs"));
+        string dropText = File.ReadAllText(Path.Combine(ProjectRoot, "Assets/YYY_Scripts/World/WorldItemPickup.cs"));
+
+        StringAssert.Contains("public int version = 2;", dtoText);
+        StringAssert.Contains("public int origin = -1;", dtoText);
+        StringAssert.Contains("public int ownership = -1;", dtoText);
+        StringAssert.Contains("public bool hasBeenLocked = false;", dtoText);
+        StringAssert.Contains("public int currentHealth = -1;", dtoText);
+        StringAssert.Contains("public InventorySlotSaveData runtimeItem;", dtoText);
+        StringAssert.Contains("item.RestoreInstanceIdForLoad(data.instanceId);", dtoText);
+        StringAssert.Contains("origin = (int)origin,", chestText);
+        StringAssert.Contains("ownership = (int)ownership,", chestText);
+        StringAssert.Contains("hasBeenLocked = hasBeenLocked,", chestText);
+        StringAssert.Contains("currentHealth = currentHealth,", chestText);
+        StringAssert.Contains("if (chestData.version >= 2)", chestText);
+        StringAssert.Contains("dropData.runtimeItem != null && !dropData.runtimeItem.IsEmpty", dropText);
+        StringAssert.Contains("SaveDataHelper.ToSaveData(runtimeItem, 0)", dropText);
+        StringAssert.Contains("SaveDataHelper.FromSaveData(dropData.runtimeItem)", dropText);
     }
 
     [Test]

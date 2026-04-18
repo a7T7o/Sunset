@@ -208,6 +208,17 @@ public sealed class PersistentPlayerSceneBridge : MonoBehaviour
         s_instance.RefreshSceneRuntimeBindingsInternal(activeScene);
     }
 
+    public static bool IsSceneWorldRestoreInProgress()
+    {
+        if (!Application.isPlaying)
+        {
+            return false;
+        }
+
+        EnsureInstance();
+        return s_instance != null && s_instance.sceneWorldRestoreCoroutine != null;
+    }
+
     public static void SyncActiveSceneInventorySnapshot()
     {
         EnsureInstance();
