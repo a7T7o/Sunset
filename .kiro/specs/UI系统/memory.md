@@ -795,3 +795,163 @@
   - fresh console：`0 error / 0 warning`
 - 当前阶段：
   - 代码层完成，live 体验待用户复测
+
+## 2026-04-14 UI 续记｜调试卡宽度回调、footer 间距回调、任务清单根因二次确认
+- 当前主线：
+  - 用户要求直接修两处可见面细节，并重新说明任务清单为什么还是“绿一下就换字”。
+- 本轮完成：
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - 调试卡宽度收窄到 `248`
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - footer 行下移
+    - `关闭提示` 向 `BACKSPACE` 靠近
+- 对任务清单的新判断：
+  - 上一刀只统一了主任务卡，没有统一 bridge/manual prompt
+  - 现在剩下的真问题是 `PromptCard`、`BridgePrompt`、hidden->resume 三条过渡链没有放进同一个 completion transaction
+  - 所以用户仍会看到“完成框、正文、提示各走各的”
+
+## 2026-04-14 UI 续记｜PromptOverlay completion transaction 与 modal sibling 止血
+- 当前主线：
+  - 用户批准继续彻底解决任务清单，并补查 `PackagePanel` 与 `PromptOverlay` 的层级互跳。
+- 本轮完成：
+  - `PromptOverlay` 现在会把主卡和 bridge prompt 一起过渡，不再让 bridge prompt 提前抢文字
+  - `PromptOverlay` 在 modal 解锁后，不再直接跳最新态，而是改走正式 transition
+  - `PromptOverlay` 在 modal 打开时停止 sibling 纠正，不再继续和 `PackagePanel` 抢 hierarchy 位置
+  - 同轮顺手微调了：
+    - 右上角调试卡宽度
+    - 右侧 footer 的 `BACKSPACE / 关闭提示` 间距
+- 验证：
+  - `SpringDay1PromptOverlay` 代码层无 error
+  - fresh console 为 `0 error / 0 warning`
+  - 三文件 `validate_script` 这轮停在 `unity_validation_pending`，原因是 Unity 正处于 `playmode_transition`，不是 owned red
+
+## 2026-04-17 UI 补记｜工作台木稿配方降为纯木头
+- 用户临时要求：
+  - 把工作台木稿子配方改成和木斧一样，只需要木头。
+- 本轮完成：
+  - [Recipe_9102_Pickaxe_0.asset](D:/Unity/Unity_learning/Sunset/Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset)
+    - 移除石头材料项
+    - 保留 `3200 x3`
+    - 描述同步改成纯木头语义
+- 对照：
+  - [Recipe_9100_Axe_0.asset](D:/Unity/Unity_learning/Sunset/Assets/Resources/Story/SpringDay1Workbench/Recipe_9100_Axe_0.asset) 也是 `3200 x3`
+- 验证：
+  - `git diff --check` 通过
+  - fresh console：`0 error / 0 warning`
+- 边界：
+  - 这轮只改 recipe asset，不碰 crafting service / overlay / inventory 逻辑。
+
+## 2026-04-17 UI 补记｜右上角时间/调试 HUD 卡片收窄
+- 用户反馈：
+  - 右上角时间卡和调试快捷键卡仍然测试味重、空白多、不够精致，要求只优化显示。
+- 本轮完成：
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - 面板宽度与高度整体收窄
+    - `时间 / 调试` 标签 pill 缩短
+    - `快捷键` 标题左收
+    - key pill 与说明文字距离重排，减少右侧空旷
+- 验证：
+  - `manage_script validate TimeManagerDebugger`：`errors=0 warnings=1`
+  - fresh console：`0 error / 0 warning`
+- 边界：
+  - 这轮不碰时间推进、暂停、下一天、切季节、加减号逻辑，只收玩家可见几何排版。
+
+## 2026-04-17 UI 只读补记｜工作台“点击即扣料”补丁方案已厘清
+- 用户要求：
+  - 只要点击制作，不论开始还是追加，都应立刻从背包扣材料，材料等于交给工作台；中断时再返还。
+- 代码结论：
+  - 当前不满足该语义。
+  - 首件材料是在 CraftRoutine() 里按件预扣；追加/排队只改 entry.totalCount，不立即扣料。
+  - 直接复用 CraftingService.TryCraft(recipe, false) 做点击预扣是危险的，因为它会提前触发 OnCraftSuccess，进而污染 Day1 的 _craftedCount。
+- 最小安全方案：
+  - 只改 CraftingService.cs 和 SpringDay1WorkbenchCraftingOverlay.cs
+  - 在 CraftingService 加独立“预扣材料”入口，不触发 success 事件
+  - WorkbenchOverlay 点击时先预扣再入队
+  - CraftRoutine 只跑进度和完成
+  - CancelActiveCraftQueue / CancelQueuedRecipeEntry 统一按“未完成件数”退款
+  - GetSelectableQuantityCap() 去掉旧的 queuedAlready 二次扣减
+- 当前状态：
+  - 只读方案已成，等待用户批准真实施工。
+
+## 2026-04-17 UI 补记｜工作台点击即扣料与退款闭环已落地
+- 用户要求：
+  - 工作台点击制作 / 追加制作时立即扣背包材料，等同把材料交给工作台；中断与取消排队时按未完成件数退款；跨场景回到工作台场景时要用当前场景事实源刷新。
+- 已落地：
+  - [CraftingService.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Crafting/CraftingService.cs)
+    - 新增独立预扣入口 `TryReserveMaterials(...)`
+    - 新增独立完成通知 `NotifyCraftCompleted(...)`
+  - [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs)
+    - 点击开始 / 加入队列 / 追加时先预扣，再写入队列
+    - 制作协程不再临时扣料，只负责进度和完成
+    - 中断当前制作、取消排队、硬停协程都会按未完成件数退款
+    - 场景切回绑定工作台场景时会重绑当前场景背包事实源并刷新状态
+    - 数量上限去掉旧的 queuedAlready 二次扣减
+  - [WorkbenchInventoryRefreshContractTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs)
+    - 新增预扣/退款/场景回切相关 contract
+- 验证：
+  - 窄 EditMode 合同测试：`7 passed / 0 failed`
+  - fresh console：`0 error / 0 warning`
+- 边界：
+  - 这轮不碰 SaveManager / PersistentBridge / SpringDay1Director 真逻辑，只在工作台 own 语义里收口。
+
+## 2026-04-17 UI 补记｜工作台 stale contract 尾账
+- 背景：
+  - 用户确认“已交材料后显示红字 = 不能继续追加制作”的玩家语义成立，因此这轮不动材料红字表现，只清 stale contract。
+- 已处理：
+  - [SpringDay1DialogueProgressionTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs)
+    - 木稿配方断言从旧石料需求改为当前真实木料需求
+    - 工作台提示记忆断言从旧 `PlayerPrefs` 直写改为 `StoryProgressPersistenceService` 真语义
+- 验证：
+  - `validate_script` 两个测试文件均 `0 error / 0 warning`
+  - `WorkbenchInventoryRefreshContractTests`：`7 passed / 0 failed`
+- 风险与剩余：
+  - 单条 Day1 大测试目前被 Unity MCP test job 初始化超时卡住，暂时只能确认代码与窄合同 clean，未把这条包装成“已过”。
+
+## 2026-04-18 UI 只读补记｜关系页 chip 的“区别对待感”来自同色重块
+- 用户贴新截图后再次追问：为什么 `卡尔` 及其以下几行右侧标签框看起来更突出。
+- 复核结论：
+  - 不是 `卡尔` 单独特判，也不是我上一轮说的“主要是选中态”。
+  - 真正更准确的原因是：
+    1. `PresenceLevel.None -> 未露面`
+    2. `Stage.Stranger -> 陌生`
+    3. 两枚 chip 当前用的是同一套棕灰色值
+  - 因此从 `卡尔` 开始这批“未露面 + 陌生”条目，会在右侧形成两块完全同色、连续堆叠的重块；上面的 `压场 / 正面 / 路过` 则因为 presence chip 是橙/绿/浅卡其，不会形成同样的重块感。
+- 代码锚点：
+  - [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs)
+    - `ListChipWidth = 72`
+    - `ListChipHeight = 24`
+    - `PresenceLabel(None) => 未露面`
+    - `GetPresenceChipColor(None)` 与 `GetStageChipColor(Stranger)` 当前相同
+
+## 2026-04-18 UI 补记｜关系页 chip 减重与右上角调试卡对齐
+- 用户要求：
+  - 把关系页里 `卡尔` 往下那批“看起来更长更重”的右侧标签修掉，并顺手把右上角时间调试卡的按钮列对齐做精一点。
+- 本轮完成：
+  - [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs)
+    - chip 列改成右对齐、不再强制横向撑满
+    - presence / stage 两级宽度分离，避免继续堆成两块等宽重砖
+    - `未露面` 与 `陌生` 的底色拆开，降低同色连续重块感
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - 快捷键标题与说明列统一到固定起点
+    - key pill 改成固定列宽
+    - 行距与标题基线收平
+- 验证：
+  - `manage_script validate PackageNpcRelationshipPanel`：`0 error / 0 warning`
+  - `validate_script TimeManagerDebugger`：`no_red`
+  - fresh console：`0 error / 0 warning`
+- 边界：
+  - 这轮只动关系页 chip 和调试卡排版，不碰别的 UI 逻辑。
+
+## 2026-04-18 UI 补记｜存档设置页重复快捷说明删除
+- 背景：
+  - 用户指出设置页左侧标题下已经有 `F5/F9` 与默认槽说明，右侧重复再来一张介绍卡既多余又发生重叠。
+- 本轮处理：
+  - [PackageSaveSettingsPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs)
+    - 删除右侧 `GuideCard`
+    - 清掉关联的 `_guideShortcutText / _helpText` 运行时字段与刷新文案
+    - 保留右侧操作按钮区，不改变保存/读取/重开行为
+- 当前判断：
+  - 这是结构性去重，不是整页视觉重做；代码层已 clean，但最终观感是否完全过线仍以用户 live 体验为准。
+- 验证：
+  - `validate_script PackageSaveSettingsPanel`：`0 error / 0 warning`
+  - fresh console：无新增 own 红黄

@@ -1469,3 +1469,281 @@
   - `Park-Slice`：已跑，当前 `PARKED`
 - 当前恢复点：
   - 如果用户 live 反馈还不够顺，下一轮继续只改 `SpringDay1PromptOverlay.cs` 的 completed snapshot 持续时长 / 触发矩阵，不扩回 Day1 runtime 真值
+
+## 2026-04-14 UI 续记｜右上角 / footer 微调 + 任务清单二次根因复盘
+- 当前主线目标：
+  - 用户要求本轮直接解决两个 UI 排版点，并重新厘清为什么任务清单仍然“绿一下就换字、动画和内容不同步”。
+- 本轮子任务：
+  - 微调 `TimeManagerDebugger` 面板宽度
+  - 微调 `InteractionHintOverlay` footer 行距与 key/text 关系
+  - 重新核查 0.0.5 农田教学的任务清单状态竞争
+- 已完成事项：
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - `panelWidth: 272 -> 248`
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - `footerY` 下移
+    - `footerGap: 20 -> 12`
+    - `footerLabelWidth: 78 -> 74`
+- 二次复盘结论：
+  - 用户这次指出的问题成立，而且比我上次总结得更完整。
+  - 现在剩下的任务清单 bug 不止是“completed snapshot 持续时间短”，而是至少有 3 层：
+    1. 主任务卡 completed snapshot 和 bridge/manual prompt 不是同一笔 transaction
+    2. `SpringDay1Director` 在 0.0.5 农田教学推进时会立刻 `SpringDay1PromptOverlay.Instance.Show(...)` 下一步文案，bridge prompt 会先刷新
+    3. 被 dialogue/modal 压住时，当前实现不会积累中间 completion 队列，恢复显示时只认最新态
+  - 这解释了为什么用户会看到：
+    - 左侧完成框绿一下
+    - 但文字已经是下一步
+    - 并且当任务清单中途被压住时，恢复后看不到应有的完成过渡
+- 验证结果：
+  - `validate_script Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs Assets/YYY_Scripts/TimeManagerDebugger.cs --count 20 --output-limit 5`
+    - `owned_errors=0 / external_errors=0 / assessment=unity_validation_pending`
+    - blocker 是 Unity 现场 `stale_status`
+  - `manage_script validate InteractionHintOverlay` = `errors=0 warnings=1`
+  - `manage_script validate TimeManagerDebugger` = `errors=0 warnings=1`
+  - `errors --count 20 --output-limit 10`
+    - fresh console 有 2 条外部 `EventSystem` 红，不归这轮 own
+- 关键判断：
+  - 下一刀如果继续修任务清单，不能再只盯主卡 row 动画，必须把 `PromptCard + BridgePrompt + hidden/re-entry` 一起收成同一个 completion transaction
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-17 UI 续记｜工作台木稿配方改成纯木头
+- 当前主线：
+  - 用户临时插入一个工作台小切片，要求把木稿子配方改成和木斧一样，只要木头。
+- 本轮子任务：
+  - 只改工作台配方资产，不碰当前已脏的 crafting 代码与 UI 脚本。
+- 已完成事项：
+  - [Recipe_9102_Pickaxe_0.asset](D:/Unity/Unity_learning/Sunset/Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset)
+    - 删除石头材料 `itemID: 3201 amount: 2`
+    - 保留木头材料 `itemID: 3200 amount: 3`
+    - 描述同步改成“用粗木料拼出的入门木稿...”
+- 对照基线：
+  - [Recipe_9100_Axe_0.asset](D:/Unity/Unity_learning/Sunset/Assets/Resources/Story/SpringDay1Workbench/Recipe_9100_Axe_0.asset) 目前就是 `3200 x3`，木稿现已和它保持同一基础门槛。
+- 验证：
+  - `git diff --check -- Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset` 通过
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 5` = `0 error / 0 warning`
+- 本轮 thread-state：
+  - `UI` 切片 `Workbench wood pickaxe recipe reduce to wood only`
+  - 已 `Park-Slice`，当前 `PARKED`
+- 恢复点：
+  - 如果用户接着要调别的工作台配方，继续按“只改对应 recipe asset、避免卷入其他 dirty 脚本”的最小方案推进。
+
+## 2026-04-17 UI 续记｜右上角时间/调试卡片只做显示优化
+- 当前主线：
+  - 用户贴图指出右上角 `TimeManagerDebugger` 卡片不好看，要求只优化显示，不动任何时间与快捷键逻辑。
+- 偏好前置结论：
+  - 这轮属于 `targeted probe / 局部验证`，证据来自用户截图与最新 live 反馈。
+  - 高危反例仍是“只会显示但像测试味”，所以这轮优先收窄宽度、减少空旷、修顺标签和键帽关系，不加新装饰。
+- 本轮完成：
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - 整体面板宽度 `272 -> 224`
+    - 时钟卡高度 `68 -> 64`
+    - 快捷键卡高度 `134 -> 126`
+    - 卡片间距 `8 -> 6`
+    - `时间 / 调试` 标签 pill 缩短并左收
+    - `快捷键` 标题左收，减少标题右侧空白
+    - 每行 key pill 缩窄，说明文字起点前移，减少右侧大空块
+- 验证：
+  - `git diff --check -- Assets/YYY_Scripts/TimeManagerDebugger.cs` 通过
+  - `manage_script validate TimeManagerDebugger` = `errors=0 warnings=1`
+  - warning 仍是既有 `Update()` 字符串拼接提示，不是本轮新红
+  - `errors --count 20 --output-limit 5` = `0 error / 0 warning`
+- 本轮 thread-state：
+  - `Begin-Slice` 已跑
+  - `Park-Slice` 已跑，当前 `PARKED`
+- 恢复点：
+  - 如果用户 live 看后还嫌空或挤，下一轮继续只在 `TimeManagerDebugger.cs` 里微调几何参数，不扩到逻辑和别的面板。
+
+## 2026-04-14 UI 续记｜completion transaction 收口 + Package/Prompt sibling 抢位止血
+- 当前主线目标：
+  - 在不越权碰 Day1 真逻辑的前提下，彻底收掉任务清单“主卡、bridge prompt、hidden/re-entry 各走各的”，并判断 `PackagePanel` 与 `SpringDay1PromptOverlay` 层级互跳是否可安全修复。
+- 本轮子任务：
+  - 只改 `SpringDay1PromptOverlay.cs`
+  - 顺手保留本轮已做的 `TimeManagerDebugger` / `InteractionHintOverlay` 微调
+- 已完成事项：
+  - [SpringDay1PromptOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs)
+    - 新增 `_pendingBridgePromptState`
+    - 新增 `_suspendBridgePromptSync`
+    - `LateUpdate()` 改成即使当前被 modal/dialogue 压住，也会先更新 pending card / pending bridge 状态
+    - `TransitionToPendingState()` 改成在主任务卡切换期间先冻结 bridge prompt，待主卡 transition 完成后再统一应用最新 bridge prompt
+    - `SetExternalVisibilityBlock(false)` 改成需要时直接起 transition，不再 `ApplyState(_pendingState)` 硬跳
+    - `OnDialogueEnd()` 改成需要时也会接回 transition
+    - `EnsureHudSiblingOrder()` 在 modal 打开期间直接停手，止住 `PackagePanel` 与 `PromptOverlay` 的 hierarchy 互跳
+  - [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)
+    - `panelWidth: 272 -> 248`
+  - [InteractionHintOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs)
+    - `footerY` 下移
+    - `footerGap: 20 -> 12`
+    - `footerLabelWidth: 78 -> 74`
+- 验证结果：
+  - `manage_script validate SpringDay1PromptOverlay` = `errors=0 warnings=2`
+  - `errors --count 20 --output-limit 10` = `0 error / 0 warning`
+  - `validate_script Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs Assets/YYY_Scripts/Story/UI/InteractionHintOverlay.cs Assets/YYY_Scripts/TimeManagerDebugger.cs --count 20 --output-limit 5`
+    - `owned_errors=0 / external_errors=0`
+    - `assessment=unity_validation_pending`
+    - blocker 是 Unity 当前 `playmode_transition`
+    - external warnings 是字体省略号 fallback，不归本轮 own
+- 关键判断：
+  - 这轮已经把任务清单 remaining 问题从“主卡局部动画”升级成“统一 completion transaction”并实际收口
+  - `PackagePanel` / `PromptOverlay` 互跳根因确认是 `PromptOverlay` 每帧 sibling 纠正；这轮在 `PromptOverlay` 内部止血是安全的，不需要碰 `PackagePanel` 逻辑
+- 当前阶段：
+  - 代码层已落，等待用户 live 验主观体感与 hierarchy 稳定性
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-17 UI 只读续记｜工作台材料预扣逻辑彻查
+- 当前主线：
+  - 用户要求彻查“点击制作就应立即扣材料，追加也一样，中断再返还”的真实代码链，并给出最小、最安全、最可靠的补丁方案。
+- 本轮结论：
+  - 现状并不满足“点击即扣料”。
+  - 当前第一件在 SpringDay1WorkbenchCraftingOverlay.cs 的 CraftRoutine() 里才通过 CraftingService.TryCraft(..., false) 预扣一件材料；但“追加 / 加入队列”只是在 OnCraftButtonClicked() 里增加 entry.totalCount，并没有立即扣料。
+  - 这会带来 4 个真实漏洞：
+    1. 同配方多件只预扣当前正在做的 1 件，其余待做件数仍占着背包可用材料。
+    2. 追加和非活动 recipe 排队不预扣，导致不同 recipe 之间可发生材料超订。
+    3. 排队期间玩家还能把这些材料拿去做别的事，等轮到该队列才在 CraftRoutine() 里失败并把 totalCount 砍回 readyCount。
+    4. 当前 CancelQueuedRecipeEntry() 不退款，因为旧模型默认“队列没预扣”；若改成点击即预扣，这里必须一起补退款。
+- 关键风险判断：
+  - 不能直接把“点击即扣料”粗暴改成复用 CraftingService.TryCraft(recipe, false) 多次调用。
+  - 原因是 TryCraft() 会触发 OnCraftSuccess；而 SpringDay1Director.cs 现在用这个事件累计 _craftedCount。
+  - 如果在点击时就提前触发 success，Day1 的“完成一次真正制作”会被提前甚至按多件一次性计数，属于高风险误伤。
+- 推荐最小补丁边界：
+  - 只动：
+    - CraftingService.cs
+    - SpringDay1WorkbenchCraftingOverlay.cs
+  - 可选补 1 个窄测试文件，不碰 SpringDay1Director、InventoryService、PersistentPlayerSceneBridge、SaveManager。
+- 推荐补丁方案：
+  - 在 CraftingService 新增“只预扣材料、不触发 OnCraftSuccess、不入包”的独立入口，按 craftCount 一次性校验并扣料。
+  - 保留现有 TryCraft() 语义不变，避免影响旧 CraftingPanel 和其他调用方。
+  - WorkbenchOverlay.OnCraftButtonClicked() 改成：开始制作 / 加入队列 / 追加时，先调用新预扣入口；预扣成功后再增加对应 entry.totalCount。
+  - CraftRoutine() 改成只负责计时、进度、readyCount++，不再在每一件开始时扣料。
+  - 真正一件完成时，再显式走一次“制作成功事件”通知，让 Day1 的 _craftedCount 保持在“完成一件时+1”。
+  - CancelActiveCraftQueue() 改成退回“该 recipe 所有未完成件数”的材料，保留已完成 readyCount 不动。
+  - CancelQueuedRecipeEntry() 同样退回“该 entry 的未完成件数”材料。
+  - GetSelectableQuantityCap() 去掉旧的 queuedAlready 扣减，因为新模型下材料已从背包移除，再减一次会双重扣减。
+- 当前阶段：
+  - 只读根因和补丁边界已经厘清，尚未动手写代码。
+- 恢复点：
+  - 若用户批准施工，下一轮直接按上面两文件一测试的窄切片开改，不扩到别的 UI 或剧情链。
+
+## 2026-04-17 UI 续记｜工作台点击即扣料 + 中断退款 + 跨场景回切刷新
+- 当前主线：
+  - 把工作台制作改成“点击即交料给工作台，追加同样即时扣料，中断/取消按未完成件数退款”，并确认跨场景后仍能按当前场景事实源正确刷新。
+- 本轮完成：
+  - [CraftingService.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Crafting/CraftingService.cs)
+    - 新增 `CanReserveMaterials(...)`
+    - 新增 `TryReserveMaterials(...)`，只预扣材料，不触发 `OnCraftSuccess`
+    - 新增 `NotifyCraftCompleted(...)`，把“真正完成一件”与“点击时预扣”拆开
+  - [SpringDay1WorkbenchCraftingOverlay.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs)
+    - `OnCraftButtonClicked()` 现在先 `TryReserveMaterials`，成功后才开始制作 / 加入队列 / 追加制作
+    - `CraftRoutine(...)` 改成吃 `initialCraftCount`，只跑进度与完成，不再在协程里临时扣料
+    - 每完成一件时调用 `NotifyCraftCompleted(recipe)`，确保 Day1 的 `_craftedCount` 仍在“完成时”累计
+    - `CancelActiveCraftQueue()` / `CancelQueuedRecipeEntry()` 改成按未完成件数统一退款
+    - `StopCraftRoutine()` 改成硬停时退款全部未完成预扣材料，避免异常停机吃料
+    - `GetSelectableQuantityCap()` 去掉旧的 `queuedAlready` 二次扣减，避免预扣后又被错误再减一次
+    - `OnSceneLoaded()` / `OnActiveSceneChanged()` 回到绑定场景时补 `RefreshBoundSceneRuntimeState()`，重绑当前场景背包事实源并刷新工作台状态
+  - [WorkbenchInventoryRefreshContractTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs)
+    - 新增预扣/完成分离、取消退款、场景回切刷新相关 contract 断言
+- 关键判断：
+  - 这次没有去改旧 `TryCraft()` 合同，因此没有把旧 CraftingPanel 和 Day1 success 计数链打乱；补丁边界保持在 `CraftingService + WorkbenchOverlay + 窄测试`。
+- 验证：
+  - `manage_script validate CraftingService`：`errors=0 warnings=0`
+  - `manage_script validate SpringDay1WorkbenchCraftingOverlay`：`errors=0 warnings=1`（既有字符串拼接 warning）
+  - `manage_script validate WorkbenchInventoryRefreshContractTests`：`errors=0 warnings=0`
+  - `validate_script CraftingService + WorkbenchOverlay + Test`：`owned_errors=0 / external_errors=0 / assessment=unity_validation_pending`，卡在 Unity `stale_status`
+  - `run_tests(EditMode, WorkbenchInventoryRefreshContractTests)`：`7 passed / 0 failed`
+  - fresh console：`0 error / 0 warning`（仅测试结果路径提示）
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Park-Slice`：已跑，当前 `PARKED`
+- 恢复点：
+  - 下一轮如果用户 live 反馈还有漏洞，只继续补工作台 own 逻辑，不扩到存档 / Director / 切场大面。
+
+## 2026-04-17 UI 续记｜工作台红字语义保持，stale contract 收尾
+- 当前主线：
+  - 在不改“已交材料后红字=不能再追加”的玩家语义前提下，把这轮自查里确认的测试尾账收平。
+- 本轮子任务：
+  - 修 `SpringDay1DialogueProgressionTests.cs` 里两条已经落后于真实实现的 stale contract：
+    1. `Pickaxe_0` 仍要求旧石料需求
+    2. 工作台提示记忆仍盯 `PlayerPrefs.SetInt`
+- 已完成：
+  - 木稿断言改成 `itemID: 3200`，并显式禁止 `itemID: 3201`
+  - 工作台提示记忆断言改成 `StoryProgressPersistenceService.IsWorkbenchHintConsumed()/MarkWorkbenchHintConsumed()`
+- 验证：
+  - `validate_script Assets/YYY_Tests/Editor/SpringDay1DialogueProgressionTests.cs`：`0 error / 0 warning`
+  - `validate_script Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs`：`0 error / 0 warning`
+  - `WorkbenchInventoryRefreshContractTests`：`7 passed / 0 failed`
+  - fresh console 清空后只有 Unity MCP `TestJobManager failed to initialize within timeout` warning；没有新的 own error
+- 当前阶段：
+  - 代码尾账已落地，停在可交代状态；未做 sync / commit。
+- 阻塞与恢复点：
+  - `SpringDay1DialogueProgressionTests.WorkbenchInteraction_ContainsRuntimeBindingBridge` 通过 Unity MCP 单测连续两次初始化超时，没拿到通过/失败断言结果；如果下轮继续，要换验证路径，不要再把这条当“已测过”。
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-18 UI 续记｜关系页 chip 视觉误判复核
+- 当前主线：
+  - 用户在关系页截图里质疑 `卡尔` 及其以下几行右侧标签框被区别对待；本轮要求重新看图并给出准确判断。
+- 本轮子任务：
+  - 只读核实 `PackageNpcRelationshipPanel.cs` 中右侧 chip 的真实尺寸、布局来源、颜色与文案映射，不改代码。
+- 已确认：
+  - 我上一轮把主因归到“选中态”上，是看偏了。
+  - 当前更准确的真因不是单 NPC 特判，而是 `未露面 + 陌生` 这个状态组合本身更重：
+    - 宽高常量仍统一：`72 x 24`
+    - `PresenceLevel.None` 的文案是 `未露面`
+    - `Stage.Stranger` 的文案是 `陌生`
+    - 两枚 chip 目前颜色完全相同，导致右侧读成连续重块
+- 用户可感知结果：
+  - 从 `卡尔` 往下这批人看起来像“右侧标签更大更重”，不是因为尺寸真被做大，而是因为两块同色+更满的字面把视觉重量堆出来了。
+- 恢复点：
+  - 如果下一轮进入真实施工，应该改的是 `未露面 / 陌生` 这组状态的视觉分离，而不是去找 `003/卡尔` 的单独特殊分支。
+
+## 2026-04-18 UI 续记｜关系页 chip 收口与 TimeDebugger 快捷键列优化
+- 当前主线：
+  - 直接把关系页右侧 chip “更长更重”的玩家面问题修掉，并优化 `TimeManagerDebugger` 右上角快捷键卡片的按钮列对齐。
+- 本轮子任务：
+  - 修改 [PackageNpcRelationshipPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs) 与 [TimeManagerDebugger.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/TimeManagerDebugger.cs)。
+- 已完成：
+  - 关系页：
+    - `chipColumnLayout.childForceExpandWidth = false`
+    - `chipColumnLayout.childAlignment = UpperRight`
+    - presence chip / stage chip 分别改成 `68 / 64` 宽
+    - `未露面` 与 `陌生` 的底色拆开，避免继续连成同色重块
+  - 时间调试卡：
+    - 标题与说明列统一到固定起点
+    - key pill 改为固定列宽
+    - 行顶点与列间距重新收平
+- 验证：
+  - `manage_script validate PackageNpcRelationshipPanel --status clean`
+  - `validate_script TimeManagerDebugger --assessment no_red`
+  - `sunset_mcp.py errors --count 20 --output-limit 5`：`0 error / 0 warning`
+- 当前阶段：
+  - 代码层 clean，等待用户 live 看观感。
+- 风险与说明：
+  - 关系页文件目前仍是 `??` untracked 状态的一部分，我没有顺手处理别的 UI 文件；只改了你这轮点名的两处。
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-18 UI 续记｜设置页右侧重复说明卡删除
+- 当前主线：
+  - 用户要求把存档设置页右侧那块与左侧副说明重复、且已经发生重叠的 `F5/F9` 介绍直接删掉，不要再做位置微调。
+- 本轮子任务：
+  - 只修改 [PackageSaveSettingsPanel.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs)，移除右侧冗余 `GuideCard`。
+- 已完成：
+  - 删除运行时构建的 `GuideCard / GuideTitle / GuideShortcut / GuideBody`
+  - 删除 `_guideShortcutText`、`_helpText` 字段与 `RefreshView()` 中对应赋值
+  - 右侧仅保留 `重新开始` 与 `退出游戏` 两个操作按钮
+- 验证：
+  - `validate_script Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs`：`0 error / 0 warning`
+  - `find_in_file HelpFontSize|GuideTint|_guideShortcutText|_helpText`：`0 match`
+  - fresh console：无新增 own error / warning
+- 当前阶段：
+  - 结构修补已完成，等待用户 live 看设置页重叠是否消失。
+- 风险与说明：
+  - 这轮不宣称整页观感完全过线；只确认“右侧重复说明已删除，逻辑未扩改”。
+- 本轮 thread-state：
+  - 进入这轮时 `UI` slice 已处于 `ACTIVE(settings-save-help-overlap-fix)`，因此未重复开新 slice
+  - 收尾已跑 `Park-Slice`，当前 `PARKED`
