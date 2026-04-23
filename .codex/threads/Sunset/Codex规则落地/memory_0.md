@@ -661,3 +661,41 @@
      - 最终必须报 `SHA / push 状态 / own-path-clean / blocker files`
 - 当前恢复点：
   - 接下来只需要把这批文件安全同步出去，并在用户侧按复制友好格式交付。
+
+## 2026-04-23｜第二波改判：从“完整保本上传”切到“历史小批次上传”
+
+- 用户目标：
+  - 用户在第一波 prompt 发出后进一步纠偏：真正想要的上传习惯不是“当前 clearly-own 一锅端”，而是“按过去每一小刀开发历史慢慢还原批次上传”。
+- 当前主线：
+  - 本轮继续做治理只读复核 + 第二波 prompt 分发；不进入业务开发。
+- 本轮实际做成了什么：
+  1. 已复核并确认以下回执与仓库现场大体一致：
+     - `spring-day1`
+     - `UI`
+     - `NPC`
+     - `存档系统`
+     - `导航检查`
+  2. 已确认它们都属于：
+     - 第一波已安全上传一部分
+     - 但剩余尾账仍在
+     - 因此不该重发第一波，也不该直接放任它们进“清 blocker”
+  3. 已新增第二波治理入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_shared-root历史小批次上传分发批次_02.md`
+  4. 已新增 5 条第二波专属 prompt：
+     - `spring-day1`：只试 `Assets/Editor/Story` 下新增 menu/probe/snapshot/cleanup 小批
+     - `UI`：只试 `PackageMapOverviewPanel / PackageNpcRelationshipPanel / PackagePanelRuntimeUiKit`
+     - `NPC`：只试 `104.png` 删除与引用一致性小批
+     - `存档系统`：只试 `InventoryItem / SaveDataDTOs / SaveManager`
+     - `导航检查`：只试 `StairLayerTransitionZone2D` 这组最小新增台阶/层切换小批
+  5. 在 `农田交互修复V3` 正式回执补齐后，已追加第 6 条第二波专属 prompt：
+     - `农田交互修复V3`：只试 `StoneController + StoneControllerEditor + Tool_005_BatchStoneState + C1/C2/C3.prefab` 这一组石头链小批
+  6. 已新增一条通用补交流程：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_给其它已施工线程_shared-root上传回执补交通用prompt_01.md`
+- 当前关键判断：
+  - 第二波每条线程都必须“一次只允许一个历史小批次”；只要这一个批次撞 `CodeGuard / mixed / own-root 扩根`，就立刻停车并报 exact blocker，不准换第二批继续试。
+- 当前盘面补充：
+  - 截止当前，第一波 6 条线程正式回执已全部收齐。
+- 当前恢复点：
+  - 用户接下来可直接转发第二波 prompt 给全部 6 条已回执线程；
+  - 对其余其实已做过上传动作但还没正式回执的线程，先转发通用补交 prompt；
+  - 下一轮治理位重点继续收第二波回执与缺失回执，不再重审第一波 prompt 本身。
