@@ -62,6 +62,68 @@
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
 
+## 2026-04-23｜shared-root own 保本上传结果
+
+### 用户目标
+- 用户要求本轮暂停存档功能施工，只做 `存档系统` 当前本地 own 成果的完整保本上传：
+  - clearly-own 内容最小批次归仓
+  - push 到 `origin`
+  - 不吞 shared/mixed
+
+### 本轮实际完成
+1. 已手工完成前置核查并重读：
+   - `2026-04-23_给存档系统_shared-root完整保本上传与own尾账归仓prompt_01.md`
+   - `2026-04-23_shared-root完整保本上传分发批次_01.md`
+   - 当前线程 memory
+   - `Show-Active-Ownership.ps1`
+2. 已执行 `Begin-Slice`：
+   - docs 簇：`shared-root-own-safe-upload-docs-20260423`
+   - 代码簇：`shared-root-own-safe-upload-data-core-20260423`
+3. 已执行并成功通过 docs 簇 `Ready-To-Sync`，随后完成 docs/prompt 白名单同步：
+   - 提交：`90e95fc7`
+   - 分支：`main`
+   - push：已到 `origin/main`
+4. docs 成功归仓的 own 内容：
+   - `.codex/threads/Sunset/存档系统/memory_0.md`
+   - `.kiro/specs/存档系统/memory.md`
+   - `.kiro/specs/存档系统/memory_0.md`
+   - `.kiro/specs/存档系统/4.0.0_三场景持久化与门链收口/memory.md`
+   - `.kiro/specs/存档系统/0417.md`
+   - `.kiro/specs/存档系统/2026-04-17_给农田交互修复V3_toolbar图标与scene-rebind边界收口prompt_01.md`
+
+### 未完成
+1. `Assets/YYY_Scripts/Data/Core/InventoryItem.cs`
+2. `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+3. `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+
+### blocker 结论
+1. 上述 3 个 `Data/Core` 文件不是因为 own/mixed 边界不清而失败。
+2. 真正 blocker 是运行态工具链：
+   - `Ready-To-Sync` 内部 preflight 会拉起 `CodexCodeGuard`
+   - `CodexCodeGuard` 进一步卡在 `git diff --name-status HEAD --`
+   - shell timeout 会杀掉父级 `Ready-To-Sync`，留下 stale `ready-to-sync.lock`
+3. 本轮我已经把自己留下的 runtime 尾账清掉：
+   - 杀掉挂起的 `Ready-To-Sync / git-safe-sync / CodexCodeGuard / git diff`
+   - 删除无持有者 stale `ready-to-sync.lock`
+   - 最后执行 `Park-Slice`
+
+### shared / mixed 报实
+- 本轮明确未吞：
+  - `Assets/YYY_Scripts/Story/Managers/StoryProgressPersistenceService.cs`
+  - `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+  - `Assets/YYY_Tests/Editor/SaveManagerDefaultSlotContractTests.cs`
+  - `Assets/YYY_Tests/Editor/StoryProgressPersistenceServiceTests.cs`
+  - `Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs`
+  - `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+
+### 当前状态
+- `thread-state`：已执行 `Begin-Slice`、docs 簇 `Ready-To-Sync`、最终 `Park-Slice`
+- 当前 live 状态：`PARKED`
+- 恢复点：
+  1. 先排 `CodexCodeGuard preflight` 挂死问题
+  2. 再重开 `Data/Core` 代码簇上传
+  3. 不要重新回头审 docs own/mixed 边界
+
 ## 2026-04-17 00:30 真实施工续记：第二簇验证收完，Primary 农地离场丢状态完成只读归因
 - 当前主线没变，仍是存档系统收口；本轮继续服务“重开/剧情/Home 后背包、toolbar、箱子、sort、input 混合坏相”这条主线。
 - 本轮子任务分两段：

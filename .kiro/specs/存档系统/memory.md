@@ -269,6 +269,52 @@
 - 详细技术恢复点已回写：
   - [4.0.0_三场景持久化与门链收口/memory.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/存档系统/4.0.0_三场景持久化与门链收口/memory.md)
 
+## 2026-04-23｜shared-root own 保本上传收口
+
+### 本轮目标
+- 用户这轮明确要求：暂停存档功能施工，只做 `存档系统` 当前 own 成果的最小安全归仓与 push。
+- 执行入口：
+  - `.kiro/specs/Codex规则落地/2026-04-23_给存档系统_shared-root完整保本上传与own尾账归仓prompt_01.md`
+  - `.kiro/specs/Codex规则落地/2026-04-23_shared-root完整保本上传分发批次_01.md`
+
+### 已完成
+1. 已重审 own 脏改并重新分类：
+   - `A｜已成功归仓`
+     - `.codex/threads/Sunset/存档系统/memory_0.md`
+     - `.kiro/specs/存档系统/memory.md`
+     - `.kiro/specs/存档系统/memory_0.md`
+     - `.kiro/specs/存档系统/4.0.0_三场景持久化与门链收口/memory.md`
+     - `.kiro/specs/存档系统/0417.md`
+     - `.kiro/specs/存档系统/2026-04-17_给农田交互修复V3_toolbar图标与scene-rebind边界收口prompt_01.md`
+   - `B｜shared/mixed，未吞`
+     - `Assets/YYY_Scripts/Story/Managers/StoryProgressPersistenceService.cs`
+     - `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+     - `Assets/YYY_Tests/Editor/SaveManagerDefaultSlotContractTests.cs`
+     - `Assets/YYY_Tests/Editor/StoryProgressPersistenceServiceTests.cs`
+     - `Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs`
+     - `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+   - `A 候选但未能归仓`
+     - `Assets/YYY_Scripts/Data/Core/InventoryItem.cs`
+     - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+     - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+2. docs/prompt 簇已用 `git-safe-sync` 成功提交并 push 到 `origin/main`。
+   - 提交：`90e95fc7`
+   - 结果：docs own 根已 clean
+
+### 未完成与 blocker
+1. `Assets/YYY_Scripts/Data/Core` 这 3 个文件没有归仓，不是因为 mixed，而是 `Ready-To-Sync` 的 preflight 运行态挂死：
+   - 子链路卡在 `CodexCodeGuard -> git diff --name-status HEAD --`
+   - 父级 `Ready-To-Sync` 进程一旦被 shell timeout 打断，就会留下 stale `ready-to-sync.lock`
+2. 本轮已做运行态止血：
+   - 确认 stale lock 无持有者后删除
+   - 清理本线程自己留下的 `Ready-To-Sync / git-safe-sync / CodexCodeGuard / git diff` 挂起进程
+   - 最后执行 `Park-Slice`，避免继续占用 shared-root 运行态
+
+### 当前结论
+- 这轮已经完成“own docs/prompt 保本上传”。
+- 这轮没有完成 `Data/Core` 代码簇上传。
+- 当前代码簇 blocker 是运行态工具链，不是语义归类争议；恢复时应从 `CodexCodeGuard preflight 为什么卡在 git diff` 继续，而不是重新审 own/mixed 边界。
+
 ## 2026-04-22 追加索引｜存档、跨场景承接与持久化链草稿本级只读审计已完成
 - 本轮不是继续改代码，而是按用户指定入口做一轮“可反复迭代的技术提取底稿”式只读审计。
 - 当前新钉实的总判断：
