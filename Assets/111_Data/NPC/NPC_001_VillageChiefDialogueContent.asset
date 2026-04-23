@@ -67,6 +67,19 @@ MonoBehaviour:
     - 这边人流我盯着，你把想记的现象慢慢看清楚。
     - 别一直卡在同一条线上，给自己和别人都留点空当。
     responderLines:
-    - 你看得细是好事，别把自己绷太紧。
-    - 这事你记下来吧，大方向我替你盯着。
-    - 行，我往旁边挪一点，免得把你的视线也挡住。
+  - 你看得细是好事，别把自己绷太紧。
+  - 这事你记下来吧，大方向我替你盯着。
+  - 行，我往旁边挪一点，免得把你的视线也挡住。
+  defaultInformalConversationBundles:
+  - bundleId: 001-village-chief-default-chat
+    exchanges:
+    - exchangeId: greet
+      playerLines:
+      - 村里现在还顺吗？
+      - 我过来跟你说两句。
+      npcReplyLines:
+      - 顺着呢，你慢慢说。
+      - 嗯，先把眼前这点事聊清楚。
+      npcReplyDelayMin: 0.6
+      npcReplyDelayMax: 0.9
+    completionRelationshipDelta: 1

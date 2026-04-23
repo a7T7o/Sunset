@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b44625ea17b1425fbabfac26e91976a0, type: 3}
   m_Name: NpcCharacterRegistry
-  m_EditorClassIdentifier:
+  m_EditorClassIdentifier: 
   entries:
   - npcId: 000
     canonicalName: "\u65C5\u4EBA"
@@ -118,7 +118,7 @@ MonoBehaviour:
     - "\u8001\u6770\u514B"
     - HunterClue
     prefab: {fileID: 3067264001440543315, guid: e569dbb748b75f94485c29d96f8b50c7, type: 3}
-    handPortrait: {fileID: 0}
+    handPortrait: {fileID: -7715821584982700507, guid: a7faaa54d188f9046b1461d7e6986986, type: 3}
     showInRelationshipPanel: 1
     relationshipBaseline: 2
     relationshipBeatSemantics: []
@@ -165,7 +165,7 @@ MonoBehaviour:
     speakerAliases:
     - HerbCrowd
     prefab: {fileID: 8066509756948285930, guid: b1232807fac08a2448d0f6c67650fece, type: 3}
-    handPortrait: {fileID: 0}
+    handPortrait: {fileID: -3141592653589793238, guid: 4d0eea0fb5d241c3b2d10c3f4b0de202, type: 3}
     showInRelationshipPanel: 1
     relationshipBaseline: 2
     relationshipBeatSemantics: []

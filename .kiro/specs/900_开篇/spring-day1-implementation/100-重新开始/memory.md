@@ -2609,3 +2609,48 @@
 - 当前恢复点：
   1. 这条线现在已从“own dirty 待收口”进入“已提交 checkpoint，等待后续真实体验复测”。
   2. 若下轮继续，应从 `0d59b8b3` 往后看，不再回到这轮之前的脏现场。
+
+## 2026-04-19｜阻塞补记：Town 退役菜单 warning 清理时一度炸出 61/62 条编译错，现已收平
+- 当前主线目标：
+  - 用户追加报告 `TownSceneRuntimeAnchorReadinessMenu.cs` / `TownNativeResidentMigrationMenu.cs` 的 `CS0162` warning，要直接修掉。
+- 本轮实际做成：
+  1. 已删除 `TownSceneRuntimeAnchorReadinessMenu.BuildProbeResult()` 中 `return result;` 后的死代码。
+  2. 已把 `TownNativeResidentMigrationMenu.Migrate()` 重写回最小退役版本，彻底删掉 `return report;` 后残留的旧迁移函数体。
+  3. 过程中一度因为我第一次删坏了 `TownNativeResidentMigrationMenu.cs` 的结构，fresh console 炸出 `61/62` 条语法错；根因已确认是我这次 patch 造成的单文件结构失衡，不是新的系统性爆炸。
+  4. 现已重新收平该文件结构。
+- 验证结果：
+  1. `python scripts/sunset_mcp.py errors --count 40 --output-limit 40` 最新结果：`errors=0 warnings=0`
+  2. 两个文件的 `manage_script validate` 当前都返回 `clean`
+  3. `validate_script` 对 `TownSceneRuntimeAnchorReadinessMenu.cs` 仍会读到外部 `The referenced script (Unknown) on this Behaviour is missing!`，判定为 `external_red`，不是这两份脚本 own 错
+- 当前恢复点：
+  1. 这轮 `CS0162` 与中途炸出的 `61/62` 条编译错都已对位并收平。
+  2. 如果后续还要继续查红面，下一步该看的是那批外部 `missing script`，不是继续盯这两个 Town 退役菜单。
+
+## 2026-04-19｜Primary Home 门禁语义改口：锁到 `0.0.5` 才放开
+- 当前主线目标：
+  - 用户最新裁定把 `Home` 入口从“`0.0.3` 结束后可进”进一步改成“整个 `0.0.4` 都锁住，只有进入 `0.0.5` 才能进家”。
+- 本轮实际做成：
+  1. `SpringDay1Director.ShouldAllowPrimaryHomeEntry()` 已从：
+     - `CurrentPhase >= WorkbenchFlashback`
+     改成：
+     - `CurrentPhase >= FarmingTutorial`
+  2. 这意味着：
+     - `HealingAndHP`
+     - `WorkbenchFlashback`
+     两段都继续锁住 `PrimaryHomeDoor`
+     - 只有正式进到 `0.0.5`
+     才重新放行。
+  3. `0417.md` 已同步改口，不再保留“疗伤后就开门”的旧真值。
+- 验证结果：
+  1. `validate_script Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+     - `owned_errors=0`
+     - native validation=`warning(3)`，仍是既有性能类提示
+  2. `validate_script Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+     - `owned_errors=0`
+     - native validation=`clean`
+  3. fresh console：
+     - `errors=0 warnings=0`
+  4. `git diff --check` 覆盖这两份文件通过
+- 当前恢复点：
+  1. 这刀已经把门禁合同改成用户最新语义。
+  2. 如果下一轮要继续，不该再讨论“疗伤后能不能进家”，而是直接按“`0.0.5` 才开”继续验 live / packaged。

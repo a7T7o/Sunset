@@ -2711,6 +2711,51 @@
   1. 如果后续真修这条线，第一优先应先抓 Day1 own 的收尾链：owner 是否在 consume arrival 之前被 release、真实 `HomeAnchor` 是否和玩家视觉门口对不上。
   2. 只有在这两层都排除后，才值得把锅继续下探到 `NPCAutoRoamController.BeginPathDirectedMove()` 的导航建路/到站发布。
 
+## 2026-04-19｜只读审计：20:00 后 resident 不自己回家、要玩家碰一下/挤一下才启动
+- 当前主线目标：
+  - 只读回答“为什么 20:00 后仍会出现 NPC 到点不自己走、要玩家碰一下/挤一下才开始回家”，并给出最小安全修口。
+- 本轮子任务：
+  1. 静态核对 `SpringDay1NpcCrowdDirector.cs` 的 20:00 夜间收口链。
+  2. 静态核对 `NPCAutoRoamController.cs` 的 `FormalNavigation` 启动、卡住恢复、blocked abort 行为。
+  3. 补看可直接取证的 `SpringDay1ResidentControlProbeMenu.cs` / `SpringDay1LatePhaseValidationMenu.cs`。
+- 本轮新站稳的事实：
+  1. `SpringDay1NpcCrowdDirector.SyncResidentNightRestSchedule()` 在 `20 <= hour < 21` 时会进入 `TryBeginResidentReturnHome()`，再走 `TryDriveResidentReturnHome()` -> `NPCAutoRoamController.RequestReturnToAnchor()` / `RequestReturnHome()`，所以“20:00 发不发回家 drive”这层当前是有接线的。
+  2. `NPCAutoRoamController.RequestReturnHome()` 会把夜间回家走成 `PointToPointTravelContract.FormalNavigation`；这不是普通 roam，而是受控点到点合同。
+  3. 真正高概率坏在 `FormalNavigation` 被近身阻挡后的恢复：`TickMoving()` -> `TryHandleBlockedAdvance()` -> `TryHandleRecoverablePointToPointTravelBlockedAdvance()`。
+  4. 这条恢复链在 blocked 超过 `FORMAL_NAVIGATION_BLOCKED_ABORT_MIN_FRAMES = 8` 后，会直接 `EndDebugMove(false)`，把当前 `FormalNavigation` 硬中止；它不会像 autonomous roam 那样继续维持一个长期自救合同。
+  5. `EndDebugMove(false)` 之后，如果 resident scripted control 还在，就会落到 `HaltResidentScriptedMovement()`；此时 controller 进入：
+     - `IsResidentScriptedControlActive = true`
+     - `IsResidentScriptedMoveActive = false`
+     - `ShouldSuspendResidentRuntime()` 返回 true
+     也就是 NPC 身体被 runtime freeze，等下一次 crowd director 重发 return-home。
+  6. crowd director 的确会重试，但重试本质仍是重新请求同一条 formal path；如果 NPC 当下起步位被玩家/NPC 挤住、边缘 clearance 不满足，重发仍会失败。玩家“碰一下/挤一下”改变了占位/clearance 后，下一次 `RequestReturnHome()` 才容易成功，于是表现成“碰一下才肯回家”。
+  7. 这条判断还有一个旁证：当前代码已经预留了 `ResidentControlProbeEntry.lastMoveSkipReason / blockedAdvanceFrames / scriptedMoveActive / scriptedMovePaused`，并有现成菜单 `SpringDay1ResidentControlProbeMenu` 可在 20:00 后直接抓 artefact；说明作者自己也把这种 runtime contract 卡住当成 probe 目标，而不是单纯剧情时钟没触发。
+- 当前最准确判断：
+  1. 这次最像的不是“20:00 没有发回家命令”，而是“命令发了，但 `FormalNavigation` 在近身阻挡时会硬 abort，然后 freeze 在等待重发的窗口里”。
+  2. 因为 abort 点发生在 `NPCAutoRoamController` 的通用 recoverable point-to-point blocked 分支，所以它更像 navigation contract 设计过于保守，而不是 Day1 时钟常量配错。
+  3. `SpringDay1NpcCrowdDirector` 这边更像症状放大器：它会不断尝试重发，但没有把 `FormalNavigationBlockedAbort` 这类“瞬时堵塞”与“真正无法回家”分开。
+- 最小安全修口建议：
+  1. 第一刀优先改 `NPCAutoRoamController.TryHandleRecoverablePointToPointTravelBlockedAdvance()`：
+     - 只对 `PointToPointTravelContract.FormalNavigation` 收窄行为；
+     - 不要在 `blockedAdvanceFrames >= FORMAL_NAVIGATION_BLOCKED_ABORT_MIN_FRAMES` 时立刻 `EndDebugMove(false)`；
+     - 改成“保留 FormalNavigation 合同，继续停在 blocked-retry / rebuild 循环里”，让 transient 拥堵自行恢复后还能继续走。
+  2. 这刀比改 crowd director 更安全，因为它直打“为什么碰一下才启动”的根因：当前是 formal move 被过早清掉，而不是夜间调度没发。
+  3. 如果主线程只想先做极小验证，不先改语义，可先用 `SpringDay1ResidentControlProbeMenu` 在 20:00 后抓一次样本，重点看：
+     - `scriptedControlActive=true`
+     - `scriptedMoveActive=false`
+     - `lastMoveSkipReason` 是否落在 `FormalNavigationBlockedAbort` / `FormalNavigation...Blocked...`
+     - `blockedAdvanceFrames`
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1NpcCrowdDirector.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1ResidentControlProbeMenu.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\Story\SpringDay1LatePhaseValidationMenu.cs`
+- 验证状态：
+  - 纯静态推断成立；未改代码，未跑 Unity / live。
+- 当前恢复点：
+  1. 如果后续进入真实施工，第一刀应由导航/locomotion owner 只改 `FormalNavigation` blocked abort，不要先去动 20:00 时钟或 crowd manifest。
+  2. 如果第一刀后仍复现，再回头补 crowd director 的“夜间 pending return-home 失败类型分流”和更快 probe。
+
 ## 2026-04-19｜只读审计：读档/重新开始/默认开局后 Day1 任务壳残留链
 - 当前主线目标：
   - 不改代码，只读回答“读档 / 重新开始 / 默认开局后，为什么 Day1 左侧任务卡、提示壳、交互提示、暂停源还会残留”，并给出最小安全补法。

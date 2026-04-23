@@ -2531,3 +2531,82 @@
   - 当前主线目标：保持 spring-day1 收口后状态，等用户 fresh 体验复测。
   - 本轮子任务：把当前 own dirty 收干净并同步记忆。
   - 恢复点：后续若继续，先从 `0d59b8b3` 之后的 clean 状态续，不再从旧脏现场开刀。
+
+## 2026-04-19｜只读审计：001（村长）剧情外不能正常聊天
+- 用户目标：
+  - 只读审计，不改文件，盯住一个问题：为什么 001（村长）在剧情外仍然不能正常聊天。
+- 已完成事项：
+  1. 查了 `SpringDay1Director`、`NPCDialogueInteractable`、`NPCInformalChatInteractable`、`PlayerNpcChatSessionService`、`NpcInteractionPriorityPolicy`。
+  2. 追到 001 的数据资产，确认它有近身对白/ambient lines，但没有可用的 informal conversation bundles。
+  3. 钉实 `NPCInformalChatInteractable.CanInteractWithResolvedSession()` 的硬门之一是 `RoamProfile.HasInformalConversationContent`。
+  4. 钉实 001 当前 `NPC_001_VillageChiefDialogueContent.asset` 里 `defaultInformalConversationBundles` 为空，`relationshipStageInformalChatSets / phaseInformalChatSets` 也未见有效内容，因此会在更早一层直接挡掉正式闲聊 session。
+- 关键判断：
+  1. 最可能根因不是 `priority policy` 本身，而是 001 没有“正式可开聊的会话包”。
+  2. `FreeTime` 的 resident/scripted control 可能会是第二层阻挡，但不是这一轮的第一根因。
+  3. 最小安全修口优先是给 001 补 `informal conversation bundles`，而不是先改 priority policy 逻辑。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCDialogueInteractable.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NPCInformalChatInteractable.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PlayerNpcChatSessionService.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NpcInteractionPriorityPolicy.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_001_VillageChiefDialogueContent.asset`
+  - `D:\Unity\Unity_learning\Sunset\Assets\111_Data\NPC\NPC_001_VillageChiefRoamProfile.asset`
+- 验证结果：
+  - 纯静态推断成立；未改代码，未跑 Unity / tests / live。
+- 遗留问题或下一步：
+  - 若后续真修，先补 001 的 informal bundles，再看 resident control 是否还会在 FreeTime 里继续拦截。
+
+## 2026-04-19｜线程补记：Town 退役菜单 warning 清理与 `61/62` 条错误回落
+- 用户目标：
+  - 继续追 `TownSceneRuntimeAnchorReadinessMenu.cs` / `TownNativeResidentMigrationMenu.cs` 的 warning，并在用户打开 CLI 后追查“62 个报错”。
+- 已完成事项：
+  1. 已确认两条 warning 都是我这条 `spring-day1` 线留下的退役菜单死代码。
+  2. 已清掉 `TownSceneRuntimeAnchorReadinessMenu.BuildProbeResult()` 的死代码。
+  3. 已把 `TownNativeResidentMigrationMenu.Migrate()` 收回最小退役实现。
+  4. 已确认中途 `61/62` 条编译错只是我第一次 patch 删坏了该文件结构，不是新的系统性红面。
+  5. 最新 `python scripts/sunset_mcp.py errors --count 40 --output-limit 40` 已回到 `errors=0 warnings=0`。
+- 额外报实：
+  1. `validate_script` / `manage_script validate` 对 `TownNativeResidentMigrationMenu.cs` 当前为 `clean`。
+  2. `TownSceneRuntimeAnchorReadinessMenu.cs` 的 `validate_script` 读到了外部 `missing script`，这是外部红，不属于这次 Town 菜单 own。
+- 当前主线目标 / 本轮子任务 / 恢复点：
+  - 当前主线目标：保持 Day1 收口现场稳定，只在用户点名的尾巴上补小刀。
+  - 本轮子任务：清理 Town 退役菜单 warning，并定位用户看到的 `62` 条错误来源。
+  - 恢复点：后续若继续查红面，优先看外部 `missing script`，不是继续盯这两个 Town 菜单。
+
+## 2026-04-19｜Day1 返家卡顿与 001 闲聊缺口的最小修口
+- 当前主线目标：
+  - 继续 Day1 打包前收尾，盯住两根硬问题：
+    1. `20:00` 后 NPC 到点不自己回家，要玩家“挤一下”才开始走。
+    2. `001`（村长）剧情外仍然不能正常聊天。
+- 本轮实际做成：
+  1. `NPCAutoRoamController`：FormalNavigation 的 blocked/stuck 早停不再直接掐断合同，改为保留 active drive 继续重试。
+  2. `SpringDay1Director`：当 story actor 退回 ordinary NPC 规则且 RoamProfile 本身有 informal content 时，自动补 `NPCInformalChatInteractable`。
+  3. `NPC_001_VillageChiefDialogueContent.asset`：补了最小 informal bundle，让 `HasInformalConversationContent` 先成立。
+  4. `SpringDay1DirectorStagingTests`：新增了回家合同与 001 闲聊 surface 两条测试。
+- 验证结果：
+  1. `git diff --check` 通过。
+  2. 脚本级 `validate_script` 的 owned / external 都是 `0`。
+  3. Unity live 仍缺 active instance，所以最终验证暂仍是 `unity_validation_pending`。
+- 当前恢复点：
+  1. 如果下一轮继续，就先补 active Unity instance 的 live 验证。
+  2. 现阶段不要把这两刀再回滚成仅 policy 口径。
+
+## 2026-04-23｜shared-root 保本上传 prompt 只读审题与执行顺序冻结
+- 用户目标：
+  - 先不要直接执行 `spring-day1` 的 shared-root 保本上传 prompt，而是先完整读取 prompt 与分发批次正文，再给出“一轮怎么执行”的简明步骤清单。
+- 已完成事项：
+  1. 已只读读取：
+     - `2026-04-23_给spring-day1_shared-root完整保本上传与own尾账归仓prompt_01.md`
+     - `2026-04-23_shared-root完整保本上传分发批次_01.md`
+     - 当前 live 规范快照
+  2. 已确认这轮性质不是继续 Day1 runtime 开发，而是只做 `spring-day1` clearly-own 成果的最小白名单归仓与 `origin` push。
+  3. 已确认这轮最重要的边界：
+     - 不能吞 `Story/UI`、`SaveManager`、scene、`ProjectSettings`、`GameInputManager`
+     - 不能为了更干净去重写、补逻辑、补测试
+     - 两个等待中的子智能体这轮不应直接介入保本上传
+  4. 已只读拉取当前 `git status --short`，确认现场是 shared-root 混合脏树，上传必须严格先做 own 分类。
+- 当前主线目标 / 本轮子任务 / 恢复点：
+  - 当前主线目标：把 `spring-day1` 现有 own 成果安全归仓，而不是继续开发。
+  - 本轮子任务：只读审题并冻结执行步骤，不启动真实上传。
+  - 恢复点：若用户批准执行，下一步先处理 waiting 子智能体的去留判断，然后进入 `A/B/C` own 分类，再跑 `Begin-Slice` 开始保本上传。

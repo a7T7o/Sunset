@@ -18,12 +18,12 @@ MonoBehaviour:
   activityRadius: 1.55
   minimumMoveDistance: 0.35
   pathSampleAttempts: 8
-  shortPauseMin: 1.6
-  shortPauseMax: 2.7
+  shortPauseMin: 0.5
+  shortPauseMax: 5
   shortPauseCountMin: 1
   shortPauseCountMax: 2
-  longPauseMin: 3.2
-  longPauseMax: 4.8
+  longPauseMin: 3
+  longPauseMax: 8
   stuckCheckInterval: 0.3
   stuckDistanceThreshold: 0.08
   maxStuckRecoveries: 3

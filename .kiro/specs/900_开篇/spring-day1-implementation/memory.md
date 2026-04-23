@@ -2415,3 +2415,67 @@
   2. 后续该看的重点重新回到：
      - 用户 fresh live / packaged 体验
      - 以及与其他线程成果的后续整合
+
+## 2026-04-19｜父层补记：Town 退役菜单 dead-code 清理已收，`61/62` 条错误不是新系统面
+- 父层新增事实：
+  1. 用户追加的两条 `CS0162` warning 来自：
+     - `TownSceneRuntimeAnchorReadinessMenu.cs`
+     - `TownNativeResidentMigrationMenu.cs`
+  2. `spring-day1` 已把这两处 `return` 后死代码收掉。
+  3. 中途出现的 `61/62` 条编译错，根因是 `TownNativeResidentMigrationMenu.cs` 在第一次 patch 后结构失衡，属于本轮单文件事故，不是新的跨系统红面。
+  4. 最新 `errors` fresh 已回到 `0 error / 0 warning`。
+  5. `validate_script` 后续读到的 `missing script` 属于外部红，不归这两份退役菜单 own。
+- 父层判断：
+  1. 这轮 Town 退役菜单尾巴已经收平。
+  2. 后续如果用户继续追红面，不应再把这两份文件当主嫌。
+
+## 2026-04-19｜父层补记：最新 console 只剩 Unity MCP 包缓存外红
+- 父层新增事实：
+  1. 最新 `sunset_mcp.py errors` 结果是 `4 errors / 0 warnings`。
+  2. 4 条 error 全部落在：
+     - `Library/PackageCache/com.coplaydev.unity-mcp@.../Editor/Helpers/GameObjectSerializer.cs`
+     - `Library/PackageCache/com.coplaydev.unity-mcp@.../Editor/Resources/Scene/GameObjectResource.cs`
+  3. 对 `TownSceneRuntimeAnchorReadinessMenu.cs` 与 `TownNativeResidentMigrationMenu.cs` 再次做 `validate_script`，结果都是：
+     - `owned_errors=0`
+     - `owned_warnings=0`
+  4. 因此当前这张快照里，Town 两份退役菜单不是活跃红源。
+- 父层判断：
+  1. “62 个报错”在当前现场不成立为 Day1 own 红面。
+  2. 当前更像 Unity MCP / editor stale 状态造成的外部红，后续如果继续追，要换到包缓存与 editor 状态侧查。
+
+## 2026-04-19｜父层补记：`PrimaryHomeDoor` 现在要锁到 `0.0.5`
+- 父层新增事实：
+  1. 用户最新裁定已把 `Home` 入口真值改成：
+     - 整个 `0.0.4 WorkbenchFlashback` 期间继续锁门
+     - 只有正式进入 `0.0.5 FarmingTutorial` 后才放开
+  2. `SpringDay1Director.ShouldAllowPrimaryHomeEntry()` 已跟进收成：
+     - `CurrentPhase >= FarmingTutorial`
+  3. `SpringDay1DirectorStagingTests` 相关门禁断言也已同步改成：
+     - `WorkbenchFlashback` 继续关闭
+     - `FarmingTutorial` 才开放
+  4. 最新脚本级验证：
+     - `SpringDay1Director.cs`=`owned_errors=0`
+     - `SpringDay1DirectorStagingTests.cs`=`owned_errors=0`
+     - fresh console=`0 error / 0 warning`
+- 父层判断：
+  1. 这条门禁语义现在不要再按“疗伤后即可进家”理解。
+  2. 后续用户如果复测 `PrimaryHomeDoor`，通过标准应直接改成：
+     - `0.0.4` 还不能进
+     - `0.0.5` 才能进
+
+## 2026-04-23｜父层补记：`spring-day1` 已切到 shared-root 保本上传准备态
+- 父层新增事实：
+  1. 用户已给出新的治理 prompt，要求 `spring-day1` 线程暂停继续开发，改为只做当前本地 own 成果的完整保本上传。
+  2. 线程已只读读取：
+     - `2026-04-23_给spring-day1_shared-root完整保本上传与own尾账归仓prompt_01.md`
+     - `2026-04-23_shared-root完整保本上传分发批次_01.md`
+     - 当前 live 规范快照
+  3. 当前执行顺序已冻结为：
+     - 先重看 prompt 点名 own 簇
+     - 先做 `A/B/C` 分类
+     - 明确不吞 `Story/UI`、`SaveManager`、scene、`ProjectSettings`、`GameInputManager`
+     - 两个等待中的子智能体这轮默认不直接参与上传
+  4. 线程本轮还未开始真实上传，因此 `Begin-Slice / Ready-To-Sync` 仍未跑；当前仍是只读准备态。
+- 父层判断：
+  1. 这轮完成定义不再是“继续把 Day1 功能做完”，而是“把 clearly-own 成果安全归仓或精确 blocker 化”。
+  2. 后续若继续执行，应优先保证 own 分类与白名单边界正确，不能为了提速回流到 runtime 修补。

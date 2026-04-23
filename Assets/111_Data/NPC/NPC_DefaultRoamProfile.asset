@@ -19,11 +19,11 @@ MonoBehaviour:
   minimumMoveDistance: 0.6
   pathSampleAttempts: 12
   shortPauseMin: 0.5
-  shortPauseMax: 3
+  shortPauseMax: 5
   shortPauseCountMin: 3
   shortPauseCountMax: 5
   longPauseMin: 3
-  longPauseMax: 6
+  longPauseMax: 8
   stuckCheckInterval: 0.3
   stuckDistanceThreshold: 0.08
   maxStuckRecoveries: 3

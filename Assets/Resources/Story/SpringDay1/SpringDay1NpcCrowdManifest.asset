@@ -48,9 +48,9 @@ MonoBehaviour:
       flags: 260
       note: "\u591C\u91CC\u4ECD\u5728\u6751\u4E2D\u538B\u7740\u7EB8\u9875\u4E0E\u53E3\u4F9B\uFF0C\u53EA\u662F\u5B58\u5728\u611F\u538B\u4F4E\u3002"
     - beatKey: DayEnd_Settle
-      presenceLevel: 4
-      flags: 224
-      note: "\u6536\u7EB8\u56DE\u5C4B\uFF0C\u628A\u4ECA\u5929\u538B\u5728\u6751\u91CC\u7A7A\u6C14\u91CC\u7684\u505C\u624B\u548C\u76EE\u5149\u4E00\u5E76\u5E26\u8D70\u3002"
+      presenceLevel: 2
+      flags: 192
+      note: "\u6536\u7EB8\u56DE\u5C4B\uFF0C\u50CF\u5176\u4ED6\u666E\u901A resident \u4E00\u6837\u5728 20:00 \u540E\u8FDB\u5165\u7EDF\u4E00\u56DE\u5BB6\u6536\u53E3\u3002"
     - beatKey: DailyStand_Preview
       presenceLevel: 4
       flags: 113
