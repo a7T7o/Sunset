@@ -585,3 +585,79 @@
 - 当前恢复点：
   - 现在 shared-root 还能继续安全收的，仍应优先是 `PARKED + docs-only + owner 清楚` 的小批；
   - 不要把这次安全 docs 提交误判成“代码/场景已经收完”。
+
+## 2026-04-23｜治理只读总审：当前真正的问题是“停车线程大量留尾账”
+
+- 用户目标：
+  - 在不回退、不删改成果的前提下，彻查当前所有未提交内容，按线程和工作区重新分清，给出能直接拿去调度的真实盘面。
+- 当前主线：
+  - 本轮是治理只读总审，不进入真实施工；未跑 `Begin-Slice`，当前保持 `PARKED`。
+- 本轮实际做成了什么：
+  1. 已重读：
+     - `Sunset/AGENTS.md`
+     - `Codex规则落地/memory.md`
+     - 线程根卷
+     - `线程分支对照表.md`
+  2. 已实跑：
+     - `git status --short`
+     - `git -c core.quotepath=false status --short --untracked-files=all`
+     - `Show-Active-Ownership.ps1`
+  3. 已重核主线程 memory/workspace 入口：
+     - `spring-day1`
+     - `NPC`
+     - `UI`
+     - `导航检查`
+     - `存档系统`
+     - `农田交互修复V3`
+     - `打包`
+     - `项目文档总览`
+- 当前稳定结论：
+  1. 当前 shared-root 真实总量是：
+     - `447` 条
+     - `172 modified`
+     - `2 deleted`
+     - `273 untracked`
+  2. 当前 live `thread-state` 和工作树现场明显脱钩：
+     - 只有 `导航检查` 仍是 `ACTIVE`
+     - 但 `spring-day1 / NPC / UI / 存档系统 / 农田交互修复V3 / 项目文档总览` 都还有实打实的 memory、prompt、代码或资源尾账
+  3. 因而当前第一真问题不是“谁还在写”，而是：
+     - 多条线程已经 `PARKED`
+     - 却没有把自己的 own 尾账提交/收掉
+  4. 当前最危险的不是数字大，而是 shared/mixed 面仍在：
+     - `Assets/000_Scenes/Home.unity`
+     - `Assets/000_Scenes/Primary.unity`
+     - `Assets/000_Scenes/Town.unity`
+     - `ProjectSettings/EditorBuildSettings.asset`
+     - `ProjectSettings/ProjectSettings.asset`
+     - `ProjectSettings/QualitySettings.asset`
+     - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+  5. 当前最该先从总量里剥开的，是明显噪音：
+     - `tmp/*`
+     - `.codex/backups/*`
+     - 多条 `2026-04-17 ~ 2026-04-22` 的只读审计子线程 `memory_0.md`
+- 当前恢复点：
+  - 如果下一轮继续治理收口，应先做“噪音层 / owner 尾账层 / shared-mixed 层”三分，而不是继续按总数盲清。
+
+## 2026-04-23｜续记：第一波 own-upload prompt 已写完
+
+- 用户目标：
+  - 在正式转发前，先确认首波线程名单；用户认可后，直接生成首波“完整保本上传” prompt。
+- 当前主线：
+  - 本轮仍是治理施工，但只落分发文件，不代收业务文件。
+- 本轮完成：
+  1. 已写批次入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_shared-root完整保本上传分发批次_01.md`
+  2. 已写 6 条专属 prompt：
+     - `spring-day1`
+     - `NPC`
+     - `UI`
+     - `农田交互修复V3`
+     - `存档系统`
+     - `导航检查`
+  3. 每条 prompt 都已统一要求：
+     - 只做 own 上传
+     - 不回退、不删改、不顺手扩功能
+     - shared/mixed 面只报 blocker，不硬吞
+     - 最终必须报 `SHA / push 状态 / own-path-clean / blocker files`
+- 当前恢复点：
+  - 接下来只需要把这批文件安全同步出去，并在用户侧按复制友好格式交付。

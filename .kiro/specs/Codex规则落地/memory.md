@@ -321,3 +321,73 @@
     1. 继续只读审 active 线程是否已经停稳
     2. 再找下一批 `PARKED + docs-only + owner 清楚` 的小批
     3. 不要回到盲吞 `Assets / ProjectSettings`
+
+## 2026-04-23｜只读总审：当前未提交内容已从“数量恐慌”收束成明确线程尾账图
+
+- 用户目标：
+  - 项目已明确进入“不能回退、不能删改成果”的收口期；这轮要求治理位只读彻查当前全部未提交内容，按线程与工作区重新分清，不做任何业务修改。
+- 当前主线：
+  - 这轮是 `Codex规则落地` 的治理只读总审；不进入真实施工，线程状态保持 `PARKED`。
+- 这轮实际做成了什么：
+  1. 重新核了 `AGENTS.md`、`Codex规则落地/memory.md`、线程记忆、`线程分支对照表.md` 和 `Show-Active-Ownership.ps1`，把“线程状态”和“git 脏改状态”重新对齐。
+  2. 重新核实当前 shared-root 真实总量：
+     - `git status --porcelain=v1 -uall = 447`
+     - `modified = 172`
+     - `deleted = 2`
+     - `untracked = 273`
+  3. 已确认一个比总数更重要的事实：
+     - `thread-state` 里当前只有 `导航检查` 仍是 `ACTIVE`
+     - 其余主线程基本都显示 `PARKED`
+     - 但工作树里仍躺着大量业务改动、memory 和 prompt
+     - 这说明当前第一问题不是“谁还在写”，而是“谁已经停了但还没把自己的尾账合法提交/收口”
+  4. 已把当前盘面重新压成 4 类，而不是再按总数看恐慌：
+     - `spring-day1`：导演/runtime/Story/UI/tests 一整簇还在树上
+     - `NPC`：resident/roam/profile/editor/tool/runtime 合同一整簇还在树上
+     - `UI`：玩家面、Prompt、背包箱子、字体材质和运行时 UI 仍有明显尾账
+     - `Codex规则落地/Town-Home-Primary`：4 个 scene + ProjectSettings + Town/Home editor 工具仍未收完
+     - 另有 `农田交互修复V3`、`存档系统`、`导航检查` 等明确 own 面
+     - 再加一大坨与业务无关的 `tmp/.codex/backups/只读审计子线程`
+  5. 已确认当前最该先清的不是业务代码，而是“噪音和真实尾账要分开看”：
+     - `tmp/`、`.codex/backups/`、多条只读审计子线程 memory 现在大量抬高数字
+     - 但真正决定能不能安全打包/归仓的，仍是 scene、ProjectSettings、运行时代码和 active/parked 线程的 own 文件
+- 当前关键判断：
+  - 现在已经不是“继续让治理位代收一大包”最安全的阶段。
+  - 最真实的正确动作应改成：
+    1. 先按线程 owner 收
+    2. 每条线程只提自己的 own 批次
+    3. shared/mixed 面最后再由治理位做最小整合
+  - 否则最容易出的问题不是“漏提一点”，而是“治理位为了清数字把别人的运行时现场吞掉”。
+- 当前恢复点：
+  - 如果下一轮继续做 shared-root 收口，优先顺序应固定为：
+    1. 先把 `tmp / .codex/backups / 只读审计子线程` 这类噪音和业务尾账剥开
+    2. 再按 `spring-day1 / NPC / UI / 农田交互修复V3 / 存档系统 / 导航检查 / Codex规则落地(Town-Home-Primary)` 七组去做 owner 自收
+    3. `Primary.unity / Town.unity / Home.unity / ProjectSettings / GameInputManager.cs` 继续按 shared/mixed 高危面单独看，不混常规批次
+
+## 2026-04-23｜续记：第一波“完整保本上传”分发 prompt 已落地
+
+- 用户目标：
+  - 用户认可第一波转发线程名单，要求治理位直接把 prompt 写出来；重点不是继续清数字，而是确保“所有当前本地真实成果都能在不回退、不删改的前提下，被正确上传”。
+- 当前主线：
+  - 本轮已从只读盘面切到治理施工，但仍然只做 docs/prompt 分发层；不代替业务线程吞并它们的代码/scene/asset。
+- 这轮实际做成了什么：
+  1. 已在 `Codex规则落地` 根层新增一份本轮批次入口：
+     - `2026-04-23_shared-root完整保本上传分发批次_01.md`
+  2. 已新增 6 条专属 prompt：
+     - `2026-04-23_给spring-day1_shared-root完整保本上传与own尾账归仓prompt_01.md`
+     - `2026-04-23_给NPC_shared-root完整保本上传与own尾账归仓prompt_01.md`
+     - `2026-04-23_给UI_shared-root完整保本上传与own尾账归仓prompt_01.md`
+     - `2026-04-23_给农田交互修复V3_shared-root完整保本上传与own尾账归仓prompt_01.md`
+     - `2026-04-23_给存档系统_shared-root完整保本上传与own尾账归仓prompt_01.md`
+     - `2026-04-23_给导航检查_shared-root完整保本上传与own尾账归仓prompt_01.md`
+  3. 本轮 prompt 已统一钉死 3 个核心口径：
+     - 这是 `上传轮`，不是 `继续开发轮`
+     - 当前成果按“原样归仓”处理，不允许为了清 status 擅自回退、删改、重做
+     - shared/mixed 热面继续留到后续治理位最后整合，不许业务线程借 cleanup 名义硬吞
+  4. 已按当前盘面，把每条线程各自当前最明显的 dirty 簇写进 prompt，避免它们再靠猜 owner。
+- 当前关键判断：
+  - 这波最值钱的不是“又发了一轮 prompt”，而是把接下来的 shared-root 收口从“治理位代收”改成了“各线程先保本上传 own，治理位最后收 shared/mixed”。
+- 当前恢复点：
+  - 下一轮先收各线程回执，看：
+    1. 哪些 clearly-own 已经 push
+    2. 哪些 exact blocker 仍卡在 shared/mixed
+    3. 哪些临时证据/备份/截图需要治理位最后统一处理
