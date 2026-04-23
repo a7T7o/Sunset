@@ -1662,3 +1662,21 @@
 - 当前恢复点：
   1. 这轮先完成 docs-only 保本上传。
   2. 代码尾账后续再按治理位拆 root / 拆 owner 后独立上传。
+
+## 2026-04-23 16:36｜导航 own docs-only 保本上传已完成
+- 提交 SHA：
+  - `91c99ec7`
+- push：
+  - 已 push 到 `origin/main`
+- 当前 thread-state：
+  - `导航检查 = PARKED`
+- 当前仍保留为 blocker 的代码面：
+  - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+  - `Assets/Editor/NavigationAvoidanceRulesValidationMenu.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`

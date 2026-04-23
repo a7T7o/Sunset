@@ -5178,3 +5178,23 @@
 - 当前恢复点：
   1. 先完成 docs-only 白名单提交和 push。
   2. 然后把代码面 blocker 原样留给后续治理 / owner 分流。
+
+## 2026-04-23 16:36｜本轮 docs-only 上传已完成 checkpoint
+- 提交 SHA：
+  - `91c99ec7`
+- 提交说明：
+  - `docs: upload navigation own handoff artifacts`
+- push：
+  - 已推到 `origin/main`
+- thread-state：
+  - `PARKED`
+- 仍未吞并的本地代码 blocker：
+  - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+  - `Assets/Editor/NavigationAvoidanceRulesValidationMenu.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`

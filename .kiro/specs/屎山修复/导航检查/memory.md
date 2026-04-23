@@ -1785,3 +1785,21 @@
 - 当前恢复点：
   1. 本轮先完成 docs-only 导航 own 归仓。
   2. 代码面后续要么等治理位拆 root，要么等更明确的 owner 分流后再开独立上传切片。
+
+## 2026-04-23 16:36｜docs-only own upload 已落 commit 并 push
+- 本轮提交：
+  - `91c99ec7` `docs: upload navigation own handoff artifacts`
+- push 状态：
+  - 已 push 到 `origin/main`
+- 当前 thread-state：
+  - `导航检查 = PARKED`
+- 当前仍留本地 blocker：
+  - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+  - `Assets/Editor/NavigationAvoidanceRulesValidationMenu.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`
