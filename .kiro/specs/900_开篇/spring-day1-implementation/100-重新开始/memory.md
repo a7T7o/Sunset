@@ -2654,3 +2654,37 @@
 - 当前恢复点：
   1. 这刀已经把门禁合同改成用户最新语义。
   2. 如果下一轮要继续，不该再讨论“疗伤后能不能进家”，而是直接按“`0.0.5` 才开”继续验 live / packaged。
+
+## 2026-04-23｜shared-root 保本上传补记：docs/memory/manifest 已归仓，代码批次停在工具与禁吞 blocker
+- 当前主线目标：
+  - 不继续开发 Day1，只把 `spring-day1` 当前 clearly-own 成果按 shared-root 白名单安全归仓并 push。
+- 本轮实际完成：
+  1. 已执行 `Begin-Slice -> Ready-To-Sync -> sync` 的安全批次：
+     - `.codex/threads/Sunset/spring-day1/memory_0.md`
+     - `.codex/threads/Sunset/Day1-V3/memory_0.md`
+     - `.kiro/specs/900_开篇/spring-day1-implementation/*` 本轮 touched memory / `0417.md`
+     - `Assets/Resources/Story/SpringDay1/SpringDay1NpcCrowdManifest.asset`
+  2. 已生成并 push：
+     - commit=`2026.04.23_spring-day1_01`
+     - sha=`8f1909da`
+  3. 已继续只读核对第二批代码根：
+     - `Assets/Editor/Story`
+     - `Assets/YYY_Scripts/Story/Directing`
+     - `Assets/YYY_Scripts/Story/Managers`
+     - `Assets/YYY_Tests/Editor`
+- 当前 blocker：
+  1. `Assets/Editor/Story + Assets/YYY_Scripts/Story/Directing`
+     - `git-safe-sync preflight` 被 `CodexCodeGuard 未返回 JSON` 卡住，当前无法合法进入 sync。
+  2. `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`
+     - 同根还混着 prompt 明确禁止吞的 `Assets/YYY_Scripts/Story/Managers/StoryProgressPersistenceService.cs`
+  3. `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+     - 同根还混着 prompt 明确禁止吞的：
+       - `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+       - `Assets/YYY_Tests/Editor/SaveManagerDefaultSlotContractTests.cs`
+       - `Assets/YYY_Tests/Editor/StoryProgressPersistenceServiceTests.cs`
+       - `Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs`
+     - 以及额外 unrelated：
+       - `Assets/YYY_Tests/Editor/ChestPlacementGridTests.cs`
+- 当前恢复点：
+  1. docs/memory/manifest 这一批已经安全归仓，不需要返工。
+  2. 后续若要继续收第二批，必须先解决 `CodexCodeGuard` 工具 blocker，或由治理位裁定如何处理同根禁吞文件。

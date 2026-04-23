@@ -2610,3 +2610,34 @@
   - 当前主线目标：把 `spring-day1` 现有 own 成果安全归仓，而不是继续开发。
   - 本轮子任务：只读审题并冻结执行步骤，不启动真实上传。
   - 恢复点：若用户批准执行，下一步先处理 waiting 子智能体的去留判断，然后进入 `A/B/C` own 分类，再跑 `Begin-Slice` 开始保本上传。
+
+## 2026-04-23｜shared-root 保本上传执行结果：第一批已 push，第二批停在工具与禁吞 blocker
+- 用户目标：
+  - 直接开始执行 shared-root 保本上传，不再继续开发；把 clearly-own 内容按最小批次安全归仓并 push，到 exact blocker 为止。
+- 已完成事项：
+  1. 已执行 `Begin-Slice` 并对 prompt 点名范围完成 `A/B/C` 分类。
+  2. 两个截图里的等待子智能体当前会话内都查不到可用 agent id，本轮按“不可用旧残留”处理，没有再让它们参与上传。
+  3. 已安全收口第一批 `docs + memory + manifest`，并 push 到 `origin`：
+     - commit=`2026.04.23_spring-day1_01`
+     - sha=`8f1909da`
+  4. 已查清并固定第二批真实 blocker：
+     - `Assets/Editor/Story + Assets/YYY_Scripts/Story/Directing`：
+       - `git-safe-sync preflight` 被 `CodexCodeGuard 未返回 JSON` 卡住
+     - `Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs`：
+       - 同根混有 prompt 禁吞的 `StoryProgressPersistenceService.cs`
+     - `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`：
+       - 同根混有 prompt 禁吞的 `SaveManager* / StoryProgressPersistenceServiceTests / WorkbenchInventoryRefreshContractTests`
+       - 另有 unrelated `ChestPlacementGridTests.cs`
+  5. 已执行 `Park-Slice`
+     - reason=`shared-root-own-upload-blocked`
+     - 当前状态=`PARKED`
+- 验证结果：
+  1. docs/memory/manifest 这一批：
+     - `git-safe-sync sync` 成功
+     - push 成功
+     - 本批 own roots remaining dirty=`0`
+  2. 第二批代码根：
+     - preflight 失败根因已明确，不是我继续误吞或漏分类。
+- 当前恢复点：
+  1. 如果后续继续这条上传线，先处理 `CodexCodeGuard` 工具 blocker，或由治理位裁定同根禁吞文件如何拆。
+  2. 当前不要回头把第二批代码根硬吞进提交，也不要把本轮重新解释成“继续开发 Day1 runtime”。

@@ -2479,3 +2479,27 @@
 - 父层判断：
   1. 这轮完成定义不再是“继续把 Day1 功能做完”，而是“把 clearly-own 成果安全归仓或精确 blocker 化”。
   2. 后续若继续执行，应优先保证 own 分类与白名单边界正确，不能为了提速回流到 runtime 修补。
+
+## 2026-04-23｜父层补记：`spring-day1` 保本上传已完成第一批，剩余停在 exact blocker
+- 父层新增事实：
+  1. `spring-day1` 本轮已先安全归仓并 push 第一批 own：
+     - thread/workspace memory
+     - `0417.md`
+     - `SpringDay1NpcCrowdManifest.asset`
+     - commit=`2026.04.23_spring-day1_01`
+     - sha=`8f1909da`
+  2. 第二批代码根的真实阻塞已钉死为两类：
+     - 工具 blocker：
+       - `CodexCodeGuard 未返回 JSON`
+       - 命中范围：`Assets/Editor/Story + Assets/YYY_Scripts/Story/Directing`
+     - 同根禁吞 blocker：
+       - `Assets/YYY_Scripts/Story/Managers/StoryProgressPersistenceService.cs`
+       - `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+       - `Assets/YYY_Tests/Editor/SaveManagerDefaultSlotContractTests.cs`
+       - `Assets/YYY_Tests/Editor/StoryProgressPersistenceServiceTests.cs`
+       - `Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs`
+       - `Assets/YYY_Tests/Editor/ChestPlacementGridTests.cs`
+  3. 线程已在 blocker 点 `Park-Slice`，没有继续扩大 scope 吞 shared/mixed。
+- 父层判断：
+  1. 这轮已经完成“能安全收的先收掉，不能收的精确 blocker 化”。
+  2. 当前不该把剩余代码批次包装成“只是还没提交”；它们已经是明确的工具 / mixed 边界 blocker。
