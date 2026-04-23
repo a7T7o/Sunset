@@ -4641,7 +4641,46 @@
   4. 把 rebuild/avoidance/cooldown 去重策略尽量上收到 shared 层。
 - 本轮验证状态：
   - `静态推断成立`
-  - 未进入新施工。
+- 未进入新施工。
+
+## 2026-04-13｜导航检查：放行后完成一轮“功能回补优先、性能不回炸”的实装与最小 live 闭环
+
+- 当前主线目标：
+  - 用户要一个完好的 NPC 系统：静态导航别再挑坏点、朝向正常、resident 不乱抢 owner，而且不能再把性能炸回来。
+- 本轮子任务：
+  - 直接落三刀运行时修复，并补平阻断 fresh compile 的测试尾巴。
+- 这轮实际完成：
+  1. [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+     - `TryBeginMove()` 对普通自漫游重新启用：
+       - `TryResolveAutonomousRoamDestination(...)`
+       - `IsAutonomousRoamBuiltPathAcceptable(...)`
+     - scripted/debug/resident control 仍保持轻量路径，不把旧的性能炸弹整体带回来。
+  2. [NPCMotionController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs)
+     - `ResolveFacingVelocity(...)` 现在优先认真实位移和最近刚体速度，外部 facing/intent 只做无真实位移时的兜底。
+  3. [SpringDay1NpcCrowdDirector.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs)
+     - 新增 `ApplyFacingIfIdle(...)`
+     - resident 还在 move 时，director 不再把 `BaseFacing` 硬写回去。
+  4. [SpringDay1LateDayRuntimeTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/SpringDay1LateDayRuntimeTests.cs)
+     - 只补 `context.playerMovement -> Component` 转型，让 fresh compile 不再被测试尾巴卡住。
+- 本轮验证：
+  - 4 个改动文件原生校验都 `errors=0`
+  - `git diff --check` 通过
+  - 先把 Unity 从 `playmode_transition` 拉回 Edit，再做 fresh compile
+  - `read_console(error|warning)` 最终返回 `0`
+  - 当前打开的 `Primary` 做了约 `6s` 短 live：
+    - 没刷 `NPCFacingMismatch`
+    - 没刷导航红错
+    - 只有 1 条外部 TMP 字体 warning
+- 当前判断：
+  - 这轮已经把“功能只能靠降智换性能”的歪路拉回来了。
+  - 我最核心的判断是：
+    - 自漫游 acceptance 回补
+    - motion 朝向回到真实位移
+    - resident baseFacing owner 被收住
+    这三刀一起，才是这次 NPC 坏相的真正闭环。
+- 当前最薄弱点：
+  - live 证据只拿了用户当前安全现场里的 `Primary`，还没主动切去 `Town` 常驻居民场景做大样本终验。
+  - 所以现在最稳的口径是：`线程自测已过一层，Town 体验仍待用户终验`
 
 ## 2026-04-09｜导航检查：按用户三张 Profiler 图完成峰值卡顿方案评估，只读未施工
 
@@ -4708,3 +4747,434 @@
   - `Ready-To-Sync = 未跑`
   - `Park-Slice = 已跑`
   - 当前状态 = `PARKED`
+
+## 2026-04-14｜导航检查：按 prompt_67 落下 NPC 非剧情态静态避让/早退脱困刀，并确认 fresh live 只过到“性能没炸”
+
+- 用户当前主线：
+  - 继续只收 `Day1 已放人后` 的 NPC / 动物非剧情态 roam 静态执行契约
+  - 用户明确允许本轮把：
+    - 避让参数稍微拉高
+    - 卡住抽搐监测/脱困/重规划
+    一并纳入实现，但不能为了性能牺牲功能语义
+- 本轮实际动作：
+  1. 延续先前已开的 `Begin-Slice`：
+     - slice=`prompt67-town-static-contract-and-farm-config-closeout`
+  2. 只改 [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+  3. 重新跑受控短 live：
+     - `PLAY`
+     - `SpringDay1ActorRuntimeProbe`
+     - `NpcRoamSpikeStopgapProbe`
+     - `STOP`
+  4. 收尾前跑：
+     - `validate_script`
+     - `errors`
+     - `Ready-To-Sync`
+     - `Park-Slice`
+- 这轮落下的真实补口：
+  1. autonomous roam 的静态避让半径、body/path clearance 采样密度提高
+  2. 静态 repulse 更强，目标是减少贴房/贴树/围栏边磨
+  3. 纯静态 bad case 更早触发 retarget / abort，不再长时间短停磨步
+  4. 补口边界仍保持在非剧情态 roam，不越权改 Day1 owner
+- fresh 结果：
+  - `validate_script Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs --count 20 --output-limit 5`
+    - `assessment=no_red`
+  - `errors --count 20 --output-limit 5`
+    - `errors=0`
+    - `warnings=0`
+  - fresh `NpcRoamSpikeStopgapProbe`：
+    - `scene=Town`
+    - `npcCount=25`
+    - `roamNpcCount=16`
+    - `avgFrameMs=0.6868`
+    - `maxFrameMs=14.6529`
+    - `maxGcAllocBytes=235072`
+    - `maxBlockedNpcCount=0`
+    - `maxConsecutivePathBuildFailures=0`
+  - fresh `SpringDay1ActorRuntimeProbe`：
+    - 当前时点=`EnterVillage_PostEntry`
+    - `001/002` 仍是 `scriptedControlActive=true`
+    - `003` 已经 `isRoaming=true`
+- 本轮最关键判断：
+  - 这轮已经能证明：
+    - 代码层 clean
+    - Town 没被这刀重新炸成性能 storm
+  - 但不能证明：
+    - `prompt_67` 体验层已经过线
+  - 原因是这一次 fresh actor probe 不在完整的 `Day1 已放人 resident roam` 窗口
+- 当前 blocker：
+  - `Ready-To-Sync` 被 own roots 历史残留 dirty/untracked 阻断
+  - exact blocker：
+    - `Assets/000_Scenes`
+    - `Assets/YYY_Scripts/Controller/NPC`
+    - `Assets/YYY_Scripts/Service/Navigation`
+    仍有大量本轮未纳入的 remaining dirty
+- 当前状态：
+  - `Park-Slice=已跑`
+  - thread-state=`PARKED`
+- 下轮恢复点：
+  1. 回到真正 valid roam 时窗继续验 `001~003 + 动物`
+  2. 如果还贴静态障碍/小范围磨步，继续优先补 `NPCAutoRoamController`
+  3. 不要把这轮 fresh perf probe 冒充成最终体验验收
+
+## 2026-04-14 13:40 继续：free-roam valid live 已抓到，但当前第一真问题更新为“贴静态障碍 + 斜走摆头”
+- 主线目标未变：
+  - 仍是 `prompt67`：收 `Day1 已放人后的 NPC/动物非剧情态 roam 静态执行契约`
+- 本轮子任务：
+  - 先做可回退备份，再验证 `003 release + roam deadlock + free-roam static obstacle`
+- 已完成：
+  1. 做了可回退备份：
+     - [README.md](D:/Unity/Unity_learning/Sunset/.codex/backups/navigation-check/2026-04-14_12-43-48_prompt67_before_resident_roam_deadlock_fix/README.md)
+  2. 已落代码：
+     - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+       - autonomous roam 目标去重
+       - shared avoidance 动态互锁脱困
+     - [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs)
+       - `003` opening 后释放补口
+  3. fresh 验证：
+     - `validate_script NPCAutoRoamController.cs` => `no_red`
+     - `validate_script SpringDay1Director.cs` => `no_red`
+     - `errors` => `0 error / 0 warning`
+     - 强制 `FreeTime` 后的 actor probe：
+       - `003` 可释放
+       - `101/103/201/202/203` 可进入 `isRoaming=true`
+     - roam spike probe：
+       - `avgFrameMs=12.95`
+       - `maxFrameMs=62.88`
+       - `maxBlockedNpcCount=1`
+       - `maxBlockedAdvanceFrames=2`
+- 新用户 live 反馈把问题进一步钉死：
+  1. `101` 贴房卡住
+  2. `103` 贴石头卡住
+  3. 到 `20:00` 会回家，不代表白天 free-roam 正常
+  4. 斜向走位尤其 scripted/home-return 链仍会摆头
+- 当前最核心判断：
+  - `003` 这条已不再是当前最值钱刀口
+  - 真正还没收平的是：
+    1. autonomous roam 的静态 clearance 太窄，采样点/路径会贴障碍
+    2. diagonal facing 在四向边界仍缺滞回稳定
+  - 这两条一个是导航 core own，一个是 motion/facing own；都还在本线程 own 范围里
+- 与 Day1 的责任分界：
+  1. 认可 Day1 对 `dinner/return -> opening cue`、`release 后 current-context roam` 的静态分析
+  2. 但 fresh 白天 free-roam 的 `101/103` 贴房贴石头，仍是本线程导航 own，不能甩锅给 Day1
+  3. Day1 own 主要应继续处理：
+     - dinner/return authored contract
+     - release 后先回 anchor 再 roam
+     - scripted move 的 owner/cue 顺序
+- 当前恢复点：
+  1. 下一刀优先补 `NPCAutoRoamController` 的 static clearance 与 bad-point 重采样
+  2. 再补 `NPCMotionController` 的 diagonal facing 扇区滞回
+  3. 如果 scripted move 仍长期使用，后续要和 Day1 对齐同一套静态 steering contract
+
+## 2026-04-14 14:48 继续：本轮窄修已落，当前停在“等待真实 free-roam 体验终证”
+- 本轮子任务已完成：
+  1. 关掉两个空转 subagent
+  2. 重新 `Begin-Slice`
+  3. 窄改：
+     - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+     - [NPCMotionController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs)
+- 改动要点：
+  1. `NPCAutoRoamController`
+     - autonomous roam body clearance 更保守
+     - 路径 body clearance 采样更密
+     - roam center 先找 anchor 周围安全点，不再直接拿坏 anchor 点做中心
+  2. `NPCMotionController`
+     - 加四向扇区边界滞回，降低斜向摆头
+- fresh 验证：
+  - `validate_script NPCAutoRoamController.cs` => `no_red`
+  - `validate_script NPCMotionController.cs` => `owned_errors=0 / external_errors=0`
+    - 但连续两次卡在 `unity_validation_pending(stale_status)`
+  - `errors` => `0 error / 0 warning`
+  - 短 live：
+    - `Play -> Force FreeTime -> Actor Probe -> Roam Probe -> Stop`
+    - `101/103/003` 都在动
+    - 但 `101/103` 当次样本仍显示 `scriptedControlActive=true owner=SpringDay1NpcCrowdDirector`
+- 当前最核心判断：
+  - 代码刀已经落了
+  - 但 latest forced sample 不是最干净的 free-roam 终证样本
+  - 所以下一轮最值钱的动作不是再猜，而是让用户用真实白天 free-roam 继续看 `101/103` 是否还贴房贴石头、斜走是否还摆头
+- 当前状态：
+  - `Park-Slice=已跑`
+  - thread-state=`PARKED`
+- 下一轮恢复点：
+  1. 如果用户反馈 free-roam 仍贴静态障碍，再补“局部静态脱困出口”
+  2. 如果问题主要剩 scripted move 样本，就跟 Day1 对齐 shared steering contract
+
+## 2026-04-14 14:55 继续：用户要求核查是否被 Day1 回退，fresh 只读结论是“没有直接回退”
+- 本轮子任务：
+  - 只读检查 Day1 是否把我刚落的导航窄修回退/覆盖
+- 已完成：
+  1. `git status` 检查 relevant paths
+  2. `git diff` 检查 relevant files
+  3. `rg` 直接点名核查关键 marker 是否仍在
+  4. `git log` 查看相关文件最近历史
+- 当前结论：
+  - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs) 仍保留 safe-center / deadlock-break / destination-agent-clearance
+  - [NPCMotionController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs) 仍保留 facing hysteresis
+  - [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs) 里 `ShouldUseTownThirdResidentStoryActorMode(...)` 仍在
+  - 因此没有证据表明 Day1 把我刚落的两刀直接删掉
+- 更准确判断：
+  - 如果刚才又出现坏相，更像是 Day1 在 live runtime 里继续持有 `101/103/003` 的 scripted move/owner
+  - 不是代码层把我这两刀回退了
+
+## 2026-04-14 17:30 继续：fresh live 已证实 `HealingAndHP` 就进入 resident roam，本轮 own 修掉了“远处 homeAnchor 抢白天 roam center”
+- 本轮子任务：
+  1. 证明 Town resident 是否只有 opening 后才 roam
+  2. 如果不是，就继续修自己 own 的导航问题
+- 已完成：
+  1. fresh actor probe + live snapshot：
+     - `HealingAndHP` 阶段里 `101~203` 已经 `isRoaming=true`
+     - `scriptedControlActive=false`
+  2. 抓到一个 own bug：
+     - `RefreshHomePositionFromCurrentContext()` 会过度优先远处 `homeAnchor`
+     - 导致白天 resident 也被错误拉向夜间 home 域
+     - live 症状是大面积 `ShortPause + pathBuildFailures=16`
+  3. 已修：
+     - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+     - 让 current-context/daytime roam center 重新优先于远处 homeAnchor
+  4. fresh live 复测：
+     - `101/102/103/203` 恢复 `Moving + pathBuildFailures=0`
+     - `104/202` 正常 pause
+     - `201` 仍是单点坏 case：`ShortPause + pathBuildFailures=16`
+- 代码层结果：
+  - 两个脚本都无 owned/external error
+  - 但 CLI 继续卡在 `unity_validation_pending(stale_status)`
+  - fresh console 仍是 `0 error / 0 warning`
+- 当前最核心判断：
+  - “只有 opening 结束后才 roam”这个命题不成立，至少对 `101~203` 不是
+  - 本轮我 own 已经修掉一条实打实的导航坏口
+  - 当前剩余目标收缩为：
+    1. `201` 单点坏 case
+    2. `003` 当前样本里仍不稳定
+## 2026-04-14 23:42 只读继续：解释打包失败后 `Primary -> Town.NavigationRoot` 跨场景引用报错
+- 当前主线目标：
+  - 用户要求先解释这条控制台报错是什么情况；本轮只读，不落代码
+- 本轮子任务：
+  - 只读排查 [EnsureDayNightSceneControllers.cs](D:/Unity/Unity_learning/Sunset/Assets/Editor/EnsureDayNightSceneControllers.cs) 触发的 `Primary` 对 `Town.NavigationRoot` 非法引用
+- 已完成：
+  1. 读取 [EnsureDayNightSceneControllers.cs](D:/Unity/Unity_learning/Sunset/Assets/Editor/EnsureDayNightSceneControllers.cs)
+  2. 核对 [Town.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Town.unity) 中 `NavigationRoot/NavGrid2D` 的 fileID：`1107722571 / 1107722573`
+  3. 全文搜索 [Primary.unity](D:/Unity/Unity_learning/Sunset/Assets/000_Scenes/Primary.unity)，确认当前落盘文本没有这些外场景 fileID；本地仍是自己的 `navGrid: {fileID: 163170581}`
+  4. 复核导航链里会在编辑态运行的 `FindFirstObjectByType<NavGrid2D>()` 候选点
+- 当前判断：
+  - 这条报错不是“Town 场景坏了”，也不是 `EnsureDayNightSceneControllers` 直接把 `Primary` 写成引用 `Town.NavigationRoot`
+  - 更像是：编辑器同时打开 `Primary` 和 `Town` 后，某个会在编辑态自动补引用的脚本，把 `Primary` 场景里的组件临时指到了 `Town` 的 `NavGrid2D / NavigationRoot`
+  - `EnsureDayNightSceneControllers` 只是随后执行 `SaveScene(Primary)`，把这个非法跨场景引用暴露出来
+- 当前最高嫌疑：
+  - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+    - `OnValidate()` -> `CacheComponents()`
+    - `CacheComponents()` 里 `if (navGrid == null) navGrid = FindFirstObjectByType<NavGrid2D>();`
+  - 这条链会在编辑态运行，且是全局找，不限 scene
+- 低一层嫌疑：
+  - [TraversalBlockManager2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs)
+  - 但当前代码里的 auto-collect 已有 `component.gameObject.scene == gameObject.scene` 过滤，不像这次报错的第一刀责任点
+- 当前阶段：
+  - 只读归因已完成
+  - 尚未进入修复
+- 下一步恢复点：
+  1. 如果用户要求修，就优先把编辑态 `FindFirstObjectByType<NavGrid2D>()` 改成“只在本 scene 内找 NavGrid2D”
+  2. 修完再回头看 `EnsureDayNightSceneControllers` 是否还会触发同类保存报错
+- 当前状态：
+  - 本轮未跑 `Begin-Slice`
+  - thread-state 维持只读/未施工
+## 2026-04-15 00:10 只读大调查：用户要求全盘梳理 Day1 与导航的边界失控，本轮结论已压成 owner 级别
+- 本轮子任务：
+  - 用户认为我和 Day1 已经进入互相干扰、边界不清、哪里都脏的病态阶段，要求我只读给出最详细的人话汇报
+- 已完成：
+  1. 重新读取 prompt_67 与 Day1 的 fresh 同步文档
+  2. 代码级核对：
+     - [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+     - [NPCMotionController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCMotionController.cs)
+     - [TraversalBlockManager2D.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Navigation/TraversalBlockManager2D.cs)
+     - [PlayerAutoNavigator.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerAutoNavigator.cs)
+     - [PlayerMovement.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Player/PlayerMovement.cs)
+     - [SpringDay1NpcCrowdDirector.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs)
+     - [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs)
+     - [SpringDay1DirectorStaging.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Directing/SpringDay1DirectorStaging.cs)
+- 当前最核心判断：
+  - 当前 NPC 病态的第一根不是“纯导航坏了”或“纯 Day1 坏了”，而是同一个 NPC 有多套 movement/facing/release 真值同时生效
+- 站住的 5 条事实：
+  1. Day1 staging playback 直接改 `transform`，因此剧情态看起来顺，不代表 free-roam 合同没问题
+  2. opening 后 return-home 当前走的不是玩家同款静态避障合同
+  3. return-home 失败时 Day1 crowd 会手搓位移，这条更不可能有静态避障
+  4. 到 anchor 后又继续 roam，不是测试残留，而是 Day1 + roam 明确这么写的
+  5. Day1 当前已经越过“只决定 acquire/release/target”边界，直接在改导航 runtime 生命周期和配置
+- 当前阶段：
+  - 只读总诊断完成
+  - 未进入修复
+- 下一轮恢复点：
+  1. 如果用户要我继续只读，就把这份结论收成能直接发给 Day1 的 exact owner matrix
+  2. 如果用户要我进入修复，第一刀应先收 `single locomotion owner contract`
+- 本轮状态：
+  - 只读分析，未跑 `Begin-Slice`
+## 2026-04-15 00:16 补记：纳入 Day1 中间产物后，现结论更新为“两层问题并存”
+- Day1 当前补口方向与现码一致：`ForceRestartResidentRoam(...)` 已落，且有 editor test 兜住“假 roam 半态”
+- 但同一份测试文件也说明：`TickResidentReturnHome()` 仍保留“路径起不来就 step fallback 继续退场”
+- 所以现在不能把所有坏相都归成 Day1 已在修的那一层
+- 更准确口径：
+  1. `回到 anchor 后站死`：Day1 正在修，且方向对
+  2. `回 anchor 路上卡墙/不避障`：仍不是同一层，当前代码里还保留旧 fallback
+
+## 2026-04-15 02:34 真实施工：formal-return-home-contract-and-release-roam-handoff
+- 当前主线目标：
+  - 用户已批准真实施工；我只收导航 own，不碰 `spring-day1` 当前 ACTIVE 的剧情/owner 文件
+  - 本轮唯一目标是把 `release 后 home return` 这段从 plain debug 收成 formal navigation contract
+- 本轮子任务：
+  - 只改 [NPCAutoRoamController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs)
+  - 外加最小回归测试 [NavigationAvoidanceRulesTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs)
+- 已完成事项：
+  1. `Begin-Slice` 已跑，slice=`formal-return-home-contract-and-release-roam-handoff`
+  2. `DebugMoveTo(homeAnchor)` 现在会识别为 formal navigation contract
+  3. formal home return 不再 bypass shared avoidance
+  4. formal home return 现在也吃静态 steering
+  5. formal home return 遇到 stuck/blocked 时优先对同一目标 rebuild，不再随机 `TryBeginMove()`
+  6. formal home return 完成后，`RestartRoamFromCurrentContext(true)` 会先走一个很短的 settle，不再刚回去就立刻抽下一条 roam
+  7. 补了 3 个反射测试，钉住：
+     - home return 识别
+     - plain debug 与 formal return 的 shared-avoidance / static-steering 分流
+     - formal arrival 后的 immediate restart settle
+- 关键决策：
+  - 不去碰 `SpringDay1NpcCrowdDirector.cs`
+  - 不全局改 plain debug 语义
+  - 只对“目标接近 homeAnchor/homePosition 且当前未被 resident scripted control 持有”的 debug move 升格为 formal contract
+- 验证结果：
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py validate_script Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs --count 20 --output-limit 5`
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `external_errors=0`
+    - 阻断原因：Unity `stale_status`
+  - `py -3 D:/Unity/Unity_learning/Sunset/scripts/sunset_mcp.py errors --count 20 --output-limit 5`
+    - `errors=0`
+    - `warnings=0`
+  - `git diff --check -- Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs Assets/YYY_Tests/Editor/NavigationAvoidanceRulesTests.cs`
+    - 通过
+- 当前阶段判断：
+  - 代码层这刀已落地，且没有 owned/external compile red
+  - 但 live 终证还没拿到，因为当前 Unity 一直 `stale_status`
+- 当前 thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前状态=`PARKED`
+- 恢复点：
+  1. Unity `stale_status` 恢复后，直接回 Town 看 `101/103/201/203/003`
+  2. 如果 live 里仍出现 return-home 最终 step fallback，则转给 Day1：那是它 own 的 fallback 还在触发，不是导航 own 还没收 formal contract
+
+## 2026-04-15 02:48 只读事故定责：`101~203` 第 5 次再锁死，当前 highest suspect 重新钉回 `spring-day1`
+- 当前主线目标：
+  - 用户要求我立刻看清“day1 又把 101~203 锁死到底是什么情况”，并判断是不是其实同一个根问题反复换壳
+- 本轮子任务：
+  - 只读事故定责，不进施工，不跑 `Begin-Slice`
+- 已完成事项：
+  1. 显式命中并使用：
+     - `skills-governor`
+     - `sunset-rapid-incident-triage`
+     - `sunset-workspace-router`
+  2. `Show-Active-Ownership` 核实：
+     - `spring-day1` 当前重新 `ACTIVE`
+     - slice=`revert-latest-opening-release-regression`
+  3. `rapid_incident_probe` 结果：
+     - top owner=`spring-day1`
+     - 明显高于 `NPC`
+  4. 只读精查了：
+     - [SpringDay1Director.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1Director.cs)
+     - [SpringDay1NpcCrowdDirector.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Story/Managers/SpringDay1NpcCrowdDirector.cs)
+     - [SpringDay1DirectorStagingTests.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs)
+- 当前最核心判断：
+  - 这不是第 5 个不同 bug，而是同一个根问题：
+    - `spring-day1` 仍在直接 owns `EnterVillage resident release / hold / restart` 这条 runtime lifecycle
+    - 所以每次它再改一次 “什么时候 suppress cue / 什么时候才算允许 release”，`101~203` 就会再次被锁住
+- 这次最新的 exact 责任点：
+  1. `SpringDay1Director.ShouldReleaseEnterVillageCrowd()`
+     - 放人条件被收紧成：
+       - `VillageGate` 不能还 active
+       - 且必须 `HasVillageGateCompleted()` 或 `house lead` 真 started/queued/waiting
+  2. `SpringDay1Director.ShouldLatchEnterVillageCrowdRelease()`
+     - 新增 release latch
+  3. `SpringDay1NpcCrowdDirector.RefreshEnterVillageCrowdReleaseLatch()`
+     - 每帧刷新 `_enterVillageCrowdReleaseLatched`
+  4. `SpringDay1NpcCrowdDirector.ShouldSuppressEnterVillageCrowdCueForTownHouseLead()`
+     - 现在直接吃 `_enterVillageCrowdReleaseLatched` + `ShouldReleaseEnterVillageCrowd()`
+  5. 新增/重命名测试也明确转向：
+     - 只有 `TownHouseLead runtime` 真开始才 suppress/release
+- 为什么我认为用户那句“问题就是一个”是对的：
+  - 因为这几轮 Day1 反复改的不是导航算法，而始终是 opening resident 的 owner/release 条件
+  - 表面上有时像“没放人”、有时像“假 roam”、有时像“又被抓回去”
+  - 本质都还是同一个：
+    - `Day1` 没把 resident release contract 退回成一个稳定、单一的条件面
+- 当前恢复点：
+  1. 如果继续追责或让 Day1 自查，只该让它回看：
+     - `ShouldReleaseEnterVillageCrowd`
+     - `ShouldLatchEnterVillageCrowdRelease`
+     - `RefreshEnterVillageCrowdReleaseLatch`
+     - `ShouldSuppressEnterVillageCrowdCueForTownHouseLead`
+  2. 不要再接受“这次是另一个新问题”的口径
+  3. 我这边导航 own 不需要接这口锅；当前坏相首先是 Day1 自己又把 resident hold/release 合同改漂了
+
+## 2026-04-15 03:00 用户现场补证：禁用 `SpringDay1NpcCrowdDirector` 后锁死消失，但 resident 也不会剧情后自己回家
+- 用户 fresh 观察：
+  1. 直接禁用 `SpringDay1NpcCrowdDirector` 后，`101~203` 不再锁死
+  2. 但 resident 在剧情结束后也不会再自己回 anchor/home
+- 这条现场证据说明：
+  - 当前系统里，“剧情结束后谁发回家命令”仍然主要绑在 `SpringDay1NpcCrowdDirector`
+  - 所以它一关，冲突没了，但回家 trigger 也一起没了
+- 当前实现的真实分层：
+  1. `SpringDay1NpcCrowdDirector`
+     - 不只做剧情 owner
+     - 也在做 resident 的 post-story runtime 管理
+     - 包括：
+       - `Acquire/ReleaseResidentScriptedControl`
+       - `TryBeginResidentReturnToBaseline`
+       - `TryDriveResidentReturnHomeAutonomously`
+       - `TickResidentReturnHome`
+       - `FinishResidentReturnHome`
+       - `ForceRestartResidentRoam`
+  2. `NPCAutoRoamController`
+     - own 真正的 locomotion / avoidance / replan
+     - 以及我这轮刚落的 formal home-return execution contract
+  3. 但“何时开始回家”这一步，目前还没完全从 Day1 手里拆出去
+- 用户的目标架构是对的：
+  - Day1 只 release + 告诉家在哪
+  - NPC 收到“演完了”就切回自己的 resident 逻辑
+  - 导航只负责正式带路回家
+- 当前更准确的总判断：
+  - 现在不是“导航自己把 NPC 锁死”
+  - 而是 `Day1` owns 太多 `post-story resident lifecycle`
+
+## 2026-04-23 16:30｜shared-root 保本上传改走 docs-only 安全切片
+- 当前主线目标：
+  - 只做导航 own 本地成果的 shared-root 保本上传，不继续修导航坏 case。
+- 本轮子任务：
+  - 把可合法归仓的 docs/prompt/memory 先安全 push；把代码面 mixed 风险只报 exact blocker，不吞并。
+- 已完成事项：
+  1. 旧 slice `nav-check-own-upload-2026-04-23` 已 `Park-Slice`。
+  2. 停车原因已确认：
+     - 旧 slice 带上了 `Assets/Editor`、`Assets/YYY_Scripts/Service/Navigation`、`Assets/YYY_Scripts/Controller/NPC` 这些 parent roots。
+     - 在 shared-root `task` 模式下会直接撞 `own roots remaining dirty`，不适合继续上传。
+  3. 新 slice 已重开：
+     - `nav-check-own-docs-upload-2026-04-23`
+  4. `Ready-To-Sync.ps1` 已通过，当前 docs-only own 范围合法。
+  5. 中途 `ready-to-sync.lock` 是外部共享锁短暂占用：
+     - 先后观察到 `spring-day1`、`存档系统` 的 `Ready-To-Sync / preflight` 占锁
+     - 最终等锁自然释放后，本线程 `Ready-To-Sync` 正常通过
+- 当前已确认可归仓：
+  - `.codex/threads/Sunset/导航检查/*`
+  - `.codex/threads/Sunset/导航V3/memory_0.md`
+  - `.kiro/specs/999_全面重构_26.03.15/导航检查/memory.md`
+  - `.kiro/specs/屎山修复/导航V3/memory.md`
+  - `.kiro/specs/屎山修复/导航检查/*` 内现有 memory / prompt / handoff docs
+- 当前 exact blocker files：
+  - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+  - `Assets/Editor/NavigationAvoidanceRulesValidationMenu.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`
+- 当前最核心判断：
+  - 这轮能合法 push 的不是“全部导航代码尾账”，而是 docs-only 导航 own。
+  - 代码面不是没价值，而是当前 root 级口径不允许在这轮 shared-root 上传里硬吞。
+- 当前恢复点：
+  1. 先完成 docs-only 白名单提交和 push。
+  2. 然后把代码面 blocker 原样留给后续治理 / owner 分流。

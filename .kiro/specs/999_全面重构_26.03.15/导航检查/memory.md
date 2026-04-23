@@ -436,3 +436,29 @@
   - 桥面 override 实际覆盖范围
   - 水层 collider 在桥下是否应保留
   - current bridge source 是否仍只该用 `桥_底座`
+
+---
+
+## 2026-04-19 Town 空气墙补查（只读）
+
+### 用户反馈
+1. `Town` 有多处“看起来没东西但会撞墙”的区域。
+2. 用户补充强调：从截图体感看，不像是 `TraversalBlockManager2D` 凭空造出来的墙。
+3. 这轮要求仍是只读查找和汇报，不改 scene。
+
+### 这轮查到的关键点
+1. `TraversalBlockManager2D` 本身不会创建新的 `Collider2D`：
+   - 它做的是收集已有 `blockingTilemaps / blockingColliders`
+   - 再同步给 nav/grid 与玩家/NPC 约束
+2. `Town.unity` 里既有：
+   - 手动配置的 `blockingTilemaps / blockingColliders`
+   - 也开着 `autoCollectSceneBlockingColliders = 1`
+3. 当前更像主嫌的是 scene 真实 collider，而不是 manager 单独造墙：
+   - `基础设施/-9970/-9960/-9975`
+   - `轨道/Props_*`
+   - 这些区域存在 `TilemapCollider2D / CompositeCollider2D`
+
+### 当前结论
+1. `Town` 的空气墙更像场景里本来就有真实碰撞体或 tilemap collider 在挡人。
+2. `TraversalBlockManager2D` 会放大“不能走”的结果，但不像它自己凭空生成了一堵物理墙。
+3. 如果下一轮继续追，应先对位具体撞点对应哪一组 scene collider，不要先盲改 `TraversalBlockManager2D.cs`。
