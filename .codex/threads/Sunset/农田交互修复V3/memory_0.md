@@ -5955,3 +5955,718 @@ thread-state 本轮已报实：
   - 当前状态：`PARKED`
   - blocker：
     - `等待用户 live 复测 toolbar 点击打断农具动作是否已与滚轮/快捷键同源且不再死锁`
+
+## 2026-04-13｜只读复盘：toolbar 最后残差已钉死，另记一条未开修的箱子位移回退根因
+
+- 当前主线：
+  - 用户把本线程重新压回最后两件事：
+    1. `toolbar` 农具动作中鼠标点击其他槽位时，必须保持旧工具选中，并保留和滚轮/快捷键同源的 reject shake 手感
+    2. 新发现一条重大箱子 bug：有物品的箱子被镐子多次推动后，再交互会回退到移动路径上的旧位置；这轮只做自省汇报，不开修
+- 本轮子任务：
+  - 只读核对 `GameInputManager / ToolbarSlotUI / ChestController`，不给用户再交“模糊猜法”
+- 重新钉死的 toolbar 真问题：
+  1. `GameInputManager.TryHandleToolbarPointerSelectionChange()` 当前仍只返回 `bool`
+     - 当 `TryRejectActiveFarmToolSwitch()` 触发时，它返回 `false`
+     - 但这个 `false` 同时混在“普通失败 / 锁定缓存 / 被保护性拒绝”三类语义里
+  2. `ToolbarSlotUI.OnPointerClick()` 当前拿到 `false` 后直接 `RestoreAllRegisteredSlotVisuals()`
+     - 这条回正会把整条 toolbar 的 reject shake 一起清掉
+  3. `ToolbarSlotUI.HandleSelectionChanged()` 里还会无条件 `ResetRejectShakeVisual()`
+     - 即使这次是“旧工具保持选中 + 拒绝切换”的正确语义，只要 `ReassertCurrentSelection(...)` 触发选中回写，shake 也会被立刻抹掉
+- 结论：
+  - runtime 主根因已经不再是动作队列或 `_isExecutingFarming` 本身
+  - 现在剩下的是 `ToolbarSlotUI` 层没把“保护性打断但不切换”当成独立结果类型处理
+  - 所以玩家看到的是：
+    - 旧工具不该切走却被点后误表现
+    - reject shake 被 UI 自己清掉
+    - 手感和滚轮/快捷键不同源
+- 已钉死的修法（待用户批准后再施工）：
+  1. 把 `GameInputManager.TryHandleToolbarPointerSelectionChange(...)` 从 `bool` 改成明确结果枚举
+     - 至少区分：
+       - `Applied`
+       - `RejectedKeepCurrentSelection`
+       - `DeferredDuringLock`
+       - `Failed`
+  2. `ToolbarSlotUI.OnPointerClick()` 只在 `Failed` 才做整条 toolbar 普通回正
+     - `RejectedKeepCurrentSelection` 时必须：
+       - 保持旧工具选中
+       - 不清 reject shake
+       - 不把点击目标显示成已选中
+  3. `HandleSelectionChanged()` 和 `RestoreAllRegisteredSlotVisuals()` 都要避开“保护性拒绝”场景下的 shake 清理
+- 箱子重大 bug 的只读根因：
+  - `ChestController.OnHit()` 每次受击都会先 `PlayShakeEffect()`，而有物品时又会继续 `TryPush()`
+  - `ShakeCoroutine()` 会把 `_originalPosition = transform.position`，结束时强制 `transform.position = _originalPosition`
+  - `PushCoroutine()` 在此期间又会改变 `transform.position`
+  - 这意味着：抖动和推动并发时，shake 结束后会把箱子硬拉回某个旧位置
+  - 这和用户描述的“沿移动路径回退，且位置概率性不在原位”完全一致
+- 责任判断：
+  - `toolbar` 最后残差属于我这条线必须继续收口的 own 问题
+  - 箱子回退也属于当前 `ChestController` 运行时实现漏洞；这轮只记账，不开修
+- 当前恢复点：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`
+
+## 2026-04-13｜已施工：toolbar 点击打断现在只保留旧选中，不再把目标槽位提前切成已选中
+
+- 当前主线：
+  - 用户批准真实施工，只收 `toolbar` 最后一刀：
+    - 耕地/浇水等农具动作进行中，鼠标点击其他 `toolbar` 槽位时
+    - 只允许“打断当前工具”
+    - 不允许“提前切成目标工具已选中”
+    - reject shake 手感必须和滚轮/快捷键同源
+- 本轮子任务：
+  - 只改：
+    - `Assets/YYY_Scripts/Controller/Input/GameInputManager.cs`
+    - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+  - 不碰：
+    - `Placement / Tree / day1 / Chest / Drop / Tooltip`
+- 本轮实际完成：
+  1. `GameInputManager.TryHandleToolbarPointerSelectionChange(...)`
+     - 从 `bool` 改成 `ToolbarPointerSelectionChangeResult`
+     - 明确分成：
+       - `Applied`
+       - `RejectedKeepCurrentSelection`
+       - `DeferredDuringLock`
+       - `Failed`
+     - 这样 `toolbar` 点击终于能把“保护性拒绝但保持旧选中”和“普通失败”分开
+  2. `ToolbarSlotUI.OnPointerClick(...)`
+     - 删掉了原先“锁定期自己直接 CacheHotbarInput”的分叉
+     - 现在点击统一委托给 `GameInputManager`
+     - 当结果是 `RejectedKeepCurrentSelection` 或 `DeferredDuringLock` 时：
+       - 只回正当前真实选中
+       - 不把点击目标槽位显示成已选中
+       - 不清 reject shake
+  3. `ToolbarSlotUI.HandleSelectionChanged(...)`
+     - 去掉无条件 `ResetRejectShakeVisual()`
+     - 防止 `ReassertCurrentSelection(...)` 一触发，就把本该保留的拒绝抖动洗掉
+  4. `ToolbarSlotUI.RestoreAllRegisteredSlotVisuals(...)`
+     - 改成支持 `resetRejectShake` 参数
+     - 保护性拒绝路径只回正 toggle，不再清 shake
+- 结果语义：
+  - 现在“耕地动画中点击水壶”应该表现成：
+    - 当前锄头仍然保持选中
+    - 点击只是打断，不是立即切换
+    - reject shake 不会再被 UI 自己抹掉
+- 验证结果：
+  - `manage_script validate GameInputManager`：`errors=0 warnings=2`（既有 warning）
+  - `validate_script ToolbarSlotUI`：`owned_errors=0`，现场存在 external `Selectable.cs` 异常
+  - `git diff --check -- <两文件>`：通过（仅 CRLF/LF 提示）
+  - 本地提交成功：`c0dbe774 fix: keep toolbar selection on protected interrupt`
+- 额外现场情况：
+  - `Ready-To-Sync.ps1` 未通过，不是代码红，而是治理执行锁超时：
+    - `ready-to-sync.lock`
+  - 因此本轮已经形成可回退本地 checkpoint，但未做治理侧 ready 结算
+- 当前恢复点：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - 当前状态：`PARKED`
+  - 最新本地回退点：`c0dbe774`
+  - 下一步只剩用户 live 终验这条 `toolbar` 手感/语义
+
+## 2026-04-16｜只读彻查：打包态“第 5 / 第 9 格事件”本质不是槽位索引坏，而是默认进度里的特定物品显示问题
+
+- 当前主线：
+  - 用户要求不要修，只读彻查并汇报：
+    - 为什么打包后会出现“第 5 格 / 第 9 格看起来像没显示”的问题
+- 本轮子任务：
+  - 只读排查 `Toolbar / Inventory / Save / ItemData` 链
+  - 不进入真实施工，不跑 `Begin-Slice`
+- 本轮实际确认：
+  1. `InventoryPanelUI / ToolbarUI / PlayerInventoryData` 代码层没有发现“每隔 4 格跳槽”这类槽位索引算法
+  2. 打包态真实读档路径不是项目根目录 `Save/`，而是：
+     - `C:\Users\aTo\AppData\LocalLow\DefaultCompany\Sunset\Save\`
+  3. 当前打包态默认进度 `__default_progress__.json` 里，`PlayerInventory` 的前 12 格实际是：
+     - `slotIndex 4` = `itemId 18` = `WateringCan`
+     - `slotIndex 8` = `itemId 1200` = `M1树苗`
+  4. 也就是说，用户口中的“第 5 / 第 9 格异常”，当前更像：
+     - 这两个默认物品特别像没显示
+     - 不是“第 5 / 第 9 槽位天然坏掉”
+  5. 资源链只读核对结果：
+     - `Tool_18_WateringCan.asset` 的 `icon` 指向 `Assets/Sprites/Farm/WateringCan/WateringCan.png`
+     - `Sapling_1200_M1树苗.asset` 的 `icon` 指向 `Assets/ZZZ_999_Package/Pixel Crawler/.../Model_01/Size_02.png` 里的一个切片
+     - `ItemDatabase` 中这些物品资产都存在，不是 `GetItemByID` 直接查不到的那类空引用
+  6. 当前最强判断：
+     - 问题更接近“默认进度里恰好落在第 5 / 第 9 格的物品图标观感/图标资源表现异常”
+     - 而不是槽位绑定、child 顺序、数组索引本身错位
+- 当前还没钉死：
+  - 还没做 live 验证去确认：
+    - 是这两个物品图标在 UI 上天然过暗/过弱/像空白
+    - 还是它们在 build 里存在更细的 sprite 呈现问题
+- 这轮结论口径：
+  - `静态推断成立`
+  - 不是修复完成
+- 涉及只读证据：
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs`
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+  - `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs`
+  - `Assets/YYY_Scripts/Data/Core/PlayerInventoryData.cs`
+  - `Assets/YYY_Scripts/Service/Inventory/InventoryService.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+  - `Assets/111_Data/Items/Tools/Tool_18_WateringCan.asset`
+  - `Assets/111_Data/Items/Saplings/Sapling_1200_M1树苗.asset`
+  - `Assets/111_Data/Database/MasterItemDatabase.asset`
+  - `C:\Users\aTo\AppData\LocalLow\DefaultCompany\Sunset\Save\__default_progress__.json`
+- 当前恢复点：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`
+
+## 2026-04-16｜纠偏复查：上条“特定物品问题”判断已被用户截图否掉，当前更像 hotbar 4/8 的 icon 刷新失同步
+
+- 当前主线：
+  - 用户明确否定“只是默认进度里恰好是浇水壶/树苗”的旧判断，要求重新彻查：
+    - 为什么 `toolbar` 与背包第一行里固定位置放任意物品都可能看不到
+- 本轮子任务：
+  - 继续只读，不修复，不跑 `Begin-Slice`
+  - 用真实玩家截图反馈 + 运行时 targeted probe 重建判断
+- 本轮前置核查：
+  - 已手工补 `sunset-startup-guard` 等价流程
+  - 已触发/执行：
+    - `skills-governor`
+    - `preference-preflight-gate`
+    - `user-readable-progress-report`
+    - `delivery-self-review-gate`
+  - 已读：
+    - `C:\Users\aTo\.codex\memories\global-preference-profile.md`
+    - `invoke-preference-preflight.ps1` 输出
+- 本轮纠偏后确认：
+  1. 上条“这是浇水壶/树苗自己的图标问题”不能再成立，必须废弃
+  2. 用户提的“第 5 / 第 9 格”本质上对应的是：
+     - `toolbar` 的 hotbar 索引 `4 / 8`
+     - 以及背包 `Up` 区第一行映射到同一批 hotbar 索引的镜像位置
+     - 所以这不是两个独立 UI 系统各坏一次，而更像同一组 hotbar 槽位的共享显示失同步
+  3. 只读排除结果进一步增强：
+     - `ToolBar.prefab` / `PackagePanel.prefab` 子顺序没有乱
+     - 运行时 `ToolBar/Grid` 下 12 个 `Bar_00_TG` 都成功挂上了 `ToolbarSlotUI`
+     - 运行时 `PackagePanel/Main/0_Props/Up` 下 36 个 `Up_00` 都成功挂上了 `InventorySlotUI`
+     - 当前场景只有 `1` 个 `InventoryService`、`1` 个 `HotbarSelectionService`
+  4. Unity 运行时 targeted probe：
+     - 当前 `Town` live 里，`ToolBar/Grid/Bar_00_TG (4)/Icon` 与 `Bar_00_TG (8)/Icon` 都实际存在
+     - 其 `Image.sprite / color / RectTransform` 当前可读到有效值，不是“槽对象本体坏了”或“prefab 少了 Icon child”
+  5. 当前最强判断已经收敛成：
+     - 真问题更像 `icon` 显示链偶发失同步
+     - 不是槽位索引算法错位
+     - 也不是 prefab / child 顺序 / 多服务冲突
+  6. 为什么我现在更偏这个判断：
+     - `InventorySlotUI / ToolbarSlotUI` 的 `icon` 只在 `Refresh()` 时更新
+     - 但耐久条/状态条由 `UpdateStatusBarVisibility()` 在 `Update()` 里持续按 live 数据刷新
+     - 所以一旦某条运行时链让 `Refresh()` 漏掉，就会出现：
+       - 槽里其实有东西
+       - 甚至状态条还能亮
+       - 但 icon 仍像空白
+     - 这和用户现在的描述，比上条旧判断吻合得多
+- 当前还没 100% 钉死的薄弱点：
+  - 当前编辑器 `Town` live 没直接复现打包态那张坏画面
+  - 用户给的截图原文件路径这轮已失效，无法复看原图
+  - 所以我已经把方向从“特定物品坏”纠正为“icon 刷新失同步”，但还没把触发它的唯一具体入口钉死到某一个方法
+- 当前最可疑的入口层：
+  1. `InventorySlotUI.BindContainer()` 的 clear-then-refresh 时序
+  2. 关闭态 / 重绑态下 `Bind(...)` 不执行 `Refresh()`，后续若显式补刷漏掉，icon 会保持空
+  3. 某些 inventory mutation / load / scene rebind 路径只让数据变了，却没把对应槽位 icon 补刷回来
+- 这轮结论口径：
+  - `结构 / targeted probe 成立`
+  - `真实打包态最终根因仍待最后一张直接 runtime 小票`
+- 涉及证据：
+  - `Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs`
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs`
+  - `Assets/YYY_Scripts/UI/Inventory/InventoryPanelUI.cs`
+  - `Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs`
+  - `Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs`
+  - `Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs`
+  - `Assets/YYY_Scripts/UI/Utility/UIItemIconScaler.cs`
+  - `Assets/YYY_Scripts/Service/Inventory/InventoryService.cs`
+  - `Assets/YYY_Scripts/Data/Core/PlayerInventoryData.cs`
+  - `Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+  - Unity MCP live hierarchy / component probe：`UI/ToolBar/Grid/Bar_00_TG (4)`、`(8)`、`UI/PackagePanel/Main/0_Props/Up/Up_00 (4)`、`(8)`
+- 当前恢复点：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`
+
+## 2026-04-16｜只读 runtime probe 补票：Toolbar 已绑定且有真实 sprite，关闭态背包 Up 槽仍未绑定
+
+- 当前主线：
+  - 继续只读缩“第 5 / 第 9 格”问题，不修复
+- 本轮补到的新证据：
+  1. 在 `Town` live 里，`toolbar` 侧对应槽位：
+     - `Bar_00_TG (4)/Icon`
+     - `Bar_00_TG (8)/Icon`
+     都能直接读到有效 `Image.sprite`
+  2. 同一时刻，关闭态 `PackagePanel` 里的第一行镜像槽位：
+     - `Up_00 (1)`
+     - `Up_00 (4)`
+     - `Up_00 (8)`
+     其 `InventorySlotUI` 运行时属性显示：
+     - `Index = 0`
+     - `Container = null`
+     说明这些背包槽在关闭态根本还没做 runtime bind
+  3. 对应的 `Icon` 子物体此时也呈现：
+     - `Image.sprite = null`
+     - `CanvasRenderer.materialCount = 0`
+     - `RectTransform` 仍是创建时的全拉伸默认态
+     这进一步说明关闭态背包槽为空图标不是“第 4 / 第 8 索引坏了”，而是“关闭态还没绑定也没刷新”
+  4. 之后 Unity 当前现场切到了 `Artist.unity`，`Town` 的 UI root 已不在当前 active scene，因而这轮没有继续做侵入式 live 切场重测
+- 这条证据带来的判断变化：
+  - `背包侧` 当前至少有一部分“空图标”现象，其实只是关闭态未绑定，不足以单独证明 bug
+  - `toolbar` 侧在 `Town` live 里对应槽位当场是正常的、能读到真实 sprite
+  - 因此用户截图里的“toolbar + 背包同列都坏”，更像：
+    - 发生在特定打包态/切场态/打开时序里
+    - 而不是 editor 当前稳态下一直坏
+- 当前最强收敛：
+  1. 上一条“特定物品问题”继续维持废弃
+  2. 当前更像“某个切场/重绑/打开时序导致 icon 刷新链在特定阶段漏掉”
+  3. `toolbar` 与 `背包第一页镜像槽` 可能共享同一批 hotbar 数据，但当前 live 下并不是同一时刻同一种坏态
+- 当前最薄弱点：
+  - 还没在“用户那张坏画面真正出现的那一刻”拿到同帧 runtime 小票
+  - 现场已切到 `Artist`，为了守零风险，这轮没有强行改场景回 `Town`
+- 额外只读证据：
+  - Unity MCP runtime probe：
+    - `UI/ToolBar/Grid/Bar_00_TG (4)` / `(8)`
+    - `UI/PackagePanel/Main/0_Props/Up/Up_00 (1)` / `(4)` / `(8)`
+    - 后续 active scene：`Assets/000_Scenes/Artist.unity`
+- 当前恢复点：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`
+
+## 2026-04-16 只读排查：toolbar 第5/第9格丢图标 + 运行态探针方式修正
+- 当前主线：继续只读排查 	oolbar 固定槽位（第5/第9格，即 hotbar index 4/8）图标不显示问题，先钉根因，不进入真实施工。
+- 本轮范围：只读控制台、静态代码、prefab/scene 序列化检查；未改业务代码，未跑 Begin-Slice，线程状态继续保持 PARKED。
+- 用户新增现场：用户已在运行态复现，明确说明 hotbar index 4/8 都放了物品；截图显示背包/箱子数据正确，但底部 toolbar 对应格子图标缺失。
+- 关键判断更新：
+  - 先前“只是某几个物品资源/图标本身坏了”的方向继续维持废弃，不再采用。
+  - 之前直接读运行态 hierarchy/component 的查法不够稳，不再继续使用；这类探针会触发 Editor 侧刷新/重绘，如果 UI 本身有脆弱的 OnEnable/ToggleGroup 链，就会把潜在问题激出来，导致用户看到暂停与警告。
+  - 当前更安全的查法固定改为：ead_console + 静态代码审查 + prefab/scene 序列化只读比对。
+- 本轮拿到的硬证据：
+  - 控制台当前最新现场未再次出现新的 toolbar 报错；之前最关键的已知异常仍是 Toggle ... is not part of ToggleGroup Grid，栈落在 ToolbarSlotUI.OnEnable -> RefreshSelection。
+  - ToolBar.prefab 的 12 个子槽位顺序与命名是 0..11 连续的；第 5/第 9 格对应的确是 Bar_00_TG (4) 与 Bar_00_TG (8)，现象与索引完全对上。
+  - ToolBar.prefab 里这两个槽位的 prefab override 与相邻正常槽位相比，没有明显额外序列化差异；因此当前不支持“这两个 prefab 实例先天损坏”这一说法。
+  - ToolbarSlotUI.Update() 会每帧调用 UpdateStatusBarVisibility()，耐久条可以独立于 Refresh() 更新；这说明“有耐久条/状态条，但图标没更新”时，数据本身未必丢失，更像是 Refresh() 没跑到、没收到槽位刷新事件，或中途被异常打断。
+- 当前最高置信判断：
+  - 用户看到的“我一查就报错/暂停”不是单纯被我凭空查出来的新问题，更像是 UI 本来就有脆弱点，而不够稳的运行态探针把它激活了。
+  - 对于第 5/第 9 格固定丢图标，当前最高嫌疑从“资源坏/ prefab 坏”收窄为“toolbar 图标刷新链失步”，重点是 ToolbarSlotUI.Refresh() 的触发/完成链，不是底层物品数据丢失。
+- 下一步（仍应只读，除非用户明确批准开修）：
+  1. 继续把 ToolbarSlotUI.Refresh() 的触发来源逐条钉死，尤其是 InventoryService.OnSlotChanged / OnHotbarSlotChanged / OnInventoryChanged 与 PersistentPlayerSceneBridge.RebindPersistentCoreUi() 的组合时序。
+  2. 只在用户同意后，才进入最小修复；修法应优先补“刷新链闭环”，不是大改 UI 结构。
+
+## 2026-04-17 施工：toolbar 固定槽位图标丢失最小修复
+- 当前主线：修复 	oolbar 固定槽位图标不显示；本轮只动 ToolbarSlotUI.cs，不扩到别的系统。
+- 根因判断：ToolbarUI.Build() 在重绑 active 槽位时，会进入 ToolbarSlotUI.Bind()；旧逻辑在 Bind() 里手动调用 OnDisable(); OnEnable();，导致 RefreshSelection() 被硬塞进不稳定时机。只要当前选中槽位正好走到这里，ToggleGroup 链就可能抛异常并中断 Build()，后续槽位不再继续绑定/刷新，于是表现成“前几个槽位正常，后面的固定槽位有数据但没图标”。
+- 本轮修复：
+  - 文件：Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs
+  - 去掉 Bind() 里的手动 OnDisable(); OnEnable();
+  - 改成直接重绑 runtime subscription / toggle listener，再显式 Refresh(); RefreshSelection();
+  - 抽出 SyncToggleValueListener() / ClearToggleValueListener()，避免在多个入口重复手写监听逻辑
+- 影响边界：只修 toolbar 槽位重绑刷新时序，不改热键语义、不改 selection 真源、不改 inventory 数据层。
+- 验证：
+  - mcp__unityMCP__validate_script：  error / 1 warning（warning 为既有 Update() 字符串拼接提示）
+  - ead_console 读取本变更相关项：未见新的 ToolbarSlotUI error/warning
+  - CLI errors 仍有 external 噪音：Unity Test Framework/TMP 资产导入问题，不归本次修复所有
+- 提交：735fbcde ix(toolbar): avoid manual bind re-enable refresh
+- thread-state：
+  - 已跑 Begin-Slice
+  - Ready-To-Sync 尝试过，但脚本超时，未作为本轮结论依据
+  - 已跑 Park-Slice
+  - 当前状态：PARKED
+- 下一步：等用户 live 终验 toolbar 图标是否恢复；若仍有尾差，再继续只守 toolbar 自己，不扩题。
+
+## 2026-04-17 边界收窄：toolbar 图标线移除 bridge owned-path
+- 当前主线：继续守 	oolbar 4/8 固定槽位丢图标，但先按最新 prompt 把 thread-state 边界收窄到 toolbar 自身。
+- 本轮动作：
+  - 未改任何业务代码
+  - 重新执行 Begin-Slice，只登记：
+    - Assets/YYY_Scripts/UI/Toolbar/ToolbarSlotUI.cs
+    - Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs
+  - 随后立即 Park-Slice
+- 结果：当前 parked state 已不再包含 Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs；该文件已从本线程 owned paths / expected sync paths 中移除。
+- 现场报实：当前 worktree 里 ToolbarUI.cs 与 PersistentPlayerSceneBridge.cs 仍显示 dirty，但本轮没有触碰它们；这是 shared root 现有现场，不应再算进我这条线的新施工范围。
+- 下一步：如果继续修 toolbar，只能在新的 toolbar-only slice 上继续，不得再把 bridge 挂回 owned paths。
+
+## 2026-04-17｜只读审计：浇水跨天异常 / 作物不枯萎 / Day1 回家后的农田冻结
+
+- 当前主线：
+  - 用户要求只读彻查“浇水第二天疑似没重置、作物不枯萎、是否是 Day1 2:00 后回家链把农田时间状态弄坏了”。
+- 本轮子任务：
+  - 只读串查 `FarmTileManager / CropController / TimeManager / SpringDay1Director / PersistentPlayerSceneBridge / SaveManager`。
+- 这轮新结论：
+  1. `FarmTileManager` 自身的日切重置逻辑没看到直接写错：
+     - `OnDayChanged()` 会调用 `ResetDailyWaterState()`
+     - `FarmTileData.ResetDailyWaterState()` 会把 `wateredToday -> wateredYesterday`，再把 `wateredToday=false`
+  2. `CropController` 的缺水枯萎逻辑也没看到直接写错：
+     - 运行时规则读的是 prefab 上 `CropController.needsWatering`
+     - 当前真实 crop prefab 的 `needsWatering=1`
+     - 缺水计数用 `daysWithoutWater`
+  3. 当前最高嫌疑已经不是 `SetWatered()`，而是 `PersistentPlayerSceneBridge` 的 off-scene world snapshot：
+     - 切场前只抓当前 scene 的 snapshot
+     - 回来时只把旧 snapshot 原样 `Load()` 回来
+     - snapshot 没记录离场时的 `totalDays`
+     - 也没有任何针对 `FarmTileManager/CropController` 的离场跨天补票逻辑
+  4. 所以这条链很可能导致：
+     - `Primary` 里浇完水后离场
+     - 在 `Home/Town` 过夜
+     - 回 `Primary` 时，农地/作物仍停在离场那一刻
+     - 进而出现“回场后浇水状态不对 / 作物不枯萎 / 生长不推进”
+- 对 Day1 的判断：
+  - `Day1` 不是当前第一嫌疑。
+  - `TimeManager.Sleep()` 先触发 `AdvanceDay()` 和 `OnDayChanged`，再触发 `OnSleep`；
+  - `SpringDay1Director` 的回家切场挂在 `OnSleep` 后半段；
+  - 所以“睡觉那一刻的同场景日切”理论上是走到了。
+  - 真空点在于：`Primary` 卸载之后，后续日切没有继续作用到 `Primary` 的农田/作物 snapshot。
+- 恢复点：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`
+- 下一步：
+  - 如果下一轮开修，优先不是改浇水按钮，而是补 `off-scene farm/crop catch-up` 合同。
+
+## 2026-04-19｜只读审计：箱子受击移动后的排序异常
+
+- 当前主线：
+  - 用户要求只读查清“箱子被镐子击中移动后，是否会触发 `DynamicSortingOrder`，为什么会出现排序异常把玩家盖住”，这轮禁止改代码。
+- 本轮子任务：
+  - 只读串查 `DynamicSortingOrder.cs`、`ChestController.cs`、`Box_2/Box_4 prefab`，并用 Unity MCP 读当前 `Primary` 活场景里的箱子实例组件。
+- 这轮新结论：
+  1. 箱子 prefab 本身就挂着 `DynamicSortingOrder`，`Box_2` 和 `Box_4` 参数一致：`sortingOrderMultiplier=100`、`useSpriteBounds=1`、`bottomOffset=0`。
+  2. `Primary` 当前活场景里的真实箱子 `Box_2` 也带着这个组件；MCP 只读票据显示，真实可视子物体 `Box` 上同时挂着 `ChestController + PolygonCollider2D + DynamicSortingOrder + SpriteRenderer`，父物体 `Box_2` 只有 `OcclusionTransparency`。
+  3. 因此当前现场不是“排序脚本没挂”或“运动在父节点、排序在子节点”的断链；`ChestController.PushCoroutine()` 改的就是和 `DynamicSortingOrder` 同一个对象的 `transform.position`。
+  4. `DynamicSortingOrder.LateUpdate()` 每帧都会按 `Collider2D.bounds.min.y` 重算 `sortingOrder`，而 `PushCoroutine()` 在推动期间又显式叠了 `pos.y += jumpT * pushJumpHeight`。
+  5. 所以当前最高嫌疑不是“order 没更新”，而是“order 正在跟着跳跃位移实时更新”，这才更像箱子被敲时临时把玩家盖住的根因。
+  6. `RequestNavGridRefresh()` 只在推动结束后刷新导航网格，不参与排序；排序链本来就不依赖显式 refresh 调用。
+- 验证层级：
+  - `结构 / 局部验证` 已成立；
+  - 当前 Unity 编辑器不在 `Play Mode`，所以这轮不是逐帧 live 抓到了“被击中那一刻”的排序值。
+- 恢复点：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`
+- 下一步：
+  - 如果下一轮正式开修，这条问题应先从“推动动画期间的排序基准是否要和跳跃位移解耦”下手，而不是再去补“手动刷新 DynamicSortingOrder”。
+
+## 2026-04-19｜只读补记：箱子 `-1002` 本身是对的，错的是可见 visual child 没跟上
+
+- 用户补充了 live 截图后，这条判断需要纠正得更精确：
+  1. 从当前截图和运行态数据看，箱子相对玩家处在屏幕更靠上的位置，所以箱子的正确 `sortingOrder` 本来就应该比玩家更小，也就是更负；`-1002` 这件事本身是对的。
+  2. 当前真正的 bug 不是“箱子不该是 `-1002`”，而是根 `Box` 上被 `DynamicSortingOrder` 算到了 `-1002`，但真正显示的 `__ChestSpriteVisual` 仍停在 `-957`，没有同步。
+  3. 因此这条问题的准确口径应改成：逻辑排序值是对的，显示排序值错挂在了旧 renderer 上。
+
+## 2026-04-19｜真实施工：把箱子动态排序迁到 `__ChestSpriteVisual`，并继续读取根 collider
+
+- 当前主线：
+  - 用户批准正式落地箱子排序修复，目标固定为：`__ChestSpriteVisual` 接管动态排序，排序基准仍然读根 `Box` 的 collider。
+- 本轮子任务：
+  - 只修改 `DynamicSortingOrder.cs` 与 `ChestController.cs`，不扩到别的系统。
+- 这轮实际做成了什么：
+  1. `DynamicSortingOrder` 新增 `sortingColliderOverride`，并补了 `CopySettingsFrom(...) / SetSortingColliderOverride(...) / ResolveSortingCollider()`；这样动态排序可以挂在可视 child 上，但继续用指定的外部 collider 做排序基准。
+  2. `ChestController.EnsureSpriteRendererUsesVisualChild()` 现在在运行时创建/复用 `__ChestSpriteVisual` 后，会：
+     - 把根 `Box` 上的 `DynamicSortingOrder` 配置迁到 `__ChestSpriteVisual`
+     - 把排序基准绑定到根 `_collider`
+     - 停掉根上的旧 `DynamicSortingOrder`
+     - 保持根 `SpriteRenderer` 继续 disabled
+  3. live 运行态已核实当前结构：
+     - 根 `Box`：旧 `SpriteRenderer` 仍 disabled，`sortingOrder=-957` 停住不再更新
+     - `__ChestSpriteVisual`：新增 `DynamicSortingOrder`，且 `sortingColliderOverride -> Box.PolygonCollider2D`
+     - 当前可见 `__ChestSpriteVisual.sortingOrder=-918`，说明真正显示的 visual child 已开始吃动态排序
+- 验证结果：
+  - `validate_script(DynamicSortingOrder.cs)`：`0 error / 1 existing warning`
+  - `validate_script(ChestController.cs)`：`0 error / 1 existing warning`
+  - `git diff --check -- DynamicSortingOrder.cs ChestController.cs`：通过
+  - fresh console：未见新 error；当前只读到 1 条外部字体 warning：`LiberationSans SDF (Runtime)` static atlas
+- 当前不夸大的边界：
+  - 这轮已经把“排序结果写错对象”这条根因修到了代码和运行态结构上；
+  - 但我还没替用户手打一轮“实际敲箱子移动 + 玩家站位遮挡”的终验手感，所以最终视觉通过仍待用户 live 复测。
+- 恢复点：
+  - 本轮已跑 `Begin-Slice`
+  - 下一步若先停，需 `Park-Slice`
+
+## 2026-04-19｜只读审计：`Home` 箱子不响应镐子命中的主嫌不是 `ChestController`，而是场景缺 `ResourceNodeRegistry`
+
+- 当前主线：
+  - 用户要求彻查“是不是 `Home/Town` 的箱子根本不存在被击中会移动的情况”，并给出最安全修复方案。
+- 本轮子任务：
+  - 只读对齐 `ChestController` 受击链、`PlayerToolHitEmitter` 命中入口、`Home/Town/Primary` 三个 scene 的场景基线。
+- 这轮新结论：
+  1. `ChestController` 自己没有按 scene 区分 `Primary/Home/Town`。只要真正收到 `Pickaxe` 命中，且箱子不是 `WorldSpawned + hasBeenLocked=true`，`OnHit(...) -> TryPush(...)` 就会走；`CanBeMinedOrMoved()` 只拦“野外生成且曾被上锁”的箱子。
+  2. `Home` 里的 authored 箱子 `Box_4` 不是这种受限箱子：它来自 `Box_4.prefab`，默认 `origin=PlayerCrafted(0)`、`ownership=Player(0)`、`isLocked=0`，scene 里也没看到把这些字段 override 成不可移动。
+  3. 真正的大断点在命中入口：[PlayerToolHitEmitter.cs] 里如果 `ResourceNodeRegistry.Instance == null`，`Update()` 会直接 `return`，命中检测整条链都不跑。
+  4. `Primary.unity` 有 `ResourceNodeRegistry`，`Town.unity` 也有；但 `Home.unity` 静态检索不到 `ResourceNodeRegistry`。
+  5. 因此对 `Home` 来说，当前最像真根因不是“箱子不会推”，而是“箱子根本没机会被 `PlayerToolHitEmitter` 命中到”，因为 scene baseline 缺了 `ResourceNodeRegistry`。
+  6. `Town` 这条则不同：当前静态检索下，`Town.unity` 里没看到 scene-authored 的箱子实例；所以不能把 `Town` 归纳成“有箱子但不会推”。更准确的说法是：`Town` 目前没有我能在 scene 基线里直接核到的箱子样本，而不是代码层禁掉了推箱子。
+- 最安全修复方案：
+  - 第一优先：只给 `Home.unity` 补回一个和 `Primary/Town` 同口径的 `ResourceNodeRegistry`，不要先碰 `ChestController`、`PlayerToolHitEmitter` 或跨 scene 持久链。
+  - 原因：`ChestController` 和 `PlayerToolHitEmitter` 在 `Primary` 已经有工作样本，最小风险是先补齐 `Home` 缺失的场景基线，而不是重构共享代码。
+  - 对 `Town`：先不要改。除非用户先给出“Town` 里某个真实箱子样本无法被镐子推动”的 live 复现，否则当前没证据支持去动 Town 命中链。
+- 验证层级：
+  - 当前是 `结构 / 局部验证` 成立；
+  - 还没做“切进 Home live 敲箱子”的终验。
+- 恢复点：
+  - 本轮只读，未新增施工切片
+  - 当前状态应保持 `PARKED`
+
+## 2026-04-19｜真实施工：只给 `Home.unity` 补回 `ResourceNodeRegistry`，恢复箱子受击命中基线
+
+- 当前主线：
+  - 用户已批准按最小风险修 `Home` 的箱子受击/推动问题，这轮只允许动 `Home.unity`，不扩到 `Town`，不碰 `ChestController` 和 `PlayerToolHitEmitter`。
+- 本轮子任务：
+  - 在 `Home` scene 根层补回缺失的 `ResourceNodeRegistry`，把 diff 收窄到唯一预期 scene baseline 变更。
+- 这轮实际做成了什么：
+  1. 通过 Unity MCP 在 `Home` 根层新建了 `ResourceNodeRegistry` GameObject，并挂上 `ResourceNodeRegistry` 组件。
+  2. 保存场景后，重新审查磁盘 diff，把自动重序列化带出来的无关改动全部剥掉，只保留 `ResourceNodeRegistry` 节点本身及其 `SceneRoots` 引用。
+  3. 当前 `git diff -- Assets/000_Scenes/Home.unity` 已收窄为唯一预期变更：新增 `ResourceNodeRegistry` 根节点，`guid=f75efc8baed1e6b4fb4abaf4e7535279`，`showDebugInfo=0`。
+- 验证结果：
+  - Unity MCP 结构票据在保存前已确认：`Home` 里能找到 `ResourceNodeRegistry`，组件为 `Transform + ResourceNodeRegistry`。
+  - `git diff --check -- Assets/000_Scenes/Home.unity`：通过。
+  - fresh console 在保存后短暂为 `0 error / 0 warning`；随后为避免“磁盘 patch 与编辑器内存态再次漂移”，我尝试重载 `Home`，这一步把 Unity MCP 桥会话抖断了，后续 live 读回未闭环。
+  - 当前最后一次可读 console 只有 2 条外部 warning/transport 噪声：
+    - `MCP-FOR-UNITY [WebSocket] Unexpected receive error: WebSocket is not initialised`
+    - `LiberationSans SDF (Runtime)` static atlas warning
+  - 没有拿到新的项目红错证据。
+- 边界与判断：
+  - 这轮真正落地的是 `Home` 缺失的命中注册表基线；
+  - 还没做成“用户 live 手敲 Home 箱子已通过”的终验，因为 `Play Mode` 会自动跳回 `Primary`，而且场景重载后 MCP 会话不稳定。
+- 涉及文件：
+  - `Assets/000_Scenes/Home.unity`
+- 恢复点：
+  - 本轮已跑 `Begin-Slice`（切片：`home-resource-node-registry-baseline`）
+  - 本轮已跑 `Park-Slice`
+  - 当前 live 状态：`PARKED`
+- 下一步：
+  - 如果需要继续，只做一件事：在用户可控的 `Home` live 场景里手敲一次箱子，确认“现在确实能被镐子命中并推动”。
+
+## 2026-04-20｜只读彻查：大石头阶段不变形的真实根因与最安全修法
+
+- 当前主线：
+  - 用户反馈“场景里的大石头挖掘后不会按阶段变形”，要求先只读彻查，给出最安全、最高效、尽量不碰存档的完整判断与修法。
+- 本轮子任务：
+  - 把石头问题拆成 5 层只读核查：`StoneController` 阶段链、`Pickaxe` 伤害配置、`Rock` Prefab 配置、场景实例 override、存档边界。
+- 这轮实际查实了什么：
+  1. `StoneController` 最近未提交改动主要是编辑器预览/批量工具补丁：
+     - `CachePreviewComponents()`
+     - `ApplyBatchEditorState(...)`
+     - `OnValidate()` 里的预览补口
+     - 没有直接改坏 `OnHit -> TakeDamage -> HandleStageTransition -> UpdateSprite` 主链。
+  2. `Rock/C1/C2/C3.prefab` 的最近 diff 主要是把 `OcclusionTransparency` 从父物体移到子物体 `Rock`，不属于阶段变形主根因。
+  3. `Pickaxe` 资产真实配置是正常的，不是“镐子伤害太低打不动”：
+     - `Tool_6~11_Pickaxe_0~5.asset` 都开了 `canDealDamage=1`
+     - `damageAmount` 分别为 `2/3/4/5/6/7`
+     - 所以“大的石头完全不进阶段”不能再优先怀疑到镐子伤害表。
+  4. 已钉死一个高置信真问题：
+     - `StoneController.UpdateSprite()` 在编辑器里用 `AssetDatabase` 搜索 `spriteFolder`
+     - 但运行时走 `Resources.Load(spritePathPrefix + spriteName)`
+     - 实际石头 Sprite 在 `Assets/Sprites/Props/Materials/Stone/...`
+     - 不在 `Assets/Resources/...`
+     - 且当前 `spritePathPrefix` 只有 `.../C1/`、`.../C2/`、`.../C3/`，没有进一步带 `M1/M2/M3/M4` 子目录
+     - 结论：打包版石头阶段换图链本身就是坏的；这不是猜测，是脚本路径和资产目录直接不匹配。
+  5. 场景实例层存在语义混杂：
+     - `Primary/Town` 里这批石头实例不是全都从 `M1` 开始
+     - 已有只读票据显示其中混着不少 `currentStage=3` 的场景 override
+     - 这意味着“看起来像石头”的对象里，部分本来就是装饰/终态实例，不会都按 `M1 -> M2 -> M3` 走。
+  6. 存档边界当前是干净的：
+     - `StoneSaveData` 仍只保存 `stage / oreType / oreIndex / currentHealth`
+     - 本轮最安全修法不需要动 `SaveDataDTOs.cs` 里的石头结构，也不该先碰 `SaveManager.cs`。
+  7. 还发现一个次级配置漂移：
+     - `StoneController` 代码默认 `M3.stoneTotalCount = 2`
+     - 但 `C1/C2/C3.prefab` 序列化的是 `M3.stoneTotalCount = 4`
+     - 这更像掉落/经验配置不一致，不是这次“阶段不变形”的主根因。
+- 当前判断：
+  - 现在不是“石头系统整体炸了很多处”，而是至少有 `1` 条已钉死的真 bug + `1` 条场景语义混杂：
+    - 真 bug：打包态 `StoneController` 运行时换图链必坏
+    - 语义混杂：场景里并不是所有石头实例都真的是可多阶段挖掘的大矿石
+  - 如果用户是在编辑器 live 里看到“不按阶段变形”，更像是打到了被 override 成终态/装饰态的实例，或打到的不是预期那几个 `M1` 节点，而不是最近有人把石头受击主链整体改没了。
+- 最安全修法排序：
+  1. 第一刀只修 `StoneController` 的运行时 Sprite 真值源，不碰存档结构：
+     - 不再依赖当前错误的 `Resources.Load(pathPrefix + spriteName)` 直读路径
+     - 改成“Prefab 侧可序列化的石头 Sprite 查找表/引用表”，运行时按 `oreType + stage + oreIndex` 直接取 Sprite
+     - 编辑器里的 `spriteFolder + AssetDatabase` 只保留为作者工具/自动填表入口
+     - 这刀可只落在 `StoneController.cs` + `Rock/C1/C2/C3.prefab`
+  2. 第二刀只做 targeted scene audit，不做全场批量改：
+     - 只核对用户真正要挖的那几个“大石头”实例
+     - 如果其中有被 scene override 成 `M4` 终态/装饰态，再逐个纠正
+     - 不去批量重写 `Primary/Town` 全部石头外观实例
+  3. 第三刀再决定要不要顺手统一 `M3 stoneTotalCount` 的配置漂移。
+- 为什么不先走别的路：
+  - 不先重构 `PlayerToolHitEmitter`，因为镐子伤害资产已证实正常。
+  - 不先动存档，因为石头保存字段目前足够，不是这次根因。
+  - 不建议先把整套石头图直接搬进 `Resources`，因为这会扩大资源面、增加引用/打包风险，而且还没解决阶段子目录路径设计本身就不闭环的问题。
+- 验证层级：
+  - `StoneController` 命中/掉血/阶段链：静态推断成立
+  - `Pickaxe` 伤害配置正常：静态推断成立
+  - 打包态换图路径错误：静态推断成立，且置信度很高
+  - “用户当前打到的具体那块大石头是否就是被 scene override 成终态”：还差针对具体实例的最后一票 live / scene 点名验证
+- 恢复点：
+  - 本轮只读，没有进真实施工
+  - 没跑 `Begin-Slice`
+  - 当前状态应保持 `PARKED`
+
+## 2026-04-20｜真实施工：箱子丢弃物品冷却与背包对齐
+
+- 当前主线：
+  - 用户把范围收窄为“只修箱子里丢出来的物品也要有冷却，和背包丢弃一样”，要求最简洁、高效、直接抄背包语义，不做创新。
+- 本轮子任务：
+  - 只修箱子丢弃路径，不动石头主线，不扩到别的交互。
+- 这轮实际做成了什么：
+  1. 在 [BoxPanelUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs) 的箱子垃圾桶丢弃入口补了 `dropCooldown = 5f`，并把 `DropItemFromContext()` 的 `ItemDropHelper.DropAtPlayer(...)` 改成显式传冷却值。
+  2. 在 [InventorySlotInteraction.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs) 的箱子拖出面板丢弃出口补了箱子冷却分支：
+     - `DropItemFromContext()`：箱子源用 `5f`
+     - `ReturnHeldToSourceContainer()`：回源失败时，箱子容器走 `5f`
+  3. 在 [SlotDragContext.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/SlotDragContext.cs) 的拖拽取消掉落出口补了箱子冷却分支：
+     - 箱子源容器回源失败时，丢弃也走 `5f`
+  4. 三个脚本的结构自检已过，都是 `0 error`，只剩 `InventorySlotInteraction.cs` 原有的一个 warning（字符串拼接 GC 提示），不是本轮新增错误。
+- 验证结果：
+  - [BoxPanelUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs)：`0 error / 0 warning`
+  - [InventorySlotInteraction.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs)：`0 error / 1 warning`
+  - [SlotDragContext.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/SlotDragContext.cs)：`0 error / 0 warning`
+- 边界与判断：
+  - 这轮只把“箱子丢出来的物品”对齐到背包冷却，不改背包原有掉落行为。
+  - 没碰存档、没碰石头、没碰别的 UI 交互。
+- 恢复点：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Park-Slice`
+  - `Ready-To-Sync` 被 `ready-to-sync.lock timeout` 卡住，当前 live 状态应记为 `PARKED`
+
+## 2026-04-20｜只读补查：石头 warning 与树苗放置偏移已拆成两条根因
+
+- 用户目标：
+  - 用户要求把“打包 warning 是什么”“石头为什么还是不会按阶段变形”“树苗预览/落点是不是被前面箱子放置锚点修复误伤了”一次查清，并用人话讲明白。
+- 当前主线目标：
+  - 本轮不进真实施工，只把石头与树苗两条问题从 shared placement 变更里拆出准确根因，给出最小安全修法。
+- 本轮子任务 / 阻塞：
+  - 子任务 1：确认 build warning 是否只是噪音。
+  - 子任务 2：确认石头阶段不变到底是伤害链、资源链还是 prefab 覆盖。
+  - 子任务 3：确认树苗偏移是否来自最近的 `PlacementGridCalculator` 合同改动。
+- 已完成事项：
+  1. 已复核 `StoneController.cs` 与 `StoneControllerEditor.cs`：
+     - 编辑器侧 `UpdateSprite()` 走 `LoadSpriteInEditor()`，本质用 `AssetDatabase` 从 `Assets/Sprites/Props/Materials/Stone/...` 递归查图；
+     - 运行时却仍然走 `Resources.Load<Sprite>(spritePathPrefix + spriteName)`；
+     - 实际 stone 图片位于 `Assets/Sprites/Props/Materials/Stone/...`，不在 `Resources` 目录下。
+  2. 已确认本轮打包输出里的 warning 都只是未消费字段，不是石头/树苗运行 bug 主因：
+     - `CloudShadowManager.previewInEditor`
+     - `ChestController._preGenerateId`
+     - `PlayerToolHitEmitter.drawGizmos`
+     - `AutoPickupService.showGizmos`
+     - `ChestController.collisionCheckRadius`
+     - `DayNightManager.animateLightsInEditor`
+     - `StoneController._preGenerateId`
+  3. 已复核 `PlacementGridCalculator.cs / PlacementPreview.cs / PlacementManager.cs` 的当前 diff：
+     - `GetPreviewSpriteLocalPosition()` 与 `GetPlacementPosition()` 已从旧的 `GetColliderCenterAfterBottomAlign(prefab)` 切到新的 `GetPlacementColliderLocalCenter(prefab)`；
+     - 这解释了为什么箱子/普通 placeable 变稳定，但树苗单独开始偏。
+  4. 已复核树 prefab 与树苗资产：
+     - `Sapling_1200/1201/1202` 的 `placementOffset` 全是 `{0,0,0}`，且当前代码里没有任何消费这个字段的地方；
+     - 三个 `Tree` prefab 的 `currentStageIndex` 都已经是 `0`，所以不是“预览拿错成大树阶段”；
+     - `Assets/222_Prefabs/Tree/M1.prefab` 里 `Tree` 子物体初始 `m_LocalPosition = 0,0,0`，但 `TreeController.AlignSpriteBottom()` 会在运行时直接移动 `spriteRenderer.transform.localPosition`，而同一物体上同时挂着 `PolygonCollider2D`，所以 collider 中心会跟着上移。
+  5. 已只读确认：树苗偏移不是箱子冷却/UI 改动误伤，而是共享放置锚点改动误伤树 prefab 的 runtime bottom-align 特性。
+- 关键决策：
+  - 石头和树苗必须分开修：
+    - 石头修 runtime sprite source 合同；
+    - 树苗修 sapling-only 的 bottom-align 锚点；
+  - 不能为了救树苗，把箱子/种子现在正确的 collider-center 合同整块回退。
+- 涉及文件 / 路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\StoneController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\Editor\StoneControllerEditor.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementGridCalculator.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementPreview.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\TreeController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Items\SaplingData.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Tree\M1.prefab`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Tree\M2.prefab`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Tree\M3.prefab`
+  - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\Rock\C1.prefab`
+- 验证结果：
+  - 石头 warning 非主因：静态推断成立。
+  - 石头运行时读图链错误：静态推断成立，置信度高。
+  - 树苗被 `PlacementGridCalculator` 新锚点合同误伤：静态推断成立，且 `git diff + prefab/YAML` 双证据一致。
+- 恢复点 / 下一步：
+  - 当前仍是只读结案，没有进真实施工，没跑 `Begin-Slice`。
+  - 如果下一轮开修，最稳的顺序是：
+    1. 先给 `StoneController` 补运行时可用的 sprite lookup 真源；
+    2. 再只给树苗单独恢复 bottom-align 锚点，不动箱子/种子合同。
+
+## 2026-04-20｜真实施工：石头 runtime 换图 + 树苗 tree-only 锚点回补
+
+- 用户目标：
+  - 用户直接放行，要把前面已钉死的两条根因真正落地：
+    - 石头打包/runtime 阶段不换图
+    - 树苗预览/落点偏移
+- 当前主线目标：
+  - 在不回退箱子/种子当前正确放置合同的前提下，只修石头 runtime sprite 真源和树苗 sapling-only 锚点。
+- 本轮子任务 / 阻塞：
+  - 子任务 1：给 `StoneController` 补 build/runtime 可用的 Sprite 真源，不搬整套资源。
+  - 子任务 2：给树 prefab 恢复 bottom-align 锚点，但只影响树苗。
+  - 当前无 blocker；本轮结束前已主动 `Park-Slice`。
+- 已完成事项：
+  1. 已跑 `Begin-Slice`：
+     - `current_slice = stone-runtime-sprite-and-sapling-anchor-fix`
+     - `owned_paths = StoneController.cs + PlacementGridCalculator.cs`
+  2. 在 `StoneController.cs` 内新增 runtime sprite reference 烘焙链：
+     - 类实现 `ISerializationCallbackReceiver`
+     - 新增 `RuntimeSpriteReference[] runtimeSpriteReferences`
+     - `OnBeforeSerialize()` 在编辑器侧从 `spriteFolder / spritePathPrefix` 递归收集 stone sprites
+     - runtime `UpdateSprite()` 改为优先走 `LoadSpriteAtRuntime()`，先查预烘焙 lookup，再回退 `Resources.Load`
+  3. 在 `PlacementGridCalculator.cs` 内新增 tree-only 锚点分支：
+     - `GetPlacementColliderLocalCenter()` 对带 `TreeController` 的 prefab 直接走 `GetColliderCenterAfterBottomAlign(prefab)`
+     - 其余普通 placeable 继续走现有 `GetPlacementLocalColliderBounds()` / collider-center 合同
+  4. 已做最小 no-red 自检：
+     - `validate_script PlacementGridCalculator.cs`：`owned_errors=0`
+     - `validate_script StoneController.cs`：`owned_errors=0`
+     - `errors --count 20 --output-limit 5`：`errors=0 warnings=0`
+     - `git diff --check -- <2 files>`：无结构错误，仅 CRLF/LF 提示
+  5. 已跑 `Park-Slice`，当前 live 状态为 `PARKED`
+- 关键决策：
+  - 石头这刀不动 warning，不回头改别的资源链；只补 `StoneController` 自己的 runtime 读图真源。
+  - 树苗这刀不整体回退 `PlacementGridCalculator`；只让树 prefab 恢复 bottom-align 语义。
+- 涉及文件 / 路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\StoneController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Placement\PlacementGridCalculator.cs`
+- 验证结果：
+  - 代码层：当前两刀都没有 owned error。
+  - Unity fresh console：`0 error / 0 warning`
+  - live 手感/画面：尚未做玩家侧终验，待用户实机确认。
+- 恢复点 / 下一步：
+  - 当前状态：`PARKED`
+  - 下一步只剩用户 live 终验两件事：
+    1. 石头是否终于按阶段换图
+    2. 树苗预览与最终落点是否恢复正确
+
+## 2026-04-23｜shared-root 保本上传重审：当前只允许 docs-only 归仓，代码面全部收成 exact blocker
+
+- 当前主线：
+  - 按 `2026-04-23_给农田交互修复V3_shared-root完整保本上传与own尾账归仓prompt_01.md`，这轮不继续修农田/箱子/放置链，只做当前本地 own 成果的安全归仓并 push。
+- 这轮重审后钉死的事实：
+  1. `git-safe-sync` 在 shared-root `task` 模式下，own-root 是按父目录根扩张，不是按单文件算。
+  2. 因此当前代码/资源面一旦尝试纳入，会分别把这些根一起拖进 preflight：
+     - `Assets/Editor`
+     - `Assets/YYY_Scripts/Controller`
+     - `Assets/YYY_Scripts/Service/Placement`
+     - `.codex`
+  3. 这些根下现在都还混着 shared / mixed / foreign dirty，不能为了这轮“保本上传”硬吞。
+  4. 当前真正能安全过 preflight 的，只剩 docs-only 批次：
+     - `.codex/threads/Sunset/农田交互修复V3/memory_0.md`
+     - `.kiro/specs/农田系统/memory.md`
+     - `.kiro/specs/农田系统/2026.03.16/1.0.4交互全面检查/0.0.1交互大清盘/memory.md`
+- 当前 exact blocker files：
+  - `Assets/YYY_Scripts/Controller/StoneController.cs`
+  - `Assets/Editor/StoneControllerEditor.cs`
+  - `Assets/Editor/Tool_005_BatchStoneState.cs`
+  - `Assets/222_Prefabs/Rock/C1.prefab`
+  - `Assets/222_Prefabs/Rock/C2.prefab`
+  - `Assets/222_Prefabs/Rock/C3.prefab`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementGridCell.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementNavigator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+  - `Assets/Editor/ChestControllerEditor.cs`
+  - `Assets/Editor/ChestAuthoringBatchSelectWindow.cs`
+  - `Assets/Editor/ChestAuthoringSerializationTests.cs`
+  - `Assets/Editor/ChestInventoryBridgeTests.cs`
+  - `.codex/tmp_sapling1200_crop.png`
+  - `.codex/tmp_sapling1200_crop_correct.png`
+  - `.codex/tmp_sapling1201_crop.png`
+  - `.codex/tmp_wateringcan_crop.png`
+- blocker 原因：
+  1. `Stone / Tree / Chest authoring` 只要一进白名单，就会把 `Assets/Editor` 或 `Assets/YYY_Scripts/Controller` 整根拉进来。
+  2. `Placement support` 这批即使只想收 helper，也会被同根的：
+     - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+     - `Assets/YYY_Scripts/Service/Placement/PlacementSecondBladeLiveValidationRunner.cs`
+     卡成 remaining dirty。
+  3. `.codex/tmp_sapling*` 这类验证图不能私删，但这轮也不能安全 sync，因为 `.codex` 整根不 clean。
+- thread-state：
+  - 这轮先误开过宽 slice，随后已合法 `Park-Slice` 收回。
+  - 当前正确做法是重开 docs-only slice，再跑 `Ready-To-Sync`。
+- 当前恢复点：
+  1. 这轮只继续推进 docs-only 两笔 safe sync。
+  2. 代码/资源面保持 blocker 报实，不再假装“还能顺手带一点”。

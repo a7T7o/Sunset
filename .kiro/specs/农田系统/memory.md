@@ -1084,3 +1084,245 @@ memory_0.md 最后记录（会话2续53，2026-02-25）：
 - 当前恢复点：
   - 本线程 repo 内 own 代码可提交内容已收尽
   - 接下来只需补 memory 与向用户汇报
+
+## 2026-04-17｜只读审计：浇水跨天 / 作物枯萎 / Day1 回家切场后的农田冻结风险
+
+- 当前主线：
+  - 用户要求只读彻查“浇水第二天是否没重置、作物为什么不枯萎、是否是 Day1 超过 2:00 回家/睡觉链没有把农田状态带过去”。
+- 本轮范围：
+  - 只读审计，未改代码，未跑 `Begin-Slice`。
+  - 重点检查：
+    - `FarmTileManager.cs`
+    - `FarmTileData.cs`
+    - `CropController.cs`
+    - `CropInstanceData.cs`
+    - `TimeManager.cs`
+    - `SpringDay1Director.cs`
+    - `PersistentPlayerSceneBridge.cs`
+    - `SaveManager.cs`
+    - `PlacementManager.cs`
+    - `PlacementPreview.cs`
+- 这轮钉死的事实：
+  1. `FarmTileManager.OnDayChanged()` 确实会在日切时执行：
+     - `ResetDailyWaterState()`
+     - `ProcessEmptyTilledTileExpiry(totalDays)`
+     - `RefreshAllTileVisuals()`
+  2. `FarmTileData.ResetDailyWaterState()` 的逻辑本身是对的：
+     - `wateredYesterday = wateredToday`
+     - `wateredToday = false`
+     - 所以如果耕地管理器真的收到了日切，第二天理论上应允许再次浇水。
+  3. `CropController.HandleGrowingDay()` 的逻辑本身也会枯萎：
+     - 真实判断用的是 `tileData.wateredYesterday`
+     - `needsWatering == true` 时，连续缺水达到 `daysUntilWithered` 会进入 `WitheredImmature`
+  4. 真正更大的风险不是 `SetWatered()`，而是“离场场景没有补跨天结算”：
+     - `PersistentPlayerSceneBridge.QueueSceneEntry()` 在切场前只会抓当前 scene 的 runtime snapshot
+     - `sceneWorldSnapshotsByScene` 恢复时只是把旧 snapshot `Load()` 回来
+     - 当前 `SceneWorldSnapshotSaveData` 没有记录“离场时 totalDays”
+     - 也没有任何 `FarmTileManager/CropController` 的 off-scene catch-up 逻辑
+  5. 这意味着：
+     - 如果你在 `Primary` 浇完水后离场
+     - 然后在 `Home/Town` 里跨天
+     - `Primary` 的农田与作物不会自己补那几次 `OnDayChanged`
+     - 回到 `Primary` 时，很可能还是离场那一刻的 `wateredToday / wateredYesterday / grownDays / daysWithoutWater`
+- 当前判断：
+  - “第二天回到 Primary 仍不能浇昨天浇过的地”这件事，按静态代码是**可能成立**的。
+  - “作物根本不枯萎”这件事，按静态代码也**可能成立**，主因不是 prefab 仍关着，而是作物离场后没有补缺水天数。
+  - `Day1` 本身不是当前最高嫌疑：
+    - `TimeManager.Sleep()` 先 `AdvanceDay()`，再 `OnSleep`
+    - `SpringDay1Director` 只是在 `OnSleep` 后负责切场回家
+    - 所以“同场景睡觉那一刻的日切”理论上是会发的
+  - 真正脆弱的是：
+    - `Primary` 离场后的后续日切
+    - 当前没有同步给 off-scene 的 `FarmTileManager/CropController`
+- 额外澄清：
+  - `SeedData.asset` 上历史 `needsWatering: 0` 只是废弃兼容字段；
+  - 真实运行规则在 `CropController` prefab 上；
+  - 当前 `Assets/222_Prefabs/Crops/*.prefab` 里的 `needsWatering` 均为 `1`，所以“作物不枯萎”不能再归因成那批 prefab 还没开。
+- 对用户现象的最强解释：
+  - 如果你是在 `Primary` 内连续待到下一次日切，再测浇水，逻辑大概率是通的；
+  - 如果你是“浇完水 -> 离开 Primary -> 在别的 scene 过夜 -> 再回 Primary”，当前代码口径下最容易出现你描述的异常。
+- 下一步修复方向（本轮未施工）：
+  1. 不先动 `SetWatered()`；
+ 2. 优先补 `PersistentPlayerSceneBridge / off-scene farm state` 的跨天补票合同；
+ 3. 至少让 `FarmTileManager` 和 `CropController` 在 scene 恢复时知道“离场期间过了几天”，并补：
+     - 浇水日切迁移
+     - 作物缺水/生长天数
+     - 空耕地到期结算
+
+## 2026-04-17｜只读复核：farm 跨天与 off-scene world-state contract 结论成立，但最小正确合同是“双层”
+
+- 用户需求：
+  - 只读审计 farm 线程“`Primary` 离场后农田/作物没有补跨天结算”这个结论是否成立；范围只限农田/作物跨天与 off-scene world-state contract，不扩到箱子/背包/UI，也不碰 `ChestController` 或 `PersistentPlayerSceneBridge` 的非农田语义。
+- 本轮范围：
+  - 只读审计，未改代码，未跑 `Begin-Slice`。
+  - 复核文件：
+    - `Assets/YYY_Scripts/Farm/FarmTileManager.cs`
+    - `Assets/YYY_Scripts/Farm/FarmTileData.cs`
+    - `Assets/YYY_Scripts/Farm/CropController.cs`
+    - `Assets/YYY_Scripts/Farm/Data/CropInstanceData.cs`
+    - `Assets/YYY_Scripts/Service/TimeManager.cs`
+    - `Assets/YYY_Scripts/Service/Player/PersistentPlayerSceneBridge.cs`
+    - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+    - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+- 这轮钉死的事实：
+  1. 该根因成立：
+     - `FarmTileManager` 的日切逻辑挂在 `TimeManager.OnDayChanged`，负责 `ResetDailyWaterState()` 与空置耕地结算；
+     - `CropController` 的生长 / 缺水 / 过熟也挂在 `OnDayChanged`；
+     - `PersistentPlayerSceneBridge` 对离场 scene 只抓 snapshot，回场时只把旧 `WorldObjectSaveData` 原样 `Load()` 回来，没有任何“离场期间过了几天”的字段，也没有 farm 专属 catch-up。
+  2. 最小正确合同不应只落单边：
+     - bridge / save contract 负责提供 off-scene elapsed-days 或等价的离场时间锚点；
+     - `FarmTileManager` / `CropController` 负责消费这段 delta，按农田语义补算浇水迁移、缺水、生长、空置到期。
+  3. 不能把全部补算粗暴塞进 `FarmTileManager.Load()`：
+     - `FarmTileManager.Save()` 当前只存土壤/浇水/空置字段，不存作物占位；
+     - bridge 恢复顺序却是 `FarmTileManager -> Crop`；
+     - 因此如果 manager 在 crop 重新绑回 tile 之前先跑“空地到期”补算，会把本来有作物的 tile 误判为空地。
+  4. 当前存档合同还缺绝对时间锚点：
+     - `SceneWorldSnapshotSaveData` 只有 `sceneKey + worldObjects`；
+     - `CropSaveData` 只有 `grownDays / daysWithoutWater / lastHarvestDay / daysSinceMature`，没有 `lastSimulatedTotalDays` 之类的补算锚点；
+     - `FarmTileSaveData` 虽然有 `emptySinceTotalDays`，但当前没有任何“回场立即按当前 totalDays 补跑结算”的入口。
+- 当前判断：
+  - farm 线程把“真正真空点”压到 `Primary` 离场后的 off-scene snapshot contract 上，这个方向是对的。
+  - 但如果下一轮真要落地，不能只说“给 bridge 加天数”或“让 crop 自己 catch-up”其中之一；最小安全方案必须是“双层合同 + 明确恢复时机”。
+- 当前恢复点：
+  - 本轮仍是只读结案。
+  - 如果下一轮开修，建议单独切 `farm off-scene catch-up contract` 这一刀，不顺手混进箱子/背包/UI 或别的 `PersistentPlayerSceneBridge` 语义。
+
+## 2026-04-20｜只读补查：石头阶段不变与树苗预览/落点偏移已分根因
+
+- 用户目标：
+  - 把打包 warning、石头“大石头阶段不变”、以及树苗预览/落点不对这三件事拆开查清，尤其要回答“warning 到底是不是主因”“树苗是不是前面箱子放置锚点修复误伤的”。
+- 本轮范围：
+  - 只读分析，未改代码，未跑 `Begin-Slice`。
+  - 复核文件：
+    - `Assets/YYY_Scripts/Controller/StoneController.cs`
+    - `Assets/Editor/StoneControllerEditor.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+    - `Assets/YYY_Scripts/Controller/TreeController.cs`
+    - `Assets/YYY_Scripts/Data/Items/SaplingData.cs`
+    - `Assets/222_Prefabs/Tree/M1.prefab`
+    - `Assets/222_Prefabs/Tree/M2.prefab`
+    - `Assets/222_Prefabs/Tree/M3.prefab`
+    - `Assets/222_Prefabs/Rock/C1.prefab`
+- 这轮钉死的事实：
+  1. 这批 build 输出里的 `CS0414` 全都是“字段已声明但当前未消费”的 warning，不是石头/树苗 bug 的直接根因：
+     - `CloudShadowManager.previewInEditor`
+     - `ChestController._preGenerateId`
+     - `PlayerToolHitEmitter.drawGizmos`
+     - `AutoPickupService.showGizmos`
+     - `ChestController.collisionCheckRadius`
+     - `DayNightManager.animateLightsInEditor`
+     - `StoneController._preGenerateId`
+  2. 石头阶段不变的真正高嫌疑不在 warning，而在运行时读图链分裂：
+     - `StoneController.UpdateSprite()` 在 `UNITY_EDITOR` 下走 `LoadSpriteInEditor()`，实质上用 `AssetDatabase` 从 `Assets/Sprites/Props/Materials/Stone/...` 递归找图；
+     - 非编辑器运行时却仍然走 `Resources.Load<Sprite>(spritePathPrefix + spriteName)`；
+     - 但实际石头素材在 `Assets/Sprites/Props/Materials/Stone/...`，并不在 `Assets/Resources/...`；
+     - 因而编辑器里能同步，打包/runtime 却极可能找不到目标阶段 sprite，表现成“血量/阶段变了，但外观不按阶段变形”。
+  3. 树苗问题不是箱子丢弃/UI 那条线，而是前面共享放置锚点合同变更把树 prefab 的 runtime bottom-align 特性抹平了：
+     - `git diff -- Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs` 已明确显示：
+       - `GetPreviewSpriteLocalPosition()` 与 `GetPlacementPosition()` 从原先吃 `GetColliderCenterAfterBottomAlign(prefab)`，
+       - 改成了吃新的 `GetPlacementColliderLocalCenter(prefab)`。
+     - 这对箱子/种子成立，但对树苗不成立。
+  4. 树苗之所以被误伤，是因为树 prefab 的真实碰撞体中心会在运行时被 `TreeController.AlignSpriteBottom()` 改写：
+     - `Assets/222_Prefabs/Tree/M1.prefab` 中，`Tree` 子物体初始 `m_LocalPosition = {x:0,y:0,z:0}`；
+     - 同一个 `Tree` 子物体上同时挂了 `SpriteRenderer + TreeController + PolygonCollider2D`；
+     - `TreeController.UpdateSprite()` 会调用 `AlignSpriteBottom()`，而 `AlignSpriteBottom()` 直接改的是 `spriteRenderer.transform.localPosition`，也就是连带把这颗树的 collider 一起上移；
+     - 当前通用放置锚点如果只看 prefab 静态 collider center，就会漏掉这段 runtime 上移量，导致树苗预览与最终落点一起偏。
+  5. `SaplingData` 本身不是根因：
+     - 三个树苗 asset 的 `placementOffset` 都是 `{0,0,0}`；
+     - `treePrefab` 的 `currentStageIndex` 也都已是 `0`，不是“预览拿成大树阶段”。
+- 当前判断：
+  - 石头和树苗是两条独立根因，不应混成一个“放置系统全坏”。
+  - 石头要修的是 runtime sprite source 合同。
+  - 树苗要修的是 sapling-only 的 bottom-align 锚点回补，不能把箱子/种子的当前正确合同一起回退。
+- 最小安全修法建议：
+  1. 石头：
+     - 不动 warning；
+     - 单独给 `StoneController` 补一条 build/runtime 可用的 sprite lookup 真源，和编辑器侧同名规则对齐；
+     - 不建议粗暴把整套素材搬 `Resources`，风险面太大。
+  2. 树苗：
+     - 只对 `SaplingData` / `TreeController` 这条链恢复 bottom-align 锚点；
+     - 最稳是让 sapling 预览与落地重新吃 `GetColliderCenterAfterBottomAlign(prefab)` 或等价的 tree-only 运行时对齐中心；
+     - 不回退箱子和普通 placeable 的新 collider-center 合同。
+- 恢复点：
+  - 本轮仍是只读结案。
+  - 当前状态应保持 `PARKED`。
+
+## 2026-04-20｜真实施工：石头 runtime 换图真源补口 + 树苗 sapling-only 锚点回补
+
+- 用户目标：
+  - 直接落地前面已经钉死的两条根因：
+    1. 石头打包/runtime 阶段不换图
+    2. 树苗预览/落点偏移
+  - 范围只准收在石头 runtime 资源链和树苗专属锚点，不回退箱子/种子当前已正确的放置合同。
+- 本轮范围：
+  - 已进入真实施工，`Begin-Slice -> Park-Slice` 已完成。
+  - 本轮 owned 路径：
+    - `Assets/YYY_Scripts/Controller/StoneController.cs`
+    - `Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs`
+- 这轮实际做成了什么：
+  1. 在 `StoneController.cs` 内补了 build/runtime 可用的 Sprite 真源：
+     - 新增 runtime sprite reference 烘焙数组与 lookup；
+     - 通过 `ISerializationCallbackReceiver.OnBeforeSerialize()` 在编辑器侧从当前 `spriteFolder / spritePathPrefix` 递归收集 stone sprites；
+     - runtime `UpdateSprite()` 现在优先读这份预烘焙真源，`Resources.Load` 只保留为最后兜底。
+  2. 在 `PlacementGridCalculator.cs` 内只给树 prefab 恢复 sapling-only 的 bottom-align 锚点：
+     - `GetPlacementColliderLocalCenter()` 对 `TreeController` prefab 特判，改为走 `GetColliderCenterAfterBottomAlign(prefab)`；
+     - 箱子、种子、普通 placeable 仍继续沿用当前的 collider-center 合同，没有整体回退。
+- 当前判断：
+  - 石头这刀已经把“编辑器能换图、打包/runtime 换不到图”的结构性断层补上了。
+  - 树苗这刀已经把“共享锚点合同误伤树 prefab runtime bottom-align”的结构性偏移拉回到 tree-only 分支，不会反向污染箱子/种子。
+- 验证结果：
+  - `validate_script Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs`：
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `manage_script.validate = clean`
+  - `validate_script Assets/YYY_Scripts/Controller/StoneController.cs`：
+    - `assessment=unity_validation_pending`
+    - `owned_errors=0`
+    - `manage_script.validate = warning`
+    - 仅剩既有 warning：`String concatenation in Update() can cause garbage collection issues`
+  - `errors --count 20 --output-limit 5`：
+    - `errors=0 warnings=0`
+  - `git diff --check -- <2 files>`：
+    - 仅有 CRLF/LF 提示，无 diff 结构错误
+- 恢复点：
+  - 本轮已合法 `PARKED`。
+  - 如果下一轮继续，优先做用户 live 终验：
+    - 石头是否终于按阶段换图
+    - 树苗预览与最终落点是否回到正确位置
+
+## 2026-04-23｜shared-root 保本上传：农田线程当前只保留 docs-only 归仓资格
+
+- 当前主线：
+  - 用户要求这轮不要继续修农田/放置/箱子体验，只做当前本地 own 成果的完整保本上传。
+- 这轮重审后的稳定结论：
+  1. 当前农田线程在 shared-root `task` 模式下，真正还能安全提交的农田 own 面，只剩 memory/docs。
+  2. 这批可安全归仓的是：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\农田系统\2026.03.16\1.0.4交互全面检查\0.0.1交互大清盘\memory.md`
+     - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\农田交互修复V3\memory_0.md`
+  3. 农田/放置代码面这轮不能吞，不是因为代码一定坏了，而是因为一进白名单就会把 shared root 父目录一起带进 preflight：
+     - `Assets/YYY_Scripts/Controller`
+     - `Assets/YYY_Scripts/Service/Placement`
+     - `Assets/Editor`
+     - `.codex`
+  4. 这些父根当前都还混着外线或 mixed dirty，因此这轮最诚实口径只能是：
+     - docs-only 可归仓
+     - 代码/资源面保留 exact blocker
+- 当前与农田线程最直接相关的 blocker：
+  - `Assets/YYY_Scripts/Controller/StoneController.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementGridCell.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementNavigator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementManager.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementSecondBladeLiveValidationRunner.cs`
+  - `.codex/tmp_sapling1200_crop.png`
+  - `.codex/tmp_sapling1200_crop_correct.png`
+  - `.codex/tmp_sapling1201_crop.png`
+  - `.codex/tmp_wateringcan_crop.png`
+- 当前恢复点：
+  1. 先把 docs-only 两笔同步做完。
+  2. 后续若要收代码面，必须另开一轮，按 root 拆 clean，不在这次保本上传里硬吞。

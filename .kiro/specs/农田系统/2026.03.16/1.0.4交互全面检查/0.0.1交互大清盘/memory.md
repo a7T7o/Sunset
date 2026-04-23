@@ -1473,3 +1473,33 @@
 这轮子层真正推进的不是新专题，而是把当前 own 交互面里最容易出事故的几条链狠狠干了一刀。核心推进有四条。第一，`Assets/YYY_Scripts/UI/Inventory/SlotDragContext.cs` 现在已经从“只管拖拽物品 payload”升级成“还管箱子 modifier-held owner 和模式”的真源：新增了 `ModifierHoldMode`、`ActiveOwner`、`IsHeldByShift`、`IsHeldByCtrl`、`IsOwnedBy(...)`、`ClearOwner(...)`，同时 `Cancel()` 不再使用原先那条高风险简化回源，而是带 runtime item 的安全回源；如果源槽被异步占用且容器无空位，当前改成掉落在玩家脚下，不再覆盖已有物品。第二，`Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs` 已把箱子侧 `_chestHeldByShift / _chestHeldByCtrl / s_activeChestHeldOwner` 收回到 `SlotDragContext`；`HandleChestSlotModifierClick()`、`ContinueChestCtrlPickup()`、`HandleSlotDragContextClick()`、`ContinueChestShiftSplit()`、`ResetActiveChestHeldState()` 现在围绕同一份 held owner 元数据运转，`HandleManagerHeldToChest()` 也修掉了部分堆叠时错误回源的问题。第三，`Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs` 的箱子 held 空白区点击现在统一走 `ReturnChestItemToSource()`，不再直接 `SlotDragContext.Cancel()`；`Assets/YYY_Scripts/UI/Inventory/InventoryPanelClickHandler.cs` 也补了背景本体点击保护并清掉高频日志，避免误吃槽位点击和控制台噪音。第四，`Assets/YYY_Scripts/Service/Player/PlayerThoughtBubblePresenter.cs` 把用户之前明确不满的“十字硬换行”去掉了，改成只做换行规范化，让气泡排版重新交给宽度约束和 TMP；`Assets/YYY_Scripts/Service/Player/EnergyBarTooltipWatcher.cs` 也补了 `transform` 上下文，让自定义 tooltip 的跟随边界不再飘。
 
 这轮子层验证结果可以明确写三件事：`git diff --check` 针对本轮主刀文件通过；`validate_script` 对 `SlotDragContext.cs`、`InventorySlotInteraction.cs`、`BoxPanelUI.cs`、`InventoryInteractionManager.cs`、`InventoryPanelClickHandler.cs`、`PlayerThoughtBubblePresenter.cs`、`EnergyBarTooltipWatcher.cs` 均为 `0 error`；fresh console 里暂未读到 own 新编译红，当前看到的主要还是既有 `Unknown script` 和 `OnValidate/SendMessage` 编辑态噪音。不能夸大的点也写死：CLI 全量 compile 仍被 `dotnet 20s timeout` 挡住，所以这轮不是“全量新编译已证绿”，而是“关键 own 文件静态无红 + fresh console 未见 own 新红”。收尾前已执行 `Park-Slice.ps1 -ThreadName 农田交互修复V3 -Reason deep-push-owned-interaction-finish-pass-written-static-validated-awaiting-user-runtime-retest`，当前 live 状态为 `PARKED`。当前子层恢复点因此更新为：下一轮如果继续，优先级应转入 runtime 终验与失败点修正，而不是继续在这组 own 文件里盲目加结构刀。
+
+## 2026-04-19：只读审计，箱子受击后的排序异常不是“DynamicSortingOrder 没触发”
+
+本轮用户要求只读彻查“箱子被镐子击中移动后，是否会触发 `DynamicSortingOrder`，为什么会出现排序异常把玩家盖住”，明确禁止改代码。当前新增并且后续必须记住的稳定事实有四条。第一，箱子 prefab 本身就挂着 `DynamicSortingOrder`，`Box_2 / Box_4` 都是同一套参数：`sortingOrderMultiplier=100`、`useSpriteBounds=1`、`bottomOffset=0`。第二，`Primary` 当前活场景里的真实实例 `Box_2` 也没丢这个组件；MCP 只读票据显示，当前 `Box_2` 的可视子物体 `Box` 上同时挂着 `ChestController + PolygonCollider2D + DynamicSortingOrder + SpriteRenderer`，父物体 `Box_2` 只有 `OcclusionTransparency`。这说明当前现场不是“父节点负责移动、子节点负责排序”的断链，而是 `PushCoroutine()` 改的就是和 `DynamicSortingOrder` 同一个对象的 `transform.position`。第三，`DynamicSortingOrder.LateUpdate()` 每帧都会按当前 `Collider2D.bounds.min.y`（没有 collider 才退回 sprite bounds）重算 `sortingOrder`，而 `ChestController.PushCoroutine()` 在推动期间不是纯水平平移，而是显式叠了 `pos.y += jumpT * pushJumpHeight` 的跳跃抬高。所以当前最高嫌疑不是“order 没更新”，而是“order 正在跟着跳跃位移实时更新，导致箱子排序基准临时抬高/漂移，进而把玩家盖住”。第四，`RequestNavGridRefresh()` 只在推动结束后刷新导航网格，没有参与排序；排序本来就不依赖显式刷新调用。当前子层恢复点因此更新为：下一轮如果真修，优先应该盯“推动动画期间的排序基准和位移基准是否该解耦”，而不是再去补“手动刷新 DynamicSortingOrder”。
+
+用户随后补了 live 截图与当前 inspector 票据后，这条判断又必须继续收窄：`-1002` 本身并不是错值。按当前截图里的空间关系，箱子相对玩家确实更靠上，所以箱子正确的 `sortingOrder` 本来就应该比玩家更小、更负；问题不在 `-1002`，而在真正显示的 `__ChestSpriteVisual` 仍停在 `-957`。也就是说，根 `Box` 上的旧 renderer 吃到了正确逻辑值，真正可见的 visual child 没同步，这才是现在的准确根因口径。
+
+## 2026-04-23｜shared-root 保本上传补记：这卷当前只允许随 docs-only 一起归仓
+
+- 当前主线：
+  - 本轮不继续修 bug，只做 `农田交互修复V3` 当前本地 own 成果的安全归仓。
+- 这卷当前新增的稳定事实：
+  1. 这次真正能安全归仓的，不是石头/放置/箱子代码，而是和当前线程 directly-own 对应的 docs-only 记录。
+  2. 当前这卷可随第一笔同步一起归仓，是因为它所在 own root `.kiro/specs/农田系统` 本轮可 clean preflight。
+  3. 当前不能一起吞的仍包括：
+     - `Assets/YYY_Scripts/Service/Placement/*`
+     - `Assets/YYY_Scripts/Controller/StoneController.cs`
+     - `Assets/Editor/*`
+     - `.codex/tmp_sapling*`
+  4. 原因不是“这些内容失效”，而是 shared-root `task` 模式下父根 remaining dirty 仍然存在，不符合这轮“只保本上传 clearly-own”的定义。
+- 当前恢复点：
+  - 本卷随 docs-only 一起归仓即可；代码/资源面继续保持 blocker 报实。
+
+## 2026-04-19：真实施工，箱子排序断链已改成“visual child 承接排序 + 根 collider 提供基准”
+
+用户确认正式开修后，这轮主刀范围严格固定在 [DynamicSortingOrder.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/DynamicSortingOrder.cs) 与 [ChestController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/Placeable/ChestController.cs)。当前新增的稳定事实有三条。第一，[DynamicSortingOrder.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/DynamicSortingOrder.cs) 已新增 `sortingColliderOverride` 和对应的 `CopySettingsFrom(...) / SetSortingColliderOverride(...) / ResolveSortingCollider()`，因此动态排序现在可以安全挂到真正显示的 `__ChestSpriteVisual` 上，但继续读取根 `Box` 的 collider 底边。第二，[ChestController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/Placeable/ChestController.cs) 在 `EnsureSpriteRendererUsesVisualChild()` 里已经把排序迁移逻辑补上：创建/复用 `__ChestSpriteVisual` 后，会把根 `Box` 上旧 `DynamicSortingOrder` 的配置复制到 visual child，绑定 `_collider` 作为排序基准，再停掉根上的旧排序脚本，同时根 `SpriteRenderer` 继续 disabled。第三，live 运行态结构已经验证吃入：当前 `__ChestSpriteVisual` 真实带着 `DynamicSortingOrder`，其 `sortingColliderOverride` 指向根 `Box` 的 `PolygonCollider2D`；而根 `Box` 上的旧 `SpriteRenderer` 保持 disabled、旧 `sortingOrder` 停在旧值，不再承担可见排序。当前子层恢复点因此更新为：这条线已经从“读清根因”进入“代码和运行态结构都已改对”的阶段；下一步如果继续，不该再回头讨论 `-1002` 对不对，而是让用户只验一件事：箱子被敲移动时，实际可见箱体是否终于不再错误盖住玩家。
+
+## 2026-04-19：只读补记，`Home` 箱子不响应镐子命中的主嫌已收敛到场景基线缺 `ResourceNodeRegistry`
+
+用户随后要求彻查“是不是 `Home/Town` 的箱子根本不存在被击中会移动的情况”。当前新增并且后续必须记住的稳定事实有四条。第一，[ChestController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/Placeable/ChestController.cs) 自己并没有按 `Primary/Home/Town` 分支受击逻辑；只要真正收到 `Pickaxe` 命中，且箱子不是 `WorldSpawned + hasBeenLocked=true`，`OnHit(...) -> TryPush(...)` 就会走。第二，`Home` 的 authored 箱子 `Box_4` 来自 [Box_4.prefab](D:/Unity/Unity_learning/Sunset/Assets/222_Prefabs/Box/Box_4.prefab)，默认 `origin=PlayerCrafted(0)`、`ownership=Player(0)`、`isLocked=0`，scene 里也没看到把这些字段 override 成不可移动。第三，真正的大断点在 [PlayerToolHitEmitter.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Combat/PlayerToolHitEmitter.cs)：若 `ResourceNodeRegistry.Instance == null`，`Update()` 会直接 `return`，命中检测整条链都不会跑；而静态检索显示 `Primary.unity` 和 `Town.unity` 都有 `ResourceNodeRegistry`，`Home.unity` 却没有。第四，这意味着 `Home` 当前最像真根因不是“箱子不会推”，而是“箱子根本没有被命中系统看到”；而 `Town` 这条目前又是另一类情况：静态 scene 基线里没看到 authored 箱子样本，因此不能直接概括成“Town 箱子也不会推”。当前最安全修法因此不是去重构共享代码，而是先只给 `Home.unity` 补回和 `Primary/Town` 同口径的 `ResourceNodeRegistry`，让 `Home` 里的箱子先重新进入现有命中系统；`Town` 则应等真实箱子样本复现后再决定要不要动。
