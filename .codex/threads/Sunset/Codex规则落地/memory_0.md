@@ -744,3 +744,35 @@
     1. same-root 继续拆批
     2. tool incident 单独拉出
     3. 引用一致性先修，再回上传
+
+## 2026-04-23｜第三波分流 prompt 已落地，README/光影/树石补交通知已吸收
+
+- 用户目标：
+  - 用户要求“直接开始”，不要停在分析里；同时又补了 `README/019d...`、`树石修复`、`云朵与光影` 的通用补交通知，要求我把这些新增信息一起纳入总盘面。
+- 当前切片：
+  - `second-wave-blocker-split-prompt-batch-2026-04-23`
+- 本轮实际做成了什么：
+  1. 已跑：
+     - `Begin-Slice`
+  2. 已补核三条补交线程：
+     - `019d...`：`ee7754b4` 已在远端，但当前 thread-state 仍 `ACTIVE`，`README.md` 也有新脏改，因此不纳入本波 parked 候选
+     - `树石修复`：历史上只有 blocked 上传尝试，无 commit / push
+     - `云朵与光影`：`7e4508d0` 已在远端，但当前 `DayNightManager.cs` 仍 dirty，保持后置
+  3. 已新增第三波批次入口：
+     - `2026-04-23_shared-root第二波blocker分流批次_03.md`
+  4. 已新增 5 条第三波 prompt：
+     - `UI`：把 `PackagePanelTabsUI.cs` 正式纳入同批核心件，改成 `UI/Tabs` 根内整合批
+     - `spring-day1`：改成 `Assets/Editor/Story` 根内整合批
+     - `导航检查`：改成 `Assets/YYY_Scripts/Service/Navigation` 根内整合批
+     - `NPC`：不再继续问删图能不能传，先修 `npcId: 104` 主表引用一致性
+     - `存档系统`：不再按业务上传发，而是收 `Data/Core` 三文件的 preflight incident
+  5. 本轮明确后置：
+     - `农田交互修复V3`
+     - `019d...`
+     - `云朵与光影`
+     - `树石修复`
+- 当前关键判断：
+  - 这波已经不能再按“线程名单”机械推进，而必须按 blocker 类型分流推进。
+- 当前恢复点：
+  - 接下来应先做 `Ready-To-Sync`，把这批 prompt/docs 正式收口；
+  - 然后向用户交付第三波转发壳，而不是再补更多分析。

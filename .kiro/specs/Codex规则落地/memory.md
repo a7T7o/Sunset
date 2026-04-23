@@ -479,6 +479,45 @@
   - 下一轮治理位不要再把 6 条线一起按“继续试历史小批”处理；
   - 而要先按上面 3 类 blocker 分流，再决定每条线的下一份 prompt。
 
+## 2026-04-23｜第三波已开：按 blocker 类型正式分流，不再统一群发
+
+- 用户目标：
+  - 用户直接要求开始第三波，不再停在分析层；同时要求把后来补进来的 `README/019d...`、`树石修复`、`云朵与光影` 只读补交通知也一并纳入总判断。
+- 本轮主线：
+  - 治理位进入真实 prompt 分发施工；不继续让第二波线程重复撞同一小批。
+- 本轮实际做成了什么：
+  1. 已补核三条只读补交通知：
+     - `019d4d18-bb5d-7a71-b621-5d1e2319d778`
+     - `树石修复`
+     - `云朵与光影`
+  2. 已确认它们对盘面的真实影响：
+     - `019d...` 的 `ee7754b4` README docs-only 上传属实且已在远端
+     - 但它当前 thread-state 仍是 `ACTIVE`，且 `README.md` 有新本地脏改，因此不能按 parked 候选混入本波
+     - `云朵与光影` 的 `7e4508d0` 已在远端，但当前 `DayNightManager.cs` 仍 dirty，继续后置
+     - `树石修复` 补出来的是历史 blocked 回执，不是漏报成功上传
+  3. 已新增第三波批次入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_shared-root第二波blocker分流批次_03.md`
+  4. 已新增 5 条第三波定向 prompt：
+     - `2026-04-23_给UI_shared-root同根整合上传prompt_03.md`
+     - `2026-04-23_给spring-day1_EditorStory同根整合上传prompt_03.md`
+     - `2026-04-23_给导航检查_ServiceNavigation同根整合上传prompt_03.md`
+     - `2026-04-23_给NPC_104主表引用一致性先修prompt_03.md`
+     - `2026-04-23_给存档系统_DataCore预同步工具incident排查prompt_03.md`
+  5. 本轮明确后置、不发的组：
+     - `农田交互修复V3`
+     - `019d4d18-bb5d-7a71-b621-5d1e2319d778`
+     - `云朵与光影`
+     - `树石修复`
+- 当前关键判断：
+  - 第三波现在不该按“线程名”分，而应按“问题类型”分：
+    1. `same-root / 父根扩根`：`spring-day1 / UI / 导航检查`
+    2. `引用一致性先修`：`NPC`
+    3. `工具链 incident`：`存档系统`
+  - `农田交互修复V3` 虽也属 same-root / 扩根型，但跨 `Assets/Editor / Assets/YYY_Scripts/Controller / Assets/222_Prefabs/Rock` 三个宽根，当前故意后置。
+- 当前恢复点：
+  - 下一轮用户可直接转发这 5 条第三波 prompt；
+  - 其余 4 条暂不推进，除非用户改判。
+
 ## 2026-04-23｜其它已施工线程补交通用回执：019d4d18-bb5d-7a71-b621-5d1e2319d778 已补实 README docs-only 上传
 
 - 用户目标：
