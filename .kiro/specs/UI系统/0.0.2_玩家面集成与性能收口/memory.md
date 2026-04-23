@@ -1510,3 +1510,25 @@
   - fresh console：无新的 own error / warning
 - 边界：
   - 这轮只删冗余介绍卡，不改保存逻辑、不改按钮行为、不改整页布局体系。
+
+## 2026-04-23 UI 上传补记｜shared-root 保本上传收口结果
+- 当前主线：
+  - 不再继续补玩家面体验，只把 UI 当前本地 own 成果按 shared-root 白名单规则安全归仓并 push 到 `origin`。
+- 本轮已完成：
+  - 文档/记忆批：
+    - `.codex/threads/Sunset/UI/memory_0.md`
+    - `.kiro/specs/UI系统/memory.md`
+    - `.kiro/specs/UI系统/0.0.2_玩家面集成与性能收口/memory.md`
+    - 3 份 `2026-04-14_UI线程_*` prompt
+    - 已提交并 push：`ea6ac827338bb1a382e5ef1b41ac49cc3b392353`
+  - 字体材质批：
+    - `DialogueChinese Pixel SDF.asset`
+    - `DialogueChinese V2 SDF.asset`
+    - 已提交并 push：`edd3baea26acf78fd4327a16cfe0e81656e83cc3`
+- 当前 blocker：
+  - 剩余 `Assets/YYY_Scripts/UI/*` 与 `Assets/YYY_Scripts/Story/UI/*` 代码批次未继续归仓。
+  - 原因不是白名单越界，而是 `CodexCodeGuard` 在这批 `.cs` 上进入 `pre-sync` 时无法稳定返回 JSON：
+    - `Ready-To-Sync(UI runtime batch)` 报：`FATAL: CodexCodeGuard 未返回 JSON 结果`
+    - 直跑 `CodexCodeGuard.dll` 到单文件也会挂住或 exit 1，无可用 JSON
+- 当前阶段：
+  - 可安全提交的文档与字体资产已全部上到 `origin`；剩余 UI 代码面停在 exact blocker，未硬吞。

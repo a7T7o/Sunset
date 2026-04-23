@@ -955,3 +955,21 @@
 - 验证：
   - `validate_script PackageSaveSettingsPanel`：`0 error / 0 warning`
   - fresh console：无新增 own 红黄
+
+## 2026-04-23 UI 上传补记｜已推两笔，代码批次停在 codeguard blocker
+- 目标：
+  - 只做 UI 当前 own 成果的完整保本上传，不扩功能、不吞 shared/mixed。
+- 已完成：
+  - UI docs/specs/prompt 批已推到 `origin/main`
+    - commit: `ea6ac827338bb1a382e5ef1b41ac49cc3b392353`
+  - UI 字体材质批已推到 `origin/main`
+    - commit: `edd3baea26acf78fd4327a16cfe0e81656e83cc3`
+- 未完成但已精确报实：
+  - `Assets/YYY_Scripts/UI/*`
+  - `Assets/YYY_Scripts/Story/UI/*`
+  - 这批代码未继续 push；真实 blocker 是 `CodexCodeGuard` 在 `pre-sync` 阶段无法稳定返回 JSON，不是我把 shared/mixed 偷吞进去了。
+- thread-state：
+  - 这轮已跑 `Begin-Slice`
+  - docs 批 `Ready-To-Sync` 正常通过
+  - 代码批 `Ready-To-Sync` 报 codeguard blocker 后未再硬撞
+  - 当前已 `PARKED`

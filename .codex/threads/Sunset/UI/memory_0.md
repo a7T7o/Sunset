@@ -1747,3 +1747,31 @@
 - 本轮 thread-state：
   - 进入这轮时 `UI` slice 已处于 `ACTIVE(settings-save-help-overlap-fix)`，因此未重复开新 slice
   - 收尾已跑 `Park-Slice`，当前 `PARKED`
+
+## 2026-04-23 UI 续记｜shared-root own 上传结果
+- 当前主线：
+  - 只做 UI 当前本地 own 成果的保本上传，不继续补玩家面体验。
+- 本轮分批结果：
+  - 批次 1：docs / specs / prompt
+    - 已通过 `Ready-To-Sync`
+    - 已 `sync + push`
+    - commit = `ea6ac827338bb1a382e5ef1b41ac49cc3b392353`
+  - 批次 2：字体材质
+    - 直接 `sync + push`
+    - commit = `edd3baea26acf78fd4327a16cfe0e81656e83cc3`
+  - 批次 3：UI 代码
+    - 未完成上传
+- 当前 blocker：
+  - `CodexCodeGuard` 在 UI 代码批 `pre-sync` 时报：
+    - `FATAL: CodexCodeGuard 未返回 JSON 结果`
+  - 直跑 `CodexCodeGuard.dll` 到单文件也会 hang / exit 1，无稳定 JSON 输出
+  - 因此我没有继续硬吞：
+    - `Assets/YYY_Scripts/UI/*`
+    - `Assets/YYY_Scripts/Story/UI/*`
+- 当前阶段：
+  - 可安全归仓的非代码 own 已全部上到 `origin`
+  - 剩余 own 代码明确停在 codeguard blocker，等待下一轮单独处理
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：docs 批通过；代码批被 codeguard 卡住
+  - `Park-Slice`：已跑，当前 `PARKED`
