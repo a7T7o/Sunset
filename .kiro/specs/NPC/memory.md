@@ -316,3 +316,104 @@
   2. 如果这轮先停：
      - 当前代码层 contract 已成立；
      - 真正还没拿到的，只剩 Unity test filter 层面的可运行证据，不是编译红错。
+
+## 2026-04-16｜只读审计：Town 自由时段群体 roam 热点判定
+- 当前主线目标：
+  - 用户要求在不改文件的前提下，只读审计 `NPCAutoRoamController.cs`，判断 Town 自由时段大量 NPC 同时 roam 时最可能的性能热点链、低风险优化点，以及 `UpdateTraversalSoftPassStateOncePerFrame / TryHandleSharedAvoidance / AdjustDirectionByStaticColliders / NavigationAgentRegistry.GetNearbySnapshots / ambient bubble` 的优先级。
+- 本轮子任务：
+  - 只读核对 `Update / FixedUpdate / TickMoving`；
+  - 只读展开 `TryHandleSharedAvoidance`、`AdjustDirectionByStaticColliders`、`UpdateTraversalSoftPassStateOncePerFrame`；
+  - 交叉核对 `NavigationAgentRegistry`、`NavigationLocalAvoidanceSolver`、`NPCBubblePresenter`、`NpcInteractionPriorityPolicy`。
+- 本轮稳定结论：
+  1. 最大热点链已收敛为：
+     - `TickMoving -> TryHandleSharedAvoidance -> NavigationAgentRegistry.GetNearbySnapshots -> NavigationLocalAvoidanceSolver.Solve / ApplyCloseRangeConstraint`
+     - 这里最伤的不是单个分支判断，而是 registry 只缓存 active unit 列表、不缓存 snapshot；每个 moving NPC 每次查询都会重新 `FromUnit(...)` 全量活跃代理，再被 solver 二次线性扫描，Town 拥挤时近似放大成 `O(N^2)`。
+  2. 第二热点链是：
+     - `TickMoving -> AdjustDirectionByStaticColliders -> ProbeStaticObstacleHits`
+     - 当前一次重决策最多做 3 次 `Physics2D.OverlapCircle`，并对每个 hit 再跑 `ClosestPoint / bounds.center / repulse`，这比 soft-pass 更像会直接打出卡顿峰值的物理查询链。
+  3. `UpdateTraversalSoftPassStateOncePerFrame` 不是第一嫌疑：
+     - 它已经有 `same-frame / 位移 / 0.08s` 节流；
+     - 真正执行时主要是 nav-grid override 支撑探针，不像共享避让和静态 steering 那样会在拥挤 roam 中形成高放大倍数。
+  4. ambient bubble 链不是 roam 主热点，但有一个真实的背景成本：
+     - `TryStartAmbientChat / FindAmbientChatPartner` 只在长停或 retry 触发，频率低于移动链；
+     - 更值得盯的是 `NPCBubblePresenter.LateUpdate`，气泡 UI 一旦创建，隐藏态也会继续每帧 `SyncCanvasTransform + ApplyTailBob + SyncSorting`，大量 NPC 都进过长停后会形成持续 UI 开销。
+  5. 当前最值得动的低风险优化方向：
+     - `NavigationAgentRegistry.GetNearbySnapshots` 增加 per-frame snapshot cache，直接砍掉重复 `FromUnit(...)`；
+     - `AdjustDirectionByStaticColliders` 改成逐级 probe，先近距命中再扩到中/远 probe；
+     - 第三刀按现场二选一：如果卡顿主要发生在拥挤移动，先收 `UpdateTraversalSoftPassStateOncePerFrame` 的 idle 轮询；如果 Town 自由时段大量气泡常亮/刚亮过，先收 `NPCBubblePresenter.LateUpdate` 的 hidden 早退。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAgentRegistry.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCBubblePresenter.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\NpcInteractionPriorityPolicy.cs`
+- 验证结果：
+  - 只做静态代码审计；
+  - 通过 `rg / Get-Content` 核对调用链；
+  - 当前仓库位于 `main@8450530e`；
+  - 未运行 Unity / MCP / 测试；
+  - 未执行 `Begin-Slice / Ready-To-Sync / Park-Slice`，因为本轮始终停留在只读分析。
+- 当前恢复点：
+  - 如果下一轮进入真实施工，最稳的首刀是 registry snapshot cache，其次是 static collider 渐进 probe；
+  - 当前这轮已经足够支持用户直接在这 2-3 处里选一处下刀，不需要先改语义层。
+
+## 2026-04-18｜resident 头像真源线新增 `202` 对话胸像
+- 当前主线目标：
+  - 用户要求把 `Assets/Sprites/NPC/202.png` 对应角色补成一张真正可用于对白框的右向胸像，而不是继续走“裁切行走帧放大”的失败路线。
+- 本轮完成：
+  - 已新增：
+    - `Assets/Sprites/NPC_Hand/202.png`
+    - `Assets/Sprites/NPC_Hand/202.png.meta`
+  - 当前成品已站住：
+    - `512x512`
+    - 单人右向 bust-up
+    - 粉发 / 白色头带 / 黑白女仆服
+    - 纯白不透明背景
+- 当前阶段判断：
+  - 这轮只站住了“头像资产已落地 + 静态自验成立”；
+  - 还没站住“Unity import / registry 同步 / DialogueUI runtime 显示已确认”。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - resident / 关系页 / 对白头像同源线如果继续推进，下一步应先补 Unity 接链验证，而不是立刻把这张图包装成已经正式接进游戏。
+
+## 2026-04-18｜`202` 胸像第一版被用户拒收后，已按 `NPC_Hand` 真实风格链重做
+- 当前主线目标：
+  - 用户明确退回第一版 `202` 胸像，要求我先学习 `Assets/Sprites/NPC_Hand` 现有内容，再重做；
+  - 当前子任务是把 `202` 修回：
+    - 透明底
+    - 无坏点坏条纹
+    - 与现有 `NPC_Hand` 风格一致
+- 本轮完成：
+  - 已重新比对 `001 / 104 / 201 / 202` 的：
+    - 尺寸
+    - alpha
+    - 构图
+    - 透明底口径
+  - 已确认：
+    - 现有 `NPC_Hand` 资产默认不是实色背景
+    - `201` 是本轮最接近的 maid 胸像真源
+  - 已重做并覆盖：
+    - `Assets/Sprites/NPC_Hand/202.png`
+    - `Assets/Sprites/NPC_Hand/202.png.meta`
+  - 当前新成品已改成：
+    - `536x700`
+    - alpha `0~255`
+    - 四角透明
+- 当前阶段判断：
+  - 这轮已经把用户指出的三类问题都正面修掉了：
+    - 不学现有资产
+    - 背景口径错误
+    - 成品有坏点 / 坏条纹
+  - 但我仍不把它说成“已经正式接进游戏”，因为 Unity import / registry / DialogueUI runtime 还没验证。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - 如果继续 resident 头像线，下一步先补 Unity 接链验证；
+  - 在此之前，不再把这张图包装成最终 runtime 已过线。

@@ -369,3 +369,128 @@
   4. 我自己的唯一下一刀，不是直接开改，而是先把 `旧 public -> 新 facade -> 调用迁移` 压成执行表。
 - 当前恢复点：
   - 后续如果继续推进代码，就按这份判断进入 facade 迁移表，而不是重新争论职责边界。
+
+## 2026-04-16｜只读审计：Town 自由时段群体 roam 性能热点
+- 当前主线目标：
+  - 用户要求只读审计 `Assets/YYY_Scripts/Controller/NPC/NPCAutoRoamController.cs`，判断 Town 自由时段大量 NPC 同时 roam 时最可能的热点链和最值得动的 1-3 处方法，不做实现。
+- 本轮子任务或阻塞：
+  - 子任务是性能热点定位；
+  - 服务于 NPC roam 卡顿主线；
+  - 本轮没有进入真实施工，因此不跑 `thread-state`，保持 `PARKED` 语义。
+- 已完成事项：
+  1. 只读展开了 `Update / FixedUpdate / TickMoving` 主循环。
+  2. 只读核对了：
+     - `TryHandleSharedAvoidance`
+     - `AdjustDirectionByStaticColliders`
+     - `UpdateTraversalSoftPassStateOncePerFrame`
+     - `NavigationAgentRegistry.GetNearbySnapshots`
+     - ambient bubble / `NPCBubblePresenter.LateUpdate`
+  3. 已把热点优先级压缩成明确排序：
+     - 第一：共享避让链，核心瓶颈在 registry 每次查询都重建 snapshots，再被 solver 二次扫描。
+     - 第二：静态碰撞 steering 链，核心瓶颈在每次重决策最多 3 次 `OverlapCircle` + per-hit `ClosestPoint`。
+     - 第三：视现场决定是 `UpdateTraversalSoftPassStateOncePerFrame` 的 idle 轮询，还是 `NPCBubblePresenter.LateUpdate` 的 hidden 背景更新。
+- 关键决策：
+  1. 不建议第一刀去大改 `TickMoving` 总体结构，因为它已经有同帧/跨帧 reuse 窗口，先动 registry 与静态 probe 更低风险。
+  2. `UpdateTraversalSoftPassStateOncePerFrame` 已有节流，不是当前第一嫌疑。
+  3. ambient bubble 真正值得警惕的不是聊天配对本身，而是气泡 UI 创建后的持续 `LateUpdate`。
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationAgentRegistry.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Navigation\NavigationLocalAvoidanceSolver.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCBubblePresenter.cs`
+- 验证结果：
+  - 只做静态审计，未跑 Unity / MCP / profiler / tests；
+  - 当前结论属于“代码结构推断成立”，不是 runtime 实测。
+- 修复后恢复点：
+  - 如果后续继续 NPC 性能线，直接从 `GetNearbySnapshots` 的 snapshot cache 或 `AdjustDirectionByStaticColliders` 的渐进 probe 开始；
+  - 用户当前已经可以据此决定下一刀，不必再先做宽泛扫读。
+
+## 2026-04-18｜真实施工：`NPC_Hand/202.png` 已落成对白胸像候选
+- 当前主线目标：
+  - resident / 关系页 / 对白头像真源线继续推进；
+  - 本轮子任务是把 `Assets/Sprites/NPC/202.png` 对应角色补成一张真正可用于对白框的右向胸像，而不是继续沿用“裁切行走帧”的失败路径。
+- 本轮子任务：
+  - 命中 `2.1.0_resident与关系页收口`；
+  - 真实施工前已跑 `Begin-Slice`；
+  - 只改：
+    - `Assets/Sprites/NPC_Hand/202.png`
+    - `Assets/Sprites/NPC_Hand/202.png.meta`
+  - 本轮不做 Unity live import / DialogueUI runtime 验证，因此不进 `Ready-To-Sync`，改走 `Park-Slice` 收尾。
+- 本轮完成：
+  1. 已新建 `202` 的手绘对白胸像：
+     - `Assets/Sprites/NPC_Hand/202.png`
+  2. 已补 Sprite 导入 `.meta`：
+     - `Assets/Sprites/NPC_Hand/202.png.meta`
+  3. 当前成品静态上已满足：
+     - 单人
+     - 右向 3/4
+     - bust-up
+     - 粉发 / 白头带 / 黑白女仆服
+     - 纯白实底
+- 已验证事实：
+  - `202.png` 尺寸：
+    - `512x512`
+  - alpha：
+    - `255~255`
+  - 四角像素：
+    - 全部 `(255,255,255,255)`
+  - Git 当前只把这两条路径记为新增：
+    - `Assets/Sprites/NPC_Hand/202.png`
+    - `Assets/Sprites/NPC_Hand/202.png.meta`
+- 当前没完成的事：
+  - 还没进 Unity 触发 import
+  - 还没确认 `NpcCharacterRegistryHandPortraitAutoSync` 是否吃到 `202`
+  - 还没在 `DialogueUI` / 关系页里看实际显示
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - 如果下一轮继续，这条线最值得做的不是再重画，而是先补 Unity 接链验证，再决定是否需要第二版更强 Ram 神态或情绪版。
+
+## 2026-04-18｜用户退回第一版后，`202` 已按透明底与现有资产风格重做
+- 当前主线目标：
+  - 主线仍是 resident / 关系页 / 对白头像真源线；
+  - 本轮子任务是修正上一版 `202` 胸像被用户指出的三类问题：
+    1. 没学习 `NPC_Hand` 现有内容
+    2. 背景错误做成实色
+    3. 图片里有坏点坏条纹
+- 本轮实际做成了什么：
+  1. 重新读取并对比了：
+     - `Assets/Sprites/NPC_Hand/001.png`
+     - `Assets/Sprites/NPC_Hand/104.png`
+     - `Assets/Sprites/NPC_Hand/201.png`
+     - 当前错误版 `Assets/Sprites/NPC_Hand/202.png`
+  2. 重新确认现有资产规律：
+     - 透明底
+     - 现成完整胸像
+     - `201` 是最接近的 maid 风格母版
+  3. 已据此重做并覆盖：
+     - `Assets/Sprites/NPC_Hand/202.png`
+     - `Assets/Sprites/NPC_Hand/202.png.meta`
+  4. 当前新成品静态自验为：
+     - `536x700`
+     - alpha `0~255`
+     - 四角透明
+- 当前还没做成什么：
+  - 还没进 Unity 验 import
+  - 还没让 `NpcCharacterRegistryHandPortraitAutoSync` 吃到 `202`
+  - 还没在 `DialogueUI` / 关系页里看 runtime 显示
+- 当前阶段：
+  - 资产重做已完成；
+  - Unity 接链验证尚未做。
+- 为什么这轮这样判断：
+  - 用户批评的不是“再调一点颜色”，而是方向就错了；
+  - 所以这轮正确动作不是继续硬修上一版，而是先回到 `NPC_Hand` 现有真源学习，再做低风险重构。
+- 自评：
+  - 这版比上一版扎实得多，至少已经回到项目现有风格和透明底规范里；
+  - 我最不满意的是还没补 Unity 接链验证，所以这轮只能报“资产已修正”，不能报“已经正式可用”。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - 如果继续，就直接补 Unity import / registry / DialogueUI 验证；
+  - 不再先开第三轮重画。
