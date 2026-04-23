@@ -6670,3 +6670,51 @@ thread-state 本轮已报实：
 - 当前恢复点：
   1. 这轮只继续推进 docs-only 两笔 safe sync。
   2. 代码/资源面保持 blocker 报实，不再假装“还能顺手带一点”。
+
+## 2026-04-23｜shared-root 保本上传结果：两笔 docs-only 已归仓并 push，代码面继续维持 blocker
+
+- 当前主线：
+  - 这轮唯一目标是把当前 clearly-own 的本地成果按最小批次安全归仓，不继续修功能。
+- 这轮已经完成的归仓：
+  1. 第一笔 docs-only：
+     - 提交 `46069df4`
+     - 内容：
+       - `.codex/threads/Sunset/农田交互修复V3/memory_0.md`
+       - `.kiro/specs/农田系统/memory.md`
+       - `.kiro/specs/农田系统/2026.03.16/1.0.4交互全面检查/0.0.1交互大清盘/memory.md`
+  2. 第二笔 docs-only：
+     - 提交 `22b5a1e9`
+     - 内容：
+       - `.kiro/specs/屎山修复/memory.md`
+       - `.kiro/specs/项目文档总览/memory.md`
+       - `.kiro/specs/项目文档总览/2026-04-16_Sunset项目表达骨架版_01.md`
+  3. 两笔都已在 `main` 上完成 push。
+- 这轮没有吞的 exact blocker files：
+  - `Assets/YYY_Scripts/Controller/StoneController.cs`
+  - `Assets/Editor/StoneControllerEditor.cs`
+  - `Assets/Editor/Tool_005_BatchStoneState.cs`
+  - `Assets/222_Prefabs/Rock/C1.prefab`
+  - `Assets/222_Prefabs/Rock/C2.prefab`
+  - `Assets/222_Prefabs/Rock/C3.prefab`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementGridCalculator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementGridCell.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementNavigator.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementPreview.cs`
+  - `Assets/YYY_Scripts/Service/Placement/PlacementValidator.cs`
+  - `Assets/Editor/ChestControllerEditor.cs`
+  - `Assets/Editor/ChestAuthoringBatchSelectWindow.cs`
+  - `Assets/Editor/ChestAuthoringSerializationTests.cs`
+  - `Assets/Editor/ChestInventoryBridgeTests.cs`
+  - `.codex/tmp_sapling1200_crop.png`
+  - `.codex/tmp_sapling1200_crop_correct.png`
+  - `.codex/tmp_sapling1201_crop.png`
+  - `.codex/tmp_wateringcan_crop.png`
+- blocker 结论：
+  1. 当前 shared-root 规则下，这些文件一旦进白名单，就会把 `Assets/Editor`、`Assets/YYY_Scripts/Controller`、`Assets/YYY_Scripts/Service/Placement` 或 `.codex` 整根一起拉进 preflight。
+  2. 这些根下仍有大量 shared / mixed / foreign dirty，所以这轮最安全口径就是“不吞”。
+- thread-state：
+  - 这轮最终状态应保持 `PARKED`。
+  - `Begin-Slice / Ready-To-Sync / Park-Slice` 已在每笔 docs-only sync 前后跑完。
+- 当前恢复点：
+  1. 当前 own 的 safely-uploadable 面已经收完。
+  2. 后续若还要继续收代码/资源，必须单独按 root 拆刀，不再沿用这次 docs-only 上传切片。
