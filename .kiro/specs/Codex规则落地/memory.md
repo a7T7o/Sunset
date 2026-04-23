@@ -428,3 +428,78 @@
   - 下一轮优先继续收：
     1. `spring-day1 / UI / NPC / 存档系统 / 导航检查 / 农田交互修复V3` 的第二波小批次回执
     2. 其它若其实已做过上传动作但还没报实的线程，统一先走通用补交 prompt
+
+## 2026-04-23｜第二波回执总审：问题已从“有没有试”升级成“三类不同 blocker”
+
+- 用户目标：
+  - 用户认为这批第二波回执后面的问题可能比较严重，要求治理位不要只复述回执，而要把真实严重性、根因分类、后续方向和解决方案用人话彻底说清。
+- 本轮主线：
+  - 继续做治理只读总审；不新开业务上传，不代线程重跑同一批次。
+- 本轮实际做成了什么：
+  1. 已再次核实以下 6 条第二波回执与现场大体一致：
+     - `spring-day1`
+     - `UI`
+     - `NPC`
+     - `存档系统`
+     - `导航检查`
+     - `农田交互修复V3`
+  2. 已把这 6 条线分成 3 种本质不同的阻塞类型：
+     - `A｜同根 / 父根扩根型`
+       - `spring-day1`
+       - `导航检查`
+       - `农田交互修复V3`
+       - `UI`
+     - `B｜真实工具链 / preflight 型`
+       - `存档系统`
+     - `C｜历史批次本身不独立 / 需先补一致性`
+       - `NPC`
+  3. 已额外确认两个关键真相：
+     - `UI` 这批里 `PackagePanelTabsUI.cs` 不是外围噪音，而是代码里直接安装 `PackageMapOverviewPanel / PackageNpcRelationshipPanel` 的入口，因此大概率属于同一批核心件。
+     - `存档系统` 那组 `Data/Core` 三文件用普通 `git diff --name-status HEAD --` 会瞬间返回；结合 `CodexCodeGuard` 程序本体“异常时也会吐 JSON 再退出”的实现，当前更像 launcher / preflight / process 管理层问题，不像这三文件内容本身的 same-root 阻塞。
+  4. 已再次确认 `NPC` 的 `104` 删除不是独立批次：
+     - `NpcCharacterRegistry.asset` 里 `npcId: 104` 仍直接挂着旧 `handPortrait` 引用
+     - 当前先删图会留下悬空引用
+- 当前关键判断：
+  - 现在严重，但不是“成果坏了”那种严重，而是：第二波已经把所有上传问题从“模糊 blocker”压成了 3 类明确 blocker。
+  - 真正危险的是如果治理位继续拿同一种 prompt 口径去打 6 条线，会让：
+    - `same-root` 问题被误当成“再试一次”
+    - `toolchain` 问题被误当成“业务线程自己排”
+    - `不独立批次` 问题被误当成“删除就能上传”
+- 当前建议的解决方向：
+  1. `spring-day1 / 导航检查 / 农田交互修复V3 / UI`
+     - 不再重复发同类 `prompt_02`
+     - 改发“已确认父根 blocker 后的下一刀”prompt
+  2. `存档系统`
+     - 先停业务 prompt
+     - 改由治理 / 工具位单独处理 `Ready-To-Sync / CodexCodeGuard` incident
+  3. `NPC`
+     - 下一刀不该再问“删图能不能传”
+     - 应先做 `NpcCharacterRegistry.asset` 的 `104` 引用一致性小刀
+- 当前恢复点：
+  - 下一轮治理位不要再把 6 条线一起按“继续试历史小批”处理；
+  - 而要先按上面 3 类 blocker 分流，再决定每条线的下一份 prompt。
+
+## 2026-04-23｜其它已施工线程补交通用回执：019d4d18-bb5d-7a71-b621-5d1e2319d778 已补实 README docs-only 上传
+
+- 用户目标：
+  - 按 `2026-04-23_给其它已施工线程_shared-root上传回执补交通用prompt_01.md`，先只读核实这条线程是否真的有“已提交 / 已 push 但未正式回执”的 shared-root 上传结果，不默认继续开发或继续上传。
+- 本轮主线：
+  - 这轮仍是治理只读补交；未进入真实施工，未补跑 `Begin-Slice`。
+- 本轮实际做成了什么：
+  1. 已核实这条线程确有一笔此前未正式回执、但已经真实落到 `origin/main` 的 docs-only 上传：
+     - `ee7754b4`
+     - `docs: refresh README showcase`
+  2. 已核实该提交当前就在：
+     - `main`
+     - `origin/main`
+  3. 已核实该批次实际提交内容只有：
+     - `README.md`
+     - `.github/readme/day1_arrival.png`
+     - `.github/readme/hero_day1_labor.png`
+  4. 已核实这条上传对应的业务 own 路径当前是 clean；本轮没有发现新的未 push 本地提交。
+- 关键判断：
+  - 这条线程不是“无上传结果”，而是“有一笔已经 push 的 docs-only 上传，但之前只写进了线程工作记录，没有正式按 shared-root 上传回执口径交回来”。
+  - 因此这轮正确动作是补交，不是继续替它开第二刀。
+- 当前恢复点：
+  - 治理位后续不需要再为这条线程补发“继续上传 README”一类 prompt；
+  - 如果要继续这条线程的 shared-root 上传，必须等用户或治理位重新点名下一批，而不是沿这次补交顺手扩写。

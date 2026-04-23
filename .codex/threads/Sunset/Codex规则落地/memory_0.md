@@ -699,3 +699,48 @@
   - 用户接下来可直接转发第二波 prompt 给全部 6 条已回执线程；
   - 对其余其实已做过上传动作但还没正式回执的线程，先转发通用补交 prompt；
   - 下一轮治理位重点继续收第二波回执与缺失回执，不再重审第一波 prompt 本身。
+
+## 2026-04-23｜第二波回执深审：6 条线已分化成 3 类不同问题
+
+- 用户目标：
+  - 用户明确判断“问题可能有点严重”，要求治理位把严重性、根因、方向和方案说透，而不是只重复各线程自己的 blocker 描述。
+- 当前主线：
+  - 继续只读治理总审；不重跑业务线程已经撞死的同一小批。
+- 本轮实际做成了什么：
+  1. 已再次核实 6 条第二波回执与工作树、状态层和关键文件大体一致：
+     - `spring-day1`
+     - `UI`
+     - `NPC`
+     - `存档系统`
+     - `导航检查`
+     - `农田交互修复V3`
+  2. 已确认它们不是“同一种 blocker 的不同表述”，而是已经分裂成 3 类：
+     - `同根 / 父根扩根型`
+       - `spring-day1`
+       - `导航检查`
+       - `农田交互修复V3`
+       - `UI`
+     - `工具链 / preflight incident 型`
+       - `存档系统`
+     - `历史小批本身不独立，需要先补一致性`
+       - `NPC`
+  3. `UI` 关键新判断：
+     - `PackagePanelTabsUI.cs` 代码里直接 `EnsureOptionalPanelInstalled("PackageMapOverviewPanel") / EnsureOptionalPanelInstalled("PackageNpcRelationshipPanel")`
+     - 因此它不是外围残留，而大概率就是这批 tabs/runtime-kit 的中心入口
+  4. `存档系统` 关键新判断：
+     - `Data/Core` 三文件普通 `git diff --name-status HEAD --` 会瞬间返回
+     - `CodexCodeGuard` 程序本体按代码看“即使异常也会吐 JSON 再退出”
+     - 所以当前更像是 `git-safe-sync / launcher / process` 层卡住，而不是三文件 same-root 自身的问题
+  5. `NPC` 关键新判断：
+     - `NpcCharacterRegistry.asset` 里 `npcId: 104` 仍保留旧 `handPortrait` 引用
+     - 所以 `104` 删除这刀当前不能单独成立
+- 当前关键判断：
+  - 现在真正严重的不是“很多线程都没推进”，而是如果治理位继续拿统一 prompt 模板硬发，反而会让问题继续错分：
+    - same-root 被误当成“再试一次”
+    - tool incident 被误当成“业务线程自己排”
+    - 不独立批次被误当成“删除就能上传”
+- 当前恢复点：
+  - 下一轮治理 prompt 必须先分三类再写：
+    1. same-root 继续拆批
+    2. tool incident 单独拉出
+    3. 引用一致性先修，再回上传
