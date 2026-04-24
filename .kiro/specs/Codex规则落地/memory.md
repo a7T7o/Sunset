@@ -656,3 +656,69 @@
     1. `只读工具链分身` 的统一 incident 结论
     2. `NPC` 的目录 blocker 结论
   - 在这两条线回来前，不再给 `spring-day1 / UI / 存档系统 / 导航检查` 原业务线程继续发上传 prompt。
+
+## 2026-04-24｜统一 CodexCodeGuard / pre-sync incident 已收成 1 个共因工具事故
+
+- 用户目标：
+  - 按 `2026-04-24_给只读工具链分身_统一CodexCodeGuard预同步incident排查prompt_04.md`，只读判断 `spring-day1 / UI / 存档系统 / 导航检查` 这 4 条线到底是 1 个共因 incident 还是 2+ 个分裂 incident，并明确下一刀该修哪层。
+- 当前主线：
+  - 本轮保持只读 incident 审计；不替任何业务线程继续上传，不进入真实施工。
+- 本轮实际做成了什么：
+  1. 已对齐 4 条线的 `prompt_03`、`thread-state`、线程 memory 和工具代码调用链。
+  2. 已确认这 4 条线当前都已 `PARKED`，且 blocker 都已从业务 same-root 问题推进到工具层：
+     - `spring-day1`：stable preflight 超时，残留 `CodexCodeGuard.dll --phase pre-sync` 进程。
+     - `UI`：同一整合批里 3 个脚本直接报 `CodexCodeGuard returned no JSON`，另 1 个脚本只落到 `unity_validation_pending / baseline_fail`。
+     - `存档系统`：已有静态证据把挂点压到 `Program.cs -> GitDirtyState.Load -> RunProcess(git diff --name-status HEAD --)`。
+     - `导航检查`：`Ready-To-Sync` 已进入工具 incident，不再是同根 remaining dirty。
+  3. 已确认 `Ready-To-Sync.ps1` 和 `StateCommon.ps1` 只是调用稳定 launcher；stable launcher 也只是把 canonical `git-safe-sync.ps1` 转发执行。
+  4. 已确认真正最靠近根因的层不是 `Ready-To-Sync / StateCommon`、不是 stable launcher，也不是业务线程白名单本身，而是 `CodexCodeGuard Program.cs` 的重型 pre-sync 路径。
+- 当前关键判断：
+  1. 这 4 条线应收成 `1` 个统一 incident，不建议拆成 `2+` 个独立事故。
+  2. `UI` 的 `baseline_fail` 目前只算同批次里的次级表象，不足以单独升级成第二个根因；因为同一批里已有 3 个文件直接落 `CodexCodeGuard returned no JSON`。
+  3. 当前最像真根因的不是业务内容，而是：
+     - `Program.cs` 在 `Run()` 里无差别先做 `GitDirtyState.Load(repoRoot)`；
+     - `GitDirtyState.Load()` 又会跑整仓 `git diff --name-status HEAD --` 和 `ls-files --others --exclude-standard`；
+     - `RunProcess()` 使用串行 `StandardOutput.ReadToEnd()` / `StandardError.ReadToEnd()` 且没有 timeout；
+     - 一旦卡住，`Main()` 就到不了“异常也输出 JSON”的收尾分支，于是外层统一表现成 `no JSON / preflight hang`。
+  4. 所以下一刀不该回交业务线程各自继续排，而应交给 `Codex规则落地` 的工具修复线。
+- 下一刀最小修复边界：
+  1. `D:\Unity\Unity_learning\Sunset\scripts\CodexCodeGuard\Program.cs`
+     - `Run()`
+     - `GitDirtyState.Load()`
+     - `RunGit()`
+     - `RunProcess()`
+  2. `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+     - `Invoke-CodeGuard()`
+     - 只做“超时/挂死时的兜底报错与 stale process 清理增强”，不扩大到业务白名单逻辑。
+- 当前恢复点：
+  - `spring-day1 / UI / 存档系统 / 导航检查` 继续保持 `PARKED`；
+  - 下一轮如果继续，应新开工具修复切片，先修 `Program.cs` 主因，再视情况给 `git-safe-sync.ps1` 补结构化兜底。
+
+## 2026-04-24｜第四波回执审核：统一 incident 结论通过，NPC 目录 blocker 结论通过，但工具审计回执存在落账错线程
+
+- 用户目标：
+  - 用户要求对最新两份第四波回执做治理审核，不只看“说得像不像”，而要看“是否属实、是否应停发、下一步到底归谁”。
+- 当前主线：
+  - 治理位继续只读审单；不新开业务上传 prompt。
+- 本轮实际做成了什么：
+  1. 已核实统一工具 incident 回执的核心结论成立：
+     - `spring-day1 / UI / 存档系统 / 导航检查` 当前更合理地收成 `1` 个共因 `CodexCodeGuard / pre-sync` incident；
+     - [Program.cs](/D:/Unity/Unity_learning/Sunset/scripts/CodexCodeGuard/Program.cs) 的 `GitDirtyState.Load -> RunGit(diff --name-status HEAD --) -> RunProcess -> ReadToEnd` 仍是最靠近根因的工具层；
+     - `4` 条原业务线程继续保持 `PARKED` 的裁定正确。
+  2. 已核实 `NPC` 回执的核心结论成立：
+     - `npcId:104` 当前仍保持 `handPortrait: {fileID: 0}`；
+     - `104.png / 104.png.meta` 仍是删除态；
+     - [Recipe_9102_Pickaxe_0.asset](/D:/Unity/Unity_learning/Sunset/Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset) 仍是当前 `Assets/Resources/Story` 第一真实 foreign blocker；
+     - `NPC` 当前继续 `PARKED` 的裁定正确。
+  3. 已额外核到一个治理缺口：
+     - 统一 incident 这份回执虽然内容基本可信，但它把审计落账写到了 `.codex/threads/Sunset/019d4d18-bb5d-7a71-b621-5d1e2319d778/memory_0.md`；
+     - `.codex/threads/Sunset/只读工具链分身/memory_0.md` 本轮并没有同步落这份 incident 结论；
+     - 因此这份回执存在“线程归档错位”，不能当成完全干净的线程记忆闭环。
+- 当前关键判断：
+  - 这两份回执里，`事实判断` 基本都能采纳；
+  - 但 `统一工具 incident` 这份只能算“结论通过、归档不通过”；
+  - `NPC` 这份则可视作“结论通过、停发成立、下一步应转 foreign owner”。
+- 当前恢复点：
+  - `spring-day1 / UI / 存档系统 / 导航检查` 继续不发业务上传 prompt；
+  - 如果继续，应由 `Codex规则落地` 自己进入工具修复线；
+  - `NPC` 当前不再继续发 prompt，下一步优先转 `spring-day1/workbench` 方向认领 `Recipe_9102_Pickaxe_0.asset`，若 owner 仍不清则再升治理位。
