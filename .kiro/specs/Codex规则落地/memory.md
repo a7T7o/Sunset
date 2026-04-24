@@ -614,3 +614,45 @@
     - `Assets/YYY_Tests/Editor/*`
 - 当前恢复点：
   - 如果后续继续这条上传线，正确下一步不是重跑 `prompt_03`，而是把 `CodexCodeGuard pre-sync` 挂死提升成治理/工具 incident，再决定是否还能继续这组 `Editor/Story` 根内整合批上传。
+
+## 2026-04-24｜第四波已改写成“统一工具 incident + NPC 资源根同步 blocker”分发
+
+- 用户目标：
+  - 用户同意治理位不再停在口头分析，而是直接把最新总审结论落成可转发的下一轮 prompt。
+- 当前主线：
+  - 治理位进入真实 prompt 产出；不再给 `spring-day1 / UI / 存档系统 / 导航检查` 继续发业务上传 prompt。
+- 本轮实际做成了什么：
+  1. 已再次核实现场关键事实与回执一致：
+     - [Program.cs](/D:/Unity/Unity_learning/Sunset/scripts/CodexCodeGuard/Program.cs) 里确有
+       - `GitDirtyState.Load(repoRoot)`
+       - `RunGit(repoRoot, "diff", "--name-status", "HEAD", "--")`
+       - `RunProcess(...)`
+       - `StandardOutput.ReadToEnd() / StandardError.ReadToEnd()`
+     - [PackagePanelTabsUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 直接安装 `PackageMapOverviewPanel / PackageNpcRelationshipPanel`
+     - [NpcCharacterRegistry.asset](/D:/Unity/Unity_learning/Sunset/Assets/Resources/Story/NpcCharacterRegistry.asset) 中 `npcId:104` 当前已是 `handPortrait: {fileID: 0}`
+     - `spring-day1 / UI / 导航检查 / 存档系统 / NPC` 的状态文件当前都写在 `active-threads/` 目录下，但文件内容状态均已是 `PARKED`
+  2. 已新增第四波治理入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_shared-root工具incident与资源根同步分发批次_04.md`
+  3. 已新增统一工具 incident prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_给只读工具链分身_统一CodexCodeGuard预同步incident排查prompt_04.md`
+  4. 已新增 `NPC` 目录级同步 blocker prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_给NPC_AssetsResourcesStory目录同步blocker处理prompt_04.md`
+  5. 已在本波入口里明确停发：
+     - `spring-day1`
+     - `UI`
+     - `存档系统`
+     - `导航检查`
+     - `农田交互修复V3`
+     - `019d4d18-bb5d-7a71-b621-5d1e2319d778`
+     - `云朵与光影`
+     - `树石修复`
+- 当前关键判断：
+  - 当前真正需要继续动的，不是 `4` 条业务上传线程，而是：
+    1. `只读工具链分身` 去把 `CodexCodeGuard / pre-sync` 统一 incident 收成共因或分因结论
+    2. `NPC` 去把 `Assets/Resources/Story` 目录同步 blocker 收成 exact 边界或等待 foreign blocker 自然消失
+  - 也就是说，本波已经从“按线程推进上传”改成“按问题类型推进治理”。
+- 当前恢复点：
+  - 下一步优先等：
+    1. `只读工具链分身` 的统一 incident 结论
+    2. `NPC` 的目录 blocker 结论
+  - 在这两条线回来前，不再给 `spring-day1 / UI / 存档系统 / 导航检查` 原业务线程继续发上传 prompt。

@@ -802,3 +802,34 @@
   - 应直接改写成：
     - 一个统一工具 incident prompt
     - 一个 `NPC` 资源根同步 prompt
+
+## 2026-04-24｜第四波 prompt 已落：不再催 4 条业务线程，改发工具 incident 线与 NPC 目录 blocker 线
+
+- 用户目标：
+  - 用户同意直接开始产出，不再停在聊天分析；要把这轮总审真正落成新的治理 prompt。
+- 当前切片：
+  - `2026-04-24_统一工具incident与NPC资源根同步分发prompt_04`
+- 本轮实际做成了什么：
+  1. 已再次核实关键现场：
+     - `Program.cs` 里的 `GitDirtyState.Load -> RunGit(diff --name-status HEAD --) -> RunProcess -> ReadToEnd`
+     - `PackagePanelTabsUI.cs` 确实直接安装 `PackageMapOverviewPanel / PackageNpcRelationshipPanel`
+     - `NpcCharacterRegistry.asset` 的 `npcId:104` 当前已是 `handPortrait: {fileID: 0}`
+     - `spring-day1 / UI / 导航检查 / 存档系统 / NPC` 状态文件虽都在 `active-threads/` 目录里，但内容状态均已是 `PARKED`
+  2. 已新增第 4 波入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_shared-root工具incident与资源根同步分发批次_04.md`
+  3. 已新增统一工具 incident prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_给只读工具链分身_统一CodexCodeGuard预同步incident排查prompt_04.md`
+  4. 已新增 `NPC` 目录同步 blocker prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_给NPC_AssetsResourcesStory目录同步blocker处理prompt_04.md`
+  5. 已明确这轮停发：
+     - `spring-day1`
+     - `UI`
+     - `存档系统`
+     - `导航检查`
+- 当前关键判断：
+  - 当前该继续动的不是原来那 `4` 条业务线程，而是 `只读工具链分身` 这条统一 incident 线。
+  - `NPC` 也不能再回头改 `104` 内容，而应只处理 `Assets/Resources/Story` 目录 blocker。
+- 当前恢复点：
+  - 下一步先把本轮治理文件收口；
+  - 然后给用户交可直接转发的话术；
+  - 后续只等 `只读工具链分身` 和 `NPC` 两条回执，不再催原 `4` 条业务线程继续撞 blocker。
