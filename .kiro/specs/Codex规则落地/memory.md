@@ -518,6 +518,43 @@
   - 下一轮用户可直接转发这 5 条第三波 prompt；
   - 其余 4 条暂不推进，除非用户改判。
 
+## 2026-04-24｜第三波回执总审：主问题已收敛成“4 条工具 incident + 1 条资源根同步 blocker”
+
+- 用户目标：
+  - 用户要求在第三波回执全部回齐后，给出一份真正可调度的人话总审，不要再停在“谁说了什么”。
+- 本轮主线：
+  - 治理位保持只读审计；不再继续发同类业务上传 prompt。
+- 本轮实际做成了什么：
+  1. 已再次核实以下 5 条第三波回执与现场大体一致：
+     - `spring-day1`
+     - `UI`
+     - `存档系统`
+     - `导航检查`
+     - `NPC`
+  2. 已确认当前真正主问题不是“各线程业务切片还不完整”，而是：
+     - `spring-day1 / UI / 存档系统 / 导航检查` 已共同推进到 `CodexCodeGuard / preflight` 工具 incident 层
+     - `NPC` 已把 `npcId:104` 的主表内容一致性补平，新的 blocker 是 `Assets/Resources/Story` 目录级同步被他线资源挡住
+  3. 关键现场再次钉死：
+     - [Program.cs](/D:/Unity/Unity_learning/Sunset/scripts/CodexCodeGuard/Program.cs) 里确有
+       - `GitDirtyState.Load(repoRoot)`
+       - `RunGit(repoRoot, "diff", "--name-status", "HEAD", "--")`
+       - `RunProcess("git", ...)`
+       - `StandardOutput.ReadToEnd() / StandardError.ReadToEnd()`
+     - [NpcCharacterRegistry.asset](/D:/Unity/Unity_learning/Sunset/Assets/Resources/Story/NpcCharacterRegistry.asset) 中 `npcId:104` 当前已是 `handPortrait: {fileID: 0}`
+     - [PackagePanelTabsUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 当前确实直接安装 `PackageMapOverviewPanel / PackageNpcRelationshipPanel`
+  4. 已修正一个此前风险判断：
+     - `019d4d18-bb5d-7a71-b621-5d1e2319d778` 当前最新状态已是 `PARKED`
+     - 但它仍属于独立 README 线，不并入当前工具 incident 主处理波次
+- 当前关键判断：
+  - 第三波已经完成它的任务：把问题从“业务上传还能不能继续试”压成了两条真正的下一步：
+    1. `4` 条统一工具 incident 处理线
+    2. `1` 条 `NPC` 资源目录同步阻塞处理线
+- 当前恢复点：
+  - 下一轮不该再给 `spring-day1 / UI / 存档系统 / 导航检查` 发业务上传 prompt；
+  - 应改成一条统一工具 incident 线；
+  - `NPC` 单独发“`Assets/Resources/Story` 根同步 blocker”线；
+  - `农田交互修复V3 / 树石修复 / 云朵与光影 / 019d...` 继续后置观察。
+
 ## 2026-04-23｜其它已施工线程补交通用回执：019d4d18-bb5d-7a71-b621-5d1e2319d778 已补实 README docs-only 上传
 
 - 用户目标：
@@ -542,3 +579,38 @@
 - 当前恢复点：
   - 治理位后续不需要再为这条线程补发“继续上传 README”一类 prompt；
   - 如果要继续这条线程的 shared-root 上传，必须等用户或治理位重新点名下一批，而不是沿这次补交顺手扩写。
+
+## 2026-04-24｜spring-day1 `prompt_03` 执行结果：`Editor/Story` 根内整合批停在 preflight / CodeGuard incident
+
+- 用户目标：
+  - 用户要求 `spring-day1` 不再重跑刚执行完的 `prompt_02`，而是严格按 `2026-04-23_给spring-day1_EditorStory同根整合上传prompt_03.md`，只对白名单 `23` 个 `Assets/Editor/Story` 文件做一次根内整合批的真实上传尝试，绝不扩到 `Managers / Directing / Tests`。
+- 当前主线：
+  - 这轮是 shared-root 上传施工，不是继续 Day1 runtime 开发。
+- 本轮实际做成了什么：
+  1. 已读取：
+     - `2026-04-23_给spring-day1_EditorStory同根整合上传prompt_03.md`
+     - `2026-04-23_shared-root第二波blocker分流批次_03.md`
+  2. 已只读核实当前 `Assets/Editor/Story` 现场：
+     - 同根当前只剩 `7` 个旧改 `M` + `16` 个新增 validation/probe/snapshot/cleanup 文件 `??`
+     - 没有新的同根剩余 dirty 混入
+  3. 已静态确认这 `7` 个旧改不是跨根 runtime 杂质，而是同一组 `Editor/Story` 工具链里的窗口、菜单、validation、evidence 旧尾巴，因此当前可诚实视作 `Editor/Story` 根内整合批。
+  4. 已执行 `Begin-Slice`：
+     - `thread=spring-day1`
+     - `slice=shared-root EditorStory root-integration upload 2026-04-24`
+  5. 已只对白名单这 `23` 个文件跑 stable launcher `preflight`：
+     - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -OwnerThread spring-day1 -Mode task -IncludePaths ...`
+  6. 已确认这次不是 own-root 新 blocker，也不是我越权扩根，而是 preflight 本身没有返回稳定 JSON：
+     - launcher 在工具调用窗口内超时
+     - 残留进程明确显示挂住的是 `CodexCodeGuard.dll --phase pre-sync`
+  7. 已把残留的 `powershell` 与其子 `dotnet/CodexCodeGuard` 进程清掉，并执行 `Park-Slice`：
+     - `reason=preflight-timeout-no-json`
+     - 当前状态已回到 `PARKED`
+- 当前关键判断：
+  - `spring-day1` 这轮 `prompt_03` 的新第一真实 blocker，已经从前一轮的 `same-root remaining dirty` 升级成了 `preflight / CodexCodeGuard` incident。
+  - 这不是“23 文件不自洽”导致的失败，而是工具链在这组 `Editor/Story` 根内整合批上挂住。
+  - 本轮没有越权扩到：
+    - `Assets/YYY_Scripts/Story/Managers/*`
+    - `Assets/YYY_Scripts/Story/Directing/*`
+    - `Assets/YYY_Tests/Editor/*`
+- 当前恢复点：
+  - 如果后续继续这条上传线，正确下一步不是重跑 `prompt_03`，而是把 `CodexCodeGuard pre-sync` 挂死提升成治理/工具 incident，再决定是否还能继续这组 `Editor/Story` 根内整合批上传。
