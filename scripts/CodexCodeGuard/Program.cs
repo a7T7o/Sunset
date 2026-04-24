@@ -48,6 +48,8 @@ internal sealed class GuardReport
 
 internal static class Program
 {
+    private static readonly TimeSpan DefaultProcessTimeout = TimeSpan.FromSeconds(45);
+
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         WriteIndented = false
@@ -779,8 +781,32 @@ internal static class Program
         return Path.GetRelativePath(repoRoot, absolutePath).Replace('\\', '/');
     }
 
-    private static ProcessResult RunProcess(string fileName, IEnumerable<string> arguments, bool allowFailure = false)
+    private static string FormatProcessCommand(string fileName, IReadOnlyList<string> arguments)
     {
+        var formattedArgs = arguments
+            .Select(argument => argument.Any(char.IsWhiteSpace) ? $"\"{argument}\"" : argument);
+        return string.Join(" ", new[] { fileName }.Concat(formattedArgs));
+    }
+
+    private static void TryKillProcess(System.Diagnostics.Process process)
+    {
+        try
+        {
+            if (!process.HasExited)
+            {
+                process.Kill(entireProcessTree: true);
+                process.WaitForExit(5000);
+            }
+        }
+        catch
+        {
+        }
+    }
+
+    private static ProcessResult RunProcess(string fileName, IEnumerable<string> arguments, bool allowFailure = false, TimeSpan? timeout = null)
+    {
+        var resolvedArguments = arguments.ToList();
+        var effectiveTimeout = timeout ?? DefaultProcessTimeout;
         var startInfo = new System.Diagnostics.ProcessStartInfo
         {
             FileName = fileName,
@@ -790,16 +816,60 @@ internal static class Program
             CreateNoWindow = true
         };
 
-        foreach (var argument in arguments)
+        foreach (var argument in resolvedArguments)
         {
             startInfo.ArgumentList.Add(argument);
         }
 
-        using var process = System.Diagnostics.Process.Start(startInfo)
-            ?? throw new InvalidOperationException($"无法启动进程：{fileName}");
-        var standardOutput = process.StandardOutput.ReadToEnd();
-        var standardError = process.StandardError.ReadToEnd();
+        using var process = new System.Diagnostics.Process
+        {
+            StartInfo = startInfo,
+            EnableRaisingEvents = true
+        };
+
+        var stdoutBuilder = new StringBuilder();
+        var stderrBuilder = new StringBuilder();
+        process.OutputDataReceived += (_, eventArgs) =>
+        {
+            if (eventArgs.Data is not null)
+            {
+                stdoutBuilder.AppendLine(eventArgs.Data);
+            }
+        };
+        process.ErrorDataReceived += (_, eventArgs) =>
+        {
+            if (eventArgs.Data is not null)
+            {
+                stderrBuilder.AppendLine(eventArgs.Data);
+            }
+        };
+
+        if (!process.Start())
+        {
+            throw new InvalidOperationException($"无法启动进程：{fileName}");
+        }
+
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
+
+        if (!process.WaitForExit((int)effectiveTimeout.TotalMilliseconds))
+        {
+            var partialOutput = $"{stdoutBuilder}{Environment.NewLine}{stderrBuilder}".Trim();
+            TryKillProcess(process);
+
+            var timeoutMessage = $"{FormatProcessCommand(fileName, resolvedArguments)} 超时（{effectiveTimeout.TotalSeconds:0}s）";
+            if (!string.IsNullOrWhiteSpace(partialOutput))
+            {
+                timeoutMessage += $"。部分输出：{partialOutput}";
+            }
+
+            throw new TimeoutException(timeoutMessage);
+        }
+
         process.WaitForExit();
+
+        var standardOutput = stdoutBuilder.ToString().TrimEnd();
+        var standardError = stderrBuilder.ToString().TrimEnd();
 
         if (!allowFailure && process.ExitCode != 0)
         {
@@ -884,7 +954,7 @@ internal sealed class GitDirtyState
     public static GitDirtyState Load(string repoRoot)
     {
         var state = new GitDirtyState();
-        foreach (var line in Program.RunGit(repoRoot, "diff", "--name-status", "HEAD", "--"))
+        foreach (var line in Program.RunGit(repoRoot, "diff", "--name-status", "HEAD", "--", "*.cs"))
         {
             if (string.IsNullOrWhiteSpace(line))
             {
@@ -906,7 +976,7 @@ internal sealed class GitDirtyState
             }
         }
 
-        foreach (var line in Program.RunGit(repoRoot, "ls-files", "--others", "--exclude-standard"))
+        foreach (var line in Program.RunGit(repoRoot, "ls-files", "--others", "--exclude-standard", "--", "*.cs"))
         {
             var path = line.Trim().Replace('\\', '/');
             if (!string.IsNullOrWhiteSpace(path))

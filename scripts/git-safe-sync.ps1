@@ -1518,6 +1518,139 @@ function New-CodeGuardDiagnostic {
     }
 }
 
+function Format-CodeGuardOutputPreview {
+    param(
+        [string[]]$Lines,
+        [int]$MaxLines = 20
+    )
+
+    $materialized = @($Lines | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($materialized.Count -eq 0) {
+        return ''
+    }
+
+    if ($materialized.Count -le $MaxLines) {
+        return ($materialized -join [Environment]::NewLine)
+    }
+
+    $head = @($materialized | Select-Object -First $MaxLines)
+    return (($head -join [Environment]::NewLine) + [Environment]::NewLine + "...(共 $($materialized.Count) 行，已截断)")
+}
+
+function New-BlockedCodeGuardReport {
+    param(
+        [string]$RepoRoot,
+        [string]$OwnerThread,
+        [string]$Branch,
+        [string]$Phase,
+        [string[]]$CandidatePaths,
+        [string]$Summary,
+        [string]$Reason,
+        [string]$RuleId,
+        [string[]]$RawOutput = @()
+    )
+
+    $assemblies = @(
+        $CandidatePaths |
+        ForEach-Object { Get-CodeGuardAssemblyNameForPath -RepoRoot $RepoRoot -AbsolutePath $_ } |
+        Sort-Object -Unique
+    )
+
+    $message = $Reason
+    $preview = Format-CodeGuardOutputPreview -Lines $RawOutput
+    if (-not [string]::IsNullOrWhiteSpace($preview)) {
+        $message = "$Reason 原始输出：$preview"
+    }
+
+    $diagnostics = @(
+        New-CodeGuardDiagnostic -Severity 'error' -RuleId $RuleId -Message $message
+    )
+
+    return [PSCustomObject]@{
+        Applies            = $true
+        CanContinue        = $false
+        Phase              = $Phase
+        RepoRoot           = $RepoRoot
+        OwnerThread        = $OwnerThread
+        Branch             = $Branch
+        ChangedCodeFiles   = @($CandidatePaths)
+        AffectedAssemblies = @($assemblies)
+        ChecksRun          = @('external-codeguard-process')
+        Diagnostics        = @($diagnostics)
+        Summary            = $Summary
+        Reason             = $Reason
+    }
+}
+
+function Invoke-ProcessWithCapture {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Arguments,
+        [int]$TimeoutSeconds = 90
+    )
+
+    $stdoutPath = [System.IO.Path]::GetTempFileName()
+    $stderrPath = [System.IO.Path]::GetTempFileName()
+    $quotedArguments = @()
+
+    foreach ($argument in $Arguments) {
+        if ($argument -match '[\s"]') {
+            $escaped = $argument.Replace('"', '\"')
+            $quotedArguments += '"' + $escaped + '"'
+        }
+        else {
+            $quotedArguments += $argument
+        }
+    }
+
+    try {
+        $process = Start-Process -FilePath $FilePath -ArgumentList ($quotedArguments -join ' ') -NoNewWindow -PassThru -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $null = Wait-Process -Id $process.Id -Timeout $TimeoutSeconds -ErrorAction SilentlyContinue
+        $process.Refresh()
+
+        $timedOut = -not $process.HasExited
+        if ($timedOut) {
+            $null = & taskkill /PID $process.Id /T /F 2>$null
+            Start-Sleep -Milliseconds 200
+        }
+
+        $stdoutLines = @()
+        $stderrLines = @()
+        if (Test-Path $stdoutPath) {
+            $stdoutLines = @(Get-Content $stdoutPath -Encoding UTF8)
+        }
+        if (Test-Path $stderrPath) {
+            $stderrLines = @(Get-Content $stderrPath -Encoding UTF8 | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        }
+
+        $outputLines = @()
+        if ($stdoutLines.Count -gt 0) {
+            $outputLines += $stdoutLines
+        }
+        if ($stderrLines.Count -gt 0) {
+            $outputLines += $stderrLines
+        }
+
+        $exitCode = if ($timedOut) { 124 } else { $process.ExitCode }
+        return [PSCustomObject]@{
+            ExitCode    = $exitCode
+            TimedOut    = $timedOut
+            StdoutLines = @($stdoutLines)
+            StderrLines = @($stderrLines)
+            OutputLines = @($outputLines)
+        }
+    }
+    finally {
+        foreach ($path in @($stdoutPath, $stderrPath)) {
+            if (Test-Path $path) {
+                Remove-Item $path -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
 function Get-CodeGuardAssemblyNameForPath {
     param(
         [string]$RepoRoot,
@@ -1715,24 +1848,34 @@ function Invoke-CodeGuard {
         $arguments += @('--path', $path)
     }
 
-    $output = & dotnet @arguments 2>&1
-    $exitCode = $LASTEXITCODE
-    $lines = @($output | ForEach-Object { "$_" } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $processResult = Invoke-ProcessWithCapture -FilePath 'dotnet' -Arguments $arguments -TimeoutSeconds 90
+    $lines = @($processResult.OutputLines | ForEach-Object { "$_" } | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+
+    if ($processResult.TimedOut) {
+        $stalePids = Stop-StaleCodeGuardProcesses
+        $reason = 'CodexCodeGuard 在 90s 内未返回 JSON，已按工具 incident 阻断。'
+        if (@($stalePids).Count -gt 0) {
+            $reason += " 已清理 stale 进程: $((@($stalePids) -join ', '))。"
+        }
+
+        return (New-BlockedCodeGuardReport -RepoRoot $RepoRoot -OwnerThread $OwnerThread -Branch $Branch -Phase $Phase -CandidatePaths $candidatePaths -Summary 'CodexCodeGuard 预同步超时' -Reason $reason -RuleId 'CODEGUARD_TIMEOUT' -RawOutput $lines)
+    }
+
     $jsonLine = $lines | Select-Object -Last 1
 
     if ([string]::IsNullOrWhiteSpace($jsonLine)) {
-        throw "FATAL: CodexCodeGuard 未返回 JSON 结果。原始输出：$($lines -join [Environment]::NewLine)"
+        return (New-BlockedCodeGuardReport -RepoRoot $RepoRoot -OwnerThread $OwnerThread -Branch $Branch -Phase $Phase -CandidatePaths $candidatePaths -Summary 'CodexCodeGuard 未返回 JSON' -Reason 'CodexCodeGuard 进程已结束，但没有输出最终 JSON。' -RuleId 'CODEGUARD_NO_JSON' -RawOutput $lines)
     }
 
     try {
         $report = $jsonLine | ConvertFrom-Json
     }
     catch {
-        throw "FATAL: CodexCodeGuard JSON 解析失败：$jsonLine"
+        return (New-BlockedCodeGuardReport -RepoRoot $RepoRoot -OwnerThread $OwnerThread -Branch $Branch -Phase $Phase -CandidatePaths $candidatePaths -Summary 'CodexCodeGuard JSON 解析失败' -Reason "CodexCodeGuard 返回的最后一行不是合法 JSON：$jsonLine" -RuleId 'CODEGUARD_BAD_JSON' -RawOutput $lines)
     }
 
-    if ($exitCode -ne 0 -and ($null -eq $report -or $report.CanContinue)) {
-        throw "FATAL: CodexCodeGuard 进程失败但未返回明确阻断结果：$($lines -join [Environment]::NewLine)"
+    if ($processResult.ExitCode -ne 0 -and ($null -eq $report -or $report.CanContinue)) {
+        return (New-BlockedCodeGuardReport -RepoRoot $RepoRoot -OwnerThread $OwnerThread -Branch $Branch -Phase $Phase -CandidatePaths $candidatePaths -Summary 'CodexCodeGuard 进程异常退出' -Reason "CodexCodeGuard 退出码为 $($processResult.ExitCode)，但没有返回明确阻断结果。" -RuleId 'CODEGUARD_EXIT_NO_BLOCK' -RawOutput $lines)
     }
 
     return $report

@@ -861,3 +861,62 @@
   - 如果继续推进，只剩两件事：
     1. `Codex规则落地` 自己开工具修复线；
     2. `Recipe_9102_Pickaxe_0.asset` 转给 `spring-day1/workbench` 方向或治理位认领。
+
+## 2026-04-24｜统一工具 incident 首轮修复已施工：工具现在会稳定返回真实 blocker
+
+- 用户目标：
+  - 用户让我继续下一步，并提醒还有很多线程尚未开工；因此本轮只推进统一工具 incident 修复，不额外开新线程。
+- 当前切片：
+  - `2026-04-24_统一CodexCodeGuard预同步incident工具修复`
+- 本轮实际做成了什么：
+  1. 已修改 `scripts/CodexCodeGuard/Program.cs`：
+     - `RunProcess()` 改成异步收流 + 45s timeout + kill tree；
+     - `GitDirtyState.Load()` 改成只扫 `*.cs`。
+  2. 已修改 `scripts/git-safe-sync.ps1`：
+     - `Invoke-CodeGuard()` 现在对 `timeout / no JSON / bad JSON / exit-no-block` 都会返回结构化阻断报告；
+     - 不再只剩裸 `throw`。
+  3. 已完成验证：
+     - `CodexCodeGuard.csproj` Release 构建通过；
+     - `git-safe-sync.ps1` 语法解析通过；
+     - `Data/Core` 直跑 CodeGuard：不再挂死，34.7s 内返回 JSON；
+     - `Data/Core` preflight：50.0s 内返回 `4` 条 `CS1061`；
+     - `UI/Tabs` preflight：50.5s 内返回 `3` 错 `1` 警，不再 `no JSON`。
+- 当前关键判断：
+  - 工具 incident 第一刀已经有效；
+  - 这不是“业务线已修好”，而是“现在终于能稳定看到真实 blocker 了”。
+- 当前恢复点：
+  - 下一步不该大面积重新唤醒全部线程；
+  - 只需要挑最关键的 `存档系统 / UI` 先做最小复核，确认旧 incident 已降级成真实 compile/blocker。
+## 2026-04-24｜继续下一步：第五波只唤醒存档系统与 UI，其他未开工线程继续后置
+
+- 用户目标：
+  - 让我继续当前主线的下一步，但要记住前面还有很多线程都还没开工，不能因为工具线修通就顺手全叫起来。
+- 当前主线：
+  - `Codex规则落地` 治理线程继续收口“统一工具 incident 修复后的最小复核分发”。
+- 本轮子任务：
+  - 把工具修复结论正式转成第 `05` 波 prompt，只唤醒 `存档系统` 与 `UI` 两条样本线。
+- 本轮实际完成：
+  1. 已核对第 `05` 波入口与两条 prompt 正文，确认都符合“只做一次真实复核、不修业务、不换第二批”的治理口径。
+  2. 已补记这轮新的治理结论：
+     - 工具现在已经能稳定返回真实 blocker；
+     - 当前最合理的继续方式是只叫回 `存档系统 / UI` 做最小复核；
+     - `spring-day1 / 导航检查 / NPC / 农田交互修复V3 / 其它未开工线程` 继续后置。
+  3. 已准备把以下文件纳入同一最小同步切片：
+     - `scripts/CodexCodeGuard/Program.cs`
+     - `scripts/git-safe-sync.ps1`
+     - `.kiro/specs/Codex规则落地/2026-04-24_统一工具incident修复后最小复核分发批次_05.md`
+     - `.kiro/specs/Codex规则落地/2026-04-24_给存档系统_工具修复后DataCore最小复核prompt_05.md`
+     - `.kiro/specs/Codex规则落地/2026-04-24_给UI_工具修复后UITabs最小复核prompt_05.md`
+     - `.kiro/specs/Codex规则落地/memory.md`
+     - `.codex/threads/Sunset/Codex规则落地/memory_0.md`
+- 关键决策：
+  - 不扩大唤醒范围；
+  - 先验证工具 incident 是否已真正降级成业务 blocker，再决定要不要继续叫回其它线程。
+- 验证与依据：
+  - 前序代表性复核已证明：
+    - `Data/Core` 三文件不再 `no JSON / hang`，而是稳定返回 `4` 条 `CS1061`
+    - `UI/Tabs` 七文件不再 `CodexCodeGuard returned no JSON`，而是稳定返回 `3` 错 `1` 警
+- 当前恢复点：
+  - 先把本轮文件同步；
+  - 然后只向 `存档系统 / UI` 发第 `05` 波转发壳；
+  - 等它们回执后再决定是否扩到其它线程。

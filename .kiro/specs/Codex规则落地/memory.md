@@ -722,3 +722,66 @@
   - `spring-day1 / UI / 存档系统 / 导航检查` 继续不发业务上传 prompt；
   - 如果继续，应由 `Codex规则落地` 自己进入工具修复线；
   - `NPC` 当前不再继续发 prompt，下一步优先转 `spring-day1/workbench` 方向认领 `Recipe_9102_Pickaxe_0.asset`，若 owner 仍不清则再升治理位。
+
+## 2026-04-24｜统一工具 incident 首轮修复已落地：不再挂死/无 JSON，现会稳定吐出真实代码闸门结果
+
+- 用户目标：
+  - 用户要求我继续执行下一步，并提醒还有很多线程尚未开工，因此这轮只推进当前最高优先级的工具修复线，不额外开启其它线程。
+- 当前主线：
+  - `Codex规则落地` 进入真实工具修复施工，只修：
+    - `scripts/CodexCodeGuard/Program.cs`
+    - `scripts/git-safe-sync.ps1`
+  - 不碰任何业务文件，不新开未开工线程。
+- 本轮实际做成了什么：
+  1. 已对 [Program.cs](/D:/Unity/Unity_learning/Sunset/scripts/CodexCodeGuard/Program.cs) 落下两类修复：
+     - `RunProcess()` 从同步 `ReadToEnd()` 改成异步收流 + 超时 + 超时后 kill 整个进程树；
+     - `GitDirtyState.Load()` 从整仓 `git diff/ls-files` 改成只扫描 `*.cs`，不再把全仓非代码脏改卷进代码闸门前置。
+  2. 已对 [git-safe-sync.ps1](/D:/Unity/Unity_learning/Sunset/scripts/git-safe-sync.ps1) 的 `Invoke-CodeGuard()` 落下结构化兜底：
+     - 新增带超时的外部进程捕获；
+     - 对 `timeout / no JSON / bad JSON / exit without block` 都会返回结构化 `CodeGuard` 报告，而不再直接炸成黑盒异常。
+  3. 已完成代表性验证：
+     - `dotnet build scripts/CodexCodeGuard/CodexCodeGuard.csproj -c Release`：通过；
+     - `git-safe-sync.ps1` PowerShell 语法解析：通过；
+     - 直跑 `CodexCodeGuard.dll` 处理 `Data/Core` 三文件：约 `34.7s` 内正常返回 JSON，不再挂死，只真实报出 `4` 条 `CS1061`；
+     - 经 `git-safe-sync.ps1 -Action preflight` 处理 `Data/Core` 三文件：约 `50.0s` 内正常返回 preflight 文本，不再是 `no JSON`；
+     - 经 `git-safe-sync.ps1 -Action preflight` 处理 `UI/Tabs` 七文件：约 `50.5s` 内正常返回 preflight 文本，不再是 `no JSON`。
+- 当前关键判断：
+  - 这轮修复真正推进的是“工具不再挂死/无 JSON”，不是“业务问题都已经被修好”。
+  - 当前 `Data/Core` 和 `UI/Tabs` 现在都能稳定吐出真实代码闸门结果，所以业务线程后面拿到的将是可判断的 compile/blocker，而不是一团黑盒 incident。
+  - 也因此，前面那些还没开工的线程仍应继续后置；当前最值钱的事就是先把这条统一工具 incident 线打通。
+- 当前恢复点：
+  - 下一步优先重发最小复核给：
+    1. `存档系统`
+    2. `UI`
+    3. 如有必要再到 `spring-day1 / 导航检查`
+  - 目标不是继续业务上传，而是验证它们现在会返回“真实 blocker”而不是 `CodexCodeGuard / no JSON / hang`。
+## 2026-04-24｜工具修复后的第五波最小复核已成批：只唤醒存档系统与 UI
+
+- 用户目标：
+  - 在工具 incident 第一刀已生效的前提下，继续推进当前下一步，但明确要求不要顺手把前面那些还没开工的线程一起叫起来。
+- 当前主线：
+  - `Codex规则落地` 继续做治理收口；
+  - 本轮不再修业务代码，只把“工具修复后的最小复核分发”正式落成可同步批次。
+- 本轮实际做成了什么：
+  1. 已新增第 `05` 波入口：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_统一工具incident修复后最小复核分发批次_05.md`
+  2. 已新增两条专属复核 prompt：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_给存档系统_工具修复后DataCore最小复核prompt_05.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-24_给UI_工具修复后UITabs最小复核prompt_05.md`
+  3. 已在正文里明确约束：
+     - `存档系统` 只准对白名单 `InventoryItem.cs / SaveDataDTOs.cs / SaveManager.cs` 做 `1` 次真实最小复核；
+     - `UI` 只准对白名单 `UI/Tabs` 七文件做 `1` 次真实最小复核；
+     - 两条线这轮都不准顺手修业务代码、不准换第二批。
+  4. 已在批次入口里明确停发：
+     - `spring-day1`
+     - `导航检查`
+     - `NPC`
+     - `农田交互修复V3`
+     - 其它仍未开工线程
+- 当前关键判断：
+  - 当前最值钱的不是“全面重启线程”，而是先验证工具黑盒 incident 是否已经稳定降级成真实 blocker；
+  - 因此第五波只唤醒 `存档系统 / UI` 两条最关键样本线最合理。
+- 当前恢复点：
+  - 下一步应把本轮工具修复 + 第五波 prompt 一起同步；
+  - 同步后直接转发给 `存档系统 / UI`；
+  - 其余未开工线程继续保持后置，不在这轮顺手推进。
