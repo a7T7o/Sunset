@@ -808,3 +808,38 @@
 - 当前恢复点：
   - 现在只需要把第 `05` 波转发壳交给用户；
   - 等 `存档系统 / UI` 回执回来后，再判断是否扩到其它线程。
+
+## 2026-04-26｜第五波两份回执审核：工具验证通过，但 UI 与存档系统都不宜直接机械续发
+
+- 用户目标：
+  - 审核 `UI` 与 `存档系统` 两份第 `05` 波真实最小复核回执，判断它们是否属实，以及现在该不该直接发下一轮 prompt。
+- 当前主线：
+  - `Codex规则落地` 继续做治理总闸审单；本轮不写新的业务 prompt，先判四类裁定。
+- 本轮实际做成了什么：
+  1. 已核实两份回执的共同核心事实都成立：
+     - 两条线这次都不再出现 `CodexCodeGuard hang / no JSON / baseline_fail` 黑盒；
+     - 说明第四波工具修复确实生效；
+     - 两条线程当前都已合法回到 `PARKED`。
+  2. 已核实 `UI` 回执里的 `3` 个 `CS0103 + 1` 个 `CS0649` 口径基本属实，但又额外发现更深一层：
+     - [PackagePanelTabsUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 当前确实新增了 `PackageSaveSettingsPanel.EnsureInstalled(...)` 三处调用；
+     - 但真正的 [PackageSaveSettingsPanel.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs) 只存在于本地磁盘，不在 `HEAD`，而且被 `.gitignore` 里的 `Save/` 规则忽略；
+     - 因此这条线现在暴露的并不只是“UI/Tabs 内三行坏引用”，而是“当前有一个未正式纳管的本地 Save 面板依赖”。
+  3. 已核实 `存档系统` 回执里的 `4` 条 `CS1061` 口径成立，并额外确认：
+     - 这 `4` 个方法在 `HEAD` 里确实不存在；
+     - 它们只出现在当前工作树未同步的 [InventorySortService.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Inventory/InventorySortService.cs)、[CraftingService.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/Service/Crafting/CraftingService.cs)、[ToolbarUI.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Toolbar/ToolbarUI.cs)、[InventoryInteractionManager.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs) 里；
+     - 所以它也不是“只修 SaveManager.cs 四行调用”这么简单，而是一个跨 `Data/Core + Service + UI` 的运行时上下文联动口。
+  4. 已量到 `存档系统` 下一刀的扩根风险：
+     - `Assets/YYY_Scripts/Service/Inventory` 目录当前不只 `InventorySortService.cs` 一处脏改；
+     - `Assets/YYY_Scripts/UI/Inventory` 与 `Assets/YYY_Scripts/UI/Toolbar` 也各自挂着多处同根 dirty；
+     - 因此如果现在直接把这条线扩成跨根修复 prompt，很可能立刻撞回 same-root / mixed dirty 问题。
+- 当前关键判断：
+  - 第 `05` 波已经完成它真正要验证的事：工具黑盒确实已经被拨开；
+  - 但 `UI` 与 `存档系统` 当前都不适合未经拍板就直接续发“第 `06` 波业务修复 prompt”。
+- 四类裁定：
+  - `UI`：`停给用户分析 / 审核`
+  - `存档系统`：`停给用户分析 / 审核`
+- 当前恢复点：
+  - 暂不生成新的 `prompt_06`；
+  - 先由用户决定：
+    1. `UI` 是要把 `PackageSaveSettingsPanel` 正式纳入 repo，还是先撤掉 `UI/Tabs` 对这套本地依赖的挂钩；
+    2. `存档系统` 是要授权一刀更宽的跨根运行时上下文集成，还是继续保持 `Data/Core` 这条线停车。

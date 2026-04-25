@@ -946,3 +946,34 @@
 - 恢复点：
   - 等 `存档系统 / UI` 的最小复核回执；
   - 再决定是否继续扩到 `spring-day1 / 导航检查` 等其它线。
+
+## 2026-04-26｜收到第五波两份回执后的治理裁定：先停发，不直接写 prompt_06
+
+- 用户目标：
+  - 审 `UI` 与 `存档系统` 的第 `05` 波回执，判断是否属实，以及下一步到底是继续发 prompt 还是先停给用户分析。
+- 当前主线：
+  - `Codex规则落地` 治理线程做典狱长裁定，不进入业务修复。
+- 本轮结论：
+  1. 两条回执都证明工具修复已经生效：
+     - `UI` 不再 `CodexCodeGuard returned no JSON / baseline_fail`
+     - `存档系统` 不再 `CodexCodeGuard hang / no JSON / bad JSON`
+  2. `UI` 回执的 blocker 结论方向对，但它的“下一步只修 PackagePanelTabsUI.cs 里 3 error + 1 warning”过于乐观：
+     - [PackageSaveSettingsPanel.cs](/D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs) 只存在于本地磁盘；
+     - 它被 `.gitignore` 的 `Save/` 规则忽略；
+     - `HEAD` 里并没有这份文件；
+     - 所以真实问题是“UI/Tabs 现在挂上了一个未正式纳管的本地 Save 面板依赖”。
+  3. `存档系统` 回执的 blocker 结论方向也对，但它的“下一步只修 SaveManager.cs 4 条 CS1061”同样过窄：
+     - 这 `4` 个方法在 `HEAD` 不存在；
+     - 只活在当前工作树未同步的 `InventorySortService / CraftingService / ToolbarUI / InventoryInteractionManager` 里；
+     - 下一刀天然会扩成跨 `Data/Core + Service + UI` 的联动 slice。
+  4. 当前不直接续发的理由：
+     - `UI` 需要先拍板：保留并正式纳管 Save 面板，还是先撤挂钩；
+     - `存档系统` 需要先拍板：是否授权跨根 runtime-context 集成，因为相关根下当前还有多处 same-root dirty。
+- 四类裁定：
+  - `UI`：停给用户分析 / 审核
+  - `存档系统`：停给用户分析 / 审核
+- 本轮没有生成：
+  - `prompt_06`
+- 恢复点：
+  - 等用户拍板两条线的方向；
+  - 拍板后再决定要不要生成下一轮 prompt。
