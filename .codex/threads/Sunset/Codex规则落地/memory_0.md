@@ -1004,3 +1004,32 @@
   - 先补本轮 memory / skill-trigger-log；
   - 再直接执行总收口 sync；
   - 完成后回写提交 SHA、push 结果与最终停车状态。
+
+## 2026-04-26｜总收口已完成：当前项目有效内容已提交并 push
+
+- 用户目标：
+  - 用户要求不要再只做判断，而是把 Sunset 当前有效内容按正常批次真正提交上去。
+- 当前切片：
+  - `总收口提交_2026-04-26_project-plus-screenshots`
+- 本轮最终完成：
+  1. 已用仓库 working-tree 版 `git-safe-sync.ps1` 完成同步。
+  2. 已提交并推送：
+     - `d15b0f3c`
+     - `2026.04.26_Codex规则落地_02`
+  3. 已确认：
+     - `HEAD == origin/main`
+     - `git rev-list --left-right --count @{upstream}...HEAD = 0 0`
+  4. 已执行 `Park-Slice`，当前 live 状态为 `PARKED`。
+- 这轮最终解决了什么：
+  - `CodexCodeGuard` JSON 已放行却被空退出码误判的问题；
+  - `git-safe-sync` 对显式白名单里的 ignored `UI/Save` 文件无法正常 `git add` 的问题；
+  - 项目总收口卡在“最后一道工具/提交流程壳”上的问题。
+- 当前剩余但未纳入提交的内容：
+  - 仅剩本地未跟踪噪音：
+    - `.codex/backups/`
+    - `.codex/tmp_*`
+    - `tmp/`
+- 当前恢复点：
+  - 主内容已归仓；
+  - 这条治理线程如无新指令继续保持 `PARKED`；
+  - 若再继续，优先级已从“总收口提交”切到“本地噪音清理 / 新一轮线程治理”。

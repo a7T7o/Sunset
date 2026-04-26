@@ -873,3 +873,39 @@
 - 当前恢复点：
   - 下一步直接用仓库 working-tree 版 `git-safe-sync.ps1` 做总收口同步；
   - 同步完成后再补最终提交 SHA、push 结果、线程状态与审计日志。
+
+## 2026-04-26｜总收口已正式提交并推送：项目有效内容已归仓，治理线程已停车
+
+- 用户目标：
+  - 用户要求不要再停在“分析和裁定”，而是把当前 Sunset 项目有效内容真正提交上去。
+- 当前主线：
+  - `Codex规则落地` 已完成这轮项目总收口提交；当前回到停车态。
+- 本轮最终结果：
+  1. 已通过仓库 working-tree 版 `git-safe-sync.ps1 -Action sync` 完成总收口。
+  2. 已形成并推送提交：
+     - `d15b0f3c`
+     - `2026.04.26_Codex规则落地_02`
+  3. 已确认：
+     - `HEAD = origin/main = d15b0f3c`
+     - `git rev-list --left-right --count @{upstream}...HEAD = 0 0`
+  4. 本轮最后两处工具收口修复也已一并进仓：
+     - [scripts/git-safe-sync.ps1](/D:/Unity/Unity_learning/Sunset/scripts/git-safe-sync.ps1)
+       - 解析成功的 `CodexCodeGuard` JSON 不再被空退出码二次否决；
+       - 显式白名单 staging 现在会对现存文件使用 `git add -f`，允许把被 `.gitignore` 忽略但已明确纳管的 `UI/Save` 文件正常收进提交。
+     - [scripts/CodexCodeGuard/Program.cs](/D:/Unity/Unity_learning/Sunset/scripts/CodexCodeGuard/Program.cs)
+       - 保留本轮前面已完成的 warning 不阻断、`HEAD` 缺失文件跳过等修复。
+  5. 当前线程状态：
+     - 已执行 `Park-Slice`
+     - live 状态：`PARKED`
+- 当前现场剩余：
+  - tracked 有效内容已归仓；
+  - 工作树里仍剩未跟踪本地噪音，主要是：
+    - `.codex/backups/`
+    - `.codex/tmp_*`
+    - `tmp/`
+  - 这些没有进入本轮提交。
+- 当前关键判断：
+  - 用户这轮最关心的“项目是不是可以直接全交上去”这件事，当前答案已经是：`是，这次有效内容已经正式提交并 push`。
+- 当前恢复点：
+  - 如无新的治理要求，这条线程保持 `PARKED`；
+  - 后续若要继续，优先处理的是本地噪音清理或新一轮业务线程唤醒，而不是再回到这次总收口分析。
