@@ -1,4 +1,4 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -415,6 +415,8 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
         bool isSelected = false;
         var resolvedBoxPanel = ResolveBoxPanel();
         var resolvedInventoryPanel = ResolveInventoryPanel();
+        bool slotOwnedByBoxPanel = boxPanel != null && boxPanel.gameObject;
+        bool slotOwnedByInventoryPanel = inventoryPanel != null && inventoryPanel.gameObject;
 
         if (resolvedBoxPanel != null && resolvedBoxPanel.IsOpen)
         {
@@ -424,8 +426,18 @@ public class InventorySlotUI : MonoBehaviour, IPointerClickHandler
             }
             else if (container is InventoryService)
             {
-                isSelected = resolvedBoxPanel.IsInventorySlotSelected(index) ||
-                             (resolvedInventoryPanel != null && resolvedInventoryPanel.IsInventorySlotSelected(index));
+                if (slotOwnedByBoxPanel)
+                {
+                    isSelected = resolvedBoxPanel.IsInventorySlotSelected(index);
+                }
+                else if (slotOwnedByInventoryPanel && resolvedInventoryPanel != null)
+                {
+                    isSelected = resolvedInventoryPanel.IsInventorySlotSelected(index);
+                }
+                else
+                {
+                    isSelected = resolvedBoxPanel.IsInventorySlotSelected(index);
+                }
             }
         }
         else if (resolvedInventoryPanel != null && resolvedInventoryPanel.gameObject.activeInHierarchy)

@@ -16,12 +16,12 @@ using Sunset.Story;
 public class InventoryInteractionManager : MonoBehaviour
 {
     public static InventoryInteractionManager Instance { get; private set; }
-    
+
     [Header("服务引用")]
     [SerializeField] private InventoryService inventory;
     [SerializeField] private EquipmentService equipment;
     [SerializeField] private ItemDatabase database;
-    
+
     [Header("UI 引用")]
     [SerializeField] private HeldItemDisplay heldDisplay;
     [SerializeField] private RectTransform panelRect;        // PackagePanel（用于旧逻辑兼容）
@@ -30,42 +30,42 @@ public class InventoryInteractionManager : MonoBehaviour
     [SerializeField] private RectTransform trashCanRect;     // 垃圾桶区域
     [SerializeField] private InventorySlotUI[] inventorySlots;  // 36 个背包槽位
     [SerializeField] private EquipmentSlotUI[] equipmentSlots;  // 6 个装备槽位
-    
+
     [Header("按钮引用")]
     [SerializeField] private Button sortButton;              // 整理按钮
     [SerializeField] private InventorySortService sortService; // 整理服务
-    
+
     [Header("配置")]
     [SerializeField] private float ctrlPickupRate = 3.5f;
     [SerializeField] private float dropCooldown = 5f;
-    
+
     [Header("边界检测")]
     [Tooltip("背包实际可见区域（用于丢弃判定）。如果不配置，则使用 Main + Top 区域")]
     [SerializeField] private RectTransform inventoryBoundsRect;  // 背包实际可见区域
-    
+
     // 常量：拖拽目标索引
     private const int DROP_TARGET_NONE = -2;   // 无目标槽位
     private const int DROP_TARGET_TRASH = -1;  // 垃圾桶
-    
+
     // 状态机
     private enum State { Idle, HeldByShift, HeldByCtrl, Dragging }
     private State currentState = State.Idle;
-    
+
     // 拿取数据
     private ItemStack heldItem;
     private InventoryItem heldRuntimeItem;
     private int sourceIndex = -1;
     private bool sourceIsEquip = false;
     private InventorySlotUI sourceSlotUI;
-    
+
     // 拖拽目标
     private int dropTargetIndex = DROP_TARGET_NONE;
     private bool dropTargetIsEquip = false;
     private InventorySlotUI dropTargetSlotUI;
-    
+
     // Ctrl 长按
     private Coroutine ctrlCoroutine;
-    
+
     public bool IsHolding => currentState != State.Idle;
     /// <summary>
     /// 获取当前 Held 物品（供外部使用）
@@ -76,17 +76,17 @@ public class InventoryInteractionManager : MonoBehaviour
     /// 获取当前 Held 的 runtime item（供跨容器写回保真使用）
     /// </summary>
     public InventoryItem GetHeldRuntimeItem() => heldRuntimeItem;
-    
+
     /// <summary>
     /// 获取源槽位索引（供外部使用）
     /// </summary>
     public int GetSourceIndex() => sourceIndex;
-    
+
     /// <summary>
     /// 获取源是否为装备槽位（供外部使用）
     /// </summary>
     public bool GetSourceIsEquip() => sourceIsEquip;
-    
+
     /// <summary>
     /// 清空 Held 状态（供外部使用）
     /// </summary>
@@ -149,7 +149,7 @@ public class InventoryInteractionManager : MonoBehaviour
     }
 
     #region 🔥 P0-3：统一 Held 图标接口
-    
+
     /// <summary>
     /// 显示 Held 图标（统一入口）
     /// </summary>
@@ -167,7 +167,7 @@ public class InventoryInteractionManager : MonoBehaviour
 
         heldDisplay.SyncToScreenPosition(screenPosition);
     }
-    
+
     /// <summary>
     /// 隐藏 Held 图标（统一入口）
     /// </summary>
@@ -175,28 +175,75 @@ public class InventoryInteractionManager : MonoBehaviour
     {
         heldDisplay?.Hide();
     }
-    
+
     #endregion
 
-    
+
     #region Unity 生命周期
     void Awake()
     {
         if (Instance == null) Instance = this;
         else { Destroy(gameObject); return; }
-        
-        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
-        if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
-        if (database == null && inventory != null) database = inventory.Database;
-        if (sortService == null) sortService = FindFirstObjectByType<InventorySortService>();
-        
+
+        ResolveRuntimeContext();
+
         // 绑定整理按钮
         if (sortButton != null)
         {
             sortButton.onClick.AddListener(OnSortButtonClick);
         }
     }
-    
+
+    public void ConfigureRuntimeContext(
+        InventoryService inventoryService,
+        EquipmentService equipmentService,
+        ItemDatabase itemDatabase,
+        InventorySortService runtimeSortService = null)
+    {
+        inventory = inventoryService ?? inventory;
+        equipment = equipmentService ?? equipment;
+        database = itemDatabase != null
+            ? itemDatabase
+            : inventoryService != null ? inventoryService.Database : database;
+        sortService = runtimeSortService ?? sortService;
+        sortService?.RebindRuntimeContext(inventory, database);
+    }
+
+    private void ResolveRuntimeContext()
+    {
+        InventoryService preferredInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService();
+        if (preferredInventory != null)
+        {
+            inventory = preferredInventory;
+        }
+        else if (inventory == null)
+        {
+            inventory = FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+        }
+
+        EquipmentService preferredEquipment = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService();
+        if (preferredEquipment != null)
+        {
+            equipment = preferredEquipment;
+        }
+        else if (equipment == null)
+        {
+            equipment = FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
+        }
+
+        if (inventory != null)
+        {
+            database = inventory.Database;
+        }
+
+        if (sortService == null)
+        {
+            sortService = FindFirstObjectByType<InventorySortService>(FindObjectsInactive.Include);
+        }
+
+        sortService?.RebindRuntimeContext(inventory, database);
+    }
+
     void OnDestroy()
     {
         if (sortButton != null)
@@ -204,7 +251,7 @@ public class InventoryInteractionManager : MonoBehaviour
             sortButton.onClick.RemoveListener(OnSortButtonClick);
         }
     }
-    
+
     void Update()
     {
         if (IsDialogueInputLocked())
@@ -228,9 +275,9 @@ public class InventoryInteractionManager : MonoBehaviour
     {
         return DialogueManager.Instance != null && DialogueManager.Instance.IsDialogueActive;
     }
-    
+
     #region 公共接口
-    
+
     /// <summary>
     /// 槽位被点击（PointerDown）- 所有点击逻辑的入口
     /// </summary>
@@ -240,10 +287,10 @@ public class InventoryInteractionManager : MonoBehaviour
 
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-        
+
         // Shift+Ctrl 同时按下忽略
         if (shift && ctrl) return;
-        
+
         // ★ 根据当前状态分发处理
         switch (currentState)
         {
@@ -259,7 +306,7 @@ public class InventoryInteractionManager : MonoBehaviour
                 break;
         }
     }
-    
+
     /// <summary>
     /// 开始拖拽
     /// </summary>
@@ -274,30 +321,30 @@ public class InventoryInteractionManager : MonoBehaviour
         {
             return;
         }
-        
+
         ItemStack slot = GetSlot(index, isEquip);
         if (slot.IsEmpty) return;
 
         SelectSlot(index, isEquip, slotUI);
-        
+
         sourceIndex = index;
         sourceIsEquip = isEquip;
         sourceSlotUI = slotUI;
         heldItem = slot;
         heldRuntimeItem = GetRuntimeItem(index, isEquip);
-        
+
         // 清空源槽位
         ClearSlot(index, isEquip);
-        
+
         // ★ 重置拖拽目标为"无目标"
         dropTargetIndex = DROP_TARGET_NONE;
         dropTargetIsEquip = false;
         dropTargetSlotUI = null;
-        
+
         currentState = State.Dragging;
         ShowHeld(eventData.position);
     }
-    
+
     /// <summary>
     /// 结束拖拽
     /// </summary>
@@ -306,31 +353,31 @@ public class InventoryInteractionManager : MonoBehaviour
         if (IsDialogueInputLocked()) return;
 
         if (currentState != State.Dragging) return;
-        
+
         // ★ 情况 1：拖拽到垃圾桶（dropTargetIndex == DROP_TARGET_TRASH）
         if (dropTargetIndex == DROP_TARGET_TRASH)
         {
-            DropItem();
+            DiscardHeldItem();
             ResetState();
             return;
         }
-        
+
         // ★ 情况 2：有目标槽位（dropTargetIndex >= 0）
         if (dropTargetIndex >= 0)
         {
             ExecutePlacement(dropTargetIndex, dropTargetIsEquip, true, dropTargetSlotUI);
             return;
         }
-        
+
         // ★ 情况 3：无目标槽位（dropTargetIndex == DROP_TARGET_NONE）
         // 检查是否在垃圾桶区域（通过位置检测）
         if (IsOverTrashCan(eventData.position))
         {
-            DropItem();
+            DiscardHeldItem();
             ResetState();
             return;
         }
-        
+
         // 检查是否在面板外
         if (!IsInsidePanel(eventData.position))
         {
@@ -338,12 +385,12 @@ public class InventoryInteractionManager : MonoBehaviour
             ResetState();
             return;
         }
-        
+
         // 面板内无目标，返回原位
         ReturnToSource();
         ResetState();
     }
-    
+
     /// <summary>
     /// 拖拽经过槽位
     /// </summary>
@@ -355,7 +402,7 @@ public class InventoryInteractionManager : MonoBehaviour
         dropTargetIsEquip = isEquip;
         dropTargetSlotUI = slotUI;
     }
-    
+
     public void Cancel()
     {
         if (IsDialogueInputLocked()) return;
@@ -365,7 +412,7 @@ public class InventoryInteractionManager : MonoBehaviour
         ResetState();
         HideHeldIcon();  // 🔥 P0-3：确保隐藏图标
     }
-    
+
     /// <summary>
     /// 🔥 P1+-1：物品归位逻辑（关闭 UI 时调用）
     /// 优先级：原槽位 → 背包空位 → 扔在脚下
@@ -373,11 +420,19 @@ public class InventoryInteractionManager : MonoBehaviour
     /// </summary>
     public void ReturnHeldItemToInventory()
     {
+        ResolveRuntimeContext();
         if (!IsHolding || heldItem.IsEmpty) return;
-        
+
+        if (inventory == null)
+        {
+            DropItemAtPlayerFeet();
+            ResetState();
+            return;
+        }
+
         // 停止 Ctrl 长按
         if (ctrlCoroutine != null) { StopCoroutine(ctrlCoroutine); ctrlCoroutine = null; }
-        
+
         // 1. 尝试返回原槽位
         ItemStack src = GetSlot(sourceIndex, sourceIsEquip);
         if (src.IsEmpty)
@@ -387,14 +442,14 @@ public class InventoryInteractionManager : MonoBehaviour
             ResetState();
             return;
         }
-        
+
         // 2. 原槽位有物品，尝试堆叠
         if (src.itemId == heldItem.itemId && src.quality == heldItem.quality)
         {
             var itemData = database?.GetItemByID(heldItem.itemId);
             int maxStack = itemData != null ? itemData.maxStackSize : 99;
             int total = src.amount + heldItem.amount;
-            
+
             if (total <= maxStack)
             {
                 SetSlot(sourceIndex, sourceIsEquip, new ItemStack { itemId = src.itemId, quality = src.quality, amount = total });
@@ -410,7 +465,7 @@ public class InventoryInteractionManager : MonoBehaviour
                 Debug.Log($"[InventoryInteractionManager] 物品归位：部分堆叠到原槽位，剩余 {heldItem.amount}");
             }
         }
-        
+
         // 3. 尝试放入背包空位
         for (int i = 0; i < 36; i++)
         {
@@ -422,19 +477,19 @@ public class InventoryInteractionManager : MonoBehaviour
                 return;
             }
         }
-        
+
         // 4. 背包满了，扔在脚下
         DropItemAtPlayerFeet();
         ResetState();
     }
-    
+
     /// <summary>
     /// 🔥 P1+-1：在玩家脚下丢弃物品
     /// </summary>
     private void DropItemAtPlayerFeet()
     {
         if (heldItem.IsEmpty) return;
-        
+
         Debug.Log($"[InventoryInteractionManager] 物品归位：背包已满，扔在脚下");
         if (heldRuntimeItem != null && !heldRuntimeItem.IsEmpty)
             FarmGame.UI.ItemDropHelper.DropAtPlayer(heldRuntimeItem, dropCooldown);
@@ -443,12 +498,12 @@ public class InventoryInteractionManager : MonoBehaviour
         heldItem = new ItemStack();
         heldRuntimeItem = null;
     }
-    
+
     #endregion
 
-    
+
     #region Idle 状态处理
-    
+
     private void HandleIdleClick(int index, bool isEquip, bool shift, bool ctrl, InventorySlotUI slotUI)
     {
         ItemStack slot = GetSlot(index, isEquip);
@@ -457,7 +512,7 @@ public class InventoryInteractionManager : MonoBehaviour
         {
             return;
         }
-        
+
         if (shift && !slot.IsEmpty)
         {
             // Shift+左键：二分拿取
@@ -475,7 +530,7 @@ public class InventoryInteractionManager : MonoBehaviour
             SelectSlot(index, isEquip, slotUI);
         }
     }
-    
+
     private void ShiftPickup(int index, bool isEquip, ItemStack slot, InventorySlotUI slotUI)
     {
         // 🔥 互斥检查：如果 SlotDragContext 正在拖拽，拒绝拿取
@@ -484,14 +539,14 @@ public class InventoryInteractionManager : MonoBehaviour
             Debug.LogWarning("[InventoryInteractionManager] SlotDragContext 正在拖拽，无法拿起物品");
             return;
         }
-        
+
         // ★ 向上取整：余数归手上，确保手上至少有 1 个
         int handAmount = (slot.amount + 1) / 2;
         int sourceAmount = slot.amount - handAmount;
-        
+
         heldItem = new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = handAmount };
         heldRuntimeItem = slot.amount == handAmount ? GetRuntimeItem(index, isEquip) : null;
-        
+
         // 如果源槽位数量为 0，清空槽位
         if (sourceAmount > 0)
             SetSlot(index, isEquip, new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = sourceAmount });
@@ -499,15 +554,15 @@ public class InventoryInteractionManager : MonoBehaviour
             ClearSlot(index, isEquip);
 
         SelectSlot(index, isEquip, slotUI);
-        
+
         sourceIndex = index;
         sourceIsEquip = isEquip;
         sourceSlotUI = slotUI;
         currentState = State.HeldByShift;
-        
+
         ShowHeld(Input.mousePosition);
     }
-    
+
     private void CtrlPickup(int index, bool isEquip, ItemStack slot, InventorySlotUI slotUI)
     {
         // 🔥 互斥检查：如果 SlotDragContext 正在拖拽，拒绝拿取
@@ -516,7 +571,7 @@ public class InventoryInteractionManager : MonoBehaviour
             Debug.LogWarning("[InventoryInteractionManager] SlotDragContext 正在拖拽，无法拿起物品");
             return;
         }
-        
+
         // 检查快速装备
         var itemData = database?.GetItemByID(slot.itemId);
         if (itemData != null && itemData.equipmentType != EquipmentType.None && !isEquip)
@@ -524,42 +579,42 @@ public class InventoryInteractionManager : MonoBehaviour
             QuickEquip(index, slot, itemData);
             return;
         }
-        
+
         heldItem = new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = 1 };
         heldRuntimeItem = slot.amount == 1 ? GetRuntimeItem(index, isEquip) : null;
-        
+
         if (slot.amount > 1)
             SetSlot(index, isEquip, new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = slot.amount - 1 });
         else
             ClearSlot(index, isEquip);
 
         SelectSlot(index, isEquip, slotUI);
-        
+
         sourceIndex = index;
         sourceIsEquip = isEquip;
         sourceSlotUI = slotUI;
         currentState = State.HeldByCtrl;
-        
+
         ShowHeld(Input.mousePosition);
-        
+
         // 启动长按协程
         ctrlCoroutine = StartCoroutine(ContinueCtrlPickup());
     }
-    
+
     private IEnumerator ContinueCtrlPickup()
     {
         float interval = 1f / ctrlPickupRate;
         while (true)
         {
             yield return new WaitForSeconds(interval);
-            
+
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
             bool mouse = Input.GetMouseButton(0);
             if (!ctrl || !mouse) break;
-            
+
             ItemStack src = GetSlot(sourceIndex, sourceIsEquip);
             if (src.IsEmpty || src.itemId != heldItem.itemId) break;
-            
+
             heldItem.amount++;
             if (src.amount > 1)
                 SetSlot(sourceIndex, sourceIsEquip, new ItemStack { itemId = src.itemId, quality = src.quality, amount = src.amount - 1 });
@@ -573,28 +628,28 @@ public class InventoryInteractionManager : MonoBehaviour
         }
         ctrlCoroutine = null;
     }
-    
+
     #endregion
 
-    
+
     #region Held 状态处理（再次点击放置）
-    
+
     private void HandleHeldClick(int index, bool isEquip, bool shift, InventorySlotUI slotUI)
     {
         // 停止 Ctrl 长按
         if (ctrlCoroutine != null) { StopCoroutine(ctrlCoroutine); ctrlCoroutine = null; }
-        
+
         // 点击源槽位 + Shift = 连续二分
         if (index == sourceIndex && isEquip == sourceIsEquip && shift && currentState == State.HeldByShift)
         {
             ContinueShiftSplit();
             return;
         }
-        
+
         // 执行放置（Shift/Ctrl 模式：不同物品返回原位）
         ExecutePlacement(index, isEquip, false, slotUI);
     }
-    
+
     /// <summary>
     /// 处理 Held 状态下点击非槽位区域（由 InventoryPanelClickHandler 调用）
     /// </summary>
@@ -603,14 +658,14 @@ public class InventoryInteractionManager : MonoBehaviour
         if (IsDialogueInputLocked()) return;
 
         if (currentState != State.HeldByShift && currentState != State.HeldByCtrl) return;
-        
+
         // 停止 Ctrl 长按
         if (ctrlCoroutine != null) { StopCoroutine(ctrlCoroutine); ctrlCoroutine = null; }
-        
+
         if (isDropZone)
         {
-            // 垃圾桶区域 - 丢弃
-            DropItem();
+            // 垃圾桶区域 - 真正删除，不再生成地面掉落物
+            DiscardHeldItem();
             ResetState();
         }
         else if (!IsInsidePanel(screenPos))
@@ -626,24 +681,24 @@ public class InventoryInteractionManager : MonoBehaviour
             ResetState();
         }
     }
-    
+
     private void ContinueShiftSplit()
     {
         // ★ 手上只有 1 个时，不执行二分（避免返回 0 个到源槽位）
         if (heldItem.amount <= 1) return;
-        
+
         // ★ 向下取整返回，向上取整保留在手上
         int returnAmount = heldItem.amount / 2;
         int handAmount = heldItem.amount - returnAmount;
-        
+
         heldItem.amount = handAmount;
-        
+
         ItemStack src = GetSlot(sourceIndex, sourceIsEquip);
         SetSlot(sourceIndex, sourceIsEquip, new ItemStack { itemId = src.itemId, quality = src.quality, amount = src.amount + returnAmount });
-        
+
         ShowHeld(Input.mousePosition);
     }
-    
+
     /// <summary>
     /// 执行放置逻辑
     /// </summary>
@@ -659,7 +714,7 @@ public class InventoryInteractionManager : MonoBehaviour
             ResetState();
             return;
         }
-        
+
         // 装备槽位限制检查
         if (targetIsEquip)
         {
@@ -671,7 +726,7 @@ public class InventoryInteractionManager : MonoBehaviour
                 return;
             }
         }
-        
+
         // 目标为空：直接放置
         if (target.IsEmpty)
         {
@@ -682,14 +737,14 @@ public class InventoryInteractionManager : MonoBehaviour
             ResetState();
             return;
         }
-        
+
         // 相同物品：堆叠
         if (target.itemId == heldItem.itemId && target.quality == heldItem.quality)
         {
             var itemData = database?.GetItemByID(heldItem.itemId);
             int maxStack = itemData != null ? itemData.maxStackSize : 99;
             int total = target.amount + heldItem.amount;
-            
+
             if (total <= maxStack)
             {
                 SetSlot(targetIndex, targetIsEquip, new ItemStack { itemId = target.itemId, quality = target.quality, amount = total });
@@ -707,7 +762,7 @@ public class InventoryInteractionManager : MonoBehaviour
             }
             return;
         }
-        
+
         // 不同物品
         if (allowSwap)
         {
@@ -723,7 +778,7 @@ public class InventoryInteractionManager : MonoBehaviour
         {
             // Shift/Ctrl 模式：检查源槽位是否为空
             ItemStack source = GetSlot(sourceIndex, sourceIsEquip);
-            
+
             if (source.IsEmpty)
             {
                 // 源槽位为空：允许交换
@@ -742,20 +797,32 @@ public class InventoryInteractionManager : MonoBehaviour
             }
         }
     }
-    
+
     #endregion
 
-    
+
     #region 辅助方法
-    
+
     private ItemStack GetSlot(int index, bool isEquip)
     {
-        return isEquip ? equipment.GetEquip(index) : inventory.GetSlot(index);
+        ResolveRuntimeContext();
+        if (isEquip)
+        {
+            return equipment != null ? equipment.GetEquip(index) : ItemStack.Empty;
+        }
+
+        return inventory != null ? inventory.GetSlot(index) : ItemStack.Empty;
     }
 
     private InventoryItem GetRuntimeItem(int index, bool isEquip)
     {
-        return isEquip ? equipment.GetEquipItem(index) : inventory.GetInventoryItem(index);
+        ResolveRuntimeContext();
+        if (isEquip)
+        {
+            return equipment != null ? equipment.GetEquipItem(index) : null;
+        }
+
+        return inventory != null ? inventory.GetInventoryItem(index) : null;
     }
 
     private bool TryRejectProtectedHeldInventoryMutation(int targetIndex, bool targetIsEquip)
@@ -784,11 +851,27 @@ public class InventoryInteractionManager : MonoBehaviour
         var inputManager = GameInputManager.Instance;
         return inputManager != null && inputManager.TryRejectProtectedHeldInventoryReshuffle();
     }
-    
+
     private void SetSlot(int index, bool isEquip, ItemStack item)
     {
-        if (isEquip) equipment.SetEquip(index, item);
-        else inventory.SetSlot(index, item);
+        ResolveRuntimeContext();
+        if (isEquip)
+        {
+            if (equipment == null)
+            {
+                return;
+            }
+
+            equipment.SetEquip(index, item);
+            return;
+        }
+
+        if (inventory == null)
+        {
+            return;
+        }
+
+        inventory.SetSlot(index, item);
     }
 
     private void SetSlot(int index, bool isEquip, ItemStack item, InventoryItem runtimeItem)
@@ -802,17 +885,33 @@ public class InventoryInteractionManager : MonoBehaviour
 
         SetSlot(index, isEquip, item);
     }
-    
+
     private void ClearSlot(int index, bool isEquip)
     {
-        if (isEquip) equipment.ClearEquip(index);
-        else inventory.ClearSlot(index);
+        ResolveRuntimeContext();
+        if (isEquip)
+        {
+            if (equipment == null)
+            {
+                return;
+            }
+
+            equipment.ClearEquip(index);
+            return;
+        }
+
+        if (inventory == null)
+        {
+            return;
+        }
+
+        inventory.ClearSlot(index);
     }
-    
+
     private void ReturnToSource()
     {
         if (heldItem.IsEmpty) return;
-        
+
         ItemStack src = GetSlot(sourceIndex, sourceIsEquip);
         if (src.IsEmpty)
         {
@@ -840,24 +939,30 @@ public class InventoryInteractionManager : MonoBehaviour
         heldItem = new ItemStack();
         heldRuntimeItem = null;
     }
-    
+
     private void DropItem()
     {
         if (heldItem.IsEmpty)
         {
             return;
         }
-        
+
         // 🔥 使用 ItemDropHelper 统一丢弃逻辑
         if (heldRuntimeItem != null && !heldRuntimeItem.IsEmpty)
             FarmGame.UI.ItemDropHelper.DropAtPlayer(heldRuntimeItem, dropCooldown);
         else
             FarmGame.UI.ItemDropHelper.DropAtPlayer(heldItem, dropCooldown);
-        
+
         heldItem = new ItemStack();
         heldRuntimeItem = null;
     }
-    
+
+    private void DiscardHeldItem()
+    {
+        heldItem = new ItemStack();
+        heldRuntimeItem = null;
+    }
+
     private void ShowHeld(Vector2? initialScreenPosition = null)
     {
         if (heldDisplay == null) return;
@@ -865,7 +970,7 @@ public class InventoryInteractionManager : MonoBehaviour
         if (itemData != null)
             heldDisplay.Show(heldItem.itemId, heldItem.amount, itemData.GetBagSprite(), initialScreenPosition);
     }
-    
+
     private void ResetState()
     {
         currentState = State.Idle;
@@ -879,7 +984,7 @@ public class InventoryInteractionManager : MonoBehaviour
         dropTargetSlotUI = null;
         heldDisplay?.Hide();
     }
-    
+
     private bool IsInsidePanel(Vector2 pos)
     {
         // ★ 优先使用 inventoryBoundsRect（背包实际可见区域）
@@ -888,20 +993,20 @@ public class InventoryInteractionManager : MonoBehaviour
             bool inside = RectTransformUtility.RectangleContainsScreenPoint(inventoryBoundsRect, pos);
             return inside;
         }
-        
+
         // 回退：背包区域 = Main + Top（不包括 Background）
         bool insideMain = mainRect != null && RectTransformUtility.RectangleContainsScreenPoint(mainRect, pos);
         bool insideTop = topRect != null && RectTransformUtility.RectangleContainsScreenPoint(topRect, pos);
-        
+
         // 如果 mainRect 和 topRect 都没配置，回退到 panelRect
         if (mainRect == null && topRect == null)
         {
             return panelRect != null && RectTransformUtility.RectangleContainsScreenPoint(panelRect, pos);
         }
-        
+
         return insideMain || insideTop;
     }
-    
+
     /// <summary>
     /// 检查是否在垃圾桶区域
     /// </summary>
@@ -909,7 +1014,7 @@ public class InventoryInteractionManager : MonoBehaviour
     {
         return trashCanRect != null && RectTransformUtility.RectangleContainsScreenPoint(trashCanRect, pos);
     }
-    
+
     /// <summary>
     /// 🔥 公共方法：检测是否在面板边界内（供 InventorySlotInteraction 调用）
     /// </summary>
@@ -917,12 +1022,14 @@ public class InventoryInteractionManager : MonoBehaviour
     {
         return IsInsidePanel(pos);
     }
-    
+
     /// <summary>
     /// 整理按钮点击
     /// </summary>
     private void OnSortButtonClick()
     {
+        ResolveRuntimeContext();
+
         if (TryRejectProtectedHeldInventoryReshuffle())
         {
             return;
@@ -933,12 +1040,12 @@ public class InventoryInteractionManager : MonoBehaviour
         {
             Cancel();
         }
-        
+
         // 执行整理
         if (sortService != null)
         {
             sortService.SortInventory();
-            
+
             // ★ 整理后清除所有选中状态
             ClearAllSelection();
         }
@@ -947,7 +1054,7 @@ public class InventoryInteractionManager : MonoBehaviour
             Debug.LogWarning("[Manager] sortService 为 null，无法整理");
         }
     }
-    
+
     /// <summary>
     /// 清除所有背包槽位的选中状态
     /// 使用 SetAllTogglesOff() 更简洁可靠
@@ -961,7 +1068,7 @@ public class InventoryInteractionManager : MonoBehaviour
             invPanel.ClearUpSelection();
             return;
         }
-        
+
         // 方案 2：通过 inventorySlots 数组获取 ToggleGroup
         if (inventorySlots != null && inventorySlots.Length > 0)
         {
@@ -975,7 +1082,7 @@ public class InventoryInteractionManager : MonoBehaviour
                     return;
                 }
             }
-            
+
             // 方案 3：回退到遍历槽位
             foreach (var slot in inventorySlots)
             {
@@ -986,18 +1093,18 @@ public class InventoryInteractionManager : MonoBehaviour
             }
         }
     }
-    
+
     /// <summary>
     /// 垃圾桶点击（丢弃手上物品）
     /// </summary>
     public void OnTrashCanClick()
     {
         if (!IsHolding) return;
-        
-        DropItem();
+
+        DiscardHeldItem();
         ResetState();
     }
-    
+
     /// <summary>
     /// 选中指定槽位（设置 Toggle.isOn = true）
     /// </summary>
@@ -1054,7 +1161,7 @@ public class InventoryInteractionManager : MonoBehaviour
             inventorySlots[index]?.Select();
         }
     }
-    
+
     private void QuickEquip(int srcIndex, ItemStack item, ItemData itemData)
     {
         int targetSlot = GetEquipSlotForType(itemData.equipmentType);
@@ -1066,7 +1173,7 @@ public class InventoryInteractionManager : MonoBehaviour
         {
             return;
         }
-        
+
         ItemStack current = equipment.GetEquip(targetSlot);
         InventoryItem currentRuntimeItem = equipment.GetEquipItem(targetSlot);
         InventoryItem sourceRuntimeItem = inventory.GetInventoryItem(srcIndex);
@@ -1075,13 +1182,13 @@ public class InventoryInteractionManager : MonoBehaviour
             equipment.SetEquipItem(targetSlot, sourceRuntimeItem);
         else
             equipment.SetEquip(targetSlot, item);
-        
+
         if (!current.IsEmpty)
             SetSlot(srcIndex, false, current, currentRuntimeItem);
         else
             inventory.ClearSlot(srcIndex);
     }
-    
+
     private int GetEquipSlotForType(EquipmentType type)
     {
         switch (type)
@@ -1097,7 +1204,7 @@ public class InventoryInteractionManager : MonoBehaviour
             default: return -1;
         }
     }
-    
+
     private bool CanPlaceInEquipSlot(ItemData itemData, int slot)
     {
         switch (slot)
@@ -1110,6 +1217,6 @@ public class InventoryInteractionManager : MonoBehaviour
             default: return false;
         }
     }
-    
+
     #endregion
 }

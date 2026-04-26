@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
 using FarmGame.Data;
@@ -8,7 +8,7 @@ using FarmGame.UI;
 /// <summary>
 /// 背包槽位交互组件 - 方案 D（跨容器拖拽完整支持）
 /// 职责：实现 Unity 原生事件接口，根据容器类型分发到不同的处理逻辑
-/// 
+///
 /// 修复说明（2026-01-18 v5 - P0-2）：
 /// 1. 使用 SlotDragContext 统一管理跨容器拖拽状态
 /// 2. 四象限拖拽完整支持：Up→Up / Up→Down / Down→Up / Down→Down
@@ -37,76 +37,117 @@ public class InventorySlotInteraction : MonoBehaviour,
     private EquipmentSlotUI equipmentSlotUI;
     private bool isEquip;
     private bool isPointerHovering;
-    
+
     private bool isDragging = false;
     private float pressTime;
     private Vector2 pressPosition;
-    
+
     #region 🔥 箱子槽位连续操作状态
-    
+
     /// <summary>
     /// 箱子槽位：Ctrl 长按协程
     /// </summary>
     private Coroutine _chestCtrlCoroutine;
-    
+
     /// <summary>
     /// 箱子槽位：Ctrl 长按拿取速率（次/秒）
     /// </summary>
     private const float CHEST_CTRL_PICKUP_RATE = 3.5f;
-    
+
     #endregion
-    
+
     #region 缓存引用（性能优化）
-    
+
     private InventoryService _cachedInventoryService;
     private EquipmentService _cachedEquipmentService;
     private BoxPanelUI _cachedBoxPanel;
     private PackagePanelTabsUI _cachedPackagePanel;
-    
+
     private InventoryService CachedInventoryService
     {
         get
         {
+            BoxPanelUI boxPanel = BoxPanelUI.ActiveInstance;
+            if (boxPanel != null && boxPanel.IsOpen && boxPanel.CurrentInventoryService != null)
+            {
+                _cachedInventoryService = boxPanel.CurrentInventoryService;
+                return _cachedInventoryService;
+            }
+
+            PackagePanelTabsUI packagePanel = CachedPackagePanel;
+            if (packagePanel != null && packagePanel.RuntimeInventoryService != null)
+            {
+                _cachedInventoryService = packagePanel.RuntimeInventoryService;
+                return _cachedInventoryService;
+            }
+
+            _cachedInventoryService = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService();
+            if (_cachedInventoryService != null)
+            {
+                return _cachedInventoryService;
+            }
+
             if (_cachedInventoryService == null)
-                _cachedInventoryService = Object.FindFirstObjectByType<InventoryService>();
+                _cachedInventoryService = Object.FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
             return _cachedInventoryService;
         }
     }
-    
+
     private EquipmentService CachedEquipmentService
     {
         get
         {
+            PackagePanelTabsUI packagePanel = CachedPackagePanel;
+            if (packagePanel != null && packagePanel.RuntimeEquipmentService != null)
+            {
+                _cachedEquipmentService = packagePanel.RuntimeEquipmentService;
+                return _cachedEquipmentService;
+            }
+
+            _cachedEquipmentService = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService();
+            if (_cachedEquipmentService != null)
+            {
+                return _cachedEquipmentService;
+            }
+
             if (_cachedEquipmentService == null)
-                _cachedEquipmentService = Object.FindFirstObjectByType<EquipmentService>();
+                _cachedEquipmentService = Object.FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
             return _cachedEquipmentService;
         }
     }
-    
+
     private BoxPanelUI CachedBoxPanel
     {
         get
         {
+            if (BoxPanelUI.ActiveInstance != null)
+            {
+                _cachedBoxPanel = BoxPanelUI.ActiveInstance;
+                return _cachedBoxPanel;
+            }
+
             // BoxPanelUI 可能被销毁重建，需要检查
             if (_cachedBoxPanel == null || !_cachedBoxPanel.gameObject)
-                _cachedBoxPanel = Object.FindFirstObjectByType<BoxPanelUI>();
+                _cachedBoxPanel = Object.FindFirstObjectByType<BoxPanelUI>(FindObjectsInactive.Include);
             return _cachedBoxPanel;
         }
     }
-    
-    private PackagePanelTabsUI CachedPackagePanel
-    {
-        get
+
+        private PackagePanelTabsUI CachedPackagePanel
         {
-            // PackagePanelTabsUI 没有单例，直接使用缓存
-            if (_cachedPackagePanel == null)
-                _cachedPackagePanel = Object.FindFirstObjectByType<PackagePanelTabsUI>();
-            return _cachedPackagePanel;
+            get
+            {
+                // PackagePanelTabsUI 没有单例，直接使用缓存
+                if (_cachedPackagePanel == null)
+                    _cachedPackagePanel = PersistentPlayerSceneBridge.GetPreferredRuntimePackageTabs();
+                if (_cachedPackagePanel == null)
+                    _cachedPackagePanel = Object.FindFirstObjectByType<PackagePanelTabsUI>(FindObjectsInactive.Include);
+                return _cachedPackagePanel;
+            }
         }
-    }
-    
+
     #endregion
-    
+
     private int SlotIndex
     {
         get
@@ -118,7 +159,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             return -1;
         }
     }
-    
+
     private IItemContainer CurrentContainer
     {
         get
@@ -325,7 +366,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         ItemStack updatedStack = new ItemStack(currentStack.itemId, currentStack.quality, newAmount);
         SetContainerSlotPreservingRuntime(container, slotIndex, updatedStack, currentRuntimeItem);
     }
-    
+
     private bool IsChestSlot => CurrentContainer is ChestInventory || CurrentContainer is ChestInventoryV2;
     private bool IsInventorySlot => CurrentContainer is InventoryService;
 
@@ -368,14 +409,14 @@ public class InventorySlotInteraction : MonoBehaviour,
             targetIndex,
             targetIsInventorySlot);
     }
-    
+
     public void Bind(InventorySlotUI slot, bool isEquipmentSlot)
     {
         inventorySlotUI = slot;
         equipmentSlotUI = null;
         isEquip = isEquipmentSlot;
     }
-    
+
     public void Bind(EquipmentSlotUI slot, bool isEquipmentSlot)
     {
         equipmentSlotUI = slot;
@@ -383,9 +424,9 @@ public class InventorySlotInteraction : MonoBehaviour,
         isEquip = isEquipmentSlot;
     }
 
-    
+
     #region Unity 原生事件接口
-    
+
     public void OnPointerDown(PointerEventData eventData)
     {
         if (eventData.button != PointerEventData.InputButton.Left) return;
@@ -396,14 +437,14 @@ public class InventorySlotInteraction : MonoBehaviour,
         {
             EventSystem.current.SetSelectedGameObject(null);
         }
-        
+
         pressTime = Time.time;
         pressPosition = eventData.position;
         isDragging = false;
-        
+
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
-        
+
         // 🔥 修复 1：检测是否有 SlotDragContext 或 Manager Held 状态
         // 如果有，则处理放置逻辑
         if (SlotDragContext.IsDragging)
@@ -411,14 +452,14 @@ public class InventorySlotInteraction : MonoBehaviour,
             HandleSlotDragContextClick();
             return;
         }
-        
+
         var manager = InventoryInteractionManager.Instance;
         if (manager != null && manager.IsHolding)
         {
             HandleManagerHeldClick();
             return;
         }
-        
+
         // 🔥 修复 2：箱子槽位处理修饰键
         if ((shift || ctrl) && TryRejectAutomatedFarmToolInventoryMove())
         {
@@ -434,7 +475,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             }
             return;
         }
-        
+
         // 装备槽位或背包槽位：使用 InventoryInteractionManager
         if (isEquip || IsInventorySlot)
         {
@@ -449,7 +490,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             }
         }
     }
-    
+
     public void OnPointerUp(PointerEventData eventData)
     {
         // PointerUp 不做任何事
@@ -498,12 +539,12 @@ public class InventorySlotInteraction : MonoBehaviour,
 
         TryShowTooltip();
     }
-    
+
     public void OnBeginDrag(PointerEventData eventData)
     {
         if (eventData.button != PointerEventData.InputButton.Left) return;
         ItemTooltip.Instance?.Hide();
-        
+
         // 🔥 修复：如果已经在 Held 状态（通过 Shift/Ctrl 拿起），不要开始拖拽
         // 与背包区域行为保持一致：Held 状态下移动鼠标不会触发拖拽
         if (SlotDragContext.IsDragging)
@@ -515,36 +556,36 @@ public class InventorySlotInteraction : MonoBehaviour,
         {
             return;
         }
-        
+
         float holdTime = Time.time - pressTime;
         float moveDistance = Vector2.Distance(eventData.position, pressPosition);
-        
+
         if (holdTime < 0.15f && moveDistance < 5f) return;
 
         if (TryRejectAutomatedFarmToolInventoryMove())
         {
             return;
         }
-        
+
         int index = SlotIndex;
         var container = CurrentContainer;
-        
+
         // 箱子槽位拖拽
         if (IsChestSlot)
         {
             var chest = container;
             if (chest == null) return;
-            
+
             var item = chest.GetSlot(index);
             if (item.IsEmpty) return;
-            
+
             isDragging = true;
             SlotDragContext.Begin(chest, index, item, inventorySlotUI, ResolveContainerRuntimeItem(chest, index));  // 🔥 传入源槽位 UI
             chest.ClearSlot(index);
             ShowDragIcon(item, eventData.position);
             return;
         }
-        
+
         // 装备槽位拖拽：使用 InventoryInteractionManager
         if (isEquip)
         {
@@ -556,19 +597,19 @@ public class InventorySlotInteraction : MonoBehaviour,
             }
             return;
         }
-        
+
         // 背包槽位拖拽
         if (IsInventorySlot)
         {
             var inventory = container as InventoryService;
             if (inventory == null) return;
-            
+
             var item = inventory.GetSlot(index);
             if (item.IsEmpty) return;
-            
+
             var manager = InventoryInteractionManager.Instance;
             if (manager != null && manager.IsHolding) return;
-            
+
             if (manager != null)
             {
                 isDragging = true;
@@ -576,7 +617,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             }
         }
     }
-    
+
     public void OnDrag(PointerEventData eventData)
     {
         if (!isDragging)
@@ -586,46 +627,46 @@ public class InventorySlotInteraction : MonoBehaviour,
 
         InventoryInteractionManager.Instance?.SyncHeldIconToScreenPosition(eventData.position);
     }
-    
+
     public void OnEndDrag(PointerEventData eventData)
     {
         if (!isDragging) return;
         isDragging = false;
-        
+
         if (SlotDragContext.IsDragging)
         {
             // 🔥 修复：检测垃圾桶和面板外
             if (IsOverTrashCan(eventData.position))
             {
-                DropItemFromContext();
+                DiscardItemFromContext();
                 return;
             }
-            
+
             if (!IsInsidePanel(eventData.position))
             {
                 DropItemFromContext();
                 return;
             }
-            
+
             // 没有放到有效目标，返回原位
             SlotDragContext.Cancel();
             HideDragIcon();
             ResetActiveChestHeldState();
             return;
         }
-        
+
         var manager = InventoryInteractionManager.Instance;
         if (manager != null)
         {
             manager.OnSlotEndDrag(eventData);
         }
     }
-    
+
     public void OnDrop(PointerEventData eventData)
     {
         int targetIndex = SlotIndex;
         var targetContainer = CurrentContainer;
-        
+
         if (SlotDragContext.IsDragging)
         {
             if (HandleSlotDragContextDrop(targetIndex, targetContainer, allowKeepHeld: false) == ContainerDropOutcome.ClearHeld)
@@ -636,7 +677,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             }
             return;
         }
-        
+
         var manager = InventoryInteractionManager.Instance;
         if (manager != null && manager.IsHolding)
         {
@@ -649,12 +690,12 @@ public class InventorySlotInteraction : MonoBehaviour,
             manager.OnSlotDrop(targetIndex, isEquip, inventorySlotUI);
         }
     }
-    
+
     #endregion
 
-    
+
     #region SlotDragContext Drop 处理
-    
+
     private ContainerDropOutcome HandleSlotDragContextDrop(int targetIndex, IItemContainer targetContainer, bool allowKeepHeld)
     {
         var sourceContainer = SlotDragContext.SourceContainer;
@@ -667,24 +708,24 @@ public class InventorySlotInteraction : MonoBehaviour,
             SlotDragContext.Cancel();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         // 🔥 P0 修复：处理装备槽位（targetContainer == null && isEquip == true）
         if (targetContainer == null && isEquip)
         {
             HandleDropToEquipmentSlot(sourceContainer, sourceIndex, targetIndex, draggedItem);
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         // 🔥 P0 修复：targetContainer 为 null 但不是装备槽位，取消操作
         if (targetContainer == null)
         {
             SlotDragContext.Cancel();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         bool sourceIsChest = sourceContainer is ChestInventory || sourceContainer is ChestInventoryV2;
         bool targetIsChest = targetContainer is ChestInventory || targetContainer is ChestInventoryV2;
-        
+
         // Up → Up（箱子内拖拽）
         if (sourceIsChest && targetIsChest)
         {
@@ -696,7 +737,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             SlotDragContext.Cancel();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         // Up → Down（箱子到背包）
         if (sourceIsChest && !targetIsChest)
         {
@@ -710,7 +751,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             SlotDragContext.Cancel();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         // Down → Up（背包到箱子）
         if (!sourceIsChest && targetIsChest)
         {
@@ -724,7 +765,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             SlotDragContext.Cancel();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         // Down → Down（背包内拖拽）
         if (!sourceIsChest && !targetIsChest)
         {
@@ -738,7 +779,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         SlotDragContext.Cancel();
         return ContainerDropOutcome.ClearHeld;
     }
-    
+
     private ContainerDropOutcome HandleSameContainerDrop(IItemContainer container, int sourceIndex, int targetIndex, ItemStack draggedItem, bool allowKeepHeld)
     {
         var draggedRuntimeItem = CreateRuntimeItemForAmount(SlotDragContext.DraggedRuntimeItem, draggedItem.amount);
@@ -749,22 +790,22 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectSourceSlot();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         var targetSlot = container.GetSlot(targetIndex);
         var targetRuntimeItem = CreateRuntimeItemForAmount(ResolveContainerRuntimeItem(container, targetIndex), targetSlot.amount);
-        
+
         if (targetSlot.IsEmpty)
         {
             SetContainerSlotPreservingRuntime(container, targetIndex, draggedItem, draggedRuntimeItem);
             SelectTargetSlot();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         if (CanStackByBackpackRules(targetSlot, draggedItem))
         {
             int maxStack = container.GetMaxStack(draggedItem.itemId);
             int acceptedAmount = Mathf.Min(draggedItem.amount, Mathf.Max(0, maxStack - targetSlot.amount));
-            
+
             if (acceptedAmount > 0)
             {
                 UpdateContainerStackAmountPreservingRuntime(
@@ -795,9 +836,9 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectTargetSlot();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         var sourceSlot = container.GetSlot(sourceIndex);
-        
+
         if (sourceSlot.IsEmpty)
         {
             SetContainerSlotPreservingRuntime(container, targetIndex, draggedItem, draggedRuntimeItem);
@@ -810,13 +851,13 @@ public class InventorySlotInteraction : MonoBehaviour,
         SelectSourceSlot();
         return ContainerDropOutcome.ClearHeld;
     }
-    
+
     private ContainerDropOutcome HandleChestToInventoryDrop(IItemContainer chest, int chestIndex, InventoryService inventory, int invIndex, ItemStack draggedItem, bool allowKeepHeld)
     {
         var invSlot = inventory.GetSlot(invIndex);
         var draggedRuntimeItem = CreateRuntimeItemForAmount(SlotDragContext.DraggedRuntimeItem, draggedItem.amount);
         var inventoryRuntimeItem = CreateRuntimeItemForAmount(inventory.GetInventoryItem(invIndex), invSlot.amount);
-        
+
         if (invSlot.IsEmpty)
         {
             SetContainerSlotPreservingRuntime(inventory, invIndex, draggedItem, draggedRuntimeItem);
@@ -824,12 +865,12 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectTargetSlot();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         if (CanStackByBackpackRules(invSlot, draggedItem))
         {
             int maxStack = inventory.GetMaxStack(draggedItem.itemId);
             int acceptedAmount = Mathf.Min(draggedItem.amount, Mathf.Max(0, maxStack - invSlot.amount));
-            
+
             if (acceptedAmount > 0)
             {
                 UpdateContainerStackAmountPreservingRuntime(
@@ -862,9 +903,9 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectTargetSlot();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         var sourceSlot = chest.GetSlot(chestIndex);
-        
+
         if (sourceSlot.IsEmpty)
         {
             SetContainerSlotPreservingRuntime(inventory, invIndex, draggedItem, draggedRuntimeItem);
@@ -878,13 +919,13 @@ public class InventorySlotInteraction : MonoBehaviour,
         SelectSourceSlot();
         return ContainerDropOutcome.ClearHeld;
     }
-    
+
     private ContainerDropOutcome HandleInventoryToChestDrop(InventoryService inventory, int invIndex, IItemContainer chest, int chestIndex, ItemStack draggedItem, bool allowKeepHeld)
     {
         var chestSlot = chest.GetSlot(chestIndex);
         var draggedRuntimeItem = CreateRuntimeItemForAmount(SlotDragContext.DraggedRuntimeItem, draggedItem.amount);
         var chestRuntimeItem = CreateRuntimeItemForAmount(ResolveContainerRuntimeItem(chest, chestIndex), chestSlot.amount);
-        
+
         if (chestSlot.IsEmpty)
         {
             SetContainerSlotPreservingRuntime(chest, chestIndex, draggedItem, draggedRuntimeItem);
@@ -892,12 +933,12 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectTargetSlot();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         if (CanStackByBackpackRules(chestSlot, draggedItem))
         {
             int maxStack = chest.GetMaxStack(draggedItem.itemId);
             int acceptedAmount = Mathf.Min(draggedItem.amount, Mathf.Max(0, maxStack - chestSlot.amount));
-            
+
             if (acceptedAmount > 0)
             {
                 UpdateContainerStackAmountPreservingRuntime(
@@ -930,9 +971,9 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectTargetSlot();
             return ContainerDropOutcome.ClearHeld;
         }
-        
+
         var sourceSlot = inventory.GetSlot(invIndex);
-        
+
         if (sourceSlot.IsEmpty)
         {
             SetContainerSlotPreservingRuntime(chest, chestIndex, draggedItem, draggedRuntimeItem);
@@ -946,7 +987,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         SelectSourceSlot();
         return ContainerDropOutcome.ClearHeld;
     }
-    
+
     /// <summary>
     /// 🔥 P0 修复：处理拖拽到装备槽位
     /// 核心原则：验证失败必须回滚，绝不吞噬物品
@@ -956,7 +997,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         var equipService = CachedEquipmentService;
         var invService = CachedInventoryService;
         var draggedRuntimeItem = SlotDragContext.DraggedRuntimeItem;
-        
+
         if (equipService == null || invService == null || invService.Database == null)
         {
             // 服务不可用，回滚到源槽位
@@ -964,9 +1005,9 @@ public class InventorySlotInteraction : MonoBehaviour,
             SlotDragContext.Cancel();
             return;
         }
-        
+
         var itemData = invService.Database.GetItemByID(draggedItem.itemId);
-        
+
         // 🔥 核心验证：检查物品是否可以装备到该槽位
         if (!equipService.CanEquipAt(targetEquipIndex, itemData))
         {
@@ -975,11 +1016,11 @@ public class InventorySlotInteraction : MonoBehaviour,
             SlotDragContext.Cancel();
             return;
         }
-        
+
         // 验证通过，执行装备操作
         var currentEquip = equipService.GetEquip(targetEquipIndex);
         var currentEquipRuntimeItem = equipService.GetEquipItem(targetEquipIndex);
-        
+
         // 设置新装备
         bool success = draggedRuntimeItem != null && !draggedRuntimeItem.IsEmpty
             ? equipService.SetEquipItem(targetEquipIndex, draggedRuntimeItem)
@@ -991,7 +1032,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             SlotDragContext.Cancel();
             return;
         }
-        
+
         // 如果原装备槽位有物品，需要放回源位置
         if (!currentEquip.IsEmpty)
         {
@@ -1058,43 +1099,43 @@ public class InventorySlotInteraction : MonoBehaviour,
                 }
             }
         }
-        
+
         Debug.Log($"[InventorySlotInteraction] 成功装备 {itemData?.itemName} 到槽位 {targetEquipIndex}");
     }
-    
+
     #endregion
 
-    
+
     #region 拖拽图标
-    
+
     private void ShowDragIcon(ItemStack item, Vector2? initialScreenPosition = null)
     {
         // 🔥 P0-3：使用统一入口
         var manager = InventoryInteractionManager.Instance;
         if (manager == null) return;
-        
+
         // 🔥 使用缓存引用
         var invService = CachedInventoryService;
         if (invService == null || invService.Database == null) return;
-        
+
         var itemData = invService.Database.GetItemByID(item.itemId);
         if (itemData != null)
         {
             manager.ShowHeldIcon(item.itemId, item.amount, itemData.GetBagSprite(), initialScreenPosition);
         }
     }
-    
+
     private void HideDragIcon()
     {
         // 🔥 P0-3：使用统一入口
         var manager = InventoryInteractionManager.Instance;
         manager?.HideHeldIcon();
     }
-    
+
     #endregion
-    
+
     #region 🔥 修复：新增辅助方法
-    
+
     /// <summary>
     /// 处理箱子槽位的修饰键点击（Shift/Ctrl 拿取）
     /// </summary>
@@ -1103,50 +1144,50 @@ public class InventorySlotInteraction : MonoBehaviour,
         if (!IsChestSlot) return;
         var chest = CurrentContainer;
         if (chest == null) return;
-        
+
         int index = SlotIndex;
         var slot = chest.GetSlot(index);
         if (slot.IsEmpty) return;
         var runtimeItem = ResolveContainerRuntimeItem(chest, index);
-        
+
         ItemStack pickupItem;
-        
+
         if (shift)
         {
             // Shift：二分拿取（向上取整给手上）
             int handAmount = (slot.amount + 1) / 2;
             int sourceAmount = slot.amount - handAmount;
-            
+
             pickupItem = new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = handAmount };
-            
+
             UpdateContainerStackAmountPreservingRuntime(
                 chest,
                 index,
                 slot,
                 runtimeItem,
                 sourceAmount);
-            
+
             // 🔥 记录状态：通过 Shift 拿起
         }
         else // ctrl
         {
             // Ctrl：单个拿取
             pickupItem = new ItemStack { itemId = slot.itemId, quality = slot.quality, amount = 1 };
-            
+
             UpdateContainerStackAmountPreservingRuntime(
                 chest,
                 index,
                 slot,
                 runtimeItem,
                 slot.amount - 1);
-            
+
             // 🔥 记录状态：通过 Ctrl 拿起
             // 🔥 启动长按协程
             if (_chestCtrlCoroutine != null)
                 StopCoroutine(_chestCtrlCoroutine);
             _chestCtrlCoroutine = StartCoroutine(ContinueChestCtrlPickup(chest, index, pickupItem.itemId, pickupItem.quality));
         }
-        
+
         // 使用 SlotDragContext 管理 Held 状态
         SlotDragContext.Begin(
             chest,
@@ -1158,38 +1199,38 @@ public class InventorySlotInteraction : MonoBehaviour,
             this);
         ShowDragIcon(pickupItem, Input.mousePosition);
     }
-    
+
     /// <summary>
     /// 🔥 箱子槽位：Ctrl 长按连续拿取协程
     /// </summary>
     private System.Collections.IEnumerator ContinueChestCtrlPickup(IItemContainer chest, int sourceIndex, int itemId, int quality)
     {
         float interval = 1f / CHEST_CTRL_PICKUP_RATE;
-        
+
         while (true)
         {
             yield return new WaitForSeconds(interval);
-            
+
             // 检查按键状态
             bool ctrl = Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl);
             bool mouse = Input.GetMouseButton(0);
             if (!ctrl || !mouse) break;
-            
+
             // 检查 SlotDragContext 状态
             if (!SlotDragContext.IsDragging || !SlotDragContext.IsOwnedBy(this) || !SlotDragContext.IsHeldByCtrl) break;
-            
+
             // 从源槽位继续拿取
             var src = chest.GetSlot(sourceIndex);
             var srcRuntimeItem = ResolveContainerRuntimeItem(chest, sourceIndex);
             if (src.IsEmpty || src.itemId != itemId) break;
-            
+
             // 增加手上物品数量
             var draggedItem = SlotDragContext.DraggedItem;
             draggedItem.amount++;
-            
+
             // 🔥 使用 UpdateDraggedItem 更新，避免互斥检查
             SlotDragContext.UpdateDraggedItem(draggedItem);
-            
+
             // 更新源槽位
             UpdateContainerStackAmountPreservingRuntime(
                 chest,
@@ -1202,13 +1243,13 @@ public class InventorySlotInteraction : MonoBehaviour,
                 ShowDragIcon(draggedItem, Input.mousePosition);
                 break;  // 源槽位空了，停止
             }
-            
+
             ShowDragIcon(draggedItem, Input.mousePosition);
         }
-        
+
         _chestCtrlCoroutine = null;
     }
-    
+
     /// <summary>
     /// 处理 SlotDragContext 状态下的点击（放置到当前槽位）
     /// </summary>
@@ -1220,10 +1261,10 @@ public class InventorySlotInteraction : MonoBehaviour,
             StopCoroutine(_chestCtrlCoroutine);
             _chestCtrlCoroutine = null;
         }
-        
+
         int targetIndex = SlotIndex;
         var targetContainer = CurrentContainer;
-        
+
         if (targetContainer == null)
         {
             ResetActiveChestHeldState();
@@ -1231,20 +1272,20 @@ public class InventorySlotInteraction : MonoBehaviour,
             HideDragIcon();
             return;
         }
-        
+
         // 🔥 检查是否是 Shift 连续二分场景
         // 条件：通过 Shift 拿起 + 点击源槽位 + 按住 Shift
         bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
         if (SlotDragContext.IsOwnedBy(this) &&
             SlotDragContext.IsHeldByShift &&
             shift &&
-            targetIndex == SlotDragContext.SourceSlotIndex && 
+            targetIndex == SlotDragContext.SourceSlotIndex &&
             targetContainer == SlotDragContext.SourceContainer)
         {
             ContinueChestShiftSplit();
             return;
         }
-        
+
         // 正常放置逻辑
         if (HandleSlotDragContextDrop(targetIndex, targetContainer, allowKeepHeld: true) == ContainerDropOutcome.ClearHeld)
         {
@@ -1253,43 +1294,43 @@ public class InventorySlotInteraction : MonoBehaviour,
             ResetActiveChestHeldState();
         }
     }
-    
+
     /// <summary>
     /// 🔥 箱子槽位：Shift 连续二分
     /// </summary>
     private void ContinueChestShiftSplit()
     {
         var draggedItem = SlotDragContext.DraggedItem;
-        
+
         // 手上只有 1 个时，不执行二分
         if (draggedItem.amount <= 1) return;
-        
+
         // 向下取整返回，向上取整保留在手上
         int returnAmount = draggedItem.amount / 2;
         int handAmount = draggedItem.amount - returnAmount;
-        
+
         // 更新手上物品
         draggedItem.amount = handAmount;
-        
+
         // 更新源槽位
         var sourceContainer = SlotDragContext.SourceContainer;
         int sourceIndex = SlotDragContext.SourceSlotIndex;
         var src = sourceContainer.GetSlot(sourceIndex);
         var srcRuntimeItem = ResolveContainerRuntimeItem(sourceContainer, sourceIndex);
-        
+
         UpdateContainerStackAmountPreservingRuntime(
             sourceContainer,
             sourceIndex,
             src,
             srcRuntimeItem,
             src.amount + returnAmount);
-        
+
         // 🔥 使用 UpdateDraggedItem 更新，避免互斥检查
         SlotDragContext.UpdateDraggedItem(draggedItem);
-        
+
         ShowDragIcon(draggedItem, Input.mousePosition);
     }
-    
+
     /// <summary>
     /// 🔥 重置箱子槽位 Held 状态
     /// </summary>
@@ -1312,7 +1353,7 @@ public class InventorySlotInteraction : MonoBehaviour,
 
         SlotDragContext.ActiveOwner.ResetChestHeldState();
     }
-    
+
     /// <summary>
     /// 处理 Manager Held 状态下的点击（放置到当前槽位）
     /// </summary>
@@ -1320,18 +1361,18 @@ public class InventorySlotInteraction : MonoBehaviour,
     {
         var manager = InventoryInteractionManager.Instance;
         if (manager == null || !manager.IsHolding) return;
-        
+
         // 如果是箱子槽位，处理放置
         if (IsChestSlot)
         {
             HandleManagerHeldToChest(SlotIndex);
             return;
         }
-        
+
         // 背包槽位，使用 Manager 的标准逻辑
         manager.OnSlotPointerDown(SlotIndex, isEquip, inventorySlotUI);
     }
-    
+
     /// <summary>
     /// 处理 Manager Held 物品放置到箱子槽位
     /// </summary>
@@ -1339,18 +1380,18 @@ public class InventorySlotInteraction : MonoBehaviour,
     {
         var manager = InventoryInteractionManager.Instance;
         if (manager == null || !manager.IsHolding) return;
-        
+
         if (!IsChestSlot) return;
         var chest = CurrentContainer;
         if (chest == null) return;
-        
+
         var heldItem = manager.GetHeldItem();
         var heldRuntimeItem = CreateRuntimeItemForAmount(manager.GetHeldRuntimeItem(), heldItem.amount);
         if (heldItem.IsEmpty) return;
-        
+
         var targetSlot = chest.GetSlot(targetIndex);
         var chestRuntimeItem = CreateRuntimeItemForAmount(ResolveContainerRuntimeItem(chest, targetIndex), targetSlot.amount);
-        
+
         // 目标为空：直接放置
         if (targetSlot.IsEmpty)
         {
@@ -1360,13 +1401,13 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectTargetSlot();
             return;
         }
-        
+
         // 相同物品：堆叠
         if (CanStackByBackpackRules(targetSlot, heldItem))
         {
             int maxStack = chest.GetMaxStack(heldItem.itemId);
             int acceptedAmount = Mathf.Min(heldItem.amount, Mathf.Max(0, maxStack - targetSlot.amount));
-            
+
             if (acceptedAmount > 0)
             {
                 UpdateContainerStackAmountPreservingRuntime(
@@ -1393,7 +1434,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             SelectTargetSlot();
             return;
         }
-        
+
         // 不同物品：交换
         // 把手上物品放到箱子，把箱子物品放到背包源槽位
         int sourceIndex = manager.GetSourceIndex();
@@ -1404,19 +1445,19 @@ public class InventorySlotInteraction : MonoBehaviour,
             manager.ReturnHeldToSourceAndClear();
             return;
         }
-        
+
         // 🔥 使用缓存引用
         var invService = CachedInventoryService;
         var equipService = CachedEquipmentService;
-        
+
         if (invService == null)
         {
             manager.ReturnHeldToSourceAndClear();
             return;
         }
-        
+
         // 检查源槽位是否为空
-        ItemStack sourceSlot = sourceIsEquip 
+        ItemStack sourceSlot = sourceIsEquip
             ? (equipService?.GetEquip(sourceIndex) ?? ItemStack.Empty)
             : invService.GetSlot(sourceIndex);
 
@@ -1425,7 +1466,7 @@ public class InventorySlotInteraction : MonoBehaviour,
             manager.ReturnHeldToSourceAndClear();
             return;
         }
-        
+
         if (sourceSlot.IsEmpty)
         {
             // 源槽位为空，可以交换
@@ -1452,7 +1493,7 @@ public class InventorySlotInteraction : MonoBehaviour,
 
         manager.ReturnHeldToSourceAndClear();
     }
-    
+
     /// <summary>
     /// 从 SlotDragContext 丢弃物品
     /// 🔥 使用 ItemDropHelper 统一丢弃逻辑
@@ -1460,22 +1501,32 @@ public class InventorySlotInteraction : MonoBehaviour,
     private void DropItemFromContext()
     {
         if (!SlotDragContext.IsDragging) return;
-        
+
         var item = SlotDragContext.DraggedItem;
         if (!item.IsEmpty)
         {
+            float dropCooldown = SlotDragContext.IsSourceChest ? 5f : 0.35f;
             // 🔥 使用 ItemDropHelper 统一丢弃逻辑
             if (SlotDragContext.DraggedRuntimeItem != null && !SlotDragContext.DraggedRuntimeItem.IsEmpty)
-                FarmGame.UI.ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem);
+                FarmGame.UI.ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem, dropCooldown);
             else
-                FarmGame.UI.ItemDropHelper.DropAtPlayer(item);
+                FarmGame.UI.ItemDropHelper.DropAtPlayer(item, dropCooldown);
         }
-        
+
         SlotDragContext.End();
         HideDragIcon();
         ResetActiveChestHeldState();
     }
-    
+
+    private void DiscardItemFromContext()
+    {
+        if (!SlotDragContext.IsDragging) return;
+
+        SlotDragContext.End();
+        HideDragIcon();
+        ResetActiveChestHeldState();
+    }
+
     /// <summary>
     /// 检测是否在垃圾桶区域
     /// 🔥 使用缓存引用优化性能
@@ -1496,7 +1547,7 @@ public class InventorySlotInteraction : MonoBehaviour,
                 }
             }
         }
-        
+
         // 查找 PackagePanel 中的垃圾桶
         var packagePanel = CachedPackagePanel;
         if (packagePanel != null)
@@ -1523,10 +1574,10 @@ public class InventorySlotInteraction : MonoBehaviour,
                 }
             }
         }
-        
+
         return false;
     }
-    
+
     /// <summary>
     /// 检测是否在面板内
     /// 🔥 修复：复用 InventoryInteractionManager 的检测逻辑，避免 RectTransform 覆盖整个屏幕的问题
@@ -1540,7 +1591,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         {
             return manager.IsInsidePanelBounds(screenPos);
         }
-        
+
         // 回退：检测 BoxPanelUI
         var boxPanel = CachedBoxPanel;
         if (boxPanel != null && boxPanel.IsOpen)
@@ -1551,7 +1602,7 @@ public class InventorySlotInteraction : MonoBehaviour,
                 return true;
             }
         }
-        
+
         // 回退：检测 PackagePanel
         var packagePanel = CachedPackagePanel;
         if (packagePanel != null && packagePanel.IsPanelOpen())
@@ -1562,10 +1613,10 @@ public class InventorySlotInteraction : MonoBehaviour,
                 return true;
             }
         }
-        
+
         return false;
     }
-    
+
     /// <summary>
     /// 🔥 选中状态优化：选中当前目标槽位
     /// </summary>
@@ -1596,7 +1647,7 @@ public class InventorySlotInteraction : MonoBehaviour,
         sourceSlotUI.Select();
         sourceSlotUI.RefreshSelection();
     }
-    
+
     /// <summary>
     /// 🔥 选中状态优化：清空源区域的所有选中状态（用于跨区域放置）
     /// 使用 SetAllTogglesOff() 更简洁可靠，性能开销可忽略
@@ -1663,6 +1714,11 @@ public class InventorySlotInteraction : MonoBehaviour,
             return false;
         }
 
+        if (ReferenceEquals(sourceContainer, targetContainer))
+        {
+            return false;
+        }
+
         int targetIndex = FindFirstEmptySlot(targetContainer);
         if (targetIndex < 0)
         {
@@ -1675,10 +1731,22 @@ public class InventorySlotInteraction : MonoBehaviour,
         }
 
         InventoryItem sourceRuntimeItem = ResolveCurrentRuntimeItem();
-        SetContainerSlotPreservingRuntime(targetContainer, targetIndex, sourceStack, sourceRuntimeItem);
+        SlotDragContext.Begin(sourceContainer, sourceIndex, sourceStack, inventorySlotUI, sourceRuntimeItem);
         SetContainerSlotPreservingRuntime(sourceContainer, sourceIndex, ItemStack.Empty, null);
-        inventorySlotUI?.ClearSelectionState();
-        inventorySlotUI?.RefreshSelection();
+
+        ContainerDropOutcome outcome = HandleSlotDragContextDrop(targetIndex, targetContainer, allowKeepHeld: false);
+        if (outcome == ContainerDropOutcome.ClearHeld && SlotDragContext.IsDragging)
+        {
+            SlotDragContext.End();
+        }
+        else if (SlotDragContext.IsDragging)
+        {
+            SlotDragContext.Cancel();
+        }
+
+        HideDragIcon();
+        ResetActiveChestHeldState();
+        RefreshDoubleClickTransferSelection(targetContainer, targetIndex);
         return true;
     }
 
@@ -1686,7 +1754,9 @@ public class InventorySlotInteraction : MonoBehaviour,
     {
         if (IsChestSlot)
         {
-            return CachedInventoryService;
+            return CachedBoxPanel != null && CachedBoxPanel.IsOpen
+                ? CachedBoxPanel.CurrentInventoryService
+                : CachedInventoryService;
         }
 
         if (!IsInventorySlot)
@@ -1713,6 +1783,26 @@ public class InventorySlotInteraction : MonoBehaviour,
         }
 
         return -1;
+    }
+
+    private void RefreshDoubleClickTransferSelection(IItemContainer targetContainer, int targetIndex)
+    {
+        BoxPanelUI boxPanel = CachedBoxPanel;
+        if (boxPanel == null || !boxPanel.IsOpen || targetIndex < 0)
+        {
+            return;
+        }
+
+        if (targetContainer is InventoryService)
+        {
+            boxPanel.SetSelectedInventoryIndex(targetIndex, targetIndex < InventoryService.HotbarWidth);
+            return;
+        }
+
+        if (targetContainer is ChestInventory || targetContainer is ChestInventoryV2)
+        {
+            boxPanel.SetSelectedChestIndex(targetIndex);
+        }
     }
 
     private void ReturnHeldToSourceContainer(IItemContainer container, int sourceIndex, ItemStack draggedItem, InventoryItem draggedRuntimeItem)
@@ -1766,15 +1856,16 @@ public class InventorySlotInteraction : MonoBehaviour,
         }
 
         Debug.LogWarning($"[InventorySlotInteraction] 回源槽位 {sourceIndex} 已被异步占用，且容器无空位，改为掉落到玩家脚下，避免覆盖现有物品。");
+        float dropCooldown = container is ChestInventory || container is ChestInventoryV2 ? 5f : 0.35f;
         if (draggedRuntimeItem != null && !draggedRuntimeItem.IsEmpty)
         {
-            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedRuntimeItem);
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedRuntimeItem, dropCooldown);
         }
         else
         {
-            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedItem);
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedItem, dropCooldown);
         }
     }
-    
+
     #endregion
 }

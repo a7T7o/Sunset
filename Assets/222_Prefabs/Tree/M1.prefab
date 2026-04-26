@@ -187,8 +187,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3723e0efd18030d4b81f3c672e9160c1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   stageConfigs:
   - daysToNextStage: 1
     health: 0
@@ -341,6 +341,7 @@ MonoBehaviour:
       stumpSpringSummer: {fileID: 6758407826919079700, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
       stumpFall: {fileID: 7823308972501978678, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
       stumpWinter: {fileID: 344850489925476096, guid: 13ffcdffc2ce2ba4e918bb37a74620cd, type: 3}
+  persistentId: 61310b3d-f561-4045-9ede-cc16863926e3
   treeID: -1
   currentStageIndex: 0
   currentState: 0
@@ -385,6 +386,8 @@ MonoBehaviour:
   dropSpreadRadius: 0.4
   showDebugInfo: 0
   editorPreview: 1
+  deferRuntimePlacedSaplingInitializationByOneFrame: 1
+  runtimePlacedSaplingDeferredFrames: 2
 --- !u!60 &2680667214350070488
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -446,8 +449,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   occludedAlpha: 0.3
   fadeSpeed: 8
   canBeOccluded: 1
@@ -463,7 +466,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2244532948124785810}
-  - component: {fileID: -7356492847670871909}
   m_Layer: 0
   m_Name: M1
   m_TagString: Tree
@@ -488,21 +490,3 @@ Transform:
   - {fileID: 3563393122257728107}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &-7356492847670871909
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8805118565538031545}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  occludedAlpha: 0.3
-  fadeSpeed: 8
-  canBeOccluded: 1
-  usePixelSampling: 1
-  alphaThreshold: 0.1
-  samplePointCount: 5

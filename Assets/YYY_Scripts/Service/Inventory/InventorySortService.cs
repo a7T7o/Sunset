@@ -11,28 +11,67 @@ public class InventorySortService : MonoBehaviour
 {
     [SerializeField] private InventoryService inventory;
     [SerializeField] private ItemDatabase database;
-    
+    private const int SortStartIndex = 0;
+
     void Awake()
     {
-        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
-        if (database == null && inventory != null) database = inventory.Database;
+        ResolveRuntimeContext();
     }
-    
+
+    public void RebindRuntimeContext(InventoryService runtimeInventory, ItemDatabase runtimeDatabase = null)
+    {
+        if (runtimeInventory != null)
+        {
+            inventory = runtimeInventory;
+        }
+
+        if (runtimeDatabase != null)
+        {
+            database = runtimeDatabase;
+        }
+        else if (inventory != null)
+        {
+            database = inventory.Database;
+        }
+    }
+
+    private void ResolveRuntimeContext()
+    {
+        InventoryService preferredRuntimeInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService();
+        if (preferredRuntimeInventory != null)
+        {
+            inventory = preferredRuntimeInventory;
+        }
+        else if (inventory == null)
+        {
+            inventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+        }
+
+        if (inventory != null)
+        {
+            database = inventory.Database;
+        }
+    }
+
     /// <summary>
     /// 整理背包（合并 + 排序）
     /// 只整理 Up 区域（0-35），不影响装备栏
     /// </summary>
     public void SortInventory()
     {
+        ResolveRuntimeContext();
+
         if (inventory == null || database == null)
         {
             Debug.LogWarning("[InventorySortService] inventory 或 database 为 null");
             return;
         }
-        
-        // 1. 收集所有物品
+
+        // 1. 收集整包物品；玩家当前裁定是“背包 sort 必须按整包统一整理”，
+        // 不能再只整理背包下半区，留下第一行像没参与排序一样。
         var runtimeItems = new List<InventoryItem>();
-        for (int i = 0; i < 36; i++)
+        for (int i = SortStartIndex; i < inventory.Capacity; i++)
         {
             var runtimeItem = inventory.GetInventoryItem(i);
             if (runtimeItem != null && !runtimeItem.IsEmpty)
@@ -41,27 +80,32 @@ public class InventorySortService : MonoBehaviour
                 inventory.SetInventoryItem(i, null);
             }
         }
-        
+
         // 2. 合并仅允许堆叠的普通物品，保留工具/动态实例的运行时状态
         var items = MergeRuntimeItems(runtimeItems);
-        
+
         // 3. 按优先级排序
         items = items.OrderBy(s => GetPriority(s))
                      .ThenBy(s => s.ItemId)
                      .ThenBy(s => s.Quality)
                      .ToList();
-        
+
         // 4. 放回槽位
-        int slotIndex = 0;
+        int slotIndex = SortStartIndex;
         foreach (var stack in items)
         {
-            if (slotIndex >= 36) break;
+            if (slotIndex >= inventory.Capacity) break;
             inventory.SetInventoryItem(slotIndex++, stack);
         }
-        
+
+        while (slotIndex < inventory.Capacity)
+        {
+            inventory.SetInventoryItem(slotIndex++, null);
+        }
+
         Debug.Log($"[InventorySortService] 整理完成: {items.Count} 种物品");
     }
-    
+
     /// <summary>
     /// 合并相同物品
     /// </summary>
@@ -69,7 +113,7 @@ public class InventorySortService : MonoBehaviour
     {
         var groupedAmounts = new Dictionary<(int id, int quality), int>();
         var result = new List<InventoryItem>();
-        
+
         foreach (var item in items)
         {
             if (item == null || item.IsEmpty)
@@ -101,10 +145,10 @@ public class InventorySortService : MonoBehaviour
                 remaining -= amount;
             }
         }
-        
+
         return result;
     }
-    
+
     /// <summary>
     /// 获取物品排序优先级（数字越小越靠前）
     /// </summary>
@@ -112,7 +156,7 @@ public class InventorySortService : MonoBehaviour
     {
         var itemData = database?.GetItemByID(stack.ItemId);
         if (itemData == null) return 999;
-        
+
         // 工具 > 武器 > 可放置 > 种子 > 消耗品 > 材料 > 其他
         if (itemData is ToolData) return 0;
         if (itemData is WeaponData) return 1;
@@ -120,7 +164,7 @@ public class InventorySortService : MonoBehaviour
         if (itemData is SeedData) return 3;
         if (itemData.category == ItemCategory.Consumable) return 4;
         if (itemData.category == ItemCategory.Material) return 5;
-        
+
         return 6;
     }
 }

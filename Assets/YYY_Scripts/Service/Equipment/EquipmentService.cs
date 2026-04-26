@@ -10,7 +10,7 @@ using FarmGame.Data.Core;
 /// - 提供从背包双击/拖拽装备入口
 /// - 实现 IPersistentObject 支持存档
 /// - 支持槽位类型限制（戒指不能戴头上）
-/// 
+///
 /// 槽位映射：
 /// - 0: Helmet (头盔)
 /// - 1: Pants (裤子)
@@ -26,6 +26,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     [SerializeField] private ItemDatabase database;
     [SerializeField] private InventoryItem[] equips = new InventoryItem[EquipSlots];
     [SerializeField] private string persistentId;
+    private bool _registeredWithPersistentRegistry;
 
     public event Action<int> OnEquipSlotChanged; // 0..5
 
@@ -44,7 +45,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     }
 
     public string ObjectType => "EquipmentService";
-    
+
     public bool ShouldSave => true;
 
     public WorldObjectSaveData Save()
@@ -56,11 +57,11 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
             sceneName = gameObject.scene.name,
             isActive = gameObject.activeSelf
         };
-        
+
         // 保存装备数据到 genericData
         var equipData = new EquipmentSaveData();
         equipData.slots = new InventorySlotSaveData[EquipSlots];
-        
+
         for (int i = 0; i < equips.Length; i++)
         {
             var item = equips[i];
@@ -69,10 +70,10 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
                 equipData.slots[i] = new InventorySlotSaveData { slotIndex = i };
                 continue;
             }
-            
+
             // 死命令：Save 时必须调用 PrepareForSerialization
             item.PrepareForSerialization();
-            
+
             equipData.slots[i] = new InventorySlotSaveData
             {
                 slotIndex = i,
@@ -93,7 +94,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
                 }
             }
         }
-        
+
         data.genericData = JsonUtility.ToJson(equipData);
         return data;
     }
@@ -101,7 +102,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     public void Load(WorldObjectSaveData data)
     {
         if (data == null || string.IsNullOrEmpty(data.genericData)) return;
-        
+
         try
         {
             var equipData = JsonUtility.FromJson<EquipmentSaveData>(data.genericData);
@@ -115,10 +116,10 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
                         equips[i] = null;
                         continue;
                     }
-                    
+
                     equips[i] = SaveDataHelper.FromSaveData(slotData);
                 }
-                
+
                 // 通知所有槽位更新
                 for (int i = 0; i < EquipSlots; i++)
                 {
@@ -138,6 +139,47 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     {
         for (int i = 0; i < equips.Length; i++)
             equips[i] = null;
+    }
+
+    void Start()
+    {
+        RegisterWithPersistentRegistry();
+    }
+
+    void OnDestroy()
+    {
+        UnregisterFromPersistentRegistry();
+    }
+
+    private void RegisterWithPersistentRegistry()
+    {
+        EquipmentService preferredRuntimeEquipment = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService();
+        if (preferredRuntimeEquipment != null && preferredRuntimeEquipment != this)
+        {
+            _registeredWithPersistentRegistry = false;
+            return;
+        }
+
+        PersistentObjectRegistry registry = PersistentObjectRegistry.Instance;
+        if (registry == null)
+        {
+            _registeredWithPersistentRegistry = false;
+            return;
+        }
+
+        _registeredWithPersistentRegistry = registry.TryRegister(this);
+    }
+
+    private void UnregisterFromPersistentRegistry()
+    {
+        if (!_registeredWithPersistentRegistry || PersistentObjectRegistry.Instance == null)
+        {
+            _registeredWithPersistentRegistry = false;
+            return;
+        }
+
+        PersistentObjectRegistry.Instance.Unregister(this);
+        _registeredWithPersistentRegistry = false;
     }
 
     public void SetDatabase(ItemDatabase db) => database = db;
@@ -161,7 +203,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     {
         if (!InRange(index)) return false;
         item = ToolRuntimeUtility.NormalizeInventoryItem(item, database);
-        
+
         // 槽位限制检查
         if (item != null && !item.IsEmpty)
         {
@@ -172,7 +214,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
                 return false;
             }
         }
-        
+
         equips[index] = item;
         OnEquipSlotChanged?.Invoke(index);
         return true;
@@ -200,14 +242,14 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     public bool SetEquip(int index, ItemStack stack)
     {
         if (!InRange(index)) return false;
-        
+
         if (stack.IsEmpty)
         {
             equips[index] = null;
             OnEquipSlotChanged?.Invoke(index);
             return true;
         }
-        
+
         // 槽位限制检查
         var itemData = database?.GetItemByID(stack.itemId);
         if (!CanEquipAt(index, itemData))
@@ -215,12 +257,12 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
             Debug.LogWarning($"[EquipmentService] 无法装备: {itemData?.itemName} 不能放入槽位 {index}");
             return false;
         }
-        
+
         equips[index] = ToolRuntimeUtility.CreateRuntimeItem(database, stack.itemId, stack.quality, stack.amount);
         OnEquipSlotChanged?.Invoke(index);
         return true;
     }
-    
+
     /// <summary>
     /// 清空指定槽位
     /// </summary>
@@ -247,10 +289,10 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     public bool CanEquipAt(int slotIndex, ItemData itemData)
     {
         if (itemData == null) return false;
-        
+
         // 获取装备类型
         EquipmentType eqType = EquipmentType.None;
-        
+
         // 优先检查 EquipmentData 子类
         // 注意：EquipmentData 在 FarmGame.Data 命名空间中
         if (itemData.GetType().Name == "EquipmentData")
@@ -267,7 +309,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
             // 回退到基类的 equipmentType
             eqType = itemData.equipmentType;
         }
-        
+
         // 如果没有装备类型，检查是否是工具/武器（旧逻辑兼容）
         if (eqType == EquipmentType.None)
         {
@@ -278,7 +320,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
             }
             return false;
         }
-        
+
         // 槽位类型匹配检查
         return slotIndex switch
         {
@@ -329,7 +371,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
 
         // 确定目标槽位
         int target = -1;
-        
+
         if (preferredEquipIndex >= 0 && InRange(preferredEquipIndex))
         {
             // 检查指定槽位是否允许该装备类型
@@ -338,13 +380,13 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
                 target = preferredEquipIndex;
             }
         }
-        
+
         // 如果没有指定槽位或指定槽位不允许，自动查找合适的空槽位
         if (target < 0)
         {
             target = FindSuitableEmptySlot(itemData);
         }
-        
+
         if (target < 0)
         {
             Debug.Log("[EquipmentService] 没有合适的空槽位。");
@@ -378,10 +420,10 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     public bool UnequipToInventory(InventoryService inv, int equipIndex)
     {
         if (inv == null || !InRange(equipIndex)) return false;
-        
+
         var item = equips[equipIndex];
         if (item == null || item.IsEmpty) return false;
-        
+
         // 尝试添加到背包（使用 ItemStack 兼容接口）
         bool success = (item.HasDurability || item.HasDynamicProperties)
             ? inv.AddInventoryItem(item)
@@ -393,7 +435,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
             OnEquipSlotChanged?.Invoke(equipIndex);
             return true;
         }
-        
+
         Debug.LogWarning("[EquipmentService] 背包空间不足，无法卸下。");
         return false;
     }
@@ -404,7 +446,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
     private int FindSuitableEmptySlot(ItemData itemData)
     {
         if (itemData == null) return FindFirstEmpty();
-        
+
         // 获取装备类型
         EquipmentType eqType = EquipmentType.None;
         if (itemData.GetType().Name == "EquipmentData")
@@ -419,13 +461,13 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
         {
             eqType = itemData.equipmentType;
         }
-        
+
         // 如果没有装备类型（工具/武器），返回第一个空槽位
         if (eqType == EquipmentType.None)
         {
             return FindFirstEmpty();
         }
-        
+
         // 根据装备类型查找对应的空槽位
         int[] candidateSlots = eqType switch
         {
@@ -436,7 +478,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
             EquipmentType.Ring => new[] { 4, 5 },
             _ => new int[0]
         };
-        
+
         foreach (int slot in candidateSlots)
         {
             if (equips[slot] == null || equips[slot].IsEmpty)
@@ -444,7 +486,7 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
                 return slot;
             }
         }
-        
+
         return -1;
     }
 
@@ -465,10 +507,10 @@ public class EquipmentService : MonoBehaviour, IPersistentObject
         if (database == null) return false;
         var data = database.GetItemByID(itemId);
         if (data == null) return false;
-        
+
         // EquipmentData 子类可装备
         if (data.GetType().Name == "EquipmentData") return true;
-        
+
         // 工具和武器可装备（旧逻辑兼容）
         return data is ToolData || data is WeaponData;
     }

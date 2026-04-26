@@ -1000,6 +1000,13 @@ public class FarmRuntimeLiveValidationRunner : MonoBehaviour
     {
         return text == "这么不耐用吗？" ||
                text == "看来得换个好点的了。" ||
+               text == "旧的不去新的不来" ||
+               text == "碎碎平安" ||
+               text == "哎哟搞什么鬼" ||
+               text == "唉" ||
+               text == "只能忍痛割爱了！" ||
+               text == "就决定是你了！" ||
+               text == "豁出去了！" ||
                text == "哎哟，搞什么鬼？" ||
                text == "诶，好吧…" ||
                text == "旧的不去新的不来！" ||

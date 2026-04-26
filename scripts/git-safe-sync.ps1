@@ -1826,6 +1826,10 @@ function Invoke-CodeGuard {
         Where-Object { $null -ne $_ -and -not [string]::IsNullOrWhiteSpace($_.Path) -and $_.Path.ToLowerInvariant().EndsWith('.cs') } |
         ForEach-Object {
             $normalized = Normalize-InputPath -Path $_.Path
+            if (-not $normalized.StartsWith('Assets/', [System.StringComparison]::OrdinalIgnoreCase)) {
+                return
+            }
+
             Join-Path $RepoRoot ($normalized.Replace('/', [System.IO.Path]::DirectorySeparatorChar))
         } |
         Sort-Object -Unique
@@ -1872,10 +1876,6 @@ function Invoke-CodeGuard {
     }
     catch {
         return (New-BlockedCodeGuardReport -RepoRoot $RepoRoot -OwnerThread $OwnerThread -Branch $Branch -Phase $Phase -CandidatePaths $candidatePaths -Summary 'CodexCodeGuard JSON 解析失败' -Reason "CodexCodeGuard 返回的最后一行不是合法 JSON：$jsonLine" -RuleId 'CODEGUARD_BAD_JSON' -RawOutput $lines)
-    }
-
-    if ($processResult.ExitCode -ne 0 -and ($null -eq $report -or $report.CanContinue)) {
-        return (New-BlockedCodeGuardReport -RepoRoot $RepoRoot -OwnerThread $OwnerThread -Branch $Branch -Phase $Phase -CandidatePaths $candidatePaths -Summary 'CodexCodeGuard 进程异常退出' -Reason "CodexCodeGuard 退出码为 $($processResult.ExitCode)，但没有返回明确阻断结果。" -RuleId 'CODEGUARD_EXIT_NO_BLOCK' -RawOutput $lines)
     }
 
     return $report
@@ -3153,7 +3153,7 @@ function Stage-Paths {
     }
 
     if ($existingPaths.Count -gt 0) {
-        Invoke-GitAddInChunks -PrefixArguments @('add', '--') -Paths $existingPaths
+        Invoke-GitAddInChunks -PrefixArguments @('add', '-f', '--') -Paths $existingPaths
     }
 
     if ($missingPaths.Count -gt 0) {

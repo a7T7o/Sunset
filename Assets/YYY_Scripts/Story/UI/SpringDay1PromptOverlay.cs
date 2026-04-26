@@ -72,8 +72,10 @@ namespace Sunset.Story
         private Coroutine _transitionCoroutine;
         private PromptCardViewState _displayedState;
         private PromptCardViewState _pendingState;
+        private BridgePromptViewState _pendingBridgePromptState;
         private bool _hasDisplayedState;
         private bool _externallySuppressedByModalUi;
+        private bool _suspendBridgePromptSync;
         private float _visibilityAlpha;
         private float _boundaryFocusAlpha = 1f;
         private PageRefs _frontPage;
@@ -239,6 +241,11 @@ namespace Sunset.Story
                 SetExternalVisibilityBlock(blockedByParentModalUi);
             }
 
+            PromptCardViewState nextState = BuildCurrentViewState();
+            BridgePromptViewState bridgePromptState = BuildCurrentBridgePromptState();
+            _pendingState = nextState;
+            _pendingBridgePromptState = bridgePromptState;
+
             if (ShouldDelayPromptDisplay())
             {
                 if (_visibilityAlpha > 0.001f)
@@ -249,24 +256,30 @@ namespace Sunset.Story
                 return;
             }
 
-            PromptCardViewState nextState = BuildCurrentViewState();
-            BridgePromptViewState bridgePromptState = BuildCurrentBridgePromptState();
-            _pendingState = nextState;
-
             if (_pendingState == null)
             {
-                ApplyBridgePromptState(null);
+                if (!_suspendBridgePromptSync)
+                {
+                    ApplyBridgePromptState(null);
+                }
                 FadeCanvasGroup(0f, false);
                 return;
             }
 
-            ApplyBridgePromptState(bridgePromptState);
+            if (!_suspendBridgePromptSync)
+            {
+                ApplyBridgePromptState(bridgePromptState);
+            }
 
             if (NeedsReadableContentRecovery(_pendingState))
             {
                 ApplyState(_pendingState);
                 _displayedState = _pendingState;
                 _hasDisplayedState = true;
+                if (!_suspendBridgePromptSync)
+                {
+                    ApplyBridgePromptState(_pendingBridgePromptState);
+                }
                 FadeCanvasGroup(1f, false);
                 return;
             }
@@ -275,6 +288,10 @@ namespace Sunset.Story
             {
                 ApplyState(_pendingState);
                 _displayedState = _pendingState;
+                if (!_suspendBridgePromptSync)
+                {
+                    ApplyBridgePromptState(_pendingBridgePromptState);
+                }
                 FadeCanvasGroup(1f, false);
                 return;
             }
@@ -284,6 +301,10 @@ namespace Sunset.Story
                 ApplyState(_pendingState);
                 _displayedState = _pendingState;
                 _hasDisplayedState = true;
+                if (!_suspendBridgePromptSync)
+                {
+                    ApplyBridgePromptState(_pendingBridgePromptState);
+                }
                 FadeCanvasGroup(1f, false);
                 return;
             }
@@ -402,12 +423,14 @@ namespace Sunset.Story
 
             if (blocked)
             {
+                _suspendBridgePromptSync = false;
                 FadeCanvasGroup(0f, false);
                 return;
             }
 
             if (_pendingState == null)
             {
+                ApplyBridgePromptState(null);
                 FadeCanvasGroup(0f, false);
                 return;
             }
@@ -423,15 +446,22 @@ namespace Sunset.Story
                 ApplyState(_pendingState);
                 _displayedState = _pendingState;
                 _hasDisplayedState = true;
+                ApplyBridgePromptState(_pendingBridgePromptState);
             }
             else if (_displayedState.DisplaySignature != _pendingState.DisplaySignature)
             {
-                ApplyState(_pendingState);
-                _displayedState = _pendingState;
+                if (_transitionCoroutine == null)
+                {
+                    _transitionCoroutine = StartCoroutine(TransitionToPendingState());
+                }
             }
             else if (_displayedState.Signature != _pendingState.Signature)
             {
                 ApplyPendingStateWithoutTransition();
+            }
+            else
+            {
+                ApplyBridgePromptState(_pendingBridgePromptState);
             }
 
             FadeCanvasGroup(1f, false);
@@ -460,8 +490,20 @@ namespace Sunset.Story
 
             if (_pendingState == null)
             {
+                ApplyBridgePromptState(null);
                 FadeCanvasGroup(0f, true);
                 return;
+            }
+
+            if (_displayedState != null
+                && _displayedState.DisplaySignature != _pendingState.DisplaySignature
+                && _transitionCoroutine == null)
+            {
+                _transitionCoroutine = StartCoroutine(TransitionToPendingState());
+            }
+            else if (!_suspendBridgePromptSync)
+            {
+                ApplyBridgePromptState(_pendingBridgePromptState);
             }
 
             FadeCanvasGroup(1f, true);
@@ -1929,6 +1971,7 @@ namespace Sunset.Story
         private void RefreshPendingState()
         {
             _pendingState = BuildCurrentViewState();
+            _pendingBridgePromptState = BuildCurrentBridgePromptState();
         }
 
         private void ApplyBridgePromptState(BridgePromptViewState state)
@@ -1970,6 +2013,10 @@ namespace Sunset.Story
             ApplyState(_pendingState);
             _displayedState = _pendingState;
             _hasDisplayedState = true;
+            if (!_suspendBridgePromptSync)
+            {
+                ApplyBridgePromptState(_pendingBridgePromptState);
+            }
         }
 
         private IEnumerator TransitionToPendingState()
@@ -1981,6 +2028,16 @@ namespace Sunset.Story
             }
 
             PromptCardViewState targetState = _pendingState;
+            BridgePromptViewState targetBridgeState = _pendingBridgePromptState;
+            bool lockBridgePrompt = _displayedState != null
+                && targetState != null
+                && _displayedState.DisplaySignature != targetState.DisplaySignature;
+
+            if (lockBridgePrompt)
+            {
+                _suspendBridgePromptSync = true;
+                ApplyBridgePromptState(null);
+            }
 
             if (_displayedState != null)
             {
@@ -2038,6 +2095,11 @@ namespace Sunset.Story
 
             _displayedState = targetState;
             _hasDisplayedState = true;
+            if (lockBridgePrompt)
+            {
+                _suspendBridgePromptSync = false;
+                ApplyBridgePromptState(_pendingBridgePromptState ?? targetBridgeState);
+            }
             _transitionCoroutine = null;
 
             if (_pendingState != null)
@@ -3393,6 +3455,11 @@ namespace Sunset.Story
 
         private void EnsureHudSiblingOrder()
         {
+            if (SpringDay1UiLayerUtility.ShouldHidePromptOverlayForParentModalUi())
+            {
+                return;
+            }
+
             Transform parent = transform.parent;
             if (parent == null)
             {

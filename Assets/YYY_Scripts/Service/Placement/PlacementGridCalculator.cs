@@ -8,7 +8,7 @@ using System.Collections.Generic;
 public static class PlacementGridCalculator
 {
     #region 方块中心计算
-    
+
     /// <summary>
     /// 计算方块中心坐标
     /// 鼠标所在方块的中心 = Floor(pos) + 0.5
@@ -23,7 +23,7 @@ public static class PlacementGridCalculator
             worldPosition.z
         );
     }
-    
+
     /// <summary>
     /// 计算方块中心坐标（2D版本）
     /// </summary>
@@ -34,7 +34,7 @@ public static class PlacementGridCalculator
             Mathf.Floor(worldPosition.y) + 0.5f
         );
     }
-    
+
     /// <summary>
     /// 获取坐标所在的格子索引
     /// </summary>
@@ -45,11 +45,11 @@ public static class PlacementGridCalculator
             Mathf.FloorToInt(worldPosition.y)
         );
     }
-    
+
     #endregion
-    
+
     #region 格子大小计算
-    
+
     /// <summary>
     /// 计算物品占用的格子数量（基于 Collider）
     /// 使用向上取整，确保格子能完全包裹 Collider
@@ -60,14 +60,14 @@ public static class PlacementGridCalculator
     {
         int width = Mathf.CeilToInt(colliderBounds.size.x);
         int height = Mathf.CeilToInt(colliderBounds.size.y);
-        
+
         // 最小为 1x1
         return new Vector2Int(
             Mathf.Max(1, width),
             Mathf.Max(1, height)
         );
     }
-    
+
     /// <summary>
     /// 计算物品占用的格子数量（基于 Collider2D）
     /// </summary>
@@ -75,10 +75,10 @@ public static class PlacementGridCalculator
     {
         if (collider == null)
             return Vector2Int.one;
-        
+
         return GetRequiredGridSize(collider.bounds);
     }
-    
+
     /// <summary>
     /// 计算物品占用的格子数量（基于预制体）
     /// 修改：优先使用 GetRequiredGridSizeFromPrefab 从 Collider 路径计算
@@ -88,11 +88,11 @@ public static class PlacementGridCalculator
         // 使用新方法从 Collider 路径计算，避免 bounds 在未实例化预制体上的问题
         return GetRequiredGridSizeFromPrefab(prefab);
     }
-    
+
     #endregion
-    
+
     #region 占用格子计算
-    
+
     /// <summary>
     /// 获取所有占用的格子位置（世界坐标）
     /// 修复：确保所有格子中心都在整数+0.5的位置
@@ -103,18 +103,18 @@ public static class PlacementGridCalculator
     public static List<Vector3> GetOccupiedCellCenters(Vector3 center, Vector2Int gridSize)
     {
         var cells = new List<Vector3>();
-        
+
         // 计算鼠标所在格子的索引
         int centerCellX = Mathf.FloorToInt(center.x);
         int centerCellY = Mathf.FloorToInt(center.y);
-        
+
         // 计算起始格子索引（使格子以鼠标所在格子为锚点）
         // 对于 1x1：startX = centerCellX
         // 对于 2x1：startX = centerCellX（以鼠标所在格子为左侧格子）
         // 对于 3x1：startX = centerCellX - 1（以鼠标所在格子为中间格子）
         int startX = centerCellX - (gridSize.x - 1) / 2;
         int startY = centerCellY - (gridSize.y - 1) / 2;
-        
+
         for (int x = 0; x < gridSize.x; x++)
         {
             for (int y = 0; y < gridSize.y; y++)
@@ -128,10 +128,10 @@ public static class PlacementGridCalculator
                 cells.Add(cellCenter);
             }
         }
-        
+
         return cells;
     }
-    
+
     /// <summary>
     /// 获取所有占用的格子索引
     /// 修复：与 GetOccupiedCellCenters() 保持一致的计算逻辑
@@ -142,15 +142,15 @@ public static class PlacementGridCalculator
     public static List<Vector2Int> GetOccupiedCellIndices(Vector3 center, Vector2Int gridSize)
     {
         var indices = new List<Vector2Int>();
-        
+
         // 计算鼠标所在格子的索引
         int centerCellX = Mathf.FloorToInt(center.x);
         int centerCellY = Mathf.FloorToInt(center.y);
-        
+
         // 计算起始格子索引（与 GetOccupiedCellCenters 保持一致）
         int startX = centerCellX - (gridSize.x - 1) / 2;
         int startY = centerCellY - (gridSize.y - 1) / 2;
-        
+
         for (int x = 0; x < gridSize.x; x++)
         {
             for (int y = 0; y < gridSize.y; y++)
@@ -158,14 +158,14 @@ public static class PlacementGridCalculator
                 indices.Add(new Vector2Int(startX + x, startY + y));
             }
         }
-        
+
         return indices;
     }
-    
+
     #endregion
-    
+
     #region PolygonCollider2D 计算方法
-    
+
     /// <summary>
     /// 从 PolygonCollider2D 计算本地空间边界
     /// </summary>
@@ -175,7 +175,7 @@ public static class PlacementGridCalculator
     {
         float minX = float.MaxValue, maxX = float.MinValue;
         float minY = float.MaxValue, maxY = float.MinValue;
-        
+
         for (int i = 0; i < collider.pathCount; i++)
         {
             Vector2[] path = collider.GetPath(i);
@@ -189,26 +189,26 @@ public static class PlacementGridCalculator
                 maxY = Mathf.Max(maxY, localPoint.y);
             }
         }
-        
+
         return (new Vector2(minX, minY), new Vector2(maxX, maxY));
     }
-    
+
     /// <summary>
     /// 从 PolygonCollider2D 计算格子大小
     /// </summary>
     private static Vector2Int GetGridSizeFromPolygonCollider(PolygonCollider2D collider)
     {
         var (min, max) = GetPolygonColliderLocalBounds(collider);
-        
+
         float width = max.x - min.x;
         float height = max.y - min.y;
-        
+
         return new Vector2Int(
             Mathf.Max(1, Mathf.CeilToInt(width)),
             Mathf.Max(1, Mathf.CeilToInt(height))
         );
     }
-    
+
     /// <summary>
     /// 从 BoxCollider2D 计算格子大小
     /// </summary>
@@ -219,7 +219,7 @@ public static class PlacementGridCalculator
             Mathf.Max(1, Mathf.CeilToInt(collider.size.y))
         );
     }
-    
+
     /// <summary>
     /// 从预制体的 Collider 计算格子大小（正确处理本地空间）
     /// 优先使用 PolygonCollider2D，其次 BoxCollider2D，最后 Sprite
@@ -229,21 +229,21 @@ public static class PlacementGridCalculator
     public static Vector2Int GetRequiredGridSizeFromPrefab(GameObject prefab)
     {
         if (prefab == null) return Vector2Int.one;
-        
+
         // 1. 尝试 PolygonCollider2D
         var polyCollider = prefab.GetComponentInChildren<PolygonCollider2D>();
         if (polyCollider != null && polyCollider.pathCount > 0)
         {
             return GetGridSizeFromPolygonCollider(polyCollider);
         }
-        
+
         // 2. 尝试 BoxCollider2D
         var boxCollider = prefab.GetComponentInChildren<BoxCollider2D>();
         if (boxCollider != null)
         {
             return GetGridSizeFromBoxCollider(boxCollider);
         }
-        
+
         // 3. 回退到 Sprite
         var spriteRenderer = prefab.GetComponentInChildren<SpriteRenderer>();
         if (spriteRenderer != null && spriteRenderer.sprite != null)
@@ -254,11 +254,11 @@ public static class PlacementGridCalculator
                 Mathf.Max(1, Mathf.CeilToInt(spriteBounds.size.y))
             );
         }
-        
+
         // 4. 默认 1x1
         return Vector2Int.one;
     }
-    
+
     /// <summary>
     /// 获取预制体 Collider 的本地空间几何中心
     /// 这个中心点将作为放置时的锚点
@@ -268,7 +268,7 @@ public static class PlacementGridCalculator
     public static Vector2 GetColliderLocalCenter(GameObject prefab)
     {
         if (prefab == null) return Vector2.zero;
-        
+
         // 1. 尝试 PolygonCollider2D
         var polyCollider = prefab.GetComponentInChildren<PolygonCollider2D>();
         if (polyCollider != null && polyCollider.pathCount > 0)
@@ -276,22 +276,123 @@ public static class PlacementGridCalculator
             var (min, max) = GetPolygonColliderLocalBounds(polyCollider);
             return new Vector2((min.x + max.x) / 2f, (min.y + max.y) / 2f);
         }
-        
+
         // 2. 尝试 BoxCollider2D
         var boxCollider = prefab.GetComponentInChildren<BoxCollider2D>();
         if (boxCollider != null)
         {
             return boxCollider.offset;
         }
-        
+
         // 3. 默认返回零点
         return Vector2.zero;
     }
-    
+
+    /// <summary>
+    /// 尝试获取预制体在根节点本地空间下的 Collider 包络。
+    /// 只服务于放置 reach envelope，不依赖实例化后的 world bounds。
+    /// </summary>
+    public static bool TryGetPlacementLocalColliderBounds(GameObject prefab, out Bounds localBounds)
+    {
+        localBounds = default;
+        if (prefab == null)
+        {
+            return false;
+        }
+
+        Collider2D[] colliders = prefab.GetComponentsInChildren<Collider2D>(true);
+        bool hasBounds = false;
+
+        for (int i = 0; i < colliders.Length; i++)
+        {
+            Collider2D collider = colliders[i];
+            if (collider == null || !collider.enabled)
+            {
+                continue;
+            }
+
+            if (!TryGetColliderLocalBounds(prefab.transform, collider, out Bounds candidateBounds))
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                localBounds = candidateBounds;
+                hasBounds = true;
+            }
+            else
+            {
+                localBounds.Encapsulate(candidateBounds.min);
+                localBounds.Encapsulate(candidateBounds.max);
+            }
+        }
+
+        return hasBounds;
+    }
+
+    /// <summary>
+    /// 尝试根据预制体 Collider 计算当前预览格的 reach envelope。
+    /// 这个 envelope 专门给导航到位判定用，不再把高 sprite 包络混进去。
+    /// </summary>
+    public static bool TryGetPlacementReachEnvelopeBounds(Vector3 mouseGridCenter, GameObject prefab, out Bounds bounds)
+    {
+        bounds = default;
+
+        if (!TryGetPlacementLocalColliderBounds(prefab, out Bounds localBounds))
+        {
+            return false;
+        }
+
+        Vector3 placementPosition = GetPlacementPosition(mouseGridCenter, prefab);
+        Vector3 worldCenter = placementPosition + (Vector3)localBounds.center;
+        worldCenter.z = mouseGridCenter.z;
+
+        Vector3 size = localBounds.size;
+        size.x = Mathf.Max(0.05f, Mathf.Abs(size.x));
+        size.y = Mathf.Max(0.05f, Mathf.Abs(size.y));
+        size.z = Mathf.Max(0.01f, Mathf.Abs(size.z));
+
+        bounds = new Bounds(worldCenter, size);
+        return true;
+    }
+
+    private static Vector2 GetPlacementColliderLocalCenter(GameObject prefab)
+    {
+        if (prefab == null)
+        {
+            return Vector2.zero;
+        }
+
+        // 树苗预览/落地最终都会吃到 TreeController 的 runtime bottom-align，
+        // 如果这里直接拿静态 prefab collider center，就会把树苗再次带偏。
+        if (ShouldUseBottomAlignedPlacementAnchor(prefab))
+        {
+            return GetColliderCenterAfterBottomAlign(prefab);
+        }
+
+        if (TryGetPlacementLocalColliderBounds(prefab, out Bounds localBounds))
+        {
+            return localBounds.center;
+        }
+
+        return GetColliderLocalCenter(prefab);
+    }
+
+    private static bool ShouldUseBottomAlignedPlacementAnchor(GameObject prefab)
+    {
+        if (prefab == null)
+        {
+            return false;
+        }
+
+        return prefab.GetComponentInChildren<TreeController>(true) != null;
+    }
+
     /// <summary>
     /// 计算底部对齐后 Collider 中心相对于物品原点的位置
     /// 这是预览和放置都需要使用的核心计算
-    /// 
+    ///
     /// 原理：TreeController 和 ChestController 在 Awake/Start 时会执行底部对齐
     /// 底部对齐会将 Sprite 的 localPosition.y 设置为 -sprite.bounds.min.y
     /// 这会改变 Collider 相对于物品原点的位置
@@ -301,30 +402,83 @@ public static class PlacementGridCalculator
     public static Vector2 GetColliderCenterAfterBottomAlign(GameObject prefab)
     {
         if (prefab == null) return Vector2.zero;
-        
+
         var sr = prefab.GetComponentInChildren<SpriteRenderer>();
-        
+
         // 如果没有 SpriteRenderer，不会执行底部对齐，回退到原始 Collider 中心
         if (sr == null || sr.sprite == null)
         {
             return GetColliderLocalCenter(prefab);
         }
-        
+
         // 计算底部对齐偏移：-sprite.bounds.min.y
         float bottomAlignOffset = -sr.sprite.bounds.min.y;
-        
+
         // 获取原始 Collider 中心
         Vector2 colliderCenter = GetColliderLocalCenter(prefab);
-        
+
         // 底部对齐后，Collider 中心相对于物品原点的位置
         // Y 坐标需要加上底部对齐偏移
         return new Vector2(colliderCenter.x, colliderCenter.y + bottomAlignOffset);
     }
-    
+
+    private static bool TryGetColliderLocalBounds(Transform rootTransform, Collider2D collider, out Bounds bounds)
+    {
+        bounds = default;
+        if (rootTransform == null || collider == null)
+        {
+            return false;
+        }
+
+        Vector2 rootPosition = rootTransform.position;
+        Vector2 relativePosition = (Vector2)collider.transform.position - rootPosition;
+        Vector3 lossyScale3 = collider.transform.lossyScale;
+        Vector2 absScale = new Vector2(Mathf.Abs(lossyScale3.x), Mathf.Abs(lossyScale3.y));
+
+        switch (collider)
+        {
+            case BoxCollider2D boxCollider:
+            {
+                Vector2 center = relativePosition + Vector2.Scale(boxCollider.offset, absScale);
+                Vector2 size = Vector2.Scale(boxCollider.size, absScale);
+                bounds = new Bounds(center, new Vector3(size.x, size.y, 0.01f));
+                return true;
+            }
+            case CircleCollider2D circleCollider:
+            {
+                Vector2 center = relativePosition + Vector2.Scale(circleCollider.offset, absScale);
+                Vector2 size = new Vector2(circleCollider.radius * absScale.x * 2f, circleCollider.radius * absScale.y * 2f);
+                bounds = new Bounds(center, new Vector3(size.x, size.y, 0.01f));
+                return true;
+            }
+            case CapsuleCollider2D capsuleCollider:
+            {
+                Vector2 center = relativePosition + Vector2.Scale(capsuleCollider.offset, absScale);
+                Vector2 size = Vector2.Scale(capsuleCollider.size, absScale);
+                bounds = new Bounds(center, new Vector3(size.x, size.y, 0.01f));
+                return true;
+            }
+            case PolygonCollider2D polygonCollider when polygonCollider.pathCount > 0:
+            {
+                var (min, max) = GetPolygonColliderLocalBounds(polygonCollider);
+                Vector2 scaledMin = relativePosition + Vector2.Scale(min, absScale);
+                Vector2 scaledMax = relativePosition + Vector2.Scale(max, absScale);
+                Vector2 realMin = Vector2.Min(scaledMin, scaledMax);
+                Vector2 realMax = Vector2.Max(scaledMin, scaledMax);
+                Vector2 center = (realMin + realMax) * 0.5f;
+                Vector2 size = realMax - realMin;
+                bounds = new Bounds(center, new Vector3(size.x, size.y, 0.01f));
+                return true;
+            }
+            default:
+                return false;
+        }
+    }
+
     /// <summary>
     /// 计算预览 Sprite 的 localPosition
     /// 使放置后 Collider 中心对齐到格子中心
-    /// 
+    ///
     /// 注意：此方法假设 PlacementPreviewV3.transform.position 是鼠标所在格子的中心
     /// 对于多格子物品，需要额外计算格子几何中心的偏移
     /// </summary>
@@ -333,10 +487,10 @@ public static class PlacementGridCalculator
     public static Vector3 GetPreviewSpriteLocalPosition(GameObject prefab)
     {
         if (prefab == null) return Vector3.zero;
-        
+
         // 获取格子大小
         Vector2Int gridSize = GetRequiredGridSizeFromPrefab(prefab);
-        
+
         // 计算格子几何中心相对于鼠标所在格子中心的偏移
         // 对于 1x1：偏移 = (0, 0)
         // 对于 2x1：偏移 = (0.5, 0) - 因为格子从鼠标所在格子向右扩展
@@ -345,44 +499,37 @@ public static class PlacementGridCalculator
         // 简化：对于偶数宽度，偏移 = 0.5；对于奇数宽度，偏移 = 0
         float gridCenterOffsetX = (gridSize.x % 2 == 0) ? 0.5f : 0f;
         float gridCenterOffsetY = (gridSize.y % 2 == 0) ? 0.5f : 0f;
-        
+
         var sr = prefab.GetComponentInChildren<SpriteRenderer>();
         if (sr == null || sr.sprite == null)
         {
             // 没有 Sprite，使用原始 Collider 中心的反向偏移
-            Vector2 colliderCenter = GetColliderLocalCenter(prefab);
+            Vector2 colliderCenter = GetPlacementColliderLocalCenter(prefab);
             return new Vector3(
                 gridCenterOffsetX - colliderCenter.x,
                 gridCenterOffsetY - colliderCenter.y,
                 0
             );
         }
-        
-        // 计算底部对齐偏移
-        float bottomAlignOffset = -sr.sprite.bounds.min.y;
-        
-        // 计算放置后 Collider 中心
-        Vector2 finalColliderCenter = GetColliderCenterAfterBottomAlign(prefab);
-        
-        // 预览 Sprite 的 localPosition：
-        // 1. 应用格子几何中心偏移（多格子物品需要）
-        // 2. 应用底部对齐效果（Y 方向偏移）
-        // 3. 使 Collider 中心对齐到格子几何中心（反向偏移）
+
+        // 预览必须和实际落地吃同一套真实 Collider 中心合同，否则多层 prefab 一旦有子节点偏移，
+        // 预览与落地就会再次分家。
+        Vector2 placementColliderCenter = GetPlacementColliderLocalCenter(prefab);
         return new Vector3(
-            gridCenterOffsetX - finalColliderCenter.x,
-            gridCenterOffsetY + bottomAlignOffset - finalColliderCenter.y,
+            gridCenterOffsetX - placementColliderCenter.x,
+            gridCenterOffsetY - placementColliderCenter.y,
             0
         );
     }
-    
+
     #endregion
-    
+
     #region 放置位置计算
-    
+
     /// <summary>
     /// 计算实际放置位置
     /// 使放置后 Collider 中心对齐到格子几何中心
-    /// 
+    ///
     /// 核心等式：放置后 Collider 几何中心 = 格子几何中心
     /// </summary>
     /// <param name="mouseGridCenter">鼠标所在格子的中心（PlacementPreviewV3.LockedPosition）</param>
@@ -391,37 +538,36 @@ public static class PlacementGridCalculator
     public static Vector3 GetPlacementPosition(Vector3 mouseGridCenter, GameObject prefab)
     {
         if (prefab == null) return mouseGridCenter;
-        
+
         // 获取格子大小
         Vector2Int gridSize = GetRequiredGridSizeFromPrefab(prefab);
-        
+
         // 计算格子几何中心相对于鼠标所在格子中心的偏移
         float gridCenterOffsetX = (gridSize.x % 2 == 0) ? 0.5f : 0f;
         float gridCenterOffsetY = (gridSize.y % 2 == 0) ? 0.5f : 0f;
-        
+
         // 格子几何中心的世界坐标
         Vector3 gridGeometricCenter = new Vector3(
             mouseGridCenter.x + gridCenterOffsetX,
             mouseGridCenter.y + gridCenterOffsetY,
             mouseGridCenter.z
         );
-        
-        // 计算放置后 Collider 中心相对于物品原点的位置
-        Vector2 finalColliderCenter = GetColliderCenterAfterBottomAlign(prefab);
-        
-        // 放置位置 = 格子几何中心 - 放置后 Collider 中心
-        // 这样放置后（底部对齐执行后）Collider 中心就会在格子几何中心
+
+        // 放置锚点必须跟真实 Collider 几何中心走，不能再把视觉层的底部对齐偏移叠进来。
+        Vector2 placementColliderCenter = GetPlacementColliderLocalCenter(prefab);
+
+        // 放置位置 = 格子几何中心 - 真实 Collider 中心
         return new Vector3(
-            gridGeometricCenter.x - finalColliderCenter.x,
-            gridGeometricCenter.y - finalColliderCenter.y,
+            gridGeometricCenter.x - placementColliderCenter.x,
+            gridGeometricCenter.y - placementColliderCenter.y,
             gridGeometricCenter.z
         );
     }
-    
+
     #endregion
-    
+
     #region 辅助方法
-    
+
     /// <summary>
     /// 格子索引转世界坐标（格子中心）
     /// </summary>
@@ -445,7 +591,7 @@ public static class PlacementGridCalculator
             z
         );
     }
-    
+
     /// <summary>
     /// 检查两个格子是否相邻
     /// </summary>
@@ -455,7 +601,7 @@ public static class PlacementGridCalculator
         int dy = Mathf.Abs(cellA.y - cellB.y);
         return (dx <= 1 && dy <= 1) && (dx + dy > 0);
     }
-    
+
     /// <summary>
     /// 计算两个格子之间的曼哈顿距离
     /// </summary>
@@ -463,6 +609,6 @@ public static class PlacementGridCalculator
     {
         return Mathf.Abs(cellA.x - cellB.x) + Mathf.Abs(cellA.y - cellB.y);
     }
-    
+
     #endregion
 }

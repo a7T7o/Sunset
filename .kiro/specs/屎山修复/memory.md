@@ -49,7 +49,7 @@
   - 在那之前，导航检查父线程不继续扩题，不继续静态 live，不继续替动态线裁 owner。
 ## 模块概述
 
-本工作区承接 Sunset 中那些已经不能靠局部补丁长期维持、需要重新定性并系统性修复的主线。  
+本工作区承接 Sunset 中那些已经不能靠局部补丁长期维持、需要重新定性并系统性修复的主线。
 当前已建立子工作区：
 
 1. `导航检查`
@@ -5153,6 +5153,23 @@
 - 当前判断：
   - 当前真正 blocker 是 shared-root 下的“同根剩余 own dirty”，不是石头批量工具的代码质量；
   - 若要继续提交，下一刀必须先解决这批 remaining dirty 的归属/清尾。
+
+## 2026-04-23｜树石修复补交 shared-root 上传回执
+
+- 子线：
+  - `树石修复`
+- 本轮新增事实：
+  1. 线程按 `Codex规则落地` 治理 prompt 做了一次只读补交，不继续开发、不继续上传；
+  2. 已核实该线程最近没有新的 commit SHA，也没有新的 `origin/main` push；
+  3. 本线程最近一次真实上传尝试仍然是 `2026-04-13` 的 stone-only 切片；
+  4. 那次真实结果是：
+     - 跑过 `Begin-Slice -> Ready-To-Sync -> Park-Slice`
+     - `Ready-To-Sync` 被 same-root own dirty 阻断
+     - 最终无 commit / 无 push
+  5. 当前 `thread-state` 仍是 `PARKED`，历史 blocker 未变。
+- 当前判断：
+  - 这条线程当前需要补交的是“历史上传失败回执”，不是“历史上传成功回执”；
+  - 治理层如果后续继续发上传任务，仍要先面对 same-root blocker，而不是假定它已经上传过。
 
 ## 2026-04-08｜新增 TilemapCollider2D / CompositeCollider2D 接入静态导航的可拍板方案已收敛
 

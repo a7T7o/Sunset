@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using Sunset.Story;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -12,19 +13,25 @@ namespace Sunset.Editor.Story
 {
     internal static class SpringDay1DirectorTownContractMenu
     {
-        private const string MenuPath = "Sunset/Story/Validation/Run Director Town Contract Probe";
+        private const string MenuPath = "Sunset/Story/Validation/Run Day1 Staging Marker Probe";
         private const string TownScenePath = "Assets/000_Scenes/Town.unity";
         private static readonly string CommandRoot = Path.Combine(Directory.GetCurrentDirectory(), "Library", "CodexEditorCommands");
         private static readonly string ResultPath = Path.Combine(CommandRoot, "spring-day1-town-contract-probe.json");
-
-        private static readonly string[] TargetAnchors =
+        private static readonly string[] TargetNpcIds =
         {
-            "EnterVillageCrowdRoot",
-            "KidLook_01",
-            "NightWitness_01",
-            "DinnerBackgroundRoot",
-            "DailyStand_01"
+            "001",
+            "002",
+            "101",
+            "102",
+            "103",
+            "104",
+            "201",
+            "202",
+            "203"
         };
+        private static readonly string[] MarkerRootNames = { "进村围观" };
+        private static readonly string[] MarkerStartGroupNames = { "起点", "Start" };
+        private static readonly string[] MarkerEndGroupNames = { "终点", "End" };
 
         [MenuItem(MenuPath)]
         private static void Run()
@@ -60,7 +67,7 @@ namespace Sunset.Editor.Story
                 {
                     return ProbeResult.Blocked(
                         "town-scene-unavailable",
-                        "Town 场景当前无法只读加载，无法继续做导演 Town contract probe。",
+                        "Town 场景当前无法只读加载，无法继续做 Day1 staged marker probe。",
                         anchors);
                 }
 
@@ -69,8 +76,8 @@ namespace Sunset.Editor.Story
                     if (!anchors[index].exists)
                     {
                         return ProbeResult.Blocked(
-                            "anchor-missing",
-                            $"Town 里缺少锚点 {anchors[index].anchorName}，当前无法继续做导演 live contract。",
+                            "marker-missing",
+                            $"Town 里缺少 staged marker {anchors[index].anchorName}，当前无法继续做 opening/dinner authored probe。",
                             anchors);
                     }
                 }
@@ -95,14 +102,21 @@ namespace Sunset.Editor.Story
                 if (allAtOrigin && allSameWorldPosition)
                 {
                     return ProbeResult.Blocked(
-                        "town-anchor-empty-transform",
-                        "Town 里的 Day1 anchor 现在都还是空 Transform，世界位置重合在原点。导演语义已成立，但 scene anchor -> runtime 真落位这条 contract 还没接上，当前不适合把它包装成可直接 live 排练的最终 anchor。",
+                        "marker-empty-transform",
+                        "Town 里的 staged markers 现在都还是空 Transform，世界位置重合在原点。当前不适合把它包装成 opening/dinner authored contract 已就绪。",
+                        anchors);
+                }
+
+                if (HasAuthoredMarkerCoverage(anchors))
+                {
+                    return ProbeResult.Pass(
+                        "Town 里的 staged markers 已齐全，当前可继续按 authored 起点/终点消费同一份 opening/dinner staged contract。",
                         anchors);
                 }
 
                 return ProbeResult.Blocked(
-                    "town-anchor-contract-pending",
-                    "Town anchor 已存在，但当前还缺 scene anchor -> runtime 真落位的消费 contract。场内 live probe 已证明确有锚点，下一步应继续把 runtime contract 补进导演链。",
+                    "marker-contract-pending",
+                    "Town staged markers 已存在，但当前还缺完整 authored marker 消费闭环。先不要把它包装成 runtime contract 已过线。",
                     anchors);
             }
             finally
@@ -126,14 +140,126 @@ namespace Sunset.Editor.Story
                 }
             }
 
-            List<AnchorRecord> anchors = new List<AnchorRecord>(TargetAnchors.Length);
-            foreach (string anchorName in TargetAnchors)
+            List<AnchorRecord> anchors = new List<AnchorRecord>(TargetNpcIds.Length * 2);
+            Transform markerRoot = FindFirstExistingTransform(lookup, MarkerRootNames);
+            Transform startGroup = FindFirstExistingChild(markerRoot, MarkerStartGroupNames);
+            Transform endGroup = FindFirstExistingChild(markerRoot, MarkerEndGroupNames);
+            foreach (string npcId in TargetNpcIds)
             {
-                lookup.TryGetValue(anchorName, out Transform anchorTransform);
-                anchors.Add(new AnchorRecord(anchorName, anchorTransform));
+                anchors.Add(new AnchorRecord($"{npcId}起点", FindMarker(startGroup, npcId, start: true)));
+                anchors.Add(new AnchorRecord($"{npcId}终点", FindMarker(endGroup, npcId, start: false)));
             }
 
             return anchors;
+        }
+
+        private static bool HasAuthoredMarkerCoverage(List<AnchorRecord> anchors)
+        {
+            if (anchors == null || anchors.Count == 0)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < anchors.Count; index++)
+            {
+                if (!anchors[index].exists)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private static Transform FindFirstExistingTransform(Dictionary<string, Transform> lookup, string[] candidateNames)
+        {
+            if (lookup == null || candidateNames == null)
+            {
+                return null;
+            }
+
+            for (int index = 0; index < candidateNames.Length; index++)
+            {
+                if (lookup.TryGetValue(candidateNames[index], out Transform transform) && transform != null)
+                {
+                    return transform;
+                }
+            }
+
+            return null;
+        }
+
+        private static Transform FindFirstExistingChild(Transform root, string[] candidateNames)
+        {
+            if (root == null || candidateNames == null)
+            {
+                return null;
+            }
+
+            for (int index = 0; index < candidateNames.Length; index++)
+            {
+                Transform child = root.Find(candidateNames[index]);
+                if (child != null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
+        }
+
+        private static Transform FindMarker(Transform groupRoot, string npcId, bool start)
+        {
+            if (groupRoot == null || string.IsNullOrWhiteSpace(npcId))
+            {
+                return null;
+            }
+
+            foreach (string candidateName in EnumerateMarkerNames(npcId, start))
+            {
+                Transform marker = FindChildRecursive(groupRoot, candidateName);
+                if (marker != null)
+                {
+                    return marker;
+                }
+            }
+
+            return null;
+        }
+
+        private static IEnumerable<string> EnumerateMarkerNames(string npcId, bool start)
+        {
+            string suffixCn = start ? "起点" : "终点";
+            string suffixEn = start ? "Start" : "End";
+            yield return $"{npcId}{suffixCn}";
+            yield return $"{npcId}_{suffixEn}";
+            yield return $"{npcId}{suffixEn}";
+            yield return $"NPC{npcId}{suffixCn}";
+            yield return $"NPC{npcId}_{suffixEn}";
+        }
+
+        private static Transform FindChildRecursive(Transform root, string childName)
+        {
+            if (root == null || string.IsNullOrWhiteSpace(childName))
+            {
+                return null;
+            }
+
+            if (string.Equals(root.name, childName, StringComparison.OrdinalIgnoreCase))
+            {
+                return root;
+            }
+
+            for (int index = 0; index < root.childCount; index++)
+            {
+                Transform child = FindChildRecursive(root.GetChild(index), childName);
+                if (child != null)
+                {
+                    return child;
+                }
+            }
+
+            return null;
         }
 
         private static void CollectTransforms(Transform current, Dictionary<string, Transform> lookup)

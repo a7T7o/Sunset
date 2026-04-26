@@ -25,6 +25,11 @@ using FarmGame.Utils;
 /// </summary>
 public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 {
+    private static readonly List<TreeController> s_activeInstances = new List<TreeController>();
+    private static readonly Dictionary<Vector2Int, HashSet<TreeController>> s_activeInstancesByCell = new Dictionary<Vector2Int, HashSet<TreeController>>();
+    private const bool EnableRuntimePlacedSaplingProfiling = false;
+    private const double RuntimePlacedSaplingProfileLogThresholdMs = 20d;
+
     #region 常量
     private const int STAGE_COUNT = 6;
     private const int STAGE_SAPLING = 0;
@@ -52,7 +57,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     [Header("━━━━ 6阶段Sprite数据 ━━━━")]
     [Tooltip("6个阶段的Sprite配置")]
-    [SerializeField] private TreeSpriteConfig spriteConfig;
+    [SerializeField] private TreeSpriteConfig spriteConfig = null;
     #endregion
 
     #region 序列化字段 - 当前状态
@@ -134,32 +139,32 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     [Tooltip("倒下动画时长（秒）")]
     [Range(0.5f, 2f)]
-    [SerializeField] private float fallDuration = 0.8f;
+    [SerializeField] private float fallDuration = 0.68f;
 
     [Header("向上倒参数")]
     [Range(1f, 3f)]
-    [SerializeField] private float fallUpMaxStretch = 1.2f;
+    [SerializeField] private float fallUpMaxStretch = 1.08f;
 
     [Range(0.01f, 2f)]
-    [SerializeField] private float fallUpMinScale = 1f;
+    [SerializeField] private float fallUpMinScale = 0.93f;
 
     [Range(0.1f, 0.9f)]
-    [SerializeField] private float fallUpStretchPhase = 0.4f;
+    [SerializeField] private float fallUpStretchPhase = 0.3f;
     #endregion
 
     #region 序列化字段 - 音效
     [Header("━━━━ 音效设置 ━━━━")]
     [Tooltip("砍击音效（每次命中播放）")]
-    [SerializeField] private AudioClip chopHitSound;
+    [SerializeField] private AudioClip chopHitSound = null;
 
     [Tooltip("砍倒音效（树木倒下时播放）")]
-    [SerializeField] private AudioClip chopFellSound;
+    [SerializeField] private AudioClip chopFellSound = null;
 
     [Tooltip("挖出音效（锄头挖出树苗时播放）")]
-    [SerializeField] private AudioClip digOutSound;
+    [SerializeField] private AudioClip digOutSound = null;
 
     [Tooltip("斧头等级不足音效（金属碰撞）")]
-    [SerializeField] private AudioClip tierInsufficientSound;
+    [SerializeField] private AudioClip tierInsufficientSound = null;
 
     [Tooltip("音效音量")]
     [Range(0f, 1f)]
@@ -175,7 +180,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     #region 序列化字段 - 掉落配置
     [Header("━━━━ 掉落配置 ━━━━")]
     [Tooltip("掉落的物品 SO（如木头）")]
-    [SerializeField] private ItemData dropItemData;
+    [SerializeField] private ItemData dropItemData = null;
 
     [Tooltip("各阶段掉落数量（阶段0-5）")]
     [SerializeField] private int[] stageDropAmounts = new int[] { 0, 1, 2, 3, 5, 8 };
@@ -192,8 +197,14 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     [Header("━━━━ 调试 ━━━━")]
     [SerializeField] private bool showDebugInfo = false;
 
+#if UNITY_EDITOR
     [Tooltip("编辑器实时预览")]
     [SerializeField] private bool editorPreview = true;
+#endif
+
+    [Header("放置优化")]
+    [SerializeField] private bool deferRuntimePlacedSaplingInitializationByOneFrame = true;
+    [SerializeField, Min(1)] private int runtimePlacedSaplingDeferredFrames = 2;
     #endregion
 
     // ★ enableSeasonEvents 已移除：调试开关已移至 TimeManager 集中管理
@@ -201,6 +212,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     #region 私有字段
     private SpriteRenderer spriteRenderer;
+    private Collider2D[] cachedColliders = System.Array.Empty<Collider2D>();
     private OcclusionTransparency primaryOcclusionTransparency;
     private OcclusionTransparency[] treeOcclusionTransparencies = new OcclusionTransparency[0];
     private int lastCheckDay = -1;
@@ -219,17 +231,86 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     private bool isFallAnimationInProgress = false;
 
     private const float SharedNavGridRefreshDelay = 0.2f;
+    private const float SharedNavGridRefreshMergePadding = 1.25f;
+    private const int SharedNavGridRefreshBatchesPerFrame = 1;
     private const float InsufficientAxeCooldownSeconds = 30f;
     private static TreeController s_navGridRefreshRunner;
+    private static readonly List<Bounds> s_sharedNavRefreshBoundsBatches = new List<Bounds>();
+    private static Coroutine s_sharedNavRefreshCoroutine;
+    private static ContactFilter2D s_growthObstacleFilter = new ContactFilter2D().NoFilter();
+    private static Collider2D[] s_growthObstacleHits = new Collider2D[8];
     private static float s_insufficientAxeCooldownUntil = -1f;
+    private Bounds _lastNavObstacleBounds;
+    private bool _hasLastNavObstacleBounds;
+    private Vector2Int _registeredActiveCell;
+    private bool _hasRegisteredActiveCell;
+    private bool pendingDeferredRuntimePlacedSaplingInitialization = false;
+    private bool lifecycleHooksInitialized = false;
+    private bool runtimePlacedSaplingDeferredFinalizeQueued = false;
+    private bool runtimePlacedSaplingHeavyLifecycleQueued = false;
+    private bool runtimePlacedSaplingUseLightweightPresentation = false;
+    private Coroutine runtimePlacedSaplingHeavyLifecycleCoroutine;
+    private bool seasonWeatherEventsSubscribed = false;
+    private bool dayChangedEventSubscribed = false;
+    private bool resourceNodeRegistered = false;
+    private bool persistentRegistryRegistered = false;
 
     #if UNITY_EDITOR
     private int lastEditorStageIndex;
     private TreeState lastEditorState;
+    private SeasonManager.Season lastEditorSeason;
+    private bool editorPreviewRefreshQueued = false;
+    private bool pendingEditorPreviewColliderSync = false;
     #endif
     #endregion
 
     #region 属性
+    public static IReadOnlyList<TreeController> ActiveInstances => s_activeInstances;
+
+    public static bool HasActiveTreeAtCell(Vector2Int cellIndex)
+    {
+        return s_activeInstancesByCell.TryGetValue(cellIndex, out var trees) && trees.Count > 0;
+    }
+
+    public static bool HasActiveTreeWithinDistance(Vector3 center, float distance)
+    {
+        if (distance <= 0f)
+        {
+            return false;
+        }
+
+        Vector2Int centerCell = PlacementGridCalculator.GetCellIndex(center);
+        int cellRadius = Mathf.Max(0, Mathf.CeilToInt(distance));
+        float distanceSqr = distance * distance;
+
+        for (int x = centerCell.x - cellRadius; x <= centerCell.x + cellRadius; x++)
+        {
+            for (int y = centerCell.y - cellRadius; y <= centerCell.y + cellRadius; y++)
+            {
+                if (!s_activeInstancesByCell.TryGetValue(new Vector2Int(x, y), out var trees))
+                {
+                    continue;
+                }
+
+                foreach (var tree in trees)
+                {
+                    if (!TryGetOccupancyRootPosition(tree, out Vector3 rootPosition))
+                    {
+                        continue;
+                    }
+
+                    Vector2 offset = new Vector2(rootPosition.x - center.x, rootPosition.y - center.y);
+                    if (offset.sqrMagnitude < distanceSqr)
+                    {
+                        return true;
+                    }
+                }
+            }
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// 当前阶段配置
     /// </summary>
@@ -245,16 +326,21 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     #region Unity生命周期
     private void Awake()
     {
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
         // 初始化阶段配置（如果为空则使用默认配置）
         if (stageConfigs == null || stageConfigs.Length != STAGE_COUNT)
         {
             stageConfigs = StageConfigFactory.CreateDefaultConfigs();
         }
+
+        CacheCoreComponentReferences();
+        LogRuntimePlacedSaplingProfileIfSlow("Awake", profileStart);
     }
 
     private void Start()
     {
-        spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
+        CacheCoreComponentReferences();
 
         if (spriteRenderer == null)
         {
@@ -263,96 +349,544 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             return;
         }
 
-        // 缓存组件引用
-        CacheOcclusionTransparencies();
-
-        // 缓存影子引用
-        InitializeShadowCache();
-
         // ★ 3.7.6：treeID 不再使用，渐变种子直接基于 persistentId.GetHashCode()
 
         #if UNITY_EDITOR
         lastEditorStageIndex = currentStageIndex;
         lastEditorState = currentState;
+        lastEditorSeason = currentSeason;
         #endif
 
-        // ★ 始终订阅所有事件（调试开关已移至 TimeManager 集中管理）
-        // 订阅季节事件
+        bool deferRuntimePlacedSapling = ShouldDeferRuntimePlacedSaplingInitialization();
+
+        if (!deferRuntimePlacedSapling)
+        {
+            EnterRuntimeLifecycle(registerPersistentSurface: true);
+        }
+        else
+        {
+            runtimePlacedSaplingDeferredFinalizeQueued = true;
+        }
+
+        if (deferRuntimePlacedSapling)
+        {
+            StartCoroutine(FinalizeDeferredRuntimePlacedSaplingInitialization());
+        }
+        else
+        {
+            InitializeHealth();
+            FinalizeInitialPresentationSetup();
+        }
+
+        LogRuntimePlacedSaplingProfileIfSlow(
+            "Start",
+            profileStart,
+            $"defer={deferRuntimePlacedSapling} lifecycleHooksInitialized={lifecycleHooksInitialized}");
+    }
+
+    private bool ShouldDeferRuntimePlacedSaplingInitialization()
+    {
+        return Application.isPlaying &&
+               deferRuntimePlacedSaplingInitializationByOneFrame &&
+               pendingDeferredRuntimePlacedSaplingInitialization &&
+               currentStageIndex == STAGE_SAPLING &&
+               currentState == TreeState.Normal;
+    }
+
+    private System.Collections.IEnumerator FinalizeDeferredRuntimePlacedSaplingInitialization()
+    {
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
+        int framesToWait = Mathf.Max(1, runtimePlacedSaplingDeferredFrames);
+        for (int frameIndex = 0; frameIndex < framesToWait; frameIndex++)
+        {
+            yield return null;
+        }
+
+        pendingDeferredRuntimePlacedSaplingInitialization = false;
+        runtimePlacedSaplingDeferredFinalizeQueued = false;
+
+        if (!this || !isActiveAndEnabled)
+        {
+            yield break;
+        }
+
+        InitializeHealth();
+
+        if (ShouldUseLightweightRuntimePlacedSaplingPresentation())
+        {
+            ApplyRuntimePlacedSaplingLightweightPresentation();
+            QueueDeferredRuntimePlacedSaplingHeavyLifecycle();
+            yield break;
+        }
+
+        if (!lifecycleHooksInitialized)
+        {
+            EnterRuntimeLifecycle(registerPersistentSurface: true);
+        }
+
+        FinalizeInitialPresentationSetup();
+        LogRuntimePlacedSaplingProfileIfSlow(
+            "FinalizeDeferredRuntimePlacedSaplingInitialization",
+            profileStart,
+            $"framesWaited={framesToWait} lifecycleHooksInitialized={lifecycleHooksInitialized}");
+    }
+
+    private void QueueDeferredRuntimePlacedSaplingHeavyLifecycle()
+    {
+        if (!Application.isPlaying ||
+            lifecycleHooksInitialized ||
+            runtimePlacedSaplingHeavyLifecycleQueued)
+        {
+            return;
+        }
+
+        runtimePlacedSaplingHeavyLifecycleQueued = true;
+        if (runtimePlacedSaplingHeavyLifecycleCoroutine != null)
+        {
+            StopCoroutine(runtimePlacedSaplingHeavyLifecycleCoroutine);
+        }
+
+        runtimePlacedSaplingHeavyLifecycleCoroutine = StartCoroutine(FinalizeDeferredRuntimePlacedSaplingHeavyLifecycle());
+    }
+
+    private System.Collections.IEnumerator FinalizeDeferredRuntimePlacedSaplingHeavyLifecycle()
+    {
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
+        yield return null;
+
+        runtimePlacedSaplingHeavyLifecycleCoroutine = null;
+        runtimePlacedSaplingHeavyLifecycleQueued = false;
+
+        if (!this || !isActiveAndEnabled || lifecycleHooksInitialized)
+        {
+            yield break;
+        }
+
+        EnterRuntimeLifecycle(registerPersistentSurface: true, refreshActiveCellRegistration: false);
+
+        if (SeasonManager.Instance != null)
+        {
+            SeasonManager.Season resolvedSeason = SeasonManager.Instance.GetCurrentSeason();
+            if (currentSeason != resolvedSeason)
+            {
+                currentSeason = resolvedSeason;
+                ApplyRuntimePlacedSaplingLightweightPresentation();
+            }
+
+            LogRuntimePlacedSaplingProfileIfSlow(
+                "FinalizeDeferredRuntimePlacedSaplingHeavyLifecycle",
+                profileStart,
+                "seasonResolvedImmediately=true");
+            yield break;
+        }
+
+        StartCoroutine(WaitForSeasonManagerAndInitialize());
+        LogRuntimePlacedSaplingProfileIfSlow(
+            "FinalizeDeferredRuntimePlacedSaplingHeavyLifecycle",
+            profileStart,
+            "seasonResolvedImmediately=false");
+    }
+
+    private void CancelDeferredRuntimePlacedSaplingHeavyLifecycle()
+    {
+        runtimePlacedSaplingHeavyLifecycleQueued = false;
+        if (runtimePlacedSaplingHeavyLifecycleCoroutine != null)
+        {
+            StopCoroutine(runtimePlacedSaplingHeavyLifecycleCoroutine);
+            runtimePlacedSaplingHeavyLifecycleCoroutine = null;
+        }
+    }
+
+    private void EnterRuntimeLifecycle(bool registerPersistentSurface, bool refreshActiveCellRegistration = true)
+    {
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
+        lifecycleHooksInitialized = true;
+        EnsureRuntimeEventSubscriptions();
+        EnsureRuntimeResourceRegistration();
+        if (refreshActiveCellRegistration)
+        {
+            RefreshActiveInstanceCellRegistration();
+        }
+
+        if (registerPersistentSurface)
+        {
+            EnsurePersistentRegistryRegistration();
+        }
+
+        LogRuntimePlacedSaplingProfileIfSlow(
+            "EnterRuntimeLifecycle",
+            profileStart,
+            $"registerPersistentSurface={registerPersistentSurface} refreshActiveCellRegistration={refreshActiveCellRegistration}");
+    }
+
+    private void EnsureRuntimeEventSubscriptions()
+    {
+        if (seasonWeatherEventsSubscribed)
+        {
+            EnsureDayChangedSubscription();
+            return;
+        }
+
         SeasonManager.OnSeasonChanged += OnSeasonChanged;
         SeasonManager.OnVegetationSeasonChanged += OnVegetationSeasonChanged;
-
-        // 订阅天气事件
         WeatherSystem.OnPlantsWither += OnWeatherWither;
         WeatherSystem.OnPlantsRecover += OnWeatherRecover;
         WeatherSystem.OnWinterSnow += OnWinterSnow;
         WeatherSystem.OnWinterMelt += OnWinterMelt;
+        seasonWeatherEventsSubscribed = true;
 
-        // 同步当前季节
         if (SeasonManager.Instance != null)
         {
             currentSeason = SeasonManager.Instance.GetCurrentSeason();
         }
 
-        // 初始检查天气
         if (WeatherSystem.Instance != null && WeatherSystem.Instance.IsWithering())
         {
             OnWeatherWither();
         }
 
-        if (showDebugInfo)
-            Debug.Log($"<color=lime>[TreeController] {gameObject.name} 季节/天气事件已订阅</color>");
+        EnsureDayChangedSubscription();
 
-        // 订阅每日成长事件
-        if (autoGrow)
+        if (showDebugInfo)
+        {
+            Debug.Log($"<color=lime>[TreeController] {gameObject.name} 季节/天气事件已订阅</color>");
+        }
+    }
+
+    private void EnsureDayChangedSubscription()
+    {
+        if (!autoGrow)
+        {
+            return;
+        }
+
+        if (!dayChangedEventSubscribed)
         {
             TimeManager.OnDayChanged += OnDayChanged;
+            dayChangedEventSubscribed = true;
+        }
 
+        if (autoGrow)
+        {
             if (plantedDay == 0 && TimeManager.Instance != null)
             {
                 plantedDay = TimeManager.Instance.GetTotalDaysPassed();
             }
         }
+    }
 
-        // 初始化血量
-        InitializeHealth();
+    private void EnsureRuntimeResourceRegistration()
+    {
+        if (resourceNodeRegistered || !isActiveAndEnabled)
+        {
+            return;
+        }
 
-        // 初始化显示
-        StartCoroutine(WaitForSeasonManagerAndInitialize());
-
-        // 注册到资源节点注册表
         if (ResourceNodeRegistry.Instance != null)
         {
             ResourceNodeRegistry.Instance.Register(this, gameObject.GetInstanceID());
+            resourceNodeRegistered = true;
         }
-
-        // 注册到持久化对象注册表（带 ID 冲突自愈）
-        RegisterToPersistentRegistry();
     }
 
-    private void OnDestroy()
+    private void ReleaseRuntimeEventSubscriptions()
     {
-        if (s_navGridRefreshRunner == this)
+        if (dayChangedEventSubscribed)
         {
-            CancelInvoke(nameof(TriggerSharedNavGridRefresh));
-            s_navGridRefreshRunner = null;
+            TimeManager.OnDayChanged -= OnDayChanged;
+            dayChangedEventSubscribed = false;
         }
 
-        // ★ 始终取消订阅所有事件
+        if (!seasonWeatherEventsSubscribed)
+        {
+            return;
+        }
+
         SeasonManager.OnSeasonChanged -= OnSeasonChanged;
         SeasonManager.OnVegetationSeasonChanged -= OnVegetationSeasonChanged;
-        TimeManager.OnDayChanged -= OnDayChanged;
         WeatherSystem.OnPlantsWither -= OnWeatherWither;
         WeatherSystem.OnPlantsRecover -= OnWeatherRecover;
         WeatherSystem.OnWinterSnow -= OnWinterSnow;
         WeatherSystem.OnWinterMelt -= OnWinterMelt;
+        seasonWeatherEventsSubscribed = false;
+    }
+
+    private void ReleaseRuntimeResourceRegistration()
+    {
+        if (!resourceNodeRegistered)
+        {
+            return;
+        }
 
         if (ResourceNodeRegistry.Instance != null)
         {
             ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
         }
 
-        // 从持久化对象注册表注销
+        resourceNodeRegistered = false;
+    }
+
+    private void EnsurePersistentRegistryRegistration()
+    {
+        if (persistentRegistryRegistered)
+        {
+            return;
+        }
+
+        if (RegisterToPersistentRegistry())
+        {
+            persistentRegistryRegistered = true;
+        }
+    }
+
+    private void ReleasePersistentRegistryRegistration()
+    {
+        if (!persistentRegistryRegistered && !runtimePlacedSaplingDeferredFinalizeQueued)
+        {
+            return;
+        }
+
         UnregisterFromPersistentRegistry();
+        persistentRegistryRegistered = false;
+    }
+
+    private void ExitRuntimeLifecycle(bool destroying)
+    {
+        ReleaseRuntimeResourceRegistration();
+        ReleaseRuntimeEventSubscriptions();
+
+        if (destroying)
+        {
+            ReleasePersistentRegistryRegistration();
+        }
+    }
+
+    private void FinalizeInitialPresentationSetup()
+    {
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
+        CacheOcclusionTransparencies();
+        InitializeShadowCache();
+
+        // 先把状态/碰撞体/显示同步到一个可交互的起点，
+        // 再等待 SeasonManager 补一次正式季节态。
+        RepairRuntimeStateIfNeeded();
+        RefreshTreePresentation(syncColliderShape: ShouldSyncColliderShapeForCurrentPresentation());
+
+        // 只有 SeasonManager 还没起来时，才等下一帧补正式季节态；
+        // 已有实例时当前这一轮刷新已经拿到了正确季节，没必要再重复跑一次。
+        if (SeasonManager.Instance == null)
+        {
+            StartCoroutine(WaitForSeasonManagerAndInitialize());
+        }
+
+        LogRuntimePlacedSaplingProfileIfSlow(
+            "FinalizeInitialPresentationSetup",
+            profileStart,
+            $"seasonManagerReady={SeasonManager.Instance != null}");
+    }
+
+    private bool ShouldUseLightweightRuntimePlacedSaplingPresentation()
+    {
+        if (!runtimePlacedSaplingUseLightweightPresentation)
+        {
+            return false;
+        }
+
+        bool keepSaplingPresentationLightweight =
+            currentState == TreeState.Normal ||
+            currentState == TreeState.Withered;
+
+        if (!Application.isPlaying ||
+            currentStageIndex != STAGE_SAPLING ||
+            !keepSaplingPresentationLightweight)
+        {
+            runtimePlacedSaplingUseLightweightPresentation = false;
+            return false;
+        }
+
+        return true;
+    }
+
+    private void ApplyRuntimePlacedSaplingLightweightPresentation()
+    {
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
+        RepairRuntimeStateIfNeeded();
+
+        CacheCoreComponentReferences();
+        if (spriteRenderer == null)
+        {
+            return;
+        }
+
+        Sprite targetSprite = GetCurrentSprite();
+        if (targetSprite != null)
+        {
+            SetSpriteRendererSpriteIfChanged(targetSprite);
+            SetSpriteRendererEnabled(true);
+
+            if (alignSpriteBottom)
+            {
+                AlignSpriteBottom();
+            }
+        }
+        else
+        {
+            SetSpriteRendererEnabled(false);
+        }
+
+        DisableBlockingCollidersForSaplingBaseline();
+        DisableShadowRendererForSaplingBaseline();
+        LogRuntimePlacedSaplingProfileIfSlow("ApplyRuntimePlacedSaplingLightweightPresentation", profileStart);
+    }
+
+    private void OnEnable()
+    {
+        RegisterActiveInstance(this);
+
+        if (lifecycleHooksInitialized)
+        {
+            EnterRuntimeLifecycle(registerPersistentSurface: false);
+        }
+    }
+
+    private void OnDisable()
+    {
+        CancelDeferredRuntimePlacedSaplingHeavyLifecycle();
+#if UNITY_EDITOR
+        CancelQueuedEditorPreviewRefresh();
+#endif
+        ExitRuntimeLifecycle(destroying: false);
+        UnregisterActiveInstance(this);
+    }
+
+    private void OnDestroy()
+    {
+        CancelDeferredRuntimePlacedSaplingHeavyLifecycle();
+#if UNITY_EDITOR
+        CancelQueuedEditorPreviewRefresh();
+#endif
+        ExitRuntimeLifecycle(destroying: true);
+        UnregisterActiveInstance(this);
+
+        if (s_navGridRefreshRunner == this)
+        {
+            if (s_sharedNavRefreshCoroutine != null)
+            {
+                StopCoroutine(s_sharedNavRefreshCoroutine);
+                s_sharedNavRefreshCoroutine = null;
+            }
+
+            s_navGridRefreshRunner = null;
+            FlushSharedNavGridRefresh();
+        }
+
+        lifecycleHooksInitialized = false;
+    }
+
+    private static void RegisterActiveInstance(TreeController controller)
+    {
+        if (controller == null || s_activeInstances.Contains(controller))
+        {
+            return;
+        }
+
+        s_activeInstances.Add(controller);
+        RegisterActiveInstanceCell(controller);
+    }
+
+    private static void UnregisterActiveInstance(TreeController controller)
+    {
+        if (controller == null)
+        {
+            return;
+        }
+
+        UnregisterActiveInstanceCell(controller);
+        s_activeInstances.Remove(controller);
+    }
+
+    private static void RegisterActiveInstanceCell(TreeController controller)
+    {
+        if (!TryGetOccupancyRootPosition(controller, out Vector3 rootPosition))
+        {
+            return;
+        }
+
+        Vector2Int cellIndex = PlacementGridCalculator.GetCellIndex(rootPosition);
+        if (!s_activeInstancesByCell.TryGetValue(cellIndex, out var trees))
+        {
+            trees = new HashSet<TreeController>();
+            s_activeInstancesByCell[cellIndex] = trees;
+        }
+
+        trees.Add(controller);
+        controller._registeredActiveCell = cellIndex;
+        controller._hasRegisteredActiveCell = true;
+    }
+
+    private static void UnregisterActiveInstanceCell(TreeController controller)
+    {
+        if (controller == null || !controller._hasRegisteredActiveCell)
+        {
+            return;
+        }
+
+        if (s_activeInstancesByCell.TryGetValue(controller._registeredActiveCell, out var trees))
+        {
+            trees.Remove(controller);
+            if (trees.Count == 0)
+            {
+                s_activeInstancesByCell.Remove(controller._registeredActiveCell);
+            }
+        }
+
+        controller._hasRegisteredActiveCell = false;
+    }
+
+    private void RefreshActiveInstanceCellRegistration()
+    {
+        if (!Application.isPlaying || !isActiveAndEnabled)
+        {
+            return;
+        }
+
+        if (!TryGetOccupancyRootPosition(this, out Vector3 rootPosition))
+        {
+            UnregisterActiveInstanceCell(this);
+            return;
+        }
+
+        Vector2Int targetCell = PlacementGridCalculator.GetCellIndex(rootPosition);
+        if (_hasRegisteredActiveCell &&
+            _registeredActiveCell == targetCell &&
+            s_activeInstancesByCell.TryGetValue(targetCell, out var existingTrees) &&
+            existingTrees.Contains(this))
+        {
+            return;
+        }
+
+        UnregisterActiveInstanceCell(this);
+        RegisterActiveInstanceCell(this);
+    }
+
+    private static bool TryGetOccupancyRootPosition(TreeController controller, out Vector3 rootPosition)
+    {
+        rootPosition = default;
+        if (controller == null || !controller.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        Transform occupancyRoot = controller.transform.parent != null
+            ? controller.transform.parent
+            : controller.transform;
+        if (occupancyRoot == null || !occupancyRoot.gameObject.activeInHierarchy)
+        {
+            return false;
+        }
+
+        rootPosition = occupancyRoot.position;
+        return true;
     }
     #endregion
 
@@ -368,8 +902,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
         if (SeasonManager.Instance == null)
         {
-            Debug.LogError($"[TreeController] {gameObject.name} - SeasonManager初始化超时");
-            yield break;
+            Debug.LogWarning($"[TreeController] {gameObject.name} - SeasonManager初始化超时，回退到 currentSeason 预览态");
         }
 
         InitializeDisplay();
@@ -377,10 +910,13 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     private void InitializeDisplay()
     {
-        if (SeasonManager.Instance == null) return;
+        if (SeasonManager.Instance != null)
+        {
+            currentSeason = SeasonManager.Instance.GetCurrentSeason();
+        }
 
-        currentSeason = SeasonManager.Instance.GetCurrentSeason();
-        UpdateSprite();
+        RepairRuntimeStateIfNeeded();
+        RefreshTreePresentation(syncColliderShape: ShouldSyncColliderShapeForCurrentPresentation());
     }
 
     /// <summary>
@@ -393,6 +929,84 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             currentHealth = config.health;
         }
+    }
+
+    private void ResetHealthForCurrentStatePreview()
+    {
+        var config = CurrentStageConfig;
+        if (config == null) return;
+
+        if (currentState == TreeState.Stump)
+        {
+            if (!config.hasStump)
+            {
+                currentState = TreeState.Normal;
+                currentHealth = config.health;
+                currentStumpHealth = 0;
+                return;
+            }
+
+            currentHealth = config.health;
+            currentStumpHealth = Mathf.Max(1, config.stumpHealth);
+            return;
+        }
+
+        currentHealth = config.health;
+        currentStumpHealth = 0;
+    }
+
+    private void RepairRuntimeStateIfNeeded()
+    {
+        var config = CurrentStageConfig;
+        if (config == null) return;
+
+        if (currentState == TreeState.Stump)
+        {
+            if (!config.hasStump)
+            {
+                currentState = TreeState.Normal;
+                currentStumpHealth = 0;
+            }
+            else if (currentStumpHealth <= 0)
+            {
+                currentStumpHealth = Mathf.Max(1, config.stumpHealth);
+            }
+        }
+        else
+        {
+            currentStumpHealth = 0;
+        }
+
+        if (currentHealth <= 0)
+        {
+            currentHealth = config.health;
+        }
+    }
+
+    private void RefreshTreePresentation(bool syncColliderShape)
+    {
+        UpdateSprite();
+
+        if (syncColliderShape)
+        {
+            UpdatePolygonColliderShape();
+        }
+    }
+
+    private bool ShouldSyncColliderShapeForCurrentPresentation()
+    {
+        var config = CurrentStageConfig;
+        if (config == null)
+        {
+            return false;
+        }
+
+        if (currentState == TreeState.Stump)
+        {
+            return !isFallAnimationInProgress;
+        }
+
+        return config.enableCollider && !isChopDownCommitted;
     }
 
     /// <summary>
@@ -477,6 +1091,11 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         currentSeason = newSeason;
 
+        if (ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
         // 春季：所有枯萎植物复苏
         if (newSeason == SeasonManager.Season.Spring)
         {
@@ -508,11 +1127,21 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     private void OnVegetationSeasonChanged()
     {
+        if (ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
         UpdateSprite();
     }
 
     private void OnDayChanged(int year, int seasonDay, int totalDays)
     {
+        if (ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
         if (lastCheckDay == totalDays) return;
         lastCheckDay = totalDays;
 
@@ -544,6 +1173,11 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     private void OnWeatherWither()
     {
+        if (ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
         if (currentState == TreeState.Normal)
         {
             isWeatherWithered = true;
@@ -556,6 +1190,11 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     private void OnWeatherRecover()
     {
+        if (ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
         if (isWeatherWithered)
         {
             isWeatherWithered = false;
@@ -568,6 +1207,11 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     private void OnWinterSnow()
     {
+        if (ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
         if (currentSeason != SeasonManager.Season.Winter) return;
 
         // ★ 树苗在冬季已经死亡，不会进入这里
@@ -589,6 +1233,11 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     private void OnWinterMelt()
     {
+        if (ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
         if (currentSeason != SeasonManager.Season.Winter) return;
 
         // ★ 树苗在冬季已经死亡，不会进入这里
@@ -636,6 +1285,11 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// <returns>true 表示所有方向都无障碍物，可以成长</returns>
     private bool CheckGrowthMargin(float verticalMargin, float horizontalMargin)
     {
+        if (verticalMargin <= 0f && horizontalMargin <= 0f)
+        {
+            return true;
+        }
+
         Vector2 center = GetColliderCenter();
 
         if (showDebugInfo)
@@ -690,7 +1344,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// <returns>true 表示有障碍物</returns>
     private bool HasObstacleInDirection(Vector2 center, Vector2 direction, float distance)
     {
-        if (growthObstacleTags == null || growthObstacleTags.Length == 0) return false;
+        if (growthObstacleTags == null || growthObstacleTags.Length == 0 || distance <= 0f) return false;
 
         // 计算检测点（从中心向指定方向偏移）
         Vector2 checkPoint = center + direction * distance;
@@ -704,12 +1358,23 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             return true;
         }
 
-        // 使用小范围圆形检测
+        // 使用 NonAlloc 版本，避免“跳天/成长”时每棵树都分配新数组。
         float checkRadius = 0.1f;
-        Collider2D[] hits = Physics2D.OverlapCircleAll(checkPoint, checkRadius);
-
-        foreach (var hit in hits)
+        int hitCount = Physics2D.OverlapCircle(checkPoint, checkRadius, s_growthObstacleFilter, s_growthObstacleHits);
+        while (hitCount >= s_growthObstacleHits.Length)
         {
+            System.Array.Resize(ref s_growthObstacleHits, s_growthObstacleHits.Length * 2);
+            hitCount = Physics2D.OverlapCircle(checkPoint, checkRadius, s_growthObstacleFilter, s_growthObstacleHits);
+        }
+
+        for (int index = 0; index < hitCount; index++)
+        {
+            Collider2D hit = s_growthObstacleHits[index];
+            if (hit == null)
+            {
+                continue;
+            }
+
             // 跳过自己和子物体
             if (hit.transform == transform) continue;
             if (transform.parent != null && hit.transform == transform.parent) continue;
@@ -752,11 +1417,14 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     private Vector2 GetColliderCenter()
     {
-        // 尝试获取 Collider2D
-        Collider2D col = GetComponent<Collider2D>();
-        if (col != null && col.enabled)
+        Collider2D[] colliders = GetCachedColliders();
+        for (int index = 0; index < colliders.Length; index++)
         {
-            return col.bounds.center;
+            Collider2D collider = colliders[index];
+            if (collider != null && collider.enabled)
+            {
+                return collider.bounds.center;
+            }
         }
 
         // 如果没有 Collider，使用父物体位置（树根位置）
@@ -798,7 +1466,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         if (spriteRenderer == null || spriteRenderer.sprite == null) return;
 
-        Collider2D[] colliders = GetComponents<Collider2D>();
+        Collider2D[] colliders = GetCachedColliders();
         foreach (Collider2D collider in colliders)
         {
             if (collider is PolygonCollider2D poly)
@@ -819,8 +1487,8 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         currentStageIndex = Mathf.Clamp(stageIndex, 0, STAGE_MAX);
         daysInCurrentStage = 0;
-        InitializeHealth();
-        UpdateSprite();
+        ResetHealthForCurrentStatePreview();
+        RefreshTreePresentation(syncColliderShape: ShouldSyncColliderShapeForCurrentPresentation());
     }
     #endregion
 
@@ -1379,12 +2047,8 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         isChopDownCommitted = false;
         isFallAnimationInProgress = false;
-
-        // 从注册表注销
-        if (ResourceNodeRegistry.Instance != null)
-        {
-            ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
-        }
+        ExitRuntimeLifecycle(destroying: true);
+        UnregisterActiveInstance(this);
 
         // 销毁父物体（整棵树）
         if (transform.parent != null)
@@ -1426,13 +2090,25 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
         if (WorldSpawnService.Instance != null)
         {
-            WorldSpawnService.Instance.SpawnMultiple(
+            List<WorldItemPickup> pickups = WorldSpawnService.Instance.SpawnMultiple(
                 dropItemData,
                 0, // 品质默认为0
                 dropAmount,
                 dropOrigin,
                 dropSpreadRadius
             );
+
+            if (pickups != null)
+            {
+                for (int index = 0; index < pickups.Count; index++)
+                {
+                    WorldItemPickup pickup = pickups[index];
+                    if (pickup != null)
+                    {
+                        pickup.SetSourceNodeGuid(PersistentId);
+                    }
+                }
+            }
         }
 
         if (showDebugInfo)
@@ -1460,13 +2136,25 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
         if (WorldSpawnService.Instance != null)
         {
-            WorldSpawnService.Instance.SpawnMultiple(
+            List<WorldItemPickup> pickups = WorldSpawnService.Instance.SpawnMultiple(
                 dropItemData,
                 0, // 品质默认为0
                 dropAmount,
                 dropOrigin,
                 dropSpreadRadius
             );
+
+            if (pickups != null)
+            {
+                for (int index = 0; index < pickups.Count; index++)
+                {
+                    WorldItemPickup pickup = pickups[index];
+                    if (pickup != null)
+                    {
+                        pickup.SetSourceNodeGuid(PersistentId);
+                    }
+                }
+            }
         }
 
         if (showDebugInfo)
@@ -1523,9 +2211,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         if (spriteRenderer == null) return;
 
-        if (isChopDownCommitted && currentState != TreeState.Stump)
+        if (ShouldHideStandingSpriteDuringFall())
         {
-            spriteRenderer.enabled = false;
+            SetSpriteRendererEnabled(false);
             UpdateShadowScale();
             UpdateColliderState();
             return;
@@ -1535,20 +2223,35 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
         if (targetSprite != null)
         {
-            spriteRenderer.sprite = targetSprite;
-            spriteRenderer.enabled = true;
+            SetSpriteRendererSpriteIfChanged(targetSprite);
+            SetSpriteRendererEnabled(true);
 
             if (alignSpriteBottom)
             {
                 AlignSpriteBottom();
             }
+
+            if (ShouldUseLightweightRuntimePlacedSaplingPresentation())
+            {
+                DisableBlockingCollidersForSaplingBaseline();
+                DisableShadowRendererForSaplingBaseline();
+                return;
+            }
+
             UpdateShadowScale();
             UpdateColliderState();
         }
         else
         {
             // 无有效 Sprite 时隐藏
-            spriteRenderer.enabled = false;
+            SetSpriteRendererEnabled(false);
+
+            if (ShouldUseLightweightRuntimePlacedSaplingPresentation())
+            {
+                DisableShadowRendererForSaplingBaseline();
+                return;
+            }
+
             UpdateShadowScale();
         }
     }
@@ -1558,13 +2261,12 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     private Sprite GetCurrentSprite()
     {
-        if (SeasonManager.Instance == null) return null;
         if (spriteConfig == null) return null;
 
         var stageData = CurrentSpriteData;
         if (stageData == null) return null;
 
-        var vegSeason = SeasonManager.Instance.GetCurrentVegetationSeason();
+        SeasonManager.VegetationSeason vegSeason = ResolveVegetationSeasonForDisplay();
 
         // 树桩状态
         if (currentState == TreeState.Stump)
@@ -1586,6 +2288,47 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
         // 正常状态
         return GetNormalSprite(stageData, vegSeason);
+    }
+
+    private void CacheCoreComponentReferences()
+    {
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        }
+
+        if (cachedColliders == null || cachedColliders.Length == 0)
+        {
+            cachedColliders = GetComponents<Collider2D>();
+        }
+    }
+
+    private Collider2D[] GetCachedColliders()
+    {
+        if (cachedColliders == null || cachedColliders.Length == 0)
+        {
+            cachedColliders = GetComponents<Collider2D>();
+        }
+
+        return cachedColliders ?? System.Array.Empty<Collider2D>();
+    }
+
+    private void SetSpriteRendererEnabled(bool enabled)
+    {
+        if (spriteRenderer != null && spriteRenderer.enabled != enabled)
+        {
+            spriteRenderer.enabled = enabled;
+        }
+    }
+
+    private void SetSpriteRendererSpriteIfChanged(Sprite targetSprite)
+    {
+        if (spriteRenderer == null || ReferenceEquals(spriteRenderer.sprite, targetSprite))
+        {
+            return;
+        }
+
+        spriteRenderer.sprite = targetSprite;
     }
 
     /// <summary>
@@ -1618,13 +2361,13 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         if (stageData.normal == null) return null;
 
         // 检查是否需要渐变
-        float progress = SeasonManager.Instance.GetTransitionProgress();
+        float progress = SeasonManager.Instance != null ? SeasonManager.Instance.GetTransitionProgress() : 0f;
 
         // ★ 调试输出：季节 Sprite 选择逻辑
         if (showDebugInfo)
         {
             int dayInSeason = TimeManager.Instance != null ? TimeManager.Instance.GetDay() : -1;
-            var calendarSeason = SeasonManager.Instance.GetCurrentSeason();
+            var calendarSeason = SeasonManager.Instance != null ? SeasonManager.Instance.GetCurrentSeason() : currentSeason;
             Debug.Log($"<color=magenta>[TreeController] {gameObject.name} 季节Sprite选择：\n" +
                       $"  - 日历季节: {calendarSeason}\n" +
                       $"  - 季节天数: {dayInSeason}\n" +
@@ -1710,6 +2453,23 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             _ => current
         };
     }
+
+    private SeasonManager.VegetationSeason ResolveVegetationSeasonForDisplay()
+    {
+        if (SeasonManager.Instance != null)
+        {
+            return SeasonManager.Instance.GetCurrentVegetationSeason();
+        }
+
+        return currentSeason switch
+        {
+            SeasonManager.Season.Spring => SeasonManager.VegetationSeason.Spring,
+            SeasonManager.Season.Summer => SeasonManager.VegetationSeason.Summer,
+            SeasonManager.Season.Autumn => SeasonManager.VegetationSeason.EarlyFall,
+            SeasonManager.Season.Winter => SeasonManager.VegetationSeason.Winter,
+            _ => SeasonManager.VegetationSeason.Spring
+        };
+    }
     #endregion
 
     #region Sprite对齐与碰撞体
@@ -1725,7 +2485,13 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         float spriteBottomOffset = spriteBounds.min.y;
 
         Vector3 localPos = spriteRenderer.transform.localPosition;
-        localPos.y = -spriteBottomOffset;
+        float targetLocalY = -spriteBottomOffset;
+        if (Mathf.Approximately(localPos.y, targetLocalY))
+        {
+            return;
+        }
+
+        localPos.y = targetLocalY;
         spriteRenderer.transform.localPosition = localPos;
     }
 
@@ -1737,7 +2503,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         var config = CurrentStageConfig;
         if (config == null) return;
 
-        Collider2D[] colliders = GetComponents<Collider2D>();
+        Collider2D[] colliders = GetCachedColliders();
         if (colliders.Length == 0) return;
 
         bool hadEnabledCollider = false;
@@ -1776,7 +2542,14 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             currentState != TreeState.Stump &&
             !isChopDownCommitted &&
             !isFallAnimationInProgress;
-        SetTreeOcclusionEnabled(shouldEnableOcclusion);
+        if (shouldEnableOcclusion)
+        {
+            SetTreeOcclusionEnabled(true);
+        }
+        else if (treeOcclusionTransparencies != null && treeOcclusionTransparencies.Length > 0)
+        {
+            SetTreeOcclusionEnabled(false);
+        }
 
         // 如果碰撞体状态改变，通知NavGrid2D刷新
         if (hadEnabledCollider != hasEnabledCollider)
@@ -1817,38 +2590,235 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     private void RequestNavGridRefresh()
     {
+        if (ShouldSuppressNavRefreshForRuntimePlacedSapling())
+        {
+            _lastNavObstacleBounds = default;
+            _hasLastNavObstacleBounds = false;
+            return;
+        }
+
+        if (!QueueSharedNavGridRefreshBounds())
+        {
+            return;
+        }
+
         if (!Application.isPlaying)
         {
-            TriggerNavGridRefresh();
+            FlushSharedNavGridRefresh();
             return;
         }
 
-        if (s_navGridRefreshRunner != null && s_navGridRefreshRunner != this)
+        if (s_navGridRefreshRunner == null)
         {
-            s_navGridRefreshRunner.CancelInvoke(nameof(TriggerSharedNavGridRefresh));
+            s_navGridRefreshRunner = this;
         }
 
-        s_navGridRefreshRunner = this;
-        CancelInvoke(nameof(TriggerSharedNavGridRefresh));
-        Invoke(nameof(TriggerSharedNavGridRefresh), SharedNavGridRefreshDelay);
+        if (s_sharedNavRefreshCoroutine == null)
+        {
+            s_sharedNavRefreshCoroutine = s_navGridRefreshRunner.StartCoroutine(ProcessSharedNavGridRefreshBatches());
+        }
     }
 
-    private void TriggerSharedNavGridRefresh()
+    private bool ShouldSuppressNavRefreshForRuntimePlacedSapling()
     {
-        if (s_navGridRefreshRunner != this)
+        if (!Application.isPlaying || currentStageIndex != STAGE_SAPLING)
         {
-            return;
+            return false;
         }
 
+        var config = CurrentStageConfig;
+        if (config != null && !config.enableCollider)
+        {
+            return true;
+        }
+
+        return pendingDeferredRuntimePlacedSaplingInitialization ||
+               runtimePlacedSaplingDeferredFinalizeQueued ||
+               runtimePlacedSaplingUseLightweightPresentation ||
+               runtimePlacedSaplingHeavyLifecycleQueued;
+    }
+
+    private System.Collections.IEnumerator ProcessSharedNavGridRefreshBatches()
+    {
+        yield return new WaitForSeconds(SharedNavGridRefreshDelay);
+
+        while (s_sharedNavRefreshBoundsBatches.Count > 0)
+        {
+            int processedCount = 0;
+            while (processedCount < SharedNavGridRefreshBatchesPerFrame &&
+                   TryPopNextSharedNavRefreshBounds(out Bounds refreshBounds))
+            {
+                TriggerNavGridRefresh(refreshBounds, true);
+                processedCount++;
+            }
+
+            if (s_sharedNavRefreshBoundsBatches.Count > 0)
+            {
+                yield return null;
+            }
+        }
+
+        s_sharedNavRefreshCoroutine = null;
         s_navGridRefreshRunner = null;
-        TriggerNavGridRefresh();
     }
 
-    private void TriggerNavGridRefresh()
+    private static bool TryPopNextSharedNavRefreshBounds(out Bounds refreshBounds)
     {
-        NavGrid2D.OnRequestGridRefresh?.Invoke();
+        if (s_sharedNavRefreshBoundsBatches.Count == 0)
+        {
+            refreshBounds = default;
+            return false;
+        }
+
+        refreshBounds = s_sharedNavRefreshBoundsBatches[0];
+        s_sharedNavRefreshBoundsBatches.RemoveAt(0);
+        return true;
+    }
+
+    private void TriggerNavGridRefresh(Bounds refreshBounds, bool hasRefreshBounds)
+    {
+        if (!hasRefreshBounds)
+        {
+            return;
+        }
+
+        bool requested = NavGrid2D.TryRequestLocalRefresh(refreshBounds);
+        if (!requested)
+        {
+            NavGrid2D.OnRequestGridRefresh?.Invoke();
+        }
+
         if (showDebugInfo)
-            Debug.Log($"<color=cyan>[TreeController] {gameObject.name} 通知NavGrid2D刷新网格</color>");
+            Debug.Log($"<color=cyan>[TreeController] {gameObject.name} 通知NavGrid2D刷新网格（局部={hasRefreshBounds}）</color>");
+    }
+
+    private void FlushSharedNavGridRefresh()
+    {
+        while (TryPopNextSharedNavRefreshBounds(out Bounds refreshBounds))
+        {
+            TriggerNavGridRefresh(refreshBounds, true);
+        }
+    }
+
+    private bool QueueSharedNavGridRefreshBounds()
+    {
+        if (!TryBuildNavRefreshBounds(out Bounds refreshBounds))
+        {
+            UpdateLastNavObstacleBounds();
+            return false;
+        }
+
+        AddOrMergeSharedNavRefreshBounds(refreshBounds);
+        UpdateLastNavObstacleBounds();
+        return true;
+    }
+
+    private static void AddOrMergeSharedNavRefreshBounds(Bounds refreshBounds)
+    {
+        int mergedIndex = -1;
+        for (int index = 0; index < s_sharedNavRefreshBoundsBatches.Count; index++)
+        {
+            if (!ShouldMergeSharedNavRefreshBounds(s_sharedNavRefreshBoundsBatches[index], refreshBounds))
+            {
+                continue;
+            }
+
+            Bounds mergedBounds = s_sharedNavRefreshBoundsBatches[index];
+            mergedBounds.Encapsulate(refreshBounds);
+            s_sharedNavRefreshBoundsBatches[index] = mergedBounds;
+            mergedIndex = index;
+            break;
+        }
+
+        if (mergedIndex < 0)
+        {
+            s_sharedNavRefreshBoundsBatches.Add(refreshBounds);
+            mergedIndex = s_sharedNavRefreshBoundsBatches.Count - 1;
+        }
+
+        Bounds collapsedBounds = s_sharedNavRefreshBoundsBatches[mergedIndex];
+        for (int index = s_sharedNavRefreshBoundsBatches.Count - 1; index >= 0; index--)
+        {
+            if (index == mergedIndex)
+            {
+                continue;
+            }
+
+            if (!ShouldMergeSharedNavRefreshBounds(collapsedBounds, s_sharedNavRefreshBoundsBatches[index]))
+            {
+                continue;
+            }
+
+            collapsedBounds.Encapsulate(s_sharedNavRefreshBoundsBatches[index]);
+            s_sharedNavRefreshBoundsBatches.RemoveAt(index);
+            if (index < mergedIndex)
+            {
+                mergedIndex--;
+            }
+        }
+
+        s_sharedNavRefreshBoundsBatches[mergedIndex] = collapsedBounds;
+    }
+
+    private static bool ShouldMergeSharedNavRefreshBounds(Bounds a, Bounds b)
+    {
+        Bounds expandedA = a;
+        expandedA.Expand(new Vector3(
+            SharedNavGridRefreshMergePadding * 2f,
+            SharedNavGridRefreshMergePadding * 2f,
+            0f));
+        return expandedA.Intersects(b);
+    }
+
+    private bool TryBuildNavRefreshBounds(out Bounds bounds)
+    {
+        bool hasBounds = TryGetCurrentNavObstacleBounds(out bounds);
+        if (_hasLastNavObstacleBounds)
+        {
+            if (hasBounds)
+            {
+                bounds.Encapsulate(_lastNavObstacleBounds);
+            }
+            else
+            {
+                bounds = _lastNavObstacleBounds;
+                hasBounds = true;
+            }
+        }
+
+        return hasBounds;
+    }
+
+    private void UpdateLastNavObstacleBounds()
+    {
+        _hasLastNavObstacleBounds = TryGetCurrentNavObstacleBounds(out _lastNavObstacleBounds);
+    }
+
+    private bool TryGetCurrentNavObstacleBounds(out Bounds bounds)
+    {
+        Collider2D[] colliders = GetCachedColliders();
+        bool hasBounds = false;
+        bounds = default;
+
+        foreach (Collider2D collider in colliders)
+        {
+            if (collider == null || !collider.enabled)
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                bounds = collider.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(collider.bounds);
+            }
+        }
+
+        return hasBounds;
     }
     #endregion
 
@@ -1858,6 +2828,18 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// </summary>
     private void UpdateShadowScale()
     {
+        // 判断是否应该显示影子
+        bool shouldShow = ShouldShowShadow();
+
+        if (!shouldShow)
+        {
+            if (_shadowRenderer != null)
+            {
+                _shadowRenderer.enabled = false;
+            }
+            return;
+        }
+
         // 使用缓存的引用，如果未初始化则尝试初始化
         if (_shadowRenderer == null)
         {
@@ -1865,12 +2847,8 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             if (_shadowRenderer == null) return;
         }
 
-        // 判断是否应该显示影子
-        bool shouldShow = ShouldShowShadow();
-
-        if (!shouldShow)
+        if (_shadowTransform == null)
         {
-            _shadowRenderer.enabled = false;
             return;
         }
 
@@ -1889,12 +2867,18 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         // 切换影子 Sprite（如果配置了）
         if (config.sprite != null)
         {
-            _shadowRenderer.sprite = config.sprite;
+            if (!ReferenceEquals(_shadowRenderer.sprite, config.sprite))
+            {
+                _shadowRenderer.sprite = config.sprite;
+            }
         }
         else if (_originalShadowSprite != null)
         {
             // 回退到原始 Sprite
-            _shadowRenderer.sprite = _originalShadowSprite;
+            if (!ReferenceEquals(_shadowRenderer.sprite, _originalShadowSprite))
+            {
+                _shadowRenderer.sprite = _originalShadowSprite;
+            }
         }
 
         // 设置缩放
@@ -2102,14 +3086,14 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         };
     }
 
-    private const float SideFallAnticipationRatio = 0.12f;
-    private const float SideFallSettleStartRatio = 0.82f;
-    private const float SideFallAnticipationAngle = 5f;
-    private const float SideFallImpactOvershootAngle = 4f;
-    private const float SideFallImpactSquash = 0.04f;
-    private const float UpFallAnticipationRatio = 0.14f;
-    private const float UpFallCompressedScale = 0.97f;
-    private const float UpFallSettleStartRatio = 0.84f;
+    private const float SideFallAnticipationRatio = 0.06f;
+    private const float SideFallSettleStartRatio = 0.9f;
+    private const float SideFallAnticipationAngle = 2.2f;
+    private const float SideFallImpactOvershootAngle = 1.2f;
+    private const float SideFallImpactSquash = 0.015f;
+    private const float UpFallAnticipationRatio = 0.08f;
+    private const float UpFallCompressedScale = 0.995f;
+    private const float UpFallSettleStartRatio = 0.9f;
     private const float FallFadeStartRatio = 0.9f;
 
     private static float EaseInCubic(float value)
@@ -2407,6 +3391,16 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         return isChopDownCommitted || isFallAnimationInProgress;
     }
 
+    private bool ShouldFreezeRuntimeMutationDuringFall()
+    {
+        return isChopDownCommitted || isFallAnimationInProgress;
+    }
+
+    private bool ShouldHideStandingSpriteDuringFall()
+    {
+        return (isChopDownCommitted || isFallAnimationInProgress) && currentState != TreeState.Stump;
+    }
+
     private void CompleteFallAnimationLock()
     {
         if (!isFallAnimationInProgress)
@@ -2418,6 +3412,7 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
         if (currentState == TreeState.Stump)
         {
+            UpdateSprite();
             UpdateColliderState();
         }
     }
@@ -2471,6 +3466,109 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         InitializeHealth();
         UpdateSprite();
     }
+
+    /// <summary>
+    /// 对离场场景的树补离场期间经过的天数，避免只有当前场景里的树会成长。
+    /// </summary>
+    public void ApplyOffSceneElapsedDays(int elapsedDays, int targetTotalDays)
+    {
+        if (targetTotalDays >= 0)
+        {
+            lastCheckDay = Mathf.Max(lastCheckDay, targetTotalDays);
+        }
+
+        if (elapsedDays <= 0 || ShouldFreezeRuntimeMutationDuringFall())
+        {
+            return;
+        }
+
+        if (SeasonManager.Instance != null)
+        {
+            currentSeason = SeasonManager.Instance.GetCurrentSeason();
+        }
+
+        if (plantedDay == 0 && targetTotalDays >= 0)
+        {
+            plantedDay = Mathf.Max(0, targetTotalDays - elapsedDays);
+        }
+
+        for (int dayIndex = 0; dayIndex < elapsedDays; dayIndex++)
+        {
+            if (currentState != TreeState.Normal
+                || currentStageIndex >= STAGE_MAX
+                || currentSeason == SeasonManager.Season.Winter
+                || isWeatherWithered)
+            {
+                break;
+            }
+
+            daysInCurrentStage++;
+
+            StageConfig config = CurrentStageConfig;
+            if (config == null || config.daysToNextStage <= 0 || daysInCurrentStage < config.daysToNextStage)
+            {
+                continue;
+            }
+
+            if (enableGrowthSpaceCheck && !CanGrowToNextStage())
+            {
+                break;
+            }
+
+            GrowToNextStage();
+        }
+
+        ReconcileOffSceneSeasonAndWeatherState();
+    }
+
+    private void ReconcileOffSceneSeasonAndWeatherState()
+    {
+        if (currentState == TreeState.Stump || ShouldFreezeRuntimeMutationDuringFall())
+        {
+            UpdateSprite();
+            return;
+        }
+
+        WeatherSystem weatherSystem = WeatherSystem.Instance;
+        bool isWitheringNow = weatherSystem != null && weatherSystem.IsWithering();
+        bool isSunnyNow = weatherSystem != null && weatherSystem.IsSunny();
+
+        if (currentSeason == SeasonManager.Season.Winter)
+        {
+            if (currentStageIndex == STAGE_SAPLING)
+            {
+                DestroyTree();
+                return;
+            }
+
+            isWeatherWithered = false;
+            if (isWitheringNow)
+            {
+                currentState = TreeState.Frozen;
+            }
+            else if (isSunnyNow)
+            {
+                currentState = TreeState.Melted;
+            }
+        }
+        else
+        {
+            if (isWitheringNow)
+            {
+                isWeatherWithered = true;
+                currentState = TreeState.Withered;
+            }
+            else if (currentState == TreeState.Withered
+                     || currentState == TreeState.Frozen
+                     || currentState == TreeState.Melted)
+            {
+                isWeatherWithered = false;
+                currentState = TreeState.Normal;
+            }
+        }
+
+        UpdateSprite();
+    }
     #endregion
 
     #region 编辑器
@@ -2479,6 +3577,86 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     private int _lastRuntimeStageIndex = -1;
     private TreeState _lastRuntimeState = TreeState.Normal;
     private SeasonManager.Season _lastRuntimeSeason = SeasonManager.Season.Spring;
+
+    public void ApplyBatchEditorState(
+        bool applyTreeId,
+        int newTreeId,
+        bool applyStage,
+        int newStageIndex,
+        bool applyState,
+        TreeState newState,
+        bool applySeason,
+        SeasonManager.Season newSeason,
+        bool applyAutoGrow,
+        bool newAutoGrow)
+    {
+        bool stageChanged = false;
+        bool stateChanged = false;
+        bool autoGrowChanged = false;
+
+        if (applyTreeId)
+        {
+            treeID = newTreeId;
+        }
+
+        if (applyStage)
+        {
+            int clampedStage = Mathf.Clamp(newStageIndex, 0, STAGE_MAX);
+            if (currentStageIndex != clampedStage)
+            {
+                currentStageIndex = clampedStage;
+                daysInCurrentStage = 0;
+                stageChanged = true;
+            }
+        }
+
+        if (applyState && currentState != newState)
+        {
+            currentState = newState;
+            stateChanged = true;
+        }
+
+        if (applySeason)
+        {
+            currentSeason = newSeason;
+        }
+
+        if (applyAutoGrow && autoGrow != newAutoGrow)
+        {
+            autoGrow = newAutoGrow;
+            autoGrowChanged = true;
+        }
+
+        if (stageChanged || stateChanged)
+        {
+            ResetHealthForCurrentStatePreview();
+        }
+
+        if (autoGrowChanged && Application.isPlaying)
+        {
+            if (autoGrow)
+            {
+                lastCheckDay = -1;
+                EnsureDayChangedSubscription();
+            }
+            else if (dayChangedEventSubscribed)
+            {
+                TimeManager.OnDayChanged -= OnDayChanged;
+                dayChangedEventSubscribed = false;
+            }
+        }
+
+        RepairRuntimeStateIfNeeded();
+
+        lastEditorStageIndex = currentStageIndex;
+        lastEditorState = currentState;
+        lastEditorSeason = currentSeason;
+        _lastRuntimeStageIndex = currentStageIndex;
+        _lastRuntimeState = currentState;
+        _lastRuntimeSeason = currentSeason;
+
+        RefreshTreePresentation(syncColliderShape: stageChanged || stateChanged);
+    }
 
     /// <summary>
     /// ★ 运行时 Inspector 调试更新
@@ -2493,17 +3671,18 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         bool needUpdate = false;
 
         // 检测阶段变化
-        if (currentStageIndex != _lastRuntimeStageIndex)
+        bool stageChanged = currentStageIndex != _lastRuntimeStageIndex;
+        if (stageChanged)
         {
             _lastRuntimeStageIndex = currentStageIndex;
-            InitializeHealth(); // 重新初始化血量
             needUpdate = true;
             if (showDebugInfo)
                 Debug.Log($"<color=cyan>[TreeController] {gameObject.name} Inspector调试：阶段变更为 {currentStageIndex}</color>");
         }
 
         // 检测状态变化
-        if (currentState != _lastRuntimeState)
+        bool stateChanged = currentState != _lastRuntimeState;
+        if (stateChanged)
         {
             _lastRuntimeState = currentState;
             needUpdate = true;
@@ -2520,10 +3699,14 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
                 Debug.Log($"<color=cyan>[TreeController] {gameObject.name} Inspector调试：季节变更为 {currentSeason}</color>");
         }
 
+        if (stageChanged || stateChanged)
+        {
+            ResetHealthForCurrentStatePreview();
+        }
+
         if (needUpdate)
         {
-            UpdateSprite();
-            UpdatePolygonColliderShape();
+            RefreshTreePresentation(syncColliderShape: stageChanged || stateChanged);
         }
     }
 
@@ -2542,18 +3725,29 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
         if (spriteRenderer == null)
         {
-            spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+            CacheCoreComponentReferences();
             if (spriteRenderer == null) return;
         }
 
         // 编辑模式下的实时预览
         if (!Application.isPlaying)
         {
-            if (currentStageIndex != lastEditorStageIndex || currentState != lastEditorState)
+            bool stageChanged = currentStageIndex != lastEditorStageIndex;
+            bool stateChanged = currentState != lastEditorState;
+            bool seasonChanged = currentSeason != lastEditorSeason;
+
+            if (stageChanged || stateChanged || seasonChanged)
             {
                 lastEditorStageIndex = currentStageIndex;
                 lastEditorState = currentState;
-                UpdateSprite();
+                lastEditorSeason = currentSeason;
+
+                if (stageChanged || stateChanged)
+                {
+                    ResetHealthForCurrentStatePreview();
+                }
+
+                QueueEditorPreviewRefresh(syncColliderShape: stageChanged || stateChanged);
             }
         }
         else
@@ -2567,6 +3761,60 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             }
         }
     }
+
+    private void QueueEditorPreviewRefresh(bool syncColliderShape)
+    {
+#if UNITY_EDITOR
+        if (Application.isPlaying)
+        {
+            return;
+        }
+
+        pendingEditorPreviewColliderSync |= syncColliderShape;
+        if (editorPreviewRefreshQueued)
+        {
+            return;
+        }
+
+        editorPreviewRefreshQueued = true;
+        UnityEditor.EditorApplication.delayCall += FlushQueuedEditorPreviewRefresh;
+#endif
+    }
+
+#if UNITY_EDITOR
+    private void FlushQueuedEditorPreviewRefresh()
+    {
+        UnityEditor.EditorApplication.delayCall -= FlushQueuedEditorPreviewRefresh;
+        editorPreviewRefreshQueued = false;
+
+        bool syncColliderShape = pendingEditorPreviewColliderSync;
+        pendingEditorPreviewColliderSync = false;
+
+        if (this == null || Application.isPlaying || !editorPreview)
+        {
+            return;
+        }
+
+        CacheCoreComponentReferences();
+        if (spriteRenderer == null)
+        {
+            return;
+        }
+
+        RefreshTreePresentation(syncColliderShape);
+    }
+
+    private void CancelQueuedEditorPreviewRefresh()
+    {
+        if (editorPreviewRefreshQueued)
+        {
+            UnityEditor.EditorApplication.delayCall -= FlushQueuedEditorPreviewRefresh;
+            editorPreviewRefreshQueued = false;
+        }
+
+        pendingEditorPreviewColliderSync = false;
+    }
+#endif
 
     [UnityEditor.MenuItem("CONTEXT/TreeController/🌱 设置阶段0（树苗）")]
     private static void SetStage0(UnityEditor.MenuCommand command)
@@ -2713,22 +3961,99 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
 
     /// <summary>
     /// 🔥 锐评022：显式初始化方法（供 PlacementManager 或 Spawner 调用）
-    /// 用于玩家放置或自然生成的新树木
+    /// 用于玩家放置或自然生成的新树木。这里只做“唯一 ID + 树苗基态”归一，
+    /// 展示/碰撞体/注册交给 Start 按正常生命周期收口，避免放置首帧重复做重活。
     /// </summary>
     public void InitializeAsNewTree()
     {
-        if (string.IsNullOrEmpty(persistentId))
+        double profileStart = BeginRuntimePlacedSaplingProfileSample();
+        persistentId = System.Guid.NewGuid().ToString();
+        currentStageIndex = STAGE_SAPLING;
+        currentState = TreeState.Normal;
+        isChopDownCommitted = false;
+        isFallAnimationInProgress = false;
+        isWeatherWithered = false;
+        daysInCurrentStage = 0;
+        currentStumpHealth = 0;
+        ResetHealthForCurrentStatePreview();
+        pendingDeferredRuntimePlacedSaplingInitialization = Application.isPlaying;
+        runtimePlacedSaplingDeferredFinalizeQueued = false;
+        CancelDeferredRuntimePlacedSaplingHeavyLifecycle();
+        runtimePlacedSaplingUseLightweightPresentation = Application.isPlaying;
+        DisableBlockingCollidersForSaplingBaseline();
+        _lastNavObstacleBounds = default;
+        _hasLastNavObstacleBounds = false;
+        RefreshActiveInstanceCellRegistration();
+
+        if (showDebugInfo)
         {
-            persistentId = System.Guid.NewGuid().ToString();
+            Debug.Log($"[TreeController] {gameObject.name} 初始化为新树木，GUID: {persistentId}");
+        }
 
-            // 注册到持久化系统
-            if (PersistentObjectRegistry.Instance != null)
+        LogRuntimePlacedSaplingProfileIfSlow("InitializeAsNewTree", profileStart);
+    }
+
+    private static double BeginRuntimePlacedSaplingProfileSample()
+    {
+        return Time.realtimeSinceStartupAsDouble;
+    }
+
+    private bool ShouldProfileRuntimePlacedSapling()
+    {
+        return EnableRuntimePlacedSaplingProfiling &&
+               Application.isPlaying &&
+               currentStageIndex == STAGE_SAPLING;
+    }
+
+    private void LogRuntimePlacedSaplingProfileIfSlow(string stage, double startedAt, string extra = null)
+    {
+        if (!ShouldProfileRuntimePlacedSapling())
+        {
+            return;
+        }
+
+        double elapsedMs = (Time.realtimeSinceStartupAsDouble - startedAt) * 1000d;
+        if (elapsedMs < RuntimePlacedSaplingProfileLogThresholdMs)
+        {
+            return;
+        }
+
+        string extraSuffix = string.IsNullOrEmpty(extra) ? string.Empty : $" {extra}";
+        Debug.LogWarning(
+            $"[TreeSaplingProfile] {stage} took {elapsedMs:F2}ms tree={gameObject.name} state={currentState} season={currentSeason}{extraSuffix}");
+    }
+
+    private void DisableBlockingCollidersForSaplingBaseline()
+    {
+        Collider2D[] colliders = GetCachedColliders();
+        for (int index = 0; index < colliders.Length; index++)
+        {
+            Collider2D collider = colliders[index];
+            if (collider != null && !collider.isTrigger)
             {
-                PersistentObjectRegistry.Instance.Register(this);
+                collider.enabled = false;
             }
+        }
+    }
 
-            if (showDebugInfo)
-                Debug.Log($"[TreeController] {gameObject.name} 初始化为新树木，GUID: {persistentId}");
+    private void DisableShadowRendererForSaplingBaseline()
+    {
+        if ((_shadowRenderer == null || _shadowTransform == null) && transform.parent != null)
+        {
+            _shadowTransform = transform.parent.Find("Shadow");
+            if (_shadowTransform != null)
+            {
+                _shadowRenderer = _shadowTransform.GetComponent<SpriteRenderer>();
+                if (_shadowRenderer != null && _originalShadowSprite == null)
+                {
+                    _originalShadowSprite = _shadowRenderer.sprite;
+                }
+            }
+        }
+
+        if (_shadowRenderer != null)
+        {
+            _shadowRenderer.enabled = false;
         }
     }
 
@@ -2836,6 +4161,12 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
         currentHealth = treeData.currentHealth;
         currentState = (TreeState)treeData.state;
         daysInCurrentStage = treeData.daysGrown;
+        isChopDownCommitted = false;
+        isFallAnimationInProgress = false;
+        pendingDeferredRuntimePlacedSaplingInitialization = false;
+        runtimePlacedSaplingDeferredFinalizeQueued = false;
+        CancelDeferredRuntimePlacedSaplingHeavyLifecycle();
+        runtimePlacedSaplingUseLightweightPresentation = false;
 
         // ===== 动态对象重建系统新增字段恢复 =====
         // 恢复季节（如果存档中有）
@@ -2853,14 +4184,13 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             currentState = TreeState.Stump;
         }
 
-        // 更新碰撞体
-        UpdatePolygonColliderShape();
+        RepairRuntimeStateIfNeeded();
+        EnterRuntimeLifecycle(registerPersistentSurface: false);
+        RefreshActiveInstanceCellRegistration();
+        RefreshTreePresentation(syncColliderShape: ShouldSyncColliderShapeForCurrentPresentation());
 
         if (showDebugInfo)
             Debug.Log($"<color=cyan>[TreeController] {gameObject.name} 已从存档恢复: 阶段={currentStageIndex}, 状态={currentState}, 血量={currentHealth}, 树桩血量={currentStumpHealth}</color>");
-
-        // 🛡️ 封印三：UpdateVisuals() 必须是 Load() 的最后一行
-        UpdateSprite();
 
         // 🔴 恢复渲染层级参数（Sorting Layer + Order in Layer）
         // 必须在 UpdateSprite() 之后，因为 UpdateSprite 可能会重置渲染器
@@ -2893,9 +4223,9 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
     /// <summary>
     /// 注册到持久化对象注册表（带 ID 冲突自愈）
     /// </summary>
-    private void RegisterToPersistentRegistry()
+    private bool RegisterToPersistentRegistry()
     {
-        if (PersistentObjectRegistry.Instance == null) return;
+        if (PersistentObjectRegistry.Instance == null) return false;
 
         // 尝试注册，如果 ID 冲突则重新生成
         if (!PersistentObjectRegistry.Instance.TryRegister(this))
@@ -2907,6 +4237,8 @@ public class TreeController : MonoBehaviour, IResourceNode, IPersistentObject
             persistentId = System.Guid.NewGuid().ToString();
             PersistentObjectRegistry.Instance.Register(this);
         }
+
+        return true;
     }
 
     /// <summary>

@@ -269,6 +269,83 @@
 - 详细技术恢复点已回写：
   - [4.0.0_三场景持久化与门链收口/memory.md](D:/Unity/Unity_learning/Sunset/.kiro/specs/存档系统/4.0.0_三场景持久化与门链收口/memory.md)
 
+## 2026-04-24｜DataCore 预同步工具 incident 收口
+
+### 本轮目标
+- 不再把 `InventoryItem.cs + SaveDataDTOs.cs + SaveManager.cs` 当成继续业务上传。
+- 只把这组白名单在 `Ready-To-Sync / git-safe-sync / CodexCodeGuard` 链上的挂死收成一次可判断的工具 incident。
+
+### 本轮判断
+1. 现有证据已经足够，这轮没有再做同白名单复现。
+2. 不重跑的理由已经成立：
+   - 上轮真实进程链已钉到：
+     - `Ready-To-Sync.ps1`
+     - `sunset-git-safe-sync.ps1 -Action preflight`
+     - 临时 canonical `git-safe-sync.ps1`
+     - `dotnet CodexCodeGuard.dll --phase pre-sync`
+     - `git diff --name-status HEAD --`
+   - 当前治理位已额外确认：
+     - 普通 `git diff --name-status HEAD --` 对这 3 文件瞬间返回
+     - `CodexCodeGuard Program.cs` 理论上即使异常也会输出 JSON 再退出
+3. 因此当前挂死不像 same-root 或业务白名单本身，更像工具链内部 process/pipe incident。
+
+### 具体落层
+1. 第一真实挂死层不在 `Ready-To-Sync` 外壳。
+2. 第一真实挂死层也不在 stable launcher 本体。
+3. 当前最靠近根因的层是：
+   - `scripts/CodexCodeGuard/Program.cs`
+   - 其中关键点是：
+     - `GitDirtyState.Load(repoRoot)` 使用整仓 `git diff --name-status HEAD --`
+     - `RunProcess(...)` 采用 `stdout.ReadToEnd()` 后再 `stderr.ReadToEnd()` 的串行读取
+4. 这套实现与整仓 diff 结合后，已经足以构成“子进程卡死 / JSON 不返回 / 上游一直等待”的 incident 解释。
+
+### 当前结论
+- 本 incident 证据已足够，可以直接按工具 incident 升级。
+- 下一步不应再由业务线程继续试上传，而应交治理/工具位处理：
+  1. 复核 `Program.cs` 的 `RunProcess` 管道读取方式
+  2. 复核 `GitDirtyState.Load()` 为什么对白名单 preflight 仍整仓跑 diff
+  3. 必要时给 `CodeGuard/preflight` 增加 timeout、并行读管道或更窄 diff 范围
+
+## 2026-04-25｜工具修复后 DataCore 最小复核
+
+### 本轮目标
+- 只对白名单：
+  - `Assets/YYY_Scripts/Data/Core/InventoryItem.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+  做工具修复后的 `1` 次真实最小复核。
+- 不修业务代码，不换第二批。
+
+### 本轮结果
+1. 已执行：
+   - `Begin-Slice`
+   - `Ready-To-Sync`
+   - `Park-Slice`
+2. 本轮没有继续走到 `sync`，因为 `Ready-To-Sync` 已直接返回新的第一真实 blocker。
+3. 本轮确认：
+   - 没有再出现 `CodexCodeGuard hang`
+   - 没有再出现 `no JSON`
+   - 工具链 incident 已经清掉
+
+### 新的第一真实 blocker
+1. 当前这组已经降级成真实业务 blocker，而不是工具黑盒 blocker。
+2. 第一真实 blocker 为 `SaveManager.cs` 上 `4` 条 `CS1061`：
+   - `InventorySortService.RebindRuntimeContext`
+   - `CraftingService.ConfigureRuntimeContext`
+   - `ToolbarUI.ConfigureRuntimeContext`
+   - `InventoryInteractionManager.ConfigureRuntimeContext`
+3. `Ready-To-Sync` 本轮直接把这 4 条错误作为代码闸门 blocker 稳定返回。
+
+### 本轮明确未做
+- 没有顺手修 `SaveManager.cs`
+- 没有扩到 `StoryProgressPersistenceService.cs`
+- 没有扩到任何存档相关 tests
+- 没有换第二批
+
+### 当前结论
+- 这条线现在已经不是工具 incident，而是可判断、可继续施工的真实业务 blocker。
+- 下一步如果继续，应回到业务线程正常修这 4 条 `CS1061`，而不是继续排工具。
+
 ## 2026-04-23｜shared-root own 保本上传收口
 
 ### 本轮目标
@@ -314,6 +391,50 @@
 - 这轮已经完成“own docs/prompt 保本上传”。
 - 这轮没有完成 `Data/Core` 代码簇上传。
 - 当前代码簇 blocker 是运行态工具链，不是语义归类争议；恢复时应从 `CodexCodeGuard preflight 为什么卡在 git diff` 继续，而不是重新审 own/mixed 边界。
+
+## 2026-04-23｜shared-root 历史小批次上传第 02 轮
+
+### 本轮目标
+- 按第二波治理口径，不再看整包 code cluster，只还原 `1` 个历史小批次。
+- 本轮唯一允许的小批固定为：
+  - `Assets/YYY_Scripts/Data/Core/InventoryItem.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveDataDTOs.cs`
+  - `Assets/YYY_Scripts/Data/Core/SaveManager.cs`
+
+### 这轮钉实的事实
+1. 这 3 个文件可以成立为同一历史小批：
+   - `InventoryItem.RestoreInstanceIdForLoad(...)` 直接被 `SaveDataDTOs.FromSaveData(...)` 消费
+   - `SaveDataDTOs` 的 DTO 结构扩展和 `SaveManager` 的默认档 / off-scene snapshot / load-restore 主链直接耦合
+   - 当前不是“3 个互不相干的尾账”，而是一条连续的数据恢复链
+2. 本轮已按这一组真实开传：
+   - 跑了 `Begin-Slice`
+   - 只对白名单这 3 个文件做 `Ready-To-Sync` 尝试
+3. 这组没有上传成功。
+
+### 第一真实 blocker
+1. 这轮第一真实 blocker 仍然是 `CodeGuard/preflight`，不是 mixed 扩根。
+2. 具体挂死链条已再次实证：
+   - `Ready-To-Sync.ps1`
+   - `sunset-git-safe-sync.ps1 -Action preflight`
+   - 临时 canonical `git-safe-sync.ps1`
+   - `dotnet CodexCodeGuard.dll --phase pre-sync`
+   - `git diff --name-status HEAD --`
+3. 观察窗内未返回后，本轮已按 prompt 停车，没有换第二个历史批次。
+
+### 本轮明确未动
+- `Assets/YYY_Scripts/Story/Managers/StoryProgressPersistenceService.cs`
+- `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+- `Assets/YYY_Tests/Editor/SaveManagerDefaultSlotContractTests.cs`
+- `Assets/YYY_Tests/Editor/StoryProgressPersistenceServiceTests.cs`
+- `Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+
+### 收口状态
+- 已执行 `Park-Slice`
+- 当前正确恢复点：
+  1. 先排 `CodexCodeGuard -> git diff --name-status HEAD --` 为什么对这 3 个文件挂死
+  2. 只重试这一组 `Data/Core` 小批
+  3. 不要顺手扩到 `StoryProgressPersistenceService` 或 tests
 
 ## 2026-04-22 追加索引｜存档、跨场景承接与持久化链草稿本级只读审计已完成
 - 本轮不是继续改代码，而是按用户指定入口做一轮“可反复迭代的技术提取底稿”式只读审计。

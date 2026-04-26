@@ -11,24 +11,24 @@ public class TimeManagerDebugger : MonoBehaviour
     [Header("━━━━ 调试快捷键 ━━━━")]
     [Tooltip("启用调试快捷键")]
     public bool enableDebugKeys = true;
-    
+
     [Header("方向键控制")]
     [Tooltip("→ 右箭头：跳到下一天")]
     public KeyCode nextDayKey = KeyCode.RightArrow;
-    
+
     [Tooltip("↓ 下箭头：跳到下一季节")]
     public KeyCode nextSeasonKey = KeyCode.DownArrow;
-    
+
     [Tooltip("↑ 上箭头：跳到上一季节")]
     public KeyCode prevSeasonKey = KeyCode.UpArrow;
-    
+
     [Header("其他快捷键")]
     [Tooltip("T键：切换时间倍速（1x/5x）")]
     public KeyCode toggleSpeedKey = KeyCode.T;
-    
+
     [Tooltip("P键：暂停/继续")]
     public KeyCode pauseKey = KeyCode.P;
-    
+
     [Header("显示设置")]
     [Tooltip("显示调试信息")]
     public bool showDebugInfo = true;
@@ -43,13 +43,13 @@ public class TimeManagerDebugger : MonoBehaviour
 
     [Tooltip("限制调试 UI 的缩放上下界，避免超宽或超高分辨率下体感失控")]
     public Vector2 guiScaleClamp = new Vector2(0.85f, 1.2f);
-    
+
     [Header("━━━━ 屏幕时钟 & 时间微调 ━━━━")]
     [Tooltip("启用屏幕右上角时钟显示 + 键盘加减号微调时间\n" +
              "NumPad+/= : 前进1小时\n" +
              "NumPad-/- : 后退1小时")]
     public bool enableScreenClock = true;
-    
+
     // 右上角 HUD GUI 缓存
     private GUIStyle clockTagStyle;
     private GUIStyle clockTimeStyle;
@@ -102,41 +102,41 @@ public class TimeManagerDebugger : MonoBehaviour
     {
         enableDebugKeys = true;
     }
-    
+
     private void Update()
     {
         if (!enableDebugKeys || TimeManager.Instance == null) return;
-        
+
         // → 右箭头：下一天
         if (Input.GetKeyDown(nextDayKey))
         {
             AdvanceDay();
         }
-        
+
         // ↓ 下箭头：下一季节
         if (Input.GetKeyDown(nextSeasonKey))
         {
             AdvanceSeason();
         }
-        
+
         // ↑ 上箭头：上一季节
         if (Input.GetKeyDown(prevSeasonKey))
         {
             PreviousSeason();
         }
-        
+
         // T键：切换倍速
         if (Input.GetKeyDown(toggleSpeedKey))
         {
             ToggleTimeScale();
         }
-        
+
         // P键：暂停/继续
         if (Input.GetKeyDown(pauseKey))
         {
             TimeManager.Instance.TogglePause();
         }
-        
+
         // 屏幕时钟模式：键盘 +/- 微调时间
         if (enableScreenClock)
         {
@@ -152,7 +152,7 @@ public class TimeManagerDebugger : MonoBehaviour
             }
         }
     }
-    
+
     /// <summary>
     /// 前进到下一天
     /// </summary>
@@ -164,13 +164,13 @@ public class TimeManagerDebugger : MonoBehaviour
         }
 
         TimeManager.Instance.Sleep();
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"<color=cyan>[Debugger] → 跳到下一天: {TimeManager.Instance.GetFormattedTime()}</color>");
         }
     }
-    
+
     /// <summary>
     /// 前进到下一季节
     /// </summary>
@@ -179,27 +179,27 @@ public class TimeManagerDebugger : MonoBehaviour
         SeasonManager.Season currentSeason = TimeManager.Instance.GetSeason();
         int nextSeasonIndex = ((int)currentSeason + 1) % 4;
         SeasonManager.Season nextSeason = (SeasonManager.Season)nextSeasonIndex;
-        
+
         // 跳到下一季的第1天
         int currentYear = TimeManager.Instance.GetYear();
         if (nextSeason == SeasonManager.Season.Spring)
         {
             currentYear++; // 新年
         }
-        
+
         if (TryApplyDay1ManagedTimeTarget(currentYear, nextSeason, 1, 6, 0))
         {
             return;
         }
 
         TimeManager.Instance.SetTime(currentYear, nextSeason, 1, 6, 0);
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"<color=orange>[Debugger] ↓ 跳到下一季节: {nextSeason} (Year {currentYear})</color>");
         }
     }
-    
+
     /// <summary>
     /// 返回到上一季节
     /// </summary>
@@ -208,27 +208,27 @@ public class TimeManagerDebugger : MonoBehaviour
         SeasonManager.Season currentSeason = TimeManager.Instance.GetSeason();
         int prevSeasonIndex = ((int)currentSeason - 1 + 4) % 4;
         SeasonManager.Season prevSeason = (SeasonManager.Season)prevSeasonIndex;
-        
+
         // 跳到上一季的第1天
         int currentYear = TimeManager.Instance.GetYear();
         if (prevSeason == SeasonManager.Season.Winter)
         {
             currentYear = Mathf.Max(1, currentYear - 1); // 上一年（最小Year 1）
         }
-        
+
         if (TryApplyDay1ManagedTimeTarget(currentYear, prevSeason, 1, 6, 0))
         {
             return;
         }
 
         TimeManager.Instance.SetTime(currentYear, prevSeason, 1, 6, 0);
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"<color=yellow>[Debugger] ↑ 跳到上一季节: {prevSeason} (Year {currentYear})</color>");
         }
     }
-    
+
     /// <summary>
     /// 切换时间倍速
     /// </summary>
@@ -238,10 +238,10 @@ public class TimeManagerDebugger : MonoBehaviour
         float currentScale = TimeManager.Instance.GetType()
             .GetField("timeScale", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
             ?.GetValue(TimeManager.Instance) as float? ?? 1f;
-        
+
         float newScale = currentScale >= 5f ? 1f : 5f;
         TimeManager.Instance.SetTimeScale(newScale);
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"<color=lime>[Debugger] ⚡ 时间倍速: {newScale}x</color>");
@@ -306,16 +306,16 @@ public class TimeManagerDebugger : MonoBehaviour
         float guiScale = GetGuiScaleFactor();
         EnsureGuiStyles(guiScale);
 
-        float panelWidth = 272f * guiScale;
-        float clockHeight = 68f * guiScale;
-        float margin = 12f * guiScale;
-        float helpHeight = 134f * guiScale;
+        float panelWidth = 224f * guiScale;
+        float clockHeight = 64f * guiScale;
+        float margin = 10f * guiScale;
+        float helpHeight = 126f * guiScale;
         bool hasClock = enableScreenClock && TimeManager.Instance != null;
         Rect clockRect = new Rect(Screen.width - panelWidth - margin, margin, panelWidth, clockHeight);
 
         if (showDebugInfo)
         {
-            float helpTop = hasClock ? clockRect.yMax + (8f * guiScale) : margin;
+            float helpTop = hasClock ? clockRect.yMax + (6f * guiScale) : margin;
             Rect helpRect = new Rect(Screen.width - panelWidth - margin, helpTop, panelWidth, helpHeight);
             DrawShortcutsPanel(helpRect, guiScale);
         }
@@ -331,7 +331,7 @@ public class TimeManagerDebugger : MonoBehaviour
             SeasonManager.Season.Winter => "冬",
             _ => "?"
         };
-        
+
         int displayHour = tm.GetHour();
         if (displayHour >= 24) displayHour -= 24;
 
@@ -412,14 +412,14 @@ public class TimeManagerDebugger : MonoBehaviour
     private void DrawClockPanel(Rect rect, string dateText, string timeText, string stateText, float guiScale)
     {
         DrawPanelChrome(rect, guiScale);
-        DrawTagPill(new Rect(rect.x + (18f * guiScale), rect.y + (12f * guiScale), 40f * guiScale, 16f * guiScale), "时间");
+        DrawTagPill(new Rect(rect.x + (14f * guiScale), rect.y + (10f * guiScale), 34f * guiScale, 15f * guiScale), "时间");
 
         GUI.Label(
-            new Rect(rect.x + (10f * guiScale), rect.y + (8f * guiScale), rect.width - (20f * guiScale), 28f * guiScale),
+            new Rect(rect.x + (8f * guiScale), rect.y + (6f * guiScale), rect.width - (16f * guiScale), 28f * guiScale),
             timeText,
             clockTimeStyle);
         GUI.Label(
-            new Rect(rect.x + (10f * guiScale), rect.y + (38f * guiScale), rect.width - (20f * guiScale), 18f * guiScale),
+            new Rect(rect.x + (8f * guiScale), rect.y + (36f * guiScale), rect.width - (16f * guiScale), 16f * guiScale),
             $"{dateText}  {stateText}",
             clockMetaStyle);
     }
@@ -427,10 +427,10 @@ public class TimeManagerDebugger : MonoBehaviour
     private void DrawShortcutsPanel(Rect rect, float guiScale)
     {
         DrawPanelChrome(rect, guiScale);
-        DrawTagPill(new Rect(rect.x + (18f * guiScale), rect.y + (12f * guiScale), 40f * guiScale, 16f * guiScale), "调试");
+        DrawTagPill(new Rect(rect.x + (14f * guiScale), rect.y + (10f * guiScale), 34f * guiScale, 15f * guiScale), "调试");
 
         GUI.Label(
-            new Rect(rect.x + (68f * guiScale), rect.y + (10f * guiScale), rect.width - (88f * guiScale), 20f * guiScale),
+            new Rect(rect.x + (72f * guiScale), rect.y + (8f * guiScale), rect.width - (86f * guiScale), 20f * guiScale),
             "快捷键",
             helpTitleStyle);
 
@@ -443,10 +443,11 @@ public class TimeManagerDebugger : MonoBehaviour
 
     private void DrawShortcutRow(Rect panelRect, int rowIndex, string keyText, string description, float guiScale)
     {
-        float rowTop = panelRect.y + (40f * guiScale) + rowIndex * (17f * guiScale);
-        float keyWidth = (keyText.Length >= 3 ? 48f : 40f) * guiScale;
-        Rect keyRect = new Rect(panelRect.x + (18f * guiScale), rowTop, keyWidth, 15f * guiScale);
-        Rect descRect = new Rect(panelRect.x + (keyRect.xMax - panelRect.x) + (12f * guiScale), rowTop - (1f * guiScale), panelRect.width - (keyRect.xMax - panelRect.x) - (32f * guiScale), 18f * guiScale);
+        float rowTop = panelRect.y + (39f * guiScale) + rowIndex * (16.4f * guiScale);
+        float keyColumnWidth = 48f * guiScale;
+        Rect keyRect = new Rect(panelRect.x + (14f * guiScale), rowTop, keyColumnWidth, 14f * guiScale);
+        float descX = panelRect.x + (72f * guiScale);
+        Rect descRect = new Rect(descX, rowTop - (1f * guiScale), panelRect.xMax - descX - (12f * guiScale), 17f * guiScale);
         DrawKeyPill(keyRect, keyText, guiScale);
         GUI.Label(descRect, description, helpDescriptionStyle);
     }

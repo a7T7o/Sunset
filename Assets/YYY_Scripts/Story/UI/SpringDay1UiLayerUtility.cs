@@ -28,6 +28,13 @@ namespace Sunset.Story
 
         public static Transform ResolveUiParent()
         {
+            GameObject runtimeUiRoot = PersistentPlayerSceneBridge.GetPreferredRuntimeUiRoot();
+            if (runtimeUiRoot != null)
+            {
+                Canvas runtimeCanvas = runtimeUiRoot.GetComponent<Canvas>() ?? runtimeUiRoot.GetComponentInChildren<Canvas>(true);
+                return runtimeCanvas != null ? runtimeCanvas.transform : runtimeUiRoot.transform;
+            }
+
             GameObject uiRoot = GameObject.Find("UI");
             if (uiRoot != null)
             {

@@ -1,13 +1,15 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using FarmGame.Data;
+using FarmGame.Data.Core;
 using FarmGame.UI;
 using Sunset.Events;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Sunset.Story
@@ -30,18 +32,32 @@ namespace Sunset.Story
             typeof(GameInputManager).GetField("blockNavOverUI", BindingFlags.Instance | BindingFlags.NonPublic);
 
         private const string RecipeResourceFolder = "Story/SpringDay1Workbench";
+        private const int MaxFloatingProgressCards = 6;
         private const int OverlaySortingOrder = 168;
         private const float CraftExitAutoHideDistance = 1.6f;
+        private const float QueueOverflowToastFadeDuration = 0.25f;
+        private const float QueueOverflowToastHoldDuration = 0.5f;
 
         private static SpringDay1WorkbenchCraftingOverlay _instance;
+        private static Sprite _runtimeProgressFillSprite;
+        private static readonly Color ActiveProgressFillColor = new(0.43f, 0.73f, 0.56f, 0.96f);
+        private static readonly Color ActiveProgressIdleColor = new(0.43f, 0.73f, 0.56f, 0.42f);
+        private static readonly Color ActiveProgressEmptyColor = new(0.43f, 0.73f, 0.56f, 0.18f);
+        private static readonly Color CompletedProgressFillColor = new(0.71f, 0.52f, 0.12f, 0.98f);
+        private static readonly Color CancelProgressFillColor = new(0.81f, 0.29f, 0.24f, 0.96f);
+        private static readonly Color ProgressLabelReadableColor = new(1f, 1f, 1f, 0.98f);
 
         [SerializeField] private Canvas overlayCanvas;
         [SerializeField] private CanvasGroup canvasGroup;
         [SerializeField] private RectTransform rootRect;
         [SerializeField] private RectTransform panelRect;
         [SerializeField] private RectTransform pointerRect;
+        [SerializeField] private RectTransform queueToastRect;
+        [SerializeField] private CanvasGroup queueToastGroup;
+        [SerializeField] private TextMeshProUGUI queueToastText;
         [SerializeField] private RectTransform recipeViewportRect;
         [SerializeField] private RectTransform recipeContentRect;
+        [SerializeField] private Scrollbar recipeScrollbar;
         [SerializeField] private RectTransform materialsViewportRect;
         [SerializeField] private RectTransform materialsContentRect;
         [SerializeField] private Image selectedIcon;
@@ -81,6 +97,9 @@ namespace Sunset.Story
 
         private readonly List<RecipeData> _recipes = new();
         private readonly List<RowRefs> _rows = new();
+        private readonly List<FloatingProgressCardRefs> _floatingCards = new();
+        private readonly List<FloatingProgressDisplayState> _floatingStateBuffer = new();
+        private readonly List<FloatingProgressDisplayState> _floatingStatePool = new();
         private static readonly string[] WorkbenchAnimatorBoolNames = { "IsWorking", "Working", "IsCrafting", "Crafting" };
 
         private TMP_FontAsset _fontAsset;
@@ -88,6 +107,7 @@ namespace Sunset.Story
         private Transform _playerTransform;
         private CraftingService _craftingService;
         private InventoryService _inventoryService;
+        private ItemDatabase _fallbackItemDatabase;
         private GameInputManager _gameInputManager;
         private ScrollRect _recipeScrollRect;
         private ScrollRect _materialsScrollRect;
@@ -101,6 +121,7 @@ namespace Sunset.Story
         private bool _navBlockWasEnabled;
         private bool _navBlockOverrideApplied;
         private Coroutine _craftRoutine;
+        private Coroutine _queueToastRoutine;
         private float _craftProgress;
         private int _craftQueueTotal;
         private int _craftQueueCompleted;
@@ -115,6 +136,9 @@ namespace Sunset.Story
         private readonly List<WorkbenchQueueEntry> _queueEntries = new();
         private WorkbenchQueueEntry _activeQueueEntry;
         private bool _hasReservedActiveCraft;
+        private string _boundScenePath;
+        private string _boundSceneName;
+        private string _boundWorkbenchStationKey;
         private RectTransform _detailColumnRect;
         private RectTransform _materialsTitleRect;
         private RectTransform _quantityTitleRect;
@@ -132,6 +156,7 @@ namespace Sunset.Story
         private RectBaseline _craftButtonBaseline;
         private RectBaseline _iconCardBaseline;
         private float _materialsTextBaselineHeight;
+        private static readonly Color RecipeViewportVisibleColor = new(0f, 0f, 0f, 1f);
 
         public static SpringDay1WorkbenchCraftingOverlay Instance
         {
@@ -147,9 +172,64 @@ namespace Sunset.Story
         }
 
         public bool IsVisible => _isVisible;
-        public bool HasActiveCraftQueue => _craftRoutine != null && _craftingRecipe != null && _craftQueueTotal > _craftQueueCompleted;
-        public bool HasReadyWorkbenchOutputs => HasReadyOutputs();
-        public bool HasWorkbenchFloatingState => HasActiveCraftQueue || HasReadyWorkbenchOutputs;
+        public bool HasActiveCraftQueue => IsStateVisibleInActiveScene() && HasRawActiveCraftQueue;
+        public bool HasReadyWorkbenchOutputs => IsStateVisibleInActiveScene() && HasRawReadyWorkbenchOutputs;
+        public bool HasWorkbenchFloatingState => IsStateVisibleInActiveScene() && HasRawWorkbenchState;
+
+        private bool HasRawActiveCraftQueue => _craftRoutine != null && _activeQueueEntry != null && _activeQueueEntry.recipe != null && HasPendingCrafts(_activeQueueEntry);
+        private bool HasRawReadyWorkbenchOutputs => HasReadyOutputs();
+        private bool HasRawWorkbenchState => HasTrackedQueueEntries || HasRawActiveCraftQueue || HasRawReadyWorkbenchOutputs;
+
+        public string GetRuntimeRecipeShellSummary()
+        {
+            int visibleRowCount = 0;
+            for (int index = 0; index < _rows.Count; index++)
+            {
+                if (_rows[index]?.rect != null && _rows[index].rect.gameObject.activeSelf)
+                {
+                    visibleRowCount++;
+                }
+            }
+
+            string selectedRecipe = "none";
+            if (_selectedIndex >= 0 && _selectedIndex < _recipes.Count)
+            {
+                RecipeData recipe = _recipes[_selectedIndex];
+                ItemData item = recipe != null ? ResolveItem(recipe.resultItemID) : null;
+                selectedRecipe = recipe != null ? GetRecipeDisplayName(recipe, item) : "none";
+            }
+
+            return
+                $"visible={_isVisible}" +
+                $"|rows={_rows.Count}" +
+                $"|visibleRows={visibleRowCount}" +
+                $"|generated={HasGeneratedRecipeRowChain()}" +
+                $"|prefabRecipeShell={UsesPrefabRecipeShell()}" +
+                $"|prefabDetailShell={UsesPrefabDetailShell()}" +
+                $"|unreadableRows={HasUnreadableVisibleRecipeRows()}" +
+                $"|hardRecovery={NeedsRecipeRowHardRecovery()}" +
+                $"|selected={selectedRecipe}";
+        }
+
+        public static void FlushRuntimeStateToPersistence()
+        {
+            if (_instance == null)
+            {
+                return;
+            }
+
+            _instance.FlushCurrentRuntimeStateToPersistence();
+        }
+
+        public static void NotifyPersistentStateReplaced()
+        {
+            if (_instance == null)
+            {
+                return;
+            }
+
+            _instance.ReloadRuntimeStateFromPersistence();
+        }
 
         public static void EnsureRuntime()
         {
@@ -218,13 +298,19 @@ namespace Sunset.Story
         private void OnEnable()
         {
             EventBus.Subscribe<DialogueStartEvent>(OnDialogueStart, owner: this);
+            SceneManager.sceneLoaded += OnSceneLoaded;
+            SceneManager.activeSceneChanged += OnActiveSceneChanged;
         }
 
         private void OnDisable()
         {
             EventBus.UnsubscribeAll(this);
-            StopCraftRoutine();
-            CleanupTransientState(resetSession: true);
+            SceneManager.sceneLoaded -= OnSceneLoaded;
+            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
+            SuspendCraftRoutineForPersistence();
+            FlushCurrentRuntimeStateToPersistence();
+            DetachScenePresentation();
+            CleanupTransientState(resetSession: false);
         }
 
         private void LateUpdate()
@@ -281,6 +367,7 @@ namespace Sunset.Story
         public void Open(Transform anchorTarget, Transform playerTransform, CraftingService craftingService, float autoHideDistance)
         {
             EnsureBuilt();
+            FlushCurrentRuntimeStateToPersistence();
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen())
             {
                 return;
@@ -293,36 +380,47 @@ namespace Sunset.Story
             }
 
             _anchorTarget = anchorTarget;
+            _boundWorkbenchStationKey = BuildWorkbenchStationKey(_anchorTarget);
+            LoadRuntimeStateFromPersistence(clearIfMissing: true);
             _playerTransform = playerTransform != null ? playerTransform : ResolvePlayerTransform();
             _craftingService = craftingService;
+            _craftingService.RefreshRuntimeContextFromScene();
             _craftingService.SetStation(CraftingStation.Workbench);
             _autoHideDistance = Mathf.Max(0.6f, autoHideDistance);
+            BindStateToScene(_anchorTarget != null ? _anchorTarget.gameObject.scene : SceneManager.GetActiveScene());
             ApplyDisplayDirection(_playerTransform != null && ShouldDisplayBelow(GetDisplayDecisionSamplePoint(_playerTransform)));
-            BindInventory(craftingService.Inventory);
+            BindInventory(_craftingService.Inventory);
             ApplyNavigationBlock(true);
 
-            if (HasActiveCraftQueue && _craftingRecipe != null)
+            bool selectedIndexValid = _selectedIndex >= 0 && _selectedIndex < _recipes.Count;
+            if (!selectedIndexValid)
             {
-                int craftingRecipeIndex = FindRecipeIndex(_craftingRecipe);
-                if (craftingRecipeIndex >= 0)
+                if (HasActiveCraftQueue && _activeQueueEntry?.recipe != null)
                 {
-                    _selectedIndex = craftingRecipeIndex;
-                }
-            }
-            else
-            {
-                WorkbenchQueueEntry firstReadyEntry = _queueEntries.FirstOrDefault(entry => entry != null && entry.readyCount > 0);
-                if (firstReadyEntry != null)
-                {
-                    int completedRecipeIndex = FindRecipeIndex(firstReadyEntry.recipe);
-                    if (completedRecipeIndex >= 0)
+                    int craftingRecipeIndex = FindRecipeIndex(_activeQueueEntry.recipe);
+                    if (craftingRecipeIndex >= 0)
                     {
-                        _selectedIndex = completedRecipeIndex;
+                        _selectedIndex = craftingRecipeIndex;
+                        selectedIndexValid = true;
+                    }
+                }
+
+                if (!selectedIndexValid)
+                {
+                    WorkbenchQueueEntry firstReadyEntry = _queueEntries.FirstOrDefault(entry => entry != null && entry.readyCount > 0);
+                    if (firstReadyEntry != null)
+                    {
+                        int completedRecipeIndex = FindRecipeIndex(firstReadyEntry.recipe);
+                        if (completedRecipeIndex >= 0)
+                        {
+                            _selectedIndex = completedRecipeIndex;
+                            selectedIndexValid = true;
+                        }
                     }
                 }
             }
 
-            if (_selectedIndex < 0 || _selectedIndex >= _recipes.Count)
+            if (!selectedIndexValid)
             {
                 _selectedIndex = 0;
             }
@@ -334,7 +432,7 @@ namespace Sunset.Story
                 floatingProgressRoot.gameObject.SetActive(false);
             }
 
-            RefreshAll();
+            RefreshAll(validateRecipeRows: true, rebuildRecipeGeometry: true, rebuildDetailGeometry: true);
             UpdateFloatingProgressVisibility();
             SetWorkbenchPanelVisible(true);
             canvasGroup.alpha = 1f;
@@ -351,7 +449,7 @@ namespace Sunset.Story
             UpdateFloatingProgressVisibility();
             if (_craftRoutine == null)
             {
-                CleanupTransientState(resetSession: !HasWorkbenchFloatingState);
+                CleanupTransientState(resetSession: !HasRawWorkbenchState);
             }
         }
 
@@ -372,6 +470,9 @@ namespace Sunset.Story
             {
                 floatingProgressFillImage.fillAmount = 0f;
             }
+
+            StopQueueOverflowToastRoutine();
+            HideQueueOverflowToastImmediate();
 
             if (progressLabelText != null)
             {
@@ -396,7 +497,9 @@ namespace Sunset.Story
                 _lastCompletedQueueTotal = 0;
                 _lastCompletedRecipeId = -1;
                 _queueEntries.Clear();
+                _boundWorkbenchStationKey = string.Empty;
                 _hasDisplayDirectionDecision = false;
+                ClearSceneBinding();
             }
 
             UpdateFloatingProgressVisibility();
@@ -405,6 +508,353 @@ namespace Sunset.Story
         private void OnDialogueStart(DialogueStartEvent _)
         {
             Hide();
+        }
+
+        private void OnSceneLoaded(Scene scene, LoadSceneMode _)
+        {
+            if (!IsStateBoundToScene(scene))
+            {
+                DetachScenePresentation();
+                return;
+            }
+
+            RefreshBoundSceneRuntimeState();
+        }
+
+        private void OnActiveSceneChanged(Scene _, Scene nextScene)
+        {
+            if (!IsStateBoundToScene(nextScene))
+            {
+                DetachScenePresentation();
+                return;
+            }
+
+            RefreshBoundSceneRuntimeState();
+        }
+
+        private void BindStateToScene(Scene scene)
+        {
+            if (!scene.IsValid())
+            {
+                ClearSceneBinding();
+                return;
+            }
+
+            _boundScenePath = scene.path ?? string.Empty;
+            _boundSceneName = scene.name ?? string.Empty;
+        }
+
+        private void ClearSceneBinding()
+        {
+            _boundScenePath = string.Empty;
+            _boundSceneName = string.Empty;
+        }
+
+        private void FlushCurrentRuntimeStateToPersistence()
+        {
+            string stationKey = ResolveBoundWorkbenchStationKey();
+            if (string.IsNullOrWhiteSpace(stationKey))
+            {
+                return;
+            }
+
+            if (!HasTrackedQueueEntries)
+            {
+                StoryProgressPersistenceService.RemoveWorkbenchRuntimeState(stationKey);
+                return;
+            }
+
+            StoryProgressPersistenceService.StoreWorkbenchRuntimeState(BuildWorkbenchRuntimeSaveData(stationKey));
+        }
+
+        private void ReloadRuntimeStateFromPersistence()
+        {
+            SuspendCraftRoutineForPersistence();
+            string stationKey = ResolveBoundWorkbenchStationKey();
+            ClearLocalWorkbenchRuntimeState(clearBinding: false);
+            if (!string.IsNullOrWhiteSpace(stationKey))
+            {
+                _boundWorkbenchStationKey = stationKey;
+                LoadRuntimeStateFromPersistence(clearIfMissing: true);
+            }
+
+            if (_craftingService != null && _anchorTarget != null)
+            {
+                _craftingService.RefreshRuntimeContextFromScene();
+                _craftingService.SetStation(CraftingStation.Workbench);
+                BindInventory(_craftingService.Inventory);
+                ResumeCraftRoutineIfNeeded();
+                if (_isVisible)
+                {
+                    RefreshAll(validateRecipeRows: true, rebuildRecipeGeometry: true, rebuildDetailGeometry: true);
+                }
+            }
+
+            UpdateFloatingProgressVisibility();
+            PushDirectorCraftProgress();
+        }
+
+        private void LoadRuntimeStateFromPersistence(bool clearIfMissing)
+        {
+            string stationKey = ResolveBoundWorkbenchStationKey();
+            if (string.IsNullOrWhiteSpace(stationKey))
+            {
+                if (clearIfMissing)
+                {
+                    ClearLocalWorkbenchRuntimeState(clearBinding: true);
+                }
+
+                return;
+            }
+
+            if (!StoryProgressPersistenceService.TryGetWorkbenchRuntimeState(stationKey, out WorkbenchRuntimeSaveData state)
+                || state == null)
+            {
+                if (clearIfMissing)
+                {
+                    ClearLocalWorkbenchRuntimeState(clearBinding: false);
+                }
+
+                return;
+            }
+
+            ApplyPersistedWorkbenchRuntimeState(state);
+        }
+
+        private void ApplyPersistedWorkbenchRuntimeState(WorkbenchRuntimeSaveData state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            EnsureRecipesLoaded();
+            ClearLocalWorkbenchRuntimeState(clearBinding: false);
+            _boundWorkbenchStationKey = state.stationKey?.Trim() ?? string.Empty;
+            _boundScenePath = state.scenePath ?? string.Empty;
+            _boundSceneName = state.sceneName ?? string.Empty;
+
+            if (state.queueEntries != null)
+            {
+                for (int index = 0; index < state.queueEntries.Count; index++)
+                {
+                    WorkbenchQueueEntrySaveData savedEntry = state.queueEntries[index];
+                    RecipeData recipe = ResolveRecipeById(savedEntry?.recipeId ?? -1);
+                    if (savedEntry == null || recipe == null)
+                    {
+                        continue;
+                    }
+
+                    WorkbenchQueueEntry restored = new WorkbenchQueueEntry
+                    {
+                        recipe = recipe,
+                        recipeId = recipe.recipeID,
+                        resultItemId = savedEntry.resultItemId > 0 ? savedEntry.resultItemId : recipe.resultItemID,
+                        resultAmountPerCraft = Mathf.Max(1, savedEntry.resultAmountPerCraft),
+                        totalCount = Mathf.Max(0, savedEntry.totalCount),
+                        readyCount = Mathf.Clamp(savedEntry.readyCount, 0, Mathf.Max(0, savedEntry.totalCount)),
+                        currentUnitProgress = Mathf.Clamp01(savedEntry.currentUnitProgress),
+                        hasReservedCurrentCraft = savedEntry.hasReservedCurrentCraft
+                    };
+                    _queueEntries.Add(restored);
+                    if (savedEntry.isActiveEntry && _activeQueueEntry == null && HasPendingCrafts(restored))
+                    {
+                        _activeQueueEntry = restored;
+                    }
+                }
+            }
+
+            _activeQueueEntry ??= FindNextPendingQueueEntry();
+            _craftingRecipe = _activeQueueEntry != null ? _activeQueueEntry.recipe : null;
+            _hasReservedActiveCraft = _activeQueueEntry != null && _activeQueueEntry.hasReservedCurrentCraft;
+            _craftProgress = _activeQueueEntry != null ? GetEntryUnitProgress(_activeQueueEntry) : 0f;
+            SyncCountsFromActiveEntry();
+        }
+
+        private void ClearLocalWorkbenchRuntimeState(bool clearBinding)
+        {
+            _craftRoutine = null;
+            _craftProgress = 0f;
+            _craftQueueTotal = 0;
+            _craftQueueCompleted = 0;
+            _lastCompletedQueueTotal = 0;
+            _lastCompletedRecipeId = -1;
+            _craftingRecipe = null;
+            _activeQueueEntry = null;
+            _hasReservedActiveCraft = false;
+            _selectedQuantity = 0;
+            _craftButtonHovered = false;
+            _progressBarHovered = false;
+            _queueEntries.Clear();
+            if (clearBinding)
+            {
+                _boundWorkbenchStationKey = string.Empty;
+                ClearSceneBinding();
+            }
+        }
+
+        private void SuspendCraftRoutineForPersistence()
+        {
+            if (_craftRoutine != null)
+            {
+                StopCoroutine(_craftRoutine);
+            }
+
+            _craftRoutine = null;
+            _craftingRecipe = _activeQueueEntry != null ? _activeQueueEntry.recipe : null;
+            _craftProgress = _activeQueueEntry != null ? GetEntryUnitProgress(_activeQueueEntry) : 0f;
+            _hasReservedActiveCraft = _activeQueueEntry != null && _activeQueueEntry.hasReservedCurrentCraft;
+            SetWorkbenchAnimating(false);
+        }
+
+        private void ResumeCraftRoutineIfNeeded()
+        {
+            if (_craftRoutine != null
+                || _craftingService == null
+                || _activeQueueEntry == null
+                || _activeQueueEntry.recipe == null
+                || !HasPendingCrafts(_activeQueueEntry))
+            {
+                return;
+            }
+
+            _craftingRecipe = _activeQueueEntry.recipe;
+            _craftRoutine = StartCoroutine(CraftRoutine(_activeQueueEntry.recipe, 0, resumeExistingEntry: true));
+        }
+
+        private string ResolveBoundWorkbenchStationKey()
+        {
+            if (string.IsNullOrWhiteSpace(_boundWorkbenchStationKey) && _anchorTarget != null)
+            {
+                _boundWorkbenchStationKey = BuildWorkbenchStationKey(_anchorTarget);
+            }
+
+            return _boundWorkbenchStationKey;
+        }
+
+        private WorkbenchRuntimeSaveData BuildWorkbenchRuntimeSaveData(string stationKey)
+        {
+            WorkbenchRuntimeSaveData saveData = new WorkbenchRuntimeSaveData
+            {
+                stationKey = stationKey,
+                sceneName = _boundSceneName ?? string.Empty,
+                scenePath = _boundScenePath ?? string.Empty,
+                queueEntries = new List<WorkbenchQueueEntrySaveData>()
+            };
+
+            for (int index = 0; index < _queueEntries.Count; index++)
+            {
+                WorkbenchQueueEntry entry = _queueEntries[index];
+                if (entry == null || (entry.totalCount <= 0 && entry.readyCount <= 0))
+                {
+                    continue;
+                }
+
+                saveData.queueEntries.Add(new WorkbenchQueueEntrySaveData
+                {
+                    recipeId = entry.recipeId,
+                    resultItemId = entry.resultItemId,
+                    resultAmountPerCraft = Mathf.Max(1, entry.resultAmountPerCraft),
+                    totalCount = Mathf.Max(0, entry.totalCount),
+                    readyCount = Mathf.Clamp(entry.readyCount, 0, Mathf.Max(0, entry.totalCount)),
+                    currentUnitProgress = Mathf.Clamp01(entry.currentUnitProgress),
+                    hasReservedCurrentCraft = entry.hasReservedCurrentCraft,
+                    isActiveEntry = entry == _activeQueueEntry
+                });
+            }
+
+            return saveData;
+        }
+
+        private static string BuildWorkbenchStationKey(Transform anchorTarget)
+        {
+            if (anchorTarget == null)
+            {
+                return string.Empty;
+            }
+
+            Stack<string> hierarchy = new Stack<string>();
+            Transform current = anchorTarget;
+            while (current != null)
+            {
+                hierarchy.Push(current.name);
+                current = current.parent;
+            }
+
+            Scene scene = anchorTarget.gameObject.scene;
+            string sceneKey = !string.IsNullOrWhiteSpace(scene.path) ? scene.path : scene.name;
+            Vector3 position = anchorTarget.position;
+            return $"{sceneKey}|{string.Join("/", hierarchy)}|{position.x:F3}|{position.y:F3}|{position.z:F3}";
+        }
+
+        private bool IsStateVisibleInActiveScene()
+        {
+            return IsStateBoundToScene(SceneManager.GetActiveScene());
+        }
+
+        private bool IsStateBoundToScene(Scene scene)
+        {
+            if (!HasRawWorkbenchState)
+            {
+                return true;
+            }
+
+            if (string.IsNullOrEmpty(_boundScenePath) && string.IsNullOrEmpty(_boundSceneName))
+            {
+                return true;
+            }
+
+            if (!scene.IsValid())
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrEmpty(_boundScenePath) && !string.IsNullOrEmpty(scene.path))
+            {
+                return string.Equals(_boundScenePath, scene.path, System.StringComparison.Ordinal);
+            }
+
+            return string.Equals(_boundSceneName, scene.name, System.StringComparison.Ordinal);
+        }
+
+        private void DetachScenePresentation()
+        {
+            if (!_isVisible && _anchorTarget == null)
+            {
+                UpdateFloatingProgressVisibility();
+                return;
+            }
+
+            _isVisible = false;
+            _anchorTarget = null;
+            _playerTransform = null;
+            _workbenchAnimator = null;
+            _workbenchAnimatorBoolName = null;
+            _craftButtonHovered = false;
+            _progressBarHovered = false;
+            ApplyNavigationBlock(false);
+            HideImmediate();
+            SetWorkbenchPanelVisible(false);
+            UpdateFloatingProgressVisibility();
+        }
+
+        private void RefreshBoundSceneRuntimeState()
+        {
+            if (!HasRawWorkbenchState)
+            {
+                LoadRuntimeStateFromPersistence(clearIfMissing: false);
+            }
+
+            if (!HasRawWorkbenchState || _craftingService == null)
+            {
+                return;
+            }
+
+            _craftingService.RefreshRuntimeContextFromScene();
+            BindInventory(_craftingService.Inventory);
+            HandleInventoryChanged();
+            ResumeCraftRoutineIfNeeded();
+            PushDirectorCraftProgress();
         }
 
         private void BuildUi()
@@ -439,6 +889,7 @@ namespace Sunset.Story
             Image surfaceImage = surface.gameObject.AddComponent<Image>();
             surfaceImage.color = new Color(0.07f, 0.09f, 0.13f, 0.94f);
             surfaceImage.raycastTarget = true;
+            EnsureQueueOverflowToastCompatibility(surface);
 
             RectTransform leftPanel = CreateSection(surface, "RecipeColumn");
             leftPanel.anchorMin = new Vector2(0f, 0f);
@@ -467,11 +918,11 @@ namespace Sunset.Story
             recipeViewportRect.anchorMin = new Vector2(0f, 0f);
             recipeViewportRect.anchorMax = new Vector2(1f, 1f);
             recipeViewportRect.offsetMin = new Vector2(8f, 10f);
-            recipeViewportRect.offsetMax = new Vector2(-8f, -38f);
+            recipeViewportRect.offsetMax = new Vector2(-18f, -38f);
             Image viewportImage = recipeViewportRect.gameObject.AddComponent<Image>();
-            viewportImage.color = new Color(0.05f, 0.07f, 0.1f, 0.45f);
+            viewportImage.color = RecipeViewportVisibleColor;
             viewportImage.raycastTarget = true;
-            recipeViewportRect.gameObject.AddComponent<Mask>().showMaskGraphic = false;
+            recipeViewportRect.gameObject.AddComponent<Mask>().showMaskGraphic = true;
             _recipeScrollRect = recipeViewportRect.gameObject.AddComponent<ScrollRect>();
             _recipeScrollRect.horizontal = false;
             _recipeScrollRect.vertical = true;
@@ -495,8 +946,12 @@ namespace Sunset.Story
             ContentSizeFitter recipeContentFitter = recipeContentRect.gameObject.AddComponent<ContentSizeFitter>();
             recipeContentFitter.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
             recipeContentFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+            recipeScrollbar = CreateRecipeScrollbar(leftPanel);
             _recipeScrollRect.viewport = recipeViewportRect;
             _recipeScrollRect.content = recipeContentRect;
+            _recipeScrollRect.verticalScrollbar = recipeScrollbar;
+            _recipeScrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+            _recipeScrollRect.verticalScrollbarSpacing = 2f;
 
             RectTransform detailLayout = CreateRect(rightPanel, "DetailLayout");
             Stretch(detailLayout, new Vector2(10f, 10f), new Vector2(-10f, -10f));
@@ -636,12 +1091,10 @@ namespace Sunset.Story
             RectTransform progressFill = CreateRect(progressRoot, "ProgressFill");
             Stretch(progressFill, new Vector2(1f, 1f), new Vector2(-1f, -1f));
             progressFillImage = progressFill.gameObject.AddComponent<Image>();
-            progressFillImage.type = Image.Type.Filled;
-            progressFillImage.fillMethod = Image.FillMethod.Horizontal;
-            progressFillImage.fillAmount = 0f;
-            progressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.96f);
+            EnsureProgressFillGraphic(progressFillImage);
 
             progressLabelText = CreateText(progressRoot, "ProgressLabel", "进度  0/0", 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.Center, true, true);
+            EnsureProgressLabelForeground(progressLabelText);
             AddProgressHoverRelay(progressRoot.gameObject);
 
             craftButton = CreateButton(craftArea, "CraftButton", "开始制作", new Vector2(0f, 30f), 13f);
@@ -693,6 +1146,15 @@ namespace Sunset.Story
             floatingProgressLabel.rectTransform.offsetMin = new Vector2(2f, 16f);
             floatingProgressLabel.rectTransform.offsetMax = new Vector2(-2f, 28f);
             floatingProgressLabel.raycastTarget = false;
+            EnsureProgressLabelForeground(floatingProgressLabel);
+            _floatingCards.Clear();
+            _floatingCards.Add(new FloatingProgressCardRefs
+            {
+                root = floatingProgressRoot,
+                icon = floatingProgressIcon,
+                fill = floatingProgressFillImage,
+                label = floatingProgressLabel
+            });
 
             decreaseButton.onClick.AddListener(() => ChangeQuantity(-1));
             increaseButton.onClick.AddListener(() => ChangeQuantity(1));
@@ -719,6 +1181,8 @@ namespace Sunset.Story
 
         private void ClearRuntimeShellForRebuild()
         {
+            StopQueueOverflowToastRoutine();
+
             if (rootRect != null)
             {
                 for (int index = rootRect.childCount - 1; index >= 0; index--)
@@ -739,8 +1203,12 @@ namespace Sunset.Story
 
             panelRect = null;
             pointerRect = null;
+            queueToastRect = null;
+            queueToastGroup = null;
+            queueToastText = null;
             recipeViewportRect = null;
             recipeContentRect = null;
+            recipeScrollbar = null;
             selectedIcon = null;
             selectedNameText = null;
             selectedDescriptionText = null;
@@ -764,6 +1232,7 @@ namespace Sunset.Story
             floatingProgressIcon = null;
             floatingProgressFillImage = null;
             floatingProgressLabel = null;
+            _floatingCards.Clear();
             _recipeScrollRect = null;
             _materialsScrollRect = null;
             _detailColumnRect = null;
@@ -842,6 +1311,8 @@ namespace Sunset.Story
                 pointerRect = FindDirectChildRect(panelRect, "Pointer");
             }
 
+            EnsureQueueOverflowToastCompatibility();
+
             if (recipeViewportRect == null)
             {
                 recipeViewportRect = FindDescendantRect(panelRect, "Viewport");
@@ -850,6 +1321,11 @@ namespace Sunset.Story
             if (recipeContentRect == null && recipeViewportRect != null)
             {
                 recipeContentRect = FindDirectChildRect(recipeViewportRect, "Content");
+            }
+
+            if (recipeScrollbar == null && recipeViewportRect != null)
+            {
+                recipeScrollbar = FindDescendantComponent<Scrollbar>(recipeViewportRect.parent as RectTransform, "RecipeScrollbar");
             }
 
             if (selectedIcon == null)
@@ -910,6 +1386,8 @@ namespace Sunset.Story
             {
                 progressFillImage = FindDescendantComponent<Image>(progressRoot, "ProgressFill");
             }
+            EnsureProgressFillGraphic(progressFillImage);
+            EnsureProgressLabelBinding();
 
             if (quantitySlider == null)
             {
@@ -1000,12 +1478,6 @@ namespace Sunset.Story
 
             bool usesPrefabDetailShell = UsesPrefabDetailShell();
 
-            if (usesPrefabDetailShell && selectedMaterialsText != null)
-            {
-                materialsViewportRect = selectedMaterialsText.rectTransform;
-                materialsContentRect = selectedMaterialsText.rectTransform;
-            }
-
             ApplyResolvedFontToShellTexts();
             EnsureRecipeViewportCompatibility();
             EnsureMaterialsViewportCompatibility();
@@ -1031,6 +1503,15 @@ namespace Sunset.Story
 
             panelWidth = panelRect.rect.width;
             panelHeight = panelRect.rect.height;
+
+            bool shouldForceGeneratedRecipeRows = recipeContentRect != null
+                && EnsureRecipesLoaded()
+                && !HasGeneratedRecipeRowChain();
+            if (shouldForceGeneratedRecipeRows)
+            {
+                RebuildRecipeRowsFromScratch(forceRuntimePrefabStyle: true);
+                EnsureRecipeViewportCompatibility();
+            }
 
             BindExistingRows();
 
@@ -1211,11 +1692,13 @@ namespace Sunset.Story
 
         private void EnsurePrefabDetailTextChain()
         {
+            EnsureProgressLabelBinding();
             EnsureWorkbenchTextReady(selectedNameText, forceActive: true, minAlpha: 0.98f);
             EnsureWorkbenchTextReady(selectedDescriptionText, forceActive: true, minAlpha: 0.94f);
             EnsureWorkbenchTextReady(selectedMaterialsText, forceActive: true, minAlpha: 0.92f);
             EnsureWorkbenchTextReady(stageHintText, forceActive: true, minAlpha: 0.9f);
             EnsureWorkbenchTextReady(progressLabelText, forceActive: true, minAlpha: 0.94f);
+            ApplyDetailColumnFontTuning();
 
             NormalizePrefabDetailShellGeometry();
 
@@ -1236,28 +1719,39 @@ namespace Sunset.Story
 
         private void NormalizePrefabDetailShellGeometry()
         {
-            if (!UsesPrefabDetailShell() || _detailColumnRect == null)
+            if (_detailColumnRect == null)
             {
                 return;
             }
+
+            float headerLeftInset = _iconCardRect != null
+                ? Mathf.Max(54f, GetCurrentWidth(_iconCardRect, 40f) + 14f)
+                : 54f;
+            const float headerRightInset = 10f;
+            const float headerTop = 10f;
 
             if (selectedNameText != null)
             {
                 RectTransform nameRect = selectedNameText.rectTransform;
                 NormalizeTopStretchRect(nameRect);
-                SetTopKeepingHorizontal(nameRect, 10f, 18f);
+                float titleWidth = Mathf.Max(96f, _detailColumnRect.rect.width - headerLeftInset - headerRightInset);
+                float titleHeight = Mathf.Max(20f, MeasureTextHeight(selectedNameText, titleWidth, 20f));
+                SetTopStretchRect(nameRect, headerLeftInset, headerRightInset, headerTop, titleHeight);
             }
 
             if (selectedDescriptionText != null)
             {
                 RectTransform descriptionRect = selectedDescriptionText.rectTransform;
                 NormalizeTopStretchRect(descriptionRect);
-                float descriptionWidth = Mathf.Max(96f, GetCurrentWidth(descriptionRect, _detailColumnRect.rect.width - 78f));
+                float descriptionWidth = Mathf.Max(96f, _detailColumnRect.rect.width - headerLeftInset - headerRightInset);
                 float descriptionHeight = Mathf.Clamp(
                     MeasureTextHeight(selectedDescriptionText, descriptionWidth, 24f),
                     24f,
-                    34f);
-                SetTopKeepingHorizontal(descriptionRect, 32f, descriptionHeight);
+                    38f);
+                float descriptionTop = (selectedNameText != null
+                    ? headerTop + Mathf.Max(20f, GetCurrentHeight(selectedNameText.rectTransform, 20f)) + 4f
+                    : headerTop + 24f);
+                SetTopStretchRect(descriptionRect, headerLeftInset, headerRightInset, descriptionTop, descriptionHeight);
             }
         }
 
@@ -1284,13 +1778,7 @@ namespace Sunset.Story
                     continue;
                 }
 
-                text.font = resolvedFont;
-                if (resolvedFont.material != null)
-                {
-                    text.fontSharedMaterial = resolvedFont.material;
-                }
-
-                text.ForceMeshUpdate();
+                ApplyResolvedFontToText(text, resolvedFont);
             }
         }
 
@@ -1367,11 +1855,11 @@ namespace Sunset.Story
             }
 
             Image viewportImage = SpringDay1UiLayerUtility.EnsureComponent<Image>(recipeViewportRect.gameObject);
-            viewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+            viewportImage.color = RecipeViewportVisibleColor;
             viewportImage.raycastTarget = true;
 
             Mask mask = SpringDay1UiLayerUtility.EnsureComponent<Mask>(recipeViewportRect.gameObject);
-            mask.showMaskGraphic = false;
+            mask.showMaskGraphic = true;
 
             _recipeScrollRect = SpringDay1UiLayerUtility.EnsureComponent<ScrollRect>(recipeViewportRect.gameObject);
             _recipeScrollRect.horizontal = false;
@@ -1381,6 +1869,10 @@ namespace Sunset.Story
             _recipeScrollRect.scrollSensitivity = 18f;
             _recipeScrollRect.viewport = recipeViewportRect;
             _recipeScrollRect.content = recipeContentRect;
+            recipeScrollbar = EnsureRecipeScrollbar();
+            _recipeScrollRect.verticalScrollbar = recipeScrollbar;
+            _recipeScrollRect.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.AutoHideAndExpandViewport;
+            _recipeScrollRect.verticalScrollbarSpacing = 2f;
 
             if (UsesManualRecipeShell())
             {
@@ -1442,12 +1934,36 @@ namespace Sunset.Story
             layoutElement.minHeight = rowHeight;
             layoutElement.flexibleHeight = 0f;
 
+            Image background = rowRect.GetComponent<Image>();
+            RectTransform accentRect = FindDescendantRect(rowRect, "Accent");
+            RectTransform iconCardRect = FindDescendantRect(rowRect, "IconCard");
+            RectTransform textColumnRect = FindDescendantRect(rowRect, "TextColumn");
+            Image accentImage = accentRect != null ? accentRect.GetComponent<Image>() : null;
+            Image iconCardImage = iconCardRect != null ? iconCardRect.GetComponent<Image>() : null;
+            Image iconImage = FindDescendantComponent<Image>(rowRect, "Icon");
+
+            SanitizeRecipeRowImage(background, preserveAspect: false);
+            SanitizeRecipeRowImage(accentImage, preserveAspect: false);
+            SanitizeRecipeRowImage(iconCardImage, preserveAspect: false);
+            SanitizeRecipeRowImage(iconImage, preserveAspect: true);
+
             if (usesGeneratedLayout)
             {
+                HorizontalLayoutGroup generatedLayout = rowRect.GetComponent<HorizontalLayoutGroup>();
+                if (generatedLayout != null)
+                {
+                    generatedLayout.childAlignment = TextAnchor.UpperLeft;
+                    generatedLayout.childControlWidth = true;
+                    generatedLayout.childControlHeight = true;
+                    generatedLayout.childForceExpandWidth = false;
+                    generatedLayout.childForceExpandHeight = false;
+                }
+
                 rowRect.anchorMin = new Vector2(0f, 1f);
                 rowRect.anchorMax = new Vector2(1f, 1f);
                 rowRect.pivot = new Vector2(0.5f, 1f);
                 rowRect.sizeDelta = new Vector2(0f, rowHeight);
+                NormalizeGeneratedRecipeRowGeometry(rowRect, accentRect, iconCardRect, textColumnRect);
             }
             else if (rowRect.sizeDelta.y <= 0.01f)
             {
@@ -1486,9 +2002,6 @@ namespace Sunset.Story
 
             if (!usesGeneratedLayout && name != null && summary != null)
             {
-                RectTransform accentRect = FindDescendantRect(rowRect, "Accent");
-                RectTransform iconCardRect = FindDescendantRect(rowRect, "IconCard");
-                RectTransform textColumnRect = FindDescendantRect(rowRect, "TextColumn");
                 RectTransform nameRect = name.rectTransform;
                 RectTransform summaryRect = summary.rectTransform;
                 NormalizeTopStretchRect(nameRect);
@@ -1511,6 +2024,106 @@ namespace Sunset.Story
                 layoutElement.minHeight = dynamicRowHeight;
 
                 EnsureManualRecipeRowGeometry(rowRect, accentRect, iconCardRect, textColumnRect, nameRect, summaryRect, dynamicRowHeight);
+            }
+        }
+
+        private static void SanitizeRecipeRowImage(Image image, bool preserveAspect)
+        {
+            if (image == null)
+            {
+                return;
+            }
+
+            image.material = null;
+            image.type = Image.Type.Simple;
+            image.preserveAspect = preserveAspect;
+        }
+
+        private static bool HasInvalidRecipeRowGraphicMaterial(Image image)
+        {
+            if (image == null || image.material == null)
+            {
+                return false;
+            }
+
+            string materialName = image.material.name ?? string.Empty;
+            string shaderName = image.material.shader != null ? image.material.shader.name ?? string.Empty : string.Empty;
+            string signature = (materialName + "|" + shaderName).ToLowerInvariant();
+            return signature.Contains("font material")
+                || signature.Contains("textmeshpro")
+                || signature.Contains("tmp");
+        }
+
+        private static void NormalizeGeneratedRecipeRowGeometry(
+            RectTransform rowRect,
+            RectTransform accentRect,
+            RectTransform iconCardRect,
+            RectTransform textColumnRect)
+        {
+            if (rowRect == null)
+            {
+                return;
+            }
+
+            if (accentRect != null)
+            {
+                accentRect.anchorMin = new Vector2(0.5f, 0.5f);
+                accentRect.anchorMax = new Vector2(0.5f, 0.5f);
+                accentRect.pivot = new Vector2(0.5f, 0.5f);
+                accentRect.anchoredPosition = Vector2.zero;
+                accentRect.sizeDelta = new Vector2(4f, Mathf.Max(32f, rowRect.rect.height - 12f));
+                SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(accentRect.gameObject).preferredWidth = 4f;
+                SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(accentRect.gameObject).minWidth = 4f;
+            }
+
+            if (iconCardRect != null)
+            {
+                iconCardRect.anchorMin = new Vector2(0.5f, 0.5f);
+                iconCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+                iconCardRect.pivot = new Vector2(0.5f, 0.5f);
+                iconCardRect.anchoredPosition = Vector2.zero;
+                iconCardRect.sizeDelta = new Vector2(36f, 36f);
+                LayoutElement iconCardLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(iconCardRect.gameObject);
+                iconCardLayout.preferredWidth = 36f;
+                iconCardLayout.minWidth = 36f;
+                iconCardLayout.preferredHeight = 36f;
+                iconCardLayout.minHeight = 36f;
+            }
+
+            if (textColumnRect != null)
+            {
+                textColumnRect.anchorMin = new Vector2(0.5f, 0.5f);
+                textColumnRect.anchorMax = new Vector2(0.5f, 0.5f);
+                textColumnRect.pivot = new Vector2(0.5f, 0.5f);
+                textColumnRect.anchoredPosition = Vector2.zero;
+                textColumnRect.localScale = Vector3.one;
+                textColumnRect.sizeDelta = Vector2.zero;
+
+                LayoutElement textColumnLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(textColumnRect.gameObject);
+                textColumnLayout.flexibleWidth = 1f;
+                textColumnLayout.minWidth = 78f;
+
+                RectTransform nameRect = FindDescendantRect(textColumnRect, "Name");
+                if (nameRect != null)
+                {
+                    nameRect.anchorMin = new Vector2(0f, 1f);
+                    nameRect.anchorMax = new Vector2(1f, 1f);
+                    nameRect.pivot = new Vector2(0f, 1f);
+                    nameRect.anchoredPosition = Vector2.zero;
+                    nameRect.localScale = Vector3.one;
+                    nameRect.sizeDelta = new Vector2(0f, 18f);
+                }
+
+                RectTransform summaryRect = FindDescendantRect(textColumnRect, "Summary");
+                if (summaryRect != null)
+                {
+                    summaryRect.anchorMin = new Vector2(0f, 1f);
+                    summaryRect.anchorMax = new Vector2(1f, 1f);
+                    summaryRect.pivot = new Vector2(0f, 1f);
+                    summaryRect.anchoredPosition = Vector2.zero;
+                    summaryRect.localScale = Vector3.one;
+                    summaryRect.sizeDelta = new Vector2(0f, 12f);
+                }
             }
         }
 
@@ -1587,6 +2200,20 @@ namespace Sunset.Story
             rect.pivot = new Vector2(0f, 1f);
         }
 
+        private static void SetTopStretchRect(RectTransform rect, float left, float right, float top, float height)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+
+            rect.anchorMin = new Vector2(0f, 1f);
+            rect.anchorMax = new Vector2(1f, 1f);
+            rect.pivot = new Vector2(0f, 1f);
+            rect.offsetMin = new Vector2(left, -top - height);
+            rect.offsetMax = new Vector2(-right, -top);
+        }
+
         private void EnsureMaterialsViewportCompatibility()
         {
             if (_detailColumnRect == null || selectedMaterialsText == null)
@@ -1596,8 +2223,85 @@ namespace Sunset.Story
 
             if (UsesPrefabDetailShell())
             {
-                materialsViewportRect = selectedMaterialsText.rectTransform;
-                materialsContentRect = selectedMaterialsText.rectTransform;
+                RectTransform prefabMaterialsTextRect = selectedMaterialsText.rectTransform;
+                RectTransform prefabCurrentParent = prefabMaterialsTextRect.parent as RectTransform;
+                bool prefabTextWasDirectChild = prefabCurrentParent == _detailColumnRect;
+                int prefabTextSiblingIndex = prefabMaterialsTextRect.GetSiblingIndex();
+                _materialsTextBaselineHeight = Mathf.Max(20f, _materialsTextBaselineHeight);
+
+                bool prefabNeedsViewport = materialsViewportRect == null
+                    || materialsViewportRect == prefabMaterialsTextRect
+                    || materialsViewportRect == _detailColumnRect
+                    || materialsViewportRect.parent != _detailColumnRect;
+                if (prefabNeedsViewport)
+                {
+                    materialsViewportRect = FindDirectChildRect(_detailColumnRect, "MaterialsViewport");
+                    if (materialsViewportRect == null)
+                    {
+                        materialsViewportRect = CreateRect(_detailColumnRect, "MaterialsViewport");
+                        if (prefabTextWasDirectChild)
+                        {
+                            CopyRectGeometry(prefabMaterialsTextRect, materialsViewportRect);
+                            materialsViewportRect.SetSiblingIndex(prefabTextSiblingIndex);
+                        }
+                    }
+                }
+
+                Image prefabViewportImage = SpringDay1UiLayerUtility.EnsureComponent<Image>(materialsViewportRect.gameObject);
+                prefabViewportImage.color = new Color(0f, 0f, 0f, 0.001f);
+                prefabViewportImage.raycastTarget = true;
+
+                Mask prefabViewportMask = SpringDay1UiLayerUtility.EnsureComponent<Mask>(materialsViewportRect.gameObject);
+                prefabViewportMask.showMaskGraphic = false;
+
+                _materialsScrollRect = SpringDay1UiLayerUtility.EnsureComponent<ScrollRect>(materialsViewportRect.gameObject);
+                _materialsScrollRect.horizontal = false;
+                _materialsScrollRect.vertical = true;
+                _materialsScrollRect.inertia = false;
+                _materialsScrollRect.movementType = ScrollRect.MovementType.Clamped;
+                _materialsScrollRect.scrollSensitivity = 18f;
+
+                bool prefabNeedsContent = materialsContentRect == null
+                    || materialsContentRect == prefabMaterialsTextRect
+                    || materialsContentRect == _detailColumnRect
+                    || materialsContentRect == materialsViewportRect
+                    || materialsContentRect.parent != materialsViewportRect;
+                if (prefabNeedsContent)
+                {
+                    materialsContentRect = FindDirectChildRect(materialsViewportRect, "Content");
+                    if (materialsContentRect == null)
+                    {
+                        materialsContentRect = CreateRect(materialsViewportRect, "Content");
+                    }
+                }
+
+                materialsContentRect.anchorMin = new Vector2(0f, 1f);
+                materialsContentRect.anchorMax = new Vector2(1f, 1f);
+                materialsContentRect.pivot = new Vector2(0.5f, 1f);
+                materialsContentRect.anchoredPosition = Vector2.zero;
+                materialsContentRect.sizeDelta = new Vector2(0f, Mathf.Max(20f, GetCurrentHeight(materialsContentRect, 20f)));
+
+                if (prefabMaterialsTextRect.parent != materialsContentRect)
+                {
+                    prefabMaterialsTextRect.SetParent(materialsContentRect, false);
+                }
+
+                prefabMaterialsTextRect.anchorMin = new Vector2(0f, 1f);
+                prefabMaterialsTextRect.anchorMax = new Vector2(1f, 1f);
+                prefabMaterialsTextRect.pivot = new Vector2(0f, 1f);
+                prefabMaterialsTextRect.anchoredPosition = Vector2.zero;
+                prefabMaterialsTextRect.sizeDelta = new Vector2(0f, 20f);
+                selectedMaterialsText.textWrappingMode = TextWrappingModes.Normal;
+                selectedMaterialsText.overflowMode = TextOverflowModes.Overflow;
+
+                LayoutElement prefabMaterialsLabelLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(selectedMaterialsText.gameObject);
+                prefabMaterialsLabelLayout.minHeight = 20f;
+                prefabMaterialsLabelLayout.preferredHeight = 20f;
+                prefabMaterialsLabelLayout.flexibleHeight = 0f;
+
+                _materialsScrollRect.viewport = materialsViewportRect;
+                _materialsScrollRect.content = materialsContentRect;
+                RefreshMaterialsContentGeometry();
                 EnsurePrefabDetailTextChain();
                 return;
             }
@@ -1751,6 +2455,7 @@ namespace Sunset.Story
             if (floatingProgressRoot != null && floatingProgressIcon != null && floatingProgressFillImage != null && floatingProgressLabel != null)
             {
                 ApplyFloatingProgressVisualBaseline();
+                EnsureFloatingCardRegistry();
                 return;
             }
 
@@ -1793,10 +2498,7 @@ namespace Sunset.Story
                 RectTransform fill = CreateRect(fillBackground, "ProgressFill");
                 Stretch(fill, new Vector2(1f, 1f), new Vector2(-1f, -1f));
                 floatingProgressFillImage = fill.gameObject.AddComponent<Image>();
-                floatingProgressFillImage.type = Image.Type.Filled;
-                floatingProgressFillImage.fillMethod = Image.FillMethod.Horizontal;
-                floatingProgressFillImage.fillAmount = 0f;
-                floatingProgressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.96f);
+                EnsureProgressFillGraphic(floatingProgressFillImage);
 
                 floatingProgressLabel = CreateText(floatingProgressRoot, "Label", string.Empty, 8f, Color.white, TextAlignmentOptions.Center);
                 floatingProgressLabel.rectTransform.anchorMin = new Vector2(0f, 0f);
@@ -1805,6 +2507,7 @@ namespace Sunset.Story
                 floatingProgressLabel.rectTransform.offsetMax = new Vector2(-2f, 28f);
                 floatingProgressLabel.raycastTarget = false;
                 ApplyFloatingProgressVisualBaseline();
+                EnsureFloatingCardRegistry();
                 return;
             }
 
@@ -1817,39 +2520,239 @@ namespace Sunset.Story
             {
                 floatingProgressFillImage = FindDescendantComponent<Image>(floatingProgressRoot, "ProgressFill");
             }
+            EnsureProgressFillGraphic(floatingProgressFillImage);
 
             if (floatingProgressLabel == null)
             {
                 floatingProgressLabel = FindDescendantComponent<TextMeshProUGUI>(floatingProgressRoot, "Label");
             }
+            EnsureProgressLabelForeground(floatingProgressLabel);
 
             ApplyFloatingProgressVisualBaseline();
+            EnsureFloatingCardRegistry();
+        }
+
+        private void EnsureQueueOverflowToastCompatibility(RectTransform preferredParent = null)
+        {
+            RectTransform parent = preferredParent;
+            if (parent == null && panelRect != null)
+            {
+                parent = FindDirectChildRect(panelRect, "Surface") ?? panelRect;
+            }
+
+            if (panelRect == null || parent == null)
+            {
+                return;
+            }
+
+            if (queueToastRect == null)
+            {
+                queueToastRect = FindDescendantRect(panelRect, "QueueOverflowToast");
+            }
+
+            if (queueToastRect == null)
+            {
+                queueToastRect = CreateRect(parent, "QueueOverflowToast");
+            }
+
+            if (queueToastRect.parent != parent)
+            {
+                queueToastRect.SetParent(parent, false);
+            }
+
+            queueToastRect.anchorMin = new Vector2(0.5f, 1f);
+            queueToastRect.anchorMax = new Vector2(0.5f, 1f);
+            queueToastRect.pivot = new Vector2(0.5f, 1f);
+            queueToastRect.anchoredPosition = new Vector2(0f, -8f);
+            float toastWidth = panelRect.rect.width > 0.01f
+                ? Mathf.Clamp(panelRect.rect.width - 46f, 216f, 284f)
+                : 252f;
+            queueToastRect.sizeDelta = new Vector2(toastWidth, 24f);
+
+            Image toastBackground = SpringDay1UiLayerUtility.EnsureComponent<Image>(queueToastRect.gameObject);
+            toastBackground.color = new Color(0.92f, 0.76f, 0.34f, 0.96f);
+            toastBackground.raycastTarget = false;
+            ApplyOutline(SpringDay1UiLayerUtility.EnsureComponent<Outline>(queueToastRect.gameObject), new Color(0f, 0f, 0f, 0.22f), new Vector2(1f, -1f));
+
+            queueToastGroup = SpringDay1UiLayerUtility.EnsureComponent<CanvasGroup>(queueToastRect.gameObject);
+            queueToastGroup.interactable = false;
+            queueToastGroup.blocksRaycasts = false;
+
+            if (queueToastText == null)
+            {
+                queueToastText = FindDescendantComponent<TextMeshProUGUI>(queueToastRect, "Label");
+            }
+
+            if (queueToastText == null)
+            {
+                queueToastText = CreateText(queueToastRect, "Label", string.Empty, 10f, new Color(0.16f, 0.11f, 0.05f, 1f), TextAlignmentOptions.Center, false, true);
+            }
+
+            queueToastText.rectTransform.anchorMin = Vector2.zero;
+            queueToastText.rectTransform.anchorMax = Vector2.one;
+            queueToastText.rectTransform.offsetMin = new Vector2(10f, 1f);
+            queueToastText.rectTransform.offsetMax = new Vector2(-10f, -1f);
+            queueToastText.alignment = TextAlignmentOptions.Center;
+            queueToastText.fontSize = 10f;
+            queueToastText.color = new Color(0.16f, 0.11f, 0.05f, 1f);
+            queueToastText.textWrappingMode = TextWrappingModes.NoWrap;
+            queueToastText.overflowMode = TextOverflowModes.Ellipsis;
+            queueToastText.raycastTarget = false;
+            EnsureWorkbenchTextContent(queueToastText, queueToastText.text, 0.98f);
+
+            queueToastRect.SetAsLastSibling();
+            HideQueueOverflowToastImmediate();
+        }
+
+        private void TryShowQueueOverflowToast()
+        {
+            if (!_isVisible || GetFloatingProgressSourceCount() <= MaxFloatingProgressCards)
+            {
+                return;
+            }
+
+            ShowQueueOverflowToast(GetQueueOverflowToastMessage());
+        }
+
+        private void ShowQueueOverflowToast(string message)
+        {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return;
+            }
+
+            EnsureQueueOverflowToastCompatibility();
+            if (queueToastRect == null || queueToastGroup == null || queueToastText == null)
+            {
+                return;
+            }
+
+            StopQueueOverflowToastRoutine();
+            EnsureWorkbenchTextContent(queueToastText, message, 0.98f);
+            _queueToastRoutine = StartCoroutine(PlayQueueOverflowToastRoutine());
+        }
+
+        private IEnumerator PlayQueueOverflowToastRoutine()
+        {
+            SetQueueOverflowToastAlpha(0f, true);
+            yield return FadeQueueOverflowToast(0f, 1f, QueueOverflowToastFadeDuration);
+            yield return new WaitForSecondsRealtime(QueueOverflowToastHoldDuration);
+            yield return FadeQueueOverflowToast(1f, 0f, QueueOverflowToastFadeDuration);
+            HideQueueOverflowToastImmediate();
+            _queueToastRoutine = null;
+        }
+
+        private IEnumerator FadeQueueOverflowToast(float from, float to, float duration)
+        {
+            if (duration <= 0f)
+            {
+                SetQueueOverflowToastAlpha(to, to > 0.001f);
+                yield break;
+            }
+
+            float elapsed = 0f;
+            while (elapsed < duration)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                float t = Mathf.Clamp01(elapsed / duration);
+                SetQueueOverflowToastAlpha(Mathf.Lerp(from, to, t), true);
+                yield return null;
+            }
+
+            SetQueueOverflowToastAlpha(to, to > 0.001f);
+        }
+
+        private void SetQueueOverflowToastAlpha(float alpha, bool visible)
+        {
+            if (queueToastRect != null)
+            {
+                queueToastRect.gameObject.SetActive(visible || alpha > 0.001f);
+            }
+
+            if (queueToastGroup != null)
+            {
+                queueToastGroup.alpha = Mathf.Clamp01(alpha);
+                queueToastGroup.interactable = false;
+                queueToastGroup.blocksRaycasts = false;
+            }
+        }
+
+        private void HideQueueOverflowToastImmediate()
+        {
+            if (queueToastText != null)
+            {
+                queueToastText.text = string.Empty;
+            }
+
+            SetQueueOverflowToastAlpha(0f, false);
+        }
+
+        private void StopQueueOverflowToastRoutine()
+        {
+            if (_queueToastRoutine == null)
+            {
+                return;
+            }
+
+            StopCoroutine(_queueToastRoutine);
+            _queueToastRoutine = null;
+        }
+
+        private int GetFloatingProgressSourceCount()
+        {
+            int count = 0;
+            for (int index = 0; index < _queueEntries.Count; index++)
+            {
+                WorkbenchQueueEntry entry = _queueEntries[index];
+                if (entry != null && (entry.totalCount > 0 || entry.readyCount > 0))
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+
+        private static string GetQueueOverflowToastMessage()
+        {
+            return $"队列超过 {MaxFloatingProgressCards} 项，其余制作仍会继续排队";
         }
 
         private void ApplyFloatingProgressVisualBaseline()
         {
-            if (floatingProgressRoot != null)
+            EnsureFloatingCardRegistry();
+            if (_floatingCards.Count > 0)
             {
-                floatingProgressRoot.sizeDelta = new Vector2(68f, 74f);
+                ApplyFloatingProgressVisualBaseline(_floatingCards[0]);
+            }
+        }
+
+        private void ApplyFloatingProgressVisualBaseline(FloatingProgressCardRefs card)
+        {
+            if (card?.root == null)
+            {
+                return;
             }
 
-            if (floatingProgressIcon != null)
+            card.root.sizeDelta = new Vector2(72f, 78f);
+
+            if (card.icon != null)
             {
-                RectTransform iconCardRect = floatingProgressIcon.rectTransform.parent as RectTransform;
+                RectTransform iconCardRect = card.icon.rectTransform.parent as RectTransform;
                 if (iconCardRect != null)
                 {
-                    iconCardRect.anchorMin = new Vector2(0f, 1f);
+                    iconCardRect.anchorMin = new Vector2(0f, 0f);
                     iconCardRect.anchorMax = new Vector2(1f, 1f);
-                    iconCardRect.pivot = new Vector2(0.5f, 1f);
-                    iconCardRect.anchoredPosition = new Vector2(0f, -8f);
-                    iconCardRect.sizeDelta = new Vector2(-12f, 38f);
+                    iconCardRect.pivot = new Vector2(0.5f, 0.5f);
+                    iconCardRect.offsetMin = new Vector2(6f, 20f);
+                    iconCardRect.offsetMax = new Vector2(-6f, -8f);
                 }
 
-                floatingProgressIcon.rectTransform.sizeDelta = new Vector2(34f, 34f);
-                floatingProgressIcon.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                card.icon.rectTransform.sizeDelta = new Vector2(46f, 46f);
+                card.icon.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
             }
 
-            RectTransform floatingProgressBackground = FindDescendantRect(floatingProgressRoot, "ProgressBackground");
+            RectTransform floatingProgressBackground = FindDescendantRect(card.root, "ProgressBackground");
             if (floatingProgressBackground != null)
             {
                 floatingProgressBackground.anchorMin = new Vector2(0f, 0f);
@@ -1859,18 +2762,168 @@ namespace Sunset.Story
                 floatingProgressBackground.offsetMax = new Vector2(-7f, 20f);
             }
 
-            if (floatingProgressLabel != null)
+            if (card.label != null)
             {
-                floatingProgressLabel.alignment = TextAlignmentOptions.Center;
-                floatingProgressLabel.rectTransform.anchorMin = new Vector2(0f, 0f);
-                floatingProgressLabel.rectTransform.anchorMax = new Vector2(1f, 0f);
-                floatingProgressLabel.rectTransform.pivot = new Vector2(0.5f, 0f);
-                floatingProgressLabel.rectTransform.offsetMin = new Vector2(8f, 4f);
-                floatingProgressLabel.rectTransform.offsetMax = new Vector2(-8f, 22f);
+                card.label.alignment = TextAlignmentOptions.Center;
+                card.label.rectTransform.anchorMin = new Vector2(0f, 0f);
+                card.label.rectTransform.anchorMax = new Vector2(1f, 0f);
+                card.label.rectTransform.pivot = new Vector2(0.5f, 0f);
+                card.label.rectTransform.offsetMin = new Vector2(8f, 4f);
+                card.label.rectTransform.offsetMax = new Vector2(-8f, 22f);
             }
         }
 
-        private void RefreshCompatibilityLayout()
+        private void EnsureFloatingCardRegistry()
+        {
+            if (_floatingCards.Count == 0 && floatingProgressRoot != null && floatingProgressIcon != null && floatingProgressFillImage != null && floatingProgressLabel != null)
+            {
+                _floatingCards.Add(new FloatingProgressCardRefs
+                {
+                    root = floatingProgressRoot,
+                    icon = floatingProgressIcon,
+                    fill = floatingProgressFillImage,
+                    label = floatingProgressLabel
+                });
+            }
+        }
+
+        private FloatingProgressCardRefs CreateFloatingProgressCard(int index)
+        {
+            RectTransform root = CreateRect(transform, $"FloatingProgressCard_{index}");
+            root.anchorMin = new Vector2(0.5f, 0.5f);
+            root.anchorMax = new Vector2(0.5f, 0.5f);
+            root.pivot = new Vector2(0.5f, 0f);
+            root.gameObject.SetActive(false);
+            Image floatingCard = root.gameObject.AddComponent<Image>();
+            floatingCard.color = new Color(0.07f, 0.09f, 0.13f, 0.92f);
+            floatingCard.raycastTarget = false;
+            ApplyOutline(root.gameObject.AddComponent<Outline>(), new Color(1f, 1f, 1f, 0.08f), new Vector2(1f, -1f));
+            ApplyShadow(root.gameObject.AddComponent<Shadow>(), new Color(0f, 0f, 0f, 0.24f), new Vector2(0f, -3f));
+
+            RectTransform iconCard = CreateRect(root, "IconCard");
+            iconCard.gameObject.AddComponent<Image>().color = new Color(0.18f, 0.22f, 0.31f, 0.96f);
+            Image icon = CreateIcon(iconCard, "Icon", 18f);
+            Center(icon.rectTransform);
+
+            RectTransform fillBackground = CreateRect(root, "ProgressBackground");
+            fillBackground.gameObject.AddComponent<Image>().color = new Color(0.04f, 0.05f, 0.08f, 0.94f);
+            RectTransform fill = CreateRect(fillBackground, "ProgressFill");
+            Stretch(fill, new Vector2(1f, 1f), new Vector2(-1f, -1f));
+            Image fillImage = fill.gameObject.AddComponent<Image>();
+            EnsureProgressFillGraphic(fillImage);
+
+            TextMeshProUGUI label = CreateText(root, "Label", string.Empty, 8f, Color.white, TextAlignmentOptions.Center);
+            label.raycastTarget = false;
+            EnsureProgressLabelForeground(label);
+
+            FloatingProgressCardRefs card = new FloatingProgressCardRefs
+            {
+                root = root,
+                icon = icon,
+                fill = fillImage,
+                label = label
+            };
+
+            ApplyFloatingProgressVisualBaseline(card);
+            _floatingCards.Add(card);
+            return card;
+        }
+
+        private static void EnsureProgressLabelForeground(TextMeshProUGUI label)
+        {
+            if (label == null)
+            {
+                return;
+            }
+
+            label.raycastTarget = false;
+            label.textWrappingMode = TextWrappingModes.NoWrap;
+            label.overflowMode = TextOverflowModes.Overflow;
+            label.rectTransform.SetAsLastSibling();
+            Shadow labelShadow = SpringDay1UiLayerUtility.EnsureComponent<Shadow>(label.gameObject);
+            ApplyShadow(labelShadow, new Color(0f, 0f, 0f, 0.55f), new Vector2(0f, -1f));
+        }
+
+        private void EnsureProgressLabelBinding()
+        {
+            if (progressRoot == null)
+            {
+                return;
+            }
+
+            TextMeshProUGUI legacyLabel = progressLabelText;
+            TextMeshProUGUI inlineLabel = null;
+            for (int index = 0; index < progressRoot.childCount; index++)
+            {
+                Transform child = progressRoot.GetChild(index);
+                if (child == null)
+                {
+                    continue;
+                }
+
+                TextMeshProUGUI candidate = child.GetComponent<TextMeshProUGUI>();
+                if (candidate == null)
+                {
+                    continue;
+                }
+
+                inlineLabel = candidate;
+                break;
+            }
+
+            if (inlineLabel == null)
+            {
+                inlineLabel = CreateText(progressRoot, "ProgressInlineLabel", "进度  0/0", 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.Center, true, true);
+            }
+
+            progressLabelText = inlineLabel;
+            progressLabelText.rectTransform.anchorMin = Vector2.zero;
+            progressLabelText.rectTransform.anchorMax = Vector2.one;
+            progressLabelText.rectTransform.offsetMin = new Vector2(6f, 1f);
+            progressLabelText.rectTransform.offsetMax = new Vector2(-6f, -1f);
+            EnsureProgressLabelForeground(progressLabelText);
+
+            if (legacyLabel != null && legacyLabel != progressLabelText && !legacyLabel.rectTransform.IsChildOf(progressRoot))
+            {
+                legacyLabel.gameObject.SetActive(false);
+            }
+        }
+
+        private static void EnsureProgressFillGraphic(Image fillImage)
+        {
+            if (fillImage == null)
+            {
+                return;
+            }
+
+            fillImage.sprite = GetRuntimeProgressFillSprite();
+            fillImage.type = Image.Type.Filled;
+            fillImage.fillMethod = Image.FillMethod.Horizontal;
+            fillImage.fillOrigin = 0;
+            fillImage.fillAmount = Mathf.Clamp01(fillImage.fillAmount);
+            fillImage.color = ActiveProgressFillColor;
+            fillImage.preserveAspect = false;
+            fillImage.raycastTarget = false;
+        }
+
+        private static Sprite GetRuntimeProgressFillSprite()
+        {
+            if (_runtimeProgressFillSprite != null)
+            {
+                return _runtimeProgressFillSprite;
+            }
+
+            Texture2D texture = Texture2D.whiteTexture;
+            _runtimeProgressFillSprite = Sprite.Create(
+                texture,
+                new Rect(0f, 0f, texture.width, texture.height),
+                new Vector2(0.5f, 0.5f),
+                100f);
+            _runtimeProgressFillSprite.name = "WorkbenchRuntimeProgressFillSprite";
+            return _runtimeProgressFillSprite;
+        }
+
+        private void RefreshCompatibilityLayout(bool forceLayout = true)
         {
             if (_detailColumnRect == null || _materialsTitleRect == null || _quantityControlsRect == null
                 || selectedNameText == null || selectedDescriptionText == null || stageHintText == null || progressLabelText == null
@@ -1879,10 +2932,13 @@ namespace Sunset.Story
                 return;
             }
 
-            RefreshMaterialsContentGeometry();
-
             if (UsesPrefabDetailShell())
             {
+                if (forceLayout)
+                {
+                    RefreshPrefabDetailShellGeometry();
+                }
+
                 return;
             }
 
@@ -1891,6 +2947,12 @@ namespace Sunset.Story
                 return;
             }
 
+            if (!forceLayout)
+            {
+                return;
+            }
+
+            RefreshMaterialsContentGeometry();
             selectedNameText.enableAutoSizing = false;
             selectedNameText.textWrappingMode = TextWrappingModes.Normal;
             selectedNameText.overflowMode = TextOverflowModes.Overflow;
@@ -1917,6 +2979,110 @@ namespace Sunset.Story
 
             RefreshMaterialsContentGeometry();
             AdjustLegacyDetailLayoutToFitCurrentContent();
+        }
+
+        private void RefreshPrefabDetailShellGeometry()
+        {
+            if (_detailColumnRect == null || !UsesPrefabDetailShell())
+            {
+                return;
+            }
+
+            EnsurePrefabDetailTextChain();
+
+            selectedNameText.enableAutoSizing = false;
+            selectedNameText.textWrappingMode = TextWrappingModes.Normal;
+            selectedNameText.overflowMode = TextOverflowModes.Overflow;
+            selectedDescriptionText.enableAutoSizing = false;
+            selectedDescriptionText.textWrappingMode = TextWrappingModes.Normal;
+            selectedDescriptionText.overflowMode = TextOverflowModes.Truncate;
+            selectedMaterialsText.enableAutoSizing = false;
+            selectedMaterialsText.textWrappingMode = TextWrappingModes.Normal;
+
+            if (_iconCardRect != null)
+            {
+                RestoreBaselineRect(_iconCardRect, _iconCardBaseline);
+            }
+
+            if (_quantityTitleRect != null && _quantityTitleRect.parent == _detailColumnRect)
+            {
+                RestoreBaselineRect(_quantityTitleRect, _quantityTitleBaseline);
+            }
+
+            if (_quantityControlsRect != null && _quantityControlsRect.parent == _detailColumnRect)
+            {
+                RestoreBaselineRect(_quantityControlsRect, _quantityControlsBaseline);
+            }
+
+            if (progressLabelText != null && progressLabelText.rectTransform.parent == _detailColumnRect)
+            {
+                RestoreBaselineRect(progressLabelText.rectTransform, _progressLabelBaseline);
+            }
+
+            if (progressRoot != null && progressRoot.parent == _detailColumnRect)
+            {
+                RestoreBaselineRect(progressRoot, _progressBaseline);
+            }
+
+            RectTransform craftButtonRect = craftButton != null ? craftButton.transform as RectTransform : null;
+            if (craftButtonRect != null && craftButtonRect.parent == _detailColumnRect)
+            {
+                RestoreBaselineRect(craftButtonRect, _craftButtonBaseline);
+            }
+
+            bool hasStageHint = stageHintText != null && !string.IsNullOrWhiteSpace(stageHintText.text);
+            if (stageHintText != null)
+            {
+                stageHintText.gameObject.SetActive(hasStageHint);
+                if (hasStageHint && stageHintText.rectTransform.parent == _detailColumnRect)
+                {
+                    RestoreBaselineRect(stageHintText.rectTransform, _stageHintBaseline);
+                }
+            }
+
+            float headerLeftInset = _iconCardRect != null
+                ? Mathf.Max(54f, GetCurrentWidth(_iconCardRect, 40f) + 14f)
+                : 54f;
+            const float headerRightInset = 10f;
+            float detailWidth = Mathf.Max(96f, _detailColumnRect.rect.width - headerLeftInset - headerRightInset);
+
+            float nameTop = _nameBaseline.TopOr(GetTopInParent(selectedNameText.rectTransform));
+            float nameHeight = Mathf.Max(_nameBaseline.HeightOr(20f), MeasureTextHeight(selectedNameText, detailWidth, 20f));
+            SetTopStretchRect(selectedNameText.rectTransform, headerLeftInset, headerRightInset, nameTop, nameHeight);
+
+            float descriptionTop = nameTop + nameHeight + 4f;
+            float materialsTitleHeight = _materialsTitleBaseline.HeightOr(GetCurrentHeight(_materialsTitleRect, 14f));
+            float materialsBottomLimit = _quantityTitleRect != null && _quantityTitleRect.parent == _detailColumnRect
+                ? _quantityTitleBaseline.TopOr(GetTopInParent(_quantityTitleRect))
+                : GetDetailContentFloorTop();
+            float minimumMaterialsHeight = Mathf.Max(28f, Mathf.Min(44f, _materialsViewportBaseline.HeightOr(40f)));
+            float availableForDescription = Mathf.Max(
+                24f,
+                materialsBottomLimit - descriptionTop - 8f - materialsTitleHeight - 6f - minimumMaterialsHeight - 8f);
+            float measuredDescriptionHeight = MeasureTextHeight(selectedDescriptionText, detailWidth, _descriptionBaseline.HeightOr(24f));
+            float descriptionHeight = Mathf.Clamp(measuredDescriptionHeight, 24f, availableForDescription);
+            SetTopStretchRect(selectedDescriptionText.rectTransform, headerLeftInset, headerRightInset, descriptionTop, descriptionHeight);
+
+            float materialsTitleTop = descriptionTop + descriptionHeight + 8f;
+            SetTopFlowRect(_materialsTitleRect, materialsTitleTop, materialsTitleHeight);
+
+            float materialsTop = materialsTitleTop + materialsTitleHeight + 6f;
+            float materialsWidth = Mathf.Max(120f, _detailColumnRect.rect.width - 20f);
+            float fullMaterialsHeight = MeasureTextHeight(selectedMaterialsText, materialsWidth, _materialsTextBaselineHeight > 0.01f ? _materialsTextBaselineHeight : 20f);
+            float availableMaterialsHeight = Mathf.Max(24f, materialsBottomLimit - materialsTop - 8f);
+            float assignedMaterialsHeight = Mathf.Min(fullMaterialsHeight, availableMaterialsHeight);
+            SetTopFlowRect(materialsViewportRect, materialsTop, assignedMaterialsHeight);
+            selectedMaterialsText.overflowMode = fullMaterialsHeight > assignedMaterialsHeight + 0.5f
+                ? TextOverflowModes.Truncate
+                : TextOverflowModes.Overflow;
+            RefreshMaterialsContentGeometry();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(selectedMaterialsText.rectTransform);
+            if (materialsViewportRect != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(materialsViewportRect);
+            }
+            LayoutRebuilder.ForceRebuildLayoutImmediate(_detailColumnRect);
+            Canvas.ForceUpdateCanvases();
         }
 
         private bool UsesManualRecipeShell()
@@ -1946,14 +3112,19 @@ namespace Sunset.Story
 
         private bool HasGeneratedRecipeRowChain()
         {
-            if (recipeContentRect == null)
+            return HasGeneratedRecipeRowChain(recipeContentRect);
+        }
+
+        private static bool HasGeneratedRecipeRowChain(RectTransform contentRoot)
+        {
+            if (contentRoot == null)
             {
                 return false;
             }
 
-            for (int index = 0; index < recipeContentRect.childCount; index++)
+            for (int index = 0; index < contentRoot.childCount; index++)
             {
-                if (recipeContentRect.GetChild(index) is not RectTransform rowRect || !rowRect.name.StartsWith("RecipeRow_"))
+                if (contentRoot.GetChild(index) is not RectTransform rowRect || !rowRect.name.StartsWith("RecipeRow_"))
                 {
                     continue;
                 }
@@ -1976,13 +3147,6 @@ namespace Sunset.Story
 
             if (!UsesManualRecipeShell())
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(recipeContentRect);
-                Canvas.ForceUpdateCanvases();
-                if (_recipeScrollRect != null)
-                {
-                    _recipeScrollRect.verticalNormalizedPosition = 1f;
-                }
-
                 return;
             }
 
@@ -2018,13 +3182,24 @@ namespace Sunset.Story
             LayoutRebuilder.ForceRebuildLayoutImmediate(recipeContentRect);
             UpdateViewportMask(recipeViewportRect, totalHeight);
             Canvas.ForceUpdateCanvases();
-            if (_recipeScrollRect != null)
-            {
-                _recipeScrollRect.verticalNormalizedPosition = 1f;
-            }
         }
 
-        private void RefreshMaterialsContentGeometry()
+        private float CaptureRecipeScrollPosition()
+        {
+            return _recipeScrollRect != null ? _recipeScrollRect.verticalNormalizedPosition : 1f;
+        }
+
+        private void RestoreRecipeScrollPosition(float normalizedPosition)
+        {
+            if (_recipeScrollRect == null)
+            {
+                return;
+            }
+
+            _recipeScrollRect.verticalNormalizedPosition = Mathf.Clamp01(normalizedPosition);
+        }
+
+        private void RefreshMaterialsContentGeometry(bool forceLayoutUpdate = true)
         {
             if (selectedMaterialsText == null || materialsContentRect == null)
             {
@@ -2038,16 +3213,24 @@ namespace Sunset.Story
             float textHeight = MeasureTextHeight(selectedMaterialsText, width, baselineHeight);
 
             RectTransform materialsTextRect = selectedMaterialsText.rectTransform;
+            bool geometryChanged = !Mathf.Approximately(materialsTextRect.sizeDelta.y, textHeight);
             materialsTextRect.sizeDelta = new Vector2(materialsTextRect.sizeDelta.x, textHeight);
             if (materialsContentRect != materialsTextRect)
             {
+                geometryChanged |= !Mathf.Approximately(materialsContentRect.sizeDelta.y, textHeight);
                 materialsContentRect.sizeDelta = new Vector2(materialsContentRect.sizeDelta.x, textHeight);
             }
 
             LayoutElement materialsLabelLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(selectedMaterialsText.gameObject);
+            geometryChanged |= !Mathf.Approximately(materialsLabelLayout.preferredHeight, textHeight);
             materialsLabelLayout.minHeight = baselineHeight;
             materialsLabelLayout.preferredHeight = textHeight;
             materialsLabelLayout.flexibleHeight = 0f;
+
+            if (!forceLayoutUpdate && !geometryChanged)
+            {
+                return;
+            }
 
             LayoutRebuilder.ForceRebuildLayoutImmediate(materialsTextRect);
             if (materialsContentRect != materialsTextRect)
@@ -2070,16 +3253,29 @@ namespace Sunset.Story
                 _fontAsset = ResolveFont(text.text);
                 if (_fontAsset != null)
                 {
-                    text.font = _fontAsset;
-                    if (_fontAsset.material != null)
-                    {
-                        text.fontSharedMaterial = _fontAsset.material;
-                    }
+                    ApplyResolvedFontToText(text, _fontAsset);
                 }
             }
 
             Vector2 preferred = text.GetPreferredValues(text.text, Mathf.Max(1f, width), 0f);
             return Mathf.Max(minHeight, Mathf.Ceil(preferred.y));
+        }
+
+        private static bool SetTextIfChanged(TextMeshProUGUI text, string value)
+        {
+            if (text == null)
+            {
+                return false;
+            }
+
+            value ??= string.Empty;
+            if (string.Equals(text.text, value, System.StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            text.text = value;
+            return true;
         }
 
         private void EnsureRecipeRowTextChainReady(RowRefs row)
@@ -2127,11 +3323,7 @@ namespace Sunset.Story
                 _fontAsset = ResolveFont(text.text);
                 if (_fontAsset != null)
                 {
-                    text.font = _fontAsset;
-                    if (_fontAsset.material != null)
-                    {
-                        text.fontSharedMaterial = _fontAsset.material;
-                    }
+                    ApplyResolvedFontToText(text, _fontAsset);
                 }
             }
 
@@ -2150,9 +3342,11 @@ namespace Sunset.Story
                 return;
             }
 
+            bool changed = false;
             if (!string.IsNullOrWhiteSpace(expected) && !string.Equals(text.text, expected, System.StringComparison.Ordinal))
             {
                 text.text = expected;
+                changed = true;
             }
 
             EnsureWorkbenchTextReady(text, forceActive: true, minAlpha);
@@ -2161,14 +3355,31 @@ namespace Sunset.Story
                 _fontAsset = ResolveFont(expected);
                 if (_fontAsset != null)
                 {
-                    text.font = _fontAsset;
-                    if (_fontAsset.material != null)
-                    {
-                        text.fontSharedMaterial = _fontAsset.material;
-                    }
+                    ApplyResolvedFontToText(text, _fontAsset);
+                    return;
                 }
+
+                changed = true;
             }
 
+            if (changed)
+            {
+                text.ForceMeshUpdate();
+            }
+        }
+
+        private static void ApplyResolvedFontToText(TextMeshProUGUI text, TMP_FontAsset fontAsset)
+        {
+            if (text == null || fontAsset == null)
+            {
+                return;
+            }
+
+            text.font = fontAsset;
+            text.UpdateMeshPadding();
+            text.SetMaterialDirty();
+            text.SetVerticesDirty();
+            text.havePropertiesChanged = true;
             text.ForceMeshUpdate();
         }
 
@@ -2265,6 +3476,11 @@ namespace Sunset.Story
         private float GetActionAreaFloorTop()
         {
             float floorTop = float.MaxValue;
+
+            if (_quantityTitleRect != null && _quantityTitleRect.parent == _detailColumnRect)
+            {
+                floorTop = Mathf.Min(floorTop, _quantityTitleBaseline.TopOr(GetTopInParent(_quantityTitleRect)));
+            }
 
             if (_quantityControlsRect != null && _quantityControlsRect.parent == _detailColumnRect)
             {
@@ -2509,22 +3725,41 @@ namespace Sunset.Story
             LayoutRebuilder.ForceRebuildLayoutImmediate(recipeContentRect);
         }
 
-        private void RefreshAll()
+        private void RefreshAll(bool validateRecipeRows = true, bool rebuildRecipeGeometry = true, bool rebuildDetailGeometry = true)
         {
+            float preservedRecipeScroll = CaptureRecipeScrollPosition();
             EnsureRows();
-            RefreshRows();
-            if (!UsesPrefabRecipeShell() && ShouldRebuildRecipeRowsFromScratch())
+            RefreshRows(allowRecovery: validateRecipeRows, rebuildGeometry: rebuildRecipeGeometry);
+            if (validateRecipeRows)
             {
-                RebuildRecipeRowsFromScratch(forceRuntimePrefabStyle: true);
-                RefreshRows();
+                ForceRuntimeRecipeRowsIfNeeded();
             }
-            RefreshSelection();
+
+            RefreshSelection(forceDetailGeometry: rebuildDetailGeometry);
             UpdateQuantityUi();
-            RefreshCompatibilityLayout();
+            RefreshCompatibilityLayout(forceLayout: rebuildDetailGeometry);
+            RestoreRecipeScrollPosition(preservedRecipeScroll);
         }
 
-        private void RefreshRows(bool allowRecovery = true)
+        private void RefreshVisibleWorkbenchUi(bool refreshRecipeRows = true)
         {
+            if (!_isVisible)
+            {
+                return;
+            }
+
+            if (refreshRecipeRows)
+            {
+                RefreshRows(allowRecovery: false, rebuildGeometry: false);
+            }
+
+            RefreshSelection(forceDetailGeometry: false);
+            UpdateQuantityUi();
+        }
+
+        private void RefreshRows(bool allowRecovery = true, bool rebuildGeometry = true)
+        {
+            bool usesManualRecipeShell = UsesManualRecipeShell();
             for (int i = 0; i < _rows.Count; i++)
             {
                 bool hasRecipe = i < _recipes.Count;
@@ -2538,35 +3773,82 @@ namespace Sunset.Story
                 ItemData item = ResolveItem(recipe.resultItemID);
                 bool selected = i == _selectedIndex;
                 bool craftable = GetMaxCraftableCount(recipe) > 0;
+                string displayName = GetRecipeDisplayName(recipe, item);
+                string displaySummary = BuildRowSummary(recipe);
                 EnsureRecipeRowTextChainReady(_rows[i]);
                 _rows[i].icon.sprite = item != null ? item.GetBagSprite() : null;
                 _rows[i].icon.color = _rows[i].icon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
-                _rows[i].name.text = GetRecipeDisplayName(recipe, item);
-                _rows[i].summary.text = BuildRowSummary(recipe);
-                EnsureWorkbenchTextContent(_rows[i].name, _rows[i].name.text, 0.98f);
-                EnsureWorkbenchTextContent(_rows[i].summary, _rows[i].summary.text, 0.9f);
+                SetTextIfChanged(_rows[i].name, displayName);
+                SetTextIfChanged(_rows[i].summary, displaySummary);
+                EnsureWorkbenchTextContent(_rows[i].name, displayName, 0.98f);
+                EnsureWorkbenchTextContent(_rows[i].summary, displaySummary, 0.9f);
                 EnsureRecipeRowCompatibility(_rows[i].rect);
-                _rows[i].preferredHeight = GetCurrentHeight(_rows[i].rect, rowHeight);
+                if (rebuildGeometry)
+                {
+                    _rows[i].preferredHeight = usesManualRecipeShell ? GetCurrentHeight(_rows[i].rect, rowHeight) : rowHeight;
+                }
+                else if (_rows[i].preferredHeight <= 0.01f)
+                {
+                    _rows[i].preferredHeight = rowHeight;
+                }
+
                 _rows[i].background.color = selected ? new Color(0.31f, 0.23f, 0.14f, 0.98f) : craftable ? new Color(0.18f, 0.22f, 0.31f, 0.94f) : new Color(0.24f, 0.16f, 0.16f, 0.94f);
                 _rows[i].accent.color = selected ? new Color(0.97f, 0.8f, 0.42f, 1f) : new Color(1f, 1f, 1f, 0f);
-                LayoutRebuilder.ForceRebuildLayoutImmediate(_rows[i].rect);
             }
 
-            LayoutRebuilder.ForceRebuildLayoutImmediate(recipeContentRect);
-            if (recipeViewportRect != null)
+            if (!rebuildGeometry)
             {
-                LayoutRebuilder.ForceRebuildLayoutImmediate(recipeViewportRect);
+                return;
             }
-            Canvas.ForceUpdateCanvases();
-            RefreshRecipeContentGeometry();
+
+            if (usesManualRecipeShell)
+            {
+                RefreshRecipeContentGeometry();
+            }
+            else
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(recipeContentRect);
+                if (recipeViewportRect != null)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(recipeViewportRect);
+                }
+
+                Canvas.ForceUpdateCanvases();
+            }
 
             bool unreadableRows = HasUnreadableVisibleRecipeRows();
             bool needsHardRecovery = NeedsRecipeRowHardRecovery();
             if (allowRecovery && (unreadableRows || needsHardRecovery))
             {
                 RebuildRecipeRowsFromScratch(forceRuntimePrefabStyle: true);
-                RefreshRows(allowRecovery: false);
+                RefreshRows(allowRecovery: false, rebuildGeometry: true);
             }
+        }
+
+        private void ForceRuntimeRecipeRowsIfNeeded()
+        {
+            if (recipeContentRect == null)
+            {
+                return;
+            }
+
+            if (_recipes.Count == 0)
+            {
+                return;
+            }
+
+            bool rowsNeedReplacement = !HasGeneratedRecipeRowChain()
+                || ShouldRebuildRecipeRowsFromScratch()
+                || HasUnreadableVisibleRecipeRows()
+                || NeedsRecipeRowHardRecovery()
+                || !HasReusableRecipeRowChain(recipeContentRect);
+            if (!rowsNeedReplacement)
+            {
+                return;
+            }
+
+            RebuildRecipeRowsFromScratch(forceRuntimePrefabStyle: true);
+            RefreshRows(allowRecovery: false, rebuildGeometry: true);
         }
 
         private bool ShouldRebuildRecipeRowsFromScratch()
@@ -2583,7 +3865,7 @@ namespace Sunset.Story
 
             if (HasGeneratedRecipeRowChain())
             {
-                return true;
+                return false;
             }
 
             bool hasVisibleRow = false;
@@ -2653,18 +3935,53 @@ namespace Sunset.Story
                     return true;
                 }
 
-                if (row.name == null
-                    || row.summary == null
-                    || row.name.rectTransform.parent != row.rect
-                    || row.summary.rectTransform.parent != row.rect
+                if (row.background == null
+                    || row.accent == null
+                    || row.icon == null
+                    || HasInvalidRecipeRowGraphicMaterial(row.background)
+                    || HasInvalidRecipeRowGraphicMaterial(row.accent)
+                    || HasInvalidRecipeRowGraphicMaterial(row.icon))
+                {
+                    return true;
+                }
+
+                if (!IsRecipeRowTextHierarchyValid(row)
                     || string.IsNullOrWhiteSpace(row.name.text)
-                    || string.IsNullOrWhiteSpace(row.summary.text))
+                    || string.IsNullOrWhiteSpace(row.summary.text)
+                    || !IsRectReasonablyInsideViewport(row.name.rectTransform, row.rect)
+                    || !IsRectReasonablyInsideViewport(row.summary.rectTransform, row.rect))
                 {
                     return true;
                 }
             }
 
             return !hasVisibleRow;
+        }
+
+        private static bool IsRecipeRowTextHierarchyValid(RowRefs row)
+        {
+            if (row?.rect == null || row.name == null || row.summary == null)
+            {
+                return false;
+            }
+
+            if (!row.name.transform.IsChildOf(row.rect) || !row.summary.transform.IsChildOf(row.rect))
+            {
+                return false;
+            }
+
+            if (IsGeneratedRecipeRow(row.rect))
+            {
+                RectTransform textColumn = FindDescendantRect(row.rect, "TextColumn");
+                return textColumn != null
+                    && row.name.rectTransform.parent == textColumn
+                    && row.summary.rectTransform.parent == textColumn
+                    && GetCurrentWidth(textColumn, 0f) > 1f
+                    && GetCurrentHeight(textColumn, 0f) > 1f;
+            }
+
+            return row.name.rectTransform.parent == row.rect
+                && row.summary.rectTransform.parent == row.rect;
         }
 
         private static bool IsRectReasonablyInsideViewport(RectTransform rect, RectTransform viewport)
@@ -2770,6 +4087,14 @@ namespace Sunset.Story
             }
 
             RectTransform rowRect = CreateRect(recipeContentRect, $"RecipeRow_{rowIndex}");
+            HorizontalLayoutGroup rowLayout = SpringDay1UiLayerUtility.EnsureComponent<HorizontalLayoutGroup>(rowRect.gameObject);
+            rowLayout.padding = new RectOffset(4, 8, 6, 6);
+            rowLayout.spacing = 5;
+            rowLayout.childAlignment = TextAnchor.UpperLeft;
+            rowLayout.childControlWidth = true;
+            rowLayout.childControlHeight = true;
+            rowLayout.childForceExpandWidth = false;
+            rowLayout.childForceExpandHeight = false;
             LayoutElement rowLayoutElement = rowRect.gameObject.AddComponent<LayoutElement>();
             rowLayoutElement.preferredHeight = rowHeight;
             rowLayoutElement.minHeight = rowHeight;
@@ -2781,14 +4106,42 @@ namespace Sunset.Story
 
             RectTransform accent = CreateRect(rowRect, "Accent");
             Image accentImage = accent.gameObject.AddComponent<Image>();
+            LayoutElement accentLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(accent.gameObject);
+            accentLayout.preferredWidth = 4f;
+            accentLayout.minWidth = 4f;
+            accentLayout.preferredHeight = rowHeight - 12f;
+            accentLayout.minHeight = rowHeight - 12f;
 
             RectTransform iconCard = CreateRect(rowRect, "IconCard");
             iconCard.gameObject.AddComponent<Image>().color = new Color(0.23f, 0.28f, 0.38f, 0.94f);
+            LayoutElement iconLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(iconCard.gameObject);
+            iconLayout.preferredWidth = 36f;
+            iconLayout.minWidth = 36f;
+            iconLayout.preferredHeight = 36f;
+            iconLayout.minHeight = 36f;
             Image icon = CreateIcon(iconCard, "Icon", 24f);
             Center(icon.rectTransform);
 
-            TextMeshProUGUI name = CreateText(rowRect, "Name", string.Empty, 13f, Color.white, TextAlignmentOptions.TopLeft, stretch: true);
-            TextMeshProUGUI summary = CreateText(rowRect, "Summary", string.Empty, 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.TopLeft, true, true);
+            RectTransform textColumn = CreateRect(rowRect, "TextColumn");
+            VerticalLayoutGroup textLayout = SpringDay1UiLayerUtility.EnsureComponent<VerticalLayoutGroup>(textColumn.gameObject);
+            textLayout.padding = new RectOffset(0, 0, 0, 0);
+            textLayout.spacing = 2;
+            textLayout.childAlignment = TextAnchor.UpperLeft;
+            textLayout.childControlWidth = true;
+            textLayout.childControlHeight = false;
+            textLayout.childForceExpandWidth = true;
+            textLayout.childForceExpandHeight = false;
+            LayoutElement textColumnLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(textColumn.gameObject);
+            textColumnLayout.flexibleWidth = 1f;
+            textColumnLayout.minWidth = 78f;
+
+            TextMeshProUGUI name = CreateText(textColumn, "Name", string.Empty, 13f, Color.white, TextAlignmentOptions.TopLeft, true, true);
+            LayoutElement nameLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(name.gameObject);
+            nameLayout.minHeight = 18f;
+            nameLayout.preferredHeight = 18f;
+            TextMeshProUGUI summary = CreateText(textColumn, "Summary", string.Empty, 10f, new Color(0.77f, 0.82f, 0.9f, 0.94f), TextAlignmentOptions.TopLeft, true, true);
+            LayoutElement summaryLayout = SpringDay1UiLayerUtility.EnsureComponent<LayoutElement>(summary.gameObject);
+            summaryLayout.minHeight = 12f;
 
             Button button = rowRect.gameObject.AddComponent<Button>();
             button.targetGraphic = background;
@@ -2810,17 +4163,19 @@ namespace Sunset.Story
 
         private void SelectRecipe(int index)
         {
-            if (index < 0 || index >= _recipes.Count || _craftRoutine != null)
+            if (index < 0 || index >= _recipes.Count)
             {
                 return;
             }
 
             _selectedIndex = index;
             _selectedQuantity = 0;
-            RefreshAll();
+            _craftButtonHovered = false;
+            _progressBarHovered = false;
+            RefreshAll(validateRecipeRows: false, rebuildRecipeGeometry: false, rebuildDetailGeometry: true);
         }
 
-        private void RefreshSelection()
+        private void RefreshSelection(bool forceDetailGeometry = true)
         {
             RecipeData recipe = GetSelectedRecipe();
             if (recipe == null)
@@ -2831,19 +4186,89 @@ namespace Sunset.Story
             ItemData item = ResolveItem(recipe.resultItemID);
             selectedIcon.sprite = item != null ? item.GetBagSprite() : null;
             selectedIcon.color = selectedIcon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
-            selectedNameText.text = GetRecipeDisplayName(recipe, item);
-            selectedDescriptionText.text = string.IsNullOrWhiteSpace(recipe.description) ? (item != null ? item.description : "这件工具还没有额外说明。") : recipe.description;
-            selectedMaterialsText.text = BuildMaterialsText(recipe, GetMaterialPreviewQuantity());
-            EnsureWorkbenchTextContent(selectedNameText, selectedNameText.text, 0.98f);
-            EnsureWorkbenchTextContent(selectedDescriptionText, selectedDescriptionText.text, 0.9f);
-            EnsureWorkbenchTextContent(selectedMaterialsText, selectedMaterialsText.text, 0.9f);
-            RefreshMaterialsContentGeometry();
+            string displayName = GetRecipeDisplayName(recipe, item);
+            string displayDescription = GetRecipeDisplayDescription(recipe, item);
+            string materialsText = BuildMaterialsText(recipe, GetMaterialPreviewQuantity());
+            SetTextIfChanged(selectedNameText, displayName);
+            SetTextIfChanged(selectedDescriptionText, displayDescription);
+            SetTextIfChanged(selectedMaterialsText, materialsText);
+            ApplyDetailColumnFontTuning();
+            EnsureWorkbenchTextContent(selectedNameText, displayName, 0.98f);
+            EnsureWorkbenchTextContent(selectedDescriptionText, displayDescription, 0.9f);
+            EnsureWorkbenchTextContent(selectedMaterialsText, materialsText, 0.9f);
+            SetTextIfChanged(stageHintText, BuildStageHint(recipe));
+            UpdateProgressLabel(recipe);
+
+            if (UsesPrefabDetailShell())
+            {
+                EnsurePrefabDetailTextChain();
+                if (forceDetailGeometry && _detailColumnRect != null)
+                {
+                    LayoutRebuilder.ForceRebuildLayoutImmediate(_detailColumnRect);
+                }
+            }
+
+            RefreshMaterialsContentGeometry(forceLayoutUpdate: forceDetailGeometry);
             if (_materialsScrollRect != null)
             {
                 _materialsScrollRect.verticalNormalizedPosition = 1f;
             }
-            stageHintText.text = BuildStageHint(recipe);
-            UpdateProgressLabel(recipe);
+        }
+
+        private static bool EntryHasReadyOutputs(WorkbenchQueueEntry entry)
+        {
+            return entry != null && entry.readyCount > 0;
+        }
+
+        private static bool EntryHasUnclaimedCompletedOutputs(WorkbenchQueueEntry entry)
+        {
+            return EntryHasReadyOutputs(entry) && !HasPendingCrafts(entry);
+        }
+
+        private static int GetPendingCraftCount(WorkbenchQueueEntry entry)
+        {
+            return entry != null ? Mathf.Max(0, entry.totalCount - entry.readyCount) : 0;
+        }
+
+        // 底部交互矩阵固定为两层互斥，且“动作意图”高于“领取意图”：
+        // 1. 只要 selectedQuantity > 0，就进入动作层（开始 / 加入队列 / 追加），不允许被 readyCount 抢回领取态
+        // 2. 只有没有动作意图时，进度层（进度 / 制作完成 / 领取 / 取消 / 中断）才接管
+        // 3. 领取只允许出现在当前选中的那条 recipe 进度栏里，不通过通用 blocker 文案全局抢焦点
+        private bool ShouldShowCraftButton(RecipeData recipe, WorkbenchQueueEntry entry)
+        {
+            return recipe != null && _selectedQuantity > 0;
+        }
+
+        private bool ShouldShowProgressFooter(RecipeData recipe, WorkbenchQueueEntry entry)
+        {
+            return recipe != null && !ShouldShowCraftButton(recipe, entry);
+        }
+
+        private void ApplyProgressLabelState(string labelText, Color labelColor)
+        {
+            if (progressLabelText == null)
+            {
+                return;
+            }
+
+            string resolvedText = labelText ?? string.Empty;
+            bool changed = !string.Equals(progressLabelText.text, resolvedText, System.StringComparison.Ordinal);
+            if (changed)
+            {
+                progressLabelText.text = resolvedText;
+            }
+
+            if (progressLabelText.color != labelColor)
+            {
+                progressLabelText.color = labelColor;
+                changed = true;
+            }
+
+            progressLabelText.enabled = !string.IsNullOrWhiteSpace(progressLabelText.text);
+            if (progressLabelText.enabled && changed)
+            {
+                EnsureWorkbenchTextContent(progressLabelText, progressLabelText.text, 0.96f);
+            }
         }
 
         private void UpdateQuantityUi()
@@ -2862,22 +4287,35 @@ namespace Sunset.Story
             quantitySlider.interactable = maxSelectable > 0;
 
             bool canCraft = CanCraftSelected(recipe, out string blockerMessage);
-            bool isCrafting = HasActiveCraftQueue;
-            bool hasReadyOutputs = entry != null && entry.readyCount > 0;
-            bool canSubmitQuantity = canCraft && _selectedQuantity > 0 && (!isCrafting || recipe == _craftingRecipe);
-            bool canPickupOutputs = hasReadyOutputs && _selectedQuantity <= 0;
-            bool canCancelCraft = isCrafting && recipe == _craftingRecipe && !canPickupOutputs;
-            craftButton.interactable = recipe != null && canSubmitQuantity;
-            craftButtonLabel.text = BuildCraftButtonLabel(recipe, canCraft, blockerMessage);
-            EnsureWorkbenchTextContent(craftButtonLabel, craftButtonLabel.text, 0.98f);
-            if (canPickupOutputs)
+            bool hasAnyCraftRunning = HasActiveCraftQueue;
+            bool canSubmitQuantity = canCraft && _selectedQuantity > 0;
+            bool canPickupOutputs = CanPickupEntryOutputs(entry);
+            bool canCancelFromButton = false;
+            bool canCancelCraft = CanInterruptActiveEntry(entry);
+            bool canCancelQueued = CanCancelQueuedEntry(entry);
+            bool canShowQueueAppendHover = hasAnyCraftRunning && _selectedQuantity > 0 && canCraft;
+            bool showCraftButton = ShouldShowCraftButton(recipe, entry);
+            bool showProgressFooter = ShouldShowProgressFooter(recipe, entry);
+            craftButton.gameObject.SetActive(showCraftButton);
+            craftButton.interactable = showCraftButton && canSubmitQuantity;
+            craftButtonLabel.text = showCraftButton ? BuildCraftButtonLabel(recipe, canCraft, blockerMessage) : string.Empty;
+            craftButtonLabel.enabled = showCraftButton && !string.IsNullOrWhiteSpace(craftButtonLabel.text);
+            if (craftButtonLabel.enabled)
+            {
+                EnsureWorkbenchTextContent(craftButtonLabel, craftButtonLabel.text, 0.98f);
+            }
+            if (!showCraftButton)
+            {
+                craftButtonBackground.color = new Color(0.25f, 0.39f, 0.55f, 0f);
+            }
+            else if (canPickupOutputs)
             {
                 craftButtonBackground.color = new Color(0.25f, 0.39f, 0.55f, 0.04f);
             }
-            else if (isCrafting)
+            else if (hasAnyCraftRunning)
             {
-                craftButtonBackground.color = _craftButtonHovered
-                    ? (_selectedQuantity > 0
+                craftButtonBackground.color = _craftButtonHovered && (canShowQueueAppendHover || canCancelFromButton)
+                    ? (canShowQueueAppendHover
                         ? new Color(0.25f, 0.39f, 0.55f, 0.72f)
                         : new Color(0.52f, 0.17f, 0.17f, 0.78f))
                     : new Color(0.25f, 0.39f, 0.55f, 0.04f);
@@ -2889,8 +4327,18 @@ namespace Sunset.Story
 
             if (progressRoot != null && progressBackgroundImage != null)
             {
-                progressRoot.gameObject.SetActive(recipe != null);
-                if (recipe == null)
+                progressRoot.gameObject.SetActive(showProgressFooter);
+                if (!showProgressFooter)
+                {
+                    progressBackgroundImage.color = new Color(0.04f, 0.05f, 0.08f, 0f);
+                    if (progressFillImage != null)
+                    {
+                        progressFillImage.fillAmount = 0f;
+                    }
+
+                    ApplyProgressLabelState(string.Empty, ProgressLabelReadableColor);
+                }
+                else if (recipe == null)
                 {
                     progressBackgroundImage.color = new Color(0.04f, 0.05f, 0.08f, 0f);
                 }
@@ -2898,13 +4346,13 @@ namespace Sunset.Story
                 {
                     progressBackgroundImage.color = new Color(0.32f, 0.24f, 0.08f, 0.98f);
                 }
-                else if (canCancelCraft && _progressBarHovered)
+                else if ((canCancelCraft || canCancelQueued) && _progressBarHovered)
                 {
                     progressBackgroundImage.color = new Color(0.32f, 0.08f, 0.08f, 0.98f);
                 }
                 else
                 {
-                    progressBackgroundImage.color = ShouldShowCompletedProgress(recipe)
+                    progressBackgroundImage.color = ShouldShowCompletedProgress(recipe, entry)
                         ? new Color(0.32f, 0.24f, 0.08f, 0.98f)
                         : new Color(0.04f, 0.05f, 0.08f, 0.94f);
                 }
@@ -2912,7 +4360,7 @@ namespace Sunset.Story
 
             if (craftButtonLabel != null)
             {
-                craftButtonLabel.alpha = isCrafting && !_craftButtonHovered ? 0f : 1f;
+                craftButtonLabel.alpha = craftButtonLabel.enabled ? 1f : 0f;
             }
 
             if (stageHintText != null)
@@ -2932,6 +4380,11 @@ namespace Sunset.Story
 
         private void ChangeQuantity(int delta) => SetQuantity(_selectedQuantity + delta);
 
+        private bool IsRecipeCurrentlySelected(RecipeData recipe)
+        {
+            return recipe != null && recipe == GetSelectedRecipe();
+        }
+
         private void SetQuantity(int quantity, bool updateSlider = true)
         {
             RecipeData recipe = GetSelectedRecipe();
@@ -2942,9 +4395,14 @@ namespace Sunset.Story
                 quantitySlider.SetValueWithoutNotify(_selectedQuantity);
             }
 
-            RefreshSelection();
+            RefreshSelection(forceDetailGeometry: false);
             UpdateQuantityUi();
-            RefreshCompatibilityLayout();
+        }
+
+        private void RefreshRuntimeProgressVisuals(RecipeData recipe)
+        {
+            UpdateProgressLabel(recipe);
+            UpdateFloatingProgressVisibility();
         }
 
         private void OnCraftButtonClicked()
@@ -2955,9 +4413,16 @@ namespace Sunset.Story
                 return;
             }
 
+            WorkbenchQueueEntry selectedEntry = GetQueueEntry(recipe);
             bool isCrafting = HasActiveCraftQueue;
-            if (isCrafting && recipe != _craftingRecipe)
+            if (isCrafting && _selectedQuantity <= 0)
             {
+                if (IsActiveEntry(selectedEntry))
+                {
+                    CancelActiveCraftQueue();
+                }
+
+                UpdateQuantityUi();
                 return;
             }
 
@@ -2980,20 +4445,42 @@ namespace Sunset.Story
                 return;
             }
 
-            if (isCrafting)
+            int requestedQuantity = Mathf.Max(0, _selectedQuantity);
+            CraftResult reserveResult = _craftingService.TryReserveMaterials(recipe, requestedQuantity);
+            if (!reserveResult.success)
             {
-                WorkbenchQueueEntry activeEntry = GetQueueEntry(recipe, createIfMissing: true);
-                activeEntry.totalCount += _selectedQuantity;
-                _activeQueueEntry = activeEntry;
-                SyncCountsFromActiveEntry();
-                _selectedQuantity = 0;
-                RefreshSelection();
+                string reserveBlockerMessage = !string.IsNullOrWhiteSpace(reserveResult.message)
+                    ? reserveResult.message
+                    : "材料还不够，先把清单里的材料收齐。";
+                SpringDay1PromptOverlay.EnsureRuntime();
+                SpringDay1PromptOverlay.Instance.Show(reserveBlockerMessage);
+                stageHintText.text = reserveBlockerMessage;
                 UpdateQuantityUi();
-                UpdateFloatingProgressVisibility();
                 return;
             }
 
-            _craftRoutine = StartCoroutine(CraftRoutine(recipe));
+            if (isCrafting)
+            {
+                WorkbenchQueueEntry queuedEntry = GetQueueEntry(recipe, createIfMissing: true);
+                queuedEntry.totalCount += requestedQuantity;
+                if (_activeQueueEntry == null)
+                {
+                    _activeQueueEntry = queuedEntry;
+                    _craftingRecipe = queuedEntry.recipe;
+                    SyncCountsFromActiveEntry();
+                }
+
+                _selectedQuantity = 0;
+                RefreshSelection(forceDetailGeometry: false);
+                UpdateQuantityUi();
+                UpdateFloatingProgressVisibility();
+                FlushCurrentRuntimeStateToPersistence();
+                TryShowQueueOverflowToast();
+                return;
+            }
+
+            _selectedQuantity = 0;
+            _craftRoutine = StartCoroutine(CraftRoutine(recipe, requestedQuantity));
         }
 
         private void OnProgressBarClicked()
@@ -3005,109 +4492,144 @@ namespace Sunset.Story
             }
 
             WorkbenchQueueEntry entry = GetQueueEntry(recipe);
-            bool pickedUp = false;
-            if (entry != null && entry.readyCount > 0)
+            bool stateRefreshedByMutation = false;
+            if (CanPickupEntryOutputs(entry))
             {
-                pickedUp = TryPickupSelectedOutputs();
+                stateRefreshedByMutation = TryPickupSelectedOutputs();
             }
-            else if (HasActiveCraftQueue && recipe == _craftingRecipe)
+            else if (CanInterruptActiveEntry(entry))
             {
                 CancelActiveCraftQueue();
+                stateRefreshedByMutation = true;
             }
-
-            if (pickedUp)
+            else if (CanCancelQueuedEntry(entry))
             {
-                RefreshSelection();
+                CancelQueuedRecipeEntry(entry);
+                stateRefreshedByMutation = true;
             }
 
-            UpdateQuantityUi();
-            UpdateFloatingProgressVisibility();
+            if (!stateRefreshedByMutation)
+            {
+                UpdateQuantityUi();
+                UpdateFloatingProgressVisibility();
+            }
         }
 
-        private IEnumerator CraftRoutine(RecipeData recipe)
+        private IEnumerator CraftRoutine(RecipeData recipe, int initialCraftCount, bool resumeExistingEntry = false)
         {
             WorkbenchQueueEntry entry = GetQueueEntry(recipe, createIfMissing: true);
-            entry.totalCount += Mathf.Max(0, _selectedQuantity);
+            if (!resumeExistingEntry)
+            {
+                entry.totalCount += Mathf.Max(0, initialCraftCount);
+            }
+
             _activeQueueEntry = entry;
             _craftingRecipe = recipe;
+            if (!resumeExistingEntry)
+            {
+                ResetEntryRuntimeState(entry);
+            }
+
             SyncCountsFromActiveEntry();
-            _lastCompletedQueueTotal = 0;
-            _lastCompletedRecipeId = -1;
-            _craftProgress = 0f;
+            if (!resumeExistingEntry)
+            {
+                _lastCompletedQueueTotal = 0;
+                _lastCompletedRecipeId = -1;
+                SetActiveEntryProgress(0f);
+            }
+            else
+            {
+                SetActiveEntryProgress(GetEntryUnitProgress(entry));
+            }
+
             _craftButtonHovered = false;
             _progressBarHovered = false;
             _selectedQuantity = 0;
             UpdateQuantityUi();
-            RefreshSelection();
+            RefreshSelection(forceDetailGeometry: false);
             PlayerMovement playerMovement = ResolvePlayerMovement();
             SetWorkbenchAnimating(true);
+            FlushCurrentRuntimeStateToPersistence();
 
             int successCount = 0;
-            while (_activeQueueEntry != null && _activeQueueEntry.totalCount > _activeQueueEntry.readyCount)
+            while (true)
             {
-                if (!_hasReservedActiveCraft)
+                if (_activeQueueEntry == null || !HasPendingCrafts(_activeQueueEntry))
                 {
-                    CraftResult reserveResult = _craftingService.TryCraft(recipe, false);
-                    if (!reserveResult.success)
-                    {
-                        if (_activeQueueEntry != null)
-                        {
-                            _activeQueueEntry.totalCount = Mathf.Max(0, _activeQueueEntry.readyCount);
-                            SyncCountsFromActiveEntry();
-                        }
+                    RemoveQueueEntryIfEmpty(_activeQueueEntry);
+                    _activeQueueEntry = FindNextPendingQueueEntry();
 
-                        stageHintText.text = "材料还不够，先把清单里的材料收齐。";
+                    _craftingRecipe = _activeQueueEntry != null ? _activeQueueEntry.recipe : null;
+                    SyncCountsFromActiveEntry();
+                    if (_activeQueueEntry == null || _craftingRecipe == null)
+                    {
                         break;
                     }
 
-                    _hasReservedActiveCraft = true;
+                    recipe = _craftingRecipe;
+                    ResetEntryRuntimeState(_activeQueueEntry);
+                    SetActiveEntryReserved(false);
+                    SetActiveEntryProgress(0f);
+                    RefreshSelection(forceDetailGeometry: false);
+                    UpdateQuantityUi();
+                    UpdateFloatingProgressVisibility();
+                    FlushCurrentRuntimeStateToPersistence();
                 }
 
                 float duration = Mathf.Max(0.25f, recipe.craftingTime > 0f ? recipe.craftingTime : defaultCraftDuration);
-                _craftProgress = 0f;
+                if (!resumeExistingEntry)
+                {
+                    SetActiveEntryProgress(0f);
+                }
+                else
+                {
+                    SetActiveEntryProgress(GetEntryUnitProgress(_activeQueueEntry));
+                    resumeExistingEntry = false;
+                }
+
                 while (_craftProgress < 1f)
                 {
-                    _craftProgress += Time.deltaTime / duration;
+                    SetActiveEntryProgress(_craftProgress + Time.deltaTime / duration);
                     MaintainWorkbenchPose(playerMovement);
-                    UpdateProgressLabel(recipe);
-                    UpdateQuantityUi();
-                    UpdateFloatingProgressVisibility();
+                    RefreshRuntimeProgressVisuals(GetSelectedRecipe());
                     yield return null;
                 }
 
                 successCount++;
-                _hasReservedActiveCraft = false;
+                SetActiveEntryReserved(false);
                 _activeQueueEntry.readyCount = Mathf.Min(_activeQueueEntry.totalCount, _activeQueueEntry.readyCount + 1);
+                _craftingService.NotifyCraftCompleted(recipe);
                 SyncCountsFromActiveEntry();
-                _craftProgress = 0f;
+                SetActiveEntryProgress(0f);
                 HandleInventoryChanged();
-                RefreshSelection();
-                UpdateQuantityUi();
                 UpdateFloatingProgressVisibility();
+                FlushCurrentRuntimeStateToPersistence();
             }
 
             _craftRoutine = null;
-            _craftProgress = 0f;
-            _selectedQuantity = 0;
+            SetActiveEntryProgress(0f);
+            bool completedRecipeWasSelected = IsRecipeCurrentlySelected(recipe);
+            if (completedRecipeWasSelected)
+            {
+                _selectedQuantity = 0;
+            }
             _lastCompletedQueueTotal = _activeQueueEntry != null ? Mathf.Max(0, _activeQueueEntry.totalCount) : successCount;
             _lastCompletedRecipeId = successCount > 0 ? recipe.recipeID : -1;
             _craftingRecipe = null;
             SyncCountsFromActiveEntry();
+            ResetEntryRuntimeState(_activeQueueEntry);
             _activeQueueEntry = null;
             _craftButtonHovered = false;
             _progressBarHovered = false;
-            _hasReservedActiveCraft = false;
+            SetActiveEntryReserved(false);
             SetWorkbenchAnimating(false);
-            RefreshAll();
+            RefreshAll(
+                validateRecipeRows: true,
+                rebuildRecipeGeometry: true,
+                rebuildDetailGeometry: completedRecipeWasSelected);
             UpdateFloatingProgressVisibility();
-            if (successCount > 0)
-            {
-                if (!_isVisible)
-                {
-                    CleanupTransientState(resetSession: true);
-                }
-            }
-            else if (!_isVisible)
+            FlushCurrentRuntimeStateToPersistence();
+            if (!_isVisible && !HasRawWorkbenchState)
             {
                 CleanupTransientState(resetSession: true);
             }
@@ -3115,22 +4637,23 @@ namespace Sunset.Story
 
         private void StopCraftRoutine()
         {
-            if (_craftRoutine == null)
+            if (_craftRoutine == null && !HasTrackedQueueEntries)
             {
                 return;
             }
 
-            StopCoroutine(_craftRoutine);
-            if (_hasReservedActiveCraft && _craftingRecipe != null && _activeQueueEntry != null)
+            if (_craftRoutine != null)
             {
-                RefundReservedCraftMaterials(_craftingRecipe);
-                _activeQueueEntry.totalCount = Mathf.Max(0, _activeQueueEntry.readyCount);
+                StopCoroutine(_craftRoutine);
             }
 
+            RefundAllPendingReservedMaterials();
+
             _craftRoutine = null;
-            _craftProgress = 0f;
+            SetActiveEntryProgress(0f);
             _craftingRecipe = null;
-            _hasReservedActiveCraft = false;
+            ResetEntryRuntimeState(_activeQueueEntry);
+            SetActiveEntryReserved(false);
             SyncCountsFromActiveEntry();
             if (_activeQueueEntry != null)
             {
@@ -3144,7 +4667,7 @@ namespace Sunset.Story
             _craftButtonHovered = false;
             _progressBarHovered = false;
             SetWorkbenchAnimating(false);
-            RefreshSelection();
+            RefreshSelection(forceDetailGeometry: false);
             UpdateQuantityUi();
             UpdateFloatingProgressVisibility();
         }
@@ -3189,6 +4712,13 @@ namespace Sunset.Story
                 return false;
             }
 
+            WorkbenchQueueEntry entry = GetQueueEntry(recipe);
+            if (EntryHasUnclaimedCompletedOutputs(entry))
+            {
+                blockerMessage = "先领取这件做好的物品。";
+                return false;
+            }
+
             if (GetMaxCraftableCount(recipe) <= 0)
             {
                 blockerMessage = "材料还不够，先把清单里的材料收齐。";
@@ -3226,33 +4756,199 @@ namespace Sunset.Story
 
         private string GetRecipeDisplayName(RecipeData recipe, ItemData item)
         {
-            string recipeName = recipe != null ? recipe.recipeName?.Trim() : string.Empty;
-            string itemName = item != null ? item.itemName?.Trim() : string.Empty;
-            bool recipeNameLooksInternal = LooksLikeInternalRecipeName(recipeName);
-            bool itemNameLooksInternal = LooksLikeInternalRecipeName(itemName);
-
-            if ((recipeNameLooksInternal || itemNameLooksInternal) && !string.IsNullOrWhiteSpace(BuildPlayerFacingInternalName(recipeName, itemName)))
+            int resultItemId = recipe != null ? recipe.resultItemID : item != null ? item.itemID : -1;
+            string mappedName = GetWorkbenchPlayerFacingName(resultItemId);
+            if (!string.IsNullOrWhiteSpace(mappedName))
             {
-                return BuildPlayerFacingInternalName(recipeName, itemName);
+                return mappedName;
             }
+
+            string recipeName = SanitizeWorkbenchDisplayName(recipe != null ? recipe.recipeName : string.Empty);
+            string itemName = GetItemDisplayName(item != null ? item.itemID : resultItemId, item);
 
             if (!string.IsNullOrWhiteSpace(recipeName))
             {
                 return recipeName;
             }
 
-            return !string.IsNullOrWhiteSpace(itemName) ? itemName : $"配方 {recipe.recipeID}";
+            if (!string.IsNullOrWhiteSpace(itemName))
+            {
+                return itemName;
+            }
+
+            return recipe != null ? $"配方 {recipe.recipeID}" : "未知配方";
         }
 
-        private static string BuildPlayerFacingInternalName(string recipeName, string itemName)
+        private string GetRecipeDisplayDescription(RecipeData recipe, ItemData item)
         {
-            string source = !string.IsNullOrWhiteSpace(itemName) ? itemName : recipeName;
+            int resultItemId = recipe != null ? recipe.resultItemID : item != null ? item.itemID : -1;
+            string mappedDescription = GetWorkbenchPlayerFacingDescription(resultItemId);
+            if (!string.IsNullOrWhiteSpace(mappedDescription))
+            {
+                return mappedDescription;
+            }
+
+            string recipeDescription = recipe != null ? recipe.description?.Trim() : string.Empty;
+            if (!string.IsNullOrWhiteSpace(recipeDescription))
+            {
+                return recipeDescription;
+            }
+
+            string itemDescription = item != null ? item.description?.Trim() : string.Empty;
+            return !string.IsNullOrWhiteSpace(itemDescription) ? itemDescription : "暂时还没有更多说明。";
+        }
+
+        private void ApplyDetailColumnFontTuning()
+        {
+            ApplyMinimumFontSize(selectedNameText, 17f);
+            ApplyMinimumFontSize(selectedDescriptionText, 11.5f);
+            ApplyMinimumFontSize(selectedMaterialsText, 11.5f);
+            ApplyMinimumFontSize(stageHintText, 10.5f);
+            ApplyMinimumFontSize(progressLabelText, 10.8f);
+            ApplyMinimumFontSize(quantityValueText, 11.8f);
+            ApplyMinimumFontSize(craftButtonLabel, 11.8f);
+
+            TextMeshProUGUI materialsTitle = _materialsTitleRect != null
+                ? _materialsTitleRect.GetComponent<TextMeshProUGUI>()
+                : null;
+            ApplyMinimumFontSize(materialsTitle, 10.8f);
+
+            TextMeshProUGUI quantityTitle = _quantityTitleRect != null
+                ? _quantityTitleRect.GetComponent<TextMeshProUGUI>()
+                : null;
+            ApplyMinimumFontSize(quantityTitle, 10.8f);
+        }
+
+        private static void ApplyMinimumFontSize(TextMeshProUGUI text, float minimumFontSize)
+        {
+            if (text == null)
+            {
+                return;
+            }
+
+            text.enableAutoSizing = false;
+            if (text.fontSize < minimumFontSize)
+            {
+                text.fontSize = minimumFontSize;
+            }
+        }
+
+        private string GetItemDisplayName(int itemId, ItemData item)
+        {
+            string mappedName = GetWorkbenchPlayerFacingName(itemId);
+            if (!string.IsNullOrWhiteSpace(mappedName))
+            {
+                return mappedName;
+            }
+
+            string source = item != null ? item.itemName : string.Empty;
+            string sanitized = SanitizeWorkbenchDisplayName(source);
+            if (!string.IsNullOrWhiteSpace(sanitized))
+            {
+                return sanitized;
+            }
+
+            if (!string.IsNullOrWhiteSpace(source) && !string.IsNullOrWhiteSpace(BuildPlayerFacingInternalName(source, itemId)))
+            {
+                return BuildPlayerFacingInternalName(source, itemId);
+            }
+
+            return item != null ? $"材料 {item.itemID}" : $"材料 {itemId}";
+        }
+
+        private static string GetWorkbenchPlayerFacingName(int itemId)
+        {
+            return itemId switch
+            {
+                0 => "木斧",
+                1 => "石斧",
+                2 => "铁斧",
+                3 => "黄铜斧",
+                4 => "钢斧",
+                5 => "金斧",
+                6 => "木镐",
+                7 => "石镐",
+                8 => "铁镐",
+                9 => "黄铜镐",
+                10 => "钢镐",
+                11 => "金镐",
+                12 => "木锄",
+                13 => "石锄",
+                14 => "铁锄",
+                15 => "黄铜锄",
+                16 => "钢锄",
+                17 => "金锄",
+                18 => "洒水壶",
+                200 => "木剑",
+                201 => "石剑",
+                202 => "铁剑",
+                203 => "黄铜剑",
+                204 => "钢剑",
+                205 => "金剑",
+                1400 => "小木箱子",
+                1401 => "大木箱子",
+                1402 => "小铁箱子",
+                1403 => "大铁箱子",
+                _ => string.Empty
+            };
+        }
+
+        private static string GetWorkbenchPlayerFacingDescription(int itemId)
+        {
+            return itemId switch
+            {
+                0 => "用木料拼成的简易斧头，足够砍下最开始需要的木材。",
+                1 => "嵌了石料的斧头，比木斧更结实，砍伐更顺手。",
+                2 => "用生铁加固的斧头，适合更稳定地砍树。",
+                3 => "黄铜包口的斧头，挥起来更稳当。",
+                4 => "钢制斧头，更适合高强度砍伐。",
+                5 => "做工精细的金斧，砍伐时更省力。",
+                6 => "简单拼成的木镐，先拿它敲开最基础的矿石。",
+                7 => "石料补强的镐子，比木镐更耐用。",
+                8 => "生铁加固的镐子，挖矿时更稳更顺手。",
+                9 => "黄铜包头的镐子，敲击更利落。",
+                10 => "钢制镐子，适合更高强度的采集。",
+                11 => "做工精细的金镐，适合更高阶的采集。",
+                12 => "最基础的木锄，先把地翻开再说。",
+                13 => "石料补强的锄头，翻地更省力。",
+                14 => "生铁加固的锄头，整理田地更顺手。",
+                15 => "黄铜包口的锄头，翻土更利落。",
+                16 => "钢制锄头，适合更高强度的耕作。",
+                17 => "做工精细的金锄，适合长时间耕作。",
+                18 => "装上水后，就能用来浇灌作物。",
+                200 => "练习用的木剑，遇到危险时也能先护身。",
+                201 => "嵌了石料的剑，比木剑更结实一些。",
+                202 => "生铁打造的剑，挥起来更有分量。",
+                203 => "黄铜加固的剑，手感更稳。",
+                204 => "钢制长剑，适合更激烈的战斗。",
+                205 => "做工精细的金剑，是更高阶的护身武器。",
+                1400 => "简单的木箱，能收纳常用物品。",
+                1401 => "更大的木箱，能放下更多材料和工具。",
+                1402 => "包了铁边的小箱子，更结实也更能装。",
+                1403 => "容量更大的铁箱，适合集中收纳工具和材料。",
+                _ => string.Empty
+            };
+        }
+
+        private static string BuildPlayerFacingInternalName(string source, int itemId)
+        {
+            string mappedName = GetWorkbenchPlayerFacingName(itemId);
+            if (!string.IsNullOrWhiteSpace(mappedName))
+            {
+                return mappedName;
+            }
+
             if (string.IsNullOrWhiteSpace(source))
             {
                 return string.Empty;
             }
 
             string lower = source.ToLowerInvariant();
+            if (lower.Contains("wateringcan"))
+            {
+                return "洒水壶";
+            }
+
             if (lower.Contains("pickaxe"))
             {
                 return "镐子";
@@ -3275,10 +4971,50 @@ namespace Sunset.Story
 
             if (lower.Contains("sword"))
             {
-                return "短剑";
+                return "剑";
             }
 
             return source.Replace('_', ' ');
+        }
+
+        private static string SanitizeWorkbenchDisplayName(string rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(rawValue))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = rawValue.Trim();
+            string withoutIdPrefix = StripLeadingNumericPrefix(trimmed);
+            string candidate = !string.IsNullOrWhiteSpace(withoutIdPrefix) ? withoutIdPrefix : trimmed;
+
+            if (LooksLikeInternalRecipeName(candidate))
+            {
+                return string.Empty;
+            }
+
+            return candidate;
+        }
+
+        private static string StripLeadingNumericPrefix(string rawValue)
+        {
+            if (string.IsNullOrWhiteSpace(rawValue))
+            {
+                return string.Empty;
+            }
+
+            int index = 0;
+            while (index < rawValue.Length && char.IsDigit(rawValue[index]))
+            {
+                index++;
+            }
+
+            if (index > 0 && index < rawValue.Length && rawValue[index] == '_')
+            {
+                return rawValue.Substring(index + 1).Trim();
+            }
+
+            return rawValue.Trim();
         }
 
         private static bool LooksLikeInternalRecipeName(string recipeName)
@@ -3289,6 +5025,8 @@ namespace Sunset.Story
             }
 
             bool hasAsciiUnderscore = false;
+            bool hasAsciiDigit = false;
+            bool hasWhitespace = false;
             for (int index = 0; index < recipeName.Length; index++)
             {
                 char current = recipeName[index];
@@ -3296,6 +5034,16 @@ namespace Sunset.Story
                 {
                     hasAsciiUnderscore = true;
                     continue;
+                }
+
+                if (char.IsDigit(current))
+                {
+                    hasAsciiDigit = true;
+                }
+
+                if (char.IsWhiteSpace(current))
+                {
+                    hasWhitespace = true;
                 }
 
                 if (current > 127)
@@ -3309,7 +5057,7 @@ namespace Sunset.Story
                 }
             }
 
-            return hasAsciiUnderscore;
+            return hasAsciiUnderscore || hasAsciiDigit || !hasWhitespace;
         }
 
         private WorkbenchQueueEntry GetQueueEntry(RecipeData recipe, bool createIfMissing = false)
@@ -3365,13 +5113,11 @@ namespace Sunset.Story
 
         private bool HasReadyOutputs()
         {
-            if (_queueEntries.Any(entry => entry != null && entry.readyCount > 0))
-            {
-                return true;
-            }
-
-            return _craftQueueCompleted > 0;
+            return _queueEntries.Any(entry => entry != null && entry.readyCount > 0);
         }
+
+        private bool HasTrackedQueueEntries =>
+            _queueEntries.Any(entry => entry != null && (entry.totalCount > 0 || entry.readyCount > 0));
 
         private void SyncCountsFromActiveEntry()
         {
@@ -3384,6 +5130,117 @@ namespace Sunset.Story
 
             _craftQueueTotal = Mathf.Max(0, _activeQueueEntry.totalCount);
             _craftQueueCompleted = Mathf.Clamp(_activeQueueEntry.readyCount, 0, _craftQueueTotal);
+        }
+
+        private static bool HasPendingCrafts(WorkbenchQueueEntry entry)
+        {
+            return entry != null && entry.totalCount > entry.readyCount;
+        }
+
+        private bool IsActiveEntry(WorkbenchQueueEntry entry)
+        {
+            return entry != null && entry == _activeQueueEntry && HasActiveCraftQueue;
+        }
+
+        private static float GetEntryUnitProgress(WorkbenchQueueEntry entry)
+        {
+            return entry != null ? Mathf.Clamp01(entry.currentUnitProgress) : 0f;
+        }
+
+        private static void ResetEntryRuntimeState(WorkbenchQueueEntry entry)
+        {
+            if (entry == null)
+            {
+                return;
+            }
+
+            entry.currentUnitProgress = 0f;
+            entry.hasReservedCurrentCraft = false;
+        }
+
+        private void SetActiveEntryProgress(float progress)
+        {
+            _craftProgress = Mathf.Clamp01(progress);
+            if (_activeQueueEntry != null)
+            {
+                _activeQueueEntry.currentUnitProgress = _craftProgress;
+            }
+        }
+
+        private void SetActiveEntryReserved(bool reserved)
+        {
+            _hasReservedActiveCraft = reserved;
+            if (_activeQueueEntry != null)
+            {
+                _activeQueueEntry.hasReservedCurrentCraft = reserved;
+            }
+        }
+
+        private bool CanPickupEntryOutputs(WorkbenchQueueEntry entry)
+        {
+            return entry != null && entry.readyCount > 0 && _selectedQuantity <= 0;
+        }
+
+        private bool CanInterruptActiveEntry(WorkbenchQueueEntry entry)
+        {
+            return IsActiveEntry(entry) && !CanPickupEntryOutputs(entry) && _selectedQuantity <= 0;
+        }
+
+        private bool CanCancelQueuedEntry(WorkbenchQueueEntry entry)
+        {
+            return entry != null
+                && !IsActiveEntry(entry)
+                && !EntryHasReadyOutputs(entry)
+                && HasPendingCrafts(entry)
+                && _selectedQuantity <= 0;
+        }
+
+        private WorkbenchQueueEntry FindNextPendingQueueEntry()
+        {
+            for (int queueIndex = 0; queueIndex < _queueEntries.Count; queueIndex++)
+            {
+                WorkbenchQueueEntry pendingEntry = _queueEntries[queueIndex];
+                if (HasPendingCrafts(pendingEntry))
+                {
+                    return pendingEntry;
+                }
+            }
+
+            return null;
+        }
+
+        private void ResumeNextPendingCraftQueueIfAny()
+        {
+            if (_craftRoutine != null || _craftingService == null)
+            {
+                return;
+            }
+
+            WorkbenchQueueEntry nextEntry = FindNextPendingQueueEntry();
+            if (nextEntry == null || nextEntry.recipe == null)
+            {
+                _activeQueueEntry = null;
+                _craftingRecipe = null;
+                SyncCountsFromActiveEntry();
+                SetWorkbenchAnimating(false);
+                FlushCurrentRuntimeStateToPersistence();
+                return;
+            }
+
+            _activeQueueEntry = nextEntry;
+            _craftingRecipe = nextEntry.recipe;
+            ResetEntryRuntimeState(nextEntry);
+            SetActiveEntryReserved(false);
+            SetActiveEntryProgress(0f);
+            _selectedQuantity = 0;
+            _craftButtonHovered = false;
+            _progressBarHovered = false;
+            SyncCountsFromActiveEntry();
+            RefreshSelection(forceDetailGeometry: false);
+            UpdateQuantityUi();
+            UpdateFloatingProgressVisibility();
+            _craftRoutine = StartCoroutine(CraftRoutine(nextEntry.recipe, 0));
+            FlushCurrentRuntimeStateToPersistence();
         }
 
         private int GetDisplayedReadyCount(RecipeData recipe)
@@ -3436,12 +5293,13 @@ namespace Sunset.Story
             _lastCompletedRecipeId = entry.totalCount > 0 ? entry.recipeId : -1;
             RemoveQueueEntryIfEmpty(entry);
 
-            if (!HasWorkbenchFloatingState && !_isVisible)
+            if (!HasRawWorkbenchState && !_isVisible)
             {
                 CleanupTransientState(resetSession: true);
             }
 
             HandleInventoryChanged();
+            FlushCurrentRuntimeStateToPersistence();
             return true;
         }
 
@@ -3452,40 +5310,72 @@ namespace Sunset.Story
                 return;
             }
 
-            if (_hasReservedActiveCraft && _craftingRecipe != null)
-            {
-                RefundReservedCraftMaterials(_craftingRecipe);
-                _activeQueueEntry.totalCount = Mathf.Max(_activeQueueEntry.readyCount, _activeQueueEntry.totalCount - 1);
-            }
+            WorkbenchQueueEntry canceledEntry = _activeQueueEntry;
+            bool refundedReservedCraft = RefundPendingReservedMaterials(canceledEntry);
 
-            _activeQueueEntry.totalCount = Mathf.Max(0, _activeQueueEntry.readyCount);
-            _hasReservedActiveCraft = false;
+            canceledEntry.totalCount = Mathf.Max(0, canceledEntry.readyCount);
+            ResetEntryRuntimeState(canceledEntry);
+            SetActiveEntryReserved(false);
 
             StopCoroutine(_craftRoutine);
             _craftRoutine = null;
-            _craftProgress = 0f;
+            SetActiveEntryProgress(0f);
             _craftingRecipe = null;
             SyncCountsFromActiveEntry();
-            _lastCompletedQueueTotal = Mathf.Max(0, _activeQueueEntry.totalCount);
-            _lastCompletedRecipeId = _lastCompletedQueueTotal > 0 ? _activeQueueEntry.recipeId : -1;
-            RemoveQueueEntryIfEmpty(_activeQueueEntry);
+            _lastCompletedQueueTotal = Mathf.Max(0, canceledEntry.totalCount);
+            _lastCompletedRecipeId = _lastCompletedQueueTotal > 0 ? canceledEntry.recipeId : -1;
+            RemoveQueueEntryIfEmpty(canceledEntry);
             _activeQueueEntry = null;
             _selectedQuantity = 0;
             _craftButtonHovered = false;
             _progressBarHovered = false;
-            SetWorkbenchAnimating(false);
-            RefreshAll();
+            RefreshVisibleWorkbenchUi();
             UpdateFloatingProgressVisibility();
+            if (refundedReservedCraft)
+            {
+                HandleInventoryChanged();
+            }
 
-            if (!HasWorkbenchFloatingState && !_isVisible)
+            ResumeNextPendingCraftQueueIfAny();
+            FlushCurrentRuntimeStateToPersistence();
+
+            if (!HasRawWorkbenchState && !_isVisible)
             {
                 CleanupTransientState(resetSession: true);
             }
         }
 
-        private void RefundReservedCraftMaterials(RecipeData recipe)
+        private void CancelQueuedRecipeEntry(WorkbenchQueueEntry entry)
         {
-            if (recipe == null || recipe.ingredients == null || _inventoryService == null)
+            if (entry == null || entry == _activeQueueEntry)
+            {
+                return;
+            }
+
+            bool refundedReservedCraft = RefundPendingReservedMaterials(entry);
+            entry.totalCount = Mathf.Max(0, entry.readyCount);
+            _lastCompletedQueueTotal = Mathf.Max(0, entry.totalCount);
+            _lastCompletedRecipeId = entry.totalCount > 0 ? entry.recipeId : -1;
+            RemoveQueueEntryIfEmpty(entry);
+            _selectedQuantity = 0;
+            RefreshVisibleWorkbenchUi();
+            UpdateFloatingProgressVisibility();
+            if (refundedReservedCraft)
+            {
+                HandleInventoryChanged();
+            }
+
+            FlushCurrentRuntimeStateToPersistence();
+
+            if (!HasRawWorkbenchState && !_isVisible)
+            {
+                CleanupTransientState(resetSession: true);
+            }
+        }
+
+        private void RefundReservedCraftMaterials(RecipeData recipe, int craftCount)
+        {
+            if (recipe == null || recipe.ingredients == null || _inventoryService == null || craftCount <= 0)
             {
                 return;
             }
@@ -3493,7 +5383,7 @@ namespace Sunset.Story
             for (int index = 0; index < recipe.ingredients.Count; index++)
             {
                 RecipeIngredient ingredient = recipe.ingredients[index];
-                int refundAmount = Mathf.Max(0, ingredient.amount);
+                int refundAmount = Mathf.Max(0, ingredient.amount) * craftCount;
                 if (refundAmount <= 0)
                 {
                     continue;
@@ -3504,6 +5394,38 @@ namespace Sunset.Story
                 {
                     ItemDropHelper.DropAtPosition(new ItemStack(ingredient.itemID, 0, remaining), GetPickupDropPosition());
                 }
+            }
+        }
+
+        private bool RefundPendingReservedMaterials(WorkbenchQueueEntry entry)
+        {
+            if (entry == null || entry.recipe == null)
+            {
+                return false;
+            }
+
+            int pendingCount = GetPendingCraftCount(entry);
+            if (pendingCount <= 0)
+            {
+                return false;
+            }
+
+            RefundReservedCraftMaterials(entry.recipe, pendingCount);
+            return true;
+        }
+
+        private void RefundAllPendingReservedMaterials()
+        {
+            for (int index = 0; index < _queueEntries.Count; index++)
+            {
+                WorkbenchQueueEntry entry = _queueEntries[index];
+                if (!RefundPendingReservedMaterials(entry))
+                {
+                    continue;
+                }
+
+                entry.totalCount = Mathf.Max(0, entry.readyCount);
+                ResetEntryRuntimeState(entry);
             }
         }
 
@@ -3524,6 +5446,27 @@ namespace Sunset.Story
 
         private string BuildRowSummary(RecipeData recipe)
         {
+            WorkbenchQueueEntry entry = GetQueueEntry(recipe);
+            if (entry != null)
+            {
+                int readyCount = Mathf.Max(0, entry.readyCount);
+                int totalCount = Mathf.Max(0, entry.totalCount);
+                if (IsActiveEntry(entry))
+                {
+                    return $"进度 {readyCount}/{Mathf.Max(1, totalCount)}";
+                }
+
+                if (readyCount > 0)
+                {
+                    return $"制作完成 {readyCount}个";
+                }
+
+                if (HasPendingCrafts(entry))
+                {
+                    return $"排队 {Mathf.Max(0, totalCount - readyCount)}个";
+                }
+            }
+
             float previewDuration = Mathf.Max(0.25f, recipe.craftingTime > 0f ? recipe.craftingTime : defaultCraftDuration);
             string materialSummary = recipe.ingredients == null || recipe.ingredients.Count == 0
                 ? "免材料"
@@ -3540,7 +5483,9 @@ namespace Sunset.Story
                 int owned = _craftingService != null ? _craftingService.GetMaterialCount(ingredient.itemID) : 0;
                 int required = ingredient.amount * effectiveQuantity;
                 string color = owned >= required ? "#B7E6C2" : "#F0B49E";
-                lines.Add($"<color={color}>{ResolveItem(ingredient.itemID)?.itemName ?? $"材料 {ingredient.itemID}"}</color>  {owned}/{required}");
+                ItemData materialItem = ResolveItem(ingredient.itemID);
+                string materialName = GetItemDisplayName(ingredient.itemID, materialItem);
+                lines.Add($"<color={color}>{materialName}</color>  {owned}/{required}");
             }
 
             return string.Join("\n", lines);
@@ -3553,6 +5498,8 @@ namespace Sunset.Story
 
         private void UpdateProgressLabel(RecipeData recipe)
         {
+            EnsureProgressLabelBinding();
+            EnsureProgressFillGraphic(progressFillImage);
             if (progressFillImage == null || progressLabelText == null)
             {
                 return;
@@ -3561,64 +5508,83 @@ namespace Sunset.Story
             WorkbenchQueueEntry entry = GetQueueEntry(recipe);
             int totalCount = entry != null ? Mathf.Max(0, entry.totalCount) : 0;
             int readyCount = entry != null ? Mathf.Max(0, entry.readyCount) : 0;
+            bool hasReadyOutputs = EntryHasReadyOutputs(entry);
+            bool hasPendingCrafts = HasPendingCrafts(entry);
+            bool isSelectedEntryActive = IsActiveEntry(entry);
+            bool showCraftButton = ShouldShowCraftButton(recipe, entry);
+            string labelText;
+            Color fillColor;
+            float fillAmount;
 
-            if (HasActiveCraftQueue && recipe == _craftingRecipe && entry != null)
+            if (isSelectedEntryActive)
             {
-                if (_progressBarHovered && readyCount > 0 && _selectedQuantity <= 0)
+                if (_progressBarHovered && CanPickupEntryOutputs(entry))
                 {
-                    progressFillImage.fillAmount = 1f;
-                    progressFillImage.color = new Color(0.93f, 0.77f, 0.33f, 0.96f);
-                    progressLabelText.text = "领取产物";
+                    fillAmount = 1f;
+                    fillColor = CompletedProgressFillColor;
+                    labelText = "领取产物";
                 }
-                else if (_progressBarHovered && _selectedQuantity <= 0)
+                else if (_progressBarHovered && CanInterruptActiveEntry(entry))
                 {
-                    progressFillImage.fillAmount = 1f;
-                    progressFillImage.color = new Color(0.81f, 0.29f, 0.24f, 0.96f);
-                    progressLabelText.text = "中断制作";
+                    fillAmount = 1f;
+                    fillColor = CancelProgressFillColor;
+                    labelText = "中断制作";
                 }
                 else
                 {
-                    progressFillImage.fillAmount = _craftProgress;
-                    progressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.96f);
-                    progressLabelText.text = $"进度  {readyCount}/{Mathf.Max(1, totalCount)}";
+                    fillAmount = GetEntryUnitProgress(entry);
+                    fillColor = ActiveProgressFillColor;
+                    labelText = $"进度  {readyCount}/{Mathf.Max(1, totalCount)}";
                 }
 
-                PushDirectorCraftProgress(recipe, active: true);
-                EnsureWorkbenchTextContent(progressLabelText, progressLabelText.text, 0.9f);
+                progressFillImage.fillAmount = fillAmount;
+                progressFillImage.color = fillColor;
+                ApplyProgressLabelState(labelText, ProgressLabelReadableColor);
+                PushDirectorCraftProgress();
                 return;
             }
 
-            if (entry != null && readyCount > 0)
+            if (hasReadyOutputs)
             {
-                progressFillImage.fillAmount = 1f;
-                progressFillImage.color = new Color(0.93f, 0.77f, 0.33f, 0.96f);
-                progressLabelText.text = _progressBarHovered ? "领取产物" : $"制作完成 {readyCount}个";
+                fillAmount = 1f;
+                fillColor = CompletedProgressFillColor;
+                labelText = _progressBarHovered ? "领取产物" : $"制作完成 {readyCount}个";
             }
-            else if (_selectedQuantity > 0)
+            else if (CanCancelQueuedEntry(entry))
             {
-                progressFillImage.fillAmount = 0f;
-                progressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.42f);
-                progressLabelText.text = $"进度  0/{_selectedQuantity}";
+                fillAmount = 0f;
+                fillColor = _progressBarHovered ? CancelProgressFillColor : ActiveProgressIdleColor;
+                labelText = _progressBarHovered ? "取消排队" : $"排队  {GetPendingCraftCount(entry)}个";
+            }
+            else if (hasPendingCrafts)
+            {
+                fillAmount = 0f;
+                fillColor = ActiveProgressIdleColor;
+                labelText = $"排队  {GetPendingCraftCount(entry)}个";
+            }
+            else if (showCraftButton)
+            {
+                fillAmount = 0f;
+                fillColor = ActiveProgressIdleColor;
+                labelText = string.Empty;
             }
             else
             {
-                progressFillImage.fillAmount = 0f;
-                progressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.18f);
-                progressLabelText.text = "进度  0/0";
+                fillAmount = 0f;
+                fillColor = ActiveProgressEmptyColor;
+                labelText = "进度  0/0";
             }
 
-            EnsureWorkbenchTextContent(progressLabelText, progressLabelText.text, 0.9f);
-            PushDirectorCraftProgress(recipe, active: false);
+            progressFillImage.fillAmount = fillAmount;
+            progressFillImage.color = fillColor;
+            ApplyProgressLabelState(labelText, ProgressLabelReadableColor);
+            PushDirectorCraftProgress();
         }
 
-        private bool ShouldShowCompletedProgress(RecipeData recipe)
+        private bool ShouldShowCompletedProgress(RecipeData recipe, WorkbenchQueueEntry entry = null)
         {
-            WorkbenchQueueEntry entry = GetQueueEntry(recipe);
-            return entry != null
-                ? entry.readyCount > 0
-                : recipe != null
-                  && recipe.recipeID == _lastCompletedRecipeId
-                  && _lastCompletedQueueTotal > 0;
+            entry ??= GetQueueEntry(recipe);
+            return entry != null && entry.readyCount > 0 && !HasPendingCrafts(entry);
         }
 
         private void SetWorkbenchAnimating(bool active)
@@ -3664,6 +5630,25 @@ namespace Sunset.Story
 
         private RecipeData GetSelectedRecipe() => _selectedIndex >= 0 && _selectedIndex < _recipes.Count ? _recipes[_selectedIndex] : null;
 
+        private RecipeData ResolveRecipeById(int recipeId)
+        {
+            if (recipeId < 0 || !EnsureRecipesLoaded())
+            {
+                return null;
+            }
+
+            for (int index = 0; index < _recipes.Count; index++)
+            {
+                RecipeData recipe = _recipes[index];
+                if (recipe != null && recipe.recipeID == recipeId)
+                {
+                    return recipe;
+                }
+            }
+
+            return null;
+        }
+
         private int FindRecipeIndex(RecipeData recipe)
         {
             if (recipe == null)
@@ -3684,28 +5669,18 @@ namespace Sunset.Story
 
         private static int GetRecipeSortOrder(RecipeData recipe)
         {
-            string name = (recipe.recipeName ?? string.Empty).ToLowerInvariant();
-            if (name.Contains("axe"))
-            {
-                return 0;
-            }
-
-            if (name.Contains("hoe"))
-            {
-                return 1;
-            }
-
-            if (name.Contains("pickaxe"))
-            {
-                return 2;
-            }
-
-            return 99;
+            return recipe != null ? recipe.resultItemID : int.MaxValue;
         }
 
         private ItemData ResolveItem(int itemId)
         {
             ItemDatabase database = _craftingService != null ? _craftingService.Database : _inventoryService != null ? _inventoryService.Database : null;
+            if (database == null)
+            {
+                _fallbackItemDatabase ??= AssetLocator.LoadItemDatabase();
+                database = _fallbackItemDatabase;
+            }
+
             return database != null ? database.GetItemByID(itemId) : null;
         }
 
@@ -3720,6 +5695,7 @@ namespace Sunset.Story
             _inventoryService = inventory;
             if (_inventoryService != null)
             {
+                _inventoryService.OnSlotChanged += HandleInventorySlotChanged;
                 _inventoryService.OnInventoryChanged += HandleInventoryChanged;
             }
         }
@@ -3728,16 +5704,24 @@ namespace Sunset.Story
         {
             if (_inventoryService != null)
             {
+                _inventoryService.OnSlotChanged -= HandleInventorySlotChanged;
                 _inventoryService.OnInventoryChanged -= HandleInventoryChanged;
                 _inventoryService = null;
             }
+        }
+
+        private void HandleInventorySlotChanged(int _)
+        {
+            HandleInventoryChanged();
         }
 
         private void HandleInventoryChanged()
         {
             if (_isVisible)
             {
-                RefreshAll();
+                RefreshRows(allowRecovery: false, rebuildGeometry: false);
+                RefreshSelection(forceDetailGeometry: false);
+                UpdateQuantityUi();
             }
 
             UpdateFloatingProgressVisibility();
@@ -3784,9 +5768,15 @@ namespace Sunset.Story
                 panelRect.gameObject.SetActive(visible);
             }
 
-            if (visible && floatingProgressRoot != null && floatingProgressRoot.gameObject.activeSelf)
+            if (visible)
             {
-                floatingProgressRoot.gameObject.SetActive(false);
+                for (int index = 0; index < _floatingCards.Count; index++)
+                {
+                    if (_floatingCards[index]?.root != null && _floatingCards[index].root.gameObject.activeSelf)
+                    {
+                        _floatingCards[index].root.gameObject.SetActive(false);
+                    }
+                }
             }
 
             if (pointerRect != null &&
@@ -3806,16 +5796,16 @@ namespace Sunset.Story
 
             Bounds bounds = GetAnchorBounds();
             Vector3 worldAnchor = _displayBelow ? new Vector3(bounds.center.x, bounds.min.y, bounds.center.z) : new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
-            Camera worldCamera = GetWorldProjectionCamera();
-            if (worldCamera == null)
+            Vector2 screenOffset = _displayBelow ? belowOffset : aboveOffset;
+            if (!SpringDay1UiLayerUtility.TryProjectWorldToCanvas(overlayCanvas, rootRect, worldAnchor, screenOffset, out Vector2 localPoint))
             {
+                SetWorkbenchPanelVisible(false);
                 return;
             }
 
-            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(worldCamera, worldAnchor) + (_displayBelow ? belowOffset : aboveOffset);
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRect, screenPoint, GetUiEventCamera(), out Vector2 localPoint))
+            if (_isVisible)
             {
-                return;
+                SetWorkbenchPanelVisible(true);
             }
 
             Rect rect = rootRect.rect;
@@ -3853,21 +5843,18 @@ namespace Sunset.Story
 
         private void UpdateFloatingProgressVisibility()
         {
-            if (floatingProgressRoot == null)
+            EnsureFloatingCardRegistry();
+            if (_floatingCards.Count == 0)
             {
                 return;
             }
 
-            WorkbenchQueueEntry floatingEntry = _activeQueueEntry;
-            if (floatingEntry == null)
-            {
-                floatingEntry = _queueEntries.FirstOrDefault(entry => entry != null && entry.readyCount > 0);
-            }
+            List<FloatingProgressDisplayState> floatingStates = BuildFloatingProgressStates();
 
             bool panelActuallyVisible = _isVisible || (panelRect != null && panelRect.gameObject.activeInHierarchy);
             bool shouldShow = !panelActuallyVisible
-                && floatingEntry != null
-                && (HasActiveCraftQueue || floatingEntry.readyCount > 0)
+                && floatingStates.Count > 0
+                && (HasActiveCraftQueue || floatingStates.Any(state => state.TotalCount > 0))
                 && _anchorTarget != null
                 && !SpringDay1UiLayerUtility.IsBlockingPageUiOpen()
                 && (DialogueManager.Instance == null || !DialogueManager.Instance.IsDialogueActive);
@@ -3881,68 +5868,230 @@ namespace Sunset.Story
             }
 
             SetWorkbenchPanelVisible(_isVisible);
-            floatingProgressRoot.gameObject.SetActive(shouldShow);
             if (!shouldShow)
             {
+                for (int index = 0; index < _floatingCards.Count; index++)
+                {
+                    if (_floatingCards[index]?.root != null)
+                    {
+                        _floatingCards[index].root.gameObject.SetActive(false);
+                    }
+                }
+
                 return;
             }
 
-            ItemData item = ResolveItem(floatingEntry.resultItemId);
-            floatingProgressIcon.sprite = item != null ? item.GetBagSprite() : null;
-            floatingProgressIcon.color = floatingProgressIcon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
-            if (HasActiveCraftQueue && floatingEntry == _activeQueueEntry)
+            while (_floatingCards.Count < floatingStates.Count)
             {
-                floatingProgressFillImage.fillAmount = _craftProgress;
-                floatingProgressFillImage.color = new Color(0.43f, 0.73f, 0.56f, 0.96f);
-                floatingProgressLabel.text = $"进度  {floatingEntry.readyCount}/{Mathf.Max(1, floatingEntry.totalCount)}";
-            }
-            else
-            {
-                floatingProgressFillImage.fillAmount = 1f;
-                floatingProgressFillImage.color = new Color(0.93f, 0.77f, 0.33f, 0.96f);
-                floatingProgressLabel.text = $"制作完成 {floatingEntry.readyCount}个";
+                CreateFloatingProgressCard(_floatingCards.Count);
             }
 
-            floatingProgressIcon.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
-            floatingProgressIcon.rectTransform.sizeDelta = new Vector2(40f, 40f);
-            RepositionFloatingProgress();
+            for (int index = 0; index < _floatingCards.Count; index++)
+            {
+                FloatingProgressCardRefs card = _floatingCards[index];
+                if (card?.root == null)
+                {
+                    continue;
+                }
+
+                bool active = index < floatingStates.Count;
+                card.root.gameObject.SetActive(active);
+                if (!active)
+                {
+                    continue;
+                }
+
+                FloatingProgressDisplayState state = floatingStates[index];
+                ItemData item = ResolveItem(state.ResultItemId);
+                Sprite iconSprite = item != null ? item.GetBagSprite() : null;
+                if (card.icon.sprite != iconSprite)
+                {
+                    card.icon.sprite = iconSprite;
+                }
+
+                Color iconColor = card.icon.sprite != null ? Color.white : new Color(1f, 1f, 1f, 0f);
+                if (card.icon.color != iconColor)
+                {
+                    card.icon.color = iconColor;
+                }
+
+                card.icon.rectTransform.localRotation = Quaternion.Euler(0f, 0f, 45f);
+                card.icon.rectTransform.sizeDelta = new Vector2(46f, 46f);
+                EnsureProgressFillGraphic(card.fill);
+                EnsureProgressLabelForeground(card.label);
+
+                if (state.HasActiveCraft)
+                {
+                    card.fill.fillAmount = state.HasPendingCrafts ? state.ActiveUnitProgress : 1f;
+                    card.fill.color = state.HasPendingCrafts
+                        ? ActiveProgressFillColor
+                        : CompletedProgressFillColor;
+                    string labelText = state.HasPendingCrafts
+                        ? $"进度  {state.ReadyCount}/{Mathf.Max(1, state.TotalCount)}"
+                        : $"制作完成 {state.ReadyCount}个";
+                    if (!string.Equals(card.label.text, labelText, System.StringComparison.Ordinal))
+                    {
+                        card.label.text = labelText;
+                    }
+                }
+                else if (state.ReadyCount > 0 && state.HasPendingCrafts)
+                {
+                    card.fill.fillAmount = 1f;
+                    card.fill.color = CompletedProgressFillColor;
+                    string labelText = $"进度  {state.ReadyCount}/{Mathf.Max(1, state.TotalCount)}";
+                    if (!string.Equals(card.label.text, labelText, System.StringComparison.Ordinal))
+                    {
+                        card.label.text = labelText;
+                    }
+                }
+                else if (state.ReadyCount > 0)
+                {
+                    card.fill.fillAmount = 1f;
+                    card.fill.color = CompletedProgressFillColor;
+                    string labelText = $"制作完成 {state.ReadyCount}个";
+                    if (!string.Equals(card.label.text, labelText, System.StringComparison.Ordinal))
+                    {
+                        card.label.text = labelText;
+                    }
+                }
+                else
+                {
+                    card.fill.fillAmount = 0f;
+                    card.fill.color = ActiveProgressIdleColor;
+                    string labelText = $"进度  0/{Mathf.Max(1, state.TotalCount)}";
+                    if (!string.Equals(card.label.text, labelText, System.StringComparison.Ordinal))
+                    {
+                        card.label.text = labelText;
+                    }
+                }
+
+                card.label.color = ProgressLabelReadableColor;
+            }
+
+            RepositionFloatingProgressCards(floatingStates.Count);
         }
 
-        private void RepositionFloatingProgress()
+        private List<FloatingProgressDisplayState> BuildFloatingProgressStates()
         {
-            if (floatingProgressRoot == null || rootRect == null || _anchorTarget == null)
+            _floatingStateBuffer.Clear();
+            for (int index = 0; index < _queueEntries.Count; index++)
+            {
+                WorkbenchQueueEntry entry = _queueEntries[index];
+                if (entry == null || (entry.totalCount <= 0 && entry.readyCount <= 0))
+                {
+                    continue;
+                }
+
+                FloatingProgressDisplayState state = GetReusableFloatingState(_floatingStateBuffer.Count);
+                state.RecipeId = entry.recipeId;
+                state.ResultItemId = entry.resultItemId;
+                state.TotalCount = Mathf.Max(0, entry.totalCount);
+                state.ReadyCount = Mathf.Max(0, entry.readyCount);
+                state.HasActiveCraft = false;
+                state.ActiveUnitProgress = 0f;
+                if (entry == _activeQueueEntry)
+                {
+                    state.HasActiveCraft = true;
+                    state.ActiveUnitProgress = GetEntryUnitProgress(entry);
+                }
+
+                _floatingStateBuffer.Add(state);
+            }
+
+            _floatingStateBuffer.Sort(CompareFloatingProgressStates);
+            if (_floatingStateBuffer.Count > MaxFloatingProgressCards)
+            {
+                _floatingStateBuffer.RemoveRange(MaxFloatingProgressCards, _floatingStateBuffer.Count - MaxFloatingProgressCards);
+            }
+
+            return _floatingStateBuffer;
+        }
+
+        private FloatingProgressDisplayState GetReusableFloatingState(int index)
+        {
+            while (_floatingStatePool.Count <= index)
+            {
+                _floatingStatePool.Add(new FloatingProgressDisplayState());
+            }
+
+            return _floatingStatePool[index];
+        }
+
+        private static int CompareFloatingProgressStates(FloatingProgressDisplayState left, FloatingProgressDisplayState right)
+        {
+            int compare = right.HasActiveCraft.CompareTo(left.HasActiveCraft);
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            compare = (right.ReadyCount > 0).CompareTo(left.ReadyCount > 0);
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            compare = left.RecipeId.CompareTo(right.RecipeId);
+            if (compare != 0)
+            {
+                return compare;
+            }
+
+            return left.ResultItemId.CompareTo(right.ResultItemId);
+        }
+
+        private void RepositionFloatingProgressCards(int visibleCardCount)
+        {
+            if (_floatingCards.Count == 0 || rootRect == null || _anchorTarget == null)
             {
                 return;
             }
 
             Bounds bounds = GetAnchorBounds();
             Vector3 worldAnchor = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
-            Camera worldCamera = GetWorldProjectionCamera();
-            if (worldCamera == null)
+            if (!SpringDay1UiLayerUtility.TryProjectWorldToCanvas(
+                    overlayCanvas,
+                    rootRect,
+                    worldAnchor,
+                    new Vector2(0f, 26f),
+                    out Vector2 localPoint))
             {
+                for (int index = 0; index < _floatingCards.Count; index++)
+                {
+                    if (_floatingCards[index]?.root != null)
+                    {
+                        _floatingCards[index].root.gameObject.SetActive(false);
+                    }
+                }
+
                 return;
             }
 
-            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(worldCamera, worldAnchor) + new Vector2(0f, 26f);
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(rootRect, screenPoint, GetUiEventCamera(), out Vector2 localPoint))
+            const int columns = 3;
+            const float cardSpacingX = 74f;
+            const float cardSpacingY = 78f;
+            float rowWidth = (Mathf.Min(columns, Mathf.Max(1, visibleCardCount)) - 1) * cardSpacingX;
+            for (int index = 0; index < _floatingCards.Count; index++)
             {
-                return;
+                FloatingProgressCardRefs card = _floatingCards[index];
+                if (card?.root == null || !card.root.gameObject.activeSelf)
+                {
+                    continue;
+                }
+
+                int row = index / columns;
+                int column = index % columns;
+                float x = localPoint.x - rowWidth * 0.5f + column * cardSpacingX;
+                float y = localPoint.y - row * cardSpacingY;
+                card.root.anchoredPosition = SpringDay1UiLayerUtility.SnapToCanvasPixel(overlayCanvas, new Vector2(x, y));
             }
-
-            floatingProgressRoot.anchoredPosition = SpringDay1UiLayerUtility.SnapToCanvasPixel(overlayCanvas, localPoint);
-        }
-
-        private string GetCraftHoverLabel()
-        {
-            int remaining = GetQueuedCraftCountAfterCurrent();
-            return _selectedQuantity > 0 ? $"追加制作 x{_selectedQuantity}" : "中断制作";
         }
 
         private int GetRemainingCraftCount()
         {
             return _activeQueueEntry != null
                 ? Mathf.Max(0, _activeQueueEntry.totalCount - _activeQueueEntry.readyCount)
-                : Mathf.Max(0, _craftQueueTotal - _craftQueueCompleted);
+                : 0;
         }
 
         private int GetQueuedCraftCountAfterCurrent()
@@ -3957,7 +6106,7 @@ namespace Sunset.Story
 
         private int GetMaterialPreviewQuantity()
         {
-            if (HasActiveCraftQueue && GetSelectedRecipe() == _craftingRecipe && _selectedQuantity <= 0)
+            if (IsActiveEntry(GetSelectedQueueEntry()) && _selectedQuantity <= 0)
             {
                 return Mathf.Max(1, GetQueuedCraftCountAfterCurrent());
             }
@@ -3973,40 +6122,43 @@ namespace Sunset.Story
             }
 
             int maxCraftable = Mathf.Max(0, GetMaxCraftableCount(recipe));
-            if (!HasActiveCraftQueue)
-            {
-                return maxCraftable;
-            }
-
-            if (recipe != _craftingRecipe)
+            WorkbenchQueueEntry entry = GetQueueEntry(recipe);
+            if (EntryHasUnclaimedCompletedOutputs(entry))
             {
                 return 0;
             }
 
-            return Mathf.Max(0, maxCraftable - GetQueuedCraftCountAfterCurrent());
+            return maxCraftable;
         }
 
         private string BuildCraftButtonLabel(RecipeData recipe, bool canCraft, string blockerMessage)
         {
-            WorkbenchQueueEntry entry = GetQueueEntry(recipe);
-            if (entry != null && entry.readyCount > 0 && _selectedQuantity <= 0)
+            if (recipe == null || _selectedQuantity <= 0)
             {
                 return string.Empty;
             }
 
+            bool isSelectedEntryActive = IsActiveEntry(GetQueueEntry(recipe));
             if (HasActiveCraftQueue)
             {
-                if (_selectedQuantity > 0 && recipe == _craftingRecipe && canCraft)
+                if (_craftButtonHovered)
                 {
-                    return $"追加制作 x{_selectedQuantity}";
+                    if (_selectedQuantity > 0)
+                    {
+                        return isSelectedEntryActive ? $"追加制作 x{_selectedQuantity}" : $"加入队列 x{_selectedQuantity}";
+                    }
+
+                    return isSelectedEntryActive ? "中断制作" : string.Empty;
+                }
+
+                if (_selectedQuantity > 0 && canCraft)
+                {
+                    return isSelectedEntryActive
+                        ? $"追加制作 x{_selectedQuantity}"
+                        : $"加入队列 x{_selectedQuantity}";
                 }
 
                 return string.Empty;
-            }
-
-            if (_selectedQuantity <= 0)
-            {
-                return "制作";
             }
 
             if (!canCraft)
@@ -4069,16 +6221,6 @@ namespace Sunset.Story
             return interactable != null ? interactable.ShouldDisplayOverlayBelow(playerPosition) : playerPosition.y > GetAnchorBounds().center.y;
         }
 
-        private Camera GetWorldProjectionCamera()
-        {
-            return SpringDay1UiLayerUtility.GetWorldProjectionCamera(overlayCanvas);
-        }
-
-        private Camera GetUiEventCamera()
-        {
-            return SpringDay1UiLayerUtility.GetUiEventCamera(overlayCanvas);
-        }
-
         private float GetCurrentAutoHideDistance()
         {
             if (_craftRoutine == null)
@@ -4101,7 +6243,7 @@ namespace Sunset.Story
                 : SpringDay1UiLayerUtility.GetInteractionSamplePoint(target);
         }
 
-        private void PushDirectorCraftProgress(RecipeData recipe, bool active)
+        private void PushDirectorCraftProgress()
         {
             SpringDay1Director director = SpringDay1Director.Instance;
             if (director == null)
@@ -4109,12 +6251,15 @@ namespace Sunset.Story
                 return;
             }
 
+            WorkbenchQueueEntry activeEntry = _activeQueueEntry;
+            RecipeData activeRecipe = activeEntry != null ? activeEntry.recipe : null;
+            bool active = HasActiveCraftQueue && activeEntry != null && activeRecipe != null;
             director.NotifyWorkbenchCraftProgress(
-                recipe,
-                _craftQueueTotal,
-                _craftQueueCompleted,
-                _craftProgress,
-                active && HasActiveCraftQueue);
+                activeRecipe,
+                active ? Mathf.Max(1, activeEntry.totalCount) : 0,
+                active ? Mathf.Clamp(activeEntry.readyCount, 0, Mathf.Max(1, activeEntry.totalCount)) : 0,
+                active ? GetEntryUnitProgress(activeEntry) : 0f,
+                active);
         }
 
         private static bool TryGetCenterSamplePoint(Transform target, out Vector2 samplePoint)
@@ -4166,44 +6311,18 @@ namespace Sunset.Story
 
         private TMP_FontAsset ResolveFont(string preferredText = null)
         {
-            TMP_FontAsset firstUsable = null;
-            foreach (string path in PreferredFontResourcePaths)
-            {
-                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(path);
-                if (!IsFontAssetUsable(candidate))
-                {
-                    continue;
-                }
-
-                if (firstUsable == null)
-                {
-                    firstUsable = candidate;
-                }
-
-                if (CanFontRenderText(candidate, preferredText))
-                {
-                    return candidate;
-                }
-            }
-
-            TMP_FontAsset defaultFont = TMP_Settings.defaultFontAsset;
-            if (CanFontRenderText(defaultFont, preferredText))
-            {
-                return defaultFont;
-            }
-
-            return firstUsable != null ? firstUsable : defaultFont;
+            return DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                preferredText,
+                _fontAsset,
+                FontCoverageProbeText);
         }
 
         private static bool CanFontRenderText(TMP_FontAsset fontAsset, string currentText)
         {
-            if (!IsFontAssetUsable(fontAsset))
-            {
-                return false;
-            }
-
-            string probeText = GetFontProbeText(currentText);
-            return string.IsNullOrEmpty(probeText) || fontAsset.HasCharacters(probeText);
+            return DialogueChineseFontRuntimeBootstrap.CanRenderText(
+                fontAsset,
+                currentText,
+                FontCoverageProbeText);
         }
 
         private static string GetFontProbeText(string currentText)
@@ -4398,7 +6517,7 @@ namespace Sunset.Story
 
             return candidateViewport != null
                 && candidateContent != null
-                && candidate.UsesPrefabRecipeShell()
+                && (candidate.UsesPrefabRecipeShell() || HasGeneratedRecipeRowChain(candidateContent))
                 && candidate.UsesPrefabDetailShell()
                 && HasReusableRecipeRowChain(candidateContent);
         }
@@ -4453,6 +6572,14 @@ namespace Sunset.Story
             RectTransform quantityControls = _quantityControlsRect ?? FindDescendantRect(detailColumn, "QuantityControls");
             RectTransform progressRect = progressRoot ?? FindDescendantRect(detailColumn, "ProgressBackground");
             Button craftActionButton = craftButton ?? FindDescendantComponent<Button>(detailColumn, "CraftButton");
+            bool directMaterialsBinding = materialsText != null && materialsText.rectTransform.parent == detailColumn;
+            bool wrappedMaterialsBinding =
+                materialsText != null
+                && materialsViewportRect != null
+                && materialsContentRect != null
+                && materialsViewportRect.parent == detailColumn
+                && materialsContentRect.parent == materialsViewportRect
+                && materialsText.rectTransform.parent == materialsContentRect;
 
             return detailColumn != null
                 && FindDirectChildRect(detailColumn, "DetailLayout") == null
@@ -4461,7 +6588,7 @@ namespace Sunset.Story
                 && descriptionText != null
                 && descriptionText.rectTransform.parent == detailColumn
                 && materialsText != null
-                && materialsText.rectTransform.parent == detailColumn
+                && (directMaterialsBinding || wrappedMaterialsBinding)
                 && materialsTitle != null
                 && materialsTitle.parent == detailColumn
                 && quantityControls != null
@@ -4849,6 +6976,59 @@ namespace Sunset.Story
             shadow.useGraphicAlpha = true;
         }
 
+        private Scrollbar EnsureRecipeScrollbar()
+        {
+            if (recipeScrollbar != null)
+            {
+                return recipeScrollbar;
+            }
+
+            RectTransform parent = recipeViewportRect != null ? recipeViewportRect.parent as RectTransform : null;
+            if (parent == null)
+            {
+                return null;
+            }
+
+            recipeScrollbar = FindDescendantComponent<Scrollbar>(parent, "RecipeScrollbar");
+            if (recipeScrollbar == null)
+            {
+                recipeScrollbar = CreateRecipeScrollbar(parent);
+            }
+
+            return recipeScrollbar;
+        }
+
+        private Scrollbar CreateRecipeScrollbar(Transform parent)
+        {
+            RectTransform scrollbarRect = CreateRect(parent, "RecipeScrollbar");
+            scrollbarRect.anchorMin = new Vector2(1f, 0f);
+            scrollbarRect.anchorMax = new Vector2(1f, 1f);
+            scrollbarRect.pivot = new Vector2(1f, 0.5f);
+            scrollbarRect.anchoredPosition = new Vector2(-6f, 0f);
+            scrollbarRect.sizeDelta = new Vector2(8f, -48f);
+
+            Image background = scrollbarRect.gameObject.AddComponent<Image>();
+            background.color = new Color(0.18f, 0.22f, 0.31f, 0.9f);
+            background.raycastTarget = true;
+
+            RectTransform slidingArea = CreateRect(scrollbarRect, "Sliding Area");
+            Stretch(slidingArea, new Vector2(1f, 2f), new Vector2(-1f, -2f));
+
+            RectTransform handle = CreateRect(slidingArea, "Handle");
+            Stretch(handle, Vector2.zero, Vector2.zero);
+            Image handleImage = handle.gameObject.AddComponent<Image>();
+            handleImage.color = new Color(0.97f, 0.8f, 0.42f, 0.95f);
+            handleImage.raycastTarget = true;
+
+            Scrollbar scrollbar = scrollbarRect.gameObject.AddComponent<Scrollbar>();
+            scrollbar.direction = Scrollbar.Direction.BottomToTop;
+            scrollbar.targetGraphic = handleImage;
+            scrollbar.handleRect = handle;
+            scrollbar.size = 0.25f;
+            scrollbar.numberOfSteps = 0;
+            return scrollbar;
+        }
+
         private void HideImmediate()
         {
             if (canvasGroup == null)
@@ -4856,10 +7036,15 @@ namespace Sunset.Story
                 return;
             }
 
+            StopQueueOverflowToastRoutine();
+            HideQueueOverflowToastImmediate();
             SetWorkbenchPanelVisible(false);
-            if (floatingProgressRoot != null)
+            for (int index = 0; index < _floatingCards.Count; index++)
             {
-                floatingProgressRoot.gameObject.SetActive(false);
+                if (_floatingCards[index]?.root != null)
+                {
+                    _floatingCards[index].root.gameObject.SetActive(false);
+                }
             }
             canvasGroup.alpha = 0f;
             canvasGroup.interactable = false;
@@ -4874,6 +7059,27 @@ namespace Sunset.Story
             public int resultAmountPerCraft = 1;
             public int totalCount;
             public int readyCount;
+            public float currentUnitProgress;
+            public bool hasReservedCurrentCraft;
+        }
+
+        private sealed class FloatingProgressCardRefs
+        {
+            public RectTransform root;
+            public Image icon;
+            public Image fill;
+            public TextMeshProUGUI label;
+        }
+
+        private sealed class FloatingProgressDisplayState
+        {
+            public int RecipeId { get; set; }
+            public int ResultItemId { get; set; }
+            public int TotalCount { get; set; }
+            public int ReadyCount { get; set; }
+            public bool HasActiveCraft { get; set; }
+            public float ActiveUnitProgress { get; set; }
+            public bool HasPendingCrafts => TotalCount > ReadyCount;
         }
 
         private struct RectBaseline

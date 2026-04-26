@@ -62,6 +62,79 @@
 - 未跑 `Begin-Slice / Ready-To-Sync / Park-Slice`
 - 当前 live 状态：保持 `PARKED`
 
+## 2026-04-24｜prompt_03 工具 incident 收口结果
+
+### 用户目标
+- 用户要求不要再把这轮当成继续业务上传 `Data/Core`，而是把 `Ready-To-Sync / CodexCodeGuard / git-safe-sync` 的挂死收成一次可判断的工具 incident。
+- 如果证据已够就不重跑；否则最多只允许 1 次同白名单最小复现。
+
+### 本轮实际完成
+1. 已读取：
+   - `2026-04-23_给存档系统_DataCore预同步工具incident排查prompt_03.md`
+   - `2026-04-23_shared-root第二波blocker分流批次_03.md`
+2. 已回看上轮真实挂死现场、当前 `thread-state`、线程 memory、工作区 memory。
+3. 已补读源码：
+   - `Ready-To-Sync.ps1`
+   - `StateCommon.ps1`
+   - `git-safe-sync.ps1`
+   - `scripts/CodexCodeGuard/Program.cs`
+4. 本轮没有重跑复现，因为证据已经足够。
+
+### 为什么现有证据已足够
+1. 上轮已经真实抓到完整进程链：
+   - `Ready-To-Sync`
+   - `sunset-git-safe-sync preflight`
+   - `CodexCodeGuard`
+   - `git diff --name-status HEAD --`
+2. 当前治理位已补充约束：
+   - 普通 `git diff --name-status HEAD --` 对这 3 文件瞬间返回
+   - `Program.cs` 理论上异常时也应输出 JSON
+3. 当前源码说明：
+   - `GitDirtyState.Load()` 实际跑的是整仓 `git diff --name-status HEAD --`
+   - `RunProcess()` 采用串行 `stdout/stderr ReadToEnd()`
+4. 因此现有证据足以把 incident 落到 `CodexCodeGuard` 内部 process/pipe 层，不需要再拿同白名单盲目重跑一次。
+
+### 最终裁定
+1. incident 最终落层：
+   - 第一真实挂死层 = `CodexCodeGuard Program.cs`
+   - 更具体地说，是 `GitDirtyState.Load -> RunGit -> RunProcess(git diff --name-status HEAD --)` 这一段
+2. 这件事不建议继续交业务线程自己排，应升级给治理/工具位。
+3. 本轮没有继续把它当业务上传推进。
+
+## 2026-04-25｜prompt_05 工具修复后 DataCore 最小复核
+
+### 用户目标
+- 只做 `Data/Core` 三文件在工具修复后的 `1` 次真实最小复核。
+- 不修业务代码，不换第二批。
+
+### 本轮实际完成
+1. 已读取：
+   - `2026-04-24_给存档系统_工具修复后DataCore最小复核prompt_05.md`
+   - `2026-04-24_统一工具incident修复后最小复核分发批次_05.md`
+2. 已执行：
+   - `Begin-Slice`
+   - `Ready-To-Sync`
+   - `Park-Slice`
+3. 本轮没有走到 `sync`，因为 `Ready-To-Sync` 已返回新的第一真实 blocker。
+
+### 本轮结论
+1. 这轮没有再出现 `CodexCodeGuard / no JSON / hang`。
+2. 新的第一真实 blocker 是 `SaveManager.cs` 上 `4` 条 `CS1061`。
+3. 这轮没有顺手修业务代码。
+4. 当前这组已经从“工具 incident”降级成“真实业务 blocker”。
+
+### 4 条真实错误
+1. `InventorySortService` 缺 `RebindRuntimeContext`
+2. `CraftingService` 缺 `ConfigureRuntimeContext`
+3. `ToolbarUI` 缺 `ConfigureRuntimeContext`
+4. `InventoryInteractionManager` 缺 `ConfigureRuntimeContext`
+
+### 当前状态
+- 当前 live 状态：`PARKED`
+- 下一步恢复点：
+  1. 回到业务线程正常修 `SaveManager.cs` 的 4 条 `CS1061`
+  2. 继续保持不碰 `StoryProgressPersistenceService.cs` 和存档相关 tests
+
 ## 2026-04-23｜shared-root own 保本上传结果
 
 ### 用户目标
@@ -123,6 +196,53 @@
   1. 先排 `CodexCodeGuard preflight` 挂死问题
   2. 再重开 `Data/Core` 代码簇上传
   3. 不要重新回头审 docs own/mixed 边界
+
+## 2026-04-23｜shared-root 历史小批次上传 prompt_02 执行结果
+
+### 用户目标
+- 用户要求继续 `存档系统` 上传线，但不再按整包 code cluster 收，而是：
+  - 只还原 `1` 个历史小批次
+  - 这轮唯一允许的小批固定为 `Data/Core` 三文件
+  - 撞 blocker 立刻停车
+  - 不换第二批
+
+### 本轮实际完成
+1. 已读取：
+   - `2026-04-23_给存档系统_shared-root历史小批次上传prompt_02.md`
+   - `2026-04-23_shared-root历史小批次上传分发批次_02.md`
+2. 已重新核对这 3 个文件的 diff 与耦合链，确认可以视作同一历史小批：
+   - `InventoryItem.RestoreInstanceIdForLoad`
+   - `SaveDataDTOs.FromSaveData`
+   - `SaveManager` 的默认档 / load-restore / off-scene snapshot 主链
+3. 已执行：
+   - `Begin-Slice`
+   - 对这 3 个文件的唯一一次真实 `Ready-To-Sync` 尝试
+4. 本轮没有真实提交成功；命中 blocker 后已执行 `Park-Slice`
+
+### 第一真实 blocker
+1. 第一真实 blocker 仍然是 `CodeGuard/preflight`，不是 mixed 扩根。
+2. 本轮实际观测到的挂死链条：
+   - `Ready-To-Sync.ps1`
+   - `sunset-git-safe-sync.ps1 -Action preflight`
+   - 临时 canonical `git-safe-sync.ps1`
+   - `dotnet CodexCodeGuard.dll --phase pre-sync`
+   - `git diff --name-status HEAD --`
+3. 观察窗内未返回后，本轮按 prompt 停车，没有换第二个历史批次。
+
+### 本轮明确未碰
+- `Assets/YYY_Scripts/Story/Managers/StoryProgressPersistenceService.cs`
+- `Assets/YYY_Tests/Editor/SaveManagerDay1RestoreContractTests.cs`
+- `Assets/YYY_Tests/Editor/SaveManagerDefaultSlotContractTests.cs`
+- `Assets/YYY_Tests/Editor/StoryProgressPersistenceServiceTests.cs`
+- `Assets/YYY_Tests/Editor/WorkbenchInventoryRefreshContractTests.cs`
+- `Assets/YYY_Tests/Editor/SpringDay1DirectorStagingTests.cs`
+
+### 当前状态
+- 当前 live 状态：`PARKED`
+- 下一步唯一恢复点：
+  1. 单独排 `Data/Core` 三文件的 `CodeGuard/preflight` 挂死
+  2. 然后只重试这一同组历史小批
+  3. 继续不碰 `StoryProgressPersistenceService` 和 tests
 
 ## 2026-04-17 00:30 真实施工续记：第二簇验证收完，Primary 农地离场丢状态完成只读归因
 - 当前主线没变，仍是存档系统收口；本轮继续服务“重开/剧情/Home 后背包、toolbar、箱子、sort、input 混合坏相”这条主线。

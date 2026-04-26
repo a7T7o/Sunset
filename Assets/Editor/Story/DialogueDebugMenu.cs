@@ -17,6 +17,8 @@ public static class DialogueDebugMenu
     private const string BootstrapValidationMenuPath = "Sunset/Story/Debug/Bootstrap Spring Day1 Validation";
     private const string LogValidationSnapshotMenuPath = "Sunset/Story/Debug/Log Spring Day1 Validation Snapshot";
     private const string StepValidationMenuPath = "Sunset/Story/Debug/Step Spring Day1 Validation";
+    private const string ToggleWorkbenchSkipMenuPath = "Sunset/Story/Debug/Toggle Skip To Workbench 0.0.5";
+    private const string ResetOpeningMenuPath = "Sunset/Story/Debug/Reset Spring Day1 To Opening";
     private const string SequencePath = "Assets/111_Data/Story/Dialogue/SpringDay1_FirstDialogue.asset";
 
     private static bool IsSuppressedByNpcValidation(string source)
@@ -59,6 +61,49 @@ public static class DialogueDebugMenu
         }
 
         dialogueManager.PlayDialogue(sequence);
+    }
+
+    [MenuItem(ToggleWorkbenchSkipMenuPath)]
+    private static void ToggleWorkbenchSkip()
+    {
+        bool nextState = !EditorPrefs.GetBool(SpringDay1Director.DebugWorkbenchSkipEditorPrefKey, false);
+        EditorPrefs.SetBool(SpringDay1Director.DebugWorkbenchSkipEditorPrefKey, nextState);
+        Menu.SetChecked(ToggleWorkbenchSkipMenuPath, nextState);
+        Debug.Log(nextState
+            ? "[DialogueDebugMenu] 已开启：进入 PlayMode 后会直接跳到 0.0.5 可开工作台态。"
+            : "[DialogueDebugMenu] 已关闭：恢复正常剧情推进到工作台。");
+    }
+
+    [MenuItem(ToggleWorkbenchSkipMenuPath, true)]
+    private static bool ToggleWorkbenchSkipValidate()
+    {
+        bool enabled = EditorPrefs.GetBool(SpringDay1Director.DebugWorkbenchSkipEditorPrefKey, false);
+        Menu.SetChecked(ToggleWorkbenchSkipMenuPath, enabled);
+        return true;
+    }
+
+    [MenuItem(ResetOpeningMenuPath)]
+    private static void ResetSpringDay1ToOpening()
+    {
+        if (IsSuppressedByNpcValidation(nameof(ResetSpringDay1ToOpening)))
+        {
+            return;
+        }
+
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("[DialogueDebugMenu] 请先进入 PlayMode，再把 spring-day1 重置回开场态。");
+            return;
+        }
+
+        EditorPrefs.SetBool(SpringDay1Director.DebugWorkbenchSkipEditorPrefKey, false);
+        Menu.SetChecked(ToggleWorkbenchSkipMenuPath, false);
+
+        StoryProgressPersistenceService.ResetToOpeningRuntimeState();
+
+        SpringDay1LiveValidationRunner runner = SpringDay1LiveValidationRunner.EnsureRuntime();
+        string snapshot = runner.BuildSnapshot("reset-opening");
+        Debug.Log($"[DialogueDebugMenu] 已重置 spring-day1 到开场态，并关闭工作台直跳。{snapshot}");
     }
 
     [MenuItem(AdvanceMenuPath)]
@@ -341,6 +386,12 @@ public static class DialogueDebugMenu
 
     [MenuItem(StepValidationMenuPath, true)]
     private static bool ValidateStepSpringDay1Validation()
+    {
+        return true;
+    }
+
+    [MenuItem(ResetOpeningMenuPath, true)]
+    private static bool ValidateResetSpringDay1ToOpening()
     {
         return true;
     }

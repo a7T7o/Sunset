@@ -1680,3 +1680,46 @@
   - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
   - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
   - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`
+
+## 2026-04-23 16:52｜第二波只试楼梯层切换小批，已按首 blocker 停车
+- 本轮唯一尝试：
+  - `StairLayerTransitionZone2D.cs`
+  - `StairLayerTransitionZone2D.cs.meta`
+  - `NavigationTraversalCore.cs.meta`
+- 这组是不是历史小批：
+  - `是。`
+  - 它来自 `2026-04-19` 已经存在过的“楼梯层级切换最小脚本”历史切片，不是为了上传临时编的名字。
+- 真实 blocker：
+  - 不是 compile，也不是 shared-root 中性大厅。
+  - 是 own root 扩到 `Assets/YYY_Scripts/Service/Navigation` 后，被同根的：
+    - `NavGrid2D.cs`
+    - `NavGrid2DStressTest.cs`
+    - `NavigationAgentRegistry.cs`
+    挡住。
+- 本轮没有做：
+  - 没换第二批
+  - 没顺手吞 editor 导航工具
+  - 没顺手吞 NPC 属性文件
+- 当前状态：
+  - `PARKED`
+
+## 2026-04-24 01:59｜第三波只试 Service/Navigation 根内整合批，已按工具 blocker 停车
+- 本轮唯一尝试：
+  - `StairLayerTransitionZone2D.cs`
+  - `StairLayerTransitionZone2D.cs.meta`
+  - `NavigationTraversalCore.cs.meta`
+  - `NavGrid2D.cs`
+  - `NavGrid2DStressTest.cs`
+  - `NavigationAgentRegistry.cs`
+- 这批是不是正式升级为 `Service/Navigation` 根内整合批：
+  - `是。`
+  - 因为把第二波已证实挡路的 3 个同根文件正式并进来后，这一刀才首次覆盖当前 `Service/Navigation` 根内全部导航残留面。
+- 新的第一真实 blocker：
+  - `CodexCodeGuard incident during Ready-To-Sync (no JSON result)`
+- 本轮没有做：
+  - 没有提交成功
+  - 没有新 push
+  - 没有扩到 `Editor` 菜单
+  - 没有扩到 `NPC` 属性文件
+- 当前状态：
+  - `PARKED`

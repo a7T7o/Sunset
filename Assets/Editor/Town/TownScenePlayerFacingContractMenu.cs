@@ -21,20 +21,8 @@ namespace Sunset.EditorTools.SceneSync
         private const float AttentionReturnTriggerEdgeDistance = 1.0f;
         private static readonly string CommandRoot = Path.Combine(Directory.GetCurrentDirectory(), "Library", "CodexEditorCommands");
         private static readonly string ResultPath = Path.Combine(CommandRoot, "town-player-facing-contract-probe.json");
-        private static readonly string[] CriticalEntryAnchors =
-        {
-            "EnterVillageCrowdRoot",
-            "KidLook_01"
-        };
-
-        private static readonly string[] RuntimeAnchors =
-        {
-            "EnterVillageCrowdRoot",
-            "KidLook_01",
-            "DinnerBackgroundRoot",
-            "NightWitness_01",
-            "DailyStand_01"
-        };
+        private static readonly string[] CriticalEntryAnchors = Array.Empty<string>();
+        private static readonly string[] RuntimeAnchors = Array.Empty<string>();
 
         [Serializable]
         private sealed class ProbeResult

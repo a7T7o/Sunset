@@ -169,7 +169,7 @@ public class NPCSceneIntegrationTool : EditorWindow
                     applyOnAwakeProperty.boolValue = true;
                 }
                 serializedObject.ApplyModifiedProperties();
-                controller.ApplyProfile();
+                controller.SyncRuntimeProfileFromAsset();
                 EditorUtility.SetDirty(controller);
             }
 
@@ -181,7 +181,7 @@ public class NPCSceneIntegrationTool : EditorWindow
                 Undo.SetTransformParent(anchorObject.transform, controller.transform.parent, "Parent NPC Home Anchor");
                 anchorObject.transform.position = controller.transform.position;
                 anchorObject.transform.rotation = Quaternion.identity;
-                controller.SetHomeAnchor(anchorObject.transform);
+                controller.BindResidentHomeAnchor(anchorObject.transform);
                 EditorUtility.SetDirty(controller);
                 createdAnchors.Add(anchorObject);
                 anchor = anchorObject.transform;

@@ -2435,6 +2435,41 @@ public class SpringDay1DirectorStagingTests
     }
 
     [Test]
+    public void NpcAutoRoamController_FormalNavigationBlockedAdvanceShouldKeepContractAlive()
+    {
+        GameObject npc = Track(new GameObject("NPC_FormalNavigationBlockedAdvance"));
+        npc.AddComponent(ResolveTypeOrFail("NPCMotionController"));
+        Component roamController = npc.AddComponent(ResolveTypeOrFail("NPCAutoRoamController"));
+        Type roamStateType = ResolveTypeOrFail("NPCAutoRoamController+RoamState");
+        Type travelContractType = ResolveTypeOrFail("NPCAutoRoamController+PointToPointTravelContract");
+
+        InvokeInstance(roamController, "AcquireResidentScriptedControl", "SpringDay1NpcCrowdDirector", true);
+        SetField(roamController, "debugMoveActive", true);
+        SetField(roamController, "activePointToPointTravelContract", ParseEnum(travelContractType, "FormalNavigation"));
+        SetField(roamController, "state", ParseEnum(roamStateType, "Moving"));
+        SetField(roamController, "blockedAdvanceFrames", 8);
+        SetField(roamController, "lastBlockedAdvanceRecoveryTime", Time.time - 1f);
+        SetField(roamController, "lastBlockingAgentId", 0);
+        SetField(roamController, "sharedAvoidanceBlockingFrames", 0);
+        SetField(roamController, "hasRequestedDestination", true);
+        SetField(roamController, "requestedDestination", new Vector2(12f, -4f));
+        npc.transform.position = new Vector3(-6f, 3f, 0f);
+
+        bool handled = (bool)InvokeInstance(
+            roamController,
+            "TryHandleRecoverablePointToPointTravelBlockedAdvance",
+            (Vector2)npc.transform.position,
+            "UnitTestFormalNavigationBlockedAdvance");
+
+        Assert.That(handled, Is.True);
+        Assert.That((bool)InvokeInstance(roamController, "IsFormalNavigationDriveActive"), Is.True,
+            "FormalNavigation 在被挡住时不应因为早停分支直接掐掉 active drive。");
+        Assert.That((bool)GetPropertyValue(roamController, "IsResidentScriptedControlActive"), Is.True);
+        Assert.That((bool)GetFieldValue(roamController, "debugMoveActive"), Is.True);
+        Assert.That(GetFieldValue(roamController, "activePointToPointTravelContract").ToString(), Is.EqualTo("FormalNavigation"));
+    }
+
+    [Test]
     public void CrowdDirector_ShouldFinishReturnHomeFromFormalNavigationArrivalSignal()
     {
         Component director = Track(new GameObject("CrowdDirector_ReturnHomeFormalArrival")).AddComponent(ResolveTypeOrFail("Sunset.Story.SpringDay1NpcCrowdDirector"));
@@ -3351,7 +3386,7 @@ public class SpringDay1DirectorStagingTests
     }
 
     [Test]
-    public void Director_ShouldAllowPrimaryHomeEntryGateAfterHealingCompletes()
+    public void Director_ShouldKeepPrimaryHomeEntryGateClosedDuringWorkbenchFlashback()
     {
         Type storyManagerType = ResolveTypeOrFail("Sunset.Story.StoryManager");
         Type springDirectorType = ResolveTypeOrFail("Sunset.Story.SpringDay1Director");
@@ -3367,6 +3402,7 @@ public class SpringDay1DirectorStagingTests
         SetStaticField(springDirectorType, "_instance", director);
         InvokeInstance(storyManager, "ResetState", ParseEnum(storyPhaseType, "WorkbenchFlashback"), false);
         SetField(director, "_healingSequencePlayed", true);
+        SetField(director, "_workbenchOpened", true);
 
         GameObject homeDoor = Track(new GameObject("PrimaryHomeDoor", typeof(BoxCollider2D)));
         Component trigger = Track(homeDoor.AddComponent(sceneTransitionTriggerType));
@@ -3374,12 +3410,12 @@ public class SpringDay1DirectorStagingTests
 
         InvokeInstance(director, "SyncPrimaryHomeEntryGate");
 
-        Assert.That(((Behaviour)trigger).enabled, Is.True, "疗伤完成后，PrimaryHomeDoor 的转场触发器应重新放开。");
-        Assert.That(homeDoor.GetComponent<BoxCollider2D>().enabled, Is.True, "疗伤完成后，PrimaryHomeDoor 的 Collider2D 应重新放开。");
+        Assert.That(((Behaviour)trigger).enabled, Is.False, "0.0.4 工作台阶段还没结束前，PrimaryHomeDoor 的转场触发器不应提前放开。");
+        Assert.That(homeDoor.GetComponent<BoxCollider2D>().enabled, Is.False, "0.0.4 工作台阶段还没结束前，PrimaryHomeDoor 的 Collider2D 也必须继续保持关闭。");
     }
 
     [Test]
-    public void Director_ShouldKeepPrimaryHomeEntryGateClosedUntilPhaseReallyEntersWorkbenchFlashback()
+    public void Director_ShouldAllowPrimaryHomeEntryGateAfterPhaseEntersFarmingTutorial()
     {
         Type storyManagerType = ResolveTypeOrFail("Sunset.Story.StoryManager");
         Type springDirectorType = ResolveTypeOrFail("Sunset.Story.SpringDay1Director");
@@ -3393,9 +3429,10 @@ public class SpringDay1DirectorStagingTests
         Component director = Track(new GameObject("SpringDay1Director_PrimaryHomeGateStillClosed")).AddComponent(springDirectorType);
         SetStaticField(storyManagerType, "_instance", storyManager);
         SetStaticField(springDirectorType, "_instance", director);
-        InvokeInstance(storyManager, "ResetState", ParseEnum(storyPhaseType, "HealingAndHP"), false);
+        InvokeInstance(storyManager, "ResetState", ParseEnum(storyPhaseType, "FarmingTutorial"), false);
         SetField(director, "_healingSequencePlayed", true);
-        AddCompletedSequenceId(director, "day1_healing_bridge");
+        SetField(director, "_workbenchOpened", true);
+        AddCompletedSequenceId(director, "spring-day1-workbench");
 
         GameObject homeDoor = Track(new GameObject("PrimaryHomeDoor", typeof(BoxCollider2D)));
         Component trigger = Track(homeDoor.AddComponent(sceneTransitionTriggerType));
@@ -3403,8 +3440,8 @@ public class SpringDay1DirectorStagingTests
 
         InvokeInstance(director, "SyncPrimaryHomeEntryGate");
 
-        Assert.That(((Behaviour)trigger).enabled, Is.False, "就算疗伤对白刚播完，只要 phase 还停在 HealingAndHP，就不应提前放开进屋门。");
-        Assert.That(homeDoor.GetComponent<BoxCollider2D>().enabled, Is.False, "0.0.4 真正开始前，PrimaryHomeDoor 的 Collider2D 也必须继续保持关闭。");
+        Assert.That(((Behaviour)trigger).enabled, Is.True, "只有正式进入 0.0.5 后，PrimaryHomeDoor 的转场触发器才应放开。");
+        Assert.That(homeDoor.GetComponent<BoxCollider2D>().enabled, Is.True, "只有正式进入 0.0.5 后，PrimaryHomeDoor 的 Collider2D 才应放开。");
     }
 
     [Test]
@@ -3549,6 +3586,61 @@ public class SpringDay1DirectorStagingTests
         Assert.That((bool)GetPropertyValue(chiefRoam, "IsResidentScriptedControlActive"), Is.False);
         Assert.That((bool)GetPropertyValue(companionRoam, "IsResidentScriptedControlActive"), Is.False,
             "0.0.6 回 Town 的白天自由窗口里，001/002 也必须回到普通 NPC 规则，不能继续被 story actor runtime 扣着。");
+    }
+
+    [Test]
+    public void Director_ShouldRestoreMissingInformalSurfaceWhenStoryActorsReturnToOrdinaryNpcRules()
+    {
+        Scene townScene = CreateNamedTestScene("Town");
+        SceneManager.SetActiveScene(townScene);
+
+        Type storyManagerType = ResolveTypeOrFail("Sunset.Story.StoryManager");
+        Type springDirectorType = ResolveTypeOrFail("Sunset.Story.SpringDay1Director");
+        Type storyPhaseType = ResolveTypeOrFail("Sunset.Story.StoryPhase");
+        Type dialogueType = ResolveTypeOrFail("Sunset.Story.NPCDialogueInteractable");
+        Type informalType = ResolveTypeOrFail("Sunset.Story.NPCInformalChatInteractable");
+
+        Component storyManager = Track(new GameObject("StoryManager_TownExploreInformalSurfaceRestore")).AddComponent(storyManagerType);
+        Component director = Track(new GameObject("SpringDay1Director_TownExploreInformalSurfaceRestore")).AddComponent(springDirectorType);
+        SetStaticField(storyManagerType, "_instance", storyManager);
+        SetStaticField(springDirectorType, "_instance", director);
+        InvokeInstance(storyManager, "ResetState", ParseEnum(storyPhaseType, "FarmingTutorial"), false);
+        SetField(director, "_postTutorialExploreWindowEntered", true);
+
+        GameObject chief = Track(new GameObject("001"));
+        chief.AddComponent(ResolveTypeOrFail("NPCMotionController"));
+        Component chiefRoam = chief.AddComponent(ResolveTypeOrFail("NPCAutoRoamController"));
+        Behaviour chiefDialogue = (Behaviour)chief.AddComponent(dialogueType);
+        SceneManager.MoveGameObjectToScene(chief, townScene);
+
+        ScriptableObject roamProfile = ScriptableObject.CreateInstance(ResolveTypeOrFail("NPCRoamProfile"));
+        Type contentProfileType = ResolveTypeOrFail("NPCDialogueContentProfile");
+        ScriptableObject contentProfile = ScriptableObject.CreateInstance(contentProfileType);
+        Type exchangeType = ResolveTypeOrFail("NPCDialogueContentProfile+InformalChatExchange");
+        object exchange = Activator.CreateInstance(exchangeType);
+        SetField(exchange, "playerLines", new[] { "玩家句" });
+        SetField(exchange, "npcReplyLines", new[] { "NPC句" });
+
+        Type bundleType = ResolveTypeOrFail("NPCDialogueContentProfile+InformalConversationBundle");
+        object bundle = Activator.CreateInstance(bundleType);
+        Array exchangeArray = Array.CreateInstance(exchangeType, 1);
+        exchangeArray.SetValue(exchange, 0);
+        SetField(bundle, "exchanges", exchangeArray);
+
+        Array bundleArray = Array.CreateInstance(bundleType, 1);
+        bundleArray.SetValue(bundle, 0);
+        SetField(contentProfile, "defaultInformalConversationBundles", bundleArray);
+        SetField(roamProfile, "dialogueContentProfile", contentProfile);
+        SetField(chiefRoam, "roamProfile", roamProfile);
+
+        chiefDialogue.enabled = false;
+
+        InvokeInstance(director, "UpdateSceneStoryNpcVisibility");
+
+        Assert.That(chief.GetComponent(informalType), Is.Not.Null,
+            "001 在 story actor 退回普通 NPC 规则时，如果 RoamProfile 本来就有闲聊内容，导演应自动补回 informal surface。");
+        Assert.That(chiefDialogue.enabled, Is.True);
+        Assert.That((bool)GetPropertyValue(chiefRoam, "IsResidentScriptedControlActive"), Is.False);
     }
 
     [Test]

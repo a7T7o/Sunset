@@ -13,6 +13,9 @@ public class WorkbenchInventoryRefreshContractTests
     private static readonly string WorkbenchOverlayPath =
         Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1WorkbenchCraftingOverlay.cs");
 
+    private static readonly string UiLayerUtilityPath =
+        Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Story/UI/SpringDay1UiLayerUtility.cs");
+
     private static readonly string CraftingServicePath =
         Path.Combine(ProjectRoot, "Assets/YYY_Scripts/Service/Crafting/CraftingService.cs");
 
@@ -135,6 +138,29 @@ public class WorkbenchInventoryRefreshContractTests
             "工作台跨场景后回到绑定场景时，应补一次运行时状态刷新。");
         StringAssert.Contains("RefreshBoundSceneRuntimeState();", overlayText,
             "sceneLoaded / activeSceneChanged 回到绑定场景时应触发工作台运行时刷新。");
+    }
+
+    [Test]
+    public void WorkbenchOverlay_ShouldPersistRuntimeStateAndPreferPersistentUiRoot()
+    {
+        string overlayText = File.ReadAllText(WorkbenchOverlayPath);
+        string uiLayerText = File.ReadAllText(UiLayerUtilityPath);
+
+        StringAssert.Contains("public static void FlushRuntimeStateToPersistence()", overlayText,
+            "工作台浮层需要暴露统一 flush 入口，让正式存档前能主动把 runtime 状态写回长期持久层。");
+        StringAssert.Contains("public static void NotifyPersistentStateReplaced()", overlayText,
+            "正式读档替换长期态后，工作台浮层需要一个统一入口把本地 runtime 壳同步成新真值。");
+        StringAssert.Contains("StoryProgressPersistenceService.StoreWorkbenchRuntimeState(BuildWorkbenchRuntimeSaveData(stationKey));", overlayText,
+            "工作台 runtime 队列应该正式写入长期持久层，而不是继续只活在浮层内存里。");
+        StringAssert.Contains("SuspendCraftRoutineForPersistence();", overlayText,
+            "工作台离场/禁用前应先挂起当前协程，再把进度写回持久层。");
+        StringAssert.Contains("CleanupTransientState(resetSession: false);", overlayText,
+            "工作台禁用时不应再直接把 session 真值清空，否则切场回来会丢队列。");
+        Assert.That(overlayText, Does.Not.Contain("StopCraftRoutine();\r\n            CleanupTransientState(resetSession: true);"),
+            "工作台 OnDisable 不能再走“直接停工并清空 session”的旧链。");
+
+        StringAssert.Contains("PersistentPlayerSceneBridge.GetPreferredRuntimeUiRoot()", uiLayerText,
+            "工作台 overlay 的 runtime UI 父节点应优先走 persistent UI 根，避免切场后挂回 scene-local UI。");
     }
 
     private static Type RequireType(string fullName)

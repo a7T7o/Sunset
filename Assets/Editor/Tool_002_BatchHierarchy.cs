@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEditor;
 using System.Collections.Generic;
 using System.Text;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 002批量工具 - Hierarchy窗口专用
@@ -18,7 +19,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
     private bool showLockedObjectList;
     private bool showOrderAdvanced = true;
     private bool showOrderNotes;
-    
+
     private List<GameObject> selectedObjs = new List<GameObject>();
 
     [MenuItem("Tools/002批量 (Hierarchy窗口)")]
@@ -36,12 +37,9 @@ public class Tool_002_BatchHierarchy : EditorWindow
         titleContent = new GUIContent(WindowTitle);
         currentMode = (ToolMode)EditorPrefs.GetInt("Batch002_Mode", 0);
         LoadSettings();
-        
+
         // 只监听重绘，不再自动接管 Hierarchy 当前选择
         Selection.selectionChanged += OnSelectionChanged;
-        
-        // 初始加载上次确认并持久化的选择
-        LoadPersistedSelection();
     }
 
     private void OnDisable()
@@ -49,11 +47,11 @@ public class Tool_002_BatchHierarchy : EditorWindow
         EditorPrefs.SetInt("Batch002_Mode", (int)currentMode);
         SaveSettings();
         SavePersistedSelection();
-        
+
         // 取消监听
         Selection.selectionChanged -= OnSelectionChanged;
     }
-    
+
     private void OnSelectionChanged()
     {
         Repaint();
@@ -66,19 +64,19 @@ public class Tool_002_BatchHierarchy : EditorWindow
         DrawLine();
         DrawSelectionSummary();
         DrawLine();
-        
+
         scrollPos = EditorGUILayout.BeginScrollView(scrollPos);
-        
+
         switch (currentMode)
         {
             case ToolMode.Order: DrawOrderMode(); break;
             case ToolMode.Transform: DrawTransformMode(); break;
             case ToolMode.碰撞器: DrawColliderMode(); break;
         }
-        
+
         EditorGUILayout.EndScrollView();
     }
-    
+
     private void OnInspectorUpdate()
     {
         // 定期刷新，确保UI更新
@@ -220,12 +218,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 continue;
             }
 
-            if (!GlobalObjectId.TryParse(line, out GlobalObjectId globalObjectId))
-            {
-                continue;
-            }
-
-            GameObject restoredObject = GlobalObjectId.GlobalObjectIdentifierToObjectSlow(globalObjectId) as GameObject;
+            GameObject restoredObject = ResolvePersistedSelectionEntry(line);
             if (restoredObject != null && !selectedObjs.Contains(restoredObject))
             {
                 selectedObjs.Add(restoredObject);
@@ -245,18 +238,16 @@ public class Tool_002_BatchHierarchy : EditorWindow
         StringBuilder builder = new StringBuilder();
         foreach (GameObject selectedObject in selectedObjs)
         {
-            if (selectedObject == null)
+            if (!TryBuildPersistedSelectionEntry(selectedObject, out string persistedEntry))
             {
                 continue;
             }
-
-            GlobalObjectId globalObjectId = GlobalObjectId.GetGlobalObjectIdSlow(selectedObject);
             if (builder.Length > 0)
             {
                 builder.Append('\n');
             }
 
-            builder.Append(globalObjectId.ToString());
+            builder.Append(persistedEntry);
         }
 
         if (builder.Length == 0)
@@ -268,15 +259,108 @@ public class Tool_002_BatchHierarchy : EditorWindow
         EditorPrefs.SetString(PersistedSelectionIdsKey, builder.ToString());
     }
 
+    private static bool TryBuildPersistedSelectionEntry(GameObject sceneObject, out string persistedEntry)
+    {
+        persistedEntry = null;
+        if (sceneObject == null || EditorUtility.IsPersistent(sceneObject))
+        {
+            return false;
+        }
+
+        Scene scene = sceneObject.scene;
+        if (!scene.IsValid() || !scene.isLoaded || string.IsNullOrEmpty(scene.path))
+        {
+            return false;
+        }
+
+        Transform current = sceneObject.transform;
+        List<int> siblingIndices = new List<int>();
+        while (current != null)
+        {
+            siblingIndices.Insert(0, current.GetSiblingIndex());
+            current = current.parent;
+        }
+
+        persistedEntry = $"{scene.path}|{string.Join("/", siblingIndices)}";
+        return true;
+    }
+
+    private static GameObject ResolvePersistedSelectionEntry(string persistedEntry)
+    {
+        if (string.IsNullOrWhiteSpace(persistedEntry))
+        {
+            return null;
+        }
+
+        string[] parts = persistedEntry.Split('|');
+        if (parts.Length != 2 || string.IsNullOrWhiteSpace(parts[0]) || string.IsNullOrWhiteSpace(parts[1]))
+        {
+            return null;
+        }
+
+        Scene scene = default;
+        bool foundScene = false;
+        for (int i = 0; i < SceneManager.sceneCount; i++)
+        {
+            Scene loadedScene = SceneManager.GetSceneAt(i);
+            if (!loadedScene.IsValid() || !loadedScene.isLoaded)
+            {
+                continue;
+            }
+
+            if (loadedScene.path == parts[0])
+            {
+                scene = loadedScene;
+                foundScene = true;
+                break;
+            }
+        }
+
+        if (!foundScene)
+        {
+            return null;
+        }
+
+        string[] segmentStrings = parts[1].Split('/');
+        if (segmentStrings.Length == 0 || !int.TryParse(segmentStrings[0], out int rootIndex))
+        {
+            return null;
+        }
+
+        GameObject[] roots = scene.GetRootGameObjects();
+        if (rootIndex < 0 || rootIndex >= roots.Length)
+        {
+            return null;
+        }
+
+        Transform current = roots[rootIndex].transform;
+        for (int i = 1; i < segmentStrings.Length; i++)
+        {
+            if (!int.TryParse(segmentStrings[i], out int childIndex))
+            {
+                return null;
+            }
+
+            if (childIndex < 0 || childIndex >= current.childCount)
+            {
+                return null;
+            }
+
+            current = current.GetChild(childIndex);
+        }
+
+        return current != null ? current.gameObject : null;
+    }
+
     #region ========== Order排序模式 ==========
 
     // Sorting Layer 设置
     private bool sort_chk_layer = false;
     private string sort_layer = "Default";
-    
+
     // 快速偏移
     private int sort_quickOffset = 1;
-    
+
     // 按Y坐标计算Order参数
     private int sort_multiplier = 100;
     private int sort_orderOffset = 0;
@@ -308,11 +392,11 @@ public class Tool_002_BatchHierarchy : EditorWindow
 
         EditorGUILayout.Space(4);
         EditorGUILayout.LabelField("快速操作", EditorStyles.boldLabel);
-        
+
         EditorGUILayout.BeginHorizontal();
         GUILayout.Label("Order偏移:", GUILayout.Width(80));
         sort_quickOffset = EditorGUILayout.IntField(sort_quickOffset, GUILayout.Width(50));
-        
+
         GUI.enabled = selectedObjs.Count > 0;
         if (GUILayout.Button("↑ +", GUILayout.Width(50)))
             QuickOffsetOrder(sort_quickOffset);
@@ -320,7 +404,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
             QuickOffsetOrder(-sort_quickOffset);
         GUI.enabled = true;
         EditorGUILayout.EndHorizontal();
-        
+
         DrawLine();
 
         EditorGUILayout.LabelField("核心参数", EditorStyles.boldLabel);
@@ -369,9 +453,9 @@ public class Tool_002_BatchHierarchy : EditorWindow
             SetOrderByY();
         GUI.backgroundColor = Color.white;
         GUI.enabled = true;
-        
+
         EditorGUILayout.Space(5);
-        
+
         GUI.enabled = selectedObjs.Count > 0;
         if (GUILayout.Button("📊 显示选中物体的当前Order", GUILayout.Height(30)))
             ShowCurrentOrders();
@@ -398,15 +482,15 @@ public class Tool_002_BatchHierarchy : EditorWindow
             SpriteRenderer[] srs = obj.GetComponentsInChildren<SpriteRenderer>(true);
             renderers.AddRange(srs);
         }
-        
+
         if (renderers.Count == 0)
         {
             EditorUtility.DisplayDialog("提示", "选中对象及其子物体中没有SpriteRenderer", "确定");
             return;
         }
-        
+
         Undo.RecordObjects(renderers.ToArray(), "Quick Offset Order");
-        
+
         int skipped = 0;
         foreach (var sr in renderers)
         {
@@ -416,14 +500,14 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 skipped++;
                 continue;
             }
-            
+
             sr.sortingOrder += offset;
             EditorUtility.SetDirty(sr);
         }
-        
+
         if (skipped > 0)
             Debug.Log($"<color=grey>[002批量] 跳过了 {skipped} 个特殊标记物体（Order < -9990）</color>");
-        
+
         Debug.Log($"<color=green>[002批量] Order偏移 {offset:+0;-0}，共{renderers.Count}个对象（含子物体）</color>");
     }
 
@@ -434,7 +518,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
             EditorUtility.DisplayDialog("提示", "请先选择对象！", "确定");
             return;
         }
-        
+
         int count = 0;
         List<SpriteRenderer> allRenderers = new List<SpriteRenderer>();
 
@@ -450,7 +534,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
             return;
         }
 
-        
+
         foreach (GameObject selectedRoot in selectedObjs)
         {
             SpriteRenderer[] renderers = selectedRoot.GetComponentsInChildren<SpriteRenderer>(true);
@@ -551,16 +635,16 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 Debug.Log(debugInfo);
             }
         }
-        
+
         string msg = $"已设置 {count} 个SpriteRenderer";
         if (sort_chk_layer)
             msg += $"\n• Sorting Layer: {sort_layer}";
         msg += "\n• Order: 自动计算（基于Collider底部）";
-        
+
         EditorUtility.DisplayDialog("完成", msg, "确定");
         Debug.Log($"<color=green>[002批量] 设置完成！共处理 {count} 个对象{(sort_chk_layer ? $"，Layer={sort_layer}" : "")}</color>");
     }
-    
+
     /// <summary>
     /// 计算排序用的Y坐标
     /// 核心：优先使用当前对象自己的Collider底部；只有无Collider时才回退双层结构父节点或Sprite底部
@@ -742,8 +826,8 @@ public class Tool_002_BatchHierarchy : EditorWindow
         source = "BuildingBaseInherited";
         return context.BaseOrder;
     }
-    
-    
+
+
     private void ShowCurrentOrders()
     {
         if (selectedObjs.Count == 0)
@@ -751,36 +835,36 @@ public class Tool_002_BatchHierarchy : EditorWindow
             EditorUtility.DisplayDialog("提示", "请先选择对象！", "确定");
             return;
         }
-        
+
         Debug.Log("========== 当前选中物体的Order信息 ==========");
-        
+
         foreach (GameObject obj in selectedObjs)
         {
             SpriteRenderer[] renderers = obj.GetComponentsInChildren<SpriteRenderer>();
-            
+
             Debug.Log($"[{obj.name}] 包含 {renderers.Length} 个SpriteRenderer:");
-            
+
             foreach (SpriteRenderer sr in renderers)
             {
                 string path = GetGameObjectPath(sr.gameObject);
                 Debug.Log($"  • {path}\n    Layer: {sr.sortingLayerName}, Order: {sr.sortingOrder}");
             }
         }
-        
+
         Debug.Log("==========================================");
     }
-    
+
     private string GetGameObjectPath(GameObject obj)
     {
         string path = obj.name;
         Transform current = obj.transform.parent;
-        
+
         while (current != null)
         {
             path = current.name + "/" + path;
             current = current.parent;
         }
-        
+
         return path;
     }
 
@@ -793,7 +877,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
     private bool tf_chk_rot = false;
     private bool tf_chk_scale = false;
     private bool tf_offset = false;
-    
+
     private Vector3 tf_pos = Vector3.zero;
     private Vector3 tf_rot = Vector3.zero;
     private Vector3 tf_scale = Vector3.one;
@@ -802,11 +886,11 @@ public class Tool_002_BatchHierarchy : EditorWindow
     private void DrawTransformMode()
     {
         EditorGUILayout.LabelField("⚡ 快速Y轴偏移", EditorStyles.boldLabel);
-        
+
         EditorGUILayout.BeginHorizontal();
         GUILayout.Label("偏移值:", GUILayout.Width(60));
         tf_quickY = EditorGUILayout.FloatField(tf_quickY, GUILayout.Width(60));
-        
+
         GUI.enabled = selectedObjs.Count > 0;
         if (GUILayout.Button("↑ 上移", GUILayout.Width(70)))
             QuickOffsetY(tf_quickY);
@@ -814,38 +898,38 @@ public class Tool_002_BatchHierarchy : EditorWindow
             QuickOffsetY(-tf_quickY);
         GUI.enabled = true;
         EditorGUILayout.EndHorizontal();
-        
+
         DrawLine();
-        
+
         EditorGUILayout.LabelField("⚙️ 详细设置", EditorStyles.boldLabel);
-        
+
         tf_offset = EditorGUILayout.ToggleLeft("偏移模式（非设置模式）", tf_offset);
-        
+
         EditorGUILayout.Space();
-        
+
         EditorGUILayout.BeginHorizontal();
         tf_chk_pos = EditorGUILayout.Toggle(tf_chk_pos, GUILayout.Width(20));
         EditorGUI.BeginDisabledGroup(!tf_chk_pos);
         tf_pos = EditorGUILayout.Vector3Field("Position", tf_pos);
         EditorGUI.EndDisabledGroup();
         EditorGUILayout.EndHorizontal();
-        
+
         EditorGUILayout.BeginHorizontal();
         tf_chk_rot = EditorGUILayout.Toggle(tf_chk_rot, GUILayout.Width(20));
         EditorGUI.BeginDisabledGroup(!tf_chk_rot);
         tf_rot = EditorGUILayout.Vector3Field("Rotation", tf_rot);
         EditorGUI.EndDisabledGroup();
         EditorGUILayout.EndHorizontal();
-        
+
         EditorGUILayout.BeginHorizontal();
         tf_chk_scale = EditorGUILayout.Toggle(tf_chk_scale, GUILayout.Width(20));
         EditorGUI.BeginDisabledGroup(!tf_chk_scale);
         tf_scale = EditorGUILayout.Vector3Field("Scale", tf_scale);
         EditorGUI.EndDisabledGroup();
         EditorGUILayout.EndHorizontal();
-        
+
         DrawLine();
-        
+
         GUI.enabled = selectedObjs.Count > 0;
         GUI.backgroundColor = new Color(0.3f, 0.8f, 0.3f);
         if (GUILayout.Button("🚀 应用Transform设置", GUILayout.Height(40)))
@@ -857,7 +941,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
     private void QuickOffsetY(float offset)
     {
         Undo.RecordObjects(selectedObjs.ToArray(), "Quick Offset Y");
-        
+
         foreach (var obj in selectedObjs)
         {
             Vector3 pos = obj.transform.position;
@@ -865,7 +949,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
             obj.transform.position = pos;
             EditorUtility.SetDirty(obj.transform);
         }
-        
+
         Debug.Log($"<color=green>[002批量] Y轴偏移 {offset:+0.00;-0.00}，共{selectedObjs.Count}个对象</color>");
     }
 
@@ -876,9 +960,9 @@ public class Tool_002_BatchHierarchy : EditorWindow
             EditorUtility.DisplayDialog("提示", "请至少勾选一个选项！", "确定");
             return;
         }
-        
+
         Undo.RecordObjects(selectedObjs.ToArray(), "Apply Transform Settings");
-        
+
         foreach (var obj in selectedObjs)
         {
             if (tf_chk_pos)
@@ -888,7 +972,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 else
                     obj.transform.position = tf_pos;
             }
-            
+
             if (tf_chk_rot)
             {
                 if (tf_offset)
@@ -896,7 +980,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 else
                     obj.transform.eulerAngles = tf_rot;
             }
-            
+
             if (tf_chk_scale)
             {
                 if (tf_offset)
@@ -904,10 +988,10 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 else
                     obj.transform.localScale = tf_scale;
             }
-            
+
             EditorUtility.SetDirty(obj.transform);
         }
-        
+
         Debug.Log($"<color=green>[002批量] Transform设置完成！{selectedObjs.Count}个对象</color>");
     }
 
@@ -919,14 +1003,14 @@ public class Tool_002_BatchHierarchy : EditorWindow
     private ColliderType col_type = ColliderType.BoxCollider2D;
     private bool col_trigger = false;
     private bool col_addRb = false;
-    
+
     private Vector2 col_boxSize = Vector2.one;
     private float col_circleRadius = 0.5f;
 
     private void DrawColliderMode()
     {
         EditorGUILayout.LabelField("⚡ 快速预设", EditorStyles.boldLabel);
-        
+
         EditorGUILayout.BeginHorizontal();
         if (GUILayout.Button("角色碰撞器"))
         {
@@ -950,17 +1034,17 @@ public class Tool_002_BatchHierarchy : EditorWindow
             col_boxSize = Vector2.one;
         }
         EditorGUILayout.EndHorizontal();
-        
+
         DrawLine();
-        
+
         EditorGUILayout.LabelField("⚙️ 详细设置", EditorStyles.boldLabel);
-        
+
         col_type = (ColliderType)EditorGUILayout.EnumPopup("碰撞器类型", col_type);
         col_trigger = EditorGUILayout.Toggle("Is Trigger", col_trigger);
         col_addRb = EditorGUILayout.Toggle("添加Rigidbody2D", col_addRb);
-        
+
         EditorGUILayout.Space();
-        
+
         if (col_type == ColliderType.BoxCollider2D)
         {
             col_boxSize = EditorGUILayout.Vector2Field("Box Size", col_boxSize);
@@ -969,9 +1053,9 @@ public class Tool_002_BatchHierarchy : EditorWindow
         {
             col_circleRadius = EditorGUILayout.FloatField("Circle Radius", col_circleRadius);
         }
-        
+
         DrawLine();
-        
+
         GUI.enabled = selectedObjs.Count > 0;
         GUI.backgroundColor = new Color(0.3f, 0.8f, 0.3f);
         if (GUILayout.Button("🚀 添加碰撞器", GUILayout.Height(40)))
@@ -983,13 +1067,13 @@ public class Tool_002_BatchHierarchy : EditorWindow
     private void ApplyCollider()
     {
         Undo.RecordObjects(selectedObjs.ToArray(), "Add Colliders");
-        
+
         int count = 0;
-        
+
         foreach (var obj in selectedObjs)
         {
             Collider2D collider = null;
-            
+
             switch (col_type)
             {
                 case ColliderType.BoxCollider2D:
@@ -999,7 +1083,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                     box.isTrigger = col_trigger;
                     collider = box;
                     break;
-                    
+
                 case ColliderType.CircleCollider2D:
                     var circle = obj.GetComponent<CircleCollider2D>();
                     if (circle == null) circle = obj.AddComponent<CircleCollider2D>();
@@ -1007,7 +1091,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                     circle.isTrigger = col_trigger;
                     collider = circle;
                     break;
-                    
+
                 case ColliderType.PolygonCollider2D:
                     var poly = obj.GetComponent<PolygonCollider2D>();
                     if (poly == null) poly = obj.AddComponent<PolygonCollider2D>();
@@ -1015,7 +1099,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                     collider = poly;
                     break;
             }
-            
+
             if (col_addRb)
             {
                 var rb = obj.GetComponent<Rigidbody2D>();
@@ -1025,14 +1109,14 @@ public class Tool_002_BatchHierarchy : EditorWindow
                     rb.bodyType = RigidbodyType2D.Dynamic;
                 }
             }
-            
+
             if (collider != null)
             {
                 EditorUtility.SetDirty(obj);
                 count++;
             }
         }
-        
+
         EditorUtility.DisplayDialog("完成", $"成功添加碰撞器：{count}个对象", "确定");
         Debug.Log($"<color=green>[002批量] 添加碰撞器完成！{count}个对象</color>");
     }
@@ -1047,7 +1131,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
         sort_chk_layer = EditorPrefs.GetBool("Batch002_Sort_ChkLayer", false);
         sort_layer = EditorPrefs.GetString("Batch002_Sort_Layer", "Default");
         sort_quickOffset = EditorPrefs.GetInt("Batch002_Sort_QuickOffset", 1);
-        
+
         // 排序层 - Y坐标计算
         sort_multiplier = EditorPrefs.GetInt("Batch002_Sort_Multiplier", 100);
         sort_orderOffset = EditorPrefs.GetInt("Batch002_Sort_OrderOffset", 0);
@@ -1055,14 +1139,14 @@ public class Tool_002_BatchHierarchy : EditorWindow
         sort_bottomOffset = EditorPrefs.GetFloat("Batch002_Sort_BottomOffset", 0f);
         sort_shadowOffset = EditorPrefs.GetInt("Batch002_Sort_ShadowOffset", -1);
         sort_glowOffset = EditorPrefs.GetInt("Batch002_Sort_GlowOffset", 0);
-        
+
         // Transform
         tf_chk_pos = EditorPrefs.GetBool("Batch002_TF_ChkPos", false);
         tf_chk_rot = EditorPrefs.GetBool("Batch002_TF_ChkRot", false);
         tf_chk_scale = EditorPrefs.GetBool("Batch002_TF_ChkScale", false);
         tf_offset = EditorPrefs.GetBool("Batch002_TF_Offset", false);
         tf_quickY = EditorPrefs.GetFloat("Batch002_TF_QuickY", 0.5f);
-        
+
         // 碰撞器
         col_type = (ColliderType)EditorPrefs.GetInt("Batch002_Col_Type", 0);
         col_trigger = EditorPrefs.GetBool("Batch002_Col_Trigger", false);
@@ -1075,7 +1159,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
         EditorPrefs.SetBool("Batch002_Sort_ChkLayer", sort_chk_layer);
         EditorPrefs.SetString("Batch002_Sort_Layer", sort_layer);
         EditorPrefs.SetInt("Batch002_Sort_QuickOffset", sort_quickOffset);
-        
+
         // 排序层 - Y坐标计算
         EditorPrefs.SetInt("Batch002_Sort_Multiplier", sort_multiplier);
         EditorPrefs.SetInt("Batch002_Sort_OrderOffset", sort_orderOffset);
@@ -1083,14 +1167,14 @@ public class Tool_002_BatchHierarchy : EditorWindow
         EditorPrefs.SetFloat("Batch002_Sort_BottomOffset", sort_bottomOffset);
         EditorPrefs.SetInt("Batch002_Sort_ShadowOffset", sort_shadowOffset);
         EditorPrefs.SetInt("Batch002_Sort_GlowOffset", sort_glowOffset);
-        
+
         // Transform
         EditorPrefs.SetBool("Batch002_TF_ChkPos", tf_chk_pos);
         EditorPrefs.SetBool("Batch002_TF_ChkRot", tf_chk_rot);
         EditorPrefs.SetBool("Batch002_TF_ChkScale", tf_chk_scale);
         EditorPrefs.SetBool("Batch002_TF_Offset", tf_offset);
         EditorPrefs.SetFloat("Batch002_TF_QuickY", tf_quickY);
-        
+
         // 碰撞器
         EditorPrefs.SetInt("Batch002_Col_Type", (int)col_type);
         EditorPrefs.SetBool("Batch002_Col_Trigger", col_trigger);
@@ -1112,7 +1196,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 sort_shadowOffset = -1;
                 sort_glowOffset = 0;
                 break;
-                
+
             case ToolMode.Transform:
                 tf_chk_pos = false;
                 tf_chk_rot = false;
@@ -1123,7 +1207,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 tf_scale = Vector3.one;
                 tf_quickY = 0.5f;
                 break;
-                
+
             case ToolMode.碰撞器:
                 col_type = ColliderType.BoxCollider2D;
                 col_trigger = false;
@@ -1132,7 +1216,7 @@ public class Tool_002_BatchHierarchy : EditorWindow
                 col_circleRadius = 0.5f;
                 break;
         }
-        
+
         SaveSettings();
         Repaint();
     }

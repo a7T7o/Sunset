@@ -4841,3 +4841,281 @@
 **下一步恢复点**：
 1. 若继续本线，直接进入逐工作区真实分卷，不再做泛分析。
 2. 分卷时优先处理“活跃卷失控”和“阶段混层”，不是先机械按最大文件排序。
+## 2026-04-16｜只读审计外部 `系统全局` 目录，补 Sunset 简历母卷的“方法层源头”
+
+- 当前主线目标：
+  - 用户明确要求只读审计 `D:\迅雷下载\开始\.codex\threads\系统全局`，专门判断哪些内容真正能提升对 Sunset 系统层 / AI 治理层的理解，哪些已被当前母卷吸收，哪些仍未充分吸收，以及哪些虽然精彩但会带偏 Sunset 求职表达。
+- 本轮子任务：
+  - 不产出简历文案；
+  - 先展开 `系统全局` 目录地图，再与 `项目文档总览` 当前母卷、`06_工具链.md`、`07_AI治理.md`、`压缩原则与禁写边界` 做对照。
+- 已完成：
+  1. 已确认外部目录里对 Sunset 最有价值的核心源头是：
+     - `全局skills`
+     - `典狱长-V2`
+     - `对话丢失修复`
+     - `UnityMCP转CLI价值分析`
+     - `谁是卧底`
+     - `git治理多线程回应`
+  2. 已判断这些材料里“结果层”大多已被当前母卷吸收：
+     - 规则栈 / 工作区栈 / memory 栈 / hooks / locks / thread-state
+     - `CLI first, direct MCP last-resort`
+     - 本地化 skills 与 `skill-trigger-log`
+     - 典狱长 / 看守长分流
+  3. 已明确当前母卷仍缺的主要增量是“方法层源头”：
+     - 为什么第三方 skill 不原样安装，而要拆思想再本地化
+     - 为什么治理必须先做四类裁定，而不是继续发 prompt
+     - 为什么 `own roots` clean 要变成线程自己的一刀一收硬闸门
+     - 为什么 UnityMCP 的 CLI 化目标应该是 orchestration CLI，而不是全接口平铺
+     - 为什么 suspect 收窄、保留被证伪路径、diagnostics-only 取证方法本身值得保留
+  4. 已明确一批不该进入 Sunset 主叙事的偏题材料：
+     - `XMind拆解路线分析`
+     - `学长`
+     - `本机ClashVerge端口核对`
+     - `ONNX导出需求判断`
+     - `任务管理器异常排查`
+     - 外部调研目录本身的项目介绍流水账
+- 关键判断：
+  - 这次外部目录审计对 `项目文档总览` 最有价值的，不是再补“名词数量”，而是补“这些治理/工具/协作方法为什么成立、替项目挡住了哪些错误路径”。
+  - 若后续继续吸收，最值得进对外母本的应是“方法层源头”，而不是把系统级事故细节和外部研究过程原样搬进 Sunset 简历叙事。
+- 涉及文件：
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\全局skills\memory_0.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\典狱长-V2\memory_0.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\V2交接文档\01_线程身份与职责.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\对话丢失修复\V2交接文档\06_证据索引_必读顺序_接手建议.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\UnityMCP转CLI价值分析\memory_0.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-unity-mcp包层启动链设计审查.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\项目文档总览\2026-04-08_给外部简历智能体_Sunset三维度母卷_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\项目文档总览\2026-04-09_Codex工作区_AI工作流_MCP_skills_工具全盘点_01.md`
+  - `D:\Unity\Unity_learning\Sunset\Docx\大总结\Sunset_持续策划案\06_工具链.md`
+  - `D:\Unity\Unity_learning\Sunset\Docx\大总结\Sunset_持续策划案\07_AI治理.md`
+- 验证结果：
+  - 本轮为只读分析：未改业务代码、未改 Scene、未改 Prefab。
+  - 当前输出目标是“目录审计与吸收判断”，不是新的简历成品。
+- 恢复点 / 下一步：
+  1. 若继续本线，优先只把上述 5 条方法层源头择要回写到 AI / 工具链 / 对外母卷。
+  2. 不再对 `系统全局` 做泛扫；下一次应按“源头问题”定点精读。
+## 2026-04-16｜Sunset 深度认知收口：先建立项目底图，不急着写简历正文
+
+- 当前主线目标：
+  - 用户明确要求先停止“直接重写《Sunset》简历项目条目”，转为彻底吃透项目现状；
+  - 目标是让我对 `Sunset` 的系统层、runtime 层、工具链层和 AI 主控层形成稳定认知，下次用户追问时不再依赖临时翻文档拼回答。
+- 本轮子任务：
+  - 只读深挖当前 live 主文、工作区 memory、关键代码触点和外部 `系统全局` 目录；
+  - 把“已经稳定的事实”“旧口径会带偏的事实”“还没被母卷充分吸收的重要事实”分开。
+- 已完成事项：
+  1. 已重新压实 `Sunset` 项目本体：
+     - 它不是“做了很多普通系统的学生 Demo”，而是已经进入 `Town -> Primary -> Home` 三场景主链承接、resident 聚落秩序、persistent baseline 与 runtime 收口阶段。
+  2. 已重新压实 `Day1` 当前判断：
+     - 不能再写成“只差一点终验的收尾项目”；
+     - 更准确的 live 事实是 `Day1 runtime decoupling` 与 owner 越界纠正。
+  3. 已重新压实 `NPC` 当前判断：
+     - 不是“NPC 能出现/能漫游”；
+     - 而是 `NpcCharacterRegistry + resident runtime contract/snapshot + locomotion facade + Town scene-side slot/order` 的组合完成面。
+  4. 已重新压实 `存档 / 持久化` 当前判断：
+     - 可写的是 `Primary / Town / Home` persistent baseline、scene-aware load、玩家与部分 resident/world continuity；
+     - 不可写的是“完整通用全世界态持久化已完成”。
+  5. 已重新压实 `工具链` 当前判断：
+     - 它的价值不在“会建 SO”，而在“把数据生产、世界资产接线、场景整理、剧情/NPC/UI 验证、运行态探针串成一条生产与验证链”。
+  6. 已重新压实 `AI 主控` 当前判断：
+     - 最值钱的不是黑话名词，而是用户以策划主控身份持续做需求定义、边界裁定、回执审核、停发决策、黑盒回归、终验回拉，把多 Agent 开发压回主线。
+  7. 已重新压实外部 `系统全局` 的作用：
+     - 它对当前理解最有增量的，不是再补结果层名词，而是补“为什么会形成今天这套工具链 / 治理 / CLI / suspect 收窄方法”的方法层源头。
+- 关键决策：
+  - 以后对 `Sunset` 的表达必须按 4 层理解：
+    1. 项目本体层：生活模拟 + 聚落复兴 + Day1 三场景主线
+    2. 系统运行层：经营成长、剧情导演、NPC resident、交互 / 放置 / 农田 / 工作台、跨场景 continuity
+    3. 工程支撑层：策划侧 Editor 工具链、运行态探针、scene-aware persistence、CLI-first 验证链
+    4. 主控治理层：多 Agent 并行开发下的裁定、回执、停发与终验
+  - 旧黑话与旧漂移口径继续判定为禁写：
+    - `resident 化`、`formal 一次性消费`、`runtime 语义`、`placement 公共链`
+    - `hooks / steering / memory / Begin-Slice / Ready-To-Sync / Park-Slice`
+    - 把 `Day1` 写成“只差一点尾差”
+    - 把 `存档` 写成“完整全世界态持久化”
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\Docx\大总结\Sunset_持续策划案\01_总览.md`
+  - `D:\Unity\Unity_learning\Sunset\Docx\大总结\Sunset_持续策划案\02_经营成长.md`
+  - `D:\Unity\Unity_learning\Sunset\Docx\大总结\Sunset_持续策划案\06_工具链.md`
+  - `D:\Unity\Unity_learning\Sunset\Docx\大总结\Sunset_持续策划案\07_AI治理.md`
+  - `D:\Unity\Unity_learning\Sunset\Docx\大总结\Sunset_持续策划案\08_进度总表.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\102-owner冻结与受控重构\2026-04-15_Day1-V3_Day1现存问题总览与整体施工总表.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\004_runtime收口与导演尾账\2026-04-15_spring-day1_Day1历史语义_系统边界_现状问题_重构交接总文档.md`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1NpcCrowdDirector.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Controller\NPC\NPCAutoRoamController.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Data\Core\SaveManager.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Player\PersistentPlayerSceneBridge.cs`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\全局skills\memory_0.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\典狱长-V2\memory_0.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\UnityMCP转CLI价值分析\memory_0.md`
+  - `D:\迅雷下载\开始\.codex\threads\系统全局\谁是卧底\2026-03-25-unity-mcp包层启动链设计审查.md`
+- 验证结果：
+  - 本轮为只读分析，不涉及业务代码、Scene、Prefab 改动。
+  - 当前交付是“认知底图已站稳”，不是《Sunset》项目条目终稿。
+- 恢复点：
+  1. 若继续本线，先把这套 4 层认知转成稳定表达骨架。
+  2. 等用户认可骨架后，再正式进入项目简介与成果 bullet 的重写。
+### 补记｜运行时主链再校准
+
+- 新补上的关键判断是：`Sunset` 当前最难、也最容易被低估的部分，不是“系统很多”，而是这些系统已经被压成共享状态、共享取消权、共享恢复权、还能跨场景续跑的 runtime 链。
+- 当前最值得记住的 6 条 runtime 主链是：
+  1. 时间 / 季节驱动链
+  2. 背包 / Hotbar / 手持真值链
+  3. 世界目标选择与交互优先级链
+  4. 放置 / 农田执行链
+  5. 资源转化与工作台 / 箱子链
+  6. 正式存档 + 跨场景 runtime 承接链
+- 以后写任何对外表达，都不能再把它写成“背包、农田、箱子、工作台、存档五个并列模块”；更准确的理解是“一套共享状态语言下的多链 runtime 系统”。
+### 补记｜项目表达骨架版已落盘，但本轮 sync 被锁阻断
+
+- 已新增骨架文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\项目文档总览\2026-04-16_Sunset项目表达骨架版_01.md`
+- 当前这份骨架已经把《Sunset》后续表达收成：
+  - 推荐项目简介
+  - 4 条主成果
+  - 1 条备选展开
+  - 禁写边界
+- 本轮未完成白名单 `sync`：
+  - `Ready-To-Sync` 被 `D:\Unity\Unity_learning\Sunset\.kiro\state\ready-to-sync.lock` 阻断
+  - 已执行 `Park-Slice`
+  - 当前正确状态是：`文件已落盘，sync 尚未完成`
+### 补记｜用户强纠偏：不要骨架，要直接对话框可投版；去掉黑话，压成 4 点
+
+- 用户明确否决继续交“骨架版”，要求下一次直接在对话框输出《Sunset》项目的最终可投版正文。
+- 用户明确点名这些表达属于黑话 / 废话，不可继续出现：
+  - `Town - Primary - Home 的 Day1`
+  - `Hotbar`
+  - `Preview - Locked - Navigating - Executing`
+  - `runtime`
+  - `PersistentPlayerSceneBridge`
+  - `inventory / placement / resident`
+- 用户最新硬要求：
+  1. 成果固定压成 `4` 点
+  2. 原第 `3 / 4` 点合并
+  3. AI 那一点必须写出“解决了什么问题、你怎么主控、AI 如何成为受控生产力”
+  4. 不接受“AI 协同很强”这种空表达
+### 补记｜《Sunset》项目正文终稿的 4 条固定方向已定
+
+- 本轮已经把项目正文的最终写法进一步压实为 4 条，不再漂：
+  1. 主线收口与版本推进
+  2. 成长骨架与剧情驱动接线
+  3. 交互规则、连续世界与聚落秩序收口
+  4. 策划侧工具链与 AI 主控推进
+- 这次最关键的纠偏是：
+  - 不能为了去黑话，把旧版里最硬的项目成果也一起洗掉
+  - 以后正文必须保住这些项目专属锚点：
+    - `Day1 三场景可玩主线切片`
+    - `四季五阶段`
+    - `工作台成长链`
+    - `36 格背包 + 12 格快捷栏`
+    - `农田 1+8 邻接规则`
+    - `围观、带路、散场、回家、恢复漫游`
+    - `20+ 项高频交互边界问题`
+    - `剧情导演验证 / NPC导航存档校验 / 运行态探针 / 回执审核 / 终验回拉`
+- 以后不能再把这些亮点洗成抽象词：
+  - `共享状态语言`
+  - `运行底座`
+  - `连续体验链`
+  这些可以作为内部理解，不应主导最终正文。
+### 补记｜AI项目融合单条的最终改判
+
+- 用户继续指出“策划侧工具链与AI主控推进”这条仍然和核心能力对冲。
+- 当前最终判断：
+  - 这条的问题不只是冗余，而是标题和句子都站在能力层；
+  - 所以无论怎么压字，都会和核心能力第 `1/2/3` 条打架。
+- 现在已明确：
+  - 项目条目里这条应改写成“复杂 Demo 的并行推进与风险收口”
+  - AI 与工具链只能作为项目推进手段出现，不能继续作为标题本体或能力复述出现。
+
+### 补记｜项目正文最终恢复为 5 点，不再沿用 4 点压缩版
+
+- 用户最新裁定已经明确：
+  - 不要再继续看骨架或中间分析；
+  - 要直接输出《Sunset》项目经历可投版正文；
+  - 当前正确方向不是再压回 4 点，而是恢复成 5 点，并把项目体量、系统跑面和推进难度重新写亮。
+- 当前已经稳定下来的 5 条正文方向为：
+  1. `从0到1搭建多系统运行底座`
+  2. `主线收口与版本推进`
+  3. `成长骨架与剧情驱动接线`
+  4. `交互规则、连续世界与聚落秩序收口`
+  5. `复杂Demo并行推进与风险收口`
+- 这里最关键的纠偏不是“多一条还是少一条”，而是：
+  - 第一条必须保住真正的系统体量与 0~1 落地价值；
+  - 第五条必须改成项目问题导向，不能再和核心能力撞车。
+- 后续若继续这条线，默认直接基于这 5 点终稿继续做字数微调，不再回看旧的 4 点版。
+- 本轮已在对话框正文交付前执行 `Park-Slice`：
+  - 线程名：`项目文档总览`
+  - 当前状态：`PARKED`
+  - 停车原因：项目正文已完成，本轮停在对话框交付
+
+### 补记｜腾讯简历 AI 技能栏进入可填版本
+
+- 用户当前要处理的是腾讯校招简历里的 `AI应用技能` 字段，不是继续分析 Sunset 项目正文。
+- 这次的写法目标不是“列出会哪些工具”，而是要把 AI 的真实使用能力写成：
+  - 工具演进路径
+  - C#/Unity Editor 落地能力
+  - 批量资源生成与修改能力
+  - 多线程 / 父子工作区 / 分层 memory / hooks / steering / skills 的治理能力
+  - CLI first + MCP 兜底 + 回执审核 + 线程状态管理的协作规范
+- 后续在这条线里，默认不再把 AI 技能写成“了解一些机制、仍在摸索中”这种弱表达，而应写成“已经形成统一工作流和治理规范”的可投版本。
+
+### 补记｜玩法内容与系统底座只读高密度事实清单已核定（2026-04-23）
+
+- 当前主线目标：
+  - 回到 `Sunset` 项目本体，只读厘清“Day1 主线现在到底能做什么、哪些系统是真落地、README 最值得高亮什么、哪些旧说法该停用”。
+- 本轮子任务：
+  - 以 README、Docx、大总结、`.kiro/specs/900_开篇/spring-day1-implementation`、`Assets/YYY_Scripts` 与 `Assets/YYY_Tests/Editor` 为主证据，做一份面向仓库介绍与项目表达的高密度事实清单。
+- 本轮完成：
+  1. 核实 Day1 当前现行阶段链不是早期概念稿，而是 `StoryPhase` 中的九段：
+     `CrashAndMeet -> EnterVillage -> HealingAndHP -> WorkbenchFlashback -> FarmingTutorial -> DinnerConflict -> ReturnAndReminder -> FreeTime -> DayEnd`。
+  2. 核实 Day1 当前白天教学目标是 `5` 项，不再是旧需求里的 `8` 格完整耕种：
+     - 开垦第一格
+     - 完成播种
+     - 完成浇水
+     - 收集 `3` 份木材
+     - 完成 `1` 次基础制作
+  3. 核实 Day1 已经覆盖傍晚到夜间的 runtime 承接：
+     - `18:00` 晚餐冲突
+     - `19:00` 归途提醒
+     - `19:30` 自由活动开放
+     - `20:00` resident 回家
+     - `21:00` 统一隐藏
+     - 次日 `07:00` 从 `HomeAnchor` 重新释放
+  4. 核实工作台不是一次性剧情道具，而是带运行态 UI、真正 craft 计数、save/load 持久化与晚饭后仍可继续使用的系统入口。
+  5. 核实 NPC 不只是 formal 对话；当前还有 informal chat、关系阶段、resident crowd 语义矩阵、DinnerBackground / NightWitness / DailyStand 等多层职责。
+  6. 把 README 最应高亮的复杂度来源重新钉实为：
+     - 多场景 Day1 导演链
+     - 农田/放置/工作台/时间/存档/NPC 互相勾连
+     - resident crowd 在白天/晚饭/夜间/次日的承接合同
+     - workbench runtime persistence 与 save blocker 收束
+     - Editor 验证菜单 + EditMode tests + live helper probe
+- 关键判断：
+  1. `Sunset` 当前最强代表性不是“系统多”，而是“Day1 这条线已经把系统底座真正压进玩家流程里”。
+  2. 早期 `requirements.md`、旧全局文档和总代办仍可读，但必须降级成历史层；只要与 `SpringDay1Director.cs`、相关测试、`0418_打包终验包.md` 冲突，就以后者为准。
+  3. 之后凡是要写 README、项目经历、面试介绍，优先讲“运行态合同与耦合复杂度”，不要再回到粗糙的功能点罗列。
+- 这轮明确判废或需翻译的旧口径：
+  - “第一阶段完成（约 40%）”
+  - “主系统未完成”
+  - “Day1 主要是白天教学”
+  - “8 格耕种 + 独立砍树教学仍是当前主线验收口径”
+  - 黑话层：
+    - `0.0.5/0.0.6` 应翻译成“白天教学收口 / 傍晚与夜间段”
+    - `EP/HP` 应翻译成“精力条 / 血条”
+    - `formal/informal/resident bridge/beat/cue` 应翻译成“正式对话 / 非正式闲聊 / resident 承接节拍与调度”
+- 关键证据：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Data\StoryPhase.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Managers\SpringDay1Director.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\CraftingStationInteractable.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Story\Interaction\SpringDay1BedInteractable.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\SpringDay1MiddayRuntimeBridgeTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\NpcCrowdManifestSceneDutyTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\StoryProgressPersistenceServiceTests.cs`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\900_开篇\spring-day1-implementation\100-重新开始\0418_打包终验包.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\000_代办清扫\2026.03.06\系统审查报告.md`
+- 验证状态：
+  - 这轮是只读分析与证据归纳；未改代码，未跑 Unity live 写。
+  - 结论来自 live 代码、测试、dialogue asset 路径与工作区文档交叉核对。
+- 恢复点：
+  - 若后续继续本线程，直接基于本条补记继续派生：
+    1. `README 可用版亮点清单`
+    2. `Day1 玩家可做事项分场景流程版`
+    3. `历史说法纠偏版`

@@ -843,3 +843,33 @@
   - 先由用户决定：
     1. `UI` 是要把 `PackageSaveSettingsPanel` 正式纳入 repo，还是先撤掉 `UI/Tabs` 对这套本地依赖的挂钩；
     2. `存档系统` 是要授权一刀更宽的跨根运行时上下文集成，还是继续保持 `Data/Core` 这条线停车。
+
+## 2026-04-26｜总收口继续推进：项目内容已过 working-tree preflight，最后收口改成直接走仓库版 sync
+
+- 用户目标：
+  - 用户明确不再停在线程级分析，要求把当前项目有效内容按正常批次真正提交上去；允许从“分线程裁定”切到“总收口模式”。
+- 当前主线：
+  - `Codex规则落地` 继续承担总收口；本轮不再生成新的业务 prompt，而是直接清治理链最后一道提交流程阻断。
+- 本轮实际做成了什么：
+  1. 已复现并钉死 `Ready-To-Sync` 的真实误判：
+     - `CodexCodeGuard` 已输出 `CanContinue:true` 的最终 JSON；
+     - 但 [git-safe-sync.ps1](/D:/Unity/Unity_learning/Sunset/scripts/git-safe-sync.ps1) 仍因空退出码把它改判成 `CODEGUARD_EXIT_NO_BLOCK`。
+  2. 已对 [git-safe-sync.ps1](/D:/Unity/Unity_learning/Sunset/scripts/git-safe-sync.ps1) 补两刀：
+     - `Invoke-CodeGuard()` 现在只要最后一行 JSON 成功解析，就直接信任该报告，不再用空退出码二次否决；
+     - 候选 `*.cs` 现在只对白名单里的 `Assets/**` 生效，不再把 `scripts/CodexCodeGuard/Program.cs` 误当 Unity 业务脚本去编。
+  3. 已重新验证工具侧：
+     - `dotnet build scripts/CodexCodeGuard/CodexCodeGuard.csproj -c Release --nologo` 通过；
+     - 仓库 working-tree 版 `git-safe-sync.ps1 -Action preflight`，对白名单
+       - 当前总收口 owned 路径
+       - `scripts/git-safe-sync.ps1`
+       - `scripts/CodexCodeGuard/Program.cs`
+       做真实预检，结果已返回：
+       - `是否允许按当前模式继续: True`
+       - `代码闸门通过: True`
+       - 当前仅余 `32` 条 warning，不再有 compile error。
+- 当前关键判断：
+  - 项目这次已经不再被 `CodexCodeGuard` 黑盒或 launcher 误判挡住；
+  - 现在可以诚实进入“正式同步当前总收口切片”的最后一步。
+- 当前恢复点：
+  - 下一步直接用仓库 working-tree 版 `git-safe-sync.ps1` 做总收口同步；
+  - 同步完成后再补最终提交 SHA、push 结果、线程状态与审计日志。

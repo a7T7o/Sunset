@@ -1,10 +1,15 @@
-﻿using System.Collections;
+using System.Collections;
 using System.Collections.Generic;
+using System.IO;
+using FarmGame.UI;
 using Sunset.Events;
 using TMPro;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.UI;
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 #if ENABLE_INPUT_SYSTEM
 using UnityEngine.InputSystem;
 #endif
@@ -13,11 +18,42 @@ namespace Sunset.Story
 {
     public class DialogueUI : MonoBehaviour
     {
+        private const string PlayerPortraitNpcId = "000";
+        private const string ContinueButtonDisplayText = "摁空格键继续";
+        private const string ContinueButtonFontProbeText = "摁空格键继续";
+        private const float MinimumDialogueTransitionDuration = 0.5f;
+        private const string InnerMonologueFontResourcePath = "Fonts & Materials/DialogueChinese SoftPixel SDF";
+        private const string NpcFallbackPortraitAssetPath = "Assets/Sprites/NPC/001.png";
+        private const string NpcFallbackPortraitRuntimeRelativePath = "Sprites/NPC/001.png";
+        private const float NpcFallbackPortraitCropWidthRatio = 0.72f;
+        private const float NpcFallbackPortraitCropHeightRatio = 0.62f;
+
         private static readonly string[] PreferredDialogueFontResourcePaths =
         {
             "Fonts & Materials/DialogueChinese Pixel SDF",
             "Fonts & Materials/DialogueChinese SDF",
             "Fonts & Materials/DialogueChinese SoftPixel SDF"
+        };
+
+        private static readonly string[] PreferredNpcPortraitSpriteNames =
+        {
+            "001_Down_1",
+            "001_1",
+            "001_Up_1"
+        };
+
+        private static readonly string[] PlayerSpeakerAliases =
+        {
+            "旅人",
+            "陌生旅人",
+            "玩家",
+            "主角"
+        };
+
+        private static readonly string[] NarrationSpeakerAliases =
+        {
+            "旁白",
+            "内心旁白"
         };
 
         #region Serialized Fields
@@ -44,7 +80,7 @@ namespace Sunset.Story
 
         [Header("Advance Settings")]
         [SerializeField] private bool enableAnyKeyAdvance = true;
-        [SerializeField] private KeyCode advanceKey = KeyCode.T;
+        [SerializeField] private KeyCode advanceKey = KeyCode.Space;
         [SerializeField] private bool enablePointerClickAdvance = false;
         [SerializeField] private float anyKeyAdvanceDebounce = 0.15f;
 
@@ -79,6 +115,9 @@ namespace Sunset.Story
         private float _testStatusBaseFontSize;
         private RectTransform _testStatusContainer;
         private Sprite _placeholderPortraitSprite;
+        private Sprite _fallbackNpcPortraitSprite;
+        private Texture2D _fallbackNpcPortraitTexture;
+        private NpcCharacterRegistry _npcCharacterRegistry;
         private readonly List<NonDialogueUiSnapshot> _nonDialogueUiSnapshots = new();
         #endregion
 
@@ -92,18 +131,23 @@ namespace Sunset.Story
             public bool OriginalInteractable;
             public bool OriginalBlocksRaycasts;
         }
+
         #endregion
 
         #region Unity Lifecycle
         private void Awake()
         {
+            NormalizeAdvanceInputSettings();
+            DialogueChineseFontRuntimeBootstrap.EnsureRuntimeFontReady();
             ResolveReferences();
             EnsureCanvasGroup();
             ResolvePortraitTarget();
+            showTestStatus &= Application.isBatchMode;
             EnsureTestStatusText();
             ConfigureInteractionSurfaces();
             CacheBasePresentation();
             EnsureUsableRuntimeFonts();
+            _npcCharacterRegistry = NpcCharacterRegistry.LoadRuntime();
             InitializeHiddenState();
             _dialogueManager = DialogueManager.Instance;
         }
@@ -120,6 +164,7 @@ namespace Sunset.Story
             }
 
             InitializeHiddenState();
+            _npcCharacterRegistry = _npcCharacterRegistry != null ? _npcCharacterRegistry : NpcCharacterRegistry.LoadRuntime();
             _dialogueManager = DialogueManager.Instance ?? _dialogueManager;
             TryRecoverActiveDialogueVisibility(immediate: _dialogueManager != null && _dialogueManager.IsDialogueActive);
         }
@@ -150,6 +195,23 @@ namespace Sunset.Story
                 Destroy(_placeholderPortraitSprite);
                 _placeholderPortraitSprite = null;
             }
+
+            if (_fallbackNpcPortraitSprite != null)
+            {
+                Destroy(_fallbackNpcPortraitSprite);
+                _fallbackNpcPortraitSprite = null;
+            }
+
+            if (_fallbackNpcPortraitTexture != null)
+            {
+                Destroy(_fallbackNpcPortraitTexture);
+                _fallbackNpcPortraitTexture = null;
+            }
+        }
+
+        private void OnValidate()
+        {
+            NormalizeAdvanceInputSettings();
         }
 
         private void Update()
@@ -246,15 +308,7 @@ namespace Sunset.Story
             {
                 if (dialogueText != null)
                 {
-                    dialogueText.fontStyle = FontStyles.Italic;
-                    dialogueText.color = new Color(0.8f, 0.8f, 0.8f, 1f);
-                }
-
-                if (backgroundImage != null)
-                {
-                    Color backgroundColor = backgroundImage.color;
-                    backgroundColor.a = 0.5f;
-                    backgroundImage.color = backgroundColor;
+                    ApplyInnerMonologuePresentation();
                 }
 
                 if (speakerNameText != null)
@@ -262,21 +316,18 @@ namespace Sunset.Story
                     speakerNameText.gameObject.SetActive(false);
                     speakerNameText.text = string.Empty;
                 }
-
-                if (portraitImage != null)
-                {
-                    portraitImage.gameObject.SetActive(false);
-                }
+                ApplyPortrait(eventData.Node);
             }
             else
             {
                 if (speakerNameText != null)
                 {
-                    speakerNameText.gameObject.SetActive(true);
+                    bool hasSpeakerName = !string.IsNullOrWhiteSpace(eventData.Node.speakerName);
+                    speakerNameText.gameObject.SetActive(hasSpeakerName);
                     speakerNameText.text = eventData.Node.speakerName;
                 }
 
-                ApplyPortrait(eventData.Node.speakerPortrait);
+                ApplyPortrait(eventData.Node);
             }
         }
 
@@ -538,6 +589,7 @@ namespace Sunset.Story
 
         private void EnsureUsableRuntimeFonts()
         {
+            DialogueChineseFontRuntimeBootstrap.EnsureRuntimeFontReady();
             EnsureDialogueVisualComponentsReady();
             StabilizeAssignedFont(dialogueText, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
             StabilizeAssignedFont(speakerNameText, _speakerBaseFontSize, 0f);
@@ -562,13 +614,14 @@ namespace Sunset.Story
                 return;
             }
 
-            if (continueButtonLabel == null)
+            if (!IsUsableContinueButtonLabel(continueButtonLabel))
             {
-                continueButtonLabel = continueButton.GetComponentInChildren<TextMeshProUGUI>(true);
+                continueButtonLabel = FindReusableContinueButtonLabel();
             }
 
             if (continueButtonLabel != null)
             {
+                NormalizeContinueButtonLabelRect(continueButtonLabel.rectTransform);
                 return;
             }
 
@@ -592,6 +645,84 @@ namespace Sunset.Story
             continueButtonLabel.fontSize = _continueButtonBaseFontSize > 0.01f
                 ? _continueButtonBaseFontSize
                 : 16f;
+            NormalizeContinueButtonLabelRect(continueButtonLabel.rectTransform);
+        }
+
+        private TextMeshProUGUI FindReusableContinueButtonLabel()
+        {
+            if (continueButton == null)
+            {
+                return null;
+            }
+
+            TextMeshProUGUI[] candidates = continueButton.GetComponentsInChildren<TextMeshProUGUI>(true);
+            TextMeshProUGUI best = null;
+            float bestScore = float.MinValue;
+            for (int index = 0; index < candidates.Length; index++)
+            {
+                TextMeshProUGUI candidate = candidates[index];
+                if (candidate == null || !candidate.transform.IsChildOf(continueButton.transform))
+                {
+                    continue;
+                }
+
+                RectTransform rect = candidate.rectTransform;
+                float score = Mathf.Max(0f, rect.rect.width) * Mathf.Max(0f, rect.rect.height);
+                if (candidate.gameObject.activeSelf)
+                {
+                    score += 1000f;
+                }
+
+                if (candidate.enabled)
+                {
+                    score += 600f;
+                }
+
+                if (rect.anchorMin == Vector2.zero && rect.anchorMax == Vector2.one)
+                {
+                    score += 450f;
+                }
+
+                if (ContainsCjk(candidate.text))
+                {
+                    score += 900f;
+                }
+
+                if (CanFontRenderText(candidate.font, ContinueButtonFontProbeText))
+                {
+                    score += 500f;
+                }
+
+                if (score > bestScore)
+                {
+                    best = candidate;
+                    bestScore = score;
+                }
+            }
+
+            return best;
+        }
+
+        private bool IsUsableContinueButtonLabel(TextMeshProUGUI candidate)
+        {
+            return candidate != null
+                && continueButton != null
+                && candidate.transform.IsChildOf(continueButton.transform);
+        }
+
+        private static void NormalizeContinueButtonLabelRect(RectTransform rect)
+        {
+            if (rect == null)
+            {
+                return;
+            }
+            rect.anchorMin = Vector2.zero;
+            rect.anchorMax = Vector2.one;
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
+            rect.anchoredPosition = Vector2.zero;
+            rect.localScale = Vector3.one;
         }
 
         private static void EnsureTextComponentReady(TextMeshProUGUI target, bool forceActive)
@@ -677,6 +808,7 @@ namespace Sunset.Story
 
             if (backgroundImage != null)
             {
+                backgroundImage.enabled = true;
                 Color backgroundColor = backgroundImage.color;
                 backgroundColor.a = _originalBackgroundAlpha;
                 backgroundImage.color = backgroundColor;
@@ -753,14 +885,14 @@ namespace Sunset.Story
                 float from = canvasGroup != null ? canvasGroup.alpha : 0f;
                 SetCanvasState(from, false, false);
                 UpdateContinueButtonSelection(false);
-                yield return FadeNonDialogueUi(false, Mathf.Max(0f, otherUiFadeOutDuration));
-                yield return FadeDialogueCanvas(from, 1f, Mathf.Max(0f, fadeInDuration), true);
+                yield return FadeNonDialogueUi(false, Mathf.Max(MinimumDialogueTransitionDuration, otherUiFadeOutDuration));
+                yield return FadeDialogueCanvas(from, 1f, Mathf.Max(MinimumDialogueTransitionDuration, fadeInDuration), true);
             }
             else
             {
                 float from = canvasGroup != null ? canvasGroup.alpha : 1f;
-                yield return FadeDialogueCanvas(from, 0f, Mathf.Max(0f, fadeOutDuration), false);
-                yield return FadeNonDialogueUi(true, Mathf.Max(0f, otherUiFadeInDuration));
+                yield return FadeDialogueCanvas(from, 0f, Mathf.Max(MinimumDialogueTransitionDuration, fadeOutDuration), false);
+                yield return FadeNonDialogueUi(true, Mathf.Max(MinimumDialogueTransitionDuration, otherUiFadeInDuration));
             }
 
             _fadeCoroutine = null;
@@ -831,20 +963,37 @@ namespace Sunset.Story
             }
         }
 
-        private void ApplyPortrait(Sprite speakerPortrait)
+        private void ApplyPortrait(DialogueNode node)
         {
             if (portraitImage == null)
             {
                 return;
             }
 
-            Sprite resolvedPortrait = speakerPortrait;
+            Sprite resolvedPortrait = null;
             Color resolvedColor = Color.white;
+
+            if (node != null)
+            {
+                resolvedPortrait = ResolveSpecialDialoguePortrait(node);
+                if (resolvedPortrait == null)
+                {
+                    resolvedPortrait = ResolveRegistryDialoguePortrait(node.speakerName);
+                }
+                if (resolvedPortrait == null)
+                {
+                    resolvedPortrait = node.speakerPortrait;
+                }
+            }
 
             if (resolvedPortrait == null && usePlaceholderPortraitWhenMissing)
             {
-                resolvedPortrait = GetOrCreatePlaceholderPortrait();
-                resolvedColor = placeholderPortraitColor;
+                resolvedPortrait = GetOrCreateNpcFallbackPortrait();
+                if (resolvedPortrait == null)
+                {
+                    resolvedPortrait = GetOrCreatePlaceholderPortrait();
+                    resolvedColor = placeholderPortraitColor;
+                }
             }
 
             portraitImage.sprite = resolvedPortrait;
@@ -852,6 +1001,133 @@ namespace Sunset.Story
             portraitImage.preserveAspect = true;
             portraitImage.enabled = resolvedPortrait != null;
             portraitImage.gameObject.SetActive(resolvedPortrait != null);
+        }
+
+        private Sprite ResolveRegistryDialoguePortrait(string speakerName)
+        {
+            _npcCharacterRegistry = _npcCharacterRegistry != null ? _npcCharacterRegistry : NpcCharacterRegistry.LoadRuntime();
+            if (_npcCharacterRegistry == null)
+            {
+                return null;
+            }
+
+            return _npcCharacterRegistry.TryResolveDialoguePortrait(speakerName, out Sprite portrait) ? portrait : null;
+        }
+
+        private Sprite ResolveSpecialDialoguePortrait(DialogueNode node)
+        {
+            if (node == null)
+            {
+                return null;
+            }
+
+            if (node.isInnerMonologue || IsPlayerSpeaker(node.speakerName) || IsNarrationSpeaker(node.speakerName))
+            {
+                return ResolveEntryPortraitByNpcId(PlayerPortraitNpcId);
+            }
+
+            return null;
+        }
+
+        private Sprite ResolveEntryPortraitByNpcId(string npcId)
+        {
+            _npcCharacterRegistry = _npcCharacterRegistry != null ? _npcCharacterRegistry : NpcCharacterRegistry.LoadRuntime();
+            if (_npcCharacterRegistry == null || !_npcCharacterRegistry.TryGetEntryByNpcId(npcId, out NpcCharacterRegistry.Entry entry) || entry == null)
+            {
+                return null;
+            }
+
+            return entry.ResolveDialoguePortrait();
+        }
+
+        private static bool IsPlayerSpeaker(string speakerName)
+        {
+            return MatchesAlias(speakerName, PlayerSpeakerAliases);
+        }
+
+        private static bool IsNarrationSpeaker(string speakerName)
+        {
+            return MatchesAlias(speakerName, NarrationSpeakerAliases);
+        }
+
+        private static bool MatchesAlias(string rawValue, string[] aliases)
+        {
+            if (aliases == null || aliases.Length == 0)
+            {
+                return false;
+            }
+
+            string normalized = string.IsNullOrWhiteSpace(rawValue) ? string.Empty : rawValue.Trim();
+            if (normalized.Length == 0)
+            {
+                return false;
+            }
+
+            for (int index = 0; index < aliases.Length; index++)
+            {
+                if (string.Equals(normalized, aliases[index], System.StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private Sprite GetOrCreateNpcFallbackPortrait()
+        {
+            if (_fallbackNpcPortraitSprite != null)
+            {
+                return _fallbackNpcPortraitSprite;
+            }
+
+#if UNITY_EDITOR
+            Sprite editorSprite = LoadEditorNpcFallbackSourceSprite();
+            if (editorSprite != null)
+            {
+                _fallbackNpcPortraitSprite = CreateNpcFallbackPortraitCrop(editorSprite.texture, editorSprite.rect, editorSprite.pixelsPerUnit);
+                return _fallbackNpcPortraitSprite;
+            }
+#endif
+
+            if (_fallbackNpcPortraitTexture == null)
+            {
+                string absolutePath = Path.Combine(Application.dataPath, NpcFallbackPortraitRuntimeRelativePath);
+                if (File.Exists(absolutePath))
+                {
+                    byte[] imageBytes = File.ReadAllBytes(absolutePath);
+                    if (imageBytes != null && imageBytes.Length > 0)
+                    {
+                        _fallbackNpcPortraitTexture = new Texture2D(2, 2, TextureFormat.RGBA32, false)
+                        {
+                            name = "DialogueNpcFallbackPortraitTexture",
+                            filterMode = FilterMode.Point,
+                            wrapMode = TextureWrapMode.Clamp
+                        };
+
+                        if (!_fallbackNpcPortraitTexture.LoadImage(imageBytes, markNonReadable: false))
+                        {
+                            Destroy(_fallbackNpcPortraitTexture);
+                            _fallbackNpcPortraitTexture = null;
+                        }
+                    }
+                }
+            }
+
+            if (_fallbackNpcPortraitTexture == null)
+            {
+                return null;
+            }
+
+            float frameWidth = Mathf.Min(32f, _fallbackNpcPortraitTexture.width);
+            float frameHeight = Mathf.Min(32f, _fallbackNpcPortraitTexture.height);
+            Rect sourceRect = new Rect(
+                Mathf.Min(frameWidth, Mathf.Max(0f, _fallbackNpcPortraitTexture.width - frameWidth)),
+                Mathf.Max(0f, _fallbackNpcPortraitTexture.height - frameHeight),
+                frameWidth,
+                frameHeight);
+            _fallbackNpcPortraitSprite = CreateNpcFallbackPortraitCrop(_fallbackNpcPortraitTexture, sourceRect, 16f);
+            return _fallbackNpcPortraitSprite;
         }
 
         private Sprite GetOrCreatePlaceholderPortrait()
@@ -875,6 +1151,59 @@ namespace Sunset.Story
             _placeholderPortraitSprite = Sprite.Create(texture, new Rect(0f, 0f, size, size), new Vector2(0.5f, 0.5f));
             _placeholderPortraitSprite.name = "DialoguePlaceholderPortrait";
             return _placeholderPortraitSprite;
+        }
+
+#if UNITY_EDITOR
+        private static Sprite LoadEditorNpcFallbackSourceSprite()
+        {
+            UnityEngine.Object[] assets = AssetDatabase.LoadAllAssetsAtPath(NpcFallbackPortraitAssetPath);
+            if (assets == null)
+            {
+                return null;
+            }
+
+            for (int spriteNameIndex = 0; spriteNameIndex < PreferredNpcPortraitSpriteNames.Length; spriteNameIndex++)
+            {
+                string preferredName = PreferredNpcPortraitSpriteNames[spriteNameIndex];
+                for (int assetIndex = 0; assetIndex < assets.Length; assetIndex++)
+                {
+                    if (assets[assetIndex] is Sprite candidate && candidate.name == preferredName)
+                    {
+                        return candidate;
+                    }
+                }
+            }
+
+            for (int assetIndex = 0; assetIndex < assets.Length; assetIndex++)
+            {
+                if (assets[assetIndex] is Sprite fallbackSprite)
+                {
+                    return fallbackSprite;
+                }
+            }
+
+            return null;
+        }
+#endif
+
+        private static Sprite CreateNpcFallbackPortraitCrop(Texture2D texture, Rect sourceRect, float pixelsPerUnit)
+        {
+            if (texture == null || sourceRect.width <= 0f || sourceRect.height <= 0f)
+            {
+                return null;
+            }
+
+            float cropWidth = Mathf.Clamp(sourceRect.width * NpcFallbackPortraitCropWidthRatio, 8f, sourceRect.width);
+            float cropHeight = Mathf.Clamp(sourceRect.height * NpcFallbackPortraitCropHeightRatio, 8f, sourceRect.height);
+            float cropX = sourceRect.x + ((sourceRect.width - cropWidth) * 0.5f);
+            float cropY = sourceRect.y + (sourceRect.height - cropHeight);
+            Sprite portraitSprite = Sprite.Create(
+                texture,
+                new Rect(cropX, cropY, cropWidth, cropHeight),
+                new Vector2(0.5f, 0.56f),
+                Mathf.Max(1f, pixelsPerUnit));
+            portraitSprite.name = "DialogueNpcFallbackPortrait";
+            return portraitSprite;
         }
 
         private void OnContinueClicked()
@@ -969,15 +1298,11 @@ namespace Sunset.Story
 #if ENABLE_INPUT_SYSTEM
             if (Keyboard.current != null)
             {
-                return Keyboard.current.enterKey.wasPressedThisFrame ||
-                       Keyboard.current.numpadEnterKey.wasPressedThisFrame ||
-                       Keyboard.current.spaceKey.wasPressedThisFrame;
+                return Keyboard.current.spaceKey.wasPressedThisFrame;
             }
 #endif
 
-            return Input.GetKeyDown(KeyCode.Return) ||
-                   Input.GetKeyDown(KeyCode.KeypadEnter) ||
-                   Input.GetKeyDown(KeyCode.Space);
+            return Input.GetKeyDown(KeyCode.Space);
         }
 
         private Transform FindChild(string path)
@@ -1121,7 +1446,7 @@ namespace Sunset.Story
         {
             if (node == null)
             {
-                ApplyFontStyle(defaultFontKey, speakerNameFontKey);
+                ApplyFontStyle(innerMonologueFontKey, speakerNameFontKey);
                 return;
             }
 
@@ -1143,7 +1468,38 @@ namespace Sunset.Story
                 return;
             }
 
-            ApplyFontStyle(defaultFontKey, speakerNameFontKey);
+            ApplyFontStyle(innerMonologueFontKey, speakerNameFontKey);
+        }
+
+        private void ApplyInnerMonologuePresentation()
+        {
+            if (dialogueText == null)
+            {
+                return;
+            }
+
+            dialogueText.fontStyle = FontStyles.Normal;
+            dialogueText.color = _dialogueBaseColor;
+            ApplyFontToText(dialogueText, innerMonologueFontKey, _dialogueBaseFontSize, _dialogueBaseLineSpacing);
+
+            if (!CanFontRenderText(dialogueText.font, dialogueText.text))
+            {
+                TMP_FontAsset monologueFont = Resources.Load<TMP_FontAsset>(InnerMonologueFontResourcePath);
+                TMP_FontAsset resolvedMonologueFont = DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                    dialogueText.text,
+                    monologueFont,
+                    ContinueButtonFontProbeText);
+                if (resolvedMonologueFont != null)
+                {
+                    dialogueText.font = resolvedMonologueFont;
+                    if (resolvedMonologueFont.material != null)
+                    {
+                        dialogueText.fontSharedMaterial = resolvedMonologueFont.material;
+                    }
+                }
+            }
+
+            dialogueText.ForceMeshUpdate();
         }
 
         private void ApplyFontStyle(string dialogueFontKey, string speakerFontKey)
@@ -1168,10 +1524,14 @@ namespace Sunset.Story
 
             string current = continueButtonLabel.text != null ? continueButtonLabel.text.Trim() : string.Empty;
             if (string.IsNullOrWhiteSpace(current)
+                || !ContainsCjk(current)
+                || current.Contains("任意键")
+                || current.Contains("继续对话")
+                || current.Contains("按空格")
                 || string.Equals(current, "jixu", System.StringComparison.OrdinalIgnoreCase)
                 || string.Equals(current, "continue", System.StringComparison.OrdinalIgnoreCase))
             {
-                continueButtonLabel.text = "继续";
+                continueButtonLabel.text = ContinueButtonDisplayText;
                 continueButtonLabel.ForceMeshUpdate();
             }
         }
@@ -1185,6 +1545,8 @@ namespace Sunset.Story
             }
 
             EnsureTextComponentReady(continueButtonLabel, forceActive: continueButton != null && continueButton.gameObject.activeInHierarchy);
+            NormalizeContinueButtonLabelRect(continueButtonLabel.rectTransform);
+            EnsureTextAncestorsVisible(continueButtonLabel, continueButton != null ? continueButton.transform : null, 0.95f);
             NormalizeContinueButtonCopy();
             StabilizeAssignedFont(continueButtonLabel, _continueButtonBaseFontSize, 0f);
             continueButtonLabel.raycastTarget = false;
@@ -1201,6 +1563,36 @@ namespace Sunset.Story
 
             continueButtonLabel.color = targetColor;
             continueButtonLabel.ForceMeshUpdate();
+        }
+
+        private void NormalizeAdvanceInputSettings()
+        {
+            advanceKey = KeyCode.Space;
+            enablePointerClickAdvance = false;
+        }
+
+        private static void EnsureTextAncestorsVisible(TextMeshProUGUI target, Transform stopAtExclusive, float minAlpha)
+        {
+            if (target == null)
+            {
+                return;
+            }
+
+            Transform current = target.transform;
+            while (current != null && current != stopAtExclusive)
+            {
+                if (!current.gameObject.activeSelf)
+                {
+                    current.gameObject.SetActive(true);
+                }
+
+                if (current.TryGetComponent(out CanvasGroup canvasGroup) && canvasGroup.alpha < minAlpha)
+                {
+                    canvasGroup.alpha = minAlpha;
+                }
+
+                current = current.parent;
+            }
         }
 
         private void ApplyFontToText(TextMeshProUGUI target, string key, float baseFontSize, float baseLineSpacing)
@@ -1264,27 +1656,11 @@ namespace Sunset.Story
 
         private static TMP_FontAsset ResolveUsableDialogueFont(DialogueFontLibrarySO.FontEntry entry, string currentText)
         {
-            if (entry != null && CanFontRenderText(entry.fontAsset, currentText))
-            {
-                return entry.fontAsset;
-            }
-
-            for (int index = 0; index < PreferredDialogueFontResourcePaths.Length; index++)
-            {
-                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredDialogueFontResourcePaths[index]);
-                if (CanFontRenderText(candidate, currentText))
-                {
-                    return candidate;
-                }
-            }
-
-            TMP_FontAsset defaultFont = TMP_Settings.defaultFontAsset;
-            if (CanFontRenderText(defaultFont, currentText))
-            {
-                return defaultFont;
-            }
-
-            return null;
+            TMP_FontAsset preferredFont = entry != null ? entry.fontAsset : null;
+            return DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                currentText,
+                preferredFont,
+                ContinueButtonFontProbeText);
         }
 
         private static bool ShouldReplaceAssignedFont(TextMeshProUGUI target)
@@ -1294,20 +1670,17 @@ namespace Sunset.Story
 
         private static bool CanFontRenderText(TMP_FontAsset fontAsset, string currentText)
         {
-            if (!IsFontAssetUsable(fontAsset))
-            {
-                return false;
-            }
-
-            string probeText = GetFontProbeText(currentText);
-            return string.IsNullOrEmpty(probeText) || fontAsset.HasCharacters(probeText);
+            return DialogueChineseFontRuntimeBootstrap.CanRenderText(
+                fontAsset,
+                currentText,
+                ContinueButtonFontProbeText);
         }
 
         private static string GetFontProbeText(string currentText)
         {
             if (string.IsNullOrWhiteSpace(currentText))
             {
-                return string.Empty;
+                return ContinueButtonFontProbeText;
             }
 
             var builder = new System.Text.StringBuilder(currentText.Length);
@@ -1334,6 +1707,26 @@ namespace Sunset.Story
             }
 
             return builder.ToString().Trim();
+        }
+
+        private static bool ContainsCjk(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return false;
+            }
+
+            for (int index = 0; index < value.Length; index++)
+            {
+                char current = value[index];
+                if ((current >= '\u3400' && current <= '\u9FFF')
+                    || (current >= '\uF900' && current <= '\uFAFF'))
+                {
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)
@@ -1611,7 +2004,25 @@ namespace Sunset.Story
                 return false;
             }
 
-            return candidate.GetComponent<SpringDay1PromptOverlay>() == null;
+            if (candidate.GetComponent<PackagePanelTabsUI>() != null
+                || candidate.GetComponent<BoxPanelUI>() != null
+                || candidate.GetComponent<InventoryPanelUI>() != null
+                || candidate.GetComponent<PackageSaveSettingsPanel>() != null
+                || candidate.GetComponent<SpringDay1PromptOverlay>() != null)
+            {
+                return false;
+            }
+
+            if (candidate.GetComponentInChildren<PackagePanelTabsUI>(true) != null
+                || candidate.GetComponentInChildren<BoxPanelUI>(true) != null
+                || candidate.GetComponentInChildren<InventoryPanelUI>(true) != null
+                || candidate.GetComponentInChildren<PackageSaveSettingsPanel>(true) != null
+                || candidate.GetComponentInChildren<SpringDay1PromptOverlay>(true) != null)
+            {
+                return false;
+            }
+
+            return true;
         }
         #endregion
     }

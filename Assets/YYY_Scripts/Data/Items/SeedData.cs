@@ -56,6 +56,13 @@ namespace FarmGame.Data
         [Tooltip("收获经验值")]
         public int harvestingExp = 10;
 
+        private void OnEnable()
+        {
+            // 运行时兜底：历史种子资产磁盘上可能仍是 isPlaceable=0，
+            // 不能再让放置系统依赖编辑器 OnValidate 是否触发过。
+            isPlaceable = true;
+        }
+
         /// <summary>
         /// 验证种子数据
         /// </summary>
@@ -89,7 +96,7 @@ namespace FarmGame.Data
         {
             string text = base.GetTooltipText();
             text += $"\n<color=green>季节: {GetSeasonName(season)}</color>";
-            
+
             if (isReHarvestable)
                 text += $"\n<color=cyan>可重复收获（每{reHarvestDays}天）</color>";
 

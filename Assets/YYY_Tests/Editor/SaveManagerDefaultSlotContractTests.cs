@@ -57,5 +57,31 @@ public class SaveManagerDefaultSlotContractTests
             "默认槽不应再作为只读开局入口展示。");
         StringAssert.Contains("\"默认槽：加载 / 复制    普通槽：加载 / 复制 / 粘贴 / 覆盖 / 删除\"", panelText,
             "默认槽与普通槽的能力矩阵必须在 UI 上明确区分。");
+        StringAssert.Contains("bool canLoad = manager.CanExecutePlayerLoadAction(out string loadBlockerReason);", panelText,
+            "设置页状态文案必须显式区分“当前能不能读”和“当前能不能写”，不能继续只看保存 blocker。");
+    }
+
+    [Test]
+    public void SavePanel_NewSlotButtonShouldStayClickableForBlockerToast()
+    {
+        string panelText = File.ReadAllText(SavePanelPath);
+
+        StringAssert.Contains("_newSlotButton.interactable = true;", panelText,
+            "新建存档按钮在 SaveManager 存在时应保持可点，这样玩家才能收到当前不能存档的明确提示。");
+        StringAssert.Contains("if (!manager.CanExecutePlayerSaveAction(out string blockerReason))", panelText,
+            "点击新建存档时必须先显式检查当前能否存档，并把 blocker reason 直接提示给玩家。");
+        StringAssert.Contains("SaveActionToastOverlay.Show(blockerReason);", panelText);
+        StringAssert.Contains("SaveActionToastOverlay.Show(\"新建存档失败，请稍后重试。\")", panelText);
+    }
+
+    [Test]
+    public void SavePanel_LoadActionsShouldCheckLoadBlockerBeforeConfirm()
+    {
+        string panelText = File.ReadAllText(SavePanelPath);
+
+        StringAssert.Contains("if (!manager.CanExecutePlayerLoadAction(out string blockerReason))", panelText,
+            "设置页默认槽和普通槽的读取动作都必须先检查 load blocker，而不是点确认后统一报读取失败。");
+        StringAssert.Contains("SaveActionToastOverlay.Show(blockerReason);", panelText,
+            "命中剧情 blocker 时，设置页应直接提示真实原因。");
     }
 }

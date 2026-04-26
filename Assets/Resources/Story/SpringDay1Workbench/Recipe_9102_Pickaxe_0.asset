@@ -11,17 +11,15 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8f5659cd1900e6c4ebd245f17fe88400, type: 3}
   m_Name: Recipe_9102_Pickaxe_0
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   recipeID: 9102
   recipeName: Pickaxe_0
-  description: 木石拼出的简易镐子，能接上后续砍树与材料采集体验。
+  description: 用粗木料拼出的入门木稿，保持和 Day1 木斧一致的基础制作门槛。
   resultItemID: 6
   resultAmount: 1
   ingredients:
   - itemID: 3200
     amount: 3
-  - itemID: 3201
-    amount: 2
   requiredStation: 5
   requiredLevel: 1
   craftingTime: 5
@@ -29,5 +27,5 @@ MonoBehaviour:
   requiredSkillType: 2
   requiredSkillLevel: 1
   isHiddenRecipe: 0
-  unlockCondition: 
+  unlockCondition:
   craftingExp: 12

@@ -43,9 +43,28 @@ public class SaveManagerDay1RestoreContractTests
         StringAssert.Contains("TryInvokeStoryProgressPersistenceMethod(\"CanLoadNow\"", saveManagerText,
             "F9 / 普通读档入口都必须先走剧情读档 blocker，而不是任由导演态中途切档。");
         StringAssert.Contains("public static bool CanLoadNow(out string blockerReason)", storyProgressText);
-        StringAssert.Contains("director.TryGetStorySaveLoadBlockReason(out string storyBlockReason)", storyProgressText);
-        StringAssert.Contains("public bool TryGetStorySaveLoadBlockReason(out string blockerReason)", directorText,
+        StringAssert.Contains("director.TryGetStoryLoadBlockReason(out string storyBlockReason)", storyProgressText);
+        StringAssert.Contains("public bool TryGetStoryLoadBlockReason(out string blockerReason)", directorText,
             "Day1 导演层必须自己报出“剧情接管中禁止读档”的权威判断，不能只靠对话框是否已出现。");
+        StringAssert.Contains("return TryGetStorySaveLoadBlockReasonInternal(allowDay1SaveWindowBypass: false, out blockerReason);", directorText,
+            "读取存档不应继续吃 Day1 的保存放行时间窗；只要脱离剧情接管，就应允许读档刷新全局状态。");
+    }
+
+    [Test]
+    public void SpringDay1Director_ShouldOpenMinimalSaveWindows_OnLateDay1()
+    {
+        string directorText = File.ReadAllText(SpringDay1DirectorPath);
+
+        StringAssert.Contains("public bool TryGetStorySaveBlockReason(out string blockerReason)", directorText);
+        StringAssert.Contains("return TryGetStorySaveLoadBlockReasonInternal(allowDay1SaveWindowBypass: true, out blockerReason);", directorText);
+        StringAssert.Contains("if (allowDay1SaveWindowBypass && IsDay1SaveLoadWindowOpen(currentPhase))", directorText,
+            "Day1 的最小时间窗现在只应服务保存，不应再把读取一起放行/一起挡住。");
+        StringAssert.Contains("private bool IsDay1SaveLoadWindowOpen(StoryPhase currentPhase)", directorText);
+        StringAssert.Contains("IsPostTutorialExploreWindowActive()", directorText,
+            "0.0.6 傍晚自由活动窗口必须先正式打开，不能只靠时间硬放行。");
+        StringAssert.Contains("totalMinutes >= ((TutorialTimeCapHour * 60) + 1)", directorText);
+        StringAssert.Contains("totalMinutes < (DinnerReturnHour * 60)", directorText);
+        StringAssert.Contains("return totalMinutes >= ((FreeTimeStartHour * 60) + FreeTimeStartMinute + 1);", directorText);
     }
 
     [Test]
@@ -59,6 +78,19 @@ public class SaveManagerDay1RestoreContractTests
         StringAssert.Contains("当前场景仍在恢复世界状态，请稍候再保存。", saveManagerText);
         StringAssert.Contains("当前场景仍在恢复世界状态，请稍候再读取存档。", saveManagerText);
         StringAssert.Contains("public static bool IsSceneWorldRestoreInProgress()", bridgeText);
+    }
+
+    [Test]
+    public void LoadEntry_ShouldRefreshGlobalRuntimeStateAfterRestore()
+    {
+        string saveManagerText = File.ReadAllText(SaveManagerPath);
+
+        StringAssert.Contains("PersistentPlayerSceneBridge.RefreshActiveSceneRuntimeBindings();", saveManagerText,
+            "读档恢复后必须重绑当前场景的 runtime 服务与 UI 事实源。");
+        StringAssert.Contains("RefreshAllUI();", saveManagerText,
+            "读档恢复后必须强刷背包、toolbar、箱子等全局 UI，不应只改底层数据。");
+        StringAssert.Contains("PersistentPlayerSceneBridge.SyncActiveSceneInventorySnapshot();", saveManagerText,
+            "读档恢复后应同步当前场景背包快照，避免切场后又回弹旧状态。");
     }
 
     [Test]

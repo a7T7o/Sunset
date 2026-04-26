@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.Tilemaps;
 using FarmGame.Data;
 
@@ -18,7 +19,7 @@ public class WorldSpawnDebug : MonoBehaviour
     [Min(1)] public int amount = 1;
     public bool ctrlLeftClickToSpawn = true;
     public bool middleClickSpawnHotbar = true;
-    
+
     [Header("动画选项")]
     [Tooltip("生成时是否播放弹性动画")]
     public bool playDropAnimation = true;
@@ -29,18 +30,32 @@ public class WorldSpawnDebug : MonoBehaviour
         if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
         if (database == null) database = FindFirstObjectByType<ItemDatabase>();
         if (hotbar == null) hotbar = FindFirstObjectByType<HotbarSelectionService>();
-        if (worldCamera == null) worldCamera = Camera.main;
+        if (worldCamera == null) worldCamera = ResolveWorldCamera();
+    }
+
+    void OnEnable()
+    {
+        SceneManager.sceneLoaded += OnSceneLoaded;
+    }
+
+    void OnDisable()
+    {
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+    }
+
+    private void OnSceneLoaded(Scene _, LoadSceneMode __)
+    {
+        worldCamera = null;
+        ResolveWorldCamera();
     }
 
     void Update()
     {
-        if (spawnService == null || worldCamera == null) return;
+        if (spawnService == null || ResolveWorldCamera() == null) return;
 
         if (ctrlLeftClickToSpawn && Input.GetMouseButtonDown(0) && (Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)))
         {
-            Vector3 mouse = Input.mousePosition;
-            Vector3 world = worldCamera.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
-            world.z = 0f;
+            Vector3 world = GetMouseWorldPosition();
             if (item != null)
             {
                 // 获取实际品质：工具/武器使用 SO 自带品质，其他物品使用 Inspector 设置的 quality
@@ -62,10 +77,8 @@ public class WorldSpawnDebug : MonoBehaviour
                 var s = inventory.GetSlot(idx);
                 if (!s.IsEmpty)
                 {
-                    Vector3 mouse = Input.mousePosition;
-                    Vector3 world = worldCamera.ScreenToWorldPoint(new Vector3(mouse.x, mouse.y, 0f));
-                    world.z = 0f;
-                    
+                    Vector3 world = GetMouseWorldPosition();
+
                     // 使用带动画的生成方法
                     WorldItemPickup spawned = null;
                     if (playDropAnimation && WorldItemPool.Instance != null)
@@ -80,7 +93,7 @@ public class WorldSpawnDebug : MonoBehaviour
                     {
                         spawned = spawnService.Spawn(s, world);
                     }
-                    
+
                     if (spawned != null)
                     {
                         // 根据点击区域的Sorting Layer设置生成物体的层级
@@ -89,6 +102,67 @@ public class WorldSpawnDebug : MonoBehaviour
                 }
             }
         }
+    }
+
+    private Vector3 GetMouseWorldPosition()
+    {
+        Camera camera = ResolveWorldCamera();
+        if (camera == null)
+        {
+            return Vector3.zero;
+        }
+
+        float worldPlaneDistance = Mathf.Max(camera.nearClipPlane + 0.01f, Mathf.Abs(camera.transform.position.z));
+        Vector3 mouse = Input.mousePosition;
+        Rect pixelRect = camera.pixelRect;
+        Vector3 world = camera.ScreenToWorldPoint(new Vector3(
+            Mathf.Clamp(mouse.x, pixelRect.xMin, pixelRect.xMax),
+            Mathf.Clamp(mouse.y, pixelRect.yMin, pixelRect.yMax),
+            worldPlaneDistance));
+        world.z = 0f;
+        return world;
+    }
+
+    private Camera ResolveWorldCamera()
+    {
+        if (IsUsableWorldCamera(worldCamera))
+        {
+            return worldCamera;
+        }
+
+        Camera main = Camera.main;
+        if (IsUsableWorldCamera(main))
+        {
+            worldCamera = main;
+            return worldCamera;
+        }
+
+        Camera[] cameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
+        for (int index = 0; index < cameras.Length; index++)
+        {
+            Camera candidate = cameras[index];
+            if (!IsUsableWorldCamera(candidate))
+            {
+                continue;
+            }
+
+            worldCamera = candidate;
+            return worldCamera;
+        }
+
+        worldCamera = null;
+        return null;
+    }
+
+    private static bool IsUsableWorldCamera(Camera candidate)
+    {
+        if (candidate == null || !candidate.isActiveAndEnabled)
+        {
+            return false;
+        }
+
+        Scene scene = candidate.gameObject.scene;
+        return scene.IsValid() && scene.isLoaded;
     }
 
     /// <summary>
@@ -103,7 +177,7 @@ public class WorldSpawnDebug : MonoBehaviour
         {
             return 0;  // 品质信息已包含在 ItemID 中
         }
-        
+
         // 其他物品：使用 Inspector 设置的 quality
         return quality;
     }
@@ -115,21 +189,21 @@ public class WorldSpawnDebug : MonoBehaviour
     {
         // 检测点击位置的所有碰撞体
         var hits = Physics2D.OverlapPointAll(worldPos);
-        
+
         string layerName = "Layer 1";  // 默认值
         int order = 0;
-        
+
         // 遍历所有检测到的碰撞体
         foreach (var hit in hits)
         {
             // 跳过生成的物体和玩家
-            if (hit.gameObject.name.Contains("Clone") || 
-                hit.gameObject.name.Contains("Pickup") || 
+            if (hit.gameObject.name.Contains("Clone") ||
+                hit.gameObject.name.Contains("Pickup") ||
                 hit.gameObject.name.Contains("Player"))
             {
                 continue;
             }
-            
+
             // 尝试获取SpriteRenderer
             var sr = hit.GetComponentInParent<SpriteRenderer>();
             if (sr != null && !sr.gameObject.name.Contains("Clone"))
@@ -138,7 +212,7 @@ public class WorldSpawnDebug : MonoBehaviour
                 order = sr.sortingOrder;
                 break;
             }
-            
+
             // 尝试获取TilemapRenderer
             var tr = hit.GetComponentInParent<TilemapRenderer>();
             if (tr != null)

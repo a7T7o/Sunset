@@ -11,7 +11,7 @@ namespace FarmGame.UI
     {
         private static PlayerController _cachedPlayer;
 
-        public static void DropAtPlayer(ItemStack item, float cooldown = 5f)
+        public static void DropAtPlayer(ItemStack item, float cooldown = 0.35f)
         {
             if (item.IsEmpty)
             {
@@ -28,7 +28,7 @@ namespace FarmGame.UI
             SpawnWorldItem(item, dropPos, cooldown);
         }
 
-        public static void DropAtPlayer(InventoryItem item, float cooldown = 5f)
+        public static void DropAtPlayer(InventoryItem item, float cooldown = 0.35f)
         {
             if (item == null || item.IsEmpty)
             {
@@ -45,7 +45,7 @@ namespace FarmGame.UI
             SpawnWorldItem(item, dropPos, cooldown);
         }
 
-        public static void DropAtPosition(ItemStack item, Vector3 position, float cooldown = 5f)
+        public static void DropAtPosition(ItemStack item, Vector3 position, float cooldown = 0.35f)
         {
             if (item.IsEmpty)
             {
@@ -55,7 +55,7 @@ namespace FarmGame.UI
             SpawnWorldItem(item, position, cooldown);
         }
 
-        public static void DropAtPosition(InventoryItem item, Vector3 position, float cooldown = 5f)
+        public static void DropAtPosition(InventoryItem item, Vector3 position, float cooldown = 0.35f)
         {
             if (item == null || item.IsEmpty)
             {
@@ -105,6 +105,7 @@ namespace FarmGame.UI
 
             if (pickup != null)
             {
+                pickup.SetSourceNodeGuid(null);
                 pickup.SetDropCooldown(cooldown);
             }
             else
@@ -132,6 +133,7 @@ namespace FarmGame.UI
             if (pickup != null)
             {
                 pickup.SetRuntimeItem(item, WorldItemPool.Instance.Database);
+                pickup.SetSourceNodeGuid(null);
                 pickup.SetDropCooldown(cooldown);
             }
             else

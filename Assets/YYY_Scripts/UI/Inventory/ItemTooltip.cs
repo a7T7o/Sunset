@@ -11,24 +11,24 @@ public class ItemTooltip : MonoBehaviour
 {
     private const float MinimumShowDelay = 1f;
     private const float FadeDurationSeconds = 0.3f;
-    private const float TooltipWidth = 212f;
-    private const float TooltipMinHeight = 88f;
+    private const float TooltipWidth = 228f;
+    private const float TooltipMinHeight = 96f;
     private const float PanelBorder = 4f;
-    private const float ContentWidth = 184f;
-    private const float ContentPaddingX = 12f;
-    private const float ContentPaddingTop = 12f;
-    private const float ContentPaddingBottom = 11f;
+    private const float ContentWidth = 198f;
+    private const float ContentPaddingX = 13f;
+    private const float ContentPaddingTop = 13f;
+    private const float ContentPaddingBottom = 12f;
     private const float TooltipEdgePadding = 10f;
     private const float TooltipPointerClearance = 14f;
 
     private static readonly Color FrameColor = new Color(0.25f, 0.16f, 0.09f, 0.98f);
     private static readonly Color PanelColor = new Color(0.95f, 0.90f, 0.80f, 0.985f);
-    private static readonly Color HeaderColor = new Color(0.46f, 0.31f, 0.16f, 1f);
-    private static readonly Color DividerColor = new Color(0.69f, 0.51f, 0.24f, 0.95f);
+    private static readonly Color HeaderColor = new Color(0.42f, 0.29f, 0.15f, 1f);
+    private static readonly Color DividerColor = new Color(0.66f, 0.48f, 0.21f, 0.98f);
     private static readonly Color TitleBaseColor = new Color(0.99f, 0.97f, 0.92f, 1f);
-    private static readonly Color DescriptionColor = new Color(0.21f, 0.13f, 0.05f, 1f);
-    private static readonly Color StatusColor = new Color(0.33f, 0.22f, 0.09f, 1f);
-    private static readonly Color PriceColor = new Color(0.38f, 0.24f, 0.05f, 1f);
+    private static readonly Color DescriptionColor = new Color(0.16f, 0.10f, 0.03f, 1f);
+    private static readonly Color StatusColor = new Color(0.25f, 0.16f, 0.05f, 1f);
+    private static readonly Color PriceColor = new Color(0.34f, 0.21f, 0.04f, 1f);
 
     private static ItemTooltip _instance;
 
@@ -155,7 +155,7 @@ public class ItemTooltip : MonoBehaviour
 
         QueueShow(new VisualData
         {
-            Title = itemData.itemName,
+            Title = ItemTooltipTextBuilder.BuildPlayerFacingTitle(itemData),
             TitleColor = GetQualityColor((ItemQuality)item.quality),
             Status = status,
             Description = description,
@@ -399,7 +399,7 @@ public class ItemTooltip : MonoBehaviour
         headerImage.raycastTarget = false;
 
         var headerLayout = headerRoot.GetComponent<HorizontalLayoutGroup>();
-        headerLayout.padding = new RectOffset(9, 9, 6, 6);
+        headerLayout.padding = new RectOffset(10, 10, 6, 6);
         headerLayout.spacing = 7;
         headerLayout.childAlignment = TextAnchor.MiddleLeft;
         headerLayout.childControlWidth = false;
@@ -413,10 +413,10 @@ public class ItemTooltip : MonoBehaviour
 
         qualityIcon = EnsureImage("QualityIcon", qualityIcon, headerRoot.transform);
         qualityIcon.raycastTarget = false;
-        qualityIcon.rectTransform.sizeDelta = new Vector2(14f, 14f);
+        qualityIcon.rectTransform.sizeDelta = new Vector2(16f, 16f);
         var qualityLayout = qualityIcon.GetComponent<LayoutElement>() ?? qualityIcon.gameObject.AddComponent<LayoutElement>();
-        qualityLayout.preferredWidth = 14f;
-        qualityLayout.preferredHeight = 14f;
+        qualityLayout.preferredWidth = 16f;
+        qualityLayout.preferredHeight = 16f;
 
         itemNameText = EnsureText("ItemName", itemNameText, headerRoot.transform);
         var titleLayout = itemNameText.GetComponent<LayoutElement>() ?? itemNameText.gameObject.AddComponent<LayoutElement>();
@@ -538,7 +538,7 @@ public class ItemTooltip : MonoBehaviour
         var layout = text.GetComponent<LayoutElement>() ?? text.gameObject.AddComponent<LayoutElement>();
         layout.preferredWidth = ContentWidth;
         layout.flexibleWidth = 0f;
-        text.lineSpacing = 1.08f;
+        text.lineSpacing = 1.12f;
     }
 
     private void ApplyTheme()
@@ -553,18 +553,18 @@ public class ItemTooltip : MonoBehaviour
 
         Outline frameOutline = frameImage.GetComponent<Outline>() ?? frameImage.gameObject.AddComponent<Outline>();
         frameOutline.effectColor = new Color(0f, 0f, 0f, 0.14f);
-        frameOutline.effectDistance = new Vector2(1f, -1f);
+        frameOutline.effectDistance = new Vector2(1.2f, -1.2f);
         frameOutline.useGraphicAlpha = true;
 
         Shadow panelShadow = panelImage.GetComponent<Shadow>() ?? panelImage.gameObject.AddComponent<Shadow>();
         panelShadow.effectColor = new Color(0f, 0f, 0f, 0.08f);
-        panelShadow.effectDistance = new Vector2(0f, -2f);
+        panelShadow.effectDistance = new Vector2(0f, -2.4f);
         panelShadow.useGraphicAlpha = true;
 
-        ApplyTextTheme(itemNameText, font, 16, FontStyle.Bold, TextAnchor.MiddleLeft, TitleBaseColor);
-        ApplyTextTheme(statusText, font, 13, FontStyle.Bold, TextAnchor.MiddleLeft, StatusColor);
-        ApplyTextTheme(descriptionText, font, 13, FontStyle.Normal, TextAnchor.UpperLeft, DescriptionColor);
-        ApplyTextTheme(priceText, font, 13, FontStyle.Bold, TextAnchor.MiddleRight, PriceColor);
+        ApplyTextTheme(itemNameText, font, 18, FontStyle.Bold, TextAnchor.MiddleLeft, TitleBaseColor);
+        ApplyTextTheme(statusText, font, 14, FontStyle.Bold, TextAnchor.MiddleLeft, StatusColor);
+        ApplyTextTheme(descriptionText, font, 14, FontStyle.Normal, TextAnchor.UpperLeft, DescriptionColor);
+        ApplyTextTheme(priceText, font, 14, FontStyle.Bold, TextAnchor.MiddleRight, PriceColor);
     }
 
     private static void ApplyTextTheme(Text text, Font font, int size, FontStyle style, TextAnchor anchor, Color color)

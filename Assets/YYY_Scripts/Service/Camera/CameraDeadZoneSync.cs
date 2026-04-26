@@ -17,7 +17,7 @@ namespace Sunset.Service.Camera
         private static readonly string[] SoftenedExcludedKeywords = { "old" };
 
         #region 序列化字段
-        
+
         [Header("边界检测")]
         [SerializeField] private bool autoDetectBounds = true;
         [SerializeField] private string[] worldLayerNames = { "LAYER 1", "LAYER 2", "LAYER 3" };
@@ -32,28 +32,31 @@ namespace Sunset.Service.Camera
 
         [Header("宽屏保护")]
         [SerializeField] private bool clampViewportOnWideScreens = true;
+        [SerializeField] private bool clampViewportInWindowedMode = false;
         [SerializeField, Range(0.8f, 1f)] private float wideScreenViewportSafety = 0.95f;
         [SerializeField] private bool snapViewportClampToPixelGrid = true;
-        
+
         [Header("手动边界（当 autoDetectBounds = false）")]
         [SerializeField] private Bounds manualBounds = new Bounds(Vector3.zero, new Vector3(50, 50, 0));
-        
+
         [Header("引用")]
         [SerializeField] private CinemachineCamera cinemachineCamera;
         [SerializeField] private UnityEngine.Camera mainCamera;
-        
+
         [Header("Confiner 设置")]
         [Tooltip("用于定义边界的 PolygonCollider2D，会自动创建")]
         [SerializeField] private PolygonCollider2D boundingCollider;
-        
+
         [Header("调试")]
+#pragma warning disable CS0414 // 仅在 UNITY_EDITOR 的 Gizmos 绘制里使用
         [SerializeField] private bool showDebugGizmos = true;
+#pragma warning restore CS0414
         [SerializeField] private bool logDebugInfo = false;
-        
+
         #endregion
-        
+
         #region 私有字段
-        
+
         private CinemachineConfiner2D _confiner;
         private CinemachineBrain _brain;
         private Bounds _worldBounds;
@@ -63,21 +66,21 @@ namespace Sunset.Service.Camera
         private int _lastScreenWidth;
         private int _lastScreenHeight;
         private Coroutine _sceneLoadRecoveryCoroutine;
-        
+
         #endregion
-        
+
         #region 公共属性
-        
+
         /// <summary>
         /// 当前检测到的世界边界
         /// </summary>
         public Bounds WorldBounds => _worldBounds;
-        
+
         #endregion
 
-        
+
         #region Unity 生命周期
-        
+
         private void Awake()
         {
             // 自动获取引用
@@ -85,7 +88,7 @@ namespace Sunset.Service.Camera
             {
                 cinemachineCamera = ResolveCinemachineCamera();
             }
-            
+
             if (mainCamera == null)
             {
                 mainCamera = ResolveMainCamera();
@@ -93,13 +96,13 @@ namespace Sunset.Service.Camera
 
             CaptureDefaultCameraRect();
             EnsureCinemachineBrain();
-            
+
             // 获取或创建 Confiner2D
             SetupConfiner();
-            
+
             ValidateReferences();
         }
-        
+
         private void Start()
         {
             RefreshSceneReferences(SceneManager.GetActiveScene());
@@ -122,36 +125,36 @@ namespace Sunset.Service.Camera
                 TryBindTrackingTarget(SceneManager.GetActiveScene());
             }
 
-            if (mainCamera == null || !clampViewportOnWideScreens)
+            if (mainCamera == null)
             {
                 return;
             }
 
             if (Screen.width != _lastScreenWidth || Screen.height != _lastScreenHeight)
             {
-                if (ApplyWideScreenViewportClamp())
+                if (UpdateWideScreenViewportClamp())
                 {
                     InvalidateConfinerCache();
                 }
             }
         }
-        
+
         private void OnEnable()
         {
             SceneManager.sceneLoaded += OnSceneLoaded;
         }
-        
+
         private void OnDisable()
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             StopSceneLoadRecovery();
             RestoreDefaultCameraRect();
         }
-        
+
         #endregion
-        
+
         #region 公共方法
-        
+
         /// <summary>
         /// 刷新边界检测并应用到 Confiner
         /// </summary>
@@ -163,7 +166,7 @@ namespace Sunset.Service.Camera
                     Debug.LogWarning("[CameraConfiner] 组件未正确初始化，无法刷新边界");
                 return;
             }
-            
+
             if (autoDetectBounds)
             {
                 DetectWorldBounds();
@@ -172,29 +175,29 @@ namespace Sunset.Service.Camera
             {
                 _worldBounds = manualBounds;
             }
-            
+
             UpdateBoundingCollider();
-            ApplyWideScreenViewportClamp();
+            UpdateWideScreenViewportClamp();
             InvalidateConfinerCache();
-            
+
             if (logDebugInfo)
             {
                 Debug.Log($"[CameraConfiner] 边界已更新: Center={_worldBounds.center}, Size={_worldBounds.size}");
             }
         }
-        
+
         #endregion
 
-        
+
         #region 私有方法
-        
+
         /// <summary>
         /// 设置 Confiner2D 组件
         /// </summary>
         private void SetupConfiner()
         {
             if (cinemachineCamera == null) return;
-            
+
             // 获取或添加 CinemachineConfiner2D
             _confiner = cinemachineCamera.GetComponent<CinemachineConfiner2D>();
             if (_confiner == null)
@@ -203,7 +206,7 @@ namespace Sunset.Service.Camera
                 if (logDebugInfo)
                     Debug.Log("[CameraConfiner] 已添加 CinemachineConfiner2D 组件");
             }
-            
+
             // 创建或获取边界碰撞体
             if (boundingCollider == null)
             {
@@ -213,55 +216,55 @@ namespace Sunset.Service.Camera
                 {
                     boundsObj = new GameObject(AutoBoundsObjectName);
                 }
-                
+
                 boundingCollider = boundsObj.GetComponent<PolygonCollider2D>();
                 if (boundingCollider == null)
                 {
                     boundingCollider = boundsObj.AddComponent<PolygonCollider2D>();
                     boundingCollider.isTrigger = true;
                 }
-                
+
                 if (logDebugInfo)
                     Debug.Log("[CameraConfiner] 已创建边界碰撞体");
             }
-            
+
             // 设置 Confiner 的边界碰撞体
             NormalizeAutoBoundsTransform();
             _confiner.BoundingShape2D = boundingCollider;
         }
-        
+
         /// <summary>
         /// 验证必要引用
         /// </summary>
         private void ValidateReferences()
         {
             _isInitialized = true;
-            
+
             if (cinemachineCamera == null)
             {
                 Debug.LogWarning("[CameraConfiner] 未找到 CinemachineCamera，功能已禁用");
                 _isInitialized = false;
             }
-            
+
             if (_confiner == null)
             {
                 Debug.LogWarning("[CameraConfiner] 未找到 CinemachineConfiner2D，功能已禁用");
                 _isInitialized = false;
             }
-            
+
             if (boundingCollider == null)
             {
                 Debug.LogWarning("[CameraConfiner] 未找到边界碰撞体，功能已禁用");
                 _isInitialized = false;
             }
-            
+
             if (mainCamera == null)
             {
                 Debug.LogWarning("[CameraConfiner] 未找到主摄像头，功能已禁用");
                 _isInitialized = false;
             }
         }
-        
+
         /// <summary>
         /// 场景加载回调
         /// </summary>
@@ -275,7 +278,7 @@ namespace Sunset.Service.Camera
             StopSceneLoadRecovery();
             _sceneLoadRecoveryCoroutine = StartCoroutine(DelayedRefresh(scene));
         }
-        
+
         private System.Collections.IEnumerator DelayedRefresh(Scene scene)
         {
             for (int attempt = 0; attempt < SceneLoadTrackingTargetRetryFrames; attempt++)
@@ -638,7 +641,7 @@ namespace Sunset.Service.Camera
             return score;
         }
 
-        
+
         /// <summary>
         /// 自动检测世界边界（基于 Tilemap）
         /// </summary>
@@ -669,7 +672,7 @@ namespace Sunset.Service.Camera
             Debug.LogWarning("[CameraConfiner] 未检测到任何有效 bounds source，使用手动边界");
             _worldBounds = manualBounds;
         }
-        
+
         /// <summary>
         /// 检查物体是否在指定世界层级下
         /// </summary>
@@ -677,7 +680,7 @@ namespace Sunset.Service.Camera
         {
             if (worldLayerNames == null || worldLayerNames.Length == 0)
                 return true;
-            
+
             Transform current = t;
             while (current != null)
             {
@@ -1138,7 +1141,7 @@ namespace Sunset.Service.Camera
 
             return int.MaxValue;
         }
-        
+
         /// <summary>
         /// 更新边界碰撞体的形状
         /// </summary>
@@ -1147,22 +1150,22 @@ namespace Sunset.Service.Camera
             if (boundingCollider == null) return;
 
             NormalizeAutoBoundsTransform();
-            
+
             // 创建矩形边界的顶点（顺时针）
             Vector2[] points = new Vector2[4];
             points[0] = new Vector2(_worldBounds.min.x, _worldBounds.min.y); // 左下
             points[1] = new Vector2(_worldBounds.min.x, _worldBounds.max.y); // 左上
             points[2] = new Vector2(_worldBounds.max.x, _worldBounds.max.y); // 右上
             points[3] = new Vector2(_worldBounds.max.x, _worldBounds.min.y); // 右下
-            
+
             boundingCollider.SetPath(0, points);
-            
+
             if (logDebugInfo)
             {
                 Debug.Log($"[CameraConfiner] 边界碰撞体已更新: {points[0]} -> {points[2]}");
             }
         }
-        
+
         /// <summary>
         /// 使 Confiner 缓存失效，强制重新计算
         /// </summary>
@@ -1200,6 +1203,41 @@ namespace Sunset.Service.Camera
 
             _defaultCameraRect = mainCamera.rect;
             _capturedDefaultCameraRect = true;
+        }
+
+        private bool UpdateWideScreenViewportClamp()
+        {
+            if (mainCamera == null)
+            {
+                return false;
+            }
+
+            if (!ShouldApplyWideScreenViewportClamp(clampViewportOnWideScreens, clampViewportInWindowedMode, Screen.fullScreenMode))
+            {
+                _lastScreenWidth = Screen.width;
+                _lastScreenHeight = Screen.height;
+                return RestoreDefaultCameraRect();
+            }
+
+            return ApplyWideScreenViewportClamp();
+        }
+
+        private static bool ShouldApplyWideScreenViewportClamp(
+            bool clampViewportOnWideScreens,
+            bool clampViewportInWindowedMode,
+            FullScreenMode fullScreenMode)
+        {
+            if (!clampViewportOnWideScreens)
+            {
+                return false;
+            }
+
+            if (!clampViewportInWindowedMode && fullScreenMode == FullScreenMode.Windowed)
+            {
+                return false;
+            }
+
+            return true;
         }
 
         private bool ApplyWideScreenViewportClamp()
@@ -1295,12 +1333,12 @@ namespace Sunset.Service.Camera
                    Mathf.Abs(left.width - right.width) <= epsilon &&
                    Mathf.Abs(left.height - right.height) <= epsilon;
         }
-        
+
         #endregion
 
-        
+
         #region 编辑器方法
-        
+
 #if UNITY_EDITOR
         /// <summary>
         /// 在 Scene 视图绘制边界 Gizmos
@@ -1308,12 +1346,12 @@ namespace Sunset.Service.Camera
         private void OnDrawGizmos()
         {
             if (!showDebugGizmos) return;
-            
+
             // 绘制世界边界（绿色）
             Gizmos.color = new Color(0f, 1f, 0f, 0.5f);
             Gizmos.DrawWireCube(_worldBounds.center, _worldBounds.size);
         }
-        
+
         /// <summary>
         /// Inspector 按钮：手动刷新边界
         /// </summary>
@@ -1324,15 +1362,15 @@ namespace Sunset.Service.Camera
             {
                 cinemachineCamera = ResolveCinemachineCamera();
             }
-            
+
             if (mainCamera == null)
             {
                 mainCamera = ResolveMainCamera();
             }
-            
+
             SetupConfiner();
             ValidateReferences();
-            
+
             if (_isInitialized)
             {
                 RefreshBounds();
@@ -1340,7 +1378,7 @@ namespace Sunset.Service.Camera
             }
         }
 #endif
-        
+
         #endregion
     }
 }

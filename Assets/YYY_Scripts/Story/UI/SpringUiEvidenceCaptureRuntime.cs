@@ -253,6 +253,8 @@ namespace Sunset.Story
         {
             SpringDay1PromptOverlay promptOverlay = FindFirstObjectByType<SpringDay1PromptOverlay>(FindObjectsInactive.Include);
             SpringDay1WorkbenchCraftingOverlay workbenchOverlay = FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
+            DialogueUI dialogueUi = FindFirstObjectByType<DialogueUI>(FindObjectsInactive.Include);
+            InteractionHintOverlay interactionHint = FindFirstObjectByType<InteractionHintOverlay>(FindObjectsInactive.Include);
 
             CaptureMetadata metadata = new CaptureMetadata
             {
@@ -269,6 +271,8 @@ namespace Sunset.Story
                 imagePath = ToRepoRelativePath(repoRoot, pngPath),
                 jsonPath = ToRepoRelativePath(repoRoot, jsonPath),
                 runtimeValidationSnapshot = BuildRuntimeValidationSnapshot(),
+                dialogue = BuildDialogueSnapshot(dialogueUi),
+                interactionHint = BuildInteractionHintSnapshot(interactionHint),
                 prompt = BuildPromptSnapshot(promptOverlay),
                 workbench = BuildWorkbenchSnapshot(workbenchOverlay)
             };
@@ -328,6 +332,74 @@ namespace Sunset.Story
             };
         }
 
+        private static DialogueSnapshot BuildDialogueSnapshot(DialogueUI dialogueUi)
+        {
+            if (dialogueUi == null)
+            {
+                return new DialogueSnapshot { exists = false };
+            }
+
+            RectTransform rootRect = dialogueUi.transform as RectTransform;
+            Button continueButton = FindDescendantComponent<Button>(dialogueUi.transform, "ContinueButton");
+            TextMeshProUGUI continueLabel = continueButton != null
+                ? continueButton.GetComponentInChildren<TextMeshProUGUI>(true)
+                : null;
+
+            return new DialogueSnapshot
+            {
+                exists = true,
+                objectPath = BuildHierarchyPath(dialogueUi.transform),
+                activeInHierarchy = dialogueUi.gameObject.activeInHierarchy,
+                canvasAlpha = dialogueUi.CurrentCanvasAlpha,
+                canvasInteractable = dialogueUi.IsCanvasInteractable,
+                speakerVisible = dialogueUi.IsSpeakerVisible,
+                portraitVisible = dialogueUi.IsPortraitVisible,
+                continueButtonInteractable = dialogueUi.IsContinueButtonInteractable,
+                speakerName = dialogueUi.CurrentSpeakerName,
+                dialogueText = dialogueUi.CurrentDialogueText,
+                portraitSpriteName = dialogueUi.CurrentPortraitSpriteName,
+                dialogueFontName = dialogueUi.CurrentDialogueFontName,
+                speakerFontName = dialogueUi.CurrentSpeakerFontName,
+                rootRect = CaptureRect(rootRect),
+                continueButtonRect = CaptureRect(continueButton != null ? continueButton.GetComponent<RectTransform>() : null),
+                continueLabel = CaptureText(continueLabel)
+            };
+        }
+
+        private static InteractionHintSnapshot BuildInteractionHintSnapshot(InteractionHintOverlay overlay)
+        {
+            if (overlay == null)
+            {
+                return new InteractionHintSnapshot { exists = false };
+            }
+
+            RectTransform rootRect = overlay.transform as RectTransform;
+            RectTransform cardRect = FindDirectChildRect(rootRect, "HintCard");
+            RectTransform keyPlateRect = FindDescendantRect(cardRect, "KeyPlate");
+            TextMeshProUGUI keyText = FindDescendantComponent<TextMeshProUGUI>(cardRect, "KeyText");
+            TextMeshProUGUI captionText = FindDescendantComponent<TextMeshProUGUI>(cardRect, "CaptionText");
+            TextMeshProUGUI detailText = FindDescendantComponent<TextMeshProUGUI>(cardRect, "DetailText");
+            CanvasGroup canvasGroup = overlay.GetComponent<CanvasGroup>();
+
+            return new InteractionHintSnapshot
+            {
+                exists = true,
+                objectPath = BuildHierarchyPath(overlay.transform),
+                activeInHierarchy = overlay.gameObject.activeInHierarchy,
+                visible = overlay.IsVisible,
+                canvasAlpha = canvasGroup != null ? canvasGroup.alpha : -1f,
+                keyLabel = overlay.CurrentKeyLabel,
+                caption = overlay.CurrentCaptionText,
+                detail = overlay.CurrentDetailText,
+                rootRect = CaptureRect(rootRect),
+                cardRect = CaptureRect(cardRect),
+                keyPlateRect = CaptureRect(keyPlateRect),
+                keyText = CaptureText(keyText),
+                captionText = CaptureText(captionText),
+                detailText = CaptureText(detailText)
+            };
+        }
+
         private static WorkbenchSnapshot BuildWorkbenchSnapshot(SpringDay1WorkbenchCraftingOverlay overlay)
         {
             if (overlay == null)
@@ -354,6 +426,7 @@ namespace Sunset.Story
                 exists = true,
                 objectPath = BuildHierarchyPath(overlay.transform),
                 activeInHierarchy = overlay.gameObject.activeInHierarchy,
+                runtimeShellSummary = overlay.GetRuntimeRecipeShellSummary(),
                 renderMode = canvas != null ? canvas.renderMode.ToString() : "n/a",
                 canvasAlpha = canvasGroup != null ? canvasGroup.alpha : -1f,
                 rootRect = CaptureRect(rootRect),
@@ -622,6 +695,8 @@ namespace Sunset.Story
             public string imagePath;
             public string jsonPath;
             public string runtimeValidationSnapshot;
+            public DialogueSnapshot dialogue;
+            public InteractionHintSnapshot interactionHint;
             public PromptSnapshot prompt;
             public WorkbenchSnapshot workbench;
         }
@@ -676,11 +751,52 @@ namespace Sunset.Story
         }
 
         [Serializable]
+        private sealed class DialogueSnapshot
+        {
+            public bool exists;
+            public string objectPath;
+            public bool activeInHierarchy;
+            public float canvasAlpha;
+            public bool canvasInteractable;
+            public bool speakerVisible;
+            public bool portraitVisible;
+            public bool continueButtonInteractable;
+            public string speakerName;
+            public string dialogueText;
+            public string portraitSpriteName;
+            public string dialogueFontName;
+            public string speakerFontName;
+            public RectSnapshot rootRect;
+            public RectSnapshot continueButtonRect;
+            public TextSnapshot continueLabel;
+        }
+
+        [Serializable]
+        private sealed class InteractionHintSnapshot
+        {
+            public bool exists;
+            public string objectPath;
+            public bool activeInHierarchy;
+            public bool visible;
+            public float canvasAlpha;
+            public string keyLabel;
+            public string caption;
+            public string detail;
+            public RectSnapshot rootRect;
+            public RectSnapshot cardRect;
+            public RectSnapshot keyPlateRect;
+            public TextSnapshot keyText;
+            public TextSnapshot captionText;
+            public TextSnapshot detailText;
+        }
+
+        [Serializable]
         private sealed class WorkbenchSnapshot
         {
             public bool exists;
             public string objectPath;
             public bool activeInHierarchy;
+            public string runtimeShellSummary;
             public string renderMode;
             public float canvasAlpha;
             public RectSnapshot rootRect;

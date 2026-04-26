@@ -10,30 +10,40 @@ namespace FarmGame.Farm
     public class FarmTileData
     {
         #region 位置信息
-        
+
         /// <summary>
         /// 格子在 Tilemap 中的坐标
         /// </summary>
         public Vector3Int position;
-        
+
         /// <summary>
         /// 所属楼层索引（0 = LAYER 1, 1 = LAYER 2, 2 = LAYER 3）
         /// </summary>
         public int layerIndex;
-        
+
         #endregion
 
         #region 耕地状态
-        
+
         /// <summary>
         /// 是否已耕作
         /// </summary>
         public bool isTilled;
-        
+
+        /// <summary>
+        /// 是否已开始记录空置耕地计时
+        /// </summary>
+        public bool hasEmptySinceRecord;
+
+        /// <summary>
+        /// 从哪一天开始空置（按 totalDays 记录）
+        /// </summary>
+        public int emptySinceTotalDays;
+
         #endregion
 
         #region 浇水状态（逻辑）
-        
+
         /// <summary>
         /// 今天是否已浇水（记录参数，第二天才生效作物生长）
         /// </summary>
@@ -43,11 +53,11 @@ namespace FarmGame.Farm
         /// 昨天是否浇过水（实际影响作物生长）
         /// </summary>
         public bool wateredYesterday;
-        
+
         #endregion
 
         #region 浇水状态（视觉）
-        
+
         /// <summary>
         /// 浇水的游戏时间（小时，用于计算视觉状态切换）
         /// </summary>
@@ -57,38 +67,38 @@ namespace FarmGame.Farm
         /// 当前土壤湿度视觉状态
         /// </summary>
         public SoilMoistureState moistureState;
-        
+
         /// <summary>
         /// 水渍变体索引（0-2，用于随机选择水渍样式）
         /// </summary>
         public int puddleVariant;
-        
+
         #endregion
 
         #region 作物数据
-        
+
         /// <summary>
         /// 当前种植的作物实例数据（新版纯数据结构）
         /// </summary>
         public CropInstanceData cropData;
-        
+
         /// <summary>
         /// 运行时作物控制器引用（不序列化，不存档）
         /// 用于替代 CropManager.GetCrop() 的查找功能
         /// </summary>
         [System.NonSerialized]
         public CropController cropController;
-        
+
         /// <summary>
         /// [已废弃] 旧版作物实例，保留用于兼容
         /// </summary>
         [System.Obsolete("使用 cropData 替代")]
         public CropInstance crop;
-        
+
         #endregion
 
         #region 构造函数
-        
+
         /// <summary>
         /// 默认构造函数
         /// </summary>
@@ -102,9 +112,11 @@ namespace FarmGame.Farm
             waterTime = -1f;
             moistureState = SoilMoistureState.Dry;
             puddleVariant = 0;
+            hasEmptySinceRecord = false;
+            emptySinceTotalDays = 0;
             cropData = null;
         }
-        
+
         /// <summary>
         /// 创建指定位置的耕地数据
         /// </summary>
@@ -120,13 +132,15 @@ namespace FarmGame.Farm
             waterTime = -1f;
             moistureState = SoilMoistureState.Dry;
             puddleVariant = 0;
+            hasEmptySinceRecord = false;
+            emptySinceTotalDays = 0;
             cropData = null;
         }
-        
+
         #endregion
 
         #region 状态查询
-        
+
         /// <summary>
         /// 是否可以种植（已耕作且无作物）
         /// </summary>
@@ -142,11 +156,56 @@ namespace FarmGame.Farm
         {
             return cropData != null || cropController != null;
         }
-        
+
+        /// <summary>
+        /// 是否正在记录空置计时
+        /// </summary>
+        public bool HasEmptyCountdown()
+        {
+            return hasEmptySinceRecord;
+        }
+
+        /// <summary>
+        /// 开始记录空置天数
+        /// </summary>
+        public void StartEmptyCountdown(int totalDays)
+        {
+            if (HasCrop())
+            {
+                ClearEmptyCountdown();
+                return;
+            }
+
+            hasEmptySinceRecord = true;
+            emptySinceTotalDays = totalDays;
+        }
+
+        /// <summary>
+        /// 清除空置计时
+        /// </summary>
+        public void ClearEmptyCountdown()
+        {
+            hasEmptySinceRecord = false;
+            emptySinceTotalDays = 0;
+        }
+
+        /// <summary>
+        /// 获取当前累计空置天数（含开始记录当天）
+        /// </summary>
+        public int GetEmptyDayCount(int totalDays)
+        {
+            if (!hasEmptySinceRecord)
+            {
+                return 0;
+            }
+
+            return Mathf.Max(1, totalDays - emptySinceTotalDays + 1);
+        }
+
         #endregion
 
         #region 作物操作
-        
+
         /// <summary>
         /// 设置作物数据
         /// </summary>
@@ -154,16 +213,18 @@ namespace FarmGame.Farm
         public void SetCropData(CropInstanceData data)
         {
             cropData = data;
+            ClearEmptyCountdown();
         }
-        
+
         /// <summary>
         /// 清除作物数据
         /// </summary>
         public void ClearCropData()
         {
             cropData = null;
+            ClearEmptyCountdown();
         }
-        
+
         /// <summary>
         /// [已废弃] 清除旧版作物数据
         /// </summary>
@@ -177,15 +238,16 @@ namespace FarmGame.Farm
             }
             crop = null;
             #pragma warning restore 0618
-            
+
             // 同时清除新版数据
             cropData = null;
+            ClearEmptyCountdown();
         }
-        
+
         #endregion
 
         #region 浇水操作
-        
+
         /// <summary>
         /// 设置浇水状态
         /// </summary>
@@ -198,7 +260,7 @@ namespace FarmGame.Farm
             moistureState = SoilMoistureState.WetWithPuddle;
             puddleVariant = Mathf.Clamp(variant, 0, 2);
         }
-        
+
         /// <summary>
         /// 重置每日浇水状态（每天开始时调用）
         /// </summary>
@@ -209,7 +271,7 @@ namespace FarmGame.Farm
             waterTime = -1f;
             moistureState = SoilMoistureState.Dry;
         }
-        
+
         #endregion
     }
 }

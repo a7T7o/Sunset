@@ -984,7 +984,7 @@ public class NPCPrefabGeneratorTool : EditorWindow
         }
 
         serializedObject.ApplyModifiedPropertiesWithoutUndo();
-        roamController.ApplyProfile();
+        roamController.SyncRuntimeProfileFromAsset();
     }
 
     private void EnsureAssetFolder(string assetFolderPath)

@@ -93,6 +93,8 @@ namespace Sunset.Story
         public string semanticAnchorId = string.Empty;
         public SpringDay1CrowdSceneDuty duty = SpringDay1CrowdSceneDuty.None;
         public bool keepCurrentSpawnPosition = true;
+        public bool useSemanticAnchorAsStart = false;
+        public bool startPositionIsSemanticAnchorOffset = false;
         public bool pathPointsAreOffsets = false;
         public Vector2 startPosition = Vector2.zero;
         public Vector2 facing = Vector2.down;
@@ -128,24 +130,30 @@ namespace Sunset.Story
 
         public bool Matches(SpringDay1NpcCrowdManifest.Entry entry)
         {
-            if (entry == null)
-            {
-                return false;
-            }
+            return MatchesNpcId(entry)
+                || MatchesSemanticAnchor(entry)
+                || MatchesDuty(entry);
+        }
 
-            if (!string.IsNullOrWhiteSpace(npcId)
-                && string.Equals(npcId.Trim(), entry.npcId?.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
+        public bool MatchesNpcId(SpringDay1NpcCrowdManifest.Entry entry)
+        {
+            return entry != null
+                && !string.IsNullOrWhiteSpace(npcId)
+                && string.Equals(npcId.Trim(), entry.npcId?.Trim(), StringComparison.OrdinalIgnoreCase);
+        }
 
-            if (!string.IsNullOrWhiteSpace(semanticAnchorId)
-                && entry.SupportsSemanticAnchor(semanticAnchorId))
-            {
-                return true;
-            }
+        public bool MatchesSemanticAnchor(SpringDay1NpcCrowdManifest.Entry entry)
+        {
+            return entry != null
+                && !string.IsNullOrWhiteSpace(semanticAnchorId)
+                && entry.SupportsSemanticAnchor(semanticAnchorId);
+        }
 
-            return duty != SpringDay1CrowdSceneDuty.None && entry.SupportsDuty(duty);
+        public bool MatchesDuty(SpringDay1NpcCrowdManifest.Entry entry)
+        {
+            return entry != null
+                && duty != SpringDay1CrowdSceneDuty.None
+                && entry.SupportsDuty(duty);
         }
 
         public void EnsureDefaults()
@@ -171,6 +179,28 @@ namespace Sunset.Story
         }
     }
 
+    public static class SpringDay1DirectorSemanticAnchorResolver
+    {
+        public static bool TryResolveWorldPosition(string semanticAnchorId, out Vector3 worldPosition)
+        {
+            worldPosition = Vector3.zero;
+            if (string.IsNullOrWhiteSpace(semanticAnchorId))
+            {
+                return false;
+            }
+
+            string trimmed = semanticAnchorId.Trim();
+            GameObject liveAnchor = GameObject.Find(trimmed);
+            if (liveAnchor != null)
+            {
+                worldPosition = liveAnchor.transform.position;
+                return true;
+            }
+
+            return SpringDay1TownAnchorContractDatabase.TryResolveAnchor(trimmed, out worldPosition);
+        }
+    }
+
     [Serializable]
     public sealed class SpringDay1DirectorBeatEntry
     {
@@ -188,16 +218,33 @@ namespace Sunset.Story
                 return null;
             }
 
+            SpringDay1DirectorActorCue semanticAnchorFallback = null;
+            SpringDay1DirectorActorCue dutyFallback = null;
             for (int index = 0; index < actorCues.Length; index++)
             {
                 SpringDay1DirectorActorCue cue = actorCues[index];
-                if (cue != null && cue.Matches(entry))
+                if (cue == null)
+                {
+                    continue;
+                }
+
+                if (cue.MatchesNpcId(entry))
                 {
                     return cue;
                 }
+
+                if (semanticAnchorFallback == null && cue.MatchesSemanticAnchor(entry))
+                {
+                    semanticAnchorFallback = cue;
+                }
+
+                if (dutyFallback == null && cue.MatchesDuty(entry))
+                {
+                    dutyFallback = cue;
+                }
             }
 
-            return null;
+            return semanticAnchorFallback ?? dutyFallback;
         }
 
         public void EnsureDefaults()
@@ -424,6 +471,8 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public sealed class SpringDay1DirectorNpcTakeover : MonoBehaviour
     {
+        internal const string OwnerKey = "spring-day1-director";
+
         private NPCAutoRoamController _roamController;
         private NPCInformalChatInteractable _informalChatInteractable;
         private NPCDialogueInteractable _dialogueInteractable;
@@ -436,14 +485,22 @@ namespace Sunset.Story
         private bool _dialogueWasEnabled;
         private bool _bubbleWasEnabled;
         private bool _stressWasEnabled;
+        private bool _roamStoryControlOwned;
+        private bool _keepRoamEnabled;
 
         public bool IsOwned => _lockDepth > 0;
 
         public void Acquire()
         {
+            Acquire(keepRoamEnabled: false);
+        }
+
+        public void Acquire(bool keepRoamEnabled = false)
+        {
             CacheComponents();
             if (_lockDepth == 0)
             {
+                _keepRoamEnabled = keepRoamEnabled;
                 _roamWasEnabled = _roamController != null && _roamController.enabled;
                 _informalWasEnabled = _informalChatInteractable != null && _informalChatInteractable.enabled;
                 _dialogueWasEnabled = _dialogueInteractable != null && _dialogueInteractable.enabled;
@@ -452,7 +509,12 @@ namespace Sunset.Story
 
                 if (_roamController != null)
                 {
-                    _roamController.enabled = false;
+                    _roamController.AcquireStoryControl(OwnerKey, resumeAutonomousRoamWhenReleased: _roamWasEnabled);
+                    _roamStoryControlOwned = true;
+                    if (!keepRoamEnabled)
+                    {
+                        _roamController.enabled = false;
+                    }
                 }
 
                 if (_informalChatInteractable != null)
@@ -500,6 +562,13 @@ namespace Sunset.Story
             CacheComponents();
             if (_roamController != null)
             {
+                if (_roamStoryControlOwned)
+                {
+                    _roamController.HaltStoryControlMotion(preserveResumeAutonomousRoamWhenReleased: _roamWasEnabled);
+                    _roamController.ReleaseStoryControl(OwnerKey, resumeAutonomousRoam: _roamWasEnabled);
+                    _roamStoryControlOwned = false;
+                }
+
                 _roamController.enabled = _roamWasEnabled;
             }
 
@@ -527,6 +596,8 @@ namespace Sunset.Story
             {
                 _motionController.StopMotion();
             }
+
+            _keepRoamEnabled = false;
         }
 
         private void OnDisable()
@@ -702,6 +773,9 @@ namespace Sunset.Story
     [DisallowMultipleComponent]
     public sealed class SpringDay1DirectorStagingPlayback : MonoBehaviour
     {
+        public const string StoryPlayerLookTargetToken = "__story_player__";
+        private const float CueArrivalDistance = 0.05f;
+
         private NPCAutoRoamController _roamController;
         private NPCMotionController _motionController;
         private SpringDay1DirectorNpcTakeover _takeover;
@@ -711,12 +785,90 @@ namespace Sunset.Story
         private int _pathIndex;
         private float _holdTimer;
         private bool _hasCue;
+        private bool _isManualPreviewLocked;
         private string _beatKey = string.Empty;
+        private Vector2 _issuedTravelTarget;
+        private bool _hasIssuedTravelTarget;
 
         public string CurrentCueKey => _cue != null ? _cue.StableKey : string.Empty;
         public string CurrentBeatKey => _beatKey;
+        public bool IsManualPreviewLocked => _isManualPreviewLocked;
+
+        public bool HasSettledCurrentCue()
+        {
+            if (!_hasCue || _cue == null)
+            {
+                return true;
+            }
+
+            if (_holdTimer > 0f)
+            {
+                return false;
+            }
+
+            if (_cue.loopPath)
+            {
+                return false;
+            }
+
+            return _cue.path == null
+                || _cue.path.Length == 0
+                || _pathIndex >= _cue.path.Length;
+        }
+
+        public bool ForceSnapToCueEnd()
+        {
+            if (!_hasCue || _cue == null)
+            {
+                return false;
+            }
+
+            SpringDay1DirectorPathPoint finalPoint = ResolveLastCuePoint();
+            if (finalPoint != null)
+            {
+                Vector3 finalPosition = ResolveTargetPosition(finalPoint);
+                transform.position = finalPosition;
+                if (_roamController != null)
+                {
+                    _roamController.SnapToTarget(new Vector2(finalPosition.x, finalPosition.y), finalPoint.facing);
+                }
+
+                ApplyFacingOrLookAt(finalPoint.lookAtTargetName, finalPoint.facing);
+            }
+            else if (!_cue.keepCurrentSpawnPosition)
+            {
+                Vector3 startPosition = ResolveCueStartPosition();
+                transform.position = startPosition;
+                if (_roamController != null)
+                {
+                    _roamController.SnapToTarget(new Vector2(startPosition.x, startPosition.y), _cue.facing);
+                }
+
+                ApplyFacingOrLookAt(_cue.lookAtTargetName, _cue.facing);
+            }
+
+            if (_motionController != null)
+            {
+                _motionController.StopMotion();
+            }
+
+            _holdTimer = 0f;
+            _pathIndex = _cue.path != null ? _cue.path.Length : 0;
+            _hasIssuedTravelTarget = false;
+            return true;
+        }
 
         public void ApplyCue(string beatKey, SpringDay1DirectorActorCue cue, Transform homeAnchor)
+        {
+            ApplyCue(beatKey, cue, homeAnchor, manualPreviewLock: false, forceRestart: false);
+        }
+
+        public void ApplyCue(string beatKey, SpringDay1DirectorActorCue cue, Transform homeAnchor, bool manualPreviewLock = false)
+        {
+            ApplyCue(beatKey, cue, homeAnchor, manualPreviewLock, forceRestart: false);
+        }
+
+        public void ApplyCue(string beatKey, SpringDay1DirectorActorCue cue, Transform homeAnchor, bool manualPreviewLock, bool forceRestart)
         {
             if (cue == null)
             {
@@ -730,13 +882,14 @@ namespace Sunset.Story
                 && _cue != null
                 && string.Equals(_beatKey, nextBeatKey, StringComparison.OrdinalIgnoreCase)
                 && string.Equals(_cue.StableKey, cue.StableKey, StringComparison.OrdinalIgnoreCase);
-            if (isSameCue)
+            if (isSameCue && !forceRestart)
             {
                 if (homeAnchor != null)
                 {
                     _homeAnchor = homeAnchor;
                 }
 
+                _isManualPreviewLocked = manualPreviewLock;
                 return;
             }
 
@@ -754,25 +907,24 @@ namespace Sunset.Story
             _beatKey = nextBeatKey;
             _cue = cue;
             _homeAnchor = homeAnchor;
-            _basePosition = transform.position;
             _pathIndex = 0;
             _holdTimer = _cue.initialHoldSeconds;
             _hasCue = true;
+            _isManualPreviewLocked = manualPreviewLock;
+            _hasIssuedTravelTarget = false;
 
             if (_cue.suspendRoam)
             {
                 _takeover ??= GetOrAddComponent<SpringDay1DirectorNpcTakeover>(gameObject);
-                _takeover.Acquire();
+                _takeover.Acquire(keepRoamEnabled: _roamController != null);
             }
 
-            Vector3 startPosition = _cue.keepCurrentSpawnPosition
-                ? transform.position
-                : new Vector3(_cue.startPosition.x, _cue.startPosition.y, transform.position.z);
-
+            Vector3 startPosition = ResolveCueStartPosition();
+            _basePosition = startPosition;
             transform.position = startPosition;
-            if (_homeAnchor != null)
+            if (_roamController != null)
             {
-                _homeAnchor.position = startPosition;
+                _roamController.SnapToTarget(new Vector2(startPosition.x, startPosition.y), _cue.facing);
             }
 
             ApplyFacingOrLookAt(_cue.lookAtTargetName, _cue.facing);
@@ -797,6 +949,8 @@ namespace Sunset.Story
             _pathIndex = 0;
             _holdTimer = 0f;
             _hasCue = false;
+            _isManualPreviewLocked = false;
+            _hasIssuedTravelTarget = false;
         }
 
         private void OnDisable()
@@ -816,22 +970,14 @@ namespace Sunset.Story
 
             if (_cue.path == null || _cue.path.Length == 0)
             {
-                if (_motionController != null)
-                {
-                    _motionController.StopMotion();
-                }
-
+                StopCurrentCueMotion();
                 return;
             }
 
             if (_holdTimer > 0f)
             {
                 _holdTimer = Mathf.Max(0f, _holdTimer - Time.deltaTime);
-                if (_motionController != null)
-                {
-                    _motionController.StopMotion();
-                }
-
+                StopCurrentCueMotion();
                 return;
             }
 
@@ -843,11 +989,7 @@ namespace Sunset.Story
                 }
                 else
                 {
-                    if (_motionController != null)
-                    {
-                        _motionController.StopMotion();
-                    }
-
+                    StopCurrentCueMotion();
                     return;
                 }
             }
@@ -856,10 +998,16 @@ namespace Sunset.Story
             if (point == null)
             {
                 _pathIndex++;
+                _hasIssuedTravelTarget = false;
                 return;
             }
 
             Vector3 targetPosition = ResolveTargetPosition(point);
+            if (TryAdvanceCueWithRoamController(point, targetPosition))
+            {
+                return;
+            }
+
             Vector3 delta = targetPosition - transform.position;
             delta.z = 0f;
             float maxDistance = Mathf.Max(0.05f, _cue.moveSpeed) * Time.deltaTime;
@@ -867,10 +1015,6 @@ namespace Sunset.Story
             if (delta.sqrMagnitude <= maxDistance * maxDistance)
             {
                 transform.position = targetPosition;
-                if (_homeAnchor != null)
-                {
-                    _homeAnchor.position = targetPosition;
-                }
 
                 if (_motionController != null)
                 {
@@ -880,6 +1024,7 @@ namespace Sunset.Story
                 ApplyFacingOrLookAt(point.lookAtTargetName, point.facing);
                 _holdTimer = Mathf.Max(0f, point.holdSeconds);
                 _pathIndex++;
+                _hasIssuedTravelTarget = false;
                 return;
             }
 
@@ -888,8 +1033,7 @@ namespace Sunset.Story
             if (_motionController != null)
             {
                 Vector2 velocity = new Vector2(step.x, step.y) / Mathf.Max(Time.deltaTime, 0.0001f);
-                _motionController.SetExternalVelocity(velocity);
-                _motionController.SetFacingDirection(new Vector2(step.x, step.y));
+                _motionController.ApplyDirectedMotion(velocity, new Vector2(step.x, step.y));
             }
         }
 
@@ -900,8 +1044,116 @@ namespace Sunset.Story
             {
                 target2D += new Vector2(_basePosition.x, _basePosition.y);
             }
+            else if (_cue != null && _cue.useSemanticAnchorAsStart)
+            {
+                target2D += new Vector2(_basePosition.x, _basePosition.y) - _cue.startPosition;
+            }
 
             return new Vector3(target2D.x, target2D.y, transform.position.z);
+        }
+
+        private Vector3 ResolveCueStartPosition()
+        {
+            if (_cue == null || _cue.keepCurrentSpawnPosition)
+            {
+                return transform.position;
+            }
+
+            if (_cue.useSemanticAnchorAsStart
+                && SpringDay1DirectorSemanticAnchorResolver.TryResolveWorldPosition(_cue.semanticAnchorId, out Vector3 anchorPosition))
+            {
+                Vector2 resolvedStart = new Vector2(anchorPosition.x, anchorPosition.y);
+                if (_cue.startPositionIsSemanticAnchorOffset)
+                {
+                    resolvedStart += _cue.startPosition;
+                }
+
+                return new Vector3(resolvedStart.x, resolvedStart.y, transform.position.z);
+            }
+
+            return new Vector3(_cue.startPosition.x, _cue.startPosition.y, transform.position.z);
+        }
+
+        private bool TryAdvanceCueWithRoamController(SpringDay1DirectorPathPoint point, Vector3 targetPosition)
+        {
+            if (_roamController == null || !_cue.suspendRoam)
+            {
+                return false;
+            }
+
+            Vector2 target2D = new Vector2(targetPosition.x, targetPosition.y);
+            float distance = Vector2.Distance(transform.position, target2D);
+            if (distance <= CueArrivalDistance)
+            {
+                _roamController.SnapToTarget(target2D, point.facing);
+                _roamController.HaltStoryControlMotion(preserveResumeAutonomousRoamWhenReleased: false);
+                ApplyFacingOrLookAt(point.lookAtTargetName, point.facing);
+                _holdTimer = Mathf.Max(0f, point.holdSeconds);
+                _pathIndex++;
+                _hasIssuedTravelTarget = false;
+                return true;
+            }
+
+            bool shouldIssueTravel = !_hasIssuedTravelTarget
+                || Vector2.Distance(_issuedTravelTarget, target2D) > 0.01f
+                || !_roamController.IsResidentScriptedMoveActive;
+            if (!shouldIssueTravel)
+            {
+                if (_roamController.IsResidentScriptedMovePaused)
+                {
+                    _roamController.ResumeStoryControlMotion();
+                }
+
+                return true;
+            }
+
+            _roamController.ResumeStoryControlMotion();
+            if (_roamController.RequestStageTravel(
+                SpringDay1DirectorNpcTakeover.OwnerKey,
+                transform.position,
+                target2D,
+                retargetTolerance: CueArrivalDistance,
+                resumeAutonomousRoamWhenReleased: false))
+            {
+                _issuedTravelTarget = target2D;
+                _hasIssuedTravelTarget = true;
+                return true;
+            }
+
+            _hasIssuedTravelTarget = false;
+            return false;
+        }
+
+        private void StopCurrentCueMotion()
+        {
+            if (_roamController != null && _cue != null && _cue.suspendRoam)
+            {
+                _roamController.HaltStoryControlMotion(preserveResumeAutonomousRoamWhenReleased: false);
+                _hasIssuedTravelTarget = false;
+            }
+
+            if (_motionController != null)
+            {
+                _motionController.StopMotion();
+            }
+        }
+
+        private SpringDay1DirectorPathPoint ResolveLastCuePoint()
+        {
+            if (_cue?.path == null || _cue.path.Length == 0)
+            {
+                return null;
+            }
+
+            for (int index = _cue.path.Length - 1; index >= 0; index--)
+            {
+                if (_cue.path[index] != null)
+                {
+                    return _cue.path[index];
+                }
+            }
+
+            return null;
         }
 
         private void CacheComponents()
@@ -935,25 +1187,40 @@ namespace Sunset.Story
                 return;
             }
 
-            if (!string.IsNullOrWhiteSpace(lookAtTargetName))
+            Transform lookTarget = ResolveLookTargetTransform(lookAtTargetName);
+            if (lookTarget != null)
             {
-                GameObject target = GameObject.Find(lookAtTargetName.Trim());
-                if (target != null)
+                Vector3 delta = lookTarget.position - transform.position;
+                Vector2 direction = new Vector2(delta.x, delta.y);
+                if (direction.sqrMagnitude > 0.0001f)
                 {
-                    Vector3 delta = target.transform.position - transform.position;
-                    Vector2 direction = new Vector2(delta.x, delta.y);
-                    if (direction.sqrMagnitude > 0.0001f)
-                    {
-                        _motionController.SetFacingDirection(direction);
-                        return;
-                    }
+                    _motionController.ApplyIdleFacing(direction);
+                    return;
                 }
             }
 
             if (fallbackFacing.sqrMagnitude > 0.0001f)
             {
-                _motionController.SetFacingDirection(fallbackFacing);
+                _motionController.ApplyIdleFacing(fallbackFacing);
             }
+        }
+
+        private static Transform ResolveLookTargetTransform(string lookAtTargetName)
+        {
+            if (string.IsNullOrWhiteSpace(lookAtTargetName))
+            {
+                return null;
+            }
+
+            string trimmed = lookAtTargetName.Trim();
+            if (string.Equals(trimmed, StoryPlayerLookTargetToken, StringComparison.Ordinal))
+            {
+                PlayerMovement playerMovement = FindFirstObjectByType<PlayerMovement>(FindObjectsInactive.Include);
+                return playerMovement != null ? playerMovement.transform : null;
+            }
+
+            GameObject target = GameObject.Find(trimmed);
+            return target != null ? target.transform : null;
         }
     }
 
@@ -966,9 +1233,11 @@ namespace Sunset.Story
         private NPCMotionController _motionController;
         private SpringDay1DirectorNpcTakeover _takeover;
         private SpringDay1DirectorPlayerRehearsalLock _playerLock;
+        private SpringDay1DirectorStagingPlayback _playback;
         private Vector2 _rehearsalInput;
         private bool _sprintHeld;
         private float _lastEditorInputAt = float.NegativeInfinity;
+        private bool _playbackWasEnabled;
 
         public void Configure(float speed)
         {
@@ -997,6 +1266,13 @@ namespace Sunset.Story
                 _playerLock = gameObject.AddComponent<SpringDay1DirectorPlayerRehearsalLock>();
             }
 
+            _playback = GetComponent<SpringDay1DirectorStagingPlayback>();
+            _playbackWasEnabled = _playback != null && _playback.enabled;
+            if (_playbackWasEnabled)
+            {
+                _playback.enabled = false;
+            }
+
             _takeover.Acquire();
             _playerLock.Acquire();
         }
@@ -1011,6 +1287,11 @@ namespace Sunset.Story
             if (_takeover != null)
             {
                 _takeover.Release();
+            }
+
+            if (_playback != null)
+            {
+                _playback.enabled = _playbackWasEnabled;
             }
 
             if (_playerLock != null)
@@ -1049,8 +1330,7 @@ namespace Sunset.Story
             if (_motionController != null)
             {
                 Vector2 velocity = new Vector2(delta.x, delta.y) / Mathf.Max(Time.deltaTime, 0.0001f);
-                _motionController.SetExternalVelocity(velocity);
-                _motionController.SetFacingDirection(input);
+                _motionController.ApplyDirectedMotion(velocity, input);
             }
         }
     }

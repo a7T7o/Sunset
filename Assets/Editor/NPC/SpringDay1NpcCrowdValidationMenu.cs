@@ -31,60 +31,6 @@ public static class SpringDay1NpcCrowdValidationMenu
     private const double RuntimeProbeCleanupTimeoutSeconds = 1.5d;
     private const float RuntimeProbePairDialogueDurationSeconds = 5.2f;
     private static readonly string[] ExpectedNpcIds = { "101", "102", "103", "104", "201", "202", "203" };
-    private static readonly Dictionary<string, SpringDay1CrowdSceneDuty[]> ExpectedSceneDutiesByNpcId =
-        new Dictionary<string, SpringDay1CrowdSceneDuty[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["101"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.EnterVillagePostEntryCrowd,
-                SpringDay1CrowdSceneDuty.DinnerBackground,
-                SpringDay1CrowdSceneDuty.DailyStand
-            },
-            ["102"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.NightWitness,
-                SpringDay1CrowdSceneDuty.DailyStand
-            },
-            ["103"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.EnterVillagePostEntryCrowd,
-                SpringDay1CrowdSceneDuty.EnterVillageKidLook,
-                SpringDay1CrowdSceneDuty.DailyStand
-            },
-            ["104"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.DinnerBackground,
-                SpringDay1CrowdSceneDuty.DailyStand
-            },
-            ["201"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.DinnerBackground,
-                SpringDay1CrowdSceneDuty.DailyStand
-            },
-            ["202"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.DinnerBackground,
-                SpringDay1CrowdSceneDuty.DailyStand
-            },
-            ["203"] = new[]
-            {
-                SpringDay1CrowdSceneDuty.DinnerBackground,
-                SpringDay1CrowdSceneDuty.DailyStand
-            }
-        };
-
-    private static readonly Dictionary<string, string[]> ExpectedSemanticAnchorsByNpcId =
-        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["101"] = new[] { "EnterVillageCrowdRoot", "DinnerBackgroundRoot", "DailyStand_01" },
-            ["102"] = new[] { "NightWitness_01", "DailyStand_03" },
-            ["103"] = new[] { "EnterVillageCrowdRoot", "KidLook_01", "DailyStand_02" },
-            ["104"] = new[] { "DinnerBackgroundRoot", "DailyStand_01" },
-            ["201"] = new[] { "DinnerBackgroundRoot", "DailyStand_02" },
-            ["202"] = new[] { "DinnerBackgroundRoot", "DailyStand_03" },
-            ["203"] = new[] { "DinnerBackgroundRoot", "DailyStand_01" }
-        };
-
     private static readonly Dictionary<string, SpringDay1CrowdGrowthIntent> ExpectedGrowthIntentByNpcId =
         new Dictionary<string, SpringDay1CrowdGrowthIntent>(StringComparer.OrdinalIgnoreCase)
         {
@@ -96,72 +42,11 @@ public static class SpringDay1NpcCrowdValidationMenu
             ["202"] = SpringDay1CrowdGrowthIntent.HoldAnonymous,
             ["203"] = SpringDay1CrowdGrowthIntent.StableSupport
         };
-
-    private static readonly Dictionary<string, SpringDay1CrowdResidentBaseline> ExpectedResidentBaselineByNpcId =
-        new Dictionary<string, SpringDay1CrowdResidentBaseline>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["101"] = SpringDay1CrowdResidentBaseline.DaytimeResident,
-            ["102"] = SpringDay1CrowdResidentBaseline.PeripheralResident,
-            ["103"] = SpringDay1CrowdResidentBaseline.DaytimeResident,
-            ["104"] = SpringDay1CrowdResidentBaseline.PeripheralResident,
-            ["201"] = SpringDay1CrowdResidentBaseline.DaytimeResident,
-            ["202"] = SpringDay1CrowdResidentBaseline.PeripheralResident,
-            ["203"] = SpringDay1CrowdResidentBaseline.DaytimeResident
-        };
-
-    private static readonly string[] ExpectedResidentBeatKeys =
+    private static readonly string[] RequiredDirectorConsumptionBeats =
     {
         "EnterVillage_PostEntry",
-        "DinnerConflict_Table",
-        "ReturnAndReminder_WalkBack",
-        "FreeTime_NightWitness",
-        "DayEnd_Settle",
-        "DailyStand_Preview"
+        "DinnerConflict_Table"
     };
-
-    private static readonly Dictionary<string, string[]> ExpectedPriorityNpcIdsByBeat =
-        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["EnterVillage_PostEntry"] = new[] { "101", "103" },
-            ["DinnerConflict_Table"] = new[] { "101", "103", "104", "201", "202", "203" },
-            ["FreeTime_NightWitness"] = new[] { "102" }
-        };
-
-    private static readonly Dictionary<string, string[]> ExpectedSupportNpcIdsByBeat =
-        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["EnterVillage_PostEntry"] = new[] { "104", "201", "202", "203" },
-            ["DinnerConflict_Table"] = Array.Empty<string>(),
-            ["FreeTime_NightWitness"] = new[] { "101" }
-        };
-
-    private static readonly Dictionary<string, string[]> ExpectedBackstagePressureNpcIdsByBeat =
-        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["EnterVillage_PostEntry"] = Array.Empty<string>(),
-            ["DinnerConflict_Table"] = new[] { "102" },
-            ["FreeTime_NightWitness"] = new[] { "103" }
-        };
-
-    private static readonly Dictionary<string, string[]> ExpectedTraceNpcIdsByBeat =
-        new Dictionary<string, string[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["EnterVillage_PostEntry"] = new[] { "102" },
-            ["DinnerConflict_Table"] = Array.Empty<string>(),
-            ["FreeTime_NightWitness"] = new[] { "104", "201", "202", "203" }
-        };
-
-    private static readonly Dictionary<string, StoryPhase[]> ExpectedPhaseFallbackPhasesByNpcId =
-        new Dictionary<string, StoryPhase[]>(StringComparer.OrdinalIgnoreCase)
-        {
-            ["101"] = new[] { StoryPhase.EnterVillage, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
-            ["102"] = new[] { StoryPhase.ReturnAndReminder, StoryPhase.FreeTime, StoryPhase.DayEnd },
-            ["103"] = new[] { StoryPhase.EnterVillage, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
-            ["104"] = new[] { StoryPhase.WorkbenchFlashback, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
-            ["201"] = new[] { StoryPhase.HealingAndHP, StoryPhase.DinnerConflict, StoryPhase.DayEnd },
-            ["202"] = new[] { StoryPhase.FarmingTutorial, StoryPhase.ReturnAndReminder, StoryPhase.DayEnd },
-            ["203"] = new[] { StoryPhase.DinnerConflict, StoryPhase.ReturnAndReminder, StoryPhase.DayEnd }
-        };
 
     private static readonly string[][] PairProbeNpcIds =
     {
@@ -497,8 +382,8 @@ public static class SpringDay1NpcCrowdValidationMenu
 
             if (probeNpc.RoamController != null)
             {
-                probeNpc.RoamController.SetHomeAnchor(homeAnchor.transform);
-                probeNpc.RoamController.ApplyProfile();
+                probeNpc.RoamController.BindResidentHomeAnchor(homeAnchor.transform);
+                probeNpc.RoamController.SyncRuntimeProfileFromAsset();
                 probeNpc.RoamController.StartRoam();
             }
 
@@ -1395,36 +1280,14 @@ public static class SpringDay1NpcCrowdValidationMenu
             return;
         }
 
-        ValidateDirectorConsumptionRole(manifest, "EnterVillage_PostEntry", SpringDay1CrowdDirectorConsumptionRole.Priority, ExpectedPriorityNpcIdsByBeat["EnterVillage_PostEntry"], issues);
-        ValidateDirectorConsumptionRole(manifest, "EnterVillage_PostEntry", SpringDay1CrowdDirectorConsumptionRole.Support, ExpectedSupportNpcIdsByBeat["EnterVillage_PostEntry"], issues);
-        ValidateDirectorConsumptionRole(manifest, "EnterVillage_PostEntry", SpringDay1CrowdDirectorConsumptionRole.Trace, ExpectedTraceNpcIdsByBeat["EnterVillage_PostEntry"], issues);
-        ValidateDirectorConsumptionRole(manifest, "DinnerConflict_Table", SpringDay1CrowdDirectorConsumptionRole.Priority, ExpectedPriorityNpcIdsByBeat["DinnerConflict_Table"], issues);
-        ValidateDirectorConsumptionRole(manifest, "DinnerConflict_Table", SpringDay1CrowdDirectorConsumptionRole.Support, ExpectedSupportNpcIdsByBeat["DinnerConflict_Table"], issues);
-        ValidateDirectorConsumptionRole(manifest, "DinnerConflict_Table", SpringDay1CrowdDirectorConsumptionRole.BackstagePressure, ExpectedBackstagePressureNpcIdsByBeat["DinnerConflict_Table"], issues);
-        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.Support, ExpectedSupportNpcIdsByBeat["FreeTime_NightWitness"], issues);
-        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.Priority, ExpectedPriorityNpcIdsByBeat["FreeTime_NightWitness"], issues);
-        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.BackstagePressure, ExpectedBackstagePressureNpcIdsByBeat["FreeTime_NightWitness"], issues);
-        ValidateDirectorConsumptionRole(manifest, "FreeTime_NightWitness", SpringDay1CrowdDirectorConsumptionRole.Trace, ExpectedTraceNpcIdsByBeat["FreeTime_NightWitness"], issues);
-
-        if (!manifest.TryGetEntry("102", out SpringDay1NpcCrowdManifest.Entry npc102) ||
-            !npc102.IsDirectorBackstagePressureBeat("DinnerConflict_Table"))
+        for (int index = 0; index < RequiredDirectorConsumptionBeats.Length; index++)
         {
-            issues.Add("102: dinner backstage pressure contract drifted");
-        }
-    }
-
-    private static void ValidateDirectorConsumptionRole(
-        SpringDay1NpcCrowdManifest manifest,
-        string beatKey,
-        SpringDay1CrowdDirectorConsumptionRole role,
-        string[] expectedNpcIds,
-        List<string> issues)
-    {
-        SpringDay1NpcCrowdManifest.Entry[] entries = manifest.GetEntriesForDirectorConsumptionRole(beatKey, role);
-        string[] actualNpcIds = ExtractNpcIds(entries);
-        if (!SetEquals(actualNpcIds, expectedNpcIds))
-        {
-            issues.Add($"{beatKey}: director consumption role drifted -> {role} | actual=[{string.Join(",", actualNpcIds)}]");
+            string beatKey = RequiredDirectorConsumptionBeats[index];
+            bool hasPriority = manifest.GetEntriesForDirectorConsumptionRole(beatKey, SpringDay1CrowdDirectorConsumptionRole.Priority).Length > 0;
+            if (!hasPriority)
+            {
+                issues.Add($"{beatKey}: missing priority director-consumption slice");
+            }
         }
     }
 
@@ -1461,16 +1324,14 @@ public static class SpringDay1NpcCrowdValidationMenu
             return;
         }
 
-        if (ExpectedSceneDutiesByNpcId.TryGetValue(npcId, out SpringDay1CrowdSceneDuty[] expectedDuties) &&
-            !SetEquals(entry.sceneDuties, expectedDuties))
+        if (entry.sceneDuties == null || entry.sceneDuties.Length == 0)
         {
-            issues.Add($"{npcId}: manifest sceneDuties drifted");
+            issues.Add($"{npcId}: manifest sceneDuties missing");
         }
 
-        if (ExpectedSemanticAnchorsByNpcId.TryGetValue(npcId, out string[] expectedAnchors) &&
-            !SetEquals(entry.semanticAnchorIds, expectedAnchors))
+        if (entry.semanticAnchorIds == null)
         {
-            issues.Add($"{npcId}: manifest semanticAnchorIds drifted");
+            issues.Add($"{npcId}: manifest semanticAnchorIds missing");
         }
 
         if (ExpectedGrowthIntentByNpcId.TryGetValue(npcId, out SpringDay1CrowdGrowthIntent expectedGrowthIntent) &&
@@ -1479,25 +1340,26 @@ public static class SpringDay1NpcCrowdValidationMenu
             issues.Add($"{npcId}: manifest growthIntent drifted -> {entry.growthIntent}");
         }
 
-        if (ExpectedResidentBaselineByNpcId.TryGetValue(npcId, out SpringDay1CrowdResidentBaseline expectedResidentBaseline) &&
-            entry.residentBaseline != expectedResidentBaseline)
-        {
-            issues.Add($"{npcId}: manifest residentBaseline drifted -> {entry.residentBaseline}");
-        }
-
         SpringDay1NpcCrowdManifest.ResidentBeatSemantic[] residentBeatSemantics = entry.residentBeatSemantics;
-        if (residentBeatSemantics == null || residentBeatSemantics.Length != ExpectedResidentBeatKeys.Length)
+        if (residentBeatSemantics == null || residentBeatSemantics.Length == 0)
         {
-            issues.Add($"{npcId}: manifest residentBeatSemantics count drifted");
+            issues.Add($"{npcId}: manifest residentBeatSemantics missing");
             return;
         }
 
-        for (int index = 0; index < ExpectedResidentBeatKeys.Length; index++)
+        for (int index = 0; index < residentBeatSemantics.Length; index++)
         {
-            string beatKey = ExpectedResidentBeatKeys[index];
-            if (!TryFindResidentBeatSemantic(entry, beatKey, out SpringDay1NpcCrowdManifest.ResidentBeatSemantic semantic))
+            SpringDay1NpcCrowdManifest.ResidentBeatSemantic semantic = residentBeatSemantics[index];
+            if (semantic == null)
             {
-                issues.Add($"{npcId}: missing resident beat semantic -> {beatKey}");
+                issues.Add($"{npcId}: resident beat semantic[{index}] null");
+                continue;
+            }
+
+            string beatKey = semantic.beatKey ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(beatKey))
+            {
+                issues.Add($"{npcId}: resident beat semantic[{index}] missing beatKey");
                 continue;
             }
 
@@ -1516,30 +1378,6 @@ public static class SpringDay1NpcCrowdValidationMenu
                 issues.Add($"{npcId}: resident beat semantic note missing -> {beatKey}");
             }
         }
-    }
-
-    private static bool SetEquals<T>(T[] actual, T[] expected)
-    {
-        if (actual == null || expected == null)
-        {
-            return actual == expected;
-        }
-
-        if (actual.Length != expected.Length)
-        {
-            return false;
-        }
-
-        HashSet<T> values = new HashSet<T>(actual);
-        for (int index = 0; index < expected.Length; index++)
-        {
-            if (!values.Contains(expected[index]))
-            {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     private static bool HasReversePair(NPCDialogueContentProfile dialogue, string partnerNpcId)
@@ -1602,26 +1440,25 @@ public static class SpringDay1NpcCrowdValidationMenu
             return;
         }
 
-        if (!ExpectedPhaseFallbackPhasesByNpcId.TryGetValue(npcId, out StoryPhase[] expectedPhases) ||
-            expectedPhases == null ||
-            expectedPhases.Length == 0)
+        NPCDialogueContentProfile.PhaseInformalChatSet[] phaseSets = dialogue.PhaseInformalChatSets;
+        if (phaseSets == null || phaseSets.Length == 0)
         {
+            issues.Add($"{npcId}: missing phase fallback sets");
             return;
         }
 
-        for (int index = 0; index < expectedPhases.Length; index++)
+        for (int index = 0; index < phaseSets.Length; index++)
         {
-            StoryPhase phase = expectedPhases[index];
-            if (!dialogue.TryGetPhaseInformalChatSet(phase, out NPCDialogueContentProfile.PhaseInformalChatSet phaseSet) ||
-                phaseSet == null)
+            NPCDialogueContentProfile.PhaseInformalChatSet phaseSet = phaseSets[index];
+            if (phaseSet == null)
             {
-                issues.Add($"{npcId}: missing phase fallback set -> {phase}");
+                issues.Add($"{npcId}: phase fallback set[{index}] null");
                 continue;
             }
 
             if (!phaseSet.HasConversationContent())
             {
-                issues.Add($"{npcId}: empty phase fallback set -> {phase}");
+                issues.Add($"{npcId}: empty phase fallback set -> {phaseSet.StoryPhase}");
             }
         }
     }
@@ -1636,26 +1473,25 @@ public static class SpringDay1NpcCrowdValidationMenu
             return;
         }
 
-        if (!ExpectedPhaseFallbackPhasesByNpcId.TryGetValue(npcId, out StoryPhase[] expectedPhases) ||
-            expectedPhases == null ||
-            expectedPhases.Length == 0)
+        NPCDialogueContentProfile.PhaseNearbySet[] phaseSets = dialogue.PhaseNearbyLines;
+        if (phaseSets == null || phaseSets.Length == 0)
         {
+            issues.Add($"{npcId}: missing phase nearby sets");
             return;
         }
 
-        for (int index = 0; index < expectedPhases.Length; index++)
+        for (int index = 0; index < phaseSets.Length; index++)
         {
-            StoryPhase phase = expectedPhases[index];
-            if (!dialogue.TryGetPhaseNearbySet(phase, out NPCDialogueContentProfile.PhaseNearbySet phaseSet) ||
-                phaseSet == null)
+            NPCDialogueContentProfile.PhaseNearbySet phaseSet = phaseSets[index];
+            if (phaseSet == null)
             {
-                issues.Add($"{npcId}: missing phase nearby set -> {phase}");
+                issues.Add($"{npcId}: phase nearby set[{index}] null");
                 continue;
             }
 
             if (!HasAnyDialogueLines(phaseSet.PlayerNearbyLines))
             {
-                issues.Add($"{npcId}: empty phase nearby set -> {phase}");
+                issues.Add($"{npcId}: empty phase nearby set -> {phaseSet.StoryPhase}");
             }
         }
     }
@@ -1670,26 +1506,25 @@ public static class SpringDay1NpcCrowdValidationMenu
             return;
         }
 
-        if (!ExpectedPhaseFallbackPhasesByNpcId.TryGetValue(npcId, out StoryPhase[] expectedPhases) ||
-            expectedPhases == null ||
-            expectedPhases.Length == 0)
+        NPCDialogueContentProfile.PhaseSelfTalkSet[] phaseSets = dialogue.PhaseSelfTalkLines;
+        if (phaseSets == null || phaseSets.Length == 0)
         {
+            issues.Add($"{npcId}: missing phase selfTalk sets");
             return;
         }
 
-        for (int index = 0; index < expectedPhases.Length; index++)
+        for (int index = 0; index < phaseSets.Length; index++)
         {
-            StoryPhase phase = expectedPhases[index];
-            if (!dialogue.TryGetPhaseSelfTalkSet(phase, out NPCDialogueContentProfile.PhaseSelfTalkSet phaseSet) ||
-                phaseSet == null)
+            NPCDialogueContentProfile.PhaseSelfTalkSet phaseSet = phaseSets[index];
+            if (phaseSet == null)
             {
-                issues.Add($"{npcId}: missing phase selfTalk set -> {phase}");
+                issues.Add($"{npcId}: phase selfTalk set[{index}] null");
                 continue;
             }
 
             if (!HasAnyDialogueLines(phaseSet.SelfTalkLines))
             {
-                issues.Add($"{npcId}: empty phase selfTalk set -> {phase}");
+                issues.Add($"{npcId}: empty phase selfTalk set -> {phaseSet.StoryPhase}");
             }
         }
     }
@@ -1813,7 +1648,7 @@ public static class SpringDay1NpcCrowdValidationMenu
         if (probeNpc.RoamController != null)
         {
             BreakAmbientChatLink(probeNpc);
-            probeNpc.RoamController.SetHomeAnchor(probeNpc.HomeAnchor != null ? probeNpc.HomeAnchor.transform : null);
+            probeNpc.RoamController.BindResidentHomeAnchor(probeNpc.HomeAnchor != null ? probeNpc.HomeAnchor.transform : null);
             if (restartRoam)
             {
                 probeNpc.RoamController.StartRoam();

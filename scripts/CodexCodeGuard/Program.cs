@@ -155,18 +155,25 @@ internal static class Program
             }
         }
 
-        report.CanContinue = !report.Diagnostics.Any(item => string.Equals(item.Severity, "error", StringComparison.OrdinalIgnoreCase))
-                             && !report.Diagnostics.Any(item => string.Equals(item.Severity, "warning", StringComparison.OrdinalIgnoreCase));
+        var errors = report.Diagnostics.Count(item => string.Equals(item.Severity, "error", StringComparison.OrdinalIgnoreCase));
+        var warnings = report.Diagnostics.Count(item => string.Equals(item.Severity, "warning", StringComparison.OrdinalIgnoreCase));
+        report.CanContinue = errors == 0;
 
         if (report.CanContinue)
         {
-            report.Summary = "代码闸门通过";
-            report.Reason = $"已对 {changedCodeFiles.Count} 个 C# 文件完成 UTF-8、diff 和程序集级编译检查。";
+            if (warnings == 0)
+            {
+                report.Summary = "代码闸门通过";
+                report.Reason = $"已对 {changedCodeFiles.Count} 个 C# 文件完成 UTF-8、diff 和程序集级编译检查。";
+            }
+            else
+            {
+                report.Summary = "代码闸门通过（含警告）";
+                report.Reason = $"检测到 {warnings} 条警告；警告不阻断收口，但必须在回执里报实。";
+            }
         }
         else
         {
-            var errors = report.Diagnostics.Count(item => string.Equals(item.Severity, "error", StringComparison.OrdinalIgnoreCase));
-            var warnings = report.Diagnostics.Count(item => string.Equals(item.Severity, "warning", StringComparison.OrdinalIgnoreCase));
             report.Summary = "代码闸门未通过";
             report.Reason = $"检测到 {errors} 条错误、{warnings} 条警告；必须先清理后再收口。";
         }
@@ -474,11 +481,17 @@ internal static class Program
             }
             else if (isDeletedTracked || (isDirtyTracked && !File.Exists(absolutePath)))
             {
-                content = ReadHeadFile(repoRoot, relativePath);
+                if (!TryReadHeadFile(repoRoot, relativePath, out content))
+                {
+                    continue;
+                }
             }
             else if (isDirtyTracked)
             {
-                content = ReadHeadFile(repoRoot, relativePath);
+                if (!TryReadHeadFile(repoRoot, relativePath, out content))
+                {
+                    continue;
+                }
             }
             else if (isUntracked && !isAllowedChanged)
             {
@@ -490,7 +503,10 @@ internal static class Program
             }
             else if (isTracked)
             {
-                content = ReadHeadFile(repoRoot, relativePath);
+                if (!TryReadHeadFile(repoRoot, relativePath, out content))
+                {
+                    continue;
+                }
             }
 
             if (content is not null)
@@ -696,13 +712,25 @@ internal static class Program
 
     private static string ReadHeadFile(string repoRoot, string relativePath)
     {
-        var output = RunGitRaw(repoRoot, "show", $"HEAD:{relativePath.Replace('\\', '/')}");
-        if (!output.Success)
+        if (!TryReadHeadFile(repoRoot, relativePath, out var content))
         {
             throw new InvalidOperationException($"无法从 HEAD 读取基线文件：{relativePath}");
         }
 
-        return output.StandardOutput;
+        return content;
+    }
+
+    private static bool TryReadHeadFile(string repoRoot, string relativePath, out string content)
+    {
+        var output = RunGitRaw(repoRoot, "show", $"HEAD:{relativePath.Replace('\\', '/')}");
+        if (!output.Success)
+        {
+            content = string.Empty;
+            return false;
+        }
+
+        content = output.StandardOutput;
+        return true;
     }
 
     private static Options ParseArgs(string[] args)

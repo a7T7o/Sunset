@@ -102,6 +102,7 @@ public class TilemapToColliderObjects : EditorWindow
     private string containerSuffix = "_ConvertedObjects";
     private GenerationMode generationMode = GenerationMode.PerTileObjects;
     private bool createSpriteRenderer = true;
+    private bool createColliders = true;
     private bool copyTileColor = true;
     private bool copySortingFromTilemap = true;
     private ColliderMode colliderMode = ColliderMode.PolygonCollider2D;
@@ -177,6 +178,7 @@ public class TilemapToColliderObjects : EditorWindow
     public static void RunGridSelectionConversion(
         GenerationMode generationMode,
         bool createSpriteRenderer,
+        bool createColliders,
         bool copyTileColor,
         bool copySortingFromTilemap,
         ColliderMode colliderMode,
@@ -198,6 +200,7 @@ public class TilemapToColliderObjects : EditorWindow
             converter.useCurrentGridSelection = true;
             converter.generationMode = generationMode;
             converter.createSpriteRenderer = createSpriteRenderer;
+            converter.createColliders = createColliders;
             converter.copyTileColor = copyTileColor;
             converter.copySortingFromTilemap = copySortingFromTilemap;
             converter.colliderMode = colliderMode;
@@ -238,6 +241,7 @@ public class TilemapToColliderObjects : EditorWindow
             "也兼容旧工作流：在 Hierarchy 选中 Tilemap 后手动抓取。\n" +
             "逐格模式会一格一个物体。\n" +
             "植被整体模式会把连在一起的 tile 切成一丛丛对象，并把整丛当一个排序单位。\n" +
+            "碰撞体现在可以按需开关；你可以只生排序用对象，不带 Collider。\n" +
             "默认只新增物体，不会清空原 Tile；只有勾选“清空源 Tile”时才会改动当前场景内容。",
             MessageType.Info);
 
@@ -339,11 +343,18 @@ public class TilemapToColliderObjects : EditorWindow
         }
 
         EditorGUILayout.Space();
-        colliderMode = (ColliderMode)EditorGUILayout.EnumPopup("碰撞体类型", colliderMode);
-        colliderIsTrigger = EditorGUILayout.Toggle("Collider Is Trigger", colliderIsTrigger);
+        createColliders = EditorGUILayout.Toggle("生成碰撞体", createColliders);
+        using (new EditorGUI.DisabledScope(!createColliders))
+        {
+            colliderMode = (ColliderMode)EditorGUILayout.EnumPopup("碰撞体类型", colliderMode);
+            colliderIsTrigger = EditorGUILayout.Toggle("Collider Is Trigger", colliderIsTrigger);
+        }
 
-        addRigidbody2D = EditorGUILayout.Toggle("附加 Rigidbody2D", addRigidbody2D);
-        using (new EditorGUI.DisabledScope(!addRigidbody2D))
+        using (new EditorGUI.DisabledScope(!createColliders))
+        {
+            addRigidbody2D = EditorGUILayout.Toggle("附加 Rigidbody2D", addRigidbody2D);
+        }
+        using (new EditorGUI.DisabledScope(!createColliders || !addRigidbody2D))
         {
             rigidbodyType = (RigidbodyType2D)EditorGUILayout.EnumPopup("Rigidbody 类型", rigidbodyType);
         }
@@ -375,6 +386,16 @@ public class TilemapToColliderObjects : EditorWindow
         if (!createSpriteRenderer)
         {
             EditorGUILayout.HelpBox("当前会生成“只有碰撞体”的物体，不会显示原 Tile 的画面。", MessageType.Info);
+        }
+
+        if (!createColliders)
+        {
+            EditorGUILayout.HelpBox("当前不会生成碰撞体，只会生成可见对象与排序结构。", MessageType.Info);
+        }
+
+        if (!createColliders && addRigidbody2D)
+        {
+            EditorGUILayout.HelpBox("碰撞体关闭时，Rigidbody2D 也会自动跳过，不会实际生成。", MessageType.Warning);
         }
 
         if (generationMode == GenerationMode.VegetationClusters)
@@ -916,7 +937,7 @@ public class TilemapToColliderObjects : EditorWindow
             }
         }
 
-        if (addRigidbody2D)
+        if (addRigidbody2D && createColliders)
         {
             Rigidbody2D rigidbody2D = Undo.AddComponent<Rigidbody2D>(root);
             rigidbody2D.bodyType = rigidbodyType;
@@ -1266,36 +1287,39 @@ public class TilemapToColliderObjects : EditorWindow
             }
         }
 
-        switch (actualColliderMode)
+        if (createColliders)
         {
-            case ColliderMode.PolygonCollider2D:
+            switch (actualColliderMode)
             {
-                PolygonCollider2D polygonCollider = Undo.AddComponent<PolygonCollider2D>(cellObject);
-                polygonCollider.isTrigger = colliderIsTrigger;
-                break;
-            }
-            default:
-            {
-                BoxCollider2D boxCollider = Undo.AddComponent<BoxCollider2D>(cellObject);
-                boxCollider.isTrigger = colliderIsTrigger;
-
-                if (sprite != null)
+                case ColliderMode.PolygonCollider2D:
                 {
-                    boxCollider.size = sprite.bounds.size;
-                    boxCollider.offset = sprite.bounds.center;
+                    PolygonCollider2D polygonCollider = Undo.AddComponent<PolygonCollider2D>(cellObject);
+                    polygonCollider.isTrigger = colliderIsTrigger;
+                    break;
                 }
-                else
+                default:
                 {
-                    Vector3 cellSize = tilemap.layoutGrid.cellSize;
-                    boxCollider.size = new Vector2(cellSize.x, cellSize.y);
-                    boxCollider.offset = Vector2.zero;
-                }
+                    BoxCollider2D boxCollider = Undo.AddComponent<BoxCollider2D>(cellObject);
+                    boxCollider.isTrigger = colliderIsTrigger;
 
-                break;
+                    if (sprite != null)
+                    {
+                        boxCollider.size = sprite.bounds.size;
+                        boxCollider.offset = sprite.bounds.center;
+                    }
+                    else
+                    {
+                        Vector3 cellSize = tilemap.layoutGrid.cellSize;
+                        boxCollider.size = new Vector2(cellSize.x, cellSize.y);
+                        boxCollider.offset = Vector2.zero;
+                    }
+
+                    break;
+                }
             }
         }
 
-        if (createRigidbodyOnCell)
+        if (createRigidbodyOnCell && createColliders)
         {
             Rigidbody2D rigidbody2D = Undo.AddComponent<Rigidbody2D>(cellObject);
             rigidbody2D.bodyType = rigidbodyType;

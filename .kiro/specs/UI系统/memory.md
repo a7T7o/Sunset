@@ -973,3 +973,99 @@
   - docs 批 `Ready-To-Sync` 正常通过
   - 代码批 `Ready-To-Sync` 报 codeguard blocker 后未再硬撞
   - 当前已 `PARKED`
+
+## 2026-04-23 UI 上传续记｜第二波历史小批次只试 Tabs 新 panel/runtime-kit，卡在同根残留
+- 用户最新裁定：
+  - 第二波不再按“clearly-own 整批先交”推进，而是按真实开发历史一小刀一小刀上传；这轮只允许 `1` 个历史小批次。
+- 本轮唯一小批：
+  - `PackageMapOverviewPanel`
+  - `PackageNpcRelationshipPanel`
+  - `PackagePanelRuntimeUiKit`
+  - 及各自 `.meta`
+- 结果：
+  - 已真实尝试 pre-sync
+  - 没有提交、没有 push
+- 精确 blocker：
+  - 第一真实 blocker 不是 `CodexCodeGuard`
+  - 而是同根 `Assets/YYY_Scripts/UI/Tabs` 下还有未纳入本轮的 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 脏改
+  - 因此 preflight 直接以 `own roots remaining dirty` 阻断，本轮没进入第二层 codegate
+- 判断：
+  - 这 3 个新增 panel/helper 本身可视作同一历史创建批
+  - 但从 shared-root 白名单 sync 角度，它们并不是独立可交的小批，因为 `PackagePanelTabsUI.cs` 仍是同根接线残留
+- 边界：
+  - 本轮没有借机吞：
+    - `Assets/YYY_Scripts/UI/Inventory/*`
+    - `Assets/YYY_Scripts/UI/Toolbar/*`
+    - `Assets/YYY_Scripts/UI/Box/*`
+    - `Assets/YYY_Scripts/Story/UI/*`
+    - 也没有把 `PackagePanelTabsUI.cs` 一起带上
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：已跑，命中 blocker
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-23 UI 复核补记｜同一小批次 prompt 再次下发，保持停车
+- 我已重新读取同一份 `prompt_02`。
+- 复核结果：
+  - 当前仍是同一 Tabs 新 panel/runtime-kit 小批次
+  - 当前仍是同一个 same-root mixed blocker
+  - 当前 `thread-state` 仍为 `PARKED`
+- 处理：
+  - 本轮不重新发起第二次上传尝试
+  - 不切换到第二批
+  - 维持“已尝试过一次并已精确报死”的现场结论
+
+## 2026-04-24 UI 上传续记｜PackagePanelTabsUI 正式并入 Tabs 整合批，阻断改判为 CodeGuard
+- 用户最新裁定：
+  - 不再重跑 `prompt_02`；这轮只把 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 正式纳入同批核心件，按 `UI/Tabs` 根内整合批再做一次真实上传尝试。
+- 我这轮的批次判断：
+  - 正式承认 `PackagePanelTabsUI.cs` 属于这批核心件。
+  - 因为它自身直接安装：
+    - `PackageMapOverviewPanel`
+    - `PackageNpcRelationshipPanel`
+  - 所以这不是新的临时扩包，而是把前一轮 already-proven 的同根集成件补进来。
+- 本轮根内结果：
+  - `Assets/YYY_Scripts/UI/Tabs` 下相关现场只剩这 7 个文件
+  - 不再存在新的 same-root remaining dirty
+- 真实阻断：
+  - 新的第一真实 blocker 已经从 same-root mixed 切换成 `CodexCodeGuard`
+  - 3 个核心文件 `validate_script` 直接报：
+    - `CodexCodeGuard returned no JSON`
+  - `PackagePanelTabsUI.cs` 则只拿到：
+    - `assessment=unity_validation_pending`
+    - `mcp_fallback_reason=baseline_fail`
+- 边界：
+  - 本轮没有扩到：
+    - `Assets/YYY_Scripts/UI/Inventory/*`
+    - `Assets/YYY_Scripts/UI/Toolbar/*`
+    - `Assets/YYY_Scripts/UI/Box/*`
+    - `Assets/YYY_Scripts/Story/UI/*`
+- thread-state：
+  - `Begin-Slice`：已跑
+  - 因代码闸门已阻断，未进入 `Ready-To-Sync`
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-26 UI 复核续记｜工具修复后最小复核已证明确实进入真实业务 blocker
+- 用户要求：
+  - 只做 `UI/Tabs` 七文件在工具修复后的 `1` 次真实最小复核，不修业务代码，不换第二批。
+- 本轮结果：
+  - 已真实跑到 `Ready-To-Sync`
+  - 工具黑盒已消失，不再返回：
+    - `CodexCodeGuard returned no JSON`
+    - `baseline_fail`
+  - 当前新的第一真实 blocker 已明确是 `PackagePanelTabsUI.cs` 里的 `3` 条编译错误 + `1` 条 warning
+- 诊断摘要：
+  - `CS0103` x3：
+    - `PackageSaveSettingsPanel` 在 `53/67/215` 行不存在
+  - `CS0649` x1：
+    - `boxUIRoot` 在 `20` 行从未赋值
+- 判断：
+  - 这组现在已经从“工具 incident”降级成“真实业务 blocker”
+  - 不是 same-root mixed，也不是工具黑盒
+- 边界：
+  - 本轮没有修这些错误
+  - 也没有扩到 `Inventory / Toolbar / Story/UI`
+- thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：已跑
+  - `Park-Slice`：已跑，当前 `PARKED`

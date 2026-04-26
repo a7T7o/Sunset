@@ -1,4 +1,4 @@
-﻿# 导航检查线程记忆
+# 导航检查线程记忆
 
 ## 2026-03-29（严格复审 `V2 -15` 回执并改发 `-16`）
 
@@ -5198,3 +5198,53 @@
   - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
   - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
   - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`
+
+## 2026-04-23 16:52｜第二波历史小批次上传尝试：楼梯层切换簇被 own-root 扩根挡住
+- 当前主线目标：
+  - 只试 1 个历史小批次，不换第二批。
+- 本轮尝试批次：
+  - `StairLayerTransitionZone2D.cs`
+  - `StairLayerTransitionZone2D.cs.meta`
+  - `NavigationTraversalCore.cs.meta`
+- 历史批次判断：
+  - 这组不是临时拼包。
+  - 它对应 `2026-04-19` 的“楼梯层级切换最小脚本”历史一刀，只是今天按治理位要求缩成了最小 script/meta 子簇。
+- 实际结果：
+  - `Ready-To-Sync` 首次真实阻断就撞在 own-root 扩根：
+    - own root=`Assets/YYY_Scripts/Service/Navigation`
+    - remaining dirty=`NavGrid2D.cs / NavGrid2DStressTest.cs / NavigationAgentRegistry.cs`
+  - 所以这轮没有进入 commit / push。
+- 本轮明确未做：
+  - 没换第二个小批次
+  - 没顺手吞 `NavigationStaticPointValidationMenu.cs`
+  - 没顺手吞 `NavigationAvoidanceRulesValidationMenu.cs`
+  - 没顺手吞 `NpcLocomotionSurfaceAttribute.cs`
+- thread-state：
+  - `Begin-Slice -> Ready-To-Sync(blocked) -> Park-Slice`
+  - 当前=`PARKED`
+
+## 2026-04-24 01:59｜第三波切到 Service/Navigation 根内整合批，阻断升级成 CodexCodeGuard incident
+- 当前主线目标：
+  - 不重跑 `prompt_02`，改按 `prompt_03` 做 `Service/Navigation` 根内整合批唯一上传尝试。
+- 本轮切片：
+  - `StairLayerTransitionZone2D.cs`
+  - `StairLayerTransitionZone2D.cs.meta`
+  - `NavigationTraversalCore.cs.meta`
+  - `NavGrid2D.cs`
+  - `NavGrid2DStressTest.cs`
+  - `NavigationAgentRegistry.cs`
+- 本轮判断：
+  - 这批现在可以诚实视作 `Service/Navigation` 根内整合批，因为当前根内残留导航脏改刚好就是这 6 个文件。
+- 实际结果：
+  1. 已真实执行 `Begin-Slice`
+  2. 已真实执行 `Ready-To-Sync`
+  3. 这次首 blocker 不再是 same-root remaining dirty
+  4. 新首 blocker 变成：
+     - `CodexCodeGuard` 在 `Ready-To-Sync` 里未返回 JSON
+  5. 因此本轮没有进入 commit / push
+- 本轮明确未越权：
+  - 没扩到 `Editor` 导航菜单
+  - 没扩到 `NPC` 属性文件
+- thread-state：
+  - `Park-Slice` 已补
+  - 当前=`PARKED`

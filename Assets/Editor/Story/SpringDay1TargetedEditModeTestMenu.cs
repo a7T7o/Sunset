@@ -22,6 +22,9 @@ namespace Sunset.Editor.Story
         private const string PromptOverlayGuardMenuPath = "Sunset/Story/Validation/Run PromptOverlay Guard Tests";
         private const string StoryProgressMenuPath = "Sunset/Story/Validation/Run Story Progress Persistence Tests";
         private const string DirectorStagingMenuPath = "Sunset/Story/Validation/Run Director Staging Tests";
+        private const string DirectorStagingIncrementalMenuPath = "Sunset/Story/Validation/Run Director Staging Incremental Tests";
+        private const string DinnerContractMenuPath = "Sunset/Story/Validation/Run Dinner Contract Tests";
+        private const string UnifiedNightContractMenuPath = "Sunset/Story/Validation/Run Unified Night Contract Tests";
         private const string NpcFormalConsumptionMenuPath = "Sunset/Story/Validation/Run NPC Formal Consumption Tests";
         private const string Day1OwnerRegressionMenuPath = "Sunset/Story/Validation/Run Day1 Owner Regression Tests";
         private const string ResultFileName = "spring-day1-workbench-fallback-test.json";
@@ -35,6 +38,9 @@ namespace Sunset.Editor.Story
         private const string PromptOverlayGuardResultFileName = "spring-day1-prompt-overlay-guard-tests.json";
         private const string StoryProgressResultFileName = "spring-day1-story-progress-tests.json";
         private const string DirectorStagingResultFileName = "spring-day1-director-staging-tests.json";
+        private const string DirectorStagingIncrementalResultFileName = "spring-day1-director-staging-incremental-tests.json";
+        private const string DinnerContractResultFileName = "spring-day1-dinner-contract-tests.json";
+        private const string UnifiedNightContractResultFileName = "spring-day1-unified-night-contract-tests.json";
         private const string NpcFormalConsumptionResultFileName = "spring-day1-npc-formal-consumption-tests.json";
         private const string Day1OwnerRegressionResultFileName = "spring-day1-owner-regression-tests.json";
         private const string TargetTestName = "SpringDay1LateDayRuntimeTests.Director_WorkbenchFallback_ShouldNotMarkCraftObjectiveComplete";
@@ -108,15 +114,23 @@ namespace Sunset.Editor.Story
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldFallBackToTownAnchorContractWhenSemanticAnchorIsNotInLoadedScene",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldBindExistingResidentRootsWithoutProvisioningRuntimeOnes",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldBindSceneResidentInTownSceneWithoutRuntimeSpawn",
+            "SpringDay1DirectorStagingTests.Director_ShouldSnapStoryActorsToHomeAnchorsDuringPostTutorialExploreWindowInTown",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldNotPersistStoryDrivenReturnHomeSnapshotBeforeFreeTime",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldIgnoreStaleStoryDrivenReturnHomeSnapshotBeforeFreeTime",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldPreferTownSceneHomeAnchorOverForeignSceneDuplicate",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldThrottleReleasedTownResidentRecoveryAcrossMultiplePasses",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldTreatDayResidentsAsAlreadyAroundBeforeEnterVillage",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldOnlyHoldEnterVillagePostEntryCueWhileVillageGateDialogueIsActive",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldNotResnapResidentToBasePositionOnRepeatedBaselineSync",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldReleaseResidentBackToBasePoseAfterCueReleaseBeforeFreeTime",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldThrottleDaytimeYieldAcrossMultipleUpdates",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldQueueReturnHomeAfterCueReleaseDuringFreeTime",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldResumeRoamAfterReturnHomeCompletes",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldFallbackToStepReturnHomeWhenRoamControllerCannotStartPath",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldKeepReturnHomeSemanticWithoutTickRetryWhenNoDriveIsActive",
+            "SpringDay1DirectorStagingTests.NpcAutoRoamController_ShouldExposeFormalNavigationArrivalOnceForMatchingOwner",
+            "SpringDay1DirectorStagingTests.NpcAutoRoamController_ShouldExposeFormalNavigationRuntimeSignalsForActiveOwner",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldFinishReturnHomeFromFormalNavigationArrivalSignal",
             "SpringDay1DirectorStagingTests.CrowdDirector_ClockSchedule_ShouldStartReturnAtTwentyAndRestAtTwentyOne",
             "SpringDay1DirectorStagingTests.CrowdDirector_FreeTimeBeforeTwenty_ShouldReleaseNonPriorityResidentsToDefaultPresent",
             "SpringDay1DirectorStagingTests.CrowdDirector_FreeTimeBeforeTwenty_ShouldKeepPriorityWitnessInTakeoverReady",
@@ -144,14 +158,60 @@ namespace Sunset.Editor.Story
             "SpringDay1DirectorStagingTests.RehearsalDriver_ShouldPauseExistingPlaybackUntilDisabled",
             "SpringDay1DirectorStagingTests.CrowdDirector_ShouldHoldForActiveRehearsalDriver",
             "SpringDay1DirectorStagingTests.PlayerRehearsalLock_ShouldDisablePlayerMotionUntilRelease",
+            "SpringDay1DirectorStagingTests.BuildEscortCompanionTarget_ShouldMaintainExplicitFormationDistance",
+            "SpringDay1DirectorStagingTests.HealingBridge_ShouldUseSupportTransformAsProximityAnchor",
             "SpringDay1DirectorStagingTests.EscortTransition_ShouldRequireChiefAndCompanionReady"
+        };
+
+        private static readonly string[] DirectorStagingIncrementalTargetTestNames =
+        {
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldPreferTownSceneHomeAnchorOverForeignSceneDuplicate",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldThrottleReleasedTownResidentRecoveryAcrossMultiplePasses",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldThrottleDaytimeYieldAcrossMultipleUpdates"
+        };
+
+        private static readonly string[] DinnerContractTargetTestNames =
+        {
+            "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldNormalizeClockToSixPm",
+            "SpringDay1LateDayRuntimeTests.AlignTownDinnerGatheringActorsAndPlayer_ShouldOnlyMovePlayerAtDinnerEntry",
+            "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldKeepWaitingBeforeDinnerCueTimeout",
+            "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldForceAlignStoryActorsAfterDinnerCueTimeout",
+            "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldAlignActorsBeforeDinnerCueTimeoutCompletes",
+            "SpringDay1LateDayRuntimeTests.ActivateDinnerGatheringOnTownScene_ShouldPlaceStoryActorsAtAuthoredStartsOnPhaseEntry",
+            "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldNotReclaimThirdResidentIntoDirectorStoryActorPath"
+        };
+
+        private static readonly string[] UnifiedNightContractTargetTestNames =
+        {
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldQueueReturnHomeAtTwentyDuringFreeTime",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ClockSchedule_ShouldStartReturnAtTwentyAndRestAtTwentyOne",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldNotTreatTwentyOneAsReturnHomeContractWindow",
+            "SpringDay1DirectorStagingTests.CrowdDirector_RuntimeEntries_ShouldIncludeStoryActorsDuringFreeTimeNightContract",
+            "SpringDay1DirectorStagingTests.CrowdDirector_RuntimeEntries_ShouldIncludeStoryActorsDuringDinnerAndReminderContract",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldBindUnifiedNightRuntimeStoryActorsToOwnHomeAnchors",
+            "SpringDay1DirectorStagingTests.CrowdDirector_FindSceneResidentHomeAnchor_ShouldRejectResidentBodiesAsFallback",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldRestoreNightRestResidentsAtHomeAnchorWhenMorningReleases",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldNotKeepNightRestResidentsUnderCrowdScriptedOwner",
+            "SpringDay1DirectorStagingTests.Director_ShouldNotForceTownStoryActorsVisibleDuringResidentNightContract",
+            "SpringDay1DirectorStagingTests.Director_ShouldNotUseTownStoryActorModeForDinnerAndReminder",
+            "SpringDay1DirectorStagingTests.NpcAutoRoamController_ShouldExposeFormalNavigationArrivalOnceForMatchingOwner",
+            "SpringDay1DirectorStagingTests.NpcAutoRoamController_ShouldExposeFormalNavigationRuntimeSignalsForActiveOwner",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldFinishReturnHomeFromFormalNavigationArrivalSignal",
+            "SpringDay1DirectorStagingTests.CrowdDirector_ShouldKeepReturnHomeSemanticWithoutTickRetryWhenNoDriveIsActive",
+            "SpringDay1LateDayRuntimeTests.ActivateDinnerGatheringOnTownScene_ShouldPlaceStoryActorsAtAuthoredStartsOnPhaseEntry",
+            "SpringDay1LateDayRuntimeTests.StoryActorsNightRestSchedule_ShouldStandDownForUnifiedResidentNightContract",
+            "SpringDay1LateDayRuntimeTests.HandleHourChanged_FreeTimeAtTwoAmShouldFinalizeDayEnd",
+            "NpcSceneTransitionContinuityTests.PersistentPlayerSceneBridge_ClearNativeResidentRuntimeSnapshots_ShouldDropDay1SyntheticActors"
         };
 
         private static readonly string[] NpcFormalConsumptionTargetTestNames =
         {
             "NpcInteractionPriorityPolicyTests.InformalChatInteractable_ShouldYieldOnlyWhenSameNpcFormalDialogueCanTakeOver",
             "NpcInteractionPriorityPolicyTests.InformalChatInteractable_ShouldRecoverAfterFormalDialogueWasConsumed",
-            "NpcInteractionPriorityPolicyTests.InformalChatInteractable_ShouldRecoverAfterFormalPhaseAdvanceWasAlreadyReached"
+            "NpcInteractionPriorityPolicyTests.InformalChatInteractable_ShouldRecoverAfterFormalPhaseAdvanceWasAlreadyReached",
+            "NpcInteractionPriorityPolicyTests.FormalDialogueInteractable_ShouldFollowResidentScriptedControlContract",
+            "NPCInformalChatInterruptMatrixTests.ConversationTakeoverProbe_ShouldIgnoreInformalChatSelfOwner",
+            "NPCInformalChatInterruptMatrixTests.ConversationTakeoverProbe_ShouldTreatStoryOwnerAsRealTakeover"
         };
 
         private static readonly string[] Day1OwnerRegressionTargetTestNames =
@@ -166,6 +226,7 @@ namespace Sunset.Editor.Story
         {
             "SpringDay1LateDayRuntimeTests.FreeTimeValidationStep_AdvancesFromFinalCallToDayEnd",
             "SpringDay1LateDayRuntimeTests.BedBridge_EndsDayAndRestoresSystems",
+            "SpringDay1LateDayRuntimeTests.BedBridge_ShouldAllowSleepImmediatelyAfterFreeTimeBegins",
             "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldNormalizeClockToSixPm",
             "SpringDay1LateDayRuntimeTests.AlignTownDinnerGatheringActorsAndPlayer_ShouldPreferDinnerAreaOverVillageCrowdMarkers",
             "SpringDay1LateDayRuntimeTests.BeginDinnerConflict_ShouldAlignActorsBeforeDinnerCueTimeoutCompletes",
@@ -176,7 +237,8 @@ namespace Sunset.Editor.Story
             "SpringDay1LateDayRuntimeTests.Director_TryAutoBindBedInteractable_ShouldIgnoreDoorOnlyRestProxy",
             "SpringDay1LateDayRuntimeTests.FreeTimePlayerFacingCopy_ShouldTightenAcrossNightPressure",
             "SpringDay1LateDayRuntimeTests.DayEndPlayerFacingCopy_ShouldCarryTomorrowBurdenAndClearWorkbenchState",
-            "SpringDay1LateDayRuntimeTests.ReminderCompletion_ShouldEnterFreeTimeWithIntroPendingAndYieldWorkbenchToFormalNightIntro"
+            "SpringDay1LateDayRuntimeTests.ReminderCompletion_ShouldEnterFreeTimeWithIntroPendingAndYieldWorkbenchToFormalNightIntro",
+            "SpringDay1LateDayRuntimeTests.BedInteractable_ShouldRemainAvailableAfterDayEnd"
         };
 
         private static readonly string CommandRoot = Path.Combine(Directory.GetCurrentDirectory(), "Library", "CodexEditorCommands");
@@ -191,6 +253,9 @@ namespace Sunset.Editor.Story
         private static readonly string PromptOverlayGuardResultPath = Path.Combine(CommandRoot, PromptOverlayGuardResultFileName);
         private static readonly string StoryProgressResultPath = Path.Combine(CommandRoot, StoryProgressResultFileName);
         private static readonly string DirectorStagingResultPath = Path.Combine(CommandRoot, DirectorStagingResultFileName);
+        private static readonly string DirectorStagingIncrementalResultPath = Path.Combine(CommandRoot, DirectorStagingIncrementalResultFileName);
+        private static readonly string DinnerContractResultPath = Path.Combine(CommandRoot, DinnerContractResultFileName);
+        private static readonly string UnifiedNightContractResultPath = Path.Combine(CommandRoot, UnifiedNightContractResultFileName);
         private static readonly string NpcFormalConsumptionResultPath = Path.Combine(CommandRoot, NpcFormalConsumptionResultFileName);
         private static readonly string Day1OwnerRegressionResultPath = Path.Combine(CommandRoot, Day1OwnerRegressionResultFileName);
 
@@ -261,6 +326,24 @@ namespace Sunset.Editor.Story
         private static void RunDirectorStagingTests()
         {
             RunTargetedTests(DirectorStagingResultPath, DirectorStagingTargetTestNames);
+        }
+
+        [MenuItem(DirectorStagingIncrementalMenuPath)]
+        private static void RunDirectorStagingIncrementalTests()
+        {
+            RunTargetedTests(DirectorStagingIncrementalResultPath, DirectorStagingIncrementalTargetTestNames);
+        }
+
+        [MenuItem(DinnerContractMenuPath)]
+        private static void RunDinnerContractTests()
+        {
+            RunTargetedTests(DinnerContractResultPath, DinnerContractTargetTestNames);
+        }
+
+        [MenuItem(UnifiedNightContractMenuPath)]
+        private static void RunUnifiedNightContractTests()
+        {
+            RunTargetedTests(UnifiedNightContractResultPath, UnifiedNightContractTargetTestNames);
         }
 
         [MenuItem(NpcFormalConsumptionMenuPath)]
@@ -337,6 +420,24 @@ namespace Sunset.Editor.Story
 
         [MenuItem(DirectorStagingMenuPath, true)]
         private static bool ValidateRunDirectorStagingTests()
+        {
+            return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
+        }
+
+        [MenuItem(DirectorStagingIncrementalMenuPath, true)]
+        private static bool ValidateRunDirectorStagingIncrementalTests()
+        {
+            return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
+        }
+
+        [MenuItem(DinnerContractMenuPath, true)]
+        private static bool ValidateRunDinnerContractTests()
+        {
+            return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
+        }
+
+        [MenuItem(UnifiedNightContractMenuPath, true)]
+        private static bool ValidateRunUnifiedNightContractTests()
         {
             return !EditorApplication.isCompiling && !EditorApplication.isUpdating;
         }

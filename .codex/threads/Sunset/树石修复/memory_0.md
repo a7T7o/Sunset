@@ -638,3 +638,58 @@
   - 本轮已跑：`Begin-Slice`、`Ready-To-Sync`、`Park-Slice`
   - 当前 live 状态：`PARKED`
   - 停车原因：stone-only 提交被 own-root remaining dirty 阻断，未提交
+
+## 2026-04-23｜按治理 prompt 只读补交 shared-root 上传回执
+
+- 用户目标：
+  - 先只读补交真实回执，不继续开发，也不继续默认上传。
+- 当前主线目标：
+  - 给 `树石修复` 线程补一份真实、可审计的 shared-root 上传历史回执。
+- 本轮子任务 / 阻塞：
+  - 子任务：核对这条线程最近到底有没有 commit / push / 上传切片；
+  - 服务于什么：让治理位先知道真实上传结果，再决定要不要继续发下一刀；
+  - 子任务完成后回到哪一步：回到“树石 own dirty 仍未收口，当前不继续上传”的停车态。
+- 已完成事项：
+  1. 只读读取并执行治理 prompt：
+     - `2026-04-23_给其它已施工线程_shared-root上传回执补交通用prompt_01.md`
+     - `2026-04-23_shared-root历史小批次上传分发批次_02.md`
+  2. 交叉核对：
+     - `树石修复` 线程 memory
+     - `屎山修复/树石修复` 工作区 memory
+     - 当前 `git status`
+     - `git log`（相关文件历史）
+     - `origin/main...HEAD`
+     - 当前 `thread-state`
+  3. 真实结论：
+     - 本线程最近**没有新的本地提交 SHA**
+     - 本线程最近**没有新的 push 到 `origin/main`**
+     - 最近一次真实上传尝试是 `2026-04-13`
+       - 当时跑了 `Begin-Slice -> Ready-To-Sync -> Park-Slice`
+       - `Ready-To-Sync` 被 same-root own dirty 卡住
+       - 最终无 commit / 无 push
+  4. 当前现场：
+     - `git rev-list --left-right --count origin/main...HEAD = 0 0`
+     - 当前 `thread-state = PARKED`
+     - 当前相关 own 根下 dirty / untracked 统计仍不 clean（采样统计 87 条）
+- 关键决策：
+  1. 这轮不把“上传尝试失败”包装成“上传结果已完成”
+  2. 不因为 `origin/main...HEAD = 0 0` 就误报“本线程已上传”
+  3. 不补跑新的 `Begin-Slice`
+- 涉及文件或路径：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_给其它已施工线程_shared-root上传回执补交通用prompt_01.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_shared-root历史小批次上传分发批次_02.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\树石修复\memory_0.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\屎山修复\树石修复\memory.md`
+- 验证结果：
+  - 本轮只读核验成立；
+  - 本轮无 commit SHA；
+  - 本轮无 push；
+  - 当前真实历史 blocker 仍是 `2026-04-13` 的 same-root `Ready-To-Sync` 阻断。
+- 遗留问题或下一步：
+  - 如果治理位后续要求继续上传，下一步不是直接 `sync`，而是先重新界定并清掉 same-root remaining dirty；
+  - 在治理位明确下一刀之前，这条线程不默认继续上传。
+- thread-state：
+  - 本轮已跑：无（只读补交）
+  - 本轮未跑：`Begin-Slice`、`Ready-To-Sync`、`Park-Slice`
+  - 当前 live 状态：`PARKED`
+  - 当前历史 blocker：`Ready-To-Sync blocked: own roots still have 83 remaining dirty/untracked under Assets/Editor and Assets/YYY_Scripts/Controller; cannot submit stone slice alone by current rule.`

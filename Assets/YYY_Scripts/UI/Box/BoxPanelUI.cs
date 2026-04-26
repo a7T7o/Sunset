@@ -1,24 +1,29 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using System.Collections.Generic;
+using System.Reflection;
 using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.World;
+using Sunset.Story;
 
 namespace FarmGame.UI
 {
     /// <summary>
     /// 箱子UI面板 - 管理箱子交互界面
-    /// 
+    ///
     /// 🔴 重要：本组件只做数据绑定，不生成/销毁任何槽位！
     /// 槽位已在预制体中预置好（Up_00~Up_XX, Down_00~Down_XX）
-    /// 
+    ///
     /// 结构：
     /// - Up：绑定 ChestInventory（显示箱子格子）
     /// - Down：绑定 InventoryService（显示玩家背包格子）
     /// </summary>
     public class BoxPanelUI : MonoBehaviour
     {
+        private static readonly BindingFlags RuntimeContextBindingFlags =
+            BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+
         #region 序列化字段
 
         [Header("=== 容器区域 ===")]
@@ -38,6 +43,9 @@ namespace FarmGame.UI
         [Tooltip("垃圾桶按钮")]
         [SerializeField] private Button btnTrashCan;
 
+        [Header("=== 配置 ===")]
+        [SerializeField] private float dropCooldown = 5f;
+
         [Header("=== 调试 ===")]
         [SerializeField] private bool showDebugInfo = false;
 
@@ -52,12 +60,12 @@ namespace FarmGame.UI
         private EquipmentService _equipmentService;
         private ItemDatabase _database;
         private bool _isOpen = false;
-        
+
         // 🔥 缓存引用（性能优化）
         private InventorySortService _cachedSortService;
         private HeldItemDisplay _cachedHeldDisplay;
         private HotbarSelectionService _hotbarSelection;
-        
+
         // 🔥 日志去重标志（实例级别）
         private bool _hasLoggedBindFailure = false;
         private int _selectedChestIndex = -1;
@@ -75,6 +83,7 @@ namespace FarmGame.UI
         /// 当前打开的箱子
         /// </summary>
         public ChestController CurrentChest => _currentChest;
+        public InventoryService CurrentInventoryService => _inventoryService;
 
         /// <summary>
         /// 面板是否打开
@@ -85,7 +94,7 @@ namespace FarmGame.UI
         /// 当前活跃的 BoxPanelUI 实例
         /// </summary>
         public static BoxPanelUI ActiveInstance => _activeInstance;
-        
+
         /// <summary>
         /// 缓存的 InventorySortService
         /// </summary>
@@ -94,11 +103,17 @@ namespace FarmGame.UI
             get
             {
                 if (_cachedSortService == null)
-                    _cachedSortService = FindFirstObjectByType<InventorySortService>();
+                    _cachedSortService = FindFirstObjectByType<InventorySortService>(FindObjectsInactive.Include);
+
+                if (_cachedSortService != null && _inventoryService != null)
+                {
+                    _cachedSortService.RebindRuntimeContext(_inventoryService, _database);
+                }
+
                 return _cachedSortService;
             }
         }
-        
+
         /// <summary>
         /// 缓存的 HeldItemDisplay
         /// </summary>
@@ -129,7 +144,7 @@ namespace FarmGame.UI
 
             // 绑定按钮事件
             BindButtons();
-            
+
             // 🔥 延迟初始化：确保 InventorySlotUI 的 Awake 已执行
             // 不在 Start 中关闭，因为可能是被 Open 调用后才激活的
             if (showDebugInfo)
@@ -157,6 +172,12 @@ namespace FarmGame.UI
                 ? database
                 : inventoryService != null ? inventoryService.Database : _database;
             _hotbarSelection = hotbarSelection ?? _hotbarSelection;
+            if (_hotbarSelection != null)
+            {
+                _followHotbarSelection = _hotbarSelection.selectedInventoryIndex < InventoryService.HotbarWidth;
+                SyncInventorySelectionFromHotbar();
+            }
+            SyncInventoryInteractionManagerRuntimeContext();
 
             if (wasOpen)
             {
@@ -328,14 +349,14 @@ namespace FarmGame.UI
         private void OnSortUpClicked()
         {
             if (_currentChest?.RuntimeInventory == null) return;
-            
+
             if (_currentChest.RuntimeInventory != null)
                 _currentChest.RuntimeInventory.Sort();
             RefreshChestSlots();  // 🔥 P0-2：排序后刷新 UI
-            
+
             // 🔥 选中状态优化：Sort 后清空选中状态
             ClearUpSelections();
-            
+
             if (showDebugInfo)
                 Debug.Log("[BoxPanelUI] 整理箱子完成");
         }
@@ -343,11 +364,12 @@ namespace FarmGame.UI
         private void OnSortDownClicked()
         {
             if (_inventoryService == null) return;
-            
+
             // 🔥 使用缓存引用
             var sortService = CachedSortService;
             if (sortService != null)
             {
+                sortService.RebindRuntimeContext(_inventoryService, _database);
                 sortService.SortInventory();
             }
             else
@@ -355,12 +377,12 @@ namespace FarmGame.UI
                 // 回退到 InventoryService.Sort()
                 _inventoryService.Sort();
             }
-            
+
             RefreshInventorySlots();  // 🔥 P0-2：排序后刷新 UI
-            
+
             // 🔥 选中状态优化：Sort 后清空选中状态
             ClearDownSelections();
-            
+
             if (showDebugInfo)
                 Debug.Log("[BoxPanelUI] 整理背包完成");
         }
@@ -368,7 +390,7 @@ namespace FarmGame.UI
         private void OnTrashCanClicked()
         {
             // 🔥 修复 2：垃圾桶逻辑
-            
+
             // 情况 1：背包物品在手上（Manager 管辖）
             var manager = InventoryInteractionManager.Instance;
             if (manager != null && manager.IsHolding)
@@ -378,7 +400,7 @@ namespace FarmGame.UI
                     Debug.Log("[BoxPanelUI] 垃圾桶 - 通过 Manager 丢弃背包物品");
                 return;
             }
-            
+
             // 情况 2：箱子物品在手上（SlotDragContext 管辖）
             if (SlotDragContext.IsDragging)
             {
@@ -387,11 +409,11 @@ namespace FarmGame.UI
                     Debug.Log("[BoxPanelUI] 垃圾桶 - 通过 SlotDragContext 丢弃箱子物品");
                 return;
             }
-            
+
             if (showDebugInfo)
                 Debug.Log("[BoxPanelUI] 垃圾桶 - 没有物品在手上");
         }
-        
+
         /// <summary>
         /// 🔥 从 SlotDragContext 丢弃物品
         /// 使用 ItemDropHelper 统一丢弃逻辑
@@ -399,19 +421,19 @@ namespace FarmGame.UI
         private void DropItemFromContext()
         {
             if (!SlotDragContext.IsDragging) return;
-            
+
             var item = SlotDragContext.DraggedItem;
             if (!item.IsEmpty)
             {
                 // 🔥 使用 ItemDropHelper 统一丢弃逻辑
-                if (SlotDragContext.DraggedRuntimeItem != null && !SlotDragContext.DraggedRuntimeItem.IsEmpty) ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem); else ItemDropHelper.DropAtPlayer(item);
+                if (SlotDragContext.DraggedRuntimeItem != null && !SlotDragContext.DraggedRuntimeItem.IsEmpty) ItemDropHelper.DropAtPlayer(SlotDragContext.DraggedRuntimeItem, dropCooldown); else ItemDropHelper.DropAtPlayer(item, dropCooldown);
             }
-            
+
             // 清空拖拽状态
             SlotDragContext.End();
             HideDragIcon();
         }
-        
+
         /// <summary>
         /// 隐藏拖拽图标
         /// 🔥 使用缓存引用优化性能
@@ -477,7 +499,7 @@ namespace FarmGame.UI
             }
 
             _currentChest = chest;
-            
+
             // 🔥 重置日志去重标志
             _hasLoggedBindFailure = false;
 
@@ -496,6 +518,7 @@ namespace FarmGame.UI
             // 显示面板
             gameObject.SetActive(true);
             _isOpen = true;
+            RefreshPromptOverlayVisibilityBlock();
             EnsurePanelClickHandlers();
             SubscribeToHotbarSelection();
             ResetSelectionStateOnOpen();
@@ -532,6 +555,7 @@ namespace FarmGame.UI
             // 隐藏面板
             gameObject.SetActive(false);
             _isOpen = false;
+            RefreshPromptOverlayVisibilityBlock();
             _currentChest = null;
             UnsubscribeFromHotbarSelection();
             ResetSelectionStateOnClose();
@@ -556,6 +580,13 @@ namespace FarmGame.UI
             RefreshChestSlots();
             RefreshInventorySlots();
             RefreshSelectionVisuals();
+        }
+
+        private void RefreshPromptOverlayVisibilityBlock()
+        {
+            global::PackagePanelTabsUI packageTabs = FindFirstObjectByType<global::PackagePanelTabsUI>(FindObjectsInactive.Include);
+            bool shouldBlock = _isOpen || (packageTabs != null && (packageTabs.IsPanelOpen() || packageTabs.IsBoxUIOpen()));
+            SpringDay1PromptOverlay.SetGlobalExternalVisibilityBlock(shouldBlock);
         }
 
         #endregion
@@ -585,7 +616,8 @@ namespace FarmGame.UI
         {
             if (_hotbarSelection == null)
             {
-                _hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+                _hotbarSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                    ?? FindFirstObjectByType<HotbarSelectionService>();
             }
 
             if (_hotbarSelection == null)
@@ -694,7 +726,13 @@ namespace FarmGame.UI
                 return;
             }
 
-            _selectedInventoryIndex = Mathf.Clamp(_hotbarSelection.selectedIndex, 0, Mathf.Max(0, InventoryService.HotbarWidth - 1));
+            int maxInventorySlots = _inventoryService != null
+                ? _inventoryService.Capacity
+                : InventoryService.DefaultInventorySize;
+            _selectedInventoryIndex = Mathf.Clamp(
+                _hotbarSelection.selectedInventoryIndex,
+                0,
+                Mathf.Max(0, maxInventorySlots - 1));
         }
 
         private void RefreshSelectionVisuals()
@@ -759,7 +797,14 @@ namespace FarmGame.UI
 
             if (_hotbarSelection != null)
             {
-                _hotbarSelection.SelectInventoryIndex(slotIndex);
+                if (syncHotbarSelection && slotIndex < InventoryService.HotbarWidth)
+                {
+                    _hotbarSelection.SelectInventoryIndex(slotIndex);
+                }
+                else
+                {
+                    _hotbarSelection.SetPanelSelectionIndex(slotIndex);
+                }
             }
 
             RefreshInventorySelectionVisuals();
@@ -854,7 +899,7 @@ namespace FarmGame.UI
 
             // 🔥 优先绑定到 RuntimeInventory（InventoryV2 优先）
             slot.BindContainer(runtimeInventory, index, _hotbarSelection, null, this);
-            
+
             // 🔥 P1：删除逐格日志，只在 showDebugInfo 开启时输出汇总
         }
 
@@ -866,20 +911,24 @@ namespace FarmGame.UI
         /// </summary>
         private void RefreshInventorySlots()
         {
+            RefreshRuntimeContextFromScene();
+
             if (_inventoryService == null)
             {
-                _inventoryService = FindFirstObjectByType<InventoryService>();
+                _inventoryService = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                    ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
                 if (_inventoryService != null)
                 {
                     _database = _inventoryService.Database;
                 }
             }
-            
+
             if (_equipmentService == null)
             {
-                _equipmentService = FindFirstObjectByType<EquipmentService>();
+                _equipmentService = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService()
+                    ?? FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
             }
-            
+
             if (_inventoryService == null || _database == null)
             {
                 if (showDebugInfo)
@@ -903,10 +952,10 @@ namespace FarmGame.UI
 
                 int actualIndex = startIndex + i;
                 bool isHotbar = actualIndex < InventoryService.HotbarWidth;
-                
+
                 // 🔥 修正 C2：与 InventoryPanelUI.BuildUpSlots 保持一致
                 slot.Bind(_inventoryService, _equipmentService, _database, _hotbarSelection, null, this, actualIndex, isHotbar);
-                
+
                 // 🔥 致命修复 1：Bind 后必须调用 Refresh 才能更新 UI 显示
                 slot.Refresh();
                 slot.RefreshSelection();
@@ -931,7 +980,7 @@ namespace FarmGame.UI
                 if (showDebugInfo)
                     Debug.Log("[BoxPanelUI] Close: 通过 Manager 归位背包物品");
             }
-            
+
             // 情况 2：箱子物品在手上（SlotDragContext 管辖）
             if (SlotDragContext.IsDragging)
             {
@@ -939,11 +988,11 @@ namespace FarmGame.UI
                 if (showDebugInfo)
                     Debug.Log("[BoxPanelUI] Close: 归位箱子物品");
             }
-            
+
             // 确保隐藏拖拽图标
             HideDragIcon();
         }
-        
+
         /// <summary>
         /// 🔥 P1+-1：将箱子物品归位
         /// 优先级：原槽位 → 箱子空位 → 背包空位 → 扔在脚下
@@ -1103,7 +1152,8 @@ namespace FarmGame.UI
             {
                 if (_inventoryService == null)
                 {
-                    _inventoryService = FindFirstObjectByType<InventoryService>();
+                    _inventoryService = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                        ?? FindFirstObjectByType<InventoryService>();
                 }
                 if (_inventoryService?.Database != null)
                 {
@@ -1134,24 +1184,75 @@ namespace FarmGame.UI
 
         private void RefreshRuntimeContextFromScene()
         {
+            global::PackagePanelTabsUI packageTabs = PersistentPlayerSceneBridge.GetPreferredRuntimePackageTabs()
+                ?? FindFirstObjectByType<global::PackagePanelTabsUI>(FindObjectsInactive.Include);
+            if (packageTabs != null)
+            {
+                _inventoryService = packageTabs.RuntimeInventoryService ?? _inventoryService;
+                _equipmentService = packageTabs.RuntimeEquipmentService ?? _equipmentService;
+                _hotbarSelection = packageTabs.RuntimeHotbarSelection ?? _hotbarSelection;
+                _database = packageTabs.RuntimeDatabase
+                    ?? packageTabs.RuntimeInventoryService?.Database
+                    ?? _database;
+            }
+
             if (_inventoryService == null)
             {
-                _inventoryService = FindFirstObjectByType<InventoryService>();
+                _inventoryService = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                    ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
             }
 
             if (_equipmentService == null)
             {
-                _equipmentService = FindFirstObjectByType<EquipmentService>();
+                _equipmentService = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService()
+                    ?? FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
             }
 
             if (_hotbarSelection == null)
             {
-                _hotbarSelection = FindFirstObjectByType<HotbarSelectionService>();
+                _hotbarSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                    ?? FindFirstObjectByType<HotbarSelectionService>(FindObjectsInactive.Include);
             }
 
             if (_database == null && _inventoryService != null)
             {
                 _database = _inventoryService.Database;
+            }
+
+            SyncInventoryInteractionManagerRuntimeContext();
+        }
+
+        private void SyncInventoryInteractionManagerRuntimeContext()
+        {
+            var manager = InventoryInteractionManager.Instance;
+            if (manager == null)
+            {
+                manager = FindFirstObjectByType<InventoryInteractionManager>(FindObjectsInactive.Include);
+            }
+
+            if (manager == null)
+            {
+                return;
+            }
+
+            InventorySortService sortService = FindFirstObjectByType<InventorySortService>(FindObjectsInactive.Include);
+            manager.ConfigureRuntimeContext(_inventoryService, _equipmentService, _database, sortService);
+            TrySetRuntimeContextField(manager, "inventory", _inventoryService);
+            TrySetRuntimeContextField(manager, "equipment", _equipmentService);
+            TrySetRuntimeContextField(manager, "database", _database);
+        }
+
+        private static void TrySetRuntimeContextField(object target, string fieldName, object value)
+        {
+            if (target == null || value == null)
+            {
+                return;
+            }
+
+            FieldInfo field = target.GetType().GetField(fieldName, RuntimeContextBindingFlags);
+            if (field != null && field.FieldType.IsInstanceOfType(value))
+            {
+                field.SetValue(target, value);
             }
         }
 

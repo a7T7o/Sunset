@@ -197,7 +197,7 @@ public class NPCAutoRoamControllerEditor : Editor
                 Undo.RecordObject(npcController, "Assign NPC Home Anchor");
             }
 
-            npcController.SetHomeAnchor(anchor);
+            npcController.BindResidentHomeAnchor(anchor);
             if (npcController.HomeAnchor == anchor)
             {
                 SetAutoRepairDiagnostic(npcController, $"Bound runtime Home Anchor to {anchor.name} via {anchorSource}.");
@@ -416,7 +416,7 @@ public class NPCAutoRoamControllerEditor : Editor
             if (GUILayout.Button("Clear Home Anchor"))
             {
                 Undo.RecordObject(controller, "Clear NPC Home Anchor");
-                controller.SetHomeAnchor(null);
+                controller.BindResidentHomeAnchor(null);
                 _homeAnchorProperty.objectReferenceValue = null;
                 serializedObject.ApplyModifiedProperties();
                 EditorUtility.SetDirty(controller);
@@ -427,7 +427,7 @@ public class NPCAutoRoamControllerEditor : Editor
             if (GUILayout.Button("Apply Profile Now"))
             {
                 Undo.RecordObject(controller, "Apply NPC Roam Profile");
-                controller.ApplyProfile();
+                controller.SyncRuntimeProfileFromAsset();
                 EditorUtility.SetDirty(controller);
             }
 
@@ -606,7 +606,7 @@ public class NPCAutoRoamControllerEditor : Editor
         Undo.SetTransformParent(anchorObject.transform, anchorParent, "Parent NPC Home Anchor");
         anchorObject.transform.position = controller.transform.position;
         anchorObject.transform.rotation = Quaternion.identity;
-        controller.SetHomeAnchor(anchorObject.transform);
+        controller.BindResidentHomeAnchor(anchorObject.transform);
         _homeAnchorProperty.objectReferenceValue = anchorObject.transform;
         serializedObject.ApplyModifiedProperties();
         EditorUtility.SetDirty(controller);
@@ -654,7 +654,7 @@ public class NPCAutoRoamControllerEditor : Editor
         _roamProfileProperty.objectReferenceValue = copy;
         serializedObject.ApplyModifiedProperties();
         Undo.RecordObject(controller, "Assign NPC Roam Profile Copy");
-        controller.ApplyProfile();
+        controller.SyncRuntimeProfileFromAsset();
         EditorUtility.SetDirty(controller);
         Selection.activeObject = copy;
     }

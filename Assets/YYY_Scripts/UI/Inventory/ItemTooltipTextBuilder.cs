@@ -10,8 +10,8 @@ using FarmGame.Farm;
 /// </summary>
 public static class ItemTooltipTextBuilder
 {
-    private const int TooltipDescriptionMaxLines = 2;
-    private const int TooltipDescriptionMaxChars = 44;
+    private const int TooltipDescriptionMaxLines = 3;
+    private const int TooltipDescriptionMaxChars = 72;
     private static readonly Regex RichTextTagRegex = new Regex("<.*?>", RegexOptions.Compiled);
 
     public static string Build(ItemData itemData, InventoryItem runtimeItem)
@@ -40,6 +40,29 @@ public static class ItemTooltipTextBuilder
     public static string BuildDescriptionText(ItemData itemData)
     {
         return ClampForTooltipDisplay(SanitizeBaseTooltip(itemData));
+    }
+
+    public static string BuildPlayerFacingTitle(ItemData itemData)
+    {
+        if (itemData == null)
+        {
+            return string.Empty;
+        }
+
+        string mappedName = GetMappedPlayerFacingItemName(itemData.itemID);
+        if (!string.IsNullOrWhiteSpace(mappedName))
+        {
+            return mappedName;
+        }
+
+        string rawTitle = StripRichTextTags(itemData.itemName ?? string.Empty).Trim();
+        if (string.IsNullOrWhiteSpace(rawTitle))
+        {
+            return $"物品 {itemData.itemID}";
+        }
+
+        string normalized = NormalizeInternalName(rawTitle);
+        return !string.IsNullOrWhiteSpace(normalized) ? normalized : rawTitle;
     }
 
     public static string BuildRuntimeStatusText(ItemData itemData, InventoryItem runtimeItem)
@@ -160,6 +183,79 @@ public static class ItemTooltipTextBuilder
         }
 
         return sb.ToString();
+    }
+
+    private static string GetMappedPlayerFacingItemName(int itemId)
+    {
+        return itemId switch
+        {
+            0 => "木斧",
+            1 => "石斧",
+            2 => "铁斧",
+            3 => "黄铜斧",
+            4 => "钢斧",
+            5 => "金斧",
+            6 => "木镐",
+            7 => "石镐",
+            8 => "铁镐",
+            9 => "黄铜镐",
+            10 => "钢镐",
+            11 => "金镐",
+            12 => "木锄",
+            13 => "石锄",
+            14 => "铁锄",
+            15 => "黄铜锄",
+            16 => "钢锄",
+            17 => "金锄",
+            18 => "洒水壶",
+            200 => "木剑",
+            201 => "石剑",
+            202 => "铁剑",
+            203 => "黄铜剑",
+            204 => "钢剑",
+            205 => "金剑",
+            1400 => "小木箱子",
+            1401 => "大木箱子",
+            1402 => "小铁箱子",
+            1403 => "大铁箱子",
+            _ => string.Empty
+        };
+    }
+
+    private static string NormalizeInternalName(string rawTitle)
+    {
+        string lower = rawTitle.ToLowerInvariant();
+        if (lower.Contains("wateringcan"))
+        {
+            return "洒水壶";
+        }
+
+        if (lower.Contains("pickaxe"))
+        {
+            return "镐子";
+        }
+
+        if (lower.Contains("axe"))
+        {
+            return "斧头";
+        }
+
+        if (lower.Contains("hoe"))
+        {
+            return "锄头";
+        }
+
+        if (lower.Contains("storage"))
+        {
+            return "箱子";
+        }
+
+        if (lower.Contains("sword"))
+        {
+            return "剑";
+        }
+
+        return rawTitle.Replace('_', ' ').Trim();
     }
 
     private static string ClampForTooltipDisplay(string text)

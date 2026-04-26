@@ -11,7 +11,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: b44625ea17b1425fbabfac26e91976a0, type: 3}
   m_Name: NpcCharacterRegistry
-  m_EditorClassIdentifier: 
+  m_EditorClassIdentifier:
   entries:
   - npcId: 000
     canonicalName: "\u65C5\u4EBA"
@@ -143,7 +143,7 @@ MonoBehaviour:
     - "\u8001\u4E54\u6CBB"
     - CarpenterCrowd
     prefab: {fileID: 2810117806074773690, guid: 296b7c4eee638014cacc46d37f7e9b87, type: 3}
-    handPortrait: {fileID: 5953923354035733431, guid: c09c30ba65467fb4190d2679edee39a9, type: 3}
+    handPortrait: {fileID: 0}
     showInRelationshipPanel: 1
     relationshipBaseline: 2
     relationshipBeatSemantics: []

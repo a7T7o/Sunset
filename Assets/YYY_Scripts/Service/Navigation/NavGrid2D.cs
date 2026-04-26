@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using UnityEngine;
 using UnityEngine.Tilemaps;
 
@@ -640,7 +641,7 @@ public class NavGrid2D : MonoBehaviour
         // 动态障碍物（如树木成长、箱子放置）修改碰撞体后，
         // Physics2D 内部缓存可能未更新，导致 OverlapCircle 检测到旧数据
         EnsurePhysicsTransformsSyncedOncePerFrame();
-        
+
         // 自动检测世界边界
         if (autoDetectWorldBounds)
         {
@@ -660,7 +661,7 @@ public class NavGrid2D : MonoBehaviour
                 if (blocked) obstacleCount++;
             }
         }
-        
+
         if (logObstacleDetection)
         {
             Debug.Log($"[NavGrid2D] 网格重建完毕: {gridW}x{gridH}={gridW*gridH} 单元，障碍物={obstacleCount}");
@@ -911,6 +912,76 @@ public class NavGrid2D : MonoBehaviour
         }
 
         return false;
+    }
+
+    public string BuildBlockingDebugSummary(Vector2 worldPos, float radius, Collider2D ignoredCollider = null)
+    {
+        float walkableOverrideRadius = GetWalkableOverrideSupportRadius(radius);
+        bool hasWalkableOverride = HasAnyExplicitWalkableOverrideTileAt(worldPos) ||
+                                   HasExplicitWalkableOverrideTilemapHit(worldPos, walkableOverrideRadius);
+        bool explicitObstacleTilemapHit = HasExplicitObstacleTilemapHit(worldPos, radius);
+        bool explicitSoftPassTilemapHit = HasExplicitSoftPassObstacleTilemapHit(worldPos, radius);
+        bool shouldCheckTags = obstacleTags != null && obstacleTags.Length > 0;
+        bool shouldCheckLayerMask = obstacleMask.value != 0;
+
+        int hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
+        if (hitCount == _colliderCache.Length)
+        {
+            System.Array.Resize(ref _colliderCache, _colliderCache.Length * 2);
+            hitCount = Physics2D.OverlapCircle(worldPos, radius, _obstacleFilter, _colliderCache);
+        }
+
+        StringBuilder sb = new StringBuilder(256);
+        sb.Append("hits=").Append(hitCount)
+          .Append(" override=").Append(hasWalkableOverride)
+          .Append(" explicitTile=").Append(explicitObstacleTilemapHit)
+          .Append(" softPassTile=").Append(explicitSoftPassTilemapHit);
+
+        int logged = 0;
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider2D hitCollider = _colliderCache[i];
+            if (ShouldIgnoreCollider(hitCollider, ignoredCollider) ||
+                ShouldIgnoreDynamicNavigationCollider(hitCollider))
+            {
+                continue;
+            }
+
+            bool explicitWalkable = MatchesExplicitWalkableOverrideCollider(hitCollider);
+            bool explicitObstacle = MatchesExplicitObstacleCollider(hitCollider);
+            bool explicitSoftPass = MatchesExplicitSoftPassCollider(hitCollider);
+            bool tagBlocked = shouldCheckTags && HasAnyTag(hitCollider.transform, obstacleTags);
+            bool layerBlocked = shouldCheckLayerMask &&
+                                ((1 << hitCollider.gameObject.layer) & obstacleMask.value) != 0;
+
+            if (!explicitWalkable && !explicitObstacle && !explicitSoftPass && !tagBlocked && !layerBlocked)
+            {
+                continue;
+            }
+
+            if (explicitWalkable)
+            {
+                hasWalkableOverride = true;
+            }
+
+            if (logged >= 4)
+            {
+                continue;
+            }
+
+            sb.Append(" | ");
+            AppendColliderDebugSummary(
+                sb,
+                hitCollider,
+                explicitWalkable,
+                explicitObstacle,
+                explicitSoftPass,
+                tagBlocked,
+                layerBlocked);
+            logged++;
+        }
+
+        return sb.ToString();
     }
 
     private bool EvaluateBlockedStateForCell(int x, int y)
@@ -1774,17 +1845,17 @@ public class NavGrid2D : MonoBehaviour
     private bool FindSmartStartPoint(Vector2 playerWorldPos, Vector2 targetWorldPos, int gx, int gy, out int nx, out int ny)
     {
         nx = gx; ny = gy;
-        
+
         // 如果当前位置可走，直接返回
         if (InBounds(gx, gy) && IsWalkable(gx, gy)) return true;
-        
+
         // 计算玩家到目标的方向向量
         Vector2 toTarget = (targetWorldPos - playerWorldPos).normalized;
-        
+
         // 在玩家周围搜索可走点，使用评分系统
         float bestScore = float.MinValue;
         bool found = false;
-        
+
         // 🔥 搜索范围：从小到大，找到就停止
         for (int r = 1; r <= 10; r++)
         {
@@ -1794,26 +1865,26 @@ public class NavGrid2D : MonoBehaviour
                 {
                     // 只检查当前半径圆圈上的点
                     if (System.Math.Abs(dx) != r && System.Math.Abs(dy) != r) continue;
-                    
+
                     int x = gx + dx;
                     int y = gy + dy;
-                    
+
                     if (InBounds(x, y) && IsWalkable(x, y))
                     {
                         Vector2 candidateWorld = GridToWorldCenter(x, y);
                         Vector2 toCandidate = (candidateWorld - playerWorldPos).normalized;
-                        
+
                         // 🔥 评分系统：
                         // 1. 方向得分：与目标方向的点积 [-1, 1]，越接近目标方向越好
                         float directionScore = Vector2.Dot(toCandidate, toTarget);
-                        
+
                         // 2. 距离得分：距离越近越好
                         float distSq = dx * dx + dy * dy;
                         float distanceScore = 1f / (1f + Mathf.Sqrt(distSq));
-                        
+
                         // 3. 综合评分：方向权重 70%，距离权重 30%
                         float score = directionScore * 7f + distanceScore * 3f;
-                        
+
                         if (score > bestScore)
                         {
                             bestScore = score;
@@ -1824,14 +1895,14 @@ public class NavGrid2D : MonoBehaviour
                     }
                 }
             }
-            
+
             // 🔥 找到就停止，不继续扩大搜索范围
             if (found) break;
         }
-        
+
         return found;
     }
-    
+
     /// <summary>
     /// 改进的最近可走点查找：返回欧几里得距离最近的点
     /// 🔥 如果有多个距离相等的点，优先选择：下 > 右 > 上 > 左（确保稳定性）
@@ -1846,14 +1917,14 @@ public class NavGrid2D : MonoBehaviour
         {
             return true;
         }
-        
+
         // 🔥 在搜索范围内找到欧几里得距离最近的可走点
         float bestDistSq = float.MaxValue;
         bool found = false;
-        
+
         // 🔥 优先级：用于距离相等时的选择（确保稳定性）
         int bestPriority = int.MaxValue;
-        
+
         // 使用螺旋搜索：从内向外扩展
         for (int r = 1; r <= maxRange; r++)
         {
@@ -1864,19 +1935,19 @@ public class NavGrid2D : MonoBehaviour
                 {
                     // 只检查当前半径圆圈上的点（切比雪夫距离 = r）
                     if (System.Math.Abs(dx) != r && System.Math.Abs(dy) != r) continue;
-                    
+
                     int x = gx + dx;
                     int y = gy + dy;
-                    
+
                     if (IsGridWalkableForQuery(x, y, ignoredCollider))
                     {
                         // 计算欧几里得距离的平方（避免开方运算）
                         float distSq = dx * dx + dy * dy;
-                        
+
                         // 🔥 计算方向优先级：下(0) > 右(1) > 上(2) > 左(3) > 斜向(4+)
                         // 这确保了相同距离时总是选择相同方向
                         int priority = GetDirectionPriority(dx, dy);
-                        
+
                         // 🔥 更新最佳点：距离更近，或距离相同但优先级更高
                         bool shouldUpdate = false;
                         if (distSq < bestDistSq - 0.01f)  // 距离明显更近
@@ -1887,7 +1958,7 @@ public class NavGrid2D : MonoBehaviour
                         {
                             shouldUpdate = true;
                         }
-                        
+
                         if (shouldUpdate)
                         {
                             bestDistSq = distSq;
@@ -1899,14 +1970,14 @@ public class NavGrid2D : MonoBehaviour
                     }
                 }
             }
-            
+
             // 🔥 优化：如果已经在当前半径找到点，后续半径只可能更远，可以提前结束
             if (found && r > Mathf.Sqrt(bestDistSq) + 1)
             {
                 break;  // 当前半径已经大于最佳距离+1，后续不可能更近
             }
         }
-        
+
         return found;
     }
 
@@ -2025,7 +2096,7 @@ public class NavGrid2D : MonoBehaviour
 
         return Mathf.Abs(distSq - otherDistSq) < 0.01f && priority < otherPriority;
     }
-    
+
     /// <summary>
     /// 获取方向优先级（确保相同距离时选择固定方向）
     /// 优先级：下(0) > 右(1) > 上(2) > 左(3) > 斜向(4+)
@@ -2040,16 +2111,16 @@ public class NavGrid2D : MonoBehaviour
         if (dx == 0 && dy > 0) return 2;
         // 正左方
         if (dx < 0 && dy == 0) return 3;
-        
+
         // 斜向：按象限优先级
         if (dx > 0 && dy < 0) return 4;  // 右下
         if (dx > 0 && dy > 0) return 5;  // 右上
         if (dx < 0 && dy > 0) return 6;  // 左上
         if (dx < 0 && dy < 0) return 7;  // 左下
-        
+
         return 8;  // 其他情况
     }
-    
+
     private bool FindNearestWalkable(int gx, int gy, int maxRange, out int nx, out int ny)
     {
         nx = gx; ny = gy;
@@ -2103,26 +2174,26 @@ public class NavGrid2D : MonoBehaviour
         int nx = x + dx;
         int ny = y + dy;
         if (!InBounds(nx, ny)) { result = default; return false; }
-        
+
         // 严格的corner cutting检测：两条相邻边和对角格都必须可走
         int adjX = x + dx;
         int adjY = y;
         int adjX2 = x;
         int adjY2 = y + dy;
-        
+
         if (!IsWalkable(adjX, adjY) || !IsWalkable(adjX2, adjY2))
         {
             result = default;
             return false;
         }
-        
+
         // 额外检查：对角格本身也必须可走
         if (!IsWalkable(nx, ny))
         {
             result = default;
             return false;
         }
-        
+
         // 如果启用严格模式，额外检查对角线中点是否有障碍物
         if (strictCornerCutting)
         {
@@ -2135,7 +2206,7 @@ public class NavGrid2D : MonoBehaviour
                 return false;
             }
         }
-        
+
         result = new Vector2Int(nx, ny);
         return true;
     }
@@ -2287,7 +2358,7 @@ public class NavGrid2D : MonoBehaviour
     private static bool HasAnyTag(Transform t, string[] tags)
     {
         if (t == null || tags == null) return false;
-        
+
         // 检查自身和所有父级的Tag
         Transform current = t;
         while (current != null)
@@ -2307,6 +2378,72 @@ public class NavGrid2D : MonoBehaviour
             current = current.parent;
         }
         return false;
+    }
+
+    private static void AppendColliderDebugSummary(
+        StringBuilder sb,
+        Collider2D collider,
+        bool explicitWalkable,
+        bool explicitObstacle,
+        bool explicitSoftPass,
+        bool tagBlocked,
+        bool layerBlocked)
+    {
+        sb.Append(collider.name)
+          .Append("{tag=").Append(collider.tag)
+          .Append(",layer=").Append(LayerMask.LayerToName(collider.gameObject.layer))
+          .Append(",path=").Append(BuildTransformPath(collider.transform))
+          .Append(",reason=");
+
+        bool appendedReason = false;
+        AppendReasonFlag(sb, explicitWalkable, "walkableOverride", ref appendedReason);
+        AppendReasonFlag(sb, explicitObstacle, "explicitObstacle", ref appendedReason);
+        AppendReasonFlag(sb, explicitSoftPass, "softPass", ref appendedReason);
+        AppendReasonFlag(sb, tagBlocked, "tag", ref appendedReason);
+        AppendReasonFlag(sb, layerBlocked, "layer", ref appendedReason);
+        if (!appendedReason)
+        {
+            sb.Append("unknown");
+        }
+
+        sb.Append('}');
+    }
+
+    private static void AppendReasonFlag(StringBuilder sb, bool condition, string label, ref bool appendedReason)
+    {
+        if (!condition)
+        {
+            return;
+        }
+
+        if (appendedReason)
+        {
+            sb.Append('+');
+        }
+
+        sb.Append(label);
+        appendedReason = true;
+    }
+
+    private static string BuildTransformPath(Transform transform)
+    {
+        if (transform == null)
+        {
+            return "null";
+        }
+
+        const int maxDepth = 5;
+        string path = transform.name;
+        Transform current = transform.parent;
+        int depth = 0;
+        while (current != null && depth < maxDepth)
+        {
+            path = current.name + "/" + path;
+            current = current.parent;
+            depth++;
+        }
+
+        return path;
     }
 
     private bool MatchesExplicitObstacleCollider(Collider2D hitCollider)
@@ -2631,7 +2768,7 @@ public class NavGrid2D : MonoBehaviour
     void OnDrawGizmosSelected()
     {
         if (!showDebugGizmos) return;
-        
+
         Gizmos.color = Color.cyan;
         if (Application.isPlaying && walkable != null)
         {

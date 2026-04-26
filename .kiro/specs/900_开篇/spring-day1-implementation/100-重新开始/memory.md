@@ -2688,3 +2688,38 @@
 - 当前恢复点：
   1. docs/memory/manifest 这一批已经安全归仓，不需要返工。
   2. 后续若要继续收第二批，必须先解决 `CodexCodeGuard` 工具 blocker，或由治理位裁定如何处理同根禁吞文件。
+
+## 2026-04-23｜shared-root 历史小批次补记：`Editor/Story` validation menus 不是 CodeGuard blocker，而是同根扩根 blocker
+- 当前主线目标：
+  - 第二波只按历史开发顺序再尝试 `1` 个最小历史小批次上传，不继续开发，也不换第二批。
+- 本轮实际完成：
+  1. 已把 `Assets/Editor/Story` 下这组新增文件单独拎出做历史小批尝试：
+     - `SpringDay1ActorRuntimeProbeMenu`
+     - `SpringDay1LatePhaseValidationMenu`
+     - `SpringDay1LiveSnapshotArtifactMenu`
+     - `SpringDay1MiddayOneShotPersistenceTestMenu`
+     - `SpringDay1NativeFreshRestartMenu`
+     - `SpringDay1ResidentControlProbeMenu`
+     - `SunsetPlayModeStartSceneGuard`
+     - `SunsetValidationSessionCleanupMenu`
+     及各自 `.meta`
+  2. 已判断这组可以视为一个独立历史小批：
+     - 同目录
+     - 同类 editor validation/probe/snapshot/cleanup 语义
+     - 当前全部是 untracked
+  3. 已对这一个小批次单独跑真实 `preflight`。
+- 第一真实 blocker：
+  1. 不是 `CodexCodeGuard`。
+  2. 是 `own-root / same-root`：
+     - `Assets/Editor/Story` 同根仍有 `7` 个已修改旧文件未纳入本轮
+- exact blocker files：
+  - `Assets/Editor/Story/DialogueDebugMenu.cs`
+  - `Assets/Editor/Story/SpringDay1DirectorPrimaryLiveCaptureMenu.cs`
+  - `Assets/Editor/Story/SpringDay1DirectorPrimaryRehearsalBakeMenu.cs`
+  - `Assets/Editor/Story/SpringDay1DirectorStagingWindow.cs`
+  - `Assets/Editor/Story/SpringDay1DirectorTownContractMenu.cs`
+  - `Assets/Editor/Story/SpringDay1TargetedEditModeTestMenu.cs`
+  - `Assets/Editor/Story/SpringUiEvidenceMenu.cs`
+- 当前恢复点：
+  1. 这一波已经按“只试一个历史小批次”收口。
+  2. 后续若继续，先处理 `Assets/Editor/Story` 根的历史分批边界，不该跳去 `Managers / Directing / Tests`。

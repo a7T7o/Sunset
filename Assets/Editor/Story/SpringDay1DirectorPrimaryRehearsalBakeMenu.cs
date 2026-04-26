@@ -43,12 +43,6 @@ namespace Sunset.Editor.Story
                 new BakeStep(new Vector2(0.2f, 0.1f), 0.16f, false, 0.1f),
                 new BakeStep(Vector2.zero, 0.3f, false, 0.36f)
             }),
-            new BakeTargetSpec(SpringDay1DirectorBeatKeys.FreeTimeNightWitness, "night-witness-301", "301", 1.35f, new[]
-            {
-                new BakeStep(new Vector2(0.15f, -0.45f), 0.3f, false, 0.18f),
-                new BakeStep(new Vector2(-0.2f, 0.1f), 0.18f, false, 0.12f),
-                new BakeStep(Vector2.zero, 0.34f, false, 0.38f)
-            }),
             new BakeTargetSpec(SpringDay1DirectorBeatKeys.DinnerConflictTable, "dinner-bg-203", "203", 1.2f, new[]
             {
                 new BakeStep(new Vector2(0.6f, -0.1f), 0.2f, false, 0.14f),
@@ -280,7 +274,7 @@ namespace Sunset.Editor.Story
             {
                 BakeTargetSpec nextTarget = Targets[_targetIndex++];
                 SpringDay1DirectorBeatEntry beat = _book.FindBeat(nextTarget.beatKey);
-                SpringDay1DirectorActorCue cue = FindCueById(beat, nextTarget.cueId);
+                SpringDay1DirectorActorCue cue = FindCueById(beat, nextTarget.cueId, nextTarget.npcId);
                 SpringDay1NpcCrowdManifest.Entry entry = FindEntryByNpcId(_manifest, nextTarget.npcId);
                 if (beat == null || cue == null || entry == null || entry.prefab == null)
                 {
@@ -379,6 +373,8 @@ namespace Sunset.Editor.Story
         private static void ApplySamplesToCue(SpringDay1DirectorActorCue cue, BakeTargetSpec target, List<RecordedCueSample> samples)
         {
             cue.keepCurrentSpawnPosition = false;
+            cue.useSemanticAnchorAsStart = false;
+            cue.startPositionIsSemanticAnchorOffset = false;
             cue.pathPointsAreOffsets = false;
             cue.startPosition = samples[0].position;
             cue.facing = samples[0].facing;
@@ -556,7 +552,7 @@ namespace Sunset.Editor.Story
         private static bool BakeTargetInEditMode(BakeTargetSpec target)
         {
             SpringDay1DirectorBeatEntry beat = _book.FindBeat(target.beatKey);
-            SpringDay1DirectorActorCue cue = FindCueById(beat, target.cueId);
+            SpringDay1DirectorActorCue cue = FindCueById(beat, target.cueId, target.npcId);
             SpringDay1NpcCrowdManifest.Entry entry = FindEntryByNpcId(_manifest, target.npcId);
             if (beat == null || cue == null || entry == null || entry.prefab == null)
             {
@@ -731,7 +727,7 @@ namespace Sunset.Editor.Story
             }
         }
 
-        private static SpringDay1DirectorActorCue FindCueById(SpringDay1DirectorBeatEntry beat, string cueId)
+        private static SpringDay1DirectorActorCue FindCueById(SpringDay1DirectorBeatEntry beat, string cueId, string npcId)
         {
             if (beat == null || beat.actorCues == null)
             {
@@ -741,7 +737,13 @@ namespace Sunset.Editor.Story
             for (int index = 0; index < beat.actorCues.Length; index++)
             {
                 SpringDay1DirectorActorCue cue = beat.actorCues[index];
-                if (cue != null && string.Equals(cue.cueId?.Trim(), cueId, StringComparison.OrdinalIgnoreCase))
+                if (cue == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(cue.cueId?.Trim(), cueId, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(cue.npcId?.Trim(), npcId, StringComparison.OrdinalIgnoreCase))
                 {
                     return cue;
                 }

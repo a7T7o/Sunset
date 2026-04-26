@@ -12,6 +12,7 @@ public class TilemapSelectionToColliderWorkflow : EditorWindow
 
     private TilemapToColliderObjects.GenerationMode generationMode = TilemapToColliderObjects.GenerationMode.PerTileObjects;
     private bool createSpriteRenderer = true;
+    private bool createColliders = true;
     private bool copyTileColor = true;
     private bool copySortingFromTilemap = true;
     private TilemapToColliderObjects.ColliderMode colliderMode = TilemapToColliderObjects.ColliderMode.PolygonCollider2D;
@@ -94,11 +95,18 @@ public class TilemapSelectionToColliderWorkflow : EditorWindow
         }
 
         EditorGUILayout.Space();
-        colliderMode = (TilemapToColliderObjects.ColliderMode)EditorGUILayout.EnumPopup("碰撞体类型", colliderMode);
-        colliderIsTrigger = EditorGUILayout.Toggle("Collider Is Trigger", colliderIsTrigger);
+        createColliders = EditorGUILayout.Toggle("生成碰撞体", createColliders);
+        using (new EditorGUI.DisabledScope(!createColliders))
+        {
+            colliderMode = (TilemapToColliderObjects.ColliderMode)EditorGUILayout.EnumPopup("碰撞体类型", colliderMode);
+            colliderIsTrigger = EditorGUILayout.Toggle("Collider Is Trigger", colliderIsTrigger);
+        }
 
-        addRigidbody2D = EditorGUILayout.Toggle("附加 Rigidbody2D", addRigidbody2D);
-        using (new EditorGUI.DisabledScope(!addRigidbody2D))
+        using (new EditorGUI.DisabledScope(!createColliders))
+        {
+            addRigidbody2D = EditorGUILayout.Toggle("附加 Rigidbody2D", addRigidbody2D);
+        }
+        using (new EditorGUI.DisabledScope(!createColliders || !addRigidbody2D))
         {
             rigidbodyType = (RigidbodyType2D)EditorGUILayout.EnumPopup("Rigidbody 类型", rigidbodyType);
         }
@@ -126,6 +134,11 @@ public class TilemapSelectionToColliderWorkflow : EditorWindow
         {
             EditorGUILayout.HelpBox("你当前选择的是替换式工作流：生成后会清空框选区域内的源 Tile。", MessageType.Warning);
         }
+
+        if (!createColliders && addRigidbody2D)
+        {
+            EditorGUILayout.HelpBox("碰撞体关闭时，Rigidbody2D 也会自动跳过，不会实际生成。", MessageType.Warning);
+        }
     }
 
     private void DrawActions()
@@ -138,6 +151,7 @@ public class TilemapSelectionToColliderWorkflow : EditorWindow
             TilemapToColliderObjects.RunGridSelectionConversion(
                 generationMode,
                 createSpriteRenderer,
+                createColliders,
                 copyTileColor,
                 copySortingFromTilemap,
                 colliderMode,

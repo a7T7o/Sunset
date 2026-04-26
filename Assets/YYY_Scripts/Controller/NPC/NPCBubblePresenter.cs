@@ -14,9 +14,11 @@ using UnityEditor.SceneManagement;
 [DisallowMultipleComponent]
 public class NPCBubblePresenter : MonoBehaviour
 {
-    private const int CurrentStyleVersion = 13;
+    private const int CurrentStyleVersion = 14;
     private const int BubbleForegroundSortingBase = 24000;
     private const int SpeakerForegroundSortBoost = 2200;
+    private const float BubbleTextCharacterSpacing = 0f;
+    private const float BubbleTextLineSpacing = -0.8f;
 
     private enum BubbleDisplayMode
     {
@@ -33,9 +35,10 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private static readonly string[] PreferredFontResourcePaths =
     {
-        "Fonts & Materials/DialogueChinese Pixel SDF",
+        "Fonts & Materials/DialogueChinese V2 SDF",
         "Fonts & Materials/DialogueChinese SDF",
-        "Fonts & Materials/DialogueChinese SoftPixel SDF"
+        "Fonts & Materials/DialogueChinese SoftPixel SDF",
+        "Fonts & Materials/DialogueChinese Pixel SDF"
     };
 
     private static readonly Vector2 LegacyBubblePadding = new Vector2(24f, 16f);
@@ -136,6 +139,7 @@ public class NPCBubblePresenter : MonoBehaviour
     public bool IsBubbleVisible => _canvas != null && _canvas.gameObject.activeSelf;
     public string CurrentBubbleText => IsBubbleVisible && _bubbleText != null ? _bubbleText.text : string.Empty;
     public string LastPresentedText => _lastPresentedText ?? string.Empty;
+    public bool IsConversationPriorityVisible => IsBubbleVisible && _channelPriority >= BubbleChannelPriority.Conversation;
     public float ApproximateWorldWidth => _canvasRect != null ? _canvasRect.sizeDelta.x * bubbleLocalScale.x : 0f;
     public float ApproximateWorldHeight => _canvasRect != null ? _canvasRect.sizeDelta.y * bubbleLocalScale.y : 0f;
     public int SelfTalkLineCount => selfTalkLines != null ? selfTalkLines.Length : 0;
@@ -150,11 +154,6 @@ public class NPCBubblePresenter : MonoBehaviour
     {
         CacheComponents();
         UpgradeLegacyStyleIfNeeded();
-        if (CanCreateBubbleUiInCurrentContext())
-        {
-            EnsureBubbleUi();
-        }
-
         HideImmediate();
     }
 
@@ -197,20 +196,13 @@ public class NPCBubblePresenter : MonoBehaviour
         hideDuration = Mathf.Max(0.01f, hideDuration);
         showScaleOvershoot = Mathf.Clamp(showScaleOvershoot, 0f, 0.2f);
 
-        if (!CanCreateBubbleUiInCurrentContext())
+        if (!Application.isPlaying)
         {
             return;
         }
 
-        EnsureBubbleUi();
-        if (_canvas == null)
-        {
-            return;
-        }
-
-        UpdateStyleVisuals();
-        UpdateLayout();
-        SyncCanvasTransform();
+        // OnValidate 期间直接写 RectTransform 会触发 Unity 的 SendMessage 限制，
+        // 这里不再做运行时 UI 重排，避免 fresh console 被假红污染。
     }
 
     private void OnDisable()
@@ -291,6 +283,11 @@ public class NPCBubblePresenter : MonoBehaviour
             return false;
         }
 
+        if (!CanRunBubbleRuntime())
+        {
+            return false;
+        }
+
         if (!CanShow(BubbleChannelPriority.Conversation))
         {
             return false;
@@ -317,6 +314,7 @@ public class NPCBubblePresenter : MonoBehaviour
 
         _lastPresentedText = FormatBubbleText(content.Trim());
         _bubbleText.text = _lastPresentedText;
+        Sunset.Story.DialogueChineseFontRuntimeBootstrap.CanRenderText(_bubbleText.font, _lastPresentedText);
         UpdateStyleVisuals();
         UpdateLayout();
         SyncCanvasTransform();
@@ -422,6 +420,11 @@ public class NPCBubblePresenter : MonoBehaviour
             return false;
         }
 
+        if (!CanRunBubbleRuntime())
+        {
+            return false;
+        }
+
         if (!CanShow(channelPriority))
         {
             return false;
@@ -449,6 +452,7 @@ public class NPCBubblePresenter : MonoBehaviour
 
         _lastPresentedText = FormatBubbleText(content.Trim());
         _bubbleText.text = _lastPresentedText;
+        Sunset.Story.DialogueChineseFontRuntimeBootstrap.CanRenderText(_bubbleText.font, _lastPresentedText);
         UpdateStyleVisuals();
         UpdateLayout();
         SyncCanvasTransform();
@@ -492,7 +496,10 @@ public class NPCBubblePresenter : MonoBehaviour
 
         if (duration > 0f)
         {
-            _hideCoroutine = StartCoroutine(HideAfterSeconds(duration));
+            if (CanRunBubbleRuntime())
+            {
+                _hideCoroutine = StartCoroutine(HideAfterSeconds(duration));
+            }
         }
 
         if (showDebugLog)
@@ -512,6 +519,12 @@ public class NPCBubblePresenter : MonoBehaviour
         }
 
         if (!Application.isPlaying || _canvas == null || !_canvas.gameObject.activeSelf)
+        {
+            HideImmediate();
+            return;
+        }
+
+        if (!CanRunBubbleRuntime())
         {
             HideImmediate();
             return;
@@ -637,7 +650,7 @@ public class NPCBubblePresenter : MonoBehaviour
         textColor = new Color(0.98f, 0.95f, 0.90f, 1f);
         textOutlineColor = new Color(0.05f, 0.06f, 0.09f, 0.96f);
         fontSize = 32f;
-        textOutlineWidth = 0.18f;
+        textOutlineWidth = 0.08f;
         maxTextWidth = 315f;
         minAdaptiveTextWidth = 64f;
         preferredCharactersPerLine = 10;
@@ -754,9 +767,19 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private void EnsureBubbleUi()
     {
-        if (_canvas != null && _bubbleText != null)
+        if (HasResolvedBubbleUi())
         {
+            RefreshBoundBubbleUiAssets();
+            UpdateStyleVisuals();
+            UpdateLayout();
+            SyncCanvasTransform();
+            SyncSorting();
             return;
+        }
+
+        if (_canvas != null || _bubbleText != null)
+        {
+            ResetBubbleUiCache();
         }
 
         if (!CanCreateBubbleUiInCurrentContext())
@@ -766,6 +789,11 @@ public class NPCBubblePresenter : MonoBehaviour
 
         if (TryBindExistingBubbleUi())
         {
+            RefreshBoundBubbleUiAssets();
+            UpdateStyleVisuals();
+            UpdateLayout();
+            SyncCanvasTransform();
+            SyncSorting();
             return;
         }
 
@@ -854,14 +882,18 @@ public class NPCBubblePresenter : MonoBehaviour
 
         _bubbleText = textObject.GetComponent<TextMeshProUGUI>();
         _bubbleText.font = resolvedFont;
+        if (resolvedFont.material != null)
+        {
+            _bubbleText.fontSharedMaterial = resolvedFont.material;
+        }
         _bubbleText.alignment = TextAlignmentOptions.Center;
         _bubbleText.textWrappingMode = TextWrappingModes.Normal;
         _bubbleText.overflowMode = TextOverflowModes.Overflow;
         _bubbleText.raycastTarget = false;
         _bubbleText.enableAutoSizing = false;
         _bubbleText.extraPadding = true;
-        _bubbleText.characterSpacing = 1.25f;
-        _bubbleText.lineSpacing = -5f;
+        _bubbleText.characterSpacing = BubbleTextCharacterSpacing;
+        _bubbleText.lineSpacing = BubbleTextLineSpacing;
         _bubbleText.outlineColor = textOutlineColor;
         _bubbleText.outlineWidth = textOutlineWidth;
 
@@ -874,6 +906,21 @@ public class NPCBubblePresenter : MonoBehaviour
         UpdateLayout();
         SyncCanvasTransform();
         SyncSorting();
+    }
+
+    private bool HasResolvedBubbleUi()
+    {
+        return _canvas != null &&
+               _canvasGroup != null &&
+               _canvasRect != null &&
+               _bubbleRoot != null &&
+               _shadowBodyImage != null &&
+               _shadowTailImage != null &&
+               _borderBodyImage != null &&
+               _borderTailImage != null &&
+               _fillBodyImage != null &&
+               _fillTailImage != null &&
+               _bubbleText != null;
     }
 
     private bool TryBindExistingBubbleUi()
@@ -925,6 +972,45 @@ public class NPCBubblePresenter : MonoBehaviour
         return true;
     }
 
+    private void RefreshBoundBubbleUiAssets()
+    {
+        Sprite bodySprite = GetOrCreateRuntimeBubbleSprite();
+        Sprite tailSprite = GetOrCreateRuntimeTailSprite();
+
+        RefreshBoundImage(_shadowBodyImage, bodySprite, Image.Type.Sliced);
+        RefreshBoundImage(_borderBodyImage, bodySprite, Image.Type.Sliced);
+        RefreshBoundImage(_fillBodyImage, bodySprite, Image.Type.Sliced);
+
+        RefreshBoundImage(_shadowTailImage, tailSprite, Image.Type.Simple);
+        RefreshBoundImage(_borderTailImage, tailSprite, Image.Type.Simple);
+        RefreshBoundImage(_fillTailImage, tailSprite, Image.Type.Simple);
+
+        if (_canvas != null)
+        {
+            _canvas.renderMode = RenderMode.WorldSpace;
+            _canvas.overrideSorting = true;
+        }
+
+        if (_bubbleText != null)
+        {
+            TMP_FontAsset resolvedFont = ResolveFontAsset();
+            if (resolvedFont != null)
+            {
+                _bubbleText.font = resolvedFont;
+                if (resolvedFont.material != null)
+                {
+                    _bubbleText.fontSharedMaterial = resolvedFont.material;
+                }
+            }
+
+            _bubbleText.raycastTarget = false;
+            _bubbleText.enableAutoSizing = false;
+            _bubbleText.extraPadding = true;
+            _bubbleText.characterSpacing = BubbleTextCharacterSpacing;
+            _bubbleText.lineSpacing = BubbleTextLineSpacing;
+        }
+    }
+
     private static Image ResolveImage(Transform parent, string childName, out RectTransform rectTransform)
     {
         rectTransform = null;
@@ -941,6 +1027,19 @@ public class NPCBubblePresenter : MonoBehaviour
 
         rectTransform = child.GetComponent<RectTransform>();
         return child.GetComponent<Image>();
+    }
+
+    private static void RefreshBoundImage(Image image, Sprite sprite, Image.Type imageType)
+    {
+        if (image == null)
+        {
+            return;
+        }
+
+        image.sprite = sprite;
+        image.type = imageType;
+        image.raycastTarget = false;
+        image.preserveAspect = false;
     }
 
     private void ResetBubbleUiCache()
@@ -1006,6 +1105,8 @@ public class NPCBubblePresenter : MonoBehaviour
         _bubbleText.color = textColor;
         _bubbleText.outlineColor = textOutlineColor;
         _bubbleText.outlineWidth = textOutlineWidth;
+        _bubbleText.characterSpacing = BubbleTextCharacterSpacing;
+        _bubbleText.lineSpacing = BubbleTextLineSpacing;
     }
 
     private void UpdateLayout()
@@ -1128,10 +1229,25 @@ public class NPCBubblePresenter : MonoBehaviour
         }
     }
 
+    private bool CanRunBubbleRuntime()
+    {
+        return Application.isPlaying && isActiveAndEnabled && gameObject.activeInHierarchy;
+    }
+
     private void StartVisibilityAnimation(bool visible, bool deactivateAfter)
     {
         if (_canvas == null || _canvasGroup == null || _bubbleRoot == null)
         {
+            return;
+        }
+
+        if (!CanRunBubbleRuntime())
+        {
+            if (!visible)
+            {
+                HideImmediate();
+            }
+
             return;
         }
 
@@ -1420,32 +1536,47 @@ public class NPCBubblePresenter : MonoBehaviour
 
     private TMP_FontAsset ResolveFontAsset()
     {
-        if (fontAsset != null)
+        TMP_FontAsset preferredRuntimeFont = ResolvePreferredRuntimeFontAsset();
+        TMP_FontAsset resolved = Sunset.Story.DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+            _lastPresentedText,
+            preferredRuntimeFont != null ? preferredRuntimeFont : fontAsset);
+        if (resolved != null)
         {
-            return fontAsset;
+            fontAsset = resolved;
+            return resolved;
         }
 
-        fontAsset = TryLoadPreferredFontAsset();
-        if (fontAsset != null)
-        {
-            return fontAsset;
-        }
-
-        return TMP_Settings.defaultFontAsset;
+        TMP_FontAsset fallback = preferredRuntimeFont != null ? preferredRuntimeFont : fontAsset;
+        return fallback != null ? fallback : TMP_Settings.defaultFontAsset;
     }
 
     private TMP_FontAsset TryLoadPreferredFontAsset()
     {
+        return ResolvePreferredRuntimeFontAsset();
+    }
+
+    private TMP_FontAsset ResolvePreferredRuntimeFontAsset()
+    {
         for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
         {
             TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
-            if (IsFontAssetUsable(candidate))
+            if (!IsFontAssetUsable(candidate))
             {
-                return candidate;
+                continue;
+            }
+
+            TMP_FontAsset resolvedCandidate = Sunset.Story.DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                _lastPresentedText,
+                candidate);
+            if (IsFontAssetUsable(resolvedCandidate))
+            {
+                return resolvedCandidate;
             }
         }
 
-        return null;
+        return Sunset.Story.DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+            _lastPresentedText,
+            fontAsset);
     }
 
     private static bool IsFontAssetUsable(TMP_FontAsset fontAsset)

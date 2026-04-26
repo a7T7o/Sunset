@@ -19,7 +19,7 @@ public class InventoryPanelUI : MonoBehaviour
     [SerializeField] private Transform upParent;   // 36格：0..35，其中0..11为Hotbar映射
     [SerializeField] private Transform downParent; // 6格装备栏：0..5
 
-    [Header("Limits")] 
+    [Header("Limits")]
     [SerializeField] private int upCount = 36;  // ★ 背包有 36 格（0-35）
     [SerializeField] private int downCount = 6;
 
@@ -39,7 +39,7 @@ public class InventoryPanelUI : MonoBehaviour
             database = inventory.Database;
         }
     }
-    
+
     /// <summary>
     /// Rule: P1-1 背包刷新 - 每次面板激活时强制刷新
     /// </summary>
@@ -88,7 +88,7 @@ public class InventoryPanelUI : MonoBehaviour
             Debug.LogError("[InventoryPanelUI] BuildUpSlots: database 为 null!");
             return;
         }
-        
+
         int n = Mathf.Min(upCount, upParent.childCount);
         for (int i = 0; i < n; i++)
         {
@@ -125,10 +125,18 @@ public class InventoryPanelUI : MonoBehaviour
             ? itemDatabase
             : inventoryService != null ? inventoryService.Database : database;
         selection = hotbarSelection;
+        InvalidateSlotBindings();
+
+        if (selection != null)
+        {
+            followHotbarSelection = selection.selectedInventoryIndex < InventoryService.HotbarWidth;
+            SyncSelectionFromHotbar();
+        }
 
         if (isActiveAndEnabled)
         {
             EnsureBuilt();
+            RefreshSelectionOnly();
         }
     }
 
@@ -167,16 +175,63 @@ public class InventoryPanelUI : MonoBehaviour
 
     public void RefreshAll()
     {
+        EnsureBuilt();
         RefreshDataOnly();
         RefreshSelectionOnly();
     }
 
+    private void InvalidateSlotBindings()
+    {
+        slotBindingsReady = false;
+        boundInventory = null;
+        boundEquipment = null;
+        boundDatabase = null;
+        boundSelection = null;
+    }
+
     private void ResolveRuntimeContextIfMissing()
     {
-        if (inventory == null) inventory = FindFirstObjectByType<InventoryService>();
-        if (equipment == null) equipment = FindFirstObjectByType<EquipmentService>();
+        PackagePanelTabsUI packageTabs = PersistentPlayerSceneBridge.GetPreferredRuntimePackageTabs()
+            ?? FindFirstObjectByType<PackagePanelTabsUI>(FindObjectsInactive.Include);
+        InventoryService preferredInventory = packageTabs != null ? packageTabs.RuntimeInventoryService : null;
+        if (preferredInventory == null)
+        {
+            preferredInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService();
+        }
+
+        EquipmentService preferredEquipment = packageTabs != null ? packageTabs.RuntimeEquipmentService : null;
+        if (preferredEquipment == null)
+        {
+            preferredEquipment = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService();
+        }
+
+        ItemDatabase preferredDatabase = packageTabs != null
+            ? packageTabs.RuntimeDatabase
+            : preferredInventory != null ? preferredInventory.Database : null;
+
+        HotbarSelectionService preferredSelection = packageTabs != null ? packageTabs.RuntimeHotbarSelection : null;
+        if (preferredSelection == null)
+        {
+            preferredSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService();
+        }
+
+        if (preferredInventory != null) inventory = preferredInventory;
+        if (preferredEquipment != null) equipment = preferredEquipment;
+        if (preferredDatabase != null) database = preferredDatabase;
+        if (preferredSelection != null) selection = preferredSelection;
+
+        if (database == null)
+        {
+            database = inventory != null ? inventory.Database : null;
+        }
+
+        if (inventory == null) inventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+        if (equipment == null) equipment = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService()
+                ?? FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
         if (database == null && inventory != null) database = inventory.Database;
-        if (selection == null) selection = FindFirstObjectByType<HotbarSelectionService>();
+        if (selection == null) selection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                ?? FindFirstObjectByType<HotbarSelectionService>(FindObjectsInactive.Include);
     }
 
     private void RefreshDataOnly()
@@ -226,7 +281,7 @@ public class InventoryPanelUI : MonoBehaviour
         selectedEquipmentIndex = -1;
         RefreshSelectionOnly();
     }
-    
+
     /// <summary>
     /// 清空背包槽位（Up 区域）的所有选中状态
     /// 供 Sort 后调用
@@ -260,7 +315,14 @@ public class InventoryPanelUI : MonoBehaviour
 
         if (selection != null)
         {
-            selection.SelectInventoryIndex(slotIndex);
+            if (syncHotbarSelection && slotIndex < InventoryService.HotbarWidth)
+            {
+                selection.SelectInventoryIndex(slotIndex);
+            }
+            else
+            {
+                selection.SetPanelSelectionIndex(slotIndex);
+            }
         }
 
         RefreshUpSelectionVisuals();
@@ -290,7 +352,7 @@ public class InventoryPanelUI : MonoBehaviour
             return;
         }
 
-        selectedInventoryIndex = Mathf.Clamp(selection.selectedIndex, 0, Mathf.Max(0, upCount - 1));
+        selectedInventoryIndex = Mathf.Clamp(selection.selectedInventoryIndex, 0, Mathf.Max(0, upCount - 1));
     }
 
     private void HandleHotbarSelectionChanged(int selectedIndex)

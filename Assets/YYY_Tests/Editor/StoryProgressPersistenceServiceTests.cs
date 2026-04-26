@@ -45,10 +45,11 @@ public class StoryProgressPersistenceServiceTests
 
         ClearStaticCollection(relationshipServiceType, "CachedStages");
         ClearStaticCollection(relationshipServiceType, "KnownNpcIds");
+        ClearStaticCollection(ResolveTypeOrFail("Sunset.Story.StoryProgressPersistenceService"), "WorkbenchRuntimeStateByStation");
     }
 
     [Test]
-    public void CanSaveNow_BlocksDialogueChatAndWorkbenchCrafting()
+    public void CanSaveNow_BlocksDialogueAndNpcChat_ButAllowsWorkbenchRuntimePersistence()
     {
         RuntimeContext context = CreateRuntimeContext();
         Type persistenceServiceType = ResolveTypeOrFail("Sunset.Story.StoryProgressPersistenceService");
@@ -76,22 +77,86 @@ public class StoryProgressPersistenceServiceTests
         SetPrivateField(context.director, "_workbenchCraftingActive", true);
 
         bool canSaveDuringCrafting = InvokeCanSaveNow(persistenceServiceType, out string craftingReason);
-        Assert.That(canSaveDuringCrafting, Is.False);
-        StringAssert.Contains("工作台", craftingReason);
+        Assert.That(canSaveDuringCrafting, Is.True,
+            "工作台 runtime 状态现在会先 flush 进正式持久层，不应再因为正在制作而直接拦存档。");
+        Assert.That(craftingReason, Is.Empty);
     }
 
     [Test]
-    public void CanSaveNow_ShouldAlsoBlockReadyWorkbenchOutputsAndFloatingQueueState()
+    public void CanSaveNow_ShouldFlushWorkbenchRuntimeStateInsteadOfBlockingWorkbenchQueue()
     {
         string projectRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Directory.GetCurrentDirectory();
         string persistenceText = File.ReadAllText(Path.Combine(
             projectRoot,
             "Assets/YYY_Scripts/Story/Managers/StoryProgressPersistenceService.cs"));
 
-        StringAssert.Contains("overlay.HasReadyWorkbenchOutputs", persistenceText,
-            "已完成未领取的工作台产物当前没有正式持久化链，存档前必须先拦住。");
-        StringAssert.Contains("overlay.HasWorkbenchFloatingState", persistenceText,
-            "工作台只要还有浮动态队列，也应先拦保存，避免读档后静默丢状态。");
+        StringAssert.Contains("SpringDay1WorkbenchCraftingOverlay.FlushRuntimeStateToPersistence();", persistenceText,
+            "正式存档前应先把工作台 runtime 状态落到长期持久层，而不是继续把工作台当成 save blocker。");
+        Assert.That(persistenceText, Does.Not.Contain("overlay.HasReadyWorkbenchOutputs"),
+            "工作台 ready outputs 已进入正式持久化链后，不应继续靠 blocker 文本守住。");
+        Assert.That(persistenceText, Does.Not.Contain("overlay.HasWorkbenchFloatingState"),
+            "工作台队列状态已正式进 snapshot 后，不应继续要求用户必须先清空工作台才能保存。");
+    }
+
+    [Test]
+    public void SaveLoad_RoundTripRestoresWorkbenchRuntimeStates()
+    {
+        RuntimeContext context = CreateRuntimeContext();
+        Type persistenceServiceType = ResolveTypeOrFail("Sunset.Story.StoryProgressPersistenceService");
+        Type workbenchStateType = ResolveTypeOrFail("FarmGame.Data.Core.WorkbenchRuntimeSaveData");
+        Type queueEntryType = ResolveTypeOrFail("FarmGame.Data.Core.WorkbenchQueueEntrySaveData");
+        const string stationKey = "Assets/000_Scenes/Home.unity|Stations/Workbench|1.000|2.000|0.000";
+
+        object savedWorkbenchState = CreateWorkbenchRuntimeState(
+            workbenchStateType,
+            queueEntryType,
+            stationKey,
+            "Home",
+            "Assets/000_Scenes/Home.unity",
+            recipeId: 9102,
+            resultItemId: 7,
+            totalCount: 3,
+            readyCount: 1,
+            currentUnitProgress: 0.35f,
+            hasReservedCurrentCraft: true,
+            isActiveEntry: true);
+        InvokeStatic(persistenceServiceType, "StoreWorkbenchRuntimeState", savedWorkbenchState);
+
+        object savedData = InvokeInstance(context.persistenceService, "Save");
+        string genericData = GetFieldValue(savedData, "genericData") as string;
+        StringAssert.Contains("workbenchStates", genericData);
+
+        InvokeStatic(persistenceServiceType, "ClearWorkbenchRuntimeStates");
+        object staleWorkbenchState = CreateWorkbenchRuntimeState(
+            workbenchStateType,
+            queueEntryType,
+            stationKey,
+            "Town",
+            "Assets/000_Scenes/Town.unity",
+            recipeId: 1,
+            resultItemId: 1,
+            totalCount: 1,
+            readyCount: 0,
+            currentUnitProgress: 0f,
+            hasReservedCurrentCraft: false,
+            isActiveEntry: false);
+        InvokeStatic(persistenceServiceType, "StoreWorkbenchRuntimeState", staleWorkbenchState);
+
+        InvokeInstance(context.persistenceService, "Load", savedData);
+
+        Assert.That(TryGetWorkbenchRuntimeState(persistenceServiceType, stationKey, out object restored), Is.True);
+        Assert.That(GetFieldValue(restored, "sceneName"), Is.EqualTo("Home"));
+        Assert.That(GetFieldValue(restored, "scenePath"), Is.EqualTo("Assets/000_Scenes/Home.unity"));
+
+        System.Collections.IList restoredEntries = GetFieldValue(restored, "queueEntries") as System.Collections.IList;
+        Assert.That(restoredEntries, Is.Not.Null);
+        Assert.That(restoredEntries.Count, Is.EqualTo(1));
+        object restoredEntry = restoredEntries[0];
+        Assert.That(GetFieldValue(restoredEntry, "recipeId"), Is.EqualTo(9102));
+        Assert.That(GetFieldValue(restoredEntry, "totalCount"), Is.EqualTo(3));
+        Assert.That(GetFieldValue(restoredEntry, "readyCount"), Is.EqualTo(1));
+        Assert.That(GetFieldValue(restoredEntry, "hasReservedCurrentCraft"), Is.EqualTo(true));
+        Assert.That(GetFieldValue(restoredEntry, "isActiveEntry"), Is.EqualTo(true));
     }
 
     [Test]
@@ -520,6 +585,13 @@ public class StoryProgressPersistenceServiceTests
         return field.GetValue(target);
     }
 
+    private static void SetFieldValue(object target, string fieldName, object value)
+    {
+        FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.That(field, Is.Not.Null, $"未找到字段: {target.GetType().Name}.{fieldName}");
+        field.SetValue(target, value);
+    }
+
     private static void SetAutoPropertyBackingField(object target, string propertyName, object value)
     {
         SetPrivateField(target, $"<{propertyName}>k__BackingField", value);
@@ -537,6 +609,53 @@ public class StoryProgressPersistenceServiceTests
         FieldInfo field = target.GetType().GetField(fieldName, BindingFlags.Instance | BindingFlags.NonPublic);
         Assert.That(field, Is.Not.Null, $"未找到字段: {target.GetType().Name}.{fieldName}");
         return field.GetValue(target);
+    }
+
+    private static object CreateWorkbenchRuntimeState(
+        Type workbenchStateType,
+        Type queueEntryType,
+        string stationKey,
+        string sceneName,
+        string scenePath,
+        int recipeId,
+        int resultItemId,
+        int totalCount,
+        int readyCount,
+        float currentUnitProgress,
+        bool hasReservedCurrentCraft,
+        bool isActiveEntry)
+    {
+        object workbenchState = Activator.CreateInstance(workbenchStateType);
+        object queueEntry = Activator.CreateInstance(queueEntryType);
+
+        SetFieldValue(queueEntry, "recipeId", recipeId);
+        SetFieldValue(queueEntry, "resultItemId", resultItemId);
+        SetFieldValue(queueEntry, "resultAmountPerCraft", 1);
+        SetFieldValue(queueEntry, "totalCount", totalCount);
+        SetFieldValue(queueEntry, "readyCount", readyCount);
+        SetFieldValue(queueEntry, "currentUnitProgress", currentUnitProgress);
+        SetFieldValue(queueEntry, "hasReservedCurrentCraft", hasReservedCurrentCraft);
+        SetFieldValue(queueEntry, "isActiveEntry", isActiveEntry);
+
+        System.Collections.IList queueEntries = Activator.CreateInstance(typeof(List<>).MakeGenericType(queueEntryType)) as System.Collections.IList;
+        queueEntries?.Add(queueEntry);
+
+        SetFieldValue(workbenchState, "stationKey", stationKey);
+        SetFieldValue(workbenchState, "sceneName", sceneName);
+        SetFieldValue(workbenchState, "scenePath", scenePath);
+        SetFieldValue(workbenchState, "queueEntries", queueEntries);
+        return workbenchState;
+    }
+
+    private static bool TryGetWorkbenchRuntimeState(Type persistenceServiceType, string stationKey, out object state)
+    {
+        MethodInfo method = persistenceServiceType.GetMethod("TryGetWorkbenchRuntimeState", BindingFlags.Static | BindingFlags.Public);
+        Assert.That(method, Is.Not.Null, "未找到 StoryProgressPersistenceService.TryGetWorkbenchRuntimeState");
+
+        object[] arguments = { stationKey, null };
+        bool result = (bool)method.Invoke(null, arguments);
+        state = arguments[1];
+        return result;
     }
 
     private static void TrySetStaticField(Type type, string fieldName, object value)

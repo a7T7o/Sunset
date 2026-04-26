@@ -1,7 +1,9 @@
+#if UNITY_INCLUDE_TESTS
 using FarmGame.Data;
 using FarmGame.Data.Core;
 using FarmGame.World;
 using NUnit.Framework;
+using System.Collections.Generic;
 using UnityEngine;
 using Object = UnityEngine.Object;
 
@@ -14,7 +16,7 @@ public class ChestInventoryBridgeTests
         public StorageData Data { get; }
         public ChestController Controller { get; }
 
-        public ChestHarness(int capacity)
+        public ChestHarness(int capacity, bool autoInitialize = true)
         {
             Root = new GameObject("ChestInventoryBridgeTests");
             Controller = Root.AddComponent<ChestController>();
@@ -25,7 +27,10 @@ public class ChestInventoryBridgeTests
             Data.maxHealth = 2;
             Data.defaultLocked = false;
 
-            Controller.Initialize(Data);
+            if (autoInitialize)
+            {
+                Controller.Initialize(Data);
+            }
         }
 
         public void Dispose()
@@ -158,4 +163,81 @@ public class ChestInventoryBridgeTests
             restored.Dispose();
         }
     }
+
+    [Test]
+    public void AuthoringPreset_InitializeSeedsRuntimeInventoryAndLegacyMirror()
+    {
+        var harness = new ChestHarness(8, autoInitialize: false);
+        try
+        {
+            harness.Controller.SetAuthoringSlotsFromEditor(new List<InventorySlotSaveData>
+            {
+                new InventorySlotSaveData { slotIndex = 1, itemId = 1801, quality = 2, amount = 5 },
+                new InventorySlotSaveData { slotIndex = 4, itemId = 1802, quality = 0, amount = 1 }
+            });
+
+            harness.Controller.Initialize(harness.Data);
+
+            InventoryItem slotOne = harness.Controller.InventoryV2.GetItem(1);
+            Assert.NotNull(slotOne);
+            Assert.AreEqual(1801, slotOne.ItemId);
+            Assert.AreEqual(2, slotOne.Quality);
+            Assert.AreEqual(5, slotOne.Amount);
+
+            ItemStack mirroredSlotOne = harness.Controller.Inventory.GetSlot(1);
+            Assert.AreEqual(1801, mirroredSlotOne.itemId);
+            Assert.AreEqual(2, mirroredSlotOne.quality);
+            Assert.AreEqual(5, mirroredSlotOne.amount);
+
+            InventoryItem slotFour = harness.Controller.InventoryV2.GetItem(4);
+            Assert.NotNull(slotFour);
+            Assert.AreEqual(1802, slotFour.ItemId);
+            Assert.AreEqual(1, slotFour.Amount);
+            Assert.IsFalse(harness.Controller.IsEmpty);
+        }
+        finally
+        {
+            harness.Dispose();
+        }
+    }
+
+    [Test]
+    public void AuthoringPreset_DoesNotOverrideLoadedEmptySave()
+    {
+        var harness = new ChestHarness(8, autoInitialize: false);
+        try
+        {
+            harness.Controller.SetAuthoringSlotsFromEditor(new List<InventorySlotSaveData>
+            {
+                new InventorySlotSaveData { slotIndex = 2, itemId = 1901, quality = 1, amount = 3 }
+            });
+
+            var emptySave = new WorldObjectSaveData
+            {
+                guid = "chest-authoring-empty-save",
+                objectType = "Chest",
+                sceneName = "Tests",
+                isActive = true,
+                genericData = JsonUtility.ToJson(new ChestSaveData
+                {
+                    capacity = 8,
+                    isLocked = false,
+                    customName = "empty-save",
+                    slots = new List<InventorySlotSaveData>()
+                })
+            };
+
+            harness.Controller.Load(emptySave);
+            harness.Controller.Initialize(harness.Data);
+
+            Assert.IsTrue(harness.Controller.Inventory.GetSlot(2).IsEmpty);
+            Assert.IsNull(harness.Controller.InventoryV2.GetItem(2));
+            Assert.IsTrue(harness.Controller.IsEmpty);
+        }
+        finally
+        {
+            harness.Dispose();
+        }
+    }
 }
+#endif

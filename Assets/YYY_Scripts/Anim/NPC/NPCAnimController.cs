@@ -37,6 +37,17 @@ public class NPCAnimController : MonoBehaviour
     [SerializeField, Range(0.1f, 3f)] private float idleAnimationSpeed = 1f;
     [SerializeField, Range(0.1f, 3f)] private float moveAnimationSpeed = 1f;
 
+    [Header("朝向映射")]
+    [SerializeField] private bool useCustomFacingVisualMap = false;
+    [SerializeField, Min(0)] private int animatorDirectionWhenFacingDown = 0;
+    [SerializeField, Min(0)] private int animatorDirectionWhenFacingUp = 1;
+    [SerializeField, Min(0)] private int animatorDirectionWhenFacingRight = 2;
+    [SerializeField, Min(0)] private int animatorDirectionWhenFacingLeft = 2;
+    [SerializeField] private bool flipXWhenFacingDown = false;
+    [SerializeField] private bool flipXWhenFacingUp = false;
+    [SerializeField] private bool flipXWhenFacingRight = false;
+    [SerializeField] private bool flipXWhenFacingLeft = true;
+
     [Header("调试")]
     [SerializeField] private bool showDebugLog = false;
 
@@ -51,6 +62,18 @@ public class NPCAnimController : MonoBehaviour
 
     private static readonly int StateHash = Animator.StringToHash("State");
     private static readonly int DirectionHash = Animator.StringToHash("Direction");
+
+    private readonly struct FacingVisualConfig
+    {
+        public readonly int AnimatorDirection;
+        public readonly bool FlipX;
+
+        public FacingVisualConfig(int animatorDirection, bool flipX)
+        {
+            AnimatorDirection = animatorDirection;
+            FlipX = flipX;
+        }
+    }
 
     #endregion
 
@@ -81,6 +104,10 @@ public class NPCAnimController : MonoBehaviour
     {
         idleAnimationSpeed = Mathf.Max(0.1f, idleAnimationSpeed);
         moveAnimationSpeed = Mathf.Max(0.1f, moveAnimationSpeed);
+        animatorDirectionWhenFacingDown = Mathf.Max(0, animatorDirectionWhenFacingDown);
+        animatorDirectionWhenFacingUp = Mathf.Max(0, animatorDirectionWhenFacingUp);
+        animatorDirectionWhenFacingRight = Mathf.Max(0, animatorDirectionWhenFacingRight);
+        animatorDirectionWhenFacingLeft = Mathf.Max(0, animatorDirectionWhenFacingLeft);
 
         if (!Application.isPlaying)
         {
@@ -196,7 +223,8 @@ public class NPCAnimController : MonoBehaviour
             return;
         }
 
-        bool shouldFlip = _currentDirection == NPCAnimDirection.Left;
+        FacingVisualConfig visualConfig = ResolveFacingVisualConfig(_currentDirection);
+        bool shouldFlip = visualConfig.FlipX;
         if (force || _isFlipped != shouldFlip)
         {
             _isFlipped = shouldFlip;
@@ -225,12 +253,12 @@ public class NPCAnimController : MonoBehaviour
 
         _warnedMissingController = false;
         animator.SetInteger(StateHash, (int)_currentState);
-        animator.SetInteger(DirectionHash, ConvertToAnimatorDirection(_currentDirection));
+        animator.SetInteger(DirectionHash, visualConfig.AnimatorDirection);
 
         if (showDebugLog)
         {
             Debug.Log(
-                $"<color=cyan>[NPCAnimController]</color> {name} => State={_currentState}, Direction={_currentDirection}, Flip={_isFlipped}, Speed={animator.speed:F2}",
+                $"<color=cyan>[NPCAnimController]</color> {name} => State={_currentState}, Direction={_currentDirection}, AnimatorDirection={visualConfig.AnimatorDirection}, Flip={_isFlipped}, Speed={animator.speed:F2}",
                 this);
         }
     }
@@ -252,15 +280,27 @@ public class NPCAnimController : MonoBehaviour
         return animator != null && animator.runtimeAnimatorController != null;
     }
 
-    private int ConvertToAnimatorDirection(NPCAnimDirection direction)
+    private FacingVisualConfig ResolveFacingVisualConfig(NPCAnimDirection direction)
     {
+        if (!useCustomFacingVisualMap)
+        {
+            return direction switch
+            {
+                NPCAnimDirection.Down => new FacingVisualConfig(0, false),
+                NPCAnimDirection.Up => new FacingVisualConfig(1, false),
+                NPCAnimDirection.Right => new FacingVisualConfig(2, false),
+                NPCAnimDirection.Left => new FacingVisualConfig(2, true),
+                _ => new FacingVisualConfig(0, false)
+            };
+        }
+
         return direction switch
         {
-            NPCAnimDirection.Down => 0,
-            NPCAnimDirection.Up => 1,
-            NPCAnimDirection.Right => 2,
-            NPCAnimDirection.Left => 2,
-            _ => 0
+            NPCAnimDirection.Down => new FacingVisualConfig(animatorDirectionWhenFacingDown, flipXWhenFacingDown),
+            NPCAnimDirection.Up => new FacingVisualConfig(animatorDirectionWhenFacingUp, flipXWhenFacingUp),
+            NPCAnimDirection.Right => new FacingVisualConfig(animatorDirectionWhenFacingRight, flipXWhenFacingRight),
+            NPCAnimDirection.Left => new FacingVisualConfig(animatorDirectionWhenFacingLeft, flipXWhenFacingLeft),
+            _ => new FacingVisualConfig(animatorDirectionWhenFacingDown, flipXWhenFacingDown)
         };
     }
 

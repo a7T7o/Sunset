@@ -509,3 +509,84 @@
 **当前恢复点 / 下一步**：
 - 本线程在场景侧只剩这一个 `Primary.unity` 尾项，现已完成并可白名单同步。
 - 农田 preview 遮挡属于后续新业务，已由用户决定交给 farm 线程处理，不在本轮继续展开。
+
+### 会话 16 - 2026-04-18（`PlayerBehindTree_WithPixelSamplingHole_StillOccludesByBoundsFallback` 只读回归定责）
+
+**用户目标**：
+- 只读排查 `OcclusionSystemTests.PlayerBehindTree_WithPixelSamplingHole_StillOccludesByBoundsFallback` 为什么当前仍然失败。
+- 只回答三件事：
+  1. 为什么还是 `false`
+  2. 最小最安全修法
+  3. 这是测试样本问题还是运行时代码真问题
+- 范围限定：
+  - `Assets/YYY_Scripts/Service/Rendering/OcclusionManager.cs`
+  - `Assets/YYY_Scripts/Service/Rendering/OcclusionTransparency.cs`
+  - `Assets/YYY_Tests/Editor/OcclusionSystemTests.cs`
+- 明确不改代码。
+
+**当前主线 / 本轮子任务 / 服务关系 / 恢复点**：
+- 当前主线：遮挡系统回归票只读定责。
+- 本轮子任务：把失败点压到具体方法/分支，不泛泛谈“可能是 occlusion 有问题”。
+- 服务关系：为后续真正落刀时决定“先修 runtime 还是先改样本”提供最小证据。
+- 恢复点：如果下一轮进入真实施工，优先只改 `DetectOcclusion()` 的像素采样恢复分支，再补一条更硬的针对性测试前提校验。
+
+**已完成事项**：
+1. 只读核对了：
+   - `OcclusionManager.DetectOcclusion()`
+   - `OcclusionManager.IsOccluderInFrontOfPlayer()`
+   - `OcclusionTransparency.ContainsPointPrecise()`
+   - `OcclusionTransparency.CalculateOcclusionRatioPrecise()`
+   - `OcclusionSystemTests` 中这张失败票及其相邻两张“前后关系”对照票。
+2. 用 Unity MCP 只跑了 3 张定向 EditMode 测试：
+   - `OcclusionSystemTests.PlayerBehindTree_WithPixelSamplingHole_StillOccludesByBoundsFallback` = failed
+   - `OcclusionSystemTests.PlayerBehindTree_WithSameSpriteOverlap_TriggersOcclusion` = passed
+   - `OcclusionSystemTests.PlayerBehindTree_WhenSortingOrderAlreadySaysBehind_DoesNotFallBackToBadFootBounds` = passed
+3. 确认失败断言落点就是最终这句：
+   - `ReadPrivateBoolField(tree.Occlusion, "isOccluding") == false`
+   - 不是前置 `preciseHit` 断言先炸。
+
+**关键判断**：
+- 当前真正失效的不是“树前后关系”：
+  - `IsOccluderInFrontOfPlayer()` 这条链在相邻票里已经过了。
+- 当前真正失效的是 `OcclusionManager.DetectOcclusion()` 里“像素中心点踩空后如何恢复”的这一个分支：
+  - `preciseOcclusion = occluder.ContainsPointPrecise(playerCenterPos)` 为 `false`
+  - 但后续没有把“玩家身体其他部位仍压到可见遮挡面”稳定恢复成 `true`
+  - 结果 `SetPhysicalTreeOccluding(...)` 没有把 `isOccluding` 留在真值。
+- 代码层最像真问题的位置是：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - 方法：`DetectOcclusion()`
+  - 分支：`if (occluder.UsePixelSampling && occluder.IsTextureReadable)` 里的单点 `ContainsPointPrecise(playerCenterPos)` 恢复逻辑
+- 更人话一点：
+  - 当前实现还是把“中心点有没有踩中可见像素”当成第一闸门
+  - 而测试这张票故意构造了“中心点在透明洞里，但身体左右两侧仍被树挡住”
+  - 这说明恢复逻辑没有真正兜住“中心点漏采样，但身体仍被遮挡”的场景
+
+**最小安全修法（只给落点，不在本轮实施）**：
+- 首选只动一个方法：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - `DetectOcclusion()`
+- 最小修法方向：
+  - 不再把 `ContainsPointPrecise(playerCenterPos)` 这个“单中心点”作为唯一准入；
+  - 当 `preciseOcclusion == false` 时，立刻补一次 `CalculateOcclusionRatioPrecise(playerBounds)` 的多点采样恢复；
+  - 只要多点采样占比 `> 0`，就视为玩家身体仍与可见遮挡面重叠，再继续走现有阈值链。
+- 为什么这是最安全的：
+  - 只动一个 runtime 方法；
+  - 不改 `OcclusionTransparency.ContainsPointPrecise()` 的基础语义；
+  - 不改树前后关系判定；
+  - 不改树林逻辑；
+  - 不需要先碰测试构造器或 prefab 结构。
+
+**样本 vs runtime 归类**：
+- 当前更应归类为 **运行时代码真问题**，不是“测试样本纯伪阳性”。
+- 依据：
+  1. 失败票已在当前 Unity 定向重跑中真实复现；
+  2. 同一批相邻前后关系票是绿的，说明不是整个样本构造都坏；
+  3. 这张票本身就是现实里常见的场景：树冠中间有洞、玩家中心点踩空，但身体其余部分仍被树挡住。
+- 但测试样本也有一个次级薄弱点：
+  - 它现在只断言 `preciseHit == false`，没有额外断言 `GetBounds().Intersects(playerBounds)`；
+  - 所以后续真正修 runtime 时，最好顺手把这条前提补硬，避免以后再把“中心点踩空”和“根本没重叠”混成同一种红。
+
+**验证状态**：
+- 静态推断：成立。
+- Unity 定向 EditMode 复跑：已复现失败。
+- 未做临时代码插桩，因此“到底是 `boundsOcclusion` 没立住，还是后处理又把它清掉”这层仍属次级不确定性。

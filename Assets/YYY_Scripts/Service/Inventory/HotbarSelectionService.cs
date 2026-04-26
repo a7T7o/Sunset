@@ -5,7 +5,7 @@ using FarmGame.Data;
 public class HotbarSelectionService : MonoBehaviour
 {
     public int selectedIndex = 0; // 0..11
-    public int selectedInventoryIndex = 0; // 0..35，允许背包区作为真实手持来源
+    public int selectedInventoryIndex = 0; // 0..35，仅用于放置/恢复等偏好来源，不直接代表真实手持
     public event Action<int> OnSelectedChanged;
 
     [Header("装备系统引用")]
@@ -86,6 +86,14 @@ public class HotbarSelectionService : MonoBehaviour
         }
 
         selectedInventoryIndex = clamped;
+    }
+
+    public void SetPanelSelectionIndex(int index)
+    {
+        ResolveReferences();
+
+        int maxIndex = inventory != null ? Mathf.Max(0, inventory.Size - 1) : InventoryService.DefaultInventorySize - 1;
+        selectedInventoryIndex = Mathf.Clamp(index, 0, maxIndex);
     }
 
     public void SelectNext()
@@ -187,7 +195,8 @@ public class HotbarSelectionService : MonoBehaviour
 
         if (inventory == null)
         {
-            inventory = FindFirstObjectByType<InventoryService>();
+            inventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
         }
 
         database = inventory != null ? inventory.Database : null;
@@ -277,7 +286,7 @@ public class HotbarSelectionService : MonoBehaviour
             return;
 
         var slot = inventory.GetSlot(selectedIndex);
-        
+
         // 空槽位时清除当前装备并退出放置模式
         if (slot.IsEmpty)
         {

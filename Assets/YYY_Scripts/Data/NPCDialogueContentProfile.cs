@@ -1,5 +1,6 @@
 using System;
 using System.Text;
+using Sunset.Story;
 using UnityEngine;
 
 /// <summary>
@@ -41,6 +42,36 @@ public class NPCDialogueContentProfile : ScriptableObject
         {
             relationshipStage = NPCRelationshipStageUtility.Sanitize(relationshipStage);
             playerNearbyLines ??= Array.Empty<string>();
+        }
+    }
+
+    [Serializable]
+    public sealed class PhaseNearbySet
+    {
+        [SerializeField] private StoryPhase storyPhase = StoryPhase.None;
+        [SerializeField] private string[] playerNearbyLines = Array.Empty<string>();
+
+        public StoryPhase StoryPhase => storyPhase;
+        public string[] PlayerNearbyLines => playerNearbyLines ?? Array.Empty<string>();
+
+        public void Sanitize()
+        {
+            playerNearbyLines ??= Array.Empty<string>();
+        }
+    }
+
+    [Serializable]
+    public sealed class PhaseSelfTalkSet
+    {
+        [SerializeField] private StoryPhase storyPhase = StoryPhase.None;
+        [SerializeField] private string[] selfTalkLines = Array.Empty<string>();
+
+        public StoryPhase StoryPhase => storyPhase;
+        public string[] SelfTalkLines => selfTalkLines ?? Array.Empty<string>();
+
+        public void Sanitize()
+        {
+            selfTalkLines ??= Array.Empty<string>();
         }
     }
 
@@ -341,11 +372,70 @@ public class NPCDialogueContentProfile : ScriptableObject
         }
     }
 
+    [Serializable]
+    public sealed class PhaseInformalChatSet
+    {
+        [SerializeField] private StoryPhase storyPhase = StoryPhase.None;
+        [SerializeField] private InformalConversationBundle[] conversationBundles = Array.Empty<InformalConversationBundle>();
+        [SerializeField] private InformalChatInterruptReaction walkAwayReaction = new InformalChatInterruptReaction();
+        [SerializeField] private InformalChatInterruptRule[] interruptRules = Array.Empty<InformalChatInterruptRule>();
+        [SerializeField] private InformalChatResumeRule[] resumeRules = Array.Empty<InformalChatResumeRule>();
+
+        public StoryPhase StoryPhase => storyPhase;
+        public InformalConversationBundle[] ConversationBundles => conversationBundles ?? Array.Empty<InformalConversationBundle>();
+        public InformalChatInterruptReaction WalkAwayReaction => walkAwayReaction;
+        public InformalChatInterruptRule[] InterruptRules => interruptRules ?? Array.Empty<InformalChatInterruptRule>();
+        public InformalChatResumeRule[] ResumeRules => resumeRules ?? Array.Empty<InformalChatResumeRule>();
+
+        public void Sanitize()
+        {
+            conversationBundles ??= Array.Empty<InformalConversationBundle>();
+            walkAwayReaction ??= new InformalChatInterruptReaction();
+            interruptRules ??= Array.Empty<InformalChatInterruptRule>();
+            resumeRules ??= Array.Empty<InformalChatResumeRule>();
+
+            for (int index = 0; index < conversationBundles.Length; index++)
+            {
+                conversationBundles[index]?.Sanitize();
+            }
+
+            walkAwayReaction.Sanitize();
+
+            for (int index = 0; index < interruptRules.Length; index++)
+            {
+                interruptRules[index]?.Sanitize();
+            }
+
+            for (int index = 0; index < resumeRules.Length; index++)
+            {
+                resumeRules[index]?.Sanitize();
+            }
+        }
+
+        public bool HasConversationContent()
+        {
+            InformalConversationBundle[] bundles = ConversationBundles;
+            for (int index = 0; index < bundles.Length; index++)
+            {
+                InformalConversationBundle bundle = bundles[index];
+                if (bundle != null && bundle.HasPlayableExchanges())
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
     [Header("身份标识")]
     [SerializeField] private string npcId = string.Empty;
 
     [Header("单人环境气泡")]
     [SerializeField] private string[] selfTalkLines = Array.Empty<string>();
+
+    [Header("按剧情阶段分流的居民自语")]
+    [SerializeField] private PhaseSelfTalkSet[] phaseSelfTalkLines = Array.Empty<PhaseSelfTalkSet>();
 
     [Header("玩家轻响应")]
     [SerializeField] private string[] playerNearbyLines = Array.Empty<string>();
@@ -353,11 +443,17 @@ public class NPCDialogueContentProfile : ScriptableObject
     [Header("按关系阶段分流的玩家轻响应")]
     [SerializeField] private RelationshipStageNearbySet[] relationshipStageNearbyLines = Array.Empty<RelationshipStageNearbySet>();
 
+    [Header("按剧情阶段分流的居民近身反馈")]
+    [SerializeField] private PhaseNearbySet[] phaseNearbyLines = Array.Empty<PhaseNearbySet>();
+
     [Header("默认闲聊会话")]
     [SerializeField] private InformalConversationBundle[] defaultInformalConversationBundles = Array.Empty<InformalConversationBundle>();
 
     [Header("按关系阶段分流的闲聊会话")]
     [SerializeField] private RelationshipStageInformalChatSet[] relationshipStageInformalChatSets = Array.Empty<RelationshipStageInformalChatSet>();
+
+    [Header("按剧情阶段分流的居民闲聊会话")]
+    [SerializeField] private PhaseInformalChatSet[] phaseInformalChatSets = Array.Empty<PhaseInformalChatSet>();
 
     [Header("默认聊到一半离开反应")]
     [SerializeField] private InformalChatInterruptReaction defaultWalkAwayReaction = new InformalChatInterruptReaction();
@@ -379,19 +475,25 @@ public class NPCDialogueContentProfile : ScriptableObject
 
     public string NpcId => ResolveNpcId();
     public string[] SelfTalkLines => selfTalkLines ?? Array.Empty<string>();
+    public PhaseSelfTalkSet[] PhaseSelfTalkLines => phaseSelfTalkLines ?? Array.Empty<PhaseSelfTalkSet>();
     public string[] PlayerNearbyLines => playerNearbyLines ?? Array.Empty<string>();
     public RelationshipStageNearbySet[] RelationshipStageNearbyLines => relationshipStageNearbyLines ?? Array.Empty<RelationshipStageNearbySet>();
+    public PhaseNearbySet[] PhaseNearbyLines => phaseNearbyLines ?? Array.Empty<PhaseNearbySet>();
     public InformalConversationBundle[] DefaultInformalConversationBundles => defaultInformalConversationBundles ?? Array.Empty<InformalConversationBundle>();
     public RelationshipStageInformalChatSet[] RelationshipStageInformalChatSets => relationshipStageInformalChatSets ?? Array.Empty<RelationshipStageInformalChatSet>();
+    public PhaseInformalChatSet[] PhaseInformalChatSets => phaseInformalChatSets ?? Array.Empty<PhaseInformalChatSet>();
     public InformalChatInterruptReaction DefaultWalkAwayReaction => defaultWalkAwayReaction;
     public InformalChatInterruptRule[] DefaultInterruptRules => defaultInterruptRules ?? Array.Empty<InformalChatInterruptRule>();
     public InformalChatResumeRule[] DefaultResumeRules => defaultResumeRules ?? Array.Empty<InformalChatResumeRule>();
     public string[] DefaultChatInitiatorLines => defaultChatInitiatorLines ?? Array.Empty<string>();
     public string[] DefaultChatResponderLines => defaultChatResponderLines ?? Array.Empty<string>();
     public PairDialogueSet[] PairDialogueSets => pairDialogueSets ?? Array.Empty<PairDialogueSet>();
-    public bool HasSelfTalkContent => HasAnyLines(SelfTalkLines);
-    public bool HasPlayerNearbyContent => HasAnyLines(PlayerNearbyLines) || HasAnyStageNearbyLines();
-    public bool HasInformalConversationContent => HasAnyPlayableConversationBundles(DefaultInformalConversationBundles) || HasAnyStageConversationBundles();
+    public bool HasSelfTalkContent => HasAnyLines(SelfTalkLines) || HasAnyPhaseSelfTalkLines();
+    public bool HasPlayerNearbyContent => HasAnyLines(PlayerNearbyLines) || HasAnyStageNearbyLines() || HasAnyPhaseNearbyLines();
+    public bool HasInformalConversationContent =>
+        HasAnyPlayableConversationBundles(DefaultInformalConversationBundles) ||
+        HasAnyStageConversationBundles() ||
+        HasAnyPhaseConversationBundles();
     public bool HasAmbientChatInitiatorContent => HasAnyLines(DefaultChatInitiatorLines) || HasAnyPairLines(initiator: true);
     public bool HasAmbientChatResponderContent => HasAnyLines(DefaultChatResponderLines) || HasAnyPairLines(initiator: false);
 
@@ -417,8 +519,36 @@ public class NPCDialogueContentProfile : ScriptableObject
         return initiator ? DefaultChatInitiatorLines : DefaultChatResponderLines;
     }
 
+    public string[] GetSelfTalkLines(StoryPhase storyPhase)
+    {
+        if (TryGetPhaseSelfTalkSet(storyPhase, out PhaseSelfTalkSet phaseSet))
+        {
+            string[] phaseSpecificLines = phaseSet.SelfTalkLines;
+            if (HasAnyLines(phaseSpecificLines))
+            {
+                return phaseSpecificLines;
+            }
+        }
+
+        return SelfTalkLines;
+    }
+
     public string[] GetPlayerNearbyLines(NPCRelationshipStage relationshipStage)
     {
+        return GetPlayerNearbyLines(relationshipStage, StoryPhase.None);
+    }
+
+    public string[] GetPlayerNearbyLines(NPCRelationshipStage relationshipStage, StoryPhase storyPhase)
+    {
+        if (TryGetPhaseNearbySet(storyPhase, out PhaseNearbySet phaseLineSet))
+        {
+            string[] phaseSpecificLines = phaseLineSet.PlayerNearbyLines;
+            if (HasAnyLines(phaseSpecificLines))
+            {
+                return phaseSpecificLines;
+            }
+        }
+
         if (TryGetRelationshipStageNearbySet(relationshipStage, out RelationshipStageNearbySet relationshipStageLineSet))
         {
             string[] stageSpecificLines = relationshipStageLineSet.PlayerNearbyLines;
@@ -433,6 +563,22 @@ public class NPCDialogueContentProfile : ScriptableObject
 
     public InformalConversationBundle[] GetInformalConversationBundles(NPCRelationshipStage relationshipStage)
     {
+        return GetInformalConversationBundles(relationshipStage, StoryPhase.None);
+    }
+
+    public InformalConversationBundle[] GetInformalConversationBundles(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase)
+    {
+        if (TryGetPhaseInformalChatSet(storyPhase, out PhaseInformalChatSet phaseChatSet))
+        {
+            InformalConversationBundle[] phaseBundles = phaseChatSet.ConversationBundles;
+            if (HasAnyPlayableConversationBundles(phaseBundles))
+            {
+                return phaseBundles;
+            }
+        }
+
         if (TryGetRelationshipStageInformalChatSet(relationshipStage, out RelationshipStageInformalChatSet chatSet))
         {
             InformalConversationBundle[] stageBundles = chatSet.ConversationBundles;
@@ -447,6 +593,20 @@ public class NPCDialogueContentProfile : ScriptableObject
 
     public InformalChatInterruptReaction GetWalkAwayReaction(NPCRelationshipStage relationshipStage)
     {
+        return GetWalkAwayReaction(relationshipStage, StoryPhase.None);
+    }
+
+    public InformalChatInterruptReaction GetWalkAwayReaction(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase)
+    {
+        if (TryGetPhaseInformalChatSet(storyPhase, out PhaseInformalChatSet phaseChatSet) &&
+            phaseChatSet.WalkAwayReaction != null &&
+            phaseChatSet.WalkAwayReaction.HasAnyContent())
+        {
+            return phaseChatSet.WalkAwayReaction;
+        }
+
         if (TryGetRelationshipStageInformalChatSet(relationshipStage, out RelationshipStageInformalChatSet chatSet) &&
             chatSet.WalkAwayReaction != null &&
             chatSet.WalkAwayReaction.HasAnyContent())
@@ -462,6 +622,31 @@ public class NPCDialogueContentProfile : ScriptableObject
         NPCInformalChatLeaveCause leaveCause,
         NPCInformalChatLeavePhase leavePhase)
     {
+        return GetInterruptReaction(relationshipStage, StoryPhase.None, leaveCause, leavePhase);
+    }
+
+    public InformalChatInterruptReaction GetInterruptReaction(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase,
+        NPCInformalChatLeaveCause leaveCause,
+        NPCInformalChatLeavePhase leavePhase)
+    {
+        if (TryGetPhaseInformalChatSet(storyPhase, out PhaseInformalChatSet phaseChatSet))
+        {
+            InformalChatInterruptReaction phaseReaction = FindBestInterruptReaction(phaseChatSet.InterruptRules, leaveCause, leavePhase);
+            if (phaseReaction != null)
+            {
+                return phaseReaction;
+            }
+
+            if (leaveCause == NPCInformalChatLeaveCause.DistanceGraceExceeded &&
+                phaseChatSet.WalkAwayReaction != null &&
+                phaseChatSet.WalkAwayReaction.HasAnyContent())
+            {
+                return phaseChatSet.WalkAwayReaction;
+            }
+        }
+
         if (TryGetRelationshipStageInformalChatSet(relationshipStage, out RelationshipStageInformalChatSet chatSet))
         {
             InformalChatInterruptReaction stageReaction = FindBestInterruptReaction(chatSet.InterruptRules, leaveCause, leavePhase);
@@ -499,6 +684,24 @@ public class NPCDialogueContentProfile : ScriptableObject
         NPCInformalChatLeaveCause leaveCause,
         NPCInformalChatLeavePhase leavePhase)
     {
+        return GetResumeIntro(relationshipStage, StoryPhase.None, leaveCause, leavePhase);
+    }
+
+    public InformalChatResumeIntro GetResumeIntro(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase,
+        NPCInformalChatLeaveCause leaveCause,
+        NPCInformalChatLeavePhase leavePhase)
+    {
+        if (TryGetPhaseInformalChatSet(storyPhase, out PhaseInformalChatSet phaseChatSet))
+        {
+            InformalChatResumeIntro phaseIntro = FindBestResumeIntro(phaseChatSet.ResumeRules, leaveCause, leavePhase);
+            if (phaseIntro != null)
+            {
+                return phaseIntro;
+            }
+        }
+
         if (TryGetRelationshipStageInformalChatSet(relationshipStage, out RelationshipStageInformalChatSet chatSet))
         {
             InformalChatResumeIntro stageIntro = FindBestResumeIntro(chatSet.ResumeRules, leaveCause, leavePhase);
@@ -557,6 +760,62 @@ public class NPCDialogueContentProfile : ScriptableObject
         return false;
     }
 
+    public bool TryGetPhaseNearbySet(StoryPhase storyPhase, out PhaseNearbySet nearbySet)
+    {
+        if (storyPhase == StoryPhase.None)
+        {
+            nearbySet = null;
+            return false;
+        }
+
+        PhaseNearbySet[] phaseSets = PhaseNearbyLines;
+        for (int index = 0; index < phaseSets.Length; index++)
+        {
+            PhaseNearbySet candidate = phaseSets[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (candidate.StoryPhase == storyPhase)
+            {
+                nearbySet = candidate;
+                return true;
+            }
+        }
+
+        nearbySet = null;
+        return false;
+    }
+
+    public bool TryGetPhaseSelfTalkSet(StoryPhase storyPhase, out PhaseSelfTalkSet selfTalkSet)
+    {
+        if (storyPhase == StoryPhase.None)
+        {
+            selfTalkSet = null;
+            return false;
+        }
+
+        PhaseSelfTalkSet[] phaseSets = PhaseSelfTalkLines;
+        for (int index = 0; index < phaseSets.Length; index++)
+        {
+            PhaseSelfTalkSet candidate = phaseSets[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (candidate.StoryPhase == storyPhase)
+            {
+                selfTalkSet = candidate;
+                return true;
+            }
+        }
+
+        selfTalkSet = null;
+        return false;
+    }
+
     public bool TryGetRelationshipStageInformalChatSet(NPCRelationshipStage relationshipStage, out RelationshipStageInformalChatSet chatSet)
     {
         NPCRelationshipStage sanitizedStage = NPCRelationshipStageUtility.Sanitize(relationshipStage);
@@ -570,6 +829,34 @@ public class NPCDialogueContentProfile : ScriptableObject
             }
 
             if (candidate.RelationshipStage == sanitizedStage)
+            {
+                chatSet = candidate;
+                return true;
+            }
+        }
+
+        chatSet = null;
+        return false;
+    }
+
+    public bool TryGetPhaseInformalChatSet(StoryPhase storyPhase, out PhaseInformalChatSet chatSet)
+    {
+        if (storyPhase == StoryPhase.None)
+        {
+            chatSet = null;
+            return false;
+        }
+
+        PhaseInformalChatSet[] phaseSets = PhaseInformalChatSets;
+        for (int index = 0; index < phaseSets.Length; index++)
+        {
+            PhaseInformalChatSet candidate = phaseSets[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (candidate.StoryPhase == storyPhase)
             {
                 chatSet = candidate;
                 return true;
@@ -620,10 +907,13 @@ public class NPCDialogueContentProfile : ScriptableObject
     {
         npcId = NormalizeNpcId(npcId);
         selfTalkLines ??= Array.Empty<string>();
+        phaseSelfTalkLines ??= Array.Empty<PhaseSelfTalkSet>();
         playerNearbyLines ??= Array.Empty<string>();
         relationshipStageNearbyLines ??= Array.Empty<RelationshipStageNearbySet>();
+        phaseNearbyLines ??= Array.Empty<PhaseNearbySet>();
         defaultInformalConversationBundles ??= Array.Empty<InformalConversationBundle>();
         relationshipStageInformalChatSets ??= Array.Empty<RelationshipStageInformalChatSet>();
+        phaseInformalChatSets ??= Array.Empty<PhaseInformalChatSet>();
         defaultWalkAwayReaction ??= new InformalChatInterruptReaction();
         defaultInterruptRules ??= Array.Empty<InformalChatInterruptRule>();
         defaultResumeRules ??= Array.Empty<InformalChatResumeRule>();
@@ -631,9 +921,19 @@ public class NPCDialogueContentProfile : ScriptableObject
         defaultChatResponderLines ??= Array.Empty<string>();
         pairDialogueSets ??= Array.Empty<PairDialogueSet>();
 
+        for (int index = 0; index < phaseSelfTalkLines.Length; index++)
+        {
+            phaseSelfTalkLines[index]?.Sanitize();
+        }
+
         for (int index = 0; index < relationshipStageNearbyLines.Length; index++)
         {
             relationshipStageNearbyLines[index]?.Sanitize();
+        }
+
+        for (int index = 0; index < phaseNearbyLines.Length; index++)
+        {
+            phaseNearbyLines[index]?.Sanitize();
         }
 
         for (int index = 0; index < defaultInformalConversationBundles.Length; index++)
@@ -644,6 +944,11 @@ public class NPCDialogueContentProfile : ScriptableObject
         for (int index = 0; index < relationshipStageInformalChatSets.Length; index++)
         {
             relationshipStageInformalChatSets[index]?.Sanitize();
+        }
+
+        for (int index = 0; index < phaseInformalChatSets.Length; index++)
+        {
+            phaseInformalChatSets[index]?.Sanitize();
         }
 
         defaultWalkAwayReaction.Sanitize();
@@ -684,12 +989,67 @@ public class NPCDialogueContentProfile : ScriptableObject
         return false;
     }
 
+    private bool HasAnyPhaseSelfTalkLines()
+    {
+        PhaseSelfTalkSet[] phaseSets = PhaseSelfTalkLines;
+        for (int index = 0; index < phaseSets.Length; index++)
+        {
+            PhaseSelfTalkSet candidate = phaseSets[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (HasAnyLines(candidate.SelfTalkLines))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasAnyPhaseNearbyLines()
+    {
+        PhaseNearbySet[] phaseSets = PhaseNearbyLines;
+        for (int index = 0; index < phaseSets.Length; index++)
+        {
+            PhaseNearbySet candidate = phaseSets[index];
+            if (candidate == null)
+            {
+                continue;
+            }
+
+            if (HasAnyLines(candidate.PlayerNearbyLines))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private bool HasAnyStageConversationBundles()
     {
         RelationshipStageInformalChatSet[] stageSets = RelationshipStageInformalChatSets;
         for (int index = 0; index < stageSets.Length; index++)
         {
             RelationshipStageInformalChatSet candidate = stageSets[index];
+            if (candidate != null && candidate.HasConversationContent())
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool HasAnyPhaseConversationBundles()
+    {
+        PhaseInformalChatSet[] phaseSets = PhaseInformalChatSets;
+        for (int index = 0; index < phaseSets.Length; index++)
+        {
+            PhaseInformalChatSet candidate = phaseSets[index];
             if (candidate != null && candidate.HasConversationContent())
             {
                 return true;

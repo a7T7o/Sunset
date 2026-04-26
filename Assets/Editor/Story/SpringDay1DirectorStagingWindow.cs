@@ -7,6 +7,17 @@ namespace Sunset.Story.Editor
 {
     public sealed class SpringDay1DirectorStagingWindow : EditorWindow
     {
+        [Serializable]
+        private sealed class WindowDraftState
+        {
+            public SpringDay1DirectorStageBook book;
+            public int selectedBeatIndex;
+            public int selectedCueIndex;
+            public float rehearsalSpeed = 2.6f;
+            public float recordSampleInterval = 0.18f;
+            public float recordMinDistance = 0.08f;
+        }
+
         private readonly struct RecordedCueSample
         {
             public RecordedCueSample(Vector2 position, Vector2 facing)
@@ -19,7 +30,12 @@ namespace Sunset.Story.Editor
             public Vector2 Facing { get; }
         }
 
+        private const string DraftEditorPrefKey = "Sunset.SpringDay1.DirectorStagingWindow.Draft";
+        private const string CrowdManifestResourcePath = "Story/SpringDay1/SpringDay1NpcCrowdManifest";
+
         private SpringDay1DirectorStageBook _book;
+        private bool _hasRecoveredDraft;
+        private bool _isDraftDirty;
         private Vector2 _scroll;
         private int _selectedBeatIndex;
         private int _selectedCueIndex;
@@ -40,12 +56,13 @@ namespace Sunset.Story.Editor
 
         private void OnEnable()
         {
-            ReloadBook();
+            LoadBookOrDraft();
             EditorApplication.update += HandleEditorUpdate;
         }
 
         private void OnDisable()
         {
+            PersistDraftStateIfDirty();
             EditorApplication.update -= HandleEditorUpdate;
             _heldKeys.Clear();
             ResetRecordingState();
@@ -57,6 +74,8 @@ namespace Sunset.Story.Editor
             DrawToolbar();
             EnsureBook();
 
+            EditorGUI.BeginChangeCheck();
+
             _scroll = EditorGUILayout.BeginScrollView(_scroll);
             DrawBeatSection();
             EditorGUILayout.Space(10f);
@@ -64,6 +83,11 @@ namespace Sunset.Story.Editor
             EditorGUILayout.Space(10f);
             DrawPlaybackSection();
             EditorGUILayout.EndScrollView();
+
+            if (EditorGUI.EndChangeCheck())
+            {
+                MarkDraftDirtyAndPersist();
+            }
         }
 
         private void DrawToolbar()
@@ -81,6 +105,11 @@ namespace Sunset.Story.Editor
                 }
 
                 GUILayout.FlexibleSpace();
+                if (_hasRecoveredDraft)
+                {
+                    EditorGUILayout.LabelField("已恢复草稿", EditorStyles.miniLabel, GUILayout.Width(64f));
+                }
+
                 EditorGUILayout.LabelField(SpringDay1DirectorStagingDatabase.AssetPath, EditorStyles.miniLabel);
             }
         }
@@ -140,6 +169,11 @@ namespace Sunset.Story.Editor
             cue.semanticAnchorId = EditorGUILayout.TextField("语义锚点", cue.semanticAnchorId);
             cue.duty = (SpringDay1CrowdSceneDuty)EditorGUILayout.EnumPopup("Duty", cue.duty);
             cue.keepCurrentSpawnPosition = EditorGUILayout.Toggle("沿用当前出生位", cue.keepCurrentSpawnPosition);
+            cue.useSemanticAnchorAsStart = EditorGUILayout.Toggle("语义锚点作为起点", cue.useSemanticAnchorAsStart);
+            using (new EditorGUI.DisabledScope(!cue.useSemanticAnchorAsStart))
+            {
+                cue.startPositionIsSemanticAnchorOffset = EditorGUILayout.Toggle("起点按锚点偏移", cue.startPositionIsSemanticAnchorOffset);
+            }
             cue.pathPointsAreOffsets = EditorGUILayout.Toggle("路径点按偏移量", cue.pathPointsAreOffsets);
             cue.suspendRoam = EditorGUILayout.Toggle("回放时暂停 roam", cue.suspendRoam);
             cue.loopPath = EditorGUILayout.Toggle("循环路径", cue.loopPath);
@@ -148,6 +182,18 @@ namespace Sunset.Story.Editor
             cue.startPosition = EditorGUILayout.Vector2Field("起点", cue.startPosition);
             cue.facing = EditorGUILayout.Vector2Field("默认朝向", cue.facing);
             cue.lookAtTargetName = EditorGUILayout.TextField("看向目标", cue.lookAtTargetName);
+
+            if (cue.useSemanticAnchorAsStart)
+            {
+                if (TryResolveSemanticAnchorWorldPosition(cue, out Vector3 anchorWorldPosition))
+                {
+                    EditorGUILayout.HelpBox($"当前语义锚点已解析到 ({anchorWorldPosition.x:F2}, {anchorWorldPosition.y:F2})。录制写回会优先落成 anchor 相对数据。", MessageType.Info);
+                }
+                else
+                {
+                    EditorGUILayout.HelpBox("当前语义锚点还没解析到 live 物体或 Town contract；录制时会先回退成绝对坐标。", MessageType.Warning);
+                }
+            }
 
             using (new EditorGUILayout.HorizontalScope())
             {
@@ -164,6 +210,7 @@ namespace Sunset.Story.Editor
                 if (GUILayout.Button("清空路径"))
                 {
                     cue.path = Array.Empty<SpringDay1DirectorPathPoint>();
+                    MarkDraftDirtyAndPersist();
                 }
             }
 
@@ -191,7 +238,7 @@ namespace Sunset.Story.Editor
                     {
                         if (GUILayout.Button("用当前选中物体覆盖"))
                         {
-                            OverwritePointFromSelection(point);
+                            OverwritePointFromSelection(cue, point);
                         }
 
                         if (GUILayout.Button("删除这个点"))
@@ -207,7 +254,7 @@ namespace Sunset.Story.Editor
         private void DrawPlaybackSection()
         {
             EditorGUILayout.LabelField("排练 / 回放", EditorStyles.boldLabel);
-            EditorGUILayout.HelpBox("播放模式下：给选中的 NPC 挂 `SpringDay1DirectorStagingRehearsalDriver`，就能用 WASD / 方向键排练；Shift 加速。采点后保存 JSON，运行时 crowd 会按 beat 自动接入。", MessageType.None);
+            EditorGUILayout.HelpBox("播放模式下：给选中的 NPC 挂 `SpringDay1DirectorStagingRehearsalDriver`，就能用 WASD / 方向键排练；Shift 加速。采点后保存 JSON，运行时 crowd 会按 beat 自动接入。现在也可以一键把“当前 beat”整批预演到场景 resident 上。", MessageType.None);
 
             _rehearsalSpeed = EditorGUILayout.FloatField("排练速度", _rehearsalSpeed);
             _recordSampleInterval = EditorGUILayout.FloatField("录制采样间隔", _recordSampleInterval);
@@ -257,6 +304,22 @@ namespace Sunset.Story.Editor
                 }
             }
 
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                using (new EditorGUI.DisabledScope(!EditorApplication.isPlaying))
+                {
+                    if (GUILayout.Button("预演当前 Beat（整批）"))
+                    {
+                        PreviewCurrentBeatAcrossScene();
+                    }
+
+                    if (GUILayout.Button("清理当前 Beat 预演"))
+                    {
+                        ClearCurrentBeatPreviewAcrossScene();
+                    }
+                }
+            }
+
             if (selectedObject == null)
             {
                 EditorGUILayout.HelpBox("先在 Hierarchy 里选中一个 NPC runtime 物体，再进行排练或手动回放。", MessageType.Info);
@@ -265,6 +328,123 @@ namespace Sunset.Story.Editor
             {
                 EditorGUILayout.HelpBox($"正在录制 {_recordedSamples.Count} 个采样点。停止录制后会把当前轨迹直接写回当前 Cue。", MessageType.Warning);
             }
+        }
+
+        private void PreviewCurrentBeatAcrossScene()
+        {
+            SpringDay1DirectorBeatEntry beat = GetSelectedBeat();
+            if (beat == null)
+            {
+                ShowNotification(new GUIContent("当前 beat 不存在"));
+                return;
+            }
+
+            SpringDay1NpcCrowdManifest manifest = Resources.Load<SpringDay1NpcCrowdManifest>(CrowdManifestResourcePath);
+            if (manifest == null || manifest.Entries == null || manifest.Entries.Length == 0)
+            {
+                ShowNotification(new GUIContent("未找到 CrowdManifest"));
+                return;
+            }
+
+            int appliedCount = 0;
+            int missingResidentCount = 0;
+            for (int index = 0; index < manifest.Entries.Length; index++)
+            {
+                SpringDay1NpcCrowdManifest.Entry entry = manifest.Entries[index];
+                if (entry == null
+                    || string.IsNullOrWhiteSpace(entry.npcId)
+                    || !TryResolveDraftCueForPreview(beat, entry, out SpringDay1DirectorActorCue cue))
+                {
+                    continue;
+                }
+
+                GameObject resident = FindSceneResident(entry.npcId);
+                if (resident == null)
+                {
+                    missingResidentCount++;
+                    continue;
+                }
+
+                if (!resident.activeSelf)
+                {
+                    resident.SetActive(true);
+                }
+
+                bool cueNormalized = NormalizeCueForSceneWorldPreview(cue);
+                SpringDay1DirectorStagingPlayback playback = resident.GetComponent<SpringDay1DirectorStagingPlayback>();
+                if (playback == null)
+                {
+                    playback = resident.AddComponent<SpringDay1DirectorStagingPlayback>();
+                }
+
+                playback.ApplyCue(
+                    beat.beatKey,
+                    cue,
+                    FindSceneResidentHomeAnchor(entry.npcId, resident),
+                    manualPreviewLock: true,
+                    forceRestart: true);
+                EditorUtility.SetDirty(resident);
+                if (cueNormalized)
+                {
+                    MarkDraftDirtyAndPersist();
+                }
+                appliedCount++;
+            }
+
+            string message = appliedCount > 0
+                ? $"已预演 {beat.beatKey}：{appliedCount} 个 resident"
+                : $"当前 beat 没有可预演 resident（缺 resident: {missingResidentCount}）";
+            ShowNotification(new GUIContent(message));
+            Repaint();
+        }
+
+        private bool TryResolveDraftCueForPreview(SpringDay1DirectorBeatEntry beat, SpringDay1NpcCrowdManifest.Entry entry, out SpringDay1DirectorActorCue cue)
+        {
+            cue = beat?.TryResolveCue(entry);
+            if (cue != null)
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+        private void ClearCurrentBeatPreviewAcrossScene()
+        {
+            SpringDay1DirectorBeatEntry beat = GetSelectedBeat();
+            string beatKey = beat != null ? beat.beatKey : string.Empty;
+            int clearedCount = 0;
+
+            SpringDay1DirectorStagingPlayback[] playbacks = Resources.FindObjectsOfTypeAll<SpringDay1DirectorStagingPlayback>();
+            for (int index = 0; index < playbacks.Length; index++)
+            {
+                SpringDay1DirectorStagingPlayback playback = playbacks[index];
+                if (playback == null
+                    || playback.gameObject == null
+                    || !playback.gameObject.scene.IsValid()
+                    || EditorUtility.IsPersistent(playback))
+                {
+                    continue;
+                }
+
+                if (!string.IsNullOrWhiteSpace(beatKey)
+                    && !string.Equals(playback.CurrentBeatKey, beatKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                GameObject owner = playback.gameObject;
+                playback.ClearCue();
+                DestroyImmediate(playback);
+                if (owner != null)
+                {
+                    EditorUtility.SetDirty(owner);
+                }
+                clearedCount++;
+            }
+
+            ShowNotification(new GUIContent(clearedCount > 0 ? $"已清理 {clearedCount} 个预演 cue" : "当前没有可清理的预演 cue"));
+            Repaint();
         }
 
         private void StartRehearsal(GameObject selectedObject)
@@ -338,7 +518,23 @@ namespace Sunset.Story.Editor
                 playback = selectedObject.AddComponent<SpringDay1DirectorStagingPlayback>();
             }
 
-            playback.ApplyCue(GetSelectedBeat().beatKey, cue, null);
+            SpringDay1DirectorStagingRehearsalDriver rehearsalDriver = selectedObject.GetComponent<SpringDay1DirectorStagingRehearsalDriver>();
+            if (rehearsalDriver != null)
+            {
+                StopRehearsal(selectedObject);
+            }
+
+            bool cueNormalized = NormalizeCueForSceneWorldPreview(cue);
+            playback.ApplyCue(
+                GetSelectedBeat().beatKey,
+                cue,
+                FindSceneResidentHomeAnchor(selectedObject.name, selectedObject),
+                manualPreviewLock: true,
+                forceRestart: true);
+            if (cueNormalized)
+            {
+                MarkDraftDirtyAndPersist();
+            }
             EditorUtility.SetDirty(selectedObject);
         }
 
@@ -365,8 +561,10 @@ namespace Sunset.Story.Editor
                 return;
             }
 
+            NormalizeCueToSceneWorldPoints(cue);
             Vector3 position = Selection.activeTransform.position;
-            cue.startPosition = new Vector2(position.x, position.y);
+            cue.startPosition = EncodeCueStartPosition(cue, position);
+            MarkDraftDirtyAndPersist();
             Repaint();
         }
 
@@ -377,32 +575,67 @@ namespace Sunset.Story.Editor
                 return;
             }
 
+            NormalizeCueToSceneWorldPoints(cue);
             Vector3 position = Selection.activeTransform.position;
             List<SpringDay1DirectorPathPoint> points = new List<SpringDay1DirectorPathPoint>(cue.path ?? Array.Empty<SpringDay1DirectorPathPoint>())
             {
                 new SpringDay1DirectorPathPoint
                 {
-                    position = new Vector2(position.x, position.y),
+                    position = EncodePathPointPosition(cue, position),
                     facing = cue.facing,
                     holdSeconds = 0.25f
                 }
             };
             cue.path = points.ToArray();
+            MarkDraftDirtyAndPersist();
             Repaint();
         }
 
-        private static void OverwritePointFromSelection(SpringDay1DirectorPathPoint point)
+        private void OverwritePointFromSelection(SpringDay1DirectorActorCue cue, SpringDay1DirectorPathPoint point)
         {
-            if (point == null || Selection.activeTransform == null)
+            if (cue == null || point == null || Selection.activeTransform == null)
             {
                 return;
             }
 
+            NormalizeCueToSceneWorldPoints(cue);
             Vector3 position = Selection.activeTransform.position;
-            point.position = new Vector2(position.x, position.y);
+            point.position = EncodePathPointPosition(cue, position);
+            MarkDraftDirtyAndPersist();
         }
 
-        private static void RemovePoint(SpringDay1DirectorActorCue cue, int index)
+        private static void NormalizeCueToSceneWorldPoints(SpringDay1DirectorActorCue cue)
+        {
+            if (cue == null)
+            {
+                return;
+            }
+
+            cue.keepCurrentSpawnPosition = false;
+            cue.useSemanticAnchorAsStart = false;
+            cue.startPositionIsSemanticAnchorOffset = false;
+            cue.pathPointsAreOffsets = false;
+        }
+
+        private static bool NormalizeCueForSceneWorldPreview(SpringDay1DirectorActorCue cue)
+        {
+            if (cue == null
+                || !cue.keepCurrentSpawnPosition
+                || !cue.useSemanticAnchorAsStart
+                || !cue.startPositionIsSemanticAnchorOffset
+                || cue.pathPointsAreOffsets
+                || cue.path == null
+                || cue.path.Length == 0
+                || cue.startPosition.sqrMagnitude <= 0.0001f)
+            {
+                return false;
+            }
+
+            NormalizeCueToSceneWorldPoints(cue);
+            return true;
+        }
+
+        private void RemovePoint(SpringDay1DirectorActorCue cue, int index)
         {
             List<SpringDay1DirectorPathPoint> points = new List<SpringDay1DirectorPathPoint>(cue.path ?? Array.Empty<SpringDay1DirectorPathPoint>());
             if (index < 0 || index >= points.Count)
@@ -412,6 +645,7 @@ namespace Sunset.Story.Editor
 
             points.RemoveAt(index);
             cue.path = points.ToArray();
+            MarkDraftDirtyAndPersist();
         }
 
         private void AddCue(SpringDay1DirectorBeatEntry beat)
@@ -425,6 +659,7 @@ namespace Sunset.Story.Editor
             };
             beat.actorCues = cues.ToArray();
             _selectedCueIndex = beat.actorCues.Length - 1;
+            MarkDraftDirtyAndPersist();
         }
 
         private void RemoveCue(SpringDay1DirectorBeatEntry beat, int index)
@@ -438,6 +673,7 @@ namespace Sunset.Story.Editor
             cues.RemoveAt(index);
             beat.actorCues = cues.ToArray();
             _selectedCueIndex = Mathf.Clamp(_selectedCueIndex, 0, Mathf.Max(0, beat.actorCues.Length - 1));
+            MarkDraftDirtyAndPersist();
         }
 
         private SpringDay1DirectorBeatEntry GetSelectedBeat()
@@ -498,8 +734,11 @@ namespace Sunset.Story.Editor
         {
             _book = SpringDay1DirectorStagingDatabase.Load(forceReload: true) ?? SpringDay1DirectorStageBook.CreateEmpty();
             _book.EnsureDefaults();
+            _hasRecoveredDraft = false;
+            _isDraftDirty = false;
             _selectedBeatIndex = 0;
             _selectedCueIndex = 0;
+            DeleteDraftState();
             Repaint();
         }
 
@@ -507,7 +746,113 @@ namespace Sunset.Story.Editor
         {
             EnsureBook();
             SpringDay1DirectorStagingDatabase.Save(_book);
+            _hasRecoveredDraft = false;
+            _isDraftDirty = false;
+            DeleteDraftState();
             ShowNotification(new GUIContent("导演 JSON 已保存"));
+        }
+
+        private void LoadBookOrDraft()
+        {
+            if (TryRestoreDraftState())
+            {
+                _hasRecoveredDraft = true;
+                _isDraftDirty = true;
+                Repaint();
+                return;
+            }
+
+            _book = SpringDay1DirectorStagingDatabase.Load(forceReload: true) ?? SpringDay1DirectorStageBook.CreateEmpty();
+            _book.EnsureDefaults();
+            _hasRecoveredDraft = false;
+            _isDraftDirty = false;
+            _selectedBeatIndex = 0;
+            _selectedCueIndex = 0;
+            Repaint();
+        }
+
+        private bool TryRestoreDraftState()
+        {
+            if (!EditorPrefs.HasKey(DraftEditorPrefKey))
+            {
+                return false;
+            }
+
+            string raw = EditorPrefs.GetString(DraftEditorPrefKey, string.Empty);
+            if (string.IsNullOrWhiteSpace(raw))
+            {
+                return false;
+            }
+
+            WindowDraftState draft;
+            try
+            {
+                draft = JsonUtility.FromJson<WindowDraftState>(raw);
+            }
+            catch (Exception)
+            {
+                DeleteDraftState();
+                return false;
+            }
+
+            if (draft?.book == null)
+            {
+                DeleteDraftState();
+                return false;
+            }
+
+            _book = draft.book;
+            _book.EnsureDefaults();
+            _selectedBeatIndex = Mathf.Max(0, draft.selectedBeatIndex);
+            _selectedCueIndex = Mathf.Max(0, draft.selectedCueIndex);
+            _rehearsalSpeed = draft.rehearsalSpeed > 0f ? draft.rehearsalSpeed : 2.6f;
+            _recordSampleInterval = draft.recordSampleInterval > 0f ? draft.recordSampleInterval : 0.18f;
+            _recordMinDistance = draft.recordMinDistance > 0f ? draft.recordMinDistance : 0.08f;
+            return true;
+        }
+
+        private void MarkDraftDirtyAndPersist()
+        {
+            _isDraftDirty = true;
+            PersistDraftStateIfDirty();
+        }
+
+        private void PersistDraftStateIfDirty()
+        {
+            if (!_isDraftDirty)
+            {
+                return;
+            }
+
+            PersistDraftState();
+        }
+
+        private void PersistDraftState()
+        {
+            if (_book == null)
+            {
+                return;
+            }
+
+            WindowDraftState draft = new WindowDraftState
+            {
+                book = _book,
+                selectedBeatIndex = _selectedBeatIndex,
+                selectedCueIndex = _selectedCueIndex,
+                rehearsalSpeed = _rehearsalSpeed,
+                recordSampleInterval = _recordSampleInterval,
+                recordMinDistance = _recordMinDistance
+            };
+
+            EditorPrefs.SetString(DraftEditorPrefKey, JsonUtility.ToJson(draft));
+        }
+
+        private static void DeleteDraftState()
+        {
+            if (EditorPrefs.HasKey(DraftEditorPrefKey))
+            {
+                EditorPrefs.DeleteKey(DraftEditorPrefKey);
+            }
         }
 
         private string[] GetBeatKeys()
@@ -549,6 +894,156 @@ namespace Sunset.Story.Editor
             }
 
             return names;
+        }
+
+        private static GameObject FindSceneResident(string npcId)
+        {
+            if (string.IsNullOrWhiteSpace(npcId))
+            {
+                return null;
+            }
+
+            foreach (string candidateName in EnumerateResidentLookupNames(npcId))
+            {
+                GameObject resident = FindSceneObject(candidateName);
+                if (resident != null)
+                {
+                    return resident;
+                }
+            }
+
+            return null;
+        }
+
+        private static Transform FindSceneResidentHomeAnchor(string npcId, GameObject resident)
+        {
+            foreach (string candidateName in EnumerateResidentLookupNames(npcId))
+            {
+                foreach (string anchorName in EnumerateHomeAnchorNames(candidateName))
+                {
+                    GameObject anchorObject = FindSceneObject(anchorName);
+                    if (anchorObject != null)
+                    {
+                        return anchorObject.transform;
+                    }
+                }
+            }
+
+            if (resident != null)
+            {
+                Transform nestedAnchor = FindChildRecursive(resident.transform, "HomeAnchor");
+                if (nestedAnchor != null)
+                {
+                    return nestedAnchor;
+                }
+            }
+
+            return null;
+        }
+
+        private static GameObject FindSceneObject(string objectName)
+        {
+            if (string.IsNullOrWhiteSpace(objectName))
+            {
+                return null;
+            }
+
+            GameObject[] sceneObjects = Resources.FindObjectsOfTypeAll<GameObject>();
+            for (int index = 0; index < sceneObjects.Length; index++)
+            {
+                GameObject candidate = sceneObjects[index];
+                if (candidate == null
+                    || !candidate.scene.IsValid()
+                    || EditorUtility.IsPersistent(candidate))
+                {
+                    continue;
+                }
+
+                if (string.Equals(candidate.name, objectName.Trim(), StringComparison.OrdinalIgnoreCase))
+                {
+                    return candidate;
+                }
+            }
+
+            return null;
+        }
+
+        private static IEnumerable<string> EnumerateResidentLookupNames(string npcId)
+        {
+            string trimmed = npcId?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                yield break;
+            }
+
+            yield return trimmed;
+            if (int.TryParse(trimmed, out int numericId))
+            {
+                yield return numericId.ToString("000");
+            }
+        }
+
+        private static IEnumerable<string> EnumerateHomeAnchorNames(string candidateName)
+        {
+            string trimmed = candidateName?.Trim();
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                yield break;
+            }
+
+            yield return $"{trimmed}_HomeAnchor";
+
+            string alias = TryBuildHomeAnchorAlias(trimmed);
+            if (!string.IsNullOrWhiteSpace(alias) && !string.Equals(alias, $"{trimmed}_HomeAnchor", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return alias;
+            }
+        }
+
+        private static string TryBuildHomeAnchorAlias(string candidateName)
+        {
+            if (string.IsNullOrWhiteSpace(candidateName))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = candidateName.Trim();
+            if (trimmed.EndsWith("_HomeAnchor", StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed;
+            }
+
+            if (!int.TryParse(trimmed, out int numericId))
+            {
+                return string.Empty;
+            }
+
+            return $"{numericId:000}_HomeAnchor";
+        }
+
+        private static Transform FindChildRecursive(Transform root, string childName)
+        {
+            if (root == null)
+            {
+                return null;
+            }
+
+            for (int index = 0; index < root.childCount; index++)
+            {
+                Transform child = root.GetChild(index);
+                if (string.Equals(child.name, childName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return child;
+                }
+
+                Transform nested = FindChildRecursive(child, childName);
+                if (nested != null)
+                {
+                    return nested;
+                }
+            }
+
+            return null;
         }
 
         private void HandleEditorUpdate()
@@ -695,25 +1190,49 @@ namespace Sunset.Story.Editor
             }
 
             cue.keepCurrentSpawnPosition = false;
-            cue.pathPointsAreOffsets = false;
-            cue.startPosition = _recordedSamples[0].Position;
             cue.facing = _recordedSamples[0].Facing;
 
             List<SpringDay1DirectorPathPoint> points = new List<SpringDay1DirectorPathPoint>();
-            for (int index = 1; index < _recordedSamples.Count; index++)
+            if (cue.useSemanticAnchorAsStart && TryResolveSemanticAnchorWorldPosition(cue, out Vector3 anchorWorldPosition))
             {
-                RecordedCueSample sample = _recordedSamples[index];
-                points.Add(new SpringDay1DirectorPathPoint
+                cue.startPositionIsSemanticAnchorOffset = true;
+                cue.pathPointsAreOffsets = true;
+                cue.startPosition = _recordedSamples[0].Position - new Vector2(anchorWorldPosition.x, anchorWorldPosition.y);
+
+                for (int index = 1; index < _recordedSamples.Count; index++)
                 {
-                    position = sample.Position,
-                    facing = sample.Facing,
-                    holdSeconds = 0.08f,
-                    lookAtTargetName = cue.lookAtTargetName
-                });
+                    RecordedCueSample sample = _recordedSamples[index];
+                    points.Add(new SpringDay1DirectorPathPoint
+                    {
+                        position = sample.Position - _recordedSamples[0].Position,
+                        facing = sample.Facing,
+                        holdSeconds = 0.08f,
+                        lookAtTargetName = cue.lookAtTargetName
+                    });
+                }
+            }
+            else
+            {
+                cue.startPositionIsSemanticAnchorOffset = false;
+                cue.pathPointsAreOffsets = false;
+                cue.startPosition = _recordedSamples[0].Position;
+
+                for (int index = 1; index < _recordedSamples.Count; index++)
+                {
+                    RecordedCueSample sample = _recordedSamples[index];
+                    points.Add(new SpringDay1DirectorPathPoint
+                    {
+                        position = sample.Position,
+                        facing = sample.Facing,
+                        holdSeconds = 0.08f,
+                        lookAtTargetName = cue.lookAtTargetName
+                    });
+                }
             }
 
             cue.path = points.ToArray();
             ResetRecordingState();
+            MarkDraftDirtyAndPersist();
             Repaint();
             ShowNotification(new GUIContent("录制轨迹已写回当前 Cue"));
         }
@@ -775,6 +1294,61 @@ namespace Sunset.Story.Editor
                 NPCAnimController.NPCAnimDirection.Left => Vector2.left,
                 _ => Vector2.down
             };
+        }
+
+        private static Vector2 EncodeCueStartPosition(SpringDay1DirectorActorCue cue, Vector3 worldPosition)
+        {
+            if (cue != null
+                && cue.useSemanticAnchorAsStart
+                && cue.startPositionIsSemanticAnchorOffset
+                && TryResolveSemanticAnchorWorldPosition(cue, out Vector3 anchorWorldPosition))
+            {
+                return new Vector2(worldPosition.x - anchorWorldPosition.x, worldPosition.y - anchorWorldPosition.y);
+            }
+
+            return new Vector2(worldPosition.x, worldPosition.y);
+        }
+
+        private static Vector2 EncodePathPointPosition(SpringDay1DirectorActorCue cue, Vector3 worldPosition)
+        {
+            if (cue != null
+                && cue.pathPointsAreOffsets
+                && TryResolveCueStartWorldPosition(cue, out Vector3 cueStartWorldPosition))
+            {
+                return new Vector2(worldPosition.x - cueStartWorldPosition.x, worldPosition.y - cueStartWorldPosition.y);
+            }
+
+            return new Vector2(worldPosition.x, worldPosition.y);
+        }
+
+        private static bool TryResolveCueStartWorldPosition(SpringDay1DirectorActorCue cue, out Vector3 worldPosition)
+        {
+            worldPosition = Vector3.zero;
+            if (cue == null)
+            {
+                return false;
+            }
+
+            if (cue.useSemanticAnchorAsStart
+                && TryResolveSemanticAnchorWorldPosition(cue, out Vector3 anchorWorldPosition))
+            {
+                Vector2 start2D = cue.startPositionIsSemanticAnchorOffset
+                    ? new Vector2(anchorWorldPosition.x, anchorWorldPosition.y) + cue.startPosition
+                    : cue.startPosition;
+                worldPosition = new Vector3(start2D.x, start2D.y, 0f);
+                return true;
+            }
+
+            worldPosition = new Vector3(cue.startPosition.x, cue.startPosition.y, 0f);
+            return true;
+        }
+
+        private static bool TryResolveSemanticAnchorWorldPosition(SpringDay1DirectorActorCue cue, out Vector3 worldPosition)
+        {
+            worldPosition = Vector3.zero;
+            return cue != null
+                && cue.useSemanticAnchorAsStart
+                && SpringDay1DirectorSemanticAnchorResolver.TryResolveWorldPosition(cue.semanticAnchorId, out worldPosition);
         }
     }
 }

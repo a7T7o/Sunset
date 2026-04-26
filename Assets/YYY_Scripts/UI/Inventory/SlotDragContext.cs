@@ -3,12 +3,12 @@ using FarmGame.Data.Core;
 
 /// <summary>
 /// 槽位拖拽上下文 - 跨容器拖拽支持
-/// 
+///
 /// 职责：
 /// 1. 记录拖拽开始时的源容器和槽位信息
 /// 2. 提供静态访问，让 Drop 目标能获取拖拽来源
 /// 3. 支持 InventoryService 和 ChestInventory 两种容器
-/// 
+///
 /// 使用流程：
 /// 1. BeginDrag 时调用 SlotDragContext.Begin()
 /// 2. Drop 时通过 SlotDragContext.Current 获取来源信息
@@ -97,13 +97,13 @@ public static class SlotDragContext
         InventorySlotInteraction owner = null)
     {
         // 🔥 互斥检查：如果 Manager 正在持有物品，拒绝开始拖拽
-        if (InventoryInteractionManager.Instance != null && 
+        if (InventoryInteractionManager.Instance != null &&
             InventoryInteractionManager.Instance.IsHolding)
         {
             Debug.LogWarning("[SlotDragContext] InventoryInteractionManager 正在持有物品，无法开始拖拽");
             return;
         }
-        
+
         IsDragging = true;
         SourceContainer = container;
         SourceSlotIndex = slotIndex;
@@ -329,13 +329,14 @@ public static class SlotDragContext
         }
 
         Debug.LogWarning($"[SlotDragContext] Cancel: 回源槽位 {sourceIndex} 已被占用且容器无空位，改为掉落到玩家脚下，避免覆盖现有物品。");
+        float dropCooldown = SourceContainer is ChestInventory || SourceContainer is ChestInventoryV2 ? 5f : 0.35f;
         if (draggedRuntimeItem != null && !draggedRuntimeItem.IsEmpty)
         {
-            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedRuntimeItem);
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedRuntimeItem, dropCooldown);
         }
         else
         {
-            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedItem);
+            FarmGame.UI.ItemDropHelper.DropAtPlayer(draggedItem, dropCooldown);
         }
         draggedItem = ItemStack.Empty;
         draggedRuntimeItem = null;

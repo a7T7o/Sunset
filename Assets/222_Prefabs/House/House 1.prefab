@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 1403925001662805175}
   m_Layer: 20
   m_Name: House 1_1
-  m_TagString: Buildings
+  m_TagString: Building
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -150,7 +150,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8213608288421851512}
-  - component: {fileID: 1688027254512854638}
+  - component: {fileID: 3409140726842550495}
   m_Layer: 20
   m_Name: House 1
   m_TagString: Building
@@ -176,7 +176,7 @@ Transform:
   - {fileID: 4444050081093367822}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1688027254512854638
+--- !u!114 &3409140726842550495
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -206,7 +206,7 @@ GameObject:
   - component: {fileID: 1471842992206871481}
   m_Layer: 20
   m_Name: House 1_2
-  m_TagString: Buildings
+  m_TagString: Building
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
@@ -294,7 +294,7 @@ GameObject:
   - component: {fileID: 4284232087976442886}
   m_Layer: 20
   m_Name: House 1_0
-  m_TagString: Buildings
+  m_TagString: Building
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0

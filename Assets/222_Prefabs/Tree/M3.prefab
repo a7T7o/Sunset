@@ -187,8 +187,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 3723e0efd18030d4b81f3c672e9160c1, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   stageConfigs:
   - daysToNextStage: 1
     health: 0
@@ -386,6 +386,8 @@ MonoBehaviour:
   dropSpreadRadius: 0.4
   showDebugInfo: 0
   editorPreview: 1
+  deferRuntimePlacedSaplingInitializationByOneFrame: 1
+  runtimePlacedSaplingDeferredFrames: 2
 --- !u!60 &8691288880623539943
 PolygonCollider2D:
   m_ObjectHideFlags: 0
@@ -448,8 +450,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   occludedAlpha: 0.3
   fadeSpeed: 8
   canBeOccluded: 1
@@ -465,7 +467,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2244532948124785810}
-  - component: {fileID: 478230029065713335}
   m_Layer: 20
   m_Name: M3
   m_TagString: Tree
@@ -490,21 +491,3 @@ Transform:
   - {fileID: 3563393122257728107}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &478230029065713335
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8805118565538031545}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  occludedAlpha: 0.3
-  fadeSpeed: 8
-  canBeOccluded: 1
-  usePixelSampling: 1
-  alphaThreshold: 0.1
-  samplePointCount: 5

@@ -1775,3 +1775,152 @@
   - `Begin-Slice`：已跑
   - `Ready-To-Sync`：docs 批通过；代码批被 codeguard 卡住
   - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-23 UI 续记｜历史小批次 Tabs 新 panel/runtime-kit 上传尝试
+- 当前主线：
+  - 遵循第二波治理 prompt，只还原 1 个历史小批次上传；如果撞 blocker 就停车，不换第二批。
+- 本轮子任务：
+  - 只尝试上传：
+    - `Assets/YYY_Scripts/UI/Tabs/PackageMapOverviewPanel.cs`
+    - `Assets/YYY_Scripts/UI/Tabs/PackageMapOverviewPanel.cs.meta`
+    - `Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs`
+    - `Assets/YYY_Scripts/UI/Tabs/PackageNpcRelationshipPanel.cs.meta`
+    - `Assets/YYY_Scripts/UI/Tabs/PackagePanelRuntimeUiKit.cs`
+    - `Assets/YYY_Scripts/UI/Tabs/PackagePanelRuntimeUiKit.cs.meta`
+- 历史判断：
+  - 这 3 个新增文件都属于 `Tabs` runtime panel/helper 同一簇创建批，创建时间同在 `2026-04-08`。
+  - 但它们不是“可单独 sync 的纯净历史批”，因为 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 已作为同根接线文件存在未纳入本轮的脏改。
+- 本轮结果：
+  - `Begin-Slice` 已跑
+  - `Ready-To-Sync` 已跑
+  - 未提交、未 push
+- blocker：
+  - 第一真实 blocker = same-root mixed / own-root remaining dirty
+  - 不是 `CodexCodeGuard`
+  - preflight 明确指出：
+    - `own_roots=[Assets/YYY_Scripts/UI/Tabs]`
+    - `remaining= M Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs`
+- 恢复点：
+  - 这组新 panel/runtime-kit 小批次已经完成“真实尝试 -> 精确报死”
+  - 其它 UI 代码尾账先不动
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：已跑，结果 blocker
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-23 UI 续记｜重复收到同一小批次 prompt 的处理
+- 用户再次发送同一份 `2026-04-23_给UI_shared-root历史小批次上传prompt_02.md`。
+- 我重新读取 prompt，并复核：
+  - [UI.json](D:/Unity/Unity_learning/Sunset/.kiro/state/active-threads/UI.json)
+  - 当前 Tabs 白名单文件状态
+- 判断：
+  - 该小批次已经执行过真实尝试
+  - 当前 blocker 没变，仍是 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 同根残留
+  - 因此本轮不应再对同一批次重复发起第二次尝试
+- 当前恢复点：
+  - 继续维持 `PARKED`
+  - 等待下一轮用户/治理对 `PackagePanelTabsUI.cs` 是否并入同批做裁定
+
+## 2026-04-24 UI 续记｜Tabs 根内整合批上传尝试
+- 当前主线：
+  - 遵循 `prompt_03`，不再重跑上一轮 `prompt_02`；只把 [PackagePanelTabsUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs) 正式并入 Tabs/runtime-kit 同批核心件，再做一次新的真实上传尝试。
+- 本轮子任务：
+  - 目标白名单固定为：
+    - `PackagePanelTabsUI.cs`
+    - `PackageMapOverviewPanel.cs`
+    - `PackageMapOverviewPanel.cs.meta`
+    - `PackageNpcRelationshipPanel.cs`
+    - `PackageNpcRelationshipPanel.cs.meta`
+    - `PackagePanelRuntimeUiKit.cs`
+    - `PackagePanelRuntimeUiKit.cs.meta`
+- 核心判断：
+  - 现已正式承认 `PackagePanelTabsUI.cs` 属于这批核心件。
+  - 证据是它在 `54/55/68/69/216/217` 行直接 `EnsureOptionalPanelInstalled(...)` 这两个新 panel。
+- 本轮结果：
+  - `Begin-Slice` 已跑
+  - 根内只剩这 7 个文件，没有新的 `UI/Tabs` 同根残留
+  - 但新的第一真实 blocker 已经不是 same-root mixed，而是 `CodexCodeGuard`
+  - 3 个文件 `validate_script` 直接报 `CodexCodeGuard returned no JSON`
+  - `PackagePanelTabsUI.cs` 只拿到 `unity_validation_pending / baseline_fail`
+  - 因此本轮没有继续到 `Ready-To-Sync / sync`
+  - 没有提交、没有 push
+- 边界：
+  - 本轮没有越权扩到 `Inventory / Toolbar / Box / Story/UI`
+- 当前恢复点：
+  - 这轮整合批已经完成“真实尝试 -> 新 blocker 报死”
+  - 当前线程重新回到 `PARKED`
+
+## 2026-04-26 UI 续记｜工具修复后 UI/Tabs 七文件最小复核
+- 当前主线：
+  - 只做工具修复后的 `UI/Tabs` 七文件最小复核，确认这条线现在吐出的是“真实 blocker / 或真实可上传”，不再是旧的 CodeGuard 黑盒。
+- 本轮子任务：
+  - 白名单仍固定为：
+    - `PackagePanelTabsUI.cs`
+    - `PackageMapOverviewPanel.cs`
+    - `PackageMapOverviewPanel.cs.meta`
+    - `PackageNpcRelationshipPanel.cs`
+    - `PackageNpcRelationshipPanel.cs.meta`
+    - `PackagePanelRuntimeUiKit.cs`
+    - `PackagePanelRuntimeUiKit.cs.meta`
+- 本轮实际做成：
+  - 新起 `Begin-Slice(ui-tabs-post-toolfix-min-recheck-20260426)`
+  - 顺序跑过 `Ready-To-Sync`
+  - 得到真实代码闸门结果
+  - 没有修业务代码
+- 关键结论：
+  - 这轮已经不再出现：
+    - `CodexCodeGuard returned no JSON`
+    - `baseline_fail 黑盒`
+  - 当前新的第一真实 blocker 是 `PackagePanelTabsUI.cs` 的 `3 error + 1 warning`
+- 具体诊断：
+  - `CS0103` `PackagePanelTabsUI.cs:53`
+  - `CS0103` `PackagePanelTabsUI.cs:67`
+  - `CS0103` `PackagePanelTabsUI.cs:215`
+  - 以上都是：当前上下文中不存在名称 `PackageSaveSettingsPanel`
+  - `CS0649` `PackagePanelTabsUI.cs:20`
+  - 内容：字段 `boxUIRoot` 从未赋值
+- 当前判断：
+  - 这组现在是“真实业务 blocker”
+  - 不是工具 incident
+  - 也还不是“可继续上传”
+- 边界：
+  - 本轮未修业务代码
+  - 未扩到 `Inventory / Toolbar / Box / Story/UI`
+- 本轮 thread-state：
+  - `Begin-Slice`：已跑
+  - `Ready-To-Sync`：已跑，得到真实 blocker
+  - `Park-Slice`：已跑，当前 `PARKED`
+
+## 2026-04-26 UI 续记｜UI-Tabs 与 UI-Save 忽略脚本只读排查
+- 用户目标：
+  - 只读确认 `UI/Tabs` 编译错误是否主要由被 `.gitignore` 忽略的 `UI/Save` 正式脚本导致，并列出关键引用链。
+- 当前主线：
+  - 继续 UI 线的只读审计，收紧 `PackagePanelTabsUI.cs` 的缺符号根因，不进入真实施工。
+- 本轮子任务：
+  - 检查 `Assets/YYY_Scripts/UI/Save/` 是否存在相关 `.cs/.meta`
+  - 判断这些文件是否像正式业务代码
+  - 统计谁直接引用了 `PackageSaveSettingsPanel`
+  - 评估若把相关 `UI/Save` 文件纳入 git，理论上能否解开当前 `CS0103/CS0246`
+- 本轮实际做成：
+  - 确认 `Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs`、`PackageSaveSettingsPanel.cs.meta`、`SaveActionToastOverlay.cs`、`SaveActionToastOverlay.cs.meta` 实际存在于工作树
+  - 确认它们都被仓库 `.gitignore` 第 36 行 `Save/` 命中，且当前不在 git 跟踪内
+  - 确认 `PackageSaveSettingsPanel.cs` 是完整正式脚本：定义 `PackageSaveSettingsPanel : MonoBehaviour`，并提供 `EnsureInstalled(GameObject panelRoot)`
+  - 确认 `SaveActionToastOverlay.cs` 是正式运行时提示层脚本，但当前主要通过 `SaveManager` 反射调用，不是 `UI/Tabs` 缺符号的直接编译前提
+  - 确认直接静态/强类型引用 `PackageSaveSettingsPanel` 的文件有：
+    - `Assets/YYY_Scripts/UI/Tabs/PackagePanelTabsUI.cs`
+    - `Assets/YYY_Scripts/Story/UI/DialogueUI.cs`
+    - `Assets/YYY_Scripts/Story/UI/SpringDay1PromptOverlay.cs`
+- 关键判断：
+  - 对 `PackagePanelTabsUI.cs` 这组 `CS0103` 来说，`UI/Save` 被忽略且未进仓，确实是主要成因。
+  - 若其他环境缺少 `PackageSaveSettingsPanel.cs/.meta`，则上述 3 处强类型引用都会理论上落成 `CS0103/CS0246`。
+  - 仅从编译依赖看，真正必须纳管的是：
+    - `Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs`
+    - `Assets/YYY_Scripts/UI/Save/PackageSaveSettingsPanel.cs.meta`
+  - `SaveActionToastOverlay.cs/.meta` 更偏运行时 toast 功能完整性；因为 `SaveManager` 通过字符串反射取类型，它不是当前 `PackagePanelTabsUI` 缺符号的必要前提。
+- 补充证据：
+  - 当前本机最新 `Editor.log` 里可见这两个 `UI/Save` 脚本已进入 Unity 编译/导入输入，说明本机工作树具备这些文件。
+  - 同一份最新 `Editor.log` 里当前显式可见的最新 `CS0246` 是 `WorkbenchRuntimeSaveData`，不是 `PackageSaveSettingsPanel`；因此“被忽略的 `UI/Save` 正式脚本会导致这类错误”成立，但“当前这台机器最新红错主要就是它”这件事，日志证据不成立。
+- 本轮验证状态：
+  - `静态推断成立`
+  - 未做任何业务代码修改
+  - 未进入 `Begin-Slice`

@@ -9,8 +9,11 @@ public static class NavigationAgentRegistry
     private static readonly HashSet<INavigationUnit> RegisteredUnits = new HashSet<INavigationUnit>();
     private static readonly List<INavigationUnit> StaleUnits = new List<INavigationUnit>();
     private static readonly List<INavigationUnit> ActiveUnitsCache = new List<INavigationUnit>();
+    private static readonly List<NavigationAgentSnapshot> ActiveSnapshotsCache = new List<NavigationAgentSnapshot>();
     private static int ActiveUnitsCacheFrame = -1;
     private static int ActiveUnitsCacheVersion = -1;
+    private static int ActiveSnapshotsCacheFrame = -1;
+    private static int ActiveSnapshotsCacheVersion = -1;
     private static int RegistryVersion = 0;
 
     public static void Register(INavigationUnit unit)
@@ -40,15 +43,16 @@ public static class NavigationAgentRegistry
     public static void GetNearbySnapshots(INavigationUnit self, Vector2 center, float radius, List<NavigationAgentSnapshot> buffer)
     {
         buffer.Clear();
-        EnsureActiveUnitsCacheCurrent();
-        foreach (INavigationUnit unit in ActiveUnitsCache)
+        EnsureActiveSnapshotsCacheCurrent();
+        for (int index = 0; index < ActiveUnitsCache.Count; index++)
         {
+            INavigationUnit unit = ActiveUnitsCache[index];
             if (ReferenceEquals(unit, self))
             {
                 continue;
             }
 
-            NavigationAgentSnapshot snapshot = NavigationAgentSnapshot.FromUnit(unit);
+            NavigationAgentSnapshot snapshot = ActiveSnapshotsCache[index];
             if (!snapshot.IsValid)
             {
                 continue;
@@ -74,6 +78,19 @@ public static class NavigationAgentRegistry
                 buffer.Add(typedUnit);
             }
         }
+    }
+
+    private static void EnsureActiveSnapshotsCacheCurrent()
+    {
+        EnsureActiveUnitsCacheCurrent();
+        if (ActiveSnapshotsCacheFrame == Time.frameCount &&
+            ActiveSnapshotsCacheVersion == RegistryVersion &&
+            ActiveSnapshotsCache.Count == ActiveUnitsCache.Count)
+        {
+            return;
+        }
+
+        RebuildActiveSnapshotsCache();
     }
 
     private static void EnsureActiveUnitsCacheCurrent()
@@ -104,6 +121,7 @@ public static class NavigationAgentRegistry
     private static void RebuildActiveUnitsCache()
     {
         ActiveUnitsCache.Clear();
+        ActiveSnapshotsCache.Clear();
         StaleUnits.Clear();
 
         foreach (INavigationUnit unit in RegisteredUnits)
@@ -134,6 +152,20 @@ public static class NavigationAgentRegistry
 
         ActiveUnitsCacheFrame = Time.frameCount;
         ActiveUnitsCacheVersion = RegistryVersion;
+        ActiveSnapshotsCacheFrame = -1;
+        ActiveSnapshotsCacheVersion = -1;
+    }
+
+    private static void RebuildActiveSnapshotsCache()
+    {
+        ActiveSnapshotsCache.Clear();
+        for (int index = 0; index < ActiveUnitsCache.Count; index++)
+        {
+            ActiveSnapshotsCache.Add(NavigationAgentSnapshot.FromUnit(ActiveUnitsCache[index]));
+        }
+
+        ActiveSnapshotsCacheFrame = Time.frameCount;
+        ActiveSnapshotsCacheVersion = RegistryVersion;
     }
 
     private static bool IsUnitActive(INavigationUnit unit)

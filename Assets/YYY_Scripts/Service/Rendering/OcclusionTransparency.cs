@@ -4,81 +4,62 @@ using UnityEngine;
 /// 遮挡透明组件：当玩家被此物体遮挡时，自动变透明
 /// 挂载到树木、房屋等父物体上（双层结构：父物体不需要SpriteRenderer）
 /// 会自动处理所有子物体的SpriteRenderer
-/// 
+///
 /// ✅ 支持像素采样精确检测（需要纹理设置为 Read/Write Enabled）
 /// </summary>
 public class OcclusionTransparency : MonoBehaviour
 {
     [Header("透明度设置")]
     [HideInInspector] [SerializeField] private float occludedAlpha = 0.3f;
-    
+
     [HideInInspector] [SerializeField] private float fadeSpeed = 8f;
-    
+
     [Header("遮挡检测")]
     [HideInInspector] [SerializeField] private bool canBeOccluded = true;
-    
+
     [Header("像素采样设置")]
     [Tooltip("是否启用像素采样精确检测（需要纹理设置为 Read/Write Enabled）")]
     [SerializeField] private bool usePixelSampling = true;
-    
+
     [Tooltip("像素 alpha 阈值（低于此值视为透明）")]
     [Range(0.01f, 0.5f)]
     [SerializeField] private float alphaThreshold = 0.1f;
-    
+
     [Tooltip("采样点数量（中心 + 四角 = 5）")]
     [Range(1, 9)]
     [SerializeField] private int samplePointCount = 5;
-    
-    private SpriteRenderer mainRenderer;  // 用于获取Order（从子物体找第一个有效的）
+
+    private SpriteRenderer mainRenderer;  // 用于获取Order（优先选择主可见 Renderer）
     private SpriteRenderer[] childRenderers;
     private float[] originalAlphas;  // 记录原始透明度
     private float currentAlpha = 1f;
     private float targetAlpha = 1f;
     private bool isOccluding = false;
-    
+
     // ✅ 砍伐状态：砍伐中的树木透明度更深
     private bool isBeingChopped = false;
     private float choppingAlphaOffset = 0.25f;  // 砍伐时透明度偏移（更深）
-    
+
     // ✅ 像素采样缓存
     private Texture2D _cachedTexture;
     private Sprite _cachedSprite;
     private bool _textureReadable = true;  // 纹理是否可读
     private Transform _occlusionRootTransform;
     private bool _isTreeOccluder;
-    
+
     void Awake()
     {
-        CacheOcclusionIdentity();
-
-        // 获取所有子物体的SpriteRenderer（包括自己，如果有的话）
-        childRenderers = GetComponentsInChildren<SpriteRenderer>();
-        
-        if (childRenderers.Length == 0)
+        if (!EnsureRendererCache(logWhenMissing: true))
         {
-            Debug.LogWarning($"[OcclusionTransparency] {gameObject.name} 没有找到任何SpriteRenderer！组件已禁用。请使用 Tools → 🧹 清理无效的遮挡组件 删除此组件。");
             enabled = false;  // 禁用组件，避免后续错误
             return;
         }
-        
-        // 找到第一个有效的SpriteRenderer作为mainRenderer（用于获取Order）
-        mainRenderer = childRenderers[0];
-        
-        // 初始化完成
-        
-        // 记录原始透明度
-        originalAlphas = new float[childRenderers.Length];
-        for (int i = 0; i < childRenderers.Length; i++)
-        {
-            originalAlphas[i] = childRenderers[i].color.a;
-        }
-        
-        currentAlpha = 1f;
-        targetAlpha = 1f;
     }
-    
+
     void OnEnable()
     {
+        EnsureRendererCache();
+
         // 从管理器初始化参数（支持标签自定义参数）
         if (OcclusionManager.Instance != null)
         {
@@ -86,26 +67,26 @@ public class OcclusionTransparency : MonoBehaviour
             occludedAlpha = alpha;
             fadeSpeed = speed;
         }
-        
+
         // 延迟注册，确保OcclusionManager已初始化
         if (canBeOccluded && Application.isPlaying)
         {
             StartCoroutine(RegisterDelayed());
         }
     }
-    
+
     private System.Collections.IEnumerator RegisterDelayed()
     {
         // 等待 OcclusionManager 初始化完成（最多等待 2 秒）
         float timeout = 2f;
         float elapsed = 0f;
-        
+
         while (OcclusionManager.Instance == null && elapsed < timeout)
         {
             yield return null;
             elapsed += Time.deltaTime;
         }
-        
+
         if (OcclusionManager.Instance != null)
         {
             OcclusionManager.Instance.RegisterOccluder(this);
@@ -115,7 +96,7 @@ public class OcclusionTransparency : MonoBehaviour
             Debug.LogWarning($"[OcclusionTransparency] {gameObject.name} 注册失败！未找到OcclusionManager（等待超时）");
         }
     }
-    
+
     void OnDisable()
     {
         // 从管理器注销
@@ -123,13 +104,18 @@ public class OcclusionTransparency : MonoBehaviour
         {
             OcclusionManager.Instance?.UnregisterOccluder(this);
         }
-        
+
         // 恢复原始透明度
         SetOccluding(false);
     }
-    
+
     void Update()
     {
+        if (!EnsureRendererCache())
+        {
+            return;
+        }
+
         // 平滑过渡到目标透明度
         if (Mathf.Abs(currentAlpha - targetAlpha) > 0.01f)
         {
@@ -137,7 +123,7 @@ public class OcclusionTransparency : MonoBehaviour
             ApplyAlpha(currentAlpha);
         }
     }
-    
+
     /// <summary>
     /// 设置是否正在遮挡玩家
     /// </summary>
@@ -147,30 +133,30 @@ public class OcclusionTransparency : MonoBehaviour
     public void SetOccluding(bool occluding, float customAlpha = -1f, float customSpeed = -1f)
     {
         if (isOccluding == occluding) return;
-        
+
         isOccluding = occluding;
-        
+
         // 如果提供了自定义参数，使用自定义参数
         if (customAlpha >= 0f)
         {
             occludedAlpha = customAlpha;
         }
-        
+
         if (customSpeed >= 0f)
         {
             fadeSpeed = customSpeed;
         }
-        
+
         // ✅ 砍伐中的树木透明度加深（更不透明，alpha值更高）
         float finalAlpha = occludedAlpha;
         if (isBeingChopped && occluding)
         {
             finalAlpha = Mathf.Min(1f, occludedAlpha + choppingAlphaOffset);
         }
-        
+
         targetAlpha = occluding ? finalAlpha : 1f;
     }
-    
+
     /// <summary>
     /// 设置砍伐状态（砍伐中的树木透明度加深，更不透明）
     /// </summary>
@@ -180,7 +166,7 @@ public class OcclusionTransparency : MonoBehaviour
     {
         isBeingChopped = chopping;
         choppingAlphaOffset = alphaOffset;
-        
+
         // 如果当前正在遮挡，立即更新目标透明度
         if (isOccluding)
         {
@@ -192,44 +178,51 @@ public class OcclusionTransparency : MonoBehaviour
             targetAlpha = finalAlpha;
         }
     }
-    
+
     /// <summary>
     /// 获取当前是否处于砍伐状态
     /// </summary>
     public bool IsBeingChopped => isBeingChopped;
-    
+
     /// <summary>
     /// 应用透明度到所有渲染器
     /// </summary>
     private void ApplyAlpha(float alpha)
     {
+        if (!EnsureRendererCache())
+        {
+            return;
+        }
+
         for (int i = 0; i < childRenderers.Length; i++)
         {
             if (childRenderers[i] == null) continue;
-            
+
             Color color = childRenderers[i].color;
             // 基于原始透明度计算新透明度
             color.a = originalAlphas[i] * alpha;
             childRenderers[i].color = color;
         }
     }
-    
+
     /// <summary>
     /// 获取物体的Sorting Order（用于判断是否在玩家前方）
     /// </summary>
     public int GetSortingOrder()
     {
+        EnsureRendererCache();
         return mainRenderer != null ? mainRenderer.sortingOrder : 0;
     }
-    
+
     /// <summary>
     /// 获取物体的Sorting Layer Name
     /// </summary>
     public string GetSortingLayerName()
     {
+        EnsureRendererCache();
         return mainRenderer != null ? mainRenderer.sortingLayerName : "";
     }
-    
+
     /// <summary>
     /// 检查是否有指定标签
     /// </summary>
@@ -237,7 +230,7 @@ public class OcclusionTransparency : MonoBehaviour
     {
         return CompareTag(tag);
     }
-    
+
     /// <summary>
     /// 获取所有标签（用于调试）
     /// </summary>
@@ -245,15 +238,25 @@ public class OcclusionTransparency : MonoBehaviour
     {
         return new string[] { gameObject.tag };
     }
-    
+
     /// <summary>
     /// 获取物体边界（用于遮挡检测）
     /// ✅ 只返回主 SpriteRenderer 的 bounds，不包含子物体（如 Shadow）
     /// </summary>
     public Bounds GetBounds()
     {
+        EnsureRendererCache();
+
+        if (TryGetVisibleSpriteBounds(out Bounds visibleBounds))
+        {
+            return visibleBounds;
+        }
+
         if (mainRenderer != null)
+        {
             return mainRenderer.bounds;
+        }
+
         return new Bounds(transform.position, Vector3.one);
     }
 
@@ -273,38 +276,229 @@ public class OcclusionTransparency : MonoBehaviour
         CacheOcclusionIdentity();
         return _isTreeOccluder;
     }
-    
+
     /// <summary>
-    /// 获取树木的 Collider 边界（用于树林边界计算）
-    /// 优先使用父物体的 CompositeCollider2D，其次使用子物体的 Collider2D
+    /// 获取树木的 Collider 边界（用于预览遮挡等物理 footprint 判断）
+    /// 优先使用自身/子物体的局部碰撞体，避免父级 CompositeCollider 把 hover 遮挡范围放大。
     /// </summary>
     public Bounds GetColliderBounds()
     {
-        // 优先检查父物体的 CompositeCollider2D
-        Collider2D parentCollider = transform.parent?.GetComponent<Collider2D>();
-        if (parentCollider != null)
-        {
-            return parentCollider.bounds;
-        }
-        
-        // 其次检查自身的 Collider2D
+        EnsureRendererCache();
+
         Collider2D selfCollider = GetComponent<Collider2D>();
-        if (selfCollider != null)
+        if (selfCollider != null && selfCollider.enabled)
         {
             return selfCollider.bounds;
         }
-        
-        // 检查子物体的 Collider2D
-        Collider2D childCollider = GetComponentInChildren<Collider2D>();
-        if (childCollider != null)
+
+        Collider2D bestChildCollider = null;
+        float bestArea = float.MaxValue;
+        Collider2D[] childColliders = GetComponentsInChildren<Collider2D>(includeInactive: true);
+        for (int index = 0; index < childColliders.Length; index++)
         {
-            return childCollider.bounds;
+            Collider2D candidate = childColliders[index];
+            if (candidate == null || candidate == selfCollider || !candidate.enabled)
+            {
+                continue;
+            }
+
+            Bounds candidateBounds = candidate.bounds;
+            float candidateArea = Mathf.Abs(candidateBounds.size.x * candidateBounds.size.y);
+            if (candidateArea <= 0f)
+            {
+                continue;
+            }
+
+            if (bestChildCollider == null || candidateArea < bestArea)
+            {
+                bestChildCollider = candidate;
+                bestArea = candidateArea;
+            }
         }
-        
+
+        if (bestChildCollider != null)
+        {
+            return bestChildCollider.bounds;
+        }
+
+        Collider2D parentCollider = transform.parent?.GetComponent<Collider2D>();
+        if (parentCollider != null && parentCollider.enabled)
+        {
+            return parentCollider.bounds;
+        }
+
         // 回退到 Sprite Bounds
         return GetBounds();
     }
-    
+
+    /// <summary>
+    /// 根据不同 preview 来源返回对应的遮挡判定 Bounds。
+    /// FarmTool 的 preview 已经只收中心格，因此这里必须按可见遮挡面判断，
+    /// 否则会退化成“几乎要和碰撞体重合才触发”。
+    /// </summary>
+    public Bounds GetPreviewOcclusionBounds(PreviewOcclusionSource source)
+    {
+        EnsureRendererCache();
+        return GetVisualPreviewOcclusionBounds();
+    }
+
+    private Bounds GetVisualPreviewOcclusionBounds()
+    {
+        Bounds visualBounds = TryGetVisibleSpriteBounds(out Bounds spriteBounds)
+            ? spriteBounds
+            : GetBounds();
+
+        if (TryGetRootColliderBounds(out Bounds rootColliderBounds))
+        {
+            visualBounds.Encapsulate(rootColliderBounds.min);
+            visualBounds.Encapsulate(rootColliderBounds.max);
+        }
+
+        return visualBounds;
+    }
+
+    private bool TryGetLocalColliderBounds(out Bounds bounds)
+    {
+        bounds = default;
+        bool hasBounds = false;
+
+        Collider2D selfCollider = GetComponent<Collider2D>();
+        if (selfCollider != null && selfCollider.enabled)
+        {
+            bounds = selfCollider.bounds;
+            hasBounds = true;
+        }
+
+        Collider2D[] childColliders = GetComponentsInChildren<Collider2D>(includeInactive: true);
+        for (int index = 0; index < childColliders.Length; index++)
+        {
+            Collider2D candidate = childColliders[index];
+            if (candidate == null || candidate == selfCollider || !candidate.enabled)
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                bounds = candidate.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(candidate.bounds.min);
+                bounds.Encapsulate(candidate.bounds.max);
+            }
+        }
+
+        return hasBounds;
+    }
+
+    private bool TryGetVisibleSpriteBounds(out Bounds bounds)
+    {
+        bounds = default;
+        bool hasBounds = false;
+
+        if (childRenderers == null || childRenderers.Length == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < childRenderers.Length; index++)
+        {
+            SpriteRenderer renderer = childRenderers[index];
+            if (renderer == null || !renderer.enabled || renderer.sprite == null)
+            {
+                continue;
+            }
+
+            if (IsShadowRenderer(renderer))
+            {
+                continue;
+            }
+
+            if (!hasBounds)
+            {
+                bounds = renderer.bounds;
+                hasBounds = true;
+            }
+            else
+            {
+                bounds.Encapsulate(renderer.bounds.min);
+                bounds.Encapsulate(renderer.bounds.max);
+            }
+        }
+
+        return hasBounds;
+    }
+
+    private static SpriteRenderer ResolvePrimaryRenderer(SpriteRenderer[] renderers)
+    {
+        if (renderers == null || renderers.Length == 0)
+        {
+            return null;
+        }
+
+        SpriteRenderer fallbackRenderer = null;
+        SpriteRenderer bestRenderer = null;
+        float bestArea = float.MinValue;
+
+        for (int index = 0; index < renderers.Length; index++)
+        {
+            SpriteRenderer renderer = renderers[index];
+            if (renderer == null)
+            {
+                continue;
+            }
+
+            fallbackRenderer ??= renderer;
+            if (!renderer.enabled || renderer.sprite == null || IsShadowRenderer(renderer))
+            {
+                continue;
+            }
+
+            Bounds rendererBounds = renderer.bounds;
+            float area = Mathf.Abs(rendererBounds.size.x * rendererBounds.size.y);
+            if (bestRenderer == null || area > bestArea)
+            {
+                bestRenderer = renderer;
+                bestArea = area;
+            }
+        }
+
+        return bestRenderer != null ? bestRenderer : fallbackRenderer;
+    }
+
+    private static bool IsShadowRenderer(SpriteRenderer renderer)
+    {
+        if (renderer == null)
+        {
+            return false;
+        }
+
+        string rendererName = renderer.gameObject.name;
+        return !string.IsNullOrEmpty(rendererName) &&
+               rendererName.IndexOf("shadow", System.StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private bool TryGetRootColliderBounds(out Bounds bounds)
+    {
+        bounds = default;
+
+        Collider2D parentCollider = transform.parent?.GetComponent<Collider2D>();
+        if (parentCollider != null && parentCollider.enabled)
+        {
+            bounds = parentCollider.bounds;
+            return true;
+        }
+
+        if (TryGetLocalColliderBounds(out bounds))
+        {
+            return true;
+        }
+
+        return false;
+    }
+
     /// <summary>
     /// 获取树木的成长阶段索引（用于动态调整连通距离）
     /// 返回 0-5 的阶段索引，兼容新版 TreeController（原 V2）
@@ -326,7 +520,7 @@ public class OcclusionTransparency : MonoBehaviour
         }
         return 5; // 默认最大阶段
     }
-    
+
     /// <summary>
     /// 获取树木的成长阶段（旧版兼容，映射到 GrowthStage 枚举）
     /// </summary>
@@ -338,22 +532,22 @@ public class OcclusionTransparency : MonoBehaviour
         if (stageIndex <= 2) return GrowthStage.Small;
         return GrowthStage.Large;
     }
-    
+
     /// <summary>
     /// 是否启用遮挡检测
     /// </summary>
     public bool CanBeOccluded => canBeOccluded;
-    
+
     /// <summary>
     /// 动态设置是否可被遮挡（由TreeController等外部控制）
     /// </summary>
     public void SetCanBeOccluded(bool enabled)
     {
         if (canBeOccluded == enabled) return;
-        
+
         bool wasEnabled = canBeOccluded;
         canBeOccluded = enabled;
-        
+
         if (enabled && !wasEnabled)
         {
             // 启用：注册到管理器
@@ -402,9 +596,41 @@ public class OcclusionTransparency : MonoBehaviour
         _occlusionRootTransform = transform;
         _isTreeOccluder = CompareTag("Tree") || (transform.parent != null && transform.parent.CompareTag("Tree"));
     }
-    
+
+    private bool EnsureRendererCache(bool logWhenMissing = false)
+    {
+        CacheOcclusionIdentity();
+
+        if (childRenderers == null || childRenderers.Length == 0 || mainRenderer == null)
+        {
+            childRenderers = GetComponentsInChildren<SpriteRenderer>(true);
+            mainRenderer = ResolvePrimaryRenderer(childRenderers);
+        }
+
+        if (childRenderers == null || childRenderers.Length == 0)
+        {
+            if (logWhenMissing)
+            {
+                Debug.LogWarning($"[OcclusionTransparency] {gameObject.name} 没有找到任何SpriteRenderer！组件已禁用。请使用 Tools → 🧹 清理无效的遮挡组件 删除此组件。");
+            }
+
+            return false;
+        }
+
+        if (originalAlphas == null || originalAlphas.Length != childRenderers.Length)
+        {
+            originalAlphas = new float[childRenderers.Length];
+            for (int index = 0; index < childRenderers.Length; index++)
+            {
+                originalAlphas[index] = childRenderers[index] != null ? childRenderers[index].color.a : 1f;
+            }
+        }
+
+        return true;
+    }
+
     #region 像素采样精确检测
-    
+
     /// <summary>
     /// 检查世界坐标点是否在 Sprite 的实际可见区域内（像素采样）
     /// </summary>
@@ -412,29 +638,31 @@ public class OcclusionTransparency : MonoBehaviour
     /// <returns>该点是否在可见像素区域内</returns>
     public bool ContainsPointPrecise(Vector2 worldPoint)
     {
+        EnsureRendererCache();
+
         if (!usePixelSampling || mainRenderer == null)
         {
             // 回退到 Bounds 检测
             return GetBounds().Contains(worldPoint);
         }
-        
+
         // 1. 快速预筛选：先用 Bounds 检测
         Bounds bounds = GetBounds();
         if (!bounds.Contains(worldPoint))
         {
             return false;
         }
-        
+
         // 2. 获取 Sprite 和纹理
         Sprite sprite = mainRenderer.sprite;
         if (sprite == null) return false;
-        
+
         // 检查缓存是否需要更新
         if (sprite != _cachedSprite)
         {
             _cachedSprite = sprite;
             _cachedTexture = sprite.texture;
-            
+
             // 检查纹理是否可读
             if (_cachedTexture != null)
             {
@@ -451,36 +679,36 @@ public class OcclusionTransparency : MonoBehaviour
                 }
             }
         }
-        
+
         // 纹理不可读，回退到 Bounds 检测
         if (_cachedTexture == null || !_textureReadable)
         {
             return true; // Bounds 已经检测通过
         }
-        
+
         // 3. 世界坐标 → 本地坐标
         Vector2 localPoint = mainRenderer.transform.InverseTransformPoint(worldPoint);
-        
+
         // 4. 本地坐标 → 纹理像素坐标
         Rect spriteRect = sprite.rect;
         Vector2 pivot = sprite.pivot;
         float pixelsPerUnit = sprite.pixelsPerUnit;
-        
+
         // 计算像素坐标（相对于 Sprite 的 pivot）
         float pixelX = localPoint.x * pixelsPerUnit + pivot.x;
         float pixelY = localPoint.y * pixelsPerUnit + pivot.y;
-        
+
         // 转换为纹理坐标
         int texX = Mathf.RoundToInt(spriteRect.x + pixelX);
         int texY = Mathf.RoundToInt(spriteRect.y + pixelY);
-        
+
         // 5. 边界检查
         if (texX < spriteRect.x || texX >= spriteRect.x + spriteRect.width ||
             texY < spriteRect.y || texY >= spriteRect.y + spriteRect.height)
         {
             return false;
         }
-        
+
         // 6. 采样像素
         try
         {
@@ -493,7 +721,7 @@ public class OcclusionTransparency : MonoBehaviour
             return true;
         }
     }
-    
+
     /// <summary>
     /// 多点采样计算遮挡占比（更精确）
     /// </summary>
@@ -501,15 +729,17 @@ public class OcclusionTransparency : MonoBehaviour
     /// <returns>被遮挡的点占总采样点的比例（0-1）</returns>
     public float CalculateOcclusionRatioPrecise(Bounds playerBounds)
     {
+        EnsureRendererCache();
+
         if (!usePixelSampling || mainRenderer == null)
         {
             // 回退到 Bounds 重叠计算
             return CalculateBoundsOverlapRatio(playerBounds);
         }
-        
+
         // 根据采样点数量生成采样点
         Vector2[] samplePoints = GenerateSamplePoints(playerBounds, samplePointCount);
-        
+
         int hitCount = 0;
         foreach (var point in samplePoints)
         {
@@ -518,10 +748,10 @@ public class OcclusionTransparency : MonoBehaviour
                 hitCount++;
             }
         }
-        
+
         return (float)hitCount / samplePoints.Length;
     }
-    
+
     /// <summary>
     /// 生成采样点（中心 + 边缘点）
     /// </summary>
@@ -530,7 +760,7 @@ public class OcclusionTransparency : MonoBehaviour
         Vector2 center = bounds.center;
         Vector2 min = bounds.min;
         Vector2 max = bounds.max;
-        
+
         switch (count)
         {
             case 1:
@@ -571,53 +801,53 @@ public class OcclusionTransparency : MonoBehaviour
                 };
         }
     }
-    
+
     /// <summary>
     /// 计算 Bounds 重叠占比（回退方案）
     /// </summary>
     private float CalculateBoundsOverlapRatio(Bounds playerBounds)
     {
         Bounds occluderBounds = GetBounds();
-        
+
         // 计算重叠区域
         float overlapMinX = Mathf.Max(playerBounds.min.x, occluderBounds.min.x);
         float overlapMaxX = Mathf.Min(playerBounds.max.x, occluderBounds.max.x);
         float overlapMinY = Mathf.Max(playerBounds.min.y, occluderBounds.min.y);
         float overlapMaxY = Mathf.Min(playerBounds.max.y, occluderBounds.max.y);
-        
+
         float overlapWidth = overlapMaxX - overlapMinX;
         float overlapHeight = overlapMaxY - overlapMinY;
-        
+
         // 没有重叠
         if (overlapWidth <= 0 || overlapHeight <= 0)
         {
             return 0f;
         }
-        
+
         // 计算重叠面积
         float overlapArea = overlapWidth * overlapHeight;
-        
+
         // 计算玩家面积
         float playerArea = playerBounds.size.x * playerBounds.size.y;
-        
+
         // 避免除以零
         if (playerArea <= 0)
         {
             return 0f;
         }
-        
+
         return overlapArea / playerArea;
     }
-    
+
     /// <summary>
     /// 是否启用像素采样
     /// </summary>
     public bool UsePixelSampling => usePixelSampling;
-    
+
     /// <summary>
     /// 纹理是否可读
     /// </summary>
     public bool IsTextureReadable => _textureReadable;
-    
+
     #endregion
 }

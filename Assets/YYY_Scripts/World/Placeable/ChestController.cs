@@ -19,10 +19,14 @@ namespace FarmGame.World
     public class ChestController : MonoBehaviour, IResourceNode, IInteractable, IPersistentObject
     {
         private static readonly List<ChestController> s_activeInstances = new List<ChestController>();
+        private static RaycastHit2D[] s_pushCastHits = new RaycastHit2D[16];
+        private static readonly ContactFilter2D s_pushContactFilter = new ContactFilter2D().NoFilter();
         private static PlayerMovement s_cachedPlayerMovement;
         private static int s_lastPlayerLookupFrame = -1;
         private static int s_lastPlayerSamplePointFrame = -1;
         private static Vector2 s_cachedPlayerSamplePoint;
+        private const float PendingUiOpenDistanceGrace = 0.18f;
+        private const float ProximityStickyGrace = 0.22f;
 
         #region 序列化字段
 
@@ -124,6 +128,14 @@ namespace FarmGame.World
         private Vector3 _originalPosition;
         private Bounds _lastNavObstacleBounds;
         private bool _hasLastNavObstacleBounds;
+
+        // 场景 authored 的视觉基线：以当前摆好的 pose 为真，不再让运行时重算箱子默认位置
+        private Vector3 _authoredVisualLocalPosition;
+        private Quaternion _authoredVisualLocalRotation;
+        private Vector3 _authoredVisualLocalScale;
+        private float _authoredBottomLocalY;
+        private Sprite _authoredBaselineSprite;
+        private bool _authoredVisualBaselineCaptured = false;
 
         // 🔥 修正 Ⅲ：底部对齐锚点
         private Vector3 _anchorWorldPos;
@@ -496,6 +508,10 @@ namespace FarmGame.World
             {
                 capacity = storageData != null ? storageData.storageCapacity : 20,
                 isLocked = isLocked,
+                origin = (int)origin,
+                ownership = (int)ownership,
+                hasBeenLocked = hasBeenLocked,
+                currentHealth = currentHealth,
                 customName = storageData?.itemName
             };
 
@@ -590,6 +606,24 @@ namespace FarmGame.World
                 if (chestData != null)
                 {
                     isLocked = chestData.isLocked;
+                    if (chestData.version >= 2)
+                    {
+                        if (chestData.origin >= 0)
+                        {
+                            origin = (ChestOrigin)chestData.origin;
+                        }
+
+                        if (chestData.ownership >= 0)
+                        {
+                            ownership = (ChestOwnership)chestData.ownership;
+                        }
+
+                        hasBeenLocked = chestData.hasBeenLocked;
+                        if (chestData.currentHealth >= 0)
+                        {
+                            currentHealth = chestData.currentHealth;
+                        }
+                    }
 
                     // 🔥 修复：确保 _inventory 和 _inventoryV2 已初始化
                     int capacity = chestData.capacity > 0 ? chestData.capacity : (storageData?.storageCapacity ?? 20);
@@ -732,6 +766,9 @@ namespace FarmGame.World
             _spriteRenderer = GetComponent<SpriteRenderer>();
             if (_spriteRenderer == null)
                 _spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+
+            CaptureAuthoredVisualBaseline(_spriteRenderer);
+            EnsureSpriteRendererUsesVisualChild();
 
             // 🔥 修正 Ⅲ：初始化底部对齐锚点
             if (!_anchorInitialized && _spriteRenderer != null)
@@ -1066,28 +1103,100 @@ namespace FarmGame.World
             return new Vector3(bounds.center.x, bounds.min.y, transform.position.z);
         }
 
+        private void CaptureAuthoredVisualBaseline(SpriteRenderer sourceRenderer)
+        {
+            if (_authoredVisualBaselineCaptured || sourceRenderer == null)
+            {
+                return;
+            }
+
+            Transform sourceTransform = sourceRenderer.transform;
+            bool sourceIsRootRenderer = sourceTransform == transform;
+            _authoredVisualLocalPosition = sourceIsRootRenderer ? Vector3.zero : sourceTransform.localPosition;
+            _authoredVisualLocalRotation = sourceIsRootRenderer ? Quaternion.identity : sourceTransform.localRotation;
+            _authoredVisualLocalScale = sourceIsRootRenderer ? Vector3.one : sourceTransform.localScale;
+            _authoredBaselineSprite = sourceRenderer.sprite;
+            _authoredBottomLocalY = _authoredVisualLocalPosition.y;
+
+            if (sourceRenderer.sprite != null)
+            {
+                _authoredBottomLocalY += ComputeSpriteBottomLocalOffset(sourceRenderer.sprite, _authoredVisualLocalScale.y);
+            }
+
+            _authoredVisualBaselineCaptured = true;
+        }
+
+        private void ApplyAuthoredVisualPoseToRenderer(SpriteRenderer targetRenderer)
+        {
+            if (targetRenderer == null)
+            {
+                return;
+            }
+
+            if (!_authoredVisualBaselineCaptured)
+            {
+                CaptureAuthoredVisualBaseline(targetRenderer);
+            }
+
+            Transform targetTransform = targetRenderer.transform;
+            Vector3 localPos = _authoredVisualLocalPosition;
+            targetTransform.localRotation = _authoredVisualLocalRotation;
+            targetTransform.localScale = _authoredVisualLocalScale;
+
+            if (targetRenderer.sprite != null && targetRenderer.sprite != _authoredBaselineSprite)
+            {
+                float spriteBottomOffset = ComputeSpriteBottomLocalOffset(targetRenderer.sprite, targetTransform.localScale.y);
+                localPos.y = _authoredBottomLocalY - spriteBottomOffset;
+            }
+
+            targetTransform.localPosition = localPos;
+        }
+
+        private static float ComputeSpriteBottomLocalOffset(Sprite sprite, float scaleY)
+        {
+            if (sprite == null)
+            {
+                return 0f;
+            }
+
+            return sprite.bounds.min.y * scaleY;
+        }
+
         /// <summary>
-        /// 底部对齐 - 与 TreeController 保持一致
-        /// 修改子物体的 localPosition.y，使 Sprite 底部对齐到父物体位置
+        /// 底部对齐 - 保留作者在场景里摆好的 closed 视觉位置，再让其他状态相对它切换
         /// </summary>
         private void AlignSpriteBottom()
         {
             if (_spriteRenderer == null || _spriteRenderer.sprite == null) return;
 
-            // 使用与 TreeController 完全一致的逻辑
-            Bounds spriteBounds = _spriteRenderer.sprite.bounds;
-            float spriteBottomOffset = spriteBounds.min.y;
+            Transform visualTransform = _spriteRenderer.transform;
+            if (visualTransform == transform)
+            {
+                // 箱子当前若直接用根节点承载 SpriteRenderer，绝不能再像旧逻辑那样改根节点位置，
+                // 否则每次切场/开关状态都会把真实世界坐标越推越偏。
+                _anchorWorldPos = GetCurrentBottomCenterWorld();
+                _anchorInitialized = true;
+                return;
+            }
 
-            Vector3 localPos = transform.localPosition;
-            localPos.y = -spriteBottomOffset;
-            transform.localPosition = localPos;
+            Vector3 localPos = _authoredVisualLocalPosition;
+            visualTransform.localRotation = _authoredVisualLocalRotation;
+            visualTransform.localScale = _authoredVisualLocalScale;
+
+            if (_spriteRenderer.sprite != null && _spriteRenderer.sprite != _authoredBaselineSprite)
+            {
+                float spriteBottomOffset = ComputeSpriteBottomLocalOffset(_spriteRenderer.sprite, visualTransform.localScale.y);
+                localPos.y = _authoredBottomLocalY - spriteBottomOffset;
+            }
+
+            visualTransform.localPosition = localPos;
 
             // 更新锚点（用于后续 Sprite 切换时的相对对齐）
             _anchorWorldPos = GetCurrentBottomCenterWorld();
             _anchorInitialized = true;
 
             if (showDebugInfo)
-                Debug.Log($"[ChestController] AlignSpriteBottom: spriteBottomOffset={spriteBottomOffset}, localPos.y={localPos.y}");
+                Debug.Log($"[ChestController] AlignSpriteBottom: baselineSprite={_authoredBaselineSprite != null}, runtimeSprite={_spriteRenderer.sprite != null}, localPos={localPos}");
         }
 
         /// <summary>
@@ -1133,6 +1242,11 @@ namespace FarmGame.World
             {
                 physicsShape.Clear();
                 sprite.GetPhysicsShape(i, physicsShape);
+                for (int pointIndex = 0; pointIndex < physicsShape.Count; pointIndex++)
+                {
+                    physicsShape[pointIndex] = TransformSpritePhysicsPointToChestLocal(physicsShape[pointIndex]);
+                }
+
                 _polyCollider.SetPath(i, physicsShape);
             }
 
@@ -1141,6 +1255,84 @@ namespace FarmGame.World
 
             if (showDebugInfo)
                 Debug.Log($"[ChestController] UpdateColliderShape: shapeCount={shapeCount}");
+        }
+
+        private Vector2 TransformSpritePhysicsPointToChestLocal(Vector2 spriteLocalPoint)
+        {
+            if (_spriteRenderer == null || _spriteRenderer.transform == transform)
+            {
+                return spriteLocalPoint;
+            }
+
+            Vector3 worldPoint = _spriteRenderer.transform.TransformPoint(spriteLocalPoint);
+            Vector3 chestLocalPoint = transform.InverseTransformPoint(worldPoint);
+            return new Vector2(chestLocalPoint.x, chestLocalPoint.y);
+        }
+
+        private void EnsureSpriteRendererUsesVisualChild()
+        {
+            if (_spriteRenderer == null || _spriteRenderer.transform != transform)
+            {
+                return;
+            }
+
+            SpriteRenderer rootRenderer = _spriteRenderer;
+            Transform visualTransform = transform.Find("__ChestSpriteVisual");
+            SpriteRenderer visualRenderer = visualTransform != null
+                ? visualTransform.GetComponent<SpriteRenderer>()
+                : null;
+
+            if (visualRenderer == null)
+            {
+                GameObject visualObject = new GameObject("__ChestSpriteVisual");
+                visualObject.transform.SetParent(transform, false);
+                visualRenderer = visualObject.AddComponent<SpriteRenderer>();
+            }
+
+            CopySpriteRendererState(rootRenderer, visualRenderer);
+            ApplyAuthoredVisualPoseToRenderer(visualRenderer);
+            visualRenderer.transform.SetSiblingIndex(rootRenderer.transform.GetSiblingIndex());
+
+            DynamicSortingOrder rootSorting = GetComponent<DynamicSortingOrder>();
+            if (rootSorting != null)
+            {
+                DynamicSortingOrder visualSorting = visualRenderer.GetComponent<DynamicSortingOrder>();
+                if (visualSorting == null)
+                {
+                    visualSorting = visualRenderer.gameObject.AddComponent<DynamicSortingOrder>();
+                }
+
+                visualSorting.CopySettingsFrom(rootSorting);
+                visualSorting.SetSortingColliderOverride(_collider);
+                visualSorting.enabled = rootSorting.enabled;
+                rootSorting.enabled = false;
+            }
+
+            rootRenderer.enabled = false;
+            _spriteRenderer = visualRenderer;
+        }
+
+        private static void CopySpriteRendererState(SpriteRenderer source, SpriteRenderer target)
+        {
+            if (source == null || target == null)
+            {
+                return;
+            }
+
+            target.sprite = source.sprite;
+            target.color = source.color;
+            target.flipX = source.flipX;
+            target.flipY = source.flipY;
+            target.drawMode = source.drawMode;
+            target.size = source.size;
+            target.tileMode = source.tileMode;
+            target.adaptiveModeThreshold = source.adaptiveModeThreshold;
+            target.maskInteraction = source.maskInteraction;
+            target.spriteSortPoint = source.spriteSortPoint;
+            target.sortingLayerID = source.sortingLayerID;
+            target.sortingOrder = source.sortingOrder;
+            target.sharedMaterials = source.sharedMaterials;
+            target.enabled = source.enabled;
         }
 
         private bool TryGetCurrentNavObstacleBounds(out Bounds bounds)
@@ -1230,19 +1422,55 @@ namespace FarmGame.World
             // 计算目标位置
             Vector3 targetPos = transform.position + (Vector3)(pushDir * pushDistance);
 
-            // 碰撞检测
-            var hits = Physics2D.OverlapCircleAll(targetPos, collisionCheckRadius);
-            foreach (var hit in hits)
+            if (TryGetPushBlocker(pushDir, pushDistance, out Collider2D blocker))
             {
-                if (hit.gameObject != gameObject && !hit.isTrigger)
-                {
-                    if (showDebugInfo)
-                        Debug.Log($"[ChestController] 推动被阻挡: {hit.gameObject.name}");
-                    return;
-                }
+                if (showDebugInfo)
+                    Debug.Log($"[ChestController] 推动被阻挡: {blocker.name}");
+                return;
             }
 
             StartCoroutine(PushCoroutine(targetPos));
+        }
+
+        private bool TryGetPushBlocker(Vector2 pushDir, float distance, out Collider2D blocker)
+        {
+            blocker = null;
+
+            Collider2D activeCollider = _collider != null && _collider.enabled
+                ? _collider
+                : (_polyCollider != null && _polyCollider.enabled ? _polyCollider : null);
+            if (activeCollider == null)
+            {
+                return false;
+            }
+
+            Physics2D.SyncTransforms();
+            float castDistance = Mathf.Max(0f, distance) + 0.02f;
+            int hitCount = activeCollider.Cast(pushDir, s_pushContactFilter, s_pushCastHits, castDistance);
+            if (hitCount == s_pushCastHits.Length)
+            {
+                System.Array.Resize(ref s_pushCastHits, s_pushCastHits.Length * 2);
+                hitCount = activeCollider.Cast(pushDir, s_pushContactFilter, s_pushCastHits, castDistance);
+            }
+
+            for (int i = 0; i < hitCount; i++)
+            {
+                Collider2D hitCollider = s_pushCastHits[i].collider;
+                if (hitCollider == null || hitCollider.isTrigger)
+                {
+                    continue;
+                }
+
+                if (hitCollider == activeCollider || hitCollider.transform.root == transform.root)
+                {
+                    continue;
+                }
+
+                blocker = hitCollider;
+                return true;
+            }
+
+            return false;
         }
 
         private IEnumerator PushCoroutine(Vector3 targetPos)
@@ -1498,6 +1726,11 @@ namespace FarmGame.World
             return Vector2.Distance(playerPosition, GetClosestInteractionPoint(playerPosition));
         }
 
+        public Vector2 GetClosestInteractionPointForNavigation(Vector2 playerPosition)
+        {
+            return GetClosestInteractionPoint(playerPosition);
+        }
+
         /// <summary>
         /// 执行交互 - 核心逻辑从 GameInputManager 移到这里
         /// 🔥 修正：玩家箱子交互时不消耗钥匙
@@ -1731,7 +1964,7 @@ namespace FarmGame.World
                 return true;
             }
 
-            return GetBoundaryDistance(context.PlayerPosition) > InteractionDistance;
+            return GetBoundaryDistance(context.PlayerPosition) > GetPendingUiOpenCommitDistance();
         }
 
         private void ShowBoxUiNow()
@@ -2022,12 +2255,6 @@ namespace FarmGame.World
                 return;
             }
 
-            if (_isUiOpenPending || _isVisualClosePending)
-            {
-                HideProximityHint();
-                return;
-            }
-
             bool sameChestOpen = IsSameChestUiAlreadyOpen();
             if (SpringDay1UiLayerUtility.IsBlockingPageUiOpen() && !sameChestOpen)
             {
@@ -2049,7 +2276,7 @@ namespace FarmGame.World
             }
 
             float boundaryDistance = GetBoundaryDistance(context.PlayerPosition);
-            if (boundaryDistance > Mathf.Max(bubbleRevealDistance, InteractionDistance))
+            if (boundaryDistance > GetStableBubbleRevealDistance())
             {
                 HideProximityHint();
                 return;
@@ -2061,7 +2288,7 @@ namespace FarmGame.World
                 return;
             }
 
-            bool canTriggerNow = boundaryDistance <= InteractionDistance;
+            bool canTriggerNow = boundaryDistance <= GetPendingUiOpenCommitDistance();
             SpringDay1ProximityInteractionService.ReportCandidate(
                 transform,
                 proximityInteractionKey,
@@ -2137,7 +2364,29 @@ namespace FarmGame.World
         private bool IsOutsideCoarseInteractionRange(Vector2 playerPosition)
         {
             float coarseDistance = Mathf.Max(bubbleRevealDistance, InteractionDistance) + 0.5f;
-            return ((Vector2)transform.position - playerPosition).sqrMagnitude > coarseDistance * coarseDistance;
+            return GetBoundaryDistance(playerPosition) > coarseDistance;
+        }
+
+        private float GetPendingUiOpenCommitDistance()
+        {
+            return Mathf.Max(InteractionDistance, InteractionDistance + PendingUiOpenDistanceGrace);
+        }
+
+        private float GetStableBubbleRevealDistance()
+        {
+            float revealDistance = Mathf.Max(bubbleRevealDistance, GetPendingUiOpenCommitDistance());
+            Transform currentAnchor = SpringDay1ProximityInteractionService.CurrentAnchorTarget;
+            if (currentAnchor == transform)
+            {
+                revealDistance += ProximityStickyGrace;
+            }
+
+            if (_isUiOpenPending || _isVisualClosePending)
+            {
+                revealDistance += ProximityStickyGrace;
+            }
+
+            return revealDistance;
         }
 
         private bool IsSameChestUiAlreadyOpen()

@@ -2641,3 +2641,89 @@
 - 当前恢复点：
   1. 如果后续继续这条上传线，先处理 `CodexCodeGuard` 工具 blocker，或由治理位裁定同根禁吞文件如何拆。
   2. 当前不要回头把第二批代码根硬吞进提交，也不要把本轮重新解释成“继续开发 Day1 runtime”。
+
+## 2026-04-23｜shared-root 历史小批次上传第二波：`Editor/Story` validation menus 单批尝试已按 own-root blocker 停车
+- 用户目标：
+  - 不再按“clearly-own 全量先交”的第一波口径推进，只再还原 `1` 个历史小批次上传；这轮固定只尝试 `Assets/Editor/Story` 下那组新增 `menu / probe / snapshot / cleanup` 文件，撞 blocker 就停车，不换第二批。
+- 已完成事项：
+  1. 已读取：
+     - `2026-04-23_给spring-day1_shared-root历史小批次上传prompt_02.md`
+     - `2026-04-23_shared-root历史小批次上传分发批次_02.md`
+  2. 已只对这 16 个文件做小批确认：
+     - `SpringDay1ActorRuntimeProbeMenu`
+     - `SpringDay1LatePhaseValidationMenu`
+     - `SpringDay1LiveSnapshotArtifactMenu`
+     - `SpringDay1MiddayOneShotPersistenceTestMenu`
+     - `SpringDay1NativeFreshRestartMenu`
+     - `SpringDay1ResidentControlProbeMenu`
+     - `SunsetPlayModeStartSceneGuard`
+     - `SunsetValidationSessionCleanupMenu`
+     以及各自 `.meta`
+  3. 已确认这组当前状态全是 `Assets/Editor/Story` 下的 `untracked` editor validation 工具，目录、命名、菜单语义一致，能成立为一个独立历史小批。
+  4. 已执行 `Begin-Slice`：
+     - slice=`shared-root 历史小批次 EditorStoryValidationMenus`
+  5. 已对这组单独跑真实上传前置尝试：
+     - `sunset-git-safe-sync.ps1 -Action preflight`
+  6. 已执行 `Park-Slice`
+     - reason=`historical-mini-batch-editorstorymenus-blocked`
+- 验证结果：
+  1. 这组小批的第一真实 blocker 不是 `CodexCodeGuard`。
+  2. `preflight` 已稳定返回结果，首个 blocker 是 `own-root / same-root`：
+     - 当前白名单所属 `own_root = Assets/Editor/Story`
+     - 同根仍有未纳入本轮的已修改文件共 `7` 个
+  3. 被卡住的 exact sibling files：
+     - `Assets/Editor/Story/DialogueDebugMenu.cs`
+     - `Assets/Editor/Story/SpringDay1DirectorPrimaryLiveCaptureMenu.cs`
+     - `Assets/Editor/Story/SpringDay1DirectorPrimaryRehearsalBakeMenu.cs`
+     - `Assets/Editor/Story/SpringDay1DirectorStagingWindow.cs`
+     - `Assets/Editor/Story/SpringDay1DirectorTownContractMenu.cs`
+     - `Assets/Editor/Story/SpringDay1TargetedEditModeTestMenu.cs`
+     - `Assets/Editor/Story/SpringUiEvidenceMenu.cs`
+- 当前恢复点：
+  1. 这轮已经按用户要求停在这一个历史小批次的 exact blocker。
+  2. 当前不要把失败口径写成 `CodeGuard`，也不要切去第二个小批次继续试。
+  3. 若后续继续这条上传线，必须先处理 `Assets/Editor/Story` 同根扩根问题，再谈这组 16 文件是否能单独 sync。
+
+## 2026-04-24｜`prompt_03`：`Editor/Story` 根内整合批真实上传尝试停在 preflight / CodeGuard 挂死
+
+- 用户目标：
+  - 先完整读取 `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_给spring-day1_EditorStory同根整合上传prompt_03.md`，不要再重跑刚执行完的 `prompt_02`；这轮只把 `Assets/Editor/Story` 的 `7` 个旧改正式并进根内整合批，做一次真实上传尝试，绝不扩到 `Managers / Directing / Tests`。
+- 已完成事项：
+  1. 已读取：
+     - `2026-04-23_给spring-day1_EditorStory同根整合上传prompt_03.md`
+     - `2026-04-23_shared-root第二波blocker分流批次_03.md`
+  2. 已核实当前 `Assets/Editor/Story` 现场只包含这轮白名单：
+     - `7` 个已修改旧文件
+     - `16` 个新增 menu / probe / snapshot / cleanup 文件及其 `.meta`
+  3. 已静态确认这 `7` 个旧改仍属于 `Editor/Story` 同一组 editor 工具链：
+     - `DialogueDebugMenu`
+     - `SpringDay1DirectorPrimaryLiveCaptureMenu`
+     - `SpringDay1DirectorPrimaryRehearsalBakeMenu`
+     - `SpringDay1DirectorStagingWindow`
+     - `SpringDay1DirectorTownContractMenu`
+     - `SpringDay1TargetedEditModeTestMenu`
+     - `SpringUiEvidenceMenu`
+     它们都是 Story editor 菜单/窗口/validation/evidence 旧尾巴，不是今天临时为了过根拼进去的跨根运行时代码。
+  4. 已执行 `Begin-Slice`：
+     - `thread=spring-day1`
+     - `slice=shared-root EditorStory root-integration upload 2026-04-24`
+  5. 已只对白名单这 `23` 个文件跑 stable preflight：
+     - `C:\Users\aTo\.codex\tools\sunset-git-safe-sync.ps1 -Action preflight -OwnerThread spring-day1 -Mode task -IncludePaths ...`
+  6. 已确认这次 preflight 没有返回稳定 JSON，而是在工具调用窗口超时。
+  7. 已进一步核到残留进程链：
+     - 父进程：临时 `sunset-git-safe-sync-*.ps1`
+     - 子进程：`dotnet ... CodexCodeGuard.dll --phase pre-sync --owner-thread spring-day1 --branch main --path Assets/Editor/Story/...`
+  8. 已清掉残留 `powershell` / `dotnet(CodexCodeGuard)` 进程，并执行 `Park-Slice`：
+     - `reason=preflight-timeout-no-json`
+     - 当前状态=`PARKED`
+- 关键结论：
+  1. 这轮新的第一真实 blocker 已不再是 `same-root remaining dirty`。
+  2. 这轮新的第一真实 blocker 是：
+     - `stable preflight did not return JSON; launcher timed out and left a hanging CodexCodeGuard pre-sync process for Assets/Editor/Story root-integration batch`
+  3. 本轮没有越权扩到：
+     - `Assets/YYY_Scripts/Story/Managers/*`
+     - `Assets/YYY_Scripts/Story/Directing/*`
+     - `Assets/YYY_Tests/Editor/*`
+- 当前恢复点：
+  1. 后续如果继续这条上传线，不该再重跑 `prompt_03` 原样尝试。
+  2. 正确下一步应先把这次 `CodexCodeGuard pre-sync` 挂死升级为工具 incident，再决定 `Editor/Story` 根内整合批是否还能继续上传。

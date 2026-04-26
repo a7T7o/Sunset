@@ -1,4 +1,5 @@
 using System;
+using Sunset.Story;
 using UnityEngine;
 
 /// <summary>
@@ -147,9 +148,28 @@ public class NPCRoamProfile : ScriptableObject
 
     public string[] GetPlayerNearbyLines(NPCRelationshipStage relationshipStage)
     {
+        return GetPlayerNearbyLines(relationshipStage, StoryPhase.None);
+    }
+
+    public string[] GetSelfTalkLines(StoryPhase storyPhase)
+    {
         if (dialogueContentProfile != null)
         {
-            string[] contentLines = dialogueContentProfile.GetPlayerNearbyLines(relationshipStage);
+            string[] contentLines = dialogueContentProfile.GetSelfTalkLines(storyPhase);
+            if (HasAnyLines(contentLines))
+            {
+                return contentLines;
+            }
+        }
+
+        return SelfTalkLines;
+    }
+
+    public string[] GetPlayerNearbyLines(NPCRelationshipStage relationshipStage, StoryPhase storyPhase)
+    {
+        if (dialogueContentProfile != null)
+        {
+            string[] contentLines = dialogueContentProfile.GetPlayerNearbyLines(relationshipStage, storyPhase);
             if (HasAnyLines(contentLines))
             {
                 return contentLines;
@@ -161,15 +181,29 @@ public class NPCRoamProfile : ScriptableObject
 
     public NPCDialogueContentProfile.InformalConversationBundle[] GetInformalConversationBundles(NPCRelationshipStage relationshipStage)
     {
+        return GetInformalConversationBundles(relationshipStage, StoryPhase.None);
+    }
+
+    public NPCDialogueContentProfile.InformalConversationBundle[] GetInformalConversationBundles(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase)
+    {
         return dialogueContentProfile != null
-            ? dialogueContentProfile.GetInformalConversationBundles(relationshipStage)
+            ? dialogueContentProfile.GetInformalConversationBundles(relationshipStage, storyPhase)
             : Array.Empty<NPCDialogueContentProfile.InformalConversationBundle>();
     }
 
     public NPCDialogueContentProfile.InformalChatInterruptReaction GetWalkAwayReaction(NPCRelationshipStage relationshipStage)
     {
+        return GetWalkAwayReaction(relationshipStage, StoryPhase.None);
+    }
+
+    public NPCDialogueContentProfile.InformalChatInterruptReaction GetWalkAwayReaction(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase)
+    {
         return dialogueContentProfile != null
-            ? dialogueContentProfile.GetWalkAwayReaction(relationshipStage)
+            ? dialogueContentProfile.GetWalkAwayReaction(relationshipStage, storyPhase)
             : null;
     }
 
@@ -178,8 +212,17 @@ public class NPCRoamProfile : ScriptableObject
         NPCInformalChatLeaveCause leaveCause,
         NPCInformalChatLeavePhase leavePhase)
     {
+        return GetInterruptReaction(relationshipStage, StoryPhase.None, leaveCause, leavePhase);
+    }
+
+    public NPCDialogueContentProfile.InformalChatInterruptReaction GetInterruptReaction(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase,
+        NPCInformalChatLeaveCause leaveCause,
+        NPCInformalChatLeavePhase leavePhase)
+    {
         return dialogueContentProfile != null
-            ? dialogueContentProfile.GetInterruptReaction(relationshipStage, leaveCause, leavePhase)
+            ? dialogueContentProfile.GetInterruptReaction(relationshipStage, storyPhase, leaveCause, leavePhase)
             : null;
     }
 
@@ -188,8 +231,17 @@ public class NPCRoamProfile : ScriptableObject
         NPCInformalChatLeaveCause leaveCause,
         NPCInformalChatLeavePhase leavePhase)
     {
+        return GetResumeIntro(relationshipStage, StoryPhase.None, leaveCause, leavePhase);
+    }
+
+    public NPCDialogueContentProfile.InformalChatResumeIntro GetResumeIntro(
+        NPCRelationshipStage relationshipStage,
+        StoryPhase storyPhase,
+        NPCInformalChatLeaveCause leaveCause,
+        NPCInformalChatLeavePhase leavePhase)
+    {
         return dialogueContentProfile != null
-            ? dialogueContentProfile.GetResumeIntro(relationshipStage, leaveCause, leavePhase)
+            ? dialogueContentProfile.GetResumeIntro(relationshipStage, storyPhase, leaveCause, leavePhase)
             : null;
     }
 

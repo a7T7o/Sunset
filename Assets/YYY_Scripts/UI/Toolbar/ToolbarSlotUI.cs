@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using System.Collections;
@@ -15,7 +15,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     [SerializeField] private Text amountText;
     [SerializeField] private Image selectedOverlay;
     [SerializeField] private Toggle toggle;
-    
+
     // 🔥 V2 新增：耐久度条
     private Image _durabilityBar;
     private Image _durabilityBarBg;
@@ -62,7 +62,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         if (amountText == null)
         {
             var t = transform.Find("Amount");
-            if (t) 
+            if (t)
             {
                 amountText = t.GetComponent<Text>();
             }
@@ -73,7 +73,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
                 go.transform.SetParent(transform, false);
                 amountText = go.AddComponent<Text>();
                 amountText.raycastTarget = false;
-                
+
                 // 字体设置
                 amountText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
                 amountText.fontSize = 18;
@@ -81,7 +81,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
                 amountText.color = Color.black;
                 amountText.alignment = TextAnchor.LowerRight;
                 amountText.text = "";
-                
+
                 var rt = (RectTransform)amountText.transform;
                 // 自定义锚点（全拉伸）
                 rt.anchorMin = Vector2.zero;
@@ -106,7 +106,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
             navigation.mode = Navigation.Mode.None;
             toggle.navigation = navigation;
         }
-        
+
         // 🔥 V2 新增：创建耐久度条
         CreateDurabilityBar();
     }
@@ -135,7 +135,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         SyncRuntimeSubscriptions(forceClear: true);
         ClearToggleValueListener();
     }
-    
+
     /// <summary>
     /// Toggle 值变化时的处理
     /// 在锁定状态下立即恢复状态，阻止视觉变化
@@ -210,14 +210,14 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         {
             amountText.text = s.amount > 1 ? s.amount.ToString() : "";
         }
-        
+
         // 🔥 V2 新增：更新耐久度条
         var invItem = inventory.GetInventoryItem(index);
         UpdateDurabilityBar(invItem, data);
     }
-    
+
     #region 耐久度条
-    
+
     /// <summary>
     /// 创建耐久度条 UI（代码动态生成，无需美术资源）
     /// Rule: P2-1 耐久度条样式 - 距离底部 6px，贴着 4px 边框，加 1px 黑色描边
@@ -233,47 +233,47 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
             if (bgTransform != null) _durabilityBarBg = bgTransform.GetComponent<Image>();
             return;
         }
-        
+
         // 🔥 P2-1：计算位置参数
         // 槽位边框 4px，耐久度条距离底部 6px
         float borderPx = 4f;
         float bottomPx = 6f;
         float barHeight = 4f;
-        
+
         // 创建背景条（黑色描边背景）
         var bgGo = new GameObject("DurabilityBarBg");
         bgGo.transform.SetParent(transform, false);
         _durabilityBarBg = bgGo.AddComponent<Image>();
         _durabilityBarBg.color = new Color(0.1f, 0.1f, 0.1f, 1f);
         _durabilityBarBg.raycastTarget = false;
-        
+
         var bgRt = (RectTransform)_durabilityBarBg.transform;
         bgRt.anchorMin = new Vector2(0, 0);
         bgRt.anchorMax = new Vector2(1, 0);
         bgRt.pivot = new Vector2(0.5f, 0);
         bgRt.offsetMin = new Vector2(borderPx, bottomPx - 1f);
         bgRt.offsetMax = new Vector2(-borderPx, bottomPx + barHeight + 1f);
-        
+
         // 创建前景条（绿色）
         var barGo = new GameObject("DurabilityBar");
         barGo.transform.SetParent(transform, false);
         _durabilityBar = barGo.AddComponent<Image>();
         _durabilityBar.color = new Color(0.2f, 0.8f, 0.2f, 1f);
         _durabilityBar.raycastTarget = false;
-        
+
         var barRt = (RectTransform)_durabilityBar.transform;
         barRt.anchorMin = new Vector2(0, 0);
         barRt.anchorMax = new Vector2(1, 0);
         barRt.pivot = new Vector2(0, 0);
         barRt.offsetMin = new Vector2(borderPx + 1f, bottomPx);
         barRt.offsetMax = new Vector2(-borderPx - 1f, bottomPx + barHeight);
-        
+
         // 默认隐藏
         _durabilityBarBg.enabled = false;
         _durabilityBar.enabled = false;
         ApplyStatusBarAlpha(0f);
     }
-    
+
     /// <summary>
     /// 更新耐久度条显示
     /// Rule: P2-1 耐久度条样式 - 使用像素偏移控制宽度
@@ -281,7 +281,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     private void UpdateDurabilityBar(InventoryItem item, ItemData itemData)
     {
         if (_durabilityBar == null || _durabilityBarBg == null) return;
-        
+
         if (!ToolRuntimeUtility.TryGetToolStatusRatio(item, itemData, out float percent, out bool usesWater))
         {
             _statusBarHasData = false;
@@ -299,18 +299,18 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         _statusBarTargetAlpha = shouldShow ? 1f : 0f;
         _durabilityBarBg.enabled = true;
         _durabilityBar.enabled = true;
-        
+
         // 🔥 P2-1：使用像素偏移控制宽度
         var rt = (RectTransform)_durabilityBar.transform;
         var bgRt = (RectTransform)_durabilityBarBg.transform;
-        
+
         float bgWidth = bgRt.rect.width - 2f;
         float barWidth = bgWidth * percent;
-        
+
         float borderPx = 4f;
         float rightOffset = -borderPx - 1f - (bgWidth - barWidth);
         rt.offsetMax = new Vector2(rightOffset, rt.offsetMax.y);
-        
+
         // 根据耐久度百分比改变颜色
         Color barColor;
         if (usesWater)
@@ -330,7 +330,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
         _durabilityBar.color = barColor;
         ApplyStatusBarAlpha(_statusBarAlpha);
     }
-    
+
     #endregion
 
     public void RefreshSelection()
@@ -379,7 +379,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
                     case GameInputManager.ToolbarPointerSelectionChangeResult.DeferredDuringLock:
                         if (selection != null)
                         {
-                            selection.ReassertCurrentSelection(collapseInventorySelectionToHotbar: true, invokeEvent: true);
+                            selection.ReassertCurrentSelection(collapseInventorySelectionToHotbar: false, invokeEvent: true);
                         }
                         else
                         {
@@ -553,7 +553,7 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
         ItemTooltip.Instance?.Show(itemData, stack, inventory.GetInventoryItem(index), stack.amount, transform);
     }
-    
+
     /// <summary>
     /// 强制恢复 Toggle 状态到当前选中的槽位
     /// 用于锁定状态下阻止视觉变化
@@ -562,16 +562,16 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
     {
         ResolveRuntimeContextIfMissing();
         if (toggle == null || selection == null) return;
-        
+
         bool shouldBeSelected = selection.selectedIndex == index;
-        
+
         // 使用 SetIsOnWithoutNotify 避免触发事件
 #if UNITY_2021_2_OR_NEWER
         toggle.SetIsOnWithoutNotify(shouldBeSelected);
 #else
         toggle.isOn = shouldBeSelected;
 #endif
-        
+
         // 同时更新选中覆盖层
         if (selectedOverlay != null)
             selectedOverlay.enabled = shouldBeSelected;
@@ -669,19 +669,31 @@ public class ToolbarSlotUI : MonoBehaviour, IPointerClickHandler, IPointerEnterH
 
     private void ResolveRuntimeContextIfMissing()
     {
-        if (inventory == null)
+        InventoryService preferredInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService();
+        if (preferredInventory != null)
         {
-            inventory = FindFirstObjectByType<InventoryService>();
+            inventory = preferredInventory;
+        }
+        else if (inventory == null)
+        {
+            inventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>();
         }
 
-        if (database == null && inventory != null)
+        if (inventory != null)
         {
             database = inventory.Database;
         }
 
-        if (selection == null)
+        HotbarSelectionService preferredSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService();
+        if (preferredSelection != null)
         {
-            selection = FindFirstObjectByType<HotbarSelectionService>();
+            selection = preferredSelection;
+        }
+        else if (selection == null)
+        {
+            selection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                ?? FindFirstObjectByType<HotbarSelectionService>();
         }
 
         SyncRuntimeSubscriptions();

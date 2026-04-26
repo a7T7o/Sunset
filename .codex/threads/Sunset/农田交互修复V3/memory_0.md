@@ -3697,24 +3697,24 @@ thread-state 本轮已报实：
 
 这轮真正做成的关键点有 5 组：
 
-1. 箱子页上下区现在有了明确的面板级选中真源  
+1. 箱子页上下区现在有了明确的面板级选中真源
 - [BoxPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs) 新增 `_selectedChestIndex / _selectedInventoryIndex / _followHotbarSelection`，并在 open/close、hotbar 变更、refresh 时统一刷新。
 - 箱子上半区和下半区不再主要依赖局部 `Toggle` 自己记忆“谁亮着”，而是先读 `BoxPanelUI` 当前状态。
 
-2. `InventorySlotUI` 不再被同索引槽位互相覆盖  
+2. `InventorySlotUI` 不再被同索引槽位互相覆盖
 - [InventorySlotUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotUI.cs) 的 `RegisteredSlots` 已从单个 `index -> slot` 改成 `index -> slots 列表`，避免箱子页下半区和主背包第一页同索引时互相覆盖。
 - `RefreshSelection()` / `Select()` / `ClearSelectionState()` 现在会优先认 `InventoryPanelUI` 或 `BoxPanelUI`，只有没有面板级真源时才回退到本地 toggle。
 
-3. 背包自己的 held/drag owner 被收干净了一层  
+3. 背包自己的 held/drag owner 被收干净了一层
 - [InventorySlotInteraction.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventorySlotInteraction.cs) 中，普通背包拖拽不再绕过 manager 直接开 `SlotDragContext.Begin(inventory, ...)`，改为回到 [InventoryInteractionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs) 的 `OnSlotBeginDrag(...)`。
 - 这意味着背包点击、Shift/Ctrl 拿取、普通拖拽三条线，现在终于开始共用一套 owner，而不是两套状态机各自算。
 
-4. manager 现在会优先认“当前实际点到的那个槽位 UI”  
+4. manager 现在会优先认“当前实际点到的那个槽位 UI”
 - [InventoryInteractionManager.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Inventory/InventoryInteractionManager.cs) 已新增 `sourceSlotUI / dropTargetSlotUI`，并把 `OnSlotPointerDown / OnSlotBeginDrag / OnSlotDrop` 改成接受当前槽位 UI。
 - 这让成功落位后的“最终选中目标”不再只能回写全局主背包面板，而是能正确落到当前真实操作的那个 UI 区域，尤其是箱子页下半区。
 - `Shift/Ctrl` 拿起现在也会立即把源格设成当前选中，不再只在普通拖拽时才亮源格。
 
-5. 箱子 authority 与本地回源副本继续被压掉一层  
+5. 箱子 authority 与本地回源副本继续被压掉一层
 - [ChestController.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/World/Placeable/ChestController.cs) 的 `SetSlot()/GetSlot()` 已改成优先走 `_inventoryV2 / RuntimeInventory`，不再先写 legacy `_inventory`。
 - [BoxPanelUI.cs](D:/Unity/Unity_learning/Sunset/Assets/YYY_Scripts/UI/Box/BoxPanelUI.cs) 的 `OnSortUpClicked()` 已改成直接 guard `RuntimeInventory`。
 - 箱子页空白区点击、关闭箱子时的箱子 held 归位，已经开始优先委托 `SlotDragContext.Cancel()`，不再完全靠 `BoxPanelUI` 本地那套副本自己算。
@@ -6718,3 +6718,49 @@ thread-state 本轮已报实：
 - 当前恢复点：
   1. 当前 own 的 safely-uploadable 面已经收完。
   2. 后续若还要继续收代码/资源，必须单独按 root 拆刀，不再沿用这次 docs-only 上传切片。
+
+## 2026-04-23｜shared-root 历史小批次上传尝试02：石头链已真实试撞，第一 blocker 已钉死
+
+- 当前主线：
+  - 按 `2026-04-23_给农田交互修复V3_shared-root历史小批次上传prompt_02.md`，这轮不继续修农田/箱子/放置链，不继续 docs-only 连续上传，只允许还原 `1` 个历史小批次上传尝试。
+- 这轮唯一尝试的小批次：
+  - `Assets/YYY_Scripts/Controller/StoneController.cs`
+  - `Assets/Editor/StoneControllerEditor.cs`
+  - `Assets/Editor/Tool_005_BatchStoneState.cs`
+  - `Assets/222_Prefabs/Rock/C1.prefab`
+  - `Assets/222_Prefabs/Rock/C2.prefab`
+  - `Assets/222_Prefabs/Rock/C3.prefab`
+- 这组石头链是否是独立历史批次：
+  - 是，能成立为“历史小批”。
+  - 证据不是我临时拼包，而是当前 thread memory 里已经连续留下过：
+    - `StoneController.cs + Rock/C1/C2/C3.prefab` 的石头 runtime/资源链修复记录
+    - `StoneControllerEditor.cs` 的石头 editor 配套记录
+    - `Tool_005_BatchStoneState.cs` 也已经以“石头批量状态工具/编译阻断点”进入过历史上下文
+  - 当前实际 dirty 现场也正好只落在这 6 个石头文件上，没有混出 `Placement / Chest / .codex` 第二组尾账。
+- 真实上传尝试结果：
+  - 已跑 `Begin-Slice`
+  - 已跑 `Ready-To-Sync`
+  - 在 `Ready-To-Sync` 的 preflight 阶段即被阻断，没有进入 `sync`
+- 第一真实 blocker：
+  - 不是代码红
+  - 不是 `.codex` 证据图
+  - 也不是 `Placement / Chest`
+  - 真 blocker 就是：
+    - 石头链一进白名单，own roots 立刻扩成 `Assets/Editor`、`Assets/222_Prefabs/Rock`、`Assets/YYY_Scripts/Controller`
+    - 这三个根下当前还有 `83` 条 remaining dirty/untracked
+    - 因而直接触发 `own-root 扩根 + mixed/remaining dirty` 阻断
+- 这轮明确没有去动的第二组尾账：
+  - `Assets/YYY_Scripts/Service/Placement/*`
+  - `Assets/Editor/Chest*`
+  - `.codex/tmp_sapling1200_crop.png`
+  - `.codex/tmp_sapling1200_crop_correct.png`
+  - `.codex/tmp_sapling1201_crop.png`
+  - `.codex/tmp_wateringcan_crop.png`
+- thread-state：
+  - 本轮已合法 `Park-Slice`
+  - 当前状态：`PARKED`
+  - blocker 已写回 state：
+    - `stone-history-batch blocked: own roots expanded to Assets/Editor, Assets/222_Prefabs/Rock, Assets/YYY_Scripts/Controller and remaining dirty=83; stop here per prompt`
+- 当前恢复点：
+  1. prompt_02 这轮已按要求停在第一 blocker。
+  2. 没有切第二批，也没有扩到 placement / chest / `.codex`。

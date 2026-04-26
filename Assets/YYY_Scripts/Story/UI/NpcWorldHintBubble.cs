@@ -360,24 +360,27 @@ namespace Sunset.Story
 
         private void Reposition()
         {
-            Camera worldCamera = SpringDay1UiLayerUtility.GetWorldProjectionCamera(overlayCanvas);
-            if (worldCamera == null)
+            Bounds bounds = ResolveBounds();
+            Vector3 worldAnchor = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
+            Vector2 screenOffset = new Vector2(0f, 38f + Mathf.Sin(Time.unscaledTime * 2.6f) * 2.4f);
+            if (!SpringDay1UiLayerUtility.TryProjectWorldToCanvas(
+                    overlayCanvas,
+                    rootRect,
+                    worldAnchor,
+                    screenOffset,
+                    out Vector2 localPoint))
             {
+                if (canvasGroup != null)
+                {
+                    canvasGroup.alpha = 0f;
+                }
+
                 return;
             }
 
-            Bounds bounds = ResolveBounds();
-            Vector3 worldAnchor = new Vector3(bounds.center.x, bounds.max.y, bounds.center.z);
-            Vector2 screenPoint = RectTransformUtility.WorldToScreenPoint(worldCamera, worldAnchor);
-            screenPoint.y += 38f + Mathf.Sin(Time.unscaledTime * 2.6f) * 2.4f;
-
-            if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
-                    rootRect,
-                    screenPoint,
-                    SpringDay1UiLayerUtility.GetUiEventCamera(overlayCanvas),
-                    out Vector2 localPoint))
+            if (canvasGroup != null && canvasGroup.alpha < 0.999f)
             {
-                return;
+                canvasGroup.alpha = 1f;
             }
 
             localPoint = SpringDay1UiLayerUtility.SnapToCanvasPixel(overlayCanvas, localPoint);
@@ -397,17 +400,10 @@ namespace Sunset.Story
 
         private TMP_FontAsset ResolveFont()
         {
-            for (int index = 0; index < PreferredFontResourcePaths.Length; index++)
-            {
-                TMP_FontAsset candidate = Resources.Load<TMP_FontAsset>(PreferredFontResourcePaths[index]);
-                if (CanFontRenderText(candidate, FontCoverageProbeText))
-                {
-                    return candidate;
-                }
-            }
-
-            TMP_FontAsset defaultFont = TMP_Settings.defaultFontAsset;
-            return CanFontRenderText(defaultFont, FontCoverageProbeText) ? defaultFont : null;
+            return DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                FontCoverageProbeText,
+                _fontAsset,
+                FontCoverageProbeText);
         }
 
         private void EnsureTextReadable(TextMeshProUGUI text)
@@ -429,12 +425,17 @@ namespace Sunset.Story
                     _fontAsset = ResolveFont();
                 }
 
-                if (_fontAsset != null)
+                TMP_FontAsset resolvedFont = DialogueChineseFontRuntimeBootstrap.ResolveBestFontForText(
+                    text.text,
+                    _fontAsset,
+                    FontCoverageProbeText);
+                if (resolvedFont != null)
                 {
-                    text.font = _fontAsset;
-                    if (_fontAsset.material != null)
+                    _fontAsset = resolvedFont;
+                    text.font = resolvedFont;
+                    if (resolvedFont.material != null)
                     {
-                        text.fontSharedMaterial = _fontAsset.material;
+                        text.fontSharedMaterial = resolvedFont.material;
                     }
                 }
             }
@@ -444,13 +445,10 @@ namespace Sunset.Story
 
         private static bool CanFontRenderText(TMP_FontAsset fontAsset, string currentText)
         {
-            if (!IsFontAssetUsable(fontAsset))
-            {
-                return false;
-            }
-
-            string probeText = GetFontProbeText(currentText);
-            return string.IsNullOrEmpty(probeText) || fontAsset.HasCharacters(probeText);
+            return DialogueChineseFontRuntimeBootstrap.CanRenderText(
+                fontAsset,
+                currentText,
+                FontCoverageProbeText);
         }
 
         private static string GetFontProbeText(string currentText)

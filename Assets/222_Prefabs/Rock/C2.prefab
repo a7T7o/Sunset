@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 7141620467629807411}
   - component: {fileID: 4178215527142024627}
   - component: {fileID: 1580418694103511311}
+  - component: {fileID: 6120759196038449449}
   m_Layer: 20
   m_Name: Rock
   m_TagString: Rock
@@ -99,8 +100,8 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 42b918399eb2449418b016f31bbd4908, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
+  m_Name:
+  m_EditorClassIdentifier:
   _persistentId: 3f702a81-956e-46aa-b609-b45f1a2b6d4a
   _preGenerateId: 1
   stageConfigs:
@@ -132,6 +133,51 @@ MonoBehaviour:
   polygonCollider: {fileID: 1580418694103511311}
   spriteFolder: {fileID: 102900000, guid: 1b98ac47ae8097d45b463140eae93fdc, type: 3}
   spritePathPrefix: Sprites/Props/Materials/Stone/C2/
+  runtimeSpriteReferences:
+  - key: Stone_C2_M1_0
+    sprite: {fileID: -505879757, guid: 963b64bb339ecc34cb6349bac717b6eb, type: 3}
+  - key: Stone_C2_M1_1
+    sprite: {fileID: 967342694, guid: e0bf8ebfcab34a2468d36a5900862d2b, type: 3}
+  - key: Stone_C2_M1_2
+    sprite: {fileID: 578621859, guid: 42dd4942c1e76554da92d05a0ac8836d, type: 3}
+  - key: Stone_C2_M1_3
+    sprite: {fileID: 1703701233, guid: 312227ffe0ab4e84197db6b6fbe383a3, type: 3}
+  - key: Stone_C2_M1_4
+    sprite: {fileID: 879681574, guid: 68e6e11e49d33e943b156b507587b674, type: 3}
+  - key: Stone_C2_M2_0
+    sprite: {fileID: 2134720957, guid: 880b8c1fd850ae243b8ea6509d0866e0, type: 3}
+  - key: Stone_C2_M2_1
+    sprite: {fileID: 432223410, guid: 43a61ebeab3dbed40bdccae4b296ae26, type: 3}
+  - key: Stone_C2_M2_2
+    sprite: {fileID: -711049280, guid: e916ab519e8d33647afa04c3aa937b0f, type: 3}
+  - key: Stone_C2_M2_3
+    sprite: {fileID: 1376876520, guid: b061f95850b99ed4bb98bd01cb7b204a, type: 3}
+  - key: Stone_C2_M2_4
+    sprite: {fileID: 44859686, guid: 1b68f0093a95e064aa709e45b2e12ced, type: 3}
+  - key: Stone_C2_M3_0
+    sprite: {fileID: -1396760114, guid: bea18acd453a7a9459a0cfd1491168e2, type: 3}
+  - key: Stone_C2_M3_1
+    sprite: {fileID: 98183097, guid: 7c6d85e938302b049a14ed2086c8189e, type: 3}
+  - key: Stone_C2_M3_2
+    sprite: {fileID: -1725641215, guid: 6aaf9e1a98bcf1848a581b1b18b13b5a, type: 3}
+  - key: Stone_C2_M3_3
+    sprite: {fileID: 308884877, guid: 7e1a8a32234876844b1034299d1405e6, type: 3}
+  - key: Stone_C2_M4_0
+    sprite: {fileID: -1202386929, guid: 1a15059a97390814fbc2cf0825b09d82, type: 3}
+  - key: Stone_C2_M4_1
+    sprite: {fileID: -1200404084, guid: c225245bfad3f094683cd7f3dcfa47d1, type: 3}
+  - key: Stone_C2_M4_2
+    sprite: {fileID: -1784581923, guid: df2f66003af18b040b55d59ce2545b99, type: 3}
+  - key: Stone_C2_M4_3
+    sprite: {fileID: 504529742, guid: 42ce02fe0dc663941b91d0621112e58e, type: 3}
+  - key: Stone_C2_M4_4
+    sprite: {fileID: 21681589, guid: 207578e06b0165341bfcac422372aaff, type: 3}
+  - key: Stone_C2_M4_5
+    sprite: {fileID: -1852579037, guid: 36e423f22cc9b12409588fd843aa137c, type: 3}
+  - key: Stone_C2_M4_6
+    sprite: {fileID: -1486289801, guid: 28a8f593ecebf33418c7584140134ae1, type: 3}
+  - key: Stone_C2_M4_7
+    sprite: {fileID: -1176369594, guid: cb24748d36351544c97e412ac3c4a7f8, type: 3}
   stageChangeParticlePrefab: {fileID: 0}
   debrisColor: {r: 0.6, g: 0.5, b: 0.4, a: 1}
   playScaleAnimation: 1
@@ -200,6 +246,24 @@ PolygonCollider2D:
       - {x: -0.5625, y: -1.34375}
       - {x: 0.375, y: -1.34375}
   m_UseDelaunayMesh: 0
+--- !u!114 &6120759196038449449
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7637686196939725576}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
+  m_Name:
+  m_EditorClassIdentifier:
+  occludedAlpha: 0.3
+  fadeSpeed: 8
+  canBeOccluded: 1
+  usePixelSampling: 1
+  alphaThreshold: 0.1
+  samplePointCount: 5
 --- !u!1 &8805118565538031545
 GameObject:
   m_ObjectHideFlags: 0
@@ -209,7 +273,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 2244532948124785810}
-  - component: {fileID: -5886404361137621201}
   m_Layer: 20
   m_Name: C2
   m_TagString: Rock
@@ -233,21 +296,3 @@ Transform:
   - {fileID: 7782771159419810812}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &-5886404361137621201
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8805118565538031545}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9b41652a450cc9447abb94ac5ce72c1a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  occludedAlpha: 0.3
-  fadeSpeed: 8
-  canBeOccluded: 1
-  usePixelSampling: 1
-  alphaThreshold: 0.1
-  samplePointCount: 5

@@ -346,6 +346,8 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         PlacementCandidate plantedCandidate = default;
         string firstPlantFailure = "sapling_first_plant_unresolved=true";
         bool firstPlantSucceeded = false;
+        double firstPlacementPeakFrameMs = 0d;
+        double firstPlacementWindowMs = 0d;
 
         for (int attempt = 0; attempt < 3 && !firstPlantSucceeded; attempt++)
         {
@@ -377,6 +379,13 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             }
 
             lastSaplingEvent = null;
+            double sampledPeakFrameSeconds = 0d;
+            double sampledWindowSeconds = 0d;
+            StartCoroutine(SampleRealtimeSpikeWindow(8, (peakFrameSeconds, totalWindowSeconds) =>
+            {
+                sampledPeakFrameSeconds = peakFrameSeconds;
+                sampledWindowSeconds = totalWindowSeconds;
+            }));
             TriggerPlacementAttempt();
 
             yield return WaitForCondition(
@@ -386,11 +395,14 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
                      lastSaplingEvent.Value.SaplingData.itemID == SaplingItemId) ||
                     placementManager.CurrentState == PlacementManager.PlacementState.Navigating,
                 2f);
+            yield return WaitFrames(8);
 
             if (lastSaplingEvent.HasValue &&
                 lastSaplingEvent.Value.SaplingData != null &&
                 lastSaplingEvent.Value.SaplingData.itemID == SaplingItemId)
             {
+                firstPlacementPeakFrameMs = sampledPeakFrameSeconds * 1000d;
+                firstPlacementWindowMs = sampledWindowSeconds * 1000d;
                 plantedCandidate = candidate;
                 firstPlantSucceeded = true;
                 break;
@@ -400,11 +412,13 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
             {
                 placementManager.OnRightClick();
                 yield return WaitFrames(2);
-                firstPlantFailure = $"attempt={attempt} unexpected_navigation=true target={candidate.WorldPosition}";
+                firstPlantFailure =
+                    $"attempt={attempt} unexpected_navigation=true target={candidate.WorldPosition} peakFrameMs={sampledPeakFrameSeconds * 1000d:F1} sampleWindowMs={sampledWindowSeconds * 1000d:F1}";
                 continue;
             }
 
-            firstPlantFailure = $"attempt={attempt} first_plant_timeout=true state={placementManager.CurrentState} target={candidate.WorldPosition}";
+            firstPlantFailure =
+                $"attempt={attempt} first_plant_timeout=true state={placementManager.CurrentState} target={candidate.WorldPosition} peakFrameMs={sampledPeakFrameSeconds * 1000d:F1} sampleWindowMs={sampledWindowSeconds * 1000d:F1}";
             yield return WaitFrames(2);
         }
 
@@ -430,8 +444,15 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         }
 
         lastSaplingEvent = null;
+        double repeatPlacementPeakFrameSeconds = 0d;
+        double repeatPlacementWindowSeconds = 0d;
+        StartCoroutine(SampleRealtimeSpikeWindow(8, (peakFrameSeconds, totalWindowSeconds) =>
+        {
+            repeatPlacementPeakFrameSeconds = peakFrameSeconds;
+            repeatPlacementWindowSeconds = totalWindowSeconds;
+        }));
         TriggerPlacementAttempt();
-        yield return WaitFrames(6);
+        yield return WaitFrames(8);
 
         int finalSaplingCount = FindObjectsByType<TreeController>(FindObjectsSortMode.None).Length;
         bool secondPlantBlocked = !lastSaplingEvent.HasValue;
@@ -445,7 +466,7 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
         FinishScenario(
             ScenarioKind.SaplingGhostOccupancy,
             passed,
-            $"secondPlantBlocked={secondPlantBlocked} previewInvalid={previewInvalid} previewStayedOnOccupiedCell={previewStayedOnOccupiedCell} treeDelta={finalSaplingCount - initialSaplingCount} target={plantedCandidate.WorldPosition}");
+            $"secondPlantBlocked={secondPlantBlocked} previewInvalid={previewInvalid} previewStayedOnOccupiedCell={previewStayedOnOccupiedCell} treeDelta={finalSaplingCount - initialSaplingCount} target={plantedCandidate.WorldPosition} firstPeakFrameMs={firstPlacementPeakFrameMs:F1} firstSampleWindowMs={firstPlacementWindowMs:F1} repeatPeakFrameMs={repeatPlacementPeakFrameSeconds * 1000d:F1} repeatSampleWindowMs={repeatPlacementWindowSeconds * 1000d:F1}");
 
         if (placementManager.IsPlacementMode)
         {
@@ -818,13 +839,33 @@ public class PlacementSecondBladeLiveValidationRunner : MonoBehaviour
 
     private void TriggerPlacementAttempt()
     {
-        if (LockPreviewPositionMethod != null && placementManager != null && placementManager.CurrentState == PlacementManager.PlacementState.Preview)
+        // 这里必须走真实左键入口，不能直调 LockPreviewPosition(skipValidation:true)，
+        // 否则会绕过 Preview 无效态的真实拦截，测出来的是 runner 人造假阳性。
+        placementManager.OnLeftClick();
+    }
+
+    private IEnumerator SampleRealtimeSpikeWindow(int frameCount, Action<double, double> onComplete)
+    {
+        int sampleFrames = Mathf.Max(1, frameCount);
+        double startTime = Time.realtimeSinceStartupAsDouble;
+        double previousTime = startTime;
+        double peakFrameSeconds = 0d;
+
+        for (int index = 0; index < sampleFrames; index++)
         {
-            LockPreviewPositionMethod.Invoke(placementManager, null);
-            return;
+            yield return null;
+
+            double currentTime = Time.realtimeSinceStartupAsDouble;
+            double frameSeconds = currentTime - previousTime;
+            if (frameSeconds > peakFrameSeconds)
+            {
+                peakFrameSeconds = frameSeconds;
+            }
+
+            previousTime = currentTime;
         }
 
-        placementManager.OnLeftClick();
+        onComplete?.Invoke(peakFrameSeconds, previousTime - startTime);
     }
 
     private void CleanupArtifacts()

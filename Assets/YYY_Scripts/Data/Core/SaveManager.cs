@@ -5,19 +5,20 @@ using System.IO;
 using System.Reflection;
 using UnityEngine;
 using UnityEngine.SceneManagement;
+using FarmGame.UI;
 using Sunset.Story;
 
 namespace FarmGame.Data.Core
 {
     /// <summary>
     /// 存档管理器 (MVP 版本)
-    /// 
+    ///
     /// 职责：
     /// - 协调存档/读档流程
     /// - 收集全局数据（时间、玩家）
     /// - 序列化/反序列化 JSON
     /// - 文件读写
-    /// 
+    ///
     /// 本阶段简化：
     /// - 只做当前场景内的状态恢复（不换场景）
     /// - 使用 Unity JsonUtility（简单但有限制）
@@ -28,15 +29,16 @@ namespace FarmGame.Data.Core
         private const string LegacyFreshStartBaselineSlotName = "__fresh_start_baseline__";
         private const string DefaultProgressSlotName = "__default_progress__";
         private const string OrdinarySlotPrefix = "slot";
-        private const string DefaultProgressDisplayName = "默认开局";
-        private const string NativeFreshEntryLabel = "原生开局";
+        private const string DefaultProgressDisplayName = "默认存档";
         private const string StoryProgressPersistenceServiceTypeName = "Sunset.Story.StoryProgressPersistenceService";
         private const string SaveActionToastOverlayTypeName = "SaveActionToastOverlay";
+        private const string DialoguePauseSource = "Dialogue";
+        private const string StoryTimePauseSource = "SpringDay1Director";
 
         #region 单例
-        
+
         private static SaveManager _instance;
-        
+
         public static SaveManager Instance
         {
             get
@@ -44,7 +46,7 @@ namespace FarmGame.Data.Core
                 if (_instance == null)
                 {
                     _instance = FindFirstObjectByType<SaveManager>();
-                    
+
                     if (_instance == null)
                     {
                         var go = new GameObject("[SaveManager]");
@@ -55,23 +57,23 @@ namespace FarmGame.Data.Core
                 return _instance;
             }
         }
-        
+
         #endregion
-        
+
         #region 配置
-        
+
         [Header("存档配置")]
         [SerializeField] private string saveFileExtension = ".json";
         [SerializeField] private string saveFolder = "Save";
-        
+
         [Header("调试")]
         [SerializeField] private bool showDebugInfo = false;
         [SerializeField] private bool prettyPrintJson = true;
 
         #endregion
-        
+
         #region 属性
-        
+
         /// <summary>
         /// 存档目录路径（项目根目录下的 Save）
         /// </summary>
@@ -87,7 +89,7 @@ namespace FarmGame.Data.Core
 
         private string LegacyProjectRootSaveFolderPath => Path.GetFullPath(Path.Combine(Application.dataPath, "..", saveFolder));
         private string LegacyEditorSaveFolderPath => Path.Combine(Application.dataPath, saveFolder);
-        
+
         /// <summary>
         /// 当前加载的存档数据（用于调试）
         /// </summary>
@@ -199,6 +201,12 @@ namespace FarmGame.Data.Core
         /// <returns>是否成功</returns>
         public bool LoadGame(string slotName, Action<bool> onCompleted = null)
         {
+            if (!CanExecutePlayerLoadAction(out string blockerReason))
+            {
+                onCompleted?.Invoke(false);
+                return false;
+            }
+
             if (IsDefaultSlot(slotName))
             {
                 return QuickLoadDefaultSlot(onCompleted);
@@ -212,11 +220,6 @@ namespace FarmGame.Data.Core
         /// </summary>
         public bool SaveExists(string slotName)
         {
-            if (IsDefaultSlot(slotName))
-            {
-                return true;
-            }
-
             if (string.IsNullOrWhiteSpace(slotName))
             {
                 return false;
@@ -231,7 +234,7 @@ namespace FarmGame.Data.Core
         /// </summary>
         public bool DeleteSave(string slotName)
         {
-            if (string.IsNullOrWhiteSpace(slotName) || IsReservedSlot(slotName))
+            if (string.IsNullOrWhiteSpace(slotName) || IsProtectedSlot(slotName))
             {
                 return false;
             }
@@ -280,7 +283,7 @@ namespace FarmGame.Data.Core
             for (int i = 0; i < files.Length; i++)
             {
                 string slotName = Path.GetFileNameWithoutExtension(files[i]);
-                if (IsReservedSlot(slotName) || string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal))
+                if (IsProtectedSlot(slotName))
                 {
                     continue;
                 }
@@ -333,8 +336,62 @@ namespace FarmGame.Data.Core
 
         public bool CanExecutePlayerSaveAction(out string blockerReason)
         {
+            if (_nativeFreshRestartInProgress || _sceneSwitchLoadInProgress)
+            {
+                blockerReason = "当前仍在切场或重建运行态，请稍候再保存。";
+                return false;
+            }
+
+            if (PersistentPlayerSceneBridge.IsSceneWorldRestoreInProgress())
+            {
+                blockerReason = "当前场景仍在恢复世界状态，请稍候再保存。";
+                return false;
+            }
+
             EnsureStoryProgressPersistenceRuntime();
             return CanSaveStoryProgressNow(out blockerReason);
+        }
+
+        public bool CanExecutePlayerLoadAction(out string blockerReason)
+        {
+            if (_nativeFreshRestartInProgress || _sceneSwitchLoadInProgress)
+            {
+                blockerReason = "当前仍在切场或重建运行态，请稍候再读取存档。";
+                return false;
+            }
+
+            if (PersistentPlayerSceneBridge.IsSceneWorldRestoreInProgress())
+            {
+                blockerReason = "当前场景仍在恢复世界状态，请稍候再读取存档。";
+                return false;
+            }
+
+            EnsureStoryProgressPersistenceRuntime();
+            return CanLoadStoryProgressNow(out blockerReason);
+        }
+
+        public bool CanExecutePlayerRestartAction(out string blockerReason)
+        {
+            if (_nativeFreshRestartInProgress || _sceneSwitchLoadInProgress)
+            {
+                blockerReason = "当前仍在切场或重建运行态，请稍候再重新开始。";
+                return false;
+            }
+
+            if (PersistentPlayerSceneBridge.IsSceneWorldRestoreInProgress())
+            {
+                blockerReason = "当前场景仍在恢复世界状态，请稍候再重新开始。";
+                return false;
+            }
+
+            EnsureStoryProgressPersistenceRuntime();
+            if (CanLoadStoryProgressNow(out blockerReason))
+            {
+                return true;
+            }
+
+            blockerReason = RewriteLoadBlockerForRestart(blockerReason);
+            return false;
         }
 
         public bool CreateNewOrdinarySlotFromCurrentProgress(out string slotName)
@@ -375,8 +432,7 @@ namespace FarmGame.Data.Core
             }
 
             if (string.IsNullOrWhiteSpace(targetSlotName)
-                || string.Equals(targetSlotName, LegacyFreshStartBaselineSlotName, StringComparison.Ordinal)
-                || string.Equals(targetSlotName, DefaultProgressSlotName, StringComparison.Ordinal))
+                || IsProtectedSlot(targetSlotName))
             {
                 error = "目标槽位无效";
                 return false;
@@ -418,23 +474,67 @@ namespace FarmGame.Data.Core
 
         public bool QuickSaveDefaultSlot()
         {
-            Debug.LogWarning("[SaveManager] 默认存档已锁定为原生开局入口，本轮不再允许写入。");
-            return false;
+            return SaveGameInternal(DefaultProgressSlotName, enforceSaveBlockers: true, raiseSlotChangedEvent: true, allowProtectedDefaultSlotWrite: true);
         }
 
         public bool QuickLoadDefaultSlot(Action<bool> onCompleted = null)
         {
-            return BeginNativeFreshRestart(onCompleted);
+            if (!SaveExists(DefaultProgressSlotName))
+            {
+                onCompleted?.Invoke(false);
+                return false;
+            }
+
+            if (!CanExecutePlayerLoadAction(out string blockerReason))
+            {
+                if (showDebugInfo)
+                {
+                    Debug.Log($"[SaveManager] 默认存档读取被拦截：{blockerReason}");
+                }
+
+                onCompleted?.Invoke(false);
+                return false;
+            }
+
+            return LoadGameInternal(DefaultProgressSlotName, refreshUi: true, raiseSlotChangedEvent: true, onCompleted);
         }
 
         public bool RestartToFreshGame(Action<bool> onCompleted = null)
         {
+            if (!CanExecutePlayerRestartAction(out string blockerReason))
+            {
+                if (showDebugInfo)
+                {
+                    Debug.Log($"[SaveManager] 重新开始被拦截：{blockerReason}");
+                }
+
+                onCompleted?.Invoke(false);
+                return false;
+            }
+
             return BeginNativeFreshRestart(onCompleted);
         }
 
         public bool TryGetDefaultSlotSummary(out SaveSlotSummary summary)
         {
-            summary = CreateNativeFreshDefaultSummary();
+            summary = CreateEmptyDefaultSlotSummary();
+
+            string filePath = GetSaveFilePath(DefaultProgressSlotName);
+            if (!File.Exists(filePath))
+            {
+                return true;
+            }
+
+            if (!TryReadSaveData(DefaultProgressSlotName, out GameSaveData saveData))
+            {
+                summary.exists = true;
+                summary.loadError = "默认存档文件损坏或无法解析";
+                return false;
+            }
+
+            summary = BuildSlotSummary(DefaultProgressSlotName, saveData);
+            summary.isDefaultSlot = true;
+            summary.displayName = DefaultProgressDisplayName;
             return true;
         }
 
@@ -475,7 +575,7 @@ namespace FarmGame.Data.Core
 
         #region 槽位管理
 
-        private bool SaveGameInternal(string slotName, bool enforceSaveBlockers, bool raiseSlotChangedEvent)
+        private bool SaveGameInternal(string slotName, bool enforceSaveBlockers, bool raiseSlotChangedEvent, bool allowProtectedDefaultSlotWrite = false)
         {
             if (string.IsNullOrWhiteSpace(slotName))
             {
@@ -483,17 +583,15 @@ namespace FarmGame.Data.Core
                 return false;
             }
 
-            if (IsReservedSlot(slotName))
+            if (IsInternalReservedSlot(slotName))
             {
-                if (IsDefaultSlot(slotName))
-                {
-                    Debug.LogWarning("[SaveManager] 默认存档当前固定为原生开局入口，本轮不再允许覆盖。");
-                }
-                else
-                {
-                    Debug.LogWarning("[SaveManager] 旧版默认基线槽已退役，不再允许写入。");
-                }
+                Debug.LogWarning("[SaveManager] 旧版默认基线槽已退役，不再允许写入。");
+                return false;
+            }
 
+            if (IsDefaultSlot(slotName) && !allowProtectedDefaultSlotWrite)
+            {
+                Debug.LogWarning("[SaveManager] 默认存档不允许通过普通覆盖入口改写，请使用 F5 或默认槽快速保存。");
                 return false;
             }
 
@@ -507,7 +605,14 @@ namespace FarmGame.Data.Core
 
             try
             {
+                EnsureCriticalPersistentRuntimeServicesRegistered();
                 GameSaveData saveData = CollectFullSaveData();
+                if (!ValidateRequiredSavePayloads(saveData, out string payloadError))
+                {
+                    Debug.LogWarning($"[SaveManager] 当前存档快照不完整，已拒绝写盘：{payloadError}");
+                    return false;
+                }
+
                 WriteSaveData(slotName, saveData);
                 CurrentSaveData = saveData;
 
@@ -561,7 +666,7 @@ namespace FarmGame.Data.Core
             {
                 EnsureDynamicObjectFactoryInitialized();
                 EnsureStoryProgressPersistenceRuntime();
-                GameInputManager.ForceResetPlacementRuntime("读档前强制关闭放置模式与残留预览");
+                ResetTransientRuntimeForRestore("读档前恢复入口清理");
 
                 if (PersistentObjectRegistry.Instance != null)
                 {
@@ -577,14 +682,21 @@ namespace FarmGame.Data.Core
                 RestoreInventoryData(saveData.inventory);
                 ImportCloudShadowPersistentSaveData(saveData.cloudShadowScenes);
 
-                if (PersistentObjectRegistry.Instance != null && saveData.worldObjects != null)
+                List<WorldObjectSaveData> orderedWorldObjects = SortWorldObjectsForRestore(saveData.worldObjects);
+
+                EnsureCriticalPersistentRuntimeServicesRegistered();
+                if (PersistentObjectRegistry.Instance != null && orderedWorldObjects != null)
                 {
-                    PersistentObjectRegistry.Instance.RestoreAllFromSaveData(saveData.worldObjects);
+                    PersistentObjectRegistry.Instance.RestoreAllFromSaveData(orderedWorldObjects);
                 }
 
-                FinalizeStoryProgressLoaded(saveData.worldObjects);
+                PersistentPlayerSceneBridge.ImportOffSceneWorldSnapshotsFromSave(saveData.offSceneWorldSnapshots);
+
+                FinalizeStoryProgressLoaded(orderedWorldObjects);
 
                 CurrentSaveData = saveData;
+                PersistentPlayerSceneBridge.SyncActiveSceneInventorySnapshot();
+                PersistentPlayerSceneBridge.RefreshActiveSceneRuntimeBindings();
 
                 if (showDebugInfo)
                 {
@@ -595,6 +707,8 @@ namespace FarmGame.Data.Core
                 {
                     RefreshAllUI();
                 }
+
+                PersistentPlayerSceneBridge.SyncActiveSceneInventorySnapshot();
 
                 if (raiseSlotChangedEvent)
                 {
@@ -627,6 +741,7 @@ namespace FarmGame.Data.Core
                 return false;
             }
 
+            PersistentPlayerSceneBridge.SuppressSceneWorldRestoreForScene(targetSceneName);
             StartCoroutine(LoadAfterSceneSwitchRoutine(saveData, targetSceneName, refreshUi, raiseSlotChangedEvent, onCompleted));
             return true;
         }
@@ -642,11 +757,13 @@ namespace FarmGame.Data.Core
             }
             catch (Exception exception)
             {
+                PersistentPlayerSceneBridge.CancelSuppressedSceneWorldRestore(targetSceneName);
                 Debug.LogError($"[SaveManager] 读档切场失败，无法载入场景 {targetSceneName}：{exception.Message}");
             }
 
             if (loadOperation == null)
             {
+                PersistentPlayerSceneBridge.CancelSuppressedSceneWorldRestore(targetSceneName);
                 _sceneSwitchLoadInProgress = false;
                 onCompleted?.Invoke(false);
                 yield break;
@@ -675,6 +792,53 @@ namespace FarmGame.Data.Core
                 && !string.Equals(SceneManager.GetActiveScene().name, targetSceneName, StringComparison.OrdinalIgnoreCase);
         }
 
+        private static List<WorldObjectSaveData> SortWorldObjectsForRestore(List<WorldObjectSaveData> worldObjects)
+        {
+            if (worldObjects == null || worldObjects.Count <= 0)
+            {
+                return worldObjects;
+            }
+
+            List<WorldObjectSaveData> ordered = new List<WorldObjectSaveData>(worldObjects);
+            ordered.Sort((left, right) =>
+            {
+                int priorityCompare = ResolveWorldObjectRestorePriority(left?.objectType)
+                    .CompareTo(ResolveWorldObjectRestorePriority(right?.objectType));
+                if (priorityCompare != 0)
+                {
+                    return priorityCompare;
+                }
+
+                return string.Compare(left?.guid, right?.guid, StringComparison.OrdinalIgnoreCase);
+            });
+            return ordered;
+        }
+
+        private static int ResolveWorldObjectRestorePriority(string objectType)
+        {
+            switch (objectType)
+            {
+                case "PlayerInventory":
+                    return 0;
+                case "FarmTileManager":
+                    return 10;
+                case "Crop":
+                    return 20;
+                case "Chest":
+                    return 30;
+                case "StoryProgressState":
+                    return 40;
+                case "Drop":
+                    return 50;
+                case "Tree":
+                    return 60;
+                case "Stone":
+                    return 70;
+                default:
+                    return 100;
+            }
+        }
+
         private static string NormalizeSceneName(string sceneName)
         {
             if (string.IsNullOrWhiteSpace(sceneName))
@@ -700,10 +864,14 @@ namespace FarmGame.Data.Core
 
             if (PersistentObjectRegistry.Instance != null)
             {
+                // 正式存档当前只收“当前已加载 scene 内”的持久对象。
+                // 已离场 scene 的 runtime continuity 仍由 PersistentPlayerSceneBridge 维护；
+                // 在不补 bridge 消费合同前，不能把 off-scene world state 粗暴并进 worldObjects。
                 saveData.worldObjects = PersistentObjectRegistry.Instance.CollectAllSaveData();
             }
 
             saveData.cloudShadowScenes = ExportCloudShadowPersistentSaveData();
+            saveData.offSceneWorldSnapshots = PersistentPlayerSceneBridge.ExportOffSceneWorldSnapshotsForSave();
 
             return saveData;
         }
@@ -720,10 +888,9 @@ namespace FarmGame.Data.Core
         private bool TryReadSaveData(string slotName, out GameSaveData saveData)
         {
             saveData = null;
-            // 默认开局不再映射到任何落盘槽位；旧 baseline 文件名只保留隐藏兼容，
+            // 旧 baseline 文件名只保留隐藏兼容，
             // 防止历史文件被误当成普通存档重新露出来。
-            if (IsDefaultSlot(slotName)
-                || string.Equals(slotName, LegacyFreshStartBaselineSlotName, StringComparison.Ordinal))
+            if (IsInternalReservedSlot(slotName))
             {
                 return false;
             }
@@ -740,10 +907,7 @@ namespace FarmGame.Data.Core
             {
                 string json = File.ReadAllText(filePath);
                 saveData = JsonUtility.FromJson<GameSaveData>(json);
-                if (saveData != null && saveData.cloudShadowScenes == null)
-                {
-                    saveData.cloudShadowScenes = new List<CloudShadowSceneSaveData>();
-                }
+                NormalizeLoadedSaveData(saveData);
                 return saveData != null;
             }
             catch (Exception exception)
@@ -851,35 +1015,46 @@ namespace FarmGame.Data.Core
             return summary;
         }
 
-        private static SaveSlotSummary CreateNativeFreshDefaultSummary()
+        private static SaveSlotSummary CreateEmptyDefaultSlotSummary()
         {
             return new SaveSlotSummary
             {
                 slotName = DefaultProgressSlotName,
                 displayName = DefaultProgressDisplayName,
-                exists = true,
+                exists = false,
                 isDefaultSlot = true,
-                createdTime = NativeFreshEntryLabel,
-                lastSaveTime = NativeFreshEntryLabel,
-                sceneName = NativeFreshSceneName,
-                day = 1,
-                season = 0,
-                year = 1,
-                hour = 9,
-                minute = 0,
-                storyPhaseLabel = FormatStoryPhaseLabel((int)StoryPhase.EnterVillage),
-                isLanguageDecoded = true
+                storyPhaseLabel = "未保存"
             };
         }
 
         private void ExecuteQuickSaveHotkey()
         {
-            ShowSaveActionToast("F5 已停用：默认开局固定为原生入口，请使用普通存档槽。");
+            if (QuickSaveDefaultSlot())
+            {
+                ShowSaveActionToast("已快速保存到默认存档");
+                return;
+            }
+
+            ShowSaveActionToast(CanExecutePlayerSaveAction(out string blockerReason)
+                ? "默认存档保存失败"
+                : blockerReason);
         }
 
         private void ExecuteQuickLoadHotkey()
         {
-            QuickLoadDefaultSlot(success => ShowSaveActionToast(success ? "已读档" : "读档失败"));
+            if (!SaveExists(DefaultProgressSlotName))
+            {
+                ShowSaveActionToast("默认存档为空，请先按 F5 快速保存");
+                return;
+            }
+
+            if (!CanExecutePlayerLoadAction(out string blockerReason))
+            {
+                ShowSaveActionToast(blockerReason);
+                return;
+            }
+
+            QuickLoadDefaultSlot(success => ShowSaveActionToast(success ? "已读取默认存档" : "默认存档读取失败"));
         }
 
         private bool BeginNativeFreshRestart(Action<bool> onCompleted = null)
@@ -907,15 +1082,18 @@ namespace FarmGame.Data.Core
             AsyncOperation loadOperation = null;
             try
             {
+                PersistentPlayerSceneBridge.SuppressSceneWorldRestoreForScene(NativeFreshSceneName);
                 loadOperation = SceneManager.LoadSceneAsync(NativeFreshSceneName, LoadSceneMode.Single);
             }
             catch (Exception exception)
             {
+                PersistentPlayerSceneBridge.CancelSuppressedSceneWorldRestore(NativeFreshSceneName);
                 Debug.LogError($"[SaveManager] 原生重开失败，无法载入场景 {NativeFreshSceneName}：{exception.Message}");
             }
 
             if (loadOperation == null)
             {
+                PersistentPlayerSceneBridge.CancelSuppressedSceneWorldRestore(NativeFreshSceneName);
                 _nativeFreshRestartInProgress = false;
                 onCompleted?.Invoke(false);
                 yield break;
@@ -934,7 +1112,10 @@ namespace FarmGame.Data.Core
             {
                 ApplyNativeFreshRuntimeDefaults();
                 CurrentSaveData = null;
+                PersistentPlayerSceneBridge.SyncActiveSceneInventorySnapshot();
+                PersistentPlayerSceneBridge.RefreshActiveSceneRuntimeBindings();
                 RefreshAllUI();
+                PersistentPlayerSceneBridge.SyncActiveSceneInventorySnapshot();
                 RaiseSaveSlotsChanged();
                 success = true;
             }
@@ -950,7 +1131,7 @@ namespace FarmGame.Data.Core
         private void ApplyNativeFreshRuntimeDefaults()
         {
             PersistentPlayerSceneBridge.ResetPersistentRuntimeForFreshStart();
-            GameInputManager.ForceResetPlacementRuntime("新开局重建默认运行态前强制关闭放置模式");
+            ResetTransientRuntimeForRestore("新开局重建默认运行态前恢复入口清理");
 
             if (TimeManager.Instance != null)
             {
@@ -1011,9 +1192,14 @@ namespace FarmGame.Data.Core
             return $"{OrdinarySlotPrefix}{index}";
         }
 
-        private static bool IsReservedSlot(string slotName)
+        private static bool IsInternalReservedSlot(string slotName)
         {
-            return string.Equals(slotName, LegacyFreshStartBaselineSlotName, StringComparison.Ordinal)
+            return string.Equals(slotName, LegacyFreshStartBaselineSlotName, StringComparison.Ordinal);
+        }
+
+        private static bool IsProtectedSlot(string slotName)
+        {
+            return IsInternalReservedSlot(slotName)
                 || string.Equals(slotName, DefaultProgressSlotName, StringComparison.Ordinal);
         }
 
@@ -1047,6 +1233,112 @@ namespace FarmGame.Data.Core
             TryInvokeStoryProgressPersistenceMethod("EnsureRuntime", Array.Empty<object>(), out _);
         }
 
+        private static void EnsureCriticalPersistentRuntimeServicesRegistered()
+        {
+            EnsureStoryProgressPersistenceRuntime();
+
+            PersistentObjectRegistry registry = PersistentObjectRegistry.Instance;
+            if (registry == null)
+            {
+                return;
+            }
+
+            InventoryService runtimeInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+            TryRegisterCriticalPersistentObject(registry, runtimeInventory, "PlayerInventory");
+
+            EquipmentService runtimeEquipment = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService()
+                ?? FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
+            TryRegisterCriticalPersistentObject(registry, runtimeEquipment, "EquipmentService");
+        }
+
+        private static void TryRegisterCriticalPersistentObject(
+            PersistentObjectRegistry registry,
+            IPersistentObject persistentObject,
+            string objectType)
+        {
+            if (registry == null || persistentObject == null)
+            {
+                return;
+            }
+
+            if (registry.TryRegister(persistentObject))
+            {
+                return;
+            }
+
+            if (!ReferenceEquals(registry.FindByGuid(persistentObject.PersistentId), persistentObject))
+            {
+                Debug.LogWarning($"[SaveManager] 关键持久对象注册未就位：{objectType}, GUID={persistentObject.PersistentId}");
+            }
+        }
+
+        private static bool ValidateRequiredSavePayloads(GameSaveData saveData, out string error)
+        {
+            if (saveData == null)
+            {
+                error = "根存档数据为空";
+                return false;
+            }
+
+            if (saveData.gameTime == null)
+            {
+                error = "时间数据缺失";
+                return false;
+            }
+
+            if (saveData.player == null)
+            {
+                error = "玩家基础数据缺失";
+                return false;
+            }
+
+            if (!ContainsWorldObjectType(saveData.worldObjects, "StoryProgressState"))
+            {
+                error = "剧情长期态未进入正式存档";
+                return false;
+            }
+
+            InventoryService runtimeInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+            if (runtimeInventory != null && !ContainsWorldObjectType(saveData.worldObjects, "PlayerInventory"))
+            {
+                error = "玩家背包未进入正式存档";
+                return false;
+            }
+
+            EquipmentService runtimeEquipment = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService()
+                ?? FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
+            if (runtimeEquipment != null && !ContainsWorldObjectType(saveData.worldObjects, "EquipmentService"))
+            {
+                error = "装备栏未进入正式存档";
+                return false;
+            }
+
+            error = null;
+            return true;
+        }
+
+        private static bool ContainsWorldObjectType(List<WorldObjectSaveData> worldObjects, string objectType)
+        {
+            if (worldObjects == null || string.IsNullOrWhiteSpace(objectType))
+            {
+                return false;
+            }
+
+            for (int index = 0; index < worldObjects.Count; index++)
+            {
+                WorldObjectSaveData worldObject = worldObjects[index];
+                if (worldObject != null
+                    && string.Equals(worldObject.objectType, objectType, StringComparison.Ordinal))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
         private static bool CanSaveStoryProgressNow(out string blockerReason)
         {
             object[] parameters = { null };
@@ -1061,6 +1353,32 @@ namespace FarmGame.Data.Core
             return true;
         }
 
+        private static bool CanLoadStoryProgressNow(out string blockerReason)
+        {
+            object[] parameters = { null };
+            if (TryInvokeStoryProgressPersistenceMethod("CanLoadNow", parameters, out object result)
+                && result is bool canLoad)
+            {
+                blockerReason = parameters[0] as string;
+                return canLoad;
+            }
+
+            blockerReason = null;
+            return true;
+        }
+
+        private static string RewriteLoadBlockerForRestart(string blockerReason)
+        {
+            if (string.IsNullOrWhiteSpace(blockerReason))
+            {
+                return "当前还在剧情或场景接管中，请稍候再重新开始。";
+            }
+
+            return blockerReason
+                .Replace("读取存档", "重新开始")
+                .Replace("操作存档", "重新开始");
+        }
+
         private static void FinalizeStoryProgressLoaded(List<WorldObjectSaveData> worldObjects)
         {
             object[] parameters = { worldObjects };
@@ -1070,6 +1388,115 @@ namespace FarmGame.Data.Core
         private static void ResetStoryProgressToTownOpeningRuntimeState()
         {
             TryInvokeStoryProgressPersistenceMethod("ResetToTownOpeningRuntimeState", Array.Empty<object>(), out _);
+        }
+
+        private static void ResetTransientRuntimeForRestore(string reason)
+        {
+            StopActiveDialogueForRestore();
+            ClosePackageAndBoxUiForRestore();
+            CloseWorkbenchOverlayForRestore();
+            ResetInventoryInteractionForRestore();
+            HideTransientOverlayUiForRestore();
+            HideTransientBubbleUiForRestore();
+            ResetKnownTimePauseSourcesForRestore();
+            GameInputManager.ForceResetPlacementRuntime(reason);
+        }
+
+        private static void StopActiveDialogueForRestore()
+        {
+            DialogueManager dialogueManager = DialogueManager.Instance
+                ?? FindFirstObjectByType<DialogueManager>(FindObjectsInactive.Include);
+            dialogueManager?.StopDialogue();
+        }
+
+        private static void ClosePackageAndBoxUiForRestore()
+        {
+            PackagePanelTabsUI[] packagePanels = FindObjectsByType<PackagePanelTabsUI>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < packagePanels.Length; index++)
+            {
+                packagePanels[index]?.ClosePanelForExternalAction();
+            }
+
+            BoxPanelUI activeBox = BoxPanelUI.ActiveInstance;
+            if (activeBox != null && activeBox.IsOpen)
+            {
+                activeBox.Close();
+            }
+        }
+
+        private static void CloseWorkbenchOverlayForRestore()
+        {
+            SpringDay1WorkbenchCraftingOverlay[] overlays = FindObjectsByType<SpringDay1WorkbenchCraftingOverlay>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < overlays.Length; index++)
+            {
+                overlays[index]?.Hide();
+            }
+        }
+
+        private static void ResetInventoryInteractionForRestore()
+        {
+            InventoryInteractionManager interactionManager = InventoryInteractionManager.Instance
+                ?? FindFirstObjectByType<InventoryInteractionManager>(FindObjectsInactive.Include);
+            interactionManager?.Cancel();
+
+            InventorySlotInteraction.ResetActiveChestHeldState();
+            ItemTooltip.Instance?.Hide();
+            ItemUseConfirmDialog.Instance?.Hide();
+        }
+
+        private static void HideTransientOverlayUiForRestore()
+        {
+            SpringDay1PromptOverlay promptOverlay = FindFirstObjectByType<SpringDay1PromptOverlay>(FindObjectsInactive.Include);
+            if (promptOverlay != null)
+            {
+                promptOverlay.SetExternalVisibilityBlock(false);
+                promptOverlay.Hide();
+            }
+
+            SpringDay1Director director = SpringDay1Director.Instance
+                ?? FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
+            director?.HideTaskListBridgePrompt();
+
+            InteractionHintOverlay.HideIfExists();
+            NpcWorldHintBubble.HideIfExists();
+            SpringDay1WorldHintBubble.HideIfExists();
+        }
+
+        private static void HideTransientBubbleUiForRestore()
+        {
+            PlayerThoughtBubblePresenter[] playerThoughtBubbles = FindObjectsByType<PlayerThoughtBubblePresenter>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < playerThoughtBubbles.Length; index++)
+            {
+                playerThoughtBubbles[index]?.HideImmediate();
+            }
+
+            NPCBubblePresenter[] npcBubbles = FindObjectsByType<NPCBubblePresenter>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < npcBubbles.Length; index++)
+            {
+                npcBubbles[index]?.HideImmediateBubble();
+            }
+        }
+
+        private static void ResetKnownTimePauseSourcesForRestore()
+        {
+            TimeManager timeManager = TimeManager.Instance
+                ?? FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
+            if (timeManager == null)
+            {
+                return;
+            }
+
+            timeManager.ResumeTime(DialoguePauseSource);
+            timeManager.ResumeTime(StoryTimePauseSource);
+            timeManager.SetPaused(false);
         }
 
         private static List<CloudShadowSceneSaveData> ExportCloudShadowPersistentSaveData()
@@ -1142,7 +1569,7 @@ namespace FarmGame.Data.Core
         #endregion
 
         #region 数据收集
-        
+
         /// <summary>
         /// 收集游戏时间数据
         /// Rule: P1-2 时间恢复 - 从 TimeManager 获取实际时间
@@ -1150,7 +1577,7 @@ namespace FarmGame.Data.Core
         private GameTimeSaveData CollectGameTimeData()
         {
             var data = new GameTimeSaveData();
-            
+
             // 从 TimeManager 获取数据
             if (TimeManager.Instance != null)
             {
@@ -1159,7 +1586,7 @@ namespace FarmGame.Data.Core
                 data.year = TimeManager.Instance.GetYear();
                 data.hour = TimeManager.Instance.GetHour();
                 data.minute = TimeManager.Instance.GetMinute();
-                
+
                 if (showDebugInfo)
                     Debug.Log($"[SaveManager] 收集时间数据: Year {data.year} Season {data.season} Day {data.day} {data.hour}:{data.minute:D2}");
             }
@@ -1171,13 +1598,13 @@ namespace FarmGame.Data.Core
                 data.year = 1;
                 data.hour = 6;
                 data.minute = 0;
-                
+
                 Debug.LogWarning("[SaveManager] TimeManager 未找到，使用默认时间");
             }
-            
+
             return data;
         }
-        
+
         /// <summary>
         /// 收集玩家数据
         /// 注意：Tool 子物体不需要排除，因为：
@@ -1188,7 +1615,7 @@ namespace FarmGame.Data.Core
         private PlayerSaveData CollectPlayerData()
         {
             var data = new PlayerSaveData();
-            
+
             // 🔥 使用 FindPlayerRoot() 而不是 FindGameObjectWithTag
             var player = FindPlayerRoot();
             if (player != null)
@@ -1196,15 +1623,23 @@ namespace FarmGame.Data.Core
                 data.positionX = player.transform.position.x;
                 data.positionY = player.transform.position.y;
                 data.sceneName = SceneManager.GetActiveScene().name;
-                
+
                 // Tool 子物体不需要特殊处理：
                 // - 当前只保存玩家位置，不收集子物体数据
                 // - Tool 是运行时动态控制的，不需要持久化
             }
-            
+
+            HotbarSelectionService hotbarSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                ?? FindFirstObjectByType<HotbarSelectionService>(FindObjectsInactive.Include);
+            if (hotbarSelection != null)
+            {
+                data.selectedHotbarSlot = hotbarSelection.selectedIndex;
+                data.selectedInventoryIndex = hotbarSelection.selectedInventoryIndex;
+            }
+
             return data;
         }
-        
+
         /// <summary>
         /// 收集背包数据
         /// 注意：InventoryService 现在实现了 IPersistentObject，
@@ -1214,18 +1649,18 @@ namespace FarmGame.Data.Core
         private InventorySaveData CollectInventoryData()
         {
             var data = new InventorySaveData();
-            
+
             // InventoryService 现在通过 IPersistentObject 接口保存
             // 这里只返回空数据，实际数据在 worldObjects 中
             // 保留此方法是为了兼容旧存档格式
-            
+
             return data;
         }
-        
+
         #endregion
-        
+
         #region 数据恢复
-        
+
         /// <summary>
         /// 恢复游戏时间数据
         /// Rule: P1-2 时间恢复 - 调用 TimeManager.SetTime()
@@ -1233,7 +1668,7 @@ namespace FarmGame.Data.Core
         private void RestoreGameTimeData(GameTimeSaveData data)
         {
             if (data == null) return;
-            
+
             if (TimeManager.Instance != null)
             {
                 TimeManager.Instance.SetTime(
@@ -1243,7 +1678,7 @@ namespace FarmGame.Data.Core
                     data.hour,
                     data.minute
                 );
-                
+
                 if (showDebugInfo)
                     Debug.Log($"[SaveManager] 恢复时间: Year {data.year} Season {data.season} Day {data.day} {data.hour}:{data.minute:D2}");
             }
@@ -1252,7 +1687,7 @@ namespace FarmGame.Data.Core
                 Debug.LogWarning("[SaveManager] TimeManager 未找到，无法恢复时间");
             }
         }
-        
+
         /// <summary>
         /// 恢复玩家数据
         /// 优先走 PersistentPlayerSceneBridge 的稳定复位链，
@@ -1272,114 +1707,69 @@ namespace FarmGame.Data.Core
                 {
                     Debug.Log($"[SaveManager] 通过 bridge 恢复玩家位置: ({data.positionX}, {data.positionY})");
                 }
-
-                return;
-            }
-
-            var player = FindPlayerRoot();
-            if (player == null)
-            {
-                Debug.LogWarning("[SaveManager] 未找到玩家根节点，无法恢复玩家位置。");
-                return;
-            }
-
-            PlayerAutoNavigator autoNavigator = player.GetComponent<PlayerAutoNavigator>();
-            if (autoNavigator != null)
-            {
-                autoNavigator.ForceCancel();
-            }
-
-            PlayerMovement movement = player.GetComponent<PlayerMovement>();
-            if (movement != null)
-            {
-                movement.SetMovementInput(Vector2.zero, false);
-            }
-
-            Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
-            if (rb != null)
-            {
-                rb.linearVelocity = Vector2.zero;
-                rb.angularVelocity = 0f;
-                rb.position = targetPosition;
-            }
-
-            player.transform.position = new Vector3(data.positionX, data.positionY, player.transform.position.z);
-
-            if (showDebugInfo)
-            {
-                Debug.Log($"[SaveManager] 回退链恢复玩家位置: ({data.positionX}, {data.positionY})");
-            }
-        }
-        
-        /// <summary>
-        /// 递归重置所有子物体的 localPosition
-        /// 🔥 锐评012 指令：确保所有层级的子物体都归零
-        /// </summary>
-        private void RecursiveResetChildPositions(Transform parent)
-        {
-            foreach (Transform child in parent)
-            {
-                // Tool 必须在 (0,0,0)
-                if (child.name == "Tool" || child.name.Contains("Tool"))
-                {
-                    if (child.localPosition != Vector3.zero)
-                    {
-                        Debug.Log($"[SaveManager] 重置 {child.name} localPosition: {child.localPosition} -> (0,0,0)");
-                        child.localPosition = Vector3.zero;
-                    }
-                }
-                
-                // 递归处理子物体的子物体
-                if (child.childCount > 0)
-                {
-                    RecursiveResetChildPositions(child);
-                }
-            }
-        }
-        
-        /// <summary>
-        /// 协程：检测下一帧玩家位置是否被"内鬼"脚本修改
-        /// 🔥 锐评012 指令：如果位置被改回去，说明有脚本在 Update/LateUpdate 里强制修改位置
-        /// </summary>
-        private System.Collections.IEnumerator CheckPositionNextFrame(GameObject player, Vector3 targetPos)
-        {
-            yield return null; // 等一帧
-            
-            if (player == null) yield break;
-            
-            Vector3 currentPos = player.transform.position;
-            float distance = Vector3.Distance(currentPos, targetPos);
-            
-            if (distance > 0.1f)
-            {
-                Debug.LogError($"[SaveManager] ⚠️ 异常！刚移动完一帧后，玩家位置被改回了！\n" +
-                    $"  目标位置: {targetPos}\n" +
-                    $"  当前位置: {currentPos}\n" +
-                    $"  偏移距离: {distance}\n" +
-                    $"  一定有脚本在 Update/LateUpdate 里强制修改位置！");
-                
-                // 检查 Tool 位置
-                var tool = player.transform.Find("Tool");
-                if (tool != null)
-                {
-                    Debug.LogError($"[SaveManager] Tool 当前状态:\n" +
-                        $"  世界坐标: {tool.position}\n" +
-                        $"  本地坐标: {tool.localPosition}");
-                }
-                
-                // 检查 Rigidbody2D 位置
-                var rb = player.GetComponent<Rigidbody2D>();
-                if (rb != null)
-                {
-                    Debug.LogError($"[SaveManager] Rigidbody2D 当前位置: {rb.position}");
-                }
             }
             else
             {
-                Debug.Log($"[SaveManager] ✓ 位置验证通过，玩家位置稳定在: {currentPos}");
+                var player = FindPlayerRoot();
+                if (player == null)
+                {
+                    Debug.LogWarning("[SaveManager] 未找到玩家根节点，无法恢复玩家位置。");
+                }
+                else
+                {
+                    PlayerAutoNavigator autoNavigator = player.GetComponent<PlayerAutoNavigator>();
+                    if (autoNavigator != null)
+                    {
+                        autoNavigator.ForceCancel();
+                    }
+
+                    PlayerMovement movement = player.GetComponent<PlayerMovement>();
+                    if (movement != null)
+                    {
+                        movement.SetMovementInput(Vector2.zero, false);
+                    }
+
+                    Rigidbody2D rb = player.GetComponent<Rigidbody2D>();
+                    if (rb != null)
+                    {
+                        rb.linearVelocity = Vector2.zero;
+                        rb.angularVelocity = 0f;
+                        rb.position = targetPosition;
+                    }
+
+                    player.transform.position = new Vector3(data.positionX, data.positionY, player.transform.position.z);
+
+                    if (showDebugInfo)
+                    {
+                        Debug.Log($"[SaveManager] 回退链恢复玩家位置: ({data.positionX}, {data.positionY})");
+                    }
+                }
             }
+
+            RestoreHotbarSelectionForLoadedPlayer(data);
         }
-        
+
+        private static void RestoreHotbarSelectionForLoadedPlayer(PlayerSaveData data)
+        {
+            if (data == null)
+            {
+                return;
+            }
+
+            HotbarSelectionService hotbarSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                ?? FindFirstObjectByType<HotbarSelectionService>(FindObjectsInactive.Include);
+            if (hotbarSelection == null)
+            {
+                return;
+            }
+
+            int restoredHotbarIndex = Mathf.Clamp(data.selectedHotbarSlot, 0, InventoryService.HotbarWidth - 1);
+            int restoredInventoryIndex = data.selectedInventoryIndex >= 0
+                ? data.selectedInventoryIndex
+                : restoredHotbarIndex;
+            hotbarSelection.RestoreSelectionState(restoredHotbarIndex, restoredInventoryIndex);
+        }
+
         /// <summary>
         /// 恢复背包数据
         /// 注意：InventoryService 现在实现了 IPersistentObject，
@@ -1390,11 +1780,12 @@ namespace FarmGame.Data.Core
         {
             // InventoryService 现在通过 IPersistentObject 接口恢复
             // 这里只处理旧存档格式的兼容性
-            
+
             if (data == null || data.slots == null || data.slots.Count == 0) return;
-            
+
             // 如果旧存档有数据，尝试迁移到新系统
-            var inventory = FindFirstObjectByType<InventoryService>();
+            var inventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
             if (inventory != null)
             {
                 foreach (var slotData in data.slots)
@@ -1406,14 +1797,14 @@ namespace FarmGame.Data.Core
                         inventory.SetInventoryItem(slotData.slotIndex, item);
                     }
                 }
-                
+
                 if (showDebugInfo)
                     Debug.Log($"[SaveManager] 已从旧存档格式迁移背包数据");
             }
         }
-        
+
         #endregion
-        
+
         #region 辅助方法
 
         private static bool ShouldRunHeavyStartupBootstrapImmediately()
@@ -1443,7 +1834,7 @@ namespace FarmGame.Data.Core
             InitializeDynamicObjectFactory();
             _dynamicObjectFactoryInitialized = true;
         }
-        
+
         /// <summary>
         /// 初始化 DynamicObjectFactory（动态对象重建系统）
         /// 加载 PrefabRegistry 并初始化工厂
@@ -1452,7 +1843,7 @@ namespace FarmGame.Data.Core
         {
             // 尝试从 Resources 加载 PrefabDatabase（新版）
             var database = AssetLocator.LoadPrefabDatabase();
-            
+
             if (database != null)
             {
                 DynamicObjectFactory.Initialize(database);
@@ -1464,12 +1855,12 @@ namespace FarmGame.Data.Core
                 // 回退到旧版 PrefabRegistry
                 #pragma warning disable 0618
                 var registry = Resources.Load<PrefabRegistry>("Data/Database/PrefabRegistry");
-                
+
                 if (registry == null)
                 {
                     registry = Resources.Load<PrefabRegistry>("PrefabRegistry");
                 }
-                
+
 #if UNITY_EDITOR
                 if (registry == null)
                 {
@@ -1483,7 +1874,7 @@ namespace FarmGame.Data.Core
                     }
                 }
 #endif
-                
+
                 if (registry != null)
                 {
                     DynamicObjectFactory.Initialize(registry);
@@ -1535,10 +1926,10 @@ namespace FarmGame.Data.Core
             {
                 Debug.LogWarning($"[SaveManager] FindPlayerRoot: 使用回退方法找到: {fallback.name}，可能不是真正的 Player 根节点！");
             }
-            
+
             return fallback;
         }
-        
+
         /// <summary>
         /// 获取存档文件路径
         /// </summary>
@@ -1546,7 +1937,7 @@ namespace FarmGame.Data.Core
         {
             return Path.Combine(SaveFolderPath, slotName + saveFileExtension);
         }
-        
+
         /// <summary>
         /// 确保存档目录存在
         /// </summary>
@@ -1557,6 +1948,289 @@ namespace FarmGame.Data.Core
                 Directory.CreateDirectory(SaveFolderPath);
             }
         }
+
+        private static void NormalizeLoadedSaveData(GameSaveData saveData)
+        {
+            if (saveData == null)
+            {
+                return;
+            }
+
+            saveData.worldObjects ??= new List<WorldObjectSaveData>();
+            saveData.farmTiles ??= new List<FarmTileSaveData>();
+            saveData.cloudShadowScenes ??= new List<CloudShadowSceneSaveData>();
+            saveData.offSceneWorldSnapshots ??= new List<SceneWorldSnapshotSaveData>();
+
+            PromoteLegacyFarmStateForLoad(
+                saveData.worldObjects,
+                saveData.farmTiles,
+                NormalizeSceneName(saveData.player?.sceneName));
+
+            for (int index = 0; index < saveData.offSceneWorldSnapshots.Count; index++)
+            {
+                SceneWorldSnapshotSaveData snapshot = saveData.offSceneWorldSnapshots[index];
+                if (snapshot == null)
+                {
+                    continue;
+                }
+
+                snapshot.worldObjects ??= new List<WorldObjectSaveData>();
+                PromoteLegacyFarmStateForLoad(
+                    snapshot.worldObjects,
+                    null,
+                    NormalizeSceneName(snapshot.sceneKey));
+            }
+        }
+
+        private static void PromoteLegacyFarmStateForLoad(
+            List<WorldObjectSaveData> worldObjects,
+            List<FarmTileSaveData> rootFarmTiles,
+            string fallbackSceneName)
+        {
+            if (worldObjects == null)
+            {
+                return;
+            }
+
+            PromoteLegacyRootFarmTilesIntoWorldObjects(worldObjects, rootFarmTiles, fallbackSceneName);
+
+            HashSet<string> existingCropCellKeys = CollectExistingCropCellKeys(worldObjects);
+            List<WorldObjectSaveData> promotedLegacyCrops = new List<WorldObjectSaveData>();
+
+            for (int index = 0; index < worldObjects.Count; index++)
+            {
+                WorldObjectSaveData worldObject = worldObjects[index];
+                if (worldObject == null
+                    || !string.Equals(worldObject.objectType, "FarmTileManager", StringComparison.Ordinal)
+                    || string.IsNullOrWhiteSpace(worldObject.genericData))
+                {
+                    continue;
+                }
+
+                FarmTileListWrapper wrapper = JsonUtility.FromJson<FarmTileListWrapper>(worldObject.genericData);
+                if (wrapper?.tiles == null)
+                {
+                    continue;
+                }
+
+                string sceneName = NormalizeSceneName(worldObject.sceneName);
+                if (string.IsNullOrWhiteSpace(sceneName))
+                {
+                    sceneName = fallbackSceneName;
+                }
+
+                for (int tileIndex = 0; tileIndex < wrapper.tiles.Count; tileIndex++)
+                {
+                    FarmTileSaveData tile = wrapper.tiles[tileIndex];
+                    if (!HasLegacyCropPayload(tile))
+                    {
+                        continue;
+                    }
+
+                    string cropCellKey = BuildLegacyCropCellKey(tile.layer, tile.tileX, tile.tileY);
+                    if (existingCropCellKeys.Contains(cropCellKey))
+                    {
+                        continue;
+                    }
+
+                    WorldObjectSaveData legacyCrop = BuildLegacyCropWorldObject(tile, sceneName);
+                    if (legacyCrop == null)
+                    {
+                        continue;
+                    }
+
+                    promotedLegacyCrops.Add(legacyCrop);
+                    existingCropCellKeys.Add(cropCellKey);
+                }
+            }
+
+            if (promotedLegacyCrops.Count > 0)
+            {
+                worldObjects.AddRange(promotedLegacyCrops);
+            }
+        }
+
+        private static void PromoteLegacyRootFarmTilesIntoWorldObjects(
+            List<WorldObjectSaveData> worldObjects,
+            List<FarmTileSaveData> rootFarmTiles,
+            string sceneName)
+        {
+            if (worldObjects == null || rootFarmTiles == null || rootFarmTiles.Count <= 0)
+            {
+                return;
+            }
+
+            WorldObjectSaveData farmTileManagerData = FindWorldObjectSaveDataByType(worldObjects, "FarmTileManager");
+            if (farmTileManagerData != null && !string.IsNullOrWhiteSpace(farmTileManagerData.genericData))
+            {
+                return;
+            }
+
+            WorldObjectSaveData promotedFarmTileManager = new WorldObjectSaveData
+            {
+                guid = "FarmTileManager",
+                objectType = "FarmTileManager",
+                sceneName = sceneName,
+                isActive = true,
+                genericData = JsonUtility.ToJson(new FarmTileListWrapper
+                {
+                    tiles = CloneLegacyFarmTiles(rootFarmTiles)
+                })
+            };
+
+            if (farmTileManagerData == null)
+            {
+                worldObjects.Add(promotedFarmTileManager);
+                return;
+            }
+
+            farmTileManagerData.guid = string.IsNullOrWhiteSpace(farmTileManagerData.guid)
+                ? promotedFarmTileManager.guid
+                : farmTileManagerData.guid;
+            farmTileManagerData.sceneName = string.IsNullOrWhiteSpace(farmTileManagerData.sceneName)
+                ? promotedFarmTileManager.sceneName
+                : farmTileManagerData.sceneName;
+            farmTileManagerData.isActive = true;
+            farmTileManagerData.genericData = promotedFarmTileManager.genericData;
+        }
+
+        #pragma warning disable 0618
+        private static List<FarmTileSaveData> CloneLegacyFarmTiles(List<FarmTileSaveData> source)
+        {
+            List<FarmTileSaveData> cloned = new List<FarmTileSaveData>(source?.Count ?? 0);
+            if (source == null)
+            {
+                return cloned;
+            }
+
+            for (int index = 0; index < source.Count; index++)
+            {
+                FarmTileSaveData tile = source[index];
+                if (tile == null)
+                {
+                    continue;
+                }
+
+                cloned.Add(new FarmTileSaveData
+                {
+                    tileX = tile.tileX,
+                    tileY = tile.tileY,
+                    layer = tile.layer,
+                    soilState = tile.soilState,
+                    isWatered = tile.isWatered,
+                    wateredYesterday = tile.wateredYesterday,
+                    waterTime = tile.waterTime,
+                    puddleVariant = tile.puddleVariant,
+                    hasEmptySinceRecord = tile.hasEmptySinceRecord,
+                    emptySinceTotalDays = tile.emptySinceTotalDays,
+                    cropId = tile.cropId,
+                    cropGrowthStage = tile.cropGrowthStage,
+                    cropQuality = tile.cropQuality,
+                    daysGrown = tile.daysGrown,
+                    daysWithoutWater = tile.daysWithoutWater
+                });
+            }
+
+            return cloned;
+        }
+
+        private static HashSet<string> CollectExistingCropCellKeys(List<WorldObjectSaveData> worldObjects)
+        {
+            HashSet<string> keys = new HashSet<string>(StringComparer.Ordinal);
+            if (worldObjects == null)
+            {
+                return keys;
+            }
+
+            for (int index = 0; index < worldObjects.Count; index++)
+            {
+                WorldObjectSaveData worldObject = worldObjects[index];
+                if (worldObject == null
+                    || !string.Equals(worldObject.objectType, "Crop", StringComparison.Ordinal)
+                    || string.IsNullOrWhiteSpace(worldObject.genericData))
+                {
+                    continue;
+                }
+
+                CropSaveData cropData = JsonUtility.FromJson<CropSaveData>(worldObject.genericData);
+                if (cropData == null)
+                {
+                    continue;
+                }
+
+                keys.Add(BuildLegacyCropCellKey(cropData.layerIndex, cropData.cellX, cropData.cellY));
+            }
+
+            return keys;
+        }
+
+        private static bool HasLegacyCropPayload(FarmTileSaveData tile)
+        {
+            return tile != null && tile.cropId >= 0;
+        }
+
+        private static string BuildLegacyCropCellKey(int layerIndex, int cellX, int cellY)
+        {
+            return $"{layerIndex}:{cellX}:{cellY}";
+        }
+
+        private static WorldObjectSaveData FindWorldObjectSaveDataByType(List<WorldObjectSaveData> worldObjects, string objectType)
+        {
+            if (worldObjects == null || string.IsNullOrWhiteSpace(objectType))
+            {
+                return null;
+            }
+
+            for (int index = 0; index < worldObjects.Count; index++)
+            {
+                WorldObjectSaveData worldObject = worldObjects[index];
+                if (worldObject != null && string.Equals(worldObject.objectType, objectType, StringComparison.Ordinal))
+                {
+                    return worldObject;
+                }
+            }
+
+            return null;
+        }
+
+        private static WorldObjectSaveData BuildLegacyCropWorldObject(FarmTileSaveData tile, string sceneName)
+        {
+            if (!HasLegacyCropPayload(tile))
+            {
+                return null;
+            }
+
+            CropSaveData cropData = new CropSaveData
+            {
+                seedId = tile.cropId,
+                currentStage = Mathf.Max(0, tile.cropGrowthStage),
+                grownDays = Mathf.Max(0, tile.daysGrown),
+                daysWithoutWater = Mathf.Max(0, tile.daysWithoutWater),
+                isWithered = false,
+                quality = Mathf.Max(0, tile.cropQuality),
+                harvestCount = 0,
+                lastHarvestDay = 0,
+                daysSinceMature = 0,
+                layerIndex = tile.layer,
+                cellX = tile.tileX,
+                cellY = tile.tileY
+            };
+
+            return new WorldObjectSaveData
+            {
+                guid = $"LegacyCrop_{tile.layer}_{tile.tileX}_{tile.tileY}",
+                objectType = "Crop",
+                prefabId = tile.cropId.ToString(),
+                sceneName = sceneName,
+                layer = tile.layer,
+                positionX = tile.tileX + 0.5f,
+                positionY = tile.tileY + 0.5f,
+                positionZ = 0f,
+                isActive = true,
+                genericData = JsonUtility.ToJson(cropData)
+            };
+        }
+        #pragma warning restore 0618
 
         private void TryMigrateLegacySaveFolders()
         {
@@ -1621,32 +2295,143 @@ namespace FarmGame.Data.Core
             {
             }
         }
-        
+
         /// <summary>
         /// 刷新所有 UI（读档后调用）
         /// Rule: P1-1 背包刷新 - 读档后立即刷新 UI
         /// </summary>
         private void RefreshAllUI()
         {
-            // 刷新背包面板
-            var inventoryPanel = FindFirstObjectByType<InventoryPanelUI>();
-            if (inventoryPanel != null)
+            InventoryService runtimeInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>(FindObjectsInactive.Include);
+            EquipmentService runtimeEquipment = PersistentPlayerSceneBridge.GetPreferredRuntimeEquipmentService()
+                ?? FindFirstObjectByType<EquipmentService>(FindObjectsInactive.Include);
+            ItemDatabase runtimeDatabase = runtimeInventory != null ? runtimeInventory.Database : null;
+            HotbarSelectionService runtimeSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                ?? FindFirstObjectByType<HotbarSelectionService>(FindObjectsInactive.Include);
+            InventorySortService sortService = FindFirstObjectByType<InventorySortService>(FindObjectsInactive.Include);
+            if (sortService != null)
             {
+                sortService.RebindRuntimeContext(runtimeInventory, runtimeDatabase);
+            }
+
+            CraftingService[] craftingServices = FindObjectsByType<CraftingService>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < craftingServices.Length; index++)
+            {
+                craftingServices[index]?.ConfigureRuntimeContext(runtimeInventory, runtimeDatabase);
+            }
+
+            InventoryService[] inventories = FindObjectsByType<InventoryService>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < inventories.Length; index++)
+            {
+                inventories[index]?.RefreshAll();
+            }
+
+            HotbarSelectionService[] selections = FindObjectsByType<HotbarSelectionService>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < selections.Length; index++)
+            {
+                selections[index]?.ReassertCurrentSelection(collapseInventorySelectionToHotbar: false, invokeEvent: true);
+            }
+
+            InventoryPanelUI[] inventoryPanels = FindObjectsByType<InventoryPanelUI>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < inventoryPanels.Length; index++)
+            {
+                InventoryPanelUI inventoryPanel = inventoryPanels[index];
+                if (inventoryPanel == null)
+                {
+                    continue;
+                }
+
+                inventoryPanel.ConfigureRuntimeContext(
+                    runtimeInventory,
+                    runtimeEquipment,
+                    runtimeDatabase,
+                    runtimeSelection);
+                inventoryPanel.EnsureBuilt();
                 inventoryPanel.RefreshAll();
             }
-            
-            // 刷新工具栏
-            var toolbar = FindFirstObjectByType<ToolbarUI>();
-            if (toolbar != null)
+
+            PackagePanelTabsUI[] packagePanels = FindObjectsByType<PackagePanelTabsUI>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < packagePanels.Length; index++)
             {
+                PackagePanelTabsUI packagePanel = packagePanels[index];
+                if (packagePanel == null)
+                {
+                    continue;
+                }
+
+                packagePanel.ConfigureRuntimeContext(
+                    runtimeInventory,
+                    runtimeEquipment,
+                    runtimeDatabase,
+                    runtimeSelection);
+                packagePanel.EnsureReady();
+            }
+
+            ToolbarUI[] toolbars = FindObjectsByType<ToolbarUI>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < toolbars.Length; index++)
+            {
+                ToolbarUI toolbar = toolbars[index];
+                if (toolbar == null)
+                {
+                    continue;
+                }
+
+                toolbar.ConfigureRuntimeContext(runtimeInventory, runtimeDatabase, runtimeSelection);
+                toolbar.Build();
                 toolbar.ForceRefresh();
             }
-            
+
+            InventoryInteractionManager[] interactionManagers = FindObjectsByType<InventoryInteractionManager>(
+                FindObjectsInactive.Include,
+                FindObjectsSortMode.None);
+            for (int index = 0; index < interactionManagers.Length; index++)
+            {
+                InventoryInteractionManager interactionManager = interactionManagers[index];
+                if (interactionManager == null)
+                {
+                    continue;
+                }
+
+                interactionManager.ConfigureRuntimeContext(
+                    runtimeInventory,
+                    runtimeEquipment,
+                    runtimeDatabase,
+                    sortService);
+                interactionManager.ClearHeldState();
+                interactionManager.HideHeldIcon();
+            }
+
+            BoxPanelUI activeBoxPanel = BoxPanelUI.ActiveInstance;
+            if (activeBoxPanel != null && activeBoxPanel.IsOpen)
+            {
+                activeBoxPanel.ConfigureRuntimeContext(
+                    runtimeInventory,
+                    runtimeEquipment,
+                    runtimeDatabase,
+                    runtimeSelection);
+                activeBoxPanel.RefreshUI();
+            }
+
+            Canvas.ForceUpdateCanvases();
+
             if (showDebugInfo)
                 Debug.Log("[SaveManager] UI 已刷新");
         }
-        
+
         #endregion
-        
+
     }
 }

@@ -563,3 +563,45 @@
   - 本轮已跑：`Begin-Slice`、`Ready-To-Sync`、`Park-Slice`
   - 当前 live 状态：`PARKED`
   - 停车原因：stone-only 提交被 own-root remaining dirty 阻断，未提交
+
+## 2026-04-23（按 Codex规则落地 治理 prompt 只读补交 shared-root 上传回执）
+
+- 用户目标：
+  - 不继续开发、不继续上传，先按治理 prompt 只读补交真实回执，把“到底已经提交了什么、push 了什么、还卡在哪”说清楚。
+- 当前主线目标：
+  - 为 `树石修复` 线程补交历史 shared-root 上传事实回执，不改代码、不补跑新的上传施工。
+- 本轮子任务 / 阻塞：
+  - 子任务：核对本线程最近是否真的发生过 commit / push / 上传切片；
+  - 当前阻塞：无新的施工阻塞，本轮是只读回执补交。
+- 已完成事项：
+  1. 已按提示完整读取：
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_给其它已施工线程_shared-root上传回执补交通用prompt_01.md`
+     - `D:\Unity\Unity_learning\Sunset\.kiro\specs\Codex规则落地\2026-04-23_shared-root历史小批次上传分发批次_02.md`
+  2. 已核对线程记忆、工作区记忆、`git status`、`git log`、`origin/main...HEAD` 与当前 `thread-state`。
+  3. 核实结论：
+     - 最近这条线程**没有形成新的本地提交 SHA**
+     - **没有 push 新内容到 `origin/main`**
+     - 唯一需要补交的历史上传事实，是 `2026-04-13` 那次：
+       - 跑过 `Begin-Slice -> Ready-To-Sync -> Park-Slice`
+       - 但 `Ready-To-Sync` 被 same-root own dirty 阻断
+       - 最终**未产生 commit / 未产生 push**
+- 关键决策：
+  1. 本轮严格按 prompt 只做回执补交，不默认继续上传第二刀；
+  2. 不把 `2026-04-13` 的阻断尝试包装成“已提交”；
+  3. 不把当前 `main` 与 `origin/main` 的 `ahead=0 / behind=0` 误写成“本线程已完成上传”。
+- 验证结果：
+  - `git rev-list --left-right --count origin/main...HEAD` = `0 0`
+  - 当前 `thread-state` 文件显示：
+    - `status = PARKED`
+    - `current_slice = 石头批量工具最小安全提交`
+    - blocker = `Ready-To-Sync blocked: own roots still have 83 remaining dirty/untracked under Assets/Editor and Assets/YYY_Scripts/Controller; cannot submit stone slice alone by current rule.`
+  - 当前相关 own 根下工作树仍不 clean：
+    - 只统计 `.codex/threads/Sunset/树石修复`、`.kiro/specs/屎山修复`、`Assets/Editor`、`Assets/YYY_Scripts/Controller`
+    - 当前 dirty / untracked 合计 `87` 条
+- 恢复点 / 下一步：
+  - 这轮补交完成后，主线仍停在“树石 own dirty 未清，不能继续 legal sync”；
+  - 若后续治理位要我继续上传，下一刀才重新进入真实施工并补跑新的 `thread-state`。
+- thread-state：
+  - 本轮已跑：无（只读补交，按 prompt 未补跑 `Begin-Slice`）
+  - 当前 live 状态：`PARKED`
+  - 当前历史 blocker：`2026-04-13` 的 same-root `Ready-To-Sync` 阻断仍是最近一次真实上传尝试结论

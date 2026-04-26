@@ -30,6 +30,8 @@ namespace Sunset.Story
         private static readonly Dictionary<string, MethodInfo> DirectorMethodCache = new Dictionary<string, MethodInfo>(StringComparer.Ordinal);
         private static readonly Dictionary<string, MethodInfo> ChatSessionMethodCache = new Dictionary<string, MethodInfo>(StringComparer.Ordinal);
         private static readonly Dictionary<string, MethodInfo> NearbyFeedbackMethodCache = new Dictionary<string, MethodInfo>(StringComparer.Ordinal);
+        private static readonly Dictionary<string, WorkbenchRuntimeSaveData> WorkbenchRuntimeStateByStation =
+            new Dictionary<string, WorkbenchRuntimeSaveData>(StringComparer.Ordinal);
         private static bool s_workbenchHintConsumed;
 
         private bool _isRegistered;
@@ -107,40 +109,13 @@ namespace Sunset.Story
 
             SpringDay1Director director = SpringDay1Director.Instance
                 ?? FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
-            if (director != null && director.TryGetStorySaveLoadBlockReason(out string storyBlockReason))
+            if (director != null && director.TryGetStorySaveBlockReason(out string storyBlockReason))
             {
                 blockerReason = storyBlockReason;
                 return false;
             }
 
-            bool isCraftingActive = ReadPrivateFieldValue(
-                director,
-                DirectorFieldCache,
-                WorkbenchCraftingActiveFieldName,
-                DirectorMemberFlags,
-                false);
-            if (isCraftingActive)
-            {
-                blockerReason = "当前工作台仍有活跃制作队列；本版存档不支持制作途中存档，请先等待完成、领取或取消后再保存。";
-                return false;
-            }
-
-            SpringDay1WorkbenchCraftingOverlay overlay = SpringDay1WorkbenchCraftingOverlay.Instance
-                ?? FindFirstObjectByType<SpringDay1WorkbenchCraftingOverlay>(FindObjectsInactive.Include);
-            if (overlay != null)
-            {
-                if (overlay.HasReadyWorkbenchOutputs)
-                {
-                    blockerReason = "当前工作台已有完成但未领取的产物；本版存档不会替你保留这批待领取结果，请先领取后再保存。";
-                    return false;
-                }
-
-                if (overlay.HasWorkbenchFloatingState)
-                {
-                    blockerReason = "当前工作台仍有未收束的制作队列状态；本版存档不会续存这段临时队列，请先收束后再保存。";
-                    return false;
-                }
-            }
+            SpringDay1WorkbenchCraftingOverlay.FlushRuntimeStateToPersistence();
 
             return true;
         }
@@ -165,7 +140,7 @@ namespace Sunset.Story
 
             SpringDay1Director director = SpringDay1Director.Instance
                 ?? FindFirstObjectByType<SpringDay1Director>(FindObjectsInactive.Include);
-            if (director != null && director.TryGetStorySaveLoadBlockReason(out string storyBlockReason))
+            if (director != null && director.TryGetStoryLoadBlockReason(out string storyBlockReason))
             {
                 blockerReason = storyBlockReason;
                 return false;
@@ -182,6 +157,55 @@ namespace Sunset.Story
         public static void MarkWorkbenchHintConsumed()
         {
             ApplyWorkbenchHintConsumed(true);
+        }
+
+        public static void StoreWorkbenchRuntimeState(WorkbenchRuntimeSaveData state)
+        {
+            EnsureRuntime();
+            if (state == null || string.IsNullOrWhiteSpace(state.stationKey))
+            {
+                return;
+            }
+
+            WorkbenchRuntimeStateByStation[state.stationKey.Trim()] = CloneWorkbenchRuntimeState(state);
+        }
+
+        public static void RemoveWorkbenchRuntimeState(string stationKey)
+        {
+            EnsureRuntime();
+            if (string.IsNullOrWhiteSpace(stationKey))
+            {
+                return;
+            }
+
+            WorkbenchRuntimeStateByStation.Remove(stationKey.Trim());
+        }
+
+        public static void ClearWorkbenchRuntimeStates()
+        {
+            EnsureRuntime();
+            WorkbenchRuntimeStateByStation.Clear();
+        }
+
+        public static bool TryGetWorkbenchRuntimeState(string stationKey, out WorkbenchRuntimeSaveData state)
+        {
+            EnsureRuntime();
+            if (!string.IsNullOrWhiteSpace(stationKey)
+                && WorkbenchRuntimeStateByStation.TryGetValue(stationKey.Trim(), out WorkbenchRuntimeSaveData stored)
+                && stored != null)
+            {
+                state = CloneWorkbenchRuntimeState(stored);
+                return true;
+            }
+
+            state = null;
+            return false;
+        }
+
+        public static List<WorkbenchRuntimeSaveData> GetWorkbenchRuntimeStatesSnapshot()
+        {
+            EnsureRuntime();
+            return CloneWorkbenchRuntimeStates(WorkbenchRuntimeStateByStation.Values);
         }
 
         public static void FinalizeLoadedSave(List<WorldObjectSaveData> worldObjects)
@@ -258,6 +282,7 @@ namespace Sunset.Story
         private StoryProgressSaveData CaptureSnapshot()
         {
             StoryProgressSaveData snapshot = CreateDefaultSnapshot();
+            SpringDay1WorkbenchCraftingOverlay.FlushRuntimeStateToPersistence();
 
             StoryManager storyManager = FindFirstObjectByType<StoryManager>(FindObjectsInactive.Include);
             if (storyManager != null)
@@ -277,12 +302,14 @@ namespace Sunset.Story
             snapshot.energy = CaptureEnergyState();
             snapshot.npcRelationships = BuildNpcRelationshipEntries(PlayerNpcRelationshipService.GetSnapshot());
             snapshot.workbenchHintConsumed = HasConsumedWorkbenchHint();
+            snapshot.workbenchStates = GetWorkbenchRuntimeStatesSnapshot();
             return snapshot;
         }
 
         private void ApplySnapshot(StoryProgressSaveData snapshot)
         {
             StoryProgressSaveData safeSnapshot = snapshot ?? CreateDefaultSnapshot();
+            ReplaceWorkbenchRuntimeStates(safeSnapshot.workbenchStates);
             StoryManager.Instance.ResetState(SanitizeStoryPhase(safeSnapshot.storyPhase), safeSnapshot.isLanguageDecoded);
 
             DialogueManager dialogueManager = DialogueManager.EnsureRuntime();
@@ -303,6 +330,7 @@ namespace Sunset.Story
             ApplyEnergyState(safeSnapshot.energy);
             ResyncSpringDay1LowEnergyState();
             ResetNpcTransientState();
+            SpringDay1WorkbenchCraftingOverlay.NotifyPersistentStateReplaced();
         }
 
         private void RegisterIfNeeded()
@@ -366,6 +394,7 @@ namespace Sunset.Story
                 completedDialogueSequenceIds = new List<string>(),
                 npcRelationships = new List<NpcRelationshipEntry>(),
                 workbenchHintConsumed = false,
+                workbenchStates = new List<WorkbenchRuntimeSaveData>(),
                 springDay1 = null,
                 health = null,
                 energy = null
@@ -388,6 +417,94 @@ namespace Sunset.Story
             }
 
             return StoryPhase.CrashAndMeet;
+        }
+
+        private static void ReplaceWorkbenchRuntimeStates(List<WorkbenchRuntimeSaveData> states)
+        {
+            WorkbenchRuntimeStateByStation.Clear();
+            if (states == null)
+            {
+                return;
+            }
+
+            for (int index = 0; index < states.Count; index++)
+            {
+                WorkbenchRuntimeSaveData state = states[index];
+                if (state == null || string.IsNullOrWhiteSpace(state.stationKey))
+                {
+                    continue;
+                }
+
+                WorkbenchRuntimeStateByStation[state.stationKey.Trim()] = CloneWorkbenchRuntimeState(state);
+            }
+        }
+
+        private static List<WorkbenchRuntimeSaveData> CloneWorkbenchRuntimeStates(IEnumerable<WorkbenchRuntimeSaveData> source)
+        {
+            List<WorkbenchRuntimeSaveData> cloned = new List<WorkbenchRuntimeSaveData>();
+            if (source == null)
+            {
+                return cloned;
+            }
+
+            foreach (WorkbenchRuntimeSaveData state in source)
+            {
+                WorkbenchRuntimeSaveData clonedState = CloneWorkbenchRuntimeState(state);
+                if (clonedState == null)
+                {
+                    continue;
+                }
+
+                cloned.Add(clonedState);
+            }
+
+            cloned.Sort((left, right) =>
+                string.Compare(left?.stationKey, right?.stationKey, StringComparison.Ordinal));
+            return cloned;
+        }
+
+        private static WorkbenchRuntimeSaveData CloneWorkbenchRuntimeState(WorkbenchRuntimeSaveData source)
+        {
+            if (source == null || string.IsNullOrWhiteSpace(source.stationKey))
+            {
+                return null;
+            }
+
+            WorkbenchRuntimeSaveData cloned = new WorkbenchRuntimeSaveData
+            {
+                stationKey = source.stationKey?.Trim(),
+                sceneName = source.sceneName ?? string.Empty,
+                scenePath = source.scenePath ?? string.Empty,
+                queueEntries = new List<WorkbenchQueueEntrySaveData>()
+            };
+
+            if (source.queueEntries == null)
+            {
+                return cloned;
+            }
+
+            for (int index = 0; index < source.queueEntries.Count; index++)
+            {
+                WorkbenchQueueEntrySaveData entry = source.queueEntries[index];
+                if (entry == null)
+                {
+                    continue;
+                }
+
+                cloned.queueEntries.Add(new WorkbenchQueueEntrySaveData
+                {
+                    recipeId = entry.recipeId,
+                    resultItemId = entry.resultItemId,
+                    resultAmountPerCraft = Mathf.Max(1, entry.resultAmountPerCraft),
+                    totalCount = Mathf.Max(0, entry.totalCount),
+                    readyCount = Mathf.Clamp(entry.readyCount, 0, Mathf.Max(0, entry.totalCount)),
+                    currentUnitProgress = Mathf.Clamp01(entry.currentUnitProgress),
+                    hasReservedCurrentCraft = entry.hasReservedCurrentCraft,
+                    isActiveEntry = entry.isActiveEntry
+                });
+            }
+
+            return cloned;
         }
 
         private static List<NpcRelationshipEntry> BuildNpcRelationshipEntries(IReadOnlyDictionary<string, NPCRelationshipStage> snapshot)
@@ -876,6 +993,7 @@ namespace Sunset.Story
             public List<string> completedDialogueSequenceIds = new List<string>();
             public List<NpcRelationshipEntry> npcRelationships = new List<NpcRelationshipEntry>();
             public bool workbenchHintConsumed;
+            public List<WorkbenchRuntimeSaveData> workbenchStates = new List<WorkbenchRuntimeSaveData>();
             public SpringDay1ProgressSaveData springDay1;
             public HealthStateSaveData health;
             public EnergyStateSaveData energy;

@@ -7,7 +7,7 @@ using FarmGame.Utils;
 
 /// <summary>
 /// 石头/矿石控制器
-/// 
+///
 /// 核心特性：
 /// - 4阶段系统（M1-M4），只能被挖掘变小，不会生长
 /// - 溢出伤害机制：伤害可以跨阶段传递
@@ -15,21 +15,28 @@ using FarmGame.Utils;
 /// - 材料等级限制：不同镐子能获取不同矿物，但所有镐子都能获得石料
 /// - Sprite 底部中心对齐：所有阶段的 Sprite 底部中心与父物体位置对齐
 /// - Collider 自动同步：从 Sprite 的 Custom Physics Shape 更新 PolygonCollider2D
-/// 
+///
 /// Sprite命名规范：Stone_{OreType}_{Stage}_{OreIndex}
 /// 例如：Stone_C1_M1_4（铜矿，M1阶段，含量4）
 /// </summary>
-public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
+public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject, ISerializationCallbackReceiver
 {
+    [System.Serializable]
+    private struct RuntimeSpriteReference
+    {
+        public string key;
+        public Sprite sprite;
+    }
+
     #region 序列化字段 - 持久化配置
     [Header("━━━━ 持久化配置 ━━━━")]
     [Tooltip("对象唯一 ID（自动生成，勿手动修改）")]
     [SerializeField] private string _persistentId;
-    
+
     [Tooltip("是否在编辑器中预生成 ID")]
     [SerializeField] private bool _preGenerateId = true;
     #endregion
-    
+
     #region 序列化字段 - 阶段配置
     [Header("━━━━ 阶段配置 ━━━━")]
     [Tooltip("4个阶段的配置")]
@@ -72,110 +79,113 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             decreaseOreIndexOnTransition = false
         }
     };
-    
+
     [Tooltip("当前阶段")]
     [SerializeField] private StoneStage currentStage = StoneStage.M1;
-    
+
     [Tooltip("矿物类型")]
     [SerializeField] private OreType oreType = OreType.None;
-    
+
     [Tooltip("矿物含量指数（0-4）")]
     [Range(0, 4)]
     [SerializeField] private int oreIndex = 0;
     #endregion
-    
+
     #region 序列化字段 - 血量
     [Header("━━━━ 血量状态 ━━━━")]
     [Tooltip("当前血量")]
     [SerializeField] private int currentHealth = 36;
     #endregion
-    
+
     #region 序列化字段 - Sprite配置
     [Header("━━━━ Sprite配置 ━━━━")]
     [Tooltip("SpriteRenderer组件")]
     [SerializeField] private SpriteRenderer spriteRenderer;
-    
+
     [Tooltip("PolygonCollider2D组件（用于从 Sprite 的 Custom Physics Shape 同步）")]
     [SerializeField] private PolygonCollider2D polygonCollider;
-    
+
     [Tooltip("Sprite资源文件夹（拖入包含所有Stone Sprite的文件夹）")]
     [SerializeField] private UnityEngine.Object spriteFolder;
-    
+
     [Tooltip("Sprite资源路径前缀（从文件夹自动获取，也可手动填写）")]
     [SerializeField] private string spritePathPrefix = "Sprites/Props/Materials/Stone/";
+
+    [SerializeField, HideInInspector] private RuntimeSpriteReference[] runtimeSpriteReferences = System.Array.Empty<RuntimeSpriteReference>();
     #endregion
-    
+
     #region 序列化字段 - 视觉效果配置
     [Header("━━━━ 视觉效果 ━━━━")]
     [Tooltip("阶段变化时的粒子效果预制体")]
     [SerializeField] private GameObject stageChangeParticlePrefab;
-    
+
     [Tooltip("石块碎片颜色")]
     [SerializeField] private Color debrisColor = new Color(0.6f, 0.5f, 0.4f, 1f);
-    
+
     [Tooltip("阶段变化时是否播放缩放动画")]
     [SerializeField] private bool playScaleAnimation = true;
     #endregion
-    
+
     #region 序列化字段 - 掉落配置
     [Header("━━━━ 掉落配置 ━━━━")]
     [Tooltip("铜矿掉落物品")]
     [SerializeField] private ItemData copperOreItem;
-    
+
     [Tooltip("铁矿掉落物品")]
     [SerializeField] private ItemData ironOreItem;
-    
+
     [Tooltip("金矿掉落物品")]
     [SerializeField] private ItemData goldOreItem;
-    
+
     [Tooltip("石料掉落物品")]
     [SerializeField] private ItemData stoneItem;
-    
+
     [Tooltip("掉落物散布半径")]
     [Range(0.5f, 2f)]
     [SerializeField] private float dropSpreadRadius = 1f;
     #endregion
-    
+
     #region 序列化字段 - 音效
     [Header("━━━━ 音效设置 ━━━━")]
     [Tooltip("挖掘音效")]
     [SerializeField] private AudioClip mineHitSound;
-    
+
     [Tooltip("破碎音效")]
     [SerializeField] private AudioClip breakSound;
-    
+
     [Tooltip("等级不足音效")]
     [SerializeField] private AudioClip tierInsufficientSound;
-    
+
     [Tooltip("音效音量")]
     [Range(0f, 1f)]
     [SerializeField] private float soundVolume = 0.8f;
     #endregion
-    
+
     #region 序列化字段 - 调试
     [Header("━━━━ 调试 ━━━━")]
     [SerializeField] private bool showDebugInfo = false;
     #endregion
-    
+
     #region 私有字段
     private bool isDepleted = false;
     private int lastHitPickaxeTier = 0;
     private bool lastHitCanGetOre = false;
-    
+    private Dictionary<string, Sprite> runtimeSpriteLookup;
+
     // 运行时调试：用于检测 Inspector 参数变化
     private OreType lastOreType;
     private StoneStage lastStage;
     private int lastOreIndex;
     #endregion
-    
+
     #region 属性
     /// <summary>当前阶段配置</summary>
     public StoneStageConfig CurrentStageConfig => GetStageConfig(currentStage);
-    
+
     /// <summary>是否为最终阶段</summary>
     public bool IsFinalStage => CurrentStageConfig?.isFinalStage ?? true;
     #endregion
-    
+
     #region Unity生命周期
     private void Awake()
     {
@@ -185,39 +195,36 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             stageConfigs = StoneStageConfigFactory.CreateDefaultConfigs();
         }
     }
-    
+
     private void Start()
     {
         // 🔥 锐评019：移除刷屏日志，改为 showDebugInfo 控制
         if (showDebugInfo)
             Debug.Log($"[StoneController] Start() 开始初始化: {gameObject.name}");
-        
-        if (spriteRenderer == null)
-        {
-            spriteRenderer = GetComponentInChildren<SpriteRenderer>();
-        }
-        
+
+        CachePreviewComponents();
+
         if (spriteRenderer == null)
         {
             Debug.LogError($"[StoneController] {gameObject.name} 缺少SpriteRenderer组件！");
             enabled = false;
             return;
         }
-        
+
         // 初始化血量
         InitializeHealth();
-        
+
         // 钳制 OreIndex 到有效范围
         ClampOreIndex();
-        
+
         // 更新显示
         UpdateSprite();
-        
+
         // 初始化运行时调试状态
         lastOreType = oreType;
         lastStage = currentStage;
         lastOreIndex = oreIndex;
-        
+
         // 注册到资源节点注册表
         if (ResourceNodeRegistry.Instance != null)
         {
@@ -229,34 +236,34 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             Debug.LogError($"[StoneController] 错误：ResourceNodeRegistry.Instance 为空！无法注册 {gameObject.name}");
         }
-        
+
         // 🔥 注册到持久化对象注册表（带 ID 冲突自愈）
         RegisterToPersistentRegistry();
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"[StoneController] 初始化完成: {gameObject.name}, 类型={oreType}, 阶段={currentStage}, 血量={currentHealth}");
         }
     }
-    
+
     private void Update()
     {
         // 运行时调试：检测 Inspector 参数变化
         UpdateRuntimeInspectorDebug();
     }
-    
+
     private void OnDestroy()
     {
         if (ResourceNodeRegistry.Instance != null)
         {
             ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
         }
-        
+
         // 🔥 从持久化对象注册表注销
         UnregisterFromPersistentRegistry();
     }
     #endregion
-    
+
     #region 初始化
     /// <summary>
     /// 初始化血量（根据当前阶段和矿物含量）
@@ -278,7 +285,27 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             }
         }
     }
-    
+
+    private void CachePreviewComponents()
+    {
+        if (spriteRenderer == null)
+        {
+            spriteRenderer = GetComponentInChildren<SpriteRenderer>();
+        }
+
+        if (polygonCollider == null)
+        {
+            polygonCollider = spriteRenderer != null
+                ? spriteRenderer.GetComponent<PolygonCollider2D>()
+                : null;
+
+            if (polygonCollider == null)
+            {
+                polygonCollider = GetComponent<PolygonCollider2D>();
+            }
+        }
+    }
+
     /// <summary>
     /// 获取指定阶段的配置
     /// </summary>
@@ -291,7 +318,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         }
         return stageConfigs[index];
     }
-    
+
     /// <summary>
     /// 获取指定阶段的最大 OreIndex
     /// </summary>
@@ -306,7 +333,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             _ => 4
         };
     }
-    
+
     /// <summary>
     /// 钳制 OreIndex 到当前阶段的有效范围
     /// </summary>
@@ -315,54 +342,54 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         int maxIndex = GetMaxOreIndex(currentStage);
         oreIndex = Mathf.Clamp(oreIndex, 0, maxIndex);
     }
-    
+
     /// <summary>
     /// 运行时调试：检测 Inspector 参数变化并实时更新
     /// </summary>
     private void UpdateRuntimeInspectorDebug()
     {
         bool changed = false;
-        
+
         // 检测阶段变化
         if (lastStage != currentStage)
         {
             if (showDebugInfo)
                 Debug.Log($"<color=cyan>[StoneController] 阶段变化: {lastStage} → {currentStage}</color>");
-            
+
             lastStage = currentStage;
-            
+
             // 阶段变化时重置血量
             InitializeHealth();
-            
+
             // 钳制 OreIndex 到新阶段的有效范围
             ClampOreIndex();
-            
+
             changed = true;
         }
-        
+
         // 检测矿物类型变化
         if (lastOreType != oreType)
         {
             if (showDebugInfo)
                 Debug.Log($"<color=cyan>[StoneController] 矿物类型变化: {lastOreType} → {oreType}</color>");
-            
+
             lastOreType = oreType;
             changed = true;
         }
-        
+
         // 检测含量指数变化
         if (lastOreIndex != oreIndex)
         {
             // 钳制到有效范围
             ClampOreIndex();
-            
+
             if (showDebugInfo)
                 Debug.Log($"<color=cyan>[StoneController] 含量指数变化: {lastOreIndex} → {oreIndex}</color>");
-            
+
             lastOreIndex = oreIndex;
             changed = true;
         }
-        
+
         // 参数变化时更新 Sprite
         if (changed)
         {
@@ -370,12 +397,12 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         }
     }
     #endregion
-    
+
     #region IResourceNode 接口实现
     public string ResourceTag => "Rock";
-    
+
     public bool IsDepleted => isDepleted;
-    
+
     /// <summary>
     /// 检查是否接受此工具类型（只有镐子能有效挖掘）
     /// </summary>
@@ -385,25 +412,25 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         Debug.Log($"<color=cyan>  - isDepleted: {isDepleted}</color>");
         Debug.Log($"<color=cyan>  - ctx.toolType: {ctx.toolType}</color>");
         Debug.Log($"<color=cyan>  - 期望类型: {ToolType.Pickaxe}</color>");
-        
+
         if (isDepleted)
         {
             Debug.Log($"<color=yellow>[StoneController] 已耗尽，拒绝接受</color>");
             return false;
         }
-        
+
         bool canAccept = ctx.toolType == ToolType.Pickaxe;
         Debug.Log($"<color=cyan>[StoneController] CanAccept 结果: {canAccept}</color>");
         return canAccept;
     }
-    
+
     /// <summary>
     /// 处理命中效果
     /// </summary>
     public void OnHit(ToolHitContext ctx)
     {
         if (isDepleted) return;
-        
+
         // 只有镐子能有效挖掘
         if (ctx.toolType != ToolType.Pickaxe)
         {
@@ -412,14 +439,14 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 Debug.Log($"<color=gray>[StoneController] {gameObject.name} 被非镐子工具击中（工具类型={ctx.toolType}），只抖动</color>");
             return;
         }
-        
+
         // 获取镐子材料等级
         int pickaxeTier = GetPickaxeTier(ctx);
         lastHitPickaxeTier = pickaxeTier;
-        
+
         // 检查是否能获取矿物
         lastHitCanGetOre = MaterialTierHelper.CanMineOre(pickaxeTier, oreType);
-        
+
         // ★★★ 详细调试输出 ★★★
         Debug.Log($"<color=cyan>[StoneController] ═══════════════════════════════════</color>");
         Debug.Log($"<color=cyan>[StoneController] 挖掘命中: {gameObject.name}</color>");
@@ -433,7 +460,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         Debug.Log($"<color=cyan>  - 所需等级: {MaterialTierHelper.GetRequiredPickaxeTier(oreType)} ({MaterialTierHelper.GetTierName(MaterialTierHelper.GetRequiredPickaxeTier(oreType))})</color>");
         Debug.Log($"<color=cyan>  - 能否获取矿物: {lastHitCanGetOre} (pickaxeTier={pickaxeTier} >= required={MaterialTierHelper.GetRequiredPickaxeTier(oreType)})</color>");
         Debug.Log($"<color=cyan>[StoneController] ═══════════════════════════════════</color>");
-        
+
         ToolData toolData = ResolveToolData(ctx);
         float energyCost = toolData != null ? toolData.energyCost : 0f;
         if (!CommitToolUse(ctx, toolData, $"{gameObject.name}/MineHit"))
@@ -442,19 +469,19 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             Debug.Log($"<color=yellow>[StoneController] {gameObject.name} 精力不足，无法挖掘</color>");
             return;
         }
-        
+
         // 计算伤害
         int damage = Mathf.Max(1, Mathf.RoundToInt(ctx.baseDamage));
-        
+
         // 播放挖掘音效
         PlayMineHitSound();
-        
+
         // 扣血
         TakeDamage(damage);
-        
+
         Debug.Log($"<color=yellow>[StoneController] {gameObject.name} 受到 {damage} 点伤害，剩余血量 {currentHealth}</color>");
     }
-    
+
     public Bounds GetBounds()
     {
         if (spriteRenderer != null && spriteRenderer.sprite != null)
@@ -463,7 +490,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         }
         return new Bounds(GetPosition(), Vector3.one * 0.5f);
     }
-    
+
     /// <summary>
     /// 获取碰撞体边界（用于精确命中检测）
     /// 返回 Collider bounds，无 Collider 时回退到 Sprite bounds
@@ -476,7 +503,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             return collider.bounds;
         }
-        
+
         // 检查父物体的 CompositeCollider2D
         if (transform.parent != null)
         {
@@ -486,17 +513,17 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 return compositeCollider.bounds;
             }
         }
-        
+
         // 回退到 Sprite bounds
         return GetBounds();
     }
-    
+
     public Vector3 GetPosition()
     {
         return transform.parent != null ? transform.parent.position : transform.position;
     }
     #endregion
-    
+
     #region 伤害系统
     /// <summary>
     /// 处理伤害（含溢出）
@@ -504,7 +531,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     public void TakeDamage(int damage)
     {
         currentHealth -= damage;
-        
+
         if (currentHealth <= 0)
         {
             int overflow = -currentHealth;
@@ -515,7 +542,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             PlayShakeEffect();
         }
     }
-    
+
     /// <summary>
     /// 处理阶段转换（含溢出伤害）
     /// </summary>
@@ -528,7 +555,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             DestroyStone();
             return;
         }
-        
+
         Debug.Log($"<color=orange>[StoneController] ═══════════════════════════════════</color>");
         Debug.Log($"<color=orange>[StoneController] 阶段转换开始: {gameObject.name}</color>");
         Debug.Log($"<color=orange>  - 当前阶段: {currentStage}</color>");
@@ -536,7 +563,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         Debug.Log($"<color=orange>  - 溢出伤害: {overflowDamage}</color>");
         Debug.Log($"<color=orange>  - lastHitCanGetOre: {lastHitCanGetOre}</color>");
         Debug.Log($"<color=orange>  - lastHitPickaxeTier: {lastHitPickaxeTier}</color>");
-        
+
         // 最终阶段：直接销毁
         if (config.isFinalStage)
         {
@@ -546,29 +573,29 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             DestroyStone();
             return;
         }
-        
+
         // 计算新的含量指数
-        int newOreIndex = config.decreaseOreIndexOnTransition 
-            ? Mathf.Max(0, oreIndex - 1) 
+        int newOreIndex = config.decreaseOreIndexOnTransition
+            ? Mathf.Max(0, oreIndex - 1)
             : oreIndex;
-        
+
         Debug.Log($"<color=orange>[StoneController] 阶段转换掉落计算:</color>");
         Debug.Log($"<color=orange>  - 当前含量指数: {oreIndex}</color>");
         Debug.Log($"<color=orange>  - 新含量指数: {newOreIndex}</color>");
         Debug.Log($"<color=orange>  - 下一阶段: {config.nextStage}</color>");
-        
+
         // 计算并掉落差值矿物（如果镐子等级足够）
         if (lastHitCanGetOre)
         {
             int oreDrop = StoneDropConfig.CalculateOreDropAmount(
-                currentStage, oreIndex, 
+                currentStage, oreIndex,
                 config.nextStage, newOreIndex
             );
-            
+
             Debug.Log($"<color=lime>[StoneController] 矿物掉落计算:</color>");
             Debug.Log($"<color=lime>  - 计算结果: {oreDrop} 个矿物</color>");
             Debug.Log($"<color=lime>  - 矿物类型: {oreType}</color>");
-            
+
             if (oreDrop > 0)
             {
                 SpawnOreDrops(oreDrop);
@@ -582,39 +609,39 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             Debug.Log($"<color=yellow>[StoneController] 镐子等级不足，无法获取矿物（只能获得石料）</color>");
         }
-        
+
         // 计算并掉落差值石料（所有镐子都能获得）
         int stoneDrop = StoneDropConfig.CalculateStoneDropAmount(currentStage, config.nextStage);
         Debug.Log($"<color=lime>[StoneController] 石料掉落计算: {stoneDrop} 个石料</color>");
-        
+
         if (stoneDrop > 0)
         {
             SpawnStoneDrops(stoneDrop);
         }
-        
+
         // 给予经验
         GrantExperience(false);
-        
+
         // 播放破碎音效
         PlayBreakSound();
-        
+
         // 播放阶段变化视觉效果（粒子 + 缩放动画）
         PlayStageChangeEffect();
-        
+
         // 转换到下一阶段
         StoneStage previousStage = currentStage;
         currentStage = config.nextStage;
         oreIndex = newOreIndex;
-        
+
         // 初始化新阶段血量
         InitializeHealth();
-        
+
         // 更新 Sprite（包含底部对齐和 Collider 同步）
         UpdateSprite();;
-        
+
         Debug.Log($"<color=orange>[StoneController] 阶段转换完成: {previousStage} → {currentStage}，新含量指数 {oreIndex}</color>");
         Debug.Log($"<color=orange>[StoneController] ═══════════════════════════════════</color>");
-        
+
         // 应用溢出伤害
         if (overflowDamage > 0)
         {
@@ -623,7 +650,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         }
     }
     #endregion
-    
+
     #region 掉落系统
     /// <summary>
     /// 生成矿物掉落
@@ -632,13 +659,13 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     private void SpawnOreDrops(int amount)
     {
         Debug.Log($"<color=lime>[StoneController] SpawnOreDrops 被调用，数量: {amount}</color>");
-        
+
         if (amount <= 0)
         {
             Debug.Log($"<color=yellow>[StoneController] 矿物数量 <= 0，跳过生成</color>");
             return;
         }
-        
+
         ItemData oreItem = GetOreItem();
         if (oreItem == null)
         {
@@ -649,15 +676,15 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             Debug.Log($"<color=red>  - goldOreItem: {(goldOreItem != null ? goldOreItem.itemName : "NULL")}</color>");
             return;
         }
-        
+
         Vector3 dropOrigin = GetPosition();
-        
+
         Debug.Log($"<color=lime>[StoneController] 准备生成矿物掉落:</color>");
         Debug.Log($"<color=lime>  - 物品: {oreItem.itemName} (ID={oreItem.itemID})</color>");
         Debug.Log($"<color=lime>  - 数量: {amount}</color>");
         Debug.Log($"<color=lime>  - 位置: {dropOrigin}</color>");
         Debug.Log($"<color=lime>  - WorldSpawnService: {(WorldSpawnService.Instance != null ? "存在" : "NULL")}</color>");
-        
+
         if (WorldSpawnService.Instance != null)
         {
             var pickups = WorldSpawnService.Instance.SpawnMultiple(
@@ -667,7 +694,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 dropOrigin,
                 dropSpreadRadius
             );
-            
+
             // 🔥 P2 任务 6：设置掉落物的来源 GUID
             if (pickups != null)
             {
@@ -679,7 +706,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                     }
                 }
             }
-            
+
             Debug.Log($"<color=lime>[StoneController] ✓ 矿物掉落已生成: {amount} 个 {oreItem.itemName}</color>");
         }
         else
@@ -687,7 +714,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             Debug.Log($"<color=red>[StoneController] ★★★ 错误：WorldSpawnService.Instance 为空！★★★</color>");
         }
     }
-    
+
     /// <summary>
     /// 生成石料掉落
     /// 🔥 P2 任务 6：设置掉落物的来源 GUID
@@ -695,27 +722,27 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     private void SpawnStoneDrops(int amount)
     {
         Debug.Log($"<color=lime>[StoneController] SpawnStoneDrops 被调用，数量: {amount}</color>");
-        
+
         if (amount <= 0)
         {
             Debug.Log($"<color=yellow>[StoneController] 石料数量 <= 0，跳过生成</color>");
             return;
         }
-        
+
         if (stoneItem == null)
         {
             Debug.Log($"<color=red>[StoneController] ★★★ 错误：stoneItem 为空！请在 Inspector 中配置石料掉落物品 ★★★</color>");
             return;
         }
-        
+
         Vector3 dropOrigin = GetPosition();
-        
+
         Debug.Log($"<color=lime>[StoneController] 准备生成石料掉落:</color>");
         Debug.Log($"<color=lime>  - 物品: {stoneItem.itemName} (ID={stoneItem.itemID})</color>");
         Debug.Log($"<color=lime>  - 数量: {amount}</color>");
         Debug.Log($"<color=lime>  - 位置: {dropOrigin}</color>");
         Debug.Log($"<color=lime>  - WorldSpawnService: {(WorldSpawnService.Instance != null ? "存在" : "NULL")}</color>");
-        
+
         if (WorldSpawnService.Instance != null)
         {
             var pickups = WorldSpawnService.Instance.SpawnMultiple(
@@ -725,7 +752,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 dropOrigin,
                 dropSpreadRadius
             );
-            
+
             // 🔥 P2 任务 6：设置掉落物的来源 GUID
             if (pickups != null)
             {
@@ -737,7 +764,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                     }
                 }
             }
-            
+
             Debug.Log($"<color=lime>[StoneController] ✓ 石料掉落已生成: {amount} 个 {stoneItem.itemName}</color>");
         }
         else
@@ -745,7 +772,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             Debug.Log($"<color=red>[StoneController] ★★★ 错误：WorldSpawnService.Instance 为空！★★★</color>");
         }
     }
-    
+
     /// <summary>
     /// 生成最终阶段掉落（全部掉落）
     /// </summary>
@@ -757,13 +784,13 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         Debug.Log($"<color=magenta>  - 矿物类型: {oreType}</color>");
         Debug.Log($"<color=magenta>  - 含量指数: {oreIndex}</color>");
         Debug.Log($"<color=magenta>  - lastHitCanGetOre: {lastHitCanGetOre}</color>");
-        
+
         // 掉落矿物（如果镐子等级足够）
         if (lastHitCanGetOre)
         {
             int oreDrop = StoneDropConfig.CalculateFinalOreDropAmount(currentStage, oreIndex);
             Debug.Log($"<color=magenta>[StoneController] 最终矿物掉落计算: {oreDrop} 个</color>");
-            
+
             if (oreDrop > 0)
             {
                 SpawnOreDrops(oreDrop);
@@ -777,22 +804,22 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             Debug.Log($"<color=yellow>[StoneController] 镐子等级不足，最终阶段也无法获取矿物</color>");
         }
-        
+
         // 掉落石料（所有镐子都能获得）
         int stoneDrop = StoneDropConfig.CalculateFinalStoneDropAmount(currentStage);
         Debug.Log($"<color=magenta>[StoneController] 最终石料掉落计算: {stoneDrop} 个</color>");
-        
+
         if (stoneDrop > 0)
         {
             SpawnStoneDrops(stoneDrop);
         }
-        
+
         // 播放破碎音效
         PlayBreakSound();
-        
+
         Debug.Log($"<color=magenta>[StoneController] ═══════════════════════════════════</color>");
     }
-    
+
     /// <summary>
     /// 获取对应矿物类型的掉落物品
     /// </summary>
@@ -807,7 +834,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         };
     }
     #endregion
-    
+
     #region 经验系统
     /// <summary>
     /// 给予采集经验
@@ -817,7 +844,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         int oreCount = 0;
         int stoneCount = 0;
-        
+
         if (isFinal)
         {
             // 最终阶段：计算全部掉落
@@ -833,27 +860,27 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             var config = CurrentStageConfig;
             if (config != null)
             {
-                int newOreIndex = config.decreaseOreIndexOnTransition 
-                    ? Mathf.Max(0, oreIndex - 1) 
+                int newOreIndex = config.decreaseOreIndexOnTransition
+                    ? Mathf.Max(0, oreIndex - 1)
                     : oreIndex;
-                
+
                 if (lastHitCanGetOre)
                 {
                     oreCount = StoneDropConfig.CalculateOreDropAmount(
-                        currentStage, oreIndex, 
+                        currentStage, oreIndex,
                         config.nextStage, newOreIndex
                     );
                 }
                 stoneCount = StoneDropConfig.CalculateStoneDropAmount(currentStage, config.nextStage);
             }
         }
-        
+
         int totalXP = StoneDropConfig.CalculateExperience(oreCount, stoneCount);
-        
+
         if (totalXP > 0 && SkillLevelService.Instance != null)
         {
             SkillLevelService.Instance.AddExperience(SkillType.Gathering, totalXP);
-            
+
             if (showDebugInfo)
             {
                 Debug.Log($"<color=lime>[StoneController] {gameObject.name} 获得 {totalXP} 点采集经验（矿物{oreCount}×2 + 石料{stoneCount}×1）</color>");
@@ -861,7 +888,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         }
     }
     #endregion
-    
+
     #region 工具辅助方法
     /// <summary>
     /// 获取镐子材料等级
@@ -894,7 +921,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             Debug.Log($"<color=yellow>[StoneController] ctx.attacker 为空</color>");
         }
-        
+
         Debug.Log($"<color=yellow>[StoneController] 无法获取镐子等级，使用默认值 0 (木质)</color>");
         return 0; // 默认木质
     }
@@ -926,14 +953,14 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
 
         return ToolRuntimeUtility.TryConsumeHeldToolUse(null, null, null, toolData, context);
     }
-    
+
     /// <summary>
     /// 获取精力消耗
     /// </summary>
     private float GetEnergyCost(ToolHitContext ctx)
     {
         float energyCost = 2f; // 默认
-        
+
         if (ctx.attacker != null)
         {
             var toolController = ctx.attacker.GetComponent<PlayerToolController>();
@@ -946,10 +973,10 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 }
             }
         }
-        
+
         return energyCost;
     }
-    
+
     /// <summary>
     /// 尝试消耗精力
     /// </summary>
@@ -962,7 +989,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         return true; // 如果没有精力系统，默认允许
     }
     #endregion
-    
+
     #region Sprite系统
     /// <summary>
     /// 更新Sprite显示（包含底部对齐和Collider同步）
@@ -970,32 +997,25 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     public void UpdateSprite()
     {
         if (spriteRenderer == null) return;
-        
+
         string spriteName = GetSpriteName();
         Sprite sprite = null;
-        
+
 #if UNITY_EDITOR
         // 编辑器模式：使用 AssetDatabase 加载
         sprite = LoadSpriteInEditor(spriteName);
 #else
-        // 运行时：尝试从 Resources 加载
-        string fullPath = spritePathPrefix + spriteName;
-        sprite = Resources.Load<Sprite>(fullPath);
-        
-        // 如果找不到，尝试加载带 _0 后缀的版本
-        if (sprite == null)
-        {
-            sprite = Resources.Load<Sprite>(fullPath + "_0");
-        }
+        // 运行时优先走预烘焙的 Sprite 真源，Resources 仅作最后兜底。
+        sprite = LoadSpriteAtRuntime(spriteName);
 #endif
-        
+
         if (sprite != null)
         {
             spriteRenderer.sprite = sprite;
-            
+
             // 对齐 Sprite 底部中心到父物体位置
             AlignSpriteBottomCenter();
-            
+
             // 同步 Collider
             SyncColliderFromSprite();
         }
@@ -1004,7 +1024,74 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             Debug.LogWarning($"[StoneController] 找不到Sprite: {spriteName}");
         }
     }
-    
+
+    private Sprite LoadSpriteAtRuntime(string spriteName)
+    {
+        if (string.IsNullOrEmpty(spriteName))
+        {
+            return null;
+        }
+
+        if (TryGetRuntimeSprite(spriteName, out Sprite cachedSprite))
+        {
+            return cachedSprite;
+        }
+
+        string fullPath = spritePathPrefix + spriteName;
+        Sprite sprite = Resources.Load<Sprite>(fullPath);
+        if (sprite == null)
+        {
+            sprite = Resources.Load<Sprite>(fullPath + "_0");
+        }
+
+        return sprite;
+    }
+
+    private bool TryGetRuntimeSprite(string spriteName, out Sprite sprite)
+    {
+        sprite = null;
+
+        if (runtimeSpriteLookup == null)
+        {
+            runtimeSpriteLookup = new Dictionary<string, Sprite>(System.StringComparer.Ordinal);
+
+            if (runtimeSpriteReferences != null)
+            {
+                for (int i = 0; i < runtimeSpriteReferences.Length; i++)
+                {
+                    RuntimeSpriteReference entry = runtimeSpriteReferences[i];
+                    if (entry.sprite == null || string.IsNullOrEmpty(entry.key))
+                    {
+                        continue;
+                    }
+
+                    if (!runtimeSpriteLookup.ContainsKey(entry.key))
+                    {
+                        runtimeSpriteLookup.Add(entry.key, entry.sprite);
+                    }
+                }
+            }
+        }
+
+        return runtimeSpriteLookup.TryGetValue(NormalizeSpriteLookupKey(spriteName), out sprite);
+    }
+
+    private static string NormalizeSpriteLookupKey(string name)
+    {
+        if (string.IsNullOrEmpty(name))
+        {
+            return name;
+        }
+
+        string[] parts = name.Split('_');
+        if (parts.Length == 5 && parts[0] == "Stone")
+        {
+            return $"{parts[0]}_{parts[1]}_{parts[2]}_{parts[3]}";
+        }
+
+        return name;
+    }
+
     /// <summary>
     /// 对齐 Sprite 底部中心到父物体位置
     /// 确保所有阶段的石头底部中心都在同一位置
@@ -1012,25 +1099,25 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     private void AlignSpriteBottomCenter()
     {
         if (spriteRenderer == null || spriteRenderer.sprite == null) return;
-        
+
         // 获取 Sprite 的 bounds（本地坐标）
         Bounds spriteBounds = spriteRenderer.sprite.bounds;
-        
+
         // 计算底部中心的偏移量
         // Sprite 的 pivot 决定了 bounds.center 相对于 transform.position 的位置
         // 我们需要让 Sprite 的底部中心与父物体位置对齐
         float bottomY = spriteBounds.min.y;
         float centerX = spriteBounds.center.x;
-        
+
         // 设置本地位置，使底部中心对齐到 (0, 0)
         spriteRenderer.transform.localPosition = new Vector3(-centerX, -bottomY, 0);
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"<color=cyan>[StoneController] Sprite 底部对齐: localPos = {spriteRenderer.transform.localPosition}</color>");
         }
     }
-    
+
     /// <summary>
     /// 从 Sprite 的 Custom Physics Shape 同步 PolygonCollider2D
     /// 注意：PolygonCollider2D 和 SpriteRenderer 在同一个物体上
@@ -1040,57 +1127,57 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     private void SyncColliderFromSprite()
     {
         if (spriteRenderer == null || spriteRenderer.sprite == null) return;
-        
+
         // 自动查找 PolygonCollider2D - 应该在 SpriteRenderer 同一个物体上
         if (polygonCollider == null)
         {
             polygonCollider = spriteRenderer.GetComponent<PolygonCollider2D>();
         }
-        
+
         // 如果 SpriteRenderer 物体上没有，尝试在当前物体上找
         if (polygonCollider == null)
         {
             polygonCollider = GetComponent<PolygonCollider2D>();
         }
-        
+
         if (polygonCollider == null)
         {
             if (showDebugInfo)
                 Debug.LogWarning($"[StoneController] 没有找到 PolygonCollider2D，跳过 Collider 同步");
             return;
         }
-        
+
         Sprite sprite = spriteRenderer.sprite;
         int shapeCount = sprite.GetPhysicsShapeCount();
-        
+
         if (shapeCount == 0)
         {
             if (showDebugInfo)
                 Debug.LogWarning($"[StoneController] Sprite {sprite.name} 没有 Custom Physics Shape");
             return;
         }
-        
+
         // 设置路径数量
         polygonCollider.pathCount = shapeCount;
-        
+
         // 复制每个路径（不需要偏移，因为 Collider 和 SpriteRenderer 在同一个物体上）
         List<Vector2> path = new List<Vector2>();
-        
+
         for (int i = 0; i < shapeCount; i++)
         {
             path.Clear();
             sprite.GetPhysicsShape(i, path);
             polygonCollider.SetPath(i, path);
         }
-        
+
         // 重置 offset
         polygonCollider.offset = Vector2.zero;
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"<color=cyan>[StoneController] Collider 已同步: {shapeCount} 个路径</color>");
         }
-        
+
         // 如果有 CompositeCollider2D，触发重新生成
         if (transform.parent != null)
         {
@@ -1101,7 +1188,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             }
         }
     }
-    
+
 #if UNITY_EDITOR
     /// <summary>
     /// 编辑器中加载 Sprite（使用 AssetDatabase）
@@ -1109,17 +1196,17 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     private Sprite LoadSpriteInEditor(string spriteName)
     {
         if (spriteFolder == null) return null;
-        
+
         string folderPath = UnityEditor.AssetDatabase.GetAssetPath(spriteFolder);
         if (string.IsNullOrEmpty(folderPath)) return null;
-        
+
         // 搜索匹配的 Sprite
         string[] guids = UnityEditor.AssetDatabase.FindAssets($"t:Sprite {spriteName}", new[] { folderPath });
-        
+
         foreach (string guid in guids)
         {
             string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guid);
-            
+
             // 尝试加载子资源（Multiple Sprite 模式）
             UnityEngine.Object[] subAssets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(assetPath);
             foreach (var subAsset in subAssets)
@@ -1135,7 +1222,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 }
             }
         }
-        
+
         // 如果精确搜索失败，尝试遍历所有 Sprite
         guids = UnityEditor.AssetDatabase.FindAssets("t:Sprite", new[] { folderPath });
         foreach (string guid in guids)
@@ -1154,29 +1241,29 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 }
             }
         }
-        
+
         return null;
     }
-    
+
     /// <summary>
     /// 获取规范化的 Sprite 名称（去掉 Unity 切片后缀）
     /// </summary>
     private string GetNormalizedSpriteName(string name)
     {
         if (string.IsNullOrEmpty(name)) return name;
-        
+
         string[] parts = name.Split('_');
-        
+
         // 如果是 5 个部分且第一个是 Stone，去掉最后一个（切片后缀）
         if (parts.Length == 5 && parts[0] == "Stone")
         {
             return $"{parts[0]}_{parts[1]}_{parts[2]}_{parts[3]}";
         }
-        
+
         return name;
     }
 #endif
-    
+
     /// <summary>
     /// 获取当前状态的Sprite名称
     /// 格式：Stone_{OreType}_{Stage}_{OreIndex}
@@ -1187,7 +1274,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         string stageStr = currentStage.ToString();
         return $"Stone_{oreTypeStr}_{stageStr}_{oreIndex}";
     }
-    
+
     /// <summary>
     /// 从Sprite名称解析状态
     /// </summary>
@@ -1196,13 +1283,13 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         oreType = OreType.None;
         stage = StoneStage.M1;
         oreIndex = 0;
-        
+
         if (string.IsNullOrEmpty(spriteName)) return false;
-        
+
         // 格式：Stone_{OreType}_{Stage}_{OreIndex}
         string[] parts = spriteName.Split('_');
         if (parts.Length < 4 || parts[0] != "Stone") return false;
-        
+
         // 解析矿物类型
         string oreStr = parts[1];
         if (oreStr == "C0" || oreStr == "None")
@@ -1211,19 +1298,31 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             oreType = parsedOre;
         else
             return false;
-        
+
         // 解析阶段
         if (!System.Enum.TryParse(parts[2], out stage))
             return false;
-        
+
         // 解析含量指数
         if (!int.TryParse(parts[3], out oreIndex))
             return false;
-        
+
         return true;
     }
+
+    public void OnBeforeSerialize()
+    {
+#if UNITY_EDITOR
+        SyncRuntimeSpriteReferencesForBuild();
+#endif
+    }
+
+    public void OnAfterDeserialize()
+    {
+        runtimeSpriteLookup = null;
+    }
     #endregion
-    
+
     #region 音效系统
     private void PlayMineHitSound()
     {
@@ -1232,7 +1331,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             AudioSource.PlayClipAtPoint(mineHitSound, GetPosition(), soundVolume);
         }
     }
-    
+
     private void PlayBreakSound()
     {
         if (breakSound != null)
@@ -1240,7 +1339,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             AudioSource.PlayClipAtPoint(breakSound, GetPosition(), soundVolume);
         }
     }
-    
+
     private void PlayTierInsufficientSound()
     {
         if (tierInsufficientSound != null)
@@ -1249,7 +1348,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         }
     }
     #endregion
-    
+
     #region 视觉效果
     /// <summary>
     /// 播放抖动效果
@@ -1258,7 +1357,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         StartCoroutine(ShakeCoroutine());
     }
-    
+
     /// <summary>
     /// 播放阶段变化效果（缩放动画 + 粒子）
     /// </summary>
@@ -1266,21 +1365,21 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         // 播放粒子效果
         SpawnDebrisParticles();
-        
+
         // 播放缩放动画
         if (playScaleAnimation)
         {
             StartCoroutine(StageChangeScaleCoroutine());
         }
     }
-    
+
     /// <summary>
     /// 生成石块碎片粒子
     /// </summary>
     private void SpawnDebrisParticles()
     {
         Vector3 spawnPos = GetPosition();
-        
+
         // 如果有预制体，使用预制体
         if (stageChangeParticlePrefab != null)
         {
@@ -1288,11 +1387,11 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             Destroy(particle, 2f);
             return;
         }
-        
+
         // 否则使用简单的碎片效果
         StartCoroutine(SimpleDebrisCoroutine(spawnPos));
     }
-    
+
     /// <summary>
     /// 简单的碎片效果（不依赖预制体）
     /// </summary>
@@ -1301,7 +1400,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         // 创建临时的碎片精灵
         int debrisCount = Random.Range(4, 8);
         List<GameObject> debris = new List<GameObject>();
-        
+
         for (int i = 0; i < debrisCount; i++)
         {
             var debrisObj = new GameObject($"StoneDebris_{i}");
@@ -1310,20 +1409,20 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                 Random.Range(0f, 0.5f),
                 0
             );
-            
+
             var sr = debrisObj.AddComponent<SpriteRenderer>();
             sr.sprite = CreateDebrisSprite();
             sr.color = debrisColor;
             sr.sortingLayerName = spriteRenderer != null ? spriteRenderer.sortingLayerName : "Default";
             sr.sortingOrder = spriteRenderer != null ? spriteRenderer.sortingOrder + 1 : 0;
-            
+
             debris.Add(debrisObj);
         }
-        
+
         // 动画：碎片飞散
         float duration = 0.5f;
         float elapsed = 0f;
-        
+
         Vector3[] velocities = new Vector3[debrisCount];
         for (int i = 0; i < debrisCount; i++)
         {
@@ -1331,12 +1430,12 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             float speed = Random.Range(1.5f, 3f);
             velocities[i] = new Vector3(Mathf.Cos(angle) * speed * (Random.value > 0.5f ? 1 : -1), Mathf.Sin(angle) * speed, 0);
         }
-        
+
         while (elapsed < duration)
         {
             float t = elapsed / duration;
             float gravity = 5f;
-            
+
             for (int i = 0; i < debris.Count; i++)
             {
                 if (debris[i] != null)
@@ -1344,7 +1443,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                     // 应用速度和重力
                     velocities[i].y -= gravity * Time.deltaTime;
                     debris[i].transform.position += velocities[i] * Time.deltaTime;
-                    
+
                     // 淡出
                     var sr = debris[i].GetComponent<SpriteRenderer>();
                     if (sr != null)
@@ -1353,23 +1452,23 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
                         c.a = 1f - t;
                         sr.color = c;
                     }
-                    
+
                     // 缩小
                     debris[i].transform.localScale = Vector3.one * (1f - t * 0.5f) * 0.3f;
                 }
             }
-            
+
             elapsed += Time.deltaTime;
             yield return null;
         }
-        
+
         // 清理
         foreach (var d in debris)
         {
             if (d != null) Destroy(d);
         }
     }
-    
+
     /// <summary>
     /// 创建简单的碎片 Sprite（1x1 白色像素）
     /// </summary>
@@ -1382,21 +1481,21 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         tex.Apply();
         return Sprite.Create(tex, new Rect(0, 0, 4, 4), new Vector2(0.5f, 0.5f), 16);
     }
-    
+
     /// <summary>
     /// 阶段变化时的缩放动画
     /// </summary>
     private System.Collections.IEnumerator StageChangeScaleCoroutine()
     {
         if (spriteRenderer == null) yield break;
-        
+
         Transform target = spriteRenderer.transform;
         Vector3 originalScale = target.localScale;
-        
+
         // 先缩小
         float shrinkDuration = 0.1f;
         float elapsed = 0f;
-        
+
         while (elapsed < shrinkDuration)
         {
             float t = elapsed / shrinkDuration;
@@ -1404,15 +1503,15 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             elapsed += Time.deltaTime;
             yield return null;
         }
-        
+
         // 等待 Sprite 更新（在调用处已经更新了）
         yield return null;
-        
+
         // 弹回
         float bounceDuration = 0.15f;
         elapsed = 0f;
         Vector3 newScale = target.localScale;
-        
+
         while (elapsed < bounceDuration)
         {
             float t = elapsed / bounceDuration;
@@ -1422,19 +1521,19 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             elapsed += Time.deltaTime;
             yield return null;
         }
-        
+
         target.localScale = originalScale;
     }
-    
+
     private System.Collections.IEnumerator ShakeCoroutine()
     {
         if (spriteRenderer == null) yield break;
-        
+
         Vector3 originalPos = spriteRenderer.transform.localPosition;
         float shakeDuration = 0.15f;
         float shakeAmount = 0.05f;
         float elapsed = 0f;
-        
+
         while (elapsed < shakeDuration)
         {
             float progress = elapsed / shakeDuration;
@@ -1444,11 +1543,11 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             elapsed += Time.deltaTime;
             yield return null;
         }
-        
+
         spriteRenderer.transform.localPosition = originalPos;
     }
     #endregion
-    
+
     #region 销毁
     /// <summary>
     /// 销毁石头（假死机制）
@@ -1458,16 +1557,16 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     private void DestroyStone()
     {
         isDepleted = true;
-        
+
         // 🔥 只从 ResourceNodeRegistry 注销（假死的石头不应该被攻击）
         if (ResourceNodeRegistry.Instance != null)
         {
             ResourceNodeRegistry.Instance.Unregister(gameObject.GetInstanceID());
         }
-        
+
         // 🔥 不从 PersistentObjectRegistry 注销！
         // 这样反向修剪才能正确工作（存档中有的石头会被恢复）
-        
+
         // 🔥 假死：禁用而非销毁
         // 这样对象引用保留在 _registry 中，反向修剪可以找到它
         if (transform.parent != null)
@@ -1478,12 +1577,12 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         {
             gameObject.SetActive(false);
         }
-        
+
         if (showDebugInfo)
             Debug.Log($"<color=orange>[StoneController] {gameObject.name} 被完全挖掘（假死）</color>");
     }
     #endregion
-    
+
     #region 公共接口
     public StoneStage GetCurrentStage() => currentStage;
     public OreType GetOreType() => oreType;
@@ -1491,7 +1590,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     public int GetCurrentHealth() => currentHealth;
     public UnityEngine.Object GetSpriteFolder() => spriteFolder;
     public string GetSpritePathPrefix() => spritePathPrefix;
-    
+
     /// <summary>
     /// 设置 Sprite 路径前缀（由编辑器调用）
     /// </summary>
@@ -1499,7 +1598,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         spritePathPrefix = prefix;
     }
-    
+
     /// <summary>
     /// 设置阶段（用于调试或初始化）
     /// </summary>
@@ -1507,23 +1606,202 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     {
         currentStage = stage;
         oreType = type;
-        
+
         // 使用阶段特定的最大值钳制
         int maxIndex = GetMaxOreIndex(stage);
         oreIndex = Mathf.Clamp(index, 0, maxIndex);
-        
+
         // 更新运行时调试状态
         lastStage = currentStage;
         lastOreType = oreType;
         lastOreIndex = oreIndex;
-        
+
         InitializeHealth();
         UpdateSprite();
     }
+
+    public void ApplyBatchEditorState(
+        bool applyStage,
+        StoneStage newStage,
+        bool applyOreType,
+        OreType newOreType,
+        bool applyOreIndex,
+        int newOreIndex,
+        bool applyHealth,
+        int newHealth)
+    {
+        StoneStage previousStage = currentStage;
+        int previousOreIndex = oreIndex;
+
+        bool stageChanged = false;
+        bool oreTypeChanged = false;
+        bool oreIndexChanged = false;
+
+        if (applyStage && currentStage != newStage)
+        {
+            currentStage = newStage;
+            stageChanged = true;
+        }
+
+        if (applyOreType && oreType != newOreType)
+        {
+            oreType = newOreType;
+            oreTypeChanged = true;
+        }
+
+        if (applyOreIndex)
+        {
+            int maxIndex = GetMaxOreIndex(currentStage);
+            int clampedIndex = Mathf.Clamp(newOreIndex, 0, maxIndex);
+            if (oreIndex != clampedIndex)
+            {
+                oreIndex = clampedIndex;
+                oreIndexChanged = true;
+            }
+        }
+        else if (stageChanged)
+        {
+            ClampOreIndex();
+            oreIndexChanged = oreIndex != previousOreIndex;
+        }
+
+        CachePreviewComponents();
+
+#if UNITY_EDITOR
+        if (oreTypeChanged)
+        {
+            TryAlignSpriteSourceToOreType();
+        }
+#endif
+
+        if (stageChanged || oreTypeChanged || oreIndexChanged)
+        {
+            InitializeHealth();
+        }
+
+        if (applyHealth)
+        {
+            currentHealth = Mathf.Max(1, newHealth);
+        }
+
+        lastStage = currentStage;
+        lastOreType = oreType;
+        lastOreIndex = oreIndex;
+
+        if (showDebugInfo && (stageChanged || oreTypeChanged || oreIndexChanged || applyHealth))
+        {
+            Debug.Log(
+                $"[StoneController] 批量状态应用: stage {previousStage}->{currentStage}, oreType={oreType}, oreIndex={previousOreIndex}->{oreIndex}, health={currentHealth}");
+        }
+
+        UpdateSprite();
+    }
     #endregion
-    
+
     #region 编辑器
     #if UNITY_EDITOR
+    private void TryAlignSpriteSourceToOreType()
+    {
+        string oreFolderName = GetOreFolderName(oreType);
+        if (string.IsNullOrEmpty(oreFolderName))
+        {
+            return;
+        }
+
+        string folderPath = $"Assets/Sprites/Props/Materials/Stone/{oreFolderName}";
+        UnityEngine.Object folderAsset = UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.Object>(folderPath);
+        if (folderAsset == null)
+        {
+            Debug.LogWarning($"[StoneController] 找不到矿种资源目录: {folderPath}");
+            return;
+        }
+
+        spriteFolder = folderAsset;
+        spritePathPrefix = folderPath.Replace("Assets/", "") + "/";
+    }
+
+    private static string GetOreFolderName(OreType type)
+    {
+        return type switch
+        {
+            OreType.C1 => "C1",
+            OreType.C2 => "C2",
+            OreType.C3 => "C3",
+            _ => null
+        };
+    }
+
+    private void SyncRuntimeSpriteReferencesForBuild()
+    {
+        string folderPath = ResolveRuntimeSpriteFolderPath();
+        if (string.IsNullOrEmpty(folderPath) || !UnityEditor.AssetDatabase.IsValidFolder(folderPath))
+        {
+            runtimeSpriteReferences = System.Array.Empty<RuntimeSpriteReference>();
+            runtimeSpriteLookup = null;
+            return;
+        }
+
+        var entries = new Dictionary<string, Sprite>(System.StringComparer.Ordinal);
+        string[] guids = UnityEditor.AssetDatabase.FindAssets("t:Texture2D", new[] { folderPath });
+
+        for (int guidIndex = 0; guidIndex < guids.Length; guidIndex++)
+        {
+            string assetPath = UnityEditor.AssetDatabase.GUIDToAssetPath(guids[guidIndex]);
+            UnityEngine.Object[] subAssets = UnityEditor.AssetDatabase.LoadAllAssetsAtPath(assetPath);
+            for (int assetIndex = 0; assetIndex < subAssets.Length; assetIndex++)
+            {
+                if (subAssets[assetIndex] is not Sprite sprite)
+                {
+                    continue;
+                }
+
+                string key = NormalizeSpriteLookupKey(sprite.name);
+                if (!entries.ContainsKey(key))
+                {
+                    entries.Add(key, sprite);
+                }
+            }
+        }
+
+        runtimeSpriteReferences = new RuntimeSpriteReference[entries.Count];
+        int entryIndex = 0;
+        foreach (KeyValuePair<string, Sprite> entry in entries)
+        {
+            runtimeSpriteReferences[entryIndex++] = new RuntimeSpriteReference
+            {
+                key = entry.Key,
+                sprite = entry.Value
+            };
+        }
+
+        runtimeSpriteLookup = null;
+    }
+
+    private string ResolveRuntimeSpriteFolderPath()
+    {
+        if (spriteFolder != null)
+        {
+            string folderPath = UnityEditor.AssetDatabase.GetAssetPath(spriteFolder);
+            if (UnityEditor.AssetDatabase.IsValidFolder(folderPath))
+            {
+                return folderPath;
+            }
+        }
+
+        if (string.IsNullOrWhiteSpace(spritePathPrefix))
+        {
+            return null;
+        }
+
+        string normalizedPath = spritePathPrefix.Replace('\\', '/').TrimEnd('/');
+        if (!normalizedPath.StartsWith("Assets/", System.StringComparison.OrdinalIgnoreCase))
+        {
+            normalizedPath = "Assets/" + normalizedPath;
+        }
+
+        return UnityEditor.AssetDatabase.IsValidFolder(normalizedPath) ? normalizedPath : null;
+    }
+
     /// <summary>
     /// 编辑器中参数变化时更新预览
     /// </summary>
@@ -1532,13 +1810,20 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         // 钳制 OreIndex 到有效范围
         int maxIndex = GetMaxOreIndex(currentStage);
         oreIndex = Mathf.Clamp(oreIndex, 0, maxIndex);
-        
+
+        CachePreviewComponents();
+
+        if (currentHealth <= 0)
+        {
+            InitializeHealth();
+        }
+
         // 编辑模式下更新 Sprite 预览
         if (!Application.isPlaying && spriteRenderer != null)
         {
             UpdateSprite();
         }
-        
+
         // 🔥 编辑器模式下自动生成持久化 ID
         if (_preGenerateId && string.IsNullOrEmpty(_persistentId))
         {
@@ -1546,7 +1831,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             UnityEditor.EditorUtility.SetDirty(this);
         }
     }
-    
+
     /// <summary>
     /// 重新生成持久化 ID
     /// </summary>
@@ -1557,31 +1842,31 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         UnityEditor.EditorUtility.SetDirty(this);
         Debug.Log($"[StoneController] 已重新生成 ID: {_persistentId}");
     }
-    
+
     [ContextMenu("调试 - 设置为M1_C1_4（大铜矿）")]
     private void DEBUG_SetM1C1()
     {
         SetStage(StoneStage.M1, OreType.C1, 4);
     }
-    
+
     [ContextMenu("调试 - 设置为M1_C2_3（大铁矿）")]
     private void DEBUG_SetM1C2()
     {
         SetStage(StoneStage.M1, OreType.C2, 3);
     }
-    
+
     [ContextMenu("调试 - 设置为M1_C3_2（大金矿）")]
     private void DEBUG_SetM1C3()
     {
         SetStage(StoneStage.M1, OreType.C3, 2);
     }
-    
+
     [ContextMenu("调试 - 设置为M4（装饰石头）")]
     private void DEBUG_SetM4()
     {
         SetStage(StoneStage.M4, OreType.None, 0);
     }
-    
+
     [ContextMenu("调试 - 造成10点伤害")]
     private void DEBUG_TakeDamage10()
     {
@@ -1589,7 +1874,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
         lastHitPickaxeTier = 5;
         TakeDamage(10);
     }
-    
+
     [ContextMenu("调试 - 造成50点伤害（测试溢出）")]
     private void DEBUG_TakeDamage50()
     {
@@ -1599,9 +1884,9 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     }
     #endif
     #endregion
-    
+
     #region IPersistentObject 接口实现
-    
+
     /// <summary>
     /// 对象唯一标识符
     /// </summary>
@@ -1616,17 +1901,17 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             return _persistentId;
         }
     }
-    
+
     /// <summary>
     /// 对象类型标识
     /// </summary>
     public string ObjectType => "Stone";
-    
+
     /// <summary>
     /// 是否应该被保存
     /// </summary>
     public bool ShouldSave => gameObject.activeInHierarchy && !isDepleted;
-    
+
     /// <summary>
     /// 保存对象状态
     /// </summary>
@@ -1639,11 +1924,11 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             sceneName = gameObject.scene.name,
             isActive = gameObject.activeSelf
         };
-        
+
         // 保存位置（使用父物体位置，即石头根位置）
         Vector3 pos = transform.parent != null ? transform.parent.position : transform.position;
         data.SetPosition(pos);
-        
+
         // 保存石头特有数据
         var stoneData = new StoneSaveData
         {
@@ -1653,20 +1938,20 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             currentHealth = currentHealth
         };
         data.genericData = JsonUtility.ToJson(stoneData);
-        
+
         // 🔴 保存渲染层级参数（Sorting Layer + Order in Layer）
         var spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer != null)
         {
             data.SetSortingLayer(spriteRenderer);
         }
-        
+
         if (showDebugInfo)
             Debug.Log($"[StoneController] Save: GUID={PersistentId}, stage={currentStage}, health={currentHealth}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}");
-        
+
         return data;
     }
-    
+
     /// <summary>
     /// 加载对象状态
     /// 🔥 P0 修复：假死机制需要在 Load() 中恢复激活状态
@@ -1674,58 +1959,58 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
     public void Load(WorldObjectSaveData data)
     {
         if (data == null || string.IsNullOrEmpty(data.genericData)) return;
-        
+
         // 从 genericData 反序列化石头数据
         var stoneData = JsonUtility.FromJson<StoneSaveData>(data.genericData);
         if (stoneData == null) return;
-        
+
         // 恢复石头特有数据
         currentStage = (StoneStage)stoneData.stage;
         oreType = (OreType)stoneData.oreType;
         oreIndex = stoneData.oreIndex;
         currentHealth = stoneData.currentHealth;
-        
+
         // 更新运行时调试状态
         lastStage = currentStage;
         lastOreType = oreType;
         lastOreIndex = oreIndex;
-        
+
         // 🔥 新增：恢复激活状态（假死机制的关键补充）
         isDepleted = false;
-        
+
         // 激活对象（假死的石头需要被激活）
         if (transform.parent != null)
             transform.parent.gameObject.SetActive(true);
         else
             gameObject.SetActive(true);
-        
+
         // 重新注册到 ResourceNodeRegistry（恢复后应该可以被攻击）
         if (ResourceNodeRegistry.Instance != null)
         {
             ResourceNodeRegistry.Instance.Register(this, gameObject.GetInstanceID());
         }
-        
+
         // 立即刷新视觉
         UpdateSprite();
-        
+
         // 🔴 恢复渲染层级参数（Sorting Layer + Order in Layer）
         var spriteRenderer = GetComponent<SpriteRenderer>();
         if (spriteRenderer != null)
         {
             data.RestoreSortingLayer(spriteRenderer);
         }
-        
+
         if (showDebugInfo)
             Debug.Log($"[StoneController] Load: GUID={PersistentId}, stage={currentStage}, health={currentHealth}, sortingLayer={data.sortingLayerName}, sortingOrder={data.sortingOrder}, 已激活并注册");
     }
-    
+
     /// <summary>
     /// 注册到持久化对象注册表（带 ID 冲突自愈）
     /// </summary>
     private void RegisterToPersistentRegistry()
     {
         if (PersistentObjectRegistry.Instance == null) return;
-        
+
         // 尝试注册，如果 ID 冲突则重新生成
         if (!PersistentObjectRegistry.Instance.TryRegister(this))
         {
@@ -1736,7 +2021,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             PersistentObjectRegistry.Instance.Register(this);
         }
     }
-    
+
     /// <summary>
     /// 从持久化对象注册表注销
     /// </summary>
@@ -1747,7 +2032,7 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             PersistentObjectRegistry.Instance.Unregister(this);
         }
     }
-    
+
     /// <summary>
     /// 🔥 P1 任务 5.2：为存档加载设置 PersistentId（仅供 DynamicObjectFactory 调用）
     /// </summary>
@@ -1758,9 +2043,9 @@ public class StoneController : MonoBehaviour, IResourceNode, IPersistentObject
             Debug.LogWarning("[StoneController] SetPersistentIdForLoad: guid 为空");
             return;
         }
-        
+
         _persistentId = guid;
     }
-    
+
     #endregion
 }

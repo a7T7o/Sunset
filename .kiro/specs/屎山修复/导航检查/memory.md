@@ -1803,3 +1803,73 @@
   - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
   - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
   - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`
+
+## 2026-04-23 16:52｜shared-root 第二波只试 1 个历史小批次，首撞 own-root 扩根后已停车
+- 当前主线：
+  - 按 `2026-04-23_给导航检查_shared-root历史小批次上传prompt_02.md` 只还原 1 个历史小批次上传尝试；撞 blocker 就停车，不换第二批。
+- 本轮唯一尝试批次：
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs.meta`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
+- 这组是不是独立历史批次：
+  - `是，但不是今天临时拼的探测包。`
+  - 证据是 `2026-04-19` 历史记忆里已经存在“楼梯层级切换最小脚本”这一刀；当前这轮按治理位要求，只取其中最小 script/meta 子簇做一次真实上传尝试。
+- 真实上传尝试结果：
+  - `Ready-To-Sync` 失败。
+- 第一真实 blocker：
+  - 不是代码闸门，也不是 shared-root 大厅本身。
+  - 第一阻断点就是：这组白名单虽然只有 3 个文件，但 own root 仍被归到 `Assets/YYY_Scripts/Service/Navigation`，随后撞到同根 remaining dirty。
+- exact blocker files：
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`
+- 本轮明确没做的事：
+  - 没有去动第二组导航代码。
+  - 没有顺手吞：
+    - `NavigationStaticPointValidationMenu.cs`
+    - `NavigationAvoidanceRulesValidationMenu.cs`
+    - `NpcLocomotionSurfaceAttribute.cs`
+- thread-state：
+  - 已 `Begin-Slice`
+  - 已真实跑 `Ready-To-Sync`
+  - 已按 blocker `Park-Slice`
+  - 当前状态：`PARKED`
+- 当前恢复点：
+  - 这轮第二波单批次尝试已经结束；后续若继续，必须由治理位或下一轮 prompt 明确给出新的唯一小批，不能在这轮里自己换批次。
+
+## 2026-04-24 01:59｜shared-root 第三波改走 Service/Navigation 根内整合批，首 blocker 升级为 CodexCodeGuard 工具 incident
+- 当前主线：
+  - 按 `2026-04-23_给导航检查_ServiceNavigation同根整合上传prompt_03.md`，承认 `prompt_02` 已完成，不再重复撞楼梯三件套；本轮只做 `Service/Navigation` 根内整合批 1 次真实上传尝试。
+- 本轮唯一切片：
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/StairLayerTransitionZone2D.cs.meta`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationTraversalCore.cs.meta`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2D.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavGrid2DStressTest.cs`
+  - `Assets/YYY_Scripts/Service/Navigation/NavigationAgentRegistry.cs`
+- 这批现在是否能诚实视作 `Service/Navigation` 根内整合批：
+  - `是。`
+  - 原因：第二波已经把 `Service/Navigation` 父根扩根钉成首 blocker，而当前根内脏改正好就是这 6 个文件；把前一刀挡路的 `NavGrid2D / NavGrid2DStressTest / NavigationAgentRegistry` 正式并入后，这组才首次覆盖到当前整个根内导航残留面。
+- 真实上传尝试：
+  1. 已按规则执行：
+     - `Begin-Slice`
+     - `Ready-To-Sync`
+     - `Park-Slice`
+  2. 中途出现过一次外层命令 timeout，随后只做了同一切片的 stale lock 清理与继续，不是换第二刀。
+  3. 最终拿到的第一真实 blocker 已变化：
+     - 不再是 `same-root remaining dirty`
+     - 而是 `CodexCodeGuard` 在 `Ready-To-Sync` 阶段未返回 JSON
+- 新的第一真实 blocker：
+  - `CodexCodeGuard incident during Ready-To-Sync (no JSON result)`
+- 当前能站稳的负面结论：
+  - 这轮没有提交成功
+  - 没有新 commit
+  - 没有新 push
+  - 也没有在当前返回里出现新的 `Service/Navigation` 同根 remaining dirty 清单；工具 incident 在那之前先把流程打断了
+- 本轮明确没越权扩到：
+  - `Assets/Editor/NavigationStaticPointValidationMenu.cs`
+  - `Assets/Editor/NavigationAvoidanceRulesValidationMenu.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs`
+  - `Assets/YYY_Scripts/Controller/NPC/NpcLocomotionSurfaceAttribute.cs.meta`
+- 当前恢复点：
+  - 如果继续，这条线下一刀不该再重跑同一整合批，而应先把 `CodexCodeGuard` 工具 incident 单独查穿，再决定是否重试当前根内整合批。

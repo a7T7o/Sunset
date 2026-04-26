@@ -977,3 +977,30 @@
 - 恢复点：
   - 等用户拍板两条线的方向；
   - 拍板后再决定要不要生成下一轮 prompt。
+
+## 2026-04-26｜用户改判目标后继续施工：从线程治理转成总收口，已打通 working-tree preflight
+
+- 用户目标：
+  - 用户不再满足于“分析到位”，明确要求把 Sunset 当前有效内容真正提交上去，并允许直接走项目总收口。
+- 当前切片：
+  - `总收口提交_2026-04-26_project-plus-screenshots`
+- 本轮实际完成：
+  1. 已抓到 `Ready-To-Sync` 旧 blocker 的精确证据：
+     - `CodexCodeGuard` 最终 JSON 已是 `CanContinue:true`；
+     - 但 [scripts/git-safe-sync.ps1](/D:/Unity/Unity_learning/Sunset/scripts/git-safe-sync.ps1) 还在用空退出码把结果误判成 `CODEGUARD_EXIT_NO_BLOCK`。
+  2. 已在 [scripts/git-safe-sync.ps1](/D:/Unity/Unity_learning/Sunset/scripts/git-safe-sync.ps1) 修正两点：
+     - 解析成功的 JSON 不再被空退出码覆盖；
+     - `Invoke-CodeGuard()` 只对 `Assets/**` 的 `*.cs` 执行 Unity 代码闸门，避免把 [Program.cs](/D:/Unity/Unity_learning/Sunset/scripts/CodexCodeGuard/Program.cs) 误编进 `Assembly-CSharp`。
+  3. 已再次验证：
+     - `dotnet build scripts/CodexCodeGuard/CodexCodeGuard.csproj -c Release --nologo` 通过；
+     - 仓库 working-tree 版 `git-safe-sync.ps1 -Action preflight`，对白名单总收口路径 + `scripts/git-safe-sync.ps1` + `scripts/CodexCodeGuard/Program.cs` 返回：
+       - `是否允许按当前模式继续: True`
+       - `代码闸门通过: True`
+       - 仅余 `32` 条 warning。
+- 关键判断：
+  - 当前最后挡提交的已经不是业务 compile red，也不是 CodeGuard 黑盒，而只是“旧 state 还没认识到这次 tool working-tree 验证”；
+  - 所以下一步应直接用仓库版 `git-safe-sync.ps1` 收口，而不是继续卡在 stable `Ready-To-Sync` 的旧路径上空转。
+- 当前恢复点：
+  - 先补本轮 memory / skill-trigger-log；
+  - 再直接执行总收口 sync；
+  - 完成后回写提交 SHA、push 结果与最终停车状态。

@@ -1,5 +1,6 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Reflection;
 using FarmGame.Data;
 using FarmGame.World;
 using FarmGame.Farm;
@@ -9,15 +10,40 @@ using FarmGame.Farm;
 /// 简化红色判定逻辑：只有两种情况显示红色
 /// 1. Layer 不一致（玩家与放置位置不在同一楼层）
 /// 2. 有障碍物（Tree、Rock、Building、Player 或水域）
-/// 
+///
 /// 注意：距离不影响格子颜色！取消了"放置范围"概念
 /// </summary>
 public class PlacementValidator
 {
+    private static Collider2D[] s_obstacleOverlapHits = new Collider2D[16];
+    private static Collider2D[] s_treeOverlapBoxHits = new Collider2D[16];
+    private static Collider2D[] s_treeOverlapCircleHits = new Collider2D[16];
+    private static ContactFilter2D s_noFilter = new ContactFilter2D().NoFilter();
+    private static readonly PropertyInfo s_treeActiveInstancesProperty =
+        typeof(TreeController).GetProperty("ActiveInstances", BindingFlags.Public | BindingFlags.Static);
+    private static readonly MethodInfo s_treeHasActiveTreeAtCellMethod =
+        typeof(TreeController).GetMethod("HasActiveTreeAtCell", BindingFlags.Public | BindingFlags.Static);
+    private static readonly MethodInfo s_treeHasActiveTreeWithinDistanceMethod =
+        typeof(TreeController).GetMethod("HasActiveTreeWithinDistance", BindingFlags.Public | BindingFlags.Static);
+    private static readonly PropertyInfo s_chestActiveInstancesProperty =
+        typeof(ChestController).GetProperty("ActiveInstances", BindingFlags.Public | BindingFlags.Static);
+    private static readonly Dictionary<int, SaplingPlacementProfile> s_saplingPlacementProfiles =
+        new Dictionary<int, SaplingPlacementProfile>();
+    private static int s_treeFrameCacheFrame = -1;
+    private static IReadOnlyList<TreeController> s_treeFrameCache;
+    private static int s_chestFrameCacheFrame = -1;
+    private static IReadOnlyList<ChestController> s_chestFrameCache;
+
+    private struct SaplingPlacementProfile
+    {
+        public float VerticalMargin;
+        public float HorizontalMargin;
+        public bool HasBlockingCollider;
+    }
+
     #region 配置参数
 
     private const string PlayerTag = "Player";
-    
     /// <summary>障碍物检测标签（包含 Player）- 用于放置箱子/树苗等</summary>
     private string[] obstacleTags = new string[] { "Tree", "Rock", "Building", "Player" };
 
@@ -26,26 +52,26 @@ public class PlacementValidator
 
     /// <summary>水域检测层</summary>
     private LayerMask waterLayer;
-    
+
     /// <summary>是否启用 Layer 检测</summary>
     private bool enableLayerCheck = true;
-    
+
     /// <summary>调试模式</summary>
     private bool showDebugInfo = false;
-    
+
     #endregion
-    
+
     #region 构造函数
-    
+
     public PlacementValidator()
     {
         waterLayer = LayerMask.GetMask("Water");
     }
-    
+
     #endregion
-    
+
     #region 主验证方法
-    
+
     /// <summary>
     /// 验证所有格子的状态
     /// 注意：此方法不检查距离，距离不影响格子颜色
@@ -61,25 +87,25 @@ public class PlacementValidator
         var cellIndices = PlacementGridCalculator.GetOccupiedCellIndices(centerPosition, gridSize);
         bool forbidTilledFarmland = ShouldBlockTilledFarmland(placementItem);
         bool ignorePlayerObstacle = ShouldIgnorePlayerObstacle(placementItem);
-        
+
         for (int i = 0; i < cellCenters.Count; i++)
         {
             Vector3 cellCenter = cellCenters[i];
             Vector2Int cellIndex = cellIndices[i];
-            
+
             // 验证单个格子
             var state = ValidateSingleCell(cellCenter, cellIndex, playerTransform, forbidTilledFarmland, ignorePlayerObstacle);
             cellStates.Add(state);
-            
+
             if (showDebugInfo && !state.isValid)
             {
                 Debug.Log($"<color=red>[PlacementValidator] 格子 {cellIndex} 无效: {state.reason}</color>");
             }
         }
-        
+
         return cellStates;
     }
-    
+
     /// <summary>
     /// 验证单个格子
     /// </summary>
@@ -100,23 +126,23 @@ public class PlacementValidator
         {
             return new CellState(cellIndex, false, InvalidReason.OnFarmland);
         }
-        
+
         // 检查 2：是否有障碍物
         if (HasObstacle(cellCenter, ignorePlayerObstacle))
         {
             return new CellState(cellIndex, false, InvalidReason.HasObstacle);
         }
-        
+
         // 检查 3：是否在水域
         if (IsOnWater(cellCenter))
         {
             return new CellState(cellIndex, false, InvalidReason.HasObstacle);
         }
-        
+
         // 通过所有检查，格子有效
         return new CellState(cellIndex, true, InvalidReason.None);
     }
-    
+
     /// <summary>
     /// 检查是否所有格子都有效
     /// </summary>
@@ -129,11 +155,11 @@ public class PlacementValidator
         }
         return true;
     }
-    
+
     #endregion
-    
+
     #region 红色判定（只有两种情况）
-    
+
     /// <summary>
     /// 检查 Layer 是否不一致
     /// 红色情况 1：玩家与放置位置不在同一楼层
@@ -141,13 +167,13 @@ public class PlacementValidator
     public bool IsLayerMismatch(Vector3 position, Transform playerTransform)
     {
         if (playerTransform == null) return false;
-        
+
         int positionLayer = PlacementLayerDetector.GetLayerAtPosition(position);
         int playerLayer = PlacementLayerDetector.GetPlayerLayer(playerTransform);
-        
+
         return positionLayer != playerLayer;
     }
-    
+
     /// <summary>
     /// 检查是否有障碍物（用于放置箱子/树苗等）
     /// 红色情况 2：有 Tree、Rock、Building、Player 或水域
@@ -160,10 +186,16 @@ public class PlacementValidator
         {
             // 使用 OverlapBox 检测整个格子区域
             Vector2 boxSize = new Vector2(0.9f, 0.9f); // 略小于 1x1，避免边缘误检
-            Collider2D[] hits = Physics2D.OverlapBoxAll(cellCenter, boxSize, 0f);
-            
-            foreach (var hit in hits)
+            int hitCount = Physics2D.OverlapBox(cellCenter, boxSize, 0f, s_noFilter, s_obstacleOverlapHits);
+            if (hitCount == s_obstacleOverlapHits.Length)
             {
+                System.Array.Resize(ref s_obstacleOverlapHits, s_obstacleOverlapHits.Length * 2);
+                hitCount = Physics2D.OverlapBox(cellCenter, boxSize, 0f, s_noFilter, s_obstacleOverlapHits);
+            }
+
+            for (int index = 0; index < hitCount; index++)
+            {
+                Collider2D hit = s_obstacleOverlapHits[index];
                 if (ignorePlayerObstacle && HasTagInHierarchy(hit.transform, PlayerTag))
                 {
                     continue;
@@ -175,7 +207,7 @@ public class PlacementValidator
                 }
             }
         }
-        
+
         // 2. 新增：检测无碰撞体的树苗（Stage 0）
         var farmTileManager = FarmTileManager.Instance;
         if (farmTileManager != null && farmTileManager.HasCropOccupantAtWorld(cellCenter))
@@ -183,14 +215,14 @@ public class PlacementValidator
 
         if (HasTreeAtPosition(cellCenter, 0.5f))
             return true;
-        
+
         // 3. 新增：检测无碰撞体的箱子
         if (HasChestAtPosition(cellCenter, 0.5f))
             return true;
-        
+
         return false;
     }
-    
+
     /// <summary>
     /// 🔥 检查是否有农田障碍物（用于锄地/浇水/种植）
     /// 关键区别：不检测 Player 标签！
@@ -268,7 +300,7 @@ public class PlacementValidator
 
         return false;
     }
-    
+
     /// <summary>
     /// 静态辅助方法：检查 Transform 或其父级是否有指定标签
     /// </summary>
@@ -286,7 +318,7 @@ public class PlacementValidator
         }
         return false;
     }
-    
+
     /// <summary>
     /// 静态辅助方法：检查指定格子是否有树木
     /// 使用 AABB 正方形距离检测（与 OverlapBoxAll 一致）
@@ -295,9 +327,7 @@ public class PlacementValidator
     {
         Vector2Int targetCellIndex = PlacementGridCalculator.GetCellIndex(cellCenter);
 
-        // 遍历场景中所有 TreeController
-        var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
-        foreach (var tree in allTrees)
+        foreach (var tree in GetTreesForCurrentFrame())
         {
             if (IsTreeOccupyingCell(tree, targetCellIndex))
                 return true;
@@ -306,7 +336,7 @@ public class PlacementValidator
         return false;
     }
 
-    
+
     /// <summary>
     /// 静态辅助方法：检查指定格子是否有箱子
     /// 使用 AABB 正方形距离检测（与 OverlapBoxAll 一致）
@@ -314,35 +344,27 @@ public class PlacementValidator
     private static bool HasChestAtPositionStatic(Vector3 cellCenter)
     {
         float checkRadius = GetFarmingFootprintHalfExtent();
-        
-        // 遍历场景中所有 ChestController
-        var allChests = Object.FindObjectsByType<ChestController>(FindObjectsSortMode.None);
-        foreach (var chest in allChests)
+
+        foreach (var chest in GetChestsForCurrentFrame())
         {
-            // 获取箱子的 Collider 来确定中心位置
-            var collider = chest.GetComponentInChildren<Collider2D>();
-            Vector3 chestCenter;
-            
-            if (collider != null)
+            if (chest == null)
             {
-                chestCenter = collider.bounds.center;
+                continue;
             }
-            else
-            {
-                chestCenter = chest.transform.position;
-            }
-            
+
+            Vector3 chestCenter = chest.GetColliderBounds().center;
+
             // 使用 AABB 正方形距离判断（与 OverlapBoxAll 一致）
             float dx = Mathf.Abs(cellCenter.x - chestCenter.x);
             float dy = Mathf.Abs(cellCenter.y - chestCenter.y);
-            
+
             if (dx <= checkRadius && dy <= checkRadius)
                 return true;
         }
-        
+
         return false;
     }
-    
+
     /// <summary>
     /// 检查是否在水域
     /// </summary>
@@ -351,11 +373,11 @@ public class PlacementValidator
         Collider2D hit = Physics2D.OverlapPoint(position, waterLayer);
         return hit != null;
     }
-    
+
     #endregion
-    
+
     #region 树苗特殊验证
-    
+
     /// <summary>
     /// 验证树苗放置
     /// </summary>
@@ -366,13 +388,13 @@ public class PlacementValidator
         {
             return new CellState(Vector2Int.zero, false, InvalidReason.LayerMismatch);
         }
-        
+
         // 检查冬季
         if (sapling != null && sapling.IsWinter())
         {
             return new CellState(Vector2Int.zero, false, InvalidReason.WrongSeason);
         }
-        
+
         // 检查是否在耕地上
         if (IsOnFarmland(position))
         {
@@ -388,26 +410,24 @@ public class PlacementValidator
         {
             return new CellState(Vector2Int.zero, false, InvalidReason.HasObstacle);
         }
-        
+
         // 检查成长边距（使用距离检测，树苗之间需要保持一定距离）
         if (sapling != null)
         {
-            float vMargin, hMargin;
-            if (!sapling.GetStage0Margins(out vMargin, out hMargin))
-            {
-                vMargin = 0.2f;
-                hMargin = 0.15f;
-            }
-            
-            if (HasTreeWithinDistance(position, Mathf.Max(vMargin, hMargin)))
+            TryGetSaplingPlacementProfile(sapling, out float vMargin, out float hMargin, out _);
+
+            float requiredSpacing = Mathf.Max(vMargin, hMargin);
+            // 小于半格的树苗边距已经被同格占位判定覆盖，不再重复跑一轮距离扫描。
+            if (requiredSpacing > 0.5001f &&
+                HasTreeWithinDistance(position, requiredSpacing))
             {
                 return new CellState(Vector2Int.zero, false, InvalidReason.TreeTooClose);
             }
         }
-        
+
         return new CellState(Vector2Int.zero, true, InvalidReason.None);
     }
-    
+
     /// <summary>
     /// 检查是否在耕地上
     /// </summary>
@@ -421,7 +441,7 @@ public class PlacementValidator
 
         return farmTileManager.IsTilledAtWorld(position);
     }
-    
+
     /// <summary>
     /// 检查指定格子是否与已放置的树木重叠
     /// 使用 AABB 正方形距离检测（与 OverlapBoxAll 一致）
@@ -429,19 +449,31 @@ public class PlacementValidator
     public bool HasTreeAtPosition(Vector3 cellCenter, float checkRadius)
     {
         Vector2Int targetCellIndex = PlacementGridCalculator.GetCellIndex(cellCenter);
+        if (Application.isPlaying &&
+            TryHasActiveTreeAtCell(targetCellIndex, out bool hasActiveTreeAtCell))
+        {
+            return hasActiveTreeAtCell;
+        }
+
         Vector3 targetCellCenter = PlacementGridCalculator.GetCellCenter(cellCenter);
 
         Vector2 boxSize = Vector2.one * Mathf.Clamp(checkRadius * 2f, 0.1f, 0.98f);
-        Collider2D[] hits = Physics2D.OverlapBoxAll(targetCellCenter, boxSize, 0f);
-        foreach (var hit in hits)
+        int hitCount = Physics2D.OverlapBox(targetCellCenter, boxSize, 0f, s_noFilter, s_treeOverlapBoxHits);
+        if (hitCount == s_treeOverlapBoxHits.Length)
         {
+            System.Array.Resize(ref s_treeOverlapBoxHits, s_treeOverlapBoxHits.Length * 2);
+            hitCount = Physics2D.OverlapBox(targetCellCenter, boxSize, 0f, s_noFilter, s_treeOverlapBoxHits);
+        }
+
+        for (int index = 0; index < hitCount; index++)
+        {
+            Collider2D hit = s_treeOverlapBoxHits[index];
             var treeController = hit.GetComponentInParent<TreeController>();
             if (IsTreeOccupyingCell(treeController, targetCellIndex))
                 return true;
         }
 
-        var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
-        foreach (var tree in allTrees)
+        foreach (var tree in GetTreesForCurrentFrame())
         {
             if (IsTreeOccupyingCell(tree, targetCellIndex))
                 return true;
@@ -449,7 +481,7 @@ public class PlacementValidator
 
         return false;
     }
-    
+
     /// <summary>
     /// 检查边距内是否有其他树木（旧方法，保留兼容）
     /// </summary>
@@ -458,49 +490,50 @@ public class PlacementValidator
     {
         return HasTreeWithinDistance(center, Mathf.Max(vMargin, hMargin));
     }
-    
+
     /// <summary>
     /// 检查指定距离内是否有其他树木（用于树苗边距检测）
     /// 这个方法使用距离检测，专门用于树苗种植时的边距验证
     /// </summary>
     public bool HasTreeWithinDistance(Vector3 center, float distance)
     {
-        // 方法1：使用 Physics2D 检测有碰撞体的树木（Stage 1+）
-        Collider2D[] hits = Physics2D.OverlapCircleAll(center, distance);
-        foreach (var hit in hits)
+        if (Application.isPlaying &&
+            TryHasActiveTreeWithinDistance(center, distance, out bool hasActiveTreeWithinDistance))
         {
+            return hasActiveTreeWithinDistance;
+        }
+
+        // 方法1：使用 Physics2D 检测有碰撞体的树木（Stage 1+）
+        int hitCount = Physics2D.OverlapCircle(center, distance, s_noFilter, s_treeOverlapCircleHits);
+        if (hitCount == s_treeOverlapCircleHits.Length)
+        {
+            System.Array.Resize(ref s_treeOverlapCircleHits, s_treeOverlapCircleHits.Length * 2);
+            hitCount = Physics2D.OverlapCircle(center, distance, s_noFilter, s_treeOverlapCircleHits);
+        }
+
+        for (int index = 0; index < hitCount; index++)
+        {
+            Collider2D hit = s_treeOverlapCircleHits[index];
             var treeController = hit.GetComponentInParent<TreeController>();
             if (treeController != null)
                 return true;
-            
+
             // 兼容旧版 TreeController
             var oldTreeController = hit.GetComponentInParent<TreeController>();
             if (oldTreeController != null)
                 return true;
         }
-        
+
         // 方法2：遍历场景中所有 TreeController，检测树苗（Stage 0，无碰撞体）
-        var allTrees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
-        foreach (var tree in allTrees)
+        foreach (var tree in GetTreesForCurrentFrame())
         {
-            // 计算树根位置（父物体位置）
-            Vector3 treeRootPos = tree.transform.parent != null 
-                ? tree.transform.parent.position 
-                : tree.transform.position;
-            
-            // 检查距离
-            float dist = Vector2.Distance(
-                new Vector2(center.x, center.y),
-                new Vector2(treeRootPos.x, treeRootPos.y)
-            );
-            
-            if (dist < distance)
+            if (IsTreeWithinDistance(tree, center, distance))
                 return true;
         }
-        
+
         return false;
     }
-    
+
     /// <summary>
     /// 检查指定格子是否与已放置的箱子重叠
     /// 使用 AABB 正方形距离检测（与 OverlapBoxAll 一致）
@@ -520,21 +553,14 @@ public class PlacementValidator
 
         // 方法2：遍历场景中所有 ChestController，使用 AABB 正方形检测
         float aabbRadius = GetFarmingFootprintHalfExtent();
-        var allChests = Object.FindObjectsByType<ChestController>(FindObjectsSortMode.None);
-        foreach (var chest in allChests)
+        foreach (var chest in GetChestsForCurrentFrame())
         {
-            // 获取箱子的 Collider 来确定中心位置
-            var collider = chest.GetComponentInChildren<Collider2D>();
-            Vector3 chestCenter;
+            if (chest == null)
+            {
+                continue;
+            }
 
-            if (collider != null)
-            {
-                chestCenter = collider.bounds.center;
-            }
-            else
-            {
-                chestCenter = chest.transform.position;
-            }
+            Vector3 chestCenter = chest.GetColliderBounds().center;
 
             // 使用 AABB 正方形距离判断（与 OverlapBoxAll 一致）
             float dx = Mathf.Abs(cellCenter.x - chestCenter.x);
@@ -546,7 +572,7 @@ public class PlacementValidator
 
         return false;
     }
-    
+
     /// <summary>
     /// 获取箱子占用的所有格子索引
     /// 修复：使用 Collider 中心计算格子索引，而不是 bounds 边界
@@ -555,27 +581,25 @@ public class PlacementValidator
     private List<Vector2Int> GetChestOccupiedCellIndices(ChestController chest)
     {
         var indices = new List<Vector2Int>();
-        
-        // 获取箱子的 Collider 来确定占用的格子
-        var collider = chest.GetComponentInChildren<Collider2D>();
-        if (collider != null)
+
+        Bounds bounds = chest.GetColliderBounds();
+        if (bounds.size.sqrMagnitude > 0.0001f)
         {
             // ★ 修复：使用 Collider 中心计算格子索引
             // 这样可以避免因底部对齐导致的边界偏移问题
-            Bounds bounds = collider.bounds;
             Vector3 colliderCenter = bounds.center;
-            
+
             // 计算 Collider 中心所在的格子索引
             Vector2Int centerCellIndex = PlacementGridCalculator.GetCellIndex(colliderCenter);
-            
+
             // 计算 Collider 大小（向上取整）
             int gridWidth = Mathf.Max(1, Mathf.CeilToInt(bounds.size.x - 0.01f));
             int gridHeight = Mathf.Max(1, Mathf.CeilToInt(bounds.size.y - 0.01f));
-            
+
             // 计算起始格子索引（以中心格子为锚点）
             int startX = centerCellIndex.x - (gridWidth - 1) / 2;
             int startY = centerCellIndex.y - (gridHeight - 1) / 2;
-            
+
             for (int x = 0; x < gridWidth; x++)
             {
                 for (int y = 0; y < gridHeight; y++)
@@ -590,14 +614,14 @@ public class PlacementValidator
             Vector2Int cellIndex = PlacementGridCalculator.GetCellIndex(chest.transform.position);
             indices.Add(cellIndex);
         }
-        
+
         return indices;
     }
-    
+
     #endregion
-    
+
     #region 辅助方法
-    
+
     /// <summary>
     /// 检查 Transform 或其父级是否有指定标签
     /// </summary>
@@ -643,6 +667,169 @@ public class PlacementValidator
         return footprintSize * 0.5f;
     }
 
+    private static IReadOnlyList<TreeController> GetTreesForCurrentFrame()
+    {
+        if (Application.isPlaying && s_treeActiveInstancesProperty != null)
+        {
+            if (s_treeActiveInstancesProperty.GetValue(null) is IReadOnlyList<TreeController> activeInstances)
+            {
+                return activeInstances;
+            }
+        }
+
+        if (Application.isPlaying &&
+            s_treeFrameCacheFrame == Time.frameCount &&
+            s_treeFrameCache != null)
+        {
+            return s_treeFrameCache;
+        }
+
+        IReadOnlyList<TreeController> trees = Object.FindObjectsByType<TreeController>(FindObjectsSortMode.None);
+        if (Application.isPlaying)
+        {
+            s_treeFrameCacheFrame = Time.frameCount;
+            s_treeFrameCache = trees;
+        }
+
+        return trees;
+    }
+
+    private static IReadOnlyList<ChestController> GetChestsForCurrentFrame()
+    {
+        if (Application.isPlaying && s_chestActiveInstancesProperty != null)
+        {
+            if (s_chestActiveInstancesProperty.GetValue(null) is IReadOnlyList<ChestController> activeInstances)
+            {
+                return activeInstances;
+            }
+        }
+
+        if (Application.isPlaying &&
+            s_chestFrameCacheFrame == Time.frameCount &&
+            s_chestFrameCache != null)
+        {
+            return s_chestFrameCache;
+        }
+
+        IReadOnlyList<ChestController> chests = Object.FindObjectsByType<ChestController>(FindObjectsSortMode.None);
+        if (Application.isPlaying)
+        {
+            s_chestFrameCacheFrame = Time.frameCount;
+            s_chestFrameCache = chests;
+        }
+
+        return chests;
+    }
+
+    private static bool TryHasActiveTreeAtCell(Vector2Int targetCellIndex, out bool hasTree)
+    {
+        hasTree = false;
+        if (s_treeHasActiveTreeAtCellMethod == null)
+        {
+            return false;
+        }
+
+        if (s_treeHasActiveTreeAtCellMethod.Invoke(null, new object[] { targetCellIndex }) is bool result)
+        {
+            hasTree = result;
+            return true;
+        }
+
+        return false;
+    }
+
+    private static bool TryHasActiveTreeWithinDistance(Vector3 center, float distance, out bool hasTree)
+    {
+        hasTree = false;
+        if (s_treeHasActiveTreeWithinDistanceMethod == null)
+        {
+            return false;
+        }
+
+        if (s_treeHasActiveTreeWithinDistanceMethod.Invoke(null, new object[] { center, distance }) is bool result)
+        {
+            hasTree = result;
+            return true;
+        }
+
+        return false;
+    }
+
+    public static bool TryGetSaplingPlacementProfile(
+        SaplingData saplingData,
+        out float verticalMargin,
+        out float horizontalMargin,
+        out bool hasBlockingCollider)
+    {
+        verticalMargin = 0.2f;
+        horizontalMargin = 0.15f;
+        hasBlockingCollider = false;
+
+        if (saplingData == null)
+        {
+            return false;
+        }
+
+        int saplingKey = saplingData.GetInstanceID();
+        if (!s_saplingPlacementProfiles.TryGetValue(saplingKey, out SaplingPlacementProfile profile))
+        {
+            profile = BuildSaplingPlacementProfile(saplingData);
+            s_saplingPlacementProfiles[saplingKey] = profile;
+        }
+
+        verticalMargin = profile.VerticalMargin;
+        horizontalMargin = profile.HorizontalMargin;
+        hasBlockingCollider = profile.HasBlockingCollider;
+        return true;
+    }
+
+    private static SaplingPlacementProfile BuildSaplingPlacementProfile(SaplingData saplingData)
+    {
+        var profile = new SaplingPlacementProfile
+        {
+            VerticalMargin = 0.2f,
+            HorizontalMargin = 0.15f,
+            HasBlockingCollider = false
+        };
+
+        if (saplingData == null)
+        {
+            return profile;
+        }
+
+        TreeController treeController = saplingData.GetTreeController();
+        if (treeController != null && treeController.CurrentStageConfig != null)
+        {
+            profile.VerticalMargin = treeController.CurrentStageConfig.verticalMargin;
+            profile.HorizontalMargin = treeController.CurrentStageConfig.horizontalMargin;
+            profile.HasBlockingCollider = treeController.CurrentStageConfig.enableCollider;
+            return profile;
+        }
+
+        profile.HasBlockingCollider = PrefabHasBlockingCollider(saplingData.GetPlacementPrefab());
+        return profile;
+    }
+
+    private static bool PrefabHasBlockingCollider(GameObject prefab)
+    {
+        if (prefab == null)
+        {
+            return false;
+        }
+
+        Collider2D[] colliders = prefab.GetComponentsInChildren<Collider2D>(true);
+        for (int index = 0; index < colliders.Length; index++)
+        {
+            Collider2D collider = colliders[index];
+            if (collider != null && collider.enabled && !collider.isTrigger)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private static bool IsTreeOccupyingCell(TreeController tree, Vector2Int targetCellIndex)
     {
         if (tree == null)
@@ -656,26 +843,41 @@ public class PlacementValidator
 
         return PlacementGridCalculator.GetCellIndex(treeRootPos) == targetCellIndex;
     }
-    
+
+    private static bool IsTreeWithinDistance(TreeController tree, Vector3 center, float distance)
+    {
+        if (tree == null)
+        {
+            return false;
+        }
+
+        Vector3 treeRootPos = tree.transform.parent != null
+            ? tree.transform.parent.position
+            : tree.transform.position;
+
+        Vector2 offset = new Vector2(treeRootPos.x - center.x, treeRootPos.y - center.y);
+        return offset.sqrMagnitude < distance * distance;
+    }
+
     #endregion
-    
+
     #region 配置方法
-    
+
     public void SetObstacleTags(string[] tags)
     {
         obstacleTags = tags;
     }
-    
+
     public void SetEnableLayerCheck(bool enable)
     {
         enableLayerCheck = enable;
     }
-    
+
     public void SetDebugMode(bool debug)
     {
         showDebugInfo = debug;
     }
-    
+
     #endregion
 
     #region 普通 Placeable 规则
@@ -741,9 +943,9 @@ public class PlacementValidator
     }
 
     #endregion
-    
+
     #region 种子放置验证（补丁005 B.2.1）
-    
+
     /// <summary>
     /// 种子专用放置验证：检查目标位置是否可以种植种子。
     /// layerIndex 内部通过 FarmTileManager.GetCurrentLayerIndex 获取（与 FarmToolPreview.UpdateSeedPreview 同源）。
@@ -751,36 +953,36 @@ public class PlacementValidator
     public static bool ValidateSeedPlacement(SeedData seedData, Vector3 worldPos)
     {
         if (seedData == null) return false;
-        
+
         var farmTileManager = FarmTileManager.Instance;
         if (farmTileManager == null) return false;
 
         // 种子本身没有放置碰撞体，占位事实完全由 farmland tile + crop occupant 决定；
         // 因此播种允许发生在玩家脚下，不再额外把 Player 当作障碍物。
-        
+
         // 获取楼层索引（与 FarmToolPreview.UpdateSeedPreview 同源）
         if (!farmTileManager.TryResolveTileAtWorld(worldPos, out int layerIndex, out Vector3Int cellPos, out FarmTileData tileData))
             return false;
-        
-        
-        
+
+
+
         // 1. 检查有耕地数据
         if (tileData == null) return false;
-        
+
         // 2. 检查可种植
         if (!tileData.CanPlant()) return false;
         if (farmTileManager.HasCropOccupant(layerIndex, cellPos)) return false;
-        
+
         // 3. 季节匹配检查
         if (seedData.season != Season.AllSeason && TimeManager.Instance != null)
         {
             var currentSeason = TimeManager.Instance.GetSeason();
             if ((int)seedData.season != (int)currentSeason) return false;
         }
-        
+
         return true;
     }
-    
+
     #endregion
 }
 
@@ -792,7 +994,7 @@ public struct CellState
     public Vector2Int gridPosition;
     public bool isValid;
     public InvalidReason reason;
-    
+
     public CellState(Vector2Int position, bool valid, InvalidReason invalidReason)
     {
         gridPosition = position;

@@ -2881,3 +2881,344 @@
   - 这轮没有提交，只完成了最小代码修和本线程审计记录。
 - 下一步恢复点：
   - 如果用户要我继续处理打包噪音，我应继续只按“单 warning / 单文件 / 不改行为”的方式逐条收，不要重新扩成相机功能改造。
+
+## 2026-04-17｜只读厘清：`002批量-Hierarchy` 当前排序规则已偏离 `DynamicSortingOrder` 运行时规范
+
+- 当前主线目标：
+  - 用户要求我只读厘清当前 `002批量-Hierarchy` 调整 order 后为什么又不对，尤其是要确认它是否应该和 `DynamicSortingOrder` 保持同一规范，并重新审视房子/场景内容，不做落地修复。
+- 本轮子任务：
+  1. 对比 `DynamicSortingOrder`、`Tool_002_BatchHierarchy`、`StaticObjectOrderAutoCalibrator` 的排序规则。
+  2. 只读审查 `Primary/Town` 场景、`House 1-4` prefab、`TagManager` sorting layer 顺序和动态对象接入情况。
+  3. 给出下一轮最稳方向，但不改工具、不改 prefab、不改 scene。
+- 本轮确认的事实：
+  1. `DynamicSortingOrder` 的运行时规范很朴素：只按本物体 `Collider2D.bounds.min.y`，没有 collider 才回退 `SpriteRenderer.bounds.min.y`，再按 `-Round(y * 100) + offset` 写 `sortingOrder`；它只特殊处理名为 `Shadow` 的直接子物体，偏移默认 `-1`。
+  2. `Tool_002_BatchHierarchy` 和 `StaticObjectOrderAutoCalibrator` 当前已经额外加入“建筑模式”：按名字/tag 判断房子，选最大 renderer 当 `baseRenderer`，非前片继承 `baseOrder`，前片用 `baseOrder + 12` 或自身 order 的较大值；这不是 `DynamicSortingOrder` 的运行时规则。
+  3. `StaticObjectOrderAutoCalibrator` 镜像了同一套建筑模式，且常量 `UseBuildingMode=true`；如果自动进 Play 前校准开启，它会继续把同一套偏移/建筑特判写回 scene。
+  4. `TagManager.asset` 的 Sorting Layer 顺序是 `Default -> Layer 1 -> Layer 2 -> Layer 3 -> Building -> CloudShadow`，所以 `Layer 2` 天然会压过 `Layer 1`；这种跨 Sorting Layer 的遮挡，单靠 `sortingOrder` 数字无法救。
+  5. 动态对象（玩家、NPC、动物、放置物）确实在用 `DynamicSortingOrder` 或同款 `-Y*100` 规则；房子 prefab 本身没有挂 `DynamicSortingOrder`，主要靠静态工具和 scene 实例 override。
+  6. 房子内容当前不统一：`House 1` prefab 已经有 `-9999` 人工跳过片；`House 2/3` prefab 多片默认 order 多为 `0`，但 `Primary/Town` scene 里又有实例级 order override；这说明项目现场已经不是纯 prefab 驱动，也不是纯动态排序驱动。
+- 当前判断：
+  - 用户这次说“工具要服务动态排序脚本，而不是继续偏移房子”是成立的。
+  - 当前根因不是某一个 order 数值错，而是静态工具链被改成了“建筑补偿规则”，运行时真规范仍是“同 Sorting Layer 内按脚底 Y 排序”，再叠加 `Layer 1/2/3` 被同时拿来表达楼层语义和渲染前后，导致工具、动态脚本、场景内容三边不一致。
+- 下一步恢复点：
+  - 如果用户批准进入施工，第一刀不应继续全场乱跑 `002`，而应先收规则口径：
+    1. 普通静态物/树/道具：让 `002` 和自动校准器回到与 `DynamicSortingOrder` 一致的脚底排序。
+    2. 房子：不要隐藏式全局前片偏移；要么建立显式建筑内容 contract，要么把建筑模式先关回安全默认，并保留人工跳过片。
+    3. Sorting Layer：明确同一视觉竞争域必须在同一 Sorting Layer 内用 order 排，跨 `Layer 1/2/3` 的遮挡不能指望 order 解决。
+- thread-state：
+  - 本轮全程只读，未跑 `Begin-Slice`，未触碰 scene/prefab/tool 实写，当前仍保持 `PARKED`。
+
+## 2026-04-23｜README 项目公开首页二次重写完成
+
+- 当前主线目标：
+  - 用户要求继续彻底吃透 `Sunset` 项目，目标不是泛分析，而是把根 `README.md` 做成真正能代表项目、能对外看的项目首页。
+- 本轮子任务：
+  1. 重新完成前置核查，确认这轮属于 `Sunset` 的真实文档施工，并先执行 `Begin-Slice`。
+  2. 补读 README 相关母文、项目总览、Day1 关键代码与测试。
+  3. 重写 README，重点解决“项目本体不够前置、AI/治理抢 opening、节拍不够具体、图片有断图风险”这几个问题。
+- 本轮实际做成了什么：
+  1. 已重写 `D:\Unity\Unity_learning\Sunset\README.md`，让它从内部候选稿转成公开首页口径。
+  2. 已把首屏改成：
+     - 一句话定位
+     - 当前阶段说明
+     - Day1 外部理解短句
+     - 项目速览表
+     - `如果你只看三件事`
+     - 项目简介与 Day1 节拍表
+  3. 已把 Day1 节拍从抽象“白天 / 晚上”细化成完整的一天主线，并明确写出：
+     - 五步生存教学
+     - 傍晚自由窗
+     - 晚饭冲突
+     - 归途提醒
+     - 夜间自由活动到 `DayEnd`
+  4. 已把图片从未跟踪 opening 截图切到仓库已跟踪素材，避免 README 外部断图。
+  5. 已把 AI / 工具 / 验证内容压到后置章节，只保留对外人能读懂的人话表达。
+- 这轮最关键的判断：
+  - 当前 README 最大问题不是“素材不够”，而是“层级没分开”；这轮真正完成的是把首页主语重新钉回项目本体，而不是协作方式。
+- 自评：
+  - 我给这轮结果 `8.5/10`。
+  - 最满意的是 Day1 节拍终于讲成了一整天，而不是几段系统标签。
+  - 最不满意的是视觉素材仍偏开发态截图；如果后面继续打磨，最值得补的是更强的 GIF / 实机展示素材。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\README.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\项目文档总览\memory.md`
+- 验证结果：
+  - `git diff --check -- README.md`：通过
+  - 黑话扫查：通过
+  - 本轮为 docs-only：未改代码、未改 Scene、未改 Prefab
+- thread-state：
+  - 已执行 `Begin-Slice`
+  - 已执行 `Park-Slice`
+  - 当前状态：`PARKED`
+- 下一步恢复点：
+  1. 若用户继续 README 线，优先补展示素材，不要再回到“先想骨架”的阶段。
+  2. 若用户切回简历 / 项目介绍线，可直接把这版 README 当成当前最稳的项目本体口径继续抽句。
+
+## 2026-04-23｜README 媒体入口补充完成
+
+- 当前主线目标：
+  - 继续做 `Sunset` 的表面展示功夫，不碰项目实际内容，不处理 release，只补演示视频与录屏入口。
+- 本轮子任务：
+  1. 检查外部 `mp4` 素材目录与 B 站公开视频入口。
+  2. 判断当前机器还能不能直接用 `gh` / `ffmpeg` 或无安装方案做媒体处理。
+  3. 把最稳的演示入口接进 [README.md](D:/Unity/Unity_learning/Sunset/README.md)。
+- 本轮实际做成了什么：
+  1. 已确认 B 站完整演示视频可直接作为公开入口：
+     - `https://www.bilibili.com/video/BV16Ed1BAEun/`
+  2. 已盘清本地素材里最适合继续包装的几类录屏：
+     - 完整 Day1 压缩实录（约 `2分16秒`）
+     - `Primary` 观光
+     - 放置演示
+     - 箱子交互
+     - 存档操作
+     - 工作台交互
+  3. 已确认当前环境：
+     - `gh` 不在 PATH
+     - `ffmpeg` 不在 PATH
+     - 因此这轮不走安装或重工具路线
+  4. 已在 README 新增 `演示与录屏` 章节，正式把：
+     - B 站完整实录
+     - 录屏素材覆盖范围
+     写成对外可读的人话。
+- 这轮最关键的判断：
+  - 当前最稳的做法不是往仓库里塞视频文件，而是先把公开视频主入口挂清楚，再把本地短片的覆盖面说明白。
+- 自评：
+  - 我给这轮结果 `8/10`。
+  - 优点是收益很直接，README 现在不只有文字，还有明确的演示入口。
+  - 不足也很清楚：还没有正式 GIF / 短视频封面，展示力比起更成熟的作品页还差一步。
+- 验证结果：
+  - `git diff --check -- README.md`：通过
+  - 本轮为 docs-only：未改代码、未改 Scene、未改 Prefab
+- thread-state：
+  - 这轮中途发现自己在上一轮 `Park` 后又补了一刀 README，因此已补做：
+    - `Begin-Slice: README媒体入口补充`
+    - `Park-Slice: readme-media-entry-landed`
+  - 当前状态：`PARKED`
+- 下一步恢复点：
+  1. 若用户继续展示层打磨，优先把现有短片整理成 2~3 个正式公开视频或 GIF。
+  2. 若用户暂不继续，这版 README 已经具备“项目说明 + 演示入口 + 深读入口”的可用公开页形态。
+
+## 2026-04-23｜README 展示层继续补强：首图直跳视频、补两张正式截图
+
+- 当前主线目标：
+  - 继续做 `Sunset` 的仓库表面展示，不碰项目实际内容，也不处理 release。
+- 本轮子任务：
+  1. 回收 3 个等待中的子线程结果。
+  2. 再做一刀 README 展示增强，让首页更像作品页而不是纯文字页。
+  3. 收尾确认 `README.md` 无格式问题，并顺手核查 `gh` 是否可用。
+- 已完成事项：
+  1. 已回收并关闭 3 个子线程；它们的共同结论都支持：
+     - 主片继续用完整演示实录；
+     - 短片优先放置 / 箱子 / 存档；
+     - 现环境不值得硬搞无安装精确抽帧。
+  2. 已修改 `README.md`：
+     - 把首图改成可点击跳转 B 站完整演示；
+     - 新增 `画面一瞥` 章节，用两张已跟踪截图补第二屏视觉证据；
+     - 继续精炼 `演示与录屏` 文案，让短片覆盖范围更具体。
+  3. 已确认：
+     - `git diff --check -- README.md` 通过
+     - `gh --version` 仍报 `CommandNotFoundException`
+- 关键判断：
+  - 这轮真正推进的是 README 的“触达感”和“作品页感”，不是又多写了一段解释。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\README.md`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\项目文档总览\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\memory_0.md`
+- 验证结果：
+  - docs-only：未改代码、未改 Scene、未改 Prefab
+  - `git diff --check -- README.md`：通过
+  - 验证状态：`线程自测已过`（仅限文档格式与入口层），动态媒体仍 `尚未新增`
+- thread-state：
+  - 已执行 `Begin-Slice: README作品页展示增强`
+  - 已执行 `Park-Slice: readme-showcase-enhancement-landed`
+  - 当前状态：`PARKED`
+- 下一步恢复点：
+  1. 若继续表面展示，优先做 GIF / 短片，而不是继续加说明文字。
+  2. 若暂时停下，当前 README 已可作为更成熟的公开项目首页继续使用。
+
+## 2026-04-23｜README 作品页重写正式完成，并纠正截图方向
+
+- 当前主线目标：
+  - 用户要求把 `Sunset` 的根 README 真正做成“只讲游戏和项目本体、灵动但简约、可直接对外展示”的版本，并且这轮要真的落文件。
+- 本轮子任务：
+  1. 在 Sunset 规则下重新完成前置核查，确认这是 docs-only 的真实施工。
+  2. 基于 Day1 / 经营成长 / 钥匙宝箱文档重写 README。
+  3. 处理用户指出的“截图很尴尬”问题，不再继续拿仓库里的开发留证图凑作品页。
+- 本轮实际做成了什么：
+  1. 已重写 `D:\Unity\Unity_learning\Sunset\README.md`，把 opening 改成以游戏本体为主的作品页表达。
+  2. 已压掉 AI / 治理 / 内部实现说明，不再让 README 首屏像工程总结或简历摘要。
+  3. 已把 Day1 主叙事收成一条完整体验链：
+     - `被救起 -> 被带进村 -> 被治疗 -> 重新摸到工作台 -> 用第一轮劳动证明自己 -> 经历晚饭冲突 -> 夜里决定要不要立刻睡`
+  4. 用户指出当前截图尴尬后，我已重新审图并确认：
+     - 原仓库图大多是开发留证图，不适合公开页；
+     - 最稳做法不是继续挑烂桃子，而是从主演示视频抽帧并裁图。
+  5. 已找到本机可用 `ffmpeg`，从 `D:\QQ\Project\综合实训三NEW\刀\000_通用\121MB\4月20日.mp4` 抽帧，并裁出两张用于 README 的新图：
+     - `D:\Unity\Unity_learning\Sunset\.github\readme\hero_day1_labor.png`
+     - `D:\Unity\Unity_learning\Sunset\.github\readme\day1_arrival.png`
+  6. 已把图放到 `.github/readme/`，避免放进 `Assets/` 后给 Unity 引出 `.meta` 尾账。
+- 当前最关键的判断：
+  1. 这轮真正做好的是“README 的主语”和“README 的图源逻辑”两件事。
+  2. 公开页图片不能只追求“仓库里已有”，而要追求“它到底是不是作品图”。
+  3. README 现在终于更像项目首页，而不是内部说明稿。
+- 自评：
+  - 我给这轮结果 `8.8/10`。
+  - 最满意的是把文案主语和图片方向一起纠正了。
+  - 最不满意的是当前图虽然已经明显比旧图好，但距离真正精修过的封面图还有一步。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\README.md`
+  - `D:\Unity\Unity_learning\Sunset\.github\readme\hero_day1_labor.png`
+  - `D:\Unity\Unity_learning\Sunset\.github\readme\day1_arrival.png`
+- 验证结果：
+  - `git diff --check -- README.md .github/readme/hero_day1_labor.png .github/readme/day1_arrival.png`：通过
+  - 本轮为 docs-only / media-only：未改代码、未改 Scene、未改 Prefab
+  - 验证状态：`线程自测已过`
+- thread-state：
+  - 已执行 `Begin-Slice: README最终作品页重写`
+  - 已执行 `Park-Slice: readme-copy-and-image-refresh-landed`
+  - 当前状态：`PARKED`
+- 下一步恢复点：
+  1. 若用户继续 README / 仓库展示线，优先继续补成品级 GIF 或更强封面图。
+  2. 若用户切回简历 / 项目介绍，当前 README 已可直接作为对外项目口径继续抽句。
+
+## 2026-04-23｜网申页项目简介加急版已给出
+
+- 当前主线目标：
+  - 用户临时切到网申页填写场景，要求我先把“项目/活动经历”里的项目名称和项目描述写成可直接粘贴的内容，并强调这里不能简单抄简历项目经历。
+- 本轮子任务：
+  1. 用当前对 `Sunset` 的项目理解重写网申页口径。
+  2. 突出项目本体、可玩内容、个人职责和当前完成度。
+  3. 避免写成 bullets 拼接或工程说明稿。
+- 本轮实际做成了什么：
+  1. 已给出推荐项目名称：
+     - `个人项目《Sunset》｜2D像素奇幻生活模拟RPG`
+  2. 已给出一版推荐直填的项目描述成稿。
+  3. 已额外准备一版更短的备选描述，方便用户应对网页字数限制。
+- 当前关键判断：
+  1. 网申页项目描述和简历项目经历不是一个文体。
+  2. 网申页更需要一段“我做了什么样的项目，它现在已经到了哪一步”的连贯介绍。
+  3. 当前最稳的结构是：
+     - 项目定位
+     - 玩家角色与核心体验
+     - 当前可玩进度
+     - 我的负责内容
+- 自评：
+  - 我给这轮结果 `8.6/10`。
+  - 优点是方向够实用，拿去就能填。
+  - 不足是还没针对某一家网申系统的精确字数上限做二次压缩。
+- 验证结果：
+  - 本轮为纯文本产出：未改代码、未改 Scene、未改 Prefab、未改仓库公开文件。
+- 下一步恢复点：
+  1. 若用户继续网申线，可以再按具体平台字数和岗位方向压一版。
+  2. 若用户切回仓库展示线，则继续沿 README / release 的公开面推进。
+
+## 2026-04-23｜shared-root 上传补交通用回执：README docs-only 上传已核实并补报
+
+- 当前主线目标：
+  - 按用户指定的 `shared-root` 通用补交 prompt，只读核实我这条线程最近是否真的有“已提交 / 已 push 但没正式回执”的上传结果，并把事实直接补回给用户。
+- 本轮子任务：
+  1. 读取治理 prompt 与 `Codex规则落地` 当前工作区记忆。
+  2. 复核本线程近两天的 commit / push / thread-state / own-path 现场。
+  3. 只补交真实上传回执，不继续开发、不继续上传。
+- 本轮确认的事实：
+  1. 我这条线程确实有一笔之前未正式按 shared-root 上传回执格式报回的 docs-only 上传：
+     - `ee7754b4`
+     - `docs: refresh README showcase`
+  2. 该提交已在：
+     - `main`
+     - `origin/main`
+  3. 该提交只包含：
+     - `README.md`
+     - `.github/readme/day1_arrival.png`
+     - `.github/readme/hero_day1_labor.png`
+  4. 该上传对应的业务 own 路径当前 clean；没有发现“本地已提交但未 push”的后续 README 批次。
+  5. 当前 `thread-state` 仍是：
+     - `PARKED`
+     - slice=`README最终作品页重写`
+- 当前判断：
+  - 这轮不是“无上传结果”，而是“有一笔已 push 的 README docs-only 上传此前没正式补交通知”。
+  - 所以这轮正确动作就是只读补交；不应顺手继续开下一批。
+- 当前恢复点：
+  - 若后续用户或治理位要我继续 shared-root 上传，必须重新点名下一批；
+  - 当前这次 README 上传本身已经完成，无需继续追补第二刀。
+
+## 2026-04-24｜只读工具链 incident 审计：四条业务上传线已收成 1 个共因 CodexCodeGuard 事故
+
+- 当前主线目标：
+  - 按 `2026-04-24_给只读工具链分身_统一CodexCodeGuard预同步incident排查prompt_04.md`，只读收口 `spring-day1 / UI / 存档系统 / 导航检查` 的统一 `CodexCodeGuard / pre-sync` incident，不替任何业务线程继续上传。
+- 本轮子任务：
+  1. 读取治理 prompt、第四波批次入口、四条线程 `prompt_03`、`thread-state` 和最新 memory 证据。
+  2. 对齐 `Ready-To-Sync -> StateCommon -> stable launcher -> git-safe-sync -> CodexCodeGuard Program.cs` 调用链。
+  3. 判断这 4 条线到底是 1 个 incident 还是 2+ 个 incident，并给出下一刀修复边界。
+- 本轮实际做成了什么：
+  1. 已确认这 4 条线当前都保持 `PARKED`，不应继续重复撞业务上传。
+  2. 已确认：
+     - `spring-day1` 留下了 hanging `CodexCodeGuard.dll --phase pre-sync` 进程；
+     - `导航检查` 的 `Ready-To-Sync` 已直接落到 `CodexCodeGuard incident during Ready-To-Sync (no JSON result)`；
+     - `存档系统` 已有静态证据把挂点压到 `Program.cs -> GitDirtyState.Load -> RunProcess(git diff --name-status HEAD --)`；
+     - `UI` 虽然表现字符串里混有 `baseline_fail`，但同一批里 3 个文件仍是直接 `CodexCodeGuard returned no JSON`。
+  3. 已确认 `Ready-To-Sync.ps1` 与 `StateCommon.ps1` 只是转调 stable launcher，stable launcher 也只是转调 canonical `scripts/git-safe-sync.ps1`。
+  4. 已确认 `scripts/git-safe-sync.ps1` 的 `Invoke-CodeGuard()` 只是调用 `dotnet CodexCodeGuard.dll` 后等待最后一行 JSON；真正更靠近根因的是 `Program.cs`：
+     - `Run()` 先无差别调用 `GitDirtyState.Load(repoRoot)`；
+     - `GitDirtyState.Load()` 做整仓 `git diff --name-status HEAD --` 和 `ls-files --others --exclude-standard`；
+     - `RunProcess()` 走串行 `ReadToEnd()`，且没有 timeout；
+     - 因此一旦卡死，`Main()` 就到不了“catch 后仍输出 JSON”的分支。
+- 本轮关键判断：
+  1. 这 4 条线应收成 `1` 个统一 incident，而不是 `2+` 个不同 incident。
+  2. `UI` 的 `baseline_fail` 目前只算同批里的次级表象，不足以单立第二根因。
+  3. 最靠近根因的层是 `CodexCodeGuard Program.cs`，不是 `Ready-To-Sync/StateCommon`，也不是 stable launcher。
+  4. 下一刀应交给 `Codex规则落地` 工具修复线，而不是回交业务线程自己排。
+- 下一刀最小边界：
+  - `D:\Unity\Unity_learning\Sunset\scripts\CodexCodeGuard\Program.cs`
+    - `Run()`
+    - `GitDirtyState.Load()`
+    - `RunGit()`
+    - `RunProcess()`
+  - `D:\Unity\Unity_learning\Sunset\scripts\git-safe-sync.ps1`
+    - `Invoke-CodeGuard()` 的 timeout / stale process / 结构化兜底增强
+- 验证与状态：
+  - 本轮没有重跑；
+  - 原因：现有四条线的 thread-state、memory 和工具代码已经足够完成归因；
+  - 本轮全程只读，未跑新的 `Begin-Slice / Ready-To-Sync / Park-Slice`；
+  - 当前线程状态继续 `PARKED`。
+
+## 2026-04-23｜README 公开展示面重写并已上传
+
+- 当前主线目标：
+  - 按用户要求把 `Sunset` 的公开展示面重新收口，重点处理 `README` 的 AI 味、夸大实现、减分截图和对外口径边界，并在做好后直接上传。
+- 本轮子任务：
+  1. 复审当前 `README.md` 的真实度与对外语气。
+  2. 把仍然偏自我解释的句子再压实。
+  3. 删除已经不再引用、且会拖低公开面的旧截图。
+  4. 只对白名单公开面文件执行同步与推送。
+- 本轮实际做成了什么：
+  1. 重写了 `README.md` 的公开介绍结构，改成“当前状态 / 现在实际能玩到什么 / 后续方向 / 仓库内容 / 打开方式 / 延伸阅读”的对外口径。
+  2. 明确把“当前已能玩的 Day1”与“已经定下但尚未完整实现的长期方向”拆开，避免把后续设计写成已完成内容。
+  3. 删除了 `.github/readme/day1_arrival.png` 与 `.github/readme/hero_day1_labor.png` 两张旧图，避免 README 继续挂减分素材。
+  4. 已通过 shared-root 白名单同步脚本完成提交并推送到 `main / origin/main`。
+- 当前关键判断：
+  1. 这一轮最重要的不是再去堆玩法清单，而是让 README 先像一个真实可信的项目公开页。
+  2. 现阶段宁可少放图，也不能继续放“真实但很减分”的开发留证截图。
+  3. README 对外最稳的写法不是简历复述，而是把“当前能玩到什么、项目处于什么阶段、后面往哪长”讲清楚。
+- 自评：
+  - 我给这轮结果 `9.0/10`。
+  - 最满意的是把“真实状态”和“后续方向”的边界收清了，而且把旧图也一并清掉了。
+  - 最不满意的是当前 README 还没有真正高质量的成品级封面/GIF，公开面气质已经干净了，但还没到最亮眼的展示级。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\README.md`
+  - `D:\Unity\Unity_learning\Sunset\.github\readme\day1_arrival.png`
+  - `D:\Unity\Unity_learning\Sunset\.github\readme\hero_day1_labor.png`
+- 验证结果：
+  - `git diff --check -- README.md .github/readme/day1_arrival.png .github/readme/hero_day1_labor.png`：通过
+  - `Ready-To-Sync`：通过
+  - `Park-Slice`：已执行
+  - 提交：`b8a20610`
+  - 远端对齐：`HEAD == origin/main`
+  - 验证状态：`线程自测已过`
+- thread-state：
+  - 已执行 `Begin-Slice: README公开面重写与旧图清理`
+  - 已执行 `Ready-To-Sync`
+  - 已执行 `Park-Slice: readme-public-rewrite-and-upload-landed`
+  - 当前状态：`PARKED`
+- 下一步恢复点：
+  1. 如果用户继续仓库展示线，下一刀最值得做的是补真正能加分的 README 首屏素材，例如成品级封面图、短 GIF 或更稳的 release 文案。
+  2. 如果用户切回简历/网申线，当前这版 README 已可以作为真实项目介绍口径继续抽句，但不应直接整段复述进简历。

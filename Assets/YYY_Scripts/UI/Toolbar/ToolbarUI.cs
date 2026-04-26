@@ -12,6 +12,7 @@ public class ToolbarUI : MonoBehaviour
 
     private readonly List<ToolbarSlotUI> slots = new List<ToolbarSlotUI>(InventoryService.HotbarWidth);
     private readonly List<Toggle> toggles = new List<Toggle>(InventoryService.HotbarWidth);
+    private InventoryService subscribedInventory;
     private HotbarSelectionService subscribedSelection;
 
     void Awake()
@@ -28,6 +29,34 @@ public class ToolbarUI : MonoBehaviour
         if (selection != null) HandleSelectedChanged(selection.selectedIndex);
     }
 
+    public void ConfigureRuntimeContext(
+        InventoryService inventoryService,
+        ItemDatabase itemDatabase,
+        HotbarSelectionService hotbarSelection)
+    {
+        if (inventoryService != null)
+        {
+            inventory = inventoryService;
+        }
+
+        if (itemDatabase != null)
+        {
+            database = itemDatabase;
+        }
+        else if (inventory != null)
+        {
+            database = inventory.Database;
+        }
+
+        if (hotbarSelection != null)
+        {
+            selection = hotbarSelection;
+        }
+
+        SyncInventorySubscription();
+        SyncSelectionSubscription();
+    }
+
     public void Build()
     {
         ResolveRuntimeContextIfMissing();
@@ -36,83 +65,73 @@ public class ToolbarUI : MonoBehaviour
         List<Transform> orderedChildren = new List<Transform>(gridParent.childCount);
         foreach (Transform child in gridParent)
         {
+            if (!IsToolbarSlotTransform(child))
+            {
+                continue;
+            }
+
             orderedChildren.Add(child);
         }
 
-        orderedChildren.Sort((left, right) =>
+        if (orderedChildren.Count != InventoryService.HotbarWidth)
         {
-            int leftIndex = ResolveToolbarSlotIndex(left);
-            int rightIndex = ResolveToolbarSlotIndex(right);
-            int compare = leftIndex.CompareTo(rightIndex);
-            if (compare != 0)
-            {
-                return compare;
-            }
+            Debug.LogWarning(
+                $"[ToolbarUI] Grid 子槽位数量异常: expected={InventoryService.HotbarWidth}, actual={orderedChildren.Count}. 将按 sibling 顺序绑定。",
+                this);
+        }
 
-            return left.GetSiblingIndex().CompareTo(right.GetSiblingIndex());
-        });
-
-        int index = 0;
-        foreach (Transform child in orderedChildren)
+        int bindCount = Mathf.Min(orderedChildren.Count, InventoryService.HotbarWidth);
+        for (int resolvedIndex = 0; resolvedIndex < bindCount; resolvedIndex++)
         {
-            if (index >= InventoryService.HotbarWidth) break;
+            Transform child = orderedChildren[resolvedIndex];
             var slot = child.GetComponent<ToolbarSlotUI>();
             if (slot == null) slot = child.gameObject.AddComponent<ToolbarSlotUI>();
-            slot.Bind(inventory, database, selection, index);
+            slot.Bind(inventory, database, selection, resolvedIndex);
             slots.Add(slot);
             var tg = child.GetComponent<Toggle>();
             if (tg != null) toggles.Add(tg);
-            index++;
         }
         // 若子物体不足12个，不报错，按现有数量绑定
         // 事件将在 OnEnable 中统一注册，避免重复
     }
 
-    private static int ResolveToolbarSlotIndex(Transform child)
+    private static bool IsToolbarSlotTransform(Transform child)
     {
         if (child == null)
         {
-            return int.MaxValue;
+            return false;
         }
 
-        string childName = child.name;
-        if (string.IsNullOrEmpty(childName))
+        if (child.name.StartsWith("Bar_00_TG"))
         {
-            return int.MaxValue - child.GetSiblingIndex();
+            return true;
         }
 
-        if (!childName.StartsWith("Bar_00_TG"))
-        {
-            return int.MaxValue - child.GetSiblingIndex();
-        }
-
-        int openParen = childName.LastIndexOf('(');
-        int closeParen = childName.LastIndexOf(')');
-        if (openParen >= 0 && closeParen == childName.Length - 1 && closeParen > openParen + 1)
-        {
-            string cloneSuffix = childName.Substring(openParen + 1, closeParen - openParen - 1).Trim();
-            if (int.TryParse(cloneSuffix, out int parsedCloneIndex))
-            {
-                return parsedCloneIndex;
-            }
-        }
-
-        return 0;
+        return child.GetComponent<Toggle>() != null || child.GetComponent<ToolbarSlotUI>() != null;
     }
 
     void OnEnable()
     {
         ResolveRuntimeContextIfMissing();
+        SyncInventorySubscription();
         SyncSelectionSubscription();
         if (selection != null) HandleSelectedChanged(selection.selectedIndex);
     }
 
     void OnDisable()
     {
+        if (subscribedInventory != null)
+        {
+            subscribedInventory.OnInventoryChanged -= HandleInventoryChanged;
+        }
+
         if (subscribedSelection != null)
         {
             subscribedSelection.OnSelectedChanged -= HandleSelectedChanged;
         }
+
+        subscribedInventory = null;
+        subscribedSelection = null;
     }
 
     public void ForceRefresh()
@@ -127,24 +146,68 @@ public class ToolbarUI : MonoBehaviour
         foreach (var s in slots) s.RefreshSelection();
     }
 
+    void HandleInventoryChanged()
+    {
+        ForceRefresh();
+        if (selection != null)
+        {
+            HandleSelectedChanged(selection.selectedIndex);
+        }
+    }
+
     private void ResolveRuntimeContextIfMissing()
     {
-        if (inventory == null)
+        InventoryService preferredInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService();
+        if (preferredInventory != null)
         {
-            inventory = FindFirstObjectByType<InventoryService>();
+            inventory = preferredInventory;
+        }
+        else if (inventory == null)
+        {
+            inventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService()
+                ?? FindFirstObjectByType<InventoryService>();
         }
 
-        if (database == null && inventory != null)
+        if (inventory != null)
         {
             database = inventory.Database;
         }
 
-        if (selection == null)
+        HotbarSelectionService preferredSelection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService();
+        if (preferredSelection != null)
         {
-            selection = FindFirstObjectByType<HotbarSelectionService>();
+            selection = preferredSelection;
+        }
+        else if (selection == null)
+        {
+            selection = PersistentPlayerSceneBridge.GetPreferredRuntimeHotbarSelectionService()
+                ?? FindFirstObjectByType<HotbarSelectionService>();
         }
 
+        SyncInventorySubscription();
         SyncSelectionSubscription();
+    }
+
+    private void SyncInventorySubscription()
+    {
+        if (subscribedInventory == inventory)
+        {
+            return;
+        }
+
+        if (subscribedInventory != null)
+        {
+            subscribedInventory.OnInventoryChanged -= HandleInventoryChanged;
+        }
+
+        subscribedInventory = inventory;
+        if (!isActiveAndEnabled || subscribedInventory == null)
+        {
+            return;
+        }
+
+        subscribedInventory.OnInventoryChanged -= HandleInventoryChanged;
+        subscribedInventory.OnInventoryChanged += HandleInventoryChanged;
     }
 
     private void SyncSelectionSubscription()

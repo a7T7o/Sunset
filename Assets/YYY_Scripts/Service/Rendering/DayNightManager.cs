@@ -205,7 +205,9 @@ public class DayNightManager : MonoBehaviour
     {
         if (!Application.isPlaying)
         {
+#if UNITY_EDITOR
             EditorRefreshNow();
+#endif
             return;
         }
 

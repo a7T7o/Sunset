@@ -570,3 +570,222 @@
 **恢复点 / 下一步**：
 - 若下一轮要真实修复，优先从 `OcclusionManager.ExpandPreviewBoundsForOcclusion()` 这一处做 FarmTool-only 的最小调节，并立刻补一条“边缘 canopy 也应触发，但相邻侧向不应过早触发”的针对性验证。
 - 如果用户只要审计结论，本线程当前已可直接交付，不需要继续读 placeable 或 `Primary` 相关链路。
+
+## 2026-04-17 22:42 Primary / Town 遮挡差异只读排查
+
+**用户目标**：
+- 只读排查 `Primary` 场景里“玩家被树 / 石 / 房屋挡住却不触发遮挡，而 `Town` 正常”的差异。
+- 明确回答：
+  - `OcclusionManager` / `OcclusionTransparency` / 相关 scene object 在 `Primary` 与 `Town` 的关键差异
+  - 最可能根因更落在配置、层级、tag、引用还是运行时绑定
+  - 最小安全修复应该动哪些文件
+
+**当前主线 / 本轮子任务 / 服务关系 / 恢复点**：
+- 当前主线：遮挡系统在真实场景里的失效根因定位。
+- 本轮子任务：只查代码与场景 YAML，不改文件，比较 `Primary.unity` 与 `Town.unity` 的遮挡链落点。
+- 服务关系：为后续最小修复判断“先动场景还是先动代码”提供证据。
+- 恢复点：如果下一轮进入真实施工，优先从 `Primary.unity` 的 scene 配置修复开始，只在 scene 证据不足时再下探 `OcclusionManager.cs` 的运行时层缓存逻辑。
+
+**已完成事项**：
+- 对比了 `OcclusionManager.cs` / `OcclusionTransparency.cs` 的注册、过滤、同层判定与玩家绑定逻辑。
+- 对比了 `Assets/000_Scenes/Primary.unity` 与 `Assets/000_Scenes/Town.unity` 中 `OcclusionManager` 的序列化配置。
+- 审了 `Primary` / `Town` 里树、石、房 prefab 实例与 `OcclusionTransparency` 的 scene 序列化差异。
+
+**关键证据与判断**：
+- `OcclusionManager` 代码逻辑在两场景共用，同层过滤仍只看启动时缓存的 `playerLayer`，`playerSorting` 虽有字段但没有参与后续判定：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs:63-64`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs:187-199`
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs:631-633`
+- `OcclusionTransparency` 只有在 `canBeOccluded && Application.isPlaying` 时才会延迟注册到 manager：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionTransparency.cs:90-116`
+- `Primary` 与 `Town` 的 `OcclusionManager` 参数几乎一致；差异只在玩家引用序列化：
+  - `Primary` 显式绑了 `player/playerSprite/playerCollider/playerSorting`：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity:175758-175807`
+  - `Town` 四个玩家引用全是空，依赖运行时自动 `FindGameObjectWithTag("Player")`：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:147090-147138`
+- `Town.unity` 存在 8 个直接序列化的 `OcclusionTransparency` 组件块；首个证据在：
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:980-997`
+  - 其余还出现在 `70869-70886`、`150819-150836`、`151092-151109`、`153904-153921`、`155662-155679`、`160920-160937`、`169839-169856`
+- 当前 `Primary.unity` 没有任何直接序列化的 `OcclusionTransparency` 组件块；它只剩 prefab instance 修改。场景里仍能看到树 / 石 / 房 prefab 的实例证据：
+  - Rock `C3` 实例：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity:1295-1317`
+  - Tree `M1` 实例：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity:1476-1498`
+  - House `House 2` 实例：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity:147960-147982`
+- `Primary` 里至少已有一棵树把 prefab 内 `OcclusionTransparency.canBeOccluded` 明确改成了 `0`：
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity:68829-68832`
+  - `Town` 也有同类树例外，但只出现在两处，不影响其整体遮挡链存在：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:132978-132980`
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:144639-144641`
+
+**结论**：
+- 这轮最强证据指向：主根因更落在 **scene 配置 / scene object 序列化漂移**，不是 tag 列表、不是 `OcclusionManager` 参数、也不像是“Primary 玩家引用绑错了”。
+- 更具体地说：
+  - `Town` 里遮挡组件直接落在 scene 实例上，manager 即使靠运行时自动找玩家也能工作；
+  - `Primary` 里 manager 配置并不更差，反而显式绑了玩家，但 scene 层已经看不到任何 direct `OcclusionTransparency` 序列化块，只剩 prefab instance 修改；再叠加至少一处 `canBeOccluded: 0`，更像是 `Primary` 的 scene/prefab instance 配置链被冲淡或部分关掉了。
+- 次级风险点才是代码：
+  - `OcclusionManager` 启动后把 `playerLayer` 缓存死在 `Start()`，后续不跟随 `DynamicSortingOrder` 或外部 layer 切换更新；这会让多层场景更容易出现“同层过滤误杀”。
+  - 但因为 `Town` 在同一份代码下正常，这条目前更像“次级潜在 bug”，不是这次 `Primary` 独坏的第一嫌疑。
+
+**验证状态**：
+- 本轮为 `静态推断成立`。
+- 未进入 Unity / PlayMode / live scene，因此还不能宣称“运行态已证实”。
+
+**最小安全修复建议（只给落点，不在本轮实施）**：
+- 首选只动：
+  - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Primary.unity`
+  - 目标：把 `Primary` 中实际挡玩家的树 / 石 / 房实例的 `OcclusionTransparency` 序列化链补齐，并逐个核 `canBeOccluded` 没被错误写成 `0`。
+- 若检查发现 `Primary` 的实例实际都继承到了 prefab 且 scene 配置无误，再考虑第二刀：
+  - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - 目标：把 `playerLayer` 从“一次性缓存”改成检测时实时取 `playerSprite.sortingLayerName` 或 `playerSorting.GetCurrentSortingLayer()`。
+- 当前不建议先动：
+  - `TagManager.asset`
+  - `OcclusionTransparency.cs`
+  - house/tree/rock prefab 资源本体
+  - 因为现有证据还不足以说明是全局 tag / prefab 资产本体坏掉。
+
+## 2026-04-18｜只读回归：`PlayerBehindTree_WithPixelSamplingHole_StillOccludesByBoundsFallback` 仍失败
+
+- 当前主线：
+  - 遮挡系统回归票只读定责，不进入真实施工。
+- 本轮子任务：
+  - 只读排查 `OcclusionSystemTests.PlayerBehindTree_WithPixelSamplingHole_StillOccludesByBoundsFallback` 为什么现在还红，并回答最小安全修法与“样本还是 runtime 真问题”。
+- 服务关系：
+  - 为后续真正开修时决定“先改 `DetectOcclusion()` 还是先改测试样本”提供直接证据。
+- 恢复点：
+  - 如果下一轮进入真实施工，优先只动 `OcclusionManager.DetectOcclusion()` 的像素采样恢复分支；本轮结束仍保持只读，不跑 `Begin-Slice`。
+
+- 本轮完成：
+  1. 只读核对了：
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionTransparency.cs`
+     - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Tests\Editor\OcclusionSystemTests.cs`
+  2. 用 Unity MCP 定向重跑：
+     - `OcclusionSystemTests.PlayerBehindTree_WithPixelSamplingHole_StillOccludesByBoundsFallback` → failed
+     - `OcclusionSystemTests.PlayerBehindTree_WithSameSpriteOverlap_TriggersOcclusion` → passed
+     - `OcclusionSystemTests.PlayerBehindTree_WhenSortingOrderAlreadySaysBehind_DoesNotFallBackToBadFootBounds` → passed
+  3. 失败落点确认在最终断言：
+     - `ReadPrivateBoolField(tree.Occlusion, "isOccluding") == false`
+     - 不是前置 `preciseHit == false` 先炸。
+
+- 当前最强判断：
+  - 不是整条“前后关系 / 样本重叠”链都坏了；
+  - 真正没兜住的是 `OcclusionManager.DetectOcclusion()` 里：
+    - `if (occluder.UsePixelSampling && occluder.IsTextureReadable)`
+    - 这条分支对“中心点踩空但身体仍与遮挡面重叠”的恢复逻辑。
+  - 更具体地说：
+    - `OcclusionTransparency.ContainsPointPrecise(playerCenterPos)` 是单中心点；
+    - 当前 recover 逻辑没有稳定把这类 hole 场景恢复成 `isOccluding=true`；
+    - 因此这张票当前仍是红的。
+
+- 最小安全修法（只给落点，不实施）：
+  - 文件：
+    - `D:\Unity\Unity_learning\Sunset\Assets\YYY_Scripts\Service\Rendering\OcclusionManager.cs`
+  - 方法：
+    - `DetectOcclusion()`
+  - 方向：
+    - 当 `preciseOcclusion == false` 时，不要只靠中心点失败后的单次 recover；
+    - 立刻补一次 `CalculateOcclusionRatioPrecise(playerBounds)` 的多点采样；
+    - 只要 ratio `> 0`，就允许继续按现有阈值链判断。
+
+- 归类结论：
+  - 当前更像 **运行时代码真问题**，不是“测试样本纯假阳性”。
+  - 但测试本身也值得后续补硬一个前提：
+    - 除了 `preciseHit == false`，再显式断言 `GetBounds().Intersects(playerBounds)`；
+    - 这样以后能更快区分“中心踩空”与“根本没重叠”。
+
+- 验证状态：
+  - `静态推断 + Unity 定向 EditMode 复现` 已成立。
+  - 未做临时代码插桩，所以我对“准确是哪一行把 fallback 丢掉”的把握是高，但不是满分；当前最大不确定性是：它究竟卡在 `bounds fallback` 这一步，还是被后续树处理链改回了 `false`。
+- 当前状态：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`
+
+## 2026-04-18｜更正：`House 4` 结构判读复核
+
+- 更正原因：
+  - 上一条只读记录里把 `Assets/222_Prefabs/House/House 4.prefab` 资产内部的嵌套 prefab instance，误写成了 `Town.unity` 现场直接新增的 scene-level override。
+- 复核后正确结构：
+  - `Town.unity` 中 `House 4` 命中的其实是整棵 `House 4.prefab` 实例：
+    - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:846-966`
+    - 这棵 scene instance 自身 `m_AddedComponents: []`
+  - `House 4 柱子_0` 的 `OcclusionTransparency` added component 不在 `Town.unity`，而是在 `House 4.prefab` 内部的嵌套 prefab instance：
+    - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\House\House 4.prefab:357-443`
+  - `House 4 柱子_0.prefab` 本体依旧只有 `Transform + SpriteRenderer + PolygonCollider2D`，没有脚本：
+    - `D:\Unity\Unity_learning\Sunset\Assets\Prefabs\场景物品\House 4 柱子_0.prefab:3-145`
+- 对结论的影响：
+  - `House 4` 在 `Town.unity` 里并没有额外多挂一层 scene-level `OcclusionTransparency`。
+  - 之前“若施工先删 `Town.unity` 中柱子脚本”的建议作废。
+  - 如果后续真要做最小验证性修复，优先检查的是 `House 4.prefab` 里这个嵌套柱子实例，是否需要保留这 1 份脚本，而不是先碰 `Town.unity` 现场。
+
+## 2026-04-18｜只读排查：`Town` 里 `House 4_0` 单点遮挡异常结构对比
+
+- 当前主线：
+  - `Town` 场景遮挡异常的最小根因定位，优先确认 `House 4` 是否有额外 scene-level 脏配置。
+- 本轮子任务：
+  - 只读审 `Town.unity`、`House 4.prefab`、`House 4 柱子_0.prefab`，回答 `House 4` 是否比别的房子多 override / 重复 `OcclusionTransparency`，并给最小安全修法建议。
+- 服务关系：
+  - 为后续是否需要真正清理 `Town.unity` 中 `House 4` 结构提供静态证据，避免直接误删 scene 配置。
+- 恢复点：
+  - 如果下一轮进入真实施工，优先只动 `Town.unity` 里的 `House 4 柱子_0` 那一处 scene-added `OcclusionTransparency`；在此之前不碰 prefab 本体。
+
+- 本轮完成：
+  1. 审了 `Assets/000_Scenes/Town.unity` 里 `House 4` 层级与 `House 4 柱子_0` prefab instance。
+  2. 审了 `Assets/222_Prefabs/House/House 4.prefab` 与 `Assets/Prefabs/场景物品/House 4 柱子_0.prefab` 的静态组件结构。
+  3. 横向抽查了 `Town.unity` 中 `House 2_0`、`House 3_0` 的 added-component 模式，确认 `House 4` 不是唯一特例。
+
+- 关键证据与判断：
+  - `House 4.prefab` 本体里：
+    - `House 4_0` 自带 `Transform + SpriteRenderer + PolygonCollider2D + OcclusionTransparency`
+    - `House 4_1` 自带 `Transform + SpriteRenderer + PolygonCollider2D + OcclusionTransparency`
+    - `House 4` 根节点只有 `Transform`
+    - 证据：
+      - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\House\House 4.prefab:3-164`
+      - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\House\House 4.prefab:165-322`
+      - `D:\Unity\Unity_learning\Sunset\Assets\222_Prefabs\House\House 4.prefab:323-356`
+  - `House 4 柱子_0.prefab` 本体里只有 `Transform + SpriteRenderer + PolygonCollider2D`，没有 `OcclusionTransparency`：
+    - `D:\Unity\Unity_learning\Sunset\Assets\Prefabs\场景物品\House 4 柱子_0.prefab:3-145`
+  - `Town.unity` 里的 `House 4` 不是整棵 prefab instance，而是 scene 原生层级：
+    - `House 4_0`、`House 4_1`、`House 4` 三个对象都是 `m_PrefabInstance: {fileID: 0}`
+    - 它们在 scene 中的组件结构与 `House 4.prefab` 一致，没有额外 scene override 块
+    - 证据：
+      - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:977-1055`
+      - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:323-356`
+  - `Town.unity` 里唯一显眼的 scene-level override 落在 `House 4 柱子_0`：
+    - prefab instance `6463916197098166522`
+    - 只有两类 override：`m_Name` 重命名，以及 `m_AddedComponents` 里加了 1 个 `OcclusionTransparency`
+    - 没有 `m_RemovedComponents`、没有第二个 added component
+    - 证据：
+      - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:357-443`
+  - 同类 added-component 模式并非 `House 4` 独有：
+    - `House 2_0` 也有同样的单个 `OcclusionTransparency` scene-added component
+      - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:150717-150856`
+    - `House 3_0` 也有同样模式
+      - `D:\Unity\Unity_learning\Sunset\Assets\000_Scenes\Town.unity:150978-151129`
+
+- 结论：
+  - 目前静态证据不支持“`House 4` 比其他房子多 scene-level override”这个方向。
+  - 也不支持“同一个对象上挂了重复 `OcclusionTransparency`”这个方向。
+  - 真正与 prefab / scene 结构不一致的点只有：
+    - `House 4 柱子_0` prefab 本体没有 `OcclusionTransparency`
+    - 但 scene instance 给它补挂了 1 份
+  - 这个模式在 `Town` 里并不罕见，因此它更像现有作者习惯，不像 `House 4` 的独有脏数据。
+
+- 最小安全修法建议（只给建议，不实施）：
+  1. 第一优先不要碰 `House 4_0` / `House 4_1`，因为它们在 prefab 与 scene 的组件结构是对齐的。
+  2. 如果必须做最小验证性修复，优先只动 `Town.unity` 中 `House 4 柱子_0` 这一处 scene-added `OcclusionTransparency`：
+     - 先临时对照同类房屋柱子是否都需要这份脚本；
+     - 如果只有它表现异常，再考虑“删掉这一份 scene-added 组件再回归验证”。
+  3. 当前不建议先改：
+     - `Assets/222_Prefabs/House/House 4.prefab`
+     - `Assets/Prefabs/场景物品/House 4 柱子_0.prefab`
+     - 因为现有证据还不足以证明 prefab 本体坏了；直接动 prefab 会把影响面从单点 scene 异常放大到所有实例。
+
+- 验证状态：
+  - `静态推断成立`
+  - 未进入 Unity live / PlayMode，未做运行时复现
+
+- 当前状态：
+  - 本轮只读，未跑 `Begin-Slice`
+  - 当前状态保持 `PARKED`

@@ -494,3 +494,88 @@
 - 当前恢复点：
   - 如果继续，就直接补 Unity import / registry / DialogueUI 验证；
   - 不再先开第三轮重画。
+
+## 2026-04-23｜shared-root 历史小批次上传：`104` 头像删除不是独立批次
+- 当前主线目标：
+  - 用户要求这轮不要继续修 resident / roam / runtime contract；
+  - 只按历史小批次口径，单独尝试 `104` 头像删除这一个最小上传切片。
+- 本轮子任务：
+  - 真实施工前已重新 `Begin-Slice`，切片只登记：
+    - `Assets/Sprites/NPC_Hand/104.png`
+    - `Assets/Sprites/NPC_Hand/104.png.meta`
+  - 本轮只核引用一致性，不扩到 editor tool、runtime controller 或第二批次。
+- 本轮已完成：
+  1. 已确认当前工作树里 `104` 只表现为删除：
+     - `D Assets/Sprites/NPC_Hand/104.png`
+     - `D Assets/Sprites/NPC_Hand/104.png.meta`
+  2. 已查到 `Assets/Resources/Story/NpcCharacterRegistry.asset` 的 `npcId: 104` 条目仍然保留旧头像引用：
+     - `handPortrait: {fileID: 5953923354035733431, guid: c09c30ba65467fb4190d2679edee39a9, type: 3}`
+  3. 这说明 `104` 删除当前不是“自然一致、可独立上传”的历史小批；
+     - 一旦真提交删除，就会留下主表悬空引用。
+- 当前稳定结论：
+  - `104` 删除不是独立历史批次；
+  - 当前引用没有自然一致；
+  - 第一真实 blocker 就是：
+    - `Assets/Resources/Story/NpcCharacterRegistry.asset` 里 `npcId: 104` 仍直接引用被删头像。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=未跑`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - 这轮按规则已停车，不继续第二批；
+  - 除 `104` 删除这组之外，其它 NPC 尾账先不动。
+
+## 2026-04-24｜`104` 主表引用一致性已补平，但真实上传被 shared-root blocker 挡停
+- 当前主线目标：
+  - 用户要求这轮不要再继续问 `104` 删除能不能单独上传；
+  - 只做一刀：先把 `npcId:104` 的主表 `handPortrait` 引用一致性收平，再把“主表 + 删除态图片”当成唯一小批做一次真实上传尝试。
+- 本轮子任务：
+  - 已重新 `Begin-Slice`，切片只登记：
+    - `Assets/Resources/Story/NpcCharacterRegistry.asset`
+    - `Assets/Sprites/NPC_Hand/104.png`
+    - `Assets/Sprites/NPC_Hand/104.png.meta`
+  - 未越权扩到其它 NPC 条目、editor tool 或 runtime controller。
+- 本轮完成：
+  1. 已把 `NpcCharacterRegistry.asset` 中 `npcId:104` 的旧头像引用清掉：
+     - 从 `{fileID: 5953923354035733431, guid: c09c30ba65467fb4190d2679edee39a9, type: 3}`
+     - 改成 `{fileID: 0}`
+  2. 当前主表与 `104.png` 删除态已经就内容语义而言一致：
+     - 主表不再引用已删图
+     - `104.png` 与 `.meta` 仍保持删除态
+  3. 已按规则跑了真实 `Ready-To-Sync` 尝试。
+- 新的第一真实 blocker：
+  - 不是 `104` 这一组自身还不一致；
+  - 而是 `Ready-To-Sync` 在 shared-root 白名单逻辑里把 root 折叠成 `Assets/Resources/Story`，随后被：
+    - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset`
+    这个他线脏改挡住。
+- 当前稳定结论：
+  - `npcId:104` 的 `handPortrait` 一致性已补平；
+  - 这组没有提交成功；
+  - 失败原因已经变成新的 exact blocker，而不是旧的悬空引用问题。
+- thread-state：
+  - `Begin-Slice=已跑`
+  - `Ready-To-Sync=已跑但被 blocker 卡住`
+  - `Park-Slice=已跑`
+  - 当前 `PARKED`
+- 当前恢复点：
+  - 这轮已按规则停车，不继续第二批；
+  - 其它 NPC 尾账仍未碰。
+
+## 2026-04-24｜`prompt_04` 复核：`Assets/Resources/Story` blocker 证据已足够，不重跑上传
+- 当前主线目标：
+  - 用户要求不要再改 `npcId:104` 内容本身；
+  - 只处理 `Assets/Resources/Story` 目录同步 blocker，并按 exact 结论收口。
+- 本轮复核：
+  1. 已再次确认 `NpcCharacterRegistry.asset` 里 `npcId:104` 仍为 `handPortrait: {fileID: 0}`。
+  2. 已再次确认 `104.png` 与 `104.png.meta` 当前都不存在，删除态保持成立。
+  3. 已再次确认当前 shared-root 第一真实 foreign blocker 仍是：
+     - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset`
+  4. 已确认现有证据足够，不需要重跑同一上传尝试。
+- 当前稳定结论：
+  - `104` 内容一致性没有回退；
+  - 当前卡点已经纯粹是 `Assets/Resources/Story` 目录级 foreign dirty；
+  - 下一步应优先转给对应 foreign owner / 治理位，而不是继续由 `NPC` 重复做同一次上传。
+- thread-state：
+  - 本轮只读复核
+  - 当前维持 `PARKED`

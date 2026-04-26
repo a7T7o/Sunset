@@ -13,14 +13,15 @@ public class PackagePanelTabsUI : MonoBehaviour
     [SerializeField] private GameObject panelRoot;         // PackagePanel 根
     [SerializeField] private Transform topParent;           // 6_Top
     [SerializeField] private Transform pagesParent;         // Main 下的 0_Props,1_Recipes,...
+    [SerializeField] private RectTransform backgroundCoverageRect;
 
     [Header("Box UI")]
     [Tooltip("Box UI 的父容器（位于 PackagePanel 内部）")]
     [SerializeField] private Transform boxUIRoot;
-    
+
     // 当前活跃的 Box UI 实例
     private GameObject _activeBoxUI;
-    
+
     // 🔥 C9：记录进入 Box 模式前背包是否打开
     private bool _wasBackpackOpenBeforeBox = false;
 
@@ -35,11 +36,20 @@ public class PackagePanelTabsUI : MonoBehaviour
     private EquipmentService runtimeEquipmentService;
     private ItemDatabase runtimeDatabase;
     private HotbarSelectionService runtimeHotbarSelection;
+    private readonly Vector3[] backgroundCanvasCorners = new Vector3[4];
+    private Vector2 lastBackgroundCanvasSize = new Vector2(-1f, -1f);
+    private Vector2 lastBackgroundScreenSize = new Vector2(-1f, -1f);
+
+    public InventoryService RuntimeInventoryService => runtimeInventoryService;
+    public EquipmentService RuntimeEquipmentService => runtimeEquipmentService;
+    public ItemDatabase RuntimeDatabase => runtimeDatabase;
+    public HotbarSelectionService RuntimeHotbarSelection => runtimeHotbarSelection;
 
     void Awake()
     {
         TryAutoLocate();
         Collect();
+        ResolveBackgroundCoverageRect();
         PackageSaveSettingsPanel.EnsureInstalled(panelRoot);
         EnsureOptionalPanelInstalled("PackageMapOverviewPanel");
         EnsureOptionalPanelInstalled("PackageNpcRelationshipPanel");
@@ -53,6 +63,7 @@ public class PackagePanelTabsUI : MonoBehaviour
         topParent = top;
         pagesParent = pagesRoot;
         Collect();
+        ResolveBackgroundCoverageRect(true);
         PackageSaveSettingsPanel.EnsureInstalled(panelRoot);
         EnsureOptionalPanelInstalled("PackageMapOverviewPanel");
         EnsureOptionalPanelInstalled("PackageNpcRelationshipPanel");
@@ -132,6 +143,25 @@ public class PackagePanelTabsUI : MonoBehaviour
         return null;
     }
 
+    Transform FindDirectChildByName(Transform root, string name)
+    {
+        if (root == null)
+        {
+            return null;
+        }
+
+        for (int index = 0; index < root.childCount; index++)
+        {
+            Transform child = root.GetChild(index);
+            if (string.Equals(child.name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                return child;
+            }
+        }
+
+        return null;
+    }
+
     GameObject LocatePanelRoot()
     {
         // 优先在自身及父级中寻找名称包含 "PackagePanel" 的对象
@@ -181,6 +211,7 @@ public class PackagePanelTabsUI : MonoBehaviour
     {
         TryAutoLocate();
         Collect();
+        ResolveBackgroundCoverageRect();
         PackageSaveSettingsPanel.EnsureInstalled(panelRoot);
         EnsureOptionalPanelInstalled("PackageMapOverviewPanel");
         EnsureOptionalPanelInstalled("PackageNpcRelationshipPanel");
@@ -191,6 +222,11 @@ public class PackagePanelTabsUI : MonoBehaviour
         if (panelRoot != null && !panelRoot.activeSelf)
         {
             ApplyInitialState();
+        }
+        else
+        {
+            Canvas.ForceUpdateCanvases();
+            EnsureFullscreenBackgroundCoverage(true);
         }
     }
 
@@ -275,10 +311,10 @@ public class PackagePanelTabsUI : MonoBehaviour
     private void OpenOrToggle(int idx)
     {
         EnsureCollected();
-        
+
         // 🔥 C2/C9：打开背包前先关闭 Box UI（互斥逻辑）
         CloseBoxPanelIfOpen();
-        
+
         bool isOpen = panelRoot != null && panelRoot.activeSelf;
         if (!isOpen)
         {
@@ -291,10 +327,10 @@ public class PackagePanelTabsUI : MonoBehaviour
             ClosePanel();
             return;
         }
-        
+
         // ★ 切换页面时取消拿取状态
         CancelInteractionIfNeeded();
-        
+
         SetVisiblePage(idx);
     }
 
@@ -398,7 +434,7 @@ public class PackagePanelTabsUI : MonoBehaviour
     void OpenPanel()
     {
         if (panelRoot == null || panelRoot.activeSelf) return;
-        
+
         // 🔥 互斥逻辑：打开 PackagePanel 前先关闭 BoxPanelUI
         CloseBoxPanelIfOpen();
         EnsurePanelCanvasPriority();
@@ -406,10 +442,13 @@ public class PackagePanelTabsUI : MonoBehaviour
         ConfigureInventoryPanelRuntimeContext();
 
         panelRoot.SetActive(true);
-        
+        Canvas.ForceUpdateCanvases();
+        EnsureFullscreenBackgroundCoverage(true);
+        RefreshPromptOverlayVisibilityBlock();
+
         OnPanelJustOpened();
     }
-    
+
     /// <summary>
     /// 🔥 关闭箱子面板（互斥逻辑）
     /// 🔥 C2/C9：打开背包时调用，关闭 Box 后打开背包
@@ -420,7 +459,7 @@ public class PackagePanelTabsUI : MonoBehaviour
         {
             FarmGame.UI.BoxPanelUI.ActiveInstance.Close();
         }
-        
+
         // 同时清理本地引用并恢复 Main/Top
         if (_activeBoxUI != null)
         {
@@ -428,7 +467,7 @@ public class PackagePanelTabsUI : MonoBehaviour
             _activeBoxUI = null;
             ShowMainAndTop();
         }
-        
+
         _wasBackpackOpenBeforeBox = false;
     }
 
@@ -445,6 +484,9 @@ public class PackagePanelTabsUI : MonoBehaviour
         {
             ConfigureInventoryPanelRuntimeContext();
             panelRoot.SetActive(true);
+            Canvas.ForceUpdateCanvases();
+            EnsureFullscreenBackgroundCoverage(true);
+            RefreshPromptOverlayVisibilityBlock();
             OnPanelJustOpened(); // 🔥 关键：确保 InventoryPanelUI.EnsureBuilt() 被调用
         }
     }
@@ -539,7 +581,7 @@ public class PackagePanelTabsUI : MonoBehaviour
             RecoverFromMissingBoxUiState(openBackpackAfter);
             return;
         }
-        
+
         CloseBoxUIInternal();
 
         if (openBackpackAfter)
@@ -558,7 +600,7 @@ public class PackagePanelTabsUI : MonoBehaviour
             ClosePanel();
             Debug.Log("[PackagePanelTabsUI] CloseBoxUI: ESC 触发，返回 NoPanel");
         }
-        
+
         _wasBackpackOpenBeforeBox = false;
     }
 
@@ -651,7 +693,7 @@ public class PackagePanelTabsUI : MonoBehaviour
     /// </summary>
     private bool IsBackpackVisible()
     {
-        return panelRoot != null && panelRoot.activeSelf 
+        return panelRoot != null && panelRoot.activeSelf
             && topParent != null && topParent.gameObject.activeSelf
             && pagesParent != null && pagesParent.gameObject.activeSelf;
     }
@@ -661,12 +703,19 @@ public class PackagePanelTabsUI : MonoBehaviour
     void ClosePanel()
     {
         if (panelRoot == null || !panelRoot.activeSelf) return;
-        
+
         // ★ 关闭面板时处理手持物品（物品归位逻辑）
         ReturnHeldItemsBeforeClose();
-        
+
         panelRoot.SetActive(false);
         SetVisiblePageInactive();
+        RefreshPromptOverlayVisibilityBlock();
+    }
+
+    private void RefreshPromptOverlayVisibilityBlock()
+    {
+        bool shouldBlock = (panelRoot != null && panelRoot.activeSelf) || IsBoxUIOpen();
+        SpringDay1PromptOverlay.SetGlobalExternalVisibilityBlock(shouldBlock);
     }
 
     private void EnsurePanelCanvasPriority()
@@ -705,7 +754,7 @@ public class PackagePanelTabsUI : MonoBehaviour
             Debug.Log($"<color=yellow>[PackagePanelTabsUI] 关闭面板前归位手持物品</color>");
             interactionManager.ReturnHeldItemToInventory();
         }
-        
+
         // 同时处理 SlotDragContext（箱子物品）
         if (SlotDragContext.IsDragging)
         {
@@ -713,7 +762,7 @@ public class PackagePanelTabsUI : MonoBehaviour
             SlotDragContext.Cancel();
         }
     }
-    
+
     /// <summary>
     /// 取消背包交互状态（如果正在拿取物品）
     /// </summary>
@@ -736,6 +785,16 @@ public class PackagePanelTabsUI : MonoBehaviour
         {
             panelRoot.SetActive(false);
         }
+    }
+
+    void LateUpdate()
+    {
+        if (panelRoot == null || !panelRoot.activeInHierarchy)
+        {
+            return;
+        }
+
+        EnsureFullscreenBackgroundCoverage();
     }
 
     void EnsureCollected()
@@ -797,6 +856,141 @@ public class PackagePanelTabsUI : MonoBehaviour
             runtimeEquipmentService,
             runtimeDatabase,
             runtimeHotbarSelection);
+    }
+
+    private void ResolveBackgroundCoverageRect(bool forceRefresh = false)
+    {
+        if (backgroundCoverageRect != null && !forceRefresh)
+        {
+            return;
+        }
+
+        backgroundCoverageRect = null;
+        ResetBackgroundCoverageTracking();
+
+        if (panelRoot == null)
+        {
+            return;
+        }
+
+        Transform directBackground = FindDirectChildByName(panelRoot.transform, "Background");
+        if (directBackground is RectTransform rectTransform)
+        {
+            backgroundCoverageRect = rectTransform;
+        }
+    }
+
+    private void ResetBackgroundCoverageTracking()
+    {
+        lastBackgroundCanvasSize = new Vector2(-1f, -1f);
+        lastBackgroundScreenSize = new Vector2(-1f, -1f);
+    }
+
+    private void EnsureFullscreenBackgroundCoverage(bool force = false)
+    {
+        ResolveBackgroundCoverageRect();
+
+        RectTransform panelRect = panelRoot != null ? panelRoot.transform as RectTransform : null;
+        if (panelRect == null || backgroundCoverageRect == null)
+        {
+            return;
+        }
+
+        RectTransform rootCanvasRect = ResolveRootCanvasRect(panelRect);
+        if (rootCanvasRect == null || ReferenceEquals(rootCanvasRect, panelRect))
+        {
+            RestoreBackgroundDefaultStretch(force);
+            return;
+        }
+
+        Vector2 canvasSize = rootCanvasRect.rect.size;
+        Vector2 screenSize = new Vector2(Screen.width, Screen.height);
+        if (!force
+            && ApproximatelyEqual(lastBackgroundCanvasSize, canvasSize)
+            && ApproximatelyEqual(lastBackgroundScreenSize, screenSize))
+        {
+            return;
+        }
+
+        rootCanvasRect.GetWorldCorners(backgroundCanvasCorners);
+
+        Vector2 min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+        Vector2 max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+        for (int index = 0; index < backgroundCanvasCorners.Length; index++)
+        {
+            Vector3 localCorner = panelRect.InverseTransformPoint(backgroundCanvasCorners[index]);
+            min = Vector2.Min(min, localCorner);
+            max = Vector2.Max(max, localCorner);
+        }
+
+        Vector2 targetSize = max - min;
+        if (targetSize.x <= 0.5f || targetSize.y <= 0.5f)
+        {
+            return;
+        }
+
+        backgroundCoverageRect.anchorMin = new Vector2(0.5f, 0.5f);
+        backgroundCoverageRect.anchorMax = new Vector2(0.5f, 0.5f);
+        backgroundCoverageRect.pivot = new Vector2(0.5f, 0.5f);
+        backgroundCoverageRect.anchoredPosition = (min + max) * 0.5f;
+        backgroundCoverageRect.sizeDelta = targetSize;
+
+        lastBackgroundCanvasSize = canvasSize;
+        lastBackgroundScreenSize = screenSize;
+    }
+
+    private void RestoreBackgroundDefaultStretch(bool force = false)
+    {
+        if (backgroundCoverageRect == null)
+        {
+            return;
+        }
+
+        if (!force
+            && backgroundCoverageRect.anchorMin == Vector2.zero
+            && backgroundCoverageRect.anchorMax == Vector2.one
+            && backgroundCoverageRect.anchoredPosition == Vector2.zero
+            && backgroundCoverageRect.sizeDelta == Vector2.zero)
+        {
+            return;
+        }
+
+        backgroundCoverageRect.anchorMin = Vector2.zero;
+        backgroundCoverageRect.anchorMax = Vector2.one;
+        backgroundCoverageRect.pivot = new Vector2(0.5f, 0.5f);
+        backgroundCoverageRect.anchoredPosition = Vector2.zero;
+        backgroundCoverageRect.sizeDelta = Vector2.zero;
+
+        RectTransform rootCanvasRect = panelRoot != null ? ResolveRootCanvasRect(panelRoot.transform as RectTransform) : null;
+        lastBackgroundCanvasSize = rootCanvasRect != null ? rootCanvasRect.rect.size : new Vector2(-1f, -1f);
+        lastBackgroundScreenSize = new Vector2(Screen.width, Screen.height);
+    }
+
+    private RectTransform ResolveRootCanvasRect(RectTransform panelRect)
+    {
+        if (panelRect == null)
+        {
+            return null;
+        }
+
+        Canvas resolvedCanvas = panelCanvas != null ? panelCanvas : panelRect.GetComponent<Canvas>();
+        if (resolvedCanvas == null)
+        {
+            resolvedCanvas = panelRect.GetComponentInParent<Canvas>();
+        }
+
+        Canvas rootCanvas = resolvedCanvas != null ? resolvedCanvas.rootCanvas : null;
+        if (rootCanvas != null && rootCanvas.transform is RectTransform rootRect)
+        {
+            return rootRect;
+        }
+
+        return panelRect.parent as RectTransform;
+    }
+
+    private static bool ApproximatelyEqual(Vector2 a, Vector2 b)
+    {
+        return Mathf.Abs(a.x - b.x) < 0.01f && Mathf.Abs(a.y - b.y) < 0.01f;
     }
 
     // 备用：通过名称片段打开（以防层级命名不同）

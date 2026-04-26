@@ -7,39 +7,39 @@ using UnityEngine;
 public class PlacementGridCell : MonoBehaviour
 {
     #region 序列化字段
-    
+
     [Header("━━━━ 渲染设置 ━━━━")]
     [Tooltip("格子 SpriteRenderer")]
     [SerializeField] private SpriteRenderer spriteRenderer;
-    
+
     [Header("━━━━ 颜色配置 ━━━━")]
     [Tooltip("有效位置颜色（绿色）")]
     [SerializeField] private Color validColor = new Color(0f, 1f, 0f, 0.4f);
-    
+
     [Tooltip("无效位置颜色（红色）")]
     [SerializeField] private Color invalidColor = new Color(1f, 0f, 0f, 0.4f);
-    
+
     #endregion
-    
+
     #region 私有字段
-    
+
     private bool isValid = true;
     private Vector2Int cellIndex;
-    
+
     #endregion
-    
+
     #region 属性
-    
+
     /// <summary>当前是否有效</summary>
     public bool IsValid => isValid;
-    
+
     /// <summary>格子索引</summary>
     public Vector2Int CellIndex => cellIndex;
-    
+
     #endregion
-    
+
     #region Unity 生命周期
-    
+
     private void Awake()
     {
         // 确保有 SpriteRenderer
@@ -51,25 +51,25 @@ public class PlacementGridCell : MonoBehaviour
                 spriteRenderer = gameObject.AddComponent<SpriteRenderer>();
             }
         }
-        
+
         // 设置排序层 - 使用高 Order 确保在最上层
         spriteRenderer.sortingLayerName = "Default";
         spriteRenderer.sortingOrder = 31999; // 比物品预览低 1
-        
+
         // 创建默认 Sprite（如果没有）
         if (spriteRenderer.sprite == null)
         {
             spriteRenderer.sprite = CreateGridSprite();
         }
-        
+
         // 设置默认大小为 1x1
         transform.localScale = Vector3.one;
     }
-    
+
     #endregion
-    
+
     #region 公共方法
-    
+
     /// <summary>
     /// 初始化格子
     /// </summary>
@@ -79,10 +79,19 @@ public class PlacementGridCell : MonoBehaviour
     {
         cellIndex = index;
         transform.position = worldPosition;
-        SetValid(true);
         gameObject.SetActive(true);
     }
-    
+
+    /// <summary>
+    /// 仅更新格子索引和位置，保留当前红/绿状态。
+    /// </summary>
+    public void Rebind(Vector2Int index, Vector3 worldPosition)
+    {
+        cellIndex = index;
+        transform.position = worldPosition;
+        gameObject.SetActive(true);
+    }
+
     /// <summary>
     /// 设置格子状态
     /// </summary>
@@ -92,7 +101,7 @@ public class PlacementGridCell : MonoBehaviour
         isValid = valid;
         UpdateColor();
     }
-    
+
     /// <summary>
     /// 设置格子位置
     /// </summary>
@@ -100,7 +109,7 @@ public class PlacementGridCell : MonoBehaviour
     {
         transform.position = worldPosition;
     }
-    
+
     /// <summary>
     /// 设置颜色配置
     /// </summary>
@@ -110,7 +119,7 @@ public class PlacementGridCell : MonoBehaviour
         invalidColor = invalid;
         UpdateColor();
     }
-    
+
     /// <summary>
     /// 隐藏格子
     /// </summary>
@@ -118,7 +127,7 @@ public class PlacementGridCell : MonoBehaviour
     {
         gameObject.SetActive(false);
     }
-    
+
     /// <summary>
     /// 显示格子
     /// </summary>
@@ -126,11 +135,11 @@ public class PlacementGridCell : MonoBehaviour
     {
         gameObject.SetActive(true);
     }
-    
+
     #endregion
-    
+
     #region 私有方法
-    
+
     /// <summary>
     /// 更新颜色
     /// </summary>
@@ -141,7 +150,7 @@ public class PlacementGridCell : MonoBehaviour
             spriteRenderer.color = isValid ? validColor : invalidColor;
         }
     }
-    
+
     /// <summary>
     /// 创建格子 Sprite（1x1 方框）
     /// </summary>
@@ -149,14 +158,14 @@ public class PlacementGridCell : MonoBehaviour
     {
         int size = 32;
         int borderWidth = 2;
-        
+
         Texture2D texture = new Texture2D(size, size);
         texture.filterMode = FilterMode.Point;
-        
+
         Color[] colors = new Color[size * size];
         Color fillColor = Color.white;
         Color borderColor = new Color(1f, 1f, 1f, 0.8f);
-        
+
         for (int y = 0; y < size; y++)
         {
             for (int x = 0; x < size; x++)
@@ -164,7 +173,7 @@ public class PlacementGridCell : MonoBehaviour
                 // 边框
                 bool isBorder = x < borderWidth || x >= size - borderWidth ||
                                y < borderWidth || y >= size - borderWidth;
-                
+
                 if (isBorder)
                 {
                     colors[y * size + x] = borderColor;
@@ -176,10 +185,10 @@ public class PlacementGridCell : MonoBehaviour
                 }
             }
         }
-        
+
         texture.SetPixels(colors);
         texture.Apply();
-        
+
         // 创建 Sprite，PPU = size 使其为 1x1 单位
         return Sprite.Create(
             texture,
@@ -188,11 +197,11 @@ public class PlacementGridCell : MonoBehaviour
             size
         );
     }
-    
+
     #endregion
-    
+
     #region 静态工厂方法
-    
+
     /// <summary>
     /// 创建格子实例
     /// </summary>
@@ -203,10 +212,10 @@ public class PlacementGridCell : MonoBehaviour
         {
             cellObj.transform.SetParent(parent);
         }
-        
+
         var cell = cellObj.AddComponent<PlacementGridCell>();
         return cell;
     }
-    
+
     #endregion
 }

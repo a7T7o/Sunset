@@ -38,15 +38,7 @@ namespace Sunset.Editor.Story
             new CaptureTarget(SpringDay1DirectorBeatKeys.DinnerConflictTable, "dinner-bg-203", "203"),
             new CaptureTarget(SpringDay1DirectorBeatKeys.DinnerConflictTable, "dinner-bg-104", "104"),
             new CaptureTarget(SpringDay1DirectorBeatKeys.DinnerConflictTable, "dinner-bg-201", "201"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.DinnerConflictTable, "dinner-bg-202", "202"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.FreeTimeNightWitness, "night-witness-102", "102"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.FreeTimeNightWitness, "night-witness-301", "301"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.DailyStandPreview, "daily-101", "101"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.DailyStandPreview, "daily-103", "103"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.DailyStandPreview, "daily-102", "102"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.DailyStandPreview, "daily-104", "104"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.DailyStandPreview, "daily-203", "203"),
-            new CaptureTarget(SpringDay1DirectorBeatKeys.DailyStandPreview, "daily-201", "201")
+            new CaptureTarget(SpringDay1DirectorBeatKeys.DinnerConflictTable, "dinner-bg-202", "202")
         };
 
         [MenuItem(MenuPath)]
@@ -102,7 +94,7 @@ namespace Sunset.Editor.Story
                     return CaptureResult.Blocked(book, "beat-missing", $"StageBook 缺少 beat {target.beatKey}。");
                 }
 
-                SpringDay1DirectorActorCue cue = FindCueById(beat, target.cueId);
+                SpringDay1DirectorActorCue cue = FindCue(beat, target.cueId, target.npcId);
                 if (cue == null)
                 {
                     return CaptureResult.Blocked(book, "cue-missing", $"Beat {target.beatKey} 缺少 cue {target.cueId}。");
@@ -121,22 +113,10 @@ namespace Sunset.Editor.Story
 
                 cue.EnsureDefaults();
                 cue.keepCurrentSpawnPosition = false;
+                cue.useSemanticAnchorAsStart = false;
+                cue.startPositionIsSemanticAnchorOffset = false;
+                cue.pathPointsAreOffsets = false;
                 cue.startPosition = basePosition;
-                if (cue.pathPointsAreOffsets)
-                {
-                    for (int index = 0; index < cue.path.Length; index++)
-                    {
-                        SpringDay1DirectorPathPoint point = cue.path[index];
-                        if (point == null)
-                        {
-                            continue;
-                        }
-
-                        point.position = basePosition + point.position;
-                    }
-
-                    cue.pathPointsAreOffsets = false;
-                }
 
                 updates.Add($"{target.cueId}@{anchorName}->{basePosition.x:F2}/{basePosition.y:F2}");
             }
@@ -145,7 +125,7 @@ namespace Sunset.Editor.Story
             return CaptureResult.Pass(book, $"Primary live capture 已把 {updates.Count} 条关键 cue 写成绝对落位。", updates);
         }
 
-        private static SpringDay1DirectorActorCue FindCueById(SpringDay1DirectorBeatEntry beat, string cueId)
+        private static SpringDay1DirectorActorCue FindCue(SpringDay1DirectorBeatEntry beat, string cueId, string npcId)
         {
             if (beat == null || beat.actorCues == null)
             {
@@ -155,7 +135,13 @@ namespace Sunset.Editor.Story
             for (int index = 0; index < beat.actorCues.Length; index++)
             {
                 SpringDay1DirectorActorCue cue = beat.actorCues[index];
-                if (cue != null && string.Equals(cue.cueId?.Trim(), cueId, StringComparison.OrdinalIgnoreCase))
+                if (cue == null)
+                {
+                    continue;
+                }
+
+                if (string.Equals(cue.cueId?.Trim(), cueId, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(cue.npcId?.Trim(), npcId, StringComparison.OrdinalIgnoreCase))
                 {
                     return cue;
                 }

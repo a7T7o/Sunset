@@ -26,132 +26,134 @@ namespace FarmGame.Farm
     /// 作物控制器（自治版 V2）
     /// 附加到单个作物 GameObject 上，负责作物的渲染和交互
     /// 自己订阅时间事件，自己检查脚下土地是否湿润，自己决定是否生长
-    /// 
+    ///
     /// 实现 IPersistentObject + IInteractable 接口
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     public class CropController : MonoBehaviour, IPersistentObject, IInteractable
     {
         #region 阶段 Sprite 配置
-        
+
         [Header("=== 阶段 Sprite 配置 ===")]
         [Tooltip("每个生长阶段的 Sprite 配置（在 Prefab Inspector 上配置）")]
         [SerializeField] private CropStageConfig[] stages;
-        
+
         #endregion
 
         #region 掉落配置
-        
+
         [Header("=== 掉落配置 ===")]
         [Tooltip("收获掉落的物品 SO")]
         [SerializeField] private ItemData dropItemData;
-        
+
         [Tooltip("收获掉落数量")]
         [SerializeField] private int dropAmount = 1;
-        
+
         [Tooltip("掉落散布半径")]
         [SerializeField] private float dropSpreadRadius = 0.4f;
-        
+
         [Tooltip("掉落品质（0=Normal）")]
         [SerializeField] private int dropQuality = 0;
-        
+
         [Tooltip("枯萎收获掉落的物品 SO（可为空=不掉落）")]
         [SerializeField] private ItemData witheredDropItemData;
-        
+
         #endregion
 
         #region 组件引用
-        
+
         [Header("组件引用")]
         [SerializeField] private SpriteRenderer spriteRenderer;
         [SerializeField] private BoxCollider2D interactionTrigger;
-        
+
         #endregion
 
         #region 成熟闪烁配置
-        
+
         [Header("成熟特效")]
         [SerializeField] private bool enableMatureGlow = true;
         [SerializeField] private float glowSpeed = 2f;
         [SerializeField] private Color glowColor = new Color(1f, 1f, 0.8f, 1f);
-        
+
         #endregion
-        
+
         #region 生长规则配置
-        
+
         [Header("生长规则")]
         [Tooltip("是否需要浇水才能生长（false = 无需浇水，每天自动生长）")]
         [SerializeField] private bool needsWatering = true;
-        
+
         [Tooltip("连续多少天未浇水后作物枯萎（仅 needsWatering=true 时生效）")]
         [SerializeField] private int daysUntilWithered = 3;
-        
+
         [Tooltip("成熟后多少天未收获变为过熟枯萎")]
         [SerializeField] private int daysUntilOverMature = 2;
-        
+
         #endregion
 
         #region 位置信息
-        
+
         private int layerIndex;
         private Vector3Int cellPosition;
-        
+
         /// <summary>作物所在层级索引（供收获检测等外部逻辑使用）</summary>
         public int LayerIndex => layerIndex;
         /// <summary>作物所在格子坐标（供收获检测等外部逻辑使用）</summary>
         public Vector3Int CellPos => cellPosition;
-        
+
         #endregion
-        
+
         #region 持久化 ID
-        
+
         [Header("持久化")]
         [SerializeField] private string persistentId;
-        
+
         #endregion
 
         #region 运行时数据
-        
+
         private SeedData seedData;
         private CropInstanceData instanceData;
         private CropState state = CropState.Growing;
         private int daysSinceMature = 0;
         private float glowTime = 0f;
         private bool isInitialized = false;
-        
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = false;
-        
+
         #endregion
 
         #region 常量
-        
+
         /// <summary>固定 4 阶段：种子(0)→幼苗(1)→生长(2)→成熟(3)</summary>
         public const int CROP_STAGE_COUNT = 4;
         public const int CROP_STAGE_SEED = 0;
         public const int CROP_STAGE_SPROUT = 1;
         public const int CROP_STAGE_GROWING = 2;
         public const int CROP_STAGE_MATURE = 3;
-        
+
         private static readonly Color WitheredColor = new Color(0.8f, 0.7f, 0.4f, 1f);
-        
+
         #endregion
 
         #region 兼容旧版
-        
+
         [System.Obsolete("使用 Initialize(SeedData, CropInstanceData) 替代")]
         private CropInstance cropInstance;
-        
+
         #endregion
 
         #region IInteractable 实现
-        
+
         public int InteractionPriority => 40;
         public float InteractionDistance => 1.2f;
 
         public bool CanInteract(InteractionContext context)
         {
-            return state == CropState.Mature || state == CropState.WitheredMature;
+            return state == CropState.Mature
+                || state == CropState.WitheredMature
+                || state == CropState.WitheredImmature;
         }
 
         public void OnInteract(InteractionContext context)
@@ -163,44 +165,39 @@ namespace FarmGame.Farm
         {
             if (state == CropState.Mature) return "收获";
             if (state == CropState.WitheredMature) return "收获（枯萎）";
+            if (state == CropState.WitheredImmature) return "清理（枯萎）";
             return "";
         }
-        
+
         #endregion
 
         #region 生命周期
-        
+
         private void Awake()
         {
-            if (spriteRenderer == null)
-                spriteRenderer = GetComponent<SpriteRenderer>();
-            
-            if (interactionTrigger == null)
-                interactionTrigger = GetComponent<BoxCollider2D>();
-            
-            // 确保 BoxCollider2D 是 Trigger
-            if (interactionTrigger != null)
-                interactionTrigger.isTrigger = true;
+            CacheComponentReferences();
+            EnsureLocalInteractionTrigger();
         }
-        
+
         private void OnEnable()
         {
+            EnsurePersistentId();
             TimeManager.OnDayChanged += OnDayChanged;
             SeasonManager.OnSeasonChanged += OnSeasonChanged;
-            
-            if (!string.IsNullOrEmpty(persistentId) && PersistentObjectRegistry.Instance != null)
+
+            if (PersistentObjectRegistry.Instance != null)
                 PersistentObjectRegistry.Instance.Register(this);
         }
-        
+
         private void OnDisable()
         {
             TimeManager.OnDayChanged -= OnDayChanged;
             SeasonManager.OnSeasonChanged -= OnSeasonChanged;
-            
+
             if (!string.IsNullOrEmpty(persistentId) && PersistentObjectRegistry.Instance != null)
                 PersistentObjectRegistry.Instance.Unregister(this);
         }
-        
+
         private void Update()
         {
             if (state == CropState.Mature && enableMatureGlow)
@@ -210,11 +207,11 @@ namespace FarmGame.Farm
                 spriteRenderer.color = Color.Lerp(Color.white, glowColor, glow * 0.3f);
             }
         }
-        
+
         #endregion
 
         #region 状态转换
-        
+
         /// <summary>
         /// 尝试转换状态（仅允许合法路径）
         /// </summary>
@@ -227,16 +224,16 @@ namespace FarmGame.Farm
                     Debug.LogWarning($"[CropController] 非法状态转换: {state} → {newState}");
                 return false;
             }
-            
+
             state = newState;
-            
+
             if (newState == CropState.Mature)
                 daysSinceMature = 0;
-            
+
             UpdateVisuals();
             return true;
         }
-        
+
         /// <summary>
         /// 检查状态转换是否合法
         /// </summary>
@@ -251,15 +248,15 @@ namespace FarmGame.Farm
                 _ => false
             };
         }
-        
+
         #endregion
-        
+
         #region 时间事件处理
-        
+
         private void OnDayChanged(int year, int day, int totalDays)
         {
             if (!isInitialized || instanceData == null) return;
-            
+
             switch (state)
             {
                 case CropState.Growing:
@@ -271,39 +268,39 @@ namespace FarmGame.Farm
                 // WitheredImmature / WitheredMature 不处理日变化
             }
         }
-        
+
         private void HandleGrowingDay()
         {
             var farmTileManager = FarmTileManager.Instance;
             if (farmTileManager == null) return;
-            
+
             var tileData = farmTileManager.GetTileData(layerIndex, cellPosition);
             if (tileData == null) return;
-            
+
             // 不需要浇水的作物：每天自动生长，不累计缺水天数
             if (!needsWatering)
             {
                 instanceData.grownDays++;
                 instanceData.daysWithoutWater = 0;
                 UpdateGrowthStage();
-                
+
                 if (IsMatureStage())
                 {
                     TryTransitionState(CropState.Mature);
                     return;
                 }
-                
+
                 UpdateVisuals();
                 return;
             }
-            
+
             // 需要浇水的作物：检查昨天是否浇水
             if (tileData.wateredYesterday)
             {
                 instanceData.grownDays++;
                 instanceData.daysWithoutWater = 0;
                 UpdateGrowthStage();
-                
+
                 // 检查是否达到成熟
                 if (IsMatureStage())
                 {
@@ -314,7 +311,7 @@ namespace FarmGame.Farm
             else
             {
                 instanceData.daysWithoutWater++;
-                
+
                 if (instanceData.daysWithoutWater >= daysUntilWithered)
                 {
                     instanceData.isWithered = true;
@@ -322,17 +319,17 @@ namespace FarmGame.Farm
                     return;
                 }
             }
-            
+
             UpdateVisuals();
         }
-        
+
         private void HandleMatureDay()
         {
             if (seedData == null) return;
-            
+
             // 可重复收获作物不触发过熟枯萎
             if (seedData.isReHarvestable) return;
-            
+
             daysSinceMature++;
             if (daysSinceMature >= daysUntilOverMature)
             {
@@ -340,18 +337,18 @@ namespace FarmGame.Farm
                 TryTransitionState(CropState.WitheredMature);
             }
         }
-        
+
         private void OnSeasonChanged(SeasonManager.Season newSeason)
         {
             if (!isInitialized || seedData == null) return;
-            
+
             // AllSeason 作物不受季节影响
             if (seedData.season == Season.AllSeason) return;
-            
+
             // 比较 FarmGame.Data.Season 与 SeasonManager.Season
             bool seasonMatch = ((int)seedData.season == (int)newSeason);
             if (seasonMatch) return;
-            
+
             // 过季枯萎
             switch (state)
             {
@@ -365,17 +362,66 @@ namespace FarmGame.Farm
                     break;
             }
         }
-        
+
+        /// <summary>
+        /// 对离场场景里的作物补过去几天的成长/缺水/过熟/换季结算。
+        /// 这里按当前正式 runtime 口径模拟：
+        /// - 第 1 天只继承离场当日的 wateredToday
+        /// - 后续天数视为无人再次浇水
+        /// - 换季在每日结算后触发，与 TimeManager 当前顺序保持一致
+        /// </summary>
+        public void ApplyOffSceneElapsedDays(int elapsedDays, int targetTotalDays)
+        {
+            if (elapsedDays <= 0 || !isInitialized || instanceData == null || seedData == null)
+            {
+                return;
+            }
+
+            FarmTileManager farmTileManager = FarmTileManager.Instance;
+            FarmTileData tileData = farmTileManager != null ? farmTileManager.GetTileData(layerIndex, cellPosition) : null;
+            bool firstDayWatered = tileData != null && tileData.wateredToday;
+            int startingTotalDays = Mathf.Max(0, targetTotalDays - elapsedDays);
+
+            for (int dayOffset = 1; dayOffset <= elapsedDays; dayOffset++)
+            {
+                if (state == CropState.WitheredImmature || state == CropState.WitheredMature)
+                {
+                    break;
+                }
+
+                bool wateredForThisDay = dayOffset == 1 && firstDayWatered;
+                ApplyOffSceneSingleDay(wateredForThisDay);
+
+                int previousTotalDays = startingTotalDays + dayOffset - 1;
+                int currentTotalDays = startingTotalDays + dayOffset;
+                if (DidSeasonChange(previousTotalDays, currentTotalDays))
+                {
+                    ApplyOffSceneSeasonChange(GetSeasonFromTotalDays(currentTotalDays));
+                }
+            }
+
+            if (tileData != null)
+            {
+                tileData.wateredToday = false;
+                tileData.wateredYesterday = false;
+                tileData.waterTime = -1f;
+                tileData.moistureState = SoilMoistureState.Dry;
+                farmTileManager?.RefreshTileVisual(layerIndex, cellPosition);
+            }
+
+            UpdateVisuals();
+        }
+
         private void UpdateGrowthStage()
         {
             if (seedData == null || instanceData == null) return;
             if (stages == null || stages.Length == 0) return;
-            
+
             // 学习 TreeController 模式：每阶段独立天数累加
             // 遍历 stages，累加 daysToNextStage，找到当前应处于的阶段
             int accumulatedDays = 0;
             int newStage = 0;
-            
+
             for (int i = 0; i < stages.Length - 1; i++)
             {
                 accumulatedDays += stages[i].daysToNextStage;
@@ -384,45 +430,154 @@ namespace FarmGame.Farm
                 else
                     break;
             }
-            
+
             // 最后阶段封顶
             instanceData.currentStage = Mathf.Clamp(newStage, 0, stages.Length - 1);
         }
-        
+
         private bool IsMatureStage()
         {
             if (stages == null || stages.Length == 0) return false;
             return instanceData.currentStage >= stages.Length - 1;
         }
-        
+
+        private void ApplyOffSceneSingleDay(bool wateredForThisDay)
+        {
+            switch (state)
+            {
+                case CropState.Growing:
+                    ApplyOffSceneGrowingDay(wateredForThisDay);
+                    break;
+                case CropState.Mature:
+                    ApplyOffSceneMatureDay();
+                    break;
+            }
+        }
+
+        private void ApplyOffSceneGrowingDay(bool wateredForThisDay)
+        {
+            if (!needsWatering)
+            {
+                instanceData.grownDays++;
+                instanceData.daysWithoutWater = 0;
+                UpdateGrowthStage();
+
+                if (IsMatureStage())
+                {
+                    TryTransitionState(CropState.Mature);
+                    return;
+                }
+
+                return;
+            }
+
+            if (wateredForThisDay)
+            {
+                instanceData.grownDays++;
+                instanceData.daysWithoutWater = 0;
+                UpdateGrowthStage();
+
+                if (IsMatureStage())
+                {
+                    TryTransitionState(CropState.Mature);
+                }
+
+                return;
+            }
+
+            instanceData.daysWithoutWater++;
+            if (instanceData.daysWithoutWater >= daysUntilWithered)
+            {
+                instanceData.isWithered = true;
+                TryTransitionState(CropState.WitheredImmature);
+            }
+        }
+
+        private void ApplyOffSceneMatureDay()
+        {
+            if (seedData == null || seedData.isReHarvestable)
+            {
+                return;
+            }
+
+            daysSinceMature++;
+            if (daysSinceMature >= daysUntilOverMature)
+            {
+                instanceData.isWithered = true;
+                TryTransitionState(CropState.WitheredMature);
+            }
+        }
+
+        private void ApplyOffSceneSeasonChange(SeasonManager.Season newSeason)
+        {
+            if (seedData == null || seedData.season == Season.AllSeason)
+            {
+                return;
+            }
+
+            bool seasonMatch = ((int)seedData.season == (int)newSeason);
+            if (seasonMatch)
+            {
+                return;
+            }
+
+            switch (state)
+            {
+                case CropState.Mature:
+                    instanceData.isWithered = true;
+                    TryTransitionState(CropState.WitheredMature);
+                    break;
+                case CropState.Growing:
+                    instanceData.isWithered = true;
+                    TryTransitionState(CropState.WitheredImmature);
+                    break;
+            }
+        }
+
+        private static bool DidSeasonChange(int previousTotalDays, int currentTotalDays)
+        {
+            return GetSeasonFromTotalDays(previousTotalDays) != GetSeasonFromTotalDays(currentTotalDays);
+        }
+
+        private static SeasonManager.Season GetSeasonFromTotalDays(int totalDays)
+        {
+            int safeTotalDays = Mathf.Max(0, totalDays);
+            int seasonIndex = (safeTotalDays / 28) % 4;
+            return (SeasonManager.Season)seasonIndex;
+        }
+
         #endregion
 
         #region 收获逻辑
-        
+
         /// <summary>
         /// 收获作物
         /// </summary>
         private void Harvest(InteractionContext context)
         {
             if (seedData == null || instanceData == null) return;
-            
+
             var database = context?.Database;
             var inventory = context?.Inventory;
-            
+
             if (state == CropState.Mature)
             {
                 HarvestMature(database, inventory);
+            }
+            else if (state == CropState.WitheredImmature)
+            {
+                ClearWitheredImmature();
             }
             else if (state == CropState.WitheredMature)
             {
                 HarvestWitheredMature(database, inventory);
             }
         }
-        
+
         private void HarvestMature(ItemDatabase database, InventoryService inventory)
         {
             if (seedData == null) return;
-            
+
             // 🔥 10.X 纠正：改用掉落到地面模式（学习 TreeController.SpawnDrops）
             if (dropItemData != null && dropAmount > 0)
             {
@@ -436,7 +591,7 @@ namespace FarmGame.Farm
                     Debug.LogWarning($"[CropController] WorldSpawnService 不存在，无法掉落收获物: {dropItemData.itemName}");
                 }
             }
-            
+
             // 可重复收获：重置
             if (seedData.isReHarvestable)
             {
@@ -444,7 +599,7 @@ namespace FarmGame.Farm
                 instanceData.currentStage = reGrowStage;
                 instanceData.harvestCount++;
                 instanceData.lastHarvestDay = TimeManager.Instance?.GetTotalDaysPassed() ?? 0;
-                
+
                 // 重新计算生长天数：累加到 reGrowStage 所需的总天数
                 int accDays = 0;
                 if (stages != null)
@@ -453,7 +608,7 @@ namespace FarmGame.Farm
                         accDays += stages[i].daysToNextStage;
                 }
                 instanceData.grownDays = accDays;
-                
+
                 TryTransitionState(CropState.Growing);
             }
             else
@@ -461,11 +616,11 @@ namespace FarmGame.Farm
                 DestroyCrop();
             }
         }
-        
+
         private void HarvestWitheredMature(ItemDatabase database, InventoryService inventory)
         {
             if (seedData == null) return;
-            
+
             // 🔥 10.X 纠正：枯萎收获改用掉落模式
             if (witheredDropItemData != null)
             {
@@ -480,11 +635,11 @@ namespace FarmGame.Farm
                 }
             }
             // witheredDropItemData 为空时不掉落，直接清除
-            
+
             // 枯萎作物不可重复收获
             DestroyCrop();
         }
-        
+
         /// <summary>
         /// 随机判定收获品质
         /// </summary>
@@ -498,7 +653,7 @@ namespace FarmGame.Farm
             if (roll < 0.20f) return (int)ItemQuality.Rare;
             return (int)ItemQuality.Normal;
         }
-        
+
         /// <summary>
         /// 掉落物品到地面
         /// </summary>
@@ -512,7 +667,7 @@ namespace FarmGame.Farm
                     Debug.LogWarning($"[CropController] WorldSpawnService 不存在，无法掉落物品: ID={itemId}");
                 return;
             }
-            
+
             // 通过 InventoryService 获取 database
             var invService = FindFirstObjectByType<InventoryService>();
             ItemDatabase db = invService != null ? invService.Database : null;
@@ -522,7 +677,7 @@ namespace FarmGame.Farm
                     Debug.LogWarning($"[CropController] ItemDatabase 不存在，无法掉落物品: ID={itemId}");
                 return;
             }
-            
+
             var itemData = db.GetItemByID(itemId);
             if (itemData == null)
             {
@@ -530,10 +685,10 @@ namespace FarmGame.Farm
                     Debug.LogWarning($"[CropController] 找不到物品数据: ID={itemId}");
                 return;
             }
-            
+
             spawnService.SpawnMultiple(itemData, quality, amount, transform.position);
         }
-        
+
         /// <summary>
         /// 清除枯萎未成熟作物（锄头操作，无产出）
         /// </summary>
@@ -544,11 +699,11 @@ namespace FarmGame.Farm
                 Debug.LogWarning($"[CropController] ClearWitheredImmature: 当前状态 {state} 不是 WitheredImmature");
                 return;
             }
-            
+
             // TODO: 添加枯萎清除 VFX/SFX（粒子效果 + 音效）
             if (showDebugInfo)
                 Debug.Log($"[CropController] 清除枯萎作物: seed={seedData?.itemName}, stage={instanceData?.currentStage}");
-            
+
             DestroyCrop();
         }
         /// <summary>
@@ -561,7 +716,7 @@ namespace FarmGame.Farm
 
             DestroyCrop();
         }
-        
+
         /// <summary>
         /// 🔴 004-P3：隐藏作物视觉（动画中期调用），不销毁数据
         /// 让锄头动画播放时作物先消失，动画结束后再真正销毁
@@ -570,15 +725,15 @@ namespace FarmGame.Farm
         {
             if (spriteRenderer != null)
                 spriteRenderer.enabled = false;
-            
+
             // 禁用交互触发器，防止隐藏后仍可交互
             if (interactionTrigger != null)
                 interactionTrigger.enabled = false;
-            
+
             if (showDebugInfo)
                 Debug.Log($"[CropController] HideCropVisuals: seed={seedData?.itemName}, state={state}");
         }
-        
+
         /// <summary>
         /// 销毁作物
         /// </summary>
@@ -595,58 +750,64 @@ namespace FarmGame.Farm
                     tileData.cropController = null;
                 }
             }
-            
+
             // 取消注册持久化对象
             if (FarmGame.Data.Core.PersistentObjectRegistry.Instance != null)
             {
                 FarmGame.Data.Core.PersistentObjectRegistry.Instance.Unregister(this);
             }
-            
+
             Destroy(gameObject);
         }
-        
+
         #endregion
 
         #region 初始化
-        
+
         public void Initialize(SeedData seed, CropInstanceData data)
         {
             seedData = seed;
             instanceData = data;
-            
+            CacheComponentReferences();
+            EnsureLocalInteractionTrigger();
+
+            if (spriteRenderer != null)
+                spriteRenderer.enabled = true;
+
             var farmTileManager = FarmTileManager.Instance;
             if (farmTileManager != null)
             {
-                layerIndex = farmTileManager.GetCurrentLayerIndex(transform.position);
+                Vector3 cellCenter = GetCellCenterPosition();
+                layerIndex = farmTileManager.GetCurrentLayerIndex(cellCenter);
                 var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
                 if (tilemaps != null)
-                    cellPosition = tilemaps.WorldToCell(transform.position);
-                
+                    cellPosition = tilemaps.WorldToCell(cellCenter);
+
                 // 🔥 10.X 纠正：设置 FarmTileData 的控制器引用
                 var tileData = farmTileManager.GetTileData(layerIndex, cellPosition);
                 if (tileData != null)
                     tileData.cropController = this;
             }
-            
+
             // 根据数据恢复状态
             RestoreStateFromData();
-            
+
             isInitialized = true;
             UpdateVisuals();
         }
-        
+
         public void Initialize(SeedData seed, CropInstanceData data, int layer, Vector3Int cell)
         {
             seedData = seed;
             instanceData = data;
             layerIndex = layer;
             cellPosition = cell;
+            CacheComponentReferences();
+            EnsureLocalInteractionTrigger();
 
             if (spriteRenderer != null)
                 spriteRenderer.enabled = true;
-            if (interactionTrigger != null)
-                interactionTrigger.enabled = true;
-            
+
             // 🔥 10.X 纠正：设置 FarmTileData 的控制器引用
             var ftm = FarmTileManager.Instance;
             if (ftm != null)
@@ -655,20 +816,20 @@ namespace FarmGame.Farm
                 if (tileData != null)
                     tileData.cropController = this;
             }
-            
+
             RestoreStateFromData();
-            
+
             isInitialized = true;
             UpdateVisuals();
         }
-        
+
         /// <summary>
         /// 根据实例数据恢复状态
         /// </summary>
         private void RestoreStateFromData()
         {
             if (instanceData == null || seedData == null) return;
-            
+
             if (instanceData.isWithered)
             {
                 state = IsMatureStage() ? CropState.WitheredMature : CropState.WitheredImmature;
@@ -682,14 +843,16 @@ namespace FarmGame.Farm
                 state = CropState.Growing;
             }
         }
-        
+
         [System.Obsolete("使用 Initialize(SeedData, CropInstanceData) 替代")]
         public void Initialize(CropInstance instance)
         {
             #pragma warning disable 0618
             cropInstance = instance;
             #pragma warning restore 0618
-            
+            CacheComponentReferences();
+            EnsureLocalInteractionTrigger();
+
             if (instance != null && instance.seedData != null)
             {
                 seedData = instance.seedData;
@@ -702,33 +865,35 @@ namespace FarmGame.Farm
                 instanceData.lastHarvestDay = instance.lastHarvestDay;
                 instanceData.quality = (int)instance.quality;
             }
-            
+
             var farmTileManager = FarmTileManager.Instance;
             if (farmTileManager != null)
             {
-                layerIndex = farmTileManager.GetCurrentLayerIndex(transform.position);
+                Vector3 cellCenter = GetCellCenterPosition();
+                layerIndex = farmTileManager.GetCurrentLayerIndex(cellCenter);
                 var tilemaps = farmTileManager.GetLayerTilemaps(layerIndex);
                 if (tilemaps != null)
-                    cellPosition = tilemaps.WorldToCell(transform.position);
+                    cellPosition = tilemaps.WorldToCell(cellCenter);
             }
-            
+
             RestoreStateFromData();
             isInitialized = true;
             UpdateVisuals();
         }
-        
+
         #endregion
 
         #region 视觉更新
-        
+
         public void UpdateVisuals()
         {
+            CacheComponentReferences();
             if (spriteRenderer == null) return;
-            
+
             Sprite sprite = GetCurrentSprite();
             if (sprite != null)
                 spriteRenderer.sprite = sprite;
-            
+
             switch (state)
             {
                 case CropState.WitheredImmature:
@@ -745,6 +910,7 @@ namespace FarmGame.Farm
             }
 
             AlignSpriteBottom();
+            SyncInteractionTriggerToSprite();
         }
 
         /// <summary>
@@ -761,14 +927,14 @@ namespace FarmGame.Farm
             localPos.y = -spriteBounds.min.y;
             spriteRenderer.transform.localPosition = localPos;
         }
-        
+
         private Sprite GetCurrentSprite()
         {
             if (stages == null || stages.Length == 0) return null;
-            
+
             int stage = instanceData?.currentStage ?? 0;
             int index = Mathf.Clamp(stage, 0, stages.Length - 1);
-            
+
             // 枯萎状态使用枯萎 Sprite（向前回退查找非空）
             if (state == CropState.WitheredImmature || state == CropState.WitheredMature)
             {
@@ -779,32 +945,32 @@ namespace FarmGame.Farm
                 }
                 // 所有枯萎 Sprite 都为空，回退到正常 Sprite
             }
-            
+
             // 正常状态使用生长 Sprite
             return stages[index].normalSprite;
         }
-        
+
         #endregion
 
         #region 状态查询
-        
+
         public CropState GetState() => state;
-        
+
         public bool IsMature() => state == CropState.Mature;
-        
+
         public bool IsWithered() => state == CropState.WitheredImmature || state == CropState.WitheredMature;
-        
+
         public int GetCurrentStage() => instanceData?.currentStage ?? 0;
-        
+
         public int GetTotalStages() => stages?.Length ?? 0;
-        
+
         public float GetGrowthProgress()
         {
             int totalStages = GetTotalStages();
             if (totalStages <= 1) return 1f;
             return (float)GetCurrentStage() / (totalStages - 1);
         }
-        
+
         /// <summary>
         /// 获取第一阶段的普通 Sprite（种子预览用）。
         /// 补丁003 模块B：CP-B2
@@ -814,7 +980,7 @@ namespace FarmGame.Farm
             if (stages == null || stages.Length == 0) return null;
             return stages[0].normalSprite;
         }
-        
+
         /// <summary>
         /// 获取作物的格子中心世界坐标（父物体位置）。
         /// 套父物体后，CropController 在子物体上，transform.position 是偏移后的位置。
@@ -825,45 +991,45 @@ namespace FarmGame.Farm
         {
             return transform.parent != null ? transform.parent.position : transform.position;
         }
-        
+
         public SeedData GetSeedData() => seedData;
         public CropInstanceData GetInstanceData() => instanceData;
-        
+
         #endregion
 
         #region 生长操作（外部调用）
-        
+
         public void Grow()
         {
             if (instanceData == null || seedData == null) return;
             if (state != CropState.Growing) return;
-            
+
             instanceData.grownDays++;
             UpdateGrowthStage();
-            
+
             if (IsMatureStage())
                 TryTransitionState(CropState.Mature);
             else
                 UpdateVisuals();
         }
-        
+
         public void SetWithered()
         {
             if (instanceData == null) return;
             instanceData.isWithered = true;
-            
+
             if (state == CropState.Mature)
                 TryTransitionState(CropState.WitheredMature);
             else if (state == CropState.Growing)
                 TryTransitionState(CropState.WitheredImmature);
         }
-        
+
         public void ResetForReHarvest(int reGrowStage)
         {
             if (instanceData == null) return;
-            
+
             instanceData.currentStage = Mathf.Max(0, reGrowStage);
-            
+
             // 累加到 reGrowStage 所需的总天数
             int accDays = 0;
             if (stages != null)
@@ -872,18 +1038,25 @@ namespace FarmGame.Farm
                     accDays += stages[i].daysToNextStage;
             }
             instanceData.grownDays = accDays;
-            
+
             TryTransitionState(CropState.Growing);
         }
-        
+
         #endregion
-        
+
         #region IPersistentObject 实现
-        
-        public string PersistentId => persistentId;
+
+        public string PersistentId
+        {
+            get
+            {
+                EnsurePersistentId();
+                return persistentId;
+            }
+        }
         public string ObjectType => "Crop";
         public bool ShouldSave => isInitialized && instanceData != null && seedData != null;
-        
+
         public WorldObjectSaveData Save()
         {
             var saveData = new WorldObjectSaveData
@@ -892,12 +1065,12 @@ namespace FarmGame.Farm
                 objectType = ObjectType,
                 prefabId = seedData?.itemID.ToString() ?? "-1"
             };
-            
-            saveData.SetPosition(transform.position);
-            
+
+            saveData.SetPosition(GetCellCenterPosition());
+
             if (spriteRenderer != null)
                 saveData.SetSortingLayer(spriteRenderer);
-            
+
             var cropSaveData = new CropSaveData
             {
                 seedId = seedData?.itemID ?? -1,
@@ -913,11 +1086,11 @@ namespace FarmGame.Farm
                 cellX = cellPosition.x,
                 cellY = cellPosition.y
             };
-            
+
             saveData.genericData = JsonUtility.ToJson(cropSaveData);
             return saveData;
         }
-        
+
         public void Load(WorldObjectSaveData data)
         {
             if (data == null || string.IsNullOrEmpty(data.genericData))
@@ -925,26 +1098,42 @@ namespace FarmGame.Farm
                 Debug.LogWarning($"[CropController] Load: 存档数据为空, GUID: {persistentId}");
                 return;
             }
-            
+
             var cropSaveData = JsonUtility.FromJson<CropSaveData>(data.genericData);
             if (cropSaveData == null)
             {
                 Debug.LogWarning($"[CropController] Load: 反序列化失败, GUID: {persistentId}");
                 return;
             }
-            
-            transform.position = data.GetPosition();
-            
-            if (spriteRenderer != null)
-                data.RestoreSortingLayer(spriteRenderer);
-            
+
+            CacheComponentReferences();
+            EnsureLocalInteractionTrigger();
+
+            seedData = ResolveSeedData(cropSaveData.seedId) ?? seedData;
             layerIndex = cropSaveData.layerIndex;
             cellPosition = new Vector3Int(cropSaveData.cellX, cropSaveData.cellY, 0);
             daysSinceMature = cropSaveData.daysSinceMature;
-            
+
+            Vector3 savedPosition = data.GetPosition();
+            Vector3 restorePosition = savedPosition;
+            var farmTileManager = FarmTileManager.Instance;
+            if (farmTileManager != null)
+            {
+                restorePosition = farmTileManager.GetCellCenterWorld(layerIndex, cellPosition);
+            }
+
+            if (transform.parent != null)
+                transform.parent.position = restorePosition;
+            else
+                transform.position = restorePosition;
+
+            if (spriteRenderer != null)
+                data.RestoreSortingLayer(spriteRenderer);
+
             if (instanceData == null)
                 instanceData = new CropInstanceData(cropSaveData.seedId, 0);
-            
+
+            instanceData.seedDataID = cropSaveData.seedId;
             instanceData.currentStage = cropSaveData.currentStage;
             instanceData.grownDays = cropSaveData.grownDays;
             instanceData.daysWithoutWater = cropSaveData.daysWithoutWater;
@@ -952,8 +1141,7 @@ namespace FarmGame.Farm
             instanceData.quality = cropSaveData.quality;
             instanceData.harvestCount = cropSaveData.harvestCount;
             instanceData.lastHarvestDay = cropSaveData.lastHarvestDay;
-            
-            var farmTileManager = FarmTileManager.Instance;
+
             if (farmTileManager != null)
             {
                 var tileData = farmTileManager.GetTileData(layerIndex, cellPosition);
@@ -963,27 +1151,82 @@ namespace FarmGame.Farm
                     tileData.cropController = this; // 🔥 10.X 纠正：恢复控制器引用
                 }
             }
-            
+
             if (spriteRenderer != null)
                 spriteRenderer.enabled = true;
-            if (interactionTrigger != null)
-                interactionTrigger.enabled = true;
-
             RestoreStateFromData();
             isInitialized = true;
             UpdateVisuals();
         }
-        
+
+        private static SeedData ResolveSeedData(int seedId)
+        {
+            if (seedId < 0)
+            {
+                return null;
+            }
+
+            ItemDatabase database = AssetLocator.LoadItemDatabase();
+            if (database == null)
+            {
+                return null;
+            }
+
+            return database.GetItemByID(seedId) as SeedData;
+        }
+
         public void GeneratePersistentId()
         {
             persistentId = System.Guid.NewGuid().ToString();
         }
-        
+
+        private void EnsurePersistentId()
+        {
+            if (string.IsNullOrWhiteSpace(persistentId))
+            {
+                GeneratePersistentId();
+            }
+        }
+
         public void SetPersistentId(string id)
         {
             persistentId = id;
         }
-        
+
+        private void CacheComponentReferences()
+        {
+            if (spriteRenderer == null)
+                spriteRenderer = GetComponent<SpriteRenderer>();
+        }
+
+        private void EnsureLocalInteractionTrigger()
+        {
+            if (interactionTrigger != null && interactionTrigger.gameObject != gameObject)
+                interactionTrigger = null;
+
+            if (interactionTrigger == null)
+                interactionTrigger = GetComponent<BoxCollider2D>();
+
+            if (interactionTrigger == null)
+                interactionTrigger = gameObject.AddComponent<BoxCollider2D>();
+
+            interactionTrigger.isTrigger = true;
+            interactionTrigger.enabled = true;
+            SyncInteractionTriggerToSprite();
+        }
+
+        private void SyncInteractionTriggerToSprite()
+        {
+            if (interactionTrigger == null || spriteRenderer == null || spriteRenderer.sprite == null)
+                return;
+
+            Bounds spriteBounds = spriteRenderer.sprite.bounds;
+            interactionTrigger.offset = spriteBounds.center;
+            interactionTrigger.size = new Vector2(
+                Mathf.Max(0.1f, spriteBounds.size.x),
+                Mathf.Max(0.1f, spriteBounds.size.y));
+        }
+
         #endregion
     }
 }

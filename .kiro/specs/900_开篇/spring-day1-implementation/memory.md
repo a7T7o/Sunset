@@ -2503,3 +2503,15 @@
 - 父层判断：
   1. 这轮已经完成“能安全收的先收掉，不能收的精确 blocker 化”。
   2. 当前不该把剩余代码批次包装成“只是还没提交”；它们已经是明确的工具 / mixed 边界 blocker。
+
+## 2026-04-23｜父层补记：第二波历史小批次已验证 `Editor/Story` 先死在 own-root，不是 CodeGuard
+- 父层新增事实：
+  1. `spring-day1` 第二波没有继续“把能交的都交”，而是只尝试了 `Assets/Editor/Story` 下新增 validation menus 那 `1` 个历史小批。
+  2. 这组小批的 `preflight` 已稳定返回，首个 blocker 不是 `CodexCodeGuard`，而是：
+     - `Assets/Editor/Story` 同根仍残留 7 个已修改文件
+  3. 因此当前更准确的阶段判断是：
+     - 第二波已把“这一个小批次为什么交不上去”钉死
+     - 还没有进入工具 blocker 层
+- 父层判断：
+  1. 这轮停车点是正确的，因为它已经满足“只试一个历史小批次，并把第一真实 blocker 报死”。
+  2. 后续不要再沿旧口径把这组失败解释成 `CodeGuard` 或“差一点就能交”。

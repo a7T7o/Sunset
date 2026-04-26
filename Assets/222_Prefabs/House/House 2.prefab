@@ -148,7 +148,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 3900879337054355583}
-  - component: {fileID: 2310733863328522607}
+  - component: {fileID: 6928051628604947157}
   m_Layer: 20
   m_Name: House 2
   m_TagString: Building
@@ -174,7 +174,7 @@ Transform:
   - {fileID: 8114247487183572853}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &2310733863328522607
+--- !u!114 &6928051628604947157
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

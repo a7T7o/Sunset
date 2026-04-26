@@ -6,13 +6,13 @@ using FarmGame.Data.Core;
 
 /// <summary>
 /// 运行时背包服务 - V2 重构版
-/// 
+///
 /// 核心改进：
 /// - 内部使用 PlayerInventoryData（基于 InventoryItem）存储
 /// - 实现 IPersistentObject 接口，支持存档/读档
 /// - 保留所有旧接口签名，兼容现有 UI
 /// - 对外暴露 ItemStack 接口，内部使用 InventoryItem
-/// 
+///
 /// 设计原则：
 /// - 数据以 InventoryItem 为准
 /// - UI 显示时转换为 ItemStack（只在显示那一瞬间）
@@ -29,19 +29,20 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
 
     [Header("容量")]
     [SerializeField] private int inventorySize = DefaultInventorySize;
-    
+
     [Header("持久化配置")]
     [SerializeField, Tooltip("对象唯一 ID（自动生成）")]
     private string _persistentId;
-    
+
     [Header("Debug")]
     [SerializeField] private bool showDebugInfo = false;
 
     // 🔥 核心改变：使用 PlayerInventoryData 替代 ItemStack[]
     private PlayerInventoryData _inventoryData;
-    
+    private bool _registeredWithPersistentRegistry;
+
     // 兼容旧代码：保留 slots 字段用于序列化迁移
-    [SerializeField, HideInInspector] 
+    [SerializeField, HideInInspector]
     private ItemStack[] _legacySlots;
 
     // 事件
@@ -54,9 +55,9 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
 
     // IItemContainer 接口实现
     public int Capacity => inventorySize;
-    
+
     #region IPersistentObject 实现
-    
+
     public string PersistentId
     {
         get
@@ -68,11 +69,11 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
             return _persistentId;
         }
     }
-    
+
     public string ObjectType => "PlayerInventory";
-    
+
     public bool ShouldSave => gameObject.activeInHierarchy;
-    
+
     public WorldObjectSaveData Save()
     {
         var data = new WorldObjectSaveData
@@ -82,26 +83,26 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
             sceneName = gameObject.scene.name,
             isActive = gameObject.activeSelf
         };
-        
+
         // 将背包数据序列化为 JSON 存入 genericData
         var inventoryData = _inventoryData.ToSaveData();
         data.genericData = JsonUtility.ToJson(inventoryData);
-        
+
         if (showDebugInfo)
             Debug.Log($"[InventoryService] Save: {inventoryData.slots?.Count ?? 0} 个槽位");
-        
+
         return data;
     }
-    
+
     public void Load(WorldObjectSaveData data)
     {
         if (data == null || string.IsNullOrEmpty(data.genericData)) return;
-        
+
         try
         {
             var inventoryData = JsonUtility.FromJson<InventorySaveData>(data.genericData);
             _inventoryData.LoadFromSaveData(inventoryData);
-            
+
             if (showDebugInfo)
                 Debug.Log($"[InventoryService] Load: {inventoryData.slots?.Count ?? 0} 个槽位");
         }
@@ -110,56 +111,81 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
             Debug.LogError($"[InventoryService] Load 失败: {e.Message}");
         }
     }
-    
+
     #endregion
 
     #region Unity 生命周期
-    
+
     void Awake()
     {
         if (inventorySize <= 0) inventorySize = DefaultInventorySize;
-        
+
         // 初始化新的数据核心
         _inventoryData = new PlayerInventoryData(inventorySize, database);
-        
+
         // 订阅内部事件，转发到外部
         _inventoryData.OnSlotChanged += HandleInternalSlotChanged;
         _inventoryData.OnInventoryChanged += HandleInternalInventoryChanged;
-        
+
         // 迁移旧数据（如果有）
         MigrateLegacyData();
     }
-    
+
     void Start()
     {
-        // 注册到持久化注册中心
-        if (PersistentObjectRegistry.Instance != null)
-        {
-            PersistentObjectRegistry.Instance.Register(this);
-        }
-        
+        RegisterWithPersistentRegistry();
+
         // 订阅日变化事件（用于种子袋保质期检查）
         TimeManager.OnDayChanged += OnDayChanged;
     }
-    
+
     void OnDestroy()
     {
-        // 从注册中心注销
-        if (PersistentObjectRegistry.Instance != null)
-        {
-            PersistentObjectRegistry.Instance.Unregister(this);
-        }
-        
+        UnregisterFromPersistentRegistry();
+
         // 取消订阅
         if (_inventoryData != null)
         {
             _inventoryData.OnSlotChanged -= HandleInternalSlotChanged;
             _inventoryData.OnInventoryChanged -= HandleInternalInventoryChanged;
         }
-        
+
         TimeManager.OnDayChanged -= OnDayChanged;
     }
-    
+
+    private void RegisterWithPersistentRegistry()
+    {
+        var preferredRuntimeInventory = PersistentPlayerSceneBridge.GetPreferredRuntimeInventoryService();
+        if (preferredRuntimeInventory != null && preferredRuntimeInventory != this)
+        {
+            _registeredWithPersistentRegistry = false;
+            return;
+        }
+
+        if (PersistentObjectRegistry.Instance == null)
+        {
+            _registeredWithPersistentRegistry = false;
+            return;
+        }
+
+        _registeredWithPersistentRegistry = PersistentObjectRegistry.Instance.TryRegister(this);
+        if (!_registeredWithPersistentRegistry && showDebugInfo)
+        {
+            Debug.Log($"[InventoryService] 跳过 duplicate 注册: {PersistentId}");
+        }
+    }
+
+    private void UnregisterFromPersistentRegistry()
+    {
+        if (!_registeredWithPersistentRegistry || PersistentObjectRegistry.Instance == null)
+        {
+            return;
+        }
+
+        PersistentObjectRegistry.Instance.Unregister(this);
+        _registeredWithPersistentRegistry = false;
+    }
+
     /// <summary>
     /// 迁移旧的 ItemStack 数据到新系统
     /// </summary>
@@ -175,31 +201,31 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
                     _inventoryData.SetSlot(i, stack);
                 }
             }
-            
+
             // 清空旧数据
             _legacySlots = null;
-            
+
             if (showDebugInfo)
                 Debug.Log("[InventoryService] 已迁移旧数据到新系统");
         }
     }
-    
+
     private void HandleInternalSlotChanged(int index)
     {
         OnSlotChanged?.Invoke(index);
         if (index >= 0 && index < HotbarWidth)
             OnHotbarSlotChanged?.Invoke(index);
     }
-    
+
     private void HandleInternalInventoryChanged()
     {
         OnInventoryChanged?.Invoke();
     }
-    
+
     #endregion
 
     #region 编辑器支持
-    
+
 #if UNITY_EDITOR
     void OnValidate()
     {
@@ -209,7 +235,7 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
             UnityEditor.EditorUtility.SetDirty(this);
         }
     }
-    
+
     [ContextMenu("重新生成持久化 ID")]
     private void RegeneratePersistentId()
     {
@@ -218,7 +244,7 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         Debug.Log($"[InventoryService] 已重新生成 ID: {_persistentId}");
     }
 #endif
-    
+
     #endregion
 
     public void SetDatabase(ItemDatabase db)
@@ -228,7 +254,7 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
     }
 
     #region ItemStack 兼容接口（供旧 UI 使用）
-    
+
     /// <summary>
     /// 读取槽位（返回 ItemStack，兼容旧 UI）
     /// </summary>
@@ -260,11 +286,11 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         if (_inventoryData == null || !InRange(index)) return;
         _inventoryData.ClearItem(index);
     }
-    
+
     #endregion
-    
+
     #region InventoryItem 操作（新 API）
-    
+
     /// <summary>
     /// 获取指定槽位的 InventoryItem（新 API）
     /// </summary>
@@ -273,7 +299,7 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         if (_inventoryData == null || !InRange(index)) return null;
         return _inventoryData.GetItem(index);
     }
-    
+
     /// <summary>
     /// 设置指定槽位的 InventoryItem（新 API）
     /// </summary>
@@ -282,7 +308,7 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         if (_inventoryData == null || !InRange(index)) return false;
         return _inventoryData.SetItem(index, item);
     }
-    
+
     /// <summary>
     /// 添加 InventoryItem（支持动态属性）
     /// </summary>
@@ -291,21 +317,21 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         if (_inventoryData == null) return false;
         return _inventoryData.AddInventoryItem(item);
     }
-    
+
     #endregion
 
     #region 交换与合并
-    
+
     public bool SwapOrMerge(int a, int b)
     {
         if (_inventoryData == null) return false;
         return _inventoryData.SwapOrMerge(a, b);
     }
-    
+
     #endregion
 
     #region 添加物品
-    
+
     /// <summary>
     /// 添加物品（优先叠加/放置在第一行）
     /// 返回未能放入的剩余数量
@@ -324,11 +350,11 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         if (_inventoryData == null) return false;
         return _inventoryData.CanAddItem(itemId, quality, amount);
     }
-    
+
     #endregion
 
     #region 移除物品
-    
+
     public bool RemoveFromSlot(int index, int amount)
     {
         if (_inventoryData == null) return false;
@@ -343,11 +369,11 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         if (_inventoryData == null) return false;
         return _inventoryData.RemoveItem(itemId, quality, amount);
     }
-    
+
     #endregion
 
     #region 查询
-    
+
     /// <summary>
     /// 检查背包中是否有足够数量的指定物品
     /// </summary>
@@ -364,23 +390,147 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
         if (data == null) return 99;
         return Mathf.Max(1, data.maxStackSize);
     }
-    
+
     #endregion
 
     #region 排序
-    
+
     /// <summary>
     /// 排序背包（不包括 Hotbar 第一行）
     /// </summary>
     public void Sort()
     {
         if (_inventoryData == null) return;
-        _inventoryData.Sort();
-        
+
+        List<InventoryItem> runtimeItems = new List<InventoryItem>();
+        for (int index = 0; index < inventorySize; index++)
+        {
+            InventoryItem runtimeItem = _inventoryData.GetItem(index);
+            if (runtimeItem != null && !runtimeItem.IsEmpty)
+            {
+                runtimeItems.Add(runtimeItem);
+            }
+        }
+
+        runtimeItems = MergeRuntimeItemsForSort(runtimeItems);
+        runtimeItems.Sort((left, right) =>
+        {
+            int priorityCompare = GetSortPriority(left).CompareTo(GetSortPriority(right));
+            if (priorityCompare != 0)
+            {
+                return priorityCompare;
+            }
+
+            int itemCompare = left.ItemId.CompareTo(right.ItemId);
+            if (itemCompare != 0)
+            {
+                return itemCompare;
+            }
+
+            return left.Quality.CompareTo(right.Quality);
+        });
+
+        int slotIndex = 0;
+        foreach (InventoryItem runtimeItem in runtimeItems)
+        {
+            if (slotIndex >= inventorySize)
+            {
+                break;
+            }
+
+            SetInventoryItem(slotIndex++, runtimeItem);
+        }
+
+        while (slotIndex < inventorySize)
+        {
+            SetInventoryItem(slotIndex++, null);
+        }
+
         if (showDebugInfo)
             Debug.Log($"[InventoryService] Sort 完成");
     }
-    
+
+    private List<InventoryItem> MergeRuntimeItemsForSort(List<InventoryItem> items)
+    {
+        var groupedAmounts = new Dictionary<(int itemId, int quality), int>();
+        var result = new List<InventoryItem>();
+
+        foreach (InventoryItem item in items)
+        {
+            if (item == null || item.IsEmpty)
+            {
+                continue;
+            }
+
+            if (item.HasDurability || item.HasDynamicProperties)
+            {
+                result.Add(item);
+                continue;
+            }
+
+            var key = (item.ItemId, item.Quality);
+            groupedAmounts[key] = groupedAmounts.TryGetValue(key, out int existingAmount)
+                ? existingAmount + item.Amount
+                : item.Amount;
+        }
+
+        foreach (KeyValuePair<(int itemId, int quality), int> pair in groupedAmounts)
+        {
+            int remaining = pair.Value;
+            int maxStack = GetMaxStack(pair.Key.itemId);
+
+            while (remaining > 0)
+            {
+                int amount = Mathf.Min(remaining, maxStack);
+                result.Add(ToolRuntimeUtility.CreateRuntimeItem(database, pair.Key.itemId, pair.Key.quality, amount));
+                remaining -= amount;
+            }
+        }
+
+        return result;
+    }
+
+    private int GetSortPriority(InventoryItem item)
+    {
+        ItemData itemData = database?.GetItemByID(item.ItemId);
+        if (itemData == null)
+        {
+            return 999;
+        }
+
+        if (itemData is ToolData)
+        {
+            return 0;
+        }
+
+        if (itemData is WeaponData)
+        {
+            return 1;
+        }
+
+        if (itemData.isPlaceable)
+        {
+            return 2;
+        }
+
+        if (itemData is SeedData)
+        {
+            return 3;
+        }
+
+        if (itemData.category == ItemCategory.Consumable)
+        {
+            return 4;
+        }
+
+        if (itemData.category == ItemCategory.Material)
+        {
+            return 5;
+        }
+
+        return 6;
+    }
+
     /// <summary>
     /// 强制刷新指定槽位的 UI（供外部调用）
     /// </summary>
@@ -393,7 +543,7 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
                 OnHotbarSlotChanged?.Invoke(index);
         }
     }
-    
+
     /// <summary>
     /// 强制刷新所有槽位的 UI（供外部调用）
     /// </summary>
@@ -401,32 +551,32 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
     {
         OnInventoryChanged?.Invoke();
     }
-    
+
     #endregion
-    
+
     #region 种子袋保质期检查
-    
+
     /// <summary>
     /// 腐烂食物 ID
     /// </summary>
     private const int ROTTEN_FOOD_ID = 5999;
-    
+
     /// <summary>
     /// 每日检查背包中的种子袋保质期
     /// </summary>
     private void OnDayChanged(int year, int day, int totalDays)
     {
         if (_inventoryData == null) return;
-        
+
         bool changed = false;
-        
+
         for (int i = 0; i < inventorySize; i++)
         {
             var item = _inventoryData.GetItem(i);
             if (item == null || item.IsEmpty) continue;
-            
+
             if (!FarmGame.Farm.SeedBagHelper.IsSeedBag(item)) continue;
-            
+
             if (FarmGame.Farm.SeedBagHelper.IsExpired(item, totalDays))
             {
                 // 过期 → 替换为腐烂食物
@@ -434,40 +584,40 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
                 var rottenItem = new InventoryItem(ROTTEN_FOOD_ID, 0, 1);
                 _inventoryData.SetItem(i, rottenItem);
                 changed = true;
-                
+
                 if (showDebugInfo)
                     Debug.Log($"[InventoryService] 槽位 {i} 种子袋过期，替换为腐烂食物");
             }
         }
-        
+
         if (changed)
         {
             // 尝试合并腐烂食物
             TryMergeRottenFood();
         }
     }
-    
+
     /// <summary>
     /// 尝试合并背包中的腐烂食物
     /// </summary>
     private void TryMergeRottenFood()
     {
         if (_inventoryData == null) return;
-        
+
         int maxStack = GetMaxStack(ROTTEN_FOOD_ID);
-        
+
         for (int i = 0; i < inventorySize; i++)
         {
             var itemA = _inventoryData.GetItem(i);
             if (itemA == null || itemA.IsEmpty || itemA.ItemId != ROTTEN_FOOD_ID) continue;
-            
+
             for (int j = i + 1; j < inventorySize; j++)
             {
                 var itemB = _inventoryData.GetItem(j);
                 if (itemB == null || itemB.IsEmpty || itemB.ItemId != ROTTEN_FOOD_ID) continue;
-                
+
                 if (!itemA.CanStackWith(itemB)) continue;
-                
+
                 int total = itemA.Amount + itemB.Amount;
                 if (total <= maxStack)
                 {
@@ -482,7 +632,7 @@ public class InventoryService : MonoBehaviour, IItemContainer, IPersistentObject
             }
         }
     }
-    
+
     #endregion
 
     bool InRange(int i) => i >= 0 && i < inventorySize;

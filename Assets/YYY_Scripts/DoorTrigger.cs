@@ -11,17 +11,17 @@ public class DoorTrigger : MonoBehaviour
     [Header("传送设置")]
     [Tooltip("目标场景名称（留空=当前场景传送）")]
     public string targetSceneName;
-    
+
     [Tooltip("传送到的目标位置")]
     public Vector2 targetPosition;
 
     [Header("交互设置")]
     [Tooltip("需要按键触发")]
     public bool requireKeyPress = true;
-    
+
     [Tooltip("触发按键")]
     public KeyCode interactKey = KeyCode.E;
-    
+
     [Tooltip("提示文本")]
     public string promptText = "按 E 进入";
 
@@ -55,7 +55,7 @@ public class DoorTrigger : MonoBehaviour
         {
             playerInRange = true;
             player = other.gameObject;
-            
+
             Debug.Log(promptText); // 这里可以集成你的UI系统
 
             if (!requireKeyPress)
@@ -88,6 +88,7 @@ public class DoorTrigger : MonoBehaviour
         if (!string.IsNullOrEmpty(targetSceneName))
         {
             // 切换场景
+            PersistentPlayerSceneBridge.QueueSceneEntry(targetSceneName, string.Empty, string.Empty);
             SceneManager.LoadScene(targetSceneName);
         }
         else
@@ -120,9 +121,8 @@ public class DoorTrigger : MonoBehaviour
         }
 
 #if UNITY_EDITOR
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f, 
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 0.5f,
             $"门触发器\n目标: {(string.IsNullOrEmpty(targetSceneName) ? "当前场景" : targetSceneName)}");
 #endif
     }
 }
-

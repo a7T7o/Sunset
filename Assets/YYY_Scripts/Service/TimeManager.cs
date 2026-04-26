@@ -25,6 +25,11 @@ public class TimeManager : MonoBehaviour
                     instance = PersistentManagers.EnsureManagedComponent<TimeManager>("TimeManager");
                 }
             }
+
+            if (Application.isPlaying && instance != null)
+            {
+                TimeManagerDebugger.EnsureAttached(instance);
+            }
             return instance;
         }
     }
@@ -36,7 +41,7 @@ public class TimeManager : MonoBehaviour
     [SerializeField] private SeasonManager.Season currentSeason = SeasonManager.Season.Spring;
     [SerializeField] private int currentDay = 1;        // 1-28（每季28天）
     [SerializeField] private int currentHour = 6;       // 6-26（06:00 - 02:00，用24+2表示）
-    [SerializeField] private int currentMinute = 0;     // 0/10/20/30/40/50
+    [SerializeField] private int currentMinute = 0;     // 0-59
 
     [Header("=== 时间流逝设置 ===")]
     [Tooltip("1游戏天 = 多少现实秒（星露谷默认1200秒=20分钟）")]
@@ -60,13 +65,13 @@ public class TimeManager : MonoBehaviour
     [Tooltip("每个游戏天有多少小时")]
     [SerializeField] private int hoursPerDay = 20; // 06:00-02:00 = 20小时
 
-    [Tooltip("每小时有多少分钟跳跃（星露谷是6次，每10分钟）")]
-    [SerializeField] private int minuteStepsPerHour = 6;
+    [Tooltip("每小时拆分成多少个时间步；当前固定为 60，对应逐分钟流逝")]
+    [SerializeField] private int minuteStepsPerHour = 60;
 
     [Header("=== 季节设置 ===")]
     [Tooltip("每季多少天（星露谷物语=28天）")]
     [SerializeField] private int daysPerSeason = 28;
-    
+
     #if UNITY_EDITOR
     private void OnValidate()
     {
@@ -77,30 +82,44 @@ public class TimeManager : MonoBehaviour
             daysPerSeason = 28;
             UnityEditor.EditorUtility.SetDirty(this);
         }
+
+        if (minuteStepsPerHour != 60)
+        {
+            Debug.LogWarning($"<color=yellow>[TimeManager] 检测到旧的 minuteStepsPerHour 值({minuteStepsPerHour})，已自动修正为60</color>");
+            minuteStepsPerHour = 60;
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
+
+        int clampedMinute = Mathf.Clamp(currentMinute, 0, 59);
+        if (currentMinute != clampedMinute)
+        {
+            currentMinute = clampedMinute;
+            UnityEditor.EditorUtility.SetDirty(this);
+        }
     }
     #endif
 
     [Header("=== 调试 ===")]
     [Tooltip("显示调试信息")]
     [SerializeField] private bool showDebugInfo = true;
-    
+
     [Header("━━━━ 时间事件开关 ━━━━")]
     [Tooltip("是否发布分钟变化事件（OnMinuteChanged）\n" +
              "关闭后：精细时间显示不更新")]
     [SerializeField] private bool enableMinuteEvent = true;
-    
+
     [Tooltip("是否发布小时变化事件（OnHourChanged）\n" +
              "关闭后：光照不变化、NPC日程不更新")]
     [SerializeField] private bool enableHourEvent = true;
-    
+
     [Tooltip("是否发布每日变化事件（OnDayChanged）\n" +
              "关闭后：树木不成长、农作物不生长")]
     [SerializeField] private bool enableDayEvent = true;
-    
+
     [Tooltip("是否发布年变化事件（OnYearChanged）\n" +
              "关闭后：年份变化不通知")]
     [SerializeField] private bool enableYearEvent = true;
-    
+
     [Header("━━━━ 季节变更开关 ━━━━")]
     [Tooltip("是否发布季节变更事件（OnSeasonChanged）\n" +
              "关闭后：春→夏→秋→冬 的季节切换不通知订阅者\n" +
@@ -117,16 +136,16 @@ public class TimeManager : MonoBehaviour
     #region 事件系统
     /// <summary>分钟改变事件（每10分钟触发）</summary>
     public static event Action<int, int> OnMinuteChanged; // (hour, minute)
-    
+
     /// <summary>小时改变事件</summary>
     public static event Action<int> OnHourChanged; // (hour)
-    
+
     /// <summary>天改变事件</summary>
     public static event Action<int, int, int> OnDayChanged; // (year, season_day, total_days)
-    
+
     /// <summary>季节改变事件</summary>
     public static event Action<SeasonManager.Season, int> OnSeasonChanged; // (new_season, year)
-    
+
     /// <summary>年改变事件</summary>
     public static event Action<int> OnYearChanged; // (year)
 
@@ -147,6 +166,10 @@ public class TimeManager : MonoBehaviour
             // ✅ DontDestroyOnLoad 由 PersistentManagers 统一处理
             // 不再在此调用，避免 "only works for root GameObjects" 警告
             Initialize();
+            if (Application.isPlaying)
+            {
+                TimeManagerDebugger.EnsureAttached(this);
+            }
         }
         else if (instance != this)
         {
@@ -156,9 +179,10 @@ public class TimeManager : MonoBehaviour
 
     private void Initialize()
     {
+        NormalizeMinuteResolutionConfig();
         CalculateTimeStep();
         totalDaysPassed = CalculateTotalDays();
-        
+
         if (showDebugInfo)
         {
             Debug.Log($"<color=cyan>[TimeManager] 初始化完成</color>\n" +
@@ -170,7 +194,7 @@ public class TimeManager : MonoBehaviour
 
     private void CalculateTimeStep()
     {
-        // 游戏一天 = 20小时 × 6次/小时 = 120个时间步（每步10分钟）
+        // 游戏一天 = 20小时 × 60次/小时 = 1200个时间步（每步1分钟）
         int totalMinuteSteps = hoursPerDay * minuteStepsPerHour;
         realSecondsPerGameMinute = realSecondsPerGameDay / totalMinuteSteps;
     }
@@ -193,8 +217,8 @@ public class TimeManager : MonoBehaviour
         // 时间累积
         gameTimeAccumulator += Time.deltaTime * timeScale;
 
-        // 每达到一个时间步，前进10分钟
-        if (gameTimeAccumulator >= realSecondsPerGameMinute)
+        // 每达到一个时间步，前进1分钟
+        while (gameTimeAccumulator >= realSecondsPerGameMinute)
         {
             gameTimeAccumulator -= realSecondsPerGameMinute;
             AdvanceMinute();
@@ -203,7 +227,7 @@ public class TimeManager : MonoBehaviour
 
     private void AdvanceMinute()
     {
-        currentMinute += 10;
+        currentMinute += 1;
 
         if (currentMinute >= 60)
         {
@@ -298,7 +322,7 @@ public class TimeManager : MonoBehaviour
     private void AdvanceYear()
     {
         currentYear++;
-        
+
         // ★ 受事件开关控制
         if (enableYearEvent)
         {
@@ -316,8 +340,9 @@ public class TimeManager : MonoBehaviour
     /// <summary>睡觉/跳过到下一天早上06:00</summary>
     public void Sleep()
     {
-        OnSleep?.Invoke();
         AdvanceDay();
+        OnSleep?.Invoke();
+        EmitCurrentTimeChangeEvents();
 
         if (showDebugInfo)
         {
@@ -394,14 +419,16 @@ public class TimeManager : MonoBehaviour
     {
         SeasonManager.Season oldSeason = currentSeason;
         int oldYear = currentYear;
-        
+        int oldDay = currentDay;
+        int oldTotalDaysPassed = totalDaysPassed;
+
         currentYear = year;
         currentSeason = season;
         currentDay = Mathf.Clamp(day, 1, daysPerSeason);
         currentHour = Mathf.Clamp(hour, dayStartHour, dayEndHour);
-        currentMinute = Mathf.Clamp(minute / 10 * 10, 0, 50); // 取整到10的倍数
+        currentMinute = Mathf.Clamp(minute, 0, 59);
         totalDaysPassed = CalculateTotalDays();
-        
+
         // ✅ 触发事件（受开关控制）
         if (oldSeason != currentSeason)
         {
@@ -410,20 +437,20 @@ public class TimeManager : MonoBehaviour
             {
                 OnSeasonChanged?.Invoke(currentSeason, currentYear);
             }
-            
+
             if (showDebugInfo)
             {
                 Debug.Log($"<color=orange>[TimeManager] 季节变化: {oldSeason} → {currentSeason}</color>");
             }
         }
-        
+
         // 🔥 3.7.6 修复：无论季节是否变化，都要通知 SeasonManager 更新渐变进度
         // 否则读档时如果季节相同（如都是春天），渐变进度不会更新
         if (SeasonManager.Instance != null)
         {
             SeasonManager.Instance.SetSeason(currentSeason);
         }
-        
+
         if (oldYear != currentYear)
         {
             // ★ 受事件开关控制
@@ -431,22 +458,21 @@ public class TimeManager : MonoBehaviour
             {
                 OnYearChanged?.Invoke(currentYear);
             }
-            
+
             if (showDebugInfo)
             {
                 Debug.Log($"<color=cyan>[TimeManager] 年份变化: {oldYear} → {currentYear}</color>");
             }
         }
-        
+
+        if ((oldYear != currentYear || oldSeason != currentSeason || oldDay != currentDay || oldTotalDaysPassed != totalDaysPassed) &&
+            enableDayEvent)
+        {
+            OnDayChanged?.Invoke(currentYear, currentDay, totalDaysPassed);
+        }
+
         // 🔥 补发时间事件，确保光影系统等订阅者能响应 SetTime 跳转
-        if (enableHourEvent)
-        {
-            OnHourChanged?.Invoke(currentHour);
-        }
-        if (enableMinuteEvent)
-        {
-            OnMinuteChanged?.Invoke(currentHour, currentMinute);
-        }
+        EmitCurrentTimeChangeEvents();
     }
 
     /// <summary>获取当前时间（格式化字符串）</summary>
@@ -506,6 +532,29 @@ public class TimeManager : MonoBehaviour
     private static string NormalizePauseSource(string source)
     {
         return string.IsNullOrWhiteSpace(source) ? ManualPauseSource : source;
+    }
+
+    private void NormalizeMinuteResolutionConfig()
+    {
+        if (minuteStepsPerHour != 60)
+        {
+            minuteStepsPerHour = 60;
+        }
+
+        currentMinute = Mathf.Clamp(currentMinute, 0, 59);
+    }
+
+    private void EmitCurrentTimeChangeEvents()
+    {
+        if (enableHourEvent)
+        {
+            OnHourChanged?.Invoke(currentHour);
+        }
+
+        if (enableMinuteEvent)
+        {
+            OnMinuteChanged?.Invoke(currentHour, currentMinute);
+        }
     }
 
     private string FormatTime(int hour, int minute)

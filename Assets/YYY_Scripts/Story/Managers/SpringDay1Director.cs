@@ -1012,7 +1012,22 @@ namespace Sunset.Story
                 : string.Empty;
         }
 
+        public bool TryGetStorySaveBlockReason(out string blockerReason)
+        {
+            return TryGetStorySaveLoadBlockReasonInternal(allowDay1SaveWindowBypass: true, out blockerReason);
+        }
+
+        public bool TryGetStoryLoadBlockReason(out string blockerReason)
+        {
+            return TryGetStorySaveLoadBlockReasonInternal(allowDay1SaveWindowBypass: false, out blockerReason);
+        }
+
         public bool TryGetStorySaveLoadBlockReason(out string blockerReason)
+        {
+            return TryGetStorySaveBlockReason(out blockerReason);
+        }
+
+        private bool TryGetStorySaveLoadBlockReasonInternal(bool allowDay1SaveWindowBypass, out string blockerReason)
         {
             blockerReason = string.Empty;
 
@@ -1028,6 +1043,11 @@ namespace Sunset.Story
             }
 
             StoryPhase currentPhase = storyManager.CurrentPhase;
+            if (allowDay1SaveWindowBypass && IsDay1SaveLoadWindowOpen(currentPhase))
+            {
+                return false;
+            }
+
             switch (currentPhase)
             {
                 case StoryPhase.CrashAndMeet:
@@ -1104,6 +1124,46 @@ namespace Sunset.Story
                 default:
                     return false;
             }
+        }
+
+        private bool IsDay1SaveLoadWindowOpen(StoryPhase currentPhase)
+        {
+            if (!TryGetDay1SaveLoadWindowClock(out int totalMinutes))
+            {
+                return false;
+            }
+
+            if (currentPhase == StoryPhase.FarmingTutorial
+                && IsPostTutorialExploreWindowActive()
+                && totalMinutes >= ((TutorialTimeCapHour * 60) + 1)
+                && totalMinutes < (DinnerReturnHour * 60))
+            {
+                return true;
+            }
+
+            return totalMinutes >= ((FreeTimeStartHour * 60) + FreeTimeStartMinute + 1);
+        }
+
+        private bool TryGetDay1SaveLoadWindowClock(out int totalMinutes)
+        {
+            totalMinutes = 0;
+
+            TimeManager timeManager = TimeManager.Instance
+                ?? FindFirstObjectByType<TimeManager>(FindObjectsInactive.Include);
+            if (timeManager == null)
+            {
+                return false;
+            }
+
+            if (timeManager.GetYear() != Day1RuntimeManagedYear
+                || timeManager.GetSeason() != SeasonManager.Season.Spring
+                || timeManager.GetDay() != Day1RuntimeManagedDay)
+            {
+                return false;
+            }
+
+            totalMinutes = (timeManager.GetHour() * 60) + timeManager.GetMinute();
+            return true;
         }
 
         public void ShowTaskListBridgePrompt(string text)
@@ -2553,6 +2613,21 @@ namespace Sunset.Story
                 && !_dayEnded;
         }
 
+        private bool IsDayEndSceneSettlePending()
+        {
+            if (!_dayEnded)
+            {
+                return false;
+            }
+
+            if (!IsHomeSceneActive())
+            {
+                return true;
+            }
+
+            return _pendingForcedSleepRestPlacementFrames > 0;
+        }
+
         private void RecoverFromInvalidEarlySleep(StoryPhase currentPhase)
         {
             if (showDebugLog)
@@ -2881,7 +2956,7 @@ namespace Sunset.Story
                 return true;
             }
 
-            return storyManager.CurrentPhase >= StoryPhase.WorkbenchFlashback;
+            return storyManager.CurrentPhase >= StoryPhase.FarmingTutorial;
         }
 
         private bool ShouldRecoverPreHealingHomeIntrusion()
@@ -2969,6 +3044,11 @@ namespace Sunset.Story
                 return;
             }
 
+            if (!storyActorMode)
+            {
+                EnsureStoryActorInformalSurface(actor);
+            }
+
             NPCDialogueInteractable formalDialogue = actor.GetComponent<NPCDialogueInteractable>();
             NPCInformalChatInteractable informalDialogue = actor.GetComponent<NPCInformalChatInteractable>();
             NPCAutoRoamController roamController = actor.GetComponent<NPCAutoRoamController>();
@@ -3018,6 +3098,31 @@ namespace Sunset.Story
                 && !roamController.IsResidentScriptedControlActive)
             {
                 roamController.ResumeAutonomousRoam(tryImmediateMove: true);
+            }
+        }
+
+        private static void EnsureStoryActorInformalSurface(Transform actor)
+        {
+            if (actor == null)
+            {
+                return;
+            }
+
+            NPCAutoRoamController roamController = actor.GetComponent<NPCAutoRoamController>();
+            if (roamController == null)
+            {
+                return;
+            }
+
+            NPCRoamProfile roamProfile = roamController.RoamProfile;
+            if (roamProfile == null || !roamProfile.HasInformalConversationContent)
+            {
+                return;
+            }
+
+            if (actor.GetComponent<NPCInformalChatInteractable>() == null)
+            {
+                actor.gameObject.AddComponent<NPCInformalChatInteractable>();
             }
         }
 

@@ -8,7 +8,7 @@ namespace FarmGame.Farm
     /// <summary>
     /// 农田工具预览组件
     /// 负责显示锄头/水壶的预览效果
-    /// 
+    ///
     /// 特性：
     /// - 自生能力：Awake 时自动创建缺失的 GhostTilemap 和 CursorRenderer
     /// - 1+8 预览：锄头显示中心块 + 周围 8 格边界变化
@@ -16,10 +16,10 @@ namespace FarmGame.Farm
     /// </summary>
     public class FarmToolPreview : MonoBehaviour
     {
-        private const float HoverOcclusionFocusFootprintScale = 0.05f;
+        private const float HoverOcclusionFocusFootprintScale = 1f;
 
         #region 单例（Lazy Singleton）
-        
+
         private static FarmToolPreview _instance;
 
         private readonly struct PreviewCellKey : IEquatable<PreviewCellKey>
@@ -48,7 +48,7 @@ namespace FarmGame.Farm
                 return HashCode.Combine(LayerIndex, CellPos);
             }
         }
-        
+
         /// <summary>
         /// 单例访问器（Lazy Singleton）
         /// 如果场景中没有 FarmToolPreview，会自动创建一个
@@ -61,7 +61,7 @@ namespace FarmGame.Farm
                 {
                     // 先尝试在场景中查找
                     _instance = FindFirstObjectByType<FarmToolPreview>();
-                    
+
                     if (_instance == null)
                     {
                         // 🔥 真正的自生能力：如果场景没有，直接创建一个
@@ -73,18 +73,18 @@ namespace FarmGame.Farm
                 return _instance;
             }
         }
-        
+
         #endregion
-        
+
         #region 预览状态枚举
-        
+
         public enum FarmPreviewState
         {
             Hidden,     // 隐藏
             Valid,      // 有效（绿色）
             Invalid     // 无效（红色）
         }
-        
+
         // 🔥 9.0.5 新增：浇水失败原因
         public enum WateringFailureReason
         {
@@ -95,82 +95,82 @@ namespace FarmGame.Farm
             HasObstacle,    // 有障碍物
             ManagerNull     // FarmTileManager 为 null
         }
-        
+
         #endregion
-        
+
         #region 配置
-        
+
         [Header("光标配置")]
         [Tooltip("光标 Sprite（方形框）")]
         [SerializeField] private Sprite cursorSprite = null;
-        
+
         [Tooltip("有效时的颜色（绿色）")]
         [SerializeField] private Color validColor = new Color(0f, 1f, 0f, 0.5f);
-        
+
         [Tooltip("无效时的颜色（红色）")]
         [SerializeField] private Color invalidColor = new Color(1f, 0f, 0f, 0.5f);
-        
+
         [Tooltip("浇水时的颜色（蓝色）")]
         [SerializeField] private Color wateringColor = new Color(0f, 0.5f, 1f, 0.5f);
-        
+
         [Header("预览透明度")]
         [SerializeField, Range(0.1f, 1f)] private float previewAlpha = 0.5f;
-        
+
         [Header("Debug")]
         [SerializeField] private bool showDebugInfo = false;
-        
+
         #endregion
-        
+
         #region 运行时引用（自动创建）
-        
+
         private Tilemap ghostTilemap;
         private TilemapRenderer ghostTilemapRenderer;
         private SpriteRenderer cursorRenderer;
-        
+
         #endregion
-        
+
         #region 状态
-        
+
         private FarmPreviewState currentState = FarmPreviewState.Hidden;
         private Vector3Int lastCellPosition;
         private int lastLayerIndex = -1;
         private bool isHoeMode = false; // true=锄头, false=水壶
-        
+
         // 🔥 新增：当前 Sorting Layer 缓存
         private string currentSortingLayer = "Layer 1";
-        
+
         // 🔥 9.0.4 新增：公开属性供 GameInputManager 查询
         /// <summary>
         /// 当前目标是否在使用距离内
         /// </summary>
         public bool IsInRange { get; private set; }
-        
+
         /// <summary>
         /// 当前光标位置（格子中心世界坐标）
         /// </summary>
         public Vector3 CurrentCursorPos { get; private set; }
-        
+
         /// <summary>
         /// 当前目标的格子坐标
         /// </summary>
         public Vector3Int CurrentCellPos { get; private set; }
-        
+
         /// <summary>
         /// 当前目标的楼层索引
         /// </summary>
         public int CurrentLayerIndex { get; private set; }
-        
+
         // 🔴 补丁005：种子预览配置字段已移除（种子走放置系统）
-        
+
         // 缓存当前预览的 Tiles（用于清除）
         private HashSet<Vector3Int> currentPreviewPositions = new HashSet<Vector3Int>();
-        
+
         // 🔥 诊断日志去重标志
         private bool _hasLoggedDiagnostics = false;
         private bool _hasLoggedPreviewTiles = false;
-        
+
         // === 🔴 补丁004：锁定机制已移除（模块A） ===
-        
+
         // 🔴 补丁004 模块B：差异化 ghost tile 数据缓存（供入队时复制）
         private Dictionary<Vector3Int, TileBase> _currentGhostTileData;
         /// <summary>
@@ -178,17 +178,17 @@ namespace FarmGame.Farm
         /// 入队时复制此数据到队列预览，确保三层数据一致。
         /// </summary>
         public Dictionary<Vector3Int, TileBase> CurrentGhostTileData => _currentGhostTileData;
-        
+
         // 🔴 V6 模块S：锄头状态暴露（供 TryEnqueueFarmTool 判断入队类型）
         private bool _canTill;
         private bool _hasCrop;
         public bool CanTill => _canTill;
         public bool HasCrop => _hasCrop;
-        
+
         // 🔴 补丁004 模块C：浇水 ghost 缓存（进入新格子才随机）
         private Vector3Int _lastWateringCellPos = new Vector3Int(int.MinValue, int.MinValue, 0);
         private int _cachedPuddleVariant = -1;
-        
+
         // 🔴 V6 模块T：浇水随机重写（切换时随机 + 补丁005续3修复：入队后移出才随机）
         private bool _wateringModeInitialized = false;
         private bool _needsNewPuddleVariant = false;  // 入队成功后设置，移出格子时触发随机
@@ -196,46 +196,46 @@ namespace FarmGame.Farm
         /// 当前浇水 ghost 的 puddleVariant（供入队时复制）。
         /// </summary>
         public int CurrentPuddleVariant => _cachedPuddleVariant;
-        
+
         // 🔥 9.0.5 新增：浇水失败原因
         public WateringFailureReason LastWateringFailure { get; private set; } = WateringFailureReason.None;
-        
+
         // === 🔴 补丁003 模块H：预览系统全面改造 ===
-        
+
         // 双 Tilemap 分离（CP-H4）
         private Tilemap queuePreviewTilemap;
         private TilemapRenderer queuePreviewTilemapRenderer;
-        
+
         // 🔴 V3 模块M（CP-M1）：shader 颜色叠加 Material（替代方案C的 SpriteRenderer 覆盖层）
         private Material previewOverlayMaterial;
-        
+
         // 🔴 补丁005：种子预览字段已移除（种子走放置系统）
         // gridSprite 保留（锄头 Bug S 修复共用）
         private Sprite gridSprite;  // 程序化格子方框 sprite
-        
+
         // 种子队列预览对象池（CP-H6）— 🔴 补丁005：已移除
-        
+
         // 队列预览位置缓存
         private HashSet<PreviewCellKey> queuePreviewPositions = new HashSet<PreviewCellKey>();
-        
+
         // 🔴 V3 模块K（CP-K1）：耕地队列 tile 组追踪（中心点 → 关联的所有 tile 位置）
         private Dictionary<PreviewCellKey, List<Vector3Int>> tillQueueTileGroups = new Dictionary<PreviewCellKey, List<Vector3Int>>();
-        
+
         // 🔴 补丁004 模块D：执行预览追踪（正在执行动画的操作，受保护不被 WASD 清除）
         private Dictionary<PreviewCellKey, List<Vector3Int>> executingTileGroups = new Dictionary<PreviewCellKey, List<Vector3Int>>();
         private HashSet<PreviewCellKey> executingWaterPositions = new HashSet<PreviewCellKey>();
         // 🔴 补丁005：executingSeedPreviews 已移除（种子走放置系统）
-        
+
         // 颜色配置
         [Header("补丁003 覆盖层颜色")]
         [SerializeField] private Color overlayValidColor = new Color(0f, 1f, 0f, 0.3f);
         [SerializeField] private Color overlayInvalidColor = new Color(1f, 0f, 0f, 0.3f);
         [SerializeField] private float queuePreviewAlpha = 0.5f;
-        
+
         #endregion
-        
+
         #region 生命周期
-        
+
         private static PreviewCellKey MakePreviewCellKey(int layerIndex, Vector3Int cellPos)
         {
             return new PreviewCellKey(layerIndex, cellPos);
@@ -344,7 +344,7 @@ namespace FarmGame.Farm
                 Destroy(gameObject);
             }
         }
-        
+
         private void OnDestroy()
         {
             ClearOcclusionPreview();
@@ -354,7 +354,7 @@ namespace FarmGame.Farm
                 _instance = null;
             }
         }
-        
+
         /// <summary>
         /// 自生能力：确保所有必要组件存在
         /// </summary>
@@ -370,7 +370,7 @@ namespace FarmGame.Farm
                 grid.cellLayout = GridLayout.CellLayout.Rectangle;
                 grid.cellSwizzle = GridLayout.CellSwizzle.XYZ;
             }
-            
+
             // 1. 确保 GhostTilemap 存在
             if (ghostTilemap == null)
             {
@@ -381,30 +381,30 @@ namespace FarmGame.Farm
                     ghostGO.SetParent(transform);
                     ghostGO.localPosition = Vector3.zero;
                 }
-                
+
                 ghostTilemap = ghostGO.GetComponent<Tilemap>();
                 if (ghostTilemap == null)
                 {
                     ghostTilemap = ghostGO.gameObject.AddComponent<Tilemap>();
                 }
-                
+
                 ghostTilemapRenderer = ghostGO.GetComponent<TilemapRenderer>();
                 if (ghostTilemapRenderer == null)
                 {
                     ghostTilemapRenderer = ghostGO.gameObject.AddComponent<TilemapRenderer>();
                 }
-                
+
                 // 设置 Sorting Layer（使用项目中存在的 Layer 1，高 sortingOrder 确保在地面之上）
                 ghostTilemapRenderer.sortingLayerName = "Layer 1";
                 ghostTilemapRenderer.sortingOrder = 9999; // 极高值确保在所有地面 Tile 之上
-                
+
                 // 设置透明度
                 ghostTilemap.color = new Color(1f, 1f, 1f, previewAlpha);
-                
+
                 if (showDebugInfo)
                     Debug.Log("[FarmToolPreview] 自动创建 GhostTilemap（含 Grid）");
             }
-            
+
             // 2. 确保 CursorRenderer 存在
             if (cursorRenderer == null)
             {
@@ -415,17 +415,17 @@ namespace FarmGame.Farm
                     cursorGO.SetParent(transform);
                     cursorGO.localPosition = Vector3.zero;
                 }
-                
+
                 cursorRenderer = cursorGO.GetComponent<SpriteRenderer>();
                 if (cursorRenderer == null)
                 {
                     cursorRenderer = cursorGO.gameObject.AddComponent<SpriteRenderer>();
                 }
-                
+
                 // 设置 Sorting Layer（使用项目中存在的 Layer 1，高 sortingOrder 确保在预览 Tilemap 之上）
                 cursorRenderer.sortingLayerName = "Layer 1";
                 cursorRenderer.sortingOrder = 10000; // 比 ghostTilemap 更高
-                
+
                 // 设置 Sprite（如果没有配置，程序化生成一个白色方框）
                 if (cursorSprite != null)
                 {
@@ -438,13 +438,13 @@ namespace FarmGame.Farm
                     if (showDebugInfo)
                         Debug.Log("[FarmToolPreview] 程序化生成光标 Sprite（未配置 cursorSprite）");
                 }
-                
+
                 if (showDebugInfo)
                     Debug.Log("[FarmToolPreview] 自动创建 CursorRenderer");
             }
-            
+
             // === 🔴 补丁003 模块H：新增组件初始化 ===
-            
+
             // 3. queuePreviewTilemap（队列预览专用）
             if (queuePreviewTilemap == null)
             {
@@ -465,7 +465,7 @@ namespace FarmGame.Farm
                 queuePreviewTilemapRenderer.sortingOrder = 9998;
                 queuePreviewTilemap.color = new Color(1f, 1f, 1f, queuePreviewAlpha);
             }
-            
+
             // 4. 🔴 V3 模块M（CP-M1）：加载 FarmPreviewOverlay shader 并创建 Material
             if (previewOverlayMaterial == null)
             {
@@ -485,24 +485,24 @@ namespace FarmGame.Farm
             {
                 ghostTilemapRenderer.material = previewOverlayMaterial;
             }
-            
+
             // 5. 程序化格子 Sprite 生成（锄头 Bug S 修复 + 放置系统共用）
             if (gridSprite == null)
                 gridSprite = CreateGridSprite();
-            
+
             // 🔴 补丁005：种子预览组件（seedGridRenderer、seedPreviewRenderer）已移除，种子走放置系统
         }
-        
+
         #endregion
-        
+
         #region 公开接口
-        
+
         // === 🔴 补丁004 模块A：锁定机制公开接口已移除 ===
-        
+
         // 🔴 补丁004 模块A：LockPosition 已移除（ghost 永不锁定，每帧跟随鼠标）
-        
+
         // 🔴 补丁004 模块A：UnlockPosition 已移除
-        
+
         /// <summary>
         /// 🔥 重构：更新锄头预览
         /// 新增参数：playerTransform 和 reach 用于距离检测
@@ -520,30 +520,37 @@ namespace FarmGame.Farm
                 Hide();
                 return;
             }
-            
+
             isHoeMode = true;
 
             // 🔴 V6 模块T（T6）：切换到锄头时重置浇水模式标志
             _wateringModeInitialized = false;
             _needsNewPuddleVariant = false;  // 补丁005续3：重置标志
             LogDiagnosticsOnce();
-            
+
             // 🔥 Step 1: 更新 Sorting Layer（跟随玩家楼层）
             if (playerTransform != null)
             {
                 UpdateSortingLayer(playerTransform);
             }
-            
+
+            var layerTilemaps = FarmTileManager.Instance?.GetLayerTilemaps(layerIndex);
+            if (layerTilemaps == null || layerTilemaps.groundTilemap == null)
+            {
+                Hide();
+                return;
+            }
+
             // 获取格子中心世界坐标
             Vector3 cellCenter = GetCellCenterWorld(layerIndex, cellPos);
-            
+
             // 🔥 Step 2: 障碍物检测（统一使用格心锚定的 1.5 x 1.5 footprint）
             bool hasObstacle = PlacementValidator.HasFarmingObstacle(cellCenter, layerIndex, true);
-            
+
             // 🔥 Step 3: 检查是否可以锄地
-            bool canTill = FarmTileManager.Instance != null && 
+            bool canTill = FarmTileManager.Instance != null &&
                            FarmTileManager.Instance.CanTillAt(layerIndex, cellPos);
-            
+
             // 🔴 V6 模块S（CP-S1/S5）：检测任何状态的农作物
             bool hasCrop = false;
             if (!canTill && FarmTileManager.Instance != null)
@@ -552,47 +559,47 @@ namespace FarmGame.Farm
                 if (tileData?.cropController != null)
                     hasCrop = true;
             }
-            
+
             // 🔴 V6 模块N'（CP-N1）：b 层统一拦截（已在队列中的格子统统无效）
             if (HasQueuePreview(layerIndex, cellPos))
             {
                 canTill = false;
                 hasCrop = false;
             }
-            
+
             // 🔴 V6 模块S：暴露状态供 TryEnqueueFarmTool 使用
             _canTill = canTill;
             _hasCrop = hasCrop;
-            
+
             // 🔥 9.0.4 修改：IsValid 不再包含距离判断
             // 施工模式下，作物格必须给出明确无效反馈，而不是继续作为可执行态。
             bool isValid = !hasObstacle && canTill;
-            
+
             // 更新状态
             currentState = isValid ? FarmPreviewState.Valid : FarmPreviewState.Invalid;
-            
+
             // 🔥 9.0.5：永远更新实时数据（不管是否锁定）
             UpdateRealtimeData(layerIndex, cellPos, cellCenter, playerTransform, reach);
-            
+
             // 🔴 补丁004 模块A：移除 _isLocked 检查，ghost 每帧更新
-            
+
             // 🔴 补丁005：种子预览隐藏代码已移除（CP-M2）
-            
+
             // 清除旧预览
             ClearGhostTilemap();
-            
+
             // 🔴 V3 模块M：耕地不需要方框光标
             if (cursorRenderer != null) cursorRenderer.enabled = false;
-            
+
             // 如果可以锄地，显示差异化预览（🔴 补丁004V3：a 层对 b+c 都做增量）
             // 🔴 补丁005 任务A：canTill → isValid && !hasCrop（修复房子不标红 bug）
             if (isValid && !hasCrop && FarmlandBorderManager.Instance != null)
             {
                 // 🔴 003修复：构建联合集合（b层 + 执行层），填补执行态真空期
                 var combinedPositions = CollectOccupiedPreviewPositionsForLayer(layerIndex);
-                
+
                 var previewTiles = FarmlandBorderManager.Instance.GetPreviewTiles(layerIndex, cellPos, combinedPositions);
-                
+
                 // 🔥 诊断：检查 previewTiles 是否为空（一次性输出，不依赖 showDebugInfo）
                 if (!_hasLoggedPreviewTiles)
                 {
@@ -603,22 +610,22 @@ namespace FarmGame.Farm
                         Debug.Log($"  - {kvp.Key}: {(kvp.Value != null ? kvp.Value.name : "null")}");
                     }
                 }
-                
+
                 // 🔴 补丁004 模块B（CP-B1）：获取实际 tilemap 用于差异对比
                 var tilemaps = FarmTileManager.Instance?.GetLayerTilemaps(layerIndex);
                 Tilemap actualCenterTilemap = tilemaps?.farmlandCenterTilemap;
                 Tilemap actualBorderTilemap = tilemaps?.farmlandBorderTilemap;
-                
+
                 // 缓存差异化结果供入队时复制
                 if (_currentGhostTileData == null)
                     _currentGhostTileData = new Dictionary<Vector3Int, TileBase>();
                 else
                     _currentGhostTileData.Clear();
-                
+
                 foreach (var kvp in previewTiles)
                 {
                     if (kvp.Value == null) continue;
-                    
+
                     // 🔴 补丁004V3（CP-L1~L6）：增量差集过滤，a 层对 b+c 都做增量
                     // 中心块对比 farmlandCenterTilemap，边界对比 farmlandBorderTilemap + queuePreviewTilemap
                     TileBase actualTile;
@@ -626,16 +633,16 @@ namespace FarmGame.Farm
                         actualTile = actualCenterTilemap?.GetTile(kvp.Key);
                     else
                         actualTile = actualBorderTilemap?.GetTile(kvp.Key);
-                    
+
                     // 🔴 补丁004V3：如果 c 层没有 tile，再检查 b 层（queuePreviewTilemap）
                     if (actualTile == null && queuePreviewTilemap != null)
                         actualTile = queuePreviewTilemap.GetTile(kvp.Key);
-                    
+
                     if (kvp.Value == actualTile) continue;  // 完全相同则跳过
-                    
+
                     var borderManager = FarmlandBorderManager.Instance;
                     TileBase tileToDisplay = kvp.Value; // 默认显示预览 tile
-                    
+
                     if (actualTile == null)
                     {
                         // CP-L1：全新位置，直接显示预览 tile
@@ -655,9 +662,9 @@ namespace FarmGame.Farm
                                 bool deltaD = previewDirs.hasD && !bDirs.hasD;
                                 bool deltaL = previewDirs.hasL && !bDirs.hasL;
                                 bool deltaR = previewDirs.hasR && !bDirs.hasR;
-                                
+
                                 if (!deltaU && !deltaD && !deltaL && !deltaR) continue;
-                                
+
                                 tileToDisplay = borderManager.SelectBorderTile(deltaU, deltaD, deltaL, deltaR);
                                 if (tileToDisplay == null) continue;
                             }
@@ -667,13 +674,13 @@ namespace FarmGame.Farm
                     {
                         // CP-L2：边界→边界，计算增量差集
                         var actualDirs = borderManager.ParseDirections(actualTile);
-                        
+
                         // 🔴 V6 模块V（CP-V1）：合并 c+b 两层方向后再做差集
                         bool mergedU = actualDirs.hasU;
                         bool mergedD = actualDirs.hasD;
                         bool mergedL = actualDirs.hasL;
                         bool mergedR = actualDirs.hasR;
-                        
+
                         if (queuePreviewTilemap != null)
                         {
                             var bLayerTile = queuePreviewTilemap.GetTile(kvp.Key);
@@ -686,21 +693,21 @@ namespace FarmGame.Farm
                                 mergedR = mergedR || bDirs.hasR;
                             }
                         }
-                        
+
                         var previewDirs = borderManager.ParseDirections(kvp.Value);
                         bool deltaU = previewDirs.hasU && !mergedU;
                         bool deltaD = previewDirs.hasD && !mergedD;
                         bool deltaL = previewDirs.hasL && !mergedL;
                         bool deltaR = previewDirs.hasR && !mergedR;
-                        
+
                         // CP-L6：增量方向为空集时不放置 tile
                         if (!deltaU && !deltaD && !deltaL && !deltaR) continue;
-                        
+
                         tileToDisplay = borderManager.SelectBorderTile(deltaU, deltaD, deltaL, deltaR);
                         if (tileToDisplay == null) continue;
                     }
                     // else: CP-L4 中心块替换等其他情况，直接显示预览 tile
-                    
+
                     ghostTilemap.SetTile(kvp.Key, tileToDisplay);
                     currentPreviewPositions.Add(kvp.Key);
                     _currentGhostTileData[kvp.Key] = tileToDisplay; // 缓存增量 tile（非最终 tile）
@@ -717,7 +724,7 @@ namespace FarmGame.Farm
                     if (tileData != null && tileData.isTilled)
                         isTilledLand = true;
                 }
-                
+
                 if (!isTilledLand && FarmlandBorderManager.Instance != null)
                 {
                     // 未耕地 + 不可交互（有障碍物/在队列中）→ 红色 1+8 耕地 tile 预览
@@ -828,7 +835,7 @@ namespace FarmGame.Farm
                 {
                     // 已耕地（无作物）/ 其他不可耕种 → 放置系统同款红方框
                     _currentGhostTileData?.Clear();
-                    
+
                     if (cursorRenderer != null)
                     {
                         cursorRenderer.enabled = true;
@@ -836,7 +843,7 @@ namespace FarmGame.Farm
                         cursorRenderer.color = new Color(1f, 0.3f, 0.3f, 0.8f);
                         UpdateCursor(layerIndex, cellPos);
                     }
-                    
+
                     if (!_hasLoggedPreviewTiles)
                     {
                         _hasLoggedPreviewTiles = true;
@@ -844,7 +851,7 @@ namespace FarmGame.Farm
                     }
                 }
             }
-            
+
             // 🔴 V6 模块O''（CP-O1）：Shader 染色配合分支
             // 🔴 补丁005续8：未耕地不可交互也需要 shader 红色叠加
             if (previewOverlayMaterial != null)
@@ -872,15 +879,15 @@ namespace FarmGame.Farm
                     previewOverlayMaterial.SetColor("_OverlayColor", Color.clear);
                 }
             }
-            
+
             // 记录位置
             lastCellPosition = cellPos;
             lastLayerIndex = layerIndex;
-            
+
             // 显示
             Show();
         }
-        
+
         /// <summary>
         /// 🔥 重构：更新水壶预览
         /// 新增参数：playerTransform 和 reach 用于距离检测
@@ -894,9 +901,9 @@ namespace FarmGame.Farm
                 Hide();
                 return;
             }
-            
+
             isHoeMode = false;
-            
+
             // 🔴 V6 模块T（CP-T1）：切换到水壶时随机默认样式
             if (!_wateringModeInitialized)
             {
@@ -916,30 +923,30 @@ namespace FarmGame.Farm
                 _needsNewPuddleVariant = false;
                 _lastWateringCellPos = cellPos;
             }
-            
+
             // 🔥 Step 1: 更新 Sorting Layer
             if (playerTransform != null)
             {
                 UpdateSortingLayer(playerTransform);
             }
-            
+
             // 获取格子中心世界坐标
             Vector3 cellCenter = GetCellCenterWorld(layerIndex, cellPos);
-            
+
             // 🔥 Step 2: 障碍物检测
             // 浇水允许落在已有作物的耕地上，因此这里显式忽略 crop occupant。
             bool hasObstacle = PlacementValidator.HasFarmingObstacle(cellCenter, layerIndex, false);
-            
+
             // 🔥 Step 3: 检查是否可以浇水
             var tileData = FarmTileManager.Instance?.GetTileData(layerIndex, cellPos);
-            bool canWater = tileData != null && 
-                            tileData.isTilled && 
+            bool canWater = tileData != null &&
+                            tileData.isTilled &&
                             !tileData.wateredToday;
-            
+
             // 🔴 V6 模块U（CP-U1）：b 层拦截（已在队列中的格子不可浇水）
             if (canWater && HasQueuePreview(layerIndex, cellPos))
                 canWater = false;
-            
+
             // 🔥 9.0.5：记录浇水失败原因
             if (hasObstacle)
                 LastWateringFailure = WateringFailureReason.HasObstacle;
@@ -953,29 +960,29 @@ namespace FarmGame.Farm
                 LastWateringFailure = WateringFailureReason.AlreadyWatered;
             else
                 LastWateringFailure = WateringFailureReason.None;
-            
+
             // 🔥 9.0.4 修改：IsValid 不再包含距离判断
             bool isValid = !hasObstacle && canWater;
-            
+
             // 更新状态
             currentState = isValid ? FarmPreviewState.Valid : FarmPreviewState.Invalid;
-            
+
             // 🔥 9.0.5：永远更新实时数据（不管是否锁定）
             UpdateRealtimeData(layerIndex, cellPos, cellCenter, playerTransform, reach);
-            
+
             // 🔴 补丁004 模块A：移除 _isLocked 检查，ghost 每帧更新
-            
+
             // 🔴 补丁005：种子预览隐藏代码已移除（CP-M3）
-            
+
             // 清除旧预览
             ClearGhostTilemap();
-            
+
             // 🔴 V3 模块M：浇水不需要方框光标
             if (cursorRenderer != null) cursorRenderer.enabled = false;
-            
+
             // 🔴 003修复：随机已移到入队瞬间（TryEnqueueFarmTool），此处不再触发随机
             // _needsNewPuddleVariant 机制已废弃
-            
+
             // 🔴 V6 模块P'（CP-P1）：无论 isValid 都放置水渍tile作为 shader 载体
             {
                 var tiles = FarmVisualManager.Instance?.GetPuddleTiles();
@@ -985,22 +992,22 @@ namespace FarmGame.Farm
                     currentPreviewPositions.Add(cellPos);
                 }
             }
-            
+
             // 🔴 V3 模块M（CP-M3）：根据 isValid 设置 ghostTilemap 的 shader 叠加色
             if (previewOverlayMaterial != null)
             {
                 previewOverlayMaterial.SetColor("_OverlayColor", isValid ? overlayValidColor : overlayInvalidColor);
             }
-            
+
             // 记录位置
             lastCellPosition = cellPos;
             lastLayerIndex = layerIndex;
-            
+
             // 显示
             Show();
         }
-        
-        
+
+
         /// <summary>
         /// 显示预览
         /// </summary>
@@ -1013,7 +1020,7 @@ namespace FarmGame.Farm
                 cursorRenderer.gameObject.SetActive(true);
             NotifyOcclusionSystem();
         }
-        
+
         /// <summary>
         /// 隐藏预览
         /// </summary>
@@ -1041,7 +1048,7 @@ namespace FarmGame.Farm
             ClearOcclusionPreview();
             // 注意：不清空队列预览（Hide 只隐藏鼠标跟随预览）
         }
-        
+
         /// <summary>
         /// 检查当前预览是否有效
         /// </summary>
@@ -1049,7 +1056,7 @@ namespace FarmGame.Farm
         {
             return currentState == FarmPreviewState.Valid;
         }
-        
+
         /// <summary>
         /// 🔴 003修复：入队瞬间由 GameInputManager 调用，直接设置下一次的 puddleVariant
         /// </summary>
@@ -1074,7 +1081,7 @@ namespace FarmGame.Farm
             _lastWateringCellPos = queuedCellPos;
             _needsNewPuddleVariant = true;
         }
-        
+
         /// <summary>
         /// 浇水成功后同步最近执行位置，保持“离开当前格才刷新下一次样式”的口径。
         /// </summary>
@@ -1082,7 +1089,7 @@ namespace FarmGame.Farm
         {
             _lastWateringCellPos = wateredCellPos;
         }
-        
+
         /// <summary>
         /// 获取当前预览状态
         /// </summary>
@@ -1090,11 +1097,11 @@ namespace FarmGame.Farm
         {
             return currentState;
         }
-        
+
         #endregion
-        
+
         #region 内部方法
-        
+
         /// <summary>
         /// 🔥 9.0.5 新增：轻量级实时数据更新（不触碰视觉渲染）
         /// 锁定状态下也会被调用，确保 GameInputManager 能读到最新的鼠标位置数据
@@ -1106,7 +1113,7 @@ namespace FarmGame.Farm
             CurrentLayerIndex = layerIndex;
             IsInRange = playerTransform != null ? IsWithinReach(playerTransform, cellCenter, reach) : true;
         }
-        
+
         /// <summary>
         /// 🔥 一次性诊断日志（只在首次调用时输出）
         /// 用于排查预览不显示的问题
@@ -1120,17 +1127,17 @@ namespace FarmGame.Farm
 
             if (!gameObject.activeInHierarchy)
             {
-                global::OcclusionManager.Instance.SetPreviewBounds(null);
+                global::OcclusionManager.Instance.SetPreviewBounds(global::PreviewOcclusionSource.FarmTool, null);
                 return;
             }
 
             if (TryGetHoverPreviewBounds(out Bounds previewBounds))
             {
-                global::OcclusionManager.Instance.SetPreviewBounds(previewBounds);
+                global::OcclusionManager.Instance.SetPreviewBounds(global::PreviewOcclusionSource.FarmTool, previewBounds);
             }
             else
             {
-                global::OcclusionManager.Instance.SetPreviewBounds(null);
+                global::OcclusionManager.Instance.SetPreviewBounds(global::PreviewOcclusionSource.FarmTool, null);
             }
         }
 
@@ -1138,7 +1145,7 @@ namespace FarmGame.Farm
         {
             if (global::OcclusionManager.Instance != null)
             {
-                global::OcclusionManager.Instance.SetPreviewBounds(null);
+                global::OcclusionManager.Instance.SetPreviewBounds(global::PreviewOcclusionSource.FarmTool, null);
             }
         }
 
@@ -1159,7 +1166,7 @@ namespace FarmGame.Farm
         {
             previewBounds = default;
 
-            if (currentPreviewPositions.Count == 0 ||
+            if (currentState == FarmPreviewState.Hidden ||
                 ghostTilemap == null ||
                 ghostTilemap.layoutGrid == null ||
                 !ghostTilemap.gameObject.activeInHierarchy)
@@ -1173,9 +1180,10 @@ namespace FarmGame.Farm
                 Mathf.Max(0.05f, Mathf.Abs(cellSize.y) * HoverOcclusionFocusFootprintScale),
                 0.01f);
 
-            Vector3Int focusCellPos = currentPreviewPositions.Contains(CurrentCellPos)
-                ? CurrentCellPos
-                : GetAnyPreviewCell();
+            // 农田 hover 遮挡只认当前中心格，不再退回任意 ghost tile。
+            // 这样无论当前是 1+8 ghost、单格光标，还是 ghost 因增量过滤被裁掉，
+            // 遮挡事实源都稳定锚定在玩家当前瞄准的那个单位格。
+            Vector3Int focusCellPos = CurrentCellPos;
             previewBounds = new Bounds(ghostTilemap.GetCellCenterWorld(focusCellPos), focusCellSize);
             return true;
         }
@@ -1194,9 +1202,9 @@ namespace FarmGame.Farm
         {
             if (_hasLoggedDiagnostics) return;
             _hasLoggedDiagnostics = true;
-            
+
             Debug.Log("=== [FarmToolPreview] 诊断信息 ===");
-            
+
             // 1. 检查 GhostTilemap
             if (ghostTilemap == null)
             {
@@ -1208,7 +1216,7 @@ namespace FarmGame.Farm
                 Debug.Log($"  - active: {ghostTilemap.gameObject.activeSelf}");
                 Debug.Log($"  - parent Grid: {(ghostTilemap.layoutGrid != null ? ghostTilemap.layoutGrid.name : "null")}");
             }
-            
+
             // 2. 检查 GhostTilemapRenderer
             if (ghostTilemapRenderer == null)
             {
@@ -1221,7 +1229,7 @@ namespace FarmGame.Farm
                 Debug.Log($"  - sortingOrder: {ghostTilemapRenderer.sortingOrder}");
                 Debug.Log($"  - enabled: {ghostTilemapRenderer.enabled}");
             }
-            
+
             // 3. 检查 CursorRenderer
             if (cursorRenderer == null)
             {
@@ -1237,7 +1245,7 @@ namespace FarmGame.Farm
                 Debug.Log($"  - enabled: {cursorRenderer.enabled}");
                 Debug.Log($"  - active: {cursorRenderer.gameObject.activeSelf}");
             }
-            
+
             // 4. 检查 FarmlandBorderManager
             if (FarmlandBorderManager.Instance == null)
             {
@@ -1249,7 +1257,7 @@ namespace FarmGame.Farm
                 // 验证 Tile 资源
                 FarmlandBorderManager.Instance.ValidateTileResources();
             }
-            
+
             // 5. 检查 FarmTileManager
             if (FarmTileManager.Instance == null)
             {
@@ -1259,7 +1267,7 @@ namespace FarmGame.Farm
             {
                 Debug.Log($"[FarmToolPreview] ✓ FarmTileManager.Instance 存在, LayerCount={FarmTileManager.Instance.LayerCount}");
             }
-            
+
             // 6. 检查 Sorting Layer 是否存在
             Debug.Log("[FarmToolPreview] 检查 Sorting Layers...");
             var sortingLayers = SortingLayer.layers;
@@ -1271,10 +1279,10 @@ namespace FarmGame.Farm
             }
             Debug.Log($"  - Ground: {(hasGround ? "✓ 存在" : "❌ 不存在")}");
             Debug.Log($"  - Effects: {(hasEffects ? "✓ 存在" : "❌ 不存在")}");
-            
+
             Debug.Log("=== 诊断结束 ===");
         }
-        
+
         /// <summary>
         /// 🔥 程序化生成光标 Sprite
         /// 创建一个 16x16 的白色方框（边框 2 像素）
@@ -1283,33 +1291,33 @@ namespace FarmGame.Farm
         {
             int size = 16;
             int border = 2;
-            
+
             var texture = new Texture2D(size, size, TextureFormat.RGBA32, false);
             texture.filterMode = FilterMode.Point;
-            
+
             var pixels = new Color32[size * size];
             var white = new Color32(255, 255, 255, 255);
             var transparent = new Color32(0, 0, 0, 0);
-            
+
             for (int y = 0; y < size; y++)
             {
                 for (int x = 0; x < size; x++)
                 {
                     // 边框区域为白色，内部透明
-                    bool isBorder = x < border || x >= size - border || 
+                    bool isBorder = x < border || x >= size - border ||
                                     y < border || y >= size - border;
                     pixels[y * size + x] = isBorder ? white : transparent;
                 }
             }
-            
+
             texture.SetPixels32(pixels);
             texture.Apply();
-            
+
             // 创建 Sprite（16 PPU，与 Tilemap 对齐）
             return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 16f);
         }
-        
-        
+
+
         /// <summary>
         /// 创建格子方框 Sprite（复刻 PlacementGridCell 的程序化格子）
         /// </summary>
@@ -1334,16 +1342,16 @@ namespace FarmGame.Farm
             texture.Apply();
             return Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), 32f);
         }
-        
-        
-        
+
+
+
         /// <summary>
         /// 清除 GhostTilemap 上的所有预览 Tiles
         /// </summary>
         private void ClearGhostTilemap()
         {
             if (ghostTilemap == null) return;
-            
+
             foreach (var pos in currentPreviewPositions)
             {
                 ghostTilemap.SetTile(pos, null);
@@ -1355,7 +1363,7 @@ namespace FarmGame.Farm
         /// <summary>
         /// 入队时调用：在指定位置显示队列锁定预览（CP-H5）
         /// </summary>
-        public void AddQueuePreview(Vector3Int cellPos, int layerIndex, FarmActionType type, 
+        public void AddQueuePreview(Vector3Int cellPos, int layerIndex, FarmActionType type,
             int puddleVariant = -1, Dictionary<Vector3Int, TileBase> ghostTileData = null)
         {
             var previewKey = MakePreviewCellKey(layerIndex, cellPos);
@@ -1396,30 +1404,30 @@ namespace FarmGame.Farm
                             tilesToPlace[kvp.Key] = kvp.Value;
                     }
                 }
-                
+
                 // 🔴 补丁004V3：b 层对 c 层做增量过滤（不显示与实际耕地完全相同的 tile）
                 var tilemaps = FarmTileManager.Instance?.GetLayerTilemaps(layerIndex);
                 var actualCenterTilemap = tilemaps?.farmlandCenterTilemap;
                 var actualBorderTilemap = tilemaps?.farmlandBorderTilemap;
                 var borderManager = FarmlandBorderManager.Instance;
-                
+
                 var tilePositions = new List<Vector3Int>();
                 foreach (var kvp in tilesToPlace)
                 {
                     if (kvp.Value == null || queuePreviewTilemap == null) continue;
-                    
+
                     // 增量过滤：对比 c 层
                     TileBase actualTile;
                     if (kvp.Key == cellPos)
                         actualTile = actualCenterTilemap?.GetTile(kvp.Key);
                     else
                         actualTile = actualBorderTilemap?.GetTile(kvp.Key);
-                    
+
                     if (kvp.Value == actualTile) continue;  // 与实际耕地完全相同则跳过
-                    
+
                     // 边界→边界：计算增量差集
                     TileBase tileToPlace = kvp.Value;
-                    if (actualTile != null && borderManager != null 
+                    if (actualTile != null && borderManager != null
                         && borderManager.IsBorderTile(actualTile) && borderManager.IsBorderTile(kvp.Value))
                     {
                         var actualDirs = borderManager.ParseDirections(actualTile);
@@ -1428,13 +1436,13 @@ namespace FarmGame.Farm
                         bool deltaD = previewDirs.hasD && !actualDirs.hasD;
                         bool deltaL = previewDirs.hasL && !actualDirs.hasL;
                         bool deltaR = previewDirs.hasR && !actualDirs.hasR;
-                        
+
                         if (!deltaU && !deltaD && !deltaL && !deltaR) continue;
-                        
+
                         tileToPlace = borderManager.SelectBorderTile(deltaU, deltaD, deltaL, deltaR);
                         if (tileToPlace == null) continue;
                     }
-                    
+
                     queuePreviewTilemap.SetTile(kvp.Key, tileToPlace);
                     queuePreviewTilemap.SetColor(kvp.Key, new Color(1f, 1f, 1f, queuePreviewAlpha));
                     tilePositions.Add(kvp.Key);
@@ -1578,7 +1586,7 @@ namespace FarmGame.Farm
                     foreach (var pos in kvp.Value)
                         queuePreviewTilemap.SetTile(pos, null);
                 }
-                
+
                 // 清除浇水等单点队列预览，跳过执行预览
                 foreach (var pos in queuePreviewPositions)
                 {
@@ -1613,11 +1621,11 @@ namespace FarmGame.Farm
                 executingTileGroups.Clear();
                 executingWaterPositions.Clear();
             }
-            
+
             // 🔴 V3 模块K（CP-K3）：清空耕地 tile 组追踪（不清 executing* 数据）
             tillQueueTileGroups.Clear();
         }
-        
+
         /// <summary>
         /// 🔴 补丁004 模块D（CP-D1）：将队列预览提升为执行预览。
         /// ProcessNextAction 出队时调用。tile 保留在 queuePreviewTilemap 上，只转移追踪数据。
@@ -1648,11 +1656,11 @@ namespace FarmGame.Farm
             {
                 executingWaterPositions.Add(previewKey);
             }
-            
+
             // 从队列追踪中移除（但 tile 保留在 tilemap 上）
             queuePreviewPositions.Remove(previewKey);
         }
-        
+
         /// <summary>
         /// 🔴 补丁004 模块D（CP-D2）：清除执行预览。
         /// 动画完成后调用，此时 tile 已落地，视觉无缝。
@@ -1704,18 +1712,18 @@ namespace FarmGame.Farm
         }
 
 
-        
+
         /// <summary>
         /// 更新光标位置和颜色
         /// </summary>
         private void UpdateCursor(int layerIndex, Vector3Int cellPos)
         {
             if (cursorRenderer == null) return;
-            
+
             // 获取格子中心世界坐标
             var tilemaps = FarmTileManager.Instance?.GetLayerTilemaps(layerIndex);
             Vector3 worldPos;
-            
+
             if (tilemaps != null)
             {
                 worldPos = tilemaps.GetCellCenterWorld(cellPos);
@@ -1725,9 +1733,9 @@ namespace FarmGame.Farm
                 // 回退：使用 PlacementGridCalculator
                 worldPos = PlacementGridCalculator.GetCellCenter(new Vector3(cellPos.x, cellPos.y, 0));
             }
-            
+
             cursorRenderer.transform.position = worldPos;
-            
+
             // 设置颜色
             Color color;
             if (!isHoeMode && currentState == FarmPreviewState.Valid)
@@ -1745,55 +1753,55 @@ namespace FarmGame.Farm
                 // 无效 = 红色
                 color = invalidColor;
             }
-            
+
             cursorRenderer.color = color;
         }
-        
-        
+
+
         /// <summary>
         /// 🔥 新增：更新 Sorting Layer（跟随玩家楼层）
         /// </summary>
         private void UpdateSortingLayer(Transform playerTransform)
         {
             if (playerTransform == null) return;
-            
+
             string playerSortingLayer = PlacementLayerDetector.GetPlayerSortingLayer(playerTransform);
-            
+
             // 只在 Layer 变化时更新
             if (playerSortingLayer != currentSortingLayer)
             {
                 currentSortingLayer = playerSortingLayer;
-                
+
                 // 更新 GhostTilemap 的 Sorting Layer
                 if (ghostTilemapRenderer != null)
                 {
                     ghostTilemapRenderer.sortingLayerName = currentSortingLayer;
                 }
-                
+
                 // 更新 CursorRenderer 的 Sorting Layer
                 if (cursorRenderer != null)
                 {
                     cursorRenderer.sortingLayerName = currentSortingLayer;
                 }
-                
+
                 if (showDebugInfo)
                 {
                     Debug.Log($"[FarmToolPreview] Sorting Layer 更新为: {currentSortingLayer}");
                 }
             }
         }
-        
+
         /// <summary>
         /// 🔥 新增：获取玩家中心位置
         /// </summary>
         private Vector2 GetPlayerCenter(Transform playerTransform)
         {
             if (playerTransform == null) return Vector2.zero;
-            
+
             var collider = playerTransform.GetComponent<Collider2D>();
             return collider != null ? (Vector2)collider.bounds.center : (Vector2)playerTransform.position;
         }
-        
+
         /// <summary>
         /// 🔥 新增：获取格子中心世界坐标
         /// </summary>
@@ -1806,7 +1814,7 @@ namespace FarmGame.Farm
 
             return PlacementGridCalculator.CellIndexToWorldCenter(cellPos);
         }
-        
+
         /// <summary>
         /// 🔥 新增：检查是否在使用距离内
         /// 修正：使用 AABB 正方形距离判断（Mathf.Abs），而非圆形距离判断
@@ -1822,7 +1830,7 @@ namespace FarmGame.Farm
 
             return dx <= reach && dy <= reach;
         }
-        
+
         #endregion
     }
 }

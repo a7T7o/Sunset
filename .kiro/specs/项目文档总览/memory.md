@@ -1174,3 +1174,73 @@
 - 下一步恢复点：
   1. 若用户继续 README / 展示层，优先把现有短片整理成 2~3 个正式公开短视频或 GIF。
   2. 若用户先停在这里，当前 README 已具备“首页主图可直达视频 + 截图补强 + 演示入口说明”的更完整公开页形态。
+
+## 2026-04-23｜README 公开页重写完成，并纠正了截图方向判断
+
+- 当前主线目标：
+  - 把 `Sunset` 根 `README.md` 真正改成面向外部展示的作品页文本，只讲游戏和项目本体；同时把用户指出“截图很尴尬”的问题一起处理掉，而不是继续拿开发留证图硬凑版面。
+- 本轮子任务：
+  1. 基于 `04_剧情NPC.md`、`02_经营成长.md`、`spring-day1 requirements` 与箱子系统需求，重写 README 的主叙事、玩家行为和后续方向。
+  2. 把 AI / 治理 / 内部系统说明从 opening 大幅压后，不再抢项目主语。
+  3. 重审 README 用图，确认原仓库截图为什么尴尬，并补做更适合公开页的图源。
+- 本轮完成：
+  1. 已把根 README 改成更接近作品页的结构：
+     - 一句话定位
+     - 当前可玩内容
+     - `Day1 现在能玩到什么`
+     - `你会在 Sunset 里做什么`
+     - `为什么工作台、种地、晚饭和记忆会连在一起`
+     - `这个世界接下来会往哪里长`
+  2. 已明确把 README 的 Day1 主叙事固定为：
+     - `先活下来 -> 被带进村 -> 被治疗 -> 重新摸到工作台 -> 用第一轮劳动证明自己 -> 经历晚饭冲突 -> 在夜里决定现在睡还是再看看这个村子`
+  3. 已根据用户对截图的反馈，否决原先那批“开发留证图”作为公开页主图的方案。
+  4. 已找到本机可用的 `ffmpeg`，从主演示视频抽帧，再手工裁掉字幕、快捷键面板、底栏和调试信息，生成两张更适合 README 的展示图：
+     - `D:\Unity\Unity_learning\Sunset\.github\readme\hero_day1_labor.png`
+     - `D:\Unity\Unity_learning\Sunset\.github\readme\day1_arrival.png`
+  5. 已把 README 展示素材落到 `.github/readme/`，而不是继续塞进 `Assets/`，避免只为公开页图片引出 Unity `.meta` 脏改。
+- 当前稳定判断：
+  1. 这轮最有价值的不是“多写了一版 README”，而是把 README 的主语重新钉回了游戏本体。
+  2. 这轮第二个关键判断是：作品页图片不能拿开发留证图硬顶；如果现成图不对，就应该明确承认，再从公开视频里抽出真正能讲 Day1 的画面。
+  3. 当前 README 终于更像“这是一款什么游戏、玩家会经历什么”，而不是“项目做了哪些系统”。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\README.md`
+  - `D:\Unity\Unity_learning\Sunset\.github\readme\hero_day1_labor.png`
+  - `D:\Unity\Unity_learning\Sunset\.github\readme\day1_arrival.png`
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\项目文档总览\memory.md`
+- 验证结果：
+  - `git diff --check -- README.md .github/readme/hero_day1_labor.png .github/readme/day1_arrival.png`：通过
+  - 本轮为 docs-only / media-only 更新：未改代码、未改 Scene、未改 Prefab
+  - thread-state：已执行 `Begin-Slice` 与 `Park-Slice`
+- 下一步恢复点：
+  1. 若继续 README 线，最值钱的下一刀不是再扩文字，而是继续补更强的成品级画面或短 GIF。
+  2. 若切回简历 / 项目介绍线，当前 README 已可作为最稳的对外项目口径继续抽句。
+
+## 2026-04-23｜网申页项目描述加急版已产出
+
+- 当前主线目标：
+  - 用户临时切回简历投递网页，要求先做“项目/活动经历”里的项目名称与项目描述成稿，而且明确不要把简历项目经历原样抄过去，要改成网页表单里的项目简介口径。
+- 本轮子任务：
+  1. 基于当前 README、持续策划案和简历沉淀，重写更适合网申页填写的项目简介。
+  2. 保留项目气质和完成度，但避免写成项目经历 bullets 拼接稿。
+  3. 同时给出一版推荐直填稿和一版更短备选稿。
+- 本轮完成：
+  1. 已形成推荐项目名称口径：
+     - `个人项目《Sunset》｜2D像素奇幻生活模拟RPG`
+  2. 已形成推荐项目描述主稿，核心表达为：
+     - 以“失忆工匠在残破聚落中通过劳动、制作与关系建立逐步留下来”为叙事核心；
+     - 当前已完成 Day1 可玩主线；
+     - 强调自己主导项目定位、系统设计、玩法原型、规则收口与版本推进；
+     - 点出剧情、采集耕种、工作台、背包/箱子、时间季节、存档与跨场景承接已接成连续体验。
+  3. 已额外准备更短版，方便用户在网页字数受限时直接替换。
+- 当前稳定判断：
+  1. 网申页里的“项目描述”不该照搬简历 bullets，也不该写成 README opening。
+  2. 最稳的写法是：`项目是什么 -> 玩家会经历什么 -> 我负责什么 -> 当前做到了哪一步`。
+  3. AI / 治理 / workflow 不该抢这个字段的主语，除非岗位页面专门问协作方式。
+- 涉及文件：
+  - `D:\Unity\Unity_learning\Sunset\.kiro\specs\项目文档总览\memory.md`
+  - `D:\Unity\Unity_learning\Sunset\.codex\threads\Sunset\019d4d18-bb5d-7a71-b621-5d1e2319d778\memory_0.md`
+- 验证结果：
+  - 本轮为文本产出与口径整理：未改代码、未改 Scene、未改 Prefab、未改公开仓库文件。
+- 下一步恢复点：
+  1. 若用户继续这条线，下一刀可再针对具体厂商网申字段长度做定制压缩。
+  2. 若用户切回 README / release / 仓库展示，则继续沿当前公开展示口径推进。

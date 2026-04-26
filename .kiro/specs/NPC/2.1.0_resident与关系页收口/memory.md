@@ -130,3 +130,33 @@
 - 当前恢复点：
   - 下一步不该再先画第三张；
   - 应先把这张新 `202.png` 走完 Unity 接链验证，再决定是否还要继续做更强 Ram 神态版。
+
+## 2026-04-23｜`104` 头像删除小批次上传未成立
+- 当前主线目标：
+  - 验证 `104` 头像删除能否作为独立历史小批次上传。
+- 本轮结论：
+  1. 当前不能把：
+     - `Assets/Sprites/NPC_Hand/104.png`
+     - `Assets/Sprites/NPC_Hand/104.png.meta`
+     当成独立小批直接上传。
+  2. 原因不是删除文件本身有问题，而是 resident / 关系页真源主表仍然直接引用这张图：
+     - `Assets/Resources/Story/NpcCharacterRegistry.asset`
+     - `npcId: 104`
+     - `handPortrait guid: c09c30ba65467fb4190d2679edee39a9`
+  3. 因此本轮按规则停车，不继续碰第二批。
+- 当前恢复点：
+  - 这条线如果以后继续，第一步也不是继续上传，而是先收 `104` 的主表引用一致性。
+
+## 2026-04-24｜`104` 一致性已完成，当前阻断已转为 `Assets/Resources/Story` foreign dirty
+- 当前目标：
+  - 不再回改 `104` 内容；
+  - 只把目录级同步 blocker 收成 exact 边界。
+- 本轮复核：
+  1. `npcId:104` 当前仍是 `handPortrait: {fileID: 0}`。
+  2. `104.png` 与 `.meta` 当前仍为删除态。
+  3. 当前 shared-root 第一真实 blocker 仍是：
+     - `Assets/Resources/Story/SpringDay1Workbench/Recipe_9102_Pickaxe_0.asset`
+  4. 证据已足够，因此不再重复跑同一上传尝试。
+- 当前恢复点：
+  - 这条线后续如果要继续，优先不是 `NPC` 再试一次上传；
+  - 而是先等对应 foreign owner / 治理位把 `Assets/Resources/Story` 的 blocker 清掉。

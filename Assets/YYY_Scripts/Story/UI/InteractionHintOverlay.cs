@@ -1705,10 +1705,10 @@ namespace Sunset.Story
                 visibleRowCount++;
             }
 
-            float footerY = rowsTop + visibleRowCount * (ContextCardRowHeight + ContextCardRowGap) + 8f;
-            float footerLabelWidth = 78f;
+            float footerY = rowsTop + visibleRowCount * (ContextCardRowHeight + ContextCardRowGap) + 13f;
+            float footerLabelWidth = 74f;
             float footerKeyWidth = 92f;
-            float footerGap = 20f;
+            float footerGap = 12f;
 
             if (contextFooterKeyPlateRect != null)
             {
