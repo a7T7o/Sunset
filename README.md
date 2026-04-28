@@ -10,12 +10,28 @@
 
 当前公开试玩版开放 Day1 完整路线：被救起、入村、疗伤、工作台闪回、采集开垦、制作整理、晚饭冲突和夜间自由活动。
 
+## 作品预览
+
+<p align="center">
+  <a href="https://www.bilibili.com/video/BV16Ed1BAEun/">
+    <img src="Assets/Screenshots/save-settings-ui-check.png" alt="Sunset Day1 村庄、旧屋与聚落实机画面" width="900">
+  </a>
+</p>
+
+<p align="center">
+  <strong>Day1 试玩版：</strong>被救起 -> 入村 -> 疗伤 -> 工作台闪回 -> 采集开垦 -> 制作整理 -> 晚饭冲突 -> 夜间自由活动
+</p>
+
+<p align="center">
+  点击画面可看完整演示视频，也可以直接下载 Windows 试玩包亲自跑一遍。
+</p>
+
 ## 试玩入口
 
 - [完整演示视频](https://www.bilibili.com/video/BV16Ed1BAEun/)
 - [Windows 试玩包](https://github.com/a7T7o/Sunset/releases/latest)
 
-如果你只想快速判断这个作品，建议先看演示视频；如果想亲自跑一遍 Day1，可以直接下载 Windows 试玩包。
+如果你只想快速判断这个作品，建议先看演示视频；如果想亲自确认手感和流程，可以直接下载 Windows 试玩包。
 
 ## 你会经历什么
 
